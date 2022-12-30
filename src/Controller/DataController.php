@@ -34,7 +34,7 @@ class DataController extends AbstractController
             return $this->redirectToRoute('app_data_index', [], Response::HTTP_SEE_OTHER);
         }
 
-        return $this->renderForm('data/new.html.twig', [
+        return $this->render('data/new.html.twig', [
             'data' => $data,
             'form' => $form,
         ]);
@@ -60,7 +60,7 @@ class DataController extends AbstractController
             return $this->redirectToRoute('app_data_index', [], Response::HTTP_SEE_OTHER);
         }
 
-        return $this->renderForm('data/edit.html.twig', [
+        return $this->render('data/edit.html.twig', [
             'data' => $data,
             'form' => $form,
         ]);
