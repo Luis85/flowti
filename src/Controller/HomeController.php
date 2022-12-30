@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Entity\Data;
 use App\Entity\UserInput;
 use App\Form\UserInputType;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -22,9 +23,18 @@ class HomeController extends AbstractController
         if ($form->isSubmitted() && $form->isValid()) {
             // $form->getData() holds the submitted values
             // but, the original `$userInput` variable has also been updated
+            // attention $userInput is now mixed
             $userInput = $form->getData();
 
+            $data = new Data();
+            $data->setTitle($userInput->__toString());
+            $data->setType('UserInputText');
+            $data->setCategory('UserInput');
+            $data->setStatus('new');
+            $data->setBody($userInput->getText());
+
             dump($userInput);
+            dump($data);
 
             //return $this->redirectToRoute('app_home');
         }
