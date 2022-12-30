@@ -32,6 +32,13 @@ class Data
     #[ORM\Column(type: Types::ARRAY, nullable: true)]
     private array $relations = [];
 
+    public function __construct()
+    {
+        $this->type = 'Root';
+        $this->category = 'Root';
+        $this->status = 'new';
+    }
+
     public function getId(): ?int
     {
         return $this->id;
