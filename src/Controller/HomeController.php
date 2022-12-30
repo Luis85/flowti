@@ -24,9 +24,9 @@ class HomeController extends AbstractController
             // but, the original `$userInput` variable has also been updated
             $userInput = $form->getData();
 
-            // ... perform some action, such as saving the task to the database
+            dump($userInput);
 
-            return $this->redirectToRoute('app_home');
+            //return $this->redirectToRoute('app_home');
         }
 
         return $this->render('home/index.html.twig', [
