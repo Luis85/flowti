@@ -4,6 +4,7 @@ namespace App\Form;
 
 use App\Entity\Data;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
@@ -12,12 +13,10 @@ class DataType extends AbstractType
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder
-            ->add('title')
-            ->add('type')
-            ->add('category')
-            ->add('status')
-            ->add('body')
-            ->add('relations')
+            ->add('title', TextType::class)
+            ->add('type', TypeChoice::class)
+            ->add('category', CategoryChoice::class)
+            ->add('status', StatusChoice::class)
         ;
     }
 
