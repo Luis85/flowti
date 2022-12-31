@@ -23,7 +23,6 @@
         "build": "encore production --progress"
     },
     "dependencies": {
-        "@a2lix/symfony-collection": "^0.5.2",
         "@popperjs/core": "2.11.6"
     }
 }
