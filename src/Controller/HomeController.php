@@ -37,10 +37,10 @@ class HomeController extends AbstractController
                 $data->setParent($dataRepository->find($parent));
             }
 
-            $todo = $tagRepository->findOneBy(['name' =>'@TODO[]']);
+            $todo = $tagRepository->findOneBy(['name' =>'@TODO']);
             if($todo === null) {
                 $todo = new Tag();
-                $todo->setName('@TODO[]');
+                $todo->setName('@TODO');
                 $tagRepository->save($todo, true);
             }
 
