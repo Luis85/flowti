@@ -1,19 +1,21 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Data index{% endblock %}
+{% block title %}{{ 'common.data.index'|trans }}{% endblock %}
 
 {% block body %}
-    <h1>Data index</h1>
+    <h1>{{ 'common.data.index'|trans }}</h1>
+
+    <a href="{{ path('app_home') }}">{{ 'common.create.data'|trans }}</a>
 
     <table class="table">
         <thead>
             <tr>
-                <th>Id</th>
-                <th>Type</th>
-                <th>Title</th>
-                <th>Parent</th>
-                <th>Tags</th>
-                <th>actions</th>
+                <th>{{ 'common.field.id'|trans }}</th>
+                <th>{{ 'common.field.type'|trans }}</th>
+                <th>{{ 'common.field.title'|trans }}</th>
+                <th>{{ 'common.field.parent'|trans }}</th>
+                <th>{{ 'common.field.tags'|trans }}</th>
+                <th>{{ 'common.field.actions'|trans }}</th>
             </tr>
         </thead>
         <tbody>
@@ -30,11 +32,10 @@
             </tr>
         {% else %}
             <tr>
-                <td colspan="8">no records found</td>
+                <td colspan="8">{{ 'common.no.records'|trans }}</td>
             </tr>
         {% endfor %}
         </tbody>
     </table>
 
-    <a href="{{ path('app_data_new') }}">Create new</a>
 {% endblock %}

@@ -2,7 +2,7 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <title>{% block title %}Welcome!{% endblock %}</title>
+        <title>{% block title %}{{ 'common.welcome'|trans }}{% endblock %}</title>
 
         {% block stylesheets %}
             {{ encore_entry_link_tags('app') }}
