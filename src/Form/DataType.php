@@ -16,7 +16,7 @@ class DataType extends AbstractType
         $builder
             ->add('title', TextType::class, ['label' => 'common.field.title'])
             ->add('tags', null, ['label' => 'common.field.tags', 'required' => false])
-            ->add('body', TextareaType::class, ['label' => 'common.field.body', 'required' => false])
+            ->add('body', TextareaType::class, ['label' => 'common.field.body', 'required' => false, 'attr' => ['rows' => 6]])
         ;
     }
 
