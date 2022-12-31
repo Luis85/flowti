@@ -14,11 +14,10 @@ class DataType extends AbstractType
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder
-            ->add('title', TextType::class)
-            ->add('body', TextareaType::class, ['required' => false])
-            ->add('parent')
-            ->add('tags')
-            ;
+            ->add('title', TextType::class, ['label' => 'common.field.title'])
+            ->add('tags', null, ['label' => 'common.field.tags', 'required' => false])
+            ->add('body', TextareaType::class, ['label' => 'common.field.body', 'required' => false])
+        ;
     }
 
     public function configureOptions(OptionsResolver $resolver): void
