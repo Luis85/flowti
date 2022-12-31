@@ -9,11 +9,10 @@
         <thead>
             <tr>
                 <th>Id</th>
-                <th>Title</th>
                 <th>Type</th>
-                <th>Category</th>
+                <th>Title</th>
                 <th>Parent</th>
-                <th>Status</th>
+                <th>Tags</th>
                 <th>actions</th>
             </tr>
         </thead>
@@ -21,13 +20,11 @@
         {% for data in data %}
             <tr>
                 <td>{{ data.id }}</td>
-                <td>{{ data.title }}</td>
                 <td>{{ data.type }}</td>
-                <td>{{ data.category }}</td>
-                <td>{{ data.parent }}</td>
-                <td>{{ data.status }}</td>
+                <td><a href="{{ path('app_data_show', {'id': data.id}) }}">{{ data.title }}</a></td>
+                <td>{% if data.parent %}<a href="{{ path('app_data_show', {'id': data.parent.id}) }}">{{ data.parent }}</a>{% endif %}</td>
+                <td>{% for tag in data.tags %}#{{ tag }} {% endfor %}</td>
                 <td>
-                    <a href="{{ path('app_data_show', {'id': data.id}) }}">show</a>
                     <a href="{{ path('app_data_edit', {'id': data.id}) }}">edit</a>
                 </td>
             </tr>

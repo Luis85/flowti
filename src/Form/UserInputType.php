@@ -14,7 +14,8 @@ class UserInputType extends AbstractType
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder
-            ->add('text', TextType::class)
+            ->add('text', TextType::class, ['label' => 'What are your thoughts?'])
+            ->add('tags', TextType::class, ['label' => 'How would you label your thought in a comma-seperated-list?', 'required' => false])
             ->add('save', SubmitType::class)
         ;
     }

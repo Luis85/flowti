@@ -3,8 +3,11 @@
 namespace App\Controller;
 
 use App\Entity\Data;
+use App\Entity\Tag;
 use App\Entity\UserInput;
 use App\Form\UserInputType;
+use App\Repository\DataRepository;
+use App\Repository\TagRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -12,8 +15,8 @@ use Symfony\Component\Routing\Annotation\Route;
 
 class HomeController extends AbstractController
 {
-    #[Route('/', name: 'app_home')]
-    public function index(Request $request): Response
+    #[Route('/', name: 'app_home', methods: ['GET', 'POST'])]
+    public function index(Request $request, DataRepository $dataRepository, TagRepository $tagRepository): Response
     {
         $userInput = new UserInput();
 
@@ -28,19 +31,26 @@ class HomeController extends AbstractController
 
             $data = new Data();
             $data->setTitle($userInput->__toString());
-            $data->setType('UserInputText');
+            $data->setType('Note');
             $data->setCategory('UserInput');
             $data->setStatus('new');
-            $data->setBody($userInput->getText());
 
-            dump($userInput);
-            dump($data);
+            foreach ($userInput->getTags() as $tagName) {
+                $tag = $tagRepository->findOneBy(['name' => $tagName]);
+                if($tag === null) {
+                    $tag = new Tag();
+                    $tag->setName($tagName);
+                    $tagRepository->save($tag, true);
+                }
+                $data->addTag($tag);
+            }
 
-            //return $this->redirectToRoute('app_home');
+            $dataRepository->save($data, true);
+            return $this->redirectToRoute('app_data_show',['id' => $data->getId()], Response::HTTP_SEE_OTHER);
+
         }
 
         return $this->render('home/index.html.twig', [
-            'controller_name' => 'HomeController',
             'form' => $form,
         ]);
     }

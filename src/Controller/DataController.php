@@ -43,6 +43,7 @@ class DataController extends AbstractController
     #[Route('/{id}', name: 'app_data_show', methods: ['GET'])]
     public function show(Data $data): Response
     {
+        dump($data);
         return $this->render('data/show.html.twig', [
             'data' => $data,
         ]);
