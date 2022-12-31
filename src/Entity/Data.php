@@ -32,11 +32,19 @@ class Data
     #[ORM\Column(type: Types::ARRAY, nullable: true)]
     private array $relations = [];
 
+    #[ORM\ManyToOne(targetEntity: self::class)]
+    private ?self $parent = null;
+
     public function __construct()
     {
         $this->type = 'Root';
         $this->category = 'Root';
         $this->status = 'new';
+    }
+
+    public function __toString()
+    {
+        return $this->title;
     }
 
     public function getId(): ?int
@@ -112,6 +120,20 @@ class Data
     public function setRelations(?array $relations): self
     {
         $this->relations = $relations;
+
+        return $this;
+    }
+
+    public function getParent(): ?self
+    {
+        return $this->parent;
+    }
+
+    public function setParent(?self $parent): self
+    {
+        if($this !== $parent) {
+            $this->parent = $parent;
+        }
 
         return $this;
     }

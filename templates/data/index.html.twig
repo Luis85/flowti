@@ -12,9 +12,8 @@
                 <th>Title</th>
                 <th>Type</th>
                 <th>Category</th>
+                <th>Parent</th>
                 <th>Status</th>
-                <th>Body</th>
-                <th>Relations</th>
                 <th>actions</th>
             </tr>
         </thead>
@@ -25,9 +24,8 @@
                 <td>{{ data.title }}</td>
                 <td>{{ data.type }}</td>
                 <td>{{ data.category }}</td>
+                <td>{{ data.parent }}</td>
                 <td>{{ data.status }}</td>
-                <td>{{ data.body }}</td>
-                <td>{{ data.relations ? data.relations|join(', ') : '' }}</td>
                 <td>
                     <a href="{{ path('app_data_show', {'id': data.id}) }}">show</a>
                     <a href="{{ path('app_data_edit', {'id': data.id}) }}">edit</a>
