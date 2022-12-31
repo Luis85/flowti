@@ -15,11 +15,10 @@ use Symfony\Component\Routing\Annotation\Route;
 
 class HomeController extends AbstractController
 {
-    #[Route('/', name: 'app_home', methods: ['GET', 'POST'])]
-    public function index(Request $request, DataRepository $dataRepository, TagRepository $tagRepository): Response
+    #[Route('/{parent}', name: 'app_home', methods: ['GET', 'POST'])]
+    public function index(Request $request, DataRepository $dataRepository, TagRepository $tagRepository, ?int $parent = null): Response
     {
         $userInput = new UserInput();
-
         $form = $this->createForm(UserInputType::class, $userInput);
 
         $form->handleRequest($request);
@@ -30,10 +29,23 @@ class HomeController extends AbstractController
             $userInput = $form->getData();
 
             $data = new Data();
-            $data->setTitle($userInput->__toString());
             $data->setType('Note');
             $data->setCategory('UserInput');
             $data->setStatus('new');
+
+            if($parent) {
+                $data->setParent($dataRepository->find($parent));
+            }
+
+            $todo = $tagRepository->findOneBy(['name' =>'@TODO[]']);
+            if($todo === null) {
+                $todo = new Tag();
+                $todo->setName('@TODO[]');
+                $tagRepository->save($todo, true);
+            }
+
+            $data->setTitle($userInput->__toString());
+            $data->addTag($todo);
 
             foreach ($userInput->getTags() as $tagName) {
                 $tag = $tagRepository->findOneBy(['name' => $tagName]);
