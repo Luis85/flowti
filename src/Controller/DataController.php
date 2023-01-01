@@ -17,16 +17,18 @@ class DataController extends AbstractController
     public function index(DataRepository $dataRepository): Response
     {
         return $this->render('data/index.html.twig', [
-            'data' => $dataRepository->findAll(),
+            'data' => $dataRepository->findBy(['parent' => null]),
         ]);
     }
 
     #[Route('/{id}', name: 'app_data_show', methods: ['GET'])]
-    public function show(Data $data): Response
+    public function show(Data $data, DataRepository $dataRepository): Response
     {
         dump($data);
+        $children = $dataRepository->findBy(['parent' => $data]);
         return $this->render('data/show.html.twig', [
             'data' => $data,
+            'children' => $children
         ]);
     }
 

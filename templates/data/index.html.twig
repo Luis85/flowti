@@ -16,9 +16,7 @@
         {% for data in data %}
             <tr>
                 <td><a href="{{ path('app_data_show', {'id': data.id}) }}">{{ data.title }}</a></td>
-                <td>
-                    <a href="{{ path('app_data_edit', {'id': data.id}) }}">{{ 'common.edit'|trans }}</a>
-                </td>
+                <td><a href="{{ path('app_data_edit', {'id': data.id}) }}">{{ 'common.edit'|trans }}</a></td>
             </tr>
         {% else %}
             <tr>
