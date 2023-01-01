@@ -11,14 +11,10 @@
                 <li class="list-inline-item"><a href="{{ path('app_home', {'parent': data.id}) }}">{{ 'data.add'|trans }}</a></li>
                 <li class="list-inline-item"><a href="{{ path('app_data_edit', {'id': data.id}) }}">{{ 'data.edit'|trans }}</a></li>
             </ul>
-            <p><strong>{{ 'common.field.parent'|trans }}</strong></p>
-            <p>
-                {% if data.parent %}
-                    <a title="{{ data.parent }}" href="{{ path('app_data_show', {'id': data.parent.id}) }}">{{ data.parent.id }} - {{ data.parent|u.truncate(10, '...', false) }}</a>
-                {% else %}
-                    <a title="{{ 'common.data.root'|trans }}" href="{{ path('app_data_index') }}">{{ 'common.data.root'|trans }}</a>
-                {% endif %}
-            </p>
+
+            {% set menu = knp_menu_get('main', [], { 'current_data_id': data.id}) %}
+            {{ knp_menu_render(menu, {'currentAsLink': false }) }}
+
             <p><strong>{{ 'common.data.children'|trans }}</strong></p>
             <ul class="list-unstyled">
                 {% for child in children %}
