@@ -3,7 +3,7 @@
 {% block title %}{{ 'common.data.title'|trans }}{% endblock %}
 
 {% block body %}
-    <h1>{{ 'common.data.title'|trans }}</h1>
+    <h1>{{ data.title }}</h1>
 
     <table class="table">
         <tbody>
@@ -12,30 +12,20 @@
                 <td>{{ data.id }}</td>
             </tr>
             <tr>
-                <th>{{ 'common.field.title'|trans }}</th>
-                <td>{{ data.title }}</td>
-            </tr>
-            <tr>
                 <th>{{ 'common.field.tags'|trans }}</th>
-                <td>{% for tag in data.tags %}#{{ tag }} {% endfor %}</td>
-            </tr>
-            <tr>
-                <th>{{ 'common.field.parent'|trans }}</th>
-                <td>
-                    {% if data.parent %}
-                    <a href="{{ path('app_data_show', {'id': data.parent.id}) }}">{{ data.parent }}</a>
-                    {% endif %}
-                </td>
-            </tr>
-            <tr>
-                <th>{{ 'common.field.body'|trans }}</th>
-                <td>{{ data.body }}</td>
+                <td>{% for tag in data.tags %}<span class="badge bg-secondary">{{ tag }}</span> {% endfor %}</td>
             </tr>
         </tbody>
     </table>
 
-    <a href="{{ path('app_data_edit', {'id': data.id}) }}">{{ 'data.edit'|trans }}</a>
-    <a href="{{ path('app_home', {'parent': data.id}) }}">{{ 'data.add'|trans }}</a>
+    <div>
+        <p><strong>{{ 'common.field.body'|trans }}</strong></p>
+        {{ data.body|default('common.body.empty')|trans }}
+    </div>
 
-    {{ include('data/_delete_form.html.twig') }}
+    <hr />
+
+    <a href="{{ path('app_home', {'parent': data.id}) }}">{{ 'data.add'|trans }}</a>
+    <br />
+    <a href="{{ path('app_data_edit', {'id': data.id}) }}">{{ 'data.edit'|trans }}</a>
 {% endblock %}
