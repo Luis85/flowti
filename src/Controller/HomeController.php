@@ -15,7 +15,7 @@ use Symfony\Component\Routing\Annotation\Route;
 
 class HomeController extends AbstractController
 {
-    #[Route('/{parent}', name: 'app_home', methods: ['GET', 'POST'])]
+    #[Route('/{parent}', name: 'app_home', requirements: ['parent' => '\d+'], methods: ['GET', 'POST'])]
     public function index(Request $request, DataRepository $dataRepository, TagRepository $tagRepository, ?int $parent = null): Response
     {
         $userInput = new UserInput();
