@@ -52,6 +52,13 @@ class DataController extends AbstractController
     public function delete(Request $request, Data $data, DataRepository $dataRepository): Response
     {
         if ($this->isCsrfTokenValid('delete'.$data->getId(), $request->request->get('_token'))) {
+            $data->removeTags();
+            $data->setParent(null);
+
+            $children = $dataRepository->findBy(['parent' => $data]);
+            foreach ($children as $child) {
+                $child->setParent(null);
+            }
             $dataRepository->remove($data, true);
         }
 
