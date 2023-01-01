@@ -21,25 +21,6 @@ class DataController extends AbstractController
         ]);
     }
 
-    #[Route('/new', name: 'app_data_new', methods: ['GET', 'POST'])]
-    public function new(Request $request, DataRepository $dataRepository): Response
-    {
-        $data = new Data();
-        $form = $this->createForm(DataType::class, $data);
-        $form->handleRequest($request);
-
-        if ($form->isSubmitted() && $form->isValid()) {
-            $dataRepository->save($data, true);
-
-            return $this->redirectToRoute('app_data_index', [], Response::HTTP_SEE_OTHER);
-        }
-
-        return $this->render('data/new.html.twig', [
-            'data' => $data,
-            'form' => $form,
-        ]);
-    }
-
     #[Route('/{id}', name: 'app_data_show', methods: ['GET'])]
     public function show(Data $data): Response
     {
