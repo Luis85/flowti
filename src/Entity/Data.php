@@ -37,7 +37,7 @@ class Data
     #[ORM\ManyToOne(targetEntity: self::class)]
     private ?self $parent = null;
 
-    #[ORM\ManyToMany(targetEntity: Tag::class)]
+    #[ORM\ManyToMany(targetEntity: Tag::class, inversedBy: 'data')]
     private Collection $tags;
 
     public function __construct()
@@ -167,4 +167,5 @@ class Data
 
         return $this;
     }
+
 }

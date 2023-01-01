@@ -13,7 +13,7 @@
             </tr>
             <tr>
                 <th>{{ 'common.field.tags'|trans }}</th>
-                <td>{% for tag in data.tags %}<span class="badge bg-secondary">{{ tag }}</span> {% endfor %}</td>
+                <td>{% for tag in data.tags %}<a href="{{ path('app_tag_show', {'id': tag.id}) }}"><span class="badge bg-secondary">{{ tag }}</span></a> {% endfor %}</td>
             </tr>
         </tbody>
     </table>
