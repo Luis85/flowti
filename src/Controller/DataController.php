@@ -24,7 +24,6 @@ class DataController extends AbstractController
     #[Route('/{id}', name: 'app_data_show', methods: ['GET'])]
     public function show(Data $data, DataRepository $dataRepository): Response
     {
-        dump($data);
         $children = $dataRepository->findBy(['parent' => $data]);
         return $this->render('data/show.html.twig', [
             'data' => $data,
@@ -41,7 +40,7 @@ class DataController extends AbstractController
         if ($form->isSubmitted() && $form->isValid()) {
             $dataRepository->save($data, true);
 
-            return $this->redirectToRoute('app_data_index', [], Response::HTTP_SEE_OTHER);
+            return $this->redirectToRoute('app_data_show', ['id' => $data->getId()], Response::HTTP_SEE_OTHER);
         }
 
         return $this->render('data/edit.html.twig', [
