@@ -11,27 +11,32 @@
                 <th>{{ 'common.field.tags'|trans }}</th>
                 <td>{% for tag in data.tags %}<a href="{{ path('app_tag_show', {'id': tag.id}) }}"><span class="badge bg-secondary">{{ tag }}</span></a> {% endfor %}</td>
             </tr>
+            {% if data.parent %}
             <tr>
                 <th>{{ 'common.field.parent'|trans }}</th>
                 <td>{% if data.parent %}<a href="{{ path('app_data_show', {'id': data.parent.id}) }}">{{ data.parent }}</a>{% endif %}</td>
             </tr>
-            <tr>
-                <th>{{ 'common.field.body'|trans }}</th>
-                <td>{{ data.body|default('common.field.body.empty')|trans }}</td>
-            </tr>
+            {% endif %}
         </tbody>
     </table>
 
-
-    {% if children %}
-        <div>
-            <p><strong>{{ 'common.data.children'|trans }}</strong></p>
-            {% for child in children %}
-                <p><a href="{{ path('app_data_show', {'id': child.id}) }}">{{ child }}</a></p>
-            {% endfor %}
-        </div>
-        <hr />
+    {% if data.body %}
+        <div>{{ data.body|markdown_to_html }}</div>
+        <br />
     {% endif %}
 
     <a href="{{ path('app_home', {'parent': data.id}) }}">{{ 'data.add'|trans }}</a> | <a href="{{ path('app_data_edit', {'id': data.id}) }}">{{ 'data.edit'|trans }}</a>
+
+    {% if children %}
+        <hr />
+        <div>
+            <p>{{ 'common.data.children'|trans }}</p>
+            <ul>
+            {% for child in children %}
+                <li><a href="{{ path('app_data_show', {'id': child.id}) }}">{{ child }}</a></li>
+            {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
 {% endblock %}
