@@ -168,4 +168,11 @@ class Data
         return $this;
     }
 
+    public function removeTags(): self
+    {
+        $this->tags = new ArrayCollection();
+
+        return $this;
+    }
+
 }
