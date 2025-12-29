@@ -1,0 +1,13 @@
+{
+  "readableLineLength": false,
+  "userIgnoreFilters": [
+    "Development/",
+    "**/node_modules/*"
+  ],
+  "showUnsupportedFiles": true,
+  "alwaysUpdateLinks": true,
+  "attachmentFolderPath": "03 - Resources/Attachments",
+  "showInlineTitle": false,
+  "defaultViewMode": "preview",
+  "tabSize": 2
+}

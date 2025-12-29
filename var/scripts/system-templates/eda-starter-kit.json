@@ -1,0 +1,114 @@
+[
+    {
+    "type": "Validator",
+    "domain": "System",
+    "name": "Validate Paths",
+    "description": "Validate common vault path inputs (src/dest/template paths) before running file commands.",
+    "inputs": ["src_path", "dest_path", "template_path"],
+    "outputs": ["validation_ok", "validation_errors_json", "validation_warnings_json"]
+  },  
+  
+  {
+    "type": "Policy",
+    "domain": "System",
+    "name": "Guard Dry Run Mode",
+    "description": "Policy that decides whether destructive commands are allowed when dry_run is enabled.",
+    "inputs": ["dry_run", "allow_destructive_in_dry_run"],
+    "outputs": ["policy_decision", "policy_reason", "policy_warnings_json"]
+  },
+
+  { "type": "Command", "domain": "System", "name": "Create File", "description": "Create a new file at a given path with provided content.", "inputs": ["file_path", "file_content", "overwrite"], "outputs": ["created_path", "command_status", "message"] },
+  { "type": "Command", "domain": "System", "name": "Create File From Template", "description": "Create a file from a template file, optionally replacing tokens.", "inputs": ["template_path", "target_path", "token_map_json", "overwrite"], "outputs": ["created_path", "command_status", "message"] },
+  { "type": "Command", "domain": "System", "name": "Copy File", "description": "Copy a file from src_path to dest_path.", "inputs": ["src_path", "dest_path", "overwrite"], "outputs": ["copied_path", "command_status", "message"] },
+  { "type": "Command", "domain": "System", "name": "Move File", "description": "Move/rename a file from src_path to dest_path.", "inputs": ["src_path", "dest_path", "overwrite"], "outputs": ["moved_path", "command_status", "message"] },
+  { "type": "Command", "domain": "System", "name": "Delete File", "description": "Delete a file at file_path (use with care).", "inputs": ["file_path", "confirm_delete"], "outputs": ["deleted_path", "command_status", "message"] },
+
+  { "type": "Query", "domain": "System", "name": "List Files In Folder", "description": "List all markdown files in a folder, optionally filtered by prefix.", "inputs": ["folder_path", "file_ext", "name_prefix"], "outputs": ["files_json", "count"] },
+  { "type": "Query", "domain": "System", "name": "Read File", "description": "Read a file and publish its content.", "inputs": ["file_path"], "outputs": ["file_text", "file_exists"] },
+  {
+    "type": "Event",
+    "domain": "Operations",
+    "name": "Subscription Ordered",
+    "description": "A subscription package was ordered (may come from HubSpot/Shopify/email).",
+    "inputs": ["order_source", "order_id", "customer_id", "sku", "ordered_at"],
+    "outputs": ["event_payload_json", "event_id", "event_type", "event_emitted_at"]
+  },
+  {
+    "type": "Event",
+    "domain": "Operations",
+    "name": "Subscription Installed",
+    "description": "The subscription package was installed and is usable.",
+    "inputs": ["subscription_id", "installed_at", "installed_by", "customer_id"],
+    "outputs": ["event_payload_json", "event_id", "event_type", "event_emitted_at"]
+  },
+
+  {
+    "type": "Policy",
+    "domain": "Operations",
+    "name": "Invoice Allowed Policy",
+    "description": "Decides if invoicing is allowed based on lifecycle state (installed/usable).",
+    "inputs": ["subscription_status", "installed_at", "usable_confirmed"],
+    "outputs": ["policy_decision", "policy_reason", "policy_warnings_json"]
+  },
+  {
+    "type": "Validator",
+    "domain": "Operations",
+    "name": "Validate Subscription Payload",
+    "description": "Validate required subscription lifecycle fields before proceeding.",
+    "inputs": ["subscription_id", "customer_id", "order_id", "subscription_status"],
+    "outputs": ["validation_ok", "validation_errors_json", "validation_warnings_json"]
+  },
+
+  { "type": "Command", "domain": "Operations", "name": "Upsert Subscription Record", "description": "Create or update a subscription record in your internal list (vault/SharePoint list later).", "inputs": ["subscription_id", "customer_id", "status", "payload_json"], "outputs": ["record_id", "command_status", "message"] },
+  { "type": "Command", "domain": "Operations", "name": "Mark Subscription Ready To Invoice", "description": "Set status so Finance/ERP step can invoice.", "inputs": ["subscription_id", "ready_to_invoice", "reason"], "outputs": ["subscription_id", "command_status", "message"] },
+
+  {
+    "type": "Notifier",
+    "domain": "Operations",
+    "name": "Notify Ops Channel",
+    "description": "Send an ops notification (Teams/Slack/Webhook) about a lifecycle change.",
+    "inputs": ["notify_target", "notify_message", "notify_channel", "notify_payload_json"],
+    "outputs": ["notify_ok", "notify_status", "notify_error"]
+  },
+  {
+    "type": "Query",
+    "domain": "Reporting",
+    "name": "Build Daily Ops Summary",
+    "description": "Compute a daily summary markdown/json from the internal subscription list and recent events.",
+    "inputs": ["as_of_date", "source_folder", "status_filter"],
+    "outputs": ["summary_md", "summary_json"]
+  },
+  {
+    "type": "Query",
+    "domain": "Reporting",
+    "name": "Subscription Lifecycle Snapshot",
+    "description": "Return a snapshot for a subscription_id (status, timestamps, flags).",
+    "inputs": ["subscription_id"],
+    "outputs": ["snapshot_json", "snapshot_md"]
+  },
+  
+  {
+    "type": "ApiQuery",
+    "domain": "Integration",
+    "name": "Fetch HubSpot Deal",
+    "description": "Fetch HubSpot deal data (read-only) and publish the JSON for enrichment.",
+    "inputs": ["api_url", "api_method", "api_headers_json", "api_body_json"],
+    "outputs": ["api_ok", "api_status", "api_response_json", "api_response_text"]
+  },
+  {
+    "type": "ApiQuery",
+    "domain": "Integration",
+    "name": "Fetch Shopify Order",
+    "description": "Fetch Shopify order data (read-only) and publish the JSON for enrichment.",
+    "inputs": ["api_url", "api_method", "api_headers_json", "api_body_json"],
+    "outputs": ["api_ok", "api_status", "api_response_json", "api_response_text"]
+  },
+  {
+    "type": "Notifier",
+    "domain": "Integration",
+    "name": "Notify Power Automate Webhook",
+    "description": "Trigger a Power Automate flow via webhook with a JSON payload.",
+    "inputs": ["notify_target", "notify_message", "notify_payload_json"],
+    "outputs": ["notify_ok", "notify_status", "notify_error"]
+  }
+]

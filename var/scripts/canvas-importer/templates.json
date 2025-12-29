@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "updated": "2025-12-15T18:51:53.782Z",
+  "templates": [
+    {
+      "name": "Operations Day to Day",
+      "description": "",
+      "canvasPath": "02 - Areas/MOR - Operations Day to Day.canvas",
+      "config": {
+        "folder": "02 - Areas",
+        "importMode": "folder",
+        "hierarchy": "product",
+        "overwrite": true,
+        "tasks": false,
+        "saveEmpty": false,
+        "createBase": false,
+        "createCanvas": false
+      },
+      "createdAt": "2025-12-11T22:47:50.466Z",
+      "updatedAt": "2025-12-15T18:51:53.782Z"
+    }
+  ]
+}

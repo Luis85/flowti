@@ -1,0 +1,106 @@
+/**
+ * {{SCRIPT_NAME}}
+ *
+ * What this query is for
+ * A “Query” retrieves/derives information without changing state.
+ * Use it to compute values, summaries, or to fetch existing data for later steps.
+ *
+ * How to use
+ * - Provide inputs via `params.variables` (recommended).
+ * - This script should publish query results via `params.variables`.
+ *
+ * Query ID: {{ITEM_ID}}
+ * Type: query
+ * Domain: {{ITEM_DOMAIN}}
+ *
+ * Author: {{SCRIPT_AUTHOR}}
+ * Generated at: {{GENERATED_AT}}
+ */
+
+const SET_SCRIPT_NAME = "Script name";
+const SET_DEBUG = "Debug mode";
+
+module.exports = {
+  entry: async (params, settings) => {
+    try {
+      const result = await run(params, settings || {});
+      new Notice(result?.notice ?? `🔎 Query OK: {{ITEM_ID}}`);
+      return result;
+    } catch (err) {
+      if (err?.name === "MacroAbortError") return { ok: false, aborted: true };
+      console.error(`[{{ITEM_ID}}] FAILED`, err);
+      new Notice(`❌ Query failed: ${err?.message ?? String(err)}`);
+      throw err;
+    }
+  },
+
+  settings: {
+    name: "{{SCRIPT_NAME}}",
+    author: "{{SCRIPT_AUTHOR}}",
+    options: {
+      [SET_SCRIPT_NAME]: { type: "text", defaultValue: "{{ITEM_SLUG}}" },
+      [SET_DEBUG]: { type: "toggle", defaultValue: false },
+    },
+  },
+};
+
+async function run(params, settings) {
+  const { quickAddApi, variables, app } = params;
+
+  const scriptName = String(settings?.[SET_SCRIPT_NAME] || "{{ITEM_SLUG}}");
+  const debug = !!settings?.[SET_DEBUG];
+  const log = (...a) => debug && console.log(`[${scriptName}]`, ...a);
+
+  if (!quickAddApi) throw new Error("quickAddApi not available. Run this via a QuickAdd Macro.");
+
+  const now = window.moment();
+  const ctx = { date: now.format("YYYY-MM-DD"), datetime: now.toISOString() };
+
+  // ---------- helpers ----------
+  const hasOwn = (k) => Object.prototype.hasOwnProperty.call(variables || {}, k);
+  const shouldPrompt = (k) => !hasOwn(k) || variables[k] === undefined || variables[k] === null;
+
+  async function requireVarOrPrompt(key, label, defaultValue = "") {
+    if (!shouldPrompt(key)) return variables[key];
+    const val = await quickAddApi.inputPrompt(label, defaultValue);
+    if (val === null) throw macroAbort();
+    variables[key] = val;
+    return val;
+  }
+
+  function publish(outputs) {
+    for (const [k, v] of Object.entries(outputs || {})) variables[k] = (v === undefined || v === null) ? "" : v;
+  }
+
+  function macroAbort() {
+    const e = new Error("User cancelled");
+    e.name = "MacroAbortError";
+    return e;
+  }
+
+  log("START", { ctx, query: "{{ITEM_ID}}" });
+
+  // TODO: implement read-only computation / retrieval
+  // Examples:
+  // - scan a folder for files
+  // - read frontmatter keys
+  // - compute a summary
+  //
+  // const folder = await requireVarOrPrompt("folder_path", "Folder path:");
+  // const pages = app.vault.getFiles().filter(f => f.path.startsWith(folder + "/"));
+
+  const result = {
+    // ...
+  };
+
+  publish({
+    last_item_id: "{{ITEM_ID}}",
+    last_item_ran_at: ctx.datetime,
+    query_result_json: JSON.stringify(result),
+    // query_result_md: "...",
+  });
+
+  log("END", { ok: true });
+
+  return { ok: true, ctx, notice: `🔎 Query OK ({{ITEM_ID}}) — ${ctx.date}` };
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["main.ts"],
+  "tsconfig": "tsconfig.typedoc.json",
+  "out": "docs",
+
+  "exclude": [
+    "**/node_modules/**",
+    "**/tests/**",
+    "**/dist/**",
+    "**/docs/**"
+  ],
+
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeInternal": true,
+
+  "readme": "none"
+}

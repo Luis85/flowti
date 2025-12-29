@@ -1,0 +1,127 @@
+/**
+ * {{SCRIPT_NAME}}
+ *
+ * What this event script is for
+ * Publish an event payload into `params.variables` so the next macro steps can react.
+ * An “Event” describes something that happened (a fact), not an instruction.
+ *
+ * How to use
+ * - Provide event facts via variables (recommended) or prompt for missing fields.
+ * - This script writes:
+ *   - variables.event_type, variables.event_domain, variables.event_id
+ *   - variables.event_payload_json (stringified JSON)
+ *   - variables.event_emitted_at
+ *
+ * ID: {{ITEM_ID}}
+ * Type: event
+ * Domain: {{ITEM_DOMAIN}}
+ *
+ * Author: {{SCRIPT_AUTHOR}}
+ * Generated at: {{GENERATED_AT}}
+ */
+
+const SET_SCRIPT_NAME = "Script name";
+const SET_DEBUG = "Debug mode";
+const SET_DRY_RUN = "Dry run";
+
+module.exports = {
+  entry: async (params, settings) => {
+    try {
+      const result = await run(params, settings || {});
+      new Notice(result?.notice ?? `📣 Event emitted: {{ITEM_ID}}`);
+      return result;
+    } catch (err) {
+      if (err?.name === "MacroAbortError") return { ok: false, aborted: true };
+      console.error(`[{{ITEM_ID}}] FAILED`, err);
+      new Notice(`❌ Event failed: ${err?.message ?? String(err)}`);
+      throw err;
+    }
+  },
+
+  settings: {
+    name: "{{SCRIPT_NAME}}",
+    author: "{{SCRIPT_AUTHOR}}",
+    options: {
+      [SET_SCRIPT_NAME]: { type: "text", defaultValue: "{{ITEM_SLUG}}" },
+      [SET_DEBUG]: { type: "toggle", defaultValue: false },
+      [SET_DRY_RUN]: { type: "toggle", defaultValue: false },
+    },
+  },
+};
+
+async function run(params, settings) {
+  const { quickAddApi, variables } = params;
+
+  const scriptName = String(settings?.[SET_SCRIPT_NAME] || "{{ITEM_SLUG}}");
+  const debug = !!settings?.[SET_DEBUG];
+  const dryRun = !!settings?.[SET_DRY_RUN];
+  const log = (...a) => debug && console.log(`[${scriptName}]`, ...a);
+
+  if (!quickAddApi) throw new Error("quickAddApi not available. Run this via a QuickAdd Macro.");
+
+  const now = window.moment();
+  const emittedAt = now.toISOString();
+
+  // ---------- helpers ----------
+  const hasOwn = (k) => Object.prototype.hasOwnProperty.call(variables || {}, k);
+  const shouldPrompt = (k) => !hasOwn(k) || variables[k] === undefined || variables[k] === null;
+
+  async function requireVarOrPrompt(key, label, defaultValue = "") {
+    if (!shouldPrompt(key)) return variables[key];
+    const val = await quickAddApi.inputPrompt(label, defaultValue);
+    if (val === null) throw macroAbort();
+    variables[key] = val;
+    return val;
+  }
+
+  function publish(outputs) {
+    for (const [k, v] of Object.entries(outputs || {})) variables[k] = (v === undefined || v === null) ? "" : v;
+  }
+
+  function macroAbort() {
+    const e = new Error("User cancelled");
+    e.name = "MacroAbortError";
+    return e;
+  }
+
+  // ---------- event model ----------
+  const eventDomain = "{{ITEM_DOMAIN}}";
+  const eventType = "{{ITEM_SLUG}}"; // stable within domain
+  const eventName = "{{SCRIPT_NAME}}";
+
+  // Idempotency: allow upstream to provide event_id, else generate one
+  const eventId = String(variables.event_id || `${eventDomain}:${eventType}:${emittedAt}`);
+
+  // TODO: collect event facts into payload
+  // Example:
+  // const entityId = await requireVarOrPrompt("entity_id", "Entity ID:");
+  // const payload = { entity_id: entityId, ... };
+
+  const payload = {
+    event_id: eventId,
+    event_name: eventName,
+    domain: eventDomain,
+    type: eventType,
+    emitted_at: emittedAt,
+    // ...your event fields here
+  };
+
+  log("EMIT", { dryRun, payload });
+
+  publish({
+    event_domain: eventDomain,
+    event_type: eventType,
+    event_name: eventName,
+    event_id: eventId,
+    event_emitted_at: emittedAt,
+    event_payload_json: JSON.stringify(payload),
+    last_item_id: "{{ITEM_ID}}",
+    last_item_ran_at: emittedAt,
+  });
+
+  return {
+    ok: true,
+    event: { domain: eventDomain, type: eventType, id: eventId },
+    notice: `📣 Event emitted: ${eventDomain}:${eventType}`,
+  };
+}

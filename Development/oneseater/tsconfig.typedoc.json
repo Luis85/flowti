@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    "lib": ["DOM", "ES2021"],
+    "skipLibCheck": true
+  },
+  "include": ["main.ts", "src/**/*.ts"],
+  "exclude": ["tests/**", "node_modules/**", "dist/**", "docs/**"]
+}

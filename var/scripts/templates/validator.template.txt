@@ -1,0 +1,104 @@
+/**
+ * {{SCRIPT_NAME}}
+ *
+ * What this Validator is for
+ * Validate inputs/payloads before running commands or emitting events.
+ * Validators should not cause side effects; they only report validity and errors.
+ *
+ * How to use
+ * - Provide required fields via params.variables.
+ * - Publish:
+ *   - validation_ok "true" | "false"
+ *   - validation_errors_json (stringified list)
+ *   - validation_warnings_json (optional)
+ *
+ * ID: {{ITEM_ID}}
+ * Type: validator
+ * Domain: {{ITEM_DOMAIN}}
+ */
+
+const SET_SCRIPT_NAME = "Script name";
+const SET_DEBUG = "Debug mode";
+
+module.exports = {
+  entry: async (params, settings) => {
+    try {
+      const result = await run(params, settings || {});
+      const ok = params?.variables?.validation_ok === "true";
+      new Notice(result?.notice ?? (ok ? `✅ Valid: {{ITEM_ID}}` : `⚠️ Invalid: {{ITEM_ID}}`));
+      return result;
+    } catch (err) {
+      if (err?.name === "MacroAbortError") return { ok: false, aborted: true };
+      console.error(`[{{ITEM_ID}}] FAILED`, err);
+      new Notice(`❌ Validator failed: ${err?.message ?? String(err)}`);
+      throw err;
+    }
+  },
+
+  settings: {
+    name: "{{SCRIPT_NAME}}",
+    author: "{{SCRIPT_AUTHOR}}",
+    options: {
+      [SET_SCRIPT_NAME]: { type: "text", defaultValue: "{{ITEM_SLUG}}" },
+      [SET_DEBUG]: { type: "toggle", defaultValue: false },
+    },
+  },
+};
+
+async function run(params, settings) {
+  const { quickAddApi, variables } = params;
+
+  const scriptName = String(settings?.[SET_SCRIPT_NAME] || "{{ITEM_SLUG}}");
+  const debug = !!settings?.[SET_DEBUG];
+  const log = (...a) => debug && console.log(`[${scriptName}]`, ...a);
+
+  if (!quickAddApi) throw new Error("quickAddApi not available. Run this via a QuickAdd Macro.");
+
+  const now = window.moment();
+  const ctx = { date: now.format("YYYY-MM-DD"), datetime: now.toISOString() };
+
+  function publish(outputs) {
+    for (const [k, v] of Object.entries(outputs || {})) variables[k] = (v === undefined || v === null) ? "" : v;
+  }
+
+  // -----------------------------
+  // TODO: implement validation rules
+  // -----------------------------
+  // Example checks:
+  // - required variables present (non-empty)
+  // - JSON fields parseable
+  // - paths look like vault paths
+  // - status values in allowed set
+  //
+  // const required = ["src_path", "dest_path"];
+  // const errors = required.filter(k => !String(variables[k] || "").trim()).map(k => `Missing: ${k}`);
+
+  const errors = [];
+  const warnings = [];
+
+  // Example: validate JSON fields if present
+  for (const key of ["event_payload_json", "notify_payload_json", "api_headers_json", "api_body_json"]) {
+    const val = String(variables[key] || "").trim();
+    if (!val) continue;
+    try { JSON.parse(val); } catch { errors.push(`Invalid JSON in ${key}`); }
+  }
+
+  const ok = errors.length === 0;
+
+  log("VALIDATION", { ok, errors, warnings });
+
+  publish({
+    validator_id: "{{ITEM_ID}}",
+    validation_ok: ok ? "true" : "false",
+    validation_errors_json: errors.length ? JSON.stringify(errors) : "",
+    validation_warnings_json: warnings.length ? JSON.stringify(warnings) : "",
+    last_item_id: "{{ITEM_ID}}",
+    last_item_ran_at: ctx.datetime,
+  });
+
+  return {
+    ok: true,
+    ctx,
+    notice: ok ? `✅ Valid ({{ITEM_ID}})` : `⚠️ Invalid ({{ITEM_ID}})`,
+  };
+}

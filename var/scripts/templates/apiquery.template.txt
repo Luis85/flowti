@@ -1,0 +1,176 @@
+/**
+ * {{SCRIPT_NAME}}
+ *
+ * What this ApiQuery is for
+ * Fetch read-only data from an external API and publish the result for downstream steps.
+ * This script should not change state in your vault; it only retrieves data.
+ *
+ * How to use
+ * - Provide request inputs via params.variables to avoid prompts.
+ * - Recommended variables:
+ *   - api_url (string)             e.g. "https://example.com/api/..."
+ *   - api_method (string)          "GET" | "POST" | ...
+ *   - api_headers_json (string)    JSON object string
+ *   - api_body_json (string)       JSON string (optional)
+ *
+ * Outputs (params.variables)
+ * - api_status (string/number)
+ * - api_response_json (string)     stringified JSON if possible, else ""
+ * - api_response_text (string)     raw response (trimmed)
+ * - api_ok (string)               "true" | "false"
+ *
+ * ID: {{ITEM_ID}}
+ * Type: apiquery
+ * Domain: {{ITEM_DOMAIN}}
+ *
+ * Author: {{SCRIPT_AUTHOR}}
+ * Generated at: {{GENERATED_AT}}
+ */
+
+const SET_SCRIPT_NAME = "Script name";
+const SET_DEBUG = "Debug mode";
+
+module.exports = {
+  entry: async (params, settings) => {
+    try {
+      const result = await run(params, settings || {});
+      new Notice(result?.notice ?? `🔌 ApiQuery OK: {{ITEM_ID}}`);
+      return result;
+    } catch (err) {
+      if (err?.name === "MacroAbortError") return { ok: false, aborted: true };
+      console.error(`[{{ITEM_ID}}] FAILED`, err);
+      new Notice(`❌ ApiQuery failed: ${err?.message ?? String(err)}`);
+      throw err;
+    }
+  },
+
+  settings: {
+    name: "{{SCRIPT_NAME}}",
+    author: "{{SCRIPT_AUTHOR}}",
+    options: {
+      [SET_SCRIPT_NAME]: { type: "text", defaultValue: "{{ITEM_SLUG}}" },
+      [SET_DEBUG]: { type: "toggle", defaultValue: false },
+    },
+  },
+};
+
+async function run(params, settings) {
+  const { quickAddApi, variables, app } = params;
+
+  const scriptName = String(settings?.[SET_SCRIPT_NAME] || "{{ITEM_SLUG}}");
+  const debug = !!settings?.[SET_DEBUG];
+  const log = (...a) => debug && console.log(`[${scriptName}]`, ...a);
+
+  if (!quickAddApi) throw new Error("quickAddApi not available. Run this via a QuickAdd Macro.");
+
+  const now = window.moment();
+  const ctx = { date: now.format("YYYY-MM-DD"), datetime: now.toISOString() };
+
+  // ---------- helpers ----------
+  const hasOwn = (k) => Object.prototype.hasOwnProperty.call(variables || {}, k);
+  const shouldPrompt = (k) => !hasOwn(k) || variables[k] === undefined || variables[k] === null;
+
+  async function requireVarOrPrompt(key, label, defaultValue = "") {
+    if (!shouldPrompt(key)) return variables[key];
+    const val = await quickAddApi.inputPrompt(label, defaultValue);
+    if (val === null) throw macroAbort();
+    variables[key] = val;
+    return val;
+  }
+
+  function publish(outputs) {
+    for (const [k, v] of Object.entries(outputs || {})) variables[k] = (v === undefined || v === null) ? "" : v;
+  }
+
+  function macroAbort() {
+    const e = new Error("User cancelled");
+    e.name = "MacroAbortError";
+    return e;
+  }
+
+  function safeJsonParse(s) {
+    try { return JSON.parse(String(s)); } catch { return null; }
+  }
+
+  // ---------- inputs ----------
+  const url = String(await requireVarOrPrompt("api_url", "API URL:"));
+  const method = String(variables.api_method || "GET").toUpperCase();
+
+  const headersObj = safeJsonParse(variables.api_headers_json || "{}") || {};
+  const bodyObj = safeJsonParse(variables.api_body_json || "");
+  const hasBody = bodyObj && (method !== "GET" && method !== "HEAD");
+
+  log("REQUEST", { method, url, headers: headersObj, hasBody });
+
+  // Prefer Obsidian requestUrl if available (works in restricted environments)
+  let status = "";
+  let text = "";
+  let jsonString = "";
+  let ok = false;
+
+  try {
+    if (typeof requestUrl === "function") {
+      const resp = await requestUrl({
+        url,
+        method,
+        headers: headersObj,
+        body: hasBody ? JSON.stringify(bodyObj) : undefined,
+      });
+
+      status = resp?.status ?? "";
+      text = String(resp?.text ?? "").trim();
+      ok = resp?.status >= 200 && resp?.status < 300;
+
+      // Try JSON parse
+      const maybe = safeJsonParse(text);
+      jsonString = maybe ? JSON.stringify(maybe) : "";
+    } else {
+      // Fallback to fetch (may work, depends on environment)
+      const resp = await fetch(url, {
+        method,
+        headers: headersObj,
+        body: hasBody ? JSON.stringify(bodyObj) : undefined,
+      });
+
+      status = resp.status;
+      text = String(await resp.text()).trim();
+      ok = resp.ok;
+
+      const maybe = safeJsonParse(text);
+      jsonString = maybe ? JSON.stringify(maybe) : "";
+    }
+  } catch (e) {
+    log("REQUEST_ERROR", e);
+    status = status || "";
+    text = text || "";
+    jsonString = "";
+    ok = false;
+    publish({
+      api_ok: "false",
+      api_status: status,
+      api_response_text: text,
+      api_response_json: "",
+      api_error: e?.message ?? String(e),
+      last_item_id: "{{ITEM_ID}}",
+      last_item_ran_at: ctx.datetime,
+    });
+    return { ok: false, ctx, notice: `❌ ApiQuery failed ({{ITEM_ID}})` };
+  }
+
+  publish({
+    api_ok: ok ? "true" : "false",
+    api_status: String(status),
+    api_response_text: text,
+    api_response_json: jsonString,
+    api_domain: "{{ITEM_DOMAIN}}",
+    apiquery_id: "{{ITEM_ID}}",
+    last_item_id: "{{ITEM_ID}}",
+    last_item_ran_at: ctx.datetime,
+  });
+
+  return {
+    ok: true,
+    ctx,
+    notice: ok ? `🔌 ApiQuery OK ({{ITEM_ID}})` : `⚠️ ApiQuery non-2xx ({{ITEM_ID}})`,
+  };
+}

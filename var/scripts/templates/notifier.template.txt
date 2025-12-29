@@ -1,0 +1,170 @@
+/**
+ * {{SCRIPT_NAME}}
+ *
+ * What this Notifier is for
+ * Emit a notification / trigger to an external system (Teams/Slack/Power Automate/Webhook).
+ * This script is typically used at the end of a flow to broadcast results.
+ *
+ * How to use
+ * - Provide variables to avoid prompts:
+ *   - notify_channel (string)     e.g. "teams", "slack", "webhook"
+ *   - notify_target (string)      webhook url or channel id (depending on your setup)
+ *   - notify_message (string)     message text (markdown/plain)
+ *   - notify_payload_json (string) optional JSON payload string (advanced)
+ *
+ * Outputs (params.variables)
+ * - notify_ok (string)           "true" | "false"
+ * - notify_status (string)       status code / info
+ * - notify_error (string)        error message if any
+ *
+ * ID: {{ITEM_ID}}
+ * Type: notifier
+ * Domain: {{ITEM_DOMAIN}}
+ */
+
+const SET_SCRIPT_NAME = "Script name";
+const SET_DEBUG = "Debug mode";
+const SET_DRY_RUN = "Dry run";
+
+module.exports = {
+  entry: async (params, settings) => {
+    try {
+      const result = await run(params, settings || {});
+      new Notice(result?.notice ?? `📣 Notifier OK: {{ITEM_ID}}`);
+      return result;
+    } catch (err) {
+      if (err?.name === "MacroAbortError") return { ok: false, aborted: true };
+      console.error(`[{{ITEM_ID}}] FAILED`, err);
+      new Notice(`❌ Notifier failed: ${err?.message ?? String(err)}`);
+      throw err;
+    }
+  },
+
+  settings: {
+    name: "{{SCRIPT_NAME}}",
+    author: "{{SCRIPT_AUTHOR}}",
+    options: {
+      [SET_SCRIPT_NAME]: { type: "text", defaultValue: "{{ITEM_SLUG}}" },
+      [SET_DEBUG]: { type: "toggle", defaultValue: false },
+      [SET_DRY_RUN]: { type: "toggle", defaultValue: false },
+    },
+  },
+};
+
+async function run(params, settings) {
+  const { quickAddApi, variables } = params;
+
+  const scriptName = String(settings?.[SET_SCRIPT_NAME] || "{{ITEM_SLUG}}");
+  const debug = !!settings?.[SET_DEBUG];
+  const dryRun = !!settings?.[SET_DRY_RUN];
+  const log = (...a) => debug && console.log(`[${scriptName}]`, ...a);
+
+  if (!quickAddApi) throw new Error("quickAddApi not available. Run this via a QuickAdd Macro.");
+
+  const now = window.moment();
+  const ctx = { date: now.format("YYYY-MM-DD"), datetime: now.toISOString() };
+
+  // helpers
+  const hasOwn = (k) => Object.prototype.hasOwnProperty.call(variables || {}, k);
+  const shouldPrompt = (k) => !hasOwn(k) || variables[k] === undefined || variables[k] === null;
+
+  async function requireVarOrPrompt(key, label, defaultValue = "") {
+    if (!shouldPrompt(key)) return variables[key];
+    const val = await quickAddApi.inputPrompt(label, defaultValue);
+    if (val === null) throw macroAbort();
+    variables[key] = val;
+    return val;
+  }
+
+  function publish(outputs) {
+    for (const [k, v] of Object.entries(outputs || {})) variables[k] = (v === undefined || v === null) ? "" : v;
+  }
+
+  function macroAbort() {
+    const e = new Error("User cancelled");
+    e.name = "MacroAbortError";
+    return e;
+  }
+
+  function safeJsonParse(s) {
+    try { return JSON.parse(String(s)); } catch { return null; }
+  }
+
+  const channel = String(variables.notify_channel || "webhook").toLowerCase();
+  const target = String(await requireVarOrPrompt("notify_target", "Notify target (webhook url / channel id):"));
+  const message = String(await requireVarOrPrompt("notify_message", "Notification message:"));
+
+  const payloadOverride = safeJsonParse(variables.notify_payload_json || "");
+  const payload = payloadOverride || {
+    channel,
+    message,
+    emitted_at: ctx.datetime,
+    source: "{{ITEM_ID}}",
+  };
+
+  log("NOTIFY", { dryRun, channel, hasOverride: !!payloadOverride });
+
+  if (dryRun) {
+    publish({
+      notify_ok: "true",
+      notify_status: "dry_run",
+      notify_error: "",
+      last_item_id: "{{ITEM_ID}}",
+      last_item_ran_at: ctx.datetime,
+    });
+    return { ok: true, ctx, notice: `📣 Notifier DRY RUN ({{ITEM_ID}})` };
+  }
+
+  // Minimal webhook sender (if requestUrl available)
+  try {
+    if (typeof requestUrl === "function") {
+      const resp = await requestUrl({
+        url: target,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const ok = resp?.status >= 200 && resp?.status < 300;
+
+      publish({
+        notify_ok: ok ? "true" : "false",
+        notify_status: String(resp?.status ?? ""),
+        notify_error: ok ? "" : String(resp?.text ?? "").slice(0, 500),
+        last_item_id: "{{ITEM_ID}}",
+        last_item_ran_at: ctx.datetime,
+      });
+
+      return { ok, ctx, notice: ok ? `📣 Notified (${channel})` : `⚠️ Notifier non-2xx (${channel})` };
+    }
+
+    // Fallback fetch
+    const resp = await fetch(target, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const ok = resp.ok;
+    const text = String(await resp.text()).trim();
+
+    publish({
+      notify_ok: ok ? "true" : "false",
+      notify_status: String(resp.status),
+      notify_error: ok ? "" : text.slice(0, 500),
+      last_item_id: "{{ITEM_ID}}",
+      last_item_ran_at: ctx.datetime,
+    });
+
+    return { ok, ctx, notice: ok ? `📣 Notified (${channel})` : `⚠️ Notifier non-2xx (${channel})` };
+  } catch (e) {
+    publish({
+      notify_ok: "false",
+      notify_status: "",
+      notify_error: e?.message ?? String(e),
+      last_item_id: "{{ITEM_ID}}",
+      last_item_ran_at: ctx.datetime,
+    });
+    return { ok: false, ctx, notice: `❌ Notifier failed ({{ITEM_ID}})` };
+  }
+}

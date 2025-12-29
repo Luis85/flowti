@@ -1,0 +1,19 @@
+
+/.obsidian/plugins
+/.obsidian/snippets
+/.obsidian/themes
+/.obsidian/workspace.json
+/.obsidian/appearance.json
+
+/00 - Connectivity/
+/01 - Projects/
+/02 - Areas/
+/03 - Resources/
+/04 - Archives/
+
+/var/test/
+/var/templates/
+/var/shapes/
+/OneSeater/
+
+node_modules

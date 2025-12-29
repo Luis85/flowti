@@ -1,0 +1,141 @@
+{
+  "title": "Canvas Importer",
+  "name": "canvas-importer",
+  "fields": [
+    {
+      "name": "name",
+      "label": "Name",
+      "description": "Everything needs a name",
+      "isRequired": true,
+      "input": {
+        "type": "text",
+        "hidden": false
+      }
+    },
+    {
+      "name": "folder",
+      "label": "Root Folder",
+      "description": "Please select the root folder to import to.",
+      "isRequired": false,
+      "input": {
+        "type": "folder"
+      }
+    },
+    {
+      "name": "import_mode",
+      "label": "Import Mode",
+      "description": "How should the datta be imported?",
+      "isRequired": false,
+      "input": {
+        "type": "select",
+        "source": "fixed",
+        "options": [
+          {
+            "value": "folder",
+            "label": "Folder Structure"
+          },
+          {
+            "value": "file",
+            "label": "Single File"
+          }
+        ]
+      }
+    },
+    {
+      "name": "hierarchy",
+      "label": "Hierarchy",
+      "description": "By what method should the hierachy be build?",
+      "isRequired": false,
+      "input": {
+        "type": "select",
+        "source": "fixed",
+        "options": [
+          {
+            "value": "product",
+            "label": "Product"
+          },
+          {
+            "value": "flat",
+            "label": "Flat"
+          }
+        ]
+      }
+    },
+    {
+      "name": "overwrite",
+      "label": "Overwrite existing Notes?",
+      "description": "How should existing notes be handled?",
+      "isRequired": false,
+      "input": {
+        "type": "toggle",
+        "hidden": false
+      }
+    },
+    {
+      "name": "tasks",
+      "label": "Add as tasks?",
+      "description": "Activate to add items as tasks",
+      "isRequired": false,
+      "input": {
+        "type": "toggle",
+        "hidden": false
+      }
+    },
+    {
+      "name": "save_empty",
+      "label": "Import empty nodes?",
+      "description": "",
+      "isRequired": false,
+      "condition": {
+        "dependencyName": "import_mode",
+        "type": "isExactly",
+        "value": "folder"
+      },
+      "input": {
+        "type": "toggle",
+        "hidden": false
+      }
+    },
+    {
+      "name": "create_base",
+      "label": "Create Index Base?",
+      "description": "This will create an index base in the given folder.",
+      "isRequired": false,
+      "condition": {
+        "dependencyName": "import_mode",
+        "type": "isExactly",
+        "value": "folder"
+      },
+      "input": {
+        "type": "toggle",
+        "hidden": false
+      }
+    },
+    {
+      "name": "create_canvas",
+      "label": "Create Canvas?",
+      "description": "This will create a new Canvas based on the imported files.",
+      "isRequired": false,
+      "condition": {
+        "dependencyName": "import_mode",
+        "type": "isExactly",
+        "value": "folder"
+      },
+      "input": {
+        "type": "toggle",
+        "hidden": false
+      }
+    },
+    {
+      "name": "debug",
+      "label": "Dry Run",
+      "description": "Just get an report of the canvas.",
+      "isRequired": false,
+      "input": {
+        "type": "toggle",
+        "hidden": false
+      }
+    }
+  ],
+  "version": "1"
+}

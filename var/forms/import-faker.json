@@ -1,0 +1,190 @@
+{
+  "title": "Generate Fake Data",
+  "name": "import-faker",
+  "fields": [
+    {
+      "name": "dataset_type",
+      "label": "Model",
+      "description": "Which entity do you want to generate?",
+      "isRequired": true,
+      "input": {
+        "type": "select",
+        "source": "fixed",
+        "options": [
+          {
+            "value": "test_scenario",
+            "label": "Scenario - Test"
+          },
+          {
+            "value": "user_scenario",
+            "label": "Scenario - User"
+          },
+          {
+            "value": "product_scenario",
+            "label": "Scenario - Product"
+          },
+          {
+            "value": "service_scenario",
+            "label": "Scenario - Service"
+          },
+          {
+            "value": "customer",
+            "label": "Customer"
+          },
+          {
+            "value": "contact",
+            "label": "Contact"
+          },
+          {
+            "value": "product",
+            "label": "Product"
+          },
+          {
+            "value": "sales_order",
+            "label": "Sales Order"
+          },
+          {
+            "value": "sales_order_line",
+            "label": "Sales Order Line"
+          },
+          {
+            "value": "invoice",
+            "label": "Invoice"
+          },
+          {
+            "value": "shipment",
+            "label": "Shipment"
+          },
+          {
+            "value": "supplier",
+            "label": "Supplier"
+          },
+          {
+            "value": "purchase_order",
+            "label": "Purchase Order"
+          },
+          {
+            "value": "purchase_order_line",
+            "label": "Purchase Order Line"
+          },
+          {
+            "value": "goods_receipt",
+            "label": "Goods Receipt"
+          },
+          {
+            "value": "item",
+            "label": "Item"
+          },
+          {
+            "value": "warehouse",
+            "label": "Warehouse"
+          },
+          {
+            "value": "bin",
+            "label": "Bin"
+          },
+          {
+            "value": "inventory_transaction",
+            "label": "Inventory Transaction"
+          },
+          {
+            "value": "payment",
+            "label": "Payment"
+          },
+          {
+            "value": "employee",
+            "label": "Employee"
+          },
+          {
+            "value": "project",
+            "label": "Project"
+          },
+          {
+            "value": "task",
+            "label": "Task"
+          },
+          {
+            "value": "requirement",
+            "label": "Requirement"
+          },
+          {
+            "value": "character",
+            "label": "Character (Game Persona)"
+          },
+          {
+            "value": "quest",
+            "label": "Quest"
+          },
+          {
+            "value": "quest_step",
+            "label": "Quest Step"
+          },
+          {
+            "value": "xp_event",
+            "label": "XP Event"
+          },
+          {
+            "value": "service_touchpoint",
+            "label": "Service Touchpoint"
+          },
+          {
+            "value": "service_lane",
+            "label": "Service Lane / Actor"
+          },
+          {
+            "value": "business_event",
+            "label": "Business Event"
+          },
+          {
+            "value": "command",
+            "label": "Command (Event Storming)"
+          },
+          {
+            "value": "system_component",
+            "label": "System Component"
+          },
+          {
+            "value": "workshop_session",
+            "label": "Workshop Session"
+          }
+        ]
+      }
+    },
+    {
+      "name": "target_folder",
+      "label": "Target Folder",
+      "description": "Where should the generated notes be created?",
+      "isRequired": false,
+      "input": {
+        "type": "folder"
+      }
+    },
+    {
+      "name": "count",
+      "label": "Count",
+      "description": "How many records do you want to generate?",
+      "isRequired": false,
+      "input": {
+        "type": "number",
+        "hidden": false
+      }
+    },
+    {
+      "name": "with_folder_structure",
+      "label": "",
+      "description": "",
+      "input": {
+        "type": "toggle",
+        "allowUnknownValues": false,
+        "hidden": false
+      },
+      "condition": {
+        "dependencyName": "dataset_type",
+        "type": "endsWith",
+        "value": "_scenario"
+      },
+      "isRequired": false
+    }
+  ],
+  "version": "1"
+}

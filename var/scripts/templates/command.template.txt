@@ -1,0 +1,113 @@
+/**
+ * {{SCRIPT_NAME}}
+ *
+ * What this command is for
+ * A “Command” expresses intent to change state (create/update/move/delete).
+ * Use it as a granular step in larger operational flows.
+ *
+ * How to use
+ * - Provide command inputs via `params.variables` to avoid prompts.
+ * - This script should publish outputs (paths/ids/status) back into `params.variables`.
+ *
+ * Command ID: {{ITEM_ID}}
+ * Type: command
+ * Domain: {{ITEM_DOMAIN}}
+ *
+ * Author: {{SCRIPT_AUTHOR}}
+ * Generated at: {{GENERATED_AT}}
+ */
+
+const SET_SCRIPT_NAME = "Script name";
+const SET_DEBUG = "Debug mode";
+const SET_DRY_RUN = "Dry run";
+
+const CONTRACT = {
+  id: "{{ITEM_ID}}",
+  domain: "{{ITEM_DOMAIN}}",
+  type: "command",
+  // Keep these aligned with README Contract
+  inputs: [],
+  outputs: [],
+};
+
+module.exports = {
+  entry: async (params, settings) => {
+    try {
+      const result = await run(params, settings || {});
+      new Notice(result?.notice ?? `✅ Command OK: {{ITEM_ID}}`);
+      return result;
+    } catch (err) {
+      if (err?.name === "MacroAbortError") return { ok: false, aborted: true };
+      console.error(`[${CONTRACT.id}] FAILED`, err);
+      new Notice(`❌ Command failed: ${err?.message ?? String(err)}`);
+      throw err;
+    }
+  },
+
+  settings: {
+    name: "{{SCRIPT_NAME}}",
+    author: "{{SCRIPT_AUTHOR}}",
+    options: {
+      [SET_SCRIPT_NAME]: { type: "text", defaultValue: "{{ITEM_SLUG}}" },
+      [SET_DEBUG]: { type: "toggle", defaultValue: false },
+      [SET_DRY_RUN]: { type: "toggle", defaultValue: false },
+    },
+  },
+};
+
+async function run(params, settings) {
+  const { quickAddApi, variables, app } = params;
+
+  const scriptName = String(settings?.[SET_SCRIPT_NAME] || "{{ITEM_SLUG}}");
+  const debug = !!settings?.[SET_DEBUG];
+  const dryRun = !!settings?.[SET_DRY_RUN];
+  const log = (...a) => debug && console.log(`[${scriptName}]`, ...a);
+
+  if (!quickAddApi) throw new Error("quickAddApi not available. Run this via a QuickAdd Macro.");
+
+  const now = window.moment();
+  const ctx = { date: now.format("YYYY-MM-DD"), datetime: now.toISOString() };
+
+  // ---------- helpers ----------
+  const hasOwn = (k) => Object.prototype.hasOwnProperty.call(variables || {}, k);
+  const shouldPrompt = (k) => !hasOwn(k) || variables[k] === undefined || variables[k] === null;
+
+  async function requireVarOrPrompt(key, label, defaultValue = "") {
+    if (!shouldPrompt(key)) return variables[key];
+    const val = await quickAddApi.inputPrompt(label, defaultValue);
+    if (val === null) throw macroAbort();
+    variables[key] = val;
+    return val;
+  }
+
+  function publish(outputs) {
+    for (const [k, v] of Object.entries(outputs || {})) variables[k] = (v === undefined || v === null) ? "" : v;
+  }
+
+  function macroAbort() {
+    const e = new Error("User cancelled");
+    e.name = "MacroAbortError";
+    return e;
+  }
+
+  log("START", { dryRun, ctx, command: CONTRACT.id });
+
+  // TODO: implement command side-effects
+  // Example: Move File command (pseudo)
+  // const src = await requireVarOrPrompt("src_path", "Source path:");
+  // const dst = await requireVarOrPrompt("dest_path", "Destination path:");
+  // if (dryRun) { log("DRY RUN", { src, dst }); }
+  // else { ... app.vault ... }
+
+  publish({
+    last_item_id: CONTRACT.id,
+    last_item_ran_at: ctx.datetime,
+    command_status: "ok",
+    // created_path: "...",
+    // moved_path: "...",
+  });
+
+  log("END", { ok: true });
+
+  return { ok: true, ctx, commandId: CONTRACT.id, notice: `✅ Command OK (${CONTRACT.id}) — ${ctx.date}` };
+}

@@ -1,0 +1,133 @@
+{
+	"nodes":[
+		{"id":"4517cef133e5d037","type":"group","x":520,"y":-904,"width":1680,"height":860,"color":"2","label":"Views"},
+		{"id":"339a4f8407469bb7","type":"group","x":2320,"y":-904,"width":1180,"height":860,"color":"2","label":"Simulation Engine"},
+		{
+			"id":"baafed04190a68bf",
+			"type":"group",
+			"backgroundStyle":"ratio",
+			"styleAttributes":{
+				"border":null
+			},
+			"x":600,
+			"y":-800,
+			"width":751,
+			"height":440,
+			"color":"6",
+			"label":"GameView - The Office",
+			"background":"03 - Resources/Attachments/GameView - The Office.png"
+		},
+		{"id":"7c6b495f5f23e8ba","type":"group","backgroundStyle":"ratio","x":1760,"y":-558,"width":339,"height":198,"label":"GameView - Marketplace","background":"03 - Resources/Attachments/OneSeater - Marketplace.png"},
+		{"id":"1dd7ef58ca78eb5b","type":"group","backgroundStyle":"ratio","x":1760,"y":-800,"width":340,"height":195,"label":"GameView - Product Catalog","background":"03 - Resources/Attachments/OneSeater - Product Catalog.png"},
+		{"id":"6fa27293c38d0ef7","type":"group","backgroundStyle":"ratio","x":1760,"y":-312,"width":338,"height":192,"label":"GameView - Compendium","background":"03 - Resources/Attachments/OneSeater - Compendium.png"},
+		{
+			"id":"c8f3157acad11c60",
+			"type":"text",
+			"text":"# OneSeater - Main Plugin",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1817,
+			"y":-1600,
+			"width":520,
+			"height":120,
+			"color":"2"
+		},
+		{"id":"09684970a600dce1","type":"file","file":"Development/oneseater/simulation/schedules/SimulationSchedule.ts","x":2900,"y":-800,"width":520,"height":680},
+		{
+			"id":"311748f52d3f93ea",
+			"type":"text",
+			"text":"The Simulation Schedule defines the order of execution of the various systems involved for each simulation step.",
+			"styleAttributes":{},
+			"x":2380,
+			"y":-800,
+			"width":400,
+			"height":195
+		},
+		{"id":"7382b55035a5602e","type":"file","file":"Design/OneSeater - Entity Model.canvas","x":2380,"y":-558,"width":400,"height":198,"color":"6"},
+		{
+			"id":"951302786a24524b",
+			"type":"text",
+			"text":"# Obsidian - The Vault",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1745,
+			"y":-2240,
+			"width":664,
+			"height":149,
+			"color":"2"
+		},
+		{
+			"id":"32e1b06a1d5c6ee8",
+			"type":"file",
+			"file":"Design/OneSeater - The Office - View.canvas",
+			"styleAttributes":{
+				"border":null
+			},
+			"x":1420,
+			"y":-800,
+			"width":271,
+			"height":166,
+			"color":"3"
+		},
+		{"id":"d6cd6b6c7f8b6cc3","type":"file","file":"Design/OneSeater - Message System.canvas","portal":false,"x":520,"y":120,"width":400,"height":300,"color":"2"},
+		{"id":"88518daa820b8697","type":"file","file":"Design/OneSeater - Economy System.canvas","x":980,"y":120,"width":400,"height":300,"color":"2"}
+	],
+	"edges":[
+		{
+			"id":"98baf7465f30dbfb",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"c8f3157acad11c60",
+			"fromSide":"bottom",
+			"toNode":"4517cef133e5d037",
+			"toSide":"top"
+		},
+		{
+			"id":"c4f819cd8697ebbd",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"951302786a24524b",
+			"fromSide":"bottom",
+			"toNode":"c8f3157acad11c60",
+			"toSide":"top"
+		},
+		{
+			"id":"9081796e71627074",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"c8f3157acad11c60",
+			"fromSide":"bottom",
+			"toNode":"339a4f8407469bb7",
+			"toSide":"top"
+		},
+		{
+			"id":"19ed7aae7e2523ea",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"311748f52d3f93ea",
+			"fromSide":"right",
+			"toNode":"09684970a600dce1",
+			"toSide":"left"
+		},
+		{
+			"id":"6900afe31dcd3a95",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"baafed04190a68bf",
+			"fromSide":"bottom",
+			"toNode":"d6cd6b6c7f8b6cc3",
+			"toSide":"top"
+		},
+		{
+			"id":"95b51a46d83cc9e3",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"baafed04190a68bf",
+			"fromSide":"bottom",
+			"toNode":"88518daa820b8697",
+			"toSide":"top"
+		}
+	],
+	"metadata":{
+		"version":"1.0-1.0",
+		"frontmatter":{}
+	}
+}

@@ -1,0 +1,8 @@
+[
+  {
+    "id": "sample",
+    "label": "Obsidian Sample Plugin",
+    "type": "local_folder",
+    "source": "var/scripts/plugin-templates/obsidian-sample-plugin"
+  }
+]

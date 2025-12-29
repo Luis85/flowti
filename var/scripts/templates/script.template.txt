@@ -1,0 +1,100 @@
+/**
+ * {{SCRIPT_NAME}}
+ *
+ * What this script is for
+ * A small reusable building block you can chain in QuickAdd macros.
+ *
+ * How to use
+ * - Add as "User Script" in a QuickAdd Macro.
+ * - Provide inputs via `params.variables` to avoid prompts.
+ * - This script publishes outputs via `params.variables` for downstream steps.
+ *
+ * ID: {{ITEM_ID}}
+ * Type: {{ITEM_TYPE}}
+ * Domain: {{ITEM_DOMAIN}}
+ * Slug: {{ITEM_SLUG}}
+ *
+ * Author: {{SCRIPT_AUTHOR}}
+ * Generated at: {{GENERATED_AT}}
+ */
+
+const SET_SCRIPT_NAME = "Script name";
+const SET_DEBUG = "Debug mode";
+const SET_DRY_RUN = "Dry run";
+
+module.exports = {
+  entry: async (params, settings) => {
+    try {
+      const result = await run(params, settings || {});
+      new Notice(result?.notice ?? `✅ {{ITEM_ID}} OK`);
+      return result;
+    } catch (err) {
+      if (err?.name === "MacroAbortError") return { ok: false, aborted: true };
+      console.error(`[{{ITEM_ID}}] FAILED`, err);
+      new Notice(`❌ {{ITEM_ID}} failed: ${err?.message ?? String(err)}`);
+      throw err;
+    }
+  },
+
+  settings: {
+    name: "{{SCRIPT_NAME}}",
+    author: "{{SCRIPT_AUTHOR}}",
+    options: {
+      [SET_SCRIPT_NAME]: { type: "text", defaultValue: "{{ITEM_SLUG}}" },
+      [SET_DEBUG]: { type: "toggle", defaultValue: false },
+      [SET_DRY_RUN]: { type: "toggle", defaultValue: false },
+    },
+  },
+};
+
+async function run(params, settings) {
+  const { quickAddApi, variables } = params;
+
+  const scriptName = String(settings?.[SET_SCRIPT_NAME] || "{{ITEM_SLUG}}");
+  const debug = !!settings?.[SET_DEBUG];
+  const dryRun = !!settings?.[SET_DRY_RUN];
+  const log = (...a) => debug && console.log(`[${scriptName}]`, ...a);
+
+  if (!quickAddApi) throw new Error("quickAddApi not available. Run this via a QuickAdd Macro.");
+
+  const now = window.moment();
+  const ctx = { date: now.format("YYYY-MM-DD"), datetime: now.toISOString() };
+
+  // ---------- helpers ----------
+  const hasOwn = (k) => Object.prototype.hasOwnProperty.call(variables || {}, k);
+  const shouldPrompt = (k) => !hasOwn(k) || variables[k] === undefined || variables[k] === null;
+
+  async function requireVarOrPrompt(key, label, defaultValue = "") {
+    if (!shouldPrompt(key)) return variables[key];
+    const val = await quickAddApi.inputPrompt(label, defaultValue);
+    if (val === null) throw macroAbort();
+    variables[key] = val;
+    return val;
+  }
+
+  function publish(outputs) {
+    for (const [k, v] of Object.entries(outputs || {})) variables[k] = (v === undefined || v === null) ? "" : v;
+  }
+
+  function macroAbort() {
+    const e = new Error("User cancelled");
+    e.name = "MacroAbortError";
+    return e;
+  }
+
+  log("START", { dryRun, ctx });
+
+  // TODO: implement your script
+  // Example:
+  // const input = await requireVarOrPrompt("some_input", "Some input:");
+  // publish({ some_output: `processed-${input}` });
+
+  publish({
+    last_item_id: "{{ITEM_ID}}",
+    last_item_ran_at: ctx.datetime,
+  });
+
+  log("END", { ok: true });
+
+  return { ok: true, ctx, notice: `✅ OK ({{ITEM_ID}}) — ${ctx.date}` };
+}

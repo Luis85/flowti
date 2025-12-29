@@ -1,0 +1,69 @@
+{
+	"nodes":[
+		{"id":"92f82b48e0d3b047","type":"group","x":1040,"y":2445,"width":2035,"height":1875,"label":"Panels"},
+		{"id":"07745ed55a6cf784","type":"group","x":1345,"y":720,"width":3460,"height":931,"label":"View - The Office"},
+		{"id":"22100863a2f3e6b6","type":"group","x":3903,"y":2445,"width":1257,"height":592,"label":"Modals"},
+		{"id":"13ce18060ca2b71e","type":"file","file":"Development/oneseater/ui/panels/office/TeamStatusPanel.ts","x":1749,"y":3723,"width":617,"height":568},
+		{"id":"cb10608d676c8004","type":"file","file":"Development/oneseater/ui/panels/office/HeaderControlsPanel.ts","x":1071,"y":2474,"width":1973,"height":283},
+		{"id":"e3ed67667edca63b","type":"file","file":"Development/oneseater/ui/panels/office/TimelinePanel.ts","x":1071,"y":2844,"width":1973,"height":170},
+		{"id":"a21b0c9d49e0445c","type":"file","file":"Development/oneseater/ui/panels/office/MessageInboxPanel.ts","x":1071,"y":3099,"width":617,"height":1193},
+		{"id":"13b84fdacf26fae0","type":"file","file":"Development/oneseater/ui/panels/office/FinancePanel.ts","x":1749,"y":3099,"width":617,"height":568},
+		{"id":"e45bb55d5a1864cf","type":"file","file":"Development/oneseater/ui/panels/office/PhasePanel.ts","x":2427,"y":3099,"width":617,"height":398},
+		{"id":"2ed6d4d709f773a2","type":"file","file":"Development/oneseater/ui/panels/office/FeedPanel.ts","x":2427,"y":3979,"width":617,"height":313},
+		{"id":"a646f60a55e8135f","type":"file","file":"Development/oneseater/ui/panels/office/SeasonProgressPanel.ts","x":2427,"y":3567,"width":617,"height":327},
+		{"id":"c5ea7f6fc791350e","type":"file","file":"Development/oneseater/ui/modals/MessageModal.ts","x":3965,"y":2495,"width":535,"height":493},
+		{"id":"d198bd4d9cea1137","type":"file","file":"Development/oneseater/ui/modals/SalesOrderModal.ts","x":4578,"y":2495,"width":535,"height":493},
+		{
+			"id":"413ed09ee5cb322c",
+			"type":"file",
+			"file":"03 - Resources/Attachments/GameView - The Office.png",
+			"styleAttributes":{
+				"border":null
+			},
+			"x":1423,
+			"y":812,
+			"width":1261,
+			"height":739
+		},
+		{"id":"e65da911ecf523f7","type":"file","file":"Development/oneseater/models/GameViewModel.ts","x":2724,"y":812,"width":535,"height":739},
+		{
+			"id":"b95d05be1c1d1aba",
+			"type":"text",
+			"text":"# Events\n\tprivate setupViewEventHandlers(): void {\n\t\tthis.events.subscribe(SimTimeAdvancedEvent, this.onSimTime);\n\t\tthis.events.subscribe(DayPhaseChangedEvent, this.onPhaseChanged);\n\t\tthis.events.subscribe(TimeScaleChangedEvent, this.onTimeScaleChanged);\n\t\tthis.events.subscribe(SimulationTickEvent, this.onTick);\n\t\tthis.events.subscribe(PauseChangedEvent, this.onPauseChanged);\n\t\tthis.events.subscribe(NewMessageReceivedEvent, this.onMessageReceived);\n\t\tthis.events.subscribe(GoToSleepEvent, this.onGoToSleep);\n\t\tthis.events.subscribe(SleepFinishedEvent, this.onSleepFinished);\n\t\tthis.events.subscribe(SleepInterruptedEvent, this.onSleepInterrupted);\n\t\tthis.events.subscribe(SalesOrderCreatedEvent, this.onSalesOrderCreated);\n\t\tthis.events.subscribe(PaymentCollectedEvent, this.onPaymentCollected);\n\t}",
+			"styleAttributes":{
+				"textAlign":null
+			},
+			"x":3299,
+			"y":812,
+			"width":952,
+			"height":739
+		},
+		{"id":"8104b12d325344e1","type":"file","file":"Design/OneSeater - The Office - Layout.canvas","x":4291,"y":812,"width":437,"height":288}
+	],
+	"edges":[
+		{
+			"id":"d2b1302624050cd4",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromFloating":false,
+			"fromNode":"07745ed55a6cf784",
+			"fromSide":"bottom",
+			"toNode":"22100863a2f3e6b6",
+			"toSide":"top"
+		},
+		{
+			"id":"407ab733a0a31a6a",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"07745ed55a6cf784",
+			"fromSide":"bottom",
+			"toNode":"92f82b48e0d3b047",
+			"toSide":"top"
+		}
+	],
+	"metadata":{
+		"version":"1.0-1.0",
+		"frontmatter":{},
+		"startNode":"6393e5f45d630fdf"
+	}
+}
