@@ -1,5 +1,6 @@
 import { Plugin, Notice } from "obsidian";
 import { EventType, IEventBus } from "src/eventsystem";
+import { CharacterCreatedEvent } from "src/eventsystem/characters/CharacterCreatedEvent";
 import { SetTimeScaleEvent } from "src/eventsystem/engine/SetTimeScaleEvent";
 import { SimulationStartedEvent } from "src/eventsystem/engine/SimulationStartedEvent";
 import { SimulationStoppedEvent } from "src/eventsystem/engine/SimulationStoppedEvent";
@@ -18,6 +19,7 @@ import { OneSeaterSettings } from "src/settings/types";
 import { ISimulation, Simulation } from "src/simulation/Simulation";
 import { GameSettingsStore } from "src/simulation/stores/GameSettingsStore";
 import { SimulationStore } from "src/simulation/stores/SimulationStore";
+import { CharacterCreationModal } from "src/ui/modals/CharacterCreationModal";
 import { NotificationService } from "src/ui/NotificationService";
 import { ReactiveRibbonManager } from "src/ui/ReactiveRibbonManager";
 import { GAME_COMPENDIUM_VIEW, GameCompendiumView } from "src/ui/views/GameCompendiumView";
@@ -72,6 +74,7 @@ export default class OneSeater extends Plugin {
 			this.subscribeToSimulationState();
 			this.registerViews();
 			this.registerRibbonButtons();
+			this.registerCommands();
 			this.addSettingTab(new OneSeaterSettingTab(this.app, this));
 
 			// we void here to prevent waiting for resolving which will never happen
@@ -125,7 +128,13 @@ export default class OneSeater extends Plugin {
 		}
 	}
 
-	// --- STATUSBAR EVENTS AND RENDER UPDATE
+	// --- CHARACTER CREATION
+	
+	private onCharacterCreated = (event: CharacterCreatedEvent): void => {
+		console.log('Character Created:', event)
+	};
+
+	// --- EVENTS AND RENDER UPDATE
 
 	private onTick = (event: SimulationTickEvent): void => {
 		if (this.debug) this.debugMessages();
@@ -226,6 +235,7 @@ export default class OneSeater extends Plugin {
 		this.sub(SimulationTickEvent, this.onTick);
 		this.sub(SimulationTockEvent, this.onTock);
 		this.sub(TogglePauseEvent, this.onPauseChanged);
+		this.sub(CharacterCreatedEvent, this.onCharacterCreated);
 	}
 
 	private registerViews(): void {
@@ -315,6 +325,10 @@ export default class OneSeater extends Plugin {
 			this.timersTest();
 		});
 
+		this.addRibbonIcon("user", "Character", () => {
+			new CharacterCreationModal(this.app, this.events).open();
+		});
+
 		// === Simulation Controls ===
 		this.ribbons.register({
 			id: "start",
@@ -331,6 +345,16 @@ export default class OneSeater extends Plugin {
 			},
 			onClick: () => this.simulation.stop(),
 		});
+	}
+
+	private registerCommands() {
+		this.addCommand({
+            id: 'create-character',
+            name: 'Create New Character',
+            callback: () => {
+                new CharacterCreationModal(this.app, this.events).open();
+            }
+        });
 	}
 
 	private setTimeScale(scale: number) {
