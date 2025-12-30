@@ -13,5 +13,10 @@ export default defineConfig({
 				},
 			],
 		],
+		coverage: {
+			provider: "v8", // or 'istanbul'
+			reportsDirectory: "docs/coverage", // <-- custom output path
+			reporter: ["text", "html"], // multiple formats
+		},
 	},
 });
