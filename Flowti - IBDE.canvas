@@ -1,14 +1,14 @@
 {
 	"nodes":[
 		{"id":"26cc53f83ddc91c0","type":"group","x":-621,"y":-298,"width":5341,"height":3718,"label":"Solutionbuilder"},
-		{"id":"c871c9f60401b5a7","x":-500,"y":2620,"width":4670,"height":661,"type":"group","label":"Deliverables by Category"},
+		{"id":"c871c9f60401b5a7","type":"group","x":-500,"y":2620,"width":4670,"height":661,"label":"Deliverables by Category"},
 		{"id":"708e3850a61e27d9","type":"group","x":1640,"y":800,"width":1860,"height":100,"label":"Build"},
 		{"id":"febfee157972448f","type":"group","x":-1600,"y":380,"width":523,"height":300,"label":"Plugin Commands"},
 		{"id":"396014480c04023c","type":"group","x":-500,"y":380,"width":500,"height":300,"label":"Events"},
 		{
 			"id":"1f9ee62b7b9dd569",
 			"type":"text",
-			"text":"# Flowti - The Integrated Business Development Environment\n\nAn opinionated framework to build things. \n## Features\n\n- Document a Development Project from start to finish\n- Use the Solution Builder with pre-defined Templates\n  - Product Design - Bring new Ideas to Production\n  - Process Design - Improve and Manage Processes\n\n## Use Cases\n\n- Create a new Plugin from Template\n- Import a Canvas to document designs\n- Connect code, design, and documentation\n",
+			"text":"# Flowti - The Integrated Business Development Environment\n\nAn opinionated framework to build things. \n## Features\n\n- Document a Development Project from start to finish\n- Use the Solution Builder with pre-defined Templates\n  - Product Design - Bring new Ideas to Production\n  - Process Design - Improve and Manage Processes\n\n## Use Cases\n\n- Create a new Plugin from Template\n- Import a Canvas to document designs\n- Connect code, design, and documentation\n\n## Integrations\n\n- Twitch\n- MS Teams\n- Discord\n",
 			"styleAttributes":{
 				"textAlign":null
 			},
@@ -41,16 +41,6 @@
 			"color":"5"
 		},
 		{
-			"id":"76d48e296a2daff2",
-			"type":"text",
-			"text":"New Solution Created",
-			"styleAttributes":{"textAlign":"center","shape":"circle"},
-			"x":-460,
-			"y":420,
-			"width":140,
-			"height":140
-		},
-		{
 			"id":"b82572ffacf60887",
 			"type":"text",
 			"text":"# Entities\n\n```ts\nSolution\n├─ id\n├─ name\n├─ type (Application | Process | Service | ...)\n├─ lifecycleStage\n├─ deliverables[]\n├─ metrics[]\n├─ owner\n```\n\n```ts\nLifecycleStage\n├─ name\n├─ order\n```\n\n```ts\nDeliverable\n├─ id\n├─ name\n├─ type\n├─ relatedStage\n├─ acceptanceCriteria[]\n```\n\n```ts\nMetric\n├─ name\n├─ category (quality, speed, value)\n├─ target\n├─ actual\n```\n",
@@ -61,16 +51,6 @@
 			"y":759,
 			"width":500,
 			"height":841
-		},
-		{
-			"id":"2c10851d8be5ee38",
-			"type":"text",
-			"text":"",
-			"styleAttributes":{"textAlign":"center","shape":"circle"},
-			"x":-200,
-			"y":420,
-			"width":140,
-			"height":140
 		},
 		{
 			"id":"e5fb8182411beba3",
@@ -95,6 +75,122 @@
 			"y":2009,
 			"width":500,
 			"height":320
+		},
+		{
+			"id":"45fc872ab753612a",
+			"type":"text",
+			"text":"- What problem do you want to solve?\n- Do you have already a name in mind?\n- Choose from on of the templates",
+			"styleAttributes":{
+				"textAlign":null
+			},
+			"x":-500,
+			"y":160,
+			"width":500,
+			"height":116
+		},
+		{
+			"id":"76d48e296a2daff2",
+			"type":"text",
+			"text":"New Solution Created",
+			"styleAttributes":{"textAlign":"center","shape":"circle"},
+			"x":-460,
+			"y":420,
+			"width":140,
+			"height":140
+		},
+		{
+			"id":"2c10851d8be5ee38",
+			"type":"text",
+			"text":"",
+			"styleAttributes":{"textAlign":"center","shape":"circle"},
+			"x":-200,
+			"y":420,
+			"width":140,
+			"height":140
+		},
+		{
+			"id":"b274aec8016b68ff",
+			"type":"text",
+			"text":"## 🧠 Capability\n\n|Phase|Typische Deliverables|\n|---|---|\n|Ideate|Capability Gap Analysis|\n|Design|Zielbild (People / Process / Tools)|\n|Validate|Proof of Capability|\n|Develop|Trainings, Enablement|\n|Test|Pilot Teams|\n|Release|Org-weiter Rollout|\n|Run|Capability Operating Model|\n|Measure|Reifegrad|\n|Learn|Ausbau / Vertiefung|\n",
+			"styleAttributes":{
+				"textAlign":null
+			},
+			"x":-442,
+			"y":2681,
+			"width":433,
+			"height":520
+		},
+		{
+			"id":"659ba5edce9fd31a",
+			"type":"text",
+			"text":"## 🔄 Process\n\n|Phase|Typische Deliverables|\n|---|---|\n|Ideate|Problem Hypothese, Ist-Analyse|\n|Design|BPMN, SIPOC, RACI|\n|Validate|Walkthrough, Simulation, Pilot|\n|Develop|SOPs, Work Instructions|\n|Test|Dry Runs, Schulungen|\n|Release|Rollout-Plan|\n|Run|Prozess-KPIs, Operative Reports|\n|Measure|Cycle Time, Fehlerquote|\n|Learn|Prozessverbesserungen (Kaizen)|\n",
+			"styleAttributes":{
+				"textAlign":null
+			},
+			"x":71,
+			"y":2681,
+			"width":433,
+			"height":520
+		},
+		{
+			"id":"67b05749f4853fc3",
+			"type":"text",
+			"text":"## 📦 Product\n\n|Phase|Typische Deliverables|\n|---|---|\n|Ideate|Product Strategy|\n|Design|Product Board, Feature Map|\n|Validate|MVP Definition|\n|Develop|Inkremente|\n|Test|Market Tests|\n|Release|Go-to-Market|\n|Run|Product Ops|\n|Measure|Revenue, Adoption|\n|Learn|Roadmap Anpassung|\n",
+			"styleAttributes":{
+				"textAlign":null
+			},
+			"x":1097,
+			"y":2681,
+			"width":433,
+			"height":520
+		},
+		{
+			"id":"d27539194961977f",
+			"type":"text",
+			"text":"## 🧑‍💼 Service\n\n|Phase|Typische Deliverables|\n|---|---|\n|Ideate|Service Vision, Customer Need|\n|Design|Service Blueprint, Touchpoints|\n|Validate|Pilot Service, Shadowing|\n|Develop|SLA, Support Playbooks|\n|Test|Pilotkunden, Service QA|\n|Release|Servicekatalog|\n|Run|SLA Tracking|\n|Measure|CSAT, NPS|\n|Learn|Service Optimierung|\n",
+			"styleAttributes":{
+				"textAlign":null
+			},
+			"x":592,
+			"y":2681,
+			"width":433,
+			"height":520
+		},
+		{
+			"id":"dce9c3eb2170798c",
+			"type":"text",
+			"text":"```JSON\n[\n  {\n    \"category\": \"Application\",\n    \"description\": \"Software-based solution such as web apps, tools, platforms or SaaS products.\",\n    \"lifecycle\": [\n      { \"phase\": \"Ideate\", \"deliverables\": [\"Problem Statement\", \"Product Vision\", \"Jobs to be Done\"] },\n      { \"phase\": \"Design\", \"deliverables\": [\"UX Flows\", \"Wireframes\", \"Architecture (C4)\", \"ER Model\"] },\n      { \"phase\": \"Validate\", \"deliverables\": [\"Prototype\", \"UX Tests\", \"Technical Spike\"] },\n      { \"phase\": \"Develop\", \"deliverables\": [\"Source Code\", \"Backlog Items\", \"APIs\"] },\n      { \"phase\": \"Test\", \"deliverables\": [\"Test Cases\", \"Test Reports\", \"Security Scan\"] },\n      { \"phase\": \"Release\", \"deliverables\": [\"Deployment Package\", \"Release Notes\"] },\n      { \"phase\": \"Run\", \"deliverables\": [\"Monitoring\", \"Logs\", \"Runbook\"] },\n      { \"phase\": \"Measure\", \"deliverables\": [\"Usage Metrics\", \"Performance KPIs\"] },\n      { \"phase\": \"Learn\", \"deliverables\": [\"Retrospective\", \"Roadmap Updates\"] }\n    ]\n  },\n  {\n    \"category\": \"Process\",\n    \"description\": \"Business or operational processes defining how work is executed.\",\n    \"lifecycle\": [\n      { \"phase\": \"Ideate\", \"deliverables\": [\"Problem Hypothesis\", \"As-Is Analysis\"] },\n      { \"phase\": \"Design\", \"deliverables\": [\"BPMN Diagram\", \"SIPOC\", \"RACI Matrix\"] },\n      { \"phase\": \"Validate\", \"deliverables\": [\"Process Walkthrough\", \"Simulation\", \"Pilot\"] },\n      { \"phase\": \"Develop\", \"deliverables\": [\"Standard Operating Procedures\", \"Work Instructions\"] },\n      { \"phase\": \"Test\", \"deliverables\": [\"Dry Runs\", \"Training Sessions\"] },\n      { \"phase\": \"Release\", \"deliverables\": [\"Rollout Plan\"] },\n      { \"phase\": \"Run\", \"deliverables\": [\"Process KPIs\", \"Operational Reports\"] },\n      { \"phase\": \"Measure\", \"deliverables\": [\"Cycle Time Metrics\", \"Error Rates\"] },\n      { \"phase\": \"Learn\", \"deliverables\": [\"Continuous Improvement Actions\"] }\n    ]\n  },\n  {\n    \"category\": \"Service\",\n    \"description\": \"Customer-facing or internal services delivering ongoing value.\",\n    \"lifecycle\": [\n      { \"phase\": \"Ideate\", \"deliverables\": [\"Service Vision\", \"Customer Needs\"] },\n      { \"phase\": \"Design\", \"deliverables\": [\"Service Blueprint\", \"Touchpoint Map\"] },\n      { \"phase\": \"Validate\", \"deliverables\": [\"Pilot Service\", \"Shadowing\"] },\n      { \"phase\": \"Develop\", \"deliverables\": [\"Service Playbooks\", \"SLAs\"] },\n      { \"phase\": \"Test\", \"deliverables\": [\"Pilot Customers\", \"Service Quality Checks\"] },\n      { \"phase\": \"Release\", \"deliverables\": [\"Service Catalog Entry\"] },\n      { \"phase\": \"Run\", \"deliverables\": [\"SLA Monitoring\"] },\n      { \"phase\": \"Measure\", \"deliverables\": [\"CSAT\", \"NPS\"] },\n      { \"phase\": \"Learn\", \"deliverables\": [\"Service Optimization Measures\"] }\n    ]\n  },\n  {\n    \"category\": \"Product\",\n    \"description\": \"Market-facing offering combining applications, services and processes.\",\n    \"lifecycle\": [\n      { \"phase\": \"Ideate\", \"deliverables\": [\"Product Strategy\"] },\n      { \"phase\": \"Design\", \"deliverables\": [\"Product Board\", \"Feature Map\"] },\n      { \"phase\": \"Validate\", \"deliverables\": [\"MVP Definition\"] },\n      { \"phase\": \"Develop\", \"deliverables\": [\"Product Increments\"] },\n      { \"phase\": \"Test\", \"deliverables\": [\"Market Tests\"] },\n      { \"phase\": \"Release\", \"deliverables\": [\"Go-to-Market Plan\"] },\n      { \"phase\": \"Run\", \"deliverables\": [\"Product Operations Setup\"] },\n      { \"phase\": \"Measure\", \"deliverables\": [\"Revenue Metrics\", \"Adoption Metrics\"] },\n      { \"phase\": \"Learn\", \"deliverables\": [\"Product Roadmap Adjustments\"] }\n    ]\n  },\n  {\n    \"category\": \"Capability\",\n    \"description\": \"Organizational ability combining people, processes and tools.\",\n    \"lifecycle\": [\n      { \"phase\": \"Ideate\", \"deliverables\": [\"Capability Gap Analysis\"] },\n      { \"phase\": \"Design\", \"deliverables\": [\"Target Operating Model\", \"Skill Framework\"] },\n      { \"phase\": \"Validate\", \"deliverables\": [\"Proof of Capability\"] },\n      { \"phase\": \"Develop\", \"deliverables\": [\"Training Programs\", \"Enablement Material\"] },\n      { \"phase\": \"Test\", \"deliverables\": [\"Pilot Teams\"] },\n      { \"phase\": \"Release\", \"deliverables\": [\"Organization-wide Rollout\"] },\n      { \"phase\": \"Run\", \"deliverables\": [\"Capability Operating Model\"] },\n      { \"phase\": \"Measure\", \"deliverables\": [\"Capability Maturity Assessment\"] },\n      { \"phase\": \"Learn\", \"deliverables\": [\"Capability Improvement Initiatives\"] }\n    ]\n  },\n  {\n    \"category\": \"Data\",\n    \"description\": \"Data, analytics and information products supporting decisions.\",\n    \"lifecycle\": [\n      { \"phase\": \"Ideate\", \"deliverables\": [\"Decision Use Cases\"] },\n      { \"phase\": \"Design\", \"deliverables\": [\"Data Model\", \"KPI Definitions\"] },\n      { \"phase\": \"Validate\", \"deliverables\": [\"Sample Reports\"] },\n      { \"phase\": \"Develop\", \"deliverables\": [\"Data Pipelines\", \"Queries\"] },\n      { \"phase\": \"Test\", \"deliverables\": [\"Data Quality Checks\"] },\n      { \"phase\": \"Release\", \"deliverables\": [\"Dashboards\", \"Reports\"] },\n      { \"phase\": \"Run\", \"deliverables\": [\"Data Operations Procedures\"] },\n      { \"phase\": \"Measure\", \"deliverables\": [\"Usage Metrics\", \"Data Accuracy Metrics\"] },\n      { \"phase\": \"Learn\", \"deliverables\": [\"KPI Refinements\"] }\n    ]\n  },\n  {\n    \"category\": \"Tool\",\n    \"description\": \"Supporting systems or platforms enabling work.\",\n    \"lifecycle\": [\n      { \"phase\": \"Ideate\", \"deliverables\": [\"Tool Requirements\"] },\n      { \"phase\": \"Design\", \"deliverables\": [\"Target Architecture\"] },\n      { \"phase\": \"Validate\", \"deliverables\": [\"Buy vs Build Decision\"] },\n      { \"phase\": \"Develop\", \"deliverables\": [\"System Configuration\"] },\n      { \"phase\": \"Test\", \"deliverables\": [\"Integration Tests\"] },\n      { \"phase\": \"Release\", \"deliverables\": [\"Go-Live Plan\"] },\n      { \"phase\": \"Run\", \"deliverables\": [\"Operational Support Setup\"] },\n      { \"phase\": \"Measure\", \"deliverables\": [\"Cost-Benefit Analysis\"] },\n      { \"phase\": \"Learn\", \"deliverables\": [\"Tool Optimization Actions\"] }\n    ]\n  },\n  {\n    \"category\": \"Organization\",\n    \"description\": \"Organizational structures, teams and governance models.\",\n    \"lifecycle\": [\n      { \"phase\": \"Ideate\", \"deliverables\": [\"Organizational Problem Statement\"] },\n      { \"phase\": \"Design\", \"deliverables\": [\"Role Model\", \"Governance Model\"] },\n      { \"phase\": \"Validate\", \"deliverables\": [\"Organizational Pilot\"] },\n      { \"phase\": \"Develop\", \"deliverables\": [\"Training and Coaching Plans\"] },\n      { \"phase\": \"Test\", \"deliverables\": [\"Team Health Checks\"] },\n      { \"phase\": \"Release\", \"deliverables\": [\"Organizational Change Rollout\"] },\n      { \"phase\": \"Run\", \"deliverables\": [\"Operational Governance\"] },\n      { \"phase\": \"Measure\", \"deliverables\": [\"Engagement Metrics\"] },\n      { \"phase\": \"Learn\", \"deliverables\": [\"Organizational Design Adjustments\"] }\n    ]\n  },\n  {\n    \"category\": \"Policy\",\n    \"description\": \"Rules, standards and policies guiding behavior and decisions.\",\n    \"lifecycle\": [\n      { \"phase\": \"Ideate\", \"deliverables\": [\"Policy Need Assessment\"] },\n      { \"phase\": \"Design\", \"deliverables\": [\"Policy Draft\"] },\n      { \"phase\": \"Validate\", \"deliverables\": [\"Stakeholder Review\"] },\n      { \"phase\": \"Develop\", \"deliverables\": [\"Final Policy Document\"] },\n      { \"phase\": \"Test\", \"deliverables\": [\"Pilot Enforcement\"] },\n      { \"phase\": \"Release\", \"deliverables\": [\"Policy Publication\"] },\n      { \"phase\": \"Run\", \"deliverables\": [\"Policy Enforcement\"] },\n      { \"phase\": \"Measure\", \"deliverables\": [\"Compliance Metrics\"] },\n      { \"phase\": \"Learn\", \"deliverables\": [\"Policy Revisions\"] }\n    ]\n  }\n]\n\n```",
+			"styleAttributes":{
+				"textAlign":null
+			},
+			"x":199,
+			"y":3760,
+			"width":980,
+			"height":845
+		},
+		{
+			"id":"efd874aa5d055831",
+			"type":"text",
+			"text":"```JSON\n[\n  {\n    \"entity\": \"LifecyclePhase\",\n    \"name\": \"Ideate\",\n    \"roles\": [\"Product Owner\", \"Business Owner\", \"Stakeholder\"],\n    \"metrics\": [\n      { \"name\": \"Problem Clarity Score\", \"type\": \"qualitative\", \"target\": \">= 7/10\" },\n      { \"name\": \"Stakeholder Alignment\", \"type\": \"qualitative\", \"target\": \"approved\" }\n    ],\n    \"decisionGate\": \"Idea Approved\",\n    \"responsibilities\": [\n      \"Identify problem or opportunity\",\n      \"Define initial value hypothesis\"\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhase\",\n    \"name\": \"Design\",\n    \"roles\": [\"Product Owner\", \"UX Designer\", \"Solution Architect\"],\n    \"metrics\": [\n      { \"name\": \"Design Completeness\", \"type\": \"qualitative\", \"target\": \"approved\" },\n      { \"name\": \"Design Review Findings\", \"type\": \"quantitative\", \"target\": \"<= 5\" }\n    ],\n    \"decisionGate\": \"Design Approved\",\n    \"responsibilities\": [\n      \"Create solution design\",\n      \"Align design with stakeholders\"\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhase\",\n    \"name\": \"Validate\",\n    \"roles\": [\"Product Owner\", \"UX Designer\", \"QA\"],\n    \"metrics\": [\n      { \"name\": \"Validation Success Rate\", \"type\": \"quantitative\", \"target\": \">= 80%\" },\n      { \"name\": \"User Feedback Score\", \"type\": \"qualitative\", \"target\": \">= 7/10\" }\n    ],\n    \"decisionGate\": \"Validation Passed\",\n    \"responsibilities\": [\n      \"Test assumptions\",\n      \"Collect feedback\"\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhase\",\n    \"name\": \"Develop\",\n    \"roles\": [\"Software Developer\", \"Process Engineer\", \"Data Engineer\"],\n    \"metrics\": [\n      { \"name\": \"Implementation Progress\", \"type\": \"quantitative\", \"target\": \"100%\" },\n      { \"name\": \"Technical Debt Index\", \"type\": \"quantitative\", \"target\": \"<= threshold\" }\n    ],\n    \"decisionGate\": \"Implementation Complete\",\n    \"responsibilities\": [\n      \"Build solution\",\n      \"Maintain quality standards\"\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhase\",\n    \"name\": \"Test\",\n    \"roles\": [\"QA\", \"User Representative\"],\n    \"metrics\": [\n      { \"name\": \"Defect Density\", \"type\": \"quantitative\", \"target\": \"<= acceptable\" },\n      { \"name\": \"Test Coverage\", \"type\": \"quantitative\", \"target\": \">= 80%\" }\n    ],\n    \"decisionGate\": \"Test Approved\",\n    \"responsibilities\": [\n      \"Verify solution\",\n      \"Document issues\"\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhase\",\n    \"name\": \"Release\",\n    \"roles\": [\"Release Manager\", \"Operations\"],\n    \"metrics\": [\n      { \"name\": \"Release Success Rate\", \"type\": \"quantitative\", \"target\": \"100%\" },\n      { \"name\": \"Rollback Events\", \"type\": \"quantitative\", \"target\": \"0\" }\n    ],\n    \"decisionGate\": \"Released\",\n    \"responsibilities\": [\n      \"Deploy solution\",\n      \"Communicate release\"\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhase\",\n    \"name\": \"Run\",\n    \"roles\": [\"Operations\", \"Support\"],\n    \"metrics\": [\n      { \"name\": \"Availability\", \"type\": \"quantitative\", \"target\": \">= 99.5%\" },\n      { \"name\": \"Incident Rate\", \"type\": \"quantitative\", \"target\": \"<= SLA\" }\n    ],\n    \"decisionGate\": \"Operational Stability\",\n    \"responsibilities\": [\n      \"Operate solution\",\n      \"Handle incidents\"\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhase\",\n    \"name\": \"Measure\",\n    \"roles\": [\"Product Manager\", \"Data Analyst\"],\n    \"metrics\": [\n      { \"name\": \"Business Impact\", \"type\": \"quantitative\", \"target\": \"defined KPI\" },\n      { \"name\": \"Adoption Rate\", \"type\": \"quantitative\", \"target\": \">= target\" }\n    ],\n    \"decisionGate\": \"Impact Verified\",\n    \"responsibilities\": [\n      \"Analyze performance\",\n      \"Report outcomes\"\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhase\",\n    \"name\": \"Learn\",\n    \"roles\": [\"Product Owner\", \"Team\", \"Management\"],\n    \"metrics\": [\n      { \"name\": \"Improvement Actions Identified\", \"type\": \"quantitative\", \"target\": \">= 1\" },\n      { \"name\": \"Learning Documented\", \"type\": \"qualitative\", \"target\": \"yes\" }\n    ],\n    \"decisionGate\": \"Learning Integrated\",\n    \"responsibilities\": [\n      \"Conduct retrospectives\",\n      \"Update roadmap or process\"\n    ]\n  }\n]\n\n```",
+			"styleAttributes":{
+				"textAlign":null
+			},
+			"x":1227,
+			"y":3760,
+			"width":972,
+			"height":845
+		},
+		{
+			"id":"7dfdf1410f4f3305",
+			"type":"text",
+			"text":"```typescript\nexport type LifecyclePhaseName =\n  | \"Ideate\"\n  | \"Design\"\n  | \"Validate\"\n  | \"Develop\"\n  | \"Test\"\n  | \"Release\"\n  | \"Run\"\n  | \"Measure\"\n  | \"Learn\";\n\nexport type ScaleLabel = \"0-1\" | \"1-10\";\n\nexport type NumericRange = {\n  base: number;\n  min: number;\n  max: number;\n};\n\nexport type DifficultyRange = NumericRange & {\n  scale: \"1-10\";\n};\n\nexport type RiskRange = NumericRange & {\n  scale: \"0-1\";\n};\n\nexport type ComparisonOperator = \">=\" | \"<=\" | \"==\" | \"!=\" | \">\" | \"<\";\n\n/**\n * Success checks can compare numeric targets (e.g. >= 80)\n * or symbolic targets (e.g. == \"approved\", >= \"target\").\n */\nexport type SuccessCheckValue = number | string;\n\nexport type SuccessCheck = {\n  metric: string;\n  operator: ComparisonOperator;\n  value: SuccessCheckValue;\n};\n\nexport type FailureCondition = {\n  id: string;         // stable key for logic & localization\n  label: string;      // display text\n  severity: number;   // 0..1 (impact weight)\n};\n\nexport type RewardType = \"unlock\" | \"buff\" | \"item\" | \"currency\" | \"loop\";\nexport type PenaltyType = \"rework\" | \"energy\" | \"time\" | \"risk\" | \"currency\";\n\nexport type Reward = {\n  type: RewardType;\n  value: string | number;\n  /** Optional when reward is probabilistic. Default: 1 */\n  probability?: number; // 0..1\n};\n\nexport type Penalty = {\n  type: PenaltyType;\n  value: string | number;\n  /** When this penalty is applied */\n  trigger?: \"failure\" | \"always\" | \"random\";\n  /** Optional for probabilistic penalties */\n  probability?: number; // 0..1\n};\n\nexport type LifecyclePhaseGameParams = {\n  entity: \"LifecyclePhaseGameParams\";\n  phase: LifecyclePhaseName;\n\n  xp: NumericRange;\n  energyCost: NumericRange;\n  timeCostMinutes: NumericRange;\n\n  difficulty: DifficultyRange;\n  risk: RiskRange;\n\n  failureConditions: FailureCondition[];\n  successChecks: SuccessCheck[];\n\n  rewards: Reward[];\n  penalties: Penalty[];\n};\n\n/**\n * Convenience: whole dataset shape\n */\nexport type LifecyclePhaseGameParamsDataset = LifecyclePhaseGameParams[];\n\n/**\n * Optional: helper type for indexed lookup at runtime\n */\nexport type LifecyclePhaseGameParamsIndex = Record<LifecyclePhaseName, LifecyclePhaseGameParams>;\n\n```",
+			"styleAttributes":{
+				"textAlign":null
+			},
+			"x":-611,
+			"y":3760,
+			"width":722,
+			"height":845
 		},
 		{
 			"id":"7d0445bdea38a273",
@@ -145,42 +241,6 @@
 			"height":520
 		},
 		{
-			"id":"b274aec8016b68ff",
-			"type":"text",
-			"text":"## 🧠 Capability\n\n|Phase|Typische Deliverables|\n|---|---|\n|Ideate|Capability Gap Analysis|\n|Design|Zielbild (People / Process / Tools)|\n|Validate|Proof of Capability|\n|Develop|Trainings, Enablement|\n|Test|Pilot Teams|\n|Release|Org-weiter Rollout|\n|Run|Capability Operating Model|\n|Measure|Reifegrad|\n|Learn|Ausbau / Vertiefung|\n",
-			"styleAttributes":{
-				"textAlign":null
-			},
-			"x":-442,
-			"y":2681,
-			"width":433,
-			"height":520
-		},
-		{
-			"id":"659ba5edce9fd31a",
-			"type":"text",
-			"text":"## 🔄 Process\n\n|Phase|Typische Deliverables|\n|---|---|\n|Ideate|Problem Hypothese, Ist-Analyse|\n|Design|BPMN, SIPOC, RACI|\n|Validate|Walkthrough, Simulation, Pilot|\n|Develop|SOPs, Work Instructions|\n|Test|Dry Runs, Schulungen|\n|Release|Rollout-Plan|\n|Run|Prozess-KPIs, Operative Reports|\n|Measure|Cycle Time, Fehlerquote|\n|Learn|Prozessverbesserungen (Kaizen)|\n",
-			"styleAttributes":{
-				"textAlign":null
-			},
-			"x":71,
-			"y":2681,
-			"width":433,
-			"height":520
-		},
-		{
-			"id":"67b05749f4853fc3",
-			"type":"text",
-			"text":"## 📦 Product\n\n|Phase|Typische Deliverables|\n|---|---|\n|Ideate|Product Strategy|\n|Design|Product Board, Feature Map|\n|Validate|MVP Definition|\n|Develop|Inkremente|\n|Test|Market Tests|\n|Release|Go-to-Market|\n|Run|Product Ops|\n|Measure|Revenue, Adoption|\n|Learn|Roadmap Anpassung|\n",
-			"styleAttributes":{
-				"textAlign":null
-			},
-			"x":1097,
-			"y":2681,
-			"width":433,
-			"height":520
-		},
-		{
 			"id":"170888e26cc2dfd0",
 			"type":"text",
 			"text":"## 📊 Data / Information\n\n|Phase|Typische Deliverables|\n|---|---|\n|Ideate|Decision Use-Cases|\n|Design|Datenmodell, KPIs|\n|Validate|Sample Reports|\n|Develop|Pipelines, Queries|\n|Test|Data Quality Checks|\n|Release|Dashboards|\n|Run|Data Ops|\n|Measure|Nutzung, Accuracy|\n|Learn|KPI Anpassungen|\n",
@@ -193,16 +253,49 @@
 			"height":520
 		},
 		{
-			"id":"d27539194961977f",
+			"id":"7570ec0904471cbc",
 			"type":"text",
-			"text":"## 🧑‍💼 Service\n\n|Phase|Typische Deliverables|\n|---|---|\n|Ideate|Service Vision, Customer Need|\n|Design|Service Blueprint, Touchpoints|\n|Validate|Pilot Service, Shadowing|\n|Develop|SLA, Support Playbooks|\n|Test|Pilotkunden, Service QA|\n|Release|Servicekatalog|\n|Run|SLA Tracking|\n|Measure|CSAT, NPS|\n|Learn|Service Optimierung|\n",
+			"text":"Open Source Project",
 			"styleAttributes":{
 				"textAlign":null
 			},
-			"x":592,
-			"y":2681,
-			"width":433,
-			"height":520
+			"x":1180,
+			"y":729,
+			"width":340,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"0bbd37d4ec340c43",
+			"type":"text",
+			"text":"Ideate",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1660,
+			"y":820,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"5aa67cfd11180eda",
+			"type":"text",
+			"text":"Design",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2000,
+			"y":820,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"ee4522022b1bdb1d",
+			"type":"text",
+			"text":"```JSON\n[\n  {\n    \"entity\": \"LifecyclePhaseGameParams\",\n    \"phase\": \"Ideate\",\n    \"xp\": { \"base\": 15, \"min\": 5, \"max\": 30 },\n    \"energyCost\": { \"base\": 3, \"min\": 1, \"max\": 6 },\n    \"timeCostMinutes\": { \"base\": 30, \"min\": 10, \"max\": 90 },\n    \"difficulty\": { \"base\": 2, \"min\": 1, \"max\": 4, \"scale\": \"1-10\" },\n    \"risk\": { \"base\": 0.25, \"min\": 0.1, \"max\": 0.45, \"scale\": \"0-1\" },\n    \"failureConditions\": [\n      { \"id\": \"no_problem_statement\", \"label\": \"Problem not defined\", \"severity\": 0.6 },\n      { \"id\": \"no_alignment\", \"label\": \"No stakeholder alignment\", \"severity\": 0.7 }\n    ],\n    \"successChecks\": [\n      { \"metric\": \"Problem Clarity Score\", \"operator\": \">=\", \"value\": 7 },\n      { \"metric\": \"Stakeholder Alignment\", \"operator\": \"==\", \"value\": \"approved\" }\n    ],\n    \"rewards\": [\n      { \"type\": \"unlock\", \"value\": \"Design phase\" },\n      { \"type\": \"buff\", \"value\": \"Focus +5% (next phase)\" }\n    ],\n    \"penalties\": [\n      { \"type\": \"rework\", \"value\": \"Validate extra iteration\", \"probability\": 0.25 },\n      { \"type\": \"energy\", \"value\": -2, \"trigger\": \"failure\" }\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhaseGameParams\",\n    \"phase\": \"Design\",\n    \"xp\": { \"base\": 25, \"min\": 10, \"max\": 45 },\n    \"energyCost\": { \"base\": 6, \"min\": 3, \"max\": 10 },\n    \"timeCostMinutes\": { \"base\": 90, \"min\": 30, \"max\": 240 },\n    \"difficulty\": { \"base\": 4, \"min\": 2, \"max\": 6, \"scale\": \"1-10\" },\n    \"risk\": { \"base\": 0.3, \"min\": 0.15, \"max\": 0.5, \"scale\": \"0-1\" },\n    \"failureConditions\": [\n      { \"id\": \"missing_architecture\", \"label\": \"Architecture unclear\", \"severity\": 0.55 },\n      { \"id\": \"scope_creep\", \"label\": \"Scope creep\", \"severity\": 0.5 }\n    ],\n    \"successChecks\": [\n      { \"metric\": \"Design Completeness\", \"operator\": \"==\", \"value\": \"approved\" },\n      { \"metric\": \"Design Review Findings\", \"operator\": \"<=\", \"value\": 5 }\n    ],\n    \"rewards\": [\n      { \"type\": \"unlock\", \"value\": \"Validate phase\" },\n      { \"type\": \"item\", \"value\": \"Blueprint Artifact (+quality)\" }\n    ],\n    \"penalties\": [\n      { \"type\": \"rework\", \"value\": \"Design revision\", \"probability\": 0.3 },\n      { \"type\": \"time\", \"value\": \"+30 min\", \"trigger\": \"failure\" }\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhaseGameParams\",\n    \"phase\": \"Validate\",\n    \"xp\": { \"base\": 30, \"min\": 12, \"max\": 55 },\n    \"energyCost\": { \"base\": 7, \"min\": 3, \"max\": 12 },\n    \"timeCostMinutes\": { \"base\": 120, \"min\": 45, \"max\": 300 },\n    \"difficulty\": { \"base\": 5, \"min\": 3, \"max\": 7, \"scale\": \"1-10\" },\n    \"risk\": { \"base\": 0.35, \"min\": 0.2, \"max\": 0.6, \"scale\": \"0-1\" },\n    \"failureConditions\": [\n      { \"id\": \"low_feedback\", \"label\": \"User feedback too low\", \"severity\": 0.65 },\n      { \"id\": \"assumption_invalid\", \"label\": \"Key assumption invalidated\", \"severity\": 0.8 }\n    ],\n    \"successChecks\": [\n      { \"metric\": \"Validation Success Rate\", \"operator\": \">=\", \"value\": 80 },\n      { \"metric\": \"User Feedback Score\", \"operator\": \">=\", \"value\": 7 }\n    ],\n    \"rewards\": [\n      { \"type\": \"unlock\", \"value\": \"Develop phase\" },\n      { \"type\": \"buff\", \"value\": \"Confidence +10% (reduces risk next phase)\" }\n    ],\n    \"penalties\": [\n      { \"type\": \"rework\", \"value\": \"Return to Ideate/Design\", \"probability\": 0.4 },\n      { \"type\": \"risk\", \"value\": \"+0.1\", \"trigger\": \"failure\" }\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhaseGameParams\",\n    \"phase\": \"Develop\",\n    \"xp\": { \"base\": 40, \"min\": 15, \"max\": 80 },\n    \"energyCost\": { \"base\": 10, \"min\": 5, \"max\": 18 },\n    \"timeCostMinutes\": { \"base\": 240, \"min\": 90, \"max\": 600 },\n    \"difficulty\": { \"base\": 6, \"min\": 4, \"max\": 8, \"scale\": \"1-10\" },\n    \"risk\": { \"base\": 0.3, \"min\": 0.15, \"max\": 0.55, \"scale\": \"0-1\" },\n    \"failureConditions\": [\n      { \"id\": \"blocked_dependency\", \"label\": \"Blocked by dependency\", \"severity\": 0.55 },\n      { \"id\": \"quality_drop\", \"label\": \"Quality drops / debt rises\", \"severity\": 0.6 }\n    ],\n    \"successChecks\": [\n      { \"metric\": \"Implementation Progress\", \"operator\": \"==\", \"value\": \"100%\" },\n      { \"metric\": \"Technical Debt Index\", \"operator\": \"<=\", \"value\": \"threshold\" }\n    ],\n    \"rewards\": [\n      { \"type\": \"unlock\", \"value\": \"Test phase\" },\n      { \"type\": \"item\", \"value\": \"Working Increment (+value)\" }\n    ],\n    \"penalties\": [\n      { \"type\": \"time\", \"value\": \"+60 min\", \"trigger\": \"failure\" },\n      { \"type\": \"energy\", \"value\": -3, \"trigger\": \"failure\" }\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhaseGameParams\",\n    \"phase\": \"Test\",\n    \"xp\": { \"base\": 30, \"min\": 10, \"max\": 60 },\n    \"energyCost\": { \"base\": 7, \"min\": 3, \"max\": 12 },\n    \"timeCostMinutes\": { \"base\": 150, \"min\": 60, \"max\": 360 },\n    \"difficulty\": { \"base\": 5, \"min\": 3, \"max\": 7, \"scale\": \"1-10\" },\n    \"risk\": { \"base\": 0.25, \"min\": 0.1, \"max\": 0.45, \"scale\": \"0-1\" },\n    \"failureConditions\": [\n      { \"id\": \"high_defects\", \"label\": \"Too many defects\", \"severity\": 0.7 },\n      { \"id\": \"low_coverage\", \"label\": \"Coverage too low\", \"severity\": 0.5 }\n    ],\n    \"successChecks\": [\n      { \"metric\": \"Defect Density\", \"operator\": \"<=\", \"value\": \"acceptable\" },\n      { \"metric\": \"Test Coverage\", \"operator\": \">=\", \"value\": 80 }\n    ],\n    \"rewards\": [\n      { \"type\": \"unlock\", \"value\": \"Release phase\" },\n      { \"type\": \"buff\", \"value\": \"Stability +10% (Run incidents reduced)\" }\n    ],\n    \"penalties\": [\n      { \"type\": \"rework\", \"value\": \"Bugfix iteration\", \"probability\": 0.35 },\n      { \"type\": \"time\", \"value\": \"+45 min\", \"trigger\": \"failure\" }\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhaseGameParams\",\n    \"phase\": \"Release\",\n    \"xp\": { \"base\": 20, \"min\": 8, \"max\": 40 },\n    \"energyCost\": { \"base\": 5, \"min\": 2, \"max\": 10 },\n    \"timeCostMinutes\": { \"base\": 60, \"min\": 20, \"max\": 180 },\n    \"difficulty\": { \"base\": 4, \"min\": 2, \"max\": 6, \"scale\": \"1-10\" },\n    \"risk\": { \"base\": 0.3, \"min\": 0.15, \"max\": 0.6, \"scale\": \"0-1\" },\n    \"failureConditions\": [\n      { \"id\": \"rollback\", \"label\": \"Rollback required\", \"severity\": 0.8 },\n      { \"id\": \"release_miscomm\", \"label\": \"Release communication fails\", \"severity\": 0.45 }\n    ],\n    \"successChecks\": [\n      { \"metric\": \"Release Success Rate\", \"operator\": \"==\", \"value\": \"100%\" },\n      { \"metric\": \"Rollback Events\", \"operator\": \"==\", \"value\": 0 }\n    ],\n    \"rewards\": [\n      { \"type\": \"unlock\", \"value\": \"Run phase\" },\n      { \"type\": \"currency\", \"value\": \"+Market Momentum\" }\n    ],\n    \"penalties\": [\n      { \"type\": \"risk\", \"value\": \"+0.15\", \"trigger\": \"failure\" },\n      { \"type\": \"time\", \"value\": \"+30 min\", \"trigger\": \"failure\" }\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhaseGameParams\",\n    \"phase\": \"Run\",\n    \"xp\": { \"base\": 18, \"min\": 6, \"max\": 35 },\n    \"energyCost\": { \"base\": 4, \"min\": 1, \"max\": 8 },\n    \"timeCostMinutes\": { \"base\": 45, \"min\": 15, \"max\": 150 },\n    \"difficulty\": { \"base\": 3, \"min\": 2, \"max\": 6, \"scale\": \"1-10\" },\n    \"risk\": { \"base\": 0.35, \"min\": 0.15, \"max\": 0.65, \"scale\": \"0-1\" },\n    \"failureConditions\": [\n      { \"id\": \"incident_spike\", \"label\": \"Incident spike\", \"severity\": 0.6 },\n      { \"id\": \"downtime\", \"label\": \"Downtime\", \"severity\": 0.75 }\n    ],\n    \"successChecks\": [\n      { \"metric\": \"Availability\", \"operator\": \">=\", \"value\": 99.5 },\n      { \"metric\": \"Incident Rate\", \"operator\": \"<=\", \"value\": \"SLA\" }\n    ],\n    \"rewards\": [\n      { \"type\": \"unlock\", \"value\": \"Measure phase\" },\n      { \"type\": \"buff\", \"value\": \"Operational Mastery (+efficiency)\" }\n    ],\n    \"penalties\": [\n      { \"type\": \"energy\", \"value\": -2, \"trigger\": \"failure\" },\n      { \"type\": \"currency\", \"value\": \"-Reputation\", \"trigger\": \"failure\" }\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhaseGameParams\",\n    \"phase\": \"Measure\",\n    \"xp\": { \"base\": 22, \"min\": 8, \"max\": 45 },\n    \"energyCost\": { \"base\": 5, \"min\": 2, \"max\": 9 },\n    \"timeCostMinutes\": { \"base\": 75, \"min\": 30, \"max\": 240 },\n    \"difficulty\": { \"base\": 4, \"min\": 2, \"max\": 6, \"scale\": \"1-10\" },\n    \"risk\": { \"base\": 0.2, \"min\": 0.08, \"max\": 0.4, \"scale\": \"0-1\" },\n    \"failureConditions\": [\n      { \"id\": \"no_signal\", \"label\": \"Not enough signal / data\", \"severity\": 0.55 },\n      { \"id\": \"misleading_kpis\", \"label\": \"KPIs misleading\", \"severity\": 0.6 }\n    ],\n    \"successChecks\": [\n      { \"metric\": \"Business Impact\", \"operator\": \">=\", \"value\": \"target\" },\n      { \"metric\": \"Adoption Rate\", \"operator\": \">=\", \"value\": \"target\" }\n    ],\n    \"rewards\": [\n      { \"type\": \"unlock\", \"value\": \"Learn phase\" },\n      { \"type\": \"item\", \"value\": \"Insight Report (+strategy)\" }\n    ],\n    \"penalties\": [\n      { \"type\": \"rework\", \"value\": \"Measure extended\", \"probability\": 0.25 },\n      { \"type\": \"time\", \"value\": \"+30 min\", \"trigger\": \"failure\" }\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhaseGameParams\",\n    \"phase\": \"Learn\",\n    \"xp\": { \"base\": 28, \"min\": 10, \"max\": 55 },\n    \"energyCost\": { \"base\": 4, \"min\": 1, \"max\": 8 },\n    \"timeCostMinutes\": { \"base\": 60, \"min\": 20, \"max\": 180 },\n    \"difficulty\": { \"base\": 3, \"min\": 1, \"max\": 5, \"scale\": \"1-10\" },\n    \"risk\": { \"base\": 0.15, \"min\": 0.05, \"max\": 0.35, \"scale\": \"0-1\" },\n    \"failureConditions\": [\n      { \"id\": \"no_actions\", \"label\": \"No actions defined\", \"severity\": 0.6 },\n      { \"id\": \"no_followthrough\", \"label\": \"No follow-through\", \"severity\": 0.65 }\n    ],\n    \"successChecks\": [\n      { \"metric\": \"Improvement Actions Identified\", \"operator\": \">=\", \"value\": 1 },\n      { \"metric\": \"Learning Documented\", \"operator\": \"==\", \"value\": \"yes\" }\n    ],\n    \"rewards\": [\n      { \"type\": \"loop\", \"value\": \"Back to Ideate (New iteration)\" },\n      { \"type\": \"buff\", \"value\": \"Learning Bonus (+xp next cycle)\" }\n    ],\n    \"penalties\": [\n      { \"type\": \"risk\", \"value\": \"+0.1\", \"trigger\": \"failure\" },\n      { \"type\": \"currency\", \"value\": \"-Momentum\", \"trigger\": \"failure\" }\n    ]\n  }\n]\n\n```",
+			"styleAttributes":{
+				"textAlign":null
+			},
+			"x":2239,
+			"y":3760,
+			"width":1020,
+			"height":845
 		},
 		{
 			"id":"4e09aabeba8b7f18",
@@ -223,39 +316,6 @@
 			"y":1799,
 			"width":260,
 			"height":60
-		},
-		{
-			"id":"53595cc990b4656d",
-			"type":"text",
-			"text":"Run",
-			"styleAttributes":{"textAlign":"center"},
-			"x":3600,
-			"y":820,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"ae6233bc7554cbd0",
-			"type":"text",
-			"text":"- Promote\n- Sell\n- Maintain\n- Support",
-			"styleAttributes":{"textAlign":"center"},
-			"x":3600,
-			"y":921,
-			"width":260,
-			"height":152
-		},
-		{
-			"id":"7570ec0904471cbc",
-			"type":"text",
-			"text":"Open Source Project",
-			"styleAttributes":{
-				"textAlign":null
-			},
-			"x":1180,
-			"y":729,
-			"width":340,
-			"height":60,
-			"color":"6"
 		},
 		{
 			"id":"8d76e67168c1ecb4",
@@ -293,26 +353,6 @@
 			"text":"Release",
 			"styleAttributes":{"textAlign":"center"},
 			"x":3220,
-			"y":820,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"0bbd37d4ec340c43",
-			"type":"text",
-			"text":"Ideate",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1660,
-			"y":820,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"5aa67cfd11180eda",
-			"type":"text",
-			"text":"Design",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2000,
 			"y":820,
 			"width":260,
 			"height":60
@@ -359,6 +399,26 @@
 			"y":1799,
 			"width":260,
 			"height":60
+		},
+		{
+			"id":"53595cc990b4656d",
+			"type":"text",
+			"text":"Run",
+			"styleAttributes":{"textAlign":"center"},
+			"x":3600,
+			"y":820,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"ae6233bc7554cbd0",
+			"type":"text",
+			"text":"- Promote\n- Sell\n- Maintain\n- Support",
+			"styleAttributes":{"textAlign":"center"},
+			"x":3600,
+			"y":921,
+			"width":260,
+			"height":152
 		},
 		{
 			"id":"8f6cd172b8b340b4",
@@ -498,66 +558,6 @@
 			"y":89,
 			"width":433,
 			"height":280
-		},
-		{
-			"id":"45fc872ab753612a",
-			"type":"text",
-			"text":"- What problem do you want to solve?\n- Do you have already a name in mind?\n- Choose from on of the templates",
-			"styleAttributes":{
-				"textAlign":null
-			},
-			"x":-500,
-			"y":160,
-			"width":500,
-			"height":116
-		},
-		{
-			"id":"dce9c3eb2170798c",
-			"type":"text",
-			"text":"```JSON\n[\n  {\n    \"category\": \"Application\",\n    \"description\": \"Software-based solution such as web apps, tools, platforms or SaaS products.\",\n    \"lifecycle\": [\n      { \"phase\": \"Ideate\", \"deliverables\": [\"Problem Statement\", \"Product Vision\", \"Jobs to be Done\"] },\n      { \"phase\": \"Design\", \"deliverables\": [\"UX Flows\", \"Wireframes\", \"Architecture (C4)\", \"ER Model\"] },\n      { \"phase\": \"Validate\", \"deliverables\": [\"Prototype\", \"UX Tests\", \"Technical Spike\"] },\n      { \"phase\": \"Develop\", \"deliverables\": [\"Source Code\", \"Backlog Items\", \"APIs\"] },\n      { \"phase\": \"Test\", \"deliverables\": [\"Test Cases\", \"Test Reports\", \"Security Scan\"] },\n      { \"phase\": \"Release\", \"deliverables\": [\"Deployment Package\", \"Release Notes\"] },\n      { \"phase\": \"Run\", \"deliverables\": [\"Monitoring\", \"Logs\", \"Runbook\"] },\n      { \"phase\": \"Measure\", \"deliverables\": [\"Usage Metrics\", \"Performance KPIs\"] },\n      { \"phase\": \"Learn\", \"deliverables\": [\"Retrospective\", \"Roadmap Updates\"] }\n    ]\n  },\n  {\n    \"category\": \"Process\",\n    \"description\": \"Business or operational processes defining how work is executed.\",\n    \"lifecycle\": [\n      { \"phase\": \"Ideate\", \"deliverables\": [\"Problem Hypothesis\", \"As-Is Analysis\"] },\n      { \"phase\": \"Design\", \"deliverables\": [\"BPMN Diagram\", \"SIPOC\", \"RACI Matrix\"] },\n      { \"phase\": \"Validate\", \"deliverables\": [\"Process Walkthrough\", \"Simulation\", \"Pilot\"] },\n      { \"phase\": \"Develop\", \"deliverables\": [\"Standard Operating Procedures\", \"Work Instructions\"] },\n      { \"phase\": \"Test\", \"deliverables\": [\"Dry Runs\", \"Training Sessions\"] },\n      { \"phase\": \"Release\", \"deliverables\": [\"Rollout Plan\"] },\n      { \"phase\": \"Run\", \"deliverables\": [\"Process KPIs\", \"Operational Reports\"] },\n      { \"phase\": \"Measure\", \"deliverables\": [\"Cycle Time Metrics\", \"Error Rates\"] },\n      { \"phase\": \"Learn\", \"deliverables\": [\"Continuous Improvement Actions\"] }\n    ]\n  },\n  {\n    \"category\": \"Service\",\n    \"description\": \"Customer-facing or internal services delivering ongoing value.\",\n    \"lifecycle\": [\n      { \"phase\": \"Ideate\", \"deliverables\": [\"Service Vision\", \"Customer Needs\"] },\n      { \"phase\": \"Design\", \"deliverables\": [\"Service Blueprint\", \"Touchpoint Map\"] },\n      { \"phase\": \"Validate\", \"deliverables\": [\"Pilot Service\", \"Shadowing\"] },\n      { \"phase\": \"Develop\", \"deliverables\": [\"Service Playbooks\", \"SLAs\"] },\n      { \"phase\": \"Test\", \"deliverables\": [\"Pilot Customers\", \"Service Quality Checks\"] },\n      { \"phase\": \"Release\", \"deliverables\": [\"Service Catalog Entry\"] },\n      { \"phase\": \"Run\", \"deliverables\": [\"SLA Monitoring\"] },\n      { \"phase\": \"Measure\", \"deliverables\": [\"CSAT\", \"NPS\"] },\n      { \"phase\": \"Learn\", \"deliverables\": [\"Service Optimization Measures\"] }\n    ]\n  },\n  {\n    \"category\": \"Product\",\n    \"description\": \"Market-facing offering combining applications, services and processes.\",\n    \"lifecycle\": [\n      { \"phase\": \"Ideate\", \"deliverables\": [\"Product Strategy\"] },\n      { \"phase\": \"Design\", \"deliverables\": [\"Product Board\", \"Feature Map\"] },\n      { \"phase\": \"Validate\", \"deliverables\": [\"MVP Definition\"] },\n      { \"phase\": \"Develop\", \"deliverables\": [\"Product Increments\"] },\n      { \"phase\": \"Test\", \"deliverables\": [\"Market Tests\"] },\n      { \"phase\": \"Release\", \"deliverables\": [\"Go-to-Market Plan\"] },\n      { \"phase\": \"Run\", \"deliverables\": [\"Product Operations Setup\"] },\n      { \"phase\": \"Measure\", \"deliverables\": [\"Revenue Metrics\", \"Adoption Metrics\"] },\n      { \"phase\": \"Learn\", \"deliverables\": [\"Product Roadmap Adjustments\"] }\n    ]\n  },\n  {\n    \"category\": \"Capability\",\n    \"description\": \"Organizational ability combining people, processes and tools.\",\n    \"lifecycle\": [\n      { \"phase\": \"Ideate\", \"deliverables\": [\"Capability Gap Analysis\"] },\n      { \"phase\": \"Design\", \"deliverables\": [\"Target Operating Model\", \"Skill Framework\"] },\n      { \"phase\": \"Validate\", \"deliverables\": [\"Proof of Capability\"] },\n      { \"phase\": \"Develop\", \"deliverables\": [\"Training Programs\", \"Enablement Material\"] },\n      { \"phase\": \"Test\", \"deliverables\": [\"Pilot Teams\"] },\n      { \"phase\": \"Release\", \"deliverables\": [\"Organization-wide Rollout\"] },\n      { \"phase\": \"Run\", \"deliverables\": [\"Capability Operating Model\"] },\n      { \"phase\": \"Measure\", \"deliverables\": [\"Capability Maturity Assessment\"] },\n      { \"phase\": \"Learn\", \"deliverables\": [\"Capability Improvement Initiatives\"] }\n    ]\n  },\n  {\n    \"category\": \"Data\",\n    \"description\": \"Data, analytics and information products supporting decisions.\",\n    \"lifecycle\": [\n      { \"phase\": \"Ideate\", \"deliverables\": [\"Decision Use Cases\"] },\n      { \"phase\": \"Design\", \"deliverables\": [\"Data Model\", \"KPI Definitions\"] },\n      { \"phase\": \"Validate\", \"deliverables\": [\"Sample Reports\"] },\n      { \"phase\": \"Develop\", \"deliverables\": [\"Data Pipelines\", \"Queries\"] },\n      { \"phase\": \"Test\", \"deliverables\": [\"Data Quality Checks\"] },\n      { \"phase\": \"Release\", \"deliverables\": [\"Dashboards\", \"Reports\"] },\n      { \"phase\": \"Run\", \"deliverables\": [\"Data Operations Procedures\"] },\n      { \"phase\": \"Measure\", \"deliverables\": [\"Usage Metrics\", \"Data Accuracy Metrics\"] },\n      { \"phase\": \"Learn\", \"deliverables\": [\"KPI Refinements\"] }\n    ]\n  },\n  {\n    \"category\": \"Tool\",\n    \"description\": \"Supporting systems or platforms enabling work.\",\n    \"lifecycle\": [\n      { \"phase\": \"Ideate\", \"deliverables\": [\"Tool Requirements\"] },\n      { \"phase\": \"Design\", \"deliverables\": [\"Target Architecture\"] },\n      { \"phase\": \"Validate\", \"deliverables\": [\"Buy vs Build Decision\"] },\n      { \"phase\": \"Develop\", \"deliverables\": [\"System Configuration\"] },\n      { \"phase\": \"Test\", \"deliverables\": [\"Integration Tests\"] },\n      { \"phase\": \"Release\", \"deliverables\": [\"Go-Live Plan\"] },\n      { \"phase\": \"Run\", \"deliverables\": [\"Operational Support Setup\"] },\n      { \"phase\": \"Measure\", \"deliverables\": [\"Cost-Benefit Analysis\"] },\n      { \"phase\": \"Learn\", \"deliverables\": [\"Tool Optimization Actions\"] }\n    ]\n  },\n  {\n    \"category\": \"Organization\",\n    \"description\": \"Organizational structures, teams and governance models.\",\n    \"lifecycle\": [\n      { \"phase\": \"Ideate\", \"deliverables\": [\"Organizational Problem Statement\"] },\n      { \"phase\": \"Design\", \"deliverables\": [\"Role Model\", \"Governance Model\"] },\n      { \"phase\": \"Validate\", \"deliverables\": [\"Organizational Pilot\"] },\n      { \"phase\": \"Develop\", \"deliverables\": [\"Training and Coaching Plans\"] },\n      { \"phase\": \"Test\", \"deliverables\": [\"Team Health Checks\"] },\n      { \"phase\": \"Release\", \"deliverables\": [\"Organizational Change Rollout\"] },\n      { \"phase\": \"Run\", \"deliverables\": [\"Operational Governance\"] },\n      { \"phase\": \"Measure\", \"deliverables\": [\"Engagement Metrics\"] },\n      { \"phase\": \"Learn\", \"deliverables\": [\"Organizational Design Adjustments\"] }\n    ]\n  },\n  {\n    \"category\": \"Policy\",\n    \"description\": \"Rules, standards and policies guiding behavior and decisions.\",\n    \"lifecycle\": [\n      { \"phase\": \"Ideate\", \"deliverables\": [\"Policy Need Assessment\"] },\n      { \"phase\": \"Design\", \"deliverables\": [\"Policy Draft\"] },\n      { \"phase\": \"Validate\", \"deliverables\": [\"Stakeholder Review\"] },\n      { \"phase\": \"Develop\", \"deliverables\": [\"Final Policy Document\"] },\n      { \"phase\": \"Test\", \"deliverables\": [\"Pilot Enforcement\"] },\n      { \"phase\": \"Release\", \"deliverables\": [\"Policy Publication\"] },\n      { \"phase\": \"Run\", \"deliverables\": [\"Policy Enforcement\"] },\n      { \"phase\": \"Measure\", \"deliverables\": [\"Compliance Metrics\"] },\n      { \"phase\": \"Learn\", \"deliverables\": [\"Policy Revisions\"] }\n    ]\n  }\n]\n\n```",
-			"styleAttributes":{
-				"textAlign":null
-			},
-			"x":199,
-			"y":3760,
-			"width":980,
-			"height":845
-		},
-		{
-			"id":"efd874aa5d055831",
-			"type":"text",
-			"text":"```JSON\n[\n  {\n    \"entity\": \"LifecyclePhase\",\n    \"name\": \"Ideate\",\n    \"roles\": [\"Product Owner\", \"Business Owner\", \"Stakeholder\"],\n    \"metrics\": [\n      { \"name\": \"Problem Clarity Score\", \"type\": \"qualitative\", \"target\": \">= 7/10\" },\n      { \"name\": \"Stakeholder Alignment\", \"type\": \"qualitative\", \"target\": \"approved\" }\n    ],\n    \"decisionGate\": \"Idea Approved\",\n    \"responsibilities\": [\n      \"Identify problem or opportunity\",\n      \"Define initial value hypothesis\"\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhase\",\n    \"name\": \"Design\",\n    \"roles\": [\"Product Owner\", \"UX Designer\", \"Solution Architect\"],\n    \"metrics\": [\n      { \"name\": \"Design Completeness\", \"type\": \"qualitative\", \"target\": \"approved\" },\n      { \"name\": \"Design Review Findings\", \"type\": \"quantitative\", \"target\": \"<= 5\" }\n    ],\n    \"decisionGate\": \"Design Approved\",\n    \"responsibilities\": [\n      \"Create solution design\",\n      \"Align design with stakeholders\"\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhase\",\n    \"name\": \"Validate\",\n    \"roles\": [\"Product Owner\", \"UX Designer\", \"QA\"],\n    \"metrics\": [\n      { \"name\": \"Validation Success Rate\", \"type\": \"quantitative\", \"target\": \">= 80%\" },\n      { \"name\": \"User Feedback Score\", \"type\": \"qualitative\", \"target\": \">= 7/10\" }\n    ],\n    \"decisionGate\": \"Validation Passed\",\n    \"responsibilities\": [\n      \"Test assumptions\",\n      \"Collect feedback\"\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhase\",\n    \"name\": \"Develop\",\n    \"roles\": [\"Software Developer\", \"Process Engineer\", \"Data Engineer\"],\n    \"metrics\": [\n      { \"name\": \"Implementation Progress\", \"type\": \"quantitative\", \"target\": \"100%\" },\n      { \"name\": \"Technical Debt Index\", \"type\": \"quantitative\", \"target\": \"<= threshold\" }\n    ],\n    \"decisionGate\": \"Implementation Complete\",\n    \"responsibilities\": [\n      \"Build solution\",\n      \"Maintain quality standards\"\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhase\",\n    \"name\": \"Test\",\n    \"roles\": [\"QA\", \"User Representative\"],\n    \"metrics\": [\n      { \"name\": \"Defect Density\", \"type\": \"quantitative\", \"target\": \"<= acceptable\" },\n      { \"name\": \"Test Coverage\", \"type\": \"quantitative\", \"target\": \">= 80%\" }\n    ],\n    \"decisionGate\": \"Test Approved\",\n    \"responsibilities\": [\n      \"Verify solution\",\n      \"Document issues\"\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhase\",\n    \"name\": \"Release\",\n    \"roles\": [\"Release Manager\", \"Operations\"],\n    \"metrics\": [\n      { \"name\": \"Release Success Rate\", \"type\": \"quantitative\", \"target\": \"100%\" },\n      { \"name\": \"Rollback Events\", \"type\": \"quantitative\", \"target\": \"0\" }\n    ],\n    \"decisionGate\": \"Released\",\n    \"responsibilities\": [\n      \"Deploy solution\",\n      \"Communicate release\"\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhase\",\n    \"name\": \"Run\",\n    \"roles\": [\"Operations\", \"Support\"],\n    \"metrics\": [\n      { \"name\": \"Availability\", \"type\": \"quantitative\", \"target\": \">= 99.5%\" },\n      { \"name\": \"Incident Rate\", \"type\": \"quantitative\", \"target\": \"<= SLA\" }\n    ],\n    \"decisionGate\": \"Operational Stability\",\n    \"responsibilities\": [\n      \"Operate solution\",\n      \"Handle incidents\"\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhase\",\n    \"name\": \"Measure\",\n    \"roles\": [\"Product Manager\", \"Data Analyst\"],\n    \"metrics\": [\n      { \"name\": \"Business Impact\", \"type\": \"quantitative\", \"target\": \"defined KPI\" },\n      { \"name\": \"Adoption Rate\", \"type\": \"quantitative\", \"target\": \">= target\" }\n    ],\n    \"decisionGate\": \"Impact Verified\",\n    \"responsibilities\": [\n      \"Analyze performance\",\n      \"Report outcomes\"\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhase\",\n    \"name\": \"Learn\",\n    \"roles\": [\"Product Owner\", \"Team\", \"Management\"],\n    \"metrics\": [\n      { \"name\": \"Improvement Actions Identified\", \"type\": \"quantitative\", \"target\": \">= 1\" },\n      { \"name\": \"Learning Documented\", \"type\": \"qualitative\", \"target\": \"yes\" }\n    ],\n    \"decisionGate\": \"Learning Integrated\",\n    \"responsibilities\": [\n      \"Conduct retrospectives\",\n      \"Update roadmap or process\"\n    ]\n  }\n]\n\n```",
-			"styleAttributes":{
-				"textAlign":null
-			},
-			"x":1227,
-			"y":3760,
-			"width":972,
-			"height":845
-		},
-		{
-			"id":"ee4522022b1bdb1d",
-			"type":"text",
-			"text":"```JSON\n[\n  {\n    \"entity\": \"LifecyclePhaseGameParams\",\n    \"phase\": \"Ideate\",\n    \"xp\": { \"base\": 15, \"min\": 5, \"max\": 30 },\n    \"energyCost\": { \"base\": 3, \"min\": 1, \"max\": 6 },\n    \"timeCostMinutes\": { \"base\": 30, \"min\": 10, \"max\": 90 },\n    \"difficulty\": { \"base\": 2, \"min\": 1, \"max\": 4, \"scale\": \"1-10\" },\n    \"risk\": { \"base\": 0.25, \"min\": 0.1, \"max\": 0.45, \"scale\": \"0-1\" },\n    \"failureConditions\": [\n      { \"id\": \"no_problem_statement\", \"label\": \"Problem not defined\", \"severity\": 0.6 },\n      { \"id\": \"no_alignment\", \"label\": \"No stakeholder alignment\", \"severity\": 0.7 }\n    ],\n    \"successChecks\": [\n      { \"metric\": \"Problem Clarity Score\", \"operator\": \">=\", \"value\": 7 },\n      { \"metric\": \"Stakeholder Alignment\", \"operator\": \"==\", \"value\": \"approved\" }\n    ],\n    \"rewards\": [\n      { \"type\": \"unlock\", \"value\": \"Design phase\" },\n      { \"type\": \"buff\", \"value\": \"Focus +5% (next phase)\" }\n    ],\n    \"penalties\": [\n      { \"type\": \"rework\", \"value\": \"Validate extra iteration\", \"probability\": 0.25 },\n      { \"type\": \"energy\", \"value\": -2, \"trigger\": \"failure\" }\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhaseGameParams\",\n    \"phase\": \"Design\",\n    \"xp\": { \"base\": 25, \"min\": 10, \"max\": 45 },\n    \"energyCost\": { \"base\": 6, \"min\": 3, \"max\": 10 },\n    \"timeCostMinutes\": { \"base\": 90, \"min\": 30, \"max\": 240 },\n    \"difficulty\": { \"base\": 4, \"min\": 2, \"max\": 6, \"scale\": \"1-10\" },\n    \"risk\": { \"base\": 0.3, \"min\": 0.15, \"max\": 0.5, \"scale\": \"0-1\" },\n    \"failureConditions\": [\n      { \"id\": \"missing_architecture\", \"label\": \"Architecture unclear\", \"severity\": 0.55 },\n      { \"id\": \"scope_creep\", \"label\": \"Scope creep\", \"severity\": 0.5 }\n    ],\n    \"successChecks\": [\n      { \"metric\": \"Design Completeness\", \"operator\": \"==\", \"value\": \"approved\" },\n      { \"metric\": \"Design Review Findings\", \"operator\": \"<=\", \"value\": 5 }\n    ],\n    \"rewards\": [\n      { \"type\": \"unlock\", \"value\": \"Validate phase\" },\n      { \"type\": \"item\", \"value\": \"Blueprint Artifact (+quality)\" }\n    ],\n    \"penalties\": [\n      { \"type\": \"rework\", \"value\": \"Design revision\", \"probability\": 0.3 },\n      { \"type\": \"time\", \"value\": \"+30 min\", \"trigger\": \"failure\" }\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhaseGameParams\",\n    \"phase\": \"Validate\",\n    \"xp\": { \"base\": 30, \"min\": 12, \"max\": 55 },\n    \"energyCost\": { \"base\": 7, \"min\": 3, \"max\": 12 },\n    \"timeCostMinutes\": { \"base\": 120, \"min\": 45, \"max\": 300 },\n    \"difficulty\": { \"base\": 5, \"min\": 3, \"max\": 7, \"scale\": \"1-10\" },\n    \"risk\": { \"base\": 0.35, \"min\": 0.2, \"max\": 0.6, \"scale\": \"0-1\" },\n    \"failureConditions\": [\n      { \"id\": \"low_feedback\", \"label\": \"User feedback too low\", \"severity\": 0.65 },\n      { \"id\": \"assumption_invalid\", \"label\": \"Key assumption invalidated\", \"severity\": 0.8 }\n    ],\n    \"successChecks\": [\n      { \"metric\": \"Validation Success Rate\", \"operator\": \">=\", \"value\": 80 },\n      { \"metric\": \"User Feedback Score\", \"operator\": \">=\", \"value\": 7 }\n    ],\n    \"rewards\": [\n      { \"type\": \"unlock\", \"value\": \"Develop phase\" },\n      { \"type\": \"buff\", \"value\": \"Confidence +10% (reduces risk next phase)\" }\n    ],\n    \"penalties\": [\n      { \"type\": \"rework\", \"value\": \"Return to Ideate/Design\", \"probability\": 0.4 },\n      { \"type\": \"risk\", \"value\": \"+0.1\", \"trigger\": \"failure\" }\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhaseGameParams\",\n    \"phase\": \"Develop\",\n    \"xp\": { \"base\": 40, \"min\": 15, \"max\": 80 },\n    \"energyCost\": { \"base\": 10, \"min\": 5, \"max\": 18 },\n    \"timeCostMinutes\": { \"base\": 240, \"min\": 90, \"max\": 600 },\n    \"difficulty\": { \"base\": 6, \"min\": 4, \"max\": 8, \"scale\": \"1-10\" },\n    \"risk\": { \"base\": 0.3, \"min\": 0.15, \"max\": 0.55, \"scale\": \"0-1\" },\n    \"failureConditions\": [\n      { \"id\": \"blocked_dependency\", \"label\": \"Blocked by dependency\", \"severity\": 0.55 },\n      { \"id\": \"quality_drop\", \"label\": \"Quality drops / debt rises\", \"severity\": 0.6 }\n    ],\n    \"successChecks\": [\n      { \"metric\": \"Implementation Progress\", \"operator\": \"==\", \"value\": \"100%\" },\n      { \"metric\": \"Technical Debt Index\", \"operator\": \"<=\", \"value\": \"threshold\" }\n    ],\n    \"rewards\": [\n      { \"type\": \"unlock\", \"value\": \"Test phase\" },\n      { \"type\": \"item\", \"value\": \"Working Increment (+value)\" }\n    ],\n    \"penalties\": [\n      { \"type\": \"time\", \"value\": \"+60 min\", \"trigger\": \"failure\" },\n      { \"type\": \"energy\", \"value\": -3, \"trigger\": \"failure\" }\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhaseGameParams\",\n    \"phase\": \"Test\",\n    \"xp\": { \"base\": 30, \"min\": 10, \"max\": 60 },\n    \"energyCost\": { \"base\": 7, \"min\": 3, \"max\": 12 },\n    \"timeCostMinutes\": { \"base\": 150, \"min\": 60, \"max\": 360 },\n    \"difficulty\": { \"base\": 5, \"min\": 3, \"max\": 7, \"scale\": \"1-10\" },\n    \"risk\": { \"base\": 0.25, \"min\": 0.1, \"max\": 0.45, \"scale\": \"0-1\" },\n    \"failureConditions\": [\n      { \"id\": \"high_defects\", \"label\": \"Too many defects\", \"severity\": 0.7 },\n      { \"id\": \"low_coverage\", \"label\": \"Coverage too low\", \"severity\": 0.5 }\n    ],\n    \"successChecks\": [\n      { \"metric\": \"Defect Density\", \"operator\": \"<=\", \"value\": \"acceptable\" },\n      { \"metric\": \"Test Coverage\", \"operator\": \">=\", \"value\": 80 }\n    ],\n    \"rewards\": [\n      { \"type\": \"unlock\", \"value\": \"Release phase\" },\n      { \"type\": \"buff\", \"value\": \"Stability +10% (Run incidents reduced)\" }\n    ],\n    \"penalties\": [\n      { \"type\": \"rework\", \"value\": \"Bugfix iteration\", \"probability\": 0.35 },\n      { \"type\": \"time\", \"value\": \"+45 min\", \"trigger\": \"failure\" }\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhaseGameParams\",\n    \"phase\": \"Release\",\n    \"xp\": { \"base\": 20, \"min\": 8, \"max\": 40 },\n    \"energyCost\": { \"base\": 5, \"min\": 2, \"max\": 10 },\n    \"timeCostMinutes\": { \"base\": 60, \"min\": 20, \"max\": 180 },\n    \"difficulty\": { \"base\": 4, \"min\": 2, \"max\": 6, \"scale\": \"1-10\" },\n    \"risk\": { \"base\": 0.3, \"min\": 0.15, \"max\": 0.6, \"scale\": \"0-1\" },\n    \"failureConditions\": [\n      { \"id\": \"rollback\", \"label\": \"Rollback required\", \"severity\": 0.8 },\n      { \"id\": \"release_miscomm\", \"label\": \"Release communication fails\", \"severity\": 0.45 }\n    ],\n    \"successChecks\": [\n      { \"metric\": \"Release Success Rate\", \"operator\": \"==\", \"value\": \"100%\" },\n      { \"metric\": \"Rollback Events\", \"operator\": \"==\", \"value\": 0 }\n    ],\n    \"rewards\": [\n      { \"type\": \"unlock\", \"value\": \"Run phase\" },\n      { \"type\": \"currency\", \"value\": \"+Market Momentum\" }\n    ],\n    \"penalties\": [\n      { \"type\": \"risk\", \"value\": \"+0.15\", \"trigger\": \"failure\" },\n      { \"type\": \"time\", \"value\": \"+30 min\", \"trigger\": \"failure\" }\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhaseGameParams\",\n    \"phase\": \"Run\",\n    \"xp\": { \"base\": 18, \"min\": 6, \"max\": 35 },\n    \"energyCost\": { \"base\": 4, \"min\": 1, \"max\": 8 },\n    \"timeCostMinutes\": { \"base\": 45, \"min\": 15, \"max\": 150 },\n    \"difficulty\": { \"base\": 3, \"min\": 2, \"max\": 6, \"scale\": \"1-10\" },\n    \"risk\": { \"base\": 0.35, \"min\": 0.15, \"max\": 0.65, \"scale\": \"0-1\" },\n    \"failureConditions\": [\n      { \"id\": \"incident_spike\", \"label\": \"Incident spike\", \"severity\": 0.6 },\n      { \"id\": \"downtime\", \"label\": \"Downtime\", \"severity\": 0.75 }\n    ],\n    \"successChecks\": [\n      { \"metric\": \"Availability\", \"operator\": \">=\", \"value\": 99.5 },\n      { \"metric\": \"Incident Rate\", \"operator\": \"<=\", \"value\": \"SLA\" }\n    ],\n    \"rewards\": [\n      { \"type\": \"unlock\", \"value\": \"Measure phase\" },\n      { \"type\": \"buff\", \"value\": \"Operational Mastery (+efficiency)\" }\n    ],\n    \"penalties\": [\n      { \"type\": \"energy\", \"value\": -2, \"trigger\": \"failure\" },\n      { \"type\": \"currency\", \"value\": \"-Reputation\", \"trigger\": \"failure\" }\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhaseGameParams\",\n    \"phase\": \"Measure\",\n    \"xp\": { \"base\": 22, \"min\": 8, \"max\": 45 },\n    \"energyCost\": { \"base\": 5, \"min\": 2, \"max\": 9 },\n    \"timeCostMinutes\": { \"base\": 75, \"min\": 30, \"max\": 240 },\n    \"difficulty\": { \"base\": 4, \"min\": 2, \"max\": 6, \"scale\": \"1-10\" },\n    \"risk\": { \"base\": 0.2, \"min\": 0.08, \"max\": 0.4, \"scale\": \"0-1\" },\n    \"failureConditions\": [\n      { \"id\": \"no_signal\", \"label\": \"Not enough signal / data\", \"severity\": 0.55 },\n      { \"id\": \"misleading_kpis\", \"label\": \"KPIs misleading\", \"severity\": 0.6 }\n    ],\n    \"successChecks\": [\n      { \"metric\": \"Business Impact\", \"operator\": \">=\", \"value\": \"target\" },\n      { \"metric\": \"Adoption Rate\", \"operator\": \">=\", \"value\": \"target\" }\n    ],\n    \"rewards\": [\n      { \"type\": \"unlock\", \"value\": \"Learn phase\" },\n      { \"type\": \"item\", \"value\": \"Insight Report (+strategy)\" }\n    ],\n    \"penalties\": [\n      { \"type\": \"rework\", \"value\": \"Measure extended\", \"probability\": 0.25 },\n      { \"type\": \"time\", \"value\": \"+30 min\", \"trigger\": \"failure\" }\n    ]\n  },\n  {\n    \"entity\": \"LifecyclePhaseGameParams\",\n    \"phase\": \"Learn\",\n    \"xp\": { \"base\": 28, \"min\": 10, \"max\": 55 },\n    \"energyCost\": { \"base\": 4, \"min\": 1, \"max\": 8 },\n    \"timeCostMinutes\": { \"base\": 60, \"min\": 20, \"max\": 180 },\n    \"difficulty\": { \"base\": 3, \"min\": 1, \"max\": 5, \"scale\": \"1-10\" },\n    \"risk\": { \"base\": 0.15, \"min\": 0.05, \"max\": 0.35, \"scale\": \"0-1\" },\n    \"failureConditions\": [\n      { \"id\": \"no_actions\", \"label\": \"No actions defined\", \"severity\": 0.6 },\n      { \"id\": \"no_followthrough\", \"label\": \"No follow-through\", \"severity\": 0.65 }\n    ],\n    \"successChecks\": [\n      { \"metric\": \"Improvement Actions Identified\", \"operator\": \">=\", \"value\": 1 },\n      { \"metric\": \"Learning Documented\", \"operator\": \"==\", \"value\": \"yes\" }\n    ],\n    \"rewards\": [\n      { \"type\": \"loop\", \"value\": \"Back to Ideate (New iteration)\" },\n      { \"type\": \"buff\", \"value\": \"Learning Bonus (+xp next cycle)\" }\n    ],\n    \"penalties\": [\n      { \"type\": \"risk\", \"value\": \"+0.1\", \"trigger\": \"failure\" },\n      { \"type\": \"currency\", \"value\": \"-Momentum\", \"trigger\": \"failure\" }\n    ]\n  }\n]\n\n```",
-			"styleAttributes":{
-				"textAlign":null
-			},
-			"x":2239,
-			"y":3760,
-			"width":1020,
-			"height":845
-		},
-		{
-			"id":"7dfdf1410f4f3305",
-			"type":"text",
-			"text":"```typescript\nexport type LifecyclePhaseName =\n  | \"Ideate\"\n  | \"Design\"\n  | \"Validate\"\n  | \"Develop\"\n  | \"Test\"\n  | \"Release\"\n  | \"Run\"\n  | \"Measure\"\n  | \"Learn\";\n\nexport type ScaleLabel = \"0-1\" | \"1-10\";\n\nexport type NumericRange = {\n  base: number;\n  min: number;\n  max: number;\n};\n\nexport type DifficultyRange = NumericRange & {\n  scale: \"1-10\";\n};\n\nexport type RiskRange = NumericRange & {\n  scale: \"0-1\";\n};\n\nexport type ComparisonOperator = \">=\" | \"<=\" | \"==\" | \"!=\" | \">\" | \"<\";\n\n/**\n * Success checks can compare numeric targets (e.g. >= 80)\n * or symbolic targets (e.g. == \"approved\", >= \"target\").\n */\nexport type SuccessCheckValue = number | string;\n\nexport type SuccessCheck = {\n  metric: string;\n  operator: ComparisonOperator;\n  value: SuccessCheckValue;\n};\n\nexport type FailureCondition = {\n  id: string;         // stable key for logic & localization\n  label: string;      // display text\n  severity: number;   // 0..1 (impact weight)\n};\n\nexport type RewardType = \"unlock\" | \"buff\" | \"item\" | \"currency\" | \"loop\";\nexport type PenaltyType = \"rework\" | \"energy\" | \"time\" | \"risk\" | \"currency\";\n\nexport type Reward = {\n  type: RewardType;\n  value: string | number;\n  /** Optional when reward is probabilistic. Default: 1 */\n  probability?: number; // 0..1\n};\n\nexport type Penalty = {\n  type: PenaltyType;\n  value: string | number;\n  /** When this penalty is applied */\n  trigger?: \"failure\" | \"always\" | \"random\";\n  /** Optional for probabilistic penalties */\n  probability?: number; // 0..1\n};\n\nexport type LifecyclePhaseGameParams = {\n  entity: \"LifecyclePhaseGameParams\";\n  phase: LifecyclePhaseName;\n\n  xp: NumericRange;\n  energyCost: NumericRange;\n  timeCostMinutes: NumericRange;\n\n  difficulty: DifficultyRange;\n  risk: RiskRange;\n\n  failureConditions: FailureCondition[];\n  successChecks: SuccessCheck[];\n\n  rewards: Reward[];\n  penalties: Penalty[];\n};\n\n/**\n * Convenience: whole dataset shape\n */\nexport type LifecyclePhaseGameParamsDataset = LifecyclePhaseGameParams[];\n\n/**\n * Optional: helper type for indexed lookup at runtime\n */\nexport type LifecyclePhaseGameParamsIndex = Record<LifecyclePhaseName, LifecyclePhaseGameParams>;\n\n```",
-			"styleAttributes":{
-				"textAlign":null
-			},
-			"x":-611,
-			"y":3760,
-			"width":722,
-			"height":845
 		}
 	],
 	"edges":[
