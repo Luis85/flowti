@@ -1,8 +1,10 @@
 import { App } from "obsidian";
 import { IEventBus } from "src/eventsystem";
+import { ProductUpdatedEvent } from "src/eventsystem/product/ProductUpdatedEvent";
 import { GameViewModel } from "src/models/GameViewModel";
+import { Product } from "src/models/Product";
 import { OrderStatus, SalesOrder } from "src/models/SalesOrder";
-import { OrderTab } from "src/orders";
+import { ProductStore } from "src/simulation/stores/ProductStore";
 import { SalesOrderModal } from "src/ui/modals/SalesOrderModal";
 
 export interface FinanceData {
@@ -78,8 +80,22 @@ export interface FinancePanelCallbacks {
 	onCloseOrder?: (order: SalesOrder) => void;
 }
 
-export class FinancePanel {
+type TabType = "sales" | "products" | "purchase" | "production";
 
+interface TabConfig {
+	key: TabType;
+	label: string;
+	enabled: boolean;
+}
+
+const TAB_CONFIG: TabConfig[] = [
+	{ key: "sales", label: "Sales", enabled: true },
+	{ key: "products", label: "Products", enabled: true },
+	{ key: "purchase", label: "Purchase", enabled: false },
+	{ key: "production", label: "Production", enabled: false },
+];
+
+export class FinancePanel {
 	private root?: HTMLElement;
 	private app?: App;
 	private callbacks: FinancePanelCallbacks = {};
@@ -93,25 +109,38 @@ export class FinancePanel {
 	private ordersCountEl?: HTMLElement;
 	private emptyStateEl?: HTMLElement;
 	private statusFilterEl?: HTMLElement;
+	private tabsContainer?: HTMLElement;
 
-	// DOM cache - dynamic elements (order rows)
+	// Products tab DOM elements
+	private productsContentEl?: HTMLElement;
+	private productsListEl?: HTMLElement;
+	private productsEmptyEl?: HTMLElement;
+	private productsAlertEl?: HTMLElement;
+
+	// Orders content wrapper
+	private ordersContentEl?: HTMLElement;
+
+	// DOM cache - dynamic elements
 	private orderRowCache: Map<string, HTMLElement> = new Map();
+	private productRowCache: Map<string, HTMLElement> = new Map();
 
 	// State
-	private activeTab: OrderTab = "sales";
+	private activeTab: TabType = "sales";
 	private activeStatusFilter: OrderStatus | "all" = "all";
 	private built = false;
 	private isSleeping = false;
 
-	// Cache for change detection - avoid JSON.stringify
+	// Cache for change detection
 	private lastOrderCount = -1;
 	private lastOrderHash = "";
 	private lastFinanceHash = "";
+	private lastProductHash = "";
 
-	// Orders reference for event delegation
+	// References for event delegation
 	private currentOrders: Map<string, SalesOrder> = new Map();
+	private currentProducts: Map<string, Product> = new Map();
 
-	constructor(private events: IEventBus) { }
+	constructor(private products: ProductStore, private events: IEventBus) {}
 
 	mount(parent: HTMLElement) {
 		this.root = parent.createDiv({ cls: "mm-panel mm-finance" });
@@ -139,7 +168,13 @@ export class FinancePanel {
 
 		const data = this.deriveFinanceData(model);
 		this.updateFinanceValues(data);
-		this.updateOrdersList(model.orders || []);
+
+		// Update content based on active tab
+		if (this.activeTab === "sales") {
+			this.updateOrdersList(model.orders || []);
+		} else if (this.activeTab === "products") {
+			this.updateProductsList();
+		}
 	}
 
 	private buildStructure() {
@@ -150,6 +185,42 @@ export class FinancePanel {
 		header.createDiv({ cls: "mm-finance__title", text: "FINANCES" });
 
 		// Summary Row
+		this.buildSummaryRow();
+
+		// Main Content Area (tabs + content)
+		const mainContent = this.root.createDiv({ cls: "mm-finance__main" });
+
+		// Tabs Header
+		const tabsHeader = mainContent.createDiv({
+			cls: "mm-finance__tabs-header",
+		});
+		this.tabsContainer = tabsHeader.createDiv({ cls: "mm-finance__tabs" });
+		this.buildTabs();
+		this.ordersCountEl = tabsHeader.createDiv({
+			cls: "mm-finance__orders-count",
+		});
+
+		// Tab Content Container
+		const contentContainer = mainContent.createDiv({
+			cls: "mm-finance__content",
+		});
+
+		// Orders Content (Sales tab)
+		this.ordersContentEl = contentContainer.createDiv({
+			cls: "mm-finance__orders mm-finance__tab-content mm-finance__tab-content--active",
+		});
+		this.buildOrdersContent();
+
+		// Products Content
+		this.productsContentEl = contentContainer.createDiv({
+			cls: "mm-finance__products mm-finance__tab-content",
+		});
+		this.buildProductsContent();
+	}
+
+	private buildSummaryRow() {
+		if (!this.root) return;
+
 		const summaryRow = this.root.createDiv({ cls: "mm-finance__summary" });
 
 		const budgetBox = summaryRow.createDiv({
@@ -192,47 +263,44 @@ export class FinancePanel {
 		this.netValueEl = netBox.createDiv({
 			cls: "mm-finance__summary-value",
 		});
+	}
 
-		// Orders Section
-		const ordersSection = this.root.createDiv({
-			cls: "mm-finance__orders",
-		});
+	private buildTabs() {
+		if (!this.tabsContainer) return;
 
-		// Orders Header
-		const ordersHeader = ordersSection.createDiv({
-			cls: "mm-finance__orders-header",
-		});
-		const tabsContainer = ordersHeader.createDiv({
-			cls: "mm-finance__tabs",
-		});
-
-		["Sales", "Purchase", "Production"].forEach((label, i) => {
-			const tab = tabsContainer.createDiv({
+		TAB_CONFIG.forEach((tab) => {
+			const tabEl = this.tabsContainer!.createDiv({
 				cls: `mm-finance__tab ${
-					i === 0
-						? "mm-finance__tab--active"
-						: "mm-finance__tab--disabled"
-				}`,
-				text: label,
+					tab.key === this.activeTab ? "mm-finance__tab--active" : ""
+				} ${!tab.enabled ? "mm-finance__tab--disabled" : ""}`,
+				text: tab.label,
+				attr: { "data-tab": tab.key },
 			});
-			if (i > 0) tab.setAttribute("title", "Coming soon");
-		});
 
-		this.ordersCountEl = ordersHeader.createDiv({
-			cls: "mm-finance__orders-count",
+			if (!tab.enabled) {
+				tabEl.setAttribute("title", "Coming soon");
+			} else {
+				tabEl.addEventListener("click", () =>
+					this.setActiveTab(tab.key)
+				);
+			}
 		});
+	}
+
+	private buildOrdersContent() {
+		if (!this.ordersContentEl) return;
 
 		// Status filter
-		this.statusFilterEl = ordersSection.createDiv({
+		this.statusFilterEl = this.ordersContentEl.createDiv({
 			cls: "mm-finance__status-filter",
 		});
 		this.buildStatusFilter();
 
 		// Orders list
-		this.ordersListEl = ordersSection.createDiv({
+		this.ordersListEl = this.ordersContentEl.createDiv({
 			cls: "mm-finance__orders-list",
 		});
-		this.setupEventDelegation();
+		this.setupOrdersEventDelegation();
 
 		// Empty state
 		this.emptyStateEl = this.ordersListEl.createDiv({
@@ -249,6 +317,53 @@ export class FinancePanel {
 		this.emptyStateEl.createDiv({
 			cls: "mm-finance__orders-empty-hint",
 			text: "Accept customer POs from inbox",
+		});
+	}
+
+	private buildProductsContent() {
+		if (!this.productsContentEl) return;
+
+		// Alert banner (shown when no sellable active products)
+		this.productsAlertEl = this.productsContentEl.createDiv({
+			cls: "mm-finance__products-alert",
+		});
+		this.productsAlertEl.createDiv({
+			cls: "mm-finance__products-alert-icon",
+			text: "⚠️",
+		});
+		const alertText = this.productsAlertEl.createDiv({
+			cls: "mm-finance__products-alert-text",
+		});
+		alertText.createDiv({
+			cls: "mm-finance__products-alert-title",
+			text: "No Sellable Products",
+		});
+		alertText.createDiv({
+			cls: "mm-finance__products-alert-desc",
+			text: "Activate at least one sellable product to receive sales orders.",
+		});
+
+		// Products list
+		this.productsListEl = this.productsContentEl.createDiv({
+			cls: "mm-finance__products-list",
+		});
+		this.setupProductsEventDelegation();
+
+		// Empty state (no products at all)
+		this.productsEmptyEl = this.productsListEl.createDiv({
+			cls: "mm-finance__products-empty",
+		});
+		this.productsEmptyEl.createDiv({
+			cls: "mm-finance__products-empty-icon",
+			text: "📦",
+		});
+		this.productsEmptyEl.createDiv({
+			cls: "mm-finance__products-empty-text",
+			text: "No products defined",
+		});
+		this.productsEmptyEl.createDiv({
+			cls: "mm-finance__products-empty-hint",
+			text: "Create products in the Product Manager",
 		});
 	}
 
@@ -277,10 +392,7 @@ export class FinancePanel {
 		});
 	}
 
-	/**
-	 * Single event listener on container instead of per-row listeners
-	 */
-	private setupEventDelegation() {
+	private setupOrdersEventDelegation() {
 		if (!this.ordersListEl) return;
 
 		this.ordersListEl.addEventListener("click", (e) => {
@@ -299,7 +411,6 @@ export class FinancePanel {
 			const order = this.currentOrders.get(orderId);
 			if (!order) return;
 
-			// Check if clicked on a button
 			const btn = target.closest("button") as HTMLElement;
 			if (btn) {
 				e.stopPropagation();
@@ -315,10 +426,91 @@ export class FinancePanel {
 					}
 				}
 			} else {
-				// Row click opens modal
 				this.openOrderModal(order);
 			}
 		});
+	}
+
+	private setupProductsEventDelegation() {
+		if (!this.productsListEl) return;
+
+		this.productsListEl.addEventListener("click", (e) => {
+			if (this.isSleeping) {
+				e.preventDefault();
+				e.stopPropagation();
+				return;
+			}
+
+			const target = e.target as HTMLElement;
+			const row = target.closest(
+				".mm-finance__product-row"
+			) as HTMLElement;
+			if (!row) return;
+
+			const productId = row.dataset.productId;
+			if (!productId) return;
+
+			const product = this.currentProducts.get(productId);
+			if (!product) return;
+
+			const btn = target.closest("button") as HTMLElement;
+			if (btn) {
+				e.stopPropagation();
+				const action = btn.dataset.action;
+				if (action === "toggle") {
+					this.toggleProductActive(product);
+				}
+			}
+		});
+	}
+
+	/**
+	 * Toggle product active state via event
+	 */
+	private toggleProductActive(product: Product) {
+		const updatedProduct: Product = {
+			...product,
+			isActive: !product.isActive,
+			updatedAt: Date.now(),
+		};
+
+		// Dispatch event - no direct mutation!
+		this.events.publish(new ProductUpdatedEvent(updatedProduct));
+	}
+
+	private setActiveTab(tab: TabType) {
+		if (tab === this.activeTab) return;
+
+		// Update tab button states
+		this.tabsContainer
+			?.querySelectorAll(".mm-finance__tab")
+			.forEach((el) => {
+				const tabKey = el.getAttribute("data-tab");
+				el.classList.toggle("mm-finance__tab--active", tabKey === tab);
+			});
+
+		// Update content visibility
+		this.ordersContentEl?.classList.toggle(
+			"mm-finance__tab-content--active",
+			tab === "sales"
+		);
+		this.productsContentEl?.classList.toggle(
+			"mm-finance__tab-content--active",
+			tab === "products"
+		);
+
+		// Show/hide count badge based on tab
+		if (this.ordersCountEl) {
+			this.ordersCountEl.classList.toggle("is-hidden", tab !== "sales");
+		}
+
+		this.activeTab = tab;
+
+		// Force re-render of content
+		if (tab === "products") {
+			this.lastProductHash = "";
+			this.updateProductsList();
+		}
 	}
 
 	private setStatusFilter(status: OrderStatus | "all") {
@@ -338,7 +530,6 @@ export class FinancePanel {
 	}
 
 	private updateFinanceValues(data: FinanceData) {
-		// Quick hash check
 		const hash = `${data.budget}|${data.income}|${data.expenses}`;
 		if (hash === this.lastFinanceHash) return;
 		this.lastFinanceHash = hash;
@@ -369,10 +560,8 @@ export class FinancePanel {
 	private deriveFinanceData(model: GameViewModel): FinanceData {
 		const payments = model.payments ?? [];
 		const income = this.calculateCollectedIncome(payments);
-
 		const budget = 0;
 		const expenses = 0;
-
 		return { budget, income, expenses };
 	}
 
@@ -386,41 +575,39 @@ export class FinancePanel {
 		return sum;
 	}
 
+	// ─────────────────────────────────────────────────────────────────────────
+	// Orders List
+	// ─────────────────────────────────────────────────────────────────────────
+
 	private updateOrdersList(orders: SalesOrder[]) {
 		if (!this.ordersListEl || !this.ordersCountEl || !this.emptyStateEl)
 			return;
 
-		// Filter orders
-		let filteredOrders = this.activeTab === "sales" ? orders : [];
+		let filteredOrders = orders;
 		if (this.activeStatusFilter !== "all") {
 			filteredOrders = filteredOrders.filter(
 				(o) => o.status === this.activeStatusFilter
 			);
 		}
 
-		// Quick change detection - avoid JSON.stringify
 		const orderHash = this.computeOrderHash(filteredOrders);
 		if (orderHash === this.lastOrderHash) return;
 		this.lastOrderHash = orderHash;
 
-		// Update orders map for event delegation
 		this.currentOrders.clear();
 		orders.forEach((o) => this.currentOrders.set(o.id, o));
 
-		// Update count badge
-		const totalCount = this.activeTab === "sales" ? orders.length : 0;
+		const totalCount = orders.length;
 		if (totalCount !== this.lastOrderCount) {
 			this.lastOrderCount = totalCount;
 			this.ordersCountEl.textContent = totalCount.toString();
 			this.ordersCountEl.classList.toggle("is-hidden", totalCount === 0);
 		}
 
-		// Sort orders
 		const sortedOrders = this.sortOrdersByStatus(filteredOrders);
-
-		// Update empty state
 		const isEmpty = sortedOrders.length === 0;
 		this.emptyStateEl.classList.toggle("is-hidden", !isEmpty);
+
 		if (isEmpty) {
 			const emptyText = this.emptyStateEl.querySelector(
 				".mm-finance__orders-empty-text"
@@ -439,16 +626,11 @@ export class FinancePanel {
 			}
 		}
 
-		// Reconcile DOM - update/add/remove only what changed
 		this.reconcileOrderRows(sortedOrders);
 	}
 
-	/**
-	 * Efficient hash without JSON.stringify
-	 */
 	private computeOrderHash(orders: SalesOrder[]): string {
 		if (orders.length === 0) return "empty";
-		// Include filter in hash
 		let hash = `${this.activeStatusFilter}:${orders.length}:`;
 		for (const o of orders) {
 			hash += `${o.id}|${o.status},`;
@@ -456,16 +638,12 @@ export class FinancePanel {
 		return hash;
 	}
 
-	/**
-	 * DOM Reconciliation - only update what changed
-	 */
 	private reconcileOrderRows(orders: SalesOrder[]) {
 		if (!this.ordersListEl) return;
 
 		const currentIds = new Set(orders.map((o) => o.id));
 		const existingIds = new Set(this.orderRowCache.keys());
 
-		// Remove rows that no longer exist
 		for (const id of existingIds) {
 			if (!currentIds.has(id)) {
 				const row = this.orderRowCache.get(id);
@@ -474,29 +652,24 @@ export class FinancePanel {
 			}
 		}
 
-		// Update or create rows in order
 		let previousRow: HTMLElement | null = null;
 
 		for (const order of orders) {
 			let row = this.orderRowCache.get(order.id);
 
 			if (row) {
-				// Update existing row
 				this.updateOrderRow(row, order);
 				row.classList.toggle("is-disabled", this.isSleeping);
 			} else {
-				// Create new row
 				row = this.createOrderRow(order);
 				this.orderRowCache.set(order.id, row);
 			}
 
-			// Ensure correct order in DOM
 			if (previousRow) {
 				if (row.previousElementSibling !== previousRow) {
 					previousRow.after(row);
 				}
 			} else {
-				// First row should be first child (after empty state)
 				if (this.ordersListEl.firstElementChild !== this.emptyStateEl) {
 					this.ordersListEl.insertBefore(
 						row,
@@ -520,13 +693,11 @@ export class FinancePanel {
 		row.dataset.orderId = order.id;
 		if (this.isSleeping) row.classList.add("is-disabled");
 
-		// Status indicator
 		const indicator = document.createElement("div");
 		indicator.className = "mm-finance__order-status-indicator";
 		indicator.style.setProperty("--status-color", statusConfig.color);
 		row.appendChild(indicator);
 
-		// Info section
 		const info = document.createElement("div");
 		info.className = "mm-finance__order-info";
 
@@ -572,7 +743,6 @@ export class FinancePanel {
 		info.appendChild(meta);
 		row.appendChild(info);
 
-		// Actions
 		const actions = document.createElement("div");
 		actions.className = "mm-finance__order-actions";
 
@@ -592,7 +762,6 @@ export class FinancePanel {
 		}
 
 		row.appendChild(actions);
-
 		this.ordersListEl?.appendChild(row);
 		return row;
 	}
@@ -601,23 +770,20 @@ export class FinancePanel {
 		const currentStatus = row.className.match(
 			/mm-finance__order-row--(\w+)/
 		)?.[1];
-		if (currentStatus === order.status) return; // No status change
+		if (currentStatus === order.status) return;
 
 		const statusConfig =
 			ORDER_STATUS_CONFIG[order.status] || ORDER_STATUS_CONFIG.new;
 
-		// Update row class
 		row.className = `mm-finance__order-row mm-finance__order-row--${order.status}`;
 		row.classList.toggle("is-disabled", this.isSleeping);
 
-		// Update indicator
 		const indicator = row.querySelector(
 			".mm-finance__order-status-indicator"
 		) as HTMLElement;
 		if (indicator)
 			indicator.style.setProperty("--status-color", statusConfig.color);
 
-		// Update badge
 		const badge = row.querySelector(
 			".mm-finance__order-status-badge"
 		) as HTMLElement;
@@ -627,7 +793,6 @@ export class FinancePanel {
 			badge.style.setProperty("--status-color", statusConfig.color);
 		}
 
-		// Update action button
 		const actions = row.querySelector(".mm-finance__order-actions");
 		const actionBtn = actions?.querySelector(
 			".mm-finance__order-btn--action"
@@ -642,7 +807,6 @@ export class FinancePanel {
 					statusConfig.color
 				);
 			} else {
-				// Create new action button
 				const newBtn = document.createElement("button");
 				newBtn.className = `mm-finance__order-btn mm-finance__order-btn--action mm-finance__order-btn--${order.status}`;
 				newBtn.textContent = statusConfig.nextAction.label;
@@ -679,6 +843,297 @@ export class FinancePanel {
 		modal.open();
 	}
 
+	// ─────────────────────────────────────────────────────────────────────────
+	// Products List
+	// ─────────────────────────────────────────────────────────────────────────
+
+	private updateProductsList() {
+		if (
+			!this.productsListEl ||
+			!this.productsEmptyEl ||
+			!this.productsAlertEl
+		)
+			return;
+
+		const allProducts = this.products.getAll();
+		const productHash = this.computeProductHash(allProducts);
+
+		if (productHash === this.lastProductHash) return;
+		this.lastProductHash = productHash;
+
+		// Update products map for event delegation
+		this.currentProducts.clear();
+		allProducts.forEach((p) => this.currentProducts.set(p.id, p));
+
+		// Check for sellable active products (required for receiving orders)
+		const sellableProducts = this.products.getSellableProducts();
+		const hasNoSellableProducts =
+			sellableProducts.length === 0 && allProducts.length > 0;
+
+		// Show/hide alert banner
+		this.productsAlertEl.classList.toggle(
+			"is-hidden",
+			!hasNoSellableProducts
+		);
+
+		// Show/hide empty state
+		const isEmpty = allProducts.length === 0;
+		this.productsEmptyEl.classList.toggle("is-hidden", !isEmpty);
+
+		// Sort: active first, then sellable, then by name
+		const sortedProducts = [...allProducts].sort((a, b) => {
+			// Active products first
+			if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
+			// Then sellable products
+			if (a.flags.sellable !== b.flags.sellable)
+				return a.flags.sellable ? -1 : 1;
+			// Then alphabetically
+			return a.name.localeCompare(b.name);
+		});
+
+		this.reconcileProductRows(sortedProducts);
+	}
+
+	private computeProductHash(products: Product[]): string {
+		if (products.length === 0) return "empty";
+		let hash = `${products.length}:`;
+		for (const p of products) {
+			hash += `${p.id}|${p.isActive}|${p.currentStock ?? 0},`;
+		}
+		return hash;
+	}
+
+	private reconcileProductRows(products: Product[]) {
+		if (!this.productsListEl) return;
+
+		const currentIds = new Set(products.map((p) => p.id));
+		const existingIds = new Set(this.productRowCache.keys());
+
+		// Remove rows that no longer exist
+		for (const id of existingIds) {
+			if (!currentIds.has(id)) {
+				const row = this.productRowCache.get(id);
+				row?.remove();
+				this.productRowCache.delete(id);
+			}
+		}
+
+		let previousRow: HTMLElement | null = null;
+
+		for (const product of products) {
+			let row = this.productRowCache.get(product.id);
+
+			if (row) {
+				this.updateProductRow(row, product);
+				row.classList.toggle("is-disabled", this.isSleeping);
+			} else {
+				row = this.createProductRow(product);
+				this.productRowCache.set(product.id, row);
+			}
+
+			// Ensure correct order in DOM
+			if (previousRow) {
+				if (row.previousElementSibling !== previousRow) {
+					previousRow.after(row);
+				}
+			} else {
+				if (
+					this.productsListEl.firstElementChild !==
+					this.productsEmptyEl
+				) {
+					this.productsListEl.insertBefore(
+						row,
+						this.productsListEl.firstElementChild
+					);
+				} else if (this.productsEmptyEl.nextElementSibling !== row) {
+					this.productsEmptyEl.after(row);
+				}
+			}
+
+			previousRow = row;
+		}
+	}
+
+	private createProductRow(product: Product): HTMLElement {
+		const row = document.createElement("div");
+		row.className = `mm-finance__product-row ${
+			!product.isActive ? "mm-finance__product-row--inactive" : ""
+		}`;
+		row.dataset.productId = product.id;
+		if (this.isSleeping) row.classList.add("is-disabled");
+
+		// Status indicator
+		const indicator = document.createElement("div");
+		indicator.className = "mm-finance__product-status-indicator";
+		indicator.style.setProperty(
+			"--status-color",
+			this.getProductStatusColor(product)
+		);
+		row.appendChild(indicator);
+
+		// Info section
+		const info = document.createElement("div");
+		info.className = "mm-finance__product-info";
+
+		const titleRow = document.createElement("div");
+		titleRow.className = "mm-finance__product-title";
+
+		const name = document.createElement("span");
+		name.className = "mm-finance__product-name";
+		name.textContent = product.name;
+		titleRow.appendChild(name);
+
+		const badge = document.createElement("span");
+		badge.className = `mm-finance__product-status-badge ${this.getProductBadgeClass(
+			product
+		)}`;
+		badge.textContent = this.getProductStatusText(product);
+		titleRow.appendChild(badge);
+
+		info.appendChild(titleRow);
+
+		const meta = document.createElement("div");
+		meta.className = "mm-finance__product-meta";
+
+		// Price with pricing type indicator
+		const priceSpan = document.createElement("span");
+		priceSpan.className = "mm-finance__product-price";
+		priceSpan.textContent = `${this.fmt(product.price)}${
+			product.pricingType === "per_hour" ? "/hr" : ""
+		}`;
+		meta.appendChild(priceSpan);
+
+		// Category
+		const categorySpan = document.createElement("span");
+		categorySpan.className = "mm-finance__product-category";
+		categorySpan.textContent = this.formatCategory(product.category);
+		meta.appendChild(categorySpan);
+
+		// Stock level (if stockable)
+		if (product.flags.stockable && product.currentStock !== undefined) {
+			const stockSpan = document.createElement("span");
+			stockSpan.className = "mm-finance__product-stock";
+			const isLowStock =
+				product.minStock !== undefined &&
+				product.currentStock <= product.minStock;
+			if (isLowStock) {
+				stockSpan.classList.add("mm-finance__product-stock--low");
+			}
+			stockSpan.textContent = `📦 ${product.currentStock}`;
+			meta.appendChild(stockSpan);
+		}
+
+		// Not sellable indicator
+		if (!product.flags.sellable) {
+			const notSellableSpan = document.createElement("span");
+			notSellableSpan.className =
+				"mm-finance__product-flag mm-finance__product-flag--not-sellable";
+			notSellableSpan.textContent = "Not sellable";
+			meta.appendChild(notSellableSpan);
+		}
+
+		info.appendChild(meta);
+		row.appendChild(info);
+
+		// Actions
+		const actions = document.createElement("div");
+		actions.className = "mm-finance__product-actions";
+
+		const toggleBtn = document.createElement("button");
+		toggleBtn.className = `mm-finance__product-btn mm-finance__product-btn--toggle ${
+			product.isActive
+				? "mm-finance__product-btn--pause"
+				: "mm-finance__product-btn--activate"
+		}`;
+		toggleBtn.textContent = product.isActive ? "Pause" : "Activate";
+		toggleBtn.dataset.action = "toggle";
+		actions.appendChild(toggleBtn);
+
+		row.appendChild(actions);
+
+		this.productsListEl?.appendChild(row);
+		return row;
+	}
+
+	private getProductStatusColor(product: Product): string {
+		if (!product.isActive) return "var(--color-yellow, #fbbf24)";
+		if (!product.flags.sellable) return "var(--color-cyan, #22d3ee)";
+		return "var(--color-green, #4ade80)";
+	}
+
+	private getProductBadgeClass(product: Product): string {
+		if (!product.isActive)
+			return "mm-finance__product-status-badge--paused";
+		if (!product.flags.sellable)
+			return "mm-finance__product-status-badge--internal";
+		return "mm-finance__product-status-badge--active";
+	}
+
+	private getProductStatusText(product: Product): string {
+		if (!product.isActive) return "⏸ Paused";
+		if (!product.flags.sellable) return "🔧 Internal";
+		return "✓ Active";
+	}
+
+	private formatCategory(category: string): string {
+		return category
+			.replace(/_/g, " ")
+			.replace(/\b\w/g, (c) => c.toUpperCase());
+	}
+
+	private updateProductRow(row: HTMLElement, product: Product) {
+		const isCurrentlyActive = !row.classList.contains(
+			"mm-finance__product-row--inactive"
+		);
+
+		if (isCurrentlyActive === product.isActive) return; // No change
+
+		row.classList.toggle(
+			"mm-finance__product-row--inactive",
+			!product.isActive
+		);
+		row.classList.toggle("is-disabled", this.isSleeping);
+
+		// Update indicator
+		const indicator = row.querySelector(
+			".mm-finance__product-status-indicator"
+		) as HTMLElement;
+		if (indicator) {
+			indicator.style.setProperty(
+				"--status-color",
+				this.getProductStatusColor(product)
+			);
+		}
+
+		// Update badge
+		const badge = row.querySelector(
+			".mm-finance__product-status-badge"
+		) as HTMLElement;
+		if (badge) {
+			badge.className = `mm-finance__product-status-badge ${this.getProductBadgeClass(
+				product
+			)}`;
+			badge.textContent = this.getProductStatusText(product);
+		}
+
+		// Update toggle button
+		const toggleBtn = row.querySelector(
+			".mm-finance__product-btn--toggle"
+		) as HTMLElement;
+		if (toggleBtn) {
+			toggleBtn.className = `mm-finance__product-btn mm-finance__product-btn--toggle ${
+				product.isActive
+					? "mm-finance__product-btn--pause"
+					: "mm-finance__product-btn--activate"
+			}`;
+			toggleBtn.textContent = product.isActive ? "Pause" : "Activate";
+		}
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Utilities
+	// ─────────────────────────────────────────────────────────────────────────
+
 	private fmt(n: number): string {
 		if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
 		if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
@@ -690,9 +1145,12 @@ export class FinancePanel {
 		this.root = undefined;
 		this.built = false;
 		this.orderRowCache.clear();
+		this.productRowCache.clear();
 		this.currentOrders.clear();
+		this.currentProducts.clear();
 		this.lastOrderHash = "";
 		this.lastFinanceHash = "";
+		this.lastProductHash = "";
 		this.lastOrderCount = -1;
 	}
 }

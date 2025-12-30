@@ -59,7 +59,7 @@ export class GameView extends ItemView {
 		this.events = this.simulation.getEvents();
 		this.headerPanel = new HeaderControlsPanel(this.events);
 		this.inboxPanel = new MessageInboxPanel(this.simulation.getMessages(), this.events);
-		this.financePanel = new FinancePanel(this.events);
+		this.financePanel = new FinancePanel(this.simulation.getProducts(), this.events);
 	}
 
 	getViewType() {
