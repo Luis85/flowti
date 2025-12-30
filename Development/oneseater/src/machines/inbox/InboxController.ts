@@ -1,16 +1,24 @@
-import { InboxEvent, InboxActionEvent } from "src/eventsystem/messages/InboxMachine";
+import {
+	InboxEvent,
+	InboxActionEvent,
+} from "src/eventsystem/messages/InboxMachine";
 import { SimulationStore } from "src/simulation/stores/SimulationStore";
 import { createActor } from "xstate";
 import { InboxActorRef, inboxMachine, InboxSnapshot } from "./InboxMachine";
 import { createInboxAction, LastAction } from "./types";
 import { IEventBus } from "src/eventsystem";
+import { MessageStore } from "src/simulation/stores/MessageStore";
 
 export class InboxController {
 	private actor: InboxActorRef;
 
-	constructor(private bus: IEventBus, private store: SimulationStore) {
+	constructor(
+		private bus: IEventBus,
+		private simStore: SimulationStore,
+		private msgStore: MessageStore
+	) {
 		this.actor = createActor(inboxMachine, {
-			input: { bus, store },
+			input: { bus, simStore, msgStore },
 		});
 
 		// Subscribe to state changes for debugging/monitoring

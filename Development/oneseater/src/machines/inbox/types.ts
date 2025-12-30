@@ -3,6 +3,7 @@ import { InboxActionEvent } from "src/eventsystem/messages/InboxMachine";
 import { TaskKind } from "src/eventsystem/tasks/TaskFinishedEvent";
 import { MessageAction } from "src/messages/types";
 import { SimulationMessage } from "src/models/SimulationMessage";
+import { MessageStore } from "src/simulation/stores/MessageStore";
 import { SimulationStore } from "src/simulation/stores/SimulationStore";
 
 export const ACTION_ENERGY_COST: Record<MessageAction, number> = {
@@ -91,14 +92,16 @@ export type LastAction = {
 
 export type InboxContext = {
 	bus: IEventBus;
-	store: SimulationStore;
+	simStore: SimulationStore;
+	msgStore: MessageStore;
 	lastAction?: LastAction;
 	processingCount: number; // für Rate-Limiting / Batch-Operationen
 };
 
 export type InboxInput = {
 	bus: IEventBus;
-	store: SimulationStore;
+	simStore: SimulationStore;
+	msgStore: MessageStore;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

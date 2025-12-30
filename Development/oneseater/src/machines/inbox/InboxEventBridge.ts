@@ -9,6 +9,7 @@ import { SimulationMessage } from "src/models/SimulationMessage";
 import { OneSeaterSettings } from "src/settings/types";
 import { SimulationStore } from "src/simulation/stores/SimulationStore";
 import { InboxController } from "./InboxController";
+import { MessageStore } from "src/simulation/stores/MessageStore";
 export class InboxEventBridge {
 	private controller: InboxController;
 	private unsubscribers: Array<() => void> = [];
@@ -16,11 +17,12 @@ export class InboxEventBridge {
 
 	constructor(
 		private bus: IEventBus,
-		private store: SimulationStore,
+		private simStore: SimulationStore,
+		private msgStore: MessageStore,
 		private settings: OneSeaterSettings,
 	) {
 		// Create the inbox controller (starts the XState actor)
-		this.controller = new InboxController(bus, store);
+		this.controller = new InboxController(bus, simStore, msgStore);
 
 		// Bridge EventBus events to XState machine
 		this.setupEventBridge();
@@ -53,7 +55,7 @@ export class InboxEventBridge {
 	 * Handle incoming new message
 	 */
 	private handleNewMessage(event: NewMessageReceivedEvent): void {
-		const isFull = this.store.isInboxFull(this.settings.game.maxMessages);
+		const isFull = this.msgStore.isInboxFull(this.settings.game.maxMessages);
 
 		// Check if inbox is full
 		if (isFull) {
@@ -91,7 +93,7 @@ export class InboxEventBridge {
 			is_spam: event.is_spam,
 		};
 
-		const added = this.store.addMessage(message);
+		const added = this.msgStore.addMessage(message);
 
 		if (added) {
 			this.bus.publish(new MessageAddedEvent(message));
@@ -137,7 +139,7 @@ export class InboxEventBridge {
 	 * Get current inbox stats (delegates to store)
 	 */
 	getStats() {
-		return this.store.getInboxStats();
+		return this.msgStore.getInboxStats();
 	}
 
 	/**

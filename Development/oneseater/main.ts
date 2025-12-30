@@ -33,7 +33,7 @@ export default class OneSeater extends Plugin {
 	private debug: boolean;
 
 	private simulation: ISimulation;
-	private simulationEvents: IEventBus;
+	private events: IEventBus;
 
 	private store: SimulationStore;
 	private latest: SimulationTickEvent;
@@ -65,7 +65,7 @@ export default class OneSeater extends Plugin {
 			this.store = this.simulation.getStore();
 			this.gameSettings = this.simulation.getSettings();
 			this.gameSettings.applyFrom(this.settings.game);
-			this.simulationEvents = this.simulation.getEvents();
+			this.events = this.simulation.getEvents();
 
 			this.registerMachines();
 			this.registerEventSubscriber();
@@ -157,7 +157,7 @@ export default class OneSeater extends Plugin {
 			this.statusBarItem.setText(`📧 0 · 1x · …`);
 			return;
 		}
-		const messageCount = this.store.getActiveMessages().length;
+		const messageCount = this.simulation.getMessages().getActiveMessages().length;
 
 		// ---- PAUSED UI
 		if (this.latest.state.paused) {
@@ -194,20 +194,21 @@ export default class OneSeater extends Plugin {
 
 	private registerMachines() {
 		this.simulationMachine = new SimulationMachine(
-			this.simulationEvents,
+			this.events,
 			this.store
 		);
 		this.inboxBridge = new InboxEventBridge(
-			this.simulationEvents,
+			this.events,
 			this.store,
+			this.simulation.getMessages(),
 			this.settings
 		);
 		this.orderBridge = new OrderEventBridge(
-			this.simulationEvents,
+			this.events,
 			this.store
 		);
 		this.notificationService = new NotificationService(
-			this.simulationEvents,
+			this.events,
 			{
 				orders: true, // Show order notifications
 				messages: true, // Show message notifications
@@ -230,15 +231,15 @@ export default class OneSeater extends Plugin {
 	private registerViews(): void {
 		this.registerView(
 			GAME_OFFICE_VIEW,
-			(leaf) => new GameView(leaf, this.simulationEvents, this.settings)
+			(leaf) => new GameView(leaf, this.simulation, this.settings)
 		);
 		this.registerView(
 			GAME_PRODUCT_CATALOG_VIEW,
-			(leaf) => new ProductCatalogView(leaf, this.simulationEvents)
+			(leaf) => new ProductCatalogView(leaf, this.events)
 		);
 		this.registerView(
 			GAME_MARKET_VIEW,
-			(leaf) => new GameMarketView(leaf, this.simulationEvents)
+			(leaf) => new GameMarketView(leaf, this.events)
 		);
 		this.registerView(
 			GAME_COMPENDIUM_VIEW,
@@ -273,14 +274,14 @@ export default class OneSeater extends Plugin {
 		});
 
 		this.addRibbonIcon("hand-helping", "CTRL A + DEL", () => {
-			void this.simulationEvents.publish(new ResetInboxEvent());
+			void this.events.publish(new ResetInboxEvent());
 		});
 
 		this.ribbons.register({
 			id: "pause",
 			initialState: { icon: "pause", tooltip: "Pause", disabled: true },
 			onClick: () =>
-				this.simulationEvents.publish(new TogglePauseEvent()),
+				this.events.publish(new TogglePauseEvent()),
 		});
 
 		// === Time Scale (Radio-Button Style) ===
@@ -333,7 +334,7 @@ export default class OneSeater extends Plugin {
 	}
 
 	private setTimeScale(scale: number) {
-		this.simulationEvents.publish(new SetTimeScaleEvent(scale));
+		this.events.publish(new SetTimeScaleEvent(scale));
 
 		// Update active states
 		this.ribbons.update("speed-1x", { active: scale === 1 });
@@ -342,7 +343,7 @@ export default class OneSeater extends Plugin {
 	}
 
 	private subscribeToSimulationState() {
-		this.simulationEvents.subscribe(SimulationStartedEvent, () => {
+		this.events.subscribe(SimulationStartedEvent, () => {
 			this.ribbons.update("start", { disabled: true, icon: "play" });
 			this.ribbons.update("stop", { disabled: false });
 			this.ribbons.update("pause", {
@@ -353,13 +354,13 @@ export default class OneSeater extends Plugin {
 			this.activateView(GAME_OFFICE_VIEW);
 		});
 
-		this.simulationEvents.subscribe(SimulationStoppedEvent, () => {
+		this.events.subscribe(SimulationStoppedEvent, () => {
 			this.ribbons.update("start", { disabled: false });
 			this.ribbons.update("stop", { disabled: true });
 			this.ribbons.update("pause", { disabled: true });
 		});
 
-		this.simulationEvents.subscribe(TogglePauseEvent, () => {
+		this.events.subscribe(TogglePauseEvent, () => {
 			if (this.latest.state.paused) {
 				this.ribbons.update("pause", {
 					icon: "play",
@@ -375,9 +376,9 @@ export default class OneSeater extends Plugin {
 	}
 
 	private sub<T>(eventType: EventType<T>, handler: (event: T) => void): void {
-		this.simulationEvents.subscribe(eventType, handler);
+		this.events.subscribe(eventType, handler);
 		this.register(() => {
-			this.simulationEvents.unsubscribe(eventType, handler);
+			this.events.unsubscribe(eventType, handler);
 		});
 	}
 
@@ -394,12 +395,12 @@ export default class OneSeater extends Plugin {
 	private debugMessages(): void {
 		console.log(this.latest);
 		console.log("Tasks", this.simulation.getTasks());
-		console.log("Inbox Stats", this.store.getInboxStats());
+		console.log("Inbox Stats", this.simulation.getMessages().getInboxStats());
 		console.log("Order Stats", this.store.getOrderStats());
 	}
 
 	private timersTest(): void {
-		const eventBus = this.simulationEvents;
+		const eventBus = this.events;
 		// Einfacher Timer - einmalig
 		eventBus.publish(
 			new AddTimerEvent({

@@ -23,7 +23,8 @@ export const inboxMachine = setup({
 		canExecute: ({ context, event }) => {
 			if (event.type !== "inbox:action") return false;
 			const result = validateAction(
-				context.store,
+				context.simStore,
+				context.msgStore,
 				event.messageId,
 				event.action
 			);
@@ -64,7 +65,8 @@ export const inboxMachine = setup({
 
 				const result = executeAction(
 					context.bus,
-					context.store,
+					context.simStore,
+					context.msgStore,
 					event.messageId,
 					event.action,
 					event.source
@@ -90,7 +92,8 @@ export const inboxMachine = setup({
 				if (event.type !== "inbox:action") return context.lastAction;
 
 				const validation = validateAction(
-					context.store,
+					context.simStore,
+					context.msgStore,
 					event.messageId,
 					event.action
 				);
@@ -112,8 +115,8 @@ export const inboxMachine = setup({
 		executeReset: assign({
 			lastAction: ({ context, event }): LastAction | undefined => {
 				if (event.type !== "inbox:reset") return context.lastAction;
-				context.store.messages = []
-				context.bus.publish(new InboxResetedEvent())
+				context.msgStore.messages = [];
+				context.bus.publish(new InboxResetedEvent());
 			},
 		}),
 
@@ -138,7 +141,8 @@ export const inboxMachine = setup({
 
 	context: ({ input }) => ({
 		bus: input.bus,
-		store: input.store,
+		simStore: input.simStore,
+		msgStore: input.msgStore,
 		lastAction: undefined,
 		processingCount: 0,
 	}),

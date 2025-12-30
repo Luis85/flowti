@@ -9,6 +9,7 @@ import { SimulationStore } from "../stores/SimulationStore";
 import { TaskStore } from "../stores/TaskStore";
 import { clamp } from "../utils";
 import { getLevelFromXP } from "./player/LevelSystem";
+import { MessageStore } from "../stores/MessageStore";
 
 
 export const TaskResolutionSystem = createSystem({
@@ -16,22 +17,23 @@ export const TaskResolutionSystem = createSystem({
 	success: WriteEvents(TaskSuccessEvent),
 
 	tasks: WriteResource(TaskStore),
-	sim: WriteResource(SimulationStore),
+	simStore: WriteResource(SimulationStore),
+	msgStore: WriteResource(MessageStore),
 	dice: ReadResource(GurpsDice),
 })
-	.withRunFunction(async ({ finished, success, tasks, sim, dice }) => {
+	.withRunFunction(async ({ finished, success, tasks, simStore, msgStore, dice }) => {
 		for (const evt of finished.iter()) {
 			// 1) Idempotenz
 			if (tasks.hasResolved(evt.taskId)) continue;
 
 			// 2) Context Snapshot: nimm die "essentials" aus evt + ggf Message Snapshot
-			const ctx: TaskContext = buildTaskContextFromFinished(evt, sim);
+			const ctx: TaskContext = buildTaskContextFromFinished(evt, msgStore);
 
 			// Optional: tasksById pflegen (damit du später eine Task-Historie hast)
 			tasks.tasksById.set(ctx.taskId, ctx);
 
 			// 3) PlayerSkill Snapshot (minimal)
-			const skill = getPlayerSkill(sim, ctx.skillKey);
+			const skill = getPlayerSkill(simStore, ctx.skillKey);
 
 			// 4) Difficulty -> GURPS modifier
 			const modifier = mapDifficultyToGurpsModifier(ctx.difficulty);
@@ -84,7 +86,7 @@ export const TaskResolutionSystem = createSystem({
 			tasks.appendResolution(record);
 
 			// 8) Apply rewards to player (XP/energy/time)
-			applyRewards(sim, record);
+			applyRewards(simStore, record);
 
 			// 9) Fire success event (auch wenn outcome partial/fail ist)
 			success.publish({
@@ -144,12 +146,12 @@ function mapDifficultyToGurpsModifier(d: number): number {
 }
 function buildTaskContextFromFinished(
 	evt: Readonly<TaskFinishedEvent>,
-	sim: SimulationStore
+	msgStore: MessageStore
 ): TaskContext {
 	let skillKey = "chores"
 	let id = mkId(Math.random()*10, Math.random()*10, Math.random()*10) + '-chores';
 	if(evt.messageId) {
-		const message = sim.findMessage(evt.messageId)
+		const message = msgStore.findMessage(evt.messageId)
 		skillKey = message ? message.type : skillKey
 		id = evt.messageId
 	}

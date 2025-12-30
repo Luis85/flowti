@@ -26,11 +26,13 @@ import { PhasePanel } from "../panels/office/PhasePanel";
 import { SeasonProgressPanel } from "../panels/office/SeasonProgressPanel";
 import { TeamStatusPanel } from "../panels/office/TeamStatusPanel";
 import { TimelinePanel } from "../panels/office/TimelinePanel";
+import { ISimulation } from "src/simulation/Simulation";
 
 
 export const GAME_OFFICE_VIEW = "oneseater-office-view";
 
 export class GameView extends ItemView {
+	private events: IEventBus;
 	// State
 	private latest: SimulationStore;
 	private resumeMultiplier = 1;
@@ -52,11 +54,11 @@ export class GameView extends ItemView {
 	private financePanel: FinancePanel;
 	private seasonPanel = new SeasonProgressPanel();
 
-	constructor(leaf: WorkspaceLeaf, private events: IEventBus, private settings: OneSeaterSettings) {
+	constructor(leaf: WorkspaceLeaf, private simulation: ISimulation, private settings: OneSeaterSettings) {
 		super(leaf);
-
+		this.events = this.simulation.getEvents();
 		this.headerPanel = new HeaderControlsPanel(this.events);
-		this.inboxPanel = new MessageInboxPanel(this.events);
+		this.inboxPanel = new MessageInboxPanel(this.simulation.getMessages(), this.events);
 		this.financePanel = new FinancePanel(this.events);
 	}
 
@@ -174,7 +176,6 @@ export class GameView extends ItemView {
 
         // Store einmalig setzen beim ersten Tick
         if (wasUninitialized) {
-            this.inboxPanel.setStore(this.latest);
 			this.inboxPanel.setSettings(this.settings)
             this.inboxPanel.fullSync();
         }
@@ -232,7 +233,7 @@ export class GameView extends ItemView {
 			speed: this.latest.speed,
 			resumeSpeed: this.resumeMultiplier,
 			feed: this.feed,
-			messages: this.latest.messages,
+			messages: this.simulation.getMessages().messages,
 			products: this.latest.products,
 			orders: this.latest.orders,
 			payments: this.latest.payments,

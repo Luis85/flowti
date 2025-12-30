@@ -8,6 +8,7 @@ import { MessageReadEvent } from "src/eventsystem/messages/MessageReadEvent";
 import { MessageAction, ActionGateResult } from "src/messages/types";
 import { SimulationMessage } from "src/models/SimulationMessage";
 import { OneSeaterSettings } from "src/settings/types";
+import { MessageStore } from "src/simulation/stores/MessageStore";
 import { SimulationStore } from "src/simulation/stores/SimulationStore";
 import { getTypeIcon, getPriorityDot } from "src/ui/helpers";
 import { MessageModal } from "src/ui/modals/MessageModal";
@@ -16,7 +17,6 @@ const WARNING_THRESHOLD = 25;
 const DANGER_THRESHOLD = 50;
 
 export class MessageInboxPanel {
-	private store?: SimulationStore;
 	private settings?: OneSeaterSettings;
 	private root?: HTMLElement;
 	private header?: HTMLElement;
@@ -31,14 +31,10 @@ export class MessageInboxPanel {
 	private pendingRemovals = new Set<string>();
 	private isSleeping = false;
 
-	constructor(private events: IEventBus, private app?: App) {}
+	constructor(private store: MessageStore, private events: IEventBus, private app?: App) {}
 
 	setApp(app: App) {
 		this.app = app;
-	}
-
-	setStore(store: SimulationStore) {
-		this.store = store;
 	}
 
 	setSettings(settings: OneSeaterSettings) {

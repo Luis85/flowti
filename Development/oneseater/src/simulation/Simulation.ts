@@ -8,6 +8,7 @@ import { GameSettingsStore } from "./stores/GameSettingsStore";
 import { SimulationStartedEvent } from "src/eventsystem/engine/SimulationStartedEvent";
 import { SimulationStoppedEvent } from "src/eventsystem/engine/SimulationStoppedEvent";
 import { TaskStore } from "./stores/TaskStore";
+import { MessageStore } from "./stores/MessageStore";
 
 export interface ISimulation {
 	init(): Promise<void>;
@@ -16,6 +17,7 @@ export interface ISimulation {
 	getEvents(): IEventBus;
 	setDebug(debug: boolean): void;
 	getStore(): SimulationStore;
+	getMessages(): MessageStore;
 	getTasks(): TaskStore;
 	getSettings(): GameSettingsStore;
 }
@@ -107,6 +109,12 @@ export class Simulation implements ISimulation {
 		const tasks = this.engine?.getResource(TaskStore);
 		if(!tasks) throw new Error('Task Store not set');
 		return tasks;
+	}
+
+	getMessages(): MessageStore {
+		const messages = this.engine?.getResource(MessageStore);
+		if(!messages) throw new Error('Message Store not set');
+		return messages;
 	}
 
 	getSettings(): GameSettingsStore {

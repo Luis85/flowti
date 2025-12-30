@@ -1,14 +1,15 @@
 import { InboxActionEvent } from "src/eventsystem/messages/InboxMachine";
 import { MessageAction } from "src/messages/types";
 import { SimulationMessage } from "src/models/SimulationMessage";
-import { SimulationStore } from "src/simulation/stores/SimulationStore";
 import { ACTION_ENERGY_COST, ValidationResult, RejectionReason } from "./types";
+import { MessageStore } from "src/simulation/stores/MessageStore";
+import { SimulationStore } from "src/simulation/stores/SimulationStore";
 
 /**
  * Find a message by ID (delegates to store)
  */
 export function findMessage(
-	store: SimulationStore,
+	store: MessageStore,
 	messageId: string
 ): SimulationMessage | undefined {
 	return store.findMessage(messageId);
@@ -53,7 +54,7 @@ export function hasEnoughEnergy(
 /**
  * Check if inbox is full (delegates to store)
  */
-export function isInboxFull(store: SimulationStore, maxSize = 50): boolean {
+export function isInboxFull(store: MessageStore, maxSize = 50): boolean {
 	return store.isInboxFull(maxSize);
 }
 
@@ -62,12 +63,13 @@ export function isInboxFull(store: SimulationStore, maxSize = 50): boolean {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function validateAction(
-	store: SimulationStore,
+	simStore: SimulationStore,
+	msgStore: MessageStore,
 	messageId: string,
 	action: MessageAction
 ): ValidationResult {
 	// 1. Message exists?
-	const msg = findMessage(store, messageId);
+	const msg = findMessage(msgStore, messageId);
 	if (!msg) {
 		return { valid: false, reason: "MESSAGE_NOT_FOUND" };
 	}
@@ -92,7 +94,7 @@ export function validateAction(
 
 		case "collect":
 			{
-				const payment = store.payments.find((p) => p.id === msg.id);
+				const payment = simStore.payments.find((p) => p.id === msg.id);
 
 				if (!payment) {
 					return { valid: false, reason: "ACTION_NOT_ALLOWED" };
@@ -106,12 +108,12 @@ export function validateAction(
 	}
 
 	// 5. Player state checks
-	if (isPlayerSleeping(store)) {
+	if (isPlayerSleeping(simStore)) {
 		return { valid: false, reason: "PLAYER_SLEEPING" };
 	}
 
 	// 6. Energy check
-	if (!hasEnoughEnergy(store, action)) {
+	if (!hasEnoughEnergy(simStore, action)) {
 		return { valid: false, reason: "NOT_ENOUGH_ENERGY" };
 	}
 
@@ -123,7 +125,7 @@ export function validateAction(
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type InboxGuardArgs = {
-	context: { store: SimulationStore };
+	context: { simStore: SimulationStore, msgStore: MessageStore };
 	event: InboxActionEvent;
 };
 
@@ -138,7 +140,8 @@ export const inboxGuards = {
 	canExecuteAction: ({ context, event }: InboxGuardArgs): boolean => {
 		if (event.type !== "inbox:action") return false;
 		const result = validateAction(
-			context.store,
+			context.simStore,
+			context.msgStore,
 			event.messageId,
 			event.action
 		);

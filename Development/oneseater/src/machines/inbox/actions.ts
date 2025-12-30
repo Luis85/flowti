@@ -7,10 +7,11 @@ import { PaymentCollectedEvent } from "src/eventsystem/orders/PaymentCollectedEv
 import { TaskFinishedEvent, TaskKind } from "src/eventsystem/tasks/TaskFinishedEvent";
 import { MessageAction } from "src/messages/types";
 import { SimulationMessage } from "src/models/SimulationMessage";
-import { SimulationStore } from "src/simulation/stores/SimulationStore";
 import { validateAction, REJECTION_MESSAGES } from "./guards";
 import { RejectionReason, ActionSource, ACTION_TASK_MAP, LastAction } from "./types";
 import { IEventBus } from "src/eventsystem";
+import { MessageStore } from "src/simulation/stores/MessageStore";
+import { SimulationStore } from "src/simulation/stores/SimulationStore";
 
 export type ExecuteResult =
 	| { success: true; action: MessageAction }
@@ -21,13 +22,14 @@ export type ExecuteResult =
  */
 export function executeAction(
 	bus: IEventBus,
-	store: SimulationStore,
+	simStore: SimulationStore,
+	msgStore: MessageStore,
 	messageId: string,
 	action: MessageAction,
 	source: ActionSource
 ): ExecuteResult {
 	// 1. Validate first
-	const validation = validateAction(store, messageId, action);
+	const validation = validateAction(simStore,msgStore, messageId, action);
 
 	if (!validation.valid) {
 		publishRejection(bus, messageId, action, validation.reason);
@@ -39,33 +41,33 @@ export function executeAction(
 	// 2. Mutate store + 3. Publish events
 	switch (action) {
 		case "read":
-			store.markMessageAsRead(messageId);
+			msgStore.markMessageAsRead(messageId);
 			publishRead(bus, messageId);
 			break;
 
 		case "spam":
-			store.markMessageAsSpam(messageId);
+			msgStore.markMessageAsSpam(messageId);
 			publishSpam(bus, messageId);
 			break;
 
 		case "archive":
-			store.softDeleteMessage(messageId);
+			msgStore.softDeleteMessage(messageId);
 			publishDelete(bus, messageId);
 			break;
 
 		case "delete":
-			store.softDeleteMessage(messageId);
+			msgStore.softDeleteMessage(messageId);
 			publishDelete(bus, messageId);
 			break;
 
 		case "accept":
-			store.softDeleteMessage(messageId);
+			msgStore.softDeleteMessage(messageId);
 			publishAccept(bus, messageId, message);
 			publishDelete(bus, messageId);
 			break;
 
 		case "collect":
-			store.softDeleteMessage(messageId);
+			msgStore.softDeleteMessage(messageId);
 			publishCollect(bus, messageId, message);
 			publishDelete(bus, messageId);
 			break;
@@ -217,14 +219,15 @@ export type BatchResult = {
  */
 export function executeBatchAction(
 	bus: IEventBus,
-	store: SimulationStore,
+	simStore: SimulationStore,
+	msgStore: MessageStore,
 	messageIds: string[],
 	action: MessageAction,
 	source: ActionSource = "system"
 ): BatchResult {
 	const results = messageIds.map((messageId) => ({
 		messageId,
-		result: executeAction(bus, store, messageId, action, source),
+		result: executeAction(bus, simStore, msgStore, messageId, action, source),
 	}));
 
 	return {
@@ -240,11 +243,12 @@ export function executeBatchAction(
  */
 export function archiveAllRead(
 	bus: IEventBus,
-	store: SimulationStore
+	simStore: SimulationStore,
+	msgStore: MessageStore,
 ): BatchResult {
 	// Use store method to get read messages
-	const readMessages = store.getActiveMessages().filter((m) => m.read_at);
+	const readMessages = msgStore.getActiveMessages().filter((m) => m.read_at);
 	const readMessageIds = readMessages.map((m) => m.id);
 
-	return executeBatchAction(bus, store, readMessageIds, "archive", "system");
+	return executeBatchAction(bus, simStore, msgStore, readMessageIds, "archive", "system");
 }

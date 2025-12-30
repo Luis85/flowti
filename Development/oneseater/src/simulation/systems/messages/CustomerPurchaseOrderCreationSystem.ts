@@ -5,6 +5,7 @@ import { shouldSpawn, mkId } from "src/messages/utils";
 import { LineItem } from "src/orders";
 import { LineItemGenerator } from "src/orders/LineItemGenerator";
 import { GameSettingsStore } from "src/simulation/stores/GameSettingsStore";
+import { MessageStore } from "src/simulation/stores/MessageStore";
 import { SimulationStore } from "src/simulation/stores/SimulationStore";
 import { nextRng, computeTemplateWeight, weightedPick } from "src/simulation/utils";
 
@@ -14,7 +15,8 @@ const MIN_GAP_SIM_MS = 30 * 60_000; // min 30 sim minutes between messages
 
 export const CustomerPurchaseOrderCreationSystem = createSystem({
 	msg: WriteEvents(NewMessageReceivedEvent),
-	sim: WriteResource(SimulationStore),
+	simStore: WriteResource(SimulationStore),
+	msgStore: WriteResource(MessageStore),
 	settings: ReadResource(GameSettingsStore),
 
 	storage: Storage({
@@ -25,18 +27,18 @@ export const CustomerPurchaseOrderCreationSystem = createSystem({
 	}),
 })
 	.withName("CustomerPurchaseOrderCreationSystem")
-	.withRunFunction(async ({ msg, sim, settings, storage }) => {
-		const simDt = sim.lastSimDtMs ?? 0;
-		storage.messageCount = sim.getActiveMessages().length;
+	.withRunFunction(async ({ msg, simStore, msgStore, settings, storage }) => {
+		const simDt = simStore.lastSimDtMs ?? 0;
+		storage.messageCount = msgStore.getActiveMessages().length;
 
 		// Don't spawn if paused, no time passed, inbox full, or no products
-		if (simDt <= 0 || sim.inboxFull || sim.getSellableProducts().length === 0) {
+		if (simDt <= 0 || simStore.inboxFull || simStore.getSellableProducts().length === 0) {
 			return;
 		}
 
-		const now = sim.simNowMs ?? 0;
-		const dayIndex = sim.dayIndex ?? 0;
-		const minuteOfDay = sim.minuteOfDay ?? 0;
+		const now = simStore.simNowMs ?? 0;
+		const dayIndex = simStore.dayIndex ?? 0;
+		const minuteOfDay = simStore.minuteOfDay ?? 0;
 
 		// Throttle - minimum gap between messages
 		if (now - storage.lastMsgSimNowMs < MIN_GAP_SIM_MS) return;
@@ -73,7 +75,7 @@ export const CustomerPurchaseOrderCreationSystem = createSystem({
 		};
 
 		// Generate line items
-		const availableProducts = sim.getSellableProducts();
+		const availableProducts = simStore.getSellableProducts();
 		const lineItems = LineItemGenerator.generate(
 			template.lineItemsStrategy,
 			availableProducts,
