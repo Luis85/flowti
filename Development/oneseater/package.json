@@ -10,7 +10,8 @@
 		"test": "vitest --ui",
 		"test-run": "vitest run",
 		"coverage": "vitest run --coverage",
-		"docs": "typedoc --entryPointStrategy expand ./src"
+		"docs": "typedoc --entryPointStrategy expand ./src",
+		"publish": "npm run coverage && npm run docs && npm run build"
 	},
 	"keywords": [],
 	"author": "",
