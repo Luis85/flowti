@@ -1,4 +1,6 @@
-import { Plugin, Notice } from "obsidian";
+import { Plugin, Notice, TFile } from "obsidian";
+import { CharacterStorageService } from "src/characters/CharacterStorageService";
+import { CharacterData } from "src/models/Character";
 import { EventType, IEventBus } from "src/eventsystem";
 import { CharacterCreatedEvent } from "src/eventsystem/characters/CharacterCreatedEvent";
 import { SetTimeScaleEvent } from "src/eventsystem/engine/SetTimeScaleEvent";
@@ -22,12 +24,20 @@ import { SimulationStore } from "src/simulation/stores/SimulationStore";
 import { CharacterCreationModal } from "src/ui/modals/CharacterCreationModal";
 import { NotificationService } from "src/ui/NotificationService";
 import { ReactiveRibbonManager } from "src/ui/ReactiveRibbonManager";
-import { GAME_COMPENDIUM_VIEW, GameCompendiumView } from "src/ui/views/GameCompendiumView";
-import { GAMELOOP_DEBUG_VIEW, GameLoopDebugView } from "src/ui/views/GameLoopDebugView";
+import {
+	GAME_COMPENDIUM_VIEW,
+	GameCompendiumView,
+} from "src/ui/views/GameCompendiumView";
+import {
+	GAMELOOP_DEBUG_VIEW,
+	GameLoopDebugView,
+} from "src/ui/views/GameLoopDebugView";
 import { GAME_MARKET_VIEW, GameMarketView } from "src/ui/views/GameMarketView";
 import { GAME_OFFICE_VIEW, GameView } from "src/ui/views/GameView";
-import { GAME_PRODUCT_CATALOG_VIEW, ProductCatalogView } from "src/ui/views/ProductCatalogView";
-
+import {
+	GAME_PRODUCT_CATALOG_VIEW,
+	ProductCatalogView,
+} from "src/ui/views/ProductCatalogView";
 
 export default class OneSeater extends Plugin {
 	settings: OneSeaterSettings;
@@ -37,6 +47,7 @@ export default class OneSeater extends Plugin {
 	private simulation: ISimulation;
 	private events: IEventBus;
 
+	private characterStorage: CharacterStorageService;
 	private store: SimulationStore;
 	private latest: SimulationTickEvent;
 
@@ -68,12 +79,24 @@ export default class OneSeater extends Plugin {
 			this.gameSettings = this.simulation.getSettings();
 			this.gameSettings.applyFrom(this.settings.game);
 			this.events = this.simulation.getEvents();
+			this.characterStorage = new CharacterStorageService(
+				this.app,
+				this.settings
+			);
+
+			if (this.settings.player.characterFile) {
+				const character = await this.loadCurrentCharacter();
+				if (character) {
+					console.log("Current character loaded:", character);
+				}
+			}
 
 			this.registerMachines();
 			this.registerEventSubscriber();
 			this.subscribeToSimulationState();
 			this.registerViews();
-			this.registerRibbonButtons();			this.addSettingTab(new OneSeaterSettingTab(this.app, this));
+			this.registerRibbonButtons();
+			this.addSettingTab(new OneSeaterSettingTab(this.app, this));
 
 			// we void here to prevent waiting for resolving which will never happen
 			void this.simulation.start();
@@ -126,12 +149,110 @@ export default class OneSeater extends Plugin {
 		}
 	}
 
-	// --- CHARACTER CREATION
+	// --- CHARACTER HANDLING
+	private onCharacterCreated = async (
+		event: CharacterCreatedEvent
+	): Promise<void> => {
+		console.log("Character Created:", event);
 
-	private onCharacterCreated = (event: CharacterCreatedEvent): void => {
-		console.log('Character Created:', event)
-		this.settings.player.name = event.character.name
+		const character = event.character;
+
+		// Check if we already have a character file for this player
+		const existingFilepath = this.settings.player.characterFile;
+		let file: TFile | null = null;
+		let isUpdate = false;
+
+		if (existingFilepath) {
+			// Try to load existing character
+			const existingCharacter = await this.characterStorage.loadCharacter(
+				existingFilepath
+			);
+
+			if (existingCharacter) {
+				// Character file exists - UPDATE it
+				console.log("Updating existing character:", existingFilepath);
+				const success = await this.characterStorage.updateCharacter(
+					existingFilepath,
+					character
+				);
+
+				if (success) {
+					file = this.app.vault.getAbstractFileByPath(
+						existingFilepath
+					) as TFile;
+					isUpdate = true;
+					new Notice(`Character "${character.name}" updated!`);
+				} else {
+					// Update failed, fall back to creating new
+					console.warn("Update failed, creating new character file");
+					file = await this.createNewCharacterFile(character);
+				}
+			} else {
+				// File doesn't exist anymore - CREATE new
+				console.warn("Character file not found, creating new one");
+				file = await this.createNewCharacterFile(character);
+			}
+		} else {
+			// No existing character - CREATE new
+			console.log("Creating new character file");
+			file = await this.createNewCharacterFile(character);
+		}
+
+		// Update settings with character info and file path
+		if (file) {
+			this.settings.player.name = character.name;
+			this.settings.player.characterFile = file.path;
+			await this.saveSettings();
+
+			// Open the character file
+			const leaf = this.app.workspace.getLeaf(false);
+			await leaf.openFile(file);
+
+			if (!isUpdate) {
+				new Notice(
+					`Character "${character.name}" created at ${file.path}`
+				);
+			}
+		}
 	};
+
+	/**
+	 * Helper to create a new character file
+	 */
+	private async createNewCharacterFile(
+		character: CharacterData
+	): Promise<TFile | null> {
+		const file = await this.characterStorage.saveCharacter(character);
+
+		if (!file) {
+			new Notice("Failed to create character file!");
+		}
+
+		return file;
+	}
+
+	/**
+	 * Load the current player character (if exists)
+	 */
+	async loadCurrentCharacter(): Promise<CharacterData | null> {
+		const filepath = this.settings.player.characterFile;
+
+		if (!filepath) {
+			console.log("No character file configured");
+			return null;
+		}
+
+		const character = await this.characterStorage.loadCharacter(filepath);
+
+		if (!character) {
+			console.warn("Could not load character from:", filepath);
+			new Notice("Character file not found!");
+			return null;
+		}
+
+		console.log("Loaded character:", character);
+		return character;
+	}
 
 	// --- EVENTS AND RENDER UPDATE
 
@@ -165,7 +286,9 @@ export default class OneSeater extends Plugin {
 			this.statusBarItem.setText(`📧 0 · 1x · …`);
 			return;
 		}
-		const messageCount = this.simulation.getMessages().getActiveMessages().length;
+		const messageCount = this.simulation
+			.getMessages()
+			.getActiveMessages().length;
 
 		// ---- PAUSED UI
 		if (this.latest.state.paused) {
@@ -201,33 +324,24 @@ export default class OneSeater extends Plugin {
 	// --- REGISTRY
 
 	private registerMachines() {
-		this.simulationMachine = new SimulationMachine(
-			this.events,
-			this.store
-		);
+		this.simulationMachine = new SimulationMachine(this.events, this.store);
 		this.inboxBridge = new InboxEventBridge(
 			this.events,
 			this.store,
 			this.simulation.getMessages(),
 			this.settings
 		);
-		this.orderBridge = new OrderEventBridge(
-			this.events,
-			this.store
-		);
-		this.notificationService = new NotificationService(
-			this.events,
-			{
-				orders: true, // Show order notifications
-				messages: true, // Show message notifications
-				tasks: false, // XP popups (optional, can be noisy)
-				errors: true, // Show error notifications
+		this.orderBridge = new OrderEventBridge(this.events, this.store);
+		this.notificationService = new NotificationService(this.events, {
+			orders: true, // Show order notifications
+			messages: true, // Show message notifications
+			tasks: false, // XP popups (optional, can be noisy)
+			errors: true, // Show error notifications
 
-				// Callbacks für Action Buttons
-				onOpenOffice: () => this.activateView(GAME_OFFICE_VIEW),
-				onViewOrder: (orderId) => this.activateView(GAME_OFFICE_VIEW),
-			}
-		);
+			// Callbacks für Action Buttons
+			onOpenOffice: () => this.activateView(GAME_OFFICE_VIEW),
+			onViewOrder: (orderId) => this.activateView(GAME_OFFICE_VIEW),
+		});
 	}
 
 	private registerEventSubscriber() {
@@ -261,9 +375,12 @@ export default class OneSeater extends Plugin {
 	}
 
 	private registerRibbonButtons() {
-
 		this.addRibbonIcon("contact-round", "Character", () => {
-			new CharacterCreationModal(this.app, this.events, this.settings).open();
+			new CharacterCreationModal(
+				this.app,
+				this.events,
+				this.settings
+			).open();
 		});
 
 		// === Navigation ===
@@ -294,8 +411,7 @@ export default class OneSeater extends Plugin {
 		this.ribbons.register({
 			id: "pause",
 			initialState: { icon: "pause", tooltip: "Pause", disabled: true },
-			onClick: () =>
-				this.events.publish(new TogglePauseEvent()),
+			onClick: () => this.events.publish(new TogglePauseEvent()),
 		});
 
 		// === Time Scale (Radio-Button Style) ===
@@ -409,7 +525,10 @@ export default class OneSeater extends Plugin {
 	private debugMessages(): void {
 		console.log(this.latest);
 		console.log("Tasks", this.simulation.getTasks());
-		console.log("Inbox Stats", this.simulation.getMessages().getInboxStats());
+		console.log(
+			"Inbox Stats",
+			this.simulation.getMessages().getInboxStats()
+		);
 		console.log("Order Stats", this.store.getOrderStats());
 	}
 

@@ -35,6 +35,7 @@ export type PlayerSettings = {
 	tertiary_color: string;
 	icon: string;
 	logo: string;
+	characterFile?: string;
 };
 
 // ------- That helper stuff for auto build of settings
