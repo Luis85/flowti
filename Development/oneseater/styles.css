@@ -3509,3 +3509,317 @@
 .side-dock-ribbon-action.is-active:hover {
     background-color: var(--interactive-accent-hover);
 }
+/* ═══════════════════════════════════════════════════════════════════════════
+   INBOX FILTER & CONTROLS - Compact Dropdown Design
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Header Controls Layout
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.mm-inbox__controls {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Filter Button (Compact)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.mm-inbox__filter-wrap {
+	position: relative;
+}
+
+.mm-inbox__filter-btn {
+	padding: 4px 8px;
+	font-size: 10px;
+	font-weight: 500;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+	transition: all 0.15s ease;
+	white-space: nowrap;
+}
+
+.mm-inbox__filter-btn:hover {
+	border-color: var(--text-muted);
+	color: var(--text-normal);
+}
+
+.mm-inbox__filter-btn.is-open {
+	border-color: var(--interactive-accent);
+	color: var(--text-normal);
+	background: var(--background-secondary);
+}
+
+.mm-inbox__filter-btn.has-filters {
+	border-color: var(--interactive-accent);
+	color: var(--interactive-accent);
+	background: rgba(var(--interactive-accent-rgb), 0.1);
+}
+
+.mm-inbox__filter-btn:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Filter Dropdown
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.mm-inbox__filter-dropdown {
+	position: absolute;
+	top: calc(100% + 4px);
+	right: 0;
+	z-index: 100;
+	min-width: 160px;
+	padding: 8px;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	opacity: 0;
+	visibility: hidden;
+	transform: translateY(-4px);
+	transition: all 0.15s ease;
+}
+
+.mm-inbox__filter-dropdown.is-open {
+	opacity: 1;
+	visibility: visible;
+	transform: translateY(0);
+}
+
+/* Filter Sections */
+.mm-inbox__filter-section {
+	margin-bottom: 8px;
+}
+
+.mm-inbox__filter-section:last-of-type {
+	margin-bottom: 0;
+}
+
+.mm-inbox__filter-section-title {
+	font-size: 9px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--text-muted);
+	margin-bottom: 4px;
+	padding: 0 4px;
+}
+
+.mm-inbox__filter-options {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+/* Filter Option */
+.mm-inbox__filter-option {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 8px;
+	font-size: 11px;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: all 0.1s ease;
+	color: var(--text-muted);
+}
+
+.mm-inbox__filter-option:hover {
+	background: var(--background-secondary);
+	color: var(--text-normal);
+}
+
+.mm-inbox__filter-option.is-active {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.mm-inbox__filter-option-icon {
+	font-size: 12px;
+	width: 16px;
+	text-align: center;
+}
+
+/* Clear Filters Button */
+.mm-inbox__filter-clear {
+	width: 100%;
+	margin-top: 8px;
+	padding: 6px 8px;
+	font-size: 10px;
+	font-weight: 500;
+	border: 1px dashed var(--background-modifier-border);
+	border-radius: 4px;
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+	transition: all 0.15s ease;
+}
+
+.mm-inbox__filter-clear:hover {
+	border-color: var(--text-error);
+	color: var(--text-error);
+	background: rgba(var(--text-error-rgb), 0.05);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Panic Button (Compact)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.mm-inbox__panic-btn {
+	padding: 4px 6px;
+	font-size: 12px;
+	border: 1px solid var(--text-error);
+	border-radius: 4px;
+	background: transparent;
+	color: var(--text-error);
+	cursor: pointer;
+	transition: all 0.15s ease;
+	line-height: 1;
+}
+
+.mm-inbox__panic-btn:hover {
+	background: var(--text-error);
+	color: var(--text-on-accent);
+}
+
+.mm-inbox__panic-btn.is-critical {
+	animation: panic-pulse 1.5s ease-in-out infinite;
+	background: var(--text-error);
+	color: var(--text-on-accent);
+}
+
+.mm-inbox__panic-btn.is-hidden {
+	display: none;
+}
+
+.mm-inbox__panic-btn:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+	animation: none;
+}
+
+@keyframes panic-pulse {
+	0%, 100% {
+		transform: scale(1);
+		opacity: 1;
+	}
+	50% {
+		transform: scale(1.05);
+		opacity: 0.9;
+	}
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Filtered Row State
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.mm-inbox__row.is-filtered-out {
+	display: none;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Empty State with Filter Reset
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.mm-inbox__empty-reset {
+	margin-top: 12px;
+	padding: 6px 16px;
+	font-size: 11px;
+	border: 1px solid var(--interactive-accent);
+	border-radius: 4px;
+	background: transparent;
+	color: var(--interactive-accent);
+	cursor: pointer;
+	transition: all 0.15s ease;
+}
+
+.mm-inbox__empty-reset:hover {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CONFIRM MODAL
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.mm-confirm-modal {
+	padding: 20px;
+	max-width: 400px;
+}
+
+.mm-confirm-modal__title {
+	margin: 0 0 12px;
+	font-size: 16px;
+	font-weight: 600;
+}
+
+.mm-confirm-modal.is-danger .mm-confirm-modal__title {
+	color: var(--text-error);
+}
+
+.mm-confirm-modal.is-warning .mm-confirm-modal__title {
+	color: var(--color-orange, #fb923c);
+}
+
+.mm-confirm-modal__message {
+	margin: 0 0 20px;
+	font-size: 13px;
+	color: var(--text-muted);
+	line-height: 1.5;
+}
+
+.mm-confirm-modal__actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+}
+
+.mm-confirm-modal__btn {
+	padding: 8px 16px;
+	font-size: 12px;
+	font-weight: 500;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: all 0.15s ease;
+}
+
+.mm-confirm-modal__btn--cancel {
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	color: var(--text-muted);
+}
+
+.mm-confirm-modal__btn--cancel:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.mm-confirm-modal__btn--confirm {
+	border: none;
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.mm-confirm-modal__btn--confirm:hover {
+	filter: brightness(1.1);
+}
+
+.mm-confirm-modal__btn--confirm.is-danger {
+	background: var(--text-error);
+}
+
+.mm-confirm-modal__btn--confirm.is-danger:hover {
+	filter: brightness(1.1);
+}
+
+.mm-confirm-modal__btn--confirm.is-warning {
+	background: var(--color-orange, #fb923c);
+	color: #000;
+}

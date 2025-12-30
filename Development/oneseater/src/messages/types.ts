@@ -23,6 +23,10 @@ export type MessagePriority =
 
 export type MessageType =
 	| "Message"
+	| "Task"
+	| "Info"
+	| "Alert"
+	| "Offer"
 	| "Opportunity"
 	| "Spam"
 	| "RFP"
