@@ -25,7 +25,6 @@ export class SimulationStore {
 
 	player: PlayerState = defaultPlayer();
 
-	products: Product[] = [];
 	orders: SalesOrder[] = [];
 	payments: Payment[] = [];
 	currentState?: IState;
@@ -80,26 +79,6 @@ export class SimulationStore {
 	public isWeekend(): boolean {
 		const day = new Date(this.simNowMs).getDay();
 		return day === 0 || day === 6;
-	}
-
-	// ─────────────────────────────────────────────────────────────────────────
-	// Product Management
-	// ─────────────────────────────────────────────────────────────────────────
-
-	public getSellableProducts(): Product[] {
-		return this.products.filter((p) => p.flags.sellable && p.isActive);
-	}
-
-	public getAvailableServices(): Product[] {
-		return this.products.filter(
-			(p) => p.category === "service" && p.isActive
-		);
-	}
-
-	public calculateInventoryValue(): number {
-		return this.products
-			.filter((p) => p.flags.stockable && p.currentStock)
-			.reduce((sum, p) => sum + p.price * (p.currentStock || 0), 0);
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────

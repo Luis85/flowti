@@ -11,6 +11,7 @@ import { TaskStore } from "../stores/TaskStore";
 import { TimerStore } from "../stores/TimerStore";
 import { TimeScaleStore } from "../stores/TimeScaleStore";
 import { MessageStore } from "../stores/MessageStore";
+import { ProductStore } from "../stores/ProductStore";
 
 export const TEST_WORLD: IPreptimeWorld = buildWorld()
 	.withName("OneSeater - Test World v1.0")
@@ -23,6 +24,7 @@ export const TEST_WORLD: IPreptimeWorld = buildWorld()
 	.r(GameSettingsStore)
 	.r(MessageStore)
 	.r(TaskStore)
+	.r(ProductStore)
 	.r(MessageGeneratorService)
 	.r(GurpsDice)
 	.withComponent(Counter)

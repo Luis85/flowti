@@ -357,7 +357,7 @@ export default class OneSeater extends Plugin {
 		);
 		this.registerView(
 			GAME_PRODUCT_CATALOG_VIEW,
-			(leaf) => new ProductCatalogView(leaf, this.events)
+			(leaf) => new ProductCatalogView(leaf, this.events, this.simulation.getProducts())
 		);
 		this.registerView(
 			GAME_MARKET_VIEW,

@@ -234,7 +234,7 @@ export class GameView extends ItemView {
 			resumeSpeed: this.resumeMultiplier,
 			feed: this.feed,
 			messages: this.simulation.getMessages().messages,
-			products: this.latest.products,
+			products: this.simulation.getProducts().getAll(),
 			orders: this.latest.orders,
 			payments: this.latest.payments,
 			player: this.latest.player,

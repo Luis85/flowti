@@ -6,6 +6,7 @@ import { LineItem } from "src/orders";
 import { LineItemGenerator } from "src/orders/LineItemGenerator";
 import { GameSettingsStore } from "src/simulation/stores/GameSettingsStore";
 import { MessageStore } from "src/simulation/stores/MessageStore";
+import { ProductStore } from "src/simulation/stores/ProductStore";
 import { SimulationStore } from "src/simulation/stores/SimulationStore";
 import { nextRng, computeTemplateWeight, weightedPick } from "src/simulation/utils";
 
@@ -17,6 +18,7 @@ export const CustomerPurchaseOrderCreationSystem = createSystem({
 	msg: WriteEvents(NewMessageReceivedEvent),
 	simStore: WriteResource(SimulationStore),
 	msgStore: WriteResource(MessageStore),
+	productStore: WriteResource(ProductStore),
 	settings: ReadResource(GameSettingsStore),
 
 	storage: Storage({
@@ -27,12 +29,12 @@ export const CustomerPurchaseOrderCreationSystem = createSystem({
 	}),
 })
 	.withName("CustomerPurchaseOrderCreationSystem")
-	.withRunFunction(async ({ msg, simStore, msgStore, settings, storage }) => {
+	.withRunFunction(async ({ msg, simStore, msgStore, productStore, settings, storage }) => {
 		const simDt = simStore.lastSimDtMs ?? 0;
 		storage.messageCount = msgStore.getActiveMessages().length;
 
 		// Don't spawn if paused, no time passed, inbox full, or no products
-		if (simDt <= 0 || simStore.inboxFull || simStore.getSellableProducts().length === 0) {
+		if (simDt <= 0 || simStore.inboxFull || productStore.getSellableProducts().length === 0) {
 			return;
 		}
 
@@ -75,7 +77,7 @@ export const CustomerPurchaseOrderCreationSystem = createSystem({
 		};
 
 		// Generate line items
-		const availableProducts = simStore.getSellableProducts();
+		const availableProducts = productStore.getSellableProducts();
 		const lineItems = LineItemGenerator.generate(
 			template.lineItemsStrategy,
 			availableProducts,

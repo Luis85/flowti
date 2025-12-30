@@ -9,6 +9,7 @@ import { SimulationStartedEvent } from "src/eventsystem/engine/SimulationStarted
 import { SimulationStoppedEvent } from "src/eventsystem/engine/SimulationStoppedEvent";
 import { TaskStore } from "./stores/TaskStore";
 import { MessageStore } from "./stores/MessageStore";
+import { ProductStore } from "./stores/ProductStore";
 
 export interface ISimulation {
 	init(): Promise<void>;
@@ -18,6 +19,7 @@ export interface ISimulation {
 	setDebug(debug: boolean): void;
 	getStore(): SimulationStore;
 	getMessages(): MessageStore;
+	getProducts(): ProductStore;
 	getTasks(): TaskStore;
 	getSettings(): GameSettingsStore;
 }
@@ -115,6 +117,12 @@ export class Simulation implements ISimulation {
 		const messages = this.engine?.getResource(MessageStore);
 		if(!messages) throw new Error('Message Store not set');
 		return messages;
+	}
+
+	getProducts(): ProductStore {
+		const products = this.engine?.getResource(ProductStore);
+		if(!products) throw new Error('Product Store not set');
+		return products;
 	}
 
 	getSettings(): GameSettingsStore {

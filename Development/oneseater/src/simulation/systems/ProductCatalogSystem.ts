@@ -5,6 +5,7 @@ import { ProductDeletedEvent } from "src/eventsystem/product/ProductDeletedEvent
 import { ProductUpdatedEvent } from "src/eventsystem/product/ProductUpdatedEvent";
 import { Product } from "src/models/Product";
 import { SimulationStore } from "../stores/SimulationStore";
+import { ProductStore } from "../stores/ProductStore";
 
 export const ProductCatalogSystem = createSystem({
 	productCreatedRead: ReadEvents(ProductCreatedEvent),
@@ -12,6 +13,7 @@ export const ProductCatalogSystem = createSystem({
 	productDeletedRead: ReadEvents(ProductDeletedEvent),
 	productCatalogUpdatedWrite: WriteEvents(ProductCatalogUpdatedEvent),
 	simStore: WriteResource(SimulationStore),
+	productStore: WriteResource(ProductStore),
 	systemState: Storage({ lastEvent: 0, dirty: false }),
 })
 	.withRunFunction(
@@ -21,10 +23,11 @@ export const ProductCatalogSystem = createSystem({
 			productDeletedRead,
 			productCatalogUpdatedWrite,
 			simStore,
+			productStore,
 			systemState,
 		}) => {
 			// Get current products from store
-			let products: Product[] = simStore.products || [];
+			let products: Product[] = productStore.getAll() || [];
 			let dirty = false;
 
 			// Handle product creation
@@ -58,7 +61,7 @@ export const ProductCatalogSystem = createSystem({
 
 			// Only update store and publish if something changed
 			if (dirty) {
-				simStore.products = products;
+				productStore.setAll(products);
 				systemState.lastEvent = Date.now();
 				systemState.dirty = true;
 
