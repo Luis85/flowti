@@ -73,9 +73,7 @@ export default class OneSeater extends Plugin {
 			this.registerEventSubscriber();
 			this.subscribeToSimulationState();
 			this.registerViews();
-			this.registerRibbonButtons();
-			this.registerCommands();
-			this.addSettingTab(new OneSeaterSettingTab(this.app, this));
+			this.registerRibbonButtons();			this.addSettingTab(new OneSeaterSettingTab(this.app, this));
 
 			// we void here to prevent waiting for resolving which will never happen
 			void this.simulation.start();
@@ -129,9 +127,10 @@ export default class OneSeater extends Plugin {
 	}
 
 	// --- CHARACTER CREATION
-	
+
 	private onCharacterCreated = (event: CharacterCreatedEvent): void => {
 		console.log('Character Created:', event)
+		this.settings.player.name = event.character.name
 	};
 
 	// --- EVENTS AND RENDER UPDATE
@@ -262,6 +261,11 @@ export default class OneSeater extends Plugin {
 	}
 
 	private registerRibbonButtons() {
+
+		this.addRibbonIcon("contact-round", "Character", () => {
+			new CharacterCreationModal(this.app, this.events, this.settings).open();
+		});
+
 		// === Navigation ===
 		this.ribbons.register({
 			id: "office",
@@ -325,10 +329,6 @@ export default class OneSeater extends Plugin {
 			this.timersTest();
 		});
 
-		this.addRibbonIcon("user", "Character", () => {
-			new CharacterCreationModal(this.app, this.events).open();
-		});
-
 		// === Simulation Controls ===
 		this.ribbons.register({
 			id: "start",
@@ -345,16 +345,6 @@ export default class OneSeater extends Plugin {
 			},
 			onClick: () => this.simulation.stop(),
 		});
-	}
-
-	private registerCommands() {
-		this.addCommand({
-            id: 'create-character',
-            name: 'Create New Character',
-            callback: () => {
-                new CharacterCreationModal(this.app, this.events).open();
-            }
-        });
 	}
 
 	private setTimeScale(scale: number) {

@@ -3826,26 +3826,27 @@
 
 /* CHARACTER CREATION */
 .character-creation-modal .modal-content {
-    max-height: 80vh;
+    max-height: 82vh;
     overflow-y: auto;
 }
 
 .character-creation-modal .setting-item {
-	margin-bottom:10px;
+    margin-bottom: 8px;
 }
 
 /* Points Display */
 .points-container {
     background: var(--background-secondary);
     border: 1px solid var(--background-modifier-border);
-    border-radius: 8px;
-    padding: 15px;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin: 12px 0;
     text-align: center;
 }
 
 .points-display {
-    font-size: 1.2em;
-    font-weight: bold;
+    font-size: 1em;
+    font-weight: 600;
     color: var(--text-normal);
 }
 
@@ -3859,71 +3860,69 @@
 
 /* Sections */
 .character-section {
-    padding: 15px 0;
-    background: var(--background-secondary);
-    border-radius: 8px;
+    padding: 10px 0;
+    margin-bottom: 12px;
 }
 
 .character-section h3 {
-    margin-top: 0;
-    margin-bottom: 10px;
+    margin: 0 0 6px 0;
+    font-size: 1.1em;
     color: var(--text-accent);
 }
 
 .section-description {
     color: var(--text-muted);
-    font-size: 0.9em;
-    margin-bottom: 15px;
-}
-
-.section-description.coming-soon {
-    font-style: italic;
+    font-size: 0.85em;
+    margin-bottom: 10px;
+    line-height: 1.3;
 }
 
 /* Attribute Controls */
 .attribute-control {
-    margin-bottom: 20px;
-    padding: 10px;
+    margin-bottom: 12px;
+    padding: 8px;
     background: var(--background-primary);
-    border-radius: 6px;
+    border-radius: 4px;
+    border: 1px solid var(--background-modifier-border);
 }
 
 .attribute-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 5px;
+    margin-bottom: 3px;
 }
 
 .attribute-label {
     font-weight: 600;
+    font-size: 0.9em;
     color: var(--text-normal);
 }
 
 .attribute-value {
-    font-size: 1.2em;
+    font-size: 1.1em;
     font-weight: bold;
     color: var(--text-accent);
-    min-width: 30px;
+    min-width: 25px;
     text-align: right;
 }
 
 .attribute-description {
-    font-size: 0.85em;
+    font-size: 0.8em;
     color: var(--text-muted);
-    margin-bottom: 10px;
+    margin-bottom: 6px;
 }
 
 /* Slider Styling */
 .slider-container {
     position: relative;
-    padding: 10px 0;
+    padding: 6px 0;
 }
 
 input[type='range'].attribute-slider {
     width: 100%;
-    height: 6px;
-    border-radius: 3px;
+    height: 4px;
+    border-radius: 2px;
     background: var(--background-modifier-border);
     outline: none;
 }
@@ -3931,58 +3930,240 @@ input[type='range'].attribute-slider {
 .attribute-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background: var(--interactive-accent);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
 }
 
 .attribute-slider::-webkit-slider-thumb:hover {
-    transform: scale(1.2);
+    transform: scale(1.15);
     background: var(--interactive-accent-hover);
 }
 
 .attribute-slider::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background: var(--interactive-accent);
     cursor: pointer;
     border: none;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
 }
 
 .attribute-slider::-moz-range-thumb:hover {
-    transform: scale(1.2);
+    transform: scale(1.15);
     background: var(--interactive-accent-hover);
 }
 
 .slider-labels {
     display: flex;
     justify-content: space-between;
-    margin-top: 5px;
+    margin-top: 2px;
+    font-size: 0.75em;
+    color: var(--text-muted);
+}
+
+/* Skills Section */
+.starting-skill-container,
+.available-skills-container {
+    margin-top: 10px;
+}
+
+.subsection-title {
+    font-size: 0.95em;
+    font-weight: 600;
+    color: var(--text-accent);
+    margin: 8px 0 6px 0;
+    padding-bottom: 3px;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.skill-category {
+    margin-bottom: 10px;
+}
+
+.category-title {
+    font-size: 0.8em;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin: 8px 0 6px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+/* Skill Controls - More Compact */
+.skill-control {
+    margin-bottom: 8px;
+    padding: 8px;
+    background: var(--background-primary);
+    border-radius: 4px;
+    border: 1px solid var(--background-modifier-border);
+    transition: all 0.15s ease;
+}
+
+.skill-control.learned {
+    border-left: 2px solid var(--interactive-accent);
+}
+
+.skill-control.unlearned {
+    opacity: 0.65;
+}
+
+.skill-control.unlearned:hover {
+    opacity: 1;
+    border-color: var(--interactive-accent);
+}
+
+.skill-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+    gap: 8px;
+}
+
+.skill-title-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+}
+
+.skill-name {
+    font-weight: 600;
+    font-size: 0.9em;
+    color: var(--text-normal);
+}
+
+.difficulty-badge {
+    font-size: 0.65em;
+    padding: 1px 5px;
+    border-radius: 2px;
+    font-weight: 600;
+    text-transform: uppercase;
+    flex-shrink: 0;
+}
+
+.difficulty-easy {
+    background: #10b981;
+    color: white;
+}
+
+.difficulty-average {
+    background: #3b82f6;
+    color: white;
+}
+
+.difficulty-hard {
+    background: #f59e0b;
+    color: white;
+}
+
+.difficulty-very_hard {
+    background: #ef4444;
+    color: white;
+}
+
+.skill-values {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.skill-points {
     font-size: 0.8em;
     color: var(--text-muted);
+}
+
+.skill-level {
+    font-weight: 600;
+    color: var(--text-accent);
+    font-size: 0.9em;
+}
+
+.skill-description {
+    font-size: 0.8em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    line-height: 1.3;
+}
+
+.skill-controls {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.skill-button {
+    flex: 1;
+    padding: 4px 10px;
+    border-radius: 3px;
+    font-size: 0.8em;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: none;
+    font-weight: 500;
+}
+
+.learn-button {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+}
+
+.learn-button:hover {
+    background: var(--interactive-accent-hover);
+}
+
+.invest-button {
+    background: var(--background-secondary);
+    color: var(--text-normal);
+    border: 1px solid var(--interactive-accent);
+}
+
+.invest-button:hover {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+}
+
+.remove-button {
+    background: var(--background-secondary);
+    color: var(--text-muted);
+    border: 1px solid var(--background-modifier-border);
+}
+
+.remove-button:hover:not(.disabled) {
+    background: var(--background-modifier-error);
+    color: var(--text-error);
+    border-color: var(--text-error);
+}
+
+.remove-button.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
 }
 
 /* Modal Buttons */
 .modal-button-container {
     display: flex;
     justify-content: flex-end;
-    gap: 10px;
-    margin-top: 20px;
-    padding-top: 20px;
+    gap: 8px;
+    margin-top: 16px;
+    padding-top: 12px;
     border-top: 1px solid var(--background-modifier-border);
 }
 
 .modal-button-container button {
-    padding: 8px 20px;
-    border-radius: 6px;
+    padding: 6px 16px;
+    border-radius: 4px;
     cursor: pointer;
-    font-size: 1em;
-    transition: all 0.2s ease;
+    font-size: 0.9em;
+    font-weight: 500;
+    transition: all 0.15s ease;
 }
 
 .modal-button-container .mod-cancel {
