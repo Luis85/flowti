@@ -10,6 +10,7 @@ import { TaskStore } from "../stores/TaskStore";
 import { clamp } from "../utils";
 import { getLevelFromXP } from "./player/LevelSystem";
 import { MessageStore } from "../stores/MessageStore";
+import { PlayerEnergyStore } from "../stores/PlayerEnergyStore";
 
 
 export const TaskResolutionSystem = createSystem({
@@ -18,10 +19,11 @@ export const TaskResolutionSystem = createSystem({
 
 	tasks: WriteResource(TaskStore),
 	simStore: WriteResource(SimulationStore),
+	playerEnergy: WriteResource(PlayerEnergyStore),
 	msgStore: WriteResource(MessageStore),
 	dice: ReadResource(GurpsDice),
 })
-	.withRunFunction(async ({ finished, success, tasks, simStore, msgStore, dice }) => {
+	.withRunFunction(async ({ finished, success, tasks, simStore, playerEnergy, msgStore, dice }) => {
 		for (const evt of finished.iter()) {
 			// 1) Idempotenz
 			if (tasks.hasResolved(evt.taskId)) continue;
@@ -86,7 +88,7 @@ export const TaskResolutionSystem = createSystem({
 			tasks.appendResolution(record);
 
 			// 8) Apply rewards to player (XP/energy/time)
-			applyRewards(simStore, record);
+			applyRewards(simStore, playerEnergy, record);
 
 			// 9) Fire success event (auch wenn outcome partial/fail ist)
 			success.publish({
@@ -188,8 +190,9 @@ type ApplyRewardsResult = {
 	becameExhausted: boolean;
 };
 
-export function applyRewards(
+function applyRewards(
 	sim: SimulationStore,
+	playerEnergy: PlayerEnergyStore,
 	record: ResolutionRecord
 ): ApplyRewardsResult {
 	const player = sim.player;
@@ -211,7 +214,7 @@ export function applyRewards(
 	if (player.status !== "sleeping") {
 		const before = Number.isFinite(stats.energy) ? stats.energy : PLAYER_MAX_ENERGY;
 		const after = clamp(before - energySpent, PLAYER_MIN_ENERGY, PLAYER_MAX_ENERGY);
-		stats.energy = after;
+		playerEnergy.energy = after;
 
 		// Statuswechsel: exhausted wenn Energy auf 0 fällt
 		if (before > 0 && after === 0) {
