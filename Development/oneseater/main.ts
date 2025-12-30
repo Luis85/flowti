@@ -9,7 +9,6 @@ import { SimulationStoppedEvent } from "src/eventsystem/engine/SimulationStopped
 import { SimulationTickEvent } from "src/eventsystem/engine/SimulationTickEvent";
 import { SimulationTockEvent } from "src/eventsystem/engine/SimulationTockEvent";
 import { TogglePauseEvent } from "src/eventsystem/engine/TogglePauseEvent";
-import { ResetInboxEvent } from "src/eventsystem/messages/ResetInboxEvent";
 import { AddTimerEvent } from "src/eventsystem/timer/AddTimerEvent";
 import { RemoveTimerEvent } from "src/eventsystem/timer/RemoveTimerEvent";
 import { InboxEventBridge } from "src/machines/inbox/InboxEventBridge";
@@ -402,10 +401,6 @@ export default class OneSeater extends Plugin {
 
 		this.addRibbonIcon("square-dashed-kanban", "Data Dashboard", () => {
 			this.activateView(GAME_COMPENDIUM_VIEW);
-		});
-
-		this.addRibbonIcon("hand-helping", "CTRL A + DEL", () => {
-			void this.events.publish(new ResetInboxEvent());
 		});
 
 		this.ribbons.register({
