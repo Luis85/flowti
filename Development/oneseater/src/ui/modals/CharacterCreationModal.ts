@@ -1,5 +1,6 @@
 import { Modal, App, Setting, Notice } from "obsidian";
 import { AVAILABLE_SKILLS, CHARACTER_CONSTANTS, AttributeType, SkillCategory } from "src/characters/types";
+import { CHARACTER_TEMPLATES, CUSTOM_TEMPLATE, CharacterTemplate } from "src/characters/templates";
 import { IEventBus } from "src/eventsystem";
 import { CharacterCreatedEvent } from "src/eventsystem/characters/CharacterCreatedEvent";
 import { CharacterAttributes, CharacterData, CharacterSkill, calculateSkillCost, calculateEffectiveSkillLevel } from "src/models/Character";
@@ -9,6 +10,9 @@ export class CharacterCreationModal extends Modal {
     private eventBus: IEventBus;
     private character: CharacterData;
     private settings: OneSeaterSettings;
+    
+    private selectedTemplate: CharacterTemplate | null = null;
+    private customMode: boolean = false;
 
     private attributeSliders: Map<string, HTMLInputElement> = new Map();
     private attributeValues: Map<string, HTMLElement> = new Map();
@@ -20,7 +24,8 @@ export class CharacterCreationModal extends Modal {
         effectiveLevel: HTMLElement;
     }> = new Map();
     private pointsDisplay: HTMLElement;
-    private skillsSectionContainer: HTMLElement; // NEW: Direct reference to skills container
+    private skillsSectionContainer: HTMLElement;
+    private characterCustomizationContainer: HTMLElement;
 
     constructor(app: App, eventBus: IEventBus, settings: OneSeaterSettings) {
         super(app);
@@ -60,11 +65,17 @@ export class CharacterCreationModal extends Modal {
         contentEl.addClass("character-creation-modal");
 
         // Header
-        contentEl.createEl("h2", { text: "Create Your Character" });
+        contentEl.createEl("h2", { text: "Create Character" });
+        
+        contentEl.createEl("p", {
+            cls: "modal-intro",
+            text: "You start from humble beginnings. Choose your background and work your way to the top."
+        });
 
         // Character Name
         new Setting(contentEl)
             .setName("Your Name")
+            .setDesc("Your name in the world")
             .addText((text) =>
                 text
                     .setValue(this.character.name)
@@ -73,22 +84,120 @@ export class CharacterCreationModal extends Modal {
                     })
             );
 
+        // Template Selection
+        this.createTemplateSelection(contentEl);
+
+        // Character Customization (hidden until template selected)
+        this.characterCustomizationContainer = contentEl.createDiv("character-customization-container");
+        this.characterCustomizationContainer.style.display = "none";
+        
+        // Action Buttons
+        this.createActionButtons(contentEl);
+    }
+
+    private createTemplateSelection(container: HTMLElement): void {
+        const section = container.createDiv("template-selection-section");
+        section.createEl("h3", { text: "Choose Your Background" });
+        
+        const templatesGrid = section.createDiv("templates-grid");
+        
+        // Add all templates
+        Object.values(CHARACTER_TEMPLATES).forEach(template => {
+            this.createTemplateCard(templatesGrid, template);
+        });
+        
+        // Add custom option
+        this.createTemplateCard(templatesGrid, CUSTOM_TEMPLATE);
+    }
+
+    private createTemplateCard(container: HTMLElement, template: CharacterTemplate): void {
+        const card = container.createDiv("template-card");
+        
+        card.createEl("h4", { text: template.name, cls: "template-name" });
+        card.createEl("p", { text: template.description, cls: "template-description" });
+        
+        // Show key attributes
+        const attrs = card.createDiv("template-attributes");
+        const keyAttr = this.getKeyAttribute(template);
+        attrs.createEl("span", { 
+            text: `Key: ${keyAttr}`,
+            cls: "template-key-attribute"
+        });
+        
+        card.addEventListener("click", () => {
+            this.selectTemplate(template);
+            
+            // Visual feedback
+            container.querySelectorAll(".template-card").forEach(c => {
+                c.removeClass("selected");
+            });
+            card.addClass("selected");
+        });
+    }
+
+    private getKeyAttribute(template: CharacterTemplate): string {
+        const attrs = template.recommendedAttributes;
+        const max = Math.max(attrs.strength, attrs.dexterity, attrs.intelligence, attrs.health);
+        
+        if (attrs.strength === max) return "ST";
+        if (attrs.dexterity === max) return "DX";
+        if (attrs.intelligence === max) return "IQ";
+        return "HT";
+    }
+
+    private selectTemplate(template: CharacterTemplate): void {
+        this.selectedTemplate = template;
+        this.customMode = template.id === 'custom';
+        
+        // Apply template
+        this.character.attributes = { ...template.recommendedAttributes };
+        
+        // Apply starting skills
+        this.character.skills = template.startingSkills.map(skillData => {
+            const skillDef = AVAILABLE_SKILLS[skillData.skillId];
+            return {
+                id: skillData.skillId,
+                name: skillDef.name,
+                pointsInvested: skillData.pointsInvested,
+                cost: skillData.skillId === 'mechanic' && skillData.pointsInvested === 1 
+                    ? 0 // First mechanic skill is free, this would be the base service the player can offer
+                    : calculateSkillCost(skillData.pointsInvested, skillDef.difficulty),
+                governingAttribute: skillDef.governingAttribute,
+                difficulty: skillDef.difficulty
+            };
+        });
+        
+        // Show customization section
+        this.showCustomizationSection();
+    }
+
+    private showCustomizationSection(): void {
+        this.characterCustomizationContainer.empty();
+        this.characterCustomizationContainer.style.display = "block";
+        
+        // Show template info
+        if (this.selectedTemplate && this.selectedTemplate.id !== 'custom') {
+            const templateInfo = this.characterCustomizationContainer.createDiv("template-info");
+            templateInfo.createEl("h4", { text: `${this.selectedTemplate.name} Template` });
+            templateInfo.createEl("p", { 
+                text: this.selectedTemplate.backstory,
+                cls: "template-backstory"
+            });
+        }
+
+        // Attributes Section
+        this.createAttributesSection(this.characterCustomizationContainer);
+
         // Points Display
-        const pointsContainer = contentEl.createDiv("points-container");
+        const pointsContainer = this.characterCustomizationContainer.createDiv("points-container");
         this.pointsDisplay = pointsContainer.createEl("div", {
             cls: "points-display",
             text: this.getPointsText(),
         });
 
-        // Attributes Section
-        this.createAttributesSection(contentEl);
-
-        // Skills Section - CHANGED: Store reference
-        this.skillsSectionContainer = contentEl.createDiv("skills-section-wrapper");
+        // Skills Section
+        this.skillsSectionContainer = this.characterCustomizationContainer.createDiv("skills-section-wrapper");
         this.createSkillsSection(this.skillsSectionContainer);
-
-        // Action Buttons
-        this.createActionButtons(contentEl);
     }
 
     private createAttributesSection(container: HTMLElement): void {
@@ -132,9 +241,10 @@ export class CharacterCreationModal extends Modal {
                 text: attr.label,
             });
 
+            const currentValue = this.character.attributes[attr.key as keyof CharacterAttributes];
             const valueDisplay = header.createEl("span", {
                 cls: "attribute-value",
-                text: `${CHARACTER_CONSTANTS.STARTING_ATTRIBUTE_LEVEL}`,
+                text: `${currentValue}`,
             });
             this.attributeValues.set(attr.key, valueDisplay);
 
@@ -150,7 +260,7 @@ export class CharacterCreationModal extends Modal {
             });
             slider.min = CHARACTER_CONSTANTS.MIN_ATTRIBUTE.toString();
             slider.max = CHARACTER_CONSTANTS.MAX_ATTRIBUTE.toString();
-            slider.value = CHARACTER_CONSTANTS.STARTING_ATTRIBUTE_LEVEL.toString();
+            slider.value = currentValue.toString();
             slider.step = "1";
 
             this.attributeSliders.set(attr.key, slider);
@@ -169,90 +279,66 @@ export class CharacterCreationModal extends Modal {
         });
     }
 
+    private rebuildSkillsSection(): void {
+        this.skillsSectionContainer.empty();
+        this.skillControls.clear();
+        this.createSkillsSection(this.skillsSectionContainer);
+    }
+
     private createSkillsSection(container: HTMLElement): void {
         const section = container.createDiv("character-section");
         section.createEl("h3", { text: "Skills & Training" });
         
         const desc = section.createEl("p", {
             cls: "section-description",
-            text: "Mechanic skill is free. Additional skills cost points based on difficulty.",
+            text: "Click on skills to learn or improve them. Points cost based on difficulty.",
         });
 
-        this.createStartingSkillDisplay(section);
-        this.createAvailableSkillsList(section);
+        // Single unified skills grid
+        this.createUnifiedSkillsGrid(section);
     }
 
-    private rebuildSkillsSection(): void {
-        // FIXED: Clear and rebuild only the skills section
-        this.skillsSectionContainer.empty();
-        this.skillControls.clear();
-        this.createSkillsSection(this.skillsSectionContainer);
-    }
-
-    private createStartingSkillDisplay(container: HTMLElement): void {
-        const startingSkillContainer = container.createDiv("starting-skill-container");
-        startingSkillContainer.createEl("h4", { 
-            text: "Starting Skill",
-            cls: "subsection-title" 
-        });
-
-        const mechanicSkill = this.character.skills[0];
-        const skillDef = AVAILABLE_SKILLS[mechanicSkill.id];
-        
-        this.createSkillControl(
-            startingSkillContainer, 
-            mechanicSkill, 
-            skillDef,
-            true
-        );
-    }
-
-    private createAvailableSkillsList(container: HTMLElement): void {
-        const availableContainer = container.createDiv("available-skills-container");
-        availableContainer.createEl("h4", { 
-            text: "Available Skills",
-            cls: "subsection-title" 
-        });
-
+    private createUnifiedSkillsGrid(container: HTMLElement): void {
+        // Group all skills by category
         const categories = Object.values(SkillCategory);
         
         categories.forEach(category => {
             const categorySkills = Object.values(AVAILABLE_SKILLS)
-                .filter(skill => skill.category === category && !skill.isStartingSkill);
+                .filter(skill => skill.category === category);
             
             if (categorySkills.length === 0) return;
 
-            const categoryContainer = availableContainer.createDiv("skill-category");
-            categoryContainer.createEl("h5", { 
+            const categorySection = container.createDiv("skill-category-section");
+            categorySection.createEl("h4", { 
                 text: category,
-                cls: "category-title"
+                cls: "skill-category-title"
             });
+
+            const skillsGrid = categorySection.createDiv("skills-grid");
 
             categorySkills.forEach(skillDef => {
                 const existingSkill = this.character.skills.find(s => s.id === skillDef.id);
-                
-                if (existingSkill) {
-                    this.createSkillControl(categoryContainer, existingSkill, skillDef, false);
-                } else {
-                    this.createUnlearnedSkillControl(categoryContainer, skillDef);
-                }
+                this.createSkillCard(skillsGrid, skillDef, existingSkill);
             });
         });
     }
 
-    private createSkillControl(
+    private createSkillCard(
         container: HTMLElement,
-        skill: CharacterSkill,
         skillDef: typeof AVAILABLE_SKILLS[keyof typeof AVAILABLE_SKILLS],
-        isStartingSkill: boolean
+        existingSkill?: CharacterSkill
     ): void {
-        const skillControl = container.createDiv("skill-control learned");
+        const isLearned = !!existingSkill;
+        const isStartingSkill = skillDef.isStartingSkill;
         
-        const header = skillControl.createDiv("skill-header");
-        const titleContainer = header.createDiv("skill-title-container");
+        const card = container.createDiv(`skill-card ${isLearned ? 'learned' : 'unlearned'}`);
         
+        // Header
+        const header = card.createDiv("skill-card-header");
+        
+        const titleContainer = header.createDiv("skill-card-title");
         titleContainer.createEl("span", {
-            cls: "skill-name",
+            cls: "skill-card-name",
             text: skillDef.name
         });
         
@@ -261,94 +347,80 @@ export class CharacterCreationModal extends Modal {
             text: skillDef.difficulty
         });
 
-        const valuesContainer = header.createDiv("skill-values");
-        
-        const pointsDisplay = valuesContainer.createEl("span", {
-            cls: "skill-points",
-            text: `${skill.pointsInvested}p`
-        });
-
-        const effectiveLevel = valuesContainer.createEl("span", {
-            cls: "skill-level",
-            text: this.getEffectiveSkillText(skill)
-        });
-
-        skillControl.createEl("div", {
-            cls: "skill-description",
-            text: skillDef.description
-        });
-
-        const controls = skillControl.createDiv("skill-controls");
-        
-        const investButton = controls.createEl("button", {
-            text: "+",
-            cls: "skill-button invest-button"
-        });
-        
-        const removeButton = controls.createEl("button", {
-            text: "−",
-            cls: "skill-button remove-button"
-        });
-
-        if (isStartingSkill && skill.pointsInvested <= 1) {
-            removeButton.disabled = true;
-            removeButton.addClass("disabled");
+        // Stats (if learned)
+        if (isLearned && existingSkill) {
+            const stats = header.createDiv("skill-card-stats");
+            stats.createEl("span", {
+                cls: "skill-card-points",
+                text: `${existingSkill.pointsInvested}p`
+            });
+            stats.createEl("span", {
+                cls: "skill-card-level",
+                text: this.getEffectiveSkillText(existingSkill)
+            });
         }
 
-        investButton.addEventListener("click", () => {
-            this.investSkillPoint(skill, skillDef, pointsDisplay, effectiveLevel, removeButton, isStartingSkill);
-        });
-
-        removeButton.addEventListener("click", () => {
-            this.removeSkillPoint(skill, skillDef, pointsDisplay, effectiveLevel, removeButton, isStartingSkill);
-        });
-
-        this.skillControls.set(skill.id, {
-            container: skillControl,
-            valueDisplay: pointsDisplay,
-            investButton,
-            removeButton,
-            effectiveLevel
-        });
-    }
-
-    private createUnlearnedSkillControl(
-        container: HTMLElement,
-        skillDef: typeof AVAILABLE_SKILLS[keyof typeof AVAILABLE_SKILLS]
-    ): void {
-        const skillControl = container.createDiv("skill-control unlearned");
-        
-        const header = skillControl.createDiv("skill-header");
-        const titleContainer = header.createDiv("skill-title-container");
-        
-        titleContainer.createEl("span", {
-            cls: "skill-name",
-            text: skillDef.name
-        });
-        
-        titleContainer.createEl("span", {
-            cls: `difficulty-badge difficulty-${skillDef.difficulty.toLowerCase().replace(' ', '_')}`,
-            text: skillDef.difficulty
-        });
-
-        skillControl.createEl("div", {
-            cls: "skill-description",
+        // Description
+        card.createEl("p", {
+            cls: "skill-card-description",
             text: skillDef.description
         });
 
-        const controls = skillControl.createDiv("skill-controls");
-        const cost = calculateSkillCost(1, skillDef.difficulty);
-        const learnButton = controls.createEl("button", {
-            text: `Learn (${cost}p)`,
-            cls: "skill-button learn-button"
-        });
+        // Controls
+        const controls = card.createDiv("skill-card-controls");
+        
+        if (isLearned && existingSkill) {
+            // Learned skill - show +/- buttons
+            const minusBtn = controls.createEl("button", {
+                text: "−",
+                cls: "skill-card-button minus-button"
+            });
+            
+            const plusBtn = controls.createEl("button", {
+                text: "+",
+                cls: "skill-card-button plus-button"
+            });
 
-        learnButton.addEventListener("click", () => {
-            this.learnNewSkill(skillDef);
-        });
+            // Lock starting skill at minimum
+            if (isStartingSkill && existingSkill.pointsInvested <= 1) {
+                minusBtn.disabled = true;
+                minusBtn.addClass("disabled");
+            }
+
+            minusBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                this.handleSkillDecrease(skillDef, existingSkill, isStartingSkill);
+            });
+
+            plusBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                this.handleSkillIncrease(skillDef, existingSkill);
+            });
+
+            // Store references for updates
+            this.skillControls.set(existingSkill.id, {
+                container: card,
+                valueDisplay: header.querySelector(".skill-card-points") as HTMLElement,
+                investButton: plusBtn,
+                removeButton: minusBtn,
+                effectiveLevel: header.querySelector(".skill-card-level") as HTMLElement
+            });
+        } else {
+            // Unlearned skill - show learn button
+            const cost = calculateSkillCost(1, skillDef.difficulty);
+            const learnBtn = controls.createEl("button", {
+                text: `Learn (${cost}p)`,
+                cls: "skill-card-button learn-button"
+            });
+
+            learnBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                this.handleSkillLearn(skillDef);
+            });
+        }
     }
 
-    private learnNewSkill(skillDef: typeof AVAILABLE_SKILLS[keyof typeof AVAILABLE_SKILLS]): void {
+    private handleSkillLearn(skillDef: typeof AVAILABLE_SKILLS[keyof typeof AVAILABLE_SKILLS]): void {
         const cost = calculateSkillCost(1, skillDef.difficulty);
         const remaining = this.getRemainingPoints();
 
@@ -368,20 +440,14 @@ export class CharacterCreationModal extends Modal {
 
         this.character.skills.push(newSkill);
         this.updatePointsDisplay();
-        
-        // FIXED: Use new rebuild method
         this.rebuildSkillsSection();
         
         new Notice(`Learned ${skillDef.name}!`);
     }
 
-    private investSkillPoint(
-        skill: CharacterSkill,
+    private handleSkillIncrease(
         skillDef: typeof AVAILABLE_SKILLS[keyof typeof AVAILABLE_SKILLS],
-        pointsDisplay: HTMLElement,
-        effectiveLevel: HTMLElement,
-        removeButton: HTMLButtonElement,
-        isStartingSkill: boolean
+        skill: CharacterSkill
     ): void {
         const newPoints = skill.pointsInvested + 1;
         const newCost = calculateSkillCost(newPoints, skill.difficulty);
@@ -396,23 +462,25 @@ export class CharacterCreationModal extends Modal {
         skill.pointsInvested = newPoints;
         skill.cost = newCost;
         
-        pointsDisplay.setText(`${skill.pointsInvested}p`);
-        effectiveLevel.setText(this.getEffectiveSkillText(skill));
-        
-        if (isStartingSkill && skill.pointsInvested > 1) {
-            removeButton.disabled = false;
-            removeButton.removeClass("disabled");
+        // Update display
+        const control = this.skillControls.get(skill.id);
+        if (control) {
+            control.valueDisplay.setText(`${skill.pointsInvested}p`);
+            control.effectiveLevel.setText(this.getEffectiveSkillText(skill));
+            
+            // Enable minus button if it was disabled
+            if (control.removeButton.disabled && skill.pointsInvested > 1) {
+                control.removeButton.disabled = false;
+                control.removeButton.removeClass("disabled");
+            }
         }
         
         this.updatePointsDisplay();
     }
 
-    private removeSkillPoint(
-        skill: CharacterSkill,
+    private handleSkillDecrease(
         skillDef: typeof AVAILABLE_SKILLS[keyof typeof AVAILABLE_SKILLS],
-        pointsDisplay: HTMLElement,
-        effectiveLevel: HTMLElement,
-        removeButton: HTMLButtonElement,
+        skill: CharacterSkill,
         isStartingSkill: boolean
     ): void {
         if (isStartingSkill && skill.pointsInvested <= 1) {
@@ -423,26 +491,30 @@ export class CharacterCreationModal extends Modal {
         const newPoints = skill.pointsInvested - 1;
         
         if (newPoints === 0) {
+            // Remove skill entirely
             const index = this.character.skills.findIndex(s => s.id === skill.id);
             if (index !== -1) {
                 this.character.skills.splice(index, 1);
             }
             
-            // FIXED: Use new rebuild method
             this.rebuildSkillsSection();
-            
             new Notice(`Unlearned ${skillDef.name}`);
         } else {
             const newCost = calculateSkillCost(newPoints, skill.difficulty);
             skill.pointsInvested = newPoints;
             skill.cost = newCost;
             
-            pointsDisplay.setText(`${skill.pointsInvested}p`);
-            effectiveLevel.setText(this.getEffectiveSkillText(skill));
-            
-            if (isStartingSkill && skill.pointsInvested === 1) {
-                removeButton.disabled = true;
-                removeButton.addClass("disabled");
+            // Update display
+            const control = this.skillControls.get(skill.id);
+            if (control) {
+                control.valueDisplay.setText(`${skill.pointsInvested}p`);
+                control.effectiveLevel.setText(this.getEffectiveSkillText(skill));
+                
+                // Disable minus button if at minimum
+                if (isStartingSkill && skill.pointsInvested === 1) {
+                    control.removeButton.disabled = true;
+                    control.removeButton.addClass("disabled");
+                }
             }
         }
         
@@ -522,6 +594,11 @@ export class CharacterCreationModal extends Modal {
     }
 
     private createCharacter(): void {
+        if (!this.selectedTemplate) {
+            new Notice("Please select a character background first!");
+            return;
+        }
+        
         if (!this.character.name.trim()) {
             new Notice("Please enter a manager name");
             return;
