@@ -45,12 +45,25 @@ The player can alter the influx by creating new Products to sell, install a spam
 
 His ultimate goal is to find and execute on valuable opportunities, grow the business and buy a motorsport license...
 
+1. The Player receives Messages mainly consisting of spam
+2. Once the Player created and activated bis first Service in the product catalog he will receive Purchase Orders
+3. The Player Needs to find genuine purchase Orders, accept them, and execute them. By doing so, he earns xp and monies.
+4. The Player can then buy improvements in the store
+
 ## Chapter 1
 
 **Goal:** Buy a Motorsport License
 
 - Earn monies by fulfilling customer orders
 - Earn XP by finishing daily tasks
+- Improve Message influx with an Assistent 
+
+chapter 1 will be used to make the Player familiär with the basic Systems on how to earn Money and xp.at the beginning the plpayer Needs to do all the stuff on bis own to earn bis first monies. With enough monies he can hire staff to improve or automate certain jobs.
+
+In this chapter we want to Focus on bringing all Systems online for our first motosport Season in 1950. 
+
+> [!NOTE] Idea is to start 1948
+> this should give us plenty of time to build the first office
 
 ## Daily Notes
 
@@ -102,3 +115,11 @@ views:
 ## Current Implementation
 
 ![[OneSeater - Systemdesign.canvas]]
+
+
+## Systemic idea on how to integrate a simulation game with obsidian
+
+Goal is to immerse the Player into the World he is Building. Outputting relevant gamedata such as People, contacts, Locations as md Files with proper fromtmatter we can leverage the whole Obsidian Plugin eco-system and allow the Player to extend bis experience by providing Plugin compliant Files.
+
+How can we basically make a worldbuilder for the Player to Tinker with and enhance.
+what pieces of the game and World need to stay in memory, what could be offloaded to md?
