@@ -17,7 +17,7 @@ export interface Product {
 	updatedAt: number; // timestamp
 	isActive: boolean; // Can be used in transactions
 
-	reorderPoint: number | undefined
+	reorderPoint?: number; 
 }
 export type PricingType = "per_unit" | "per_hour";
 
