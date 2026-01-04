@@ -205,6 +205,14 @@ export const SETTINGS_CATALOG: SettingsItem<Path<OneSeaterSettings>>[] = [
   // Data & Storage
   // ─────────────────────────────────────────────────────────────
   {
+	category: "Data",
+	name: "Plugin Base Folder",
+	desc: "The Plugins Base Folder",
+	kind: "text",
+	path: "baseFolderPath",
+	default: "OneSeater"
+  },
+  {
     category: "Data",
     name: "Data Folder Path",
     desc: "Base folder for cached and generated data.",

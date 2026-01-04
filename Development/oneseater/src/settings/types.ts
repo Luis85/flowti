@@ -1,6 +1,7 @@
 import { Path, PathValue } from "./settings.utils";
 
 export interface OneSeaterSettings {
+	baseFolderPath: string;
 	dataFolderPath: string;
 	compendiumFolderPath: string;
 	templatesFolderPath: string;
