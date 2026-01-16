@@ -3,24 +3,34 @@ import { setTooltip } from "obsidian";
 import type { ReconcileProgress } from "src/types";
 import { truncatePath, getMappingLabel } from "src/utils";
 
+/** Minimum interval between render calls (ms) */
+const RENDER_THROTTLE_MS = 100;
+
 export class StatusBarService {
 	private el: HTMLElement;
 
-	// new: reconcile snapshot for compact UI + modal
+	// Reconcile snapshot for compact UI + modal
 	private reconcile: ReconcileProgress | null = null;
 	private reconcileMeta: {
 		mappingIndex: number;
 		mappingTotal: number;
 	} | null = null;
 
+	// Throttling state
+	private lastRenderTime = 0;
+	private pendingRender = false;
+	private renderTimeout: number | null = null;
+
+	// Store click handler reference for cleanup
+	private clickHandler: () => void;
+
 	constructor(private plugin: FileWatcherPlugin) {
 		this.el = plugin.addStatusBarItem();
 		this.el.addClass("filewatcher-status");
 
-		// Click opens modal (we'll wire this via plugin)
-		this.el.addEventListener("click", () => {
-			this.plugin.openReconcileModal?.();
-		});
+		// Click opens modal
+		this.clickHandler = () => this.plugin.openReconcileModal?.();
+		this.el.addEventListener("click", this.clickHandler);
 
 		this.render();
 	}
@@ -32,13 +42,14 @@ export class StatusBarService {
 	) {
 		this.reconcile = p;
 		this.reconcileMeta = meta ?? this.reconcileMeta;
-		this.render();
+		this.scheduleRender();
 	}
 
 	clearReconcileProgress() {
 		this.reconcile = null;
 		this.reconcileMeta = null;
-		this.render();
+		// Force immediate render when clearing to show final state
+		this.renderImmediate();
 	}
 
 	render() {
@@ -110,10 +121,54 @@ export class StatusBarService {
 	}
 
 	onStatsChanged() {
+		this.scheduleRender();
+	}
+
+	/** Throttled render - prevents excessive DOM updates during reconcile */
+	private scheduleRender() {
+		const now = Date.now();
+		const elapsed = now - this.lastRenderTime;
+
+		if (elapsed >= RENDER_THROTTLE_MS) {
+			// Enough time has passed, render immediately
+			this.lastRenderTime = now;
+			this.pendingRender = false;
+			this.render();
+		} else if (!this.pendingRender) {
+			// Schedule a render for later
+			this.pendingRender = true;
+			const delay = RENDER_THROTTLE_MS - elapsed;
+			this.renderTimeout = window.setTimeout(() => {
+				this.lastRenderTime = Date.now();
+				this.pendingRender = false;
+				this.renderTimeout = null;
+				this.render();
+			}, delay);
+		}
+		// If pendingRender is already true, a render is scheduled - do nothing
+	}
+
+	/** Force immediate render, bypassing throttle */
+	private renderImmediate() {
+		if (this.renderTimeout !== null) {
+			window.clearTimeout(this.renderTimeout);
+			this.renderTimeout = null;
+		}
+		this.pendingRender = false;
+		this.lastRenderTime = Date.now();
 		this.render();
 	}
 
 	destroy() {
+		// Clean up event listener
+		this.el.removeEventListener("click", this.clickHandler);
+
+		// Clean up pending timeout
+		if (this.renderTimeout !== null) {
+			window.clearTimeout(this.renderTimeout);
+			this.renderTimeout = null;
+		}
+
 		this.el.detach();
 	}
 }
