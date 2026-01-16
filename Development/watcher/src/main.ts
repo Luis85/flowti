@@ -84,13 +84,11 @@ export default class FileWatcherPlugin extends Plugin {
 		this.addSettingTab(new FileWatcherSettingTab(this.app, this));
 
 		Debug.info("Plugin", "Starting reconcileOnStart");
-		void this.reconcile.reconcileOnStart().finally(() => {
+		void this.reconcile.reconcileOnStart().finally(async () => {
 			Debug.info("Plugin", "reconcileOnStart finished, starting watchers");
-			this.manager.startAll();
+			await this.manager.startAll();
 			this.statusbar?.onStatsChanged();
 		});
-
-		new Notice("File watcher plugin loaded");
 		Debug.info("Plugin", "onload() completed");
 	}
 
@@ -107,7 +105,7 @@ export default class FileWatcherPlugin extends Plugin {
 			await this.manager.stopAll();
 			new Notice("All file watchers stopped");
 		} else {
-			this.manager.startAll();
+			await this.manager.startAll();
 			new Notice("All file watchers started");
 		}
 		this.statusbar?.onStatsChanged();
