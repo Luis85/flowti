@@ -3,6 +3,7 @@ import { App, PluginSettingTab, Setting, Notice } from "obsidian";
 import { FolderMapping } from "../types";
 import { FolderMappingModal } from "src/modals/FolderMappingModal";
 import { shortPath, toVaultPath, getMappingLabel } from "src/utils";
+import { Debug } from "src/services/DebugService";
 
 export class FileWatcherSettingTab extends PluginSettingTab {
 	plugin: FileWatcherPlugin;
@@ -44,6 +45,22 @@ export class FileWatcherSettingTab extends PluginSettingTab {
 					.onChange(async (v) => {
 						this.plugin.settings.syncOnStart = v;
 						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Debug mode")
+			.setDesc(
+				"Enable verbose logging to the developer console (Ctrl+Shift+I). Useful for troubleshooting."
+			)
+			.addToggle((t) =>
+				t
+					.setValue(this.plugin.settings.debugMode)
+					.onChange(async (v) => {
+						this.plugin.settings.debugMode = v;
+						Debug.setEnabled(v);
+						await this.plugin.saveSettings();
+						new Notice(v ? "Debug mode enabled" : "Debug mode disabled");
 					})
 			);
 

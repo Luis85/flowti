@@ -2,6 +2,7 @@ import chokidar, { ChokidarOptions, FSWatcher } from "chokidar";
 import FileWatcherPlugin from "src/main";
 import { App, Notice } from "obsidian";
 import { PendingJob, FolderMapping, ChangeType } from "../types";
+import { Debug } from "../services/DebugService";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -21,9 +22,23 @@ export class MappingWatcher {
 	start() {
 		const m = this.mapping;
 
-		if (!m.enabled) return;
+		Debug.info("Watcher", `start() called for mapping`, {
+			id: m.id,
+			description: m.description,
+			enabled: m.enabled,
+			sourceFolder: m.sourceFolder,
+			targetFolder: m.targetFolder,
+		});
+
+		if (!m.enabled) {
+			Debug.debug("Watcher", `Mapping ${m.id} is disabled, skipping`);
+			return;
+		}
 
 		if (!m.sourceFolder || !fs.existsSync(m.sourceFolder)) {
+			Debug.warn("Watcher", `Source folder missing for ${m.id}`, {
+				sourceFolder: m.sourceFolder,
+			});
 			this.plugin.bumpError(m.id);
 			new Notice(
 				`Mapping "${m.description || m.id}": source folder missing`
@@ -52,6 +67,11 @@ export class MappingWatcher {
 			awaitWriteFinish: false,
 		};
 
+		Debug.debug("Watcher", `Creating chokidar watcher`, {
+			sourceFolder: m.sourceFolder,
+			watchOptions: { ...watchOptions, ignored: "(function)" },
+		});
+
 		this.watcher = chokidar.watch(m.sourceFolder, watchOptions);
 
 		this.watcher
@@ -60,12 +80,14 @@ export class MappingWatcher {
 			.on("unlink", (p) => this.enqueue(p, "deleted"))
 			.on("addDir", (dir) => this.onDirAdded(dir))
 			.on("error", (err) => {
-				console.error("Watcher error:", err);
+				Debug.error("Watcher", `Chokidar error for ${m.id}`, err);
 				this.plugin.bumpError(m.id);
 				new Notice(
 					`Watcher error (${m.description || m.id}): ${String(err)}`
 				);
 			});
+
+		Debug.info("Watcher", `Watcher started for ${m.description || m.id}`);
 	}
 
 	async stop() {
@@ -89,13 +111,26 @@ export class MappingWatcher {
 	}
 
 	private enqueue(filePath: string, changeType: ChangeType) {
+		Debug.debug("Watcher", `enqueue() ${changeType}`, {
+			mappingId: this.mapping.id,
+			mappingTarget: this.mapping.targetFolder,
+			filePath,
+		});
+
 		// ignore delete (we don't delete inside vault)
 		if (changeType === "deleted") {
+			Debug.debug("Watcher", `Skipping delete event`);
 			this.plugin.bumpSkipped(this.mapping.id);
 			return;
 		}
 
-		if (!this.isAllowed(filePath)) return;
+		if (!this.isAllowed(filePath)) {
+			Debug.debug("Watcher", `File not allowed by extension filter`, {
+				filePath,
+				extensions: this.mapping.fileExtensions,
+			});
+			return;
+		}
 
 		const key = filePath;
 		const existing = this.pending.get(key);
@@ -113,6 +148,14 @@ export class MappingWatcher {
 	}
 
 	private async process(job: PendingJob) {
+		Debug.info("Watcher", `process() syncing file`, {
+			mappingId: this.mapping.id,
+			mappingDescription: this.mapping.description,
+			targetFolder: this.mapping.targetFolder,
+			filePath: job.filePath,
+			changeType: job.changeType,
+		});
+
 		try {
 			// IMPORTANT: plugin.syncFile already updates stats + notices in your main.ts
 			await this.plugin.syncFile(
@@ -120,8 +163,9 @@ export class MappingWatcher {
 				job.filePath,
 				job.changeType
 			);
+			Debug.debug("Watcher", `process() completed for ${job.filePath}`);
 		} catch (e) {
-			console.error("Process error:", e);
+			Debug.error("Watcher", `process() error`, e);
 			this.plugin.bumpError(this.mapping.id);
 		}
 	}

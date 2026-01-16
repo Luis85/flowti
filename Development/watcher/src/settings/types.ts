@@ -25,6 +25,7 @@ export interface FileWatcherSettings {
 	stabilityChecks: number;
 	syncOnStart: boolean;
 	reconcile: ReconcileOptions;
+	debugMode: boolean;
 }
 
 export const DEFAULT_SETTINGS: FileWatcherSettings = {
@@ -34,6 +35,7 @@ export const DEFAULT_SETTINGS: FileWatcherSettings = {
 	stabilityCheckInterval: 500,
 	stabilityChecks: 3,
 	syncOnStart: true,
+	debugMode: false,
 
 	reconcile: {
 		parallelism: 8,

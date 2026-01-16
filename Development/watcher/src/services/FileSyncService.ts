@@ -9,6 +9,7 @@ import type {
 	ReconcileStats,
 } from "../types";
 import { FileWatcherSettings } from "../settings/types";
+import { Debug } from "./DebugService";
 
 /**
  * FileSyncService
@@ -40,6 +41,14 @@ export class FileSyncService {
 		sourceFilePath: string,
 		_changeType: SyncChangeType
 	): Promise<SyncResult> {
+		Debug.info("Sync", `syncFile() called`, {
+			mappingId: mapping.id,
+			mappingDescription: mapping.description,
+			sourceFolder: mapping.sourceFolder,
+			targetFolder: mapping.targetFolder,
+			sourceFilePath,
+		});
+
 		// for watch events we keep behavior conservative (stability check if enabled)
 		return this.syncFileInternal(mapping, sourceFilePath, {
 			verifyStability: this.settings.verifyFileStability === true,
@@ -288,11 +297,20 @@ export class FileSyncService {
 			const targetPathRaw = path.join(mapping.targetFolder, rel);
 			const targetPath = this.toVaultPath(targetPathRaw);
 
+			Debug.debug("Sync", `syncFileInternal() path calculation`, {
+				mappingId: mapping.id,
+				mappingSourceFolder: mapping.sourceFolder,
+				mappingTargetFolder: mapping.targetFolder,
+				sourceFilePath,
+				relativePath: rel,
+				targetPathRaw,
+				targetPath,
+			});
+
 			// Ensure parent folder exists (cached)
-			await this.ensureFolderCached(
-				path.posix.dirname(targetPath),
-				opts.ensuredFolders
-			);
+			const parentFolder = path.posix.dirname(targetPath);
+			Debug.debug("Sync", `Ensuring parent folder: ${parentFolder}`);
+			await this.ensureFolderCached(parentFolder, opts.ensuredFolders);
 
 			// Optional stability check (OneDrive)
 			if (opts.verifyStability) {
@@ -350,6 +368,12 @@ export class FileSyncService {
 			}
 
 			// Read + write
+			Debug.info("Sync", `Writing file to vault`, {
+				sourceFilePath,
+				finalTargetPath,
+				mappingId: mapping.id,
+			});
+
 			const buf = fs.readFileSync(sourceFilePath);
 			const ab = buf.buffer.slice(
 				buf.byteOffset,
@@ -357,6 +381,8 @@ export class FileSyncService {
 			);
 
 			await this.app.vault.adapter.writeBinary(finalTargetPath, ab);
+
+			Debug.info("Sync", `File written successfully: ${finalTargetPath}`);
 
 			// Update index (best effort) so later checks get faster
 			if (opts.targetIndex) {
@@ -379,6 +405,11 @@ export class FileSyncService {
 			};
 		} catch (e) {
 			const err = e instanceof Error ? e : new Error(String(e));
+			Debug.error("Sync", `syncFileInternal() error`, {
+				error: err.message,
+				sourceFilePath,
+				mappingId: mapping.id,
+			});
 			return { ok: false, error: err };
 		}
 	}

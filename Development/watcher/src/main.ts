@@ -5,6 +5,7 @@ import { FileWatcherSettingTab } from "src/settings/FileWatcherSettingTab";
 import { FileSyncService } from "src/services/FileSyncService";
 import { ReconcileService } from "src/services/ReconcileService";
 import { ReconcileProgressModal } from "src/modals/ReconcileProgressModal";
+import { Debug } from "src/services/DebugService";
 import { FileWatcherSettings, DEFAULT_SETTINGS } from "src/settings/types";
 import {
 	WatcherStats,
@@ -45,6 +46,22 @@ export default class FileWatcherPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+
+		// Initialize debug mode from settings
+		Debug.setEnabled(this.settings.debugMode);
+
+		Debug.info("Plugin", "onload() starting");
+		Debug.info("Plugin", "Settings loaded", {
+			mappingCount: this.settings.folderMappings.length,
+			mappings: this.settings.folderMappings.map((m) => ({
+				id: m.id,
+				description: m.description,
+				enabled: m.enabled,
+				sourceFolder: m.sourceFolder,
+				targetFolder: m.targetFolder,
+			})),
+		});
+
 		this.fileSync = new FileSyncService(this.app, this.settings);
 		this.reconcile = new ReconcileService(this, this.fileSync);
 		this.manager = new WatcherManager(this);
@@ -58,6 +75,7 @@ export default class FileWatcherPlugin extends Plugin {
 			id: "filewatcher-restart",
 			name: "Restart all watchers",
 			callback: () => {
+				Debug.info("Plugin", "Restart command executed");
 				this.manager?.updateMappings();
 				new Notice("File watchers restarted");
 			},
@@ -65,11 +83,15 @@ export default class FileWatcherPlugin extends Plugin {
 
 		this.addSettingTab(new FileWatcherSettingTab(this.app, this));
 
+		Debug.info("Plugin", "Starting reconcileOnStart");
 		void this.reconcile.reconcileOnStart().finally(() => {
+			Debug.info("Plugin", "reconcileOnStart finished, starting watchers");
 			this.manager.startAll();
 			this.statusbar?.onStatsChanged();
 		});
+
 		new Notice("File watcher plugin loaded");
+		Debug.info("Plugin", "onload() completed");
 	}
 
 	onunload() {
@@ -193,9 +215,22 @@ export default class FileWatcherPlugin extends Plugin {
 	}
 
 	async saveSettings() {
+		Debug.info("Plugin", "saveSettings() called", {
+			mappingCount: this.settings.folderMappings.length,
+			mappings: this.settings.folderMappings.map((m) => ({
+				id: m.id,
+				description: m.description,
+				enabled: m.enabled,
+				sourceFolder: m.sourceFolder,
+				targetFolder: m.targetFolder,
+			})),
+		});
+
 		await this.saveData(this.settings);
 		this.fileSync.updateSettings(this.settings);
 		this.manager?.updateMappings();
 		this.statusbar?.onStatsChanged();
+
+		Debug.info("Plugin", "saveSettings() completed");
 	}
 }
