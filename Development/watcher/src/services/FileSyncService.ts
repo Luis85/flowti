@@ -83,26 +83,22 @@ export class FileSyncService {
 		if (!folderAbsPath || !fs.existsSync(folderAbsPath)) return stats;
 
 		const global = this.settings.reconcile;
-		const overrides = mapping.reconcileOverrides ?? {};
 
 		const reconcileConcurrency = this.clampNumber(
-			overrides.concurrency ?? global.parallelism ?? 8,
+			global.parallelism ?? 8,
 			1,
 			16
 		);
 		const progressThrottleMs = this.clampNumber(
-			overrides.progressThrottleMs ?? global.progressThrottleMs ?? 250,
+			global.progressThrottleMs ?? 250,
 			25,
 			2000
 		);
 
 		const verifyStabilityOnReconcile =
-			overrides.verifyStability ??
-			global.disableStabilityCheckDuringReconcile ??
-			false;
+			!global.disableStabilityCheckDuringReconcile;
 
-		const skipUnchangedOnReconcile =
-			overrides.skipUnchanged ?? global.fastSkipUnchanged ?? true;
+		const skipUnchangedOnReconcile = global.fastSkipUnchanged ?? true;
 
 		const all = await this.walkFiles(folderAbsPath, true);
 		const files = all.filter((filePath) => {
@@ -184,25 +180,26 @@ export class FileSyncService {
 		if (!mapping.sourceFolder) return stats;
 		if (!fs.existsSync(mapping.sourceFolder)) return stats;
 
-		// ---- Tuning (safe defaults for 10k MD files) ----
+		// ---- Tuning from global settings ----
+		const global = this.settings.reconcile;
+
 		const reconcileConcurrency = this.clampNumber(
-			(mapping as any).reconcileConcurrency ?? 4,
+			global.parallelism ?? 8,
 			1,
-			8
+			64
 		);
 		const progressThrottleMs = this.clampNumber(
-			(mapping as any).progressThrottleMs ?? 150,
-			50,
-			1000
+			global.progressThrottleMs ?? 250,
+			0,
+			5000
 		);
 
 		// Reconcile defaults:
 		// - stability checks OFF (files are usually stable at start)
 		// - skipUnchanged ON (massive win)
 		const verifyStabilityOnReconcile =
-			(mapping as any).verifyStabilityOnReconcile ?? false;
-		const skipUnchangedOnReconcile =
-			(mapping as any).skipUnchangedOnReconcile ?? true;
+			!global.disableStabilityCheckDuringReconcile;
+		const skipUnchangedOnReconcile = global.fastSkipUnchanged ?? true;
 
 		// ---- Scan once -> stable total ----
 		const all = await this.walkFiles(

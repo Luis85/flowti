@@ -1,5 +1,3 @@
-import { ReconcileOverrides } from "./settings/types";
-
 export type ConflictResolution = "overwrite" | "rename" | "skip" | "keepNewer";
 
 export interface FolderMapping {
@@ -15,11 +13,6 @@ export interface FolderMapping {
 	usePolling?: boolean;
 	pollingInterval?: number;
 	reconcileOnStart: boolean;
-	reconcileConcurrency?: number;
-	progressThrottleMs?: number;
-	skipUnchangedOnReconcile?: boolean;
-	verifyStabilityOnReconcile?: boolean;
-	reconcileOverrides?: ReconcileOverrides;
 }
 
 export interface WatcherStats {

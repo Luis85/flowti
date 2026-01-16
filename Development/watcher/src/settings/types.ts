@@ -17,13 +17,6 @@ export interface ReconcileOptions {
 	notifyOnMappingDone: boolean;
 }
 
-export type ReconcileOverrides = Partial<{
-	concurrency: number;
-	progressThrottleMs: number;
-	verifyStability: boolean;
-	skipUnchanged: boolean;
-}>;
-
 export interface FileWatcherSettings {
 	folderMappings: FolderMapping[];
 	ignoreOneDriveTemp: boolean;
