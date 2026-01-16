@@ -1,198 +1,394 @@
 import FileWatcherPlugin from "src/main";
-import { App, Modal, Setting, Notice } from "obsidian";
+import { App, Modal, Setting, Notice, setIcon } from "obsidian";
 import { FolderMapping, ConflictResolution } from "src/types";
-import { ModalHandlers } from "./types";
+
+export type MappingModalMode = "create" | "edit";
+
+export interface MappingModalResult {
+	saved: boolean;
+	deleted?: boolean;
+	mapping?: FolderMapping;
+}
 
 export class FolderMappingModal extends Modal {
 	private plugin: FileWatcherPlugin;
 	private mapping: FolderMapping;
-	private handlers: ModalHandlers;
+	private mode: MappingModalMode;
+	private onComplete: (result: MappingModalResult) => void;
+	private hasChanges = false;
 
 	constructor(
 		app: App,
 		plugin: FileWatcherPlugin,
 		mapping: FolderMapping,
-		handlers: ModalHandlers
+		mode: MappingModalMode,
+		onComplete: (result: MappingModalResult) => void
 	) {
 		super(app);
 		this.plugin = plugin;
-		this.mapping = mapping;
-		this.handlers = handlers;
+		this.mapping = { ...mapping }; // Clone to avoid modifying original
+		this.mode = mode;
+		this.onComplete = onComplete;
 	}
 
 	onOpen() {
 		const { contentEl } = this;
+		this.modalEl.addClass("filewatcher-modal");
 		contentEl.empty();
 		contentEl.addClass("filewatcher-mapping-modal");
 
-		contentEl.createEl("h2", {
-			text: this.mapping.description || "Edit mapping",
+		this.renderHeader();
+		this.renderBasicSettings();
+		this.renderPathSettings();
+		this.renderSyncSettings();
+		this.renderAdvancedSettings();
+		this.renderFooter();
+	}
+
+	private renderHeader() {
+		const { contentEl } = this;
+
+		const header = contentEl.createDiv({ cls: "mapping-modal-header" });
+
+		const iconEl = header.createDiv({ cls: "header-icon" });
+		setIcon(iconEl, this.mode === "create" ? "folder-plus" : "folder-cog");
+
+		const titleArea = header.createDiv({ cls: "header-title-area" });
+		titleArea.createEl("h2", {
+			text: this.mode === "create" ? "New Folder Mapping" : "Edit Folder Mapping",
 		});
 
-		new Setting(contentEl)
+		if (this.mode === "edit" && this.mapping.description) {
+			titleArea.createDiv({
+				cls: "header-subtitle",
+				text: this.mapping.description,
+			});
+		}
+	}
+
+	private renderBasicSettings() {
+		const { contentEl } = this;
+
+		const section = this.createSection(contentEl, "Basic Settings", "settings");
+
+		new Setting(section)
 			.setName("Enabled")
-			.setDesc("Start this watcher when the plugin runs.")
+			.setDesc("Start this watcher when the plugin runs")
 			.addToggle((t) =>
 				t
 					.setValue(this.mapping.enabled)
-					.onChange((v) => (this.mapping.enabled = v))
-			);
-
-		new Setting(contentEl)
-			.setName("Description")
-			.setDesc("Shown in settings and status bar.")
-			.addText((t) =>
-				t.setValue(this.mapping.description).onChange((v) => {
-					this.mapping.description = v;
-				})
-			);
-
-		new Setting(contentEl)
-			.setName("Source folder (absolute)")
-			.setDesc("Example: C:\\Users\\…\\OneDrive\\Folder")
-			.addText((t) =>
-				t
-					.setPlaceholder("C:\\Users\\...\\OneDrive\\Folder")
-					.setValue(this.mapping.sourceFolder)
 					.onChange((v) => {
-						this.mapping.sourceFolder = v.trim();
+						this.mapping.enabled = v;
+						this.hasChanges = true;
 					})
 			);
 
-		new Setting(contentEl)
-			.setName("Target folder (vault)")
-			.setDesc("Example: imported/onedrive")
+		new Setting(section)
+			.setName("Description")
+			.setDesc("A friendly name shown in the dashboard and status bar")
+			.addText((t) =>
+				t
+					.setPlaceholder("e.g., OneDrive Documents")
+					.setValue(this.mapping.description)
+					.onChange((v) => {
+						this.mapping.description = v;
+						this.hasChanges = true;
+					})
+			);
+	}
+
+	private renderPathSettings() {
+		const { contentEl } = this;
+
+		const section = this.createSection(contentEl, "Folder Paths", "folder");
+
+		const sourceRow = new Setting(section)
+			.setName("Source Folder")
+			.setDesc("The external folder to watch (absolute path)");
+
+		sourceRow.addText((t) =>
+			t
+				.setPlaceholder("C:\\Users\\...\\OneDrive\\Documents")
+				.setValue(this.mapping.sourceFolder)
+				.onChange((v) => {
+					this.mapping.sourceFolder = v.trim();
+					this.hasChanges = true;
+				})
+		);
+
+		// Add folder picker button hint
+		const sourceHint = section.createDiv({ cls: "setting-hint" });
+		sourceHint.createSpan({ text: "Tip: Use an absolute path like " });
+		sourceHint.createEl("code", { text: "C:\\Users\\Name\\OneDrive\\Folder" });
+
+		new Setting(section)
+			.setName("Target Folder")
+			.setDesc("Where to sync files in your vault (relative to vault root)")
 			.addText((t) =>
 				t
 					.setPlaceholder("imported/onedrive")
 					.setValue(this.mapping.targetFolder)
 					.onChange((v) => {
 						this.mapping.targetFolder = v.trim();
+						this.hasChanges = true;
 					})
 			);
 
-		new Setting(contentEl)
-			.setName("Watch subfolders")
+		new Setting(section)
+			.setName("Watch Subfolders")
+			.setDesc("Also watch and sync files in subdirectories")
 			.addToggle((t) =>
 				t
 					.setValue(this.mapping.watchSubfolders)
-					.onChange((v) => (this.mapping.watchSubfolders = v))
+					.onChange((v) => {
+						this.mapping.watchSubfolders = v;
+						this.hasChanges = true;
+					})
 			);
+	}
 
-		new Setting(contentEl)
-			.setName("Reconcile existing files on start")
-			.setDesc(
-				"When enabled, performs a one-time scan and sync at startup."
-			)
-			.addToggle((t) =>
-				t
-					.setValue(this.mapping.reconcileOnStart)
-					.onChange((v) => (this.mapping.reconcileOnStart = v))
-			);
+	private renderSyncSettings() {
+		const { contentEl } = this;
 
-		new Setting(contentEl)
-			.setName("File extensions")
-			.setDesc("Comma-separated (.md,.pdf). Empty = all.")
+		const section = this.createSection(contentEl, "Sync Behavior", "refresh-cw");
+
+		new Setting(section)
+			.setName("File Extensions")
+			.setDesc("Only sync files with these extensions (comma-separated, leave empty for all)")
 			.addText((t) =>
 				t
-					.setValue(this.mapping.fileExtensions.join(","))
+					.setPlaceholder(".md, .pdf, .docx")
+					.setValue(this.mapping.fileExtensions.join(", "))
 					.onChange((v) => {
 						this.mapping.fileExtensions = v
 							.split(",")
 							.map((x) => x.trim().toLowerCase())
 							.filter(Boolean);
+						this.hasChanges = true;
 					})
 			);
 
-		new Setting(contentEl)
-			.setName("Conflict resolution")
+		new Setting(section)
+			.setName("Conflict Resolution")
+			.setDesc("How to handle conflicts when a file already exists")
 			.addDropdown((d) => {
-				d.addOption("overwrite", "overwrite");
-				d.addOption("rename", "rename");
-				d.addOption("skip", "skip");
-				d.addOption("keepNewer", "keepNewer");
+				d.addOption("overwrite", "Overwrite - Replace existing file");
+				d.addOption("rename", "Rename - Add number suffix");
+				d.addOption("skip", "Skip - Don't sync if exists");
+				d.addOption("keepNewer", "Keep Newer - Compare timestamps");
 				d.setValue(this.mapping.conflictResolution);
-				d.onChange(
-					(v) =>
-						(this.mapping.conflictResolution =
-							v as ConflictResolution)
-				);
+				d.onChange((v) => {
+					this.mapping.conflictResolution = v as ConflictResolution;
+					this.hasChanges = true;
+				});
 			});
 
-		new Setting(contentEl)
-			.setName("Debounce delay (ms)")
-			.setDesc(
-				"Collects rapid events and processes once. Recommended for OneDrive."
-			)
+		new Setting(section)
+			.setName("Reconcile on Start")
+			.setDesc("Scan and sync all existing files when the plugin starts")
+			.addToggle((t) =>
+				t
+					.setValue(this.mapping.reconcileOnStart)
+					.onChange((v) => {
+						this.mapping.reconcileOnStart = v;
+						this.hasChanges = true;
+					})
+			);
+	}
+
+	private renderAdvancedSettings() {
+		const { contentEl } = this;
+
+		const section = this.createSection(contentEl, "Advanced Options", "sliders-horizontal");
+
+		// Add a collapsible container
+		const advancedContent = section.createDiv({ cls: "advanced-content" });
+
+		new Setting(advancedContent)
+			.setName("Debounce Delay")
+			.setDesc("Wait time (ms) before processing rapid changes. Higher values reduce CPU usage.")
 			.addText((t) =>
 				t
+					.setPlaceholder("800")
 					.setValue(String(this.mapping.debounceDelay ?? 800))
 					.onChange((v) => {
 						const n = Number(v);
 						if (!Number.isFinite(n) || n < 0) return;
 						this.mapping.debounceDelay = n;
+						this.hasChanges = true;
 					})
 			);
 
-		new Setting(contentEl)
-			.setName("Use polling (advanced)")
-			.setDesc(
-				"More reliable on some sync/network folders, but higher CPU."
-			)
+		new Setting(advancedContent)
+			.setName("Use Polling")
+			.setDesc("More reliable for network/cloud folders, but uses more CPU")
 			.addToggle((t) =>
 				t
 					.setValue(this.mapping.usePolling ?? false)
-					.onChange((v) => (this.mapping.usePolling = v))
+					.onChange((v) => {
+						this.mapping.usePolling = v;
+						this.hasChanges = true;
+						// Re-render to show/hide interval setting
+						this.renderPollingInterval(advancedContent, v);
+					})
 			);
 
-		if (this.mapping.usePolling) {
-			new Setting(contentEl)
-				.setName("Polling interval (ms)")
+		// Polling interval (conditionally shown)
+		this.renderPollingInterval(advancedContent, this.mapping.usePolling ?? false);
+	}
+
+	private renderPollingInterval(container: HTMLElement, show: boolean) {
+		// Remove existing if any
+		const existing = container.querySelector(".polling-interval-setting");
+		if (existing) existing.remove();
+
+		if (show) {
+			const intervalContainer = container.createDiv({ cls: "polling-interval-setting" });
+			new Setting(intervalContainer)
+				.setName("Polling Interval")
+				.setDesc("How often to check for changes (ms)")
 				.addText((t) =>
 					t
+						.setPlaceholder("300")
 						.setValue(String(this.mapping.pollingInterval ?? 300))
 						.onChange((v) => {
 							const n = Number(v);
 							if (!Number.isFinite(n) || n < 50) return;
 							this.mapping.pollingInterval = n;
+							this.hasChanges = true;
 						})
 				);
 		}
+	}
 
-		// Footer actions
-		contentEl.createEl("hr");
-		const actions = contentEl.createDiv({
-			cls: "filewatcher-modal-actions",
+	private renderFooter() {
+		const { contentEl } = this;
+
+		const footer = contentEl.createDiv({ cls: "mapping-modal-footer" });
+
+		// Left side - delete button (only for edit mode)
+		const leftActions = footer.createDiv({ cls: "footer-left" });
+		if (this.mode === "edit") {
+			const deleteBtn = leftActions.createEl("button", {
+				cls: "mod-warning mapping-delete-btn",
+			});
+			setIcon(deleteBtn.createSpan({ cls: "btn-icon" }), "trash-2");
+			deleteBtn.createSpan({ cls: "btn-text", text: "Delete" });
+			deleteBtn.addEventListener("click", (e) => {
+				e.preventDefault();
+				this.handleDelete();
+			});
+		}
+
+		// Right side - cancel and save
+		const rightActions = footer.createDiv({ cls: "footer-right" });
+
+		const cancelBtn = rightActions.createEl("button", { cls: "mapping-cancel-btn" });
+		cancelBtn.setText("Cancel");
+		cancelBtn.addEventListener("click", (e) => {
+			e.preventDefault();
+			this.close();
 		});
 
-		new Setting(actions).addButton((b) =>
-			b
-				.setButtonText("Save")
-				.setCta()
-				.onClick(async () => {
-					await this.handlers.onSave();
-					new Notice("Mapping saved");
-					this.close();
-				})
+		const saveBtn = rightActions.createEl("button", {
+			cls: "mod-cta mapping-save-btn",
+		});
+		setIcon(saveBtn.createSpan({ cls: "btn-icon" }), "check");
+		saveBtn.createSpan({
+			cls: "btn-text",
+			text: this.mode === "create" ? "Create Mapping" : "Save Changes",
+		});
+		saveBtn.addEventListener("click", (e) => {
+			e.preventDefault();
+			this.handleSave();
+		});
+	}
+
+	private createSection(container: HTMLElement, title: string, icon: string): HTMLElement {
+		const section = container.createDiv({ cls: "mapping-section" });
+
+		const header = section.createDiv({ cls: "section-header" });
+		const iconEl = header.createSpan({ cls: "section-icon" });
+		setIcon(iconEl, icon);
+		header.createSpan({ cls: "section-title", text: title });
+
+		const content = section.createDiv({ cls: "section-content" });
+		return content;
+	}
+
+	private validateMapping(): string | null {
+		if (!this.mapping.sourceFolder.trim()) {
+			return "Source folder is required";
+		}
+		if (!this.mapping.targetFolder.trim()) {
+			return "Target folder is required";
+		}
+		return null;
+	}
+
+	private async handleSave() {
+		const error = this.validateMapping();
+		if (error) {
+			new Notice(error);
+			return;
+		}
+
+		// Generate ID for new mappings
+		if (this.mode === "create" && !this.mapping.id) {
+			this.mapping.id = `mapping-${Date.now()}`;
+		}
+
+		this.onComplete({
+			saved: true,
+			mapping: this.mapping,
+		});
+
+		new Notice(this.mode === "create" ? "Mapping created" : "Mapping saved");
+		this.close();
+	}
+
+	private handleDelete() {
+		// Confirm deletion
+		const confirmed = confirm(
+			`Are you sure you want to delete this mapping?\n\n"${this.mapping.description || this.mapping.id}"\n\nThis will stop watching the source folder.`
 		);
 
-		new Setting(actions).addButton((b) =>
-			b
-				.setButtonText("Delete")
-				.setWarning()
-				.onClick(async () => {
-					await this.handlers.onDelete();
-					new Notice("Mapping deleted");
-					this.close();
-				})
-		);
-
-		new Setting(actions).addButton((b) =>
-			b.setButtonText("Close").onClick(() => this.close())
-		);
+		if (confirmed) {
+			this.onComplete({
+				saved: false,
+				deleted: true,
+				mapping: this.mapping,
+			});
+			new Notice("Mapping deleted");
+			this.close();
+		}
 	}
 
 	onClose() {
+		// If closed without saving, notify with no changes
+		if (!this.hasChanges) {
+			// Already handled by save/delete
+		}
 		this.contentEl.empty();
 	}
+}
+
+/**
+ * Create a new empty mapping with default values
+ */
+export function createNewMapping(): FolderMapping {
+	return {
+		id: "",
+		enabled: true,
+		sourceFolder: "",
+		targetFolder: "",
+		watchSubfolders: true,
+		fileExtensions: [],
+		conflictResolution: "keepNewer",
+		debounceDelay: 800,
+		description: "",
+		usePolling: false,
+		pollingInterval: 300,
+		reconcileOnStart: true,
+	};
 }

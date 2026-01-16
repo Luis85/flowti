@@ -3,6 +3,7 @@ import type FileWatcherPlugin from "src/main";
 import { truncatePath } from "src/utils";
 import { LogService, LogEntry, LogLevel } from "src/services/LogService";
 import type { WatcherInfo } from "src/watcher/WatcherManager";
+import { FolderMappingModal, createNewMapping } from "./FolderMappingModal";
 
 type TabId = "overview" | "watchers" | "logs";
 
@@ -392,12 +393,25 @@ export class DashboardModal extends Modal {
 	private renderWatchers() {
 		const container = this.contentContainer;
 
+		// Header with "New Mapping" button
+		const headerSection = container.createDiv({ cls: "watchers-header" });
+		const newMappingBtn = headerSection.createEl("button", {
+			cls: "control-btn success",
+		});
+		setIcon(newMappingBtn.createSpan({ cls: "btn-icon" }), "folder-plus");
+		newMappingBtn.createSpan({ cls: "btn-text", text: "New Mapping" });
+		newMappingBtn.addEventListener("click", (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+			this.openNewMappingModal();
+		});
+
 		const watcherInfos = this.plugin.manager?.getWatcherInfos() ?? [];
 
 		if (watcherInfos.length === 0) {
 			container.createDiv({
 				cls: "no-watchers",
-				text: "No folder mappings configured",
+				text: "No folder mappings configured. Click 'New Mapping' to create one.",
 			});
 			return;
 		}
@@ -569,6 +583,18 @@ export class DashboardModal extends Modal {
 			e.stopPropagation();
 			void this.handleWatcherReconcile(mappingId);
 		});
+
+		// Edit button
+		const editBtn = controls.createEl("button", {
+			cls: "watcher-btn watcher-edit-btn",
+		});
+		setIcon(editBtn.createSpan({ cls: "btn-icon" }), "pencil");
+		editBtn.createSpan({ cls: "btn-text", text: "Edit" });
+		editBtn.addEventListener("click", (e) => {
+			e.preventDefault();
+			e.stopPropagation();
+			this.openEditMappingModal(mappingId);
+		});
 	}
 
 	private async handleWatcherToggle(mappingId: string, mappingDesc: string) {
@@ -601,6 +627,67 @@ export class DashboardModal extends Modal {
 		} finally {
 			this.actionInProgress = false;
 		}
+	}
+
+	private openNewMappingModal() {
+		const newMapping = createNewMapping();
+		new FolderMappingModal(
+			this.app,
+			this.plugin,
+			newMapping,
+			"create",
+			async (result) => {
+				if (result.saved && result.mapping) {
+					// Add the new mapping to settings
+					this.plugin.settings.folderMappings.push(result.mapping);
+					await this.plugin.saveSettings();
+					// Re-render the watchers tab
+					this.renderContent();
+				}
+			}
+		).open();
+	}
+
+	private openEditMappingModal(mappingId: string) {
+		const mapping = this.plugin.settings.folderMappings.find(
+			(m) => m.id === mappingId
+		);
+		if (!mapping) {
+			new Notice("Mapping not found");
+			return;
+		}
+
+		new FolderMappingModal(
+			this.app,
+			this.plugin,
+			mapping,
+			"edit",
+			async (result) => {
+				if (result.deleted && result.mapping) {
+					// Remove the mapping from settings
+					const index = this.plugin.settings.folderMappings.findIndex(
+						(m) => m.id === result.mapping!.id
+					);
+					if (index >= 0) {
+						this.plugin.settings.folderMappings.splice(index, 1);
+						await this.plugin.saveSettings();
+					}
+					// Re-render the watchers tab
+					this.renderContent();
+				} else if (result.saved && result.mapping) {
+					// Update the mapping in settings
+					const index = this.plugin.settings.folderMappings.findIndex(
+						(m) => m.id === result.mapping!.id
+					);
+					if (index >= 0) {
+						this.plugin.settings.folderMappings[index] = result.mapping;
+						await this.plugin.saveSettings();
+					}
+					// Re-render the watchers tab
+					this.renderContent();
+				}
+			}
+		).open();
 	}
 
 	private renderLogs() {

@@ -175,6 +175,15 @@
 	gap: 4px;
 }
 
+/* Watchers header */
+.filewatcher-dashboard .watchers-header {
+	display: flex;
+	justify-content: flex-end;
+	margin-bottom: 16px;
+	padding-bottom: 12px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
 /* Watcher cards */
 .filewatcher-dashboard .watcher-card {
 	padding: 12px;
@@ -595,4 +604,191 @@
 	color: var(--text-muted);
 	cursor: not-allowed;
 	opacity: 0.7;
+}
+
+.filewatcher-dashboard .watcher-edit-btn {
+	background-color: var(--background-secondary);
+	color: var(--text-normal);
+	border: 1px solid var(--background-modifier-border);
+}
+
+.filewatcher-dashboard .watcher-edit-btn:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+/* ========================================
+   Folder Mapping Modal
+   ======================================== */
+
+/* Header */
+.filewatcher-mapping-modal .mapping-modal-header {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	margin-bottom: 24px;
+	padding-bottom: 16px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.filewatcher-mapping-modal .header-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 48px;
+	height: 48px;
+	border-radius: 12px;
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.filewatcher-mapping-modal .header-icon svg {
+	width: 24px;
+	height: 24px;
+}
+
+.filewatcher-mapping-modal .header-title-area h2 {
+	margin: 0;
+	font-size: 18px;
+	font-weight: 600;
+}
+
+.filewatcher-mapping-modal .header-subtitle {
+	margin-top: 4px;
+	font-size: 13px;
+	color: var(--text-muted);
+}
+
+/* Sections */
+.filewatcher-mapping-modal .mapping-section {
+	margin-bottom: 20px;
+}
+
+.filewatcher-mapping-modal .section-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 12px;
+	padding-bottom: 8px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.filewatcher-mapping-modal .section-icon {
+	display: flex;
+	align-items: center;
+	color: var(--text-muted);
+}
+
+.filewatcher-mapping-modal .section-icon svg {
+	width: 16px;
+	height: 16px;
+}
+
+.filewatcher-mapping-modal .section-title {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.filewatcher-mapping-modal .section-content .setting-item {
+	border-top: none;
+	padding: 8px 0;
+}
+
+.filewatcher-mapping-modal .section-content .setting-item:first-child {
+	padding-top: 0;
+}
+
+/* Setting hints */
+.filewatcher-mapping-modal .setting-hint {
+	margin-top: -4px;
+	margin-bottom: 12px;
+	padding-left: 8px;
+	font-size: 11px;
+	color: var(--text-faint);
+}
+
+.filewatcher-mapping-modal .setting-hint code {
+	padding: 2px 4px;
+	background-color: var(--background-secondary);
+	border-radius: 3px;
+	font-size: 10px;
+}
+
+/* Advanced content */
+.filewatcher-mapping-modal .advanced-content {
+	padding: 8px 0;
+}
+
+.filewatcher-mapping-modal .polling-interval-setting {
+	padding-left: 16px;
+	border-left: 2px solid var(--background-modifier-border);
+	margin-top: 8px;
+}
+
+/* Footer */
+.filewatcher-mapping-modal .mapping-modal-footer {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-top: 24px;
+	padding-top: 16px;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.filewatcher-mapping-modal .footer-left,
+.filewatcher-mapping-modal .footer-right {
+	display: flex;
+	gap: 8px;
+}
+
+.filewatcher-mapping-modal .mapping-modal-footer button {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 8px 16px;
+	border: none;
+	border-radius: 6px;
+	cursor: pointer;
+	font-size: 13px;
+	font-weight: 500;
+	transition: all 0.15s ease;
+}
+
+.filewatcher-mapping-modal .mapping-cancel-btn {
+	background-color: var(--background-secondary);
+	color: var(--text-normal);
+}
+
+.filewatcher-mapping-modal .mapping-cancel-btn:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.filewatcher-mapping-modal .mapping-save-btn {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.filewatcher-mapping-modal .mapping-save-btn:hover {
+	background-color: var(--interactive-accent-hover);
+}
+
+.filewatcher-mapping-modal .mapping-delete-btn {
+	background-color: rgba(var(--color-red-rgb), 0.15);
+	color: var(--color-red);
+}
+
+.filewatcher-mapping-modal .mapping-delete-btn:hover {
+	background-color: rgba(var(--color-red-rgb), 0.25);
+}
+
+.filewatcher-mapping-modal .mapping-modal-footer button .btn-icon {
+	display: flex;
+	align-items: center;
+}
+
+.filewatcher-mapping-modal .mapping-modal-footer button .btn-icon svg {
+	width: 14px;
+	height: 14px;
 }

@@ -82,10 +82,6 @@ export default class FileWatcherPlugin extends Plugin {
 		this.manager = new WatcherManager(this);
 		this.statusbar = new StatusBarService(this);
 
-		this.addRibbonIcon("folder-sync", "Toggle File Watcher", () => {
-			void this.toggleAll();
-		});
-
 		this.addCommand({
 			id: "filewatcher-restart",
 			name: "Restart all watchers",

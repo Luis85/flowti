@@ -31,3 +31,7 @@ export function shortPath(p: string, maxLength = 60): string {
 	if (!p) return "(not set)";
 	return p.length > maxLength ? `…${p.slice(-maxLength)}` : p;
 }
+
+export function makeId(): string {
+	return crypto.randomUUID?.() ?? String(Date.now());
+}

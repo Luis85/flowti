@@ -2,7 +2,7 @@ import FileWatcherPlugin from "src/main";
 import { App, PluginSettingTab, Setting, Notice } from "obsidian";
 import { FolderMapping } from "../types";
 import { FolderMappingModal } from "src/modals/FolderMappingModal";
-import { shortPath, toVaultPath, getMappingLabel } from "src/utils";
+import { shortPath, toVaultPath, getMappingLabel, makeId } from "src/utils";
 import { Debug } from "src/services/DebugService";
 
 export class FileWatcherSettingTab extends PluginSettingTab {
@@ -18,7 +18,6 @@ export class FileWatcherSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		// ===== Global settings =====
-		containerEl.createEl("h3", { text: "Global settings" });
 
 		new Setting(containerEl)
 			.setName("Ignore OneDrive/Office temp files")
@@ -206,20 +205,22 @@ export class FileWatcherSettingTab extends PluginSettingTab {
 						this.plugin.settings.folderMappings.push(m);
 						await this.plugin.saveSettings();
 
-						new FolderMappingModal(this.app, this.plugin, m, {
-							onSave: async () => {
+						new FolderMappingModal(
+							this.app,
+							this.plugin,
+							m,
+							"create",
+							async (result) => {
+								if (result.deleted) {
+									this.plugin.settings.folderMappings =
+										this.plugin.settings.folderMappings.filter(
+											(x) => x.id !== m.id
+										);
+								}
 								await this.plugin.saveSettings();
 								this.display();
-							},
-							onDelete: async () => {
-								this.plugin.settings.folderMappings =
-									this.plugin.settings.folderMappings.filter(
-										(x) => x.id !== m.id
-									);
-								await this.plugin.saveSettings();
-								this.display();
-							},
-						}).open();
+							}
+						).open();
 					})
 			)
 			.addButton((b) =>
@@ -328,20 +329,29 @@ export class FileWatcherSettingTab extends PluginSettingTab {
 				)
 				.addButton((b) =>
 					b.setButtonText("Edit").onClick(() => {
-						new FolderMappingModal(this.app, this.plugin, m, {
-							onSave: async () => {
-								await this.plugin.saveSettings();
-								this.display();
-							},
-							onDelete: async () => {
-								this.plugin.settings.folderMappings =
-									this.plugin.settings.folderMappings.filter(
-										(x) => x.id !== m.id
+						new FolderMappingModal(
+							this.app,
+							this.plugin,
+							m,
+							"edit",
+							async (result) => {
+								if (result.deleted) {
+									this.plugin.settings.folderMappings =
+										this.plugin.settings.folderMappings.filter(
+											(x) => x.id !== m.id
+										);
+								} else if (result.saved && result.mapping) {
+									const index = this.plugin.settings.folderMappings.findIndex(
+										(x) => x.id === result.mapping!.id
 									);
+									if (index >= 0) {
+										this.plugin.settings.folderMappings[index] = result.mapping;
+									}
+								}
 								await this.plugin.saveSettings();
 								this.display();
-							},
-						}).open();
+							}
+						).open();
 					})
 				)
 				.addButton((b) =>
@@ -418,6 +428,4 @@ export class FileWatcherSettingTab extends PluginSettingTab {
 	}
 }
 
-function makeId(): string {
-	return crypto.randomUUID?.() ?? String(Date.now());
-}
+
