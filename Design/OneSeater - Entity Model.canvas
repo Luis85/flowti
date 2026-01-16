@@ -17,7 +17,7 @@
 			"fromSide":"bottom",
 			"toNode":"9a72890fe7f1ac2d",
 			"toSide":"top",
-			"label":"m:m"
+			"label":"1:n"
 		},
 		{
 			"id":"ae97a7fc6adcdbde",
@@ -50,7 +50,7 @@
 			"fromSide":"bottom",
 			"toNode":"9a72890fe7f1ac2d",
 			"toSide":"top",
-			"label":"m:m"
+			"label":"1:n"
 		},
 		{
 			"id":"98870b6f2267d56a",

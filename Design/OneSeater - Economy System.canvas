@@ -10,8 +10,78 @@
 		{"id":"5760b4553c0f302a","type":"group","x":-4840,"y":3409,"width":1061,"height":741,"label":"Manual Taps"},
 		{"id":"701a0a454b8e5a5d","type":"group","x":-6398,"y":3409,"width":298,"height":741,"label":"Possible Change"},
 		{"id":"3ca6e8ccee3f970a","type":"file","file":"Development/oneseater/simulation/systems/OrderManagementSystem.ts","x":-4780,"y":3489,"width":400,"height":140,"color":"2"},
-		{"id":"5c2feb1ade4a3509","type":"file","file":"Development/oneseater/simulation/systems/PaymentSystem.ts","x":-4780,"y":3681,"width":400,"height":140,"color":"2"},
 		{"id":"048a1a766d83e7b5","type":"file","file":"Development/oneseater/eventsystem/orders/SalesOrderCreatedEvent.ts","x":-4300,"y":3489,"width":400,"height":140,"color":"5"},
+		{
+			"id":"747923737711d035",
+			"styleAttributes":{"textAlign":"center"},
+			"text":"We can change them into something more useful with **converters**",
+			"type":"text",
+			"x":-3510,
+			"y":2186,
+			"width":340,
+			"height":100
+		},
+		{
+			"id":"c83e306a1c8f802c",
+			"styleAttributes":{"textAlign":"center"},
+			"text":"We store them in **inventories**",
+			"type":"text",
+			"x":-3510,
+			"y":1982,
+			"width":340,
+			"height":120
+		},
+		{
+			"id":"a09bab87c2053aab",
+			"styleAttributes":{"textAlign":"center"},
+			"text":"**Traders** want to sell and buy their own stock of resources",
+			"type":"text",
+			"x":-3015,
+			"y":1982,
+			"width":340,
+			"height":120
+		},
+		{
+			"id":"069ad9289db8eeff",
+			"styleAttributes":{"textAlign":"center"},
+			"text":"Resources are created in **taps**",
+			"type":"text",
+			"x":-4200,
+			"y":1982,
+			"width":340,
+			"height":120
+		},
+		{
+			"file":"03 - Resources/Attachments/positive-feedback-loop.png",
+			"id":"3039f2d6e745b5f9",
+			"styleAttributes":{"border":"invisible"},
+			"type":"file",
+			"x":-4200,
+			"y":1665,
+			"width":332,
+			"height":133
+		},
+		{
+			"id":"1d5c5981e458552b",
+			"styleAttributes":{"textAlign":"center"},
+			"text":"Sometimes they will be lost in **drains** and need to be replaced",
+			"type":"text",
+			"x":-3510,
+			"y":1786,
+			"width":340,
+			"height":100
+		},
+		{
+			"file":"03 - Resources/Attachments/gamedesign-trader.png",
+			"id":"b03223786d791b2f",
+			"styleAttributes":{"border":"invisible"},
+			"type":"file",
+			"x":-2947,
+			"y":1836,
+			"width":204,
+			"height":87
+		},
+		{"id":"5c2feb1ade4a3509","type":"file","file":"Development/oneseater/simulation/systems/PaymentSystem.ts","x":-4780,"y":3681,"width":400,"height":140,"color":"2"},
 		{"id":"6c821f3a22144c64","type":"file","file":"Development/oneseater/eventsystem/orders/PaymentCollectedEvent.ts","x":-4300,"y":3681,"width":400,"height":140,"color":"5"},
 		{
 			"id":"793ea586f38fe9d8",
@@ -20,17 +90,6 @@
 			"styleAttributes":{"textAlign":"center"},
 			"x":-4780,
 			"y":3939,
-			"width":400,
-			"height":60,
-			"color":"3"
-		},
-		{
-			"id":"2a27e96ddc2df751",
-			"type":"text",
-			"text":"Sales Orders++",
-			"styleAttributes":{"textAlign":"center"},
-			"x":-4780,
-			"y":4019,
 			"width":400,
 			"height":60,
 			"color":"3"
@@ -47,6 +106,41 @@
 			"color":"3"
 		},
 		{"id":"ef923ad5ae897e35","type":"file","file":"Development/oneseater/eventsystem/player/GoToSleepEvent.ts","x":-4300,"y":3859,"width":400,"height":140,"color":"5"},
+		{"id":"69c2a4bc5cd6bab7","type":"file","file":"Development/oneseater/eventsystem/player/GoToSleepEvent.ts","x":-5460,"y":3659,"width":400,"height":140,"color":"5"},
+		{
+			"id":"912184bf17920c73",
+			"type":"text",
+			"text":"Emergency Sleep -> Energy++",
+			"styleAttributes":{"textAlign":"center"},
+			"x":-5460,
+			"y":3859,
+			"width":400,
+			"height":60,
+			"color":"3"
+		},
+		{"id":"0b09b37c7c6d541a","type":"file","file":"Development/oneseater/eventsystem/messages/NewMessageReceivedEvent.ts","x":-5460,"y":3468,"width":400,"height":140,"color":"5"},
+		{
+			"id":"ed59119990c487e0",
+			"type":"text",
+			"text":"Daily Messages++",
+			"styleAttributes":{"textAlign":"center"},
+			"x":-5460,
+			"y":3939,
+			"width":400,
+			"height":60,
+			"color":"3"
+		},
+		{
+			"id":"2a27e96ddc2df751",
+			"type":"text",
+			"text":"Sales Orders++",
+			"styleAttributes":{"textAlign":"center"},
+			"x":-4780,
+			"y":4019,
+			"width":400,
+			"height":60,
+			"color":"3"
+		},
 		{
 			"id":"8dc8c84ad910cfea",
 			"type":"text",
@@ -78,32 +172,6 @@
 			"y":3166,
 			"width":250,
 			"height":60
-		},
-		{
-			"id":"d9596be48a4d64e4",
-			"type":"text",
-			"text":"## Trader\n\ncan buy and sell stuff based on his own rules and interests.\n\n- has his own stash of items\n- has his own wallet of money",
-			"styleAttributes":{
-				"textAlign":null
-			},
-			"x":-4689,
-			"y":1886,
-			"width":290,
-			"height":504
-		},
-		{"id":"a023d147adc71c47","type":"file","file":"Development/oneseater/simulation/systems/messages/CustomerPurchaseOrderCreationSystem.ts","x":-5940,"y":3659,"width":400,"height":140,"color":"2"},
-		{"id":"34b0baa38b2451ae","type":"file","file":"Development/oneseater/simulation/systems/player/PlayerSleepSystem.ts","x":-5940,"y":3859,"width":400,"height":123,"color":"2"},
-		{"id":"69c2a4bc5cd6bab7","type":"file","file":"Development/oneseater/eventsystem/player/GoToSleepEvent.ts","x":-5460,"y":3659,"width":400,"height":140,"color":"5"},
-		{
-			"id":"912184bf17920c73",
-			"type":"text",
-			"text":"Emergency Sleep -> Energy++",
-			"styleAttributes":{"textAlign":"center"},
-			"x":-5460,
-			"y":3859,
-			"width":400,
-			"height":60,
-			"color":"3"
 		},
 		{
 			"id":"bf4d3dcc06185d40",
@@ -140,18 +208,20 @@
 			"height":200
 		},
 		{"id":"0f8e13bcd224acae","type":"file","file":"Design/OneSeater - Message System.canvas","x":-5400,"y":3086,"width":481,"height":200},
-		{"id":"0b09b37c7c6d541a","type":"file","file":"Development/oneseater/eventsystem/messages/NewMessageReceivedEvent.ts","x":-5460,"y":3468,"width":400,"height":140,"color":"5"},
 		{
-			"id":"ed59119990c487e0",
+			"id":"d9596be48a4d64e4",
 			"type":"text",
-			"text":"Daily Messages++",
-			"styleAttributes":{"textAlign":"center"},
-			"x":-5460,
-			"y":3939,
-			"width":400,
-			"height":60,
-			"color":"3"
+			"text":"## Trader\n\ncan buy and sell stuff based on his own rules and interests.\n\n- has his own stash of items\n- has his own wallet of money",
+			"styleAttributes":{
+				"textAlign":null
+			},
+			"x":-4689,
+			"y":1886,
+			"width":290,
+			"height":504
 		},
+		{"id":"a023d147adc71c47","type":"file","file":"Development/oneseater/simulation/systems/messages/CustomerPurchaseOrderCreationSystem.ts","x":-5940,"y":3659,"width":400,"height":140,"color":"2"},
+		{"id":"34b0baa38b2451ae","type":"file","file":"Development/oneseater/simulation/systems/player/PlayerSleepSystem.ts","x":-5940,"y":3859,"width":400,"height":123,"color":"2"},
 		{
 			"id":"0675597329bd7474",
 			"type":"text",
@@ -176,6 +246,27 @@
 			"y":1620,
 			"width":500,
 			"height":226
+		},
+		{
+			"id":"37a91b36b01e1293",
+			"type":"text",
+			"text":"Customer Purchase Orders++",
+			"styleAttributes":{"textAlign":"center"},
+			"x":-5460,
+			"y":4019,
+			"width":400,
+			"height":60,
+			"color":"3"
+		},
+		{
+			"id":"4d65c08710b3ffbb",
+			"type":"text",
+			"text":"NewCustomerPurchaseOrderEmitterSystem",
+			"styleAttributes":{"textAlign":"center"},
+			"x":-6378,
+			"y":3699,
+			"width":260,
+			"height":60
 		},
 		{
 			"id":"b8951e5bfd886fb0",
@@ -249,27 +340,6 @@
 		},
 		{"id":"c94ac6d005024ca0","type":"text","text":"Sleep Action: \n- Time -> Energy++\n","x":-858,"y":4023,"width":239,"height":124},
 		{
-			"id":"37a91b36b01e1293",
-			"type":"text",
-			"text":"Customer Purchase Orders++",
-			"styleAttributes":{"textAlign":"center"},
-			"x":-5460,
-			"y":4019,
-			"width":400,
-			"height":60,
-			"color":"3"
-		},
-		{
-			"id":"4d65c08710b3ffbb",
-			"type":"text",
-			"text":"NewCustomerPurchaseOrderEmitterSystem",
-			"styleAttributes":{"textAlign":"center"},
-			"x":-6378,
-			"y":3699,
-			"width":260,
-			"height":60
-		},
-		{
 			"id":"efa2bc288772e57f",
 			"type":"text",
 			"text":"NewMessageEmitterSystem",
@@ -279,6 +349,7 @@
 			"width":260,
 			"height":60
 		},
+		{"id":"97e95ce5c6efdbd6","type":"file","file":"Development/oneseater/simulation/systems/PaymentSystem.ts","x":320,"y":3800,"width":400,"height":400,"color":"2"},
 		{
 			"file":"03 - Resources/Attachments/gamedesign-drain.png",
 			"id":"d40d14c74b394824",
@@ -301,10 +372,8 @@
 			"width":252,
 			"height":188
 		},
-		{"id":"2a836c65aacfaf95","type":"file","file":"Development/oneseater/simulation/systems/messages/MessageInboxManagerSystem.ts","x":-560,"y":2867,"width":400,"height":376,"color":"2"},
 		{"id":"423e6757cb461460","type":"file","file":"Development/oneseater/simulation/systems/TaskResolutionSystem.ts","x":-560,"y":3803,"width":400,"height":400,"color":"2"},
 		{"id":"d46e33107467be16","type":"file","file":"Development/oneseater/simulation/systems/OrderManagementSystem.ts","x":-120,"y":3803,"width":400,"height":400,"color":"2"},
-		{"id":"97e95ce5c6efdbd6","type":"file","file":"Development/oneseater/simulation/systems/PaymentSystem.ts","x":320,"y":3800,"width":400,"height":400,"color":"2"},
 		{
 			"id":"af26bda451b08637",
 			"styleAttributes":{
@@ -321,56 +390,6 @@
 		{"id":"fa6129e1bd6c492d","type":"file","file":"Development/oneseater/simulation/stores/PlayerProgressStore.ts","x":-2920,"y":3649,"width":743,"height":204,"color":"2"},
 		{"id":"dccac57ae4bd1171","type":"file","file":"Development/oneseater/simulation/stores/SimulationStore.ts","x":-2920,"y":3939,"width":743,"height":204,"color":"2"},
 		{
-			"id":"747923737711d035",
-			"styleAttributes":{"textAlign":"center"},
-			"text":"We can change them into something more useful with **converters**",
-			"type":"text",
-			"x":-3510,
-			"y":2186,
-			"width":340,
-			"height":100
-		},
-		{
-			"id":"c83e306a1c8f802c",
-			"styleAttributes":{"textAlign":"center"},
-			"text":"We store them in **inventories**",
-			"type":"text",
-			"x":-3510,
-			"y":1982,
-			"width":340,
-			"height":120
-		},
-		{
-			"id":"a09bab87c2053aab",
-			"styleAttributes":{"textAlign":"center"},
-			"text":"**Traders** want to sell and buy their own stock of resources",
-			"type":"text",
-			"x":-3015,
-			"y":1982,
-			"width":340,
-			"height":120
-		},
-		{
-			"id":"069ad9289db8eeff",
-			"styleAttributes":{"textAlign":"center"},
-			"text":"Resources are created in **taps**",
-			"type":"text",
-			"x":-4200,
-			"y":1982,
-			"width":340,
-			"height":120
-		},
-		{
-			"file":"03 - Resources/Attachments/positive-feedback-loop.png",
-			"id":"3039f2d6e745b5f9",
-			"styleAttributes":{"border":"invisible"},
-			"type":"file",
-			"x":-4200,
-			"y":1665,
-			"width":332,
-			"height":133
-		},
-		{
 			"file":"03 - Resources/Attachments/gamedesign-inventory.png",
 			"id":"b8dcd1fc4dc8734f",
 			"styleAttributes":{"border":"invisible"},
@@ -379,26 +398,6 @@
 			"y":3086,
 			"width":475,
 			"height":200
-		},
-		{
-			"id":"1d5c5981e458552b",
-			"styleAttributes":{"textAlign":"center"},
-			"text":"Sometimes they will be lost in **drains** and need to be replaced",
-			"type":"text",
-			"x":-3510,
-			"y":1786,
-			"width":340,
-			"height":100
-		},
-		{
-			"file":"03 - Resources/Attachments/gamedesign-trader.png",
-			"id":"b03223786d791b2f",
-			"styleAttributes":{"border":"invisible"},
-			"type":"file",
-			"x":-2947,
-			"y":1836,
-			"width":204,
-			"height":87
 		}
 	],
 	"edges":[
