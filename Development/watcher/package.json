@@ -1,5 +1,5 @@
 {
-	"name": "obsidian-file-watcher",
+	"name": "obsidian-folder-watcher",
 	"version": "1.0.0",
 	"description": "A simple plugin to watch folders outside of the vault and sync them.",
 	"main": "main.js",
