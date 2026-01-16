@@ -45,11 +45,6 @@ export default class FileWatcherPlugin extends Plugin {
 		new DashboardModal(this).open();
 	}
 
-	/** @deprecated Use openDashboard() instead */
-	openReconcileModal() {
-		this.openDashboard();
-	}
-
 	async onload() {
 		await this.loadSettings();
 

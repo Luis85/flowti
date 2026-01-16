@@ -29,7 +29,7 @@ export class StatusBarService {
 		this.el.addClass("filewatcher-status");
 
 		// Click opens modal
-		this.clickHandler = () => this.plugin.openReconcileModal?.();
+		this.clickHandler = () => this.plugin.openDashboard?.();
 		this.el.addEventListener("click", this.clickHandler);
 
 		this.render();
