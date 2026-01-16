@@ -4,8 +4,9 @@ import { WatcherManager } from "src/watcher/WatcherManager";
 import { FileWatcherSettingTab } from "src/settings/FileWatcherSettingTab";
 import { FileSyncService } from "src/services/FileSyncService";
 import { ReconcileService } from "src/services/ReconcileService";
-import { ReconcileProgressModal } from "src/modals/ReconcileProgressModal";
+import { DashboardModal } from "src/modals/DashboardModal";
 import { Debug } from "src/services/DebugService";
+import { LogService } from "src/services/LogService";
 import { FileWatcherSettings, DEFAULT_SETTINGS } from "src/settings/types";
 import {
 	WatcherStats,
@@ -40,8 +41,13 @@ export default class FileWatcherPlugin extends Plugin {
 		return this.reconcileSnapshot;
 	}
 
+	openDashboard() {
+		new DashboardModal(this).open();
+	}
+
+	/** @deprecated Use openDashboard() instead */
 	openReconcileModal() {
-		new ReconcileProgressModal(this).open();
+		this.openDashboard();
 	}
 
 	async onload() {
@@ -50,7 +56,16 @@ export default class FileWatcherPlugin extends Plugin {
 		// Initialize debug mode from settings
 		Debug.setEnabled(this.settings.debugMode);
 
+		// Configure LogService based on debug mode
+		LogService.configure({
+			minLevel: this.settings.debugMode ? "debug" : "info",
+		});
+
 		Debug.info("Plugin", "onload() starting");
+		LogService.info("Plugin", "File Watcher plugin loading", {
+			details: { mappingCount: this.settings.folderMappings.length },
+		});
+
 		Debug.info("Plugin", "Settings loaded", {
 			mappingCount: this.settings.folderMappings.length,
 			mappings: this.settings.folderMappings.map((m) => ({
@@ -76,8 +91,17 @@ export default class FileWatcherPlugin extends Plugin {
 			name: "Restart all watchers",
 			callback: () => {
 				Debug.info("Plugin", "Restart command executed");
+				LogService.info("Plugin", "Watchers restart requested");
 				this.manager?.updateMappings();
 				new Notice("File watchers restarted");
+			},
+		});
+
+		this.addCommand({
+			id: "filewatcher-dashboard",
+			name: "Open Dashboard",
+			callback: () => {
+				this.openDashboard();
 			},
 		});
 
@@ -89,6 +113,8 @@ export default class FileWatcherPlugin extends Plugin {
 			await this.manager.startAll();
 			this.statusbar?.onStatsChanged();
 		});
+
+		LogService.info("Plugin", "File Watcher plugin loaded");
 		Debug.info("Plugin", "onload() completed");
 	}
 

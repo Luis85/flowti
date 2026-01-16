@@ -8,6 +8,7 @@ import type {
 import { getMappingLabel } from "src/utils";
 import { ReconcileCallbacks, IFileSyncService, ReconcileMappingProgress } from "./types";
 import { Debug } from "./DebugService";
+import { LogService } from "./LogService";
 
 export class ReconcileService {
 	private running = false;
@@ -35,6 +36,10 @@ export class ReconcileService {
 			(m) => m.enabled && m.reconcileOnStart !== false
 		);
 		if (mappings.length === 0) return;
+
+		LogService.info("Reconcile", "Starting reconcile on startup", {
+			details: { mappingCount: mappings.length },
+		});
 
 		await this.reconcileMappings(mappings, {
 			onProgress: (p, meta) => this.defaultProgressToUi(p, meta),
@@ -142,6 +147,16 @@ export class ReconcileService {
 
 				cb.onMappingDone?.(m, res);
 				this.plugin.applyReconcileStats(m.id, res);
+
+				LogService.info("Reconcile", `Mapping complete: ${label}`, {
+					mappingId: m.id,
+					details: {
+						scanned: res.scanned,
+						processed: res.processed,
+						skipped: res.skipped,
+						errors: res.errors,
+					},
+				});
 			}
 		} finally {
 			this.running = false;
@@ -171,5 +186,67 @@ export class ReconcileService {
 			`[${label}] Reconcile done: scanned ${res.scanned}, ✅${res.processed}, ⏭️${res.skipped}, ⚠️${res.errors}`,
 			6000
 		);
+	}
+
+	/**
+	 * Reconcile a single mapping by ID
+	 */
+	async reconcileSingleMapping(mappingId: string): Promise<boolean> {
+		if (this.running) {
+			new Notice("Reconcile already in progress");
+			return false;
+		}
+
+		const mapping = this.plugin.settings.folderMappings.find(
+			(m) => m.id === mappingId
+		);
+		if (!mapping) {
+			LogService.warn("Reconcile", `Mapping not found: ${mappingId}`);
+			return false;
+		}
+
+		LogService.info(
+			"Reconcile",
+			`Starting reconcile for: ${getMappingLabel(mapping)}`,
+			{
+				mappingId,
+			}
+		);
+
+		await this.reconcileMappings([mapping], {
+			onProgress: (p, meta) => this.defaultProgressToUi(p, meta),
+			onMappingDone: (m, stats) => this.defaultDoneNotice(m, stats),
+		});
+
+		return true;
+	}
+
+	/**
+	 * Reconcile all enabled mappings
+	 */
+	async reconcileAll(): Promise<boolean> {
+		if (this.running) {
+			new Notice("Reconcile already in progress");
+			return false;
+		}
+
+		const mappings = this.plugin.settings.folderMappings.filter(
+			(m) => m.enabled
+		);
+		if (mappings.length === 0) {
+			new Notice("No enabled mappings to reconcile");
+			return false;
+		}
+
+		LogService.info("Reconcile", "Starting reconcile for all mappings", {
+			details: { mappingCount: mappings.length },
+		});
+
+		await this.reconcileMappings(mappings, {
+			onProgress: (p, meta) => this.defaultProgressToUi(p, meta),
+			onMappingDone: (m, stats) => this.defaultDoneNotice(m, stats),
+		});
+
+		return true;
 	}
 }

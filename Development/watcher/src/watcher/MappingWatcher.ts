@@ -3,6 +3,7 @@ import FileWatcherPlugin from "src/main";
 import { App, Notice } from "obsidian";
 import { PendingJob, FolderMapping, ChangeType } from "../types";
 import { Debug } from "../services/DebugService";
+import { LogService } from "../services/LogService";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -200,8 +201,19 @@ export class MappingWatcher {
 				job.changeType
 			);
 			Debug.debug("Watcher", `process() completed for ${job.filePath}`);
+
+			LogService.info("Watcher", `File synced: ${job.changeType}`, {
+				mappingId: this.mapping.id,
+				filePath: job.filePath,
+				details: { changeType: job.changeType },
+			});
 		} catch (e) {
 			Debug.error("Watcher", `process() error`, e);
+			LogService.error("Watcher", `Sync failed: ${String(e)}`, {
+				mappingId: this.mapping.id,
+				filePath: job.filePath,
+				details: { error: String(e) },
+			});
 			this.plugin.bumpError(this.mapping.id);
 		}
 	}
