@@ -49,3 +49,26 @@ Before we get started, make sure the following things are in place:
 - Explore the [[HOMEPAGE]]
 
 
+## Impressions
+
+### The Office
+
+![[Pasted image 20260101112430.png]]
+
+### The Market
+
+![[Pasted image 20260101112515.png]]
+
+### The Compendium
+
+![[Pasted image 20260101112811.png]]
+
+### Product Catalog
+
+![[Pasted image 20260101112549.png]]
+
+### CFD Simulation PoC (Ideas for later gameplay)
+
+![[Pasted image 20260101112142.png]]
+
+
