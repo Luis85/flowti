@@ -1,5 +1,6 @@
 import { Modal, Setting } from "obsidian";
 import type FileWatcherPlugin from "src/main";
+import { truncatePath } from "src/utils";
 
 export class ReconcileProgressModal extends Modal {
 	private plugin: FileWatcherPlugin;
@@ -57,11 +58,7 @@ export class ReconcileProgressModal extends Modal {
 		this.bodyEl.createEl("div", { text: `⚠️ Errors: ${p.errors}` });
 		if (p.current)
 			this.bodyEl.createEl("div", {
-				text: `Current: ${toSafeTail(p.current)}`,
+				text: `Current: ${truncatePath(p.current, 120)}`,
 			});
 	}
-}
-
-function toSafeTail(p: string) {
-	return p.length > 120 ? `…${p.slice(-120)}` : p;
 }

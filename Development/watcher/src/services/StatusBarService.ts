@@ -1,6 +1,7 @@
 import FileWatcherPlugin from "src/main";
 import { setTooltip } from "obsidian";
 import type { ReconcileProgress } from "src/types";
+import { truncatePath, getMappingLabel } from "src/utils";
 
 export class StatusBarService {
 	private el: HTMLElement;
@@ -88,7 +89,7 @@ export class StatusBarService {
 				`- ✅${this.reconcile.processed} ⏭️${this.reconcile.skipped} ⚠️${this.reconcile.errors}`
 			);
 			if (this.reconcile.current)
-				lines.push(`- Current: ${toSafeTail(this.reconcile.current)}`);
+				lines.push(`- Current: ${truncatePath(this.reconcile.current, 80)}`);
 		}
 
 		lines.push("");
@@ -99,7 +100,7 @@ export class StatusBarService {
 				skipped: 0,
 				errors: 0,
 			};
-			const label = m.description?.trim() ? m.description : m.id;
+			const label = getMappingLabel(m);
 			lines.push(
 				`- ${label}: ✅${ms.processed} ⏭️${ms.skipped} ⚠️${ms.errors}`
 			);
@@ -115,8 +116,4 @@ export class StatusBarService {
 	destroy() {
 		this.el.detach();
 	}
-}
-
-function toSafeTail(p: string): string {
-	return p.length > 80 ? `…${p.slice(-80)}` : p;
 }

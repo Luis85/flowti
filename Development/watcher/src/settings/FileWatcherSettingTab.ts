@@ -2,6 +2,7 @@ import FileWatcherPlugin from "src/main";
 import { App, PluginSettingTab, Setting, Notice } from "obsidian";
 import { FolderMapping } from "../types";
 import { FolderMappingModal } from "src/modals/FolderMappingModal";
+import { shortPath, toVaultPath, getMappingLabel } from "src/utils";
 
 export class FileWatcherSettingTab extends PluginSettingTab {
 	plugin: FileWatcherPlugin;
@@ -286,9 +287,7 @@ export class FileWatcherSettingTab extends PluginSettingTab {
 			new Setting(row)
 				.setName(m.description || "Untitled mapping")
 				.setDesc(
-					`${shortPath(m.sourceFolder)} → ${normalizeVaultPath(
-						m.targetFolder
-					)}`
+					`${shortPath(m.sourceFolder)} → ${toVaultPath(m.targetFolder)}`
 				)
 				.addToggle((t) =>
 					t.setValue(m.enabled).onChange(async (v) => {
@@ -404,14 +403,4 @@ export class FileWatcherSettingTab extends PluginSettingTab {
 
 function makeId(): string {
 	return crypto.randomUUID?.() ?? String(Date.now());
-}
-
-function normalizeVaultPath(p: string): string {
-	return (p || "").replace(/\\/g, "/").replace(/\/+/g, "/");
-}
-
-function shortPath(p: string): string {
-	const s = p || "";
-	if (!s) return "(not set)";
-	return s.length > 60 ? `…${s.slice(-60)}` : s;
 }

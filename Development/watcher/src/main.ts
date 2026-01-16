@@ -12,6 +12,7 @@ import {
 	FolderMapping,
 	SyncChangeType,
 } from "src/types";
+import { truncatePath, getMappingLabel } from "src/utils";
 
 export default class FileWatcherPlugin extends Plugin {
 	stats: WatcherStats = {
@@ -106,7 +107,7 @@ export default class FileWatcherPlugin extends Plugin {
 		this.ensureMappingStats(mappingId);
 		this.stats.perMappingStats[mappingId].processed += 1;
 		this.stats.lastProcessed = filePath
-			? this.toVaultSafeString(filePath)
+			? truncatePath(filePath)
 			: new Date().toISOString();
 		this.statusbar?.onStatsChanged();
 	}
@@ -136,14 +137,12 @@ export default class FileWatcherPlugin extends Plugin {
 			changeType
 		);
 
+		const label = getMappingLabel(mapping);
+
 		if (!res.ok) {
 			this.bumpError(mapping.id);
-			new Notice(
-				`[${mapping.description || mapping.id}] Error: ${
-					res.error.message
-				}`
-			);
-			console.error(res.error)
+			new Notice(`[${label}] Error: ${res.error.message}`);
+			console.error(res.error);
 			return;
 		}
 
@@ -154,29 +153,7 @@ export default class FileWatcherPlugin extends Plugin {
 
 		// processed
 		this.bumpProcessed(mapping.id, sourceFilePath);
-
-		new Notice(
-			`[${
-				mapping.description || mapping.id
-			}] ${changeType}: ${sourceFilePath}`
-		);
-	}
-
-	private toVaultSafeString(p: string): string {
-		// just for display
-		return p.length > 60 ? `…${p.slice(-60)}` : p;
-	}
-
-	async ensureFolder(folderPath: string) {
-		const fp = folderPath.replace(/\\/g, "/");
-		const parts = fp.split("/").filter(Boolean);
-		let current = "";
-		for (const part of parts) {
-			current = current ? `${current}/${part}` : part;
-			if (!(await this.app.vault.adapter.exists(current))) {
-				await this.app.vault.createFolder(current);
-			}
-		}
+		new Notice(`[${label}] ${changeType}: ${sourceFilePath}`);
 	}
 
 	async loadSettings() {

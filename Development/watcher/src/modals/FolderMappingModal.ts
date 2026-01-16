@@ -1,11 +1,7 @@
 import FileWatcherPlugin from "src/main";
 import { App, Modal, Setting, Notice } from "obsidian";
 import { FolderMapping, ConflictResolution } from "src/types";
-
-type ModalHandlers = {
-	onSave: () => Promise<void>;
-	onDelete: () => Promise<void>;
-};
+import { ModalHandlers } from "./types";
 
 export class FolderMappingModal extends Modal {
 	private plugin: FileWatcherPlugin;

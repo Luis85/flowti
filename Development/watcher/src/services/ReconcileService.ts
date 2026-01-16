@@ -5,15 +5,8 @@ import type {
 	ReconcileProgress,
 	ReconcileStats,
 } from "src/types";
-
-type ReconcileCallbacks = {
-	onProgress?: (
-		p: ReconcileProgress,
-		meta: { mappingIndex: number; mappingTotal: number }
-	) => void;
-	onMappingDone?: (mapping: FolderMapping, stats: ReconcileStats) => void;
-};
-
+import { getMappingLabel } from "src/utils";
+import { ReconcileCallbacks } from "./types";
 export class ReconcileService {
 	private running = false;
 	private cancelled = false;
@@ -65,7 +58,7 @@ export class ReconcileService {
 
 				if (this.cancelled) break;
 
-				const label = m.description?.trim() ? m.description : m.id;
+				const label = getMappingLabel(m);
 
 				cb.onProgress?.(
 					{
@@ -167,7 +160,7 @@ export class ReconcileService {
 	}
 
 	private defaultDoneNotice(m: FolderMapping, res: ReconcileStats) {
-		const label = m.description?.trim() ? m.description : m.id;
+		const label = getMappingLabel(m);
 		new Notice(
 			`[${label}] Reconcile done: scanned ${res.scanned}, ✅${res.processed}, ⏭️${res.skipped}, ⚠️${res.errors}`,
 			6000
