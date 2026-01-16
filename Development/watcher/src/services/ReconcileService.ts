@@ -70,6 +70,21 @@ export class ReconcileService {
 			return;
 		}
 
+		// Helper to safely call callbacks with error boundary
+		const safeCallback = <T extends unknown[]>(
+			fn: ((...args: T) => void) | undefined,
+			...args: T
+		) => {
+			if (!fn) return;
+			try {
+				fn(...args);
+			} catch (e) {
+				LogService.error("Reconcile", `Callback error: ${String(e)}`, {
+					details: { error: String(e) },
+				});
+			}
+		};
+
 		try {
 			for (const m of mappings) {
 				mappingIndex++;
@@ -79,7 +94,8 @@ export class ReconcileService {
 
 				const label = getMappingLabel(m);
 
-				cb.onProgress?.(
+				safeCallback(
+					cb.onProgress,
 					{
 						mappingId: m.id,
 						mappingLabel: label,
@@ -97,7 +113,8 @@ export class ReconcileService {
 					await this.fileSync.reconcileMapping(m, (p: ReconcileMappingProgress) => {
 						if (this.cancelled) return;
 
-						cb.onProgress?.(
+						safeCallback(
+							cb.onProgress,
 							{
 								mappingId: m.id,
 								mappingLabel: label,
@@ -117,7 +134,8 @@ export class ReconcileService {
 					});
 
 				if (this.cancelled) {
-					cb.onProgress?.(
+					safeCallback(
+						cb.onProgress,
 						{
 							mappingId: m.id,
 							mappingLabel: label,
@@ -132,7 +150,8 @@ export class ReconcileService {
 					break;
 				}
 
-				cb.onProgress?.(
+				safeCallback(
+					cb.onProgress,
 					{
 						mappingId: m.id,
 						mappingLabel: label,
@@ -145,7 +164,7 @@ export class ReconcileService {
 					meta
 				);
 
-				cb.onMappingDone?.(m, res);
+				safeCallback(cb.onMappingDone, m, res);
 				this.plugin.applyReconcileStats(m.id, res);
 
 				LogService.info("Reconcile", `Mapping complete: ${label}`, {

@@ -23,6 +23,9 @@ export class MappingWatcher {
 	/** Stats for monitoring backpressure */
 	private droppedJobs = 0;
 
+	/** Timeout for watcher close operation (prevents hanging) */
+	private static readonly CLOSE_TIMEOUT_MS = 5000;
+
 	constructor(
 		private app: App,
 		private plugin: FileWatcherPlugin,
@@ -126,10 +129,21 @@ export class MappingWatcher {
 		const w = this.watcher;
 		this.watcher = null;
 
+		// Close watcher with timeout to prevent hanging on unresponsive filesystem
 		try {
-			await w.close();
+			await Promise.race([
+				w.close(),
+				new Promise<void>((_, reject) =>
+					setTimeout(
+						() => reject(new Error("Watcher close timeout")),
+						MappingWatcher.CLOSE_TIMEOUT_MS
+					)
+				),
+			]);
 		} catch (e) {
-			console.warn("Error closing watcher:", e);
+			LogService.warn("Watcher", `Error closing watcher: ${String(e)}`, {
+				mappingId: this.mapping.id,
+			});
 		}
 	}
 
@@ -253,6 +267,8 @@ export class MappingWatcher {
 	}
 
 	private async reconcileNewDir(dirPath: string) {
+		// IMPORTANT: Timer was already deleted from pendingDirs before this is called
+		// We need to ensure we don't leak timers on error
 		try {
 			// Reconcile only the new folder subtree (FAST + correct)
 			// Requires FileSyncService.reconcileFolder(..)
@@ -267,7 +283,10 @@ export class MappingWatcher {
 				}
 			);
 		} catch (e) {
-			console.error("reconcileNewDir error:", e);
+			LogService.error("Watcher", `reconcileNewDir error: ${String(e)}`, {
+				mappingId: this.mapping.id,
+				details: { dirPath, error: String(e) },
+			});
 			this.plugin.bumpError(this.mapping.id);
 		}
 	}

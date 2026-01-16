@@ -10,7 +10,7 @@ import type {
 } from "../types";
 import { FileWatcherSettings } from "../settings/types";
 import { Debug } from "./DebugService";
-import { KeyedMutex, OperationLock } from "./AsyncMutex";
+import { AsyncMutex, KeyedMutex, OperationLock } from "./AsyncMutex";
 
 /**
  * FileSyncService
@@ -85,7 +85,10 @@ export class FileSyncService {
 				targetIndex: undefined,
 			});
 		} finally {
-			releaseOp();
+			// CRITICAL: Always release operation lock, even on error
+			if (releaseOp) {
+				releaseOp();
+			}
 		}
 	}
 
@@ -162,11 +165,22 @@ export class FileSyncService {
 		const ensuredFolders = this.createEnsuredFolderCache();
 		const targetIndex = await this.tryBuildTargetIndex(mapping);
 
-		let cursor = 0;
+		// Atomic cursor for concurrent workers
+		const cursor = { value: 0 };
+		const cursorLock = new AsyncMutex();
+
+		const getNextIndex = async (): Promise<number> => {
+			const release = await cursorLock.acquire();
+			try {
+				return cursor.value++;
+			} finally {
+				release();
+			}
+		};
 
 		const worker = async () => {
 			while (true) {
-				const i = cursor++;
+				const i = await getNextIndex();
 				if (i >= files.length) return;
 
 				const filePath = files[i];
@@ -269,12 +283,23 @@ export class FileSyncService {
 		const ensuredFolders = this.createEnsuredFolderCache();
 		const targetIndex = await this.tryBuildTargetIndex(mapping);
 
-		// ---- Concurrency worker pool ----
-		let cursor = 0;
+		// ---- Concurrency worker pool with atomic cursor ----
+		// Use an object to ensure atomic-like increment across async workers
+		const cursor = { value: 0 };
+		const cursorLock = new AsyncMutex();
+
+		const getNextIndex = async (): Promise<number> => {
+			const release = await cursorLock.acquire();
+			try {
+				return cursor.value++;
+			} finally {
+				release();
+			}
+		};
 
 		const worker = async () => {
 			while (true) {
-				const i = cursor++;
+				const i = await getNextIndex();
 				if (i >= files.length) return;
 
 				const filePath = files[i];
