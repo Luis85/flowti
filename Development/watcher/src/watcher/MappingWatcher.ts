@@ -2,7 +2,6 @@ import chokidar, { ChokidarOptions, FSWatcher } from "chokidar";
 import FileWatcherPlugin from "src/main";
 import { App, Notice } from "obsidian";
 import { PendingJob, FolderMapping, ChangeType } from "../types";
-import { Debug } from "../services/DebugService";
 import { LogService } from "../services/LogService";
 import * as fs from "fs";
 import * as path from "path";
@@ -48,22 +47,27 @@ export class MappingWatcher {
 	start() {
 		const m = this.mapping;
 
-		Debug.info("Watcher", `start() called for mapping`, {
-			id: m.id,
-			description: m.description,
-			enabled: m.enabled,
-			sourceFolder: m.sourceFolder,
-			targetFolder: m.targetFolder,
+		LogService.info("Watcher", `start() called for mapping`, {
+			mappingId: m.id,
+			details: {
+				description: m.description,
+				enabled: m.enabled,
+				sourceFolder: m.sourceFolder,
+				targetFolder: m.targetFolder,
+			},
 		});
 
 		if (!m.enabled) {
-			Debug.debug("Watcher", `Mapping ${m.id} is disabled, skipping`);
+			LogService.debug("Watcher", `Mapping ${m.id} is disabled, skipping`, {
+				mappingId: m.id,
+			});
 			return;
 		}
 
 		if (!m.sourceFolder || !fs.existsSync(m.sourceFolder)) {
-			Debug.warn("Watcher", `Source folder missing for ${m.id}`, {
-				sourceFolder: m.sourceFolder,
+			LogService.warn("Watcher", `Source folder missing for ${m.id}`, {
+				mappingId: m.id,
+				details: { sourceFolder: m.sourceFolder },
 			});
 			this.plugin.bumpError(m.id);
 			new Notice(
@@ -93,9 +97,12 @@ export class MappingWatcher {
 			awaitWriteFinish: false,
 		};
 
-		Debug.debug("Watcher", `Creating chokidar watcher`, {
-			sourceFolder: m.sourceFolder,
-			watchOptions: { ...watchOptions, ignored: "(function)" },
+		LogService.debug("Watcher", `Creating chokidar watcher`, {
+			mappingId: m.id,
+			details: {
+				sourceFolder: m.sourceFolder,
+				watchOptions: { ...watchOptions, ignored: "(function)" },
+			},
 		});
 
 		this.watcher = chokidar.watch(m.sourceFolder, watchOptions);
@@ -106,14 +113,19 @@ export class MappingWatcher {
 			.on("unlink", (p) => this.enqueue(p, "deleted"))
 			.on("addDir", (dir) => this.onDirAdded(dir))
 			.on("error", (err) => {
-				Debug.error("Watcher", `Chokidar error for ${m.id}`, err);
+				LogService.error("Watcher", `Chokidar error for ${m.id}`, {
+					mappingId: m.id,
+					details: { error: String(err) },
+				});
 				this.plugin.bumpError(m.id);
 				new Notice(
 					`Watcher error (${m.description || m.id}): ${String(err)}`
 				);
 			});
 
-		Debug.info("Watcher", `Watcher started for ${m.description || m.id}`);
+		LogService.info("Watcher", `Watcher started for ${m.description || m.id}`, {
+			mappingId: m.id,
+		});
 	}
 
 	async stop() {
@@ -148,23 +160,27 @@ export class MappingWatcher {
 	}
 
 	private enqueue(filePath: string, changeType: ChangeType) {
-		Debug.debug("Watcher", `enqueue() ${changeType}`, {
+		LogService.debug("Watcher", `enqueue() ${changeType}`, {
 			mappingId: this.mapping.id,
-			mappingTarget: this.mapping.targetFolder,
 			filePath,
+			details: { mappingTarget: this.mapping.targetFolder },
 		});
 
 		// ignore delete (we don't delete inside vault)
 		if (changeType === "deleted") {
-			Debug.debug("Watcher", `Skipping delete event`);
+			LogService.debug("Watcher", `Skipping delete event`, {
+				mappingId: this.mapping.id,
+				filePath,
+			});
 			this.plugin.bumpSkipped(this.mapping.id);
 			return;
 		}
 
 		if (!this.isAllowed(filePath)) {
-			Debug.debug("Watcher", `File not allowed by extension filter`, {
+			LogService.debug("Watcher", `File not allowed by extension filter`, {
+				mappingId: this.mapping.id,
 				filePath,
-				extensions: this.mapping.fileExtensions,
+				details: { extensions: this.mapping.fileExtensions },
 			});
 			return;
 		}
@@ -175,11 +191,13 @@ export class MappingWatcher {
 		// Backpressure: if queue is full and this is a NEW job, drop it
 		if (!existing && this.pending.size >= MappingWatcher.MAX_PENDING_JOBS) {
 			this.droppedJobs++;
-			Debug.warn("Watcher", `Queue full, dropping job`, {
+			LogService.warn("Watcher", `Queue full, dropping job`, {
 				mappingId: this.mapping.id,
 				filePath,
-				queueSize: this.pending.size,
-				droppedTotal: this.droppedJobs,
+				details: {
+					queueSize: this.pending.size,
+					droppedTotal: this.droppedJobs,
+				},
 			});
 			this.plugin.bumpSkipped(this.mapping.id);
 			return;
@@ -199,12 +217,14 @@ export class MappingWatcher {
 	}
 
 	private async process(job: PendingJob) {
-		Debug.info("Watcher", `process() syncing file`, {
+		LogService.debug("Watcher", `process() syncing file`, {
 			mappingId: this.mapping.id,
-			mappingDescription: this.mapping.description,
-			targetFolder: this.mapping.targetFolder,
 			filePath: job.filePath,
-			changeType: job.changeType,
+			details: {
+				mappingDescription: this.mapping.description,
+				targetFolder: this.mapping.targetFolder,
+				changeType: job.changeType,
+			},
 		});
 
 		try {
@@ -214,7 +234,10 @@ export class MappingWatcher {
 				job.filePath,
 				job.changeType
 			);
-			Debug.debug("Watcher", `process() completed for ${job.filePath}`);
+			LogService.debug("Watcher", `process() completed for ${job.filePath}`, {
+				mappingId: this.mapping.id,
+				filePath: job.filePath,
+			});
 
 			LogService.info("Watcher", `File synced: ${job.changeType}`, {
 				mappingId: this.mapping.id,
@@ -222,7 +245,6 @@ export class MappingWatcher {
 				details: { changeType: job.changeType },
 			});
 		} catch (e) {
-			Debug.error("Watcher", `process() error`, e);
 			LogService.error("Watcher", `Sync failed: ${String(e)}`, {
 				mappingId: this.mapping.id,
 				filePath: job.filePath,
@@ -245,11 +267,13 @@ export class MappingWatcher {
 		// Backpressure: if dir queue is full and this is a NEW entry, drop it
 		if (!existing && this.pendingDirs.size >= MappingWatcher.MAX_PENDING_DIRS) {
 			this.droppedJobs++;
-			Debug.warn("Watcher", `Dir queue full, dropping`, {
+			LogService.warn("Watcher", `Dir queue full, dropping`, {
 				mappingId: m.id,
-				dirPath,
-				queueSize: this.pendingDirs.size,
-				droppedTotal: this.droppedJobs,
+				details: {
+					dirPath,
+					queueSize: this.pendingDirs.size,
+					droppedTotal: this.droppedJobs,
+				},
 			});
 			return;
 		}

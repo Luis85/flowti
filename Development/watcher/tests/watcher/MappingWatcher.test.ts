@@ -18,21 +18,22 @@ vi.mock("chokidar", () => ({
 	},
 }));
 
-// Mock Debug service
-vi.mock("../../src/services/DebugService", () => ({
-	Debug: {
+// Mock LogService
+vi.mock("../../src/services/LogService", () => ({
+	LogService: {
 		debug: vi.fn(),
 		info: vi.fn(),
 		warn: vi.fn(),
 		error: vi.fn(),
-		setEnabled: vi.fn(),
+		configure: vi.fn(),
+		clear: vi.fn(),
 	},
 }));
 
 // Note: obsidian and src/main are mocked in setup.ts
 
 import { MappingWatcher } from "../../src/watcher/MappingWatcher";
-import { Debug } from "../../src/services/DebugService";
+import { LogService } from "../../src/services/LogService";
 
 // Helper to create mock mapping inline
 function createMockMapping(overrides: any = {}) {
@@ -237,12 +238,15 @@ describe("MappingWatcher", () => {
 			// Add one more (will be dropped)
 			enqueue("/source/overflow.md", "added");
 
-			expect(Debug.warn).toHaveBeenCalledWith(
+			expect(LogService.warn).toHaveBeenCalledWith(
 				"Watcher",
 				"Queue full, dropping job",
 				expect.objectContaining({
+					mappingId: "test-mapping",
 					filePath: "/source/overflow.md",
-					queueSize: 1000,
+					details: expect.objectContaining({
+						queueSize: 1000,
+					}),
 				})
 			);
 		});

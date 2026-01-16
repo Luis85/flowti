@@ -3,7 +3,7 @@ import { App, PluginSettingTab, Setting, Notice } from "obsidian";
 import { FolderMapping } from "../types";
 import { FolderMappingModal } from "src/modals/FolderMappingModal";
 import { shortPath, toVaultPath, getMappingLabel, makeId } from "src/utils";
-import { Debug } from "src/services/DebugService";
+import { LogService } from "src/services/LogService";
 
 export class FileWatcherSettingTab extends PluginSettingTab {
 	plugin: FileWatcherPlugin;
@@ -57,7 +57,11 @@ export class FileWatcherSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.debugMode)
 					.onChange(async (v) => {
 						this.plugin.settings.debugMode = v;
-						Debug.setEnabled(v);
+						LogService.setDebugEnabled(v);
+						LogService.configure({
+							minLevel: v ? "debug" : "info",
+							consoleOutput: v,
+						});
 						await this.plugin.saveSettings();
 						new Notice(v ? "Debug mode enabled" : "Debug mode disabled");
 					})

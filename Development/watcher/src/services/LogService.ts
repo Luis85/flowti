@@ -1,8 +1,12 @@
 /**
- * LogService - Persistent logging for the File Watcher plugin
+ * LogService - Unified logging for the File Watcher plugin
  *
- * Stores logs in memory with configurable max entries.
- * Logs can be viewed in the dashboard modal.
+ * Features:
+ * - In-memory log storage for Dashboard display
+ * - Optional console output (when debugMode is enabled)
+ * - Real-time subscriptions for UI updates
+ * - Filtering by level, category, mappingId, search text
+ * - Configurable log retention
  */
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
@@ -33,6 +37,16 @@ export interface LogFilter {
 	since?: Date;
 }
 
+/** Console colors for each log level */
+const LOG_COLORS: Record<LogLevel, string> = {
+	debug: "color: #888",
+	info: "color: #4a9eff",
+	warn: "color: #ffa500",
+	error: "color: #ff4444",
+};
+
+const CONSOLE_PREFIX = "[FileWatcher]";
+
 /** Default max log entries to keep in memory */
 const DEFAULT_MAX_ENTRIES = 1000;
 
@@ -44,6 +58,12 @@ class LogServiceImpl {
 	private enabled = true;
 	private minLevel: LogLevel = "info";
 
+	/** Whether to output logs to console (debug mode) */
+	private consoleOutput = false;
+
+	/** Whether to always output errors/warnings to console regardless of debugMode */
+	private alwaysLogErrorsToConsole = true;
+
 	private levelPriority: Record<LogLevel, number> = {
 		debug: 0,
 		info: 1,
@@ -54,6 +74,24 @@ class LogServiceImpl {
 	/** Listeners for real-time updates */
 	private listeners: Set<(entry: LogEntry) => void> = new Set();
 
+	constructor() {
+		// Check for global debug flag
+		this.checkGlobalFlag();
+	}
+
+	/**
+	 * Check for window.FILEWATCHER_DEBUG flag
+	 */
+	private checkGlobalFlag() {
+		if (typeof window !== "undefined") {
+			const w = window as unknown as { FILEWATCHER_DEBUG?: boolean };
+			if (w.FILEWATCHER_DEBUG) {
+				this.consoleOutput = true;
+				this.minLevel = "debug";
+			}
+		}
+	}
+
 	/**
 	 * Configure the log service
 	 */
@@ -61,6 +99,7 @@ class LogServiceImpl {
 		maxEntries?: number;
 		enabled?: boolean;
 		minLevel?: LogLevel;
+		consoleOutput?: boolean;
 	}) {
 		if (options.maxEntries !== undefined) {
 			this.maxEntries = options.maxEntries;
@@ -71,6 +110,37 @@ class LogServiceImpl {
 		}
 		if (options.minLevel !== undefined) {
 			this.minLevel = options.minLevel;
+		}
+		if (options.consoleOutput !== undefined) {
+			this.consoleOutput = options.consoleOutput;
+			if (options.consoleOutput) {
+				console.log(
+					`%c${CONSOLE_PREFIX} Debug mode ENABLED`,
+					"color: #4a9eff; font-weight: bold"
+				);
+			}
+		}
+	}
+
+	/**
+	 * Check if console output (debug mode) is enabled
+	 */
+	isDebugEnabled(): boolean {
+		this.checkGlobalFlag();
+		return this.consoleOutput;
+	}
+
+	/**
+	 * Set debug mode (console output)
+	 */
+	setDebugEnabled(enabled: boolean) {
+		this.consoleOutput = enabled;
+		if (enabled) {
+			this.minLevel = "debug";
+			console.log(
+				`%c${CONSOLE_PREFIX} Debug mode ENABLED`,
+				"color: #4a9eff; font-weight: bold"
+			);
 		}
 	}
 
@@ -105,6 +175,9 @@ class LogServiceImpl {
 		this.logs.push(entry);
 		this.trimLogs();
 
+		// Console output
+		this.logToConsole(entry, options?.details);
+
 		// Notify listeners
 		for (const listener of this.listeners) {
 			try {
@@ -115,6 +188,35 @@ class LogServiceImpl {
 		}
 
 		return entry;
+	}
+
+	/**
+	 * Output to console if debug mode is enabled
+	 */
+	private logToConsole(entry: LogEntry, data?: unknown) {
+		// Always log errors/warnings to console, or all logs if debug mode is on
+		const shouldLog =
+			this.consoleOutput ||
+			(this.alwaysLogErrorsToConsole &&
+				(entry.level === "error" || entry.level === "warn"));
+
+		if (!shouldLog) return;
+
+		const timeStr = entry.timestamp.toISOString().slice(11, 23);
+		const prefix = `${CONSOLE_PREFIX}[${entry.category}][${timeStr}]`;
+
+		if (data !== undefined) {
+			console[entry.level](
+				`%c${prefix} ${entry.message}`,
+				LOG_COLORS[entry.level],
+				data
+			);
+		} else {
+			console[entry.level](
+				`%c${prefix} ${entry.message}`,
+				LOG_COLORS[entry.level]
+			);
+		}
 	}
 
 	/** Convenience methods */
@@ -258,6 +360,26 @@ class LogServiceImpl {
 	}
 
 	/**
+	 * Dump logs to console (useful for debugging)
+	 */
+	dumpHistory(filter?: { category?: LogCategory; level?: LogLevel }) {
+		console.group(`${CONSOLE_PREFIX} Log History`);
+		for (const entry of this.logs) {
+			if (filter?.category && entry.category !== filter.category)
+				continue;
+			if (filter?.level && entry.level !== filter.level) continue;
+
+			const timeStr = entry.timestamp.toISOString().slice(11, 23);
+			console.log(
+				`%c[${entry.level}][${entry.category}][${timeStr}] ${entry.message}`,
+				LOG_COLORS[entry.level],
+				entry.details ?? ""
+			);
+		}
+		console.groupEnd();
+	}
+
+	/**
 	 * Get total log count
 	 */
 	get count(): number {
@@ -273,3 +395,10 @@ class LogServiceImpl {
 
 /** Singleton instance */
 export const LogService = new LogServiceImpl();
+
+// Expose to window for debugging
+if (typeof window !== "undefined") {
+	(
+		window as unknown as { FileWatcherLog: LogServiceImpl }
+	).FileWatcherLog = LogService;
+}

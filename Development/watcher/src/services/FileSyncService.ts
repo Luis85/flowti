@@ -9,7 +9,7 @@ import type {
 	ReconcileStats,
 } from "../types";
 import { FileWatcherSettings } from "../settings/types";
-import { Debug } from "./DebugService";
+import { LogService } from "./LogService";
 import { AsyncMutex, KeyedMutex, OperationLock } from "./AsyncMutex";
 
 /**
@@ -59,12 +59,14 @@ export class FileSyncService {
 		sourceFilePath: string,
 		_changeType: SyncChangeType
 	): Promise<SyncResult> {
-		Debug.info("Sync", `syncFile() called`, {
+		LogService.debug("Sync", `syncFile() called`, {
 			mappingId: mapping.id,
-			mappingDescription: mapping.description,
-			sourceFolder: mapping.sourceFolder,
-			targetFolder: mapping.targetFolder,
-			sourceFilePath,
+			details: {
+				mappingDescription: mapping.description,
+				sourceFolder: mapping.sourceFolder,
+				targetFolder: mapping.targetFolder,
+				sourceFilePath,
+			},
 		});
 
 		// Acquire watcher operation lock (allows concurrent watchers, blocks during reconcile)
@@ -72,7 +74,9 @@ export class FileSyncService {
 		try {
 			releaseOp = await this.operationLock.acquireWatcher();
 		} catch (e) {
-			Debug.warn("Sync", `Could not acquire watcher lock`, { sourceFilePath });
+			LogService.warn("Sync", `Could not acquire watcher lock`, {
+				filePath: sourceFilePath,
+			});
 			return { ok: false, error: new Error("Operation lock unavailable") };
 		}
 
@@ -360,9 +364,9 @@ export class FileSyncService {
 				FileSyncService.LOCK_TIMEOUT_MS
 			);
 		} catch (e) {
-			Debug.warn("Sync", `File lock timeout for ${targetPath}`, {
-				sourceFilePath,
+			LogService.warn("Sync", `File lock timeout for ${targetPath}`, {
 				mappingId: mapping.id,
+				filePath: sourceFilePath,
 			});
 			return {
 				ok: false,
@@ -371,20 +375,21 @@ export class FileSyncService {
 		}
 
 		try {
-
-			Debug.debug("Sync", `syncFileInternal() path calculation`, {
+			LogService.debug("Sync", `syncFileInternal() path calculation`, {
 				mappingId: mapping.id,
-				mappingSourceFolder: mapping.sourceFolder,
-				mappingTargetFolder: mapping.targetFolder,
-				sourceFilePath,
-				relativePath: rel,
-				targetPathRaw,
-				targetPath,
+				details: {
+					mappingSourceFolder: mapping.sourceFolder,
+					mappingTargetFolder: mapping.targetFolder,
+					sourceFilePath,
+					relativePath: rel,
+					targetPathRaw,
+					targetPath,
+				},
 			});
 
 			// Ensure parent folder exists (cached)
 			const parentFolder = path.posix.dirname(targetPath);
-			Debug.debug("Sync", `Ensuring parent folder: ${parentFolder}`);
+			LogService.debug("Sync", `Ensuring parent folder: ${parentFolder}`);
 			await this.ensureFolderCached(parentFolder, opts.ensuredFolders);
 
 			// Optional stability check (OneDrive)
@@ -443,10 +448,10 @@ export class FileSyncService {
 			}
 
 			// Read + write
-			Debug.info("Sync", `Writing file to vault`, {
-				sourceFilePath,
-				finalTargetPath,
+			LogService.debug("Sync", `Writing file to vault`, {
 				mappingId: mapping.id,
+				filePath: sourceFilePath,
+				details: { finalTargetPath },
 			});
 
 			const buf = fs.readFileSync(sourceFilePath);
@@ -457,7 +462,7 @@ export class FileSyncService {
 
 			await this.app.vault.adapter.writeBinary(finalTargetPath, ab);
 
-			Debug.info("Sync", `File written successfully: ${finalTargetPath}`);
+			LogService.debug("Sync", `File written successfully: ${finalTargetPath}`);
 
 			// Update index (best effort) so later checks get faster
 			if (opts.targetIndex) {
@@ -480,12 +485,16 @@ export class FileSyncService {
 			};
 		} catch (e) {
 			const err = e instanceof Error ? e : new Error(String(e));
-			Debug.error("Sync", `syncFileInternal() error`, {
-				error: err.message,
-				sourceFilePath,
+			LogService.error("Sync", `Failed to sync file: ${err.message}`, {
 				mappingId: mapping.id,
+				filePath: sourceFilePath,
+				details: {
+					targetPath,
+					error: err.message,
+					stack: err.stack?.split("\n").slice(0, 3).join(" | "),
+				},
 			});
-			return { ok: false, error: err };
+			return { ok: false, error: err, targetPath };
 		} finally {
 			// Always release file lock
 			releaseFile();

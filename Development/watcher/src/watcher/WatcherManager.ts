@@ -1,6 +1,5 @@
 import FileWatcherPlugin from "src/main";
 import { MappingWatcher } from "./MappingWatcher";
-import { Debug } from "../services/DebugService";
 import { LogService } from "../services/LogService";
 
 export type WatcherState = "running" | "stopped" | "error";
@@ -30,26 +29,22 @@ export class WatcherManager {
 	async startAll() {
 		// Prevent concurrent startAll calls
 		if (this.starting) {
-			Debug.warn("Manager", "startAll() already in progress, skipping");
+			LogService.warn("Manager", "startAll() already in progress, skipping");
 			return;
 		}
 		this.starting = true;
 
 		try {
-			Debug.info("Manager", `startAll() called`, {
-				totalMappings: this.plugin.settings.folderMappings.length,
-				mappings: this.plugin.settings.folderMappings.map((m) => ({
-					id: m.id,
-					description: m.description,
-					enabled: m.enabled,
-					sourceFolder: m.sourceFolder,
-					targetFolder: m.targetFolder,
-				})),
-			});
-
 			LogService.info("Manager", "Starting all watchers", {
 				details: {
 					totalMappings: this.plugin.settings.folderMappings.length,
+					mappings: this.plugin.settings.folderMappings.map((m) => ({
+						id: m.id,
+						description: m.description,
+						enabled: m.enabled,
+						sourceFolder: m.sourceFolder,
+						targetFolder: m.targetFolder,
+					})),
 				},
 			});
 
@@ -58,19 +53,22 @@ export class WatcherManager {
 
 			for (const m of this.plugin.settings.folderMappings) {
 				if (!m.enabled) {
-					Debug.debug(
+					LogService.debug(
 						"Manager",
-						`Skipping disabled mapping: ${m.description || m.id}`
+						`Skipping disabled mapping: ${m.description || m.id}`,
+						{ mappingId: m.id }
 					);
 					this.watcherStates.set(m.id, "stopped");
 					continue;
 				}
 
-				Debug.info("Manager", `Creating watcher for mapping`, {
-					id: m.id,
-					description: m.description,
-					sourceFolder: m.sourceFolder,
-					targetFolder: m.targetFolder,
+				LogService.debug("Manager", `Creating watcher for mapping`, {
+					mappingId: m.id,
+					details: {
+						description: m.description,
+						sourceFolder: m.sourceFolder,
+						targetFolder: m.targetFolder,
+					},
 				});
 
 				const mw = new MappingWatcher(this.plugin.app, this.plugin, m);
@@ -103,10 +101,6 @@ export class WatcherManager {
 				}
 			}
 
-			Debug.info("Manager", `startAll() completed`, {
-				activeWatchers: this.watchers.size,
-			});
-
 			LogService.info("Manager", "All watchers started", {
 				details: { activeWatchers: this.watchers.size },
 			});
@@ -119,14 +113,10 @@ export class WatcherManager {
 
 	async stopAll() {
 		if (this.watchers.size === 0) {
-			Debug.debug("Manager", "stopAll() called but no watchers to stop");
+			LogService.debug("Manager", "stopAll() called but no watchers to stop");
 			return;
 		}
 
-		Debug.info(
-			"Manager",
-			`stopAll() stopping ${this.watchers.size} watchers`
-		);
 		LogService.info("Manager", `Stopping ${this.watchers.size} watchers`);
 
 		const all = Array.from(this.watchers.entries());
@@ -140,7 +130,6 @@ export class WatcherManager {
 			})
 		);
 
-		Debug.info("Manager", `stopAll() completed`);
 		LogService.info("Manager", "All watchers stopped");
 	}
 
@@ -149,7 +138,6 @@ export class WatcherManager {
 	}
 
 	updateMappings() {
-		Debug.info("Manager", `updateMappings() called`);
 		LogService.info("Manager", "Updating mappings - restarting watchers");
 		void this.startAll();
 	}
