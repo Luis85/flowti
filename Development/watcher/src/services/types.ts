@@ -1,4 +1,5 @@
 import { ReconcileProgress, FolderMapping, ReconcileStats } from "src/types";
+import { OperationLock } from "./AsyncMutex";
 
 export type ReconcileCallbacks = {
 	onProgress?: (
@@ -24,4 +25,7 @@ export interface IFileSyncService {
 		mapping: FolderMapping,
 		onProgress?: (p: ReconcileMappingProgress) => void
 	): Promise<ReconcileStats>;
+
+	/** Get the operation lock for coordinating with watchers */
+	getOperationLock(): OperationLock;
 }

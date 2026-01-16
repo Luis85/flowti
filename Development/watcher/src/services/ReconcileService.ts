@@ -7,6 +7,7 @@ import type {
 } from "src/types";
 import { getMappingLabel } from "src/utils";
 import { ReconcileCallbacks, IFileSyncService, ReconcileMappingProgress } from "./types";
+import { Debug } from "./DebugService";
 
 export class ReconcileService {
 	private running = false;
@@ -51,6 +52,18 @@ export class ReconcileService {
 
 		const mappingTotal = mappings.length;
 		let mappingIndex = 0;
+
+		// Acquire exclusive reconcile lock - blocks watcher syncs
+		Debug.info("Reconcile", "Acquiring operation lock for reconciliation");
+		let releaseOp: (() => void) | undefined;
+		try {
+			releaseOp = await this.fileSync.getOperationLock().acquireReconcile();
+			Debug.info("Reconcile", "Operation lock acquired");
+		} catch (e) {
+			Debug.error("Reconcile", "Failed to acquire operation lock", e);
+			this.running = false;
+			return;
+		}
 
 		try {
 			for (const m of mappings) {
@@ -135,6 +148,12 @@ export class ReconcileService {
 			this.plugin.setReconcileSnapshot?.(null);
 			this.plugin.statusbar?.clearReconcileProgress?.();
 			this.plugin.statusbar?.onStatsChanged();
+
+			// Release operation lock to allow watchers to resume
+			if (releaseOp) {
+				Debug.info("Reconcile", "Releasing operation lock");
+				releaseOp();
+			}
 		}
 	}
 

@@ -31,7 +31,7 @@ export type ChangeType = "added" | "changed" | "deleted";
 export type PendingJob = {
 	filePath: string;
 	changeType: ChangeType;
-	timer?: number;
+	timer?: ReturnType<typeof setTimeout>;
 };
 
 export type SyncChangeType = "added" | "changed" | "deleted";

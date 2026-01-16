@@ -11,13 +11,35 @@ export class MappingWatcher {
 	private pending = new Map<string, PendingJob>();
 
 	// separate debounce for directories (prevents tons of scans)
-	private pendingDirs = new Map<string, number>();
+	private pendingDirs = new Map<string, ReturnType<typeof setTimeout>>();
+
+	/** Maximum pending jobs to prevent memory issues on chatty folders */
+	private static readonly MAX_PENDING_JOBS = 1000;
+
+	/** Maximum pending directory reconciles */
+	private static readonly MAX_PENDING_DIRS = 100;
+
+	/** Stats for monitoring backpressure */
+	private droppedJobs = 0;
 
 	constructor(
 		private app: App,
 		private plugin: FileWatcherPlugin,
 		public mapping: FolderMapping
 	) {}
+
+	/**
+	 * Get current queue stats for monitoring/debugging.
+	 */
+	getQueueStats() {
+		return {
+			pendingFiles: this.pending.size,
+			pendingDirs: this.pendingDirs.size,
+			droppedJobs: this.droppedJobs,
+			maxPendingFiles: MappingWatcher.MAX_PENDING_JOBS,
+			maxPendingDirs: MappingWatcher.MAX_PENDING_DIRS,
+		};
+	}
 
 	start() {
 		const m = this.mapping;
@@ -92,11 +114,11 @@ export class MappingWatcher {
 
 	async stop() {
 		for (const j of this.pending.values()) {
-			if (j.timer) window.clearTimeout(j.timer);
+			if (j.timer) clearTimeout(j.timer);
 		}
 		this.pending.clear();
 
-		for (const t of this.pendingDirs.values()) window.clearTimeout(t);
+		for (const t of this.pendingDirs.values()) clearTimeout(t);
 		this.pendingDirs.clear();
 
 		if (!this.watcher) return;
@@ -134,12 +156,26 @@ export class MappingWatcher {
 
 		const key = filePath;
 		const existing = this.pending.get(key);
-		if (existing?.timer) window.clearTimeout(existing.timer);
+
+		// Backpressure: if queue is full and this is a NEW job, drop it
+		if (!existing && this.pending.size >= MappingWatcher.MAX_PENDING_JOBS) {
+			this.droppedJobs++;
+			Debug.warn("Watcher", `Queue full, dropping job`, {
+				mappingId: this.mapping.id,
+				filePath,
+				queueSize: this.pending.size,
+				droppedTotal: this.droppedJobs,
+			});
+			this.plugin.bumpSkipped(this.mapping.id);
+			return;
+		}
+
+		if (existing?.timer) clearTimeout(existing.timer);
 
 		const delay = Math.max(0, this.mapping.debounceDelay ?? 500);
 		const job: PendingJob = { filePath, changeType };
 
-		job.timer = window.setTimeout(() => {
+		job.timer = setTimeout(() => {
 			this.pending.delete(key);
 			void this.process(job);
 		}, delay);
@@ -179,11 +215,24 @@ export class MappingWatcher {
 		// Debounce directory reconcile
 		const key = dirPath;
 		const existing = this.pendingDirs.get(key);
-		if (existing) window.clearTimeout(existing);
+
+		// Backpressure: if dir queue is full and this is a NEW entry, drop it
+		if (!existing && this.pendingDirs.size >= MappingWatcher.MAX_PENDING_DIRS) {
+			this.droppedJobs++;
+			Debug.warn("Watcher", `Dir queue full, dropping`, {
+				mappingId: m.id,
+				dirPath,
+				queueSize: this.pendingDirs.size,
+				droppedTotal: this.droppedJobs,
+			});
+			return;
+		}
+
+		if (existing) clearTimeout(existing);
 
 		const delay = Math.max(250, m.debounceDelay ?? 500);
 
-		const t = window.setTimeout(() => {
+		const t = setTimeout(() => {
 			this.pendingDirs.delete(key);
 			void this.reconcileNewDir(dirPath);
 		}, delay);

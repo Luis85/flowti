@@ -10,6 +10,7 @@ import type {
 } from "../types";
 import { FileWatcherSettings } from "../settings/types";
 import { Debug } from "./DebugService";
+import { KeyedMutex, OperationLock } from "./AsyncMutex";
 
 /**
  * FileSyncService
@@ -25,8 +26,25 @@ import { Debug } from "./DebugService";
 export class FileSyncService {
 	private settings: FileWatcherSettings;
 
+	/** Per-file mutex to prevent concurrent writes to the same target file */
+	private fileLock = new KeyedMutex();
+
+	/** Operation lock to coordinate watchers vs reconciliation */
+	private operationLock = new OperationLock();
+
+	/** Lock timeout in ms - prevents deadlocks */
+	private static readonly LOCK_TIMEOUT_MS = 30000;
+
 	constructor(private app: App, settings: FileWatcherSettings) {
 		this.settings = settings;
+	}
+
+	/**
+	 * Get the operation lock for external coordination.
+	 * Used by ReconcileService to acquire exclusive access.
+	 */
+	getOperationLock(): OperationLock {
+		return this.operationLock;
 	}
 
 	updateSettings(settings: FileWatcherSettings) {
@@ -49,13 +67,26 @@ export class FileSyncService {
 			sourceFilePath,
 		});
 
-		// for watch events we keep behavior conservative (stability check if enabled)
-		return this.syncFileInternal(mapping, sourceFilePath, {
-			verifyStability: this.settings.verifyFileStability === true,
-			skipUnchanged: false, // watcher event should sync (conflict strategy decides)
-			ensuredFolders: this.createEnsuredFolderCache(),
-			targetIndex: undefined,
-		});
+		// Acquire watcher operation lock (allows concurrent watchers, blocks during reconcile)
+		let releaseOp: (() => void) | undefined;
+		try {
+			releaseOp = await this.operationLock.acquireWatcher();
+		} catch (e) {
+			Debug.warn("Sync", `Could not acquire watcher lock`, { sourceFilePath });
+			return { ok: false, error: new Error("Operation lock unavailable") };
+		}
+
+		try {
+			// for watch events we keep behavior conservative (stability check if enabled)
+			return await this.syncFileInternal(mapping, sourceFilePath, {
+				verifyStability: this.settings.verifyFileStability === true,
+				skipUnchanged: false, // watcher event should sync (conflict strategy decides)
+				ensuredFolders: this.createEnsuredFolderCache(),
+				targetIndex: undefined,
+			});
+		} finally {
+			releaseOp();
+		}
 	}
 
 	async reconcileFolder(
@@ -291,11 +322,30 @@ export class FileSyncService {
 			targetIndex?: TargetIndex;
 		}
 	): Promise<SyncResult> {
+		// Calculate target path first (needed for file-level lock)
+		const rel = path.relative(mapping.sourceFolder, sourceFilePath);
+		const targetPathRaw = path.join(mapping.targetFolder, rel);
+		const targetPath = this.toVaultPath(targetPathRaw);
+
+		// Acquire file-level lock to prevent concurrent writes to same target
+		let releaseFile: (() => void) | undefined;
 		try {
-			// Target path (vault)
-			const rel = path.relative(mapping.sourceFolder, sourceFilePath);
-			const targetPathRaw = path.join(mapping.targetFolder, rel);
-			const targetPath = this.toVaultPath(targetPathRaw);
+			releaseFile = await this.fileLock.acquire(
+				targetPath,
+				FileSyncService.LOCK_TIMEOUT_MS
+			);
+		} catch (e) {
+			Debug.warn("Sync", `File lock timeout for ${targetPath}`, {
+				sourceFilePath,
+				mappingId: mapping.id,
+			});
+			return {
+				ok: false,
+				error: new Error(`File lock timeout: ${targetPath}`),
+			};
+		}
+
+		try {
 
 			Debug.debug("Sync", `syncFileInternal() path calculation`, {
 				mappingId: mapping.id,
@@ -411,6 +461,9 @@ export class FileSyncService {
 				mappingId: mapping.id,
 			});
 			return { ok: false, error: err };
+		} finally {
+			// Always release file lock
+			releaseFile();
 		}
 	}
 
