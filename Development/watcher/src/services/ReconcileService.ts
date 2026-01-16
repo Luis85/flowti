@@ -6,14 +6,15 @@ import type {
 	ReconcileStats,
 } from "src/types";
 import { getMappingLabel } from "src/utils";
-import { ReconcileCallbacks } from "./types";
+import { ReconcileCallbacks, IFileSyncService, ReconcileMappingProgress } from "./types";
+
 export class ReconcileService {
 	private running = false;
 	private cancelled = false;
 
 	constructor(
 		private plugin: FileWatcherPlugin,
-		private fileSync: { reconcileMapping: Function }
+		private fileSync: IFileSyncService
 	) {}
 
 	isRunning() {
@@ -75,7 +76,7 @@ export class ReconcileService {
 				);
 
 				const res: ReconcileStats =
-					await this.fileSync.reconcileMapping(m, (p: any) => {
+					await this.fileSync.reconcileMapping(m, (p: ReconcileMappingProgress) => {
 						if (this.cancelled) return;
 
 						cb.onProgress?.(
@@ -127,7 +128,7 @@ export class ReconcileService {
 				);
 
 				cb.onMappingDone?.(m, res);
-				this.applyStats(m.id, res);
+				this.plugin.applyReconcileStats(m.id, res);
 			}
 		} finally {
 			this.running = false;
@@ -135,20 +136,6 @@ export class ReconcileService {
 			this.plugin.statusbar?.clearReconcileProgress?.();
 			this.plugin.statusbar?.onStatsChanged();
 		}
-	}
-
-	private applyStats(mappingId: string, res: ReconcileStats) {
-		const p = this.plugin;
-		p.stats.filesProcessed += res.processed;
-		p.stats.filesSkipped += res.skipped;
-		p.stats.errors += res.errors;
-
-		p["ensureMappingStats"](mappingId);
-		p.stats.perMappingStats[mappingId].processed += res.processed;
-		p.stats.perMappingStats[mappingId].skipped += res.skipped;
-		p.stats.perMappingStats[mappingId].errors += res.errors;
-
-		p.statusbar?.onStatsChanged();
 	}
 
 	private defaultProgressToUi(

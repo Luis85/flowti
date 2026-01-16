@@ -126,6 +126,23 @@ export default class FileWatcherPlugin extends Plugin {
 		this.statusbar?.onStatsChanged();
 	}
 
+	/** Apply stats from a completed reconcile operation */
+	applyReconcileStats(
+		mappingId: string,
+		stats: { processed: number; skipped: number; errors: number }
+	) {
+		this.stats.filesProcessed += stats.processed;
+		this.stats.filesSkipped += stats.skipped;
+		this.stats.errors += stats.errors;
+
+		this.ensureMappingStats(mappingId);
+		this.stats.perMappingStats[mappingId].processed += stats.processed;
+		this.stats.perMappingStats[mappingId].skipped += stats.skipped;
+		this.stats.perMappingStats[mappingId].errors += stats.errors;
+
+		this.statusbar?.onStatsChanged();
+	}
+
 	async syncFile(
 		mapping: FolderMapping,
 		sourceFilePath: string,
