@@ -415,6 +415,76 @@ describe("FileSyncService", () => {
 	});
 });
 
+describe("path traversal protection", () => {
+	let service: FileSyncService;
+	let mockApp: ReturnType<typeof createMockApp>;
+	let mockSettings: ReturnType<typeof createMockSettings>;
+	let mockAdapter: ReturnType<typeof createMockVaultAdapter>;
+
+	beforeEach(() => {
+		clearMockFs();
+		setupMockFile(SOURCE_FILE1, "# Test File 1");
+		mockAdapter = createMockVaultAdapter();
+		const mockVault = createMockVault(mockAdapter);
+		mockApp = createMockApp(mockVault);
+		mockSettings = createMockSettings();
+		service = new FileSyncService(mockApp as any, mockSettings as any);
+	});
+
+	afterEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("should reject source paths outside source folder", async () => {
+		const mapping = createMockMapping({
+			sourceFolder: SOURCE_ROOT,
+			targetFolder: "vault/imported",
+		});
+
+		// Try to sync a file that's outside the source folder
+		const result = await service.syncFile(
+			mapping as any,
+			"C:\\other\\secret.md",
+			"added"
+		);
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error?.message).toContain("Path traversal");
+		}
+	});
+
+	it("should reject paths with .. traversal", async () => {
+		const mapping = createMockMapping({
+			sourceFolder: SOURCE_ROOT,
+			targetFolder: "vault/imported",
+		});
+
+		// Try to use .. to escape the source folder
+		const result = await service.syncFile(
+			mapping as any,
+			"C:\\source\\..\\secret.md",
+			"added"
+		);
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error?.message).toContain("Path traversal");
+		}
+	});
+
+	it("should allow valid paths within source folder", async () => {
+		const mapping = createMockMapping({
+			sourceFolder: SOURCE_ROOT,
+			targetFolder: "vault/imported",
+		});
+
+		const result = await service.syncFile(mapping as any, SOURCE_FILE1, "added");
+
+		expect(result.ok).toBe(true);
+	});
+});
+
 // Note: reconcileMapping tests are skipped because they require complex fs mocking
 // The walkFiles function uses readdirSync which is difficult to mock correctly
 // These tests would be better run as integration tests with a real filesystem
