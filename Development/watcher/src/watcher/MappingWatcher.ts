@@ -9,8 +9,8 @@ import type {
 	IStatsTracker,
 	IFileSyncOperations,
 	IFileSyncServiceExtended,
-	INoticeService,
-} from "../interfaces";
+} from "../interfaces/IPluginContext";
+import type { INoticeService } from "../services/NoticeService";
 
 /**
  * Minimal context required by MappingWatcher.

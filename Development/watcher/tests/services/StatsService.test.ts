@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { StatsService, createStatsService, createMockStatsService } from "../../src/services/StatsService";
+import { StatsService, createStatsService } from "../../src/services/StatsService";
+import { createMockStatsService } from "../mocks/factories";
 import type { IStatusBar } from "../../src/interfaces/IPluginContext";
 
 describe("StatsService", () => {

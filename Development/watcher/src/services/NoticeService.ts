@@ -52,38 +52,12 @@ export function createNoticeService(): INoticeService {
 }
 
 /**
- * No-op implementation for testing
+ * No-op implementation for contexts where notices should be silenced.
  */
 export function createNoOpNoticeService(): INoticeService {
 	return {
 		show: () => {},
 		error: () => {},
 		success: () => {},
-	};
-}
-
-/**
- * Mock implementation that tracks calls for testing
- */
-export function createMockNoticeService(): INoticeService & {
-	calls: Array<{ method: string; message: string; timeout?: number }>;
-	clear: () => void;
-} {
-	const calls: Array<{ method: string; message: string; timeout?: number }> = [];
-
-	return {
-		calls,
-		clear: () => {
-			calls.length = 0;
-		},
-		show: (message: string, timeout?: number) => {
-			calls.push({ method: "show", message, timeout });
-		},
-		error: (message: string, timeout?: number) => {
-			calls.push({ method: "error", message, timeout });
-		},
-		success: (message: string, timeout?: number) => {
-			calls.push({ method: "success", message, timeout });
-		},
 	};
 }

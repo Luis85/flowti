@@ -1,7 +1,7 @@
 import { MappingWatcher, IMappingWatcherContext } from "./MappingWatcher";
 import { LogService } from "../services/LogService";
 import type { App } from "obsidian";
-import type { ISettingsProvider, IStatusBar } from "../interfaces";
+import type { ISettingsProvider, IStatusBar } from "../interfaces/IPluginContext";
 import type { FolderMapping } from "../types";
 
 /**

@@ -18,8 +18,8 @@ import {
 	createMockFileSyncService,
 	createMockMapping,
 	createMockSettings,
+	createMockNoticeService,
 } from "../mocks/factories";
-import { createMockNoticeService } from "../../src/services/NoticeService";
 import { LogService } from "../../src/services/LogService";
 import type { IReconcileContext, IFileSyncService } from "../../src/services/types";
 

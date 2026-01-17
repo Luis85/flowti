@@ -430,3 +430,87 @@ export function clearMockFileSystem(fs: MockFileSystem) {
 	fs.files.clear();
 	fs.dirs.clear();
 }
+
+// ===========================
+// NoticeService Mocks
+// ===========================
+
+import type { INoticeService } from "../../src/services/NoticeService";
+
+/**
+ * Mock implementation that tracks calls for testing
+ */
+export function createMockNoticeService(): INoticeService & {
+	calls: Array<{ method: string; message: string; timeout?: number }>;
+	clear: () => void;
+} {
+	const calls: Array<{ method: string; message: string; timeout?: number }> = [];
+
+	return {
+		calls,
+		clear: () => {
+			calls.length = 0;
+		},
+		show: (message: string, timeout?: number) => {
+			calls.push({ method: "show", message, timeout });
+		},
+		error: (message: string, timeout?: number) => {
+			calls.push({ method: "error", message, timeout });
+		},
+		success: (message: string, timeout?: number) => {
+			calls.push({ method: "success", message, timeout });
+		},
+	};
+}
+
+// ===========================
+// StatsService Mocks
+// ===========================
+
+import { StatsService } from "../../src/services/StatsService";
+
+/**
+ * Create a mock StatsService for testing
+ */
+export function createMockStatsService(): StatsService & {
+	getCallHistory(): Array<{ method: string; args: unknown[] }>;
+	clearCallHistory(): void;
+} {
+	const callHistory: Array<{ method: string; args: unknown[] }> = [];
+	const service = new StatsService();
+
+	const originalBumpProcessed = service.bumpProcessed.bind(service);
+	const originalBumpSkipped = service.bumpSkipped.bind(service);
+	const originalBumpError = service.bumpError.bind(service);
+	const originalApplyReconcileStats = service.applyReconcileStats.bind(service);
+
+	service.bumpProcessed = (mappingId: string, filePath?: string) => {
+		callHistory.push({ method: "bumpProcessed", args: [mappingId, filePath] });
+		originalBumpProcessed(mappingId, filePath);
+	};
+
+	service.bumpSkipped = (mappingId: string) => {
+		callHistory.push({ method: "bumpSkipped", args: [mappingId] });
+		originalBumpSkipped(mappingId);
+	};
+
+	service.bumpError = (mappingId: string) => {
+		callHistory.push({ method: "bumpError", args: [mappingId] });
+		originalBumpError(mappingId);
+	};
+
+	service.applyReconcileStats = (
+		mappingId: string,
+		stats: { processed: number; skipped: number; errors: number }
+	) => {
+		callHistory.push({ method: "applyReconcileStats", args: [mappingId, stats] });
+		originalApplyReconcileStats(mappingId, stats);
+	};
+
+	return Object.assign(service, {
+		getCallHistory: () => callHistory,
+		clearCallHistory: () => {
+			callHistory.length = 0;
+		},
+	});
+}
