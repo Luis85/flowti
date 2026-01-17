@@ -20,6 +20,7 @@
  * ```
  */
 
+import type { FlowtiErrorInfo } from "../errors/types";
 import type { LogEntry } from "../logger/types";
 import type { FlowtiSettings } from "../settings/settings";
 import type { FlowtiUser } from "../user/types";
@@ -31,21 +32,84 @@ import type { FlowtiUser } from "../user/types";
  * The key is the event type string, the value is the payload type.
  */
 export interface FlowtiEventMap {
-	// User events
+	// ─────────────────────────────────────────────────────────────
+	// Plugin Lifecycle Events
+	// ─────────────────────────────────────────────────────────────
+
+	/** Emitted when plugin starts loading */
+	"plugin.loading": { timestamp: string };
+	/** Emitted when plugin has fully loaded */
+	"plugin.loaded": { timestamp: string };
+	/** Emitted when plugin is ready (layout ready, user loaded) */
+	"plugin.ready": { timestamp: string };
+	/** Emitted when plugin starts unloading */
+	"plugin.unloading": { timestamp: string };
+	/** Emitted when plugin has fully unloaded */
+	"plugin.unloaded": { timestamp: string };
+
+	// ─────────────────────────────────────────────────────────────
+	// Service Events
+	// ─────────────────────────────────────────────────────────────
+
+	/** Emitted when a service is registered */
+	"service.registered": { serviceId: string };
+	/** Emitted when a service is initialized */
+	"service.initialized": { serviceId: string };
+	/** Emitted when a service is disposed */
+	"service.disposed": { serviceId: string };
+	/** Emitted when a service fails to initialize */
+	"service.error": { serviceId: string; error: FlowtiErrorInfo };
+
+	// ─────────────────────────────────────────────────────────────
+	// Command Events
+	// ─────────────────────────────────────────────────────────────
+
+	/** Emitted when a command is registered */
+	"command.registered": { commandId: string; commandName: string };
+	/** Emitted when a command starts executing */
+	"command.executing": { commandId: string };
+	/** Emitted when a command completes successfully */
+	"command.executed": { commandId: string; durationMs: number };
+	/** Emitted when a command fails */
+	"command.failed": { commandId: string; error: FlowtiErrorInfo };
+
+	// ─────────────────────────────────────────────────────────────
+	// User Events
+	// ─────────────────────────────────────────────────────────────
+
 	/** Emitted when a new user is created */
 	"user.created": { user: FlowtiUser };
 	/** Emitted when user data is updated */
 	"user.updated": { user: FlowtiUser };
+	/** Emitted when user data is loaded from storage */
+	"user.loaded": { user: FlowtiUser };
 
-	// Settings events
+	// ─────────────────────────────────────────────────────────────
+	// Settings Events
+	// ─────────────────────────────────────────────────────────────
+
 	/** Emitted when settings are changed */
 	"settings.changed": { settings: FlowtiSettings };
+	/** Emitted when settings are loaded from storage */
+	"settings.loaded": { settings: FlowtiSettings };
 
-	// Log events
+	// ─────────────────────────────────────────────────────────────
+	// Log Events
+	// ─────────────────────────────────────────────────────────────
+
 	/** Emitted for each log entry (useful for log aggregation) */
 	"log.entry": LogEntry;
 	/** Emitted when an error is logged */
 	"log.error": LogEntry;
+
+	// ─────────────────────────────────────────────────────────────
+	// Error Events
+	// ─────────────────────────────────────────────────────────────
+
+	/** Emitted when an error occurs (for centralized error tracking) */
+	"error.occurred": FlowtiErrorInfo;
+	/** Emitted when an error is handled/recovered */
+	"error.handled": { error: FlowtiErrorInfo; recovered: boolean };
 }
 
 /**

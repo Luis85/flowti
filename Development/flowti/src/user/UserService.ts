@@ -31,12 +31,14 @@ export class UserService implements IUserService {
 
 	/**
 	 * Loads user data from storage.
+	 * Emits "user.loaded" event if user data is found.
 	 * Should be called during plugin initialization.
 	 */
 	async load(): Promise<void> {
 		const data = (await this.storage.load()) as { user?: FlowtiUser } | null;
 		if (data?.user) {
 			this.user = data.user;
+			await this.eventBus?.emit("user.loaded", { user: this.user });
 		}
 	}
 

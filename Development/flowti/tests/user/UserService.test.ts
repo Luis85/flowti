@@ -172,6 +172,38 @@ describe("UserService", () => {
 			);
 		});
 
+		it("should emit user.loaded event when loading existing user", async () => {
+			const existingUser: FlowtiUser = {
+				id: "12345678-1234-4123-8123-123456789abc" as UUID,
+				name: "Existing User",
+				createdAt: "2024-01-01T00:00:00.000Z",
+			};
+			const mock = createMockStorage({ user: existingUser });
+			const service = new UserService({ storage: mock.storage, eventBus });
+
+			const handler = vi.fn();
+			eventBus.on("user.loaded", handler);
+
+			await service.load();
+
+			expect(handler).toHaveBeenCalledOnce();
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					type: "user.loaded",
+					payload: { user: existingUser },
+				})
+			);
+		});
+
+		it("should not emit user.loaded event when no user in storage", async () => {
+			const handler = vi.fn();
+			eventBus.on("user.loaded", handler);
+
+			await userService.load();
+
+			expect(handler).not.toHaveBeenCalled();
+		});
+
 		it("should work without eventBus (optional dependency)", async () => {
 			const serviceWithoutEvents = new UserService({ storage: createMockStorage().storage });
 
@@ -180,6 +212,44 @@ describe("UserService", () => {
 			await serviceWithoutEvents.updateUserName("Updated");
 
 			expect(serviceWithoutEvents.getUser()?.name).toBe("Updated");
+		});
+	});
+
+	describe("shared storage", () => {
+		it("should preserve other data when saving user", async () => {
+			// Simulate shared storage with settings already present
+			const mock = createMockStorage({ debugMode: true, otherSetting: "value" });
+			const service = new UserService({ storage: mock.storage, eventBus });
+
+			await service.createUser("Test User");
+
+			const savedData = mock.getData();
+			// User should be saved
+			expect((savedData.user as FlowtiUser).name).toBe("Test User");
+			// Other data should be preserved
+			expect(savedData.debugMode).toBe(true);
+			expect(savedData.otherSetting).toBe("value");
+		});
+
+		it("should preserve user when updating user name", async () => {
+			const existingUser: FlowtiUser = {
+				id: "12345678-1234-4123-8123-123456789abc" as UUID,
+				name: "Original",
+				createdAt: "2024-01-01T00:00:00.000Z",
+			};
+			const mock = createMockStorage({
+				debugMode: false,
+				user: existingUser,
+			});
+			const service = new UserService({ storage: mock.storage, eventBus });
+			await service.load();
+
+			await service.updateUserName("Updated Name");
+
+			const savedData = mock.getData();
+			expect((savedData.user as FlowtiUser).name).toBe("Updated Name");
+			expect((savedData.user as FlowtiUser).id).toBe(existingUser.id);
+			expect(savedData.debugMode).toBe(false);
 		});
 	});
 });
