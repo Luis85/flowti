@@ -1,6 +1,19 @@
-import FileWatcherPlugin from "src/main";
-import { MappingWatcher } from "./MappingWatcher";
+import { MappingWatcher, IMappingWatcherContext } from "./MappingWatcher";
 import { LogService } from "../services/LogService";
+import type { App } from "obsidian";
+import type { ISettingsProvider, IStatusBar } from "../interfaces";
+import type { FolderMapping } from "../types";
+
+/**
+ * Context required by WatcherManager.
+ * Separates plugin dependencies for better testability.
+ */
+export interface IWatcherManagerContext extends ISettingsProvider {
+	readonly app: App;
+	readonly statusbar?: IStatusBar;
+	/** Context to pass to MappingWatcher instances */
+	readonly watcherContext: IMappingWatcherContext;
+}
 
 export type WatcherState = "running" | "stopped" | "error";
 
@@ -24,7 +37,7 @@ export class WatcherManager {
 	private watcherStates = new Map<string, WatcherState>();
 	private starting = false;
 
-	constructor(private plugin: FileWatcherPlugin) {}
+	constructor(private ctx: IWatcherManagerContext) {}
 
 	async startAll() {
 		// Prevent concurrent startAll calls
@@ -35,10 +48,11 @@ export class WatcherManager {
 		this.starting = true;
 
 		try {
+			const mappings = this.ctx.settings.folderMappings;
 			LogService.info("Manager", "Starting all watchers", {
 				details: {
-					totalMappings: this.plugin.settings.folderMappings.length,
-					mappings: this.plugin.settings.folderMappings.map((m) => ({
+					totalMappings: mappings.length,
+					mappings: mappings.map((m: FolderMapping) => ({
 						id: m.id,
 						description: m.description,
 						enabled: m.enabled,
@@ -51,7 +65,7 @@ export class WatcherManager {
 			// Wait for all existing watchers to fully stop
 			await this.stopAll();
 
-			for (const m of this.plugin.settings.folderMappings) {
+			for (const m of mappings) {
 				if (!m.enabled) {
 					LogService.debug(
 						"Manager",
@@ -71,7 +85,7 @@ export class WatcherManager {
 					},
 				});
 
-				const mw = new MappingWatcher(this.plugin.app, this.plugin, m);
+				const mw = new MappingWatcher(this.ctx.app, this.ctx.watcherContext, m);
 				this.watchers.set(m.id, mw);
 
 				try {
@@ -105,7 +119,7 @@ export class WatcherManager {
 				details: { activeWatchers: this.watchers.size },
 			});
 
-			this.plugin.statusbar?.onStatsChanged();
+			this.ctx.statusbar?.onStatsChanged();
 		} finally {
 			this.starting = false;
 		}
@@ -148,7 +162,7 @@ export class WatcherManager {
 	getWatcherInfos(): WatcherInfo[] {
 		const infos: WatcherInfo[] = [];
 
-		for (const m of this.plugin.settings.folderMappings) {
+		for (const m of this.ctx.settings.folderMappings) {
 			const watcher = this.watchers.get(m.id);
 			const state = this.watcherStates.get(m.id) ?? "stopped";
 
@@ -193,8 +207,8 @@ export class WatcherManager {
 	 * Start a single watcher by mapping ID
 	 */
 	async startWatcher(mappingId: string): Promise<boolean> {
-		const mapping = this.plugin.settings.folderMappings.find(
-			(m) => m.id === mappingId
+		const mapping = this.ctx.settings.folderMappings.find(
+			(m: FolderMapping) => m.id === mappingId
 		);
 		if (!mapping) {
 			LogService.warn("Manager", `Mapping not found: ${mappingId}`);
@@ -208,7 +222,7 @@ export class WatcherManager {
 			this.watchers.delete(mappingId);
 		}
 
-		const mw = new MappingWatcher(this.plugin.app, this.plugin, mapping);
+		const mw = new MappingWatcher(this.ctx.app, this.ctx.watcherContext, mapping);
 		this.watchers.set(mappingId, mw);
 
 		try {
@@ -225,7 +239,7 @@ export class WatcherManager {
 					},
 				}
 			);
-			this.plugin.statusbar?.onStatsChanged();
+			this.ctx.statusbar?.onStatsChanged();
 			return true;
 		} catch (e) {
 			this.watcherStates.set(mappingId, "error");
@@ -252,8 +266,8 @@ export class WatcherManager {
 			return true;
 		}
 
-		const mapping = this.plugin.settings.folderMappings.find(
-			(m) => m.id === mappingId
+		const mapping = this.ctx.settings.folderMappings.find(
+			(m: FolderMapping) => m.id === mappingId
 		);
 		const label = mapping?.description || mappingId;
 
@@ -264,7 +278,7 @@ export class WatcherManager {
 			LogService.info("Manager", `Watcher stopped: ${label}`, {
 				mappingId,
 			});
-			this.plugin.statusbar?.onStatsChanged();
+			this.ctx.statusbar?.onStatsChanged();
 			return true;
 		} catch (e) {
 			LogService.error("Manager", `Failed to stop watcher: ${label}`, {

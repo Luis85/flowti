@@ -73,8 +73,24 @@ export default class FileWatcherPlugin extends Plugin {
 
 		this.fileSync = new FileSyncService(this.app, this.settings);
 		this.reconcile = new ReconcileService(this, this.fileSync);
-		this.manager = new WatcherManager(this);
 		this.statusbar = new StatusBarService(this);
+
+		// Create WatcherManager with the interface-based context
+		this.manager = new WatcherManager({
+			app: this.app,
+			settings: this.settings,
+			statusbar: this.statusbar,
+			watcherContext: {
+				settings: this.settings,
+				stats: this.stats,
+				fileSync: this.fileSync,
+				bumpProcessed: (mappingId, filePath) => this.bumpProcessed(mappingId, filePath),
+				bumpSkipped: (mappingId) => this.bumpSkipped(mappingId),
+				bumpError: (mappingId) => this.bumpError(mappingId),
+				applyReconcileStats: (mappingId, stats) => this.applyReconcileStats(mappingId, stats),
+				syncFile: (mapping, sourceFilePath, changeType) => this.syncFile(mapping, sourceFilePath, changeType),
+			},
+		});
 
 		this.addCommand({
 			id: "filewatcher-restart",

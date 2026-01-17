@@ -1,10 +1,27 @@
 import chokidar, { ChokidarOptions, FSWatcher } from "chokidar";
-import FileWatcherPlugin from "src/main";
 import { App, Notice } from "obsidian";
 import { PendingJob, FolderMapping, ChangeType } from "../types";
 import { LogService } from "../services/LogService";
 import * as fs from "fs";
 import * as path from "path";
+import type {
+	ISettingsProvider,
+	IStatsTracker,
+	IFileSyncOperations,
+	IFileSyncServiceExtended,
+} from "../interfaces";
+
+/**
+ * Minimal context required by MappingWatcher.
+ * This allows for better testability by injecting only what's needed.
+ */
+export interface IMappingWatcherContext
+	extends IStatsTracker,
+		ISettingsProvider,
+		IFileSyncOperations {
+	/** Optional file sync service for reconcileFolder */
+	readonly fileSync?: IFileSyncServiceExtended;
+}
 
 export class MappingWatcher {
 	private watcher: FSWatcher | null = null;
@@ -27,7 +44,7 @@ export class MappingWatcher {
 
 	constructor(
 		private app: App,
-		private plugin: FileWatcherPlugin,
+		private context: IMappingWatcherContext,
 		public mapping: FolderMapping
 	) {}
 
@@ -69,7 +86,7 @@ export class MappingWatcher {
 				mappingId: m.id,
 				details: { sourceFolder: m.sourceFolder },
 			});
-			this.plugin.bumpError(m.id);
+			this.context.bumpError(m.id);
 			new Notice(
 				`Mapping "${m.description || m.id}": source folder missing`
 			);
@@ -117,7 +134,7 @@ export class MappingWatcher {
 					mappingId: m.id,
 					details: { error: String(err) },
 				});
-				this.plugin.bumpError(m.id);
+				this.context.bumpError(m.id);
 				new Notice(
 					`Watcher error (${m.description || m.id}): ${String(err)}`
 				);
@@ -172,7 +189,7 @@ export class MappingWatcher {
 				mappingId: this.mapping.id,
 				filePath,
 			});
-			this.plugin.bumpSkipped(this.mapping.id);
+			this.context.bumpSkipped(this.mapping.id);
 			return;
 		}
 
@@ -199,7 +216,7 @@ export class MappingWatcher {
 					droppedTotal: this.droppedJobs,
 				},
 			});
-			this.plugin.bumpSkipped(this.mapping.id);
+			this.context.bumpSkipped(this.mapping.id);
 			return;
 		}
 
@@ -229,7 +246,7 @@ export class MappingWatcher {
 
 		try {
 			// IMPORTANT: plugin.syncFile already updates stats + notices in your main.ts
-			await this.plugin.syncFile(
+			await this.context.syncFile(
 				this.mapping,
 				job.filePath,
 				job.changeType
@@ -250,7 +267,7 @@ export class MappingWatcher {
 				filePath: job.filePath,
 				details: { error: String(e) },
 			});
-			this.plugin.bumpError(this.mapping.id);
+			this.context.bumpError(this.mapping.id);
 		}
 	}
 
@@ -296,14 +313,14 @@ export class MappingWatcher {
 		try {
 			// Reconcile only the new folder subtree (FAST + correct)
 			// Requires FileSyncService.reconcileFolder(..)
-			if (!this.plugin.fileSync?.reconcileFolder) return;
+			if (!this.context.fileSync?.reconcileFolder) return;
 
-			await this.plugin.fileSync.reconcileFolder(
+			await this.context.fileSync.reconcileFolder(
 				this.mapping,
 				dirPath,
-				(p) => {
+				(_progress) => {
 					// Optional: feed your statusbar snapshot
-					// this.plugin.setReconcileSnapshot?.({ ... })
+					// this.context.setReconcileSnapshot?.({ ... })
 				}
 			);
 		} catch (e) {
@@ -311,7 +328,7 @@ export class MappingWatcher {
 				mappingId: this.mapping.id,
 				details: { dirPath, error: String(e) },
 			});
-			this.plugin.bumpError(this.mapping.id);
+			this.context.bumpError(this.mapping.id);
 		}
 	}
 
@@ -328,7 +345,7 @@ export class MappingWatcher {
 		| undefined {
 		const ignoreDotfiles = /(^|[\/\\])\../;
 
-		if (!this.plugin.settings.ignoreOneDriveTemp) return ignoreDotfiles;
+		if (!this.context.settings.ignoreOneDriveTemp) return ignoreDotfiles;
 
 		const officeLock = /(^|[\/\\])~\$/; // "~$file.docx"
 		const tmpExt = /\.(tmp|temp|partial|crdownload)$/i;
