@@ -9,7 +9,7 @@ export default defineConfig({
 	},
 	test: {
 		include: ["tests/**/*.{test,spec}.{ts,tsx,js,jsx}"],
-		exclude: ["node_modules", "dist", "docs"],
+		exclude: ["node_modules", "dist", "docs", "tests"],
 		reporters: [
 			"default",
 			[
@@ -23,6 +23,7 @@ export default defineConfig({
 			provider: "v8", // or 'istanbul'
 			reportsDirectory: "docs/coverage", // <-- custom output path
 			reporter: ["text", "html"], // multiple formats
+			exclude: ["./tests"],
 		},
 	},
 });
