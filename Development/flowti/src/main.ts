@@ -1,4 +1,6 @@
 import { Plugin } from "obsidian";
+import { EventBus } from "./events/EventBus";
+import type { IEventBus } from "./events/types";
 import { FlowtiSettingTab } from "./settings/FlowtiSettingTab";
 import {
   DEFAULT_SETTINGS,
@@ -12,9 +14,11 @@ import { UserSetupModal } from "./user/UserSetupModal";
 export default class FlowtiBasePlugin extends Plugin {
   settings: FlowtiSettings;
   userService: IUserService;
+  eventBus: IEventBus;
 
   async onload() {
     await this.loadSettings();
+    this.initializeEventBus();
     await this.initializeUserService();
 
     this.addSettingTab(new FlowtiSettingTab(this.app, this));
@@ -28,7 +32,9 @@ export default class FlowtiBasePlugin extends Plugin {
     });
   }
 
-  async onunload() {}
+  async onunload() {
+    this.eventBus.clear();
+  }
 
   /**
    * Load settings from storage with validation
@@ -40,10 +46,11 @@ export default class FlowtiBasePlugin extends Plugin {
   }
 
   /**
-   * Save settings to storage and propagate changes
+   * Save settings to storage and emit settings.changed event
    */
   async saveSettings() {
     await this.saveData(this.settings);
+    await this.eventBus.emit("settings.changed", { settings: this.settings });
   }
 
   /**
@@ -62,12 +69,22 @@ export default class FlowtiBasePlugin extends Plugin {
   private registerServices(): void {}
 
   /**
+   * Initialize the event bus for decoupled communication
+   */
+  private initializeEventBus(): void {
+    this.eventBus = new EventBus();
+  }
+
+  /**
    * Initialize the user service and load existing user data
    */
   private async initializeUserService(): Promise<void> {
     this.userService = new UserService({
-      load: () => this.loadData(),
-      save: (data) => this.saveData(data),
+      storage: {
+        load: () => this.loadData(),
+        save: (data) => this.saveData(data),
+      },
+      eventBus: this.eventBus,
     });
     await this.userService.load();
   }

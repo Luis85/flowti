@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { EventBus } from "../../src/events/EventBus";
+import type { IEventBus } from "../../src/events/types";
 import { UserService } from "../../src/user/UserService";
 import type { FlowtiUser } from "../../src/user/types";
 import type { IStorageProvider, UUID } from "../../src/utils/types";
@@ -25,13 +27,15 @@ function createMockStorage(initialData: Record<string, unknown> = {}): {
 describe("UserService", () => {
 	let userService: UserService;
 	let storage: IStorageProvider;
+	let eventBus: IEventBus;
 	let getData: () => Record<string, unknown>;
 
 	beforeEach(() => {
 		const mock = createMockStorage();
 		storage = mock.storage;
 		getData = mock.getData;
-		userService = new UserService(storage);
+		eventBus = new EventBus();
+		userService = new UserService({ storage, eventBus });
 	});
 
 	describe("initial state", () => {
@@ -101,7 +105,7 @@ describe("UserService", () => {
 		});
 
 		it("should reject when no user exists", async () => {
-			const freshService = new UserService(createMockStorage().storage);
+			const freshService = new UserService({ storage: createMockStorage().storage });
 			await expect(freshService.updateUserName("Name")).rejects.toThrow(
 				"No user exists to update"
 			);
@@ -116,7 +120,7 @@ describe("UserService", () => {
 				createdAt: "2024-01-01T00:00:00.000Z",
 			};
 			const mock = createMockStorage({ user: existingUser });
-			const service = new UserService(mock.storage);
+			const service = new UserService({ storage: mock.storage });
 
 			await service.load();
 
@@ -130,9 +134,52 @@ describe("UserService", () => {
 
 			const nullMock = createMockStorage();
 			nullMock.storage.load = vi.fn(async () => null);
-			const nullService = new UserService(nullMock.storage);
+			const nullService = new UserService({ storage: nullMock.storage });
 			await nullService.load();
 			expect(nullService.hasUser()).toBe(false);
+		});
+	});
+
+	describe("event emission", () => {
+		it("should emit user.created event when creating user", async () => {
+			const handler = vi.fn();
+			eventBus.on("user.created", handler);
+
+			const user = await userService.createUser("Test User");
+
+			expect(handler).toHaveBeenCalledOnce();
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					type: "user.created",
+					payload: { user },
+				})
+			);
+		});
+
+		it("should emit user.updated event when updating user name", async () => {
+			await userService.createUser("Test User");
+			const handler = vi.fn();
+			eventBus.on("user.updated", handler);
+
+			await userService.updateUserName("New Name");
+
+			expect(handler).toHaveBeenCalledOnce();
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					type: "user.updated",
+					payload: { user: expect.objectContaining({ name: "New Name" }) },
+				})
+			);
+		});
+
+		it("should work without eventBus (optional dependency)", async () => {
+			const serviceWithoutEvents = new UserService({ storage: createMockStorage().storage });
+
+			// Should not throw
+			await serviceWithoutEvents.createUser("Test");
+			await serviceWithoutEvents.updateUserName("Updated");
+
+			expect(serviceWithoutEvents.getUser()?.name).toBe("Updated");
 		});
 	});
 });

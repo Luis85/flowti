@@ -1,21 +1,32 @@
+import type { IEventBus } from "../events/types";
 import { generateUUID } from "../utils/helpers";
 import type { IStorageProvider } from "../utils/types";
 import type { FlowtiUser, IUserService } from "./types";
 
 /**
+ * Configuration options for the UserService.
+ */
+export interface UserServiceOptions {
+	storage: IStorageProvider;
+	eventBus?: IEventBus;
+}
+
+/**
  * Service for managing user data within the Flowti plugin.
- * Handles user creation, retrieval, and persistence.
+ * Handles user creation, retrieval, persistence, and emits events on changes.
  */
 export class UserService implements IUserService {
 	private user: FlowtiUser | null = null;
 	private storage: IStorageProvider;
+	private eventBus?: IEventBus;
 
 	/**
 	 * Creates a new UserService instance.
-	 * @param storage - Storage provider for persistence
+	 * @param options - Configuration options including storage and optional event bus
 	 */
-	constructor(storage: IStorageProvider) {
-		this.storage = storage;
+	constructor(options: UserServiceOptions) {
+		this.storage = options.storage;
+		this.eventBus = options.eventBus;
 	}
 
 	/**
@@ -47,6 +58,7 @@ export class UserService implements IUserService {
 
 	/**
 	 * Creates a new user with the given name.
+	 * Emits "user.created" event after successful creation.
 	 * @param name - The display name for the user
 	 * @returns The newly created user
 	 */
@@ -64,11 +76,13 @@ export class UserService implements IUserService {
 
 		this.user = newUser;
 		await this.saveUser();
+		await this.eventBus?.emit("user.created", { user: newUser });
 		return newUser;
 	}
 
 	/**
 	 * Updates the current user's name.
+	 * Emits "user.updated" event after successful update.
 	 * @param name - The new display name
 	 */
 	async updateUserName(name: string): Promise<void> {
@@ -83,6 +97,7 @@ export class UserService implements IUserService {
 
 		this.user.name = trimmedName;
 		await this.saveUser();
+		await this.eventBus?.emit("user.updated", { user: this.user });
 	}
 
 	/**
