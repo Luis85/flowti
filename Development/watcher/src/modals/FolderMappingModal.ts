@@ -1,6 +1,7 @@
 import FileWatcherPlugin from "src/main";
-import { App, Modal, Setting, setIcon } from "obsidian";
+import { App, Modal, Setting, setIcon, TextComponent } from "obsidian";
 import { FolderMapping, ConflictResolution } from "src/types";
+import { pickFolder, isFolderPickerAvailable } from "src/services/FolderPickerService";
 
 export type MappingModalMode = "create" | "edit";
 
@@ -102,28 +103,42 @@ export class FolderMappingModal extends Modal {
 
 		const section = this.createSection(contentEl, "Folder Paths", "folder");
 
+		// Source Folder with native picker
+		let sourceTextComponent: TextComponent;
 		const sourceRow = new Setting(section)
 			.setName("Source Folder")
-			.setDesc("The external folder to watch (absolute path)");
+			.setDesc("The external folder to watch (absolute path)")
+			.addText((t) => {
+				sourceTextComponent = t;
+				t.setPlaceholder("C:\\Users\\...\\OneDrive\\Documents")
+					.setValue(this.mapping.sourceFolder)
+					.onChange((v) => {
+						this.mapping.sourceFolder = v.trim();
+						this.hasChanges = true;
+					});
+			});
 
-		sourceRow.addText((t) =>
-			t
-				.setPlaceholder("C:\\Users\\...\\OneDrive\\Documents")
-				.setValue(this.mapping.sourceFolder)
-				.onChange((v) => {
-					this.mapping.sourceFolder = v.trim();
-					this.hasChanges = true;
-				})
-		);
+		// Add browse button if native picker is available
+		if (isFolderPickerAvailable()) {
+			sourceRow.addButton((b) =>
+				b
+					.setButtonText("Browse...")
+					.setTooltip("Open folder picker")
+					.onClick(async () => {
+						const selected = await pickFolder(this.mapping.sourceFolder || undefined);
+						if (selected) {
+							this.mapping.sourceFolder = selected;
+							sourceTextComponent.setValue(selected);
+							this.hasChanges = true;
+						}
+					})
+			);
+		}
 
-		// Add folder picker button hint
-		const sourceHint = section.createDiv({ cls: "setting-hint" });
-		sourceHint.createSpan({ text: "Tip: Use an absolute path like " });
-		sourceHint.createEl("code", { text: "C:\\Users\\Name\\OneDrive\\Folder" });
-
+		// Target Folder - simple text input (user may want to create new folders)
 		new Setting(section)
 			.setName("Target Folder")
-			.setDesc("Where to sync files in your vault (relative to vault root)")
+			.setDesc("Where to sync files in your vault (relative to vault root, will be created if needed)")
 			.addText((t) =>
 				t
 					.setPlaceholder("imported/onedrive")
