@@ -12,6 +12,7 @@ export class DashboardModal extends Modal {
 	private timer: number | null = null;
 	private currentTab: TabId = "overview";
 	private logUnsubscribe: (() => void) | null = null;
+	private reconcileUnsubscribe: (() => void) | null = null;
 
 	// UI Elements
 	private tabContainer!: HTMLElement;
@@ -71,6 +72,13 @@ export class DashboardModal extends Modal {
 			}
 		});
 
+		// Subscribe to reconcile progress updates for immediate UI feedback
+		this.reconcileUnsubscribe = this.plugin.subscribeToReconcileProgress(() => {
+			if (this.currentTab === "overview") {
+				this.updateReconcileStatus();
+			}
+		});
+
 		// Poll UI for stats updates - use slower interval and smarter updates
 		this.timer = window.setInterval(() => this.updateContent(), 1000);
 		this.renderContent();
@@ -81,6 +89,8 @@ export class DashboardModal extends Modal {
 		this.timer = null;
 		if (this.logUnsubscribe) this.logUnsubscribe();
 		this.logUnsubscribe = null;
+		if (this.reconcileUnsubscribe) this.reconcileUnsubscribe();
+		this.reconcileUnsubscribe = null;
 		this.contentEl.empty();
 	}
 
@@ -247,7 +257,6 @@ export class DashboardModal extends Modal {
 	private updateOverviewValues() {
 		const container = this.contentContainer;
 		const activeWatchers = this.plugin.manager?.activeCount() ?? 0;
-		const isReconciling = this.plugin.reconcile?.isRunning() ?? false;
 		const stats = this.plugin.stats;
 		const queueStats = this.plugin.manager?.getTotalQueueStats() ?? {
 			pendingFiles: 0,
@@ -268,7 +277,57 @@ export class DashboardModal extends Modal {
 			if (text) text.setText(activeWatchers > 0 ? "Stop All" : "Start All");
 		}
 
-		// Update reconcile button
+		// Update stat values
+		this.updateStatValue(container, "stat-active", String(activeWatchers));
+		this.updateStatValue(container, "stat-processed", String(stats.filesProcessed));
+		this.updateStatValue(container, "stat-skipped", String(stats.filesSkipped));
+		this.updateStatValue(container, "stat-errors", String(stats.errors));
+		this.updateStatValue(container, "stat-pending-files", String(queueStats.pendingFiles));
+		this.updateStatValue(container, "stat-pending-dirs", String(queueStats.pendingDirs));
+		this.updateStatValue(container, "stat-dropped", String(queueStats.droppedJobs));
+
+		// Update dropped jobs styling
+		const droppedCard = container.querySelector(".stat-dropped")?.closest(".stat-card");
+		if (droppedCard) {
+			droppedCard.classList.toggle("warning", queueStats.droppedJobs > 0);
+		}
+
+		// Update reconcile status section
+		this.updateReconcileStatus();
+
+		// Update recent logs
+		const recentLogsContainer = container.querySelector(".recent-logs");
+		if (recentLogsContainer) {
+			recentLogsContainer.empty();
+			const recentLogs = LogService.getRecentLogs(5);
+			if (recentLogs.length > 0) {
+				for (const log of recentLogs) {
+					this.renderLogEntry(recentLogsContainer as HTMLElement, log, true);
+				}
+			} else {
+				recentLogsContainer.createDiv({
+					cls: "no-logs",
+					text: "No recent activity",
+				});
+			}
+		}
+	}
+
+	private updateStatValue(container: HTMLElement, dataId: string, value: string) {
+		const el = container.querySelector(`.${dataId}`) as HTMLElement;
+		if (el) el.setText(value);
+	}
+
+	/**
+	 * Update reconcile status section and related UI elements
+	 * Called both by polling and by subscription for immediate feedback
+	 */
+	private updateReconcileStatus() {
+		const container = this.contentContainer;
+		const isReconciling = this.plugin.reconcile?.isRunning() ?? false;
+		const reconcile = this.plugin.getReconcileSnapshot?.();
+
+		// Update reconcile button state
 		const reconcileBtn = container.querySelector('[data-action="reconcile-all"]') as HTMLElement;
 		if (reconcileBtn) {
 			reconcileBtn.className = `control-btn ${isReconciling ? "disabled" : "primary"}`;
@@ -287,26 +346,10 @@ export class DashboardModal extends Modal {
 			cancelContainer.style.display = isReconciling ? "block" : "none";
 		}
 
-		// Update stat values
-		this.updateStatValue(container, "stat-active", String(activeWatchers));
-		this.updateStatValue(container, "stat-processed", String(stats.filesProcessed));
-		this.updateStatValue(container, "stat-skipped", String(stats.filesSkipped));
-		this.updateStatValue(container, "stat-errors", String(stats.errors));
-		this.updateStatValue(container, "stat-pending-files", String(queueStats.pendingFiles));
-		this.updateStatValue(container, "stat-pending-dirs", String(queueStats.pendingDirs));
-		this.updateStatValue(container, "stat-dropped", String(queueStats.droppedJobs));
-
-		// Update dropped jobs styling
-		const droppedCard = container.querySelector(".stat-dropped")?.closest(".stat-card");
-		if (droppedCard) {
-			droppedCard.classList.toggle("warning", queueStats.droppedJobs > 0);
-		}
-
-		// Update reconcile status
+		// Update reconcile status content
 		const reconcileContent = container.querySelector(".reconcile-status-content");
 		if (reconcileContent) {
 			reconcileContent.empty();
-			const reconcile = this.plugin.getReconcileSnapshot?.();
 			if (reconcile && reconcile.phase !== "idle" && reconcile.phase !== "done") {
 				const progress = reconcileContent.createDiv({ cls: "reconcile-progress" });
 				progress.createDiv({ text: `Mapping: ${reconcile.mappingLabel}` });
@@ -334,28 +377,6 @@ export class DashboardModal extends Modal {
 				});
 			}
 		}
-
-		// Update recent logs
-		const recentLogsContainer = container.querySelector(".recent-logs");
-		if (recentLogsContainer) {
-			recentLogsContainer.empty();
-			const recentLogs = LogService.getRecentLogs(5);
-			if (recentLogs.length > 0) {
-				for (const log of recentLogs) {
-					this.renderLogEntry(recentLogsContainer as HTMLElement, log, true);
-				}
-			} else {
-				recentLogsContainer.createDiv({
-					cls: "no-logs",
-					text: "No recent activity",
-				});
-			}
-		}
-	}
-
-	private updateStatValue(container: HTMLElement, dataId: string, value: string) {
-		const el = container.querySelector(`.${dataId}`) as HTMLElement;
-		if (el) el.setText(value);
 	}
 
 	private async handleToggleAll() {

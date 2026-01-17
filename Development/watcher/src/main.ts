@@ -26,6 +26,7 @@ export default class FileWatcherPlugin extends Plugin {
 
 	// Reconcile state
 	private reconcileSnapshot: ReconcileProgress | null = null;
+	private reconcileSubscribers = new Set<(p: ReconcileProgress | null) => void>();
 
 	/**
 	 * Convenience getter for stats (delegates to StatsService)
@@ -36,10 +37,27 @@ export default class FileWatcherPlugin extends Plugin {
 
 	setReconcileSnapshot(p: ReconcileProgress | null) {
 		this.reconcileSnapshot = p;
+		// Notify all subscribers
+		for (const sub of this.reconcileSubscribers) {
+			try {
+				sub(p);
+			} catch {
+				// Ignore subscriber errors
+			}
+		}
 	}
 
 	getReconcileSnapshot() {
 		return this.reconcileSnapshot;
+	}
+
+	/**
+	 * Subscribe to reconcile progress updates
+	 * @returns Unsubscribe function
+	 */
+	subscribeToReconcileProgress(callback: (p: ReconcileProgress | null) => void): () => void {
+		this.reconcileSubscribers.add(callback);
+		return () => this.reconcileSubscribers.delete(callback);
 	}
 
 	openDashboard() {
