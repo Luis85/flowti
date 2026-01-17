@@ -1,3 +1,4 @@
+import { ValidationError } from "../errors/FlowtiError";
 import type { IEventBus } from "../events/types";
 import { generateUUID } from "../utils/helpers";
 import type { IStorageProvider } from "../utils/types";
@@ -67,7 +68,12 @@ export class UserService implements IUserService {
 	async createUser(name: string): Promise<FlowtiUser> {
 		const trimmedName = name.trim();
 		if (!trimmedName) {
-			throw new Error("User name cannot be empty");
+			throw new ValidationError({
+				code: "INVALID_USER_NAME",
+				message: "User name cannot be empty",
+				severity: "medium",
+				context: "UserService.createUser",
+			});
 		}
 
 		const newUser: FlowtiUser = {
@@ -89,12 +95,22 @@ export class UserService implements IUserService {
 	 */
 	async updateUserName(name: string): Promise<void> {
 		if (!this.user) {
-			throw new Error("No user exists to update");
+			throw new ValidationError({
+				code: "NO_USER_EXISTS",
+				message: "No user exists to update",
+				severity: "medium",
+				context: "UserService.updateUserName",
+			});
 		}
 
 		const trimmedName = name.trim();
 		if (!trimmedName) {
-			throw new Error("User name cannot be empty");
+			throw new ValidationError({
+				code: "INVALID_USER_NAME",
+				message: "User name cannot be empty",
+				severity: "medium",
+				context: "UserService.updateUserName",
+			});
 		}
 
 		this.user.name = trimmedName;

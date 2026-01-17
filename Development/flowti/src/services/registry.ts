@@ -5,6 +5,7 @@
  * with the service container.
  */
 
+import { SettingsService } from "../settings/SettingsService";
 import type { IStorageProvider } from "../utils/types";
 import { UserService } from "../user/UserService";
 import type { IServiceContainer, ServiceRegistration } from "./types";
@@ -40,6 +41,16 @@ export function createServiceRegistrations(
 	const storage = createStorageProvider(pluginStorage);
 
 	return [
+		// Settings Service - manages plugin settings
+		{
+			id: "settingsService",
+			factory: (container: IServiceContainer) =>
+				new SettingsService({
+					storage,
+					eventBus: container.getEventBus(),
+				}),
+		},
+
 		// User Service - manages user profile and persistence
 		{
 			id: "userService",

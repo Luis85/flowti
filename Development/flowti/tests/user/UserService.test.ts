@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { ValidationError } from "../../src/errors/FlowtiError";
 import { EventBus } from "../../src/events/EventBus";
 import type { IEventBus } from "../../src/events/types";
 import { UserService } from "../../src/user/UserService";
@@ -61,13 +62,15 @@ describe("UserService", () => {
 			expect(user.name).toBe("Test User");
 		});
 
-		it("should reject empty name", async () => {
+		it("should reject empty name with ValidationError", async () => {
+			await expect(userService.createUser("")).rejects.toThrow(ValidationError);
 			await expect(userService.createUser("")).rejects.toThrow(
 				"User name cannot be empty"
 			);
 		});
 
-		it("should reject whitespace-only name", async () => {
+		it("should reject whitespace-only name with ValidationError", async () => {
+			await expect(userService.createUser("   ")).rejects.toThrow(ValidationError);
 			await expect(userService.createUser("   ")).rejects.toThrow(
 				"User name cannot be empty"
 			);
@@ -98,14 +101,16 @@ describe("UserService", () => {
 			expect(userService.getUser()?.name).toBe("New Name");
 		});
 
-		it("should reject empty name", async () => {
+		it("should reject empty name with ValidationError", async () => {
+			await expect(userService.updateUserName("")).rejects.toThrow(ValidationError);
 			await expect(userService.updateUserName("")).rejects.toThrow(
 				"User name cannot be empty"
 			);
 		});
 
-		it("should reject when no user exists", async () => {
+		it("should reject when no user exists with ValidationError", async () => {
 			const freshService = new UserService({ storage: createMockStorage().storage });
+			await expect(freshService.updateUserName("Name")).rejects.toThrow(ValidationError);
 			await expect(freshService.updateUserName("Name")).rejects.toThrow(
 				"No user exists to update"
 			);
