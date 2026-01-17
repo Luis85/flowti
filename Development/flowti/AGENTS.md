@@ -98,24 +98,6 @@ npm test
 
 - **Organize code into multiple files**: Split functionality across separate modules rather than putting everything in `main.ts`.
 - Source lives in `src/`. Keep `main.ts` small and focused on plugin lifecycle (loading, unloading, registering commands).
-- **Project file structure**:
-  ```
-  src/
-    main.ts           # Plugin entry point, lifecycle management
-    settings/
-      FlowtiSettingTab.ts # Plugin Settings Tab
-      settings.ts     # Settings schema, types, and defaults
-    commands/         # Command implementations
-      command1.ts
-      command2.ts
-    user/             # User domain (service, types, UI)
-      UserService.ts  # User management service
-      UserSetupModal.ts # User setup modal
-      types.ts        # User types and interfaces
-    utils/            # Utility functions, helpers, shared types
-      helpers.ts
-      types.ts        # Shared types (UUID, IStorageProvider, etc.)
-  ```
 - **Do not commit build artifacts**: Never commit `node_modules/`, `main.js`, or other generated files to version control.
 - Keep the plugin small. Avoid large dependencies. Prefer browser-compatible packages.
 - Generated output should be placed at the plugin root or `dist/` depending on your build setup. Release artifacts must end up at the top level of the plugin folder in the vault (`main.js`, `manifest.json`, `styles.css`).
@@ -214,6 +196,7 @@ Follow Obsidian's **Developer Policies** and **Plugin Guidelines**. In particula
 - use TSDoc 
 - keep the README up to date
 - every feature must have corresponding tests based on the underlying requirement
+- always try to leverage an event-driven architecture
 
 We are always trying to follow separation of concern principles and isolate our code as good as possible. We favor composition over inheritance but choose what suits best for the given use case.
 
