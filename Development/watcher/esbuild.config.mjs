@@ -3,7 +3,9 @@ import { builtinModules } from "module";
 import fs from "fs";
 import path from "path";
 
-const PLUGIN_ID = "foreign-folder-watcher";
+// Read plugin metadata from manifest.json
+const manifest = JSON.parse(fs.readFileSync("manifest.json", "utf-8"));
+const PLUGIN_ID = manifest.id;
 const OUTDIR = path.resolve(process.cwd(), "..", "..", ".obsidian", "plugins", PLUGIN_ID);
 const isWatch = process.argv.includes("--watch");
 const prod = !isWatch;
