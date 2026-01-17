@@ -680,7 +680,16 @@ export class FileSyncService {
 			if (cache.ensured.has(current)) continue;
 
 			if (!(await this.app.vault.adapter.exists(current))) {
-				await this.app.vault.createFolder(current);
+				try {
+					await this.app.vault.createFolder(current);
+				} catch (e) {
+					// Race condition: another worker may have created it between exists() and createFolder()
+					// "Folder already exists" is expected and not an error
+					const msg = e instanceof Error ? e.message : String(e);
+					if (!msg.includes("Folder already exists")) {
+						throw e;
+					}
+				}
 			}
 			cache.ensured.add(current);
 		}
