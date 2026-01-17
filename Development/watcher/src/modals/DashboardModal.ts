@@ -1,4 +1,4 @@
-import { Modal, Setting, setIcon, Notice } from "obsidian";
+import { Modal, Setting, setIcon } from "obsidian";
 import type FileWatcherPlugin from "src/main";
 import { truncatePath } from "src/utils";
 import { LogService, LogEntry, LogLevel } from "src/services/LogService";
@@ -207,7 +207,7 @@ export class DashboardModal extends Modal {
 			e.preventDefault();
 			e.stopPropagation();
 			this.plugin.reconcile?.cancel();
-			new Notice("Reconcile cancelled");
+			this.plugin.noticeService.show("Reconcile cancelled");
 		});
 
 		// Stats summary
@@ -366,10 +366,10 @@ export class DashboardModal extends Modal {
 			const activeWatchers = this.plugin.manager?.activeCount() ?? 0;
 			if (activeWatchers > 0) {
 				await this.plugin.manager?.stopAll();
-				new Notice("All watchers stopped");
+				this.plugin.noticeService.show("All watchers stopped");
 			} else {
 				await this.plugin.manager?.startAll();
-				new Notice("All watchers started");
+				this.plugin.noticeService.show("All watchers started");
 			}
 			this.updateOverviewValues();
 		} finally {
@@ -605,10 +605,10 @@ export class DashboardModal extends Modal {
 			const isRunning = this.plugin.manager?.isWatcherRunning(mappingId) ?? false;
 			if (isRunning) {
 				await this.plugin.manager?.stopWatcher(mappingId);
-				new Notice(`Watcher stopped: ${mappingDesc}`);
+				this.plugin.noticeService.show(`Watcher stopped: ${mappingDesc}`);
 			} else {
 				await this.plugin.manager?.startWatcher(mappingId);
-				new Notice(`Watcher started: ${mappingDesc}`);
+				this.plugin.noticeService.show(`Watcher started: ${mappingDesc}`);
 			}
 			this.updateWatcherValues();
 		} finally {
@@ -653,7 +653,7 @@ export class DashboardModal extends Modal {
 			(m) => m.id === mappingId
 		);
 		if (!mapping) {
-			new Notice("Mapping not found");
+			this.plugin.noticeService.error("Mapping not found");
 			return;
 		}
 

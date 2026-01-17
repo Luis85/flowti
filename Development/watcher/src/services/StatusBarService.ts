@@ -1,7 +1,7 @@
-import FileWatcherPlugin from "src/main";
 import { setTooltip } from "obsidian";
 import type { ReconcileProgress } from "src/types";
 import { truncatePath, getMappingLabel } from "src/utils";
+import type { IStatusBarContext } from "./types";
 
 /** Minimum interval between render calls (ms) */
 const RENDER_THROTTLE_MS = 100;
@@ -24,12 +24,12 @@ export class StatusBarService {
 	// Store click handler reference for cleanup
 	private clickHandler: () => void;
 
-	constructor(private plugin: FileWatcherPlugin) {
-		this.el = plugin.addStatusBarItem();
+	constructor(private ctx: IStatusBarContext) {
+		this.el = ctx.addStatusBarItem();
 		this.el.addClass("filewatcher-status");
 
 		// Click opens modal
-		this.clickHandler = () => this.plugin.openDashboard?.();
+		this.clickHandler = () => this.ctx.openDashboard?.();
 		this.el.addEventListener("click", this.clickHandler);
 
 		this.render();
@@ -53,8 +53,8 @@ export class StatusBarService {
 	}
 
 	render() {
-		const s = this.plugin.stats;
-		const active = this.plugin.manager?.activeCount() ?? 0;
+		const s = this.ctx.stats;
+		const active = this.ctx.getActiveWatcherCount();
 
 		// --- Compact status text ---
 		if (
@@ -105,7 +105,7 @@ export class StatusBarService {
 
 		lines.push("");
 		lines.push("Per mapping:");
-		for (const m of this.plugin.settings.folderMappings) {
+		for (const m of this.ctx.settings.folderMappings) {
 			const ms = s.perMappingStats[m.id] ?? {
 				processed: 0,
 				skipped: 0,

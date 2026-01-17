@@ -1,5 +1,5 @@
 import chokidar, { ChokidarOptions, FSWatcher } from "chokidar";
-import { App, Notice } from "obsidian";
+import { App } from "obsidian";
 import { PendingJob, FolderMapping, ChangeType } from "../types";
 import { LogService } from "../services/LogService";
 import * as fs from "fs";
@@ -9,6 +9,7 @@ import type {
 	IStatsTracker,
 	IFileSyncOperations,
 	IFileSyncServiceExtended,
+	INoticeService,
 } from "../interfaces";
 
 /**
@@ -21,6 +22,8 @@ export interface IMappingWatcherContext
 		IFileSyncOperations {
 	/** Optional file sync service for reconcileFolder */
 	readonly fileSync?: IFileSyncServiceExtended;
+	/** Notice service for user notifications */
+	readonly noticeService?: INoticeService;
 }
 
 export class MappingWatcher {
@@ -87,7 +90,7 @@ export class MappingWatcher {
 				details: { sourceFolder: m.sourceFolder },
 			});
 			this.context.bumpError(m.id);
-			new Notice(
+			this.context.noticeService?.error(
 				`Mapping "${m.description || m.id}": source folder missing`
 			);
 			return;
@@ -135,7 +138,7 @@ export class MappingWatcher {
 					details: { error: String(err) },
 				});
 				this.context.bumpError(m.id);
-				new Notice(
+				this.context.noticeService?.error(
 					`Watcher error (${m.description || m.id}): ${String(err)}`
 				);
 			});

@@ -1,5 +1,5 @@
 import FileWatcherPlugin from "src/main";
-import { App, Modal, Setting, Notice, setIcon } from "obsidian";
+import { App, Modal, Setting, setIcon } from "obsidian";
 import { FolderMapping, ConflictResolution } from "src/types";
 
 export type MappingModalMode = "create" | "edit";
@@ -329,7 +329,7 @@ export class FolderMappingModal extends Modal {
 	private async handleSave() {
 		const error = this.validateMapping();
 		if (error) {
-			new Notice(error);
+			this.plugin.noticeService.error(error);
 			return;
 		}
 
@@ -343,7 +343,7 @@ export class FolderMappingModal extends Modal {
 			mapping: this.mapping,
 		});
 
-		new Notice(this.mode === "create" ? "Mapping created" : "Mapping saved");
+		this.plugin.noticeService.success(this.mode === "create" ? "Mapping created" : "Mapping saved");
 		this.close();
 	}
 
@@ -359,7 +359,7 @@ export class FolderMappingModal extends Modal {
 				deleted: true,
 				mapping: this.mapping,
 			});
-			new Notice("Mapping deleted");
+			this.plugin.noticeService.show("Mapping deleted");
 			this.close();
 		}
 	}

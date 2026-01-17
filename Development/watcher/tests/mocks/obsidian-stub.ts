@@ -202,3 +202,10 @@ export class ButtonComponent {
 		return this;
 	}
 }
+
+/**
+ * Sets a tooltip on an element
+ */
+export function setTooltip(el: HTMLElement, text: string, options?: { placement?: string }): void {
+	// No-op stub for tests
+}

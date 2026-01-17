@@ -1,4 +1,4 @@
-import { Notice, Plugin } from "obsidian";
+import { Plugin } from "obsidian";
 import { StatusBarService } from "src/services/StatusBarService";
 import { WatcherManager } from "src/watcher/WatcherManager";
 import { FileWatcherSettingTab } from "src/settings/FileWatcherSettingTab";
@@ -6,6 +6,7 @@ import { FileSyncService } from "src/services/FileSyncService";
 import { ReconcileService } from "src/services/ReconcileService";
 import { DashboardModal } from "src/modals/DashboardModal";
 import { LogService } from "src/services/LogService";
+import { createNoticeService, type INoticeService } from "src/services/NoticeService";
 import { FileWatcherSettings, DEFAULT_SETTINGS } from "src/settings/types";
 import {
 	WatcherStats,
@@ -29,6 +30,7 @@ export default class FileWatcherPlugin extends Plugin {
 	statusbar!: StatusBarService;
 	reconcile!: ReconcileService;
 	settings!: FileWatcherSettings;
+	noticeService!: INoticeService;
 
 	private reconcileSnapshot: ReconcileProgress | null = null;
 
@@ -72,8 +74,28 @@ export default class FileWatcherPlugin extends Plugin {
 		});
 
 		this.fileSync = new FileSyncService(this.app, this.settings);
-		this.reconcile = new ReconcileService(this, this.fileSync);
-		this.statusbar = new StatusBarService(this);
+		this.noticeService = createNoticeService();
+
+		// Create StatusBarService with context
+		this.statusbar = new StatusBarService({
+			settings: this.settings,
+			stats: this.stats,
+			getActiveWatcherCount: () => this.manager?.activeCount() ?? 0,
+			openDashboard: () => this.openDashboard(),
+			addStatusBarItem: () => this.addStatusBarItem(),
+		});
+
+		// Create ReconcileService with context
+		this.reconcile = new ReconcileService(
+			{
+				settings: this.settings,
+				applyReconcileStats: (mappingId, stats) => this.applyReconcileStats(mappingId, stats),
+				setReconcileSnapshot: (p) => this.setReconcileSnapshot(p),
+				statusbar: this.statusbar,
+			},
+			this.fileSync,
+			this.noticeService
+		);
 
 		// Create WatcherManager with the interface-based context
 		this.manager = new WatcherManager({
@@ -84,6 +106,7 @@ export default class FileWatcherPlugin extends Plugin {
 				settings: this.settings,
 				stats: this.stats,
 				fileSync: this.fileSync,
+				noticeService: this.noticeService,
 				bumpProcessed: (mappingId, filePath) => this.bumpProcessed(mappingId, filePath),
 				bumpSkipped: (mappingId) => this.bumpSkipped(mappingId),
 				bumpError: (mappingId) => this.bumpError(mappingId),
@@ -98,7 +121,7 @@ export default class FileWatcherPlugin extends Plugin {
 			callback: () => {
 				LogService.info("Plugin", "Watchers restart requested");
 				this.manager?.updateMappings();
-				new Notice("File watchers restarted");
+				this.noticeService.show("File watchers restarted");
 			},
 		});
 
@@ -133,10 +156,10 @@ export default class FileWatcherPlugin extends Plugin {
 		// If any active => stop, else start
 		if (this.manager.activeCount() > 0) {
 			await this.manager.stopAll();
-			new Notice("All file watchers stopped");
+			this.noticeService.show("All file watchers stopped");
 		} else {
 			await this.manager.startAll();
-			new Notice("All file watchers started");
+			this.noticeService.show("All file watchers started");
 		}
 		this.statusbar?.onStatsChanged();
 	}
@@ -208,7 +231,7 @@ export default class FileWatcherPlugin extends Plugin {
 
 		if (!res.ok) {
 			this.bumpError(mapping.id);
-			new Notice(`[${label}] Error: ${res.error.message}`);
+			this.noticeService.error(`[${label}] Error: ${res.error.message}`);
 			console.error(res.error);
 			return;
 		}
@@ -220,7 +243,7 @@ export default class FileWatcherPlugin extends Plugin {
 
 		// processed
 		this.bumpProcessed(mapping.id, sourceFilePath);
-		new Notice(`[${label}] ${changeType}: ${sourceFilePath}`);
+		this.noticeService.success(`[${label}] ${changeType}: ${sourceFilePath}`);
 	}
 
 	async loadSettings() {

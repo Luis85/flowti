@@ -485,17 +485,6 @@ describe("path traversal protection", () => {
 	});
 });
 
-// Note: reconcileMapping tests are skipped because they require complex fs mocking
-// The walkFiles function uses readdirSync which is difficult to mock correctly
-// These tests would be better run as integration tests with a real filesystem
-describe.skip("FileSyncService - reconcileMapping", () => {
-	it("should reconcile all files in mapping", () => {});
-	it("should respect file extension filter", () => {});
-	it("should not process subfolders when disabled", () => {});
-	it("should report progress", () => {});
-	it("should use concurrent workers", () => {});
-});
-
 describe("FileSyncService - reconcileMapping edge cases", () => {
 	let service: FileSyncService;
 	let mockApp: ReturnType<typeof createMockApp>;

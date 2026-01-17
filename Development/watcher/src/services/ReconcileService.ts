@@ -1,22 +1,26 @@
-import type FileWatcherPlugin from "src/main";
-import { Notice } from "obsidian";
 import type {
 	FolderMapping,
 	ReconcileProgress,
 	ReconcileStats,
 } from "src/types";
 import { getMappingLabel } from "src/utils";
-import { ReconcileCallbacks, IFileSyncService, ReconcileMappingProgress } from "./types";
+import { ReconcileCallbacks, IFileSyncService, ReconcileMappingProgress, IReconcileContext } from "./types";
 import { LogService } from "./LogService";
+import type { INoticeService } from "./NoticeService";
+import { createNoOpNoticeService } from "./NoticeService";
 
 export class ReconcileService {
 	private running = false;
 	private cancelled = false;
+	private notice: INoticeService;
 
 	constructor(
-		private plugin: FileWatcherPlugin,
-		private fileSync: IFileSyncService
-	) {}
+		private ctx: IReconcileContext,
+		private fileSync: IFileSyncService,
+		notice?: INoticeService
+	) {
+		this.notice = notice ?? createNoOpNoticeService();
+	}
 
 	isRunning() {
 		return this.running;
@@ -27,7 +31,7 @@ export class ReconcileService {
 	}
 
 	async reconcileOnStart(): Promise<void> {
-		const settings = this.plugin.settings;
+		const settings = this.ctx.settings;
 		const syncOnStart = settings.syncOnStart ?? true;
 		if (!syncOnStart) return;
 
@@ -166,7 +170,7 @@ export class ReconcileService {
 				);
 
 				safeCallback(cb.onMappingDone, m, res);
-				this.plugin.applyReconcileStats(m.id, res);
+				this.ctx.applyReconcileStats(m.id, res);
 
 				LogService.info("Reconcile", `Mapping complete: ${label}`, {
 					mappingId: m.id,
@@ -180,9 +184,9 @@ export class ReconcileService {
 			}
 		} finally {
 			this.running = false;
-			this.plugin.setReconcileSnapshot?.(null);
-			this.plugin.statusbar?.clearReconcileProgress?.();
-			this.plugin.statusbar?.onStatsChanged();
+			this.ctx.setReconcileSnapshot?.(null);
+			this.ctx.statusbar?.clearReconcileProgress?.();
+			this.ctx.statusbar?.onStatsChanged();
 
 			// Release operation lock to allow watchers to resume
 			if (releaseOp) {
@@ -196,13 +200,13 @@ export class ReconcileService {
 		p: ReconcileProgress,
 		meta: { mappingIndex: number; mappingTotal: number }
 	) {
-		this.plugin.setReconcileSnapshot?.(p);
-		this.plugin.statusbar?.setReconcileProgress?.(p, meta);
+		this.ctx.setReconcileSnapshot?.(p);
+		this.ctx.statusbar?.setReconcileProgress?.(p, meta);
 	}
 
 	private defaultDoneNotice(m: FolderMapping, res: ReconcileStats) {
 		const label = getMappingLabel(m);
-		new Notice(
+		this.notice.show(
 			`[${label}] Reconcile done: scanned ${res.scanned}, ✅${res.processed}, ⏭️${res.skipped}, ⚠️${res.errors}`,
 			6000
 		);
@@ -213,11 +217,11 @@ export class ReconcileService {
 	 */
 	async reconcileSingleMapping(mappingId: string): Promise<boolean> {
 		if (this.running) {
-			new Notice("Reconcile already in progress");
+			this.notice.show("Reconcile already in progress");
 			return false;
 		}
 
-		const mapping = this.plugin.settings.folderMappings.find(
+		const mapping = this.ctx.settings.folderMappings.find(
 			(m) => m.id === mappingId
 		);
 		if (!mapping) {
@@ -246,15 +250,15 @@ export class ReconcileService {
 	 */
 	async reconcileAll(): Promise<boolean> {
 		if (this.running) {
-			new Notice("Reconcile already in progress");
+			this.notice.show("Reconcile already in progress");
 			return false;
 		}
 
-		const mappings = this.plugin.settings.folderMappings.filter(
+		const mappings = this.ctx.settings.folderMappings.filter(
 			(m) => m.enabled
 		);
 		if (mappings.length === 0) {
-			new Notice("No enabled mappings to reconcile");
+			this.notice.show("No enabled mappings to reconcile");
 			return false;
 		}
 

@@ -1,5 +1,5 @@
 import FileWatcherPlugin from "src/main";
-import { App, PluginSettingTab, Setting, Notice } from "obsidian";
+import { App, PluginSettingTab, Setting } from "obsidian";
 import { FolderMapping } from "../types";
 import { FolderMappingModal } from "src/modals/FolderMappingModal";
 import { shortPath, toVaultPath, getMappingLabel, makeId } from "src/utils";
@@ -63,7 +63,7 @@ export class FileWatcherSettingTab extends PluginSettingTab {
 							consoleOutput: v,
 						});
 						await this.plugin.saveSettings();
-						new Notice(v ? "Debug mode enabled" : "Debug mode disabled");
+						this.plugin.noticeService.show(v ? "Debug mode enabled" : "Debug mode disabled");
 					})
 			);
 
@@ -230,17 +230,17 @@ export class FileWatcherSettingTab extends PluginSettingTab {
 			.addButton((b) =>
 				b.setButtonText("Reconcile enabled now").onClick(async () => {
 					if (!this.plugin.reconcile) {
-						new Notice("Reconcile service not available");
+						this.plugin.noticeService.error("Reconcile service not available");
 						return;
 					}
 					const enabled = this.plugin.settings.folderMappings.filter(
 						(m) => m.enabled && m.reconcileOnStart !== false
 					);
 					if (enabled.length === 0) {
-						new Notice("No enabled mappings to reconcile.");
+						this.plugin.noticeService.show("No enabled mappings to reconcile.");
 						return;
 					}
-					new Notice(`Reconciling ${enabled.length} mapping(s)…`);
+					this.plugin.noticeService.show(`Reconciling ${enabled.length} mapping(s)…`);
 					await this.plugin.reconcile.reconcileMappings(enabled, {
 						onProgress: (p, meta) => {
 							this.plugin.setReconcileSnapshot?.(p);
@@ -253,7 +253,7 @@ export class FileWatcherSettingTab extends PluginSettingTab {
 							this.plugin.statusbar?.onStatsChanged();
 						},
 					});
-					new Notice("Reconcile finished.");
+					this.plugin.noticeService.success("Reconcile finished.");
 				})
 			);
 
@@ -361,14 +361,14 @@ export class FileWatcherSettingTab extends PluginSettingTab {
 				.addButton((b) =>
 					b.setButtonText("Reconcile").onClick(async () => {
 						if (!this.plugin.reconcile) {
-							new Notice("Reconcile service not available");
+							this.plugin.noticeService.error("Reconcile service not available");
 							return;
 						}
 						if (!m.enabled) {
-							new Notice("Enable the mapping first.");
+							this.plugin.noticeService.show("Enable the mapping first.");
 							return;
 						}
-						new Notice(`Reconciling: ${m.description || m.id}…`);
+						this.plugin.noticeService.show(`Reconciling: ${m.description || m.id}…`);
 						await this.plugin.reconcile.reconcileMappings([m], {
 							onProgress: (p, meta) => {
 								this.plugin.setReconcileSnapshot?.(p);
@@ -381,7 +381,7 @@ export class FileWatcherSettingTab extends PluginSettingTab {
 								this.plugin.statusbar?.onStatsChanged();
 							},
 						});
-						new Notice("Reconcile finished.");
+						this.plugin.noticeService.success("Reconcile finished.");
 					})
 				)
 				.addButton((b) =>
@@ -394,7 +394,7 @@ export class FileWatcherSettingTab extends PluginSettingTab {
 						};
 						this.plugin.settings.folderMappings.push(copy);
 						await this.plugin.saveSettings();
-						new Notice("Mapping duplicated");
+						this.plugin.noticeService.success("Mapping duplicated");
 						this.display();
 					})
 				)

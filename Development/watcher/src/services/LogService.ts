@@ -7,6 +7,12 @@
  * - Real-time subscriptions for UI updates
  * - Filtering by level, category, mappingId, search text
  * - Configurable log retention
+ *
+ * Architecture:
+ * - ILogService interface for dependency injection in tests
+ * - LogServiceImpl is the concrete implementation
+ * - LogService singleton for backward compatibility
+ * - createLogService() factory for test instances
  */
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
@@ -37,6 +43,51 @@ export interface LogFilter {
 	since?: Date;
 }
 
+export interface LogOptions {
+	details?: Record<string, unknown>;
+	mappingId?: string;
+	filePath?: string;
+}
+
+/**
+ * Interface for LogService - allows dependency injection in tests
+ */
+export interface ILogService {
+	configure(options: {
+		maxEntries?: number;
+		enabled?: boolean;
+		minLevel?: LogLevel;
+		consoleOutput?: boolean;
+	}): void;
+
+	isDebugEnabled(): boolean;
+	setDebugEnabled(enabled: boolean): void;
+
+	log(
+		level: LogLevel,
+		category: LogCategory,
+		message: string,
+		options?: LogOptions
+	): LogEntry | null;
+
+	debug(category: LogCategory, message: string, options?: LogOptions): LogEntry | null;
+	info(category: LogCategory, message: string, options?: LogOptions): LogEntry | null;
+	warn(category: LogCategory, message: string, options?: LogOptions): LogEntry | null;
+	error(category: LogCategory, message: string, options?: LogOptions): LogEntry | null;
+
+	getLogs(filter?: LogFilter): LogEntry[];
+	getRecentLogs(count: number, filter?: LogFilter): LogEntry[];
+	getCounts(): Record<LogLevel, number>;
+	getErrorCountSince(since: Date): number;
+
+	clear(): void;
+	subscribe(listener: (entry: LogEntry) => void): () => void;
+	exportAsJson(): string;
+	dumpHistory(filter?: { category?: LogCategory; level?: LogLevel }): void;
+
+	readonly count: number;
+}
+
 /** Console colors for each log level */
 const LOG_COLORS: Record<LogLevel, string> = {
 	debug: "color: #888",
@@ -50,8 +101,11 @@ const CONSOLE_PREFIX = "[FileWatcher]";
 /** Default max log entries to keep in memory */
 const DEFAULT_MAX_ENTRIES = 1000;
 
-/** Singleton log service */
-class LogServiceImpl {
+/**
+ * Concrete implementation of LogService.
+ * Can be instantiated for tests or used as singleton via LogService export.
+ */
+export class LogServiceImpl implements ILogService {
 	private logs: LogEntry[] = [];
 	private nextId = 1;
 	private maxEntries: number = DEFAULT_MAX_ENTRIES;
@@ -393,12 +447,55 @@ class LogServiceImpl {
 	}
 }
 
-/** Singleton instance */
-export const LogService = new LogServiceImpl();
+/** Singleton instance for backward compatibility */
+export const LogService: ILogService = new LogServiceImpl();
+
+/**
+ * Factory function to create new LogService instances.
+ * Use this for tests to get isolated log instances.
+ */
+export function createLogService(options?: {
+	maxEntries?: number;
+	enabled?: boolean;
+	minLevel?: LogLevel;
+	consoleOutput?: boolean;
+}): ILogService {
+	const service = new LogServiceImpl();
+	if (options) {
+		service.configure(options);
+	}
+	return service;
+}
+
+/**
+ * Create a no-op LogService for tests that don't care about logging.
+ * All methods are stubs that do nothing.
+ */
+export function createNoOpLogService(): ILogService {
+	return {
+		configure: () => {},
+		isDebugEnabled: () => false,
+		setDebugEnabled: () => {},
+		log: () => null,
+		debug: () => null,
+		info: () => null,
+		warn: () => null,
+		error: () => null,
+		getLogs: () => [],
+		getRecentLogs: () => [],
+		getCounts: () => ({ debug: 0, info: 0, warn: 0, error: 0 }),
+		getErrorCountSince: () => 0,
+		clear: () => {},
+		subscribe: () => () => {},
+		exportAsJson: () => "[]",
+		dumpHistory: () => {},
+		count: 0,
+	};
+}
 
 // Expose to window for debugging
 if (typeof window !== "undefined") {
 	(
-		window as unknown as { FileWatcherLog: LogServiceImpl }
+		window as unknown as { FileWatcherLog: ILogService }
 	).FileWatcherLog = LogService;
 }
