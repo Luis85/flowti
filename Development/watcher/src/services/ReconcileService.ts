@@ -189,8 +189,9 @@ export class ReconcileService {
 					meta
 				);
 
-				const res: ReconcileStats =
-					await this.fileSync.reconcileMapping(m, (p: ReconcileMappingProgress) => {
+				let res: ReconcileStats;
+				try {
+					res = await this.fileSync.reconcileMapping(m, (p: ReconcileMappingProgress) => {
 						if (this.cancelled) return;
 
 						safeCallback(
@@ -212,6 +213,29 @@ export class ReconcileService {
 							meta
 						);
 					});
+				} catch (e) {
+					const errorMessage = e instanceof Error ? e.message : String(e);
+					LogService.error("Reconcile", `Mapping failed: ${label}`, {
+						mappingId: m.id,
+						details: { error: errorMessage },
+					});
+
+					safeCallback(
+						cb.onProgress,
+						{
+							mappingId: m.id,
+							mappingLabel: label,
+							phase: "error",
+							scanned: 0,
+							processed: 0,
+							skipped: 0,
+							errors: 1,
+							errorMessage,
+						},
+						meta
+					);
+					continue; // Skip to next mapping
+				}
 
 				if (this.cancelled) {
 					safeCallback(

@@ -36,11 +36,14 @@ export class NoticeService implements INoticeService {
 	}
 
 	error(message: string, timeout = 8000): void {
-		new Notice(message, timeout);
+		const notice = new Notice(`⚠️ ${message}`, timeout);
+		// Add error styling to the notice element
+		notice.messageEl.addClass("mod-error");
 	}
 
 	success(message: string, timeout = 3000): void {
-		new Notice(message, timeout);
+		const notice = new Notice(`✅ ${message}`, timeout);
+		notice.messageEl.addClass("mod-success");
 	}
 }
 

@@ -509,10 +509,17 @@ export class FileSyncService {
 			LogService.debug("Sync", `Ensuring parent folder: ${parentFolder}`);
 			await this.ensureFolderCached(parentFolder, opts.ensuredFolders);
 
-			// Optional stability check (OneDrive)
+			// Optional stability check (OneDrive/Dropbox cloud sync)
 			if (opts.verifyStability) {
 				const stable = await this.waitForStability(sourceFilePath);
 				if (!stable) {
+					LogService.debug("Sync", `File skipped: stability check failed (still syncing?)`, {
+						filePath: sourceFilePath,
+						details: {
+							stabilityChecks: this.settings.stabilityChecks,
+							interval: this.settings.stabilityCheckInterval,
+						},
+					});
 					return {
 						ok: true,
 						action: "skipped",
