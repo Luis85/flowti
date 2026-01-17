@@ -236,15 +236,6 @@ export default class FileWatcherPlugin extends Plugin {
 		LogService.error("Plugin", "Failed to load plugin", {
 			details: { error: message },
 		});
-
-		console.error("FileWatcher plugin failed to load:", error);
-
-		// Try to show a notice if possible
-		try {
-			this.noticeService?.error(`FileWatcher failed to load: ${message}`);
-		} catch {
-			// If notice service isn't available, we've already logged to console
-		}
 	}
 
 	/**
@@ -282,7 +273,6 @@ export default class FileWatcherPlugin extends Plugin {
 		if (!res.ok) {
 			this.statsService.bumpError(mapping.id);
 			this.noticeService.error(`[${label}] Error: ${res.error.message}`);
-			console.error(res.error);
 			return;
 		}
 
