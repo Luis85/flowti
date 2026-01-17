@@ -10,13 +10,11 @@ export type ReconcileCallbacks = {
 	onMappingDone?: (mapping: FolderMapping, stats: ReconcileStats) => void;
 };
 
-/** Progress data emitted by FileSyncService during reconcile */
-export type ReconcileMappingProgress = {
+/** Progress data emitted by FileSyncService during reconcile.
+ * Extends ReconcileStats with total count and current file info.
+ */
+export type ReconcileMappingProgress = ReconcileStats & {
 	total: number;
-	scanned: number;
-	processed: number;
-	skipped: number;
-	errors: number;
 	current?: string;
 };
 

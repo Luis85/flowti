@@ -389,23 +389,3 @@ export class FolderMappingModal extends Modal {
 		this.contentEl.empty();
 	}
 }
-
-/**
- * Create a new empty mapping with default values
- */
-export function createNewMapping(): FolderMapping {
-	return {
-		id: "",
-		enabled: true,
-		sourceFolder: "",
-		targetFolder: "",
-		watchSubfolders: true,
-		fileExtensions: [],
-		conflictResolution: "keepNewer",
-		debounceDelay: 800,
-		description: "",
-		usePolling: false,
-		pollingInterval: 300,
-		reconcileOnStart: true,
-	};
-}

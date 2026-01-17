@@ -15,6 +15,39 @@ export interface FolderMapping {
 	reconcileOnStart: boolean;
 }
 
+/**
+ * Default values for FolderMapping properties.
+ * Used when creating new mappings.
+ */
+export const DEFAULT_MAPPING_VALUES: Omit<FolderMapping, "id"> = {
+	enabled: true,
+	sourceFolder: "",
+	targetFolder: "",
+	watchSubfolders: true,
+	fileExtensions: [],
+	conflictResolution: "keepNewer",
+	debounceDelay: 800,
+	description: "",
+	usePolling: false,
+	pollingInterval: 300,
+	reconcileOnStart: true,
+};
+
+/**
+ * Creates a new FolderMapping with default values.
+ * @param overrides - Optional values to override defaults
+ * @returns A new FolderMapping with a generated ID
+ */
+export function createDefaultMapping(
+	overrides: Partial<FolderMapping> = {}
+): FolderMapping {
+	return {
+		...DEFAULT_MAPPING_VALUES,
+		id: crypto.randomUUID?.() ?? String(Date.now()),
+		...overrides,
+	};
+}
+
 export interface WatcherStats {
 	filesProcessed: number;
 	filesSkipped: number;

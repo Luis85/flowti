@@ -1,6 +1,7 @@
 import chokidar, { ChokidarOptions, FSWatcher } from "chokidar";
 import { App } from "obsidian";
 import { PendingJob, FolderMapping, ChangeType } from "../types";
+import { createIgnoredMatcher } from "../utils";
 import { LogService } from "../services/LogService";
 import * as fs from "fs";
 import * as path from "path";
@@ -107,7 +108,7 @@ export class MappingWatcher {
 			return;
 		}
 
-		const ignored = this.buildIgnoredMatcher();
+		const ignored = createIgnoredMatcher(this.context.settings.ignoreOneDriveTemp);
 
 		const watchOptions: ChokidarOptions = {
 			ignored,
@@ -356,24 +357,4 @@ export class MappingWatcher {
 		return true;
 	}
 
-	private buildIgnoredMatcher():
-		| ((p: string) => boolean)
-		| RegExp
-		| undefined {
-		const ignoreDotfiles = /(^|[\/\\])\../;
-
-		if (!this.context.settings.ignoreOneDriveTemp) return ignoreDotfiles;
-
-		const officeLock = /(^|[\/\\])~\$/; // "~$file.docx"
-		const tmpExt = /\.(tmp|temp|partial|crdownload)$/i;
-		const onedriveTmpNames = /(^|[\/\\])(desktop\.ini|thumbs\.db)$/i;
-
-		return (p: string) => {
-			if (ignoreDotfiles.test(p)) return true;
-			if (officeLock.test(p)) return true;
-			if (tmpExt.test(p)) return true;
-			if (onedriveTmpNames.test(p)) return true;
-			return false;
-		};
-	}
 }

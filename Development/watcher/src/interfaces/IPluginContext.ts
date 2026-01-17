@@ -4,7 +4,9 @@ import type {
 	ChangeType,
 	WatcherStats,
 	ReconcileProgress,
+	ReconcileStats,
 } from "../types";
+import type { ReconcileMappingProgress } from "../services/types";
 import type { FileWatcherSettings } from "../settings/types";
 
 /**
@@ -116,13 +118,6 @@ export interface IFileSyncServiceExtended {
 	reconcileFolder(
 		mapping: FolderMapping,
 		folderAbsPath: string,
-		onProgress?: (p: {
-			total: number;
-			scanned: number;
-			processed: number;
-			skipped: number;
-			errors: number;
-			current?: string;
-		}) => void
-	): Promise<{ scanned: number; processed: number; skipped: number; errors: number }>;
+		onProgress?: (p: ReconcileMappingProgress) => void
+	): Promise<ReconcileStats>;
 }

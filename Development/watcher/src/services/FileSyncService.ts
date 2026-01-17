@@ -193,7 +193,6 @@ export class FileSyncService {
 		}
 
 		// We reuse reconcileMapping logic but scan only this folder subtree.
-		// Easiest: temporarily call internal walk with folderAbsPath
 		const stats: ReconcileStats = {
 			scanned: 0,
 			processed: 0,
@@ -222,18 +221,52 @@ export class FileSyncService {
 
 		const skipUnchangedOnReconcile = global.fastSkipUnchanged ?? true;
 
-		const all = await this.walkFiles(folderAbsPath, true);
-		const files = all.filter((filePath) => {
-			if (!this.isAllowedByExtension(mapping, filePath)) return false;
-			if (
-				this.settings.ignoreOneDriveTemp &&
-				isTempFile(filePath)
-			)
-				return false;
-			return true;
-		});
+		// Incremental mode: use sync state to skip unchanged files
+		const useIncrementalMode =
+			(global.incrementalMode ?? true) && this.syncState !== undefined;
 
-		const total = files.length;
+		const all = await this.walkFiles(folderAbsPath, true);
+
+		// Pre-filter files and optionally check sync state
+		const filesToProcess: Array<{ filePath: string; relativePath: string; stat?: fs.Stats }> = [];
+
+		for (const filePath of all) {
+			if (!this.isAllowedByExtension(mapping, filePath)) continue;
+			if (this.settings.ignoreOneDriveTemp && isTempFile(filePath)) continue;
+
+			const relativePath = path.relative(mapping.sourceFolder, filePath);
+
+			// In incremental mode, check if file needs sync
+			if (useIncrementalMode && this.syncState) {
+				try {
+					const stat = await fsp.stat(filePath);
+					const sourceNeedsSync = this.syncState.needsSync(
+						mapping.id,
+						mapping.sourceFolder,
+						relativePath,
+						{ mtimeMs: stat.mtimeMs, size: stat.size }
+					);
+
+					// Also check if target file exists in vault
+					const targetPath = path.join(mapping.targetFolder, relativePath);
+					const targetExists = await this.app.vault.adapter.exists(targetPath);
+
+					if (!sourceNeedsSync && targetExists) {
+						stats.skipped++;
+						continue;
+					}
+
+					filesToProcess.push({ filePath, relativePath, stat });
+				} catch {
+					// If stat fails, include the file anyway
+					filesToProcess.push({ filePath, relativePath });
+				}
+			} else {
+				filesToProcess.push({ filePath, relativePath });
+			}
+		}
+
+		const total = filesToProcess.length + stats.skipped;
 
 		const progress = this.createProgressEmitter(
 			onProgress,
@@ -260,9 +293,9 @@ export class FileSyncService {
 		const worker = async () => {
 			while (true) {
 				const i = await getNextIndex();
-				if (i >= files.length) return;
+				if (i >= filesToProcess.length) return;
 
-				const filePath = files[i];
+				const { filePath, relativePath, stat } = filesToProcess[i];
 				stats.scanned++;
 
 				const res = await this.syncFileInternal(mapping, filePath, {
@@ -274,9 +307,28 @@ export class FileSyncService {
 					targetIndex,
 				});
 
-				if (!res.ok) stats.errors++;
-				else if (res.action === "skipped") stats.skipped++;
-				else stats.processed++;
+				if (!res.ok) {
+					stats.errors++;
+				} else if (res.action === "skipped") {
+					stats.skipped++;
+				} else {
+					stats.processed++;
+
+					// Record successful sync in state
+					if (this.syncState) {
+						try {
+							const fileStat = stat ?? await fsp.stat(filePath);
+							this.syncState.recordSync(
+								mapping.id,
+								mapping.sourceFolder,
+								relativePath,
+								{ mtimeMs: fileStat.mtimeMs, size: fileStat.size }
+							);
+						} catch {
+							// Ignore stat errors
+						}
+					}
+				}
 
 				progress.emit({ total, ...stats, current: filePath });
 			}

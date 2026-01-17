@@ -1,9 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import type { FolderMapping } from "../../src/types";
-import {
-	createNewMapping,
-	type MappingModalResult,
-} from "../../src/modals/FolderMappingModal";
+import { type FolderMapping, createDefaultMapping } from "../../src/types";
+import { type MappingModalResult } from "../../src/modals/FolderMappingModal";
 
 /**
  * Tests for mapping creation and editing logic.
@@ -11,11 +8,13 @@ import {
  */
 
 describe("Mapping Management", () => {
-	describe("createNewMapping", () => {
+	describe("createDefaultMapping", () => {
 		it("should create a mapping with default values", () => {
-			const mapping = createNewMapping();
+			const mapping = createDefaultMapping();
 
-			expect(mapping.id).toBe("");
+			// ID is now auto-generated (non-empty string)
+			expect(mapping.id).toBeTruthy();
+			expect(typeof mapping.id).toBe("string");
 			expect(mapping.enabled).toBe(true);
 			expect(mapping.sourceFolder).toBe("");
 			expect(mapping.targetFolder).toBe("");
@@ -27,6 +26,13 @@ describe("Mapping Management", () => {
 			expect(mapping.usePolling).toBe(false);
 			expect(mapping.pollingInterval).toBe(300);
 			expect(mapping.reconcileOnStart).toBe(true);
+		});
+
+		it("should generate unique IDs for each mapping", () => {
+			const mapping1 = createDefaultMapping();
+			const mapping2 = createDefaultMapping();
+
+			expect(mapping1.id).not.toBe(mapping2.id);
 		});
 	});
 
@@ -390,21 +396,21 @@ describe("Mapping Management", () => {
 		};
 
 		it("should reject mapping without source folder", () => {
-			const mapping = createNewMapping();
+			const mapping = createDefaultMapping();
 			mapping.targetFolder = "valid/target";
 
 			expect(validateMapping(mapping)).toBe("Source folder is required");
 		});
 
 		it("should reject mapping without target folder", () => {
-			const mapping = createNewMapping();
+			const mapping = createDefaultMapping();
 			mapping.sourceFolder = "C:\\valid\\source";
 
 			expect(validateMapping(mapping)).toBe("Target folder is required");
 		});
 
 		it("should reject mapping with whitespace-only source folder", () => {
-			const mapping = createNewMapping();
+			const mapping = createDefaultMapping();
 			mapping.sourceFolder = "   ";
 			mapping.targetFolder = "valid/target";
 
@@ -412,7 +418,7 @@ describe("Mapping Management", () => {
 		});
 
 		it("should reject mapping with whitespace-only target folder", () => {
-			const mapping = createNewMapping();
+			const mapping = createDefaultMapping();
 			mapping.sourceFolder = "C:\\valid\\source";
 			mapping.targetFolder = "   ";
 
@@ -420,7 +426,7 @@ describe("Mapping Management", () => {
 		});
 
 		it("should accept valid mapping", () => {
-			const mapping = createNewMapping();
+			const mapping = createDefaultMapping();
 			mapping.sourceFolder = "C:\\valid\\source";
 			mapping.targetFolder = "valid/target";
 

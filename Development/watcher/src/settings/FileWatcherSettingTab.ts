@@ -1,9 +1,9 @@
 import FileWatcherPlugin from "src/main";
 import { App, PluginSettingTab, Setting } from "obsidian";
-import { FolderMapping } from "../types";
+import { FolderMapping, createDefaultMapping } from "../types";
 import { FolderMappingModal } from "src/modals/FolderMappingModal";
 import { confirmDelete } from "src/modals/ConfirmModal";
-import { truncatePath, toVaultPath, makeId } from "src/utils";
+import { truncatePath, toVaultPath } from "src/utils";
 import { LogService } from "src/services/LogService";
 
 export class FileWatcherSettingTab extends PluginSettingTab {
@@ -350,7 +350,11 @@ export class FileWatcherSettingTab extends PluginSettingTab {
 	// =========================================================================
 
 	private openNewMappingModal() {
-		const m = this.createDefaultMapping();
+		const m = createDefaultMapping({
+			enabled: false,
+			targetFolder: "imported",
+			description: "New mapping",
+		});
 
 		new FolderMappingModal(this.app, this.plugin, m, "create", async (result) => {
 			if (result.saved && result.mapping) {
@@ -450,20 +454,4 @@ export class FileWatcherSettingTab extends PluginSettingTab {
 		}
 	}
 
-	private createDefaultMapping(): FolderMapping {
-		return {
-			id: makeId(),
-			enabled: false,
-			sourceFolder: "",
-			targetFolder: "imported",
-			watchSubfolders: true,
-			fileExtensions: [],
-			conflictResolution: "keepNewer",
-			debounceDelay: 800,
-			description: "New mapping",
-			usePolling: false,
-			pollingInterval: 300,
-			reconcileOnStart: true,
-		};
-	}
 }

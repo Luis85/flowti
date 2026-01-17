@@ -3,7 +3,8 @@ import type FileWatcherPlugin from "src/main";
 import { truncatePath } from "src/utils";
 import { LogService, LogEntry, LogLevel } from "src/services/LogService";
 import type { WatcherInfo } from "src/watcher/WatcherManager";
-import { FolderMappingModal, createNewMapping } from "./FolderMappingModal";
+import { FolderMappingModal } from "./FolderMappingModal";
+import { createDefaultMapping } from "src/types";
 
 type TabId = "overview" | "watchers" | "logs";
 
@@ -674,7 +675,7 @@ export class DashboardModal extends Modal {
 	}
 
 	private openNewMappingModal() {
-		const newMapping = createNewMapping();
+		const newMapping = createDefaultMapping();
 		new FolderMappingModal(
 			this.app,
 			this.plugin,
