@@ -10,7 +10,7 @@ import { DashboardModal } from "src/modals/DashboardModal";
 import { LogService } from "src/services/LogService";
 import { createNoticeService, type INoticeService } from "src/services/NoticeService";
 import { FileWatcherSettings, DEFAULT_SETTINGS } from "src/settings/types";
-import { ReconcileProgress, FolderMapping, SyncChangeType } from "src/types";
+import { ReconcileProgress, FolderMapping, ChangeType } from "src/types";
 import { getMappingLabel } from "src/utils";
 
 /**
@@ -379,7 +379,7 @@ export default class FileWatcherPlugin extends Plugin {
 	async syncFile(
 		mapping: FolderMapping,
 		sourceFilePath: string,
-		changeType: SyncChangeType
+		changeType: ChangeType
 	) {
 		const res = await this.fileSync.syncFile(
 			mapping,

@@ -4,11 +4,12 @@ import * as path from "path";
 import type { App } from "obsidian";
 import type {
 	FolderMapping,
-	SyncChangeType,
+	ChangeType,
 	SyncResult,
 	ConflictDecision,
 	ReconcileStats,
 } from "../types";
+import { toVaultPath, isTempFile } from "../utils";
 import { FileWatcherSettings } from "../settings/types";
 import { LogService } from "./LogService";
 import { AsyncMutex, KeyedMutex, OperationLock } from "./AsyncMutex";
@@ -119,7 +120,7 @@ export class FileSyncService {
 	async syncFile(
 		mapping: FolderMapping,
 		sourceFilePath: string,
-		_changeType: SyncChangeType
+		_changeType: ChangeType
 	): Promise<SyncResult> {
 		LogService.debug("Sync", `syncFile() called`, {
 			mappingId: mapping.id,
@@ -226,7 +227,7 @@ export class FileSyncService {
 			if (!this.isAllowedByExtension(mapping, filePath)) return false;
 			if (
 				this.settings.ignoreOneDriveTemp &&
-				this.isOneDriveTemp(filePath)
+				isTempFile(filePath)
 			)
 				return false;
 			return true;
@@ -381,7 +382,7 @@ export class FileSyncService {
 
 		for (const filePath of all) {
 			if (!this.isAllowedByExtension(mapping, filePath)) continue;
-			if (this.settings.ignoreOneDriveTemp && this.isOneDriveTemp(filePath)) continue;
+			if (this.settings.ignoreOneDriveTemp && isTempFile(filePath)) continue;
 
 			const relativePath = path.relative(mapping.sourceFolder, filePath);
 			existingPaths.add(relativePath);
@@ -555,7 +556,7 @@ export class FileSyncService {
 		// Calculate target path first (needed for file-level lock)
 		const rel = path.relative(mapping.sourceFolder, sourceFilePath);
 		const targetPathRaw = path.join(mapping.targetFolder, rel);
-		const targetPath = this.toVaultPath(targetPathRaw);
+		const targetPath = toVaultPath(targetPathRaw);
 
 		// Validate target path stays within vault's target folder
 		try {
@@ -768,7 +769,7 @@ export class FileSyncService {
 		// Many Obsidian adapters implement list(). If not, this will throw.
 		// list() returns: { files: string[]; folders: string[] } (depending on adapter)
 		try {
-			const base = this.toVaultPath(mapping.targetFolder);
+			const base = toVaultPath(mapping.targetFolder);
 			const listing = await this.app.vault.adapter.list(base);
 
 			if (!listing) return undefined;
@@ -776,7 +777,7 @@ export class FileSyncService {
 			const files: string[] = Array.isArray(listing.files)
 				? listing.files
 				: [];
-			for (const p of files) idx.exists.add(this.toVaultPath(p));
+			for (const p of files) idx.exists.add(toVaultPath(p));
 
 			// NOTE: We do NOT stat every file (can be expensive). We'll stat lazily on demand.
 			return idx;
@@ -789,7 +790,7 @@ export class FileSyncService {
 		vaultPath: string,
 		idx?: TargetIndex
 	): Promise<boolean> {
-		const p = this.toVaultPath(vaultPath);
+		const p = toVaultPath(vaultPath);
 		if (idx?.exists.has(p)) return true;
 		return this.app.vault.adapter.exists(p);
 	}
@@ -798,7 +799,7 @@ export class FileSyncService {
 		vaultPath: string,
 		idx?: TargetIndex
 	): Promise<{ mtimeMs: number; size: number } | null> {
-		const p = this.toVaultPath(vaultPath);
+		const p = toVaultPath(vaultPath);
 		const cached = idx?.statByPath.get(p);
 		if (cached) return cached;
 
@@ -821,7 +822,7 @@ export class FileSyncService {
 		targetPath: string,
 		idx?: TargetIndex
 	): Promise<boolean> {
-		const p = this.toVaultPath(targetPath);
+		const p = toVaultPath(targetPath);
 
 		// Fast exists
 		const exists = await this.existsFast(p, idx);
@@ -973,20 +974,6 @@ export class FileSyncService {
 		return list.includes(ext);
 	}
 
-	private isOneDriveTemp(filePath: string): boolean {
-		const name = path.basename(filePath).toLowerCase();
-
-		if (name.startsWith("~$")) return true;
-		if (name.endsWith(".tmp") || name.endsWith(".temp")) return true;
-		if (name.endsWith(".swp")) return true;
-		if (name === "thumbs.db") return true;
-		if (name === ".ds_store") return true;
-
-		if (name.startsWith("~") && name.includes(".") === false) return true;
-
-		return false;
-	}
-
 	private async walkFiles(
 		root: string,
 		includeSubfolders: boolean
@@ -1099,8 +1086,8 @@ export class FileSyncService {
 		targetFolder: string
 	): void {
 		// Normalize to forward slashes for vault paths
-		const normalizedTarget = this.toVaultPath(path.normalize(targetPath));
-		const normalizedBase = this.toVaultPath(path.normalize(targetFolder));
+		const normalizedTarget = toVaultPath(path.normalize(targetPath));
+		const normalizedBase = toVaultPath(path.normalize(targetFolder));
 
 		// Ensure target starts with target folder
 		if (!normalizedTarget.startsWith(normalizedBase)) {
@@ -1111,10 +1098,6 @@ export class FileSyncService {
 	// ===========================
 	// Utilities: misc
 	// ===========================
-	private toVaultPath(p: string): string {
-		return p.replace(/\\/g, "/");
-	}
-
 	private clampNumber(n: number, min: number, max: number): number {
 		if (!Number.isFinite(n)) return min;
 		return Math.max(min, Math.min(max, n));

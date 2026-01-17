@@ -26,6 +26,10 @@ export interface WatcherStats {
 	>;
 }
 
+/**
+ * Type of file change event.
+ * Used by both watchers and sync operations.
+ */
 export type ChangeType = "added" | "changed" | "deleted";
 
 export type PendingJob = {
@@ -33,8 +37,6 @@ export type PendingJob = {
 	changeType: ChangeType;
 	timer?: ReturnType<typeof setTimeout>;
 };
-
-export type SyncChangeType = "added" | "changed" | "deleted";
 
 export type SyncAction = "processed" | "skipped";
 

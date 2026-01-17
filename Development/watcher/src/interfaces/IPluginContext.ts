@@ -1,7 +1,7 @@
 import type { App } from "obsidian";
 import type {
 	FolderMapping,
-	SyncChangeType,
+	ChangeType,
 	WatcherStats,
 	ReconcileProgress,
 } from "../types";
@@ -61,7 +61,7 @@ export interface IFileSyncOperations {
 	syncFile(
 		mapping: FolderMapping,
 		sourceFilePath: string,
-		changeType: SyncChangeType
+		changeType: ChangeType
 	): Promise<void>;
 }
 
