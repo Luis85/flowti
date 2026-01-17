@@ -7,9 +7,11 @@ import {
 	createMockVault,
 } from "../mocks/obsidian";
 
-// Create mock filesystem data
-const mockFiles = new Map<string, { content: Buffer; mtime: number; size: number }>();
-const mockDirs = new Set<string>();
+// Create mock filesystem data using vi.hoisted so mocks can access them
+const { mockFiles, mockDirs } = vi.hoisted(() => ({
+	mockFiles: new Map<string, { content: Buffer; mtime: number; size: number }>(),
+	mockDirs: new Set<string>(),
+}));
 
 // Mock the fs module
 vi.mock("fs", () => ({
@@ -24,9 +26,9 @@ vi.mock("fs", () => ({
 		if (!file) throw new Error(`ENOENT: no such file: ${path}`);
 		return { mtimeMs: file.mtime, size: file.size, isFile: () => true, isDirectory: () => false };
 	}),
-	readdirSync: vi.fn((path: string, opts: any) => {
+	readdirSync: vi.fn((path: string) => {
 		const entries: any[] = [];
-		for (const [filePath, data] of mockFiles) {
+		for (const [filePath] of mockFiles) {
 			if (filePath.startsWith(path + "/") || filePath.startsWith(path + "\\")) {
 				const relativePath = filePath.slice(path.length + 1);
 				const firstPart = relativePath.split(/[/\\]/)[0];
@@ -39,7 +41,50 @@ vi.mock("fs", () => ({
 				}
 			}
 		}
-		// Add subdirs
+		for (const dirPath of mockDirs) {
+			if (dirPath.startsWith(path + "/") || dirPath.startsWith(path + "\\")) {
+				const relativePath = dirPath.slice(path.length + 1);
+				const firstPart = relativePath.split(/[/\\]/)[0];
+				if (!entries.some(e => e.name === firstPart)) {
+					entries.push({
+						name: firstPart,
+						isFile: () => false,
+						isDirectory: () => true,
+					});
+				}
+			}
+		}
+		return entries;
+	}),
+}));
+
+// Mock the fs/promises module
+vi.mock("fs/promises", () => ({
+	readFile: vi.fn(async (path: string) => {
+		const file = mockFiles.get(path);
+		if (!file) throw new Error(`ENOENT: no such file or directory, open '${path}'`);
+		return file.content;
+	}),
+	stat: vi.fn(async (path: string) => {
+		const file = mockFiles.get(path);
+		if (!file) throw new Error(`ENOENT: no such file or directory, stat '${path}'`);
+		return { mtimeMs: file.mtime, size: file.size, isFile: () => true, isDirectory: () => false };
+	}),
+	readdir: vi.fn(async (path: string) => {
+		const entries: any[] = [];
+		for (const [filePath] of mockFiles) {
+			if (filePath.startsWith(path + "/") || filePath.startsWith(path + "\\")) {
+				const relativePath = filePath.slice(path.length + 1);
+				const firstPart = relativePath.split(/[/\\]/)[0];
+				if (!relativePath.includes("/") && !relativePath.includes("\\")) {
+					entries.push({
+						name: firstPart,
+						isFile: () => true,
+						isDirectory: () => false,
+					});
+				}
+			}
+		}
 		for (const dirPath of mockDirs) {
 			if (dirPath.startsWith(path + "/") || dirPath.startsWith(path + "\\")) {
 				const relativePath = dirPath.slice(path.length + 1);
@@ -86,6 +131,14 @@ function clearMockFs() {
 	mockDirs.clear();
 }
 
+// Use Windows-style paths consistently
+const SOURCE_ROOT = "C:\\source";
+const SOURCE_FILE1 = "C:\\source\\file1.md";
+const SOURCE_FILE2 = "C:\\source\\file2.txt";
+const SOURCE_SUBFOLDER = "C:\\source\\subfolder";
+const SOURCE_FILE3 = "C:\\source\\subfolder\\file3.md";
+const SOURCE_NONEXISTENT = "C:\\source\\nonexistent.md";
+
 describe("FileSyncService", () => {
 	let service: FileSyncService;
 	let mockApp: ReturnType<typeof createMockApp>;
@@ -97,10 +150,10 @@ describe("FileSyncService", () => {
 		clearMockFs();
 
 		// Set up mock filesystem
-		setupMockFile("/source/file1.md", "# Test File 1");
-		setupMockFile("/source/file2.txt", "Test content");
-		setupMockDir("/source/subfolder");
-		setupMockFile("/source/subfolder/file3.md", "# Nested file");
+		setupMockFile(SOURCE_FILE1, "# Test File 1");
+		setupMockFile(SOURCE_FILE2, "Test content");
+		setupMockDir(SOURCE_SUBFOLDER);
+		setupMockFile(SOURCE_FILE3, "# Nested file");
 
 		// Set up mocks
 		mockAdapter = createMockVaultAdapter();
@@ -118,11 +171,11 @@ describe("FileSyncService", () => {
 	describe("syncFile", () => {
 		it("should sync a file from source to target", async () => {
 			const mapping = createMockMapping({
-				sourceFolder: "/source",
+				sourceFolder: SOURCE_ROOT,
 				targetFolder: "vault/imported",
 			});
 
-			const result = await service.syncFile(mapping as any, "/source/file1.md", "added");
+			const result = await service.syncFile(mapping as any, SOURCE_FILE1, "added");
 
 			expect(result.ok).toBe(true);
 			if (result.ok) {
@@ -136,14 +189,14 @@ describe("FileSyncService", () => {
 
 		it("should handle nested files correctly", async () => {
 			const mapping = createMockMapping({
-				sourceFolder: "/source",
+				sourceFolder: SOURCE_ROOT,
 				targetFolder: "vault/imported",
 				watchSubfolders: true,
 			});
 
 			const result = await service.syncFile(
 				mapping as any,
-				"/source/subfolder/file3.md",
+				SOURCE_FILE3,
 				"added"
 			);
 
@@ -155,13 +208,13 @@ describe("FileSyncService", () => {
 
 		it("should return error for non-existent source file", async () => {
 			const mapping = createMockMapping({
-				sourceFolder: "/source",
+				sourceFolder: SOURCE_ROOT,
 				targetFolder: "vault/imported",
 			});
 
 			const result = await service.syncFile(
 				mapping as any,
-				"/source/nonexistent.md",
+				SOURCE_NONEXISTENT,
 				"added"
 			);
 
@@ -181,12 +234,12 @@ describe("FileSyncService", () => {
 
 		it("should overwrite when strategy is 'overwrite'", async () => {
 			const mapping = createMockMapping({
-				sourceFolder: "/source",
+				sourceFolder: SOURCE_ROOT,
 				targetFolder: "vault/imported",
 				conflictResolution: "overwrite",
 			});
 
-			const result = await service.syncFile(mapping as any, "/source/file1.md", "changed");
+			const result = await service.syncFile(mapping as any, SOURCE_FILE1, "changed");
 
 			expect(result.ok).toBe(true);
 			if (result.ok) {
@@ -197,12 +250,12 @@ describe("FileSyncService", () => {
 
 		it("should skip when strategy is 'skip'", async () => {
 			const mapping = createMockMapping({
-				sourceFolder: "/source",
+				sourceFolder: SOURCE_ROOT,
 				targetFolder: "vault/imported",
 				conflictResolution: "skip",
 			});
 
-			const result = await service.syncFile(mapping as any, "/source/file1.md", "changed");
+			const result = await service.syncFile(mapping as any, SOURCE_FILE1, "changed");
 
 			expect(result.ok).toBe(true);
 			if (result.ok) {
@@ -213,15 +266,15 @@ describe("FileSyncService", () => {
 
 		it("should keep newer when strategy is 'keepNewer' and source is newer", async () => {
 			// Update source file to be newer
-			setupMockFile("/source/file1.md", "Updated content", Date.now());
+			setupMockFile(SOURCE_FILE1, "Updated content", Date.now());
 
 			const mapping = createMockMapping({
-				sourceFolder: "/source",
+				sourceFolder: SOURCE_ROOT,
 				targetFolder: "vault/imported",
 				conflictResolution: "keepNewer",
 			});
 
-			const result = await service.syncFile(mapping as any, "/source/file1.md", "changed");
+			const result = await service.syncFile(mapping as any, SOURCE_FILE1, "changed");
 
 			expect(result.ok).toBe(true);
 			if (result.ok) {
@@ -238,12 +291,12 @@ describe("FileSyncService", () => {
 			});
 
 			const mapping = createMockMapping({
-				sourceFolder: "/source",
+				sourceFolder: SOURCE_ROOT,
 				targetFolder: "vault/imported",
 				conflictResolution: "keepNewer",
 			});
 
-			const result = await service.syncFile(mapping as any, "/source/file1.md", "changed");
+			const result = await service.syncFile(mapping as any, SOURCE_FILE1, "changed");
 
 			expect(result.ok).toBe(true);
 			if (result.ok) {
@@ -253,12 +306,12 @@ describe("FileSyncService", () => {
 
 		it("should rename when strategy is 'rename'", async () => {
 			const mapping = createMockMapping({
-				sourceFolder: "/source",
+				sourceFolder: SOURCE_ROOT,
 				targetFolder: "vault/imported",
 				conflictResolution: "rename",
 			});
 
-			const result = await service.syncFile(mapping as any, "/source/file1.md", "changed");
+			const result = await service.syncFile(mapping as any, SOURCE_FILE1, "changed");
 
 			expect(result.ok).toBe(true);
 			if (result.ok) {
@@ -285,12 +338,12 @@ describe("FileSyncService", () => {
 			const releaseReconcile = await lock.acquireReconcile();
 
 			const mapping = createMockMapping({
-				sourceFolder: "/source",
+				sourceFolder: SOURCE_ROOT,
 				targetFolder: "vault/imported",
 			});
 
 			// syncFile should wait for reconcile to complete
-			const syncPromise = service.syncFile(mapping as any, "/source/file1.md", "added");
+			const syncPromise = service.syncFile(mapping as any, SOURCE_FILE1, "added");
 
 			// Verify it's waiting
 			let resolved = false;
@@ -312,13 +365,13 @@ describe("FileSyncService", () => {
 	describe("file-level locking", () => {
 		it("should prevent concurrent writes to same file", async () => {
 			const mapping = createMockMapping({
-				sourceFolder: "/source",
+				sourceFolder: SOURCE_ROOT,
 				targetFolder: "vault/imported",
 			});
 
 			// Start two syncs to the same file simultaneously
-			const promise1 = service.syncFile(mapping as any, "/source/file1.md", "added");
-			const promise2 = service.syncFile(mapping as any, "/source/file1.md", "changed");
+			const promise1 = service.syncFile(mapping as any, SOURCE_FILE1, "added");
+			const promise2 = service.syncFile(mapping as any, SOURCE_FILE1, "changed");
 
 			const [result1, result2] = await Promise.all([promise1, promise2]);
 
@@ -332,13 +385,13 @@ describe("FileSyncService", () => {
 
 		it("should allow concurrent writes to different files", async () => {
 			const mapping = createMockMapping({
-				sourceFolder: "/source",
+				sourceFolder: SOURCE_ROOT,
 				targetFolder: "vault/imported",
 			});
 
 			// Start two syncs to different files
-			const promise1 = service.syncFile(mapping as any, "/source/file1.md", "added");
-			const promise2 = service.syncFile(mapping as any, "/source/file2.txt", "added");
+			const promise1 = service.syncFile(mapping as any, SOURCE_FILE1, "added");
+			const promise2 = service.syncFile(mapping as any, SOURCE_FILE2, "added");
 
 			const [result1, result2] = await Promise.all([promise1, promise2]);
 
@@ -395,7 +448,7 @@ describe("FileSyncService - reconcileMapping edge cases", () => {
 	it("should skip disabled mappings", async () => {
 		const mapping = createMockMapping({
 			enabled: false,
-			sourceFolder: "/source",
+			sourceFolder: SOURCE_ROOT,
 			targetFolder: "vault/imported",
 		});
 
@@ -408,7 +461,7 @@ describe("FileSyncService - reconcileMapping edge cases", () => {
 	it("should handle missing source folder", async () => {
 		// Source folder doesn't exist in mock
 		const mapping = createMockMapping({
-			sourceFolder: "/nonexistent",
+			sourceFolder: "C:\\nonexistent",
 			targetFolder: "vault/imported",
 		});
 
@@ -420,10 +473,10 @@ describe("FileSyncService - reconcileMapping edge cases", () => {
 
 	it("should handle empty source folder", async () => {
 		// Source folder exists but is empty (no files in mock)
-		setupMockDir("/empty");
+		setupMockDir("C:\\empty");
 
 		const mapping = createMockMapping({
-			sourceFolder: "/empty",
+			sourceFolder: "C:\\empty",
 			targetFolder: "vault/imported",
 		});
 

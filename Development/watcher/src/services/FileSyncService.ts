@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import * as fsp from "fs/promises";
 import * as path from "path";
 import type { App } from "obsidian";
 import type {
@@ -454,7 +455,7 @@ export class FileSyncService {
 				details: { finalTargetPath },
 			});
 
-			const buf = fs.readFileSync(sourceFilePath);
+			const buf = await fsp.readFile(sourceFilePath);
 			const ab = buf.buffer.slice(
 				buf.byteOffset,
 				buf.byteOffset + buf.byteLength
@@ -467,7 +468,7 @@ export class FileSyncService {
 			// Update index (best effort) so later checks get faster
 			if (opts.targetIndex) {
 				try {
-					const srcStat = fs.statSync(sourceFilePath);
+					const srcStat = await fsp.stat(sourceFilePath);
 					opts.targetIndex.statByPath.set(finalTargetPath, {
 						mtimeMs: srcStat.mtimeMs,
 						size: srcStat.size,
@@ -576,7 +577,7 @@ export class FileSyncService {
 		// Source stat
 		let src: fs.Stats;
 		try {
-			src = fs.statSync(sourceFilePath);
+			src = await fsp.stat(sourceFilePath);
 		} catch {
 			return false;
 		}
@@ -611,7 +612,7 @@ export class FileSyncService {
 		if (strategy === "skip") return { action: "skip", targetPath };
 
 		if (strategy === "keepNewer") {
-			const srcStat = fs.statSync(sourceFilePath);
+			const srcStat = await fsp.stat(sourceFilePath);
 			const targetStat = await this.statFast(targetPath, idx);
 
 			// If we can't stat target, default overwrite
@@ -735,7 +736,7 @@ export class FileSyncService {
 			const dir = stack.pop()!;
 			let entries: fs.Dirent[];
 			try {
-				entries = fs.readdirSync(dir, { withFileTypes: true });
+				entries = await fsp.readdir(dir, { withFileTypes: true });
 			} catch {
 				continue;
 			}
@@ -782,7 +783,7 @@ export class FileSyncService {
 
 		for (let i = 0; i < checks * 3; i++) {
 			try {
-				const st = fs.statSync(filePath);
+				const st = await fsp.stat(filePath);
 				if (st.size === lastSize && st.mtimeMs === lastMtime) {
 					stableCount++;
 					if (stableCount >= checks) return true;
