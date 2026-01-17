@@ -390,16 +390,28 @@ export class FileSyncService {
 			if (useIncrementalMode && this.syncState) {
 				try {
 					const stat = await fsp.stat(filePath);
-					const needsSync = this.syncState.needsSync(
+					const sourceNeedsSync = this.syncState.needsSync(
 						mapping.id,
 						mapping.sourceFolder,
 						relativePath,
 						{ mtimeMs: stat.mtimeMs, size: stat.size }
 					);
 
-					if (!needsSync) {
+					// Also check if target file exists in vault
+					// If target was deleted, we need to re-sync even if source unchanged
+					const targetPath = path.join(mapping.targetFolder, relativePath);
+					const targetExists = await this.app.vault.adapter.exists(targetPath);
+
+					if (!sourceNeedsSync && targetExists) {
 						stats.skipped++;
 						continue;
+					}
+
+					if (!targetExists && !sourceNeedsSync) {
+						LogService.debug("Reconcile", "Target file missing, will re-sync", {
+							mappingId: mapping.id,
+							filePath: relativePath,
+						});
 					}
 
 					filesToProcess.push({ filePath, relativePath, stat });
