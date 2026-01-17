@@ -5,6 +5,7 @@ import { FileWatcherSettingTab } from "src/settings/FileWatcherSettingTab";
 import { FileSyncService } from "src/services/FileSyncService";
 import { ReconcileService } from "src/services/ReconcileService";
 import { StatsService } from "src/services/StatsService";
+import { SyncStateService } from "src/services/SyncStateService";
 import { DashboardModal } from "src/modals/DashboardModal";
 import { LogService } from "src/services/LogService";
 import { createNoticeService, type INoticeService } from "src/services/NoticeService";
@@ -62,6 +63,8 @@ export default class FileWatcherPlugin extends Plugin {
 	statsService!: StatsService;
 	/** User notification service */
 	noticeService!: INoticeService;
+	/** Sync state service for incremental reconciliation */
+	syncStateService!: SyncStateService;
 
 	/** Current plugin settings */
 	settings!: FileWatcherSettings;
@@ -158,9 +161,21 @@ export default class FileWatcherPlugin extends Plugin {
 		}
 	}
 
-	onunload() {
+	async onunload() {
 		void this.manager?.stopAll();
 		this.statusbar?.destroy();
+
+		// Save sync state before unloading
+		if (this.syncStateService) {
+			this.syncStateService.cancelPendingSave();
+			try {
+				await this.syncStateService.save();
+			} catch (error) {
+				LogService.warn("Plugin", "Failed to save sync state on unload", {
+					details: { error: String(error) },
+				});
+			}
+		}
 	}
 
 	/**
@@ -193,6 +208,10 @@ export default class FileWatcherPlugin extends Plugin {
 		// Core services
 		this.noticeService = createNoticeService();
 		this.fileSync = new FileSyncService(this.app, this.settings);
+
+		// Sync state service for incremental reconciliation
+		this.syncStateService = new SyncStateService(this.app, this.manifest.id);
+		this.fileSync.setSyncStateService(this.syncStateService);
 
 		// Stats service (initialized before statusbar since statusbar depends on stats)
 		this.statsService = new StatsService();
@@ -276,6 +295,19 @@ export default class FileWatcherPlugin extends Plugin {
 	 * Start the plugin (reconcile on start, then start watchers)
 	 */
 	private async startPlugin(): Promise<void> {
+		// Load sync state for incremental reconciliation
+		try {
+			await this.syncStateService.load();
+			const { mappingCount, totalFiles } = this.syncStateService.getStats();
+			LogService.debug("Plugin", "Sync state loaded", {
+				details: { mappingCount, totalFiles },
+			});
+		} catch (error) {
+			LogService.warn("Plugin", "Failed to load sync state", {
+				details: { error: String(error) },
+			});
+		}
+
 		LogService.debug("Plugin", "Starting reconcileOnStart");
 
 		try {

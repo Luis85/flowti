@@ -133,6 +133,7 @@ export function createMockSettings(overrides: MockSettingsOverrides = {}): FileW
 			fastSkipUnchanged: true,
 			disableStabilityCheckDuringReconcile: true,
 			notifyOnMappingDone: false,
+			incrementalMode: true,
 		},
 		...overrides,
 	};

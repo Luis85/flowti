@@ -15,6 +15,9 @@ export interface ReconcileOptions {
 
 	// If enabled, show per-mapping done notice
 	notifyOnMappingDone: boolean;
+
+	// If enabled, use incremental reconciliation (only sync files changed since last reconcile)
+	incrementalMode: boolean;
 }
 
 export interface FileWatcherSettings {
@@ -43,5 +46,6 @@ export const DEFAULT_SETTINGS: FileWatcherSettings = {
 		fastSkipUnchanged: true,
 		disableStabilityCheckDuringReconcile: true,
 		notifyOnMappingDone: true,
+		incrementalMode: true,
 	},
 };

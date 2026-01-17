@@ -22,7 +22,8 @@ export type LogCategory =
 	| "Sync"
 	| "Reconcile"
 	| "Plugin"
-	| "Manager";
+	| "Manager"
+	| "SyncState";
 
 export interface LogEntry {
 	id: number;

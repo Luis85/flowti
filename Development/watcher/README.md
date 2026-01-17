@@ -6,6 +6,7 @@ An Obsidian plugin for automatic synchronization of files from external folders 
 
 - **Real-time Watching**: Monitors external folders for file changes using [chokidar](https://github.com/paulmillr/chokidar)
 - **Bulk Reconcile**: Full synchronization on startup or on-demand
+- **Incremental Reconcile**: Only sync files changed since last reconcile (much faster for large folders)
 - **Cloud Sync Compatibility**: Special handling for OneDrive, Dropbox & Co. (stability checks, temp file filtering)
 - **Conflict Resolution**: Multiple strategies (overwrite, rename, skip, keep newer)
 - **Dashboard**: Visual interface for monitoring and control with health indicators
@@ -54,6 +55,7 @@ For OneDrive, Dropbox, and similar services:
 ### Reconcile Settings
 
 - **Sync on Start**: Global setting for reconcile on startup
+- **Incremental Reconcile**: Only sync files changed since last reconcile (tracks mtime + size per file)
 - **Parallelism**: Number of parallel workers (1-64)
 - **Fast Skip Unchanged**: Skip unchanged files (size + mtime)
 - **Progress Throttle**: UI update interval (ms)
@@ -105,6 +107,7 @@ src/
 ├── services/
 │   ├── FileSyncService.ts  # Core synchronization logic
 │   ├── ReconcileService.ts # Bulk reconcile orchestration
+│   ├── SyncStateService.ts # Sync state persistence (incremental reconcile)
 │   ├── StatsService.ts     # Statistics tracking
 │   ├── StatusBarService.ts # Status bar display
 │   ├── LogService.ts       # Logging with subscriptions

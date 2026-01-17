@@ -178,6 +178,16 @@ export class FileWatcherSettingTab extends PluginSettingTab {
 		const r = this.plugin.settings.reconcile;
 
 		new Setting(containerEl)
+			.setName("Incremental reconcile")
+			.setDesc("Only sync files that changed since the last reconcile. Much faster for large folders.")
+			.addToggle((t) =>
+				t.setValue(r.incrementalMode ?? true).onChange(async (v) => {
+					r.incrementalMode = v;
+					await this.plugin.saveSettings();
+				})
+			);
+
+		new Setting(containerEl)
 			.setName("Fast skip unchanged files")
 			.setDesc("Skip files that haven't changed (based on size and modification time). Recommended.")
 			.addToggle((t) =>

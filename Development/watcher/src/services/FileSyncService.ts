@@ -12,6 +12,7 @@ import type {
 import { FileWatcherSettings } from "../settings/types";
 import { LogService } from "./LogService";
 import { AsyncMutex, KeyedMutex, OperationLock } from "./AsyncMutex";
+import type { SyncStateService } from "./SyncStateService";
 
 /**
  * Core service responsible for synchronizing files from external folders into the Obsidian vault.
@@ -60,8 +61,19 @@ export class FileSyncService {
 	/** Lock timeout in ms - prevents deadlocks */
 	private static readonly LOCK_TIMEOUT_MS = 30000;
 
+	/** Optional sync state service for incremental reconciliation */
+	private syncState?: SyncStateService;
+
 	constructor(private app: App, settings: FileWatcherSettings) {
 		this.settings = settings;
+	}
+
+	/**
+	 * Set the sync state service for incremental reconciliation.
+	 * @param syncState - The sync state service instance
+	 */
+	setSyncStateService(syncState: SyncStateService): void {
+		this.syncState = syncState;
 	}
 
 	/**
@@ -286,9 +298,10 @@ export class FileSyncService {
 	 * The reconciliation process:
 	 * 1. Scans all files in the source folder (respecting subfolder settings)
 	 * 2. Filters by allowed extensions and excludes temp files
-	 * 3. Processes files in parallel using a worker pool
-	 * 4. Skips unchanged files based on size/mtime comparison
-	 * 5. Reports progress via callback
+	 * 3. In incremental mode, skips files unchanged since last sync
+	 * 4. Processes files in parallel using a worker pool
+	 * 5. Skips unchanged files based on size/mtime comparison
+	 * 6. Reports progress via callback
 	 *
 	 * @param mapping - The folder mapping to reconcile
 	 * @param onProgress - Optional callback for progress updates, called periodically
@@ -346,22 +359,67 @@ export class FileSyncService {
 			!global.disableStabilityCheckDuringReconcile;
 		const skipUnchangedOnReconcile = global.fastSkipUnchanged ?? true;
 
+		// Incremental mode: use sync state to skip unchanged files
+		const useIncrementalMode =
+			(global.incrementalMode ?? true) && this.syncState !== undefined;
+
+		if (useIncrementalMode) {
+			LogService.debug("Reconcile", "Using incremental mode", {
+				mappingId: mapping.id,
+			});
+		}
+
 		// ---- Scan once -> stable total ----
 		const all = await this.walkFiles(
 			mapping.sourceFolder,
 			mapping.watchSubfolders
 		);
-		const files = all.filter((filePath) => {
-			if (!this.isAllowedByExtension(mapping, filePath)) return false;
-			if (
-				this.settings.ignoreOneDriveTemp &&
-				this.isOneDriveTemp(filePath)
-			)
-				return false;
-			return true;
-		});
 
-		const total = files.length;
+		// Pre-filter files and collect stats for incremental mode
+		const filesToProcess: Array<{ filePath: string; relativePath: string; stat?: fs.Stats }> = [];
+		const existingPaths = new Set<string>();
+
+		for (const filePath of all) {
+			if (!this.isAllowedByExtension(mapping, filePath)) continue;
+			if (this.settings.ignoreOneDriveTemp && this.isOneDriveTemp(filePath)) continue;
+
+			const relativePath = path.relative(mapping.sourceFolder, filePath);
+			existingPaths.add(relativePath);
+
+			// In incremental mode, check if file needs sync
+			if (useIncrementalMode && this.syncState) {
+				try {
+					const stat = await fsp.stat(filePath);
+					const needsSync = this.syncState.needsSync(
+						mapping.id,
+						mapping.sourceFolder,
+						relativePath,
+						{ mtimeMs: stat.mtimeMs, size: stat.size }
+					);
+
+					if (!needsSync) {
+						stats.skipped++;
+						continue;
+					}
+
+					filesToProcess.push({ filePath, relativePath, stat });
+				} catch {
+					// If stat fails, include the file anyway
+					filesToProcess.push({ filePath, relativePath });
+				}
+			} else {
+				filesToProcess.push({ filePath, relativePath });
+			}
+		}
+
+		const total = filesToProcess.length + stats.skipped;
+
+		if (useIncrementalMode) {
+			LogService.info("Reconcile", `Incremental mode: ${filesToProcess.length} files to sync, ${stats.skipped} skipped`, {
+				mappingId: mapping.id,
+				details: { total: all.length, toProcess: filesToProcess.length, skipped: stats.skipped },
+			});
+		}
 
 		// ---- Progress throttling ----
 		const progress = this.createProgressEmitter(
@@ -391,9 +449,9 @@ export class FileSyncService {
 		const worker = async () => {
 			while (true) {
 				const i = await getNextIndex();
-				if (i >= files.length) return;
+				if (i >= filesToProcess.length) return;
 
-				const filePath = files[i];
+				const { filePath, relativePath, stat } = filesToProcess[i];
 				stats.scanned++;
 				progress.emit({ total, ...stats, current: filePath });
 
@@ -412,14 +470,43 @@ export class FileSyncService {
 					continue;
 				}
 
-				if (res.action === "skipped") stats.skipped++;
-				else stats.processed++;
+				if (res.action === "skipped") {
+					stats.skipped++;
+				} else {
+					stats.processed++;
+
+					// Record successful sync in state
+					if (this.syncState) {
+						try {
+							const fileStat = stat ?? await fsp.stat(filePath);
+							this.syncState.recordSync(
+								mapping.id,
+								mapping.sourceFolder,
+								relativePath,
+								{ mtimeMs: fileStat.mtimeMs, size: fileStat.size }
+							);
+						} catch {
+							// Ignore stat errors
+						}
+					}
+				}
 
 				progress.emit({ total, ...stats, current: filePath });
 			}
 		};
 
 		await Promise.all(Array.from({ length: reconcileConcurrency }, worker));
+
+		// Prune orphaned entries (files deleted from source)
+		if (this.syncState) {
+			const pruned = this.syncState.pruneOrphans(mapping.id, existingPaths);
+			if (pruned > 0) {
+				LogService.debug("Reconcile", `Pruned ${pruned} orphaned entries`, {
+					mappingId: mapping.id,
+				});
+			}
+			this.syncState.recordReconcileComplete(mapping.id, mapping.sourceFolder);
+		}
 
 		progress.emit({ total, ...stats }, true);
 		return stats;
