@@ -3,7 +3,7 @@ import { App, PluginSettingTab, Setting } from "obsidian";
 import { FolderMapping } from "../types";
 import { FolderMappingModal } from "src/modals/FolderMappingModal";
 import { confirmDelete } from "src/modals/ConfirmModal";
-import { shortPath, toVaultPath, makeId } from "src/utils";
+import { truncatePath, toVaultPath, makeId } from "src/utils";
 import { LogService } from "src/services/LogService";
 
 export class FileWatcherSettingTab extends PluginSettingTab {
@@ -120,7 +120,7 @@ export class FileWatcherSettingTab extends PluginSettingTab {
 
 		const setting = new Setting(row)
 			.setName(m.description || "Untitled mapping")
-			.setDesc(`${shortPath(m.sourceFolder)} → ${toVaultPath(m.targetFolder)}`);
+			.setDesc(`${truncatePath(m.sourceFolder)} → ${toVaultPath(m.targetFolder)}`);
 
 		// Enabled toggle
 		setting.addToggle((t) =>

@@ -24,14 +24,6 @@ export function toVaultPath(p: string): string {
 	return p.replace(/\\/g, "/");
 }
 
-/**
- * Shortens a path for display, showing "(not set)" if empty.
- */
-export function shortPath(p: string, maxLength = 60): string {
-	if (!p) return "(not set)";
-	return p.length > maxLength ? `…${p.slice(-maxLength)}` : p;
-}
-
 export function makeId(): string {
 	return crypto.randomUUID?.() ?? String(Date.now());
 }
