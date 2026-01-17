@@ -8,14 +8,14 @@ An Obsidian plugin for automatic synchronization of files from external folders 
 - **Bulk Reconcile**: Full synchronization on startup or on-demand
 - **Cloud Sync Compatibility**: Special handling for OneDrive, Dropbox & Co. (stability checks, temp file filtering)
 - **Conflict Resolution**: Multiple strategies (overwrite, rename, skip, keep newer)
-- **Dashboard**: Visual interface for monitoring and control
+- **Dashboard**: Visual interface for monitoring and control with health indicators
 - **Performance**: Parallel processing, intelligent caching, skip-unchanged optimization
 
 ## Installation
 
 ### Manual
 
-1. Download `main.js`, `styles.css`, and `manifest.json` from the [latest release](https://github.com/your-repo/releases)
+1. Download `main.js`, `styles.css`, and `manifest.json` from the [latest release](https://github.com/Luis85/flowti/releases)
 2. Create the folder `.obsidian/plugins/obsidian-folder-watcher/` in your vault
 3. Copy the downloaded files into this folder
 4. Enable the plugin in Obsidian under Settings → Community Plugins
@@ -68,8 +68,16 @@ Open the dashboard via:
 
 The dashboard shows:
 - **Overview**: Global statistics, reconcile status, recent activity
-- **Watchers**: Status of each mapping, start/stop/reconcile per mapping
+- **Watchers**: Status and health of each mapping with start/stop/reconcile controls
 - **Logs**: Filtered logs with search
+
+#### Watcher Health Indicators
+
+Each watcher displays a health status:
+- **Healthy** (green): Running with recent activity
+- **Idle** (gray): Running but no activity for 5+ minutes
+- **Warning** (yellow): Queue backpressure (dropped jobs or high queue)
+- **Error** (red): Error state
 
 ### Commands
 
@@ -92,23 +100,29 @@ Click on the status bar to open the dashboard.
 ```
 src/
 ├── main.ts                 # Main plugin class
+├── types.ts                # Core type definitions
+├── utils.ts                # Utility functions
 ├── services/
 │   ├── FileSyncService.ts  # Core synchronization logic
 │   ├── ReconcileService.ts # Bulk reconcile orchestration
 │   ├── StatsService.ts     # Statistics tracking
 │   ├── StatusBarService.ts # Status bar display
 │   ├── LogService.ts       # Logging with subscriptions
+│   ├── NoticeService.ts    # User notifications
+│   ├── FolderPickerService.ts # Native folder picker (Electron)
 │   └── AsyncMutex.ts       # Thread safety (locks)
 ├── watcher/
-│   ├── WatcherManager.ts   # Watcher lifecycle
+│   ├── WatcherManager.ts   # Watcher lifecycle & health tracking
 │   └── MappingWatcher.ts   # Individual folder watcher
 ├── modals/
-│   ├── DashboardModal.ts   # Main dashboard
+│   ├── DashboardModal.ts   # Main dashboard UI
 │   ├── FolderMappingModal.ts # Mapping editor
 │   └── ConfirmModal.ts     # Confirmation dialogs
-└── settings/
-    ├── FileWatcherSettingTab.ts # Settings tab
-    └── types.ts             # Settings types
+├── settings/
+│   ├── FileWatcherSettingTab.ts # Settings tab
+│   └── types.ts             # Settings types
+└── interfaces/
+    └── IPluginContext.ts    # Service interfaces
 ```
 
 ## Development
@@ -143,6 +157,33 @@ npm run test:watch    # Watch mode
 npm run test:ui       # Vitest UI
 npm run test:coverage # With coverage report
 ```
+
+#### Test Coverage Philosophy
+
+The test suite focuses on **business logic and services** that can be tested in isolation:
+
+| Tested | Not Tested |
+|--------|------------|
+| FileSyncService | Modals (DashboardModal, FolderMappingModal) |
+| ReconcileService | Electron APIs (FolderPickerService) |
+| StatsService | Obsidian UI components |
+| StatusBarService | |
+| LogService | |
+| AsyncMutex / OperationLock | |
+| WatcherManager | |
+| MappingWatcher | |
+| Settings validation | |
+
+**Why modals are not tested:**
+- Modals are pure presentation components that delegate to services
+- They use Obsidian's Modal API which requires the full Obsidian runtime
+- UI logic is kept minimal - modals only render data and call service methods
+- Testing modals would require extensive mocking of Obsidian internals with little value
+
+**Why Electron APIs are not tested:**
+- FolderPickerService wraps Electron's `dialog.showOpenDialog()`
+- Electron APIs require the desktop runtime environment
+- The service is a thin wrapper with minimal logic
 
 ### Documentation
 
