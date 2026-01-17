@@ -8,8 +8,9 @@
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
 		"test": "vitest run",
-		"test-ui": "vitest --ui",
-		"coverage": "vitest run --coverage",
+		"test:watch": "vitest",
+		"test:ui": "vitest --ui",
+		"test:coverage": "vitest run --coverage",
 		"docs": "typedoc --entryPointStrategy expand ./src",
 		"publish": "npm run coverage && npm run docs && npm run build && npx vite preview --outDir docs/tests --open"
 	},
