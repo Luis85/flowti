@@ -11,8 +11,8 @@
  * Architecture:
  * - ILogService interface for dependency injection in tests
  * - LogServiceImpl is the concrete implementation
- * - LogService singleton for backward compatibility
- * - createLogService() factory for test instances
+ * - LogService is the global singleton instance
+ * - createLogService() factory for isolated test instances
  */
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
@@ -447,7 +447,7 @@ export class LogServiceImpl implements ILogService {
 	}
 }
 
-/** Singleton instance for backward compatibility */
+/** Global singleton instance */
 export const LogService: ILogService = new LogServiceImpl();
 
 /**

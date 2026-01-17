@@ -4,35 +4,35 @@ import { WatcherManager } from "src/watcher/WatcherManager";
 import { FileWatcherSettingTab } from "src/settings/FileWatcherSettingTab";
 import { FileSyncService } from "src/services/FileSyncService";
 import { ReconcileService } from "src/services/ReconcileService";
+import { StatsService } from "src/services/StatsService";
 import { DashboardModal } from "src/modals/DashboardModal";
 import { LogService } from "src/services/LogService";
 import { createNoticeService, type INoticeService } from "src/services/NoticeService";
 import { FileWatcherSettings, DEFAULT_SETTINGS } from "src/settings/types";
-import {
-	WatcherStats,
-	ReconcileProgress,
-	FolderMapping,
-	SyncChangeType,
-} from "src/types";
-import { truncatePath, getMappingLabel } from "src/utils";
+import { ReconcileProgress, FolderMapping, SyncChangeType } from "src/types";
+import { getMappingLabel } from "src/utils";
 
 export default class FileWatcherPlugin extends Plugin {
-	stats: WatcherStats = {
-		filesProcessed: 0,
-		filesSkipped: 0,
-		errors: 0,
-		lastProcessed: null,
-		perMappingStats: {},
-	};
-
+	// Services
 	fileSync!: FileSyncService;
 	manager!: WatcherManager;
 	statusbar!: StatusBarService;
 	reconcile!: ReconcileService;
-	settings!: FileWatcherSettings;
+	statsService!: StatsService;
 	noticeService!: INoticeService;
 
+	// Settings
+	settings!: FileWatcherSettings;
+
+	// Reconcile state
 	private reconcileSnapshot: ReconcileProgress | null = null;
+
+	/**
+	 * Convenience getter for stats (delegates to StatsService)
+	 */
+	get stats() {
+		return this.statsService.stats;
+	}
 
 	setReconcileSnapshot(p: ReconcileProgress | null) {
 		this.reconcileSnapshot = p;
@@ -47,17 +47,39 @@ export default class FileWatcherPlugin extends Plugin {
 	}
 
 	async onload() {
-		await this.loadSettings();
+		try {
+			await this.loadSettings();
+			this.configureLogging();
 
-		// Configure LogService based on debug mode
+			LogService.debug("Plugin", "onload() starting");
+			LogService.info("Plugin", "File Watcher plugin loading", {
+				details: { mappingCount: this.settings.folderMappings.length },
+			});
+
+			this.initializeServices();
+			this.registerCommands();
+			this.addSettingTab(new FileWatcherSettingTab(this.app, this));
+
+			await this.startPlugin();
+
+			LogService.info("Plugin", "File Watcher plugin loaded");
+		} catch (error) {
+			this.handleLoadError(error);
+		}
+	}
+
+	onunload() {
+		void this.manager?.stopAll();
+		this.statusbar?.destroy();
+	}
+
+	/**
+	 * Configure LogService based on settings
+	 */
+	private configureLogging(): void {
 		LogService.configure({
 			minLevel: this.settings.debugMode ? "debug" : "info",
 			consoleOutput: this.settings.debugMode,
-		});
-
-		LogService.debug("Plugin", "onload() starting");
-		LogService.info("Plugin", "File Watcher plugin loading", {
-			details: { mappingCount: this.settings.folderMappings.length },
 		});
 
 		LogService.debug("Plugin", "Settings loaded", {
@@ -72,24 +94,40 @@ export default class FileWatcherPlugin extends Plugin {
 				})),
 			},
 		});
+	}
 
-		this.fileSync = new FileSyncService(this.app, this.settings);
+	/**
+	 * Initialize all plugin services
+	 */
+	private initializeServices(): void {
+		// Core services
 		this.noticeService = createNoticeService();
+		this.fileSync = new FileSyncService(this.app, this.settings);
 
-		// Create StatusBarService with context
+		// Stats service (initialized before statusbar since statusbar depends on stats)
+		this.statsService = new StatsService();
+		this.statsService.initializeMappingStats(
+			this.settings.folderMappings.map((m) => m.id)
+		);
+
+		// Status bar (needs stats reference)
 		this.statusbar = new StatusBarService({
 			settings: this.settings,
-			stats: this.stats,
+			stats: this.statsService.stats,
 			getActiveWatcherCount: () => this.manager?.activeCount() ?? 0,
 			openDashboard: () => this.openDashboard(),
 			addStatusBarItem: () => this.addStatusBarItem(),
 		});
 
-		// Create ReconcileService with context
+		// Wire up statusbar to stats service for notifications
+		this.statsService.setStatusBar(this.statusbar);
+
+		// Reconcile service
 		this.reconcile = new ReconcileService(
 			{
 				settings: this.settings,
-				applyReconcileStats: (mappingId, stats) => this.applyReconcileStats(mappingId, stats),
+				applyReconcileStats: (mappingId, stats) =>
+					this.statsService.applyReconcileStats(mappingId, stats),
 				setReconcileSnapshot: (p) => this.setReconcileSnapshot(p),
 				statusbar: this.statusbar,
 			},
@@ -97,24 +135,32 @@ export default class FileWatcherPlugin extends Plugin {
 			this.noticeService
 		);
 
-		// Create WatcherManager with the interface-based context
+		// Watcher manager
 		this.manager = new WatcherManager({
 			app: this.app,
 			settings: this.settings,
 			statusbar: this.statusbar,
 			watcherContext: {
 				settings: this.settings,
-				stats: this.stats,
+				stats: this.statsService.stats,
 				fileSync: this.fileSync,
 				noticeService: this.noticeService,
-				bumpProcessed: (mappingId, filePath) => this.bumpProcessed(mappingId, filePath),
-				bumpSkipped: (mappingId) => this.bumpSkipped(mappingId),
-				bumpError: (mappingId) => this.bumpError(mappingId),
-				applyReconcileStats: (mappingId, stats) => this.applyReconcileStats(mappingId, stats),
-				syncFile: (mapping, sourceFilePath, changeType) => this.syncFile(mapping, sourceFilePath, changeType),
+				bumpProcessed: (mappingId, filePath) =>
+					this.statsService.bumpProcessed(mappingId, filePath),
+				bumpSkipped: (mappingId) => this.statsService.bumpSkipped(mappingId),
+				bumpError: (mappingId) => this.statsService.bumpError(mappingId),
+				applyReconcileStats: (mappingId, stats) =>
+					this.statsService.applyReconcileStats(mappingId, stats),
+				syncFile: (mapping, sourceFilePath, changeType) =>
+					this.syncFile(mapping, sourceFilePath, changeType),
 			},
 		});
+	}
 
+	/**
+	 * Register plugin commands
+	 */
+	private registerCommands(): void {
 		this.addCommand({
 			id: "filewatcher-restart",
 			name: "Restart all watchers",
@@ -132,28 +178,63 @@ export default class FileWatcherPlugin extends Plugin {
 				this.openDashboard();
 			},
 		});
+	}
 
-		this.addSettingTab(new FileWatcherSettingTab(this.app, this));
-
+	/**
+	 * Start the plugin (reconcile on start, then start watchers)
+	 */
+	private async startPlugin(): Promise<void> {
 		LogService.debug("Plugin", "Starting reconcileOnStart");
-		void this.reconcile.reconcileOnStart().finally(async () => {
-			LogService.debug("Plugin", "reconcileOnStart finished, starting watchers");
+
+		try {
+			await this.reconcile.reconcileOnStart();
+		} catch (error) {
+			LogService.error("Plugin", "reconcileOnStart failed", {
+				details: { error: String(error) },
+			});
+			this.noticeService.error("Reconcile on start failed - check console for details");
+		}
+
+		LogService.debug("Plugin", "reconcileOnStart finished, starting watchers");
+
+		try {
 			await this.manager.startAll();
-			this.statusbar?.onStatsChanged();
+		} catch (error) {
+			LogService.error("Plugin", "Failed to start watchers", {
+				details: { error: String(error) },
+			});
+			this.noticeService.error("Failed to start some watchers - check console for details");
+		}
+
+		this.statusbar?.onStatsChanged();
+	}
+
+	/**
+	 * Handle critical errors during plugin load
+	 */
+	private handleLoadError(error: unknown): void {
+		const message = error instanceof Error ? error.message : String(error);
+
+		LogService.error("Plugin", "Failed to load plugin", {
+			details: { error: message },
 		});
 
-		LogService.info("Plugin", "File Watcher plugin loaded");
+		console.error("FileWatcher plugin failed to load:", error);
+
+		// Try to show a notice if possible
+		try {
+			this.noticeService?.error(`FileWatcher failed to load: ${message}`);
+		} catch {
+			// If notice service isn't available, we've already logged to console
+		}
 	}
 
-	onunload() {
-		void this.manager?.stopAll();
-		this.statusbar?.destroy();
-	}
-
+	/**
+	 * Toggle all watchers on/off
+	 */
 	async toggleAll() {
 		if (!this.manager) return;
 
-		// If any active => stop, else start
 		if (this.manager.activeCount() > 0) {
 			await this.manager.stopAll();
 			this.noticeService.show("All file watchers stopped");
@@ -164,58 +245,9 @@ export default class FileWatcherPlugin extends Plugin {
 		this.statusbar?.onStatsChanged();
 	}
 
-	// Stats helpers
-	private ensureMappingStats(mappingId: string) {
-		if (!this.stats.perMappingStats[mappingId]) {
-			this.stats.perMappingStats[mappingId] = {
-				processed: 0,
-				skipped: 0,
-				errors: 0,
-			};
-		}
-	}
-
-	bumpProcessed(mappingId: string, filePath?: string) {
-		this.stats.filesProcessed += 1;
-		this.ensureMappingStats(mappingId);
-		this.stats.perMappingStats[mappingId].processed += 1;
-		this.stats.lastProcessed = filePath
-			? truncatePath(filePath)
-			: new Date().toISOString();
-		this.statusbar?.onStatsChanged();
-	}
-
-	bumpSkipped(mappingId: string) {
-		this.stats.filesSkipped += 1;
-		this.ensureMappingStats(mappingId);
-		this.stats.perMappingStats[mappingId].skipped += 1;
-		this.statusbar?.onStatsChanged();
-	}
-
-	bumpError(mappingId: string) {
-		this.stats.errors += 1;
-		this.ensureMappingStats(mappingId);
-		this.stats.perMappingStats[mappingId].errors += 1;
-		this.statusbar?.onStatsChanged();
-	}
-
-	/** Apply stats from a completed reconcile operation */
-	applyReconcileStats(
-		mappingId: string,
-		stats: { processed: number; skipped: number; errors: number }
-	) {
-		this.stats.filesProcessed += stats.processed;
-		this.stats.filesSkipped += stats.skipped;
-		this.stats.errors += stats.errors;
-
-		this.ensureMappingStats(mappingId);
-		this.stats.perMappingStats[mappingId].processed += stats.processed;
-		this.stats.perMappingStats[mappingId].skipped += stats.skipped;
-		this.stats.perMappingStats[mappingId].errors += stats.errors;
-
-		this.statusbar?.onStatsChanged();
-	}
-
+	/**
+	 * Sync a single file and update stats/UI
+	 */
 	async syncFile(
 		mapping: FolderMapping,
 		sourceFilePath: string,
@@ -230,41 +262,36 @@ export default class FileWatcherPlugin extends Plugin {
 		const label = getMappingLabel(mapping);
 
 		if (!res.ok) {
-			this.bumpError(mapping.id);
+			this.statsService.bumpError(mapping.id);
 			this.noticeService.error(`[${label}] Error: ${res.error.message}`);
 			console.error(res.error);
 			return;
 		}
 
 		if (res.action === "skipped") {
-			this.bumpSkipped(mapping.id);
+			this.statsService.bumpSkipped(mapping.id);
 			return;
 		}
 
-		// processed
-		this.bumpProcessed(mapping.id, sourceFilePath);
+		// Processed successfully
+		this.statsService.bumpProcessed(mapping.id, sourceFilePath);
 		this.noticeService.success(`[${label}] ${changeType}: ${sourceFilePath}`);
 	}
 
+	/**
+	 * Load settings from storage
+	 */
 	async loadSettings() {
 		this.settings = Object.assign(
 			{},
 			DEFAULT_SETTINGS,
 			await this.loadData()
 		);
-
-		// Ensure stats object keys exist
-		for (const m of this.settings.folderMappings) {
-			if (!this.stats.perMappingStats[m.id]) {
-				this.stats.perMappingStats[m.id] = {
-					processed: 0,
-					skipped: 0,
-					errors: 0,
-				};
-			}
-		}
 	}
 
+	/**
+	 * Save settings to storage and propagate changes
+	 */
 	async saveSettings() {
 		LogService.debug("Plugin", "saveSettings() called", {
 			details: {
@@ -283,6 +310,11 @@ export default class FileWatcherPlugin extends Plugin {
 		this.fileSync.updateSettings(this.settings);
 		this.manager?.updateMappings();
 		this.statusbar?.onStatsChanged();
+
+		// Initialize stats for any new mappings
+		this.statsService.initializeMappingStats(
+			this.settings.folderMappings.map((m) => m.id)
+		);
 
 		LogService.debug("Plugin", "saveSettings() completed");
 	}
