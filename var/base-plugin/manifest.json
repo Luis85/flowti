@@ -1,0 +1,10 @@
+{
+	"id": "flowti-ibde",
+	"name": "Flowti - IBDE",
+	"version": "0.0.1",
+	"minAppVersion": "1.11.4",
+	"description": "An Integrated Business Development Environment.",
+	"author": "Luis Mendez",
+	"authorUrl": "https://luis-mendez.de",
+	"isDesktopOnly": true
+}

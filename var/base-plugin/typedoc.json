@@ -1,0 +1,31 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src"],
+  "entryPointStrategy": "expand",
+  "tsconfig": "tsconfig.typedoc.json",
+  "out": "docs/codebase",
+
+  "exclude": [
+    "**/node_modules/**",
+    "**/tests/**",
+    "**/dist/**",
+    "**/docs/**"
+  ],
+
+  "name": "Flowti - IBDE",
+  "readme": "README.md",
+
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeInternal": true,
+
+  "visibilityFilters": {
+    "protected": true,
+    "private": false,
+    "inherited": true,
+    "@internal": false
+  },
+
+  "searchInComments": true,
+  "searchInDocuments": true
+}

@@ -1,0 +1,40 @@
+{
+	"name": "flowti-ibde",
+	"version": "0.0.1",
+	"description": "The Flowti IBDE.",
+	"main": "main.js",
+	"scripts": {
+		"dev": "node esbuild.config.mjs --watch",
+		"build": "vitest run --reporter=dot && typedoc && tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"version": "node version-bump.mjs && git add manifest.json versions.json",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:ui": "vitest --ui",
+		"test:coverage": "vitest run --coverage",
+		"docs": "typedoc",
+		"check": "tsc -noEmit -skipLibCheck && npm run lint",
+		"lint": "eslint ./src/",
+		"publish": "npm run test:coverage && npm run docs && npm run check && node esbuild.config.mjs production && npx vite preview --outDir docs/tests --open"
+	},
+	"keywords": [
+		"business-development",
+		"process-management",
+		"quality-management"
+	],
+	"author": "Luis Mendez",
+	"license": "MIT",
+	"devDependencies": {
+		"@types/node": "^25.0.9",
+		"@typescript-eslint/eslint-plugin": "8.53.0",
+		"@typescript-eslint/parser": "8.53.0",
+		"@vitest/coverage-v8": "^4.0.17",
+		"@vitest/ui": "^4.0.17",
+		"builtin-modules": "5.0.0",
+		"esbuild": "0.27.2",
+		"obsidian": "latest",
+		"tslib": "2.8.1",
+		"typedoc": "^0.28.16",
+		"typescript": "5.9.3",
+		"vitest": "^4.0.17"
+	}
+}
