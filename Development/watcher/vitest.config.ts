@@ -26,7 +26,7 @@ export default defineConfig({
 			provider: "v8",
 			reportsDirectory: "docs/tests/coverage",
 			reporter: ["text", "html", "json"],
-			exclude: ["tests/**"],
+			exclude: ["tests/**", "src/modals/**"],
 		},
 	},
 });

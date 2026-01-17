@@ -2,6 +2,7 @@ import FileWatcherPlugin from "src/main";
 import { App, Modal, Setting, setIcon, TextComponent } from "obsidian";
 import { FolderMapping, ConflictResolution } from "src/types";
 import { pickFolder, isFolderPickerAvailable } from "src/services/FolderPickerService";
+import { confirmDelete } from "./ConfirmModal";
 
 export type MappingModalMode = "create" | "edit";
 
@@ -362,10 +363,11 @@ export class FolderMappingModal extends Modal {
 		this.close();
 	}
 
-	private handleDelete() {
-		// Confirm deletion
-		const confirmed = confirm(
-			`Are you sure you want to delete this mapping?\n\n"${this.mapping.description || this.mapping.id}"\n\nThis will stop watching the source folder.`
+	private async handleDelete() {
+		const confirmed = await confirmDelete(
+			this.app,
+			this.mapping.description || this.mapping.id,
+			"This will stop watching the source folder."
 		);
 
 		if (confirmed) {
