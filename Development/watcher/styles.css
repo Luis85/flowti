@@ -248,6 +248,48 @@
 	color: var(--color-red);
 }
 
+/* Health indicator */
+.filewatcher-dashboard .status-indicator.healthy {
+	color: var(--color-green);
+}
+
+.filewatcher-dashboard .status-indicator.idle {
+	color: var(--text-muted);
+}
+
+.filewatcher-dashboard .status-indicator.warning {
+	color: var(--color-yellow);
+}
+
+.filewatcher-dashboard .watcher-health {
+	font-size: 11px;
+	padding: 2px 8px;
+	border-radius: 4px;
+	text-transform: uppercase;
+	font-weight: 500;
+	margin-left: auto;
+}
+
+.filewatcher-dashboard .watcher-health.healthy {
+	background-color: rgba(var(--color-green-rgb), 0.15);
+	color: var(--color-green);
+}
+
+.filewatcher-dashboard .watcher-health.idle {
+	background-color: var(--background-modifier-hover);
+	color: var(--text-muted);
+}
+
+.filewatcher-dashboard .watcher-health.warning {
+	background-color: rgba(var(--color-yellow-rgb), 0.15);
+	color: var(--color-yellow);
+}
+
+.filewatcher-dashboard .watcher-health.error {
+	background-color: rgba(var(--color-red-rgb), 0.15);
+	color: var(--color-red);
+}
+
 .filewatcher-dashboard .watcher-details {
 	font-size: 12px;
 	color: var(--text-muted);

@@ -451,14 +451,16 @@ export class DashboardModal extends Modal {
 			const card = container.querySelector(`[data-mapping-id="${info.mappingId}"]`);
 			if (!card) continue;
 
-			// Update state indicator
+			// Update state indicator based on health
 			const stateIndicator = card.querySelector(".status-indicator") as HTMLElement;
 			if (stateIndicator) {
-				stateIndicator.className = `status-indicator ${info.state}`;
+				stateIndicator.className = `status-indicator ${info.health}`;
 				stateIndicator.empty();
 				setIcon(
 					stateIndicator,
-					info.state === "running" ? "check-circle" : info.state === "error" ? "alert-circle" : "circle"
+					info.health === "healthy" ? "check-circle" :
+					info.health === "warning" ? "alert-triangle" :
+					info.health === "error" ? "alert-circle" : "clock"
 				);
 			}
 
@@ -467,6 +469,16 @@ export class DashboardModal extends Modal {
 			if (stateBadge) {
 				stateBadge.className = `watcher-state ${info.state}`;
 				stateBadge.setText(info.state);
+			}
+
+			// Update health badge
+			const healthBadge = card.querySelector(".watcher-health") as HTMLElement;
+			if (healthBadge) {
+				healthBadge.className = `watcher-health ${info.health}`;
+				healthBadge.setText(info.health);
+				if (info.lastActivity) {
+					healthBadge.setAttribute("title", `Last activity: ${new Date(info.lastActivity).toLocaleTimeString()}`);
+				}
 			}
 
 			// Update queue stats
@@ -523,11 +535,13 @@ export class DashboardModal extends Modal {
 		const header = card.createDiv({ cls: "watcher-header" });
 
 		const statusIndicator = header.createSpan({
-			cls: `status-indicator ${info.state}`,
+			cls: `status-indicator ${info.health}`,
 		});
 		setIcon(
 			statusIndicator,
-			info.state === "running" ? "check-circle" : info.state === "error" ? "alert-circle" : "circle"
+			info.health === "healthy" ? "check-circle" :
+			info.health === "warning" ? "alert-triangle" :
+			info.health === "error" ? "alert-circle" : "clock"
 		);
 
 		header.createSpan({
@@ -539,6 +553,15 @@ export class DashboardModal extends Modal {
 			cls: `watcher-state ${info.state}`,
 			text: info.state,
 		});
+
+		// Health badge with last activity
+		const healthBadge = header.createSpan({
+			cls: `watcher-health ${info.health}`,
+			text: info.health,
+		});
+		if (info.lastActivity) {
+			healthBadge.setAttribute("title", `Last activity: ${new Date(info.lastActivity).toLocaleTimeString()}`);
+		}
 
 		// Details
 		const details = card.createDiv({ cls: "watcher-details" });

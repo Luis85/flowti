@@ -25,6 +25,19 @@ export interface IWatcherManagerContext extends ISettingsProvider {
 export type WatcherState = "running" | "stopped" | "error";
 
 /**
+ * Health status for a watcher based on activity and errors.
+ * - healthy: Running and had recent activity
+ * - idle: Running but no activity for a while (5+ minutes)
+ * - warning: Running but has dropped jobs or high queue
+ * - error: In error state
+ * @category Watchers
+ */
+export type WatcherHealth = "healthy" | "idle" | "warning" | "error";
+
+/** Idle threshold in milliseconds (5 minutes) */
+const IDLE_THRESHOLD_MS = 5 * 60 * 1000;
+
+/**
  * Information about a single watcher instance.
  * Used by the dashboard to display watcher status.
  * @category Watchers
@@ -40,6 +53,10 @@ export interface WatcherInfo {
 	targetFolder: string;
 	/** Current state of the watcher */
 	state: WatcherState;
+	/** Health status based on activity and errors */
+	health: WatcherHealth;
+	/** Timestamp of last activity (file event received), null if never active */
+	lastActivity: number | null;
 	/** Queue statistics for pending operations */
 	queueStats: {
 		pendingFiles: number;
@@ -248,20 +265,39 @@ export class WatcherManager {
 		for (const m of this.ctx.settings.folderMappings) {
 			const watcher = this.watchers.get(m.id);
 			const state = this.watcherStates.get(m.id) ?? "stopped";
+			const effectiveState = m.enabled ? state : "stopped";
+			const lastActivity = watcher?.getLastActivity() ?? null;
+			const queueStats = watcher?.getQueueStats() ?? {
+				pendingFiles: 0,
+				pendingDirs: 0,
+				droppedJobs: 0,
+				maxPendingFiles: 1000,
+				maxPendingDirs: 100,
+			};
+
+			// Calculate health based on state, activity, and queue stats
+			let health: WatcherHealth;
+			if (effectiveState === "error") {
+				health = "error";
+			} else if (effectiveState !== "running") {
+				health = "idle";
+			} else if (queueStats.droppedJobs > 0 || queueStats.pendingFiles > queueStats.maxPendingFiles * 0.8) {
+				health = "warning";
+			} else if (lastActivity === null || Date.now() - lastActivity > IDLE_THRESHOLD_MS) {
+				health = "idle";
+			} else {
+				health = "healthy";
+			}
 
 			infos.push({
 				mappingId: m.id,
 				mappingDescription: m.description || m.id,
 				sourceFolder: m.sourceFolder,
 				targetFolder: m.targetFolder,
-				state: m.enabled ? state : "stopped",
-				queueStats: watcher?.getQueueStats() ?? {
-					pendingFiles: 0,
-					pendingDirs: 0,
-					droppedJobs: 0,
-					maxPendingFiles: 1000,
-					maxPendingDirs: 100,
-				},
+				state: effectiveState,
+				health,
+				lastActivity,
+				queueStats,
 			});
 		}
 

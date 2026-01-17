@@ -4,7 +4,7 @@
  * Provides:
  * - Exclusive locks (only one holder at a time)
  * - Per-key locks (for file-level locking)
- * - Timeout support
+ * - Timeout support with context for better debugging
  * - FIFO ordering (first waiter gets lock first)
  */
 export class AsyncMutex {
@@ -18,8 +18,9 @@ export class AsyncMutex {
 	/**
 	 * Acquire the lock. Returns a release function.
 	 * @param timeout Optional timeout in ms. Rejects if lock not acquired within timeout.
+	 * @param context Optional context string for better error messages (e.g., "file-sync", "reconcile")
 	 */
-	async acquire(timeout?: number): Promise<() => void> {
+	async acquire(timeout?: number, context?: string): Promise<() => void> {
 		if (!this.locked) {
 			this.locked = true;
 			return () => this.release();
@@ -39,7 +40,8 @@ export class AsyncMutex {
 					const idx = this.queue.indexOf(waiter);
 					if (idx !== -1) {
 						this.queue.splice(idx, 1);
-						reject(new Error(`AsyncMutex: timeout after ${timeout}ms`));
+						const contextInfo = context ? ` (context: ${context})` : "";
+						reject(new Error(`AsyncMutex: timeout after ${timeout}ms waiting for lock${contextInfo}, queue length: ${this.queue.length}`));
 					}
 				}, timeout) as unknown as number;
 			}
@@ -103,8 +105,9 @@ export class KeyedMutex {
 	 * Acquire lock for a specific key.
 	 * @param key The key to lock (e.g., file path)
 	 * @param timeout Optional timeout in ms
+	 * @param context Optional context string for better error messages
 	 */
-	async acquire(key: string, timeout?: number): Promise<() => void> {
+	async acquire(key: string, timeout?: number, context?: string): Promise<() => void> {
 		let mutex = this.mutexes.get(key);
 		if (!mutex) {
 			mutex = new AsyncMutex();
@@ -114,7 +117,9 @@ export class KeyedMutex {
 
 		this.refCounts.set(key, (this.refCounts.get(key) ?? 0) + 1);
 
-		const release = await mutex.acquire(timeout);
+		// Include key in context for better debugging
+		const fullContext = context ? `${context} [key: ${key}]` : `key: ${key}`;
+		const release = await mutex.acquire(timeout, fullContext);
 
 		return () => {
 			release();

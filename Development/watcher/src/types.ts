@@ -72,4 +72,6 @@ export type ReconcileProgress = {
 	skipped: number;
 	errors: number;
 	current?: string;
+	/** Error message when phase is 'error' */
+	errorMessage?: string;
 };

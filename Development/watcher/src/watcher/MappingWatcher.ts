@@ -42,6 +42,9 @@ export class MappingWatcher {
 	/** Stats for monitoring backpressure */
 	private droppedJobs = 0;
 
+	/** Timestamp of last file event activity */
+	private _lastActivity: number | null = null;
+
 	/** Timeout for watcher close operation (prevents hanging) */
 	private static readonly CLOSE_TIMEOUT_MS = 5000;
 
@@ -62,6 +65,14 @@ export class MappingWatcher {
 			maxPendingFiles: MappingWatcher.MAX_PENDING_JOBS,
 			maxPendingDirs: MappingWatcher.MAX_PENDING_DIRS,
 		};
+	}
+
+	/**
+	 * Get timestamp of last file event activity.
+	 * Returns null if no activity has occurred yet.
+	 */
+	getLastActivity(): number | null {
+		return this._lastActivity;
 	}
 
 	start() {
@@ -180,6 +191,9 @@ export class MappingWatcher {
 	}
 
 	private enqueue(filePath: string, changeType: ChangeType) {
+		// Track activity timestamp for health monitoring
+		this._lastActivity = Date.now();
+
 		LogService.debug("Watcher", `enqueue() ${changeType}`, {
 			mappingId: this.mapping.id,
 			filePath,
