@@ -1,94 +1,169 @@
-# Obsidian Sample Plugin
+# Foreign Folder Watcher
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+An Obsidian plugin for automatic synchronization of files from external folders into your vault.
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+## Features
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open Sample Modal" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+- **Real-time Watching**: Monitors external folders for file changes using [chokidar](https://github.com/paulmillr/chokidar)
+- **Bulk Reconcile**: Full synchronization on startup or on-demand
+- **Cloud Sync Compatibility**: Special handling for OneDrive, Dropbox & Co. (stability checks, temp file filtering)
+- **Conflict Resolution**: Multiple strategies (overwrite, rename, skip, keep newer)
+- **Dashboard**: Visual interface for monitoring and control
+- **Performance**: Parallel processing, intelligent caching, skip-unchanged optimization
 
-## First time developing plugins?
+## Installation
 
-Quick starting guide for new plugin devs:
+### Manual
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+1. Download `main.js`, `styles.css`, and `manifest.json` from the [latest release](https://github.com/your-repo/releases)
+2. Create the folder `.obsidian/plugins/obsidian-folder-watcher/` in your vault
+3. Copy the downloaded files into this folder
+4. Enable the plugin in Obsidian under Settings → Community Plugins
 
-## Releasing new releases
+## Configuration
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+### Folder Mappings
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
+Each mapping defines a source-target relationship:
 
-## Adding your plugin to the community plugin list
+| Setting | Description |
+|---------|-------------|
+| **Source Folder** | Absolute path to the external folder (e.g., `C:\Users\Name\OneDrive\Notes`) |
+| **Target Folder** | Relative path in vault (e.g., `imported/onedrive`) |
+| **Watch Subfolders** | Include subdirectories |
+| **File Extensions** | Filter for file types (empty = all) |
+| **Conflict Resolution** | How to handle existing files |
+| **Reconcile on Start** | Synchronize when plugin starts |
 
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+### Conflict Resolution
 
-## How to use
+- **Overwrite**: Always overwrite existing files
+- **Skip**: Never overwrite existing files
+- **Rename**: Rename new file with timestamp
+- **Keep Newer**: Only overwrite if source file is newer
 
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
+### Cloud Sync Settings
 
-## Manually installing the plugin
+For OneDrive, Dropbox, and similar services:
 
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
+- **Ignore OneDrive Temp Files**: Ignore temporary files (`~$`, `.tmp`, etc.)
+- **Verify File Stability**: Wait until file is fully synchronized
+- **Stability Checks**: Number of stability checks
+- **Stability Interval**: Time between checks (ms)
 
-## Improve code quality with eslint (optional)
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- To use eslint with this project, make sure to install eslint from terminal:
-  - `npm install -g eslint`
-- To use eslint to analyze this project use this command:
-  - `eslint main.ts`
-  - eslint will then create a report with suggestions for code improvement by file and line number.
-- If your source code is in a folder, such as `src`, you can use eslint with this command to analyze all files in that folder:
-  - `eslint ./src/`
+### Reconcile Settings
 
-## Funding URL
+- **Sync on Start**: Global setting for reconcile on startup
+- **Parallelism**: Number of parallel workers (1-64)
+- **Fast Skip Unchanged**: Skip unchanged files (size + mtime)
+- **Progress Throttle**: UI update interval (ms)
 
-You can include funding URLs where people who use your plugin can financially support it.
+## Usage
 
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
+### Dashboard
 
-```json
-{
-    "fundingUrl": "https://buymeacoffee.com"
-}
+Open the dashboard via:
+- Command palette: "File Watcher: Open Dashboard"
+- Click on status bar element
+
+The dashboard shows:
+- **Overview**: Global statistics, reconcile status, recent activity
+- **Watchers**: Status of each mapping, start/stop/reconcile per mapping
+- **Logs**: Filtered logs with search
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `File Watcher: Open Dashboard` | Open dashboard |
+| `File Watcher: Restart all watchers` | Restart all watchers |
+
+### Status Bar
+
+The status bar shows:
+- Number of active watchers
+- Processed/Skipped/Error counters
+- Reconcile progress (when active)
+
+Click on the status bar to open the dashboard.
+
+## Architecture
+
+```
+src/
+├── main.ts                 # Main plugin class
+├── services/
+│   ├── FileSyncService.ts  # Core synchronization logic
+│   ├── ReconcileService.ts # Bulk reconcile orchestration
+│   ├── StatsService.ts     # Statistics tracking
+│   ├── StatusBarService.ts # Status bar display
+│   ├── LogService.ts       # Logging with subscriptions
+│   └── AsyncMutex.ts       # Thread safety (locks)
+├── watcher/
+│   ├── WatcherManager.ts   # Watcher lifecycle
+│   └── MappingWatcher.ts   # Individual folder watcher
+├── modals/
+│   ├── DashboardModal.ts   # Main dashboard
+│   ├── FolderMappingModal.ts # Mapping editor
+│   └── ConfirmModal.ts     # Confirmation dialogs
+└── settings/
+    ├── FileWatcherSettingTab.ts # Settings tab
+    └── types.ts             # Settings types
 ```
 
-If you have multiple URLs, you can also do:
+## Development
 
-```json
-{
-    "fundingUrl": {
-        "Buy Me a Coffee": "https://buymeacoffee.com",
-        "GitHub Sponsor": "https://github.com/sponsors",
-        "Patreon": "https://www.patreon.com/"
-    }
-}
+### Prerequisites
+
+- Node.js >= 16
+- npm
+
+### Setup
+
+```bash
+npm install
 ```
 
-## API Documentation
+### Development
 
-See https://github.com/obsidianmd/obsidian-api
+```bash
+npm run dev    # Watch mode
+npm run build  # Production build
+npm test       # Run tests
+npm run docs   # Generate TypeDoc
+```
+
+### Tests
+
+The project uses [Vitest](https://vitest.dev/) for unit tests:
+
+```bash
+npm test              # Run tests once
+npm run test:watch    # Watch mode
+npm run test:ui       # Vitest UI
+npm run test:coverage # With coverage report
+```
+
+### Documentation
+
+Generate TypeDoc documentation:
+
+```bash
+npm run docs
+```
+
+Documentation is generated in `docs/codebase/`.
+
+## Known Limitations
+
+- **Desktop-only**: The plugin only works on desktop (not mobile)
+- **No Delete Sync**: Deleted files are not removed from the vault
+- **No Bidirectional Sync**: Changes in the vault are not synced back
+
+## License
+
+MIT
+
+## Author
+
+Luis Mendez - [luis-mendez.de](https://luis-mendez.de)

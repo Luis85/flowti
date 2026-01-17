@@ -11,7 +11,7 @@
 		"test:watch": "vitest",
 		"test:ui": "vitest --ui",
 		"test:coverage": "vitest run --coverage",
-		"docs": "typedoc --entryPointStrategy expand ./src",
+		"docs": "typedoc",
 		"publish": "npm run test:coverage && npm run docs && npm run build && npx vite preview --outDir docs/tests --open"
 	},
 	"keywords": [],

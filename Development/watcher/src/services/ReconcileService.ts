@@ -9,11 +9,51 @@ import { LogService } from "./LogService";
 import type { INoticeService } from "./NoticeService";
 import { createNoOpNoticeService } from "./NoticeService";
 
+/**
+ * Orchestrates bulk reconciliation operations across folder mappings.
+ *
+ * @remarks
+ * The ReconcileService manages the high-level reconciliation workflow:
+ * - Coordinates multiple folder mappings sequentially
+ * - Provides progress tracking and cancellation support
+ * - Acquires exclusive locks to prevent conflicts with watchers
+ * - Updates UI components (status bar, dashboard) with progress
+ *
+ * Reconciliation is a bulk sync operation that scans source folders and
+ * ensures all files are synchronized to the vault. It differs from watcher
+ * sync in that it processes all files, not just changed ones.
+ *
+ * @example
+ * ```typescript
+ * const reconcile = new ReconcileService(ctx, fileSync, noticeService);
+ *
+ * // Reconcile on startup (if enabled in settings)
+ * await reconcile.reconcileOnStart();
+ *
+ * // Manual reconcile of all mappings
+ * await reconcile.reconcileAll();
+ *
+ * // Reconcile single mapping
+ * await reconcile.reconcileSingleMapping('mapping-id-123');
+ *
+ * // Cancel running reconciliation
+ * reconcile.cancel();
+ * ```
+ *
+ * @category Services
+ */
 export class ReconcileService {
 	private running = false;
 	private cancelled = false;
 	private notice: INoticeService;
 
+	/**
+	 * Creates a new ReconcileService instance.
+	 *
+	 * @param ctx - Context providing settings, stats, and UI access
+	 * @param fileSync - The file sync service for actual file operations
+	 * @param notice - Optional notice service for user notifications
+	 */
 	constructor(
 		private ctx: IReconcileContext,
 		private fileSync: IFileSyncService,
@@ -22,14 +62,32 @@ export class ReconcileService {
 		this.notice = notice ?? createNoOpNoticeService();
 	}
 
+	/**
+	 * Checks if a reconciliation is currently in progress.
+	 * @returns `true` if reconciliation is running
+	 */
 	isRunning() {
 		return this.running;
 	}
 
+	/**
+	 * Requests cancellation of the current reconciliation.
+	 *
+	 * @remarks
+	 * Cancellation is cooperative - the current file will complete processing
+	 * before the reconciliation stops. Progress will show "cancelled" phase.
+	 */
 	cancel() {
 		this.cancelled = true;
 	}
 
+	/**
+	 * Performs reconciliation on plugin startup if enabled in settings.
+	 *
+	 * @remarks
+	 * Called automatically during plugin initialization. Only reconciles
+	 * mappings that have both `enabled` and `reconcileOnStart` set to true.
+	 */
 	async reconcileOnStart(): Promise<void> {
 		const settings = this.ctx.settings;
 		const syncOnStart = settings.syncOnStart ?? true;
@@ -50,6 +108,23 @@ export class ReconcileService {
 		});
 	}
 
+	/**
+	 * Reconciles multiple folder mappings sequentially.
+	 *
+	 * @remarks
+	 * This is the core reconciliation method. It:
+	 * 1. Acquires an exclusive operation lock (blocks watchers)
+	 * 2. Processes each mapping in sequence
+	 * 3. Reports progress via callbacks
+	 * 4. Updates stats and UI after each mapping
+	 * 5. Releases the lock when done
+	 *
+	 * Only one reconciliation can run at a time. If already running, this
+	 * method returns immediately without action.
+	 *
+	 * @param mappings - Array of folder mappings to reconcile
+	 * @param cb - Callbacks for progress and completion notifications
+	 */
 	async reconcileMappings(
 		mappings: FolderMapping[],
 		cb: ReconcileCallbacks
@@ -213,7 +288,18 @@ export class ReconcileService {
 	}
 
 	/**
-	 * Reconcile a single mapping by ID
+	 * Reconciles a single folder mapping by its ID.
+	 *
+	 * @param mappingId - The unique identifier of the mapping to reconcile
+	 * @returns `true` if reconciliation was started, `false` if already running or mapping not found
+	 *
+	 * @example
+	 * ```typescript
+	 * const success = await reconcile.reconcileSingleMapping('mapping-123');
+	 * if (!success) {
+	 *   console.log('Could not start reconciliation');
+	 * }
+	 * ```
 	 */
 	async reconcileSingleMapping(mappingId: string): Promise<boolean> {
 		if (this.running) {
@@ -246,7 +332,13 @@ export class ReconcileService {
 	}
 
 	/**
-	 * Reconcile all enabled mappings
+	 * Reconciles all enabled folder mappings.
+	 *
+	 * @remarks
+	 * This is typically called from the dashboard's "Reconcile All" button.
+	 * Only mappings with `enabled: true` are processed.
+	 *
+	 * @returns `true` if reconciliation was started, `false` if already running or no enabled mappings
 	 */
 	async reconcileAll(): Promise<boolean> {
 		if (this.running) {

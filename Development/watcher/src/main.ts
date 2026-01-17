@@ -12,29 +12,78 @@ import { FileWatcherSettings, DEFAULT_SETTINGS } from "src/settings/types";
 import { ReconcileProgress, FolderMapping, SyncChangeType } from "src/types";
 import { getMappingLabel } from "src/utils";
 
+/**
+ * Main plugin class for the Foreign Folder Watcher.
+ *
+ * @remarks
+ * This plugin monitors external folders outside the Obsidian vault and
+ * automatically synchronizes their contents into the vault. It supports:
+ *
+ * - **Real-time watching**: Monitors folders for file changes using chokidar
+ * - **Reconciliation**: Bulk sync to ensure all files are synchronized
+ * - **Cloud sync compatibility**: Special handling for OneDrive, Dropbox, etc.
+ * - **Conflict resolution**: Multiple strategies (overwrite, skip, rename, keep newer)
+ * - **Dashboard**: Visual interface for monitoring and control
+ *
+ * The plugin is structured around several key services:
+ * - {@link FileSyncService}: Core file synchronization logic
+ * - {@link ReconcileService}: Bulk reconciliation operations
+ * - {@link WatcherManager}: Manages folder watchers
+ * - {@link StatsService}: Tracks sync statistics
+ * - {@link StatusBarService}: Status bar display
+ *
+ * @example
+ * ```typescript
+ * // The plugin is automatically instantiated by Obsidian
+ * // Access via app.plugins.plugins['foreign-folder-watcher']
+ *
+ * // Toggle all watchers
+ * plugin.toggleAll();
+ *
+ * // Open the dashboard
+ * plugin.openDashboard();
+ *
+ * // Access stats
+ * console.log(plugin.stats.filesProcessed);
+ * ```
+ *
+ * @category Core
+ */
 export default class FileWatcherPlugin extends Plugin {
-	// Services
+	/** Core file synchronization service */
 	fileSync!: FileSyncService;
+	/** Manages all folder watchers */
 	manager!: WatcherManager;
+	/** Status bar display service */
 	statusbar!: StatusBarService;
+	/** Bulk reconciliation service */
 	reconcile!: ReconcileService;
+	/** Statistics tracking service */
 	statsService!: StatsService;
+	/** User notification service */
 	noticeService!: INoticeService;
 
-	// Settings
+	/** Current plugin settings */
 	settings!: FileWatcherSettings;
 
-	// Reconcile state
+	/** Current reconcile progress snapshot */
 	private reconcileSnapshot: ReconcileProgress | null = null;
+	/** Subscribers for reconcile progress updates */
 	private reconcileSubscribers = new Set<(p: ReconcileProgress | null) => void>();
 
 	/**
-	 * Convenience getter for stats (delegates to StatsService)
+	 * Convenience getter for sync statistics.
+	 * @returns The current stats object from {@link StatsService}
 	 */
 	get stats() {
 		return this.statsService.stats;
 	}
 
+	/**
+	 * Updates the reconcile progress snapshot and notifies subscribers.
+	 * @param p - The new progress snapshot, or null when complete
+	 * @internal
+	 */
 	setReconcileSnapshot(p: ReconcileProgress | null) {
 		this.reconcileSnapshot = p;
 		// Notify all subscribers
@@ -47,19 +96,38 @@ export default class FileWatcherPlugin extends Plugin {
 		}
 	}
 
+	/**
+	 * Gets the current reconcile progress snapshot.
+	 * @returns The current progress, or null if no reconcile is running
+	 */
 	getReconcileSnapshot() {
 		return this.reconcileSnapshot;
 	}
 
 	/**
-	 * Subscribe to reconcile progress updates
-	 * @returns Unsubscribe function
+	 * Subscribes to reconcile progress updates.
+	 *
+	 * @param callback - Function called when progress changes
+	 * @returns Unsubscribe function to remove the subscription
+	 *
+	 * @example
+	 * ```typescript
+	 * const unsubscribe = plugin.subscribeToReconcileProgress((progress) => {
+	 *   if (progress) {
+	 *     console.log(`Phase: ${progress.phase}, Scanned: ${progress.scanned}`);
+	 *   }
+	 * });
+	 * // Later: unsubscribe();
+	 * ```
 	 */
 	subscribeToReconcileProgress(callback: (p: ReconcileProgress | null) => void): () => void {
 		this.reconcileSubscribers.add(callback);
 		return () => this.reconcileSubscribers.delete(callback);
 	}
 
+	/**
+	 * Opens the File Watcher Dashboard modal.
+	 */
 	openDashboard() {
 		new DashboardModal(this).open();
 	}
@@ -245,7 +313,11 @@ export default class FileWatcherPlugin extends Plugin {
 	}
 
 	/**
-	 * Toggle all watchers on/off
+	 * Toggles all watchers on or off.
+	 *
+	 * @remarks
+	 * If any watchers are running, stops all watchers.
+	 * If no watchers are running, starts all enabled watchers.
 	 */
 	async toggleAll() {
 		if (!this.manager) return;
@@ -261,7 +333,16 @@ export default class FileWatcherPlugin extends Plugin {
 	}
 
 	/**
-	 * Sync a single file and update stats/UI
+	 * Synchronizes a single file and updates statistics.
+	 *
+	 * @remarks
+	 * This method is called by watchers when a file change is detected.
+	 * It delegates to {@link FileSyncService.syncFile} and handles
+	 * the result by updating stats and showing notifications.
+	 *
+	 * @param mapping - The folder mapping configuration
+	 * @param sourceFilePath - Absolute path to the source file
+	 * @param changeType - Type of change that triggered the sync
 	 */
 	async syncFile(
 		mapping: FolderMapping,

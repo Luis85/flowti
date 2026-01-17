@@ -1,6 +1,7 @@
 {
   "$schema": "https://typedoc.org/schema.json",
-  "entryPoints": ["src/main.ts"],
+  "entryPoints": ["src"],
+  "entryPointStrategy": "expand",
   "tsconfig": "tsconfig.typedoc.json",
   "out": "docs/codebase",
 
@@ -11,9 +12,26 @@
     "**/docs/**"
   ],
 
+  "name": "Foreign Folder Watcher",
+  "readme": "README.md",
+
+  "categorizeByGroup": true,
+  "categoryOrder": ["Core", "Services", "Watchers", "Modals", "Settings", "Types", "Utilities", "*"],
+  "groupOrder": ["Classes", "Interfaces", "Functions", "Type Aliases", "Variables", "*"],
+
+ 
+
   "excludePrivate": true,
-  "excludeProtected": true,
+  "excludeProtected": false,
   "excludeInternal": true,
 
-  "readme": "none"
+  "visibilityFilters": {
+    "protected": true,
+    "private": false,
+    "inherited": true,
+    "@internal": false
+  },
+
+  "searchInComments": true,
+  "searchInDocuments": true
 }

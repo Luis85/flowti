@@ -7,22 +7,40 @@ import type { FolderMapping } from "../types";
 /**
  * Context required by WatcherManager.
  * Separates plugin dependencies for better testability.
+ * @category Watchers
  */
 export interface IWatcherManagerContext extends ISettingsProvider {
+	/** The Obsidian app instance */
 	readonly app: App;
+	/** Optional status bar service for UI updates */
 	readonly statusbar?: IStatusBar;
 	/** Context to pass to MappingWatcher instances */
 	readonly watcherContext: IMappingWatcherContext;
 }
 
+/**
+ * Possible states for a folder watcher.
+ * @category Watchers
+ */
 export type WatcherState = "running" | "stopped" | "error";
 
+/**
+ * Information about a single watcher instance.
+ * Used by the dashboard to display watcher status.
+ * @category Watchers
+ */
 export interface WatcherInfo {
+	/** Unique identifier of the folder mapping */
 	mappingId: string;
+	/** Human-readable description of the mapping */
 	mappingDescription: string;
+	/** Absolute path to the source folder being watched */
 	sourceFolder: string;
+	/** Vault-relative path to the target folder */
 	targetFolder: string;
+	/** Current state of the watcher */
 	state: WatcherState;
+	/** Queue statistics for pending operations */
 	queueStats: {
 		pendingFiles: number;
 		pendingDirs: number;
@@ -32,13 +50,62 @@ export interface WatcherInfo {
 	};
 }
 
+/**
+ * Manages the lifecycle of all folder watchers.
+ *
+ * @remarks
+ * The WatcherManager is responsible for:
+ * - Creating and starting watchers for enabled folder mappings
+ * - Stopping and cleaning up watchers when needed
+ * - Tracking watcher states (running, stopped, error)
+ * - Providing aggregated queue statistics
+ * - Coordinating watcher restarts when settings change
+ *
+ * Each folder mapping gets its own {@link MappingWatcher} instance that
+ * monitors the source folder for changes using chokidar.
+ *
+ * @example
+ * ```typescript
+ * const manager = new WatcherManager(ctx);
+ *
+ * // Start all enabled watchers
+ * await manager.startAll();
+ *
+ * // Check status
+ * console.log(`${manager.activeCount()} watchers running`);
+ *
+ * // Get detailed info for dashboard
+ * const infos = manager.getWatcherInfos();
+ *
+ * // Stop all watchers
+ * await manager.stopAll();
+ * ```
+ *
+ * @category Watchers
+ */
 export class WatcherManager {
 	private watchers = new Map<string, MappingWatcher>();
 	private watcherStates = new Map<string, WatcherState>();
 	private starting = false;
 
+	/**
+	 * Creates a new WatcherManager instance.
+	 * @param ctx - Context providing app, settings, and watcher dependencies
+	 */
 	constructor(private ctx: IWatcherManagerContext) {}
 
+	/**
+	 * Starts watchers for all enabled folder mappings.
+	 *
+	 * @remarks
+	 * This method:
+	 * 1. Stops any existing watchers first
+	 * 2. Creates new watchers for each enabled mapping
+	 * 3. Tracks state for each watcher
+	 *
+	 * Concurrent calls are prevented - if startAll is already running,
+	 * subsequent calls will be ignored.
+	 */
 	async startAll() {
 		// Prevent concurrent startAll calls
 		if (this.starting) {
@@ -147,17 +214,33 @@ export class WatcherManager {
 		LogService.info("Manager", "All watchers stopped");
 	}
 
+	/**
+	 * Returns the number of currently active watchers.
+	 */
 	activeCount() {
 		return this.watchers.size;
 	}
 
+	/**
+	 * Restarts all watchers after settings change.
+	 *
+	 * @remarks
+	 * Called automatically when folder mappings are modified.
+	 * Triggers a full restart of all watchers.
+	 */
 	updateMappings() {
 		LogService.info("Manager", "Updating mappings - restarting watchers");
 		void this.startAll();
 	}
 
 	/**
-	 * Get detailed info about all watchers (for dashboard)
+	 * Returns detailed information about all configured watchers.
+	 *
+	 * @remarks
+	 * Used by the dashboard to display watcher status, queue stats,
+	 * and provide controls for individual watchers.
+	 *
+	 * @returns Array of {@link WatcherInfo} for all folder mappings
 	 */
 	getWatcherInfos(): WatcherInfo[] {
 		const infos: WatcherInfo[] = [];
@@ -186,7 +269,9 @@ export class WatcherManager {
 	}
 
 	/**
-	 * Get total queue stats across all watchers
+	 * Returns aggregated queue statistics across all active watchers.
+	 *
+	 * @returns Combined counts of pending files, dirs, and dropped jobs
 	 */
 	getTotalQueueStats() {
 		let pendingFiles = 0;
@@ -204,7 +289,10 @@ export class WatcherManager {
 	}
 
 	/**
-	 * Start a single watcher by mapping ID
+	 * Starts a watcher for a specific folder mapping.
+	 *
+	 * @param mappingId - The unique identifier of the mapping
+	 * @returns `true` if the watcher was started successfully
 	 */
 	async startWatcher(mappingId: string): Promise<boolean> {
 		const mapping = this.ctx.settings.folderMappings.find(
@@ -256,7 +344,10 @@ export class WatcherManager {
 	}
 
 	/**
-	 * Stop a single watcher by mapping ID
+	 * Stops a watcher for a specific folder mapping.
+	 *
+	 * @param mappingId - The unique identifier of the mapping
+	 * @returns `true` if the watcher was stopped successfully
 	 */
 	async stopWatcher(mappingId: string): Promise<boolean> {
 		const watcher = this.watchers.get(mappingId);
@@ -290,7 +381,10 @@ export class WatcherManager {
 	}
 
 	/**
-	 * Check if a specific watcher is running
+	 * Checks if a specific watcher is currently running.
+	 *
+	 * @param mappingId - The unique identifier of the mapping
+	 * @returns `true` if the watcher is active
 	 */
 	isWatcherRunning(mappingId: string): boolean {
 		return this.watchers.has(mappingId);

@@ -14,15 +14,39 @@ import { LogService } from "./LogService";
 import { AsyncMutex, KeyedMutex, OperationLock } from "./AsyncMutex";
 
 /**
- * FileSyncService
- * - Sync single file (watch events)
- * - Reconcile mapping (bulk scan + sync) with performance optimizations:
- *   - throttled progress
- *   - cached ensureFolder
- *   - skip unchanged (size + mtime tolerance) on reconcile
- *   - concurrency worker pool
- *   - optional stability checks on reconcile (default OFF)
- *   - (best effort) pre-index target folder (adapter-dependent)
+ * Core service responsible for synchronizing files from external folders into the Obsidian vault.
+ *
+ * @remarks
+ * The FileSyncService handles two main operations:
+ * - **Single file sync**: Triggered by watch events when files change in monitored folders
+ * - **Reconcile**: Bulk scan and sync of entire folder mappings with performance optimizations
+ *
+ * Performance optimizations include:
+ * - Throttled progress callbacks to reduce UI overhead
+ * - Cached folder existence checks to avoid redundant filesystem calls
+ * - Skip unchanged files based on size + mtime comparison
+ * - Concurrent worker pool for parallel file processing
+ * - Optional stability checks for cloud-synced files (OneDrive, Dropbox)
+ * - Pre-indexing of target folders for faster existence checks
+ *
+ * Thread safety is ensured through:
+ * - Per-file mutex to prevent concurrent writes to the same target
+ * - Operation lock to coordinate watchers vs reconciliation (readers-writer pattern)
+ *
+ * @example
+ * ```typescript
+ * const fileSync = new FileSyncService(app, settings);
+ *
+ * // Single file sync (from watcher)
+ * const result = await fileSync.syncFile(mapping, '/path/to/file.md', 'add');
+ *
+ * // Reconcile entire mapping
+ * const stats = await fileSync.reconcileMapping(mapping, (progress) => {
+ *   console.log(`${progress.scanned}/${progress.total} files processed`);
+ * });
+ * ```
+ *
+ * @category Services
  */
 export class FileSyncService {
 	private settings: FileWatcherSettings;
@@ -48,13 +72,38 @@ export class FileSyncService {
 		return this.operationLock;
 	}
 
+	/**
+	 * Updates the settings reference. Call this after settings change.
+	 * @param settings - The new settings object
+	 */
 	updateSettings(settings: FileWatcherSettings) {
 		this.settings = settings;
 	}
 
-	// ===========================
-	// Public: sync single file
-	// ===========================
+	/**
+	 * Synchronizes a single file from an external source folder to the vault.
+	 *
+	 * @remarks
+	 * This method is typically called by watchers when a file change is detected.
+	 * It handles:
+	 * - Operation locking (blocks during reconciliation)
+	 * - Optional file stability verification
+	 * - Conflict resolution based on mapping settings
+	 * - Retry logic for transient filesystem errors
+	 *
+	 * @param mapping - The folder mapping configuration
+	 * @param sourceFilePath - Absolute path to the source file
+	 * @param _changeType - Type of change ('add', 'change', 'unlink')
+	 * @returns A {@link SyncResult} indicating success/failure and action taken
+	 *
+	 * @example
+	 * ```typescript
+	 * const result = await fileSync.syncFile(mapping, '/external/doc.md', 'change');
+	 * if (result.ok) {
+	 *   console.log(`Synced to ${result.targetPath}`);
+	 * }
+	 * ```
+	 */
 	async syncFile(
 		mapping: FolderMapping,
 		sourceFilePath: string,
@@ -97,6 +146,18 @@ export class FileSyncService {
 		}
 	}
 
+	/**
+	 * Reconciles a specific subfolder within a mapping.
+	 *
+	 * @remarks
+	 * Similar to {@link reconcileMapping} but scans only a specific subfolder.
+	 * Used when a new directory is detected by watchers to sync its contents.
+	 *
+	 * @param mapping - The folder mapping configuration
+	 * @param folderAbsPath - Absolute path to the folder to reconcile
+	 * @param onProgress - Optional callback for progress updates
+	 * @returns Statistics about the reconciliation operation
+	 */
 	async reconcileFolder(
 		mapping: FolderMapping,
 		folderAbsPath: string,
@@ -214,9 +275,34 @@ export class FileSyncService {
 		return stats;
 	}
 
-	// ===========================
-	// Public: reconcile mapping
-	// ===========================
+	/**
+	 * Reconciles an entire folder mapping by scanning and syncing all files.
+	 *
+	 * @remarks
+	 * This is the main bulk sync operation, typically called:
+	 * - On plugin startup (if reconcileOnStart is enabled)
+	 * - Manually by the user via the dashboard
+	 *
+	 * The reconciliation process:
+	 * 1. Scans all files in the source folder (respecting subfolder settings)
+	 * 2. Filters by allowed extensions and excludes temp files
+	 * 3. Processes files in parallel using a worker pool
+	 * 4. Skips unchanged files based on size/mtime comparison
+	 * 5. Reports progress via callback
+	 *
+	 * @param mapping - The folder mapping to reconcile
+	 * @param onProgress - Optional callback for progress updates, called periodically
+	 * @returns Statistics about the reconciliation: scanned, processed, skipped, errors
+	 *
+	 * @example
+	 * ```typescript
+	 * const stats = await fileSync.reconcileMapping(mapping, (p) => {
+	 *   const pct = Math.round((p.scanned / p.total) * 100);
+	 *   console.log(`Progress: ${pct}% - ${p.current}`);
+	 * });
+	 * console.log(`Done: ${stats.processed} synced, ${stats.skipped} skipped`);
+	 * ```
+	 */
 	async reconcileMapping(
 		mapping: FolderMapping,
 		onProgress?: (p: {
