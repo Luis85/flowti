@@ -78,7 +78,11 @@ export default class FileWatcherPlugin extends Plugin {
 			this.registerCommands();
 			this.addSettingTab(new FileWatcherSettingTab(this.app, this));
 
-			await this.startPlugin();
+			// Defer expensive operations until workspace is ready
+			// This prevents blocking Obsidian's startup
+			this.app.workspace.onLayoutReady(() => {
+				void this.startPlugin();
+			});
 
 			LogService.info("Plugin", "File Watcher plugin loaded");
 		} catch (error) {
@@ -183,6 +187,7 @@ export default class FileWatcherPlugin extends Plugin {
 			id: "filewatcher-restart",
 			name: "Restart all watchers",
 			callback: () => {
+				if (!this.app.workspace.layoutReady) return;
 				LogService.info("Plugin", "Watchers restart requested");
 				this.manager?.updateMappings();
 				this.noticeService.show("File watchers restarted");
@@ -193,6 +198,7 @@ export default class FileWatcherPlugin extends Plugin {
 			id: "filewatcher-dashboard",
 			name: "Open Dashboard",
 			callback: () => {
+				if (!this.app.workspace.layoutReady) return;
 				this.openDashboard();
 			},
 		});
