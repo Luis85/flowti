@@ -20,8 +20,9 @@
  * ```
  */
 
-import type { FlowtiUser } from "../user/types";
+import type { LogEntry } from "../logger/types";
 import type { FlowtiSettings } from "../settings/settings";
+import type { FlowtiUser } from "../user/types";
 
 /**
  * Map of all event types to their payload types.
@@ -30,14 +31,21 @@ import type { FlowtiSettings } from "../settings/settings";
  * The key is the event type string, the value is the payload type.
  */
 export interface FlowtiEventMap {
+	// User events
 	/** Emitted when a new user is created */
 	"user.created": { user: FlowtiUser };
-
 	/** Emitted when user data is updated */
 	"user.updated": { user: FlowtiUser };
 
+	// Settings events
 	/** Emitted when settings are changed */
 	"settings.changed": { settings: FlowtiSettings };
+
+	// Log events
+	/** Emitted for each log entry (useful for log aggregation) */
+	"log.entry": LogEntry;
+	/** Emitted when an error is logged */
+	"log.error": LogEntry;
 }
 
 /**

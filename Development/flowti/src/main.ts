@@ -1,6 +1,8 @@
 import { Plugin } from "obsidian";
 import { EventBus } from "./events/EventBus";
 import type { IEventBus } from "./events/types";
+import { LoggerService } from "./logger/LoggerService";
+import type { ILogger } from "./logger/types";
 import { FlowtiSettingTab } from "./settings/FlowtiSettingTab";
 import {
   DEFAULT_SETTINGS,
@@ -13,12 +15,15 @@ import { UserSetupModal } from "./user/UserSetupModal";
 
 export default class FlowtiBasePlugin extends Plugin {
   settings: FlowtiSettings;
-  userService: IUserService;
   eventBus: IEventBus;
+  logger: ILogger;
+  userService: IUserService;
 
   async onload() {
     await this.loadSettings();
     this.initializeEventBus();
+    this.initializeLogger();
+    this.setupEventListeners();
     await this.initializeUserService();
 
     this.addSettingTab(new FlowtiSettingTab(this.app, this));
@@ -30,6 +35,8 @@ export default class FlowtiBasePlugin extends Plugin {
     this.app.workspace.onLayoutReady(() => {
       UserSetupModal.showIfNeeded(this.app, this.userService);
     });
+
+    this.logger.info("Plugin loaded");
   }
 
   async onunload() {
@@ -73,6 +80,26 @@ export default class FlowtiBasePlugin extends Plugin {
    */
   private initializeEventBus(): void {
     this.eventBus = new EventBus();
+  }
+
+  /**
+   * Initialize the logger service
+   */
+  private initializeLogger(): void {
+    this.logger = new LoggerService({
+      eventBus: this.eventBus,
+      debugMode: this.settings.debugMode,
+    });
+  }
+
+  /**
+   * Set up event listeners for cross-cutting concerns
+   */
+  private setupEventListeners(): void {
+    // Update logger when debug mode changes
+    this.eventBus.on("settings.changed", (event) => {
+      this.logger.setDebugMode(event.payload.settings.debugMode);
+    });
   }
 
   /**
