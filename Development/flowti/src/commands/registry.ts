@@ -6,6 +6,7 @@
  * automatically bound to Obsidian's command system.
  */
 
+import { VIEW_TYPE_COMPONENT_SHOWCASE } from "../views/ComponentShowcaseView";
 import type { CommandDefinition, ICommandRegistry } from "./types";
 
 /**
@@ -15,29 +16,32 @@ import type { CommandDefinition, ICommandRegistry } from "./types";
  */
 export function createCommandDefinitions(): CommandDefinition[] {
 	return [
-		// Example commands - uncomment and modify as needed:
-		//
-		// {
-		//   id: "flowti:open-dashboard",
-		//   name: "Open Dashboard",
-		//   icon: "layout-dashboard",
-		//   hotkeys: [{ modifiers: ["Mod", "Shift"], key: "d" }],
-		//   handler: async (ctx) => {
-		//     ctx.logger.info("Opening dashboard");
-		//     // Open dashboard view
-		//   },
-		// },
-		//
-		// {
-		//   id: "flowti:quick-capture",
-		//   name: "Quick Capture",
-		//   icon: "plus-circle",
-		//   hotkeys: [{ modifiers: ["Mod"], key: "q" }],
-		//   handler: async (ctx) => {
-		//     ctx.logger.info("Opening quick capture");
-		//     // Open quick capture modal
-		//   },
-		// },
+		{
+			id: "flowti:open-component-showcase",
+			name: "Open Component Showcase",
+			icon: "palette",
+			handler: async (ctx) => {
+				ctx.logger.debug("Opening component showcase view");
+				const { workspace } = ctx.app;
+
+				// Check if view is already open
+				const existing = workspace.getLeavesOfType(VIEW_TYPE_COMPONENT_SHOWCASE);
+				if (existing.length > 0) {
+					workspace.revealLeaf(existing[0]);
+					return;
+				}
+
+				// Open in right sidebar
+				const leaf = workspace.getRightLeaf(false);
+				if (leaf) {
+					await leaf.setViewState({
+						type: VIEW_TYPE_COMPONENT_SHOWCASE,
+						active: true,
+					});
+					workspace.revealLeaf(leaf);
+				}
+			},
+		},
 	];
 }
 

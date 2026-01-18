@@ -51,37 +51,64 @@ Flowti is built as an Obsidian plugin with a clean, event-driven architecture de
 ### Core Principles
 
 - **Event-Driven Architecture**: Components communicate through a central EventBus, enabling loose coupling
-- **Dependency Injection**: Services receive dependencies via constructor options for easy testing
+- **Registry Pattern**: Commands, Views, and Services are registered through dedicated registries
+- **Dependency Injection**: Services receive dependencies via ServiceContainer for lifecycle management
 - **XState Compatibility**: Events follow the xstate v5 convention `{ type, payload, timestamp }` for future state machine integration
-- **Type Safety**: Full TypeScript with Zod validation and branded types
+- **Type Safety**: Full TypeScript with Zod validation and typed errors
 
 ### Project Structure
 
 ```
 src/
-├── main.ts                 # Plugin entry point, lifecycle management
+├── main.ts                    # Plugin entry point, lifecycle management
+├── commands/
+│   ├── CommandRegistry.ts     # Command execution with middleware
+│   ├── registry.ts            # Command definitions
+│   └── types.ts               # ICommandRegistry, CommandDefinition
+├── errors/
+│   ├── ErrorService.ts        # Centralized error handling
+│   ├── FlowtiError.ts         # Error class hierarchy
+│   └── types.ts               # IErrorService, FlowtiErrorInfo
 ├── events/
-│   ├── events.ts           # Central event definitions (FlowtiEventMap)
-│   ├── types.ts            # Event types and IEventBus interface
-│   └── EventBus.ts         # Pub/Sub implementation
+│   ├── EventBus.ts            # Pub/Sub implementation
+│   ├── events.ts              # Central event definitions (FlowtiEventMap)
+│   └── types.ts               # IEventBus, EventHandler types
 ├── logger/
-│   ├── types.ts            # ILogger interface, LogLevel, LogEntry
-│   └── LoggerService.ts    # Logging with event emission
+│   ├── LoggerService.ts       # Logging with event emission
+│   └── types.ts               # ILogger, LogLevel, LogEntry
+├── services/
+│   ├── ServiceContainer.ts    # DI container with lifecycle
+│   ├── registry.ts            # Service registrations
+│   └── types.ts               # IServiceContainer, ServiceDefinition
 ├── settings/
-│   ├── settings.ts         # Zod schema, types, defaults
-│   └── FlowtiSettingTab.ts # Settings UI
+│   ├── settings.ts            # Zod schema, types, defaults
+│   ├── SettingsService.ts     # Settings management service
+│   ├── FlowtiSettingTab.ts    # Settings UI
+│   └── types.ts               # ISettingsService
 ├── user/
-│   ├── types.ts            # FlowtiUser, IUserService, Zod schemas
-│   ├── UserService.ts      # User management with event emission
-│   └── UserSetupModal.ts   # First-run user setup
+│   ├── types.ts               # FlowtiUser, IUserService, Zod schemas
+│   ├── UserService.ts         # User management with events
+│   └── UserSetupModal.ts      # First-run user setup
+├── views/
+│   ├── ViewRegistry.ts        # View registration
+│   ├── registry.ts            # View definitions
+│   ├── types.ts               # IViewRegistry, ViewDefinition
+│   └── ComponentShowcaseView.ts # CSS component showcase
+├── styles/
+│   └── main.css               # Custom CSS utilities (ft-* prefix)
 └── utils/
-    ├── types.ts            # Shared types (UUID, IStorageProvider)
-    └── helpers.ts          # Utility functions (generateUUID)
+    ├── types.ts               # Shared types (UUID, IStorageProvider)
+    └── helpers.ts             # Utility functions
 
 tests/
+├── commands/CommandRegistry.test.ts
+├── errors/ErrorService.test.ts
+├── errors/FlowtiError.test.ts
 ├── events/EventBus.test.ts
 ├── logger/LoggerService.test.ts
+├── services/ServiceContainer.test.ts
 ├── settings/settings.test.ts
+├── settings/SettingsService.test.ts
 ├── user/UserService.test.ts
 └── utils/helpers.test.ts
 ```
@@ -93,11 +120,27 @@ The EventBus is the backbone of the application, enabling decoupled communicatio
 ```typescript
 // Available events (src/events/events.ts)
 interface FlowtiEventMap {
+  // Plugin lifecycle
+  "plugin.loading": { timestamp: string };
+  "plugin.loaded": { timestamp: string };
+  "plugin.ready": { timestamp: string };
+
+  // Services
+  "service.registered": { serviceId: string };
+  "service.initialized": { serviceId: string };
+
+  // Commands & Views
+  "command.registered": { commandId: string; commandName: string };
+  "command.executed": { commandId: string; durationMs: number };
+  "view.registered": { type: string; displayName: string };
+
+  // User & Settings
   "user.created": { user: FlowtiUser };
   "user.updated": { user: FlowtiUser };
   "settings.changed": { settings: FlowtiSettings };
-  "log.entry": LogEntry;
-  "log.error": LogEntry;
+
+  // Errors
+  "error.occurred": FlowtiErrorInfo;
 }
 
 // Usage examples
@@ -118,64 +161,128 @@ eventBus.once("user.created", handler); // One-time listener
 ```
 Plugin.onload()
     │
-    ├── loadSettings()         # Load and validate settings with Zod
-    ├── initializeEventBus()   # Create EventBus instance
-    ├── initializeLogger()     # Create Logger with EventBus
-    ├── setupEventListeners()  # Wire cross-cutting concerns
-    │       └── settings.changed → logger.setDebugMode()
-    ├── initializeUserService() # Create UserService with EventBus
-    │       └── userService.load()
-    ├── addSettingTab()
-    └── onLayoutReady()
+    ├── Phase 1: Core Infrastructure
+    │   ├── loadSettings()
+    │   ├── initializeEventBus()
+    │   ├── initializeLogger()
+    │   ├── initializeErrorService()
+    │   └── setupEventListeners()
+    │
+    ├── Phase 2: Containers
+    │   ├── initializeServiceContainer()
+    │   ├── initializeCommandRegistry()
+    │   └── initializeViewRegistry()
+    │
+    ├── Phase 3: Registration
+    │   ├── registerAllServices()
+    │   ├── registerAllCommands()
+    │   └── registerAllViews()
+    │
+    ├── Phase 4: Initialization
+    │   └── services.initializeAll()
+    │
+    ├── Phase 5: UI Setup
+    │   ├── addSettingTab()
+    │   ├── bindViews()
+    │   └── bindCommands()
+    │
+    └── Phase 6: Post-load
+        └── onLayoutReady()
             └── UserSetupModal.showIfNeeded()
 ```
 
-### Services
+### Core Services
+
+**ServiceContainer**
+- Dependency injection with lifecycle management
+- Automatic dependency resolution
+- Initialize/dispose hooks for services
+
+**CommandRegistry**
+- Middleware support (logging, error handling)
+- Type-safe command context (app, eventBus, logger)
+- Automatic binding to Obsidian's command system
+
+**ViewRegistry**
+- Centralized view registration
+- Factory pattern for view creation
+- Automatic binding to Obsidian's view system
+
+**ErrorService**
+- Centralized error handling
+- Typed error hierarchy (ValidationError, LifecycleError, etc.)
+- Error event emission for monitoring
 
 **UserService**
-- Manages user data (name, ID, createdAt)
+- User data management (name, ID, createdAt)
 - Emits `user.created` and `user.updated` events
-- Persists to Obsidian's plugin data storage
+- ValidationError for invalid inputs
 
-**LoggerService**
-- Four log levels: debug, info, warn, error
-- Debug logs controlled by `settings.debugMode`
-- Emits `log.entry` and `log.error` events
-- Supports context prefixes: `logger.setContext("UserService")`
+**SettingsService**
+- Settings management with Zod validation
+- Event emission on settings changes
+
+### CSS Utilities
+
+Custom CSS utilities with `ft-` prefix to avoid Obsidian conflicts:
+
+```css
+/* Components */
+.ft-btn, .ft-btn-primary, .ft-btn-secondary, .ft-btn-ghost
+.ft-card, .ft-input, .ft-label, .ft-badge, .ft-alert-*
+
+/* Layout */
+.ft-flex, .ft-flex-col, .ft-gap-*, .ft-items-center, .ft-justify-between
+
+/* Spacing */
+.ft-p-*, .ft-m-*, .ft-mt-*, .ft-mb-*
+
+/* Typography */
+.ft-heading, .ft-text-muted, .ft-text-sm, .ft-font-bold
+```
+
+Use the Component Showcase view (Command: "Open Component Showcase") to preview all available components.
 
 ### Adding New Features
 
-1. **Define events** in `src/events/events.ts`:
+1. **Add Commands** in `src/commands/registry.ts`:
    ```typescript
-   export interface FlowtiEventMap {
-     "task.created": { task: Task };
-     "task.completed": { taskId: string };
+   {
+     id: "flowti:my-command",
+     name: "My Command",
+     icon: "icon-name",
+     handler: async (ctx) => {
+       ctx.logger.debug("Executing");
+       // Use ctx.app, ctx.eventBus, ctx.logger
+     },
    }
    ```
 
-2. **Create service** with EventBus injection:
+2. **Add Views** in `src/views/registry.ts`:
    ```typescript
-   export class TaskService {
-     constructor(options: { storage: IStorageProvider; eventBus?: IEventBus }) {
-       // ...
-     }
-
-     async createTask(title: string) {
-       const task = { /* ... */ };
-       await this.eventBus?.emit("task.created", { task });
-       return task;
-     }
+   {
+     type: "flowti-my-view",
+     displayName: "My View",
+     icon: "icon-name",
+     factory: (leaf) => new MyView(leaf),
    }
    ```
 
-3. **Wire in main.ts**:
+3. **Add Services** in `src/services/registry.ts`:
    ```typescript
-   private async initializeTaskService() {
-     this.taskService = new TaskService({
-       storage: { load: () => this.loadData(), save: (d) => this.saveData(d) },
-       eventBus: this.eventBus,
-     });
-   }
+   container.register({
+     id: "myService",
+     factory: async ({ eventBus, logger }) => {
+       return new MyService({ eventBus, logger });
+     },
+     dependencies: [],
+   });
+   ```
+
+4. **Add Events** in `src/events/events.ts`:
+   ```typescript
+   "task.created": { task: Task };
+   "task.completed": { taskId: string };
    ```
 
 ## Development
@@ -197,12 +304,4 @@ npm run build      # Full build (tests → typedoc → check → esbuild)
 npm run docs       # Generate TypeDoc documentation
 ```
 
-### Test Coverage
-
-- **47 tests** across 5 test suites
-- EventBus: 13 tests (on/off, emit, wildcard, once, clear)
-- LoggerService: 13 tests (levels, context, events, debugMode)
-- UserService: 15 tests (CRUD, validation, events)
-- Settings: 4 tests (Zod validation)
-- Helpers: 2 tests (UUID generation)
 

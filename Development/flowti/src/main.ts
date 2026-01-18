@@ -24,6 +24,9 @@ import {
 } from "./settings/settings";
 import type { IUserService } from "./user/types";
 import { UserSetupModal } from "./user/UserSetupModal";
+import { registerViews } from "./views/registry";
+import type { IViewRegistry } from "./views/types";
+import { ViewRegistry } from "./views/ViewRegistry";
 
 /**
  * Main plugin class for Flowti.
@@ -44,6 +47,7 @@ export default class FlowtiBasePlugin extends Plugin {
 	errorService: IErrorService;
 	services: IServiceContainer;
 	commands: ICommandRegistry;
+	views: IViewRegistry;
 
 	// Convenience properties for commonly used services
 	userService: IUserService;
@@ -69,17 +73,19 @@ export default class FlowtiBasePlugin extends Plugin {
 			// Phase 2: Containers
 			this.initializeServiceContainer();
 			this.initializeCommandRegistry();
+			this.initializeViewRegistry();
 
-			// Phase 3: Register services and commands
+			// Phase 3: Register services, commands, and views
 			this.registerAllServices();
 			this.registerAllCommands();
+			this.registerAllViews();
 
 			// Phase 4: Initialize all services
 			await this.services.initializeAll();
 
 			// Phase 5: UI setup
 			this.addSettingTab(new FlowtiSettingTab(this.app, this));
-			this.registerViews();
+			this.bindViews();
 			this.bindCommands();
 
 			// Phase 6: Post-load tasks
@@ -122,6 +128,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			// Dispose services in reverse order
 			await this.services?.disposeAll();
 			this.commands?.clear();
+			this.views?.clear();
 
 			this.logger?.info("Plugin unloaded");
 
@@ -257,6 +264,16 @@ export default class FlowtiBasePlugin extends Plugin {
 	}
 
 	/**
+	 * Initialize the view registry.
+	 */
+	private initializeViewRegistry(): void {
+		this.views = new ViewRegistry({
+			eventBus: this.eventBus,
+			logger: this.logger,
+		});
+	}
+
+	/**
 	 * Register all services with the container.
 	 */
 	private registerAllServices(): void {
@@ -271,6 +288,13 @@ export default class FlowtiBasePlugin extends Plugin {
 	 */
 	private registerAllCommands(): void {
 		registerCommands(this.commands);
+	}
+
+	/**
+	 * Register plugin views.
+	 */
+	private registerAllViews(): void {
+		registerViews(this.views);
 	}
 
 	/**
@@ -305,10 +329,12 @@ export default class FlowtiBasePlugin extends Plugin {
 	}
 
 	/**
-	 * Register custom views.
+	 * Bind registered views to Obsidian.
 	 */
-	private registerViews(): void {
-		// Add view registrations here
+	private bindViews(): void {
+		for (const view of this.views.getViews()) {
+			this.registerView(view.type, view.factory);
+		}
 	}
 
 	/**

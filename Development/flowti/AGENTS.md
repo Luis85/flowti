@@ -208,6 +208,172 @@ That means we want to follow best practices like clean code and a test first app
 - Ship features that require cloud services without clear disclosure and explicit opt-in.
 - Store or transmit vault contents unless essential and consented.
 
+## Current Architecture
+
+The plugin uses a registry-based architecture with the following core systems:
+
+### Core Infrastructure
+
+- **EventBus** - Central pub/sub for decoupled communication (xstate v5 compatible)
+- **LoggerService** - Structured logging with event emission
+- **ErrorService** - Centralized error handling with typed errors (FlowtiError hierarchy)
+- **ServiceContainer** - Dependency injection container with lifecycle management
+
+### Registries
+
+- **CommandRegistry** - Command registration with middleware support (logging, error handling)
+- **ViewRegistry** - View registration for custom ItemViews
+
+### Project Structure
+
+```
+src/
+├── main.ts                    # Plugin entry point, lifecycle management
+├── commands/
+│   ├── CommandRegistry.ts     # Command execution with middleware
+│   ├── registry.ts            # Command definitions
+│   └── types.ts               # ICommandRegistry, CommandDefinition
+├── errors/
+│   ├── ErrorService.ts        # Centralized error handling
+│   ├── FlowtiError.ts         # Error class hierarchy
+│   └── types.ts               # IErrorService, FlowtiErrorInfo
+├── events/
+│   ├── EventBus.ts            # Pub/Sub implementation
+│   ├── events.ts              # Central event definitions (FlowtiEventMap)
+│   └── types.ts               # IEventBus, EventHandler types
+├── logger/
+│   ├── LoggerService.ts       # Logging with event emission
+│   └── types.ts               # ILogger, LogLevel, LogEntry
+├── services/
+│   ├── ServiceContainer.ts    # DI container with lifecycle
+│   ├── registry.ts            # Service registrations
+│   └── types.ts               # IServiceContainer, ServiceDefinition
+├── settings/
+│   ├── settings.ts            # Zod schema, types, defaults
+│   ├── SettingsService.ts     # Settings management service
+│   ├── FlowtiSettingTab.ts    # Settings UI
+│   └── types.ts               # ISettingsService
+├── user/
+│   ├── types.ts               # FlowtiUser, IUserService, Zod schemas
+│   ├── UserService.ts         # User management with events
+│   └── UserSetupModal.ts      # First-run user setup
+├── views/
+│   ├── ViewRegistry.ts        # View registration
+│   ├── registry.ts            # View definitions
+│   ├── types.ts               # IViewRegistry, ViewDefinition
+│   └── ComponentShowcaseView.ts # CSS component showcase
+├── styles/
+│   └── main.css               # Custom CSS utilities (ft-* prefix)
+└── utils/
+    ├── types.ts               # Shared types (UUID, IStorageProvider)
+    └── helpers.ts             # Utility functions
+
+tests/
+├── commands/CommandRegistry.test.ts
+├── errors/ErrorService.test.ts
+├── errors/FlowtiError.test.ts
+├── events/EventBus.test.ts
+├── logger/LoggerService.test.ts
+├── services/ServiceContainer.test.ts
+├── settings/settings.test.ts
+├── settings/SettingsService.test.ts
+├── user/UserService.test.ts
+└── utils/helpers.test.ts
+```
+
+### Initialization Order (main.ts)
+
+```
+Phase 1: Core infrastructure
+  ├── loadSettings()
+  ├── initializeEventBus()
+  ├── initializeLogger()
+  ├── initializeErrorService()
+  └── setupEventListeners()
+
+Phase 2: Containers
+  ├── initializeServiceContainer()
+  ├── initializeCommandRegistry()
+  └── initializeViewRegistry()
+
+Phase 3: Registration
+  ├── registerAllServices()
+  ├── registerAllCommands()
+  └── registerAllViews()
+
+Phase 4: Service initialization
+  └── services.initializeAll()
+
+Phase 5: UI setup
+  ├── addSettingTab()
+  ├── bindViews()
+  └── bindCommands()
+
+Phase 6: Post-load
+  └── onLayoutReady() → UserSetupModal.showIfNeeded()
+```
+
+### Adding New Commands
+
+```typescript
+// src/commands/registry.ts
+export function createCommandDefinitions(): CommandDefinition[] {
+  return [
+    {
+      id: "flowti:my-command",
+      name: "My Command",
+      icon: "icon-name",
+      handler: async (ctx) => {
+        ctx.logger.debug("Executing command");
+        // Use ctx.app, ctx.eventBus, ctx.logger
+      },
+    },
+  ];
+}
+```
+
+### Adding New Views
+
+```typescript
+// src/views/registry.ts
+export function createViewDefinitions(): ViewDefinition[] {
+  return [
+    {
+      type: "flowti-my-view",
+      displayName: "My View",
+      icon: "icon-name",
+      factory: (leaf) => new MyView(leaf),
+    },
+  ];
+}
+```
+
+### Adding New Services
+
+```typescript
+// src/services/registry.ts
+export function registerServices(container: IServiceContainer, deps: StorageDeps): void {
+  container.register({
+    id: "myService",
+    factory: async ({ eventBus, logger }) => {
+      return new MyService({ eventBus, logger, storage: deps });
+    },
+    dependencies: [],
+  });
+}
+```
+
+### Adding New Events
+
+```typescript
+// src/events/events.ts
+export interface FlowtiEventMap {
+  // Add new event with payload type
+  "task.created": { task: Task };
+  "task.completed": { taskId: string };
+}
+```
+
 ## Common tasks
 
 ### Organize code across multiple files

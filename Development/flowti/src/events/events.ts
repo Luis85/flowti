@@ -74,6 +74,13 @@ export interface FlowtiEventMap {
 	"command.failed": { commandId: string; error: FlowtiErrorInfo };
 
 	// ─────────────────────────────────────────────────────────────
+	// View Events
+	// ─────────────────────────────────────────────────────────────
+
+	/** Emitted when a view is registered */
+	"view.registered": { type: string; displayName: string };
+
+	// ─────────────────────────────────────────────────────────────
 	// User Events
 	// ─────────────────────────────────────────────────────────────
 

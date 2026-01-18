@@ -17,6 +17,24 @@ const copyFile = (src, dest) => {
 
 const ensureOutdir = () => fs.mkdirSync(OUTDIR, { recursive: true });
 
+/**
+ * Copies CSS from src/styles/main.css to styles.css
+ * We use custom CSS utilities instead of Tailwind's build process
+ * to avoid conflicts with Obsidian's styles.
+ */
+const buildCSS = () => {
+	const inputPath = path.resolve("src/styles/main.css");
+	const outputPath = path.resolve("styles.css");
+
+	if (!fs.existsSync(inputPath)) {
+		console.warn("No src/styles/main.css found, skipping CSS build");
+		return;
+	}
+
+	fs.copyFileSync(inputPath, outputPath);
+	console.log("CSS copied: styles.css");
+};
+
 const syncAssets = () => {
 	if (fs.existsSync(path.resolve("manifest.json"))) {
 		copyFile(path.resolve("manifest.json"), path.join(OUTDIR, "manifest.json"));
@@ -27,7 +45,7 @@ const syncAssets = () => {
 	if (fs.existsSync(path.resolve("LICENSE"))) {
 		copyFile(path.resolve("LICENSE"), path.join(OUTDIR, "LICENSE"));
 	}
-	// copy styles.css as a plain asset
+	// copy compiled styles.css
 	if (fs.existsSync(path.resolve("styles.css"))) {
 		copyFile(path.resolve("styles.css"), path.join(OUTDIR, "styles.css"));
 	}
@@ -38,6 +56,9 @@ const nodeBuiltins = builtinModules.flatMap((m) => [m, `node:${m}`]);
 
 const run = async () => {
 	ensureOutdir();
+
+	// Build CSS first
+	buildCSS();
 
 	const ctx = await esbuild.context({
 		entryPoints: ["src/main.ts"],
