@@ -8,7 +8,8 @@
       "Bash(find:*)",
       "Bash(grep:*)",
       "Bash(npm run check:*)",
-      "Bash(node esbuild.config.mjs:*)"
+      "Bash(node esbuild.config.mjs:*)",
+      "Bash(npm install)"
     ]
   }
 }

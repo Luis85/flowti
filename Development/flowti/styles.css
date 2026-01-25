@@ -1,15 +1,16 @@
 /**
  * Flowti Plugin Styles
  *
- * This file contains custom styles for the Flowti Obsidian plugin.
+ * Custom styles for the Flowti Obsidian plugin.
  * All classes use the "ft-" prefix to avoid conflicts with Obsidian.
+ *
+ * These utilities integrate with Obsidian's CSS variables for theme
+ * compatibility (light/dark mode support out of the box).
  *
  * Usage in TypeScript:
  * - Wrap your UI in a container with class "flowti-container"
  * - Use utility classes like: "ft-flex ft-gap-2 ft-p-4"
- *
- * Note: We don't use Tailwind's base/preflight to avoid interfering
- * with Obsidian's styles. Instead, we define our own scoped utilities.
+ * - Use component classes like: "ft-btn ft-btn-primary"
  */
 
 /* ─────────────────────────────────────────────────────────────

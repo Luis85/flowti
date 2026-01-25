@@ -262,8 +262,6 @@ src/
 │   ├── registry.ts            # View definitions
 │   ├── types.ts               # IViewRegistry, ViewDefinition
 │   └── ComponentShowcaseView.ts # CSS component showcase
-├── styles/
-│   └── main.css               # Custom CSS utilities (ft-* prefix)
 └── utils/
     ├── types.ts               # Shared types (UUID, IStorageProvider)
     └── helpers.ts             # Utility functions
