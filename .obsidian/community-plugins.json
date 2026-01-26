@@ -1,5 +1,4 @@
 [
-  "advanced-canvas",
   "ace-code-editor",
   "obsidian-chartsview-plugin",
   "dataview",
@@ -12,5 +11,6 @@
   "periodix-planner",
   "file-explorer-plus",
   "obsidian-folder-watcher",
+  "advanced-canvas",
   "flowti-ibde"
 ]

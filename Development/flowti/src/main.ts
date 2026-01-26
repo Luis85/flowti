@@ -27,8 +27,9 @@ import { UserSetupModal } from "./user/UserSetupModal";
 import { registerViews } from "./views/registry";
 import type { IViewRegistry } from "./views/types";
 import { ViewRegistry } from "./views/ViewRegistry";
-import { VIEW_TYPE_SOLUTION_DASHBOARD } from "./views/SolutionDashboardView";
 import { VIEW_TYPE_LIFECYCLE } from "./views/LifecycleView";
+import { VIEW_TYPE_SOLUTION_DETAIL } from "./views/SolutionDetailView";
+import { VIEW_TYPE_SOLUTION_EXPLORER } from "./views/SolutionExplorerView";
 import { VIEW_TYPE_TRACEABILITY_MATRIX } from "./views/TraceabilityMatrixView";
 
 /**
@@ -362,8 +363,11 @@ export default class FlowtiBasePlugin extends Plugin {
    * Bind Ribbons to the Sidebar
    */
   private bindRibbons(): void {
-    this.addRibbonIcon("store", "Solution Dashboard", () => {
-      this.activateView(VIEW_TYPE_SOLUTION_DASHBOARD);
+    this.addRibbonIcon("folder-tree", "Solution Explorer", () => {
+      this.activateViewInSidebar(VIEW_TYPE_SOLUTION_EXPLORER, "left");
+    });
+    this.addRibbonIcon("layout-dashboard", "Solution Detail", () => {
+      this.activateView(VIEW_TYPE_SOLUTION_DETAIL);
     });
     this.addRibbonIcon("git-branch", "Lifecycle", () => {
       this.activateView(VIEW_TYPE_LIFECYCLE);
@@ -385,6 +389,9 @@ export default class FlowtiBasePlugin extends Plugin {
       // Show setup modal if needed
       UserSetupModal.showIfNeeded(this.app, this.userService);
 
+      // Open Solution Explorer in left sidebar if not already open
+      await this.openSolutionExplorerIfNeeded();
+
       // Emit plugin.ready event - everything is initialized
       void this.eventBus.emit("plugin.ready", {
         timestamp: new Date().toISOString(),
@@ -398,6 +405,24 @@ export default class FlowtiBasePlugin extends Plugin {
   }
 
   /**
+   * Open Solution Explorer in left sidebar if not already open.
+   */
+  private async openSolutionExplorerIfNeeded(): Promise<void> {
+    const { workspace } = this.app;
+    const existing = workspace.getLeavesOfType(VIEW_TYPE_SOLUTION_EXPLORER);
+
+    if (existing.length === 0) {
+      const leftLeaf = workspace.getLeftLeaf(false);
+      if (leftLeaf) {
+        await leftLeaf.setViewState({
+          type: VIEW_TYPE_SOLUTION_EXPLORER,
+          active: true,
+        });
+      }
+    }
+  }
+
+  /**
    * Get a service from the container.
    * Convenience method for external access.
    */
@@ -405,17 +430,41 @@ export default class FlowtiBasePlugin extends Plugin {
     return this.services.get<T>(id);
   }
 
-  // @TODO: Refactor to target specific windows (e.g. Sidebar) when activating
-  // maybe its also possible to use obsidians workspace feature and target specific splits
-  async activateView(
-    viewType: string,
-    target: "sb-left" | "main" | "sb-right" = "main",
-  ) {
+  /**
+   * Activate a view in the main area.
+   */
+  async activateView(viewType: string) {
     const { workspace } = this.app;
     let leaf = workspace.getLeavesOfType(viewType)[0];
 
     if (!leaf) {
       const newLeaf = workspace.getLeaf("tab");
+      if (newLeaf) {
+        await newLeaf.setViewState({ type: viewType, active: true });
+        leaf = newLeaf;
+      }
+    }
+
+    if (leaf) {
+      workspace.revealLeaf(leaf);
+    }
+  }
+
+  /**
+   * Activate a view in a sidebar.
+   */
+  async activateViewInSidebar(
+    viewType: string,
+    side: "left" | "right" = "left",
+  ) {
+    const { workspace } = this.app;
+    let leaf = workspace.getLeavesOfType(viewType)[0];
+
+    if (!leaf) {
+      const newLeaf =
+        side === "left"
+          ? workspace.getLeftLeaf(false)
+          : workspace.getRightLeaf(false);
       if (newLeaf) {
         await newLeaf.setViewState({ type: viewType, active: true });
         leaf = newLeaf;

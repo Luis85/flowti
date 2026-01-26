@@ -18,7 +18,8 @@ import { CreateSolutionModal } from "../solutions/CreateSolutionModal";
 import type { ISolutionService, Solution } from "../solutions/types";
 import { VIEW_TYPE_COMPONENT_SHOWCASE } from "../views/ComponentShowcaseView";
 import { VIEW_TYPE_LIFECYCLE } from "../views/LifecycleView";
-import { VIEW_TYPE_SOLUTION_DASHBOARD } from "../views/SolutionDashboardView";
+import { VIEW_TYPE_SOLUTION_DETAIL } from "../views/SolutionDetailView";
+import { VIEW_TYPE_SOLUTION_EXPLORER } from "../views/SolutionExplorerView";
 import { VIEW_TYPE_TRACEABILITY_MATRIX } from "../views/TraceabilityMatrixView";
 import type { CommandDefinition, ICommandRegistry } from "./types";
 
@@ -198,15 +199,42 @@ export function createCommandDefinitions(): CommandDefinition[] {
 		// ─────────────────────────────────────────────────────────────
 
 		{
-			id: "flowti:open-dashboard",
-			name: "Open Solution Dashboard",
-			icon: "layout-dashboard",
+			id: "flowti:open-solution-explorer",
+			name: "Open Solution Explorer",
+			icon: "folder-tree",
 			handler: async (ctx) => {
-				ctx.logger.debug("Opening solution dashboard view");
+				ctx.logger.debug("Opening solution explorer view");
 				const { workspace } = ctx.app;
 
 				// Check if view is already open
-				const existing = workspace.getLeavesOfType(VIEW_TYPE_SOLUTION_DASHBOARD);
+				const existing = workspace.getLeavesOfType(VIEW_TYPE_SOLUTION_EXPLORER);
+				if (existing.length > 0) {
+					workspace.revealLeaf(existing[0]);
+					return;
+				}
+
+				// Open in left sidebar
+				const leaf = workspace.getLeftLeaf(false);
+				if (leaf) {
+					await leaf.setViewState({
+						type: VIEW_TYPE_SOLUTION_EXPLORER,
+						active: true,
+					});
+					workspace.revealLeaf(leaf);
+				}
+			},
+		},
+
+		{
+			id: "flowti:open-solution-detail",
+			name: "Open Solution Detail",
+			icon: "layout-dashboard",
+			handler: async (ctx) => {
+				ctx.logger.debug("Opening solution detail view");
+				const { workspace } = ctx.app;
+
+				// Check if view is already open
+				const existing = workspace.getLeavesOfType(VIEW_TYPE_SOLUTION_DETAIL);
 				if (existing.length > 0) {
 					workspace.revealLeaf(existing[0]);
 					return;
@@ -216,7 +244,7 @@ export function createCommandDefinitions(): CommandDefinition[] {
 				const leaf = workspace.getLeaf("tab");
 				if (leaf) {
 					await leaf.setViewState({
-						type: VIEW_TYPE_SOLUTION_DASHBOARD,
+						type: VIEW_TYPE_SOLUTION_DETAIL,
 						active: true,
 					});
 					workspace.revealLeaf(leaf);

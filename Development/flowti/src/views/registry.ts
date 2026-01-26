@@ -15,9 +15,13 @@ import {
 	VIEW_TYPE_LIFECYCLE,
 } from "./LifecycleView";
 import {
-	SolutionDashboardView,
-	VIEW_TYPE_SOLUTION_DASHBOARD,
-} from "./SolutionDashboardView";
+	SolutionDetailView,
+	VIEW_TYPE_SOLUTION_DETAIL,
+} from "./SolutionDetailView";
+import {
+	SolutionExplorerView,
+	VIEW_TYPE_SOLUTION_EXPLORER,
+} from "./SolutionExplorerView";
 import {
 	TraceabilityMatrixView,
 	VIEW_TYPE_TRACEABILITY_MATRIX,
@@ -38,11 +42,18 @@ export function createViewDefinitions(): ViewDefinition[] {
 			factory: (leaf) => new ComponentShowcaseView(leaf),
 		},
 		{
-			type: VIEW_TYPE_SOLUTION_DASHBOARD,
-			displayName: "Solution Dashboard",
+			type: VIEW_TYPE_SOLUTION_EXPLORER,
+			displayName: "Solutions",
+			icon: "folder-tree",
+			enhancedFactory: (leaf, services, eventBus) =>
+				new SolutionExplorerView(leaf, services, eventBus),
+		},
+		{
+			type: VIEW_TYPE_SOLUTION_DETAIL,
+			displayName: "Solution Detail",
 			icon: "layout-dashboard",
 			enhancedFactory: (leaf, services, eventBus) =>
-				new SolutionDashboardView(leaf, services, eventBus),
+				new SolutionDetailView(leaf, services, eventBus),
 		},
 		{
 			type: VIEW_TYPE_LIFECYCLE,

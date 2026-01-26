@@ -908,3 +908,104 @@
 	outline: none;
 	border-color: var(--interactive-accent);
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Solution Explorer Styles (Left Sidebar)
+   ───────────────────────────────────────────────────────────── */
+
+.flowti-solution-explorer {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	background: var(--background-primary);
+}
+
+.ft-explorer-header {
+	border-bottom: 1px solid var(--background-modifier-border);
+	flex-shrink: 0;
+}
+
+.ft-explorer-list {
+	flex: 1;
+	overflow-y: auto;
+}
+
+.ft-explorer-footer {
+	border-top: 1px solid var(--background-modifier-border);
+	flex-shrink: 0;
+}
+
+/* Sidebar item icon */
+.ft-sidebar-item-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	margin-right: 0.5rem;
+	color: var(--text-muted);
+	flex-shrink: 0;
+}
+
+.ft-sidebar-item-icon svg {
+	width: 16px;
+	height: 16px;
+}
+
+.ft-sidebar-item-active .ft-sidebar-item-icon {
+	color: var(--interactive-accent);
+}
+
+/* Auto margin utility */
+.ft-ml-auto {
+	margin-left: auto;
+}
+
+/* Icon button */
+.ft-btn-icon {
+	padding: 0.25rem;
+	width: 24px;
+	height: 24px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: var(--radius-s, 4px);
+	background: transparent;
+	border: none;
+	color: var(--text-muted);
+	cursor: pointer;
+}
+
+.ft-btn-icon:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Solution Detail View Styles
+   ───────────────────────────────────────────────────────────── */
+
+.flowti-solution-detail {
+	height: 100%;
+	overflow-y: auto;
+	padding: 1.5rem;
+}
+
+/* Empty state */
+.ft-empty-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	min-height: 300px;
+	color: var(--text-muted);
+}
+
+.ft-empty-icon {
+	opacity: 0.5;
+}
+
+.ft-empty-icon svg {
+	stroke: var(--text-muted);
+}

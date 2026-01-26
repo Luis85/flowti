@@ -134,6 +134,8 @@ export interface FlowtiEventMap {
 	"solution.updated": { solution: Solution };
 	/** Emitted when a solution is deleted */
 	"solution.deleted": { solutionId: string };
+	/** Emitted when a solution is selected in the explorer */
+	"solution.selected": { solutionId: string };
 
 	// ─────────────────────────────────────────────────────────────
 	// Idea Events
