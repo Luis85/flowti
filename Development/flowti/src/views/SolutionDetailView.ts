@@ -7,6 +7,8 @@
 
 import type { WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../events/types";
+import type { Feature, IFeatureService } from "../features/types";
+import { getFeatureStatusVariant } from "../features/types";
 import type { Idea, IIdeaService } from "../ideas/types";
 import type { JTBD, IJTBDService } from "../jtbd/types";
 import { calculateOpportunityScore, getOpportunityLevel } from "../jtbd/types";
@@ -27,6 +29,7 @@ export class SolutionDetailView extends BaseServiceView {
 	private ideas: Idea[] = [];
 	private requirements: Requirement[] = [];
 	private jtbds: JTBD[] = [];
+	private features: Feature[] = [];
 
 	// Collapsible states
 	private collapsedSections: Set<string> = new Set();
@@ -70,6 +73,9 @@ export class SolutionDetailView extends BaseServiceView {
 		this.subscribe("jtbd.created", () => this.refreshData());
 		this.subscribe("jtbd.updated", () => this.refreshData());
 		this.subscribe("jtbd.deleted", () => this.refreshData());
+		this.subscribe("feature.created", () => this.refreshData());
+		this.subscribe("feature.updated", () => this.refreshData());
+		this.subscribe("feature.deleted", () => this.refreshData());
 
 		await this.loadData();
 		await this.refresh();
@@ -96,6 +102,7 @@ export class SolutionDetailView extends BaseServiceView {
 
 		// Entity sections
 		this.renderIdeasSection(container);
+		this.renderFeaturesSection(container);
 		this.renderJTBDSection(container);
 		this.renderRequirementsSection(container);
 	}
@@ -131,6 +138,8 @@ export class SolutionDetailView extends BaseServiceView {
 			const requirementService =
 				await this.services.get<IRequirementService>("requirementService");
 			const jtbdService = await this.services.get<IJTBDService>("jtbdService");
+			const featureService =
+				await this.services.get<IFeatureService>("featureService");
 
 			this.solution = await solutionService.load(this.selectedSolutionId);
 			this.ideas = await ideaService.listBySolution(this.selectedSolutionId);
@@ -138,11 +147,13 @@ export class SolutionDetailView extends BaseServiceView {
 				this.selectedSolutionId,
 			);
 			this.jtbds = await jtbdService.listBySolution(this.selectedSolutionId);
+			this.features = await featureService.listBySolution(this.selectedSolutionId);
 		} catch {
 			this.solution = null;
 			this.ideas = [];
 			this.requirements = [];
 			this.jtbds = [];
+			this.features = [];
 		}
 	}
 
@@ -313,6 +324,42 @@ export class SolutionDetailView extends BaseServiceView {
 							text: idea.status,
 							cls: `ft-badge ft-badge-muted ft-text-xs`,
 						});
+					}
+				}
+
+				return content;
+			},
+		);
+	}
+
+	private renderFeaturesSection(container: HTMLElement): void {
+		this.renderCollapsibleSection(
+			container,
+			"features",
+			`Features (${this.features.length})`,
+			() => {
+				const content = container.createDiv({ cls: "ft-entity-list" });
+
+				if (this.features.length === 0) {
+					content.createDiv({
+						text: "No features yet",
+						cls: "ft-text-muted ft-text-sm",
+					});
+				} else {
+					for (const feature of this.features) {
+						const item = content.createDiv({ cls: "ft-entity-item" });
+						item.createSpan({ text: feature.title, cls: "ft-entity-title" });
+						const badges = item.createDiv({ cls: "ft-flex ft-gap-1" });
+						badges.createSpan({
+							text: feature.status,
+							cls: `ft-badge ${getFeatureStatusVariant(feature.status)} ft-text-xs`,
+						});
+						if (feature.priority) {
+							badges.createSpan({
+								text: feature.priority,
+								cls: `ft-badge ft-badge-muted ft-text-xs`,
+							});
+						}
 					}
 				}
 

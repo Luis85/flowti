@@ -8,6 +8,8 @@
 
 import { App, Modal, Notice, Setting } from "obsidian";
 import { CanvasGenerator } from "../canvas/CanvasGenerator";
+import { CreateFeatureModal } from "../features/CreateFeatureModal";
+import type { IFeatureService } from "../features/types";
 import { CreateIdeaModal } from "../ideas/CreateIdeaModal";
 import type { IIdeaService } from "../ideas/types";
 import { CreateJTBDModal } from "../jtbd/CreateJTBDModal";
@@ -159,6 +161,46 @@ export function createCommandDefinitions(): CommandDefinition[] {
 				} catch (error) {
 					ctx.logger.error("Failed to open add JTBD modal", error);
 					new Notice("Failed to open JTBD creator. Check console for details.");
+				}
+			},
+		},
+
+		// ─────────────────────────────────────────────────────────────
+		// Feature Commands
+		// ─────────────────────────────────────────────────────────────
+
+		{
+			id: "flowti:add-feature",
+			name: "Add Feature to Solution",
+			icon: "puzzle",
+			handler: async (ctx) => {
+				ctx.logger.debug("Opening add feature modal");
+
+				try {
+					const featureService =
+						await ctx.services.get<IFeatureService>("featureService");
+					const solutionService =
+						await ctx.services.get<ISolutionService>("solutionService");
+					const ideaService =
+						await ctx.services.get<IIdeaService>("ideaService");
+					const requirementService =
+						await ctx.services.get<IRequirementService>("requirementService");
+
+					const modal = new CreateFeatureModal(
+						ctx.app,
+						featureService,
+						solutionService,
+						ideaService,
+						requirementService,
+						(feature) => {
+							new Notice(`Feature "${feature.title}" added successfully`);
+							ctx.logger.info(`Feature created: ${feature.title}`);
+						}
+					);
+					modal.open();
+				} catch (error) {
+					ctx.logger.error("Failed to open add feature modal", error);
+					new Notice("Failed to open feature creator. Check console for details.");
 				}
 			},
 		},

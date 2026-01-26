@@ -6,6 +6,7 @@
  */
 
 import type { App } from "obsidian";
+import { FeatureService } from "../features/FeatureService";
 import { IdeaService } from "../ideas/IdeaService";
 import { JTBDService } from "../jtbd/JTBDService";
 import { RequirementService } from "../requirements/RequirementService";
@@ -149,6 +150,26 @@ export function createServiceRegistrations(
 							});
 							jtbdService.setSolutionService(solutionService);
 							return jtbdService;
+						},
+					},
+				]
+			: []),
+
+		// Feature Service - manages feature files in solution subfolders
+		...(pluginContext
+			? [
+					{
+						id: "featureService",
+						factory: async (container: IServiceContainer) => {
+							const solutionService =
+								await container.get<ISolutionService>("solutionService");
+							const featureService = new FeatureService({
+								app: pluginContext.app,
+								eventBus: container.getEventBus(),
+								solutionsFolder: pluginContext.getSettings().solutionsFolder,
+							});
+							featureService.setSolutionService(solutionService);
+							return featureService;
 						},
 					},
 				]

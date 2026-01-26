@@ -21,6 +21,7 @@
  */
 
 import type { FlowtiErrorInfo } from "../errors/types";
+import type { Feature } from "../features/types";
 import type { Idea } from "../ideas/types";
 import type { JTBD } from "../jtbd/types";
 import type { LogEntry } from "../logger/types";
@@ -175,6 +176,19 @@ export interface FlowtiEventMap {
 	"jtbd.updated": { jtbd: JTBD };
 	/** Emitted when a JTBD is deleted */
 	"jtbd.deleted": { jtbdId: string; solutionId: string };
+
+	// ─────────────────────────────────────────────────────────────
+	// Feature Events
+	// ─────────────────────────────────────────────────────────────
+
+	/** Emitted when a new feature is created */
+	"feature.created": { feature: Feature };
+	/** Emitted when a feature is loaded from storage */
+	"feature.loaded": { feature: Feature };
+	/** Emitted when a feature is updated */
+	"feature.updated": { feature: Feature };
+	/** Emitted when a feature is deleted */
+	"feature.deleted": { featureId: string; solutionId: string };
 
 	// ─────────────────────────────────────────────────────────────
 	// Canvas Events
