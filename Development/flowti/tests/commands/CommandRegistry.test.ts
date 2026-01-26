@@ -3,6 +3,7 @@ import { EventBus } from "../../src/events/EventBus";
 import type { IEventBus } from "../../src/events/types";
 import { LoggerService } from "../../src/logger/LoggerService";
 import type { ILogger } from "../../src/logger/types";
+import type { IServiceContainer } from "../../src/services/types";
 import {
 	CommandRegistry,
 	createLoggingMiddleware,
@@ -32,6 +33,7 @@ describe("CommandRegistry", () => {
 			app: {} as CommandContext["app"],
 			eventBus,
 			logger,
+			services: {} as IServiceContainer,
 		};
 	});
 

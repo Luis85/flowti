@@ -10,6 +10,18 @@ import {
 	ComponentShowcaseView,
 	VIEW_TYPE_COMPONENT_SHOWCASE,
 } from "./ComponentShowcaseView";
+import {
+	LifecycleView,
+	VIEW_TYPE_LIFECYCLE,
+} from "./LifecycleView";
+import {
+	SolutionDashboardView,
+	VIEW_TYPE_SOLUTION_DASHBOARD,
+} from "./SolutionDashboardView";
+import {
+	TraceabilityMatrixView,
+	VIEW_TYPE_TRACEABILITY_MATRIX,
+} from "./TraceabilityMatrixView";
 import type { IViewRegistry, ViewDefinition } from "./types";
 
 /**
@@ -24,6 +36,27 @@ export function createViewDefinitions(): ViewDefinition[] {
 			displayName: "Flowti Components",
 			icon: "palette",
 			factory: (leaf) => new ComponentShowcaseView(leaf),
+		},
+		{
+			type: VIEW_TYPE_SOLUTION_DASHBOARD,
+			displayName: "Solution Dashboard",
+			icon: "layout-dashboard",
+			enhancedFactory: (leaf, services, eventBus) =>
+				new SolutionDashboardView(leaf, services, eventBus),
+		},
+		{
+			type: VIEW_TYPE_LIFECYCLE,
+			displayName: "Lifecycle View",
+			icon: "git-branch",
+			enhancedFactory: (leaf, services, eventBus) =>
+				new LifecycleView(leaf, services, eventBus),
+		},
+		{
+			type: VIEW_TYPE_TRACEABILITY_MATRIX,
+			displayName: "Traceability Matrix",
+			icon: "table-2",
+			enhancedFactory: (leaf, services, eventBus) =>
+				new TraceabilityMatrixView(leaf, services, eventBus),
 		},
 	];
 }

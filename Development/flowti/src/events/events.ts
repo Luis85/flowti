@@ -21,8 +21,12 @@
  */
 
 import type { FlowtiErrorInfo } from "../errors/types";
+import type { Idea } from "../ideas/types";
+import type { JTBD } from "../jtbd/types";
 import type { LogEntry } from "../logger/types";
+import type { Requirement } from "../requirements/types";
 import type { FlowtiSettings } from "../settings/settings";
+import type { Solution } from "../solutions/types";
 import type { FlowtiUser } from "../user/types";
 
 /**
@@ -117,6 +121,65 @@ export interface FlowtiEventMap {
 	"error.occurred": FlowtiErrorInfo;
 	/** Emitted when an error is handled/recovered */
 	"error.handled": { error: FlowtiErrorInfo; recovered: boolean };
+
+	// ─────────────────────────────────────────────────────────────
+	// Solution Events
+	// ─────────────────────────────────────────────────────────────
+
+	/** Emitted when a new solution is created */
+	"solution.created": { solution: Solution };
+	/** Emitted when a solution is loaded from storage */
+	"solution.loaded": { solution: Solution };
+	/** Emitted when a solution is updated */
+	"solution.updated": { solution: Solution };
+	/** Emitted when a solution is deleted */
+	"solution.deleted": { solutionId: string };
+
+	// ─────────────────────────────────────────────────────────────
+	// Idea Events
+	// ─────────────────────────────────────────────────────────────
+
+	/** Emitted when a new idea is created */
+	"idea.created": { idea: Idea };
+	/** Emitted when an idea is loaded from storage */
+	"idea.loaded": { idea: Idea };
+	/** Emitted when an idea is updated */
+	"idea.updated": { idea: Idea };
+	/** Emitted when an idea is deleted */
+	"idea.deleted": { ideaId: string; solutionId: string };
+
+	// ─────────────────────────────────────────────────────────────
+	// Requirement Events
+	// ─────────────────────────────────────────────────────────────
+
+	/** Emitted when a new requirement is created */
+	"requirement.created": { requirement: Requirement };
+	/** Emitted when a requirement is loaded from storage */
+	"requirement.loaded": { requirement: Requirement };
+	/** Emitted when a requirement is updated */
+	"requirement.updated": { requirement: Requirement };
+	/** Emitted when a requirement is deleted */
+	"requirement.deleted": { requirementId: string; solutionId: string };
+
+	// ─────────────────────────────────────────────────────────────
+	// JTBD (Jobs to be Done) Events
+	// ─────────────────────────────────────────────────────────────
+
+	/** Emitted when a new JTBD is created */
+	"jtbd.created": { jtbd: JTBD };
+	/** Emitted when a JTBD is loaded from storage */
+	"jtbd.loaded": { jtbd: JTBD };
+	/** Emitted when a JTBD is updated */
+	"jtbd.updated": { jtbd: JTBD };
+	/** Emitted when a JTBD is deleted */
+	"jtbd.deleted": { jtbdId: string; solutionId: string };
+
+	// ─────────────────────────────────────────────────────────────
+	// Canvas Events
+	// ─────────────────────────────────────────────────────────────
+
+	/** Emitted when a canvas is generated */
+	"canvas.generated": { solutionId: string; canvasPath: string; type: string };
 }
 
 /**
