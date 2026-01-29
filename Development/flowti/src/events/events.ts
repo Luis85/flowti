@@ -25,6 +25,55 @@ import type { LogEntry } from "../logger/types";
 import type { FlowtiSettings } from "../settings/settings";
 import type { FlowtiUser } from "../user/types";
 
+// ─────────────────────────────────────────────────────────────
+// File System Types (defined here to avoid circular imports)
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Branded type for request IDs to ensure type safety
+ * when correlating requests with responses.
+ */
+export type RequestId = string & { readonly __brand: "RequestId" };
+
+/**
+ * Source of a file system change.
+ */
+export type FileChangeSource = "user" | "obsidian" | "sync" | "plugin" | "unknown";
+
+/**
+ * Base payload for all file request events.
+ */
+export interface FileRequestBase {
+	/** Unique ID to correlate request with response */
+	requestId: RequestId;
+	/** File path relative to vault root */
+	path: string;
+}
+
+/**
+ * Base payload for all file response events.
+ */
+export interface FileResponseBase {
+	/** Correlates with the original request */
+	requestId: RequestId;
+	/** Whether the operation succeeded */
+	success: boolean;
+	/** File path that was operated on */
+	path: string;
+}
+
+/**
+ * Error information for failed file operations.
+ */
+export interface FileOperationError {
+	/** Error code for programmatic handling */
+	code: string;
+	/** Human-readable error message */
+	message: string;
+	/** Path of the file that caused the error */
+	path: string;
+}
+
 /**
  * Map of all event types to their payload types.
  *
@@ -117,6 +166,171 @@ export interface FlowtiEventMap {
 	"error.occurred": FlowtiErrorInfo;
 	/** Emitted when an error is handled/recovered */
 	"error.handled": { error: FlowtiErrorInfo; recovered: boolean };
+
+	// ─────────────────────────────────────────────────────────────
+	// File Operation Request Events (Service → main.ts)
+	// ─────────────────────────────────────────────────────────────
+
+	/** Request to create a new file */
+	"file.create.request": FileRequestBase & {
+		/** File content (markdown or text) */
+		content: string;
+		/** If true, create parent folders if they don't exist */
+		createFolders?: boolean;
+	};
+
+	/** Request to read a file's content */
+	"file.read.request": FileRequestBase;
+
+	/** Request to update an existing file's content */
+	"file.update.request": FileRequestBase & {
+		/** New content to write */
+		content: string;
+	};
+
+	/** Request to delete a file */
+	"file.delete.request": FileRequestBase;
+
+	/** Request to move a file to a new location */
+	"file.move.request": FileRequestBase & {
+		/** Destination path relative to vault root */
+		newPath: string;
+	};
+
+	/** Request to rename a file (same folder, different name) */
+	"file.rename.request": FileRequestBase & {
+		/** New file name (without path) */
+		newName: string;
+	};
+
+	// ─────────────────────────────────────────────────────────────
+	// File Operation Response Events (main.ts → Service)
+	// ─────────────────────────────────────────────────────────────
+
+	/** Response after file creation */
+	"file.create.response": FileResponseBase & {
+		/** Error info if success is false */
+		error?: FileOperationError;
+	};
+
+	/** Response after file read */
+	"file.read.response": FileResponseBase & {
+		/** File content if success is true */
+		content?: string;
+		/** Error info if success is false */
+		error?: FileOperationError;
+	};
+
+	/** Response after file update */
+	"file.update.response": FileResponseBase & {
+		/** Error info if success is false */
+		error?: FileOperationError;
+	};
+
+	/** Response after file deletion */
+	"file.delete.response": FileResponseBase & {
+		/** Error info if success is false */
+		error?: FileOperationError;
+	};
+
+	/** Response after file move */
+	"file.move.response": FileResponseBase & {
+		/** The new path after move if success is true */
+		newPath?: string;
+		/** Error info if success is false */
+		error?: FileOperationError;
+	};
+
+	/** Response after file rename */
+	"file.rename.response": FileResponseBase & {
+		/** The new path after rename if success is true */
+		newPath?: string;
+		/** Error info if success is false */
+		error?: FileOperationError;
+	};
+
+	// ─────────────────────────────────────────────────────────────
+	// File Notification Events (External changes → Services)
+	// ─────────────────────────────────────────────────────────────
+
+	/** Notification: A file was created externally */
+	"file.created": {
+		/** Path of the created file */
+		path: string;
+		/** Source of the creation */
+		source: FileChangeSource;
+	};
+
+	/** Notification: A file was modified externally */
+	"file.modified": {
+		/** Path of the modified file */
+		path: string;
+		/** Source of the modification */
+		source: FileChangeSource;
+	};
+
+	/** Notification: A file was deleted externally */
+	"file.deleted": {
+		/** Path of the deleted file */
+		path: string;
+		/** Source of the deletion */
+		source: FileChangeSource;
+	};
+
+	/** Notification: A file was renamed externally */
+	"file.renamed": {
+		/** Original path before rename */
+		oldPath: string;
+		/** New path after rename */
+		newPath: string;
+		/** Source of the rename */
+		source: FileChangeSource;
+	};
+
+	// ─────────────────────────────────────────────────────────────
+	// Frontmatter Request Events (Service → main.ts)
+	// ─────────────────────────────────────────────────────────────
+
+	/** Request to read frontmatter from a file */
+	"frontmatter.get.request": FileRequestBase;
+
+	/** Request to update specific frontmatter fields (merge) */
+	"frontmatter.update.request": FileRequestBase & {
+		/** Partial frontmatter to merge with existing */
+		data: Record<string, unknown>;
+	};
+
+	/** Request to replace entire frontmatter */
+	"frontmatter.set.request": FileRequestBase & {
+		/** Complete frontmatter to set */
+		data: Record<string, unknown>;
+	};
+
+	// ─────────────────────────────────────────────────────────────
+	// Frontmatter Response Events (main.ts → Service)
+	// ─────────────────────────────────────────────────────────────
+
+	/** Response after frontmatter read */
+	"frontmatter.get.response": FileResponseBase & {
+		/** Frontmatter data if success is true */
+		data?: Record<string, unknown>;
+		/** Error info if success is false */
+		error?: FileOperationError;
+	};
+
+	/** Response after frontmatter update */
+	"frontmatter.update.response": FileResponseBase & {
+		/** Updated frontmatter data if success is true */
+		data?: Record<string, unknown>;
+		/** Error info if success is false */
+		error?: FileOperationError;
+	};
+
+	/** Response after frontmatter set */
+	"frontmatter.set.response": FileResponseBase & {
+		/** Error info if success is false */
+		error?: FileOperationError;
+	};
 }
 
 /**

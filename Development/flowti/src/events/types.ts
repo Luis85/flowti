@@ -2,6 +2,15 @@ import type { EventType, FlowtiEventMap } from "./events";
 
 export type { EventType, FlowtiEventMap } from "./events";
 
+// Re-export file system types from events.ts
+export type {
+	RequestId,
+	FileChangeSource,
+	FileRequestBase,
+	FileResponseBase,
+	FileOperationError,
+} from "./events";
+
 /**
  * Base event interface compatible with xstate v5.
  * All events have a type, payload, and timestamp.
