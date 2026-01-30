@@ -1,4 +1,4 @@
-import { Plugin } from "obsidian";
+import { Plugin, TFile } from "obsidian";
 import {
 	CommandRegistry,
 	createErrorMiddleware,
@@ -232,11 +232,378 @@ export default class FlowtiBasePlugin extends Plugin {
       this.logger.debug("User loaded", { userName: event.payload.user.name });
     });
 
-    // Log lifecycle events
-    this.eventBus.on("plugin.ready", (event) => {
-      this.logger.debug("Plugin ready", { timestamp: event.payload.timestamp });
-    });
-  }
+		// Log lifecycle events
+		this.eventBus.on("plugin.ready", (event) => {
+			this.logger.debug("Plugin ready", { timestamp: event.payload.timestamp });
+		});
+
+		// Set up file system handlers
+		this.setupFileSystemHandlers();
+		this.setupFrontmatterHandlers();
+	}
+
+	/**
+	 * Set up event listeners for file system operations.
+	 * Bridges the EventBus with Obsidian's file API.
+	 */
+	private setupFileSystemHandlers(): void {
+		// Handle file.create.request
+		this.eventBus.on("file.create.request", async (event) => {
+			const { requestId, path, content, createFolders } = event.payload;
+			try {
+				// Ensure parent folder exists if requested
+				if (createFolders) {
+					const folderPath = path.substring(0, path.lastIndexOf("/"));
+					if (
+						folderPath &&
+						!this.app.vault.getAbstractFileByPath(folderPath)
+					) {
+						await this.app.vault.createFolder(folderPath);
+					}
+				}
+
+				// Create the file
+				await this.app.vault.create(path, content);
+
+				await this.eventBus.emit("file.create.response", {
+					requestId,
+					success: true,
+					path,
+				});
+			} catch (error) {
+				await this.eventBus.emit("file.create.response", {
+					requestId,
+					success: false,
+					path,
+					error: {
+						code: "FILE_CREATE_FAILED",
+						message: error instanceof Error ? error.message : String(error),
+						path,
+					},
+				});
+			}
+		});
+
+		// Handle file.read.request
+		this.eventBus.on("file.read.request", async (event) => {
+			const { requestId, path } = event.payload;
+			try {
+				const file = this.app.vault.getAbstractFileByPath(path);
+				if (!file || !(file instanceof TFile)) {
+					throw new Error(`File not found: ${path}`);
+				}
+
+				const content = await this.app.vault.read(file);
+
+				await this.eventBus.emit("file.read.response", {
+					requestId,
+					success: true,
+					path,
+					content,
+				});
+			} catch (error) {
+				await this.eventBus.emit("file.read.response", {
+					requestId,
+					success: false,
+					path,
+					error: {
+						code: "FILE_READ_FAILED",
+						message: error instanceof Error ? error.message : String(error),
+						path,
+					},
+				});
+			}
+		});
+
+		// Handle file.update.request
+		this.eventBus.on("file.update.request", async (event) => {
+			const { requestId, path, content } = event.payload;
+			try {
+				const file = this.app.vault.getAbstractFileByPath(path);
+				if (!file || !(file instanceof TFile)) {
+					throw new Error(`File not found: ${path}`);
+				}
+
+				await this.app.vault.modify(file, content);
+
+				await this.eventBus.emit("file.update.response", {
+					requestId,
+					success: true,
+					path,
+				});
+			} catch (error) {
+				await this.eventBus.emit("file.update.response", {
+					requestId,
+					success: false,
+					path,
+					error: {
+						code: "FILE_UPDATE_FAILED",
+						message: error instanceof Error ? error.message : String(error),
+						path,
+					},
+				});
+			}
+		});
+
+		// Handle file.delete.request
+		this.eventBus.on("file.delete.request", async (event) => {
+			const { requestId, path } = event.payload;
+			try {
+				const file = this.app.vault.getAbstractFileByPath(path);
+				if (!file) {
+					throw new Error(`File not found: ${path}`);
+				}
+
+				await this.app.vault.delete(file);
+
+				await this.eventBus.emit("file.delete.response", {
+					requestId,
+					success: true,
+					path,
+				});
+			} catch (error) {
+				await this.eventBus.emit("file.delete.response", {
+					requestId,
+					success: false,
+					path,
+					error: {
+						code: "FILE_DELETE_FAILED",
+						message: error instanceof Error ? error.message : String(error),
+						path,
+					},
+				});
+			}
+		});
+
+		// Handle file.move.request
+		this.eventBus.on("file.move.request", async (event) => {
+			const { requestId, path, newPath } = event.payload;
+			try {
+				const file = this.app.vault.getAbstractFileByPath(path);
+				if (!file) {
+					throw new Error(`File not found: ${path}`);
+				}
+
+				await this.app.fileManager.renameFile(file, newPath);
+
+				await this.eventBus.emit("file.move.response", {
+					requestId,
+					success: true,
+					path,
+					newPath,
+				});
+			} catch (error) {
+				await this.eventBus.emit("file.move.response", {
+					requestId,
+					success: false,
+					path,
+					error: {
+						code: "FILE_MOVE_FAILED",
+						message: error instanceof Error ? error.message : String(error),
+						path,
+					},
+				});
+			}
+		});
+
+		// Handle file.rename.request
+		this.eventBus.on("file.rename.request", async (event) => {
+			const { requestId, path, newName } = event.payload;
+			try {
+				const file = this.app.vault.getAbstractFileByPath(path);
+				if (!file) {
+					throw new Error(`File not found: ${path}`);
+				}
+
+				const folderPath = path.substring(0, path.lastIndexOf("/"));
+				const newPath = folderPath ? `${folderPath}/${newName}` : newName;
+
+				await this.app.fileManager.renameFile(file, newPath);
+
+				await this.eventBus.emit("file.rename.response", {
+					requestId,
+					success: true,
+					path,
+					newPath,
+				});
+			} catch (error) {
+				await this.eventBus.emit("file.rename.response", {
+					requestId,
+					success: false,
+					path,
+					error: {
+						code: "FILE_RENAME_FAILED",
+						message: error instanceof Error ? error.message : String(error),
+						path,
+					},
+				});
+			}
+		});
+
+		// --- External File Change Listeners ---
+		// Register Obsidian vault events to emit notifications
+
+		this.registerEvent(
+			this.app.vault.on("create", (file) => {
+				if (file instanceof TFile) {
+					void this.eventBus.emit("file.created", {
+						path: file.path,
+						source: "obsidian",
+					});
+				}
+			})
+		);
+
+		this.registerEvent(
+			this.app.vault.on("modify", (file) => {
+				if (file instanceof TFile) {
+					void this.eventBus.emit("file.modified", {
+						path: file.path,
+						source: "obsidian",
+					});
+				}
+			})
+		);
+
+		this.registerEvent(
+			this.app.vault.on("delete", (file) => {
+				if (file instanceof TFile) {
+					void this.eventBus.emit("file.deleted", {
+						path: file.path,
+						source: "obsidian",
+					});
+				}
+			})
+		);
+
+		this.registerEvent(
+			this.app.vault.on("rename", (file, oldPath) => {
+				if (file instanceof TFile) {
+					void this.eventBus.emit("file.renamed", {
+						oldPath,
+						newPath: file.path,
+						source: "obsidian",
+					});
+				}
+			})
+		);
+
+		this.logger.debug("File system handlers initialized");
+	}
+
+	/**
+	 * Set up event listeners for frontmatter operations.
+	 * Bridges the EventBus with Obsidian's metadata API.
+	 */
+	private setupFrontmatterHandlers(): void {
+		// Handle frontmatter.get.request
+		this.eventBus.on("frontmatter.get.request", async (event) => {
+			const { requestId, path } = event.payload;
+			try {
+				const file = this.app.vault.getAbstractFileByPath(path);
+				if (!file || !(file instanceof TFile)) {
+					throw new Error(`File not found: ${path}`);
+				}
+
+				const cache = this.app.metadataCache.getFileCache(file);
+				const data = cache?.frontmatter ?? {};
+
+				await this.eventBus.emit("frontmatter.get.response", {
+					requestId,
+					success: true,
+					path,
+					data,
+				});
+			} catch (error) {
+				await this.eventBus.emit("frontmatter.get.response", {
+					requestId,
+					success: false,
+					path,
+					error: {
+						code: "FRONTMATTER_GET_FAILED",
+						message: error instanceof Error ? error.message : String(error),
+						path,
+					},
+				});
+			}
+		});
+
+		// Handle frontmatter.update.request (merge with existing)
+		this.eventBus.on("frontmatter.update.request", async (event) => {
+			const { requestId, path, data } = event.payload;
+			try {
+				const file = this.app.vault.getAbstractFileByPath(path);
+				if (!file || !(file instanceof TFile)) {
+					throw new Error(`File not found: ${path}`);
+				}
+
+				await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+					Object.assign(frontmatter, data);
+				});
+
+				// Get updated frontmatter to return
+				const cache = this.app.metadataCache.getFileCache(file);
+				const updatedData = cache?.frontmatter ?? {};
+
+				await this.eventBus.emit("frontmatter.update.response", {
+					requestId,
+					success: true,
+					path,
+					data: updatedData,
+				});
+			} catch (error) {
+				await this.eventBus.emit("frontmatter.update.response", {
+					requestId,
+					success: false,
+					path,
+					error: {
+						code: "FRONTMATTER_UPDATE_FAILED",
+						message: error instanceof Error ? error.message : String(error),
+						path,
+					},
+				});
+			}
+		});
+
+		// Handle frontmatter.set.request (replace entire frontmatter)
+		this.eventBus.on("frontmatter.set.request", async (event) => {
+			const { requestId, path, data } = event.payload;
+			try {
+				const file = this.app.vault.getAbstractFileByPath(path);
+				if (!file || !(file instanceof TFile)) {
+					throw new Error(`File not found: ${path}`);
+				}
+
+				await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+					// Clear existing keys
+					for (const key of Object.keys(frontmatter)) {
+						delete frontmatter[key];
+					}
+					// Set new data
+					Object.assign(frontmatter, data);
+				});
+
+				await this.eventBus.emit("frontmatter.set.response", {
+					requestId,
+					success: true,
+					path,
+				});
+			} catch (error) {
+				await this.eventBus.emit("frontmatter.set.response", {
+					requestId,
+					success: false,
+					path,
+					error: {
+						code: "FRONTMATTER_SET_FAILED",
+						message: error instanceof Error ? error.message : String(error),
+						path,
+					},
+				});
+			}
+		});
+
+		this.logger.debug("Frontmatter handlers initialized");
+	}
 
   /**
    * Initialize the service container.
