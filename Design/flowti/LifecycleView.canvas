@@ -1,0 +1,40 @@
+{
+	"nodes":[
+		{"id":"title-node","type":"text","x":0,"y":-500,"width":800,"height":80,"color":"6","text":"# Lifecycle View\n\n**View Type:** `flowti-lifecycle` | **Icon:** `git-branch`"},
+		{"id":"header-section","type":"text","x":-400,"y":-380,"width":500,"height":100,"color":"5","text":"## Header\n`ft-lifecycle-header`\n\n**Solution Lifecycle** | [Solution Dropdown ▾]"},
+		{"id":"phases-group","type":"group","x":-500,"y":-240,"width":1800,"height":280,"color":"0","label":"9 Lifecycle Phases (ft-lifecycle-flow)"},
+		{"id":"phase-ideate","type":"text","x":-480,"y":-200,"width":140,"height":200,"color":"4","text":"## 💡\n### Ideate\n\n*Completed*\n\n`ft-completed`\n\n5 artifacts"},
+		{"id":"phase-design","type":"text","x":-300,"y":-200,"width":140,"height":200,"color":"3","text":"## ✏️\n### Design\n\n**Current**\n\n`ft-current`\n\n12 artifacts"},
+		{"id":"phase-validate","type":"text","x":-120,"y":-200,"width":140,"height":200,"color":"0","text":"## ✓\n### Validate\n\n*Pending*\n\n`ft-pending`\n\n0 artifacts"},
+		{"id":"phase-develop","type":"text","x":60,"y":-200,"width":140,"height":200,"color":"0","text":"## ⚙️\n### Develop\n\n*Pending*\n\n`ft-pending`"},
+		{"id":"phase-test","type":"text","x":240,"y":-200,"width":140,"height":200,"color":"0","text":"## 🧪\n### Test\n\n*Pending*\n\n`ft-pending`"},
+		{"id":"phase-release","type":"text","x":420,"y":-200,"width":140,"height":200,"color":"0","text":"## 🚀\n### Release\n\n*Pending*\n\n`ft-pending`"},
+		{"id":"phase-run","type":"text","x":600,"y":-200,"width":140,"height":200,"color":"0","text":"## ▶️\n### Run\n\n*Pending*\n\n`ft-pending`"},
+		{"id":"phase-measure","type":"text","x":780,"y":-200,"width":140,"height":200,"color":"0","text":"## 📊\n### Measure\n\n*Pending*\n\n`ft-pending`"},
+		{"id":"phase-learn","type":"text","x":960,"y":-200,"width":140,"height":200,"color":"0","text":"## 🔄\n### Learn\n\n*Pending*\n\n`ft-pending`"},
+		{"id":"loop-indicator","type":"text","x":200,"y":60,"width":400,"height":60,"color":"5","text":"↻ **Continuous improvement cycle**\n\n`ft-lifecycle-loop`"},
+		{"id":"details-group","type":"group","x":-500,"y":160,"width":1200,"height":400,"color":"0","label":"Phase Details (ft-lifecycle-details)"},
+		{"id":"detail-ideate","type":"text","x":-480,"y":200,"width":380,"height":340,"color":"4","text":"## ✓ 💡 Ideate\n\n**Description:** Generate and capture ideas\n\n**Deliverables:**\n- Ideas\n- JTBD\n- Problem Statements\n\n---\n\n**Artifacts:**\n\n*Jobs to be Done (3)*\n- Track progress at a glance...\n- Quickly find relevant info...\n\n*Ideas (5)*\n- Dark Mode Support *Active*\n- Multi-language *Active*"},
+		{"id":"detail-design","type":"text","x":-80,"y":200,"width":380,"height":340,"color":"3","text":"## ● ✏️ Design **Current**\n\n**Description:** Define requirements and architecture\n\n**Deliverables:**\n- Requirements\n- Architecture\n- Wireframes\n\n---\n\n**Artifacts:**\n\n*Requirements (12)*\n- REQ-001: User Login *Approved*\n- REQ-002: Data Export *Proposed*"},
+		{"id":"detail-validate","type":"text","x":320,"y":200,"width":360,"height":340,"color":"0","text":"## ○ ✓ Validate\n\n**Description:** Validate assumptions with stakeholders\n\n**Deliverables:**\n- Prototypes\n- User Feedback\n- Feasibility Study\n\n---\n\n*No artifacts yet*"},
+		{"id":"node-structure","type":"text","x":800,"y":200,"width":400,"height":180,"color":"5","text":"## Node Structure\n\n```\nft-lifecycle-node\n├── ft-lifecycle-circle (60x60)\n│   └── Icon or ✓\n├── ft-lifecycle-name\n└── ft-lifecycle-count\n```\n\n**States:** `.ft-completed`, `.ft-current`, `.ft-pending`"},
+		{"id":"events-node","type":"text","x":800,"y":400,"width":400,"height":160,"color":"1","text":"## Event Subscriptions\n\n- `solution.*` → refreshData()\n- `idea.*` → refreshData()\n- `requirement.*` → refreshData()\n- `jtbd.*` → refreshData()"}
+	],
+	"edges":[
+		{"id":"edge-1-2","fromNode":"phase-ideate","toNode":"phase-design","fromSide":"right","toSide":"left","color":"4"},
+		{"id":"edge-2-3","fromNode":"phase-design","toNode":"phase-validate","fromSide":"right","toSide":"left"},
+		{"id":"edge-3-4","fromNode":"phase-validate","toNode":"phase-develop","fromSide":"right","toSide":"left"},
+		{"id":"edge-4-5","fromNode":"phase-develop","toNode":"phase-test","fromSide":"right","toSide":"left"},
+		{"id":"edge-5-6","fromNode":"phase-test","toNode":"phase-release","fromSide":"right","toSide":"left"},
+		{"id":"edge-6-7","fromNode":"phase-release","toNode":"phase-run","fromSide":"right","toSide":"left"},
+		{"id":"edge-7-8","fromNode":"phase-run","toNode":"phase-measure","fromSide":"right","toSide":"left"},
+		{"id":"edge-8-9","fromNode":"phase-measure","toNode":"phase-learn","fromSide":"right","toSide":"left"},
+		{"id":"edge-detail-1","fromNode":"phase-ideate","toNode":"detail-ideate","fromSide":"bottom","toSide":"top"},
+		{"id":"edge-detail-2","fromNode":"phase-design","toNode":"detail-design","fromSide":"bottom","toSide":"top"},
+		{"id":"edge-detail-3","fromNode":"phase-validate","toNode":"detail-validate","fromSide":"bottom","toSide":"top"}
+	],
+	"metadata":{
+		"version":"1.0-1.0",
+		"frontmatter":{}
+	}
+}

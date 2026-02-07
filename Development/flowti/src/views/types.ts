@@ -8,14 +8,26 @@
 import type { ItemView, WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../events/types";
 import type { ILogger } from "../logger/types";
+import type { IServiceContainer } from "../services/types";
 
 /**
- * Factory function for creating view instances.
+ * Factory function for creating simple view instances.
  */
 export type ViewFactory = (leaf: WorkspaceLeaf) => ItemView;
 
 /**
+ * Factory function for creating service-aware view instances.
+ * Used for views that need access to services and event bus.
+ */
+export type EnhancedViewFactory = (
+	leaf: WorkspaceLeaf,
+	services: IServiceContainer,
+	eventBus: IEventBus
+) => ItemView;
+
+/**
  * View definition with metadata.
+ * Either factory or enhancedFactory must be provided.
  */
 export interface ViewDefinition {
 	/** Unique view type identifier (e.g., "flowti-component-showcase") */
@@ -24,8 +36,13 @@ export interface ViewDefinition {
 	displayName: string;
 	/** Icon ID for the view */
 	icon?: string;
-	/** Factory function to create the view */
-	factory: ViewFactory;
+	/** Factory function to create the view (for simple views) */
+	factory?: ViewFactory;
+	/**
+	 * Enhanced factory for service-aware views.
+	 * If provided, this is used instead of factory.
+	 */
+	enhancedFactory?: EnhancedViewFactory;
 }
 
 /**

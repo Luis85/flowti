@@ -390,3 +390,622 @@
 	white-space: nowrap;
 	border-width: 0;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Additional Utilities
+   ───────────────────────────────────────────────────────────── */
+
+.ft-m-0 { margin: 0; }
+.ft-ml-1 { margin-left: 0.25rem; }
+.ft-text-xs { font-size: 0.75rem; }
+.ft-text-center { text-align: center; }
+.ft-justify-end { justify-content: flex-end; }
+.ft-clickable { cursor: pointer; }
+
+/* Text color variants */
+.ft-text-success { color: rgb(74, 222, 128); }
+.ft-text-warning { color: rgb(250, 204, 21); }
+.ft-text-error { color: rgb(248, 113, 113); }
+
+/* ─────────────────────────────────────────────────────────────
+   Solution Dashboard Styles
+   ───────────────────────────────────────────────────────────── */
+
+.flowti-dashboard {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+}
+
+/* Split View Layout */
+.ft-split-view {
+	display: flex;
+	height: 100%;
+	overflow: hidden;
+}
+
+/* Sidebar */
+.ft-sidebar {
+	width: 250px;
+	min-width: 200px;
+	max-width: 350px;
+	border-right: 1px solid var(--background-modifier-border);
+	display: flex;
+	flex-direction: column;
+	background: var(--background-primary);
+}
+
+.ft-sidebar-header {
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.ft-sidebar-list {
+	flex: 1;
+	overflow-y: auto;
+}
+
+.ft-sidebar-item {
+	display: flex;
+	align-items: center;
+	padding: 0.75rem 1rem;
+	cursor: pointer;
+	border-left: 3px solid transparent;
+	transition: all 0.15s ease;
+}
+
+.ft-sidebar-item:hover {
+	background: var(--background-secondary);
+}
+
+.ft-sidebar-item-active {
+	background: var(--background-secondary);
+	border-left-color: var(--interactive-accent);
+}
+
+.ft-sidebar-item-text {
+	font-size: var(--font-ui-small);
+	color: var(--text-normal);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* Detail Pane */
+.ft-detail-pane {
+	flex: 1;
+	overflow-y: auto;
+	padding: 1.5rem;
+}
+
+/* Dashboard Header */
+.ft-dashboard-header {
+	margin-bottom: 1.5rem;
+}
+
+/* Stats Grid */
+.ft-stats-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+	gap: 1rem;
+}
+
+.ft-stat-card {
+	background: var(--background-secondary);
+	border-radius: var(--radius-m, 8px);
+	padding: 1rem;
+	text-align: center;
+}
+
+.ft-stat-value {
+	font-size: 2rem;
+	font-weight: bold;
+	color: var(--interactive-accent);
+	line-height: 1.2;
+}
+
+/* Opportunity Score Colors */
+.ft-opportunity-high {
+	background: rgba(239, 68, 68, 0.15);
+	color: rgb(248, 113, 113);
+}
+
+.ft-opportunity-medium {
+	background: rgba(234, 179, 8, 0.15);
+	color: rgb(250, 204, 21);
+}
+
+.ft-opportunity-low {
+	background: rgba(34, 197, 94, 0.15);
+	color: rgb(74, 222, 128);
+}
+
+/* Collapsible Sections */
+.ft-collapsible {
+	background: var(--background-secondary);
+	border-radius: var(--radius-m, 8px);
+	overflow: hidden;
+}
+
+.ft-collapsible-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	cursor: pointer;
+	padding: 0.75rem 1rem;
+	user-select: none;
+	transition: background-color 0.15s ease;
+}
+
+.ft-collapsible-header:hover {
+	background: var(--background-modifier-hover);
+}
+
+.ft-collapsible-icon {
+	color: var(--text-muted);
+	font-size: 0.875rem;
+}
+
+.ft-collapsible-content {
+	padding: 0 1rem 1rem;
+}
+
+.ft-collapsible-content.ft-collapsed {
+	display: none;
+}
+
+/* Entity List */
+.ft-entity-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.ft-entity-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0.5rem;
+	background: var(--background-primary);
+	border-radius: var(--radius-s, 4px);
+}
+
+.ft-entity-title {
+	font-size: var(--font-ui-small);
+	color: var(--text-normal);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Lifecycle View Styles
+   ───────────────────────────────────────────────────────────── */
+
+.flowti-lifecycle-view {
+	height: 100%;
+	overflow-y: auto;
+}
+
+.ft-lifecycle-header {
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.ft-lifecycle-container {
+	overflow-x: auto;
+}
+
+.ft-lifecycle-flow {
+	display: flex;
+	align-items: flex-start;
+	justify-content: center;
+	min-width: max-content;
+	padding: 1rem;
+	gap: 0;
+}
+
+.ft-lifecycle-node {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	min-width: 100px;
+}
+
+.ft-lifecycle-circle {
+	width: 60px;
+	height: 60px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 1.5rem;
+	border: 3px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	transition: all 0.2s ease;
+}
+
+.ft-lifecycle-node.ft-completed .ft-lifecycle-circle {
+	border-color: var(--interactive-accent);
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.ft-lifecycle-node.ft-current .ft-lifecycle-circle {
+	border-color: var(--interactive-accent);
+	box-shadow: 0 0 0 4px rgba(var(--interactive-accent-rgb), 0.2);
+}
+
+.ft-lifecycle-node.ft-pending .ft-lifecycle-circle {
+	opacity: 0.5;
+}
+
+.ft-lifecycle-name {
+	margin-top: 0.5rem;
+	font-size: var(--font-ui-smaller);
+	font-weight: 500;
+	text-align: center;
+	color: var(--text-normal);
+}
+
+.ft-lifecycle-count {
+	margin-top: 0.25rem;
+	text-align: center;
+}
+
+.ft-lifecycle-connector {
+	display: flex;
+	align-items: center;
+	padding-top: 28px;
+}
+
+.ft-lifecycle-connector-line {
+	width: 40px;
+	height: 3px;
+	background: var(--background-modifier-border);
+}
+
+.ft-lifecycle-connector.ft-completed .ft-lifecycle-connector-line {
+	background: var(--interactive-accent);
+}
+
+.ft-lifecycle-loop {
+	border-top: 1px dashed var(--background-modifier-border);
+	padding-top: 1rem;
+}
+
+/* Lifecycle Details */
+.ft-lifecycle-details {
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.ft-phase-section {
+	background: var(--background-secondary);
+	border-radius: var(--radius-m, 8px);
+	padding: 1rem;
+	margin-bottom: 1rem;
+	border-left: 4px solid transparent;
+}
+
+.ft-phase-section.ft-current {
+	border-left-color: var(--interactive-accent);
+}
+
+.ft-phase-header {
+	margin-bottom: 0.5rem;
+}
+
+.ft-phase-status {
+	font-size: 1rem;
+}
+
+.ft-phase-status.ft-completed {
+	color: var(--interactive-accent);
+}
+
+.ft-phase-status.ft-current {
+	color: var(--interactive-accent);
+}
+
+.ft-phase-status.ft-pending {
+	color: var(--text-muted);
+}
+
+.ft-phase-deliverables {
+	padding: 0.5rem;
+	background: var(--background-primary);
+	border-radius: var(--radius-s, 4px);
+}
+
+.ft-phase-artifacts {
+	background: var(--background-primary);
+	border-radius: var(--radius-s, 4px);
+}
+
+.ft-artifact-item {
+	padding: 0.25rem 0;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+/* Lifecycle Progress Bar (for Dashboard) */
+.ft-lifecycle-progress {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 1rem;
+	background: var(--background-secondary);
+	border-radius: var(--radius-m, 8px);
+}
+
+.ft-lifecycle-step {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	flex: 1;
+}
+
+.ft-lifecycle-step .ft-lifecycle-circle {
+	width: 32px;
+	height: 32px;
+	font-size: 0.75rem;
+}
+
+.ft-lifecycle-label {
+	margin-top: 0.25rem;
+	white-space: nowrap;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Traceability Matrix Styles
+   ───────────────────────────────────────────────────────────── */
+
+.flowti-traceability-view {
+	height: 100%;
+	overflow-y: auto;
+}
+
+.ft-matrix-header {
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.ft-matrix-stats {
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.ft-matrix-legend {
+	font-size: var(--font-ui-smaller);
+}
+
+.ft-matrix-container {
+	overflow-x: auto;
+}
+
+.ft-matrix-table {
+	width: 100%;
+	border-collapse: collapse;
+	min-width: 600px;
+}
+
+.ft-matrix-table th,
+.ft-matrix-table td {
+	padding: 0.75rem;
+	border: 1px solid var(--background-modifier-border);
+	text-align: left;
+	vertical-align: top;
+}
+
+.ft-matrix-table th {
+	background: var(--background-secondary);
+	font-weight: 600;
+}
+
+.ft-matrix-table tbody tr:hover {
+	background: var(--background-secondary-alt);
+}
+
+/* Matrix Row Status */
+.ft-matrix-row.ft-status-covered {
+	border-left: 4px solid rgb(74, 222, 128);
+}
+
+.ft-matrix-row.ft-status-partial {
+	border-left: 4px solid rgb(250, 204, 21);
+}
+
+.ft-matrix-row.ft-status-gap {
+	border-left: 4px solid rgb(248, 113, 113);
+}
+
+.ft-matrix-row.ft-status-orphan {
+	border-left: 4px solid var(--text-muted);
+}
+
+.ft-matrix-gap {
+	color: rgb(248, 113, 113);
+	font-style: italic;
+}
+
+.ft-matrix-item {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.25rem 0;
+}
+
+/* Status badges */
+.ft-status-badge-covered {
+	background: rgba(34, 197, 94, 0.15);
+	color: rgb(74, 222, 128);
+}
+
+.ft-status-badge-partial {
+	background: rgba(234, 179, 8, 0.15);
+	color: rgb(250, 204, 21);
+}
+
+.ft-status-badge-gap {
+	background: rgba(239, 68, 68, 0.15);
+	color: rgb(248, 113, 113);
+}
+
+.ft-status-badge-orphan {
+	background: var(--background-secondary);
+	color: var(--text-muted);
+}
+
+/* JTBD Content in Matrix */
+.ft-jtbd-content {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.ft-jtbd-statement {
+	font-size: var(--font-ui-small);
+	color: var(--text-normal);
+}
+
+/* Gap Analysis */
+.ft-gap-analysis {
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.ft-gap-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+	gap: 1rem;
+}
+
+.ft-gap-card {
+	background: var(--background-secondary);
+	border-radius: var(--radius-m, 8px);
+	padding: 1rem;
+	border-left: 4px solid rgb(248, 113, 113);
+}
+
+.ft-gap-card-header {
+	margin-bottom: 0.5rem;
+}
+
+.ft-gap-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Form Select
+   ───────────────────────────────────────────────────────────── */
+
+.ft-select {
+	padding: 0.5rem 0.75rem;
+	background-color: var(--background-primary);
+	color: var(--text-normal);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s, 4px);
+	font-size: var(--font-ui-small);
+	cursor: pointer;
+}
+
+.ft-select:focus {
+	outline: none;
+	border-color: var(--interactive-accent);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Solution Explorer Styles (Left Sidebar)
+   ───────────────────────────────────────────────────────────── */
+
+.flowti-solution-explorer {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	background: var(--background-primary);
+}
+
+.ft-explorer-header {
+	border-bottom: 1px solid var(--background-modifier-border);
+	flex-shrink: 0;
+}
+
+.ft-explorer-list {
+	flex: 1;
+	overflow-y: auto;
+}
+
+.ft-explorer-footer {
+	border-top: 1px solid var(--background-modifier-border);
+	flex-shrink: 0;
+}
+
+/* Sidebar item icon */
+.ft-sidebar-item-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	margin-right: 0.5rem;
+	color: var(--text-muted);
+	flex-shrink: 0;
+}
+
+.ft-sidebar-item-icon svg {
+	width: 16px;
+	height: 16px;
+}
+
+.ft-sidebar-item-active .ft-sidebar-item-icon {
+	color: var(--interactive-accent);
+}
+
+/* Auto margin utility */
+.ft-ml-auto {
+	margin-left: auto;
+}
+
+/* Icon button */
+.ft-btn-icon {
+	padding: 0.25rem;
+	width: 24px;
+	height: 24px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: var(--radius-s, 4px);
+	background: transparent;
+	border: none;
+	color: var(--text-muted);
+	cursor: pointer;
+}
+
+.ft-btn-icon:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Solution Detail View Styles
+   ───────────────────────────────────────────────────────────── */
+
+.flowti-solution-detail {
+	height: 100%;
+	overflow-y: auto;
+	padding: 1.5rem;
+}
+
+/* Empty state */
+.ft-empty-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	min-height: 300px;
+	color: var(--text-muted);
+}
+
+.ft-empty-icon {
+	opacity: 0.5;
+}
+
+.ft-empty-icon svg {
+	stroke: var(--text-muted);
+}
