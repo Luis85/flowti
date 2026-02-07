@@ -1,13 +1,15 @@
 # Foreign Folder Watcher
 
-An Obsidian plugin for automatic synchronization of files from external folders into your vault.
+An Obsidian plugin for automatic synchronization of files between external folders and your vault.
 
 ## Features
 
 - **Real-time Watching**: Monitors external folders for file changes using [chokidar](https://github.com/paulmillr/chokidar)
+- **Bidirectional Sync**: Sync in both directions (source → vault, vault → source, or both)
 - **Bulk Reconcile**: Full synchronization on startup or on-demand
 - **Incremental Reconcile**: Only sync files changed since last reconcile (much faster for large folders)
 - **Cloud Sync Compatibility**: Special handling for OneDrive, Dropbox & Co. (stability checks, temp file filtering)
+- **Exclusion Patterns**: Exclude files and folders using glob patterns
 - **Conflict Resolution**: Multiple strategies (overwrite, rename, skip, keep newer)
 - **Dashboard**: Visual interface for monitoring and control with health indicators
 - **Performance**: Parallel processing, intelligent caching, skip-unchanged optimization
@@ -17,9 +19,23 @@ An Obsidian plugin for automatic synchronization of files from external folders 
 ### Manual
 
 1. Download `main.js`, `styles.css`, and `manifest.json` from the [latest release](https://github.com/Luis85/flowti/releases)
-2. Create the folder `.obsidian/plugins/obsidian-folder-watcher/` in your vault
+2. Create the folder `.obsidian/plugins/foreign-folder-watcher/` in your vault
 3. Copy the downloaded files into this folder
 4. Enable the plugin in Obsidian under Settings → Community Plugins
+
+---
+
+## Quick Start
+
+1. Open **Settings → Foreign Folder Watcher**
+2. Click **"Add Folder Mapping"**
+3. Select a **Source Folder** (external folder, e.g., `C:\Users\Name\OneDrive\Notes`)
+4. Select a **Target Folder** (folder in vault, e.g., `imported/onedrive`)
+5. Click **Save**
+
+The plugin now monitors the external folder and automatically copies new/changed files to your vault.
+
+---
 
 ## Configuration
 
@@ -29,38 +45,116 @@ Each mapping defines a source-target relationship:
 
 | Setting | Description |
 |---------|-------------|
+| **Description** | A name for this mapping (e.g., "OneDrive Notes") |
 | **Source Folder** | Absolute path to the external folder (e.g., `C:\Users\Name\OneDrive\Notes`) |
 | **Target Folder** | Relative path in vault (e.g., `imported/onedrive`) |
 | **Watch Subfolders** | Include subdirectories |
 | **File Extensions** | Filter for file types (empty = all) |
+| **Exclude Patterns** | Patterns to exclude (see below) |
+| **Sync Direction** | Direction of synchronization |
 | **Conflict Resolution** | How to handle existing files |
 | **Reconcile on Start** | Synchronize when plugin starts |
+| **Enabled** | Enable/disable this mapping |
+
+### Sync Direction
+
+The plugin supports three sync modes:
+
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| **Source → Vault** | Import from external folder to vault only | Consume files (default) |
+| **Vault → Source** | Export from vault to external folder only | Publish files |
+| **Bidirectional** | Sync in both directions | Full synchronization |
+
+> **Note:** Deletions are never synchronized. This is a safety measure.
 
 ### Conflict Resolution
 
-- **Overwrite**: Always overwrite existing files
-- **Skip**: Never overwrite existing files
-- **Rename**: Rename new file with timestamp
-- **Keep Newer**: Only overwrite if source file is newer
+When a file exists in both source and target:
+
+| Strategy | Behavior |
+|----------|----------|
+| **Keep Newer** | The newer file (by modification date) wins |
+| **Overwrite** | Source file always overwrites target |
+| **Rename** | Conflict files are renamed (e.g., `file (conflict 2025-02-07).md`) |
+| **Skip** | Existing files are never overwritten |
+
+With bidirectional sync, you can set a separate conflict strategy for each direction.
+
+### Exclusion Patterns
+
+Under **"Exclude Patterns"** you can specify files and folders to exclude from sync:
+
+```
+node_modules
+*.log
+temp/**
+.git
+build/*
+```
+
+**Supported Wildcards:**
+
+| Pattern | Meaning |
+|---------|---------|
+| `*` | Any characters (except `/`) |
+| `**` | Any characters including path separators (recursive) |
+| `?` | Single character |
+
+**Examples:**
+
+| Pattern | Excluded |
+|---------|----------|
+| `node_modules` | All `node_modules` folders at any depth |
+| `*.log` | All `.log` files |
+| `temp/**` | Everything in the `temp` folder |
+| `*.tmp` | All temporary files |
+| `build/*` | Direct contents of `build`, but not subfolders |
+| `.git` | Git directory |
 
 ### Cloud Sync Settings
 
 For OneDrive, Dropbox, and similar services:
 
-- **Ignore OneDrive Temp Files**: Ignore temporary files (`~$`, `.tmp`, etc.)
-- **Verify File Stability**: Wait until file is fully synchronized
-- **Stability Checks**: Number of stability checks
-- **Stability Interval**: Time between checks (ms)
+| Setting | Description | Default |
+|---------|-------------|---------|
+| **Ignore OneDrive Temp Files** | Ignore temporary files (`~$`, `.tmp`, etc.) | On |
+| **Verify File Stability** | Wait until file is fully synchronized | On |
+| **Stability Checks** | Number of stability checks | 3 |
+| **Stability Interval** | Time between checks (ms) | 500 |
+| **Use Polling** | Use polling instead of native file watching | Off |
+| **Polling Interval** | Polling interval (ms) | 300 |
+
+**Recommended for cloud folders:**
+- Enable `Use Polling` with 300-1000ms interval
+- Enable `Verify File Stability`
+- Enable `Ignore OneDrive Temp Files`
 
 ### Reconcile Settings
 
-- **Sync on Start**: Global setting for reconcile on startup
-- **Incremental Reconcile**: Only sync files changed since last reconcile (tracks mtime + size per file)
-- **Parallelism**: Number of parallel workers (1-64)
-- **Fast Skip Unchanged**: Skip unchanged files (size + mtime)
-- **Progress Throttle**: UI update interval (ms)
+| Setting | Description | Default |
+|---------|-------------|---------|
+| **Sync on Start** | Global setting for reconcile on startup | On |
+| **Incremental Reconcile** | Only sync files changed since last reconcile | On |
+| **Parallelism** | Number of parallel workers (1-64) | 8 |
+| **Fast Skip Unchanged** | Skip unchanged files (size + mtime) | On |
+| **Progress Throttle** | UI update interval (ms) | 250 |
+| **Notify on Mapping Done** | Show notification after each mapping completes | On |
+
+---
 
 ## Usage
+
+### Commands
+
+Available via Command Palette (`Ctrl/Cmd + P`):
+
+| Command | Description |
+|---------|-------------|
+| **File Watcher: Open Dashboard** | Open the dashboard |
+| **File Watcher: Reconcile all mappings** | Manual full sync of all active mappings |
+| **File Watcher: Restart all watchers** | Restart all watchers |
+| **File Watcher: Show sync logs** | Open the log window |
 
 ### Dashboard
 
@@ -81,13 +175,6 @@ Each watcher displays a health status:
 - **Warning** (yellow): Queue backpressure (dropped jobs or high queue)
 - **Error** (red): Error state
 
-### Commands
-
-| Command | Description |
-|---------|-------------|
-| `File Watcher: Open Dashboard` | Open dashboard |
-| `File Watcher: Restart all watchers` | Restart all watchers |
-
 ### Status Bar
 
 The status bar shows:
@@ -97,13 +184,100 @@ The status bar shows:
 
 Click on the status bar to open the dashboard.
 
+---
+
+## Example Configurations
+
+### Import OneDrive Notes
+
+```
+Description: OneDrive Notes
+Source: C:\Users\Name\OneDrive\Notes
+Target: imported/onedrive
+Sync Direction: Source → Vault
+File Extensions: .md, .txt
+Conflict: Keep Newer
+Watch Subfolders: Yes
+Use Polling: Yes
+```
+
+### Export Obsidian Notes to Dropbox
+
+```
+Description: Publish to Dropbox
+Source: C:\Users\Name\Dropbox\Public\Notes
+Target: published
+Sync Direction: Vault → Source
+File Extensions: .md
+Conflict: Overwrite
+```
+
+### Bidirectional Sync (Work & Home)
+
+```
+Description: Work Notes (Bidirectional)
+Source: C:\Users\Name\OneDrive\Work
+Target: work
+Sync Direction: Bidirectional
+Conflict (→Vault): Keep Newer
+Conflict (→Source): Keep Newer
+Exclude: node_modules, .git, *.log
+```
+
+---
+
+## Troubleshooting
+
+### Files are not syncing
+
+1. Check if the mapping is **enabled**
+2. Check if the **file extension** is allowed
+3. Check the **Exclude Patterns**
+4. Open the **Sync Logs** for details
+
+### "File changed" notice with bidirectional sync
+
+The plugin has loop detection with a 5-second cooldown. With very slow cloud services, you may still see notifications - but the file will not be synced again.
+
+### High CPU usage
+
+- Reduce the number of monitored folders
+- Enable `Use Polling` with a higher interval (1000+ ms)
+- Use `Exclude Patterns` to exclude large folders
+
+### Files missing after reconcile
+
+- Check the **Conflict Resolution** setting
+- With `Skip`, existing files are never overwritten
+- Open the **Sync Logs** to see which files were skipped
+
+### Plugin is unresponsive
+
+1. Open the developer console (`Ctrl/Cmd + Shift + I`)
+2. Look for error messages
+3. Try **Restart all watchers** command
+
+---
+
+## Temporary Files (Auto-ignored)
+
+The following file types are automatically ignored when "Ignore OneDrive Temp Files" is enabled:
+
+- `~$document.docx` (Office lock files)
+- `*.tmp`, `*.temp`
+- `*.partial`, `*.crdownload`
+- `*.swp` (Vim swap files)
+- `thumbs.db`, `.DS_Store`, `desktop.ini`
+
+---
+
 ## Architecture
 
 ```
 src/
 ├── main.ts                 # Main plugin class
 ├── types.ts                # Core type definitions
-├── utils.ts                # Utility functions
+├── utils.ts                # Utility functions (glob matching, etc.)
 ├── services/
 │   ├── FileSyncService.ts  # Core synchronization logic
 │   ├── ReconcileService.ts # Bulk reconcile orchestration
@@ -116,7 +290,8 @@ src/
 │   └── AsyncMutex.ts       # Thread safety (locks)
 ├── watcher/
 │   ├── WatcherManager.ts   # Watcher lifecycle & health tracking
-│   └── MappingWatcher.ts   # Individual folder watcher
+│   ├── MappingWatcher.ts   # Source → Vault watcher (external folder)
+│   └── VaultWatcher.ts     # Vault → Source watcher (vault folder)
 ├── modals/
 │   ├── DashboardModal.ts   # Main dashboard UI
 │   ├── FolderMappingModal.ts # Mapping editor
@@ -161,33 +336,6 @@ npm run test:ui       # Vitest UI
 npm run test:coverage # With coverage report
 ```
 
-#### Test Coverage Philosophy
-
-The test suite focuses on **business logic and services** that can be tested in isolation:
-
-| Tested | Not Tested |
-|--------|------------|
-| FileSyncService | Modals (DashboardModal, FolderMappingModal) |
-| ReconcileService | Electron APIs (FolderPickerService) |
-| StatsService | Obsidian UI components |
-| StatusBarService | |
-| LogService | |
-| AsyncMutex / OperationLock | |
-| WatcherManager | |
-| MappingWatcher | |
-| Settings validation | |
-
-**Why modals are not tested:**
-- Modals are pure presentation components that delegate to services
-- They use Obsidian's Modal API which requires the full Obsidian runtime
-- UI logic is kept minimal - modals only render data and call service methods
-- Testing modals would require extensive mocking of Obsidian internals with little value
-
-**Why Electron APIs are not tested:**
-- FolderPickerService wraps Electron's `dialog.showOpenDialog()`
-- Electron APIs require the desktop runtime environment
-- The service is a thin wrapper with minimal logic
-
 ### Documentation
 
 Generate TypeDoc documentation:
@@ -201,8 +349,7 @@ Documentation is generated in `docs/codebase/`.
 ## Known Limitations
 
 - **Desktop-only**: The plugin only works on desktop (not mobile)
-- **No Delete Sync**: Deleted files are not removed from the vault
-- **No Bidirectional Sync**: Changes in the vault are not synced back
+- **No Delete Sync**: Deleted files are not removed (safety measure)
 
 ## License
 
