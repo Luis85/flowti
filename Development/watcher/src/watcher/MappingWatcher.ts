@@ -1,7 +1,7 @@
 import chokidar, { ChokidarOptions, FSWatcher } from "chokidar";
 import { App } from "obsidian";
 import { PendingJob, FolderMapping, ChangeType } from "../types";
-import { createIgnoredMatcher, matchesExcludePattern } from "../utils";
+import { createIgnoredMatcher, matchesExcludePattern, isSymlinkSync } from "../utils";
 import { LogService } from "../services/LogService";
 import * as fs from "fs";
 import * as path from "path";
@@ -239,6 +239,16 @@ export class MappingWatcher {
 			return;
 		}
 
+		// Skip symlinks to prevent infinite loops
+		if (isSymlinkSync(filePath)) {
+			LogService.debug("Watcher", `Skipping symlink`, {
+				mappingId: this.mapping.id,
+				filePath,
+			});
+			this.context.bumpSkipped(this.mapping.id);
+			return;
+		}
+
 		const key = filePath;
 		const existing = this.pending.get(key);
 
@@ -313,6 +323,15 @@ export class MappingWatcher {
 
 		if (!m.watchSubfolders) return;
 		if (!dirPath) return;
+
+		// Skip symlinked directories to prevent infinite loops
+		if (isSymlinkSync(dirPath)) {
+			LogService.debug("Watcher", `Skipping symlinked directory`, {
+				mappingId: m.id,
+				details: { dirPath },
+			});
+			return;
+		}
 
 		// Debounce directory reconcile
 		const key = dirPath;

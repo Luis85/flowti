@@ -9,7 +9,7 @@ import type {
 	ConflictDecision,
 	ReconcileStats,
 } from "../types";
-import { toVaultPath, isTempFile, matchesExcludePattern } from "../utils";
+import { toVaultPath, isTempFile, matchesExcludePattern, isSymlinkSync } from "../utils";
 import { FileWatcherSettings } from "../settings/types";
 import { LogService } from "./LogService";
 import { AsyncMutex, KeyedMutex, OperationLock } from "./AsyncMutex";
@@ -353,6 +353,21 @@ export class FileSyncService {
 				}
 			}
 
+			// Check if external target is a symlink (skip to prevent unexpected overwrites)
+			if (isSymlinkSync(externalPath)) {
+				LogService.debug("Sync", `Skipping reverse sync to symlink target`, {
+					mappingId: mapping.id,
+					filePath: vaultFilePath,
+					details: { externalPath },
+				});
+				return {
+					ok: true,
+					action: "skipped",
+					targetPath: externalPath,
+					reason: "target_is_symlink",
+				};
+			}
+
 			// Check if external file exists for conflict resolution
 			let externalExists = false;
 			try {
@@ -565,6 +580,9 @@ export class FileSyncService {
 			if (!this.isAllowedByExtension(mapping, filePath)) continue;
 			if (this.settings.ignoreOneDriveTemp && isTempFile(filePath)) continue;
 
+			// Skip symlinks to prevent infinite loops
+			if (isSymlinkSync(filePath)) continue;
+
 			const relativePath = path.relative(mapping.sourceFolder, filePath);
 
 			// Check exclusion patterns
@@ -769,6 +787,9 @@ export class FileSyncService {
 		for (const filePath of all) {
 			if (!this.isAllowedByExtension(mapping, filePath)) continue;
 			if (this.settings.ignoreOneDriveTemp && isTempFile(filePath)) continue;
+
+			// Skip symlinks to prevent infinite loops
+			if (isSymlinkSync(filePath)) continue;
 
 			const relativePath = path.relative(mapping.sourceFolder, filePath);
 
@@ -993,6 +1014,20 @@ export class FileSyncService {
 					targetPath,
 				},
 			});
+
+			// Skip symlinks to prevent infinite loops and unexpected behavior
+			if (isSymlinkSync(sourceFilePath)) {
+				LogService.debug("Sync", `Skipping symlink`, {
+					mappingId: mapping.id,
+					filePath: sourceFilePath,
+				});
+				return {
+					ok: true,
+					action: "skipped",
+					targetPath,
+					reason: "symlink",
+				};
+			}
 
 			// Ensure parent folder exists (cached)
 			const parentFolder = path.posix.dirname(targetPath);

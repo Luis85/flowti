@@ -1,3 +1,5 @@
+import * as fs from "fs";
+import * as fsp from "fs/promises";
 import type { FolderMapping } from "./types";
 
 /**
@@ -177,4 +179,81 @@ export function createExclusionMatcher(
 		return () => false;
 	}
 	return (relativePath: string) => matchesExcludePattern(relativePath, patterns);
+}
+
+/**
+ * Result of symlink detection.
+ */
+export interface SymlinkCheckResult {
+	/** Whether the path is a symlink */
+	isSymlink: boolean;
+	/** The target path if it's a symlink (resolved) */
+	target?: string;
+	/** Error message if check failed */
+	error?: string;
+}
+
+/**
+ * Checks if a path is a symbolic link (async version).
+ * Safe to call on any path - returns false if path doesn't exist or on error.
+ *
+ * @param filePath - The path to check
+ * @returns SymlinkCheckResult with isSymlink flag and optional target
+ */
+export async function checkSymlink(filePath: string): Promise<SymlinkCheckResult> {
+	try {
+		const stat = await fsp.lstat(filePath);
+		if (stat.isSymbolicLink()) {
+			try {
+				const target = await fsp.readlink(filePath);
+				return { isSymlink: true, target };
+			} catch {
+				return { isSymlink: true };
+			}
+		}
+		return { isSymlink: false };
+	} catch (e) {
+		// Path doesn't exist or permission denied
+		return { isSymlink: false, error: String(e) };
+	}
+}
+
+/**
+ * Checks if a path is a symbolic link (sync version).
+ * Safe to call on any path - returns false if path doesn't exist or on error.
+ *
+ * @param filePath - The path to check
+ * @returns true if the path is a symlink
+ */
+export function isSymlinkSync(filePath: string): boolean {
+	try {
+		const stat = fs.lstatSync(filePath);
+		return stat.isSymbolicLink();
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Checks if a directory contains any symlinks (non-recursive, first-level only).
+ * Used for quick validation of source/target folders.
+ *
+ * @param dirPath - The directory to check
+ * @returns Object with hasSymlinks flag and list of symlink names
+ */
+export async function checkDirectoryForSymlinks(
+	dirPath: string
+): Promise<{ hasSymlinks: boolean; symlinks: string[] }> {
+	const symlinks: string[] = [];
+	try {
+		const entries = await fsp.readdir(dirPath, { withFileTypes: true });
+		for (const entry of entries) {
+			if (entry.isSymbolicLink()) {
+				symlinks.push(entry.name);
+			}
+		}
+		return { hasSymlinks: symlinks.length > 0, symlinks };
+	} catch {
+		return { hasSymlinks: false, symlinks: [] };
+	}
 }
