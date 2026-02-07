@@ -1,7 +1,7 @@
 import chokidar, { ChokidarOptions, FSWatcher } from "chokidar";
 import { App } from "obsidian";
 import { PendingJob, FolderMapping, ChangeType } from "../types";
-import { createIgnoredMatcher } from "../utils";
+import { createIgnoredMatcher, matchesExcludePattern } from "../utils";
 import { LogService } from "../services/LogService";
 import * as fs from "fs";
 import * as path from "path";
@@ -211,11 +211,30 @@ export class MappingWatcher {
 			return;
 		}
 
+		// Check for sync loop (file was recently written by reverse sync)
+		if (this.context.fileSync?.isRecentlySynced(filePath)) {
+			LogService.debug("Watcher", `Skipping - recently synced (loop prevention)`, {
+				mappingId: this.mapping.id,
+				filePath,
+			});
+			return;
+		}
+
 		if (!this.isAllowed(filePath)) {
 			LogService.debug("Watcher", `File not allowed by extension filter`, {
 				mappingId: this.mapping.id,
 				filePath,
 				details: { extensions: this.mapping.fileExtensions },
+			});
+			return;
+		}
+
+		// Check exclusion patterns
+		if (this.isExcluded(filePath)) {
+			LogService.debug("Watcher", `File excluded by pattern`, {
+				mappingId: this.mapping.id,
+				filePath,
+				details: { excludePatterns: this.mapping.excludePatterns },
 			});
 			return;
 		}
@@ -357,4 +376,19 @@ export class MappingWatcher {
 		return true;
 	}
 
+	private isExcluded(filePath: string): boolean {
+		const patterns = this.mapping.excludePatterns ?? [];
+		if (patterns.length === 0) return false;
+
+		// Calculate relative path from source folder
+		const sourceFolder = this.mapping.sourceFolder.replace(/\\/g, "/");
+		const normalizedPath = filePath.replace(/\\/g, "/");
+
+		let relativePath = normalizedPath;
+		if (normalizedPath.startsWith(sourceFolder)) {
+			relativePath = normalizedPath.slice(sourceFolder.length).replace(/^\//, "");
+		}
+
+		return matchesExcludePattern(relativePath, patterns);
+	}
 }

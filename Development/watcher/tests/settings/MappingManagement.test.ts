@@ -73,6 +73,7 @@ describe("Mapping Management", () => {
 				usePolling: false,
 				pollingInterval: 300,
 				reconcileOnStart: true,
+				syncDirection: "source-only",
 			};
 
 			await simulateCreateMappingFlow({
@@ -119,6 +120,7 @@ describe("Mapping Management", () => {
 				usePolling: true,
 				pollingInterval: 500,
 				reconcileOnStart: false,
+				syncDirection: "source-only",
 			};
 
 			await simulateCreateMappingFlow({
@@ -157,6 +159,7 @@ describe("Mapping Management", () => {
 					usePolling: false,
 					pollingInterval: 300,
 					reconcileOnStart: true,
+					syncDirection: "source-only",
 				},
 				{
 					id: "existing-2",
@@ -171,6 +174,7 @@ describe("Mapping Management", () => {
 					usePolling: true,
 					pollingInterval: 100,
 					reconcileOnStart: false,
+					syncDirection: "source-only",
 				},
 			];
 		});
@@ -272,6 +276,7 @@ describe("Mapping Management", () => {
 					usePolling: false,
 					pollingInterval: 300,
 					reconcileOnStart: true,
+					syncDirection: "source-only",
 				},
 				{
 					id: "to-keep",
@@ -286,6 +291,7 @@ describe("Mapping Management", () => {
 					usePolling: false,
 					pollingInterval: 300,
 					reconcileOnStart: true,
+					syncDirection: "source-only",
 				},
 			];
 		});
@@ -335,6 +341,7 @@ describe("Mapping Management", () => {
 				usePolling: false,
 				pollingInterval: 300,
 				reconcileOnStart: true,
+				syncDirection: "source-only",
 			};
 
 			// Simulate what FolderMappingModal does
@@ -368,6 +375,7 @@ describe("Mapping Management", () => {
 				usePolling: false,
 				pollingInterval: 300,
 				reconcileOnStart: true,
+				syncDirection: "source-only",
 			};
 
 			// Shallow clone like FolderMappingModal does

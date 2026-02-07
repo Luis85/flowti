@@ -78,6 +78,7 @@ describe("MappingWatcher", () => {
 					skipped: 0,
 					errors: 0,
 				}),
+				isRecentlySynced: vi.fn().mockReturnValue(false),
 			},
 		};
 	});

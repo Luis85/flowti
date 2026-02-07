@@ -1,5 +1,7 @@
 export type ConflictResolution = "overwrite" | "rename" | "skip" | "keepNewer";
 
+export type SyncDirection = "source-only" | "vault-only" | "bidirectional";
+
 export interface FolderMapping {
 	id: string;
 	enabled: boolean;
@@ -13,6 +15,12 @@ export interface FolderMapping {
 	usePolling?: boolean;
 	pollingInterval?: number;
 	reconcileOnStart: boolean;
+	/** Direction of sync: source-only (import), vault-only (export), bidirectional */
+	syncDirection: SyncDirection;
+	/** Conflict resolution for vault→source sync (used when syncDirection !== "source-only") */
+	reverseConflictResolution?: ConflictResolution;
+	/** Patterns to exclude from sync (glob-like patterns, e.g. "node_modules", "*.log", "temp/*") */
+	excludePatterns?: string[];
 }
 
 /**
@@ -31,6 +39,9 @@ export const DEFAULT_MAPPING_VALUES: Omit<FolderMapping, "id"> = {
 	usePolling: false,
 	pollingInterval: 300,
 	reconcileOnStart: true,
+	syncDirection: "source-only",
+	reverseConflictResolution: "keepNewer",
+	excludePatterns: [],
 };
 
 /**

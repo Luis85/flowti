@@ -19,6 +19,7 @@ export type LogLevel = "debug" | "info" | "warn" | "error";
 
 export type LogCategory =
 	| "Watcher"
+	| "VaultWatcher"
 	| "Sync"
 	| "Reconcile"
 	| "Plugin"

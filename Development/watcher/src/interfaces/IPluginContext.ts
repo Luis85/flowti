@@ -120,4 +120,7 @@ export interface IFileSyncServiceExtended {
 		folderAbsPath: string,
 		onProgress?: (p: ReconcileMappingProgress) => void
 	): Promise<ReconcileStats>;
+
+	/** Check if a file was recently synced (for loop prevention) */
+	isRecentlySynced(filePath: string): boolean;
 }

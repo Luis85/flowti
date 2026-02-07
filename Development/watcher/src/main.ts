@@ -164,6 +164,7 @@ export default class FileWatcherPlugin extends Plugin {
 	async onunload() {
 		void this.manager?.stopAll();
 		this.statusbar?.destroy();
+		this.fileSync?.destroy();
 
 		// Save sync state before unloading
 		if (this.syncStateService) {
@@ -262,6 +263,15 @@ export default class FileWatcherPlugin extends Plugin {
 					this.statsService.applyReconcileStats(mappingId, stats),
 				syncFile: (mapping, sourceFilePath, changeType) =>
 					this.syncFile(mapping, sourceFilePath, changeType),
+			},
+			vaultWatcherContext: {
+				settings: this.settings,
+				fileSync: this.fileSync,
+				noticeService: this.noticeService,
+				bumpProcessed: (mappingId, filePath) =>
+					this.statsService.bumpProcessed(mappingId, filePath),
+				bumpSkipped: (mappingId) => this.statsService.bumpSkipped(mappingId),
+				bumpError: (mappingId) => this.statsService.bumpError(mappingId),
 			},
 		});
 	}
@@ -414,6 +424,38 @@ export default class FileWatcherPlugin extends Plugin {
 			DEFAULT_SETTINGS,
 			await this.loadData()
 		);
+
+		// Migrate settings for bi-directional sync
+		this.migrateSettings();
+	}
+
+	/**
+	 * Migrate settings for backward compatibility.
+	 * Adds default values for new fields.
+	 */
+	private migrateSettings(): void {
+		let needsSave = false;
+
+		for (const mapping of this.settings.folderMappings) {
+			// Add syncDirection if missing (default to source-only for backward compatibility)
+			if (!mapping.syncDirection) {
+				mapping.syncDirection = "source-only";
+				needsSave = true;
+			}
+
+			// Add reverseConflictResolution if missing
+			if (mapping.reverseConflictResolution === undefined) {
+				mapping.reverseConflictResolution = mapping.conflictResolution;
+				needsSave = true;
+			}
+		}
+
+		// Save migrated settings (deferred to avoid blocking)
+		if (needsSave) {
+			LogService.info("Plugin", "Migrating settings for bi-directional sync support");
+			// Note: We can't await saveData here as it might not be ready
+			// The settings will be saved on next user action or plugin save
+		}
 	}
 
 	/**

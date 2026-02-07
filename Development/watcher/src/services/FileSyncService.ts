@@ -9,7 +9,7 @@ import type {
 	ConflictDecision,
 	ReconcileStats,
 } from "../types";
-import { toVaultPath, isTempFile } from "../utils";
+import { toVaultPath, isTempFile, matchesExcludePattern } from "../utils";
 import { FileWatcherSettings } from "../settings/types";
 import { LogService } from "./LogService";
 import { AsyncMutex, KeyedMutex, OperationLock } from "./AsyncMutex";
@@ -65,8 +65,75 @@ export class FileSyncService {
 	/** Optional sync state service for incremental reconciliation */
 	private syncState?: SyncStateService;
 
+	/** Tracks recent syncs to prevent sync loops (path → timestamp) */
+	private recentSyncs = new Map<string, number>();
+
+	/** Cooldown period for loop detection (ms) - 5s to accommodate cloud sync delays */
+	private static readonly LOOP_COOLDOWN_MS = 5000;
+
+	/** Cleanup interval for recentSyncs map */
+	private static readonly SYNC_CLEANUP_INTERVAL_MS = 60000;
+
+	/** Interval ID for cleanup timer (for proper cleanup on destroy) */
+	private cleanupIntervalId?: ReturnType<typeof setInterval>;
+
 	constructor(private app: App, settings: FileWatcherSettings) {
 		this.settings = settings;
+		// Periodically clean up old entries from recentSyncs
+		this.cleanupIntervalId = setInterval(
+			() => this.cleanupRecentSyncs(),
+			FileSyncService.SYNC_CLEANUP_INTERVAL_MS
+		);
+	}
+
+	/**
+	 * Cleanup resources when the service is destroyed.
+	 * Call this when the plugin is unloaded.
+	 */
+	destroy(): void {
+		if (this.cleanupIntervalId) {
+			clearInterval(this.cleanupIntervalId);
+			this.cleanupIntervalId = undefined;
+		}
+		this.recentSyncs.clear();
+	}
+
+	/**
+	 * Normalizes a path for consistent loop detection (lowercase, forward slashes).
+	 */
+	private normalizeSyncPath(filePath: string): string {
+		return filePath.replace(/\\/g, "/").toLowerCase();
+	}
+
+	/**
+	 * Checks if a file was recently modified by a sync operation.
+	 * Used to prevent sync loops in bidirectional mode.
+	 */
+	isRecentlySynced(filePath: string): boolean {
+		const normalized = this.normalizeSyncPath(filePath);
+		const lastSync = this.recentSyncs.get(normalized);
+		if (!lastSync) return false;
+		return Date.now() - lastSync < FileSyncService.LOOP_COOLDOWN_MS;
+	}
+
+	/**
+	 * Records a sync operation for loop detection.
+	 */
+	private recordSync(filePath: string): void {
+		const normalized = this.normalizeSyncPath(filePath);
+		this.recentSyncs.set(normalized, Date.now());
+	}
+
+	/**
+	 * Cleans up old entries from the recentSyncs map.
+	 */
+	private cleanupRecentSyncs(): void {
+		const now = Date.now();
+		for (const [path, timestamp] of this.recentSyncs.entries()) {
+			if (now - timestamp > FileSyncService.LOOP_COOLDOWN_MS * 2) {
+				this.recentSyncs.delete(path);
+			}
+		}
 	}
 
 	/**
@@ -145,18 +212,282 @@ export class FileSyncService {
 
 		try {
 			// for watch events we keep behavior conservative (stability check if enabled)
-			return await this.syncFileInternal(mapping, sourceFilePath, {
+			const result = await this.syncFileInternal(mapping, sourceFilePath, {
 				verifyStability: this.settings.verifyFileStability === true,
 				skipUnchanged: false, // watcher event should sync (conflict strategy decides)
 				ensuredFolders: this.createEnsuredFolderCache(),
 				targetIndex: undefined,
 			});
+
+			// Record sync for loop detection (record BOTH paths to prevent loops from either watcher)
+			if (result.ok && result.action === "processed" && result.targetPath) {
+				this.recordSync(result.targetPath);     // Vault path - for VaultWatcher
+				this.recordSync(sourceFilePath);        // External path - for MappingWatcher
+			}
+
+			return result;
 		} finally {
 			// CRITICAL: Always release operation lock, even on error
 			if (releaseOp) {
 				releaseOp();
 			}
 		}
+	}
+
+	/**
+	 * Synchronizes a single file from the vault to an external source folder.
+	 * This is the reverse of syncFile() and is used for vault-only or bidirectional sync.
+	 *
+	 * @param mapping - The folder mapping configuration
+	 * @param vaultFilePath - Vault-relative path to the file (e.g., "imported/docs/file.md")
+	 * @param _changeType - Type of change ('added', 'changed')
+	 * @returns A SyncResult indicating success/failure and action taken
+	 */
+	async syncFileReverse(
+		mapping: FolderMapping,
+		vaultFilePath: string,
+		_changeType: ChangeType
+	): Promise<SyncResult> {
+		LogService.debug("Sync", `syncFileReverse() called`, {
+			mappingId: mapping.id,
+			details: {
+				mappingDescription: mapping.description,
+				sourceFolder: mapping.sourceFolder,
+				targetFolder: mapping.targetFolder,
+				vaultFilePath,
+			},
+		});
+
+		// Check for sync loop
+		if (this.isRecentlySynced(vaultFilePath)) {
+			LogService.debug("Sync", `Skipping reverse sync - recently synced (loop prevention)`, {
+				mappingId: mapping.id,
+				filePath: vaultFilePath,
+			});
+			return { ok: true, action: "skipped", targetPath: vaultFilePath, reason: "loop_prevention" };
+		}
+
+		// Acquire watcher operation lock
+		let releaseOp: (() => void) | undefined;
+		try {
+			releaseOp = await this.operationLock.acquireWatcher();
+		} catch (e) {
+			LogService.warn("Sync", `Could not acquire watcher lock for reverse sync`, {
+				filePath: vaultFilePath,
+			});
+			return { ok: false, error: new Error("Operation lock unavailable") };
+		}
+
+		try {
+			return await this.syncFileReverseInternal(mapping, vaultFilePath);
+		} finally {
+			if (releaseOp) {
+				releaseOp();
+			}
+		}
+	}
+
+	/**
+	 * Internal implementation of reverse sync (vault → external).
+	 */
+	private async syncFileReverseInternal(
+		mapping: FolderMapping,
+		vaultFilePath: string
+	): Promise<SyncResult> {
+		// Calculate relative path from vault target folder
+		const vaultPath = toVaultPath(vaultFilePath);
+		const targetBase = toVaultPath(mapping.targetFolder);
+
+		// Ensure the file is within the mapping's target folder
+		if (!vaultPath.startsWith(targetBase)) {
+			LogService.warn("Sync", `File not in target folder`, {
+				mappingId: mapping.id,
+				filePath: vaultFilePath,
+				details: { targetFolder: mapping.targetFolder },
+			});
+			return { ok: false, error: new Error("File not in target folder") };
+		}
+
+		// Get relative path within the mapping
+		const relativePath = vaultPath.slice(targetBase.length).replace(/^\//, "");
+		if (!relativePath) {
+			return { ok: false, error: new Error("Invalid relative path") };
+		}
+
+		// Calculate external target path
+		const externalPath = path.join(mapping.sourceFolder, relativePath);
+
+		// Acquire file-level lock
+		let releaseFile: (() => void) | undefined;
+		try {
+			releaseFile = await this.fileLock.acquire(
+				externalPath,
+				FileSyncService.LOCK_TIMEOUT_MS
+			);
+		} catch (e) {
+			LogService.warn("Sync", `File lock timeout for reverse sync: ${externalPath}`, {
+				mappingId: mapping.id,
+				filePath: vaultFilePath,
+			});
+			return { ok: false, error: new Error(`File lock timeout: ${externalPath}`) };
+		}
+
+		try {
+			LogService.debug("Sync", `syncFileReverseInternal() path calculation`, {
+				mappingId: mapping.id,
+				details: {
+					vaultFilePath,
+					relativePath,
+					externalPath,
+				},
+			});
+
+			// Ensure parent folder exists in external location
+			const parentFolder = path.dirname(externalPath);
+			try {
+				await fsp.mkdir(parentFolder, { recursive: true });
+			} catch (e) {
+				// Ignore if already exists
+				if ((e as NodeJS.ErrnoException).code !== "EEXIST") {
+					throw e;
+				}
+			}
+
+			// Check if external file exists for conflict resolution
+			let externalExists = false;
+			try {
+				await fsp.access(externalPath);
+				externalExists = true;
+			} catch {
+				externalExists = false;
+			}
+
+			let finalExternalPath = externalPath;
+
+			if (externalExists) {
+				const decision = await this.resolveConflictReverse(
+					mapping,
+					vaultFilePath,
+					externalPath
+				);
+				if (decision.action === "skip") {
+					return { ok: true, action: "skipped", targetPath: externalPath, reason: "conflict_skip" };
+				}
+				finalExternalPath = decision.targetPath;
+			}
+
+			// Read from vault
+			const vaultContent = await this.app.vault.adapter.readBinary(vaultPath);
+
+			// Write to external location
+			await withRetry(
+				() => fsp.writeFile(finalExternalPath, Buffer.from(vaultContent)),
+				{ maxRetries: 3 },
+				(attempt, error, delay) => {
+					LogService.debug("Sync", `Retrying external write (attempt ${attempt})`, {
+						mappingId: mapping.id,
+						filePath: finalExternalPath,
+						details: { error: error.message, delayMs: delay },
+					});
+				}
+			);
+
+			LogService.debug("Sync", `File written to external: ${finalExternalPath}`);
+
+			// Record sync for loop detection (record BOTH paths to prevent loops from either watcher)
+			this.recordSync(externalPath);    // External path - for MappingWatcher
+			this.recordSync(vaultFilePath);   // Vault path - for VaultWatcher
+
+			return { ok: true, action: "processed", targetPath: finalExternalPath };
+		} catch (e) {
+			const err = e instanceof Error ? e : new Error(String(e));
+			LogService.error("Sync", `Failed to reverse sync file: ${err.message}`, {
+				mappingId: mapping.id,
+				filePath: vaultFilePath,
+				details: { externalPath, error: err.message },
+			});
+			return { ok: false, error: err, targetPath: externalPath };
+		} finally {
+			// Guard against undefined in case of early returns
+			if (releaseFile) {
+				releaseFile();
+			}
+		}
+	}
+
+	/**
+	 * Resolves conflict for reverse sync (vault → external).
+	 * Uses reverseConflictResolution if set, otherwise falls back to conflictResolution.
+	 */
+	private async resolveConflictReverse(
+		mapping: FolderMapping,
+		vaultFilePath: string,
+		externalPath: string
+	): Promise<ConflictDecision> {
+		const strategy = mapping.reverseConflictResolution ?? mapping.conflictResolution;
+
+		if (strategy === "overwrite") {
+			return { action: "overwrite", targetPath: externalPath };
+		}
+		if (strategy === "skip") {
+			return { action: "skip", targetPath: externalPath };
+		}
+
+		if (strategy === "keepNewer") {
+			const vaultStat = await this.app.vault.adapter.stat(toVaultPath(vaultFilePath));
+			let externalStat: fs.Stats | null = null;
+			try {
+				externalStat = await fsp.stat(externalPath);
+			} catch {
+				// External doesn't exist, overwrite
+				return { action: "overwrite", targetPath: externalPath };
+			}
+
+			if (!vaultStat) {
+				return { action: "skip", targetPath: externalPath };
+			}
+
+			if (vaultStat.mtime > externalStat.mtimeMs) {
+				return { action: "overwrite", targetPath: externalPath };
+			}
+			return { action: "skip", targetPath: externalPath };
+		}
+
+		// rename - create unique filename
+		const renamed = await this.makeRenamedExternalPath(externalPath);
+		return { action: "rename", targetPath: renamed };
+	}
+
+	/**
+	 * Creates a renamed path for conflict resolution in external filesystem.
+	 */
+	private async makeRenamedExternalPath(externalPath: string): Promise<string> {
+		const dir = path.dirname(externalPath);
+		const base = path.basename(externalPath);
+		const ext = path.extname(base);
+		const name = base.slice(0, base.length - ext.length);
+
+		const stamp = new Date()
+			.toISOString()
+			.replace(/[:.]/g, "-")
+			.replace("T", " ")
+			.slice(0, 19);
+
+		let candidate = path.join(dir, `${name} (conflict ${stamp})${ext}`);
+
+		let i = 2;
+		while (true) {
+			try {
+				await fsp.access(candidate);
+				// File exists, try next
+				candidate = path.join(dir, `${name} (conflict ${stamp} ${i})${ext}`);
+				i++;
+			} catch {
+				// File doesn't exist, use this path
+				break;
+			}
+		}
+		return candidate;
 	}
 
 	/**
@@ -235,6 +566,9 @@ export class FileSyncService {
 			if (this.settings.ignoreOneDriveTemp && isTempFile(filePath)) continue;
 
 			const relativePath = path.relative(mapping.sourceFolder, filePath);
+
+			// Check exclusion patterns
+			if (matchesExcludePattern(relativePath, mapping.excludePatterns ?? [])) continue;
 
 			// In incremental mode, check if file needs sync
 			if (useIncrementalMode && this.syncState) {
@@ -437,6 +771,10 @@ export class FileSyncService {
 			if (this.settings.ignoreOneDriveTemp && isTempFile(filePath)) continue;
 
 			const relativePath = path.relative(mapping.sourceFolder, filePath);
+
+			// Check exclusion patterns
+			if (matchesExcludePattern(relativePath, mapping.excludePatterns ?? [])) continue;
+
 			existingPaths.add(relativePath);
 
 			// In incremental mode, check if file needs sync

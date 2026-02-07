@@ -1,4 +1,5 @@
 import { MappingWatcher, IMappingWatcherContext } from "./MappingWatcher";
+import { VaultWatcher, IVaultWatcherContext } from "./VaultWatcher";
 import { LogService } from "../services/LogService";
 import type { App } from "obsidian";
 import type { ISettingsProvider, IStatusBar } from "../interfaces/IPluginContext";
@@ -14,8 +15,10 @@ export interface IWatcherManagerContext extends ISettingsProvider {
 	readonly app: App;
 	/** Optional status bar service for UI updates */
 	readonly statusbar?: IStatusBar;
-	/** Context to pass to MappingWatcher instances */
+	/** Context to pass to MappingWatcher instances (source → vault) */
 	readonly watcherContext: IMappingWatcherContext;
+	/** Context to pass to VaultWatcher instances (vault → source) */
+	readonly vaultWatcherContext: IVaultWatcherContext;
 }
 
 /**
@@ -101,7 +104,10 @@ export interface WatcherInfo {
  * @category Watchers
  */
 export class WatcherManager {
+	/** Source watchers (external → vault) */
 	private watchers = new Map<string, MappingWatcher>();
+	/** Vault watchers (vault → external) */
+	private vaultWatchers = new Map<string, VaultWatcher>();
 	private watcherStates = new Map<string, WatcherState>();
 	private starting = false;
 
@@ -160,42 +166,87 @@ export class WatcherManager {
 					continue;
 				}
 
-				LogService.debug("Manager", `Creating watcher for mapping`, {
+				LogService.debug("Manager", `Creating watcher(s) for mapping`, {
 					mappingId: m.id,
 					details: {
 						description: m.description,
 						sourceFolder: m.sourceFolder,
 						targetFolder: m.targetFolder,
+						syncDirection: m.syncDirection ?? "source-only",
 					},
 				});
 
-				const mw = new MappingWatcher(this.ctx.app, this.ctx.watcherContext, m);
-				this.watchers.set(m.id, mw);
+				const syncDirection = m.syncDirection ?? "source-only";
+				let sourceStarted = false;
+				let vaultStarted = false;
 
-				try {
-					mw.start();
+				// Start source watcher (external → vault) if needed
+				if (syncDirection !== "vault-only") {
+					const mw = new MappingWatcher(this.ctx.app, this.ctx.watcherContext, m);
+					this.watchers.set(m.id, mw);
+
+					try {
+						mw.start();
+						sourceStarted = true;
+						LogService.info(
+							"Manager",
+							`Source watcher started: ${m.description || m.id}`,
+							{
+								mappingId: m.id,
+								details: {
+									sourceFolder: m.sourceFolder,
+									targetFolder: m.targetFolder,
+								},
+							}
+						);
+					} catch (e) {
+						LogService.error(
+							"Manager",
+							`Source watcher failed to start: ${m.description || m.id}`,
+							{
+								mappingId: m.id,
+								details: { error: String(e) },
+							}
+						);
+					}
+				}
+
+				// Start vault watcher (vault → external) if needed
+				if (syncDirection !== "source-only") {
+					const vw = new VaultWatcher(this.ctx.app, this.ctx.vaultWatcherContext, m);
+					this.vaultWatchers.set(m.id, vw);
+
+					try {
+						vw.start();
+						vaultStarted = true;
+						LogService.info(
+							"Manager",
+							`Vault watcher started: ${m.description || m.id}`,
+							{
+								mappingId: m.id,
+								details: {
+									sourceFolder: m.sourceFolder,
+									targetFolder: m.targetFolder,
+								},
+							}
+						);
+					} catch (e) {
+						LogService.error(
+							"Manager",
+							`Vault watcher failed to start: ${m.description || m.id}`,
+							{
+								mappingId: m.id,
+								details: { error: String(e) },
+							}
+						);
+					}
+				}
+
+				// Determine overall state
+				if (sourceStarted || vaultStarted) {
 					this.watcherStates.set(m.id, "running");
-					LogService.info(
-						"Manager",
-						`Watcher started: ${m.description || m.id}`,
-						{
-							mappingId: m.id,
-							details: {
-								sourceFolder: m.sourceFolder,
-								targetFolder: m.targetFolder,
-							},
-						}
-					);
-				} catch (e) {
+				} else {
 					this.watcherStates.set(m.id, "error");
-					LogService.error(
-						"Manager",
-						`Watcher failed to start: ${m.description || m.id}`,
-						{
-							mappingId: m.id,
-							details: { error: String(e) },
-						}
-					);
 				}
 			}
 
@@ -210,32 +261,53 @@ export class WatcherManager {
 	}
 
 	async stopAll() {
-		if (this.watchers.size === 0) {
+		const totalWatchers = this.watchers.size + this.vaultWatchers.size;
+		if (totalWatchers === 0) {
 			LogService.debug("Manager", "stopAll() called but no watchers to stop");
 			return;
 		}
 
-		LogService.info("Manager", `Stopping ${this.watchers.size} watchers`);
+		LogService.info("Manager", `Stopping ${totalWatchers} watchers (${this.watchers.size} source, ${this.vaultWatchers.size} vault)`);
 
-		const all = Array.from(this.watchers.entries());
+		const sourceWatchers = Array.from(this.watchers.entries());
+		const vaultWatchersList = Array.from(this.vaultWatchers.entries());
 		this.watchers.clear();
+		this.vaultWatchers.clear();
 
 		// Wait for all watchers to fully close
-		await Promise.all(
-			all.map(async ([id, w]) => {
+		await Promise.all([
+			...sourceWatchers.map(async ([id, w]) => {
 				await w.stop();
+			}),
+			...vaultWatchersList.map(async ([id, w]) => {
+				await w.stop();
+			}),
+		]);
+
+		// Update states for all mappings
+		for (const [id] of sourceWatchers) {
+			this.watcherStates.set(id, "stopped");
+		}
+		for (const [id] of vaultWatchersList) {
+			// Only set to stopped if not already set by source watcher
+			if (!sourceWatchers.find(([sid]) => sid === id)) {
 				this.watcherStates.set(id, "stopped");
-			})
-		);
+			}
+		}
 
 		LogService.info("Manager", "All watchers stopped");
 	}
 
 	/**
-	 * Returns the number of currently active watchers.
+	 * Returns the number of currently active watcher mappings.
+	 * A mapping counts as active if it has either a source or vault watcher running.
 	 */
 	activeCount() {
-		return this.watchers.size;
+		const activeIds = new Set([
+			...this.watchers.keys(),
+			...this.vaultWatchers.keys(),
+		]);
+		return activeIds.size;
 	}
 
 	/**
@@ -263,16 +335,27 @@ export class WatcherManager {
 		const infos: WatcherInfo[] = [];
 
 		for (const m of this.ctx.settings.folderMappings) {
-			const watcher = this.watchers.get(m.id);
+			const sourceWatcher = this.watchers.get(m.id);
+			const vaultWatcher = this.vaultWatchers.get(m.id);
 			const state = this.watcherStates.get(m.id) ?? "stopped";
 			const effectiveState = m.enabled ? state : "stopped";
-			const lastActivity = watcher?.getLastActivity() ?? null;
-			const queueStats = watcher?.getQueueStats() ?? {
-				pendingFiles: 0,
-				pendingDirs: 0,
-				droppedJobs: 0,
-				maxPendingFiles: 1000,
-				maxPendingDirs: 100,
+
+			// Combine last activity from both watchers
+			const sourceActivity = sourceWatcher?.getLastActivity() ?? null;
+			const vaultActivity = vaultWatcher?.getLastActivity() ?? null;
+			const lastActivity = sourceActivity && vaultActivity
+				? Math.max(sourceActivity, vaultActivity)
+				: sourceActivity ?? vaultActivity;
+
+			// Combine queue stats from both watchers
+			const sourceStats = sourceWatcher?.getQueueStats();
+			const vaultStats = vaultWatcher?.getQueueStats();
+			const queueStats = {
+				pendingFiles: (sourceStats?.pendingFiles ?? 0) + (vaultStats?.pendingFiles ?? 0),
+				pendingDirs: sourceStats?.pendingDirs ?? 0,
+				droppedJobs: (sourceStats?.droppedJobs ?? 0) + (vaultStats?.droppedJobs ?? 0),
+				maxPendingFiles: sourceStats?.maxPendingFiles ?? vaultStats?.maxPendingFiles ?? 1000,
+				maxPendingDirs: sourceStats?.maxPendingDirs ?? 100,
 			};
 
 			// Calculate health based on state, activity, and queue stats
@@ -314,10 +397,18 @@ export class WatcherManager {
 		let pendingDirs = 0;
 		let droppedJobs = 0;
 
+		// Count source watcher stats
 		for (const watcher of this.watchers.values()) {
 			const stats = watcher.getQueueStats();
 			pendingFiles += stats.pendingFiles;
 			pendingDirs += stats.pendingDirs;
+			droppedJobs += stats.droppedJobs;
+		}
+
+		// Count vault watcher stats
+		for (const watcher of this.vaultWatchers.values()) {
+			const stats = watcher.getQueueStats();
+			pendingFiles += stats.pendingFiles;
 			droppedJobs += stats.droppedJobs;
 		}
 
@@ -339,42 +430,72 @@ export class WatcherManager {
 			return false;
 		}
 
-		// Stop existing watcher if any
-		const existingWatcher = this.watchers.get(mappingId);
-		if (existingWatcher) {
-			await existingWatcher.stop();
+		// Stop existing watchers if any
+		const existingSourceWatcher = this.watchers.get(mappingId);
+		if (existingSourceWatcher) {
+			await existingSourceWatcher.stop();
 			this.watchers.delete(mappingId);
 		}
+		const existingVaultWatcher = this.vaultWatchers.get(mappingId);
+		if (existingVaultWatcher) {
+			await existingVaultWatcher.stop();
+			this.vaultWatchers.delete(mappingId);
+		}
 
-		const mw = new MappingWatcher(this.ctx.app, this.ctx.watcherContext, mapping);
-		this.watchers.set(mappingId, mw);
+		const syncDirection = mapping.syncDirection ?? "source-only";
+		let sourceStarted = false;
+		let vaultStarted = false;
 
-		try {
-			mw.start();
+		// Start source watcher if needed
+		if (syncDirection !== "vault-only") {
+			const mw = new MappingWatcher(this.ctx.app, this.ctx.watcherContext, mapping);
+			this.watchers.set(mappingId, mw);
+			try {
+				mw.start();
+				sourceStarted = true;
+			} catch (e) {
+				LogService.error("Manager", `Source watcher failed to start`, {
+					mappingId,
+					details: { error: String(e) },
+				});
+			}
+		}
+
+		// Start vault watcher if needed
+		if (syncDirection !== "source-only") {
+			const vw = new VaultWatcher(this.ctx.app, this.ctx.vaultWatcherContext, mapping);
+			this.vaultWatchers.set(mappingId, vw);
+			try {
+				vw.start();
+				vaultStarted = true;
+			} catch (e) {
+				LogService.error("Manager", `Vault watcher failed to start`, {
+					mappingId,
+					details: { error: String(e) },
+				});
+			}
+		}
+
+		if (sourceStarted || vaultStarted) {
 			this.watcherStates.set(mappingId, "running");
 			LogService.info(
 				"Manager",
-				`Watcher started: ${mapping.description || mappingId}`,
+				`Watcher(s) started: ${mapping.description || mappingId}`,
 				{
 					mappingId,
 					details: {
 						sourceFolder: mapping.sourceFolder,
 						targetFolder: mapping.targetFolder,
+						syncDirection,
+						sourceStarted,
+						vaultStarted,
 					},
 				}
 			);
 			this.ctx.statusbar?.onStatsChanged();
 			return true;
-		} catch (e) {
+		} else {
 			this.watcherStates.set(mappingId, "error");
-			LogService.error(
-				"Manager",
-				`Watcher failed to start: ${mapping.description || mappingId}`,
-				{
-					mappingId,
-					details: { error: String(e) },
-				}
-			);
 			return false;
 		}
 	}
@@ -386,8 +507,10 @@ export class WatcherManager {
 	 * @returns `true` if the watcher was stopped successfully
 	 */
 	async stopWatcher(mappingId: string): Promise<boolean> {
-		const watcher = this.watchers.get(mappingId);
-		if (!watcher) {
+		const sourceWatcher = this.watchers.get(mappingId);
+		const vaultWatcher = this.vaultWatchers.get(mappingId);
+
+		if (!sourceWatcher && !vaultWatcher) {
 			// Already stopped
 			this.watcherStates.set(mappingId, "stopped");
 			return true;
@@ -399,16 +522,22 @@ export class WatcherManager {
 		const label = mapping?.description || mappingId;
 
 		try {
-			await watcher.stop();
-			this.watchers.delete(mappingId);
+			if (sourceWatcher) {
+				await sourceWatcher.stop();
+				this.watchers.delete(mappingId);
+			}
+			if (vaultWatcher) {
+				await vaultWatcher.stop();
+				this.vaultWatchers.delete(mappingId);
+			}
 			this.watcherStates.set(mappingId, "stopped");
-			LogService.info("Manager", `Watcher stopped: ${label}`, {
+			LogService.info("Manager", `Watcher(s) stopped: ${label}`, {
 				mappingId,
 			});
 			this.ctx.statusbar?.onStatsChanged();
 			return true;
 		} catch (e) {
-			LogService.error("Manager", `Failed to stop watcher: ${label}`, {
+			LogService.error("Manager", `Failed to stop watcher(s): ${label}`, {
 				mappingId,
 				details: { error: String(e) },
 			});
@@ -423,6 +552,6 @@ export class WatcherManager {
 	 * @returns `true` if the watcher is active
 	 */
 	isWatcherRunning(mappingId: string): boolean {
-		return this.watchers.has(mappingId);
+		return this.watchers.has(mappingId) || this.vaultWatchers.has(mappingId);
 	}
 }

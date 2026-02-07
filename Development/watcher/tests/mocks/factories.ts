@@ -6,6 +6,7 @@
 import { vi } from "vitest";
 import type { ILogService, LogLevel, LogEntry, LogCategory, LogFilter, LogOptions } from "../../src/services/LogService";
 import type { IMappingWatcherContext } from "../../src/watcher/MappingWatcher";
+import type { IVaultWatcherContext } from "../../src/watcher/VaultWatcher";
 import type { IReconcileContext, IStatusBarContext, IFileSyncService } from "../../src/services/types";
 import type { IWatcherManagerContext } from "../../src/watcher/WatcherManager";
 import type { FolderMapping, WatcherStats, ReconcileProgress } from "../../src/types";
@@ -160,6 +161,7 @@ export function createMockMapping(overrides: MockMappingOverrides = {}): FolderM
 		debounceDelay: 500,
 		description: "Test Mapping",
 		reconcileOnStart: true,
+		syncDirection: "source-only",
 		...overrides,
 	};
 }
@@ -207,6 +209,7 @@ export function createMockMappingWatcherContext(
 				skipped: 0,
 				errors: 0,
 			}),
+			isRecentlySynced: vi.fn().mockReturnValue(false),
 		},
 		...overrides,
 	};
@@ -256,6 +259,25 @@ export function createMockStatusBarContext(
 }
 
 /**
+ * Create a mock IVaultWatcherContext for testing VaultWatcher
+ */
+export function createMockVaultWatcherContext(
+	overrides: Partial<IVaultWatcherContext> = {}
+): IVaultWatcherContext {
+	return {
+		settings: createMockSettings(),
+		fileSync: {
+			syncFileReverse: vi.fn().mockResolvedValue({ ok: true, action: "processed" }),
+			isRecentlySynced: vi.fn().mockReturnValue(false),
+		} as any,
+		bumpProcessed: vi.fn(),
+		bumpSkipped: vi.fn(),
+		bumpError: vi.fn(),
+		...overrides,
+	};
+}
+
+/**
  * Create a mock IWatcherManagerContext for testing WatcherManager
  */
 export function createMockWatcherManagerContext(
@@ -270,6 +292,7 @@ export function createMockWatcherManagerContext(
 			clearReconcileProgress: vi.fn(),
 		},
 		watcherContext: createMockMappingWatcherContext(),
+		vaultWatcherContext: createMockVaultWatcherContext(),
 		...overrides,
 	};
 }

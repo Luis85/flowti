@@ -82,3 +82,99 @@ export function createIgnoredMatcher(ignoreTemp: boolean): (path: string) => boo
 		return isTempFile(name);
 	};
 }
+
+/**
+ * Converts a simple glob pattern to a RegExp.
+ * Supports:
+ * - `*` matches any characters except path separators
+ * - `**` matches any characters including path separators (recursive)
+ * - `?` matches a single character
+ * - Literal strings match exactly
+ *
+ * @param pattern - The glob pattern
+ * @returns A RegExp that matches the pattern
+ */
+function globToRegex(pattern: string): RegExp {
+	// Normalize path separators
+	const normalized = pattern.replace(/\\/g, "/");
+
+	// Escape regex special chars except *, ?, and /
+	let regex = normalized.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+
+	// Replace ** with a placeholder
+	regex = regex.replace(/\*\*/g, "\0DOUBLESTAR\0");
+
+	// Replace * with non-separator match
+	regex = regex.replace(/\*/g, "[^/]*");
+
+	// Replace ? with single char match
+	regex = regex.replace(/\?/g, "[^/]");
+
+	// Replace placeholder with any-char match
+	regex = regex.replace(/\0DOUBLESTAR\0/g, ".*");
+
+	return new RegExp(`^${regex}$`, "i");
+}
+
+/**
+ * Checks if a path matches any of the exclusion patterns.
+ * Patterns are matched against both the full relative path and basename.
+ *
+ * @param relativePath - The relative path to check (forward slashes)
+ * @param patterns - Array of exclusion patterns
+ * @returns true if the path should be excluded
+ */
+export function matchesExcludePattern(relativePath: string, patterns: string[]): boolean {
+	if (!patterns || patterns.length === 0) return false;
+
+	// Normalize path to forward slashes
+	const normalizedPath = relativePath.replace(/\\/g, "/");
+	const pathParts = normalizedPath.split("/");
+	const basename = pathParts[pathParts.length - 1];
+
+	for (const pattern of patterns) {
+		if (!pattern.trim()) continue;
+
+		const trimmedPattern = pattern.trim();
+
+		// Simple name match (no path separators in pattern)
+		if (!trimmedPattern.includes("/")) {
+			// Check if any path segment matches
+			const patternRegex = globToRegex(trimmedPattern);
+			for (const part of pathParts) {
+				if (patternRegex.test(part)) return true;
+			}
+			continue;
+		}
+
+		// Path pattern - check against full path
+		const patternRegex = globToRegex(trimmedPattern);
+
+		// Try matching the full path
+		if (patternRegex.test(normalizedPath)) return true;
+
+		// Also try matching from any position in the path
+		for (let i = 0; i < pathParts.length; i++) {
+			const subPath = pathParts.slice(i).join("/");
+			if (patternRegex.test(subPath)) return true;
+		}
+	}
+
+	return false;
+}
+
+/**
+ * Creates an exclusion matcher function for a mapping.
+ *
+ * @param mapping - The folder mapping with exclude patterns
+ * @returns A function that returns true if a path should be excluded
+ */
+export function createExclusionMatcher(
+	mapping: { excludePatterns?: string[] }
+): (relativePath: string) => boolean {
+	const patterns = mapping.excludePatterns ?? [];
+	if (patterns.length === 0) {
+		return () => false;
+	}
+	return (relativePath: string) => matchesExcludePattern(relativePath, patterns);
+}

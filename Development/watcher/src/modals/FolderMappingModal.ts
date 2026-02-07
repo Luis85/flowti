@@ -1,6 +1,6 @@
 import FileWatcherPlugin from "src/main";
 import { App, Modal, Setting, setIcon, TextComponent } from "obsidian";
-import { FolderMapping, ConflictResolution } from "src/types";
+import { FolderMapping, ConflictResolution, SyncDirection } from "src/types";
 import { pickFolder, isFolderPickerAvailable } from "src/services/FolderPickerService";
 import { confirmDelete } from "./ConfirmModal";
 
@@ -42,6 +42,7 @@ export class FolderMappingModal extends Modal {
 		this.renderHeader();
 		this.renderBasicSettings();
 		this.renderPathSettings();
+		this.renderSyncDirectionSettings();
 		this.renderSyncSettings();
 		this.renderAdvancedSettings();
 		this.renderFooter();
@@ -163,6 +164,59 @@ export class FolderMappingModal extends Modal {
 			);
 	}
 
+	private renderSyncDirectionSettings() {
+		const { contentEl } = this;
+
+		const section = this.createSection(contentEl, "Sync Direction", "arrow-left-right");
+
+		new Setting(section)
+			.setName("Sync Mode")
+			.setDesc("Direction of file synchronization between source and vault")
+			.addDropdown((d) => {
+				d.addOption("source-only", "Source → Vault (consume only)");
+				d.addOption("vault-only", "Vault → Source (publish only)");
+				d.addOption("bidirectional", "Bidirectional (both ways)");
+				d.setValue(this.mapping.syncDirection ?? "source-only");
+				d.onChange((v) => {
+					this.mapping.syncDirection = v as SyncDirection;
+					this.hasChanges = true;
+					// Show/hide reverse conflict resolution
+					this.updateReverseConflictVisibility(section, v !== "source-only");
+				});
+			});
+
+		// Reverse conflict resolution container
+		const reverseConflictContainer = section.createDiv({ cls: "reverse-conflict-setting" });
+		this.renderReverseConflictSetting(reverseConflictContainer, (this.mapping.syncDirection ?? "source-only") !== "source-only");
+	}
+
+	private updateReverseConflictVisibility(section: HTMLElement, show: boolean) {
+		const container = section.querySelector(".reverse-conflict-setting");
+		if (container) {
+			container.empty();
+			this.renderReverseConflictSetting(container as HTMLElement, show);
+		}
+	}
+
+	private renderReverseConflictSetting(container: HTMLElement, show: boolean) {
+		if (!show) return;
+
+		new Setting(container)
+			.setName("Reverse Conflict Resolution")
+			.setDesc("How to handle conflicts when syncing from vault to source")
+			.addDropdown((d) => {
+				d.addOption("overwrite", "Overwrite - Replace existing file");
+				d.addOption("rename", "Rename - Add number suffix");
+				d.addOption("skip", "Skip - Don't sync if exists");
+				d.addOption("keepNewer", "Keep Newer - Compare timestamps");
+				d.setValue(this.mapping.reverseConflictResolution ?? this.mapping.conflictResolution);
+				d.onChange((v) => {
+					this.mapping.reverseConflictResolution = v as ConflictResolution;
+					this.hasChanges = true;
+				});
+			});
+	}
+
 	private renderSyncSettings() {
 		const { contentEl } = this;
 
@@ -179,6 +233,22 @@ export class FolderMappingModal extends Modal {
 						this.mapping.fileExtensions = v
 							.split(",")
 							.map((x) => x.trim().toLowerCase())
+							.filter(Boolean);
+						this.hasChanges = true;
+					})
+			);
+
+		new Setting(section)
+			.setName("Exclude Patterns")
+			.setDesc("Patterns to exclude (one per line). Supports wildcards: *, **, ?")
+			.addTextArea((t) =>
+				t
+					.setPlaceholder("node_modules\n*.log\nbuild/**\n.git")
+					.setValue((this.mapping.excludePatterns ?? []).join("\n"))
+					.onChange((v) => {
+						this.mapping.excludePatterns = v
+							.split("\n")
+							.map((x) => x.trim())
 							.filter(Boolean);
 						this.hasChanges = true;
 					})
