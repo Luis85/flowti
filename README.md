@@ -26,26 +26,21 @@ Before we get started, make sure the following things are in place:
 
 - Git is installed
 - [Obsidian](https://obsidian.md) is installed
+- Obsidian Git Community Plugin is installed
 
 ## Tutorial - How to get in
 
 ### Step 1 - Clone the repo
 
-- Open a Terminal
-- `cd C:\Projects`
-- `git clone $repo_url`
-
-### Step 2 - Open the vault
-
+- Copy the repo url
 - Open Obsidian
-- Click on `Open Folder as Vault`
-- Navigate to `C:\Projects\`
-- Select `Vault`
-- Click `Open as Folder`
+- Create a new Vault
+- Enable the Git Community Plugin
+- Open the Command Palette
+- Git Clone with the repo url
 
-### Step 3 - Explore the vault
+### Step 2 - Explore the vault
 
-- Click on `I trust the author`
 - Explore the [[HOMEPAGE]]
 
 
