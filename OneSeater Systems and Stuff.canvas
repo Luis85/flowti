@@ -1,0 +1,100 @@
+{
+	"nodes":[
+		{
+			"id":"6ba2a9a39fc81229",
+			"type":"text",
+			"text":"Messages System",
+			"styleAttributes":{},
+			"x":-720,
+			"y":900,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"ccfb615e3d53ac7c",
+			"type":"text",
+			"text":"Message Catalogs",
+			"styleAttributes":{},
+			"x":-720,
+			"y":980,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"fb03bc42c64f31b5",
+			"type":"text",
+			"text":"Inbox System",
+			"styleAttributes":{},
+			"x":-360,
+			"y":900,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"5604cd97db269d8d",
+			"type":"text",
+			"text":"Order System",
+			"styleAttributes":{},
+			"x":20,
+			"y":900,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"f013a0116daa75f0",
+			"type":"text",
+			"text":"Payment System",
+			"styleAttributes":{},
+			"x":400,
+			"y":900,
+			"width":260,
+			"height":60
+		},
+		{"id":"af6700996658f858","type":"file","file":"Public/OneSeater - Inventory System.md","x":-80,"y":-120,"width":460,"height":280},
+		{
+			"id":"5e9cdd9b9ac66e27",
+			"type":"text",
+			"text":"Messages Store",
+			"styleAttributes":{},
+			"x":-440,
+			"y":1220,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"07818d673a90f942",
+			"type":"text",
+			"text":"Orders Store",
+			"styleAttributes":{},
+			"x":-440,
+			"y":1320,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"6de0b854cc1bb1ea",
+			"type":"text",
+			"text":"Payment Store",
+			"styleAttributes":{},
+			"x":-440,
+			"y":1420,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"77d37f1cb9ca8bee",
+			"type":"text",
+			"text":"Task Store",
+			"styleAttributes":{},
+			"x":-140,
+			"y":1220,
+			"width":260,
+			"height":60
+		}
+	],
+	"edges":[],
+	"metadata":{
+		"version":"1.0-1.0",
+		"frontmatter":{}
+	}
+}
