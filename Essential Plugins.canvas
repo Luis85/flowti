@@ -1,0 +1,30 @@
+{
+	"nodes":[
+		{
+			"id":"9290e64f8ec39c63",
+			"type":"text",
+			"text":"- Bases\n- Advanced Canvas\n- Git\n- MetaBind\n- FileClasses\n- Quickadd\n- Dataview\n- Metadatamenu\n- Charts View\n- Style Settings",
+			"styleAttributes":{},
+			"x":40,
+			"y":-140,
+			"width":260,
+			"height":320
+		},
+		{
+			"id":"e31d862bf5335c6c",
+			"type":"text",
+			"text":"Foreign Folder Watcher",
+			"styleAttributes":{"textAlign":"center"},
+			"x":40,
+			"y":-220,
+			"width":260,
+			"height":60,
+			"color":"2"
+		}
+	],
+	"edges":[],
+	"metadata":{
+		"version":"1.0-1.0",
+		"frontmatter":{}
+	}
+}
