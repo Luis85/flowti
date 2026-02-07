@@ -50,7 +50,6 @@
 			"width":260,
 			"height":60
 		},
-		{"id":"af6700996658f858","type":"file","file":"Public/OneSeater - Inventory System.md","x":-80,"y":-120,"width":460,"height":280},
 		{
 			"id":"5e9cdd9b9ac66e27",
 			"type":"text",
@@ -90,7 +89,8 @@
 			"y":1220,
 			"width":260,
 			"height":60
-		}
+		},
+		{"id":"1e448431923ef51f","type":"file","file":"OneSeater - Inventory System.md","x":-720,"y":240,"width":410,"height":440}
 	],
 	"edges":[],
 	"metadata":{
