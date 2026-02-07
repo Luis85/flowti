@@ -3,7 +3,7 @@
 ## Introducing the Flowti Business Framework
 
 this is a preconfigured Obsidian Vault, ready to go as documentation system called „FLOWTI - IBDE“ an integrated business development environment and management system.
-Goal of this framework is to provide all necessary utilities to describe an visualize digital twins of things.
+Goal of this framework is to provide all necessary utilities to describe and visualize digital twins of things.
 
 This document describes how to get the current implementation up and running.
 To get the most out of our documentation we use Obsidian and Git. The Repository consists of two parts, the Flowti Framework, a combination of PKM, Design, and Playtesting, and the OneSeater - Motorsport Manager, an example implementation of Flowti in a game environment.
