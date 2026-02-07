@@ -39,9 +39,10 @@ Before we get started, make sure the following things are in place:
 - Open the Command Palette
 - Git Clone with the repo url
 
-### Step 2 - Explore the vault
+### Step 2 - Plugins
 
-- Explore the [[HOMEPAGE]]
+In order to use the plugins, you must build them from source. You find the available plugins in `/Development/`
+
 
 
 ## Impressions
