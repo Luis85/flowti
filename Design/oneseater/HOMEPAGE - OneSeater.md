@@ -114,7 +114,7 @@ views:
 
 ## Current Implementation
 
-![[OneSeater - Systemdesign.canvas]]
+![[Public/Design/oneseater/OneSeater - Systemdesign.canvas]]
 
 
 ## Systemic idea on how to integrate a simulation game with obsidian

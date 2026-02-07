@@ -5,8 +5,8 @@
 		{"id":"148e9a3d0d150de2","type":"group","x":-640,"y":1480,"width":580,"height":560,"label":"Converter"},
 		{"id":"25a402f59d16f6ec","type":"group","x":-640,"y":360,"width":580,"height":560,"label":"Drains"},
 		{"id":"ef3470a03cac7509","type":"group","x":-2920,"y":1480,"width":560,"height":560,"label":"Inventory"},
-		{"id":"8c4f27321c6f077c","type":"file","file":"Development/oneseater/src/simulation/systems/messages/CustomerPurchaseOrderCreationSystem.ts","x":-2840,"y":-410,"width":400,"height":400,"color":"2"},
-		{"id":"1382624bb116579d","type":"file","file":"Development/oneseater/src/simulation/systems/messages/DailyMessageIntakeSystem.ts","x":-2840,"y":-895,"width":400,"height":400,"color":"2"},
+		{"id":"8c4f27321c6f077c","type":"file","file":"02 - Areas/Development/oneseater/src/simulation/systems/messages/CustomerPurchaseOrderCreationSystem.ts","x":-2840,"y":-410,"width":400,"height":400,"color":"2"},
+		{"id":"1382624bb116579d","type":"file","file":"02 - Areas/Development/oneseater/src/simulation/systems/messages/DailyMessageIntakeSystem.ts","x":-2840,"y":-895,"width":400,"height":400,"color":"2"},
 		{
 			"id":"90b9bec35d6f2a32",
 			"type":"text",
@@ -39,14 +39,14 @@
 		{"id":"a87a6c8eb1e0c3bd","type":"file","file":"Development/oneseater/eventsystem/messages/MessageMarkedAsSpamEvent.ts","x":1740,"y":443,"width":400,"height":400,"color":"5"},
 		{"id":"bb3a534009c8cabd","type":"file","file":"Development/oneseater/eventsystem/messages/MessageActionRequestedEvent.ts","x":1740,"y":-1142,"width":400,"height":400,"color":"5"},
 		{"id":"c825e13faefa5a20","type":"file","file":"Development/oneseater/eventsystem/tasks/TaskFinishedEvent.ts","x":1740,"y":1560,"width":400,"height":400,"color":"5"},
-		{"id":"b4a7008167013bf1","type":"file","file":"Development/oneseater/src/simulation/systems/TaskResolutionSystem.ts","x":-541,"y":1560,"width":400,"height":400,"color":"2"},
+		{"id":"b4a7008167013bf1","type":"file","file":"02 - Areas/Development/oneseater/src/simulation/systems/TaskResolutionSystem.ts","x":-541,"y":1560,"width":400,"height":400,"color":"2"},
 		{"id":"79670fa33c1f6570","type":"file","file":"Development/oneseater/eventsystem/messages/MessageReadEvent.ts","x":1740,"y":-97,"width":400,"height":400,"color":"5"},
 		{"id":"94900e50c13ecec5","type":"file","file":"Development/oneseater/eventsystem/messages/MessageActionRejectedEvent.ts","x":1740,"y":-637,"width":400,"height":400,"color":"5"},
 		{"id":"1fad6eb91a2ade3a","type":"file","file":"Development/oneseater/simulation/systems/messages/MessageActionRequestSystem.ts","x":2840,"y":-96,"width":400,"height":400,"color":"2"},
 		{"id":"f00e27b23320a25e","type":"file","file":"Development/oneseater/eventsystem/orders/PaymentCollectedEvent.ts","x":3760,"y":152,"width":400,"height":400,"color":"5"},
 		{"id":"df170f6bbd0798f9","type":"file","file":"Development/oneseater/eventsystem/orders/OrderAcceptedEvent.ts","x":3760,"y":-403,"width":400,"height":400,"color":"5"},
-		{"id":"75990a4f46946b30","type":"file","file":"Development/oneseater/src/eventsystem/messages/NewMessageReceivedEvent.ts","x":-1720,"y":-652,"width":400,"height":400,"color":"5"},
-		{"id":"4a84b3e46b0be13e","type":"file","file":"Development/oneseater/src/simulation/stores/SimulationStore.ts","x":-2840,"y":1563,"width":400,"height":400,"color":"2"}
+		{"id":"75990a4f46946b30","type":"file","file":"02 - Areas/Development/oneseater/src/eventsystem/messages/NewMessageReceivedEvent.ts","x":-1720,"y":-652,"width":400,"height":400,"color":"5"},
+		{"id":"4a84b3e46b0be13e","type":"file","file":"02 - Areas/Development/oneseater/src/simulation/stores/SimulationStore.ts","x":-2840,"y":1563,"width":400,"height":400,"color":"2"}
 	],
 	"edges":[
 		{

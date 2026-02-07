@@ -32,7 +32,7 @@
 			"width":400,
 			"height":195
 		},
-		{"id":"7382b55035a5602e","type":"file","file":"Design/OneSeater - Entity Model.canvas","x":2380,"y":-558,"width":400,"height":198,"color":"6"},
+		{"id":"7382b55035a5602e","type":"file","file":"01 - Projects/OneSeater/Design/OneSeater - Entity Model.canvas","x":2380,"y":-558,"width":400,"height":198,"color":"6"},
 		{
 			"id":"951302786a24524b",
 			"type":"text",
@@ -47,7 +47,7 @@
 		{
 			"id":"32e1b06a1d5c6ee8",
 			"type":"file",
-			"file":"Design/OneSeater - The Office - View.canvas",
+			"file":"01 - Projects/OneSeater/Design/OneSeater - The Office - View.canvas",
 			"styleAttributes":{
 				"border":null
 			},
@@ -57,8 +57,8 @@
 			"height":166,
 			"color":"3"
 		},
-		{"id":"d6cd6b6c7f8b6cc3","type":"file","file":"Design/OneSeater - Message System.canvas","portal":false,"x":520,"y":120,"width":400,"height":300,"color":"2"},
-		{"id":"88518daa820b8697","type":"file","file":"Design/OneSeater - Economy System.canvas","x":980,"y":120,"width":400,"height":300,"color":"2"},
+		{"id":"d6cd6b6c7f8b6cc3","type":"file","file":"01 - Projects/OneSeater/Design/OneSeater - Message System.canvas","portal":false,"x":520,"y":120,"width":400,"height":300,"color":"2"},
+		{"id":"88518daa820b8697","type":"file","file":"01 - Projects/OneSeater/Design/OneSeater - Economy System.canvas","x":980,"y":120,"width":400,"height":300,"color":"2"},
 		{
 			"id":"c8f3157acad11c60",
 			"type":"text",
