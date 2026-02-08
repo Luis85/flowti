@@ -49,7 +49,7 @@ views:
 
 ```
 
-[[Public/Design/flowti/Flowti IBDE/Knowledgebase/How to use daily notes for documentation]]
+[[05 - Public Vault/Design/flowti/Flowti IBDE/Knowledgebase/How to use daily notes for documentation]]
 
 To give our data meaning we use the provided bases as much as possible, for easy house-keeping the [[DATAQUALITY]] base comes in handy.
 
@@ -211,7 +211,7 @@ Storage for external data, like events, logs, or data records used for further p
 [[How to automate with Obsidian]]
 [[How to install the Vault]]
 [[How to use the system to its fullest]]
-[[Public/Design/flowti/Flowti IBDE/Knowledgebase/How to use daily notes for documentation]]
+[[05 - Public Vault/Design/flowti/Flowti IBDE/Knowledgebase/How to use daily notes for documentation]]
 [[How to document a project]]
 [[How to document business operations ]]
 
