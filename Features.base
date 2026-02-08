@@ -4,10 +4,33 @@ filters:
     - file.ext == "md"
 views:
   - type: table
-    name: Table
+    name: Features
+    groupBy:
+      property: domain
+      direction: ASC
     order:
       - file.name
       - stage
+      - domain
       - file.folder
     columnSize:
       file.name: 265
+      note.stage: 72
+      note.domain: 119
+  - type: table
+    name: Flowti
+    filters:
+      and:
+        - file.folder.contains("flowti")
+    groupBy:
+      property: domain
+      direction: ASC
+    order:
+      - file.name
+      - stage
+      - domain
+      - file.folder
+    columnSize:
+      file.name: 265
+      note.stage: 72
+      note.domain: 119
