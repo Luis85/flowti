@@ -68,6 +68,8 @@ describe("MappingWatcher", () => {
 				ignoreOneDriveTemp: true,
 			},
 			syncFile: vi.fn().mockResolvedValue({ ok: true, action: "processed" }),
+			syncDelete: vi.fn().mockResolvedValue(undefined),
+			syncMove: vi.fn().mockResolvedValue(undefined),
 			bumpProcessed: vi.fn(),
 			bumpSkipped: vi.fn(),
 			bumpError: vi.fn(),
@@ -77,8 +79,10 @@ describe("MappingWatcher", () => {
 					processed: 0,
 					skipped: 0,
 					errors: 0,
+					deleted: 0,
 				}),
 				isRecentlySynced: vi.fn().mockReturnValue(false),
+				getSyncStateService: vi.fn().mockReturnValue(undefined),
 			},
 		};
 	});
@@ -325,10 +329,11 @@ describe("MappingWatcher", () => {
 	});
 
 	describe("delete events", () => {
-		it("should skip delete events", () => {
+		it("should skip delete events when deletionHandling is ignore (default)", () => {
 			const mapping = createMockMapping({
 				sourceFolder: "/source",
 				targetFolder: "vault/target",
+				deletionHandling: "ignore",
 			});
 
 			watcher = new MappingWatcher(mockApp, mockPlugin, mapping as any);
@@ -340,6 +345,57 @@ describe("MappingWatcher", () => {
 
 			expect(watcher.getQueueStats().pendingFiles).toBe(0);
 			expect(mockPlugin.bumpSkipped).toHaveBeenCalled();
+		});
+
+		it("should enqueue delete events when deletionHandling is trash", async () => {
+			const mapping = createMockMapping({
+				sourceFolder: "/source",
+				targetFolder: "vault/target",
+				deletionHandling: "trash",
+				debounceDelay: 100,
+			});
+
+			watcher = new MappingWatcher(mockApp, mockPlugin, mapping as any);
+			watcher.start();
+
+			const enqueue = (watcher as any).enqueue.bind(watcher);
+
+			enqueue("/source/file.md", "deleted");
+
+			// Should be queued (not skipped)
+			expect(watcher.getQueueStats().pendingFiles).toBe(1);
+			expect(mockPlugin.bumpSkipped).not.toHaveBeenCalled();
+
+			vi.advanceTimersByTime(200);
+			await vi.runAllTimersAsync();
+
+			expect(mockPlugin.syncDelete).toHaveBeenCalledWith(
+				expect.objectContaining({ id: "test-mapping" }),
+				"/source/file.md"
+			);
+		});
+
+		it("should route moved events to syncMove", async () => {
+			const mapping = createMockMapping({
+				sourceFolder: "/source",
+				targetFolder: "vault/target",
+				deletionHandling: "trash",
+				detectMoves: true,
+				debounceDelay: 100,
+			});
+
+			watcher = new MappingWatcher(mockApp, mockPlugin, mapping as any);
+			watcher.start();
+
+			// Directly enqueue a moved job via process()
+			const process = (watcher as any).process.bind(watcher);
+			await process({ filePath: "/source/newfile.md", changeType: "moved", oldPath: "/source/oldfile.md" });
+
+			expect(mockPlugin.syncMove).toHaveBeenCalledWith(
+				expect.objectContaining({ id: "test-mapping" }),
+				"/source/oldfile.md",
+				"/source/newfile.md"
+			);
 		});
 	});
 

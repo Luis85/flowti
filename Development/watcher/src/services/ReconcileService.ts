@@ -185,6 +185,7 @@ export class ReconcileService {
 						processed: 0,
 						skipped: 0,
 						errors: 0,
+						deleted: 0,
 					},
 					meta
 				);
@@ -208,6 +209,7 @@ export class ReconcileService {
 								processed: p.processed ?? 0,
 								skipped: p.skipped ?? 0,
 								errors: p.errors ?? 0,
+								deleted: p.deleted ?? 0,
 								current: p.current,
 							},
 							meta
@@ -230,6 +232,7 @@ export class ReconcileService {
 							processed: 0,
 							skipped: 0,
 							errors: 1,
+							deleted: 0,
 							errorMessage,
 						},
 						meta
@@ -248,6 +251,7 @@ export class ReconcileService {
 							processed: res.processed,
 							skipped: res.skipped,
 							errors: res.errors,
+							deleted: res.deleted,
 						},
 						meta
 					);
@@ -264,6 +268,7 @@ export class ReconcileService {
 						processed: res.processed,
 						skipped: res.skipped,
 						errors: res.errors,
+						deleted: res.deleted,
 					},
 					meta
 				);
@@ -278,6 +283,7 @@ export class ReconcileService {
 						processed: res.processed,
 						skipped: res.skipped,
 						errors: res.errors,
+						deleted: res.deleted,
 					},
 				});
 			}
@@ -305,10 +311,14 @@ export class ReconcileService {
 
 	private defaultDoneNotice(m: FolderMapping, res: ReconcileStats) {
 		const label = getMappingLabel(m);
-		this.notice.show(
-			`[${label}] Reconcile done: scanned ${res.scanned}, ✅${res.processed}, ⏭️${res.skipped}, ⚠️${res.errors}`,
-			6000
-		);
+		const parts = [
+			`scanned ${res.scanned}`,
+			`synced ${res.processed}`,
+			`skipped ${res.skipped}`,
+		];
+		if (res.deleted > 0) parts.push(`deleted ${res.deleted}`);
+		if (res.errors > 0) parts.push(`errors ${res.errors}`);
+		this.notice.show(`[${label}] Reconcile done: ${parts.join(", ")}`, 6000);
 	}
 
 	/**

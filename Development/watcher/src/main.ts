@@ -162,7 +162,7 @@ export default class FileWatcherPlugin extends Plugin {
 	}
 
 	async onunload() {
-		void this.manager?.stopAll();
+		await this.manager?.stopAll();
 		this.statusbar?.destroy();
 		this.fileSync?.destroy();
 
@@ -263,6 +263,10 @@ export default class FileWatcherPlugin extends Plugin {
 					this.statsService.applyReconcileStats(mappingId, stats),
 				syncFile: (mapping, sourceFilePath, changeType) =>
 					this.syncFile(mapping, sourceFilePath, changeType),
+				syncDelete: (mapping, sourceFilePath) =>
+					this.syncDelete(mapping, sourceFilePath),
+				syncMove: (mapping, oldPath, newPath) =>
+					this.syncMove(mapping, oldPath, newPath),
 			},
 			vaultWatcherContext: {
 				settings: this.settings,
@@ -416,6 +420,46 @@ export default class FileWatcherPlugin extends Plugin {
 	}
 
 	/**
+	 * Handle a source file deletion by trashing the vault target.
+	 */
+	async syncDelete(mapping: FolderMapping, sourceFilePath: string) {
+		const res = await this.fileSync.syncDelete(mapping, sourceFilePath);
+		const label = getMappingLabel(mapping);
+
+		if (!res.ok) {
+			this.statsService.bumpError(mapping.id);
+			this.noticeService.error(`[${label}] Delete error: ${res.error.message}`);
+			return;
+		}
+		if (res.action === "skipped") {
+			this.statsService.bumpSkipped(mapping.id);
+			return;
+		}
+		this.statsService.bumpProcessed(mapping.id, sourceFilePath);
+		LogService.info("Plugin", `Deleted: ${sourceFilePath}`, { mappingId: mapping.id });
+	}
+
+	/**
+	 * Handle a source file move by renaming the vault target.
+	 */
+	async syncMove(mapping: FolderMapping, oldPath: string, newPath: string) {
+		const res = await this.fileSync.syncMove(mapping, oldPath, newPath);
+		const label = getMappingLabel(mapping);
+
+		if (!res.ok) {
+			this.statsService.bumpError(mapping.id);
+			this.noticeService.error(`[${label}] Move error: ${res.error.message}`);
+			return;
+		}
+		if (res.action === "skipped") {
+			this.statsService.bumpSkipped(mapping.id);
+			return;
+		}
+		this.statsService.bumpProcessed(mapping.id, newPath);
+		LogService.info("Plugin", `Moved: ${oldPath} → ${newPath}`, { mappingId: mapping.id });
+	}
+
+	/**
 	 * Load settings from storage
 	 */
 	async loadSettings() {
@@ -448,13 +492,23 @@ export default class FileWatcherPlugin extends Plugin {
 				mapping.reverseConflictResolution = mapping.conflictResolution;
 				needsSave = true;
 			}
+
+			// Add deletionHandling if missing
+			if (!mapping.deletionHandling) {
+				mapping.deletionHandling = "ignore";
+				needsSave = true;
+			}
+
+			// Add detectMoves if missing
+			if (mapping.detectMoves === undefined) {
+				mapping.detectMoves = false;
+				needsSave = true;
+			}
 		}
 
-		// Save migrated settings (deferred to avoid blocking)
 		if (needsSave) {
 			LogService.info("Plugin", "Migrating settings for bi-directional sync support");
-			// Note: We can't await saveData here as it might not be ready
-			// The settings will be saved on next user action or plugin save
+			void this.saveData(this.settings);
 		}
 	}
 

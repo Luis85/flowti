@@ -241,9 +241,13 @@ export class OperationLock {
 		};
 	}
 
+	/** Maximum time to wait for watchers to drain before reconcile starts (ms) */
+	private static readonly RECONCILE_DRAIN_TIMEOUT_MS = 30000;
+
 	/**
 	 * Acquire exclusive lock for reconciliation.
 	 * Blocks until all watchers complete, then blocks new watchers.
+	 * Throws if watchers don't drain within the timeout.
 	 */
 	async acquireReconcile(): Promise<() => void> {
 		if (this.mode === "reconciling") {
@@ -253,14 +257,17 @@ export class OperationLock {
 			});
 		}
 
-		// Wait for watchers to drain
+		// Wait for watchers to drain (with timeout)
 		if (this.watcherCount > 0) {
-			await new Promise<void>((resolve) => {
+			await new Promise<void>((resolve, reject) => {
 				const setTimeoutFn =
 					typeof window !== "undefined" ? window.setTimeout : setTimeout;
+				const deadline = Date.now() + OperationLock.RECONCILE_DRAIN_TIMEOUT_MS;
 				const check = () => {
 					if (this.watcherCount === 0) {
 						resolve();
+					} else if (Date.now() >= deadline) {
+						reject(new Error(`Timed out waiting for ${this.watcherCount} watcher(s) to drain after ${OperationLock.RECONCILE_DRAIN_TIMEOUT_MS}ms`));
 					} else {
 						setTimeoutFn(check, 50);
 					}

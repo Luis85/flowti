@@ -40,7 +40,7 @@ export interface IReconcileContext {
 	/** Apply stats from reconcile operation to plugin stats */
 	applyReconcileStats(
 		mappingId: string,
-		stats: { processed: number; skipped: number; errors: number }
+		stats: { processed: number; skipped: number; errors: number; deleted?: number }
 	): void;
 
 	/** Set the current reconcile progress snapshot (for UI) */

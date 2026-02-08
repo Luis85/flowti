@@ -890,7 +890,7 @@ export class DashboardModal extends Modal {
 	}
 
 	private formatTime(date: Date): string {
-		return date.toLocaleTimeString("de-DE", {
+		return date.toLocaleTimeString(undefined, {
 			hour: "2-digit",
 			minute: "2-digit",
 			second: "2-digit",

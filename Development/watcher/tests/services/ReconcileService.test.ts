@@ -82,7 +82,7 @@ describe("ReconcileService", () => {
 				reconcileMapping: vi.fn().mockImplementation(async () => {
 					callCount++;
 					await new Promise((r) => setTimeout(r, 50));
-					return { scanned: 10, processed: 5, skipped: 3, errors: 2 };
+					return { scanned: 10, processed: 5, skipped: 3, errors: 2, deleted: 0 };
 				}),
 			});
 
@@ -196,6 +196,7 @@ describe("ReconcileService", () => {
 					processed: 5,
 					skipped: 3,
 					errors: 2,
+					deleted: 1,
 				}),
 			});
 
@@ -210,7 +211,7 @@ describe("ReconcileService", () => {
 
 			expect(onMappingDone).toHaveBeenCalledWith(
 				mapping,
-				{ scanned: 10, processed: 5, skipped: 3, errors: 2 }
+				{ scanned: 10, processed: 5, skipped: 3, errors: 2, deleted: 1 }
 			);
 		});
 
@@ -223,6 +224,7 @@ describe("ReconcileService", () => {
 					processed: 5,
 					skipped: 3,
 					errors: 2,
+					deleted: 0,
 				}),
 			});
 
@@ -238,6 +240,7 @@ describe("ReconcileService", () => {
 				processed: 5,
 				skipped: 3,
 				errors: 2,
+				deleted: 0,
 			});
 		});
 
@@ -247,7 +250,7 @@ describe("ReconcileService", () => {
 			fileSync = createMockFileSyncService({
 				reconcileMapping: vi.fn().mockImplementation(async () => {
 					await new Promise((r) => setTimeout(r, 50));
-					return { scanned: 0, processed: 0, skipped: 0, errors: 0 };
+					return { scanned: 0, processed: 0, skipped: 0, errors: 0, deleted: 0 };
 				}),
 			});
 
@@ -337,7 +340,7 @@ describe("ReconcileService", () => {
 			fileSync = createMockFileSyncService({
 				reconcileMapping: vi.fn().mockImplementation(async () => {
 					await new Promise((r) => setTimeout(r, 100));
-					return { scanned: 0, processed: 0, skipped: 0, errors: 0 };
+					return { scanned: 0, processed: 0, skipped: 0, errors: 0, deleted: 0 };
 				}),
 			});
 
@@ -405,7 +408,7 @@ describe("ReconcileService", () => {
 			fileSync = createMockFileSyncService({
 				reconcileMapping: vi.fn().mockImplementation(async () => {
 					await new Promise((r) => setTimeout(r, 100));
-					return { scanned: 0, processed: 0, skipped: 0, errors: 0 };
+					return { scanned: 0, processed: 0, skipped: 0, errors: 0, deleted: 0 };
 				}),
 			});
 

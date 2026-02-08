@@ -66,7 +66,7 @@ The plugin supports three sync modes:
 | **Vault → Source** | Export from vault to external folder only | Publish files |
 | **Bidirectional** | Sync in both directions | Full synchronization |
 
-> **Note:** Deletions are never synchronized. This is a safety measure.
+> **Note:** Deletion sync is opt-in. Set **Deletion Handling** to "Trash" per mapping to propagate deletes (files go to system trash or `.sync-trash/`).
 
 ### Conflict Resolution
 
@@ -152,9 +152,7 @@ Available via Command Palette (`Ctrl/Cmd + P`):
 | Command | Description |
 |---------|-------------|
 | **File Watcher: Open Dashboard** | Open the dashboard |
-| **File Watcher: Reconcile all mappings** | Manual full sync of all active mappings |
 | **File Watcher: Restart all watchers** | Restart all watchers |
-| **File Watcher: Show sync logs** | Open the log window |
 
 ### Dashboard
 
@@ -349,7 +347,6 @@ Documentation is generated in `docs/codebase/`.
 ## Known Limitations
 
 - **Desktop-only**: The plugin only works on desktop (not mobile)
-- **No Delete Sync**: Deleted files are not removed (safety measure)
 
 ## License
 

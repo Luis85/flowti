@@ -21,6 +21,10 @@ export interface FolderMapping {
 	reverseConflictResolution?: ConflictResolution;
 	/** Patterns to exclude from sync (glob-like patterns, e.g. "node_modules", "*.log", "temp/*") */
 	excludePatterns?: string[];
+	/** How to handle file deletions. "ignore" = don't sync deletes (default), "trash" = move to trash */
+	deletionHandling?: "ignore" | "trash";
+	/** Detect file moves (rename/relocate) instead of treating as delete+add. Only active when deletionHandling !== "ignore" */
+	detectMoves?: boolean;
 }
 
 /**
@@ -42,6 +46,8 @@ export const DEFAULT_MAPPING_VALUES: Omit<FolderMapping, "id"> = {
 	syncDirection: "source-only",
 	reverseConflictResolution: "keepNewer",
 	excludePatterns: [],
+	deletionHandling: "ignore",
+	detectMoves: false,
 };
 
 /**
@@ -74,15 +80,17 @@ export interface WatcherStats {
  * Type of file change event.
  * Used by both watchers and sync operations.
  */
-export type ChangeType = "added" | "changed" | "deleted";
+export type ChangeType = "added" | "changed" | "deleted" | "moved";
 
 export type PendingJob = {
 	filePath: string;
 	changeType: ChangeType;
 	timer?: ReturnType<typeof setTimeout>;
+	/** For "moved" events: the previous path before the move */
+	oldPath?: string;
 };
 
-export type SyncAction = "processed" | "skipped";
+export type SyncAction = "processed" | "skipped" | "deleted" | "moved";
 
 export type ConflictDecision =
 	| { action: "overwrite"; targetPath: string }
@@ -98,6 +106,7 @@ export type ReconcileStats = {
 	processed: number;
 	skipped: number;
 	errors: number;
+	deleted: number;
 };
 
 export type ReconcilePhase =
@@ -120,4 +129,5 @@ export type ReconcileProgress = {
 	current?: string;
 	/** Error message when phase is 'error' */
 	errorMessage?: string;
+	deleted: number;
 };

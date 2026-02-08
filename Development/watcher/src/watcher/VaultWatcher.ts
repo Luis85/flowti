@@ -33,6 +33,8 @@ export interface IVaultWatcherContext {
 export class VaultWatcher {
 	private modifyRef: EventRef | null = null;
 	private createRef: EventRef | null = null;
+	private deleteRef: EventRef | null = null;
+	private renameRef: EventRef | null = null;
 	private pending = new Map<string, PendingJob>();
 
 	/** Maximum pending jobs to prevent memory issues */
@@ -49,6 +51,9 @@ export class VaultWatcher {
 
 	/** Timestamp of last file event activity */
 	private _lastActivity: number | null = null;
+
+	/** Guard against post-stop event processing */
+	private stopped = false;
 
 	constructor(
 		private app: App,
@@ -75,6 +80,7 @@ export class VaultWatcher {
 	}
 
 	start() {
+		this.stopped = false;
 		const m = this.mapping;
 
 		LogService.info("VaultWatcher", `start() called for mapping`, {
@@ -112,6 +118,8 @@ export class VaultWatcher {
 		// Register vault event handlers
 		this.modifyRef = this.app.vault.on("modify", this.onFileModify.bind(this));
 		this.createRef = this.app.vault.on("create", this.onFileCreate.bind(this));
+		this.deleteRef = this.app.vault.on("delete", this.onFileDelete.bind(this));
+		this.renameRef = this.app.vault.on("rename", this.onFileRename.bind(this));
 
 		LogService.info("VaultWatcher", `Vault watcher started for ${m.description || m.id}`, {
 			mappingId: m.id,
@@ -119,6 +127,7 @@ export class VaultWatcher {
 	}
 
 	async stop() {
+		this.stopped = true;
 		// Clear pending jobs
 		for (const j of this.pending.values()) {
 			if (j.timer) clearTimeout(j.timer);
@@ -133,6 +142,14 @@ export class VaultWatcher {
 		if (this.createRef) {
 			this.app.vault.offref(this.createRef);
 			this.createRef = null;
+		}
+		if (this.deleteRef) {
+			this.app.vault.offref(this.deleteRef);
+			this.deleteRef = null;
+		}
+		if (this.renameRef) {
+			this.app.vault.offref(this.renameRef);
+			this.renameRef = null;
 		}
 
 		LogService.debug("VaultWatcher", `Vault watcher stopped`, {
@@ -150,7 +167,74 @@ export class VaultWatcher {
 		this.enqueue(file.path, "added");
 	}
 
+	private onFileDelete(file: TAbstractFile) {
+		if (!(file instanceof TFile)) return;
+		const handling = this.mapping.deletionHandling ?? "ignore";
+		if (handling === "ignore") return;
+		this.enqueue(file.path, "deleted");
+	}
+
+	private onFileRename(file: TAbstractFile, oldPath: string) {
+		if (!(file instanceof TFile)) return;
+		const handling = this.mapping.deletionHandling ?? "ignore";
+		if (handling === "ignore") return;
+
+		const newVaultPath = toVaultPath(file.path);
+		const oldVaultPath = toVaultPath(oldPath);
+		const targetBase = toVaultPath(this.mapping.targetFolder);
+
+		const oldInTarget = oldVaultPath.startsWith(targetBase + "/");
+		const newInTarget = newVaultPath.startsWith(targetBase + "/");
+
+		if (oldInTarget && newInTarget) {
+			// Move within our domain → sync as move
+			const delay = Math.max(VaultWatcher.MIN_REVERSE_DEBOUNCE_MS, this.mapping.debounceDelay ?? 800);
+			const job: PendingJob = { filePath: file.path, changeType: "moved", oldPath };
+			job.timer = setTimeout(() => {
+				this.pending.delete(file.path);
+				void this.processMove(job);
+			}, delay);
+			this.pending.set(file.path, job);
+		} else if (oldInTarget && !newInTarget) {
+			// Moved OUT of our target folder → treat as delete
+			this.enqueue(oldPath, "deleted");
+		} else if (!oldInTarget && newInTarget) {
+			// Moved INTO our target folder → treat as add
+			this.enqueue(file.path, "added");
+		}
+	}
+
+	private async processMove(job: PendingJob) {
+		if (this.stopped || !job.oldPath) return;
+		try {
+			const result: SyncResult = await this.context.fileSync.syncMoveReverse(
+				this.mapping,
+				job.oldPath,
+				job.filePath
+			);
+			if (!result.ok) {
+				LogService.error("VaultWatcher", `Move reverse sync failed: ${result.error?.message}`, {
+					mappingId: this.mapping.id,
+					filePath: job.filePath,
+				});
+				this.context.bumpError(this.mapping.id);
+			} else if (result.action === "skipped") {
+				this.context.bumpSkipped(this.mapping.id);
+			} else {
+				this.context.bumpProcessed(this.mapping.id, job.filePath);
+			}
+		} catch (e) {
+			LogService.error("VaultWatcher", `Move reverse sync error: ${String(e)}`, {
+				mappingId: this.mapping.id,
+				filePath: job.filePath,
+			});
+			this.context.bumpError(this.mapping.id);
+		}
+	}
+
 	private enqueue(filePath: string, changeType: ChangeType) {
+		if (this.stopped) return;
+
 		// Track activity timestamp
 		this._lastActivity = Date.now();
 
@@ -197,14 +281,18 @@ export class VaultWatcher {
 			details: { sourceFolder: this.mapping.sourceFolder },
 		});
 
-		// Ignore delete (we don't sync deletes)
+		// Handle delete events based on deletionHandling setting
 		if (changeType === "deleted") {
-			LogService.debug("VaultWatcher", `Skipping delete event`, {
-				mappingId: this.mapping.id,
-				filePath,
-			});
-			this.context.bumpSkipped(this.mapping.id);
-			return;
+			const handling = this.mapping.deletionHandling ?? "ignore";
+			if (handling === "ignore") {
+				LogService.debug("VaultWatcher", `Skipping delete event (deletionHandling=ignore)`, {
+					mappingId: this.mapping.id,
+					filePath,
+				});
+				this.context.bumpSkipped(this.mapping.id);
+				return;
+			}
+			// Fall through to normal debounce+process for deletion
 		}
 
 		const key = filePath;
@@ -241,6 +329,8 @@ export class VaultWatcher {
 	}
 
 	private async process(job: PendingJob) {
+		if (this.stopped) return;
+
 		LogService.debug("VaultWatcher", `process() syncing file to external`, {
 			mappingId: this.mapping.id,
 			filePath: job.filePath,
@@ -252,11 +342,19 @@ export class VaultWatcher {
 		});
 
 		try {
-			const result: SyncResult = await this.context.fileSync.syncFileReverse(
-				this.mapping,
-				job.filePath,
-				job.changeType
-			);
+			let result: SyncResult;
+			if (job.changeType === "deleted") {
+				result = await this.context.fileSync.syncDeleteReverse(
+					this.mapping,
+					job.filePath
+				);
+			} else {
+				result = await this.context.fileSync.syncFileReverse(
+					this.mapping,
+					job.filePath,
+					job.changeType
+				);
+			}
 
 			if (!result.ok) {
 				LogService.error("VaultWatcher", `Reverse sync failed: ${result.error?.message}`, {

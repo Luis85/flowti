@@ -2,6 +2,7 @@ import type { App } from "obsidian";
 import type {
 	FolderMapping,
 	ChangeType,
+	SyncResult,
 	WatcherStats,
 	ReconcileProgress,
 	ReconcileStats,
@@ -65,6 +66,12 @@ export interface IFileSyncOperations {
 		sourceFilePath: string,
 		changeType: ChangeType
 	): Promise<void>;
+
+	/** Delete the vault target for a deleted source file */
+	syncDelete(mapping: FolderMapping, sourceFilePath: string): Promise<void>;
+
+	/** Move/rename a vault file when the source was moved */
+	syncMove(mapping: FolderMapping, oldPath: string, newPath: string): Promise<void>;
 }
 
 /**
@@ -123,4 +130,7 @@ export interface IFileSyncServiceExtended {
 
 	/** Check if a file was recently synced (for loop prevention) */
 	isRecentlySynced(filePath: string): boolean;
+
+	/** Get the sync state service for move detection size lookups */
+	getSyncStateService?(): import("../services/SyncStateService").SyncStateService | undefined;
 }

@@ -49,6 +49,19 @@ export class MappingWatcher {
 	/** Timeout for watcher close operation (prevents hanging) */
 	private static readonly CLOSE_TIMEOUT_MS = 5000;
 
+	/** Buffered deletes for move detection (filePath → { relativePath, size, timer }) */
+	private pendingDeletes = new Map<string, {
+		relativePath: string;
+		size: number;
+		timer: ReturnType<typeof setTimeout>;
+	}>();
+
+	/** Time window to match a delete+add pair as a move */
+	private static readonly MOVE_DETECT_WINDOW_MS = 2000;
+
+	/** Guard against post-stop event processing */
+	private stopped = false;
+
 	constructor(
 		private app: App,
 		private context: IMappingWatcherContext,
@@ -77,6 +90,7 @@ export class MappingWatcher {
 	}
 
 	start() {
+		this.stopped = false;
 		const m = this.mapping;
 
 		LogService.info("Watcher", `start() called for mapping`, {
@@ -161,6 +175,7 @@ export class MappingWatcher {
 	}
 
 	async stop() {
+		this.stopped = true;
 		for (const j of this.pending.values()) {
 			if (j.timer) clearTimeout(j.timer);
 		}
@@ -168,6 +183,9 @@ export class MappingWatcher {
 
 		for (const t of this.pendingDirs.values()) clearTimeout(t);
 		this.pendingDirs.clear();
+
+		for (const entry of this.pendingDeletes.values()) clearTimeout(entry.timer);
+		this.pendingDeletes.clear();
 
 		if (!this.watcher) return;
 		const w = this.watcher;
@@ -192,6 +210,8 @@ export class MappingWatcher {
 	}
 
 	private enqueue(filePath: string, changeType: ChangeType) {
+		if (this.stopped) return;
+
 		// Track activity timestamp for health monitoring
 		this._lastActivity = Date.now();
 
@@ -201,14 +221,23 @@ export class MappingWatcher {
 			details: { mappingTarget: this.mapping.targetFolder },
 		});
 
-		// ignore delete (we don't delete inside vault)
+		// Handle delete events based on deletionHandling setting
 		if (changeType === "deleted") {
-			LogService.debug("Watcher", `Skipping delete event`, {
-				mappingId: this.mapping.id,
-				filePath,
-			});
-			this.context.bumpSkipped(this.mapping.id);
-			return;
+			const handling = this.mapping.deletionHandling ?? "ignore";
+			if (handling === "ignore") {
+				LogService.debug("Watcher", `Skipping delete event (deletionHandling=ignore)`, {
+					mappingId: this.mapping.id,
+					filePath,
+				});
+				this.context.bumpSkipped(this.mapping.id);
+				return;
+			}
+			// If move detection is enabled, buffer the delete
+			if (this.mapping.detectMoves) {
+				this.bufferDelete(filePath);
+				return;
+			}
+			// Otherwise fall through to normal debounce+process
 		}
 
 		// Check for sync loop (file was recently written by reverse sync)
@@ -239,14 +268,20 @@ export class MappingWatcher {
 			return;
 		}
 
-		// Skip symlinks to prevent infinite loops
-		if (isSymlinkSync(filePath)) {
+		// Skip symlinks to prevent infinite loops (not for deleted files — they no longer exist)
+		if (changeType !== "deleted" && isSymlinkSync(filePath)) {
 			LogService.debug("Watcher", `Skipping symlink`, {
 				mappingId: this.mapping.id,
 				filePath,
 			});
 			this.context.bumpSkipped(this.mapping.id);
 			return;
+		}
+
+		// Move detection: check if an "added" event matches a buffered delete
+		if (changeType === "added" && this.mapping.detectMoves && this.pendingDeletes.size > 0) {
+			const matched = this.tryMatchMove(filePath);
+			if (matched) return; // Enqueued as a "moved" job
 		}
 
 		const key = filePath;
@@ -280,7 +315,94 @@ export class MappingWatcher {
 		this.pending.set(key, job);
 	}
 
+	/**
+	 * Buffer a delete event for move detection.
+	 * If no matching add arrives within the time window, process as a regular delete.
+	 */
+	private bufferDelete(filePath: string) {
+		const relativePath = path.relative(this.mapping.sourceFolder, filePath);
+
+		// Look up last known size from SyncStateService
+		let size = 0;
+		const syncState = this.context.fileSync?.getSyncStateService?.();
+		if (syncState) {
+			const info = syncState.getFileInfo(this.mapping.id, relativePath);
+			if (info) {
+				size = info.sourceSize;
+			}
+		}
+
+		// If we have no size info, process as regular delete immediately
+		if (size === 0) {
+			LogService.debug("Watcher", `bufferDelete: no size info, processing as delete`, {
+				mappingId: this.mapping.id,
+				filePath,
+			});
+			const delay = Math.max(0, this.mapping.debounceDelay ?? 500);
+			const job: PendingJob = { filePath, changeType: "deleted" };
+			job.timer = setTimeout(() => {
+				this.pending.delete(filePath);
+				void this.process(job);
+			}, delay);
+			this.pending.set(filePath, job);
+			return;
+		}
+
+		const timer = setTimeout(() => {
+			this.pendingDeletes.delete(filePath);
+			// Timeout: no matching add found, process as regular delete
+			LogService.debug("Watcher", `Move detection timeout, processing as delete`, {
+				mappingId: this.mapping.id,
+				filePath,
+			});
+			const job: PendingJob = { filePath, changeType: "deleted" };
+			void this.process(job);
+		}, MappingWatcher.MOVE_DETECT_WINDOW_MS);
+
+		this.pendingDeletes.set(filePath, { relativePath, size, timer });
+	}
+
+	/**
+	 * Try to match an "added" file with a buffered delete of the same size.
+	 * Returns true if a match was found and a "moved" job was enqueued.
+	 */
+	private tryMatchMove(filePath: string): boolean {
+		try {
+			const stat = fs.statSync(filePath);
+			for (const [deletedPath, entry] of this.pendingDeletes) {
+				if (entry.size === stat.size) {
+					// Match found
+					clearTimeout(entry.timer);
+					this.pendingDeletes.delete(deletedPath);
+
+					LogService.info("Watcher", `Move detected`, {
+						mappingId: this.mapping.id,
+						details: { from: deletedPath, to: filePath, size: stat.size },
+					});
+
+					const delay = Math.max(0, this.mapping.debounceDelay ?? 500);
+					const job: PendingJob = {
+						filePath,
+						changeType: "moved",
+						oldPath: deletedPath,
+					};
+					job.timer = setTimeout(() => {
+						this.pending.delete(filePath);
+						void this.process(job);
+					}, delay);
+					this.pending.set(filePath, job);
+					return true;
+				}
+			}
+		} catch {
+			// stat failed, process as normal add
+		}
+		return false;
+	}
+
 	private async process(job: PendingJob) {
+		if (this.stopped) return;
+
 		LogService.debug("Watcher", `process() syncing file`, {
 			mappingId: this.mapping.id,
 			filePath: job.filePath,
@@ -292,16 +414,13 @@ export class MappingWatcher {
 		});
 
 		try {
-			// IMPORTANT: plugin.syncFile already updates stats + notices in your main.ts
-			await this.context.syncFile(
-				this.mapping,
-				job.filePath,
-				job.changeType
-			);
-			LogService.debug("Watcher", `process() completed for ${job.filePath}`, {
-				mappingId: this.mapping.id,
-				filePath: job.filePath,
-			});
+			if (job.changeType === "deleted") {
+				await this.context.syncDelete(this.mapping, job.filePath);
+			} else if (job.changeType === "moved" && job.oldPath) {
+				await this.context.syncMove(this.mapping, job.oldPath, job.filePath);
+			} else {
+				await this.context.syncFile(this.mapping, job.filePath, job.changeType);
+			}
 
 			LogService.info("Watcher", `File synced: ${job.changeType}`, {
 				mappingId: this.mapping.id,

@@ -43,6 +43,7 @@ export class FolderMappingModal extends Modal {
 		this.renderBasicSettings();
 		this.renderPathSettings();
 		this.renderSyncDirectionSettings();
+		this.renderDeletionSettings();
 		this.renderSyncSettings();
 		this.renderAdvancedSettings();
 		this.renderFooter();
@@ -212,6 +213,53 @@ export class FolderMappingModal extends Modal {
 				d.setValue(this.mapping.reverseConflictResolution ?? this.mapping.conflictResolution);
 				d.onChange((v) => {
 					this.mapping.reverseConflictResolution = v as ConflictResolution;
+					this.hasChanges = true;
+				});
+			});
+	}
+
+	private renderDeletionSettings() {
+		const { contentEl } = this;
+
+		const section = this.createSection(contentEl, "Deletion & Move Handling", "trash-2");
+
+		new Setting(section)
+			.setName("Handle Deletions")
+			.setDesc("Propagate file deletions between source and vault. Deleted files are moved to trash (recoverable).")
+			.addDropdown((d) => {
+				d.addOption("ignore", "Ignore - don't sync deletions");
+				d.addOption("trash", "Move to Trash - safe, recoverable");
+				d.setValue(this.mapping.deletionHandling ?? "ignore");
+				d.onChange((v) => {
+					this.mapping.deletionHandling = v as "ignore" | "trash";
+					this.hasChanges = true;
+					this.updateMoveDetectVisibility(section, v !== "ignore");
+				});
+			});
+
+		// Move detection (conditionally shown)
+		const moveContainer = section.createDiv({ cls: "move-detect-setting" });
+		this.renderMoveDetectSetting(moveContainer, (this.mapping.deletionHandling ?? "ignore") !== "ignore");
+	}
+
+	private updateMoveDetectVisibility(section: HTMLElement, show: boolean) {
+		const container = section.querySelector(".move-detect-setting");
+		if (container) {
+			(container as HTMLElement).empty();
+			this.renderMoveDetectSetting(container as HTMLElement, show);
+		}
+	}
+
+	private renderMoveDetectSetting(container: HTMLElement, show: boolean) {
+		if (!show) return;
+
+		new Setting(container)
+			.setName("Detect Moves")
+			.setDesc("Detect file renames/moves instead of treating as delete + add. Reduces unnecessary re-syncs.")
+			.addToggle((t) => {
+				t.setValue(this.mapping.detectMoves ?? false);
+				t.onChange((v) => {
+					this.mapping.detectMoves = v;
 					this.hasChanges = true;
 				});
 			});
@@ -452,9 +500,8 @@ export class FolderMappingModal extends Modal {
 	}
 
 	onClose() {
-		// If closed without saving, notify with no changes
 		if (!this.hasChanges) {
-			// Already handled by save/delete
+			this.onComplete({ saved: false });
 		}
 		this.contentEl.empty();
 	}

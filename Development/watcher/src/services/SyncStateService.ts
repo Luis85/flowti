@@ -366,6 +366,28 @@ export class SyncStateService {
 	}
 
 	/**
+	 * Remove a single file's tracking entry.
+	 * Call after a file is deleted or moved.
+	 */
+	removeEntry(mappingId: string, relativePath: string): void {
+		const state = this.state.mappings[mappingId];
+		if (!state) return;
+		if (state.files[relativePath]) {
+			delete state.files[relativePath];
+			this.dirty = true;
+			this.scheduleSave();
+		}
+	}
+
+	/**
+	 * Get stored file info for a tracked file.
+	 * Used by move detection to look up last known file size.
+	 */
+	getFileInfo(mappingId: string, relativePath: string): SyncedFileInfo | undefined {
+		return this.state.mappings[mappingId]?.files[relativePath];
+	}
+
+	/**
 	 * Clear all state for a mapping.
 	 * Call when a mapping is deleted.
 	 */

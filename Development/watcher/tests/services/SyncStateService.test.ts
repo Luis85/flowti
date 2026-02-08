@@ -205,6 +205,63 @@ describe("SyncStateService", () => {
 		});
 	});
 
+	describe("removeEntry", () => {
+		const mappingId = "mapping-1";
+		const sourceFolder = "/source";
+		const stat = { mtimeMs: 1000000, size: 100 };
+
+		it("should remove a single file entry", () => {
+			service.recordSync(mappingId, sourceFolder, "file1.md", stat);
+			service.recordSync(mappingId, sourceFolder, "file2.md", stat);
+
+			expect(service.getTrackedFileCount(mappingId)).toBe(2);
+
+			service.removeEntry(mappingId, "file1.md");
+
+			expect(service.getTrackedFileCount(mappingId)).toBe(1);
+			expect(service.needsSync(mappingId, sourceFolder, "file1.md", stat)).toBe(true);
+			expect(service.needsSync(mappingId, sourceFolder, "file2.md", stat)).toBe(false);
+		});
+
+		it("should be no-op for unknown mapping", () => {
+			service.removeEntry("unknown", "file.md");
+			// Should not throw
+		});
+
+		it("should be no-op for unknown file", () => {
+			service.recordSync(mappingId, sourceFolder, "file1.md", stat);
+			service.removeEntry(mappingId, "nonexistent.md");
+			expect(service.getTrackedFileCount(mappingId)).toBe(1);
+		});
+	});
+
+	describe("getFileInfo", () => {
+		const mappingId = "mapping-1";
+		const sourceFolder = "/source";
+
+		it("should return file info for tracked file", () => {
+			const stat = { mtimeMs: 1234567890, size: 512 };
+			service.recordSync(mappingId, sourceFolder, "file.md", stat);
+
+			const info = service.getFileInfo(mappingId, "file.md");
+
+			expect(info).toBeDefined();
+			expect(info!.sourceSize).toBe(512);
+			expect(info!.sourceMtimeMs).toBe(1234567890);
+		});
+
+		it("should return undefined for unknown mapping", () => {
+			const info = service.getFileInfo("unknown", "file.md");
+			expect(info).toBeUndefined();
+		});
+
+		it("should return undefined for unknown file", () => {
+			service.recordSync(mappingId, sourceFolder, "other.md", { mtimeMs: 1000, size: 100 });
+			const info = service.getFileInfo(mappingId, "file.md");
+			expect(info).toBeUndefined();
+		});
+	});
+
 	describe("clearMapping", () => {
 		it("should remove all state for a mapping", () => {
 			const mappingId = "mapping-1";

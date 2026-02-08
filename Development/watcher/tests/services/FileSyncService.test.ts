@@ -5,7 +5,7 @@ import {
 	createMockMapping,
 	createMockVaultAdapter,
 	createMockVault,
-} from "../mocks/obsidian";
+} from "../mocks/factories";
 
 // Create mock filesystem data using vi.hoisted so mocks can access them
 const { mockFiles, mockDirs } = vi.hoisted(() => ({

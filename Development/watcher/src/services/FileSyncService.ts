@@ -14,6 +14,7 @@ import { FileWatcherSettings } from "../settings/types";
 import { LogService } from "./LogService";
 import { AsyncMutex, KeyedMutex, OperationLock } from "./AsyncMutex";
 import type { SyncStateService } from "./SyncStateService";
+import type { ReconcileMappingProgress } from "./types";
 
 /**
  * Core service responsible for synchronizing files from external folders into the Obsidian vault.
@@ -287,6 +288,335 @@ export class FileSyncService {
 		}
 	}
 
+	// ===========================
+	// Delete sync
+	// ===========================
+
+	/**
+	 * Deletes the vault target file corresponding to a deleted source file.
+	 * The vault file is moved to the system recycle bin for safety.
+	 */
+	async syncDelete(
+		mapping: FolderMapping,
+		sourceFilePath: string
+	): Promise<SyncResult> {
+		// Acquire watcher operation lock
+		let releaseOp: (() => void) | undefined;
+		try {
+			releaseOp = await this.operationLock.acquireWatcher();
+		} catch {
+			return { ok: false, error: new Error("Operation lock unavailable") };
+		}
+
+		try {
+			const rel = path.relative(mapping.sourceFolder, sourceFilePath);
+			const targetPath = toVaultPath(path.join(mapping.targetFolder, rel));
+
+			const tFile = this.app.vault.getAbstractFileByPath(targetPath);
+			if (!tFile) {
+				LogService.debug("Sync", `syncDelete: target not found, skipping`, {
+					mappingId: mapping.id,
+					details: { sourceFilePath, targetPath },
+				});
+				return { ok: true, action: "skipped", targetPath, reason: "target_not_found" };
+			}
+
+			await this.app.vault.trash(tFile, true);
+
+			// Record sync for loop prevention
+			this.recordSync(targetPath);
+			this.recordSync(sourceFilePath);
+
+			// Remove from sync state
+			if (this.syncState) {
+				this.syncState.removeEntry(mapping.id, rel);
+			}
+
+			LogService.info("Sync", `File trashed in vault`, {
+				mappingId: mapping.id,
+				filePath: targetPath,
+			});
+
+			return { ok: true, action: "deleted", targetPath };
+		} catch (e) {
+			const err = e instanceof Error ? e : new Error(String(e));
+			LogService.error("Sync", `syncDelete failed: ${err.message}`, {
+				mappingId: mapping.id,
+				filePath: sourceFilePath,
+			});
+			return { ok: false, error: err };
+		} finally {
+			if (releaseOp) releaseOp();
+		}
+	}
+
+	/**
+	 * Deletes the source file corresponding to a deleted vault file.
+	 * The source file is moved to .sync-trash/ in the source root for safety.
+	 */
+	async syncDeleteReverse(
+		mapping: FolderMapping,
+		vaultFilePath: string
+	): Promise<SyncResult> {
+		// Check loop prevention
+		if (this.isRecentlySynced(vaultFilePath)) {
+			return { ok: true, action: "skipped", targetPath: vaultFilePath, reason: "loop_prevention" };
+		}
+
+		let releaseOp: (() => void) | undefined;
+		try {
+			releaseOp = await this.operationLock.acquireWatcher();
+		} catch {
+			return { ok: false, error: new Error("Operation lock unavailable") };
+		}
+
+		try {
+			const vaultPath = toVaultPath(vaultFilePath);
+			const targetBase = toVaultPath(mapping.targetFolder);
+			const relativePath = vaultPath.slice(targetBase.length).replace(/^\//, "");
+			if (!relativePath) {
+				return { ok: false, error: new Error("Invalid relative path") };
+			}
+
+			const externalPath = path.join(mapping.sourceFolder, relativePath);
+
+			// Check if source file exists
+			try {
+				await fsp.access(externalPath);
+			} catch {
+				LogService.debug("Sync", `syncDeleteReverse: source not found, skipping`, {
+					mappingId: mapping.id,
+					details: { vaultFilePath, externalPath },
+				});
+				return { ok: true, action: "skipped", targetPath: externalPath, reason: "source_not_found" };
+			}
+
+			// Move to .sync-trash/ in source root
+			const trashDir = path.join(mapping.sourceFolder, ".sync-trash");
+			const trashTarget = path.join(trashDir, relativePath);
+			const trashParent = path.dirname(trashTarget);
+
+			await fsp.mkdir(trashParent, { recursive: true });
+
+			// Handle name collision: append timestamp if target exists
+			let finalTrashPath = trashTarget;
+			try {
+				await fsp.access(finalTrashPath);
+				// File exists in trash, add timestamp
+				const ext = path.extname(trashTarget);
+				const base = trashTarget.slice(0, trashTarget.length - ext.length);
+				const stamp = Date.now();
+				finalTrashPath = `${base}.${stamp}${ext}`;
+			} catch {
+				// No collision
+			}
+
+			await fsp.rename(externalPath, finalTrashPath);
+
+			// Record sync for loop prevention
+			this.recordSync(externalPath);
+			this.recordSync(vaultFilePath);
+
+			// Remove from sync state
+			if (this.syncState) {
+				this.syncState.removeEntry(mapping.id, relativePath);
+			}
+
+			LogService.info("Sync", `File moved to .sync-trash/`, {
+				mappingId: mapping.id,
+				details: { externalPath, trashPath: finalTrashPath },
+			});
+
+			return { ok: true, action: "deleted", targetPath: externalPath };
+		} catch (e) {
+			const err = e instanceof Error ? e : new Error(String(e));
+			LogService.error("Sync", `syncDeleteReverse failed: ${err.message}`, {
+				mappingId: mapping.id,
+				filePath: vaultFilePath,
+			});
+			return { ok: false, error: err };
+		} finally {
+			if (releaseOp) releaseOp();
+		}
+	}
+
+	// ===========================
+	// Move sync
+	// ===========================
+
+	/**
+	 * Moves/renames a vault file when the corresponding source file was moved.
+	 */
+	async syncMove(
+		mapping: FolderMapping,
+		oldSourcePath: string,
+		newSourcePath: string
+	): Promise<SyncResult> {
+		let releaseOp: (() => void) | undefined;
+		try {
+			releaseOp = await this.operationLock.acquireWatcher();
+		} catch {
+			return { ok: false, error: new Error("Operation lock unavailable") };
+		}
+
+		try {
+			const oldRel = path.relative(mapping.sourceFolder, oldSourcePath);
+			const newRel = path.relative(mapping.sourceFolder, newSourcePath);
+			const oldVaultPath = toVaultPath(path.join(mapping.targetFolder, oldRel));
+			const newVaultPath = toVaultPath(path.join(mapping.targetFolder, newRel));
+
+			const tFile = this.app.vault.getAbstractFileByPath(oldVaultPath);
+			if (!tFile) {
+				// Old vault file doesn't exist — fall back to syncing the new file
+				LogService.debug("Sync", `syncMove: old vault file not found, falling back to syncFile`, {
+					mappingId: mapping.id,
+					details: { oldVaultPath, newSourcePath },
+				});
+				const result = await this.syncFile(mapping, newSourcePath, "added");
+				return result;
+			}
+
+			// Ensure parent folder exists for new path
+			const newParent = toVaultPath(path.dirname(newVaultPath));
+			if (newParent && !(await this.app.vault.adapter.exists(newParent))) {
+				await this.app.vault.createFolder(newParent);
+			}
+
+			await this.app.vault.rename(tFile, newVaultPath);
+
+			// Record sync for loop prevention on all paths
+			this.recordSync(oldSourcePath);
+			this.recordSync(newSourcePath);
+			this.recordSync(oldVaultPath);
+			this.recordSync(newVaultPath);
+
+			// Update sync state
+			if (this.syncState) {
+				this.syncState.removeEntry(mapping.id, oldRel);
+				try {
+					const stat = await fsp.stat(newSourcePath);
+					this.syncState.recordSync(mapping.id, mapping.sourceFolder, newRel, {
+						mtimeMs: stat.mtimeMs,
+						size: stat.size,
+					});
+				} catch {
+					// Ignore stat error
+				}
+			}
+
+			LogService.info("Sync", `File moved in vault`, {
+				mappingId: mapping.id,
+				details: { oldVaultPath, newVaultPath },
+			});
+
+			return { ok: true, action: "moved", targetPath: newVaultPath };
+		} catch (e) {
+			const err = e instanceof Error ? e : new Error(String(e));
+			LogService.error("Sync", `syncMove failed: ${err.message}`, {
+				mappingId: mapping.id,
+				details: { oldSourcePath, newSourcePath },
+			});
+			return { ok: false, error: err };
+		} finally {
+			if (releaseOp) releaseOp();
+		}
+	}
+
+	/**
+	 * Moves/renames a source file when the corresponding vault file was moved.
+	 */
+	async syncMoveReverse(
+		mapping: FolderMapping,
+		oldVaultPath: string,
+		newVaultPath: string
+	): Promise<SyncResult> {
+		// Check loop prevention
+		if (this.isRecentlySynced(oldVaultPath) || this.isRecentlySynced(newVaultPath)) {
+			return { ok: true, action: "skipped", reason: "loop_prevention" };
+		}
+
+		let releaseOp: (() => void) | undefined;
+		try {
+			releaseOp = await this.operationLock.acquireWatcher();
+		} catch {
+			return { ok: false, error: new Error("Operation lock unavailable") };
+		}
+
+		try {
+			const targetBase = toVaultPath(mapping.targetFolder);
+			const oldRelative = toVaultPath(oldVaultPath).slice(targetBase.length).replace(/^\//, "");
+			const newRelative = toVaultPath(newVaultPath).slice(targetBase.length).replace(/^\//, "");
+
+			if (!oldRelative || !newRelative) {
+				return { ok: false, error: new Error("Invalid relative path") };
+			}
+
+			const oldExternalPath = path.join(mapping.sourceFolder, oldRelative);
+			const newExternalPath = path.join(mapping.sourceFolder, newRelative);
+
+			// Check if old source file exists
+			try {
+				await fsp.access(oldExternalPath);
+			} catch {
+				// Old source doesn't exist — fall back to reverse sync the new file
+				LogService.debug("Sync", `syncMoveReverse: old source not found, falling back`, {
+					mappingId: mapping.id,
+					details: { oldExternalPath, newVaultPath },
+				});
+				return await this.syncFileReverse(mapping, newVaultPath, "added");
+			}
+
+			// Ensure parent directory exists for new path
+			const newParent = path.dirname(newExternalPath);
+			await fsp.mkdir(newParent, { recursive: true });
+
+			await fsp.rename(oldExternalPath, newExternalPath);
+
+			// Record sync for loop prevention
+			this.recordSync(oldVaultPath);
+			this.recordSync(newVaultPath);
+			this.recordSync(oldExternalPath);
+			this.recordSync(newExternalPath);
+
+			// Update sync state
+			if (this.syncState) {
+				this.syncState.removeEntry(mapping.id, oldRelative);
+				try {
+					const stat = await fsp.stat(newExternalPath);
+					this.syncState.recordSync(mapping.id, mapping.sourceFolder, newRelative, {
+						mtimeMs: stat.mtimeMs,
+						size: stat.size,
+					});
+				} catch {
+					// Ignore stat error
+				}
+			}
+
+			LogService.info("Sync", `File moved in source`, {
+				mappingId: mapping.id,
+				details: { oldExternalPath, newExternalPath },
+			});
+
+			return { ok: true, action: "moved", targetPath: newExternalPath };
+		} catch (e) {
+			const err = e instanceof Error ? e : new Error(String(e));
+			LogService.error("Sync", `syncMoveReverse failed: ${err.message}`, {
+				mappingId: mapping.id,
+				details: { oldVaultPath, newVaultPath },
+			});
+			return { ok: false, error: err };
+		} finally {
+			if (releaseOp) releaseOp();
+		}
+	}
+
+	/**
+	 * Expose the sync state service for move detection size lookups.
+	 */
+	getSyncStateService(): SyncStateService | undefined {
+		return this.syncState;
+	}
+
 	/**
 	 * Internal implementation of reverse sync (vault → external).
 	 */
@@ -491,7 +821,8 @@ export class FileSyncService {
 		let candidate = path.join(dir, `${name} (conflict ${stamp})${ext}`);
 
 		let i = 2;
-		while (true) {
+		const MAX_ATTEMPTS = 1000;
+		while (i <= MAX_ATTEMPTS) {
 			try {
 				await fsp.access(candidate);
 				// File exists, try next
@@ -501,6 +832,9 @@ export class FileSyncService {
 				// File doesn't exist, use this path
 				break;
 			}
+		}
+		if (i > MAX_ATTEMPTS) {
+			throw new Error(`Could not find unique conflict filename after ${MAX_ATTEMPTS} attempts: ${candidate}`);
 		}
 		return candidate;
 	}
@@ -520,14 +854,7 @@ export class FileSyncService {
 	async reconcileFolder(
 		mapping: FolderMapping,
 		folderAbsPath: string,
-		onProgress?: (p: {
-			total: number;
-			scanned: number;
-			processed: number;
-			skipped: number;
-			errors: number;
-			current?: string;
-		}) => void
+		onProgress?: (p: ReconcileMappingProgress) => void
 	): Promise<ReconcileStats> {
 		// Safety: folder must be inside mapping.sourceFolder
 		const rel = path.relative(mapping.sourceFolder, folderAbsPath);
@@ -535,7 +862,7 @@ export class FileSyncService {
 			rel.startsWith("..") ||
 			(path.isAbsolute(rel) === false && rel.includes(":"))
 		) {
-			return { scanned: 0, processed: 0, skipped: 0, errors: 0 };
+			return { scanned: 0, processed: 0, skipped: 0, errors: 0, deleted: 0 };
 		}
 
 		// We reuse reconcileMapping logic but scan only this folder subtree.
@@ -544,6 +871,7 @@ export class FileSyncService {
 			processed: 0,
 			skipped: 0,
 			errors: 0,
+			deleted: 0,
 		};
 
 		if (!mapping.enabled) return stats;
@@ -723,20 +1051,14 @@ export class FileSyncService {
 	 */
 	async reconcileMapping(
 		mapping: FolderMapping,
-		onProgress?: (p: {
-			total: number;
-			scanned: number;
-			processed: number;
-			skipped: number;
-			errors: number;
-			current?: string;
-		}) => void
+		onProgress?: (p: ReconcileMappingProgress) => void
 	): Promise<ReconcileStats> {
 		const stats: ReconcileStats = {
 			scanned: 0,
 			processed: 0,
 			skipped: 0,
 			errors: 0,
+			deleted: 0,
 		};
 
 		if (!mapping.enabled) return stats;
@@ -796,7 +1118,7 @@ export class FileSyncService {
 			// Check exclusion patterns
 			if (matchesExcludePattern(relativePath, mapping.excludePatterns ?? [])) continue;
 
-			existingPaths.add(relativePath);
+			existingPaths.add(relativePath.replace(/\\/g, "/"));
 
 			// In incremental mode, check if file needs sync
 			if (useIncrementalMode && this.syncState) {
@@ -920,6 +1242,26 @@ export class FileSyncService {
 		};
 
 		await Promise.all(Array.from({ length: reconcileConcurrency }, worker));
+
+		// Orphan cleanup: remove vault files that no longer exist in source
+		const deletionHandling = mapping.deletionHandling ?? "ignore";
+		const syncDirection = mapping.syncDirection ?? "source-only";
+		if (deletionHandling !== "ignore" && syncDirection !== "vault-only") {
+			try {
+				const orphanResult = await this.cleanupOrphans(mapping, existingPaths);
+				stats.deleted = orphanResult.deleted;
+				stats.errors += orphanResult.errors;
+				if (orphanResult.deleted > 0) {
+					LogService.info("Reconcile", `Cleaned up ${orphanResult.deleted} orphaned vault files`, {
+						mappingId: mapping.id,
+					});
+				}
+			} catch (e) {
+				LogService.error("Reconcile", `Orphan cleanup failed: ${String(e)}`, {
+					mappingId: mapping.id,
+				});
+			}
+		}
 
 		// Prune orphaned entries (files deleted from source)
 		if (this.syncState) {
@@ -1397,6 +1739,90 @@ export class FileSyncService {
 		if (list.length === 0) return true;
 		const ext = path.extname(filePath).toLowerCase();
 		return list.includes(ext);
+	}
+
+	// ===========================
+	// Orphan cleanup
+	// ===========================
+
+	/**
+	 * Recursively lists all files in a vault folder using Obsidian's adapter.
+	 */
+	private async walkVaultFiles(basePath: string): Promise<string[]> {
+		const out: string[] = [];
+		const stack: string[] = [basePath];
+
+		while (stack.length > 0) {
+			const dir = stack.pop()!;
+			try {
+				const listing = await this.app.vault.adapter.list(dir);
+				if (listing?.files) {
+					out.push(...listing.files);
+				}
+				if (listing?.folders) {
+					stack.push(...listing.folders);
+				}
+			} catch {
+				continue;
+			}
+		}
+
+		return out;
+	}
+
+	/**
+	 * Removes vault files that no longer have a corresponding source file.
+	 * Called during reconciliation when deletionHandling is enabled.
+	 */
+	private async cleanupOrphans(
+		mapping: FolderMapping,
+		existingSourcePaths: Set<string>
+	): Promise<{ deleted: number; errors: number }> {
+		let deleted = 0;
+		let errors = 0;
+
+		const targetBase = toVaultPath(mapping.targetFolder);
+		const vaultFiles = await this.walkVaultFiles(targetBase);
+
+		for (const vaultFilePath of vaultFiles) {
+			const normalizedVaultPath = toVaultPath(vaultFilePath);
+
+			// Calculate relative path from target folder
+			const prefix = targetBase.endsWith("/") ? targetBase : targetBase + "/";
+			if (!normalizedVaultPath.startsWith(prefix)) continue;
+			const relativePath = normalizedVaultPath.slice(prefix.length);
+			if (!relativePath) continue;
+
+			// Check extension filter
+			if (!this.isAllowedByExtension(mapping, relativePath)) continue;
+
+			// Check exclusion patterns
+			if (matchesExcludePattern(relativePath, mapping.excludePatterns ?? [])) continue;
+
+			// Check if source has this file (both sets use forward-slash normalized paths)
+			if (existingSourcePaths.has(relativePath)) continue;
+
+			// This is an orphan — trash it
+			try {
+				const tFile = this.app.vault.getAbstractFileByPath(normalizedVaultPath);
+				if (tFile) {
+					await this.app.vault.trash(tFile, true);
+					deleted++;
+					LogService.debug("Reconcile", `Orphan trashed`, {
+						mappingId: mapping.id,
+						filePath: normalizedVaultPath,
+					});
+				}
+			} catch (e) {
+				errors++;
+				LogService.warn("Reconcile", `Failed to trash orphan: ${String(e)}`, {
+					mappingId: mapping.id,
+					filePath: normalizedVaultPath,
+				});
+			}
+		}
+
+		return { deleted, errors };
 	}
 
 	private async walkFiles(

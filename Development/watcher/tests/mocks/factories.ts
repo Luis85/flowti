@@ -202,14 +202,18 @@ export function createMockMappingWatcherContext(
 		bumpError: vi.fn(),
 		applyReconcileStats: vi.fn(),
 		syncFile: vi.fn().mockResolvedValue(undefined),
+		syncDelete: vi.fn().mockResolvedValue(undefined),
+		syncMove: vi.fn().mockResolvedValue(undefined),
 		fileSync: {
 			reconcileFolder: vi.fn().mockResolvedValue({
 				scanned: 0,
 				processed: 0,
 				skipped: 0,
 				errors: 0,
+				deleted: 0,
 			}),
 			isRecentlySynced: vi.fn().mockReturnValue(false),
+			getSyncStateService: vi.fn().mockReturnValue(undefined),
 		},
 		...overrides,
 	};
@@ -268,6 +272,8 @@ export function createMockVaultWatcherContext(
 		settings: createMockSettings(),
 		fileSync: {
 			syncFileReverse: vi.fn().mockResolvedValue({ ok: true, action: "processed" }),
+			syncDeleteReverse: vi.fn().mockResolvedValue({ ok: true, action: "deleted" }),
+			syncMoveReverse: vi.fn().mockResolvedValue({ ok: true, action: "moved" }),
 			isRecentlySynced: vi.fn().mockReturnValue(false),
 		} as any,
 		bumpProcessed: vi.fn(),
@@ -309,6 +315,7 @@ export function createMockFileSyncService(
 			processed: 0,
 			skipped: 0,
 			errors: 0,
+			deleted: 0,
 		}),
 		getOperationLock: vi.fn().mockReturnValue({
 			acquireReconcile: vi.fn().mockResolvedValue(() => {}),
