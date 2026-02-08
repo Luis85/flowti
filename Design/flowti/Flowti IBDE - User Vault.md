@@ -58,7 +58,7 @@ To give our data meaning we use the provided bases as much as possible, for easy
 
 ## Proof of Concept
 
-- [[HOMEPAGE]]
+- [[Design/flowti/HOMEPAGE]]
 - [[Business Operations Service Design.canvas|Service Design Operations]]
 - [[Operations Specialist System Design.canvas|Operations Specialist System Design]]
 - [[Operations Workspace.canvas|Operations Workspace]]
@@ -94,7 +94,7 @@ Main goal should be to stick to a minimum set of external plugins to reduce depe
 ### 🏛️ Root System
 
 - [[Flowti - Business System]]
-- [[The Digital Twin]]
+- [[Design/flowti/The Digital Twin]]
 
 The current implementation touches on the following domains:
 

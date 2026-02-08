@@ -111,7 +111,7 @@ How does the market for Management Systems look like?
 How to build a digital test-lab for hypothesis?
 How can Entities be visualized?
 
-## [[Flowti IBDE - User Vault|Flowti IBDE - User Vault]]
+## [[Design/flowti/Flowti IBDE - User Vault|Flowti IBDE - User Vault]]
 
 The Vault is the heart and brain of the system, providing all needed tools to integrate and build a knowledge-graph for the specific needs of it‘s users.
 

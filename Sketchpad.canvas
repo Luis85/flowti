@@ -1,5 +1,40 @@
 {
-	"nodes":[],
+	"nodes":[
+		{
+			"id":"8b42e85c8914f3a7",
+			"type":"text",
+			"text":"# Folderstructure\n\n- `/00 - Connectivity`\n- `/01 - Projects`\n- `/02 - Areas`\n- `/03 - Resources`\n- `/04 - Archive`\n- `/05 - Public Vault`\n- `/var`",
+			"styleAttributes":{},
+			"x":140,
+			"y":-220,
+			"width":260,
+			"height":400
+		},
+		{"id":"5d6cdc543db0af78","type":"file","file":"Design/flowti/Flowti - System Design.canvas","x":420,"y":-220,"width":260,"height":400},
+		{"id":"0b8e15eb023842e5","type":"file","file":"Design/Plugin Design.canvas","x":700,"y":-220,"width":260,"height":400},
+		{
+			"id":"2bff082752c31400",
+			"type":"text",
+			"text":"Installer",
+			"styleAttributes":{"textAlign":"center"},
+			"x":140,
+			"y":380,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"044d55ca286d6cbb",
+			"type":"text",
+			"text":"Create Folder Structure",
+			"styleAttributes":{"textAlign":"center"},
+			"x":140,
+			"y":460,
+			"width":260,
+			"height":60,
+			"color":"3"
+		}
+	],
 	"edges":[],
 	"metadata":{
 		"version":"1.0-1.0",

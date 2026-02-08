@@ -4,10 +4,29 @@
 
 | | |
 |---|---|
-| **Version** | 0.0.1 |
 | **Platform** | Obsidian (Desktop) |
 | **License** | MIT |
 | **Author** | Luis Mendez |
+
+## Features
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Event System** | Type-safe pub/sub EventBus with wildcard and one-time listeners, xstate v5 compatible event format | Done |
+| **EventBridge** | Translates all relevant Obsidian API events (Vault, Workspace, MetadataCache) into internal EventBus events | Done |
+| **File Operations** | Full file CRUD (create, read, update, delete, move, rename) via event-based request/response pattern | Done |
+| **Frontmatter Operations** | Get, update, and set frontmatter via events, decoupled from Obsidian's metadata API | Done |
+| **FileSystemClient** | Promise-based client wrapping event request/response into async methods with timeout handling | Done |
+| **Service Container** | Dependency injection with topological initialization order and lifecycle management (init/dispose) | Done |
+| **Command System** | Command registry with middleware pipeline (logging, error handling), auto-bound to Obsidian's command palette | Done |
+| **View System** | View registry with factory pattern, auto-bound to Obsidian's view system | Done |
+| **Error Handling** | Typed error hierarchy (Validation, Storage, Lifecycle, Service, Command) with centralized ErrorService | Done |
+| **Logging** | Four-level logger (debug, info, warn, error) with context prefixes and event emission | Done |
+| **Event Trace** | Wildcard debug listener that logs all events to the developer console when debug mode is enabled | Done |
+| **Settings** | Zod-validated plugin settings with UI tab and reactive event emission on changes | Done |
+| **User Management** | User profile service with first-run setup modal, Zod validation, and event-driven persistence | Done |
+| **Testing** | Comprehensive unit test suite covering all components, using Vitest with custom Obsidian stubs | Done |
+| **Documentation** | TypeDoc-generated API docs, Arc42-structured README | Done |
 
 ---
 
@@ -31,7 +50,7 @@ Flowti IBDE turns an Obsidian vault into an integrated environment for business 
 | Constraint | Detail |
 |------------|--------|
 | **Runtime** | Obsidian Desktop (Electron / Node 16+) |
-| **Language** | TypeScript 5.9, compiled via esbuild |
+| **Language** | TypeScript, compiled via esbuild |
 | **Data Format** | Markdown with YAML frontmatter (Obsidian vault) |
 | **Persistence** | Obsidian's `loadData` / `saveData` API for plugin state; vault files for user data |
 | **Build** | Local build via npm; auto-deploys to the Obsidian plugins folder |
@@ -141,7 +160,7 @@ src/
 | Component | Responsibility |
 |-----------|---------------|
 | **EventBus** | Type-safe pub/sub with wildcard (`*`) and one-time (`once`) listeners |
-| **EventBridge** | Translates 5 categories of Obsidian events into internal EventBus events |
+| **EventBridge** | Translates all relevant Obsidian events into internal EventBus events |
 | **FileSystemClient** | Promise-based API for file CRUD and frontmatter operations via events |
 | **ServiceContainer** | Dependency injection with topological sort for initialization order |
 | **CommandRegistry** | Middleware pipeline (logging, error handling) for command execution |
@@ -171,9 +190,9 @@ Plugin.onload()
     │   └── initializeViewRegistry()
     │
     ├── Phase 3: Registration
-    │   ├── registerAllServices()    # SettingsService, UserService
-    │   ├── registerAllCommands()    # Component Showcase command
-    │   └── registerAllViews()       # Component Showcase view
+    │   ├── registerAllServices()    # See src/services/registry.ts
+    │   ├── registerAllCommands()    # See src/commands/registry.ts
+    │   └── registerAllViews()       # See src/views/registry.ts
     │
     ├── Phase 4: Service Initialization
     │   └── services.initializeAll() # Topological dependency resolution
@@ -244,7 +263,7 @@ Development/flowti/          # Source code
 
 ### Event System
 
-The EventBus is the backbone of the application. All 40+ event types are defined in a single `FlowtiEventMap` interface, organized into categories:
+The EventBus is the backbone of the application. All event types are defined in a single `FlowtiEventMap` interface, organized into categories:
 
 | Category | Events | Direction |
 |----------|--------|-----------|
@@ -311,21 +330,13 @@ Use the Component Showcase view (`Flowti: Open Component Showcase`) to preview a
 
 ## 11. Testing
 
-172 tests covering all components. Test infrastructure uses Vitest with a custom `obsidian-stub.ts` mock.
+Every component has a corresponding test suite. Tests run as part of the build pipeline (`npm run build`) and must pass before the plugin is bundled. The test infrastructure uses Vitest with a custom `obsidian-stub.ts` mock that provides minimal stubs for Obsidian's API surface.
 
-```
-tests/
-├── commands/CommandRegistry.test.ts     # 18 tests
-├── errors/ErrorService.test.ts          # 11 tests
-├── errors/FlowtiError.test.ts           # 13 tests
-├── events/EventBus.test.ts              # 13 tests
-├── events/EventBridge.test.ts           # 35 tests
-├── logger/LoggerService.test.ts         # 19 tests
-├── services/ServiceContainer.test.ts    # 24 tests
-├── settings/settings.test.ts            #  4 tests
-├── settings/SettingsService.test.ts     # 14 tests
-├── user/UserService.test.ts             # 19 tests
-└── utils/helpers.test.ts                #  2 tests
+```bash
+npm test             # Run all tests
+npm run test:watch   # Watch mode
+npm run test:ui      # Vitest UI with browser-based report
+npm run test:coverage # Coverage report
 ```
 
 ---
@@ -363,9 +374,6 @@ npm run dev        # Watch mode with hot-reload
 ### Other Commands
 
 ```bash
-npm test           # Run tests
-npm run test:watch # Watch mode
-npm run test:ui    # Vitest UI
 npm run check      # TypeScript + ESLint
 npm run docs       # Generate TypeDoc documentation
 npm run publish    # Full pipeline + coverage report + preview

@@ -10,7 +10,7 @@ We use Obsidians flexibility to test and validate new ideas while further enhanc
 
 To achieve our goal we use well-defined and documented workflows with high data-value in mind, directly accessible trough the vault.
 
-[[Flowti IBDE - User Vault|Flowti IBDE - User Vault]]
+[[Design/flowti/Flowti IBDE - User Vault|Flowti IBDE - User Vault]]
 ## Daily Notes
 
 ```base
