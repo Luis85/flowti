@@ -60,6 +60,11 @@ In order to use the plugins, you must build them from source. You'll find the av
 
 To update, you need to `git pull` from remote and build the plugin again.
 
+
+> [!NOTE] Heads up
+> This is a temporary solution, in a future release Plugins will be installed trough BRAT
+
+
 ## Roadmap
 
 - Flowti Installer
