@@ -37,15 +37,31 @@ Before we get started, make sure the following things are in place:
 - Create a new Vault
 - Enable the Git Community Plugin
 - Open the Command Palette
-- Git Clone with the repo url
+- Git Clone into `/05 - Public Vault`
 
-### Step 2 - Plugins
+### Step 2 - Folderstructure
 
-In order to use the plugins, you must build them from source. You find the available plugins in `/Development/`
+- `/00 - Connectivity`
+- `/01 - Projects`
+- `/02 - Areas`
+- `/03 - Resources`
+- `/04 - Archive`
+- `/05 - Public Vault`
+- `/var`
+### Step 3 - Plugins
 
+In order to use the plugins, you must build them from source. You find the available plugins in `/Development/` with build instructions in their `README`.
 
+## Roadmap
 
-## Impressions
+- Flowti Installer
+- Dedicated Plugin Repos
+- GitHub Integration
+- Release Workflow
+- …
+- Flowti v1.0.0
+
+## OneSeater - Impressions
 
 ### The Office
 
