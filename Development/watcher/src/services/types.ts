@@ -1,4 +1,5 @@
-import { ReconcileProgress, FolderMapping, ReconcileStats, WatcherStats } from "src/types";
+import type * as fs from "fs";
+import { ReconcileProgress, FolderMapping, ReconcileStats, SyncResult, WatcherStats } from "src/types";
 import { OperationLock } from "./AsyncMutex";
 import { FileWatcherSettings } from "src/settings/types";
 
@@ -76,4 +77,34 @@ export interface IStatusBarContext {
 
 	/** Add a status bar item to the plugin */
 	addStatusBarItem(): HTMLElement;
+}
+
+// ===========================
+// Shared internal types for FileSyncService & ReconcileWorkerPool
+// ===========================
+
+/** Cache of already-ensured vault folders to avoid redundant exists checks */
+export type EnsuredFolderCache = {
+	ensured: Set<string>;
+};
+
+/** Pre-built index of target folder contents for fast exists/stat lookups */
+export type TargetIndex = {
+	exists: Set<string>;
+	statByPath: Map<string, { mtimeMs: number; size: number }>;
+};
+
+/** Options passed to the internal sync function during reconciliation */
+export interface SyncInternalOpts {
+	verifyStability: boolean;
+	skipUnchanged: boolean;
+	ensuredFolders: EnsuredFolderCache;
+	targetIndex?: TargetIndex;
+}
+
+/** A file entry queued for reconcile processing */
+export interface ReconcileFileEntry {
+	filePath: string;
+	relativePath: string;
+	stat?: fs.Stats;
 }

@@ -12,9 +12,16 @@ import type {
 import { toVaultPath, isTempFile, matchesExcludePattern, isSymlinkSync } from "../utils";
 import { FileWatcherSettings } from "../settings/types";
 import { LogService } from "./LogService";
-import { AsyncMutex, KeyedMutex, OperationLock } from "./AsyncMutex";
+import { KeyedMutex, OperationLock } from "./AsyncMutex";
 import type { SyncStateService } from "./SyncStateService";
-import type { ReconcileMappingProgress } from "./types";
+import type {
+	ReconcileMappingProgress,
+	EnsuredFolderCache,
+	TargetIndex,
+	SyncInternalOpts,
+} from "./types";
+import { withRetry, PathTraversalError } from "./retry";
+import { runReconcileWorkerPool } from "./ReconcileWorkerPool";
 
 /**
  * Core service responsible for synchronizing files from external folders into the Obsidian vault.
@@ -946,78 +953,27 @@ export class FileSyncService {
 			}
 		}
 
-		const total = filesToProcess.length + stats.skipped;
-
-		const progress = this.createProgressEmitter(
-			onProgress,
-			progressThrottleMs
-		);
-		progress.emit({ total, ...stats }, true);
-
 		const ensuredFolders = this.createEnsuredFolderCache();
 		const targetIndex = await this.tryBuildTargetIndex(mapping);
 
-		// Atomic cursor for concurrent workers
-		const cursor = { value: 0 };
-		const cursorLock = new AsyncMutex();
-
-		const getNextIndex = async (): Promise<number> => {
-			const release = await cursorLock.acquire();
-			try {
-				return cursor.value++;
-			} finally {
-				release();
-			}
-		};
-
-		const worker = async () => {
-			while (true) {
-				const i = await getNextIndex();
-				if (i >= filesToProcess.length) return;
-
-				const { filePath, relativePath, stat } = filesToProcess[i];
-				stats.scanned++;
-
-				const res = await this.syncFileInternal(mapping, filePath, {
-					verifyStability:
-						verifyStabilityOnReconcile &&
-						this.settings.verifyFileStability === true,
-					skipUnchanged: skipUnchangedOnReconcile,
-					ensuredFolders,
-					targetIndex,
-				});
-
-				if (!res.ok) {
-					stats.errors++;
-				} else if (res.action === "skipped") {
-					stats.skipped++;
-				} else {
-					stats.processed++;
-
-					// Record successful sync in state
-					if (this.syncState) {
-						try {
-							const fileStat = stat ?? await fsp.stat(filePath);
-							this.syncState.recordSync(
-								mapping.id,
-								mapping.sourceFolder,
-								relativePath,
-								{ mtimeMs: fileStat.mtimeMs, size: fileStat.size }
-							);
-						} catch {
-							// Ignore stat errors
-						}
-					}
-				}
-
-				progress.emit({ total, ...stats, current: filePath });
-			}
-		};
-
-		await Promise.all(Array.from({ length: reconcileConcurrency }, worker));
-
-		progress.emit({ total, ...stats }, true);
-		return stats;
+		return runReconcileWorkerPool({
+			filesToProcess,
+			initialSkipped: stats.skipped,
+			mapping,
+			concurrency: reconcileConcurrency,
+			progressThrottleMs,
+			onProgress,
+			syncFile: (m, fp, opts) => this.syncFileInternal(m, fp, opts),
+			syncOpts: {
+				verifyStability:
+					verifyStabilityOnReconcile &&
+					this.settings.verifyFileStability === true,
+				skipUnchanged: skipUnchangedOnReconcile,
+				ensuredFolders,
+				targetIndex,
+			},
+			syncState: this.syncState,
+		});
 	}
 
 	/**
@@ -1158,8 +1114,6 @@ export class FileSyncService {
 			}
 		}
 
-		const total = filesToProcess.length + stats.skipped;
-
 		if (useIncrementalMode) {
 			LogService.info("Reconcile", `Incremental mode: ${filesToProcess.length} files to sync, ${stats.skipped} skipped`, {
 				mappingId: mapping.id,
@@ -1167,81 +1121,35 @@ export class FileSyncService {
 			});
 		}
 
-		// ---- Progress throttling ----
-		const progress = this.createProgressEmitter(
-			onProgress,
-			progressThrottleMs
-		);
-		progress.emit({ total, ...stats }, true);
-
 		// ---- Reconcile caches ----
 		const ensuredFolders = this.createEnsuredFolderCache();
 		const targetIndex = await this.tryBuildTargetIndex(mapping);
 
-		// ---- Concurrency worker pool with atomic cursor ----
-		// Use an object to ensure atomic-like increment across async workers
-		const cursor = { value: 0 };
-		const cursorLock = new AsyncMutex();
+		// ---- Worker pool ----
+		const poolStats = await runReconcileWorkerPool({
+			filesToProcess,
+			initialSkipped: stats.skipped,
+			mapping,
+			concurrency: reconcileConcurrency,
+			progressThrottleMs,
+			onProgress,
+			syncFile: (m, fp, opts) => this.syncFileInternal(m, fp, opts),
+			syncOpts: {
+				verifyStability:
+					verifyStabilityOnReconcile &&
+					this.settings.verifyFileStability === true,
+				skipUnchanged: skipUnchangedOnReconcile,
+				ensuredFolders,
+				targetIndex,
+			},
+			syncState: this.syncState,
+		});
 
-		const getNextIndex = async (): Promise<number> => {
-			const release = await cursorLock.acquire();
-			try {
-				return cursor.value++;
-			} finally {
-				release();
-			}
-		};
-
-		const worker = async () => {
-			while (true) {
-				const i = await getNextIndex();
-				if (i >= filesToProcess.length) return;
-
-				const { filePath, relativePath, stat } = filesToProcess[i];
-				stats.scanned++;
-				progress.emit({ total, ...stats, current: filePath });
-
-				const res = await this.syncFileInternal(mapping, filePath, {
-					verifyStability:
-						verifyStabilityOnReconcile &&
-						this.settings.verifyFileStability === true,
-					skipUnchanged: skipUnchangedOnReconcile,
-					ensuredFolders,
-					targetIndex,
-				});
-
-				if (!res.ok) {
-					stats.errors++;
-					progress.emit({ total, ...stats, current: filePath });
-					continue;
-				}
-
-				if (res.action === "skipped") {
-					stats.skipped++;
-				} else {
-					stats.processed++;
-
-					// Record successful sync in state
-					if (this.syncState) {
-						try {
-							const fileStat = stat ?? await fsp.stat(filePath);
-							this.syncState.recordSync(
-								mapping.id,
-								mapping.sourceFolder,
-								relativePath,
-								{ mtimeMs: fileStat.mtimeMs, size: fileStat.size }
-							);
-						} catch {
-							// Ignore stat errors
-						}
-					}
-				}
-
-				progress.emit({ total, ...stats, current: filePath });
-			}
-		};
-
-		await Promise.all(Array.from({ length: reconcileConcurrency }, worker));
+		// Merge pool stats into our stats object
+		stats.scanned = poolStats.scanned;
+		stats.processed = poolStats.processed;
+		stats.skipped = poolStats.skipped;
+		stats.errors = poolStats.errors;
 
 		// Orphan cleanup: remove vault files that no longer exist in source
 		const deletionHandling = mapping.deletionHandling ?? "ignore";
@@ -1274,7 +1182,6 @@ export class FileSyncService {
 			this.syncState.recordReconcileComplete(mapping.id, mapping.sourceFolder);
 		}
 
-		progress.emit({ total, ...stats }, true);
 		return stats;
 	}
 
@@ -1284,12 +1191,7 @@ export class FileSyncService {
 	private async syncFileInternal(
 		mapping: FolderMapping,
 		sourceFilePath: string,
-		opts: {
-			verifyStability: boolean;
-			skipUnchanged: boolean;
-			ensuredFolders: EnsuredFolderCache;
-			targetIndex?: TargetIndex;
-		}
+		opts: SyncInternalOpts
 	): Promise<SyncResult> {
 		// Validate source path is within mapping's source folder (prevents path traversal)
 		try {
@@ -1671,12 +1573,16 @@ export class FileSyncService {
 		);
 
 		let i = 2;
-		while (await this.existsFast(candidate, idx)) {
+		const MAX_ATTEMPTS = 1000;
+		while (i <= MAX_ATTEMPTS && await this.existsFast(candidate, idx)) {
 			candidate = `${dir}/${name} (conflict ${stamp} ${i})${ext}`.replace(
 				/\/+/g,
 				"/"
 			);
 			i++;
+		}
+		if (i > MAX_ATTEMPTS) {
+			throw new Error(`Could not find unique conflict filename after ${MAX_ATTEMPTS} attempts: ${candidate}`);
 		}
 		return candidate;
 	}
@@ -1954,148 +1860,7 @@ export class FileSyncService {
 		return Math.max(min, Math.min(max, n));
 	}
 
-	private createProgressEmitter(
-		onProgress: ((p: any) => void) | undefined,
-		throttleMs: number
-	): {
-		emit: (p: any, force?: boolean) => void;
-	} {
-		let lastEmit = 0;
-		return {
-			emit: (p: any, force = false) => {
-				if (!onProgress) return;
-				const now = Date.now();
-				if (!force && now - lastEmit < throttleMs) return;
-				lastEmit = now;
-				onProgress(p);
-			},
-		};
-	}
 }
 
-// ===========================
-// Internal types (no "any")
-// ===========================
-type EnsuredFolderCache = {
-	ensured: Set<string>;
-};
-
-type TargetIndex = {
-	exists: Set<string>;
-	statByPath: Map<string, { mtimeMs: number; size: number }>;
-};
-
-// ===========================
-// Path validation error
-// ===========================
-export class PathTraversalError extends Error {
-	constructor(
-		public readonly sourcePath: string,
-		public readonly baseFolder: string
-	) {
-		super(
-			`Path traversal detected: "${sourcePath}" is outside base folder "${baseFolder}"`
-		);
-		this.name = "PathTraversalError";
-	}
-}
-
-// ===========================
-// Retry configuration
-// ===========================
-export interface RetryConfig {
-	/** Maximum number of retry attempts (default: 3) */
-	maxRetries: number;
-	/** Base delay between retries in ms (default: 100) */
-	baseDelayMs: number;
-	/** Maximum delay between retries in ms (default: 2000) */
-	maxDelayMs: number;
-	/** Whether to use exponential backoff (default: true) */
-	exponentialBackoff: boolean;
-}
-
-const DEFAULT_RETRY_CONFIG: RetryConfig = {
-	maxRetries: 3,
-	baseDelayMs: 100,
-	maxDelayMs: 2000,
-	exponentialBackoff: true,
-};
-
-/**
- * Determines if an error is retryable (transient).
- * Retryable errors include: EBUSY, ENOTEMPTY, EPERM (temporary), network errors.
- */
-function isRetryableError(error: unknown): boolean {
-	if (!(error instanceof Error)) return false;
-
-	const msg = error.message.toLowerCase();
-	const code = (error as NodeJS.ErrnoException).code;
-
-	// File system transient errors
-	if (code === "EBUSY") return true; // File locked
-	if (code === "ENOTEMPTY") return true; // Directory not empty (race)
-	if (code === "EAGAIN") return true; // Resource temporarily unavailable
-	if (code === "EMFILE") return true; // Too many open files
-	if (code === "ENFILE") return true; // Too many open files in system
-
-	// Common transient error patterns
-	if (msg.includes("resource busy")) return true;
-	if (msg.includes("locked")) return true;
-	if (msg.includes("in use by another process")) return true;
-	if (msg.includes("network")) return true;
-	if (msg.includes("timeout")) return true;
-
-	// Non-retryable errors
-	if (code === "ENOENT") return false; // File not found - won't magically appear
-	if (code === "EACCES") return false; // Permission denied - permanent
-	if (code === "EEXIST") return false; // Already exists - permanent
-
-	return false;
-}
-
-/**
- * Executes an async operation with retry logic.
- */
-async function withRetry<T>(
-	operation: () => Promise<T>,
-	config: Partial<RetryConfig> = {},
-	onRetry?: (attempt: number, error: Error, delayMs: number) => void
-): Promise<T> {
-	const cfg = { ...DEFAULT_RETRY_CONFIG, ...config };
-	let lastError: Error | undefined;
-
-	for (let attempt = 0; attempt <= cfg.maxRetries; attempt++) {
-		try {
-			return await operation();
-		} catch (e) {
-			const error = e instanceof Error ? e : new Error(String(e));
-			lastError = error;
-
-			// Don't retry on last attempt or non-retryable errors
-			if (attempt >= cfg.maxRetries || !isRetryableError(error)) {
-				throw error;
-			}
-
-			// Calculate delay with exponential backoff
-			let delay = cfg.baseDelayMs;
-			if (cfg.exponentialBackoff) {
-				delay = Math.min(
-					cfg.baseDelayMs * Math.pow(2, attempt),
-					cfg.maxDelayMs
-				);
-			}
-
-			// Add jitter (±25%) to prevent thundering herd
-			const jitter = delay * 0.25 * (Math.random() * 2 - 1);
-			delay = Math.round(delay + jitter);
-
-			if (onRetry) {
-				onRetry(attempt + 1, error, delay);
-			}
-
-			await new Promise((r) => setTimeout(r, delay));
-		}
-	}
-
-	throw lastError ?? new Error("Retry failed");
-}
+// Re-export for backwards compatibility
+export { PathTraversalError, type RetryConfig } from "./retry";
