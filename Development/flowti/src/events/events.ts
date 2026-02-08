@@ -21,13 +21,8 @@
  */
 
 import type { FlowtiErrorInfo } from "../errors/types";
-import type { Feature } from "../features/types";
-import type { Idea } from "../ideas/types";
-import type { JTBD } from "../jtbd/types";
 import type { LogEntry } from "../logger/types";
-import type { Requirement } from "../requirements/types";
 import type { FlowtiSettings } from "../settings/settings";
-import type { Solution } from "../solutions/types";
 import type { FlowtiUser } from "../user/types";
 
 // ─────────────────────────────────────────────────────────────

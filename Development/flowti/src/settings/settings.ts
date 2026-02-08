@@ -5,11 +5,7 @@ import { z } from "zod";
  * Used for validation and type inference.
  */
 export const FlowtiSettingsSchema = z.object({
-	/** Enable debug mode for verbose logging */
 	debugMode: z.boolean().default(false),
-
-	/** Folder path for storing solution files (relative to vault root) */
-	solutionsFolder: z.string().default("Solutions"),
 });
 
 /**

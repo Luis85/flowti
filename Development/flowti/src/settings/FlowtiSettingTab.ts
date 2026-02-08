@@ -71,30 +71,5 @@ export class FlowtiSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
-
-		this.displaySolutionsSection(containerEl);
-	}
-
-	/**
-	 * Display solutions settings section
-	 */
-	private displaySolutionsSection(containerEl: HTMLElement): void {
-		containerEl.createEl("h3", { text: "Solutions" });
-
-		new Setting(containerEl)
-			.setName("Solutions folder")
-			.setDesc(
-				"Folder where solution files are stored (relative to vault root)"
-			)
-			.addText((text) =>
-				text
-					.setPlaceholder("Solutions")
-					.setValue(this.plugin.settings.solutionsFolder)
-					.onChange(async (value) => {
-						const folder = value.trim() || "Solutions";
-						this.plugin.settings.solutionsFolder = folder;
-						await this.plugin.saveSettings();
-					})
-			);
 	}
 }

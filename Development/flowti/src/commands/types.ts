@@ -8,7 +8,6 @@
 import type { App } from "obsidian";
 import type { IEventBus } from "../events/types";
 import type { ILogger } from "../logger/types";
-import type { IServiceContainer } from "../services/types";
 
 /**
  * Context passed to command handlers.
@@ -20,8 +19,6 @@ export interface CommandContext {
 	eventBus: IEventBus;
 	/** Logger instance */
 	logger: ILogger;
-	/** Service container for accessing services */
-	services: IServiceContainer;
 }
 
 /**
