@@ -44,11 +44,16 @@ export class LoggerService implements ILogger {
 	private debugMode: boolean;
 	private prefix: string;
 	private context?: string;
+	private traceUnsub?: () => void;
 
 	constructor(options: LoggerServiceOptions = {}) {
 		this.eventBus = options.eventBus;
 		this.debugMode = options.debugMode ?? false;
 		this.prefix = options.prefix ?? "Flowti";
+
+		if (this.debugMode) {
+			this.startEventTrace();
+		}
 	}
 
 	debug(message: string, data?: unknown): void {
@@ -81,6 +86,11 @@ export class LoggerService implements ILogger {
 
 	setDebugMode(enabled: boolean): void {
 		this.debugMode = enabled;
+		if (enabled) {
+			this.startEventTrace();
+		} else {
+			this.stopEventTrace();
+		}
 	}
 
 	/**
@@ -139,5 +149,28 @@ export class LoggerService implements ILogger {
 		if (entry.level === "error") {
 			void this.eventBus.emit("log.error", entry);
 		}
+	}
+
+	/**
+	 * Subscribes a wildcard listener that logs every event to the console.
+	 * Skips `log.*` events to avoid infinite recursion.
+	 */
+	private startEventTrace(): void {
+		if (this.traceUnsub || !this.eventBus) return;
+
+		this.traceUnsub = this.eventBus.on("*", (event) => {
+			if (event.type.startsWith("log.")) return;
+
+			const tag = `[${this.prefix}:EventTrace]`;
+			console.log(tag, event.type, event.payload);
+		});
+	}
+
+	/**
+	 * Removes the wildcard event trace listener.
+	 */
+	private stopEventTrace(): void {
+		this.traceUnsub?.();
+		this.traceUnsub = undefined;
 	}
 }
