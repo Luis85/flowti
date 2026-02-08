@@ -129,6 +129,127 @@
 			"y":-540,
 			"width":260,
 			"height":60
+		},
+		{
+			"id":"861e1001ed3f0d06",
+			"type":"text",
+			"text":"MS OneDrive",
+			"styleAttributes":{"textAlign":"center"},
+			"x":-910,
+			"y":-1640,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"2a7be520e4dae40d",
+			"type":"text",
+			"text":"Obsidian",
+			"styleAttributes":{"textAlign":"center"},
+			"x":-570,
+			"y":-1640,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"9cc9886b3537cd66",
+			"type":"text",
+			"text":"Flowti",
+			"styleAttributes":{"textAlign":"center"},
+			"x":-230,
+			"y":-1640,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"55e814413b37c248",
+			"type":"text",
+			"text":"GitHub",
+			"styleAttributes":{"textAlign":"center"},
+			"x":110,
+			"y":-1640,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"7926c16ac4c60402",
+			"type":"text",
+			"text":"System Vault",
+			"styleAttributes":{"textAlign":"center"},
+			"x":-910,
+			"y":-1560,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"6a83d00f44bb39d3",
+			"type":"text",
+			"text":"User Vault",
+			"styleAttributes":{"textAlign":"center"},
+			"x":-910,
+			"y":-1480,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"14ad7553fd4461c9",
+			"type":"text",
+			"text":"Endpoints",
+			"styleAttributes":{"textAlign":"center"},
+			"x":-910,
+			"y":-1400,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"93707e4f2c430a82",
+			"type":"text",
+			"text":"Foreign Folder Watcher",
+			"styleAttributes":{"textAlign":"center"},
+			"x":-570,
+			"y":-1560,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"c9e501e75dbf946a",
+			"type":"text",
+			"text":"Events",
+			"styleAttributes":{"textAlign":"center"},
+			"x":-570,
+			"y":-1480,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"fe4b639daf378293",
+			"type":"text",
+			"text":"Event System",
+			"styleAttributes":{"textAlign":"center"},
+			"x":-230,
+			"y":-1560,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"1fee171ce6174c66",
+			"type":"text",
+			"text":"Event Bridge",
+			"styleAttributes":{"textAlign":"center"},
+			"x":-230,
+			"y":-1480,
+			"width":260,
+			"height":60,
+			"color":"6"
 		}
 	],
 	"edges":[
@@ -275,6 +396,15 @@
 			"fromSide":"left",
 			"toNode":"cae6a17c48717ea8",
 			"toSide":"right"
+		},
+		{
+			"id":"e2ae6f4c9b17b8e1",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"c9e501e75dbf946a",
+			"fromSide":"right",
+			"toNode":"1fee171ce6174c66",
+			"toSide":"left"
 		}
 	],
 	"metadata":{
