@@ -7,6 +7,7 @@ Each journey crosses multiple features and validates that components work togeth
 
 > **Test file:** `tests/acceptance/user-journeys.test.ts`
 
+---
 ### Journey 1: Import External Notes into Obsidian
 
 > **Persona:** A researcher who keeps notes in an external folder (synced via Dropbox)
@@ -69,6 +70,8 @@ Each journey crosses multiple features and validates that components work togeth
 
 ## Use Cases Overview
 
+---
+
 ### Feature 1: Core Synchronization
 
 | # | Use Case | User Story | Status |
@@ -78,6 +81,8 @@ Each journey crosses multiple features and validates that components work togeth
 | UC-03 | Bidirectional Sync | Editing files from both Obsidian and external editors | ✅ 2/3 |
 | UC-04 | Subfolder Watching | Controlling recursive vs top-level watching | ⏭️ 0/2 (chokidar) |
 | UC-05 | New Directory Detection | Auto-scanning new source subdirectories | ⏭️ 0/3 (chokidar) |
+
+---
 
 ### Feature 2: Conflict Resolution
 
@@ -89,6 +94,8 @@ Each journey crosses multiple features and validates that components work togeth
 | UC-09 | Conflict — Rename | Preserving both versions on conflict | ✅ 2/2 |
 | UC-10 | Reverse Conflict Resolution | Separate conflict strategy for vault→source | ✅ 2/2 |
 
+---
+
 ### Feature 3: Deletion & Move Handling
 
 | # | Use Case | User Story | Status |
@@ -97,6 +104,8 @@ Each journey crosses multiple features and validates that components work togeth
 | UC-12 | Deletion — Trash | Syncing deletions safely via trash | ✅ 1/2 |
 | UC-13 | Move Detection | Detecting renames as single operations | ✅ 4/7 |
 | UC-14 | Orphan Cleanup | Cleaning up vault files without source counterpart | ⏭️ 0/5 (integration) |
+
+---
 
 ### Feature 4: File Filtering
 
@@ -108,6 +117,8 @@ Each journey crosses multiple features and validates that components work togeth
 | UC-18 | Dotfile Filtering | Ignoring hidden files and directories | ✅ 3/3 |
 | UC-19 | Symlink Protection | Skipping symbolic links safely | ✅ 1/3 |
 
+---
+
 ### Feature 5: Reconciliation
 
 | # | Use Case | User Story | Status |
@@ -118,6 +129,8 @@ Each journey crosses multiple features and validates that components work togeth
 | UC-23 | Cancel Reconciliation | Stopping a running reconciliation | ✅ 1/1 |
 | UC-24 | Concurrent Reconcile Guard | Preventing overlapping reconciliations | ✅ 1/1 |
 
+---
+
 ### Feature 6: Reliability & Performance
 
 | # | Use Case | User Story | Status |
@@ -127,6 +140,8 @@ Each journey crosses multiple features and validates that components work togeth
 | UC-27 | Sync Loop Prevention | Preventing infinite sync ping-pong | ✅ 4/5 |
 | UC-28 | Debounce Behavior | Consolidating rapid saves into single syncs | ✅ 2/2 |
 | UC-29 | Backpressure / Queue Limits | Preventing unbounded memory consumption | ✅ 2/2 |
+
+---
 
 ### Feature 7: Safety & Validation
 
@@ -139,12 +154,16 @@ Each journey crosses multiple features and validates that components work togeth
 | UC-34 | Source Folder Validation | Graceful handling when source folder is missing | ⏭️ 0/2 (chokidar) |
 | UC-35 | Overlapping Mapping Validation | Preventing two mappings writing to the same vault folder | ⏭️ 0/3 (Modal UI) |
 
+---
+
 ### Feature 8: Settings & Configuration
 
 | # | Use Case | User Story | Status |
 |---|----------|------------|--------|
 | UC-36 | Mapping CRUD | Creating, editing, and deleting folder mappings | ✅ 2/4 (+defaults) |
 | UC-37 | Polling Mode | Using polling for NAS / network drives | ✅ 1/2 (+defaults) |
+
+---
 
 ### Feature 9: User Interface
 
@@ -155,6 +174,8 @@ Each journey crosses multiple features and validates that components work togeth
 | UC-40 | Dashboard | Detailed watcher management and logs | ⏭️ 0/3 (DOM) |
 | UC-41 | Commands | Keyboard-accessible plugin actions | ⏭️ 0/2 (Plugin API) |
 | UC-42 | Watcher Health Monitoring | Identifying idle, warning, or error states | ⏭️ 0/1 (integration) |
+
+---
 
 ### Feature 10: Persistence & Error Recovery
 
