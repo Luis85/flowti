@@ -5,9 +5,11 @@ filters:
     - file.folder.contains("Development")
 views:
   - type: table
-    name: Table
+    name: Plugins
     order:
-      - file.folder
+      - title
       - file.name
+      - file.folder
+      - stage
     columnSize:
       file.folder: 193
