@@ -6,11 +6,5 @@
 // Re-export everything from factories
 export * from "./factories";
 
-// Re-export from obsidian mocks for backward compatibility
-export {
-	createMockVaultAdapter,
-	createMockVault,
-	createMockApp,
-	createMockSettings,
-	createMockMapping,
-} from "./obsidian";
+// Note: createMockVaultAdapter, createMockVault, createMockApp,
+// createMockSettings, createMockMapping are all exported from factories above.

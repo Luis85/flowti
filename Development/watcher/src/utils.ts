@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as fsp from "fs/promises";
+import * as path from "path";
 import type { FolderMapping } from "./types";
 
 /**
@@ -179,6 +180,34 @@ export function createExclusionMatcher(
 		return () => false;
 	}
 	return (relativePath: string) => matchesExcludePattern(relativePath, patterns);
+}
+
+/**
+ * Checks if a file path is allowed by the extension filter list.
+ * When the filter is empty, all files are allowed. When active,
+ * files without an extension are rejected.
+ *
+ * @param filePath - The file path (or basename) to check
+ * @param extensions - Array of allowed extensions (e.g. [".md", ".txt"])
+ * @returns true if the file is allowed
+ */
+export function isAllowedByExtensions(filePath: string, extensions: string[]): boolean {
+	if (extensions.length === 0) return true;
+	const ext = path.extname(filePath).toLowerCase();
+	if (!ext) return false;
+	return extensions.includes(ext);
+}
+
+/**
+ * Checks if a relative path matches any of the exclusion patterns.
+ *
+ * @param relativePath - The relative path to check (forward slashes)
+ * @param patterns - Array of exclusion patterns
+ * @returns true if the path should be excluded
+ */
+export function isPathExcluded(relativePath: string, patterns: string[]): boolean {
+	if (patterns.length === 0) return false;
+	return matchesExcludePattern(relativePath, patterns);
 }
 
 /**

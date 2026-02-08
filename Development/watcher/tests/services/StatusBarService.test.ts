@@ -110,6 +110,7 @@ describe("StatusBarService", () => {
 				processed: 30,
 				skipped: 15,
 				errors: 5,
+				deleted: 0,
 			};
 
 			service.setReconcileProgress(reconcileProgress, { mappingIndex: 1, mappingTotal: 2 });
@@ -152,6 +153,7 @@ describe("StatusBarService", () => {
 				processed: 0,
 				skipped: 0,
 				errors: 0,
+				deleted: 0,
 			};
 
 			service.setReconcileProgress(progress);
@@ -171,6 +173,7 @@ describe("StatusBarService", () => {
 				processed: 0,
 				skipped: 0,
 				errors: 0,
+				deleted: 0,
 			};
 
 			service.setReconcileProgress(progress, { mappingIndex: 2, mappingTotal: 5 });
@@ -192,6 +195,7 @@ describe("StatusBarService", () => {
 				processed: 30,
 				skipped: 10,
 				errors: 5,
+				deleted: 0,
 			});
 
 			// Then clear it
@@ -275,6 +279,7 @@ describe("StatusBarService", () => {
 				processed: 5,
 				skipped: 2,
 				errors: 1,
+				deleted: 0,
 			});
 
 			const beforeClear = mockElement.setText.mock.calls.length;

@@ -1,7 +1,7 @@
 import chokidar, { ChokidarOptions, FSWatcher } from "chokidar";
 import { App } from "obsidian";
 import { PendingJob, FolderMapping, ChangeType } from "../types";
-import { createIgnoredMatcher, matchesExcludePattern, isSymlinkSync } from "../utils";
+import { createIgnoredMatcher, isAllowedByExtensions, isPathExcluded, isSymlinkSync } from "../utils";
 import { LogService } from "../services/LogService";
 import * as fs from "fs";
 import * as path from "path";
@@ -249,7 +249,7 @@ export class MappingWatcher {
 			return;
 		}
 
-		if (!this.isAllowed(filePath)) {
+		if (!isAllowedByExtensions(filePath, this.mapping.fileExtensions ?? [])) {
 			LogService.debug("Watcher", `File not allowed by extension filter`, {
 				mappingId: this.mapping.id,
 				filePath,
@@ -259,7 +259,8 @@ export class MappingWatcher {
 		}
 
 		// Check exclusion patterns
-		if (this.isExcluded(filePath)) {
+		const relPath = path.relative(this.mapping.sourceFolder, filePath).replace(/\\/g, "/");
+		if (isPathExcluded(relPath, this.mapping.excludePatterns ?? [])) {
 			LogService.debug("Watcher", `File excluded by pattern`, {
 				mappingId: this.mapping.id,
 				filePath,
@@ -419,7 +420,7 @@ export class MappingWatcher {
 			} else if (job.changeType === "moved" && job.oldPath) {
 				await this.context.syncMove(this.mapping, job.oldPath, job.filePath);
 			} else {
-				await this.context.syncFile(this.mapping, job.filePath, job.changeType);
+				await this.context.syncFile(this.mapping, job.filePath);
 			}
 
 			LogService.info("Watcher", `File synced: ${job.changeType}`, {
@@ -507,26 +508,4 @@ export class MappingWatcher {
 		}
 	}
 
-	private isAllowed(filePath: string): boolean {
-		const ext = path.extname(filePath).toLowerCase();
-		const list = this.mapping.fileExtensions ?? [];
-		if (list.length > 0 && !list.includes(ext)) return false;
-		return true;
-	}
-
-	private isExcluded(filePath: string): boolean {
-		const patterns = this.mapping.excludePatterns ?? [];
-		if (patterns.length === 0) return false;
-
-		// Calculate relative path from source folder
-		const sourceFolder = this.mapping.sourceFolder.replace(/\\/g, "/");
-		const normalizedPath = filePath.replace(/\\/g, "/");
-
-		let relativePath = normalizedPath;
-		if (normalizedPath.startsWith(sourceFolder)) {
-			relativePath = normalizedPath.slice(sourceFolder.length).replace(/^\//, "");
-		}
-
-		return matchesExcludePattern(relativePath, patterns);
-	}
 }

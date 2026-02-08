@@ -175,7 +175,7 @@ describe("FileSyncService", () => {
 				targetFolder: "vault/imported",
 			});
 
-			const result = await service.syncFile(mapping as any, SOURCE_FILE1, "added");
+			const result = await service.syncFile(mapping as any, SOURCE_FILE1);
 
 			expect(result.ok).toBe(true);
 			if (result.ok) {
@@ -196,8 +196,7 @@ describe("FileSyncService", () => {
 
 			const result = await service.syncFile(
 				mapping as any,
-				SOURCE_FILE3,
-				"added"
+				SOURCE_FILE3
 			);
 
 			expect(result.ok).toBe(true);
@@ -214,8 +213,7 @@ describe("FileSyncService", () => {
 
 			const result = await service.syncFile(
 				mapping as any,
-				SOURCE_NONEXISTENT,
-				"added"
+				SOURCE_NONEXISTENT
 			);
 
 			expect(result.ok).toBe(false);
@@ -239,7 +237,7 @@ describe("FileSyncService", () => {
 				conflictResolution: "overwrite",
 			});
 
-			const result = await service.syncFile(mapping as any, SOURCE_FILE1, "changed");
+			const result = await service.syncFile(mapping as any, SOURCE_FILE1);
 
 			expect(result.ok).toBe(true);
 			if (result.ok) {
@@ -255,7 +253,7 @@ describe("FileSyncService", () => {
 				conflictResolution: "skip",
 			});
 
-			const result = await service.syncFile(mapping as any, SOURCE_FILE1, "changed");
+			const result = await service.syncFile(mapping as any, SOURCE_FILE1);
 
 			expect(result.ok).toBe(true);
 			if (result.ok) {
@@ -274,7 +272,7 @@ describe("FileSyncService", () => {
 				conflictResolution: "keepNewer",
 			});
 
-			const result = await service.syncFile(mapping as any, SOURCE_FILE1, "changed");
+			const result = await service.syncFile(mapping as any, SOURCE_FILE1);
 
 			expect(result.ok).toBe(true);
 			if (result.ok) {
@@ -296,7 +294,7 @@ describe("FileSyncService", () => {
 				conflictResolution: "keepNewer",
 			});
 
-			const result = await service.syncFile(mapping as any, SOURCE_FILE1, "changed");
+			const result = await service.syncFile(mapping as any, SOURCE_FILE1);
 
 			expect(result.ok).toBe(true);
 			if (result.ok) {
@@ -311,7 +309,7 @@ describe("FileSyncService", () => {
 				conflictResolution: "rename",
 			});
 
-			const result = await service.syncFile(mapping as any, SOURCE_FILE1, "changed");
+			const result = await service.syncFile(mapping as any, SOURCE_FILE1);
 
 			expect(result.ok).toBe(true);
 			if (result.ok) {
@@ -343,7 +341,7 @@ describe("FileSyncService", () => {
 			});
 
 			// syncFile should wait for reconcile to complete
-			const syncPromise = service.syncFile(mapping as any, SOURCE_FILE1, "added");
+			const syncPromise = service.syncFile(mapping as any, SOURCE_FILE1);
 
 			// Verify it's waiting
 			let resolved = false;
@@ -370,8 +368,8 @@ describe("FileSyncService", () => {
 			});
 
 			// Start two syncs to the same file simultaneously
-			const promise1 = service.syncFile(mapping as any, SOURCE_FILE1, "added");
-			const promise2 = service.syncFile(mapping as any, SOURCE_FILE1, "changed");
+			const promise1 = service.syncFile(mapping as any, SOURCE_FILE1);
+			const promise2 = service.syncFile(mapping as any, SOURCE_FILE1);
 
 			const [result1, result2] = await Promise.all([promise1, promise2]);
 
@@ -390,8 +388,8 @@ describe("FileSyncService", () => {
 			});
 
 			// Start two syncs to different files
-			const promise1 = service.syncFile(mapping as any, SOURCE_FILE1, "added");
-			const promise2 = service.syncFile(mapping as any, SOURCE_FILE2, "added");
+			const promise1 = service.syncFile(mapping as any, SOURCE_FILE1);
+			const promise2 = service.syncFile(mapping as any, SOURCE_FILE2);
 
 			const [result1, result2] = await Promise.all([promise1, promise2]);
 
@@ -444,8 +442,7 @@ describe("path traversal protection", () => {
 		// Try to sync a file that's outside the source folder
 		const result = await service.syncFile(
 			mapping as any,
-			"C:\\other\\secret.md",
-			"added"
+			"C:\\other\\secret.md"
 		);
 
 		expect(result.ok).toBe(false);
@@ -463,8 +460,7 @@ describe("path traversal protection", () => {
 		// Try to use .. to escape the source folder
 		const result = await service.syncFile(
 			mapping as any,
-			"C:\\source\\..\\secret.md",
-			"added"
+			"C:\\source\\..\\secret.md"
 		);
 
 		expect(result.ok).toBe(false);
@@ -479,7 +475,7 @@ describe("path traversal protection", () => {
 			targetFolder: "vault/imported",
 		});
 
-		const result = await service.syncFile(mapping as any, SOURCE_FILE1, "added");
+		const result = await service.syncFile(mapping as any, SOURCE_FILE1);
 
 		expect(result.ok).toBe(true);
 	});

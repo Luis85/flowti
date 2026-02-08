@@ -10,7 +10,7 @@ import { DashboardModal } from "src/modals/DashboardModal";
 import { LogService } from "src/services/LogService";
 import { createNoticeService, type INoticeService } from "src/services/NoticeService";
 import { FileWatcherSettings, DEFAULT_SETTINGS } from "src/settings/types";
-import { ReconcileProgress, FolderMapping, ChangeType } from "src/types";
+import { ReconcileProgress, FolderMapping } from "src/types";
 import { getMappingLabel } from "src/utils";
 
 /**
@@ -261,8 +261,8 @@ export default class FileWatcherPlugin extends Plugin {
 				bumpError: (mappingId) => this.statsService.bumpError(mappingId),
 				applyReconcileStats: (mappingId, stats) =>
 					this.statsService.applyReconcileStats(mappingId, stats),
-				syncFile: (mapping, sourceFilePath, changeType) =>
-					this.syncFile(mapping, sourceFilePath, changeType),
+				syncFile: (mapping, sourceFilePath) =>
+					this.syncFile(mapping, sourceFilePath),
 				syncDelete: (mapping, sourceFilePath) =>
 					this.syncDelete(mapping, sourceFilePath),
 				syncMove: (mapping, oldPath, newPath) =>
@@ -388,17 +388,14 @@ export default class FileWatcherPlugin extends Plugin {
 	 *
 	 * @param mapping - The folder mapping configuration
 	 * @param sourceFilePath - Absolute path to the source file
-	 * @param changeType - Type of change that triggered the sync
 	 */
 	async syncFile(
 		mapping: FolderMapping,
-		sourceFilePath: string,
-		changeType: ChangeType
+		sourceFilePath: string
 	) {
 		const res = await this.fileSync.syncFile(
 			mapping,
-			sourceFilePath,
-			changeType
+			sourceFilePath
 		);
 
 		const label = getMappingLabel(mapping);
@@ -416,7 +413,7 @@ export default class FileWatcherPlugin extends Plugin {
 
 		// Processed successfully
 		this.statsService.bumpProcessed(mapping.id, sourceFilePath);
-		this.noticeService.success(`[${label}] ${changeType}: ${sourceFilePath}`);
+		this.noticeService.success(`[${label}] synced: ${sourceFilePath}`);
 	}
 
 	/**

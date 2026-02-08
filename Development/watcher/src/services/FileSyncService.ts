@@ -4,12 +4,10 @@ import * as path from "path";
 import type { App } from "obsidian";
 import type {
 	FolderMapping,
-	ChangeType,
 	SyncResult,
-	ConflictDecision,
 	ReconcileStats,
 } from "../types";
-import { toVaultPath, isTempFile, matchesExcludePattern, isSymlinkSync } from "../utils";
+import { toVaultPath, isTempFile, isAllowedByExtensions, isPathExcluded, isSymlinkSync } from "../utils";
 import { FileWatcherSettings } from "../settings/types";
 import { LogService } from "./LogService";
 import { KeyedMutex, OperationLock } from "./AsyncMutex";
@@ -22,6 +20,8 @@ import type {
 } from "./types";
 import { withRetry, PathTraversalError } from "./retry";
 import { runReconcileWorkerPool } from "./ReconcileWorkerPool";
+import { ConflictResolver } from "./ConflictResolver";
+import { OrphanCleanup } from "./OrphanCleanup";
 
 /**
  * Core service responsible for synchronizing files from external folders into the Obsidian vault.
@@ -73,6 +73,12 @@ export class FileSyncService {
 	/** Optional sync state service for incremental reconciliation */
 	private syncState?: SyncStateService;
 
+	/** Conflict resolution delegate */
+	private conflicts: ConflictResolver;
+
+	/** Orphan cleanup delegate */
+	private orphanCleanup: OrphanCleanup;
+
 	/** Tracks recent syncs to prevent sync loops (path → timestamp) */
 	private recentSyncs = new Map<string, number>();
 
@@ -87,6 +93,8 @@ export class FileSyncService {
 
 	constructor(private app: App, settings: FileWatcherSettings) {
 		this.settings = settings;
+		this.conflicts = new ConflictResolver(app);
+		this.orphanCleanup = new OrphanCleanup(app);
 		// Periodically clean up old entries from recentSyncs
 		this.cleanupIntervalId = setInterval(
 			() => this.cleanupRecentSyncs(),
@@ -181,12 +189,11 @@ export class FileSyncService {
 	 *
 	 * @param mapping - The folder mapping configuration
 	 * @param sourceFilePath - Absolute path to the source file
-	 * @param _changeType - Type of change ('add', 'change', 'unlink')
 	 * @returns A {@link SyncResult} indicating success/failure and action taken
 	 *
 	 * @example
 	 * ```typescript
-	 * const result = await fileSync.syncFile(mapping, '/external/doc.md', 'change');
+	 * const result = await fileSync.syncFile(mapping, '/external/doc.md');
 	 * if (result.ok) {
 	 *   console.log(`Synced to ${result.targetPath}`);
 	 * }
@@ -194,8 +201,7 @@ export class FileSyncService {
 	 */
 	async syncFile(
 		mapping: FolderMapping,
-		sourceFilePath: string,
-		_changeType: ChangeType
+		sourceFilePath: string
 	): Promise<SyncResult> {
 		LogService.debug("Sync", `syncFile() called`, {
 			mappingId: mapping.id,
@@ -248,13 +254,11 @@ export class FileSyncService {
 	 *
 	 * @param mapping - The folder mapping configuration
 	 * @param vaultFilePath - Vault-relative path to the file (e.g., "imported/docs/file.md")
-	 * @param _changeType - Type of change ('added', 'changed')
 	 * @returns A SyncResult indicating success/failure and action taken
 	 */
 	async syncFileReverse(
 		mapping: FolderMapping,
-		vaultFilePath: string,
-		_changeType: ChangeType
+		vaultFilePath: string
 	): Promise<SyncResult> {
 		LogService.debug("Sync", `syncFileReverse() called`, {
 			mappingId: mapping.id,
@@ -479,7 +483,7 @@ export class FileSyncService {
 					mappingId: mapping.id,
 					details: { oldVaultPath, newSourcePath },
 				});
-				const result = await this.syncFile(mapping, newSourcePath, "added");
+				const result = await this.syncFile(mapping, newSourcePath);
 				return result;
 			}
 
@@ -570,7 +574,7 @@ export class FileSyncService {
 					mappingId: mapping.id,
 					details: { oldExternalPath, newVaultPath },
 				});
-				return await this.syncFileReverse(mapping, newVaultPath, "added");
+				return await this.syncFileReverse(mapping, newVaultPath);
 			}
 
 			// Ensure parent directory exists for new path
@@ -717,7 +721,7 @@ export class FileSyncService {
 			let finalExternalPath = externalPath;
 
 			if (externalExists) {
-				const decision = await this.resolveConflictReverse(
+				const decision = await this.conflicts.resolveReverse(
 					mapping,
 					vaultFilePath,
 					externalPath
@@ -767,84 +771,6 @@ export class FileSyncService {
 		}
 	}
 
-	/**
-	 * Resolves conflict for reverse sync (vault → external).
-	 * Uses reverseConflictResolution if set, otherwise falls back to conflictResolution.
-	 */
-	private async resolveConflictReverse(
-		mapping: FolderMapping,
-		vaultFilePath: string,
-		externalPath: string
-	): Promise<ConflictDecision> {
-		const strategy = mapping.reverseConflictResolution ?? mapping.conflictResolution;
-
-		if (strategy === "overwrite") {
-			return { action: "overwrite", targetPath: externalPath };
-		}
-		if (strategy === "skip") {
-			return { action: "skip", targetPath: externalPath };
-		}
-
-		if (strategy === "keepNewer") {
-			const vaultStat = await this.app.vault.adapter.stat(toVaultPath(vaultFilePath));
-			let externalStat: fs.Stats | null = null;
-			try {
-				externalStat = await fsp.stat(externalPath);
-			} catch {
-				// External doesn't exist, overwrite
-				return { action: "overwrite", targetPath: externalPath };
-			}
-
-			if (!vaultStat) {
-				return { action: "skip", targetPath: externalPath };
-			}
-
-			if (vaultStat.mtime > externalStat.mtimeMs) {
-				return { action: "overwrite", targetPath: externalPath };
-			}
-			return { action: "skip", targetPath: externalPath };
-		}
-
-		// rename - create unique filename
-		const renamed = await this.makeRenamedExternalPath(externalPath);
-		return { action: "rename", targetPath: renamed };
-	}
-
-	/**
-	 * Creates a renamed path for conflict resolution in external filesystem.
-	 */
-	private async makeRenamedExternalPath(externalPath: string): Promise<string> {
-		const dir = path.dirname(externalPath);
-		const base = path.basename(externalPath);
-		const ext = path.extname(base);
-		const name = base.slice(0, base.length - ext.length);
-
-		const stamp = new Date()
-			.toISOString()
-			.replace(/[:.]/g, "-")
-			.replace("T", " ")
-			.slice(0, 19);
-
-		let candidate = path.join(dir, `${name} (conflict ${stamp})${ext}`);
-
-		let i = 2;
-		const MAX_ATTEMPTS = 1000;
-		while (i <= MAX_ATTEMPTS) {
-			try {
-				await fsp.access(candidate);
-				// File exists, try next
-				candidate = path.join(dir, `${name} (conflict ${stamp} ${i})${ext}`);
-				i++;
-			} catch {
-				// File doesn't exist, use this path
-				break;
-			}
-		}
-		if (i > MAX_ATTEMPTS) {
-			throw new Error(`Could not find unique conflict filename after ${MAX_ATTEMPTS} attempts: ${candidate}`);
-		}
-		return candidate;
-	}
 
 	/**
 	 * Reconciles a specific subfolder within a mapping.
@@ -912,7 +838,7 @@ export class FileSyncService {
 		const filesToProcess: Array<{ filePath: string; relativePath: string; stat?: fs.Stats }> = [];
 
 		for (const filePath of all) {
-			if (!this.isAllowedByExtension(mapping, filePath)) continue;
+			if (!isAllowedByExtensions(filePath, mapping.fileExtensions ?? [])) continue;
 			if (this.settings.ignoreOneDriveTemp && isTempFile(filePath)) continue;
 
 			// Skip symlinks to prevent infinite loops
@@ -921,7 +847,7 @@ export class FileSyncService {
 			const relativePath = path.relative(mapping.sourceFolder, filePath);
 
 			// Check exclusion patterns
-			if (matchesExcludePattern(relativePath, mapping.excludePatterns ?? [])) continue;
+			if (isPathExcluded(relativePath, mapping.excludePatterns ?? [])) continue;
 
 			// In incremental mode, check if file needs sync
 			if (useIncrementalMode && this.syncState) {
@@ -1063,7 +989,7 @@ export class FileSyncService {
 		const existingPaths = new Set<string>();
 
 		for (const filePath of all) {
-			if (!this.isAllowedByExtension(mapping, filePath)) continue;
+			if (!isAllowedByExtensions(filePath, mapping.fileExtensions ?? [])) continue;
 			if (this.settings.ignoreOneDriveTemp && isTempFile(filePath)) continue;
 
 			// Skip symlinks to prevent infinite loops
@@ -1072,7 +998,7 @@ export class FileSyncService {
 			const relativePath = path.relative(mapping.sourceFolder, filePath);
 
 			// Check exclusion patterns
-			if (matchesExcludePattern(relativePath, mapping.excludePatterns ?? [])) continue;
+			if (isPathExcluded(relativePath, mapping.excludePatterns ?? [])) continue;
 
 			existingPaths.add(relativePath.replace(/\\/g, "/"));
 
@@ -1156,7 +1082,7 @@ export class FileSyncService {
 		const syncDirection = mapping.syncDirection ?? "source-only";
 		if (deletionHandling !== "ignore" && syncDirection !== "vault-only") {
 			try {
-				const orphanResult = await this.cleanupOrphans(mapping, existingPaths);
+				const orphanResult = await this.orphanCleanup.cleanupOrphans(mapping, existingPaths);
 				stats.deleted = orphanResult.deleted;
 				stats.errors += orphanResult.errors;
 				if (orphanResult.deleted > 0) {
@@ -1323,7 +1249,7 @@ export class FileSyncService {
 			let finalTargetPath = targetPath;
 
 			if (targetExists) {
-				const decision = await this.resolveConflict(
+				const decision = await this.conflicts.resolveForward(
 					mapping,
 					sourceFilePath,
 					targetPath,
@@ -1520,74 +1446,6 @@ export class FileSyncService {
 	}
 
 	// ===========================
-	// Conflicts
-	// ===========================
-	private async resolveConflict(
-		mapping: FolderMapping,
-		sourceFilePath: string,
-		targetPath: string,
-		idx?: TargetIndex
-	): Promise<ConflictDecision> {
-		const strategy = mapping.conflictResolution;
-
-		if (strategy === "overwrite")
-			return { action: "overwrite", targetPath };
-		if (strategy === "skip") return { action: "skip", targetPath };
-
-		if (strategy === "keepNewer") {
-			const srcStat = await fsp.stat(sourceFilePath);
-			const targetStat = await this.statFast(targetPath, idx);
-
-			// If we can't stat target, default overwrite
-			if (!targetStat) return { action: "overwrite", targetPath };
-
-			if (srcStat.mtimeMs > targetStat.mtimeMs) {
-				return { action: "overwrite", targetPath };
-			}
-			return { action: "skip", targetPath };
-		}
-
-		// rename
-		const renamed = await this.makeRenamedTarget(targetPath, idx);
-		return { action: "rename", targetPath: renamed };
-	}
-
-	private async makeRenamedTarget(
-		vaultPath: string,
-		idx?: TargetIndex
-	): Promise<string> {
-		const dir = path.posix.dirname(vaultPath);
-		const base = path.posix.basename(vaultPath);
-		const ext = path.posix.extname(base);
-		const name = base.slice(0, base.length - ext.length);
-
-		const stamp = new Date()
-			.toISOString()
-			.replace(/[:.]/g, "-")
-			.replace("T", " ")
-			.slice(0, 19);
-
-		let candidate = `${dir}/${name} (conflict ${stamp})${ext}`.replace(
-			/\/+/g,
-			"/"
-		);
-
-		let i = 2;
-		const MAX_ATTEMPTS = 1000;
-		while (i <= MAX_ATTEMPTS && await this.existsFast(candidate, idx)) {
-			candidate = `${dir}/${name} (conflict ${stamp} ${i})${ext}`.replace(
-				/\/+/g,
-				"/"
-			);
-			i++;
-		}
-		if (i > MAX_ATTEMPTS) {
-			throw new Error(`Could not find unique conflict filename after ${MAX_ATTEMPTS} attempts: ${candidate}`);
-		}
-		return candidate;
-	}
-
-	// ===========================
 	// Utilities: folder ensure cache
 	// ===========================
 	/** Maximum cache entries to prevent unbounded memory growth */
@@ -1632,103 +1490,6 @@ export class FileSyncService {
 		if (cache.ensured.size < FileSyncService.MAX_ENSURED_FOLDERS_CACHE_SIZE) {
 			cache.ensured.add(fp);
 		}
-	}
-
-	// ===========================
-	// Utilities: walk + filters
-	// ===========================
-	private isAllowedByExtension(
-		mapping: FolderMapping,
-		filePath: string
-	): boolean {
-		const list = mapping.fileExtensions ?? [];
-		if (list.length === 0) return true;
-		const ext = path.extname(filePath).toLowerCase();
-		return list.includes(ext);
-	}
-
-	// ===========================
-	// Orphan cleanup
-	// ===========================
-
-	/**
-	 * Recursively lists all files in a vault folder using Obsidian's adapter.
-	 */
-	private async walkVaultFiles(basePath: string): Promise<string[]> {
-		const out: string[] = [];
-		const stack: string[] = [basePath];
-
-		while (stack.length > 0) {
-			const dir = stack.pop()!;
-			try {
-				const listing = await this.app.vault.adapter.list(dir);
-				if (listing?.files) {
-					out.push(...listing.files);
-				}
-				if (listing?.folders) {
-					stack.push(...listing.folders);
-				}
-			} catch {
-				continue;
-			}
-		}
-
-		return out;
-	}
-
-	/**
-	 * Removes vault files that no longer have a corresponding source file.
-	 * Called during reconciliation when deletionHandling is enabled.
-	 */
-	private async cleanupOrphans(
-		mapping: FolderMapping,
-		existingSourcePaths: Set<string>
-	): Promise<{ deleted: number; errors: number }> {
-		let deleted = 0;
-		let errors = 0;
-
-		const targetBase = toVaultPath(mapping.targetFolder);
-		const vaultFiles = await this.walkVaultFiles(targetBase);
-
-		for (const vaultFilePath of vaultFiles) {
-			const normalizedVaultPath = toVaultPath(vaultFilePath);
-
-			// Calculate relative path from target folder
-			const prefix = targetBase.endsWith("/") ? targetBase : targetBase + "/";
-			if (!normalizedVaultPath.startsWith(prefix)) continue;
-			const relativePath = normalizedVaultPath.slice(prefix.length);
-			if (!relativePath) continue;
-
-			// Check extension filter
-			if (!this.isAllowedByExtension(mapping, relativePath)) continue;
-
-			// Check exclusion patterns
-			if (matchesExcludePattern(relativePath, mapping.excludePatterns ?? [])) continue;
-
-			// Check if source has this file (both sets use forward-slash normalized paths)
-			if (existingSourcePaths.has(relativePath)) continue;
-
-			// This is an orphan — trash it
-			try {
-				const tFile = this.app.vault.getAbstractFileByPath(normalizedVaultPath);
-				if (tFile) {
-					await this.app.vault.trash(tFile, true);
-					deleted++;
-					LogService.debug("Reconcile", `Orphan trashed`, {
-						mappingId: mapping.id,
-						filePath: normalizedVaultPath,
-					});
-				}
-			} catch (e) {
-				errors++;
-				LogService.warn("Reconcile", `Failed to trash orphan: ${String(e)}`, {
-					mappingId: mapping.id,
-					filePath: normalizedVaultPath,
-				});
-			}
-		}
-
-		return { deleted, errors };
 	}
 
 	private async walkFiles(

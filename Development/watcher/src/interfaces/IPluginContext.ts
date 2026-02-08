@@ -1,7 +1,6 @@
 import type { App } from "obsidian";
 import type {
 	FolderMapping,
-	ChangeType,
 	SyncResult,
 	WatcherStats,
 	ReconcileProgress,
@@ -63,8 +62,7 @@ export interface IFileSyncOperations {
 	/** Sync a single file from source to vault */
 	syncFile(
 		mapping: FolderMapping,
-		sourceFilePath: string,
-		changeType: ChangeType
+		sourceFilePath: string
 	): Promise<void>;
 
 	/** Delete the vault target for a deleted source file */

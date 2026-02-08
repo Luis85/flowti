@@ -293,20 +293,6 @@ describe("OperationLock", () => {
 			releaseWatcher();
 		});
 
-		it("tryAcquireWatcher should fail during reconcile", async () => {
-			const lock = new OperationLock();
-
-			const releaseReconcile = await lock.acquireReconcile();
-
-			const tryResult = lock.tryAcquireWatcher();
-			expect(tryResult).toBeUndefined();
-
-			releaseReconcile();
-
-			const tryResult2 = lock.tryAcquireWatcher();
-			expect(tryResult2).toBeDefined();
-			tryResult2!();
-		});
 	});
 
 	describe("reconcile operations", () => {

@@ -1,7 +1,7 @@
 import * as path from "path";
 import { App, EventRef, TAbstractFile, TFile } from "obsidian";
 import { FolderMapping, ChangeType, PendingJob, SyncResult } from "../types";
-import { toVaultPath, matchesExcludePattern } from "../utils";
+import { toVaultPath, isAllowedByExtensions, isPathExcluded } from "../utils";
 import { LogService } from "../services/LogService";
 import type { FileWatcherSettings } from "../settings/types";
 import type { INoticeService } from "../services/NoticeService";
@@ -247,7 +247,7 @@ export class VaultWatcher {
 		}
 
 		// Check file extension filter
-		if (!this.isAllowed(filePath)) {
+		if (!isAllowedByExtensions(filePath, this.mapping.fileExtensions ?? [])) {
 			LogService.debug("VaultWatcher", `File not allowed by extension filter`, {
 				mappingId: this.mapping.id,
 				filePath,
@@ -257,7 +257,10 @@ export class VaultWatcher {
 		}
 
 		// Check exclusion patterns
-		if (this.isExcluded(vaultPath, targetBase)) {
+		const relPath = vaultPath.startsWith(targetBase + "/")
+			? vaultPath.slice(targetBase.length + 1)
+			: vaultPath.slice(targetBase.length).replace(/^\//, "");
+		if (isPathExcluded(relPath, this.mapping.excludePatterns ?? [])) {
 			LogService.debug("VaultWatcher", `File excluded by pattern`, {
 				mappingId: this.mapping.id,
 				filePath,
@@ -351,8 +354,7 @@ export class VaultWatcher {
 			} else {
 				result = await this.context.fileSync.syncFileReverse(
 					this.mapping,
-					job.filePath,
-					job.changeType
+					job.filePath
 				);
 			}
 
@@ -391,26 +393,4 @@ export class VaultWatcher {
 		}
 	}
 
-	private isAllowed(filePath: string): boolean {
-		const ext = path.extname(filePath).toLowerCase();
-		const list = this.mapping.fileExtensions ?? [];
-		if (list.length === 0) return true;
-		if (!ext) return false;
-		return list.includes(ext);
-	}
-
-	private isExcluded(vaultPath: string, targetBase: string): boolean {
-		const patterns = this.mapping.excludePatterns ?? [];
-		if (patterns.length === 0) return false;
-
-		// Calculate relative path from target folder
-		let relativePath = vaultPath;
-		if (vaultPath.startsWith(targetBase + "/")) {
-			relativePath = vaultPath.slice(targetBase.length + 1);
-		} else if (vaultPath.startsWith(targetBase)) {
-			relativePath = vaultPath.slice(targetBase.length).replace(/^\//, "");
-		}
-
-		return matchesExcludePattern(relativePath, patterns);
-	}
 }

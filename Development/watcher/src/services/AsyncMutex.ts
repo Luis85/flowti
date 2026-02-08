@@ -221,26 +221,6 @@ export class OperationLock {
 		};
 	}
 
-	/**
-	 * Try to acquire watcher lock without waiting.
-	 */
-	tryAcquireWatcher(): (() => void) | undefined {
-		if (this.mode === "reconciling") {
-			return undefined;
-		}
-
-		this.watcherCount++;
-		this.mode = "watching";
-
-		return () => {
-			this.watcherCount--;
-			if (this.watcherCount === 0) {
-				this.mode = "idle";
-				this.processReconcileQueue();
-			}
-		};
-	}
-
 	/** Maximum time to wait for watchers to drain before reconcile starts (ms) */
 	private static readonly RECONCILE_DRAIN_TIMEOUT_MS = 30000;
 

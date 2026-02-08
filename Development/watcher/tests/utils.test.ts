@@ -6,6 +6,8 @@ import {
 	checkSymlink,
 	checkDirectoryForSymlinks,
 	matchesExcludePattern,
+	isAllowedByExtensions,
+	isPathExcluded,
 	isTempFile,
 	toVaultPath,
 } from "../src/utils";
@@ -148,7 +150,7 @@ describe("Symlink Detection", () => {
 				{ name: "link1", isSymbolicLink: () => true },
 				{ name: "subdir", isSymbolicLink: () => false },
 				{ name: "link2", isSymbolicLink: () => true },
-			] as unknown as fs.Dirent[]);
+			] as any);
 
 			const result = await checkDirectoryForSymlinks("/some/dir");
 
@@ -162,7 +164,7 @@ describe("Symlink Detection", () => {
 			mockReaddir.mockResolvedValue([
 				{ name: "file1.txt", isSymbolicLink: () => false },
 				{ name: "file2.txt", isSymbolicLink: () => false },
-			] as unknown as fs.Dirent[]);
+			] as any);
 
 			const result = await checkDirectoryForSymlinks("/some/dir");
 
@@ -267,5 +269,54 @@ describe("toVaultPath", () => {
 
 	it("should handle mixed separators", () => {
 		expect(toVaultPath("path\\to/mixed/separators")).toBe("path/to/mixed/separators");
+	});
+});
+
+describe("isAllowedByExtensions", () => {
+	it("should allow all files when extension list is empty", () => {
+		expect(isAllowedByExtensions("file.md", [])).toBe(true);
+		expect(isAllowedByExtensions("file.txt", [])).toBe(true);
+		expect(isAllowedByExtensions("file", [])).toBe(true);
+	});
+
+	it("should allow files with matching extensions", () => {
+		expect(isAllowedByExtensions("notes.md", [".md", ".txt"])).toBe(true);
+		expect(isAllowedByExtensions("readme.txt", [".md", ".txt"])).toBe(true);
+	});
+
+	it("should reject files with non-matching extensions", () => {
+		expect(isAllowedByExtensions("image.png", [".md", ".txt"])).toBe(false);
+		expect(isAllowedByExtensions("data.json", [".md"])).toBe(false);
+	});
+
+	it("should reject extensionless files when filter is active", () => {
+		expect(isAllowedByExtensions("Makefile", [".md", ".txt"])).toBe(false);
+		expect(isAllowedByExtensions("LICENSE", [".md"])).toBe(false);
+	});
+
+	it("should match case-insensitively", () => {
+		expect(isAllowedByExtensions("FILE.MD", [".md"])).toBe(true);
+		expect(isAllowedByExtensions("file.TXT", [".txt"])).toBe(true);
+	});
+
+	it("should handle full paths", () => {
+		expect(isAllowedByExtensions("/path/to/file.md", [".md"])).toBe(true);
+		expect(isAllowedByExtensions("C:\\Users\\file.txt", [".txt"])).toBe(true);
+	});
+});
+
+describe("isPathExcluded", () => {
+	it("should return false when patterns is empty", () => {
+		expect(isPathExcluded("any/path.md", [])).toBe(false);
+	});
+
+	it("should delegate to matchesExcludePattern", () => {
+		expect(isPathExcluded("node_modules/pkg/index.js", ["node_modules"])).toBe(true);
+		expect(isPathExcluded("src/main.ts", ["node_modules"])).toBe(false);
+	});
+
+	it("should support glob patterns", () => {
+		expect(isPathExcluded("debug.log", ["*.log"])).toBe(true);
+		expect(isPathExcluded("build/out/file.js", ["build/**"])).toBe(true);
 	});
 });
