@@ -2,6 +2,28 @@
  * Stub for the obsidian module in tests
  */
 
+export class TAbstractFile {
+	path: string = "";
+	name: string = "";
+	vault: any;
+	parent: any;
+}
+
+export class TFile extends TAbstractFile {
+	stat: any = { mtime: 0, ctime: 0, size: 0 };
+	basename: string = "";
+	extension: string = "";
+}
+
+export class TFolder extends TAbstractFile {
+	children: TAbstractFile[] = [];
+	isRoot(): boolean { return false; }
+}
+
+export type EventRef = { id?: string };
+
+export function setIcon(el: HTMLElement, icon: string): void {}
+
 export class Notice {
 	constructor(message: string, timeout?: number) {}
 }

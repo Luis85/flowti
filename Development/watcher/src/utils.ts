@@ -25,7 +25,7 @@ export function getMappingLabel(mapping: FolderMapping): string {
  * Normalizes a path to use forward slashes (vault-style).
  */
 export function toVaultPath(p: string): string {
-	return p.replace(/\\/g, "/");
+	return p.replace(/\\/g, "/").normalize("NFC");
 }
 
 export function makeId(): string {
@@ -343,6 +343,9 @@ export async function walkExternalFiles(
  *
  * @throws {PathTraversalError} if the path escapes the base folder
  */
+/** Windows MAX_PATH limit */
+const WIN_MAX_PATH = 260;
+
 export function validateSourcePath(
 	sourceFilePath: string,
 	sourceFolder: string
@@ -353,6 +356,10 @@ export function validateSourcePath(
 
 	if (relative.startsWith("..") || path.isAbsolute(relative)) {
 		throw new PathTraversalError(sourceFilePath, sourceFolder);
+	}
+
+	if (process.platform === "win32" && normalizedSource.length >= WIN_MAX_PATH) {
+		throw new Error(`Path too long (${normalizedSource.length} >= ${WIN_MAX_PATH}): ${sourceFilePath}`);
 	}
 }
 
@@ -371,5 +378,9 @@ export function validateTargetPath(
 
 	if (!normalizedTarget.startsWith(normalizedBase)) {
 		throw new PathTraversalError(targetPath, targetFolder);
+	}
+
+	if (process.platform === "win32" && targetPath.length >= WIN_MAX_PATH) {
+		throw new Error(`Path too long (${targetPath.length} >= ${WIN_MAX_PATH}): ${targetPath}`);
 	}
 }

@@ -274,6 +274,21 @@ describe("toVaultPath", () => {
 	it("should handle mixed separators", () => {
 		expect(toVaultPath("path\\to/mixed/separators")).toBe("path/to/mixed/separators");
 	});
+
+	it("should normalize Unicode to NFC form", () => {
+		// NFD: "é" as e + combining acute accent (U+0065 U+0301)
+		const nfd = "caf\u0065\u0301";
+		// NFC: "é" as precomposed character (U+00E9)
+		const nfc = "caf\u00e9";
+		expect(toVaultPath(nfd)).toBe(nfc);
+	});
+
+	it("should normalize Unicode in full paths", () => {
+		// NFD form of "über" — ü as u + combining diaeresis
+		const nfdPath = "path/to/\u0075\u0308ber.md";
+		const nfcPath = "path/to/\u00fcber.md";
+		expect(toVaultPath(nfdPath)).toBe(nfcPath);
+	});
 });
 
 describe("isAllowedByExtensions", () => {
@@ -395,6 +410,14 @@ describe("validateSourcePath", () => {
 		expect(() => validateSourcePath("/source/../etc/passwd", "/source")).toThrow(PathTraversalError);
 		expect(() => validateSourcePath("/other/file.md", "/source")).toThrow(PathTraversalError);
 	});
+
+	if (process.platform === "win32") {
+		it("throws for paths exceeding Windows MAX_PATH (260)", () => {
+			const longName = "a".repeat(250) + ".md";
+			const longPath = `C:\\source\\${longName}`;
+			expect(() => validateSourcePath(longPath, "C:\\source")).toThrow("Path too long");
+		});
+	}
 });
 
 describe("validateTargetPath", () => {
@@ -406,4 +429,12 @@ describe("validateTargetPath", () => {
 	it("throws PathTraversalError for paths escaping target folder", () => {
 		expect(() => validateTargetPath("vault/other/file.md", "vault/target")).toThrow(PathTraversalError);
 	});
+
+	if (process.platform === "win32") {
+		it("throws for paths exceeding Windows MAX_PATH (260)", () => {
+			const longName = "a".repeat(250) + ".md";
+			const longPath = `vault/target/${longName}`;
+			expect(() => validateTargetPath(longPath, "vault/target")).toThrow("Path too long");
+		});
+	}
 });

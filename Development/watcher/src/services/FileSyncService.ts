@@ -470,8 +470,12 @@ export class FileSyncService {
 						mtimeMs: stat.mtimeMs,
 						size: stat.size,
 					});
-				} catch {
-					// Ignore stat error
+				} catch (e) {
+					LogService.debug("Sync", `Stat after move failed`, {
+						mappingId: mapping.id,
+						filePath: newSourcePath,
+						details: { error: String(e) },
+					});
 				}
 			}
 
@@ -558,8 +562,12 @@ export class FileSyncService {
 						mtimeMs: stat.mtimeMs,
 						size: stat.size,
 					});
-				} catch {
-					// Ignore stat error
+				} catch (e) {
+					LogService.debug("Sync", `Stat after reverse move failed`, {
+						mappingId: mapping.id,
+						filePath: newExternalPath,
+						details: { error: String(e) },
+					});
 				}
 			}
 
@@ -690,6 +698,25 @@ export class FileSyncService {
 					return { ok: true, action: "skipped", targetPath: externalPath, reason: "conflict_skip" };
 				}
 				finalExternalPath = decision.targetPath;
+			}
+
+			// Guard: skip files that are too large to prevent OOM
+			const vaultStat = await this.app.vault.adapter.stat(vaultPath);
+			if (vaultStat && vaultStat.size > FileSyncService.MAX_FILE_SIZE_BYTES) {
+				LogService.warn("Sync", `Vault file too large for reverse sync, skipping`, {
+					mappingId: mapping.id,
+					filePath: vaultFilePath,
+					details: {
+						sizeBytes: vaultStat.size,
+						maxBytes: FileSyncService.MAX_FILE_SIZE_BYTES,
+					},
+				});
+				return {
+					ok: true,
+					action: "skipped",
+					targetPath: externalPath,
+					reason: "file_too_large",
+				};
 			}
 
 			// Read from vault
@@ -830,8 +857,12 @@ export class FileSyncService {
 					}
 
 					filesToProcess.push({ filePath, relativePath, stat });
-				} catch {
-					// If stat fails, include the file anyway
+				} catch (e) {
+					LogService.debug("Reconcile", `Stat failed during incremental check, including file anyway`, {
+						mappingId: mapping.id,
+						filePath,
+						details: { error: String(e) },
+					});
 					filesToProcess.push({ filePath, relativePath });
 				}
 			} else {
@@ -991,8 +1022,12 @@ export class FileSyncService {
 					}
 
 					filesToProcess.push({ filePath, relativePath, stat });
-				} catch {
-					// If stat fails, include the file anyway
+				} catch (e) {
+					LogService.debug("Reconcile", `Stat failed during reverse incremental check, including file anyway`, {
+						mappingId: mapping.id,
+						filePath,
+						details: { error: String(e) },
+					});
 					filesToProcess.push({ filePath, relativePath });
 				}
 			} else {
@@ -1226,6 +1261,25 @@ export class FileSyncService {
 				finalTargetPath = decision.targetPath;
 			}
 
+			// Guard: skip files that are too large to prevent OOM
+			const sourceStat = await fsp.stat(sourceFilePath);
+			if (sourceStat.size > FileSyncService.MAX_FILE_SIZE_BYTES) {
+				LogService.warn("Sync", `File too large, skipping`, {
+					mappingId: mapping.id,
+					filePath: sourceFilePath,
+					details: {
+						sizeBytes: sourceStat.size,
+						maxBytes: FileSyncService.MAX_FILE_SIZE_BYTES,
+					},
+				});
+				return {
+					ok: true,
+					action: "skipped",
+					targetPath,
+					reason: "file_too_large",
+				};
+			}
+
 			// Read + write with retry logic for transient errors
 			LogService.debug("Sync", `Writing file to vault`, {
 				mappingId: mapping.id,
@@ -1277,8 +1331,12 @@ export class FileSyncService {
 					if (opts.targetIndex.exists.size < FileSyncService.MAX_TARGET_INDEX_SIZE) {
 						opts.targetIndex.exists.add(finalTargetPath);
 					}
-				} catch {
-					// ignore
+				} catch (e) {
+					LogService.debug("Sync", `Post-write stat failed for target index update`, {
+						mappingId: mapping.id,
+						filePath: sourceFilePath,
+						details: { error: String(e) },
+					});
 				}
 			}
 
@@ -1310,6 +1368,9 @@ export class FileSyncService {
 	// ===========================
 	/** Maximum target index entries to prevent unbounded memory growth */
 	private static readonly MAX_TARGET_INDEX_SIZE = 50000;
+
+	/** Maximum file size to sync (100 MB). Files larger than this are skipped to prevent OOM. */
+	private static readonly MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024;
 
 	private async tryBuildTargetIndex(
 		mapping: FolderMapping

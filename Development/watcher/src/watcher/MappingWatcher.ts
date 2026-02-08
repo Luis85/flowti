@@ -383,8 +383,10 @@ export class MappingWatcher {
 	private tryMatchMove(filePath: string): boolean {
 		try {
 			const stat = fs.statSync(filePath);
+			const ext = path.extname(filePath).toLowerCase();
 			for (const [deletedPath, entry] of this.pendingDeletes) {
-				if (entry.size === stat.size) {
+				const deletedExt = path.extname(deletedPath).toLowerCase();
+				if (entry.size === stat.size && ext === deletedExt) {
 					// Match found
 					clearTimeout(entry.timer);
 					this.pendingDeletes.delete(deletedPath);

@@ -457,6 +457,19 @@ export class FolderMappingModal extends Modal {
 		if (!this.mapping.targetFolder.trim()) {
 			return "Target folder is required";
 		}
+
+		// Check for overlapping target folders with existing mappings
+		const otherMappings = this.plugin.settings.folderMappings
+			.filter(m => m.id !== this.mapping.id);
+
+		for (const other of otherMappings) {
+			const t1 = this.mapping.targetFolder.replace(/\\/g, "/").replace(/\/$/, "");
+			const t2 = other.targetFolder.replace(/\\/g, "/").replace(/\/$/, "");
+			if (t1 === t2 || t1.startsWith(t2 + "/") || t2.startsWith(t1 + "/")) {
+				return `Target folder overlaps with mapping "${other.description || other.id}"`;
+			}
+		}
+
 		return null;
 	}
 
