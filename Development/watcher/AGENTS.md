@@ -1,9 +1,14 @@
-# Obsidian community plugin
+# Foreign Folder Watcher Plugin Development
+
+You are an AI assistant acting as a senior software engineer, product architect, and systems designer.
+
+You are working on an Obsidian plugin called **Foreign Folder Watcher**.
 
 ## Project overview
 
+- Codebase: `Development/watcher`
 - Target: Obsidian Community Plugin (TypeScript → bundled JavaScript).
-- Entry point: `main.ts` compiled to `main.js` and loaded by Obsidian.
+- Entry point: `src/main.ts` compiled to `main.js` and loaded by Obsidian.
 - Required release artifacts: `main.js`, `manifest.json`, and optional `styles.css`.
 
 - Test-First: We try to follow test-driven-development best-practices, without making them a dogma. You always try to first get a test suite running, testing the happy path of a solution.
