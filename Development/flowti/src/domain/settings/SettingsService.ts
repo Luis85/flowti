@@ -1,0 +1,113 @@
+import type { IEventBus } from "../../infrastructure/events/types";
+import type { IStorageProvider } from "../../utils/types";
+import {
+	DEFAULT_SETTINGS,
+	FlowtiSettings,
+	FlowtiSettingsSchema,
+} from "./settings";
+import type { ISettingsService } from "./types";
+
+/**
+ * Configuration options for the SettingsService.
+ */
+export interface SettingsServiceOptions {
+	storage: IStorageProvider;
+	eventBus?: IEventBus;
+}
+
+/**
+ * Service for managing plugin settings.
+ * Handles loading, saving, and updating settings with validation.
+ * Emits events on settings changes for other components to react.
+ *
+ * @example Basic usage
+ * ```typescript
+ * const settingsService = new SettingsService({ storage, eventBus });
+ * await settingsService.load();
+ *
+ * // Update settings
+ * await settingsService.updateSettings({ debugMode: true });
+ *
+ * // Get current settings
+ * const settings = settingsService.getSettings();
+ * ```
+ */
+export class SettingsService implements ISettingsService {
+	private settings: FlowtiSettings = DEFAULT_SETTINGS;
+	private storage: IStorageProvider;
+	private eventBus?: IEventBus;
+
+	/**
+	 * Creates a new SettingsService instance.
+	 * @param options - Configuration options including storage and optional event bus
+	 */
+	constructor(options: SettingsServiceOptions) {
+		this.storage = options.storage;
+		this.eventBus = options.eventBus;
+	}
+
+	/**
+	 * Gets the current settings.
+	 * @returns The current settings object
+	 */
+	getSettings(): FlowtiSettings {
+		return { ...this.settings };
+	}
+
+	/**
+	 * Loads settings from storage with validation.
+	 * Emits "settings.loaded" event if event bus is available.
+	 * Falls back to defaults if stored settings are invalid.
+	 */
+	async load(): Promise<void> {
+		const data = await this.storage.load();
+		const result = FlowtiSettingsSchema.safeParse(data);
+
+		if (result.success) {
+			this.settings = result.data;
+		} else {
+			// Use defaults if validation fails
+			this.settings = DEFAULT_SETTINGS;
+		}
+
+		await this.eventBus?.emit("settings.loaded", { settings: this.settings });
+	}
+
+	/**
+	 * Updates settings and persists them to storage.
+	 * Merges updates with current settings and validates the result.
+	 * Emits "settings.changed" event after successful update.
+	 * @param updates - Partial settings to merge with current settings
+	 */
+	async updateSettings(updates: Partial<FlowtiSettings>): Promise<void> {
+		const newSettings = { ...this.settings, ...updates };
+		const result = FlowtiSettingsSchema.safeParse(newSettings);
+
+		if (result.success) {
+			this.settings = result.data;
+			await this.saveSettings();
+			await this.eventBus?.emit("settings.changed", { settings: this.settings });
+		}
+	}
+
+	/**
+	 * Sets the debug mode.
+	 * Convenience method for the most common setting change.
+	 * @param enabled - Whether debug mode should be enabled
+	 */
+	async setDebugMode(enabled: boolean): Promise<void> {
+		await this.updateSettings({ debugMode: enabled });
+	}
+
+	/**
+	 * Persists the current settings to storage.
+	 * Preserves other data in storage (like user data).
+	 */
+	private async saveSettings(): Promise<void> {
+		const existingData = ((await this.storage.load()) as object) || {};
+		await this.storage.save({
+			...existingData,
+			...this.settings,
+		});
+	}
+}

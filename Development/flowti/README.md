@@ -112,46 +112,51 @@ Commands, views, and services are defined declaratively in registry files and bo
 
 ```
 src/
-├── main.ts                        # Plugin lifecycle orchestrator
-├── commands/
-│   ├── CommandRegistry.ts         # Command execution with middleware pipeline
-│   ├── registry.ts                # Command definitions
-│   └── types.ts
-├── errors/
-│   ├── ErrorService.ts            # Centralized error handling
-│   ├── FlowtiError.ts            # Typed error hierarchy
-│   └── types.ts
-├── events/
-│   ├── EventBus.ts                # Pub/Sub with wildcard support
-│   ├── EventBridge.ts             # Obsidian API ↔ EventBus translation
-│   ├── events.ts                  # Central event type registry (FlowtiEventMap)
-│   └── types.ts
-├── filesystem/
-│   ├── FileSystemClient.ts        # Promise-based file operations via events
-│   └── types.ts
-├── logger/
-│   ├── LoggerService.ts           # Logging with event trace (debug mode)
-│   └── types.ts
-├── services/
-│   ├── ServiceContainer.ts        # DI container with topological initialization
-│   ├── registry.ts                # Service registrations
-│   └── types.ts
-├── settings/
-│   ├── settings.ts                # Zod schema, types, defaults
-│   ├── SettingsService.ts         # Settings management
-│   ├── FlowtiSettingTab.ts        # Settings UI
-│   └── types.ts
-├── user/
-│   ├── UserService.ts             # User profile management
-│   ├── UserSetupModal.ts          # First-run setup modal
-│   └── types.ts
-├── views/
-│   ├── ViewRegistry.ts            # View registration and binding
-│   ├── ComponentShowcaseView.ts   # CSS component showcase
-│   ├── registry.ts                # View definitions
-│   └── types.ts
+├── main.ts                                   # Plugin lifecycle orchestrator
+├── infrastructure/
+│   ├── events/
+│   │   ├── EventBus.ts                       # Pub/Sub with wildcard support
+│   │   ├── EventBridge.ts                    # Obsidian API ↔ EventBus translation
+│   │   ├── events.ts                         # Composed FlowtiEventMap
+│   │   └── types.ts
+│   ├── errors/
+│   │   ├── ErrorService.ts                   # Centralized error handling
+│   │   ├── FlowtiError.ts                    # Typed error hierarchy
+│   │   └── types.ts
+│   ├── logger/
+│   │   ├── LoggerService.ts                  # Logging with event trace (debug mode)
+│   │   └── types.ts
+│   ├── services/
+│   │   ├── ServiceContainer.ts               # DI container with topological init
+│   │   ├── registry.ts                       # Service registrations
+│   │   └── types.ts
+│   ├── commands/
+│   │   ├── CommandRegistry.ts                # Command execution with middleware
+│   │   ├── registry.ts                       # Command definitions
+│   │   └── types.ts
+│   ├── views/
+│   │   ├── ViewRegistry.ts                   # View registration and binding
+│   │   ├── registry.ts                       # View definitions
+│   │   └── types.ts
+│   └── filesystem/
+│       ├── FileSystemClient.ts               # Promise-based file ops via events
+│       └── types.ts
+├── domain/
+│   ├── user/
+│   │   ├── UserService.ts                    # User profile management
+│   │   ├── UserSetupModal.ts                 # First-run setup modal
+│   │   ├── events.ts                         # User domain events
+│   │   └── types.ts
+│   └── settings/
+│       ├── SettingsService.ts                # Settings management
+│       ├── FlowtiSettingTab.ts               # Settings UI
+│       ├── settings.ts                       # Zod schema, types, defaults
+│       ├── events.ts                         # Settings domain events
+│       └── types.ts
+├── ui/
+│   └── ComponentShowcaseView.ts              # CSS component showcase
 └── utils/
-    ├── helpers.ts                 # UUID generation, utilities
+    ├── helpers.ts                            # UUID generation, utilities
     └── types.ts
 ```
 
@@ -315,6 +320,8 @@ Use the Component Showcase view (`Flowti: Open Component Showcase`) to preview a
 | **Zod for validation** | Runtime schema validation at system boundaries (settings, user data) with TypeScript type inference |
 | **Topological service initialization** | ServiceContainer resolves dependency order automatically, preventing manual ordering errors |
 | **No barrel exports** | Each module is imported directly to keep dependency graphs explicit and avoid circular imports |
+| **DDD folder structure** | `infrastructure/` (generic plumbing), `domain/` (business logic per bounded context), `ui/` (presentation) - new domains can be added without touching core infrastructure |
+| **Per-domain event ownership** | Each domain defines its own event types; the central `FlowtiEventMap` composes them via interface extension |
 
 ---
 

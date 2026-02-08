@@ -1,0 +1,11 @@
+filters:
+  and:
+    - file.folder.contains("Design/flowti/features")
+views:
+  - type: table
+    name: Table
+    order:
+      - file.name
+      - stage
+    columnSize:
+      file.name: 169

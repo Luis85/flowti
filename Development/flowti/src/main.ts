@@ -3,31 +3,31 @@ import {
 	CommandRegistry,
 	createErrorMiddleware,
 	createLoggingMiddleware,
-} from "./commands/CommandRegistry";
-import { registerCommands } from "./commands/registry";
-import type { CommandContext, ICommandRegistry } from "./commands/types";
-import { ErrorService } from "./errors/ErrorService";
-import { LifecycleError } from "./errors/FlowtiError";
-import type { IErrorService } from "./errors/types";
-import { EventBridge } from "./events/EventBridge";
-import { EventBus } from "./events/EventBus";
-import type { IEventBridge, IEventBus } from "./events/types";
-import { LoggerService } from "./logger/LoggerService";
-import type { ILogger } from "./logger/types";
-import { registerServices } from "./services/registry";
-import { ServiceContainer } from "./services/ServiceContainer";
-import type { IServiceContainer } from "./services/types";
-import { FlowtiSettingTab } from "./settings/FlowtiSettingTab";
+} from "./infrastructure/commands/CommandRegistry";
+import { registerCommands } from "./infrastructure/commands/registry";
+import type { CommandContext, ICommandRegistry } from "./infrastructure/commands/types";
+import { ErrorService } from "./infrastructure/errors/ErrorService";
+import { LifecycleError } from "./infrastructure/errors/FlowtiError";
+import type { IErrorService } from "./infrastructure/errors/types";
+import { EventBridge } from "./infrastructure/events/EventBridge";
+import { EventBus } from "./infrastructure/events/EventBus";
+import type { IEventBridge, IEventBus } from "./infrastructure/events/types";
+import { LoggerService } from "./infrastructure/logger/LoggerService";
+import type { ILogger } from "./infrastructure/logger/types";
+import { registerServices } from "./infrastructure/services/registry";
+import { ServiceContainer } from "./infrastructure/services/ServiceContainer";
+import type { IServiceContainer } from "./infrastructure/services/types";
+import { FlowtiSettingTab } from "./domain/settings/FlowtiSettingTab";
 import {
 	DEFAULT_SETTINGS,
 	FlowtiSettings,
 	FlowtiSettingsSchema,
-} from "./settings/settings";
-import type { IUserService } from "./user/types";
-import { UserSetupModal } from "./user/UserSetupModal";
-import { registerViews } from "./views/registry";
-import type { IViewRegistry } from "./views/types";
-import { ViewRegistry } from "./views/ViewRegistry";
+} from "./domain/settings/settings";
+import type { IUserService } from "./domain/user/types";
+import { UserSetupModal } from "./domain/user/UserSetupModal";
+import { registerViews } from "./infrastructure/views/registry";
+import type { IViewRegistry } from "./infrastructure/views/types";
+import { ViewRegistry } from "./infrastructure/views/ViewRegistry";
 
 /**
  * Main plugin class for Flowti - Integrated Business Development Environment.
