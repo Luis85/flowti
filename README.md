@@ -25,6 +25,7 @@ Curiosity
 Before we get started, make sure the following things are in place:
 
 - Git is installed
+- Node is installed
 - [Obsidian](https://obsidian.md) is installed
 - Obsidian Git Community Plugin is installed
 
