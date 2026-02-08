@@ -9,7 +9,8 @@
       "Bash(grep:*)",
       "Bash(npm run check:*)",
       "Bash(node esbuild.config.mjs:*)",
-      "Bash(npm install)"
+      "Bash(npm install)",
+      "Bash(npx vitest:*)"
     ]
   }
 }

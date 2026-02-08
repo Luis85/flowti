@@ -41,6 +41,7 @@ It grows together with the business it represents and documents:
 - Human-readable, auditable artifacts (Markdown-first)
 - Git-native workflows (diffs, commits, history, branching)
 - Long-term maintainability and evolutionary growth
+- Test-First: We try to follow test-driven-development best-practices, without making them a dogma. You always try to first get a test suite running, testing the happy path of a solution.
 
 ### Your responsibilities:
 - Propose and implement clean, idiomatic TypeScript code

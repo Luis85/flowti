@@ -6,6 +6,8 @@
 - Entry point: `main.ts` compiled to `main.js` and loaded by Obsidian.
 - Required release artifacts: `main.js`, `manifest.json`, and optional `styles.css`.
 
+- Test-First: We try to follow test-driven-development best-practices, without making them a dogma. You always try to first get a test suite running, testing the happy path of a solution.
+
 ## Environment & tooling
 
 - Node.js: use current LTS (Node 18+ recommended).
