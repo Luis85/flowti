@@ -52,7 +52,7 @@ Before we get started, make sure the following things are in place:
 
 ### Step 3 - Plugins
 
-In order to use the plugins, you must build them from source. You find the available plugins in `/Development/` with build instructions in their `README`.
+In order to use the plugins, you must build them from source. You'll find the available plugins in `/Development/` with build instructions in their `README`.
 
 1. Build and install the `Flowti - IBDE` Plugin
 2. Build and install the `Foreign Folder Watcher` to import from outside folders
