@@ -1,3 +1,7 @@
+---
+title: Flowti - IBDE
+stage: development
+---
 # Flowti - IBDE
 
 **Integrated Business Development Environment** - An Obsidian plugin that implements the Flowti IBDE concept: a framework for describing, managing, and visualizing digital twins of business processes inside a knowledge base.
