@@ -104,7 +104,15 @@ export async function runReconcileWorkerPool(
 			stats.scanned++;
 			emitProgress(filePath);
 
-			const res = await syncFile(mapping, filePath, syncOpts);
+			let res: SyncResult;
+			try {
+				res = await syncFile(mapping, filePath, syncOpts);
+			} catch {
+				// syncFile threw instead of returning { ok: false } — count as error
+				stats.errors++;
+				emitProgress(filePath);
+				continue;
+			}
 
 			if (!res.ok) {
 				stats.errors++;
