@@ -7,7 +7,7 @@ import type {
 	SyncResult,
 	ReconcileStats,
 } from "../types";
-import { toVaultPath, isTempFile, isAllowedByExtensions, isPathExcluded, isSymlinkSync } from "../utils";
+import { toVaultPath, isTempFile, isAllowedByExtensions, isPathExcluded, isSymlinkSync, walkExternalFiles, validateSourcePath, validateTargetPath } from "../utils";
 import { FileWatcherSettings } from "../settings/types";
 import { LogService } from "./LogService";
 import { KeyedMutex, OperationLock } from "./AsyncMutex";
@@ -22,6 +22,7 @@ import { withRetry, PathTraversalError } from "./retry";
 import { runReconcileWorkerPool } from "./ReconcileWorkerPool";
 import { ConflictResolver } from "./ConflictResolver";
 import { OrphanCleanup } from "./OrphanCleanup";
+import { SyncLoopDetector } from "./SyncLoopDetector";
 
 /**
  * Core service responsible for synchronizing files from external folders into the Obsidian vault.
@@ -79,27 +80,13 @@ export class FileSyncService {
 	/** Orphan cleanup delegate */
 	private orphanCleanup: OrphanCleanup;
 
-	/** Tracks recent syncs to prevent sync loops (path → timestamp) */
-	private recentSyncs = new Map<string, number>();
-
-	/** Cooldown period for loop detection (ms) - 5s to accommodate cloud sync delays */
-	private static readonly LOOP_COOLDOWN_MS = 5000;
-
-	/** Cleanup interval for recentSyncs map */
-	private static readonly SYNC_CLEANUP_INTERVAL_MS = 60000;
-
-	/** Interval ID for cleanup timer (for proper cleanup on destroy) */
-	private cleanupIntervalId?: ReturnType<typeof setInterval>;
+	/** Loop detection delegate */
+	private loopDetector = new SyncLoopDetector();
 
 	constructor(private app: App, settings: FileWatcherSettings) {
 		this.settings = settings;
 		this.conflicts = new ConflictResolver(app);
 		this.orphanCleanup = new OrphanCleanup(app);
-		// Periodically clean up old entries from recentSyncs
-		this.cleanupIntervalId = setInterval(
-			() => this.cleanupRecentSyncs(),
-			FileSyncService.SYNC_CLEANUP_INTERVAL_MS
-		);
 	}
 
 	/**
@@ -107,18 +94,7 @@ export class FileSyncService {
 	 * Call this when the plugin is unloaded.
 	 */
 	destroy(): void {
-		if (this.cleanupIntervalId) {
-			clearInterval(this.cleanupIntervalId);
-			this.cleanupIntervalId = undefined;
-		}
-		this.recentSyncs.clear();
-	}
-
-	/**
-	 * Normalizes a path for consistent loop detection (lowercase, forward slashes).
-	 */
-	private normalizeSyncPath(filePath: string): string {
-		return filePath.replace(/\\/g, "/").toLowerCase();
+		this.loopDetector.destroy();
 	}
 
 	/**
@@ -126,30 +102,14 @@ export class FileSyncService {
 	 * Used to prevent sync loops in bidirectional mode.
 	 */
 	isRecentlySynced(filePath: string): boolean {
-		const normalized = this.normalizeSyncPath(filePath);
-		const lastSync = this.recentSyncs.get(normalized);
-		if (!lastSync) return false;
-		return Date.now() - lastSync < FileSyncService.LOOP_COOLDOWN_MS;
+		return this.loopDetector.isRecentlySynced(filePath);
 	}
 
 	/**
 	 * Records a sync operation for loop detection.
 	 */
 	private recordSync(filePath: string): void {
-		const normalized = this.normalizeSyncPath(filePath);
-		this.recentSyncs.set(normalized, Date.now());
-	}
-
-	/**
-	 * Cleans up old entries from the recentSyncs map.
-	 */
-	private cleanupRecentSyncs(): void {
-		const now = Date.now();
-		for (const [path, timestamp] of this.recentSyncs.entries()) {
-			if (now - timestamp > FileSyncService.LOOP_COOLDOWN_MS * 2) {
-				this.recentSyncs.delete(path);
-			}
-		}
+		this.loopDetector.recordSync(filePath);
 	}
 
 	/**
@@ -832,7 +792,7 @@ export class FileSyncService {
 		const useIncrementalMode =
 			(global.incrementalMode ?? true) && this.syncState !== undefined;
 
-		const all = await this.walkFiles(folderAbsPath, true);
+		const all = await walkExternalFiles(folderAbsPath, true);
 
 		// Pre-filter files and optionally check sync state
 		const filesToProcess: Array<{ filePath: string; relativePath: string; stat?: fs.Stats }> = [];
@@ -979,7 +939,7 @@ export class FileSyncService {
 		}
 
 		// ---- Scan once -> stable total ----
-		const all = await this.walkFiles(
+		const all = await walkExternalFiles(
 			mapping.sourceFolder,
 			mapping.watchSubfolders
 		);
@@ -1121,7 +1081,7 @@ export class FileSyncService {
 	): Promise<SyncResult> {
 		// Validate source path is within mapping's source folder (prevents path traversal)
 		try {
-			this.validateSourcePath(sourceFilePath, mapping.sourceFolder);
+			validateSourcePath(sourceFilePath, mapping.sourceFolder);
 		} catch (e) {
 			if (e instanceof PathTraversalError) {
 				LogService.warn("Sync", `Path traversal attempt blocked`, {
@@ -1141,7 +1101,7 @@ export class FileSyncService {
 
 		// Validate target path stays within vault's target folder
 		try {
-			this.validateTargetPath(targetPath, mapping.targetFolder);
+			validateTargetPath(targetPath, mapping.targetFolder);
 		} catch (e) {
 			if (e instanceof PathTraversalError) {
 				LogService.warn("Sync", `Target path traversal blocked`, {
@@ -1492,39 +1452,6 @@ export class FileSyncService {
 		}
 	}
 
-	private async walkFiles(
-		root: string,
-		includeSubfolders: boolean
-	): Promise<string[]> {
-		const out: string[] = [];
-		const stack: string[] = [root];
-
-		while (stack.length) {
-			const dir = stack.pop()!;
-			let entries: fs.Dirent[];
-			try {
-				entries = await fsp.readdir(dir, { withFileTypes: true });
-			} catch {
-				continue;
-			}
-
-			for (const ent of entries) {
-				const full = path.join(dir, ent.name);
-
-				// ignore dotfiles/dirs
-				if (ent.name.startsWith(".")) continue;
-
-				if (ent.isDirectory()) {
-					if (includeSubfolders) stack.push(full);
-					continue;
-				}
-				if (ent.isFile()) out.push(full);
-			}
-		}
-
-		return out;
-	}
-
 	// ===========================
 	// Utilities: stat/stability
 	// ===========================
@@ -1566,51 +1493,6 @@ export class FileSyncService {
 			await new Promise((r) => window.setTimeout(r, interval));
 		}
 		return false;
-	}
-
-	// ===========================
-	// Utilities: path validation
-	// ===========================
-	/**
-	 * Validates that a source file path is within the expected source folder.
-	 * Prevents path traversal attacks via "../" or absolute path manipulation.
-	 */
-	private validateSourcePath(
-		sourceFilePath: string,
-		sourceFolder: string
-	): void {
-		// Normalize both paths (resolve symlinks, "..", etc.)
-		const normalizedSource = path.normalize(sourceFilePath);
-		const normalizedBase = path.normalize(sourceFolder);
-
-		// Get relative path and check it doesn't escape
-		const relative = path.relative(normalizedBase, normalizedSource);
-
-		// If relative path starts with ".." or is absolute, it's outside the base
-		if (
-			relative.startsWith("..") ||
-			path.isAbsolute(relative)
-		) {
-			throw new PathTraversalError(sourceFilePath, sourceFolder);
-		}
-	}
-
-	/**
-	 * Validates that the computed target path stays within the vault's target folder.
-	 * Prevents path traversal in target paths.
-	 */
-	private validateTargetPath(
-		targetPath: string,
-		targetFolder: string
-	): void {
-		// Normalize to forward slashes for vault paths
-		const normalizedTarget = toVaultPath(path.normalize(targetPath));
-		const normalizedBase = toVaultPath(path.normalize(targetFolder));
-
-		// Ensure target starts with target folder
-		if (!normalizedTarget.startsWith(normalizedBase)) {
-			throw new PathTraversalError(targetPath, targetFolder);
-		}
 	}
 
 	// ===========================

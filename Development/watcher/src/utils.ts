@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as fsp from "fs/promises";
 import * as path from "path";
 import type { FolderMapping } from "./types";
+import { PathTraversalError } from "./services/retry";
 
 /**
  * Truncates a path string for display purposes.
@@ -284,5 +285,91 @@ export async function checkDirectoryForSymlinks(
 		return { hasSymlinks: symlinks.length > 0, symlinks };
 	} catch {
 		return { hasSymlinks: false, symlinks: [] };
+	}
+}
+
+// ===========================
+// Filesystem walking
+// ===========================
+
+/**
+ * Walks an external (non-vault) directory tree and returns all file paths.
+ * Skips dotfiles/directories.
+ *
+ * @param root - The root directory to walk
+ * @param includeSubfolders - Whether to recurse into subdirectories
+ * @returns Array of absolute file paths
+ */
+export async function walkExternalFiles(
+	root: string,
+	includeSubfolders: boolean
+): Promise<string[]> {
+	const out: string[] = [];
+	const stack: string[] = [root];
+
+	while (stack.length) {
+		const dir = stack.pop()!;
+		let entries: fs.Dirent[];
+		try {
+			entries = await fsp.readdir(dir, { withFileTypes: true });
+		} catch {
+			continue;
+		}
+
+		for (const ent of entries) {
+			const full = path.join(dir, ent.name);
+
+			// ignore dotfiles/dirs
+			if (ent.name.startsWith(".")) continue;
+
+			if (ent.isDirectory()) {
+				if (includeSubfolders) stack.push(full);
+				continue;
+			}
+			if (ent.isFile()) out.push(full);
+		}
+	}
+
+	return out;
+}
+
+// ===========================
+// Path validation
+// ===========================
+
+/**
+ * Validates that a source file path is within the expected source folder.
+ * Prevents path traversal attacks via "../" or absolute path manipulation.
+ *
+ * @throws {PathTraversalError} if the path escapes the base folder
+ */
+export function validateSourcePath(
+	sourceFilePath: string,
+	sourceFolder: string
+): void {
+	const normalizedSource = path.normalize(sourceFilePath);
+	const normalizedBase = path.normalize(sourceFolder);
+	const relative = path.relative(normalizedBase, normalizedSource);
+
+	if (relative.startsWith("..") || path.isAbsolute(relative)) {
+		throw new PathTraversalError(sourceFilePath, sourceFolder);
+	}
+}
+
+/**
+ * Validates that the computed target path stays within the vault's target folder.
+ * Prevents path traversal in target paths.
+ *
+ * @throws {PathTraversalError} if the path escapes the base folder
+ */
+export function validateTargetPath(
+	targetPath: string,
+	targetFolder: string
+): void {
+	const normalizedTarget = toVaultPath(path.normalize(targetPath));
+	const normalizedBase = toVaultPath(path.normalize(targetFolder));
+
+	if (!normalizedTarget.startsWith(normalizedBase)) {
+		throw new PathTraversalError(targetPath, targetFolder);
 	}
 }

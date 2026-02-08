@@ -98,6 +98,8 @@ export function createMockVault(adapter = createMockVaultAdapter()) {
 			}
 			return null;
 		}),
+
+		trash: vi.fn(async () => {}),
 	};
 }
 

@@ -10,7 +10,11 @@ import {
 	isPathExcluded,
 	isTempFile,
 	toVaultPath,
+	walkExternalFiles,
+	validateSourcePath,
+	validateTargetPath,
 } from "../src/utils";
+import { PathTraversalError } from "../src/services/retry";
 
 // Mock fs module for symlink tests
 vi.mock("fs", async () => {
@@ -318,5 +322,88 @@ describe("isPathExcluded", () => {
 	it("should support glob patterns", () => {
 		expect(isPathExcluded("debug.log", ["*.log"])).toBe(true);
 		expect(isPathExcluded("build/out/file.js", ["build/**"])).toBe(true);
+	});
+});
+
+describe("walkExternalFiles", () => {
+	const mockReaddir = vi.mocked(fsp.readdir);
+
+	it("should return files in root directory", async () => {
+		mockReaddir.mockResolvedValueOnce([
+			{ name: "file1.md", isFile: () => true, isDirectory: () => false, isSymbolicLink: () => false },
+			{ name: "file2.txt", isFile: () => true, isDirectory: () => false, isSymbolicLink: () => false },
+		] as any);
+
+		const result = await walkExternalFiles("/root", false);
+		expect(result).toHaveLength(2);
+	});
+
+	it("should recurse into subdirectories when includeSubfolders is true", async () => {
+		mockReaddir
+			.mockResolvedValueOnce([
+				{ name: "sub", isFile: () => false, isDirectory: () => true, isSymbolicLink: () => false },
+			] as any)
+			.mockResolvedValueOnce([
+				{ name: "nested.md", isFile: () => true, isDirectory: () => false, isSymbolicLink: () => false },
+			] as any);
+
+		const result = await walkExternalFiles("/root", true);
+		expect(result).toHaveLength(1);
+		expect(result[0]).toContain("nested.md");
+	});
+
+	it("should skip dotfiles and dotdirs", async () => {
+		mockReaddir.mockResolvedValueOnce([
+			{ name: ".hidden", isFile: () => true, isDirectory: () => false, isSymbolicLink: () => false },
+			{ name: ".git", isFile: () => false, isDirectory: () => true, isSymbolicLink: () => false },
+			{ name: "visible.md", isFile: () => true, isDirectory: () => false, isSymbolicLink: () => false },
+		] as any);
+
+		const result = await walkExternalFiles("/root", true);
+		expect(result).toHaveLength(1);
+		expect(result[0]).toContain("visible.md");
+	});
+
+	it("should handle readdir errors gracefully", async () => {
+		mockReaddir.mockRejectedValueOnce(new Error("EACCES"));
+
+		const result = await walkExternalFiles("/root", false);
+		expect(result).toEqual([]);
+	});
+
+	it("should not recurse when includeSubfolders is false", async () => {
+		vi.clearAllMocks();
+		mockReaddir.mockResolvedValueOnce([
+			{ name: "sub", isFile: () => false, isDirectory: () => true, isSymbolicLink: () => false },
+			{ name: "file.md", isFile: () => true, isDirectory: () => false, isSymbolicLink: () => false },
+		] as any);
+
+		const result = await walkExternalFiles("/root", false);
+		expect(result).toHaveLength(1);
+		// readdir should only be called once (root only, no recursion)
+		expect(mockReaddir).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe("validateSourcePath", () => {
+	it("accepts valid paths within source folder", () => {
+		expect(() => validateSourcePath("/source/file.md", "/source")).not.toThrow();
+		expect(() => validateSourcePath("/source/sub/file.md", "/source")).not.toThrow();
+	});
+
+	it("throws PathTraversalError for paths escaping source folder", () => {
+		expect(() => validateSourcePath("/source/../etc/passwd", "/source")).toThrow(PathTraversalError);
+		expect(() => validateSourcePath("/other/file.md", "/source")).toThrow(PathTraversalError);
+	});
+});
+
+describe("validateTargetPath", () => {
+	it("accepts valid paths within target folder", () => {
+		expect(() => validateTargetPath("vault/target/file.md", "vault/target")).not.toThrow();
+		expect(() => validateTargetPath("vault/target/sub/file.md", "vault/target")).not.toThrow();
+	});
+
+	it("throws PathTraversalError for paths escaping target folder", () => {
+		expect(() => validateTargetPath("vault/other/file.md", "vault/target")).toThrow(PathTraversalError);
 	});
 });
