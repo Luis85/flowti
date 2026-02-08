@@ -1,6 +1,8 @@
+import type { App, EventRef } from "obsidian";
 import type { EventType, FlowtiEventMap } from "./events";
 
 export type { EventType, FlowtiEventMap } from "./events";
+import type { ILogger } from "../logger/types";
 
 // Re-export file system types from events.ts
 export type {
@@ -101,4 +103,31 @@ export interface IEventBus {
 	 * Removes all event handlers.
 	 */
 	clear(): void;
+}
+
+/**
+ * Configuration for the EventBridge.
+ */
+export interface EventBridgeOptions {
+	/** Obsidian App instance for vault and file manager access */
+	app: App;
+	/** Event bus for internal communication */
+	eventBus: IEventBus;
+	/** Logger for debug output */
+	logger: ILogger;
+	/** Obsidian's registerEvent for lifecycle-managed event refs */
+	registerEvent: (eventRef: EventRef) => void;
+}
+
+/**
+ * Interface for the EventBridge.
+ *
+ * Bridges Obsidian's API events with the internal EventBus,
+ * translating file system and frontmatter operations.
+ */
+export interface IEventBridge {
+	/** Register all Obsidian event listeners and request handlers */
+	register(): void;
+	/** Clean up all EventBus subscriptions */
+	dispose(): void;
 }

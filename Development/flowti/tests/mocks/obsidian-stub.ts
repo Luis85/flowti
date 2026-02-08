@@ -2,6 +2,28 @@
  * Minimal stub for Obsidian module to allow unit testing
  */
 
+export class TAbstractFile {
+	path: string = "";
+}
+
+export class TFile extends TAbstractFile {
+	stat = { ctime: 0, mtime: 0, size: 0 };
+	basename: string = "";
+	extension: string = "";
+}
+
+export type EventRef = { id: string };
+
+export class ItemView {
+	file: TFile | null = null;
+}
+
+export class MarkdownView extends ItemView {}
+
+export class WorkspaceLeaf {
+	view: ItemView = new ItemView();
+}
+
 export class App {}
 
 export class Plugin {
@@ -10,6 +32,7 @@ export class Plugin {
 		return null;
 	}
 	async saveData(_data: unknown): Promise<void> {}
+	registerEvent(_ref: EventRef): void {}
 }
 
 export class Modal {

@@ -168,7 +168,7 @@ export interface FlowtiEventMap {
 	"error.handled": { error: FlowtiErrorInfo; recovered: boolean };
 
 	// ─────────────────────────────────────────────────────────────
-	// File Operation Request Events (Service → main.ts)
+	// File Operation Request Events (Service → EventBridge)
 	// ─────────────────────────────────────────────────────────────
 
 	/** Request to create a new file */
@@ -204,7 +204,7 @@ export interface FlowtiEventMap {
 	};
 
 	// ─────────────────────────────────────────────────────────────
-	// File Operation Response Events (main.ts → Service)
+	// File Operation Response Events (EventBridge → Service)
 	// ─────────────────────────────────────────────────────────────
 
 	/** Response after file creation */
@@ -288,7 +288,7 @@ export interface FlowtiEventMap {
 	};
 
 	// ─────────────────────────────────────────────────────────────
-	// Frontmatter Request Events (Service → main.ts)
+	// Frontmatter Request Events (Service → EventBridge)
 	// ─────────────────────────────────────────────────────────────
 
 	/** Request to read frontmatter from a file */
@@ -307,7 +307,7 @@ export interface FlowtiEventMap {
 	};
 
 	// ─────────────────────────────────────────────────────────────
-	// Frontmatter Response Events (main.ts → Service)
+	// Frontmatter Response Events (EventBridge → Service)
 	// ─────────────────────────────────────────────────────────────
 
 	/** Response after frontmatter read */
@@ -331,6 +331,40 @@ export interface FlowtiEventMap {
 		/** Error info if success is false */
 		error?: FileOperationError;
 	};
+
+	// ─────────────────────────────────────────────────────────────
+	// Workspace Notification Events (Obsidian → EventBridge → Services)
+	// ─────────────────────────────────────────────────────────────
+
+	/** The active leaf (tab/view) changed */
+	"workspace.leaf-changed": {
+		/** The file in the new active leaf, or null for non-file views */
+		file: { path: string; basename: string; extension: string } | null;
+	};
+
+	/** A file was opened in the editor */
+	"workspace.file-opened": {
+		/** The opened file, or null when the active file is cleared */
+		file: { path: string; basename: string; extension: string } | null;
+	};
+
+	/** The workspace layout changed (tabs, splits, sidebar) */
+	"workspace.layout-changed": Record<string, never>;
+
+	// ─────────────────────────────────────────────────────────────
+	// MetadataCache Notification Events (Obsidian → EventBridge → Services)
+	// ─────────────────────────────────────────────────────────────
+
+	/** File metadata was updated (frontmatter, tags, links parsed) */
+	"metadata.changed": {
+		/** Path of the file whose metadata changed */
+		path: string;
+		/** Parsed frontmatter, or undefined if none */
+		frontmatter: Record<string, unknown> | undefined;
+	};
+
+	/** All metadata references in the vault have been resolved */
+	"metadata.resolved": Record<string, never>;
 }
 
 /**

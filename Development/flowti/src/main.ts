@@ -1,4 +1,4 @@
-import { Plugin, TFile } from "obsidian";
+import { Plugin } from "obsidian";
 import {
 	CommandRegistry,
 	createErrorMiddleware,
@@ -9,8 +9,9 @@ import type { CommandContext, ICommandRegistry } from "./commands/types";
 import { ErrorService } from "./errors/ErrorService";
 import { LifecycleError } from "./errors/FlowtiError";
 import type { IErrorService } from "./errors/types";
+import { EventBridge } from "./events/EventBridge";
 import { EventBus } from "./events/EventBus";
-import type { IEventBus } from "./events/types";
+import type { IEventBridge, IEventBus } from "./events/types";
 import { LoggerService } from "./logger/LoggerService";
 import type { ILogger } from "./logger/types";
 import { registerServices } from "./services/registry";
@@ -29,20 +30,40 @@ import type { IViewRegistry } from "./views/types";
 import { ViewRegistry } from "./views/ViewRegistry";
 
 /**
- * Main plugin class for Flowti.
+ * Main plugin class for Flowti - Integrated Business Development Environment.
  *
- * Initializes core infrastructure in this order:
- * 1. Settings (from storage)
- * 2. EventBus (for decoupled communication)
- * 3. Logger (with EventBus integration)
- * 4. ErrorService (for centralized error handling)
- * 5. ServiceContainer (for dependency injection)
- * 6. CommandRegistry (for plugin commands)
- * 7. Services (UserService, etc.)
+ * Acts as the orchestrator for the plugin lifecycle. All domain logic lives in
+ * dedicated services that communicate through the {@link EventBus}. The plugin
+ * itself only wires things together and manages the startup/shutdown sequence.
+ *
+ * **Initialization phases** (see {@link onload}):
+ *
+ * | Phase | What happens |
+ * |-------|-------------|
+ * | 1 - Core | Settings, EventBus, Logger, ErrorService, EventBridge |
+ * | 2 - Containers | ServiceContainer, CommandRegistry, ViewRegistry |
+ * | 3 - Registration | Services, commands, and views are registered |
+ * | 4 - Init | All services are initialized in dependency order |
+ * | 5 - UI | Settings tab, views, and commands are bound to Obsidian |
+ * | 6 - Post-load | User data loaded after layout is ready, plugin.ready emitted |
+ *
+ * **Key architectural decisions:**
+ * - The {@link EventBridge} owns all Obsidian API ↔ EventBus translation
+ *   (file operations, frontmatter, vault change notifications).
+ *   This keeps services decoupled from Obsidian and fully testable.
+ * - Cross-cutting event listeners (logging, debug mode sync) stay here
+ *   in `setupEventListeners` because they span multiple domains.
+ * - Shutdown order is the reverse of startup: EventBridge → Services →
+ *   Commands → Views → EventBus.
+ *
+ * @see {@link EventBridge} for Obsidian API bridging
+ * @see {@link ServiceContainer} for dependency injection
+ * @see {@link CommandRegistry} for command middleware pipeline
  */
 export default class FlowtiBasePlugin extends Plugin {
 	settings: FlowtiSettings;
 	eventBus: IEventBus;
+	eventBridge: IEventBridge;
 	logger: ILogger;
 	errorService: IErrorService;
 	services: IServiceContainer;
@@ -54,41 +75,43 @@ export default class FlowtiBasePlugin extends Plugin {
 
 	async onload() {
 		try {
-			// Phase 1: Core infrastructure
+			// ── Phase 1: Core infrastructure ──────────────────────────
+			// Order matters: each component depends on the ones above it.
 			await this.loadSettings();
 			this.initializeEventBus();
 
-			// Emit loading event as early as possible
 			void this.eventBus.emit("plugin.loading", {
 				timestamp: new Date().toISOString(),
 			});
 
 			this.initializeLogger();
 			this.initializeErrorService();
+			this.initializeEventBridge();
 			this.setupEventListeners();
 
-			// Emit settings.loaded after settings are available
 			void this.eventBus.emit("settings.loaded", { settings: this.settings });
 
-			// Phase 2: Containers
+			// ── Phase 2: Containers ───────────────────────────────────
 			this.initializeServiceContainer();
 			this.initializeCommandRegistry();
 			this.initializeViewRegistry();
 
-			// Phase 3: Register services, commands, and views
+			// ── Phase 3: Registration ─────────────────────────────────
 			this.registerAllServices();
 			this.registerAllCommands();
 			this.registerAllViews();
 
-			// Phase 4: Initialize all services
+			// ── Phase 4: Service initialization ───────────────────────
+			// Resolves dependency graph and initializes in topological order.
 			await this.services.initializeAll();
 
-			// Phase 5: UI setup
+			// ── Phase 5: UI binding ───────────────────────────────────
 			this.addSettingTab(new FlowtiSettingTab(this.app, this));
 			this.bindViews();
 			this.bindCommands();
 
-			// Phase 6: Post-load tasks
+			// ── Phase 6: Post-load ────────────────────────────────────
+			// Deferred until Obsidian's workspace layout is ready.
 			this.app.workspace.onLayoutReady(() => {
 				this.onLayoutReady();
 			});
@@ -118,25 +141,31 @@ export default class FlowtiBasePlugin extends Plugin {
 		}
 	}
 
+	/**
+	 * Teardown in reverse initialization order:
+	 * EventBridge → Services → Commands → Views → EventBus.
+	 *
+	 * Each step uses optional chaining because a failure in {@link onload}
+	 * may have left some properties uninitialized.
+	 */
 	async onunload() {
 		try {
-			// Emit unloading event
 			void this.eventBus?.emit("plugin.unloading", {
 				timestamp: new Date().toISOString(),
 			});
 
-			// Dispose services in reverse order
+			this.eventBridge?.dispose();
 			await this.services?.disposeAll();
 			this.commands?.clear();
 			this.views?.clear();
 
 			this.logger?.info("Plugin unloaded");
 
-			// Emit unloaded event before clearing event bus
 			void this.eventBus?.emit("plugin.unloaded", {
 				timestamp: new Date().toISOString(),
 			});
 
+			// EventBus is cleared last so that unloaded listeners still fire.
 			this.eventBus?.clear();
 		} catch (error) {
 			console.error("[Flowti] Plugin unload error:", error);
@@ -144,7 +173,9 @@ export default class FlowtiBasePlugin extends Plugin {
 	}
 
 	/**
-	 * Load settings from storage with validation.
+	 * Loads settings from Obsidian's `loadData()` and validates them
+	 * against {@link FlowtiSettingsSchema}. Falls back to
+	 * {@link DEFAULT_SETTINGS} when validation fails (e.g. first run).
 	 */
 	async loadSettings(): Promise<void> {
 		const data = await this.loadData();
@@ -160,8 +191,10 @@ export default class FlowtiBasePlugin extends Plugin {
 	}
 
 	/**
-	 * Save settings to storage and emit settings.changed event.
-	 * Preserves other data in storage (like user data).
+	 * Persists settings via Obsidian's `saveData()` and emits
+	 * `settings.changed` so that listeners (e.g. Logger debug mode)
+	 * can react. Merges with existing stored data to preserve
+	 * unrelated keys (e.g. user profile).
 	 */
 	async saveSettings(): Promise<void> {
 		const existingData = ((await this.loadData()) as object) || {};
@@ -200,21 +233,25 @@ export default class FlowtiBasePlugin extends Plugin {
 	}
 
 	/**
-	 * Set up event listeners for cross-cutting concerns.
+	 * Registers cross-cutting event listeners that span multiple domains.
+	 *
+	 * These are intentionally kept in the plugin class rather than in a
+	 * dedicated service because they glue infrastructure together
+	 * (e.g. syncing debug mode between settings and logger).
+	 *
+	 * Domain-specific event handling (file system, frontmatter, vault
+	 * notifications) is delegated to {@link EventBridge}.
 	 */
 	private setupEventListeners(): void {
-		// Update logger when debug mode changes
 		this.eventBus.on("settings.changed", (event) => {
 			this.logger.setDebugMode(event.payload.settings.debugMode);
 			this.logger.debug("Settings changed", event.payload.settings);
 		});
 
-		// Log all errors (useful for debugging)
 		this.eventBus.on("error.occurred", (event) => {
 			this.logger.debug("Error event received", event.payload);
 		});
 
-		// Log user events
 		this.eventBus.on("user.created", (event) => {
 			this.logger.debug("User created", { userName: event.payload.user.name });
 		});
@@ -227,377 +264,27 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.logger.debug("User loaded", { userName: event.payload.user.name });
 		});
 
-		// Log lifecycle events
 		this.eventBus.on("plugin.ready", (event) => {
 			this.logger.debug("Plugin ready", { timestamp: event.payload.timestamp });
 		});
-
-		// Set up file system handlers
-		this.setupFileSystemHandlers();
-		this.setupFrontmatterHandlers();
 	}
 
 	/**
-	 * Set up event listeners for file system operations.
-	 * Bridges the EventBus with Obsidian's file API.
+	 * Creates the {@link EventBridge} that translates between Obsidian's
+	 * vault/fileManager/metadataCache APIs and the internal EventBus.
+	 *
+	 * Passes `registerEvent` as a callback so the bridge can register
+	 * Obsidian EventRefs that are automatically cleaned up on plugin unload.
+	 * EventBus subscriptions are cleaned up separately via {@link EventBridge.dispose}.
 	 */
-	private setupFileSystemHandlers(): void {
-		// Handle file.create.request
-		this.eventBus.on("file.create.request", async (event) => {
-			const { requestId, path, content, createFolders } = event.payload;
-			try {
-				// Ensure parent folder exists if requested
-				if (createFolders) {
-					const folderPath = path.substring(0, path.lastIndexOf("/"));
-					if (
-						folderPath &&
-						!this.app.vault.getAbstractFileByPath(folderPath)
-					) {
-						await this.app.vault.createFolder(folderPath);
-					}
-				}
-
-				// Create the file
-				await this.app.vault.create(path, content);
-
-				await this.eventBus.emit("file.create.response", {
-					requestId,
-					success: true,
-					path,
-				});
-			} catch (error) {
-				await this.eventBus.emit("file.create.response", {
-					requestId,
-					success: false,
-					path,
-					error: {
-						code: "FILE_CREATE_FAILED",
-						message: error instanceof Error ? error.message : String(error),
-						path,
-					},
-				});
-			}
+	private initializeEventBridge(): void {
+		this.eventBridge = new EventBridge({
+			app: this.app,
+			eventBus: this.eventBus,
+			logger: this.logger,
+			registerEvent: (ref) => this.registerEvent(ref),
 		});
-
-		// Handle file.read.request
-		this.eventBus.on("file.read.request", async (event) => {
-			const { requestId, path } = event.payload;
-			try {
-				const file = this.app.vault.getAbstractFileByPath(path);
-				if (!file || !(file instanceof TFile)) {
-					throw new Error(`File not found: ${path}`);
-				}
-
-				const content = await this.app.vault.read(file);
-
-				await this.eventBus.emit("file.read.response", {
-					requestId,
-					success: true,
-					path,
-					content,
-				});
-			} catch (error) {
-				await this.eventBus.emit("file.read.response", {
-					requestId,
-					success: false,
-					path,
-					error: {
-						code: "FILE_READ_FAILED",
-						message: error instanceof Error ? error.message : String(error),
-						path,
-					},
-				});
-			}
-		});
-
-		// Handle file.update.request
-		this.eventBus.on("file.update.request", async (event) => {
-			const { requestId, path, content } = event.payload;
-			try {
-				const file = this.app.vault.getAbstractFileByPath(path);
-				if (!file || !(file instanceof TFile)) {
-					throw new Error(`File not found: ${path}`);
-				}
-
-				await this.app.vault.modify(file, content);
-
-				await this.eventBus.emit("file.update.response", {
-					requestId,
-					success: true,
-					path,
-				});
-			} catch (error) {
-				await this.eventBus.emit("file.update.response", {
-					requestId,
-					success: false,
-					path,
-					error: {
-						code: "FILE_UPDATE_FAILED",
-						message: error instanceof Error ? error.message : String(error),
-						path,
-					},
-				});
-			}
-		});
-
-		// Handle file.delete.request
-		this.eventBus.on("file.delete.request", async (event) => {
-			const { requestId, path } = event.payload;
-			try {
-				const file = this.app.vault.getAbstractFileByPath(path);
-				if (!file) {
-					throw new Error(`File not found: ${path}`);
-				}
-
-				await this.app.vault.delete(file);
-
-				await this.eventBus.emit("file.delete.response", {
-					requestId,
-					success: true,
-					path,
-				});
-			} catch (error) {
-				await this.eventBus.emit("file.delete.response", {
-					requestId,
-					success: false,
-					path,
-					error: {
-						code: "FILE_DELETE_FAILED",
-						message: error instanceof Error ? error.message : String(error),
-						path,
-					},
-				});
-			}
-		});
-
-		// Handle file.move.request
-		this.eventBus.on("file.move.request", async (event) => {
-			const { requestId, path, newPath } = event.payload;
-			try {
-				const file = this.app.vault.getAbstractFileByPath(path);
-				if (!file) {
-					throw new Error(`File not found: ${path}`);
-				}
-
-				await this.app.fileManager.renameFile(file, newPath);
-
-				await this.eventBus.emit("file.move.response", {
-					requestId,
-					success: true,
-					path,
-					newPath,
-				});
-			} catch (error) {
-				await this.eventBus.emit("file.move.response", {
-					requestId,
-					success: false,
-					path,
-					error: {
-						code: "FILE_MOVE_FAILED",
-						message: error instanceof Error ? error.message : String(error),
-						path,
-					},
-				});
-			}
-		});
-
-		// Handle file.rename.request
-		this.eventBus.on("file.rename.request", async (event) => {
-			const { requestId, path, newName } = event.payload;
-			try {
-				const file = this.app.vault.getAbstractFileByPath(path);
-				if (!file) {
-					throw new Error(`File not found: ${path}`);
-				}
-
-				const folderPath = path.substring(0, path.lastIndexOf("/"));
-				const newPath = folderPath ? `${folderPath}/${newName}` : newName;
-
-				await this.app.fileManager.renameFile(file, newPath);
-
-				await this.eventBus.emit("file.rename.response", {
-					requestId,
-					success: true,
-					path,
-					newPath,
-				});
-			} catch (error) {
-				await this.eventBus.emit("file.rename.response", {
-					requestId,
-					success: false,
-					path,
-					error: {
-						code: "FILE_RENAME_FAILED",
-						message: error instanceof Error ? error.message : String(error),
-						path,
-					},
-				});
-			}
-		});
-
-		// --- External File Change Listeners ---
-		// Register Obsidian vault events to emit notifications
-
-		this.registerEvent(
-			this.app.vault.on("create", (file) => {
-				if (file instanceof TFile) {
-					void this.eventBus.emit("file.created", {
-						path: file.path,
-						source: "obsidian",
-					});
-				}
-			})
-		);
-
-		this.registerEvent(
-			this.app.vault.on("modify", (file) => {
-				if (file instanceof TFile) {
-					void this.eventBus.emit("file.modified", {
-						path: file.path,
-						source: "obsidian",
-					});
-				}
-			})
-		);
-
-		this.registerEvent(
-			this.app.vault.on("delete", (file) => {
-				if (file instanceof TFile) {
-					void this.eventBus.emit("file.deleted", {
-						path: file.path,
-						source: "obsidian",
-					});
-				}
-			})
-		);
-
-		this.registerEvent(
-			this.app.vault.on("rename", (file, oldPath) => {
-				if (file instanceof TFile) {
-					void this.eventBus.emit("file.renamed", {
-						oldPath,
-						newPath: file.path,
-						source: "obsidian",
-					});
-				}
-			})
-		);
-
-		this.logger.debug("File system handlers initialized");
-	}
-
-	/**
-	 * Set up event listeners for frontmatter operations.
-	 * Bridges the EventBus with Obsidian's metadata API.
-	 */
-	private setupFrontmatterHandlers(): void {
-		// Handle frontmatter.get.request
-		this.eventBus.on("frontmatter.get.request", async (event) => {
-			const { requestId, path } = event.payload;
-			try {
-				const file = this.app.vault.getAbstractFileByPath(path);
-				if (!file || !(file instanceof TFile)) {
-					throw new Error(`File not found: ${path}`);
-				}
-
-				const cache = this.app.metadataCache.getFileCache(file);
-				const data = cache?.frontmatter ?? {};
-
-				await this.eventBus.emit("frontmatter.get.response", {
-					requestId,
-					success: true,
-					path,
-					data,
-				});
-			} catch (error) {
-				await this.eventBus.emit("frontmatter.get.response", {
-					requestId,
-					success: false,
-					path,
-					error: {
-						code: "FRONTMATTER_GET_FAILED",
-						message: error instanceof Error ? error.message : String(error),
-						path,
-					},
-				});
-			}
-		});
-
-		// Handle frontmatter.update.request (merge with existing)
-		this.eventBus.on("frontmatter.update.request", async (event) => {
-			const { requestId, path, data } = event.payload;
-			try {
-				const file = this.app.vault.getAbstractFileByPath(path);
-				if (!file || !(file instanceof TFile)) {
-					throw new Error(`File not found: ${path}`);
-				}
-
-				await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
-					Object.assign(frontmatter, data);
-				});
-
-				// Get updated frontmatter to return
-				const cache = this.app.metadataCache.getFileCache(file);
-				const updatedData = cache?.frontmatter ?? {};
-
-				await this.eventBus.emit("frontmatter.update.response", {
-					requestId,
-					success: true,
-					path,
-					data: updatedData,
-				});
-			} catch (error) {
-				await this.eventBus.emit("frontmatter.update.response", {
-					requestId,
-					success: false,
-					path,
-					error: {
-						code: "FRONTMATTER_UPDATE_FAILED",
-						message: error instanceof Error ? error.message : String(error),
-						path,
-					},
-				});
-			}
-		});
-
-		// Handle frontmatter.set.request (replace entire frontmatter)
-		this.eventBus.on("frontmatter.set.request", async (event) => {
-			const { requestId, path, data } = event.payload;
-			try {
-				const file = this.app.vault.getAbstractFileByPath(path);
-				if (!file || !(file instanceof TFile)) {
-					throw new Error(`File not found: ${path}`);
-				}
-
-				await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
-					// Clear existing keys
-					for (const key of Object.keys(frontmatter)) {
-						delete frontmatter[key];
-					}
-					// Set new data
-					Object.assign(frontmatter, data);
-				});
-
-				await this.eventBus.emit("frontmatter.set.response", {
-					requestId,
-					success: true,
-					path,
-				});
-			} catch (error) {
-				await this.eventBus.emit("frontmatter.set.response", {
-					requestId,
-					success: false,
-					path,
-					error: {
-						code: "FRONTMATTER_SET_FAILED",
-						message: error instanceof Error ? error.message : String(error),
-						path,
-					},
-				});
-			}
-		});
-
-		this.logger.debug("Frontmatter handlers initialized");
+		this.eventBridge.register();
 	}
 
 	/**
@@ -611,7 +298,11 @@ export default class FlowtiBasePlugin extends Plugin {
 	}
 
 	/**
-	 * Initialize the command registry with middleware.
+	 * Creates the {@link CommandRegistry} and installs middleware.
+	 *
+	 * Middleware executes in LIFO order (last added runs first):
+	 * 1. Error middleware - catches exceptions and routes to {@link ErrorService}
+	 * 2. Logging middleware - tracks command start/completion/duration
 	 */
 	private initializeCommandRegistry(): void {
 		this.commands = new CommandRegistry({
@@ -619,10 +310,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			logger: this.logger,
 		});
 
-		// Add logging middleware
 		this.commands.use(createLoggingMiddleware());
-
-		// Add error handling middleware
 		this.commands.use(
 			createErrorMiddleware((error, command) => {
 				this.errorService.handle(error, `Command:${command.id}`);
@@ -641,7 +329,10 @@ export default class FlowtiBasePlugin extends Plugin {
 	}
 
 	/**
-	 * Register all services with the container.
+	 * Registers all services defined in {@link registerServices}.
+	 *
+	 * Bridges Obsidian's `loadData`/`saveData` into the storage abstraction
+	 * so that services never depend on the Plugin class directly.
 	 */
 	private registerAllServices(): void {
 		registerServices(this.services, {
@@ -665,7 +356,8 @@ export default class FlowtiBasePlugin extends Plugin {
 	}
 
 	/**
-	 * Bind registered commands to Obsidian.
+	 * Binds all registered commands to Obsidian's command palette.
+	 * Each command is wrapped to execute through the middleware pipeline.
 	 */
 	private bindCommands(): void {
 		const ctx = this.createCommandContext();
@@ -705,18 +397,19 @@ export default class FlowtiBasePlugin extends Plugin {
 	}
 
 	/**
-	 * Called when Obsidian layout is ready.
+	 * Final initialization step, deferred until Obsidian's workspace
+	 * layout is fully rendered.
+	 *
+	 * Loads user data, shows the setup modal on first run, and emits
+	 * `plugin.ready` to signal that the plugin is fully operational.
 	 */
 	private async onLayoutReady(): Promise<void> {
 		try {
-			// Get user service from container and store as convenience property
 			this.userService = await this.services.get<IUserService>("userService");
 			await this.userService.load();
 
-			// Show setup modal if needed
 			UserSetupModal.showIfNeeded(this.app, this.userService);
 
-			// Emit plugin.ready event - everything is initialized
 			void this.eventBus.emit("plugin.ready", {
 				timestamp: new Date().toISOString(),
 			});
