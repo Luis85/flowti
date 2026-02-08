@@ -89,6 +89,19 @@ export class MappingWatcher {
 		return this._lastActivity;
 	}
 
+	/**
+	 * Get the number of files currently tracked by chokidar.
+	 */
+	getWatchedFileCount(): number {
+		if (!this.watcher) return 0;
+		const watched = this.watcher.getWatched();
+		let count = 0;
+		for (const entries of Object.values(watched)) {
+			count += entries.length;
+		}
+		return count;
+	}
+
 	start() {
 		this.stopped = false;
 		const m = this.mapping;

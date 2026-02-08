@@ -11,6 +11,7 @@ vi.mock("chokidar", () => ({
 		watch: vi.fn(() => ({
 			on: vi.fn().mockReturnThis(),
 			close: vi.fn().mockResolvedValue(undefined),
+			getWatched: vi.fn().mockReturnValue({}),
 		})),
 	},
 }));

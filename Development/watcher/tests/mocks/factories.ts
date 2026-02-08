@@ -256,6 +256,7 @@ export function createMockStatusBarContext(
 		settings: createMockSettings(),
 		stats: createMockStats(),
 		getActiveWatcherCount: vi.fn().mockReturnValue(0),
+		getTotalWatchedFileCount: vi.fn().mockReturnValue(0),
 		openDashboard: vi.fn(),
 		addStatusBarItem: vi.fn().mockReturnValue(mockElement),
 		...overrides,

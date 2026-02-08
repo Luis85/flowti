@@ -68,6 +68,8 @@ export interface WatcherInfo {
 		maxPendingFiles: number;
 		maxPendingDirs: number;
 	};
+	/** Number of files currently tracked by the watcher */
+	watchedFiles: number;
 }
 
 /**
@@ -372,6 +374,11 @@ export class WatcherManager {
 				health = "healthy";
 			}
 
+			// Count watched files from both watchers
+			const watchedFiles =
+				(sourceWatcher?.getWatchedFileCount() ?? 0) +
+				(vaultWatcher?.getWatchedFileCount() ?? 0);
+
 			infos.push({
 				mappingId: m.id,
 				mappingDescription: m.description || m.id,
@@ -381,6 +388,7 @@ export class WatcherManager {
 				health,
 				lastActivity,
 				queueStats,
+				watchedFiles,
 			});
 		}
 
@@ -413,6 +421,20 @@ export class WatcherManager {
 		}
 
 		return { pendingFiles, pendingDirs, droppedJobs };
+	}
+
+	/**
+	 * Returns the total number of files currently tracked by all watchers.
+	 */
+	getTotalWatchedFileCount(): number {
+		let total = 0;
+		for (const w of this.watchers.values()) {
+			total += w.getWatchedFileCount();
+		}
+		for (const w of this.vaultWatchers.values()) {
+			total += w.getWatchedFileCount();
+		}
+		return total;
 	}
 
 	/**

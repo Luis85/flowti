@@ -225,6 +225,7 @@ export default class FileWatcherPlugin extends Plugin {
 			settings: this.settings,
 			stats: this.statsService.stats,
 			getActiveWatcherCount: () => this.manager?.activeCount() ?? 0,
+			getTotalWatchedFileCount: () => this.manager?.getTotalWatchedFileCount() ?? 0,
 			openDashboard: () => this.openDashboard(),
 			addStatusBarItem: () => this.addStatusBarItem(),
 		});

@@ -228,6 +228,7 @@ export class DashboardModal extends Modal {
 		const statsGrid = statsSection.createDiv({ cls: "stats-grid" });
 
 		this.createStatCard(statsGrid, "Active Watchers", "0", "eye", undefined, "stat-active");
+		this.createStatCard(statsGrid, "Watched Files", "0", "files", undefined, "stat-watched");
 		this.createStatCard(statsGrid, "Processed", "0", "check-circle", "success", "stat-processed");
 		this.createStatCard(statsGrid, "Skipped", "0", "skip-forward", "warning", "stat-skipped");
 		this.createStatCard(statsGrid, "Errors", "0", "alert-circle", "error", "stat-errors");
@@ -279,7 +280,9 @@ export class DashboardModal extends Modal {
 		}
 
 		// Update stat values
+		const watchedFiles = this.plugin.manager?.getTotalWatchedFileCount() ?? 0;
 		this.updateStatValue(container, "stat-active", String(activeWatchers));
+		this.updateStatValue(container, "stat-watched", String(watchedFiles));
 		this.updateStatValue(container, "stat-processed", String(stats.filesProcessed));
 		this.updateStatValue(container, "stat-skipped", String(stats.filesSkipped));
 		this.updateStatValue(container, "stat-errors", String(stats.errors));
@@ -482,6 +485,12 @@ export class DashboardModal extends Modal {
 				}
 			}
 
+			// Update watched files count
+			const watchedEl = card.querySelector(".watcher-watched-files") as HTMLElement;
+			if (watchedEl) {
+				watchedEl.setText(`Watched files: ${info.watchedFiles}`);
+			}
+
 			// Update queue stats
 			const queueEl = card.querySelector(".watcher-queue") as HTMLElement;
 			if (queueEl) {
@@ -574,6 +583,10 @@ export class DashboardModal extends Modal {
 		details.createDiv({
 			cls: "detail-row",
 			text: `Target: ${info.targetFolder}`,
+		});
+		details.createDiv({
+			cls: "detail-row watcher-watched-files",
+			text: `Watched files: ${info.watchedFiles}`,
 		});
 
 		// Queue stats for this watcher

@@ -72,6 +72,9 @@ export interface IStatusBarContext {
 	/** Get the active watcher count */
 	getActiveWatcherCount(): number;
 
+	/** Get the total number of files being watched */
+	getTotalWatchedFileCount(): number;
+
 	/** Open the dashboard modal */
 	openDashboard?(): void;
 

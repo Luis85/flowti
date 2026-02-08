@@ -79,6 +79,14 @@ export class VaultWatcher {
 		return this._lastActivity;
 	}
 
+	/**
+	 * Get the number of files currently tracked by this watcher.
+	 * VaultWatcher uses Obsidian event refs, not per-file tracking, so returns 0.
+	 */
+	getWatchedFileCount(): number {
+		return 0;
+	}
+
 	start() {
 		this.stopped = false;
 		const m = this.mapping;

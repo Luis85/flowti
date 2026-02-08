@@ -40,7 +40,9 @@ Before we get started, make sure the following things are in place:
 - Open the Command Palette
 - Git Clone into `/05 - Public Vault`
 
-### Step 2 - Folderstructure
+### Step 2 - Folder structure
+
+Create the needed folder structure in your Vault.
 
 - `/00 - Connectivity`
 - `/01 - Projects`

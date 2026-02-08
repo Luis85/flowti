@@ -55,6 +55,7 @@ export class StatusBarService {
 	render() {
 		const s = this.ctx.stats;
 		const active = this.ctx.getActiveWatcherCount();
+		const watched = this.ctx.getTotalWatchedFileCount();
 
 		// --- Compact status text ---
 		if (
@@ -74,13 +75,14 @@ export class StatusBarService {
 			);
 		} else {
 			this.el.setText(
-				`Sync ${active} · ✅${s.filesProcessed} ⏭️${s.filesSkipped} ⚠️${s.errors}`
+				`Sync ${active} · 👁${watched} · ✅${s.filesProcessed} ⏭️${s.filesSkipped} ⚠️${s.errors}`
 			);
 		}
 
 		// --- Tooltip keeps details ---
 		const lines: string[] = [];
 		lines.push(`Active mappings: ${active}`);
+		lines.push(`Watched files: ${watched}`);
 		lines.push(`Processed: ${s.filesProcessed}`);
 		lines.push(`Skipped: ${s.filesSkipped}`);
 		lines.push(`Errors: ${s.errors}`);
