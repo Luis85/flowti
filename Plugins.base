@@ -1,0 +1,13 @@
+filters:
+  and:
+    - file.name.contains("README")
+    - '!file.folder.contains("node_modules")'
+    - file.folder.contains("Development")
+views:
+  - type: table
+    name: Table
+    order:
+      - file.folder
+      - file.name
+    columnSize:
+      file.folder: 193

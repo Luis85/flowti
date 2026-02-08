@@ -49,9 +49,16 @@ Before we get started, make sure the following things are in place:
 - `/04 - Archive`
 - `/05 - Public Vault`
 - `/var`
+
 ### Step 3 - Plugins
 
 In order to use the plugins, you must build them from source. You find the available plugins in `/Development/` with build instructions in their `README`.
+
+1. Build and install the `Flowti - IBDE` Plugin
+2. Build and install the `Foreign Folder Watcher` to import from outside folders
+3. Build and install the `OneSeater - Motorsport Manager` to play with a gamified implementation
+
+To update, you need to `git pull` from remote and build the plugin again.
 
 ## Roadmap
 

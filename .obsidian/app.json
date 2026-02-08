@@ -1,8 +1,8 @@
 {
   "readableLineLength": false,
   "userIgnoreFilters": [
-    "Development/",
-    "**/node_modules/*"
+    "**/node_modules/*",
+    "node_modules"
   ],
   "showUnsupportedFiles": true,
   "alwaysUpdateLinks": true,

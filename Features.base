@@ -1,9 +1,13 @@
 filters:
   and:
     - file.folder.containsAny("features")
+    - file.ext == "md"
 views:
   - type: table
     name: Table
     order:
       - file.name
+      - stage
       - file.folder
+    columnSize:
+      file.name: 265
