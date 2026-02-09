@@ -52,6 +52,8 @@ export interface IInstallerStep {
 	readonly name: string;
 	/** Short description shown in the review screen */
 	readonly description: string;
+	/** Onboarding intro explaining what this step does and why */
+	readonly intro: string;
 	/** Numeric order for sorting (lower = runs first) */
 	readonly order: number;
 	/** Execute the step */
@@ -94,6 +96,8 @@ export interface IInstallerService {
 	registerStep(step: IInstallerStep): void;
 	/** Run all steps sequentially. Returns true if all succeeded. */
 	runAll(context: InstallerContext): Promise<boolean>;
+	/** Reset installer state so the wizard can run again */
+	reset(): Promise<void>;
 	/** Get current state */
 	getState(): InstallerState;
 }

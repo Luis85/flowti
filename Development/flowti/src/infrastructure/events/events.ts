@@ -22,6 +22,7 @@
 
 import type { FlowtiErrorInfo } from "../errors/types";
 import type { LogEntry } from "../logger/types";
+import type { InstallerEventMap } from "../../domain/installer/events";
 import type { UserEventMap } from "../../domain/user/events";
 import type { SettingsEventMap } from "../../domain/settings/events";
 
@@ -80,7 +81,7 @@ export interface FileOperationError {
  * This is the central registry for all events in the application.
  * The key is the event type string, the value is the payload type.
  */
-export interface FlowtiEventMap extends UserEventMap, SettingsEventMap {
+export interface FlowtiEventMap extends UserEventMap, SettingsEventMap, InstallerEventMap {
 	// ─────────────────────────────────────────────────────────────
 	// Plugin Lifecycle Events
 	// ─────────────────────────────────────────────────────────────

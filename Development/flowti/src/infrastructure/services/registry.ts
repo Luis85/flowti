@@ -6,8 +6,13 @@
  */
 
 import { SettingsService } from "../../domain/settings/SettingsService";
+import { InstallerService } from "../../domain/installer/InstallerService";
+import { UserCreationStep } from "../../domain/installer/steps/UserCreationStep";
+import { FolderScaffoldStep } from "../../domain/installer/steps/FolderScaffoldStep";
+import type { IUserService } from "../../domain/user/types";
 import type { IStorageProvider } from "../../utils/types";
 import { UserService } from "../../domain/user/UserService";
+import { FileSystemClient } from "../filesystem/FileSystemClient";
 import type { IServiceContainer, ServiceRegistration } from "./types";
 
 /**
@@ -61,20 +66,25 @@ export function createServiceRegistrations(
 				}),
 		},
 
-		// Add more services here as they are created:
-		//
-		// {
-		//   id: "taskService",
-		//   dependencies: ["userService"],
-		//   factory: async (container: IServiceContainer) => {
-		//     const userService = await container.get<IUserService>("userService");
-		//     return new TaskService({
-		//       storage,
-		//       eventBus: container.getEventBus(),
-		//       userService,
-		//     });
-		//   },
-		// },
+		// Installer Service - first-run wizard and folder scaffolding
+		{
+			id: "installerService",
+			dependencies: ["userService"],
+			factory: async (container: IServiceContainer) => {
+				const userService = await container.get<IUserService>("userService");
+				const eventBus = container.getEventBus();
+				const fileSystem = new FileSystemClient({ eventBus });
+				const service = new InstallerService({
+					storage,
+					eventBus,
+					fileSystem,
+					userService,
+				});
+				service.registerStep(new UserCreationStep());
+				service.registerStep(new FolderScaffoldStep());
+				return service;
+			},
+		},
 	];
 }
 

@@ -390,3 +390,72 @@
 	white-space: nowrap;
 	border-width: 0;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Installer Wizard Modal
+   ───────────────────────────────────────────────────────────── */
+
+.flowti-installer-modal {
+	max-width: 480px;
+	min-width: 380px;
+}
+
+.ft-step-indicator {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.5rem 0;
+}
+
+.ft-step-icon {
+	width: 24px;
+	height: 24px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 50%;
+	font-size: 0.75rem;
+	flex-shrink: 0;
+}
+
+.ft-step-pending .ft-step-icon {
+	background: var(--background-secondary);
+	color: var(--text-muted);
+	border: 1px solid var(--background-modifier-border);
+}
+
+.ft-step-running .ft-step-icon {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	animation: ft-pulse 1.5s infinite;
+}
+
+.ft-step-completed .ft-step-icon {
+	background: rgba(34, 197, 94, 0.2);
+	color: rgb(74, 222, 128);
+}
+
+.ft-step-skipped .ft-step-icon {
+	background: var(--background-secondary);
+	color: var(--text-muted);
+}
+
+.ft-step-failed .ft-step-icon {
+	background: rgba(239, 68, 68, 0.2);
+	color: rgb(248, 113, 113);
+}
+
+@keyframes ft-pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.6;
+	}
+}
+
+.ft-folder-list {
+	max-height: 200px;
+	overflow-y: auto;
+}

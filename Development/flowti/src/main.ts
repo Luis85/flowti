@@ -23,8 +23,9 @@ import {
 	FlowtiSettings,
 	FlowtiSettingsSchema,
 } from "./domain/settings/settings";
+import type { IInstallerService } from "./domain/installer/types";
+import { InstallerWizardModal } from "./domain/installer/InstallerWizardModal";
 import type { IUserService } from "./domain/user/types";
-import { UserSetupModal } from "./domain/user/UserSetupModal";
 import { registerViews } from "./infrastructure/views/registry";
 import type { IViewRegistry } from "./infrastructure/views/types";
 import { ViewRegistry } from "./infrastructure/views/ViewRegistry";
@@ -268,6 +269,21 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.eventBus.on("plugin.ready", (event) => {
 			this.logger.debug("Plugin ready", { timestamp: event.payload.timestamp });
 		});
+
+		this.eventBus.on("installer.started", (event) => {
+			this.logger.info("Installation started", { stepCount: event.payload.stepCount });
+		});
+
+		this.eventBus.on("installer.completed", () => {
+			this.logger.info("Installation completed");
+		});
+
+		this.eventBus.on("installer.failed", (event) => {
+			this.logger.error("Installation failed", {
+				step: event.payload.failedStepId,
+				error: event.payload.error,
+			});
+		});
 	}
 
 	/**
@@ -401,15 +417,19 @@ export default class FlowtiBasePlugin extends Plugin {
 	 * Final initialization step, deferred until Obsidian's workspace
 	 * layout is fully rendered.
 	 *
-	 * Loads user data, shows the setup modal on first run, and emits
-	 * `plugin.ready` to signal that the plugin is fully operational.
+	 * Loads user data and installer state, shows the installer wizard
+	 * on first run, and emits `plugin.ready` to signal that the plugin
+	 * is fully operational.
 	 */
 	private async onLayoutReady(): Promise<void> {
 		try {
 			this.userService = await this.services.get<IUserService>("userService");
 			await this.userService.load();
 
-			UserSetupModal.showIfNeeded(this.app, this.userService);
+			const installerService = await this.services.get<IInstallerService>("installerService");
+			await installerService.load();
+
+			InstallerWizardModal.showIfNeeded(this.app, installerService, this.eventBus);
 
 			void this.eventBus.emit("plugin.ready", {
 				timestamp: new Date().toISOString(),
