@@ -9,8 +9,9 @@ import type {
 	InstallerContext,
 	InstallerState,
 } from "../../../src/domain/installer/types";
-import type { IStorageProvider } from "../../../src/utils/types";
+import type { IStorageProvider, UUID } from "../../../src/utils/types";
 import type { FlowtiUser } from "../../../src/domain/user/types";
+import type { IFileSystemClient } from "../../../src/infrastructure/filesystem/types";
 
 /**
  * Creates a mock storage provider that persists data in memory.
@@ -42,12 +43,12 @@ function buildInstaller(options: {
 	createFileFn?: ReturnType<typeof vi.fn>;
 }) {
 	const user: FlowtiUser = options.existingUser ?? {
-		id: "u-001",
+		id: "u-001" as UUID,
 		name: "Alice",
 		createdAt: "2026-01-01T00:00:00.000Z",
 	};
 
-	const fileSystem = {
+	const fileSystem: IFileSystemClient = {
 		createFile: options.createFileFn ?? vi.fn(),
 		readFile: vi.fn(),
 		updateFile: vi.fn(),
@@ -57,7 +58,7 @@ function buildInstaller(options: {
 		getFrontmatter: vi.fn(),
 		updateFrontmatter: vi.fn(),
 		setFrontmatter: vi.fn(),
-	};
+	} as IFileSystemClient;
 
 	const userService = {
 		load: vi.fn(),
@@ -149,10 +150,10 @@ describe("Journey: First Run", () => {
 		await service.load();
 
 		const events: string[] = [];
-		eventBus.on("installer.started", () => events.push("started"));
-		eventBus.on("installer.step.started", () => events.push("step.started"));
-		eventBus.on("installer.step.completed", () => events.push("step.completed"));
-		eventBus.on("installer.completed", () => events.push("completed"));
+		eventBus.on("installer.started", () => { events.push("started"); });
+		eventBus.on("installer.step.started", () => { events.push("step.started"); });
+		eventBus.on("installer.step.completed", () => { events.push("step.completed"); });
+		eventBus.on("installer.completed", () => { events.push("completed"); });
 
 		await service.runAll({ userName: "Alice" });
 
@@ -179,7 +180,7 @@ describe("Journey: First Run", () => {
 		});
 		userService.createUser.mockImplementation(async (name: string) => {
 			callOrder.push("user");
-			return { id: "u-001", name, createdAt: "2026-01-01T00:00:00.000Z" };
+			return { id: "u-001" as UUID, name, createdAt: "2026-01-01T00:00:00.000Z" };
 		});
 		await service.load();
 
@@ -298,7 +299,7 @@ describe("Journey: Restart from Settings", () => {
 		// User now exists in the system
 		userService.hasUser.mockReturnValue(true);
 		userService.getUser.mockReturnValue({
-			id: "u-001",
+			id: "u-001" as UUID,
 			name: "Alice",
 			createdAt: "2026-01-01T00:00:00.000Z",
 		});
@@ -511,7 +512,7 @@ describe("Journey: Failure and Retry", () => {
 		// On retry, user now exists
 		userService.hasUser.mockReturnValue(true);
 		userService.getUser.mockReturnValue({
-			id: "u-001",
+			id: "u-001" as UUID,
 			name: "Alice",
 			createdAt: "2026-01-01T00:00:00.000Z",
 		});
