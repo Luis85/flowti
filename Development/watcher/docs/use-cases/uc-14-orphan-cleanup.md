@@ -4,9 +4,9 @@
 
 > As a user, I want vault files that no longer have a source counterpart to be cleaned up during reconciliation.
 
-## Scenario 14.1: Orphaned vault file is trashed ⏭️
+## Scenario 14.1: Orphaned vault file is trashed ✅
 
-*Requires FileSyncService + vault integration*
+*Unit test: `OrphanCleanup.test.ts` — "deletes vault files not in existingSourcePaths"*
 
 ```gherkin
 Given a mapping with deletionHandling "trash"
@@ -16,9 +16,9 @@ When reconciliation runs
 Then "vault/imported/orphan.md" should be trashed
 ```
 
-## Scenario 14.2: Files matching source are kept ⏭️
+## Scenario 14.2: Files matching source are kept ✅
 
-*Requires FileSyncService + vault integration*
+*Unit test: `OrphanCleanup.test.ts` — "keeps vault files that exist in existingSourcePaths"*
 
 ```gherkin
 Given a mapping with deletionHandling "trash"
@@ -27,9 +27,9 @@ When reconciliation runs
 Then "vault/imported/keep.md" should NOT be trashed
 ```
 
-## Scenario 14.3: Extension filter is respected during cleanup ⏭️
+## Scenario 14.3: Extension filter is respected during cleanup ✅
 
-*Requires FileSyncService + vault integration*
+*Unit test: `OrphanCleanup.test.ts` — "respects fileExtensions filter (skips non-matching)"*
 
 ```gherkin
 Given a mapping with deletionHandling "trash" and fileExtensions [".md"]
@@ -38,9 +38,9 @@ When reconciliation runs
 Then "vault/imported/data.csv" should NOT be trashed (not in filter scope)
 ```
 
-## Scenario 14.4: Exclude patterns respected during cleanup ⏭️
+## Scenario 14.4: Exclude patterns respected during cleanup ✅
 
-*Requires FileSyncService + vault integration*
+*Unit test: `OrphanCleanup.test.ts` — "respects excludePatterns filter (skips matching globs)"*
 
 ```gherkin
 Given a mapping with deletionHandling "trash" and excludePatterns ["*.log"]
@@ -49,9 +49,9 @@ When reconciliation runs
 Then "vault/imported/debug.log" should NOT be trashed (matches exclude pattern)
 ```
 
-## Scenario 14.5: Trash failure is handled gracefully ⏭️
+## Scenario 14.5: Trash failure is handled gracefully ✅
 
-*Requires FileSyncService + vault integration*
+*Unit test: `OrphanCleanup.test.ts` — "handles trash() failures gracefully (increments errors)"*
 
 ```gherkin
 Given a mapping with deletionHandling "trash"

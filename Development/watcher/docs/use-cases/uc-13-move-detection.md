@@ -4,9 +4,9 @@
 
 > As a user, I want file renames/moves to be detected as a single operation rather than a delete followed by an add.
 
-## Scenario 13.1: File renamed in source is detected as move ⏭️
+## Scenario 13.1: File renamed in source is detected as move ✅
 
-*Requires MappingWatcher + chokidar*
+*Unit test: `MappingWatcher.movedetect.test.ts` — "should match add with buffered delete of same size"*
 
 ```gherkin
 Given a mapping with deletionHandling "trash" and detectMoves enabled
@@ -29,9 +29,9 @@ Then they should NOT be matched as a move
   And separate delete and add operations should be performed
 ```
 
-## Scenario 13.3: Move window expires ⏭️
+## Scenario 13.3: Move window expires ✅
 
-*Requires MappingWatcher + chokidar*
+*Unit test: `MappingWatcher.movedetect.test.ts` — "should timeout and process as delete when no matching add arrives"*
 
 ```gherkin
 Given a mapping with detectMoves enabled
@@ -40,9 +40,9 @@ When more than 2 seconds pass without a matching add
 Then the delete should be processed as a regular deletion
 ```
 
-## Scenario 13.4: Move detection without size info falls back to delete ⏭️
+## Scenario 13.4: Move detection without size info falls back to delete ✅
 
-*Requires MappingWatcher + chokidar*
+*Unit test: `MappingWatcher.movedetect.test.ts` — "should process as regular delete when size=0 (no SyncState info)"*
 
 ```gherkin
 Given a mapping with detectMoves enabled

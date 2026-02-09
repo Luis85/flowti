@@ -1,6 +1,6 @@
 # Folder Watcher — Test Plan Index
 
-> Last updated: 2026-02-08 — 457 tests across 28 files (82 acceptance + 375 unit/integration)
+> Last updated: 2026-02-09 — 475 tests across 32 files (92 acceptance + 383 unit/integration)
 
 This document serves as the index for the full test plan. Each feature, use case, journey, and scenario has its own file.
 
@@ -111,8 +111,8 @@ End-to-end paths through the system that cross multiple features.
 |---|----------|--------|------|
 | UC-11 | Deletion — Ignore | ✅ 1/2 | [uc-11](use-cases/uc-11-deletion-ignore.md) |
 | UC-12 | Deletion — Trash | ✅ 1/2 | [uc-12](use-cases/uc-12-deletion-trash.md) |
-| UC-13 | Move Detection | ✅ 4/7 | [uc-13](use-cases/uc-13-move-detection.md) |
-| UC-14 | Orphan Cleanup | ⏭️ 0/5 | [uc-14](use-cases/uc-14-orphan-cleanup.md) |
+| UC-13 | Move Detection | ✅ 6/7 | [uc-13](use-cases/uc-13-move-detection.md) |
+| UC-14 | Orphan Cleanup | ✅ 5/5 | [uc-14](use-cases/uc-14-orphan-cleanup.md) |
 
 ### Feature 4: File Filtering
 
@@ -187,25 +187,28 @@ End-to-end paths through the system that cross multiple features.
 
 | Feature | Test File | ✅ Pass | ⏭️ Skip | Total | Coverage |
 |---------|-----------|---------|---------|-------|----------|
-| 1. Core Sync | `feature1-core-sync.test.ts` | 5 | 8 | 13 | 38% |
+| 1. Core Sync | `feature1-core-sync.test.ts` | 5 | 13 | 18 | 28% |
 | 2. Conflict Resolution | `feature2-conflict-resolution.test.ts` | 9 | 1 | 10 | 90% |
-| 3. Deletion & Move | `feature3-deletion-move.test.ts` | 6 | 10 | 16 | 38% |
-| 4. File Filtering | `feature4-file-filtering.test.ts` | 19 | 2 | 21 | 90% |
-| 5. Reconciliation | `feature5-reconciliation.test.ts` | 8 | 6 | 14 | 57% |
-| 6. Reliability | `feature6-reliability.test.ts` | 14 | 3 | 17 | 82% |
-| 7. Safety | `feature7-safety.test.ts` | 10 | 8 | 18 | 56% |
-| 8-10. Settings/UI/Persistence | `feature8-10-settings-ui-persistence.test.ts` | 11 | 18 | 29 | 38% |
-| **Totals** | | **82** | **56** | **138** | **59%** |
+| 3. Deletion & Move | `feature3-deletion-move.test.ts` | 6 | 11 | 17 | 35% |
+| 4. File Filtering | `feature4-file-filtering.test.ts` | 23 | 2 | 25 | 92% |
+| 5. Reconciliation | `feature5-reconciliation.test.ts` | 11 | 4 | 15 | 73% |
+| 6. Reliability | `feature6-reliability.test.ts` | 16 | 3 | 19 | 84% |
+| 7. Safety | `feature7-safety.test.ts` | 12 | 8 | 20 | 60% |
+| 8-10. Settings/UI/Persistence | `feature8-10-settings-ui-persistence.test.ts` | 10 | 22 | 32 | 31% |
+| **Totals** | | **92** | **64** | **156** | **59%** |
 
 ### Skip Reasons
 
 | Category | Count | Affected UCs | Unblocking Strategy |
 |----------|-------|--------------|---------------------|
-| Chokidar / MappingWatcher | 19 | UC-01, 04, 05, 11, 12, 13, 34, 37, 45, 46 | Mock chokidar's `watch()` or create filesystem integration test harness |
+| Chokidar / MappingWatcher | 15 | UC-01, 04, 05, 11, 12, 34, 37 | Mock chokidar's `watch()` or create filesystem integration test harness |
 | Obsidian DOM / Modal | 18 | UC-35, 36, 38-41, 42 | Use JSDOM + mock Obsidian API, or E2E testing framework |
-| FileSyncService I/O | 12 | UC-14, 21, 22, 25, 30, 43, 44 | Mock `fsp.*` at module level (same pattern as Feature 2) |
+| FileSyncService I/O | 17 | UC-06, 13², 14¹, 21, 22, 25, 30, 43, 44 | Mock `fsp.*` at module level (same pattern as Feature 2) |
 | Filesystem / symlinks | 2 | UC-19 | Create temp symlinks in test setup (`fs.symlinkSync`) |
-| WatcherManager integration | 5 | UC-02, 20, 42 | Mock WatcherManager's `startAll()` with injected watcher factories |
+| WatcherManager integration | 7 | UC-02, 03, 20, 45, 46 | Mock WatcherManager's `startAll()` with injected watcher factories |
+
+> ¹ UC-14 acceptance tests are skipped but all 5 scenarios are covered by `OrphanCleanup.test.ts` (9 unit tests).
+> ² UC-13 scenarios 13.1, 13.3, 13.4 are skipped in acceptance but covered by `MappingWatcher.movedetect.test.ts` (6 unit tests). Only 13.2 (same-size-different-ext) lacks a dedicated test.
 
 ---
 
