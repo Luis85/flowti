@@ -1072,9 +1072,23 @@ export class FileSyncService {
 		stats.skipped = poolStats.skipped;
 		stats.errors = poolStats.errors;
 
+		// Reverse reconciliation: sync vault-only files to source (bidirectional only)
+		const syncDirection = mapping.syncDirection ?? "source-only";
+		if (syncDirection === "bidirectional") {
+			try {
+				const reverseResult = await this.reverseReconcileVaultFiles(mapping, existingPaths);
+				stats.processed += reverseResult.processed;
+				stats.skipped += reverseResult.skipped;
+				stats.errors += reverseResult.errors;
+			} catch (e) {
+				LogService.error("Reconcile", `Reverse reconciliation failed: ${String(e)}`, {
+					mappingId: mapping.id,
+				});
+			}
+		}
+
 		// Orphan cleanup: remove vault files that no longer exist in source
 		const deletionHandling = mapping.deletionHandling ?? "ignore";
-		const syncDirection = mapping.syncDirection ?? "source-only";
 		if (deletionHandling !== "ignore" && syncDirection !== "vault-only") {
 			try {
 				const orphanResult = await this.orphanCleanup.cleanupOrphans(mapping, existingPaths);
@@ -1554,6 +1568,109 @@ export class FileSyncService {
 			await new Promise((r) => window.setTimeout(r, interval));
 		}
 		return false;
+	}
+
+	// ===========================
+	// Reverse reconciliation (bidirectional)
+	// ===========================
+
+	/**
+	 * Walks all files in a vault target folder recursively.
+	 * Used by reverse reconciliation to find vault-only files.
+	 */
+	private async walkVaultTargetFiles(basePath: string): Promise<string[]> {
+		const out: string[] = [];
+		const stack: string[] = [basePath];
+
+		while (stack.length > 0) {
+			const dir = stack.pop()!;
+			try {
+				const listing = await this.app.vault.adapter.list(dir);
+				if (listing?.files) {
+					out.push(...listing.files);
+				}
+				if (listing?.folders) {
+					stack.push(...listing.folders);
+				}
+			} catch {
+				continue;
+			}
+		}
+
+		return out;
+	}
+
+	/**
+	 * Reverse reconciliation for bidirectional mappings.
+	 * Finds vault files without a corresponding source file and syncs them to the source.
+	 * Updates existingSourcePaths so orphan cleanup won't delete reverse-synced files.
+	 */
+	private async reverseReconcileVaultFiles(
+		mapping: FolderMapping,
+		existingSourcePaths: Set<string>
+	): Promise<{ processed: number; skipped: number; errors: number }> {
+		let processed = 0;
+		let skipped = 0;
+		let errors = 0;
+
+		const targetBase = toVaultPath(mapping.targetFolder);
+		const vaultFiles = await this.walkVaultTargetFiles(targetBase);
+
+		for (const vaultFilePath of vaultFiles) {
+			const normalizedVaultPath = toVaultPath(vaultFilePath);
+
+			// Calculate relative path from target folder
+			const prefix = targetBase.endsWith("/") ? targetBase : targetBase + "/";
+			if (!normalizedVaultPath.startsWith(prefix)) continue;
+			const relativePath = normalizedVaultPath.slice(prefix.length);
+			if (!relativePath) continue;
+
+			// Check extension filter
+			if (!isAllowedByExtensions(relativePath, mapping.fileExtensions ?? [])) continue;
+
+			// Check exclusion patterns
+			if (isPathExcluded(relativePath, mapping.excludePatterns ?? [])) continue;
+
+			// Skip files that already exist in source
+			if (existingSourcePaths.has(relativePath)) continue;
+
+			// This vault file doesn't exist in source — reverse sync it
+			try {
+				const result = await this.syncFileReverseInternal(mapping, normalizedVaultPath);
+				if (result.ok && result.action === "processed") {
+					processed++;
+					existingSourcePaths.add(relativePath);
+					LogService.debug("Reconcile", `Reverse-synced vault-only file to source`, {
+						mappingId: mapping.id,
+						filePath: normalizedVaultPath,
+					});
+				} else if (result.ok) {
+					skipped++;
+					// Still protect from orphan cleanup
+					existingSourcePaths.add(relativePath);
+				} else {
+					errors++;
+					LogService.warn("Reconcile", `Failed to reverse-sync: ${result.error?.message}`, {
+						mappingId: mapping.id,
+						filePath: normalizedVaultPath,
+					});
+				}
+			} catch (e) {
+				errors++;
+				LogService.error("Reconcile", `Reverse reconcile error: ${String(e)}`, {
+					mappingId: mapping.id,
+					filePath: normalizedVaultPath,
+				});
+			}
+		}
+
+		if (processed > 0) {
+			LogService.info("Reconcile", `Reverse-synced ${processed} vault-only files to source`, {
+				mappingId: mapping.id,
+			});
+		}
+
+		return { processed, skipped, errors };
 	}
 
 	// ===========================
