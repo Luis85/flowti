@@ -7,9 +7,10 @@ views:
   - type: table
     name: Plugins
     order:
-      - title
       - file.name
-      - file.folder
+      - title
       - stage
+      - file.folder
     columnSize:
+      note.title: 258
       file.folder: 193

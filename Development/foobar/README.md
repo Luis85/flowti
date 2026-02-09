@@ -1,3 +1,7 @@
+---
+stage: design
+title: Plugin Playground
+---
 # Obsidian Sample Plugin
 
 This is a sample plugin for Obsidian (https://obsidian.md).

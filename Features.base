@@ -12,16 +12,35 @@ views:
       - file.name
       - stage
       - domain
+      - plugin
+      - file.folder
+    columnSize:
+      file.name: 265
+      note.stage: 72
+      note.domain: 119
+      note.plugin: 104
+  - type: table
+    name: Flowti
+    filters:
+      and:
+        - file.folder.contains("flowti")
+    groupBy:
+      property: domain
+      direction: ASC
+    order:
+      - file.name
+      - stage
+      - domain
       - file.folder
     columnSize:
       file.name: 265
       note.stage: 72
       note.domain: 119
   - type: table
-    name: Flowti
+    name: Folder Watcher
     filters:
       and:
-        - file.folder.contains("flowti")
+        - file.folder.contains("watcher")
     groupBy:
       property: domain
       direction: ASC

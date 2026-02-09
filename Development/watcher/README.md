@@ -1,3 +1,7 @@
+---
+title: Foreign Folder Watcher
+stage: development
+---
 # Foreign Folder Watcher
 
 An Obsidian plugin for automatic synchronization of files between external folders and your vault.
