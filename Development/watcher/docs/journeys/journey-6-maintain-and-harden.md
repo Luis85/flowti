@@ -1,6 +1,6 @@
 # Journey 6: Maintain and Harden the Plugin
 
-> **Persona:** [The Maintainer (Luis)](../personas/maintainer.md) — the solo developer who
+> **Persona:** [The Maintainer (Luis)](Development/watcher/docs/personas/Maintainer.md) — the solo developer who
 > builds, tests, and ships the Folder Watcher plugin.
 
 ## Steps

@@ -1,6 +1,6 @@
 # Journey 5: Sync Content Across Devices
 
-> **Persona:** [The Content Creator (Max)](../personas/content-creator.md) — a multi-device user who
+> **Persona:** [The Content Creator (Max)](Content%20Creator.md) — a multi-device user who
 > captures ideas on his phone, refines them on his tablet, and uses the desktop vault as
 > the authoritative documentation platform, all synced through OneDrive.
 

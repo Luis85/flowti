@@ -1,3 +1,7 @@
+---
+plugin: "[[Development/watcher/README|README]]"
+domain: Folder Watcher
+---
 # Persona: The Collaborator
 
 > Used in: [Journey 4 — Share Drafts and Collect Feedback](../journeys/journey-4-share-and-collect-feedback.md)
@@ -33,6 +37,10 @@ Chris works on documentation, proposals, and reports together with colleagues. S
 ## Jobs to be Done
 
 See [collaborator JTBD](../jtbd/collaborator.md)
+
+## User Stories
+
+See [collaborator user stories](../user-stories/collaborator.md) (7 stories: US-C1 – US-C7)
 
 ## Primary Features
 

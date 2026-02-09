@@ -1,6 +1,6 @@
 # Jobs to be Done: The Maintainer (Luis)
 
-> Persona: [The Maintainer](../personas/maintainer.md) | No journey — drives internal quality.
+> Persona: [The Maintainer](Development/watcher/docs/personas/Maintainer.md) | No journey — drives internal quality.
 
 ## Jobs
 

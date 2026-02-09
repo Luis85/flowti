@@ -1,3 +1,7 @@
+---
+plugin: "[[Development/watcher/README|README]]"
+domain: Folder Watcher
+---
 # Persona: The Researcher
 
 > Used in: [Journey 1 — Import External Notes](../journeys/journey-1-import-external-notes.md)
@@ -32,6 +36,10 @@ Alex keeps research notes, paper drafts, and reference material in a Dropbox-syn
 ## Jobs to be Done
 
 See [researcher JTBD](../jtbd/researcher.md)
+
+## User Stories
+
+See [researcher user stories](../user-stories/researcher.md) (6 stories: US-R1 – US-R6)
 
 ## Primary Features
 

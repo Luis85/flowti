@@ -1,6 +1,6 @@
 # Journey 4: Share Drafts and Collect Feedback
 
-> **Persona:** [The Collaborator (Chris)](../personas/collaborator.md) — a team lead who shares drafts
+> **Persona:** [The Collaborator (Chris)](Development/watcher/docs/personas/Collaborator.md) — a team lead who shares drafts
 > via a shared team folder and pulls back colleague edits into Obsidian.
 
 > **Test file:** `tests/acceptance/user-journeys.test.ts`

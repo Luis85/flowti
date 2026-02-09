@@ -1,3 +1,7 @@
+---
+plugin: "[[Development/watcher/README|README]]"
+domain: Folder Watcher
+---
 # Persona: The Content Creator
 
 > Used in: [Journey 5 — Sync Content Across Devices](../journeys/journey-5-sync-across-devices.md)
@@ -35,6 +39,10 @@ Max uses Obsidian across three devices. On his phone he captures quick ideas, re
 ## Jobs to be Done
 
 See [content-creator JTBD](../jtbd/content-creator.md)
+
+## User Stories
+
+See [content-creator user stories](../user-stories/content-creator.md) (8 stories: US-X1 – US-X8)
 
 ## Primary Features
 

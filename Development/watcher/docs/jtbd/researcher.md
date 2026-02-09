@@ -1,6 +1,6 @@
 # Jobs to be Done: The Researcher (Alex)
 
-> Persona: [The Researcher](../personas/researcher.md) | Journey: [Journey 1](../journeys/journey-1-import-external-notes.md)
+> Persona: [The Researcher](Development/watcher/docs/personas/Researcher.md) | Journey: [Journey 1](../journeys/journey-1-import-external-notes.md)
 
 ## Jobs
 

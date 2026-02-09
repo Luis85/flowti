@@ -1,6 +1,6 @@
 # Jobs to be Done: The Content Creator (Max)
 
-> Persona: [The Content Creator](../personas/content-creator.md) | No journey yet.
+> Persona: [The Content Creator](Content%20Creator.md) | No journey yet.
 
 ## Jobs
 

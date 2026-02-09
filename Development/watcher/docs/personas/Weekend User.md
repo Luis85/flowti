@@ -1,3 +1,7 @@
+---
+plugin: "[[Development/watcher/README|README]]"
+domain: Folder Watcher
+---
 # Persona: The Weekend User
 
 > Used in: [Journey 3 — Catch Up After a Weekend Away](../journeys/journey-3-catch-up-after-weekend.md)
@@ -32,6 +36,10 @@ Jordan uses Obsidian at work with multiple folder mappings (notes, docs, shared 
 ## Jobs to be Done
 
 See [weekend-user JTBD](../jtbd/weekend-user.md)
+
+## User Stories
+
+See [weekend-user user stories](../user-stories/weekend-user.md) (6 stories: US-W1 – US-W6)
 
 ## Primary Features
 

@@ -1,3 +1,7 @@
+---
+plugin: "[[Development/watcher/README|README]]"
+domain: Folder Watcher
+---
 # Persona: The Maintainer
 
 > Used in: [Journey 6 — Maintain and Harden the Plugin](../journeys/journey-6-maintain-and-harden.md)
@@ -35,6 +39,10 @@ Luis builds and maintains the Folder Watcher plugin. He works in VS Code with a 
 ## Jobs to be Done
 
 See [maintainer JTBD](../jtbd/maintainer.md)
+
+## User Stories
+
+See [maintainer user stories](../user-stories/maintainer.md) (8 stories: US-M1 – US-M8)
 
 ## Primary Features (from a maintainer perspective)
 

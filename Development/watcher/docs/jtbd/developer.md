@@ -1,6 +1,6 @@
 # Jobs to be Done: The Developer (Sam)
 
-> Persona: [The Developer](../personas/developer.md) | Journey: [Journey 2](../journeys/journey-2-edit-from-both-sides.md)
+> Persona: [The Developer](Development/watcher/docs/personas/Developer.md) | Journey: [Journey 2](../journeys/journey-2-edit-from-both-sides.md)
 
 ## Jobs
 

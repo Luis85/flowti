@@ -1,3 +1,7 @@
+---
+plugin: "[[Development/watcher/README|README]]"
+domain: Folder Watcher
+---
 # Persona: The Developer
 
 > Used in: [Journey 2 — Edit from Both Sides](../journeys/journey-2-edit-from-both-sides.md)
@@ -32,6 +36,10 @@ Sam uses Obsidian for project documentation and VS Code for coding. Markdown fil
 ## Jobs to be Done
 
 See [developer JTBD](../jtbd/developer.md)
+
+## User Stories
+
+See [developer user stories](../user-stories/developer.md) (6 stories: US-D1 – US-D6)
 
 ## Primary Features
 

@@ -1,0 +1,18 @@
+filters:
+  and:
+    - file.folder.contains("personas")
+views:
+  - type: table
+    name: Personas
+    groupBy:
+      property: domain
+      direction: ASC
+    order:
+      - file.name
+      - plugin
+      - domain
+      - file.folder
+    columnSize:
+      file.name: 127
+      note.plugin: 109
+      note.domain: 123

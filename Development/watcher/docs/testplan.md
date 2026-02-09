@@ -10,12 +10,12 @@ This document serves as the index for the full test plan. Each feature, use case
 
 | Persona          | Description                                        | Journey   | File                                     |
 | ---------------- | -------------------------------------------------- | --------- | ---------------------------------------- |
-| The Researcher   | Academic importing Dropbox notes into Obsidian     | Journey 1 | [researcher](personas/researcher.md)     |
-| The Developer    | Developer editing markdown in Obsidian + VS Code   | Journey 2 | [developer](personas/developer.md)       |
-| The Weekend User | Knowledge worker catching up after offline periods | Journey 3 | [weekend-user](personas/weekend-user.md) |
-| The Collaborator | Team lead sharing files for review and contributions | Journey 4 | [collaborator](personas/collaborator.md) |
-| The Content Creator | Multi-device creator syncing via OneDrive across phone, tablet, desktop | Journey 5 | [content-creator](personas/content-creator.md) |
-| The Maintainer   | Plugin developer focused on quality and regressions   | Journey 6 | [maintainer](personas/maintainer.md)     |
+| The Researcher   | Academic importing Dropbox notes into Obsidian     | Journey 1 | [Researcher](Development/watcher/docs/personas/Researcher.md)     |
+| The Developer    | Developer editing markdown in Obsidian + VS Code   | Journey 2 | [Developer](Development/watcher/docs/personas/Developer.md)       |
+| The Weekend User | Knowledge worker catching up after offline periods | Journey 3 | [Weekend User](Weekend%20User.md) |
+| The Collaborator | Team lead sharing files for review and contributions | Journey 4 | [Collaborator](Development/watcher/docs/personas/Collaborator.md) |
+| The Content Creator | Multi-device creator syncing via OneDrive across phone, tablet, desktop | Journey 5 | [Content Creator](Content%20Creator.md) |
+| The Maintainer   | Plugin developer focused on quality and regressions   | Journey 6 | [Maintainer](Development/watcher/docs/personas/Maintainer.md)     |
 
 ---
 
@@ -31,6 +31,21 @@ What each persona is trying to accomplish — framed as situational motivations,
 | The Collaborator | 7 | [collaborator](jtbd/collaborator.md) |
 | The Content Creator | 8 | [content-creator](jtbd/content-creator.md) |
 | The Maintainer | 8 | [maintainer](jtbd/maintainer.md) |
+
+---
+
+## User Stories
+
+Testable requirements derived from each persona's JTBD — "As a … I want … so that …" with acceptance criteria.
+
+| Persona | Stories | Prefix | File |
+|---------|---------|--------|------|
+| The Researcher | 6 | US-R | [researcher](user-stories/researcher.md) |
+| The Developer | 6 | US-D | [developer](user-stories/developer.md) |
+| The Weekend User | 6 | US-W | [weekend-user](user-stories/weekend-user.md) |
+| The Collaborator | 7 | US-C | [collaborator](user-stories/collaborator.md) |
+| The Content Creator | 8 | US-X | [content-creator](user-stories/content-creator.md) |
+| The Maintainer | 8 | US-M | [maintainer](user-stories/maintainer.md) |
 
 ---
 

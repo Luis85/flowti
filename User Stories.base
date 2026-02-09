@@ -1,0 +1,22 @@
+filters:
+  and:
+    - file.folder.contains("user-stories")
+views:
+  - type: table
+    name: User Stories
+    groupBy:
+      property: parent
+      direction: ASC
+    order:
+      - file.name
+      - title
+      - jtbd
+      - journey
+      - domain
+      - parent
+      - persona
+      - file.folder
+    columnSize:
+      note.domain: 139
+      note.parent: 146
+      file.folder: 267

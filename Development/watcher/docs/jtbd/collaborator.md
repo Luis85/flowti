@@ -1,6 +1,6 @@
 # Jobs to be Done: The Collaborator (Chris)
 
-> Persona: [The Collaborator](../personas/collaborator.md) | Journey: [Journey 4](../journeys/journey-4-share-and-collect-feedback.md)
+> Persona: [The Collaborator](Development/watcher/docs/personas/Collaborator.md) | Journey: [Journey 4](../journeys/journey-4-share-and-collect-feedback.md)
 
 ## Jobs
 

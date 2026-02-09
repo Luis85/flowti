@@ -1,6 +1,6 @@
 # Jobs to be Done: The Weekend User (Jordan)
 
-> Persona: [The Weekend User](../personas/weekend-user.md) | Journey: [Journey 3](../journeys/journey-3-catch-up-after-weekend.md)
+> Persona: [The Weekend User](Weekend%20User.md) | Journey: [Journey 3](../journeys/journey-3-catch-up-after-weekend.md)
 
 ## Jobs
 
