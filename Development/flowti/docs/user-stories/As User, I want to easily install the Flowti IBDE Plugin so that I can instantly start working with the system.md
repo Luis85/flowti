@@ -1,5 +1,5 @@
 ---
-parent: "[[03 - Resources/Actors/User|User]]"
+parent: "[[03 - Resources/Documentation/Reference/Actors/User|User]]"
 persona: User
 domain: Flowti/System
 title: Easy first-run installation
