@@ -410,6 +410,78 @@ describe("VaultWatcher", () => {
 	});
 
 	// ===========================
+	// create-then-rename pattern
+	// ===========================
+	describe("create-then-rename (Untitled pattern)", () => {
+		it("cancels pending create and re-enqueues with new name", async () => {
+			createWatcher({ deletionHandling: "trash" });
+			watcher.start();
+
+			// Step 1: Obsidian creates "Untitled.md"
+			const untitledFile = createTFile("vault/imported/Untitled.md");
+			mockApp._handlers.get("create")!(untitledFile);
+
+			// Step 2: User renames to "my-note.md" (within debounce window)
+			const renamedFile = createTFile("vault/imported/my-note.md");
+			mockApp._handlers.get("rename")!(renamedFile, "vault/imported/Untitled.md");
+
+			// Advance past debounce
+			await vi.advanceTimersByTimeAsync(3000);
+
+			// "Untitled.md" should NOT have been synced (job was cancelled)
+			// "my-note.md" should have been synced as "added" (not as move)
+			expect(context.fileSync.syncFileReverse).toHaveBeenCalledTimes(1);
+			expect(context.fileSync.syncFileReverse).toHaveBeenCalledWith(
+				watcher.mapping,
+				"vault/imported/my-note.md",
+			);
+			expect(context.fileSync.syncMoveReverse).not.toHaveBeenCalled();
+		});
+
+		it("works even when deletionHandling is ignore", async () => {
+			createWatcher({ deletionHandling: "ignore" });
+			watcher.start();
+
+			// Create "Untitled.md"
+			const untitledFile = createTFile("vault/imported/Untitled.md");
+			mockApp._handlers.get("create")!(untitledFile);
+
+			// Rename to "my-note.md"
+			const renamedFile = createTFile("vault/imported/my-note.md");
+			mockApp._handlers.get("rename")!(renamedFile, "vault/imported/Untitled.md");
+
+			await vi.advanceTimersByTimeAsync(3000);
+
+			// Even with deletionHandling=ignore, the create-then-rename
+			// should sync the final name
+			expect(context.fileSync.syncFileReverse).toHaveBeenCalledTimes(1);
+			expect(context.fileSync.syncFileReverse).toHaveBeenCalledWith(
+				watcher.mapping,
+				"vault/imported/my-note.md",
+			);
+		});
+
+		it("rename without pending job falls through to normal move logic", async () => {
+			createWatcher({ deletionHandling: "trash" });
+			watcher.start();
+
+			// Rename WITHOUT a prior create (file was already synced)
+			const file = createTFile("vault/imported/new-name.md");
+			mockApp._handlers.get("rename")!(file, "vault/imported/old-name.md");
+
+			await vi.advanceTimersByTimeAsync(3000);
+
+			// Should be processed as a move (no pending job to cancel)
+			expect(context.fileSync.syncMoveReverse).toHaveBeenCalledWith(
+				watcher.mapping,
+				"vault/imported/old-name.md",
+				"vault/imported/new-name.md",
+			);
+			expect(context.fileSync.syncFileReverse).not.toHaveBeenCalled();
+		});
+	});
+
+	// ===========================
 	// onFileDelete
 	// ===========================
 	describe("onFileDelete", () => {

@@ -184,8 +184,6 @@ export class VaultWatcher {
 
 	private onFileRename(file: TAbstractFile, oldPath: string) {
 		if (!(file instanceof TFile)) return;
-		const handling = this.mapping.deletionHandling ?? "ignore";
-		if (handling === "ignore") return;
 
 		const newVaultPath = toVaultPath(file.path);
 		const oldVaultPath = toVaultPath(oldPath);
@@ -194,8 +192,33 @@ export class VaultWatcher {
 		const oldInTarget = oldVaultPath.startsWith(targetBase + "/");
 		const newInTarget = newVaultPath.startsWith(targetBase + "/");
 
+		// Cancel any pending job for the OLD path (e.g., "Untitled.md" create
+		// that hasn't fired yet). This prevents syncing a transient filename.
+		const pendingOldJob = this.pending.get(oldPath);
+		if (pendingOldJob?.timer) {
+			clearTimeout(pendingOldJob.timer);
+			this.pending.delete(oldPath);
+		}
+
 		if (oldInTarget && newInTarget) {
-			// Move within our domain → sync as move
+			if (pendingOldJob) {
+				// The old file was never synced to external (its debounce hadn't
+				// fired yet). Treat the new path as a fresh "added" event instead
+				// of a move of a non-existent file. Common pattern: Obsidian
+				// creates "Untitled.md" then immediately renames it.
+				LogService.debug("VaultWatcher", `Rename cancelled pending job, re-enqueuing as added`, {
+					mappingId: this.mapping.id,
+					filePath: file.path,
+					details: { oldPath },
+				});
+				this.enqueue(file.path, "added");
+				return;
+			}
+
+			// File was already synced — process as a move (requires deletion handling)
+			const handling = this.mapping.deletionHandling ?? "ignore";
+			if (handling === "ignore") return;
+
 			const delay = Math.max(VaultWatcher.MIN_REVERSE_DEBOUNCE_MS, this.mapping.debounceDelay ?? 800);
 			const job: PendingJob = { filePath: file.path, changeType: "moved", oldPath };
 			job.timer = setTimeout(() => {
@@ -205,6 +228,8 @@ export class VaultWatcher {
 			this.pending.set(file.path, job);
 		} else if (oldInTarget && !newInTarget) {
 			// Moved OUT of our target folder → treat as delete
+			const handling = this.mapping.deletionHandling ?? "ignore";
+			if (handling === "ignore") return;
 			this.enqueue(oldPath, "deleted");
 		} else if (!oldInTarget && newInTarget) {
 			// Moved INTO our target folder → treat as add

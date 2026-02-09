@@ -505,8 +505,13 @@ export class FileSyncService {
 		oldVaultPath: string,
 		newVaultPath: string
 	): Promise<SyncResult> {
-		// Check loop prevention
-		if (this.isRecentlySynced(oldVaultPath) || this.isRecentlySynced(newVaultPath)) {
+		// Check loop prevention — only on the NEW path.
+		// The old path may have been recently synced as a create/modify (e.g.,
+		// Obsidian's "Untitled.md" → user rename pattern), which should not
+		// block the subsequent rename. The new path check is sufficient to
+		// prevent loops: forward syncMove records newVaultPath, so this
+		// correctly blocks a reverse sync triggered by the forward sync.
+		if (this.isRecentlySynced(newVaultPath)) {
 			return { ok: true, action: "skipped", reason: "loop_prevention" };
 		}
 
