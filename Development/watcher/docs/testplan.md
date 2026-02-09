@@ -209,6 +209,12 @@ End-to-end paths through the system that cross multiple features.
 
 ---
 
+## Data Dictionary
+
+> [data-dictionary.md](data-dictionary.md) — All concepts, settings, mapping fields, defaults, and filtered file patterns for end users.
+
+---
+
 ## Appendix A: Constants Reference
 
 | Constant | Value | Location |
