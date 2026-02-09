@@ -1,13 +1,14 @@
 /**
- * Tests for bidirectional reconciliation reverse sync.
+ * Tests for bidirectional and vault-only reconciliation reverse sync.
  *
- * Bug fix: In bidirectional mode with deletion handling enabled,
+ * Bug fix 1: In bidirectional mode with deletion handling enabled,
  * files created in the vault were not being reverse-synced to the
  * source folder during reconciliation. Orphan cleanup then deleted
  * them because they had no source counterpart.
  *
- * The fix adds a reverse reconciliation step before orphan cleanup
- * that syncs vault-only files to the source folder.
+ * Bug fix 2: In vault-only mode, reconcileMapping() incorrectly
+ * forward-synced from external to vault (wrong direction). Now it
+ * only runs reverse reconciliation (vault → external).
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -426,5 +427,169 @@ describe("FileSyncService — bidirectional reconciliation", () => {
 		const reverseWritePaths = writeFileCalls.map(c => String(c[0]).replace(/\\/g, "/"));
 		expect(reverseWritePaths).toContain("C:/source/doc.md");
 		expect(reverseWritePaths).not.toContain("C:/source/notes.txt");
+	});
+});
+
+describe("FileSyncService — vault-only reconciliation", () => {
+	let service: FileSyncService;
+	let mockAdapter: ReturnType<typeof createMockVaultAdapter>;
+	let mockVault: ReturnType<typeof createMockVault>;
+	let mockApp: ReturnType<typeof createMockApp>;
+
+	beforeEach(() => {
+		clearMockFs();
+
+		mockAdapter = createMockVaultAdapter();
+		mockVault = createMockVault(mockAdapter);
+		mockApp = createMockApp(mockVault);
+		const mockSettings = createMockSettings({
+			reconcile: {
+				parallelism: 1,
+				progressThrottleMs: 0,
+				fastSkipUnchanged: false,
+				disableStabilityCheckDuringReconcile: true,
+				notifyOnMappingDone: false,
+				incrementalMode: false,
+			},
+		});
+
+		service = new FileSyncService(mockApp as any, mockSettings as any);
+	});
+
+	afterEach(() => {
+		service.destroy();
+		vi.clearAllMocks();
+	});
+
+	it("should reverse-sync vault files to external in vault-only mode", async () => {
+		// External folder exists but is empty
+		mockDirs.add(SOURCE_ROOT);
+
+		// Vault has files
+		const vaultContent = Buffer.from("vault content");
+		mockAdapter.files.set("vault/imported/note.md", {
+			content: vaultContent.buffer.slice(0) as ArrayBuffer,
+			mtime: Date.now(),
+			size: vaultContent.length,
+		});
+
+		const mapping = createMockMapping({
+			sourceFolder: SOURCE_ROOT,
+			targetFolder: "vault/imported",
+			syncDirection: "vault-only",
+			watchSubfolders: true,
+		});
+
+		const stats = await service.reconcileMapping(mapping as any);
+
+		// Should have been written to external
+		const writeFileCalls = vi.mocked(fsp.writeFile).mock.calls;
+		const writePaths = writeFileCalls.map(c => String(c[0]).replace(/\\/g, "/"));
+		expect(writePaths).toContain("C:/source/note.md");
+
+		expect(stats.processed).toBeGreaterThanOrEqual(1);
+	});
+
+	it("should NOT forward-sync external files to vault in vault-only mode", async () => {
+		// External folder has files
+		mockDirs.add(SOURCE_ROOT);
+		setupMockFile("C:\\source\\external-file.md", "from external");
+
+		// Vault is empty (no files in mockAdapter)
+
+		const mapping = createMockMapping({
+			sourceFolder: SOURCE_ROOT,
+			targetFolder: "vault/imported",
+			syncDirection: "vault-only",
+			watchSubfolders: true,
+		});
+
+		await service.reconcileMapping(mapping as any);
+
+		// writeBinary should NOT have been called (no forward sync)
+		expect(mockAdapter.writeBinary).not.toHaveBeenCalled();
+	});
+
+	it("should NOT delete vault files (no orphan cleanup) in vault-only mode", async () => {
+		// External folder exists but is empty
+		mockDirs.add(SOURCE_ROOT);
+
+		// Vault has files
+		const vaultContent = Buffer.from("vault content");
+		mockAdapter.files.set("vault/imported/note.md", {
+			content: vaultContent.buffer.slice(0) as ArrayBuffer,
+			mtime: Date.now(),
+			size: vaultContent.length,
+		});
+
+		const mapping = createMockMapping({
+			sourceFolder: SOURCE_ROOT,
+			targetFolder: "vault/imported",
+			syncDirection: "vault-only",
+			deletionHandling: "trash",
+			watchSubfolders: true,
+		});
+
+		const stats = await service.reconcileMapping(mapping as any);
+
+		// vault.trash should NOT have been called
+		expect(mockVault.trash).not.toHaveBeenCalled();
+		expect(stats.deleted).toBe(0);
+	});
+
+	it("should work even when sourceFolder does not exist yet", async () => {
+		// External folder does NOT exist (no mockDirs.add)
+
+		// Vault has files
+		const vaultContent = Buffer.from("vault content");
+		mockAdapter.files.set("vault/imported/note.md", {
+			content: vaultContent.buffer.slice(0) as ArrayBuffer,
+			mtime: Date.now(),
+			size: vaultContent.length,
+		});
+
+		const mapping = createMockMapping({
+			sourceFolder: SOURCE_ROOT,
+			targetFolder: "vault/imported",
+			syncDirection: "vault-only",
+			watchSubfolders: true,
+		});
+
+		const stats = await service.reconcileMapping(mapping as any);
+
+		// Should still reverse-sync (mkdir will create parent dirs)
+		const writeFileCalls = vi.mocked(fsp.writeFile).mock.calls;
+		const writePaths = writeFileCalls.map(c => String(c[0]).replace(/\\/g, "/"));
+		expect(writePaths).toContain("C:/source/note.md");
+		expect(stats.processed).toBeGreaterThanOrEqual(1);
+	});
+
+	it("should reverse-sync multiple vault files in vault-only mode", async () => {
+		mockDirs.add(SOURCE_ROOT);
+
+		for (const name of ["a.md", "b.md", "c.md"]) {
+			const content = Buffer.from(`Content of ${name}`);
+			mockAdapter.files.set(`vault/imported/${name}`, {
+				content: content.buffer.slice(0) as ArrayBuffer,
+				mtime: Date.now(),
+				size: content.length,
+			});
+		}
+
+		const mapping = createMockMapping({
+			sourceFolder: SOURCE_ROOT,
+			targetFolder: "vault/imported",
+			syncDirection: "vault-only",
+			watchSubfolders: true,
+		});
+
+		const stats = await service.reconcileMapping(mapping as any);
+
+		const writeFileCalls = vi.mocked(fsp.writeFile).mock.calls;
+		const writePaths = writeFileCalls.map(c => String(c[0]).replace(/\\/g, "/"));
+		expect(writePaths).toContain("C:/source/a.md");
+		expect(writePaths).toContain("C:/source/b.md");
+		expect(writePaths).toContain("C:/source/c.md");
+		expect(stats.processed).toBeGreaterThanOrEqual(3);
 	});
 });

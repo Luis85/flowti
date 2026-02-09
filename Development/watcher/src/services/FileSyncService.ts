@@ -941,6 +941,28 @@ export class FileSyncService {
 
 		if (!mapping.enabled) return stats;
 		if (!mapping.sourceFolder) return stats;
+
+		const syncDirection = mapping.syncDirection ?? "source-only";
+
+		// ---- vault-only: reverse reconciliation only ----
+		// In vault-only mode the vault is the source of truth — scan vault
+		// files and push them to the external folder. Forward sync (external →
+		// vault) must NOT run to avoid overwriting vault content.
+		if (syncDirection === "vault-only") {
+			try {
+				const existingPaths = new Set<string>();
+				const reverseResult = await this.reverseReconcileVaultFiles(mapping, existingPaths);
+				stats.processed += reverseResult.processed;
+				stats.skipped += reverseResult.skipped;
+				stats.errors += reverseResult.errors;
+			} catch (e) {
+				LogService.error("Reconcile", `Vault-only reverse reconciliation failed: ${String(e)}`, {
+					mappingId: mapping.id,
+				});
+			}
+			return stats;
+		}
+
 		if (!fs.existsSync(mapping.sourceFolder)) return stats;
 
 		// ---- Tuning from global settings ----
@@ -1028,7 +1050,7 @@ export class FileSyncService {
 
 					filesToProcess.push({ filePath, relativePath, stat });
 				} catch (e) {
-					LogService.debug("Reconcile", `Stat failed during reverse incremental check, including file anyway`, {
+					LogService.debug("Reconcile", `Stat failed during incremental check, including file anyway`, {
 						mappingId: mapping.id,
 						filePath,
 						details: { error: String(e) },
@@ -1051,7 +1073,7 @@ export class FileSyncService {
 		const ensuredFolders = this.createEnsuredFolderCache();
 		const targetIndex = await this.tryBuildTargetIndex(mapping);
 
-		// ---- Worker pool ----
+		// ---- Worker pool (forward sync: source → vault) ----
 		const poolStats = await runReconcileWorkerPool({
 			filesToProcess,
 			initialSkipped: stats.skipped,
@@ -1077,8 +1099,7 @@ export class FileSyncService {
 		stats.skipped = poolStats.skipped;
 		stats.errors = poolStats.errors;
 
-		// Reverse reconciliation: sync vault-only files to source (bidirectional only)
-		const syncDirection = mapping.syncDirection ?? "source-only";
+		// Reverse reconciliation: sync vault-only files to source (bidirectional)
 		if (syncDirection === "bidirectional") {
 			try {
 				const reverseResult = await this.reverseReconcileVaultFiles(mapping, existingPaths);
@@ -1094,7 +1115,7 @@ export class FileSyncService {
 
 		// Orphan cleanup: remove vault files that no longer exist in source
 		const deletionHandling = mapping.deletionHandling ?? "ignore";
-		if (deletionHandling !== "ignore" && syncDirection !== "vault-only") {
+		if (deletionHandling !== "ignore") {
 			try {
 				const orphanResult = await this.orphanCleanup.cleanupOrphans(mapping, existingPaths);
 				stats.deleted = orphanResult.deleted;

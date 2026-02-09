@@ -185,10 +185,9 @@ export class WatcherManager {
 				// Start source watcher (external → vault) if needed
 				if (syncDirection !== "vault-only") {
 					const mw = new MappingWatcher(this.ctx.app, this.ctx.watcherContext, m);
-					this.watchers.set(m.id, mw);
-
 					try {
 						mw.start();
+						this.watchers.set(m.id, mw);
 						sourceStarted = true;
 						LogService.info(
 							"Manager",
@@ -216,10 +215,9 @@ export class WatcherManager {
 				// Start vault watcher (vault → external) if needed
 				if (syncDirection !== "source-only") {
 					const vw = new VaultWatcher(this.ctx.app, this.ctx.vaultWatcherContext, m);
-					this.vaultWatchers.set(m.id, vw);
-
 					try {
 						vw.start();
+						this.vaultWatchers.set(m.id, vw);
 						vaultStarted = true;
 						LogService.info(
 							"Manager",
@@ -471,9 +469,9 @@ export class WatcherManager {
 		// Start source watcher if needed
 		if (syncDirection !== "vault-only") {
 			const mw = new MappingWatcher(this.ctx.app, this.ctx.watcherContext, mapping);
-			this.watchers.set(mappingId, mw);
 			try {
 				mw.start();
+				this.watchers.set(mappingId, mw);
 				sourceStarted = true;
 			} catch (e) {
 				LogService.error("Manager", `Source watcher failed to start`, {
@@ -486,9 +484,9 @@ export class WatcherManager {
 		// Start vault watcher if needed
 		if (syncDirection !== "source-only") {
 			const vw = new VaultWatcher(this.ctx.app, this.ctx.vaultWatcherContext, mapping);
-			this.vaultWatchers.set(mappingId, vw);
 			try {
 				vw.start();
+				this.vaultWatchers.set(mappingId, vw);
 				vaultStarted = true;
 			} catch (e) {
 				LogService.error("Manager", `Vault watcher failed to start`, {
