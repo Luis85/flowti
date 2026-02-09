@@ -29,6 +29,10 @@ Jordan uses Obsidian at work with multiple folder mappings (notes, docs, shared 
 - Accidentally triggering a second reconcile while the first is still running
 - Disabled mappings being reconciled when they shouldn't be
 
+## Jobs to be Done
+
+See [weekend-user JTBD](../jtbd/weekend-user.md)
+
 ## Primary Features
 
 | Feature | Why it matters |

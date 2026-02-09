@@ -29,6 +29,10 @@ Sam uses Obsidian for project documentation and VS Code for coding. Markdown fil
 - Conflicting edits when switching between editors quickly
 - Long Windows paths can exceed MAX_PATH (260 chars)
 
+## Jobs to be Done
+
+See [developer JTBD](../jtbd/developer.md)
+
 ## Primary Features
 
 | Feature | Why it matters |

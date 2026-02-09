@@ -30,6 +30,10 @@ Chris works on documentation, proposals, and reports together with colleagues. S
 - Temp files and lock files from colleagues' Office apps polluting the vault
 - Orphaned vault copies when files are reorganized in the shared folder
 
+## Jobs to be Done
+
+See [collaborator JTBD](../jtbd/collaborator.md)
+
 ## Primary Features
 
 | Feature | Why it matters |

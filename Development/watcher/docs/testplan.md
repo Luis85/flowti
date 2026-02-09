@@ -14,6 +14,23 @@ This document serves as the index for the full test plan. Each feature, use case
 | The Developer    | Developer editing markdown in Obsidian + VS Code   | Journey 2 | [developer](personas/developer.md)       |
 | The Weekend User | Knowledge worker catching up after offline periods | Journey 3 | [weekend-user](personas/weekend-user.md) |
 | The Collaborator | Team lead sharing files for review and contributions | Journey 4 | [collaborator](personas/collaborator.md) |
+| The Content Creator | Multi-device creator syncing via OneDrive across phone, tablet, desktop | — | [content-creator](personas/content-creator.md) |
+| The Maintainer   | Plugin developer focused on quality and regressions   | —         | [maintainer](personas/maintainer.md)     |
+
+---
+
+## Jobs to be Done
+
+What each persona is trying to accomplish — framed as situational motivations, not feature requests.
+
+| Persona | Jobs | File |
+|---------|------|------|
+| The Researcher | 6 | [researcher](jtbd/researcher.md) |
+| The Developer | 6 | [developer](jtbd/developer.md) |
+| The Weekend User | 6 | [weekend-user](jtbd/weekend-user.md) |
+| The Collaborator | 7 | [collaborator](jtbd/collaborator.md) |
+| The Content Creator | 8 | [content-creator](jtbd/content-creator.md) |
+| The Maintainer | 8 | [maintainer](jtbd/maintainer.md) |
 
 ---
 

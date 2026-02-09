@@ -29,6 +29,10 @@ Alex keeps research notes, paper drafts, and reference material in a Dropbox-syn
 - macOS and Windows use different Unicode forms — accented filenames must match correctly
 - Large reference PDFs or datasets shouldn't crash the plugin
 
+## Jobs to be Done
+
+See [researcher JTBD](../jtbd/researcher.md)
+
 ## Primary Features
 
 | Feature | Why it matters |
