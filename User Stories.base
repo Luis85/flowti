@@ -17,6 +17,7 @@ views:
       - persona
       - file.folder
     columnSize:
+      file.name: 304
       note.domain: 139
       note.parent: 146
       file.folder: 267
