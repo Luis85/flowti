@@ -233,6 +233,26 @@ interface InstallerStepDeps {
 
 ---
 
+## Restarting the Installer
+
+Users can re-run the setup wizard at any time from **Settings → Flowti → Setup → Restart setup**. This calls `installerService.reset()` to clear the persisted state, then opens the wizard.
+
+Since all steps are idempotent, re-running is safe — `UserCreationStep` skips if a user already exists, `FolderScaffoldStep` skips existing folders.
+
+Programmatically:
+
+```typescript
+const installerService = await plugin.getService<IInstallerService>("installerService");
+await installerService.reset();
+new InstallerWizardModal(app, installerService, eventBus).open();
+```
+
+### `IInstallerService.reset()`
+
+Resets the installer state to its default (`installed: false`, empty `completedSteps`) and persists the change to storage. After calling `reset()`, `isInstalled()` returns `false` and the wizard can run the full pipeline again.
+
+---
+
 ## Folder Structure
 
 The default folders are defined in `src/domain/installer/folders.ts`:

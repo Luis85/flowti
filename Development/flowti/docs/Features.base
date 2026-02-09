@@ -1,11 +1,14 @@
 filters:
   and:
-    - file.folder.contains("Design/flowti/features")
+    - file.inFolder("Development/flowti/docs/features")
+    - file.ext == "md"
 views:
   - type: table
-    name: Table
+    name: Features
     order:
       - file.name
       - stage
+      - domain
+      - plugin
     columnSize:
       file.name: 169
