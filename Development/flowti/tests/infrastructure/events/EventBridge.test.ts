@@ -859,6 +859,135 @@ describe("EventBridge", () => {
 
 			expect(handler).not.toHaveBeenCalled();
 		});
+
+		it("should emit on delete when cache is still available", async () => {
+			const handler = vi.fn();
+			eventBus.on("event.file.triggered", handler);
+
+			mockApp.metadataCache.getFileCache.mockReturnValue({
+				frontmatter: { type: "Event", name: "backup.removed" },
+			});
+
+			const tFile = createTFile("events/backup.md");
+			mockApp._triggerVaultEvent("delete", tFile);
+
+			await new Promise((r) => setTimeout(r, 10));
+
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: {
+						eventName: "backup.removed",
+						path: "events/backup.md",
+						action: "deleted",
+					},
+				})
+			);
+		});
+
+		it("should derive eventName from basename on deferred create", async () => {
+			const handler = vi.fn();
+			eventBus.on("event.file.triggered", handler);
+
+			mockApp.metadataCache.getFileCache.mockReturnValue(null);
+			const tFile = createTFile("events/Build Completed.md");
+			mockApp._triggerVaultEvent("create", tFile);
+			await new Promise((r) => setTimeout(r, 10));
+
+			// metadata.changed — no explicit name in frontmatter
+			mockApp.metadataCache.getFileCache.mockReturnValue({
+				frontmatter: { type: "Event" },
+			});
+			mockApp._triggerMetadataCacheEvent("changed", tFile);
+			await new Promise((r) => setTimeout(r, 10));
+
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: {
+						eventName: "build.completed",
+						path: "events/Build Completed.md",
+						action: "created",
+					},
+				})
+			);
+		});
+
+		it("should consume pending path (one-shot) — second metadata.changed does not re-emit", async () => {
+			const handler = vi.fn();
+			eventBus.on("event.file.triggered", handler);
+
+			mockApp.metadataCache.getFileCache.mockReturnValue(null);
+			const tFile = createTFile("events/deploy.md");
+			mockApp._triggerVaultEvent("create", tFile);
+
+			// First metadata.changed → consumes pending path
+			mockApp.metadataCache.getFileCache.mockReturnValue({
+				frontmatter: { type: "Event", name: "deploy.started" },
+			});
+			mockApp._triggerMetadataCacheEvent("changed", tFile);
+			await new Promise((r) => setTimeout(r, 10));
+
+			expect(handler).toHaveBeenCalledTimes(1);
+
+			// Second metadata.changed for same file — no pending path, should not emit
+			handler.mockClear();
+			mockApp._triggerMetadataCacheEvent("changed", tFile);
+			await new Promise((r) => setTimeout(r, 10));
+
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("should not emit when type is lowercase 'event'", async () => {
+			const handler = vi.fn();
+			eventBus.on("event.file.triggered", handler);
+
+			mockApp.metadataCache.getFileCache.mockReturnValue({
+				frontmatter: { type: "event", name: "deploy.started" },
+			});
+
+			const tFile = createTFile("events/deploy.md");
+			mockApp._triggerVaultEvent("modify", tFile);
+
+			await new Promise((r) => setTimeout(r, 10));
+
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("should handle full lifecycle: create then modify", async () => {
+			const handler = vi.fn();
+			eventBus.on("event.file.triggered", handler);
+
+			// Step 1: vault create (cache empty)
+			mockApp.metadataCache.getFileCache.mockReturnValue(null);
+			const tFile = createTFile("events/pipeline.md");
+			mockApp._triggerVaultEvent("create", tFile);
+			await new Promise((r) => setTimeout(r, 10));
+
+			// Step 2: metadata.changed → deferred "created"
+			mockApp.metadataCache.getFileCache.mockReturnValue({
+				frontmatter: { type: "Event", name: "pipeline.started" },
+			});
+			mockApp._triggerMetadataCacheEvent("changed", tFile);
+			await new Promise((r) => setTimeout(r, 10));
+
+			expect(handler).toHaveBeenCalledTimes(1);
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: expect.objectContaining({ action: "created" }),
+				})
+			);
+
+			// Step 3: vault modify → direct "modified"
+			handler.mockClear();
+			mockApp._triggerVaultEvent("modify", tFile);
+			await new Promise((r) => setTimeout(r, 10));
+
+			expect(handler).toHaveBeenCalledTimes(1);
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: expect.objectContaining({ action: "modified" }),
+				})
+			);
+		});
 	});
 
 	// ─────────────────────────────────────────────────────────────

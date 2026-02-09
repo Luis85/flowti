@@ -545,11 +545,11 @@ it("should unsubscribe all EventBus handlers on dispose", async () => {
 | `frontmatter.set` | 2 | Replace, clears old keys |
 | Vault listeners | 5 | create/modify/delete/rename, non-TFile/TFolder ignored |
 | Folder listeners | 4 | folder.created, folder.deleted, folder.renamed, no folder.modified |
-| Event-file triggered | 8 | modify/rename via vault, deferred create via metadata.changed, name derivation from basename, negative cases |
+| Event-file triggered | 13 | modify/rename/delete via vault, deferred create (explicit name + basename), one-shot pending set, lowercase type guard, full lifecycle (create→modify), negative cases |
 | Workspace listeners | 6 | leaf-changed (with file, null leaf, no-file view), file-opened, layout-changed |
 | Metadata listeners | 4 | changed (with/without frontmatter), non-TFile ignored, resolved |
 | Dispose | 1 | All handlers unsubscribed |
-| **Total** | **47** | |
+| **Total** | **52** | |
 
 ---
 

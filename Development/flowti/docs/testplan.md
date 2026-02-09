@@ -1,8 +1,8 @@
 # Flowti IBDE — Test Plan Index
 
-> Last updated: 2026-02-09 — 239 tests across 16 files (20 journey + 219 unit/integration), 4 skipped
+> Run `npm test` (or `npx vitest run`) for the current test count and pass/fail status.
 
-This document serves as the index for the full test plan. Each feature, domain, and infrastructure module is listed with its test coverage.
+This document describes **what** is tested — use cases, scenarios, and coverage strategy — independent of the evolving test count. It serves as the index for the full test plan.
 
 ---
 
@@ -35,15 +35,6 @@ End-to-end path through the installer feature, crossing multiple steps and servi
 
 > **Test file:** `tests/domain/installer/InstallerJourney.test.ts`
 
-| # | Journey | Tests | Skipped | Status |
-|---|---------|-------|---------|--------|
-| 1 | First Run | 5 | 1 | ✅ |
-| 2 | Subsequent Launch | 2 | 1 | ✅ |
-| 3 | Restart from Settings | 4 | 1 | ✅ |
-| 4 | Failure and Retry | 5 | 1 | ✅ |
-
-### Journey detail
-
 | Journey | Scenario | Status |
 |---------|----------|--------|
 | 1 — First Run | Detect first run from empty storage | ✅ |
@@ -71,17 +62,17 @@ End-to-end path through the installer feature, crossing multiple steps and servi
 
 ## Features
 
-| # | Feature | Domain | Test Files | Tests | Status |
-|---|---------|--------|------------|-------|--------|
-| 1 | Installer | domain/installer | 5 files | 67 | ✅ (4 skipped) |
-| 2 | Settings | domain/settings | 2 files | 18 | ✅ |
-| 3 | User Management | domain/user | 1 file | 19 | ✅ |
-| 4 | Event System | infrastructure/events | 2 files | 48 | ✅ |
-| 5 | Service Container | infrastructure/services | 1 file | 24 | ✅ |
-| 6 | Command Pipeline | infrastructure/commands | 1 file | 18 | ✅ |
-| 7 | Error Handling | infrastructure/errors | 2 files | 24 | ✅ |
-| 8 | Logger | infrastructure/logger | 1 file | 19 | ✅ |
-| 9 | Utilities | utils | 1 file | 2 | ✅ |
+| # | Feature | Domain | Test Files | Status |
+|---|---------|--------|------------|--------|
+| 1 | Installer | domain/installer | `InstallerService`, `InstallerJourney`, `UserCreationStep`, `FolderScaffoldStep`, `folders` | ✅ |
+| 2 | Settings | domain/settings | `SettingsService`, `settings` | ✅ |
+| 3 | User Management | domain/user | `UserService` | ✅ |
+| 4 | Event System | infrastructure/events | `EventBus`, `EventBridge` | ✅ |
+| 5 | Service Container | infrastructure/services | `ServiceContainer` | ✅ |
+| 6 | Command Pipeline | infrastructure/commands | `CommandRegistry` | ✅ |
+| 7 | Error Handling | infrastructure/errors | `FlowtiError`, `ErrorService` | ✅ |
+| 8 | Logger | infrastructure/logger | `LoggerService` | ✅ |
+| 9 | Utilities | utils | `helpers` | ✅ |
 
 ---
 
@@ -105,13 +96,13 @@ The first-run setup wizard. Extensible step-based pipeline that creates the user
 
 ### Test files
 
-| Test File | Tests | Skipped | What it covers |
-|-----------|-------|---------|----------------|
-| `InstallerService.test.ts` | 26 | 0 | load, registerStep, getSteps, runAll, reset, persistence, events |
-| `InstallerJourney.test.ts` | 16 | 4 | First run, subsequent launch, restart, failure/retry |
-| `UserCreationStep.test.ts` | 5 | 0 | Metadata, create user, skip if exists, fail without name |
-| `FolderScaffoldStep.test.ts` | 7 | 0 | Create all folders, idempotent, error reporting, partial state |
-| `folders.test.ts` | 9 | 0 | Non-empty, no duplicates, parent-before-child ordering |
+| Test File | What it covers |
+|-----------|----------------|
+| `InstallerService.test.ts` | load, registerStep, getSteps, runAll, reset, persistence, events |
+| `InstallerJourney.test.ts` | First run, subsequent launch, restart, failure/retry |
+| `UserCreationStep.test.ts` | Metadata, create user, skip if exists, fail without name |
+| `FolderScaffoldStep.test.ts` | Create all folders, idempotent, error reporting, partial state |
+| `folders.test.ts` | Non-empty, no duplicates, parent-before-child ordering |
 
 ### Use cases
 
@@ -133,14 +124,12 @@ The first-run setup wizard. Extensible step-based pipeline that creates the user
 
 Plugin configuration with Zod schema validation.
 
-> **Feature doc:** [Event System.md](features/Event%20System/Event%20System.md) (stub)
-
 ### Test files
 
-| Test File | Tests | What it covers |
-|-----------|-------|----------------|
-| `SettingsService.test.ts` | 14 | Load, getSettings, updateSettings, setDebugMode, events, optional deps |
-| `settings.test.ts` | 4 | Schema validation, safe parsing, defaults |
+| Test File | What it covers |
+|-----------|----------------|
+| `SettingsService.test.ts` | Load, getSettings, updateSettings, setDebugMode, events, optional deps |
+| `settings.test.ts` | Schema validation, safe parsing, defaults |
 
 ### Use cases
 
@@ -160,9 +149,9 @@ User profile lifecycle (create, update, persist).
 
 ### Test files
 
-| Test File | Tests | What it covers |
-|-----------|-------|----------------|
-| `UserService.test.ts` | 19 | load, hasUser, getUser, createUser, updateUserName, persistence, events |
+| Test File | What it covers |
+|-----------|----------------|
+| `UserService.test.ts` | load, hasUser, getUser, createUser, updateUserName, persistence, events |
 
 ### Use cases
 
@@ -181,16 +170,16 @@ User profile lifecycle (create, update, persist).
 
 EventBus (pub/sub backbone) and EventBridge (Obsidian API translator).
 
-> **Feature doc:** [Event Bridge.md](features/Event%20Bridge/Event%20Bridge.md) (stub)
+> **Feature docs:** [Event Bridge](features/Event%20Bridge/Event%20Bridge.md) · [Event System](features/Event%20System/Event%20System.md) · [File Events](features/File%20Events/File%20Events.md) · [Event Files](features/Event%20Files/Event%20Files.md)
 
 ### Test files
 
-| Test File | Tests | What it covers |
-|-----------|-------|----------------|
-| `EventBus.test.ts` | 13 | on/emit, off, once, clear, wildcard, event structure |
-| `EventBridge.test.ts` | 35 | File ops, frontmatter, vault/workspace/metadata listeners |
+| Test File | What it covers |
+|-----------|----------------|
+| `EventBus.test.ts` | on/emit, off, once, clear, wildcard, event structure |
+| `EventBridge.test.ts` | File/folder/event-file notifications, frontmatter, vault/workspace/metadata listeners |
 
-### Use cases
+### Use cases — EventBus
 
 | UC | Use Case | Status |
 |----|----------|--------|
@@ -198,11 +187,37 @@ EventBus (pub/sub backbone) and EventBridge (Obsidian API translator).
 | UC-22 | Wildcard listener | ✅ |
 | UC-23 | Once handler (auto-unsubscribe) | ✅ |
 | UC-24 | Unsubscribe (on/off) | ✅ |
-| UC-25 | File operations via EventBridge | ✅ |
-| UC-26 | Frontmatter operations via EventBridge | ✅ |
-| UC-27 | Vault change listeners | ✅ |
-| UC-28 | Workspace listeners | ✅ |
-| UC-29 | Metadata listeners | ✅ |
+
+### Use cases — EventBridge: File Operations
+
+| UC | Use Case | Status |
+|----|----------|--------|
+| UC-25 | File operations (create, read, update, delete, move, rename) | ✅ |
+| UC-26 | Frontmatter operations (read, update) | ✅ |
+
+### Use cases — EventBridge: Vault Notifications
+
+| UC | Use Case | Status |
+|----|----------|--------|
+| UC-27 | File notifications (file.created, file.modified, file.deleted, file.renamed) | ✅ |
+| UC-28 | Folder notifications (folder.created, folder.deleted, folder.renamed) | ✅ |
+| UC-29 | Workspace listeners (active-leaf-change) | ✅ |
+| UC-30 | Metadata listeners (metadata.changed) | ✅ |
+
+### Use cases — EventBridge: Event Files
+
+Event Files are vault notes with frontmatter `type: "Event"` that act as event declarations. When such a file changes, EventBridge emits `event.file.triggered`.
+
+| UC | Use Case | Status |
+|----|----------|--------|
+| UC-31 | Emit event.file.triggered on file modify/rename/delete (direct detection) | ✅ |
+| UC-32 | Deferred create detection via pending-set handoff (vault create → metadata.changed) | ✅ |
+| UC-33 | Event name from frontmatter `name` property | ✅ |
+| UC-34 | Event name derived from basename when `name` is absent (lowercase, spaces → dots) | ✅ |
+| UC-35 | Pending path consumed once (one-shot — second metadata.changed does not re-emit) | ✅ |
+| UC-36 | No emit when `type` is not "Event" (including lowercase "event") | ✅ |
+| UC-37 | No emit when metadata cache is unavailable (e.g. deleted file) | ✅ |
+| UC-38 | Full lifecycle: create → modify emits separate events | ✅ |
 
 ---
 
@@ -212,19 +227,19 @@ Dependency injection with lifecycle management.
 
 ### Test files
 
-| Test File | Tests | What it covers |
-|-----------|-------|----------------|
-| `ServiceContainer.test.ts` | 24 | Register, get, initializeAll, disposeAll, dependency order, circular detection |
+| Test File | What it covers |
+|-----------|----------------|
+| `ServiceContainer.test.ts` | Register, get, initializeAll, disposeAll, dependency order, circular detection |
 
 ### Use cases
 
 | UC | Use Case | Status |
 |----|----------|--------|
-| UC-30 | Register and resolve services | ✅ |
-| UC-31 | Dependency ordering (topological) | ✅ |
-| UC-32 | Circular dependency detection | ✅ |
-| UC-33 | Service lifecycle (init/dispose) | ✅ |
-| UC-34 | Service events (registered, initialized, disposed) | ✅ |
+| UC-39 | Register and resolve services | ✅ |
+| UC-40 | Dependency ordering (topological) | ✅ |
+| UC-41 | Circular dependency detection | ✅ |
+| UC-42 | Service lifecycle (init/dispose) | ✅ |
+| UC-43 | Service events (registered, initialized, disposed) | ✅ |
 
 ---
 
@@ -234,18 +249,18 @@ Command registration and execution with middleware.
 
 ### Test files
 
-| Test File | Tests | What it covers |
-|-----------|-------|----------------|
-| `CommandRegistry.test.ts` | 18 | Register, execute, middleware chain, logging/error middleware |
+| Test File | What it covers |
+|-----------|----------------|
+| `CommandRegistry.test.ts` | Register, execute, middleware chain, logging/error middleware |
 
 ### Use cases
 
 | UC | Use Case | Status |
 |----|----------|--------|
-| UC-35 | Register and execute commands | ✅ |
-| UC-36 | Middleware pipeline (logging, error) | ✅ |
-| UC-37 | Command events (registered, executing, executed, failed) | ✅ |
-| UC-38 | Error wrapping in CommandError | ✅ |
+| UC-44 | Register and execute commands | ✅ |
+| UC-45 | Middleware pipeline (logging, error) | ✅ |
+| UC-46 | Command events (registered, executing, executed, failed) | ✅ |
+| UC-47 | Error wrapping in CommandError | ✅ |
 
 ---
 
@@ -255,19 +270,19 @@ Categorized error classes and error service.
 
 ### Test files
 
-| Test File | Tests | What it covers |
-|-----------|-------|----------------|
-| `FlowtiError.test.ts` | 13 | Error class hierarchy, factory methods, type conversion |
-| `ErrorService.test.ts` | 11 | Handle, create, wrap, event emission, optional deps |
+| Test File | What it covers |
+|-----------|----------------|
+| `FlowtiError.test.ts` | Error class hierarchy, factory methods, type conversion |
+| `ErrorService.test.ts` | Handle, create, wrap, event emission, optional deps |
 
 ### Use cases
 
 | UC | Use Case | Status |
 |----|----------|--------|
-| UC-39 | Error categories (Validation, Storage, Lifecycle, Service, Command) | ✅ |
-| UC-40 | Error severity levels | ✅ |
-| UC-41 | Error cause chain | ✅ |
-| UC-42 | Error event emission | ✅ |
+| UC-48 | Error categories (Validation, Storage, Lifecycle, Service, Command) | ✅ |
+| UC-49 | Error severity levels | ✅ |
+| UC-50 | Error cause chain | ✅ |
+| UC-51 | Error event emission | ✅ |
 
 ---
 
@@ -277,18 +292,18 @@ Structured logging with levels, context, and event tracing.
 
 ### Test files
 
-| Test File | Tests | What it covers |
-|-----------|-------|----------------|
-| `LoggerService.test.ts` | 19 | Log levels, context prefix, debug mode, event tracing, event emission |
+| Test File | What it covers |
+|-----------|----------------|
+| `LoggerService.test.ts` | Log levels, context prefix, debug mode, event tracing, event emission |
 
 ### Use cases
 
 | UC | Use Case | Status |
 |----|----------|--------|
-| UC-43 | Log at all levels (debug, info, warn, error) | ✅ |
-| UC-44 | Context/child loggers | ✅ |
-| UC-45 | Debug mode toggle (suppresses debug output) | ✅ |
-| UC-46 | Event tracing (wildcard listener, skips log.* recursion) | ✅ |
+| UC-52 | Log at all levels (debug, info, warn, error) | ✅ |
+| UC-53 | Context/child loggers | ✅ |
+| UC-54 | Debug mode toggle (suppresses debug output) | ✅ |
+| UC-55 | Event tracing (wildcard listener, skips log.* recursion) | ✅ |
 
 ---
 
@@ -298,54 +313,19 @@ Shared helper functions.
 
 ### Test files
 
-| Test File | Tests | What it covers |
-|-----------|-------|----------------|
-| `helpers.test.ts` | 2 | UUID v4 generation, uniqueness |
-
----
-
-## Test Implementation Status
-
-| Layer | Test File | Pass | Skip | Total |
-|-------|-----------|------|------|-------|
-| Domain: Installer | `InstallerService.test.ts` | 26 | 0 | 26 |
-| Domain: Installer | `InstallerJourney.test.ts` | 16 | 4 | 20 |
-| Domain: Installer | `UserCreationStep.test.ts` | 5 | 0 | 5 |
-| Domain: Installer | `FolderScaffoldStep.test.ts` | 7 | 0 | 7 |
-| Domain: Installer | `folders.test.ts` | 9 | 0 | 9 |
-| Domain: Settings | `SettingsService.test.ts` | 14 | 0 | 14 |
-| Domain: Settings | `settings.test.ts` | 4 | 0 | 4 |
-| Domain: User | `UserService.test.ts` | 19 | 0 | 19 |
-| Infra: Events | `EventBus.test.ts` | 13 | 0 | 13 |
-| Infra: Events | `EventBridge.test.ts` | 35 | 0 | 35 |
-| Infra: Commands | `CommandRegistry.test.ts` | 18 | 0 | 18 |
-| Infra: Errors | `FlowtiError.test.ts` | 13 | 0 | 13 |
-| Infra: Errors | `ErrorService.test.ts` | 11 | 0 | 11 |
-| Infra: Logger | `LoggerService.test.ts` | 19 | 0 | 19 |
-| Infra: Services | `ServiceContainer.test.ts` | 24 | 0 | 24 |
-| Utils | `helpers.test.ts` | 2 | 0 | 2 |
-| **Totals** | **16 files** | **235** | **4** | **239** |
+| Test File | What it covers |
+|-----------|----------------|
+| `helpers.test.ts` | UUID v4 generation, uniqueness |
 
 ---
 
 ## Skip Reasons
 
-| Category | Count | Affected UCs | Unblocking Strategy |
-|----------|-------|--------------|---------------------|
-| Obsidian Modal | 4 | UC-06 (Wizard UI) | Mock Obsidian `App`/`Modal` classes, or E2E test framework |
+| Category | Affected UCs | Unblocking Strategy |
+|----------|--------------|---------------------|
+| Obsidian Modal | UC-06 (Wizard UI) | Mock Obsidian `App`/`Modal` classes, or E2E test framework |
 
-All 4 skipped tests are in `InstallerJourney.test.ts` and require the Obsidian runtime to instantiate `InstallerWizardModal`. The underlying logic (service calls, event emission, state management) is fully covered by the passing tests.
-
----
-
-## Test Summary by Layer
-
-| Layer | Files | Tests | Pass | Skip | Coverage |
-|-------|-------|-------|------|------|----------|
-| Domain | 8 | 104 | 100 | 4 | 96% |
-| Infrastructure | 7 | 133 | 133 | 0 | 100% |
-| Utils | 1 | 2 | 2 | 0 | 100% |
-| **Total** | **16** | **239** | **235** | **4** | **98%** |
+The skipped tests are in `InstallerJourney.test.ts` and require the Obsidian runtime to instantiate `InstallerWizardModal`. The underlying logic (service calls, event emission, state management) is fully covered by the passing tests.
 
 ---
 
@@ -357,7 +337,7 @@ npm run build = vitest run → typedoc → tsc -noEmit -skipLibCheck → eslint 
 
 | Stage | What it validates |
 |-------|-------------------|
-| `vitest run` | All 239 tests pass |
+| `vitest run` | All tests pass |
 | `typedoc` | TSDoc comments generate without errors |
 | `tsc` | Type-checking passes (skip lib check for node_modules) |
 | `eslint` | Lint rules pass on src/ |
@@ -367,7 +347,7 @@ npm run build = vitest run → typedoc → tsc -noEmit -skipLibCheck → eslint 
 
 | Requirement | Details |
 |-------------|---------|
-| **Runtime** | Node.js (vitest v4.0.17) |
+| **Runtime** | Node.js (vitest) |
 | **Platform** | Windows 10/11 |
 | **Framework** | Vitest with vi.fn() mocks |
 | **Obsidian API** | Mocked via test doubles (no runtime dependency) |

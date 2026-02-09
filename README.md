@@ -40,19 +40,7 @@ Before we get started, make sure the following things are in place:
 - Open the Command Palette
 - Git Clone into `/05 - Public Vault`
 
-### Step 2 - Folder structure
-
-Create the needed folder structure in your Vault.
-
-- `/00 - Connectivity`
-- `/01 - Projects`
-- `/02 - Areas`
-- `/03 - Resources`
-- `/04 - Archive`
-- `/05 - Public Vault`
-- `/var`
-
-### Step 3 - Plugins
+### Step 2 - Plugins
 
 In order to use the plugins, you must build them from source. You'll find the available plugins in `/Development/` with build instructions in their `README`.
 

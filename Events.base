@@ -1,6 +1,6 @@
 filters:
   and:
-    - file.inFolder("Development/flowti/docs/events")
+    - file.inFolder("00 - Connectivity/events")
     - type == "Event"
 views:
   - type: table
