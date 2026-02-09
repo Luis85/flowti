@@ -1,0 +1,15 @@
+filters:
+  and:
+    - file.inFolder("Development/flowti/docs/events")
+    - type == "Event"
+views:
+  - type: table
+    name: Table
+    order:
+      - type
+      - file.name
+      - description
+    columnSize:
+      file.name: 178
+      note.name: 117
+      note.type: 86

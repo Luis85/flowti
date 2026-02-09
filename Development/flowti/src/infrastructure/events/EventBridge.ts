@@ -38,6 +38,8 @@ export class EventBridge implements IEventBridge {
 	private logger: ILogger;
 	private registerEvent: (eventRef: import("obsidian").EventRef) => void;
 	private unsubscribers: (() => void)[] = [];
+	/** Paths of files that were just created — consumed by metadata.changed listener */
+	private pendingCreatedPaths = new Set<string>();
 
 	constructor(options: EventBridgeOptions) {
 		this.app = options.app;
@@ -418,6 +420,8 @@ export class EventBridge implements IEventBridge {
 						path: file.path,
 						source: "obsidian",
 					});
+					// Cache is not populated yet on create — defer to metadata.changed
+					this.pendingCreatedPaths.add(file.path);
 				} else if (file instanceof TFolder) {
 					void this.eventBus.emit("folder.created", {
 						path: file.path,
@@ -434,6 +438,7 @@ export class EventBridge implements IEventBridge {
 						path: file.path,
 						source: "obsidian",
 					});
+					this.emitEventFileTriggered(file, "modified");
 				}
 			})
 		);
@@ -445,6 +450,7 @@ export class EventBridge implements IEventBridge {
 						path: file.path,
 						source: "obsidian",
 					});
+					this.emitEventFileTriggered(file, "deleted");
 				} else if (file instanceof TFolder) {
 					void this.eventBus.emit("folder.deleted", {
 						path: file.path,
@@ -462,6 +468,7 @@ export class EventBridge implements IEventBridge {
 						newPath: file.path,
 						source: "obsidian",
 					});
+					this.emitEventFileTriggered(file, "renamed");
 				} else if (file instanceof TFolder) {
 					void this.eventBus.emit("folder.renamed", {
 						oldPath,
@@ -473,6 +480,29 @@ export class EventBridge implements IEventBridge {
 		);
 
 		this.logger.debug("Vault listeners initialized");
+	}
+
+	/**
+	 * Check if a file has frontmatter `type: "event"` and `name`,
+	 * and if so emit an `event.file.triggered` event.
+	 */
+	private emitEventFileTriggered(
+		file: TFile,
+		action: "created" | "modified" | "deleted" | "renamed"
+	): void {
+		const cache = this.app.metadataCache.getFileCache(file);
+		const fm = cache?.frontmatter;
+		if (fm?.type === "Event") {
+			const eventName =
+				typeof fm.name === "string"
+					? fm.name
+					: file.basename.toLowerCase().replace(/ /g, ".");
+			void this.eventBus.emit("event.file.triggered", {
+				eventName,
+				path: file.path,
+				action,
+			});
+		}
 	}
 
 	/**
@@ -545,6 +575,14 @@ export class EventBridge implements IEventBridge {
 							| Record<string, unknown>
 							| undefined,
 					});
+
+					// On file creation, the vault "create" event fires before
+					// the metadata cache is populated. The create listener
+					// records the path; we consume it here once the cache
+					// is available.
+					if (this.pendingCreatedPaths.delete(file.path)) {
+						this.emitEventFileTriggered(file, "created");
+					}
 				}
 			})
 		);

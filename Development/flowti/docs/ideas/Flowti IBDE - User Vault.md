@@ -1,6 +1,6 @@
 ---
 doc_type: Vault
-Description:
+description:
 aliases:
   - Flowti
 tags:

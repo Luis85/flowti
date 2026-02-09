@@ -135,6 +135,72 @@ eventBus.on("file.renamed", (event) => {
 
 ---
 
+## Event-File Notifications
+
+Files can act as event declarations by setting the frontmatter property `type: "Event"`. When such a file triggers any vault action, the EventBridge emits an additional `event.file.triggered` event.
+
+### Frontmatter Convention
+
+```yaml
+---
+type: Event
+name: deployment.started
+---
+```
+
+The `name` property is optional. If omitted, the event name is derived from the file's title (basename without extension), transformed to **all lowercase** with **`.` instead of spaces**:
+
+| File | `name` in frontmatter | Resulting `eventName` |
+|------|----------------------|----------------------|
+| `Deployment Started.md` | `deployment.started` | `deployment.started` |
+| `Deployment Started.md` | _(missing)_ | `deployment.started` |
+| `Config Updated.md` | _(missing)_ | `config.updated` |
+
+### How It Works
+
+On every vault event (create, modify, delete, rename), after emitting the standard `file.*` event, the EventBridge checks the file's metadata cache. If `frontmatter.type === "Event"`, it emits:
+
+| Internal Event | Payload |
+|----------------|---------|
+| `event.file.triggered` | `{ eventName, path, action }` |
+
+Where `action` is one of `"created"`, `"modified"`, `"deleted"`, or `"renamed"`.
+
+### Subscribing
+
+```typescript
+eventBus.on("event.file.triggered", (event) => {
+  const { eventName, path, action } = event.payload;
+  console.log(`Event "${eventName}" triggered by ${action} at ${path}`);
+});
+```
+
+### Cache Availability
+
+The EventBridge reads frontmatter from `metadataCache.getFileCache()`. On delete events the cache may already be cleared, so `event.file.triggered` is not guaranteed to fire for deletions.
+
+### Created File Detection
+
+On file creation, Obsidian's `vault.on("create")` fires **before** the metadata cache has parsed the frontmatter. This means `getFileCache()` returns `null` and the event-file check would miss the file.
+
+To solve this, the EventBridge uses a **pending-set handoff** between the two listeners:
+
+1. `vault.on("create")` records the file path in `pendingCreatedPaths`
+2. `metadataCache.on("changed")` checks and consumes the path — if found, calls `emitEventFileTriggered(file, "created")`
+
+```
+vault.on("create")             metadataCache.on("changed")
+  │                                │
+  ├─ emit file.created             ├─ emit metadata.changed
+  └─ pendingCreatedPaths.add()     └─ if pendingCreatedPaths has path:
+                                        delete from set
+                                        emitEventFileTriggered("created")
+```
+
+This is deterministic — no timestamp heuristics.
+
+---
+
 ## Workspace Notifications
 
 | Obsidian Event | Internal Event | Payload |
@@ -479,10 +545,11 @@ it("should unsubscribe all EventBus handlers on dispose", async () => {
 | `frontmatter.set` | 2 | Replace, clears old keys |
 | Vault listeners | 5 | create/modify/delete/rename, non-TFile/TFolder ignored |
 | Folder listeners | 4 | folder.created, folder.deleted, folder.renamed, no folder.modified |
+| Event-file triggered | 8 | modify/rename via vault, deferred create via metadata.changed, name derivation from basename, negative cases |
 | Workspace listeners | 6 | leaf-changed (with file, null leaf, no-file view), file-opened, layout-changed |
 | Metadata listeners | 4 | changed (with/without frontmatter), non-TFile ignored, resolved |
 | Dispose | 1 | All handlers unsubscribed |
-| **Total** | **39** | |
+| **Total** | **47** | |
 
 ---
 
@@ -497,3 +564,4 @@ it("should unsubscribe all EventBus handlers on dispose", async () => {
 | **TFile/TFolder dispatch on vault events** | Files and folders emit distinct event types (`file.*` vs `folder.*`) for targeted handling |
 | **Error wrapping in try-catch** | Every request handler guarantees a response (success or failure) — never leaves the caller hanging |
 | **Structured error codes** | Enables programmatic error routing (e.g. `FILE_READ_FAILED` vs generic Error) |
+| **Pending-set handoff for event-file creation** | Vault create fires before cache is populated; the create listener records the path and metadata.changed consumes it — deterministic, no timestamp heuristics |

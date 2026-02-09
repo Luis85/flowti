@@ -255,7 +255,7 @@ This keeps event definitions close to the code that emits them, while providing 
 
 ## Event Catalog
 
-59 events across 14 categories. See the [[Development/flowti/docs/Service Design Blueprint|Service Design Blueprint]] for the full catalog with payloads.
+60 events across 15 categories. See the [[Development/flowti/docs/Service Design Blueprint|Service Design Blueprint]] for the full catalog with payloads.
 
 | Category | Count | Examples |
 |----------|-------|---------|
@@ -269,6 +269,7 @@ This keeps event definitions close to the code that emits them, while providing 
 | File Responses | 6 | `file.create.response`, `file.read.response` |
 | File Notifications | 4 | `file.created`, `file.modified`, `file.renamed` |
 | Folder Notifications | 3 | `folder.created`, `folder.deleted`, `folder.renamed` |
+| Event-File Notifications | 1 | `event.file.triggered` |
 | Frontmatter Req/Res | 6 | `frontmatter.get.request`, `frontmatter.update.response` |
 | Workspace | 3 | `workspace.leaf-changed`, `workspace.file-opened` |
 | Metadata | 2 | `metadata.changed`, `metadata.resolved` |

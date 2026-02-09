@@ -685,6 +685,183 @@ describe("EventBridge", () => {
 	});
 
 	// ─────────────────────────────────────────────────────────────
+	// Event-File Triggered
+	// ─────────────────────────────────────────────────────────────
+
+	describe("event.file.triggered", () => {
+		it("should emit on modify when file has type=event and name", async () => {
+			const handler = vi.fn();
+			eventBus.on("event.file.triggered", handler);
+
+			mockApp.metadataCache.getFileCache.mockReturnValue({
+				frontmatter: { type: "Event", name: "config.updated" },
+			});
+
+			const tFile = createTFile("events/config.md");
+			mockApp._triggerVaultEvent("modify", tFile);
+
+			await new Promise((r) => setTimeout(r, 10));
+
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: {
+						eventName: "config.updated",
+						path: "events/config.md",
+						action: "modified",
+					},
+				})
+			);
+		});
+
+		it("should emit on rename when file has type=event and name", async () => {
+			const handler = vi.fn();
+			eventBus.on("event.file.triggered", handler);
+
+			mockApp.metadataCache.getFileCache.mockReturnValue({
+				frontmatter: { type: "Event", name: "task.moved" },
+			});
+
+			const tFile = createTFile("events/task-v2.md");
+			mockApp._triggerVaultEvent("rename", tFile, "events/task.md");
+
+			await new Promise((r) => setTimeout(r, 10));
+
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: {
+						eventName: "task.moved",
+						path: "events/task-v2.md",
+						action: "renamed",
+					},
+				})
+			);
+		});
+
+		it("should not emit when frontmatter type is not 'Event'", async () => {
+			const handler = vi.fn();
+			eventBus.on("event.file.triggered", handler);
+
+			mockApp.metadataCache.getFileCache.mockReturnValue({
+				frontmatter: { type: "note", name: "some.event" },
+			});
+
+			const tFile = createTFile("notes/regular.md");
+			mockApp._triggerVaultEvent("modify", tFile);
+
+			await new Promise((r) => setTimeout(r, 10));
+
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("should derive eventName from basename when name is missing", async () => {
+			const handler = vi.fn();
+			eventBus.on("event.file.triggered", handler);
+
+			mockApp.metadataCache.getFileCache.mockReturnValue({
+				frontmatter: { type: "Event" },
+			});
+
+			const tFile = createTFile("events/Deployment Started.md");
+			mockApp._triggerVaultEvent("modify", tFile);
+
+			await new Promise((r) => setTimeout(r, 10));
+
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: {
+						eventName: "deployment.started",
+						path: "events/Deployment Started.md",
+						action: "modified",
+					},
+				})
+			);
+		});
+
+		it("should not emit when no cache exists", async () => {
+			const handler = vi.fn();
+			eventBus.on("event.file.triggered", handler);
+
+			mockApp.metadataCache.getFileCache.mockReturnValue(null);
+
+			const tFile = createTFile("events/deleted.md");
+			mockApp._triggerVaultEvent("delete", tFile);
+
+			await new Promise((r) => setTimeout(r, 10));
+
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("should emit via metadata.changed after vault create (deferred detection)", async () => {
+			const handler = vi.fn();
+			eventBus.on("event.file.triggered", handler);
+
+			// Cache empty on create (real Obsidian behavior)
+			mockApp.metadataCache.getFileCache.mockReturnValue(null);
+
+			const tFile = createTFile("events/deploy.md");
+			mockApp._triggerVaultEvent("create", tFile);
+			await new Promise((r) => setTimeout(r, 10));
+
+			// Not yet — cache was empty
+			expect(handler).not.toHaveBeenCalled();
+
+			// Now metadata cache fires with frontmatter populated
+			mockApp.metadataCache.getFileCache.mockReturnValue({
+				frontmatter: { type: "Event", name: "deployment.started" },
+			});
+			mockApp._triggerMetadataCacheEvent("changed", tFile);
+			await new Promise((r) => setTimeout(r, 10));
+
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: {
+						eventName: "deployment.started",
+						path: "events/deploy.md",
+						action: "created",
+					},
+				})
+			);
+		});
+
+		it("should NOT emit via metadata.changed without prior vault create", async () => {
+			const handler = vi.fn();
+			eventBus.on("event.file.triggered", handler);
+
+			mockApp.metadataCache.getFileCache.mockReturnValue({
+				frontmatter: { type: "Event", name: "config.updated" },
+			});
+
+			// metadata.changed fires without a preceding vault create
+			const tFile = createTFile("events/config.md");
+			mockApp._triggerMetadataCacheEvent("changed", tFile);
+
+			await new Promise((r) => setTimeout(r, 10));
+
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("should NOT emit via metadata.changed when created file is not an event file", async () => {
+			const handler = vi.fn();
+			eventBus.on("event.file.triggered", handler);
+
+			// vault create fires first (cache empty)
+			mockApp.metadataCache.getFileCache.mockReturnValue(null);
+			const tFile = createTFile("notes/regular.md");
+			mockApp._triggerVaultEvent("create", tFile);
+
+			// metadata.changed fires — but file is not type "Event"
+			mockApp.metadataCache.getFileCache.mockReturnValue({
+				frontmatter: { type: "note", title: "Regular note" },
+			});
+			mockApp._triggerMetadataCacheEvent("changed", tFile);
+
+			await new Promise((r) => setTimeout(r, 10));
+
+			expect(handler).not.toHaveBeenCalled();
+		});
+	});
+
+	// ─────────────────────────────────────────────────────────────
 	// Workspace Listeners
 	// ─────────────────────────────────────────────────────────────
 

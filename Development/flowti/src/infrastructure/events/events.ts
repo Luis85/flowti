@@ -299,6 +299,20 @@ export interface FlowtiEventMap extends UserEventMap, SettingsEventMap, Installe
 	};
 
 	// ─────────────────────────────────────────────────────────────
+	// Event-File Notifications (Frontmatter-driven events)
+	// ─────────────────────────────────────────────────────────────
+
+	/** Notification: A file with frontmatter type="Event" triggered a vault action */
+	"event.file.triggered": {
+		/** The event name from frontmatter `name`, or derived from basename (lowercase, spaces → dots) */
+		eventName: string;
+		/** Path of the file that triggered the event */
+		path: string;
+		/** Which vault action triggered this */
+		action: "created" | "modified" | "deleted" | "renamed";
+	};
+
+	// ─────────────────────────────────────────────────────────────
 	// Frontmatter Request Events (Service → EventBridge)
 	// ─────────────────────────────────────────────────────────────
 
