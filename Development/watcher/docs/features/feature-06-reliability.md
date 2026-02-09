@@ -1,3 +1,8 @@
+---
+domain: Folder Watcher
+stage: done
+plugin: "[[Development/watcher/README|README]]"
+---
 # Feature 6: Reliability & Performance
 
 Covers mechanisms that ensure sync operations are reliable and performant: stability checks, retry, loop prevention, debounce, and backpressure.

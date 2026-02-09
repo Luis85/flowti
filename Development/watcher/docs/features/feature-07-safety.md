@@ -1,3 +1,8 @@
+---
+domain: Folder Watcher
+stage: done
+plugin: "[[Development/watcher/README|README]]"
+---
 # Feature 7: Safety & Validation
 
 Covers mechanisms that prevent data loss, security issues, and platform-specific path problems.

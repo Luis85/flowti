@@ -1,3 +1,8 @@
+---
+domain: Folder Watcher
+stage: done
+plugin: "[[Development/watcher/README|README]]"
+---
 # Feature 9: User Interface
 
 Covers status bar, dashboard, commands, and health indicators that let the user monitor and control the plugin.

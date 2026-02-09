@@ -1,3 +1,8 @@
+---
+domain: Folder Watcher
+stage: done
+plugin: "[[Development/watcher/README|README]]"
+---
 # Feature 10: Persistence & Error Recovery
 
 Covers sync state persistence across sessions and graceful handling of watcher errors and shutdowns.

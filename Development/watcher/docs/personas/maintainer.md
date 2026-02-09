@@ -1,6 +1,6 @@
 # Persona: The Maintainer
 
-> No journey yet — this persona drives internal quality, not end-user workflows.
+> Used in: [Journey 6 — Maintain and Harden the Plugin](../journeys/journey-6-maintain-and-harden.md)
 
 ## Profile
 

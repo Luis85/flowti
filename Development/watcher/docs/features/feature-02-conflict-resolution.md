@@ -1,3 +1,8 @@
+---
+domain: Folder Watcher
+stage: done
+plugin: "[[Development/watcher/README|README]]"
+---
 # Feature 2: Conflict Resolution
 
 Covers how the plugin handles cases where a file exists in both source and target with different content.

@@ -1,3 +1,8 @@
+---
+domain: Folder Watcher
+stage: done
+plugin: "[[Development/watcher/README|README]]"
+---
 # Feature 1: Core Synchronization
 
 Covers the three sync directions (source-only, vault-only, bidirectional), subfolder depth, and new directory detection.

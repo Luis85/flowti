@@ -14,8 +14,8 @@ This document serves as the index for the full test plan. Each feature, use case
 | The Developer    | Developer editing markdown in Obsidian + VS Code   | Journey 2 | [developer](personas/developer.md)       |
 | The Weekend User | Knowledge worker catching up after offline periods | Journey 3 | [weekend-user](personas/weekend-user.md) |
 | The Collaborator | Team lead sharing files for review and contributions | Journey 4 | [collaborator](personas/collaborator.md) |
-| The Content Creator | Multi-device creator syncing via OneDrive across phone, tablet, desktop | — | [content-creator](personas/content-creator.md) |
-| The Maintainer   | Plugin developer focused on quality and regressions   | —         | [maintainer](personas/maintainer.md)     |
+| The Content Creator | Multi-device creator syncing via OneDrive across phone, tablet, desktop | Journey 5 | [content-creator](personas/content-creator.md) |
+| The Maintainer   | Plugin developer focused on quality and regressions   | Journey 6 | [maintainer](personas/maintainer.md)     |
 
 ---
 
@@ -46,6 +46,8 @@ End-to-end paths through the system that cross multiple features.
 | 2 | Edit from Both Obsidian and VS Code | [journey-2](journeys/journey-2-edit-from-both-sides.md) |
 | 3 | Catch Up After a Weekend Away | [journey-3](journeys/journey-3-catch-up-after-weekend.md) |
 | 4 | Share Drafts and Collect Feedback | [journey-4](journeys/journey-4-share-and-collect-feedback.md) |
+| 5 | Sync Content Across Devices | [journey-5](journeys/journey-5-sync-across-devices.md) |
+| 6 | Maintain and Harden the Plugin | [journey-6](journeys/journey-6-maintain-and-harden.md) |
 
 ---
 

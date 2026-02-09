@@ -1,3 +1,8 @@
+---
+domain: Folder Watcher
+stage: done
+plugin: "[[Development/watcher/README|README]]"
+---
 # Feature 4: File Filtering
 
 Covers which files are included or excluded from sync operations based on extension, pattern, type, and link status.

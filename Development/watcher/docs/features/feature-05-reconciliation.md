@@ -1,3 +1,8 @@
+---
+domain: Folder Watcher
+stage: done
+plugin: "[[Development/watcher/README|README]]"
+---
 # Feature 5: Reconciliation
 
 Covers bulk catchup sync operations that scan entire folders, including startup reconciliation, incremental mode, parallelism, and cancellation.

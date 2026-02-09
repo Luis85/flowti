@@ -1,3 +1,8 @@
+---
+domain: Folder Watcher
+stage: done
+plugin: "[[Development/watcher/README|README]]"
+---
 # Feature 3: Deletion & Move Handling
 
 Covers how the plugin handles file deletions and renames in both sync directions.

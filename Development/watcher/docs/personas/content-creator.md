@@ -1,6 +1,6 @@
 # Persona: The Content Creator
 
-> No journey yet.
+> Used in: [Journey 5 — Sync Content Across Devices](../journeys/journey-5-sync-across-devices.md)
 
 ## Profile
 

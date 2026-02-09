@@ -1,3 +1,8 @@
+---
+domain: Folder Watcher
+stage: done
+plugin: "[[Development/watcher/README|README]]"
+---
 # Feature 8: Settings & Configuration
 
 Covers mapping management and watcher configuration options.
