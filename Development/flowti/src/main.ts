@@ -29,7 +29,8 @@ import { registerViews } from "./infrastructure/views/registry";
 import type { IViewRegistry } from "./infrastructure/views/types";
 import { ViewRegistry } from "./infrastructure/views/ViewRegistry";
 
-/**
+
+/**  
  * Main plugin class for Flowti - Integrated Business Development Environment.
  *
  * Acts as the orchestrator for the plugin lifecycle. All domain logic lives in

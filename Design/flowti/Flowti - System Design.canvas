@@ -306,7 +306,205 @@
 			"height":60,
 			"color":"6"
 		},
-		{"id":"37139dd355994572","type":"link","url":"https://github.com/Luis85/flowti","x":-1360,"y":-1760,"width":400,"height":400}
+		{"id":"37139dd355994572","type":"link","url":"https://github.com/Luis85/flowti","x":-1360,"y":-1760,"width":400,"height":400},
+		{
+			"id":"3184bc7276b6c68d",
+			"type":"text",
+			"text":"System Snapshot",
+			"styleAttributes":{"textAlign":"center"},
+			"x":-520,
+			"y":-1440,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"dae07d0b47f0c414",
+			"type":"text",
+			"text":"Views",
+			"styleAttributes":{"textAlign":"center"},
+			"x":500,
+			"y":-1680,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"e63211aef739e978",
+			"type":"text",
+			"text":"Article Master\n#type/base",
+			"styleAttributes":{"textAlign":"center"},
+			"x":500,
+			"y":-1600,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"ae0f372b15eb2bac",
+			"type":"text",
+			"text":"Supplier Master\n#type/base",
+			"styleAttributes":{"textAlign":"center"},
+			"x":500,
+			"y":-1440,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"77e97ccb77ed7d3c",
+			"type":"text",
+			"text":"Customer Master\n#type/base",
+			"styleAttributes":{"textAlign":"center"},
+			"x":500,
+			"y":-1360,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"4f72175198725a87",
+			"type":"text",
+			"text":"As an Obsidian Plugin Developer, I want to maintain and publish my plugin from my Obsidian Vault so that everything keeps in one place",
+			"styleAttributes":{"textAlign":"center"},
+			"x":160,
+			"y":-1200,
+			"width":260,
+			"height":160,
+			"color":"5"
+		},
+		{
+			"id":"afd1967e9669473e",
+			"type":"text",
+			"text":"Plugin Development",
+			"styleAttributes":{"textAlign":"center"},
+			"x":160,
+			"y":-1280,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"a83b6175255f405d",
+			"type":"text",
+			"text":"Reporting with CSV",
+			"styleAttributes":{"textAlign":"center"},
+			"x":160,
+			"y":-1360,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"87d1dcc0a3f397cf",
+			"type":"text",
+			"text":"Commands",
+			"styleAttributes":{"textAlign":"center"},
+			"x":860,
+			"y":-1680,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"8fc95776510ff69c",
+			"type":"text",
+			"text":"Open View",
+			"styleAttributes":{"textAlign":"center"},
+			"x":860,
+			"y":-1600,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"8964a399f24ae220",
+			"type":"text",
+			"text":"Import Items\n#type/plugin",
+			"styleAttributes":{"textAlign":"center"},
+			"x":860,
+			"y":-1520,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"204ae4ec8b5f67f9",
+			"type":"text",
+			"text":"CSV Importer\n#type/plugin",
+			"styleAttributes":{"textAlign":"center"},
+			"x":500,
+			"y":-1520,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"1c9e229a531f5457",
+			"type":"text",
+			"text":"Importer Plugin",
+			"styleAttributes":{"textAlign":"center"},
+			"x":-180,
+			"y":-1440,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"348ba4f036142f8f",
+			"type":"text",
+			"text":"Ribbons",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1220,
+			"y":-1680,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"8c79f9d013817f9e",
+			"type":"text",
+			"text":"Inventory Stock Levels\n#type/base",
+			"styleAttributes":{"textAlign":"center"},
+			"x":500,
+			"y":-1120,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"ea8d998e1e05e30d",
+			"type":"text",
+			"text":"Plugins\n#type/base",
+			"styleAttributes":{"textAlign":"center"},
+			"x":500,
+			"y":-1280,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"255e3838a13a3d25",
+			"type":"text",
+			"text":"Plugin Development Dashboard",
+			"styleAttributes":{"textAlign":"center"},
+			"x":500,
+			"y":-1200,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"274590f543b76f21",
+			"type":"text",
+			"text":"Publish new Release",
+			"styleAttributes":{"textAlign":"center"},
+			"x":860,
+			"y":-1440,
+			"width":260,
+			"height":60,
+			"color":"5"
+		}
 	],
 	"edges":[
 		{
@@ -457,9 +655,83 @@
 			"id":"e2ae6f4c9b17b8e1",
 			"styleAttributes":{},
 			"toFloating":false,
+			"fromFloating":false,
 			"fromNode":"c9e501e75dbf946a",
 			"fromSide":"right",
 			"toNode":"1fee171ce6174c66",
+			"toSide":"left",
+			"fromEnd":"arrow"
+		},
+		{
+			"id":"70dcecce6293f4af",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"93707e4f2c430a82",
+			"fromSide":"left",
+			"toNode":"14ad7553fd4461c9",
+			"toSide":"right"
+		},
+		{
+			"id":"3ae615f9d4cfadd1",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"93707e4f2c430a82",
+			"fromSide":"left",
+			"toNode":"6a83d00f44bb39d3",
+			"toSide":"right"
+		},
+		{
+			"id":"34125678d32ffd7d",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"afd1967e9669473e",
+			"fromSide":"right",
+			"toNode":"255e3838a13a3d25",
+			"toSide":"left"
+		},
+		{
+			"id":"613fb369f9ee7360",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"afd1967e9669473e",
+			"fromSide":"bottom",
+			"toNode":"4f72175198725a87",
+			"toSide":"top"
+		},
+		{
+			"id":"bf17b1372c9ca7b6",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"8964a399f24ae220",
+			"fromSide":"left",
+			"toNode":"204ae4ec8b5f67f9",
+			"toSide":"right"
+		},
+		{
+			"id":"7ff016487fdbf43e",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"8fc95776510ff69c",
+			"fromSide":"left",
+			"toNode":"dae07d0b47f0c414",
+			"toSide":"right"
+		},
+		{
+			"id":"173a5754942481d3",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"8fc95776510ff69c",
+			"fromSide":"right",
+			"toNode":"348ba4f036142f8f",
+			"toSide":"left"
+		},
+		{
+			"id":"04392af646d49801",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"afd1967e9669473e",
+			"fromSide":"right",
+			"toNode":"ea8d998e1e05e30d",
 			"toSide":"left"
 		}
 	],

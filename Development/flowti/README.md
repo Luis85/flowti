@@ -12,7 +12,7 @@ stage: development
 | **License** | MIT |
 | **Author** | Luis Mendez |
 
-## Features
+## Infrastructure Features
 
 | Feature | Description | Status |
 |---------|-------------|--------|
