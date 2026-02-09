@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { EventBridge } from "../../../src/infrastructure/events/EventBridge";
 import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import { LoggerService } from "../../../src/infrastructure/logger/LoggerService";
-import { TFile, WorkspaceLeaf } from "obsidian";
+import { TFile, TFolder, WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import type { ILogger } from "../../../src/infrastructure/logger/types";
 import type { RequestId } from "../../../src/infrastructure/events/events";
@@ -77,6 +77,12 @@ function createTFile(path: string): TFile {
 	file.basename = path.split("/").pop()?.replace(/\.[^.]+$/, "") ?? "";
 	file.extension = path.split(".").pop() ?? "";
 	return file;
+}
+
+function createTFolder(path: string): TFolder {
+	const folder = new TFolder();
+	folder.path = path;
+	return folder;
 }
 
 describe("EventBridge", () => {
@@ -592,12 +598,85 @@ describe("EventBridge", () => {
 			);
 		});
 
-		it("should ignore non-TFile vault events", async () => {
-			const handler = vi.fn();
-			eventBus.on("file.created", handler);
+		it("should ignore non-TFile and non-TFolder vault events", async () => {
+			const fileHandler = vi.fn();
+			const folderHandler = vi.fn();
+			eventBus.on("file.created", fileHandler);
+			eventBus.on("folder.created", folderHandler);
 
-			// Trigger with a plain object (not TFile)
-			mockApp._triggerVaultEvent("create", { path: "folder" });
+			// Trigger with a plain object (neither TFile nor TFolder)
+			mockApp._triggerVaultEvent("create", { path: "unknown" });
+
+			await new Promise((r) => setTimeout(r, 10));
+
+			expect(fileHandler).not.toHaveBeenCalled();
+			expect(folderHandler).not.toHaveBeenCalled();
+		});
+	});
+
+	// ─────────────────────────────────────────────────────────────
+	// Folder Notification Listeners
+	// ─────────────────────────────────────────────────────────────
+
+	describe("folder listeners", () => {
+		it("should emit folder.created on vault create with TFolder", async () => {
+			const handler = vi.fn();
+			eventBus.on("folder.created", handler);
+
+			const folder = createTFolder("notes/subfolder");
+			mockApp._triggerVaultEvent("create", folder);
+
+			await new Promise((r) => setTimeout(r, 10));
+
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: { path: "notes/subfolder", source: "obsidian" },
+				})
+			);
+		});
+
+		it("should emit folder.deleted on vault delete with TFolder", async () => {
+			const handler = vi.fn();
+			eventBus.on("folder.deleted", handler);
+
+			const folder = createTFolder("notes/old-folder");
+			mockApp._triggerVaultEvent("delete", folder);
+
+			await new Promise((r) => setTimeout(r, 10));
+
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: { path: "notes/old-folder", source: "obsidian" },
+				})
+			);
+		});
+
+		it("should emit folder.renamed on vault rename with TFolder", async () => {
+			const handler = vi.fn();
+			eventBus.on("folder.renamed", handler);
+
+			const folder = createTFolder("notes/new-name");
+			mockApp._triggerVaultEvent("rename", folder, "notes/old-name");
+
+			await new Promise((r) => setTimeout(r, 10));
+
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: {
+						oldPath: "notes/old-name",
+						newPath: "notes/new-name",
+						source: "obsidian",
+					},
+				})
+			);
+		});
+
+		it("should not emit folder.modified on vault modify with TFolder", async () => {
+			const handler = vi.fn();
+			eventBus.on("file.modified", handler);
+
+			const folder = createTFolder("notes/subfolder");
+			mockApp._triggerVaultEvent("modify", folder);
 
 			await new Promise((r) => setTimeout(r, 10));
 

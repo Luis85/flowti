@@ -269,6 +269,36 @@ export interface FlowtiEventMap extends UserEventMap, SettingsEventMap, Installe
 	};
 
 	// ─────────────────────────────────────────────────────────────
+	// Folder Notification Events (External changes → Services)
+	// ─────────────────────────────────────────────────────────────
+
+	/** Notification: A folder was created */
+	"folder.created": {
+		/** Path of the created folder */
+		path: string;
+		/** Source of the creation */
+		source: FileChangeSource;
+	};
+
+	/** Notification: A folder was deleted */
+	"folder.deleted": {
+		/** Path of the deleted folder */
+		path: string;
+		/** Source of the deletion */
+		source: FileChangeSource;
+	};
+
+	/** Notification: A folder was renamed */
+	"folder.renamed": {
+		/** Original path before rename */
+		oldPath: string;
+		/** New path after rename */
+		newPath: string;
+		/** Source of the rename */
+		source: FileChangeSource;
+	};
+
+	// ─────────────────────────────────────────────────────────────
 	// Frontmatter Request Events (Service → EventBridge)
 	// ─────────────────────────────────────────────────────────────
 

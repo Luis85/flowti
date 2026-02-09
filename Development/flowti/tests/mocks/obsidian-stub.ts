@@ -12,6 +12,13 @@ export class TFile extends TAbstractFile {
 	extension: string = "";
 }
 
+export class TFolder extends TAbstractFile {
+	children: TAbstractFile[] = [];
+	isRoot(): boolean {
+		return this.path === "/";
+	}
+}
+
 export type EventRef = { id: string };
 
 export class ItemView {

@@ -1,4 +1,4 @@
-import { TFile } from "obsidian";
+import { TFile, TFolder } from "obsidian";
 import type { App } from "obsidian";
 import type { EventBridgeOptions, IEventBridge, IEventBus } from "./types";
 import type { ILogger } from "../logger/types";
@@ -418,6 +418,11 @@ export class EventBridge implements IEventBridge {
 						path: file.path,
 						source: "obsidian",
 					});
+				} else if (file instanceof TFolder) {
+					void this.eventBus.emit("folder.created", {
+						path: file.path,
+						source: "obsidian",
+					});
 				}
 			})
 		);
@@ -440,6 +445,11 @@ export class EventBridge implements IEventBridge {
 						path: file.path,
 						source: "obsidian",
 					});
+				} else if (file instanceof TFolder) {
+					void this.eventBus.emit("folder.deleted", {
+						path: file.path,
+						source: "obsidian",
+					});
 				}
 			})
 		);
@@ -448,6 +458,12 @@ export class EventBridge implements IEventBridge {
 			this.app.vault.on("rename", (file, oldPath) => {
 				if (file instanceof TFile) {
 					void this.eventBus.emit("file.renamed", {
+						oldPath,
+						newPath: file.path,
+						source: "obsidian",
+					});
+				} else if (file instanceof TFolder) {
+					void this.eventBus.emit("folder.renamed", {
 						oldPath,
 						newPath: file.path,
 						source: "obsidian",
