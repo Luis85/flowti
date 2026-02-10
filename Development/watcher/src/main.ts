@@ -1,4 +1,5 @@
 import { Plugin } from "obsidian";
+import * as fsp from "fs/promises";
 import { StatusBarService } from "src/services/StatusBarService";
 import { WatcherManager } from "src/watcher/WatcherManager";
 import { FileWatcherSettingTab } from "src/settings/FileWatcherSettingTab";
@@ -12,6 +13,12 @@ import { createNoticeService, type INoticeService } from "src/services/NoticeSer
 import { FileWatcherSettings, DEFAULT_SETTINGS } from "src/settings/types";
 import { ReconcileProgress, FolderMapping } from "src/types";
 import { getMappingLabel } from "src/utils";
+import { pickExportPath, pickImportFile } from "src/services/FolderPickerService";
+import {
+	serializeMappings,
+	deserializeMappings,
+	prepareMappingsForImport,
+} from "src/services/MappingExportService";
 
 /**
  * Main plugin class for the Foreign Folder Watcher.
@@ -304,6 +311,98 @@ export default class FileWatcherPlugin extends Plugin {
 				this.openDashboard();
 			},
 		});
+
+		this.addCommand({
+			id: "filewatcher-export-mappings",
+			name: "Export folder mappings",
+			callback: () => void this.exportMappings(),
+		});
+
+		this.addCommand({
+			id: "filewatcher-import-mappings",
+			name: "Import folder mappings",
+			callback: () => void this.importMappings(),
+		});
+	}
+
+	/**
+	 * Export current folder mappings to a JSON file.
+	 * Mappings are exported with sourceFolder cleared and enabled=false.
+	 */
+	async exportMappings(): Promise<void> {
+		const mappings = this.settings.folderMappings;
+		if (mappings.length === 0) {
+			this.noticeService.show("No mappings to export.");
+			return;
+		}
+
+		const filePath = await pickExportPath("folder-mappings.json");
+		if (!filePath) return;
+
+		try {
+			const json = serializeMappings(mappings, this.manifest.version);
+			await fsp.writeFile(filePath, json, "utf-8");
+			this.noticeService.success(`Exported ${mappings.length} mapping(s) to ${filePath}`);
+			LogService.info("Plugin", "Mappings exported", {
+				details: { count: mappings.length, path: filePath },
+			});
+		} catch (error) {
+			const msg = error instanceof Error ? error.message : String(error);
+			this.noticeService.error(`Export failed: ${msg}`);
+			LogService.error("Plugin", "Export failed", { details: { error: msg } });
+		}
+	}
+
+	/**
+	 * Import folder mappings from a JSON file.
+	 * Imported mappings get new IDs and are disabled by default.
+	 */
+	async importMappings(): Promise<void> {
+		const filePath = await pickImportFile();
+		if (!filePath) return;
+
+		try {
+			const json = await fsp.readFile(filePath, "utf-8");
+			const { mappings: parsed, errors } = deserializeMappings(json);
+
+			if (errors.length > 0) {
+				this.noticeService.error(`Import errors: ${errors.join("; ")}`);
+				return;
+			}
+
+			if (parsed.length === 0) {
+				this.noticeService.show("No mappings found in file.");
+				return;
+			}
+
+			const { mappings: ready, warnings } = prepareMappingsForImport(
+				parsed,
+				this.settings.folderMappings
+			);
+
+			for (const w of warnings) {
+				this.noticeService.show(w);
+			}
+
+			if (ready.length === 0) {
+				this.noticeService.show("No new mappings to import (all skipped).");
+				return;
+			}
+
+			this.settings.folderMappings.push(...ready);
+			await this.saveSettings();
+
+			this.noticeService.success(
+				`Imported ${ready.length} mapping(s). They are disabled — configure source folders and enable them.`
+			);
+			LogService.info("Plugin", "Mappings imported", {
+				details: { count: ready.length, warnings },
+			});
+		} catch (error) {
+			const msg = error instanceof Error ? error.message : String(error);
+			this.noticeService.error(`Import failed: ${msg}`);
+			LogService.error("Plugin", "Import failed", { details: { error: msg } });
+		}
 	}
 
 	/**

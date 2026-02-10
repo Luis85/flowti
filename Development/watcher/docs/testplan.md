@@ -1,6 +1,6 @@
 # Folder Watcher — Test Plan Index
 
-> Last updated: 2026-02-09 — 475 tests across 32 files (92 acceptance + 383 unit/integration)
+> Last updated: 2026-02-10 — 511 tests across 34 files (92 acceptance + 419 unit/integration)
 
 This document serves as the index for the full test plan. Each feature, use case, journey, and scenario has its own file.
 
@@ -43,7 +43,7 @@ Testable requirements derived from each persona's JTBD — "As a … I want … 
 | The Researcher | 6 | US-R | [researcher](user-stories/researcher.md) |
 | The Developer | 6 | US-D | [developer](user-stories/developer.md) |
 | The Weekend User | 6 | US-W | [weekend-user](user-stories/weekend-user.md) |
-| The Collaborator | 7 | US-C | [collaborator](user-stories/collaborator.md) |
+| The Collaborator | 8 | US-C | [collaborator](user-stories/collaborator.md) |
 | The Content Creator | 8 | US-X | [content-creator](user-stories/content-creator.md) |
 | The Maintainer | 8 | US-M | [maintainer](user-stories/maintainer.md) |
 
@@ -80,6 +80,7 @@ End-to-end paths through the system that cross multiple features.
 | 8 | Settings & Configuration | UC-36 – UC-37 | [feature-08](features/feature-08-settings.md) |
 | 9 | User Interface | UC-38 – UC-42 | [feature-09](features/feature-09-ui.md) |
 | 10 | Persistence & Error Recovery | UC-43 – UC-46 | [feature-10](features/feature-10-persistence.md) |
+| 11 | Export / Import Mappings | UC-47 – UC-48 | [feature-11](features/feature-11-export-import.md) |
 
 ---
 
@@ -181,6 +182,13 @@ End-to-end paths through the system that cross multiple features.
 | UC-45 | Watcher Error Recovery | ⏭️ 0/1 | [uc-45](use-cases/uc-45-watcher-error-recovery.md) |
 | UC-46 | Watcher Close Timeout | ⏭️ 0/1 | [uc-46](use-cases/uc-46-watcher-close-timeout.md) |
 
+### Feature 11: Export / Import Mappings
+
+| # | Use Case | Status | File |
+|---|----------|--------|------|
+| UC-47 | Export Mappings to JSON | ✅ 14/14 | [uc-47](use-cases/uc-47-export-mappings.md) |
+| UC-48 | Import Mappings from JSON | ✅ 22/22 | [uc-48](use-cases/uc-48-import-mappings.md) |
+
 ---
 
 ## Test Implementation Status
@@ -195,7 +203,8 @@ End-to-end paths through the system that cross multiple features.
 | 6. Reliability | `feature6-reliability.test.ts` | 16 | 3 | 19 | 84% |
 | 7. Safety | `feature7-safety.test.ts` | 12 | 8 | 20 | 60% |
 | 8-10. Settings/UI/Persistence | `feature8-10-settings-ui-persistence.test.ts` | 10 | 22 | 32 | 31% |
-| **Totals** | | **92** | **64** | **156** | **59%** |
+| 11. Export/Import | `MappingExportService.test.ts` + `MappingExportImport.test.ts` | 36 | 0 | 36 | 100% |
+| **Totals** | | **128** | **64** | **192** | **67%** |
 
 ### Skip Reasons
 

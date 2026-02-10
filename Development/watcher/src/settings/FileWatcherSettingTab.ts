@@ -59,6 +59,21 @@ export class FileWatcherSettingTab extends PluginSettingTab {
 					.setButtonText("Reconcile All")
 					.setTooltip("Sync all enabled mappings now")
 					.onClick(() => this.reconcileAllMappings())
+			)
+			.addButton((b) =>
+				b
+					.setButtonText("Export")
+					.setTooltip("Export mappings to a JSON file")
+					.onClick(() => this.plugin.exportMappings())
+			)
+			.addButton((b) =>
+				b
+					.setButtonText("Import")
+					.setTooltip("Import mappings from a JSON file")
+					.onClick(async () => {
+						await this.plugin.importMappings();
+						this.display();
+					})
 			);
 
 		// Search filter (only show if there are mappings)

@@ -16,6 +16,7 @@ An Obsidian plugin for automatic synchronization of files between external folde
 - **Exclusion Patterns**: Exclude files and folders using glob patterns
 - **Conflict Resolution**: Multiple strategies (overwrite, rename, skip, keep newer)
 - **Dashboard**: Visual interface for monitoring and control with health indicators
+- **Export / Import Mappings**: Share your folder mapping configuration as JSON — others can import it to set up their vault
 - **Performance**: Parallel processing, intelligent caching, skip-unchanged optimization
 
 ## Installation
@@ -157,6 +158,8 @@ Available via Command Palette (`Ctrl/Cmd + P`):
 |---------|-------------|
 | **File Watcher: Open Dashboard** | Open the dashboard |
 | **File Watcher: Restart all watchers** | Restart all watchers |
+| **File Watcher: Export folder mappings** | Export all mappings to a JSON file |
+| **File Watcher: Import folder mappings** | Import mappings from a JSON file |
 
 ### Dashboard
 
@@ -228,6 +231,58 @@ Exclude: node_modules, .git, *.log
 
 ---
 
+## Sharing Mappings (Export / Import)
+
+You can share your folder mapping configuration with others so they can set up their vault with the same sync structure.
+
+### Export
+
+1. Open **Settings → Foreign Folder Watcher**
+2. Click **"Export"** (or use Command Palette: "File Watcher: Export folder mappings")
+3. Choose a save location — can be anywhere on your machine, including outside the vault
+4. A `.json` file is saved with all your mappings
+
+**What gets exported:**
+- Target folders, descriptions, sync direction, conflict resolution, file extensions, exclude patterns, and all other sync settings
+- Source folders are **cleared** (paths are machine-specific and meaningless to others)
+- All mappings are set to **disabled** in the export
+
+### Import
+
+1. Open **Settings → Foreign Folder Watcher**
+2. Click **"Import"** (or use Command Palette: "File Watcher: Import folder mappings")
+3. Select a `.json` mapping file — can be from anywhere on your machine
+4. Imported mappings appear in your settings, **disabled** by default
+
+**After importing:**
+- Configure the **Source Folder** for each imported mapping (point to your local folders)
+- **Enable** the mappings you want to activate
+- Mappings with overlapping target folders are skipped automatically
+
+### Export File Format
+
+```json
+{
+  "version": 1,
+  "exportedAt": "2026-02-10T12:00:00.000Z",
+  "pluginVersion": "1.0.0",
+  "mappings": [
+    {
+      "targetFolder": "imported/onedrive",
+      "description": "OneDrive Notes",
+      "sourceFolder": "",
+      "enabled": false,
+      "syncDirection": "source-only",
+      "fileExtensions": [".md", ".txt"],
+      "conflictResolution": "keepNewer",
+      ...
+    }
+  ]
+}
+```
+
+---
+
 ## Troubleshooting
 
 ### Files are not syncing
@@ -288,7 +343,8 @@ src/
 │   ├── StatusBarService.ts # Status bar display
 │   ├── LogService.ts       # Logging with subscriptions
 │   ├── NoticeService.ts    # User notifications
-│   ├── FolderPickerService.ts # Native folder picker (Electron)
+│   ├── FolderPickerService.ts # Native folder/file picker (Electron)
+│   ├── MappingExportService.ts # Export/import mapping configurations
 │   └── AsyncMutex.ts       # Thread safety (locks)
 ├── watcher/
 │   ├── WatcherManager.ts   # Watcher lifecycle & health tracking

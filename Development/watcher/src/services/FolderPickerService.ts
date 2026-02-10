@@ -34,6 +34,57 @@ export async function pickFolder(defaultPath?: string): Promise<string | null> {
 }
 
 /**
+ * Opens a native save dialog for exporting a JSON file.
+ * @param defaultName - Default filename (e.g., "folder-mappings.json")
+ * @returns The selected file path, or null if cancelled
+ */
+export async function pickExportPath(defaultName = "folder-mappings.json"): Promise<string | null> {
+	try {
+		const { remote } = require("electron");
+
+		const result = await remote.dialog.showSaveDialog({
+			title: "Export Folder Mappings",
+			defaultPath: defaultName,
+			filters: [{ name: "JSON Files", extensions: ["json"] }],
+		});
+
+		if (result.canceled || !result.filePath) {
+			return null;
+		}
+
+		return result.filePath;
+	} catch (error) {
+		console.error("Failed to open save dialog:", error);
+		return null;
+	}
+}
+
+/**
+ * Opens a native file picker dialog for selecting a JSON file to import.
+ * @returns The selected file path, or null if cancelled
+ */
+export async function pickImportFile(): Promise<string | null> {
+	try {
+		const { remote } = require("electron");
+
+		const result = await remote.dialog.showOpenDialog({
+			properties: ["openFile"],
+			title: "Import Folder Mappings",
+			filters: [{ name: "JSON Files", extensions: ["json"] }],
+		});
+
+		if (result.canceled || result.filePaths.length === 0) {
+			return null;
+		}
+
+		return result.filePaths[0];
+	} catch (error) {
+		console.error("Failed to open file picker:", error);
+		return null;
+	}
+}
+
+/**
  * Check if the native folder picker is available
  * (Electron's remote module must be accessible)
  */

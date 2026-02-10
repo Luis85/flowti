@@ -93,7 +93,8 @@ src/
 │   ├── StatusBarService.ts        # Status bar UI
 │   ├── LogService.ts              # Centralized structured logging
 │   ├── NoticeService.ts           # User notification wrapper
-│   ├── FolderPickerService.ts     # Native folder picker (Electron)
+│   ├── FolderPickerService.ts     # Native folder/file picker (Electron)
+│   ├── MappingExportService.ts    # Export/import mapping configurations (JSON)
 │   ├── AsyncMutex.ts              # KeyedMutex + OperationLock
 │   ├── retry.ts                   # withRetry + isRetryableError + PathTraversalError
 │   └── types.ts                   # Service interfaces
@@ -120,6 +121,7 @@ src/
 | **WatcherManager** | Manages lifecycle of MappingWatcher + VaultWatcher pairs. Tracks health states: healthy / idle / warning / error. |
 | **MappingWatcher** | Watches external source folder via chokidar. Debounced processing, backpressure queue (MAX_PENDING_JOBS=1000), move detection (size + extension matching). |
 | **VaultWatcher** | Watches vault target folder via Obsidian vault events. Minimum 1500ms reverse debounce. Backpressure queue. |
+| **MappingExportService** | Serializes mappings to portable JSON (clears sourceFolder, sets enabled=false). Deserializes with validation and default-filling. Prepares imports with fresh UUIDs and overlap detection. |
 
 ### Core domain types (`types.ts`)
 
@@ -162,11 +164,11 @@ WatcherStats         // Per-mapping + global statistics
 
 ## Testing
 
-### Test structure (457 passing, 64 skipped across 28 files)
+### Test structure (511 passing, 64 skipped across 34 files)
 
 ```
 tests/
-├── acceptance/                    # Feature-driven BDD tests (9 files)
+├── features/                      # Feature-driven BDD tests (8 files)
 │   ├── feature1-core-sync.test.ts
 │   ├── feature2-conflict-resolution.test.ts
 │   ├── feature3-deletion-move.test.ts
@@ -174,11 +176,14 @@ tests/
 │   ├── feature5-reconciliation.test.ts
 │   ├── feature6-reliability.test.ts
 │   ├── feature7-safety.test.ts
-│   ├── feature8-10-settings-ui-persistence.test.ts
-│   └── user-journeys.test.ts      # Cross-feature happy paths
-├── services/                      # Unit tests (13 files)
+│   └── feature8-10-settings-ui-persistence.test.ts
+├── services/                      # Unit tests (14 files)
+│   └── MappingExportService.test.ts  # Export/import serialization (29 tests)
 ├── watcher/                       # Watcher tests (4 files)
-├── settings/                      # Settings UI tests (1 file)
+├── settings/                      # Settings tests (2 files)
+│   ├── MappingManagement.test.ts
+│   └── MappingExportImport.test.ts   # Export/import integration (7 tests)
+├── user-journeys/                 # Cross-feature happy paths (4 files)
 ├── mocks/
 │   ├── factories.ts               # Central mock factory (550 lines)
 │   ├── obsidian-stub.ts           # Obsidian API mocks
