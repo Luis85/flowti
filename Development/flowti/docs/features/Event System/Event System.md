@@ -3,8 +3,728 @@ stage: done
 domain: Flowti/System
 plugin: "[[Development/flowti/README|README]]"
 ---
+# Product Requirements Document (PRD)
 
-# Event System
+## Feature: Event System
+
+---
+
+## 1. Overview
+
+### Feature Name
+
+**Event System**
+
+### Summary
+
+The Event System enables users to transform low-level file activity in Obsidian into **explicit, semantic domain events** that can be subscribed to and used to trigger downstream processes.  
+It is designed to handle **external file ingestion**, **high-volume bursts**, and **offline catch-up scenarios** reliably and transparently.
+
+---
+
+## 2. Problem Statement
+
+Obsidian today reacts to _files_, not to _meaning_.
+
+Users who sync external systems (OneDrive, ERP exports, email imports, CSV reports, Git) into their vault face recurring problems:
+
+- Incoming files require repetitive manual processing
+    
+- File creation alone does not express intent
+    
+- Automation is fragile, implicit, or opaque
+    
+- Burst imports (hundreds of files) overwhelm the system
+    
+- Files added while Obsidian is closed may be missed or duplicated
+    
+
+There is no system-level mechanism to:
+
+- interpret file changes semantically
+    
+- subscribe explicitly to events
+    
+- process large ingestion volumes safely
+    
+- observe and trust automation behavior
+    
+
+---
+
+## 3. Goals & Objectives
+
+### Primary Goals
+
+- Enable users to react to **meaningful events**, not raw file changes
+    
+- Provide **explicit, user-controlled subscriptions**
+    
+- Support **reliable ingestion** of external files at scale
+    
+- Maintain **trust through observability**
+    
+
+### Secondary Goals
+
+- Establish a stable event contract for future automation
+    
+- Enable incremental system complexity
+    
+- Serve as a foundation for workflows and pipelines
+    
+
+---
+
+## 4. Non-Goals
+
+The Event System will **not**:
+
+- Replace full ETL or analytics pipelines
+    
+- Perform heavy data analysis by default
+    
+- Automate anything without explicit user opt-in
+    
+- Serve casual or purely manual note-taking workflows
+    
+
+---
+
+## 5. Target Users / Personas
+
+### Primary Persona — System Builder
+
+- Power user, Product Owner, Engineer, Ops
+    
+- Builds structured systems in Obsidian
+    
+- Integrates external data sources
+    
+
+### Secondary Persona — Knowledge Worker
+
+- Receives recurring reports or datasets
+    
+- Wants automation without scripting
+    
+
+### Tertiary Persona — Integrator / Plugin Developer
+
+- Needs stable, semantic hooks for automation
+    
+
+---
+
+## 6. User Jobs to Be Done (JTBD Summary)
+
+- Detect meaningful events from file activity
+    
+- Define domain events from file properties and content
+    
+- Subscribe explicitly to events
+    
+- Trigger follow-up processes reliably
+    
+- Handle high-volume ingestion and offline catch-up
+    
+- Avoid duplicate or accidental events
+    
+- Observe, debug, and trust automation
+    
+- Scale automation incrementally
+    
+
+---
+
+## 7. User Stories
+
+### US-1: Subscribe to File-Based Events
+
+> As a user, I want to subscribe to file events (e.g. new CSV files) so I can react when new data arrives.
+
+### US-2: Define a Domain Event from a File
+
+> As a user, I want to define a new event type based on file metadata or content so the system understands what happened.
+
+### US-3: Handle Burst Imports Safely
+
+> As a user, I want the system to process many incoming files without freezing or losing events.
+
+### US-4: Catch Up After Downtime
+
+> As a user, I want the system to detect and process files that arrived while Obsidian was not running.
+
+### US-5: Inspect Event Activity
+
+> As a user, I want to see which events were emitted and why, so I can trust and debug automation.
+
+---
+
+## 8. Functional Requirements
+
+### 8.1 Event Catalog
+
+- Display available events grouped by category:
+    
+    - System Events (file created, modified, deleted)
+        
+    - Ingestion Events (job started, batch completed)
+        
+    - Domain Events (user-defined)
+        
+- Each event includes:
+    
+    - Name
+        
+    - Description
+        
+    - Source
+        
+    - Payload schema (high-level)
+        
+
+---
+
+### 8.2 Event Subscriptions
+
+- Users can:
+    
+    - Subscribe to one or more events
+        
+    - Apply filters (path, extension, filename pattern)
+        
+- Subscriptions are:
+    
+    - Explicit
+        
+    - Enable/disableable
+        
+    - Inspectable
+        
+
+---
+
+### 8.3 File Ingestion Pipeline
+
+#### Requirements
+
+- File events enqueue ingestion jobs instead of processing immediately
+    
+- Jobs are processed with configurable concurrency
+    
+- Failed jobs retry with backoff
+    
+
+#### Supported Scenarios
+
+- Single file arrival
+    
+- Burst imports (e.g. 500 files)
+    
+- Files added while Obsidian was closed
+    
+
+---
+
+### 8.4 Define Domain Events from Files
+
+Users can configure:
+
+- Event name to emit
+    
+- Payload mapping from:
+    
+    - File metadata
+        
+    - Derived metadata (e.g. date from filename)
+        
+    - CSV properties (headers, row count, selected fields)
+        
+- Emission policy:
+    
+    - Emit once per file (default)
+        
+    - Emit on change (advanced)
+        
+
+---
+
+### 8.5 Idempotency & Deduplication
+
+- Each file-derived event must have a deterministic event key
+    
+- System must prevent duplicate domain event emission
+    
+- Ledger of processed files/events must persist across restarts
+    
+
+---
+
+### 8.6 Catch-Up Processing
+
+On plugin startup:
+
+- Scan configured folders
+    
+- Detect unprocessed files
+    
+- Enqueue ingestion jobs
+    
+- Emit events as needed
+    
+
+---
+
+### 8.7 Observability & Event Log
+
+- Provide an Event Log UI showing:
+    
+    - Events emitted
+        
+    - Source file
+        
+    - Timestamp
+        
+    - Triggering subscription
+        
+    - Success/failure
+        
+- Batch-level visibility for large imports
+    
+
+---
+
+## 9. Non-Functional Requirements
+
+### Performance
+
+- No UI blocking during ingestion
+    
+- Configurable concurrency limits
+    
+- Graceful degradation under load
+    
+
+### Reliability
+
+- No event loss during bursts
+    
+- Deterministic behavior across restarts
+    
+
+### Usability
+
+- Outcome-focused language (“When this happens…”)
+    
+- No architectural jargon in UI
+    
+
+### Transparency
+
+- Every automated action must be explainable
+    
+
+---
+
+## 10. UX / UI Components (v0)
+
+- Event Catalog view
+    
+- Subscription configuration panel
+    
+- Event Log view
+    
+- Ingestion status indicators (batch / progress)
+    
+
+---
+
+## 11. Example Workflow (Daily CSV Reports)
+
+1. CSV files sync into `Reports/Daily/`
+    
+2. `file.created` events detected
+    
+3. Ingestion jobs enqueued
+    
+4. CSV parsed
+    
+5. `report.daily_received` domain event emitted
+    
+6. Event logged
+    
+7. Downstream subscriptions triggered
+    
+
+---
+
+## 12. Success Metrics
+
+- Reduction in manual file processing steps
+    
+- Zero lost events during burst imports
+    
+- User adoption of subscriptions
+    
+- Positive user feedback on trust and transparency
+    
+
+---
+
+## 13. Open Questions / Future Extensions
+
+- Web Worker–based parsing
+    
+- Replay or dry-run mode
+    
+- Cross-plugin event consumption
+    
+- Event chaining / workflows
+    
+- Visual event flow editor
+    
+
+---
+
+## 14. Release Scope
+
+### v0 (Foundational)
+
+- File events
+    
+- Ingestion queue
+    
+- Domain event definition
+    
+- Subscriptions
+    
+- Event log
+    
+- Catch-up processing
+    
+
+### v1+
+
+- Advanced payload transforms
+    
+- Event chaining
+    
+- Replay & testing tools
+    
+
+---
+
+# Acceptance Criteria — Event System Feature
+
+---
+
+## 1. Event Catalog
+
+### AC-1.1 — Event Visibility
+
+- The system displays a catalog of available events.
+    
+- Events are grouped into:
+    
+    - System Events
+        
+    - Ingestion Events
+        
+    - Domain Events
+        
+- Each event shows:
+    
+    - Name
+        
+    - Short description
+        
+    - Source category
+        
+
+### AC-1.2 — Domain Event Registration
+
+- When a user defines a new domain event, it appears in the Event Catalog.
+    
+- The event remains visible after restarting Obsidian.
+    
+
+---
+
+## 2. Event Subscriptions
+
+### AC-2.1 — Subscription Creation
+
+- Users can create a subscription by selecting an event from the Event Catalog.
+    
+- A subscription can be enabled or disabled.
+    
+
+### AC-2.2 — Subscription Filtering
+
+- Users can define filters for a subscription, including:
+    
+    - File path
+        
+    - File extension
+        
+    - Filename pattern
+        
+- Only matching events trigger the subscription.
+    
+
+### AC-2.3 — Explicit Behavior
+
+- No automation occurs unless a subscription is explicitly enabled.
+    
+- Disabling a subscription immediately prevents further triggers.
+    
+
+---
+
+## 3. File Event Detection
+
+### AC-3.1 — File Creation Detection
+
+- When a new file is added to the vault, a file-created event is emitted.
+    
+- The event includes file metadata (path, name, timestamp).
+    
+
+### AC-3.2 — File Sync Scenarios
+
+- Files synced via external tools (e.g. OneDrive) are detected the same as locally created files.
+    
+- Temporary or ignored files are not processed.
+    
+
+---
+
+## 4. Ingestion Pipeline
+
+### AC-4.1 — Job Queuing
+
+- File events enqueue ingestion jobs instead of being processed immediately.
+    
+- Job queuing does not block the UI.
+    
+
+### AC-4.2 — Controlled Concurrency
+
+- The system processes ingestion jobs with a defined concurrency limit.
+    
+- Large numbers of incoming files do not freeze Obsidian.
+    
+
+### AC-4.3 — Retry on Failure
+
+- If file parsing fails due to incomplete or locked files, the job retries automatically.
+    
+- After exceeding retry limits, the job is marked as failed and logged.
+    
+
+---
+
+## 5. Domain Event Definition from Files
+
+### AC-5.1 — Event Definition
+
+- Users can define a domain event based on a file event.
+    
+- The user can choose the emitted event name.
+    
+
+### AC-5.2 — Payload Mapping
+
+- Event payloads can include:
+    
+    - File metadata
+        
+    - Derived metadata (e.g. from filename)
+        
+    - CSV properties (headers, row count, selected fields)
+        
+- The emitted event contains only the configured payload fields.
+    
+
+### AC-5.3 — CSV Handling
+
+- CSV files are parsed according to user-defined settings (delimiter, header presence).
+    
+- Parsing errors are surfaced in the Event Log.
+    
+
+---
+
+## 6. Idempotency & Deduplication
+
+### AC-6.1 — Single Emission per Logical File
+
+- A domain event is emitted only once per logical file by default.
+    
+- Re-syncing or renaming a previously processed file does not emit duplicate events.
+    
+
+### AC-6.2 — Deterministic Event Identity
+
+- The system uses a deterministic event key to track processed files.
+    
+- Event identity persists across restarts.
+    
+
+---
+
+## 7. Burst Handling (High Volume)
+
+### AC-7.1 — Burst Safety
+
+- When a large number of files (e.g. 500) are added at once:
+    
+    - All files are queued
+        
+    - No events are lost
+        
+    - UI remains responsive
+        
+
+### AC-7.2 — Batch Visibility
+
+- The system indicates when batch ingestion is in progress.
+    
+- Users can see progress or completion status.
+    
+
+---
+
+## 8. Catch-Up Processing
+
+### AC-8.1 — Startup Catch-Up
+
+- On plugin startup, the system scans configured folders.
+    
+- Files that arrived while Obsidian was closed are detected.
+    
+
+### AC-8.2 — No Duplicate Catch-Up
+
+- Files already processed before shutdown are not reprocessed.
+    
+- Catch-up processing respects idempotency rules.
+    
+
+---
+
+## 9. Event Log & Observability
+
+### AC-9.1 — Event Log Visibility
+
+- Users can view an Event Log listing:
+    
+    - Event name
+        
+    - Timestamp
+        
+    - Source file
+        
+    - Triggering subscription
+        
+    - Status (success / failure)
+        
+
+### AC-9.2 — Explainability
+
+- For each domain event, the system shows:
+    
+    - Which subscription triggered it
+        
+    - Which file caused it
+        
+
+### AC-9.3 — Failure Transparency
+
+- Failed ingestion or event emission is visible in the Event Log.
+    
+- Failures do not silently block subsequent events.
+    
+
+---
+
+## 10. Persistence & Reliability
+
+### AC-10.1 — Persistence Across Restarts
+
+- Subscriptions, event definitions, and processing state persist across restarts.
+    
+- No configuration is lost when Obsidian is closed.
+    
+
+### AC-10.2 — System Recovery
+
+- If Obsidian crashes during ingestion:
+    
+    - Pending jobs resume on next startup
+        
+    - Already completed jobs are not repeated
+        
+
+---
+
+## 11. Usability & Trust
+
+### AC-11.1 — Outcome-Focused Language
+
+- UI text uses outcome-based phrasing (e.g. “When a new CSV report arrives…”).
+    
+- Technical terms are hidden unless explicitly needed.
+    
+
+### AC-11.2 — User Control
+
+- Users can disable the entire Event System.
+    
+- When disabled, no events are emitted or processed.
+    
+
+---
+
+## 12. Canonical Scenario Acceptance (Daily CSV Reports)
+
+### AC-12.1 — End-to-End Flow
+
+Given:
+
+- A subscription exists for new CSV files in a configured folder  
+    When:
+    
+- New CSV files are synced into the vault  
+    Then:
+    
+- Each CSV is processed exactly once
+    
+- A domain event is emitted per logical report
+    
+- Events appear in the Event Log
+    
+- No manual intervention is required
+    
+
+---
+
+## Definition of Done (Feature-Level)
+
+The Event System feature is considered **Done** when:
+
+- All acceptance criteria above are met
+    
+- No events are lost during burst or offline scenarios
+    
+- Users can explain _why_ an event was emitted
+    
+- The system behaves deterministically and transparently
+    
+
+---
+# Event System Tech
 
 The EventBus is the communication backbone of Flowti IBDE. All inter-service communication flows through it — services never call each other directly. Events follow the xstate v5 convention `{ type, payload, timestamp }`, enabling future state machine integration.
 
