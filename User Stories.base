@@ -8,16 +8,33 @@ views:
       property: parent
       direction: ASC
     order:
+      - domain
       - file.name
       - title
       - jtbd
       - journey
-      - domain
       - parent
-      - persona
       - file.folder
     columnSize:
       file.name: 304
       note.domain: 139
       note.parent: 146
+      file.folder: 267
+  - type: table
+    name: User Stories by Domain
+    groupBy:
+      property: domain
+      direction: ASC
+    order:
+      - file.name
+      - parent
+      - title
+      - jtbd
+      - journey
+      - domain
+      - file.folder
+    columnSize:
+      file.name: 341
+      note.parent: 146
+      note.domain: 139
       file.folder: 267

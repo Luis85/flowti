@@ -7,6 +7,8 @@ jtbd: Distraction-free workflow
 use-cases:
   - UC-49
 status: implemented
+journey:
+parent: "[[03 - Resources/Documentation/Reference/Actors/User|User]]"
 ---
 # US-G1: Suppress all plugin notifications
 

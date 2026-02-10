@@ -1,0 +1,20 @@
+filters:
+  and:
+    - file.inFolder("Development/flowti/docs/user-stories")
+views:
+  - type: table
+    name: User Stories
+    order:
+      - file.name
+      - title
+      - stage
+      - description
+      - domain
+      - journey
+      - jtbd
+      - parent
+      - persona
+    columnSize:
+      file.name: 516
+      note.stage: 101
+      note.parent: 140
