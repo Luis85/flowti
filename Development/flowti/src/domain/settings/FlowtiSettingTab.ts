@@ -23,6 +23,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 
 		this.displayUserSection(containerEl);
 		this.displaySetupSection(containerEl);
+		this.displayDocumentationSection(containerEl);
 		this.displayGeneralSection(containerEl);
 	}
 
@@ -78,6 +79,29 @@ export class FlowtiSettingTab extends PluginSettingTab {
 							installerService,
 							this.plugin.eventBus,
 						).open();
+					})
+			);
+	}
+
+	/**
+	 * Display documentation settings section
+	 */
+	private displayDocumentationSection(containerEl: HTMLElement): void {
+		containerEl.createEl("h3", { text: "Documentation" });
+
+		new Setting(containerEl)
+			.setName("Event docs base path")
+			.setDesc(
+				"Vault folder where event documentation files are stored. " +
+				"Event docs are created when you click the link icon in the Event Catalog."
+			)
+			.addText((text) =>
+				text
+					.setValue(this.plugin.settings.eventDocsBasePath)
+					.setPlaceholder("03 - Resources/Documentation/Reference/Events")
+					.onChange(async (value) => {
+						this.plugin.settings.eventDocsBasePath = value;
+						await this.plugin.saveSettings();
 					})
 			);
 	}

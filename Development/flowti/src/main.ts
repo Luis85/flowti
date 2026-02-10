@@ -1,4 +1,4 @@
-import { Plugin } from "obsidian";
+import { Notice, Plugin } from "obsidian";
 import {
 	CommandRegistry,
 	createErrorMiddleware,
@@ -26,6 +26,9 @@ import {
 import type { IInstallerService } from "./domain/installer/types";
 import { InstallerWizardModal } from "./domain/installer/InstallerWizardModal";
 import type { IUserService } from "./domain/user/types";
+import type { EventNotificationService } from "./domain/eventNotify/EventNotificationService";
+import type { EventFilterService } from "./domain/eventFilter/EventFilterService";
+import type { DiscoveryService } from "./domain/discovery/DiscoveryService";
 import { registerViews } from "./infrastructure/views/registry";
 import type { IViewRegistry } from "./infrastructure/views/types";
 import { ViewRegistry } from "./infrastructure/views/ViewRegistry";
@@ -72,8 +75,12 @@ export default class FlowtiBasePlugin extends Plugin {
 	commands: ICommandRegistry;
 	views: IViewRegistry;
 
-	// Convenience properties for commonly used services
+	// Service references (populated in onLayoutReady)
 	userService: IUserService;
+	private eventFilterService?: EventFilterService;
+	private eventNotifyService?: EventNotificationService;
+	private discoveryService?: DiscoveryService;
+	private collapsedCategories = new Set<string>();
 
 	async onload() {
 		try {
@@ -190,6 +197,7 @@ export default class FlowtiBasePlugin extends Plugin {
 		}
 
 		this.settings = result.success ? result.data : DEFAULT_SETTINGS;
+		this.collapsedCategories = new Set(this.settings.collapsedCategories);
 	}
 
 	/**
@@ -250,6 +258,17 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.logger.debug("Settings changed", event.payload.settings);
 		});
 
+		this.eventBus.on("settings.updateCatalogCategories", async (event) => {
+			this.settings.catalogCategories = event.payload.categories;
+			await this.saveSettings();
+		});
+
+		this.eventBus.on("settings.updateCollapsedCategories", async (event) => {
+			this.collapsedCategories = new Set(event.payload.collapsed);
+			this.settings.collapsedCategories = event.payload.collapsed;
+			await this.saveSettings();
+		});
+
 		this.eventBus.on("error.occurred", (event) => {
 			this.logger.debug("Error event received", event.payload);
 		});
@@ -283,6 +302,10 @@ export default class FlowtiBasePlugin extends Plugin {
 				step: event.payload.failedStepId,
 				error: event.payload.error,
 			});
+		});
+
+		this.eventBus.on("eventNotify.fired", (event) => {
+			new Notice(`Event: ${event.payload.eventType}`);
 		});
 	}
 
@@ -369,7 +392,16 @@ export default class FlowtiBasePlugin extends Plugin {
 	 * Register plugin views.
 	 */
 	private registerAllViews(): void {
-		registerViews(this.views);
+		registerViews(this.views, {
+			eventBus: this.eventBus,
+			state: {
+				getSettings: () => this.settings,
+				getExcludedTypes: () => this.eventFilterService?.getExcludedTypes() ?? [],
+				getNotifiedTypes: () => this.eventNotifyService?.getNotifiedTypes() ?? [],
+				getDiscoveredEvents: () => this.discoveryService?.getDiscoveredEvents() ?? [],
+				collapsedCategories: this.collapsedCategories,
+			},
+		});
 	}
 
 	/**
@@ -423,6 +455,9 @@ export default class FlowtiBasePlugin extends Plugin {
 	 */
 	private async onLayoutReady(): Promise<void> {
 		try {
+			// Re-emit settings first so views receive persisted state immediately
+			await this.eventBus.emit("settings.loaded", { settings: this.settings });
+
 			this.userService = await this.services.get<IUserService>("userService");
 			await this.userService.load();
 
@@ -430,6 +465,15 @@ export default class FlowtiBasePlugin extends Plugin {
 			await installerService.load();
 
 			InstallerWizardModal.showIfNeeded(this.app, installerService, this.eventBus);
+
+			this.eventFilterService = await this.services.get<EventFilterService>("eventFilterService");
+			await this.eventFilterService.load();
+
+			this.eventNotifyService = await this.services.get<EventNotificationService>("eventNotifyService");
+			await this.eventNotifyService.load();
+
+			this.discoveryService = await this.services.get<DiscoveryService>("discoveryService");
+			await this.discoveryService.load();
 
 			void this.eventBus.emit("plugin.ready", {
 				timestamp: new Date().toISOString(),

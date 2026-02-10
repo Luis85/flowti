@@ -142,6 +142,31 @@ export class EventBus implements IEventBus {
 	}
 
 	/**
+	 * Emits a user-defined custom event that is not part of the typed FlowtiEventMap.
+	 *
+	 * Custom events are picked up by wildcard (`"*"`) listeners, making them
+	 * visible in the Activity Log and other wildcard-based consumers.
+	 *
+	 * @param type - Arbitrary event type string (e.g. "my.custom.event")
+	 * @param payload - Optional payload data
+	 */
+	async emitCustom(type: string, payload?: unknown): Promise<void> {
+		const event = {
+			type,
+			payload: payload ?? {},
+			timestamp: new Date().toISOString(),
+		};
+
+		// Custom events have no typed handlers — only wildcard handlers
+		const wildcardHandlers = this.handlers.get(WILDCARD);
+		if (wildcardHandlers) {
+			for (const handler of wildcardHandlers) {
+				await (handler as WildcardEventHandler)(event as FlowtiEvents);
+			}
+		}
+	}
+
+	/**
 	 * Registers an event handler for a specific event type.
 	 *
 	 * The handler receives the full event object including type, payload, and timestamp.

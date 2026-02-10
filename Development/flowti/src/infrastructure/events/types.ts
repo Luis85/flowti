@@ -62,6 +62,14 @@ export interface IEventBus {
 	emit<T extends EventType>(type: T, payload: EventPayload<T>): Promise<void>;
 
 	/**
+	 * Emits a user-defined custom event (not in FlowtiEventMap).
+	 * Wildcard listeners will receive it; typed listeners won't.
+	 * @param type - Arbitrary event type string
+	 * @param payload - Optional payload object
+	 */
+	emitCustom(type: string, payload?: unknown): Promise<void>;
+
+	/**
 	 * Registers an event handler for a specific event type.
 	 * @param type - The event type to listen for
 	 * @param handler - The handler function

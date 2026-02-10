@@ -7,6 +7,8 @@
  */
 
 import { VIEW_TYPE_COMPONENT_SHOWCASE } from "../../ui/ComponentShowcaseView";
+import { VIEW_TYPE_EVENT_CATALOG } from "../../ui/EventCatalogView";
+import { VIEW_TYPE_EVENT_LOG } from "../../ui/EventLogView";
 import type { CommandDefinition, ICommandRegistry } from "./types";
 
 /**
@@ -36,6 +38,52 @@ export function createCommandDefinitions(): CommandDefinition[] {
 				if (leaf) {
 					await leaf.setViewState({
 						type: VIEW_TYPE_COMPONENT_SHOWCASE,
+						active: true,
+					});
+					workspace.revealLeaf(leaf);
+				}
+			},
+		},
+		{
+			id: "flowti:open-event-catalog",
+			name: "Open Event Catalog",
+			icon: "list",
+			handler: async (ctx) => {
+				ctx.logger.debug("Opening event catalog view");
+				const { workspace } = ctx.app;
+
+				const existing = workspace.getLeavesOfType(VIEW_TYPE_EVENT_CATALOG);
+				if (existing.length > 0) {
+					workspace.revealLeaf(existing[0]);
+					return;
+				}
+
+				const leaf = workspace.getLeaf(true);
+				await leaf.setViewState({
+					type: VIEW_TYPE_EVENT_CATALOG,
+					active: true,
+				});
+				workspace.revealLeaf(leaf);
+			},
+		},
+		{
+			id: "flowti:open-event-log",
+			name: "Open Event Log",
+			icon: "activity",
+			handler: async (ctx) => {
+				ctx.logger.debug("Opening event log view");
+				const { workspace } = ctx.app;
+
+				const existing = workspace.getLeavesOfType(VIEW_TYPE_EVENT_LOG);
+				if (existing.length > 0) {
+					workspace.revealLeaf(existing[0]);
+					return;
+				}
+
+				const leaf = workspace.getRightLeaf(false);
+				if (leaf) {
+					await leaf.setViewState({
+						type: VIEW_TYPE_EVENT_LOG,
 						active: true,
 					});
 					workspace.revealLeaf(leaf);

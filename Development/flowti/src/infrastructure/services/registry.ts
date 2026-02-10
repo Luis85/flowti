@@ -5,6 +5,9 @@
  * with the service container.
  */
 
+import { DiscoveryService } from "../../domain/discovery/DiscoveryService";
+import { EventFilterService } from "../../domain/eventFilter/EventFilterService";
+import { EventNotificationService } from "../../domain/eventNotify/EventNotificationService";
 import { SettingsService } from "../../domain/settings/SettingsService";
 import { InstallerService } from "../../domain/installer/InstallerService";
 import { UserCreationStep } from "../../domain/installer/steps/UserCreationStep";
@@ -61,6 +64,36 @@ export function createServiceRegistrations(
 			id: "userService",
 			factory: (container: IServiceContainer) =>
 				new UserService({
+					storage,
+					eventBus: container.getEventBus(),
+				}),
+		},
+
+		// Event Filter Service - manages event visibility in the Event Log
+		{
+			id: "eventFilterService",
+			factory: (container: IServiceContainer) =>
+				new EventFilterService({
+					storage,
+					eventBus: container.getEventBus(),
+				}),
+		},
+
+		// Event Notification Service - manages event notification popups
+		{
+			id: "eventNotifyService",
+			factory: (container: IServiceContainer) =>
+				new EventNotificationService({
+					storage,
+					eventBus: container.getEventBus(),
+				}),
+		},
+
+		// Discovery Service - discovers user-land events from vault files
+		{
+			id: "discoveryService",
+			factory: (container: IServiceContainer) =>
+				new DiscoveryService({
 					storage,
 					eventBus: container.getEventBus(),
 				}),

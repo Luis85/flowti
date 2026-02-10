@@ -29,6 +29,7 @@ export const DEFAULT_IBDE_FOLDERS: readonly string[] = [
   "03 - Resources/Documentation",
   "03 - Resources/Documentation/Reference/Entities",
   "03 - Resources/Documentation/Reference/Actors",
+  "03 - Resources/Documentation/Reference/Events",
   "03 - Resources/Documentation/How To",
   "03 - Resources/Documentation/Tutorials",
   "03 - Resources/Documentation/Guides",

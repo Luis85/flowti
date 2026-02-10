@@ -376,7 +376,7 @@
 
 /* Hidden utility */
 .ft-hidden {
-	display: none;
+	display: none !important;
 }
 
 .ft-sr-only {
@@ -389,6 +389,50 @@
 	clip: rect(0, 0, 0, 0);
 	white-space: nowrap;
 	border-width: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Event Catalog — Inline Settings Panel
+   ───────────────────────────────────────────────────────────── */
+
+.ft-settings-panel {
+	background-color: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s, 4px);
+	padding: 0.5rem;
+	margin-bottom: 0.5rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.125rem;
+}
+
+.ft-settings-row {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.2rem 0.25rem;
+	border-radius: var(--radius-s, 4px);
+}
+
+.ft-settings-row:hover {
+	background-color: var(--background-primary);
+}
+
+.ft-settings-row-name {
+	flex: 1;
+	min-width: 0;
+	font-size: 0.85rem;
+}
+
+.ft-settings-reset {
+	margin-top: 0.25rem;
+	padding-top: 0.25rem;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.ft-btn-disabled {
+	opacity: 0.25;
+	pointer-events: none;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -458,4 +502,236 @@
 .ft-folder-list {
 	max-height: 200px;
 	overflow-y: auto;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Event System Views
+   ───────────────────────────────────────────────────────────── */
+
+/* Event row — used in both Event Catalog and Event Log */
+.ft-event-row {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	padding: 0.5rem 0.75rem;
+	border-radius: var(--radius-s, 4px);
+	transition: background-color 0.15s ease;
+}
+
+.ft-event-row:hover {
+	background-color: var(--background-secondary);
+}
+
+/* Monospace event type name */
+.ft-event-type {
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-smaller);
+	font-weight: 500;
+	color: var(--text-normal);
+}
+
+/* Collapsible category header */
+.ft-category-header {
+	cursor: pointer;
+	padding: 0.25rem 0;
+	user-select: none;
+}
+
+/* Event Log toolbar */
+.ft-event-log-toolbar {
+	display: flex;
+	gap: 0.5rem;
+	align-items: center;
+}
+
+/* Event Log scrollable list */
+.ft-event-log-list {
+	flex: 1;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 0.125rem;
+}
+
+/* Activity Log — compact event row */
+.ft-log-row {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.25rem 0.5rem;
+	border-radius: var(--radius-s, 4px);
+	transition: background-color 0.15s ease;
+	flex-wrap: wrap;
+}
+
+.ft-log-row:hover {
+	background-color: var(--background-secondary);
+}
+
+.ft-log-row.ft-log-expanded {
+	background-color: var(--background-secondary);
+}
+
+/* Category badge in log rows */
+.ft-log-category {
+	font-size: 0.65rem;
+	padding: 0.05rem 0.35rem;
+	border-radius: var(--radius-s, 4px);
+	background-color: var(--background-modifier-border);
+	color: var(--text-muted);
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+/* Relative time label */
+.ft-log-relative {
+	font-size: 0.65rem;
+	color: var(--text-faint);
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+/* Copyable event type */
+.ft-log-row .ft-event-type {
+	cursor: pointer;
+}
+
+.ft-log-row .ft-event-type:hover {
+	text-decoration: underline;
+	text-decoration-color: var(--text-faint);
+}
+
+/* Payload block */
+.ft-log-payload {
+	width: 100%;
+	font-family: var(--font-monospace);
+	font-size: 0.7rem;
+	color: var(--text-muted);
+	background-color: var(--background-primary);
+	border-radius: var(--radius-s, 4px);
+	padding: 0.35rem 0.5rem;
+	margin-top: 0.15rem;
+	white-space: pre-wrap;
+	word-break: break-all;
+	max-height: 12rem;
+	overflow-y: auto;
+}
+
+.ft-log-time {
+	font-family: var(--font-monospace);
+	font-size: 0.7rem;
+	color: var(--text-faint);
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+.ft-log-description {
+	flex: 1;
+	min-width: 0;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+.ft-log-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+	flex-shrink: 0;
+}
+
+/* Mode toggle button group */
+.ft-mode-toggle {
+	display: flex;
+	gap: 0;
+	flex-shrink: 0;
+}
+
+.ft-mode-toggle .ft-btn {
+	border-radius: 0;
+	padding: 0.35rem 0.75rem;
+	font-size: var(--font-ui-smaller);
+}
+
+.ft-mode-toggle .ft-btn:first-child {
+	border-radius: var(--radius-s, 4px) 0 0 var(--radius-s, 4px);
+}
+
+.ft-mode-toggle .ft-btn:last-child {
+	border-radius: 0 var(--radius-s, 4px) var(--radius-s, 4px) 0;
+}
+
+/* Visibility toggle icon (Event Catalog) */
+.ft-visibility-toggle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	padding: 0.125rem;
+	border-radius: var(--radius-s, 4px);
+	color: var(--text-muted);
+	transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+.ft-visibility-toggle:hover {
+	color: var(--text-normal);
+}
+
+.ft-visibility-toggle.ft-visibility-off {
+	opacity: 0.4;
+}
+
+.ft-visibility-toggle.ft-visibility-partial {
+	opacity: 0.65;
+}
+
+/* Excluded event row (dimmed) */
+.ft-event-row.ft-event-excluded,
+.ft-catalog-row.ft-event-excluded {
+	opacity: 0.45;
+}
+
+.ft-event-row.ft-event-excluded .ft-event-type,
+.ft-catalog-row.ft-event-excluded .ft-event-type {
+	text-decoration: line-through;
+	text-decoration-color: var(--text-faint);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Event Catalog — Compact Layout
+   ───────────────────────────────────────────────────────────── */
+
+/* Compact card variant for catalog categories */
+.ft-catalog-card {
+	background-color: var(--background-secondary);
+	border-radius: var(--radius-s, 4px);
+	padding: 0.5rem 0.75rem;
+	border: 1px solid var(--background-modifier-border);
+}
+
+/* Compact list inside catalog cards */
+.ft-catalog-list {
+	display: flex;
+	flex-direction: column;
+	margin-top: 0.25rem;
+}
+
+/* Single-row compact event entry */
+.ft-catalog-row {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.2rem 0.5rem;
+	border-radius: var(--radius-s, 4px);
+	transition: background-color 0.15s ease;
+}
+
+.ft-catalog-row:hover {
+	background-color: var(--background-primary);
+}
+
+/* Domain/service metadata labels */
+.ft-catalog-meta {
+	font-size: 0.7rem;
+	color: var(--text-faint);
+	white-space: nowrap;
 }
