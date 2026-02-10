@@ -130,6 +130,7 @@ export function createMockSettings(overrides: MockSettingsOverrides = {}): FileW
 		stabilityChecks: 3,
 		syncOnStart: true,
 		debugMode: false,
+		showNotifications: true,
 		reconcile: {
 			parallelism: 4,
 			progressThrottleMs: 250,

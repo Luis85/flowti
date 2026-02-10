@@ -221,6 +221,16 @@ export class FileWatcherSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				})
 			);
+
+		new Setting(containerEl)
+			.setName("Show notifications")
+			.setDesc("Display plugin notifications (sync, error, and status notices). Turn off for a distraction-free workflow.")
+			.addToggle((t) =>
+				t.setValue(this.plugin.settings.showNotifications ?? true).onChange(async (v) => {
+					this.plugin.settings.showNotifications = v;
+					await this.plugin.saveSettings();
+				})
+			);
 	}
 
 	// =========================================================================

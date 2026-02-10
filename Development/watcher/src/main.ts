@@ -9,7 +9,7 @@ import { StatsService } from "src/services/StatsService";
 import { SyncStateService } from "src/services/SyncStateService";
 import { DashboardModal } from "src/modals/DashboardModal";
 import { LogService } from "src/services/LogService";
-import { createNoticeService, type INoticeService } from "src/services/NoticeService";
+import { createNoticeService, SuppressibleNoticeService, type INoticeService } from "src/services/NoticeService";
 import { FileWatcherSettings, DEFAULT_SETTINGS } from "src/settings/types";
 import { ReconcileProgress, FolderMapping } from "src/types";
 import { getMappingLabel } from "src/utils";
@@ -213,8 +213,8 @@ export default class FileWatcherPlugin extends Plugin {
 	 * Initialize all plugin services
 	 */
 	private initializeServices(): void {
-		// Core services
-		this.noticeService = createNoticeService();
+		// Core services — wrap with suppression support so toggling the setting takes effect immediately
+		this.noticeService = new SuppressibleNoticeService(createNoticeService(), this.settings);
 		this.fileSync = new FileSyncService(this.app, this.settings);
 
 		// Sync state service for incremental reconciliation
@@ -603,8 +603,16 @@ export default class FileWatcherPlugin extends Plugin {
 			}
 		}
 
+		// Migrate suppressNotifications → showNotifications (inverted)
+		const raw = this.settings as unknown as Record<string, unknown>;
+		if ("suppressNotifications" in raw) {
+			this.settings.showNotifications = !raw.suppressNotifications;
+			delete raw.suppressNotifications;
+			needsSave = true;
+		}
+
 		if (needsSave) {
-			LogService.info("Plugin", "Migrating settings for bi-directional sync support");
+			LogService.info("Plugin", "Migrating settings");
 			void this.saveData(this.settings);
 		}
 	}

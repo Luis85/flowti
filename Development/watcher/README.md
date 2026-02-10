@@ -145,6 +145,7 @@ For OneDrive, Dropbox, and similar services:
 | **Fast Skip Unchanged** | Skip unchanged files (size + mtime) | On |
 | **Progress Throttle** | UI update interval (ms) | 250 |
 | **Notify on Mapping Done** | Show notification after each mapping completes | On |
+| **Show Notifications** | Display plugin notifications (sync, error, status notices) | On |
 
 ---
 

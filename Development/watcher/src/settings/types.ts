@@ -29,6 +29,8 @@ export interface FileWatcherSettings {
 	syncOnStart: boolean;
 	reconcile: ReconcileOptions;
 	debugMode: boolean;
+	/** When true, plugin notifications (notices) are displayed */
+	showNotifications: boolean;
 }
 
 export const DEFAULT_SETTINGS: FileWatcherSettings = {
@@ -39,6 +41,7 @@ export const DEFAULT_SETTINGS: FileWatcherSettings = {
 	stabilityChecks: 3,
 	syncOnStart: true,
 	debugMode: false,
+	showNotifications: true,
 
 	reconcile: {
 		parallelism: 8,

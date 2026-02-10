@@ -55,6 +55,30 @@ export function createNoticeService(): INoticeService {
 }
 
 /**
+ * Wrapper that only forwards notices when the settings flag is active.
+ * Reads the flag from the settings object by reference, so toggling
+ * the setting takes effect immediately without swapping the service.
+ */
+export class SuppressibleNoticeService implements INoticeService {
+	constructor(
+		private inner: INoticeService,
+		private settings: { showNotifications: boolean }
+	) {}
+
+	show(message: string, timeout?: number): void {
+		if (this.settings.showNotifications) this.inner.show(message, timeout);
+	}
+
+	error(message: string, timeout?: number): void {
+		if (this.settings.showNotifications) this.inner.error(message, timeout);
+	}
+
+	success(message: string, timeout?: number): void {
+		if (this.settings.showNotifications) this.inner.success(message, timeout);
+	}
+}
+
+/**
  * No-op implementation for contexts where notices should be silenced.
  */
 export function createNoOpNoticeService(): INoticeService {
