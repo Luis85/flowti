@@ -2,7 +2,7 @@
 title:
 stage:
 description:
-domain:
+domain: Flowti/System
 journey:
 jtbd:
 parent: "[[03 - Resources/Documentation/Reference/Actors/User|User]]"
