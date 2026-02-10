@@ -363,17 +363,6 @@
 			"color":"5"
 		},
 		{
-			"id":"4f72175198725a87",
-			"type":"text",
-			"text":"As an Obsidian Plugin Developer, I want to maintain and publish my plugin from my Obsidian Vault so that everything keeps in one place",
-			"styleAttributes":{"textAlign":"center"},
-			"x":160,
-			"y":-1200,
-			"width":260,
-			"height":160,
-			"color":"5"
-		},
-		{
 			"id":"afd1967e9669473e",
 			"type":"text",
 			"text":"Plugin Development",
@@ -504,7 +493,8 @@
 			"width":260,
 			"height":60,
 			"color":"5"
-		}
+		},
+		{"id":"aa9167ece716db66","type":"file","file":"Development/flowti/docs/user-stories/As Obsidian Plugin Developer, I want to maintain and publish my plugin from my Obsidian Vault so that everything keeps in one place.md","x":90,"y":-980,"width":400,"height":400,"color":"5"}
 	],
 	"edges":[
 		{
@@ -690,15 +680,6 @@
 			"toSide":"left"
 		},
 		{
-			"id":"613fb369f9ee7360",
-			"styleAttributes":{},
-			"toFloating":false,
-			"fromNode":"afd1967e9669473e",
-			"fromSide":"bottom",
-			"toNode":"4f72175198725a87",
-			"toSide":"top"
-		},
-		{
 			"id":"bf17b1372c9ca7b6",
 			"styleAttributes":{},
 			"toFloating":false,
@@ -733,6 +714,15 @@
 			"fromSide":"right",
 			"toNode":"ea8d998e1e05e30d",
 			"toSide":"left"
+		},
+		{
+			"id":"371ce6f82a57c02a",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"afd1967e9669473e",
+			"fromSide":"bottom",
+			"toNode":"aa9167ece716db66",
+			"toSide":"top"
 		}
 	],
 	"metadata":{
