@@ -1,5 +1,5 @@
 import FileWatcherPlugin from "src/main";
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import { FolderMapping, createDefaultMapping } from "../types";
 import { FolderMappingModal } from "src/modals/FolderMappingModal";
 import { confirmDelete } from "src/modals/ConfirmModal";
@@ -64,14 +64,30 @@ export class FileWatcherSettingTab extends PluginSettingTab {
 				b
 					.setButtonText("Export")
 					.setTooltip("Export mappings to a JSON file")
-					.onClick(() => this.plugin.exportMappings())
+					.onClick(async () => {
+						const result = await this.plugin.exportMappings();
+						if (!result) return; // cancelled
+						if (result.error) new Notice(`⚠️ ${result.error}`);
+						else new Notice(`✅ Exported ${result.exported} mapping(s) to ${result.path}`);
+					})
 			)
 			.addButton((b) =>
 				b
 					.setButtonText("Import")
 					.setTooltip("Import mappings from a JSON file")
 					.onClick(async () => {
-						await this.plugin.importMappings();
+						const result = await this.plugin.importMappings();
+						if (!result) return; // cancelled
+						if (result.error) {
+							new Notice(`⚠️ ${result.error}`);
+						} else if (result.imported === 0) {
+							const msg = result.warnings.length > 0
+								? `No new mappings imported:\n${result.warnings.join("\n")}`
+								: "No mappings found in file.";
+							new Notice(msg, 10000);
+						} else {
+							new Notice(`✅ Imported ${result.imported} mapping(s). They are disabled — configure source folders and enable them.`);
+						}
 						this.display();
 					})
 			);

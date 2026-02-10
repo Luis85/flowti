@@ -315,64 +315,89 @@ export default class FileWatcherPlugin extends Plugin {
 		this.addCommand({
 			id: "filewatcher-export-mappings",
 			name: "Export folder mappings",
-			callback: () => void this.exportMappings(),
+			callback: () => void this.exportMappings().then((r) => {
+				if (!r) return; // cancelled
+				if (r.error) this.noticeService.error(r.error);
+				else this.noticeService.success(`Exported ${r.exported} mapping(s) to ${r.path}`);
+			}),
 		});
 
 		this.addCommand({
 			id: "filewatcher-import-mappings",
 			name: "Import folder mappings",
-			callback: () => void this.importMappings(),
+			callback: () => void this.importMappings().then((r) => {
+				if (!r) return; // cancelled
+				if (r.error) { this.noticeService.error(r.error); return; }
+				if (r.imported === 0) {
+					this.noticeService.show(`No new mappings imported. ${r.skipped} skipped (target folders already exist).`);
+				} else {
+					this.noticeService.success(`Imported ${r.imported} mapping(s). Configure source folders and enable them.`);
+				}
+			}),
 		});
 	}
 
 	/**
 	 * Export current folder mappings to a JSON file.
 	 * Mappings are exported with sourceFolder cleared and enabled=false.
+	 *
+	 * Returns a result summary so the caller can display feedback directly.
 	 */
-	async exportMappings(): Promise<void> {
+	async exportMappings(): Promise<{ exported: number; path: string; error?: string } | null> {
 		const mappings = this.settings.folderMappings;
 		if (mappings.length === 0) {
-			this.noticeService.show("No mappings to export.");
-			return;
+			return { exported: 0, path: "", error: "No mappings to export." };
 		}
 
 		const filePath = await pickExportPath("folder-mappings.json");
-		if (!filePath) return;
+		if (!filePath) {
+			LogService.debug("Plugin", "Export cancelled (no path selected)");
+			return null;
+		}
 
 		try {
 			const json = serializeMappings(mappings, this.manifest.version);
 			await fsp.writeFile(filePath, json, "utf-8");
-			this.noticeService.success(`Exported ${mappings.length} mapping(s) to ${filePath}`);
 			LogService.info("Plugin", "Mappings exported", {
 				details: { count: mappings.length, path: filePath },
 			});
+			return { exported: mappings.length, path: filePath };
 		} catch (error) {
 			const msg = error instanceof Error ? error.message : String(error);
-			this.noticeService.error(`Export failed: ${msg}`);
 			LogService.error("Plugin", "Export failed", { details: { error: msg } });
+			return { exported: 0, path: filePath, error: `Export failed: ${msg}` };
 		}
 	}
 
 	/**
 	 * Import folder mappings from a JSON file.
 	 * Imported mappings get new IDs and are disabled by default.
+	 *
+	 * Uses LogService for all diagnostics and returns a result summary
+	 * so the caller (settings tab) can display feedback directly.
 	 */
-	async importMappings(): Promise<void> {
+	async importMappings(): Promise<{ imported: number; skipped: number; warnings: string[]; error?: string } | null> {
 		const filePath = await pickImportFile();
-		if (!filePath) return;
+		if (!filePath) {
+			LogService.debug("Plugin", "Import cancelled (no file selected)");
+			return null;
+		}
+
+		LogService.info("Plugin", "Importing mappings", { details: { path: filePath } });
 
 		try {
 			const json = await fsp.readFile(filePath, "utf-8");
 			const { mappings: parsed, errors } = deserializeMappings(json);
 
 			if (errors.length > 0) {
-				this.noticeService.error(`Import errors: ${errors.join("; ")}`);
-				return;
+				const msg = `Import errors: ${errors.join("; ")}`;
+				LogService.error("Plugin", msg);
+				return { imported: 0, skipped: 0, warnings: [], error: msg };
 			}
 
 			if (parsed.length === 0) {
-				this.noticeService.show("No mappings found in file.");
-				return;
+				LogService.warn("Plugin", "Import file contained no mappings");
+				return { imported: 0, skipped: 0, warnings: [], error: "No mappings found in file." };
 			}
 
 			const { mappings: ready, warnings } = prepareMappingsForImport(
@@ -380,28 +405,29 @@ export default class FileWatcherPlugin extends Plugin {
 				this.settings.folderMappings
 			);
 
-			for (const w of warnings) {
-				this.noticeService.show(w);
+			if (warnings.length > 0) {
+				LogService.warn("Plugin", "Import warnings", { details: { warnings } });
 			}
 
 			if (ready.length === 0) {
-				this.noticeService.show("No new mappings to import (all skipped).");
-				return;
+				LogService.warn("Plugin", "All mappings skipped during import", {
+					details: { parsed: parsed.length, warnings },
+				});
+				return { imported: 0, skipped: parsed.length, warnings };
 			}
 
 			this.settings.folderMappings.push(...ready);
 			await this.saveSettings();
 
-			this.noticeService.success(
-				`Imported ${ready.length} mapping(s). They are disabled — configure source folders and enable them.`
-			);
 			LogService.info("Plugin", "Mappings imported", {
-				details: { count: ready.length, warnings },
+				details: { count: ready.length, skipped: parsed.length - ready.length, warnings },
 			});
+
+			return { imported: ready.length, skipped: parsed.length - ready.length, warnings };
 		} catch (error) {
 			const msg = error instanceof Error ? error.message : String(error);
-			this.noticeService.error(`Import failed: ${msg}`);
 			LogService.error("Plugin", "Import failed", { details: { error: msg } });
+			return { imported: 0, skipped: 0, warnings: [], error: `Import failed: ${msg}` };
 		}
 	}
 
