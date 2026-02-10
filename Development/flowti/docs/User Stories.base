@@ -4,6 +4,9 @@ filters:
 views:
   - type: table
     name: User Stories
+    groupBy:
+      property: feature
+      direction: ASC
     order:
       - file.name
       - title
@@ -14,6 +17,7 @@ views:
       - jtbd
       - parent
       - persona
+      - feature
     columnSize:
       file.name: 516
       note.stage: 101
