@@ -2,6 +2,8 @@
 stage: development
 domain: Flowti
 plugin: "[[Development/flowti/README|README]]"
+tags:
+  - core
 ---
 # Event Catalog — Design Concept
 

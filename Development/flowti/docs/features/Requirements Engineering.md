@@ -1,0 +1,6 @@
+---
+stage:
+domain:
+plugin:
+tags:
+---
