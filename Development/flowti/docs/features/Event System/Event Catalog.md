@@ -1,3 +1,8 @@
+---
+stage: development
+domain: Flowti
+plugin: "[[Development/flowti/README|README]]"
+---
 # Event Catalog — Design Concept
 
 ## One-Sentence Design Summary

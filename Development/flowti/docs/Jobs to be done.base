@@ -1,0 +1,6 @@
+filters:
+  and:
+    - file.inFolder("Development/flowti/docs/jobs to be done")
+views:
+  - type: table
+    name: Index

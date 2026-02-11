@@ -1,3 +1,8 @@
+---
+stage: design
+domain: Flowti
+plugin: "[[Development/flowti/README|README]]"
+---
 # The Import and Export Features
 
 Obsidian is a great tool to collect, enrich, and link data to become a knowledge-graph. Where Obsidian is lacking, is importing and exporting with CSV files, collaboration, and integration. 
