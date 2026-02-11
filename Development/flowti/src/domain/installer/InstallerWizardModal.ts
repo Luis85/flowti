@@ -91,6 +91,11 @@ export class InstallerWizardModal extends Modal {
 			cls: "ft-text-muted",
 		});
 
+		container.createEl("p", {
+			text: "IBDE stands for Integrated Business Development Environment \u2014 an event-driven framework that watches, ingests, and processes files in your vault, turning raw file changes into meaningful business events.",
+			cls: "ft-text-muted ft-text-sm",
+		});
+
 		new Setting(container)
 			.setName("Your name")
 			.setDesc("Enter your display name to get started")
@@ -131,6 +136,11 @@ export class InstallerWizardModal extends Modal {
 		container.createEl("p", {
 			text: `Installing as: ${this.userName.trim()}`,
 			cls: "ft-text-muted",
+		});
+
+		container.createEl("p", {
+			text: "Each step is idempotent \u2014 if you run the installer again later, already-completed steps will be safely skipped.",
+			cls: "ft-text-muted ft-text-sm",
 		});
 
 		// Render a card per step with its onboarding intro
@@ -312,10 +322,34 @@ export class InstallerWizardModal extends Modal {
 			for (const entry of this.stepStatuses) {
 				const statusLabel = entry.status === "skipped" ? " (skipped)" : "";
 				list.createEl("li", {
-					text: `✓ ${entry.name}${statusLabel}`,
+					text: `\u2713 ${entry.name}${statusLabel}`,
 					cls: "ft-text-muted",
 				});
 			}
+
+			// Next steps guidance
+			const nextSteps = container.createDiv({ cls: "ft-card ft-p-3" });
+			nextSteps.createEl("h3", {
+				text: "What to do next",
+				cls: "ft-heading ft-heading-sm ft-mb-2",
+			});
+			const nextList = nextSteps.createEl("ul", { cls: "ft-flex ft-flex-col ft-gap-1" });
+			nextList.createEl("li", {
+				text: "Open the Event Catalog to explore available events and configure subscriptions",
+				cls: "ft-text-muted",
+			});
+			nextList.createEl("li", {
+				text: "Create subscriptions to watch for file changes in specific folders",
+				cls: "ft-text-muted",
+			});
+			nextList.createEl("li", {
+				text: "Define event definitions to turn file events into named domain events",
+				cls: "ft-text-muted",
+			});
+			nextList.createEl("li", {
+				text: "Drop files into the Connectivity/input folder to see the ingestion pipeline in action",
+				cls: "ft-text-muted",
+			});
 		} else {
 			container.createEl("h2", {
 				text: "Setup Failed",

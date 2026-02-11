@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { EventBus } from "../../src/infrastructure/events/EventBus";
 import { getEventCategory } from "../../src/infrastructure/events/catalog";
+import { getStatusClass, getContextLine } from "../../src/ui/EventLogView";
 
 /**
  * Tests for EventLogView's core logic — wildcard subscription,
@@ -169,6 +170,121 @@ describe("EventLogView behavior", () => {
 			await eventBus.emit("command.registered", { commandId: "test", commandName: "Test" });
 
 			expect(received).toEqual(["file.created"]);
+		});
+	});
+
+	describe("status class resolution", () => {
+		it("should return 'success' for completed events", () => {
+			expect(getStatusClass("ingestion.job.completed")).toBe("success");
+			expect(getStatusClass("installer.step.completed")).toBe("success");
+		});
+
+		it("should return 'success' for created events", () => {
+			expect(getStatusClass("user.created")).toBe("success");
+			expect(getStatusClass("subscription.created")).toBe("success");
+		});
+
+		it("should return 'success' for loaded events", () => {
+			expect(getStatusClass("settings.loaded")).toBe("success");
+			expect(getStatusClass("eventDefinition.loaded")).toBe("success");
+		});
+
+		it("should return 'success' for matched events", () => {
+			expect(getStatusClass("subscription.matched")).toBe("success");
+			expect(getStatusClass("eventDefinition.matched")).toBe("success");
+		});
+
+		it("should return 'error' for failed events", () => {
+			expect(getStatusClass("ingestion.job.failed")).toBe("error");
+			expect(getStatusClass("installer.failed")).toBe("error");
+		});
+
+		it("should return 'error' for error.* events", () => {
+			expect(getStatusClass("error.occurred")).toBe("error");
+			expect(getStatusClass("error.handled")).toBe("error");
+		});
+
+		it("should return 'info' for started events", () => {
+			expect(getStatusClass("ingestion.job.started")).toBe("info");
+			expect(getStatusClass("ingestion.batch.started")).toBe("info");
+		});
+
+		it("should return 'info' for queued events", () => {
+			expect(getStatusClass("ingestion.job.queued")).toBe("info");
+		});
+
+		it("should return 'neutral' for other events", () => {
+			expect(getStatusClass("settings.changed")).toBe("neutral");
+			expect(getStatusClass("file.created")).toBe("success");
+			expect(getStatusClass("plugin.ready")).toBe("neutral");
+		});
+	});
+
+	describe("context line extraction", () => {
+		it("should extract subscription label from subscription.matched", () => {
+			const result = getContextLine({
+				type: "subscription.matched",
+				category: "Watch Rules",
+				description: "",
+				payload: { subscriptionLabel: "Daily Reports", eventType: "file.created", subscriptionId: "sub1" },
+				timestamp: "2026-01-01T00:00:00Z",
+			});
+			expect(result).toBe("Watcher: Daily Reports");
+		});
+
+		it("should fall back to eventType when subscriptionLabel is missing", () => {
+			const result = getContextLine({
+				type: "subscription.matched",
+				category: "Watch Rules",
+				description: "",
+				payload: { eventType: "file.created", subscriptionId: "sub1" },
+				timestamp: "2026-01-01T00:00:00Z",
+			});
+			expect(result).toBe("Watcher: file.created");
+		});
+
+		it("should extract file path from ingestion.job.completed", () => {
+			const result = getContextLine({
+				type: "ingestion.job.completed",
+				category: "File Processing",
+				description: "",
+				payload: { jobId: "j1", eventType: "file.created", payload: { path: "Reports/daily.csv" } },
+				timestamp: "2026-01-01T00:00:00Z",
+			});
+			expect(result).toBe("File: Reports/daily.csv");
+		});
+
+		it("should extract error from ingestion.job.failed", () => {
+			const result = getContextLine({
+				type: "ingestion.job.failed",
+				category: "File Processing",
+				description: "",
+				payload: { jobId: "j1", eventType: "file.created", error: "Timeout", retryCount: 1, willRetry: true },
+				timestamp: "2026-01-01T00:00:00Z",
+			});
+			expect(result).toBe("Error: Timeout");
+		});
+
+		it("should extract domainEventName from eventDefinition.matched", () => {
+			const result = getContextLine({
+				type: "eventDefinition.matched",
+				category: "Transforms",
+				description: "",
+				payload: { definitionId: "def1", domainEventName: "report.received", sourcePath: "Reports/daily.csv" },
+				timestamp: "2026-01-01T00:00:00Z",
+			});
+			expect(result).toBe("Emitted: report.received");
+		});
+
+		it("should return null for events without enrichment", () => {
+			const result = getContextLine({
+				type: "plugin.ready",
+				category: "Plugin Lifecycle",
+				description: "",
+				payload: { timestamp: "2026-01-01" },
+				timestamp: "2026-01-01T00:00:00Z",
+			});
+			expect(result).toBeNull();
 		});
 	});
 

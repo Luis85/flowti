@@ -1,6 +1,100 @@
 /**
- * Minimal stub for Obsidian module to allow unit testing
+ * Minimal stub for Obsidian module to allow unit testing.
+ *
+ * Obsidian extends HTMLElement.prototype with helper methods
+ * (addClass, setText, empty, createDiv, createEl, createSpan).
+ * We polyfill them here so tests that render UI work correctly.
  */
+
+/* ── Type declarations for Obsidian's HTMLElement extensions ─ */
+declare global {
+	interface HTMLElement {
+		addClass(...classes: string[]): void;
+		removeClass(...classes: string[]): void;
+		setText(text: string): void;
+		empty(): void;
+		createDiv(options?: { cls?: string; text?: string } | string): HTMLDivElement;
+		createSpan(options?: { cls?: string; text?: string } | string): HTMLSpanElement;
+		createEl<K extends keyof HTMLElementTagNameMap>(
+			tag: K,
+			options?: { cls?: string; text?: string; type?: string }
+		): HTMLElementTagNameMap[K];
+	}
+}
+
+/* ── HTMLElement polyfills (Obsidian DOM extensions) ─────── */
+
+if (typeof HTMLElement !== "undefined" && !HTMLElement.prototype.addClass) {
+	HTMLElement.prototype.addClass = function (...classes: string[]) {
+		this.classList.add(
+			...classes.flatMap((c) => c.split(/\s+/).filter(Boolean))
+		);
+	};
+
+	HTMLElement.prototype.removeClass = function (...classes: string[]) {
+		this.classList.remove(
+			...classes.flatMap((c) => c.split(/\s+/).filter(Boolean))
+		);
+	};
+
+	HTMLElement.prototype.setText = function (text: string) {
+		this.textContent = text;
+	};
+
+	HTMLElement.prototype.empty = function () {
+		this.innerHTML = "";
+	};
+
+	HTMLElement.prototype.createDiv = function (
+		options?: { cls?: string; text?: string } | string
+	): HTMLDivElement {
+		const div = document.createElement("div");
+		if (typeof options === "string") {
+			div.className = options;
+		} else if (options) {
+			if (options.cls) div.className = options.cls;
+			if (options.text) div.textContent = options.text;
+		}
+		this.appendChild(div);
+		return div;
+	};
+
+	HTMLElement.prototype.createSpan = function (
+		options?: { cls?: string; text?: string } | string
+	): HTMLSpanElement {
+		const span = document.createElement("span");
+		if (typeof options === "string") {
+			span.className = options;
+		} else if (options) {
+			if (options.cls) span.className = options.cls;
+			if (options.text) span.textContent = options.text;
+		}
+		this.appendChild(span);
+		return span;
+	};
+
+	HTMLElement.prototype.createEl = function <K extends keyof HTMLElementTagNameMap>(
+		tag: K,
+		options?: { cls?: string; text?: string; type?: string }
+	): HTMLElementTagNameMap[K] {
+		const el = document.createElement(tag);
+		if (options) {
+			if (options.cls) el.className = options.cls;
+			if (options.text) el.textContent = options.text;
+			if (options.type && "type" in el) {
+				(el as HTMLInputElement).type = options.type;
+			}
+		}
+		this.appendChild(el);
+		return el;
+	};
+}
+
+/* ── Obsidian API classes ───────────────────────────────── */
+
+export class Notice {
+	constructor(_message: string, _timeout?: number) {}
+}
 
 export class TAbstractFile {
 	path: string = "";
@@ -44,6 +138,8 @@ export class Plugin {
 
 export class Modal {
 	app: App;
+	modalEl: HTMLElement = document.createElement("div");
+	titleEl: HTMLElement = document.createElement("div");
 	contentEl: HTMLElement = document.createElement("div");
 
 	constructor(app: App) {
@@ -91,6 +187,14 @@ export class Setting {
 	addButton(_cb: (btn: ButtonComponent) => void): this {
 		return this;
 	}
+
+	addDropdown(_cb: (dropdown: DropdownComponent) => void): this {
+		return this;
+	}
+
+	addExtraButton(_cb: (btn: ExtraButtonComponent) => void): this {
+		return this;
+	}
 }
 
 export class TextComponent {
@@ -130,7 +234,41 @@ export class ButtonComponent {
 		return this;
 	}
 
+	setWarning(): this {
+		return this;
+	}
+
 	onClick(_cb: () => void): this {
 		return this;
 	}
 }
+
+export class DropdownComponent {
+	addOption(_value: string, _display: string): this {
+		return this;
+	}
+
+	setValue(_value: string): this {
+		return this;
+	}
+
+	onChange(_cb: (value: string) => void): this {
+		return this;
+	}
+}
+
+export class ExtraButtonComponent {
+	setIcon(_icon: string): this {
+		return this;
+	}
+
+	setTooltip(_tooltip: string): this {
+		return this;
+	}
+
+	onClick(_cb: () => void): this {
+		return this;
+	}
+}
+
+export function setIcon(_el: HTMLElement, _iconId: string): void {}

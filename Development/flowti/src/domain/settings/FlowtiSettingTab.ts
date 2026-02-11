@@ -23,6 +23,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 
 		this.displayUserSection(containerEl);
 		this.displaySetupSection(containerEl);
+		this.displayEventSystemSection(containerEl);
 		this.displayDocumentationSection(containerEl);
 		this.displayGeneralSection(containerEl);
 	}
@@ -84,23 +85,60 @@ export class FlowtiSettingTab extends PluginSettingTab {
 	}
 
 	/**
+	 * Display event system toggle section
+	 */
+	private displayEventSystemSection(containerEl: HTMLElement): void {
+		containerEl.createEl("h3", { text: "Event System" });
+
+		new Setting(containerEl)
+			.setName("Enable event system")
+			.setDesc(
+				"When disabled, ingestion, subscriptions, and event definitions stop processing. " +
+				"Low-level file events still fire."
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.eventSystemEnabled)
+					.onChange(async (value) => {
+						this.plugin.settings.eventSystemEnabled = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Show system events")
+			.setDesc(
+				"Show internal plugin events (tagged 'system') in the Event Catalog. " +
+				"Disable to focus on your own domain events."
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.showSystemEvents)
+					.onChange(async (value) => {
+						this.plugin.settings.showSystemEvents = value;
+						await this.plugin.saveSettings();
+					})
+			);
+	}
+
+	/**
 	 * Display documentation settings section
 	 */
 	private displayDocumentationSection(containerEl: HTMLElement): void {
 		containerEl.createEl("h3", { text: "Documentation" });
 
 		new Setting(containerEl)
-			.setName("Event docs base path")
+			.setName("Documentation root path")
 			.setDesc(
-				"Vault folder where event documentation files are stored. " +
-				"Event docs are created when you click the link icon in the Event Catalog."
+				"Vault folder under which documentation subfolders " +
+				"(Events, Domains, Services, Categories, Flows, Systems, Actors) are created."
 			)
 			.addText((text) =>
 				text
-					.setValue(this.plugin.settings.eventDocsBasePath)
-					.setPlaceholder("03 - Resources/Documentation/Reference/Events")
+					.setValue(this.plugin.settings.docsRootPath)
+					.setPlaceholder("03 - Resources/Documentation/Reference")
 					.onChange(async (value) => {
-						this.plugin.settings.eventDocsBasePath = value;
+						this.plugin.settings.docsRootPath = value;
 						await this.plugin.saveSettings();
 					})
 			);

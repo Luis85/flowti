@@ -12,4 +12,10 @@ export interface SettingsEventMap {
 	"settings.updateCatalogCategories": { categories: CatalogCategoryConfig[] };
 	/** Command: update collapsed category state */
 	"settings.updateCollapsedCategories": { collapsed: string[] };
+	/** Command: toggle system events visibility */
+	"settings.updateShowSystemEvents": { showSystemEvents: boolean };
+	/** Command: update domain visibility in catalog */
+	"settings.updateCatalogDomains": { domains: CatalogCategoryConfig[] };
+	/** Command: update service visibility in catalog */
+	"settings.updateCatalogServices": { services: CatalogCategoryConfig[] };
 }

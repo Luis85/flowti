@@ -8,6 +8,9 @@
 import { DiscoveryService } from "../../domain/discovery/DiscoveryService";
 import { EventFilterService } from "../../domain/eventFilter/EventFilterService";
 import { EventNotificationService } from "../../domain/eventNotify/EventNotificationService";
+import { EventDefinitionService } from "../../domain/eventDefinition/EventDefinitionService";
+import { IngestionService } from "../../domain/ingestion/IngestionService";
+import { SubscriptionService } from "../../domain/subscription/SubscriptionService";
 import { SettingsService } from "../../domain/settings/SettingsService";
 import { InstallerService } from "../../domain/installer/InstallerService";
 import { UserCreationStep } from "../../domain/installer/steps/UserCreationStep";
@@ -94,6 +97,36 @@ export function createServiceRegistrations(
 			id: "discoveryService",
 			factory: (container: IServiceContainer) =>
 				new DiscoveryService({
+					storage,
+					eventBus: container.getEventBus(),
+				}),
+		},
+
+		// Subscription Service - manages event subscriptions with filters
+		{
+			id: "subscriptionService",
+			factory: (container: IServiceContainer) =>
+				new SubscriptionService({
+					storage,
+					eventBus: container.getEventBus(),
+				}),
+		},
+
+		// Ingestion Service - queued event processing pipeline
+		{
+			id: "ingestionService",
+			factory: (container: IServiceContainer) =>
+				new IngestionService({
+					storage,
+					eventBus: container.getEventBus(),
+				}),
+		},
+
+		// Event Definition Service - maps file events to domain events
+		{
+			id: "eventDefinitionService",
+			factory: (container: IServiceContainer) =>
+				new EventDefinitionService({
 					storage,
 					eventBus: container.getEventBus(),
 				}),

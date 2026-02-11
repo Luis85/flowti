@@ -30,6 +30,16 @@ export type EventDirection =
 	| "Internal";
 
 /**
+ * Stability level for an event contract.
+ */
+export type EventStability = "stable" | "evolving" | "experimental";
+
+/**
+ * Visibility level indicating the intended audience.
+ */
+export type EventVisibility = "user-facing" | "system-internal";
+
+/**
  * Metadata stored per event type in the catalog.
  */
 export interface EventCatalogMeta {
@@ -43,6 +53,12 @@ export interface EventCatalogMeta {
 	domain: string;
 	/** Service(s) that emit or handle this event */
 	services: string;
+	/** Contract stability (defaults to "stable" if omitted) */
+	stability?: EventStability;
+	/** Intended audience (defaults to "system-internal" if omitted) */
+	visibility?: EventVisibility;
+	/** Free-form tags for filtering and grouping */
+	tags?: string[];
 }
 
 /**
@@ -63,6 +79,12 @@ export interface EventCatalogEntry {
 	domain: string;
 	/** Service(s) that emit or handle this event */
 	services: string;
+	/** Contract stability */
+	stability: EventStability;
+	/** Intended audience */
+	visibility: EventVisibility;
+	/** Free-form tags for filtering and grouping */
+	tags: string[];
 }
 
 /**
@@ -90,6 +112,9 @@ export const EVENT_CATEGORIES = [
 	"Discovery",
 	"Event Filter",
 	"Event Notify",
+	"Watch Rules",
+	"File Processing",
+	"Transforms",
 ] as const;
 
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
@@ -104,83 +129,83 @@ export type EventCategory = (typeof EVENT_CATEGORIES)[number];
 
 const CATALOG_DATA = {
 	// ── Plugin Lifecycle ─────────────────────────────────────
-	"plugin.loading":   { category: "Plugin Lifecycle", description: "Plugin starts loading", direction: "Plugin → Listeners", domain: "infrastructure", services: "Plugin" },
-	"plugin.loaded":    { category: "Plugin Lifecycle", description: "Plugin has fully loaded", direction: "Plugin → Listeners", domain: "infrastructure", services: "Plugin" },
-	"plugin.ready":     { category: "Plugin Lifecycle", description: "Plugin is ready (layout ready, user loaded)", direction: "Plugin → Listeners", domain: "infrastructure", services: "Plugin" },
-	"plugin.unloading": { category: "Plugin Lifecycle", description: "Plugin starts unloading", direction: "Plugin → Listeners", domain: "infrastructure", services: "Plugin" },
-	"plugin.unloaded":  { category: "Plugin Lifecycle", description: "Plugin has fully unloaded", direction: "Plugin → Listeners", domain: "infrastructure", services: "Plugin" },
+	"plugin.loading":   { category: "Plugin Lifecycle", description: "Plugin starts loading", direction: "Plugin → Listeners", domain: "infrastructure", services: "Plugin", tags: ["system"] },
+	"plugin.loaded":    { category: "Plugin Lifecycle", description: "Plugin has fully loaded", direction: "Plugin → Listeners", domain: "infrastructure", services: "Plugin", tags: ["system"] },
+	"plugin.ready":     { category: "Plugin Lifecycle", description: "Plugin is ready (layout ready, user loaded)", direction: "Plugin → Listeners", domain: "infrastructure", services: "Plugin", tags: ["system"] },
+	"plugin.unloading": { category: "Plugin Lifecycle", description: "Plugin starts unloading", direction: "Plugin → Listeners", domain: "infrastructure", services: "Plugin", tags: ["system"] },
+	"plugin.unloaded":  { category: "Plugin Lifecycle", description: "Plugin has fully unloaded", direction: "Plugin → Listeners", domain: "infrastructure", services: "Plugin", tags: ["system"] },
 
 	// ── Service Lifecycle ────────────────────────────────────
-	"service.registered":  { category: "Service Lifecycle", description: "A service was registered with the container", direction: "Internal", domain: "infrastructure", services: "ServiceContainer" },
-	"service.initialized": { category: "Service Lifecycle", description: "A service completed initialization", direction: "Internal", domain: "infrastructure", services: "ServiceContainer" },
-	"service.disposed":    { category: "Service Lifecycle", description: "A service was disposed", direction: "Internal", domain: "infrastructure", services: "ServiceContainer" },
-	"service.error":       { category: "Service Lifecycle", description: "A service failed to initialize", direction: "Internal", domain: "infrastructure", services: "ServiceContainer" },
+	"service.registered":  { category: "Service Lifecycle", description: "A service was registered with the container", direction: "Internal", domain: "infrastructure", services: "ServiceContainer", tags: ["system"] },
+	"service.initialized": { category: "Service Lifecycle", description: "A service completed initialization", direction: "Internal", domain: "infrastructure", services: "ServiceContainer", tags: ["system"] },
+	"service.disposed":    { category: "Service Lifecycle", description: "A service was disposed", direction: "Internal", domain: "infrastructure", services: "ServiceContainer", tags: ["system"] },
+	"service.error":       { category: "Service Lifecycle", description: "A service failed to initialize", direction: "Internal", domain: "infrastructure", services: "ServiceContainer", tags: ["system"] },
 
 	// ── Commands ─────────────────────────────────────────────
-	"command.registered": { category: "Commands", description: "A command was registered", direction: "Internal", domain: "infrastructure", services: "CommandRegistry" },
-	"command.executing":  { category: "Commands", description: "A command started executing", direction: "Internal", domain: "infrastructure", services: "CommandRegistry" },
-	"command.executed":   { category: "Commands", description: "A command completed successfully", direction: "Internal", domain: "infrastructure", services: "CommandRegistry" },
-	"command.failed":     { category: "Commands", description: "A command failed", direction: "Internal", domain: "infrastructure", services: "CommandRegistry" },
+	"command.registered": { category: "Commands", description: "A command was registered", direction: "Internal", domain: "infrastructure", services: "CommandRegistry", tags: ["system"] },
+	"command.executing":  { category: "Commands", description: "A command started executing", direction: "Internal", domain: "infrastructure", services: "CommandRegistry", tags: ["system"] },
+	"command.executed":   { category: "Commands", description: "A command completed successfully", direction: "Internal", domain: "infrastructure", services: "CommandRegistry", tags: ["system"] },
+	"command.failed":     { category: "Commands", description: "A command failed", direction: "Internal", domain: "infrastructure", services: "CommandRegistry", tags: ["system"] },
 
 	// ── Views ────────────────────────────────────────────────
-	"view.registered": { category: "Views", description: "A view was registered", direction: "Internal", domain: "infrastructure", services: "ViewRegistry" },
+	"view.registered": { category: "Views", description: "A view was registered", direction: "Internal", domain: "infrastructure", services: "ViewRegistry", tags: ["system"] },
 
 	// ── Logging ──────────────────────────────────────────────
-	"log.entry": { category: "Logging", description: "A log entry was created", direction: "Service → Listeners", domain: "infrastructure", services: "LoggerService" },
-	"log.error": { category: "Logging", description: "An error was logged", direction: "Service → Listeners", domain: "infrastructure", services: "LoggerService" },
+	"log.entry": { category: "Logging", description: "A log entry was created", direction: "Service → Listeners", domain: "infrastructure", services: "LoggerService", tags: ["system"] },
+	"log.error": { category: "Logging", description: "An error was logged", direction: "Service → Listeners", domain: "infrastructure", services: "LoggerService", tags: ["system"] },
 
 	// ── Errors ───────────────────────────────────────────────
-	"error.occurred": { category: "Errors", description: "An error occurred", direction: "Service → Listeners", domain: "infrastructure", services: "ErrorService" },
-	"error.handled":  { category: "Errors", description: "An error was handled/recovered", direction: "Service → Listeners", domain: "infrastructure", services: "ErrorService" },
+	"error.occurred": { category: "Errors", description: "An error occurred", direction: "Service → Listeners", domain: "infrastructure", services: "ErrorService", tags: ["system"] },
+	"error.handled":  { category: "Errors", description: "An error was handled/recovered", direction: "Service → Listeners", domain: "infrastructure", services: "ErrorService", tags: ["system"] },
 
 	// ── File Requests ────────────────────────────────────────
-	"file.create.request": { category: "File Requests", description: "Request to create a new file", direction: "Service → EventBridge", domain: "infrastructure", services: "FileSystemClient" },
-	"file.read.request":   { category: "File Requests", description: "Request to read a file's content", direction: "Service → EventBridge", domain: "infrastructure", services: "FileSystemClient" },
-	"file.update.request": { category: "File Requests", description: "Request to update a file's content", direction: "Service → EventBridge", domain: "infrastructure", services: "FileSystemClient" },
-	"file.delete.request": { category: "File Requests", description: "Request to delete a file", direction: "Service → EventBridge", domain: "infrastructure", services: "FileSystemClient" },
-	"file.move.request":   { category: "File Requests", description: "Request to move a file", direction: "Service → EventBridge", domain: "infrastructure", services: "FileSystemClient" },
-	"file.rename.request": { category: "File Requests", description: "Request to rename a file", direction: "Service → EventBridge", domain: "infrastructure", services: "FileSystemClient" },
+	"file.create.request": { category: "File Requests", description: "Request to create a new file", direction: "Service → EventBridge", domain: "infrastructure", services: "FileSystemClient", tags: ["system"] },
+	"file.read.request":   { category: "File Requests", description: "Request to read a file's content", direction: "Service → EventBridge", domain: "infrastructure", services: "FileSystemClient", tags: ["system"] },
+	"file.update.request": { category: "File Requests", description: "Request to update a file's content", direction: "Service → EventBridge", domain: "infrastructure", services: "FileSystemClient", tags: ["system"] },
+	"file.delete.request": { category: "File Requests", description: "Request to delete a file", direction: "Service → EventBridge", domain: "infrastructure", services: "FileSystemClient", tags: ["system"] },
+	"file.move.request":   { category: "File Requests", description: "Request to move a file", direction: "Service → EventBridge", domain: "infrastructure", services: "FileSystemClient", tags: ["system"] },
+	"file.rename.request": { category: "File Requests", description: "Request to rename a file", direction: "Service → EventBridge", domain: "infrastructure", services: "FileSystemClient", tags: ["system"] },
 
 	// ── File Responses ───────────────────────────────────────
-	"file.create.response": { category: "File Responses", description: "Response after file creation", direction: "EventBridge → Service", domain: "infrastructure", services: "EventBridge" },
-	"file.read.response":   { category: "File Responses", description: "Response after file read", direction: "EventBridge → Service", domain: "infrastructure", services: "EventBridge" },
-	"file.update.response": { category: "File Responses", description: "Response after file update", direction: "EventBridge → Service", domain: "infrastructure", services: "EventBridge" },
-	"file.delete.response": { category: "File Responses", description: "Response after file deletion", direction: "EventBridge → Service", domain: "infrastructure", services: "EventBridge" },
-	"file.move.response":   { category: "File Responses", description: "Response after file move", direction: "EventBridge → Service", domain: "infrastructure", services: "EventBridge" },
-	"file.rename.response": { category: "File Responses", description: "Response after file rename", direction: "EventBridge → Service", domain: "infrastructure", services: "EventBridge" },
+	"file.create.response": { category: "File Responses", description: "Response after file creation", direction: "EventBridge → Service", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
+	"file.read.response":   { category: "File Responses", description: "Response after file read", direction: "EventBridge → Service", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
+	"file.update.response": { category: "File Responses", description: "Response after file update", direction: "EventBridge → Service", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
+	"file.delete.response": { category: "File Responses", description: "Response after file deletion", direction: "EventBridge → Service", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
+	"file.move.response":   { category: "File Responses", description: "Response after file move", direction: "EventBridge → Service", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
+	"file.rename.response": { category: "File Responses", description: "Response after file rename", direction: "EventBridge → Service", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
 
 	// ── File Notifications ───────────────────────────────────
-	"file.created":  { category: "File Notifications", description: "A file was created in the vault", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge" },
-	"file.modified": { category: "File Notifications", description: "A file was modified", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge" },
-	"file.deleted":  { category: "File Notifications", description: "A file was deleted", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge" },
-	"file.renamed":  { category: "File Notifications", description: "A file was renamed", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge" },
+	"file.created":  { category: "File Notifications", description: "A file was created in the vault", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
+	"file.modified": { category: "File Notifications", description: "A file was modified", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
+	"file.deleted":  { category: "File Notifications", description: "A file was deleted", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
+	"file.renamed":  { category: "File Notifications", description: "A file was renamed", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
 
 	// ── Folder Notifications ─────────────────────────────────
-	"folder.created": { category: "Folder Notifications", description: "A folder was created", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge" },
-	"folder.deleted": { category: "Folder Notifications", description: "A folder was deleted", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge" },
-	"folder.renamed": { category: "Folder Notifications", description: "A folder was renamed", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge" },
+	"folder.created": { category: "Folder Notifications", description: "A folder was created", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
+	"folder.deleted": { category: "Folder Notifications", description: "A folder was deleted", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
+	"folder.renamed": { category: "Folder Notifications", description: "A folder was renamed", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
 
 	// ── Event-File Notifications ─────────────────────────────
-	"event.file.triggered": { category: "Event-File Notifications", description: "A file with type=\"Event\" frontmatter triggered a vault action", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge" },
+	"event.file.triggered": { category: "Event-File Notifications", description: "A file with type=\"Event\" frontmatter triggered a vault action", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
 
 	// ── Frontmatter Requests ─────────────────────────────────
-	"frontmatter.get.request":    { category: "Frontmatter Requests", description: "Request to read frontmatter", direction: "Service → EventBridge", domain: "infrastructure", services: "FileSystemClient" },
-	"frontmatter.update.request": { category: "Frontmatter Requests", description: "Request to merge frontmatter fields", direction: "Service → EventBridge", domain: "infrastructure", services: "FileSystemClient" },
-	"frontmatter.set.request":    { category: "Frontmatter Requests", description: "Request to replace entire frontmatter", direction: "Service → EventBridge", domain: "infrastructure", services: "FileSystemClient" },
+	"frontmatter.get.request":    { category: "Frontmatter Requests", description: "Request to read frontmatter", direction: "Service → EventBridge", domain: "infrastructure", services: "FileSystemClient", tags: ["system"] },
+	"frontmatter.update.request": { category: "Frontmatter Requests", description: "Request to merge frontmatter fields", direction: "Service → EventBridge", domain: "infrastructure", services: "FileSystemClient", tags: ["system"] },
+	"frontmatter.set.request":    { category: "Frontmatter Requests", description: "Request to replace entire frontmatter", direction: "Service → EventBridge", domain: "infrastructure", services: "FileSystemClient", tags: ["system"] },
 
 	// ── Frontmatter Responses ────────────────────────────────
-	"frontmatter.get.response":    { category: "Frontmatter Responses", description: "Response after frontmatter read", direction: "EventBridge → Service", domain: "infrastructure", services: "EventBridge" },
-	"frontmatter.update.response": { category: "Frontmatter Responses", description: "Response after frontmatter update", direction: "EventBridge → Service", domain: "infrastructure", services: "EventBridge" },
-	"frontmatter.set.response":    { category: "Frontmatter Responses", description: "Response after frontmatter set", direction: "EventBridge → Service", domain: "infrastructure", services: "EventBridge" },
+	"frontmatter.get.response":    { category: "Frontmatter Responses", description: "Response after frontmatter read", direction: "EventBridge → Service", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
+	"frontmatter.update.response": { category: "Frontmatter Responses", description: "Response after frontmatter update", direction: "EventBridge → Service", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
+	"frontmatter.set.response":    { category: "Frontmatter Responses", description: "Response after frontmatter set", direction: "EventBridge → Service", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
 
 	// ── Workspace ────────────────────────────────────────────
-	"workspace.leaf-changed":   { category: "Workspace", description: "The active leaf (tab/view) changed", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge" },
-	"workspace.file-opened":    { category: "Workspace", description: "A file was opened in the editor", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge" },
-	"workspace.layout-changed": { category: "Workspace", description: "The workspace layout changed", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge" },
+	"workspace.leaf-changed":   { category: "Workspace", description: "The active leaf (tab/view) changed", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
+	"workspace.file-opened":    { category: "Workspace", description: "A file was opened in the editor", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
+	"workspace.layout-changed": { category: "Workspace", description: "The workspace layout changed", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
 
 	// ── Metadata ─────────────────────────────────────────────
-	"metadata.changed":  { category: "Metadata", description: "File metadata (frontmatter, tags, links) was updated", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge" },
-	"metadata.resolved": { category: "Metadata", description: "All metadata references in the vault resolved", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge" },
+	"metadata.changed":  { category: "Metadata", description: "File metadata (frontmatter, tags, links) was updated", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
+	"metadata.resolved": { category: "Metadata", description: "All metadata references in the vault resolved", direction: "EventBridge → Services", domain: "infrastructure", services: "EventBridge", tags: ["system"] },
 
 	// ── User Domain ──────────────────────────────────────────
 	"user.created": { category: "User", description: "A new user profile was created", direction: "Service → Listeners", domain: "user", services: "UserService" },
@@ -192,6 +217,9 @@ const CATALOG_DATA = {
 	"settings.loaded":                  { category: "Settings", description: "Plugin settings were loaded", direction: "Service → Listeners", domain: "settings", services: "SettingsService" },
 	"settings.updateCatalogCategories": { category: "Settings", description: "Update catalog category order/visibility", direction: "View → Plugin", domain: "settings", services: "EventCatalogView" },
 	"settings.updateCollapsedCategories": { category: "Settings", description: "Update collapsed category state", direction: "View → Plugin", domain: "settings", services: "EventCatalogView" },
+	"settings.updateShowSystemEvents":   { category: "Settings", description: "Toggle system events visibility", direction: "View → Plugin", domain: "settings", services: "EventCatalogView" },
+	"settings.updateCatalogDomains":     { category: "Settings", description: "Update domain visibility in catalog", direction: "View → Plugin", domain: "settings", services: "EventCatalogView", tags: ["system"] },
+	"settings.updateCatalogServices":    { category: "Settings", description: "Update service visibility in catalog", direction: "View → Plugin", domain: "settings", services: "EventCatalogView", tags: ["system"] },
 
 	// ── Installer Domain ─────────────────────────────────────
 	"installer.started":        { category: "Installer", description: "Installation pipeline started", direction: "Service → Listeners", domain: "installer", services: "InstallerService" },
@@ -219,6 +247,41 @@ const CATALOG_DATA = {
 	"eventNotify.changed": { category: "Event Notify", description: "Event notification list was updated", direction: "Service → Listeners", domain: "eventNotify", services: "EventNotificationService" },
 	"eventNotify.toggle":  { category: "Event Notify", description: "Toggle a single event type's notification", direction: "Service → Listeners", domain: "eventNotify", services: "EventNotificationService" },
 	"eventNotify.fired":   { category: "Event Notify", description: "A notified event fired (triggers Notice popup)", direction: "Service → Listeners", domain: "eventNotify", services: "EventNotificationService" },
+
+	// ── Watch Rules Domain ──────────────────────────────────
+	"subscription.loaded":  { category: "Watch Rules", description: "Watcher state was loaded from storage", direction: "Service → Listeners", domain: "subscription", services: "SubscriptionService" },
+	"subscription.created": { category: "Watch Rules", description: "A new watcher was created", direction: "Service → Listeners", domain: "subscription", services: "SubscriptionService" },
+	"subscription.updated": { category: "Watch Rules", description: "A watcher was updated", direction: "Service → Listeners", domain: "subscription", services: "SubscriptionService" },
+	"subscription.deleted": { category: "Watch Rules", description: "A watcher was removed", direction: "Service → Listeners", domain: "subscription", services: "SubscriptionService" },
+	"subscription.create":  { category: "Watch Rules", description: "Command to create a new watcher", direction: "View → Plugin", domain: "subscription", services: "SubscriptionService" },
+	"subscription.update":  { category: "Watch Rules", description: "Command to update a watcher", direction: "View → Plugin", domain: "subscription", services: "SubscriptionService" },
+	"subscription.remove":  { category: "Watch Rules", description: "Command to remove a watcher", direction: "View → Plugin", domain: "subscription", services: "SubscriptionService" },
+	"subscription.matched": { category: "Watch Rules", description: "An event matched a watcher's filters", direction: "Service → Listeners", domain: "subscription", services: "SubscriptionService" },
+	"subscription.refresh": { category: "Watch Rules", description: "Request to re-emit current watcher state", direction: "View → Plugin", domain: "subscription", services: "SubscriptionService" },
+
+	// ── File Processing Domain ──────────────────────────────
+	"ingestion.job.queued":      { category: "File Processing", description: "A file was queued for processing", direction: "Service → Listeners", domain: "ingestion", services: "IngestionService" },
+	"ingestion.job.started":     { category: "File Processing", description: "File processing started", direction: "Service → Listeners", domain: "ingestion", services: "IngestionService" },
+	"ingestion.job.completed":   { category: "File Processing", description: "File processing completed successfully", direction: "Service → Listeners", domain: "ingestion", services: "IngestionService" },
+	"ingestion.job.failed":      { category: "File Processing", description: "File processing failed (may retry)", direction: "Service → Listeners", domain: "ingestion", services: "IngestionService" },
+	"ingestion.batch.started":   { category: "File Processing", description: "A batch of files started processing", direction: "Service → Listeners", domain: "ingestion", services: "IngestionService" },
+	"ingestion.batch.completed": { category: "File Processing", description: "A batch of files finished processing", direction: "Service → Listeners", domain: "ingestion", services: "IngestionService" },
+	"ingestion.stats":           { category: "File Processing", description: "Current file processing statistics", direction: "Service → Listeners", domain: "ingestion", services: "IngestionService" },
+	"ingestion.recovery.completed": { category: "File Processing", description: "Pending files recovered from storage after a crash", direction: "Service → Listeners", domain: "ingestion", services: "IngestionService" },
+	"catchup.started":           { category: "File Processing", description: "Catch-up scanning started", direction: "Service → Listeners", domain: "ingestion", services: "IngestionService" },
+	"catchup.file.found":        { category: "File Processing", description: "A file was found during catch-up that needs processing", direction: "Service → Listeners", domain: "ingestion", services: "IngestionService" },
+	"catchup.completed":         { category: "File Processing", description: "Catch-up scanning completed", direction: "Service → Listeners", domain: "ingestion", services: "IngestionService" },
+
+	// ── Transforms Domain ───────────────────────────────────
+	"eventDefinition.loaded":  { category: "Transforms", description: "Transform state was loaded from storage", direction: "Service → Listeners", domain: "eventDefinition", services: "EventDefinitionService" },
+	"eventDefinition.created": { category: "Transforms", description: "A new transform was created", direction: "Service → Listeners", domain: "eventDefinition", services: "EventDefinitionService" },
+	"eventDefinition.updated": { category: "Transforms", description: "A transform was updated", direction: "Service → Listeners", domain: "eventDefinition", services: "EventDefinitionService" },
+	"eventDefinition.deleted": { category: "Transforms", description: "A transform was removed", direction: "Service → Listeners", domain: "eventDefinition", services: "EventDefinitionService" },
+	"eventDefinition.create":  { category: "Transforms", description: "Command to create a new transform", direction: "View → Plugin", domain: "eventDefinition", services: "EventDefinitionService" },
+	"eventDefinition.update":  { category: "Transforms", description: "Command to update a transform", direction: "View → Plugin", domain: "eventDefinition", services: "EventDefinitionService" },
+	"eventDefinition.remove":  { category: "Transforms", description: "Command to remove a transform", direction: "View → Plugin", domain: "eventDefinition", services: "EventDefinitionService" },
+	"eventDefinition.refresh": { category: "Transforms", description: "Request to re-emit current transform state", direction: "View → Plugin", domain: "eventDefinition", services: "EventDefinitionService" },
+	"eventDefinition.matched": { category: "Transforms", description: "A transform matched and emitted an output event", direction: "Service → Listeners", domain: "eventDefinition", services: "EventDefinitionService" },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────
@@ -231,7 +294,16 @@ const CATALOG_DATA = {
  */
 export const EVENT_CATALOG: EventCatalogEntry[] = (
 	Object.keys(CATALOG_DATA) as Array<keyof typeof CATALOG_DATA>
-).map((type) => ({ type, ...CATALOG_DATA[type] }));
+).map((type) => {
+	const meta: EventCatalogMeta = CATALOG_DATA[type];
+	return {
+		type,
+		...meta,
+		stability: meta.stability ?? "stable",
+		visibility: meta.visibility ?? "system-internal",
+		tags: meta.tags ?? [],
+	};
+});
 
 /**
  * Lookup map for O(1) access by event type.

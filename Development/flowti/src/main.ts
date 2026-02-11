@@ -25,13 +25,19 @@ import {
 } from "./domain/settings/settings";
 import type { IInstallerService } from "./domain/installer/types";
 import { InstallerWizardModal } from "./domain/installer/InstallerWizardModal";
+import type { ISettingsService } from "./domain/settings/types";
 import type { IUserService } from "./domain/user/types";
 import type { EventNotificationService } from "./domain/eventNotify/EventNotificationService";
 import type { EventFilterService } from "./domain/eventFilter/EventFilterService";
 import type { DiscoveryService } from "./domain/discovery/DiscoveryService";
+import type { SubscriptionService } from "./domain/subscription/SubscriptionService";
+import type { EventDefinitionService } from "./domain/eventDefinition/EventDefinitionService";
+import type { IngestionService } from "./domain/ingestion/IngestionService";
 import { registerViews } from "./infrastructure/views/registry";
 import type { IViewRegistry } from "./infrastructure/views/types";
 import { ViewRegistry } from "./infrastructure/views/ViewRegistry";
+import { IngestionStatusBar } from "./ui/IngestionStatusBar";
+import { VIEW_TYPE_EVENT_CATALOG } from "./ui/EventCatalogView";
 
 
 /**  
@@ -45,12 +51,12 @@ import { ViewRegistry } from "./infrastructure/views/ViewRegistry";
  *
  * | Phase | What happens |
  * |-------|-------------|
- * | 1 - Core | Settings, EventBus, Logger, ErrorService, EventBridge |
+ * | 1 - Core | Settings, EventBus, Logger, ErrorService, EventBridge (request handlers only) |
  * | 2 - Containers | ServiceContainer, CommandRegistry, ViewRegistry |
  * | 3 - Registration | Services, commands, and views are registered |
  * | 4 - Init | All services are initialized in dependency order |
  * | 5 - UI | Settings tab, views, and commands are bound to Obsidian |
- * | 6 - Post-load | User data loaded after layout is ready, plugin.ready emitted |
+ * | 6 - Post-load | Vault listeners registered, user data loaded, plugin.ready emitted |
  *
  * **Key architectural decisions:**
  * - The {@link EventBridge} owns all Obsidian API ↔ EventBus translation
@@ -80,7 +86,12 @@ export default class FlowtiBasePlugin extends Plugin {
 	private eventFilterService?: EventFilterService;
 	private eventNotifyService?: EventNotificationService;
 	private discoveryService?: DiscoveryService;
+	private subscriptionService?: SubscriptionService;
+	private ingestionService?: IngestionService;
+	private eventDefinitionService?: EventDefinitionService;
+	private ingestionStatusBar?: IngestionStatusBar;
 	private collapsedCategories = new Set<string>();
+	private crossCuttingListeners: (() => void)[] = [];
 
 	async onload() {
 		try {
@@ -118,6 +129,24 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.addSettingTab(new FlowtiSettingTab(this.app, this));
 			this.bindViews();
 			this.bindCommands();
+
+			// Ribbon icon — opens Event Catalog
+			this.addRibbonIcon("list", "Open Event Catalog", () => {
+				const { workspace } = this.app;
+				const existing = workspace.getLeavesOfType(VIEW_TYPE_EVENT_CATALOG);
+				if (existing.length > 0) {
+					workspace.revealLeaf(existing[0]);
+					return;
+				}
+				const leaf = workspace.getLeaf(true);
+				void leaf.setViewState({ type: VIEW_TYPE_EVENT_CATALOG, active: true });
+				workspace.revealLeaf(leaf);
+			});
+
+			// Status bar
+			const statusBarEl = this.addStatusBarItem();
+			this.ingestionStatusBar = new IngestionStatusBar(statusBarEl, this.eventBus);
+			this.ingestionStatusBar.register();
 
 			// ── Phase 6: Post-load ────────────────────────────────────
 			// Deferred until Obsidian's workspace layout is ready.
@@ -163,10 +192,17 @@ export default class FlowtiBasePlugin extends Plugin {
 				timestamp: new Date().toISOString(),
 			});
 
+			this.ingestionStatusBar?.dispose();
 			this.eventBridge?.dispose();
 			await this.services?.disposeAll();
 			this.commands?.clear();
 			this.views?.clear();
+
+			// Unsubscribe cross-cutting listeners before clearing EventBus
+			for (const unsub of this.crossCuttingListeners) {
+				unsub();
+			}
+			this.crossCuttingListeners = [];
 
 			this.logger?.info("Plugin unloaded");
 
@@ -253,65 +289,85 @@ export default class FlowtiBasePlugin extends Plugin {
 	 * notifications) is delegated to {@link EventBridge}.
 	 */
 	private setupEventListeners(): void {
-		this.eventBus.on("settings.changed", (event) => {
-			this.logger.setDebugMode(event.payload.settings.debugMode);
-			this.logger.debug("Settings changed", event.payload.settings);
-		});
+		this.crossCuttingListeners.push(
+			this.eventBus.on("settings.changed", (event) => {
+				this.settings = event.payload.settings;
+				this.collapsedCategories = new Set(event.payload.settings.collapsedCategories);
+				this.logger.setDebugMode(event.payload.settings.debugMode);
+				this.logger.debug("Settings changed", event.payload.settings);
+			})
+		);
 
-		this.eventBus.on("settings.updateCatalogCategories", async (event) => {
-			this.settings.catalogCategories = event.payload.categories;
-			await this.saveSettings();
-		});
+		this.crossCuttingListeners.push(
+			this.eventBus.on("error.occurred", (event) => {
+				this.logger.debug("Error event received", event.payload);
+			})
+		);
 
-		this.eventBus.on("settings.updateCollapsedCategories", async (event) => {
-			this.collapsedCategories = new Set(event.payload.collapsed);
-			this.settings.collapsedCategories = event.payload.collapsed;
-			await this.saveSettings();
-		});
+		this.crossCuttingListeners.push(
+			this.eventBus.on("user.created", (event) => {
+				this.logger.debug("User created", { userName: event.payload.user.name });
+			})
+		);
 
-		this.eventBus.on("error.occurred", (event) => {
-			this.logger.debug("Error event received", event.payload);
-		});
+		this.crossCuttingListeners.push(
+			this.eventBus.on("user.updated", (event) => {
+				this.logger.debug("User updated", { userName: event.payload.user.name });
+			})
+		);
 
-		this.eventBus.on("user.created", (event) => {
-			this.logger.debug("User created", { userName: event.payload.user.name });
-		});
+		this.crossCuttingListeners.push(
+			this.eventBus.on("user.loaded", (event) => {
+				this.logger.debug("User loaded", { userName: event.payload.user.name });
+			})
+		);
 
-		this.eventBus.on("user.updated", (event) => {
-			this.logger.debug("User updated", { userName: event.payload.user.name });
-		});
+		this.crossCuttingListeners.push(
+			this.eventBus.on("plugin.ready", (event) => {
+				this.logger.debug("Plugin ready", { timestamp: event.payload.timestamp });
+			})
+		);
 
-		this.eventBus.on("user.loaded", (event) => {
-			this.logger.debug("User loaded", { userName: event.payload.user.name });
-		});
+		this.crossCuttingListeners.push(
+			this.eventBus.on("installer.started", (event) => {
+				this.logger.info("Installation started", { stepCount: event.payload.stepCount });
+			})
+		);
 
-		this.eventBus.on("plugin.ready", (event) => {
-			this.logger.debug("Plugin ready", { timestamp: event.payload.timestamp });
-		});
+		this.crossCuttingListeners.push(
+			this.eventBus.on("installer.completed", () => {
+				this.logger.info("Installation completed");
+			})
+		);
 
-		this.eventBus.on("installer.started", (event) => {
-			this.logger.info("Installation started", { stepCount: event.payload.stepCount });
-		});
+		this.crossCuttingListeners.push(
+			this.eventBus.on("installer.failed", (event) => {
+				this.logger.error("Installation failed", {
+					step: event.payload.failedStepId,
+					error: event.payload.error,
+				});
+			})
+		);
 
-		this.eventBus.on("installer.completed", () => {
-			this.logger.info("Installation completed");
-		});
+		this.crossCuttingListeners.push(
+			this.eventBus.on("eventNotify.fired", (event) => {
+				new Notice(`Event: ${event.payload.eventType}`);
+			})
+		);
 
-		this.eventBus.on("installer.failed", (event) => {
-			this.logger.error("Installation failed", {
-				step: event.payload.failedStepId,
-				error: event.payload.error,
-			});
-		});
-
-		this.eventBus.on("eventNotify.fired", (event) => {
-			new Notice(`Event: ${event.payload.eventType}`);
-		});
+		this.crossCuttingListeners.push(
+			this.eventBus.on("subscription.matched", (event) => {
+				const label = event.payload.subscriptionLabel ?? event.payload.eventType;
+				new Notice(`Subscription matched: ${label}`);
+			})
+		);
 	}
 
 	/**
-	 * Creates the {@link EventBridge} that translates between Obsidian's
-	 * vault/fileManager/metadataCache APIs and the internal EventBus.
+	 * Creates the {@link EventBridge} and registers EventBus request handlers
+	 * (file system, frontmatter). Vault/workspace/metadata listeners are
+	 * deferred to {@link onLayoutReady} to avoid reacting to Obsidian's
+	 * vault initialization events.
 	 *
 	 * Passes `registerEvent` as a callback so the bridge can register
 	 * Obsidian EventRefs that are automatically cleaned up on plugin unload.
@@ -449,14 +505,25 @@ export default class FlowtiBasePlugin extends Plugin {
 	 * Final initialization step, deferred until Obsidian's workspace
 	 * layout is fully rendered.
 	 *
-	 * Loads user data and installer state, shows the installer wizard
-	 * on first run, and emits `plugin.ready` to signal that the plugin
-	 * is fully operational.
+	 * First registers vault/workspace/metadata listeners via
+	 * {@link EventBridge.registerVaultListeners} — doing this here (not
+	 * in onload) avoids reacting to Obsidian's vault initialization
+	 * events. Then loads user data and installer state, shows the
+	 * installer wizard on first run, and emits `plugin.ready`.
 	 */
 	private async onLayoutReady(): Promise<void> {
 		try {
-			// Re-emit settings first so views receive persisted state immediately
-			await this.eventBus.emit("settings.loaded", { settings: this.settings });
+			// Register vault/workspace/metadataCache listeners now that
+			// Obsidian's layout is ready. Doing this earlier would cause
+			// false `file.created` events for every existing file during
+			// vault initialization (see Obsidian docs: "Listening to vault.on('create')").
+			this.eventBridge.registerVaultListeners();
+
+			// Load SettingsService FIRST so its internal state matches storage.
+			// Without this, any event-driven update (e.g. collapsing a category)
+			// would merge with DEFAULT_SETTINGS and overwrite persisted values.
+			const settingsService = await this.services.get<ISettingsService>("settingsService");
+			await settingsService.load();
 
 			this.userService = await this.services.get<IUserService>("userService");
 			await this.userService.load();
@@ -474,6 +541,41 @@ export default class FlowtiBasePlugin extends Plugin {
 
 			this.discoveryService = await this.services.get<DiscoveryService>("discoveryService");
 			await this.discoveryService.load();
+
+			this.subscriptionService = await this.services.get<SubscriptionService>("subscriptionService");
+			await this.subscriptionService.load();
+
+			this.ingestionService = await this.services.get<IngestionService>("ingestionService");
+			await this.ingestionService.load();
+
+			this.eventDefinitionService = await this.services.get<EventDefinitionService>("eventDefinitionService");
+			await this.eventDefinitionService.load();
+
+			// Run catch-up if watch folders are configured
+			if (this.settings.watchFolders.length > 0 && this.ingestionService) {
+				const ingestion = this.ingestionService;
+				try {
+					await ingestion.runCatchUp(this.settings.watchFolders, async (folder) => {
+						const abstractFile = this.app.vault.getAbstractFileByPath(folder);
+						if (!abstractFile) return [];
+						const files: string[] = [];
+						// recurseChildren is not in Obsidian's public type definitions
+						// but is a stable internal API used by many community plugins.
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						(this.app.vault as any).recurseChildren(abstractFile, (child: any) => {
+							if (child.path && child.extension) {
+								files.push(child.path);
+							}
+						});
+						return files;
+					});
+				} catch (error) {
+					this.errorService.handle(
+						error instanceof Error ? error : new Error(String(error)),
+						"ingestion.catchUp"
+					);
+				}
+			}
 
 			void this.eventBus.emit("plugin.ready", {
 				timestamp: new Date().toISOString(),

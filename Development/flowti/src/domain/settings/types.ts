@@ -29,4 +29,10 @@ export interface ISettingsService {
 	 * @param enabled - Whether debug mode should be enabled
 	 */
 	setDebugMode(enabled: boolean): Promise<void>;
+
+	/**
+	 * Cleans up event listeners.
+	 * Should be called during plugin shutdown.
+	 */
+	dispose(): void;
 }

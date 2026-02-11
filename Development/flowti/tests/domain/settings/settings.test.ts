@@ -17,17 +17,32 @@ describe("FlowtiSettings", () => {
 			expect(() => FlowtiSettingsSchema.parse({ debugMode: "yes" })).toThrow();
 		});
 
-		it("should default eventDocsBasePath when not provided", () => {
-			const result = FlowtiSettingsSchema.parse({ debugMode: false });
-			expect(result.eventDocsBasePath).toBe("03 - Resources/Documentation/Reference/Events");
+		it("should default eventSystemEnabled to true", () => {
+			const result = FlowtiSettingsSchema.parse({});
+			expect(result.eventSystemEnabled).toBe(true);
 		});
 
-		it("should parse custom eventDocsBasePath", () => {
+		it("should default showSystemEvents to false", () => {
+			const result = FlowtiSettingsSchema.parse({});
+			expect(result.showSystemEvents).toBe(false);
+		});
+
+		it("should parse eventSystemEnabled when provided", () => {
+			const result = FlowtiSettingsSchema.parse({ eventSystemEnabled: false });
+			expect(result.eventSystemEnabled).toBe(false);
+		});
+
+		it("should default docsRootPath when not provided", () => {
+			const result = FlowtiSettingsSchema.parse({ debugMode: false });
+			expect(result.docsRootPath).toBe("03 - Resources/Documentation/Reference");
+		});
+
+		it("should parse custom docsRootPath", () => {
 			const result = FlowtiSettingsSchema.parse({
 				debugMode: false,
-				eventDocsBasePath: "custom/path",
+				docsRootPath: "custom/path",
 			});
-			expect(result.eventDocsBasePath).toBe("custom/path");
+			expect(result.docsRootPath).toBe("custom/path");
 		});
 	});
 

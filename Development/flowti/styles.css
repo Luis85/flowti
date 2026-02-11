@@ -406,6 +406,19 @@
 	gap: 0.125rem;
 }
 
+/* Inside master panel: flush edges, scrollable, no margin */
+.ft-catalog-master .ft-settings-panel {
+	border-radius: 0;
+	border-left: none;
+	border-right: none;
+	margin-bottom: 0;
+	max-height: 50%;
+	overflow-y: auto;
+	flex-shrink: 0;
+	scrollbar-width: thin;
+	scrollbar-color: var(--background-modifier-border) transparent;
+}
+
 .ft-settings-row {
 	display: flex;
 	align-items: center;
@@ -572,6 +585,37 @@
 	background-color: var(--background-secondary);
 }
 
+/* Status dot in log rows */
+.ft-status-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	flex-shrink: 0;
+	background-color: var(--text-faint);
+}
+
+.ft-status-success {
+	background-color: var(--color-green, #22c55e);
+}
+
+.ft-status-error {
+	background-color: var(--color-red, #ef4444);
+}
+
+.ft-status-info {
+	background-color: var(--interactive-accent);
+}
+
+.ft-status-neutral {
+	background-color: var(--text-faint);
+}
+
+/* Context line for enriched events */
+.ft-log-context {
+	width: 100%;
+	padding-left: 1rem;
+}
+
 /* Category badge in log rows */
 .ft-log-category {
 	font-size: 0.65rem;
@@ -646,18 +690,33 @@
 	flex-shrink: 0;
 }
 
-.ft-mode-toggle .ft-btn {
-	border-radius: 0;
+.ft-mode-toggle-item {
+	display: inline-flex;
+	align-items: center;
 	padding: 0.35rem 0.75rem;
 	font-size: var(--font-ui-smaller);
+	font-weight: 500;
+	cursor: pointer;
+	color: var(--text-normal);
+	background-color: transparent;
+	transition: all 0.15s ease;
 }
 
-.ft-mode-toggle .ft-btn:first-child {
+.ft-mode-toggle-item:first-child {
 	border-radius: var(--radius-s, 4px) 0 0 var(--radius-s, 4px);
 }
 
-.ft-mode-toggle .ft-btn:last-child {
+.ft-mode-toggle-item:last-child {
 	border-radius: 0 var(--radius-s, 4px) var(--radius-s, 4px) 0;
+}
+
+.ft-mode-toggle-item:hover {
+	background-color: var(--background-secondary);
+}
+
+.ft-mode-toggle-item-active {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
 }
 
 /* Visibility toggle icon (Event Catalog) */
@@ -734,4 +793,407 @@
 	font-size: 0.7rem;
 	color: var(--text-faint);
 	white-space: nowrap;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Event Catalog — Master-Detail Layout
+   ───────────────────────────────────────────────────────────── */
+
+/* Split container */
+.ft-catalog-split {
+	display: flex;
+	height: 100%;
+	overflow: hidden;
+}
+
+/* Master panel (left) */
+.ft-catalog-master {
+	width: 280px;
+	min-width: 280px;
+	display: flex;
+	flex-direction: column;
+	border-right: 1px solid var(--background-modifier-border);
+	overflow: hidden;
+}
+
+.ft-catalog-master-header {
+	padding: 0.5rem;
+	border-bottom: 1px solid var(--background-modifier-border);
+	flex-shrink: 0;
+}
+
+.ft-catalog-master-search {
+	width: 100%;
+	padding: 0.35rem 0.5rem;
+	background-color: var(--background-primary);
+	color: var(--text-normal);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s, 4px);
+	font-size: var(--font-ui-smaller);
+}
+
+.ft-catalog-master-search:focus {
+	outline: none;
+	border-color: var(--interactive-accent);
+}
+
+/* Filter chips + settings gear row */
+.ft-catalog-filter-chips {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+	padding: 0.35rem 0.5rem;
+	flex-shrink: 0;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.ft-catalog-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+	padding: 0.15rem 0.5rem;
+	border-radius: 9999px;
+	font-size: 0.7rem;
+	font-weight: 500;
+	cursor: pointer;
+	border: 1px solid var(--background-modifier-border);
+	background-color: transparent;
+	color: var(--text-muted);
+	transition: all 0.15s ease;
+}
+
+.ft-catalog-chip:hover {
+	background-color: var(--background-secondary);
+}
+
+.ft-catalog-chip-active {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+}
+
+.ft-catalog-chip-active:hover {
+	background-color: var(--interactive-accent-hover);
+}
+
+/* Master tree (scrollable) */
+.ft-catalog-master-tree {
+	flex: 1;
+	overflow-y: auto;
+	scrollbar-width: thin;
+	scrollbar-color: var(--background-modifier-border) transparent;
+}
+
+.ft-catalog-master-tree::-webkit-scrollbar {
+	width: 6px;
+}
+
+.ft-catalog-master-tree::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.ft-catalog-master-tree::-webkit-scrollbar-thumb {
+	background-color: var(--background-modifier-border);
+	border-radius: 3px;
+}
+
+/* Master category */
+.ft-master-category {
+	margin-bottom: 0.125rem;
+}
+
+.ft-master-category-header {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+	padding: 0.3rem 0.5rem;
+	cursor: pointer;
+	user-select: none;
+	font-size: 0.7rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	color: var(--text-muted);
+}
+
+.ft-master-category-header:hover {
+	background-color: var(--background-secondary);
+}
+
+.ft-master-category-count {
+	margin-left: auto;
+	font-size: 0.65rem;
+	font-weight: 400;
+	color: var(--text-faint);
+}
+
+/* Master event items */
+.ft-master-event-item {
+	display: flex;
+	align-items: center;
+	gap: 0.35rem;
+	min-height: 1.5rem;
+	padding: 0.15rem 0.5rem 0.15rem 1.25rem;
+	cursor: pointer;
+	transition: background-color 0.1s ease;
+}
+
+.ft-master-event-item:hover {
+	background-color: var(--background-secondary);
+}
+
+.ft-master-event-selected {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.ft-master-event-selected:hover {
+	background-color: var(--interactive-accent-hover);
+}
+
+.ft-master-event-name {
+	font-family: var(--font-monospace);
+	font-size: 0.72rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	flex: 1;
+	min-width: 0;
+}
+
+.ft-master-status-dots {
+	display: flex;
+	align-items: center;
+	gap: 3px;
+	flex-shrink: 0;
+}
+
+.ft-master-status-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+}
+
+.ft-master-dot-configured {
+	background-color: var(--interactive-accent);
+}
+
+.ft-master-dot-followed {
+	background-color: rgb(234, 179, 8);
+}
+
+.ft-master-dot-hidden {
+	background-color: var(--text-faint);
+}
+
+/* Dim events hidden from Activity Log */
+.ft-master-event-excluded .ft-master-event-name {
+	opacity: 0.45;
+}
+
+.ft-master-event-excluded.ft-master-event-selected .ft-master-event-name {
+	opacity: 0.7;
+}
+
+/* Detail panel (right) */
+.ft-catalog-detail {
+	flex: 1;
+	overflow-y: auto;
+	padding: 1rem;
+	scrollbar-width: thin;
+	scrollbar-color: var(--background-modifier-border) transparent;
+}
+
+.ft-catalog-detail::-webkit-scrollbar {
+	width: 6px;
+}
+
+.ft-catalog-detail::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.ft-catalog-detail::-webkit-scrollbar-thumb {
+	background-color: var(--background-modifier-border);
+	border-radius: 3px;
+}
+
+/* Detail empty state */
+.ft-catalog-detail-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	color: var(--text-muted);
+	gap: 1rem;
+}
+
+/* Detail content */
+.ft-detail-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	margin-bottom: 1rem;
+	gap: 0.5rem;
+}
+
+.ft-detail-event-type {
+	font-family: var(--font-monospace);
+	font-size: 1.1rem;
+	font-weight: 600;
+	color: var(--text-normal);
+	word-break: break-all;
+}
+
+/* Info grid */
+.ft-detail-info-grid {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: 0.35rem 0.75rem;
+	font-size: var(--font-ui-smaller);
+}
+
+.ft-detail-info-label {
+	color: var(--text-muted);
+	font-weight: 500;
+	white-space: nowrap;
+}
+
+.ft-detail-info-value {
+	color: var(--text-normal);
+}
+
+/* Detail sections */
+.ft-detail-section {
+	margin-top: 1.25rem;
+}
+
+.ft-detail-section-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 0.5rem;
+	padding-bottom: 0.35rem;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+/* Quick stats (empty state) */
+.ft-catalog-quick-stats {
+	display: flex;
+	gap: 1.5rem;
+}
+
+.ft-catalog-stat {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.ft-catalog-stat-value {
+	font-size: 1.5rem;
+	font-weight: 700;
+	color: var(--text-normal);
+}
+
+.ft-catalog-stat-label {
+	font-size: 0.75rem;
+	color: var(--text-muted);
+}
+
+/* Detail action buttons — wrap on narrow panels */
+.ft-detail-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-top: 0.75rem;
+}
+
+/* Dot legend in master panel */
+.ft-catalog-dot-legend {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.25rem 0.5rem;
+	font-size: 0.65rem;
+	color: var(--text-faint);
+	border-bottom: 1px solid var(--background-modifier-border);
+	flex-shrink: 0;
+}
+
+.ft-catalog-dot-legend-item {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+}
+
+.ft-tree-toggle {
+	display: inline-flex;
+	align-items: center;
+	cursor: pointer;
+	color: var(--text-faint);
+	border-radius: var(--radius-s, 4px);
+	padding: 0.1rem;
+	transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.ft-tree-toggle:hover {
+	color: var(--text-muted);
+	background-color: var(--background-secondary);
+}
+
+.ft-tree-toggle svg {
+	width: 14px;
+	height: 14px;
+}
+
+/* ── Tab bar (Events | Domains | Services) ─────────────── */
+
+.ft-catalog-tab-bar {
+	display: flex;
+	gap: 0;
+	border-bottom: 1px solid var(--background-modifier-border);
+	flex-shrink: 0;
+}
+
+.ft-catalog-tab {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	padding: 0.5rem 1rem;
+	font-size: var(--font-ui-smaller);
+	font-weight: 500;
+	cursor: pointer;
+	background: transparent;
+	color: var(--text-muted);
+	border-bottom: 2px solid transparent;
+	transition: color 0.15s ease;
+}
+
+.ft-catalog-tab:hover {
+	color: var(--text-normal);
+	background-color: var(--background-secondary);
+}
+
+.ft-catalog-tab-active {
+	color: var(--text-normal);
+	border-bottom-color: var(--interactive-accent);
+}
+
+/* Navigation link — for doc links, view links, cross-tab references */
+.ft-nav-link {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	padding: 0.25rem 0.5rem;
+	color: var(--text-muted);
+	cursor: pointer;
+	border-radius: var(--radius-s, 4px);
+	font-size: var(--font-ui-smaller);
+	font-weight: 500;
+	transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.ft-nav-link:hover {
+	color: var(--text-normal);
+	background-color: var(--background-secondary);
 }

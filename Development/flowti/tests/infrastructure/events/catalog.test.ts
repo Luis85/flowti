@@ -50,6 +50,20 @@ describe("Event Catalog", () => {
 				expect(categories.has(entry.category)).toBe(true);
 			}
 		});
+
+		it("should have valid stability for all entries", () => {
+			const validStabilities = ["stable", "evolving", "experimental"];
+			for (const entry of EVENT_CATALOG) {
+				expect(validStabilities).toContain(entry.stability);
+			}
+		});
+
+		it("should have valid visibility for all entries", () => {
+			const validVisibilities = ["user-facing", "system-internal"];
+			for (const entry of EVENT_CATALOG) {
+				expect(validVisibilities).toContain(entry.visibility);
+			}
+		});
 	});
 
 	describe("EVENT_CATEGORIES", () => {

@@ -51,10 +51,14 @@ export class EventBridge implements IEventBridge {
 	register(): void {
 		this.setupFileSystemHandlers();
 		this.setupFrontmatterHandlers();
+		this.logger.debug("EventBridge request handlers registered");
+	}
+
+	registerVaultListeners(): void {
 		this.setupVaultListeners();
 		this.setupWorkspaceListeners();
 		this.setupMetadataCacheListeners();
-		this.logger.debug("EventBridge registered");
+		this.logger.debug("EventBridge vault listeners registered");
 	}
 
 	dispose(): void {

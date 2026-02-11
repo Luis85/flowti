@@ -46,6 +46,9 @@ export const DEFAULT_CATALOG_CATEGORIES: CatalogCategoryConfig[] = [
 	{ name: "Frontmatter Responses", visible: false },
 	{ name: "Event Filter", visible: false },
 	{ name: "Event Notify", visible: false },
+	{ name: "Watch Rules", visible: false },
+	{ name: "File Processing", visible: false },
+	{ name: "Transforms", visible: false },
 ];
 
 // ─────────────────────────────────────────────────────────────
@@ -58,9 +61,18 @@ export const DEFAULT_CATALOG_CATEGORIES: CatalogCategoryConfig[] = [
  */
 export const FlowtiSettingsSchema = z.object({
 	debugMode: z.boolean().default(false),
-	eventDocsBasePath: z.string().default("03 - Resources/Documentation/Reference/Events"),
+	eventSystemEnabled: z.boolean().default(true),
+	showSystemEvents: z.boolean().default(false),
+	docsRootPath: z.string().default("03 - Resources/Documentation/Reference"),
 	catalogCategories: z.array(CatalogCategoryConfigSchema).default(DEFAULT_CATALOG_CATEGORIES),
+	catalogDomains: z.array(CatalogCategoryConfigSchema).default([]),
+	catalogServices: z.array(CatalogCategoryConfigSchema).default([]),
 	collapsedCategories: z.array(z.string()).default([]),
+	ingestionConcurrency: z.number().min(1).max(10).default(3),
+	ingestionBatchWindowMs: z.number().min(100).max(5000).default(500),
+	ingestionMaxRetries: z.number().min(0).max(10).default(3),
+	ingestionWatchEventTypes: z.array(z.string()).default(["file.created", "file.modified"]),
+	watchFolders: z.array(z.string()).default([]),
 });
 
 /**

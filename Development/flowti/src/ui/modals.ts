@@ -47,13 +47,17 @@ export class InputModal extends Modal {
 	private title: string;
 	private placeholder: string;
 	private submitLabel: string;
+	private inputName: string;
+	private inputDesc: string;
 	private onSubmit: (value: string) => void;
 
-	constructor(app: App, options: { title: string; placeholder?: string; submitLabel?: string; onSubmit: (value: string) => void }) {
+	constructor(app: App, options: { title: string; placeholder?: string; submitLabel?: string; inputName?: string; inputDesc?: string; onSubmit: (value: string) => void }) {
 		super(app);
 		this.title = options.title;
 		this.placeholder = options.placeholder ?? "";
 		this.submitLabel = options.submitLabel ?? "Create";
+		this.inputName = options.inputName ?? "Event name";
+		this.inputDesc = options.inputDesc ?? "Use dot notation (e.g. my.custom.event)";
 		this.onSubmit = options.onSubmit;
 	}
 
@@ -64,8 +68,8 @@ export class InputModal extends Modal {
 		let inputValue = "";
 
 		new Setting(contentEl)
-			.setName("Event name")
-			.setDesc("Use dot notation (e.g. my.custom.event)")
+			.setName(this.inputName)
+			.setDesc(this.inputDesc)
 			.addText((text) =>
 				text
 					.setPlaceholder(this.placeholder)

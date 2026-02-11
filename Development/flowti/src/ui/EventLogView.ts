@@ -8,12 +8,55 @@ import { getEventDocPath, generateEventDocContent } from "./eventDocTemplate";
 
 export const VIEW_TYPE_EVENT_LOG = "flowti-event-log";
 
+/**
+ * Returns a CSS class suffix for the status dot based on event type patterns.
+ * - "success": completed, created, loaded, matched
+ * - "error": failed, error.*
+ * - "info": started, queued, processing
+ * - "neutral": everything else
+ */
+export function getStatusClass(type: string): string {
+	if (type.endsWith(".completed") || type.endsWith(".created") || type.endsWith(".loaded") || type.endsWith(".matched")) return "success";
+	if (type.endsWith(".failed") || type.startsWith("error.")) return "error";
+	if (type.endsWith(".started") || type.endsWith(".queued") || type.endsWith(".processing")) return "info";
+	return "neutral";
+}
+
+/**
+ * Extracts a context summary line from enriched event payloads.
+ * Returns null for events without enrichment.
+ */
+export function getContextLine(entry: LoggedEvent): string | null {
+	const p = entry.payload as Record<string, unknown> | undefined;
+	if (!p) return null;
+
+	switch (entry.type) {
+		case "subscription.matched": {
+			const label = p.subscriptionLabel ?? p.eventType;
+			return label ? `Watcher: ${label}` : null;
+		}
+		case "ingestion.job.completed": {
+			const inner = p.payload as Record<string, unknown> | undefined;
+			const path = inner?.path ?? p.path;
+			return typeof path === "string" ? `File: ${path}` : null;
+		}
+		case "ingestion.job.failed": {
+			return typeof p.error === "string" ? `Error: ${p.error}` : null;
+		}
+		case "eventDefinition.matched": {
+			return typeof p.domainEventName === "string" ? `Emitted: ${p.domainEventName}` : null;
+		}
+		default:
+			return null;
+	}
+}
+
 const MAX_ENTRIES = 500;
 const SKIPPED_PREFIXES = ["log."];
 
 type LogMode = "subscribed" | "all";
 
-interface LoggedEvent {
+export interface LoggedEvent {
 	type: string;
 	category: string;
 	description: string;
@@ -44,15 +87,15 @@ export class EventLogView extends ItemView {
 	private mode: LogMode = "subscribed";
 	private paused = false;
 	private activeFilter = "";
-	private eventDocsBasePath = "03 - Resources/Documentation/Reference/Events";
+	private docsRootPath = "03 - Resources/Documentation/Reference";
 
 	// DOM refs
 	private listEl: HTMLElement;
 	private countBadge: HTMLElement;
 	private pauseBtn: HTMLButtonElement;
 	private filterInput: HTMLInputElement;
-	private subscribedBtn: HTMLButtonElement;
-	private allBtn: HTMLButtonElement;
+	private subscribedBtn: HTMLElement;
+	private allBtn: HTMLElement;
 
 	private state: ViewStateProvider;
 
@@ -78,7 +121,7 @@ export class EventLogView extends ItemView {
 	async onOpen(): Promise<void> {
 		// Initialize all state from live providers (not just defaults)
 		const settings = this.state.getSettings();
-		this.eventDocsBasePath = settings.eventDocsBasePath;
+		this.docsRootPath = settings.docsRootPath;
 		this.updateHiddenCategories(settings.catalogCategories);
 		this.excludedTypes = new Set(this.state.getExcludedTypes());
 		this.notifiedTypes = new Set(this.state.getNotifiedTypes());
@@ -125,13 +168,13 @@ export class EventLogView extends ItemView {
 		// Subscribe to settings (category visibility + docs base path)
 		this.unsubscribes.push(
 			this.eventBus.on("settings.loaded", (event) => {
-				this.eventDocsBasePath = event.payload.settings.eventDocsBasePath;
+				this.docsRootPath = event.payload.settings.docsRootPath;
 				this.updateHiddenCategories(event.payload.settings.catalogCategories);
 			})
 		);
 		this.unsubscribes.push(
 			this.eventBus.on("settings.changed", (event) => {
-				this.eventDocsBasePath = event.payload.settings.eventDocsBasePath;
+				this.docsRootPath = event.payload.settings.docsRootPath;
 				this.updateHiddenCategories(event.payload.settings.catalogCategories);
 			})
 		);
@@ -190,15 +233,15 @@ export class EventLogView extends ItemView {
 		// Mode toggle group
 		const modeGroup = toolbar.createDiv({ cls: "ft-mode-toggle" });
 
-		this.subscribedBtn = modeGroup.createEl("button", {
-			text: "Subscribed",
-			cls: "ft-btn ft-btn-primary",
+		this.subscribedBtn = modeGroup.createEl("span", {
+			text: "Followed",
+			cls: "ft-mode-toggle-item ft-mode-toggle-item-active",
 		});
 		this.subscribedBtn.addEventListener("click", () => this.setMode("subscribed"));
 
-		this.allBtn = modeGroup.createEl("button", {
+		this.allBtn = modeGroup.createEl("span", {
 			text: "All",
-			cls: "ft-btn ft-btn-ghost",
+			cls: "ft-mode-toggle-item",
 		});
 		this.allBtn.addEventListener("click", () => this.setMode("all"));
 
@@ -232,11 +275,11 @@ export class EventLogView extends ItemView {
 		this.mode = mode;
 
 		if (mode === "subscribed") {
-			this.subscribedBtn.className = "ft-btn ft-btn-primary";
-			this.allBtn.className = "ft-btn ft-btn-ghost";
+			this.subscribedBtn.className = "ft-mode-toggle-item ft-mode-toggle-item-active";
+			this.allBtn.className = "ft-mode-toggle-item";
 		} else {
-			this.subscribedBtn.className = "ft-btn ft-btn-ghost";
-			this.allBtn.className = "ft-btn ft-btn-primary";
+			this.subscribedBtn.className = "ft-mode-toggle-item";
+			this.allBtn.className = "ft-mode-toggle-item ft-mode-toggle-item-active";
 		}
 
 		this.renderList();
@@ -271,10 +314,52 @@ export class EventLogView extends ItemView {
 				this.events.length = MAX_ENTRIES;
 			}
 
-			this.renderList();
+			// Incremental: only touch the DOM if the event is visible
+			if (this.isEntryVisible(entry)) {
+				this.prependRow(entry);
+			}
+			this.updateBadge();
 		};
 
 		this.unsubscribes.push(this.eventBus.on("*", handler));
+	}
+
+	/** Check if a log entry passes the current mode + text filter. */
+	private isEntryVisible(entry: LoggedEvent): boolean {
+		if (this.mode === "subscribed" && !this.notifiedTypes.has(entry.type)) {
+			return false;
+		}
+		if (this.activeFilter) {
+			return (
+				entry.type.toLowerCase().includes(this.activeFilter) ||
+				entry.description.toLowerCase().includes(this.activeFilter)
+			);
+		}
+		return true;
+	}
+
+	/** Prepend a single new row to the top of the list (with animation). */
+	private prependRow(entry: LoggedEvent): void {
+		// Remove the empty state if present
+		const emptyState = this.listEl.querySelector(".ft-log-empty-state");
+		if (emptyState) emptyState.remove();
+
+		const row = this.renderEventRow(entry);
+		row.classList.add("ft-animate-fade-in");
+
+		if (this.listEl.firstChild) {
+			this.listEl.insertBefore(row, this.listEl.firstChild);
+		} else {
+			this.listEl.appendChild(row);
+		}
+
+		// Trim excess DOM rows to keep in sync with buffer
+		const maxVisible = this.mode === "subscribed"
+			? this.events.filter((e) => this.notifiedTypes.has(e.type)).length
+			: this.events.length;
+		while (this.listEl.children.length > maxVisible) {
+			this.listEl.lastChild?.remove();
+		}
 	}
 
 	// ─────────────────────────────────────────────────────────────
@@ -284,28 +369,10 @@ export class EventLogView extends ItemView {
 	private renderList(): void {
 		this.listEl.empty();
 
-		// Apply mode filter
-		let visible = this.mode === "subscribed"
-			? this.events.filter((e) => this.notifiedTypes.has(e.type))
-			: this.events;
+		// Apply mode + text filter
+		const visible = this.events.filter((e) => this.isEntryVisible(e));
 
-		// Apply text filter
-		if (this.activeFilter) {
-			visible = visible.filter(
-				(e) =>
-					e.type.toLowerCase().includes(this.activeFilter) ||
-					e.description.toLowerCase().includes(this.activeFilter)
-			);
-		}
-
-		// Update badge
-		const total = this.mode === "subscribed"
-			? this.events.filter((e) => this.notifiedTypes.has(e.type)).length
-			: this.events.length;
-
-		this.countBadge.textContent = this.activeFilter
-			? `${visible.length} / ${total} events`
-			: `${total} events`;
+		this.updateBadge();
 
 		if (visible.length === 0) {
 			this.renderEmptyState();
@@ -313,12 +380,25 @@ export class EventLogView extends ItemView {
 		}
 
 		for (const entry of visible) {
-			this.renderEventRow(entry);
+			const row = this.renderEventRow(entry);
+			this.listEl.appendChild(row);
 		}
 	}
 
+	private updateBadge(): void {
+		const total = this.mode === "subscribed"
+			? this.events.filter((e) => this.notifiedTypes.has(e.type)).length
+			: this.events.length;
+
+		const visibleCount = this.events.filter((e) => this.isEntryVisible(e)).length;
+
+		this.countBadge.textContent = this.activeFilter
+			? `${visibleCount} / ${total} events`
+			: `${total} events`;
+	}
+
 	private renderEmptyState(): void {
-		const empty = this.listEl.createDiv({ cls: "ft-flex ft-flex-col ft-items-center ft-justify-center ft-p-4 ft-gap-2" });
+		const empty = this.listEl.createDiv({ cls: "ft-log-empty-state ft-flex ft-flex-col ft-items-center ft-justify-center ft-p-4 ft-gap-2" });
 
 		if (this.activeFilter) {
 			empty.createSpan({
@@ -327,16 +407,16 @@ export class EventLogView extends ItemView {
 			});
 		} else if (this.mode === "subscribed" && this.notifiedTypes.size === 0) {
 			empty.createSpan({
-				text: "No subscribed events yet.",
+				text: "No followed events yet.",
 				cls: "ft-text-muted ft-text-sm",
 			});
 			empty.createSpan({
-				text: "Use the bell icon in the Event Catalog to subscribe.",
+				text: "Use the bell icon in the Event Catalog to follow events.",
 				cls: "ft-text-faint ft-text-sm",
 			});
 		} else if (this.mode === "subscribed") {
 			empty.createSpan({
-				text: "Waiting for subscribed events...",
+				text: "Waiting for followed events...",
 				cls: "ft-text-muted ft-text-sm",
 			});
 		} else {
@@ -347,9 +427,14 @@ export class EventLogView extends ItemView {
 		}
 	}
 
-	private renderEventRow(entry: LoggedEvent): void {
+	private renderEventRow(entry: LoggedEvent): HTMLElement {
 		const isSubscribed = this.notifiedTypes.has(entry.type);
-		const row = this.listEl.createDiv({ cls: "ft-log-row ft-animate-fade-in" });
+		const row = createDiv({ cls: "ft-log-row" });
+
+		// Status dot
+		const statusClass = getStatusClass(entry.type);
+		const dot = row.createSpan({ cls: `ft-status-dot ft-status-${statusClass}` });
+		dot.setAttribute("aria-label", statusClass);
 
 		// Timestamp + relative time
 		row.createSpan({
@@ -390,7 +475,7 @@ export class EventLogView extends ItemView {
 		// Bell indicator in "all" mode
 		if (this.mode === "all" && isSubscribed) {
 			const bell = actions.createSpan({ cls: "ft-visibility-toggle" });
-			bell.setAttribute("aria-label", "Subscribed");
+			bell.setAttribute("aria-label", "Followed");
 			setIcon(bell, "bell");
 		}
 
@@ -400,9 +485,12 @@ export class EventLogView extends ItemView {
 			type: entry.type,
 			category: entry.category,
 			description: entry.description,
-			direction: "User \u2192 EventBus",
+			direction: "User → EventBus",
 			domain: "custom",
 			services: "Discovery",
+			stability: "experimental",
+			visibility: "user-facing",
+			tags: [],
 		};
 		const docLink = actions.createSpan({ cls: "ft-visibility-toggle" });
 		docLink.setAttribute("aria-label", "Open documentation");
@@ -437,6 +525,14 @@ export class EventLogView extends ItemView {
 		};
 
 		expandBtn.addEventListener("click", togglePayload);
+
+		// Context line for enriched events
+		const context = getContextLine(entry);
+		if (context) {
+			row.createDiv({ text: context, cls: "ft-log-context ft-text-muted ft-text-sm" });
+		}
+
+		return row;
 	}
 
 	// ─────────────────────────────────────────────────────────────
@@ -444,7 +540,7 @@ export class EventLogView extends ItemView {
 	// ─────────────────────────────────────────────────────────────
 
 	private async openOrCreateEventDoc(entry: EventCatalogEntry): Promise<void> {
-		const docPath = getEventDocPath(this.eventDocsBasePath, entry.type);
+		const docPath = getEventDocPath(this.docsRootPath, entry.type);
 
 		let file = this.app.vault.getAbstractFileByPath(docPath);
 

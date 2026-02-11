@@ -110,6 +110,7 @@ describe("EventBridge", () => {
 			registerEvent: (ref) => registeredEvents.push(ref),
 		});
 		bridge.register();
+		bridge.registerVaultListeners();
 	});
 
 	// ─────────────────────────────────────────────────────────────
@@ -523,11 +524,26 @@ describe("EventBridge", () => {
 	// Vault Listeners
 	// ─────────────────────────────────────────────────────────────
 
-	describe("vault listeners", () => {
-		it("should register all Obsidian event listeners via registerEvent", () => {
+	describe("two-phase registration", () => {
+		it("register() alone should NOT register any Obsidian EventRefs", () => {
+			const freshEvents: unknown[] = [];
+			const freshBridge = new EventBridge({
+				app: mockApp as never,
+				eventBus,
+				logger,
+				registerEvent: (ref) => freshEvents.push(ref),
+			});
+			freshBridge.register();
+			expect(freshEvents).toHaveLength(0);
+		});
+
+		it("registerVaultListeners() should register all Obsidian event listeners", () => {
 			// 4 vault + 3 workspace + 2 metadataCache = 9
 			expect(registeredEvents).toHaveLength(9);
 		});
+	});
+
+	describe("vault listeners", () => {
 
 		it("should emit file.created on vault create", async () => {
 			const handler = vi.fn();

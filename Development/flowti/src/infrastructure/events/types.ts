@@ -134,8 +134,14 @@ export interface EventBridgeOptions {
  * translating file system and frontmatter operations.
  */
 export interface IEventBridge {
-	/** Register all Obsidian event listeners and request handlers */
+	/** Register EventBus request handlers (file system, frontmatter). Safe to call during onload. */
 	register(): void;
+	/**
+	 * Register Obsidian vault, workspace, and metadata cache listeners.
+	 * Must be called inside `onLayoutReady` to avoid reacting to
+	 * Obsidian's vault initialization events (e.g. `create` for every existing file).
+	 */
+	registerVaultListeners(): void;
 	/** Clean up all EventBus subscriptions */
 	dispose(): void;
 }

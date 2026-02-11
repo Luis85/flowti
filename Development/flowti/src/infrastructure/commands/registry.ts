@@ -9,6 +9,7 @@
 import { VIEW_TYPE_COMPONENT_SHOWCASE } from "../../ui/ComponentShowcaseView";
 import { VIEW_TYPE_EVENT_CATALOG } from "../../ui/EventCatalogView";
 import { VIEW_TYPE_EVENT_LOG } from "../../ui/EventLogView";
+import { SubscriptionManagerModal } from "../../ui/SubscriptionManagerModal";
 import type { CommandDefinition, ICommandRegistry } from "./types";
 
 /**
@@ -88,6 +89,15 @@ export function createCommandDefinitions(): CommandDefinition[] {
 					});
 					workspace.revealLeaf(leaf);
 				}
+			},
+		},
+		{
+			id: "flowti:manage-subscriptions",
+			name: "Manage Watchers",
+			icon: "bell",
+			handler: async (ctx) => {
+				ctx.logger.debug("Opening watcher manager");
+				new SubscriptionManagerModal(ctx.app, ctx.eventBus).open();
 			},
 		},
 	];

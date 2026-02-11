@@ -36,6 +36,7 @@ export class SettingsService implements ISettingsService {
 	private settings: FlowtiSettings = DEFAULT_SETTINGS;
 	private storage: IStorageProvider;
 	private eventBus?: IEventBus;
+	private unsubscribes: (() => void)[] = [];
 
 	/**
 	 * Creates a new SettingsService instance.
@@ -44,6 +45,34 @@ export class SettingsService implements ISettingsService {
 	constructor(options: SettingsServiceOptions) {
 		this.storage = options.storage;
 		this.eventBus = options.eventBus;
+
+		if (this.eventBus) {
+			this.unsubscribes.push(
+				this.eventBus.on("settings.updateCatalogCategories", (event) => {
+					void this.updateSettings({ catalogCategories: event.payload.categories });
+				})
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("settings.updateCollapsedCategories", (event) => {
+					void this.updateSettings({ collapsedCategories: event.payload.collapsed });
+				})
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("settings.updateShowSystemEvents", (event) => {
+					void this.updateSettings({ showSystemEvents: event.payload.showSystemEvents });
+				})
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("settings.updateCatalogDomains", (event) => {
+					void this.updateSettings({ catalogDomains: event.payload.domains });
+				})
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("settings.updateCatalogServices", (event) => {
+					void this.updateSettings({ catalogServices: event.payload.services });
+				})
+			);
+		}
 	}
 
 	/**
@@ -68,6 +97,17 @@ export class SettingsService implements ISettingsService {
 		} else {
 			// Use defaults if validation fails
 			this.settings = DEFAULT_SETTINGS;
+		}
+
+		// Migration: eventDocsBasePath → docsRootPath
+		const raw = data as Record<string, unknown> | null;
+		if (raw && typeof raw.eventDocsBasePath === "string" && !raw.docsRootPath) {
+			let migrated = raw.eventDocsBasePath.replace(/\/+$/, "");
+			if (migrated.endsWith("/Events")) {
+				migrated = migrated.slice(0, -"/Events".length);
+			}
+			this.settings = { ...this.settings, docsRootPath: migrated };
+			await this.saveSettings();
 		}
 
 		await this.eventBus?.emit("settings.loaded", { settings: this.settings });
@@ -97,6 +137,16 @@ export class SettingsService implements ISettingsService {
 	 */
 	async setDebugMode(enabled: boolean): Promise<void> {
 		await this.updateSettings({ debugMode: enabled });
+	}
+
+	/**
+	 * Cleans up event listeners.
+	 */
+	dispose(): void {
+		for (const unsub of this.unsubscribes) {
+			unsub();
+		}
+		this.unsubscribes = [];
 	}
 
 	/**
