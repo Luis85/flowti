@@ -4,7 +4,7 @@ filters:
     - type == "Event"
 views:
   - type: table
-    name: Table
+    name: Eventstream
     order:
       - type
       - file.name
