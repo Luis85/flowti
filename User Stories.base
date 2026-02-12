@@ -16,8 +16,8 @@ views:
       - parent
       - file.folder
     columnSize:
-      file.name: 304
-      note.domain: 139
+      note.domain: 183
+      file.name: 422
       note.parent: 146
       file.folder: 267
   - type: table

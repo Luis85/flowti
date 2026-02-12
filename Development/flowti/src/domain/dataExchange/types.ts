@@ -216,6 +216,60 @@ export interface ParsedBaseFile {
 	formulas?: Record<string, string>;
 }
 
+// ── Saved configuration presets ──────────────────────────
+
+/** A saved import configuration preset. */
+export interface SavedImportConfig {
+	/** Unique ID */
+	id: string;
+	/** User-provided name */
+	name: string;
+	/** Timestamp when saved */
+	createdAt: number;
+	/** Target folder for created notes */
+	targetFolder: string;
+	/** Which CSV column becomes the note filename */
+	nameColumn: string;
+	/** Column mappings (csvColumn → frontmatterKey) */
+	columnMappings: ColumnMapping[];
+	/** How to handle existing notes */
+	conflictStrategy: ConflictStrategy;
+}
+
+/** A saved export configuration preset. */
+export interface SavedExportConfig {
+	/** Unique ID */
+	id: string;
+	/** User-provided name */
+	name: string;
+	/** Timestamp when saved */
+	createdAt: number;
+	/** Source path this config was saved from */
+	sourcePath: string;
+	/** Whether source is a folder or .base file */
+	sourceType: "folder" | "base";
+	/** Output format */
+	format: ExportFormat;
+	/** Target path for the output file */
+	outputPath: string;
+	/** Which frontmatter columns to include */
+	columns: string[];
+	/** Which file properties to include */
+	fileProperties: string[];
+	/** View index for .base files with multiple views */
+	baseViewIndex?: number;
+	/** How to handle an existing output file */
+	conflictStrategy?: ExportConflictStrategy;
+	/** When true, outputPath is an absolute filesystem path outside the vault */
+	isExternal?: boolean;
+}
+
+/** Persisted state for the Data Exchange domain. */
+export interface DataExchangeState {
+	savedImportConfigs: SavedImportConfig[];
+	savedExportConfigs: SavedExportConfig[];
+}
+
 // ── Vault file info (for BaseQueryEngine) ───────────────
 
 /** Lightweight representation of a vault file with its metadata. */

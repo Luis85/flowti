@@ -140,6 +140,7 @@ export function createServiceRegistrations(
 				const eventBus = container.getEventBus();
 				const fileSystem = new FileSystemClient({ eventBus });
 				return new DataExchangeService({
+					storage,
 					eventBus,
 					fileSystem,
 				});

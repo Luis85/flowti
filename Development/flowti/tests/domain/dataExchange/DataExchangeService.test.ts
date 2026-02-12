@@ -3,6 +3,15 @@ import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { DataExchangeService } from "../../../src/domain/dataExchange/DataExchangeService";
 import type { IFileSystemClient } from "../../../src/infrastructure/filesystem/types";
+import type { IStorageProvider } from "../../../src/utils/types";
+
+function createMockStorage(initialData: Record<string, unknown> = {}): IStorageProvider {
+	let data: Record<string, unknown> = { ...initialData };
+	return {
+		load: vi.fn(async () => data),
+		save: vi.fn(async (d: unknown) => { data = d as Record<string, unknown>; }),
+	};
+}
 
 function createMockFileSystem(): IFileSystemClient {
 	return {
@@ -198,6 +207,212 @@ describe("DataExchangeService", () => {
 			await new Promise((resolve) => setTimeout(resolve, 50));
 
 			expect(handler).not.toHaveBeenCalled();
+		});
+	});
+
+	describe("config persistence", () => {
+		let storage: IStorageProvider;
+		let svc: DataExchangeService;
+
+		beforeEach(() => {
+			storage = createMockStorage();
+			svc = new DataExchangeService({
+				eventBus: new EventBus(),
+				fileSystem: createMockFileSystem(),
+				storage,
+			});
+		});
+
+		describe("import configs", () => {
+			it("should save and retrieve import configs", async () => {
+				const saved = await svc.saveImportConfig({
+					name: "My Import",
+					targetFolder: "out/items",
+					nameColumn: "name",
+					columnMappings: [
+						{ csvColumn: "name", frontmatterKey: "name", included: true },
+					],
+					conflictStrategy: "skip",
+				});
+
+				expect(saved.id).toBeTruthy();
+				expect(saved.name).toBe("My Import");
+				expect(saved.createdAt).toBeGreaterThan(0);
+
+				const configs = svc.getSavedImportConfigs();
+				expect(configs).toHaveLength(1);
+				expect(configs[0].name).toBe("My Import");
+				expect(configs[0].targetFolder).toBe("out/items");
+			});
+
+			it("should persist import configs to storage", async () => {
+				await svc.saveImportConfig({
+					name: "Persisted",
+					targetFolder: "folder",
+					nameColumn: "id",
+					columnMappings: [],
+					conflictStrategy: "overwrite",
+				});
+
+				expect(storage.save).toHaveBeenCalled();
+				const storedData = (await storage.load()) as Record<string, unknown>;
+				const state = storedData.dataExchange as {
+					savedImportConfigs: unknown[];
+				};
+				expect(state.savedImportConfigs).toHaveLength(1);
+			});
+
+			it("should delete import configs", async () => {
+				const saved = await svc.saveImportConfig({
+					name: "To Delete",
+					targetFolder: "tmp",
+					nameColumn: "x",
+					columnMappings: [],
+					conflictStrategy: "skip",
+				});
+
+				await svc.deleteImportConfig(saved.id);
+				expect(svc.getSavedImportConfigs()).toHaveLength(0);
+			});
+
+			it("should load persisted import configs", async () => {
+				const mockStorage = createMockStorage({
+					dataExchange: {
+						savedImportConfigs: [
+							{
+								id: "abc",
+								name: "Existing",
+								createdAt: 1000,
+								targetFolder: "out",
+								nameColumn: "name",
+								columnMappings: [],
+								conflictStrategy: "skip",
+							},
+						],
+						savedExportConfigs: [],
+					},
+				});
+
+				const loadedSvc = new DataExchangeService({
+					eventBus: new EventBus(),
+					fileSystem: createMockFileSystem(),
+					storage: mockStorage,
+				});
+				await loadedSvc.load();
+
+				const configs = loadedSvc.getSavedImportConfigs();
+				expect(configs).toHaveLength(1);
+				expect(configs[0].name).toBe("Existing");
+			});
+		});
+
+		describe("export configs", () => {
+			it("should save and retrieve export configs", async () => {
+				const saved = await svc.saveExportConfig({
+					name: "My Export",
+					sourcePath: "data.base",
+					sourceType: "base",
+					format: "csv",
+					outputPath: "out.csv",
+					columns: ["stage", "domain"],
+					fileProperties: ["file.name"],
+					baseViewIndex: 0,
+					conflictStrategy: "overwrite",
+				});
+
+				expect(saved.id).toBeTruthy();
+				expect(saved.name).toBe("My Export");
+
+				const configs = svc.getSavedExportConfigs();
+				expect(configs).toHaveLength(1);
+				expect(configs[0].columns).toEqual(["stage", "domain"]);
+			});
+
+			it("should persist export configs to storage", async () => {
+				await svc.saveExportConfig({
+					name: "Persisted Export",
+					sourcePath: "items",
+					sourceType: "folder",
+					format: "tab",
+					outputPath: "items.txt",
+					columns: ["name"],
+					fileProperties: [],
+				});
+
+				const storedData = (await storage.load()) as Record<string, unknown>;
+				const state = storedData.dataExchange as {
+					savedExportConfigs: unknown[];
+				};
+				expect(state.savedExportConfigs).toHaveLength(1);
+			});
+
+			it("should delete export configs", async () => {
+				const saved = await svc.saveExportConfig({
+					name: "To Delete",
+					sourcePath: "x",
+					sourceType: "folder",
+					format: "csv",
+					outputPath: "x.csv",
+					columns: [],
+					fileProperties: [],
+				});
+
+				await svc.deleteExportConfig(saved.id);
+				expect(svc.getSavedExportConfigs()).toHaveLength(0);
+			});
+
+			it("should load persisted export configs", async () => {
+				const mockStorage = createMockStorage({
+					dataExchange: {
+						savedImportConfigs: [],
+						savedExportConfigs: [
+							{
+								id: "xyz",
+								name: "Existing Export",
+								createdAt: 2000,
+								sourcePath: "data.base",
+								sourceType: "base",
+								format: "csv",
+								outputPath: "out.csv",
+								columns: ["col1"],
+								fileProperties: ["file.name"],
+							},
+						],
+					},
+				});
+
+				const loadedSvc = new DataExchangeService({
+					eventBus: new EventBus(),
+					fileSystem: createMockFileSystem(),
+					storage: mockStorage,
+				});
+				await loadedSvc.load();
+
+				const configs = loadedSvc.getSavedExportConfigs();
+				expect(configs).toHaveLength(1);
+				expect(configs[0].name).toBe("Existing Export");
+			});
+		});
+
+		it("should work without storage (no-op)", async () => {
+			const noStorageSvc = new DataExchangeService({
+				eventBus: new EventBus(),
+				fileSystem: createMockFileSystem(),
+			});
+			await noStorageSvc.load(); // Should not throw
+			expect(noStorageSvc.getSavedImportConfigs()).toHaveLength(0);
+			expect(noStorageSvc.getSavedExportConfigs()).toHaveLength(0);
+
+			// Save should also not throw
+			await noStorageSvc.saveImportConfig({
+				name: "test",
+				targetFolder: "tmp",
+				nameColumn: "x",
+				columnMappings: [],
+				conflictStrategy: "skip",
+			});
+			// Still stored in memory
+			expect(noStorageSvc.getSavedImportConfigs()).toHaveLength(1);
 		});
 	});
 });

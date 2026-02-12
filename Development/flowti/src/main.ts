@@ -39,10 +39,10 @@ import { ViewRegistry } from "./infrastructure/views/ViewRegistry";
 import { IngestionStatusBar } from "./ui/IngestionStatusBar";
 import { VIEW_TYPE_EVENT_CATALOG } from "./ui/EventCatalogView";
 import { DataExchangeService } from "./domain/dataExchange/DataExchangeService";
-import type { VaultFileInfo } from "./domain/dataExchange/types";
-import { ImportModal } from "./ui/ImportModal";
-import { ExportModal } from "./ui/ExportModal";
+import type { ExportFormat, VaultFileInfo } from "./domain/dataExchange/types";
 import { InputModal } from "./ui/modals";
+import { CsvActionView, VIEW_TYPE_CSV } from "./ui/CsvActionView";
+import { ExportView, VIEW_TYPE_EXPORT, type ExportViewConfig } from "./ui/ExportView";
 
 
 /**  
@@ -97,6 +97,8 @@ export default class FlowtiBasePlugin extends Plugin {
 	private dataExchangeService?: DataExchangeService;
 	private ingestionStatusBar?: IngestionStatusBar;
 	private collapsedCategories = new Set<string>();
+	private pendingExportConfig: ExportViewConfig | null = null;
+	private pendingImportAutoStart = false;
 	private crossCuttingListeners: (() => void)[] = [];
 
 	async onload() {
@@ -499,6 +501,20 @@ export default class FlowtiBasePlugin extends Plugin {
 	}
 
 	/**
+	 * Opens the ExportView in a new leaf with the given config.
+	 */
+	private openExportView(
+		sourcePath: string,
+		sourceType: "folder" | "base",
+		format: ExportFormat,
+	): void {
+		this.pendingExportConfig = { sourcePath, sourceType, format };
+		const leaf = this.app.workspace.getLeaf(true);
+		void leaf.setViewState({ type: VIEW_TYPE_EXPORT, active: true });
+		this.app.workspace.revealLeaf(leaf);
+	}
+
+	/**
 	 * Bind registered views to Obsidian.
 	 */
 	private bindViews(): void {
@@ -559,6 +575,7 @@ export default class FlowtiBasePlugin extends Plugin {
 
 			// ── Data Exchange: load service, inject vault callback, register menus ──
 			this.dataExchangeService = await this.services.get<DataExchangeService>("dataExchangeService");
+			await this.dataExchangeService.load();
 			this.dataExchangeService.setListFiles((folderPath: string): VaultFileInfo[] => {
 				const results: VaultFileInfo[] = [];
 				for (const file of this.app.vault.getFiles()) {
@@ -612,8 +629,9 @@ export default class FlowtiBasePlugin extends Plugin {
 							item.setTitle("Import as Notes")
 								.setIcon("file-input")
 								.onClick(() => {
-									const importService = this.dataExchangeService!.getImportService();
-									new ImportModal(this.app, this.eventBus, importService, file.path).open();
+									this.pendingImportAutoStart = true;
+									const leaf = this.app.workspace.getLeaf(true);
+									void leaf.openFile(file);
 								});
 						});
 					}
@@ -622,18 +640,12 @@ export default class FlowtiBasePlugin extends Plugin {
 						menu.addItem((item) => {
 							item.setTitle("Export as CSV")
 								.setIcon("file-output")
-								.onClick(() => {
-									const exportService = this.dataExchangeService!.getExportService();
-									new ExportModal(this.app, this.eventBus, exportService, file.path, "base", "csv").open();
-								});
+								.onClick(() => this.openExportView(file.path, "base", "csv"));
 						});
 						menu.addItem((item) => {
 							item.setTitle("Export as Tab")
 								.setIcon("file-output")
-								.onClick(() => {
-									const exportService = this.dataExchangeService!.getExportService();
-									new ExportModal(this.app, this.eventBus, exportService, file.path, "base", "tab").open();
-								});
+								.onClick(() => this.openExportView(file.path, "base", "tab"));
 						});
 					}
 
@@ -641,21 +653,36 @@ export default class FlowtiBasePlugin extends Plugin {
 						menu.addItem((item) => {
 							item.setTitle("Export as CSV")
 								.setIcon("file-output")
-								.onClick(() => {
-									const exportService = this.dataExchangeService!.getExportService();
-									new ExportModal(this.app, this.eventBus, exportService, file.path, "folder", "csv").open();
-								});
+								.onClick(() => this.openExportView(file.path, "folder", "csv"));
 						});
 						menu.addItem((item) => {
 							item.setTitle("Export as Tab")
 								.setIcon("file-output")
-								.onClick(() => {
-									const exportService = this.dataExchangeService!.getExportService();
-									new ExportModal(this.app, this.eventBus, exportService, file.path, "folder", "tab").open();
-								});
+								.onClick(() => this.openExportView(file.path, "folder", "tab"));
 						});
 					}
 				})
+			);
+
+			// CSV view — clicking a .csv opens the import action view
+			this.registerView(VIEW_TYPE_CSV, (leaf) => {
+				const auto = this.pendingImportAutoStart;
+				this.pendingImportAutoStart = false;
+				return new CsvActionView(leaf, this.eventBus, this.dataExchangeService!, auto);
+			});
+			try {
+				this.registerExtensions(["csv"], VIEW_TYPE_CSV);
+			} catch {
+				// Extension may already be registered by another plugin
+			}
+
+			// Export view — opens from context menus and commands
+			this.registerView(VIEW_TYPE_EXPORT, (leaf) =>
+				new ExportView(leaf, this.eventBus, this.dataExchangeService!, () => {
+					const cfg = this.pendingExportConfig;
+					this.pendingExportConfig = null;
+					return cfg;
+				}),
 			);
 
 			// Commands for import/export (command palette)
@@ -671,8 +698,14 @@ export default class FlowtiBasePlugin extends Plugin {
 						placeholder: "path/to/data.csv",
 						submitLabel: "Import",
 						onSubmit: (csvPath) => {
-							const importService = this.dataExchangeService!.getImportService();
-							new ImportModal(this.app, this.eventBus, importService, csvPath).open();
+							const csvFile = this.app.vault.getAbstractFileByPath(csvPath);
+							if (csvFile instanceof TFile) {
+								this.pendingImportAutoStart = true;
+								const leaf = this.app.workspace.getLeaf(true);
+								void leaf.openFile(csvFile);
+							} else {
+								new Notice(`File not found: ${csvPath}`);
+							}
 						},
 					}).open();
 				},
@@ -691,8 +724,7 @@ export default class FlowtiBasePlugin extends Plugin {
 						submitLabel: "Export",
 						onSubmit: (sourcePath) => {
 							const sourceType = sourcePath.endsWith(".base") ? "base" as const : "folder" as const;
-							const exportService = this.dataExchangeService!.getExportService();
-							new ExportModal(this.app, this.eventBus, exportService, sourcePath, sourceType, "csv").open();
+							this.openExportView(sourcePath, sourceType, "csv");
 						},
 					}).open();
 				},
@@ -711,8 +743,7 @@ export default class FlowtiBasePlugin extends Plugin {
 						submitLabel: "Export",
 						onSubmit: (sourcePath) => {
 							const sourceType = sourcePath.endsWith(".base") ? "base" as const : "folder" as const;
-							const exportService = this.dataExchangeService!.getExportService();
-							new ExportModal(this.app, this.eventBus, exportService, sourcePath, sourceType, "tab").open();
+							this.openExportView(sourcePath, sourceType, "tab");
 						},
 					}).open();
 				},

@@ -1237,13 +1237,7 @@
 	background-color: var(--background-secondary);
 }
 
-/* ── Import / Export Modals ────────────────────────────── */
-
-.flowti-import-modal .modal-content,
-.flowti-export-modal .modal-content {
-	max-height: 70vh;
-	overflow-y: auto;
-}
+/* ── Import / Export Views ─────────────────────────────── */
 
 .ft-preview-table {
 	width: 100%;
@@ -1304,4 +1298,86 @@
 
 .ft-flex-wrap {
 	flex-wrap: wrap;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   CSV Action View
+   ───────────────────────────────────────────────────────────── */
+
+.flowti-csv-action {
+	display: flex;
+	justify-content: center;
+	padding: var(--size-4-8) var(--size-4-4);
+}
+
+.flowti-csv-container {
+	max-width: 600px;
+	width: 100%;
+	text-align: center;
+}
+
+.flowti-csv-icon {
+	margin-bottom: var(--size-4-2);
+}
+
+.flowti-csv-icon svg {
+	width: 48px;
+	height: 48px;
+	color: var(--text-muted);
+}
+
+.flowti-csv-desc {
+	color: var(--text-muted);
+	margin-bottom: var(--size-4-4);
+}
+
+.flowti-csv-actions {
+	display: flex;
+	gap: var(--size-4-3);
+	justify-content: center;
+	margin-bottom: var(--size-4-8);
+}
+
+.flowti-csv-actions button {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	padding: var(--size-4-2) var(--size-4-4);
+}
+
+.flowti-csv-btn-icon {
+	display: flex;
+}
+
+.flowti-csv-preview {
+	text-align: left;
+	overflow-x: auto;
+}
+
+.flowti-csv-preview table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.flowti-csv-preview th,
+.flowti-csv-preview td {
+	border: 1px solid var(--background-modifier-border);
+	padding: var(--size-4-1) var(--size-4-2);
+	font-size: var(--font-smaller);
+	max-width: 200px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.flowti-csv-preview th {
+	background: var(--background-secondary);
+	font-weight: var(--font-semibold);
+}
+
+.flowti-csv-more {
+	color: var(--text-muted);
+	font-size: var(--font-smaller);
+	text-align: left;
+	margin-top: var(--size-4-1);
 }
