@@ -18,6 +18,7 @@ import { FolderScaffoldStep } from "../../domain/installer/steps/FolderScaffoldS
 import type { IUserService } from "../../domain/user/types";
 import type { IStorageProvider } from "../../utils/types";
 import { UserService } from "../../domain/user/UserService";
+import { DataExchangeService } from "../../domain/dataExchange/DataExchangeService";
 import { FileSystemClient } from "../filesystem/FileSystemClient";
 import type { IServiceContainer, ServiceRegistration } from "./types";
 
@@ -130,6 +131,19 @@ export function createServiceRegistrations(
 					storage,
 					eventBus: container.getEventBus(),
 				}),
+		},
+
+		// Data Exchange Service - CSV import and folder/base export
+		{
+			id: "dataExchangeService",
+			factory: (container: IServiceContainer) => {
+				const eventBus = container.getEventBus();
+				const fileSystem = new FileSystemClient({ eventBus });
+				return new DataExchangeService({
+					eventBus,
+					fileSystem,
+				});
+			},
 		},
 
 		// Installer Service - first-run wizard and folder scaffolding

@@ -49,6 +49,7 @@ export const DEFAULT_CATALOG_CATEGORIES: CatalogCategoryConfig[] = [
 	{ name: "Watch Rules", visible: false },
 	{ name: "File Processing", visible: false },
 	{ name: "Transforms", visible: false },
+	{ name: "Data Exchange", visible: true },
 ];
 
 // ─────────────────────────────────────────────────────────────

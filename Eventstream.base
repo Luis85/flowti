@@ -2,6 +2,8 @@ filters:
   and:
     - file.inFolder("00 - Connectivity/events")
     - type == "Event"
+formulas:
+  foo: description
 views:
   - type: table
     name: Eventstream
@@ -9,6 +11,7 @@ views:
       - type
       - file.name
       - description
+      - formula.foo
     columnSize:
       file.name: 178
       note.name: 117

@@ -1,4 +1,4 @@
-import { Notice, Plugin } from "obsidian";
+import { Notice, Plugin, TFile, TFolder } from "obsidian";
 import {
 	CommandRegistry,
 	createErrorMiddleware,
@@ -38,6 +38,11 @@ import type { IViewRegistry } from "./infrastructure/views/types";
 import { ViewRegistry } from "./infrastructure/views/ViewRegistry";
 import { IngestionStatusBar } from "./ui/IngestionStatusBar";
 import { VIEW_TYPE_EVENT_CATALOG } from "./ui/EventCatalogView";
+import { DataExchangeService } from "./domain/dataExchange/DataExchangeService";
+import type { VaultFileInfo } from "./domain/dataExchange/types";
+import { ImportModal } from "./ui/ImportModal";
+import { ExportModal } from "./ui/ExportModal";
+import { InputModal } from "./ui/modals";
 
 
 /**  
@@ -89,6 +94,7 @@ export default class FlowtiBasePlugin extends Plugin {
 	private subscriptionService?: SubscriptionService;
 	private ingestionService?: IngestionService;
 	private eventDefinitionService?: EventDefinitionService;
+	private dataExchangeService?: DataExchangeService;
 	private ingestionStatusBar?: IngestionStatusBar;
 	private collapsedCategories = new Set<string>();
 	private crossCuttingListeners: (() => void)[] = [];
@@ -551,23 +557,167 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.eventDefinitionService = await this.services.get<EventDefinitionService>("eventDefinitionService");
 			await this.eventDefinitionService.load();
 
+			// ── Data Exchange: load service, inject vault callback, register menus ──
+			this.dataExchangeService = await this.services.get<DataExchangeService>("dataExchangeService");
+			this.dataExchangeService.setListFiles((folderPath: string): VaultFileInfo[] => {
+				const results: VaultFileInfo[] = [];
+				for (const file of this.app.vault.getFiles()) {
+					if (folderPath && !file.path.startsWith(folderPath + "/")) continue;
+					const cache = this.app.metadataCache.getFileCache(file);
+					const folder = file.path.substring(0, file.path.lastIndexOf("/")) || "";
+					const tags: string[] = [];
+					if (cache) {
+						const inlineTags = (cache.tags ?? []).map((t) => t.tag.replace(/^#/, ""));
+						const fmTags = cache.frontmatter?.tags;
+						if (Array.isArray(fmTags)) {
+							for (const t of fmTags) tags.push(String(t));
+						}
+						for (const t of inlineTags) {
+							if (!tags.includes(t)) tags.push(t);
+						}
+					}
+					results.push({
+						path: file.path,
+						basename: file.basename,
+						extension: file.extension,
+						folder,
+						frontmatter: cache?.frontmatter as Record<string, unknown> | undefined,
+						stat: file.stat ? { ctime: file.stat.ctime, mtime: file.stat.mtime, size: file.stat.size } : undefined,
+						tags: tags.length > 0 ? tags : undefined,
+					});
+				}
+				return results;
+			});
+			this.dataExchangeService.setWriteExternalFile(async (absolutePath: string, content: string) => {
+				const fs = require("fs") as typeof import("fs"); // eslint-disable-line @typescript-eslint/no-require-imports
+				const path = require("path") as typeof import("path"); // eslint-disable-line @typescript-eslint/no-require-imports
+				const dir = path.dirname(absolutePath);
+				fs.mkdirSync(dir, { recursive: true });
+				fs.writeFileSync(absolutePath, content, "utf-8");
+			});
+
+			// File-menu context items for import/export
+			this.registerEvent(
+				this.app.workspace.on("file-menu", (menu, file) => {
+					if (file instanceof TFile && file.extension === "csv") {
+						menu.addItem((item) => {
+							item.setTitle("Import as Notes")
+								.setIcon("file-input")
+								.onClick(() => {
+									const importService = this.dataExchangeService!.getImportService();
+									new ImportModal(this.app, this.eventBus, importService, file.path).open();
+								});
+						});
+					}
+
+					if (file instanceof TFile && file.extension === "base") {
+						menu.addItem((item) => {
+							item.setTitle("Export as CSV")
+								.setIcon("file-output")
+								.onClick(() => {
+									const exportService = this.dataExchangeService!.getExportService();
+									new ExportModal(this.app, this.eventBus, exportService, file.path, "base", "csv").open();
+								});
+						});
+						menu.addItem((item) => {
+							item.setTitle("Export as Tab")
+								.setIcon("file-output")
+								.onClick(() => {
+									const exportService = this.dataExchangeService!.getExportService();
+									new ExportModal(this.app, this.eventBus, exportService, file.path, "base", "tab").open();
+								});
+						});
+					}
+
+					if (file instanceof TFolder) {
+						menu.addItem((item) => {
+							item.setTitle("Export as CSV")
+								.setIcon("file-output")
+								.onClick(() => {
+									const exportService = this.dataExchangeService!.getExportService();
+									new ExportModal(this.app, this.eventBus, exportService, file.path, "folder", "csv").open();
+								});
+						});
+						menu.addItem((item) => {
+							item.setTitle("Export as Tab")
+								.setIcon("file-output")
+								.onClick(() => {
+									const exportService = this.dataExchangeService!.getExportService();
+									new ExportModal(this.app, this.eventBus, exportService, file.path, "folder", "tab").open();
+								});
+						});
+					}
+				})
+			);
+
+			// Commands for import/export (command palette)
+			this.addCommand({
+				id: "flowti:import-csv",
+				name: "Import CSV as Notes",
+				icon: "file-input",
+				callback: () => {
+					new InputModal(this.app, {
+						title: "Import CSV",
+						inputName: "CSV file path",
+						inputDesc: "Enter the vault path to a .csv file",
+						placeholder: "path/to/data.csv",
+						submitLabel: "Import",
+						onSubmit: (csvPath) => {
+							const importService = this.dataExchangeService!.getImportService();
+							new ImportModal(this.app, this.eventBus, importService, csvPath).open();
+						},
+					}).open();
+				},
+			});
+
+			this.addCommand({
+				id: "flowti:export-csv",
+				name: "Export as CSV",
+				icon: "file-output",
+				callback: () => {
+					new InputModal(this.app, {
+						title: "Export as CSV",
+						inputName: "Source path",
+						inputDesc: "Enter a folder path or .base file path",
+						placeholder: "path/to/folder or path/to/file.base",
+						submitLabel: "Export",
+						onSubmit: (sourcePath) => {
+							const sourceType = sourcePath.endsWith(".base") ? "base" as const : "folder" as const;
+							const exportService = this.dataExchangeService!.getExportService();
+							new ExportModal(this.app, this.eventBus, exportService, sourcePath, sourceType, "csv").open();
+						},
+					}).open();
+				},
+			});
+
+			this.addCommand({
+				id: "flowti:export-tab",
+				name: "Export as Tab-delimited",
+				icon: "file-output",
+				callback: () => {
+					new InputModal(this.app, {
+						title: "Export as Tab",
+						inputName: "Source path",
+						inputDesc: "Enter a folder path or .base file path",
+						placeholder: "path/to/folder or path/to/file.base",
+						submitLabel: "Export",
+						onSubmit: (sourcePath) => {
+							const sourceType = sourcePath.endsWith(".base") ? "base" as const : "folder" as const;
+							const exportService = this.dataExchangeService!.getExportService();
+							new ExportModal(this.app, this.eventBus, exportService, sourcePath, sourceType, "tab").open();
+						},
+					}).open();
+				},
+			});
+
 			// Run catch-up if watch folders are configured
 			if (this.settings.watchFolders.length > 0 && this.ingestionService) {
 				const ingestion = this.ingestionService;
 				try {
 					await ingestion.runCatchUp(this.settings.watchFolders, async (folder) => {
-						const abstractFile = this.app.vault.getAbstractFileByPath(folder);
-						if (!abstractFile) return [];
-						const files: string[] = [];
-						// recurseChildren is not in Obsidian's public type definitions
-						// but is a stable internal API used by many community plugins.
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						(this.app.vault as any).recurseChildren(abstractFile, (child: any) => {
-							if (child.path && child.extension) {
-								files.push(child.path);
-							}
-						});
-						return files;
+						return this.app.vault.getFiles()
+							.filter((f) => f.path.startsWith(folder + "/"))
+							.map((f) => f.path);
 					});
 				} catch (error) {
 					this.errorService.handle(

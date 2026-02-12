@@ -272,3 +272,14 @@ export class ExtraButtonComponent {
 }
 
 export function setIcon(_el: HTMLElement, _iconId: string): void {}
+
+/**
+ * Minimal parseYaml stub matching Obsidian's API.
+ * Uses the yaml package (available as transitive dep from vite/typedoc).
+ */
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const yamlPkg = require("yaml");
+export function parseYaml(yaml: string): unknown {
+	if (!yaml || !yaml.trim()) return null;
+	return yamlPkg.parse(yaml);
+}

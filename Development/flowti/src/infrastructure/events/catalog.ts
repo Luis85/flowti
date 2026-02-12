@@ -115,6 +115,7 @@ export const EVENT_CATEGORIES = [
 	"Watch Rules",
 	"File Processing",
 	"Transforms",
+	"Data Exchange",
 ] as const;
 
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
@@ -282,6 +283,17 @@ const CATALOG_DATA = {
 	"eventDefinition.remove":  { category: "Transforms", description: "Command to remove a transform", direction: "View → Plugin", domain: "eventDefinition", services: "EventDefinitionService" },
 	"eventDefinition.refresh": { category: "Transforms", description: "Request to re-emit current transform state", direction: "View → Plugin", domain: "eventDefinition", services: "EventDefinitionService" },
 	"eventDefinition.matched": { category: "Transforms", description: "A transform matched and emitted an output event", direction: "Service → Listeners", domain: "eventDefinition", services: "EventDefinitionService" },
+
+	// ── Data Exchange Domain ────────────────────────────────
+	"dataExchange.import.execute":   { category: "Data Exchange", description: "Command to start a CSV import", direction: "View → Plugin", domain: "dataExchange", services: "DataExchangeService", tags: ["system"] },
+	"dataExchange.import.started":   { category: "Data Exchange", description: "Import operation has started", direction: "Service → Listeners", domain: "dataExchange", services: "ImportService", tags: ["system"] },
+	"dataExchange.import.progress":  { category: "Data Exchange", description: "Progress update during import", direction: "Service → Listeners", domain: "dataExchange", services: "ImportService", tags: ["system"] },
+	"dataExchange.import.completed": { category: "Data Exchange", description: "Import operation completed successfully", direction: "Service → Listeners", domain: "dataExchange", services: "ImportService" },
+	"dataExchange.import.failed":    { category: "Data Exchange", description: "Import operation failed", direction: "Service → Listeners", domain: "dataExchange", services: "ImportService" },
+	"dataExchange.export.execute":   { category: "Data Exchange", description: "Command to start a data export", direction: "View → Plugin", domain: "dataExchange", services: "DataExchangeService", tags: ["system"] },
+	"dataExchange.export.started":   { category: "Data Exchange", description: "Export operation has started", direction: "Service → Listeners", domain: "dataExchange", services: "ExportService", tags: ["system"] },
+	"dataExchange.export.completed": { category: "Data Exchange", description: "Export operation completed successfully", direction: "Service → Listeners", domain: "dataExchange", services: "ExportService" },
+	"dataExchange.export.failed":    { category: "Data Exchange", description: "Export operation failed", direction: "Service → Listeners", domain: "dataExchange", services: "ExportService" },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

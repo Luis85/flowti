@@ -3,11 +3,15 @@ stage: design
 domain: Flowti
 plugin: "[[Development/flowti/README|README]]"
 ---
+
 # The Import and Export Features
 
-Obsidian is a great tool to collect, enrich, and link data to become a knowledge-graph. Where Obsidian is lacking, is importing and exporting with CSV files, collaboration, and integration. 
+Obsidian is a great tool to collect, enrich, and link data to become a knowledge-graph. Where Obsidian is lacking, is importing and exporting of CSV files, collaboration, and integration. 
 
 We need a solution to collect the data we have, enrich those data, and provide a clean data-set for other systems downstream, all of that in a simple and connected workflow. We leverage the Obsidian Bases Feature to shape our data.
+
+An Obsidian Base is used as our data anchor to form and shape our data. The Base itself will become the template for our Import and Export.
+
 
 ## Constraints
 
@@ -15,7 +19,7 @@ We need a solution to collect the data we have, enrich those data, and provide a
 
 ## Solution Idea
 
-The basic idea is, that the user is able to manage und publish the master-data of his organization or his daily-business. He can import and export data and leverage the Obsidian Bases Feature to explore those data-records or look at the created Markdown. The import is for data-ingestion and preparation, Bases sits in-between providing tools for data-improvement and exploration, the export is used for publication, like providing a product-catalog for importing in another system.
+The basic idea is, that the user is able to manage and publish the master-data of his organization or his daily-business. He can import and export data and leverage the Obsidian Bases Feature to explore those data-records or look at the created Markdown. The import is for data-ingestion and preparation, Bases sits in-between providing tools for data-improvement and exploration, the export is used for publication, like providing a product-catalog for importing in another system.
 
 The solution must support the following process: 
 
