@@ -2,10 +2,10 @@
 title:
 stage:
 description:
-domain:
+domain: Flowti
 journey:
 jtbd:
-parent:
+parent: "[[Obsidian Plugin Developer]]"
 persona:
 feature:
 ---
