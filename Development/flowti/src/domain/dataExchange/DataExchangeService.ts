@@ -98,6 +98,26 @@ export class DataExchangeService {
 				}
 			}),
 		);
+
+		// Track file renames → update saved config paths
+		this.unsubscribes.push(
+			this.eventBus.on("file.renamed", (event) => {
+				void this.handleFileRenamed(
+					event.payload.oldPath,
+					event.payload.newPath,
+				);
+			}),
+		);
+
+		// Track folder renames → update configs with paths under the folder
+		this.unsubscribes.push(
+			this.eventBus.on("folder.renamed", (event) => {
+				void this.handleFolderRenamed(
+					event.payload.oldPath,
+					event.payload.newPath,
+				);
+			}),
+		);
 	}
 
 	/** Expose import service for direct modal access. */
@@ -223,6 +243,75 @@ export class DataExchangeService {
 			importCount: this.state.savedImportConfigs.length,
 			exportCount: this.state.savedExportConfigs.length,
 		});
+	}
+
+	// ── Path tracking on rename ────────────────────────────
+
+	/** Updates saved configs when a file is renamed/moved. */
+	private async handleFileRenamed(
+		oldPath: string,
+		newPath: string,
+	): Promise<void> {
+		let changed = false;
+
+		for (const cfg of this.state.savedExportConfigs) {
+			if (cfg.sourcePath === oldPath) {
+				cfg.sourcePath = newPath;
+				changed = true;
+			}
+			if (!cfg.isExternal && cfg.outputPath === oldPath) {
+				cfg.outputPath = newPath;
+				changed = true;
+			}
+		}
+
+		if (changed) {
+			await this.saveState();
+			this.emitConfigChanged();
+		}
+	}
+
+	/** Updates saved configs when a folder is renamed/moved. */
+	private async handleFolderRenamed(
+		oldPath: string,
+		newPath: string,
+	): Promise<void> {
+		let changed = false;
+		const oldPrefix = oldPath + "/";
+
+		for (const cfg of this.state.savedExportConfigs) {
+			if (
+				cfg.sourcePath === oldPath ||
+				cfg.sourcePath.startsWith(oldPrefix)
+			) {
+				cfg.sourcePath = newPath + cfg.sourcePath.slice(oldPath.length);
+				changed = true;
+			}
+			if (
+				!cfg.isExternal &&
+				(cfg.outputPath === oldPath ||
+					cfg.outputPath.startsWith(oldPrefix))
+			) {
+				cfg.outputPath = newPath + cfg.outputPath.slice(oldPath.length);
+				changed = true;
+			}
+		}
+
+		for (const cfg of this.state.savedImportConfigs) {
+			if (
+				cfg.targetFolder === oldPath ||
+				cfg.targetFolder.startsWith(oldPrefix)
+			) {
+				cfg.targetFolder =
+					newPath + cfg.targetFolder.slice(oldPath.length);
+				changed = true;
+			}
+		}
+
+		if (changed) {
+			await this.saveState();
+			this.emitConfigChanged();
+		}
 	}
 
 	/** Cleans up all event listeners. */

@@ -415,4 +415,246 @@ describe("DataExchangeService", () => {
 			expect(noStorageSvc.getSavedImportConfigs()).toHaveLength(1);
 		});
 	});
+
+	describe("config path tracking on rename", () => {
+		let bus: IEventBus;
+		let storage: IStorageProvider;
+		let svc: DataExchangeService;
+
+		beforeEach(() => {
+			bus = new EventBus();
+			storage = createMockStorage();
+			svc = new DataExchangeService({
+				eventBus: bus,
+				fileSystem: createMockFileSystem(),
+				storage,
+			});
+		});
+
+		describe("file.renamed", () => {
+			it("should update export sourcePath when source file is renamed", async () => {
+				await svc.saveExportConfig({
+					name: "Base Export",
+					sourcePath: "data/views.base",
+					sourceType: "base",
+					format: "csv",
+					outputPath: "data/out.csv",
+					columns: ["col1"],
+					fileProperties: ["file.name"],
+				});
+
+				await bus.emit("file.renamed", {
+					oldPath: "data/views.base",
+					newPath: "data/renamed.base",
+					source: "obsidian",
+				});
+				await new Promise((r) => setTimeout(r, 50));
+
+				const configs = svc.getSavedExportConfigs();
+				expect(configs[0].sourcePath).toBe("data/renamed.base");
+			});
+
+			it("should update export outputPath when output file is renamed", async () => {
+				await svc.saveExportConfig({
+					name: "Export",
+					sourcePath: "items",
+					sourceType: "folder",
+					format: "csv",
+					outputPath: "exports/report.csv",
+					columns: [],
+					fileProperties: [],
+				});
+
+				await bus.emit("file.renamed", {
+					oldPath: "exports/report.csv",
+					newPath: "exports/report-v2.csv",
+					source: "obsidian",
+				});
+				await new Promise((r) => setTimeout(r, 50));
+
+				expect(svc.getSavedExportConfigs()[0].outputPath).toBe("exports/report-v2.csv");
+			});
+
+			it("should NOT update outputPath when config is external", async () => {
+				await svc.saveExportConfig({
+					name: "External",
+					sourcePath: "items",
+					sourceType: "folder",
+					format: "csv",
+					outputPath: "C:\\external\\report.csv",
+					columns: [],
+					fileProperties: [],
+					isExternal: true,
+				});
+
+				await bus.emit("file.renamed", {
+					oldPath: "C:\\external\\report.csv",
+					newPath: "C:\\external\\moved.csv",
+					source: "obsidian",
+				});
+				await new Promise((r) => setTimeout(r, 50));
+
+				// External paths are not vault paths, should not be updated
+				expect(svc.getSavedExportConfigs()[0].outputPath).toBe("C:\\external\\report.csv");
+			});
+
+			it("should not modify configs when path does not match", async () => {
+				await svc.saveExportConfig({
+					name: "Unrelated",
+					sourcePath: "other/file.base",
+					sourceType: "base",
+					format: "csv",
+					outputPath: "other/out.csv",
+					columns: [],
+					fileProperties: [],
+				});
+
+				await bus.emit("file.renamed", {
+					oldPath: "data/views.base",
+					newPath: "data/renamed.base",
+					source: "obsidian",
+				});
+				await new Promise((r) => setTimeout(r, 50));
+
+				const cfg = svc.getSavedExportConfigs()[0];
+				expect(cfg.sourcePath).toBe("other/file.base");
+				expect(cfg.outputPath).toBe("other/out.csv");
+			});
+
+			it("should persist changes after rename", async () => {
+				await svc.saveExportConfig({
+					name: "Tracked",
+					sourcePath: "old.base",
+					sourceType: "base",
+					format: "csv",
+					outputPath: "out.csv",
+					columns: [],
+					fileProperties: [],
+				});
+
+				const saveSpy = storage.save as ReturnType<typeof vi.fn>;
+				const callsBefore = saveSpy.mock.calls.length;
+
+				await bus.emit("file.renamed", {
+					oldPath: "old.base",
+					newPath: "new.base",
+					source: "obsidian",
+				});
+				await new Promise((r) => setTimeout(r, 50));
+
+				expect(saveSpy.mock.calls.length).toBeGreaterThan(callsBefore);
+			});
+		});
+
+		describe("folder.renamed", () => {
+			it("should update export sourcePath when parent folder is renamed", async () => {
+				await svc.saveExportConfig({
+					name: "Nested",
+					sourcePath: "projects/alpha/data.base",
+					sourceType: "base",
+					format: "csv",
+					outputPath: "projects/alpha/export.csv",
+					columns: [],
+					fileProperties: [],
+				});
+
+				await bus.emit("folder.renamed", {
+					oldPath: "projects/alpha",
+					newPath: "projects/beta",
+					source: "obsidian",
+				});
+				await new Promise((r) => setTimeout(r, 50));
+
+				const cfg = svc.getSavedExportConfigs()[0];
+				expect(cfg.sourcePath).toBe("projects/beta/data.base");
+				expect(cfg.outputPath).toBe("projects/beta/export.csv");
+			});
+
+			it("should update export sourcePath when source folder itself is renamed", async () => {
+				await svc.saveExportConfig({
+					name: "Folder Export",
+					sourcePath: "items/inbox",
+					sourceType: "folder",
+					format: "csv",
+					outputPath: "items/inbox_export.csv",
+					columns: [],
+					fileProperties: [],
+				});
+
+				await bus.emit("folder.renamed", {
+					oldPath: "items/inbox",
+					newPath: "items/processed",
+					source: "obsidian",
+				});
+				await new Promise((r) => setTimeout(r, 50));
+
+				expect(svc.getSavedExportConfigs()[0].sourcePath).toBe("items/processed");
+			});
+
+			it("should update import targetFolder when folder is renamed", async () => {
+				await svc.saveImportConfig({
+					name: "Import",
+					targetFolder: "data/imports/csv",
+					nameColumn: "name",
+					columnMappings: [],
+					conflictStrategy: "skip",
+				});
+
+				await bus.emit("folder.renamed", {
+					oldPath: "data/imports",
+					newPath: "data/incoming",
+					source: "obsidian",
+				});
+				await new Promise((r) => setTimeout(r, 50));
+
+				expect(svc.getSavedImportConfigs()[0].targetFolder).toBe("data/incoming/csv");
+			});
+
+			it("should not match partial folder name overlap", async () => {
+				await svc.saveExportConfig({
+					name: "No Match",
+					sourcePath: "projects/alpha-backup/data.base",
+					sourceType: "base",
+					format: "csv",
+					outputPath: "out.csv",
+					columns: [],
+					fileProperties: [],
+				});
+
+				await bus.emit("folder.renamed", {
+					oldPath: "projects/alpha",
+					newPath: "projects/beta",
+					source: "obsidian",
+				});
+				await new Promise((r) => setTimeout(r, 50));
+
+				// "projects/alpha-backup" should NOT match "projects/alpha"
+				expect(svc.getSavedExportConfigs()[0].sourcePath).toBe("projects/alpha-backup/data.base");
+			});
+
+			it("should emit config.changed after folder rename updates", async () => {
+				await svc.saveExportConfig({
+					name: "Tracked",
+					sourcePath: "old-folder/data.base",
+					sourceType: "base",
+					format: "csv",
+					outputPath: "out.csv",
+					columns: [],
+					fileProperties: [],
+				});
+
+				const changedHandler = vi.fn();
+				bus.on("dataExchange.config.changed", changedHandler);
+
+				await bus.emit("folder.renamed", {
+					oldPath: "old-folder",
+					newPath: "new-folder",
+					source: "obsidian",
+				});
+				await new Promise((r) => setTimeout(r, 50));
+
+				expect(changedHandler).toHaveBeenCalled();
+			});
+		});
+	});
 });
