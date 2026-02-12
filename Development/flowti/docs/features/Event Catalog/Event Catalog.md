@@ -9,7 +9,7 @@ tags:
 
 ## One-Sentence Design Summary
 
-> **The Event Catalog is a semantic map of what can happen a the system, connecting events to meaning, domains, and documentation.**
+> **The Event Catalog is a semantic map of what can happen in the system, connecting events to meaning, domains, and documentation.**
 
 ## Purpose of the Event Catalog
 
