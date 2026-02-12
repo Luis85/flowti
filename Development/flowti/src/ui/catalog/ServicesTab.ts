@@ -2,7 +2,7 @@ import { TFile, TFolder, setIcon } from "obsidian";
 import { EVENT_CATALOG, type EventCatalogEntry } from "../../infrastructure/events/catalog";
 import {
 	readFrontmatter, fmString, fmStringArray, normalizeDocFrontmatter,
-	isConfigured, isSystemOnly, discoveredToCatalogEntries,
+	isConfigured, discoveredToCatalogEntries,
 	renderStat, renderRelatedSection,
 	findRelatedFlows, findRelatedSystems, findRelatedActors,
 	openFile,
@@ -21,6 +21,7 @@ import type { CatalogComponentDeps, ServiceEntry } from "./types";
 export class ServicesTab {
 	private entries: ServiceEntry[] = [];
 	private selectedService: string | null = null;
+	private showHidden = false;
 
 	constructor(
 		private masterEl: HTMLElement,
@@ -94,6 +95,9 @@ export class ServicesTab {
 
 		const state = this.deps.getState();
 
+		// Service names originating from plugin code are always system
+		const catalogServiceNames = new Set(EVENT_CATALOG.map((e) => e.services.trim()));
+
 		this.entries = Array.from(serviceMap.entries())
 			.map(([name, events]) => {
 				const fileData = fileMap.get(name);
@@ -110,8 +114,9 @@ export class ServicesTab {
 					).length,
 					visible: (() => {
 						const setting = state.catalogServices.find((s) => s.name === name);
-						return setting ? setting.visible : !isSystemOnly(events);
+						return setting ? setting.visible : true;
 					})(),
+					isSystem: catalogServiceNames.has(name),
 				};
 			})
 			.sort((a, b) => a.name.localeCompare(b.name));
@@ -161,8 +166,20 @@ export class ServicesTab {
 		const visibleServices = services.filter((s) => s.visible);
 		const hiddenServices = services.filter((s) => !s.visible);
 
-		for (const s of visibleServices) {
+		const userServices = visibleServices.filter((s) => !s.isSystem);
+		const systemServices = visibleServices.filter((s) => s.isSystem);
+
+		for (const s of userServices) {
 			this.renderItem(s, this.masterEl);
+		}
+
+		if (state.showSystemEvents && systemServices.length > 0) {
+			const divider = this.masterEl.createDiv({ cls: "ft-section-divider" });
+			divider.createSpan({ text: "System Services", cls: "ft-text-muted ft-text-sm" });
+			const systemContainer = this.masterEl.createDiv({ cls: "ft-master-category-system" });
+			for (const s of systemServices) {
+				this.renderItem(s, systemContainer);
+			}
 		}
 
 		if (hiddenServices.length > 0) {
@@ -173,15 +190,15 @@ export class ServicesTab {
 			hiddenHeader.createSpan({ text: `${hiddenServices.length} hidden` });
 			const expandIcon = hiddenHeader.createSpan({ cls: "ft-visibility-toggle" });
 			expandIcon.style.marginLeft = "auto";
-			setIcon(expandIcon, "chevron-down");
+			setIcon(expandIcon, this.showHidden ? "chevron-up" : "chevron-down");
 
 			const hiddenContainer = this.masterEl.createDiv();
-			hiddenContainer.style.display = "none";
+			hiddenContainer.style.display = this.showHidden ? "block" : "none";
 
 			hiddenHeader.addEventListener("click", () => {
-				const expanded = hiddenContainer.style.display !== "none";
-				hiddenContainer.style.display = expanded ? "none" : "block";
-				setIcon(expandIcon, expanded ? "chevron-down" : "chevron-up");
+				this.showHidden = !this.showHidden;
+				hiddenContainer.style.display = this.showHidden ? "block" : "none";
+				setIcon(expandIcon, this.showHidden ? "chevron-up" : "chevron-down");
 			});
 
 			for (const s of hiddenServices) {
@@ -225,7 +242,9 @@ export class ServicesTab {
 			cls: "ft-master-category-count",
 		});
 
-		if (s.filePath === null) {
+		if (s.isSystem) {
+			item.createSpan({ text: "system", cls: "ft-badge ft-badge-system" });
+		} else if (s.filePath === null) {
 			item.createSpan({ text: "undocumented", cls: "ft-badge ft-badge-muted" });
 		}
 
@@ -282,7 +301,9 @@ export class ServicesTab {
 		left.createDiv({ text: serviceData.name, cls: "ft-detail-event-type" });
 		const badges = left.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
 		badges.createSpan({ text: `${serviceData.events.length} events`, cls: "ft-badge ft-badge-muted" });
-		if (serviceData.filePath === null) {
+		if (serviceData.isSystem) {
+			badges.createSpan({ text: "system", cls: "ft-badge ft-badge-system" });
+		} else if (serviceData.filePath === null) {
 			badges.createSpan({ text: "undocumented", cls: "ft-badge ft-badge-muted" });
 		}
 

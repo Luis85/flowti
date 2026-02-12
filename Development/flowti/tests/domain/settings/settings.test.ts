@@ -96,12 +96,13 @@ describe("FlowtiSettings", () => {
 			expect(result.entityPaths).toEqual(DEFAULT_ENTITY_PATHS);
 		});
 
-		it("should default all 7 entity types", () => {
+		it("should default all 8 entity types", () => {
 			const result = FlowtiSettingsSchema.parse({});
-			expect(Object.keys(result.entityPaths)).toHaveLength(7);
+			expect(Object.keys(result.entityPaths)).toHaveLength(8);
 			expect(result.entityPaths.events.subfolder).toBe("Events");
 			expect(result.entityPaths.domains.subfolder).toBe("Domains");
 			expect(result.entityPaths.actors.subfolder).toBe("Actors");
+			expect(result.entityPaths.products.subfolder).toBe("Products");
 		});
 
 		it("should default overridePath to empty string", () => {

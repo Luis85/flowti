@@ -25,8 +25,10 @@ export class CatalogDashboard {
 		grid.style.gap = "0.75rem";
 		grid.style.marginBottom = "1.5rem";
 
-		const visibleDomains = state.domainEntries.filter((d) => d.visible);
-		const visibleServices = state.serviceEntries.filter((s) => s.visible);
+		const visibleDomains = state.domainEntries.filter((d) =>
+			d.visible && (state.showSystemEvents || !d.isSystem));
+		const visibleServices = state.serviceEntries.filter((s) =>
+			s.visible && (state.showSystemEvents || !s.isSystem));
 		const visibleEvents = getVisibleEntries(
 			state.catalogCategories, state.showSystemEvents,
 			state.discoveredEvents, this.deps.app, this.deps.getEntityFolder("events"),
@@ -39,6 +41,7 @@ export class CatalogDashboard {
 			{ icon: "git-branch", count: state.flowEntries.length, label: "Flows", tab: "flows" },
 			{ icon: "layout-grid", count: state.systemEntries.length, label: "Systems", tab: "systems" },
 			{ icon: "users", count: state.actorEntries.length, label: "Actors", tab: "actors" },
+			{ icon: "package", count: state.productEntries.length, label: "Products", tab: "products" },
 		];
 
 		for (const card of cards) {
@@ -224,6 +227,20 @@ export class CatalogDashboard {
 						inputName: "Actor name",
 						inputDesc: "A name for this actor",
 						onSubmit: (name) => { this.deps.createEntity("actors", name); },
+					}).open();
+				},
+			},
+			{
+				icon: "package",
+				label: "New Product",
+				action: () => {
+					new InputModal(this.deps.app, {
+						title: "Create New Product",
+						placeholder: "My Product",
+						submitLabel: "Create",
+						inputName: "Product name",
+						inputDesc: "A name for this product",
+						onSubmit: (name) => { this.deps.createEntity("products", name); },
 					}).open();
 				},
 			},

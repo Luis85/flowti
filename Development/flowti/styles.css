@@ -173,6 +173,13 @@
 	border: 1px solid var(--background-modifier-border);
 }
 
+.ft-badge-system {
+	background-color: var(--background-secondary);
+	color: var(--text-faint);
+	border: 1px solid var(--background-modifier-border);
+	font-style: italic;
+}
+
 /* Alert/Notice component */
 .ft-alert {
 	padding: 1rem;

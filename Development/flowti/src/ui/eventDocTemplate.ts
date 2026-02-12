@@ -5,7 +5,7 @@ import type { EntityPathConfig } from "../domain/settings/settings";
 // Entity path resolution
 // ─────────────────────────────────────────────────────────────
 
-export type EntityType = "events" | "domains" | "services" | "categories" | "flows" | "systems" | "actors";
+export type EntityType = "events" | "domains" | "services" | "categories" | "flows" | "systems" | "actors" | "products";
 
 /**
  * Resolves the vault-relative folder path for an entity type.
@@ -61,6 +61,10 @@ export function getSystemDocPathResolved(systemsFolder: string, system: string):
 
 export function getActorDocPathResolved(actorsFolder: string, actor: string): string {
 	return `${actorsFolder.replace(/\/+$/, "")}/${actor}.md`;
+}
+
+export function getProductDocPathResolved(productsFolder: string, product: string): string {
+	return `${productsFolder.replace(/\/+$/, "")}/${product}.md`;
 }
 
 /**
@@ -796,6 +800,63 @@ created: "${now}"
 ## Notes
 
 > Additional context, edge cases, or behavioral patterns.
+
+`;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Product documentation
+// ─────────────────────────────────────────────────────────────
+
+export function getProductDocPath(basePath: string, product: string): string {
+	const normalizedBase = basePath.replace(/\/+$/, "");
+	return `${normalizedBase}/Products/${product}.md`;
+}
+
+export function getProductsFolderPath(basePath: string): string {
+	const normalizedBase = basePath.replace(/\/+$/, "");
+	return `${normalizedBase}/Products`;
+}
+
+export function generateProductDocContent(name: string): string {
+	const now = new Date().toISOString();
+	return `---
+type: ProductDoc
+product: "${name}"
+description: ""
+events: []
+domains: []
+services: []
+created: "${now}"
+---
+
+# ${name}
+
+| Property       | Value |
+| -------------- | ----- |
+| **Events**     |       |
+| **Domains**    |       |
+| **Services**   |       |
+
+## Overview
+
+> Describe what this product is and what it does.
+
+## Key Events
+
+> List the events most relevant to this product.
+
+## Domains
+
+> List the domains this product spans.
+
+## Services
+
+> List the services this product relies on.
+
+## Notes
+
+> Additional context, roadmap, or operational notes.
 
 `;
 }

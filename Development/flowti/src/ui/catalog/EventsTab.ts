@@ -169,6 +169,12 @@ export class EventsTab {
 		// Category visibility section
 		const categories = getOrderedCategories(state.catalogCategories);
 
+		if (!state.showSystemEvents) {
+			const hint = this.settingsPanel.createDiv({ cls: "ft-text-muted ft-text-sm" });
+			hint.style.padding = "0.5rem 0";
+			hint.textContent = "Enable system events to configure category visibility.";
+		} else {
+
 		for (let i = 0; i < categories.length; i++) {
 			const cat = categories[i];
 
@@ -215,6 +221,8 @@ export class EventsTab {
 				});
 			}
 		}
+
+		} // end if showSystemEvents
 
 		// Reset button
 		const resetRow = this.settingsPanel.createDiv({ cls: "ft-settings-reset" });
@@ -270,22 +278,22 @@ export class EventsTab {
 			this.renderMasterCategory(this.masterTreeEl, category, entries, true);
 		}
 
-		// Pre-filter system categories so we only show the divider when needed
-		const systemCategoryEntries = systemCategories.map((category) => ({
-			category,
-			entries: this.applyFilters(allEntries.filter((e) => e.category === category), state),
-		})).filter((c) => c.entries.length > 0);
+		// System categories section — only rendered when showSystemEvents is on
+		if (state.showSystemEvents) {
+			const systemCategoryEntries = systemCategories.map((category) => ({
+				category,
+				entries: this.applyFilters(allEntries.filter((e) => e.category === category), state),
+			})).filter((c) => c.entries.length > 0);
 
-		// Section divider before system categories
-		if (systemCategoryEntries.length > 0) {
-			const divider = this.masterTreeEl.createDiv({ cls: "ft-section-divider" });
-			divider.createSpan({ text: "System Events", cls: "ft-text-muted ft-text-sm" });
-		}
+			if (systemCategoryEntries.length > 0) {
+				const divider = this.masterTreeEl.createDiv({ cls: "ft-section-divider" });
+				divider.createSpan({ text: "System Events", cls: "ft-text-muted ft-text-sm" });
+			}
 
-		// System categories
-		for (const { category, entries } of systemCategoryEntries) {
-			visibleCount += entries.length;
-			this.renderMasterCategory(this.masterTreeEl, category, entries, false);
+			for (const { category, entries } of systemCategoryEntries) {
+				visibleCount += entries.length;
+				this.renderMasterCategory(this.masterTreeEl, category, entries, false);
+			}
 		}
 
 		const totalVisible = getVisibleEntries(state.catalogCategories, state.showSystemEvents, state.discoveredEvents, this.deps.app, eventsFolder).length;
@@ -335,12 +343,22 @@ export class EventsTab {
 			: "ft-master-category-header ft-master-category-system";
 		const header = group.createDiv({ cls: headerCls });
 
-		const chevron = header.createSpan({
-			text: isCollapsed ? "\u25B6" : "\u25BC",
-		});
-		chevron.style.fontSize = "0.6rem";
+		const isEmptyUncategorized = category === UNCATEGORIZED_CATEGORY && entries.length === 0;
 
-		const catLabel = header.createSpan({ text: category });
+		let chevron: HTMLSpanElement | null = null;
+		if (isEmptyUncategorized) {
+			const plusIcon = header.createSpan();
+			setIcon(plusIcon, "plus");
+			plusIcon.style.opacity = "0.6";
+		} else {
+			chevron = header.createSpan({
+				text: isCollapsed ? "\u25B6" : "\u25BC",
+			});
+			chevron.style.fontSize = "0.6rem";
+		}
+
+		const displayLabel = isEmptyUncategorized ? "Create new Event" : category;
+		const catLabel = header.createSpan({ text: displayLabel });
 
 		// Show description from category doc as tooltip
 		const catEntry = this.categoryEntries.find((c) => c.name === category);
@@ -363,7 +381,9 @@ export class EventsTab {
 			});
 		}
 
-		if (isUserCategory) {
+		if (isEmptyUncategorized) {
+			// No extra buttons — the whole header is the CTA
+		} else if (isUserCategory) {
 			// Add button for user categories
 			const addBtn = header.createSpan({ cls: "ft-visibility-toggle" });
 			addBtn.style.marginLeft = "auto";
@@ -435,18 +455,33 @@ export class EventsTab {
 			this.renderMasterEventItem(list, entry);
 		}
 
-		header.addEventListener("click", () => {
-			if (state.collapsedCategories.has(category)) {
-				state.collapsedCategories.delete(category);
-			} else {
-				state.collapsedCategories.add(category);
-			}
-			list.classList.toggle("ft-hidden");
-			chevron.textContent = state.collapsedCategories.has(category) ? "\u25B6" : "\u25BC";
-			void this.deps.eventBus.emit("settings.updateCollapsedCategories", {
-				collapsed: [...state.collapsedCategories],
+		if (isEmptyUncategorized) {
+			header.addEventListener("click", () => {
+				new CreateEventModal(this.deps.app, {
+					title: "Create Custom Event",
+					existingCategories: this.getUserCategories(),
+					onSubmit: (name, cat) => {
+						void this.deps.eventBus.emit("discovery.create", {
+							eventName: name,
+							...(cat ? { category: cat } : {}),
+						});
+					},
+				}).open();
 			});
-		});
+		} else {
+			header.addEventListener("click", () => {
+				if (state.collapsedCategories.has(category)) {
+					state.collapsedCategories.delete(category);
+				} else {
+					state.collapsedCategories.add(category);
+				}
+				list.classList.toggle("ft-hidden");
+				if (chevron) chevron.textContent = state.collapsedCategories.has(category) ? "\u25B6" : "\u25BC";
+				void this.deps.eventBus.emit("settings.updateCollapsedCategories", {
+					collapsed: [...state.collapsedCategories],
+				});
+			});
+		}
 	}
 
 	private renderMasterEventItem(container: HTMLElement, entry: EventCatalogEntry): void {

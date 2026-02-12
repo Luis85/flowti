@@ -41,6 +41,16 @@ export interface ActorEntry {
 	resolvedEvents: EventCatalogEntry[];
 }
 
+export interface ProductEntry {
+	name: string;
+	description: string;
+	events: string[];
+	domains: string[];
+	services: string[];
+	filePath: string;
+	resolvedEvents: EventCatalogEntry[];
+}
+
 export interface DomainEntry {
 	name: string;
 	description: string;
@@ -51,6 +61,7 @@ export interface DomainEntry {
 	configuredCount: number;
 	visibleCount: number;
 	visible: boolean;
+	isSystem: boolean;
 }
 
 export interface ServiceEntry {
@@ -61,6 +72,7 @@ export interface ServiceEntry {
 	filePath: string | null;
 	configuredCount: number;
 	visible: boolean;
+	isSystem: boolean;
 }
 
 export interface CategoryEntry {
@@ -89,6 +101,7 @@ export interface CatalogState {
 	flowEntries: FlowEntry[];
 	systemEntries: SystemEntry[];
 	actorEntries: ActorEntry[];
+	productEntries: ProductEntry[];
 	catalogCategories: CatalogCategoryConfig[];
 	catalogDomains: CatalogCategoryConfig[];
 	catalogServices: CatalogCategoryConfig[];
@@ -107,6 +120,7 @@ export interface NavigationCallbacks {
 	navigateToFlow: (flow: string) => void;
 	navigateToSystem: (system: string) => void;
 	navigateToActor: (actor: string) => void;
+	navigateToProduct: (product: string) => void;
 	openActivityLog: () => void;
 	openSubscriptionManager: () => void;
 }

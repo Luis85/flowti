@@ -17,6 +17,7 @@ import type {
 	SystemEntry,
 	FlowEntry,
 	ActorEntry,
+	ProductEntry,
 	DomainEntry,
 	ServiceEntry,
 	CategoryEntry,
@@ -34,6 +35,7 @@ import {
 	FlowsTab,
 	SystemsTab,
 	ActorsTab,
+	ProductsTab,
 	EventsTab,
 } from "./catalog";
 
@@ -72,10 +74,11 @@ export class EventCatalogView extends ItemView {
 	private renderTimer: ReturnType<typeof setTimeout> | null = null;
 
 	// Master-detail state
-	private activeTab: "dashboard" | "events" | "domains" | "services" | "flows" | "systems" | "actors" = "dashboard";
+	private activeTab: "dashboard" | "events" | "domains" | "services" | "flows" | "systems" | "actors" | "products" = "dashboard";
 	private flowEntries: FlowEntry[] = [];
 	private systemEntries: SystemEntry[] = [];
 	private actorEntries: ActorEntry[] = [];
+	private productEntries: ProductEntry[] = [];
 	private filterText = "";
 
 	// DOM references
@@ -96,6 +99,7 @@ export class EventCatalogView extends ItemView {
 	private flowsTab: FlowsTab | null = null;
 	private systemsTab: SystemsTab | null = null;
 	private actorsTab: ActorsTab | null = null;
+	private productsTab: ProductsTab | null = null;
 	private eventsTab: EventsTab | null = null;
 
 	constructor(leaf: WorkspaceLeaf, eventBus: IEventBus, state: ViewStateProvider) {
@@ -241,6 +245,7 @@ export class EventCatalogView extends ItemView {
 		this.flowsTab = new FlowsTab(this.masterTreeEl, this.detailPanelEl, deps);
 		this.systemsTab = new SystemsTab(this.masterTreeEl, this.detailPanelEl, deps);
 		this.actorsTab = new ActorsTab(this.masterTreeEl, this.detailPanelEl, deps);
+		this.productsTab = new ProductsTab(this.masterTreeEl, this.detailPanelEl, deps);
 		this.eventsTab = new EventsTab(
 			this.masterTreeEl, this.detailPanelEl,
 			this.settingsPanel, this.countBadge, deps,
@@ -487,6 +492,7 @@ export class EventCatalogView extends ItemView {
 			{ id: "flows", label: "Flows", icon: "git-branch" },
 			{ id: "systems", label: "Systems", icon: "layout-grid" },
 			{ id: "actors", label: "Actors", icon: "users" },
+			{ id: "products", label: "Products", icon: "package" },
 		];
 
 		for (const tab of tabs) {
@@ -527,6 +533,7 @@ export class EventCatalogView extends ItemView {
 				flows: "Search flows...",
 				systems: "Search systems...",
 				actors: "Search actors...",
+				products: "Search products...",
 			};
 			this.searchInput.placeholder = placeholders[this.activeTab] ?? "";
 		}
@@ -553,6 +560,9 @@ export class EventCatalogView extends ItemView {
 		this.systemEntries = this.systemsTab!.getEntries();
 		this.actorsTab!.scan();
 		this.actorEntries = this.actorsTab!.getEntries();
+
+		this.productsTab!.scan();
+		this.productEntries = this.productsTab!.getEntries();
 
 		this.dashboard!.render();
 	}
@@ -593,6 +603,10 @@ export class EventCatalogView extends ItemView {
 					this.actorsTab!.render();
 					this.actorEntries = this.actorsTab!.getEntries();
 					break;
+				case "products":
+					this.productsTab!.render();
+					this.productEntries = this.productsTab!.getEntries();
+					break;
 			}
 			this.updateCountBadge();
 		}, 16);
@@ -609,7 +623,8 @@ export class EventCatalogView extends ItemView {
 				this.countBadge.textContent = this.eventsTab!.getCountText();
 				break;
 			case "domains": {
-				const domains = this.domainEntries;
+				const domains = this.domainEntries.filter((d) =>
+					d.visible && (this.showSystemEvents || !d.isSystem));
 				const filtered = this.filterText
 					? domains.filter((d) => d.name.toLowerCase().includes(this.filterText))
 					: domains;
@@ -619,7 +634,8 @@ export class EventCatalogView extends ItemView {
 				break;
 			}
 			case "services": {
-				const services = this.serviceEntries;
+				const services = this.serviceEntries.filter((s) =>
+					s.visible && (this.showSystemEvents || !s.isSystem));
 				const filtered = this.filterText
 					? services.filter((s) => s.name.toLowerCase().includes(this.filterText))
 					: services;
@@ -664,6 +680,18 @@ export class EventCatalogView extends ItemView {
 					: `${actors.length} actors`;
 				break;
 			}
+			case "products": {
+				const products = this.productEntries;
+				const filteredProducts = this.filterText
+					? products.filter((p) =>
+						p.name.toLowerCase().includes(this.filterText) ||
+						p.description.toLowerCase().includes(this.filterText))
+					: products;
+				this.countBadge.textContent = this.filterText
+					? `${filteredProducts.length} / ${products.length} products`
+					: `${products.length} products`;
+				break;
+			}
 		}
 	}
 
@@ -689,6 +717,7 @@ export class EventCatalogView extends ItemView {
 				navigateToFlow: (f) => this.navigateToFlow(f),
 				navigateToSystem: (s) => this.navigateToSystem(s),
 				navigateToActor: (a) => this.navigateToActor(a),
+				navigateToProduct: (p) => this.navigateToProduct(p),
 				openActivityLog: () => this.openActivityLog(),
 				openSubscriptionManager: () => {
 					new SubscriptionManagerModal(this.app, this.eventBus).open();
@@ -713,6 +742,7 @@ export class EventCatalogView extends ItemView {
 			flowEntries: this.flowEntries,
 			systemEntries: this.systemEntries,
 			actorEntries: this.actorEntries,
+			productEntries: this.productEntries,
 			catalogCategories: this.catalogCategories,
 			catalogDomains: this.catalogDomains,
 			catalogServices: this.catalogServices,
@@ -735,6 +765,7 @@ export class EventCatalogView extends ItemView {
 			case "flows": void this.flowsTab!.createDoc(name); break;
 			case "systems": void this.systemsTab!.createDoc(name); break;
 			case "actors": void this.actorsTab!.createDoc(name); break;
+			case "products": void this.productsTab!.createDoc(name); break;
 		}
 	}
 
@@ -781,6 +812,13 @@ export class EventCatalogView extends ItemView {
 	private navigateToActor(actor: string): void {
 		this.actorsTab!.setSelectedActor(actor);
 		this.activeTab = "actors";
+		this.renderTabBar();
+		this.onTabChanged();
+	}
+
+	private navigateToProduct(product: string): void {
+		this.productsTab!.setSelectedProduct(product);
+		this.activeTab = "products";
 		this.renderTabBar();
 		this.onTabChanged();
 	}

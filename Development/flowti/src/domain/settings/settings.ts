@@ -81,6 +81,7 @@ export interface EntityPaths {
 	flows: EntityPathConfig;
 	systems: EntityPathConfig;
 	actors: EntityPathConfig;
+	products: EntityPathConfig;
 }
 
 export const DEFAULT_ENTITY_PATHS: EntityPaths = {
@@ -91,6 +92,7 @@ export const DEFAULT_ENTITY_PATHS: EntityPaths = {
 	flows: { subfolder: "Flows", overridePath: "" },
 	systems: { subfolder: "Systems", overridePath: "" },
 	actors: { subfolder: "Actors", overridePath: "" },
+	products: { subfolder: "Products", overridePath: "" },
 };
 
 const EntityPathsSchema = z.object({
@@ -101,6 +103,7 @@ const EntityPathsSchema = z.object({
 	flows: EntityPathConfigSchema.default({ subfolder: "Flows", overridePath: "" }),
 	systems: EntityPathConfigSchema.default({ subfolder: "Systems", overridePath: "" }),
 	actors: EntityPathConfigSchema.default({ subfolder: "Actors", overridePath: "" }),
+	products: EntityPathConfigSchema.default({ subfolder: "Products", overridePath: "" }),
 }) satisfies z.ZodType<EntityPaths>;
 
 // ─────────────────────────────────────────────────────────────

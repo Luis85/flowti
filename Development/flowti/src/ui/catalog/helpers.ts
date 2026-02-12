@@ -18,6 +18,7 @@ import type {
 	FlowEntry,
 	SystemEntry,
 	ActorEntry,
+	ProductEntry,
 } from "./types";
 
 /** Category label for discovered events without an assigned category */
@@ -187,9 +188,11 @@ export function getVisibleEntries(
 	);
 	// All user categories are always visible
 	for (const entry of discoveredEntries) visibleCats.add(entry.category);
+	// All EVENT_CATALOG entries originate from plugin code → system
+	const discoveredTypes = new Set(discoveredEntries.map((e) => e.type));
 	return allEntries.filter((e) => {
 		if (!visibleCats.has(e.category)) return false;
-		if (!showSystemEvents && e.tags.includes("system")) return false;
+		if (!showSystemEvents && !discoveredTypes.has(e.type)) return false;
 		return true;
 	});
 }
@@ -265,6 +268,15 @@ export function findRelatedActors(actorEntries: ActorEntry[], criteria: RelatedC
 		if (criteria.events?.length && a.events.some((e) => criteria.events!.includes(e))) return true;
 		if (criteria.domains?.length && a.domains.some((d) => criteria.domains!.includes(d))) return true;
 		if (criteria.services?.length && a.services.some((s) => criteria.services!.includes(s))) return true;
+		return false;
+	});
+}
+
+export function findRelatedProducts(productEntries: ProductEntry[], criteria: RelatedCriteria): ProductEntry[] {
+	return productEntries.filter((p) => {
+		if (criteria.events?.length && p.events.some((e) => criteria.events!.includes(e))) return true;
+		if (criteria.domains?.length && p.domains.some((d) => criteria.domains!.includes(d))) return true;
+		if (criteria.services?.length && p.services.some((s) => criteria.services!.includes(s))) return true;
 		return false;
 	});
 }

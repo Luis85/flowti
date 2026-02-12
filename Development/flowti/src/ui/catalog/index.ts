@@ -5,10 +5,12 @@ export { EventsTab } from "./EventsTab";
 export { FlowsTab } from "./FlowsTab";
 export { SystemsTab } from "./SystemsTab";
 export { ActorsTab } from "./ActorsTab";
+export { ProductsTab } from "./ProductsTab";
 export type {
 	SystemEntry,
 	FlowEntry,
 	ActorEntry,
+	ProductEntry,
 	DomainEntry,
 	ServiceEntry,
 	CategoryEntry,

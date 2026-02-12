@@ -2,7 +2,7 @@ import { TFile, TFolder, setIcon } from "obsidian";
 import { EVENT_CATALOG, type EventCatalogEntry } from "../../infrastructure/events/catalog";
 import {
 	readFrontmatter, fmString, fmStringArray, normalizeDocFrontmatter,
-	isConfigured, isSystemOnly, discoveredToCatalogEntries,
+	isConfigured, discoveredToCatalogEntries,
 	renderStat, renderRelatedSection,
 	findRelatedFlows, findRelatedSystems, findRelatedActors,
 	openFile,
@@ -21,6 +21,7 @@ import type { CatalogComponentDeps, DomainEntry } from "./types";
 export class DomainsTab {
 	private entries: DomainEntry[] = [];
 	private selectedDomain: string | null = null;
+	private showHidden = false;
 
 	constructor(
 		private masterEl: HTMLElement,
@@ -96,6 +97,9 @@ export class DomainsTab {
 
 		const state = this.deps.getState();
 
+		// Domain names originating from plugin code are always system
+		const catalogDomainNames = new Set(EVENT_CATALOG.map((e) => e.domain));
+
 		this.entries = Array.from(domainMap.entries())
 			.map(([name, events]) => {
 				const fileData = fileMap.get(name);
@@ -116,8 +120,9 @@ export class DomainsTab {
 					visibleCount: events.filter((e) => !state.excludedTypes.has(e.type)).length,
 					visible: (() => {
 						const setting = state.catalogDomains.find((d) => d.name === name);
-						return setting ? setting.visible : !isSystemOnly(events);
+						return setting ? setting.visible : true;
 					})(),
+					isSystem: catalogDomainNames.has(name),
 				};
 			})
 			.sort((a, b) => a.name.localeCompare(b.name));
@@ -167,8 +172,20 @@ export class DomainsTab {
 		const visibleDomains = domains.filter((d) => d.visible);
 		const hiddenDomains = domains.filter((d) => !d.visible);
 
-		for (const d of visibleDomains) {
+		const userDomains = visibleDomains.filter((d) => !d.isSystem);
+		const systemDomains = visibleDomains.filter((d) => d.isSystem);
+
+		for (const d of userDomains) {
 			this.renderItem(d, this.masterEl);
+		}
+
+		if (state.showSystemEvents && systemDomains.length > 0) {
+			const divider = this.masterEl.createDiv({ cls: "ft-section-divider" });
+			divider.createSpan({ text: "System Domains", cls: "ft-text-muted ft-text-sm" });
+			const systemContainer = this.masterEl.createDiv({ cls: "ft-master-category-system" });
+			for (const d of systemDomains) {
+				this.renderItem(d, systemContainer);
+			}
 		}
 
 		if (hiddenDomains.length > 0) {
@@ -179,15 +196,15 @@ export class DomainsTab {
 			hiddenHeader.createSpan({ text: `${hiddenDomains.length} hidden` });
 			const expandIcon = hiddenHeader.createSpan({ cls: "ft-visibility-toggle" });
 			expandIcon.style.marginLeft = "auto";
-			setIcon(expandIcon, "chevron-down");
+			setIcon(expandIcon, this.showHidden ? "chevron-up" : "chevron-down");
 
 			const hiddenContainer = this.masterEl.createDiv();
-			hiddenContainer.style.display = "none";
+			hiddenContainer.style.display = this.showHidden ? "block" : "none";
 
 			hiddenHeader.addEventListener("click", () => {
-				const expanded = hiddenContainer.style.display !== "none";
-				hiddenContainer.style.display = expanded ? "none" : "block";
-				setIcon(expandIcon, expanded ? "chevron-down" : "chevron-up");
+				this.showHidden = !this.showHidden;
+				hiddenContainer.style.display = this.showHidden ? "block" : "none";
+				setIcon(expandIcon, this.showHidden ? "chevron-up" : "chevron-down");
 			});
 
 			for (const d of hiddenDomains) {
@@ -231,7 +248,9 @@ export class DomainsTab {
 			cls: "ft-master-category-count",
 		});
 
-		if (d.filePath === null) {
+		if (d.isSystem) {
+			item.createSpan({ text: "system", cls: "ft-badge ft-badge-system" });
+		} else if (d.filePath === null) {
 			item.createSpan({ text: "undocumented", cls: "ft-badge ft-badge-muted" });
 		}
 
@@ -288,7 +307,9 @@ export class DomainsTab {
 		left.createDiv({ text: domainData.name, cls: "ft-detail-event-type" });
 		const badges = left.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
 		badges.createSpan({ text: `${domainData.events.length} events`, cls: "ft-badge ft-badge-muted" });
-		if (domainData.filePath === null) {
+		if (domainData.isSystem) {
+			badges.createSpan({ text: "system", cls: "ft-badge ft-badge-system" });
+		} else if (domainData.filePath === null) {
 			badges.createSpan({ text: "undocumented", cls: "ft-badge ft-badge-muted" });
 		}
 
