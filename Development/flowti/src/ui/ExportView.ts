@@ -556,6 +556,21 @@ export class ExportView extends ItemView {
 			label.createSpan({ text: fp.label });
 		}
 
+		// Save Config CTA
+		const ctaBlock = panel.createDiv({ cls: "ft-save-config-cta" });
+		const ctaHeader = ctaBlock.createDiv({ cls: "ft-save-cta-header" });
+		setIcon(ctaHeader.createSpan(), "save");
+		ctaHeader.appendText("Save Configuration");
+		ctaBlock.createDiv({
+			text: "Save this setup as a reusable config with documentation.",
+			cls: "ft-save-cta-desc",
+		});
+		const saveBtn = ctaBlock.createEl("button", {
+			text: "Save Config...",
+			cls: "mod-cta",
+		});
+		saveBtn.addEventListener("click", () => this.promptSaveConfig());
+
 		// Navigation
 		const nav = panel.createDiv({ cls: "ft-detail-actions ft-mt-4" });
 

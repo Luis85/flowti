@@ -43,6 +43,8 @@ export class CsvActionView extends TextFileView {
 	private parseError: string | null = null;
 	private targetFolder = "";
 	private nameColumn = "";
+	private namePrefix = "";
+	private nameSuffix = "";
 	private columnMappings: ColumnMapping[] = [];
 	private conflictStrategy: ConflictStrategy = "skip";
 	private importResult: ImportResult | null = null;
@@ -350,6 +352,8 @@ export class CsvActionView extends TextFileView {
 						name,
 						targetFolder: this.targetFolder,
 						nameColumn: this.nameColumn,
+						namePrefix: this.namePrefix || undefined,
+						nameSuffix: this.nameSuffix || undefined,
 						columnMappings: [...this.columnMappings],
 						conflictStrategy: this.conflictStrategy,
 					})
@@ -540,6 +544,8 @@ export class CsvActionView extends TextFileView {
 		this.parseError = null;
 		this.targetFolder = "";
 		this.nameColumn = "";
+		this.namePrefix = "";
+		this.nameSuffix = "";
 		this.columnMappings = [];
 		this.conflictStrategy = "skip";
 		this.importResult = null;
@@ -612,6 +618,27 @@ export class CsvActionView extends TextFileView {
 				dropdown.onChange((v) => { this.nameColumn = v; this.renderConfigPage(); });
 			});
 
+		// Name prefix / suffix
+		new Setting(panel)
+			.setName("Filename prefix")
+			.setDesc("Prepended to each filename")
+			.addText((text) =>
+				text
+					.setValue(this.namePrefix)
+					.setPlaceholder("e.g. PROJ-")
+					.onChange((v) => { this.namePrefix = v; }),
+			);
+
+		new Setting(panel)
+			.setName("Filename suffix")
+			.setDesc("Appended to each filename (before .md)")
+			.addText((text) =>
+				text
+					.setValue(this.nameSuffix)
+					.setPlaceholder("e.g. -draft")
+					.onChange((v) => { this.nameSuffix = v; }),
+			);
+
 		// Conflict strategy
 		new Setting(panel)
 			.setName("Existing notes")
@@ -623,6 +650,21 @@ export class CsvActionView extends TextFileView {
 				dropdown.setValue(this.conflictStrategy);
 				dropdown.onChange((v) => { this.conflictStrategy = v as ConflictStrategy; });
 			});
+
+		// Save Config CTA
+		const ctaBlock = panel.createDiv({ cls: "ft-save-config-cta" });
+		const ctaHeader = ctaBlock.createDiv({ cls: "ft-save-cta-header" });
+		setIcon(ctaHeader.createSpan(), "save");
+		ctaHeader.appendText("Save Configuration");
+		ctaBlock.createDiv({
+			text: "Save this setup as a reusable config with documentation.",
+			cls: "ft-save-cta-desc",
+		});
+		const saveBtn = ctaBlock.createEl("button", {
+			text: "Save Config...",
+			cls: "mod-cta",
+		});
+		saveBtn.addEventListener("click", () => this.promptSaveConfig());
 
 		// Navigation
 		const nav = panel.createDiv({ cls: "ft-detail-actions ft-mt-4" });
@@ -821,9 +863,10 @@ export class CsvActionView extends TextFileView {
 
 		for (const row of previewRows) {
 			const tr = tbody.createEl("tr");
-			const filename = this.importService!.sanitizeFilename(
+			const baseName = this.importService!.sanitizeFilename(
 				row[nameIndex] ?? "",
 			);
+			const filename = `${this.namePrefix}${baseName}${this.nameSuffix}`;
 			tr.createEl("td", { text: filename || "(empty)" });
 
 			for (const m of includedMappings) {
@@ -1018,6 +1061,8 @@ export class CsvActionView extends TextFileView {
 				sourcePath: this.file!.path,
 				targetFolder: this.targetFolder,
 				nameColumn: this.nameColumn,
+				namePrefix: this.namePrefix || undefined,
+				nameSuffix: this.nameSuffix || undefined,
 				columnMappings: this.columnMappings,
 				conflictStrategy: this.conflictStrategy,
 			});
@@ -1039,6 +1084,8 @@ export class CsvActionView extends TextFileView {
 		if (!cfg) return;
 		this.targetFolder = cfg.targetFolder;
 		this.nameColumn = cfg.nameColumn;
+		this.namePrefix = cfg.namePrefix ?? "";
+		this.nameSuffix = cfg.nameSuffix ?? "";
 		this.conflictStrategy = cfg.conflictStrategy;
 		if (cfg.columnMappings.length > 0 && this.columnMappings.length > 0) {
 			for (const mapping of this.columnMappings) {

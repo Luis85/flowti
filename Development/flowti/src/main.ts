@@ -623,6 +623,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			// ── Data Exchange: load service, inject vault callback, register menus ──
 			this.dataExchangeService = await this.services.get<DataExchangeService>("dataExchangeService");
 			await this.dataExchangeService.load();
+			this.dataExchangeService.setDocsRootPath(settingsService.getSettings().docsRootPath);
 			this.dataExchangeService.setListFiles((folderPath: string): VaultFileInfo[] => {
 				const results: VaultFileInfo[] = [];
 				for (const file of this.app.vault.getFiles()) {

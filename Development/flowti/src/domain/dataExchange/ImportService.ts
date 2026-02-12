@@ -138,9 +138,9 @@ export class ImportService {
 		result: ImportResult,
 	): Promise<void> {
 		const rawName = row[nameColumnIndex];
-		const filename = this.sanitizeFilename(rawName);
+		const baseName = this.sanitizeFilename(rawName);
 
-		if (!filename) {
+		if (!baseName) {
 			result.errors.push({
 				row: rowIndex + 1,
 				filename: rawName ?? "",
@@ -149,6 +149,10 @@ export class ImportService {
 			result.failed++;
 			return;
 		}
+
+		const prefix = config.namePrefix ?? "";
+		const suffix = config.nameSuffix ?? "";
+		const filename = `${prefix}${baseName}${suffix}`;
 
 		const notePath = `${config.targetFolder}/${filename}.md`;
 

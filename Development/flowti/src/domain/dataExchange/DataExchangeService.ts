@@ -34,14 +34,17 @@ function generateId(): string {
 
 export class DataExchangeService {
 	private eventBus: IEventBus;
+	private fileSystem: IFileSystemClient;
 	private storage: IStorageProvider | null;
 	private state: DataExchangeState = createDefaultState();
 	private importService: ImportService;
 	private exportService: ExportService;
 	private unsubscribes: (() => void)[] = [];
+	private docsRootPath = "";
 
 	constructor(options: DataExchangeServiceOptions) {
 		this.eventBus = options.eventBus;
+		this.fileSystem = options.fileSystem;
 		this.storage = options.storage ?? null;
 
 		this.importService = new ImportService({
@@ -154,6 +157,14 @@ export class DataExchangeService {
 		this.exportService.setReadExternalFile(callback);
 	}
 
+	/**
+	 * Sets the documentation root path for auto-creating config doc files.
+	 * Called from main.ts once settings are loaded.
+	 */
+	setDocsRootPath(path: string): void {
+		this.docsRootPath = path;
+	}
+
 	// ── Persistence ─────────────────────────────────────────
 
 	/** Loads persisted state from storage. Call once in onLayoutReady. */
@@ -197,6 +208,7 @@ export class DataExchangeService {
 		this.state.savedImportConfigs.push(saved);
 		await this.saveState();
 		this.emitConfigChanged();
+		void this.createImportConfigDoc(saved);
 		return saved;
 	}
 
@@ -228,6 +240,7 @@ export class DataExchangeService {
 		this.state.savedExportConfigs.push(saved);
 		await this.saveState();
 		this.emitConfigChanged();
+		void this.createExportConfigDoc(saved);
 		return saved;
 	}
 
@@ -311,6 +324,149 @@ export class DataExchangeService {
 		if (changed) {
 			await this.saveState();
 			this.emitConfigChanged();
+		}
+	}
+
+	// ── Config documentation ────────────────────────────────
+
+	private getConfigsFolder(): string {
+		const base = this.docsRootPath.replace(/\/+$/, "");
+		return `${base}/Configs`;
+	}
+
+	private sanitizeDocName(name: string): string {
+		return name.replace(/[\\/:*?"<>|#^[\]]/g, "").replace(/\s+/g, " ").trim();
+	}
+
+	private async createImportConfigDoc(config: SavedImportConfig): Promise<void> {
+		if (!this.docsRootPath) return;
+		try {
+			const folder = this.getConfigsFolder();
+			const safeName = this.sanitizeDocName(config.name);
+			const path = `${folder}/Import - ${safeName}.md`;
+			const now = new Date(config.createdAt).toISOString();
+			const included = config.columnMappings.filter((m) => m.included);
+
+			const lines: string[] = [
+				"---",
+				"type: ImportConfigDoc",
+				`configId: "${config.id}"`,
+				`name: "${config.name}"`,
+				`targetFolder: "${config.targetFolder}"`,
+				`nameColumn: "${config.nameColumn}"`,
+				`namePrefix: "${config.namePrefix ?? ""}"`,
+				`nameSuffix: "${config.nameSuffix ?? ""}"`,
+				`conflictStrategy: "${config.conflictStrategy}"`,
+				`columns: ${config.columnMappings.length}`,
+				`includedColumns: ${included.length}`,
+				`created: "${now}"`,
+				"---",
+				"",
+				`# ${config.name}`,
+				"",
+				"> Import configuration for CSV-to-Notes pipeline.",
+				"",
+				"## Settings",
+				"",
+				"| Setting           | Value            |",
+				"| ----------------- | ---------------- |",
+				`| **Target Folder** | ${config.targetFolder} |`,
+				`| **Name Column**   | ${config.nameColumn} |`,
+				`| **Name Prefix**   | ${config.namePrefix || "_(none)_"} |`,
+				`| **Name Suffix**   | ${config.nameSuffix || "_(none)_"} |`,
+				`| **Conflict**      | ${config.conflictStrategy} |`,
+				`| **Columns**       | ${included.length} of ${config.columnMappings.length} |`,
+				"",
+			];
+
+			if (included.length > 0) {
+				lines.push("## Column Mappings");
+				lines.push("");
+				lines.push("| CSV Column | Frontmatter Key | Included |");
+				lines.push("| ---------- | --------------- | -------- |");
+				for (const m of config.columnMappings) {
+					lines.push(`| ${m.csvColumn} | ${m.frontmatterKey} | ${m.included ? "Yes" : "No"} |`);
+				}
+				lines.push("");
+			}
+
+			lines.push("## Notes");
+			lines.push("");
+			lines.push("> Document usage notes, scheduling, or workflow context.");
+			lines.push("");
+
+			await this.fileSystem.createFile(path, lines.join("\n"), { createFolders: true });
+		} catch (error) {
+			console.error("[Flowti] Failed to create import config doc", error);
+		}
+	}
+
+	private async createExportConfigDoc(config: SavedExportConfig): Promise<void> {
+		if (!this.docsRootPath) return;
+		try {
+			const folder = this.getConfigsFolder();
+			const safeName = this.sanitizeDocName(config.name);
+			const path = `${folder}/Export - ${safeName}.md`;
+			const now = new Date(config.createdAt).toISOString();
+			const formatLabel = config.format === "tab" ? "Tab-delimited" : "CSV";
+
+			const lines: string[] = [
+				"---",
+				"type: ExportConfigDoc",
+				`configId: "${config.id}"`,
+				`name: "${config.name}"`,
+				`sourcePath: "${config.sourcePath}"`,
+				`sourceType: "${config.sourceType}"`,
+				`format: "${config.format}"`,
+				`outputPath: "${config.outputPath}"`,
+				`columns: ${config.columns.length}`,
+				`fileProperties: ${config.fileProperties.length}`,
+				`conflictStrategy: "${config.conflictStrategy ?? "overwrite"}"`,
+				`created: "${now}"`,
+				"---",
+				"",
+				`# ${config.name}`,
+				"",
+				"> Export configuration for vault data extraction.",
+				"",
+				"## Settings",
+				"",
+				"| Setting           | Value              |",
+				"| ----------------- | ------------------ |",
+				`| **Source**        | ${config.sourcePath} |`,
+				`| **Source Type**   | ${config.sourceType} |`,
+				`| **Format**       | ${formatLabel} |`,
+				`| **Output**       | ${config.outputPath} |`,
+				`| **Conflict**     | ${config.conflictStrategy ?? "overwrite"} |`,
+				"",
+			];
+
+			if (config.columns.length > 0) {
+				lines.push("## Note Properties");
+				lines.push("");
+				for (const col of config.columns) {
+					lines.push(`- ${col}`);
+				}
+				lines.push("");
+			}
+
+			if (config.fileProperties.length > 0) {
+				lines.push("## File Properties");
+				lines.push("");
+				for (const fp of config.fileProperties) {
+					lines.push(`- ${fp}`);
+				}
+				lines.push("");
+			}
+
+			lines.push("## Notes");
+			lines.push("");
+			lines.push("> Document usage notes, scheduling, or workflow context.");
+			lines.push("");
+
+			await this.fileSystem.createFile(path, lines.join("\n"), { createFolders: true });
+		} catch (error) {
+			console.error("[Flowti] Failed to create export config doc", error);
 		}
 	}
 

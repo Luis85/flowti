@@ -1,24 +1,23 @@
 filters:
   and:
-    - 'file.inFolder("00 - Connectivity/imports/imported")'
-    - 'file.ext == "md"'
-
+    - file.inFolder("00 - Connectivity/imports/imported")
+    - file.ext == "md"
 views:
-  - name: "Imported Data"
-    type: "table"
+  - type: table
+    name: Imported Data
     order:
-      - "file.name"
-      - "name"
-      - "folder"
-      - "ctime"
-      - "mtime"
-      - "path"
-      - "tags"
-      - "links"
-      - "backlinks"
-      - "basename"
-      - "embeds"
-      - "fullname"
-      - "ext"
-      - "plugin"
-      - "domain"
+      - file.name
+      - name
+      - folder
+      - ctime
+      - mtime
+      - path
+      - tags
+      - links
+      - backlinks
+      - basename
+      - embeds
+      - fullname
+      - ext
+      - plugin
+      - domain
