@@ -94,10 +94,14 @@ export class CatalogDashboard {
 		coverageGrid.style.gridTemplateColumns = "repeat(2, 1fr)";
 		coverageGrid.style.gap = "0.5rem";
 
-		const totalDomains = state.domainEntries.length;
-		const docDomains = state.domainEntries.filter((d) => d.filePath !== null).length;
-		const totalServices = state.serviceEntries.length;
-		const docServices = state.serviceEntries.filter((s) => s.filePath !== null).length;
+		const filteredDomains = state.domainEntries.filter((d) =>
+			d.visible && (state.showSystemEvents || !d.isSystem));
+		const totalDomains = filteredDomains.length;
+		const docDomains = filteredDomains.filter((d) => d.filePath !== null).length;
+		const filteredServices = state.serviceEntries.filter((s) =>
+			s.visible && (state.showSystemEvents || !s.isSystem));
+		const totalServices = filteredServices.length;
+		const docServices = filteredServices.filter((s) => s.filePath !== null).length;
 
 		let archDocCount = 0;
 		let blueprintCount = 0;

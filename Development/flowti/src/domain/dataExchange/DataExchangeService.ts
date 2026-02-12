@@ -162,6 +162,10 @@ export class DataExchangeService {
 		return [...this.state.savedImportConfigs];
 	}
 
+	getImportConfig(id: string): SavedImportConfig | undefined {
+		return this.state.savedImportConfigs.find((c) => c.id === id);
+	}
+
 	async saveImportConfig(
 		config: Omit<SavedImportConfig, "id" | "createdAt">,
 	): Promise<SavedImportConfig> {
@@ -172,6 +176,7 @@ export class DataExchangeService {
 		};
 		this.state.savedImportConfigs.push(saved);
 		await this.saveState();
+		this.emitConfigChanged();
 		return saved;
 	}
 
@@ -179,12 +184,17 @@ export class DataExchangeService {
 		this.state.savedImportConfigs =
 			this.state.savedImportConfigs.filter((c) => c.id !== id);
 		await this.saveState();
+		this.emitConfigChanged();
 	}
 
 	// ── Export config CRUD ──────────────────────────────────
 
 	getSavedExportConfigs(): SavedExportConfig[] {
 		return [...this.state.savedExportConfigs];
+	}
+
+	getExportConfig(id: string): SavedExportConfig | undefined {
+		return this.state.savedExportConfigs.find((c) => c.id === id);
 	}
 
 	async saveExportConfig(
@@ -197,6 +207,7 @@ export class DataExchangeService {
 		};
 		this.state.savedExportConfigs.push(saved);
 		await this.saveState();
+		this.emitConfigChanged();
 		return saved;
 	}
 
@@ -204,6 +215,14 @@ export class DataExchangeService {
 		this.state.savedExportConfigs =
 			this.state.savedExportConfigs.filter((c) => c.id !== id);
 		await this.saveState();
+		this.emitConfigChanged();
+	}
+
+	private emitConfigChanged(): void {
+		void this.eventBus.emit("dataExchange.config.changed", {
+			importCount: this.state.savedImportConfigs.length,
+			exportCount: this.state.savedExportConfigs.length,
+		});
 	}
 
 	/** Cleans up all event listeners. */

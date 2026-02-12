@@ -41,4 +41,12 @@ export interface DataExchangeEventMap {
 
 	/** Export failed */
 	"dataExchange.export.failed": { error: string; config: ExportConfig };
+
+	// ── Config lifecycle ────────────────────────────────────
+
+	/** Emitted after any saved config is created or deleted */
+	"dataExchange.config.changed": {
+		importCount: number;
+		exportCount: number;
+	};
 }

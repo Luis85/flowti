@@ -60,6 +60,7 @@ export class ExportView extends ItemView {
 	private exportError: string | null = null;
 	private loadError: string | null = null;
 	private savedConfigs: SavedExportConfig[] = [];
+	private pendingSavedConfig: SavedExportConfig | null = null;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -125,11 +126,23 @@ export class ExportView extends ItemView {
 				error instanceof Error ? error.message : String(error);
 		}
 
+		// Pre-apply saved config if provided (e.g. from Hub)
+		if (this.pendingSavedConfig) {
+			this.applySavedExportConfig(this.pendingSavedConfig.id);
+			this.pendingSavedConfig = null;
+			this.currentPage = "preview";
+		}
+
 		this.renderPage();
 	}
 
 	async onClose(): Promise<void> {
 		this.contentEl.empty();
+	}
+
+	/** Pre-apply a saved export config when the view opens (skips to preview). */
+	setSavedConfig(config: SavedExportConfig): void {
+		this.pendingSavedConfig = config;
 	}
 
 	// ── Page routing ────────────────────────────────────────

@@ -294,6 +294,7 @@ const CATALOG_DATA = {
 	"dataExchange.export.started":   { category: "Data Exchange", description: "Export operation has started", direction: "Service → Listeners", domain: "dataExchange", services: "ExportService", tags: ["system"] },
 	"dataExchange.export.completed": { category: "Data Exchange", description: "Export operation completed successfully", direction: "Service → Listeners", domain: "dataExchange", services: "ExportService" },
 	"dataExchange.export.failed":    { category: "Data Exchange", description: "Export operation failed", direction: "Service → Listeners", domain: "dataExchange", services: "ExportService" },
+	"dataExchange.config.changed":   { category: "Data Exchange", description: "Saved import/export config created or deleted", direction: "Service → Listeners", domain: "dataExchange", services: "DataExchangeService", tags: ["system"] },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

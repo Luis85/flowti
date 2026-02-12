@@ -47,6 +47,7 @@ export class CsvActionView extends TextFileView {
 	private createBase = false;
 	private basePath = "";
 	private savedConfigs: SavedImportConfig[] = [];
+	private pendingSavedConfig: SavedImportConfig | null = null;
 	private unsubscribes: (() => void)[] = [];
 
 	constructor(
@@ -95,6 +96,11 @@ export class CsvActionView extends TextFileView {
 	async onClose(): Promise<void> {
 		for (const unsub of this.unsubscribes) unsub();
 		this.unsubscribes = [];
+	}
+
+	/** Pre-apply a saved import config when the wizard starts (skips to preview). */
+	setSavedConfig(config: SavedImportConfig): void {
+		this.pendingSavedConfig = config;
 	}
 
 	// ── Page router ──────────────────────────────────────────
@@ -158,9 +164,43 @@ export class CsvActionView extends TextFileView {
 			}
 		});
 
-		// Preview table
+		// File info + data summary
 		if (this.data?.trim()) {
+			this.renderFileInfoDashboard(container);
 			this.renderCsvPreview(container);
+		}
+	}
+
+	private renderFileInfoDashboard(container: HTMLElement): void {
+		const lines = this.data.split("\n").filter((l) => l.trim());
+		if (lines.length === 0) return;
+
+		const headers = this.splitCsvLine(lines[0]);
+		const rowCount = lines.length - 1;
+
+		// Stats row
+		const statsRow = container.createDiv({ cls: "ft-flex ft-gap-3 ft-mb-2" });
+		const addStat = (label: string, value: string) => {
+			const stat = statsRow.createDiv({ cls: "ft-catalog-stat" });
+			stat.createDiv({ text: value, cls: "ft-catalog-stat-value" });
+			stat.createDiv({ text: label, cls: "ft-catalog-stat-label" });
+		};
+		addStat("Rows", String(rowCount));
+		addStat("Columns", String(headers.length));
+		if (this.file?.stat) {
+			const kb = (this.file.stat.size / 1024).toFixed(1);
+			addStat("Size", `${kb} KB`);
+		}
+
+		// Column chips
+		if (headers.length > 0) {
+			const chipContainer = container.createDiv({
+				cls: "ft-flex ft-gap-1 ft-mb-3",
+			});
+			chipContainer.style.flexWrap = "wrap";
+			for (const h of headers) {
+				chipContainer.createSpan({ text: h, cls: "ft-badge ft-badge-muted" });
+			}
 		}
 	}
 
@@ -240,7 +280,14 @@ export class CsvActionView extends TextFileView {
 				error instanceof Error ? error.message : String(error);
 		}
 
-		this.currentPage = "source";
+		// Pre-apply saved config if provided (e.g. from Hub)
+		if (this.pendingSavedConfig) {
+			this.applySavedImportConfig(this.pendingSavedConfig.id);
+			this.pendingSavedConfig = null;
+			this.currentPage = "preview";
+		} else {
+			this.currentPage = "source";
+		}
 		this.renderContent();
 	}
 

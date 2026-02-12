@@ -43,6 +43,8 @@ import type { ExportFormat, VaultFileInfo } from "./domain/dataExchange/types";
 import { InputModal } from "./ui/modals";
 import { CsvActionView, VIEW_TYPE_CSV } from "./ui/CsvActionView";
 import { ExportView, VIEW_TYPE_EXPORT, type ExportViewConfig } from "./ui/ExportView";
+import { DataExchangeHubView, VIEW_TYPE_DATA_EXCHANGE_HUB } from "./ui/DataExchangeHubView";
+import type { SavedImportConfig, SavedExportConfig } from "./domain/dataExchange/types";
 
 
 /**  
@@ -99,6 +101,8 @@ export default class FlowtiBasePlugin extends Plugin {
 	private collapsedCategories = new Set<string>();
 	private pendingExportConfig: ExportViewConfig | null = null;
 	private pendingImportAutoStart = false;
+	private pendingSavedImportConfig: SavedImportConfig | null = null;
+	private pendingSavedExportConfig: SavedExportConfig | null = null;
 	private crossCuttingListeners: (() => void)[] = [];
 
 	async onload() {
@@ -148,6 +152,19 @@ export default class FlowtiBasePlugin extends Plugin {
 				}
 				const leaf = workspace.getLeaf(true);
 				void leaf.setViewState({ type: VIEW_TYPE_EVENT_CATALOG, active: true });
+				workspace.revealLeaf(leaf);
+			});
+
+			// Ribbon icon — opens Data Exchange Hub
+			this.addRibbonIcon("arrow-left-right", "Open Data Exchange Hub", () => {
+				const { workspace } = this.app;
+				const existing = workspace.getLeavesOfType(VIEW_TYPE_DATA_EXCHANGE_HUB);
+				if (existing.length > 0) {
+					workspace.revealLeaf(existing[0]);
+					return;
+				}
+				const leaf = workspace.getLeaf(true);
+				void leaf.setViewState({ type: VIEW_TYPE_DATA_EXCHANGE_HUB, active: true });
 				workspace.revealLeaf(leaf);
 			});
 
@@ -515,6 +532,36 @@ export default class FlowtiBasePlugin extends Plugin {
 	}
 
 	/**
+	 * Opens CsvActionView with an optional saved import config pre-applied.
+	 */
+	private openCsvImportWithConfig(csvPath: string, savedConfig?: SavedImportConfig): void {
+		const csvFile = this.app.vault.getAbstractFileByPath(csvPath);
+		if (!(csvFile instanceof TFile)) {
+			new Notice(`File not found: ${csvPath}`);
+			return;
+		}
+		this.pendingSavedImportConfig = savedConfig ?? null;
+		this.pendingImportAutoStart = true;
+		const leaf = this.app.workspace.getLeaf(true);
+		void leaf.openFile(csvFile);
+	}
+
+	/**
+	 * Opens ExportView with a saved export config pre-applied.
+	 */
+	private openExportWithSavedConfig(savedConfig: SavedExportConfig): void {
+		this.pendingExportConfig = {
+			sourcePath: savedConfig.sourcePath,
+			sourceType: savedConfig.sourceType,
+			format: savedConfig.format,
+		};
+		this.pendingSavedExportConfig = savedConfig;
+		const leaf = this.app.workspace.getLeaf(true);
+		void leaf.setViewState({ type: VIEW_TYPE_EXPORT, active: true });
+		this.app.workspace.revealLeaf(leaf);
+	}
+
+	/**
 	 * Bind registered views to Obsidian.
 	 */
 	private bindViews(): void {
@@ -668,7 +715,11 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.registerView(VIEW_TYPE_CSV, (leaf) => {
 				const auto = this.pendingImportAutoStart;
 				this.pendingImportAutoStart = false;
-				return new CsvActionView(leaf, this.eventBus, this.dataExchangeService!, auto);
+				const savedConfig = this.pendingSavedImportConfig;
+				this.pendingSavedImportConfig = null;
+				const view = new CsvActionView(leaf, this.eventBus, this.dataExchangeService!, auto);
+				if (savedConfig) view.setSavedConfig(savedConfig);
+				return view;
 			});
 			try {
 				this.registerExtensions(["csv"], VIEW_TYPE_CSV);
@@ -677,12 +728,27 @@ export default class FlowtiBasePlugin extends Plugin {
 			}
 
 			// Export view — opens from context menus and commands
-			this.registerView(VIEW_TYPE_EXPORT, (leaf) =>
-				new ExportView(leaf, this.eventBus, this.dataExchangeService!, () => {
+			this.registerView(VIEW_TYPE_EXPORT, (leaf) => {
+				const savedCfg = this.pendingSavedExportConfig;
+				this.pendingSavedExportConfig = null;
+				const view = new ExportView(leaf, this.eventBus, this.dataExchangeService!, () => {
 					const cfg = this.pendingExportConfig;
 					this.pendingExportConfig = null;
 					return cfg;
-				}),
+				});
+				if (savedCfg) view.setSavedConfig(savedCfg);
+				return view;
+			});
+
+			// Data Exchange Hub — central management view
+			this.registerView(VIEW_TYPE_DATA_EXCHANGE_HUB, (leaf) =>
+				new DataExchangeHubView(
+					leaf,
+					this.eventBus,
+					this.dataExchangeService!,
+					(csvPath, savedConfig) => this.openCsvImportWithConfig(csvPath, savedConfig),
+					(savedConfig) => this.openExportWithSavedConfig(savedConfig),
+				),
 			);
 
 			// Commands for import/export (command palette)
@@ -746,6 +812,23 @@ export default class FlowtiBasePlugin extends Plugin {
 							this.openExportView(sourcePath, sourceType, "tab");
 						},
 					}).open();
+				},
+			});
+
+			this.addCommand({
+				id: "flowti:open-data-exchange",
+				name: "Open Data Exchange Hub",
+				icon: "arrow-left-right",
+				callback: () => {
+					const { workspace } = this.app;
+					const existing = workspace.getLeavesOfType(VIEW_TYPE_DATA_EXCHANGE_HUB);
+					if (existing.length > 0) {
+						workspace.revealLeaf(existing[0]);
+						return;
+					}
+					const leaf = workspace.getLeaf(true);
+					void leaf.setViewState({ type: VIEW_TYPE_DATA_EXCHANGE_HUB, active: true });
+					workspace.revealLeaf(leaf);
 				},
 			});
 

@@ -17,7 +17,8 @@
    Hide Obsidian view header for the Event Catalog
    ───────────────────────────────────────────────────────────── */
 
-.workspace-leaf-content[data-type="flowti-event-catalog"] .view-header {
+.workspace-leaf-content[data-type="flowti-event-catalog"] .view-header,
+.workspace-leaf-content[data-type="flowti-data-exchange-hub"] .view-header {
 	display: none;
 }
 
