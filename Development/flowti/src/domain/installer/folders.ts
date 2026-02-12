@@ -36,7 +36,7 @@ export const DEFAULT_IBDE_FOLDERS: readonly string[] = [
   "03 - Resources/Templates",
 
   // Archives - old and obsolete notes
-  "04 - Archives",
+  "04 - Archive",
 
   // External data storage (events, logs, data records)
   "var",

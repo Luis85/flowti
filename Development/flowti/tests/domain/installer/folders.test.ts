@@ -11,7 +11,7 @@ describe("DEFAULT_IBDE_FOLDERS", () => {
 		expect(DEFAULT_IBDE_FOLDERS).toContain("01 - Projects");
 		expect(DEFAULT_IBDE_FOLDERS).toContain("02 - Areas");
 		expect(DEFAULT_IBDE_FOLDERS).toContain("03 - Resources");
-		expect(DEFAULT_IBDE_FOLDERS).toContain("04 - Archives");
+		expect(DEFAULT_IBDE_FOLDERS).toContain("04 - Archive");
 	});
 
 	it("should contain the var folder", () => {
