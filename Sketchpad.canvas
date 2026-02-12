@@ -1,27 +1,116 @@
 {
 	"nodes":[
-		{"id":"abc9776e8773b32b","type":"group","x":120,"y":420,"width":700,"height":660,"label":"Frontstage"},
-		{"id":"173575747476d753","type":"group","x":500,"y":800,"width":300,"height":260,"color":"5","label":"PBI"},
-		{"id":"25c2f8a7fca6c9d7","type":"group","x":1320,"y":420,"width":300,"height":180,"label":"Backstage"},
+		{"id":"abc9776e8773b32b","type":"group","x":20,"y":840,"width":340,"height":660,"label":"Frontstage"},
+		{"id":"25c2f8a7fca6c9d7","type":"group","x":1360,"y":840,"width":300,"height":660,"label":"Backstage"},
+		{"id":"173575747476d753","type":"group","x":40,"y":1220,"width":300,"height":260,"color":"5","label":"PBI"},
+		{"id":"eb56d8b9c2c758f2","type":"group","x":540,"y":750,"width":620,"height":120,"color":"2","label":"Sitemap"},
 		{
 			"id":"8b42e85c8914f3a7",
 			"type":"text",
 			"text":"# Folderstructure\n\n- `/00 - Connectivity`\n- `/01 - Projects`\n- `/02 - Areas`\n- `/03 - Resources`\n- `/04 - Archive`\n- `/05 - Public Vault`\n- `/var`",
 			"styleAttributes":{},
-			"x":140,
-			"y":-220,
+			"x":40,
+			"y":-280,
 			"width":260,
 			"height":400
 		},
-		{"id":"5d6cdc543db0af78","type":"file","file":"Development/flowti/docs/Flowti - System Design.canvas","x":420,"y":-220,"width":260,"height":400},
-		{"id":"0b8e15eb023842e5","type":"file","file":"Development/Plugin Design.canvas","x":700,"y":-220,"width":260,"height":400},
+		{"id":"5d6cdc543db0af78","type":"file","file":"Development/flowti/docs/Flowti - System Design.canvas","x":320,"y":-280,"width":260,"height":400},
+		{"id":"0b8e15eb023842e5","type":"file","file":"Development/Plugin Design.canvas","x":600,"y":-280,"width":260,"height":400},
+		{
+			"id":"4f15b20a66e491c0",
+			"type":"text",
+			"text":"It must be clearer to the user where he currently is. The type of operation \"import|export\" must be more prominent. I also want to edit the configs from the list views, I also want an option on right click to create an import or export config for the respective file where applicable. Also check when rightclicking a base or csv file if their is already a config for this file and use this also as export option. I also want to add custom properties when importing from csv. When I enter import or export views for a file, always check if there is already a config in place, also check if their are multiple configs for one file, then let the user decide. The importer also needs to have a source file which needs to be updated on change. Right now the saved import config dont work, they ask me for a file. Also change all vault path or file inputs to be pickers where possible, it must also be possible to create folders if not their. I also want to improve the CSV Detail Page, means the view open when the user clicks on a csv file. I want that page to be more usefull. Instead of a static preview table. The User always gets up to 100 records, but he can sort and filter the underlying dataset to spot first issues with the data, these settings will get saved for every csv file, paths of these cv files need to be tracked. The csv detail page should the user support inspecting the supplied dataset before ingesting it. I will also be able to add documentation for specific csv files. I also want to execute saved configs immediately and have a dedicated preview button if needed, otherwise, once saved, an import or export should just take one click. I also need to reach all the documentation from the respective views. I need an easy to build, easy to use data-dictionary from the Data Exchange Hub.",
+			"styleAttributes":{},
+			"x":920,
+			"y":-280,
+			"width":260,
+			"height":400,
+			"color":"3"
+		},
+		{
+			"id":"719b2dfadce52cb7",
+			"type":"text",
+			"text":"Domains",
+			"styleAttributes":{"textAlign":"center"},
+			"x":720,
+			"y":340,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"9f82d6e1e60009bb",
+			"type":"text",
+			"text":"Jobs to be done",
+			"styleAttributes":{"textAlign":"center"},
+			"x":720,
+			"y":420,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"860a085c2916c78a",
+			"type":"text",
+			"text":"Actors",
+			"styleAttributes":{"textAlign":"center"},
+			"x":720,
+			"y":500,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"3a4582b7f06dbcf2",
+			"type":"text",
+			"text":"Views",
+			"styleAttributes":{"textAlign":"center"},
+			"x":580,
+			"y":780,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"72449dad794f89e3",
+			"type":"text",
+			"text":"Interfaces",
+			"styleAttributes":{"textAlign":"center"},
+			"x":860,
+			"y":780,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"34f728f65d90456d",
+			"type":"text",
+			"text":"Events",
+			"styleAttributes":{"textAlign":"center"},
+			"x":720,
+			"y":1140,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"0717bb983c2c6010",
+			"type":"text",
+			"text":"Flows",
+			"styleAttributes":{"textAlign":"center"},
+			"x":720,
+			"y":1040,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
 		{
 			"id":"cd7a2daabf8bba73",
 			"type":"text",
 			"text":"Feature",
 			"styleAttributes":{"textAlign":"center"},
-			"x":520,
-			"y":620,
+			"x":60,
+			"y":1040,
 			"width":260,
 			"height":60,
 			"color":"6"
@@ -31,8 +120,8 @@
 			"type":"text",
 			"text":"User Story",
 			"styleAttributes":{"textAlign":"center"},
-			"x":520,
-			"y":820,
+			"x":60,
+			"y":1240,
 			"width":260,
 			"height":60
 		},
@@ -41,8 +130,8 @@
 			"type":"text",
 			"text":"Use Case",
 			"styleAttributes":{"textAlign":"center"},
-			"x":520,
-			"y":900,
+			"x":60,
+			"y":1320,
 			"width":260,
 			"height":60
 		},
@@ -51,100 +140,51 @@
 			"type":"text",
 			"text":"Gherkin Test",
 			"styleAttributes":{"textAlign":"center"},
-			"x":520,
-			"y":980,
+			"x":60,
+			"y":1400,
 			"width":260,
 			"height":60
-		},
-		{
-			"id":"9f82d6e1e60009bb",
-			"type":"text",
-			"text":"Job to be done",
-			"styleAttributes":{"textAlign":"center"},
-			"x":140,
-			"y":440,
-			"width":260,
-			"height":60,
-			"color":"2"
 		},
 		{
 			"id":"b955102b33899dc1",
 			"type":"text",
 			"text":"Product",
 			"styleAttributes":{"textAlign":"center"},
-			"x":520,
-			"y":440,
+			"x":60,
+			"y":860,
 			"width":260,
 			"height":60,
 			"color":"2"
 		},
 		{
-			"id":"72449dad794f89e3",
+			"id":"beaa7f40ec9e0291",
 			"type":"text",
-			"text":"Interfaces",
+			"text":"Components",
 			"styleAttributes":{"textAlign":"center"},
-			"x":940,
-			"y":520,
+			"x":1380,
+			"y":1020,
 			"width":260,
-			"height":60
-		},
-		{
-			"id":"3a4582b7f06dbcf2",
-			"type":"text",
-			"text":"Views",
-			"styleAttributes":{"textAlign":"center"},
-			"x":940,
-			"y":600,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"0717bb983c2c6010",
-			"type":"text",
-			"text":"Flows",
-			"styleAttributes":{"textAlign":"center"},
-			"x":940,
-			"y":680,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"34f728f65d90456d",
-			"type":"text",
-			"text":"Events",
-			"styleAttributes":{"textAlign":"center"},
-			"x":940,
-			"y":760,
-			"width":260,
-			"height":60
+			"height":60,
+			"color":"2"
 		},
 		{
 			"id":"a0da346fe621e29e",
 			"type":"text",
 			"text":"Props",
 			"styleAttributes":{"textAlign":"center"},
-			"x":940,
-			"y":840,
+			"x":1380,
+			"y":1180,
 			"width":260,
-			"height":60
-		},
-		{
-			"id":"719b2dfadce52cb7",
-			"type":"text",
-			"text":"Domains",
-			"styleAttributes":{"textAlign":"center"},
-			"x":940,
-			"y":440,
-			"width":260,
-			"height":60
+			"height":60,
+			"color":"2"
 		},
 		{
 			"id":"6c18b02696f15954",
 			"type":"text",
 			"text":"Systems",
 			"styleAttributes":{"textAlign":"center"},
-			"x":1340,
-			"y":440,
+			"x":1380,
+			"y":860,
 			"width":260,
 			"height":60,
 			"color":"2"
@@ -154,8 +194,41 @@
 			"type":"text",
 			"text":"Services",
 			"styleAttributes":{"textAlign":"center"},
-			"x":1340,
-			"y":520,
+			"x":1380,
+			"y":940,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"10912870c9bcc94e",
+			"type":"text",
+			"text":"Offer",
+			"styleAttributes":{"textAlign":"center"},
+			"x":720,
+			"y":1700,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"7690eedbe60304e6",
+			"type":"text",
+			"text":"Customer Experience",
+			"styleAttributes":{"textAlign":"center"},
+			"x":720,
+			"y":1840,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"89793024ead10900",
+			"type":"text",
+			"text":"Storage",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1380,
+			"y":1100,
 			"width":260,
 			"height":60,
 			"color":"2"
@@ -181,13 +254,114 @@
 			"toSide":"top"
 		},
 		{
-			"id":"b8fd1711090d9f8c",
+			"id":"79b4420b48ffbdbe",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"3a4582b7f06dbcf2",
+			"fromSide":"bottom",
+			"toNode":"0717bb983c2c6010",
+			"toSide":"top"
+		},
+		{
+			"id":"942b363933ce6593",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"72449dad794f89e3",
+			"fromSide":"bottom",
+			"toNode":"0717bb983c2c6010",
+			"toSide":"top"
+		},
+		{
+			"id":"42d34d4c5e9e8002",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"860a085c2916c78a",
+			"fromSide":"bottom",
+			"toNode":"3a4582b7f06dbcf2",
+			"toSide":"top"
+		},
+		{
+			"id":"613e89b170dd6fe3",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"860a085c2916c78a",
+			"fromSide":"bottom",
+			"toNode":"72449dad794f89e3",
+			"toSide":"top"
+		},
+		{
+			"id":"14b299c584a9cd7f",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromFloating":false,
+			"fromNode":"34f728f65d90456d",
+			"fromSide":"left",
+			"toNode":"abc9776e8773b32b",
+			"toSide":"right"
+		},
+		{
+			"id":"b89d5968df639bcb",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromFloating":false,
+			"fromNode":"34f728f65d90456d",
+			"fromSide":"right",
+			"toNode":"25c2f8a7fca6c9d7",
+			"toSide":"left"
+		},
+		{
+			"id":"0da8aa440e359bc5",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"719b2dfadce52cb7",
+			"fromSide":"bottom",
+			"toNode":"9f82d6e1e60009bb",
+			"toSide":"top"
+		},
+		{
+			"id":"99e204dd707ac6b6",
 			"styleAttributes":{},
 			"toFloating":false,
 			"fromNode":"9f82d6e1e60009bb",
-			"fromSide":"right",
-			"toNode":"b955102b33899dc1",
-			"toSide":"left"
+			"fromSide":"bottom",
+			"toNode":"860a085c2916c78a",
+			"toSide":"top"
+		},
+		{
+			"id":"1d97bcd3e474bce9",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"0717bb983c2c6010",
+			"fromSide":"bottom",
+			"toNode":"34f728f65d90456d",
+			"toSide":"top"
+		},
+		{
+			"id":"c2f14dc203fd94ab",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"abc9776e8773b32b",
+			"fromSide":"bottom",
+			"toNode":"10912870c9bcc94e",
+			"toSide":"top"
+		},
+		{
+			"id":"ac01dab46cb093a3",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"25c2f8a7fca6c9d7",
+			"fromSide":"bottom",
+			"toNode":"10912870c9bcc94e",
+			"toSide":"top"
+		},
+		{
+			"id":"1dd9c2df9a415bd6",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"10912870c9bcc94e",
+			"fromSide":"bottom",
+			"toNode":"7690eedbe60304e6",
+			"toSide":"top"
 		}
 	],
 	"metadata":{

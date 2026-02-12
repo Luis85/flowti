@@ -1,0 +1,14 @@
+filters:
+  and:
+    - file.ext == "csv"
+views:
+  - type: table
+    name: Table
+    groupBy:
+      property: file.folder
+      direction: ASC
+    order:
+      - file.name
+      - file.folder
+    columnSize:
+      file.name: 197

@@ -1,0 +1,7 @@
+---
+domain: Flowti
+title:
+jtbd:
+journey:
+parent: "[[03 - Resources/Documentation/Reference/Actors/User|User]]"
+---
