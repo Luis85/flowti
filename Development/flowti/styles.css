@@ -14,6 +14,14 @@
  */
 
 /* ─────────────────────────────────────────────────────────────
+   Hide Obsidian view header for the Event Catalog
+   ───────────────────────────────────────────────────────────── */
+
+.workspace-leaf-content[data-type="flowti-event-catalog"] .view-header {
+	display: none;
+}
+
+/* ─────────────────────────────────────────────────────────────
    Base Container
    ───────────────────────────────────────────────────────────── */
 
@@ -817,13 +825,17 @@
 }
 
 .ft-catalog-master-header {
+	display: flex;
+	align-items: center;
+	gap: 0.35rem;
 	padding: 0.5rem;
 	border-bottom: 1px solid var(--background-modifier-border);
 	flex-shrink: 0;
 }
 
 .ft-catalog-master-search {
-	width: 100%;
+	flex: 1;
+	min-width: 0;
 	padding: 0.35rem 0.5rem;
 	background-color: var(--background-primary);
 	color: var(--text-normal);
@@ -925,6 +937,20 @@
 	font-size: 0.65rem;
 	font-weight: 400;
 	color: var(--text-faint);
+}
+
+.ft-master-category-system {
+	opacity: 0.6;
+}
+.ft-master-category-system:hover {
+	opacity: 1;
+}
+
+.ft-section-divider {
+	border-top: 1px solid var(--background-modifier-border);
+	margin: 0.5rem 0.25rem;
+	padding-top: 0.35rem;
+	padding-left: 0.5rem;
 }
 
 /* Master event items */

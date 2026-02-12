@@ -46,7 +46,7 @@ export class DiscoveryService {
 			);
 			this.unsubscribes.push(
 				this.eventBus.on("discovery.create", (event) =>
-					this.handleCreate(event.payload.eventName)
+					this.handleCreate(event.payload.eventName, event.payload.category)
 				)
 			);
 			this.unsubscribes.push(
@@ -120,7 +120,7 @@ export class DiscoveryService {
 	/**
 	 * Creates a new custom event manually (before it has ever fired).
 	 */
-	private async handleCreate(eventName: string): Promise<void> {
+	private async handleCreate(eventName: string, category?: string): Promise<void> {
 		if (this.state.events[eventName]) return;
 
 		const now = new Date().toISOString();
@@ -130,6 +130,7 @@ export class DiscoveryService {
 			firstSeenAt: now,
 			lastSeenAt: now,
 			triggerCount: 0,
+			...(category ? { category } : {}),
 		};
 
 		this.state.events[eventName] = created;

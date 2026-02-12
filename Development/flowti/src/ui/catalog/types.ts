@@ -119,5 +119,5 @@ export interface CatalogComponentDeps {
 	navigation: NavigationCallbacks;
 	scheduleRender: () => void;
 	getEntityFolder: (entity: EntityType) => string;
-	createEntity: (entityType: EntityType, name: string) => void;
+	createEntity: (entityType: EntityType, name: string, options?: { category?: string }) => void;
 }

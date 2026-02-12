@@ -8,13 +8,14 @@ import {
 	getCategoryDocPathResolved,
 	generateCategoryDocContent,
 } from "../eventDocTemplate";
-import { InputModal, ConfirmModal } from "../modals";
+import { InputModal, ConfirmModal, CreateEventModal } from "../modals";
 import { EventConfigModal } from "../EventConfigModal";
 import type { Subscription } from "../../domain/subscription/types";
 import type { EventDefinition } from "../../domain/eventDefinition/types";
-import type { CatalogComponentDeps, CategoryEntry } from "./types";
+import type { CatalogComponentDeps, CatalogState, CategoryEntry } from "./types";
 import {
-	CUSTOM_EVENTS_CATEGORY,
+	UNCATEGORIZED_CATEGORY,
+	isDiscoveredEvent,
 	readFrontmatter,
 	fmString,
 	fmStringArray,
@@ -49,7 +50,6 @@ export class EventsTab {
 	constructor(
 		private masterTreeEl: HTMLElement,
 		private detailPanelEl: HTMLElement,
-		private filterChipsEl: HTMLElement,
 		private settingsPanel: HTMLElement,
 		private countBadge: HTMLElement,
 		private deps: CatalogComponentDeps,
@@ -59,7 +59,6 @@ export class EventsTab {
 
 	render(): void {
 		this.renderMasterTree();
-		this.renderFilterChips();
 		this.renderDetail();
 	}
 
@@ -121,6 +120,53 @@ export class EventsTab {
 		this.settingsPanel.empty();
 
 		const state = this.deps.getState();
+		const eventsFolder = this.deps.getEntityFolder("events");
+
+		// Configured filter toggle
+		const configuredCount = getConfiguredCount(state.catalogCategories, state.showSystemEvents, state.discoveredEvents, this.deps.app, eventsFolder, state.subscriptions, state.definitions);
+		const configuredRow = this.settingsPanel.createDiv({ cls: "ft-settings-row" });
+		const configuredToggle = configuredRow.createSpan({
+			cls: `ft-visibility-toggle${this.filterChipConfigured ? "" : " ft-visibility-off"}`,
+		});
+		setIcon(configuredToggle, this.filterChipConfigured ? "eye" : "eye-off");
+		configuredToggle.setAttribute("aria-label", this.filterChipConfigured ? "Show all" : "Only configured");
+		configuredToggle.addEventListener("click", () => {
+			this.filterChipConfigured = !this.filterChipConfigured;
+			this.renderMasterTree();
+			this.renderSettingsPanel();
+		});
+		configuredRow.createSpan({ text: `Only configured (${configuredCount})`, cls: "ft-settings-row-name" });
+
+		// Followed filter toggle
+		const followedCount = getFollowedCount(state.catalogCategories, state.showSystemEvents, state.discoveredEvents, this.deps.app, eventsFolder, state.notifiedTypes);
+		const followedRow = this.settingsPanel.createDiv({ cls: "ft-settings-row" });
+		const followedToggle = followedRow.createSpan({
+			cls: `ft-visibility-toggle${this.filterChipFollowed ? "" : " ft-visibility-off"}`,
+		});
+		setIcon(followedToggle, this.filterChipFollowed ? "eye" : "eye-off");
+		followedToggle.setAttribute("aria-label", this.filterChipFollowed ? "Show all" : "Only followed");
+		followedToggle.addEventListener("click", () => {
+			this.filterChipFollowed = !this.filterChipFollowed;
+			this.renderMasterTree();
+			this.renderSettingsPanel();
+		});
+		followedRow.createSpan({ text: `Only followed (${followedCount})`, cls: "ft-settings-row-name" });
+
+		// Show system events toggle
+		const systemRow = this.settingsPanel.createDiv({ cls: "ft-settings-row" });
+		const systemToggle = systemRow.createSpan({
+			cls: `ft-visibility-toggle${state.showSystemEvents ? "" : " ft-visibility-off"}`,
+		});
+		setIcon(systemToggle, state.showSystemEvents ? "eye" : "eye-off");
+		systemToggle.setAttribute("aria-label", state.showSystemEvents ? "Hide system events" : "Show system events");
+		systemToggle.addEventListener("click", () => {
+			void this.deps.eventBus.emit("settings.updateShowSystemEvents", {
+				showSystemEvents: !state.showSystemEvents,
+			});
+		});
+		systemRow.createSpan({ text: "Show system events", cls: "ft-settings-row-name" });
+
+		// Category visibility section
 		const categories = getOrderedCategories(state.catalogCategories);
 
 		for (let i = 0; i < categories.length; i++) {
@@ -183,68 +229,6 @@ export class EventsTab {
 		});
 	}
 
-	// ── Filter chips ────────────────────────────────────────────
-
-	private renderFilterChips(): void {
-		this.filterChipsEl.empty();
-
-		const state = this.deps.getState();
-		const eventsFolder = this.deps.getEntityFolder("events");
-
-		const configuredCount = getConfiguredCount(state.catalogCategories, state.showSystemEvents, state.discoveredEvents, this.deps.app, eventsFolder, state.subscriptions, state.definitions);
-		const followedCount = getFollowedCount(state.catalogCategories, state.showSystemEvents, state.discoveredEvents, this.deps.app, eventsFolder, state.notifiedTypes);
-
-		const configuredChip = this.filterChipsEl.createEl("span", {
-			cls: `ft-catalog-chip${this.filterChipConfigured ? " ft-catalog-chip-active" : ""}`,
-		});
-		configuredChip.textContent = `Configured (${configuredCount})`;
-		configuredChip.addEventListener("click", () => {
-			this.filterChipConfigured = !this.filterChipConfigured;
-			this.renderMasterTree();
-			this.renderFilterChips();
-		});
-
-		const followedChip = this.filterChipsEl.createEl("span", {
-			cls: `ft-catalog-chip${this.filterChipFollowed ? " ft-catalog-chip-active" : ""}`,
-		});
-		followedChip.textContent = `Followed (${followedCount})`;
-		followedChip.addEventListener("click", () => {
-			this.filterChipFollowed = !this.filterChipFollowed;
-			this.renderMasterTree();
-			this.renderFilterChips();
-		});
-
-		const systemChip = this.filterChipsEl.createEl("span", {
-			cls: `ft-catalog-chip${state.showSystemEvents ? " ft-catalog-chip-active" : ""}`,
-		});
-		systemChip.textContent = "System";
-		systemChip.setAttribute("aria-label", "Show internal plugin events tagged 'system'");
-		systemChip.title = "Show internal plugin events tagged 'system'";
-		systemChip.addEventListener("click", () => {
-			void this.deps.eventBus.emit("settings.updateShowSystemEvents", {
-				showSystemEvents: !state.showSystemEvents,
-			});
-			this.renderMasterTree();
-			this.renderFilterChips();
-		});
-
-		// Spacer pushes gear icon to the right
-		const spacer = this.filterChipsEl.createDiv();
-		spacer.style.flex = "1";
-
-		// Gear icon for category settings
-		const gearBtn = this.filterChipsEl.createSpan({ cls: "ft-visibility-toggle" });
-		gearBtn.setAttribute("aria-label", "Category settings");
-		setIcon(gearBtn, "settings");
-		gearBtn.addEventListener("click", () => {
-			this.settingsPanel.classList.toggle("ft-hidden");
-			const visible = !this.settingsPanel.classList.contains("ft-hidden");
-			if (visible) {
-				this.renderSettingsPanel();
-			}
-		});
-	}
-
 	// ── Master tree ─────────────────────────────────────────────
 
 	private renderMasterTree(): void {
@@ -262,41 +246,46 @@ export class EventsTab {
 			.filter((c) => c.visible)
 			.map((c) => c.name);
 
-		const allCategories = [CUSTOM_EVENTS_CATEGORY, ...visibleCategories];
+		// Separate user categories (from discovered events) and system categories
+		const userCategorySet = new Set(discoveredEntries.map((e) => e.category));
+		const namedUserCategories = [...userCategorySet]
+			.filter((c) => c !== UNCATEGORIZED_CATEGORY)
+			.sort();
+		const userCategories = [
+			...namedUserCategories,
+			UNCATEGORIZED_CATEGORY,
+		];
+
+		// System categories: visible settings categories, excluding any that overlap with user
+		const systemCategories = visibleCategories.filter((c) => !userCategorySet.has(c));
 
 		let visibleCount = 0;
 
-		for (const category of allCategories) {
+		// User categories first
+		for (const category of userCategories) {
 			let entries = allEntries.filter((e) => e.category === category);
-
-			// Text filter
-			if (state.filterText) {
-				entries = entries.filter(
-					(e) =>
-						e.type.toLowerCase().includes(state.filterText) ||
-						e.description.toLowerCase().includes(state.filterText) ||
-						e.domain.toLowerCase().includes(state.filterText) ||
-						e.services.toLowerCase().includes(state.filterText),
-				);
-			}
-
-			// System tag filter
-			if (!state.showSystemEvents) {
-				entries = entries.filter((e) => !e.tags.includes("system"));
-			}
-
-			// Chip filters
-			if (this.filterChipConfigured) {
-				entries = entries.filter((e) => isConfigured(e.type, state.subscriptions, state.definitions));
-			}
-			if (this.filterChipFollowed) {
-				entries = entries.filter((e) => state.notifiedTypes.has(e.type));
-			}
-
-			if (entries.length === 0 && category !== CUSTOM_EVENTS_CATEGORY) continue;
-
+			entries = this.applyFilters(entries, state);
+			if (entries.length === 0 && category !== UNCATEGORIZED_CATEGORY) continue;
 			visibleCount += entries.length;
-			this.renderMasterCategory(this.masterTreeEl, category, entries);
+			this.renderMasterCategory(this.masterTreeEl, category, entries, true);
+		}
+
+		// Pre-filter system categories so we only show the divider when needed
+		const systemCategoryEntries = systemCategories.map((category) => ({
+			category,
+			entries: this.applyFilters(allEntries.filter((e) => e.category === category), state),
+		})).filter((c) => c.entries.length > 0);
+
+		// Section divider before system categories
+		if (systemCategoryEntries.length > 0) {
+			const divider = this.masterTreeEl.createDiv({ cls: "ft-section-divider" });
+			divider.createSpan({ text: "System Events", cls: "ft-text-muted ft-text-sm" });
+		}
+
+		// System categories
+		for (const { category, entries } of systemCategoryEntries) {
+			visibleCount += entries.length;
+			this.renderMasterCategory(this.masterTreeEl, category, entries, false);
 		}
 
 		const totalVisible = getVisibleEntries(state.catalogCategories, state.showSystemEvents, state.discoveredEvents, this.deps.app, eventsFolder).length;
@@ -308,16 +297,43 @@ export class EventsTab {
 		this.validateSelection(allEntries);
 	}
 
+	private applyFilters(entries: EventCatalogEntry[], state: CatalogState): EventCatalogEntry[] {
+		let filtered = entries;
+		if (state.filterText) {
+			filtered = filtered.filter(
+				(e) =>
+					e.type.toLowerCase().includes(state.filterText) ||
+					e.description.toLowerCase().includes(state.filterText) ||
+					e.domain.toLowerCase().includes(state.filterText) ||
+					e.services.toLowerCase().includes(state.filterText),
+			);
+		}
+		if (!state.showSystemEvents) {
+			filtered = filtered.filter((e) => !e.tags.includes("system"));
+		}
+		if (this.filterChipConfigured) {
+			filtered = filtered.filter((e) => isConfigured(e.type, state.subscriptions, state.definitions));
+		}
+		if (this.filterChipFollowed) {
+			filtered = filtered.filter((e) => state.notifiedTypes.has(e.type));
+		}
+		return filtered;
+	}
+
 	private renderMasterCategory(
 		container: HTMLElement,
 		category: string,
 		entries: EventCatalogEntry[],
+		isUserCategory: boolean,
 	): void {
 		const state = this.deps.getState();
 		const isCollapsed = state.collapsedCategories.has(category);
 		const group = container.createDiv({ cls: "ft-master-category" });
 
-		const header = group.createDiv({ cls: "ft-master-category-header" });
+		const headerCls = isUserCategory
+			? "ft-master-category-header"
+			: "ft-master-category-header ft-master-category-system";
+		const header = group.createDiv({ cls: headerCls });
 
 		const chevron = header.createSpan({
 			text: isCollapsed ? "\u25B6" : "\u25BC",
@@ -347,8 +363,42 @@ export class EventsTab {
 			});
 		}
 
-		// Category doc button
-		if (category !== CUSTOM_EVENTS_CATEGORY) {
+		if (isUserCategory) {
+			// Add button for user categories
+			const addBtn = header.createSpan({ cls: "ft-visibility-toggle" });
+			addBtn.style.marginLeft = "auto";
+			setIcon(addBtn, "plus");
+			addBtn.setAttribute("aria-label", "Create event");
+			addBtn.addEventListener("click", (e) => {
+				e.stopPropagation();
+				if (category !== UNCATEGORIZED_CATEGORY) {
+					// Auto-inherit category for named user categories
+					new InputModal(this.deps.app, {
+						title: `Create Event in "${category}"`,
+						placeholder: "my.custom.event",
+						submitLabel: "Create",
+						inputName: "Event name",
+						inputDesc: "Use dot notation (e.g. order.placed)",
+						onSubmit: (name) => {
+							void this.deps.eventBus.emit("discovery.create", { eventName: name, category });
+						},
+					}).open();
+				} else {
+					// Uncategorized — open full CreateEventModal with category choice
+					new CreateEventModal(this.deps.app, {
+						title: "Create Custom Event",
+						existingCategories: this.getUserCategories(),
+						onSubmit: (name, cat) => {
+							void this.deps.eventBus.emit("discovery.create", {
+								eventName: name,
+								...(cat ? { category: cat } : {}),
+							});
+						},
+					}).open();
+				}
+			});
+		} else {
+			// Category doc button (system categories)
 			const catDocBtn = header.createSpan({ cls: "ft-visibility-toggle" });
 			catDocBtn.setAttribute("aria-label", catEntry?.filePath ? "Open category doc" : "Create category doc");
 			setIcon(catDocBtn, "file-text");
@@ -360,10 +410,8 @@ export class EventsTab {
 					void this.openOrCreateCategoryDoc(category, entries);
 				}
 			});
-		}
 
-		// Category visibility toggle (hide all events from Activity Log)
-		if (category !== CUSTOM_EVENTS_CATEGORY) {
+			// Category visibility toggle (system categories)
 			const catEntries = entries.length > 0 ? entries : [];
 			const excludedCount = catEntries.filter((e) => state.excludedTypes.has(e.type)).length;
 			const vis = excludedCount === 0 ? "all" : excludedCount === catEntries.length ? "none" : "partial";
@@ -377,25 +425,6 @@ export class EventsTab {
 			catToggle.addEventListener("click", (e) => {
 				e.stopPropagation();
 				void this.deps.eventBus.emit("eventFilter.toggleCategory", { category });
-			});
-		}
-
-		// Add button for custom events
-		if (category === CUSTOM_EVENTS_CATEGORY) {
-			const addBtn = header.createSpan({ cls: "ft-visibility-toggle" });
-			addBtn.style.marginLeft = "auto";
-			setIcon(addBtn, "plus");
-			addBtn.setAttribute("aria-label", "Create custom event");
-			addBtn.addEventListener("click", (e) => {
-				e.stopPropagation();
-				new InputModal(this.deps.app, {
-					title: "Create Custom Event",
-					placeholder: "my.custom.event",
-					submitLabel: "Create",
-					onSubmit: (name) => {
-						void this.deps.eventBus.emit("discovery.create", { eventName: name });
-					},
-				}).open();
 			});
 		}
 
@@ -510,7 +539,7 @@ export class EventsTab {
 
 	private renderDetailContent(entry: EventCatalogEntry): void {
 		const state = this.deps.getState();
-		const isCustom = entry.category === CUSTOM_EVENTS_CATEGORY;
+		const isCustom = isDiscoveredEvent(entry.type, state.discoveredEvents);
 
 		// Header: event type + badges
 		this.renderDetailHeader(entry);
@@ -940,6 +969,16 @@ export class EventsTab {
 			this.selectedEventType = null;
 			this.renderDetail();
 		}
+	}
+
+	private getUserCategories(): string[] {
+		const state = this.deps.getState();
+		const entries = discoveredToCatalogEntries(
+			state.discoveredEvents, this.deps.app, this.deps.getEntityFolder("events"),
+		);
+		return [...new Set(entries.map((e) => e.category))]
+			.filter((c) => c !== UNCATEGORIZED_CATEGORY)
+			.sort();
 	}
 
 	private async openOrCreateCategoryDoc(category: string, events: EventCatalogEntry[]): Promise<void> {

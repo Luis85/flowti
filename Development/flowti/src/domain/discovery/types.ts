@@ -16,6 +16,8 @@ export interface DiscoveredEvent {
 	lastSeenAt: string;
 	/** Number of times this event file was triggered */
 	triggerCount: number;
+	/** Optional user-assigned category (e.g. "Orders", "Payments") */
+	category?: string;
 }
 
 /**

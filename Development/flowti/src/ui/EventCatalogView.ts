@@ -24,8 +24,8 @@ import type {
 	CatalogState,
 } from "./catalog/types";
 import {
-	CUSTOM_EVENTS_CATEGORY,
 	getOrderedCategories,
+	discoveredToCatalogEntries,
 } from "./catalog/helpers";
 import {
 	CatalogDashboard,
@@ -82,7 +82,7 @@ export class EventCatalogView extends ItemView {
 	private topBarEl: HTMLElement;
 	private masterTreeEl: HTMLElement;
 	private detailPanelEl: HTMLElement;
-	private filterChipsEl: HTMLElement;
+	private gearBtn: HTMLElement;
 	private settingsPanel: HTMLElement;
 	private countBadge: HTMLElement;
 	private tabBarEl: HTMLElement;
@@ -172,8 +172,16 @@ export class EventCatalogView extends ItemView {
 			this.scheduleRender();
 		});
 
-		// Filter chips (rendered by EventsTab when events tab is active)
-		this.filterChipsEl = master.createDiv({ cls: "ft-catalog-filter-chips" });
+		// Gear icon for events settings (inside search header)
+		this.gearBtn = searchHeader.createSpan({ cls: "ft-visibility-toggle ft-hidden" });
+		this.gearBtn.setAttribute("aria-label", "Category settings");
+		setIcon(this.gearBtn, "settings");
+		this.gearBtn.addEventListener("click", () => {
+			this.settingsPanel.classList.toggle("ft-hidden");
+			if (!this.settingsPanel.classList.contains("ft-hidden")) {
+				this.eventsTab!.renderSettingsPanel();
+			}
+		});
 
 		// Settings panel (hidden by default, inside master)
 		this.settingsPanel = master.createDiv({ cls: "ft-settings-panel ft-hidden" });
@@ -210,7 +218,11 @@ export class EventCatalogView extends ItemView {
 		collapseAllBtn.addEventListener("click", () => {
 			const orderedCategories = getOrderedCategories(this.catalogCategories);
 			const visibleCategories = orderedCategories.filter((c) => c.visible).map((c) => c.name);
-			for (const cat of [CUSTOM_EVENTS_CATEGORY, ...visibleCategories]) {
+			// Include user categories from discovered events
+			const eventsFolder = this.getEntityFolder("events");
+			const discoveredEntries = discoveredToCatalogEntries(this.discoveredEvents, this.app, eventsFolder);
+			const userCategories = [...new Set(discoveredEntries.map((e) => e.category))];
+			for (const cat of [...userCategories, ...visibleCategories]) {
 				this.collapsedCategories.add(cat);
 			}
 			this.scheduleRender();
@@ -231,7 +243,7 @@ export class EventCatalogView extends ItemView {
 		this.actorsTab = new ActorsTab(this.masterTreeEl, this.detailPanelEl, deps);
 		this.eventsTab = new EventsTab(
 			this.masterTreeEl, this.detailPanelEl,
-			this.filterChipsEl, this.settingsPanel, this.countBadge, deps,
+			this.settingsPanel, this.countBadge, deps,
 		);
 
 		// Subscribe to all events (same 14 subscriptions as before)
@@ -502,9 +514,9 @@ export class EventCatalogView extends ItemView {
 		this.tabBarEl.classList.toggle("ft-hidden", isDashboard);
 		this.topBarEl.classList.toggle("ft-hidden", isDashboard);
 
-		// Hide search, filters, legend on dashboard
+		// Hide search, gear, legend on non-events tabs
 		this.searchInput.parentElement!.classList.toggle("ft-hidden", isDashboard);
-		this.filterChipsEl.classList.toggle("ft-hidden", this.activeTab !== "events");
+		this.gearBtn.classList.toggle("ft-hidden", this.activeTab !== "events");
 		this.dotLegendEl.classList.toggle("ft-hidden", this.activeTab !== "events");
 
 		if (!isDashboard) {
@@ -684,7 +696,7 @@ export class EventCatalogView extends ItemView {
 			},
 			scheduleRender: () => this.scheduleRender(),
 			getEntityFolder: (entity) => this.getEntityFolder(entity),
-			createEntity: (entityType, name) => this.handleCreateEntity(entityType, name),
+			createEntity: (entityType, name, options) => this.handleCreateEntity(entityType, name, options),
 		};
 	}
 
@@ -712,11 +724,14 @@ export class EventCatalogView extends ItemView {
 		};
 	}
 
-	private handleCreateEntity(entityType: string, name: string): void {
+	private handleCreateEntity(entityType: string, name: string, options?: { category?: string }): void {
 		switch (entityType) {
 			case "domains": void this.domainsTab!.createDoc(name); break;
 			case "services": void this.servicesTab!.createDoc(name); break;
-			case "events": void this.eventBus.emit("discovery.create", { eventName: name }); break;
+			case "events": void this.eventBus.emit("discovery.create", {
+				eventName: name,
+				...(options?.category ? { category: options.category } : {}),
+			}); break;
 			case "flows": void this.flowsTab!.createDoc(name); break;
 			case "systems": void this.systemsTab!.createDoc(name); break;
 			case "actors": void this.actorsTab!.createDoc(name); break;

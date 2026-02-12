@@ -20,8 +20,19 @@ import type {
 	ActorEntry,
 } from "./types";
 
-/** Category label for user-defined discovered events */
-export const CUSTOM_EVENTS_CATEGORY = "Custom Events";
+/** Category label for discovered events without an assigned category */
+export const UNCATEGORIZED_CATEGORY = "Uncategorized";
+
+/** @deprecated Use UNCATEGORIZED_CATEGORY instead */
+export const CUSTOM_EVENTS_CATEGORY = UNCATEGORIZED_CATEGORY;
+
+/** Returns true if the event type belongs to a user-discovered event (not a system catalog event). */
+export function isDiscoveredEvent(
+	eventType: string,
+	discoveredEvents: DiscoveredEvent[],
+): boolean {
+	return discoveredEvents.some((d) => d.eventName === eventType);
+}
 
 // ─────────────────────────────────────────────────────────────
 // Frontmatter utilities
@@ -141,7 +152,10 @@ export function discoveredToCatalogEntries(
 
 		return {
 			type: d.eventName,
-			category: CUSTOM_EVENTS_CATEGORY,
+			category:
+				fmString(docFm, "category") ??
+				d.category ??
+				UNCATEGORIZED_CATEGORY,
 			description:
 				fmString(docFm, "description") ??
 				fmString(sourceFm, "description") ??
@@ -166,11 +180,13 @@ export function getVisibleEntries(
 	app: App,
 	eventsFolder: string,
 ): EventCatalogEntry[] {
-	const allEntries = [...EVENT_CATALOG, ...discoveredToCatalogEntries(discoveredEvents, app, eventsFolder)];
+	const discoveredEntries = discoveredToCatalogEntries(discoveredEvents, app, eventsFolder);
+	const allEntries = [...EVENT_CATALOG, ...discoveredEntries];
 	const visibleCats = new Set(
 		getOrderedCategories(catalogCategories).filter((c) => c.visible).map((c) => c.name),
 	);
-	visibleCats.add(CUSTOM_EVENTS_CATEGORY);
+	// All user categories are always visible
+	for (const entry of discoveredEntries) visibleCats.add(entry.category);
 	return allEntries.filter((e) => {
 		if (!visibleCats.has(e.category)) return false;
 		if (!showSystemEvents && e.tags.includes("system")) return false;

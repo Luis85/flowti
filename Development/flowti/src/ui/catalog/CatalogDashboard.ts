@@ -1,6 +1,6 @@
 import { TFile, TFolder, setIcon } from "obsidian";
-import { InputModal } from "../modals";
-import { getVisibleEntries } from "./helpers";
+import { InputModal, CreateEventModal } from "../modals";
+import { getVisibleEntries, discoveredToCatalogEntries, UNCATEGORIZED_CATEGORY } from "./helpers";
 import type { CatalogComponentDeps } from "./types";
 
 /**
@@ -169,13 +169,19 @@ export class CatalogDashboard {
 				icon: "zap",
 				label: "New Event",
 				action: () => {
-					new InputModal(this.deps.app, {
+					const state = this.deps.getState();
+					const entries = discoveredToCatalogEntries(
+						state.discoveredEvents, this.deps.app, this.deps.getEntityFolder("events"),
+					);
+					const existingCategories = [...new Set(entries.map((e) => e.category))]
+						.filter((c) => c !== UNCATEGORIZED_CATEGORY)
+						.sort();
+					new CreateEventModal(this.deps.app, {
 						title: "Create Custom Event",
-						placeholder: "my.custom.event",
-						submitLabel: "Create",
-						inputName: "Event name",
-						inputDesc: "Use dot notation (e.g. my.custom.event)",
-						onSubmit: (name) => { this.deps.createEntity("events", name); },
+						existingCategories,
+						onSubmit: (name, category) => {
+							this.deps.createEntity("events", name, category ? { category } : undefined);
+						},
 					}).open();
 				},
 			},
