@@ -1,6 +1,6 @@
 ---
-stage:
 domain: Flowti
 plugin: "[[Development/flowti/README|README]]"
-tags:
 ---
+I want to work collaboratively on files inside my Vault.
+

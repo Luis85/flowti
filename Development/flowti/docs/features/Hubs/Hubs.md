@@ -1,3 +1,7 @@
+---
+domain: Flowti
+plugin: "[[Development/flowti/README|README]]"
+---
 # The Hubs Features
 
 Flowti will consists of different Hubs, all reflecting a core Domain of Flowti all revolving around the Event Catalog as Source of truth and Authority.
@@ -17,4 +21,4 @@ Hubs are the main interaction point to work with the data and build relations be
 - Product
 - Project
 - Services
-- 
+- Areas

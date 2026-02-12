@@ -96,7 +96,7 @@ export class ExportService {
 			const baseFile = this.baseEngine.parseBaseFile(content);
 			const viewColumns = this.baseEngine.getViewColumns(baseFile, viewIndex ?? 0);
 			if (viewColumns && viewColumns.length > 0) {
-				return this.normalizeBaseColumns(viewColumns);
+				return this.normalizeBaseColumns(viewColumns, baseFile.formulas);
 			}
 		}
 
@@ -120,18 +120,29 @@ export class ExportService {
 	/**
 	 * Normalizes base view column references to clean property names.
 	 * - `note.stage` → `stage`
-	 * - `formula.total` → `total`
+	 * - `formula.X` → resolves via formulas map (e.g. `formula.foo` with `foo: description` → `description`)
 	 * - `file.*` → filtered out (handled by fileProperties section)
 	 * - `domain` → `domain` (direct property)
 	 */
-	private normalizeBaseColumns(viewColumns: string[]): string[] {
+	private normalizeBaseColumns(
+		viewColumns: string[],
+		formulas?: Record<string, string>,
+	): string[] {
 		const result: string[] = [];
 		for (const col of viewColumns) {
 			if (col.startsWith("file.")) continue;
 			if (col.startsWith("note.")) {
 				result.push(col.slice(5));
 			} else if (col.startsWith("formula.")) {
-				result.push(col.slice(8));
+				const formulaName = col.slice(8);
+				const expression = formulas?.[formulaName];
+				// If the formula resolves to a simple property name, use it
+				if (expression && /^[\w.]+$/.test(expression)) {
+					result.push(expression);
+				} else {
+					// Fallback: use formula name as-is
+					result.push(formulaName);
+				}
 			} else {
 				result.push(col);
 			}

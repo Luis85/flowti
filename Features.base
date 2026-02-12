@@ -16,7 +16,7 @@ views:
       - file.folder
     columnSize:
       file.name: 265
-      note.stage: 72
+      note.stage: 117
       note.domain: 119
       note.plugin: 104
   - type: table

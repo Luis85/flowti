@@ -72,7 +72,12 @@ export class BaseQueryEngine {
 			raw.properties as Record<string, unknown> | undefined,
 		);
 
-		return { filters: globalFilters, views, properties };
+		// Parse formulas: { name: expression }
+		const formulas = this.parseFormulas(
+			raw.formulas as Record<string, unknown> | undefined,
+		);
+
+		return { filters: globalFilters, views, properties, formulas };
 	}
 
 	/**
@@ -308,6 +313,24 @@ export class BaseQueryEngine {
 		negated: boolean,
 	): BaseFilter {
 		return { type, field, value, negated };
+	}
+
+	/**
+	 * Parses the `formulas` section of a `.base` YAML.
+	 * Returns a map of formula name → expression string.
+	 */
+	private parseFormulas(
+		raw: Record<string, unknown> | undefined,
+	): Record<string, string> | undefined {
+		if (!raw || typeof raw !== "object") return undefined;
+
+		const result: Record<string, string> = {};
+		for (const [key, val] of Object.entries(raw)) {
+			if (val !== undefined && val !== null) {
+				result[key] = String(val);
+			}
+		}
+		return Object.keys(result).length > 0 ? result : undefined;
 	}
 
 	/**

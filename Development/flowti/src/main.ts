@@ -595,6 +595,14 @@ export default class FlowtiBasePlugin extends Plugin {
 				fs.mkdirSync(dir, { recursive: true });
 				fs.writeFileSync(absolutePath, content, "utf-8");
 			});
+			this.dataExchangeService.setReadExternalFile(async (absolutePath: string) => {
+				const fs = require("fs") as typeof import("fs"); // eslint-disable-line @typescript-eslint/no-require-imports
+				try {
+					return fs.readFileSync(absolutePath, "utf-8");
+				} catch {
+					return null;
+				}
+			});
 
 			// File-menu context items for import/export
 			this.registerEvent(

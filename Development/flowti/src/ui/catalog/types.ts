@@ -62,6 +62,7 @@ export interface DomainEntry {
 	visibleCount: number;
 	visible: boolean;
 	isSystem: boolean;
+	isArea: boolean;
 }
 
 export interface ServiceEntry {

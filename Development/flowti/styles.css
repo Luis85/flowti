@@ -173,6 +173,12 @@
 	border: 1px solid var(--background-modifier-border);
 }
 
+.ft-badge-area {
+	background-color: var(--color-accent);
+	color: var(--text-on-accent);
+	border: 1px solid var(--color-accent);
+}
+
 .ft-badge-system {
 	background-color: var(--background-secondary);
 	color: var(--text-faint);

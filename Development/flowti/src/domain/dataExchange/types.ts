@@ -212,6 +212,8 @@ export interface ParsedBaseFile {
 	views: BaseViewConfig[];
 	/** Per-property configuration (e.g. displayName overrides) */
 	properties?: Record<string, BasePropertyConfig>;
+	/** Formula definitions: name → expression (often a property reference) */
+	formulas?: Record<string, string>;
 }
 
 // ── Vault file info (for BaseQueryEngine) ───────────────

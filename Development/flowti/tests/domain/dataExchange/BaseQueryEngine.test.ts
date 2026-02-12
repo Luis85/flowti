@@ -259,6 +259,28 @@ views:
 
 			expect(base.properties).toBeUndefined();
 		});
+
+		it("should parse formulas section", () => {
+			const yaml = `formulas:
+  Total: price
+  Desc: description
+views:
+  - type: table
+    name: Table`;
+
+			const base = engine.parseBaseFile(yaml);
+			expect(base.formulas).toBeDefined();
+			expect(base.formulas!["Total"]).toBe("price");
+			expect(base.formulas!["Desc"]).toBe("description");
+		});
+
+		it("should return undefined formulas when none defined", () => {
+			const base = engine.parseBaseFile(`views:
+  - type: table
+    name: Table`);
+
+			expect(base.formulas).toBeUndefined();
+		});
 	});
 
 	describe("resolveView", () => {

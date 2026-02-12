@@ -1,3 +1,7 @@
+---
+domain: Flowti
+plugin: "[[Development/flowti/README|README]]"
+---
 # Jobs To Be Done — Event System
 
 ## One-Sentence JTBD Summary

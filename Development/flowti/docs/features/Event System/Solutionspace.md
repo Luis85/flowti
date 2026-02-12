@@ -1,3 +1,7 @@
+---
+domain: Flowti
+plugin: "[[Development/flowti/README|README]]"
+---
 # Solution Space — Responding to Meaningful Events
 
 ## Guiding Idea

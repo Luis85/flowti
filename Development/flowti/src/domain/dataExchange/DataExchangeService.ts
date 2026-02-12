@@ -9,7 +9,7 @@ import type { IEventBus } from "../../infrastructure/events/types";
 import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
 import type { VaultFileInfo } from "./types";
 import { ImportService } from "./ImportService";
-import { ExportService, type ListFilesCallback, type WriteExternalFileCallback } from "./ExportService";
+import { ExportService, type ListFilesCallback, type WriteExternalFileCallback, type ReadExternalFileCallback } from "./ExportService";
 
 export interface DataExchangeServiceOptions {
 	eventBus: IEventBus;
@@ -106,6 +106,14 @@ export class DataExchangeService {
 	 */
 	setWriteExternalFile(callback: WriteExternalFileCallback): void {
 		this.exportService.setWriteExternalFile(callback);
+	}
+
+	/**
+	 * Injects the callback for reading files outside the vault.
+	 * Used for skip/append conflict resolution on external exports.
+	 */
+	setReadExternalFile(callback: ReadExternalFileCallback): void {
+		this.exportService.setReadExternalFile(callback);
 	}
 
 	/** Cleans up all event listeners. */

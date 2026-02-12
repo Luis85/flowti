@@ -113,7 +113,32 @@ views:
 			expect(columns).toContain("domain");
 		});
 
-		it("should strip formula. prefix from base view columns", async () => {
+		it("should resolve formula columns via formulas map", async () => {
+			const baseYaml = `formulas:
+  Total: price
+  Desc: description
+views:
+  - type: table
+    name: Items
+    order:
+      - file.name
+      - note.stage
+      - formula.Total
+      - formula.Desc`;
+
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockResolvedValue(baseYaml);
+
+			const columns = await service.scanColumns("items.base", "base", 0);
+
+			// formula.Total → resolves via formulas["Total"] = "price"
+			expect(columns).toContain("price");
+			// formula.Desc → resolves via formulas["Desc"] = "description"
+			expect(columns).toContain("description");
+			expect(columns).not.toContain("formula.Total");
+			expect(columns).not.toContain("Total");
+		});
+
+		it("should fall back to formula name when no formulas section", async () => {
 			const baseYaml = `views:
   - type: table
     name: Items
@@ -130,7 +155,6 @@ views:
 			expect(columns).toContain("total");
 			expect(columns).toContain("discount");
 			expect(columns).not.toContain("formula.total");
-			expect(columns).not.toContain("formula.discount");
 		});
 
 		it("should fall back to frontmatter scan when base view has no order", async () => {
@@ -536,6 +560,142 @@ views:
 
 			expect(fileSystem.createFile).toHaveBeenCalledOnce();
 			expect(writeExternal).not.toHaveBeenCalled();
+		});
+	});
+
+	describe("conflict resolution", () => {
+		it("should skip export when file exists and strategy is skip", async () => {
+			const config: ExportConfig = {
+				sourcePath: "items",
+				sourceType: "folder",
+				format: "csv",
+				outputPath: "exports/items.csv",
+				columns: ["type"],
+				fileProperties: ["file.name"],
+				conflictStrategy: "skip",
+			};
+
+			// readFile returns content (file exists)
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockResolvedValue("name,type\nold,data");
+
+			const result = await service.executeExport(config);
+
+			expect(result.skipped).toBe(true);
+			expect(result.totalRows).toBe(0);
+			expect(fileSystem.createFile).not.toHaveBeenCalled();
+		});
+
+		it("should skip external export when file exists and strategy is skip", async () => {
+			const readExternal = vi.fn(async () => "name,type\nold,data");
+			service.setReadExternalFile(readExternal);
+
+			const config: ExportConfig = {
+				sourcePath: "items",
+				sourceType: "folder",
+				format: "csv",
+				outputPath: "C:\\external\\items.csv",
+				columns: ["type"],
+				fileProperties: [],
+				isExternal: true,
+				conflictStrategy: "skip",
+			};
+
+			const result = await service.executeExport(config);
+
+			expect(result.skipped).toBe(true);
+			expect(readExternal).toHaveBeenCalledWith("C:\\external\\items.csv");
+		});
+
+		it("should overwrite when strategy is overwrite (default)", async () => {
+			const config: ExportConfig = {
+				sourcePath: "items",
+				sourceType: "folder",
+				format: "csv",
+				outputPath: "exports/items.csv",
+				columns: ["type"],
+				fileProperties: ["file.name"],
+				conflictStrategy: "overwrite",
+			};
+
+			const result = await service.executeExport(config);
+
+			expect(result.skipped).toBeUndefined();
+			expect(result.totalRows).toBe(3);
+			expect(fileSystem.createFile).toHaveBeenCalledOnce();
+		});
+
+		it("should append rows to existing file when strategy is append", async () => {
+			// First call reads the base YAML (for resolveFiles); second reads existing file
+			let readCount = 0;
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+				readCount++;
+				// First call is from resolveFiles (base), but we use folder so no readFile
+				// readOutputFile call returns existing CSV
+				return "name,type\nold-item,OldType";
+			});
+
+			const config: ExportConfig = {
+				sourcePath: "items",
+				sourceType: "folder",
+				format: "csv",
+				outputPath: "exports/items.csv",
+				columns: ["type"],
+				fileProperties: ["file.name"],
+				conflictStrategy: "append",
+			};
+
+			const result = await service.executeExport(config);
+
+			expect(result.totalRows).toBe(3);
+			const content = (fileSystem.createFile as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+			// Should contain old data + new data rows (without duplicate header)
+			expect(content).toContain("old-item");
+			expect(content).toContain("widget");
+			// Header should appear only once
+			const headerCount = content.split("\n").filter((l: string) => l.startsWith("name,type") || l.startsWith("name\t")).length;
+			expect(headerCount).toBe(1);
+		});
+
+		it("should write normally when append but no existing file", async () => {
+			// readFile throws (file does not exist)
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("Not found"));
+
+			const config: ExportConfig = {
+				sourcePath: "items",
+				sourceType: "folder",
+				format: "csv",
+				outputPath: "exports/items.csv",
+				columns: ["type"],
+				fileProperties: ["file.name"],
+				conflictStrategy: "append",
+			};
+
+			const result = await service.executeExport(config);
+
+			expect(result.totalRows).toBe(3);
+			expect(result.skipped).toBeUndefined();
+			expect(fileSystem.createFile).toHaveBeenCalledOnce();
+		});
+
+		it("should not skip when file does not exist and strategy is skip", async () => {
+			// readFile throws (file does not exist)
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("Not found"));
+
+			const config: ExportConfig = {
+				sourcePath: "items",
+				sourceType: "folder",
+				format: "csv",
+				outputPath: "exports/nonexistent.csv",
+				columns: ["type"],
+				fileProperties: ["file.name"],
+				conflictStrategy: "skip",
+			};
+
+			const result = await service.executeExport(config);
+
+			expect(result.skipped).toBeUndefined();
+			expect(result.totalRows).toBe(3);
+			expect(fileSystem.createFile).toHaveBeenCalledOnce();
 		});
 	});
 

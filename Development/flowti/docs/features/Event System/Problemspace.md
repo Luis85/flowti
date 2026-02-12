@@ -1,3 +1,7 @@
+---
+domain: Flowti
+plugin: "[[Development/flowti/README|README]]"
+---
 # Problem Space — Reacting to Incoming Information
 
 ## One-Sentence Problem Statement

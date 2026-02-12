@@ -103,6 +103,7 @@ export class DomainsTab {
 		this.entries = Array.from(domainMap.entries())
 			.map(([name, events]) => {
 				const fileData = fileMap.get(name);
+				const areaPath = `02 - Areas/${name}/${name}.md`;
 				return {
 					name,
 					description: fileData?.description ?? "",
@@ -123,9 +124,14 @@ export class DomainsTab {
 						return setting ? setting.visible : true;
 					})(),
 					isSystem: catalogDomainNames.has(name),
+					isArea: !!this.deps.app.vault.getAbstractFileByPath(areaPath),
 				};
 			})
-			.sort((a, b) => a.name.localeCompare(b.name));
+			.sort((a, b) => {
+				// Areas first, then alphabetical
+				if (a.isArea !== b.isArea) return a.isArea ? -1 : 1;
+				return a.name.localeCompare(b.name);
+			});
 	}
 
 	// ─────────────────────────────────────────────────────────────
@@ -248,6 +254,10 @@ export class DomainsTab {
 			cls: "ft-master-category-count",
 		});
 
+		if (d.isArea) {
+			item.createSpan({ text: "area", cls: "ft-badge ft-badge-area" });
+		}
+
 		if (d.isSystem) {
 			item.createSpan({ text: "system", cls: "ft-badge ft-badge-system" });
 		} else if (d.filePath === null) {
@@ -307,6 +317,9 @@ export class DomainsTab {
 		left.createDiv({ text: domainData.name, cls: "ft-detail-event-type" });
 		const badges = left.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
 		badges.createSpan({ text: `${domainData.events.length} events`, cls: "ft-badge ft-badge-muted" });
+		if (domainData.isArea) {
+			badges.createSpan({ text: "area", cls: "ft-badge ft-badge-area" });
+		}
 		if (domainData.isSystem) {
 			badges.createSpan({ text: "system", cls: "ft-badge ft-badge-system" });
 		} else if (domainData.filePath === null) {
@@ -375,6 +388,17 @@ export class DomainsTab {
 		archBtn.appendText(archExists ? " Architecture Doc" : " Create Architecture Doc");
 		archBtn.addEventListener("click", () => {
 			void this.createArchitectureDoc(domainData.name);
+		});
+
+		// Mark as Area button
+		const areaPath = `02 - Areas/${domainData.name}/${domainData.name}.md`;
+		const areaExists = !!this.deps.app.vault.getAbstractFileByPath(areaPath);
+		const areaBtn = actions.createEl("span", { cls: "ft-nav-link" });
+		const areaIcon = areaBtn.createSpan();
+		setIcon(areaIcon, areaExists ? "map-pin" : "map");
+		areaBtn.appendText(areaExists ? " Open Area" : " Mark as Area");
+		areaBtn.addEventListener("click", () => {
+			void this.createArea(domainData.name);
 		});
 
 		// Delete button for documented domains (file-based only)
@@ -502,6 +526,40 @@ export class DomainsTab {
 
 		this.selectedDomain = null;
 		this.deps.scheduleRender();
+	}
+
+	async createArea(name: string): Promise<void> {
+		const areaPath = `02 - Areas/${name}/${name}.md`;
+
+		const existing = this.deps.app.vault.getAbstractFileByPath(areaPath);
+		if (existing) {
+			if (existing instanceof TFile) {
+				const leaf = this.deps.app.workspace.getLeaf(false);
+				await leaf.openFile(existing);
+			}
+			return;
+		}
+
+		const content = [
+			"---",
+			`area: "${name}"`,
+			`type: AreaDoc`,
+			`domain: "${name}"`,
+			`description: ""`,
+			"---",
+			"",
+			`# ${name}`,
+			"",
+		].join("\n");
+
+		try {
+			await this.deps.fileSystemClient.createFile(areaPath, content, { createFolders: true });
+		} catch (err) {
+			console.error(`[Flowti] Failed to create area: ${areaPath}`, err);
+			return;
+		}
+
+		setTimeout(() => this.deps.scheduleRender(), 500);
 	}
 
 	async createArchitectureDoc(name: string): Promise<void> {

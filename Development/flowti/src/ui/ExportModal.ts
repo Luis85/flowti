@@ -12,6 +12,7 @@ import { App, FuzzySuggestModal, Modal, Notice, Setting, TFolder } from "obsidia
 import type { IEventBus } from "../infrastructure/events/types";
 import type { ExportService } from "../domain/dataExchange/ExportService";
 import type {
+	ExportConflictStrategy,
 	ExportFormat,
 	ExportResult,
 	FilePropertyDef,
@@ -66,6 +67,7 @@ export class ExportModal extends Modal {
 	private baseViewIndex = 0;
 	private baseFile: ParsedBaseFile | null = null;
 	private previewFiles: VaultFileInfo[] = [];
+	private conflictStrategy: ExportConflictStrategy = "overwrite";
 	private displayNames: Record<string, string> = {};
 	private exportResult: ExportResult | null = null;
 	private exportError: string | null = null;
@@ -89,7 +91,7 @@ export class ExportModal extends Modal {
 
 		// Default output path
 		const baseName = sourcePath.replace(/\.\w+$/, "");
-		const ext = format === "tab" ? ".tsv" : ".csv";
+		const ext = format === "tab" ? ".txt" : ".csv";
 		this.outputPath = `${baseName}_export${ext}`;
 	}
 
@@ -234,6 +236,23 @@ export class ExportModal extends Modal {
 				.setTooltip("Save to filesystem")
 				.onClick(() => this.openNativeSaveDialog()),
 		);
+
+		// Conflict strategy
+		new Setting(el)
+			.setName("If file exists")
+			.setDesc("How to handle an existing output file")
+			.addDropdown((dd) =>
+				dd
+					.addOptions({
+						overwrite: "Overwrite",
+						skip: "Skip (do nothing)",
+						append: "Append rows",
+					})
+					.setValue(this.conflictStrategy)
+					.onChange((v) => {
+						this.conflictStrategy = v as ExportConflictStrategy;
+					}),
+			);
 
 		// ── File Properties (always shown) ──────────────────
 		el.createEl("h4", { text: "File Properties", cls: "ft-mt-4" });
@@ -450,6 +469,19 @@ export class ExportModal extends Modal {
 	private renderResult(el: HTMLElement): void {
 		const r = this.exportResult!;
 
+		if (r.skipped) {
+			el.createEl("h3", { text: "Export Skipped" });
+			const info = el.createDiv({ cls: "ft-card ft-p-3" });
+			info.createDiv({ text: `File already exists: ${r.outputPath}` });
+			info.createDiv({
+				text: "The conflict strategy was set to \"skip\", so no changes were made.",
+				cls: "ft-text-muted ft-text-sm ft-mt-1",
+			});
+			new Notice(`Export skipped: ${r.outputPath} already exists`);
+			this.renderNav(el, { cancel: true, cancelLabel: "Close" });
+			return;
+		}
+
 		el.createEl("h3", { text: "Export Complete" });
 
 		const stats = el.createDiv({
@@ -543,6 +575,7 @@ export class ExportModal extends Modal {
 					? this.displayNames
 					: undefined,
 				isExternal: this.isExternal || undefined,
+				conflictStrategy: this.conflictStrategy,
 			});
 		} catch (error) {
 			this.exportError =
@@ -597,9 +630,9 @@ export class ExportModal extends Modal {
 		try {
 			// eslint-disable-next-line @typescript-eslint/no-require-imports
 			const { remote } = require("electron");
-			const ext = this.format === "tab" ? "tsv" : "csv";
+			const ext = this.format === "tab" ? "txt" : "csv";
 			const filters = this.format === "tab"
-				? [{ name: "Tab-Separated", extensions: ["tsv", "txt"] }, { name: "All Files", extensions: ["*"] }]
+				? [{ name: "Tab-Separated", extensions: ["txt", "tsv"] }, { name: "All Files", extensions: ["*"] }]
 				: [{ name: "CSV Files", extensions: ["csv"] }, { name: "All Files", extensions: ["*"] }];
 
 			const result = await remote.dialog.showSaveDialog(remote.getCurrentWindow(), {
