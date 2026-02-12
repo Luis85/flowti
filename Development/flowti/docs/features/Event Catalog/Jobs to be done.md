@@ -9,7 +9,232 @@
 Enable users to **react to meaningful events in Obsidian**, including high-volume external file ingestion, by transforming low-level file changes into **explicit, trustworthy domain events** that can be subscribed to and processed reliably.
 
 ---
+## 🎯 Core Job (High Level)
 
+> **When** new information enters my Obsidian system (especially from outside),  
+> **I want** the system to automatically react in meaningful ways,  
+> **so that** my knowledge base stays structured, actionable, and up to date without manual babysitting.
+
+---
+
+## 🧩 Primary Jobs to be Done
+
+### 1. _Automated Sense-Making_
+
+> **When** new files appear in my vault,  
+> **I want** them to trigger semantic events instead of being “just files”,  
+> **so that** Obsidian understands _what happened_, not only _that something changed_.
+
+**Examples**
+
+- `event.file.imported`
+    
+- `event.erp.order_received`
+    
+- `event.meeting.notes_created`
+    
+- `event.invoice.received`
+    
+
+👉 Your `type=Event` property is the key move here:  
+a file becomes **a fact in the system**, not just content.
+
+---
+
+### 2. _Reduce Manual Work & Context Switching_
+
+> **When** recurring reactions to new content are needed,  
+> **I want** to subscribe to events once and let the system handle them,  
+> **so that** I don’t repeat the same manual steps every time.
+
+**Triggered processes**
+
+- Auto-tagging
+    
+- Moving files to correct folders
+    
+- Creating follow-up tasks
+    
+- Linking to entities (Customer, Project, Order)
+    
+- Updating dashboards / indices
+    
+
+This is classic _“Stop being the glue”_ JTBD.
+
+---
+
+### 3. _Make External Systems First-Class Citizens_
+
+> **When** files arrive from external systems (ERP, CRM, M365, Email, APIs),  
+> **I want** Obsidian to treat them as business events,  
+> **so that** my vault becomes a true operational cockpit, not a passive archive.
+
+**Examples**
+
+- ERP export → `event.order.created`
+    
+- Email import → `event.email.received`
+    
+- CSV drop → `event.report.updated`
+    
+- Git pull → `event.system.changed`
+    
+
+This directly fits your **WAGBOS / IBDE** mental model.
+
+---
+
+### 4. _User-Controlled Automation (No Magic)_
+
+> **When** automation happens,  
+> **I want** to explicitly decide which events I subscribe to,  
+> **so that** I stay in control and trust the system.
+
+Key here:
+
+- **Event Catalog**
+    
+- Explicit subscriptions
+    
+- Transparent triggers
+    
+
+This avoids the “Obsidian plugin chaos” problem.
+
+---
+
+## 🧠 Knowledge Graph & State Awareness
+
+### 5. _Track What Happened, Not Just What Exists_
+
+> **When** I look at my vault,  
+> **I want** to see a history of meaningful events,  
+> **so that** I can reconstruct decisions, changes, and evolution.
+
+Events become:
+
+- Audit log
+    
+- Change history
+    
+- Process trace
+    
+
+Perfect for:
+
+- ISO 9001
+    
+- Living documentation
+    
+- Decision logs
+    
+
+---
+
+## ⚙️ Power User / Builder Jobs
+
+### 6. _Compose My Own Workflows_
+
+> **When** I want to build workflows,  
+> **I want** events to be reusable building blocks,  
+> **so that** I can combine them into larger automations over time.
+
+Think:
+
+- Event → Rule → Action
+    
+- Event → Task → Follow-up Event
+    
+- Event chains (sagas 👀)
+    
+
+This aligns beautifully with:
+
+- ECS / Event Bus thinking
+    
+- Simulation & replay later on
+    
+
+---
+
+### 7. _Observe & Debug My System_
+
+> **When** automation behaves unexpectedly,  
+> **I want** to inspect which events fired and why,  
+> **so that** I can debug and refine my setup.
+
+This leads naturally to:
+
+- Event Log UI
+    
+- “Why did this happen?”
+    
+- Replay / dry-run (future)
+    
+
+---
+
+## 🧑‍🤝‍🧑 Collaboration Jobs
+
+### 8. _Shared Understanding in Teams_
+
+> **When** multiple people work in the same vault or process,  
+> **I want** events to express intent and meaning,  
+> **so that** everyone understands what happened without explanation.
+
+Example:
+
+> “An `event.requirement.changed` occurred”  
+> vs  
+> “Someone edited a markdown file”
+
+Huge difference.
+
+---
+
+## 🧱 Secondary / Enabler Jobs
+
+These aren’t primary motivations, but they **increase adoption**:
+
+- Avoid vendor lock-in (events are portable)
+    
+- Keep automation declarative
+    
+- Enable incremental complexity (start simple, grow powerful)
+    
+- Make Obsidian programmable _without_ coding for end users
+    
+
+---
+
+## 🗂 Suggested Event Catalog Categories
+
+This helps translate JTBD → UX:
+
+- **File Events**  
+    `file.imported`, `file.updated`, `file.deleted`
+    
+- **Content Semantics**  
+    `note.became_event`, `property.changed`
+    
+- **Business Events**  
+    `order.created`, `invoice.received`
+    
+- **Knowledge Events**  
+    `decision.made`, `assumption.invalidated`
+    
+- **System Events**  
+    `sync.completed`, `external.update_received`
+    
+
+---
+
+## 🧠 One-Sentence Product Framing
+
+If you ever need to explain this feature:
+
+> _“The Event System turns Obsidian from a note-taking tool into an event-driven system that reacts to what happens, not just what exists.”_
 ## Target Personas
 
 ### Primary Persona — System Builder
