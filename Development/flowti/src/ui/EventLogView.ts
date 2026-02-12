@@ -1,10 +1,10 @@
 import { ItemView, WorkspaceLeaf, setIcon, TFile, Notice } from "obsidian";
 import { getEventCategory, getEventEntry, type EventCatalogEntry } from "../infrastructure/events/catalog";
 import type { FlowtiEvents, IEventBus, WildcardEventHandler } from "../infrastructure/events/types";
-import type { CatalogCategoryConfig } from "../domain/settings/settings";
+import { type CatalogCategoryConfig, type EntityPaths, DEFAULT_ENTITY_PATHS } from "../domain/settings/settings";
 import type { ViewStateProvider } from "../infrastructure/views/registry";
 import { FileSystemClient } from "../infrastructure/filesystem/FileSystemClient";
-import { getEventDocPath, generateEventDocContent } from "./eventDocTemplate";
+import { getEventDocPathResolved, resolveEntityPath, generateEventDocContent } from "./eventDocTemplate";
 
 export const VIEW_TYPE_EVENT_LOG = "flowti-event-log";
 
@@ -88,6 +88,7 @@ export class EventLogView extends ItemView {
 	private paused = false;
 	private activeFilter = "";
 	private docsRootPath = "03 - Resources/Documentation/Reference";
+	private entityPaths: EntityPaths = DEFAULT_ENTITY_PATHS;
 
 	// DOM refs
 	private listEl: HTMLElement;
@@ -122,6 +123,7 @@ export class EventLogView extends ItemView {
 		// Initialize all state from live providers (not just defaults)
 		const settings = this.state.getSettings();
 		this.docsRootPath = settings.docsRootPath;
+		this.entityPaths = settings.entityPaths ?? DEFAULT_ENTITY_PATHS;
 		this.updateHiddenCategories(settings.catalogCategories);
 		this.excludedTypes = new Set(this.state.getExcludedTypes());
 		this.notifiedTypes = new Set(this.state.getNotifiedTypes());
@@ -169,12 +171,14 @@ export class EventLogView extends ItemView {
 		this.unsubscribes.push(
 			this.eventBus.on("settings.loaded", (event) => {
 				this.docsRootPath = event.payload.settings.docsRootPath;
+				this.entityPaths = event.payload.settings.entityPaths ?? DEFAULT_ENTITY_PATHS;
 				this.updateHiddenCategories(event.payload.settings.catalogCategories);
 			})
 		);
 		this.unsubscribes.push(
 			this.eventBus.on("settings.changed", (event) => {
 				this.docsRootPath = event.payload.settings.docsRootPath;
+				this.entityPaths = event.payload.settings.entityPaths ?? DEFAULT_ENTITY_PATHS;
 				this.updateHiddenCategories(event.payload.settings.catalogCategories);
 			})
 		);
@@ -540,7 +544,8 @@ export class EventLogView extends ItemView {
 	// ─────────────────────────────────────────────────────────────
 
 	private async openOrCreateEventDoc(entry: EventCatalogEntry): Promise<void> {
-		const docPath = getEventDocPath(this.docsRootPath, entry.type);
+		const eventsFolder = resolveEntityPath(this.docsRootPath, this.entityPaths.events);
+		const docPath = getEventDocPathResolved(eventsFolder, entry.type);
 
 		let file = this.app.vault.getAbstractFileByPath(docPath);
 

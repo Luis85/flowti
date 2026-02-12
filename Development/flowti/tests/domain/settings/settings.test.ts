@@ -3,6 +3,7 @@ import {
 	FlowtiSettingsSchema,
 	safeParseSettings,
 	DEFAULT_CATALOG_CATEGORIES,
+	DEFAULT_ENTITY_PATHS,
 } from "../../../src/domain/settings/settings";
 import { EVENT_CATEGORIES } from "../../../src/infrastructure/events/catalog";
 
@@ -86,6 +87,47 @@ describe("FlowtiSettings", () => {
 			];
 			const result = FlowtiSettingsSchema.parse({ catalogCategories: customOrder });
 			expect(result.catalogCategories).toEqual(customOrder);
+		});
+	});
+
+	describe("entityPaths", () => {
+		it("should default entityPaths when not provided", () => {
+			const result = FlowtiSettingsSchema.parse({});
+			expect(result.entityPaths).toEqual(DEFAULT_ENTITY_PATHS);
+		});
+
+		it("should default all 7 entity types", () => {
+			const result = FlowtiSettingsSchema.parse({});
+			expect(Object.keys(result.entityPaths)).toHaveLength(7);
+			expect(result.entityPaths.events.subfolder).toBe("Events");
+			expect(result.entityPaths.domains.subfolder).toBe("Domains");
+			expect(result.entityPaths.actors.subfolder).toBe("Actors");
+		});
+
+		it("should default overridePath to empty string", () => {
+			const result = FlowtiSettingsSchema.parse({});
+			for (const cfg of Object.values(result.entityPaths)) {
+				expect(cfg.overridePath).toBe("");
+			}
+		});
+
+		it("should preserve custom entity paths", () => {
+			const custom = {
+				...DEFAULT_ENTITY_PATHS,
+				events: { subfolder: "MyEvents", overridePath: "custom/events" },
+			};
+			const result = FlowtiSettingsSchema.parse({ entityPaths: custom });
+			expect(result.entityPaths.events.subfolder).toBe("MyEvents");
+			expect(result.entityPaths.events.overridePath).toBe("custom/events");
+			expect(result.entityPaths.domains.subfolder).toBe("Domains");
+		});
+
+		it("should parse old settings without entityPaths (backwards compat)", () => {
+			const result = FlowtiSettingsSchema.parse({
+				debugMode: true,
+				docsRootPath: "my/docs",
+			});
+			expect(result.entityPaths).toEqual(DEFAULT_ENTITY_PATHS);
 		});
 	});
 

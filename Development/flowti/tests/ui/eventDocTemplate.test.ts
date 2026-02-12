@@ -14,6 +14,16 @@ import {
 	getActorDocPath,
 	getActorsFolderPath,
 	generateActorDocContent,
+	resolveEntityPath,
+	getEventDocPathResolved,
+	getDomainDocPathResolved,
+	getArchitectureDocPathResolved,
+	getServiceDocPathResolved,
+	getServiceBlueprintPathResolved,
+	getCategoryDocPathResolved,
+	getFlowDocPathResolved,
+	getSystemDocPathResolved,
+	getActorDocPathResolved,
 } from "../../src/ui/eventDocTemplate";
 import type { EventCatalogEntry } from "../../src/infrastructure/events/catalog";
 
@@ -339,6 +349,75 @@ describe("eventDocTemplate", () => {
 			expect(content).toContain("events: []");
 			expect(content).toContain("domains: []");
 			expect(content).toContain("services: []");
+		});
+	});
+
+	describe("resolveEntityPath", () => {
+		it("should use docsRootPath + subfolder when overridePath is empty", () => {
+			expect(resolveEntityPath("docs/root", { subfolder: "Events", overridePath: "" }))
+				.toBe("docs/root/Events");
+		});
+
+		it("should use overridePath when set", () => {
+			expect(resolveEntityPath("docs/root", { subfolder: "Events", overridePath: "my/custom/events" }))
+				.toBe("my/custom/events");
+		});
+
+		it("should trim trailing slashes from override", () => {
+			expect(resolveEntityPath("docs/root", { subfolder: "Events", overridePath: "my/path/" }))
+				.toBe("my/path");
+		});
+
+		it("should trim trailing slashes from root path", () => {
+			expect(resolveEntityPath("docs/root/", { subfolder: "Events", overridePath: "" }))
+				.toBe("docs/root/Events");
+		});
+
+		it("should ignore whitespace-only overridePath", () => {
+			expect(resolveEntityPath("docs/root", { subfolder: "Events", overridePath: "   " }))
+				.toBe("docs/root/Events");
+		});
+	});
+
+	describe("resolved path functions", () => {
+		it("getEventDocPathResolved", () => {
+			expect(getEventDocPathResolved("my/events", "plugin.loading")).toBe("my/events/plugin.loading.md");
+		});
+
+		it("getDomainDocPathResolved", () => {
+			expect(getDomainDocPathResolved("my/domains", "Core")).toBe("my/domains/Core.md");
+		});
+
+		it("getArchitectureDocPathResolved", () => {
+			expect(getArchitectureDocPathResolved("my/domains", "Core")).toBe("my/domains/Core.architecture.md");
+		});
+
+		it("getServiceDocPathResolved", () => {
+			expect(getServiceDocPathResolved("my/services", "Auth")).toBe("my/services/Auth.md");
+		});
+
+		it("getServiceBlueprintPathResolved", () => {
+			expect(getServiceBlueprintPathResolved("my/services", "Auth")).toBe("my/services/Auth.blueprint.md");
+		});
+
+		it("getCategoryDocPathResolved", () => {
+			expect(getCategoryDocPathResolved("my/categories", "Core")).toBe("my/categories/Core.md");
+		});
+
+		it("getFlowDocPathResolved", () => {
+			expect(getFlowDocPathResolved("my/flows", "Checkout")).toBe("my/flows/Checkout.md");
+		});
+
+		it("getSystemDocPathResolved", () => {
+			expect(getSystemDocPathResolved("my/systems", "Billing")).toBe("my/systems/Billing.md");
+		});
+
+		it("getActorDocPathResolved", () => {
+			expect(getActorDocPathResolved("my/actors", "Admin")).toBe("my/actors/Admin.md");
+		});
+
+		it("should trim trailing slashes from folder", () => {
+			expect(getEventDocPathResolved("my/events/", "test")).toBe("my/events/test.md");
 		});
 	});
 });

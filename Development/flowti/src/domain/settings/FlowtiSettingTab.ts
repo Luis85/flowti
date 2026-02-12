@@ -2,6 +2,7 @@ import { App, PluginSettingTab, Setting } from "obsidian";
 import FlowtiBasePlugin from "src/main";
 import type { IInstallerService } from "../installer/types";
 import { InstallerWizardModal } from "../installer/InstallerWizardModal";
+import { DEFAULT_ENTITY_PATHS } from "./settings";
 
 /**
  * Settings tab for the Flowti plugin.
@@ -25,6 +26,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 		this.displaySetupSection(containerEl);
 		this.displayEventSystemSection(containerEl);
 		this.displayDocumentationSection(containerEl);
+		this.displayEntityPathsSection(containerEl);
 		this.displayGeneralSection(containerEl);
 	}
 
@@ -142,6 +144,64 @@ export class FlowtiSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
+	}
+
+	/**
+	 * Display per-entity folder path settings
+	 */
+	private displayEntityPathsSection(containerEl: HTMLElement): void {
+		containerEl.createEl("h3", { text: "Entity Folder Paths" });
+		containerEl.createEl("p", {
+			text: "Customise where each entity type stores its documentation files. " +
+				"By default, each uses a subfolder under the documentation root path. " +
+				"Set an override path to use a completely independent vault location.",
+			cls: "setting-item-description",
+		});
+
+		// Ensure entityPaths exists (backwards compat)
+		if (!this.plugin.settings.entityPaths) {
+			this.plugin.settings.entityPaths = { ...DEFAULT_ENTITY_PATHS };
+		}
+
+		const entities: Array<{ key: keyof typeof DEFAULT_ENTITY_PATHS; label: string; defaultSub: string }> = [
+			{ key: "events", label: "Events", defaultSub: "Events" },
+			{ key: "domains", label: "Domains", defaultSub: "Domains" },
+			{ key: "services", label: "Services", defaultSub: "Services" },
+			{ key: "categories", label: "Categories", defaultSub: "Categories" },
+			{ key: "flows", label: "Flows", defaultSub: "Flows" },
+			{ key: "systems", label: "Systems", defaultSub: "Systems" },
+			{ key: "actors", label: "Actors", defaultSub: "Actors" },
+		];
+
+		for (const entity of entities) {
+			const cfg = this.plugin.settings.entityPaths[entity.key] ?? { subfolder: entity.defaultSub, overridePath: "" };
+
+			new Setting(containerEl)
+				.setName(`${entity.label} subfolder`)
+				.setDesc(`Subfolder name under docs root (default: "${entity.defaultSub}")`)
+				.addText((text) =>
+					text
+						.setValue(cfg.subfolder)
+						.setPlaceholder(entity.defaultSub)
+						.onChange(async (value) => {
+							this.plugin.settings.entityPaths[entity.key].subfolder = value || entity.defaultSub;
+							await this.plugin.saveSettings();
+						})
+				);
+
+			new Setting(containerEl)
+				.setName(`${entity.label} override path`)
+				.setDesc("Absolute vault path (overrides root + subfolder when set)")
+				.addText((text) =>
+					text
+						.setValue(cfg.overridePath)
+						.setPlaceholder("Leave empty to use default")
+						.onChange(async (value) => {
+							this.plugin.settings.entityPaths[entity.key].overridePath = value;
+							await this.plugin.saveSettings();
+						})
+				);
+		}
 	}
 
 	/**

@@ -52,6 +52,58 @@ export const DEFAULT_CATALOG_CATEGORIES: CatalogCategoryConfig[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────
+// Entity Path Configuration
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Per-entity folder configuration.
+ * - subfolder: name appended to docsRootPath (e.g. "Events")
+ * - overridePath: absolute vault path that completely overrides base + subfolder
+ */
+export interface EntityPathConfig {
+	subfolder: string;
+	overridePath: string;
+}
+
+const EntityPathConfigSchema = z.object({
+	subfolder: z.string(),
+	overridePath: z.string().default(""),
+}) satisfies z.ZodType<EntityPathConfig>;
+
+/**
+ * Folder paths for each entity type.
+ */
+export interface EntityPaths {
+	events: EntityPathConfig;
+	domains: EntityPathConfig;
+	services: EntityPathConfig;
+	categories: EntityPathConfig;
+	flows: EntityPathConfig;
+	systems: EntityPathConfig;
+	actors: EntityPathConfig;
+}
+
+export const DEFAULT_ENTITY_PATHS: EntityPaths = {
+	events: { subfolder: "Events", overridePath: "" },
+	domains: { subfolder: "Domains", overridePath: "" },
+	services: { subfolder: "Services", overridePath: "" },
+	categories: { subfolder: "Categories", overridePath: "" },
+	flows: { subfolder: "Flows", overridePath: "" },
+	systems: { subfolder: "Systems", overridePath: "" },
+	actors: { subfolder: "Actors", overridePath: "" },
+};
+
+const EntityPathsSchema = z.object({
+	events: EntityPathConfigSchema.default({ subfolder: "Events", overridePath: "" }),
+	domains: EntityPathConfigSchema.default({ subfolder: "Domains", overridePath: "" }),
+	services: EntityPathConfigSchema.default({ subfolder: "Services", overridePath: "" }),
+	categories: EntityPathConfigSchema.default({ subfolder: "Categories", overridePath: "" }),
+	flows: EntityPathConfigSchema.default({ subfolder: "Flows", overridePath: "" }),
+	systems: EntityPathConfigSchema.default({ subfolder: "Systems", overridePath: "" }),
+	actors: EntityPathConfigSchema.default({ subfolder: "Actors", overridePath: "" }),
+}) satisfies z.ZodType<EntityPaths>;
+
+// ─────────────────────────────────────────────────────────────
 // Settings Schema
 // ─────────────────────────────────────────────────────────────
 
@@ -73,6 +125,7 @@ export const FlowtiSettingsSchema = z.object({
 	ingestionMaxRetries: z.number().min(0).max(10).default(3),
 	ingestionWatchEventTypes: z.array(z.string()).default(["file.created", "file.modified"]),
 	watchFolders: z.array(z.string()).default([]),
+	entityPaths: EntityPathsSchema.default(DEFAULT_ENTITY_PATHS),
 });
 
 /**

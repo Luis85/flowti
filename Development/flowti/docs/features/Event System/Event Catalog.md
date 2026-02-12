@@ -9,17 +9,19 @@ tags:
 
 ## One-Sentence Design Summary
 
-> **The Event Catalog is a semantic map of what can happen in the system, connecting events to meaning, domains, and documentation.**
+> **The Event Catalog is a semantic map of what can happen a the system, connecting events to meaning, domains, and documentation.**
 
 ## Purpose of the Event Catalog
 
-From the user’s perspective, the Event Catalog answers three questions:
+From the user’s perspective, the Event Catalog answers these questions:
 
 1. **What kinds of things can happen in my system?**
     
 2. **What do these events mean?**
     
 3. **Where can I learn more or act on them?**
+	
+4. **What language is used in my domains?**
     
 
 It is a **map of meaning** across the system.

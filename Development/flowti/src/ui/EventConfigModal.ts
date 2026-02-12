@@ -17,7 +17,7 @@ import type {
 	EmissionPolicy,
 } from "../domain/eventDefinition/types";
 import { ConfirmModal } from "./modals";
-import { getEventDocPath, generateEventDocContent } from "./eventDocTemplate";
+import { getEventDocPathResolved, generateEventDocContent } from "./eventDocTemplate";
 import { FileSystemClient } from "../infrastructure/filesystem/FileSystemClient";
 
 type Page = "overview" | "subscription-form" | "definition-form";
@@ -39,7 +39,7 @@ interface DefinitionFormData {
 export class EventConfigModal extends Modal {
 	private eventBus: IEventBus;
 	private entry: EventCatalogEntry;
-	private docsRootPath: string;
+	private eventsFolder: string;
 	private fileSystemClient: FileSystemClient;
 	private unsubscribes: (() => void)[] = [];
 
@@ -52,11 +52,11 @@ export class EventConfigModal extends Modal {
 	private subFormData: SubscriptionFormData = this.emptySubForm();
 	private defFormData: DefinitionFormData = this.emptyDefForm();
 
-	constructor(app: App, eventBus: IEventBus, entry: EventCatalogEntry, docsRootPath: string) {
+	constructor(app: App, eventBus: IEventBus, entry: EventCatalogEntry, eventsFolder: string) {
 		super(app);
 		this.eventBus = eventBus;
 		this.entry = entry;
-		this.docsRootPath = docsRootPath;
+		this.eventsFolder = eventsFolder;
 		this.fileSystemClient = new FileSystemClient({ eventBus });
 	}
 
@@ -714,7 +714,7 @@ export class EventConfigModal extends Modal {
 	// ─────────────────────────────────────────────────────────────
 
 	private async openOrCreateEventDoc(): Promise<void> {
-		const docPath = getEventDocPath(this.docsRootPath, this.entry.type);
+		const docPath = getEventDocPathResolved(this.eventsFolder, this.entry.type);
 		let file = this.app.vault.getAbstractFileByPath(docPath);
 
 		if (!file) {

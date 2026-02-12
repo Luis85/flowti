@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { FlowtiUser } from "../../../src/domain/user/types";
 import type { UUID } from "../../../src/utils/types";
+import { DEFAULT_ENTITY_PATHS } from "../../../src/domain/settings/settings";
 
 describe("EventBus", () => {
 	let eventBus: EventBus;
@@ -117,7 +118,7 @@ describe("EventBus", () => {
 			await eventBus.emit("user.created", {
 				user: { id: "id" as UUID, name: "Name", createdAt: "2024-01-01T00:00:00.000Z" },
 			});
-			await eventBus.emit("settings.changed", { settings: { debugMode: true, eventSystemEnabled: true, showSystemEvents: false, docsRootPath: "events", catalogCategories: [], catalogDomains: [], catalogServices: [], collapsedCategories: [], ingestionConcurrency: 3, ingestionBatchWindowMs: 500, ingestionMaxRetries: 3, ingestionWatchEventTypes: [], watchFolders: [], } });
+			await eventBus.emit("settings.changed", { settings: { debugMode: true, eventSystemEnabled: true, showSystemEvents: false, docsRootPath: "events", catalogCategories: [], catalogDomains: [], catalogServices: [], collapsedCategories: [], ingestionConcurrency: 3, ingestionBatchWindowMs: 500, ingestionMaxRetries: 3, ingestionWatchEventTypes: [], watchFolders: [], entityPaths: DEFAULT_ENTITY_PATHS, } });
 
 			expect(handler1).not.toHaveBeenCalled();
 			expect(handler2).not.toHaveBeenCalled();
@@ -146,7 +147,7 @@ describe("EventBus", () => {
 			await eventBus.emit("user.created", {
 				user: { id: "id" as UUID, name: "Name", createdAt: "2024-01-01T00:00:00.000Z" },
 			});
-			await eventBus.emit("settings.changed", { settings: { debugMode: true, eventSystemEnabled: true, showSystemEvents: false, docsRootPath: "events", catalogCategories: [], catalogDomains: [], catalogServices: [], collapsedCategories: [], ingestionConcurrency: 3, ingestionBatchWindowMs: 500, ingestionMaxRetries: 3, ingestionWatchEventTypes: [], watchFolders: [], } });
+			await eventBus.emit("settings.changed", { settings: { debugMode: true, eventSystemEnabled: true, showSystemEvents: false, docsRootPath: "events", catalogCategories: [], catalogDomains: [], catalogServices: [], collapsedCategories: [], ingestionConcurrency: 3, ingestionBatchWindowMs: 500, ingestionMaxRetries: 3, ingestionWatchEventTypes: [], watchFolders: [], entityPaths: DEFAULT_ENTITY_PATHS, } });
 
 			expect(wildcardHandler).toHaveBeenCalledTimes(2);
 			expect(wildcardHandler.mock.calls[0][0].type).toBe("user.created");
