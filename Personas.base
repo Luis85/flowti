@@ -13,6 +13,6 @@ views:
       - domain
       - file.folder
     columnSize:
-      file.name: 127
+      file.name: 168
       note.plugin: 109
       note.domain: 123

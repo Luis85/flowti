@@ -37,6 +37,10 @@ export interface ImportConfig {
 	targetFolder: string;
 	/** Which CSV column becomes the note filename */
 	nameColumn: string;
+	/** Optional prefix prepended to the filename */
+	namePrefix?: string;
+	/** Optional suffix appended to the filename (before .md) */
+	nameSuffix?: string;
 	/** Column mappings (csvColumn → frontmatterKey) */
 	columnMappings: ColumnMapping[];
 	/** How to handle existing notes */
@@ -230,6 +234,10 @@ export interface SavedImportConfig {
 	targetFolder: string;
 	/** Which CSV column becomes the note filename */
 	nameColumn: string;
+	/** Optional prefix prepended to the filename */
+	namePrefix?: string;
+	/** Optional suffix appended to the filename (before .md) */
+	nameSuffix?: string;
 	/** Column mappings (csvColumn → frontmatterKey) */
 	columnMappings: ColumnMapping[];
 	/** How to handle existing notes */

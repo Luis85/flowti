@@ -4,10 +4,11 @@
  * A dedicated ItemView for exporting vault data as CSV or tab-delimited files.
  * Triggered from context menus on folders / `.base` files, or from the command palette.
  *
- * Pages: View Select (base only) → Configure → Preview → Result
+ * Layout: top bar with horizontal stepper + full-width workspace.
+ * Config step uses a split layout (settings left, property grid right).
  */
 
-import { ItemView, Notice, Setting, WorkspaceLeaf } from "obsidian";
+import { ItemView, Notice, Setting, WorkspaceLeaf, setIcon } from "obsidian";
 import type { IEventBus } from "../infrastructure/events/types";
 import type { DataExchangeService } from "../domain/dataExchange/DataExchangeService";
 import type { ExportService } from "../domain/dataExchange/ExportService";
@@ -22,6 +23,7 @@ import type {
 } from "../domain/dataExchange/types";
 import { STANDARD_FILE_PROPERTIES } from "../domain/dataExchange/types";
 import { FolderPickerModal, getVaultFolders } from "./FolderPickerModal";
+import { InputModal } from "./modals";
 
 export const VIEW_TYPE_EXPORT = "flowti-export";
 
@@ -32,6 +34,13 @@ export interface ExportViewConfig {
 }
 
 type ExportPage = "view-select" | "configure" | "preview" | "result";
+
+const STEP_LABELS: Record<string, string> = {
+	"view-select": "View",
+	configure: "Configure",
+	preview: "Preview",
+	result: "Export",
+};
 
 export class ExportView extends ItemView {
 	private eventBus: IEventBus;
@@ -61,6 +70,13 @@ export class ExportView extends ItemView {
 	private loadError: string | null = null;
 	private savedConfigs: SavedExportConfig[] = [];
 	private pendingSavedConfig: SavedExportConfig | null = null;
+	private propertySearchText = "";
+	private configDropdownOpen = false;
+
+	// Persistent DOM references
+	private rootEl: HTMLElement | null = null;
+	private topBarEl: HTMLElement | null = null;
+	private workspaceEl: HTMLElement | null = null;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -93,11 +109,9 @@ export class ExportView extends ItemView {
 	async onOpen(): Promise<void> {
 		const config = this.getConfig();
 		if (!config) {
-			this.contentEl.addClass("flowti-csv-action");
-			const container = this.contentEl.createDiv({ cls: "flowti-csv-container" });
-			container.createEl("p", {
+			this.contentEl.createDiv({
 				text: "No export configuration provided.",
-				cls: "ft-text-muted",
+				cls: "ft-text-muted ft-p-3",
 			});
 			return;
 		}
@@ -133,6 +147,7 @@ export class ExportView extends ItemView {
 			this.currentPage = "preview";
 		}
 
+		this.buildLayout();
 		this.renderPage();
 	}
 
@@ -145,70 +160,282 @@ export class ExportView extends ItemView {
 		this.pendingSavedConfig = config;
 	}
 
+	// ── Layout skeleton ─────────────────────────────────────
+
+	private buildLayout(): void {
+		const el = this.contentEl;
+		el.empty();
+
+		this.rootEl = el.createDiv({ cls: "flowti-container" });
+		this.rootEl.style.height = "100%";
+		this.rootEl.style.display = "flex";
+		this.rootEl.style.flexDirection = "column";
+
+		// Top bar
+		this.topBarEl = this.rootEl.createDiv({ cls: "ft-view-top-bar" });
+
+		// Workspace
+		this.workspaceEl = this.rootEl.createDiv({ cls: "ft-view-workspace" });
+	}
+
 	// ── Page routing ────────────────────────────────────────
 
 	private renderPage(): void {
-		const el = this.contentEl;
-		el.empty();
-		el.addClass("flowti-csv-action");
+		if (!this.rootEl) return;
+
+		this.renderTopBar();
 
 		if (this.loadError && this.currentPage !== "result") {
-			this.renderError(el);
+			this.renderError();
 			return;
 		}
 
 		switch (this.currentPage) {
 			case "view-select":
-				this.renderViewSelectPage(el);
+				this.renderViewSelectPage();
 				break;
 			case "configure":
-				this.renderConfigurePage(el);
+				this.renderConfigurePage();
 				break;
 			case "preview":
-				this.renderPreviewPage(el);
+				this.renderPreviewPage();
 				break;
 			case "result":
-				this.renderResultPage(el);
+				this.renderResultPage();
 				break;
 		}
 	}
 
-	private renderError(el: HTMLElement): void {
-		const container = el.createDiv({ cls: "flowti-csv-container flowti-csv-wide" });
-		container.createEl("h3", { text: "Export" });
-		const alert = container.createDiv({ cls: "ft-alert-error ft-p-3" });
+	private renderError(): void {
+		const ws = this.workspaceEl!;
+		ws.empty();
+		const container = ws.createDiv({ cls: "ft-table-scroll" });
+		container.createEl("h3", { text: "Export", cls: "ft-heading ft-heading-sm" });
+		const alert = container.createDiv({ cls: "ft-alert-error ft-p-3 ft-mt-3" });
 		alert.createEl("strong", { text: "Error: " });
 		alert.createSpan({ text: this.loadError! });
-		this.renderNav(container, { close: true });
+
+		const nav = container.createDiv({ cls: "ft-detail-actions ft-mt-4" });
+		const closeBtn = nav.createEl("span", { cls: "ft-nav-link" });
+		setIcon(closeBtn.createSpan(), "x");
+		closeBtn.appendText(" Close");
+		closeBtn.addEventListener("click", () => this.leaf.detach());
+	}
+
+	// ── Top bar with stepper ────────────────────────────────
+
+	private renderTopBar(): void {
+		const bar = this.topBarEl!;
+		bar.empty();
+
+		// Source info
+		const sourceInfo = bar.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
+		sourceInfo.style.flexShrink = "0";
+		const icon = sourceInfo.createSpan();
+		setIcon(icon, "file-output");
+		icon.style.opacity = "0.6";
+
+		const parts = this.sourcePath.replace(/\\/g, "/").split("/");
+		const name = parts[parts.length - 1] || this.sourcePath;
+		sourceInfo.createSpan({ text: name, cls: "ft-text-sm" });
+
+		sourceInfo.createSpan({
+			text: this.sourceType,
+			cls: "ft-badge ft-badge-muted",
+		});
+		sourceInfo.createSpan({
+			text: this.format === "tab" ? "Tab" : "CSV",
+			cls: "ft-badge ft-badge-muted",
+		});
+
+		// Stepper
+		const stepBar = bar.createDiv({ cls: "ft-step-bar" });
+		const steps: ExportPage[] = this.sourceType === "base"
+			? ["view-select", "configure", "preview", "result"]
+			: ["configure", "preview", "result"];
+
+		for (let i = 0; i < steps.length; i++) {
+			const step = steps[i];
+			const stepEl = stepBar.createDiv({ cls: "ft-step-indicator" });
+
+			const stepIdx = steps.indexOf(this.currentPage);
+			const thisIdx = i;
+			let stateClass = "ft-step-pending";
+			if (thisIdx < stepIdx) stateClass = "ft-step-completed";
+			else if (thisIdx === stepIdx) stateClass = "ft-step-running";
+			if (step === "result" && this.exportResult) stateClass = "ft-step-completed";
+			if (step === "result" && this.exportError) stateClass = "ft-step-failed";
+
+			stepEl.addClass(stateClass);
+
+			const iconEl = stepEl.createDiv({ cls: "ft-step-icon" });
+			iconEl.textContent = String(i + 1);
+
+			stepEl.createSpan({
+				text: STEP_LABELS[step],
+				cls: "ft-step-label",
+			});
+
+			// Allow clicking completed steps for backward navigation
+			if (thisIdx < stepIdx) {
+				stepEl.style.cursor = "pointer";
+				const targetPage = step;
+				stepEl.addEventListener("click", () => {
+					this.currentPage = targetPage;
+					this.renderPage();
+				});
+			}
+
+			// Arrow separator
+			if (i < steps.length - 1) {
+				stepBar.createSpan({
+					text: "\u203A",
+					cls: "ft-text-muted",
+				}).style.margin = "0 0.25rem";
+			}
+		}
+
+		// Spacer
+		bar.createDiv().style.flex = "1";
+
+		// Config dropdown
+		this.renderConfigDropdownButton(bar);
+	}
+
+	// ── Config dropdown ─────────────────────────────────────
+
+	private renderConfigDropdownButton(bar: HTMLElement): void {
+		const wrapper = bar.createDiv({ cls: "ft-config-dropdown" });
+		const btn = wrapper.createEl("span", { cls: "ft-nav-link" });
+		const btnIcon = btn.createSpan();
+		setIcon(btnIcon, "settings-2");
+		btn.appendText(" Configs");
+
+		btn.addEventListener("click", (e) => {
+			e.stopPropagation();
+			this.configDropdownOpen = !this.configDropdownOpen;
+			const existingMenu = wrapper.querySelector(".ft-config-dropdown-menu");
+			if (existingMenu) {
+				existingMenu.remove();
+				this.configDropdownOpen = false;
+				return;
+			}
+			this.renderConfigDropdownMenu(wrapper);
+		});
+	}
+
+	private renderConfigDropdownMenu(wrapper: HTMLElement): void {
+		const menu = wrapper.createDiv({ cls: "ft-config-dropdown-menu" });
+
+		// Save current config
+		const saveItem = menu.createDiv({ cls: "ft-config-dropdown-item" });
+		const saveIcon = saveItem.createSpan();
+		setIcon(saveIcon, "save");
+		saveItem.appendText(" Save Config...");
+		saveItem.addEventListener("click", () => {
+			menu.remove();
+			this.configDropdownOpen = false;
+			this.promptSaveConfig();
+		});
+
+		if (this.savedConfigs.length > 0) {
+			menu.createDiv({ cls: "ft-config-dropdown-divider" });
+
+			for (const cfg of this.savedConfigs) {
+				const item = menu.createDiv({ cls: "ft-config-dropdown-item" });
+				item.createSpan({ text: cfg.name }).style.flex = "1";
+				item.addEventListener("click", () => {
+					menu.remove();
+					this.configDropdownOpen = false;
+					this.applySavedExportConfig(cfg.id);
+				});
+			}
+		}
+
+		// Close on outside click
+		const closeHandler = (e: MouseEvent) => {
+			if (!wrapper.contains(e.target as Node)) {
+				menu.remove();
+				this.configDropdownOpen = false;
+				document.removeEventListener("click", closeHandler);
+			}
+		};
+		setTimeout(() => document.addEventListener("click", closeHandler), 0);
+	}
+
+	private promptSaveConfig(): void {
+		new InputModal(this.app, {
+			title: "Save Export Config",
+			inputName: "Config name",
+			inputDesc: "A descriptive name for this export configuration",
+			placeholder: "My export config",
+			submitLabel: "Save",
+			onSubmit: (name) => {
+				void this.dataExchangeService
+					.saveExportConfig({
+						name,
+						sourcePath: this.sourcePath,
+						sourceType: this.sourceType,
+						format: this.format,
+						outputPath: this.outputPath,
+						columns: [...this.selectedColumns],
+						fileProperties: [...this.selectedFileProperties],
+						baseViewIndex: this.baseViewIndex,
+						conflictStrategy: this.conflictStrategy,
+						isExternal: this.isExternal || undefined,
+					})
+					.then((saved) => {
+						this.savedConfigs = this.dataExchangeService.getSavedExportConfigs()
+							.filter((c) => c.format === this.format);
+						new Notice(`Config saved: ${saved.name}`);
+					})
+					.catch((err) =>
+						console.error("[Flowti] Failed to save export config", err),
+					);
+			},
+		}).open();
 	}
 
 	// ── Page 0: View Select (.base only) ────────────────────
 
-	private renderViewSelectPage(el: HTMLElement): void {
-		const container = el.createDiv({ cls: "flowti-csv-container flowti-csv-wide" });
-		container.createEl("h3", { text: "Select View to Export" });
+	private renderViewSelectPage(): void {
+		const ws = this.workspaceEl!;
+		ws.empty();
+
+		const container = ws.createDiv({ cls: "ft-table-scroll" });
 
 		if (!this.baseFile || this.baseFile.views.length === 0) {
 			container.createEl("p", {
 				text: "No views found in this base file.",
 				cls: "ft-text-muted",
 			});
-			this.renderNav(container, { close: true });
+			const nav = container.createDiv({ cls: "ft-detail-actions ft-mt-4" });
+			const closeBtn = nav.createEl("span", { cls: "ft-nav-link" });
+			setIcon(closeBtn.createSpan(), "x");
+			closeBtn.appendText(" Close");
+			closeBtn.addEventListener("click", () => this.leaf.detach());
 			return;
 		}
 
+		container.createEl("h3", {
+			text: "Select View to Export",
+			cls: "ft-heading ft-heading-sm ft-mb-3",
+		});
 		container.createEl("p", {
 			text: `${this.baseFile.views.length} view(s) found in ${this.sourcePath}`,
 			cls: "ft-text-muted ft-text-sm ft-mb-3",
 		});
 
-		const viewList = container.createDiv({ cls: "ft-flex-col ft-gap-2" });
+		const viewGrid = container.createDiv({ cls: "ft-property-grid" });
 		for (let i = 0; i < this.baseFile.views.length; i++) {
 			const view = this.baseFile.views[i];
-			const card = viewList.createDiv({
-				cls: `ft-card ft-p-3 ${i === this.baseViewIndex ? "ft-card-selected" : ""}`,
+			const card = viewGrid.createDiv({
+				cls: `ft-property-item ${i === this.baseViewIndex ? "ft-card-selected" : ""}`,
 			});
 			card.style.cursor = "pointer";
+			card.style.padding = "0.75rem";
+			card.style.flexDirection = "column";
+			card.style.alignItems = "flex-start";
 
 			card.createDiv({
 				text: view.name,
@@ -226,53 +453,51 @@ export class ExportView extends ItemView {
 			});
 		}
 
-		this.renderNav(container, {
-			close: true,
-			next: "configure",
-			onNext: async () => {
-				await this.loadColumnsAndPreview();
-			},
+		// Navigation
+		const nav = container.createDiv({ cls: "ft-detail-actions ft-mt-4" });
+		const closeBtn = nav.createEl("span", { cls: "ft-nav-link" });
+		setIcon(closeBtn.createSpan(), "x");
+		closeBtn.appendText(" Close");
+		closeBtn.addEventListener("click", () => this.leaf.detach());
+
+		const nextBtn = nav.createEl("span", { cls: "ft-nav-link" });
+		setIcon(nextBtn.createSpan(), "arrow-right");
+		nextBtn.appendText(" Configure");
+		nextBtn.addEventListener("click", async () => {
+			await this.loadColumnsAndPreview();
+			this.currentPage = "configure";
+			this.renderPage();
 		});
 	}
 
-	// ── Page 1: Configure ───────────────────────────────────
+	// ── Page 1: Configure (split layout) ────────────────────
 
-	private renderConfigurePage(el: HTMLElement): void {
-		const container = el.createDiv({ cls: "flowti-csv-container flowti-csv-wide" });
+	private renderConfigurePage(): void {
+		const ws = this.workspaceEl!;
+		ws.empty();
+
+		const split = ws.createDiv({ cls: "ft-config-split" });
+
+		// ── Left panel: settings ──
+		const panel = split.createDiv({ cls: "ft-config-panel" });
 		const formatLabel = this.format === "tab" ? "Tab-delimited" : "CSV";
-		container.createEl("h3", { text: `Configure Export (${formatLabel})` });
+		panel.createEl("h3", {
+			text: `Configure Export (${formatLabel})`,
+			cls: "ft-heading ft-heading-sm ft-mb-3",
+		});
 
-		// Load saved config
-		if (this.savedConfigs.length > 0) {
-			new Setting(container)
-				.setName("Load saved config")
-				.setDesc("Apply a previously saved export configuration")
-				.addDropdown((dd) => {
-					dd.addOption("", "\u2014 Select \u2014");
-					for (const cfg of this.savedConfigs) {
-						dd.addOption(cfg.id, cfg.name);
-					}
-					dd.onChange((id) => {
-						if (!id) return;
-						this.applySavedExportConfig(id);
-					});
-				});
-		}
-
-		// Target indicator
+		// Output file
 		const targetDesc = this.isExternal
 			? "Saving to filesystem (absolute path)"
 			: "Saving inside vault";
-		const outputSetting = new Setting(container)
+		const outputSetting = new Setting(panel)
 			.setName("Output file")
 			.setDesc(targetDesc)
 			.addText((text) =>
 				text
 					.setValue(this.outputPath)
 					.setPlaceholder(this.isExternal ? "C:\\path\\to\\output.csv" : "path/to/output.csv")
-					.onChange((v) => {
-						this.outputPath = v;
-					}),
+					.onChange((v) => { this.outputPath = v; }),
 			);
 		outputSetting.addExtraButton((btn) =>
 			btn
@@ -288,7 +513,7 @@ export class ExportView extends ItemView {
 		);
 
 		// Conflict strategy
-		new Setting(container)
+		new Setting(panel)
 			.setName("If file exists")
 			.setDesc("How to handle an existing output file")
 			.addDropdown((dd) =>
@@ -299,21 +524,17 @@ export class ExportView extends ItemView {
 						append: "Append rows",
 					})
 					.setValue(this.conflictStrategy)
-					.onChange((v) => {
-						this.conflictStrategy = v as ExportConflictStrategy;
-					}),
+					.onChange((v) => { this.conflictStrategy = v as ExportConflictStrategy; }),
 			);
 
-		// ── File Properties ──────────────────────────────────
-		container.createEl("h4", { text: "File Properties", cls: "ft-mt-4" });
-		container.createEl("p", {
-			text: "Standard Obsidian file properties to include as columns.",
+		// File Properties
+		panel.createEl("h4", { text: "File Properties", cls: "ft-mt-4 ft-heading ft-heading-sm" });
+		panel.createEl("p", {
+			text: "Standard Obsidian file properties to include.",
 			cls: "ft-text-muted ft-text-sm ft-mb-2",
 		});
 
-		const filePropsContainer = container.createDiv({
-			cls: "ft-flex ft-flex-wrap ft-gap-2 ft-mb-3",
-		});
+		const filePropsContainer = panel.createDiv({ cls: "ft-flex-col ft-gap-1" });
 		for (const fp of STANDARD_FILE_PROPERTIES) {
 			const label = filePropsContainer.createEl("label", {
 				cls: "ft-flex ft-items-center ft-gap-1 ft-text-sm",
@@ -335,76 +556,119 @@ export class ExportView extends ItemView {
 			label.createSpan({ text: fp.label });
 		}
 
-		// ── Note Properties ──────────────────────────────────
-		container.createEl("h4", { text: "Note Properties", cls: "ft-mt-4" });
+		// Navigation
+		const nav = panel.createDiv({ cls: "ft-detail-actions ft-mt-4" });
+
+		if (this.sourceType === "base") {
+			const backBtn = nav.createEl("span", { cls: "ft-nav-link" });
+			setIcon(backBtn.createSpan(), "arrow-left");
+			backBtn.appendText(" Views");
+			backBtn.addEventListener("click", () => {
+				this.currentPage = "view-select";
+				this.renderPage();
+			});
+		} else {
+			const closeBtn = nav.createEl("span", { cls: "ft-nav-link" });
+			setIcon(closeBtn.createSpan(), "x");
+			closeBtn.appendText(" Close");
+			closeBtn.addEventListener("click", () => this.leaf.detach());
+		}
+
+		const nextBtn = nav.createEl("span", { cls: "ft-nav-link" });
+		setIcon(nextBtn.createSpan(), "arrow-right");
+		nextBtn.appendText(" Preview");
+		nextBtn.addEventListener("click", () => {
+			this.currentPage = "preview";
+			this.renderPage();
+		});
+
+		// ── Right panel: note properties ──
+		const content = split.createDiv({ cls: "ft-config-content" });
+
+		const header = content.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });
+		header.createEl("h3", { text: "Note Properties", cls: "ft-heading ft-heading-sm" });
+		header.style.flex = "1";
+
+		if (this.availableColumns.length > 0) {
+			// Select all / deselect all
+			const selectAllBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+			selectAllBtn.textContent = "All";
+			selectAllBtn.addEventListener("click", () => {
+				this.selectedColumns = [...this.availableColumns];
+				this.renderConfigurePage();
+			});
+
+			const deselectAllBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+			deselectAllBtn.textContent = "None";
+			deselectAllBtn.addEventListener("click", () => {
+				this.selectedColumns = [];
+				this.renderConfigurePage();
+			});
+		}
 
 		if (this.availableColumns.length === 0) {
-			container.createEl("p", {
+			content.createEl("p", {
 				text: "No frontmatter properties found in the source files.",
 				cls: "ft-text-muted ft-text-sm",
 			});
 		} else {
-			const actions = container.createDiv({
-				cls: "ft-flex ft-gap-2 ft-mb-2",
+			// Search
+			const search = content.createEl("input", {
+				type: "text",
+				cls: "ft-column-search",
+			});
+			search.placeholder = "Search properties...";
+			search.value = this.propertySearchText;
+			search.addEventListener("input", () => {
+				this.propertySearchText = search.value;
+				this.renderPropertyGrid(gridContainer);
 			});
 
-			const selectAllBtn = actions.createEl("button", {
-				text: "Select All",
-				cls: "ft-btn ft-btn-sm",
-			});
-			selectAllBtn.addEventListener("click", () => {
-				this.selectedColumns = [...this.availableColumns];
-				this.renderPage();
-			});
+			// Property grid
+			const gridContainer = content.createDiv();
+			this.renderPropertyGrid(gridContainer);
+		}
+	}
 
-			const deselectAllBtn = actions.createEl("button", {
-				text: "Deselect All",
-				cls: "ft-btn ft-btn-sm",
-			});
-			deselectAllBtn.addEventListener("click", () => {
-				this.selectedColumns = [];
-				this.renderPage();
-			});
+	private renderPropertyGrid(container: HTMLElement): void {
+		container.empty();
 
-			const colContainer = container.createDiv({
-				cls: "ft-flex ft-flex-wrap ft-gap-2",
-			});
-			for (const col of this.availableColumns) {
-				const label = colContainer.createEl("label", {
-					cls: "ft-flex ft-items-center ft-gap-1 ft-text-sm",
-				});
-				const cb = label.createEl("input", { type: "checkbox" });
-				cb.checked = this.selectedColumns.includes(col);
-				cb.addEventListener("change", () => {
-					if (cb.checked) {
-						if (!this.selectedColumns.includes(col)) {
-							this.selectedColumns.push(col);
-						}
-					} else {
-						this.selectedColumns = this.selectedColumns.filter(
-							(c) => c !== col,
-						);
+		const searchLower = this.propertySearchText.toLowerCase();
+		const filtered = this.availableColumns.filter((col) =>
+			!searchLower || col.toLowerCase().includes(searchLower),
+		);
+
+		const grid = container.createDiv({ cls: "ft-property-grid" });
+
+		for (const col of filtered) {
+			const item = grid.createDiv({ cls: "ft-property-item" });
+			const cb = item.createEl("input", { type: "checkbox" });
+			cb.checked = this.selectedColumns.includes(col);
+			cb.addEventListener("change", () => {
+				if (cb.checked) {
+					if (!this.selectedColumns.includes(col)) {
+						this.selectedColumns.push(col);
 					}
-				});
-				label.createSpan({ text: col });
-			}
+				} else {
+					this.selectedColumns = this.selectedColumns.filter((c) => c !== col);
+				}
+			});
+			item.createSpan({ text: col });
 		}
 
-		const backPage: ExportPage | undefined =
-			this.sourceType === "base" ? "view-select" : undefined;
-		this.renderNav(container, {
-			close: true,
-			back: backPage,
-			next: "preview",
-			save: true,
-		});
+		if (filtered.length === 0) {
+			container.createEl("p", {
+				text: this.propertySearchText ? "No matching properties" : "No properties available",
+				cls: "ft-text-muted ft-text-sm ft-p-3",
+			});
+		}
 	}
 
 	// ── Page 2: Preview ─────────────────────────────────────
 
-	private renderPreviewPage(el: HTMLElement): void {
-		const container = el.createDiv({ cls: "flowti-csv-container flowti-csv-wide" });
-		container.createEl("h3", { text: "Preview" });
+	private renderPreviewPage(): void {
+		const ws = this.workspaceEl!;
+		ws.empty();
 
 		const dn = this.displayNames;
 		const fileHeaders: { key: string; label: string }[] =
@@ -422,18 +686,68 @@ export class ExportView extends ItemView {
 			...columnHeaders.map((h) => h.label),
 		];
 
-		if (allHeaders.length === 0) {
-			container.createEl("p", {
-				text: "No columns selected. Go back and select at least one column.",
-				cls: "ft-text-muted",
+		// Stats bar
+		const statsBar = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-px-3 ft-py-2" });
+		statsBar.style.borderBottom = "1px solid var(--background-modifier-border)";
+		statsBar.style.flexShrink = "0";
+
+		statsBar.createSpan({
+			text: `${this.previewFiles.length} rows`,
+			cls: "ft-badge ft-badge-muted",
+		});
+		statsBar.createSpan({
+			text: `${allHeaders.length} columns`,
+			cls: "ft-badge ft-badge-muted",
+		});
+
+		// Validation
+		const issues: string[] = [];
+		if (!this.outputPath.trim()) issues.push("Output path is required");
+		if (allHeaders.length === 0) issues.push("At least one column is required");
+
+		if (issues.length > 0) {
+			const alert = statsBar.createDiv({ cls: "ft-alert-warning ft-p-2 ft-text-sm" });
+			alert.style.marginLeft = "auto";
+			for (const issue of issues) {
+				alert.createSpan({ text: issue });
+				alert.createEl("br");
+			}
+		}
+
+		statsBar.createDiv().style.flex = "1";
+
+		// Navigation in stats bar
+		const backBtn = statsBar.createEl("span", { cls: "ft-nav-link" });
+		setIcon(backBtn.createSpan(), "arrow-left");
+		backBtn.appendText(" Config");
+		backBtn.addEventListener("click", () => {
+			this.currentPage = "configure";
+			this.renderPage();
+		});
+
+		if (issues.length === 0) {
+			const exportBtn = statsBar.createEl("span", { cls: "ft-nav-link" });
+			setIcon(exportBtn.createSpan(), "play");
+			exportBtn.appendText(" Export");
+			exportBtn.addEventListener("click", () => {
+				this.currentPage = "result";
+				this.renderPage();
+				void this.runExport();
 			});
-			this.renderNav(container, { back: "configure", close: true });
+		}
+
+		if (allHeaders.length === 0) {
+			const scroll = ws.createDiv({ cls: "ft-table-scroll" });
+			scroll.createEl("p", {
+				text: "No columns selected. Go back and select at least one column.",
+				cls: "ft-text-muted ft-p-3",
+			});
 			return;
 		}
 
-		// Preview table
-		const maxPreview = 5;
-		const table = container.createEl("table", { cls: "ft-preview-table" });
+		// Table scroll area
+		const scroll = ws.createDiv({ cls: "ft-table-scroll" });
+		const table = scroll.createEl("table", { cls: "ft-preview-table" });
 		const thead = table.createEl("thead");
 		const headerRow = thead.createEl("tr");
 		for (const h of allHeaders) {
@@ -441,6 +755,7 @@ export class ExportView extends ItemView {
 		}
 
 		const tbody = table.createEl("tbody");
+		const maxPreview = 25;
 		const previewSlice = this.previewFiles.slice(0, maxPreview);
 
 		for (const file of previewSlice) {
@@ -460,41 +775,25 @@ export class ExportView extends ItemView {
 		}
 
 		if (this.previewFiles.length > maxPreview) {
-			container.createEl("p", {
+			scroll.createEl("p", {
 				text: `Showing ${maxPreview} of ${this.previewFiles.length} rows`,
 				cls: "ft-text-muted ft-text-sm ft-mt-2",
 			});
 		} else {
-			container.createEl("p", {
+			scroll.createEl("p", {
 				text: `${this.previewFiles.length} rows total`,
 				cls: "ft-text-muted ft-text-sm ft-mt-2",
 			});
 		}
-
-		// Validation
-		const issues: string[] = [];
-		if (!this.outputPath.trim()) issues.push("Output path is required");
-		if (allHeaders.length === 0) issues.push("At least one column is required");
-
-		if (issues.length > 0) {
-			const alert = container.createDiv({
-				cls: "ft-alert-warning ft-p-3 ft-mt-4",
-			});
-			for (const issue of issues) {
-				alert.createEl("p", { text: issue });
-			}
-		}
-
-		this.renderNav(container, {
-			back: "configure",
-			execute: issues.length === 0,
-		});
 	}
 
 	// ── Page 3: Result ──────────────────────────────────────
 
-	private renderResultPage(el: HTMLElement): void {
-		const container = el.createDiv({ cls: "flowti-csv-container flowti-csv-wide" });
+	private renderResultPage(): void {
+		const ws = this.workspaceEl!;
+		ws.empty();
+
+		const container = ws.createDiv({ cls: "ft-table-scroll" });
 
 		if (this.exportResult) {
 			this.renderExportResult(container);
@@ -502,121 +801,81 @@ export class ExportView extends ItemView {
 		}
 
 		if (this.exportError) {
-			container.createEl("h3", { text: "Export Failed" });
-			const alert = container.createDiv({ cls: "ft-alert-error ft-p-3" });
+			container.createEl("h3", { text: "Export Failed", cls: "ft-heading ft-heading-sm" });
+			const alert = container.createDiv({ cls: "ft-alert-error ft-p-3 ft-mt-3" });
 			alert.createEl("strong", { text: "Error: " });
 			alert.createSpan({ text: this.exportError });
-			this.renderNav(container, { back: "configure", close: true });
+
+			const nav = container.createDiv({ cls: "ft-detail-actions ft-mt-4" });
+			const backBtn = nav.createEl("span", { cls: "ft-nav-link" });
+			setIcon(backBtn.createSpan(), "arrow-left");
+			backBtn.appendText(" Config");
+			backBtn.addEventListener("click", () => {
+				this.exportError = null;
+				this.currentPage = "configure";
+				this.renderPage();
+			});
+			const closeBtn = nav.createEl("span", { cls: "ft-nav-link" });
+			setIcon(closeBtn.createSpan(), "x");
+			closeBtn.appendText(" Close");
+			closeBtn.addEventListener("click", () => this.leaf.detach());
 			return;
 		}
 
-		container.createEl("h3", { text: "Exporting..." });
-		container.createDiv({
+		container.createEl("h3", { text: "Exporting...", cls: "ft-heading ft-heading-sm" });
+		const progressContainer = container.createDiv({ cls: "ft-flex-col ft-gap-2 ft-mt-3" });
+		progressContainer.createDiv({
 			text: "Writing export file...",
-			cls: "ft-text-muted ft-p-3",
+			cls: "ft-text-muted",
 		});
+		const bar = progressContainer.createDiv({ cls: "ft-progress-bar" });
+		const fill = bar.createDiv({ cls: "ft-progress-bar-fill" });
+		fill.style.width = "100%";
+		fill.style.animation = "ft-pulse 1.5s infinite";
 	}
 
 	private renderExportResult(container: HTMLElement): void {
 		const r = this.exportResult!;
 
 		if (r.skipped) {
-			container.createEl("h3", { text: "Export Skipped" });
-			const info = container.createDiv({ cls: "ft-card ft-p-3" });
+			container.createEl("h3", { text: "Export Skipped", cls: "ft-heading ft-heading-sm" });
+			const info = container.createDiv({ cls: "ft-card ft-p-3 ft-mt-3" });
 			info.createDiv({ text: `File already exists: ${r.outputPath}` });
 			info.createDiv({
 				text: "The conflict strategy was set to \"skip\", so no changes were made.",
 				cls: "ft-text-muted ft-text-sm ft-mt-1",
 			});
 			new Notice(`Export skipped: ${r.outputPath} already exists`);
-			this.renderNav(container, { close: true, closeLabel: "Close" });
+
+			const nav = container.createDiv({ cls: "ft-detail-actions ft-mt-4" });
+			const closeBtn = nav.createEl("span", { cls: "ft-nav-link" });
+			setIcon(closeBtn.createSpan(), "x");
+			closeBtn.appendText(" Close");
+			closeBtn.addEventListener("click", () => this.leaf.detach());
 			return;
 		}
 
-		container.createEl("h3", { text: "Export Complete" });
+		container.createEl("h3", { text: "Export Complete", cls: "ft-heading ft-heading-sm" });
 
-		const stats = container.createDiv({
-			cls: "ft-card ft-p-3 ft-flex-col ft-gap-1",
-		});
-		stats.createDiv({ text: `Rows exported: ${r.totalRows}` });
-		stats.createDiv({ text: `Columns: ${r.totalColumns}` });
-		stats.createDiv({ text: `Output file: ${r.outputPath}` });
+		// Stats grid
+		const statsGrid = container.createDiv({ cls: "ft-detail-info-grid ft-mt-3" });
+		const addRow = (label: string, value: string) => {
+			statsGrid.createDiv({ text: label, cls: "ft-detail-info-label" });
+			statsGrid.createDiv({ text: value, cls: "ft-detail-info-value" });
+		};
+		addRow("Rows exported", String(r.totalRows));
+		addRow("Columns", String(r.totalColumns));
+		addRow("Output file", r.outputPath);
 
 		new Notice(
 			`Export complete: ${r.totalRows} rows written to ${r.outputPath}`,
 		);
 
-		this.renderNav(container, { close: true, closeLabel: "Close" });
-	}
-
-	// ── Navigation helpers ──────────────────────────────────
-
-	private renderNav(
-		el: HTMLElement,
-		options: {
-			close?: boolean;
-			closeLabel?: string;
-			back?: ExportPage;
-			next?: ExportPage;
-			onNext?: () => Promise<void>;
-			execute?: boolean;
-			save?: boolean;
-		},
-	): void {
-		const nav = new Setting(el).setClass("ft-mt-4");
-
-		if (options.close) {
-			nav.addButton((btn) =>
-				btn
-					.setButtonText(options.closeLabel ?? "Cancel")
-					.onClick(() => this.leaf.detach()),
-			);
-		}
-
-		if (options.back) {
-			const backPage = options.back;
-			nav.addButton((btn) =>
-				btn.setButtonText("Back").onClick(() => {
-					this.currentPage = backPage;
-					this.renderPage();
-				}),
-			);
-		}
-
-		if (options.save) {
-			nav.addButton((btn) =>
-				btn
-					.setButtonText("Save Config")
-					.onClick(() => this.promptSaveConfig()),
-			);
-		}
-
-		if (options.next) {
-			const nextPage = options.next;
-			nav.addButton((btn) =>
-				btn
-					.setButtonText("Next")
-					.setCta()
-					.onClick(async () => {
-						if (options.onNext) await options.onNext();
-						this.currentPage = nextPage;
-						this.renderPage();
-					}),
-			);
-		}
-
-		if (options.execute) {
-			nav.addButton((btn) =>
-				btn
-					.setButtonText("Export")
-					.setCta()
-					.onClick(() => {
-						this.currentPage = "result";
-						this.renderPage();
-						void this.runExport();
-					}),
-			);
-		}
+		const nav = container.createDiv({ cls: "ft-detail-actions ft-mt-4" });
+		const closeBtn = nav.createEl("span", { cls: "ft-nav-link" });
+		setIcon(closeBtn.createSpan(), "x");
+		closeBtn.appendText(" Close");
+		closeBtn.addEventListener("click", () => this.leaf.detach());
 	}
 
 	// ── Execution ───────────────────────────────────────────
@@ -709,7 +968,7 @@ export class ExportView extends ItemView {
 		return parts[parts.length - 1] || p;
 	}
 
-	// ── Config save/load ───────────────────────────────────
+	// ── Config save/load ────────────────────────────────────
 
 	private applySavedExportConfig(id: string): void {
 		const cfg = this.savedConfigs.find((c) => c.id === id);
@@ -727,55 +986,6 @@ export class ExportView extends ItemView {
 		}
 		new Notice(`Loaded config: ${cfg.name}`);
 		this.renderPage();
-	}
-
-	private promptSaveConfig(): void {
-		const existing = this.contentEl.querySelector(".ft-save-config-prompt");
-		if (existing) return;
-
-		const prompt = this.contentEl.createDiv({
-			cls: "ft-save-config-prompt ft-flex ft-gap-2 ft-items-center ft-mt-2 ft-p-2",
-		});
-		const input = prompt.createEl("input", {
-			type: "text",
-			cls: "ft-input",
-		});
-		input.placeholder = "Config name";
-		input.style.flex = "1";
-		const saveBtn = prompt.createEl("button", {
-			text: "Save",
-			cls: "ft-btn ft-btn-sm",
-		});
-		saveBtn.addEventListener("click", () => {
-			const name = input.value.trim();
-			if (!name) {
-				new Notice("Please enter a name for this config");
-				return;
-			}
-			void this.dataExchangeService
-				.saveExportConfig({
-					name,
-					sourcePath: this.sourcePath,
-					sourceType: this.sourceType,
-					format: this.format,
-					outputPath: this.outputPath,
-					columns: [...this.selectedColumns],
-					fileProperties: [...this.selectedFileProperties],
-					baseViewIndex: this.baseViewIndex,
-					conflictStrategy: this.conflictStrategy,
-					isExternal: this.isExternal || undefined,
-				})
-				.then((saved) => {
-					this.savedConfigs = this.dataExchangeService.getSavedExportConfigs()
-						.filter((c) => c.format === this.format);
-					new Notice(`Config saved: ${saved.name}`);
-					prompt.remove();
-				})
-				.catch((err) =>
-					console.error("[Flowti] Failed to save export config", err),
-				);
-		});
-		input.focus();
 	}
 
 	private async loadColumnsAndPreview(): Promise<void> {

@@ -2,12 +2,9 @@
  * CSV Action View for Flowti.
  *
  * Registered as the handler for `.csv` files. When the user clicks a CSV
- * in the file explorer, the landing page shows two actions:
- * "Import as Notes" (transitions to the import wizard) or "Open with Default App"
- * (delegates to the OS). A brief preview table is shown below.
- *
- * The import wizard runs inline (source → configure → preview → result)
- * with no modal overlay.
+ * in the file explorer, the landing page shows file info, column chips, and
+ * a CSV preview. "Import as Notes" transitions to a full-width wizard with
+ * a horizontal stepper, split config layout, and scrollable preview.
  */
 
 import { Notice, Setting, TextFileView, WorkspaceLeaf, setIcon } from "obsidian";
@@ -22,10 +19,17 @@ import type {
 	SavedImportConfig,
 } from "../domain/dataExchange/types";
 import { FolderPickerModal, getVaultFolders } from "./FolderPickerModal";
+import { InputModal } from "./modals";
 
 export const VIEW_TYPE_CSV = "flowti-csv";
 
-type CsvPage = "landing" | "source" | "configure" | "preview" | "result";
+type CsvPage = "landing" | "config" | "preview" | "result";
+
+const STEP_LABELS: Record<string, string> = {
+	config: "Configure",
+	preview: "Preview",
+	result: "Import",
+};
 
 export class CsvActionView extends TextFileView {
 	private eventBus: IEventBus;
@@ -49,6 +53,14 @@ export class CsvActionView extends TextFileView {
 	private savedConfigs: SavedImportConfig[] = [];
 	private pendingSavedConfig: SavedImportConfig | null = null;
 	private unsubscribes: (() => void)[] = [];
+	private columnSearchText = "";
+	private configDropdownOpen = false;
+
+	// Persistent DOM references (created once in setViewData)
+	private rootEl: HTMLElement | null = null;
+	private topBarEl: HTMLElement | null = null;
+	private landingEl: HTMLElement | null = null;
+	private workspaceEl: HTMLElement | null = null;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -81,6 +93,15 @@ export class CsvActionView extends TextFileView {
 	setViewData(data: string, clear: boolean): void {
 		this.data = data;
 		if (clear) this.clear();
+
+		// BUG FIX: When the user switches to another CSV file via the file navigator,
+		// setViewData is called with the new file's data. If we were mid-wizard,
+		// reset everything so the user sees the fresh landing page for the new file.
+		if (this.currentPage !== "landing") {
+			this.resetImportState();
+			this.currentPage = "landing";
+		}
+
 		if (this.autoStartImport) {
 			this.autoStartImport = false;
 			void this.startImportWizard();
@@ -91,6 +112,10 @@ export class CsvActionView extends TextFileView {
 
 	clear(): void {
 		this.contentEl.empty();
+		this.rootEl = null;
+		this.topBarEl = null;
+		this.landingEl = null;
+		this.workspaceEl = null;
 	}
 
 	async onClose(): Promise<void> {
@@ -103,48 +128,264 @@ export class CsvActionView extends TextFileView {
 		this.pendingSavedConfig = config;
 	}
 
-	// ── Page router ──────────────────────────────────────────
+	// ── Layout skeleton ─────────────────────────────────────
 
-	private renderContent(): void {
+	private ensureRoot(): void {
+		if (this.rootEl) return;
+
 		const el = this.contentEl;
 		el.empty();
-		el.addClass("flowti-csv-action");
+
+		this.rootEl = el.createDiv({ cls: "flowti-container" });
+		this.rootEl.style.height = "100%";
+		this.rootEl.style.display = "flex";
+		this.rootEl.style.flexDirection = "column";
+
+		// Top bar (hidden on landing)
+		this.topBarEl = this.rootEl.createDiv({ cls: "ft-view-top-bar ft-hidden" });
+		this.renderTopBar();
+
+		// Landing page container
+		this.landingEl = this.rootEl.createDiv({ cls: "ft-view-landing" });
+
+		// Workspace container (for wizard pages)
+		this.workspaceEl = this.rootEl.createDiv({ cls: "ft-view-workspace ft-hidden" });
+	}
+
+	// ── Page router ─────────────────────────────────────────
+
+	private renderContent(): void {
+		this.ensureRoot();
+
+		const isLanding = this.currentPage === "landing";
+		this.topBarEl!.classList.toggle("ft-hidden", isLanding);
+		this.landingEl!.classList.toggle("ft-hidden", !isLanding);
+		this.workspaceEl!.classList.toggle("ft-hidden", isLanding);
+
+		if (!isLanding) {
+			this.updateStepperState();
+		}
 
 		switch (this.currentPage) {
 			case "landing":
-				this.renderLanding(el);
+				this.renderLanding();
 				break;
-			case "source":
-				this.renderSourcePage(el);
-				break;
-			case "configure":
-				this.renderConfigurePage(el);
+			case "config":
+				this.renderConfigPage();
 				break;
 			case "preview":
-				this.renderPreviewPage(el);
+				this.renderPreviewPage();
 				break;
 			case "result":
-				this.renderResultPage(el);
+				this.renderResultPage();
 				break;
 		}
 	}
 
-	// ── Landing page ─────────────────────────────────────────
+	// ── Top bar with stepper ────────────────────────────────
 
-	private renderLanding(el: HTMLElement): void {
-		const container = el.createDiv({ cls: "flowti-csv-container" });
+	private renderTopBar(): void {
+		const bar = this.topBarEl!;
+		bar.empty();
 
-		// Icon + heading
-		const iconEl = container.createDiv({ cls: "flowti-csv-icon" });
+		// File info
+		const fileInfo = bar.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
+		fileInfo.style.flexShrink = "0";
+		const icon = fileInfo.createSpan();
+		setIcon(icon, "file-spreadsheet");
+		icon.style.opacity = "0.6";
+		const name = fileInfo.createSpan({
+			text: this.file?.basename ?? "CSV",
+			cls: "ft-text-sm",
+		});
+		name.style.cursor = "pointer";
+		name.addEventListener("click", () => {
+			this.resetImportState();
+			this.currentPage = "landing";
+			this.renderContent();
+		});
+
+		// Row/column badges
+		if (this.parsedCsv) {
+			fileInfo.createSpan({
+				text: `${this.parsedCsv.rowCount} rows`,
+				cls: "ft-badge ft-badge-muted",
+			});
+			fileInfo.createSpan({
+				text: `${this.parsedCsv.headers.length} cols`,
+				cls: "ft-badge ft-badge-muted",
+			});
+		}
+
+		// Stepper
+		const stepBar = bar.createDiv({ cls: "ft-step-bar" });
+		const steps: CsvPage[] = ["config", "preview", "result"];
+		const pageOrder: CsvPage[] = ["config", "preview", "result"];
+
+		for (let i = 0; i < steps.length; i++) {
+			const step = steps[i];
+			const stepEl = stepBar.createDiv({ cls: "ft-step-indicator" });
+
+			const stepIdx = pageOrder.indexOf(this.currentPage);
+			const thisIdx = i;
+			let stateClass = "ft-step-pending";
+			if (thisIdx < stepIdx) stateClass = "ft-step-completed";
+			else if (thisIdx === stepIdx) stateClass = "ft-step-running";
+			if (step === "result" && this.importResult) stateClass = "ft-step-completed";
+			if (step === "result" && this.importError) stateClass = "ft-step-failed";
+
+			stepEl.addClass(stateClass);
+
+			const iconEl = stepEl.createDiv({ cls: "ft-step-icon" });
+			iconEl.textContent = String(i + 1);
+
+			stepEl.createSpan({
+				text: STEP_LABELS[step],
+				cls: "ft-step-label",
+			});
+
+			// Allow clicking completed steps for backward navigation
+			if (thisIdx < stepIdx) {
+				stepEl.style.cursor = "pointer";
+				const targetPage = step;
+				stepEl.addEventListener("click", () => {
+					this.currentPage = targetPage;
+					this.renderContent();
+				});
+			}
+
+			// Arrow separator
+			if (i < steps.length - 1) {
+				stepBar.createSpan({
+					text: "\u203A",
+					cls: "ft-text-muted",
+				}).style.margin = "0 0.25rem";
+			}
+		}
+
+		// Spacer
+		bar.createDiv().style.flex = "1";
+
+		// Config dropdown
+		this.renderConfigDropdownButton(bar);
+	}
+
+	private updateStepperState(): void {
+		// Re-render top bar to update stepper states
+		this.renderTopBar();
+	}
+
+	// ── Config dropdown ─────────────────────────────────────
+
+	private renderConfigDropdownButton(bar: HTMLElement): void {
+		const wrapper = bar.createDiv({ cls: "ft-config-dropdown" });
+		const btn = wrapper.createEl("span", { cls: "ft-nav-link" });
+		const btnIcon = btn.createSpan();
+		setIcon(btnIcon, "settings-2");
+		btn.appendText(" Configs");
+
+		btn.addEventListener("click", (e) => {
+			e.stopPropagation();
+			this.configDropdownOpen = !this.configDropdownOpen;
+			const existingMenu = wrapper.querySelector(".ft-config-dropdown-menu");
+			if (existingMenu) {
+				existingMenu.remove();
+				this.configDropdownOpen = false;
+				return;
+			}
+			this.renderConfigDropdownMenu(wrapper);
+		});
+	}
+
+	private renderConfigDropdownMenu(wrapper: HTMLElement): void {
+		const menu = wrapper.createDiv({ cls: "ft-config-dropdown-menu" });
+
+		// Save current config
+		const saveItem = menu.createDiv({ cls: "ft-config-dropdown-item" });
+		const saveIcon = saveItem.createSpan();
+		setIcon(saveIcon, "save");
+		saveItem.appendText(" Save Config...");
+		saveItem.addEventListener("click", () => {
+			menu.remove();
+			this.configDropdownOpen = false;
+			this.promptSaveConfig();
+		});
+
+		if (this.savedConfigs.length > 0) {
+			menu.createDiv({ cls: "ft-config-dropdown-divider" });
+
+			for (const cfg of this.savedConfigs) {
+				const item = menu.createDiv({ cls: "ft-config-dropdown-item" });
+				item.createSpan({ text: cfg.name }).style.flex = "1";
+				item.addEventListener("click", () => {
+					menu.remove();
+					this.configDropdownOpen = false;
+					this.applySavedImportConfig(cfg.id);
+					this.renderContent();
+				});
+			}
+		}
+
+		// Close on outside click
+		const closeHandler = (e: MouseEvent) => {
+			if (!wrapper.contains(e.target as Node)) {
+				menu.remove();
+				this.configDropdownOpen = false;
+				document.removeEventListener("click", closeHandler);
+			}
+		};
+		setTimeout(() => document.addEventListener("click", closeHandler), 0);
+	}
+
+	private promptSaveConfig(): void {
+		new InputModal(this.app, {
+			title: "Save Import Config",
+			inputName: "Config name",
+			inputDesc: "A descriptive name for this import configuration",
+			placeholder: "My import config",
+			submitLabel: "Save",
+			onSubmit: (name) => {
+				void this.dataExchangeService
+					.saveImportConfig({
+						name,
+						targetFolder: this.targetFolder,
+						nameColumn: this.nameColumn,
+						columnMappings: [...this.columnMappings],
+						conflictStrategy: this.conflictStrategy,
+					})
+					.then((saved) => {
+						this.savedConfigs = this.dataExchangeService.getSavedImportConfigs();
+						new Notice(`Config saved: ${saved.name}`);
+					})
+					.catch((err) =>
+						console.error("[Flowti] Failed to save import config", err),
+					);
+			},
+		}).open();
+	}
+
+	// ── Landing page ────────────────────────────────────────
+
+	private renderLanding(): void {
+		const el = this.landingEl!;
+		el.empty();
+
+		// Hero section
+		const hero = el.createDiv({ cls: "flowti-csv-container" });
+		hero.style.maxWidth = "none";
+		hero.style.textAlign = "center";
+		hero.style.marginBottom = "1.5rem";
+
+		const iconEl = hero.createDiv({ cls: "flowti-csv-icon" });
 		setIcon(iconEl, "file-spreadsheet");
-		container.createEl("h2", { text: this.file?.basename ?? "CSV File" });
-		container.createEl("p", {
+		hero.createEl("h2", { text: this.file?.basename ?? "CSV File" });
+		hero.createEl("p", {
 			cls: "flowti-csv-desc",
 			text: "Choose an action for this CSV file:",
 		});
 
 		// Action buttons
-		const actions = container.createDiv({ cls: "flowti-csv-actions" });
+		const actions = hero.createDiv({ cls: "flowti-csv-actions" });
 
 		const importBtn = actions.createEl("button", { cls: "mod-cta" });
 		setIcon(importBtn.createSpan({ cls: "flowti-csv-btn-icon" }), "file-input");
@@ -166,8 +407,8 @@ export class CsvActionView extends TextFileView {
 
 		// File info + data summary
 		if (this.data?.trim()) {
-			this.renderFileInfoDashboard(container);
-			this.renderCsvPreview(container);
+			this.renderFileInfoDashboard(el);
+			this.renderCsvPreview(el);
 		}
 	}
 
@@ -208,27 +449,27 @@ export class CsvActionView extends TextFileView {
 		const lines = this.data.split("\n").filter((l) => l.trim());
 		if (lines.length === 0) return;
 
-		container.createEl("h3", { text: "Preview" });
+		container.createEl("h3", { text: "Preview", cls: "ft-heading ft-heading-sm" });
 		const tableWrap = container.createDiv({ cls: "flowti-csv-preview" });
 		const table = tableWrap.createEl("table");
 
-		const maxRows = Math.min(lines.length, 6);
+		const maxRows = Math.min(lines.length, 12);
 		for (let i = 0; i < maxRows; i++) {
 			const tr = table.createEl("tr");
 			const cells = this.splitCsvLine(lines[i]);
 			const tag = i === 0 ? "th" : "td";
-			for (const cell of cells.slice(0, 8)) {
+			for (const cell of cells.slice(0, 12)) {
 				tr.createEl(tag, { text: cell });
 			}
-			if (cells.length > 8) {
+			if (cells.length > 12) {
 				tr.createEl(tag, { text: "\u2026" });
 			}
 		}
 
-		if (lines.length > 6) {
+		if (lines.length > 12) {
 			container.createEl("p", {
 				cls: "flowti-csv-more",
-				text: `\u2026 and ${lines.length - 6} more rows`,
+				text: `\u2026 and ${lines.length - 12} more rows`,
 			});
 		}
 	}
@@ -252,7 +493,7 @@ export class CsvActionView extends TextFileView {
 		return result;
 	}
 
-	// ── Import wizard entry ──────────────────────────────────
+	// ── Import wizard entry ─────────────────────────────────
 
 	private async startImportWizard(): Promise<void> {
 		this.importService = this.dataExchangeService.getImportService();
@@ -286,7 +527,7 @@ export class CsvActionView extends TextFileView {
 			this.pendingSavedConfig = null;
 			this.currentPage = "preview";
 		} else {
-			this.currentPage = "source";
+			this.currentPage = "config";
 		}
 		this.renderContent();
 	}
@@ -307,75 +548,50 @@ export class CsvActionView extends TextFileView {
 		this.createBase = false;
 		this.basePath = "";
 		this.savedConfigs = [];
+		this.columnSearchText = "";
+		this.configDropdownOpen = false;
 	}
 
-	// ── Page 1: Source ───────────────────────────────────────
+	// ── Config page (split layout) ──────────────────────────
 
-	private renderSourcePage(el: HTMLElement): void {
-		const container = el.createDiv({ cls: "flowti-csv-container flowti-csv-wide" });
-		container.createEl("h3", { text: "Import CSV as Notes" });
+	private renderConfigPage(): void {
+		const ws = this.workspaceEl!;
+		ws.empty();
 
 		if (this.parseError) {
-			const alert = container.createDiv({ cls: "ft-alert-error ft-p-3 ft-mb-4" });
+			const alert = ws.createDiv({ cls: "ft-alert-error ft-p-3 ft-m-3" });
 			alert.createEl("strong", { text: "Parse Error: " });
 			alert.createSpan({ text: this.parseError });
-			this.renderNav(container, { cancel: true });
+			const actions = ws.createDiv({ cls: "ft-detail-actions ft-p-3" });
+			const cancelBtn = actions.createEl("span", { cls: "ft-nav-link" });
+			setIcon(cancelBtn.createSpan(), "arrow-left");
+			cancelBtn.appendText(" Back to CSV");
+			cancelBtn.addEventListener("click", () => {
+				this.resetImportState();
+				this.currentPage = "landing";
+				this.renderContent();
+			});
 			return;
 		}
 
 		if (!this.parsedCsv) return;
 
-		new Setting(container)
-			.setName("Source file")
-			.setDesc(this.file!.path);
+		const split = ws.createDiv({ cls: "ft-config-split" });
 
-		new Setting(container)
-			.setName("Rows detected")
-			.setDesc(`${this.parsedCsv.rowCount} data rows`);
+		// ── Left panel: config form ──
+		const panel = split.createDiv({ cls: "ft-config-panel" });
 
-		new Setting(container)
-			.setName("Columns detected")
-			.setDesc(this.parsedCsv.headers.join(", "));
-
-		// Load saved config
-		if (this.savedConfigs.length > 0) {
-			new Setting(container)
-				.setName("Load saved config")
-				.setDesc("Apply a previously saved import configuration")
-				.addDropdown((dd) => {
-					dd.addOption("", "\u2014 Select \u2014");
-					for (const cfg of this.savedConfigs) {
-						dd.addOption(cfg.id, cfg.name);
-					}
-					dd.onChange((id) => {
-						if (!id) return;
-						this.applySavedImportConfig(id);
-					});
-				});
-		}
-
-		this.renderNav(container, { cancel: true, next: "configure" });
-	}
-
-	// ── Page 2: Configure ───────────────────────────────────
-
-	private renderConfigurePage(el: HTMLElement): void {
-		const container = el.createDiv({ cls: "flowti-csv-container flowti-csv-wide" });
-		container.createEl("h3", { text: "Configure Import" });
-
-		if (!this.parsedCsv) return;
+		panel.createEl("h3", { text: "Configure Import", cls: "ft-heading ft-heading-sm ft-mb-3" });
 
 		// Target folder
-		const targetSetting = new Setting(container)
+		const targetSetting = new Setting(panel)
 			.setName("Target folder")
 			.setDesc("Vault folder where notes will be created")
 			.addText((text) =>
 				text
 					.setValue(this.targetFolder)
 					.setPlaceholder("path/to/folder")
-					.onChange((v) => {
-						this.targetFolder = v;
-					}),
+					.onChange((v) => { this.targetFolder = v; }),
 			);
 		targetSetting.addExtraButton((btn) =>
 			btn
@@ -385,7 +601,7 @@ export class CsvActionView extends TextFileView {
 		);
 
 		// Name column
-		new Setting(container)
+		new Setting(panel)
 			.setName("Name column")
 			.setDesc("CSV column used as the note filename")
 			.addDropdown((dropdown) => {
@@ -393,13 +609,11 @@ export class CsvActionView extends TextFileView {
 					dropdown.addOption(h, h);
 				}
 				dropdown.setValue(this.nameColumn);
-				dropdown.onChange((v) => {
-					this.nameColumn = v;
-				});
+				dropdown.onChange((v) => { this.nameColumn = v; this.renderConfigPage(); });
 			});
 
 		// Conflict strategy
-		new Setting(container)
+		new Setting(panel)
 			.setName("Existing notes")
 			.setDesc("What to do when a note already exists")
 			.addDropdown((dropdown) => {
@@ -407,68 +621,193 @@ export class CsvActionView extends TextFileView {
 				dropdown.addOption("update", "Update frontmatter");
 				dropdown.addOption("overwrite", "Overwrite entire note");
 				dropdown.setValue(this.conflictStrategy);
-				dropdown.onChange((v) => {
-					this.conflictStrategy = v as ConflictStrategy;
-				});
+				dropdown.onChange((v) => { this.conflictStrategy = v as ConflictStrategy; });
 			});
 
-		// Column mapping header
-		container.createEl("h4", { text: "Column Mapping", cls: "ft-mt-4" });
-		container.createEl("p", {
-			text: "Map CSV columns to frontmatter keys. Uncheck to exclude.",
-			cls: "ft-text-muted ft-text-sm",
+		// Navigation
+		const nav = panel.createDiv({ cls: "ft-detail-actions ft-mt-4" });
+
+		const backBtn = nav.createEl("span", { cls: "ft-nav-link" });
+		setIcon(backBtn.createSpan(), "arrow-left");
+		backBtn.appendText(" Back");
+		backBtn.addEventListener("click", () => {
+			this.resetImportState();
+			this.currentPage = "landing";
+			this.renderContent();
 		});
 
-		// Column mapping repeater
-		const mappingContainer = container.createDiv({ cls: "ft-flex-col ft-gap-1" });
-		for (const mapping of this.columnMappings) {
-			if (mapping.csvColumn === this.nameColumn) continue;
+		const nextBtn = nav.createEl("span", { cls: "ft-nav-link" });
+		setIcon(nextBtn.createSpan(), "arrow-right");
+		nextBtn.appendText(" Preview");
+		nextBtn.addEventListener("click", () => {
+			this.currentPage = "preview";
+			this.renderContent();
+		});
 
-			const row = mappingContainer.createDiv({
-				cls: "ft-column-mapping-row",
-			});
+		// ── Right panel: column mapping ──
+		const content = split.createDiv({ cls: "ft-config-content" });
 
-			row.createSpan({
-				text: mapping.csvColumn,
-				cls: "ft-text-sm",
-			}).style.width = "120px";
+		const header = content.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });
+		header.createEl("h3", { text: "Column Mapping", cls: "ft-heading ft-heading-sm" });
+		header.style.flex = "1";
 
-			row.createSpan({ text: "\u2192", cls: "ft-text-muted" });
+		// Select all / deselect all
+		const selectAllBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		selectAllBtn.textContent = "All";
+		selectAllBtn.addEventListener("click", () => {
+			for (const m of this.columnMappings) m.included = true;
+			this.renderConfigPage();
+		});
 
-			const inputEl = row.createEl("input", {
-				type: "text",
-				cls: "ft-input",
-			});
-			inputEl.value = mapping.frontmatterKey;
-			inputEl.style.flex = "1";
-			inputEl.addEventListener("input", () => {
-				mapping.frontmatterKey = inputEl.value;
-			});
+		const deselectAllBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		deselectAllBtn.textContent = "None";
+		deselectAllBtn.addEventListener("click", () => {
+			for (const m of this.columnMappings) m.included = false;
+			this.renderConfigPage();
+		});
 
-			const toggleEl = row.createEl("input", { type: "checkbox" });
-			toggleEl.checked = mapping.included;
-			toggleEl.addEventListener("change", () => {
-				mapping.included = toggleEl.checked;
-			});
-		}
+		// Search
+		const search = content.createEl("input", {
+			type: "text",
+			cls: "ft-column-search",
+		});
+		search.placeholder = "Search columns...";
+		search.value = this.columnSearchText;
+		search.addEventListener("input", () => {
+			this.columnSearchText = search.value;
+			this.renderMappingTable(tableContainer);
+		});
 
-		this.renderNav(container, { back: "source", next: "preview", save: true });
+		// Mapping table
+		const tableContainer = content.createDiv();
+		this.renderMappingTable(tableContainer);
 	}
 
-	// ── Page 3: Preview ─────────────────────────────────────
-
-	private renderPreviewPage(el: HTMLElement): void {
-		const container = el.createDiv({ cls: "flowti-csv-container flowti-csv-wide" });
-		container.createEl("h3", { text: "Preview" });
+	private renderMappingTable(container: HTMLElement): void {
+		container.empty();
 
 		if (!this.parsedCsv) return;
 
-		const includedMappings = this.columnMappings.filter(
-			(m) => m.included && m.csvColumn !== this.nameColumn,
-		);
+		const searchLower = this.columnSearchText.toLowerCase();
+		const filteredMappings = this.columnMappings.filter((m) => {
+			if (searchLower && !m.csvColumn.toLowerCase().includes(searchLower) &&
+				!m.frontmatterKey.toLowerCase().includes(searchLower)) return false;
+			return true;
+		});
 
-		// Preview table
-		const table = container.createEl("table", { cls: "ft-preview-table" });
+		const table = container.createEl("table", { cls: "ft-mapping-table" });
+		const thead = table.createEl("thead");
+		const headerRow = thead.createEl("tr");
+		headerRow.createEl("th", { text: "Include" }).style.width = "60px";
+		headerRow.createEl("th", { text: "CSV Column" });
+		headerRow.createEl("th").style.width = "30px"; // arrow
+		headerRow.createEl("th", { text: "Frontmatter Key" });
+
+		const tbody = table.createEl("tbody");
+
+		for (const mapping of filteredMappings) {
+			const isNameCol = mapping.csvColumn === this.nameColumn;
+			const tr = tbody.createEl("tr");
+
+			// Include checkbox
+			const tdCheck = tr.createEl("td");
+			tdCheck.style.textAlign = "center";
+			const cb = tdCheck.createEl("input", { type: "checkbox" });
+			cb.checked = mapping.included;
+			cb.addEventListener("change", () => { mapping.included = cb.checked; });
+
+			// CSV column + filename badge
+			const tdCol = tr.createEl("td", { cls: "ft-text-sm" });
+			tdCol.appendText(mapping.csvColumn);
+			if (isNameCol) {
+				tdCol.createSpan({
+					text: "filename",
+					cls: "ft-badge ft-badge-accent",
+				}).style.marginLeft = "0.5rem";
+			}
+
+			// Arrow
+			tr.createEl("td", { text: "\u2192", cls: "ft-text-muted" }).style.textAlign = "center";
+
+			// Frontmatter key
+			const tdKey = tr.createEl("td");
+			const input = tdKey.createEl("input", { type: "text" });
+			input.value = mapping.frontmatterKey;
+			input.addEventListener("input", () => { mapping.frontmatterKey = input.value; });
+		}
+
+		if (filteredMappings.length === 0) {
+			const emptyRow = tbody.createEl("tr");
+			const td = emptyRow.createEl("td");
+			td.colSpan = 4;
+			td.textContent = this.columnSearchText ? "No matching columns" : "No columns available";
+			td.className = "ft-text-muted ft-text-center ft-p-3";
+		}
+	}
+
+	// ── Preview page ────────────────────────────────────────
+
+	private renderPreviewPage(): void {
+		const ws = this.workspaceEl!;
+		ws.empty();
+
+		if (!this.parsedCsv) return;
+
+		const includedMappings = this.columnMappings.filter((m) => m.included);
+
+		// Stats bar
+		const statsBar = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-px-3 ft-py-2" });
+		statsBar.style.borderBottom = "1px solid var(--background-modifier-border)";
+		statsBar.style.flexShrink = "0";
+
+		statsBar.createSpan({
+			text: `${this.parsedCsv.rowCount} rows`,
+			cls: "ft-badge ft-badge-muted",
+		});
+		statsBar.createSpan({
+			text: `${includedMappings.length + 1} columns`,
+			cls: "ft-badge ft-badge-muted",
+		});
+
+		// Validation
+		const issues: string[] = [];
+		if (!this.targetFolder.trim()) issues.push("Target folder is required");
+		if (!this.nameColumn) issues.push("Name column is required");
+
+		if (issues.length > 0) {
+			const alert = statsBar.createDiv({ cls: "ft-alert-warning ft-p-2 ft-text-sm" });
+			alert.style.marginLeft = "auto";
+			for (const issue of issues) {
+				alert.createSpan({ text: issue });
+				alert.createEl("br");
+			}
+		}
+
+		statsBar.createDiv().style.flex = "1";
+
+		// Navigation in stats bar
+		const backBtn = statsBar.createEl("span", { cls: "ft-nav-link" });
+		setIcon(backBtn.createSpan(), "arrow-left");
+		backBtn.appendText(" Config");
+		backBtn.addEventListener("click", () => {
+			this.currentPage = "config";
+			this.renderContent();
+		});
+
+		if (issues.length === 0) {
+			const importBtn = statsBar.createEl("span", { cls: "ft-nav-link" });
+			setIcon(importBtn.createSpan(), "play");
+			importBtn.appendText(" Import");
+			importBtn.addEventListener("click", () => {
+				this.currentPage = "result";
+				this.renderContent();
+				void this.runImport();
+			});
+		}
+
+		// Table scroll area
+		const scroll = ws.createDiv({ cls: "ft-table-scroll" });
+		const table = scroll.createEl("table", { cls: "ft-preview-table" });
 		const thead = table.createEl("thead");
 		const headerRow = thead.createEl("tr");
 		headerRow.createEl("th", { text: "Filename" });
@@ -478,7 +817,7 @@ export class CsvActionView extends TextFileView {
 
 		const tbody = table.createEl("tbody");
 		const nameIndex = this.parsedCsv.headers.indexOf(this.nameColumn);
-		const previewRows = this.parsedCsv.rows.slice(0, 10);
+		const previewRows = this.parsedCsv.rows.slice(0, 25);
 
 		for (const row of previewRows) {
 			const tr = tbody.createEl("tr");
@@ -493,37 +832,21 @@ export class CsvActionView extends TextFileView {
 			}
 		}
 
-		if (this.parsedCsv.rowCount > 10) {
-			container.createEl("p", {
-				text: `Showing 10 of ${this.parsedCsv.rowCount} rows`,
+		if (this.parsedCsv.rowCount > 25) {
+			scroll.createEl("p", {
+				text: `Showing 25 of ${this.parsedCsv.rowCount} rows`,
 				cls: "ft-text-muted ft-text-sm ft-mt-2",
 			});
 		}
-
-		// Validation
-		const issues: string[] = [];
-		if (!this.targetFolder.trim()) issues.push("Target folder is required");
-		if (!this.nameColumn) issues.push("Name column is required");
-
-		if (issues.length > 0) {
-			const alert = container.createDiv({
-				cls: "ft-alert-warning ft-p-3 ft-mt-4",
-			});
-			for (const issue of issues) {
-				alert.createEl("p", { text: issue });
-			}
-		}
-
-		this.renderNav(container, {
-			back: "configure",
-			execute: issues.length === 0,
-		});
 	}
 
-	// ── Page 4: Result ──────────────────────────────────────
+	// ── Result page ─────────────────────────────────────────
 
-	private renderResultPage(el: HTMLElement): void {
-		const container = el.createDiv({ cls: "flowti-csv-container flowti-csv-wide" });
+	private renderResultPage(): void {
+		const ws = this.workspaceEl!;
+		ws.empty();
+
+		const container = ws.createDiv({ cls: "ft-table-scroll" });
 
 		if (this.importResult) {
 			this.renderImportResult(container);
@@ -531,17 +854,26 @@ export class CsvActionView extends TextFileView {
 		}
 
 		if (this.importError) {
-			container.createEl("h3", { text: "Import Failed" });
-			const alert = container.createDiv({ cls: "ft-alert-error ft-p-3" });
-			alert.createEl("strong", { text: "Import Failed: " });
+			container.createEl("h3", { text: "Import Failed", cls: "ft-heading ft-heading-sm" });
+			const alert = container.createDiv({ cls: "ft-alert-error ft-p-3 ft-mt-3" });
+			alert.createEl("strong", { text: "Error: " });
 			alert.createSpan({ text: this.importError });
-			this.renderNav(container, { cancel: true });
+
+			const nav = container.createDiv({ cls: "ft-detail-actions ft-mt-4" });
+			const backBtn = nav.createEl("span", { cls: "ft-nav-link" });
+			setIcon(backBtn.createSpan(), "arrow-left");
+			backBtn.appendText(" Back to CSV");
+			backBtn.addEventListener("click", () => {
+				this.resetImportState();
+				this.currentPage = "landing";
+				this.renderContent();
+			});
 			return;
 		}
 
 		// Progress indicator
-		container.createEl("h3", { text: "Importing..." });
-		container.createDiv({ cls: "ft-import-progress" });
+		container.createEl("h3", { text: "Importing...", cls: "ft-heading ft-heading-sm" });
+		container.createDiv({ cls: "ft-import-progress ft-mt-3" });
 		this.renderProgressIndicator();
 	}
 
@@ -551,7 +883,7 @@ export class CsvActionView extends TextFileView {
 		container.innerHTML = "";
 
 		const wrapper = document.createElement("div");
-		wrapper.className = "ft-flex-col ft-gap-2 ft-p-3";
+		wrapper.className = "ft-flex-col ft-gap-2";
 
 		const label = document.createElement("p");
 		label.textContent = `Processing row ${this.importProgress.current} of ${this.importProgress.total}...`;
@@ -575,25 +907,27 @@ export class CsvActionView extends TextFileView {
 	private renderImportResult(container: HTMLElement): void {
 		const r = this.importResult!;
 
-		container.createEl("h3", { text: "Import Complete" });
+		container.createEl("h3", { text: "Import Complete", cls: "ft-heading ft-heading-sm" });
 
-		const stats = container.createDiv({ cls: "ft-card ft-p-3 ft-flex-col ft-gap-1" });
-		stats.createDiv({ text: `Total rows: ${r.totalRows}` });
-		stats.createDiv({ text: `Created: ${r.created}` });
-		stats.createDiv({ text: `Updated: ${r.updated}` });
-		stats.createDiv({ text: `Skipped: ${r.skipped}` });
-		if (r.failed > 0) {
-			stats.createDiv({
-				text: `Failed: ${r.failed}`,
-				cls: "ft-text-error",
-			});
-		}
+		// Stats grid
+		const statsGrid = container.createDiv({ cls: "ft-detail-info-grid ft-mt-3" });
+		const addRow = (label: string, value: string, cls?: string) => {
+			statsGrid.createDiv({ text: label, cls: "ft-detail-info-label" });
+			const v = statsGrid.createDiv({ text: value, cls: "ft-detail-info-value" });
+			if (cls) v.addClass(cls);
+		};
+		addRow("Total rows", String(r.totalRows));
+		addRow("Created", String(r.created));
+		addRow("Updated", String(r.updated));
+		addRow("Skipped", String(r.skipped));
+		if (r.failed > 0) addRow("Failed", String(r.failed), "ft-text-error");
 
 		if (r.errors.length > 0) {
-			container.createEl("h4", { text: "Errors", cls: "ft-mt-4" });
-			const errorList = container.createDiv({
-				cls: "ft-flex-col ft-gap-1 ft-text-sm",
-			});
+			const errorSection = container.createDiv({ cls: "ft-detail-section" });
+			const errorHeader = errorSection.createDiv({ cls: "ft-detail-section-header" });
+			errorHeader.createEl("h4", { text: "Errors" });
+
+			const errorList = errorSection.createDiv({ cls: "ft-flex-col ft-gap-1 ft-text-sm" });
 			for (const err of r.errors.slice(0, 20)) {
 				errorList.createDiv({
 					text: `Row ${err.row} (${err.filename}): ${err.error}`,
@@ -617,14 +951,17 @@ export class CsvActionView extends TextFileView {
 		if (checkPath && !checkPath.endsWith(".base")) checkPath += ".base";
 		const baseExists = !!this.app.vault.getAbstractFileByPath(checkPath);
 
+		const baseSection = container.createDiv({ cls: "ft-detail-section" });
+
 		if (baseExists) {
-			new Setting(container)
+			new Setting(baseSection)
 				.setName("Base view")
 				.setDesc(`Already exists: ${checkPath}`);
 		} else {
-			container.createEl("h4", { text: "Create Base View", cls: "ft-mt-4" });
+			const baseHeader = baseSection.createDiv({ cls: "ft-detail-section-header" });
+			baseHeader.createEl("h4", { text: "Create Base View" });
 
-			new Setting(container)
+			new Setting(baseSection)
 				.setName("Create a .base view file")
 				.setDesc("Generate a table view for the imported notes")
 				.addToggle((toggle) =>
@@ -637,16 +974,14 @@ export class CsvActionView extends TextFileView {
 				);
 
 			if (this.createBase) {
-				const baseSetting = new Setting(container)
+				const baseSetting = new Setting(baseSection)
 					.setName("Base file path")
 					.setDesc("Where to save the .base view file")
 					.addText((text) =>
 						text
 							.setValue(this.basePath)
 							.setPlaceholder("path/to/view.base")
-							.onChange((v) => {
-								this.basePath = v;
-							}),
+							.onChange((v) => { this.basePath = v; }),
 					);
 				baseSetting.addExtraButton((btn) =>
 					btn
@@ -655,7 +990,7 @@ export class CsvActionView extends TextFileView {
 						.onClick(() => this.openBaseFolderPicker()),
 				);
 
-				const createBtn = container.createEl("button", {
+				const createBtn = baseSection.createEl("button", {
 					text: "Create .base",
 					cls: "ft-btn ft-btn-sm ft-mt-2",
 				});
@@ -663,79 +998,16 @@ export class CsvActionView extends TextFileView {
 			}
 		}
 
-		this.renderNav(container, { cancel: true, cancelLabel: "Back to CSV" });
-	}
-
-	// ── Navigation helpers ──────────────────────────────────
-
-	private renderNav(
-		el: HTMLElement,
-		options: {
-			cancel?: boolean;
-			cancelLabel?: string;
-			back?: CsvPage;
-			next?: CsvPage;
-			execute?: boolean;
-			save?: boolean;
-		},
-	): void {
-		const nav = new Setting(el).setClass("ft-mt-4");
-
-		if (options.cancel) {
-			nav.addButton((btn) =>
-				btn
-					.setButtonText(options.cancelLabel ?? "Cancel")
-					.onClick(() => {
-						this.resetImportState();
-						this.currentPage = "landing";
-						this.renderContent();
-					}),
-			);
-		}
-
-		if (options.back) {
-			const backPage = options.back;
-			nav.addButton((btn) =>
-				btn.setButtonText("Back").onClick(() => {
-					this.currentPage = backPage;
-					this.renderContent();
-				}),
-			);
-		}
-
-		if (options.save) {
-			nav.addButton((btn) =>
-				btn
-					.setButtonText("Save Config")
-					.onClick(() => this.promptSaveConfig()),
-			);
-		}
-
-		if (options.next) {
-			const nextPage = options.next;
-			nav.addButton((btn) =>
-				btn
-					.setButtonText("Next")
-					.setCta()
-					.onClick(() => {
-						this.currentPage = nextPage;
-						this.renderContent();
-					}),
-			);
-		}
-
-		if (options.execute) {
-			nav.addButton((btn) =>
-				btn
-					.setButtonText("Import")
-					.setCta()
-					.onClick(() => {
-						this.currentPage = "result";
-						this.renderContent();
-						void this.runImport();
-					}),
-			);
-		}
+		// Navigation
+		const nav = container.createDiv({ cls: "ft-detail-actions ft-mt-4" });
+		const backBtn = nav.createEl("span", { cls: "ft-nav-link" });
+		setIcon(backBtn.createSpan(), "arrow-left");
+		backBtn.appendText(" Back to CSV");
+		backBtn.addEventListener("click", () => {
+			this.resetImportState();
+			this.currentPage = "landing";
+			this.renderContent();
+		});
 	}
 
 	// ── Execution ───────────────────────────────────────────
@@ -760,7 +1032,7 @@ export class CsvActionView extends TextFileView {
 		this.renderContent();
 	}
 
-	// ── Config save/load ───────────────────────────────────
+	// ── Config load ─────────────────────────────────────────
 
 	private applySavedImportConfig(id: string): void {
 		const cfg = this.savedConfigs.find((c) => c.id === id);
@@ -782,50 +1054,7 @@ export class CsvActionView extends TextFileView {
 		new Notice(`Loaded config: ${cfg.name}`);
 	}
 
-	private promptSaveConfig(): void {
-		const existing = this.contentEl.querySelector(".ft-save-config-prompt");
-		if (existing) return;
-
-		const prompt = this.contentEl.createDiv({
-			cls: "ft-save-config-prompt ft-flex ft-gap-2 ft-items-center ft-mt-2 ft-p-2",
-		});
-		const input = prompt.createEl("input", {
-			type: "text",
-			cls: "ft-input",
-		});
-		input.placeholder = "Config name";
-		input.style.flex = "1";
-		const saveBtn = prompt.createEl("button", {
-			text: "Save",
-			cls: "ft-btn ft-btn-sm",
-		});
-		saveBtn.addEventListener("click", () => {
-			const name = input.value.trim();
-			if (!name) {
-				new Notice("Please enter a name for this config");
-				return;
-			}
-			void this.dataExchangeService
-				.saveImportConfig({
-					name,
-					targetFolder: this.targetFolder,
-					nameColumn: this.nameColumn,
-					columnMappings: [...this.columnMappings],
-					conflictStrategy: this.conflictStrategy,
-				})
-				.then((saved) => {
-					this.savedConfigs = this.dataExchangeService.getSavedImportConfigs();
-					new Notice(`Config saved: ${saved.name}`);
-					prompt.remove();
-				})
-				.catch((err) =>
-					console.error("[Flowti] Failed to save import config", err),
-				);
-		});
-		input.focus();
-	}
-
-	// ── Folder pickers ─────────────────────────────────────
+	// ── Folder pickers ──────────────────────────────────────
 
 	private openFolderPicker(): void {
 		const folders = getVaultFolders(this.app);
@@ -844,13 +1073,11 @@ export class CsvActionView extends TextFileView {
 		}).open();
 	}
 
-	// ── .base file creation ────────────────────────────────
+	// ── .base file creation ─────────────────────────────────
 
 	private generateBaseYaml(): string {
 		const folder = this.targetFolder;
-		const includedMappings = this.columnMappings.filter(
-			(m) => m.included && m.csvColumn !== this.nameColumn,
-		);
+		const includedMappings = this.columnMappings.filter((m) => m.included);
 
 		const lines: string[] = [];
 		lines.push("filters:");
