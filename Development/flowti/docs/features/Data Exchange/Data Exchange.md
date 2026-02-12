@@ -2,6 +2,8 @@
 stage: design
 domain: Flowti
 plugin: "[[Development/flowti/README|README]]"
+tags:
+  - core
 ---
 
 # The Import and Export Features

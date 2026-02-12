@@ -12,6 +12,6 @@ views:
       - plugin
       - tags
     columnSize:
-      file.name: 169
+      file.name: 199
       note.stage: 126
       note.domain: 132
