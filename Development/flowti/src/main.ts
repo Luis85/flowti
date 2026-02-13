@@ -827,6 +827,7 @@ export default class FlowtiBasePlugin extends Plugin {
 					this.dataExchangeService!,
 					(csvPath, savedConfig) => this.openCsvImportWithConfig(csvPath, savedConfig),
 					(savedConfig) => this.openExportWithSavedConfig(savedConfig),
+					(sourcePath, sourceType, format) => this.openExportView(sourcePath, sourceType, format),
 				),
 			);
 

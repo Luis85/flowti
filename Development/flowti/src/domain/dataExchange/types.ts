@@ -234,6 +234,8 @@ export interface SavedImportConfig {
 	name: string;
 	/** Timestamp when saved */
 	createdAt: number;
+	/** Whether this config is marked as a favourite */
+	favourite?: boolean;
 	/** Path to the CSV file this config was saved from (optional for backward compat) */
 	sourcePath?: string;
 	/** Target folder for created notes */
@@ -264,6 +266,8 @@ export interface SavedExportConfig {
 	name: string;
 	/** Timestamp when saved */
 	createdAt: number;
+	/** Whether this config is marked as a favourite */
+	favourite?: boolean;
 	/** Source path this config was saved from */
 	sourcePath: string;
 	/** Whether source is a folder or .base file */
@@ -290,6 +294,8 @@ export interface DataExchangeState {
 	savedExportConfigs: SavedExportConfig[];
 	/** Per-CSV file display settings, keyed by vault path */
 	csvDisplaySettings?: Record<string, CsvDisplaySettings>;
+	/** Vault paths of CSV files hidden from the "Available Files" dashboard section */
+	hiddenCsvPaths?: string[];
 }
 
 // ── CSV display settings ────────────────────────────────

@@ -233,6 +233,13 @@ export class DataExchangeService {
 		return { ...cfg };
 	}
 
+	/** Toggles the favourite status of an import config. */
+	async toggleImportFavourite(id: string): Promise<void> {
+		const cfg = this.getImportConfig(id);
+		if (!cfg) return;
+		await this.updateImportConfig(id, { favourite: !cfg.favourite });
+	}
+
 	/** Returns import configs whose sourcePath matches the given CSV path. */
 	getImportConfigsForFile(csvPath: string): SavedImportConfig[] {
 		return this.state.savedImportConfigs.filter(
@@ -284,6 +291,13 @@ export class DataExchangeService {
 		return { ...cfg };
 	}
 
+	/** Toggles the favourite status of an export config. */
+	async toggleExportFavourite(id: string): Promise<void> {
+		const cfg = this.getExportConfig(id);
+		if (!cfg) return;
+		await this.updateExportConfig(id, { favourite: !cfg.favourite });
+	}
+
 	/** Returns export configs whose sourcePath matches the given path. */
 	getExportConfigsForSource(sourcePath: string): SavedExportConfig[] {
 		return this.state.savedExportConfigs.filter(
@@ -313,6 +327,31 @@ export class DataExchangeService {
 		}
 		this.state.csvDisplaySettings[csvPath] = settings;
 		await this.saveState();
+	}
+
+	// ── CSV file visibility ─────────────────────────────────
+
+	getHiddenCsvPaths(): string[] {
+		return this.state.hiddenCsvPaths ?? [];
+	}
+
+	async hideCsv(csvPath: string): Promise<void> {
+		if (!this.state.hiddenCsvPaths) {
+			this.state.hiddenCsvPaths = [];
+		}
+		if (!this.state.hiddenCsvPaths.includes(csvPath)) {
+			this.state.hiddenCsvPaths.push(csvPath);
+			await this.saveState();
+		}
+	}
+
+	async unhideCsv(csvPath: string): Promise<void> {
+		if (!this.state.hiddenCsvPaths) return;
+		const idx = this.state.hiddenCsvPaths.indexOf(csvPath);
+		if (idx !== -1) {
+			this.state.hiddenCsvPaths.splice(idx, 1);
+			await this.saveState();
+		}
 	}
 
 	// ── Data dictionary ─────────────────────────────────────

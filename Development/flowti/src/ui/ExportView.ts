@@ -1177,11 +1177,42 @@ export class ExportView extends ItemView {
 				isExternal: this.isExternal || undefined,
 				conflictStrategy: this.conflictStrategy,
 			});
+			// Auto-save config on first export if none exists for this source
+			await this.autoSaveConfigIfNeeded();
 		} catch (error) {
 			this.exportError =
 				error instanceof Error ? error.message : String(error);
 		}
 		this.renderPage();
+	}
+
+	/** Auto-saves the export config if no config exists for this source yet. */
+	private async autoSaveConfigIfNeeded(): Promise<void> {
+		if (this.loadedConfigId) return;
+		const existing = this.dataExchangeService.getExportConfigsForSource(this.sourcePath);
+		if (existing.length > 0) return;
+		try {
+			const name = this.getFilenameFromPath(this.sourcePath).replace(/\.\w+$/, "");
+			const saved = await this.dataExchangeService.saveExportConfig({
+				name,
+				sourcePath: this.sourcePath,
+				sourceType: this.sourceType,
+				format: this.format,
+				outputPath: this.outputPath,
+				columns: [...this.selectedColumns],
+				fileProperties: [...this.selectedFileProperties],
+				baseViewIndex: this.baseViewIndex,
+				conflictStrategy: this.conflictStrategy,
+				isExternal: this.isExternal || undefined,
+			});
+			this.savedConfigs = this.dataExchangeService.getSavedExportConfigs()
+				.filter((c) => c.format === this.format);
+			this.loadedConfigId = saved.id;
+			new Notice(`Config auto-saved: ${saved.name}`);
+			this.renderTopBar();
+		} catch (err) {
+			console.error("[Flowti] Failed to auto-save export config", err);
+		}
 	}
 
 	// ── Helpers ─────────────────────────────────────────────

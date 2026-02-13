@@ -1459,7 +1459,7 @@ export class CsvActionView extends TextFileView {
 
 		new Setting(panel)
 			.setName("Create .base view")
-			.setDesc(baseExists ? "A .base view exists and will be updated on import" : "Generate a table view for imported notes")
+			.setDesc(baseExists ? "A .base view already exists (will not be overwritten)" : "Generate a table view for imported notes")
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.createBase || baseExists)
@@ -1766,7 +1766,7 @@ export class CsvActionView extends TextFileView {
 		let basePath = this.basePath.trim();
 		if (basePath && !basePath.endsWith(".base")) basePath += ".base";
 		if (basePath && this.app.vault.getAbstractFileByPath(basePath)) {
-			addRow("Base view", `Update ${basePath}`);
+			addRow("Base view", `Exists: ${basePath} (will not be overwritten)`);
 		} else if (this.createBase && basePath) {
 			addRow("Base view", `Create ${basePath}`);
 		}
@@ -2123,8 +2123,10 @@ export class CsvActionView extends TextFileView {
 		}
 	}
 
-	/** Creates a new .base file or updates an existing one to match current column mappings. */
+	/** Creates a new .base file if one doesn't exist yet. Existing files are never overwritten
+	 *  because they may contain custom formulas, views, and properties. */
 	private async syncBaseFile(): Promise<void> {
+		if (!this.createBase) return;
 		if (!this.basePath) {
 			this.basePath = this.targetFolder
 				? `${this.targetFolder}/${this.getBaseFilename()}`
@@ -2135,24 +2137,15 @@ export class CsvActionView extends TextFileView {
 		if (!path.endsWith(".base")) path += ".base";
 
 		const existing = this.app.vault.getAbstractFileByPath(path);
-		const content = this.generateBaseYaml();
+		if (existing) return; // Never overwrite — existing base may have formulas, views, etc.
 
-		if (existing instanceof TFile) {
-			// Update existing .base file with current column order
-			try {
-				await this.app.vault.modify(existing, content);
-			} catch (err) {
-				console.error("[Flowti] Failed to update .base file", err);
-			}
-		} else if (this.createBase) {
-			// Create new .base file
-			try {
-				await this.app.vault.create(path, content);
-				new Notice(`Base view created: ${path}`);
-			} catch (err) {
-				const msg = err instanceof Error ? err.message : String(err);
-				new Notice(`Failed to create .base file: ${msg}`);
-			}
+		try {
+			const content = this.generateBaseYaml();
+			await this.app.vault.create(path, content);
+			new Notice(`Base view created: ${path}`);
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			new Notice(`Failed to create .base file: ${msg}`);
 		}
 	}
 
@@ -2261,30 +2254,6 @@ export class CsvActionView extends TextFileView {
 		return lines.join("\n") + "\n";
 	}
 
-	private async createBaseFile(): Promise<void> {
-		if (!this.basePath.trim()) {
-			new Notice("Please enter a path for the .base file");
-			return;
-		}
-
-		let path = this.basePath.trim();
-		if (!path.endsWith(".base")) path += ".base";
-
-		const existing = this.app.vault.getAbstractFileByPath(path);
-		if (existing) {
-			new Notice(`Base file already exists: ${path}`);
-			return;
-		}
-
-		try {
-			const content = this.generateBaseYaml();
-			await this.app.vault.create(path, content);
-			new Notice(`Base view created: ${path}`);
-		} catch (error) {
-			const msg = error instanceof Error ? error.message : String(error);
-			new Notice(`Failed to create .base file: ${msg}`);
-		}
-	}
 
 	private getBaseFilename(): string {
 		const parts = (this.file?.path ?? "imported.csv").replace(/\\/g, "/").split("/");

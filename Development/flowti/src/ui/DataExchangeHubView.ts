@@ -13,6 +13,7 @@ import type { IEventBus } from "../infrastructure/events/types";
 import type { DataExchangeService } from "../domain/dataExchange/DataExchangeService";
 import type {
 	DataDictionaryEntry,
+	ExportFormat,
 	SavedImportConfig,
 	SavedExportConfig,
 } from "../domain/dataExchange/types";
@@ -32,6 +33,11 @@ export class DataExchangeHubView extends ItemView {
 		savedConfig?: SavedImportConfig,
 	) => void;
 	private openExport: (savedConfig: SavedExportConfig) => void;
+	private openNewExport: (
+		sourcePath: string,
+		sourceType: "folder" | "base",
+		format: ExportFormat,
+	) => void;
 
 	// State
 	private currentPage: HubPage = "dashboard";
@@ -44,6 +50,7 @@ export class DataExchangeHubView extends ItemView {
 	private dictionaryEntries: DataDictionaryEntry[] = [];
 	private reportEntries: Array<{ name: string; path: string; frontmatter: Record<string, unknown> }> = [];
 	private filterText = "";
+	private showHiddenCsvs = false;
 	private editingImportId: string | null = null;
 	private editingExportId: string | null = null;
 	private csvFileEntries: Array<{
@@ -77,12 +84,18 @@ export class DataExchangeHubView extends ItemView {
 			savedConfig?: SavedImportConfig,
 		) => void,
 		openExport: (savedConfig: SavedExportConfig) => void,
+		openNewExport: (
+			sourcePath: string,
+			sourceType: "folder" | "base",
+			format: ExportFormat,
+		) => void,
 	) {
 		super(leaf);
 		this.eventBus = eventBus;
 		this.dataExchangeService = dataExchangeService;
 		this.openCsvImport = openCsvImport;
 		this.openExport = openExport;
+		this.openNewExport = openNewExport;
 	}
 
 	getViewType(): string {
@@ -392,6 +405,22 @@ export class DataExchangeHubView extends ItemView {
 	private renderDashboard(): void {
 		this.dashboardEl.empty();
 
+		// ── Title bar ──
+		const titleBar = this.dashboardEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-mb-3" });
+		titleBar.style.borderBottom = "1px solid var(--background-modifier-border)";
+		titleBar.style.paddingBottom = "0.75rem";
+		const titleIcon = titleBar.createSpan();
+		setIcon(titleIcon, "arrow-left-right");
+		titleIcon.style.opacity = "0.5";
+		titleBar.createEl("h2", {
+			text: "Data Exchange",
+			cls: "ft-heading",
+		}).style.margin = "0";
+		titleBar.createSpan({
+			text: `${this.importConfigs.length + this.exportConfigs.length} configs`,
+			cls: "ft-badge ft-badge-muted",
+		});
+
 		// Partition CSV files: configured (has import configs), export outputs, unconfigured
 		const exportOutputPaths = new Set(this.exportConfigs.map((c) => c.outputPath));
 		const configuredCsv = this.csvFileEntries.filter((e) => e.importConfigs.length > 0);
@@ -405,7 +434,7 @@ export class DataExchangeHubView extends ItemView {
 		// Section 2: Configured Exports
 		this.renderConfiguredExports(this.dashboardEl);
 
-		// Section 3: Unconfigured CSV Files
+		// Section 3: Available Files
 		this.renderUnconfiguredCsvFiles(this.dashboardEl, unconfiguredCsv);
 	}
 
@@ -431,18 +460,49 @@ export class DataExchangeHubView extends ItemView {
 		const section = container.createDiv();
 		section.style.marginBottom = "1.5rem";
 		this.renderDashboardSectionHeader(section, "file-input", "Configured Imports", entries.length);
+
+		if (entries.length === 0) {
+			// Empty-state CTA — pick a CSV file to start a new import
+			const cta = section.createDiv({ cls: "ft-card ft-p-3 ft-text-center" });
+			const ctaIcon = cta.createDiv();
+			setIcon(ctaIcon, "file-input");
+			ctaIcon.style.opacity = "0.3";
+			ctaIcon.style.marginBottom = "0.5rem";
+			cta.createDiv({
+				text: "No import configs yet",
+				cls: "ft-heading ft-heading-sm ft-mb-1",
+			});
+			cta.createDiv({
+				text: "Create your first import by selecting a CSV file as the data source.",
+				cls: "ft-text-muted ft-text-sm ft-mb-3",
+			});
+			const ctaBtn = cta.createEl("button", { cls: "ft-btn ft-btn-sm mod-cta" });
+			const ctaBtnIcon = ctaBtn.createSpan({ cls: "flowti-csv-btn-icon" });
+			setIcon(ctaBtnIcon, "file-spreadsheet");
+			ctaBtn.appendText(" Select CSV File");
+			ctaBtn.addEventListener("click", () => {
+				new FilePickerModal(this.app, ["csv"], (csvPath) => {
+					this.openCsvImport(csvPath);
+				}).open();
+			});
+			return;
+		}
+
+		// "New Import" button
 		section.createDiv({
 			text: "Data sources ready to import. Run an import to create or update notes from your spreadsheet data.",
 			cls: "ft-text-muted ft-text-sm ft-mb-2",
 		});
-
-		if (entries.length === 0) {
-			section.createDiv({
-				text: "No data sources configured yet. Open a CSV file and set up your first import.",
-				cls: "ft-text-muted ft-p-3 ft-text-center ft-text-sm",
-			});
-			return;
-		}
+		const newRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
+		const newBtn = newRow.createEl("span", { cls: "ft-nav-link" });
+		const newIcon = newBtn.createSpan();
+		setIcon(newIcon, "plus");
+		newBtn.appendText(" New Import from CSV");
+		newBtn.addEventListener("click", () => {
+			new FilePickerModal(this.app, ["csv"], (csvPath) => {
+				this.openCsvImport(csvPath);
+			}).open();
+		});
 
 		const table = section.createEl("table", { cls: "ft-preview-table" });
 		table.style.width = "100%";
@@ -454,13 +514,36 @@ export class DataExchangeHubView extends ItemView {
 		headRow.createEl("th", { text: "" });
 
 		const tbody = table.createEl("tbody");
-		for (const entry of entries) {
+
+		// Sort: favourites first, then by name within each group
+		const sortedEntries = [...entries];
+		for (const entry of sortedEntries) {
+			entry.importConfigs.sort((a, b) => {
+				if ((a.favourite ?? false) !== (b.favourite ?? false)) return a.favourite ? -1 : 1;
+				return a.name.localeCompare(b.name);
+			});
+		}
+
+		for (const entry of sortedEntries) {
 			for (const cfg of entry.importConfigs) {
 				const tr = tbody.createEl("tr");
 
-				// Config column — config name + target folder
+				// Config column — star + config name + target folder
 				const configTd = tr.createEl("td");
-				const cfgLink = configTd.createEl("span", {
+				const configRow = configTd.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
+
+				const starIcon = configRow.createSpan({ cls: "ft-nav-link" });
+				starIcon.style.flexShrink = "0";
+				setIcon(starIcon, cfg.favourite ? "star" : "star-off");
+				if (cfg.favourite) starIcon.style.color = "var(--text-accent)";
+				starIcon.setAttribute("aria-label", cfg.favourite ? "Unfavourite" : "Favourite");
+				starIcon.addEventListener("click", () => {
+					void this.dataExchangeService.toggleImportFavourite(cfg.id).then(() => {
+						this.scheduleRender();
+					});
+				});
+
+				const cfgLink = configRow.createEl("span", {
 					text: cfg.name || "(unnamed)",
 					cls: "ft-nav-link",
 				});
@@ -642,12 +725,39 @@ export class DataExchangeHubView extends ItemView {
 		this.renderDashboardSectionHeader(section, "file-output", "Configured Exports", this.exportConfigs.length);
 
 		if (this.exportConfigs.length === 0) {
-			section.createDiv({
+			// Empty-state CTA — pick a .base file to start a new export
+			const cta = section.createDiv({ cls: "ft-card ft-p-3 ft-text-center" });
+			const ctaIcon = cta.createDiv();
+			setIcon(ctaIcon, "file-output");
+			ctaIcon.style.opacity = "0.3";
+			ctaIcon.style.marginBottom = "0.5rem";
+			cta.createDiv({
 				text: "No export configs yet",
-				cls: "ft-text-muted ft-p-3 ft-text-center ft-text-sm",
+				cls: "ft-heading ft-heading-sm ft-mb-1",
 			});
+			cta.createDiv({
+				text: "Create your first export by selecting a .base file as the data source.",
+				cls: "ft-text-muted ft-text-sm ft-mb-3",
+			});
+			const ctaBtn = cta.createEl("button", { cls: "ft-btn ft-btn-sm mod-cta" });
+			const ctaBtnIcon = ctaBtn.createSpan({ cls: "flowti-csv-btn-icon" });
+			setIcon(ctaBtnIcon, "table");
+			ctaBtn.appendText(" Select Base File");
+			ctaBtn.addEventListener("click", () => this.pickBaseForNewExport());
 			return;
 		}
+
+		// "New Export" button below section header
+		const newRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
+		section.createDiv({
+			text: "Export vault data to CSV or tab-delimited files.",
+			cls: "ft-text-muted ft-text-sm",
+		}).before(newRow);
+		const newBtn = newRow.createEl("span", { cls: "ft-nav-link" });
+		const newIcon = newBtn.createSpan();
+		setIcon(newIcon, "plus");
+		newBtn.appendText(" New Export from Base");
+		newBtn.addEventListener("click", () => this.pickBaseForNewExport());
 
 		const table = section.createEl("table", { cls: "ft-preview-table" });
 		table.style.width = "100%";
@@ -659,12 +769,32 @@ export class DataExchangeHubView extends ItemView {
 		headRow.createEl("th", { text: "" });
 
 		const tbody = table.createEl("tbody");
-		for (const cfg of this.exportConfigs) {
+
+		// Sort: favourites first, then by name
+		const sortedExports = [...this.exportConfigs].sort((a, b) => {
+			if ((a.favourite ?? false) !== (b.favourite ?? false)) return a.favourite ? -1 : 1;
+			return a.name.localeCompare(b.name);
+		});
+
+		for (const cfg of sortedExports) {
 			const tr = tbody.createEl("tr");
 
-			// Name — clickable to detail page
+			// Name — star + clickable name + format badge
 			const nameTd = tr.createEl("td");
-			const nameLink = nameTd.createEl("span", {
+			const nameRow = nameTd.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
+
+			const starIcon = nameRow.createSpan({ cls: "ft-nav-link" });
+			starIcon.style.flexShrink = "0";
+			setIcon(starIcon, cfg.favourite ? "star" : "star-off");
+			if (cfg.favourite) starIcon.style.color = "var(--text-accent)";
+			starIcon.setAttribute("aria-label", cfg.favourite ? "Unfavourite" : "Favourite");
+			starIcon.addEventListener("click", () => {
+				void this.dataExchangeService.toggleExportFavourite(cfg.id).then(() => {
+					this.scheduleRender();
+				});
+			});
+
+			const nameLink = nameRow.createEl("span", {
 				text: cfg.name || "(unnamed)",
 				cls: "ft-nav-link",
 			});
@@ -672,10 +802,10 @@ export class DataExchangeHubView extends ItemView {
 				this.selectedExportId = cfg.id;
 				this.navigateTo("exports");
 			});
-			nameTd.createSpan({
+			nameRow.createSpan({
 				text: cfg.format.toUpperCase(),
 				cls: "ft-master-category-count",
-			}).style.marginLeft = "0.5rem";
+			});
 
 			// Source — base file or folder link
 			const srcTd = tr.createEl("td");
@@ -729,16 +859,50 @@ export class DataExchangeHubView extends ItemView {
 		}
 	}
 
+	/** Opens a file picker for .base files and opens the export wizard with the selected one. */
+	private pickBaseForNewExport(): void {
+		new FilePickerModal(this.app, ["base"], (basePath) => {
+			this.openNewExport(basePath, "base", "csv");
+		}).open();
+	}
+
 	private renderUnconfiguredCsvFiles(
 		container: HTMLElement,
 		entries: typeof this.csvFileEntries,
 	): void {
 		const section = container.createDiv();
-		this.renderDashboardSectionHeader(section, "file-spreadsheet", "Unconfigured CSV Files", entries.length);
 
-		if (entries.length === 0) {
+		// Partition into visible vs hidden
+		const hiddenPaths = this.dataExchangeService.getHiddenCsvPaths();
+		const hiddenSet = new Set(hiddenPaths);
+		const visibleEntries = entries.filter((e) => !hiddenSet.has(e.path));
+		const hiddenEntries = entries.filter((e) => hiddenSet.has(e.path));
+		const displayCount = this.showHiddenCsvs ? entries.length : visibleEntries.length;
+
+		this.renderDashboardSectionHeader(section, "file-spreadsheet", "Available Files", displayCount);
+
+		// Toggle chip for hidden files
+		if (hiddenEntries.length > 0) {
+			const toggleRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
+			const toggleChip = toggleRow.createSpan({
+				cls: `ft-badge ${this.showHiddenCsvs ? "" : "ft-badge-muted"}`,
+			});
+			toggleChip.style.cursor = "pointer";
+			const eyeIcon = toggleChip.createSpan();
+			setIcon(eyeIcon, this.showHiddenCsvs ? "eye" : "eye-off");
+			eyeIcon.style.marginRight = "0.25rem";
+			toggleChip.appendText(`${this.showHiddenCsvs ? "Hide" : "Show"} hidden (${hiddenEntries.length})`);
+			toggleChip.addEventListener("click", () => {
+				this.showHiddenCsvs = !this.showHiddenCsvs;
+				this.scheduleRender();
+			});
+		}
+
+		if (visibleEntries.length === 0 && !this.showHiddenCsvs) {
 			section.createDiv({
-				text: "All CSV files are configured",
+				text: hiddenEntries.length > 0
+					? `All ${hiddenEntries.length} CSV file(s) are hidden`
+					: "No unconfigured CSV files found",
 				cls: "ft-text-muted ft-p-3 ft-text-center ft-text-sm",
 			});
 			return;
@@ -753,69 +917,102 @@ export class DataExchangeHubView extends ItemView {
 		headRow.createEl("th", { text: "" });
 
 		const tbody = table.createEl("tbody");
-		for (const entry of entries) {
-			const tr = tbody.createEl("tr");
+		for (const entry of visibleEntries) {
+			this.renderCsvFileRow(tbody, entry, false);
+		}
+		if (this.showHiddenCsvs) {
+			for (const entry of hiddenEntries) {
+				this.renderCsvFileRow(tbody, entry, true);
+			}
+		}
+	}
 
-			// File name
-			const nameTd = tr.createEl("td");
-			const nameLink = nameTd.createEl("span", {
-				text: entry.name,
-				cls: "ft-nav-link",
+	private renderCsvFileRow(
+		tbody: HTMLElement,
+		entry: typeof this.csvFileEntries[0],
+		isHidden: boolean,
+	): void {
+		const tr = tbody.createEl("tr");
+		if (isHidden) {
+			tr.style.opacity = "0.5";
+		}
+
+		// File name
+		const nameTd = tr.createEl("td");
+		const nameLink = nameTd.createEl("span", {
+			text: entry.name,
+			cls: "ft-nav-link",
+		});
+		nameLink.addEventListener("click", () => {
+			const file = this.app.vault.getAbstractFileByPath(entry.path);
+			if (file instanceof TFile) {
+				void this.app.workspace.getLeaf(false).openFile(file);
+			}
+		});
+		if (entry.path !== entry.name) {
+			const sub = nameTd.createDiv({ cls: "ft-text-muted ft-text-sm" });
+			sub.style.whiteSpace = "nowrap";
+			sub.style.overflow = "hidden";
+			sub.style.textOverflow = "ellipsis";
+			sub.textContent = entry.path;
+		}
+
+		// Doc column
+		const docTd = tr.createEl("td");
+		if (entry.hasDoc) {
+			const docLink = docTd.createEl("span", { cls: "ft-nav-link" });
+			const dIcon = docLink.createSpan();
+			setIcon(dIcon, "file-text");
+			docLink.addEventListener("click", () => {
+				const docPath = this.dataExchangeService.getCsvDocPath(entry.path);
+				void this.app.workspace.openLinkText(docPath, "", false);
 			});
-			nameLink.addEventListener("click", () => {
+		} else {
+			const createLink = docTd.createEl("span", { cls: "ft-nav-link ft-text-muted" });
+			const cIcon = createLink.createSpan();
+			setIcon(cIcon, "plus");
+			createLink.addEventListener("click", () => {
 				const file = this.app.vault.getAbstractFileByPath(entry.path);
-				if (file instanceof TFile) {
-					void this.app.workspace.getLeaf(false).openFile(file);
-				}
-			});
-			// Path as subtitle
-			if (entry.path !== entry.name) {
-				const sub = nameTd.createDiv({ cls: "ft-text-muted ft-text-sm" });
-				sub.style.whiteSpace = "nowrap";
-				sub.style.overflow = "hidden";
-				sub.style.textOverflow = "ellipsis";
-				sub.textContent = entry.path;
-			}
-
-			// Doc column
-			const docTd = tr.createEl("td");
-			if (entry.hasDoc) {
-				const docLink = docTd.createEl("span", { cls: "ft-nav-link" });
-				const dIcon = docLink.createSpan();
-				setIcon(dIcon, "file-text");
-				docLink.addEventListener("click", () => {
-					const docPath = this.dataExchangeService.getCsvDocPath(entry.path);
-					void this.app.workspace.openLinkText(docPath, "", false);
+				if (!(file instanceof TFile)) return;
+				void this.app.vault.read(file).then((content) => {
+					const lines = content.split("\n").filter((l) => l.trim());
+					const headers = lines.length > 0 ? lines[0].split(",").map((h) => h.trim()) : [];
+					const rowCount = Math.max(0, lines.length - 1);
+					return this.dataExchangeService.createCsvDoc(entry.path, headers, rowCount);
+				}).then(() => {
+					new Notice(`Report created for ${entry.name}`);
+					this.scheduleRender();
 				});
-			} else {
-				const createLink = docTd.createEl("span", { cls: "ft-nav-link ft-text-muted" });
-				const cIcon = createLink.createSpan();
-				setIcon(cIcon, "plus");
-				createLink.addEventListener("click", () => {
-					const file = this.app.vault.getAbstractFileByPath(entry.path);
-					if (!(file instanceof TFile)) return;
-					void this.app.vault.read(file).then((content) => {
-						const lines = content.split("\n").filter((l) => l.trim());
-						const headers = lines.length > 0 ? lines[0].split(",").map((h) => h.trim()) : [];
-						const rowCount = Math.max(0, lines.length - 1);
-						return this.dataExchangeService.createCsvDoc(entry.path, headers, rowCount);
-					}).then(() => {
-						new Notice(`Report created for ${entry.name}`);
-						this.scheduleRender();
-					});
-				});
-			}
-
-			// Actions — import
-			const actionsTd = tr.createEl("td");
-			const importLink = actionsTd.createEl("span", { cls: "ft-nav-link" });
-			const impIcon = importLink.createSpan();
-			setIcon(impIcon, "file-input");
-			importLink.appendText(" Import");
-			importLink.addEventListener("click", () => {
-				this.openCsvImport(entry.path);
 			});
 		}
+
+		// Actions — hide/unhide + import
+		const actionsTd = tr.createEl("td");
+		const actionsWrap = actionsTd.createDiv({ cls: "ft-flex ft-gap-2" });
+
+		const hideLink = actionsWrap.createEl("span", { cls: "ft-nav-link ft-text-muted" });
+		const hideIcon = hideLink.createSpan();
+		setIcon(hideIcon, isHidden ? "eye" : "eye-off");
+		hideLink.setAttribute("aria-label", isHidden ? "Unhide" : "Hide");
+		hideLink.addEventListener("click", () => {
+			if (isHidden) {
+				void this.dataExchangeService.unhideCsv(entry.path).then(() => {
+					this.scheduleRender();
+				});
+			} else {
+				void this.dataExchangeService.hideCsv(entry.path).then(() => {
+					this.scheduleRender();
+				});
+			}
+		});
+
+		const importLink = actionsWrap.createEl("span", { cls: "ft-nav-link" });
+		const impIcon = importLink.createSpan();
+		setIcon(impIcon, "file-input");
+		importLink.appendText(" Import");
+		importLink.addEventListener("click", () => {
+			this.openCsvImport(entry.path);
+		});
 	}
 
 	// ── Imports page ─────────────────────────────────────────
