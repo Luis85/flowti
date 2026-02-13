@@ -12,6 +12,13 @@ stage: development
 | **License** | MIT |
 | **Author** | Luis Mendez |
 
+## Product Features
+
+- Event Catalog - Document and Shape your Domain
+- Data Exchange Hub - Import and Export your Data
+- Documentation - Automatically document your work by using the system
+
+
 ## Infrastructure Features
 
 | Feature | Description | Status |

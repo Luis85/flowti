@@ -232,6 +232,28 @@
 			"width":260,
 			"height":60,
 			"color":"2"
+		},
+		{
+			"id":"ef9147a4e239425d",
+			"type":"text",
+			"text":"Event Catalog",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1380,
+			"y":1260,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"06ad3e18891e6b69",
+			"type":"text",
+			"text":"Documentation",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1380,
+			"y":1340,
+			"width":260,
+			"height":60,
+			"color":"2"
 		}
 	],
 	"edges":[
