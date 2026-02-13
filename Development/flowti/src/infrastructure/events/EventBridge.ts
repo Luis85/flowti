@@ -40,6 +40,8 @@ export class EventBridge implements IEventBridge {
 	private unsubscribers: (() => void)[] = [];
 	/** Paths of files that were just created — consumed by metadata.changed listener */
 	private pendingCreatedPaths = new Set<string>();
+	/** Gate: suppresses vault/metadata events until first metadata.resolved fires */
+	private cacheResolved = false;
 
 	constructor(options: EventBridgeOptions) {
 		this.app = options.app;
@@ -419,6 +421,7 @@ export class EventBridge implements IEventBridge {
 	private setupVaultListeners(): void {
 		this.registerEvent(
 			this.app.vault.on("create", (file) => {
+				if (!this.cacheResolved) return;
 				if (file instanceof TFile) {
 					void this.eventBus.emit("file.created", {
 						path: file.path,
@@ -437,6 +440,7 @@ export class EventBridge implements IEventBridge {
 
 		this.registerEvent(
 			this.app.vault.on("modify", (file) => {
+				if (!this.cacheResolved) return;
 				if (file instanceof TFile) {
 					void this.eventBus.emit("file.modified", {
 						path: file.path,
@@ -449,6 +453,7 @@ export class EventBridge implements IEventBridge {
 
 		this.registerEvent(
 			this.app.vault.on("delete", (file) => {
+				if (!this.cacheResolved) return;
 				if (file instanceof TFile) {
 					void this.eventBus.emit("file.deleted", {
 						path: file.path,
@@ -466,6 +471,7 @@ export class EventBridge implements IEventBridge {
 
 		this.registerEvent(
 			this.app.vault.on("rename", (file, oldPath) => {
+				if (!this.cacheResolved) return;
 				if (file instanceof TFile) {
 					void this.eventBus.emit("file.renamed", {
 						oldPath,
@@ -571,6 +577,7 @@ export class EventBridge implements IEventBridge {
 	private setupMetadataCacheListeners(): void {
 		this.registerEvent(
 			this.app.metadataCache.on("changed", (file) => {
+				if (!this.cacheResolved) return;
 				if (file instanceof TFile) {
 					const cache = this.app.metadataCache.getFileCache(file);
 					void this.eventBus.emit("metadata.changed", {
@@ -593,6 +600,10 @@ export class EventBridge implements IEventBridge {
 
 		this.registerEvent(
 			this.app.metadataCache.on("resolved", () => {
+				if (!this.cacheResolved) {
+					this.cacheResolved = true;
+					this.logger.debug("MetadataCache resolved — vault event gate opened");
+				}
 				void this.eventBus.emit("metadata.resolved", {});
 			})
 		);

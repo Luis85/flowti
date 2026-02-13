@@ -111,6 +111,9 @@ describe("EventBridge", () => {
 		});
 		bridge.register();
 		bridge.registerVaultListeners();
+
+		// Open the cache-resolved gate so vault events are emitted in tests
+		mockApp._triggerMetadataCacheEvent("resolved");
 	});
 
 	// ─────────────────────────────────────────────────────────────

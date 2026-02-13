@@ -105,6 +105,35 @@ export default class FlowtiBasePlugin extends Plugin {
 	private pendingSavedExportConfig: SavedExportConfig | null = null;
 	private crossCuttingListeners: (() => void)[] = [];
 
+	// ── Notice throttle ──────────────────────────────────────
+	// Batches rapid-fire notices (e.g. during bulk import) into a single
+	// summary notice per key. Within the window, counts accumulate; when
+	// the timer fires, a single Notice is shown with the total count.
+	private static readonly NOTICE_WINDOW_MS = 2000;
+	private noticeBatches = new Map<string, { count: number; timer: ReturnType<typeof setTimeout> }>();
+
+	private throttledNotice(key: string, singleMsg: string): void {
+		const existing = this.noticeBatches.get(key);
+		if (existing) {
+			existing.count++;
+			return; // timer already running — it will flush
+		}
+		const batch = {
+			count: 1,
+			timer: setTimeout(() => {
+				const b = this.noticeBatches.get(key);
+				this.noticeBatches.delete(key);
+				if (!b) return;
+				if (b.count === 1) {
+					new Notice(singleMsg);
+				} else {
+					new Notice(`${singleMsg} (+${b.count - 1} more)`);
+				}
+			}, FlowtiBasePlugin.NOTICE_WINDOW_MS),
+		};
+		this.noticeBatches.set(key, batch);
+	}
+
 	async onload() {
 		try {
 			// ── Phase 1: Core infrastructure ──────────────────────────
@@ -376,14 +405,20 @@ export default class FlowtiBasePlugin extends Plugin {
 
 		this.crossCuttingListeners.push(
 			this.eventBus.on("eventNotify.fired", (event) => {
-				new Notice(`Event: ${event.payload.eventType}`);
+				this.throttledNotice(
+					`notify:${event.payload.eventType}`,
+					`Event: ${event.payload.eventType}`,
+				);
 			})
 		);
 
 		this.crossCuttingListeners.push(
 			this.eventBus.on("subscription.matched", (event) => {
 				const label = event.payload.subscriptionLabel ?? event.payload.eventType;
-				new Notice(`Subscription matched: ${label}`);
+				this.throttledNotice(
+					`sub:${label}`,
+					`Subscription matched: ${label}`,
+				);
 			})
 		);
 	}
@@ -546,6 +581,11 @@ export default class FlowtiBasePlugin extends Plugin {
 		void leaf.openFile(csvFile);
 	}
 
+	/** Alias for context menu — opens ExportView with a saved config pre-applied. */
+	private openExportViewWithConfig(savedConfig: SavedExportConfig): void {
+		this.openExportWithSavedConfig(savedConfig);
+	}
+
 	/**
 	 * Opens ExportView with a saved export config pre-applied.
 	 */
@@ -574,20 +614,14 @@ export default class FlowtiBasePlugin extends Plugin {
 	 * Final initialization step, deferred until Obsidian's workspace
 	 * layout is fully rendered.
 	 *
-	 * First registers vault/workspace/metadata listeners via
-	 * {@link EventBridge.registerVaultListeners} — doing this here (not
-	 * in onload) avoids reacting to Obsidian's vault initialization
-	 * events. Then loads user data and installer state, shows the
-	 * installer wizard on first run, and emits `plugin.ready`.
+	 * Loads all services first, then registers vault/workspace/metadata
+	 * listeners via {@link EventBridge.registerVaultListeners} right
+	 * before emitting `plugin.ready`. Registering vault listeners last
+	 * avoids a flood of file/metadata events during Obsidian's initial
+	 * cache resolution that would spam services before they're ready.
 	 */
 	private async onLayoutReady(): Promise<void> {
 		try {
-			// Register vault/workspace/metadataCache listeners now that
-			// Obsidian's layout is ready. Doing this earlier would cause
-			// false `file.created` events for every existing file during
-			// vault initialization (see Obsidian docs: "Listening to vault.on('create')").
-			this.eventBridge.registerVaultListeners();
-
 			// Load SettingsService FIRST so its internal state matches storage.
 			// Without this, any event-driven update (e.g. collapsing a category)
 			// would merge with DEFAULT_SETTINGS and overwrite persisted values.
@@ -682,6 +716,24 @@ export default class FlowtiBasePlugin extends Plugin {
 									void leaf.openFile(file);
 								});
 						});
+
+						// Existing import configs for this CSV
+						const importConfigs = this.dataExchangeService!.getImportConfigsForFile(file.path);
+						if (importConfigs.length > 0) {
+							menu.addSeparator();
+							for (const cfg of importConfigs.slice(0, 5)) {
+								menu.addItem((item) => {
+									item.setTitle(`Import with: ${cfg.name}`)
+										.setIcon("play")
+										.onClick(() => {
+											this.pendingSavedImportConfig = cfg;
+											this.pendingImportAutoStart = true;
+											const leaf = this.app.workspace.getLeaf(true);
+											void leaf.openFile(file);
+										});
+								});
+							}
+						}
 					}
 
 					if (file instanceof TFile && file.extension === "base") {
@@ -695,6 +747,19 @@ export default class FlowtiBasePlugin extends Plugin {
 								.setIcon("file-output")
 								.onClick(() => this.openExportView(file.path, "base", "tab"));
 						});
+
+						// Existing export configs for this .base file
+						const exportConfigs = this.dataExchangeService!.getExportConfigsForSource(file.path);
+						if (exportConfigs.length > 0) {
+							menu.addSeparator();
+							for (const cfg of exportConfigs.slice(0, 5)) {
+								menu.addItem((item) => {
+									item.setTitle(`Export with: ${cfg.name}`)
+										.setIcon("play")
+										.onClick(() => this.openExportViewWithConfig(cfg));
+								});
+							}
+						}
 					}
 
 					if (file instanceof TFolder) {
@@ -708,6 +773,19 @@ export default class FlowtiBasePlugin extends Plugin {
 								.setIcon("file-output")
 								.onClick(() => this.openExportView(file.path, "folder", "tab"));
 						});
+
+						// Existing export configs for this folder
+						const exportConfigs = this.dataExchangeService!.getExportConfigsForSource(file.path);
+						if (exportConfigs.length > 0) {
+							menu.addSeparator();
+							for (const cfg of exportConfigs.slice(0, 5)) {
+								menu.addItem((item) => {
+									item.setTitle(`Export with: ${cfg.name}`)
+										.setIcon("play")
+										.onClick(() => this.openExportViewWithConfig(cfg));
+								});
+							}
+						}
 					}
 				})
 			);
@@ -849,6 +927,12 @@ export default class FlowtiBasePlugin extends Plugin {
 					);
 				}
 			}
+
+			// Register vault/workspace/metadataCache listeners AFTER all services
+			// have loaded. Doing this earlier causes a flood of file.created and
+			// metadata.changed events during Obsidian's initial cache resolution,
+			// spamming the catalog and other listeners before they're ready.
+			this.eventBridge.registerVaultListeners();
 
 			void this.eventBus.emit("plugin.ready", {
 				timestamp: new Date().toISOString(),

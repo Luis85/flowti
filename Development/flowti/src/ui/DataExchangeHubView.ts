@@ -3,23 +3,26 @@
  *
  * Follows the same layout and patterns as EventCatalogView:
  * - Dashboard is the landing page (full-height, scrollable, padded)
- * - Sub-pages (Imports / Exports) use the master/detail split layout
+ * - Sub-pages (Imports / Exports / Dictionary) use the master/detail split layout
  * - Top bar appears on sub-pages with clickable title to return to dashboard
  * - Consistent CSS class usage: ft-catalog-*, ft-master-*, ft-detail-*
  */
 
-import { ItemView, Notice, WorkspaceLeaf, setIcon } from "obsidian";
+import { ItemView, Notice, Setting, TFile, WorkspaceLeaf, setIcon } from "obsidian";
 import type { IEventBus } from "../infrastructure/events/types";
 import type { DataExchangeService } from "../domain/dataExchange/DataExchangeService";
 import type {
+	DataDictionaryEntry,
 	SavedImportConfig,
 	SavedExportConfig,
 } from "../domain/dataExchange/types";
-import { ConfirmModal, InputModal } from "./modals";
+import { ConfirmModal } from "./modals";
+import { FilePickerModal } from "./FilePickerModal";
+import { FolderPickerModal, getVaultFolders } from "./FolderPickerModal";
 
 export const VIEW_TYPE_DATA_EXCHANGE_HUB = "flowti-data-exchange-hub";
 
-type HubPage = "dashboard" | "imports" | "exports";
+type HubPage = "dashboard" | "imports" | "exports" | "reports" | "properties";
 
 export class DataExchangeHubView extends ItemView {
 	private eventBus: IEventBus;
@@ -36,7 +39,13 @@ export class DataExchangeHubView extends ItemView {
 	private exportConfigs: SavedExportConfig[] = [];
 	private selectedImportId: string | null = null;
 	private selectedExportId: string | null = null;
+	private selectedDictProp: string | null = null;
+	private selectedReportPath: string | null = null;
+	private dictionaryEntries: DataDictionaryEntry[] = [];
+	private reportEntries: Array<{ name: string; path: string; frontmatter: Record<string, unknown> }> = [];
 	private filterText = "";
+	private editingImportId: string | null = null;
+	private editingExportId: string | null = null;
 
 	// DOM references
 	private topBarEl!: HTMLElement;
@@ -160,6 +169,32 @@ export class DataExchangeHubView extends ItemView {
 	private refreshConfigs(): void {
 		this.importConfigs = this.dataExchangeService.getSavedImportConfigs();
 		this.exportConfigs = this.dataExchangeService.getSavedExportConfigs();
+		this.dictionaryEntries = this.dataExchangeService.buildDataDictionary();
+		this.scanCsvDocs();
+	}
+
+	/** Scans the Reports folder for CsvDoc files and populates reportEntries. */
+	private scanCsvDocs(): void {
+		this.reportEntries = [];
+		const folder = this.dataExchangeService.getReportsFolderPath();
+		const abstractFolder = this.app.vault.getAbstractFileByPath(folder);
+		if (!abstractFolder) return;
+
+		// Get all markdown files in the Reports folder that start with "CSV - "
+		const allFiles = this.app.vault.getMarkdownFiles();
+		for (const file of allFiles) {
+			if (!file.path.startsWith(folder + "/")) continue;
+			if (!file.basename.startsWith("CSV - ")) continue;
+			const cache = this.app.metadataCache.getFileCache(file);
+			const fm = cache?.frontmatter;
+			if (fm?.type !== "CsvDoc") continue;
+			this.reportEntries.push({
+				name: fm.name ? String(fm.name) : file.basename.replace("CSV - ", ""),
+				path: file.path,
+				frontmatter: fm,
+			});
+		}
+		this.reportEntries.sort((a, b) => a.name.localeCompare(b.name));
 	}
 
 	private updateCountBadge(): void {
@@ -185,6 +220,14 @@ export class DataExchangeHubView extends ItemView {
 					this.renderExportsMaster();
 					this.renderExportsDetail();
 					break;
+				case "reports":
+					this.renderReportsMaster();
+					this.renderReportsDetail();
+					break;
+				case "properties":
+					this.renderPropertiesMaster();
+					this.renderPropertiesDetail();
+					break;
 			}
 		}, 16);
 	}
@@ -201,20 +244,29 @@ export class DataExchangeHubView extends ItemView {
 		this.topBarEl.classList.toggle("ft-hidden", isDashboard);
 
 		if (!isDashboard) {
-			this.searchInput.placeholder =
-				page === "imports"
-					? "Search import configs..."
-					: "Search export configs...";
+			const placeholders: Record<string, string> = {
+				imports: "Search import configs...",
+				exports: "Search export configs...",
+				reports: "Search reports...",
+				properties: "Search properties...",
+			};
+			this.searchInput.placeholder = placeholders[page] ?? "Search...";
 			this.filterText = "";
 			this.searchInput.value = "";
 		}
 
+		this.editingImportId = null;
+		this.editingExportId = null;
 		this.scheduleRender();
 	}
 
+	/** Opens the imports page and selects a specific config (for external callers). */
+	showImportConfig(configId: string): void {
+		this.selectedImportId = configId;
+		this.navigateTo("imports");
+	}
+
 	// ── Top bar ─────────────────────────────────────────────
-	// Matches EventCatalogView.renderTopBar: hidden on dashboard,
-	// clickable title returns to dashboard.
 
 	private renderTopBar(container: HTMLElement): void {
 		const bar = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-px-3 ft-py-2 ft-hidden" });
@@ -238,61 +290,49 @@ export class DataExchangeHubView extends ItemView {
 		const spacer = bar.createDiv();
 		spacer.style.flex = "1";
 
-		// Import quick action
+		// Import quick action — uses FilePickerModal
 		const importBtn = bar.createEl("span", { cls: "ft-nav-link" });
 		const importIcon = importBtn.createSpan();
 		setIcon(importIcon, "file-input");
 		importBtn.appendText(" Import CSV");
 		importBtn.addEventListener("click", () => {
-			new InputModal(this.app, {
-				title: "Import CSV",
-				inputName: "CSV file path",
-				inputDesc: "Enter the vault path to a .csv file",
-				placeholder: "path/to/data.csv",
-				submitLabel: "Import",
-				onSubmit: (csvPath) => this.openCsvImport(csvPath),
+			new FilePickerModal(this.app, ["csv"], (csvPath) => {
+				this.openCsvImport(csvPath);
 			}).open();
 		});
 
-		// Export quick action
+		// Export quick action — uses FolderPickerModal
 		const exportBtn = bar.createEl("span", { cls: "ft-nav-link" });
 		const exportIcon = exportBtn.createSpan();
 		setIcon(exportIcon, "file-output");
 		exportBtn.appendText(" Export");
 		exportBtn.addEventListener("click", () => {
-			new InputModal(this.app, {
-				title: "Export Folder as CSV",
-				inputName: "Folder path",
-				inputDesc: "Enter the vault path to a folder",
-				placeholder: "path/to/folder",
-				submitLabel: "Export",
-				onSubmit: (folderPath) => {
-					this.openExport({
-						id: "",
-						name: "",
-						createdAt: 0,
-						sourcePath: folderPath,
-						sourceType: "folder",
-						format: "csv",
-						outputPath: `${folderPath}_export.csv`,
-						columns: [],
-						fileProperties: ["file.name"],
-					});
-				},
+			const folders = getVaultFolders(this.app);
+			new FolderPickerModal(this.app, folders, (folderPath) => {
+				this.openExport({
+					id: "",
+					name: "",
+					createdAt: 0,
+					sourcePath: folderPath,
+					sourceType: "folder",
+					format: "csv",
+					outputPath: `${folderPath}_export.csv`,
+					columns: [],
+					fileProperties: ["file.name"],
+				});
 			}).open();
 		});
 	}
 
 	// ── Dashboard ────────────────────────────────────────────
-	// Matches CatalogDashboard: stats grid, quick actions, links.
 
 	private renderDashboard(): void {
 		this.dashboardEl.empty();
 
-		// Stats grid — same as CatalogDashboard
+		// Stats grid — 4 columns
 		const grid = this.dashboardEl.createDiv({ cls: "ft-dashboard-grid" });
 		grid.style.display = "grid";
-		grid.style.gridTemplateColumns = "repeat(2, 1fr)";
+		grid.style.gridTemplateColumns = "repeat(4, 1fr)";
 		grid.style.gap = "0.75rem";
 		grid.style.marginBottom = "1.5rem";
 
@@ -302,8 +342,14 @@ export class DataExchangeHubView extends ItemView {
 		this.renderDashboardCard(grid, "file-output", this.exportConfigs.length, "Saved Exports", () => {
 			this.navigateTo("exports");
 		});
+		this.renderDashboardCard(grid, "file-spreadsheet", this.reportEntries.length, "Reports", () => {
+			this.navigateTo("reports");
+		});
+		this.renderDashboardCard(grid, "tag", this.dictionaryEntries.length, "Properties", () => {
+			this.navigateTo("properties");
+		});
 
-		// Quick actions — same as CatalogDashboard.renderQuickActions
+		// Quick actions
 		const actionsSection = this.dashboardEl.createDiv();
 		actionsSection.createEl("h3", { text: "Quick Actions", cls: "ft-heading ft-heading-sm" });
 		actionsSection.style.marginBottom = "0.75rem";
@@ -316,13 +362,8 @@ export class DataExchangeHubView extends ItemView {
 				icon: "file-input",
 				label: "Import CSV",
 				action: () => {
-					new InputModal(this.app, {
-						title: "Import CSV",
-						inputName: "CSV file path",
-						inputDesc: "Enter the vault path to a .csv file",
-						placeholder: "path/to/data.csv",
-						submitLabel: "Import",
-						onSubmit: (csvPath) => this.openCsvImport(csvPath),
+					new FilePickerModal(this.app, ["csv"], (csvPath) => {
+						this.openCsvImport(csvPath);
 					}).open();
 				},
 			},
@@ -330,25 +371,19 @@ export class DataExchangeHubView extends ItemView {
 				icon: "file-output",
 				label: "Export Folder",
 				action: () => {
-					new InputModal(this.app, {
-						title: "Export Folder as CSV",
-						inputName: "Folder path",
-						inputDesc: "Enter the vault path to a folder",
-						placeholder: "path/to/folder",
-						submitLabel: "Export",
-						onSubmit: (folderPath) => {
-							this.openExport({
-								id: "",
-								name: "",
-								createdAt: 0,
-								sourcePath: folderPath,
-								sourceType: "folder",
-								format: "csv",
-								outputPath: `${folderPath}_export.csv`,
-								columns: [],
-								fileProperties: ["file.name"],
-							});
-						},
+					const folders = getVaultFolders(this.app);
+					new FolderPickerModal(this.app, folders, (folderPath) => {
+						this.openExport({
+							id: "",
+							name: "",
+							createdAt: 0,
+							sourcePath: folderPath,
+							sourceType: "folder",
+							format: "csv",
+							outputPath: `${folderPath}_export.csv`,
+							columns: [],
+							fileProperties: ["file.name"],
+						});
 					}).open();
 				},
 			},
@@ -356,27 +391,25 @@ export class DataExchangeHubView extends ItemView {
 				icon: "database",
 				label: "Export .base",
 				action: () => {
-					new InputModal(this.app, {
-						title: "Export .base as CSV",
-						inputName: ".base file path",
-						inputDesc: "Enter the vault path to a .base file",
-						placeholder: "path/to/file.base",
-						submitLabel: "Export",
-						onSubmit: (basePath) => {
-							this.openExport({
-								id: "",
-								name: "",
-								createdAt: 0,
-								sourcePath: basePath,
-								sourceType: "base",
-								format: "csv",
-								outputPath: basePath.replace(/\.base$/, "_export.csv"),
-								columns: [],
-								fileProperties: ["file.name"],
-							});
-						},
+					new FilePickerModal(this.app, ["base"], (basePath) => {
+						this.openExport({
+							id: "",
+							name: "",
+							createdAt: 0,
+							sourcePath: basePath,
+							sourceType: "base",
+							format: "csv",
+							outputPath: basePath.replace(/\.base$/, "_export.csv"),
+							columns: [],
+							fileProperties: ["file.name"],
+						});
 					}).open();
 				},
+			},
+			{
+				icon: "book-open",
+				label: "Properties",
+				action: () => this.navigateTo("properties"),
 			},
 		];
 
@@ -416,7 +449,7 @@ export class DataExchangeHubView extends ItemView {
 
 				item.createSpan({
 					text: cfg.configType === "import" ? "Import" : "Export",
-					cls: "ft-badge ft-badge-muted",
+					cls: `ft-operation-badge ft-operation-badge-${cfg.configType}`,
 				});
 
 				item.createSpan({
@@ -437,7 +470,6 @@ export class DataExchangeHubView extends ItemView {
 		}
 	}
 
-	/** Renders a clickable stat card — same pattern as CatalogDashboard. */
 	private renderDashboardCard(
 		container: HTMLElement,
 		icon: string,
@@ -472,7 +504,6 @@ export class DataExchangeHubView extends ItemView {
 	}
 
 	// ── Imports page ─────────────────────────────────────────
-	// Master/detail — same as DomainsTab.
 
 	private renderImportsMaster(): void {
 		this.masterTreeEl.empty();
@@ -486,7 +517,6 @@ export class DataExchangeHubView extends ItemView {
 			);
 		}
 
-		// Category header — same as DomainsTab
 		const header = this.masterTreeEl.createDiv({ cls: "ft-master-category-header" });
 		header.createSpan({ text: "Import Configs" });
 		header.createSpan({
@@ -532,6 +562,7 @@ export class DataExchangeHubView extends ItemView {
 
 		item.addEventListener("click", () => {
 			this.selectedImportId = cfg.id;
+			this.editingImportId = null;
 			this.renderImportsMaster();
 			this.renderImportsDetail();
 		});
@@ -551,22 +582,37 @@ export class DataExchangeHubView extends ItemView {
 			return;
 		}
 
-		// Header — same as DomainsTab.renderDetail
+		// Check if editing
+		if (this.editingImportId === cfg.id) {
+			this.renderImportEditForm(cfg);
+			return;
+		}
+
+		// Header with operation badge
 		const header = this.detailPanelEl.createDiv({ cls: "ft-detail-header" });
 		const left = header.createDiv();
 		left.createDiv({ text: cfg.name || "(unnamed)", cls: "ft-detail-event-type" });
 		const badges = left.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
-		badges.createSpan({ text: "Import", cls: "ft-badge ft-badge-muted" });
+		badges.createSpan({ text: "Import", cls: "ft-operation-badge ft-operation-badge-import" });
 		badges.createSpan({ text: cfg.conflictStrategy, cls: "ft-badge ft-badge-muted" });
 
 		// Info grid
 		const card = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
 		const grid = card.createDiv({ cls: "ft-detail-info-grid" });
 
+		if (cfg.sourcePath) {
+			this.addInfoRow(grid, "Source CSV", cfg.sourcePath);
+		}
 		this.addInfoRow(grid, "Target Folder", cfg.targetFolder || "(not set)");
 		this.addInfoRow(grid, "Name Column", cfg.nameColumn || "(not set)");
 		this.addInfoRow(grid, "Conflict Strategy", cfg.conflictStrategy);
 		this.addInfoRow(grid, "Columns", String(cfg.columnMappings.length));
+		if (cfg.customProperties && Object.keys(cfg.customProperties).length > 0) {
+			this.addInfoRow(grid, "Custom Properties", String(Object.keys(cfg.customProperties).length));
+		}
+		if (cfg.createBase) {
+			this.addInfoRow(grid, "Base View", cfg.basePath || "(auto)");
+		}
 		this.addInfoRow(grid, "Created", new Date(cfg.createdAt).toLocaleString());
 
 		// Column mappings section
@@ -586,24 +632,63 @@ export class DataExchangeHubView extends ItemView {
 			}
 		}
 
-		// Actions — ft-nav-link pattern like catalog detail actions
+		// Custom properties section
+		if (cfg.customProperties && Object.keys(cfg.customProperties).length > 0) {
+			const section = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-2" });
+			section.createDiv({ text: "Custom Properties", cls: "ft-detail-section-header" });
+			const propGrid = section.createDiv({ cls: "ft-detail-info-grid" });
+			for (const [key, val] of Object.entries(cfg.customProperties)) {
+				this.addInfoRow(propGrid, key, val);
+			}
+		}
+
+		// Doc link
+		this.renderDocLink(this.detailPanelEl, cfg.name, "import");
+
+		// Actions
 		const actions = this.detailPanelEl.createDiv({ cls: "ft-detail-actions ft-mt-3" });
 
-		const executeLink = actions.createEl("span", { cls: "ft-nav-link" });
-		const execIcon = executeLink.createSpan();
-		setIcon(execIcon, "play");
-		executeLink.appendText(" Execute");
-		executeLink.addEventListener("click", () => {
-			new InputModal(this.app, {
-				title: "Select CSV File",
-				inputName: "CSV file path",
-				inputDesc: "Enter the vault path to a .csv file",
-				placeholder: "path/to/data.csv",
-				submitLabel: "Import",
-				onSubmit: (csvPath) => this.openCsvImport(csvPath, cfg),
-			}).open();
+		// Run Now (one-click execute)
+		const runLink = actions.createEl("span", { cls: "ft-nav-link" });
+		const runIcon = runLink.createSpan();
+		setIcon(runIcon, "play");
+		runLink.appendText(" Run Now");
+		runLink.addEventListener("click", () => {
+			if (cfg.sourcePath) {
+				this.executeImportConfig(cfg);
+			} else {
+				new FilePickerModal(this.app, ["csv"], (csvPath) => {
+					this.executeImportConfigWithSource(cfg, csvPath);
+				}).open();
+			}
 		});
 
+		// Preview
+		const previewLink = actions.createEl("span", { cls: "ft-nav-link" });
+		const prevIcon = previewLink.createSpan();
+		setIcon(prevIcon, "eye");
+		previewLink.appendText(" Preview");
+		previewLink.addEventListener("click", () => {
+			if (cfg.sourcePath) {
+				this.openCsvImport(cfg.sourcePath, cfg);
+			} else {
+				new FilePickerModal(this.app, ["csv"], (csvPath) => {
+					this.openCsvImport(csvPath, cfg);
+				}).open();
+			}
+		});
+
+		// Edit
+		const editLink = actions.createEl("span", { cls: "ft-nav-link" });
+		const editIcon = editLink.createSpan();
+		setIcon(editIcon, "pencil");
+		editLink.appendText(" Edit");
+		editLink.addEventListener("click", () => {
+			this.editingImportId = cfg.id;
+			this.renderImportsDetail();
+		});
+
+		// Delete
 		const deleteLink = actions.createEl("span", { cls: "ft-nav-link" });
 		deleteLink.style.color = "var(--text-error)";
 		const delIcon = deleteLink.createSpan();
@@ -628,6 +713,100 @@ export class DataExchangeHubView extends ItemView {
 		});
 	}
 
+	private renderImportEditForm(cfg: SavedImportConfig): void {
+		const panel = this.detailPanelEl;
+		panel.createEl("h3", { text: "Edit Import Config", cls: "ft-heading ft-heading-sm ft-mb-3" });
+
+		const edits: Partial<SavedImportConfig> = {
+			name: cfg.name,
+			targetFolder: cfg.targetFolder,
+			nameColumn: cfg.nameColumn,
+			conflictStrategy: cfg.conflictStrategy,
+			createBase: cfg.createBase ?? false,
+			basePath: cfg.basePath ?? "",
+		};
+
+		new Setting(panel)
+			.setName("Name")
+			.addText((t) => t.setValue(cfg.name).onChange((v) => { edits.name = v; }));
+
+		const targetSetting = new Setting(panel)
+			.setName("Target folder")
+			.addText((t) => t.setValue(cfg.targetFolder).onChange((v) => { edits.targetFolder = v; }));
+		targetSetting.addExtraButton((btn) =>
+			btn.setIcon("folder").setTooltip("Browse").onClick(() => {
+				const folders = getVaultFolders(this.app);
+				new FolderPickerModal(this.app, folders, (folder) => {
+					edits.targetFolder = folder;
+					this.renderImportsDetail();
+				}).open();
+			}),
+		);
+
+		new Setting(panel)
+			.setName("Name column")
+			.addText((t) => t.setValue(cfg.nameColumn).onChange((v) => { edits.nameColumn = v; }));
+
+		new Setting(panel)
+			.setName("Conflict strategy")
+			.addDropdown((dd) =>
+				dd
+					.addOptions({ skip: "Skip", update: "Update frontmatter", overwrite: "Overwrite" })
+					.setValue(cfg.conflictStrategy)
+					.onChange((v) => { edits.conflictStrategy = v as SavedImportConfig["conflictStrategy"]; }),
+			);
+
+		new Setting(panel)
+			.setName("Create .base view")
+			.setDesc("Generate a table view for imported notes")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(edits.createBase ?? false)
+					.onChange((v) => {
+						edits.createBase = v || undefined;
+						basePathSetting.settingEl.toggle(v);
+					}),
+			);
+
+		const basePathSetting = new Setting(panel)
+			.setName("Base file path")
+			.setDesc("Where to save the .base view file")
+			.addText((t) =>
+				t
+					.setValue(edits.basePath ?? "")
+					.setPlaceholder("path/to/view.base")
+					.onChange((v) => { edits.basePath = v || undefined; }),
+			);
+		basePathSetting.settingEl.toggle(edits.createBase ?? false);
+
+		const nav = panel.createDiv({ cls: "ft-detail-actions ft-mt-4" });
+
+		const saveLink = nav.createEl("span", { cls: "ft-nav-link" });
+		const saveIcon = saveLink.createSpan();
+		setIcon(saveIcon, "check");
+		saveLink.appendText(" Save");
+		saveLink.addEventListener("click", () => {
+			void this.dataExchangeService
+				.updateImportConfig(cfg.id, edits)
+				.then(() => {
+					this.editingImportId = null;
+					this.refreshConfigs();
+					this.renderImportsMaster();
+					this.renderImportsDetail();
+					new Notice("Import config updated");
+				});
+		});
+
+		const cancelLink = nav.createEl("span", { cls: "ft-nav-link" });
+		const cancelIcon = cancelLink.createSpan();
+		setIcon(cancelIcon, "x");
+		cancelLink.appendText(" Cancel");
+		cancelLink.addEventListener("click", () => {
+			this.editingImportId = null;
+			this.renderImportsDetail();
+		});
+	}
+
 	// ── Exports page ─────────────────────────────────────────
 
 	private renderExportsMaster(): void {
@@ -642,7 +821,6 @@ export class DataExchangeHubView extends ItemView {
 			);
 		}
 
-		// Category header
 		const header = this.masterTreeEl.createDiv({ cls: "ft-master-category-header" });
 		header.createSpan({ text: "Export Configs" });
 		header.createSpan({
@@ -688,6 +866,7 @@ export class DataExchangeHubView extends ItemView {
 
 		item.addEventListener("click", () => {
 			this.selectedExportId = cfg.id;
+			this.editingExportId = null;
 			this.renderExportsMaster();
 			this.renderExportsDetail();
 		});
@@ -707,12 +886,18 @@ export class DataExchangeHubView extends ItemView {
 			return;
 		}
 
-		// Header
+		// Check if editing
+		if (this.editingExportId === cfg.id) {
+			this.renderExportEditForm(cfg);
+			return;
+		}
+
+		// Header with operation badge
 		const header = this.detailPanelEl.createDiv({ cls: "ft-detail-header" });
 		const left = header.createDiv();
 		left.createDiv({ text: cfg.name || "(unnamed)", cls: "ft-detail-event-type" });
 		const badges = left.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
-		badges.createSpan({ text: "Export", cls: "ft-badge ft-badge-muted" });
+		badges.createSpan({ text: "Export", cls: "ft-operation-badge ft-operation-badge-export" });
 		badges.createSpan({ text: cfg.format.toUpperCase(), cls: "ft-badge ft-badge-muted" });
 		badges.createSpan({ text: cfg.sourceType, cls: "ft-badge ft-badge-muted" });
 
@@ -754,17 +939,41 @@ export class DataExchangeHubView extends ItemView {
 			}
 		}
 
+		// Doc link
+		this.renderDocLink(this.detailPanelEl, cfg.name, "export");
+
 		// Actions
 		const actions = this.detailPanelEl.createDiv({ cls: "ft-detail-actions ft-mt-3" });
 
-		const executeLink = actions.createEl("span", { cls: "ft-nav-link" });
-		const execIcon = executeLink.createSpan();
-		setIcon(execIcon, "play");
-		executeLink.appendText(" Execute");
-		executeLink.addEventListener("click", () => {
+		// Run Now (one-click execute)
+		const runLink = actions.createEl("span", { cls: "ft-nav-link" });
+		const runIcon = runLink.createSpan();
+		setIcon(runIcon, "play");
+		runLink.appendText(" Run Now");
+		runLink.addEventListener("click", () => {
+			this.executeExportConfig(cfg);
+		});
+
+		// Preview
+		const previewLink = actions.createEl("span", { cls: "ft-nav-link" });
+		const prevIcon = previewLink.createSpan();
+		setIcon(prevIcon, "eye");
+		previewLink.appendText(" Preview");
+		previewLink.addEventListener("click", () => {
 			this.openExport(cfg);
 		});
 
+		// Edit
+		const editLink = actions.createEl("span", { cls: "ft-nav-link" });
+		const editIcon = editLink.createSpan();
+		setIcon(editIcon, "pencil");
+		editLink.appendText(" Edit");
+		editLink.addEventListener("click", () => {
+			this.editingExportId = cfg.id;
+			this.renderExportsDetail();
+		});
+
+		// Delete
 		const deleteLink = actions.createEl("span", { cls: "ft-nav-link" });
 		deleteLink.style.color = "var(--text-error)";
 		const delIcon = deleteLink.createSpan();
@@ -789,6 +998,548 @@ export class DataExchangeHubView extends ItemView {
 		});
 	}
 
+	private renderExportEditForm(cfg: SavedExportConfig): void {
+		const panel = this.detailPanelEl;
+		panel.createEl("h3", { text: "Edit Export Config", cls: "ft-heading ft-heading-sm ft-mb-3" });
+
+		const edits: Partial<SavedExportConfig> = {
+			name: cfg.name,
+			sourcePath: cfg.sourcePath,
+			outputPath: cfg.outputPath,
+			conflictStrategy: cfg.conflictStrategy ?? "overwrite",
+		};
+
+		new Setting(panel)
+			.setName("Name")
+			.addText((t) => t.setValue(cfg.name).onChange((v) => { edits.name = v; }));
+
+		const sourceSetting = new Setting(panel)
+			.setName("Source path")
+			.addText((t) => t.setValue(cfg.sourcePath).onChange((v) => { edits.sourcePath = v; }));
+		sourceSetting.addExtraButton((btn) =>
+			btn.setIcon("folder").setTooltip("Browse").onClick(() => {
+				if (cfg.sourceType === "base") {
+					new FilePickerModal(this.app, ["base"], (p) => {
+						edits.sourcePath = p;
+						this.renderExportsDetail();
+					}).open();
+				} else {
+					const folders = getVaultFolders(this.app);
+					new FolderPickerModal(this.app, folders, (p) => {
+						edits.sourcePath = p;
+						this.renderExportsDetail();
+					}).open();
+				}
+			}),
+		);
+
+		const outputSetting = new Setting(panel)
+			.setName("Output path")
+			.addText((t) => t.setValue(cfg.outputPath).onChange((v) => { edits.outputPath = v; }));
+		outputSetting.addExtraButton((btn) =>
+			btn.setIcon("folder").setTooltip("Browse").onClick(() => {
+				const folders = getVaultFolders(this.app);
+				new FolderPickerModal(this.app, folders, (folder) => {
+					const parts = (cfg.outputPath || "export.csv").replace(/\\/g, "/").split("/");
+					const filename = parts[parts.length - 1];
+					edits.outputPath = folder ? `${folder}/${filename}` : filename;
+					this.renderExportsDetail();
+				}).open();
+			}),
+		);
+
+		new Setting(panel)
+			.setName("Conflict strategy")
+			.addDropdown((dd) =>
+				dd
+					.addOptions({ overwrite: "Overwrite", skip: "Skip", append: "Append" })
+					.setValue(cfg.conflictStrategy ?? "overwrite")
+					.onChange((v) => { edits.conflictStrategy = v as SavedExportConfig["conflictStrategy"]; }),
+			);
+
+		const nav = panel.createDiv({ cls: "ft-detail-actions ft-mt-4" });
+
+		const saveLink = nav.createEl("span", { cls: "ft-nav-link" });
+		const saveIcon = saveLink.createSpan();
+		setIcon(saveIcon, "check");
+		saveLink.appendText(" Save");
+		saveLink.addEventListener("click", () => {
+			void this.dataExchangeService
+				.updateExportConfig(cfg.id, edits)
+				.then(() => {
+					this.editingExportId = null;
+					this.refreshConfigs();
+					this.renderExportsMaster();
+					this.renderExportsDetail();
+					new Notice("Export config updated");
+				});
+		});
+
+		const cancelLink = nav.createEl("span", { cls: "ft-nav-link" });
+		const cancelIcon = cancelLink.createSpan();
+		setIcon(cancelIcon, "x");
+		cancelLink.appendText(" Cancel");
+		cancelLink.addEventListener("click", () => {
+			this.editingExportId = null;
+			this.renderExportsDetail();
+		});
+	}
+
+	// ── Reports page ────────────────────────────────────────
+
+	private renderReportsMaster(): void {
+		this.masterTreeEl.empty();
+
+		let reports = this.reportEntries;
+		if (this.filterText) {
+			reports = reports.filter((r) => r.name.toLowerCase().includes(this.filterText));
+		}
+
+		const header = this.masterTreeEl.createDiv({ cls: "ft-master-category-header" });
+		header.createSpan({ text: "Reports" });
+		header.createSpan({
+			text: `${reports.length}`,
+			cls: "ft-master-category-count",
+		});
+
+		if (reports.length === 0) {
+			const empty = this.masterTreeEl.createDiv({ cls: "ft-text-muted ft-p-3 ft-text-center ft-text-sm" });
+			empty.textContent = this.filterText ? "No matching reports" : "No documented CSV files yet";
+			return;
+		}
+
+		for (const report of reports) {
+			const isSelected = this.selectedReportPath === report.path;
+			const item = this.masterTreeEl.createDiv({
+				cls: `ft-master-event-item${isSelected ? " ft-master-event-selected" : ""}`,
+			});
+
+			const iconEl = item.createSpan();
+			setIcon(iconEl, "file-spreadsheet");
+			iconEl.style.opacity = "0.5";
+			iconEl.style.flexShrink = "0";
+
+			item.createSpan({ text: report.name, cls: "ft-master-event-name" });
+
+			const cols = report.frontmatter.columns;
+			if (cols !== undefined) {
+				item.createSpan({
+					text: `${cols} cols`,
+					cls: "ft-badge ft-badge-muted",
+				});
+			}
+
+			item.addEventListener("click", () => {
+				this.selectedReportPath = report.path;
+				this.renderReportsMaster();
+				this.renderReportsDetail();
+			});
+		}
+	}
+
+	private renderReportsDetail(): void {
+		this.detailPanelEl.empty();
+
+		if (!this.selectedReportPath) {
+			this.renderEmptyDetail("file-spreadsheet", "Select a report to view details");
+			return;
+		}
+
+		this.renderReportDetailContent();
+	}
+
+	// ── Properties page ─────────────────────────────────────
+
+	private renderPropertiesMaster(): void {
+		this.masterTreeEl.empty();
+
+		let entries = this.dictionaryEntries;
+		if (this.filterText) {
+			entries = entries.filter((e) =>
+				e.propertyName.toLowerCase().includes(this.filterText),
+			);
+		}
+
+		const header = this.masterTreeEl.createDiv({ cls: "ft-master-category-header" });
+		header.createSpan({ text: "Properties" });
+		header.createSpan({
+			text: `${entries.length}`,
+			cls: "ft-master-category-count",
+		});
+
+		if (entries.length === 0) {
+			const empty = this.masterTreeEl.createDiv({ cls: "ft-text-muted ft-p-3 ft-text-center ft-text-sm" });
+			empty.textContent = this.filterText ? "No matching properties" : "No properties found in configs";
+			return;
+		}
+
+		for (const entry of entries) {
+			const isSelected = this.selectedDictProp === entry.propertyName;
+			const item = this.masterTreeEl.createDiv({
+				cls: `ft-master-event-item${isSelected ? " ft-master-event-selected" : ""}`,
+			});
+
+			const iconEl = item.createSpan();
+			setIcon(iconEl, "tag");
+			iconEl.style.opacity = "0.5";
+			iconEl.style.flexShrink = "0";
+
+			item.createSpan({ text: entry.propertyName, cls: "ft-master-event-name" });
+
+			item.createSpan({
+				text: `${entry.usedInConfigs.length} config${entry.usedInConfigs.length !== 1 ? "s" : ""}`,
+				cls: "ft-badge ft-badge-muted",
+			});
+
+			item.addEventListener("click", () => {
+				this.selectedDictProp = entry.propertyName;
+				this.renderPropertiesMaster();
+				this.renderPropertiesDetail();
+			});
+		}
+	}
+
+	private renderPropertiesDetail(): void {
+		this.detailPanelEl.empty();
+
+		if (!this.selectedDictProp) {
+			this.renderEmptyDetail("tag", "Select a property to view details");
+			return;
+		}
+
+		const entry = this.dictionaryEntries.find(
+			(e) => e.propertyName === this.selectedDictProp,
+		);
+		if (!entry) {
+			this.renderEmptyDetail("tag", "Property not found");
+			return;
+		}
+
+		// Header
+		const header = this.detailPanelEl.createDiv({ cls: "ft-detail-header" });
+		const left = header.createDiv();
+		left.createDiv({ text: entry.propertyName, cls: "ft-detail-event-type" });
+		const badges = left.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
+		badges.createSpan({
+			text: `${entry.usedInConfigs.length} config${entry.usedInConfigs.length !== 1 ? "s" : ""}`,
+			cls: "ft-badge ft-badge-muted",
+		});
+
+		// CSV column names
+		if (entry.csvColumnNames.length > 0) {
+			const card = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+			card.createDiv({ text: "CSV Columns", cls: "ft-detail-section-header" });
+			const chips = card.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
+			chips.style.flexWrap = "wrap";
+			for (const col of entry.csvColumnNames) {
+				chips.createSpan({ text: col, cls: "ft-badge ft-badge-muted" });
+			}
+		}
+
+		// Configs using this property
+		if (entry.usedInConfigs.length > 0) {
+			const section = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-2" });
+			section.createDiv({ text: "Used In Configs", cls: "ft-detail-section-header" });
+
+			for (const ref of entry.usedInConfigs) {
+				const item = section.createDiv({ cls: "ft-master-event-item" });
+				const iconEl = item.createSpan();
+				setIcon(iconEl, ref.configType === "import" ? "file-input" : "file-output");
+				iconEl.style.opacity = "0.5";
+				iconEl.style.flexShrink = "0";
+
+				item.createSpan({ text: ref.configName, cls: "ft-master-event-name" });
+				item.createSpan({
+					text: ref.configType === "import" ? "Import" : "Export",
+					cls: `ft-operation-badge ft-operation-badge-${ref.configType}`,
+				});
+
+				item.addEventListener("click", () => {
+					if (ref.configType === "import") {
+						this.selectedImportId = ref.configId;
+						this.navigateTo("imports");
+					} else {
+						this.selectedExportId = ref.configId;
+						this.navigateTo("exports");
+					}
+				});
+			}
+		}
+
+		// Sample values
+		if (entry.sampleValues.length > 0) {
+			const section = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-2" });
+			section.createDiv({ text: "Sample Values", cls: "ft-detail-section-header" });
+			const chips = section.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
+			chips.style.flexWrap = "wrap";
+			for (const val of entry.sampleValues) {
+				chips.createSpan({ text: val, cls: "ft-badge ft-badge-muted" });
+			}
+		}
+	}
+
+	// ── Shared report detail content ─────────────────────────
+
+	private renderReportDetailContent(): void {
+		const report = this.reportEntries.find((r) => r.path === this.selectedReportPath);
+		if (!report) {
+			this.renderEmptyDetail("file-spreadsheet", "Report not found");
+			return;
+		}
+
+		// Header
+		const header = this.detailPanelEl.createDiv({ cls: "ft-detail-header" });
+		const left = header.createDiv();
+		left.createDiv({ text: report.name, cls: "ft-detail-event-type" });
+		const badges = left.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
+		badges.createSpan({ text: "CSV Report", cls: "ft-operation-badge ft-operation-badge-import" });
+
+		// Frontmatter properties
+		const fm = report.frontmatter;
+		const skipKeys = new Set(["position", "type"]);
+		const entries = Object.entries(fm).filter(([k]) => !skipKeys.has(k));
+
+		if (entries.length > 0) {
+			const card = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+			const grid = card.createDiv({ cls: "ft-detail-info-grid" });
+			for (const [key, value] of entries) {
+				const displayValue = Array.isArray(value) ? value.join(", ") : String(value ?? "");
+				this.addInfoRow(grid, key, displayValue);
+			}
+		}
+
+		// Headers list (from frontmatter)
+		const headers = fm.headers;
+		if (Array.isArray(headers) && headers.length > 0) {
+			const section = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-2" });
+			section.createDiv({ text: `Columns (${headers.length})`, cls: "ft-detail-section-header" });
+			const chips = section.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
+			chips.style.flexWrap = "wrap";
+			for (const h of headers) {
+				chips.createSpan({ text: String(h), cls: "ft-badge ft-badge-muted" });
+			}
+		}
+
+		// Actions
+		const actions = this.detailPanelEl.createDiv({ cls: "ft-detail-actions ft-mt-3" });
+
+		const openLink = actions.createEl("span", { cls: "ft-nav-link" });
+		const openIcon = openLink.createSpan();
+		setIcon(openIcon, "file-text");
+		openLink.appendText(" Open Documentation");
+		openLink.addEventListener("click", () => {
+			void this.app.workspace.openLinkText(report.path, "", false);
+		});
+
+		// Open the CSV file itself (via csvFile wikilink)
+		const csvFile = fm.csvFile;
+		if (typeof csvFile === "string") {
+			// Extract path from wikilink: "[[path]]" → "path"
+			const match = csvFile.match(/\[\[(.+?)\]\]/);
+			const csvPath = match ? match[1] : csvFile;
+			const openCsvLink = actions.createEl("span", { cls: "ft-nav-link" });
+			const csvIcon = openCsvLink.createSpan();
+			setIcon(csvIcon, "file-spreadsheet");
+			openCsvLink.appendText(" Open CSV");
+			openCsvLink.addEventListener("click", () => {
+				void this.app.workspace.openLinkText(csvPath, "", false);
+			});
+		}
+
+		// ── Configs referencing this CSV ──
+		const csvFileFm = fm.csvFile;
+		if (typeof csvFileFm === "string") {
+			const csvMatch = csvFileFm.match(/\[\[(.+?)\]\]/);
+			const csvPath = csvMatch ? csvMatch[1] : csvFileFm;
+			const importConfigs = this.dataExchangeService.getImportConfigsForFile(csvPath);
+			if (importConfigs.length > 0) {
+				const cfgSection = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-2" });
+				cfgSection.createDiv({ text: "Import Configs", cls: "ft-detail-section-header" });
+				for (const cfg of importConfigs) {
+					const item = cfgSection.createDiv({ cls: "ft-master-event-item" });
+					const iconEl = item.createSpan();
+					setIcon(iconEl, "file-input");
+					iconEl.style.opacity = "0.5";
+					iconEl.style.flexShrink = "0";
+					item.createSpan({ text: cfg.name, cls: "ft-master-event-name" });
+					item.createSpan({ text: `→ ${cfg.targetFolder}`, cls: "ft-badge ft-badge-muted" });
+					item.addEventListener("click", () => {
+						this.selectedImportId = cfg.id;
+						this.navigateTo("imports");
+					});
+				}
+			}
+		}
+
+		// Delete doc
+		const deleteLink = actions.createEl("span", { cls: "ft-nav-link" });
+		deleteLink.style.color = "var(--text-error)";
+		const delIcon = deleteLink.createSpan();
+		setIcon(delIcon, "trash-2");
+		deleteLink.appendText(" Delete Doc");
+		deleteLink.addEventListener("click", () => {
+			new ConfirmModal(this.app, {
+				message: `Delete documentation "${report.name}"?`,
+				confirmLabel: "Delete",
+				onConfirm: () => {
+					const file = this.app.vault.getAbstractFileByPath(report.path);
+					if (file) {
+						void this.app.vault.delete(file).then(() => {
+							this.selectedReportPath = null;
+							this.refreshConfigs();
+							this.renderReportsMaster();
+							this.renderReportsDetail();
+							new Notice("Report documentation deleted");
+						});
+					}
+				},
+			}).open();
+		});
+	}
+
+	// ── One-click execute ────────────────────────────────────
+
+	private executeImportConfig(cfg: SavedImportConfig): void {
+		if (!cfg.sourcePath) return;
+		void this.eventBus
+			.emit("dataExchange.import.execute", {
+				config: {
+					sourcePath: cfg.sourcePath,
+					targetFolder: cfg.targetFolder,
+					nameColumn: cfg.nameColumn,
+					namePrefix: cfg.namePrefix,
+					nameSuffix: cfg.nameSuffix,
+					columnMappings: cfg.columnMappings,
+					conflictStrategy: cfg.conflictStrategy,
+					customProperties: cfg.customProperties,
+				},
+			})
+			.then(() => {
+				// Listen for completion/failure
+				const offComplete = this.eventBus.on("dataExchange.import.completed", (event) => {
+					offComplete();
+					offFailed();
+					const r = event.payload.result;
+					new Notice(
+						`Import complete: ${r.created} created, ${r.updated} updated, ${r.skipped} skipped`,
+					);
+				});
+				const offFailed = this.eventBus.on("dataExchange.import.failed", (event) => {
+					offComplete();
+					offFailed();
+					new Notice(`Import failed: ${event.payload.error}`);
+				});
+			});
+		new Notice(`Running import: ${cfg.name}...`);
+	}
+
+	private executeImportConfigWithSource(cfg: SavedImportConfig, csvPath: string): void {
+		void this.eventBus.emit("dataExchange.import.execute", {
+			config: {
+				sourcePath: csvPath,
+				targetFolder: cfg.targetFolder,
+				nameColumn: cfg.nameColumn,
+				namePrefix: cfg.namePrefix,
+				nameSuffix: cfg.nameSuffix,
+				columnMappings: cfg.columnMappings,
+				conflictStrategy: cfg.conflictStrategy,
+				customProperties: cfg.customProperties,
+			},
+		});
+		new Notice(`Running import: ${cfg.name}...`);
+
+		const offComplete = this.eventBus.on("dataExchange.import.completed", (event) => {
+			offComplete();
+			offFailed();
+			const r = event.payload.result;
+			new Notice(
+				`Import complete: ${r.created} created, ${r.updated} updated, ${r.skipped} skipped`,
+			);
+		});
+		const offFailed = this.eventBus.on("dataExchange.import.failed", (event) => {
+			offComplete();
+			offFailed();
+			new Notice(`Import failed: ${event.payload.error}`);
+		});
+	}
+
+	private executeExportConfig(cfg: SavedExportConfig): void {
+		void this.eventBus.emit("dataExchange.export.execute", {
+			config: {
+				sourcePath: cfg.sourcePath,
+				sourceType: cfg.sourceType,
+				format: cfg.format,
+				outputPath: cfg.outputPath,
+				columns: cfg.columns,
+				fileProperties: cfg.fileProperties,
+				baseViewIndex: cfg.baseViewIndex,
+				isExternal: cfg.isExternal,
+				conflictStrategy: cfg.conflictStrategy,
+			},
+		});
+		new Notice(`Running export: ${cfg.name}...`);
+
+		const offComplete = this.eventBus.on("dataExchange.export.completed", (event) => {
+			offComplete();
+			offFailed();
+			const r = event.payload.result;
+			if (r.skipped) {
+				new Notice(`Export skipped: ${r.outputPath} already exists`);
+			} else {
+				new Notice(`Export complete: ${r.totalRows} rows written to ${r.outputPath}`);
+			}
+		});
+		const offFailed = this.eventBus.on("dataExchange.export.failed", (event) => {
+			offComplete();
+			offFailed();
+			new Notice(`Export failed: ${event.payload.error}`);
+		});
+	}
+
+	// ── Doc links ────────────────────────────────────────────
+
+	private renderDocLink(
+		container: HTMLElement,
+		configName: string,
+		configType: "import" | "export",
+	): void {
+		const docPath = this.dataExchangeService.getConfigDocPath(configName, configType);
+		const abstractFile = this.app.vault.getAbstractFileByPath(docPath);
+		const exists = abstractFile instanceof TFile;
+
+		const section = container.createDiv({ cls: "ft-detail-section ft-mt-2" });
+		const link = section.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		const icon = link.createSpan();
+		setIcon(icon, exists ? "file-text" : "file-plus");
+		link.appendText(exists ? " View Documentation" : " Create Documentation");
+
+		link.addEventListener("click", () => {
+			if (exists) {
+				void this.app.workspace.openLinkText(docPath, "", false);
+			} else {
+				new Notice(`Documentation will be created when the config is saved.`);
+			}
+		});
+
+		// Show frontmatter properties from existing doc
+		if (exists) {
+			const cache = this.app.metadataCache.getFileCache(abstractFile);
+			const fm = cache?.frontmatter;
+			if (fm) {
+				const skipKeys = new Set(["position", "type"]);
+				const entries = Object.entries(fm).filter(([k]) => !skipKeys.has(k));
+				if (entries.length > 0) {
+					const grid = section.createDiv({ cls: "ft-doc-properties" });
+					for (const [key, value] of entries) {
+						grid.createDiv({ text: key, cls: "ft-doc-prop-key" });
+						const displayValue = Array.isArray(value) ? value.join(", ") : String(value ?? "");
+						grid.createDiv({ text: displayValue, cls: "ft-doc-prop-value" });
+					}
+				}
+			}
+		}
+	}
+
 	// ── Shared helpers ───────────────────────────────────────
 
 	private addInfoRow(grid: HTMLElement, label: string, value: string): void {
@@ -803,12 +1554,26 @@ export class DataExchangeHubView extends ItemView {
 		iconEl.style.opacity = "0.3";
 		empty.createEl("p", { text: message });
 
-		const count =
-			this.currentPage === "imports"
-				? this.importConfigs.length
-				: this.exportConfigs.length;
-		const label =
-			this.currentPage === "imports" ? "saved imports" : "saved exports";
+		let count = 0;
+		let label = "";
+		switch (this.currentPage) {
+			case "imports":
+				count = this.importConfigs.length;
+				label = "saved imports";
+				break;
+			case "exports":
+				count = this.exportConfigs.length;
+				label = "saved exports";
+				break;
+			case "reports":
+				count = this.reportEntries.length;
+				label = "reports";
+				break;
+			case "properties":
+				count = this.dictionaryEntries.length;
+				label = "properties";
+				break;
+		}
 		const stats = empty.createDiv({ cls: "ft-catalog-quick-stats ft-mt-2" });
 		const stat = stats.createDiv({ cls: "ft-catalog-stat" });
 		stat.createDiv({ text: String(count), cls: "ft-catalog-stat-value" });

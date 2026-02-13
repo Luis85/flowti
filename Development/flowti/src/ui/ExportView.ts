@@ -23,7 +23,7 @@ import type {
 } from "../domain/dataExchange/types";
 import { STANDARD_FILE_PROPERTIES } from "../domain/dataExchange/types";
 import { FolderPickerModal, getVaultFolders } from "./FolderPickerModal";
-import { InputModal } from "./modals";
+import { ConfigChooserModal, InputModal } from "./modals";
 
 export const VIEW_TYPE_EXPORT = "flowti-export";
 
@@ -145,6 +145,30 @@ export class ExportView extends ItemView {
 			this.applySavedExportConfig(this.pendingSavedConfig.id);
 			this.pendingSavedConfig = null;
 			this.currentPage = "preview";
+			this.buildLayout();
+			this.renderPage();
+			return;
+		}
+
+		// Auto-detect existing configs for this source
+		const matchingConfigs = this.dataExchangeService.getExportConfigsForSource(this.sourcePath);
+		if (matchingConfigs.length === 1) {
+			this.applySavedExportConfig(matchingConfigs[0].id);
+			this.currentPage = "preview";
+		} else if (matchingConfigs.length > 1) {
+			this.buildLayout();
+			new ConfigChooserModal(
+				this.app,
+				matchingConfigs.map((c) => ({ id: c.id, name: c.name })),
+				(id) => {
+					if (id) {
+						this.applySavedExportConfig(id);
+						this.currentPage = "preview";
+					}
+					this.renderPage();
+				},
+			).open();
+			return;
 		}
 
 		this.buildLayout();
@@ -239,6 +263,11 @@ export class ExportView extends ItemView {
 		const name = parts[parts.length - 1] || this.sourcePath;
 		sourceInfo.createSpan({ text: name, cls: "ft-text-sm" });
 
+		// Operation badge
+		sourceInfo.createSpan({
+			text: "Export",
+			cls: "ft-operation-badge ft-operation-badge-export",
+		});
 		sourceInfo.createSpan({
 			text: this.sourceType,
 			cls: "ft-badge ft-badge-muted",
@@ -556,19 +585,17 @@ export class ExportView extends ItemView {
 			label.createSpan({ text: fp.label });
 		}
 
-		// Save Config CTA
+		// Save Config CTA (compact row)
 		const ctaBlock = panel.createDiv({ cls: "ft-save-config-cta" });
-		const ctaHeader = ctaBlock.createDiv({ cls: "ft-save-cta-header" });
-		setIcon(ctaHeader.createSpan(), "save");
-		ctaHeader.appendText("Save Configuration");
-		ctaBlock.createDiv({
-			text: "Save this setup as a reusable config with documentation.",
-			cls: "ft-save-cta-desc",
-		});
+		const ctaLabel = ctaBlock.createDiv({ cls: "ft-save-cta-label" });
+		setIcon(ctaLabel.createSpan(), "save");
+		ctaLabel.appendText("Save Config");
 		const saveBtn = ctaBlock.createEl("button", {
-			text: "Save Config...",
+			text: "Save...",
 			cls: "mod-cta",
 		});
+		saveBtn.style.padding = "0.2rem 0.6rem";
+		saveBtn.style.fontSize = "var(--font-ui-smaller)";
 		saveBtn.addEventListener("click", () => this.promptSaveConfig());
 
 		// Navigation

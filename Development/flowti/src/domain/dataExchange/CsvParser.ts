@@ -36,7 +36,7 @@ export class CsvParser {
 		const hasHeader = options?.hasHeader !== false;
 
 		if (data.length === 0) {
-			return { headers: [], rows: [], rowCount: 0 };
+			return { headers: [], rows: [], rowCount: 0, detectedDelimiter: options?.delimiter ?? "," };
 		}
 
 		const headers = hasHeader
@@ -44,7 +44,12 @@ export class CsvParser {
 			: data[0].map((_, i) => `column_${i + 1}`);
 		const rows = hasHeader ? data.slice(1) : data;
 
-		return { headers, rows, rowCount: rows.length };
+		return {
+			headers,
+			rows,
+			rowCount: rows.length,
+			detectedDelimiter: result.meta.delimiter,
+		};
 	}
 
 	/**

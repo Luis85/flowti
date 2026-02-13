@@ -45,6 +45,8 @@ export interface ImportConfig {
 	columnMappings: ColumnMapping[];
 	/** How to handle existing notes */
 	conflictStrategy: ConflictStrategy;
+	/** Custom key-value pairs injected into every note's frontmatter */
+	customProperties?: Record<string, string>;
 }
 
 // ── Import result ───────────────────────────────────────
@@ -158,6 +160,8 @@ export interface ParsedCsv {
 	rows: string[][];
 	/** Total row count (excluding header) */
 	rowCount: number;
+	/** The delimiter detected or used during parsing */
+	detectedDelimiter: string;
 }
 
 // ── Base file filter structures ─────────────────────────
@@ -230,6 +234,8 @@ export interface SavedImportConfig {
 	name: string;
 	/** Timestamp when saved */
 	createdAt: number;
+	/** Path to the CSV file this config was saved from (optional for backward compat) */
+	sourcePath?: string;
 	/** Target folder for created notes */
 	targetFolder: string;
 	/** Which CSV column becomes the note filename */
@@ -242,6 +248,12 @@ export interface SavedImportConfig {
 	columnMappings: ColumnMapping[];
 	/** How to handle existing notes */
 	conflictStrategy: ConflictStrategy;
+	/** Custom key-value pairs injected into every note's frontmatter */
+	customProperties?: Record<string, string>;
+	/** Whether to create/update a .base view file on import */
+	createBase?: boolean;
+	/** Path for the .base view file */
+	basePath?: string;
 }
 
 /** A saved export configuration preset. */
@@ -276,6 +288,49 @@ export interface SavedExportConfig {
 export interface DataExchangeState {
 	savedImportConfigs: SavedImportConfig[];
 	savedExportConfigs: SavedExportConfig[];
+	/** Per-CSV file display settings, keyed by vault path */
+	csvDisplaySettings?: Record<string, CsvDisplaySettings>;
+}
+
+// ── CSV display settings ────────────────────────────────
+
+/** Per-CSV display settings persisted for the landing page. */
+export interface CsvDisplaySettings {
+	/** Sort column header name, or null for no sort */
+	sortColumn: string | null;
+	/** Sort direction */
+	sortDirection: "asc" | "desc";
+	/** Columns hidden from the preview table */
+	hiddenColumns: string[];
+	/** Column selected for filtering, or null for all columns */
+	filterColumn: string | null;
+	/** Filter text applied to filterColumn (or all columns) */
+	filterText: string;
+	/** Maximum preview rows (default 100) */
+	maxPreviewRows: number;
+	/** Timestamp (ms) of the last successful import */
+	lastImportedAt?: number;
+}
+
+// ── Data Dictionary ─────────────────────────────────────
+
+/** Reference to a config that uses a property. */
+export interface DataDictionaryConfigRef {
+	configId: string;
+	configName: string;
+	configType: "import" | "export";
+}
+
+/** Aggregated property metadata for the Data Dictionary. */
+export interface DataDictionaryEntry {
+	/** Frontmatter property name */
+	propertyName: string;
+	/** Config IDs that use this property */
+	usedInConfigs: DataDictionaryConfigRef[];
+	/** CSV column names that map to this property */
+	csvColumnNames: string[];
+	/** Sample values seen (first N unique values) */
+	sampleValues: string[];
 }
 
 // ── Vault file info (for BaseQueryEngine) ───────────────

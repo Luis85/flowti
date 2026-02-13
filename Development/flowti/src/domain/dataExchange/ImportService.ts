@@ -166,6 +166,13 @@ export class ImportService {
 			}
 		}
 
+		// Merge custom properties into frontmatter
+		if (config.customProperties) {
+			for (const [key, value] of Object.entries(config.customProperties)) {
+				frontmatter[key] = value;
+			}
+		}
+
 		// Check if note already exists
 		const exists = await this.fileExists(notePath);
 

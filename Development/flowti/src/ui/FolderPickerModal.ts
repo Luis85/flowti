@@ -3,9 +3,13 @@
  *
  * A fuzzy-searchable modal that lists all vault folders
  * and invokes a callback when one is chosen.
+ * Supports type-to-create: when the typed text doesn't match
+ * any existing folder, a "+ Create: {text}" option appears.
  */
 
-import { App, FuzzySuggestModal, TFolder } from "obsidian";
+import { App, FuzzySuggestModal, Notice, TFolder } from "obsidian";
+
+const CREATE_PREFIX = "+ Create: ";
 
 export class FolderPickerModal extends FuzzySuggestModal<string> {
 	private folders: string[];
@@ -18,15 +22,36 @@ export class FolderPickerModal extends FuzzySuggestModal<string> {
 	}
 
 	getItems(): string[] {
-		return this.folders;
+		const query = this.inputEl?.value?.trim() ?? "";
+		const items = [...this.folders];
+
+		// When the user types a path that doesn't match an existing folder,
+		// offer to create it
+		if (query && !this.folders.includes(query)) {
+			items.push(`${CREATE_PREFIX}${query}`);
+		}
+
+		return items;
 	}
 
 	getItemText(item: string): string {
+		if (item.startsWith(CREATE_PREFIX)) return item;
 		return item || "(vault root)";
 	}
 
-	onChooseItem(item: string): void {
-		this.onChoose(item);
+	async onChooseItem(item: string): Promise<void> {
+		if (item.startsWith(CREATE_PREFIX)) {
+			const newPath = item.slice(CREATE_PREFIX.length);
+			try {
+				await this.app.vault.createFolder(newPath);
+				new Notice(`Folder created: ${newPath}`);
+			} catch {
+				// Folder may already exist (race), which is fine
+			}
+			this.onChoose(newPath);
+		} else {
+			this.onChoose(item);
+		}
 	}
 }
 

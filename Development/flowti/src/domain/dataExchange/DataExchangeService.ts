@@ -9,6 +9,8 @@ import type { IEventBus } from "../../infrastructure/events/types";
 import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
 import type { IStorageProvider } from "../../utils/types";
 import type {
+	CsvDisplaySettings,
+	DataDictionaryEntry,
 	DataExchangeState,
 	SavedImportConfig,
 	SavedExportConfig,
@@ -219,6 +221,25 @@ export class DataExchangeService {
 		this.emitConfigChanged();
 	}
 
+	async updateImportConfig(
+		id: string,
+		updates: Partial<Omit<SavedImportConfig, "id" | "createdAt">>,
+	): Promise<SavedImportConfig | undefined> {
+		const cfg = this.state.savedImportConfigs.find((c) => c.id === id);
+		if (!cfg) return undefined;
+		Object.assign(cfg, updates);
+		await this.saveState();
+		this.emitConfigChanged();
+		return { ...cfg };
+	}
+
+	/** Returns import configs whose sourcePath matches the given CSV path. */
+	getImportConfigsForFile(csvPath: string): SavedImportConfig[] {
+		return this.state.savedImportConfigs.filter(
+			(c) => c.sourcePath === csvPath,
+		);
+	}
+
 	// ── Export config CRUD ──────────────────────────────────
 
 	getSavedExportConfigs(): SavedExportConfig[] {
@@ -251,6 +272,179 @@ export class DataExchangeService {
 		this.emitConfigChanged();
 	}
 
+	async updateExportConfig(
+		id: string,
+		updates: Partial<Omit<SavedExportConfig, "id" | "createdAt">>,
+	): Promise<SavedExportConfig | undefined> {
+		const cfg = this.state.savedExportConfigs.find((c) => c.id === id);
+		if (!cfg) return undefined;
+		Object.assign(cfg, updates);
+		await this.saveState();
+		this.emitConfigChanged();
+		return { ...cfg };
+	}
+
+	/** Returns export configs whose sourcePath matches the given path. */
+	getExportConfigsForSource(sourcePath: string): SavedExportConfig[] {
+		return this.state.savedExportConfigs.filter(
+			(c) => c.sourcePath === sourcePath,
+		);
+	}
+
+	/** Returns export configs whose outputPath matches the given path. */
+	getExportConfigsForOutput(outputPath: string): SavedExportConfig[] {
+		return this.state.savedExportConfigs.filter(
+			(c) => c.outputPath === outputPath,
+		);
+	}
+
+	// ── CSV display settings ────────────────────────────────
+
+	getCsvDisplaySettings(csvPath: string): CsvDisplaySettings | undefined {
+		return this.state.csvDisplaySettings?.[csvPath];
+	}
+
+	async saveCsvDisplaySettings(
+		csvPath: string,
+		settings: CsvDisplaySettings,
+	): Promise<void> {
+		if (!this.state.csvDisplaySettings) {
+			this.state.csvDisplaySettings = {};
+		}
+		this.state.csvDisplaySettings[csvPath] = settings;
+		await this.saveState();
+	}
+
+	// ── Data dictionary ─────────────────────────────────────
+
+	buildDataDictionary(): DataDictionaryEntry[] {
+		const map = new Map<string, DataDictionaryEntry>();
+
+		const getOrCreate = (name: string): DataDictionaryEntry => {
+			let entry = map.get(name);
+			if (!entry) {
+				entry = {
+					propertyName: name,
+					usedInConfigs: [],
+					csvColumnNames: [],
+					sampleValues: [],
+				};
+				map.set(name, entry);
+			}
+			return entry;
+		};
+
+		for (const cfg of this.state.savedImportConfigs) {
+			for (const m of cfg.columnMappings) {
+				if (!m.included) continue;
+				const entry = getOrCreate(m.frontmatterKey);
+				entry.usedInConfigs.push({
+					configId: cfg.id,
+					configName: cfg.name,
+					configType: "import",
+				});
+				if (!entry.csvColumnNames.includes(m.csvColumn)) {
+					entry.csvColumnNames.push(m.csvColumn);
+				}
+			}
+			if (cfg.customProperties) {
+				for (const [key, value] of Object.entries(cfg.customProperties)) {
+					const entry = getOrCreate(key);
+					entry.usedInConfigs.push({
+						configId: cfg.id,
+						configName: cfg.name,
+						configType: "import",
+					});
+					if (value && entry.sampleValues.length < 5 && !entry.sampleValues.includes(value)) {
+						entry.sampleValues.push(value);
+					}
+				}
+			}
+		}
+
+		for (const cfg of this.state.savedExportConfigs) {
+			for (const col of cfg.columns) {
+				const entry = getOrCreate(col);
+				entry.usedInConfigs.push({
+					configId: cfg.id,
+					configName: cfg.name,
+					configType: "export",
+				});
+			}
+		}
+
+		return [...map.values()].sort((a, b) =>
+			a.propertyName.localeCompare(b.propertyName),
+		);
+	}
+
+	// ── CSV doc path ────────────────────────────────────────
+
+	/** Returns the vault path for a CSV file's documentation note. */
+	getCsvDocPath(csvPath: string): string {
+		const folder = this.getReportsFolder();
+		const basename = csvPath.split("/").pop()?.replace(/\.csv$/i, "") ?? "csv";
+		const safeName = this.sanitizeDocName(basename);
+		return `${folder}/CSV - ${safeName}.md`;
+	}
+
+	/** Creates a documentation note for a CSV file. Returns the doc path. */
+	async createCsvDoc(
+		csvPath: string,
+		headers: string[],
+		rowCount: number,
+		delimiter?: string,
+	): Promise<string> {
+		const docPath = this.getCsvDocPath(csvPath);
+		const basename = csvPath.split("/").pop() ?? "file.csv";
+		const now = new Date().toISOString();
+
+		const lines: string[] = [
+			"---",
+			"type: CsvDoc",
+			`csvFile: "[[${basename}]]"`,
+			`filePath: "${csvPath}"`,
+			`name: "${basename}"`,
+			`description: ""`,
+			`columns: ${headers.length}`,
+			`rows: ${rowCount}`,
+			`delimiter: "${delimiter ?? ","}"`,
+			`headers: [${headers.map((h) => `"${h}"`).join(", ")}]`,
+			`created: "${now}"`,
+			"---",
+			"",
+			`# ${basename}`,
+			"",
+			"> CSV file documentation.",
+			"",
+			"## Overview",
+			"",
+			`- **File**: [[${basename}]]`,
+			`- **Columns**: ${headers.length}`,
+			`- **Rows**: ${rowCount}`,
+			"",
+			"## Notes",
+			"",
+			"> Document usage notes, data source, or workflow context.",
+			"",
+		];
+
+		await this.fileSystem.createFile(docPath, lines.join("\n"), { createFolders: true });
+		return docPath;
+	}
+
+	// ── Config doc path ─────────────────────────────────────
+
+	getConfigDocPath(
+		configName: string,
+		configType: "import" | "export",
+	): string {
+		const folder = this.getConfigsFolder();
+		const safeName = this.sanitizeDocName(configName);
+		const prefix = configType === "import" ? "Import" : "Export";
+		return `${folder}/${prefix} - ${safeName}.md`;
+	}
+
 	private emitConfigChanged(): void {
 		void this.eventBus.emit("dataExchange.config.changed", {
 			importCount: this.state.savedImportConfigs.length,
@@ -266,6 +460,13 @@ export class DataExchangeService {
 		newPath: string,
 	): Promise<void> {
 		let changed = false;
+
+		for (const cfg of this.state.savedImportConfigs) {
+			if (cfg.sourcePath === oldPath) {
+				cfg.sourcePath = newPath;
+				changed = true;
+			}
+		}
 
 		for (const cfg of this.state.savedExportConfigs) {
 			if (cfg.sourcePath === oldPath) {
@@ -312,6 +513,15 @@ export class DataExchangeService {
 
 		for (const cfg of this.state.savedImportConfigs) {
 			if (
+				cfg.sourcePath &&
+				(cfg.sourcePath === oldPath ||
+					cfg.sourcePath.startsWith(oldPrefix))
+			) {
+				cfg.sourcePath =
+					newPath + cfg.sourcePath.slice(oldPath.length);
+				changed = true;
+			}
+			if (
 				cfg.targetFolder === oldPath ||
 				cfg.targetFolder.startsWith(oldPrefix)
 			) {
@@ -329,9 +539,24 @@ export class DataExchangeService {
 
 	// ── Config documentation ────────────────────────────────
 
+	/** Returns the Configs folder path (public for Hub scanning). */
+	getConfigsFolderPath(): string {
+		return this.getConfigsFolder();
+	}
+
+	/** Returns the Reports folder path (public for Hub scanning). */
+	getReportsFolderPath(): string {
+		return this.getReportsFolder();
+	}
+
 	private getConfigsFolder(): string {
 		const base = this.docsRootPath.replace(/\/+$/, "");
 		return `${base}/Configs`;
+	}
+
+	private getReportsFolder(): string {
+		const base = this.docsRootPath.replace(/\/+$/, "");
+		return `${base}/Reports`;
 	}
 
 	private sanitizeDocName(name: string): string {

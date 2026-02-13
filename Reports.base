@@ -8,7 +8,10 @@ views:
       property: file.folder
       direction: ASC
     order:
+      - file.backlinks
       - file.name
       - file.folder
     columnSize:
+      file.backlinks: 181
       file.name: 197
+      file.folder: 350

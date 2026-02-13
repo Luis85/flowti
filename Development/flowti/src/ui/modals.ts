@@ -1,4 +1,4 @@
-import { App, Modal, Setting } from "obsidian";
+import { App, FuzzySuggestModal, Modal, Setting } from "obsidian";
 
 /**
  * A simple confirmation modal with a message and confirm/cancel buttons.
@@ -46,15 +46,17 @@ export class ConfirmModal extends Modal {
 export class InputModal extends Modal {
 	private title: string;
 	private placeholder: string;
+	private defaultValue: string;
 	private submitLabel: string;
 	private inputName: string;
 	private inputDesc: string;
 	private onSubmit: (value: string) => void;
 
-	constructor(app: App, options: { title: string; placeholder?: string; submitLabel?: string; inputName?: string; inputDesc?: string; onSubmit: (value: string) => void }) {
+	constructor(app: App, options: { title: string; placeholder?: string; defaultValue?: string; submitLabel?: string; inputName?: string; inputDesc?: string; onSubmit: (value: string) => void }) {
 		super(app);
 		this.title = options.title;
 		this.placeholder = options.placeholder ?? "";
+		this.defaultValue = options.defaultValue ?? "";
 		this.submitLabel = options.submitLabel ?? "Create";
 		this.inputName = options.inputName ?? "Event name";
 		this.inputDesc = options.inputDesc ?? "Use dot notation (e.g. my.custom.event)";
@@ -65,7 +67,7 @@ export class InputModal extends Modal {
 		const { contentEl } = this;
 		contentEl.createEl("h3", { text: this.title });
 
-		let inputValue = "";
+		let inputValue = this.defaultValue;
 
 		new Setting(contentEl)
 			.setName(this.inputName)
@@ -73,6 +75,7 @@ export class InputModal extends Modal {
 			.addText((text) =>
 				text
 					.setPlaceholder(this.placeholder)
+					.setValue(this.defaultValue)
 					.onChange((value) => { inputValue = value; })
 			);
 
@@ -96,6 +99,44 @@ export class InputModal extends Modal {
 
 	onClose(): void {
 		this.contentEl.empty();
+	}
+}
+
+/**
+ * A fuzzy-suggest modal for choosing between saved configs (or starting fresh).
+ */
+export interface ConfigChooserItem {
+	id: string;
+	name: string;
+}
+
+const FRESH_ITEM: ConfigChooserItem = { id: "__fresh__", name: "Start fresh (no config)" };
+
+export class ConfigChooserModal extends FuzzySuggestModal<ConfigChooserItem> {
+	private items: ConfigChooserItem[];
+	private onChooseConfig: (id: string | null) => void;
+
+	constructor(
+		app: App,
+		configs: ConfigChooserItem[],
+		onChoose: (id: string | null) => void,
+	) {
+		super(app);
+		this.items = [...configs, FRESH_ITEM];
+		this.onChooseConfig = onChoose;
+		this.setPlaceholder("Choose a config or start fresh...");
+	}
+
+	getItems(): ConfigChooserItem[] {
+		return this.items;
+	}
+
+	getItemText(item: ConfigChooserItem): string {
+		return item.name;
+	}
+
+	onChooseItem(item: ConfigChooserItem): void {
+		this.onChooseConfig(item.id === "__fresh__" ? null : item.id);
 	}
 }
 
