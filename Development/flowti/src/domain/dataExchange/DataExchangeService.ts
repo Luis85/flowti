@@ -445,6 +445,22 @@ export class DataExchangeService {
 		return `${folder}/${prefix} - ${safeName}.md`;
 	}
 
+	/** Recreates a config documentation file (e.g. if deleted). */
+	async ensureConfigDoc(
+		configName: string,
+		configType: "import" | "export",
+	): Promise<string> {
+		const path = this.getConfigDocPath(configName, configType);
+		if (configType === "import") {
+			const cfg = this.state.savedImportConfigs.find((c) => c.name === configName);
+			if (cfg) await this.createImportConfigDoc(cfg);
+		} else {
+			const cfg = this.state.savedExportConfigs.find((c) => c.name === configName);
+			if (cfg) await this.createExportConfigDoc(cfg);
+		}
+		return path;
+	}
+
 	private emitConfigChanged(): void {
 		void this.eventBus.emit("dataExchange.config.changed", {
 			importCount: this.state.savedImportConfigs.length,

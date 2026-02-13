@@ -542,6 +542,19 @@
 	}
 }
 
+@keyframes ft-spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.ft-spin svg {
+	animation: ft-spin 1s linear infinite;
+}
+
 .ft-folder-list {
 	max-height: 200px;
 	overflow-y: auto;
