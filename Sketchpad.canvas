@@ -401,6 +401,46 @@
 			"width":260,
 			"height":60,
 			"color":"5"
+		},
+		{
+			"id":"9921907f338a95af",
+			"type":"text",
+			"text":"new importer",
+			"styleAttributes":{},
+			"x":280,
+			"y":6520,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"4a86450c6a5a3c67",
+			"type":"text",
+			"text":"add n csv",
+			"styleAttributes":{},
+			"x":280,
+			"y":6580,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"d2ee4d7098e59d97",
+			"type":"text",
+			"text":"import sequential",
+			"styleAttributes":{},
+			"x":280,
+			"y":6640,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"3afc47b192abd632",
+			"type":"text",
+			"text":"CSV Reports Merge",
+			"styleAttributes":{},
+			"x":280,
+			"y":6460,
+			"width":260,
+			"height":60
 		}
 	],
 	"edges":[
