@@ -96,11 +96,14 @@ export function createServiceRegistrations(
 		// Discovery Service - discovers user-land events from vault files
 		{
 			id: "discoveryService",
-			factory: (container: IServiceContainer) =>
-				new DiscoveryService({
+			factory: (container: IServiceContainer) => {
+				const eventBus = container.getEventBus();
+				return new DiscoveryService({
 					storage,
-					eventBus: container.getEventBus(),
-				}),
+					eventBus,
+					fileSystem: new FileSystemClient({ eventBus }),
+				});
+			},
 		},
 
 		// Subscription Service - manages event subscriptions with filters

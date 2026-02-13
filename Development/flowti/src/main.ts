@@ -644,6 +644,7 @@ export default class FlowtiBasePlugin extends Plugin {
 
 			this.discoveryService = await this.services.get<DiscoveryService>("discoveryService");
 			await this.discoveryService.load();
+			this.discoveryService.setDocsRootPath(settingsService.getSettings().docsRootPath);
 
 			this.subscriptionService = await this.services.get<SubscriptionService>("subscriptionService");
 			await this.subscriptionService.load();

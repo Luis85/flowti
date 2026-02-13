@@ -294,6 +294,11 @@ const CATALOG_DATA = {
 	"dataExchange.export.started":   { category: "Data Exchange", description: "Export operation has started", direction: "Service → Listeners", domain: "dataExchange", services: "ExportService", tags: ["system"] },
 	"dataExchange.export.completed": { category: "Data Exchange", description: "Export operation completed successfully", direction: "Service → Listeners", domain: "dataExchange", services: "ExportService" },
 	"dataExchange.export.failed":    { category: "Data Exchange", description: "Export operation failed", direction: "Service → Listeners", domain: "dataExchange", services: "ExportService" },
+	"dataExchange.pipeline.execute":         { category: "Data Exchange", description: "Command to start a multi-import pipeline", direction: "View → Plugin", domain: "dataExchange", services: "DataExchangeService", tags: ["system"] },
+	"dataExchange.pipeline.started":         { category: "Data Exchange", description: "Pipeline import started", direction: "Service → Listeners", domain: "dataExchange", services: "DataExchangeService", tags: ["system"] },
+	"dataExchange.pipeline.sourceCompleted": { category: "Data Exchange", description: "One source completed within a pipeline", direction: "Service → Listeners", domain: "dataExchange", services: "DataExchangeService", tags: ["system"] },
+	"dataExchange.pipeline.completed":       { category: "Data Exchange", description: "Multi-import pipeline completed", direction: "Service → Listeners", domain: "dataExchange", services: "DataExchangeService" },
+	"dataExchange.pipeline.failed":          { category: "Data Exchange", description: "Multi-import pipeline failed", direction: "Service → Listeners", domain: "dataExchange", services: "DataExchangeService" },
 	"dataExchange.config.changed":   { category: "Data Exchange", description: "Saved import/export config created or deleted", direction: "Service → Listeners", domain: "dataExchange", services: "DataExchangeService", tags: ["system"] },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 

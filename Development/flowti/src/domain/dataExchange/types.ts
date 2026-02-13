@@ -256,6 +256,8 @@ export interface SavedImportConfig {
 	createBase?: boolean;
 	/** Path for the .base view file */
 	basePath?: string;
+	/** Type value injected into every note's frontmatter (e.g. "Event") */
+	noteType?: string;
 }
 
 /** A saved export configuration preset. */
@@ -286,12 +288,94 @@ export interface SavedExportConfig {
 	conflictStrategy?: ExportConflictStrategy;
 	/** When true, outputPath is an absolute filesystem path outside the vault */
 	isExternal?: boolean;
+	/** Type value for TypeDoc creation (e.g. "Event") */
+	noteType?: string;
+}
+
+// ── Multi-Import Pipeline ────────────────────────────────
+
+/** A single CSV source within a multi-import pipeline. */
+export interface MultiImportSource {
+	/** Unique ID for this source within the pipeline */
+	id: string;
+	/** Vault path to the CSV file */
+	csvPath: string;
+	/** Which CSV column holds the merge key value (maps to pipeline.mergeKey) */
+	mergeKeyColumn: string;
+	/** Column mappings for non-merge-key columns */
+	columnMappings: ColumnMapping[];
+	/** Custom key-value pairs injected into every note from this source */
+	customProperties?: Record<string, string>;
+	/** Optional prefix prepended to filename */
+	namePrefix?: string;
+	/** Optional suffix appended to filename (before .md) */
+	nameSuffix?: string;
+}
+
+/** A saved multi-import pipeline configuration. */
+export interface SavedMultiImportPipeline {
+	/** Unique ID */
+	id: string;
+	/** User-provided pipeline name */
+	name: string;
+	/** Timestamp when created */
+	createdAt: number;
+	/** Whether this pipeline is marked as a favourite */
+	favourite?: boolean;
+	/** Target folder for all notes produced by this pipeline */
+	targetFolder: string;
+	/** Canonical frontmatter key name used as the merge key (e.g. "item_id") */
+	mergeKey: string;
+	/** Ordered list of CSV sources */
+	sources: MultiImportSource[];
+	/** Whether to create/update a .base view file after pipeline run */
+	createBase?: boolean;
+	/** Path for the .base view file */
+	basePath?: string;
+	/** Timestamp of the last successful execution */
+	lastExecutedAt?: number;
+	/** Type value injected into every note's frontmatter (e.g. "Event") */
+	noteType?: string;
+}
+
+/** Result summary for a single source within a pipeline run. */
+export interface PipelineSourceResult {
+	/** ID of the source */
+	sourceId: string;
+	/** Vault path to the CSV file */
+	csvPath: string;
+	/** Result from ImportService for this source */
+	result: ImportResult;
+}
+
+/** Aggregated result summary after a full pipeline run. */
+export interface MultiImportResult {
+	/** Total number of sources in the pipeline */
+	totalSources: number;
+	/** Number of sources that completed successfully */
+	completedSources: number;
+	/** Aggregated total rows across all sources */
+	totalRows: number;
+	/** Aggregated notes created (first source typically) */
+	created: number;
+	/** Aggregated notes updated (subsequent sources) */
+	updated: number;
+	/** Aggregated notes skipped */
+	skipped: number;
+	/** Aggregated notes failed */
+	failed: number;
+	/** All errors across all sources */
+	errors: ImportRowError[];
+	/** Per-source breakdown */
+	sourceResults: PipelineSourceResult[];
 }
 
 /** Persisted state for the Data Exchange domain. */
 export interface DataExchangeState {
 	savedImportConfigs: SavedImportConfig[];
 	savedExportConfigs: SavedExportConfig[];
+	/** Saved multi-import pipeline configurations */
+	savedPipelines?: SavedMultiImportPipeline[];
 	/** Per-CSV file display settings, keyed by vault path */
 	csvDisplaySettings?: Record<string, CsvDisplaySettings>;
 	/** Vault paths of CSV files hidden from the "Available Files" dashboard section */
@@ -337,6 +421,22 @@ export interface DataDictionaryEntry {
 	csvColumnNames: string[];
 	/** Sample values seen (first N unique values) */
 	sampleValues: string[];
+	/** Note types that expect this property (derived from pipeline noteType) */
+	typeNames?: string[];
+}
+
+/** A type definition scanned from the Types folder. */
+export interface TypeDocEntry {
+	/** Type name (e.g. "Event", "Asset") */
+	name: string;
+	/** Description from frontmatter */
+	description: string;
+	/** Expected frontmatter property keys */
+	properties: string[];
+	/** Vault path to the TypeDoc file */
+	filePath: string;
+	/** Number of pipelines that reference this type */
+	pipelineCount: number;
 }
 
 // ── Vault file info (for BaseQueryEngine) ───────────────

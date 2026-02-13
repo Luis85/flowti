@@ -1,0 +1,450 @@
+/**
+ * PipelineSourceModal — modal for adding/editing a CSV source within a pipeline.
+ *
+ * Shows CSV file picker, merge key column dropdown, column mapping grid,
+ * custom properties, and prefix/suffix fields.
+ */
+
+import { App, Modal, Notice, Setting, setIcon } from "obsidian";
+import type { ImportService } from "../domain/dataExchange/ImportService";
+import type { ColumnMapping, MultiImportSource } from "../domain/dataExchange/types";
+import { FilePickerModal } from "./FilePickerModal";
+
+export interface PipelineSourceModalOptions {
+	app: App;
+	importService: ImportService;
+	/** Canonical merge key name from the pipeline (e.g., "item_id") */
+	mergeKey: string;
+	/** Existing source to edit (undefined = create new) */
+	existingSource?: MultiImportSource;
+	/** Other sources in the pipeline (used to detect key overlaps) */
+	otherSources?: MultiImportSource[];
+	/** Callback on save */
+	onSave: (source: MultiImportSource) => void;
+}
+
+function generateSourceId(): string {
+	return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+export class PipelineSourceModal extends Modal {
+	private importService: ImportService;
+	private mergeKey: string;
+	private existingSource?: MultiImportSource;
+	private onSave: (source: MultiImportSource) => void;
+	/** Frontmatter keys already claimed by other sources in the pipeline */
+	private otherSourceKeys: Set<string>;
+
+	// State
+	private csvPath = "";
+	private csvHeaders: string[] = [];
+	private mergeKeyColumn = "";
+	private columnMappings: ColumnMapping[] = [];
+	private customProperties: Record<string, string> = {};
+	private namePrefix = "";
+	private nameSuffix = "";
+	private isLoading = false;
+
+	constructor(options: PipelineSourceModalOptions) {
+		super(options.app);
+		this.importService = options.importService;
+		this.mergeKey = options.mergeKey;
+		this.existingSource = options.existingSource;
+		this.onSave = options.onSave;
+
+		// Build set of keys already claimed by other sources
+		this.otherSourceKeys = new Set<string>();
+		if (options.otherSources) {
+			for (const src of options.otherSources) {
+				for (const m of src.columnMappings) {
+					if (m.included) this.otherSourceKeys.add(m.frontmatterKey);
+				}
+				if (src.customProperties) {
+					for (const key of Object.keys(src.customProperties)) {
+						this.otherSourceKeys.add(key);
+					}
+				}
+			}
+		}
+
+		if (options.existingSource) {
+			const src = options.existingSource;
+			this.csvPath = src.csvPath;
+			this.mergeKeyColumn = src.mergeKeyColumn;
+			this.columnMappings = src.columnMappings.map((m) => ({ ...m }));
+			this.customProperties = src.customProperties ? { ...src.customProperties } : {};
+			this.namePrefix = src.namePrefix ?? "";
+			this.nameSuffix = src.nameSuffix ?? "";
+		}
+	}
+
+	onOpen(): void {
+		this.modalEl.style.width = "640px";
+		this.render();
+
+		// If editing, auto-parse to load headers
+		if (this.existingSource && this.csvPath) {
+			void this.parseCsv();
+		}
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+	}
+
+	private render(): void {
+		const { contentEl } = this;
+		contentEl.empty();
+
+		const isEdit = !!this.existingSource;
+		contentEl.createEl("h3", {
+			text: isEdit ? "Edit Source" : "Add CSV Source",
+		});
+
+		// CSV file picker
+		const csvSetting = new Setting(contentEl)
+			.setName("CSV file")
+			.setDesc("Select a CSV file from the vault");
+
+		csvSetting.addText((text) =>
+			text
+				.setValue(this.csvPath)
+				.setPlaceholder("path/to/file.csv")
+				.onChange((v) => { this.csvPath = v; }),
+		);
+		csvSetting.addExtraButton((btn) =>
+			btn
+				.setIcon("folder-open")
+				.setTooltip("Browse CSV files")
+				.onClick(() => {
+					new FilePickerModal(this.app, ["csv"], (path) => {
+						this.csvPath = path;
+						void this.parseCsv();
+					}).open();
+				}),
+		);
+
+		if (this.isLoading) {
+			const loading = contentEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-3" });
+			const spinner = loading.createSpan();
+			setIcon(spinner, "loader");
+			spinner.style.opacity = "0.5";
+			loading.createSpan({ text: "Parsing CSV...", cls: "ft-text-muted" });
+			return;
+		}
+
+		if (this.csvHeaders.length > 0) {
+			// Merge key column
+			new Setting(contentEl)
+				.setName("Merge key column")
+				.setDesc(`Maps to the pipeline key "${this.mergeKey}"`)
+				.addDropdown((dd) => {
+					dd.addOption("", "-- Select column --");
+					for (const h of this.csvHeaders) {
+						dd.addOption(h, h);
+					}
+					dd.setValue(this.mergeKeyColumn);
+					dd.onChange((v) => {
+						this.mergeKeyColumn = v;
+					});
+				});
+
+			// Column mappings
+			contentEl.createEl("h4", {
+				text: "Column Mappings",
+				cls: "ft-heading ft-heading-sm ft-mt-3 ft-mb-1",
+			});
+			contentEl.createEl("p", {
+				text: "Select which columns to import and their frontmatter key names.",
+				cls: "ft-text-muted ft-text-sm ft-mb-2",
+			});
+
+			const grid = contentEl.createDiv({ cls: "ft-column-mapping-grid" });
+			this.renderColumnGrid(grid);
+
+			// Name prefix/suffix
+			contentEl.createEl("h4", {
+				text: "Filename Options",
+				cls: "ft-heading ft-heading-sm ft-mt-3 ft-mb-1",
+			});
+
+			new Setting(contentEl)
+				.setName("Filename prefix")
+				.setDesc("Prepended to the note filename (optional)")
+				.addText((text) =>
+					text
+						.setValue(this.namePrefix)
+						.setPlaceholder("")
+						.onChange((v) => { this.namePrefix = v; }),
+				);
+
+			new Setting(contentEl)
+				.setName("Filename suffix")
+				.setDesc("Appended to the note filename before .md (optional)")
+				.addText((text) =>
+					text
+						.setValue(this.nameSuffix)
+						.setPlaceholder("")
+						.onChange((v) => { this.nameSuffix = v; }),
+				);
+
+			// Custom properties
+			contentEl.createEl("h4", {
+				text: "Custom Properties",
+				cls: "ft-heading ft-heading-sm ft-mt-3 ft-mb-1",
+			});
+			contentEl.createEl("p", {
+				text: "Static key-value pairs injected into every note from this source.",
+				cls: "ft-text-muted ft-text-sm ft-mb-2",
+			});
+
+			this.renderCustomProperties(contentEl);
+		}
+
+		// Save / Cancel
+		const footer = new Setting(contentEl);
+		footer.addButton((btn) =>
+			btn.setButtonText("Cancel").onClick(() => this.close()),
+		);
+		footer.addButton((btn) =>
+			btn
+				.setButtonText(isEdit ? "Update" : "Add Source")
+				.setCta()
+				.onClick(() => this.handleSave()),
+		);
+	}
+
+	private async parseCsv(): Promise<void> {
+		if (!this.csvPath) return;
+		this.isLoading = true;
+		this.render();
+
+		try {
+			const parsed = await this.importService.parseFile(this.csvPath);
+			this.csvHeaders = parsed.headers;
+
+			// Auto-detect merge key column if not set
+			if (!this.mergeKeyColumn) {
+				const lower = this.mergeKey.toLowerCase().replace(/[_\s-]/g, "");
+				const match = this.csvHeaders.find((h) => {
+					const hLower = h.toLowerCase().replace(/[_\s-]/g, "");
+					return hLower === lower;
+				});
+				if (match) this.mergeKeyColumn = match;
+			}
+
+			// Initialize column mappings if empty
+			if (this.columnMappings.length === 0) {
+				this.columnMappings = this.csvHeaders.map((h) => ({
+					csvColumn: h,
+					frontmatterKey: h,
+					included: true,
+				}));
+			} else {
+				// Merge: keep existing mappings, add new headers
+				const existingCols = new Set(this.columnMappings.map((m) => m.csvColumn));
+				for (const h of this.csvHeaders) {
+					if (!existingCols.has(h)) {
+						this.columnMappings.push({
+							csvColumn: h,
+							frontmatterKey: h,
+							included: true,
+						});
+					}
+				}
+			}
+		} catch (error) {
+			new Notice(`Failed to parse CSV: ${error instanceof Error ? error.message : String(error)}`);
+			this.csvHeaders = [];
+		}
+
+		this.isLoading = false;
+		this.render();
+	}
+
+	private renderColumnGrid(container: HTMLElement): void {
+		// Filter out merge key column from the grid (it's handled separately)
+		const mappings = this.columnMappings.filter(
+			(m) => m.csvColumn !== this.mergeKeyColumn,
+		);
+
+		if (mappings.length === 0) {
+			container.createEl("p", {
+				text: "No additional columns found.",
+				cls: "ft-text-muted ft-text-sm ft-p-2",
+			});
+			return;
+		}
+
+		// Quick select buttons
+		const actions = container.createDiv({ cls: "ft-flex ft-gap-2 ft-mb-2" });
+		const allBtn = actions.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		allBtn.textContent = "All";
+		allBtn.addEventListener("click", () => {
+			for (const m of this.columnMappings) m.included = true;
+			this.renderColumnGrid(container);
+		});
+		const noneBtn = actions.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		noneBtn.textContent = "None";
+		noneBtn.addEventListener("click", () => {
+			for (const m of this.columnMappings) {
+				if (m.csvColumn !== this.mergeKeyColumn) m.included = false;
+			}
+			this.renderColumnGrid(container);
+		});
+
+		const grid = container.createDiv();
+		grid.style.maxHeight = "200px";
+		grid.style.overflowY = "auto";
+
+		for (const mapping of mappings) {
+			const row = grid.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
+			row.style.borderBottom = "1px solid var(--background-modifier-border)";
+
+			const cb = row.createEl("input", { type: "checkbox" });
+			cb.checked = mapping.included;
+			cb.addEventListener("change", () => { mapping.included = cb.checked; });
+
+			const csvLabel = row.createSpan({ text: mapping.csvColumn, cls: "ft-text-sm" });
+			csvLabel.style.flex = "1";
+			csvLabel.style.minWidth = "0";
+			csvLabel.style.overflow = "hidden";
+			csvLabel.style.textOverflow = "ellipsis";
+			csvLabel.style.whiteSpace = "nowrap";
+
+			const arrow = row.createSpan({ text: "→", cls: "ft-text-muted ft-text-sm" });
+			arrow.style.flexShrink = "0";
+
+			const keyInput = row.createEl("input", {
+				type: "text",
+				cls: "ft-text-sm",
+			});
+			keyInput.style.flex = "1";
+			keyInput.style.minWidth = "0";
+			keyInput.style.padding = "2px 6px";
+			keyInput.style.border = "1px solid var(--background-modifier-border)";
+			keyInput.style.borderRadius = "var(--radius-s, 4px)";
+			keyInput.style.background = "var(--background-primary)";
+			keyInput.value = mapping.frontmatterKey;
+			keyInput.addEventListener("change", () => {
+				mapping.frontmatterKey = keyInput.value || mapping.csvColumn;
+				// Re-render to update overlap indicator
+				this.renderColumnGrid(container);
+			});
+
+			// Overlap indicator
+			if (this.otherSourceKeys.has(mapping.frontmatterKey)) {
+				const badge = row.createSpan({
+					text: "exists",
+					cls: "ft-badge ft-badge-muted ft-text-sm",
+				});
+				badge.style.flexShrink = "0";
+				badge.style.color = "var(--text-warning)";
+				badge.title = "This key is already mapped by another source";
+			}
+		}
+	}
+
+	private renderCustomProperties(container: HTMLElement): void {
+		const entries = Object.entries(this.customProperties);
+		const propsEl = container.createDiv();
+
+		for (const [key, value] of entries) {
+			const row = propsEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-1" });
+
+			const keyInput = row.createEl("input", { type: "text", cls: "ft-text-sm" });
+			keyInput.style.flex = "1";
+			keyInput.style.padding = "2px 6px";
+			keyInput.style.border = "1px solid var(--background-modifier-border)";
+			keyInput.style.borderRadius = "var(--radius-s, 4px)";
+			keyInput.style.background = "var(--background-primary)";
+			keyInput.value = key;
+			keyInput.placeholder = "key";
+
+			const valueInput = row.createEl("input", { type: "text", cls: "ft-text-sm" });
+			valueInput.style.flex = "1";
+			valueInput.style.padding = "2px 6px";
+			valueInput.style.border = "1px solid var(--background-modifier-border)";
+			valueInput.style.borderRadius = "var(--radius-s, 4px)";
+			valueInput.style.background = "var(--background-primary)";
+			valueInput.value = value;
+			valueInput.placeholder = "value";
+
+			// Overlap indicator
+			if (this.otherSourceKeys.has(key)) {
+				const badge = row.createSpan({
+					text: "exists",
+					cls: "ft-badge ft-badge-muted ft-text-sm",
+				});
+				badge.style.flexShrink = "0";
+				badge.style.color = "var(--text-warning)";
+				badge.title = "This key is already defined by another source";
+			}
+
+			const removeBtn = row.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+			const removeIcon = removeBtn.createSpan();
+			setIcon(removeIcon, "x");
+			const capturedKey = key;
+			removeBtn.addEventListener("click", () => {
+				delete this.customProperties[capturedKey];
+				this.render();
+			});
+
+			keyInput.addEventListener("change", () => {
+				const newKey = keyInput.value.trim();
+				if (newKey && newKey !== capturedKey) {
+					delete this.customProperties[capturedKey];
+					this.customProperties[newKey] = valueInput.value;
+				}
+				this.render();
+			});
+
+			valueInput.addEventListener("change", () => {
+				if (keyInput.value.trim()) {
+					this.customProperties[keyInput.value.trim()] = valueInput.value;
+				}
+			});
+		}
+
+		const addBtn = propsEl.createEl("span", { cls: "ft-nav-link ft-text-sm ft-mt-1" });
+		const addIcon = addBtn.createSpan();
+		setIcon(addIcon, "plus");
+		addBtn.appendText(" Add property");
+		addBtn.addEventListener("click", () => {
+			const key = `property${Object.keys(this.customProperties).length + 1}`;
+			this.customProperties[key] = "";
+			this.render();
+		});
+	}
+
+	private handleSave(): void {
+		if (!this.csvPath) {
+			new Notice("Please select a CSV file.");
+			return;
+		}
+		if (!this.mergeKeyColumn) {
+			new Notice("Please select a merge key column.");
+			return;
+		}
+
+		// Filter out the merge key column from mappings (it's auto-handled at execution)
+		const mappings = this.columnMappings.filter(
+			(m) => m.csvColumn !== this.mergeKeyColumn,
+		);
+
+		const source: MultiImportSource = {
+			id: this.existingSource?.id ?? generateSourceId(),
+			csvPath: this.csvPath,
+			mergeKeyColumn: this.mergeKeyColumn,
+			columnMappings: mappings,
+			customProperties: Object.keys(this.customProperties).length > 0
+				? { ...this.customProperties }
+				: undefined,
+			namePrefix: this.namePrefix || undefined,
+			nameSuffix: this.nameSuffix || undefined,
+		};
+
+		this.onSave(source);
+		this.close();
+	}
+}

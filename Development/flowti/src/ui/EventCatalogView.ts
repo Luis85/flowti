@@ -773,7 +773,7 @@ export class EventCatalogView extends ItemView {
 	// Cross-tab navigation
 	// ─────────────────────────────────────────────────────────────
 
-	private navigateToEvent(eventType: string): void {
+	navigateToEvent(eventType: string): void {
 		this.eventsTab!.setSelectedEventType(eventType);
 		this.eventsTab!.ensureCategoryExpanded(eventType);
 		this.activeTab = "events";

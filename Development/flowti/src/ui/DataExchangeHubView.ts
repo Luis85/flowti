@@ -16,14 +16,18 @@ import type {
 	ExportFormat,
 	SavedImportConfig,
 	SavedExportConfig,
+	SavedMultiImportPipeline,
+	TypeDocEntry,
 } from "../domain/dataExchange/types";
-import { ConfirmModal } from "./modals";
+import { ConfirmModal, InputModal } from "./modals";
 import { FilePickerModal } from "./FilePickerModal";
 import { FolderPickerModal, getVaultFolders } from "./FolderPickerModal";
+import { PipelineSourceModal } from "./PipelineSourceModal";
+import { VIEW_TYPE_EVENT_CATALOG, EventCatalogView } from "./EventCatalogView";
 
 export const VIEW_TYPE_DATA_EXCHANGE_HUB = "flowti-data-exchange-hub";
 
-type HubPage = "dashboard" | "imports" | "exports" | "reports" | "properties";
+type HubPage = "dashboard" | "imports" | "exports" | "reports" | "properties" | "pipelines" | "types";
 
 export class DataExchangeHubView extends ItemView {
 	private eventBus: IEventBus;
@@ -55,6 +59,11 @@ export class DataExchangeHubView extends ItemView {
 	private showHiddenCsvs = false;
 	private editingImportId: string | null = null;
 	private editingExportId: string | null = null;
+	private pipelineConfigs: SavedMultiImportPipeline[] = [];
+	private selectedPipelineId: string | null = null;
+	private editingPipelineId: string | null = null;
+	private typeEntries: TypeDocEntry[] = [];
+	private selectedTypeName: string | null = null;
 	private csvFileEntries: Array<{
 		path: string;
 		name: string;
@@ -66,7 +75,8 @@ export class DataExchangeHubView extends ItemView {
 
 	// DOM references
 	private topBarEl!: HTMLElement;
-	private countBadgeEl!: HTMLElement;
+	private topBarTitleEl!: HTMLElement;
+
 	private dashboardEl!: HTMLElement;
 	private splitEl!: HTMLElement;
 	private masterTreeEl!: HTMLElement;
@@ -105,7 +115,7 @@ export class DataExchangeHubView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		return "Data Exchange";
+		return "Data Exchange Hub";
 	}
 
 	getIcon(): string {
@@ -211,9 +221,11 @@ export class DataExchangeHubView extends ItemView {
 	private refreshConfigs(): void {
 		this.importConfigs = this.dataExchangeService.getSavedImportConfigs();
 		this.exportConfigs = this.dataExchangeService.getSavedExportConfigs();
+		this.pipelineConfigs = this.dataExchangeService.getSavedPipelines();
 		this.dictionaryEntries = this.dataExchangeService.buildDataDictionary();
 		this.scanCsvDocs();
 		this.scanPropertyDocs();
+		this.scanTypeDocs();
 		this.scanCsvFiles();
 	}
 
@@ -226,6 +238,27 @@ export class DataExchangeHubView extends ItemView {
 				this.documentedProperties.add(entry.propertyName);
 			}
 		}
+	}
+
+	/** Scans the Types folder for TypeDoc files and populates typeEntries. */
+	private scanTypeDocs(): void {
+		this.typeEntries = [];
+		const folder = this.dataExchangeService.getTypesFolderPath();
+		const allFiles = this.app.vault.getMarkdownFiles();
+		for (const file of allFiles) {
+			if (!file.path.startsWith(folder)) continue;
+			const cache = this.app.metadataCache.getFileCache(file);
+			if (cache?.frontmatter?.type !== "TypeDoc") continue;
+			const name = String(cache.frontmatter.name ?? file.basename.replace(/^Type - /, ""));
+			const description = String(cache.frontmatter.description ?? "");
+			const rawProps = cache.frontmatter.properties;
+			const properties: string[] = Array.isArray(rawProps) ? rawProps.map(String) : [];
+			const pipelineCount = this.pipelineConfigs.filter((p) => p.noteType === name).length
+				+ this.importConfigs.filter((c) => c.noteType === name).length
+				+ this.exportConfigs.filter((c) => c.noteType === name).length;
+			this.typeEntries.push({ name, description, properties, filePath: file.path, pipelineCount });
+		}
+		this.typeEntries.sort((a, b) => a.name.localeCompare(b.name));
 	}
 
 	/** Scans the Reports folder for CsvDoc files and populates reportEntries. */
@@ -306,17 +339,10 @@ export class DataExchangeHubView extends ItemView {
 		this.csvFileEntries.sort((a, b) => a.name.localeCompare(b.name));
 	}
 
-	private updateCountBadge(): void {
-		if (!this.countBadgeEl) return;
-		const total = this.importConfigs.length + this.exportConfigs.length;
-		this.countBadgeEl.textContent = `${total} config${total !== 1 ? "s" : ""}`;
-	}
-
 	private scheduleRender(): void {
 		if (this.renderTimer) clearTimeout(this.renderTimer);
 		this.renderTimer = setTimeout(() => {
 			this.refreshConfigs();
-			this.updateCountBadge();
 			switch (this.currentPage) {
 				case "dashboard":
 					this.renderDashboard();
@@ -337,6 +363,14 @@ export class DataExchangeHubView extends ItemView {
 					this.renderPropertiesMaster();
 					this.renderPropertiesDetail();
 					break;
+				case "pipelines":
+					this.renderPipelinesMaster();
+					this.renderPipelinesDetail();
+					break;
+				case "types":
+					this.renderTypesMaster();
+					this.renderTypesDetail();
+					break;
 			}
 		}, 16);
 	}
@@ -353,19 +387,34 @@ export class DataExchangeHubView extends ItemView {
 		this.topBarEl.classList.toggle("ft-hidden", isDashboard);
 
 		if (!isDashboard) {
+			const labels: Record<string, string> = {
+				imports: "Imports",
+				exports: "Exports",
+				reports: "Reports",
+				properties: "Properties",
+				pipelines: "Pipelines",
+				types: "Types",
+			};
+			this.topBarTitleEl.textContent = `Data Exchange Hub - ${labels[page] ?? page}`;
+
 			const placeholders: Record<string, string> = {
 				imports: "Search import configs...",
 				exports: "Search export configs...",
 				reports: "Search reports...",
 				properties: "Search properties...",
+				pipelines: "Search pipelines...",
+				types: "Search types...",
 			};
 			this.searchInput.placeholder = placeholders[page] ?? "Search...";
 			this.filterText = "";
 			this.searchInput.value = "";
+		} else {
+			this.topBarTitleEl.textContent = "Data Exchange Hub";
 		}
 
 		this.editingImportId = null;
 		this.editingExportId = null;
+		this.editingPipelineId = null;
 		this.scheduleRender();
 	}
 
@@ -383,54 +432,12 @@ export class DataExchangeHubView extends ItemView {
 		bar.style.flexShrink = "0";
 		this.topBarEl = bar;
 
-		const title = bar.createSpan({
-			text: "Data Exchange",
+		this.topBarTitleEl = bar.createSpan({
+			text: "Data Exchange Hub",
 			cls: "ft-heading ft-heading-sm",
 		});
-		title.style.cursor = "pointer";
-		title.addEventListener("click", () => this.navigateTo("dashboard"));
-
-		this.countBadgeEl = bar.createSpan({
-			cls: "ft-badge ft-badge-muted",
-		});
-		this.updateCountBadge();
-
-		// Spacer
-		const spacer = bar.createDiv();
-		spacer.style.flex = "1";
-
-		// Import quick action — uses FilePickerModal
-		const importBtn = bar.createEl("span", { cls: "ft-nav-link" });
-		const importIcon = importBtn.createSpan();
-		setIcon(importIcon, "file-input");
-		importBtn.appendText(" Import CSV");
-		importBtn.addEventListener("click", () => {
-			new FilePickerModal(this.app, ["csv"], (csvPath) => {
-				this.openCsvImport(csvPath);
-			}).open();
-		});
-
-		// Export quick action — uses FolderPickerModal
-		const exportBtn = bar.createEl("span", { cls: "ft-nav-link" });
-		const exportIcon = exportBtn.createSpan();
-		setIcon(exportIcon, "file-output");
-		exportBtn.appendText(" Export");
-		exportBtn.addEventListener("click", () => {
-			const folders = getVaultFolders(this.app);
-			new FolderPickerModal(this.app, folders, (folderPath) => {
-				this.openExport({
-					id: "",
-					name: "",
-					createdAt: 0,
-					sourcePath: folderPath,
-					sourceType: "folder",
-					format: "csv",
-					outputPath: `${folderPath}_export.csv`,
-					columns: [],
-					fileProperties: ["file.name"],
-				});
-			}).open();
-		});
+		this.topBarTitleEl.style.cursor = "pointer";
+		this.topBarTitleEl.addEventListener("click", () => this.navigateTo("dashboard"));
 	}
 
 	// ── Dashboard ────────────────────────────────────────────
@@ -446,7 +453,7 @@ export class DataExchangeHubView extends ItemView {
 		setIcon(titleIcon, "arrow-left-right");
 		titleIcon.style.opacity = "0.5";
 		titleBar.createEl("h2", {
-			text: "Data Exchange",
+			text: "Data Exchange Hub",
 			cls: "ft-heading",
 		}).style.margin = "0";
 		titleBar.createSpan({
@@ -463,6 +470,9 @@ export class DataExchangeHubView extends ItemView {
 
 		// Section 1: Data Dictionary
 		this.renderDictionaryStats(this.dashboardEl);
+
+		// Section 1.5: Import Pipelines
+		this.renderDashboardPipelines(this.dashboardEl);
 
 		// Section 2: Configured Imports
 		this.renderConfiguredImports(this.dashboardEl, configuredCsv);
@@ -716,6 +726,12 @@ export class DataExchangeHubView extends ItemView {
 			new Notice(`Import failed: ${event.payload.error}`);
 		});
 
+		// Merge noteType into customProperties if set
+		const importCustomProps = { ...cfg.customProperties };
+		if (cfg.noteType) {
+			importCustomProps.type = cfg.noteType;
+		}
+
 		void this.eventBus.emit("dataExchange.import.execute", {
 			config: {
 				sourcePath: csvPath,
@@ -725,7 +741,7 @@ export class DataExchangeHubView extends ItemView {
 				nameSuffix: cfg.nameSuffix,
 				columnMappings: cfg.columnMappings,
 				conflictStrategy: cfg.conflictStrategy,
-				customProperties: cfg.customProperties,
+				customProperties: Object.keys(importCustomProps).length > 0 ? importCustomProps : undefined,
 			},
 		});
 	}
@@ -896,15 +912,17 @@ export class DataExchangeHubView extends ItemView {
 	private renderDictionaryStats(container: HTMLElement): void {
 		const propCount = this.dictionaryEntries.length;
 		const reportCount = this.reportEntries.length;
-		if (propCount === 0 && reportCount === 0) return;
+		const typeCount = this.typeEntries.length;
+		if (propCount === 0 && reportCount === 0 && typeCount === 0) return;
 
 		const section = container.createDiv();
 		section.style.marginBottom = "1.5rem";
-		this.renderDashboardSectionHeader(section, "book-open", "Data Dictionary", propCount + reportCount);
+		this.renderDashboardSectionHeader(section, "book-open", "Data Dictionary", propCount + reportCount + typeCount);
 
 		const row = section.createDiv({ cls: "ft-flex ft-gap-3" });
 
 		const cards: Array<{ icon: string; count: number; label: string; page: HubPage }> = [
+			{ icon: "shapes", count: typeCount, label: "Types", page: "types" },
 			{ icon: "tag", count: propCount, label: "Properties", page: "properties" },
 			{ icon: "file-spreadsheet", count: reportCount, label: "Reports", page: "reports" },
 		];
@@ -1184,6 +1202,9 @@ export class DataExchangeHubView extends ItemView {
 		if (cfg.createBase) {
 			badges.createSpan({ text: "Base View", cls: "ft-badge ft-badge-muted" });
 		}
+		if (cfg.noteType) {
+			badges.createSpan({ text: cfg.noteType, cls: "ft-badge" });
+		}
 
 		// ── Actions bar (always on top) ─────────────────────
 		const actions = this.detailPanelEl.createDiv({ cls: "ft-detail-actions ft-mt-2" });
@@ -1348,6 +1369,9 @@ export class DataExchangeHubView extends ItemView {
 		if (cfg.createBase) {
 			this.addInfoRow(configGrid, "Base View", cfg.basePath || "(auto-generated)");
 		}
+		if (cfg.noteType) {
+			this.addInfoRow(configGrid, "Note Type", cfg.noteType);
+		}
 		this.addInfoRow(configGrid, "Created", new Date(cfg.createdAt).toLocaleString());
 
 		// Last import run
@@ -1409,6 +1433,7 @@ export class DataExchangeHubView extends ItemView {
 			conflictStrategy: cfg.conflictStrategy,
 			createBase: cfg.createBase ?? false,
 			basePath: cfg.basePath ?? "",
+			noteType: cfg.noteType ?? "",
 		};
 
 		new Setting(panel)
@@ -1463,6 +1488,16 @@ export class DataExchangeHubView extends ItemView {
 					.onChange((v) => { edits.basePath = v || undefined; }),
 			);
 		basePathSetting.settingEl.toggle(edits.createBase ?? false);
+
+		new Setting(panel)
+			.setName("Note type")
+			.setDesc("Type value added to every note's frontmatter (optional)")
+			.addText((t) =>
+				t
+					.setValue(cfg.noteType ?? "")
+					.setPlaceholder("e.g. Event, Asset, Service")
+					.onChange((v) => { edits.noteType = v || undefined; }),
+			);
 
 		const nav = panel.createDiv({ cls: "ft-detail-actions ft-mt-4" });
 
@@ -1590,6 +1625,9 @@ export class DataExchangeHubView extends ItemView {
 		badges.createSpan({ text: cfg.sourceType, cls: "ft-badge ft-badge-muted" });
 		if (cfg.isExternal) {
 			badges.createSpan({ text: "External", cls: "ft-badge ft-badge-muted" });
+		}
+		if (cfg.noteType) {
+			badges.createSpan({ text: cfg.noteType, cls: "ft-badge" });
 		}
 
 		// ── Actions bar (always on top) ─────────────────────
@@ -1755,6 +1793,9 @@ export class DataExchangeHubView extends ItemView {
 		if (cfg.baseViewIndex !== undefined) {
 			this.addInfoRow(configGrid, "Base View Index", String(cfg.baseViewIndex));
 		}
+		if (cfg.noteType) {
+			this.addInfoRow(configGrid, "Note Type", cfg.noteType);
+		}
 		this.addInfoRow(configGrid, "Created", new Date(cfg.createdAt).toLocaleString());
 
 		// ── Note Properties (columns) ───────────────────────
@@ -1789,6 +1830,7 @@ export class DataExchangeHubView extends ItemView {
 			sourcePath: cfg.sourcePath,
 			outputPath: cfg.outputPath,
 			conflictStrategy: cfg.conflictStrategy ?? "overwrite",
+			noteType: cfg.noteType ?? "",
 		};
 
 		new Setting(panel)
@@ -1837,6 +1879,16 @@ export class DataExchangeHubView extends ItemView {
 					.addOptions({ overwrite: "Overwrite", skip: "Skip", append: "Append" })
 					.setValue(cfg.conflictStrategy ?? "overwrite")
 					.onChange((v) => { edits.conflictStrategy = v as SavedExportConfig["conflictStrategy"]; }),
+			);
+
+		new Setting(panel)
+			.setName("Note type")
+			.setDesc("Associate this export with a type for TypeDoc creation (optional)")
+			.addText((t) =>
+				t
+					.setValue(cfg.noteType ?? "")
+					.setPlaceholder("e.g. Event, Asset, Service")
+					.onChange((v) => { edits.noteType = v || undefined; }),
 			);
 
 		const nav = panel.createDiv({ cls: "ft-detail-actions ft-mt-4" });
@@ -2014,6 +2066,19 @@ export class DataExchangeHubView extends ItemView {
 			text: `${entry.usedInConfigs.length} config${entry.usedInConfigs.length !== 1 ? "s" : ""}`,
 			cls: "ft-badge ft-badge-muted",
 		});
+		if (entry.typeNames && entry.typeNames.length > 0) {
+			for (const typeName of entry.typeNames) {
+				const chip = badges.createSpan({
+					text: typeName,
+					cls: "ft-badge",
+				});
+				chip.style.cursor = "pointer";
+				chip.addEventListener("click", () => {
+					this.selectedTypeName = typeName;
+					this.navigateTo("types");
+				});
+			}
+		}
 
 		// Description from PropertyDoc frontmatter
 		const hasDoc = this.documentedProperties.has(entry.propertyName);
@@ -2108,6 +2173,1291 @@ export class DataExchangeHubView extends ItemView {
 					void this.app.workspace.openLinkText(docPath, "", false);
 				});
 			});
+		}
+	}
+
+	// ── Pipelines dashboard section ─────────────────────────
+
+	private renderDashboardPipelines(container: HTMLElement): void {
+		const section = container.createDiv();
+		section.style.marginBottom = "1.5rem";
+		this.renderDashboardSectionHeader(section, "layers", "Import Pipelines", this.pipelineConfigs.length);
+		section.createDiv({
+			text: "Merge multiple CSV reports into enriched notes by matching on a shared key column.",
+			cls: "ft-text-muted ft-text-sm ft-mb-2",
+		});
+
+		if (this.pipelineConfigs.length === 0) {
+			const cta = section.createDiv({ cls: "ft-card ft-p-3 ft-text-center" });
+			const ctaIcon = cta.createDiv();
+			setIcon(ctaIcon, "layers");
+			ctaIcon.style.opacity = "0.3";
+			ctaIcon.style.marginBottom = "0.5rem";
+			cta.createDiv({
+				text: "No import pipelines yet",
+				cls: "ft-heading ft-heading-sm ft-mb-1",
+			});
+			cta.createDiv({
+				text: "Create a pipeline to merge multiple CSV reports into enriched notes.",
+				cls: "ft-text-muted ft-text-sm ft-mb-3",
+			});
+			const ctaBtn = cta.createEl("button", { cls: "ft-btn ft-btn-sm mod-cta" });
+			const ctaBtnIcon = ctaBtn.createSpan({ cls: "flowti-csv-btn-icon" });
+			setIcon(ctaBtnIcon, "plus");
+			ctaBtn.appendText(" New Pipeline");
+			ctaBtn.addEventListener("click", () => {
+				this.createNewPipeline();
+			});
+			return;
+		}
+
+		const table = section.createEl("table", { cls: "ft-preview-table" });
+		table.style.width = "100%";
+		const thead = table.createEl("thead");
+		const headRow = thead.createEl("tr");
+		headRow.createEl("th", { text: "Name" });
+		headRow.createEl("th", { text: "Target" });
+		headRow.createEl("th", { text: "Sources" });
+		headRow.createEl("th", { text: "" });
+
+		const tbody = table.createEl("tbody");
+
+		const sorted = [...this.pipelineConfigs].sort((a, b) => {
+			if ((a.favourite ?? false) !== (b.favourite ?? false)) return a.favourite ? -1 : 1;
+			return a.name.localeCompare(b.name);
+		});
+
+		for (const pipe of sorted) {
+			const tr = tbody.createEl("tr");
+
+			// Name column — star + name
+			const nameTd = tr.createEl("td");
+			const nameRow = nameTd.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
+
+			const starIcon = nameRow.createSpan({ cls: "ft-nav-link" });
+			starIcon.style.flexShrink = "0";
+			setIcon(starIcon, pipe.favourite ? "star" : "star-off");
+			if (pipe.favourite) starIcon.style.color = "var(--text-accent)";
+			starIcon.setAttribute("aria-label", pipe.favourite ? "Unfavourite" : "Favourite");
+			starIcon.addEventListener("click", () => {
+				void this.dataExchangeService.togglePipelineFavourite(pipe.id).then(() => {
+					this.scheduleRender();
+				});
+			});
+
+			const cfgLink = nameRow.createEl("span", {
+				text: pipe.name || "(unnamed)",
+				cls: "ft-nav-link",
+			});
+			cfgLink.addEventListener("click", () => {
+				this.selectedPipelineId = pipe.id;
+				this.navigateTo("pipelines");
+			});
+
+			// Target column
+			const targetTd = tr.createEl("td");
+			const targetText = targetTd.createEl("span", {
+				text: pipe.targetFolder || "—",
+				cls: pipe.targetFolder ? "ft-text-sm" : "ft-text-muted",
+			});
+			if (pipe.targetFolder) {
+				targetText.style.whiteSpace = "nowrap";
+				targetText.style.overflow = "hidden";
+				targetText.style.textOverflow = "ellipsis";
+				targetText.style.display = "block";
+				targetText.style.maxWidth = "12rem";
+			}
+
+			// Sources count
+			tr.createEl("td").createSpan({
+				text: `${pipe.sources.length} source${pipe.sources.length !== 1 ? "s" : ""}`,
+				cls: "ft-badge ft-badge-muted",
+			});
+
+			// Actions
+			const actionsTd = tr.createEl("td");
+			const actionsWrap = actionsTd.createDiv({ cls: "ft-flex ft-gap-2" });
+
+			const editLink = actionsWrap.createEl("span", { cls: "ft-nav-link" });
+			setIcon(editLink.createSpan(), "pencil");
+			editLink.setAttribute("aria-label", "Edit");
+			editLink.addEventListener("click", () => {
+				this.selectedPipelineId = pipe.id;
+				this.navigateTo("pipelines");
+			});
+
+			const previewLink = actionsWrap.createEl("span", { cls: "ft-nav-link" });
+			setIcon(previewLink.createSpan(), "eye");
+			previewLink.setAttribute("aria-label", "Preview");
+			previewLink.addEventListener("click", () => {
+				this.selectedPipelineId = pipe.id;
+				this.navigateTo("pipelines");
+				setTimeout(() => { void this.runPipelinePreview(pipe); }, 50);
+			});
+
+			const runLink = actionsWrap.createEl("span", { cls: "ft-nav-link" });
+			setIcon(runLink.createSpan(), "play");
+			runLink.setAttribute("aria-label", "Run");
+			runLink.addEventListener("click", () => {
+				this.selectedPipelineId = pipe.id;
+				this.navigateTo("pipelines");
+				setTimeout(() => { this.executePipelineWithFeedback(pipe); }, 50);
+			});
+		}
+
+		// "New Pipeline" link at bottom
+		const footer = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-mt-2" });
+		const addLink = footer.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		const addIcon = addLink.createSpan();
+		setIcon(addIcon, "plus");
+		addLink.appendText(" New Pipeline");
+		addLink.addEventListener("click", () => {
+			this.createNewPipeline();
+		});
+	}
+
+	private createNewPipeline(): void {
+		new InputModal(this.app, {
+			title: "New Import Pipeline",
+			placeholder: "e.g. Daily Inventory Merge",
+			inputName: "Pipeline name",
+			inputDesc: "A descriptive name for this pipeline",
+			submitLabel: "Create",
+			onSubmit: (name) => {
+				void this.dataExchangeService
+					.savePipeline({ name, targetFolder: "", mergeKey: "item_id", sources: [] })
+					.then((saved) => {
+						this.selectedPipelineId = saved.id;
+						this.navigateTo("pipelines");
+						// Set AFTER navigateTo (which clears editing state)
+						this.editingPipelineId = saved.id;
+					});
+			},
+		}).open();
+	}
+
+	// ── Pipelines page ──────────────────────────────────────
+
+	private renderPipelinesMaster(): void {
+		this.masterTreeEl.empty();
+
+		let configs = this.pipelineConfigs;
+		if (this.filterText) {
+			configs = configs.filter(
+				(c) =>
+					c.name.toLowerCase().includes(this.filterText) ||
+					c.targetFolder.toLowerCase().includes(this.filterText) ||
+					c.mergeKey.toLowerCase().includes(this.filterText),
+			);
+		}
+
+		const header = this.masterTreeEl.createDiv({ cls: "ft-master-category-header" });
+		header.createSpan({ text: "Import Pipelines" });
+		header.createSpan({
+			text: `${configs.length}`,
+			cls: "ft-master-category-count",
+		});
+		const headerSpacer = header.createDiv();
+		headerSpacer.style.flex = "1";
+		const addBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		const addIcon = addBtn.createSpan();
+		setIcon(addIcon, "plus");
+		addBtn.setAttr("aria-label", "New Pipeline");
+		addBtn.addEventListener("click", (e) => {
+			e.stopPropagation();
+			this.createNewPipeline();
+		});
+
+		if (configs.length === 0) {
+			const empty = this.masterTreeEl.createDiv({ cls: "ft-text-muted ft-p-3 ft-text-center" });
+			empty.textContent = this.filterText
+				? "No matching pipelines"
+				: "No saved pipelines yet";
+			return;
+		}
+
+		for (const pipe of configs) {
+			this.renderPipelineItem(pipe);
+		}
+	}
+
+	private renderPipelineItem(pipe: SavedMultiImportPipeline): void {
+		const isSelected = this.selectedPipelineId === pipe.id;
+		const item = this.masterTreeEl.createDiv({
+			cls: `ft-master-event-item${isSelected ? " ft-master-event-selected" : ""}`,
+		});
+		item.style.alignItems = "flex-start";
+
+		const iconEl = item.createSpan();
+		setIcon(iconEl, "layers");
+		iconEl.style.opacity = "0.5";
+		iconEl.style.flexShrink = "0";
+		iconEl.style.marginTop = "0.125rem";
+
+		const textBlock = item.createDiv({ cls: "ft-master-event-name" });
+		textBlock.style.minWidth = "0";
+		textBlock.createDiv({ text: pipe.name || "(unnamed)" });
+		const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-sm" });
+		sub.style.whiteSpace = "nowrap";
+		sub.style.overflow = "hidden";
+		sub.style.textOverflow = "ellipsis";
+		sub.textContent = `${pipe.targetFolder || "(no folder)"} · ${pipe.sources.length} source${pipe.sources.length !== 1 ? "s" : ""}`;
+
+		item.createSpan({
+			text: pipe.mergeKey,
+			cls: "ft-master-category-count",
+		});
+
+		item.addEventListener("click", () => {
+			this.selectedPipelineId = pipe.id;
+			this.editingPipelineId = null;
+			this.renderPipelinesMaster();
+			this.renderPipelinesDetail();
+		});
+	}
+
+	private renderPipelinesDetail(): void {
+		this.detailPanelEl.empty();
+
+		if (!this.selectedPipelineId) {
+			this.renderEmptyDetail("layers", "Select a pipeline to view details");
+			return;
+		}
+
+		const pipe = this.pipelineConfigs.find((c) => c.id === this.selectedPipelineId);
+		if (!pipe) {
+			this.renderEmptyDetail("layers", "Pipeline not found");
+			return;
+		}
+
+		if (this.editingPipelineId === pipe.id) {
+			this.renderPipelineEditForm(pipe);
+			return;
+		}
+
+		// Header
+		const header = this.detailPanelEl.createDiv({ cls: "ft-detail-header" });
+		const left = header.createDiv();
+		left.createDiv({ text: pipe.name || "(unnamed)", cls: "ft-detail-event-type" });
+		const badges = left.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
+		badges.createSpan({ text: "Pipeline", cls: "ft-operation-badge ft-operation-badge-import" });
+		badges.createSpan({ text: pipe.mergeKey, cls: "ft-badge ft-badge-muted" });
+		badges.createSpan({
+			text: `${pipe.sources.length} source${pipe.sources.length !== 1 ? "s" : ""}`,
+			cls: "ft-badge ft-badge-muted",
+		});
+
+		// Actions bar
+		const actions = this.detailPanelEl.createDiv({ cls: "ft-detail-actions ft-mt-2" });
+
+		// Execute
+		const runLink = actions.createEl("span", { cls: "ft-nav-link" });
+		const runIcon = runLink.createSpan();
+		setIcon(runIcon, "play");
+		runLink.appendText(" Execute");
+		runLink.addEventListener("click", () => {
+			this.executePipelineWithFeedback(pipe);
+		});
+
+		// Preview
+		const previewLink = actions.createEl("span", { cls: "ft-nav-link" });
+		const previewIcon = previewLink.createSpan();
+		setIcon(previewIcon, "eye");
+		previewLink.appendText(" Preview");
+		previewLink.addEventListener("click", () => {
+			void this.runPipelinePreview(pipe);
+		});
+
+		// Edit
+		const editLink = actions.createEl("span", { cls: "ft-nav-link" });
+		const editIcon = editLink.createSpan();
+		setIcon(editIcon, "pencil");
+		editLink.appendText(" Update");
+		editLink.addEventListener("click", () => {
+			this.editingPipelineId = pipe.id;
+			this.renderPipelinesDetail();
+		});
+
+		// Open Doc
+		const docPath = this.dataExchangeService.getPipelineDocPath(pipe.name);
+		const docFile = this.app.vault.getAbstractFileByPath(docPath);
+		const docExists = docFile instanceof TFile;
+		const docLink = actions.createEl("span", { cls: "ft-nav-link" });
+		const docIcon = docLink.createSpan();
+		setIcon(docIcon, docExists ? "file-text" : "file-plus");
+		docLink.appendText(docExists ? " Read Doc" : " Create Doc");
+		docLink.addEventListener("click", () => {
+			if (docExists) {
+				void this.app.workspace.openLinkText(docPath, "", false);
+			} else {
+				void this.dataExchangeService
+					.ensurePipelineDoc(pipe.id)
+					.then((path) => {
+						if (path) void this.app.workspace.openLinkText(path, "", false);
+						this.renderPipelinesDetail();
+					});
+			}
+		});
+
+		// Open View (.base file)
+		const resolvedBase = this.resolvePipelineBaseFile(pipe);
+		if (resolvedBase) {
+			const viewLink = actions.createEl("span", { cls: "ft-nav-link" });
+			const viewIcon = viewLink.createSpan();
+			setIcon(viewIcon, "table");
+			viewLink.appendText(" Open View");
+			viewLink.addEventListener("click", () => {
+				void this.app.workspace.getLeaf(false).openFile(resolvedBase);
+			});
+		}
+
+		// Delete
+		const deleteLink = actions.createEl("span", { cls: "ft-nav-link" });
+		deleteLink.style.color = "var(--text-error)";
+		const delIcon = deleteLink.createSpan();
+		setIcon(delIcon, "trash-2");
+		deleteLink.appendText(" Delete");
+		deleteLink.addEventListener("click", () => {
+			new ConfirmModal(this.app, {
+				message: `Delete pipeline "${pipe.name}"?`,
+				confirmLabel: "Delete",
+				onConfirm: () => {
+					void this.dataExchangeService
+						.deletePipeline(pipe.id)
+						.then(() => {
+							this.selectedPipelineId = null;
+							this.refreshConfigs();
+							this.renderPipelinesMaster();
+							this.renderPipelinesDetail();
+						});
+				},
+			}).open();
+		});
+
+		// ── Description from linked config doc ───────────────
+		if (docExists && docFile instanceof TFile) {
+			const cache = this.app.metadataCache.getFileCache(docFile);
+			const description = cache?.frontmatter?.["description"] as string | undefined;
+			if (description) {
+				const descSection = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+				descSection.createDiv({ text: "Description", cls: "ft-detail-section-header" });
+				descSection.createDiv({ text: description, cls: "ft-text-muted ft-p-2" });
+			}
+		}
+
+		// Config info card
+		const configCard = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+		const configGrid = configCard.createDiv({ cls: "ft-detail-info-grid" });
+		this.addInfoRow(configGrid, "Target Folder", pipe.targetFolder || "(not set)");
+		this.addInfoRow(configGrid, "Merge Key", pipe.mergeKey);
+		this.addInfoRow(configGrid, "Sources", String(pipe.sources.length));
+		if (pipe.noteType) {
+			this.addInfoRow(configGrid, "Note Type", pipe.noteType);
+		}
+		if (pipe.createBase) {
+			this.addInfoRow(configGrid, "Base View", pipe.basePath || "(auto-generated)");
+		}
+		this.addInfoRow(configGrid, "Created", new Date(pipe.createdAt).toLocaleString());
+		if (pipe.lastExecutedAt) {
+			this.addInfoRow(configGrid, "Last Run", new Date(pipe.lastExecutedAt).toLocaleString());
+		}
+
+		// Sources list
+		const sourcesSection = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-2" });
+		sourcesSection.createDiv({ text: "Sources", cls: "ft-detail-section-header" });
+
+		if (pipe.sources.length === 0) {
+			sourcesSection.createDiv({
+				text: "No sources configured yet. Add a CSV source to get started.",
+				cls: "ft-text-muted ft-text-sm ft-p-2",
+			});
+		} else {
+			for (let i = 0; i < pipe.sources.length; i++) {
+				const source = pipe.sources[i];
+				this.renderPipelineSourceCard(sourcesSection, pipe, source, i);
+			}
+		}
+
+		// Custom property conflict warnings
+		if (pipe.sources.length > 1) {
+			const propMap = new Map<string, Array<{ sourceLabel: string; value: string }>>();
+			for (const src of pipe.sources) {
+				if (!src.customProperties) continue;
+				const label = src.csvPath.split("/").pop() ?? src.csvPath;
+				for (const [key, value] of Object.entries(src.customProperties)) {
+					if (!propMap.has(key)) propMap.set(key, []);
+					propMap.get(key)!.push({ sourceLabel: label, value });
+				}
+			}
+			const conflicts: Array<{ key: string; entries: Array<{ sourceLabel: string; value: string }> }> = [];
+			for (const [key, entries] of propMap) {
+				if (entries.length > 1) {
+					const values = new Set(entries.map((e) => e.value));
+					if (values.size > 1) {
+						conflicts.push({ key, entries });
+					}
+				}
+			}
+
+			if (conflicts.length > 0) {
+				const warnSection = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+				warnSection.style.borderLeft = "3px solid var(--text-warning, #e5a100)";
+				const warnHeader = warnSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
+				const warnIcon = warnHeader.createSpan();
+				setIcon(warnIcon, "alert-triangle");
+				warnIcon.style.color = "var(--text-warning, #e5a100)";
+				warnIcon.style.flexShrink = "0";
+				warnHeader.createSpan({
+					text: `${conflicts.length} custom property conflict${conflicts.length !== 1 ? "s" : ""}`,
+					cls: "ft-heading ft-heading-sm",
+				});
+				const warnDesc = warnSection.createDiv({ cls: "ft-text-muted ft-text-sm ft-px-2 ft-pb-2" });
+				warnDesc.textContent = "Multiple sources define the same key with different values. The last source processed will win.";
+
+				const grid = warnSection.createDiv({ cls: "ft-detail-info-grid ft-px-2 ft-pb-2" });
+				for (const c of conflicts) {
+					this.addInfoRow(grid, c.key, c.entries.map((e) => `"${e.value}" (${e.sourceLabel})`).join(" vs "));
+				}
+			}
+		}
+
+		// Custom properties summary (all unique keys across sources)
+		if (pipe.sources.some((s) => s.customProperties && Object.keys(s.customProperties).length > 0)) {
+			const propsSection = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-2" });
+			propsSection.createDiv({ text: "Custom Properties", cls: "ft-detail-section-header" });
+			const allProps = new Map<string, string>();
+			for (const src of pipe.sources) {
+				if (!src.customProperties) continue;
+				for (const [key, value] of Object.entries(src.customProperties)) {
+					allProps.set(key, value); // last write wins — same as execution
+				}
+			}
+			const propGrid = propsSection.createDiv({ cls: "ft-detail-info-grid" });
+			for (const [key, value] of allProps) {
+				this.addInfoRow(propGrid, key, value);
+			}
+		}
+
+		// Add Source button
+		const addRow = sourcesSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-mt-2" });
+		const addLink = addRow.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		const addIcon = addLink.createSpan();
+		setIcon(addIcon, "plus");
+		addLink.appendText(" Add Source");
+		addLink.addEventListener("click", () => {
+			new PipelineSourceModal({
+				app: this.app,
+				importService: this.dataExchangeService.getImportService(),
+				mergeKey: pipe.mergeKey,
+				otherSources: pipe.sources,
+				onSave: (newSource) => {
+					const updatedSources = [...pipe.sources, newSource];
+					void this.dataExchangeService
+						.updatePipeline(pipe.id, { sources: updatedSources })
+						.then(() => {
+							this.refreshConfigs();
+							this.renderPipelinesMaster();
+							this.renderPipelinesDetail();
+						});
+				},
+			}).open();
+		});
+	}
+
+	private renderPipelineSourceCard(
+		container: HTMLElement,
+		pipe: SavedMultiImportPipeline,
+		source: SavedMultiImportPipeline["sources"][0],
+		index: number,
+	): void {
+		const card = container.createDiv({ cls: "ft-card ft-mt-1" });
+		card.style.padding = "0.5rem 0.75rem";
+
+		// Header row: CSV name + badges
+		const headerRow = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		const csvIcon = headerRow.createSpan();
+		setIcon(csvIcon, "file-spreadsheet");
+		csvIcon.style.opacity = "0.5";
+		csvIcon.style.flexShrink = "0";
+
+		const csvName = source.csvPath.split("/").pop() ?? source.csvPath;
+		const nameEl = headerRow.createSpan({ text: csvName, cls: "ft-heading ft-heading-sm" });
+		nameEl.style.flex = "1";
+		nameEl.style.minWidth = "0";
+		nameEl.style.overflow = "hidden";
+		nameEl.style.textOverflow = "ellipsis";
+		nameEl.style.whiteSpace = "nowrap";
+
+		// Merge key badge
+		headerRow.createSpan({
+			text: `${source.mergeKeyColumn} → ${pipe.mergeKey}`,
+			cls: "ft-badge ft-badge-muted",
+		});
+
+		// Column count badge
+		const included = source.columnMappings.filter((m) => m.included).length;
+		const total = source.columnMappings.length;
+		headerRow.createSpan({
+			text: `${included}/${total} cols`,
+			cls: "ft-badge ft-badge-muted",
+		});
+
+		// Info row
+		const infoRow = card.createDiv({ cls: "ft-text-muted ft-text-sm ft-mt-1" });
+		const parts: string[] = [];
+		if (source.namePrefix) parts.push(`prefix: "${source.namePrefix}"`);
+		if (source.nameSuffix) parts.push(`suffix: "${source.nameSuffix}"`);
+		if (parts.length > 0) {
+			infoRow.textContent = parts.join(" · ");
+		} else {
+			infoRow.textContent = source.csvPath;
+		}
+
+		// Custom properties (show key-value pairs)
+		if (source.customProperties && Object.keys(source.customProperties).length > 0) {
+			const propsRow = card.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
+			propsRow.style.flexWrap = "wrap";
+			for (const [key, value] of Object.entries(source.customProperties)) {
+				const chip = propsRow.createSpan({ cls: "ft-badge ft-badge-muted" });
+				chip.textContent = `${key}: ${value}`;
+			}
+		}
+
+		// Actions: Edit / Remove
+		const actionsRow = card.createDiv({ cls: "ft-flex ft-gap-2 ft-mt-1" });
+		const editLink = actionsRow.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		const editIcon = editLink.createSpan();
+		setIcon(editIcon, "pencil");
+		editLink.appendText(" Edit");
+		editLink.addEventListener("click", () => {
+			new PipelineSourceModal({
+				app: this.app,
+				importService: this.dataExchangeService.getImportService(),
+				mergeKey: pipe.mergeKey,
+				existingSource: source,
+				otherSources: pipe.sources.filter((s) => s.id !== source.id),
+				onSave: (updated) => {
+					const updatedSources = pipe.sources.map((s) => (s.id === updated.id ? updated : s));
+					void this.dataExchangeService
+						.updatePipeline(pipe.id, { sources: updatedSources })
+						.then(() => {
+							this.refreshConfigs();
+							this.renderPipelinesMaster();
+							this.renderPipelinesDetail();
+						});
+				},
+			}).open();
+		});
+
+		const removeLink = actionsRow.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		removeLink.style.color = "var(--text-error)";
+		const removeIcon = removeLink.createSpan();
+		setIcon(removeIcon, "x");
+		removeLink.appendText(" Remove");
+		removeLink.addEventListener("click", () => {
+			new ConfirmModal(this.app, {
+				message: `Remove source "${csvName}" from pipeline?`,
+				confirmLabel: "Remove",
+				onConfirm: () => {
+					const updatedSources = pipe.sources.filter((_, idx) => idx !== index);
+					void this.dataExchangeService
+						.updatePipeline(pipe.id, { sources: updatedSources })
+						.then(() => {
+							this.refreshConfigs();
+							this.renderPipelinesMaster();
+							this.renderPipelinesDetail();
+						});
+				},
+			}).open();
+		});
+	}
+
+	private renderPipelineEditForm(pipe: SavedMultiImportPipeline): void {
+		const panel = this.detailPanelEl;
+		panel.createEl("h3", { text: "Edit Pipeline", cls: "ft-heading ft-heading-sm ft-mb-3" });
+
+		const edits: Partial<SavedMultiImportPipeline> = {
+			name: pipe.name,
+			targetFolder: pipe.targetFolder,
+			mergeKey: pipe.mergeKey,
+			noteType: pipe.noteType ?? "",
+			createBase: pipe.createBase ?? false,
+			basePath: pipe.basePath ?? "",
+		};
+
+		new Setting(panel)
+			.setName("Name")
+			.addText((t) => t.setValue(pipe.name).onChange((v) => { edits.name = v; }));
+
+		const targetSetting = new Setting(panel)
+			.setName("Target folder")
+			.setDesc("Where merged notes will be created")
+			.addText((t) => t.setValue(pipe.targetFolder).onChange((v) => { edits.targetFolder = v; }));
+		targetSetting.addExtraButton((btn) =>
+			btn.setIcon("folder").setTooltip("Browse").onClick(() => {
+				const folders = getVaultFolders(this.app);
+				new FolderPickerModal(this.app, folders, (folder) => {
+					edits.targetFolder = folder;
+					this.renderPipelinesDetail();
+				}).open();
+			}),
+		);
+
+		new Setting(panel)
+			.setName("Merge key")
+			.setDesc("Canonical frontmatter key used to match notes across sources (e.g. item_id)")
+			.addText((t) => t.setValue(pipe.mergeKey).onChange((v) => { edits.mergeKey = v; }));
+
+		new Setting(panel)
+			.setName("Note type")
+			.setDesc("Type value added to every note's frontmatter (optional)")
+			.addText((t) => t
+				.setValue(pipe.noteType ?? "")
+				.setPlaceholder("e.g. Event, Asset, Service")
+				.onChange((v) => { edits.noteType = v || undefined; }),
+			);
+
+		new Setting(panel)
+			.setName("Create .base view")
+			.setDesc("Generate a table view for merged notes")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(edits.createBase ?? false)
+					.onChange((v) => {
+						edits.createBase = v || undefined;
+						basePathSetting.settingEl.toggle(v);
+					}),
+			);
+
+		const basePathSetting = new Setting(panel)
+			.setName("Base file path")
+			.setDesc("Where to save the .base view file")
+			.addText((t) =>
+				t
+					.setValue(edits.basePath ?? "")
+					.setPlaceholder("path/to/view.base")
+					.onChange((v) => { edits.basePath = v || undefined; }),
+			);
+		basePathSetting.settingEl.toggle(edits.createBase ?? false);
+
+		const nav = panel.createDiv({ cls: "ft-detail-actions ft-mt-4" });
+
+		const saveLink = nav.createEl("span", { cls: "ft-nav-link" });
+		const saveIcon = saveLink.createSpan();
+		setIcon(saveIcon, "check");
+		saveLink.appendText(" Save");
+		saveLink.addEventListener("click", () => {
+			void this.dataExchangeService
+				.updatePipeline(pipe.id, edits)
+				.then(() => {
+					this.editingPipelineId = null;
+					this.refreshConfigs();
+					this.renderPipelinesMaster();
+					this.renderPipelinesDetail();
+					new Notice("Pipeline updated");
+				});
+		});
+
+		const cancelLink = nav.createEl("span", { cls: "ft-nav-link" });
+		const cancelIcon = cancelLink.createSpan();
+		setIcon(cancelIcon, "x");
+		cancelLink.appendText(" Cancel");
+		cancelLink.addEventListener("click", () => {
+			this.editingPipelineId = null;
+			this.renderPipelinesDetail();
+		});
+	}
+
+	private async runPipelinePreview(pipe: SavedMultiImportPipeline): Promise<void> {
+		if (pipe.sources.length === 0) {
+			new Notice("Pipeline has no sources. Add CSV sources first.");
+			return;
+		}
+
+		// Remove any existing preview/progress section
+		const existing = this.detailPanelEl.querySelector(".ft-pipeline-progress") as HTMLElement | null;
+		if (existing) existing.remove();
+
+		const section = createDiv({ cls: "ft-pipeline-progress ft-card ft-mt-2" });
+		const actionsBar = this.detailPanelEl.querySelector(".ft-detail-actions");
+		if (actionsBar?.nextSibling) {
+			this.detailPanelEl.insertBefore(section, actionsBar.nextSibling);
+		} else {
+			this.detailPanelEl.appendChild(section);
+		}
+
+		// Show loading state
+		const loadingRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
+		const loadSpinner = loadingRow.createSpan();
+		setIcon(loadSpinner, "loader");
+		loadSpinner.style.opacity = "0.6";
+		loadSpinner.addClass("ft-spin");
+		loadingRow.createSpan({ text: "Preparing preview...", cls: "ft-text-sm" });
+
+		try {
+			const importService = this.dataExchangeService.getImportService();
+			const previewSources: Array<{
+				sourceId: string;
+				csvName: string;
+				rowCount: number;
+				columns: string[];
+				mergeKeyValues: string[];
+				error?: string;
+			}> = [];
+
+			// Parse each CSV source
+			for (const source of pipe.sources) {
+				try {
+					const parsed = await importService.parseFile(source.csvPath);
+					const mergeKeyIndex = parsed.headers.indexOf(source.mergeKeyColumn);
+					if (mergeKeyIndex < 0) {
+						previewSources.push({
+							sourceId: source.id,
+							csvName: source.csvPath.split("/").pop() ?? source.csvPath,
+							rowCount: 0,
+							columns: [],
+							mergeKeyValues: [],
+							error: `Merge key column "${source.mergeKeyColumn}" not found`,
+						});
+						continue;
+					}
+
+					const mergeKeyValues = parsed.rows
+						.map((row) => row[mergeKeyIndex])
+						.filter((v): v is string => v !== undefined && v !== "");
+
+					const columns = source.columnMappings
+						.filter((m) => m.included && m.csvColumn !== source.mergeKeyColumn)
+						.map((m) => m.frontmatterKey);
+
+					previewSources.push({
+						sourceId: source.id,
+						csvName: source.csvPath.split("/").pop() ?? source.csvPath,
+						rowCount: parsed.rows.length,
+						columns,
+						mergeKeyValues,
+					});
+				} catch (err) {
+					previewSources.push({
+						sourceId: source.id,
+						csvName: source.csvPath.split("/").pop() ?? source.csvPath,
+						rowCount: 0,
+						columns: [],
+						mergeKeyValues: [],
+						error: err instanceof Error ? err.message : String(err),
+					});
+				}
+			}
+
+			// Collect unique merge key values across all sources
+			const allKeys = new Set<string>();
+			for (const src of previewSources) {
+				for (const v of src.mergeKeyValues) allKeys.add(v);
+			}
+
+			// Check existence for each unique key
+			const entries: Array<{ key: string; filename: string; exists: boolean }> = [];
+			for (const key of allKeys) {
+				const sanitized = importService.sanitizeFilename(key);
+				if (!sanitized) continue;
+				const firstSource = pipe.sources[0];
+				const prefix = firstSource?.namePrefix ?? "";
+				const suffix = firstSource?.nameSuffix ?? "";
+				const filename = `${prefix}${sanitized}${suffix}`;
+				const notePath = `${pipe.targetFolder}/${filename}.md`;
+				const exists = this.app.vault.getAbstractFileByPath(notePath) instanceof TFile;
+				entries.push({ key, filename, exists });
+			}
+
+			const toCreate = entries.filter((e) => !e.exists).length;
+			const toUpdate = entries.filter((e) => e.exists).length;
+
+			// Render preview
+			section.empty();
+			this.renderPipelinePreview(section, pipe, previewSources, entries, toCreate, toUpdate);
+		} catch (err) {
+			section.empty();
+			const errRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
+			const errIcon = errRow.createSpan();
+			setIcon(errIcon, "x-circle");
+			errIcon.style.color = "var(--text-error)";
+			errRow.createSpan({
+				text: `Preview failed: ${err instanceof Error ? err.message : String(err)}`,
+				cls: "ft-text-sm",
+			});
+		}
+	}
+
+	private renderPipelinePreview(
+		section: HTMLElement,
+		pipe: SavedMultiImportPipeline,
+		previewSources: Array<{
+			sourceId: string;
+			csvName: string;
+			rowCount: number;
+			columns: string[];
+			mergeKeyValues: string[];
+			error?: string;
+		}>,
+		entries: Array<{ key: string; filename: string; exists: boolean }>,
+		toCreate: number,
+		toUpdate: number,
+	): void {
+		// Header
+		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
+		const headerIcon = header.createSpan();
+		setIcon(headerIcon, "eye");
+		header.createEl("span", { text: "Pipeline Preview", cls: "ft-text-sm ft-font-medium" });
+
+		// Summary stats
+		const stats = section.createDiv({ cls: "ft-flex ft-gap-3 ft-px-2 ft-pb-2" });
+		stats.createSpan({
+			text: `${entries.length} items`,
+			cls: "ft-badge ft-badge-muted ft-text-sm",
+		});
+		if (toCreate > 0) {
+			const createBadge = stats.createSpan({ cls: "ft-badge ft-text-sm" });
+			createBadge.style.color = "var(--text-success)";
+			createBadge.textContent = `${toCreate} new`;
+		}
+		if (toUpdate > 0) {
+			const updateBadge = stats.createSpan({ cls: "ft-badge ft-text-sm" });
+			updateBadge.style.color = "var(--text-accent)";
+			updateBadge.textContent = `${toUpdate} update`;
+		}
+
+		// Sources breakdown
+		const sourcesDiv = section.createDiv({ cls: "ft-px-2 ft-pb-2" });
+		for (const src of previewSources) {
+			const srcRow = sourcesDiv.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
+			if (src.error) {
+				const errIcon = srcRow.createSpan();
+				setIcon(errIcon, "alert-triangle");
+				errIcon.style.color = "var(--text-error)";
+				srcRow.createSpan({ text: src.csvName, cls: "ft-text-sm" });
+				srcRow.createSpan({ text: src.error, cls: "ft-text-sm ft-text-muted" });
+			} else {
+				const srcIcon = srcRow.createSpan();
+				setIcon(srcIcon, "file-spreadsheet");
+				srcIcon.style.opacity = "0.6";
+				srcRow.createSpan({ text: src.csvName, cls: "ft-text-sm" });
+				srcRow.createSpan({
+					text: `${src.rowCount} rows · ${src.columns.length} columns`,
+					cls: "ft-text-muted ft-text-sm",
+				});
+			}
+		}
+
+		// Entries table (scrollable)
+		if (entries.length > 0) {
+			section.createDiv({
+				text: "Items",
+				cls: "ft-detail-section-header ft-px-2 ft-mt-1",
+			});
+			const tableDiv = section.createDiv({ cls: "ft-px-2 ft-pb-2" });
+			tableDiv.style.maxHeight = "200px";
+			tableDiv.style.overflowY = "auto";
+
+			for (const entry of entries) {
+				const row = tableDiv.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
+				row.style.borderBottom = "1px solid var(--background-modifier-border)";
+
+				const dot = row.createSpan({ cls: "ft-text-sm" });
+				dot.style.color = entry.exists ? "var(--text-accent)" : "var(--text-success)";
+				dot.textContent = entry.exists ? "○" : "●";
+
+				const keySpan = row.createSpan({ text: entry.key, cls: "ft-text-sm" });
+				keySpan.style.flex = "1";
+				keySpan.style.overflow = "hidden";
+				keySpan.style.textOverflow = "ellipsis";
+				keySpan.style.whiteSpace = "nowrap";
+
+				const badge = row.createSpan({
+					text: entry.exists ? "Update" : "New",
+					cls: "ft-badge ft-badge-muted ft-text-sm",
+				});
+				if (!entry.exists) badge.style.color = "var(--text-success)";
+			}
+		}
+
+		// Action buttons
+		const footer = section.createDiv({ cls: "ft-flex ft-items-center ft-justify-end ft-gap-2 ft-p-2" });
+		footer.style.borderTop = "1px solid var(--background-modifier-border)";
+
+		const cancelBtn = footer.createEl("button", { cls: "mod-muted", text: "Cancel" });
+		cancelBtn.addEventListener("click", () => section.remove());
+
+		const hasErrors = previewSources.some((s) => s.error);
+		const runBtn = footer.createEl("button", { cls: "mod-cta", text: "Run Pipeline" });
+		if (hasErrors) {
+			runBtn.disabled = true;
+			runBtn.title = "Fix source errors before running";
+		}
+		runBtn.addEventListener("click", () => {
+			section.remove();
+			this.executePipelineWithFeedback(pipe);
+		});
+	}
+
+	private executePipelineWithFeedback(pipe: SavedMultiImportPipeline): void {
+		// Show inline progress in the detail panel
+		const existing = this.detailPanelEl.querySelector(".ft-pipeline-progress") as HTMLElement | null;
+		if (existing) existing.remove();
+		const section = createDiv({ cls: "ft-pipeline-progress ft-card ft-mt-2" });
+		const actionsBar = this.detailPanelEl.querySelector(".ft-detail-actions");
+		if (actionsBar?.nextSibling) {
+			this.detailPanelEl.insertBefore(section, actionsBar.nextSibling);
+		} else {
+			this.detailPanelEl.appendChild(section);
+		}
+
+		const statusRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
+		const spinnerIcon = statusRow.createSpan();
+		setIcon(spinnerIcon, "loader");
+		spinnerIcon.style.opacity = "0.6";
+		spinnerIcon.addClass("ft-spin");
+		const statusText = statusRow.createSpan({
+			text: `Running pipeline: ${pipe.name}...`,
+			cls: "ft-text-sm",
+		});
+
+		const barBg = section.createDiv();
+		barBg.style.cssText = "height:4px;background:var(--background-modifier-border);border-radius:2px;margin:0 0.5rem 0.5rem;overflow:hidden";
+		const barFill = barBg.createDiv();
+		barFill.style.cssText = "height:100%;width:0%;background:var(--interactive-accent);border-radius:2px;transition:width 0.15s ease";
+
+		const detailText = section.createDiv({ cls: "ft-text-muted ft-text-sm ft-px-2 ft-pb-2" });
+
+		// Listen for source-level progress
+		const offSourceCompleted = this.eventBus.on("dataExchange.pipeline.sourceCompleted", (event) => {
+			const { sourceIndex, totalSources, sourceResult } = event.payload;
+			const pct = totalSources > 0 ? Math.round(((sourceIndex + 1) / totalSources) * 100) : 0;
+			barFill.style.width = `${pct}%`;
+			statusText.textContent = `Processing source ${sourceIndex + 1} of ${totalSources}...`;
+			const csvName = sourceResult.csvPath.split("/").pop() ?? sourceResult.csvPath;
+			detailText.textContent = `${csvName}: ${sourceResult.result.created} created, ${sourceResult.result.updated} updated`;
+		});
+
+		const cleanup = (success: boolean, message: string) => {
+			offSourceCompleted();
+			section.empty();
+
+			const resultRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
+			const icon = resultRow.createSpan();
+			setIcon(icon, success ? "check-circle" : "x-circle");
+			icon.style.color = success ? "var(--text-success)" : "var(--text-error)";
+			resultRow.createSpan({ text: message, cls: "ft-text-sm" });
+
+			if (success) {
+				this.refreshConfigs();
+			}
+		};
+
+		const offComplete = this.eventBus.on("dataExchange.pipeline.completed", (event) => {
+			offComplete();
+			offFailed();
+			const r = event.payload.result;
+			const msg = `Pipeline complete: ${r.created} created, ${r.updated} updated, ${r.skipped} skipped` +
+				(r.failed > 0 ? `, ${r.failed} failed` : "") +
+				` (${r.completedSources}/${r.totalSources} sources)`;
+			cleanup(true, msg);
+			new Notice(msg);
+		});
+		const offFailed = this.eventBus.on("dataExchange.pipeline.failed", (event) => {
+			offComplete();
+			offFailed();
+			cleanup(false, `Pipeline failed: ${event.payload.error}`);
+			new Notice(`Pipeline failed: ${event.payload.error}`);
+		});
+
+		void this.eventBus.emit("dataExchange.pipeline.execute", {
+			pipelineId: pipe.id,
+		});
+	}
+
+	// ── Types page ──────────────────────────────────────────
+
+	private renderTypesMaster(): void {
+		this.masterTreeEl.empty();
+
+		let entries = this.typeEntries;
+		if (this.filterText) {
+			entries = entries.filter((e) =>
+				e.name.toLowerCase().includes(this.filterText) ||
+				e.description.toLowerCase().includes(this.filterText),
+			);
+		}
+
+		const header = this.masterTreeEl.createDiv({ cls: "ft-master-category-header" });
+		header.createSpan({ text: "Note Types" });
+		header.createSpan({
+			text: `${entries.length}`,
+			cls: "ft-master-category-count",
+		});
+		const headerSpacer = header.createDiv();
+		headerSpacer.style.flex = "1";
+		const addBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		const addIcon = addBtn.createSpan();
+		setIcon(addIcon, "plus");
+		addBtn.setAttr("aria-label", "New Type");
+		addBtn.addEventListener("click", (e) => {
+			e.stopPropagation();
+			new InputModal(this.app, {
+				title: "New Note Type",
+				placeholder: "e.g. Event, Asset, Service",
+				onSubmit: (name) => {
+					if (!name.trim()) return;
+					void this.dataExchangeService
+						.createOrUpdateTypeDoc(name.trim())
+						.then(() => {
+							setTimeout(() => {
+								this.scanTypeDocs();
+								this.selectedTypeName = name.trim();
+								this.renderTypesMaster();
+								this.renderTypesDetail();
+							}, 500);
+						});
+				},
+			}).open();
+		});
+
+		if (entries.length === 0) {
+			const empty = this.masterTreeEl.createDiv({ cls: "ft-text-muted ft-p-3 ft-text-center ft-text-sm" });
+			empty.textContent = this.filterText ? "No matching types" : "No note types found";
+			return;
+		}
+
+		for (const entry of entries) {
+			const isSelected = this.selectedTypeName === entry.name;
+			const item = this.masterTreeEl.createDiv({
+				cls: `ft-master-event-item${isSelected ? " ft-master-event-selected" : ""}`,
+			});
+			item.style.alignItems = "flex-start";
+
+			const iconEl = item.createSpan();
+			setIcon(iconEl, "shapes");
+			iconEl.style.opacity = "0.5";
+			iconEl.style.flexShrink = "0";
+			iconEl.style.marginTop = "0.125rem";
+
+			const textBlock = item.createDiv({ cls: "ft-master-event-name" });
+			textBlock.style.minWidth = "0";
+			textBlock.createDiv({ text: entry.name });
+			const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-sm" });
+			sub.style.whiteSpace = "nowrap";
+			sub.style.overflow = "hidden";
+			sub.style.textOverflow = "ellipsis";
+			sub.textContent = `${entry.properties.length} field${entry.properties.length !== 1 ? "s" : ""} · ${entry.pipelineCount} config${entry.pipelineCount !== 1 ? "s" : ""}`;
+
+			const docIcon = item.createSpan();
+			setIcon(docIcon, "file-text");
+			docIcon.style.opacity = "0.4";
+			docIcon.style.flexShrink = "0";
+			docIcon.setAttribute("aria-label", "TypeDoc");
+
+			item.addEventListener("click", () => {
+				this.selectedTypeName = entry.name;
+				this.renderTypesMaster();
+				this.renderTypesDetail();
+			});
+		}
+	}
+
+	private renderTypesDetail(): void {
+		this.detailPanelEl.empty();
+
+		if (!this.selectedTypeName) {
+			this.renderEmptyDetail("shapes", "Select a type to view details");
+			return;
+		}
+
+		const entry = this.typeEntries.find((e) => e.name === this.selectedTypeName);
+		if (!entry) {
+			this.renderEmptyDetail("shapes", "Type not found");
+			return;
+		}
+
+		const typeName = entry.name;
+		const lowerType = typeName.toLowerCase();
+
+		// ── Header ──────────────────────────────────────────
+		const header = this.detailPanelEl.createDiv({ cls: "ft-detail-header" });
+		const left = header.createDiv();
+		left.createDiv({ text: typeName, cls: "ft-detail-event-type" });
+		const badges = left.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
+		badges.createSpan({
+			text: `${entry.properties.length} field${entry.properties.length !== 1 ? "s" : ""}`,
+			cls: "ft-badge ft-badge-muted",
+		});
+
+		// ── Actions (always on top) ─────────────────────────
+		const actions = this.detailPanelEl.createDiv({ cls: "ft-detail-actions ft-mt-2" });
+
+		const openLink = actions.createEl("span", { cls: "ft-nav-link" });
+		const openIcon = openLink.createSpan();
+		setIcon(openIcon, "file-text");
+		openLink.appendText(" Open Doc");
+		openLink.addEventListener("click", () => {
+			void this.app.workspace.openLinkText(entry.filePath, "", false);
+		});
+
+		const deleteLink = actions.createEl("span", { cls: "ft-nav-link" });
+		deleteLink.style.color = "var(--text-error)";
+		const delIcon = deleteLink.createSpan();
+		setIcon(delIcon, "trash-2");
+		deleteLink.appendText(" Delete");
+		deleteLink.addEventListener("click", () => {
+			new ConfirmModal(this.app, {
+				message: `Delete type "${typeName}" and its documentation?`,
+				confirmLabel: "Delete",
+				onConfirm: () => {
+					const file = this.app.vault.getAbstractFileByPath(entry.filePath);
+					if (file instanceof TFile) {
+						void this.app.vault.delete(file).then(() => {
+							this.selectedTypeName = null;
+							setTimeout(() => {
+								this.scanTypeDocs();
+								this.renderTypesMaster();
+								this.renderTypesDetail();
+							}, 300);
+						});
+					}
+				},
+			}).open();
+		});
+
+		// ── Description ─────────────────────────────────────
+		if (entry.description) {
+			const descCard = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+			descCard.createDiv({ text: entry.description, cls: "ft-text-muted ft-p-2" });
+		}
+
+		// ── Created by (imports / pipelines that produce this type) ──
+		const producers = [
+			...this.pipelineConfigs.filter((p) => p.noteType === typeName),
+			...this.importConfigs.filter((c) => c.noteType === typeName),
+		];
+		if (producers.length > 0) {
+			const section = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+			section.createDiv({ text: "Created by", cls: "ft-detail-section-header" });
+
+			for (const cfg of producers) {
+				const item = section.createDiv({ cls: "ft-master-event-item" });
+				const isPipeline = "sources" in cfg;
+				const cfgIcon = item.createSpan();
+				setIcon(cfgIcon, isPipeline ? "layers" : "file-input");
+				cfgIcon.style.opacity = "0.5";
+				cfgIcon.style.flexShrink = "0";
+
+				item.createSpan({ text: cfg.name, cls: "ft-master-event-name" });
+				item.createSpan({
+					text: isPipeline ? "Pipeline" : "Import",
+					cls: "ft-badge ft-badge-muted",
+				});
+
+				item.addEventListener("click", () => {
+					if (isPipeline) {
+						this.selectedPipelineId = cfg.id;
+						this.navigateTo("pipelines");
+					} else {
+						this.selectedImportId = cfg.id;
+						this.navigateTo("imports");
+					}
+				});
+			}
+		}
+
+		// ── Consumed by (exports that read this type) ───────
+		const consumers = this.exportConfigs.filter((c) => c.noteType === typeName);
+		if (consumers.length > 0) {
+			const section = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+			section.createDiv({ text: "Consumed by", cls: "ft-detail-section-header" });
+
+			for (const cfg of consumers) {
+				const item = section.createDiv({ cls: "ft-master-event-item" });
+				const cfgIcon = item.createSpan();
+				setIcon(cfgIcon, "file-output");
+				cfgIcon.style.opacity = "0.5";
+				cfgIcon.style.flexShrink = "0";
+
+				item.createSpan({ text: cfg.name, cls: "ft-master-event-name" });
+				item.createSpan({
+					text: "Export",
+					cls: "ft-badge ft-badge-muted",
+				});
+
+				item.addEventListener("click", () => {
+					this.selectedExportId = cfg.id;
+					this.navigateTo("exports");
+				});
+			}
+		}
+
+		// ── Events (CRUD lifecycle) ─────────────────────────
+		const crudEvents = [
+			{ event: `${lowerType}.created`, label: "Created", icon: "plus-circle", desc: `A new ${typeName} was added` },
+			{ event: `${lowerType}.read`, label: "Read", icon: "eye", desc: `A ${typeName} was viewed or queried` },
+			{ event: `${lowerType}.updated`, label: "Updated", icon: "edit", desc: `An existing ${typeName} was modified` },
+			{ event: `${lowerType}.deleted`, label: "Deleted", icon: "trash", desc: `A ${typeName} was removed` },
+		];
+
+		const eventsSection = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+		eventsSection.createDiv({ text: "Lifecycle Events", cls: "ft-detail-section-header" });
+
+		for (const ev of crudEvents) {
+			const row = eventsSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
+			row.style.padding = "0.35rem 0.5rem";
+			row.style.borderBottom = "1px solid var(--background-modifier-border)";
+
+			const evIcon = row.createSpan();
+			setIcon(evIcon, ev.icon);
+			evIcon.style.opacity = "0.5";
+			evIcon.style.flexShrink = "0";
+
+			const textBlock = row.createDiv();
+			textBlock.style.flex = "1";
+			textBlock.style.minWidth = "0";
+			const nameEl = textBlock.createDiv({ cls: "ft-text-sm" });
+			nameEl.createEl("code", { text: ev.event });
+			textBlock.createDiv({ text: ev.desc, cls: "ft-text-muted ft-text-sm" });
+
+			// Open EventDoc
+			const docBtn = row.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+			docBtn.style.flexShrink = "0";
+			const docIcon = docBtn.createSpan();
+			setIcon(docIcon, "file-text");
+			docBtn.title = "Open event doc";
+			docBtn.addEventListener("click", () => {
+				const docPath = this.dataExchangeService.getEventDocPath(ev.event);
+				void this.app.workspace.openLinkText(docPath, "", false);
+			});
+
+			// Show in Event Catalog
+			const catalogBtn = row.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+			catalogBtn.style.flexShrink = "0";
+			const catIcon = catalogBtn.createSpan();
+			setIcon(catIcon, "list");
+			catalogBtn.title = "Show in Event Catalog";
+			catalogBtn.addEventListener("click", () => {
+				this.openEventInCatalog(ev.event);
+			});
+		}
+
+		// ── Fields (expected properties) ────────────────────
+		if (entry.properties.length > 0) {
+			const section = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+			section.createDiv({ text: "Fields", cls: "ft-detail-section-header" });
+			const chips = section.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
+			chips.style.flexWrap = "wrap";
+			chips.style.padding = "0.25rem 0.5rem";
+			for (const prop of entry.properties) {
+				const chip = chips.createSpan({ text: prop, cls: "ft-badge ft-badge-muted" });
+				chip.style.cursor = "pointer";
+				chip.addEventListener("click", () => {
+					this.selectedDictProp = prop;
+					this.navigateTo("properties");
+				});
+			}
 		}
 	}
 
@@ -2307,6 +3657,12 @@ export class DataExchangeHubView extends ItemView {
 			new Notice(`Import failed: ${event.payload.error}`);
 		});
 
+		// Merge noteType into customProperties if set
+		const importCustomProps = { ...cfg.customProperties };
+		if (cfg.noteType) {
+			importCustomProps.type = cfg.noteType;
+		}
+
 		void this.eventBus.emit("dataExchange.import.execute", {
 			config: {
 				sourcePath: csvPath,
@@ -2316,7 +3672,7 @@ export class DataExchangeHubView extends ItemView {
 				nameSuffix: cfg.nameSuffix,
 				columnMappings: cfg.columnMappings,
 				conflictStrategy: cfg.conflictStrategy,
-				customProperties: cfg.customProperties,
+				customProperties: Object.keys(importCustomProps).length > 0 ? importCustomProps : undefined,
 			},
 		});
 	}
@@ -2357,6 +3713,35 @@ export class DataExchangeHubView extends ItemView {
 	// ── Doc links ────────────────────────────────────────────
 
 	// ── Shared helpers ───────────────────────────────────────
+
+	private resolvePipelineBaseFile(pipe: SavedMultiImportPipeline): TFile | null {
+		// Explicit basePath
+		if (pipe.createBase && pipe.basePath) {
+			const bp = pipe.basePath.endsWith(".base") ? pipe.basePath : `${pipe.basePath}.base`;
+			const f = this.app.vault.getAbstractFileByPath(bp);
+			if (f instanceof TFile) return f;
+		}
+		// Default: {targetFolder}/{pipelineName}.base
+		if (pipe.createBase && pipe.name) {
+			const safeName = pipe.name.replace(/[\\/:*?"<>|]/g, "_");
+			const defaultPath = pipe.targetFolder
+				? `${pipe.targetFolder}/${safeName}.base`
+				: `${safeName}.base`;
+			const f = this.app.vault.getAbstractFileByPath(defaultPath);
+			if (f instanceof TFile) return f;
+		}
+		// Proximity: any base file in targetFolder
+		if (pipe.targetFolder) {
+			for (const f of this.app.vault.getFiles()) {
+				if (!f.path.endsWith(".base")) continue;
+				const dir = f.path.substring(0, f.path.lastIndexOf("/"));
+				if (dir === pipe.targetFolder || f.path.startsWith(pipe.targetFolder + "/")) {
+					return f;
+				}
+			}
+		}
+		return null;
+	}
 
 	private resolveImportBaseFile(cfg: SavedImportConfig): TFile | null {
 		// Explicit basePath
@@ -2409,10 +3794,38 @@ export class DataExchangeHubView extends ItemView {
 				count = this.dictionaryEntries.length;
 				label = "properties";
 				break;
+			case "pipelines":
+				count = this.pipelineConfigs.length;
+				label = "saved pipelines";
+				break;
+			case "types":
+				count = this.typeEntries.length;
+				label = "note types";
+				break;
 		}
 		const stats = empty.createDiv({ cls: "ft-catalog-quick-stats ft-mt-2" });
 		const stat = stats.createDiv({ cls: "ft-catalog-stat" });
 		stat.createDiv({ text: String(count), cls: "ft-catalog-stat-value" });
 		stat.createDiv({ text: label, cls: "ft-catalog-stat-label" });
+	}
+
+	/** Opens the Event Catalog view and navigates to a specific event type. */
+	private openEventInCatalog(eventType: string): void {
+		const { workspace } = this.app;
+		const existing = workspace.getLeavesOfType(VIEW_TYPE_EVENT_CATALOG);
+		if (existing.length > 0) {
+			workspace.revealLeaf(existing[0]);
+			const view = existing[0].view as EventCatalogView;
+			view.navigateToEvent(eventType);
+			return;
+		}
+		const leaf = workspace.getLeaf(true);
+		void leaf.setViewState({ type: VIEW_TYPE_EVENT_CATALOG, active: true }).then(() => {
+			workspace.revealLeaf(leaf);
+			setTimeout(() => {
+				const view = leaf.view as EventCatalogView;
+				view.navigateToEvent(eventType);
+			}, 300);
+		});
 	}
 }

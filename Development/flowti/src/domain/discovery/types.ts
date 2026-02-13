@@ -21,6 +21,29 @@ export interface DiscoveredEvent {
 }
 
 /**
+ * Optional metadata carried by `discovery.create` to auto-create an EventDoc file.
+ * When present, the DiscoveryService creates the doc using `generateEventDocContent()`.
+ */
+export interface EventDocMeta {
+	/** Short description of the event */
+	description: string;
+	/** Domain that owns this event */
+	domain: string;
+	/** Service(s) that emit/handle this event */
+	services: string;
+	/** Data flow direction */
+	direction: string;
+	/** Contract stability */
+	stability: string;
+	/** Intended audience */
+	visibility: string;
+	/** Wikilink lines appended after the Related Events section */
+	relatedEvents?: string[];
+	/** Extra markdown lines appended after the standard template */
+	extraSections?: string[];
+}
+
+/**
  * Persisted state for the discovery domain.
  */
 export interface DiscoveryState {

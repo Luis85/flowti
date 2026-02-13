@@ -4,7 +4,15 @@
  * Covers both import (CSV → notes) and export (notes → CSV/Tab) operations.
  */
 
-import type { ImportConfig, ImportResult, ExportConfig, ExportResult } from "./types";
+import type {
+	ImportConfig,
+	ImportResult,
+	ExportConfig,
+	ExportResult,
+	SavedMultiImportPipeline,
+	MultiImportResult,
+	PipelineSourceResult,
+} from "./types";
 
 export interface DataExchangeEventMap {
 	// ── Import commands & lifecycle ──────────────────────────
@@ -41,6 +49,31 @@ export interface DataExchangeEventMap {
 
 	/** Export failed */
 	"dataExchange.export.failed": { error: string; config: ExportConfig };
+
+	// ── Pipeline commands & lifecycle ───────────────────────
+
+	/** Command: execute a multi-import pipeline */
+	"dataExchange.pipeline.execute": { pipelineId: string };
+
+	/** Pipeline started (before first source) */
+	"dataExchange.pipeline.started": {
+		pipeline: SavedMultiImportPipeline;
+		totalSources: number;
+	};
+
+	/** Progress: one source completed within the pipeline */
+	"dataExchange.pipeline.sourceCompleted": {
+		pipelineId: string;
+		sourceIndex: number;
+		totalSources: number;
+		sourceResult: PipelineSourceResult;
+	};
+
+	/** Full pipeline completed */
+	"dataExchange.pipeline.completed": { result: MultiImportResult };
+
+	/** Pipeline failed (top-level error) */
+	"dataExchange.pipeline.failed": { error: string; pipelineId: string };
 
 	// ── Config lifecycle ────────────────────────────────────
 
