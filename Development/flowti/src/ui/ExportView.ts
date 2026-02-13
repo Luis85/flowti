@@ -128,8 +128,7 @@ export class ExportView extends ItemView {
 		this.sourcePath = config.sourcePath;
 		this.sourceType = config.sourceType;
 		this.format = config.format;
-		this.savedConfigs = this.dataExchangeService.getSavedExportConfigs()
-			.filter((c) => c.format === config.format);
+		this.savedConfigs = this.dataExchangeService.getSavedExportConfigs();
 		this.currentPage = config.sourceType === "base" ? "view-select" : "configure";
 
 		// Default output path
@@ -359,6 +358,14 @@ export class ExportView extends ItemView {
 		// Spacer
 		stepRow.createDiv().style.flex = "1";
 
+		// Save button (only when unsaved changes exist)
+		if (this.hasUnsavedChanges()) {
+			const saveBtn = stepRow.createEl("span", { cls: "ft-nav-link" });
+			setIcon(saveBtn.createSpan(), "save");
+			saveBtn.appendText(" Save");
+			saveBtn.addEventListener("click", () => this.promptSaveConfig());
+		}
+
 		// Config dropdown
 		this.renderConfigDropdownButton(stepRow);
 	}
@@ -467,8 +474,7 @@ export class ExportView extends ItemView {
 							void this.dataExchangeService
 								.updateExportConfig(existing.id, configData)
 								.then((updated) => {
-									this.savedConfigs = this.dataExchangeService.getSavedExportConfigs()
-										.filter((c) => c.format === this.format);
+									this.savedConfigs = this.dataExchangeService.getSavedExportConfigs();
 									this.loadedConfigId = existing.id;
 									new Notice(`Config updated: ${updated?.name ?? name}`);
 									this.renderTopBar();
@@ -485,8 +491,7 @@ export class ExportView extends ItemView {
 				void this.dataExchangeService
 					.saveExportConfig(configData)
 					.then((saved) => {
-						this.savedConfigs = this.dataExchangeService.getSavedExportConfigs()
-							.filter((c) => c.format === this.format);
+						this.savedConfigs = this.dataExchangeService.getSavedExportConfigs();
 						this.loadedConfigId = saved.id;
 						new Notice(`Config saved: ${saved.name}`);
 						this.renderTopBar();
@@ -522,7 +527,7 @@ export class ExportView extends ItemView {
 		}
 
 		// Action bar
-		const actions = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2 ft-mb-3" });
+		const actions = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-3 ft-mb-3" });
 		actions.style.borderBottom = "1px solid var(--background-modifier-border)";
 
 		const closeBtn = actions.createEl("span", { cls: "ft-nav-link" });
@@ -612,17 +617,15 @@ export class ExportView extends ItemView {
 
 		// ── Left panel: settings ──
 		const panel = split.createDiv({ cls: "ft-config-panel" });
-		const formatLabel = this.format === "tab" ? "Tab-delimited" : "CSV";
 		panel.createEl("h3", {
-			text: `Configure Export (${formatLabel})`,
+			text: "Configure Export",
 			cls: "ft-heading ft-heading-sm ft-mb-2",
 		});
 
-		// Action bar — matches CsvActionView config page layout
+		// Action bar
 		const actions = panel.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2 ft-mb-3" });
 		actions.style.borderBottom = "1px solid var(--background-modifier-border)";
 
-		// Back / Close — first item in action bar
 		if (this.sourceType === "base") {
 			const backBtn = actions.createEl("span", { cls: "ft-nav-link" });
 			setIcon(backBtn.createSpan(), "arrow-left");
@@ -638,11 +641,6 @@ export class ExportView extends ItemView {
 			closeBtn.addEventListener("click", () => this.leaf.detach());
 		}
 
-		const saveBtn = actions.createEl("span", { cls: "ft-nav-link" });
-		setIcon(saveBtn.createSpan(), "save");
-		saveBtn.appendText(" Save Config");
-		saveBtn.addEventListener("click", () => this.promptSaveConfig());
-
 		actions.createDiv().style.flex = "1";
 
 		const previewBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm mod-cta" });
@@ -653,7 +651,7 @@ export class ExportView extends ItemView {
 			this.renderPage();
 		});
 
-		// Unsaved changes reminder (always present, visibility toggled)
+		// Unsaved changes reminder
 		const reminder = panel.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
 		reminder.style.padding = "0.35rem 0.5rem";
 		reminder.style.borderRadius = "var(--radius-s, 4px)";
@@ -669,31 +667,82 @@ export class ExportView extends ItemView {
 		});
 		this.unsavedHintEl = reminder;
 
-		// Output file
-		const targetDesc = this.isExternal
-			? "Saving to filesystem (absolute path)"
-			: "Saving inside vault";
-		const outputSetting = new Setting(panel)
-			.setName("Output file")
-			.setDesc(targetDesc)
-			.addText((text) =>
-				text
-					.setValue(this.outputPath)
-					.setPlaceholder(this.isExternal ? "C:\\path\\to\\output.csv" : "path/to/output.csv")
-					.onChange((v) => { this.outputPath = v; this.updateUnsavedHint(); }),
+		// Format
+		new Setting(panel)
+			.setName("Format")
+			.setDesc("Output file format")
+			.addDropdown((dd) =>
+				dd
+					.addOptions({
+						csv: "CSV (comma-separated)",
+						tab: "Tab-delimited (.txt)",
+					})
+					.setValue(this.format)
+					.onChange((v) => {
+						const oldFormat = this.format;
+						this.format = v as ExportFormat;
+						this.updateOutputExtension(oldFormat);
+						this.updateUnsavedHint();
+						this.renderTopBar();
+						this.renderConfigurePage();
+					}),
 			);
-		outputSetting.addExtraButton((btn) =>
-			btn
-				.setIcon("folder")
-				.setTooltip("Browse vault folders")
-				.onClick(() => this.openFolderPicker()),
-		);
-		outputSetting.addExtraButton((btn) =>
-			btn
-				.setIcon("hard-drive")
-				.setTooltip("Save to filesystem")
-				.onClick(() => this.openNativeSaveDialog()),
-		);
+
+		// Output folder + filename (vault mode) or single path (external mode)
+		if (this.isExternal) {
+			const outputSetting = new Setting(panel)
+				.setName("Output path")
+				.setDesc("Saving to filesystem (absolute path)")
+				.addText((text) =>
+					text
+						.setValue(this.outputPath)
+						.setPlaceholder("C:\\path\\to\\output.csv")
+						.onChange((v) => { this.outputPath = v; this.updateUnsavedHint(); }),
+				);
+			outputSetting.addExtraButton((btn) =>
+				btn
+					.setIcon("vault")
+					.setTooltip("Switch to vault")
+					.onClick(() => {
+						this.isExternal = false;
+						const filename = this.getOutputFilename();
+						this.outputPath = filename;
+						this.renderConfigurePage();
+					}),
+			);
+		} else {
+			new Setting(panel)
+				.setName("Output folder")
+				.setDesc("Folder inside the vault")
+				.addText((text) =>
+					text
+						.setValue(this.getOutputFolder())
+						.setPlaceholder("path/to/folder")
+						.onChange((v) => { this.setOutputFolder(v); this.updateUnsavedHint(); }),
+				)
+				.addExtraButton((btn) =>
+					btn
+						.setIcon("folder")
+						.setTooltip("Browse vault folders")
+						.onClick(() => this.openFolderPicker()),
+				);
+
+			const ext = this.format === "tab" ? ".txt" : ".csv";
+			const filenameSetting = new Setting(panel)
+				.setName("Filename")
+				.addText((text) =>
+					text
+						.setValue(this.getOutputFilename())
+						.setPlaceholder(`export${ext}`)
+						.onChange((v) => { this.setOutputFilename(v); this.updateUnsavedHint(); }),
+				);
+			filenameSetting.addExtraButton((btn) =>
+				btn
+					.setIcon("hard-drive")
+					.setTooltip("Save to filesystem")
+					.onClick(() => this.openNativeSaveDialog()),
+			);
+		}
 
 		// Conflict strategy
 		new Setting(panel)
@@ -713,49 +762,20 @@ export class ExportView extends ItemView {
 					}),
 			);
 
-		// File Properties
-		panel.createEl("h4", { text: "File Properties", cls: "ft-mt-4 ft-heading ft-heading-sm" });
-		panel.createEl("p", {
-			text: "Standard Obsidian file properties to include.",
-			cls: "ft-text-muted ft-text-sm ft-mb-2",
-		});
-
-		const filePropsContainer = panel.createDiv({ cls: "ft-flex-col ft-gap-1" });
-		for (const fp of STANDARD_FILE_PROPERTIES) {
-			const label = filePropsContainer.createEl("label", {
-				cls: "ft-flex ft-items-center ft-gap-1 ft-text-sm",
-			});
-			const cb = label.createEl("input", { type: "checkbox" });
-			cb.checked = this.selectedFileProperties.includes(fp.key);
-			const key = fp.key;
-			cb.addEventListener("change", () => {
-				if (cb.checked) {
-					if (!this.selectedFileProperties.includes(key)) {
-						this.selectedFileProperties.push(key);
-					}
-				} else {
-					this.selectedFileProperties = this.selectedFileProperties.filter(
-						(p) => p !== key,
-					);
-				}
-				this.updateUnsavedHint();
-			});
-			label.createSpan({ text: fp.label });
-		}
-
-		// ── Right panel: note properties ──
+		// ── Right panel: all properties ──
 		const content = split.createDiv({ cls: "ft-config-content" });
 
 		const header = content.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });
-		header.createEl("h3", { text: "Note Properties", cls: "ft-heading ft-heading-sm" });
+		header.createEl("h3", { text: "Properties", cls: "ft-heading ft-heading-sm" });
 		header.style.flex = "1";
 
+		// Select all / deselect all (for note properties)
 		if (this.availableColumns.length > 0) {
-			// Select all / deselect all
 			const selectAllBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 			selectAllBtn.textContent = "All";
 			selectAllBtn.addEventListener("click", () => {
 				this.selectedColumns = [...this.availableColumns];
+				this.selectedFileProperties = STANDARD_FILE_PROPERTIES.map((fp) => fp.key);
 				this.renderConfigurePage();
 			});
 
@@ -763,62 +783,86 @@ export class ExportView extends ItemView {
 			deselectAllBtn.textContent = "None";
 			deselectAllBtn.addEventListener("click", () => {
 				this.selectedColumns = [];
+				this.selectedFileProperties = [];
 				this.renderConfigurePage();
 			});
 		}
 
-		if (this.availableColumns.length === 0) {
-			content.createEl("p", {
-				text: "No frontmatter properties found in the source files.",
-				cls: "ft-text-muted ft-text-sm",
-			});
-		} else {
-			// Search
-			const search = content.createEl("input", {
-				type: "text",
-				cls: "ft-column-search",
-			});
-			search.placeholder = "Search properties...";
-			search.value = this.propertySearchText;
-			search.addEventListener("input", () => {
-				this.propertySearchText = search.value;
-				this.renderPropertyGrid(gridContainer);
-			});
-
-			// Property grid
-			const gridContainer = content.createDiv();
+		// Search
+		const search = content.createEl("input", {
+			type: "text",
+			cls: "ft-column-search",
+		});
+		search.placeholder = "Search properties...";
+		search.value = this.propertySearchText;
+		search.addEventListener("input", () => {
+			this.propertySearchText = search.value;
 			this.renderPropertyGrid(gridContainer);
-		}
+		});
+
+		const gridContainer = content.createDiv();
+		this.renderPropertyGrid(gridContainer);
 	}
 
 	private renderPropertyGrid(container: HTMLElement): void {
 		container.empty();
 
 		const searchLower = this.propertySearchText.toLowerCase();
-		const filtered = this.availableColumns.filter((col) =>
-			!searchLower || col.toLowerCase().includes(searchLower),
+
+		// ── File Properties section ──
+		const filteredFileProps = STANDARD_FILE_PROPERTIES.filter((fp) =>
+			!searchLower || fp.label.toLowerCase().includes(searchLower) || fp.key.toLowerCase().includes(searchLower),
 		);
-
-		const grid = container.createDiv({ cls: "ft-property-grid" });
-
-		for (const col of filtered) {
-			const item = grid.createDiv({ cls: "ft-property-item" });
-			const cb = item.createEl("input", { type: "checkbox" });
-			cb.checked = this.selectedColumns.includes(col);
-			cb.addEventListener("change", () => {
-				if (cb.checked) {
-					if (!this.selectedColumns.includes(col)) {
-						this.selectedColumns.push(col);
+		if (filteredFileProps.length > 0) {
+			container.createEl("h4", { text: "File Properties", cls: "ft-mt-2 ft-heading ft-heading-sm ft-mb-1" });
+			const fileGrid = container.createDiv({ cls: "ft-property-grid" });
+			for (const fp of filteredFileProps) {
+				const item = fileGrid.createDiv({ cls: "ft-property-item" });
+				const cb = item.createEl("input", { type: "checkbox" });
+				cb.checked = this.selectedFileProperties.includes(fp.key);
+				const key = fp.key;
+				cb.addEventListener("change", () => {
+					if (cb.checked) {
+						if (!this.selectedFileProperties.includes(key)) {
+							this.selectedFileProperties.push(key);
+						}
+					} else {
+						this.selectedFileProperties = this.selectedFileProperties.filter(
+							(p) => p !== key,
+						);
 					}
-				} else {
-					this.selectedColumns = this.selectedColumns.filter((c) => c !== col);
-				}
-				this.updateUnsavedHint();
-			});
-			item.createSpan({ text: col });
+					this.updateUnsavedHint();
+				});
+				item.createSpan({ text: fp.label });
+			}
 		}
 
-		if (filtered.length === 0) {
+		// ── Note Properties section ──
+		const filteredCols = this.availableColumns.filter((col) =>
+			!searchLower || col.toLowerCase().includes(searchLower),
+		);
+		if (filteredCols.length > 0) {
+			container.createEl("h4", { text: "Note Properties", cls: "ft-mt-3 ft-heading ft-heading-sm ft-mb-1" });
+			const noteGrid = container.createDiv({ cls: "ft-property-grid" });
+			for (const col of filteredCols) {
+				const item = noteGrid.createDiv({ cls: "ft-property-item" });
+				const cb = item.createEl("input", { type: "checkbox" });
+				cb.checked = this.selectedColumns.includes(col);
+				cb.addEventListener("change", () => {
+					if (cb.checked) {
+						if (!this.selectedColumns.includes(col)) {
+							this.selectedColumns.push(col);
+						}
+					} else {
+						this.selectedColumns = this.selectedColumns.filter((c) => c !== col);
+					}
+					this.updateUnsavedHint();
+				});
+				item.createSpan({ text: col });
+			}
+		}
+
+		if (filteredFileProps.length === 0 && filteredCols.length === 0) {
 			container.createEl("p", {
 				text: this.propertySearchText ? "No matching properties" : "No properties available",
 				cls: "ft-text-muted ft-text-sm ft-p-3",
@@ -1205,8 +1249,7 @@ export class ExportView extends ItemView {
 				conflictStrategy: this.conflictStrategy,
 				isExternal: this.isExternal || undefined,
 			});
-			this.savedConfigs = this.dataExchangeService.getSavedExportConfigs()
-				.filter((c) => c.format === this.format);
+			this.savedConfigs = this.dataExchangeService.getSavedExportConfigs();
 			this.loadedConfigId = saved.id;
 			new Notice(`Config auto-saved: ${saved.name}`);
 			this.renderTopBar();
@@ -1244,8 +1287,7 @@ export class ExportView extends ItemView {
 	private openFolderPicker(): void {
 		const folders = getVaultFolders(this.app);
 		new FolderPickerModal(this.app, folders, (folder) => {
-			const filename = this.getFilenameFromPath(this.outputPath);
-			this.outputPath = folder ? `${folder}/${filename}` : filename;
+			this.setOutputFolder(folder);
 			this.isExternal = false;
 			this.renderPage();
 		}).open();
@@ -1280,12 +1322,42 @@ export class ExportView extends ItemView {
 		return parts[parts.length - 1] || p;
 	}
 
+	private getOutputFolder(): string {
+		const norm = this.outputPath.replace(/\\/g, "/");
+		const lastSlash = norm.lastIndexOf("/");
+		return lastSlash === -1 ? "" : norm.slice(0, lastSlash);
+	}
+
+	private getOutputFilename(): string {
+		return this.getFilenameFromPath(this.outputPath);
+	}
+
+	private setOutputFolder(folder: string): void {
+		const filename = this.getOutputFilename();
+		this.outputPath = folder ? `${folder}/${filename}` : filename;
+	}
+
+	private setOutputFilename(filename: string): void {
+		const folder = this.getOutputFolder();
+		this.outputPath = folder ? `${folder}/${filename}` : filename;
+	}
+
+	/** Swaps the file extension when format changes (.csv ↔ .txt). */
+	private updateOutputExtension(oldFormat: ExportFormat): void {
+		const filename = this.getOutputFilename();
+		if (oldFormat === "csv" && this.format === "tab" && filename.endsWith(".csv")) {
+			this.setOutputFilename(filename.replace(/\.csv$/, ".txt"));
+		} else if (oldFormat === "tab" && this.format === "csv" && filename.endsWith(".txt")) {
+			this.setOutputFilename(filename.replace(/\.txt$/, ".csv"));
+		}
+	}
+
 	// ── Config save/load ────────────────────────────────────
 
 	private applySavedExportConfig(id: string): void {
 		const cfg = this.savedConfigs.find((c) => c.id === id);
 		if (!cfg) return;
-		// Never override format — it's determined by how the view was opened
+		this.format = cfg.format;
 		this.outputPath = cfg.outputPath;
 		this.selectedColumns = [...cfg.columns];
 		this.selectedFileProperties = [...cfg.fileProperties];
@@ -1334,6 +1406,7 @@ export class ExportView extends ItemView {
 		if (!this.loadedConfigId) return false;
 		const cfg = this.savedConfigs.find((c) => c.id === this.loadedConfigId);
 		if (!cfg) return false;
+		if (this.format !== cfg.format) return true;
 		if (this.outputPath !== cfg.outputPath) return true;
 		if (JSON.stringify(this.selectedColumns) !== JSON.stringify(cfg.columns)) return true;
 		if (JSON.stringify(this.selectedFileProperties) !== JSON.stringify(cfg.fileProperties)) return true;

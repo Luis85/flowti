@@ -604,6 +604,118 @@ export class DataExchangeService {
 		return this.getReportsFolder();
 	}
 
+	/** Returns the Properties folder path (public for Hub scanning). */
+	getPropertiesFolderPath(): string {
+		return this.getPropertiesFolder();
+	}
+
+	/** Returns the vault path for a property's documentation note. */
+	getPropertyDocPath(propertyName: string): string {
+		const folder = this.getPropertiesFolder();
+		const safeName = this.sanitizeDocName(propertyName);
+		return `${folder}/Property - ${safeName}.md`;
+	}
+
+	/** Creates a documentation note for a Data Dictionary property. Returns the doc path. */
+	async createPropertyDoc(propertyName: string): Promise<string> {
+		const docPath = this.getPropertyDocPath(propertyName);
+		const entry = this.buildDataDictionary().find((e) => e.propertyName === propertyName);
+		const now = new Date().toISOString();
+
+		const csvColumns = entry?.csvColumnNames ?? [];
+		const configRefs = entry?.usedInConfigs ?? [];
+
+		// Collect wikilinks to all relevant files
+		const relatedFiles = new Set<string>();
+		const configDocLinks: string[] = [];
+
+		for (const ref of configRefs) {
+			// Config doc
+			const configDocPath = this.getConfigDocPath(ref.configName, ref.configType);
+			const configDocName = configDocPath.split("/").pop()?.replace(/\.md$/, "") ?? ref.configName;
+			configDocLinks.push(`- [[${configDocName}]]`);
+
+			if (ref.configType === "import") {
+				const cfg = this.state.savedImportConfigs.find((c) => c.id === ref.configId);
+				if (cfg) {
+					if (cfg.sourcePath) relatedFiles.add(cfg.sourcePath);
+					if (cfg.basePath) relatedFiles.add(cfg.basePath);
+				}
+			} else {
+				const cfg = this.state.savedExportConfigs.find((c) => c.id === ref.configId);
+				if (cfg) {
+					relatedFiles.add(cfg.sourcePath);
+					if (!cfg.isExternal) relatedFiles.add(cfg.outputPath);
+				}
+			}
+		}
+
+		// Build CSV report doc links
+		const reportLinks: string[] = [];
+		for (const filePath of relatedFiles) {
+			if (filePath.toLowerCase().endsWith(".csv")) {
+				const reportDocPath = this.getCsvDocPath(filePath);
+				const reportDocName = reportDocPath.split("/").pop()?.replace(/\.md$/, "") ?? filePath;
+				reportLinks.push(`- [[${reportDocName}]]`);
+			}
+		}
+
+		// Build file wikilinks
+		const fileLinks = [...relatedFiles].map((f) => {
+			const name = f.split("/").pop() ?? f;
+			return `- [[${name}]]`;
+		});
+
+		const lines: string[] = [
+			"---",
+			"type: PropertyDoc",
+			`property: "${propertyName}"`,
+			`description: ""`,
+			`csvColumns: [${csvColumns.map((c) => `"${c}"`).join(", ")}]`,
+			`configs: [${configRefs.map((c) => `"${c.configName}"`).join(", ")}]`,
+			`created: "${now}"`,
+			"---",
+			"",
+			`# ${propertyName}`,
+			"",
+			"> Property documentation.",
+			"",
+			"## Overview",
+			"",
+			`- **Property**: \`${propertyName}\``,
+			...(csvColumns.length > 0
+				? [`- **CSV Columns**: ${csvColumns.join(", ")}`]
+				: []),
+			"",
+			"## Description",
+			"",
+			"> Describe what this property represents, valid values, and any constraints.",
+			"",
+		];
+
+		if (configDocLinks.length > 0) {
+			lines.push("## Configs", "", ...configDocLinks, "");
+		}
+
+		if (fileLinks.length > 0) {
+			lines.push("## Related Files", "", ...fileLinks, "");
+		}
+
+		if (reportLinks.length > 0) {
+			lines.push("## Reports", "", ...reportLinks, "");
+		}
+
+		lines.push(
+			"## Notes",
+			"",
+			"> Document usage context, data lineage, or related properties.",
+			"",
+		);
+
+		await this.fileSystem.createFile(docPath, lines.join("\n"), { createFolders: true });
+		return docPath;
+	}
+
 	private getConfigsFolder(): string {
 		const base = this.docsRootPath.replace(/\/+$/, "");
 		return `${base}/Configs`;
@@ -612,6 +724,11 @@ export class DataExchangeService {
 	private getReportsFolder(): string {
 		const base = this.docsRootPath.replace(/\/+$/, "");
 		return `${base}/Reports`;
+	}
+
+	private getPropertiesFolder(): string {
+		const base = this.docsRootPath.replace(/\/+$/, "");
+		return `${base}/Properties`;
 	}
 
 	private sanitizeDocName(name: string): string {

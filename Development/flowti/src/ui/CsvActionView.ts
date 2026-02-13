@@ -316,6 +316,14 @@ export class CsvActionView extends TextFileView {
 		// Spacer
 		stepRow.createDiv().style.flex = "1";
 
+		// Save button (only when unsaved changes exist)
+		if (this.hasUnsavedChanges()) {
+			const saveBtn = stepRow.createEl("span", { cls: "ft-nav-link" });
+			setIcon(saveBtn.createSpan(), "save");
+			saveBtn.appendText(" Save");
+			saveBtn.addEventListener("click", () => this.promptSaveConfig());
+		}
+
 		// Config dropdown
 		this.renderConfigDropdownButton(stepRow);
 	}
@@ -1353,11 +1361,6 @@ export class CsvActionView extends TextFileView {
 			this.currentPage = "landing";
 			this.renderContent();
 		});
-
-		const saveBtn = actions.createEl("span", { cls: "ft-nav-link" });
-		setIcon(saveBtn.createSpan(), "save");
-		saveBtn.appendText(" Save Config");
-		saveBtn.addEventListener("click", () => this.promptSaveConfig());
 
 		actions.createDiv().style.flex = "1";
 
