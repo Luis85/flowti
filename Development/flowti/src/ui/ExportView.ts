@@ -23,7 +23,7 @@ import type {
 } from "../domain/dataExchange/types";
 import { STANDARD_FILE_PROPERTIES } from "../domain/dataExchange/types";
 import { FolderPickerModal, getVaultFolders } from "./FolderPickerModal";
-import { ConfigChooserModal, InputModal } from "./modals";
+import { ConfigChooserModal, ConfirmModal, InputModal } from "./modals";
 
 export const VIEW_TYPE_EXPORT = "flowti-export";
 
@@ -40,6 +40,12 @@ const STEP_LABELS: Record<string, string> = {
 	configure: "Configure",
 	preview: "Preview",
 	result: "Export",
+};
+
+const STRATEGY_LABELS: Record<string, string> = {
+	overwrite: "Overwrite — replace existing file",
+	skip: "Skip — do not write if file exists",
+	append: "Append — add rows to existing file",
 };
 
 export class ExportView extends ItemView {
@@ -72,11 +78,13 @@ export class ExportView extends ItemView {
 	private pendingSavedConfig: SavedExportConfig | null = null;
 	private propertySearchText = "";
 	private configDropdownOpen = false;
+	private loadedConfigId: string | null = null;
 
 	// Persistent DOM references
 	private rootEl: HTMLElement | null = null;
 	private topBarEl: HTMLElement | null = null;
 	private workspaceEl: HTMLElement | null = null;
+	private unsavedHintEl: HTMLElement | null = null;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -246,39 +254,63 @@ export class ExportView extends ItemView {
 		closeBtn.addEventListener("click", () => this.leaf.detach());
 	}
 
-	// ── Top bar with stepper ────────────────────────────────
+	// ── Top bar with stepper (2-row layout) ─────────────────
 
 	private renderTopBar(): void {
 		const bar = this.topBarEl!;
 		bar.empty();
 
-		// Source info
-		const sourceInfo = bar.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
-		sourceInfo.style.flexShrink = "0";
-		const icon = sourceInfo.createSpan();
-		setIcon(icon, "file-output");
-		icon.style.opacity = "0.6";
+		// ── Row 1: File header ──
+		const headerRow = bar.createDiv({ cls: "ft-csv-header" });
+		headerRow.style.marginBottom = "0";
+		const iconEl = headerRow.createDiv({ cls: "ft-csv-header-icon" });
+		setIcon(iconEl, "file-output");
+		const titleCol = headerRow.createDiv();
+		const titleRow = titleCol.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 
 		const parts = this.sourcePath.replace(/\\/g, "/").split("/");
 		const name = parts[parts.length - 1] || this.sourcePath;
-		sourceInfo.createSpan({ text: name, cls: "ft-text-sm" });
+		titleRow.createEl("h2", {
+			text: name,
+			cls: "ft-heading ft-csv-title",
+		});
 
-		// Operation badge
-		sourceInfo.createSpan({
+		titleRow.createSpan({
 			text: "Export",
 			cls: "ft-operation-badge ft-operation-badge-export",
 		});
-		sourceInfo.createSpan({
-			text: this.sourceType,
+
+		// Loaded config indicator
+		if (this.loadedConfigId) {
+			const cfg = this.savedConfigs.find((c) => c.id === this.loadedConfigId);
+			if (cfg) {
+				titleRow.createSpan({
+					text: `Config: ${cfg.name}`,
+					cls: "ft-badge ft-badge-accent",
+				});
+			}
+		} else {
+			titleRow.createSpan({
+				text: "No config loaded",
+				cls: "ft-badge ft-badge-muted",
+			});
+		}
+
+		const subtitle = titleCol.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		subtitle.createSpan({ text: this.sourcePath, cls: "ft-text-sm ft-text-muted" });
+		subtitle.createSpan({
+			text: `${this.previewFiles.length} files`,
 			cls: "ft-badge ft-badge-muted",
 		});
-		sourceInfo.createSpan({
-			text: this.format === "tab" ? "Tab" : "CSV",
+		subtitle.createSpan({
+			text: `${this.availableColumns.length} cols`,
 			cls: "ft-badge ft-badge-muted",
 		});
 
-		// Stepper
-		const stepBar = bar.createDiv({ cls: "ft-step-bar" });
+		// ── Row 2: Stepper + config dropdown ──
+		const stepRow = bar.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+
+		const stepBar = stepRow.createDiv({ cls: "ft-step-bar" });
 		const steps: ExportPage[] = this.sourceType === "base"
 			? ["view-select", "configure", "preview", "result"]
 			: ["configure", "preview", "result"];
@@ -297,8 +329,8 @@ export class ExportView extends ItemView {
 
 			stepEl.addClass(stateClass);
 
-			const iconEl = stepEl.createDiv({ cls: "ft-step-icon" });
-			iconEl.textContent = String(i + 1);
+			const stepIconEl = stepEl.createDiv({ cls: "ft-step-icon" });
+			stepIconEl.textContent = String(i + 1);
 
 			stepEl.createSpan({
 				text: STEP_LABELS[step],
@@ -325,10 +357,10 @@ export class ExportView extends ItemView {
 		}
 
 		// Spacer
-		bar.createDiv().style.flex = "1";
+		stepRow.createDiv().style.flex = "1";
 
 		// Config dropdown
-		this.renderConfigDropdownButton(bar);
+		this.renderConfigDropdownButton(stepRow);
 	}
 
 	// ── Config dropdown ─────────────────────────────────────
@@ -393,30 +425,72 @@ export class ExportView extends ItemView {
 	}
 
 	private promptSaveConfig(): void {
+		// Prefill with loaded config name, then source filename, then generic
+		let defaultName = "My export config";
+		if (this.loadedConfigId) {
+			const loaded = this.savedConfigs.find((c) => c.id === this.loadedConfigId);
+			if (loaded) defaultName = loaded.name;
+		} else {
+			defaultName = this.getFilenameFromPath(this.sourcePath).replace(/\.\w+$/, "");
+		}
+
 		new InputModal(this.app, {
 			title: "Save Export Config",
 			inputName: "Config name",
 			inputDesc: "A descriptive name for this export configuration",
 			placeholder: "My export config",
+			defaultValue: defaultName,
 			submitLabel: "Save",
 			onSubmit: (name) => {
+				const configData = {
+					name,
+					sourcePath: this.sourcePath,
+					sourceType: this.sourceType,
+					format: this.format,
+					outputPath: this.outputPath,
+					columns: [...this.selectedColumns],
+					fileProperties: [...this.selectedFileProperties],
+					baseViewIndex: this.baseViewIndex,
+					conflictStrategy: this.conflictStrategy,
+					isExternal: this.isExternal || undefined,
+				};
+
+				const existing = this.dataExchangeService
+					.getSavedExportConfigs()
+					.find((c) => c.name === name);
+
+				if (existing) {
+					new ConfirmModal(this.app, {
+						message: `A config named "${name}" already exists. Update it?`,
+						confirmLabel: "Update",
+						onConfirm: () => {
+							void this.dataExchangeService
+								.updateExportConfig(existing.id, configData)
+								.then((updated) => {
+									this.savedConfigs = this.dataExchangeService.getSavedExportConfigs()
+										.filter((c) => c.format === this.format);
+									this.loadedConfigId = existing.id;
+									new Notice(`Config updated: ${updated?.name ?? name}`);
+									this.renderTopBar();
+									this.updateUnsavedHint();
+								})
+								.catch((err) =>
+									console.error("[Flowti] Failed to update export config", err),
+								);
+						},
+					}).open();
+					return;
+				}
+
 				void this.dataExchangeService
-					.saveExportConfig({
-						name,
-						sourcePath: this.sourcePath,
-						sourceType: this.sourceType,
-						format: this.format,
-						outputPath: this.outputPath,
-						columns: [...this.selectedColumns],
-						fileProperties: [...this.selectedFileProperties],
-						baseViewIndex: this.baseViewIndex,
-						conflictStrategy: this.conflictStrategy,
-						isExternal: this.isExternal || undefined,
-					})
+					.saveExportConfig(configData)
 					.then((saved) => {
 						this.savedConfigs = this.dataExchangeService.getSavedExportConfigs()
 							.filter((c) => c.format === this.format);
+						this.loadedConfigId = saved.id;
 						new Notice(`Config saved: ${saved.name}`);
+						this.renderTopBar();
+						this.updateUnsavedHint();
 					})
 					.catch((err) =>
 						console.error("[Flowti] Failed to save export config", err),
@@ -432,6 +506,7 @@ export class ExportView extends ItemView {
 		ws.empty();
 
 		const container = ws.createDiv({ cls: "ft-table-scroll" });
+		container.style.padding = "1rem";
 
 		if (!this.baseFile || this.baseFile.views.length === 0) {
 			container.createEl("p", {
@@ -446,34 +521,78 @@ export class ExportView extends ItemView {
 			return;
 		}
 
-		container.createEl("h3", {
-			text: "Select View to Export",
-			cls: "ft-heading ft-heading-sm ft-mb-3",
-		});
-		container.createEl("p", {
-			text: `${this.baseFile.views.length} view(s) found in ${this.sourcePath}`,
-			cls: "ft-text-muted ft-text-sm ft-mb-3",
+		// Action bar
+		const actions = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2 ft-mb-3" });
+		actions.style.borderBottom = "1px solid var(--background-modifier-border)";
+
+		const closeBtn = actions.createEl("span", { cls: "ft-nav-link" });
+		setIcon(closeBtn.createSpan(), "x");
+		closeBtn.appendText(" Close");
+		closeBtn.addEventListener("click", () => this.leaf.detach());
+
+		actions.createDiv().style.flex = "1";
+
+		const nextBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm mod-cta" });
+		setIcon(nextBtn.createSpan({ cls: "flowti-csv-btn-icon" }), "arrow-right");
+		nextBtn.appendText(" Configure");
+		nextBtn.addEventListener("click", async () => {
+			await this.loadColumnsAndPreview();
+			this.currentPage = "configure";
+			this.renderPage();
 		});
 
-		const viewGrid = container.createDiv({ cls: "ft-property-grid" });
+		// Header
+		container.createEl("h3", {
+			text: "Select a View",
+			cls: "ft-heading ft-heading-sm ft-mb-2",
+		});
+		const subtitle = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });
+		subtitle.createSpan({
+			text: this.getFilenameFromPath(this.sourcePath),
+			cls: "ft-text-muted ft-text-sm",
+		});
+		subtitle.createSpan({
+			text: `${this.baseFile.views.length} view${this.baseFile.views.length !== 1 ? "s" : ""}`,
+			cls: "ft-badge ft-badge-muted",
+		});
+
+		// View cards
 		for (let i = 0; i < this.baseFile.views.length; i++) {
 			const view = this.baseFile.views[i];
-			const card = viewGrid.createDiv({
-				cls: `ft-property-item ${i === this.baseViewIndex ? "ft-card-selected" : ""}`,
+			const isSelected = i === this.baseViewIndex;
+
+			const card = container.createDiv({
+				cls: `ft-card ${isSelected ? "ft-card-selected" : ""}`,
 			});
 			card.style.cursor = "pointer";
-			card.style.padding = "0.75rem";
-			card.style.flexDirection = "column";
-			card.style.alignItems = "flex-start";
+			card.style.padding = "0.75rem 1rem";
+			card.style.marginBottom = "0.5rem";
 
-			card.createDiv({
-				text: view.name,
-				cls: "ft-font-bold",
-			});
-			card.createDiv({
-				text: `Type: ${view.type}${view.order ? ` \u00B7 ${view.order.length} columns` : ""}`,
-				cls: "ft-text-muted ft-text-sm",
-			});
+			const row = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-3" });
+
+			// Icon
+			const iconEl = row.createSpan();
+			setIcon(iconEl, "table");
+			iconEl.style.opacity = isSelected ? "1" : "0.4";
+			iconEl.style.flexShrink = "0";
+
+			// Text
+			const text = row.createDiv();
+			text.style.flex = "1";
+			text.style.minWidth = "0";
+			text.createDiv({ text: view.name, cls: "ft-font-bold" });
+			const meta: string[] = [view.type];
+			if (view.order) meta.push(`${view.order.length} columns`);
+			if (view.filters) meta.push("filtered");
+			text.createDiv({ text: meta.join(" \u00B7 "), cls: "ft-text-muted ft-text-sm" });
+
+			// Selected indicator
+			if (isSelected) {
+				const check = row.createSpan();
+				setIcon(check, "check");
+				check.style.color = "var(--interactive-accent)";
+				check.style.flexShrink = "0";
+			}
 
 			const viewIndex = i;
 			card.addEventListener("click", () => {
@@ -481,22 +600,6 @@ export class ExportView extends ItemView {
 				this.renderPage();
 			});
 		}
-
-		// Navigation
-		const nav = container.createDiv({ cls: "ft-detail-actions ft-mt-4" });
-		const closeBtn = nav.createEl("span", { cls: "ft-nav-link" });
-		setIcon(closeBtn.createSpan(), "x");
-		closeBtn.appendText(" Close");
-		closeBtn.addEventListener("click", () => this.leaf.detach());
-
-		const nextBtn = nav.createEl("span", { cls: "ft-nav-link" });
-		setIcon(nextBtn.createSpan(), "arrow-right");
-		nextBtn.appendText(" Configure");
-		nextBtn.addEventListener("click", async () => {
-			await this.loadColumnsAndPreview();
-			this.currentPage = "configure";
-			this.renderPage();
-		});
 	}
 
 	// ── Page 1: Configure (split layout) ────────────────────
@@ -512,8 +615,59 @@ export class ExportView extends ItemView {
 		const formatLabel = this.format === "tab" ? "Tab-delimited" : "CSV";
 		panel.createEl("h3", {
 			text: `Configure Export (${formatLabel})`,
-			cls: "ft-heading ft-heading-sm ft-mb-3",
+			cls: "ft-heading ft-heading-sm ft-mb-2",
 		});
+
+		// Action bar — matches CsvActionView config page layout
+		const actions = panel.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2 ft-mb-3" });
+		actions.style.borderBottom = "1px solid var(--background-modifier-border)";
+
+		// Back / Close — first item in action bar
+		if (this.sourceType === "base") {
+			const backBtn = actions.createEl("span", { cls: "ft-nav-link" });
+			setIcon(backBtn.createSpan(), "arrow-left");
+			backBtn.appendText(" Views");
+			backBtn.addEventListener("click", () => {
+				this.currentPage = "view-select";
+				this.renderPage();
+			});
+		} else {
+			const closeBtn = actions.createEl("span", { cls: "ft-nav-link" });
+			setIcon(closeBtn.createSpan(), "x");
+			closeBtn.appendText(" Close");
+			closeBtn.addEventListener("click", () => this.leaf.detach());
+		}
+
+		const saveBtn = actions.createEl("span", { cls: "ft-nav-link" });
+		setIcon(saveBtn.createSpan(), "save");
+		saveBtn.appendText(" Save Config");
+		saveBtn.addEventListener("click", () => this.promptSaveConfig());
+
+		actions.createDiv().style.flex = "1";
+
+		const previewBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm mod-cta" });
+		setIcon(previewBtn.createSpan({ cls: "flowti-csv-btn-icon" }), "eye");
+		previewBtn.appendText(" Preview");
+		previewBtn.addEventListener("click", () => {
+			this.currentPage = "preview";
+			this.renderPage();
+		});
+
+		// Unsaved changes reminder (always present, visibility toggled)
+		const reminder = panel.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
+		reminder.style.padding = "0.35rem 0.5rem";
+		reminder.style.borderRadius = "var(--radius-s, 4px)";
+		reminder.style.background = "var(--background-modifier-message)";
+		reminder.style.display = this.hasUnsavedChanges() ? "flex" : "none";
+		const warnIcon = reminder.createSpan();
+		setIcon(warnIcon, "alert-triangle");
+		warnIcon.style.opacity = "0.6";
+		warnIcon.style.flexShrink = "0";
+		reminder.createSpan({
+			text: "Config has unsaved changes",
+			cls: "ft-text-sm ft-text-muted",
+		});
+		this.unsavedHintEl = reminder;
 
 		// Output file
 		const targetDesc = this.isExternal
@@ -526,7 +680,7 @@ export class ExportView extends ItemView {
 				text
 					.setValue(this.outputPath)
 					.setPlaceholder(this.isExternal ? "C:\\path\\to\\output.csv" : "path/to/output.csv")
-					.onChange((v) => { this.outputPath = v; }),
+					.onChange((v) => { this.outputPath = v; this.updateUnsavedHint(); }),
 			);
 		outputSetting.addExtraButton((btn) =>
 			btn
@@ -553,7 +707,10 @@ export class ExportView extends ItemView {
 						append: "Append rows",
 					})
 					.setValue(this.conflictStrategy)
-					.onChange((v) => { this.conflictStrategy = v as ExportConflictStrategy; }),
+					.onChange((v) => {
+						this.conflictStrategy = v as ExportConflictStrategy;
+						this.updateUnsavedHint();
+					}),
 			);
 
 		// File Properties
@@ -581,48 +738,10 @@ export class ExportView extends ItemView {
 						(p) => p !== key,
 					);
 				}
+				this.updateUnsavedHint();
 			});
 			label.createSpan({ text: fp.label });
 		}
-
-		// Save Config CTA (compact row)
-		const ctaBlock = panel.createDiv({ cls: "ft-save-config-cta" });
-		const ctaLabel = ctaBlock.createDiv({ cls: "ft-save-cta-label" });
-		setIcon(ctaLabel.createSpan(), "save");
-		ctaLabel.appendText("Save Config");
-		const saveBtn = ctaBlock.createEl("button", {
-			text: "Save...",
-			cls: "mod-cta",
-		});
-		saveBtn.style.padding = "0.2rem 0.6rem";
-		saveBtn.style.fontSize = "var(--font-ui-smaller)";
-		saveBtn.addEventListener("click", () => this.promptSaveConfig());
-
-		// Navigation
-		const nav = panel.createDiv({ cls: "ft-detail-actions ft-mt-4" });
-
-		if (this.sourceType === "base") {
-			const backBtn = nav.createEl("span", { cls: "ft-nav-link" });
-			setIcon(backBtn.createSpan(), "arrow-left");
-			backBtn.appendText(" Views");
-			backBtn.addEventListener("click", () => {
-				this.currentPage = "view-select";
-				this.renderPage();
-			});
-		} else {
-			const closeBtn = nav.createEl("span", { cls: "ft-nav-link" });
-			setIcon(closeBtn.createSpan(), "x");
-			closeBtn.appendText(" Close");
-			closeBtn.addEventListener("click", () => this.leaf.detach());
-		}
-
-		const nextBtn = nav.createEl("span", { cls: "ft-nav-link" });
-		setIcon(nextBtn.createSpan(), "arrow-right");
-		nextBtn.appendText(" Preview");
-		nextBtn.addEventListener("click", () => {
-			this.currentPage = "preview";
-			this.renderPage();
-		});
 
 		// ── Right panel: note properties ──
 		const content = split.createDiv({ cls: "ft-config-content" });
@@ -694,6 +813,7 @@ export class ExportView extends ItemView {
 				} else {
 					this.selectedColumns = this.selectedColumns.filter((c) => c !== col);
 				}
+				this.updateUnsavedHint();
 			});
 			item.createSpan({ text: col });
 		}
@@ -728,19 +848,10 @@ export class ExportView extends ItemView {
 			...columnHeaders.map((h) => h.label),
 		];
 
-		// Stats bar
-		const statsBar = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-px-3 ft-py-2" });
+		// Action bar
+		const statsBar = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2" });
 		statsBar.style.borderBottom = "1px solid var(--background-modifier-border)";
 		statsBar.style.flexShrink = "0";
-
-		statsBar.createSpan({
-			text: `${this.previewFiles.length} rows`,
-			cls: "ft-badge ft-badge-muted",
-		});
-		statsBar.createSpan({
-			text: `${allHeaders.length} columns`,
-			cls: "ft-badge ft-badge-muted",
-		});
 
 		// Validation
 		const issues: string[] = [];
@@ -749,32 +860,80 @@ export class ExportView extends ItemView {
 
 		if (issues.length > 0) {
 			const alert = statsBar.createDiv({ cls: "ft-alert-warning ft-p-2 ft-text-sm" });
-			alert.style.marginLeft = "auto";
 			for (const issue of issues) {
 				alert.createSpan({ text: issue });
 				alert.createEl("br");
 			}
 		}
 
-		statsBar.createDiv().style.flex = "1";
-
-		// Navigation in stats bar
-		const backBtn = statsBar.createEl("span", { cls: "ft-nav-link" });
-		setIcon(backBtn.createSpan(), "arrow-left");
-		backBtn.appendText(" Config");
-		backBtn.addEventListener("click", () => {
+		const configBtn = statsBar.createEl("span", { cls: "ft-nav-link" });
+		setIcon(configBtn.createSpan(), "settings");
+		configBtn.appendText(" Edit Config");
+		configBtn.addEventListener("click", () => {
 			this.currentPage = "configure";
 			this.renderPage();
 		});
 
+		statsBar.createDiv().style.flex = "1";
+
 		if (issues.length === 0) {
-			const exportBtn = statsBar.createEl("span", { cls: "ft-nav-link" });
-			setIcon(exportBtn.createSpan(), "play");
-			exportBtn.appendText(" Export");
+			const exportBtn = statsBar.createEl("button", { cls: "ft-btn ft-btn-sm mod-cta" });
+			setIcon(exportBtn.createSpan({ cls: "flowti-csv-btn-icon" }), "play");
+			exportBtn.appendText(" Run Export");
 			exportBtn.addEventListener("click", () => {
 				this.currentPage = "result";
 				this.renderPage();
 				void this.runExport();
+			});
+		}
+
+		// ── Impact summary ──────────────────────────────────
+		const summary = ws.createDiv({ cls: "ft-card ft-mt-3 ft-mb-2" });
+		summary.createDiv({ text: "What will happen", cls: "ft-detail-section-header ft-mb-2" });
+		const grid = summary.createDiv({ cls: "ft-detail-info-grid" });
+
+		const addRow = (label: string, value: string) => {
+			grid.createDiv({ text: label, cls: "ft-detail-info-label" });
+			grid.createDiv({ text: value, cls: "ft-detail-info-value" });
+		};
+
+		addRow("Source", this.sourcePath);
+		if (this.sourceType === "base") {
+			addRow("Source type", `Base view (view ${this.baseViewIndex + 1})`);
+		} else {
+			addRow("Source type", "Folder");
+		}
+		addRow("Files to export", `${this.previewFiles.length} note${this.previewFiles.length !== 1 ? "s" : ""}`);
+		const outputLabel = this.isExternal
+			? `${this.outputPath} (external)`
+			: this.outputPath || "(not set)";
+		addRow("Output file", outputLabel);
+		addRow("Format", this.format === "tab" ? "Tab-delimited" : "CSV");
+		addRow(
+			"Columns",
+			`${this.selectedColumns.length} frontmatter + ${this.selectedFileProperties.length} file properties`,
+		);
+		addRow("Conflict strategy", STRATEGY_LABELS[this.conflictStrategy] ?? this.conflictStrategy);
+		const dnCount = Object.keys(this.displayNames).length;
+		if (dnCount > 0) {
+			addRow("Display names", `${dnCount} override${dnCount !== 1 ? "s" : ""}`);
+		}
+
+		// Count bar
+		const countBar = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
+		countBar.style.flexShrink = "0";
+		countBar.createSpan({
+			text: `${this.previewFiles.length} rows`,
+			cls: "ft-badge ft-badge-muted",
+		});
+		countBar.createSpan({
+			text: `${allHeaders.length} columns`,
+			cls: "ft-badge ft-badge-muted",
+		});
+		if (this.previewFiles.length > 25) {
+			countBar.createSpan({
+				text: "Showing first 25 rows",
+				cls: "ft-text-sm ft-text-muted",
 			});
 		}
 
@@ -843,27 +1002,23 @@ export class ExportView extends ItemView {
 		}
 
 		if (this.exportError) {
-			container.createEl("h3", { text: "Export Failed", cls: "ft-heading ft-heading-sm" });
-			const alert = container.createDiv({ cls: "ft-alert-error ft-p-3 ft-mt-3" });
-			alert.createEl("strong", { text: "Error: " });
-			alert.createSpan({ text: this.exportError });
+			// ── Error state ──
+			const headerRow = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });
+			const hIcon = headerRow.createSpan();
+			setIcon(hIcon, "x-circle");
+			hIcon.style.color = "var(--text-error)";
+			headerRow.createEl("h3", { text: "Export Failed", cls: "ft-heading ft-heading-sm" });
 
-			const nav = container.createDiv({ cls: "ft-detail-actions ft-mt-4" });
-			const backBtn = nav.createEl("span", { cls: "ft-nav-link" });
-			setIcon(backBtn.createSpan(), "arrow-left");
-			backBtn.appendText(" Config");
-			backBtn.addEventListener("click", () => {
-				this.exportError = null;
-				this.currentPage = "configure";
-				this.renderPage();
-			});
-			const closeBtn = nav.createEl("span", { cls: "ft-nav-link" });
-			setIcon(closeBtn.createSpan(), "x");
-			closeBtn.appendText(" Close");
-			closeBtn.addEventListener("click", () => this.leaf.detach());
+			const errorCard = container.createDiv({ cls: "ft-card ft-mt-2" });
+			errorCard.style.borderLeft = "3px solid var(--text-error)";
+			errorCard.createDiv({ text: "Error", cls: "ft-detail-section-header ft-mb-2" });
+			errorCard.createDiv({ text: this.exportError, cls: "ft-text-sm" });
+
+			this.renderWhatsNextCard(container, true);
 			return;
 		}
 
+		// ── In-progress state ──
 		container.createEl("h3", { text: "Exporting...", cls: "ft-heading ft-heading-sm" });
 		const progressContainer = container.createDiv({ cls: "ft-flex-col ft-gap-2 ft-mt-3" });
 		progressContainer.createDiv({
@@ -879,43 +1034,127 @@ export class ExportView extends ItemView {
 	private renderExportResult(container: HTMLElement): void {
 		const r = this.exportResult!;
 
-		if (r.skipped) {
-			container.createEl("h3", { text: "Export Skipped", cls: "ft-heading ft-heading-sm" });
-			const info = container.createDiv({ cls: "ft-card ft-p-3 ft-mt-3" });
-			info.createDiv({ text: `File already exists: ${r.outputPath}` });
-			info.createDiv({
-				text: "The conflict strategy was set to \"skip\", so no changes were made.",
-				cls: "ft-text-muted ft-text-sm ft-mt-1",
-			});
-			new Notice(`Export skipped: ${r.outputPath} already exists`);
+		// ── Status header ──
+		const isSkipped = !!r.skipped;
+		const statusIcon = isSkipped ? "minus-circle" : "check-circle";
+		const statusText = isSkipped
+			? "Export skipped — file already exists"
+			: `Successfully exported ${r.totalRows} row${r.totalRows !== 1 ? "s" : ""}`;
 
-			const nav = container.createDiv({ cls: "ft-detail-actions ft-mt-4" });
-			const closeBtn = nav.createEl("span", { cls: "ft-nav-link" });
-			setIcon(closeBtn.createSpan(), "x");
-			closeBtn.appendText(" Close");
-			closeBtn.addEventListener("click", () => this.leaf.detach());
-			return;
+		const headerRow = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });
+		const hIcon = headerRow.createSpan();
+		setIcon(hIcon, statusIcon);
+		if (isSkipped) {
+			hIcon.style.color = "var(--text-muted)";
+		} else {
+			hIcon.style.color = "var(--text-success, var(--interactive-accent))";
+		}
+		headerRow.createEl("h3", { text: statusText, cls: "ft-heading ft-heading-sm" });
+
+		// ── "What happened" card ──
+		const card = container.createDiv({ cls: "ft-card ft-mt-2" });
+		card.createDiv({ text: "What happened", cls: "ft-detail-section-header ft-mb-2" });
+		const grid = card.createDiv({ cls: "ft-detail-info-grid" });
+
+		const addRow = (label: string, value: string) => {
+			grid.createDiv({ text: label, cls: "ft-detail-info-label" });
+			grid.createDiv({ text: value, cls: "ft-detail-info-value" });
+		};
+
+		if (isSkipped) {
+			addRow("Rows exported", "0 (skipped)");
+			addRow("Output file", r.outputPath);
+			addRow("Reason", "File already exists and conflict strategy was set to \"skip\"");
+		} else {
+			addRow("Rows exported", String(r.totalRows));
+			addRow("Columns", String(r.totalColumns));
+			addRow("Output file", r.outputPath);
 		}
 
-		container.createEl("h3", { text: "Export Complete", cls: "ft-heading ft-heading-sm" });
+		addRow("Format", this.format === "tab" ? "Tab-delimited" : "CSV");
+		addRow("Conflict strategy", STRATEGY_LABELS[this.conflictStrategy] ?? this.conflictStrategy);
 
-		// Stats grid
-		const statsGrid = container.createDiv({ cls: "ft-detail-info-grid ft-mt-3" });
-		const addRow = (label: string, value: string) => {
-			statsGrid.createDiv({ text: label, cls: "ft-detail-info-label" });
-			statsGrid.createDiv({ text: value, cls: "ft-detail-info-value" });
-		};
-		addRow("Rows exported", String(r.totalRows));
-		addRow("Columns", String(r.totalColumns));
-		addRow("Output file", r.outputPath);
+		if (this.loadedConfigId) {
+			const cfg = this.savedConfigs.find((c) => c.id === this.loadedConfigId);
+			if (cfg) addRow("Config used", cfg.name);
+		}
 
 		new Notice(
-			`Export complete: ${r.totalRows} rows written to ${r.outputPath}`,
+			isSkipped
+				? `Export skipped: ${r.outputPath} already exists`
+				: `Export complete: ${r.totalRows} rows written to ${r.outputPath}`,
 		);
 
-		const nav = container.createDiv({ cls: "ft-detail-actions ft-mt-4" });
-		const closeBtn = nav.createEl("span", { cls: "ft-nav-link" });
-		setIcon(closeBtn.createSpan(), "x");
+		// ── "What's next" actions ──
+		this.renderWhatsNextCard(container, false);
+	}
+
+	private renderWhatsNextCard(container: HTMLElement, isError: boolean): void {
+		const actionsCard = container.createDiv({ cls: "ft-card ft-mt-3" });
+		actionsCard.createDiv({ text: "What's next", cls: "ft-detail-section-header ft-mb-2" });
+		const actions = actionsCard.createDiv({ cls: "ft-flex ft-gap-2" });
+		actions.style.flexWrap = "wrap";
+
+		if (isError) {
+			// Retry
+			const retryBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm mod-cta" });
+			setIcon(retryBtn.createSpan({ cls: "flowti-csv-btn-icon" }), "refresh-cw");
+			retryBtn.appendText(" Retry");
+			retryBtn.addEventListener("click", () => {
+				this.exportResult = null;
+				this.exportError = null;
+				this.currentPage = "result";
+				this.renderPage();
+				void this.runExport();
+			});
+		} else {
+			// Open output file (vault only)
+			if (!this.isExternal && this.outputPath) {
+				const openOutputBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm" });
+				setIcon(openOutputBtn.createSpan({ cls: "flowti-csv-btn-icon" }), "file-output");
+				openOutputBtn.appendText(" Open Output");
+				openOutputBtn.addEventListener("click", () => {
+					void this.app.workspace.openLinkText(this.outputPath, "", false);
+				});
+			}
+
+			// Open source
+			const sourceIcon = this.sourceType === "base" ? "table" : "folder-open";
+			const sourceLabel = this.sourceType === "base" ? " Open Source" : " Open Source Folder";
+			const openSourceBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm" });
+			setIcon(openSourceBtn.createSpan({ cls: "flowti-csv-btn-icon" }), sourceIcon);
+			openSourceBtn.appendText(sourceLabel);
+			openSourceBtn.addEventListener("click", () => {
+				void this.app.workspace.openLinkText(this.sourcePath, "", false);
+			});
+
+			// Run again
+			const rerunBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm" });
+			setIcon(rerunBtn.createSpan({ cls: "flowti-csv-btn-icon" }), "refresh-cw");
+			rerunBtn.appendText(" Run Again");
+			rerunBtn.addEventListener("click", () => {
+				this.exportResult = null;
+				this.exportError = null;
+				this.currentPage = "result";
+				this.renderPage();
+				void this.runExport();
+			});
+		}
+
+		// Edit config
+		const editBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm" });
+		setIcon(editBtn.createSpan({ cls: "flowti-csv-btn-icon" }), "settings");
+		editBtn.appendText(" Edit Config");
+		editBtn.addEventListener("click", () => {
+			this.exportResult = null;
+			this.exportError = null;
+			this.currentPage = "configure";
+			this.renderPage();
+		});
+
+		// Close
+		const closeBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm" });
+		setIcon(closeBtn.createSpan({ cls: "flowti-csv-btn-icon" }), "x");
 		closeBtn.appendText(" Close");
 		closeBtn.addEventListener("click", () => this.leaf.detach());
 	}
@@ -1026,6 +1265,7 @@ export class ExportView extends ItemView {
 		if (cfg.isExternal !== undefined) {
 			this.isExternal = cfg.isExternal;
 		}
+		this.loadedConfigId = id;
 		new Notice(`Loaded config: ${cfg.name}`);
 		this.renderPage();
 	}
@@ -1055,5 +1295,25 @@ export class ExportView extends ItemView {
 			this.displayNames =
 				await this.exportService.scanDisplayNames(this.sourcePath);
 		}
+	}
+
+	// ── Unsaved changes tracking ────────────────────────────
+
+	private hasUnsavedChanges(): boolean {
+		if (!this.loadedConfigId) return false;
+		const cfg = this.savedConfigs.find((c) => c.id === this.loadedConfigId);
+		if (!cfg) return false;
+		if (this.outputPath !== cfg.outputPath) return true;
+		if (JSON.stringify(this.selectedColumns) !== JSON.stringify(cfg.columns)) return true;
+		if (JSON.stringify(this.selectedFileProperties) !== JSON.stringify(cfg.fileProperties)) return true;
+		if (this.conflictStrategy !== (cfg.conflictStrategy ?? "overwrite")) return true;
+		if (cfg.baseViewIndex !== undefined && this.baseViewIndex !== cfg.baseViewIndex) return true;
+		if (cfg.isExternal !== undefined && this.isExternal !== cfg.isExternal) return true;
+		return false;
+	}
+
+	private updateUnsavedHint(): void {
+		if (!this.unsavedHintEl) return;
+		this.unsavedHintEl.style.display = this.hasUnsavedChanges() ? "flex" : "none";
 	}
 }

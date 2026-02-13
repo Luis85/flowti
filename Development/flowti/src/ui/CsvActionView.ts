@@ -393,7 +393,15 @@ export class CsvActionView extends TextFileView {
 	}
 
 	private promptSaveConfig(): void {
-		const defaultName = this.file?.basename ?? "My import config";
+		// Prefill with loaded config name, then file basename, then generic
+		let defaultName = "My import config";
+		if (this.loadedConfigId) {
+			const loaded = this.savedConfigs.find((c) => c.id === this.loadedConfigId);
+			if (loaded) defaultName = loaded.name;
+		} else if (this.file?.basename) {
+			defaultName = this.file.basename;
+		}
+
 		new InputModal(this.app, {
 			title: "Save Import Config",
 			inputName: "Config name",

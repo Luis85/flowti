@@ -16,7 +16,7 @@ function createMockStorage(initialData: Record<string, unknown> = {}): IStorageP
 function createMockFileSystem(): IFileSystemClient {
 	return {
 		createFile: vi.fn(async () => {}),
-		readFile: vi.fn(async () => ""),
+		readFile: vi.fn(async () => { throw new Error("File not found"); }),
 		updateFile: vi.fn(async () => {}),
 		deleteFile: vi.fn(async () => {}),
 		moveFile: vi.fn(async (_p: string, np: string) => np),

@@ -1321,61 +1321,23 @@ export class DataExchangeHubView extends ItemView {
 		badges.createSpan({ text: "Export", cls: "ft-operation-badge ft-operation-badge-export" });
 		badges.createSpan({ text: cfg.format.toUpperCase(), cls: "ft-badge ft-badge-muted" });
 		badges.createSpan({ text: cfg.sourceType, cls: "ft-badge ft-badge-muted" });
-
-		// Info grid
-		const card = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
-		const grid = card.createDiv({ cls: "ft-detail-info-grid" });
-
-		this.addInfoRow(grid, "Source", cfg.sourcePath);
-		this.addInfoRow(grid, "Source Type", cfg.sourceType);
-		this.addInfoRow(grid, "Format", cfg.format === "tab" ? "Tab-delimited" : "CSV");
-		this.addInfoRow(grid, "Output", cfg.outputPath || "(not set)");
-		if (cfg.conflictStrategy) {
-			this.addInfoRow(grid, "Conflict Strategy", cfg.conflictStrategy);
-		}
-		if (cfg.baseViewIndex !== undefined) {
-			this.addInfoRow(grid, "Base View Index", String(cfg.baseViewIndex));
-		}
-		this.addInfoRow(grid, "Created", new Date(cfg.createdAt).toLocaleString());
-
-		// Columns section
-		if (cfg.columns.length > 0) {
-			const section = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-2" });
-			section.createDiv({ text: `Note Properties (${cfg.columns.length})`, cls: "ft-detail-section-header" });
-			const chips = section.createDiv({ cls: "ft-flex ft-gap-1" });
-			chips.style.flexWrap = "wrap";
-			for (const col of cfg.columns) {
-				chips.createSpan({ text: col, cls: "ft-badge ft-badge-muted" });
-			}
+		if (cfg.isExternal) {
+			badges.createSpan({ text: "External", cls: "ft-badge ft-badge-muted" });
 		}
 
-		// File properties section
-		if (cfg.fileProperties.length > 0) {
-			const section = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-2" });
-			section.createDiv({ text: `File Properties (${cfg.fileProperties.length})`, cls: "ft-detail-section-header" });
-			const chips = section.createDiv({ cls: "ft-flex ft-gap-1" });
-			chips.style.flexWrap = "wrap";
-			for (const fp of cfg.fileProperties) {
-				chips.createSpan({ text: fp.replace("file.", ""), cls: "ft-badge ft-badge-muted" });
-			}
-		}
+		// ── Actions bar (always on top) ─────────────────────
+		const actions = this.detailPanelEl.createDiv({ cls: "ft-detail-actions ft-mt-2" });
 
-		// Doc link
-		this.renderDocLink(this.detailPanelEl, cfg.name, "export");
-
-		// Actions
-		const actions = this.detailPanelEl.createDiv({ cls: "ft-detail-actions ft-mt-3" });
-
-		// Run Now (one-click execute)
+		// Execute (run export)
 		const runLink = actions.createEl("span", { cls: "ft-nav-link" });
 		const runIcon = runLink.createSpan();
 		setIcon(runIcon, "play");
-		runLink.appendText(" Run Now");
+		runLink.appendText(" Execute");
 		runLink.addEventListener("click", () => {
 			this.executeExportConfig(cfg);
 		});
 
-		// Preview
+		// Preview (open export wizard with config loaded)
 		const previewLink = actions.createEl("span", { cls: "ft-nav-link" });
 		const prevIcon = previewLink.createSpan();
 		setIcon(prevIcon, "eye");
@@ -1384,11 +1346,59 @@ export class DataExchangeHubView extends ItemView {
 			this.openExport(cfg);
 		});
 
-		// Edit
+		// View Source (open the source file/folder)
+		const viewLink = actions.createEl("span", { cls: "ft-nav-link" });
+		const viewIcon = viewLink.createSpan();
+		setIcon(viewIcon, cfg.sourceType === "base" ? "table" : "folder");
+		viewLink.appendText(cfg.sourceType === "base" ? " Open Base" : " Open Folder");
+		viewLink.addEventListener("click", () => {
+			if (cfg.sourceType === "base") {
+				const file = this.app.vault.getAbstractFileByPath(cfg.sourcePath);
+				if (file instanceof TFile) {
+					void this.app.workspace.getLeaf(false).openFile(file);
+				}
+			} else {
+				void this.app.workspace.openLinkText(cfg.sourcePath, "", false);
+			}
+		});
+
+		// View Output (open the output file)
+		if (cfg.outputPath && !cfg.isExternal) {
+			const outLink = actions.createEl("span", { cls: "ft-nav-link" });
+			const outIcon = outLink.createSpan();
+			setIcon(outIcon, "file-spreadsheet");
+			outLink.appendText(" View Output");
+			outLink.addEventListener("click", () => {
+				void this.app.workspace.openLinkText(cfg.outputPath, "", false);
+			});
+		}
+
+		// Read Doc / Create Doc
+		const configDocPath = this.dataExchangeService.getConfigDocPath(cfg.name, "export");
+		const configDocFile = this.app.vault.getAbstractFileByPath(configDocPath);
+		const configDocExists = configDocFile instanceof TFile;
+		const readLink = actions.createEl("span", { cls: "ft-nav-link" });
+		const readIcon = readLink.createSpan();
+		setIcon(readIcon, configDocExists ? "file-text" : "file-plus");
+		readLink.appendText(configDocExists ? " Read Doc" : " Create Doc");
+		readLink.addEventListener("click", () => {
+			if (configDocExists) {
+				void this.app.workspace.openLinkText(configDocPath, "", false);
+			} else {
+				void this.dataExchangeService
+					.ensureConfigDoc(cfg.name, "export")
+					.then((path) => {
+						void this.app.workspace.openLinkText(path, "", false);
+						this.renderExportsDetail();
+					});
+			}
+		});
+
+		// Update (edit config)
 		const editLink = actions.createEl("span", { cls: "ft-nav-link" });
 		const editIcon = editLink.createSpan();
 		setIcon(editIcon, "pencil");
-		editLink.appendText(" Edit");
+		editLink.appendText(" Update");
 		editLink.addEventListener("click", () => {
 			this.editingExportId = cfg.id;
 			this.renderExportsDetail();
@@ -1417,6 +1427,90 @@ export class DataExchangeHubView extends ItemView {
 				},
 			}).open();
 		});
+
+		// ── Description from linked config doc ───────────────
+		if (configDocExists && configDocFile instanceof TFile) {
+			const cache = this.app.metadataCache.getFileCache(configDocFile);
+			const description = cache?.frontmatter?.["description"] as string | undefined;
+			if (description) {
+				const descSection = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+				descSection.createDiv({ text: "Description", cls: "ft-detail-section-header" });
+				descSection.createDiv({ text: description, cls: "ft-text-muted ft-p-2" });
+			}
+		}
+
+		// ── Source & Output info ─────────────────────────────
+		const sourceCard = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+		sourceCard.createDiv({ text: "Source & Output", cls: "ft-detail-section-header" });
+		const sourceGrid = sourceCard.createDiv({ cls: "ft-detail-info-grid" });
+
+		const sourceRow = sourceGrid.createDiv({ cls: "ft-detail-info-label" });
+		sourceRow.textContent = cfg.sourceType === "base" ? "Source Base" : "Source Folder";
+		const sourceVal = sourceGrid.createDiv({ cls: "ft-detail-info-value" });
+		const sourceLink = sourceVal.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		sourceLink.textContent = cfg.sourcePath;
+		sourceLink.addEventListener("click", () => {
+			if (cfg.sourceType === "base") {
+				const file = this.app.vault.getAbstractFileByPath(cfg.sourcePath);
+				if (file instanceof TFile) {
+					void this.app.workspace.getLeaf(false).openFile(file);
+				}
+			} else {
+				void this.app.workspace.openLinkText(cfg.sourcePath, "", false);
+			}
+		});
+
+		const outputRow = sourceGrid.createDiv({ cls: "ft-detail-info-label" });
+		outputRow.textContent = "Output File";
+		const outputVal = sourceGrid.createDiv({ cls: "ft-detail-info-value" });
+		if (cfg.isExternal) {
+			outputVal.createSpan({ text: cfg.outputPath || "(not set)", cls: "ft-text-sm" });
+			outputVal.createSpan({ text: "external", cls: "ft-badge ft-badge-muted" }).style.marginLeft = "0.5rem";
+		} else if (cfg.outputPath) {
+			const outLink = outputVal.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+			outLink.textContent = cfg.outputPath;
+			outLink.addEventListener("click", () => {
+				void this.app.workspace.openLinkText(cfg.outputPath, "", false);
+			});
+		} else {
+			outputVal.textContent = "(not set)";
+		}
+
+		// ── Configuration ───────────────────────────────────
+		const configCard = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+		configCard.createDiv({ text: "Configuration", cls: "ft-detail-section-header" });
+		const configGrid = configCard.createDiv({ cls: "ft-detail-info-grid" });
+
+		this.addInfoRow(configGrid, "Format", cfg.format === "tab" ? "Tab-delimited" : "CSV");
+		if (cfg.conflictStrategy) {
+			this.addInfoRow(configGrid, "Conflict Strategy", cfg.conflictStrategy);
+		}
+		if (cfg.baseViewIndex !== undefined) {
+			this.addInfoRow(configGrid, "Base View Index", String(cfg.baseViewIndex));
+		}
+		this.addInfoRow(configGrid, "Created", new Date(cfg.createdAt).toLocaleString());
+
+		// ── Note Properties (columns) ───────────────────────
+		if (cfg.columns.length > 0) {
+			const section = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-2" });
+			section.createDiv({ text: `Note Properties (${cfg.columns.length})`, cls: "ft-detail-section-header" });
+			const chips = section.createDiv({ cls: "ft-flex ft-gap-1" });
+			chips.style.flexWrap = "wrap";
+			for (const col of cfg.columns) {
+				chips.createSpan({ text: col, cls: "ft-badge ft-badge-muted" });
+			}
+		}
+
+		// ── File Properties ─────────────────────────────────
+		if (cfg.fileProperties.length > 0) {
+			const section = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-2" });
+			section.createDiv({ text: `File Properties (${cfg.fileProperties.length})`, cls: "ft-detail-section-header" });
+			const chips = section.createDiv({ cls: "ft-flex ft-gap-1" });
+			chips.style.flexWrap = "wrap";
+			for (const fp of cfg.fileProperties) {
+				chips.createSpan({ text: fp.replace("file.", ""), cls: "ft-badge ft-badge-muted" });
+			}
+		}
 	}
 
 	private renderExportEditForm(cfg: SavedExportConfig): void {
@@ -1943,48 +2037,6 @@ export class DataExchangeHubView extends ItemView {
 	}
 
 	// ── Doc links ────────────────────────────────────────────
-
-	private renderDocLink(
-		container: HTMLElement,
-		configName: string,
-		configType: "import" | "export",
-	): void {
-		const docPath = this.dataExchangeService.getConfigDocPath(configName, configType);
-		const abstractFile = this.app.vault.getAbstractFileByPath(docPath);
-		const exists = abstractFile instanceof TFile;
-
-		const section = container.createDiv({ cls: "ft-detail-section ft-mt-2" });
-		const link = section.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-		const icon = link.createSpan();
-		setIcon(icon, exists ? "file-text" : "file-plus");
-		link.appendText(exists ? " View Documentation" : " Create Documentation");
-
-		link.addEventListener("click", () => {
-			if (exists) {
-				void this.app.workspace.openLinkText(docPath, "", false);
-			} else {
-				new Notice(`Documentation will be created when the config is saved.`);
-			}
-		});
-
-		// Show frontmatter properties from existing doc
-		if (exists) {
-			const cache = this.app.metadataCache.getFileCache(abstractFile);
-			const fm = cache?.frontmatter;
-			if (fm) {
-				const skipKeys = new Set(["position", "type"]);
-				const entries = Object.entries(fm).filter(([k]) => !skipKeys.has(k));
-				if (entries.length > 0) {
-					const grid = section.createDiv({ cls: "ft-doc-properties" });
-					for (const [key, value] of entries) {
-						grid.createDiv({ text: key, cls: "ft-doc-prop-key" });
-						const displayValue = Array.isArray(value) ? value.join(", ") : String(value ?? "");
-						grid.createDiv({ text: displayValue, cls: "ft-doc-prop-value" });
-					}
-				}
-			}
-		}
-	}
 
 	// ── Shared helpers ───────────────────────────────────────
 

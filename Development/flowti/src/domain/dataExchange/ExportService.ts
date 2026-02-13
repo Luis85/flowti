@@ -341,9 +341,15 @@ export class ExportService {
 			}
 			await this.writeExternalFile(config.outputPath, content);
 		} else {
-			await this.fileSystem.createFile(config.outputPath, content, {
-				createFolders: true,
-			});
+			// Check if file already exists — vault.create() throws on duplicates
+			const existing = await this.readOutputFile(config);
+			if (existing !== null) {
+				await this.fileSystem.updateFile(config.outputPath, content);
+			} else {
+				await this.fileSystem.createFile(config.outputPath, content, {
+					createFolders: true,
+				});
+			}
 		}
 	}
 

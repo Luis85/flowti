@@ -8,7 +8,7 @@ import type { ExportConfig, VaultFileInfo } from "../../../src/domain/dataExchan
 function createMockFileSystem(): IFileSystemClient {
 	return {
 		createFile: vi.fn(async () => {}),
-		readFile: vi.fn(async () => ""),
+		readFile: vi.fn(async () => { throw new Error("File not found"); }),
 		updateFile: vi.fn(async () => {}),
 		deleteFile: vi.fn(async () => {}),
 		moveFile: vi.fn(async (_p: string, np: string) => np),
@@ -647,7 +647,8 @@ views:
 			const result = await service.executeExport(config);
 
 			expect(result.totalRows).toBe(3);
-			const content = (fileSystem.createFile as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+			// File exists, so updateFile is used instead of createFile
+			const content = (fileSystem.updateFile as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
 			// Should contain old data + new data rows (without duplicate header)
 			expect(content).toContain("old-item");
 			expect(content).toContain("widget");
