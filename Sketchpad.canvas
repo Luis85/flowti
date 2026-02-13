@@ -1,19 +1,26 @@
 {
 	"nodes":[
-		{"id":"abc9776e8773b32b","type":"group","x":20,"y":840,"width":340,"height":660,"label":"Frontstage"},
-		{"id":"25c2f8a7fca6c9d7","type":"group","x":1360,"y":840,"width":300,"height":660,"label":"Backstage"},
-		{"id":"173575747476d753","type":"group","x":40,"y":1220,"width":300,"height":260,"color":"5","label":"PBI"},
-		{"id":"eb56d8b9c2c758f2","type":"group","x":540,"y":750,"width":620,"height":120,"color":"2","label":"Sitemap"},
 		{
-			"id":"8b42e85c8914f3a7",
-			"type":"text",
-			"text":"# Folderstructure\n\n- `/00 - Connectivity`\n- `/01 - Projects`\n- `/02 - Areas`\n- `/03 - Resources`\n- `/04 - Archive`\n- `/05 - Public Vault`\n- `/var`",
-			"styleAttributes":{},
-			"x":40,
-			"y":-280,
-			"width":260,
-			"height":400
+			"id":"8949429598fc16f9",
+			"type":"group",
+			"backgroundStyle":"ratio",
+			"styleAttributes":{
+				"border":null
+			},
+			"x":-40,
+			"y":2200,
+			"width":1648,
+			"height":1100,
+			"label":"Event Catalog - Domains and their events",
+			"background":"03 - Resources/Attachments/Pasted image 20260213190830.png"
 		},
+		{"id":"709db2caae500820","type":"group","x":-40,"y":3520,"width":1648,"height":1100,"label":"Event Catalog - Dashboard","background":"03 - Resources/Attachments/Pasted image 20260213192558.png","backgroundStyle":"ratio"},
+		{"id":"88cf99594f0985d7","type":"group","x":-40,"y":5040,"width":1648,"height":1098,"label":"Event Catalog - Flows","background":"03 - Resources/Attachments/Pasted image 20260213192818.png","backgroundStyle":"ratio"},
+		{"id":"abc9776e8773b32b","type":"group","x":-40,"y":880,"width":1060,"height":580,"label":"Frontstage"},
+		{"id":"25c2f8a7fca6c9d7","type":"group","x":1480,"y":880,"width":300,"height":580,"label":"Backstage"},
+		{"id":"5e8bcec9492cfb3e","type":"group","x":-20,"y":950,"width":340,"height":480,"color":"2","label":"Product"},
+		{"id":"173575747476d753","type":"group","x":0,"y":1150,"width":300,"height":260,"color":"5","label":"PBI"},
+		{"id":"eb56d8b9c2c758f2","type":"group","x":360,"y":950,"width":620,"height":120,"color":"2","label":"Sitemap"},
 		{"id":"5d6cdc543db0af78","type":"file","file":"Development/flowti/docs/Flowti - System Design.canvas","x":320,"y":-280,"width":260,"height":400},
 		{"id":"0b8e15eb023842e5","type":"file","file":"Development/Plugin Design.canvas","x":600,"y":-280,"width":260,"height":400},
 		{
@@ -28,23 +35,12 @@
 			"color":"3"
 		},
 		{
-			"id":"719b2dfadce52cb7",
-			"type":"text",
-			"text":"Domains",
-			"styleAttributes":{"textAlign":"center"},
-			"x":720,
-			"y":340,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
 			"id":"9f82d6e1e60009bb",
 			"type":"text",
 			"text":"Jobs to be done",
 			"styleAttributes":{"textAlign":"center"},
-			"x":720,
-			"y":420,
+			"x":540,
+			"y":570,
 			"width":260,
 			"height":60,
 			"color":"2"
@@ -54,19 +50,29 @@
 			"type":"text",
 			"text":"Actors",
 			"styleAttributes":{"textAlign":"center"},
-			"x":720,
-			"y":500,
+			"x":540,
+			"y":700,
 			"width":260,
 			"height":60,
 			"color":"2"
+		},
+		{
+			"id":"8b42e85c8914f3a7",
+			"type":"text",
+			"text":"# Folderstructure\n\n- `/00 - Connectivity`\n- `/01 - Projects`\n- `/02 - Areas`\n- `/03 - Resources`\n- `/04 - Archive`\n- `/05 - Public Vault`\n- `/var`",
+			"styleAttributes":{},
+			"x":40,
+			"y":-280,
+			"width":260,
+			"height":400
 		},
 		{
 			"id":"3a4582b7f06dbcf2",
 			"type":"text",
 			"text":"Views",
 			"styleAttributes":{"textAlign":"center"},
-			"x":580,
-			"y":780,
+			"x":400,
+			"y":980,
 			"width":260,
 			"height":60,
 			"color":"6"
@@ -76,126 +82,19 @@
 			"type":"text",
 			"text":"Interfaces",
 			"styleAttributes":{"textAlign":"center"},
-			"x":860,
-			"y":780,
+			"x":680,
+			"y":980,
 			"width":260,
 			"height":60,
 			"color":"6"
-		},
-		{
-			"id":"34f728f65d90456d",
-			"type":"text",
-			"text":"Events",
-			"styleAttributes":{"textAlign":"center"},
-			"x":720,
-			"y":1140,
-			"width":260,
-			"height":60,
-			"color":"2"
 		},
 		{
 			"id":"0717bb983c2c6010",
 			"type":"text",
 			"text":"Flows",
 			"styleAttributes":{"textAlign":"center"},
-			"x":720,
-			"y":1040,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"cd7a2daabf8bba73",
-			"type":"text",
-			"text":"Feature",
-			"styleAttributes":{"textAlign":"center"},
-			"x":60,
-			"y":1040,
-			"width":260,
-			"height":60,
-			"color":"6"
-		},
-		{
-			"id":"3b8e15b7fd161918",
-			"type":"text",
-			"text":"User Story",
-			"styleAttributes":{"textAlign":"center"},
-			"x":60,
+			"x":540,
 			"y":1240,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"f9fe5f4ef60e6a53",
-			"type":"text",
-			"text":"Use Case",
-			"styleAttributes":{"textAlign":"center"},
-			"x":60,
-			"y":1320,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"74227396a6c77e95",
-			"type":"text",
-			"text":"Gherkin Test",
-			"styleAttributes":{"textAlign":"center"},
-			"x":60,
-			"y":1400,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"b955102b33899dc1",
-			"type":"text",
-			"text":"Product",
-			"styleAttributes":{"textAlign":"center"},
-			"x":60,
-			"y":860,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"beaa7f40ec9e0291",
-			"type":"text",
-			"text":"Components",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1380,
-			"y":1020,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"a0da346fe621e29e",
-			"type":"text",
-			"text":"Props",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1380,
-			"y":1180,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"6c18b02696f15954",
-			"type":"text",
-			"text":"Systems",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1380,
-			"y":860,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"18d7ac675f7ee8ce",
-			"type":"text",
-			"text":"Services",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1380,
-			"y":940,
 			"width":260,
 			"height":60,
 			"color":"2"
@@ -205,8 +104,8 @@
 			"type":"text",
 			"text":"Offer",
 			"styleAttributes":{"textAlign":"center"},
-			"x":720,
-			"y":1700,
+			"x":540,
+			"y":1680,
 			"width":260,
 			"height":60,
 			"color":"2"
@@ -216,8 +115,115 @@
 			"type":"text",
 			"text":"Customer Experience",
 			"styleAttributes":{"textAlign":"center"},
-			"x":720,
-			"y":1840,
+			"x":540,
+			"y":1820,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"3b8e15b7fd161918",
+			"type":"text",
+			"text":"User Story",
+			"styleAttributes":{"textAlign":"center"},
+			"x":20,
+			"y":1170,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"f9fe5f4ef60e6a53",
+			"type":"text",
+			"text":"Use Case",
+			"styleAttributes":{"textAlign":"center"},
+			"x":20,
+			"y":1250,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"74227396a6c77e95",
+			"type":"text",
+			"text":"Gherkin Test",
+			"styleAttributes":{"textAlign":"center"},
+			"x":20,
+			"y":1330,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"719b2dfadce52cb7",
+			"type":"text",
+			"text":"Domains",
+			"styleAttributes":{"textAlign":"center"},
+			"x":540,
+			"y":440,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"cd7a2daabf8bba73",
+			"type":"text",
+			"text":"Feature",
+			"styleAttributes":{"textAlign":"center"},
+			"x":20,
+			"y":980,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"34f728f65d90456d",
+			"type":"text",
+			"text":"Events",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1080,
+			"y":1240,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"6c18b02696f15954",
+			"type":"text",
+			"text":"Systems",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1500,
+			"y":900,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"18d7ac675f7ee8ce",
+			"type":"text",
+			"text":"Services",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1500,
+			"y":980,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"beaa7f40ec9e0291",
+			"type":"text",
+			"text":"Components",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1500,
+			"y":1060,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"a0da346fe621e29e",
+			"type":"text",
+			"text":"Props",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1500,
+			"y":1220,
 			"width":260,
 			"height":60,
 			"color":"2"
@@ -227,8 +233,8 @@
 			"type":"text",
 			"text":"Storage",
 			"styleAttributes":{"textAlign":"center"},
-			"x":1380,
-			"y":1100,
+			"x":1500,
+			"y":1140,
 			"width":260,
 			"height":60,
 			"color":"2"
@@ -238,8 +244,8 @@
 			"type":"text",
 			"text":"Event Catalog",
 			"styleAttributes":{"textAlign":"center"},
-			"x":1380,
-			"y":1260,
+			"x":1500,
+			"y":1300,
 			"width":260,
 			"height":60,
 			"color":"2"
@@ -249,23 +255,155 @@
 			"type":"text",
 			"text":"Documentation",
 			"styleAttributes":{"textAlign":"center"},
-			"x":1380,
-			"y":1340,
+			"x":1500,
+			"y":1380,
 			"width":260,
 			"height":60,
 			"color":"2"
+		},
+		{
+			"id":"8844baa6c4d7d42b",
+			"type":"text",
+			"text":"# User Groups\n\n- new to Obsidian\n- new to Markdown\n- new to Git\n- new to Obsidian Plugin Development\n- new to Project Management\n- new to Software Design\n- new to Product Development\n",
+			"styleAttributes":{},
+			"x":1210,
+			"y":-280,
+			"width":260,
+			"height":400
+		},
+		{
+			"id":"6fc6f55d39d2a14d",
+			"type":"text",
+			"text":"add connected flows",
+			"styleAttributes":{"textAlign":"center"},
+			"x":360,
+			"y":2820,
+			"width":260,
+			"height":60,
+			"color":"3"
+		},
+		{
+			"id":"a3403caee5870e18",
+			"type":"text",
+			"text":"add props",
+			"styleAttributes":{"textAlign":"center"},
+			"x":640,
+			"y":2820,
+			"width":260,
+			"height":60,
+			"color":"3"
+		},
+		{
+			"id":"e220c03bb0c9e1f8",
+			"type":"text",
+			"text":"add actors",
+			"styleAttributes":{"textAlign":"center"},
+			"x":360,
+			"y":2900,
+			"width":260,
+			"height":60,
+			"color":"3"
+		},
+		{
+			"id":"234c521da08cb46a",
+			"type":"text",
+			"text":"add end events",
+			"styleAttributes":{"textAlign":"center"},
+			"x":640,
+			"y":2900,
+			"width":260,
+			"height":60,
+			"color":"3"
+		},
+		{
+			"id":"37b60e3fcc6abba6",
+			"type":"text",
+			"text":"add start events",
+			"styleAttributes":{"textAlign":"center"},
+			"x":360,
+			"y":2740,
+			"width":260,
+			"height":60,
+			"color":"3"
+		},
+		{
+			"id":"c92dc9495faa6a66",
+			"type":"text",
+			"text":"add services",
+			"styleAttributes":{"textAlign":"center"},
+			"x":640,
+			"y":2740,
+			"width":260,
+			"height":60,
+			"color":"3"
+		},
+		{
+			"id":"c0cf2ae5fb7170e1",
+			"type":"text",
+			"text":"I want to know what deliverables I can expect from this domain and what needs to be done to produce this deliverable",
+			"styleAttributes":{},
+			"x":1200,
+			"y":2380,
+			"width":360,
+			"height":120,
+			"color":"5"
+		},
+		{
+			"id":"7b3867441155ac77",
+			"type":"text",
+			"text":"what triggers this domain?\nwhat are the outputs of this domain?",
+			"styleAttributes":{},
+			"x":1200,
+			"y":2520,
+			"width":360,
+			"height":110,
+			"color":"5"
+		},
+		{
+			"id":"7fdc8a36c5cc2c85",
+			"type":"text",
+			"text":"## Our Deliverables\n\n- ...\n\n## How to work with us\n\n- ...\n",
+			"styleAttributes":{},
+			"x":980,
+			"y":2740,
+			"width":580,
+			"height":440
+		},
+		{
+			"id":"7eb885012fee3e62",
+			"type":"text",
+			"text":"I want to quickly access my marked domains",
+			"styleAttributes":{"textAlign":"center"},
+			"x":580,
+			"y":3840,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"2ee7c7a2337bb2aa",
+			"type":"text",
+			"text":"I want to access the flow on a canvas",
+			"styleAttributes":{},
+			"x":360,
+			"y":5540,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"700c2bc948091af7",
+			"type":"text",
+			"text":"I want to know which actors are involved",
+			"styleAttributes":{},
+			"x":360,
+			"y":5640,
+			"width":260,
+			"height":60,
+			"color":"5"
 		}
 	],
 	"edges":[
-		{
-			"id":"3eb9c097e99a9c8f",
-			"styleAttributes":{},
-			"toFloating":false,
-			"fromNode":"b955102b33899dc1",
-			"fromSide":"bottom",
-			"toNode":"cd7a2daabf8bba73",
-			"toSide":"top"
-		},
 		{
 			"id":"5a9a631ffb8ca97f",
 			"styleAttributes":{},
@@ -312,16 +450,6 @@
 			"toSide":"top"
 		},
 		{
-			"id":"14b299c584a9cd7f",
-			"styleAttributes":{},
-			"toFloating":false,
-			"fromFloating":false,
-			"fromNode":"34f728f65d90456d",
-			"fromSide":"left",
-			"toNode":"abc9776e8773b32b",
-			"toSide":"right"
-		},
-		{
 			"id":"b89d5968df639bcb",
 			"styleAttributes":{},
 			"toFloating":false,
@@ -353,10 +481,11 @@
 			"id":"1d97bcd3e474bce9",
 			"styleAttributes":{},
 			"toFloating":false,
+			"fromFloating":false,
 			"fromNode":"0717bb983c2c6010",
-			"fromSide":"bottom",
+			"fromSide":"right",
 			"toNode":"34f728f65d90456d",
-			"toSide":"top"
+			"toSide":"left"
 		},
 		{
 			"id":"c2f14dc203fd94ab",
@@ -384,6 +513,24 @@
 			"fromSide":"bottom",
 			"toNode":"7690eedbe60304e6",
 			"toSide":"top"
+		},
+		{
+			"id":"17076318d2ff5863",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"cd7a2daabf8bba73",
+			"fromSide":"right",
+			"toNode":"eb56d8b9c2c758f2",
+			"toSide":"left"
+		},
+		{
+			"id":"3f9fd48f19b05e0f",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"25c2f8a7fca6c9d7",
+			"fromSide":"left",
+			"toNode":"abc9776e8773b32b",
+			"toSide":"right"
 		}
 	],
 	"metadata":{
