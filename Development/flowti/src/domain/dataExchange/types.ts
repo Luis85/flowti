@@ -306,10 +306,6 @@ export interface MultiImportSource {
 	columnMappings: ColumnMapping[];
 	/** Custom key-value pairs injected into every note from this source */
 	customProperties?: Record<string, string>;
-	/** Optional prefix prepended to filename */
-	namePrefix?: string;
-	/** Optional suffix appended to filename (before .md) */
-	nameSuffix?: string;
 }
 
 /** A saved multi-import pipeline configuration. */
@@ -336,6 +332,10 @@ export interface SavedMultiImportPipeline {
 	lastExecutedAt?: number;
 	/** Type value injected into every note's frontmatter (e.g. "Event") */
 	noteType?: string;
+	/** Optional prefix prepended to filename */
+	namePrefix?: string;
+	/** Optional suffix appended to filename (before .md) */
+	nameSuffix?: string;
 }
 
 /** Result summary for a single source within a pipeline run. */

@@ -41,8 +41,6 @@ export class PipelineSourceModal extends Modal {
 	private mergeKeyColumn = "";
 	private columnMappings: ColumnMapping[] = [];
 	private customProperties: Record<string, string> = {};
-	private namePrefix = "";
-	private nameSuffix = "";
 	private isLoading = false;
 
 	constructor(options: PipelineSourceModalOptions) {
@@ -73,8 +71,6 @@ export class PipelineSourceModal extends Modal {
 			this.mergeKeyColumn = src.mergeKeyColumn;
 			this.columnMappings = src.columnMappings.map((m) => ({ ...m }));
 			this.customProperties = src.customProperties ? { ...src.customProperties } : {};
-			this.namePrefix = src.namePrefix ?? "";
-			this.nameSuffix = src.nameSuffix ?? "";
 		}
 	}
 
@@ -161,32 +157,6 @@ export class PipelineSourceModal extends Modal {
 
 			const grid = contentEl.createDiv({ cls: "ft-column-mapping-grid" });
 			this.renderColumnGrid(grid);
-
-			// Name prefix/suffix
-			contentEl.createEl("h4", {
-				text: "Filename Options",
-				cls: "ft-heading ft-heading-sm ft-mt-3 ft-mb-1",
-			});
-
-			new Setting(contentEl)
-				.setName("Filename prefix")
-				.setDesc("Prepended to the note filename (optional)")
-				.addText((text) =>
-					text
-						.setValue(this.namePrefix)
-						.setPlaceholder("")
-						.onChange((v) => { this.namePrefix = v; }),
-				);
-
-			new Setting(contentEl)
-				.setName("Filename suffix")
-				.setDesc("Appended to the note filename before .md (optional)")
-				.addText((text) =>
-					text
-						.setValue(this.nameSuffix)
-						.setPlaceholder("")
-						.onChange((v) => { this.nameSuffix = v; }),
-				);
 
 			// Custom properties
 			contentEl.createEl("h4", {
@@ -440,8 +410,6 @@ export class PipelineSourceModal extends Modal {
 			customProperties: Object.keys(this.customProperties).length > 0
 				? { ...this.customProperties }
 				: undefined,
-			namePrefix: this.namePrefix || undefined,
-			nameSuffix: this.nameSuffix || undefined,
 		};
 
 		this.onSave(source);

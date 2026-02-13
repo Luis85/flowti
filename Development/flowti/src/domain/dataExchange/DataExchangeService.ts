@@ -1131,8 +1131,8 @@ export class DataExchangeService {
 				sourcePath: source.csvPath,
 				targetFolder: pipeline.targetFolder,
 				nameColumn: source.mergeKeyColumn,
-				namePrefix: source.namePrefix,
-				nameSuffix: source.nameSuffix,
+				namePrefix: pipeline.namePrefix,
+				nameSuffix: pipeline.nameSuffix,
 				columnMappings: [mergeKeyMapping, ...otherMappings],
 				conflictStrategy: "update",
 				customProperties: Object.keys(customProps).length > 0 ? customProps : undefined,
@@ -1269,6 +1269,8 @@ export class DataExchangeService {
 			`targetFolder: "${pipeline.targetFolder}"`,
 			`mergeKey: "${pipeline.mergeKey}"`,
 			pipeline.noteType ? `noteType: "${pipeline.noteType}"` : "",
+			pipeline.namePrefix ? `namePrefix: "${pipeline.namePrefix}"` : "",
+			pipeline.nameSuffix ? `nameSuffix: "${pipeline.nameSuffix}"` : "",
 			`sources: ${pipeline.sources.length}`,
 			`created: "${now}"`,
 			lastRun ? `lastExecuted: "${lastRun}"` : "",
@@ -1286,6 +1288,8 @@ export class DataExchangeService {
 			`| **Merge Key**     | \`${pipeline.mergeKey}\` |`,
 			`| **Sources**       | ${pipeline.sources.length} |`,
 			pipeline.noteType ? `| **Note Type**     | [[Type - ${this.sanitizeDocName(pipeline.noteType)}\\|${pipeline.noteType}]] |` : "",
+			pipeline.namePrefix ? `| **Name Prefix**   | \`${pipeline.namePrefix}\` |` : "",
+			pipeline.nameSuffix ? `| **Name Suffix**   | \`${pipeline.nameSuffix}\` |` : "",
 			lastRun ? `| **Last Run**      | ${lastRun} |` : "",
 			"",
 		];
@@ -1301,8 +1305,6 @@ export class DataExchangeService {
 				filtered.push(`### [[${source.csvPath}|${csvName}]]`, "");
 				filtered.push(`- **Merge Key Column**: \`${source.mergeKeyColumn}\` → \`${pipeline.mergeKey}\``);
 				filtered.push(`- **Mapped Columns**: ${included.length} of ${source.columnMappings.length}`);
-				if (source.namePrefix) filtered.push(`- **Filename Prefix**: \`${source.namePrefix}\``);
-				if (source.nameSuffix) filtered.push(`- **Filename Suffix**: \`${source.nameSuffix}\``);
 				if (source.customProperties && Object.keys(source.customProperties).length > 0) {
 					filtered.push(`- **Custom Properties**: ${Object.entries(source.customProperties).map(([k, v]) => `\`${k}\`=\`${v}\``).join(", ")}`);
 				}

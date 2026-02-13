@@ -504,7 +504,7 @@ export class DataExchangeHubView extends ItemView {
 		entries: typeof this.csvFileEntries,
 	): void {
 		const section = container.createDiv();
-		section.style.marginBottom = "1.5rem";
+		section.style.marginBottom = "2rem";
 		this.renderDashboardSectionHeader(section, "file-input", "Configured Imports", entries.length);
 
 		if (entries.length === 0) {
@@ -748,7 +748,7 @@ export class DataExchangeHubView extends ItemView {
 
 	private renderConfiguredExports(container: HTMLElement): void {
 		const section = container.createDiv();
-		section.style.marginBottom = "1.5rem";
+		section.style.marginBottom = "2rem";
 		this.renderDashboardSectionHeader(section, "file-output", "Configured Exports", this.exportConfigs.length);
 
 		if (this.exportConfigs.length === 0) {
@@ -916,7 +916,7 @@ export class DataExchangeHubView extends ItemView {
 		if (propCount === 0 && reportCount === 0 && typeCount === 0) return;
 
 		const section = container.createDiv();
-		section.style.marginBottom = "1.5rem";
+		section.style.marginBottom = "2rem";
 		this.renderDashboardSectionHeader(section, "book-open", "Data Dictionary", propCount + reportCount + typeCount);
 
 		const row = section.createDiv({ cls: "ft-flex ft-gap-3" });
@@ -1325,7 +1325,7 @@ export class DataExchangeHubView extends ItemView {
 				const cache = this.app.metadataCache.getFileCache(csvDocFile);
 				const description = cache?.frontmatter?.["description"] as string | undefined;
 				if (description) {
-					const descSection = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+					const descSection = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-3" });
 					descSection.createDiv({ text: "Description", cls: "ft-detail-section-header" });
 					descSection.createDiv({ text: description, cls: "ft-text-muted ft-p-2" });
 				}
@@ -1333,7 +1333,7 @@ export class DataExchangeHubView extends ItemView {
 		}
 
 		// ── Source & target info ─────────────────────────────
-		const sourceCard = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+		const sourceCard = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-3" });
 		sourceCard.createDiv({ text: "Source & Target", cls: "ft-detail-section-header" });
 		const sourceGrid = sourceCard.createDiv({ cls: "ft-detail-info-grid" });
 
@@ -1357,7 +1357,7 @@ export class DataExchangeHubView extends ItemView {
 		}
 
 		// ── Configuration ───────────────────────────────────
-		const configCard = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+		const configCard = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-3" });
 		configCard.createDiv({ text: "Configuration", cls: "ft-detail-section-header" });
 		const configGrid = configCard.createDiv({ cls: "ft-detail-info-grid" });
 
@@ -1392,7 +1392,7 @@ export class DataExchangeHubView extends ItemView {
 
 		// ── Column mappings ─────────────────────────────────
 		if (cfg.columnMappings.length > 0) {
-			const section = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-2" });
+			const section = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
 			section.createDiv({ text: "Column Mappings", cls: "ft-detail-section-header" });
 			const table = section.createEl("table", { cls: "ft-preview-table" });
 			const thead = table.createEl("tr");
@@ -1412,7 +1412,7 @@ export class DataExchangeHubView extends ItemView {
 
 		// ── Custom properties ───────────────────────────────
 		if (cfg.customProperties && Object.keys(cfg.customProperties).length > 0) {
-			const section = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-2" });
+			const section = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
 			section.createDiv({ text: "Custom Properties", cls: "ft-detail-section-header" });
 			const propGrid = section.createDiv({ cls: "ft-detail-info-grid" });
 			for (const [key, val] of Object.entries(cfg.customProperties)) {
@@ -1738,14 +1738,14 @@ export class DataExchangeHubView extends ItemView {
 			const cache = this.app.metadataCache.getFileCache(configDocFile);
 			const description = cache?.frontmatter?.["description"] as string | undefined;
 			if (description) {
-				const descSection = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+				const descSection = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-3" });
 				descSection.createDiv({ text: "Description", cls: "ft-detail-section-header" });
 				descSection.createDiv({ text: description, cls: "ft-text-muted ft-p-2" });
 			}
 		}
 
 		// ── Source & Output info ─────────────────────────────
-		const sourceCard = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+		const sourceCard = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-3" });
 		sourceCard.createDiv({ text: "Source & Output", cls: "ft-detail-section-header" });
 		const sourceGrid = sourceCard.createDiv({ cls: "ft-detail-info-grid" });
 
@@ -1782,7 +1782,7 @@ export class DataExchangeHubView extends ItemView {
 		}
 
 		// ── Configuration ───────────────────────────────────
-		const configCard = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+		const configCard = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-3" });
 		configCard.createDiv({ text: "Configuration", cls: "ft-detail-section-header" });
 		const configGrid = configCard.createDiv({ cls: "ft-detail-info-grid" });
 
@@ -1800,7 +1800,7 @@ export class DataExchangeHubView extends ItemView {
 
 		// ── Note Properties (columns) ───────────────────────
 		if (cfg.columns.length > 0) {
-			const section = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-2" });
+			const section = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
 			section.createDiv({ text: `Note Properties (${cfg.columns.length})`, cls: "ft-detail-section-header" });
 			const chips = section.createDiv({ cls: "ft-flex ft-gap-1" });
 			chips.style.flexWrap = "wrap";
@@ -1811,7 +1811,7 @@ export class DataExchangeHubView extends ItemView {
 
 		// ── File Properties ─────────────────────────────────
 		if (cfg.fileProperties.length > 0) {
-			const section = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-2" });
+			const section = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
 			section.createDiv({ text: `File Properties (${cfg.fileProperties.length})`, cls: "ft-detail-section-header" });
 			const chips = section.createDiv({ cls: "ft-flex ft-gap-1" });
 			chips.style.flexWrap = "wrap";
@@ -2099,7 +2099,7 @@ export class DataExchangeHubView extends ItemView {
 
 		// CSV column names
 		if (entry.csvColumnNames.length > 0) {
-			const card = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+			const card = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-3" });
 			card.createDiv({ text: "CSV Columns", cls: "ft-detail-section-header" });
 			const chips = card.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
 			chips.style.flexWrap = "wrap";
@@ -2110,7 +2110,7 @@ export class DataExchangeHubView extends ItemView {
 
 		// Configs using this property
 		if (entry.usedInConfigs.length > 0) {
-			const section = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-2" });
+			const section = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
 			section.createDiv({ text: "Used In Configs", cls: "ft-detail-section-header" });
 
 			for (const ref of entry.usedInConfigs) {
@@ -2140,7 +2140,7 @@ export class DataExchangeHubView extends ItemView {
 
 		// Sample values
 		if (entry.sampleValues.length > 0) {
-			const section = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-2" });
+			const section = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
 			section.createDiv({ text: "Sample Values", cls: "ft-detail-section-header" });
 			const chips = section.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
 			chips.style.flexWrap = "wrap";
@@ -2180,7 +2180,7 @@ export class DataExchangeHubView extends ItemView {
 
 	private renderDashboardPipelines(container: HTMLElement): void {
 		const section = container.createDiv();
-		section.style.marginBottom = "1.5rem";
+		section.style.marginBottom = "2rem";
 		this.renderDashboardSectionHeader(section, "layers", "Import Pipelines", this.pipelineConfigs.length);
 		section.createDiv({
 			text: "Merge multiple CSV reports into enriched notes by matching on a shared key column.",
@@ -2539,20 +2539,26 @@ export class DataExchangeHubView extends ItemView {
 			const cache = this.app.metadataCache.getFileCache(docFile);
 			const description = cache?.frontmatter?.["description"] as string | undefined;
 			if (description) {
-				const descSection = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+				const descSection = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-3" });
 				descSection.createDiv({ text: "Description", cls: "ft-detail-section-header" });
 				descSection.createDiv({ text: description, cls: "ft-text-muted ft-p-2" });
 			}
 		}
 
 		// Config info card
-		const configCard = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+		const configCard = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-3" });
 		const configGrid = configCard.createDiv({ cls: "ft-detail-info-grid" });
 		this.addInfoRow(configGrid, "Target Folder", pipe.targetFolder || "(not set)");
 		this.addInfoRow(configGrid, "Merge Key", pipe.mergeKey);
 		this.addInfoRow(configGrid, "Sources", String(pipe.sources.length));
 		if (pipe.noteType) {
 			this.addInfoRow(configGrid, "Note Type", pipe.noteType);
+		}
+		if (pipe.namePrefix) {
+			this.addInfoRow(configGrid, "Name Prefix", pipe.namePrefix);
+		}
+		if (pipe.nameSuffix) {
+			this.addInfoRow(configGrid, "Name Suffix", pipe.nameSuffix);
 		}
 		if (pipe.createBase) {
 			this.addInfoRow(configGrid, "Base View", pipe.basePath || "(auto-generated)");
@@ -2563,7 +2569,7 @@ export class DataExchangeHubView extends ItemView {
 		}
 
 		// Sources list
-		const sourcesSection = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-2" });
+		const sourcesSection = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
 		sourcesSection.createDiv({ text: "Sources", cls: "ft-detail-section-header" });
 
 		if (pipe.sources.length === 0) {
@@ -2600,7 +2606,7 @@ export class DataExchangeHubView extends ItemView {
 			}
 
 			if (conflicts.length > 0) {
-				const warnSection = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+				const warnSection = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-3" });
 				warnSection.style.borderLeft = "3px solid var(--text-warning, #e5a100)";
 				const warnHeader = warnSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
 				const warnIcon = warnHeader.createSpan();
@@ -2623,7 +2629,7 @@ export class DataExchangeHubView extends ItemView {
 
 		// Custom properties summary (all unique keys across sources)
 		if (pipe.sources.some((s) => s.customProperties && Object.keys(s.customProperties).length > 0)) {
-			const propsSection = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-2" });
+			const propsSection = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
 			propsSection.createDiv({ text: "Custom Properties", cls: "ft-detail-section-header" });
 			const allProps = new Map<string, string>();
 			for (const src of pipe.sources) {
@@ -2704,14 +2710,7 @@ export class DataExchangeHubView extends ItemView {
 
 		// Info row
 		const infoRow = card.createDiv({ cls: "ft-text-muted ft-text-sm ft-mt-1" });
-		const parts: string[] = [];
-		if (source.namePrefix) parts.push(`prefix: "${source.namePrefix}"`);
-		if (source.nameSuffix) parts.push(`suffix: "${source.nameSuffix}"`);
-		if (parts.length > 0) {
-			infoRow.textContent = parts.join(" · ");
-		} else {
-			infoRow.textContent = source.csvPath;
-		}
+		infoRow.textContent = source.csvPath;
 
 		// Custom properties (show key-value pairs)
 		if (source.customProperties && Object.keys(source.customProperties).length > 0) {
@@ -2781,6 +2780,8 @@ export class DataExchangeHubView extends ItemView {
 			targetFolder: pipe.targetFolder,
 			mergeKey: pipe.mergeKey,
 			noteType: pipe.noteType ?? "",
+			namePrefix: pipe.namePrefix ?? "",
+			nameSuffix: pipe.nameSuffix ?? "",
 			createBase: pipe.createBase ?? false,
 			basePath: pipe.basePath ?? "",
 		};
@@ -2815,6 +2816,24 @@ export class DataExchangeHubView extends ItemView {
 				.setValue(pipe.noteType ?? "")
 				.setPlaceholder("e.g. Event, Asset, Service")
 				.onChange((v) => { edits.noteType = v || undefined; }),
+			);
+
+		new Setting(panel)
+			.setName("Filename prefix")
+			.setDesc("Prepended to every note filename (optional)")
+			.addText((t) => t
+				.setValue(pipe.namePrefix ?? "")
+				.setPlaceholder("")
+				.onChange((v) => { edits.namePrefix = v || undefined; }),
+			);
+
+		new Setting(panel)
+			.setName("Filename suffix")
+			.setDesc("Appended to every note filename before .md (optional)")
+			.addText((t) => t
+				.setValue(pipe.nameSuffix ?? "")
+				.setPlaceholder("")
+				.onChange((v) => { edits.nameSuffix = v || undefined; }),
 			);
 
 		new Setting(panel)
@@ -2878,7 +2897,7 @@ export class DataExchangeHubView extends ItemView {
 		const existing = this.detailPanelEl.querySelector(".ft-pipeline-progress") as HTMLElement | null;
 		if (existing) existing.remove();
 
-		const section = createDiv({ cls: "ft-pipeline-progress ft-card ft-mt-2" });
+		const section = createDiv({ cls: "ft-pipeline-progress ft-card ft-mt-3" });
 		const actionsBar = this.detailPanelEl.querySelector(".ft-detail-actions");
 		if (actionsBar?.nextSibling) {
 			this.detailPanelEl.insertBefore(section, actionsBar.nextSibling);
@@ -2960,9 +2979,8 @@ export class DataExchangeHubView extends ItemView {
 			for (const key of allKeys) {
 				const sanitized = importService.sanitizeFilename(key);
 				if (!sanitized) continue;
-				const firstSource = pipe.sources[0];
-				const prefix = firstSource?.namePrefix ?? "";
-				const suffix = firstSource?.nameSuffix ?? "";
+				const prefix = pipe.namePrefix ?? "";
+				const suffix = pipe.nameSuffix ?? "";
 				const filename = `${prefix}${sanitized}${suffix}`;
 				const notePath = `${pipe.targetFolder}/${filename}.md`;
 				const exists = this.app.vault.getAbstractFileByPath(notePath) instanceof TFile;
@@ -3103,7 +3121,7 @@ export class DataExchangeHubView extends ItemView {
 		// Show inline progress in the detail panel
 		const existing = this.detailPanelEl.querySelector(".ft-pipeline-progress") as HTMLElement | null;
 		if (existing) existing.remove();
-		const section = createDiv({ cls: "ft-pipeline-progress ft-card ft-mt-2" });
+		const section = createDiv({ cls: "ft-pipeline-progress ft-card ft-mt-3" });
 		const actionsBar = this.detailPanelEl.querySelector(".ft-detail-actions");
 		if (actionsBar?.nextSibling) {
 			this.detailPanelEl.insertBefore(section, actionsBar.nextSibling);
@@ -3328,7 +3346,7 @@ export class DataExchangeHubView extends ItemView {
 
 		// ── Description ─────────────────────────────────────
 		if (entry.description) {
-			const descCard = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+			const descCard = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-3" });
 			descCard.createDiv({ text: entry.description, cls: "ft-text-muted ft-p-2" });
 		}
 
@@ -3338,7 +3356,7 @@ export class DataExchangeHubView extends ItemView {
 			...this.importConfigs.filter((c) => c.noteType === typeName),
 		];
 		if (producers.length > 0) {
-			const section = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+			const section = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-3" });
 			section.createDiv({ text: "Created by", cls: "ft-detail-section-header" });
 
 			for (const cfg of producers) {
@@ -3370,7 +3388,7 @@ export class DataExchangeHubView extends ItemView {
 		// ── Consumed by (exports that read this type) ───────
 		const consumers = this.exportConfigs.filter((c) => c.noteType === typeName);
 		if (consumers.length > 0) {
-			const section = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+			const section = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-3" });
 			section.createDiv({ text: "Consumed by", cls: "ft-detail-section-header" });
 
 			for (const cfg of consumers) {
@@ -3401,7 +3419,7 @@ export class DataExchangeHubView extends ItemView {
 			{ event: `${lowerType}.deleted`, label: "Deleted", icon: "trash", desc: `A ${typeName} was removed` },
 		];
 
-		const eventsSection = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+		const eventsSection = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-3" });
 		eventsSection.createDiv({ text: "Lifecycle Events", cls: "ft-detail-section-header" });
 
 		for (const ev of crudEvents) {
@@ -3445,7 +3463,7 @@ export class DataExchangeHubView extends ItemView {
 
 		// ── Fields (expected properties) ────────────────────
 		if (entry.properties.length > 0) {
-			const section = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+			const section = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-3" });
 			section.createDiv({ text: "Fields", cls: "ft-detail-section-header" });
 			const chips = section.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
 			chips.style.flexWrap = "wrap";
@@ -3483,7 +3501,7 @@ export class DataExchangeHubView extends ItemView {
 		const entries = Object.entries(fm).filter(([k]) => !skipKeys.has(k));
 
 		if (entries.length > 0) {
-			const card = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-2" });
+			const card = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-3" });
 			const grid = card.createDiv({ cls: "ft-detail-info-grid" });
 			for (const [key, value] of entries) {
 				const displayValue = Array.isArray(value) ? value.join(", ") : String(value ?? "");
@@ -3494,7 +3512,7 @@ export class DataExchangeHubView extends ItemView {
 		// Headers list (from frontmatter)
 		const headers = fm.headers;
 		if (Array.isArray(headers) && headers.length > 0) {
-			const section = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-2" });
+			const section = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
 			section.createDiv({ text: `Columns (${headers.length})`, cls: "ft-detail-section-header" });
 			const chips = section.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
 			chips.style.flexWrap = "wrap";
@@ -3536,7 +3554,7 @@ export class DataExchangeHubView extends ItemView {
 			const csvPath = csvMatch ? csvMatch[1] : csvFileFm;
 			const importConfigs = this.dataExchangeService.getImportConfigsForFile(csvPath);
 			if (importConfigs.length > 0) {
-				const cfgSection = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-2" });
+				const cfgSection = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
 				cfgSection.createDiv({ text: "Import Configs", cls: "ft-detail-section-header" });
 				for (const cfg of importConfigs) {
 					const item = cfgSection.createDiv({ cls: "ft-master-event-item" });
@@ -3595,7 +3613,7 @@ export class DataExchangeHubView extends ItemView {
 		// Show inline progress in the detail panel (after actions bar)
 		const existing = this.detailPanelEl.querySelector(".ft-import-progress") as HTMLElement | null;
 		if (existing) existing.remove();
-		const section = createDiv({ cls: "ft-import-progress ft-card ft-mt-2" });
+		const section = createDiv({ cls: "ft-import-progress ft-card ft-mt-3" });
 		const actionsBar = this.detailPanelEl.querySelector(".ft-detail-actions");
 		if (actionsBar?.nextSibling) {
 			this.detailPanelEl.insertBefore(section, actionsBar.nextSibling);
