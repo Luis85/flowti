@@ -1,43 +1,20 @@
 ---
 title: Flowti - IBDE
 stage: development
+platform: Obsidian (Desktop)
+license: MIT
+author: Luis Mendez
 ---
 # Flowti - IBDE
 
-**Integrated Business Development Environment** - An Obsidian plugin that implements the Flowti IBDE concept: a framework for describing, managing, and visualizing digital twins of business processes inside a knowledge base.
+The **Integrated Business Development Environment** - An Obsidian plugin that implements the Flowti IBDE concept: a framework for describing, managing, and visualizing digital twins of business processes inside a knowledge base by providing tools for systemic documenting and executing captured processes.
 
-| | |
-|---|---|
-| **Platform** | Obsidian (Desktop) |
-| **License** | MIT |
-| **Author** | Luis Mendez |
+---
 
 ## Product Features
 
-- Event Catalog - Document and Shape your Domain
-- Data Exchange Hub - Import and Export your Data
-- Documentation - Automatically document your work by using the system
+![[Development/flowti/docs/Features.base#Product Features|Features]]
 
-
-## Infrastructure Features
-
-| Feature | Description | Status |
-|---------|-------------|--------|
-| **Event System** | Type-safe pub/sub EventBus with wildcard and one-time listeners, xstate v5 compatible event format | Done |
-| **EventBridge** | Translates all relevant Obsidian API events (Vault, Workspace, MetadataCache) into internal EventBus events | Done |
-| **File Operations** | Full file CRUD (create, read, update, delete, move, rename) via event-based request/response pattern | Done |
-| **Frontmatter Operations** | Get, update, and set frontmatter via events, decoupled from Obsidian's metadata API | Done |
-| **FileSystemClient** | Promise-based client wrapping event request/response into async methods with timeout handling | Done |
-| **Service Container** | Dependency injection with topological initialization order and lifecycle management (init/dispose) | Done |
-| **Command System** | Command registry with middleware pipeline (logging, error handling), auto-bound to Obsidian's command palette | Done |
-| **View System** | View registry with factory pattern, auto-bound to Obsidian's view system | Done |
-| **Error Handling** | Typed error hierarchy (Validation, Storage, Lifecycle, Service, Command) with centralized ErrorService | Done |
-| **Logging** | Four-level logger (debug, info, warn, error) with context prefixes and event emission | Done |
-| **Event Trace** | Wildcard debug listener that logs all events to the developer console when debug mode is enabled | Done |
-| **Settings** | Zod-validated plugin settings with UI tab and reactive event emission on changes | Done |
-| **User Management** | User profile service with first-run setup modal, Zod validation, and event-driven persistence | Done |
-| **Testing** | Comprehensive unit test suite covering all components, using Vitest with custom Obsidian stubs | Done |
-| **Documentation** | TypeDoc-generated API docs, Arc42-structured README | Done |
 
 ---
 
@@ -115,6 +92,7 @@ Services perform file and frontmatter operations by emitting request events (e.g
 
 Commands, views, and services are defined declaratively in registry files and bound to Obsidian during plugin initialization. Adding a new command, view, or service requires only a new entry in the respective registry.
 
+
 ---
 
 ## 5. Building Block View
@@ -173,15 +151,23 @@ src/
 
 ### Key Components
 
-| Component | Responsibility |
-|-----------|---------------|
-| **EventBus** | Type-safe pub/sub with wildcard (`*`) and one-time (`once`) listeners |
-| **EventBridge** | Translates all relevant Obsidian events into internal EventBus events |
-| **FileSystemClient** | Promise-based API for file CRUD and frontmatter operations via events |
-| **ServiceContainer** | Dependency injection with topological sort for initialization order |
-| **CommandRegistry** | Middleware pipeline (logging, error handling) for command execution |
-| **ErrorService** | Centralized error handling with typed error hierarchy |
-| **LoggerService** | Four-level logging with event trace mode for debugging |
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Event System** | Type-safe pub/sub EventBus with wildcard and one-time listeners, xstate v5 compatible event format | Done |
+| **EventBridge** | Translates all relevant Obsidian API events (Vault, Workspace, MetadataCache) into internal EventBus events | Done |
+| **File Operations** | Full file CRUD (create, read, update, delete, move, rename) via event-based request/response pattern | Done |
+| **Frontmatter Operations** | Get, update, and set frontmatter via events, decoupled from Obsidian's metadata API | Done |
+| **FileSystemClient** | Promise-based client wrapping event request/response into async methods with timeout handling | Done |
+| **Service Container** | Dependency injection with topological initialization order and lifecycle management (init/dispose) | Done |
+| **Command System** | Command registry with middleware pipeline (logging, error handling), auto-bound to Obsidian's command palette | Done |
+| **View System** | View registry with factory pattern, auto-bound to Obsidian's view system | Done |
+| **Error Handling** | Typed error hierarchy (Validation, Storage, Lifecycle, Service, Command) with centralized ErrorService | Done |
+| **Logging** | Four-level logger (debug, info, warn, error) with context prefixes and event emission | Done |
+| **Event Trace** | Wildcard debug listener that logs all events to the developer console when debug mode is enabled | Done |
+| **Settings** | Zod-validated plugin settings with UI tab and reactive event emission on changes | Done |
+| **User Management** | User profile service with first-run setup modal, Zod validation, and event-driven persistence | Done |
+| **Testing** | Comprehensive unit test suite covering all components, using Vitest with custom Obsidian stubs | Done |
+| **Documentation** | TypeDoc-generated API docs, Arc42-structured README | Done |
 
 ---
 

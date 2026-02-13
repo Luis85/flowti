@@ -2,7 +2,4 @@
 stage: new
 domain: Flowti/System
 plugin: "[[Development/flowti/README|README]]"
-tags:
-  - core
-description: Automatically document your work by using the system
 ---

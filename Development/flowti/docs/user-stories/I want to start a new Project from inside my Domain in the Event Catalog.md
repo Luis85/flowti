@@ -1,8 +1,11 @@
 ---
-domain: Flowti
 title:
-jtbd:
+stage:
+description:
+domain:
 journey:
+jtbd:
 parent:
+persona:
 feature: "[[Event Catalog]]"
 ---

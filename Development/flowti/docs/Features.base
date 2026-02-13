@@ -15,3 +15,19 @@ views:
       file.name: 199
       note.stage: 126
       note.domain: 132
+  - type: table
+    name: Product Features
+    filters:
+      and:
+        - file.hasTag("core")
+    order:
+      - file.name
+      - description
+      - stage
+      - domain
+      - tags
+    columnSize:
+      file.name: 199
+      note.description: 395
+      note.stage: 126
+      note.domain: 132

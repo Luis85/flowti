@@ -10,6 +10,7 @@ views:
     order:
       - file.name
       - title
+      - feature
       - stage
       - description
       - domain
@@ -17,7 +18,6 @@ views:
       - jtbd
       - parent
       - persona
-      - feature
     columnSize:
       file.name: 516
       note.stage: 101
