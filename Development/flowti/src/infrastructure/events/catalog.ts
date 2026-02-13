@@ -350,3 +350,13 @@ export function getEventCategory(type: string): string | undefined {
 export function getEventEntry(type: string): EventCatalogEntry | undefined {
 	return CATALOG_MAP.get(type);
 }
+
+/**
+ * Domain names that should be treated as system domains,
+ * even if they only appear in discovered (non-static) events.
+ * Includes all domains from the static catalog plus manually registered ones.
+ */
+export const SYSTEM_DOMAINS: ReadonlySet<string> = new Set([
+	...EVENT_CATALOG.map((e) => e.domain),
+	"Types",
+]);

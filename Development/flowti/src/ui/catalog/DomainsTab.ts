@@ -1,5 +1,5 @@
 import { TFile, TFolder, setIcon } from "obsidian";
-import { EVENT_CATALOG, type EventCatalogEntry } from "../../infrastructure/events/catalog";
+import { EVENT_CATALOG, SYSTEM_DOMAINS, type EventCatalogEntry } from "../../infrastructure/events/catalog";
 import {
 	readFrontmatter, fmString, fmStringArray, normalizeDocFrontmatter,
 	isConfigured, discoveredToCatalogEntries,
@@ -97,9 +97,6 @@ export class DomainsTab {
 
 		const state = this.deps.getState();
 
-		// Domain names originating from plugin code are always system
-		const catalogDomainNames = new Set(EVENT_CATALOG.map((e) => e.domain));
-
 		this.entries = Array.from(domainMap.entries())
 			.map(([name, events]) => {
 				const fileData = fileMap.get(name);
@@ -123,7 +120,7 @@ export class DomainsTab {
 						const setting = state.catalogDomains.find((d) => d.name === name);
 						return setting ? setting.visible : true;
 					})(),
-					isSystem: catalogDomainNames.has(name),
+					isSystem: SYSTEM_DOMAINS.has(name),
 					isArea: !!this.deps.app.vault.getAbstractFileByPath(areaPath),
 				};
 			})
