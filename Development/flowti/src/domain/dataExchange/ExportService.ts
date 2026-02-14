@@ -198,6 +198,11 @@ export class ExportService {
 		return this.resolveFiles(sourcePath, sourceType, viewIndex);
 	}
 
+	/** Returns the BaseQueryEngine for synchronous parsing from pre-read content. */
+	getBaseEngine(): BaseQueryEngine {
+		return this.baseEngine;
+	}
+
 	/**
 	 * Parses a `.base` file and returns its view configurations.
 	 * Useful for the view-select page of the export modal.

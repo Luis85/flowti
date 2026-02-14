@@ -1874,6 +1874,7 @@ export class DataExchangeHubView extends ItemView {
 			name: cfg.name,
 			sourcePath: cfg.sourcePath,
 			outputPath: cfg.outputPath,
+			isExternal: cfg.isExternal ?? false,
 			conflictStrategy: cfg.conflictStrategy ?? "overwrite",
 			noteType: cfg.noteType ?? "",
 		};
@@ -1907,23 +1908,66 @@ export class DataExchangeHubView extends ItemView {
 		);
 
 		let outputTextComponent: { setValue: (v: string) => unknown } | undefined;
+		const externalBadgeFrag = document.createDocumentFragment();
+		const externalBadgeEl = externalBadgeFrag.appendChild(document.createElement("span"));
+		const updateExternalBadge = (): void => {
+			externalBadgeEl.textContent = "";
+			if (edits.isExternal) {
+				const badge = document.createElement("span");
+				badge.className = "ft-badge ft-badge-muted ft-text-sm";
+				badge.textContent = "external";
+				externalBadgeEl.replaceChildren(badge);
+			}
+		};
 		const outputSetting = new Setting(panel)
 			.setName("Output path")
+			.setDesc(externalBadgeFrag)
 			.addText((t) => {
 				t.setValue(cfg.outputPath).onChange((v) => { edits.outputPath = v; });
 				outputTextComponent = t;
 			});
 		outputSetting.addExtraButton((btn) =>
-			btn.setIcon("folder").setTooltip("Browse").onClick(() => {
+			btn.setIcon("folder").setTooltip("Browse vault folder").onClick(() => {
 				const folders = getVaultFolders(this.app);
 				new FolderPickerModal(this.app, folders, (folder) => {
 					const parts = (edits.outputPath || cfg.outputPath || "export.csv").replace(/\\/g, "/").split("/");
 					const filename = parts[parts.length - 1];
 					edits.outputPath = folder ? `${folder}/${filename}` : filename;
+					edits.isExternal = false;
 					outputTextComponent?.setValue(edits.outputPath);
+					updateExternalBadge();
 				}).open();
 			}),
 		);
+		outputSetting.addExtraButton((btn) =>
+			btn.setIcon("hard-drive").setTooltip("Save to filesystem").onClick(() => {
+				try {
+					// eslint-disable-next-line @typescript-eslint/no-require-imports
+					const { remote } = require("electron");
+					const format = cfg.format ?? "csv";
+					const ext = format === "tab" ? "txt" : "csv";
+					const filters = format === "tab"
+						? [{ name: "Tab-Separated", extensions: ["txt", "tsv"] }, { name: "All Files", extensions: ["*"] }]
+						: [{ name: "CSV Files", extensions: ["csv"] }, { name: "All Files", extensions: ["*"] }];
+					const currentFilename = (edits.outputPath || cfg.outputPath || `export.${ext}`)
+						.replace(/\\/g, "/").split("/").pop() ?? `export.${ext}`;
+					void remote.dialog.showSaveDialog(remote.getCurrentWindow(), {
+						defaultPath: currentFilename,
+						filters,
+					}).then((result: { canceled: boolean; filePath?: string }) => {
+						if (!result.canceled && result.filePath) {
+							edits.outputPath = result.filePath;
+							edits.isExternal = true;
+							outputTextComponent?.setValue(result.filePath);
+							updateExternalBadge();
+						}
+					});
+				} catch {
+					new Notice("Could not open save dialog. Try entering the path manually.");
+				}
+			}),
+		);
+		updateExternalBadge();
 
 		new Setting(panel)
 			.setName("Conflict strategy")
@@ -2944,7 +2988,7 @@ export class DataExchangeHubView extends ItemView {
 				cls: "ft-badge ft-badge-muted",
 			});
 
-			// Source base/folder — clickable (shown first)
+			// Source base/folder — clickable, full path
 			if (exportCfg.sourcePath) {
 				const sourceRow = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-mt-1" });
 				const sourceLabel = exportCfg.sourceType === "base" ? "Base:" : "Folder:";
@@ -2952,7 +2996,7 @@ export class DataExchangeHubView extends ItemView {
 				const sourceFile = this.app.vault.getAbstractFileByPath(exportCfg.sourcePath);
 				if (sourceFile instanceof TFile) {
 					const sourceLink = sourceRow.createEl("span", {
-						text: exportCfg.sourcePath.split("/").pop() ?? exportCfg.sourcePath,
+						text: exportCfg.sourcePath,
 						cls: "ft-nav-link ft-text-sm",
 					});
 					sourceLink.addEventListener("click", () => {
@@ -2960,15 +3004,46 @@ export class DataExchangeHubView extends ItemView {
 					});
 				} else {
 					sourceRow.createSpan({
-						text: exportCfg.sourcePath.split("/").pop() ?? exportCfg.sourcePath,
+						text: exportCfg.sourcePath,
 						cls: "ft-text-muted ft-text-sm",
 					});
 				}
+
+				// Base view name (async-resolved from vault)
+				if (exportCfg.sourceType === "base") {
+					const viewRow = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-mt-1" });
+					viewRow.createSpan({ text: "View:", cls: "ft-text-muted ft-text-sm" });
+					const viewNameEl = viewRow.createSpan({
+						text: `#${exportCfg.baseViewIndex ?? 0}`,
+						cls: "ft-text-sm",
+					});
+					const baseFile = this.app.vault.getAbstractFileByPath(exportCfg.sourcePath);
+					if (baseFile instanceof TFile) {
+						void this.app.vault.read(baseFile).then((content) => {
+							const parsed = this.dataExchangeService.getExportService().getBaseEngine().parseBaseFile(content);
+							const idx = exportCfg.baseViewIndex ?? 0;
+							const view = parsed.views[idx] ?? parsed.views[0];
+							if (view) {
+								viewNameEl.textContent = view.name || `View ${idx}`;
+								if (view.type) {
+									viewRow.createSpan({
+										text: view.type,
+										cls: "ft-badge ft-badge-muted ft-text-sm",
+									});
+								}
+							}
+						}).catch(() => { /* parse error */ });
+					}
+				}
 			}
 
-			// Output path (shown second)
-			const infoRow = card.createDiv({ cls: "ft-text-muted ft-text-sm ft-mt-1" });
-			infoRow.textContent = exportCfg.outputPath || "(no output path)";
+			// Target path
+			const targetRow = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-mt-1" });
+			targetRow.createSpan({ text: "Target:", cls: "ft-text-muted ft-text-sm" });
+			targetRow.createSpan({
+				text: exportCfg.outputPath || "(no output path)",
+				cls: "ft-text-sm",
+			});
 
 			if (exportCfg.isExternal) {
 				const extRow = card.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });

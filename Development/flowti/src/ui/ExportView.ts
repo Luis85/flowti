@@ -71,6 +71,7 @@ export class ExportView extends ItemView {
 	private previewFiles: VaultFileInfo[] = [];
 	private conflictStrategy: ExportConflictStrategy = "overwrite";
 	private displayNames: Record<string, string> = {};
+	private noteType = "";
 	private exportResult: ExportResult | null = null;
 	private exportError: string | null = null;
 	private loadError: string | null = null;
@@ -465,6 +466,7 @@ export class ExportView extends ItemView {
 					baseViewIndex: this.baseViewIndex,
 					conflictStrategy: this.conflictStrategy,
 					isExternal: this.isExternal || undefined,
+					noteType: this.noteType || undefined,
 				};
 
 				const existing = this.dataExchangeService
@@ -706,6 +708,12 @@ export class ExportView extends ItemView {
 				);
 			outputSetting.addExtraButton((btn) =>
 				btn
+					.setIcon("hard-drive")
+					.setTooltip("Browse filesystem")
+					.onClick(() => void this.openNativeSaveDialog()),
+			);
+			outputSetting.addExtraButton((btn) =>
+				btn
 					.setIcon("vault")
 					.setTooltip("Switch to vault")
 					.onClick(() => {
@@ -765,6 +773,17 @@ export class ExportView extends ItemView {
 						this.conflictStrategy = v as ExportConflictStrategy;
 						this.updateUnsavedHint();
 					}),
+			);
+
+		// Note type (for TypeDoc generation)
+		new Setting(panel)
+			.setName("Note type")
+			.setDesc("Associate this export with a type for TypeDoc creation (optional)")
+			.addText((t) =>
+				t
+					.setValue(this.noteType)
+					.setPlaceholder("e.g. Event, Asset, Service")
+					.onChange((v) => { this.noteType = v; this.updateUnsavedHint(); }),
 			);
 
 		// ── Right panel: all properties ──
@@ -1253,6 +1272,7 @@ export class ExportView extends ItemView {
 				baseViewIndex: this.baseViewIndex,
 				conflictStrategy: this.conflictStrategy,
 				isExternal: this.isExternal || undefined,
+				noteType: this.noteType || undefined,
 			});
 			this.savedConfigs = this.dataExchangeService.getSavedExportConfigs();
 			this.loadedConfigId = saved.id;
@@ -1373,6 +1393,7 @@ export class ExportView extends ItemView {
 		if (cfg.isExternal !== undefined) {
 			this.isExternal = cfg.isExternal;
 		}
+		this.noteType = cfg.noteType ?? "";
 		this.loadedConfigId = id;
 		new Notice(`Loaded config: ${cfg.name}`);
 		this.renderPage();
@@ -1418,6 +1439,7 @@ export class ExportView extends ItemView {
 		if (this.conflictStrategy !== (cfg.conflictStrategy ?? "overwrite")) return true;
 		if (cfg.baseViewIndex !== undefined && this.baseViewIndex !== cfg.baseViewIndex) return true;
 		if (cfg.isExternal !== undefined && this.isExternal !== cfg.isExternal) return true;
+		if ((this.noteType || "") !== (cfg.noteType ?? "")) return true;
 		return false;
 	}
 
