@@ -208,6 +208,18 @@ export class DataExchangeService {
 		} | null;
 		if (data?.dataExchange) {
 			this.state = data.dataExchange;
+			// Migrate legacy singular exportConfigId → exportConfigIds
+			let migrated = false;
+			for (const pipe of this.state.savedPipelines ?? []) {
+				const raw = pipe as unknown as Record<string, unknown>;
+				const legacy = raw["exportConfigId"];
+				if (typeof legacy === "string" && legacy && !pipe.exportConfigIds) {
+					pipe.exportConfigIds = [legacy];
+					delete raw["exportConfigId"];
+					migrated = true;
+				}
+			}
+			if (migrated) await this.saveState();
 		}
 	}
 
@@ -1191,9 +1203,9 @@ export class DataExchangeService {
 			await this.createPipelineBaseFile(pipeline);
 		}
 
-		// Run linked export if configured
-		if (pipeline.exportConfigId) {
-			const exportCfg = this.getExportConfig(pipeline.exportConfigId);
+		// Run linked exports if configured
+		for (const exportId of pipeline.exportConfigIds ?? []) {
+			const exportCfg = this.getExportConfig(exportId);
 			if (exportCfg) {
 				try {
 					await this.exportService.executeExport({
@@ -1208,7 +1220,7 @@ export class DataExchangeService {
 						conflictStrategy: exportCfg.conflictStrategy,
 					});
 				} catch (err) {
-					console.error(`[Flowti] Pipeline export step failed: ${err instanceof Error ? err.message : String(err)}`);
+					console.error(`[Flowti] Pipeline export step failed (${exportCfg.name}): ${err instanceof Error ? err.message : String(err)}`);
 				}
 			}
 		}
@@ -1293,7 +1305,7 @@ export class DataExchangeService {
 			pipeline.noteType ? `noteType: "${pipeline.noteType}"` : "",
 			pipeline.namePrefix ? `namePrefix: "${pipeline.namePrefix}"` : "",
 			pipeline.nameSuffix ? `nameSuffix: "${pipeline.nameSuffix}"` : "",
-			pipeline.exportConfigId ? `exportConfigId: "${pipeline.exportConfigId}"` : "",
+			pipeline.exportConfigIds?.length ? `exportConfigIds: [${pipeline.exportConfigIds.map((id) => `"${id}"`).join(", ")}]` : "",
 			`sources: ${pipeline.sources.length}`,
 			`created: "${now}"`,
 			lastRun ? `lastExecuted: "${lastRun}"` : "",
@@ -1313,7 +1325,7 @@ export class DataExchangeService {
 			pipeline.noteType ? `| **Note Type**     | [[Type - ${this.sanitizeDocName(pipeline.noteType)}\\|${pipeline.noteType}]] |` : "",
 			pipeline.namePrefix ? `| **Name Prefix**   | \`${pipeline.namePrefix}\` |` : "",
 			pipeline.nameSuffix ? `| **Name Suffix**   | \`${pipeline.nameSuffix}\` |` : "",
-			pipeline.exportConfigId ? `| **Export Step**   | ${this.getExportConfig(pipeline.exportConfigId)?.name ?? pipeline.exportConfigId} |` : "",
+			pipeline.exportConfigIds?.length ? `| **Export Steps**  | ${pipeline.exportConfigIds.map((id) => this.getExportConfig(id)?.name ?? id).join(", ")} |` : "",
 			lastRun ? `| **Last Run**      | ${lastRun} |` : "",
 			"",
 		];

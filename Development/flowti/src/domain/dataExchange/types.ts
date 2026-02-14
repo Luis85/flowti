@@ -336,8 +336,8 @@ export interface SavedMultiImportPipeline {
 	namePrefix?: string;
 	/** Optional suffix appended to filename (before .md) */
 	nameSuffix?: string;
-	/** ID of a saved export config to run after pipeline completes */
-	exportConfigId?: string;
+	/** IDs of saved export configs to run after pipeline completes */
+	exportConfigIds?: string[];
 }
 
 /** Result summary for a single source within a pipeline run. */

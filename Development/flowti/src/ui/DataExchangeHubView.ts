@@ -1583,7 +1583,7 @@ export class DataExchangeHubView extends ItemView {
 		const rightBadges = item.createDiv({ cls: "ft-flex ft-gap-1" });
 		rightBadges.style.flexShrink = "0";
 		const pipelineCount = this.dataExchangeService.getSavedPipelines()
-			.filter((p) => p.exportConfigId === cfg.id).length;
+			.filter((p) => p.exportConfigIds?.includes(cfg.id)).length;
 		if (pipelineCount > 0) {
 			const pipeBadge = rightBadges.createSpan({ cls: "ft-master-category-count" });
 			setIcon(pipeBadge, "git-merge");
@@ -1826,7 +1826,7 @@ export class DataExchangeHubView extends ItemView {
 
 		// ── Linked Pipelines ───────────────────────────────
 		const linkedPipelines = this.dataExchangeService.getSavedPipelines()
-			.filter((p) => p.exportConfigId === cfg.id);
+			.filter((p) => p.exportConfigIds?.includes(cfg.id));
 		if (linkedPipelines.length > 0) {
 			const section = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
 			section.createDiv({
@@ -2313,16 +2313,18 @@ export class DataExchangeHubView extends ItemView {
 				text: `${pipe.sources.length} source${pipe.sources.length !== 1 ? "s" : ""}`,
 				cls: "ft-badge ft-badge-muted",
 			});
-			if (pipe.exportConfigId) {
-				const exportCfg = this.dataExchangeService.getExportConfig(pipe.exportConfigId);
-				const expBadge = sourcesWrap.createSpan({
-					cls: "ft-badge ft-badge-muted",
-				});
-				const expIcon = expBadge.createSpan();
-				setIcon(expIcon, "file-output");
-				expIcon.style.marginRight = "0.25rem";
-				expBadge.appendText(exportCfg ? exportCfg.name : "(deleted)");
-				expBadge.title = "Export step attached";
+			if (pipe.exportConfigIds?.length) {
+				for (const exportId of pipe.exportConfigIds) {
+					const exportCfg = this.dataExchangeService.getExportConfig(exportId);
+					const expBadge = sourcesWrap.createSpan({
+						cls: "ft-badge ft-badge-muted",
+					});
+					const expIcon = expBadge.createSpan();
+					setIcon(expIcon, "file-output");
+					expIcon.style.marginRight = "0.25rem";
+					expBadge.appendText(exportCfg ? exportCfg.name : "(deleted)");
+					expBadge.title = "Export step";
+				}
 			}
 
 			// Actions
@@ -2500,16 +2502,18 @@ export class DataExchangeHubView extends ItemView {
 		if (pipe.noteType) {
 			badges.createSpan({ text: pipe.noteType, cls: "ft-badge" });
 		}
-		if (pipe.exportConfigId) {
-			const exportCfg = this.dataExchangeService.getExportConfig(pipe.exportConfigId);
-			const exportBadge = badges.createSpan({
-				text: exportCfg ? `→ ${exportCfg.name}` : "→ (deleted)",
-				cls: "ft-badge ft-badge-muted",
-			});
-			const eIcon = exportBadge.createSpan();
-			setIcon(eIcon, "file-output");
-			eIcon.style.marginRight = "0.25rem";
-			exportBadge.prepend(eIcon);
+		if (pipe.exportConfigIds?.length) {
+			for (const exportId of pipe.exportConfigIds) {
+				const exportCfg = this.dataExchangeService.getExportConfig(exportId);
+				const exportBadge = badges.createSpan({
+					text: exportCfg ? `→ ${exportCfg.name}` : "→ (deleted)",
+					cls: "ft-badge ft-badge-muted",
+				});
+				const eIcon = exportBadge.createSpan();
+				setIcon(eIcon, "file-output");
+				eIcon.style.marginRight = "0.25rem";
+				exportBadge.prepend(eIcon);
+			}
 		}
 
 		// Actions bar
@@ -2610,16 +2614,8 @@ export class DataExchangeHubView extends ItemView {
 			}
 		}
 
-		// Config + Export Step row (2 columns when export step exists)
-		const cardsRow = this.detailPanelEl.createDiv({ cls: "ft-mt-3" });
-		if (pipe.exportConfigId) {
-			cardsRow.style.display = "grid";
-			cardsRow.style.gridTemplateColumns = "1fr 1fr";
-			cardsRow.style.gap = "0.75rem";
-		}
-
 		// Config info card
-		const configCard = cardsRow.createDiv({ cls: "ft-card" });
+		const configCard = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-3" });
 		const configGrid = configCard.createDiv({ cls: "ft-detail-info-grid" });
 		this.addInfoRow(configGrid, "Target Folder", pipe.targetFolder || "(not set)");
 		this.addInfoRow(configGrid, "Merge Key", pipe.mergeKey);
@@ -2641,36 +2637,44 @@ export class DataExchangeHubView extends ItemView {
 			this.addInfoRow(configGrid, "Last Run", new Date(pipe.lastExecutedAt).toLocaleString());
 		}
 
-		// ── Export Step card ────────────────────────────────
-		if (pipe.exportConfigId) {
-			const exportCfg = this.dataExchangeService.getExportConfig(pipe.exportConfigId);
-			const exportCard = cardsRow.createDiv({ cls: "ft-card" });
-			exportCard.style.borderLeft = "3px solid var(--interactive-accent)";
-			const exportHeader = exportCard.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
-			const exportIcon = exportHeader.createSpan();
-			setIcon(exportIcon, "file-output");
-			exportIcon.style.opacity = "0.6";
-			exportIcon.style.flexShrink = "0";
-			exportHeader.createSpan({ text: "Export Step", cls: "ft-heading ft-heading-sm" });
-			if (exportCfg) {
-				const exportInfo = exportCard.createDiv({ cls: "ft-detail-info-grid" });
-				this.addInfoRow(exportInfo, "Config", exportCfg.name);
-				this.addInfoRow(exportInfo, "Format", exportCfg.format === "tab" ? "Tab-delimited" : "CSV");
-				this.addInfoRow(exportInfo, "Output", exportCfg.outputPath || "(not set)");
-				if (exportCfg.isExternal) {
-					this.addInfoRow(exportInfo, "Location", "External filesystem");
+		// ── Export Steps cards ────────────────────────────────
+		if (pipe.exportConfigIds?.length) {
+			const exportGrid = this.detailPanelEl.createDiv({ cls: "ft-mt-3" });
+			if (pipe.exportConfigIds.length > 1) {
+				exportGrid.style.display = "grid";
+				exportGrid.style.gridTemplateColumns = "1fr 1fr";
+				exportGrid.style.gap = "0.75rem";
+			}
+			for (const exportId of pipe.exportConfigIds) {
+				const exportCfg = this.dataExchangeService.getExportConfig(exportId);
+				const exportCard = exportGrid.createDiv({ cls: "ft-card" });
+				exportCard.style.borderLeft = "3px solid var(--interactive-accent)";
+				const exportHeader = exportCard.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
+				const exportIcon = exportHeader.createSpan();
+				setIcon(exportIcon, "file-output");
+				exportIcon.style.opacity = "0.6";
+				exportIcon.style.flexShrink = "0";
+				exportHeader.createSpan({ text: "Export Step", cls: "ft-heading ft-heading-sm" });
+				if (exportCfg) {
+					const exportInfo = exportCard.createDiv({ cls: "ft-detail-info-grid" });
+					this.addInfoRow(exportInfo, "Config", exportCfg.name);
+					this.addInfoRow(exportInfo, "Format", exportCfg.format === "tab" ? "Tab-delimited" : "CSV");
+					this.addInfoRow(exportInfo, "Output", exportCfg.outputPath || "(not set)");
+					if (exportCfg.isExternal) {
+						this.addInfoRow(exportInfo, "Location", "External filesystem");
+					}
+					const link = exportCard.createEl("span", { text: "View export config →", cls: "ft-nav-link ft-text-sm ft-p-2" });
+					link.style.display = "inline-block";
+					link.addEventListener("click", () => {
+						this.selectedExportId = exportCfg.id;
+						this.navigateTo("exports");
+					});
+				} else {
+					exportCard.createDiv({
+						text: "Linked export config has been deleted",
+						cls: "ft-text-muted ft-text-sm ft-p-2",
+					});
 				}
-				const link = exportCard.createEl("span", { text: "View export config →", cls: "ft-nav-link ft-text-sm ft-p-2" });
-				link.style.display = "inline-block";
-				link.addEventListener("click", () => {
-					this.selectedExportId = exportCfg.id;
-					this.navigateTo("exports");
-				});
-			} else {
-				exportCard.createDiv({
-					text: "Linked export config has been deleted",
-					cls: "ft-text-muted ft-text-sm ft-p-2",
-				});
 			}
 		}
 
@@ -2892,7 +2896,7 @@ export class DataExchangeHubView extends ItemView {
 			nameSuffix: pipe.nameSuffix ?? "",
 			createBase: pipe.createBase ?? false,
 			basePath: pipe.basePath ?? "",
-			exportConfigId: pipe.exportConfigId,
+			exportConfigIds: [...(pipe.exportConfigIds ?? [])],
 		};
 
 		// ── Full-width: Name ──
@@ -2964,17 +2968,8 @@ export class DataExchangeHubView extends ItemView {
 					}),
 			);
 
-		const exportConfigs = this.dataExchangeService.getSavedExportConfigs();
-		new Setting(grid)
-			.setName("Export step")
-			.addDropdown((dd) => {
-				dd.addOption("", "None");
-				for (const cfg of exportConfigs) {
-					dd.addOption(cfg.id, cfg.name);
-				}
-				dd.setValue(pipe.exportConfigId ?? "");
-				dd.onChange((v) => { edits.exportConfigId = v || undefined; });
-			});
+		// Placeholder in the grid to keep alignment (export steps section is full-width below)
+		grid.createDiv();
 
 		// ── Full-width: Base path (conditionally visible) ──
 		const basePathSetting = new Setting(panel)
@@ -2986,6 +2981,76 @@ export class DataExchangeHubView extends ItemView {
 					.onChange((v) => { edits.basePath = v || undefined; }),
 			);
 		basePathSetting.settingEl.toggle(edits.createBase ?? false);
+
+		// ── Export steps (multi-select) ──
+		const exportStepsSection = panel.createDiv({ cls: "ft-mt-3" });
+		const exportStepsHeader = exportStepsSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
+		exportStepsHeader.createSpan({ text: "Export Steps", cls: "ft-heading ft-heading-sm" });
+		const allExportConfigs = this.dataExchangeService.getSavedExportConfigs();
+
+		const renderExportSteps = (): void => {
+			// Clear everything after the header
+			const children = Array.from(exportStepsSection.children);
+			for (let c = 1; c < children.length; c++) children[c].remove();
+
+			const selectedIds = edits.exportConfigIds ?? [];
+			if (selectedIds.length > 0) {
+				for (const id of selectedIds) {
+					const cfg = allExportConfigs.find((c) => c.id === id);
+					const row = exportStepsSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
+					row.style.borderBottom = "1px solid var(--background-modifier-border)";
+					const icon = row.createSpan();
+					setIcon(icon, "file-output");
+					icon.style.opacity = "0.6";
+					icon.style.flexShrink = "0";
+					const label = row.createSpan({
+						text: cfg ? cfg.name : "(deleted)",
+						cls: "ft-text-sm",
+					});
+					label.style.flex = "1";
+					if (cfg) {
+						row.createSpan({
+							text: cfg.format.toUpperCase(),
+							cls: "ft-badge ft-badge-muted ft-text-sm",
+						});
+					}
+					const removeBtn = row.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+					const removeIcon = removeBtn.createSpan();
+					setIcon(removeIcon, "x");
+					removeBtn.title = "Remove export step";
+					removeBtn.addEventListener("click", () => {
+						edits.exportConfigIds = (edits.exportConfigIds ?? []).filter((eid) => eid !== id);
+						renderExportSteps();
+					});
+				}
+			}
+
+			// "Add" dropdown — only show configs not already selected
+			const available = allExportConfigs.filter((c) => !(edits.exportConfigIds ?? []).includes(c.id));
+			if (available.length > 0) {
+				const addSetting = new Setting(exportStepsSection)
+					.addDropdown((dd) => {
+						dd.addOption("", "+ Add export step");
+						for (const cfg of available) {
+							dd.addOption(cfg.id, cfg.name);
+						}
+						dd.onChange((v) => {
+							if (!v) return;
+							if (!edits.exportConfigIds) edits.exportConfigIds = [];
+							edits.exportConfigIds.push(v);
+							renderExportSteps();
+						});
+					});
+				addSetting.settingEl.style.border = "none";
+				addSetting.settingEl.style.padding = "0";
+			} else if (selectedIds.length === 0) {
+				exportStepsSection.createDiv({
+					text: "No export configs available. Create one first.",
+					cls: "ft-text-muted ft-text-sm ft-py-1",
+				});
+			}
+		};
+		renderExportSteps();
 
 		const nav = panel.createDiv({ cls: "ft-detail-actions ft-mt-4" });
 
@@ -3331,21 +3396,23 @@ export class DataExchangeHubView extends ItemView {
 					}
 				}
 
-				// Export step indicator
-				if (pipe.exportConfigId) {
-					const exportRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-px-2 ft-py-2" });
-					exportRow.style.borderTop = "1px solid var(--background-modifier-border)";
-					const eIcon = exportRow.createSpan();
-					setIcon(eIcon, "file-output");
-					eIcon.style.opacity = "0.6";
-					const exportCfg = this.dataExchangeService.getExportConfig(pipe.exportConfigId);
-					exportRow.createSpan({
-						text: `Export: ${exportCfg?.name ?? "(deleted)"}`,
-						cls: "ft-text-sm",
-					});
-					const checkIcon = exportRow.createSpan();
-					setIcon(checkIcon, "check");
-					checkIcon.style.color = "var(--text-success)";
+				// Export step indicators
+				if (pipe.exportConfigIds?.length) {
+					for (const exportId of pipe.exportConfigIds) {
+						const exportRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-px-2 ft-py-2" });
+						exportRow.style.borderTop = "1px solid var(--background-modifier-border)";
+						const eIcon = exportRow.createSpan();
+						setIcon(eIcon, "file-output");
+						eIcon.style.opacity = "0.6";
+						const exportCfg = this.dataExchangeService.getExportConfig(exportId);
+						exportRow.createSpan({
+							text: `Export: ${exportCfg?.name ?? "(deleted)"}`,
+							cls: "ft-text-sm",
+						});
+						const checkIcon = exportRow.createSpan();
+						setIcon(checkIcon, "check");
+						checkIcon.style.color = "var(--text-success)";
+					}
 				}
 
 				this.refreshConfigs();
