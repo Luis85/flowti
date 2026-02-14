@@ -20,7 +20,7 @@ import type {
 	SavedMultiImportPipeline,
 	TypeDocEntry,
 } from "../domain/dataExchange/types";
-import { ConfirmModal, InputModal } from "./modals";
+import { ConfigChooserModal, ConfirmModal, InputModal } from "./modals";
 import { FilePickerModal } from "./FilePickerModal";
 import { FolderPickerModal, getVaultFolders } from "./FolderPickerModal";
 import { PipelineSourceModal } from "./PipelineSourceModal";
@@ -1875,37 +1875,45 @@ export class DataExchangeHubView extends ItemView {
 			.setName("Name")
 			.addText((t) => t.setValue(cfg.name).onChange((v) => { edits.name = v; }));
 
+		let sourceTextComponent: { setValue: (v: string) => unknown } | undefined;
 		const sourceSetting = new Setting(panel)
 			.setName("Source path")
-			.addText((t) => t.setValue(cfg.sourcePath).onChange((v) => { edits.sourcePath = v; }));
+			.addText((t) => {
+				t.setValue(cfg.sourcePath).onChange((v) => { edits.sourcePath = v; });
+				sourceTextComponent = t;
+			});
 		sourceSetting.addExtraButton((btn) =>
 			btn.setIcon("folder").setTooltip("Browse").onClick(() => {
 				if (cfg.sourceType === "base") {
 					new FilePickerModal(this.app, ["base"], (p) => {
 						edits.sourcePath = p;
-						this.renderExportsDetail();
+						sourceTextComponent?.setValue(p);
 					}).open();
 				} else {
 					const folders = getVaultFolders(this.app);
 					new FolderPickerModal(this.app, folders, (p) => {
 						edits.sourcePath = p;
-						this.renderExportsDetail();
+						sourceTextComponent?.setValue(p);
 					}).open();
 				}
 			}),
 		);
 
+		let outputTextComponent: { setValue: (v: string) => unknown } | undefined;
 		const outputSetting = new Setting(panel)
 			.setName("Output path")
-			.addText((t) => t.setValue(cfg.outputPath).onChange((v) => { edits.outputPath = v; }));
+			.addText((t) => {
+				t.setValue(cfg.outputPath).onChange((v) => { edits.outputPath = v; });
+				outputTextComponent = t;
+			});
 		outputSetting.addExtraButton((btn) =>
 			btn.setIcon("folder").setTooltip("Browse").onClick(() => {
 				const folders = getVaultFolders(this.app);
 				new FolderPickerModal(this.app, folders, (folder) => {
-					const parts = (cfg.outputPath || "export.csv").replace(/\\/g, "/").split("/");
+					const parts = (edits.outputPath || cfg.outputPath || "export.csv").replace(/\\/g, "/").split("/");
 					const filename = parts[parts.length - 1];
 					edits.outputPath = folder ? `${folder}/${filename}` : filename;
-					this.renderExportsDetail();
+					outputTextComponent?.setValue(edits.outputPath);
 				}).open();
 			}),
 		);
@@ -2637,62 +2645,97 @@ export class DataExchangeHubView extends ItemView {
 			this.addInfoRow(configGrid, "Last Run", new Date(pipe.lastExecutedAt).toLocaleString());
 		}
 
-		// ── Export Steps cards ────────────────────────────────
-		if (pipe.exportConfigIds?.length) {
-			const exportGrid = this.detailPanelEl.createDiv({ cls: "ft-mt-3" });
-			if (pipe.exportConfigIds.length > 1) {
-				exportGrid.style.display = "grid";
-				exportGrid.style.gridTemplateColumns = "1fr 1fr";
-				exportGrid.style.gap = "0.75rem";
-			}
-			for (const exportId of pipe.exportConfigIds) {
-				const exportCfg = this.dataExchangeService.getExportConfig(exportId);
-				const exportCard = exportGrid.createDiv({ cls: "ft-card" });
-				exportCard.style.borderLeft = "3px solid var(--interactive-accent)";
-				const exportHeader = exportCard.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
-				const exportIcon = exportHeader.createSpan();
-				setIcon(exportIcon, "file-output");
-				exportIcon.style.opacity = "0.6";
-				exportIcon.style.flexShrink = "0";
-				exportHeader.createSpan({ text: "Export Step", cls: "ft-heading ft-heading-sm" });
-				if (exportCfg) {
-					const exportInfo = exportCard.createDiv({ cls: "ft-detail-info-grid" });
-					this.addInfoRow(exportInfo, "Config", exportCfg.name);
-					this.addInfoRow(exportInfo, "Format", exportCfg.format === "tab" ? "Tab-delimited" : "CSV");
-					this.addInfoRow(exportInfo, "Output", exportCfg.outputPath || "(not set)");
-					if (exportCfg.isExternal) {
-						this.addInfoRow(exportInfo, "Location", "External filesystem");
-					}
-					const link = exportCard.createEl("span", { text: "View export config →", cls: "ft-nav-link ft-text-sm ft-p-2" });
-					link.style.display = "inline-block";
-					link.addEventListener("click", () => {
-						this.selectedExportId = exportCfg.id;
-						this.navigateTo("exports");
-					});
-				} else {
-					exportCard.createDiv({
-						text: "Linked export config has been deleted",
-						cls: "ft-text-muted ft-text-sm ft-p-2",
-					});
-				}
-			}
-		}
+		// ── Sources & Export Steps side by side ───────────────
+		const twoColGrid = this.detailPanelEl.createDiv({ cls: "ft-mt-3" });
+		twoColGrid.style.display = "grid";
+		twoColGrid.style.gridTemplateColumns = "1fr 1fr";
+		twoColGrid.style.gap = "1rem";
+		twoColGrid.style.alignItems = "start";
 
-		// Sources list
-		const sourcesSection = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
-		sourcesSection.createDiv({ text: "Sources", cls: "ft-detail-section-header" });
+		// ── Left column: Sources ──
+		const sourcesCol = twoColGrid.createDiv();
+		sourcesCol.createDiv({ text: "Sources", cls: "ft-detail-section-header" });
 
 		if (pipe.sources.length === 0) {
-			sourcesSection.createDiv({
-				text: "No sources configured yet. Add a CSV source to get started.",
+			sourcesCol.createDiv({
+				text: "No sources configured yet.",
 				cls: "ft-text-muted ft-text-sm ft-p-2",
 			});
 		} else {
 			for (let i = 0; i < pipe.sources.length; i++) {
 				const source = pipe.sources[i];
-				this.renderPipelineSourceCard(sourcesSection, pipe, source, i);
+				this.renderPipelineSourceCard(sourcesCol, pipe, source, i);
 			}
 		}
+
+		const addSourceRow = sourcesCol.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-mt-2" });
+		const addSourceLink = addSourceRow.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		const addSourceIcon = addSourceLink.createSpan();
+		setIcon(addSourceIcon, "plus");
+		addSourceLink.appendText(" Add Source");
+		addSourceLink.addEventListener("click", () => {
+			new PipelineSourceModal({
+				app: this.app,
+				importService: this.dataExchangeService.getImportService(),
+				mergeKey: pipe.mergeKey,
+				otherSources: pipe.sources,
+				savedImportConfigs: this.dataExchangeService.getSavedImportConfigs().filter((c) => c.sourcePath),
+				onSave: (newSource) => {
+					const updatedSources = [...pipe.sources, newSource];
+					void this.dataExchangeService
+						.updatePipeline(pipe.id, { sources: updatedSources })
+						.then(() => {
+							this.refreshConfigs();
+							this.renderPipelinesMaster();
+							this.renderPipelinesDetail();
+						});
+				},
+			}).open();
+		});
+
+		// ── Right column: Export Steps ──
+		const exportsCol = twoColGrid.createDiv();
+		exportsCol.createDiv({ text: "Export Steps", cls: "ft-detail-section-header" });
+
+		if (!pipe.exportConfigIds?.length) {
+			exportsCol.createDiv({
+				text: "No export steps configured.",
+				cls: "ft-text-muted ft-text-sm ft-p-2",
+			});
+		} else {
+			for (const exportId of pipe.exportConfigIds) {
+				this.renderPipelineExportCard(exportsCol, pipe, exportId);
+			}
+		}
+
+		const addExportRow = exportsCol.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-mt-2" });
+		const addExportLink = addExportRow.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		const addExportIcon = addExportLink.createSpan();
+		setIcon(addExportIcon, "plus");
+		addExportLink.appendText(" Add Export Step");
+		addExportLink.addEventListener("click", () => {
+			const allExportConfigs = this.dataExchangeService.getSavedExportConfigs();
+			const available = allExportConfigs.filter((c) => !(pipe.exportConfigIds ?? []).includes(c.id));
+			if (available.length === 0) {
+				new Notice("No export configs available. Create one first.");
+				return;
+			}
+			new ConfigChooserModal(
+				this.app,
+				available.map((c) => ({ id: c.id, name: c.name })),
+				(id: string | null) => {
+					if (id === null) return;
+					const updatedIds = [...(pipe.exportConfigIds ?? []), id];
+					void this.dataExchangeService
+						.updatePipeline(pipe.id, { exportConfigIds: updatedIds })
+						.then(() => {
+							this.refreshConfigs();
+							this.renderPipelinesMaster();
+							this.renderPipelinesDetail();
+						});
+				},
+			).open();
+		});
 
 		// Custom property conflict warnings
 		if (pipe.sources.length > 1) {
@@ -2753,32 +2796,6 @@ export class DataExchangeHubView extends ItemView {
 				this.addInfoRow(propGrid, key, value);
 			}
 		}
-
-		// Add Source button
-		const addRow = sourcesSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-mt-2" });
-		const addLink = addRow.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-		const addIcon = addLink.createSpan();
-		setIcon(addIcon, "plus");
-		addLink.appendText(" Add Source");
-		addLink.addEventListener("click", () => {
-			new PipelineSourceModal({
-				app: this.app,
-				importService: this.dataExchangeService.getImportService(),
-				mergeKey: pipe.mergeKey,
-				otherSources: pipe.sources,
-				savedImportConfigs: this.dataExchangeService.getSavedImportConfigs().filter((c) => c.sourcePath),
-				onSave: (newSource) => {
-					const updatedSources = [...pipe.sources, newSource];
-					void this.dataExchangeService
-						.updatePipeline(pipe.id, { sources: updatedSources })
-						.then(() => {
-							this.refreshConfigs();
-							this.renderPipelinesMaster();
-							this.renderPipelinesDetail();
-						});
-				},
-			}).open();
-		});
 	}
 
 	private renderPipelineSourceCard(
@@ -2883,6 +2900,121 @@ export class DataExchangeHubView extends ItemView {
 		});
 	}
 
+	private renderPipelineExportCard(
+		container: HTMLElement,
+		pipe: SavedMultiImportPipeline,
+		exportId: string,
+	): void {
+		const exportCfg = this.dataExchangeService.getExportConfig(exportId);
+		const card = container.createDiv({ cls: "ft-card ft-mt-1" });
+		card.style.padding = "0.5rem 0.75rem";
+
+		const headerRow = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		const icon = headerRow.createSpan();
+		setIcon(icon, "file-output");
+		icon.style.opacity = "0.5";
+		icon.style.flexShrink = "0";
+
+		if (exportCfg) {
+			const nameEl = headerRow.createEl("span", {
+				text: exportCfg.name,
+				cls: "ft-heading ft-heading-sm ft-nav-link",
+			});
+			nameEl.style.flex = "1";
+			nameEl.style.minWidth = "0";
+			nameEl.style.overflow = "hidden";
+			nameEl.style.textOverflow = "ellipsis";
+			nameEl.style.whiteSpace = "nowrap";
+			nameEl.addEventListener("click", () => {
+				this.selectedExportId = exportCfg.id;
+				this.navigateTo("exports");
+			});
+
+			// Format badge
+			headerRow.createSpan({
+				text: exportCfg.format === "tab" ? "TAB" : "CSV",
+				cls: "ft-badge ft-badge-muted",
+			});
+
+			// Info row: output path
+			const infoRow = card.createDiv({ cls: "ft-text-muted ft-text-sm ft-mt-1" });
+			infoRow.textContent = exportCfg.outputPath || "(no output path)";
+
+			// Source base/folder — clickable
+			if (exportCfg.sourcePath) {
+				const sourceRow = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-mt-1" });
+				const sourceLabel = exportCfg.sourceType === "base" ? "Base:" : "Folder:";
+				sourceRow.createSpan({ text: sourceLabel, cls: "ft-text-muted ft-text-sm" });
+				const sourceFile = this.app.vault.getAbstractFileByPath(exportCfg.sourcePath);
+				if (sourceFile instanceof TFile) {
+					const sourceLink = sourceRow.createEl("span", {
+						text: exportCfg.sourcePath.split("/").pop() ?? exportCfg.sourcePath,
+						cls: "ft-nav-link ft-text-sm",
+					});
+					sourceLink.addEventListener("click", () => {
+						void this.app.workspace.getLeaf(false).openFile(sourceFile);
+					});
+				} else {
+					sourceRow.createSpan({
+						text: exportCfg.sourcePath.split("/").pop() ?? exportCfg.sourcePath,
+						cls: "ft-text-muted ft-text-sm",
+					});
+				}
+			}
+
+			if (exportCfg.isExternal) {
+				const extRow = card.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
+				extRow.createSpan({ text: "external", cls: "ft-badge ft-badge-muted" });
+			}
+
+			// Remove action
+			const actionsRow = card.createDiv({ cls: "ft-flex ft-gap-2 ft-mt-1" });
+			const removeLink = actionsRow.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+			removeLink.style.color = "var(--text-error)";
+			const removeIcon = removeLink.createSpan();
+			setIcon(removeIcon, "x");
+			removeLink.appendText(" Remove");
+			removeLink.addEventListener("click", () => {
+				new ConfirmModal(this.app, {
+					message: `Remove export step "${exportCfg.name}" from pipeline?`,
+					confirmLabel: "Remove",
+					onConfirm: () => {
+						const updatedIds = (pipe.exportConfigIds ?? []).filter((id) => id !== exportId);
+						void this.dataExchangeService
+							.updatePipeline(pipe.id, { exportConfigIds: updatedIds })
+							.then(() => {
+								this.refreshConfigs();
+								this.renderPipelinesMaster();
+								this.renderPipelinesDetail();
+							});
+					},
+				}).open();
+			});
+		} else {
+			headerRow.createSpan({ text: "(deleted)", cls: "ft-heading ft-heading-sm ft-text-muted" });
+			card.createDiv({
+				text: "Export config has been deleted",
+				cls: "ft-text-muted ft-text-sm ft-mt-1",
+			});
+			const actionsRow = card.createDiv({ cls: "ft-flex ft-gap-2 ft-mt-1" });
+			const removeLink = actionsRow.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+			removeLink.style.color = "var(--text-error)";
+			const removeIcon = removeLink.createSpan();
+			setIcon(removeIcon, "x");
+			removeLink.appendText(" Remove");
+			removeLink.addEventListener("click", () => {
+				const updatedIds = (pipe.exportConfigIds ?? []).filter((id) => id !== exportId);
+				void this.dataExchangeService
+					.updatePipeline(pipe.id, { exportConfigIds: updatedIds })
+					.then(() => {
+						this.refreshConfigs();
+						this.renderPipelinesMaster();
+						this.renderPipelinesDetail();
+					});
+			});
+		}
+	}
+
 	private renderPipelineEditForm(pipe: SavedMultiImportPipeline): void {
 		const panel = this.detailPanelEl;
 		panel.createEl("h3", { text: "Edit Pipeline", cls: "ft-heading ft-heading-sm ft-mb-3" });
@@ -2896,7 +3028,6 @@ export class DataExchangeHubView extends ItemView {
 			nameSuffix: pipe.nameSuffix ?? "",
 			createBase: pipe.createBase ?? false,
 			basePath: pipe.basePath ?? "",
-			exportConfigIds: [...(pipe.exportConfigIds ?? [])],
 		};
 
 		// ── Full-width: Name ──
@@ -2905,15 +3036,19 @@ export class DataExchangeHubView extends ItemView {
 			.addText((t) => t.setValue(pipe.name).onChange((v) => { edits.name = v; }));
 
 		// ── Full-width: Target folder (has browse button) ──
+		let targetTextComponent: { setValue: (v: string) => unknown } | undefined;
 		const targetSetting = new Setting(panel)
 			.setName("Target folder")
-			.addText((t) => t.setValue(pipe.targetFolder).onChange((v) => { edits.targetFolder = v; }));
+			.addText((t) => {
+				t.setValue(pipe.targetFolder).onChange((v) => { edits.targetFolder = v; });
+				targetTextComponent = t;
+			});
 		targetSetting.addExtraButton((btn) =>
 			btn.setIcon("folder").setTooltip("Browse").onClick(() => {
 				const folders = getVaultFolders(this.app);
 				new FolderPickerModal(this.app, folders, (folder) => {
 					edits.targetFolder = folder;
-					this.renderPipelinesDetail();
+					targetTextComponent?.setValue(folder);
 				}).open();
 			}),
 		);
@@ -2968,9 +3103,6 @@ export class DataExchangeHubView extends ItemView {
 					}),
 			);
 
-		// Placeholder in the grid to keep alignment (export steps section is full-width below)
-		grid.createDiv();
-
 		// ── Full-width: Base path (conditionally visible) ──
 		const basePathSetting = new Setting(panel)
 			.setName("Base file path")
@@ -2981,76 +3113,6 @@ export class DataExchangeHubView extends ItemView {
 					.onChange((v) => { edits.basePath = v || undefined; }),
 			);
 		basePathSetting.settingEl.toggle(edits.createBase ?? false);
-
-		// ── Export steps (multi-select) ──
-		const exportStepsSection = panel.createDiv({ cls: "ft-mt-3" });
-		const exportStepsHeader = exportStepsSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
-		exportStepsHeader.createSpan({ text: "Export Steps", cls: "ft-heading ft-heading-sm" });
-		const allExportConfigs = this.dataExchangeService.getSavedExportConfigs();
-
-		const renderExportSteps = (): void => {
-			// Clear everything after the header
-			const children = Array.from(exportStepsSection.children);
-			for (let c = 1; c < children.length; c++) children[c].remove();
-
-			const selectedIds = edits.exportConfigIds ?? [];
-			if (selectedIds.length > 0) {
-				for (const id of selectedIds) {
-					const cfg = allExportConfigs.find((c) => c.id === id);
-					const row = exportStepsSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
-					row.style.borderBottom = "1px solid var(--background-modifier-border)";
-					const icon = row.createSpan();
-					setIcon(icon, "file-output");
-					icon.style.opacity = "0.6";
-					icon.style.flexShrink = "0";
-					const label = row.createSpan({
-						text: cfg ? cfg.name : "(deleted)",
-						cls: "ft-text-sm",
-					});
-					label.style.flex = "1";
-					if (cfg) {
-						row.createSpan({
-							text: cfg.format.toUpperCase(),
-							cls: "ft-badge ft-badge-muted ft-text-sm",
-						});
-					}
-					const removeBtn = row.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-					const removeIcon = removeBtn.createSpan();
-					setIcon(removeIcon, "x");
-					removeBtn.title = "Remove export step";
-					removeBtn.addEventListener("click", () => {
-						edits.exportConfigIds = (edits.exportConfigIds ?? []).filter((eid) => eid !== id);
-						renderExportSteps();
-					});
-				}
-			}
-
-			// "Add" dropdown — only show configs not already selected
-			const available = allExportConfigs.filter((c) => !(edits.exportConfigIds ?? []).includes(c.id));
-			if (available.length > 0) {
-				const addSetting = new Setting(exportStepsSection)
-					.addDropdown((dd) => {
-						dd.addOption("", "+ Add export step");
-						for (const cfg of available) {
-							dd.addOption(cfg.id, cfg.name);
-						}
-						dd.onChange((v) => {
-							if (!v) return;
-							if (!edits.exportConfigIds) edits.exportConfigIds = [];
-							edits.exportConfigIds.push(v);
-							renderExportSteps();
-						});
-					});
-				addSetting.settingEl.style.border = "none";
-				addSetting.settingEl.style.padding = "0";
-			} else if (selectedIds.length === 0) {
-				exportStepsSection.createDiv({
-					text: "No export configs available. Create one first.",
-					cls: "ft-text-muted ft-text-sm ft-py-1",
-				});
-			}
-		};
-		renderExportSteps();
 
 		const nav = panel.createDiv({ cls: "ft-detail-actions ft-mt-4" });
 
@@ -3256,6 +3318,35 @@ export class DataExchangeHubView extends ItemView {
 					text: `${src.rowCount} rows · ${src.columns.length} columns`,
 					cls: "ft-text-muted ft-text-sm",
 				});
+			}
+		}
+
+		// Export steps breakdown
+		if (pipe.exportConfigIds && pipe.exportConfigIds.length > 0) {
+			const exportsDiv = section.createDiv({ cls: "ft-px-2 ft-pb-2" });
+			exportsDiv.createDiv({ text: "Export Steps", cls: "ft-detail-section-header ft-mb-1" });
+			for (const exportId of pipe.exportConfigIds) {
+				const exportCfg = this.dataExchangeService.getExportConfig(exportId);
+				const expRow = exportsDiv.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
+				if (exportCfg) {
+					const expIcon = expRow.createSpan();
+					setIcon(expIcon, "file-output");
+					expIcon.style.opacity = "0.6";
+					expRow.createSpan({ text: exportCfg.name, cls: "ft-text-sm" });
+					const details: string[] = [];
+					details.push(exportCfg.format.toUpperCase());
+					details.push(exportCfg.outputPath.split("/").pop() ?? exportCfg.outputPath);
+					if (exportCfg.isExternal) details.push("external");
+					expRow.createSpan({
+						text: details.join(" · "),
+						cls: "ft-text-muted ft-text-sm",
+					});
+				} else {
+					const warnIcon = expRow.createSpan();
+					setIcon(warnIcon, "alert-triangle");
+					warnIcon.style.color = "var(--text-warning)";
+					expRow.createSpan({ text: "(deleted config)", cls: "ft-text-sm ft-text-muted" });
+				}
 			}
 		}
 

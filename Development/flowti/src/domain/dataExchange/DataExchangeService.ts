@@ -254,6 +254,7 @@ export class DataExchangeService {
 		await this.saveState();
 		this.emitConfigChanged();
 		void this.createImportConfigDoc(saved);
+		this.createConfigEventDocs(saved.name, "import");
 		if (saved.noteType) {
 			void this.createOrUpdateTypeDoc(saved.noteType);
 		}
@@ -318,6 +319,7 @@ export class DataExchangeService {
 		await this.saveState();
 		this.emitConfigChanged();
 		void this.createExportConfigDoc(saved);
+		this.createConfigEventDocs(saved.name, "export");
 		if (saved.noteType) {
 			void this.createOrUpdateTypeDoc(saved.noteType);
 		}
@@ -390,6 +392,7 @@ export class DataExchangeService {
 		await this.saveState();
 		this.emitConfigChanged();
 		void this.createPipelineConfigDoc(saved);
+		this.createConfigEventDocs(saved.name, "pipeline");
 		if (saved.noteType) {
 			void this.createOrUpdateTypeDoc(saved.noteType);
 		}
@@ -1637,6 +1640,56 @@ export class DataExchangeService {
 			void this.eventBus.emit("discovery.create", {
 				eventName: eventType,
 				category: typeName,
+				docMeta,
+			});
+		}
+	}
+
+	/**
+	 * Emits `discovery.create` events for the 4 CRUD lifecycle events
+	 * of a config ({prefix}.created, .read, .updated, .deleted).
+	 *
+	 * Called when a new import config, export config, or pipeline is saved.
+	 */
+	private createConfigEventDocs(
+		configName: string,
+		configType: "pipeline" | "import" | "export",
+	): void {
+		const safeName = configName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+		if (!safeName) return;
+
+		const prefix = configType === "pipeline" ? "Pipeline" : configType === "import" ? "Import" : "Export";
+		const configDocName = `${prefix} - ${this.sanitizeDocName(configName)}`;
+
+		const crudDefs = [
+			{ suffix: "created", label: "Created", desc: `A new ${configName} record was created` },
+			{ suffix: "read", label: "Read", desc: `A ${configName} record was viewed or queried` },
+			{ suffix: "updated", label: "Updated", desc: `An existing ${configName} record was modified` },
+			{ suffix: "deleted", label: "Deleted", desc: `A ${configName} record was removed` },
+		];
+
+		for (const def of crudDefs) {
+			const eventType = `${safeName}.${def.suffix}`;
+			const siblings = crudDefs
+				.filter((d) => d.suffix !== def.suffix)
+				.map((d) => `- [[${safeName}.${d.suffix}\\|${safeName}.${d.suffix}]] — ${d.desc}`);
+
+			const docMeta: EventDocMeta = {
+				description: def.desc,
+				domain: "Data Exchange",
+				services: "DataExchange",
+				direction: "outbound",
+				stability: "draft",
+				visibility: "public",
+				relatedEvents: siblings,
+				extraSections: [
+					`**Config**: [[${configDocName}\\|${configName}]]`,
+				],
+			};
+
+			void this.eventBus.emit("discovery.create", {
+				eventName: eventType,
+				category: configName,
 				docMeta,
 			});
 		}
