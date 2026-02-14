@@ -152,7 +152,7 @@ export class IngestionService {
 	 * Combines event type with file path (if present).
 	 */
 	generateEventKey(eventType: string, path?: string): string {
-		return path ? `${eventType}::${path}` : `${eventType}::${Date.now()}`;
+		return path ? `${eventType}::${path}` : `${eventType}::${generateUUID()}`;
 	}
 
 	/**

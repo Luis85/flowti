@@ -8,7 +8,13 @@
  *
  * No external dependencies needed.
  */
-export function matchGlob(pattern: string, value: string): boolean {
+
+const globCache = new Map<string, RegExp>();
+
+function compileGlob(pattern: string): RegExp {
+	const cached = globCache.get(pattern);
+	if (cached) return cached;
+
 	const regexStr = pattern
 		// Escape regex special chars except * and ?
 		.replace(/[.+^${}()|[\]\\]/g, "\\$&")
@@ -26,5 +32,10 @@ export function matchGlob(pattern: string, value: string): boolean {
 		.replace(/\0GLOBSTAR\0/g, ".*");
 
 	const regex = new RegExp(`^${regexStr}$`);
-	return regex.test(value);
+	globCache.set(pattern, regex);
+	return regex;
+}
+
+export function matchGlob(pattern: string, value: string): boolean {
+	return compileGlob(pattern).test(value);
 }

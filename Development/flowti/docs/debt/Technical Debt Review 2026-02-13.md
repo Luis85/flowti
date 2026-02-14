@@ -6,7 +6,7 @@ status: reference
 effort: n/a
 description: Comprehensive technical debt review of the Flowti IBDE codebase as of 2026-02-13. Serves as the baseline reference for all individual debt items.
 reviewed: 2026-02-13
-updated: 2026-02-14
+updated: 2026-02-15
 reviewer: Technical Architect
 ---
 # Technical Debt Review - 2026-02-13
@@ -20,7 +20,7 @@ Baseline audit of the Flowti IBDE plugin codebase. This document summarises the 
 | Metric | Value (original) | Value (2026-02-14) |
 |--------|-----------------|-------------------|
 | Source files | 92 TypeScript files | 154 TypeScript files |
-| Test files | 35 suites, 654 tests (4 skipped) | 45 suites, 854 tests (4 skipped) |
+| Test files | 35 suites, 654 tests (4 skipped) | 48 suites, 1172 tests (4 skipped) |
 | Test result | All passing | All passing |
 | Type check | Clean (`tsc -noEmit -skipLibCheck`) | Clean (`strict: true`) |
 | Lint | Clean (`eslint ./src/`) | Clean |
@@ -40,14 +40,16 @@ A comprehensive plugin review ([[Technical Review 2026-02-14]]) added 9 new item
 
 Refactoring phase on 2026-02-14 resolved 5 additional items (TD-18, TD-31, TD-32, TD-33, TD-35) and mitigated TD-29 (silent swallow fixed, severity downgraded to low). High-severity items reduced to zero.
 
+Tech debt Round 2 (2026-02-14/15) resolved TD-13 (UUID-based keys), TD-34 (BaseEntityTab deduplication), and completed TD-30 Tier 1 (298 pure function tests, 100% coverage on 3 files). Test count: 854 → 1172 across 48 suites.
+
 ### Summary by Status (35 total items)
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Resolved | 23 | TD-02, TD-03, TD-04, TD-05, TD-07, TD-08, TD-09, TD-10, TD-11, TD-14, TD-15, TD-17, TD-18, TD-19, TD-20, TD-21, TD-24, TD-25, TD-26, TD-31, TD-32, TD-33, TD-35 |
+| Resolved | 25 | TD-02, TD-03, TD-04, TD-05, TD-07, TD-08, TD-09, TD-10, TD-11, TD-13, TD-14, TD-15, TD-17, TD-18, TD-19, TD-20, TD-21, TD-24, TD-25, TD-26, TD-31, TD-32, TD-33, TD-34, TD-35 |
 | Mitigated | 2 | TD-01 (severity: low), TD-29 (severity: low) |
 | Reclassified | 2 | TD-06 (high→medium), TD-12 (high→low) |
-| Open | 9 | TD-06, TD-12, TD-13, TD-16, TD-22, TD-23, TD-27, TD-28, TD-30, TD-34 |
+| Open | 8 | TD-06, TD-12, TD-16, TD-22, TD-23, TD-27, TD-28, TD-30 |
 
 ### Summary by Severity (current open items)
 
@@ -55,7 +57,7 @@ Refactoring phase on 2026-02-14 resolved 5 additional items (TD-18, TD-31, TD-32
 |----------|-------|-------|
 | High | 0 | — |
 | Medium | 4 | TD-06, TD-16, TD-27, TD-30 |
-| Low | 7 | TD-01, TD-12, TD-13, TD-22, TD-23, TD-28, TD-29, TD-34 |
+| Low | 6 | TD-01, TD-12, TD-22, TD-23, TD-28, TD-29 |
 
 ---
 
@@ -66,7 +68,7 @@ Refactoring phase on 2026-02-14 resolved 5 additional items (TD-18, TD-31, TD-32
 1. **Event-driven backbone** -- The EventBus + EventBridge pattern delivers on its promise. Services are decoupled and testable.
 2. **Type safety** -- Strict TypeScript with Zod validation at boundaries. The composed `FlowtiEventMap` keeps event contracts explicit.
 3. **Registry pattern** -- Commands, views, and services are declaratively registered and automatically wired. Extending the plugin requires minimal boilerplate.
-4. **Test coverage** -- 854 tests across 45 suites with mirrors of the source tree. Infrastructure and domain layers are well-covered.
+4. **Test coverage** -- 1172 tests across 48 suites with mirrors of the source tree. Infrastructure and domain layers are well-covered.
 5. **Separation of concerns** -- The DDD layer structure (`infrastructure/`, `domain/`, `ui/`) is consistently applied in the codebase.
 6. **Service lifecycle** -- 9 of 11 domain services implement `IDisposable` with proper `dispose()` methods. `ServiceContainer.disposeAll()` handles cleanup on unload.
 7. **DocService centralization** -- All doc creation routes through `doc.create` events (Phase 8), eliminating 16+ scattered `fileSystemClient.createFile()` calls.
@@ -75,7 +77,7 @@ Refactoring phase on 2026-02-14 resolved 5 additional items (TD-18, TD-31, TD-32
 
 1. **EventBridge boundary erosion** -- The UI layer bypasses EventBridge in ~112 locations, directly calling `app.vault`, `app.metadataCache`, and `app.workspace`. This is the largest remaining architectural issue (TD-06, reclassified to medium — acceptable for read-only UI access patterns).
 2. **UI file sizes** -- 14 files exceed 500 LOC (down from 4 exceeding 1,000 LOC). Orchestrator files (600-850 LOC) are expected to be larger. Further decomposition opportunities exist for `contentGenerator.ts` (708), `EventConfigModal.ts` (629), and `DomainsTab.ts` (563) — see TD-01 (mitigated).
-3. **Duplicated infrastructure patterns** -- Storage merging pattern is copy-pasted across services (TD-16). Path extraction duplication (TD-18) has been resolved via `pathUtils.ts`. SKIPPED_PREFIXES duplication (TD-17) has been resolved via centralization in `catalog.ts`.
+3. **Duplicated infrastructure patterns** -- Storage merging pattern is copy-pasted across services (TD-16). Path extraction duplication (TD-18) has been resolved via `pathUtils.ts`. SKIPPED_PREFIXES duplication (TD-17) has been resolved via centralization in `catalog.ts`. Entity tab structural duplication (TD-34) has been resolved via `BaseEntityTab<T>` base class (-438 LOC).
 
 ---
 
@@ -104,7 +106,7 @@ Each item below has a dedicated file in this folder with full details. See the `
 | 10 | IngestionService batch timer leak on dispose | Domain | **Resolved** |
 | 11 | No error handling on storage load/save across services | Domain | **Resolved** (try/catch on all paths) |
 | 12 | Wildcard listeners on all events degrade performance at scale | Domain | Open (reclassified to low — 7 listeners, properly filtered) |
-| 13 | Weak ID generation (collision risk) | Domain | Open (reclassified to low — crypto.randomUUID primary) |
+| 13 | Weak ID generation (collision risk) | Domain | **Resolved** (generateUUID replaces Date.now fallback) |
 | 14 | SettingsService event listeners leak | Domain | **Resolved** |
 | 15 | EventBridge createFolder only handles one level of nesting | Infrastructure | **Resolved** |
 
@@ -136,9 +138,9 @@ Each item below has a dedicated file in this folder with full details. See the `
 | 27 | Limited UI component testing (~40 components untested) | UI | Medium | Open |
 | 28 | Scanner duplication between Catalog and Hub | UI | Low | Open |
 | 29 | Error handling inconsistency (62 catches, 4 strategies) | Cross-cutting | Low | **Mitigated** (silent swallow fixed) |
-| 30 | Untested domain and infrastructure logic (~15 files, 4,200 LOC) | Cross-cutting | Medium | Open |
+| 30 | Untested domain and infrastructure logic (~15 files, 4,200 LOC) | Cross-cutting | Medium | Open (Tier 1 complete: 298 tests, 100% coverage) |
 | 31 | Direct write mutations bypass EventBridge (4 locations) | UI | Medium | **Resolved** (3/4 routed through events) |
 | 32 | normalizeDocFrontmatter writes during render | UI | High | **Resolved** (scan now read-only) |
 | 33 | Storage save race condition (read-merge-write not atomic) | Infrastructure | Medium | **Resolved** (PathMutex added) |
-| 34 | Entity tab structural duplication (~800 LOC) | UI | Low | Open |
+| 34 | Entity tab structural duplication (~800 LOC) | UI | Low | **Resolved** (BaseEntityTab deduplication, -438 LOC) |
 | 35 | Fire-and-forget persistence risk (3 void saveState calls) | Domain | Medium | **Resolved** (void prefix + safeSaveState) |

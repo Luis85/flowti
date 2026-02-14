@@ -5,23 +5,25 @@ layer: cross-cutting
 status: open
 created: 2026-02-14
 effort: medium
-description: 15 non-UI source files (~4,200 LOC) with testable pure functions and injectable services have no test coverage. Distinct from TD-27 which covers UI component testing.
+description: 15 non-UI source files (~4,200 LOC) with testable pure functions and injectable services have no test coverage. Tier 1 (pure functions) completed — 3 test files, 298 tests, 100% coverage. Tier 2 remains open.
 source: "[[Technical Review 2026-02-14]]"
 ---
 # TD-30: Untested domain and infrastructure logic
+
+**Tier 1 complete** — 3 test files added with 298 tests achieving 100% coverage on all Tier 1 pure functions. Tier 2 (injectable services) and Tier 3 (bootstrap) remain open.
 
 ## Problem
 
 While 45 test suites cover domain services, EventBus, and utilities, 15 non-UI source files containing testable logic have no tests. This is distinct from [[TD-27 Limited UI component testing]] which covers UI rendering tests.
 
-### Tier 1: Pure functions (highest ROI, ~1,740 LOC)
+### Tier 1: Pure functions (highest ROI, ~1,740 LOC) — COMPLETE
 
-| File | LOC | Testability |
-|------|-----|-------------|
-| `domain/dataExchange/configDocContent.ts` | 579 | Pure — generates markdown from config objects |
-| `domain/dataExchange/contentGenerator.ts` | 708 | Pure — builds note content from CSV rows |
-| `domain/docs/pathResolver.ts` | 180 | Pure — path resolution functions |
-| `ui/eventDocTemplate.ts` | ~275 | Pure — template generation functions |
+| File | LOC | Test File | Tests | Coverage |
+|------|-----|-----------|-------|----------|
+| `domain/dataExchange/configDocContent.ts` | 579 | `tests/domain/dataExchange/configDocContent.test.ts` | 152 | 100% |
+| `domain/docs/contentGenerator.ts` | 708 | `tests/domain/docs/contentGenerator.test.ts` | 64 | 100% |
+| `domain/docs/pathResolver.ts` | 180 | `tests/domain/docs/pathResolver.test.ts` | 82 | 100% |
+| `ui/eventDocTemplate.ts` | ~275 | `tests/ui/eventDocTemplate.test.ts` | (pre-existing) | — |
 
 ### Tier 2: Injectable services (~1,360 LOC)
 

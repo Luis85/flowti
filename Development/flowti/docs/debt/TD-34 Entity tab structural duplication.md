@@ -2,51 +2,46 @@
 severity: low
 category: duplication
 layer: ui
-status: open
+status: resolved
 created: 2026-02-14
+resolved: 2026-02-14
 effort: medium
-description: FlowsTab, ActorsTab, ProductsTab, SystemsTab share identical lifecycle, scan, CRUD, and rendering patterns (~800 LOC duplicated). Could be consolidated into a shared base class.
+description: FlowsTab, ActorsTab, ProductsTab, SystemsTab share identical lifecycle, scan, CRUD, and rendering patterns (~800 LOC duplicated). Consolidated into BaseEntityTab base class.
 source: "[[Technical Review 2026-02-14]]"
 ---
 # TD-34: Entity tab structural duplication
 
-## Problem
+**Status: Resolved** — `BaseEntityTab<T>` base class with `EntityTabConfig<T>` configuration object extracts all shared lifecycle, scan, CRUD, and rendering logic. Net reduction: ~438 LOC.
 
-Four catalog entity tabs share identical structure:
+## Resolution
 
-| Method | FlowsTab | ActorsTab | ProductsTab | SystemsTab |
-|--------|----------|-----------|-------------|------------|
-| `constructor(masterEl, detailEl, deps)` | identical | identical | identical | identical |
-| `render()` → `scan()` → `renderMaster()` | identical | identical | identical | identical |
-| `renderMaster()` (filter, header, list) | identical | identical | identical | identical |
-| `createDoc(name)` | identical | identical | identical | identical |
-| `deleteDoc(filePath)` | identical | identical | identical | identical |
-| `renderDetailEmpty()` | identical | identical | identical | identical |
+Created `src/ui/catalog/BaseEntityTab.ts` (~370 LOC) with:
 
-Only `renderDetail()` differs (entity-specific content sections).
+- **`BaseEntityEntry`** interface: shared shape `{ name, description, domains[], services[], filePath }`
+- **`EntityTabConfig<T>`** configuration object: label, singular, icon, entityType, docType, pathResolver, scanConfig, mapEntry, getItemCount, filterIncludesEvents, renderEventsSection, relatedSections, buildCriteria, getQuickStats
+- **`BaseEntityTab<T>`** class: constructor, scan(), render(), renderMaster(), renderDetail(), createDoc(), deleteDoc()
 
-### Related duplication
+All 4 tabs refactored to thin subclasses with config objects:
 
-- **Entry types** (`FlowEntry`, `ActorEntry`, `ProductEntry`) have identical shapes: `{ name, description, events[], domains[], services[], filePath, resolvedEvents[] }`
-- **`findRelated*` functions** in `helpers.ts` (lines 285-319): 4 structurally identical functions filtering by overlapping events/domains/services
-- **`createDoc`/`deleteDoc`** methods follow the same pattern: resolve path → check existence → emit `doc.create`/`doc.delete`
+| File | Before | After | Reduction |
+|------|--------|-------|-----------|
+| `FlowsTab.ts` | 314 LOC | 113 LOC | -201 LOC |
+| `ActorsTab.ts` | 314 LOC | 112 LOC | -202 LOC |
+| `ProductsTab.ts` | 320 LOC | 117 LOC | -203 LOC |
+| `SystemsTab.ts` | 318 LOC | 116 LOC | -202 LOC |
+| `BaseEntityTab.ts` (new) | — | 370 LOC | +370 LOC |
+| **Total** | **1266 LOC** | **828 LOC** | **-438 LOC** |
 
-### Approximate duplication
+### Design decisions
 
-~800 LOC across 4 files that differ only in labels, icons, and detail rendering.
+- **Composition via config**, not inheritance overrides — all tab-specific behavior injected via `EntityTabConfig<T>`
+- **SystemsTab special handling**: `filterIncludesEvents: false`, custom `renderDirectEventsSection()` for `EventCatalogEntry[]` (vs string-based resolution in other tabs), `buildCriteria` omits events
+- **Backward-compatible accessors** preserved on thin subclasses (e.g., `getSelectedFlow()`, `setSelectedSystem()`) for orchestrator compatibility
 
-## Suggested Remediation
+## Previously Affected Files
 
-1. Create `BaseEntityEntry` interface (shared shape)
-2. Create `BaseEntityTab<T extends BaseEntityEntry>` abstract class with shared lifecycle
-3. Create generic `findRelated<T extends BaseEntityEntry>()` function replacing 4 copies
-4. Subclasses only implement `renderDetailContent(entry: T)` and provide entity-type configuration
-
-## Affected Files
-
-- `src/ui/catalog/FlowsTab.ts` (~312 LOC)
-- `src/ui/catalog/ActorsTab.ts` (~312 LOC)
-- `src/ui/catalog/ProductsTab.ts` (~318 LOC)
-- `src/ui/catalog/SystemsTab.ts` (~316 LOC)
-- `src/ui/catalog/helpers.ts` (findRelated* functions)
-- `src/ui/catalog/types.ts` (FlowEntry, ActorEntry, ProductEntry)
+- `src/ui/catalog/BaseEntityTab.ts` (new)
+- `src/ui/catalog/FlowsTab.ts` (refactored)
+- `src/ui/catalog/ActorsTab.ts` (refactored)
+- `src/ui/catalog/ProductsTab.ts` (refactored)
+- `src/ui/catalog/SystemsTab.ts` (refactored)

@@ -23,6 +23,7 @@ import {
 	getBaseFilename,
 } from "./csv";
 import type { CsvViewState, CsvComponentDeps, CsvPage } from "./csv";
+import { basename } from "../utils/pathUtils";
 
 export const VIEW_TYPE_CSV = "flowti-csv";
 
@@ -631,7 +632,7 @@ export class CsvActionView extends TextFileView {
 			const content = generateBaseYaml(this.state.targetFolder, this.state.columnMappings);
 			await this.eventBus.emit("doc.create", {
 				docType: "CsvDoc" as const,
-				name: path.split("/").pop() ?? path,
+				name: basename(path) || path,
 				path,
 				content,
 				source: "CsvActionView",
