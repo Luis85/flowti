@@ -10,6 +10,7 @@ type: View
 viewType: flowti-export
 extends: ItemView
 source: "[[Development/flowti/src/ui/ExportView.ts|ExportView.ts]]"
+feature: "[[Data Exchange Hub]]"
 ---
 
 # Export View

@@ -10,6 +10,7 @@ type: View
 viewType: flowti-csv
 extends: TextFileView
 source: "[[Development/flowti/src/ui/CsvActionView.ts|CsvActionView.ts]]"
+feature: "[[Data Exchange Hub]]"
 ---
 
 # CSV Action View

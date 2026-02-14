@@ -10,6 +10,7 @@ type: View
 viewType: flowti-event-catalog
 extends: ItemView
 source: "[[Development/flowti/src/ui/EventCatalogView.ts|EventCatalogView.ts]]"
+feature: "[[Event Catalog]]"
 ---
 
 # Event Catalog View

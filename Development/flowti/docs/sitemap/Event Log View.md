@@ -10,6 +10,7 @@ type: View
 viewType: flowti-event-log
 extends: ItemView
 source: "[[Development/flowti/src/ui/EventLogView.ts|EventLogView.ts]]"
+feature: "[[Event System]]"
 ---
 
 # Event Log View

@@ -10,6 +10,7 @@ type: View
 viewType: flowti-component-showcase
 extends: ItemView
 source: "[[Development/flowti/src/ui/ComponentShowcaseView.ts|ComponentShowcaseView.ts]]"
+feature: "[[Documentation]]"
 ---
 
 # Component Showcase View

@@ -1,12 +1,21 @@
 filters:
   and:
     - file.inFolder("Development/flowti/docs/sitemap")
+properties:
+  note.Source:
+    displayName: source
 views:
   - type: table
     name: Views
+    groupBy:
+      property: feature
+      direction: ASC
     order:
       - file.name
       - description
+      - feature
       - Source
     columnSize:
+      file.name: 203
       note.description: 450
+      note.feature: 191
