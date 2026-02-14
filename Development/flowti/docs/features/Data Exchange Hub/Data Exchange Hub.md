@@ -40,6 +40,10 @@ The solution must support the following process:
 
 ### Task Flow
 
+#### Ideas
+
+- Import Canvas files from the file navigator
+
 #### Importing
 
 - in file navigator, right click on the provided CSV inside Obsidian
