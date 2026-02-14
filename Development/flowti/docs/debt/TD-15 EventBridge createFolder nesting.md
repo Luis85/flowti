@@ -2,8 +2,9 @@
 severity: high
 category: bug-risk
 layer: infrastructure
-status: open
+status: resolved
 effort: small
+resolved: 2026-02-14
 description: EventBridge's file.create.request handler only creates one level of parent folders. Deeply nested paths like "a/b/c/d/file.md" fail if intermediate folders do not exist.
 ---
 # TD-15: EventBridge createFolder only handles one level of nesting
@@ -46,3 +47,7 @@ if (createFolders) {
 ## Affected Files
 
 - `src/infrastructure/events/EventBridge.ts`
+
+## Resolution (2026-02-14)
+
+The `file.create.request` handler now respects the `createFolders` flag and checks folder existence before calling `vault.createFolder()`. Obsidian's `vault.createFolder()` handles the full path when given a complete folder path string. The handler extracts the folder path correctly via `path.substring(0, path.lastIndexOf("/"))`.

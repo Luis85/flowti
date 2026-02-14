@@ -2,8 +2,9 @@
 severity: high
 category: memory-leak
 layer: domain
-status: open
+status: resolved
 effort: small
+resolved: 2026-02-14
 description: IngestionService manages a batch timer for flush operations but does not clear it if the service is disposed while a flush is pending. The timer callback will fire against a disposed service.
 ---
 # TD-10: IngestionService batch timer leak on dispose
@@ -29,3 +30,7 @@ The service does not implement `IDisposable` and has no `dispose()` method.
 ## Affected Files
 
 - `src/domain/ingestion/IngestionService.ts`
+
+## Resolution (2026-02-14)
+
+`IngestionService` now implements `IDisposable` with a `dispose()` method (lines 391-400) that clears `batchTimer` via `clearTimeout` and calls all stored unsubscribe functions. Called via `ServiceContainer.disposeAll()` on plugin unload.

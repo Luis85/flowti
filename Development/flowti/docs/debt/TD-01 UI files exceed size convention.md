@@ -1,47 +1,63 @@
 ---
-severity: critical
+severity: high
 category: architecture
 layer: ui
 status: open
 effort: large
-description: Four UI files exceed 1,000 LOC, violating the project convention of 200-300 lines per file. They are monolithic view classes that mix state management, rendering logic, and direct Obsidian API access.
+description: Multiple UI files exceed 500 LOC. The original 4 files exceeding 1,000 LOC have been significantly reduced through Phases 1-8 component extraction, but 10 files still exceed the 500 LOC threshold.
 ---
 # TD-01: UI files exceed size convention
 
-## Problem
+## Original Problem (2026-02-13)
 
-The project convention in `AGENTS.md` states files should not exceed 200-300 lines. Four UI files massively exceed this:
+Four UI files massively exceeded the 200-300 LOC convention:
 
-| File | Lines | Ratio |
-|------|-------|-------|
-| `CsvActionView.ts` | 2,288 | 7.6x |
-| `DataExchangeHubView.ts` | 2,297 | 7.7x |
-| `ExportView.ts` | 1,350 | 4.5x |
-| `EventsTab.ts` | 1,040 | 3.5x |
+| File | Lines (original) | Lines (current) | Reduction |
+|------|-----------------|-----------------|-----------|
+| `CsvActionView.ts` | 2,288 | 747 | -67% |
+| `DataExchangeHubView.ts` | 2,297 | 484 | -79% |
+| `ExportView.ts` | 1,350 | 655 | -51% |
+| `EventsTab.ts` | 1,040 | 655 | -37% |
 
-Additional files in the 600-900 LOC range: `EventCatalogView.ts` (839), `eventDocTemplate.ts` (862), `EventConfigModal.ts` (756), `EventLogView.ts` (603).
+Phases 1-8 component extraction reduced these 4 files from an average of 1,744 LOC to 635 LOC.
+
+## Current State (2026-02-14)
+
+10 files still exceed 500 LOC:
+
+| File | LOC | Notes |
+|------|-----|-------|
+| `EventCatalogView.ts` | 833 | Orchestrator with 13 sub-components |
+| `hub/HubDashboard.ts` | 766 | Dashboard with multiple sections |
+| `CsvActionView.ts` | 747 | Orchestrator with 7 sub-components |
+| `csv/CsvLanding.ts` | 701 | Source file scanning + config matching |
+| `ExportView.ts` | 655 | Orchestrator with 6 sub-components |
+| `catalog/EventsTab.ts` | 655 | Category tree + detail panel rendering |
+| `EventConfigModal.ts` | 628 | 3-page wizard modal |
+| `EventLogView.ts` | 581 | Single-purpose activity log |
+| `catalog/DomainsTab.ts` | 563 | Domain list + detail panel |
+| `hub/ExportsTab.ts` | 544 | Export list + config management |
+
+Additional files at 507-540 LOC: ImportsTab, helpers.ts (catalog), ServicesTab.
 
 ## Impact
 
-- Hard to review and maintain
-- High cognitive load when making changes
-- Encourages further growth because the pattern is established
-- Increases merge conflict surface area
+- Cognitive load when navigating large files
+- Merge conflict surface area
+- Some files mix rendering + state + API access
 
-## Root Cause
+## Remaining Decomposition Opportunities
 
-Views were built incrementally with each feature (pages, forms, previews) added to the existing class rather than decomposed into child components.
+1. **HubDashboard.ts** (766) -- Extract `DashboardStats`, `DashboardPipelines`, `DashboardQuickActions`
+2. **CsvLanding.ts** (701) -- Extract `CsvSourceList`, `CsvBaseScanner`
+3. **EventsTab.ts** (655) -- Extract `CategoryTreeRenderer`
+4. **DomainsTab.ts** (563) -- Extract domain detail panel + actions
 
-## Suggested Remediation
-
-1. **CsvActionView** — Extract into `CsvImportWizard` (orchestrator), `CsvColumnMapper`, `CsvPreviewTable`, `CsvImportConfigForm`.
-2. **DataExchangeHubView** — Extract into `HubDashboard`, `ImportListPage`, `ExportListPage`, `ReportsPage`, `PropertyDictionaryPage`.
-3. **ExportView** — Extract into `ExportConfigForm`, `ExportPreviewTable`, `PropertyGrid`, `ExportResultPage`.
-4. **EventsTab** — Extract `EventDetailPanel` from the tab, move category tree rendering into `EventCategoryTree`.
+Note: Orchestrator files (`EventCatalogView`, `CsvActionView`, `ExportView`) are expected to be larger since they coordinate sub-components. The 500-800 LOC range is acceptable for orchestrators.
 
 ## Affected Files
 
-- `src/ui/CsvActionView.ts`
-- `src/ui/DataExchangeHubView.ts`
-- `src/ui/ExportView.ts`
+- `src/ui/hub/HubDashboard.ts`
+- `src/ui/csv/CsvLanding.ts`
 - `src/ui/catalog/EventsTab.ts`
+- `src/ui/catalog/DomainsTab.ts`

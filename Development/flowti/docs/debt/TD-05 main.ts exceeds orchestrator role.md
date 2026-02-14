@@ -2,8 +2,9 @@
 severity: critical
 category: architecture
 layer: infrastructure
-status: open
+status: resolved
 effort: large
+resolved: 2026-02-14
 description: main.ts has grown to 956 lines and contains view registrations, command definitions, context menu wiring, and Data Exchange callbacks that belong in dedicated registries or services.
 ---
 # TD-05: main.ts exceeds orchestrator role
@@ -42,3 +43,7 @@ At 956 lines, `main.ts` now contains:
 - `src/main.ts`
 - `src/infrastructure/views/registry.ts`
 - `src/infrastructure/commands/registry.ts`
+
+## Resolution (2026-02-14)
+
+Phase 7 extracted `dataExchangeSetup.ts` (368 LOC) from main.ts, moving all Data Exchange view registrations, commands, file-menu items, and callback wiring into a dedicated setup module. `main.ts` is now 482 LOC -- within acceptable range for a plugin orchestrator that manages 11 service loads and the bootstrap sequence.

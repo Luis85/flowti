@@ -2,8 +2,9 @@
 severity: high
 category: memory-leak
 layer: domain
-status: open
+status: resolved
 effort: small
+resolved: 2026-02-14
 description: SettingsService registers event listeners in its constructor/initialize but does not store unsubscribe handles and has no dispose() method. Listeners persist for the plugin lifetime and accumulate on hot-reload.
 ---
 # TD-14: SettingsService event listeners leak
@@ -33,3 +34,7 @@ The return value (unsubscribe function) is discarded. The service has no `dispos
 ## Affected Files
 
 - `src/domain/settings/SettingsService.ts`
+
+## Resolution (2026-02-14)
+
+`SettingsService` now stores unsubscribe functions from all `eventBus.on()` calls and implements `IDisposable` with a `dispose()` method that calls all unsubscribers. Part of the broader TD-02 resolution.

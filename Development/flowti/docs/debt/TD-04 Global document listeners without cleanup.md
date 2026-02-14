@@ -2,8 +2,9 @@
 severity: critical
 category: memory-leak
 layer: ui
-status: open
+status: resolved
 effort: small
+resolved: 2026-02-14
 description: ExportView and CsvActionView attach global document click listeners for dropdown menus using setTimeout without storing cleanup references. If the component unmounts before the handler fires, the listener persists permanently.
 ---
 # TD-04: Global document listeners without cleanup
@@ -34,3 +35,7 @@ The `closeHandler` removes itself when it fires, but if the view is closed befor
 
 - `src/ui/ExportView.ts` (line ~424)
 - `src/ui/CsvActionView.ts` (line ~392)
+
+## Resolution (2026-02-14)
+
+After Phase 1-8 component extraction, only 1 instance of `document.addEventListener` remains in the entire `src/ui/` tree, located in `src/ui/hub/helpers.ts:237`. It is properly paired with a `document.removeEventListener` call in both the handler itself and a cleanup path. The original ExportView and CsvActionView patterns were removed during component extraction.

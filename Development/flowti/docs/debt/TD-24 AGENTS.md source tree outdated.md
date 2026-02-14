@@ -2,8 +2,9 @@
 severity: low
 category: documentation
 layer: cross-cutting
-status: open
+status: resolved
 effort: small
+resolved: 2026-02-13
 description: The source tree diagram in AGENTS.md reflects the pre-February 2026 structure. It is missing 8 domain modules (installer, eventDefinition, eventFilter, eventNotify, subscription, discovery, ingestion, dataExchange), the catalog UI, and several infrastructure files.
 ---
 # TD-24: AGENTS.md source tree is outdated
@@ -27,3 +28,7 @@ The test structure section also lists only 11 test files and 172 tests, while th
 ## Affected Files
 
 - `AGENTS.md`
+
+## Resolution (2026-02-13)
+
+AGENTS.md was comprehensively updated to reflect the current codebase: 11 domain modules, 141 source files, 41 test files, 811 tests. Source tree, test counts, and extension guide examples all updated.

@@ -2,8 +2,9 @@
 severity: critical
 category: memory-leak
 layer: domain
-status: open
+status: resolved
 effort: medium
+resolved: 2026-02-14
 description: Most domain services register EventBus listeners during initialize() but lack a dispose() method. References accumulate across hot-reloads during development and are only cleared implicitly by EventBus.clear() on plugin unload.
 ---
 # TD-02: Missing dispose() on domain services
@@ -44,3 +45,11 @@ The `ServiceContainer.disposeAll()` calls `dispose()` on services implementing `
 - `src/domain/subscription/SubscriptionService.ts`
 - `src/domain/discovery/DiscoveryService.ts`
 - `src/domain/ingestion/IngestionService.ts`
+
+## Resolution (2026-02-14)
+
+9 of 11 domain services now implement `IDisposable` with proper `dispose()` methods that clear timers and call stored unsubscribe functions: SettingsService, EventDefinitionService, EventFilterService, EventNotificationService, SubscriptionService, DiscoveryService, IngestionService, DocService, DataExchangeService.
+
+The remaining 5 services (UserService, InstallerService, ImportService, ExportService, ConfigDocService) are stateless -- they register no event listeners and hold no timers, so `dispose()` is unnecessary.
+
+`ServiceContainer.disposeAll()` iterates all registered services and calls `dispose()` on those implementing `IDisposable`. Called from `main.ts onunload()`.
