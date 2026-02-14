@@ -16,22 +16,16 @@ export default defineConfig({
     reporters: [
       "default",
       [
-        "html",
-        {
-          outputFile: "docs/tests/index.html",
-        },
-      ],
-      [
         "json",
         {
-          outputFile: "docs/tests/index.json",
+          outputFile: "docs/tests/testreport.json",
         },
       ],
     ],
     coverage: {
       provider: "v8",
-      reportsDirectory: "docs/tests/coverage",
-      reporter: ["text", "html", "json"],
+      reportsDirectory: "docs/tests/",
+      reporter: ["text", "json"],
       exclude: ["tests/**", "src/modals/**"],
     },
   },

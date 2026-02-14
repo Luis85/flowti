@@ -10,10 +10,10 @@ plugin: "[[Development/flowti/README|README]]"
 
 This document describes **what** is tested — use cases, scenarios, and coverage strategy — independent of the evolving test count. It serves as the index for the full test plan.
 
-Vitest generates test and coverage reports. You find them as json file in `docs/tests`.
+Vitest generates test and coverage reports. You find them as JSON file in `docs/tests`.
 
-- `docs/tests/index.json` for the test report
-- `docs/tests/coverage/coverage-final.json` for coverage
+- `docs/tests/testreport.json` for the test report
+- `docs/tests/coverage-final.json` for coverage
 
 Every `npm run build` will also update the reports.
 

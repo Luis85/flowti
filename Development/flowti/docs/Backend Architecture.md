@@ -6,7 +6,7 @@ tags:
   - backend
 ---
 
-# Flowti IBDE — Service Design Blueprint
+# Flowti IBDE - Service Design Blueprint
 
 > Comprehensive reference for every service, event, and lifecycle hook in the plugin.
 > For the high-level architecture see the [[Development/flowti/README|README]] (Arc42).
@@ -22,7 +22,7 @@ The Flowti IBDE plugin is built on an **event-driven, dependency-injected** serv
 | Layer | Purpose | Services |
 |-------|---------|----------|
 | **Infrastructure** | Generic plumbing, platform abstraction | EventBus, EventBridge, FileSystemClient, LoggerService, ErrorService, ServiceContainer, CommandRegistry, ViewRegistry |
-| **Domain** | Business logic, one bounded context per folder | SettingsService, UserService, InstallerService |
+| **Domain** | Business logic, one bounded context per folder | SettingsService, UserService, EventFilterService, EventNotificationService, DocService, DiscoveryService, SubscriptionService, IngestionService, EventDefinitionService, DataExchangeService, InstallerService |
 
 ### Communication Rules
 
@@ -30,6 +30,7 @@ The Flowti IBDE plugin is built on an **event-driven, dependency-injected** serv
 2. The EventBridge is the sole Obsidian API contact point
 3. File operations use the request/response pattern (`file.*.request` → `file.*.response`) correlated by `RequestId`
 4. Domain services are registered in the ServiceContainer with explicit dependency declarations
+5. Documentation file creation is centralized through the DocService via `doc.create` events
 
 ---
 
@@ -87,6 +88,7 @@ The EventBus is the backbone — it does not emit or consume events itself, it r
 | Method | Signature | Description |
 |--------|-----------|-------------|
 | `register` | `(): void` | Register all Obsidian listeners and request handlers |
+| `registerVaultListeners` | `(): void` | Register vault/workspace/metadata listeners (deferred to Phase 6) |
 | `dispose` | `(): void` | Clean up all EventBus subscriptions |
 
 #### Constructor (`EventBridgeOptions`)
@@ -120,6 +122,10 @@ The EventBus is the backbone — it does not emit or consume events itself, it r
 
 **Vault notifications** (forwarded from Obsidian): `file.created`, `file.modified`, `file.deleted`, `file.renamed`
 
+**Folder notifications** (forwarded from Obsidian): `folder.created`, `folder.deleted`, `folder.renamed`
+
+**Event file notifications**: `event.file.triggered` (fires when a file with `type: "Event"` frontmatter is created/modified/deleted/renamed)
+
 **Workspace notifications**: `workspace.leaf-changed`, `workspace.file-opened`, `workspace.layout-changed`
 
 **Metadata notifications**: `metadata.changed`, `metadata.resolved`
@@ -130,7 +136,7 @@ The EventBus is the backbone — it does not emit or consume events itself, it r
 
 | | |
 |---|---|
-| **ID** | Created ad-hoc in InstallerService factory |
+| **ID** | Created ad-hoc in service factories |
 | **Source** | `src/infrastructure/filesystem/FileSystemClient.ts` |
 | **Interface** | `IFileSystemClient` |
 | **Lifecycle** | Created in service registry factory, no lifecycle hooks |
@@ -343,9 +349,16 @@ Middlewares execute in LIFO order (last registered runs first):
 
 #### Registered Commands
 
-| ID | Name | Description |
-|----|------|-------------|
-| `flowti:open-component-showcase` | Open Component Showcase | Opens the CSS component preview pane |
+| ID | Name | Icon | Description |
+|----|------|------|-------------|
+| `flowti:open-component-showcase` | Open Component Showcase | `palette` | Opens the CSS component preview pane |
+| `flowti:open-event-catalog` | Open Event Catalog | `list` | Opens the main event catalog view |
+| `flowti:open-event-log` | Open Event Log | `activity` | Opens the real-time event log |
+| `flowti:manage-subscriptions` | Manage Watchers | `bell` | Opens the subscription manager modal |
+| `flowti:import-csv` | Import CSV as Notes | `file-input` | Opens the CSV import wizard |
+| `flowti:export-data` | Export as CSV | `file-output` | Opens the data export wizard |
+
+> Commands 1–4 are registered via `CommandRegistry` in Phase 3. Commands 5–6 are added by `DataExchangeSetup` in Phase 6.
 
 #### Command Context
 
@@ -394,9 +407,28 @@ CommandContext {
 
 #### Registered Views
 
-| Type | Display Name | Icon |
-|------|-------------|------|
-| `flowti-component-showcase` | Flowti Components | `palette` |
+| Type | Display Name | Icon | Source |
+|------|-------------|------|--------|
+| `flowti-component-showcase` | Flowti Components | `palette` | `ViewRegistry` (Phase 3) |
+| `flowti-event-catalog` | Event Catalog | `list` | `ViewRegistry` (Phase 3) |
+| `flowti-event-log` | Activity Log | `activity` | `ViewRegistry` (Phase 3) |
+| `flowti-data-exchange-hub` | Data Exchange Hub | `database` | `DataExchangeSetup` (Phase 6) |
+| `flowti-csv-action` | CSV Action | `file-spreadsheet` | `DataExchangeSetup` (Phase 6) |
+| `flowti-export` | Export | `file-output` | `DataExchangeSetup` (Phase 6) |
+
+#### ViewStateProvider
+
+Views opened mid-session receive live state through this interface:
+
+```typescript
+ViewStateProvider {
+  getSettings: () => FlowtiSettings;
+  getExcludedTypes: () => string[];
+  getNotifiedTypes: () => string[];
+  getDiscoveredEvents: () => DiscoveredEvent[];
+  collapsedCategories: Set<string>;  // shared reference, survives view close/reopen
+}
+```
 
 ---
 
@@ -410,8 +442,8 @@ CommandContext {
 | **Source** | `src/domain/settings/SettingsService.ts` |
 | **Interface** | `ISettingsService` |
 | **Dependencies** | None |
-| **Lifecycle** | Phase 4 (initializeAll) |
-| **Storage Key** | Top-level keys (e.g., `debugMode`) |
+| **Lifecycle** | Phase 4 (initializeAll), `load()` called first in Phase 6 |
+| **Storage Key** | Top-level keys (e.g., `debugMode`, `docsRootPath`) |
 
 #### Interface
 
@@ -429,6 +461,16 @@ CommandContext {
 | `storage` | `IStorageProvider` | Yes |
 | `eventBus` | `IEventBus` | No |
 
+#### Events Consumed
+
+| Event | Action |
+|-------|--------|
+| `settings.updateCatalogCategories` | Persists category visibility |
+| `settings.updateCollapsedCategories` | Persists collapsed state |
+| `settings.updateShowSystemEvents` | Persists system event toggle |
+| `settings.updateCatalogDomains` | Persists domain visibility |
+| `settings.updateCatalogServices` | Persists service visibility |
+
 #### Events Emitted
 
 | Event | Payload | When |
@@ -440,7 +482,19 @@ CommandContext {
 
 ```typescript
 FlowtiSettings {
-  debugMode: boolean;  // default: false
+  debugMode: boolean;
+  docsRootPath: string;
+  showSystemEvents: boolean;
+  catalogCategories: CatalogCategoryConfig[];
+  collapsedCategories: string[];
+  catalogDomains: CatalogCategoryConfig[];
+  catalogServices: CatalogCategoryConfig[];
+  entityPaths: Record<string, string>;
+  ingestionConcurrency: number;
+  ingestionBatchWindowMs: number;
+  ingestionMaxRetries: number;
+  ingestionWatchEventTypes: string[];
+  watchFolders: string[];
 }
 ```
 
@@ -497,6 +551,583 @@ FlowtiUser {
   createdAt: string;  // ISO 8601 timestamp
 }
 ```
+
+---
+
+### EventFilterService
+
+| | |
+|---|---|
+| **ID** | `"eventFilterService"` |
+| **Source** | `src/domain/eventFilter/EventFilterService.ts` |
+| **Dependencies** | None |
+| **Lifecycle** | Phase 4 (initializeAll), `load()` called in Phase 6 |
+| **Storage Key** | `eventFilter` |
+
+#### Interface
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `load` | `(): Promise<void>` | Load filter state from storage |
+| `isExcluded` | `(eventType: string): boolean` | Check if event type is excluded |
+| `getExcludedTypes` | `(): string[]` | Get all excluded event types |
+| `dispose` | `(): void` | Unsubscribe event listeners |
+
+#### Constructor (`EventFilterServiceOptions`)
+
+| Option | Type | Required |
+|--------|------|----------|
+| `storage` | `IStorageProvider` | Yes |
+| `eventBus` | `IEventBus` | No |
+
+#### Events Consumed
+
+| Event | Action |
+|-------|--------|
+| `eventFilter.toggle` | Toggle single event type exclusion |
+| `eventFilter.toggleCategory` | Toggle all events in a category |
+
+#### Events Emitted
+
+| Event | Payload | When |
+|-------|---------|------|
+| `eventFilter.loaded` | `{ excludedTypes: string[] }` | After `load()` |
+| `eventFilter.changed` | `{ excludedTypes: string[] }` | When exclusion list changes |
+
+#### Data Model
+
+```typescript
+EventFilterState { excludedTypes: string[] }
+```
+
+---
+
+### EventNotificationService
+
+| | |
+|---|---|
+| **ID** | `"eventNotifyService"` |
+| **Source** | `src/domain/eventNotify/EventNotificationService.ts` |
+| **Dependencies** | None |
+| **Lifecycle** | Phase 4 (initializeAll), `load()` called in Phase 6 |
+| **Storage Key** | `eventNotify` |
+
+#### Interface
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `load` | `(): Promise<void>` | Load notification state from storage |
+| `isNotified` | `(eventType: string): boolean` | Check if event type has notifications enabled |
+| `getNotifiedTypes` | `(): string[]` | Get all notified event types |
+| `dispose` | `(): void` | Unsubscribe event listeners |
+
+#### Constructor (`EventNotificationServiceOptions`)
+
+| Option | Type | Required |
+|--------|------|----------|
+| `storage` | `IStorageProvider` | Yes |
+| `eventBus` | `IEventBus` | No |
+
+#### Events Consumed
+
+| Event | Action |
+|-------|--------|
+| `eventNotify.toggle` | Toggle single event type notification |
+| `*` (wildcard) | Monitors all events; fires notification when notified event occurs (skips `log.*`, `eventNotify.*`) |
+
+#### Events Emitted
+
+| Event | Payload | When |
+|-------|---------|------|
+| `eventNotify.loaded` | `{ notifiedTypes: string[] }` | After `load()` |
+| `eventNotify.changed` | `{ notifiedTypes: string[] }` | When notification list changes |
+| `eventNotify.fired` | `{ eventType, timestamp }` | When a notified event fires |
+
+#### Data Model
+
+```typescript
+EventNotifyState { notifiedTypes: string[] }
+```
+
+---
+
+### DocService
+
+| | |
+|---|---|
+| **ID** | `"docService"` |
+| **Source** | `src/domain/docs/DocService.ts` |
+| **Dependencies** | None |
+| **Lifecycle** | Phase 4 (initializeAll) |
+| **Storage Key** | None (reads `docsRootPath` from settings events) |
+
+#### Interface
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `getDocsRootPath` | `(): string` | Get current docs root path |
+| `dispose` | `(): void` | Unsubscribe event listeners |
+
+#### Constructor (`DocServiceOptions`)
+
+| Option | Type | Required |
+|--------|------|----------|
+| `eventBus` | `IEventBus` | Yes |
+| `fileSystem` | `IFileSystemClient` | Yes |
+
+#### Events Consumed
+
+| Event | Action |
+|-------|--------|
+| `doc.create` | Creates documentation file (path resolution + content generation) |
+| `doc.delete` | Deletes documentation file |
+| `settings.loaded` | Syncs `docsRootPath` and `entityPaths` |
+| `settings.changed` | Syncs `docsRootPath` and `entityPaths` |
+
+#### Events Emitted
+
+| Event | Payload | When |
+|-------|---------|------|
+| `doc.created` | `{ path, created, updated?, docType, name, source? }` | After file creation/update |
+| `doc.exists` | `{ path, docType, name, source? }` | File already exists (non-upsert) |
+| `doc.failed` | `{ docType, name, error, source? }` | On error |
+| `doc.deleted` | `{ path, source? }` | After file deletion |
+
+#### Data Model
+
+```typescript
+DocType =
+  | "EventDoc" | "DomainDoc" | "ArchitectureDoc" | "ServiceDoc"
+  | "ServiceBlueprintDoc" | "CategoryDoc" | "FlowDoc" | "SystemDoc"
+  | "ActorDoc" | "ProductDoc" | "AreaDoc"
+  | "CsvDoc" | "PropertyDoc" | "ImportConfigDoc" | "ExportConfigDoc"
+  | "PipelineConfigDoc" | "TypeDoc";
+
+DocCreateRequest {
+  docType: DocType;
+  name: string;
+  content?: string;       // bypasses content generator
+  path?: string;          // bypasses path resolver
+  entityType?: string;    // for path resolution
+  upsert?: boolean;       // update if exists (default: false)
+  source?: string;        // tracing label
+}
+```
+
+#### Architecture Rule
+
+All documentation file creation MUST go through `doc.create` events. Services and UI components must NOT call `fileSystemClient.createFile()` directly for documentation files. This centralizes path resolution, content generation, and existence checking.
+
+---
+
+### DiscoveryService
+
+| | |
+|---|---|
+| **ID** | `"discoveryService"` |
+| **Source** | `src/domain/discovery/DiscoveryService.ts` |
+| **Dependencies** | None |
+| **Lifecycle** | Phase 4 (initializeAll), `load()` called in Phase 6 |
+| **Storage Key** | `discovery` |
+
+#### Interface
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `load` | `(): Promise<void>` | Load discovered events from storage |
+| `getDiscoveredEvents` | `(): DiscoveredEvent[]` | Get all discovered events |
+| `dispose` | `(): void` | Unsubscribe event listeners |
+
+#### Constructor (`DiscoveryServiceOptions`)
+
+| Option | Type | Required |
+|--------|------|----------|
+| `storage` | `IStorageProvider` | Yes |
+| `eventBus` | `IEventBus` | No |
+
+#### Events Consumed
+
+| Event | Action |
+|-------|--------|
+| `event.file.triggered` | Discovers/updates event from vault file with `type: "Event"` frontmatter |
+| `discovery.create` | Manually creates a custom event; optionally emits `doc.create` for EventDoc |
+| `discovery.remove` | Removes a discovered event by name |
+
+#### Events Emitted
+
+| Event | Payload | When |
+|-------|---------|------|
+| `discovery.loaded` | `{ discoveredEvents: DiscoveredEvent[] }` | After `load()` |
+| `discovery.updated` | `{ event: DiscoveredEvent, isNew }` | When event is discovered or updated |
+| `discovery.removed` | `{ eventName }` | After event removal |
+| `doc.create` | `DocCreateRequest` | When `discovery.create` includes `docMeta` |
+
+#### Data Model
+
+```typescript
+DiscoveredEvent {
+  eventName: string;
+  sourcePath: string;
+  firstSeenAt: string;    // ISO 8601
+  lastSeenAt: string;     // ISO 8601
+  triggerCount: number;
+  category?: string;
+}
+
+DiscoveryState { events: Record<string, DiscoveredEvent> }
+```
+
+---
+
+### SubscriptionService
+
+| | |
+|---|---|
+| **ID** | `"subscriptionService"` |
+| **Source** | `src/domain/subscription/SubscriptionService.ts` |
+| **Dependencies** | None |
+| **Lifecycle** | Phase 4 (initializeAll), `load()` called in Phase 6 |
+| **Storage Key** | `subscription` |
+
+#### Interface
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `load` | `(): Promise<void>` | Load subscriptions from storage |
+| `getSubscriptions` | `(): Subscription[]` | Get all subscriptions |
+| `getSubscription` | `(id: string): Subscription \| undefined` | Get by ID |
+| `dispose` | `(): void` | Unsubscribe event listeners |
+
+#### Constructor (`SubscriptionServiceOptions`)
+
+| Option | Type | Required |
+|--------|------|----------|
+| `storage` | `IStorageProvider` | Yes |
+| `eventBus` | `IEventBus` | No |
+
+#### Events Consumed
+
+| Event | Action |
+|-------|--------|
+| `settings.changed` / `settings.loaded` | Updates internal `enabled` flag |
+| `subscription.create` | Creates a new subscription |
+| `subscription.update` | Updates an existing subscription |
+| `subscription.remove` | Deletes a subscription |
+| `subscription.refresh` | Re-emits current state as `subscription.loaded` |
+| `*` (wildcard) | Matches events against enabled subscriptions (skips `log.*`, `subscription.*`, `settings.*`) |
+
+#### Events Emitted
+
+| Event | Payload | When |
+|-------|---------|------|
+| `subscription.loaded` | `{ subscriptions: Subscription[] }` | After `load()` or `refresh` |
+| `subscription.created` | `{ subscription: Subscription }` | After creation |
+| `subscription.updated` | `{ subscription: Subscription }` | After update |
+| `subscription.deleted` | `{ subscriptionId }` | After deletion |
+| `subscription.matched` | `{ eventType, subscriptionId, subscriptionLabel?, timestamp }` | When event matches a subscription |
+
+#### Data Model
+
+```typescript
+Subscription {
+  id: string;
+  eventType: string;
+  label?: string;
+  filters: SubscriptionFilter;
+  enabled: boolean;
+  createdAt: string;      // ISO 8601
+}
+
+SubscriptionFilter {
+  pathPattern?: string;   // glob pattern
+  extension?: string;     // file extension filter
+  namePattern?: string;   // name glob filter
+}
+// All filter fields use AND logic
+```
+
+---
+
+### IngestionService
+
+| | |
+|---|---|
+| **ID** | `"ingestionService"` |
+| **Source** | `src/domain/ingestion/IngestionService.ts` |
+| **Dependencies** | None |
+| **Lifecycle** | Phase 4 (initializeAll), `load()` called in Phase 6 |
+| **Storage Key** | `ingestion` |
+
+#### Interface
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `load` | `(): Promise<void>` | Load idempotency ledger; recover pending jobs |
+| `getStats` | `(): IngestionStats` | Current queue statistics |
+| `generateEventKey` | `(eventType: string, path?: string): string` | Deterministic dedup key |
+| `isProcessed` | `(key: string): boolean` | Check if key is in ledger |
+| `runCatchUp` | `(folders: string[], listFiles: Callback): Promise<void>` | Scan folders, enqueue new files |
+| `dispose` | `(): void` | Clear timers and unsubscribe |
+
+#### Constructor (`IngestionServiceOptions`)
+
+| Option | Type | Required |
+|--------|------|----------|
+| `storage` | `IStorageProvider` | Yes |
+| `eventBus` | `IEventBus` | No |
+| `config` | `Partial<IngestionConfig>` | No |
+
+#### Events Consumed
+
+| Event | Action |
+|-------|--------|
+| `settings.changed` / `settings.loaded` | Updates internal `enabled` flag |
+| `*` (wildcard) | Monitors watched event types; enqueues matching events into time-windowed batch (skips `log.*`, `ingestion.*`, `settings.*`) |
+
+#### Events Emitted
+
+| Event | Payload | When |
+|-------|---------|------|
+| `ingestion.job.queued` | `{ jobId, eventType }` | Job added to queue |
+| `ingestion.job.started` | `{ jobId, eventType }` | Job processing starts |
+| `ingestion.job.completed` | `{ jobId, eventType, payload? }` | Job succeeded |
+| `ingestion.job.failed` | `{ jobId, eventType, error, retryCount, willRetry }` | Job failed |
+| `ingestion.batch.started` | `{ jobCount }` | Batch begins |
+| `ingestion.batch.completed` | `{ processedCount, failedCount }` | Batch finishes |
+| `ingestion.stats` | `{ stats: IngestionStats }` | Stats update |
+| `ingestion.recovery.completed` | `{ recoveredCount }` | After crash recovery |
+| `catchup.started` | `{ folderCount }` | Catch-up scan starts |
+| `catchup.file.found` | `{ path }` | File found during catch-up |
+| `catchup.completed` | `{ scannedCount, newCount }` | Catch-up finishes |
+
+#### Data Model
+
+```typescript
+IngestionConfig {
+  concurrency: number;        // default: 3
+  batchWindowMs: number;      // default: 500
+  maxRetries: number;         // default: 3
+  baseRetryDelayMs: number;   // default: 1000
+  watchEventTypes: string[];
+}
+
+IngestionStats { processedCount, failedCount, queuedCount, activeCount }
+
+IngestionPersistentState {
+  processedKeys: string[];    // idempotency ledger
+  pendingJobs?: IngestionJob[];
+}
+```
+
+- **Idempotency**: deterministic keys via `"eventType::path"`, stored in `processedKeys: Set<string>`
+- **Ledger eviction**: MAX_LEDGER_SIZE = 10,000; oldest-first eviction when exceeded
+- **Retry**: exponential backoff with `baseRetryDelayMs * 2^retryCount`
+- **JobQueue**: generic concurrent queue with configurable concurrency, error swallowing
+
+---
+
+### EventDefinitionService
+
+| | |
+|---|---|
+| **ID** | `"eventDefinitionService"` |
+| **Source** | `src/domain/eventDefinition/EventDefinitionService.ts` |
+| **Dependencies** | None |
+| **Lifecycle** | Phase 4 (initializeAll), `load()` called in Phase 6 |
+| **Storage Key** | `eventDefinition` |
+
+#### Interface
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `load` | `(): Promise<void>` | Load definitions from storage |
+| `getDefinitions` | `(): EventDefinition[]` | Get all definitions |
+| `getDefinition` | `(id: string): EventDefinition \| undefined` | Get by ID |
+| `dispose` | `(): void` | Unsubscribe event listeners |
+
+#### Constructor (`EventDefinitionServiceOptions`)
+
+| Option | Type | Required |
+|--------|------|----------|
+| `storage` | `IStorageProvider` | Yes |
+| `eventBus` | `IEventBus` | No |
+
+#### Events Consumed
+
+| Event | Action |
+|-------|--------|
+| `settings.changed` / `settings.loaded` | Updates internal `enabled` flag |
+| `eventDefinition.create` | Creates a new definition |
+| `eventDefinition.update` | Updates an existing definition |
+| `eventDefinition.remove` | Deletes a definition |
+| `eventDefinition.refresh` | Re-emits current state as `eventDefinition.loaded` |
+| `ingestion.job.completed` | Matches against definitions; emits domain events via `emitCustom()` |
+
+#### Events Emitted
+
+| Event | Payload | When |
+|-------|---------|------|
+| `eventDefinition.loaded` | `{ definitions: EventDefinition[] }` | After `load()` or `refresh` |
+| `eventDefinition.created` | `{ definition: EventDefinition }` | After creation |
+| `eventDefinition.updated` | `{ definition: EventDefinition }` | After update |
+| `eventDefinition.deleted` | `{ definitionId }` | After deletion |
+| `eventDefinition.matched` | `{ definitionId, domainEventName, sourcePath }` | When definition matches |
+| *(custom)* | Extracted payload | Domain event emitted via `emitCustom()` |
+
+#### Data Model
+
+```typescript
+EventDefinition {
+  id: string;
+  sourceEventType: string;
+  filePattern?: string;
+  domainEventName: string;
+  payloadMappings: PayloadMapping[];
+  emissionPolicy: EmissionPolicy;
+  enabled: boolean;
+  createdAt: string;
+}
+
+PayloadMapping {
+  field: string;
+  source: "path" | "metadata" | "derived";
+  expression: string;
+}
+
+EmissionPolicy = "once" | "always";
+// "once" deduplicates via emittedKeys (MAX_EMITTED_KEYS = 10,000)
+```
+
+---
+
+### DataExchangeService
+
+| | |
+|---|---|
+| **ID** | `"dataExchangeService"` |
+| **Source** | `src/domain/dataExchange/DataExchangeService.ts` |
+| **Dependencies** | None |
+| **Lifecycle** | Phase 4 (initializeAll), `load()` called in Phase 6 |
+| **Storage Key** | `dataExchange` |
+
+#### Interface (key methods)
+
+**State Management:**
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `load` | `(): Promise<void>` | Load persisted configs |
+| `setListFiles` | `(callback): void` | Inject vault file listing callback |
+| `setWriteExternalFile` | `(callback): void` | Inject external file writer |
+| `setReadExternalFile` | `(callback): void` | Inject external file reader |
+| `setDocsRootPath` | `(path: string): void` | Set docs root for config docs |
+| `getImportService` | `(): ImportService` | Access import sub-service |
+| `getExportService` | `(): ExportService` | Access export sub-service |
+| `dispose` | `(): void` | Unsubscribe + dispose sub-services |
+
+**Import Config CRUD:**
+
+| Method | Signature |
+|--------|-----------|
+| `getSavedImportConfigs` | `(): SavedImportConfig[]` |
+| `getImportConfig` | `(id: string): SavedImportConfig \| undefined` |
+| `saveImportConfig` | `(config): Promise<SavedImportConfig>` |
+| `deleteImportConfig` | `(id: string): Promise<void>` |
+| `updateImportConfig` | `(id, updates): Promise<SavedImportConfig \| undefined>` |
+| `toggleImportFavourite` | `(id: string): Promise<void>` |
+| `getImportConfigsForFile` | `(csvPath: string): SavedImportConfig[]` |
+
+**Export Config CRUD:**
+
+| Method | Signature |
+|--------|-----------|
+| `getSavedExportConfigs` | `(): SavedExportConfig[]` |
+| `getExportConfig` | `(id: string): SavedExportConfig \| undefined` |
+| `saveExportConfig` | `(config): Promise<SavedExportConfig>` |
+| `deleteExportConfig` | `(id: string): Promise<void>` |
+| `updateExportConfig` | `(id, updates): Promise<SavedExportConfig \| undefined>` |
+| `toggleExportFavourite` | `(id: string): Promise<void>` |
+
+**Pipeline CRUD:**
+
+| Method | Signature |
+|--------|-----------|
+| `getSavedPipelines` | `(): SavedMultiImportPipeline[]` |
+| `getPipeline` | `(id: string): SavedMultiImportPipeline \| undefined` |
+| `savePipeline` | `(config): Promise<SavedMultiImportPipeline>` |
+| `deletePipeline` | `(id: string): Promise<void>` |
+| `updatePipeline` | `(id, updates): Promise<SavedMultiImportPipeline \| undefined>` |
+| `togglePipelineFavourite` | `(id: string): Promise<void>` |
+
+**Documentation & Data Dictionary:**
+
+| Method | Signature |
+|--------|-----------|
+| `buildDataDictionary` | `(): DataDictionaryEntry[]` |
+| `createCsvDoc` | `(csvPath, headers, rowCount, delimiter?): Promise<string>` |
+| `ensureConfigDoc` | `(configName, configType): Promise<string>` |
+| `ensurePipelineDoc` | `(pipelineId): Promise<string>` |
+| `createPropertyDoc` | `(propertyName): Promise<string>` |
+| `createOrUpdateTypeDoc` | `(typeName): Promise<void>` |
+
+#### Constructor (`DataExchangeServiceOptions`)
+
+| Option | Type | Required |
+|--------|------|----------|
+| `eventBus` | `IEventBus` | Yes |
+| `fileSystem` | `IFileSystemClient` | Yes |
+| `storage` | `IStorageProvider` | No |
+| `listFiles` | `ListFilesCallback` | No |
+
+#### Sub-Modules
+
+| Module | Source | Responsibility |
+|--------|--------|----------------|
+| `ConfigDocService` | `src/domain/dataExchange/ConfigDocService.ts` | Generates and persists config/property/type documentation |
+| `PipelineExecutor` | `src/domain/dataExchange/PipelineExecutor.ts` | Multi-source import pipeline execution |
+| `ConfigPathTracker` | `src/domain/dataExchange/ConfigPathTracker.ts` | Tracks file/folder renames to update config paths |
+| `DataDictionaryBuilder` | `src/domain/dataExchange/DataDictionaryBuilder.ts` | Builds data dictionary from configs |
+
+#### Events Consumed
+
+| Event | Action |
+|-------|--------|
+| `dataExchange.import.execute` | Executes CSV import pipeline |
+| `dataExchange.export.execute` | Executes export pipeline |
+| `dataExchange.pipeline.execute` | Executes multi-import pipeline |
+| `file.renamed` | Updates config paths for renamed files |
+| `folder.renamed` | Updates config paths for renamed folders |
+
+#### Events Emitted
+
+| Event | Payload | When |
+|-------|---------|------|
+| `dataExchange.import.started` | `{ config, totalRows }` | Import begins |
+| `dataExchange.import.progress` | `{ current, total, lastFilename }` | Each row processed |
+| `dataExchange.import.completed` | `{ result: ImportResult }` | Import succeeds |
+| `dataExchange.import.failed` | `{ error, config }` | Import fails |
+| `dataExchange.export.started` | `{ config }` | Export begins |
+| `dataExchange.export.completed` | `{ result: ExportResult }` | Export succeeds |
+| `dataExchange.export.failed` | `{ error, config }` | Export fails |
+| `dataExchange.pipeline.started` | `{ pipeline, totalSources }` | Pipeline begins |
+| `dataExchange.pipeline.sourceCompleted` | `{ pipelineId, sourceIndex, totalSources, sourceResult }` | Each source done |
+| `dataExchange.pipeline.completed` | `{ result: MultiImportResult }` | Pipeline succeeds |
+| `dataExchange.pipeline.failed` | `{ error, pipelineId }` | Pipeline fails |
+| `dataExchange.config.changed` | `{ importCount, exportCount }` | Config CRUD |
+
+#### Data Model
+
+```typescript
+DataExchangeState {
+  savedImportConfigs: SavedImportConfig[];
+  savedExportConfigs: SavedExportConfig[];
+  savedPipelines?: SavedMultiImportPipeline[];
+  csvDisplaySettings?: Record<string, CsvDisplaySettings>;
+  hiddenCsvPaths?: string[];
+}
+```
+
+See `src/domain/dataExchange/types.ts` for full type definitions of `ImportConfig`, `ExportConfig`, `ImportResult`, `ExportResult`, `MultiImportResult`, etc.
 
 ---
 
@@ -584,7 +1215,7 @@ InstallerContext {
 
 ## Event Catalog
 
-56 events organized by category.
+128 events organized by source. Domain events: 79. Infrastructure events: 49.
 
 ### Plugin Lifecycle (5)
 
@@ -665,6 +1296,20 @@ InstallerContext {
 | `file.deleted` | `{ path, source }` | Obsidian → EventBridge → Services |
 | `file.renamed` | `{ oldPath, newPath, source }` | Obsidian → EventBridge → Services |
 
+### Folder Notifications (3)
+
+| Event | Payload | Direction |
+|-------|---------|-----------|
+| `folder.created` | `{ path, source }` | Obsidian → EventBridge → Services |
+| `folder.deleted` | `{ path, source }` | Obsidian → EventBridge → Services |
+| `folder.renamed` | `{ oldPath, newPath, source }` | Obsidian → EventBridge → Services |
+
+### Event File Notifications (1)
+
+| Event | Payload | Direction |
+|-------|---------|-----------|
+| `event.file.triggered` | `{ eventName, path, action }` | EventBridge → DiscoveryService |
+
 ### Frontmatter — Request (3)
 
 | Event | Payload | Direction |
@@ -696,6 +1341,18 @@ InstallerContext {
 | `metadata.changed` | `{ path, frontmatter? }` | Obsidian → EventBridge → Services |
 | `metadata.resolved` | `{}` | Obsidian → EventBridge → Services |
 
+### Settings Domain (7)
+
+| Event | Payload | Source |
+|-------|---------|--------|
+| `settings.loaded` | `{ settings: FlowtiSettings }` | SettingsService |
+| `settings.changed` | `{ settings: FlowtiSettings }` | SettingsService |
+| `settings.updateCatalogCategories` | `{ categories: CatalogCategoryConfig[] }` | UI → SettingsService |
+| `settings.updateCollapsedCategories` | `{ collapsed: string[] }` | UI → SettingsService |
+| `settings.updateShowSystemEvents` | `{ showSystemEvents: boolean }` | UI → SettingsService |
+| `settings.updateCatalogDomains` | `{ domains: CatalogCategoryConfig[] }` | UI → SettingsService |
+| `settings.updateCatalogServices` | `{ services: CatalogCategoryConfig[] }` | UI → SettingsService |
+
 ### User Domain (3)
 
 | Event | Payload | Source |
@@ -704,12 +1361,108 @@ InstallerContext {
 | `user.updated` | `{ user: FlowtiUser }` | UserService |
 | `user.loaded` | `{ user: FlowtiUser }` | UserService |
 
-### Settings Domain (2)
+### Event Filter Domain (4)
 
 | Event | Payload | Source |
 |-------|---------|--------|
-| `settings.changed` | `{ settings: FlowtiSettings }` | SettingsService |
-| `settings.loaded` | `{ settings: FlowtiSettings }` | SettingsService |
+| `eventFilter.loaded` | `{ excludedTypes: string[] }` | EventFilterService |
+| `eventFilter.changed` | `{ excludedTypes: string[] }` | EventFilterService |
+| `eventFilter.toggle` | `{ eventType }` | UI → EventFilterService |
+| `eventFilter.toggleCategory` | `{ category }` | UI → EventFilterService |
+
+### Event Notification Domain (4)
+
+| Event | Payload | Source |
+|-------|---------|--------|
+| `eventNotify.loaded` | `{ notifiedTypes: string[] }` | EventNotificationService |
+| `eventNotify.changed` | `{ notifiedTypes: string[] }` | EventNotificationService |
+| `eventNotify.toggle` | `{ eventType }` | UI → EventNotificationService |
+| `eventNotify.fired` | `{ eventType, timestamp }` | EventNotificationService |
+
+### Discovery Domain (5)
+
+| Event | Payload | Source |
+|-------|---------|--------|
+| `discovery.loaded` | `{ discoveredEvents: DiscoveredEvent[] }` | DiscoveryService |
+| `discovery.updated` | `{ event: DiscoveredEvent, isNew }` | DiscoveryService |
+| `discovery.create` | `{ eventName, category?, docMeta? }` | UI → DiscoveryService |
+| `discovery.remove` | `{ eventName }` | UI → DiscoveryService |
+| `discovery.removed` | `{ eventName }` | DiscoveryService |
+
+### Subscription Domain (9)
+
+| Event | Payload | Source |
+|-------|---------|--------|
+| `subscription.loaded` | `{ subscriptions: Subscription[] }` | SubscriptionService |
+| `subscription.created` | `{ subscription: Subscription }` | SubscriptionService |
+| `subscription.updated` | `{ subscription: Subscription }` | SubscriptionService |
+| `subscription.deleted` | `{ subscriptionId }` | SubscriptionService |
+| `subscription.create` | `{ eventType, label?, filters }` | UI → SubscriptionService |
+| `subscription.update` | `{ subscriptionId, label?, filters?, enabled? }` | UI → SubscriptionService |
+| `subscription.remove` | `{ subscriptionId }` | UI → SubscriptionService |
+| `subscription.refresh` | `{}` | UI → SubscriptionService |
+| `subscription.matched` | `{ eventType, subscriptionId, subscriptionLabel?, timestamp }` | SubscriptionService |
+
+### Ingestion Domain (11)
+
+| Event | Payload | Source |
+|-------|---------|--------|
+| `ingestion.job.queued` | `{ jobId, eventType }` | IngestionService |
+| `ingestion.job.started` | `{ jobId, eventType }` | IngestionService |
+| `ingestion.job.completed` | `{ jobId, eventType, payload? }` | IngestionService |
+| `ingestion.job.failed` | `{ jobId, eventType, error, retryCount, willRetry }` | IngestionService |
+| `ingestion.batch.started` | `{ jobCount }` | IngestionService |
+| `ingestion.batch.completed` | `{ processedCount, failedCount }` | IngestionService |
+| `ingestion.stats` | `{ stats: IngestionStats }` | IngestionService |
+| `ingestion.recovery.completed` | `{ recoveredCount }` | IngestionService |
+| `catchup.started` | `{ folderCount }` | IngestionService |
+| `catchup.file.found` | `{ path }` | IngestionService |
+| `catchup.completed` | `{ scannedCount, newCount }` | IngestionService |
+
+### Event Definition Domain (9)
+
+| Event | Payload | Source |
+|-------|---------|--------|
+| `eventDefinition.loaded` | `{ definitions: EventDefinition[] }` | EventDefinitionService |
+| `eventDefinition.created` | `{ definition: EventDefinition }` | EventDefinitionService |
+| `eventDefinition.updated` | `{ definition: EventDefinition }` | EventDefinitionService |
+| `eventDefinition.deleted` | `{ definitionId }` | EventDefinitionService |
+| `eventDefinition.create` | `{ sourceEventType, filePattern?, domainEventName, payloadMappings, emissionPolicy }` | UI → EventDefinitionService |
+| `eventDefinition.update` | `{ definitionId, filePattern?, domainEventName?, payloadMappings?, emissionPolicy?, enabled? }` | UI → EventDefinitionService |
+| `eventDefinition.remove` | `{ definitionId }` | UI → EventDefinitionService |
+| `eventDefinition.refresh` | `{}` | UI → EventDefinitionService |
+| `eventDefinition.matched` | `{ definitionId, domainEventName, sourcePath }` | EventDefinitionService |
+
+### Data Exchange Domain (15)
+
+| Event | Payload | Source |
+|-------|---------|--------|
+| `dataExchange.import.execute` | `{ config: ImportConfig }` | UI → DataExchangeService |
+| `dataExchange.import.started` | `{ config, totalRows }` | DataExchangeService |
+| `dataExchange.import.progress` | `{ current, total, lastFilename }` | ImportService |
+| `dataExchange.import.completed` | `{ result: ImportResult }` | DataExchangeService |
+| `dataExchange.import.failed` | `{ error, config }` | DataExchangeService |
+| `dataExchange.export.execute` | `{ config: ExportConfig }` | UI → DataExchangeService |
+| `dataExchange.export.started` | `{ config }` | DataExchangeService |
+| `dataExchange.export.completed` | `{ result: ExportResult }` | DataExchangeService |
+| `dataExchange.export.failed` | `{ error, config }` | DataExchangeService |
+| `dataExchange.pipeline.execute` | `{ pipelineId }` | UI → DataExchangeService |
+| `dataExchange.pipeline.started` | `{ pipeline, totalSources }` | PipelineExecutor |
+| `dataExchange.pipeline.sourceCompleted` | `{ pipelineId, sourceIndex, totalSources, sourceResult }` | PipelineExecutor |
+| `dataExchange.pipeline.completed` | `{ result: MultiImportResult }` | DataExchangeService |
+| `dataExchange.pipeline.failed` | `{ error, pipelineId }` | DataExchangeService |
+| `dataExchange.config.changed` | `{ importCount, exportCount }` | DataExchangeService |
+
+### Documentation Domain (6)
+
+| Event | Payload | Source |
+|-------|---------|--------|
+| `doc.create` | `DocCreateRequest` | UI / DiscoveryService → DocService |
+| `doc.created` | `{ path, created, updated?, docType, name, source? }` | DocService |
+| `doc.exists` | `{ path, docType, name, source? }` | DocService |
+| `doc.failed` | `{ docType, name, error, source? }` | DocService |
+| `doc.delete` | `{ path, source? }` | UI → DocService |
+| `doc.deleted` | `{ path, source? }` | DocService |
 
 ### Installer Domain (6)
 
@@ -747,25 +1500,48 @@ Plugin.onload()
 │  └─ initializeViewRegistry()    → new ViewRegistry({ logger, eventBus })
 │
 ├─ Phase 3: Registration
-│  ├─ registerAllServices()       → settingsService, userService, installerService
-│  ├─ registerAllCommands()       → flowti:open-component-showcase
-│  └─ registerAllViews()          → flowti-component-showcase
+│  ├─ registerAllServices()       → 11 services (see Service Registration Order)
+│  ├─ registerAllCommands()       → 4 core commands
+│  └─ registerAllViews()          → 3 core views
 │
 ├─ Phase 4: Service Initialization
 │  └─ services.initializeAll()    → topological sort:
-│      ├─ 1. SettingsService       (no deps)
-│      ├─ 2. UserService           (no deps)
-│      └─ 3. InstallerService      (depends: userService)
+│      ├─  1. SettingsService       (no deps)
+│      ├─  2. UserService           (no deps)
+│      ├─  3. EventFilterService    (no deps)
+│      ├─  4. EventNotifyService    (no deps)
+│      ├─  5. DocService            (no deps)
+│      ├─  6. DiscoveryService      (no deps)
+│      ├─  7. SubscriptionService   (no deps)
+│      ├─  8. IngestionService      (no deps)
+│      ├─  9. EventDefinitionService(no deps)
+│      ├─ 10. DataExchangeService   (no deps)
+│      └─ 11. InstallerService      (depends: userService)
 │
 ├─ Phase 5: UI Binding
 │  ├─ addSettingTab(FlowtiSettingTab)
-│  ├─ bindViews()                 → registerView() for each
-│  └─ bindCommands()              → addCommand() for each
+│  ├─ bindViews()                 → registerView() for 3 core views
+│  └─ bindCommands()              → addCommand() for 4 core commands
 │
 └─ Phase 6: Post-Load (workspace.onLayoutReady)
+    ├─ settingsService.load()
     ├─ userService.load()
     ├─ installerService.load()
     ├─ InstallerWizardModal.showIfNeeded()
+    ├─ eventFilterService.load()
+    ├─ eventNotifyService.load()
+    ├─ discoveryService.load()
+    ├─ subscriptionService.load()
+    ├─ ingestionService.load()
+    ├─ eventDefinitionService.load()
+    ├─ dataExchangeService.load()
+    ├─ DataExchangeSetup
+    │  ├─ wireCallbacks()         → setDocsRootPath, setListFiles, setWriteExternalFile, setReadExternalFile
+    │  ├─ registerViews()         → 3 data exchange views
+    │  ├─ registerFileMenuItems() → CSV import, base/folder export context menus
+    │  └─ registerCommands()      → 2 data exchange commands
+    ├─ ingestionService.runCatchUp() (if watchFolders configured)
+    ├─ eventBridge.registerVaultListeners()  ← AFTER all loads (avoids file/metadata flood)
     └─ emit("plugin.ready")
 ```
 
@@ -792,21 +1568,74 @@ All persistent data is merged into a single JSON object via Obsidian's `loadData
 {
   // SettingsService (top-level keys)
   debugMode: boolean,
+  docsRootPath: string,
+  showSystemEvents: boolean,
+  catalogCategories: CatalogCategoryConfig[],
+  collapsedCategories: string[],
+  catalogDomains: CatalogCategoryConfig[],
+  catalogServices: CatalogCategoryConfig[],
+  entityPaths: Record<string, string>,
+  ingestionConcurrency: number,
+  ingestionBatchWindowMs: number,
+  ingestionMaxRetries: number,
+  ingestionWatchEventTypes: string[],
+  watchFolders: string[],
 
   // UserService
   user: {
     id: UUID,
     name: string,
-    createdAt: string       // ISO 8601
+    createdAt: string
+  },
+
+  // EventFilterService
+  eventFilter: {
+    excludedTypes: string[]
+  },
+
+  // EventNotificationService
+  eventNotify: {
+    notifiedTypes: string[]
+  },
+
+  // DiscoveryService
+  discovery: {
+    events: Record<string, DiscoveredEvent>
+  },
+
+  // SubscriptionService
+  subscription: {
+    subscriptions: Record<string, Subscription>
+  },
+
+  // IngestionService
+  ingestion: {
+    processedKeys: string[],
+    pendingJobs?: IngestionJob[]
+  },
+
+  // EventDefinitionService
+  eventDefinition: {
+    definitions: Record<string, EventDefinition>,
+    emittedKeys: string[]
+  },
+
+  // DataExchangeService
+  dataExchange: {
+    savedImportConfigs: SavedImportConfig[],
+    savedExportConfigs: SavedExportConfig[],
+    savedPipelines?: SavedMultiImportPipeline[],
+    csvDisplaySettings?: Record<string, CsvDisplaySettings>,
+    hiddenCsvPaths?: string[]
   },
 
   // InstallerService
   installer: {
     installed: boolean,
-    installedAt?: string,   // ISO 8601
+    installedAt?: string,
     completedSteps: {
       [stepId: string]: {
-        completedAt: string // ISO 8601
+        completedAt: string
       }
     }
   }
@@ -840,17 +1669,33 @@ IStorageProvider {
      │ ServiceContainer │
      └─────┬────────────┘
            │
-    ┌──────┼──────────────────┐
-    │      │                  │
-┌───▼──┐ ┌─▼──────┐ ┌────────▼────────┐
-│Sett- │ │ User   │ │   Installer     │
-│ings  │ │Service │ │   Service       │
-│Servi-│ │        │ │                 │
-│ce    │ │        │ │ ┌─────────────┐ │
-│      │ │        │ │ │FileSystem   │ │
-│      │ │        │◄├─│Client       │ │
-│      │ │        │ │ └─────────────┘ │
-└──────┘ └────────┘ └─────────────────┘
+    ┌──────┴──────────────────────────────────────────────────┐
+    │      │        │       │       │        │        │       │
+┌───▼──┐┌──▼───┐┌───▼──┐┌──▼───┐┌──▼────┐┌──▼───┐┌──▼───┐┌──▼────────┐
+│Sett- ││ User ││Event ││Event ││ Doc   ││Disco-││Subs- ││Ingestion  │
+│ings  ││Servi-││Filter││Notify││Servi- ││very  ││crip- ││Service    │
+│Servi-││ce    ││Servi-││Servi-││ce     ││Servi-││tion  ││           │
+│ce    ││      ││ce    ││ce    ││       ││ce    ││Servi-││           │
+└──────┘└──────┘└──────┘└──────┘└──────┘└──────┘│ce    │└───────────┘
+                                                └──────┘
+    ┌───────────┐  ┌────────────────┐
+    │EventDef-  │  │ DataExchange   │
+    │inition    │  │ Service        │
+    │Service    │  │ ┌────────────┐ │
+    │           │  │ │FileSystem  │ │
+    │           │  │ │Client      │ │
+    │           │  │ └────────────┘ │
+    └───────────┘  └────────────────┘
+
+    ┌──────────────────┐
+    │  Installer       │
+    │  Service         │
+    │ ┌──────────────┐ │
+    │ │FileSystem    │ │
+    │ │Client        │ │
+    │ └──────────────┘ │
+    │ depends: User    │
+    └──────────────────┘
 
     ┌──────────────┐   ┌──────────────┐
     │CommandRegistry│   │ ViewRegistry │
@@ -863,7 +1708,15 @@ IStorageProvider {
 |---|------------|-------------|-----------------|
 | 1 | `settingsService` | — | `new SettingsService({ storage, eventBus })` |
 | 2 | `userService` | — | `new UserService({ storage, eventBus })` |
-| 3 | `installerService` | `userService` | `new InstallerService({ storage, eventBus, fileSystem, userService })` + register steps |
+| 3 | `eventFilterService` | — | `new EventFilterService({ storage, eventBus })` |
+| 4 | `eventNotifyService` | — | `new EventNotificationService({ storage, eventBus })` |
+| 5 | `docService` | — | `new DocService({ eventBus, fileSystem })` |
+| 6 | `discoveryService` | — | `new DiscoveryService({ storage, eventBus })` |
+| 7 | `subscriptionService` | — | `new SubscriptionService({ storage, eventBus })` |
+| 8 | `ingestionService` | — | `new IngestionService({ storage, eventBus })` |
+| 9 | `eventDefinitionService` | — | `new EventDefinitionService({ storage, eventBus })` |
+| 10 | `dataExchangeService` | — | `new DataExchangeService({ storage, eventBus, fileSystem })` |
+| 11 | `installerService` | `userService` | `new InstallerService({ storage, eventBus, fileSystem, userService })` + register steps |
 
 ---
 
@@ -880,7 +1733,7 @@ IStorageProvider {
 
 | Interface | Source | Used By |
 |-----------|--------|---------|
-| `IStorageProvider` | `src/utils/types.ts` | SettingsService, UserService, InstallerService |
+| `IStorageProvider` | `src/utils/types.ts` | All persistent services |
 | `IDisposable` | `src/infrastructure/services/types.ts` | Any service with cleanup logic |
 | `FlowtiEvent<T>` | `src/infrastructure/events/types.ts` | All event handlers |
 | `FlowtiErrorInfo` | `src/infrastructure/errors/types.ts` | ErrorService, event payloads |

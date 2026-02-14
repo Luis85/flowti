@@ -10,7 +10,7 @@ tags:
 
 This document describes the current frontend architecture of the Flowti IBDE Obsidian plugin, its design principles, view inventory, and refactoring history with planned next phases.
 
-> Last updated: 2026-02-13
+> Last updated: 2026-02-14
 
 ---
 
@@ -28,13 +28,16 @@ This document describes the current frontend architecture of the Flowti IBDE Obs
 
 6. **Obsidian-native styling** — All UI uses Obsidian's CSS variables for theming (dark/light mode). Custom classes use the `ft-` prefix to avoid collisions.
 
+7. **DocService centralization** — All documentation file creation goes through `doc.create` events handled by the DocService. UI components never call `fileSystemClient.createFile()` directly for docs.
+
 ---
 
 ## Layer Overview
 
 ```
-src/                     # 30,500 LOC across 136 files
-├── main.ts              # Plugin orchestrator (978 LOC)
+src/                     # ~30,855 LOC across 141 files
+├── main.ts              # Plugin orchestrator (482 LOC)
+├── dataExchangeSetup.ts # Data Exchange UI wiring (368 LOC, extracted Phase 7)
 ├── infrastructure/      # Generic plumbing — events, services, commands, views, filesystem, logger, errors
 │   ├── events/          # EventBus, EventBridge, catalog, FlowtiEventMap
 │   ├── services/        # ServiceContainer (DI), registry
@@ -44,7 +47,8 @@ src/                     # 30,500 LOC across 136 files
 │   ├── logger/          # LoggerService (in-memory buffer + events)
 │   └── views/           # ViewRegistry
 ├── domain/              # Business logic (DDD, each owns events.ts)
-│   ├── dataExchange/    # Import/Export orchestration (11 files, 3,553 LOC)
+│   ├── dataExchange/    # Import/Export orchestration (11 files, ~3,600 LOC)
+│   ├── docs/            # DocService + content generators + path resolvers
 │   ├── ingestion/       # Vault file batching + retry pipeline
 │   ├── installer/       # First-run wizard + folder scaffold
 │   ├── settings/        # Settings persistence + migration
@@ -53,13 +57,12 @@ src/                     # 30,500 LOC across 136 files
 │   ├── eventFilter/     # Activity Log visibility toggles
 │   ├── eventNotify/     # Notice popups on event fire
 │   ├── discovery/       # Vault scan for custom events
-│   ├── docs/            # Markdown content generators + path resolvers
 │   └── user/            # User profile management
-├── ui/                  # Presentation layer (57 files, ~17,000 LOC)
-│   ├── catalog/         # Event Catalog components (13 files)
-│   ├── hub/             # Data Exchange Hub components (18 files)
-│   ├── csv/             # CSV import wizard components (7 files)
-│   ├── export/          # Export wizard components (6 files)
+├── ui/                  # Presentation layer (~17,000 LOC)
+│   ├── catalog/         # Event Catalog components (13 files, 4,496 LOC)
+│   ├── hub/             # Data Exchange Hub components (18 files, 4,378 LOC)
+│   ├── csv/             # CSV import wizard components (7 files, 1,693 LOC)
+│   ├── export/          # Export wizard components (7 files, 994 LOC)
 │   └── *.ts             # Orchestrator views + modals
 └── utils/               # Shared helpers (persistence, glob, types)
 ```
@@ -80,21 +83,21 @@ Views read state via `deps.getState()` and write via `deps.setState(partial)`. T
 
 | View | Type Constant | LOC | Layout | Purpose |
 |------|--------------|-----|--------|---------|
-| `EventCatalogView` | `flowti-event-catalog` | ~825 | master-detail | 8-tab catalog: Dashboard, Domains, Services, Events, Flows, Systems, Actors, Products |
-| `DataExchangeHubView` | `flowti-data-exchange-hub` | ~485 | master-detail | 7-page hub: Dashboard, Imports, Exports, Reports, Properties, Pipelines, Types |
-| `EventLogView` | `flowti-event-log` | ~600 | log list | Activity feed with category/type filters and subscribed/all modes |
+| `EventCatalogView` | `flowti-event-catalog` | ~833 | master-detail | 8-tab catalog: Dashboard, Domains, Services, Events, Flows, Systems, Actors, Products |
+| `DataExchangeHubView` | `flowti-data-exchange-hub` | ~484 | master-detail | 7-page hub: Dashboard, Imports, Exports, Reports, Properties, Pipelines, Types |
+| `EventLogView` | `flowti-event-log` | ~581 | log list | Activity feed with category/type filters and subscribed/all modes |
 | `ExportView` | `flowti-export` | ~655 | wizard stepper | 4-page export wizard: View Select, Configure, Preview, Result |
 | `CsvActionView` | `flowti-csv` | ~747 | landing + wizard | CSV file handler: column preview landing page + 4-page inline import wizard |
-| `ComponentShowcaseView` | `flowti-component-showcase` | ~300 | showcase | Development view for previewing all CSS components |
+| `ComponentShowcaseView` | `flowti-component-showcase` | ~297 | showcase | Development view for previewing all CSS components |
 
 ### Modals
 
 | Modal | LOC | Purpose |
 |-------|-----|---------|
-| `EventConfigModal` | ~630 | Per-event config hub (3 pages: overview, subscription form, definition form) |
-| `PipelineSourceModal` | ~470 | Add/edit CSV sources within import pipelines |
+| `EventConfigModal` | ~628 | Per-event config hub (3 pages: overview, subscription form, definition form) |
+| `PipelineSourceModal` | ~468 | Add/edit CSV sources within import pipelines |
 | `InstallerWizardModal` | ~400 | First-run setup wizard (4 pages: Welcome, Review, Progress, Complete) |
-| `SubscriptionManagerModal` | ~190 | Manage all event subscriptions (list + form pages) |
+| `SubscriptionManagerModal` | ~191 | Manage all event subscriptions (list + form pages) |
 | `ConfirmModal` | ~40 | Simple confirmation dialog |
 | `InputModal` | ~60 | Single text input dialog |
 | `CreateEventModal` | ~70 | Event creation with name + category |
@@ -159,18 +162,21 @@ class SomeTab {
 
 Both decomposed views share extracted helper modules to avoid duplication:
 
-**`catalog/helpers.ts`** (~545 LOC):
+**`catalog/helpers.ts`** (~511 LOC):
 - `buildSplitLayout()` — creates the dashboard + master/detail DOM structure used by both orchestrators
-- `createEntityDoc()` — generic entity document creation (used by all 6 catalog tabs)
 - `openOrCreateEventDoc()` — finds existing event doc or creates from template
 - `renderSubscriptionForm()` / `renderSubscriptionRow()` — subscription UI shared between `EventConfigModal` and `SubscriptionManagerModal`
-- Category ordering, entity scanning, cross-reference helpers
+- `readFrontmatter()`, `fmString()`, `fmStringArray()`, `normalizeDocFrontmatter()` — frontmatter parsing + normalization
+- `findRelatedFlows()`, `findRelatedSystems()`, `findRelatedActors()`, `findRelatedProducts()` — cross-reference helpers
+- Category ordering, entity scanning, visibility filtering
+
+> Note: `createEntityDoc()` was removed in Phase 8. All doc creation now goes through `doc.create` events to the DocService.
 
 **`hub/helpers.ts`** (~253 LOC):
 - `renderStepBar()` — generic wizard stepper bar shared between `CsvActionView` and `ExportView`
 - `renderConfigDropdown()` — config save/load dropdown shared between `CsvActionView` and `ExportView`
 - `openEventInCatalog()` — cross-view navigation to Event Catalog
-- `renderDashboardSectionHeader()`, `renderEmptyDetail()`, `renderConfigDropdown()` — common hub UI patterns
+- `renderDashboardSectionHeader()`, `renderEmptyDetail()` — common hub UI patterns
 
 ---
 
@@ -196,14 +202,14 @@ this.eventBus.on("subscription.created", () => {
 
 ### Persistence
 
-7 domain services persist state via shared helpers in `src/utils/persistence.ts`:
+10 domain services persist state via shared helpers in `src/utils/persistence.ts`:
 
 ```typescript
 loadStateFromStorage<T>(storage, key): Promise<T | undefined>
 saveStateToStorage<T>(storage, key, state): Promise<void>
 ```
 
-Each service uses a unique storage key (`"subscriptions"`, `"eventDefinition"`, `"installer"`, etc.) within a shared `IStorageProvider`. The `load()` method must be called in `onLayoutReady()` to prevent the dual-state bug where default state overwrites persisted data.
+Each service uses a unique storage key (`"subscription"`, `"eventDefinition"`, `"installer"`, `"dataExchange"`, `"discovery"`, `"eventFilter"`, `"eventNotify"`, `"ingestion"`, `"eventDefinition"`, `"user"`) within a shared `IStorageProvider`. The `load()` method must be called in `onLayoutReady()` to prevent the dual-state bug where default state overwrites persisted data.
 
 ---
 
@@ -250,6 +256,7 @@ DataExchangeHubView ──→ EventCatalogView     (show event in catalog)
 CsvActionView ────────→ DataExchangeHubView  (via injected callback)
 
 main.ts ──────────────→ All views            (factory registration + callback wiring)
+dataExchangeSetup.ts ─→ Hub, CSV, Export     (view registration + file menu wiring)
 ```
 
 ---
@@ -258,22 +265,31 @@ main.ts ──────────────→ All views            (fact
 
 ### Scale
 
-The `FlowtiEventMap` type union contains **~98 events** across 10 domains:
+The `FlowtiEventMap` type union contains **128 events** across 11 domains:
 
 | Domain | Events | Examples |
 |--------|--------|---------|
 | Plugin Lifecycle | 5 | `plugin.loading`, `plugin.ready`, `plugin.unloaded` |
-| File Operations | 11 | `file.create.request`, `file.created`, `file.modified` |
+| Service Lifecycle | 4 | `service.registered`, `service.initialized` |
+| Commands | 4 | `command.registered`, `command.executed` |
+| Views | 1 | `view.registered` |
+| Logging / Errors | 4 | `log.entry`, `log.error`, `error.occurred`, `error.handled` |
+| File Operations | 17 | `file.create.request`, `file.created`, `file.modified` |
+| Folder Notifications | 3 | `folder.created`, `folder.deleted`, `folder.renamed` |
+| Event File | 1 | `event.file.triggered` |
 | Frontmatter | 6 | `frontmatter.get.request`, `frontmatter.update.response` |
-| Workspace | 3 | `workspace.leaf-changed`, `workspace.file-opened` |
+| Workspace / Metadata | 5 | `workspace.leaf-changed`, `metadata.changed` |
+| Settings | 7 | `settings.loaded`, `settings.changed`, `settings.updateCatalogCategories` |
+| User | 3 | `user.created`, `user.updated`, `user.loaded` |
+| Event Filter | 4 | `eventFilter.loaded`, `eventFilter.toggle` |
+| Event Notification | 4 | `eventNotify.loaded`, `eventNotify.fired` |
+| Discovery | 5 | `discovery.loaded`, `discovery.updated`, `discovery.create` |
+| Subscription | 9 | `subscription.create`, `subscription.loaded`, `subscription.matched` |
+| Ingestion | 11 | `ingestion.job.queued`, `ingestion.job.completed`, `catchup.started` |
+| Event Definition | 9 | `eventDefinition.create`, `eventDefinition.loaded`, `eventDefinition.matched` |
 | Data Exchange | 15 | `dataExchange.import.execute`, `dataExchange.export.completed` |
-| Ingestion | 11 | `ingestion.job.enqueued`, `ingestion.job.completed` |
-| Event Definition | 8 | `eventDefinition.create`, `eventDefinition.loaded` |
-| Subscription | 8 | `subscription.create`, `subscription.loaded` |
-| Settings | 7 | `settings.loaded`, `settings.changed` |
-| Discovery | 5 | `discovery.loaded`, `discovery.updated` |
-| User / Installer | 8 | `user.created`, `installer.step.completed` |
-| Logging / Errors | 4 | `log.entry`, `error.occurred` |
+| Documentation | 6 | `doc.create`, `doc.created`, `doc.exists`, `doc.failed` |
+| Installer | 6 | `installer.started`, `installer.step.completed` |
 
 ### Conventions
 
@@ -296,11 +312,11 @@ The `FlowtiEventMap` type union contains **~98 events** across 10 domains:
 
 ## Domain Service Composition (DataExchangeService)
 
-`DataExchangeService` (578 LOC) uses composition with a façade pattern. Four sub-modules handle distinct responsibilities:
+`DataExchangeService` (578 LOC) uses composition with a facade pattern. Four sub-modules handle distinct responsibilities:
 
 | Sub-module | LOC | Responsibility |
 |------------|-----|----------------|
-| `ConfigDocService` | 913 | Doc generation, path resolution, event doc emission |
+| `ConfigDocService` | 934 | Doc generation, path resolution, event doc emission |
 | `PipelineExecutor` | 223 | Multi-source pipeline execution + .base file creation |
 | `ConfigPathTracker` | 127 | File/folder rename → config path updates |
 | `DataDictionaryBuilder` | 125 | Pure function: aggregate property usage across configs |
@@ -309,23 +325,29 @@ Sub-modules receive dependencies via typed interfaces (`ConfigDocServiceDeps`, `
 
 ---
 
-## File Size Distribution (Feb 2026, post Phase 1-6)
+## File Size Distribution (Feb 2026, post Phase 1-8)
 
-### Files over 600 LOC
+### Files over 500 LOC (17 files)
 
 | LOC | File | Role | Status |
 |-----|------|------|--------|
-| 978 | `main.ts` | Plugin orchestrator | **Candidate for Phase 7** |
-| 913 | `domain/dataExchange/ConfigDocService.ts` | Doc generation + path resolution | Extracted from DataExchangeService (Phase 6) |
-| 825 | `ui/EventCatalogView.ts` | Catalog orchestrator | Delegates to 10 components |
-| 766 | `ui/hub/HubDashboard.ts` | Hub dashboard | **Candidate for Phase 8** |
+| 934 | `domain/dataExchange/ConfigDocService.ts` | Doc generation + path resolution | Extracted from DataExchangeService (Phase 6). **Candidate for Phase 10** |
+| 833 | `ui/EventCatalogView.ts` | Catalog orchestrator | Delegates to 13 components |
+| 766 | `ui/hub/HubDashboard.ts` | Hub dashboard | **Candidate for Phase 9** |
 | 747 | `ui/CsvActionView.ts` | CSV import orchestrator | Delegates to 4 components |
-| 708 | `domain/docs/contentGenerator.ts` | Markdown generators | **Candidate for Phase 9** |
-| 701 | `ui/csv/CsvLanding.ts` | CSV landing page | **Candidate for Phase 8** |
+| 708 | `domain/docs/contentGenerator.ts` | Markdown generators | **Candidate for Phase 10** |
+| 701 | `ui/csv/CsvLanding.ts` | CSV landing page | **Candidate for Phase 9** |
 | 655 | `ui/ExportView.ts` | Export orchestrator | Delegates to 4 components |
-| 649 | `ui/catalog/EventsTab.ts` | Events tab (master list) | Detail extracted to EventDetailPanel |
-| 631 | `ui/EventConfigModal.ts` | Event config modal (3 pages) | **Candidate for Phase 8** |
+| 655 | `ui/catalog/EventsTab.ts` | Events tab (master list) | Detail extracted to EventDetailPanel |
+| 628 | `ui/EventConfigModal.ts` | Event config modal (3 pages) | **Candidate for Phase 9** |
 | 613 | `infrastructure/events/EventBridge.ts` | Obsidian API bridge | Core infrastructure — careful |
+| 581 | `ui/EventLogView.ts` | Activity log orchestrator | Single-purpose view |
+| 578 | `domain/dataExchange/DataExchangeService.ts` | Data Exchange facade | Delegates to 4 sub-modules |
+| 563 | `ui/catalog/DomainsTab.ts` | Domains tab | File + catalog hybrid scanning |
+| 544 | `ui/hub/ExportsTab.ts` | Exports tab | Saved config management |
+| 540 | `ui/hub/ImportsTab.ts` | Imports tab | Saved config management |
+| 511 | `ui/catalog/helpers.ts` | Shared catalog helpers | Cross-cutting utilities |
+| 507 | `ui/catalog/ServicesTab.ts` | Services tab | File + catalog hybrid scanning |
 
 ---
 
@@ -359,7 +381,7 @@ Sub-modules receive dependencies via typed interfaces (`ConfigDocServiceDeps`, `
 - `types.ts` — pipeline component types
 
 ### Phase 4 — EventsTab Detail Extraction
-**EventsTab.ts** (1,040 → 649 LOC): extracted detail panel into `src/ui/catalog/EventDetailPanel.ts`
+**EventsTab.ts** (1,040 → 655 LOC): extracted detail panel into `src/ui/catalog/EventDetailPanel.ts`
 - Header, info card, actions, watchers, transforms, related entities
 - EventsTab retains master list, tree rendering, settings panel
 
@@ -372,47 +394,45 @@ Sub-modules receive dependencies via typed interfaces (`ConfigDocServiceDeps`, `
 
 | File | LOC | Responsibility |
 |------|-----|----------------|
-| `ConfigDocService.ts` | 913 | Doc generation, path resolution, event doc emission |
+| `ConfigDocService.ts` | 934 | Doc generation, path resolution, event doc emission |
 | `PipelineExecutor.ts` | 223 | Multi-source pipeline execution + .base file creation |
 | `ConfigPathTracker.ts` | 127 | File/folder rename → config path updates |
 | `DataDictionaryBuilder.ts` | 125 | Pure function: aggregate property usage across configs |
 
-**Pattern**: Composition with façade — DataExchangeService remains the public API, sub-modules are internal. Zero UI consumer changes, zero test modifications. `ConfigStateAccessor` interface provides read-only state access.
+**Pattern**: Composition with facade — DataExchangeService remains the public API, sub-modules are internal. Zero UI consumer changes, zero test modifications. `ConfigStateAccessor` interface provides read-only state access.
+
+### Phase 7 — main.ts Decomposition
+**main.ts** (978 → 482 LOC, 51% reduction): extracted Data Exchange UI wiring into `src/dataExchangeSetup.ts` (368 LOC).
+
+`DataExchangeSetup` handles:
+- View registration (Hub, CSV, Export — 3 views)
+- Command registration (import-csv, export-data — 2 commands)
+- File menu items (CSV import, base/folder export context menus)
+- Vault callback wiring (setDocsRootPath, setListFiles, setWriteExternalFile, setReadExternalFile)
+
+**main.ts after**: 482 LOC — pure lifecycle orchestration. Instantiates `DataExchangeSetup` in `onLayoutReady()`.
+
+### Phase 8 — DocService Centralization
+Centralized all documentation file creation into `src/domain/docs/DocService.ts` via `doc.create` → `doc.created` event cycle.
+
+**Changes**:
+- Created `DocService` with path resolution + content generation for all 16 doc types
+- Migrated 6 catalog tabs from `createEntityDoc()` to `doc.create` events
+- Migrated `DiscoveryService` from direct `fileSystem.createFile()` to `doc.create` events
+- Removed `createEntityDoc()` from `catalog/helpers.ts`
+- Added `doc.created`/`doc.exists` listeners in `EventCatalogView` for post-creation navigation
+
+**Pattern**: Event-driven doc creation — callers emit intent, DocService handles path resolution, content generation, existence checking, and file creation. Result events enable reactive UI updates.
 
 ---
 
 ## Planned Refactoring
 
-### Phase 7 — main.ts Decomposition (978 LOC)
+### Phase 9 — Large UI Component Extraction
 
-**Target**: Split the monolithic plugin orchestrator into focused modules.
+Three UI files over 620 LOC that have clear internal boundaries:
 
-`main.ts` currently handles:
-- Plugin lifecycle (onload, onunload, onLayoutReady)
-- View registration (7 views)
-- Command registration delegation
-- Service initialization + callback wiring
-- Settings tab setup
-- Ribbon icon + status bar
-- Event listener setup for settings changes
-
-**Proposed extraction**:
-
-| New File | Responsibility | Est. LOC |
-|----------|---------------|----------|
-| `viewSetup.ts` | All `registerView()` calls + view factory functions | ~200 |
-| `lifecycleCallbacks.ts` | onLayoutReady callback wiring (setListFiles, setDocsRootPath, etc.) | ~150 |
-| `pluginInit.ts` | Infrastructure creation (EventBus, EventBridge, ServiceContainer) | ~100 |
-
-**main.ts after**: ~500 LOC — pure lifecycle orchestration calling extracted setup functions.
-
-**Risk**: Low — these are initialization-time functions, not runtime behavior. Tests don't exercise main.ts directly (tested via integration through services).
-
-### Phase 8 — Large UI Component Extraction
-
-Three UI files over 630 LOC that have clear internal boundaries:
-
-#### 8a. HubDashboard.ts (766 LOC)
+#### 9a. HubDashboard.ts (766 LOC)
 Currently renders 5 distinct sections: stats grid, quick actions, configured imports table, configured exports table, available CSV files table.
 
 **Proposed extraction**:
@@ -426,7 +446,7 @@ Currently renders 5 distinct sections: stats grid, quick actions, configured imp
 
 **HubDashboard.ts after**: ~250 LOC — orchestrates sections.
 
-#### 8b. CsvLanding.ts (701 LOC)
+#### 9b. CsvLanding.ts (701 LOC)
 Currently renders: file info header, data snapshot table, config usage list, associated base files, column stats.
 
 **Proposed extraction**:
@@ -439,7 +459,7 @@ Currently renders: file info header, data snapshot table, config usage list, ass
 
 **CsvLanding.ts after**: ~200 LOC — orchestrates sections.
 
-#### 8c. EventConfigModal.ts (631 LOC)
+#### 9c. EventConfigModal.ts (628 LOC)
 Currently has 3 pages: overview, subscription form, definition form.
 
 **Proposed extraction**:
@@ -452,8 +472,11 @@ Currently has 3 pages: overview, subscription form, definition form.
 
 **EventConfigModal.ts after**: ~150 LOC — page navigation + modal chrome.
 
-### Phase 9 — contentGenerator.ts (708 LOC)
+### Phase 10 — Content Generation Extraction
 
+Two large content-generation files:
+
+#### 10a. contentGenerator.ts (708 LOC)
 Pure content generation file with markdown builders for 8+ entity types. Could split by category:
 
 | New File | Responsibility | Est. LOC |
@@ -464,9 +487,8 @@ Pure content generation file with markdown builders for 8+ entity types. Could s
 
 **Risk**: Low — pure functions, easily testable.
 
-### Phase 10 — ConfigDocService.ts (913 LOC)
-
-Just extracted in Phase 6, but already the 2nd largest file. The content builders are long but structurally similar (buildImportDocContent, buildExportDocContent, buildPipelineDocContent). Could split:
+#### 10b. ConfigDocService.ts (934 LOC)
+The largest single file. Content builders are long but structurally similar (buildImportDocContent, buildExportDocContent, buildPipelineDocContent). Could split:
 
 | New File | Responsibility | Est. LOC |
 |----------|---------------|----------|
@@ -488,25 +510,26 @@ Just extracted in Phase 6, but already the 2nd largest file. The content builder
 | **TD-3**: No shared layout system | `buildSplitLayout()` in `catalog/helpers.ts` creates the dashboard + master/detail DOM structure. CSS classes `ft-view-root`, `ft-view-dashboard`, `ft-view-split` replace inline styles. Both orchestrators now use the shared builder. |
 | **TD-4**: Inline styles in component code | ~170 inline `style.*` assignments replaced with CSS utility classes (`ft-icon-muted`, `ft-flex-shrink-0`, `ft-cursor-pointer`, `ft-flex-1`, etc.). Remaining ~300 inline styles are lower-frequency patterns with more variation. |
 | **TD-5**: Subscription form duplication | `renderSubscriptionForm()` and `renderSubscriptionRow()` extracted to `catalog/helpers.ts`. Both `EventConfigModal` and `SubscriptionManagerModal` use the shared functions. |
-| **TD-6**: Duplicated navigation logic | `openOrCreateEventDoc()`, `openEventInCatalog()`, and `createEntityDoc()` consolidated into shared helpers. |
+| **TD-6**: Duplicated navigation logic | `openOrCreateEventDoc()` and `openEventInCatalog()` consolidated into shared helpers. `createEntityDoc()` replaced by `doc.create` events. |
 
 ### Remaining
 
 | Item | Problem | Target |
 |------|---------|--------|
-| **TD-7**: No component-level testing for UI | 679 tests cover domain services, EventBus, and utilities. No tests exercise view rendering or component output. | Add lightweight unit tests for tab components with mock deps and DOM assertions via `obsidian-stub` polyfills. |
+| **TD-7**: Limited UI testing | 811 tests across 43 files cover domain services, EventBus, utilities, and 6 view orchestrators. Component-level rendering tests (individual tabs, pages) not yet covered. | Add lightweight unit tests for tab components with mock deps and DOM assertions via `obsidian-stub` polyfills. |
 | **TD-8**: Scanner duplication between Catalog and Hub | Catalog tabs use `entityScanner.ts`; Hub tabs implement their own scanning logic. | Generalize scanner utility. Low ROI — Hub tabs are storage-driven. |
 
 ---
 
 ## Refactoring Principles
 
-1. **Façade preservation**: Public APIs never change. All consumers see the same interface after extraction.
+1. **Facade preservation**: Public APIs never change. All consumers see the same interface after extraction.
 2. **Zero test changes**: Extracted code is internal — existing test suites pass without modification.
 3. **Composition over inheritance**: Sub-modules receive deps interfaces, not parent class references.
-4. **Build verification**: `npm run build` (679 tests + tsc + eslint + esbuild) after every step.
+4. **Build verification**: `npm run build` (811 tests + tsc + eslint + esbuild) after every step.
 5. **Incremental extraction**: One module at a time, verify, then proceed. Never batch multiple extractions without build checks.
 6. **No premature abstraction**: Extract when a file exceeds ~600 LOC or when distinct responsibilities are clearly identifiable. Don't extract for the sake of extracting.
+7. **DocService for all docs**: Use `doc.create` events instead of direct `fileSystemClient.createFile()` calls for documentation files.
 
 ---
 
@@ -517,20 +540,21 @@ Just extracted in Phase 6, but already the 2nd largest file. The content builder
 - `DataExchangeService.ts` at 1,802 LOC
 - 4 files over 1,000 LOC
 
-### After Phase 1-6 (Feb 2026)
-- Largest file: `main.ts` at 978 LOC
+### After Phase 1-8 (Feb 2026)
+- Largest file: `ConfigDocService.ts` at 934 LOC
 - No files over 1,000 LOC
-- `EventCatalogView.ts`: 3,714 → 825 LOC (78% reduction)
+- `EventCatalogView.ts`: 3,714 → 833 LOC (78% reduction)
 - `DataExchangeService.ts`: 1,802 → 578 LOC (68% reduction)
-- 11 files over 600 LOC (down from 6 files over 1,000 LOC)
-- 36 test files, 679 tests — all passing
+- `main.ts`: 978 → 482 LOC (51% reduction)
+- 17 files over 500 LOC (down from 6 files over 1,000 LOC)
+- 43 test files, 811 tests — all passing
+- 141 source files, ~30,855 LOC
 
-### Target After Phase 7-10
+### Target After Phase 9-10
 - Largest file: ~500 LOC
 - No files over 600 LOC in `src/ui/`
-- `main.ts`: 978 → ~500 LOC
 - `HubDashboard.ts`: 766 → ~250 LOC
 - `CsvLanding.ts`: 701 → ~200 LOC
-- `EventConfigModal.ts`: 631 → ~150 LOC
+- `EventConfigModal.ts`: 628 → ~150 LOC
 - `contentGenerator.ts`: 708 → ~300 LOC
-- `ConfigDocService.ts`: 913 → ~300 LOC
+- `ConfigDocService.ts`: 934 → ~300 LOC

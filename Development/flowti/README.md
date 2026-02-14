@@ -125,33 +125,36 @@ Commands, views, and services are defined declaratively in registry files and bo
 ### Module Overview
 
 ```
-src/
-├── main.ts                        # Plugin lifecycle orchestrator
+src/                                 # ~30,855 LOC across 141 files
+├── main.ts                          # Plugin lifecycle orchestrator (482 LOC)
+├── dataExchangeSetup.ts             # Data Exchange UI wiring (368 LOC)
 ├── infrastructure/
-│   ├── events/                    # EventBus, EventBridge, FlowtiEventMap (~98 events)
-│   ├── errors/                    # Typed error hierarchy + ErrorService
-│   ├── logger/                    # Logging with optional event trace
-│   ├── services/                  # DI container with topological init
-│   ├── commands/                  # Command registry with middleware
-│   ├── views/                     # View registry with factory pattern
-│   └── filesystem/                # Promise-based file ops via events
-├── domain/                        # 10 bounded contexts
-│   ├── dataExchange/              # CSV import/export, pipelines, type docs
-│   ├── discovery/                 # Vault scanning for user-defined events
-│   ├── eventDefinition/           # Custom event mapping rules
-│   ├── eventFilter/               # Hidden event types
-│   ├── eventNotify/               # Notification preferences
-│   ├── ingestion/                 # File monitoring, job queue, catch-up
-│   ├── installer/                 # First-run wizard steps
-│   ├── settings/                  # Plugin configuration persistence
-│   ├── subscription/              # Event watchers with filters
-│   ├── user/                      # User identity
-│   └── docs/                      # Path resolution + doc content generation
+│   ├── events/                      # EventBus, EventBridge, FlowtiEventMap (128 events)
+│   ├── errors/                      # Typed error hierarchy + ErrorService
+│   ├── logger/                      # Logging with optional event trace
+│   ├── services/                    # DI container with topological init
+│   ├── commands/                    # Command registry with middleware
+│   ├── views/                       # View registry with factory pattern
+│   └── filesystem/                  # Promise-based file ops via events
+├── domain/                          # 11 bounded contexts
+│   ├── dataExchange/                # CSV import/export, pipelines, type docs
+│   ├── docs/                        # DocService + content generators + path resolvers
+│   ├── discovery/                   # Vault scanning for user-defined events
+│   ├── eventDefinition/             # Custom event mapping rules
+│   ├── eventFilter/                 # Hidden event types
+│   ├── eventNotify/                 # Notification preferences
+│   ├── ingestion/                   # File monitoring, job queue, catch-up
+│   ├── installer/                   # First-run wizard steps
+│   ├── settings/                    # Plugin configuration persistence
+│   ├── subscription/                # Event watchers with filters
+│   └── user/                        # User identity
 ├── ui/
-│   ├── catalog/                   # Event Catalog components (10 files)
-│   ├── hub/                       # Data Exchange Hub components (9 files)
-│   └── *.ts                       # Views, modals, shared utilities
-└── utils/                         # Shared helpers (glob, persistence, types)
+│   ├── catalog/                     # Event Catalog components (13 files)
+│   ├── hub/                         # Data Exchange Hub components (18 files)
+│   ├── csv/                         # CSV import wizard components (7 files)
+│   ├── export/                      # Export wizard components (7 files)
+│   └── *.ts                         # Orchestrator views + modals
+└── utils/                           # Shared helpers (glob, persistence, types)
 ```
 
 ### Key Components
@@ -202,8 +205,10 @@ Both major views share extracted helpers to avoid duplication:
 
 | Helper Module | Key Exports |
 |---------------|-------------|
-| `catalog/helpers.ts` | `buildSplitLayout()` (shared DOM layout), `createEntityDoc()`, `openOrCreateEventDoc()`, `renderSubscriptionForm()` / `renderSubscriptionRow()` |
+| `catalog/helpers.ts` | `buildSplitLayout()` (shared DOM layout), `openOrCreateEventDoc()`, `renderSubscriptionForm()` / `renderSubscriptionRow()`, frontmatter parsing, cross-reference finders |
 | `hub/helpers.ts` | `renderStepBar()` (wizard stepper), `renderConfigDropdown()`, `openEventInCatalog()` |
+
+Document creation is centralized through the **DocService** via `doc.create` events — UI components never call `fileSystemClient.createFile()` directly for documentation files.
 
 See [[Frontend Architecture]] for the full view inventory, component architecture, state management details, and tech debt assessment.
 
@@ -230,9 +235,9 @@ Plugin.onload()
     │   └── initializeViewRegistry()
     │
     ├── Phase 3: Registration
-    │   ├── registerAllServices()    # See src/services/registry.ts
-    │   ├── registerAllCommands()    # See src/commands/registry.ts
-    │   └── registerAllViews()       # See src/views/registry.ts
+    │   ├── registerAllServices()    # 11 services (src/infrastructure/services/registry.ts)
+    │   ├── registerAllCommands()    # 4 core commands (src/infrastructure/commands/registry.ts)
+    │   └── registerAllViews()       # 3 core views (src/infrastructure/views/registry.ts)
     │
     ├── Phase 4: Service Initialization
     │   └── services.initializeAll() # Topological dependency resolution
@@ -243,8 +248,20 @@ Plugin.onload()
     │   └── bindCommands()           # Register with command palette
     │
     └── Phase 6: Post-load (on layout ready)
+        ├── settingsService.load()
         ├── userService.load()
-        ├── UserSetupModal.showIfNeeded()
+        ├── installerService.load()
+        ├── InstallerWizardModal.showIfNeeded()
+        ├── eventFilterService.load()
+        ├── eventNotifyService.load()
+        ├── discoveryService.load()
+        ├── subscriptionService.load()
+        ├── ingestionService.load()
+        ├── eventDefinitionService.load()
+        ├── dataExchangeService.load()
+        ├── DataExchangeSetup (views, commands, file menus, callbacks)
+        ├── ingestionService.runCatchUp() (if watchFolders configured)
+        ├── eventBridge.registerVaultListeners()
         └── emit("plugin.ready")
 ```
 
@@ -425,7 +442,7 @@ npm run publish    # Full pipeline + coverage report + preview
 
 ### Extending the Plugin
 
-**Add a command** in `src/commands/registry.ts`:
+**Add a command** in `src/infrastructure/commands/registry.ts`:
 ```typescript
 {
   id: "flowti:my-command",
@@ -435,7 +452,7 @@ npm run publish    # Full pipeline + coverage report + preview
 }
 ```
 
-**Add a service** in `src/services/registry.ts`:
+**Add a service** in `src/infrastructure/services/registry.ts`:
 ```typescript
 {
   id: "myService",
@@ -444,7 +461,7 @@ npm run publish    # Full pipeline + coverage report + preview
 }
 ```
 
-**Add an event** in `src/events/events.ts`:
+**Add an event** — create a domain `events.ts` or extend `src/infrastructure/events/events.ts`:
 ```typescript
 "task.created": { task: Task };
 "task.completed": { taskId: string };

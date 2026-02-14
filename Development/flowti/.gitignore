@@ -21,6 +21,5 @@ data.json
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store
 
-# Exclude build generated files
+# Exclude build generated html docs
 docs/codebase
-docs/tests
