@@ -10,7 +10,7 @@ tags:
 # Flowti IBDE — Service Design Blueprint
 
 > C4-structured architecture reference. Compressed — follow wikilinks for full details.
-> UI architecture: [[Frontend Architecture]] · Data schemas: [[Data Dictionary]] · Tests: [[Testplan and Teststrategy]]
+> UI architecture: [[Frontend Architecture]] · Data schemas: [[Data Dictionary]] · Tests: [[Testplan and Teststrategy]] · Events: [[Event Catalog]]
 
 ---
 
@@ -616,4 +616,4 @@ Full type definitions in [[Data Dictionary]].
 
 ---
 
-*See also: [[Frontend Architecture]] · [[Data Dictionary]] · [[Testplan and Teststrategy]] · [[Technical Debt Review 2026-02-13]]*
+*See also: [[Frontend Architecture]] · [[Event Catalog]] · [[Data Dictionary]] · [[Testplan and Teststrategy]] · [[Technical Debt Review 2026-02-13]]*

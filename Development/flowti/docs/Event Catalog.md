@@ -1,9 +1,9 @@
 ---
 type: EventCatalog
-stage: development
+stage: done
 domain: Flowti
 plugin: "[[Development/flowti/README|README]]"
-description: Here we will document and reference the plugins domains, services, events, commands, queries, and flows
+description: Complete reference of the plugin's domains, services, events, commands, queries, and flows
 tags:
   - reference
   - event-catalog
@@ -11,8 +11,557 @@ tags:
 
 # Event Catalog
 
-This is the plugins event-catalog.
+> Complete reference of all events, domains, services, and flows in the Flowti IBDE plugin.
+> Related: [[Backend Architecture]] · [[Frontend Architecture]] · [[Testplan and Teststrategy]] · [[Technical Debt Review 2026-02-13]]
 
- 
+---
 
+## Overview
 
+The Flowti IBDE plugin uses an **event-driven architecture** where all inter-service communication flows through a typed [[Development/flowti/src/infrastructure/events/EventBus.ts|EventBus]]. Events are the single source of truth for what happened in the system.
+
+| Metric | Value |
+|--------|-------|
+| Total events | 128 (compile-time verified via `satisfies`) |
+| Infrastructure events | 49 (tagged `["system"]`) |
+| Domain events | 79 |
+| Event categories | 25 |
+| Domain services | 11 |
+| Wildcard listeners | 7 (properly filtered via `INTERNAL_EVENT_PREFIXES`) |
+| Event naming | `domain.action` for commands, `domain.fact` for facts |
+
+### Event Structure
+
+Every event follows the xstate v5 convention:
+
+```typescript
+interface FlowtiEvent<T> {
+  type: string;       // e.g. "file.created"
+  payload: T;         // typed per event
+  timestamp: number;  // Date.now()
+}
+```
+
+### Type Safety
+
+The catalog is **compile-time enforced**. Adding a new event to `FlowtiEventMap` without a corresponding `CATALOG_DATA` entry produces a TypeScript error. This is achieved via `satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>` in [[Development/flowti/src/infrastructure/events/catalog.ts|catalog.ts]].
+
+---
+
+## Domains
+
+The plugin is organized into 11 bounded contexts, each owning its events, types, and service.
+
+| Domain | Service | Events | Storage Key | Description |
+|--------|---------|--------|-------------|-------------|
+| **infrastructure** | EventBus, EventBridge, FileSystemClient, LoggerService, ErrorService, ServiceContainer, CommandRegistry, ViewRegistry | 49 | — | Generic plumbing: event routing, vault I/O, logging, errors, DI |
+| **settings** | [[Development/flowti/src/domain/settings/SettingsService.ts|SettingsService]] | 7 | top-level keys | Plugin configuration with Zod validation |
+| **user** | [[Development/flowti/src/domain/user/UserService.ts|UserService]] | 3 | `user` | User profile lifecycle |
+| **installer** | [[Development/flowti/src/domain/installer/InstallerService.ts|InstallerService]] | 6 | `installer` | First-run setup wizard with extensible step pipeline |
+| **discovery** | [[Development/flowti/src/domain/discovery/DiscoveryService.ts|DiscoveryService]] | 5 | `discovery` | Vault scanning for `type: "Event"` files |
+| **eventFilter** | [[Development/flowti/src/domain/eventFilter/EventFilterService.ts|EventFilterService]] | 4 | `eventFilter` | Per-event-type visibility toggles |
+| **eventNotify** | [[Development/flowti/src/domain/eventNotify/EventNotificationService.ts|EventNotificationService]] | 4 | `eventNotify` | Per-event-type notice popups |
+| **subscription** | [[Development/flowti/src/domain/subscription/SubscriptionService.ts|SubscriptionService]] | 9 | `subscription` | Event watchers with glob/extension/name filters |
+| **ingestion** | [[Development/flowti/src/domain/ingestion/IngestionService.ts|IngestionService]] | 11 | `ingestion` | Time-windowed file processing with retry + catch-up |
+| **eventDefinition** | [[Development/flowti/src/domain/eventDefinition/EventDefinitionService.ts|EventDefinitionService]] | 9 | `eventDefinition` | Source event → domain event transforms with payload mapping |
+| **dataExchange** | [[Development/flowti/src/domain/dataExchange/DataExchangeService.ts|DataExchangeService]] | 16 | `dataExchange` | CSV import/export, pipelines, config persistence |
+| **docs** | [[Development/flowti/src/domain/docs/DocService.ts|DocService]] | 6 | — | Centralized documentation file creation for 17 doc types |
+
+---
+
+## Services
+
+### Infrastructure Services
+
+| Service | Source | Interface | Key Events |
+|---------|--------|-----------|------------|
+| **EventBus** | [[Development/flowti/src/infrastructure/events/EventBus.ts|EventBus.ts]] | `IEventBus` — `emit()`, `on()`, `once()`, `off()`, `clear()` | Core router, no own events |
+| **EventBridge** | [[Development/flowti/src/infrastructure/events/EventBridge.ts|EventBridge.ts]] | `IEventBridge` — `register()`, `registerVaultListeners()`, `dispose()` | File/folder notifications, frontmatter ops, workspace events |
+| **FileSystemClient** | [[Development/flowti/src/infrastructure/filesystem/FileSystemClient.ts|FileSystemClient.ts]] | `IFileSystemClient` — `createFile()`, `readFile()`, etc. | `file.*.request` → awaits `file.*.response` (correlated by `RequestId`) |
+| **LoggerService** | [[Development/flowti/src/infrastructure/logger/LoggerService.ts|LoggerService.ts]] | `ILogger` — `debug()`, `info()`, `warn()`, `error()` | `log.entry`, `log.error` |
+| **ErrorService** | [[Development/flowti/src/infrastructure/errors/ErrorService.ts|ErrorService.ts]] | `IErrorService` — `handle()`, `create()`, `wrap()` | `error.occurred`, `error.handled` |
+| **ServiceContainer** | [[Development/flowti/src/infrastructure/services/ServiceContainer.ts|ServiceContainer.ts]] | `IServiceContainer` — `register()`, `get()`, `initializeAll()`, `disposeAll()` | `service.{registered,initialized,disposed,error}` |
+| **CommandRegistry** | [[Development/flowti/src/infrastructure/commands/CommandRegistry.ts|CommandRegistry.ts]] | Middleware pipeline | `command.{registered,executing,executed,failed}` |
+| **ViewRegistry** | [[Development/flowti/src/infrastructure/views/ViewRegistry.ts|ViewRegistry.ts]] | View factory registration | `view.registered` |
+
+### Domain Services
+
+| Service | Consumes | Emits | Wildcard? |
+|---------|----------|-------|-----------|
+| **SettingsService** | `settings.update*` (5 command events) | `settings.{loaded,changed}` | No |
+| **UserService** | — | `user.{created,updated,loaded}` | No |
+| **InstallerService** | — | `installer.{loaded,started,completed,failed}`, `installer.step.{started,completed}` | No |
+| **DiscoveryService** | `event.file.triggered`, `discovery.{create,remove}` | `discovery.{loaded,updated,removed}` | No |
+| **EventFilterService** | `eventFilter.{toggle,toggleCategory}` | `eventFilter.{loaded,changed}` | No |
+| **EventNotificationService** | `eventNotify.toggle`, `*` (monitors matches) | `eventNotify.{loaded,changed,fired}` | Yes — skips `log.*`, `eventNotify.*` |
+| **SubscriptionService** | `subscription.{create,update,remove,refresh}`, `*` (matcher) | `subscription.{loaded,created,updated,deleted,matched}` | Yes — skips `log.*`, `subscription.*`, `settings.*` |
+| **IngestionService** | `settings.*`, `*` (watched event types) | `ingestion.job.*`, `ingestion.batch.*`, `ingestion.{stats,recovery.completed}`, `catchup.*` | Yes — skips `INTERNAL_EVENT_PREFIXES` + `ingestion.*` |
+| **EventDefinitionService** | `eventDefinition.{create,update,remove,refresh}`, `ingestion.job.completed` | `eventDefinition.{loaded,created,updated,deleted,matched}` + custom events | No |
+| **DataExchangeService** | `dataExchange.*.execute`, `file.renamed`, `folder.renamed` | `dataExchange.import.*`, `dataExchange.export.*`, `dataExchange.pipeline.*`, `dataExchange.config.changed` | No |
+| **DocService** | `doc.{create,delete}`, `settings.{loaded,changed}` | `doc.{created,exists,failed,deleted}` | No |
+
+---
+
+## Event Reference
+
+### Infrastructure Events (49)
+
+#### Plugin Lifecycle (5)
+
+| Event | Description | Direction |
+|-------|-------------|-----------|
+| `plugin.loading` | Plugin starts loading | Plugin → Listeners |
+| `plugin.loaded` | Plugin has fully loaded | Plugin → Listeners |
+| `plugin.ready` | Plugin is ready (layout ready, user loaded) | Plugin → Listeners |
+| `plugin.unloading` | Plugin starts unloading | Plugin → Listeners |
+| `plugin.unloaded` | Plugin has fully unloaded | Plugin → Listeners |
+
+#### Service Lifecycle (4)
+
+| Event | Description | Direction |
+|-------|-------------|-----------|
+| `service.registered` | A service was registered with the container | Internal |
+| `service.initialized` | A service completed initialization | Internal |
+| `service.disposed` | A service was disposed | Internal |
+| `service.error` | A service failed to initialize | Internal |
+
+#### Commands (4)
+
+| Event | Description | Direction |
+|-------|-------------|-----------|
+| `command.registered` | A command was registered | Internal |
+| `command.executing` | A command started executing | Internal |
+| `command.executed` | A command completed successfully | Internal |
+| `command.failed` | A command failed | Internal |
+
+#### Views (1)
+
+| Event | Description | Direction |
+|-------|-------------|-----------|
+| `view.registered` | A view was registered | Internal |
+
+#### Logging (2)
+
+| Event | Description | Direction |
+|-------|-------------|-----------|
+| `log.entry` | A log entry was created | Service → Listeners |
+| `log.error` | An error was logged | Service → Listeners |
+
+#### Errors (2)
+
+| Event | Description | Direction |
+|-------|-------------|-----------|
+| `error.occurred` | An error occurred | Service → Listeners |
+| `error.handled` | An error was handled/recovered | Service → Listeners |
+
+#### File Requests (6)
+
+| Event | Description | Direction |
+|-------|-------------|-----------|
+| `file.create.request` | Request to create a new file | Service → EventBridge |
+| `file.read.request` | Request to read a file's content | Service → EventBridge |
+| `file.update.request` | Request to update a file's content | Service → EventBridge |
+| `file.delete.request` | Request to delete a file | Service → EventBridge |
+| `file.move.request` | Request to move a file | Service → EventBridge |
+| `file.rename.request` | Request to rename a file | Service → EventBridge |
+
+#### File Responses (6)
+
+| Event | Description | Direction |
+|-------|-------------|-----------|
+| `file.create.response` | Response after file creation | EventBridge → Service |
+| `file.read.response` | Response after file read | EventBridge → Service |
+| `file.update.response` | Response after file update | EventBridge → Service |
+| `file.delete.response` | Response after file deletion | EventBridge → Service |
+| `file.move.response` | Response after file move | EventBridge → Service |
+| `file.rename.response` | Response after file rename | EventBridge → Service |
+
+#### File Notifications (4)
+
+| Event | Description | Direction |
+|-------|-------------|-----------|
+| `file.created` | A file was created in the vault | EventBridge → Services |
+| `file.modified` | A file was modified | EventBridge → Services |
+| `file.deleted` | A file was deleted | EventBridge → Services |
+| `file.renamed` | A file was renamed | EventBridge → Services |
+
+#### Folder Notifications (3)
+
+| Event | Description | Direction |
+|-------|-------------|-----------|
+| `folder.created` | A folder was created | EventBridge → Services |
+| `folder.deleted` | A folder was deleted | EventBridge → Services |
+| `folder.renamed` | A folder was renamed | EventBridge → Services |
+
+#### Event-File Notifications (1)
+
+| Event | Description | Direction |
+|-------|-------------|-----------|
+| `event.file.triggered` | A file with `type: "Event"` frontmatter triggered a vault action | EventBridge → Services |
+
+#### Frontmatter Requests (3) and Responses (3)
+
+| Event | Description | Direction |
+|-------|-------------|-----------|
+| `frontmatter.get.request` | Request to read frontmatter | Service → EventBridge |
+| `frontmatter.update.request` | Request to merge frontmatter fields | Service → EventBridge |
+| `frontmatter.set.request` | Request to replace entire frontmatter | Service → EventBridge |
+| `frontmatter.get.response` | Response after frontmatter read | EventBridge → Service |
+| `frontmatter.update.response` | Response after frontmatter update | EventBridge → Service |
+| `frontmatter.set.response` | Response after frontmatter set | EventBridge → Service |
+
+#### Workspace (3)
+
+| Event | Description | Direction |
+|-------|-------------|-----------|
+| `workspace.leaf-changed` | The active leaf (tab/view) changed | EventBridge → Services |
+| `workspace.file-opened` | A file was opened in the editor | EventBridge → Services |
+| `workspace.layout-changed` | The workspace layout changed | EventBridge → Services |
+
+#### Metadata (2)
+
+| Event | Description | Direction |
+|-------|-------------|-----------|
+| `metadata.changed` | File metadata (frontmatter, tags, links) was updated | EventBridge → Services |
+| `metadata.resolved` | All metadata references in the vault resolved | EventBridge → Services |
+
+---
+
+### Domain Events (79)
+
+#### User (3)
+
+| Event | Description | Direction | Service |
+|-------|-------------|-----------|---------|
+| `user.created` | A new user profile was created | Service → Listeners | [[Development/flowti/src/domain/user/UserService.ts|UserService]] |
+| `user.updated` | A user profile was updated | Service → Listeners | UserService |
+| `user.loaded` | A user profile was loaded from storage | Service → Listeners | UserService |
+
+**Flow**: [[First-Run Onboarding]]
+
+#### Settings (7)
+
+| Event | Description | Direction | Service |
+|-------|-------------|-----------|---------|
+| `settings.loaded` | Plugin settings were loaded | Service → Listeners | [[Development/flowti/src/domain/settings/SettingsService.ts|SettingsService]] |
+| `settings.changed` | Plugin settings were changed | Service → Listeners | SettingsService |
+| `settings.updateCatalogCategories` | Update catalog category order/visibility | View → Plugin | EventCatalogView |
+| `settings.updateCollapsedCategories` | Update collapsed category state | View → Plugin | EventCatalogView |
+| `settings.updateShowSystemEvents` | Toggle system events visibility | View → Plugin | EventCatalogView |
+| `settings.updateCatalogDomains` | Update domain visibility in catalog | View → Plugin | EventCatalogView |
+| `settings.updateCatalogServices` | Update service visibility in catalog | View → Plugin | EventCatalogView |
+
+#### Installer (6)
+
+| Event | Description | Direction | Service |
+|-------|-------------|-----------|---------|
+| `installer.loaded` | Installer state was loaded from storage | Service → Listeners | [[Development/flowti/src/domain/installer/InstallerService.ts|InstallerService]] |
+| `installer.started` | Installation pipeline started | Service → Listeners | InstallerService |
+| `installer.step.started` | An installer step started | Service → Listeners | InstallerService |
+| `installer.step.completed` | An installer step completed | Service → Listeners | InstallerService |
+| `installer.completed` | Installation pipeline completed | Service → Listeners | InstallerService |
+| `installer.failed` | Installation pipeline failed | Service → Listeners | InstallerService |
+
+**Flow**: [[First-Run Onboarding]]
+
+#### Discovery (5)
+
+| Event | Description | Direction | Service |
+|-------|-------------|-----------|---------|
+| `discovery.loaded` | Discovery state was loaded from storage | Service → Listeners | [[Development/flowti/src/domain/discovery/DiscoveryService.ts|DiscoveryService]] |
+| `discovery.updated` | A user-land event was discovered or updated | Service → Listeners | DiscoveryService |
+| `discovery.create` | Create a new custom event manually | Service → Listeners | DiscoveryService |
+| `discovery.remove` | Request removal of a discovered event | Service → Listeners | DiscoveryService |
+| `discovery.removed` | A discovered event was removed | Service → Listeners | DiscoveryService |
+
+**Flow**: [[Discover Custom Events]]
+
+#### Event Filter (4)
+
+| Event | Description | Direction | Service |
+|-------|-------------|-----------|---------|
+| `eventFilter.loaded` | Event filter state was loaded from storage | Service → Listeners | [[Development/flowti/src/domain/eventFilter/EventFilterService.ts|EventFilterService]] |
+| `eventFilter.changed` | Event exclusion list was updated | Service → Listeners | EventFilterService |
+| `eventFilter.toggle` | Toggle a single event type's exclusion | Service → Listeners | EventFilterService |
+| `eventFilter.toggleCategory` | Toggle all event types in a category | Service → Listeners | EventFilterService |
+
+#### Event Notify (4)
+
+| Event | Description | Direction | Service |
+|-------|-------------|-----------|---------|
+| `eventNotify.loaded` | Event notify state was loaded from storage | Service → Listeners | [[Development/flowti/src/domain/eventNotify/EventNotificationService.ts|EventNotificationService]] |
+| `eventNotify.changed` | Event notification list was updated | Service → Listeners | EventNotificationService |
+| `eventNotify.toggle` | Toggle a single event type's notification | Service → Listeners | EventNotificationService |
+| `eventNotify.fired` | A notified event fired (triggers Notice popup) | Service → Listeners | EventNotificationService |
+
+**Flow**: [[Monitor and Debug Events]]
+
+#### Watch Rules / Subscription (9)
+
+| Event | Description | Direction | Service |
+|-------|-------------|-----------|---------|
+| `subscription.loaded` | Watcher state was loaded from storage | Service → Listeners | [[Development/flowti/src/domain/subscription/SubscriptionService.ts|SubscriptionService]] |
+| `subscription.create` | Command to create a new watcher | View → Plugin | SubscriptionService |
+| `subscription.created` | A new watcher was created | Service → Listeners | SubscriptionService |
+| `subscription.update` | Command to update a watcher | View → Plugin | SubscriptionService |
+| `subscription.updated` | A watcher was updated | Service → Listeners | SubscriptionService |
+| `subscription.remove` | Command to remove a watcher | View → Plugin | SubscriptionService |
+| `subscription.deleted` | A watcher was removed | Service → Listeners | SubscriptionService |
+| `subscription.refresh` | Request to re-emit current watcher state | View → Plugin | SubscriptionService |
+| `subscription.matched` | An event matched a watcher's filters | Service → Listeners | SubscriptionService |
+
+**Flow**: [[Browse and Configure Events]]
+
+#### File Processing / Ingestion (11)
+
+| Event | Description | Direction | Service |
+|-------|-------------|-----------|---------|
+| `ingestion.job.queued` | A file was queued for processing | Service → Listeners | [[Development/flowti/src/domain/ingestion/IngestionService.ts|IngestionService]] |
+| `ingestion.job.started` | File processing started | Service → Listeners | IngestionService |
+| `ingestion.job.completed` | File processing completed successfully | Service → Listeners | IngestionService |
+| `ingestion.job.failed` | File processing failed (may retry) | Service → Listeners | IngestionService |
+| `ingestion.batch.started` | A batch of files started processing | Service → Listeners | IngestionService |
+| `ingestion.batch.completed` | A batch of files finished processing | Service → Listeners | IngestionService |
+| `ingestion.stats` | Current file processing statistics | Service → Listeners | IngestionService |
+| `ingestion.recovery.completed` | Pending files recovered after crash | Service → Listeners | IngestionService |
+| `catchup.started` | Catch-up scanning started | Service → Listeners | IngestionService |
+| `catchup.file.found` | A file was found during catch-up | Service → Listeners | IngestionService |
+| `catchup.completed` | Catch-up scanning completed | Service → Listeners | IngestionService |
+
+**Flow**: [[Configure File Ingestion]]
+
+#### Transforms / Event Definition (9)
+
+| Event | Description | Direction | Service |
+|-------|-------------|-----------|---------|
+| `eventDefinition.loaded` | Transform state was loaded from storage | Service → Listeners | [[Development/flowti/src/domain/eventDefinition/EventDefinitionService.ts|EventDefinitionService]] |
+| `eventDefinition.create` | Command to create a new transform | View → Plugin | EventDefinitionService |
+| `eventDefinition.created` | A new transform was created | Service → Listeners | EventDefinitionService |
+| `eventDefinition.update` | Command to update a transform | View → Plugin | EventDefinitionService |
+| `eventDefinition.updated` | A transform was updated | Service → Listeners | EventDefinitionService |
+| `eventDefinition.remove` | Command to remove a transform | View → Plugin | EventDefinitionService |
+| `eventDefinition.deleted` | A transform was removed | Service → Listeners | EventDefinitionService |
+| `eventDefinition.refresh` | Request to re-emit current transform state | View → Plugin | EventDefinitionService |
+| `eventDefinition.matched` | A transform matched and emitted an output event | Service → Listeners | EventDefinitionService |
+
+**Flow**: [[Configure File Ingestion]]
+
+#### Data Exchange (16)
+
+| Event | Description | Direction | Service |
+|-------|-------------|-----------|---------|
+| `dataExchange.import.execute` | Command to start a CSV import | View → Plugin | [[Development/flowti/src/domain/dataExchange/DataExchangeService.ts|DataExchangeService]] |
+| `dataExchange.import.started` | Import operation has started | Service → Listeners | ImportService |
+| `dataExchange.import.progress` | Progress update during import | Service → Listeners | ImportService |
+| `dataExchange.import.completed` | Import operation completed | Service → Listeners | ImportService |
+| `dataExchange.import.failed` | Import operation failed | Service → Listeners | ImportService |
+| `dataExchange.export.execute` | Command to start a data export | View → Plugin | DataExchangeService |
+| `dataExchange.export.started` | Export operation has started | Service → Listeners | ExportService |
+| `dataExchange.export.completed` | Export operation completed | Service → Listeners | ExportService |
+| `dataExchange.export.failed` | Export operation failed | Service → Listeners | ExportService |
+| `dataExchange.pipeline.execute` | Command to start a multi-import pipeline | View → Plugin | DataExchangeService |
+| `dataExchange.pipeline.started` | Pipeline import started | Service → Listeners | DataExchangeService |
+| `dataExchange.pipeline.sourceCompleted` | One source completed within a pipeline | Service → Listeners | DataExchangeService |
+| `dataExchange.pipeline.completed` | Multi-import pipeline completed | Service → Listeners | DataExchangeService |
+| `dataExchange.pipeline.failed` | Multi-import pipeline failed | Service → Listeners | DataExchangeService |
+| `dataExchange.config.changed` | Saved config created or deleted | Service → Listeners | DataExchangeService |
+
+**Flows**: [[Import CSV as Notes]] · [[Export Vault Data]] · [[Build Import Pipeline]]
+
+#### Documentation (6)
+
+| Event | Description | Direction | Service |
+|-------|-------------|-----------|---------|
+| `doc.create` | Command to create a documentation file | View → Plugin | [[Development/flowti/src/domain/docs/DocService.ts|DocService]] |
+| `doc.created` | Documentation file was created or updated | Service → Listeners | DocService |
+| `doc.exists` | Documentation file already exists | Service → Listeners | DocService |
+| `doc.failed` | Documentation file creation failed | Service → Listeners | DocService |
+| `doc.delete` | Command to delete a documentation file | View → Plugin | DocService |
+| `doc.deleted` | Documentation file was deleted | Service → Listeners | DocService |
+
+**Flow**: [[Create Domain Documentation]]
+
+---
+
+## Event Categories
+
+The catalog organizes events into 25 categories in display order:
+
+| # | Category | Domain | Events |
+|---|----------|--------|--------|
+| 1 | Plugin Lifecycle | infrastructure | 5 |
+| 2 | Service Lifecycle | infrastructure | 4 |
+| 3 | Commands | infrastructure | 4 |
+| 4 | Views | infrastructure | 1 |
+| 5 | Logging | infrastructure | 2 |
+| 6 | Errors | infrastructure | 2 |
+| 7 | File Requests | infrastructure | 6 |
+| 8 | File Responses | infrastructure | 6 |
+| 9 | File Notifications | infrastructure | 4 |
+| 10 | Folder Notifications | infrastructure | 3 |
+| 11 | Event-File Notifications | infrastructure | 1 |
+| 12 | Frontmatter Requests | infrastructure | 3 |
+| 13 | Frontmatter Responses | infrastructure | 3 |
+| 14 | Workspace | infrastructure | 3 |
+| 15 | Metadata | infrastructure | 2 |
+| 16 | User | user | 3 |
+| 17 | Settings | settings | 7 |
+| 18 | Installer | installer | 6 |
+| 19 | Discovery | discovery | 5 |
+| 20 | Event Filter | eventFilter | 4 |
+| 21 | Event Notify | eventNotify | 4 |
+| 22 | Watch Rules | subscription | 9 |
+| 23 | File Processing | ingestion | 11 |
+| 24 | Transforms | eventDefinition | 9 |
+| 25 | Data Exchange | dataExchange | 16 |
+| — | Documentation | docs | 6 |
+
+### System Event Tagging
+
+Infrastructure events and internal command events are tagged with `["system"]`. The [[Event Catalog View|EventCatalogView]] hides system-tagged events by default (controlled by `showSystemEvents` setting). Users toggle visibility via the "System" chip in the Events tab filter bar.
+
+---
+
+## Commands
+
+Registered Obsidian commands accessible via the command palette:
+
+| Command ID | Icon | Opens | Registered In |
+|------------|------|-------|---------------|
+| `flowti:open-event-catalog` | `list` | [[Event Catalog View]] | `main.ts` |
+| `flowti:open-event-log` | `activity` | [[Event Log View]] | `main.ts` |
+| `flowti:open-component-showcase` | `palette` | [[Component Showcase View]] | `main.ts` |
+| `flowti:manage-subscriptions` | `bell` | [[SubscriptionManagerModal]] | `main.ts` |
+| `flowti:import-csv` | `file-input` | [[CSV Action View]] | `dataExchangeSetup.ts` |
+| `flowti:export-data` | `file-output` | [[Export View]] | `dataExchangeSetup.ts` |
+
+---
+
+## Views
+
+| View Type | Display Name | Layout | Phase |
+|-----------|-------------|--------|-------|
+| `flowti-event-catalog` | Event Catalog | master-detail, 8 tabs | 3 |
+| `flowti-event-log` | Activity Log | log list | 3 |
+| `flowti-component-showcase` | Flowti Components | showcase | 3 |
+| `flowti-data-exchange-hub` | Data Exchange Hub | master-detail, 7 pages | 6 |
+| `flowti-csv-action` | CSV Action | landing + wizard | 6 |
+| `flowti-export` | Export | wizard stepper | 6 |
+
+---
+
+## Event Flows
+
+Key event chains showing how events flow through the system:
+
+### File Change → Ingestion → Transform
+
+```
+Vault file modified
+  → EventBridge emits "file.modified"
+    → IngestionService (wildcard) batches into job queue
+      → "ingestion.job.queued"
+      → "ingestion.job.started"
+      → "ingestion.job.completed" { eventType, path }
+        → EventDefinitionService matches definitions
+          → "eventDefinition.matched" { definition, sourceEvent }
+          → emitCustom(domainEventName, extractedPayload)
+```
+
+### CSV Import Pipeline
+
+```
+User clicks "Import" in CsvActionView
+  → "dataExchange.import.execute" { config }
+    → DataExchangeService → ImportService
+      → "dataExchange.import.started"
+      → for each row: "dataExchange.import.progress"
+      → "dataExchange.import.completed" { imported, skipped, errors }
+```
+
+### Doc Creation (centralized)
+
+```
+Any view emits "doc.create" { docType, name, ... }
+  → DocService
+    → resolves path via docsRootPath + type-specific subfolder
+    → generates content via contentGenerator
+    → checks existence
+    → "doc.created" { path, docType }  OR  "doc.exists" { path }  OR  "doc.failed" { error }
+```
+
+### First-Run Onboarding
+
+```
+Plugin loads → InstallerService.load()
+  → "installer.loaded" { installed: false }
+    → InstallerWizardModal opens
+      → "installer.started"
+        → "installer.step.started" { stepId: "user-creation" }
+        → UserService.createUser()
+          → "user.created"
+        → "installer.step.completed" { stepId: "user-creation" }
+        → "installer.step.started" { stepId: "folder-scaffold" }
+        → FolderScaffoldStep creates 23 PARA folders
+        → "installer.step.completed" { stepId: "folder-scaffold" }
+      → "installer.completed"
+```
+
+---
+
+## Event Naming Conventions
+
+| Pattern | Meaning | Example |
+|---------|---------|---------|
+| `domain.action` | **Command** — request to do something | `subscription.create`, `doc.create` |
+| `domain.fact` | **Fact** — something that happened | `subscription.created`, `doc.created` |
+| `domain.loaded` | **Lifecycle** — state loaded from storage | `settings.loaded`, `discovery.loaded` |
+| `domain.changed` | **State change** — settings/filters updated | `settings.changed`, `eventFilter.changed` |
+| `domain.*.request` | **I/O request** — correlated by `RequestId` | `file.create.request` |
+| `domain.*.response` | **I/O response** — correlated by `RequestId` | `file.create.response` |
+| `domain.*.execute` | **Trigger** — start an operation | `dataExchange.import.execute` |
+| `domain.*.completed` | **Result** — operation finished | `dataExchange.import.completed` |
+| `domain.*.failed` | **Error** — operation failed | `dataExchange.import.failed` |
+
+### Wildcard Listener Rules
+
+Services using `eventBus.on("*", ...)` must filter events to avoid infinite loops:
+
+```typescript
+import { isSkippedEvent } from "../events/catalog";
+
+// In wildcard handler:
+if (isSkippedEvent(event.type, ["myDomain."])) return;
+```
+
+The shared `INTERNAL_EVENT_PREFIXES` array covers: `log.`, `error.`, `plugin.`, `service.`, `command.`, `view.`, `settings.`.
+
+---
+
+## Documentation Types
+
+DocService supports 17 document types via [[Development/flowti/src/domain/docs/contentGenerator.ts|contentGenerator.ts]]:
+
+| DocType | Subfolder | Frontmatter `type` |
+|---------|-----------|---------------------|
+| `EventDoc` | `Events/` | `EventDoc` |
+| `DomainDoc` | `Domains/` | `DomainDoc` |
+| `ServiceDoc` | `Services/` | `ServiceDoc` |
+| `CategoryDoc` | `Categories/` | `CategoryDoc` |
+| `FlowDoc` | `Flows/` | `FlowDoc` |
+| `SystemDoc` | `Systems/` | `SystemDoc` |
+| `ActorDoc` | `Actors/` | `ActorDoc` |
+| `ProductDoc` | `Products/` | `ProductDoc` |
+| `AreaDoc` | `02 - Areas/` | `AreaDoc` |
+| `CsvDoc` | (config-specific) | `CsvDoc` |
+| `ImportDoc` | (config-specific) | `ImportDoc` |
+| `ExportDoc` | (config-specific) | `ExportDoc` |
+| `PipelineDoc` | (config-specific) | `PipelineDoc` |
+| `PropertyDoc` | (config-specific) | `PropertyDoc` |
+| `TypeDoc` | (config-specific) | `TypeDoc` |
+
+All paths resolved relative to the `docsRootPath` setting (default: `03 - Resources/Documentation/Reference`).
+
+---
+
+*See also: [[Backend Architecture]] · [[Frontend Architecture]] · [[Testplan and Teststrategy]] · [[Data Dictionary]]*

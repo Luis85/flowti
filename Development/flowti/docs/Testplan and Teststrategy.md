@@ -1,36 +1,107 @@
 ---
 type: TestPlan
-stage: open
+stage: done
 domain: Flowti/Tests
 plugin: "[[Development/flowti/README|README]]"
+tags:
+  - testing
+  - quality
 ---
 
-# Teststrategy
+# Flowti IBDE — Testplan and Teststrategy
+
+> Related: [[Backend Architecture]] · [[Frontend Architecture]] · [[Event Catalog]] · [[Technical Debt Review 2026-02-13]]
+
+---
+
+## Test Strategy
 
 This section describes **why** and **how** we test.
 
-- we use Vitest for unit-tests
-- we use Vitest for automated integration-tests
-- we will use the Obsidian CLI for automated end-to-end tests in the future
+### Goals
 
-# Flowti IBDE — Test Plan Index
+1. **Prevent regressions** — Every domain service, infrastructure component, and utility function has automated tests that run on every build.
+2. **Document behavior** — Tests serve as executable specifications. Use case IDs (UC-01 through UC-99) link tests to user-visible behavior.
+3. **Enable fearless refactoring** — High coverage on pure functions and service logic allows structural changes (e.g., [[TD-34 Entity tab structural duplication|BaseEntityTab extraction]]) without risk.
+4. **Gate the build** — The `npm run build` pipeline fails if any test fails, preventing broken code from reaching the plugin output.
+
+### Test Pyramid
+
+```
+        ┌──────────────────────┐
+        │   E2E (planned)      │  Obsidian runtime
+        │   ⏭️ Future           │  ~0 tests
+        ├──────────────────────┤
+        │   Integration        │  Multi-service flows
+        │   ✅ InstallerJourney │  ~20 tests
+        │   ✅ Pipeline         │  ~25 tests
+        ├──────────────────────┤
+        │   Unit               │  Services, pure fns, utils
+        │   ✅ 49 test files    │  ~1,127 tests
+        └──────────────────────┘
+```
+
+### Frameworks and Tools
+
+| Tool | Purpose |
+|------|---------|
+| **Vitest** | Unit + integration test runner |
+| **vi.fn() / vi.spyOn()** | Mocking and spying |
+| **vi.useFakeTimers()** | Deterministic time in timestamp-dependent tests |
+| **obsidian-stub** | Polyfills Obsidian DOM extensions (`createDiv`, `createEl`, `addClass`, etc.) |
+| **`@vitest/coverage-v8`** | Code coverage via V8 engine |
+
+### Test Isolation
+
+- Each test gets a **fresh `EventBus`** instance via `beforeEach()` to prevent listener leakage
+- **Mock storage** (`vi.fn()` for `load`/`save`) avoids cross-test state contamination
+- `DEFAULT_STATE` uses **factory functions** (not shared objects) to prevent mutation bleed
+- Services are instantiated per-test with injected mocks — no singletons
+
+### What We Don't Test
+
+| Category | Reason | Mitigation |
+|----------|--------|------------|
+| Obsidian Modals | Require runtime `App` instance | Business logic extracted into testable services |
+| DOM rendering | Component rendering needs Obsidian's augmented `HTMLElement` | `obsidian-stub` polyfills cover event handler wiring; visual correctness is manual |
+| `main.ts` bootstrap | Plugin lifecycle tightly coupled to Obsidian API | Registration order tested indirectly via `ServiceContainer` |
+
+### Naming Conventions
+
+- Test files mirror source tree: `src/domain/ingestion/IngestionService.ts` → `tests/domain/ingestion/IngestionService.test.ts`
+- Describe blocks match class/function names
+- Test names use `should + expected behavior` pattern
+
+---
+
+## Test Plan
 
 > Run `npm test` (or `npx vitest run`) for the current test count and pass/fail status.
 
-This document describes **what** is tested — use cases, scenarios, and coverage strategy — independent of the evolving test count. It serves as the index for the full test plan.
+This section describes **what** is tested — use cases, scenarios, and coverage strategy — independent of the evolving test count. It serves as the index for the full test plan.
 
 > **Expanded documentation:** Each use case (UC-56 through UC-99) has a standalone file in `docs/use-cases/` with full steps, preconditions, outcomes, and variations. End-to-end user journeys are documented in `docs/flows/` (10 files).
 
-Vitest generates test and coverage reports. You find them as JSON file in `docs/tests`.
+### Generated Reports
 
-- `docs/tests/testreport.json` for the test report
-- `docs/tests/coverage-final.json` for coverage
+Vitest generates test and coverage reports. You find them as JSON files in `docs/tests`.
 
-The codebase gets exported as JSON by typedoc. You find the export here:
+| Report | Path | Updated |
+|--------|------|---------|
+| Test results | `docs/tests/testreport.json` | Every `npm run build` |
+| Coverage | `docs/tests/coverage-final.json` | Every `npm run build` |
+| Codebase (TypeDoc) | `docs/codebase/codebase.json` | Every `npm run build` |
 
-- `docs/codebase/codebase.json`
+### Current Metrics (Feb 2026)
 
-Every `npm run build` will also update the generated exports.
+| Metric | Value |
+|--------|-------|
+| Test files | 49 |
+| Tests | 1,172 passing, 4 skipped |
+| Coverage (statements) | 74.11% overall |
+| Coverage (branches) | 68.67% overall |
+| 100% coverage files | `pathResolver.ts`, `contentGenerator.ts`, `configDocContent.ts`, `CsvParser.ts`, `glob.ts`, `persistence.ts`, `mutex.ts`, `pathUtils.ts`, `folders.ts`, `settings.ts`, `UserService.ts` |
+| Build pipeline | vitest → typedoc → tsc → eslint → esbuild |
 
 ---
 
@@ -112,11 +183,11 @@ End-to-end path through the installer feature, crossing multiple steps and servi
 | 6 | Command Pipeline | infrastructure/commands | `CommandRegistry` | ✅ |
 | 7 | Error Handling | infrastructure/errors | `FlowtiError`, `ErrorService` | ✅ |
 | 8 | Logger | infrastructure/logger | `LoggerService` | ✅ |
-| 9 | Utilities | utils | `helpers`, `glob`, `persistence`, `mutex` | ✅ |
+| 9 | Utilities | utils | `helpers`, `glob`, `persistence`, `mutex`, `pathUtils` | ✅ |
 | 10 | Event Catalog View | ui/catalog | `EventCatalogView`, `catalog/helpers`, `eventDocTemplate` | ✅ |
 | 11 | Event Log View | ui | `EventLogView` | ✅ |
 | 12 | Data Exchange Hub View | ui | `DataExchangeHubView` | ✅ |
-| 13 | CSV Import & Data Exchange | domain/dataExchange | `ImportService`, `CsvParser`, `DataExchangeService`, `Pipeline`, `BaseQueryEngine`, `ExportService` | ✅ |
+| 13 | CSV Import & Data Exchange | domain/dataExchange | `ImportService`, `CsvParser`, `DataExchangeService`, `Pipeline`, `BaseQueryEngine`, `ExportService`, `configDocContent` | ✅ |
 | 14 | Export View | ui/export | `ExportView` | ✅ |
 | 15 | Component Showcase View | ui | — | ⏭️ Rendering only |
 | 16 | Catalog Helpers | ui/catalog | `catalog/helpers` | ✅ |
@@ -126,7 +197,7 @@ End-to-end path through the installer feature, crossing multiple steps and servi
 | 20 | Subscription | domain/subscription | `SubscriptionService` | ✅ |
 | 21 | Ingestion | domain/ingestion | `IngestionService`, `JobQueue` | ✅ |
 | 22 | Event Definition | domain/eventDefinition | `EventDefinitionService`, `payloadExtractor` | ✅ |
-| 23 | DocService | domain/docs | `DocService` | ✅ |
+| 23 | DocService | domain/docs | `DocService`, `pathResolver`, `contentGenerator` | ✅ |
 | 24 | Event Config Modal | ui | `EventConfigModal` | ✅ |
 | 25 | Ingestion Status Bar | ui | `IngestionStatusBar` | ✅ |
 
@@ -562,18 +633,64 @@ The skipped tests in `InstallerJourney.test.ts` require the Obsidian runtime to 
 
 ---
 
+## Coverage Strategy
+
+### Tier Model
+
+Coverage is prioritized by ROI — pure functions first, then injectable services, then UI wiring.
+
+| Tier | Description | Status | Files | Tests |
+|------|-------------|--------|-------|-------|
+| **Tier 1: Pure functions** | Stateless input→output functions, zero mocking needed | ✅ Complete | `pathResolver`, `contentGenerator`, `configDocContent`, `settings`, `folders`, `glob`, `pathUtils`, `persistence`, `mutex`, `helpers`, `exportUtils`, `BaseQueryEngine`, `CsvParser` | ~500+ |
+| **Tier 2: Injectable services** | Stateful services with injected `EventBus` + `Storage` | ✅ Complete (core) | All 11 domain services + `EventBus`, `EventBridge`, `ServiceContainer`, `CommandRegistry` | ~450+ |
+| **Tier 3: View orchestrators** | Obsidian `ItemView` subclasses testing event wiring | ✅ Partial | `EventCatalogView`, `EventLogView`, `DataExchangeHubView`, `ExportView`, `EventConfigModal`, `IngestionStatusBar` | ~170+ |
+| **Tier 4: UI components** | Tab/page components with DOM rendering | ⏭️ Open ([[TD-27 Limited UI component testing|TD-27]]) | ~40 components in `catalog/`, `hub/`, `csv/`, `export/` | 0 |
+| **Tier 5: Bootstrap/wiring** | `main.ts`, `pluginBootstrap.ts`, `dataExchangeSetup.ts` | ⏭️ Low ROI | Plugin lifecycle tightly coupled to Obsidian | 0 |
+
+### Files at 100% Coverage
+
+These files have full statement and branch coverage:
+
+| File | Tests | Domain |
+|------|-------|--------|
+| `pathResolver.ts` | 82 | docs |
+| `contentGenerator.ts` | 64 | docs |
+| `configDocContent.ts` | 152 | dataExchange |
+| `CsvParser.ts` | 12 | dataExchange |
+| `glob.ts` | 15 | utils |
+| `persistence.ts` | 11 | utils |
+| `mutex.ts` | 5 | utils |
+| `pathUtils.ts` | 19 | utils |
+| `folders.ts` | 9 | installer |
+| `settings.ts` | 19 | settings |
+| `UserService.ts` | 19 | user |
+| `EventBus.ts` | 13 | events |
+
+### Coverage Gaps (known)
+
+| File | Coverage | Gap | Debt Item |
+|------|----------|-----|-----------|
+| `EventLogView.ts` | 8% | Rendering methods | [[TD-27 Limited UI component testing|TD-27]] |
+| `ConfigDocService.ts` | 48% | Doc CRUD with file I/O | [[TD-30 Untested domain and infrastructure logic|TD-30 Tier 2]] |
+| `PipelineExecutor.ts` | 45% | Multi-source orchestration | [[TD-30 Untested domain and infrastructure logic|TD-30 Tier 2]] |
+| `DataDictionaryBuilder.ts` | 52% | Property aggregation | [[TD-30 Untested domain and infrastructure logic|TD-30 Tier 2]] |
+| `DataExchangeService.ts` | 59% | Facade wiring | [[TD-30 Untested domain and infrastructure logic|TD-30 Tier 2]] |
+| `DiscoveryService.ts` | 52% | Vault scan paths | [[TD-30 Untested domain and infrastructure logic|TD-30 Tier 2]] |
+
+---
+
 ## Appendix A: Build Pipeline
 
 ```
-npm run build = vitest run → typedoc → tsc -noEmit -skipLibCheck → eslint → esbuild
+npm run build = vitest run --coverage → typedoc → tsc -noEmit -skipLibCheck → eslint → esbuild
 ```
 
 | Stage | What it validates |
 |-------|-------------------|
-| `vitest run` | All tests pass |
+| `vitest run` | All 1,172 tests pass, coverage report generated |
 | `typedoc` | TSDoc comments generate without errors |
-| `tsc` | Type-checking passes (skip lib check for node_modules) |
-| `eslint` | Lint rules pass on src/ |
+| `tsc` | Type-checking passes (`strict: true`, `-skipLibCheck` for node_modules) |
+| `eslint` | Lint rules pass on `src/` |
 | `esbuild` | Bundle produces `main.js` in `.obsidian/plugins/flowti-ibde/` |
 
 ## Appendix B: Test Environment
@@ -582,7 +699,80 @@ npm run build = vitest run → typedoc → tsc -noEmit -skipLibCheck → eslint 
 |-------------|---------|
 | **Runtime** | Node.js (vitest) |
 | **Platform** | Windows 10/11 |
-| **Framework** | Vitest with vi.fn() mocks |
-| **Obsidian API** | Mocked via test doubles (no runtime dependency) |
-| **Test Isolation** | Fresh EventBus + mock storage per test (via `beforeEach`) |
+| **Framework** | Vitest 4.x with `vi.fn()` mocks |
+| **Obsidian API** | Mocked via `tests/mocks/obsidian-stub.ts` (no runtime dependency) |
+| **Test Isolation** | Fresh `EventBus` + mock `IStorageProvider` per test (via `beforeEach`) |
+| **Fake Timers** | `vi.useFakeTimers()` for timestamp-dependent tests (e.g., `contentGenerator`) |
 | **Known Gotcha** | `DEFAULT_STATE` must use factory function to avoid shared-reference mutation across tests |
+| **Known Gotcha** | `vi.fn(async () => { status: "completed" })` — tsc infers `string`, not literal union. Use explicit return type or `as const` |
+
+## Appendix C: Test File Index
+
+### Domain Tests (29 files)
+
+| File | Tests | Source |
+|------|-------|--------|
+| `tests/domain/dataExchange/BaseQueryEngine.test.ts` | 26 | `.base` YAML query engine |
+| `tests/domain/dataExchange/configDocContent.test.ts` | 152 | Config doc content builders |
+| `tests/domain/dataExchange/CsvParser.test.ts` | 12 | CSV parse/generate |
+| `tests/domain/dataExchange/DataExchangeService.test.ts` | 26 | Import/export orchestration |
+| `tests/domain/dataExchange/ExportService.test.ts` | 34 | Vault→CSV export |
+| `tests/domain/dataExchange/ImportService.test.ts` | 16 | CSV→vault import |
+| `tests/domain/dataExchange/Pipeline.test.ts` | 25 | Multi-import pipelines |
+| `tests/domain/discovery/DiscoveryService.test.ts` | 10 | Event file discovery |
+| `tests/domain/docs/contentGenerator.test.ts` | 64 | Doc content generators |
+| `tests/domain/docs/DocService.test.ts` | 15 | Centralized doc creation |
+| `tests/domain/docs/pathResolver.test.ts` | 82 | Doc path resolution |
+| `tests/domain/eventDefinition/EventDefinitionService.test.ts` | 24 | Event transforms |
+| `tests/domain/eventDefinition/payloadExtractor.test.ts` | 15 | Payload extraction |
+| `tests/domain/eventFilter/EventFilterService.test.ts` | 14 | Event visibility |
+| `tests/domain/eventNotify/EventNotificationService.test.ts` | 14 | Event notifications |
+| `tests/domain/ingestion/IngestionService.test.ts` | 24 | File processing pipeline |
+| `tests/domain/ingestion/JobQueue.test.ts` | 10 | Concurrent job queue |
+| `tests/domain/installer/InstallerJourney.test.ts` | 20 | End-to-end installer |
+| `tests/domain/installer/InstallerService.test.ts` | 26 | Step registry + execution |
+| `tests/domain/installer/steps/FolderScaffoldStep.test.ts` | 7 | PARA folder creation |
+| `tests/domain/installer/steps/UserCreationStep.test.ts` | 5 | User profile creation |
+| `tests/domain/installer/folders.test.ts` | 9 | Folder constant validation |
+| `tests/domain/settings/SettingsService.test.ts` | 14 | Settings persistence |
+| `tests/domain/settings/settings.test.ts` | 19 | Zod schema validation |
+| `tests/domain/subscription/SubscriptionService.test.ts` | 25 | Event watchers |
+| `tests/domain/user/UserService.test.ts` | 19 | User profile lifecycle |
+
+### Infrastructure Tests (8 files)
+
+| File | Tests | Source |
+|------|-------|--------|
+| `tests/infrastructure/commands/CommandRegistry.test.ts` | 18 | Command pipeline |
+| `tests/infrastructure/errors/ErrorService.test.ts` | 11 | Error handling |
+| `tests/infrastructure/errors/FlowtiError.test.ts` | 13 | Error hierarchy |
+| `tests/infrastructure/events/EventBridge.test.ts` | 53 | Obsidian API bridge |
+| `tests/infrastructure/events/EventBus.test.ts` | 13 | Pub/sub backbone |
+| `tests/infrastructure/events/catalog.test.ts` | 19 | Runtime catalog |
+| `tests/infrastructure/logger/LoggerService.test.ts` | 19 | Structured logging |
+| `tests/infrastructure/services/ServiceContainer.test.ts` | 24 | DI container |
+| `tests/infrastructure/services/VaultQueryService.test.ts` | 12 | Vault queries |
+| `tests/infrastructure/services/WorkspaceService.test.ts` | 4 | Workspace ops |
+
+### UI Tests (7 files)
+
+| File | Tests | Source |
+|------|-------|--------|
+| `tests/ui/EventCatalogView.test.ts` | 23 | Catalog event wiring |
+| `tests/ui/EventConfigModal.test.ts` | 6 | Event config hub |
+| `tests/ui/EventLogView.test.ts` | 25 | Activity feed |
+| `tests/ui/DataExchangeHubView.test.ts` | 10 | Hub event wiring |
+| `tests/ui/ExportView.test.ts` | 40 | Export wizard |
+| `tests/ui/IngestionStatusBar.test.ts` | 7 | Status bar |
+| `tests/ui/eventDocTemplate.test.ts` | 64 | Doc template generators |
+| `tests/ui/catalog/helpers.test.ts` | 44 | Catalog helper functions |
+
+### Utility Tests (5 files)
+
+| File | Tests | Source |
+|------|-------|--------|
+| `tests/utils/glob.test.ts` | 15 | Glob pattern matching |
+| `tests/utils/helpers.test.ts` | 14 | UUID generation |
+| `tests/utils/mutex.test.ts` | 5 | Path mutex |
+| `tests/utils/pathUtils.test.ts` | 19 | Path manipulation |
+| `tests/utils/persistence.test.ts` | 11 | Storage helpers |

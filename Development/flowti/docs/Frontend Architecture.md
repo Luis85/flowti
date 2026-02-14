@@ -476,6 +476,21 @@ Extracted content builders into a separate pure-function module:
 
 **ConfigDocService.ts after**: 435 LOC — path resolution + doc CRUD (create/ensure/update).
 
+### Phase 11 — Entity Tab Deduplication (TD-34)
+
+Created `BaseEntityTab<T>` abstract class with `EntityTabConfig<T>` configuration object. All 4 entity tabs refactored to thin subclasses.
+
+| File | Before | After | Reduction |
+|------|--------|-------|-----------|
+| `FlowsTab.ts` | 314 LOC | 113 LOC | -201 LOC |
+| `ActorsTab.ts` | 314 LOC | 112 LOC | -202 LOC |
+| `ProductsTab.ts` | 320 LOC | 117 LOC | -203 LOC |
+| `SystemsTab.ts` | 318 LOC | 116 LOC | -202 LOC |
+| `BaseEntityTab.ts` (new) | — | 370 LOC | +370 LOC |
+| **Total** | **1,266 LOC** | **828 LOC** | **-438 LOC** |
+
+**Design**: Composition via config, not inheritance overrides. `SystemsTab` uses `filterIncludesEvents: false` and custom `renderDirectEventsSection()` for `EventCatalogEntry[]` (vs string-based resolution in other tabs). Backward-compatible accessor methods preserved on subclasses.
+
 ---
 
 ## Planned Refactoring
@@ -530,7 +545,7 @@ Pure content generation file with markdown builders for 8+ entity types. Could s
 
 | Item | Problem | Target | Debt File |
 |------|---------|--------|-----------|
-| **TD-7**: Limited UI testing | 854 tests across 45 files cover domain services, EventBus, utilities, and 6 view orchestrators. Component-level rendering tests (individual tabs, pages) not yet covered. | Add lightweight unit tests for tab components with mock deps and DOM assertions via `obsidian-stub` polyfills. | [[TD-27 Limited UI component testing]] |
+| **TD-7**: Limited UI testing | 1,172 tests across 49 files cover domain services, EventBus, utilities, pure functions, and 6 view orchestrators. Component-level rendering tests (individual tabs, pages) not yet covered. | Add lightweight unit tests for tab components with mock deps and DOM assertions via `obsidian-stub` polyfills. | [[TD-27 Limited UI component testing]] |
 | **TD-8**: Scanner duplication between Catalog and Hub | Catalog tabs use `entityScanner.ts`; Hub tabs implement their own scanning logic. | Generalize scanner utility. Low ROI — Hub tabs are storage-driven. | [[TD-28 Scanner duplication between Catalog and Hub]] |
 
 ---
@@ -540,7 +555,7 @@ Pure content generation file with markdown builders for 8+ entity types. Could s
 1. **Facade preservation**: Public APIs never change. All consumers see the same interface after extraction.
 2. **Zero test changes**: Extracted code is internal — existing test suites pass without modification.
 3. **Composition over inheritance**: Sub-modules receive deps interfaces, not parent class references.
-4. **Build verification**: `npm run build` (854 tests + tsc + eslint + esbuild) after every step.
+4. **Build verification**: `npm run build` (1,172 tests + tsc + eslint + esbuild) after every step.
 5. **Incremental extraction**: One module at a time, verify, then proceed. Never batch multiple extractions without build checks.
 6. **No premature abstraction**: Extract when a file exceeds ~600 LOC or when distinct responsibilities are clearly identifiable. Don't extract for the sake of extracting.
 7. **DocService for all docs**: Use `doc.create` events instead of direct `fileSystemClient.createFile()` calls for documentation files.
@@ -565,8 +580,8 @@ Pure content generation file with markdown builders for 8+ entity types. Could s
 - `EventsTab.ts`: 1,040 → 329 LOC (68% reduction)
 - `ConfigDocService.ts`: 934 → 435 LOC (53% reduction)
 - 14 files over 500 LOC (down from 6 files over 1,000 LOC)
-- 45 test files, 854 tests — all passing
-- 154 source files, ~31,467 LOC
+- 49 test files, 1,172 tests — all passing
+- 155 source files (BaseEntityTab.ts added), ~31,000 LOC (entity tab deduplication removed ~438 LOC)
 
 ### Target After Phase 11
 - `EventConfigModal.ts`: 629 → ~150 LOC

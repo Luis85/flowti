@@ -144,3 +144,62 @@ Each item below has a dedicated file in this folder with full details. See the `
 | 33 | Storage save race condition (read-merge-write not atomic) | Infrastructure | Medium | **Resolved** (PathMutex added) |
 | 34 | Entity tab structural duplication (~800 LOC) | UI | Low | **Resolved** (BaseEntityTab deduplication, -438 LOC) |
 | 35 | Fire-and-forget persistence risk (3 void saveState calls) | Domain | Medium | **Resolved** (void prefix + safeSaveState) |
+
+---
+
+## Improvement Plan — Pre-Feature Priorities
+
+> Updated 2026-02-15. This section identifies the recommended improvements to address before continuing feature development.
+
+### State: 25 of 35 items resolved, 0 high-severity open items
+
+The codebase is in good shape. All high-severity items are resolved. The remaining 8 open items are 4 medium + 6 low (including 2 mitigated). None are blockers for feature work, but addressing the medium items will reduce friction and risk as the codebase grows.
+
+### Priority 1: TD-30 Tier 2 — Injectable Service Tests (medium effort, medium value)
+
+**Why now**: Coverage on `ConfigDocService` (48%), `PipelineExecutor` (45%), `DataDictionaryBuilder` (52%), and `DiscoveryService` (52%) is below the domain average. These files contain branching logic that accumulates risk as features grow.
+
+**Work**:
+- `tests/domain/dataExchange/ConfigDocService.test.ts` — doc creation/update paths, path resolution
+- `tests/domain/dataExchange/PipelineExecutor.test.ts` — multi-source orchestration, retry, `.base` generation
+- `tests/domain/dataExchange/DataDictionaryBuilder.test.ts` — property aggregation logic
+- `tests/domain/dataExchange/ConfigPathTracker.test.ts` — rename tracking
+- `tests/domain/discovery/DiscoveryService.test.ts` — expand beyond current 10 tests
+
+**Estimate**: ~5 new test files, ~200 tests, ~2 hours
+
+### Priority 2: TD-16 — Shared Storage Abstraction (medium effort, medium value)
+
+**Why now**: The `((await storage.load()) as object) || {}` pattern is duplicated across all 10 persistent services. Adding new services or modifying storage structure risks silent data loss. A `TypedStorage<T>` wrapper with Zod validation at the boundary would eliminate this risk.
+
+**Work**:
+- Create `src/utils/TypedStorage.ts` — `load(): Promise<T>`, `save(state: T): Promise<void>`, Zod schema validation
+- Migrate 10 services to use `TypedStorage<T>` instead of raw `IStorageProvider`
+- Update `persistence.ts` helpers or deprecate in favor of TypedStorage
+
+**Estimate**: ~1 new file, 10 file edits, ~2 hours
+
+### Priority 3: TD-22 — ExportService Type Safety (small effort, low risk)
+
+**Why now**: Single `as Record<string, unknown>` cast. Small, low-risk fix that improves type safety.
+
+**Work**: Replace unsafe cast with typed event listener or Zod runtime validation.
+
+**Estimate**: 1 file, <30 min
+
+### Defer: TD-06, TD-12, TD-23, TD-27, TD-28
+
+| Item | Reason to defer |
+|------|-----------------|
+| **TD-06** (EventBridge bypass, 112 calls) | All 112 calls are **read-only** UI queries (`metadataCache`, `vault.getFiles()`). Routing reads through EventBridge would add boilerplate without safety benefit. Acceptable architectural trade-off. |
+| **TD-12** (Wildcard listeners) | Only 7 listeners, all properly filtered via `isSkippedEvent()`. No measured performance issue at current event volumes. |
+| **TD-23** (InstallerWizardModal state) | Modal is stable, rarely modified, and only runs once per vault. Low ROI to refactor. |
+| **TD-27** (UI component tests) | ~40 untested components. Important but effort-intensive (~40 test files). Better addressed incrementally as components are modified for features. |
+| **TD-28** (Scanner duplication) | Catalog and Hub use different data sources (files vs storage). Low actual duplication. |
+
+### Recommended Sequence
+
+1. **TD-22** (30 min) — quick type safety fix
+2. **TD-30 Tier 2** (2 hours) — injectable service tests fill coverage gaps
+3. **TD-16** (2 hours) — storage abstraction eliminates 10-service duplication
+4. **Feature development** — address TD-27 incrementally as components are touched
