@@ -61,21 +61,21 @@ Views read state via `deps.getState()` and write via `deps.setState(partial)`. T
 
 | View | Type Constant | LOC | Layout | Purpose |
 |------|--------------|-----|--------|---------|
-| `EventCatalogView` | `flowti-event-catalog` | ~850 | master-detail | 8-tab catalog: Dashboard, Domains, Services, Events, Flows, Systems, Actors, Products |
-| `DataExchangeHubView` | `flowti-data-exchange-hub` | ~520 | master-detail | 7-page hub: Dashboard, Imports, Exports, Reports, Properties, Pipelines, Types |
+| `EventCatalogView` | `flowti-event-catalog` | ~825 | master-detail | 8-tab catalog: Dashboard, Domains, Services, Events, Flows, Systems, Actors, Products |
+| `DataExchangeHubView` | `flowti-data-exchange-hub` | ~485 | master-detail | 7-page hub: Dashboard, Imports, Exports, Reports, Properties, Pipelines, Types |
 | `EventLogView` | `flowti-event-log` | ~600 | log list | Activity feed with category/type filters and subscribed/all modes |
-| `ExportView` | `flowti-export` | ~1,440 | wizard stepper | 4-page export wizard: View Select, Configure, Preview, Result |
-| `CsvActionView` | `flowti-csv` | ~2,290 | landing + wizard | CSV file handler: column preview landing page + 4-page inline import wizard |
+| `ExportView` | `flowti-export` | ~1,355 | wizard stepper | 4-page export wizard: View Select, Configure, Preview, Result |
+| `CsvActionView` | `flowti-csv` | ~2,190 | landing + wizard | CSV file handler: column preview landing page + 4-page inline import wizard |
 | `ComponentShowcaseView` | `flowti-component-showcase` | ~300 | showcase | Development view for previewing all CSS components |
 
 ### Modals
 
 | Modal | LOC | Purpose |
 |-------|-----|---------|
-| `EventConfigModal` | ~760 | Per-event config hub (3 pages: overview, subscription form, definition form) |
+| `EventConfigModal` | ~630 | Per-event config hub (3 pages: overview, subscription form, definition form) |
 | `PipelineSourceModal` | ~470 | Add/edit CSV sources within import pipelines |
 | `InstallerWizardModal` | ~400 | First-run setup wizard (4 pages: Welcome, Review, Progress, Complete) |
-| `SubscriptionManagerModal` | ~310 | Manage all event subscriptions (list + form pages) |
+| `SubscriptionManagerModal` | ~190 | Manage all event subscriptions (list + form pages) |
 | `ConfirmModal` | ~40 | Simple confirmation dialog |
 | `InputModal` | ~60 | Single text input dialog |
 | `CreateEventModal` | ~70 | Event creation with name + category |
@@ -114,6 +114,23 @@ class SomeTab {
   renderDetail(): void { /* detail panel rendering */ }
 }
 ```
+
+### Shared Helpers
+
+Both decomposed views share extracted helper modules to avoid duplication:
+
+**`catalog/helpers.ts`** (~545 LOC):
+- `buildSplitLayout()` — creates the dashboard + master/detail DOM structure used by both orchestrators
+- `createEntityDoc()` — generic entity document creation (used by all 6 catalog tabs)
+- `openOrCreateEventDoc()` — finds existing event doc or creates from template
+- `renderSubscriptionForm()` / `renderSubscriptionRow()` — subscription UI shared between `EventConfigModal` and `SubscriptionManagerModal`
+- Category ordering, entity scanning, cross-reference helpers
+
+**`hub/helpers.ts`** (~253 LOC):
+- `renderStepBar()` — generic wizard stepper bar shared between `CsvActionView` and `ExportView`
+- `renderConfigDropdown()` — config save/load dropdown shared between `CsvActionView` and `ExportView`
+- `openEventInCatalog()` — cross-view navigation to Event Catalog
+- `renderDashboardSectionHeader()`, `renderEmptyDetail()`, `renderConfigDropdown()` — common hub UI patterns
 
 ---
 
@@ -232,60 +249,32 @@ The `FlowtiEventMap` type union contains **~98 events** across 10 domains:
 - **Stylesheet**: `styles.css` at project root
 - **Prefix**: All custom classes use `ft-` (e.g., `ft-btn`, `ft-card`, `ft-badge`)
 - **Obsidian integration**: Uses CSS variables (`--interactive-accent`, `--background-secondary`, `--text-normal`, etc.)
-- **Utility classes**: Flexbox (`ft-flex`, `ft-gap-*`), spacing (`ft-p-*`, `ft-m-*`), typography (`ft-text-sm`, `ft-text-muted`, `ft-heading-*`)
+- **Utility classes**: Flexbox (`ft-flex`, `ft-flex-1`, `ft-flex-shrink-0`, `ft-gap-*`), spacing (`ft-p-*`, `ft-m-*`), typography (`ft-text-sm`, `ft-text-muted`, `ft-heading-*`), appearance (`ft-icon-muted`, `ft-icon-faint`, `ft-icon-subtle`, `ft-cursor-pointer`), layout (`ft-view-root`, `ft-view-dashboard`, `ft-view-split`)
 - **View header override**: Catalog and Hub views hide Obsidian's default view header via `.workspace-leaf-content[data-type="flowti-*"] .view-header { display: none; }`
 
 ---
 
 ## Tech Debt Assessment
 
-### TD-1: `ExportView` is a monolith (~1,440 LOC)
+### Resolved
 
-**Problem**: Single file containing 4 wizard pages, column scanning, preview rendering, conflict resolution, and native save dialog logic. No component decomposition.
+The following items were addressed in the Feb 2026 frontend refactoring:
 
-**Impact**: Hard to modify individual pages. Duplicates patterns already extracted in the hub's `ExportsTab`.
+| Item | Resolution |
+|------|-----------|
+| **TD-3**: No shared layout system | `buildSplitLayout()` in `catalog/helpers.ts` creates the dashboard + master/detail DOM structure. CSS classes `ft-view-root`, `ft-view-dashboard`, `ft-view-split` replace inline styles. Both orchestrators now use the shared builder. |
+| **TD-4**: Inline styles in component code | ~170 inline `style.*` assignments replaced with CSS utility classes (`ft-icon-muted`, `ft-flex-shrink-0`, `ft-cursor-pointer`, `ft-flex-1`, etc.). Remaining ~300 inline styles are lower-frequency patterns (border, padding, display, margin) with more variation. |
+| **TD-5**: Subscription form duplication | `renderSubscriptionForm()` and `renderSubscriptionRow()` extracted to `catalog/helpers.ts`. Both `EventConfigModal` (~630 LOC, down from ~760) and `SubscriptionManagerModal` (~190 LOC, down from ~310) use the shared functions. |
+| **TD-6**: Duplicated navigation logic | `openOrCreateEventDoc()`, `openEventInCatalog()`, and `createEntityDoc()` consolidated into shared helpers. All 6 catalog tabs use the generic `createEntityDoc()` instead of per-tab copies. |
 
-**Target**: Decompose into page components following the hub pattern, or consolidate with `ExportsTab` if the standalone wizard is no longer needed.
+### Partially Resolved
 
-### TD-2: `CsvActionView` is a monolith (~2,290 LOC)
+| Item | What was done | What remains |
+|------|--------------|-------------|
+| **TD-1**: `ExportView` monolith (~1,355 LOC) | Stepper bar and config dropdown extracted to shared `renderStepBar()` and `renderConfigDropdown()` in `hub/helpers.ts`. | Page components (view select, configure, preview, result) still inline. Property grid and preview table extraction is a follow-up. |
+| **TD-2**: `CsvActionView` monolith (~2,190 LOC) | Same stepper and config dropdown extraction. | Landing page, wizard pages, column preview, and data snapshot table still inline. Full decomposition into `src/ui/csv/` components is a dedicated follow-up. |
 
-**Problem**: Largest single view file. Contains a landing page, a full 4-page import wizard, column preview logic, and inline config management. The import wizard duplicates much of `ImportsTab`.
-
-**Impact**: Changes to import flow must be synchronized across two implementations.
-
-**Target**: Extract landing page and wizard pages into components under `src/ui/csv/`. Share import wizard logic with `ImportsTab` where possible.
-
-### TD-3: No shared layout system
-
-**Problem**: Each view manually creates its own DOM structure (top bar, master panel, detail panel, footer). The master-detail layout is reimplemented in every tab.
-
-**Impact**: Layout inconsistencies between views. Changes to spacing or responsive behavior require edits across many files.
-
-**Target**: Create a lightweight `Layout` utility that generates standard slot structures (`header`, `master`, `detail`, `footer`) from a configuration object. Views and tabs call `Layout.masterDetail(containerEl)` instead of manual DOM construction.
-
-### TD-4: Inline styles in component code
-
-**Problem**: Components frequently set styles directly on elements (e.g., `el.style.flex = "1"`, `el.style.opacity = "0.5"`, `el.style.flexShrink = "0"`). This scatters presentation logic across TypeScript files.
-
-**Impact**: Harder to maintain consistent styling. Cannot be overridden by themes or user CSS snippets.
-
-**Target**: Move repeated inline styles to CSS classes in `styles.css`. Reserve `el.style` for truly dynamic values (e.g., computed widths).
-
-### TD-5: `EventConfigModal` complexity (~760 LOC)
-
-**Problem**: Three-page modal with subscription form, event definition form, and overview page. Manages its own state and EventBus subscriptions independently from the catalog orchestrator.
-
-**Impact**: State can drift between the modal and the catalog view. Form validation and save logic is tightly coupled to modal lifecycle.
-
-**Target**: Extract each page into its own component class, following the same pattern used for catalog tabs. Share form components with `SubscriptionManagerModal`.
-
-### TD-6: Duplicated cross-view navigation logic
-
-**Problem**: The "find existing leaf or create new one" pattern is copy-pasted in multiple views (`EventCatalogView`, `DataExchangeHubView`, `SubscriptionManagerModal`).
-
-**Impact**: Inconsistent leaf placement (some use `getLeaf(true)`, others `getRightLeaf(false)`).
-
-**Target**: Extract a shared `openOrRevealView(workspace, viewType, onReady)` utility function.
+### Remaining
 
 ### TD-7: No component-level testing for UI
 
@@ -301,23 +290,20 @@ The `FlowtiEventMap` type union contains **~98 events** across 10 domains:
 
 **Impact**: Two different scanning patterns for the same fundamental operation (read folder → parse frontmatter → build entries).
 
-**Target**: Generalize `entityScanner.ts` or create a shared `folderScanner` utility that both catalog and hub tabs can use.
+**Target**: Generalize `entityScanner.ts` or create a shared `folderScanner` utility that both catalog and hub tabs can use. Note: Hub tabs are storage-driven (not file-driven), so `entityScanner` doesn't directly apply. Low ROI.
 
 ---
 
 ## Refactoring Priorities
 
-The items above are ordered by impact and difficulty:
+Remaining items ordered by impact and difficulty:
 
 | Priority | Item | Effort | Impact |
 |----------|------|--------|--------|
-| 1 | TD-3: Shared layout system | Medium | High — enables consistent structure everywhere |
-| 2 | TD-6: Shared navigation utility | Low | Medium — removes duplication, fixes consistency |
-| 3 | TD-4: Inline styles → CSS classes | Low | Medium — incremental, can be done per-file |
-| 4 | TD-2: CsvActionView decomposition | High | High — largest monolith, import logic duplication |
-| 5 | TD-1: ExportView decomposition | Medium | Medium — follows established hub pattern |
-| 6 | TD-8: Scanner generalization | Low | Low-Medium — small deduplication win |
-| 7 | TD-5: EventConfigModal decomposition | Medium | Medium — complexity management |
-| 8 | TD-7: Component-level tests | High | High — long-term quality, but large investment |
+| 1 | TD-2: CsvActionView full decomposition | High | High — largest monolith, import logic duplication |
+| 2 | TD-1: ExportView full decomposition | Medium | Medium — follows established hub pattern |
+| 3 | TD-4: Remaining ~300 inline styles | Low | Low — lower-frequency patterns with more variation, incremental |
+| 4 | TD-7: Component-level tests | High | High — long-term quality, but large investment |
+| 5 | TD-8: Scanner generalization | Low | Low — small deduplication win, hub tabs are storage-driven |
 
 Each refactoring phase should leave the codebase buildable and test-passing, following the same incremental approach used for the Event Catalog and Data Exchange Hub decompositions.

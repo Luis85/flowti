@@ -21,7 +21,7 @@
 		{"id":"5e8bcec9492cfb3e","type":"group","x":-20,"y":950,"width":340,"height":480,"color":"2","label":"Product"},
 		{"id":"173575747476d753","type":"group","x":0,"y":1150,"width":300,"height":260,"color":"5","label":"PBI"},
 		{"id":"eb56d8b9c2c758f2","type":"group","x":360,"y":950,"width":620,"height":120,"color":"2","label":"Sitemap"},
-		{"id":"5d6cdc543db0af78","type":"file","file":"Development/flowti/docs/Flowti - System Design.canvas","x":320,"y":-280,"width":260,"height":400},
+		{"id":"5d6cdc543db0af78","type":"file","file":"Development/flowti/docs/ideas/Flowti - System Design.canvas","x":320,"y":-280,"width":260,"height":400},
 		{"id":"0b8e15eb023842e5","type":"file","file":"Development/Plugin Design.canvas","x":600,"y":-280,"width":260,"height":400},
 		{
 			"id":"8b42e85c8914f3a7",

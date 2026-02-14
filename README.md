@@ -68,22 +68,22 @@ To update, you need to `git pull` from remote and build the plugin again.
 
 ### The Office
 
-![[Pasted image 20260101112430.png]]
+![[OneSeater Main Dashboard View.png]]
 
 ### The Market
 
-![[Pasted image 20260101112515.png]]
+![[OneSeater Marketplace View.png]]
 
 ### The Compendium
 
-![[Pasted image 20260101112811.png]]
+![[OneSeater Compendium.png]]
 
 ### Product Catalog
 
-![[Pasted image 20260101112549.png]]
+![[OneSeater Product Configurator.png]]
 
 ### CFD Simulation PoC (Ideas for later gameplay)
 
-![[Pasted image 20260101112142.png]]
+![[OneSeater Windtunnel Ideas.png]]
 
 

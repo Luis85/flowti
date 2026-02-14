@@ -1,5 +1,7 @@
 ---
 title: Flowti - IBDE
+name: Flowti
+description: The Integrated Business Development Environment
 stage: development
 platform: Obsidian (Desktop)
 license: MIT
@@ -13,10 +15,6 @@ aliases:
 # Flowti - IBDE
 
 The **Integrated Business Development Environment** - An Obsidian plugin that implements the Flowti IBDE concept: a framework for describing, managing, and visualizing digital twins of business processes inside a knowledge base by providing tools for systemic documenting and executing captured processes.
-
-Read more about: 
-
-- [[Frontend Architecture]]
 
 ---
 
@@ -39,6 +37,11 @@ Flowti IBDE turns an Obsidian vault into an integrated environment for business 
 | 2 | **Extensibility** | Registry pattern for commands, views, and services - add features without modifying core |
 | 3 | **Type Safety** | Full TypeScript with Zod validation at system boundaries |
 | 4 | **Loose Coupling** | Event-driven architecture; components communicate through events, not direct references |
+
+Read more about: 
+
+- [[Frontend Architecture]]
+- [[Backend Architecture]]
 
 ---
 
@@ -110,73 +113,86 @@ Commands, views, and services are defined declaratively in registry files and bo
 
 ```
 src/
-├── main.ts                                   # Plugin lifecycle orchestrator
+├── main.ts                        # Plugin lifecycle orchestrator
 ├── infrastructure/
-│   ├── events/
-│   │   ├── EventBus.ts                       # Pub/Sub with wildcard support
-│   │   ├── EventBridge.ts                    # Obsidian API ↔ EventBus translation
-│   │   ├── events.ts                         # Composed FlowtiEventMap
-│   │   └── types.ts
-│   ├── errors/
-│   │   ├── ErrorService.ts                   # Centralized error handling
-│   │   ├── FlowtiError.ts                    # Typed error hierarchy
-│   │   └── types.ts
-│   ├── logger/
-│   │   ├── LoggerService.ts                  # Logging with event trace (debug mode)
-│   │   └── types.ts
-│   ├── services/
-│   │   ├── ServiceContainer.ts               # DI container with topological init
-│   │   ├── registry.ts                       # Service registrations
-│   │   └── types.ts
-│   ├── commands/
-│   │   ├── CommandRegistry.ts                # Command execution with middleware
-│   │   ├── registry.ts                       # Command definitions
-│   │   └── types.ts
-│   ├── views/
-│   │   ├── ViewRegistry.ts                   # View registration and binding
-│   │   ├── registry.ts                       # View definitions
-│   │   └── types.ts
-│   └── filesystem/
-│       ├── FileSystemClient.ts               # Promise-based file ops via events
-│       └── types.ts
-├── domain/
-│   ├── user/
-│   │   ├── UserService.ts                    # User profile management
-│   │   ├── UserSetupModal.ts                 # First-run setup modal
-│   │   ├── events.ts                         # User domain events
-│   │   └── types.ts
-│   └── settings/
-│       ├── SettingsService.ts                # Settings management
-│       ├── FlowtiSettingTab.ts               # Settings UI
-│       ├── settings.ts                       # Zod schema, types, defaults
-│       ├── events.ts                         # Settings domain events
-│       └── types.ts
+│   ├── events/                    # EventBus, EventBridge, FlowtiEventMap (~98 events)
+│   ├── errors/                    # Typed error hierarchy + ErrorService
+│   ├── logger/                    # Logging with optional event trace
+│   ├── services/                  # DI container with topological init
+│   ├── commands/                  # Command registry with middleware
+│   ├── views/                     # View registry with factory pattern
+│   └── filesystem/                # Promise-based file ops via events
+├── domain/                        # 10 bounded contexts
+│   ├── dataExchange/              # CSV import/export, pipelines, type docs
+│   ├── discovery/                 # Vault scanning for user-defined events
+│   ├── eventDefinition/           # Custom event mapping rules
+│   ├── eventFilter/               # Hidden event types
+│   ├── eventNotify/               # Notification preferences
+│   ├── ingestion/                 # File monitoring, job queue, catch-up
+│   ├── installer/                 # First-run wizard steps
+│   ├── settings/                  # Plugin configuration persistence
+│   ├── subscription/              # Event watchers with filters
+│   ├── user/                      # User identity
+│   └── docs/                      # Path resolution + doc content generation
 ├── ui/
-│   └── ComponentShowcaseView.ts              # CSS component showcase
-└── utils/
-    ├── helpers.ts                            # UUID generation, utilities
-    └── types.ts
+│   ├── catalog/                   # Event Catalog components (10 files)
+│   ├── hub/                       # Data Exchange Hub components (9 files)
+│   └── *.ts                       # Views, modals, shared utilities
+└── utils/                         # Shared helpers (glob, persistence, types)
 ```
 
 ### Key Components
 
-| Feature | Description | Status |
-|---------|-------------|--------|
-| **Event System** | Type-safe pub/sub EventBus with wildcard and one-time listeners, xstate v5 compatible event format | Done |
-| **EventBridge** | Translates all relevant Obsidian API events (Vault, Workspace, MetadataCache) into internal EventBus events | Done |
-| **File Operations** | Full file CRUD (create, read, update, delete, move, rename) via event-based request/response pattern | Done |
-| **Frontmatter Operations** | Get, update, and set frontmatter via events, decoupled from Obsidian's metadata API | Done |
-| **FileSystemClient** | Promise-based client wrapping event request/response into async methods with timeout handling | Done |
-| **Service Container** | Dependency injection with topological initialization order and lifecycle management (init/dispose) | Done |
-| **Command System** | Command registry with middleware pipeline (logging, error handling), auto-bound to Obsidian's command palette | Done |
-| **View System** | View registry with factory pattern, auto-bound to Obsidian's view system | Done |
-| **Error Handling** | Typed error hierarchy (Validation, Storage, Lifecycle, Service, Command) with centralized ErrorService | Done |
-| **Logging** | Four-level logger (debug, info, warn, error) with context prefixes and event emission | Done |
-| **Event Trace** | Wildcard debug listener that logs all events to the developer console when debug mode is enabled | Done |
-| **Settings** | Zod-validated plugin settings with UI tab and reactive event emission on changes | Done |
-| **User Management** | User profile service with first-run setup modal, Zod validation, and event-driven persistence | Done |
-| **Testing** | Comprehensive unit test suite covering all components, using Vitest with custom Obsidian stubs | Done |
-| **Documentation** | TypeDoc-generated API docs, Arc42-structured README | Done |
+#### Infrastructure
+
+| Feature | Description |
+|---------|-------------|
+| **Event System** | Type-safe pub/sub EventBus with wildcard and one-time listeners, xstate v5 compatible event format |
+| **EventBridge** | Translates all relevant Obsidian API events (Vault, Workspace, MetadataCache) into internal EventBus events |
+| **FileSystemClient** | Promise-based file/frontmatter operations wrapping event request/response with timeout handling |
+| **Service Container** | DI container with topological initialization order and lifecycle management (init/dispose) |
+| **Command System** | Command registry with middleware pipeline (logging, error handling), auto-bound to Obsidian's command palette |
+| **View System** | View registry with factory pattern, auto-bound to Obsidian's view system |
+| **Error Handling** | Typed error hierarchy (Validation, Storage, Lifecycle, Service, Command) with centralized ErrorService |
+
+#### Domain Services
+
+| Service | Purpose |
+|---------|---------|
+| **Data Exchange** | CSV import/export with column mapping, conflict strategies, formula resolution, multi-source pipelines |
+| **Discovery** | Vault scanning for user-defined events via frontmatter |
+| **Event Definition** | Custom event mapping rules: source event + file pattern → domain event with payload extraction |
+| **Ingestion** | File monitoring with job queue, time-windowed batching, retry with exponential backoff, catch-up scans |
+| **Subscription** | Event watchers with path/extension/name filters; wildcard listener matching |
+| **Installer** | Step-based first-run pipeline (user creation, folder scaffolding, extensible) |
+
+#### Frontend Views
+
+| View | Purpose |
+|------|---------|
+| **Event Catalog** | 8-tab master-detail view: Dashboard, Domains, Services, Events, Flows, Systems, Actors, Products |
+| **Data Exchange Hub** | 7-page master-detail hub: Dashboard, Imports, Exports, Reports, Properties, Pipelines, Types |
+| **CSV Action View** | Per-file CSV handler with column preview landing page and inline 4-page import wizard |
+| **Export View** | 4-page export wizard with column scanning, preview, and native save dialog |
+| **Event Log** | Activity feed with category/type filters and subscribed/all modes |
+
+### Frontend Architecture
+
+Complex views follow the **Orchestrator + Component** pattern:
+
+- **Orchestrator** — thin Obsidian `ItemView` subclass owning lifecycle, state, scanning, and navigation
+- **Components** — plain TypeScript classes receiving dependencies via injection, not inheritance
+- **State** — no external libraries; orchestrators declare private state, expose `getState()` / `setState(partial)`, and debounce re-renders via `scheduleRender()` (16ms)
+- **File-driven entities** — Domains, services, flows, systems, actors, and products are Markdown files with typed frontmatter, merged with code-registered catalog metadata
+
+Both major views share extracted helpers to avoid duplication:
+
+| Helper Module | Key Exports |
+|---------------|-------------|
+| `catalog/helpers.ts` | `buildSplitLayout()` (shared DOM layout), `createEntityDoc()`, `openOrCreateEventDoc()`, `renderSubscriptionForm()` / `renderSubscriptionRow()` |
+| `hub/helpers.ts` | `renderStepBar()` (wizard stepper), `renderConfigDropdown()`, `openEventInCatalog()` |
+
+See [[Frontend Architecture]] for the full view inventory, component architecture, state management details, and tech debt assessment.
 
 ---
 
@@ -303,13 +319,15 @@ Typed error hierarchy with categories (`validation`, `storage`, `lifecycle`, `se
 
 ### CSS Component Library
 
-Custom CSS utilities with `ft-` prefix to avoid Obsidian conflicts:
+All custom classes use the `ft-` prefix to avoid Obsidian conflicts. Views use Obsidian's CSS variables for theming (dark/light mode).
 
 ```css
-/* Components: */ .ft-btn, .ft-card, .ft-input, .ft-badge, .ft-alert-*
-/* Layout:     */ .ft-flex, .ft-flex-col, .ft-gap-*, .ft-items-center
-/* Spacing:    */ .ft-p-*, .ft-m-*, .ft-mt-*, .ft-mb-*
-/* Typography: */ .ft-heading, .ft-text-muted, .ft-text-sm, .ft-font-bold
+/* Components:  */ .ft-btn, .ft-card, .ft-input, .ft-badge, .ft-alert-*, .ft-nav-link
+/* Layout:      */ .ft-flex, .ft-flex-col, .ft-flex-1, .ft-flex-shrink-0, .ft-gap-*
+/* View layout: */ .ft-view-root, .ft-view-dashboard, .ft-view-split
+/* Spacing:     */ .ft-p-*, .ft-m-*, .ft-mt-*, .ft-mb-*, .ft-px-*, .ft-py-*
+/* Typography:  */ .ft-heading, .ft-text-muted, .ft-text-sm, .ft-font-bold
+/* Appearance:  */ .ft-icon-muted, .ft-icon-faint, .ft-icon-subtle, .ft-cursor-pointer
 ```
 
 Use the Component Showcase view (`Flowti: Open Component Showcase`) to preview all available components.
@@ -431,3 +449,7 @@ npm run publish    # Full pipeline + coverage report + preview
 | **FileSystemClient** | Promise-based API for file/frontmatter operations via events |
 | **ServiceContainer** | Dependency injection container with lifecycle management |
 | **Digital Twin** | A structured representation of a business process or entity in Markdown |
+| **Orchestrator** | Thin `ItemView` subclass owning state, lifecycle, and navigation for a complex view |
+| **Component** | Plain TypeScript class rendering a tab or panel, receiving dependencies via injection |
+| **Event Catalog** | The primary view for browsing events, domains, services, flows, systems, actors, and products |
+| **Data Exchange Hub** | The central management view for CSV imports, exports, pipelines, and data documentation |

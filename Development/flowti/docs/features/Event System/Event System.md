@@ -978,7 +978,7 @@ This keeps event definitions close to the code that emits them, while providing 
 
 ## Event Catalog
 
-60 events across 15 categories. See the [[Development/flowti/docs/Service Design Blueprint|Service Design Blueprint]] for the full catalog with payloads.
+60 events across 15 categories. See the [[Backend Architecture|Backend Architecture]] for the full catalog with payloads.
 
 | Category | Count | Examples |
 |----------|-------|---------|

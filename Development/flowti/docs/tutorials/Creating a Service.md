@@ -2,6 +2,7 @@
 stage: done
 domain: Flowti/System
 plugin: "[[Development/flowti/README|README]]"
+actor: Obsidian Plugin Developer
 ---
 
 # Tutorial: Creating a New Service
@@ -608,5 +609,5 @@ When adding a new service, touch these files:
 | Event System (EventBus API, wildcards, type safety) | [[Development/flowti/docs/features/Event System/Event System\|Event System]] |
 | Event Bridge (vault/workspace/metadata notifications) | [[Development/flowti/docs/features/Event Bridge/Event Bridge\|Event Bridge]] |
 | File System Client (request/response, timeouts, errors) | [[Development/flowti/docs/features/File System/File System\|File System]] |
-| Service Design Blueprint (all services, events, init phases) | [[Development/flowti/docs/Service Design Blueprint\|Service Design Blueprint]] |
+| Service Design Blueprint (all services, events, init phases) | [[Backend Architecture\|Service Design Blueprint]] |
 | Installer (complex service with steps and file system usage) | [[Development/flowti/docs/features/Installer/Installer\|Installer]] |

@@ -2,6 +2,8 @@
 stage: done
 domain: Flowti/System
 plugin: "[[Development/flowti/README|README]]"
+tags:
+  - backend
 ---
 
 # Flowti IBDE — Service Design Blueprint
