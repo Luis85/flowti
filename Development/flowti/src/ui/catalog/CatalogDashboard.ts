@@ -18,6 +18,18 @@ export class CatalogDashboard {
 
 		const state = this.deps.getState();
 
+		// ── Title bar ──
+		const titleBar = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-mb-3" });
+		titleBar.style.borderBottom = "1px solid var(--background-modifier-border)";
+		titleBar.style.paddingBottom = "0.75rem";
+		const titleIcon = titleBar.createSpan();
+		setIcon(titleIcon, "network");
+		titleIcon.style.opacity = "0.5";
+		titleBar.createEl("h2", {
+			text: "Event Catalog",
+			cls: "ft-heading",
+		}).style.margin = "0";
+
 		// Stats grid
 		const grid = this.container.createDiv({ cls: "ft-dashboard-grid" });
 		grid.style.display = "grid";

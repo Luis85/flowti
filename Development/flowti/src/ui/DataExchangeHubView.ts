@@ -14,6 +14,7 @@ import type { DataExchangeService } from "../domain/dataExchange/DataExchangeSer
 import type {
 	DataDictionaryEntry,
 	ExportFormat,
+	MultiImportResult,
 	SavedImportConfig,
 	SavedExportConfig,
 	SavedMultiImportPipeline,
@@ -2305,11 +2306,24 @@ export class DataExchangeHubView extends ItemView {
 				targetText.style.maxWidth = "12rem";
 			}
 
-			// Sources count
-			tr.createEl("td").createSpan({
+			// Sources + export step
+			const sourcesTd = tr.createEl("td");
+			const sourcesWrap = sourcesTd.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+			sourcesWrap.createSpan({
 				text: `${pipe.sources.length} source${pipe.sources.length !== 1 ? "s" : ""}`,
 				cls: "ft-badge ft-badge-muted",
 			});
+			if (pipe.exportConfigId) {
+				const exportCfg = this.dataExchangeService.getExportConfig(pipe.exportConfigId);
+				const expBadge = sourcesWrap.createSpan({
+					cls: "ft-badge ft-badge-muted",
+				});
+				const expIcon = expBadge.createSpan();
+				setIcon(expIcon, "file-output");
+				expIcon.style.marginRight = "0.25rem";
+				expBadge.appendText(exportCfg ? exportCfg.name : "(deleted)");
+				expBadge.title = "Export step attached";
+			}
 
 			// Actions
 			const actionsTd = tr.createEl("td");
@@ -2483,6 +2497,20 @@ export class DataExchangeHubView extends ItemView {
 			text: `${pipe.sources.length} source${pipe.sources.length !== 1 ? "s" : ""}`,
 			cls: "ft-badge ft-badge-muted",
 		});
+		if (pipe.noteType) {
+			badges.createSpan({ text: pipe.noteType, cls: "ft-badge" });
+		}
+		if (pipe.exportConfigId) {
+			const exportCfg = this.dataExchangeService.getExportConfig(pipe.exportConfigId);
+			const exportBadge = badges.createSpan({
+				text: exportCfg ? `→ ${exportCfg.name}` : "→ (deleted)",
+				cls: "ft-badge ft-badge-muted",
+			});
+			const eIcon = exportBadge.createSpan();
+			setIcon(eIcon, "file-output");
+			eIcon.style.marginRight = "0.25rem";
+			exportBadge.prepend(eIcon);
+		}
 
 		// Actions bar
 		const actions = this.detailPanelEl.createDiv({ cls: "ft-detail-actions ft-mt-2" });
@@ -2582,8 +2610,16 @@ export class DataExchangeHubView extends ItemView {
 			}
 		}
 
+		// Config + Export Step row (2 columns when export step exists)
+		const cardsRow = this.detailPanelEl.createDiv({ cls: "ft-mt-3" });
+		if (pipe.exportConfigId) {
+			cardsRow.style.display = "grid";
+			cardsRow.style.gridTemplateColumns = "1fr 1fr";
+			cardsRow.style.gap = "0.75rem";
+		}
+
 		// Config info card
-		const configCard = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-3" });
+		const configCard = cardsRow.createDiv({ cls: "ft-card" });
 		const configGrid = configCard.createDiv({ cls: "ft-detail-info-grid" });
 		this.addInfoRow(configGrid, "Target Folder", pipe.targetFolder || "(not set)");
 		this.addInfoRow(configGrid, "Merge Key", pipe.mergeKey);
@@ -2597,16 +2633,45 @@ export class DataExchangeHubView extends ItemView {
 		if (pipe.nameSuffix) {
 			this.addInfoRow(configGrid, "Name Suffix", pipe.nameSuffix);
 		}
-		if (pipe.exportConfigId) {
-			const exportCfg = this.dataExchangeService.getExportConfig(pipe.exportConfigId);
-			this.addInfoRow(configGrid, "Export Step", exportCfg?.name ?? "(deleted)");
-		}
 		if (pipe.createBase) {
 			this.addInfoRow(configGrid, "Base View", pipe.basePath || "(auto-generated)");
 		}
 		this.addInfoRow(configGrid, "Created", new Date(pipe.createdAt).toLocaleString());
 		if (pipe.lastExecutedAt) {
 			this.addInfoRow(configGrid, "Last Run", new Date(pipe.lastExecutedAt).toLocaleString());
+		}
+
+		// ── Export Step card ────────────────────────────────
+		if (pipe.exportConfigId) {
+			const exportCfg = this.dataExchangeService.getExportConfig(pipe.exportConfigId);
+			const exportCard = cardsRow.createDiv({ cls: "ft-card" });
+			exportCard.style.borderLeft = "3px solid var(--interactive-accent)";
+			const exportHeader = exportCard.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
+			const exportIcon = exportHeader.createSpan();
+			setIcon(exportIcon, "file-output");
+			exportIcon.style.opacity = "0.6";
+			exportIcon.style.flexShrink = "0";
+			exportHeader.createSpan({ text: "Export Step", cls: "ft-heading ft-heading-sm" });
+			if (exportCfg) {
+				const exportInfo = exportCard.createDiv({ cls: "ft-detail-info-grid" });
+				this.addInfoRow(exportInfo, "Config", exportCfg.name);
+				this.addInfoRow(exportInfo, "Format", exportCfg.format === "tab" ? "Tab-delimited" : "CSV");
+				this.addInfoRow(exportInfo, "Output", exportCfg.outputPath || "(not set)");
+				if (exportCfg.isExternal) {
+					this.addInfoRow(exportInfo, "Location", "External filesystem");
+				}
+				const link = exportCard.createEl("span", { text: "View export config →", cls: "ft-nav-link ft-text-sm ft-p-2" });
+				link.style.display = "inline-block";
+				link.addEventListener("click", () => {
+					this.selectedExportId = exportCfg.id;
+					this.navigateTo("exports");
+				});
+			} else {
+				exportCard.createDiv({
+					text: "Linked export config has been deleted",
+					cls: "ft-text-muted ft-text-sm ft-p-2",
+				});
+			}
 		}
 
 		// Sources list
@@ -2828,13 +2893,14 @@ export class DataExchangeHubView extends ItemView {
 			exportConfigId: pipe.exportConfigId,
 		};
 
+		// ── Full-width: Name ──
 		new Setting(panel)
 			.setName("Name")
 			.addText((t) => t.setValue(pipe.name).onChange((v) => { edits.name = v; }));
 
+		// ── Full-width: Target folder (has browse button) ──
 		const targetSetting = new Setting(panel)
 			.setName("Target folder")
-			.setDesc("Where merged notes will be created")
 			.addText((t) => t.setValue(pipe.targetFolder).onChange((v) => { edits.targetFolder = v; }));
 		targetSetting.addExtraButton((btn) =>
 			btn.setIcon("folder").setTooltip("Browse").onClick(() => {
@@ -2846,41 +2912,47 @@ export class DataExchangeHubView extends ItemView {
 			}),
 		);
 
-		new Setting(panel)
-			.setName("Merge key")
-			.setDesc("Canonical frontmatter key used to match notes across sources (e.g. item_id)")
-			.addText((t) => t.setValue(pipe.mergeKey).onChange((v) => { edits.mergeKey = v; }));
+		// ── Two-column grid for compact fields ──
+		const grid = panel.createDiv();
+		grid.style.display = "grid";
+		grid.style.gridTemplateColumns = "1fr 1fr";
+		grid.style.columnGap = "1rem";
+		grid.style.rowGap = "0";
 
-		new Setting(panel)
+		new Setting(grid)
+			.setName("Merge key")
+			.addText((t) => t
+				.setValue(pipe.mergeKey)
+				.setPlaceholder("e.g. item_id")
+				.onChange((v) => { edits.mergeKey = v; }),
+			);
+
+		new Setting(grid)
 			.setName("Note type")
-			.setDesc("Type value added to every note's frontmatter (optional)")
 			.addText((t) => t
 				.setValue(pipe.noteType ?? "")
-				.setPlaceholder("e.g. Event, Asset, Service")
+				.setPlaceholder("e.g. Event, Asset")
 				.onChange((v) => { edits.noteType = v || undefined; }),
 			);
 
-		new Setting(panel)
+		new Setting(grid)
 			.setName("Filename prefix")
-			.setDesc("Prepended to every note filename (optional)")
 			.addText((t) => t
 				.setValue(pipe.namePrefix ?? "")
-				.setPlaceholder("")
+				.setPlaceholder("optional")
 				.onChange((v) => { edits.namePrefix = v || undefined; }),
 			);
 
-		new Setting(panel)
+		new Setting(grid)
 			.setName("Filename suffix")
-			.setDesc("Appended to every note filename before .md (optional)")
 			.addText((t) => t
 				.setValue(pipe.nameSuffix ?? "")
-				.setPlaceholder("")
+				.setPlaceholder("optional")
 				.onChange((v) => { edits.nameSuffix = v || undefined; }),
 			);
 
-		new Setting(panel)
+		new Setting(grid)
 			.setName("Create .base view")
-			.setDesc("Generate a table view for merged notes")
 			.addToggle((toggle) =>
 				toggle
 					.setValue(edits.createBase ?? false)
@@ -2890,21 +2962,9 @@ export class DataExchangeHubView extends ItemView {
 					}),
 			);
 
-		const basePathSetting = new Setting(panel)
-			.setName("Base file path")
-			.setDesc("Where to save the .base view file")
-			.addText((t) =>
-				t
-					.setValue(edits.basePath ?? "")
-					.setPlaceholder("path/to/view.base")
-					.onChange((v) => { edits.basePath = v || undefined; }),
-			);
-		basePathSetting.settingEl.toggle(edits.createBase ?? false);
-
 		const exportConfigs = this.dataExchangeService.getSavedExportConfigs();
-		new Setting(panel)
+		new Setting(grid)
 			.setName("Export step")
-			.setDesc("Run a saved export after pipeline completes (optional)")
 			.addDropdown((dd) => {
 				dd.addOption("", "None");
 				for (const cfg of exportConfigs) {
@@ -2913,6 +2973,17 @@ export class DataExchangeHubView extends ItemView {
 				dd.setValue(pipe.exportConfigId ?? "");
 				dd.onChange((v) => { edits.exportConfigId = v || undefined; });
 			});
+
+		// ── Full-width: Base path (conditionally visible) ──
+		const basePathSetting = new Setting(panel)
+			.setName("Base file path")
+			.addText((t) =>
+				t
+					.setValue(edits.basePath ?? "")
+					.setPlaceholder("path/to/view.base")
+					.onChange((v) => { edits.basePath = v || undefined; }),
+			);
+		basePathSetting.settingEl.toggle(edits.createBase ?? false);
 
 		const nav = panel.createDiv({ cls: "ft-detail-actions ft-mt-4" });
 
@@ -3211,7 +3282,7 @@ export class DataExchangeHubView extends ItemView {
 			detailText.textContent = `${csvName}: ${sourceResult.result.created} created, ${sourceResult.result.updated} updated`;
 		});
 
-		const cleanup = (success: boolean, message: string) => {
+		const cleanup = (success: boolean, message: string, result?: MultiImportResult) => {
 			offSourceCompleted();
 			section.empty();
 
@@ -3221,7 +3292,60 @@ export class DataExchangeHubView extends ItemView {
 			icon.style.color = success ? "var(--text-success)" : "var(--text-error)";
 			resultRow.createSpan({ text: message, cls: "ft-text-sm" });
 
-			if (success) {
+			if (success && result) {
+				// Summary stats grid
+				const statsGrid = section.createDiv({ cls: "ft-px-2 ft-pb-2" });
+				statsGrid.style.display = "grid";
+				statsGrid.style.gridTemplateColumns = "repeat(4, 1fr)";
+				statsGrid.style.gap = "0.5rem";
+				const statItems: Array<{ label: string; value: number; color?: string }> = [
+					{ label: "Created", value: result.created, color: "var(--text-success)" },
+					{ label: "Updated", value: result.updated },
+					{ label: "Skipped", value: result.skipped },
+					{ label: "Failed", value: result.failed, color: result.failed > 0 ? "var(--text-error)" : undefined },
+				];
+				for (const stat of statItems) {
+					const cell = statsGrid.createDiv({ cls: "ft-text-center" });
+					const val = cell.createDiv({ cls: "ft-heading ft-heading-sm" });
+					val.textContent = String(stat.value);
+					if (stat.color) val.style.color = stat.color;
+					cell.createDiv({ text: stat.label, cls: "ft-text-muted ft-text-sm" });
+				}
+
+				// Per-source breakdown
+				if (result.sourceResults.length > 1) {
+					const breakdown = section.createDiv({ cls: "ft-px-2 ft-pb-2" });
+					for (const sr of result.sourceResults) {
+						const row = breakdown.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
+						row.style.borderTop = "1px solid var(--background-modifier-border)";
+						const csvName = sr.csvPath.split("/").pop() ?? sr.csvPath;
+						row.createSpan({ text: csvName, cls: "ft-text-sm" }).style.flex = "1";
+						const counts = [];
+						if (sr.result.created > 0) counts.push(`${sr.result.created} created`);
+						if (sr.result.updated > 0) counts.push(`${sr.result.updated} updated`);
+						if (sr.result.skipped > 0) counts.push(`${sr.result.skipped} skipped`);
+						if (sr.result.failed > 0) counts.push(`${sr.result.failed} failed`);
+						row.createSpan({ text: counts.join(", "), cls: "ft-text-muted ft-text-sm" });
+					}
+				}
+
+				// Export step indicator
+				if (pipe.exportConfigId) {
+					const exportRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-px-2 ft-py-2" });
+					exportRow.style.borderTop = "1px solid var(--background-modifier-border)";
+					const eIcon = exportRow.createSpan();
+					setIcon(eIcon, "file-output");
+					eIcon.style.opacity = "0.6";
+					const exportCfg = this.dataExchangeService.getExportConfig(pipe.exportConfigId);
+					exportRow.createSpan({
+						text: `Export: ${exportCfg?.name ?? "(deleted)"}`,
+						cls: "ft-text-sm",
+					});
+					const checkIcon = exportRow.createSpan();
+					setIcon(checkIcon, "check");
+					checkIcon.style.color = "var(--text-success)";
+				}
+
 				this.refreshConfigs();
 			}
 		};
@@ -3230,11 +3354,10 @@ export class DataExchangeHubView extends ItemView {
 			offComplete();
 			offFailed();
 			const r = event.payload.result;
-			const msg = `Pipeline complete: ${r.created} created, ${r.updated} updated, ${r.skipped} skipped` +
-				(r.failed > 0 ? `, ${r.failed} failed` : "") +
-				` (${r.completedSources}/${r.totalSources} sources)`;
-			cleanup(true, msg);
-			new Notice(msg);
+			const msg = `${r.created} created, ${r.updated} updated, ${r.skipped} skipped` +
+				(r.failed > 0 ? `, ${r.failed} failed` : "");
+			cleanup(true, msg, r);
+			new Notice(`Pipeline complete: ${msg}`);
 		});
 		const offFailed = this.eventBus.on("dataExchange.pipeline.failed", (event) => {
 			offComplete();

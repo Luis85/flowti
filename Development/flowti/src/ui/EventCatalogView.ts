@@ -1,5 +1,4 @@
 import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
-import { EVENT_CATALOG } from "../infrastructure/events/catalog";
 import type { IEventBus } from "../infrastructure/events/types";
 import type { DiscoveredEvent } from "../domain/discovery/types";
 import { type CatalogCategoryConfig, DEFAULT_CATALOG_CATEGORIES, type EntityPaths, DEFAULT_ENTITY_PATHS } from "../domain/settings/settings";
@@ -83,6 +82,7 @@ export class EventCatalogView extends ItemView {
 
 	// DOM references
 	private topBarEl: HTMLElement;
+	private topBarTitleEl: HTMLElement;
 	private masterTreeEl: HTMLElement;
 	private detailPanelEl: HTMLElement;
 	private gearBtn: HTMLElement;
@@ -441,21 +441,18 @@ export class EventCatalogView extends ItemView {
 		bar.style.flexShrink = "0";
 		this.topBarEl = bar;
 
-		const title = bar.createSpan({
+		this.topBarTitleEl = bar.createSpan({
 			text: "Event Catalog",
 			cls: "ft-heading ft-heading-sm",
 		});
-		title.style.cursor = "pointer";
-		title.addEventListener("click", () => {
+		this.topBarTitleEl.style.cursor = "pointer";
+		this.topBarTitleEl.addEventListener("click", () => {
 			this.activeTab = "dashboard";
 			this.renderTabBar();
 			this.onTabChanged();
 		});
 
-		this.countBadge = bar.createSpan({
-			text: `${EVENT_CATALOG.length} events`,
-			cls: "ft-badge ft-badge-muted",
-		});
+		this.countBadge = bar.createSpan({ cls: "ft-badge ft-badge-muted ft-hidden" });
 
 		// Spacer
 		const spacer = bar.createDiv();
@@ -526,6 +523,17 @@ export class EventCatalogView extends ItemView {
 		this.dotLegendEl.classList.toggle("ft-hidden", this.activeTab !== "events");
 
 		if (!isDashboard) {
+			const labels: Record<string, string> = {
+				domains: "Domains",
+				services: "Services",
+				events: "Events",
+				flows: "Flows",
+				systems: "Systems",
+				actors: "Actors",
+				products: "Products",
+			};
+			this.topBarTitleEl.textContent = `Event Catalog - ${labels[this.activeTab] ?? this.activeTab}`;
+
 			const placeholders: Record<string, string> = {
 				domains: "Search domains...",
 				services: "Search services...",
@@ -536,6 +544,8 @@ export class EventCatalogView extends ItemView {
 				products: "Search products...",
 			};
 			this.searchInput.placeholder = placeholders[this.activeTab] ?? "";
+		} else {
+			this.topBarTitleEl.textContent = "Event Catalog";
 		}
 
 		// Hide settings panel when switching tabs
