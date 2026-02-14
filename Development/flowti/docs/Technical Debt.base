@@ -1,0 +1,58 @@
+filters:
+  and:
+    - file.inFolder("Development/flowti/docs/debt")
+    - file.ext == "md"
+views:
+  - type: table
+    name: Technical Debt
+    groupBy:
+      property: severity
+      direction: ASC
+    order:
+      - file.name
+      - severity
+      - category
+      - layer
+      - status
+      - effort
+      - description
+    columnSize:
+      file.name: 280
+      note.severity: 90
+      note.category: 120
+      note.layer: 110
+      note.status: 90
+      note.effort: 80
+      note.description: 400
+  - type: table
+    name: By Category
+    groupBy:
+      property: category
+      direction: ASC
+    order:
+      - file.name
+      - severity
+      - layer
+      - status
+      - effort
+    columnSize:
+      file.name: 280
+      note.severity: 90
+      note.layer: 110
+      note.status: 90
+  - type: table
+    name: By Layer
+    groupBy:
+      property: layer
+      direction: ASC
+    order:
+      - file.name
+      - severity
+      - category
+      - status
+      - effort
+    columnSize:
+      file.name: 280
+      note.severity: 90
+      note.category: 120
+      note.status: 90
