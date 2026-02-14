@@ -125,7 +125,7 @@ Commands, views, and services are defined declaratively in registry files and bo
 ### Module Overview
 
 ```
-src/                                 # ~30,855 LOC across 141 files
+src/                                 # ~31,467 LOC across 154 files
 ├── main.ts                          # Plugin lifecycle orchestrator (482 LOC)
 ├── dataExchangeSetup.ts             # Data Exchange UI wiring (368 LOC)
 ├── infrastructure/
@@ -149,9 +149,9 @@ src/                                 # ~30,855 LOC across 141 files
 │   ├── subscription/                # Event watchers with filters
 │   └── user/                        # User identity
 ├── ui/
-│   ├── catalog/                     # Event Catalog components (13 files)
-│   ├── hub/                         # Data Exchange Hub components (18 files)
-│   ├── csv/                         # CSV import wizard components (7 files)
+│   ├── catalog/                     # Event Catalog components (15 files)
+│   ├── hub/                         # Data Exchange Hub components (21 files)
+│   ├── csv/                         # CSV import wizard components (10 files)
 │   ├── export/                      # Export wizard components (7 files)
 │   └── *.ts                         # Orchestrator views + modals
 └── utils/                           # Shared helpers (glob, persistence, types)

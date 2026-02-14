@@ -1083,7 +1083,7 @@ EmissionPolicy = "once" | "always";
 
 | Module | Source | Responsibility |
 |--------|--------|----------------|
-| `ConfigDocService` | `src/domain/dataExchange/ConfigDocService.ts` | Generates and persists config/property/type documentation |
+| `ConfigDocService` | `src/domain/dataExchange/ConfigDocService.ts` + `configDocContent.ts` | Path resolution + doc CRUD (435 LOC) + content builders (579 LOC) |
 | `PipelineExecutor` | `src/domain/dataExchange/PipelineExecutor.ts` | Multi-source import pipeline execution |
 | `ConfigPathTracker` | `src/domain/dataExchange/ConfigPathTracker.ts` | Tracks file/folder renames to update config paths |
 | `DataDictionaryBuilder` | `src/domain/dataExchange/DataDictionaryBuilder.ts` | Builds data dictionary from configs |

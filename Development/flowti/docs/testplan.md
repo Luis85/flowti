@@ -27,9 +27,17 @@ Every `npm run build` will also update the generated exports.
 
 ```
 src/
-├── domain/               # Business logic
+├── domain/               # Business logic (11 bounded contexts)
+│   ├── dataExchange/     # CSV import/export, pipelines, type docs
+│   ├── docs/             # DocService + content generators + path resolvers
+│   ├── discovery/        # Vault scanning for user-defined events
+│   ├── eventDefinition/  # Custom event mapping rules
+│   ├── eventFilter/      # Hidden event types
+│   ├── eventNotify/      # Notification preferences
+│   ├── ingestion/        # File monitoring, job queue, catch-up
 │   ├── installer/        # First-run setup wizard
 │   ├── settings/         # Plugin configuration
+│   ├── subscription/     # Event watchers with filters
 │   └── user/             # User profile management
 ├── infrastructure/       # Generic plumbing
 │   ├── commands/         # Command pipeline with middleware
@@ -39,8 +47,12 @@ src/
 │   ├── logger/           # Structured logging
 │   ├── services/         # DI container with lifecycle
 │   └── views/            # Obsidian pane registration
-├── ui/                   # Presentation (ComponentShowcase)
-├── utils/                # Shared helpers (UUID)
+├── ui/                   # Presentation layer (~17,127 LOC)
+│   ├── catalog/          # Event Catalog components (15 files)
+│   ├── hub/              # Data Exchange Hub components (21 files)
+│   ├── csv/              # CSV import wizard components (10 files)
+│   └── export/           # Export wizard components (7 files)
+├── utils/                # Shared helpers (UUID, glob, persistence, mutex)
 └── main.ts               # Plugin orchestrator
 ```
 
@@ -84,19 +96,28 @@ End-to-end path through the installer feature, crossing multiple steps and servi
 | 1 | Installer | domain/installer | `InstallerService`, `InstallerJourney`, `UserCreationStep`, `FolderScaffoldStep`, `folders` | ✅ |
 | 2 | Settings | domain/settings | `SettingsService`, `settings` | ✅ |
 | 3 | User Management | domain/user | `UserService` | ✅ |
-| 4 | Event System | infrastructure/events | `EventBus`, `EventBridge` | ✅ |
-| 5 | Service Container | infrastructure/services | `ServiceContainer` | ✅ |
+| 4 | Event System | infrastructure/events | `EventBus`, `EventBridge`, `catalog` | ✅ |
+| 5 | Service Container | infrastructure/services | `ServiceContainer`, `VaultQueryService`, `WorkspaceService` | ✅ |
 | 6 | Command Pipeline | infrastructure/commands | `CommandRegistry` | ✅ |
 | 7 | Error Handling | infrastructure/errors | `FlowtiError`, `ErrorService` | ✅ |
 | 8 | Logger | infrastructure/logger | `LoggerService` | ✅ |
-| 9 | Utilities | utils | `helpers` | ✅ |
-| 10 | Event Catalog View | ui/catalog | `EventCatalogView`, `catalog/helpers` | ✅ |
+| 9 | Utilities | utils | `helpers`, `glob`, `persistence`, `mutex` | ✅ |
+| 10 | Event Catalog View | ui/catalog | `EventCatalogView`, `catalog/helpers`, `eventDocTemplate` | ✅ |
 | 11 | Event Log View | ui | `EventLogView` | ✅ |
 | 12 | Data Exchange Hub View | ui | `DataExchangeHubView` | ✅ |
-| 13 | CSV Action View | domain/dataExchange | `ImportService`, `CsvParser`, `DataExchangeService`, `Pipeline` | ✅ |
+| 13 | CSV Import & Data Exchange | domain/dataExchange | `ImportService`, `CsvParser`, `DataExchangeService`, `Pipeline`, `BaseQueryEngine`, `ExportService` | ✅ |
 | 14 | Export View | ui/export | `ExportView` | ✅ |
 | 15 | Component Showcase View | ui | — | ⏭️ Rendering only |
 | 16 | Catalog Helpers | ui/catalog | `catalog/helpers` | ✅ |
+| 17 | Discovery | domain/discovery | `DiscoveryService` | ✅ |
+| 18 | Event Filter | domain/eventFilter | `EventFilterService` | ✅ |
+| 19 | Event Notification | domain/eventNotify | `EventNotificationService` | ✅ |
+| 20 | Subscription | domain/subscription | `SubscriptionService` | ✅ |
+| 21 | Ingestion | domain/ingestion | `IngestionService`, `JobQueue` | ✅ |
+| 22 | Event Definition | domain/eventDefinition | `EventDefinitionService`, `payloadExtractor` | ✅ |
+| 23 | DocService | domain/docs | `DocService` | ✅ |
+| 24 | Event Config Modal | ui | `EventConfigModal` | ✅ |
+| 25 | Ingestion Status Bar | ui | `IngestionStatusBar` | ✅ |
 
 ---
 
