@@ -456,10 +456,6 @@ export class DataExchangeHubView extends ItemView {
 			text: "Data Exchange Hub",
 			cls: "ft-heading",
 		}).style.margin = "0";
-		titleBar.createSpan({
-			text: `${this.importConfigs.length + this.exportConfigs.length} configs`,
-			cls: "ft-badge ft-badge-muted",
-		});
 
 		// Partition CSV files: configured (has import configs), export outputs, unconfigured
 		const exportOutputPaths = new Set(this.exportConfigs.map((c) => c.outputPath));
@@ -1585,6 +1581,13 @@ export class DataExchangeHubView extends ItemView {
 
 		const rightBadges = item.createDiv({ cls: "ft-flex ft-gap-1" });
 		rightBadges.style.flexShrink = "0";
+		const pipelineCount = this.dataExchangeService.getSavedPipelines()
+			.filter((p) => p.exportConfigId === cfg.id).length;
+		if (pipelineCount > 0) {
+			const pipeBadge = rightBadges.createSpan({ cls: "ft-master-category-count" });
+			setIcon(pipeBadge, "git-merge");
+			pipeBadge.title = `Used by ${pipelineCount} pipeline${pipelineCount !== 1 ? "s" : ""}`;
+		}
 		rightBadges.createSpan({ text: cfg.format.toUpperCase(), cls: "ft-master-category-count" });
 
 		item.addEventListener("click", () => {
@@ -1817,6 +1820,40 @@ export class DataExchangeHubView extends ItemView {
 			chips.style.flexWrap = "wrap";
 			for (const fp of cfg.fileProperties) {
 				chips.createSpan({ text: fp.replace("file.", ""), cls: "ft-badge ft-badge-muted" });
+			}
+		}
+
+		// ── Linked Pipelines ───────────────────────────────
+		const linkedPipelines = this.dataExchangeService.getSavedPipelines()
+			.filter((p) => p.exportConfigId === cfg.id);
+		if (linkedPipelines.length > 0) {
+			const section = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
+			section.createDiv({
+				text: `Pipelines (${linkedPipelines.length})`,
+				cls: "ft-detail-section-header",
+			});
+			for (const pipe of linkedPipelines) {
+				const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
+				row.style.borderBottom = "1px solid var(--background-modifier-border)";
+				const icon = row.createSpan();
+				setIcon(icon, "git-merge");
+				icon.style.flexShrink = "0";
+				const link = row.createEl("span", {
+					text: pipe.name,
+					cls: "ft-nav-link ft-text-sm",
+				});
+				link.style.flex = "1";
+				link.addEventListener("click", () => {
+					this.selectedPipelineId = pipe.id;
+					this.navigateTo("pipelines");
+				});
+				if (pipe.noteType) {
+					row.createSpan({ text: pipe.noteType, cls: "ft-badge ft-badge-muted" });
+				}
+				row.createSpan({
+					text: `${pipe.sources.length} source${pipe.sources.length !== 1 ? "s" : ""}`,
+					cls: "ft-text-muted ft-text-sm",
+				});
 			}
 		}
 	}
