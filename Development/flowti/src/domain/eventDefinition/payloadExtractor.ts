@@ -3,6 +3,7 @@
  * No external dependencies — fully unit-testable.
  */
 
+import { basename } from "../../utils/pathUtils";
 import type { PayloadMapping } from "./types";
 
 /**
@@ -98,7 +99,7 @@ function extractDerived(
 	switch (expression) {
 		case "basename": {
 			if (!path) return undefined;
-			const filename = path.split("/").pop() ?? "";
+			const filename = basename(path);
 			const dotIndex = filename.lastIndexOf(".");
 			return dotIndex > 0 ? filename.slice(0, dotIndex) : filename;
 		}

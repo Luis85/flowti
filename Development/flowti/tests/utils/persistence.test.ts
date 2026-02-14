@@ -84,6 +84,19 @@ describe("safeLoadState", () => {
 	});
 });
 
+describe("saveStateToStorage — concurrency", () => {
+	it("should serialise concurrent saves so no updates are lost", async () => {
+		const storage = createMockStorage({ initial: true });
+		await Promise.all([
+			saveStateToStorage(storage, "a", 1),
+			saveStateToStorage(storage, "b", 2),
+			saveStateToStorage(storage, "c", 3),
+		]);
+		const final = await storage.load() as Record<string, unknown>;
+		expect(final).toEqual({ initial: true, a: 1, b: 2, c: 3 });
+	});
+});
+
 describe("safeSaveState", () => {
 	it("should return true on success", async () => {
 		const storage = createMockStorage({});

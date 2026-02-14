@@ -4,6 +4,7 @@
 
 import { Notice, setIcon } from "obsidian";
 import type { MultiImportResult, SavedMultiImportPipeline } from "../../../domain/dataExchange/types";
+import { basename } from "../../../utils/pathUtils";
 import type { PipelineComponentDeps } from "./types";
 
 export class PipelineExecution {
@@ -45,7 +46,7 @@ export class PipelineExecution {
 			const pct = totalSources > 0 ? Math.round(((sourceIndex + 1) / totalSources) * 100) : 0;
 			barFill.style.width = `${pct}%`;
 			statusText.textContent = `Processing source ${sourceIndex + 1} of ${totalSources}...`;
-			const csvName = sourceResult.csvPath.split("/").pop() ?? sourceResult.csvPath;
+			const csvName = basename(sourceResult.csvPath) || sourceResult.csvPath;
 			detailText.textContent = `${csvName}: ${sourceResult.result.created} created, ${sourceResult.result.updated} updated`;
 		});
 
@@ -83,7 +84,7 @@ export class PipelineExecution {
 					for (const sr of result.sourceResults) {
 						const row = breakdown.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
 						row.style.borderTop = "1px solid var(--background-modifier-border)";
-						const csvName = sr.csvPath.split("/").pop() ?? sr.csvPath;
+						const csvName = basename(sr.csvPath) || sr.csvPath;
 						row.createSpan({ text: csvName, cls: "ft-text-sm ft-flex-1" });
 						const counts = [];
 						if (sr.result.created > 0) counts.push(`${sr.result.created} created`);

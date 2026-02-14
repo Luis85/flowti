@@ -2,8 +2,9 @@
 severity: high
 category: architecture
 layer: ui
-status: open
+status: resolved
 created: 2026-02-14
+resolved: 2026-02-14
 effort: medium
 description: normalizeDocFrontmatter() performs vault writes via app.fileManager.processFrontMatter() as a side-effect of scanning during render. Violates render-should-be-side-effect-free principle and bypasses EventBridge.
 source: "[[Technical Review 2026-02-14]]"
@@ -50,3 +51,11 @@ render() → scan() → normalizeDocFrontmatter() → app.fileManager.processFro
 - `src/ui/catalog/DomainsTab.ts` (calls during scan)
 - `src/ui/catalog/ServicesTab.ts` (calls during scan)
 - `src/ui/catalog/EventsTab.ts` (calls during scan)
+
+## Resolution
+
+Resolved 2026-02-14:
+- Scan is now read-only; no writes occur during render
+- Non-conforming files collected during scan into a pending list
+- Normalized once per session via `normalizeNonConformingFiles()` with session-level deduplication
+- Double-scan also eliminated from all 6 entity tabs (Domains, Services, Categories, Flows, Systems, Actors)

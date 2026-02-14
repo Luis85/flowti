@@ -2,9 +2,10 @@
 severity: medium
 category: duplication
 layer: cross-cutting
-status: open
+status: resolved
 effort: small
 updated: 2026-02-14
+resolved: 2026-02-14
 description: 75+ inline path manipulation operations across 17 files with no centralized utility. Includes basename extraction, dirname extraction, extension stripping, and wildcard payload field extraction.
 source: "[[Technical Review 2026-02-14]]"
 ---
@@ -74,3 +75,11 @@ Files: EventDefinitionService, SubscriptionService, IngestionService, EventNotif
 - `src/domain/eventDefinition/EventDefinitionService.ts` (1)
 - `src/domain/ingestion/IngestionService.ts` (1)
 - `src/domain/eventNotify/EventNotificationService.ts` (1)
+
+## Resolution
+
+Resolved 2026-02-14:
+- Created `src/utils/pathUtils.ts` with `basename()`, `dirname()`, `stripExtension()`, `normalizeSeparators()`
+- Replaced 30+ inline `.split("/").pop()` patterns across 13 source files
+- Existing helpers in `csvUtils.ts` and `exportUtils.ts` refactored to delegate to pathUtils
+- Centralized path utility now used consistently across domain, infrastructure, and UI layers

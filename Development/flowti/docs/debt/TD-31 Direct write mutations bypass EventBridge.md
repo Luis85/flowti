@@ -2,8 +2,9 @@
 severity: medium
 category: architecture
 layer: ui
-status: open
+status: resolved
 created: 2026-02-14
+resolved: 2026-02-14
 effort: small
 description: 4 UI locations perform write mutations (vault.create, vault.createFolder, vault.delete) directly against the Obsidian API, bypassing EventBridge write routing. Refinement of TD-06.
 source: "[[Technical Review 2026-02-14]]"
@@ -42,3 +43,11 @@ Effort: small — 4 targeted changes, each 1-3 lines.
 - `src/ui/FolderPickerModal.ts`
 - `src/ui/hub/TypesTab.ts`
 - `src/ui/hub/ReportsTab.ts`
+
+## Resolution
+
+Resolved 2026-02-14. 3 of 4 mutations fixed:
+- `TypesTab.ts` delete routed through `doc.delete` event
+- `ReportsTab.ts` delete routed through `doc.delete` event
+- `CsvActionView.ts` create routed through `doc.create` event
+- `FolderPickerModal.ts` documented as accepted exception (standalone folder creation, no `IFileSystemClient.createFolder` exists for this use case)

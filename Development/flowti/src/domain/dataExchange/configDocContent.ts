@@ -3,6 +3,7 @@
  * Extracted from ConfigDocService to separate content generation from orchestration.
  */
 
+import { basename, stripExtension } from "../../utils/pathUtils";
 import type {
 	SavedImportConfig,
 	SavedExportConfig,
@@ -40,8 +41,8 @@ export function getTypesFolder(docsRoot: string): string {
 
 export function getCsvDocPath(docsRoot: string, csvPath: string): string {
 	const folder = getReportsFolder(docsRoot);
-	const basename = csvPath.split("/").pop()?.replace(/\.csv$/i, "") ?? "csv";
-	const safeName = sanitizeDocName(basename);
+	const csvBasename = stripExtension(basename(csvPath), ".csv") || "csv";
+	const safeName = sanitizeDocName(csvBasename);
 	return `${folder}/CSV - ${safeName}.md`;
 }
 
@@ -86,15 +87,15 @@ export function buildCsvDocContent(
 	rowCount: number,
 	delimiter?: string,
 ): string {
-	const basename = csvPath.split("/").pop() ?? "file.csv";
+	const csvBasename = basename(csvPath) || "file.csv";
 	const now = new Date().toISOString();
 
 	const lines: string[] = [
 		"---",
 		"type: CsvDoc",
-		`csvFile: "[[${basename}]]"`,
+		`csvFile: "[[${csvBasename}]]"`,
 		`filePath: "${csvPath}"`,
-		`name: "${basename}"`,
+		`name: "${csvBasename}"`,
 		`description: ""`,
 		`columns: ${headers.length}`,
 		`rows: ${rowCount}`,
@@ -103,13 +104,13 @@ export function buildCsvDocContent(
 		`created: "${now}"`,
 		"---",
 		"",
-		`# ${basename}`,
+		`# ${csvBasename}`,
 		"",
 		"> CSV file documentation.",
 		"",
 		"## Overview",
 		"",
-		`- **File**: [[${basename}]]`,
+		`- **File**: [[${csvBasename}]]`,
 		`- **Columns**: ${headers.length}`,
 		`- **Rows**: ${rowCount}`,
 		"",
@@ -138,7 +139,7 @@ export function buildPropertyDocContent(
 
 	for (const ref of configRefs) {
 		const configDocPath = getConfigDocPath(docsRoot, ref.configName, ref.configType);
-		const configDocName = configDocPath.split("/").pop()?.replace(/\.md$/, "") ?? ref.configName;
+		const configDocName = stripExtension(basename(configDocPath), ".md") || ref.configName;
 		configDocLinks.push(`- [[${configDocName}]]`);
 
 		if (ref.configType === "import") {
@@ -160,13 +161,13 @@ export function buildPropertyDocContent(
 	for (const filePath of relatedFiles) {
 		if (filePath.toLowerCase().endsWith(".csv")) {
 			const reportDocPath = getCsvDocPath(docsRoot, filePath);
-			const reportDocName = reportDocPath.split("/").pop()?.replace(/\.md$/, "") ?? filePath;
+			const reportDocName = stripExtension(basename(reportDocPath), ".md") || filePath;
 			reportLinks.push(`- [[${reportDocName}]]`);
 		}
 	}
 
 	const fileLinks = [...relatedFiles].map((f) => {
-		const name = f.split("/").pop() ?? f;
+		const name = basename(f) || f;
 		return `- [[${name}]]`;
 	});
 
@@ -255,7 +256,7 @@ export function buildImportDocContent(config: SavedImportConfig, userNotes?: str
 		`| **Conflict**      | ${config.conflictStrategy} |`,
 		`| **Columns**       | ${included.length} of ${config.columnMappings.length} |`,
 		config.noteType ? `| **Note Type**     | [[Type - ${sanitizeDocName(config.noteType)}\\|${config.noteType}]] |` : "",
-		config.sourcePath ? `| **Source CSV**    | [[${config.sourcePath}\\|${config.sourcePath.split("/").pop()}]] |` : "",
+		config.sourcePath ? `| **Source CSV**    | [[${config.sourcePath}\\|${basename(config.sourcePath)}]] |` : "",
 		"",
 	];
 
@@ -317,7 +318,7 @@ export function buildExportDocContent(config: SavedExportConfig, userNotes?: str
 		"",
 		"| Setting           | Value              |",
 		"| ----------------- | ------------------ |",
-		`| **Source**        | [[${config.sourcePath}\\|${config.sourcePath.split("/").pop()}]] |`,
+		`| **Source**        | [[${config.sourcePath}\\|${basename(config.sourcePath)}]] |`,
 		`| **Source Type**   | ${config.sourceType} |`,
 		`| **Format**       | ${formatLabel} |`,
 		`| **Output**       | \`${config.outputPath}\` |`,
@@ -410,7 +411,7 @@ export function buildPipelineDocContent(
 	if (pipeline.sources.length > 0) {
 		filtered.push("## Sources", "");
 		for (const source of pipeline.sources) {
-			const csvName = source.csvPath.split("/").pop() ?? source.csvPath;
+			const csvName = basename(source.csvPath) || source.csvPath;
 			const included = source.columnMappings.filter((m) => m.included);
 			filtered.push(`### [[${source.csvPath}|${csvName}]]`, "");
 			filtered.push(`- **Merge Key Column**: \`${source.mergeKeyColumn}\` → \`${pipeline.mergeKey}\``);
@@ -439,7 +440,7 @@ export function buildPipelineDocContent(
 			if (exportCfg) {
 				const cfgSafe = sanitizeDocName(exportCfg.name);
 				const formatLabel = exportCfg.format === "tab" ? "Tab" : "CSV";
-				const outputName = exportCfg.outputPath.split("/").pop() ?? exportCfg.outputPath;
+				const outputName = basename(exportCfg.outputPath) || exportCfg.outputPath;
 				const conflict = exportCfg.conflictStrategy ?? "overwrite";
 				filtered.push(`| ${i + 1} | [[Export - ${cfgSafe}\\|${exportCfg.name}]] | ${formatLabel} | \`${outputName}\` | ${conflict} |`);
 			} else {
@@ -459,7 +460,7 @@ export function buildPipelineDocContent(
 	if (pipeline.sources.length > 0) {
 		filtered.push("- **Source files**:");
 		for (const source of pipeline.sources) {
-			const csvName = source.csvPath.split("/").pop() ?? source.csvPath;
+			const csvName = basename(source.csvPath) || source.csvPath;
 			filtered.push(`  - [[${source.csvPath}|${csvName}]]`);
 		}
 	}
@@ -528,7 +529,7 @@ export function buildTypeDocContent(
 		lines.push("| -------- | ---------- |");
 		for (const prop of properties) {
 			const propDocPath = getPropertyDocPath(ctx.docsRoot, prop);
-			const propDocName = propDocPath.split("/").pop()?.replace(/\.md$/, "") ?? prop;
+			const propDocName = stripExtension(basename(propDocPath), ".md") || prop;
 			lines.push(`| [[${propDocName}\\|${prop}]] | — |`);
 		}
 		lines.push("");
@@ -538,17 +539,17 @@ export function buildTypeDocContent(
 		lines.push("## Configs", "");
 		for (const pipe of ctx.pipelines) {
 			const pipeDocPath = getPipelineDocPath(ctx.docsRoot, pipe.name);
-			const pipeDocName = pipeDocPath.split("/").pop()?.replace(/\.md$/, "") ?? pipe.name;
+			const pipeDocName = stripExtension(basename(pipeDocPath), ".md") || pipe.name;
 			lines.push(`- [[${pipeDocName}\\|${pipe.name}]] — Pipeline (${pipe.sources.length} source${pipe.sources.length !== 1 ? "s" : ""})`);
 		}
 		for (const cfg of ctx.importConfigs) {
 			const docPath = getConfigDocPath(ctx.docsRoot, cfg.name, "import");
-			const docName = docPath.split("/").pop()?.replace(/\.md$/, "") ?? cfg.name;
+			const docName = stripExtension(basename(docPath), ".md") || cfg.name;
 			lines.push(`- [[${docName}\\|${cfg.name}]] — Import`);
 		}
 		for (const cfg of ctx.exportConfigs) {
 			const docPath = getConfigDocPath(ctx.docsRoot, cfg.name, "export");
-			const docName = docPath.split("/").pop()?.replace(/\.md$/, "") ?? cfg.name;
+			const docName = stripExtension(basename(docPath), ".md") || cfg.name;
 			lines.push(`- [[${docName}\\|${cfg.name}]] — Export`);
 		}
 		lines.push("");

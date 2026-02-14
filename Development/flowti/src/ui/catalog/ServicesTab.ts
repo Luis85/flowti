@@ -1,12 +1,13 @@
 import { TFile, TFolder, setIcon } from "obsidian";
 import { EVENT_CATALOG, type EventCatalogEntry } from "../../infrastructure/events/catalog";
 import {
-	readFrontmatter, fmString, fmStringArray, normalizeDocFrontmatter,
+	readFrontmatter, fmString, fmStringArray,
 	isConfigured, discoveredToCatalogEntries,
 	renderStat, renderRelatedSection,
 	findRelatedFlows, findRelatedSystems, findRelatedActors,
-	openFile,
+	openFile, normalizeNonConformingFiles,
 } from "./helpers";
+import type { NonConformingFile } from "./helpers";
 import {
 	getServiceDocPathResolved, generateServiceDocContent,
 	getServiceBlueprintPathResolved, generateServiceBlueprintContent,
@@ -34,7 +35,6 @@ export class ServicesTab {
 	setSelectedService(name: string | null): void { this.selectedService = name; }
 
 	render(): void {
-		this.scan();
 		this.renderMaster();
 		this.renderDetail();
 	}
@@ -70,6 +70,7 @@ export class ServicesTab {
 			domains: string[];
 		}>();
 
+		const nonConforming: NonConformingFile[] = [];
 		if (folder && folder instanceof TFolder) {
 			for (const child of folder.children) {
 				if (!(child instanceof TFile) || child.extension !== "md") continue;
@@ -85,13 +86,14 @@ export class ServicesTab {
 				if (!serviceMap.has(name)) serviceMap.set(name, []);
 
 				if (!fm || fm.type !== "ServiceDoc") {
-					normalizeDocFrontmatter(
-						this.deps.app, child, "ServiceDoc", "service", name,
-						{ description, domains, services: [] },
-					);
+					nonConforming.push({
+						file: child, docType: "ServiceDoc", nameField: "service", name,
+						metadata: { description, domains, services: [] },
+					});
 				}
 			}
 		}
+		normalizeNonConformingFiles(this.deps.app, nonConforming);
 
 		const state = this.deps.getState();
 

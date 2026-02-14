@@ -274,7 +274,7 @@ export class DataExchangeService {
 		await this.saveState();
 		this.emitConfigChanged();
 		void this.configDocService.createImportConfigDoc(saved);
-		this.configDocService.createConfigEventDocs(saved.name, "import");
+		void this.configDocService.createConfigEventDocs(saved.name, "import");
 		if (saved.noteType) {
 			void this.configDocService.createOrUpdateTypeDoc(saved.noteType);
 		}
@@ -340,7 +340,7 @@ export class DataExchangeService {
 		await this.saveState();
 		this.emitConfigChanged();
 		void this.configDocService.createExportConfigDoc(saved);
-		this.configDocService.createConfigEventDocs(saved.name, "export");
+		void this.configDocService.createConfigEventDocs(saved.name, "export");
 		if (saved.noteType) {
 			void this.configDocService.createOrUpdateTypeDoc(saved.noteType);
 		}
@@ -414,7 +414,7 @@ export class DataExchangeService {
 		await this.saveState();
 		this.emitConfigChanged();
 		void this.configDocService.createPipelineConfigDoc(saved);
-		this.configDocService.createConfigEventDocs(saved.name, "pipeline");
+		void this.configDocService.createConfigEventDocs(saved.name, "pipeline");
 		if (saved.noteType) {
 			void this.configDocService.createOrUpdateTypeDoc(saved.noteType);
 		}

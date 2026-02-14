@@ -15,6 +15,7 @@ import type {
 	SavedExportConfig,
 	SavedMultiImportPipeline,
 } from "./types";
+import { basename as pathBasename } from "../../utils/pathUtils";
 import {
 	sanitizeDocName,
 	getConfigsFolder,
@@ -105,12 +106,12 @@ export class ConfigDocService {
 		delimiter?: string,
 	): Promise<string> {
 		const docPath = this.getCsvDocPath(csvPath);
-		const basename = csvPath.split("/").pop() ?? "file.csv";
+		const csvBasename = pathBasename(csvPath) || "file.csv";
 		const content = buildCsvDocContent(csvPath, headers, rowCount, delimiter);
 
 		await this.deps.eventBus.emit("doc.create", {
 			docType: "CsvDoc" as const,
-			name: basename,
+			name: csvBasename,
 			path: docPath,
 			content,
 			source: "ConfigDocService",

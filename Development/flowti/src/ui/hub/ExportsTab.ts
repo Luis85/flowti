@@ -5,6 +5,7 @@
 
 import { Notice, Setting, TFile, setIcon } from "obsidian";
 import type { SavedExportConfig } from "../../domain/dataExchange/types";
+import { basename } from "../../utils/pathUtils";
 import { ConfirmModal } from "../modals";
 import { FilePickerModal } from "../FilePickerModal";
 import { FolderPickerModal, getVaultFolders } from "../FolderPickerModal";
@@ -271,7 +272,7 @@ export class ExportsTab {
 				if (pipe.noteType) infoParts.push(pipe.noteType);
 				infoParts.push(`${pipe.sources.length} source${pipe.sources.length !== 1 ? "s" : ""}`);
 				infoParts.push(`→ ${pipe.targetFolder}`);
-				if (pipe.basePath) infoParts.push(pipe.basePath.split("/").pop() ?? pipe.basePath);
+				if (pipe.basePath) infoParts.push(basename(pipe.basePath) || pipe.basePath);
 				row.createSpan({
 					text: infoParts.join(" · "),
 					cls: "ft-text-muted ft-text-sm",
@@ -429,8 +430,7 @@ export class ExportsTab {
 			btn.setIcon("folder").setTooltip("Browse vault folder").onClick(() => {
 				const folders = getVaultFolders(this.deps.app);
 				new FolderPickerModal(this.deps.app, folders, (folder) => {
-					const parts = (edits.outputPath || cfg.outputPath || "export.csv").replace(/\\/g, "/").split("/");
-					const filename = parts[parts.length - 1];
+					const filename = basename(edits.outputPath || cfg.outputPath || "export.csv") || "export.csv";
 					edits.outputPath = folder ? `${folder}/${filename}` : filename;
 					edits.isExternal = false;
 					outputTextComponent?.setValue(edits.outputPath);
@@ -442,8 +442,7 @@ export class ExportsTab {
 			btn.setIcon("hard-drive").setTooltip("Save to filesystem").onClick(() => {
 				const format = cfg.format ?? "csv";
 				const ext = format === "tab" ? "txt" : "csv";
-				const currentFilename = (edits.outputPath || cfg.outputPath || `export.${ext}`)
-					.replace(/\\/g, "/").split("/").pop() ?? `export.${ext}`;
+				const currentFilename = basename(edits.outputPath || cfg.outputPath || `export.${ext}`) || `export.${ext}`;
 				void showNativeSaveDialog({ format, defaultFilename: currentFilename }).then((result) => {
 					if (result === null) {
 						new Notice("Could not open save dialog. Try entering the path manually.");

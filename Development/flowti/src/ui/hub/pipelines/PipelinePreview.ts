@@ -4,6 +4,7 @@
 
 import { Notice, TFile, setIcon } from "obsidian";
 import type { SavedMultiImportPipeline } from "../../../domain/dataExchange/types";
+import { basename } from "../../../utils/pathUtils";
 import type { PipelineComponentDeps } from "./types";
 
 interface PreviewSource {
@@ -62,7 +63,7 @@ export class PipelinePreview {
 					if (mergeKeyIndex < 0) {
 						previewSources.push({
 							sourceId: source.id,
-							csvName: source.csvPath.split("/").pop() ?? source.csvPath,
+							csvName: basename(source.csvPath) || source.csvPath,
 							rowCount: 0,
 							columns: [],
 							mergeKeyValues: [],
@@ -81,7 +82,7 @@ export class PipelinePreview {
 
 					previewSources.push({
 						sourceId: source.id,
-						csvName: source.csvPath.split("/").pop() ?? source.csvPath,
+						csvName: basename(source.csvPath) || source.csvPath,
 						rowCount: parsed.rows.length,
 						columns,
 						mergeKeyValues,
@@ -89,7 +90,7 @@ export class PipelinePreview {
 				} catch (err) {
 					previewSources.push({
 						sourceId: source.id,
-						csvName: source.csvPath.split("/").pop() ?? source.csvPath,
+						csvName: basename(source.csvPath) || source.csvPath,
 						rowCount: 0,
 						columns: [],
 						mergeKeyValues: [],
@@ -196,7 +197,7 @@ export class PipelinePreview {
 					expRow.createSpan({ text: exportCfg.name, cls: "ft-text-sm" });
 					const details: string[] = [];
 					details.push(exportCfg.format.toUpperCase());
-					details.push(exportCfg.outputPath.split("/").pop() ?? exportCfg.outputPath);
+					details.push(basename(exportCfg.outputPath) || exportCfg.outputPath);
 					if (exportCfg.isExternal) details.push("external");
 					expRow.createSpan({
 						text: details.join(" · "),

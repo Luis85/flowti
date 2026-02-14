@@ -3,7 +3,7 @@
  * Renders the master list of TypeDoc entries and the detail panel with lifecycle events.
  */
 
-import { TFile, setIcon } from "obsidian";
+import { setIcon } from "obsidian";
 import { ConfirmModal, InputModal } from "../modals";
 import { renderEmptyDetail, openEventInCatalog, getEmptyDetailStats } from "./helpers";
 import type { HubComponentDeps } from "./types";
@@ -159,13 +159,13 @@ export class TypesTab {
 				message: `Delete type "${typeName}" and its documentation?`,
 				confirmLabel: "Delete",
 				onConfirm: () => {
-					const file = this.deps.app.vault.getAbstractFileByPath(entry.filePath);
-					if (file instanceof TFile) {
-						void this.deps.app.vault.delete(file).then(() => {
-							this.deps.setState({ selectedTypeName: null });
-							setTimeout(() => this.deps.scheduleRender(), 300);
-						});
-					}
+					void this.deps.eventBus.emit("doc.delete", {
+						path: entry.filePath,
+						source: "TypesTab",
+					}).then(() => {
+						this.deps.setState({ selectedTypeName: null });
+						setTimeout(() => this.deps.scheduleRender(), 300);
+					});
 				},
 			}).open();
 		});

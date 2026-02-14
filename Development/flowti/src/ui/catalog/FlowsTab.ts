@@ -3,7 +3,7 @@ import type { EventCatalogEntry } from "../../infrastructure/events/catalog";
 import {
 	renderStat, renderRelatedSection,
 	findRelatedSystems, findRelatedActors,
-	openFile,
+	openFile, normalizeNonConformingFiles,
 } from "./helpers";
 import {
 	getFlowDocPathResolved,
@@ -31,7 +31,6 @@ export class FlowsTab {
 	setSelectedFlow(name: string | null): void { this.selectedFlow = name; }
 
 	render(): void {
-		this.scan();
 		this.renderMaster();
 		this.renderDetail();
 	}
@@ -41,7 +40,7 @@ export class FlowsTab {
 	// ─────────────────────────────────────────────────────────────
 
 	scan(): void {
-		this.entries = scanEntityFolder<FlowEntry>({
+		const result = scanEntityFolder<FlowEntry>({
 			entityType: "flows",
 			nameFields: ["flow", "trigger", "name"],
 			docType: "FlowDoc",
@@ -54,6 +53,8 @@ export class FlowsTab {
 					.filter((e): e is EventCatalogEntry => e !== undefined),
 			}),
 		}, this.deps);
+		this.entries = result.entries;
+		normalizeNonConformingFiles(this.deps.app, result.nonConforming);
 	}
 
 	// ─────────────────────────────────────────────────────────────

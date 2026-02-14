@@ -26,6 +26,7 @@ import { PipelinesTab } from "./hub/PipelinesTab";
 import { TypesTab } from "./hub/TypesTab";
 import { openEventInCatalog } from "./hub/helpers";
 import { buildSplitLayout } from "./catalog/helpers";
+import { basename, stripExtension } from "../utils/pathUtils";
 
 export const VIEW_TYPE_DATA_EXCHANGE_HUB = "flowti-data-exchange-hub";
 
@@ -353,7 +354,7 @@ export class DataExchangeHubView extends ItemView {
 					let bp = cfg.basePath.trim();
 					if (bp && !bp.endsWith(".base")) bp += ".base";
 					if (bp && !seenBases.has(bp) && this.app.vault.getAbstractFileByPath(bp)) {
-						bases.push({ path: bp, name: bp.split("/").pop()?.replace(/\.base$/, "") ?? bp });
+						bases.push({ path: bp, name: stripExtension(basename(bp), ".base") || bp });
 						seenBases.add(bp);
 					}
 				}

@@ -118,6 +118,39 @@ export function normalizeDocFrontmatter(
 }
 
 // ─────────────────────────────────────────────────────────────
+// Deferred normalization (TD-32: no writes during render)
+// ─────────────────────────────────────────────────────────────
+
+/** Describes a non-conforming file collected during a read-only scan. */
+export interface NonConformingFile {
+	file: TFile;
+	docType: string;
+	nameField: string;
+	name: string;
+	metadata: { description: string; events?: string[]; domains: string[]; services: string[] };
+}
+
+/** Tracks files already normalised this session to avoid repeated writes. */
+const normalizedThisSession = new Set<string>();
+
+/**
+ * Normalizes non-conforming files, skipping any already normalised this session.
+ * Call this after a read-only scan to apply writes outside the render path.
+ */
+export function normalizeNonConformingFiles(app: App, files: NonConformingFile[]): void {
+	for (const f of files) {
+		if (normalizedThisSession.has(f.file.path)) continue;
+		normalizedThisSession.add(f.file.path);
+		normalizeDocFrontmatter(app, f.file, f.docType, f.nameField, f.name, f.metadata);
+	}
+}
+
+/** Resets the normalisation tracker (useful for testing). */
+export function resetNormalizationTracker(): void {
+	normalizedThisSession.clear();
+}
+
+// ─────────────────────────────────────────────────────────────
 // Rendering helpers
 // ─────────────────────────────────────────────────────────────
 

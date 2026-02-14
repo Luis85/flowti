@@ -7,6 +7,10 @@
  */
 
 import type { IStorageProvider } from "./types";
+import { PathMutex } from "./mutex";
+
+/** Module-level mutex to serialise concurrent storage writes. */
+const storageMutex = new PathMutex();
 
 /**
  * Loads a named slice from the shared storage object.
@@ -29,10 +33,12 @@ export async function saveStateToStorage<T>(
 	key: string,
 	state: T,
 ): Promise<void> {
-	const existingData = ((await storage.load()) as object) || {};
-	await storage.save({
-		...existingData,
-		[key]: state,
+	await storageMutex.withLock("storage", async () => {
+		const existingData = ((await storage.load()) as object) || {};
+		await storage.save({
+			...existingData,
+			[key]: state,
+		});
 	});
 }
 

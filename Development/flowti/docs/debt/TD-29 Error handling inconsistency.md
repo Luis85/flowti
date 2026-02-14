@@ -1,9 +1,10 @@
 ---
-severity: medium
+severity: low
 category: architecture
 layer: cross-cutting
-status: open
+status: mitigated
 created: 2026-02-14
+updated: 2026-02-14
 effort: medium
 description: 62 catch blocks across 24 files use 4 distinct error handling strategies with no unified convention. One catch silently swallows errors.
 source: "[[Technical Review 2026-02-14]]"
@@ -52,3 +53,11 @@ The codebase has 62 `catch` blocks across 24 files, using 4 distinct strategies 
 - `src/ui/CsvActionView.ts` (mixed strategies)
 - `src/ui/ExportView.ts` (console-only, 5 catches)
 - 20 additional files with catch blocks
+
+## Resolution
+
+Partially mitigated in refactoring phase 2026-02-14:
+- Silent swallow in `SourcesExportsGrid.ts` replaced with `console.warn`
+- Severity downgraded from medium to low
+- Remaining error handling inconsistency (62 catch blocks, 4 strategies) documented but not fully addressed
+- Broader convention unification deferred to future phase

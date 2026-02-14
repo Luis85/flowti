@@ -38,22 +38,24 @@ Phases 7 (main.ts decomposition) and 8 (DocService centralization) resolved or r
 
 A comprehensive plugin review ([[Technical Review 2026-02-14]]) added 9 new items (TD-27 through TD-35) and expanded TD-18 from "5+" to "75+ occurrences".
 
+Refactoring phase on 2026-02-14 resolved 5 additional items (TD-18, TD-31, TD-32, TD-33, TD-35) and mitigated TD-29 (silent swallow fixed, severity downgraded to low). High-severity items reduced to zero.
+
 ### Summary by Status (35 total items)
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Resolved | 16 | TD-02, TD-03, TD-04, TD-05, TD-07, TD-08, TD-10, TD-11, TD-14, TD-15, TD-17, TD-19, TD-21, TD-24, TD-25, TD-26 |
-| Mitigated | 2 | TD-01 (severity: low), TD-09 (severity: low) |
+| Resolved | 21 | TD-02, TD-03, TD-04, TD-05, TD-07, TD-08, TD-10, TD-11, TD-14, TD-15, TD-17, TD-18, TD-19, TD-21, TD-24, TD-25, TD-26, TD-31, TD-32, TD-33, TD-35 |
+| Mitigated | 3 | TD-01 (severity: low), TD-09 (severity: low), TD-29 (severity: low) |
 | Reclassified | 2 | TD-06 (high→medium), TD-12 (high→low) |
-| Open | 15 | TD-06, TD-12, TD-13, TD-16, TD-18, TD-20, TD-22, TD-23, TD-27–TD-35 |
+| Open | 11 | TD-06, TD-12, TD-13, TD-16, TD-20, TD-22, TD-23, TD-27, TD-28, TD-30, TD-34 |
 
 ### Summary by Severity (current open items)
 
 | Severity | Count | Items |
 |----------|-------|-------|
-| High | 1 | TD-32 (render-time writes) |
-| Medium | 10 | TD-06, TD-16, TD-18, TD-20, TD-27, TD-29, TD-30, TD-31, TD-33, TD-35 |
-| Low | 6 | TD-01, TD-09, TD-12, TD-13, TD-22, TD-23, TD-28, TD-34 |
+| High | 0 | — |
+| Medium | 5 | TD-06, TD-16, TD-20, TD-27, TD-30 |
+| Low | 9 | TD-01, TD-09, TD-12, TD-13, TD-22, TD-23, TD-28, TD-29, TD-34 |
 
 ---
 
@@ -73,7 +75,7 @@ A comprehensive plugin review ([[Technical Review 2026-02-14]]) added 9 new item
 
 1. **EventBridge boundary erosion** -- The UI layer bypasses EventBridge in ~112 locations, directly calling `app.vault`, `app.metadataCache`, and `app.workspace`. This is the largest remaining architectural issue (TD-06, reclassified to medium — acceptable for read-only UI access patterns).
 2. **UI file sizes** -- 14 files exceed 500 LOC (down from 4 exceeding 1,000 LOC). Orchestrator files (600-850 LOC) are expected to be larger. Further decomposition opportunities exist for `contentGenerator.ts` (708), `EventConfigModal.ts` (629), and `DomainsTab.ts` (563) — see TD-01 (mitigated).
-3. **Duplicated infrastructure patterns** -- Storage merging and path extraction patterns are copy-pasted across services (TD-16, TD-18). SKIPPED_PREFIXES duplication (TD-17) has been resolved via centralization in `catalog.ts`.
+3. **Duplicated infrastructure patterns** -- Storage merging pattern is copy-pasted across services (TD-16). Path extraction duplication (TD-18) has been resolved via `pathUtils.ts`. SKIPPED_PREFIXES duplication (TD-17) has been resolved via centralization in `catalog.ts`.
 
 ---
 
@@ -112,7 +114,7 @@ Each item below has a dedicated file in this folder with full details. See the `
 |---|------|-------|--------|
 | 16 | Duplicated storage merging pattern across 8+ services | Cross-cutting | Open |
 | 17 | SKIPPED_PREFIXES duplicated in 4 services | Cross-cutting | **Resolved** (centralized in catalog.ts) |
-| 18 | Path extraction pattern duplicated 75+ times | Cross-cutting | Open (expanded) |
+| 18 | Path extraction pattern duplicated 75+ times | Cross-cutting | **Resolved** (pathUtils.ts created) |
 | 19 | tsconfig.json not using strict: true | Infrastructure | **Resolved** (strict: true enabled) |
 | 20 | BaseQueryEngine regex patterns not pre-compiled | Domain | Open |
 | 21 | ImportService uses exception-based fileExists() | Domain | **Resolved** (boolean API used) |
@@ -133,10 +135,10 @@ Each item below has a dedicated file in this folder with full details. See the `
 |---|------|-------|----------|--------|
 | 27 | Limited UI component testing (~40 components untested) | UI | Medium | Open |
 | 28 | Scanner duplication between Catalog and Hub | UI | Low | Open |
-| 29 | Error handling inconsistency (62 catches, 4 strategies) | Cross-cutting | Medium | Open |
+| 29 | Error handling inconsistency (62 catches, 4 strategies) | Cross-cutting | Low | **Mitigated** (silent swallow fixed) |
 | 30 | Untested domain and infrastructure logic (~15 files, 4,200 LOC) | Cross-cutting | Medium | Open |
-| 31 | Direct write mutations bypass EventBridge (4 locations) | UI | Medium | Open |
-| 32 | normalizeDocFrontmatter writes during render | UI | High | Open |
-| 33 | Storage save race condition (read-merge-write not atomic) | Infrastructure | Medium | Open |
+| 31 | Direct write mutations bypass EventBridge (4 locations) | UI | Medium | **Resolved** (3/4 routed through events) |
+| 32 | normalizeDocFrontmatter writes during render | UI | High | **Resolved** (scan now read-only) |
+| 33 | Storage save race condition (read-merge-write not atomic) | Infrastructure | Medium | **Resolved** (PathMutex added) |
 | 34 | Entity tab structural duplication (~800 LOC) | UI | Low | Open |
-| 35 | Fire-and-forget persistence risk (3 void saveState calls) | Domain | Medium | Open |
+| 35 | Fire-and-forget persistence risk (3 void saveState calls) | Domain | Medium | **Resolved** (void prefix + safeSaveState) |

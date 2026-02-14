@@ -4,6 +4,7 @@
 
 import type { FilePropertyDef, VaultFileInfo } from "../../domain/dataExchange/types";
 import { STANDARD_FILE_PROPERTIES } from "../../domain/dataExchange/types";
+import { basename as pathBasename, dirname } from "../../utils/pathUtils";
 
 /** Returns the user-friendly label for a file property key. */
 export function getFilePropertyLabel(key: string): string {
@@ -33,15 +34,12 @@ export function resolveFileProperty(file: VaultFileInfo, key: string): string {
 
 /** Extracts the filename portion of a path. */
 export function getFilenameFromPath(p: string): string {
-	const parts = p.replace(/\\/g, "/").split("/");
-	return parts[parts.length - 1] || p;
+	return pathBasename(p) || p;
 }
 
 /** Returns the folder portion of an output path. */
 export function getOutputFolder(outputPath: string): string {
-	const norm = outputPath.replace(/\\/g, "/");
-	const lastSlash = norm.lastIndexOf("/");
-	return lastSlash === -1 ? "" : norm.slice(0, lastSlash);
+	return dirname(outputPath);
 }
 
 /** Returns just the filename from an output path. */

@@ -43,7 +43,9 @@ export class FolderPickerModal extends FuzzySuggestModal<string> {
 		if (item.startsWith(CREATE_PREFIX)) {
 			const newPath = item.slice(CREATE_PREFIX.length);
 			try {
-				await this.app.vault.createFolder(newPath);
+				// TD-31 accepted exception: standalone folder creation is orthogonal
+			// to the doc lifecycle pipeline. No IFileSystemClient.createFolder exists.
+			await this.app.vault.createFolder(newPath);
 				new Notice(`Folder created: ${newPath}`);
 			} catch {
 				// Folder may already exist (race), which is fine

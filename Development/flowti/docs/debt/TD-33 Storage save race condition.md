@@ -2,8 +2,9 @@
 severity: medium
 category: bug-risk
 layer: infrastructure
-status: open
+status: resolved
 created: 2026-02-14
+resolved: 2026-02-14
 effort: small
 description: saveStateToStorage performs read-merge-write without locking. Concurrent saves from different services can cause lost updates when their reads overlap.
 source: "[[Technical Review 2026-02-14]]"
@@ -64,3 +65,10 @@ Effort: small — single function change + import.
 
 - `src/utils/persistence.ts` (add mutex)
 - `src/utils/mutex.ts` (already exists, no changes needed)
+
+## Resolution
+
+Resolved 2026-02-14:
+- `saveStateToStorage` now wrapped with `PathMutex` (module-level `storageMutex`)
+- Concurrent saves are serialized via `storageMutex.withLock("storage", ...)`
+- Test added verifying no lost updates under concurrent save

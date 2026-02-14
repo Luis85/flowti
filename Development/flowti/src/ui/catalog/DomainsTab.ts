@@ -1,12 +1,13 @@
 import { TFile, TFolder, setIcon } from "obsidian";
 import { EVENT_CATALOG, SYSTEM_DOMAINS, type EventCatalogEntry } from "../../infrastructure/events/catalog";
 import {
-	readFrontmatter, fmString, fmStringArray, normalizeDocFrontmatter,
+	readFrontmatter, fmString, fmStringArray,
 	isConfigured, discoveredToCatalogEntries,
 	renderStat, renderRelatedSection,
 	findRelatedFlows, findRelatedSystems, findRelatedActors,
-	openFile,
+	openFile, normalizeNonConformingFiles,
 } from "./helpers";
+import type { NonConformingFile } from "./helpers";
 import {
 	getDomainDocPathResolved, generateDomainDocContent,
 	getArchitectureDocPathResolved, generateArchitectureDocContent,
@@ -34,7 +35,6 @@ export class DomainsTab {
 	setSelectedDomain(name: string | null): void { this.selectedDomain = name; }
 
 	render(): void {
-		this.scan();
 		this.renderMaster();
 		this.renderDetail();
 	}
@@ -70,6 +70,7 @@ export class DomainsTab {
 			categories: string[];
 		}>();
 
+		const nonConforming: NonConformingFile[] = [];
 		if (folder && folder instanceof TFolder) {
 			for (const child of folder.children) {
 				if (!(child instanceof TFile) || child.extension !== "md") continue;
@@ -87,13 +88,14 @@ export class DomainsTab {
 				if (!domainMap.has(name)) domainMap.set(name, []);
 
 				if (!fm || fm.type !== "DomainDoc") {
-					normalizeDocFrontmatter(
-						this.deps.app, child, "DomainDoc", "domain", name,
-						{ description, domains: [], services },
-					);
+					nonConforming.push({
+						file: child, docType: "DomainDoc", nameField: "domain", name,
+						metadata: { description, domains: [], services },
+					});
 				}
 			}
 		}
+		normalizeNonConformingFiles(this.deps.app, nonConforming);
 
 		const state = this.deps.getState();
 

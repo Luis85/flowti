@@ -2,7 +2,7 @@ import { TFile, setIcon } from "obsidian";
 import {
 	renderStat, renderRelatedSection,
 	findRelatedFlows, findRelatedActors,
-	openFile,
+	openFile, normalizeNonConformingFiles,
 } from "./helpers";
 import {
 	getSystemDocPathResolved,
@@ -30,7 +30,6 @@ export class SystemsTab {
 	setSelectedSystem(name: string | null): void { this.selectedSystem = name; }
 
 	render(): void {
-		this.scan();
 		this.renderMaster();
 		this.renderDetail();
 	}
@@ -40,7 +39,7 @@ export class SystemsTab {
 	// ─────────────────────────────────────────────────────────────
 
 	scan(): void {
-		this.entries = scanEntityFolder<SystemEntry>({
+		const result = scanEntityFolder<SystemEntry>({
 			entityType: "systems",
 			nameFields: ["system", "name"],
 			docType: "SystemDoc",
@@ -64,6 +63,8 @@ export class SystemsTab {
 				};
 			},
 		}, this.deps);
+		this.entries = result.entries;
+		normalizeNonConformingFiles(this.deps.app, result.nonConforming);
 	}
 
 	// ─────────────────────────────────────────────────────────────

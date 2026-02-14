@@ -629,7 +629,13 @@ export class CsvActionView extends TextFileView {
 
 		try {
 			const content = generateBaseYaml(this.state.targetFolder, this.state.columnMappings);
-			await this.app.vault.create(path, content);
+			await this.eventBus.emit("doc.create", {
+				docType: "CsvDoc" as const,
+				name: path.split("/").pop() ?? path,
+				path,
+				content,
+				source: "CsvActionView",
+			});
 			new Notice(`Base view created: ${path}`);
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);

@@ -2,15 +2,17 @@
  * Generic entity folder scanner shared by FlowsTab, ActorsTab, ProductsTab, and SystemsTab.
  *
  * Extracts the duplicated scan logic: folder resolution, frontmatter reading,
- * field extraction, normalize-on-read, and alphabetical sort.
+ * field extraction, and alphabetical sort. Non-conforming files are collected
+ * but NOT written to during scan (TD-32).
  */
 
 import { TFile, TFolder } from "obsidian";
 import { EVENT_CATALOG, type EventCatalogEntry } from "../../infrastructure/events/catalog";
 import {
-	readFrontmatter, fmString, fmStringArray, normalizeDocFrontmatter,
+	readFrontmatter, fmString, fmStringArray,
 	discoveredToCatalogEntries,
 } from "./helpers";
+import type { NonConformingFile } from "./helpers";
 import type { CatalogComponentDeps } from "./types";
 import type { EntityType } from "../../domain/docs/pathResolver";
 
@@ -55,26 +57,32 @@ export interface EntityScanConfig<T> {
 	mapEntry: (raw: RawScanEntry, context: ScanContext) => T;
 }
 
+/** Result returned by scanEntityFolder — entries plus files needing normalization. */
+export interface ScanResult<T> {
+	entries: T[];
+	nonConforming: NonConformingFile[];
+}
+
 // ─────────────────────────────────────────────────────────────
 // Scanner
 // ─────────────────────────────────────────────────────────────
 
 /**
- * Scans an entity folder and returns sorted entries.
+ * Scans an entity folder and returns sorted entries plus non-conforming files.
  *
  * Handles folder resolution, TFile filtering, frontmatter extraction,
- * doc normalization, and alphabetical sort — the common work duplicated
- * across FlowsTab, ActorsTab, ProductsTab, and SystemsTab.
+ * and alphabetical sort — the common work duplicated across entity tabs.
+ * Non-conforming files are collected but NOT written during scan (TD-32).
  */
 export function scanEntityFolder<T extends { name: string }>(
 	config: EntityScanConfig<T>,
 	deps: CatalogComponentDeps,
-): T[] {
+): ScanResult<T> {
 	const folderPath = deps.getEntityFolder(config.entityType);
 	const folder = deps.app.vault.getAbstractFileByPath(folderPath);
 
 	if (!folder || !(folder instanceof TFolder)) {
-		return [];
+		return { entries: [], nonConforming: [] };
 	}
 
 	const allEntries = [
@@ -88,6 +96,7 @@ export function scanEntityFolder<T extends { name: string }>(
 	const entryMap = new Map(allEntries.map((e) => [e.type, e]));
 	const context: ScanContext = { entryMap, allEntries };
 	const entries: T[] = [];
+	const nonConforming: NonConformingFile[] = [];
 
 	for (const child of folder.children) {
 		if (!(child instanceof TFile) || child.extension !== "md") continue;
@@ -118,19 +127,25 @@ export function scanEntityFolder<T extends { name: string }>(
 		const raw: RawScanEntry = { name, description, events, domains, services, filePath: child.path, fm };
 		entries.push(config.mapEntry(raw, context));
 
-		// Auto-normalize non-conforming frontmatter
+		// Collect non-conforming files for deferred normalization (TD-32)
 		if (!fm || fm.type !== config.docType) {
-			normalizeDocFrontmatter(
-				deps.app, child, config.docType, config.normalizeNameKey, name,
-				{
+			nonConforming.push({
+				file: child,
+				docType: config.docType,
+				nameField: config.normalizeNameKey,
+				name,
+				metadata: {
 					description,
 					domains,
 					services,
 					...(config.readEvents !== false ? { events } : {}),
 				},
-			);
+			});
 		}
 	}
 
-	return entries.sort((a, b) => a.name.localeCompare(b.name));
+	return {
+		entries: entries.sort((a, b) => a.name.localeCompare(b.name)),
+		nonConforming,
+	};
 }

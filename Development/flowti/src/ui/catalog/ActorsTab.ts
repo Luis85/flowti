@@ -3,7 +3,7 @@ import type { EventCatalogEntry } from "../../infrastructure/events/catalog";
 import {
 	renderStat, renderRelatedSection,
 	findRelatedFlows, findRelatedSystems,
-	openFile,
+	openFile, normalizeNonConformingFiles,
 } from "./helpers";
 import {
 	getActorDocPathResolved,
@@ -31,7 +31,6 @@ export class ActorsTab {
 	setSelectedActor(name: string | null): void { this.selectedActor = name; }
 
 	render(): void {
-		this.scan();
 		this.renderMaster();
 		this.renderDetail();
 	}
@@ -41,7 +40,7 @@ export class ActorsTab {
 	// -----------------------------------------------------------------
 
 	scan(): void {
-		this.entries = scanEntityFolder<ActorEntry>({
+		const result = scanEntityFolder<ActorEntry>({
 			entityType: "actors",
 			nameFields: ["actor", "name"],
 			docType: "ActorDoc",
@@ -54,6 +53,8 @@ export class ActorsTab {
 					.filter((e): e is EventCatalogEntry => e !== undefined),
 			}),
 		}, this.deps);
+		this.entries = result.entries;
+		normalizeNonConformingFiles(this.deps.app, result.nonConforming);
 	}
 
 	// -----------------------------------------------------------------

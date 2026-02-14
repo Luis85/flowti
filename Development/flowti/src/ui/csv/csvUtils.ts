@@ -3,6 +3,7 @@
  */
 
 import type { ColumnMapping } from "../../domain/dataExchange/types";
+import { basename, stripExtension } from "../../utils/pathUtils";
 
 /** Split a CSV line using the given delimiter, handling quoted fields. */
 export function splitCsvLine(line: string, delimiter: string): string[] {
@@ -70,9 +71,8 @@ export function generateBaseYaml(targetFolder: string, columnMappings: ColumnMap
 
 /** Extract the base filename from a file path (replace .csv with .base). */
 export function getBaseFilename(filePath: string): string {
-	const parts = filePath.replace(/\\/g, "/").split("/");
-	const csvFile = parts[parts.length - 1] || "imported.csv";
-	return csvFile.replace(/\.csv$/i, ".base");
+	const csvFile = basename(filePath) || "imported.csv";
+	return stripExtension(csvFile, ".csv") + ".base";
 }
 
 /** Format a timestamp as a human-readable relative time string. */

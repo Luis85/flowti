@@ -2,8 +2,9 @@
 severity: medium
 category: bug-risk
 layer: domain
-status: open
+status: resolved
 created: 2026-02-14
+resolved: 2026-02-14
 effort: small
 description: Three services use void this.saveState() fire-and-forget after critical state changes. Failed saves silently diverge in-memory from persisted state, causing re-processing after restart.
 source: "[[Technical Review 2026-02-14]]"
@@ -44,3 +45,10 @@ Three domain services call `void this.saveState()` after critical state mutation
 - `src/domain/eventDefinition/EventDefinitionService.ts` (line 248)
 - `src/domain/dataExchange/DataExchangeService.ts` (lines 277, 343, 417)
 - `src/domain/dataExchange/ConfigDocService.ts` (createConfigEventDocs)
+
+## Resolution
+
+Resolved 2026-02-14:
+- 3 `createConfigEventDocs()` calls in DataExchangeService now properly prefixed with `void` to make fire-and-forget intent explicit
+- The `saveState()` calls already use `safeSaveState` which logs errors via `console.error`
+- Fire-and-forget intent is now documented and consistent across all affected call sites

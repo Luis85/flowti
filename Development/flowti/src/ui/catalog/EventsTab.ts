@@ -9,13 +9,14 @@ import {
 	readFrontmatter,
 	fmString,
 	fmStringArray,
-	normalizeDocFrontmatter,
 	isConfigured,
 	getOrderedCategories,
 	discoveredToCatalogEntries,
 	getVisibleEntries,
 	resolveEntry,
+	normalizeNonConformingFiles,
 } from "./helpers";
+import type { NonConformingFile } from "./helpers";
 import { EventDetailPanel } from "./EventDetailPanel";
 import { renderEventsSettingsPanel } from "./EventsSettingsPanel";
 import { renderMasterCategory, type CategoryRenderContext } from "./EventsCategoryRenderer";
@@ -247,6 +248,7 @@ export class EventsTab {
 		const folder = this.deps.app.vault.getAbstractFileByPath(categoriesFolder);
 		const fileMap = new Map<string, { filePath: string; description: string; domains: string[]; services: string[] }>();
 
+		const nonConforming: NonConformingFile[] = [];
 		if (folder && folder instanceof TFolder) {
 			for (const child of folder.children) {
 				if (!(child instanceof TFile) || child.extension !== "md") continue;
@@ -263,10 +265,14 @@ export class EventsTab {
 				if (!categoryMap.has(name)) categoryMap.set(name, []);
 
 				if (!fm || fm.type !== "CategoryDoc") {
-					normalizeDocFrontmatter(this.deps.app, child, "CategoryDoc", "category", name, { description, domains, services });
+					nonConforming.push({
+						file: child, docType: "CategoryDoc", nameField: "category", name,
+						metadata: { description, domains, services },
+					});
 				}
 			}
 		}
+		normalizeNonConformingFiles(this.deps.app, nonConforming);
 
 		// Merge with catalogCategories settings for visibility/order
 		const orderedCategories = getOrderedCategories(state.catalogCategories);

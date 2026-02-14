@@ -4,6 +4,7 @@
 
 import { Notice, TFile, setIcon } from "obsidian";
 import type { SavedMultiImportPipeline } from "../../../domain/dataExchange/types";
+import { basename } from "../../../utils/pathUtils";
 import { ConfigChooserModal, ConfirmModal } from "../../modals";
 import { PipelineSourceModal } from "../../PipelineSourceModal";
 import { addInfoRow } from "../helpers";
@@ -120,7 +121,7 @@ export class SourcesExportsGrid {
 		const card = container.createDiv({ cls: "ft-card ft-mt-1" });
 		card.style.padding = "0.5rem 0.75rem";
 
-		const csvName = source.csvPath.split("/").pop() ?? source.csvPath;
+		const csvName = basename(source.csvPath) || source.csvPath;
 
 		const headerRow = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const csvIcon = headerRow.createSpan();
@@ -276,7 +277,7 @@ export class SourcesExportsGrid {
 									});
 								}
 							}
-						}).catch(() => { /* parse error */ });
+						}).catch((err) => console.warn("[Flowti] Failed to parse base file:", err));
 					}
 				}
 			}
@@ -338,7 +339,7 @@ export class SourcesExportsGrid {
 		const propMap = new Map<string, Array<{ sourceLabel: string; value: string }>>();
 		for (const src of pipe.sources) {
 			if (!src.customProperties) continue;
-			const label = src.csvPath.split("/").pop() ?? src.csvPath;
+			const label = basename(src.csvPath) || src.csvPath;
 			for (const [key, value] of Object.entries(src.customProperties)) {
 				if (!propMap.has(key)) propMap.set(key, []);
 				propMap.get(key)!.push({ sourceLabel: label, value });

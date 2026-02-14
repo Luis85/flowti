@@ -189,14 +189,14 @@ export class ReportsTab {
 				message: `Delete documentation "${report.name}"?`,
 				confirmLabel: "Delete",
 				onConfirm: () => {
-					const file = this.deps.app.vault.getAbstractFileByPath(report.path);
-					if (file) {
-						void this.deps.app.vault.delete(file).then(() => {
-							this.deps.setState({ selectedReportPath: null });
-							this.deps.scheduleRender();
-							new Notice("Report documentation deleted");
-						});
-					}
+					void this.deps.eventBus.emit("doc.delete", {
+						path: report.path,
+						source: "ReportsTab",
+					}).then(() => {
+						this.deps.setState({ selectedReportPath: null });
+						this.deps.scheduleRender();
+						new Notice("Report documentation deleted");
+					});
 				},
 			}).open();
 		});

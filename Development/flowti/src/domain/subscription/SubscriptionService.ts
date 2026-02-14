@@ -4,6 +4,7 @@ import { loadStateFromStorage, saveStateToStorage } from "../../utils/persistenc
 import type { IStorageProvider } from "../../utils/types";
 import { generateUUID, extractSettingsBoolean, extractStringField } from "../../utils/helpers";
 import { matchGlob } from "../../utils/glob";
+import { basename } from "../../utils/pathUtils";
 import type { Subscription, SubscriptionFilter, SubscriptionState } from "./types";
 
 /**
@@ -238,8 +239,8 @@ export class SubscriptionService {
 		// namePattern: glob against the filename (basename)
 		if (filters.namePattern) {
 			if (!path) return false;
-			const basename = path.split("/").pop() ?? "";
-			if (!matchGlob(filters.namePattern, basename)) return false;
+			const baseName = basename(path);
+			if (!matchGlob(filters.namePattern, baseName)) return false;
 		}
 
 		return true;

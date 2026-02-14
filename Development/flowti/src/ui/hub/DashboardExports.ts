@@ -5,6 +5,7 @@
 
 import { TFile, setIcon } from "obsidian";
 import { FilePickerModal } from "../FilePickerModal";
+import { basename } from "../../utils/pathUtils";
 import type { HubComponentDeps } from "./types";
 
 export function renderConfiguredExports(
@@ -72,7 +73,7 @@ export function renderConfiguredExports(
 
 		// Source — base file or folder link
 		const srcTd = tr.createEl("td");
-		const srcName = cfg.sourcePath.split("/").pop() ?? cfg.sourcePath;
+		const srcName = basename(cfg.sourcePath) || cfg.sourcePath;
 		const srcLink = srcTd.createEl("span", {
 			text: srcName,
 			cls: "ft-nav-link ft-text-sm",
@@ -94,7 +95,7 @@ export function renderConfiguredExports(
 
 		// Output
 		const outTd = tr.createEl("td");
-		const outName = cfg.outputPath.split("/").pop() ?? cfg.outputPath;
+		const outName = basename(cfg.outputPath) || cfg.outputPath;
 		const outLink = outTd.createEl("span", {
 			text: outName,
 			cls: "ft-nav-link ft-text-sm",

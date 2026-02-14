@@ -11,6 +11,7 @@ import type { ImportService } from "../domain/dataExchange/ImportService";
 import type { ColumnMapping, MultiImportSource, SavedImportConfig } from "../domain/dataExchange/types";
 import { FilePickerModal } from "./FilePickerModal";
 import { ConfigChooserModal } from "./modals";
+import { basename } from "../utils/pathUtils";
 
 export interface PipelineSourceModalOptions {
 	app: App;
@@ -119,7 +120,7 @@ export class PipelineSourceModal extends Modal {
 					this.app,
 					this.savedImportConfigs.map((c) => ({
 						id: c.id,
-						name: c.name + (c.sourcePath ? ` (${c.sourcePath.split("/").pop()})` : ""),
+						name: c.name + (c.sourcePath ? ` (${basename(c.sourcePath)})` : ""),
 					})),
 					(id) => {
 						if (id === null) return;
