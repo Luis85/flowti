@@ -2,7 +2,7 @@
 type: Flow
 domain: Flowti
 stage: done
-description: "End-to-end journey from creating an Event markdown file in the vault through discovery, catalog appearance, and subscription configuration"
+description: End-to-end journey from creating an Event markdown file in the vault through discovery, catalog appearance, and subscription configuration
 domains:
   - Discovery
   - Subscription
@@ -15,7 +15,6 @@ events:
   - subscription.create
   - subscription.created
 tags:
-  - flow
   - discovery
 ---
 

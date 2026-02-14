@@ -3,9 +3,13 @@ filters:
     - file.inFolder("Development/flowti/docs/flows")
 views:
   - type: table
-    name: Table
+    name: Flows
     order:
       - file.name
+      - trigger
       - description
+      - tags
     columnSize:
       file.name: 228
+      note.trigger: 99
+      note.description: 656

@@ -2,7 +2,7 @@
 type: Flow
 domain: Flowti
 stage: done
-description: "End-to-end journey from clicking a CSV file through the import wizard to creating vault notes with frontmatter"
+description: End-to-end journey from clicking a CSV file through the import wizard to creating vault notes with frontmatter
 domains:
   - Data Exchange
 services:
@@ -14,7 +14,6 @@ events:
   - dataExchange.import.progress
   - dataExchange.import.completed
 tags:
-  - flow
   - data-exchange
 ---
 

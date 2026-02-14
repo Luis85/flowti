@@ -2,7 +2,7 @@
 type: Flow
 domain: Flowti
 stage: done
-description: "End-to-end journey from opening the Event Catalog through browsing events to configuring subscriptions and definitions"
+description: End-to-end journey from opening the Event Catalog through browsing events to configuring subscriptions and definitions
 domains:
   - Subscription
   - Event Definition
@@ -18,7 +18,6 @@ events:
   - eventDefinition.created
   - settings.changed
 tags:
-  - flow
   - catalog
 ---
 

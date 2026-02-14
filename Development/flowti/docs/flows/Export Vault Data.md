@@ -2,7 +2,7 @@
 type: Flow
 domain: Flowti
 stage: done
-description: "End-to-end journey from right-clicking a folder or .base file through the export wizard to generating a CSV or tab-delimited output"
+description: End-to-end journey from right-clicking a folder or .base file through the export wizard to generating a CSV or tab-delimited output
 domains:
   - Data Exchange
 services:
@@ -15,7 +15,6 @@ events:
   - dataExchange.export.progress
   - dataExchange.export.completed
 tags:
-  - flow
   - data-exchange
 ---
 

@@ -2,7 +2,7 @@
 type: Flow
 domain: Flowti
 stage: done
-description: "End-to-end journey from configuring watch folders and ingestion settings through file arrival, processing, event definition matching, and custom domain event emission"
+description: End-to-end journey from configuring watch folders and ingestion settings through file arrival, processing, event definition matching, and custom domain event emission
 domains:
   - Ingestion
   - Event Definition
@@ -17,7 +17,6 @@ events:
   - ingestion.job.completed
   - eventDefinition.matched
 tags:
-  - flow
   - ingestion
 ---
 

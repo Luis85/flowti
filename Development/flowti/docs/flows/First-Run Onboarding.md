@@ -2,7 +2,7 @@
 type: Flow
 domain: Flowti
 stage: done
-description: "End-to-end journey from plugin activation through installer wizard to a fully scaffolded vault"
+description: End-to-end journey from plugin activation through installer wizard to a fully scaffolded vault
 domains:
   - Installer
   - User
@@ -19,7 +19,6 @@ events:
   - user.created
   - settings.changed
 tags:
-  - flow
   - onboarding
 ---
 

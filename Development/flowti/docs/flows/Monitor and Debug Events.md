@@ -2,7 +2,7 @@
 type: Flow
 domain: Flowti
 stage: done
-description: "End-to-end journey for monitoring live events, subscribing to specific event types, and debugging event payloads in the Event Log"
+description: End-to-end journey for monitoring live events, subscribing to specific event types, and debugging event payloads in the Event Log
 domains:
   - Subscription
   - Settings
@@ -13,7 +13,6 @@ events:
   - eventNotify.changed
   - subscription.created
 tags:
-  - flow
   - monitoring
 ---
 

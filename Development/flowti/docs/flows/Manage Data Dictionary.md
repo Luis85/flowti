@@ -2,7 +2,7 @@
 type: Flow
 domain: Flowti
 stage: done
-description: "End-to-end journey from importing CSV data through property aggregation in the Data Exchange Hub, documenting properties, and tracking usage across configurations"
+description: End-to-end journey from importing CSV data through property aggregation in the Data Exchange Hub, documenting properties, and tracking usage across configurations
 domains:
   - Data Exchange
 services:
@@ -13,7 +13,6 @@ events:
   - dataExchange.import.completed
   - dataExchange.config.changed
 tags:
-  - flow
   - data-exchange
 ---
 

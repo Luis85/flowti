@@ -5,6 +5,9 @@ filters:
 views:
   - type: table
     name: Technical Debt
+    filters:
+      and:
+        - status != "resolved"
     groupBy:
       property: severity
       direction: ASC
@@ -12,12 +15,13 @@ views:
       - file.name
       - status
       - severity
-      - category
-      - layer
       - effort
+      - layer
+      - category
       - description
     columnSize:
       file.name: 343
+      note.status: 90
       note.severity: 90
       note.category: 120
       note.layer: 110
@@ -34,6 +38,9 @@ views:
       - layer
       - status
       - effort
+    sort:
+      - property: file.name
+        direction: ASC
     columnSize:
       file.name: 280
       note.severity: 90
@@ -55,3 +62,21 @@ views:
       note.severity: 90
       note.category: 120
       note.status: 90
+  - type: table
+    name: Technical Debt - Index
+    order:
+      - file.name
+      - status
+      - severity
+      - effort
+      - layer
+      - category
+      - description
+    columnSize:
+      file.name: 343
+      note.status: 90
+      note.severity: 90
+      note.category: 120
+      note.layer: 110
+      note.effort: 80
+      note.description: 400

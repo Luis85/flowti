@@ -2,7 +2,7 @@
 type: Flow
 domain: Flowti
 stage: done
-description: "End-to-end journey from opening the Data Exchange Hub through creating a multi-step import pipeline to executing it"
+description: End-to-end journey from opening the Data Exchange Hub through creating a multi-step import pipeline to executing it
 domains:
   - Data Exchange
 services:
@@ -13,7 +13,6 @@ events:
   - dataExchange.import.execute
   - dataExchange.import.completed
 tags:
-  - flow
   - pipeline
 ---
 

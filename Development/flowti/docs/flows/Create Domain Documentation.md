@@ -2,7 +2,7 @@
 type: Flow
 domain: Flowti
 stage: done
-description: "End-to-end journey for documenting domains, services, flows, systems, actors, and products in the Event Catalog"
+description: End-to-end journey for documenting domains, services, flows, systems, actors, and products in the Event Catalog
 domains:
   - Settings
 services:
@@ -12,7 +12,6 @@ events:
   - doc.created
   - doc.deleted
 tags:
-  - flow
   - catalog
 ---
 
