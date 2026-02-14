@@ -48,4 +48,4 @@ The user has identified the sequence and content of events related to their issu
 
 - View: [[Event Log View]]
 - Feature: [[Event System]]
-- Test: UC-66 in [[Testplan]]
+- Test: UC-66 in [[Testplan and Teststrategy]]

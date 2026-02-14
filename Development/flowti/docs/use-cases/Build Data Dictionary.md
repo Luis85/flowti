@@ -48,4 +48,4 @@ The user has built a data dictionary with documented descriptions for their vaul
 
 - View: [[Data Exchange Hub View]]
 - Feature: [[Data Exchange Hub]]
-- Test: UC-73 in [[Testplan]]
+- Test: UC-73 in [[Testplan and Teststrategy]]

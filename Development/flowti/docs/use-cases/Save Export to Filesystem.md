@@ -46,4 +46,4 @@ The export file is written to the chosen filesystem path outside the vault. A su
 
 - View: [[Export View]]
 - Feature: [[Data Exchange Hub]]
-- Test: UC-85 in [[Testplan]]
+- Test: UC-85 in [[Testplan and Teststrategy]]

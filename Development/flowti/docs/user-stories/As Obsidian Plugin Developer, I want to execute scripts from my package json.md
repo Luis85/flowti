@@ -1,9 +1,9 @@
 ---
-feature:
+feature: "[[Developer Experience]]"
 tags:
 stage:
 description:
-domain:
+domain: Flowti
 journey:
 jtbd:
 parent:

@@ -46,4 +46,4 @@ A `.csv` file is created at the specified output path containing one header row 
 
 - View: [[Export View]]
 - Feature: [[Data Exchange Hub]]
-- Test: UC-83 in [[Testplan]]
+- Test: UC-83 in [[Testplan and Teststrategy]]

@@ -18,6 +18,9 @@ views:
       - jtbd
       - parent
       - persona
+    sort:
+      - property: file.name
+        direction: ASC
     columnSize:
       file.name: 614
       note.tags: 130

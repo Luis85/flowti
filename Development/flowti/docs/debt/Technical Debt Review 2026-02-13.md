@@ -44,18 +44,18 @@ Refactoring phase on 2026-02-14 resolved 5 additional items (TD-18, TD-31, TD-32
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Resolved | 21 | TD-02, TD-03, TD-04, TD-05, TD-07, TD-08, TD-10, TD-11, TD-14, TD-15, TD-17, TD-18, TD-19, TD-21, TD-24, TD-25, TD-26, TD-31, TD-32, TD-33, TD-35 |
-| Mitigated | 3 | TD-01 (severity: low), TD-09 (severity: low), TD-29 (severity: low) |
+| Resolved | 23 | TD-02, TD-03, TD-04, TD-05, TD-07, TD-08, TD-09, TD-10, TD-11, TD-14, TD-15, TD-17, TD-18, TD-19, TD-20, TD-21, TD-24, TD-25, TD-26, TD-31, TD-32, TD-33, TD-35 |
+| Mitigated | 2 | TD-01 (severity: low), TD-29 (severity: low) |
 | Reclassified | 2 | TD-06 (high→medium), TD-12 (high→low) |
-| Open | 11 | TD-06, TD-12, TD-13, TD-16, TD-20, TD-22, TD-23, TD-27, TD-28, TD-30, TD-34 |
+| Open | 9 | TD-06, TD-12, TD-13, TD-16, TD-22, TD-23, TD-27, TD-28, TD-30, TD-34 |
 
 ### Summary by Severity (current open items)
 
 | Severity | Count | Items |
 |----------|-------|-------|
 | High | 0 | — |
-| Medium | 5 | TD-06, TD-16, TD-20, TD-27, TD-30 |
-| Low | 9 | TD-01, TD-09, TD-12, TD-13, TD-22, TD-23, TD-28, TD-29, TD-34 |
+| Medium | 4 | TD-06, TD-16, TD-27, TD-30 |
+| Low | 7 | TD-01, TD-12, TD-13, TD-22, TD-23, TD-28, TD-29, TD-34 |
 
 ---
 
@@ -100,7 +100,7 @@ Each item below has a dedicated file in this folder with full details. See the `
 | 6 | UI layer bypasses EventBridge (~112 direct API calls) | UI | Open (reclassified to medium) |
 | 7 | FileSystemClient timeout/response race condition | Infrastructure | **Resolved** (settled guard added) |
 | 8 | DataExchangeService append not atomic | Domain | **Resolved** (PathMutex implemented) |
-| 9 | Catalog tab render listener accumulation | UI | **Mitigated** (severity: low) |
+| 9 | Catalog tab render listener accumulation | UI | **Resolved** (false positive — .empty() GCs listeners) |
 | 10 | IngestionService batch timer leak on dispose | Domain | **Resolved** |
 | 11 | No error handling on storage load/save across services | Domain | **Resolved** (try/catch on all paths) |
 | 12 | Wildcard listeners on all events degrade performance at scale | Domain | Open (reclassified to low — 7 listeners, properly filtered) |
@@ -116,7 +116,7 @@ Each item below has a dedicated file in this folder with full details. See the `
 | 17 | SKIPPED_PREFIXES duplicated in 4 services | Cross-cutting | **Resolved** (centralized in catalog.ts) |
 | 18 | Path extraction pattern duplicated 75+ times | Cross-cutting | **Resolved** (pathUtils.ts created) |
 | 19 | tsconfig.json not using strict: true | Infrastructure | **Resolved** (strict: true enabled) |
-| 20 | BaseQueryEngine regex patterns not pre-compiled | Domain | Open |
+| 20 | BaseQueryEngine regex patterns not pre-compiled | Domain | **Resolved** (false positive — already pre-compiled at module level) |
 | 21 | ImportService uses exception-based fileExists() | Domain | **Resolved** (boolean API used) |
 | 22 | ExportService type-unsafe payload cast | Domain | Open |
 | 23 | InstallerWizardModal mixes state and rendering | Domain | Open |

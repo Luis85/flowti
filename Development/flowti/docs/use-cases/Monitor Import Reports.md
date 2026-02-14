@@ -49,4 +49,4 @@ The user has reviewed a vault CSV file's metadata and content preview, then laun
 
 - View: [[Data Exchange Hub View]]
 - Feature: [[Data Exchange Hub]]
-- Test: UC-71 in [[Testplan]]
+- Test: UC-71 in [[Testplan and Teststrategy]]

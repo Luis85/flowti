@@ -47,4 +47,4 @@ The export completes according to the selected strategy: the file is replaced (o
 
 - View: [[Export View]]
 - Feature: [[Data Exchange Hub]]
-- Test: UC-86 in [[Testplan]]
+- Test: UC-86 in [[Testplan and Teststrategy]]

@@ -48,4 +48,4 @@ The user has located the event they were looking for, understands its payload st
 
 - View: [[Event Catalog View]]
 - Feature: [[Event Catalog]]
-- Test: UC-56 in [[Testplan]]
+- Test: UC-56 in [[Testplan and Teststrategy]]

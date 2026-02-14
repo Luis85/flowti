@@ -50,4 +50,4 @@ The target folder contains one Markdown note per CSV data row. Each note has a Y
 
 - View: [[CSV Action View]]
 - Feature: [[Data Exchange Hub]]
-- Test: UC-77 in [[Testplan]]
+- Test: UC-77 in [[Testplan and Teststrategy]]

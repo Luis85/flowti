@@ -1,4 +1,5 @@
 ---
+type: DataDictionary
 stage: development
 domain: Flowti
 plugin: "[[Development/flowti/README|README]]"
@@ -533,6 +534,6 @@ The `fmString()` helper reads frontmatter with fallback field names:
 
 - [[Frontend Architecture]] — Component architecture, state management, and refactoring history
 - [[Backend Architecture]] — Domain service composition and event system
-- [[Testplan]] — Test coverage mapped to use cases (UC-01 through UC-99)
+- [[Testplan and Teststrategy]] — Test coverage mapped to use cases (UC-01 through UC-99)
 - [[Manage Data Dictionary]] — User journey flow for building the data dictionary
 - [[Build Data Dictionary]] — Use case for documenting properties in the Properties tab

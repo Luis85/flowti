@@ -47,7 +47,6 @@ Then open the Vault folder in a terminal and build the Plugin from source.
 
 ![[Development/flowti/docs/02 - Features.base#Product Features|02 - Features]]
 
-
 ---
 
 ## 1. Introduction and Goals
@@ -67,7 +66,7 @@ Read more about:
 
 - [[Frontend Architecture]]
 - [[Backend Architecture]]
-- [[Testplan]]
+- [[Testplan and Teststrategy]]
 
 ---
 

@@ -49,4 +49,4 @@ The user has visually confirmed that all Flowti CSS components render correctly 
 
 - View: [[Component Showcase View]]
 - Feature: [[Documentation]]
-- Test: UC-89, UC-90, UC-91, UC-92 in [[Testplan]]
+- Test: UC-89, UC-90, UC-91, UC-92 in [[Testplan and Teststrategy]]

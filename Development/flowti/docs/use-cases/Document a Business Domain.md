@@ -47,4 +47,4 @@ A new domain document exists in the vault at the configured documentation path. 
 
 - View: [[Event Catalog View]]
 - Feature: [[Event Catalog]]
-- Test: UC-57 in [[Testplan]]
+- Test: UC-57 in [[Testplan and Teststrategy]]

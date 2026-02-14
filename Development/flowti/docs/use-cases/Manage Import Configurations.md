@@ -49,4 +49,4 @@ The user has reviewed, edited, duplicated, deleted, or executed an import config
 
 - View: [[Data Exchange Hub View]]
 - Feature: [[Data Exchange Hub]]
-- Test: UC-70 in [[Testplan]]
+- Test: UC-70 in [[Testplan and Teststrategy]]

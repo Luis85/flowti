@@ -47,4 +47,4 @@ The Event Log displays a focused feed containing only the event types the user h
 
 - View: [[Event Log View]]
 - Feature: [[Event System]]
-- Test: UC-65 in [[Testplan]]
+- Test: UC-65 in [[Testplan and Teststrategy]]

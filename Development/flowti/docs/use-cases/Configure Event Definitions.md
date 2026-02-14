@@ -50,4 +50,4 @@ An event definition is persisted and active. When the ingestion pipeline process
 
 - View: [[Event Catalog View]]
 - Feature: [[Event Catalog]]
-- Test: UC-59 in [[Testplan]]
+- Test: UC-59 in [[Testplan and Teststrategy]]

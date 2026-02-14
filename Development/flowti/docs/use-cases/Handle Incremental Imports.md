@@ -51,4 +51,4 @@ The target folder reflects the latest state of the CSV. New rows have become new
 
 - View: [[CSV Action View]]
 - Feature: [[Data Exchange Hub]]
-- Test: UC-80 in [[Testplan]]
+- Test: UC-80 in [[Testplan and Teststrategy]]

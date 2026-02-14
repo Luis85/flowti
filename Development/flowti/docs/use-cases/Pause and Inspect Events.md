@@ -47,4 +47,4 @@ The user has inspected event entries without the feed scrolling away, and upon r
 
 - View: [[Event Log View]]
 - Feature: [[Event System]]
-- Test: UC-67 in [[Testplan]]
+- Test: UC-67 in [[Testplan and Teststrategy]]

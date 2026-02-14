@@ -49,4 +49,4 @@ The user completes the import without manually reconfiguring each setting. The s
 
 - View: [[CSV Action View]]
 - Feature: [[Data Exchange Hub]]
-- Test: UC-78 in [[Testplan]]
+- Test: UC-78 in [[Testplan and Teststrategy]]

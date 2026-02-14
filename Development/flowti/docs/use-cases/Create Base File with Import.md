@@ -50,4 +50,4 @@ The target folder contains the imported notes and a `.base` file. Opening the `.
 
 - View: [[CSV Action View]]
 - Feature: [[Data Exchange Hub]]
-- Test: UC-82 in [[Testplan]]
+- Test: UC-82 in [[Testplan and Teststrategy]]

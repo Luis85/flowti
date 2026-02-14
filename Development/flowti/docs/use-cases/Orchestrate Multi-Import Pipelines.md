@@ -50,4 +50,4 @@ The user has created a multi-step import pipeline and executed it in a single ac
 
 - View: [[Data Exchange Hub View]]
 - Feature: [[Data Exchange Hub]]
-- Test: UC-76 in [[Testplan]]
+- Test: UC-76 in [[Testplan and Teststrategy]]

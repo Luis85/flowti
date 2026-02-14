@@ -46,4 +46,4 @@ The user has a live, color-coded view of system activity confirming that subscri
 
 - View: [[Event Log View]]
 - Feature: [[Event System]]
-- Test: UC-64 in [[Testplan]]
+- Test: UC-64 in [[Testplan and Teststrategy]]

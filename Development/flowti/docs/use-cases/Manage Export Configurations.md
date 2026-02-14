@@ -49,4 +49,4 @@ The user has reviewed, edited, or executed an export configuration from the Hub'
 
 - View: [[Data Exchange Hub View]]
 - Feature: [[Data Exchange Hub]]
-- Test: UC-72 in [[Testplan]]
+- Test: UC-72 in [[Testplan and Teststrategy]]

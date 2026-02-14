@@ -49,4 +49,4 @@ An event subscription is persisted and active. Files matching the configured fil
 
 - View: [[Event Catalog View]]
 - Feature: [[Event Catalog]]
-- Test: UC-58 in [[Testplan]]
+- Test: UC-58 in [[Testplan and Teststrategy]]

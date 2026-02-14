@@ -1,12 +1,11 @@
 ---
-feature: "[[Developer Experience]]"
+feature: "[[Settings]]"
 tags:
 stage:
 description:
-domain: Flowti
+domain:
 journey:
 jtbd:
 parent:
 persona:
 ---
-

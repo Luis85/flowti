@@ -49,4 +49,4 @@ Each imported note contains only the desired frontmatter properties with clean, 
 
 - View: [[CSV Action View]]
 - Feature: [[Data Exchange Hub]]
-- Test: UC-79 in [[Testplan]]
+- Test: UC-79 in [[Testplan and Teststrategy]]

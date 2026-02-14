@@ -47,4 +47,4 @@ The user has navigated from a live event observation to its full documentation, 
 
 - View: [[Event Log View]]
 - Feature: [[Event System]]
-- Test: UC-68 in [[Testplan]]
+- Test: UC-68 in [[Testplan and Teststrategy]]

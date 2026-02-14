@@ -48,4 +48,4 @@ A `.txt` file is created at the specified path containing a header row with the 
 
 - View: [[Export View]]
 - Feature: [[Data Exchange Hub]]
-- Test: UC-84 in [[Testplan]]
+- Test: UC-84 in [[Testplan and Teststrategy]]

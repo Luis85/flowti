@@ -47,4 +47,4 @@ The user has a clear overview of their data exchange ecosystem at a glance and c
 
 - View: [[Data Exchange Hub View]]
 - Feature: [[Data Exchange Hub]]
-- Test: UC-74 in [[Testplan]]
+- Test: UC-74 in [[Testplan and Teststrategy]]

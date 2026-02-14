@@ -2,14 +2,17 @@
 severity: low
 category: bug-risk
 layer: domain
-status: open
-updated: 2026-02-14
+status: resolved
+updated: 2026-02-15
 effort: small
 description: Multiple services generate IDs using Date.now() + Math.random() which has a non-trivial collision probability, especially during rapid operations like bulk CSV import.
+resolved: 2026-02-15
 ---
 # TD-13: Weak ID generation (collision risk)
 
-## Problem
+## Status: **Resolved**
+
+## Problem (original)
 
 ID generation patterns in the codebase:
 
@@ -19,24 +22,13 @@ ID generation patterns in the codebase:
 | `IngestionService.ts` | Timestamp + random | Similar |
 | `helpers.ts` | `crypto.randomUUID()` | Negligible |
 
-The `helpers.ts` utility uses the proper `crypto.randomUUID()`, but some services roll their own weaker version.
+## Resolution (2026-02-15)
 
-## Impact
-
-- During bulk CSV import (hundreds of files in rapid succession), `Date.now()` returns the same value for operations within the same millisecond
-- ID collision would silently overwrite existing configuration entries
-- The stronger `generateUUID()` from helpers.ts already exists but is not used consistently
-
-## Suggested Remediation
-
-1. Replace all custom ID generation with `generateUUID()` from `utils/helpers.ts`
-2. Enforce via lint rule or code review convention
-
-## Current Assessment
-
-The primary ID generation now uses `crypto.randomUUID()` from `src/utils/helpers.ts`. The `Math.random()` fallback is only used when the crypto API is unavailable (rare in modern environments). The `Date.now()` pattern in IngestionService is used for ledger keys (idempotency tracking), not primary entity IDs, so collision risk is acceptable.
+- `IngestionService.generateEventKey()`: replaced `Date.now()` fallback with `generateUUID()` (already imported from `utils/helpers.ts`)
+- All primary ID generation now routes through `crypto.randomUUID()` via `generateUUID()`
+- The `Math.random()` fallback in `generateUUID()` is only used when crypto API is unavailable (rare in modern Electron)
 
 ## Affected Files
 
-- `src/domain/dataExchange/DataExchangeService.ts`
 - `src/domain/ingestion/IngestionService.ts`
+- `src/utils/helpers.ts`

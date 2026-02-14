@@ -47,4 +47,4 @@ The user can rapidly scan the Event Log feed and extract key operational details
 
 - View: [[Event Log View]]
 - Feature: [[Event System]]
-- Test: UC-69 in [[Testplan]]
+- Test: UC-69 in [[Testplan and Teststrategy]]

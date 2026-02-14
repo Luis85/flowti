@@ -1,8 +1,17 @@
 ---
+type: TestPlan
 stage: open
 domain: Flowti/Tests
 plugin: "[[Development/flowti/README|README]]"
 ---
+
+# Teststrategy
+
+This section describes **why** and **how** we test.
+
+- we use Vitest for unit-tests
+- we use Vitest for automated integration-tests
+- we will use the Obsidian CLI for automated end-to-end tests in the future
 
 # Flowti IBDE — Test Plan Index
 

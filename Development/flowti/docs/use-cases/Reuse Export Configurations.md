@@ -48,4 +48,4 @@ The export executes with the pre-filled configuration, producing the same output
 
 - View: [[Export View]]
 - Feature: [[Data Exchange Hub]]
-- Test: UC-87 in [[Testplan]]
+- Test: UC-87 in [[Testplan and Teststrategy]]

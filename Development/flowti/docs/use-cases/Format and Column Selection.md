@@ -48,4 +48,4 @@ The exported file contains headers matching the user-specified display names rat
 
 - View: [[Export View]]
 - Feature: [[Data Exchange Hub]]
-- Test: UC-88 in [[Testplan]]
+- Test: UC-88 in [[Testplan and Teststrategy]]
