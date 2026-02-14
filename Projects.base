@@ -8,5 +8,7 @@ views:
     order:
       - file.name
       - description
+      - product
     columnSize:
       file.name: 259
+      note.description: 210

@@ -2,7 +2,8 @@
 severity: medium
 category: configuration
 layer: infrastructure
-status: open
+status: resolved
+resolved: 2026-02-14
 effort: small
 description: tsconfig.json enables noImplicitAny and strictNullChecks individually instead of using "strict":true. This misses several checks that strict mode enables (strictFunctionTypes, strictBindCallApply, strictPropertyInitialization, noImplicitThis, alwaysStrict, useUnknownInCatchVariables).
 ---
@@ -43,3 +44,7 @@ Missing checks:
 ## Affected Files
 
 - `tsconfig.json`
+
+## Resolution
+
+The `tsconfig.json` now has `"strict": true` (line 9), enabling all strict-family checks including `strictFunctionTypes`, `strictBindCallApply`, `strictPropertyInitialization`, `noImplicitThis`, `alwaysStrict`, and `useUnknownInCatchVariables`.

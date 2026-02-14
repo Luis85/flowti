@@ -2,7 +2,8 @@
 severity: medium
 category: duplication
 layer: cross-cutting
-status: open
+status: resolved
+resolved: 2026-02-14
 effort: small
 description: The SKIPPED_PREFIXES constant (filtering out log.*, error.*, plugin.*, service.*, command.*, view.* events) is defined independently in 4 services. Should be a shared constant.
 ---
@@ -33,3 +34,7 @@ Each list slightly differs, creating inconsistency risk.
 - `src/domain/subscription/SubscriptionService.ts`
 - `src/domain/ingestion/IngestionService.ts`
 - `src/domain/discovery/DiscoveryService.ts`
+
+## Resolution
+
+Centralized in `src/infrastructure/events/catalog.ts` as `INTERNAL_EVENT_PREFIXES` with an `isSkippedEvent(eventType, extraPrefixes?)` function. All services now import and use this shared utility, with optional extra prefixes for domain-specific filtering (e.g., SubscriptionService adds `subscription.*`).

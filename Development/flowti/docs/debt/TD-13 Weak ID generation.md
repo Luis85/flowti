@@ -1,8 +1,9 @@
 ---
-severity: high
+severity: low
 category: bug-risk
 layer: domain
 status: open
+updated: 2026-02-14
 effort: small
 description: Multiple services generate IDs using Date.now() + Math.random() which has a non-trivial collision probability, especially during rapid operations like bulk CSV import.
 ---
@@ -30,6 +31,10 @@ The `helpers.ts` utility uses the proper `crypto.randomUUID()`, but some service
 
 1. Replace all custom ID generation with `generateUUID()` from `utils/helpers.ts`
 2. Enforce via lint rule or code review convention
+
+## Current Assessment
+
+The primary ID generation now uses `crypto.randomUUID()` from `src/utils/helpers.ts`. The `Math.random()` fallback is only used when the crypto API is unavailable (rare in modern environments). The `Date.now()` pattern in IngestionService is used for ledger keys (idempotency tracking), not primary entity IDs, so collision risk is acceptable.
 
 ## Affected Files
 

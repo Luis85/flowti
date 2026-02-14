@@ -10,6 +10,8 @@ plugin: "[[Development/flowti/README|README]]"
 
 This document describes **what** is tested — use cases, scenarios, and coverage strategy — independent of the evolving test count. It serves as the index for the full test plan.
 
+> **Expanded documentation:** Each use case (UC-56 through UC-99) has a standalone file in `docs/use-cases/` with full steps, preconditions, outcomes, and variations. End-to-end user journeys are documented in `docs/flows/` (10 files).
+
 Vitest generates test and coverage reports. You find them as JSON file in `docs/tests`.
 
 - `docs/tests/testreport.json` for the test report

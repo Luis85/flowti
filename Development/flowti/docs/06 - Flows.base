@@ -4,3 +4,8 @@ filters:
 views:
   - type: table
     name: Table
+    order:
+      - file.name
+      - description
+    columnSize:
+      file.name: 228

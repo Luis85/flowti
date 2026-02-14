@@ -4,3 +4,12 @@ filters:
 views:
   - type: table
     name: Components
+    groupBy:
+      property: parent
+      direction: ASC
+    order:
+      - file.name
+      - description
+      - parent
+    columnSize:
+      note.description: 697

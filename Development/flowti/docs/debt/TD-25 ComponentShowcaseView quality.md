@@ -2,7 +2,8 @@
 severity: low
 category: code-quality
 layer: ui
-status: open
+status: resolved
+resolved: 2026-02-14
 effort: small
 description: ComponentShowcaseView contains a German language string and uses inline styles instead of the ft-* CSS class convention. As a developer-facing reference view, it should exemplify the project's own standards.
 ---
@@ -23,3 +24,7 @@ description: ComponentShowcaseView contains a German language string and uses in
 ## Affected Files
 
 - `src/ui/ComponentShowcaseView.ts`
+
+## Resolution
+
+All German text has been replaced with English. The ComponentShowcaseView now uses English labels throughout (verified: no German strings found in the source file).

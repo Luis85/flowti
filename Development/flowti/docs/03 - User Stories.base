@@ -19,7 +19,7 @@ views:
       - parent
       - persona
     columnSize:
-      file.name: 516
+      file.name: 614
       note.tags: 130
       note.stage: 101
       note.parent: 140

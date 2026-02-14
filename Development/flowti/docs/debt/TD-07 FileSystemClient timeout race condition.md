@@ -2,7 +2,8 @@
 severity: high
 category: bug-risk
 layer: infrastructure
-status: open
+status: resolved
+resolved: 2026-02-14
 effort: small
 description: FileSystemClient has a race between the timeout timer and response arrival. If a response arrives during the timeout cleanup window, the promise may resolve/reject in an undefined order.
 ---
@@ -33,3 +34,7 @@ The race: if the response event fires and the timeout fires in close succession 
 ## Affected Files
 
 - `src/infrastructure/filesystem/FileSystemClient.ts`
+
+## Resolution
+
+A `let settled = false` boolean guard was added to `FileSystemClient.ts`. Both the timeout handler and the response listener check the `settled` flag before resolving/rejecting the promise. The timeout is cleared inside the response handler, and both paths set `settled = true` to prevent the race condition.

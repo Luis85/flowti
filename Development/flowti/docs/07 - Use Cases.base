@@ -4,3 +4,13 @@ filters:
 views:
   - type: table
     name: Table
+    groupBy:
+      property: feature
+      direction: ASC
+    order:
+      - file.name
+      - description
+      - feature
+    columnSize:
+      file.name: 225
+      note.description: 726

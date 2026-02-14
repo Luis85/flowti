@@ -528,10 +528,10 @@ Pure content generation file with markdown builders for 8+ entity types. Could s
 
 ### Remaining
 
-| Item | Problem | Target |
-|------|---------|--------|
-| **TD-7**: Limited UI testing | 854 tests across 45 files cover domain services, EventBus, utilities, and 6 view orchestrators. Component-level rendering tests (individual tabs, pages) not yet covered. | Add lightweight unit tests for tab components with mock deps and DOM assertions via `obsidian-stub` polyfills. |
-| **TD-8**: Scanner duplication between Catalog and Hub | Catalog tabs use `entityScanner.ts`; Hub tabs implement their own scanning logic. | Generalize scanner utility. Low ROI — Hub tabs are storage-driven. |
+| Item | Problem | Target | Debt File |
+|------|---------|--------|-----------|
+| **TD-7**: Limited UI testing | 854 tests across 45 files cover domain services, EventBus, utilities, and 6 view orchestrators. Component-level rendering tests (individual tabs, pages) not yet covered. | Add lightweight unit tests for tab components with mock deps and DOM assertions via `obsidian-stub` polyfills. | [[TD-27 Limited UI component testing]] |
+| **TD-8**: Scanner duplication between Catalog and Hub | Catalog tabs use `entityScanner.ts`; Hub tabs implement their own scanning logic. | Generalize scanner utility. Low ROI — Hub tabs are storage-driven. | [[TD-28 Scanner duplication between Catalog and Hub]] |
 
 ---
 
@@ -572,3 +572,52 @@ Pure content generation file with markdown builders for 8+ entity types. Could s
 - `EventConfigModal.ts`: 629 → ~150 LOC
 - `DomainsTab.ts`: 563 → ~300 LOC
 - `contentGenerator.ts`: 708 → ~300 LOC
+
+---
+
+## Component Documentation
+
+Each UI component has a dedicated documentation file in `docs/components/` (53 files). These follow a standardized template with frontmatter (`type: Component`), dependency tables, state descriptions, event tables, and cross-references.
+
+**By subsystem:**
+
+| Subsystem | Location | Count | Examples |
+|-----------|----------|-------|----------|
+| Orchestrator Views | `src/ui/*.ts` | 6 | [[EventCatalogView]], [[DataExchangeHubView]], [[CsvActionView]], [[ExportView]] |
+| Modals | `src/ui/*.ts` | 7 | [[EventConfigModal]], [[SubscriptionManagerModal]], [[ConfirmModal]] |
+| Standalone UI | `src/ui/*.ts` | 2 | [[IngestionStatusBar]], [[ElectronDialog]] |
+| Catalog | `src/ui/catalog/` | 11 | [[CatalogDashboard]], [[EventsTab]], [[DomainsTab]], [[FlowsTab]] |
+| Hub | `src/ui/hub/` | 11 | [[HubDashboard]], [[ImportsTab]], [[PipelinesTab]] |
+| Pipelines | `src/ui/hub/` | 5 | [[PipelineDetail]], [[PipelineEditForm]], [[PipelineExecution]] |
+| CSV | `src/ui/csv/` | 7 | [[CsvLanding]], [[CsvConfigPage]], [[CsvDataSnapshot]] |
+| Export | `src/ui/export/` | 4 | [[ViewSelectPage]], [[ConfigurePage]], [[PreviewPage]] |
+
+## Use Case Documentation
+
+All use cases are documented in `docs/use-cases/` (33 files). Each file follows a standardized template with frontmatter (`type: UseCase`), steps, preconditions, outcomes, variations, and cross-references to view docs and testplan IDs.
+
+| View | Count | Examples |
+|------|-------|----------|
+| Event Catalog | 7 | [[Browse and Discover Events]], [[Configure Event Subscriptions]], [[Model a Business Flow]] |
+| Data Exchange Hub | 7 | [[Manage Import Configurations]], [[Build Data Dictionary]], [[Orchestrate Multi-Import Pipelines]] |
+| CSV Action | 6 | [[Import CSV as Notes]], [[Preview CSV File]], [[Handle Incremental Imports]] |
+| Export | 6 | [[Export Base View as CSV]], [[Save Export to Filesystem]], [[Handle Export Conflicts]] |
+| Event Log | 6 | [[Monitor Live Activity]], [[Debug Event Flow]], [[Pause and Inspect Events]] |
+| Component Showcase | 1 | [[Preview Design System]] |
+
+## User Journey Flows
+
+End-to-end user journeys crossing multiple views and services are documented in `docs/flows/` (10 files). Each file follows a standardized template with frontmatter (`type: Flow`), step-by-step walkthroughs with events, decision points, and cross-references to use cases.
+
+| Flow | Domains | Key Events |
+|------|---------|------------|
+| [[First-Run Onboarding]] | Installer, User, Settings | `installer.started` → `installer.completed` |
+| [[Browse and Configure Events]] | Subscription, Event Definition | `subscription.create` → `subscription.created` |
+| [[Import CSV as Notes]] | Data Exchange | `dataExchange.import.execute` → `dataExchange.import.completed` |
+| [[Export Vault Data]] | Data Exchange | `dataExchange.export.execute` → `dataExchange.export.completed` |
+| [[Build Import Pipeline]] | Data Exchange | Pipeline execution events |
+| [[Create Domain Documentation]] | Settings | `doc.created` → `metadata.changed` |
+| [[Monitor and Debug Events]] | Subscription, Settings | `eventNotify.changed` |
+| [[Configure File Ingestion]] | Ingestion, Event Definition | `ingestion.job.completed` → `eventDefinition.matched` |
+| [[Discover Custom Events]] | Discovery, Subscription | `event.file.triggered` → `discovery.loaded` |
+| [[Manage Data Dictionary]] | Data Exchange | `dataExchange.import.completed` |

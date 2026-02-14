@@ -2,7 +2,8 @@
 severity: critical
 category: error-handling
 layer: domain
-status: open
+status: resolved
+resolved: 2026-02-14
 effort: small
 description: JobQueue.ts catches and silently swallows all exceptions from the job processor. Failed jobs disappear without logging, event emission, or retry signalling.
 ---
@@ -37,3 +38,7 @@ try {
 ## Affected Files
 
 - `src/domain/ingestion/JobQueue.ts`
+
+## Resolution
+
+The `JobQueue` constructor now accepts an optional `onError` callback. When a job fails, the callback is invoked with the item and error instead of silently swallowing. Consumers like `IngestionService` pass error handlers for logging and event emission.

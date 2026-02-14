@@ -4,3 +4,16 @@ filters:
 views:
   - type: table
     name: Index
+    groupBy:
+      property: persona
+      direction: ASC
+    order:
+      - file.name
+      - persona
+      - domain
+      - domains
+    sort:
+      - property: file.name
+        direction: DESC
+    columnSize:
+      file.name: 555

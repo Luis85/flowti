@@ -7,5 +7,5 @@ journey:
 jtbd:
 parent: "[[Obsidian Plugin Developer]]"
 persona:
-feature:
+feature: "[[Documentation]]"
 ---

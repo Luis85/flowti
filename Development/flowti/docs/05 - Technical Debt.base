@@ -10,10 +10,10 @@ views:
       direction: ASC
     order:
       - file.name
+      - status
       - severity
       - category
       - layer
-      - status
       - effort
       - description
     columnSize:

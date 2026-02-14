@@ -2,7 +2,8 @@
 severity: high
 category: bug-risk
 layer: domain
-status: open
+status: resolved
+resolved: 2026-02-14
 effort: medium
 description: The ExportService append strategy reads then writes without atomicity. Concurrent exports to the same file can lose data because both reads see the old content before either write completes.
 ---
@@ -33,3 +34,7 @@ Between step 1 and step 4, another concurrent export could also read the old con
 ## Affected Files
 
 - `src/domain/dataExchange/ExportService.ts`
+
+## Resolution
+
+A `PathMutex` (keyed lock from `src/utils/mutex.ts`) was added to `ExportService`. All write operations (append, skip, overwrite) are now wrapped in `this.writeMutex.withLock(config.outputPath, ...)`, serializing concurrent writes to the same output path.

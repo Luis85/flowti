@@ -1,8 +1,9 @@
 ---
-severity: high
+severity: low
 category: performance
 layer: domain
 status: open
+updated: 2026-02-14
 effort: medium
 description: EventNotificationService and SubscriptionService each register a wildcard listener that processes every event emitted on the EventBus. At scale, this creates O(n) overhead per event where n is the number of wildcard listeners.
 ---
@@ -31,6 +32,10 @@ The EventBus processes wildcard handlers after type-specific handlers for every 
 2. When a notification/subscription config changes, dynamically register/unregister listeners for the relevant types
 3. Add a debounce/batch mechanism for high-frequency events
 4. Consider adding a `filter` parameter to `eventBus.on()` that pre-filters at the bus level
+
+## Current Assessment
+
+As of Feb 2026, there are 7 wildcard listeners in the codebase. All wildcard listeners use `isSkippedEvent()` to filter out internal event prefixes (`log.*`, `error.*`, `plugin.*`, etc.), reducing unnecessary processing. At current event volumes (< 1000 events/minute), this is not a performance concern. The O(n) dispatch would only become an issue at enterprise-scale event volumes.
 
 ## Affected Files
 

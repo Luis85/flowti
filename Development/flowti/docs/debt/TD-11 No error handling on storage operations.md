@@ -2,7 +2,8 @@
 severity: high
 category: error-handling
 layer: domain
-status: open
+status: resolved
+resolved: 2026-02-14
 effort: medium
 description: Storage load/save operations across domain services are not wrapped in try-catch. A corrupted or inaccessible data file will crash the service during initialization instead of falling back gracefully.
 ---
@@ -40,3 +41,7 @@ Services affected: SettingsService, UserService, InstallerService, EventDefiniti
 ## Affected Files
 
 - All domain service files under `src/domain/*/`
+
+## Resolution
+
+All domain services now wrap `storage.load()` and `storage.save()` calls in try/catch blocks with `console.error` fallbacks. The `loadStateFromStorage()` and `safeLoadState()` / `safeSaveState()` helpers in `src/utils/persistence.ts` provide consistent error handling across services.

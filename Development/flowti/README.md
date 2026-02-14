@@ -212,6 +212,16 @@ Document creation is centralized through the **DocService** via `doc.create` eve
 
 See [[Frontend Architecture]] for the full view inventory, component architecture, state management details, and tech debt assessment.
 
+### Documentation
+
+| Directory | Count | Description |
+|-----------|-------|-------------|
+| `docs/components/` | 53 | Per-component documentation with dependencies, state, events, and cross-references |
+| `docs/use-cases/` | 33 | Standalone use case files extracted from view documentation, mapped to testplan IDs |
+| `docs/flows/` | 10 | End-to-end user journeys crossing multiple views and services |
+| `docs/sitemap/` | 6 | View-level documentation with descriptions and use case summaries |
+| `docs/features/` | 26 | Feature specifications |
+
 ---
 
 ## 6. Runtime View
@@ -384,8 +394,11 @@ Use the Component Showcase view (`Flowti: Open Component Showcase`) to preview a
 | Risk | Mitigation |
 |------|------------|
 | Obsidian API changes | EventBridge isolates all platform calls; only one file needs updating |
-| Event bus as bottleneck | Wildcard listeners are O(n); event trace is disabled in production |
+| Event bus as bottleneck | Wildcard listeners are O(n); event trace is disabled in production. 7 wildcard listeners, all properly filtered |
 | No persistence encryption | Plugin data is stored as plain JSON via Obsidian's `saveData` |
+| EventBridge boundary erosion | ~112 direct Obsidian API calls in UI layer; acceptable for read-only access patterns |
+
+26 technical debt items tracked in `docs/debt/`. Current status: 16 resolved, 2 mitigated, 2 reclassified, 6 open (all medium or low severity). See `docs/debt/Technical Debt Review 2026-02-13.md` for the full audit.
 
 ---
 
