@@ -5,3 +5,10 @@ filters:
 views:
   - type: table
     name: Table
+    order:
+      - file.name
+      - description
+      - domain
+      - file.backlinks
+    columnSize:
+      note.domain: 142

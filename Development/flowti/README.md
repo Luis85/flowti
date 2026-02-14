@@ -1,6 +1,6 @@
 ---
 title: Flowti - IBDE
-name: Flowti
+name:
 description: The Integrated Business Development Environment
 stage: development
 platform: Obsidian (Desktop)

@@ -24,6 +24,7 @@ views:
     filters:
       and:
         - file.folder.contains("flowti")
+        - plugin == link("Development/flowti/README", "README")
     groupBy:
       property: domain
       direction: ASC
@@ -34,7 +35,7 @@ views:
       - file.folder
     columnSize:
       file.name: 265
-      note.stage: 72
+      note.stage: 106
       note.domain: 119
   - type: table
     name: Folder Watcher

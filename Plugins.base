@@ -9,8 +9,14 @@ views:
     order:
       - file.name
       - title
+      - description
       - stage
+      - author
+      - license
+      - platform
       - file.folder
+      - tags
+      - git_repo_url
     columnSize:
       note.title: 258
       file.folder: 193
