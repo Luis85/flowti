@@ -86,6 +86,13 @@ End-to-end path through the installer feature, crossing multiple steps and servi
 | 7 | Error Handling | infrastructure/errors | `FlowtiError`, `ErrorService` | ✅ |
 | 8 | Logger | infrastructure/logger | `LoggerService` | ✅ |
 | 9 | Utilities | utils | `helpers` | ✅ |
+| 10 | Event Catalog View | ui/catalog | `EventCatalogView`, `catalog/helpers` | ✅ |
+| 11 | Event Log View | ui | `EventLogView` | ✅ |
+| 12 | Data Exchange Hub View | ui | `DataExchangeHubView` | ✅ |
+| 13 | CSV Action View | domain/dataExchange | `ImportService`, `CsvParser`, `DataExchangeService`, `Pipeline` | ✅ |
+| 14 | Export View | ui/export | `ExportView` | ✅ |
+| 15 | Component Showcase View | ui | — | ⏭️ Rendering only |
+| 16 | Catalog Helpers | ui/catalog | `catalog/helpers` | ✅ |
 
 ---
 
@@ -332,13 +339,190 @@ Shared helper functions.
 
 ---
 
+## Feature 10: Event Catalog View
+
+Semantic map of domains, events, flows, systems, actors, and products. The view is an Obsidian `ItemView` subclass — tests verify behavioral contracts via EventBus rather than DOM rendering.
+
+> **Sitemap doc:** [Event Catalog View](sitemap/Event%20Catalog%20View.md)
+
+### Test files
+
+| Test File | What it covers |
+|-----------|----------------|
+| `EventCatalogView.test.ts` | Discovery sync, subscription/definition tracking, filter/notification sync, settings sync, doc lifecycle, cleanup |
+| `EventConfigModal.test.ts` | Per-event subscription and definition CRUD |
+
+### Use cases
+
+| UC | Use Case | Scenarios | Status |
+|----|----------|-----------|--------|
+| UC-56 | Browse and discover domain events | `discovery.loaded/updated/removed` → state sync | ✅ |
+| UC-57 | Document a business domain | `doc.created` → 500ms delayed re-render, `doc.deleted` → immediate re-render | ✅ |
+| UC-58 | Configure event subscriptions | `subscription.loaded/created/updated/deleted` → state update | ✅ |
+| UC-59 | Configure event definitions | `eventDefinition.loaded/created/updated/deleted` → state update | ✅ |
+| UC-60 | Filter system events | `showSystemEvents` toggle filters entries via `settings.changed` | ✅ |
+| UC-61 | Filter by event type | `eventFilter.loaded/changed` → excluded types update | ✅ |
+| UC-62 | Notification sync | `eventNotify.loaded/changed` → notified types update | ✅ |
+| UC-63 | Cleanup on close | All listeners unsubscribed, no events received after close | ✅ |
+
+---
+
+## Feature 11: Event Log View
+
+Real-time activity feed of system events. Tests verify event capture, buffer management, filtering, and enrichment.
+
+> **Sitemap doc:** [Event Log View](sitemap/Event%20Log%20View.md)
+
+### Test files
+
+| Test File | What it covers |
+|-----------|----------------|
+| `EventLogView.test.ts` | Event capture, buffer limits, filtering (subscribed/all), search, pause/resume, context enrichment |
+
+### Use cases
+
+| UC | Use Case | Scenarios | Status |
+|----|----------|-----------|--------|
+| UC-64 | Monitor live system activity | Wildcard listener captures events, buffer respects maxEntries | ✅ |
+| UC-65 | Focus on subscribed events | Subscribed mode filters by active subscription types | ✅ |
+| UC-66 | Debug event flow | All mode shows every event, search filters by type pattern | ✅ |
+| UC-67 | Pause and inspect | Freeze flag stops rendering, buffer continues collecting | ✅ |
+| UC-68 | Navigate to event documentation | Event type links resolve to doc paths | ✅ |
+| UC-69 | Review enriched context | Context summaries for subscriptions, ingestion, failures, definitions | ✅ |
+
+---
+
+## Feature 12: Data Exchange Hub View
+
+Central management hub for import and export operations. Tests verify event-driven state sync and navigation.
+
+> **Sitemap doc:** [Data Exchange Hub View](sitemap/Data%20Exchange%20Hub%20View.md)
+
+### Test files
+
+| Test File | What it covers |
+|-----------|----------------|
+| `DataExchangeHubView.test.ts` | Config sync, import/export completion, property doc tracking, state management, cleanup |
+
+### Use cases
+
+| UC | Use Case | Scenarios | Status |
+|----|----------|-----------|--------|
+| UC-70 | Manage saved configurations | `dataExchange.config.changed` → refreshes configs | ✅ |
+| UC-71 | Monitor import reports | `dataExchange.import.completed` → triggers re-render | ✅ |
+| UC-72 | Manage export configurations | `dataExchange.export.completed` → triggers re-render | ✅ |
+| UC-73 | Build a data dictionary | `file.created/deleted` in properties folder → triggers scan | ✅ |
+| UC-74 | State management | Page navigation, selection state, filter text | ✅ |
+| UC-75 | Cleanup on close | All listeners unsubscribed after onClose | ✅ |
+| UC-76 | Orchestrate multi-step pipelines | Pipeline execution events | ✅ (via `Pipeline.test.ts`) |
+
+---
+
+## Feature 13: CSV Action View
+
+CSV file viewer and import wizard. The view itself is an Obsidian `ItemView` — business logic is tested through the underlying services.
+
+> **Sitemap doc:** [CSV Action View](sitemap/CSV%20Action%20View.md)
+
+### Test files
+
+| Test File | What it covers |
+|-----------|----------------|
+| `ImportService.test.ts` | CSV import pipeline, conflict strategies, progress events |
+| `CsvParser.test.ts` | Parse/generate CSV content, empty lines, delimiters |
+| `DataExchangeService.test.ts` | Import orchestration, config persistence, event wiring |
+| `Pipeline.test.ts` | Multi-import pipelines, step execution, doc generation |
+
+### Use cases
+
+| UC | Use Case | Scenarios | Status |
+|----|----------|-----------|--------|
+| UC-77 | Import CSV rows as vault notes | CSV parse → buildNoteContent → createFile pipeline | ✅ |
+| UC-78 | Reuse import configurations | Save/load config persistence via DataExchangeService | ✅ |
+| UC-79 | Clean and transform data | Column mapping, frontmatter field renaming | ✅ |
+| UC-80 | Handle incremental imports | Conflict strategies: skip existing, update, overwrite | ✅ |
+| UC-81 | Preview CSV content | CsvParser parse with header detection | ✅ |
+| UC-82 | Create Base file alongside import | Pipeline step generates .base file | ✅ (via `Pipeline.test.ts`) |
+
+---
+
+## Feature 14: Export View
+
+Wizard for exporting vault data as CSV or tab-delimited files. Tests verify the pure helper functions and state management logic.
+
+> **Sitemap doc:** [Export View](sitemap/Export%20View.md)
+
+### Test files
+
+| Test File | What it covers |
+|-----------|----------------|
+| `ExportView.test.ts` | File property resolution, path helpers, format swapping, state defaults, change detection |
+| `ExportService.test.ts` | Column scanning, file resolution, export execution, conflict strategies |
+
+### Use cases
+
+| UC | Use Case | Scenarios | Status |
+|----|----------|-----------|--------|
+| UC-83 | Export a Base view as CSV | resolveFileProperty for all file.* keys, output path construction | ✅ |
+| UC-84 | Export a folder's notes | getOutputFolder, getOutputFilename, buildOutputPath helpers | ✅ |
+| UC-85 | Save to the filesystem | External export path handling (vault vs filesystem) | ✅ |
+| UC-86 | Handle export conflicts | State reflects overwrite/skip/append selection | ✅ |
+| UC-87 | Reuse export configurations | hasUnsavedChanges detects format, path, column changes | ✅ |
+| UC-88 | Format swapping | swapOutputExtension (.csv ↔ .txt) on format change | ✅ |
+
+---
+
+## Feature 15: Component Showcase View
+
+Design system reference showing all available CSS components. Pure rendering view — no testable business logic.
+
+> **Sitemap doc:** [Component Showcase View](sitemap/Component%20Showcase%20View.md)
+
+### Skip reason
+
+This view renders static CSS component examples. There are no event subscriptions, state management, or business logic to test. Visual correctness is verified by manual inspection in the Obsidian runtime.
+
+| UC | Use Case | Status |
+|----|----------|--------|
+| UC-89 | Verify design system consistency | ⏭️ Visual / manual |
+| UC-90 | Reference available CSS classes | ⏭️ Visual / manual |
+| UC-91 | Test theme compatibility | ⏭️ Visual / manual |
+| UC-92 | Onboard new contributors | ⏭️ Visual / manual |
+
+---
+
+## Feature 16: Catalog Helpers
+
+Pure helper functions used by the Event Catalog View's tab components. Directly testable without Obsidian runtime.
+
+### Test files
+
+| Test File | What it covers |
+|-----------|----------------|
+| `catalog/helpers.test.ts` | Frontmatter parsing, event classification, category ordering, entry resolution, counting, cross-references, source paths |
+
+### Use cases
+
+| UC | Use Case | Scenarios | Status |
+|----|----------|-----------|--------|
+| UC-93 | Frontmatter parsing | `fmString` with fallback fields, `fmStringArray` coercion | ✅ |
+| UC-94 | Event classification | `isDiscoveredEvent`, `isSystemOnly`, `isConfigured` edge cases | ✅ |
+| UC-95 | Category ordering | Visible-first, alphabetical within groups | ✅ |
+| UC-96 | Entry resolution | `discoveredToCatalogEntries`, `resolveEntry`, `getVisibleEntries` merge logic | ✅ |
+| UC-97 | Config counting | `getConfiguredCount`, `getFollowedCount` with/without subs/defs | ✅ |
+| UC-98 | Cross-references | `findRelatedFlows/Systems/Actors/Products` overlap matching | ✅ |
+| UC-99 | Source path lookup | `getSourcePath` found vs not found | ✅ |
+
+---
+
 ## Skip Reasons
 
 | Category | Affected UCs | Unblocking Strategy |
 |----------|--------------|---------------------|
 | Obsidian Modal | UC-06 (Wizard UI) | Mock Obsidian `App`/`Modal` classes, or E2E test framework |
+| Rendering only | UC-89 to UC-92 (Component Showcase) | Visual regression testing or Obsidian E2E framework |
 
-The skipped tests are in `InstallerJourney.test.ts` and require the Obsidian runtime to instantiate `InstallerWizardModal`. The underlying logic (service calls, event emission, state management) is fully covered by the passing tests.
+The skipped tests in `InstallerJourney.test.ts` require the Obsidian runtime to instantiate `InstallerWizardModal`. The Component Showcase View is a pure rendering view with no business logic. In both cases, the underlying logic is fully covered by the passing tests.
 
 ---
 
