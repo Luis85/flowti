@@ -1,0 +1,6 @@
+filters:
+  and:
+    - file.inFolder("Development/flowti/docs/components")
+views:
+  - type: table
+    name: Components

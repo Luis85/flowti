@@ -1,0 +1,6 @@
+filters:
+  and:
+    - file.inFolder("Development/flowti/docs/use-cases")
+views:
+  - type: table
+    name: Table

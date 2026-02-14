@@ -4,6 +4,7 @@ domain: Flowti
 plugin: "[[Development/flowti/README|README]]"
 tags:
   - core
+  - infrastructure
 description: Document and Shape your Domain
 type: Feature
 ---

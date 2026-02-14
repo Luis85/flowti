@@ -4,6 +4,7 @@ domain: Flowti/System
 plugin: "[[Development/flowti/README|README]]"
 tags:
   - core
+  - infrastructure
 description: Automatically document your work by using the system
 type: Feature
 ---

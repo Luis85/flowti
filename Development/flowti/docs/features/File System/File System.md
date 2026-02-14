@@ -3,6 +3,8 @@ stage: done
 domain: Flowti/System
 plugin: "[[Development/flowti/README|README]]"
 type: Feature
+tags:
+  - infrastructure
 ---
 
 # FileSystemClient
