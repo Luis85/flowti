@@ -5,6 +5,7 @@ plugin: "[[Development/flowti/README|README]]"
 tags:
   - infrastructure
   - core
+type: Feature
 ---
 # Product Requirements Document (PRD)
 

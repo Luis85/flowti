@@ -1,5 +1,5 @@
 ---
-domain:
+domain: Flowti
 title:
 jtbd:
 journey:

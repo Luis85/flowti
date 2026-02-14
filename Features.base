@@ -14,6 +14,7 @@ views:
       - domain
       - plugin
       - file.folder
+      - type
     columnSize:
       file.name: 265
       note.stage: 117

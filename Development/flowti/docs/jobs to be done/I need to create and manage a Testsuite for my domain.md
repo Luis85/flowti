@@ -1,5 +1,6 @@
 ---
 persona: The System Designer
+type: Job to be Done
 ---
 [[Test Management]]
 

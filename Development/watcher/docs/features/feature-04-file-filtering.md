@@ -2,6 +2,7 @@
 domain: Folder Watcher
 stage: done
 plugin: "[[Development/watcher/README|README]]"
+type: Feature
 ---
 # Feature 4: File Filtering
 

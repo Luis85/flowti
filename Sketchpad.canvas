@@ -21,17 +21,70 @@
 		{"id":"5e8bcec9492cfb3e","type":"group","x":-20,"y":950,"width":340,"height":480,"color":"2","label":"Product"},
 		{"id":"173575747476d753","type":"group","x":0,"y":1150,"width":300,"height":260,"color":"5","label":"PBI"},
 		{"id":"eb56d8b9c2c758f2","type":"group","x":360,"y":950,"width":620,"height":120,"color":"2","label":"Sitemap"},
-		{"id":"5d6cdc543db0af78","type":"file","file":"Development/flowti/docs/ideas/Flowti - System Design.canvas","x":320,"y":-280,"width":260,"height":400},
-		{"id":"0b8e15eb023842e5","type":"file","file":"Development/Plugin Design.canvas","x":600,"y":-280,"width":260,"height":400},
 		{
-			"id":"8b42e85c8914f3a7",
+			"id":"f9fe5f4ef60e6a53",
 			"type":"text",
-			"text":"# Folderstructure\n\n- `/00 - Connectivity`\n- `/01 - Projects`\n- `/02 - Areas`\n- `/03 - Resources`\n- `/04 - Archive`\n- `/05 - Public Vault`\n- `/var`",
-			"styleAttributes":{},
-			"x":40,
-			"y":-280,
+			"text":"Use Case",
+			"styleAttributes":{"textAlign":"center"},
+			"x":20,
+			"y":1250,
 			"width":260,
-			"height":400
+			"height":60
+		},
+		{
+			"id":"3a4582b7f06dbcf2",
+			"type":"text",
+			"text":"Views",
+			"styleAttributes":{"textAlign":"center"},
+			"x":400,
+			"y":980,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"c0cf2ae5fb7170e1",
+			"type":"text",
+			"text":"I want to know what deliverables I can expect from this domain and what needs to be done to produce this deliverable",
+			"styleAttributes":{},
+			"x":1200,
+			"y":2380,
+			"width":360,
+			"height":120,
+			"color":"5"
+		},
+		{
+			"id":"7b3867441155ac77",
+			"type":"text",
+			"text":"what triggers this domain?\nwhat are the outputs of this domain?",
+			"styleAttributes":{},
+			"x":1200,
+			"y":2520,
+			"width":360,
+			"height":110,
+			"color":"5"
+		},
+		{
+			"id":"10912870c9bcc94e",
+			"type":"text",
+			"text":"Offer",
+			"styleAttributes":{"textAlign":"center"},
+			"x":540,
+			"y":1680,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"7690eedbe60304e6",
+			"type":"text",
+			"text":"Customer Experience",
+			"styleAttributes":{"textAlign":"center"},
+			"x":540,
+			"y":1820,
+			"width":260,
+			"height":60,
+			"color":"2"
 		},
 		{
 			"id":"3b8e15b7fd161918",
@@ -40,16 +93,6 @@
 			"styleAttributes":{"textAlign":"center"},
 			"x":20,
 			"y":1170,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"f9fe5f4ef60e6a53",
-			"type":"text",
-			"text":"Use Case",
-			"styleAttributes":{"textAlign":"center"},
-			"x":20,
-			"y":1250,
 			"width":260,
 			"height":60
 		},
@@ -75,17 +118,6 @@
 			"color":"6"
 		},
 		{
-			"id":"4f15b20a66e491c0",
-			"type":"text",
-			"text":"It must be clearer to the user where he currently is. The type of operation \"import|export\" must be more prominent. I also want to edit the configs from the list views, I also want an option on right click to create an import or export config for the respective file where applicable. Also check when rightclicking a base or csv file if their is already a config for this file and use this also as export option. I also want to add custom properties when importing from csv. When I enter import or export views for a file, always check if there is already a config in place, also check if their are multiple configs for one file, then let the user decide. The importer also needs to have a source file which needs to be updated on change. Right now the saved import config dont work, they ask me for a file. Also change all vault path or file inputs to be pickers where possible, it must also be possible to create folders if not their. I also want to improve the CSV Detail Page, means the view open when the user clicks on a csv file. I want that page to be more usefull. Instead of a static preview table. The User always gets up to 100 records, but he can sort and filter the underlying dataset to spot first issues with the data, these settings will get saved for every csv file, paths of these cv files need to be tracked. The csv detail page should the user support inspecting the supplied dataset before ingesting it. I will also be able to add documentation for specific csv files. I also want to execute saved configs immediately and have a dedicated preview button if needed, otherwise, once saved, an import or export should just take one click. I also need to reach all the documentation from the respective views. I need an easy to build, easy to use data-dictionary from the Data Exchange Hub.",
-			"styleAttributes":{},
-			"x":920,
-			"y":-280,
-			"width":260,
-			"height":400,
-			"color":"3"
-		},
-		{
 			"id":"9f82d6e1e60009bb",
 			"type":"text",
 			"text":"Jobs to be done",
@@ -108,17 +140,6 @@
 			"color":"2"
 		},
 		{
-			"id":"3a4582b7f06dbcf2",
-			"type":"text",
-			"text":"Views",
-			"styleAttributes":{"textAlign":"center"},
-			"x":400,
-			"y":980,
-			"width":260,
-			"height":60,
-			"color":"6"
-		},
-		{
 			"id":"719b2dfadce52cb7",
 			"type":"text",
 			"text":"Domains",
@@ -128,38 +149,6 @@
 			"width":260,
 			"height":60,
 			"color":"2"
-		},
-		{
-			"id":"8844baa6c4d7d42b",
-			"type":"text",
-			"text":"# User Groups\n\n- new to Obsidian\n- new to Markdown\n- new to Git\n- new to Obsidian Plugin Development\n- new to Project Management\n- new to Software Design\n- new to Product Development\n",
-			"styleAttributes":{},
-			"x":1210,
-			"y":-280,
-			"width":260,
-			"height":400
-		},
-		{
-			"id":"6fc6f55d39d2a14d",
-			"type":"text",
-			"text":"add connected flows",
-			"styleAttributes":{"textAlign":"center"},
-			"x":360,
-			"y":2820,
-			"width":260,
-			"height":60,
-			"color":"3"
-		},
-		{
-			"id":"37b60e3fcc6abba6",
-			"type":"text",
-			"text":"add start events",
-			"styleAttributes":{"textAlign":"center"},
-			"x":360,
-			"y":2740,
-			"width":260,
-			"height":60,
-			"color":"3"
 		},
 		{
 			"id":"72449dad794f89e3",
@@ -184,15 +173,14 @@
 			"color":"2"
 		},
 		{
-			"id":"34f728f65d90456d",
+			"id":"8b42e85c8914f3a7",
 			"type":"text",
-			"text":"Events",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1080,
-			"y":1240,
+			"text":"# Folderstructure\n\n- `/00 - Connectivity`\n- `/01 - Projects`\n- `/02 - Areas`\n- `/03 - Resources`\n- `/04 - Archive`\n- `/05 - Public Vault`\n- `/var`",
+			"styleAttributes":{},
+			"x":40,
+			"y":-280,
 			"width":260,
-			"height":60,
-			"color":"2"
+			"height":400
 		},
 		{
 			"id":"6c18b02696f15954",
@@ -228,15 +216,39 @@
 			"color":"2"
 		},
 		{
-			"id":"06ad3e18891e6b69",
+			"id":"89793024ead10900",
 			"type":"text",
-			"text":"Documentation",
+			"text":"Storage",
 			"styleAttributes":{"textAlign":"center"},
 			"x":1500,
-			"y":1380,
+			"y":1140,
 			"width":260,
 			"height":60,
 			"color":"2"
+		},
+		{"id":"5d6cdc543db0af78","type":"file","file":"Development/flowti/docs/ideas/Flowti - System Design.canvas","x":320,"y":-280,"width":260,"height":400},
+		{"id":"0b8e15eb023842e5","type":"file","file":"Development/Plugin Design.canvas","x":600,"y":-280,"width":260,"height":400},
+		{
+			"id":"6fc6f55d39d2a14d",
+			"type":"text",
+			"text":"add connected flows",
+			"styleAttributes":{"textAlign":"center"},
+			"x":360,
+			"y":2820,
+			"width":260,
+			"height":60,
+			"color":"3"
+		},
+		{
+			"id":"37b60e3fcc6abba6",
+			"type":"text",
+			"text":"add start events",
+			"styleAttributes":{"textAlign":"center"},
+			"x":360,
+			"y":2740,
+			"width":260,
+			"height":60,
+			"color":"3"
 		},
 		{
 			"id":"e220c03bb0c9e1f8",
@@ -259,61 +271,6 @@
 			"width":260,
 			"height":60,
 			"color":"5"
-		},
-		{
-			"id":"10912870c9bcc94e",
-			"type":"text",
-			"text":"Offer",
-			"styleAttributes":{"textAlign":"center"},
-			"x":540,
-			"y":1680,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"7690eedbe60304e6",
-			"type":"text",
-			"text":"Customer Experience",
-			"styleAttributes":{"textAlign":"center"},
-			"x":540,
-			"y":1820,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"a0da346fe621e29e",
-			"type":"text",
-			"text":"Props",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1500,
-			"y":1220,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"89793024ead10900",
-			"type":"text",
-			"text":"Storage",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1500,
-			"y":1140,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"ef9147a4e239425d",
-			"type":"text",
-			"text":"Event Catalog",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1500,
-			"y":1300,
-			"width":260,
-			"height":60,
-			"color":"2"
 		},
 		{
 			"id":"a3403caee5870e18",
@@ -349,17 +306,6 @@
 			"color":"3"
 		},
 		{
-			"id":"c0cf2ae5fb7170e1",
-			"type":"text",
-			"text":"I want to know what deliverables I can expect from this domain and what needs to be done to produce this deliverable",
-			"styleAttributes":{},
-			"x":1200,
-			"y":2380,
-			"width":360,
-			"height":120,
-			"color":"5"
-		},
-		{
 			"id":"7fdc8a36c5cc2c85",
 			"type":"text",
 			"text":"## Our Deliverables\n\n- ...\n\n## How to work with us\n\n- ...\n",
@@ -370,15 +316,48 @@
 			"height":440
 		},
 		{
-			"id":"7b3867441155ac77",
+			"id":"34f728f65d90456d",
 			"type":"text",
-			"text":"what triggers this domain?\nwhat are the outputs of this domain?",
-			"styleAttributes":{},
-			"x":1200,
-			"y":2520,
-			"width":360,
-			"height":110,
-			"color":"5"
+			"text":"Events",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1080,
+			"y":1240,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"06ad3e18891e6b69",
+			"type":"text",
+			"text":"Documentation",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1500,
+			"y":1380,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"a0da346fe621e29e",
+			"type":"text",
+			"text":"Props",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1500,
+			"y":1220,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"ef9147a4e239425d",
+			"type":"text",
+			"text":"Event Catalog",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1500,
+			"y":1300,
+			"width":260,
+			"height":60,
+			"color":"2"
 		},
 		{
 			"id":"2ee7c7a2337bb2aa",
@@ -443,14 +422,14 @@
 			"height":60
 		},
 		{
-			"id":"5c082c855f301737",
+			"id":"8844baa6c4d7d42b",
 			"type":"text",
-			"text":"## Zielbild\n\n- **Obsidian View**: nur Mount-Point + Lifecycle + minimal wiring\n    \n- **UI App Layer**: Layouts, Komponenten, Routing, State\n    \n- **Eventbus**: zentrale Kommunikation (Commands/Events), möglichst wenig direkte Service-Calls aus UI\n    \n\n---\n\n## 1) Architektur-Bausteine\n\n### A) `ViewContainer` (Obsidian Adapter)\n\nPro View-Typ ein dünner Adapter:\n\n- erstellt root DOM\n    \n- instanziiert deine App/Renderer\n    \n- injiziert Dependencies: `eventBus`, `services`, `router`, `theme`\n    \n- disposed sauber\n    \n\n**Regel:** Keine Business-Logik in Obsidian Views.\n\n---\n\n### B) `AppShell`\n\nDein eigenes UI-Shell-Framework:\n\n- Layout Engine\n    \n- optional: Router (internal)\n    \n- Error Boundary / Toasts / Modals\n    \n- Theme bridge (Obsidian CSS vars)\n    \n\nAppShell rendert **Layout + Slots**.\n\n---\n\n### C) `Layout` als wiederverwendbare Templates\n\nLayouts sind “Page skeletons” mit **Slots**:\n\n- `header`\n    \n- `left_panel`\n    \n- `main`\n    \n- `right_panel`\n    \n- `footer`\n    \n- `statusbar`\n    \n\nLayouts sind reine UI-Struktur + responsive behavior.\n\n---\n\n### D) Komponenten\n\nKomponenten sind:\n\n- rein visuell (presentational) oder\n    \n- “smart” (subscribe/publish auf Eventbus)\n    \n\n**Regel:** Komponenten sprechen primär über den Eventbus.\n\n---\n\n### E) UI-Controller / Presenter (optional, empfohlen)\n\nFür komplexe Views:\n\n- `EventCatalogController`\n    \n- `SubscriptionController`\n    \n\nSie:\n\n- subscriben auf Eventbus\n    \n- selektieren UI state\n    \n- liefern Props an Komponenten\n    \n\nDas hält UI-Komponenten sauber und testbar.\n\n---\n\n## 2) Eventbus-first UI: Kommunikationsmodell\n\nDamit das nicht chaotisch wird, brauchst du 2 Message-Typen:\n\n### ✅ Commands (Intent)\n\n> “mach etwas”\n\n- `catalog.open_event_doc`\n    \n- `subscriptions.create`\n    \n- `ingestion.start_catchup`\n    \n- `events.emit_domain_event_preview`\n    \n\nCommands gehen **an** Application Layer / Services.\n\n### ✅ Events (Facts)\n\n> “etwas ist passiert”\n\n- `catalog.loaded`\n    \n- `subscription.created`\n    \n- `ingestion.progress_updated`\n    \n- `error.raised`\n    \n\nEvents kommen **zurück** in die UI.\n\n**UI darf**:\n\n- Commands senden\n    \n- Events rendern\n    \n\nUI sollte **nicht**:\n\n- Services direkt orchestrieren, wenn es über Commands geht\n    \n\n---\n\n## 3) Layout Framework: schnell Layouts bauen + wiederverwenden\n\nIch würde dir ein kleines eigenes Layout-System empfehlen, das auf **CSS Grid + Slots** basiert.\n\n### Layout-Interface\n\n- Layout = Name + Slot Definition + CSS class\n    \n- Slot = “region” in die du Komponenten steckst\n    \n\nBeispiel Layouts (für dein Event System):\n\n- `master_detail` (links Liste, rechts Detail)\n    \n- `three_pane` (nav + main + inspector)\n    \n- `dashboard` (cards + panels)\n    \n- `fullscreen_console` (log + filters + details)\n    \n\nDu kannst Layouts als:\n\n- TS/JS config + renderer\n    \n- oder als HTML templates mit slot markers\n    \n\nbauen.\n\n---\n\n## 4) UI State: wie Views “State bekommen”\n\nWenn alles über Eventbus läuft, brauchst du “UI State Stores” die Events in State übersetzen.\n\n### Minimal: `Store` pro Domain\n\n- `CatalogStore`\n    \n- `SubscriptionStore`\n    \n- `IngestionStore`\n    \n- `LogStore`\n    \n\nStores:\n\n- abonnieren Domain Events\n    \n- halten den aktuellen UI state\n    \n- bieten `select()` Methoden\n    \n\nKomponenten subscriben **nicht** direkt auf den Bus, sondern auf Stores (empfohlen), sonst wird’s schnell unübersichtlich.\n\n> Bus = Verkehrsnetz  \n> Store = Haltestelle + Fahrplan  \n> UI = Fahrgäste\n\n---\n\n## 5) “Framework” Vorschlag: leichtgewichtig, Obsidian-friendly\n\nOhne zu wissen ob du React/Vue willst, ist diese Kombi extrem gut:\n\n### Option A: Web Components + Lit (sehr geeignet)\n\n- kein React runtime overhead\n    \n- passt gut zu Obsidian DOM\n    \n- components als native custom elements\n    \n- super für reusable layout/components\n    \n\n### Option B: React (wenn du already drin bist)\n\n- schneller UI-Bau\n    \n- aber mehr bundle + lifecycle management\n    \n\n### Option C: Preact + Signals (leicht, schnell)\n\n- quasi React, aber kleiner\n    \n- Signals sind perfekt für store-driven UI\n    \n\nWenn du “Framework” willst, das sich **wie Obsidian** anfühlt: **Lit oder Preact** ist oft der sweet spot.\n\n---\n\n## 6) Konkretes Target Design (für dich)\n\n### Layering\n\n1. `obsidian/`\n    \n    - `EventCatalogView.ts` (Adapter)\n        \n2. `ui/`\n    \n    - `AppShell.ts`\n        \n    - `layouts/`\n        \n    - `components/`\n        \n3. `application/`\n    \n    - command handlers (use cases)\n        \n    - mapping + orchestration\n        \n4. `domain/`\n    \n    - event definitions\n        \n5. `infra/`\n    \n    - persistence, vault, parsing, etc.\n        \n\n---\n\n## 7) Welche Design-Artefakte du jetzt erstellen solltest\n\nWenn du jetzt konzipierst, helfen dir diese 4 Artefakte maximal:\n\n1. **UI Composition Map**\n    \n\n- welche Views gibt es?\n    \n- welche Layouts nutzt jede View?\n    \n- welche Komponenten stecken in welchen Slots?\n    \n\n2. **Layout Library Spec**\n    \n\n- Liste deiner Layouts mit Slots + responsive behavior\n    \n\n3. **Event Contract for UI**\n    \n\n- welche Commands sendet UI?\n    \n- welche Events bekommt UI zurück?\n    \n\n4. **Store Model**\n    \n\n- welche Stores existieren?\n    \n- welche Events konsumieren sie?\n    \n- welche selectors bietet jeder Store?\n    \n\nDamit kannst du extrem schnell iterieren und behältst Ordnung.\n\n---\n\n## 8) Vorschlag: Starter Kit (Minimal V0)\n\nWenn du klein starten willst:\n\n- `EventBus` (typed)\n    \n- `StoreBase`\n    \n- `AppShell + master_detail layout`\n    \n- `EventCatalogView` (Adapter)\n    \n- `CatalogStore`\n    \n- 3 Komponenten:\n    \n    - `EventList`\n        \n    - `EventDetail`\n        \n    - `DocLinksPanel`\n        \n\nAlles andere wächst organisch.\n\n---\n\nWenn du willst, lege ich dir als nächstes **ein konkretes Dateisystem + TypeScript Interfaces** an:\n\n- `LayoutDefinition`\n    \n- `SlotRenderer`\n    \n- `EventBus` typing (commands/events)\n    \n- `StoreBase` + `useStore` binding (für Lit/Preact/React je nach Wahl)\n    \n\nSag mir nur kurz, was du bevorzugst:\n\n- **Lit**, **Preact**, oder **React** (oder “framework-agnostisch, erstmal vanilla + custom elements”).",
+			"text":"# User Groups\n\n- new to Obsidian\n- new to Markdown\n- new to Git\n- new to Obsidian Plugin Development\n- new to Project Management\n- new to Software Design\n- new to Product Development\n",
 			"styleAttributes":{},
-			"x":3060,
-			"y":840,
-			"width":540,
-			"height":440
+			"x":880,
+			"y":-280,
+			"width":260,
+			"height":400
 		}
 	],
 	"edges":[

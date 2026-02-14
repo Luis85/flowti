@@ -2,7 +2,7 @@
 title:
 stage:
 description:
-domain:
+domain: Flowti
 journey:
 jtbd:
 parent:

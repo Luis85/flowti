@@ -9,7 +9,6 @@ views:
       direction: ASC
     order:
       - file.name
-      - title
       - feature
       - tags
       - stage

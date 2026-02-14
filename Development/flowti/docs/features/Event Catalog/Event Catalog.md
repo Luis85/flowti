@@ -5,6 +5,7 @@ plugin: "[[Development/flowti/README|README]]"
 tags:
   - core
 description: Document and Shape your Domain
+type: Feature
 ---
 # Event Catalog — Design Concept
 

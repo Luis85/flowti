@@ -5,6 +5,7 @@ plugin: "[[Development/flowti/README|README]]"
 tags:
   - core
 description: Automatically document your work by using the system
+type: Feature
 ---
 I want to document my domain, so that I can build on my knowledge and gain new insights trough use.
 

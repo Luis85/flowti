@@ -5,6 +5,7 @@ plugin: "[[Development/flowti/README|README]]"
 tags:
   - core
 description: " Import and Export your Data"
+type: Feature
 ---
 
 # The Import and Export Features

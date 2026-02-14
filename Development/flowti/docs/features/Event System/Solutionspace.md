@@ -1,6 +1,7 @@
 ---
 domain: Flowti
 plugin: "[[Development/flowti/README|README]]"
+type: Feature
 ---
 # Solution Space — Responding to Meaningful Events
 

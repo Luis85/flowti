@@ -3,7 +3,7 @@ title:
 feature: "[[Data Exchange Hub]]"
 stage:
 description:
-domain:
+domain: Flowti
 journey:
 jtbd:
 parent:

@@ -4,7 +4,7 @@ feature: "[[Documentation]]"
 tags:
 stage:
 description:
-domain:
+domain: Flowti
 journey:
 jtbd:
 parent:

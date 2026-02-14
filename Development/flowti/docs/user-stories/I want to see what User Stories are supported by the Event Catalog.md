@@ -3,7 +3,7 @@ title:
 feature: "[[Event Catalog]]"
 stage:
 description:
-domain:
+domain: Flowti
 journey:
 jtbd:
 parent:

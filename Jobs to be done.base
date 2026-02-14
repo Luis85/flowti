@@ -10,6 +10,7 @@ views:
     order:
       - file.name
       - persona
+      - type
     columnSize:
       file.name: 539
   - type: table

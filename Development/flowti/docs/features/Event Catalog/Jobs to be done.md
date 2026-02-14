@@ -1,6 +1,7 @@
 ---
 domain: Flowti
 plugin: "[[Development/flowti/README|README]]"
+type: Feature
 ---
 # Jobs To Be Done — Event System
 
