@@ -43,7 +43,7 @@ export class CatalogDashboard {
 			s.visible && (state.showSystemEvents || !s.isSystem));
 		const visibleEvents = getVisibleEntries(
 			state.catalogCategories, state.showSystemEvents,
-			state.discoveredEvents, this.deps.app, this.deps.getEntityFolder("events"),
+			state.discoveredEvents, this.deps.vaultQuery, this.deps.getEntityFolder("events"),
 		);
 
 		const cards: Array<{ icon: string; count: number; label: string; tab: string }> = [
@@ -190,7 +190,7 @@ export class CatalogDashboard {
 				action: () => {
 					const state = this.deps.getState();
 					const entries = discoveredToCatalogEntries(
-						state.discoveredEvents, this.deps.app, this.deps.getEntityFolder("events"),
+						state.discoveredEvents, this.deps.vaultQuery, this.deps.getEntityFolder("events"),
 					);
 					const existingCategories = [...new Set(entries.map((e) => e.category))]
 						.filter((c) => c !== UNCATEGORIZED_CATEGORY)

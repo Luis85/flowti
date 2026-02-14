@@ -1,4 +1,5 @@
 import type { IEventBus } from "../../infrastructure/events/types";
+import { isSkippedEvent } from "../../infrastructure/events/catalog";
 import { loadStateFromStorage, saveStateToStorage } from "../../utils/persistence";
 import type { IStorageProvider } from "../../utils/types";
 import type { EventNotifyState } from "./types";
@@ -52,8 +53,7 @@ export class EventNotificationService {
 			this.unsubscribes.push(
 				this.eventBus.on("*", (event) => {
 					const type = event.type;
-					// Skip log.* and eventNotify.* to avoid infinite loops
-					if (type.startsWith("log.") || type.startsWith("eventNotify.")) return;
+					if (isSkippedEvent(type, ["eventNotify."])) return;
 					if (this.notified.has(type)) {
 						void this.eventBus?.emit("eventNotify.fired", {
 							eventType: type,

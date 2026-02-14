@@ -16,6 +16,7 @@ function createMockDeps(hasUser = false): InstallerStepDeps {
 
 	return {
 		fileSystem: {
+			fileExists: vi.fn(),
 			createFile: vi.fn(),
 			readFile: vi.fn(),
 			updateFile: vi.fn(),

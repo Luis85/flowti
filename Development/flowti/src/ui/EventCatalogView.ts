@@ -1,5 +1,6 @@
 import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
 import type { IEventBus } from "../infrastructure/events/types";
+import { createVaultQueryService, createWorkspaceService } from "../infrastructure/services/ObsidianAdapters";
 import type { DiscoveredEvent } from "../domain/discovery/types";
 import { type CatalogCategoryConfig, DEFAULT_CATALOG_CATEGORIES, type EntityPaths, DEFAULT_ENTITY_PATHS } from "../domain/settings/settings";
 import type { ViewStateProvider } from "../infrastructure/views/registry";
@@ -79,19 +80,19 @@ export class EventCatalogView extends ItemView {
 	private productEntries: ProductEntry[] = [];
 	private filterText = "";
 
-	// DOM references
-	private topBarEl: HTMLElement;
-	private topBarTitleEl: HTMLElement;
-	private masterTreeEl: HTMLElement;
-	private detailPanelEl: HTMLElement;
-	private gearBtn: HTMLElement;
-	private settingsPanel: HTMLElement;
-	private countBadge: HTMLElement;
-	private tabBarEl: HTMLElement;
-	private searchInput: HTMLInputElement;
-	private dotLegendEl: HTMLElement;
-	private splitEl: HTMLElement;
-	private dashboardEl: HTMLElement;
+	// DOM references (initialized in onOpen)
+	private topBarEl!: HTMLElement;
+	private topBarTitleEl!: HTMLElement;
+	private masterTreeEl!: HTMLElement;
+	private detailPanelEl!: HTMLElement;
+	private gearBtn!: HTMLElement;
+	private settingsPanel!: HTMLElement;
+	private countBadge!: HTMLElement;
+	private tabBarEl!: HTMLElement;
+	private searchInput!: HTMLInputElement;
+	private dotLegendEl!: HTMLElement;
+	private splitEl!: HTMLElement;
+	private dashboardEl!: HTMLElement;
 	private dashboard: CatalogDashboard | null = null;
 	private domainsTab: DomainsTab | null = null;
 	private servicesTab: ServicesTab | null = null;
@@ -203,7 +204,7 @@ export class EventCatalogView extends ItemView {
 			const orderedCategories = getOrderedCategories(this.catalogCategories);
 			const visibleCategories = orderedCategories.filter((c) => c.visible).map((c) => c.name);
 			const eventsFolder = this.getEntityFolder("events");
-			const discoveredEntries = discoveredToCatalogEntries(this.discoveredEvents, this.app, eventsFolder);
+			const discoveredEntries = discoveredToCatalogEntries(this.discoveredEvents, createVaultQueryService(this.app), eventsFolder);
 			const userCategories = [...new Set(discoveredEntries.map((e) => e.category))];
 			for (const cat of [...userCategories, ...visibleCategories]) {
 				this.collapsedCategories.add(cat);
@@ -467,7 +468,7 @@ export class EventCatalogView extends ItemView {
 	private renderTabBar(): void {
 		this.tabBarEl.empty();
 
-		const tabs: Array<{ id: typeof this.activeTab; label: string; icon: string }> = [
+		const tabs: Array<{ id: EventCatalogView["activeTab"]; label: string; icon: string }> = [
 			{ id: "domains", label: "Domains", icon: "boxes" },
 			{ id: "services", label: "Services", icon: "server" },
 			{ id: "events", label: "Events", icon: "list" },
@@ -697,6 +698,8 @@ export class EventCatalogView extends ItemView {
 	private buildComponentDeps(): CatalogComponentDeps {
 		return {
 			app: this.app,
+			vaultQuery: createVaultQueryService(this.app),
+			workspace: createWorkspaceService(this.app),
 			eventBus: this.eventBus,
 			getState: () => this.getCatalogState(),
 			navigation: {

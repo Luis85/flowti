@@ -14,6 +14,45 @@
 import type { FlowtiEventMap } from "./events";
 
 // ─────────────────────────────────────────────────────────────
+// Shared constants
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Event type prefixes considered internal/infrastructure.
+ * Services that use wildcard listeners should skip events matching these
+ * prefixes to avoid infinite loops and unnecessary processing.
+ *
+ * Individual services may extend this list with their own namespace prefix
+ * (e.g., `["ingestion."]`) via `isSkippedEvent()`.
+ */
+export const INTERNAL_EVENT_PREFIXES = [
+	"log.",
+	"error.",
+	"plugin.",
+	"service.",
+	"command.",
+	"view.",
+	"settings.",
+] as const;
+
+/**
+ * Returns true if the given event type should be skipped by wildcard listeners.
+ * @param type - The event type string to check.
+ * @param extraPrefixes - Additional prefixes to skip (e.g., the service's own namespace).
+ */
+export function isSkippedEvent(type: string, extraPrefixes?: readonly string[]): boolean {
+	for (const prefix of INTERNAL_EVENT_PREFIXES) {
+		if (type.startsWith(prefix)) return true;
+	}
+	if (extraPrefixes) {
+		for (const prefix of extraPrefixes) {
+			if (type.startsWith(prefix)) return true;
+		}
+	}
+	return false;
+}
+
+// ─────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────
 

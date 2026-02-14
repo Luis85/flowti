@@ -81,7 +81,7 @@ export function scanEntityFolder<T extends { name: string }>(
 		...EVENT_CATALOG,
 		...discoveredToCatalogEntries(
 			deps.getState().discoveredEvents,
-			deps.app,
+			deps.vaultQuery,
 			deps.getEntityFolder("events"),
 		),
 	];
@@ -92,7 +92,7 @@ export function scanEntityFolder<T extends { name: string }>(
 	for (const child of folder.children) {
 		if (!(child instanceof TFile) || child.extension !== "md") continue;
 
-		const fm = readFrontmatter(deps.app, child.path);
+		const fm = readFrontmatter(deps.vaultQuery, child.path);
 
 		// Resolve name from frontmatter fallback fields
 		let name: string | undefined;

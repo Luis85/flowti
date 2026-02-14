@@ -48,7 +48,7 @@ export class DomainsTab {
 			...EVENT_CATALOG,
 			...discoveredToCatalogEntries(
 				this.deps.getState().discoveredEvents,
-				this.deps.app,
+				this.deps.vaultQuery,
 				this.deps.getEntityFolder("events"),
 			),
 		];
@@ -74,7 +74,7 @@ export class DomainsTab {
 			for (const child of folder.children) {
 				if (!(child instanceof TFile) || child.extension !== "md") continue;
 
-				const fm = readFrontmatter(this.deps.app, child.path);
+				const fm = readFrontmatter(this.deps.vaultQuery, child.path);
 				const name = (fm && (fmString(fm, "domain")
 					?? fmString(fm, "name"))) ?? child.basename;
 				const description = (fm && fmString(fm, "description")) ?? "";
@@ -368,7 +368,7 @@ export class DomainsTab {
 		docBtn.appendText(domainData.filePath ? " Open Doc" : " Create Doc");
 		docBtn.addEventListener("click", () => {
 			if (domainData.filePath) {
-				void openFile(this.deps.app, domainData.filePath);
+				void openFile(this.deps.workspace, domainData.filePath);
 			} else {
 				void this.createDoc(domainData.name);
 			}
@@ -493,7 +493,7 @@ export class DomainsTab {
 		const docPath = getDomainDocPathResolved(folder, name);
 		const existing = this.deps.app.vault.getAbstractFileByPath(docPath);
 		if (existing instanceof TFile) {
-			void openFile(this.deps.app, docPath);
+			void openFile(this.deps.workspace, docPath);
 			return;
 		}
 		const domainEvents = this.entries.find((d) => d.name === name)?.events ?? [];
@@ -519,7 +519,7 @@ export class DomainsTab {
 		const areaPath = `02 - Areas/${name}/${name}.md`;
 		const existing = this.deps.app.vault.getAbstractFileByPath(areaPath);
 		if (existing instanceof TFile) {
-			void openFile(this.deps.app, areaPath);
+			void openFile(this.deps.workspace, areaPath);
 			return;
 		}
 		const content = [
@@ -547,7 +547,7 @@ export class DomainsTab {
 		const docPath = getArchitectureDocPathResolved(folder, name);
 		const existing = this.deps.app.vault.getAbstractFileByPath(docPath);
 		if (existing instanceof TFile) {
-			void openFile(this.deps.app, docPath);
+			void openFile(this.deps.workspace, docPath);
 			return;
 		}
 		const domainEvents = this.entries.find((d) => d.name === name)?.events ?? [];

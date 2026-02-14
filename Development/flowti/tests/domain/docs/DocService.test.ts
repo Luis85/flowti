@@ -8,6 +8,7 @@ import { DEFAULT_SETTINGS } from "../../../src/domain/settings/settings";
 function createMockFileSystem(existingFiles: Record<string, string> = {}): IFileSystemClient {
 	const files = new Map(Object.entries(existingFiles));
 	return {
+		fileExists: vi.fn(async (path: string) => files.has(path)),
 		createFile: vi.fn(async (path: string, content: string) => {
 			files.set(path, content);
 		}),

@@ -174,7 +174,7 @@ export class ImportService {
 		}
 
 		// Check if note already exists
-		const exists = await this.fileExists(notePath);
+		const exists = await this.fileSystem.fileExists(notePath);
 
 		if (exists) {
 			switch (config.conflictStrategy) {
@@ -201,12 +201,4 @@ export class ImportService {
 		}
 	}
 
-	private async fileExists(path: string): Promise<boolean> {
-		try {
-			await this.fileSystem.readFile(path);
-			return true;
-		} catch {
-			return false;
-		}
-	}
 }

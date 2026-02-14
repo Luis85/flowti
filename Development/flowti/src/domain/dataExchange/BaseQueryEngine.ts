@@ -31,6 +31,13 @@ import type {
 	VaultFileInfo,
 } from "./types";
 
+// Pre-compiled filter expression patterns
+const RE_IN_FOLDER = /^file\.inFolder\(["'](.+?)["']\)$/;
+const RE_FOLDER_CONTAINS = /^file\.folder\.contains(?:Any)?\(["'](.+?)["']\)$/;
+const RE_EXT_EQUALS = /^file\.ext\s*==\s*["'](.+?)["']$/;
+const RE_NAME_CONTAINS = /^file\.name\.contains\(["'](.+?)["']\)$/;
+const RE_PROPERTY_EQUALS = /^([\w.]+)\s*==\s*["'](.+?)["']$/;
+
 export class BaseQueryEngine {
 	/**
 	 * Parses a `.base` file's YAML content into a structured representation.
@@ -250,17 +257,13 @@ export class BaseQueryEngine {
 		}
 
 		// file.inFolder("path")
-		const inFolderMatch = cleanExpr.match(
-			/^file\.inFolder\(["'](.+?)["']\)$/,
-		);
+		const inFolderMatch = cleanExpr.match(RE_IN_FOLDER);
 		if (inFolderMatch) {
 			return this.filter("inFolder", "file", inFolderMatch[1], negated);
 		}
 
 		// file.folder.contains("text") or file.folder.containsAny("text")
-		const folderContainsMatch = cleanExpr.match(
-			/^file\.folder\.contains(?:Any)?\(["'](.+?)["']\)$/,
-		);
+		const folderContainsMatch = cleanExpr.match(RE_FOLDER_CONTAINS);
 		if (folderContainsMatch) {
 			return this.filter(
 				"folderContains",
@@ -271,15 +274,13 @@ export class BaseQueryEngine {
 		}
 
 		// file.ext == "value"
-		const extMatch = cleanExpr.match(/^file\.ext\s*==\s*["'](.+?)["']$/);
+		const extMatch = cleanExpr.match(RE_EXT_EQUALS);
 		if (extMatch) {
 			return this.filter("extEquals", "file.ext", extMatch[1], negated);
 		}
 
 		// file.name.contains("text")
-		const nameContainsMatch = cleanExpr.match(
-			/^file\.name\.contains\(["'](.+?)["']\)$/,
-		);
+		const nameContainsMatch = cleanExpr.match(RE_NAME_CONTAINS);
 		if (nameContainsMatch) {
 			return this.filter(
 				"nameContains",
@@ -290,9 +291,7 @@ export class BaseQueryEngine {
 		}
 
 		// property == "value" (frontmatter)
-		const propMatch = cleanExpr.match(
-			/^([\w.]+)\s*==\s*["'](.+?)["']$/,
-		);
+		const propMatch = cleanExpr.match(RE_PROPERTY_EQUALS);
 		if (propMatch) {
 			return this.filter(
 				"propertyEquals",

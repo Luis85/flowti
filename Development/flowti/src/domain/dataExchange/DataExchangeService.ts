@@ -24,6 +24,7 @@ import { buildDataDictionary as buildDataDictionaryFn } from "./DataDictionaryBu
 import { ConfigPathTracker } from "./ConfigPathTracker";
 import { PipelineExecutor } from "./PipelineExecutor";
 import { ConfigDocService } from "./ConfigDocService";
+import { generateUUID } from "../../utils/helpers";
 
 export interface DataExchangeServiceOptions {
 	eventBus: IEventBus;
@@ -37,7 +38,7 @@ function createDefaultState(): DataExchangeState {
 }
 
 function generateId(): string {
-	return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+	return generateUUID();
 }
 
 export class DataExchangeService {

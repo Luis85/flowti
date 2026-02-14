@@ -6,6 +6,7 @@
  */
 
 import { App, Modal, Notice, Setting, setIcon } from "obsidian";
+import { generateUUID } from "../utils/helpers";
 import type { ImportService } from "../domain/dataExchange/ImportService";
 import type { ColumnMapping, MultiImportSource, SavedImportConfig } from "../domain/dataExchange/types";
 import { FilePickerModal } from "./FilePickerModal";
@@ -29,7 +30,7 @@ export interface PipelineSourceModalOptions {
 }
 
 function generateSourceId(): string {
-	return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+	return generateUUID();
 }
 
 export class PipelineSourceModal extends Modal {

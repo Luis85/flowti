@@ -64,6 +64,15 @@ export class FileSystemClient implements IFileSystemClient {
 		this.defaultTimeout = options.timeout ?? 5000;
 	}
 
+	async fileExists(path: string, options?: FileOperationOptions): Promise<boolean> {
+		try {
+			await this.readFile(path, options);
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
 	async createFile(
 		path: string,
 		content: string,
@@ -218,9 +227,12 @@ export class FileSystemClient implements IFileSystemClient {
 	): Promise<T> {
 		return new Promise((resolve, reject) => {
 			const timeoutMs = timeout ?? this.defaultTimeout;
+			let settled = false;
 
 			// Set up timeout
 			const timeoutId = setTimeout(() => {
+				if (settled) return;
+				settled = true;
 				unsubscribe();
 				reject(new Error(`Request timed out after ${timeoutMs}ms`));
 			}, timeoutMs);
@@ -231,6 +243,8 @@ export class FileSystemClient implements IFileSystemClient {
 
 				const payload = event.payload as FileResponsePayload;
 				if (payload.requestId !== requestId) return;
+				if (settled) return;
+				settled = true;
 
 				clearTimeout(timeoutId);
 				unsubscribe();

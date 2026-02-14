@@ -1,5 +1,8 @@
 import type { IEventBus } from "../../infrastructure/events/types";
+import { isSkippedEvent } from "../../infrastructure/events/catalog";
 import type { IStorageProvider } from "../../utils/types";
+import { safeLoadState, safeSaveState } from "../../utils/persistence";
+import { generateUUID, extractSettingsBoolean, extractStringField } from "../../utils/helpers";
 import { JobQueue } from "./JobQueue";
 import type {
 	IngestionConfig,
@@ -22,13 +25,11 @@ export interface IngestionServiceOptions {
  * Generates a unique job ID.
  */
 function generateJobId(): string {
-	return `job_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+	return `job_${generateUUID()}`;
 }
 
-/**
- * Prefixes to skip in the wildcard listener to avoid infinite loops.
- */
-const SKIPPED_PREFIXES = ["log.", "ingestion.", "settings."];
+/** Extra prefixes to skip beyond the shared INTERNAL_EVENT_PREFIXES. */
+const EXTRA_SKIP_PREFIXES = ["ingestion."] as const;
 
 /**
  * Service for managing the ingestion pipeline.
@@ -74,18 +75,14 @@ export class IngestionService {
 			// Listen for settings changes to update the enabled flag
 			this.unsubscribes.push(
 				this.eventBus.on("settings.changed", (event) => {
-					const settings = event.payload.settings as { eventSystemEnabled?: boolean };
-					if (typeof settings.eventSystemEnabled === "boolean") {
-						this.enabled = settings.eventSystemEnabled;
-					}
+					const flag = extractSettingsBoolean(event.payload, "eventSystemEnabled");
+					if (flag !== undefined) this.enabled = flag;
 				})
 			);
 			this.unsubscribes.push(
 				this.eventBus.on("settings.loaded", (event) => {
-					const settings = event.payload.settings as { eventSystemEnabled?: boolean };
-					if (typeof settings.eventSystemEnabled === "boolean") {
-						this.enabled = settings.eventSystemEnabled;
-					}
+					const flag = extractSettingsBoolean(event.payload, "eventSystemEnabled");
+					if (flag !== undefined) this.enabled = flag;
 				})
 			);
 
@@ -94,7 +91,7 @@ export class IngestionService {
 				this.eventBus.on("*", (event) => {
 					if (!this.enabled) return;
 					const type = event.type;
-					if (SKIPPED_PREFIXES.some((p) => type.startsWith(p))) return;
+					if (isSkippedEvent(type, EXTRA_SKIP_PREFIXES)) return;
 					if (!this.config.watchEventTypes.includes(type)) return;
 					this.enqueueEvent(type, event.payload as Record<string, unknown>);
 				})
@@ -106,19 +103,17 @@ export class IngestionService {
 	 * Loads the idempotency ledger and recovers pending jobs from storage.
 	 */
 	async load(): Promise<void> {
-		const data = (await this.storage.load()) as {
-			ingestion?: IngestionPersistentState;
-		} | null;
-		if (data?.ingestion?.processedKeys) {
-			this.processedKeys = new Set(data.ingestion.processedKeys);
+		const saved = await safeLoadState<IngestionPersistentState>(this.storage, "ingestion");
+		if (saved?.processedKeys) {
+			this.processedKeys = new Set(saved.processedKeys);
 		}
 
 		// Crash recovery: re-enqueue pending jobs from previous session
-		const pendingJobs = data?.ingestion?.pendingJobs;
+		const pendingJobs = saved?.pendingJobs;
 		if (pendingJobs && pendingJobs.length > 0) {
 			let recoveredCount = 0;
 			for (const job of pendingJobs) {
-				const path = typeof job.payload.path === "string" ? job.payload.path : undefined;
+				const path = extractStringField(job.payload, "path");
 				const key = this.generateEventKey(job.eventType, path);
 				if (this.processedKeys.has(key)) continue;
 
@@ -212,7 +207,7 @@ export class IngestionService {
 		payload: Record<string, unknown>
 	): void {
 		// Idempotency check
-		const path = typeof payload.path === "string" ? payload.path : undefined;
+		const path = extractStringField(payload, "path");
 		const key = this.generateEventKey(eventType, path);
 		if (this.processedKeys.has(key)) return;
 
@@ -289,7 +284,7 @@ export class IngestionService {
 			this.processedCount++;
 
 			// Record in idempotency ledger
-			const path = typeof job.payload.path === "string" ? job.payload.path : undefined;
+			const path = extractStringField(job.payload, "path");
 			const key = this.generateEventKey(job.eventType, path);
 			this.addToLedger(key);
 			void this.saveState();
@@ -371,7 +366,6 @@ export class IngestionService {
 	 * Persists the idempotency ledger and pending jobs to storage.
 	 */
 	private async saveState(): Promise<void> {
-		const existingData = ((await this.storage.load()) as object) || {};
 		const pendingJobs = this.batchBuffer
 			.filter((j) => j.status === "queued")
 			.map((j) => ({ ...j }));
@@ -379,10 +373,7 @@ export class IngestionService {
 			processedKeys: [...this.processedKeys],
 			pendingJobs: pendingJobs.length > 0 ? pendingJobs : undefined,
 		};
-		await this.storage.save({
-			...existingData,
-			ingestion: state,
-		});
+		await safeSaveState(this.storage, "ingestion", state);
 	}
 
 	/**

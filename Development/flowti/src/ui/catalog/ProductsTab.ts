@@ -197,7 +197,7 @@ export class ProductsTab {
 		setIcon(docIcon, "file-text");
 		docBtn.appendText(" Open Doc");
 		docBtn.addEventListener("click", () => {
-			void openFile(this.deps.app, productData.filePath);
+			void openFile(this.deps.workspace, productData.filePath);
 		});
 
 		// Delete product
@@ -296,7 +296,7 @@ export class ProductsTab {
 		const docPath = getProductDocPathResolved(folder, name);
 		const existing = this.deps.app.vault.getAbstractFileByPath(docPath);
 		if (existing instanceof TFile) {
-			void openFile(this.deps.app, docPath);
+			void openFile(this.deps.workspace, docPath);
 			return;
 		}
 		this.selectedProduct = name;

@@ -17,11 +17,10 @@ views:
       - effort
       - description
     columnSize:
-      file.name: 280
+      file.name: 343
       note.severity: 90
       note.category: 120
       note.layer: 110
-      note.status: 90
       note.effort: 80
       note.description: 400
   - type: table

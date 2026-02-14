@@ -11,7 +11,15 @@ import type { ImportConfig } from "../../../src/domain/dataExchange/types";
 function createMockFileSystem(): IFileSystemClient {
 	const files = new Map<string, string>();
 
-	return {
+	const mock = {
+		fileExists: vi.fn(async (path: string) => {
+			try {
+				await mock.readFile(path);
+				return true;
+			} catch {
+				return false;
+			}
+		}),
 		createFile: vi.fn(async (path: string, content: string) => {
 			files.set(path, content);
 		}),
@@ -32,6 +40,7 @@ function createMockFileSystem(): IFileSystemClient {
 		// Store reference for testing
 		_files: files,
 	} as unknown as IFileSystemClient & { _files: Map<string, string> };
+	return mock;
 }
 
 describe("ImportService", () => {

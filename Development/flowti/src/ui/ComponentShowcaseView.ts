@@ -54,7 +54,7 @@ export class ComponentShowcaseView extends ItemView {
 		});
 
 		section.createEl("p", {
-			text: "Diese View zeigt alle verfügbaren CSS-Komponenten und Utilities.",
+			text: "This view shows all available CSS components and utilities.",
 			cls: "ft-text-muted",
 		});
 
@@ -62,7 +62,7 @@ export class ComponentShowcaseView extends ItemView {
 	}
 
 	private renderButtons(container: HTMLElement): void {
-		const section = this.createSection(container, "Buttons", "Verschiedene Button-Varianten");
+		const section = this.createSection(container, "Buttons", "Various button variants");
 
 		const row = section.createDiv({ cls: "ft-flex ft-gap-2 ft-items-center" });
 
@@ -75,7 +75,7 @@ export class ComponentShowcaseView extends ItemView {
 
 		const iconBtn = row2.createEl("button", { cls: "ft-btn ft-btn-primary" });
 		iconBtn.createSpan({ text: "✓ " });
-		iconBtn.createSpan({ text: "Mit Icon" });
+		iconBtn.createSpan({ text: "With Icon" });
 
 		const disabledBtn = row2.createEl("button", {
 			text: "Disabled",
@@ -87,7 +87,7 @@ export class ComponentShowcaseView extends ItemView {
 	}
 
 	private renderInputs(container: HTMLElement): void {
-		const section = this.createSection(container, "Inputs", "Form-Elemente");
+		const section = this.createSection(container, "Inputs", "Form elements");
 
 		const formGroup = section.createDiv({ cls: "ft-flex ft-flex-col ft-gap-3" });
 
@@ -100,111 +100,111 @@ export class ComponentShowcaseView extends ItemView {
 
 		// Input with value
 		const inputGroup2 = formGroup.createDiv();
-		inputGroup2.createEl("label", { text: "Mit Wert", cls: "ft-label" });
+		inputGroup2.createEl("label", { text: "With Value", cls: "ft-label" });
 		const input2 = inputGroup2.createEl("input", { cls: "ft-input" });
 		input2.type = "text";
-		input2.value = "Vorausgefüllter Text";
+		input2.value = "Pre-filled text";
 
 		// Textarea simulation (using input for simplicity)
 		const inputGroup3 = formGroup.createDiv();
 		inputGroup3.createEl("label", { text: "Readonly Input", cls: "ft-label" });
 		const input3 = inputGroup3.createEl("input", { cls: "ft-input" });
 		input3.type = "text";
-		input3.value = "Nicht editierbar";
+		input3.value = "Not editable";
 		input3.readOnly = true;
 	}
 
 	private renderCards(container: HTMLElement): void {
-		const section = this.createSection(container, "Cards", "Container für Inhalte");
+		const section = this.createSection(container, "Cards", "Content containers");
 
 		const cardsRow = section.createDiv({ cls: "ft-flex ft-gap-4" });
 
 		// Simple card
 		const card1 = cardsRow.createDiv({ cls: "ft-card" });
 		card1.addClass("ft-flex-1");
-		card1.createEl("h3", { text: "Einfache Card", cls: "ft-heading ft-heading-sm ft-mb-2" });
-		card1.createEl("p", { text: "Dies ist eine einfache Card mit Text.", cls: "ft-text-muted" });
+		card1.createEl("h3", { text: "Simple Card", cls: "ft-heading ft-heading-sm ft-mb-2" });
+		card1.createEl("p", { text: "This is a simple card with text.", cls: "ft-text-muted" });
 
 		// Card with button
 		const card2 = cardsRow.createDiv({ cls: "ft-card ft-flex ft-flex-col ft-gap-2" });
 		card2.addClass("ft-flex-1");
-		card2.createEl("h3", { text: "Card mit Aktion", cls: "ft-heading ft-heading-sm" });
+		card2.createEl("h3", { text: "Card with Action", cls: "ft-heading ft-heading-sm" });
 		card2.createEl("p", {
-			text: "Diese Card enthält einen Button.",
+			text: "This card contains a button.",
 			cls: "ft-text-muted ft-mb-2",
 		});
-		card2.createEl("button", { text: "Aktion", cls: "ft-btn ft-btn-primary" });
+		card2.createEl("button", { text: "Action", cls: "ft-btn ft-btn-primary" });
 	}
 
 	private renderBadges(container: HTMLElement): void {
-		const section = this.createSection(container, "Badges", "Labels und Tags");
+		const section = this.createSection(container, "Badges", "Labels and tags");
 
 		const row = section.createDiv({ cls: "ft-flex ft-gap-2 ft-items-center" });
 
 		row.createSpan({ text: "Accent", cls: "ft-badge ft-badge-accent" });
 		row.createSpan({ text: "Muted", cls: "ft-badge ft-badge-muted" });
-		row.createSpan({ text: "Status: Aktiv", cls: "ft-badge ft-badge-accent" });
+		row.createSpan({ text: "Status: Active", cls: "ft-badge ft-badge-accent" });
 		row.createSpan({ text: "v1.0.0", cls: "ft-badge ft-badge-muted" });
 	}
 
 	private renderAlerts(container: HTMLElement): void {
-		const section = this.createSection(container, "Alerts", "Benachrichtigungen");
+		const section = this.createSection(container, "Alerts", "Notification messages");
 
 		const alertsColumn = section.createDiv({ cls: "ft-flex ft-flex-col ft-gap-2" });
 
 		alertsColumn.createDiv({
-			text: "ℹ️ Info: Dies ist eine informative Nachricht.",
+			text: "Info: This is an informational message.",
 			cls: "ft-alert ft-alert-info",
 		});
 
 		alertsColumn.createDiv({
-			text: "✅ Erfolg: Die Aktion wurde erfolgreich ausgeführt.",
+			text: "Success: The action was completed successfully.",
 			cls: "ft-alert ft-alert-success",
 		});
 
 		alertsColumn.createDiv({
-			text: "⚠️ Warnung: Bitte überprüfen Sie Ihre Eingabe.",
+			text: "Warning: Please check your input.",
 			cls: "ft-alert ft-alert-warning",
 		});
 
 		alertsColumn.createDiv({
-			text: "❌ Fehler: Ein Fehler ist aufgetreten.",
+			text: "Error: An error occurred.",
 			cls: "ft-alert ft-alert-error",
 		});
 	}
 
 	private renderLists(container: HTMLElement): void {
-		const section = this.createSection(container, "Lists", "Listen-Komponenten");
+		const section = this.createSection(container, "Lists", "List components");
 
 		const list = section.createDiv({ cls: "ft-list" });
 
 		const item1 = list.createDiv({ cls: "ft-list-item" });
 		item1.createSpan({ text: "📄" });
-		item1.createSpan({ text: "Erstes Element" });
+		item1.createSpan({ text: "First Item" });
 
 		const item2 = list.createDiv({ cls: "ft-list-item ft-list-item-active" });
 		item2.createSpan({ text: "📄" });
-		item2.createSpan({ text: "Aktives Element" });
+		item2.createSpan({ text: "Active Item" });
 
 		const item3 = list.createDiv({ cls: "ft-list-item" });
 		item3.createSpan({ text: "📄" });
-		item3.createSpan({ text: "Drittes Element" });
+		item3.createSpan({ text: "Third Item" });
 
 		const item4 = list.createDiv({ cls: "ft-list-item" });
 		item4.createSpan({ text: "📁" });
-		item4.createSpan({ text: "Ordner Element" });
+		item4.createSpan({ text: "Folder Item" });
 	}
 
 	private renderTypography(container: HTMLElement): void {
-		const section = this.createSection(container, "Typography", "Text-Stile");
+		const section = this.createSection(container, "Typography", "Text styles");
 
 		section.createEl("h2", { text: "Heading Large", cls: "ft-heading ft-heading-lg ft-mb-1" });
 		section.createEl("h3", { text: "Heading Medium", cls: "ft-heading ft-heading-md ft-mb-1" });
 		section.createEl("h4", { text: "Heading Small", cls: "ft-heading ft-heading-sm ft-mb-2" });
 
-		section.createEl("p", { text: "Normaler Text mit Standard-Styling.", cls: "ft-mb-1" });
-		section.createEl("p", { text: "Muted Text für sekundäre Informationen.", cls: "ft-text-muted ft-mb-1" });
-		section.createEl("p", { text: "Faint Text für tertiäre Informationen.", cls: "ft-text-faint ft-mb-1" });
+		section.createEl("p", { text: "Normal text with standard styling.", cls: "ft-mb-1" });
+		section.createEl("p", { text: "Muted text for secondary information.", cls: "ft-text-muted ft-mb-1" });
+		section.createEl("p", { text: "Faint text for tertiary information.", cls: "ft-text-faint ft-mb-1" });
 
 		const textRow = section.createDiv({ cls: "ft-flex ft-gap-4 ft-mt-2" });
 		textRow.createSpan({ text: "Small Text", cls: "ft-text-sm" });
@@ -218,7 +218,7 @@ export class ComponentShowcaseView extends ItemView {
 	}
 
 	private renderUtilities(container: HTMLElement): void {
-		const section = this.createSection(container, "Utilities", "Layout und Spacing");
+		const section = this.createSection(container, "Utilities", "Layout and spacing");
 
 		// Flexbox demo
 		const flexDemo = section.createDiv({ cls: "ft-card ft-mb-4" });
@@ -230,9 +230,9 @@ export class ComponentShowcaseView extends ItemView {
 		flexRow.style.backgroundColor = "var(--background-primary)";
 		flexRow.style.borderRadius = "var(--radius-s)";
 
-		flexRow.createSpan({ text: "Links" });
-		flexRow.createSpan({ text: "Mitte" });
-		flexRow.createSpan({ text: "Rechts" });
+		flexRow.createSpan({ text: "Left" });
+		flexRow.createSpan({ text: "Center" });
+		flexRow.createSpan({ text: "Right" });
 
 		// Spacing demo
 		const spacingDemo = section.createDiv({ cls: "ft-card ft-mb-4" });
@@ -270,7 +270,7 @@ export class ComponentShowcaseView extends ItemView {
 		const animTarget = animDemo.createDiv({ cls: "ft-mt-2 ft-p-2 ft-hidden" });
 		animTarget.style.backgroundColor = "var(--background-primary)";
 		animTarget.style.borderRadius = "var(--radius-s)";
-		animTarget.createSpan({ text: "Animierter Inhalt erscheint hier!", cls: "ft-text-muted" });
+		animTarget.createSpan({ text: "Animated content appears here!", cls: "ft-text-muted" });
 
 		animBtn.addEventListener("click", () => {
 			if (animTarget.classList.contains("ft-hidden")) {

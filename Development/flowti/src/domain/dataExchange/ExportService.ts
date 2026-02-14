@@ -20,6 +20,7 @@ import type {
 import { STANDARD_FILE_PROPERTIES } from "./types";
 import { CsvParser } from "./CsvParser";
 import { BaseQueryEngine } from "./BaseQueryEngine";
+import { PathMutex } from "../../utils/mutex";
 
 export type ListFilesCallback = (folderPath: string) => VaultFileInfo[];
 export type WriteExternalFileCallback = (absolutePath: string, content: string) => Promise<void>;
@@ -42,6 +43,7 @@ export class ExportService {
 	private readExternalFile: ReadExternalFileCallback | null;
 	private csvParser: CsvParser;
 	private baseEngine: BaseQueryEngine;
+	private writeMutex = new PathMutex();
 
 	constructor(deps: ExportServiceDeps) {
 		this.eventBus = deps.eventBus;
@@ -220,21 +222,6 @@ export class ExportService {
 	async executeExport(config: ExportConfig): Promise<ExportResult> {
 		await this.eventBus.emit("dataExchange.export.started", { config });
 
-		const strategy = config.conflictStrategy ?? "overwrite";
-
-		// Check for existing file when skip or append
-		if (strategy !== "overwrite") {
-			const existing = await this.readOutputFile(config);
-			if (existing !== null && strategy === "skip") {
-				return {
-					totalRows: 0,
-					totalColumns: 0,
-					outputPath: config.outputPath,
-					skipped: true,
-				};
-			}
-		}
-
 		const files = await this.resolveFiles(
 			config.sourcePath,
 			config.sourceType,
@@ -265,27 +252,47 @@ export class ExportService {
 		}
 
 		// Generate output content
-		let content = this.csvParser.generate(headers, rows, config.format);
+		const newContent = this.csvParser.generate(headers, rows, config.format);
 
-		// Append: read existing file and prepend its content
-		if (strategy === "append") {
-			const existing = await this.readOutputFile(config);
-			if (existing !== null && existing.trim().length > 0) {
-				// Strip the header line from the new content and append rows to existing
-				const newLines = content.split("\n");
-				const dataOnly = newLines.slice(1).join("\n");
-				content = existing.trimEnd() + "\n" + dataOnly;
+		// Serialize all read-check-write operations targeting the same output path
+		return this.writeMutex.withLock(config.outputPath, async () => {
+			const strategy = config.conflictStrategy ?? "overwrite";
+
+			// Check for existing file when skip or append
+			if (strategy !== "overwrite") {
+				const existing = await this.readOutputFile(config);
+				if (existing !== null && strategy === "skip") {
+					return {
+						totalRows: 0,
+						totalColumns: 0,
+						outputPath: config.outputPath,
+						skipped: true,
+					};
+				}
 			}
-		}
 
-		// Write output file
-		await this.writeOutputFile(config, content);
+			let content = newContent;
 
-		return {
-			totalRows: rows.length,
-			totalColumns: headers.length,
-			outputPath: config.outputPath,
-		};
+			// Append: read existing file and prepend its content
+			if (strategy === "append") {
+				const existing = await this.readOutputFile(config);
+				if (existing !== null && existing.trim().length > 0) {
+					// Strip the header line from the new content and append rows to existing
+					const newLines = content.split("\n");
+					const dataOnly = newLines.slice(1).join("\n");
+					content = existing.trimEnd() + "\n" + dataOnly;
+				}
+			}
+
+			// Write output file
+			await this.writeOutputFile(config, content);
+
+			return {
+				totalRows: rows.length,
+				totalColumns: headers.length,
+				outputPath: config.outputPath,
+			};
+		});
 	}
 
 	/**

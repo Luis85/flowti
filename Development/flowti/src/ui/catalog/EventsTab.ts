@@ -81,7 +81,7 @@ export class EventsTab {
 	/** Called by orchestrator to expand a category when navigating to an event */
 	ensureCategoryExpanded(eventType: string): void {
 		const state = this.deps.getState();
-		const entry = resolveEntry(eventType, state.discoveredEvents, this.deps.app, this.deps.getEntityFolder("events"));
+		const entry = resolveEntry(eventType, state.discoveredEvents, this.deps.vaultQuery, this.deps.getEntityFolder("events"));
 		if (entry && state.collapsedCategories.has(entry.category)) {
 			state.collapsedCategories.delete(entry.category);
 		}
@@ -90,7 +90,7 @@ export class EventsTab {
 	/** Count badge text for the orchestrator's updateCountBadge */
 	getCountText(): string {
 		const state = this.deps.getState();
-		const visible = getVisibleEntries(state.catalogCategories, state.showSystemEvents, state.discoveredEvents, this.deps.app, this.deps.getEntityFolder("events"));
+		const visible = getVisibleEntries(state.catalogCategories, state.showSystemEvents, state.discoveredEvents, this.deps.vaultQuery, this.deps.getEntityFolder("events"));
 		const total = visible.length;
 		const hasFilter = state.filterText || this.filterChipConfigured || this.filterChipFollowed;
 		if (hasFilter) {
@@ -120,7 +120,7 @@ export class EventsTab {
 		const eventsFolder = this.deps.getEntityFolder("events");
 
 		// Configured filter toggle
-		const configuredCount = getConfiguredCount(state.catalogCategories, state.showSystemEvents, state.discoveredEvents, this.deps.app, eventsFolder, state.subscriptions, state.definitions);
+		const configuredCount = getConfiguredCount(state.catalogCategories, state.showSystemEvents, state.discoveredEvents, this.deps.vaultQuery, eventsFolder, state.subscriptions, state.definitions);
 		const configuredRow = this.settingsPanel.createDiv({ cls: "ft-settings-row" });
 		const configuredToggle = configuredRow.createSpan({
 			cls: `ft-visibility-toggle${this.filterChipConfigured ? "" : " ft-visibility-off"}`,
@@ -135,7 +135,7 @@ export class EventsTab {
 		configuredRow.createSpan({ text: `Only configured (${configuredCount})`, cls: "ft-settings-row-name" });
 
 		// Followed filter toggle
-		const followedCount = getFollowedCount(state.catalogCategories, state.showSystemEvents, state.discoveredEvents, this.deps.app, eventsFolder, state.notifiedTypes);
+		const followedCount = getFollowedCount(state.catalogCategories, state.showSystemEvents, state.discoveredEvents, this.deps.vaultQuery, eventsFolder, state.notifiedTypes);
 		const followedRow = this.settingsPanel.createDiv({ cls: "ft-settings-row" });
 		const followedToggle = followedRow.createSpan({
 			cls: `ft-visibility-toggle${this.filterChipFollowed ? "" : " ft-visibility-off"}`,
@@ -243,7 +243,7 @@ export class EventsTab {
 		const state = this.deps.getState();
 		const eventsFolder = this.deps.getEntityFolder("events");
 
-		const discoveredEntries = discoveredToCatalogEntries(state.discoveredEvents, this.deps.app, eventsFolder);
+		const discoveredEntries = discoveredToCatalogEntries(state.discoveredEvents, this.deps.vaultQuery, eventsFolder);
 		const allEntries = [...EVENT_CATALOG, ...discoveredEntries];
 
 		const orderedCategories = getOrderedCategories(state.catalogCategories);
@@ -293,7 +293,7 @@ export class EventsTab {
 			}
 		}
 
-		const totalVisible = getVisibleEntries(state.catalogCategories, state.showSystemEvents, state.discoveredEvents, this.deps.app, eventsFolder).length;
+		const totalVisible = getVisibleEntries(state.catalogCategories, state.showSystemEvents, state.discoveredEvents, this.deps.vaultQuery, eventsFolder).length;
 		this.countBadge.textContent = state.filterText || this.filterChipConfigured || this.filterChipFollowed
 			? `${visibleCount} / ${totalVisible} events`
 			: `${totalVisible} events`;
@@ -422,7 +422,7 @@ export class EventsTab {
 			catDocBtn.addEventListener("click", (e) => {
 				e.stopPropagation();
 				if (catEntry?.filePath) {
-					void openFile(this.deps.app, catEntry.filePath);
+					void openFile(this.deps.workspace, catEntry.filePath);
 				} else {
 					void this.openOrCreateCategoryDoc(category, entries);
 				}
@@ -539,7 +539,7 @@ export class EventsTab {
 	private scanCategories(): void {
 		const state = this.deps.getState();
 		const eventsFolder = this.deps.getEntityFolder("events");
-		const allEntries = [...EVENT_CATALOG, ...discoveredToCatalogEntries(state.discoveredEvents, this.deps.app, eventsFolder)];
+		const allEntries = [...EVENT_CATALOG, ...discoveredToCatalogEntries(state.discoveredEvents, this.deps.vaultQuery, eventsFolder)];
 		const categoryMap = new Map<string, EventCatalogEntry[]>();
 
 		for (const entry of allEntries) {
@@ -557,7 +557,7 @@ export class EventsTab {
 			for (const child of folder.children) {
 				if (!(child instanceof TFile) || child.extension !== "md") continue;
 
-				const fm = readFrontmatter(this.deps.app, child.path);
+				const fm = readFrontmatter(this.deps.vaultQuery, child.path);
 				const name = (fm && (fmString(fm, "category")
 					?? fmString(fm, "name"))) ?? child.basename;
 				const description = (fm && fmString(fm, "description")) ?? "";
@@ -618,7 +618,7 @@ export class EventsTab {
 	private getUserCategories(): string[] {
 		const state = this.deps.getState();
 		const entries = discoveredToCatalogEntries(
-			state.discoveredEvents, this.deps.app, this.deps.getEntityFolder("events"),
+			state.discoveredEvents, this.deps.vaultQuery, this.deps.getEntityFolder("events"),
 		);
 		return [...new Set(entries.map((e) => e.category))]
 			.filter((c) => c !== UNCATEGORIZED_CATEGORY)

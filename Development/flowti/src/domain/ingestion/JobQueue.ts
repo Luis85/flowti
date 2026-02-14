@@ -9,11 +9,17 @@ export class JobQueue<T> {
 	private active = 0;
 	private readonly concurrency: number;
 	private readonly processor: (item: T) => Promise<void>;
+	private readonly onError?: (item: T, error: unknown) => void;
 	private drainResolvers: (() => void)[] = [];
 
-	constructor(concurrency: number, processor: (item: T) => Promise<void>) {
+	constructor(
+		concurrency: number,
+		processor: (item: T) => Promise<void>,
+		onError?: (item: T, error: unknown) => void,
+	) {
 		this.concurrency = concurrency;
 		this.processor = processor;
+		this.onError = onError;
 	}
 
 	/**
@@ -67,8 +73,8 @@ export class JobQueue<T> {
 	private async process(item: T): Promise<void> {
 		try {
 			await this.processor(item);
-		} catch {
-			// Errors are the caller's responsibility; the queue keeps running.
+		} catch (error: unknown) {
+			this.onError?.(item, error);
 		} finally {
 			this.active--;
 			this.processNext();

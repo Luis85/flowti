@@ -8,6 +8,7 @@
  */
 
 import { App, Modal, Notice, Setting, setIcon } from "obsidian";
+import { createVaultQueryService, createWorkspaceService } from "../infrastructure/services/ObsidianAdapters";
 import type { IEventBus } from "../infrastructure/events/types";
 import type { EventCatalogEntry } from "../infrastructure/events/catalog";
 import type { Subscription } from "../domain/subscription/types";
@@ -578,7 +579,7 @@ export class EventConfigModal extends Modal {
 	// ─────────────────────────────────────────────────────────────
 
 	private async openEventDoc(): Promise<void> {
-		await openOrCreateEventDoc(this.app, this.eventBus, this.eventsFolder, this.entry);
+		await openOrCreateEventDoc(createVaultQueryService(this.app), createWorkspaceService(this.app), this.eventBus, this.eventsFolder, this.entry);
 	}
 
 	private saveSubscription(): void {

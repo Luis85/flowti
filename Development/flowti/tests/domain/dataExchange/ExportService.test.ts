@@ -7,6 +7,7 @@ import type { ExportConfig, VaultFileInfo } from "../../../src/domain/dataExchan
 
 function createMockFileSystem(): IFileSystemClient {
 	return {
+		fileExists: vi.fn(async () => false),
 		createFile: vi.fn(async () => {}),
 		readFile: vi.fn(async () => { throw new Error("File not found"); }),
 		updateFile: vi.fn(async () => {}),

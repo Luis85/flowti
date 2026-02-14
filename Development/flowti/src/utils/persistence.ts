@@ -35,3 +35,40 @@ export async function saveStateToStorage<T>(
 		[key]: state,
 	});
 }
+
+/**
+ * Error-safe version of loadStateFromStorage.
+ * Returns `fallback` (default `undefined`) on any storage error,
+ * logging the error to console.
+ */
+export async function safeLoadState<T>(
+	storage: IStorageProvider,
+	key: string,
+	fallback?: T,
+): Promise<T | undefined> {
+	try {
+		return await loadStateFromStorage<T>(storage, key);
+	} catch (err) {
+		console.error(`[Flowti] Failed to load state for key "${key}":`, err);
+		return fallback;
+	}
+}
+
+/**
+ * Error-safe version of saveStateToStorage.
+ * Swallows storage errors, logging them to console.
+ * Returns true on success, false on failure.
+ */
+export async function safeSaveState<T>(
+	storage: IStorageProvider,
+	key: string,
+	state: T,
+): Promise<boolean> {
+	try {
+		await saveStateToStorage(storage, key, state);
+		return true;
+	} catch (err) {
+		console.error(`[Flowti] Failed to save state for key "${key}":`, err);
+		return false;
+	}
+}

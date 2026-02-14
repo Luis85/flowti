@@ -48,7 +48,7 @@ export class ServicesTab {
 			...EVENT_CATALOG,
 			...discoveredToCatalogEntries(
 				this.deps.getState().discoveredEvents,
-				this.deps.app,
+				this.deps.vaultQuery,
 				this.deps.getEntityFolder("events"),
 			),
 		];
@@ -74,7 +74,7 @@ export class ServicesTab {
 			for (const child of folder.children) {
 				if (!(child instanceof TFile) || child.extension !== "md") continue;
 
-				const fm = readFrontmatter(this.deps.app, child.path);
+				const fm = readFrontmatter(this.deps.vaultQuery, child.path);
 				const name = (fm && (fmString(fm, "service")
 					?? fmString(fm, "name"))) ?? child.basename;
 				const description = (fm && fmString(fm, "description")) ?? "";
@@ -350,7 +350,7 @@ export class ServicesTab {
 		docBtn.appendText(serviceData.filePath ? " Open Doc" : " Create Doc");
 		docBtn.addEventListener("click", () => {
 			if (serviceData.filePath) {
-				void openFile(this.deps.app, serviceData.filePath);
+				void openFile(this.deps.workspace, serviceData.filePath);
 			} else {
 				void this.createDoc(serviceData.name);
 			}
@@ -464,7 +464,7 @@ export class ServicesTab {
 		const docPath = getServiceDocPathResolved(folder, name);
 		const existing = this.deps.app.vault.getAbstractFileByPath(docPath);
 		if (existing instanceof TFile) {
-			void openFile(this.deps.app, docPath);
+			void openFile(this.deps.workspace, docPath);
 			return;
 		}
 		const serviceEvents = this.entries.find((s) => s.name === name)?.events ?? [];
@@ -491,7 +491,7 @@ export class ServicesTab {
 		const docPath = getServiceBlueprintPathResolved(folder, name);
 		const existing = this.deps.app.vault.getAbstractFileByPath(docPath);
 		if (existing instanceof TFile) {
-			void openFile(this.deps.app, docPath);
+			void openFile(this.deps.workspace, docPath);
 			return;
 		}
 		const serviceEvents = this.entries.find((s) => s.name === name)?.events ?? [];

@@ -65,17 +65,17 @@ import { createInfrastructure, setupCrossCuttingListeners } from "./pluginBootst
  * @see {@link ICommandRegistry} for command middleware pipeline
  */
 export default class FlowtiBasePlugin extends Plugin {
-	settings: FlowtiSettings;
-	eventBus: IEventBus;
-	eventBridge: IEventBridge;
-	logger: ILogger;
-	errorService: IErrorService;
-	services: IServiceContainer;
-	commands: ICommandRegistry;
-	views: IViewRegistry;
+	settings!: FlowtiSettings;
+	eventBus!: IEventBus;
+	eventBridge!: IEventBridge;
+	logger!: ILogger;
+	errorService!: IErrorService;
+	services!: IServiceContainer;
+	commands!: ICommandRegistry;
+	views!: IViewRegistry;
 
 	// Service references (populated in onLayoutReady)
-	userService: IUserService;
+	userService!: IUserService;
 	private eventFilterService?: EventFilterService;
 	private eventNotifyService?: EventNotificationService;
 	private discoveryService?: DiscoveryService;

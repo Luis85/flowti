@@ -1,9 +1,10 @@
 import { ItemView, WorkspaceLeaf, setIcon, Notice } from "obsidian";
-import { getEventCategory, getEventEntry, type EventCatalogEntry } from "../infrastructure/events/catalog";
+import { getEventCategory, getEventEntry, isSkippedEvent, type EventCatalogEntry } from "../infrastructure/events/catalog";
 import type { FlowtiEvents, IEventBus, WildcardEventHandler } from "../infrastructure/events/types";
 import { type CatalogCategoryConfig, type EntityPaths, DEFAULT_ENTITY_PATHS } from "../domain/settings/settings";
 import type { ViewStateProvider } from "../infrastructure/views/registry";
 import { resolveEntityPath } from "./eventDocTemplate";
+import { createVaultQueryService, createWorkspaceService } from "../infrastructure/services/ObsidianAdapters";
 import { openOrCreateEventDoc } from "./catalog/helpers";
 
 export const VIEW_TYPE_EVENT_LOG = "flowti-event-log";
@@ -52,7 +53,6 @@ export function getContextLine(entry: LoggedEvent): string | null {
 }
 
 const MAX_ENTRIES = 500;
-const SKIPPED_PREFIXES = ["log."];
 
 type LogMode = "subscribed" | "all";
 
@@ -89,13 +89,13 @@ export class EventLogView extends ItemView {
 	private docsRootPath = "03 - Resources/Documentation/Reference";
 	private entityPaths: EntityPaths = DEFAULT_ENTITY_PATHS;
 
-	// DOM refs
-	private listEl: HTMLElement;
-	private countBadge: HTMLElement;
-	private pauseBtn: HTMLButtonElement;
-	private filterInput: HTMLInputElement;
-	private subscribedBtn: HTMLElement;
-	private allBtn: HTMLElement;
+	// DOM refs (initialized in onOpen)
+	private listEl!: HTMLElement;
+	private countBadge!: HTMLElement;
+	private pauseBtn!: HTMLButtonElement;
+	private filterInput!: HTMLInputElement;
+	private subscribedBtn!: HTMLElement;
+	private allBtn!: HTMLElement;
 
 	private state: ViewStateProvider;
 
@@ -294,7 +294,7 @@ export class EventLogView extends ItemView {
 	private subscribe(): void {
 		const handler: WildcardEventHandler = (event: FlowtiEvents) => {
 			if (this.paused) return;
-			if (SKIPPED_PREFIXES.some((prefix) => event.type.startsWith(prefix))) return;
+			if (isSkippedEvent(event.type)) return;
 			if (this.excludedTypes.has(event.type)) return;
 
 			// Never capture events from hidden categories
@@ -543,7 +543,7 @@ export class EventLogView extends ItemView {
 
 	private async openEventDoc(entry: EventCatalogEntry): Promise<void> {
 		const eventsFolder = resolveEntityPath(this.docsRootPath, this.entityPaths.events);
-		await openOrCreateEventDoc(this.app, this.eventBus, eventsFolder, entry);
+		await openOrCreateEventDoc(createVaultQueryService(this.app), createWorkspaceService(this.app), this.eventBus, eventsFolder, entry);
 	}
 
 	// ─────────────────────────────────────────────────────────────

@@ -54,6 +54,7 @@ function createMockStep(
 function createMockDeps(): InstallerStepDeps {
 	return {
 		fileSystem: {
+			fileExists: vi.fn(),
 			createFile: vi.fn(),
 			readFile: vi.fn(),
 			updateFile: vi.fn(),

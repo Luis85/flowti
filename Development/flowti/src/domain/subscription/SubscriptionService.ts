@@ -1,6 +1,8 @@
 import type { IEventBus } from "../../infrastructure/events/types";
+import { isSkippedEvent } from "../../infrastructure/events/catalog";
 import { loadStateFromStorage, saveStateToStorage } from "../../utils/persistence";
 import type { IStorageProvider } from "../../utils/types";
+import { generateUUID, extractSettingsBoolean, extractStringField } from "../../utils/helpers";
 import { matchGlob } from "../../utils/glob";
 import type { Subscription, SubscriptionFilter, SubscriptionState } from "./types";
 
@@ -23,13 +25,11 @@ function createDefaultState(): SubscriptionState {
  * Generates a unique subscription ID.
  */
 function generateId(): string {
-	return `sub_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+	return `sub_${generateUUID()}`;
 }
 
-/**
- * Prefixes to skip in the wildcard listener to avoid infinite loops.
- */
-const SKIPPED_PREFIXES = ["log.", "subscription.", "settings."];
+/** Extra prefixes to skip beyond the shared INTERNAL_EVENT_PREFIXES. */
+const EXTRA_SKIP_PREFIXES = ["subscription."] as const;
 
 /**
  * Service for managing event subscriptions with conditional filters.
@@ -58,18 +58,14 @@ export class SubscriptionService {
 			// Listen for settings changes to update the enabled flag
 			this.unsubscribes.push(
 				this.eventBus.on("settings.changed", (event) => {
-					const settings = event.payload.settings as { eventSystemEnabled?: boolean };
-					if (typeof settings.eventSystemEnabled === "boolean") {
-						this.enabled = settings.eventSystemEnabled;
-					}
+					const flag = extractSettingsBoolean(event.payload, "eventSystemEnabled");
+					if (flag !== undefined) this.enabled = flag;
 				})
 			);
 			this.unsubscribes.push(
 				this.eventBus.on("settings.loaded", (event) => {
-					const settings = event.payload.settings as { eventSystemEnabled?: boolean };
-					if (typeof settings.eventSystemEnabled === "boolean") {
-						this.enabled = settings.eventSystemEnabled;
-					}
+					const flag = extractSettingsBoolean(event.payload, "eventSystemEnabled");
+					if (flag !== undefined) this.enabled = flag;
 				})
 			);
 
@@ -108,7 +104,7 @@ export class SubscriptionService {
 				this.eventBus.on("*", (event) => {
 					if (!this.enabled) return;
 					const type = event.type;
-					if (SKIPPED_PREFIXES.some((p) => type.startsWith(p))) return;
+					if (isSkippedEvent(type, EXTRA_SKIP_PREFIXES)) return;
 					this.matchSubscriptions(type, event.payload as Record<string, unknown>);
 				})
 			);
@@ -224,7 +220,7 @@ export class SubscriptionService {
 		filters: SubscriptionFilter,
 		payload: Record<string, unknown>
 	): boolean {
-		const path = typeof payload.path === "string" ? payload.path : undefined;
+		const path = extractStringField(payload, "path");
 
 		// pathPattern: glob against the full file path
 		if (filters.pathPattern) {

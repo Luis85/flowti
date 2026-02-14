@@ -1,6 +1,8 @@
 import type { App } from "obsidian";
 import type { EventCatalogEntry } from "../../infrastructure/events/catalog";
 import type { IEventBus } from "../../infrastructure/events/types";
+import type { IVaultQueryService } from "../../infrastructure/services/VaultQueryService";
+import type { IWorkspaceService } from "../../infrastructure/services/WorkspaceService";
 import type { DiscoveredEvent } from "../../domain/discovery/types";
 import type { Subscription } from "../../domain/subscription/types";
 import type { EventDefinition } from "../../domain/eventDefinition/types";
@@ -127,6 +129,8 @@ export interface NavigationCallbacks {
 
 export interface CatalogComponentDeps {
 	app: App;
+	vaultQuery: IVaultQueryService;
+	workspace: IWorkspaceService;
 	eventBus: IEventBus;
 	getState: () => CatalogState;
 	navigation: NavigationCallbacks;

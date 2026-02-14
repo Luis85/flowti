@@ -49,6 +49,7 @@ function buildInstaller(options: {
 	};
 
 	const fileSystem: IFileSystemClient = {
+		fileExists: vi.fn(),
 		createFile: options.createFileFn ?? vi.fn(),
 		readFile: vi.fn(),
 		updateFile: vi.fn(),

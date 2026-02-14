@@ -8,7 +8,10 @@
  */
 
 import type { IEventBus } from "../../infrastructure/events/types";
+import { isSkippedEvent } from "../../infrastructure/events/catalog";
 import type { IStorageProvider } from "../../utils/types";
+import { safeLoadState, safeSaveState } from "../../utils/persistence";
+import { generateUUID, extractSettingsBoolean, extractStringField } from "../../utils/helpers";
 import { matchGlob } from "../../utils/glob";
 import { extractPayload } from "./payloadExtractor";
 import type {
@@ -36,13 +39,11 @@ function createDefaultState(): EventDefinitionState {
  * Generates a unique definition ID.
  */
 function generateId(): string {
-	return `def_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+	return `def_${generateUUID()}`;
 }
 
-/**
- * Prefixes to skip in event matching to avoid infinite loops.
- */
-const SKIPPED_PREFIXES = ["log.", "eventDefinition.", "settings.", "ingestion."];
+/** Extra prefixes to skip beyond the shared INTERNAL_EVENT_PREFIXES. */
+const EXTRA_SKIP_PREFIXES = ["eventDefinition.", "ingestion."] as const;
 
 export class EventDefinitionService {
 	private state: EventDefinitionState = createDefaultState();
@@ -62,18 +63,14 @@ export class EventDefinitionService {
 			// Listen for settings changes to update the enabled flag
 			this.unsubscribes.push(
 				this.eventBus.on("settings.changed", (event) => {
-					const settings = event.payload.settings as { eventSystemEnabled?: boolean };
-					if (typeof settings.eventSystemEnabled === "boolean") {
-						this.enabled = settings.eventSystemEnabled;
-					}
+					const flag = extractSettingsBoolean(event.payload, "eventSystemEnabled");
+					if (flag !== undefined) this.enabled = flag;
 				})
 			);
 			this.unsubscribes.push(
 				this.eventBus.on("settings.loaded", (event) => {
-					const settings = event.payload.settings as { eventSystemEnabled?: boolean };
-					if (typeof settings.eventSystemEnabled === "boolean") {
-						this.enabled = settings.eventSystemEnabled;
-					}
+					const flag = extractSettingsBoolean(event.payload, "eventSystemEnabled");
+					if (flag !== undefined) this.enabled = flag;
 				})
 			);
 
@@ -111,13 +108,10 @@ export class EventDefinitionService {
 			this.unsubscribes.push(
 				this.eventBus.on("ingestion.job.completed", (event) => {
 					if (!this.enabled) return;
-					const payload = event.payload as {
-						jobId: string;
-						eventType: string;
-						payload?: Record<string, unknown>;
-					};
-					if (payload.payload) {
-						this.matchDefinitions(payload.eventType, payload.payload);
+					const eventType = extractStringField(event.payload, "eventType");
+					const innerPayload = (event.payload as Record<string, unknown>).payload;
+					if (eventType && innerPayload && typeof innerPayload === "object") {
+						this.matchDefinitions(eventType, innerPayload as Record<string, unknown>);
 					}
 				})
 			);
@@ -128,12 +122,10 @@ export class EventDefinitionService {
 	 * Loads event definition state from storage.
 	 */
 	async load(): Promise<void> {
-		const data = (await this.storage.load()) as {
-			eventDefinition?: EventDefinitionState;
-		} | null;
-		if (data?.eventDefinition) {
-			this.state = data.eventDefinition;
-			this.emittedKeys = new Set(data.eventDefinition.emittedKeys ?? []);
+		const saved = await safeLoadState<EventDefinitionState>(this.storage, "eventDefinition");
+		if (saved) {
+			this.state = saved;
+			this.emittedKeys = new Set(saved.emittedKeys ?? []);
 		}
 		await this.eventBus?.emit("eventDefinition.loaded", {
 			definitions: this.getDefinitions(),
@@ -221,7 +213,7 @@ export class EventDefinitionService {
 		eventPayload: Record<string, unknown>
 	): void {
 		// Skip internal events
-		if (SKIPPED_PREFIXES.some((p) => eventType.startsWith(p))) return;
+		if (isSkippedEvent(eventType, EXTRA_SKIP_PREFIXES)) return;
 
 		for (const def of Object.values(this.state.definitions)) {
 			if (!def.enabled) continue;
@@ -229,14 +221,14 @@ export class EventDefinitionService {
 
 			// Check file pattern if specified
 			if (def.filePattern) {
-				const path = typeof eventPayload.path === "string" ? eventPayload.path : undefined;
+				const path = extractStringField(eventPayload, "path");
 				if (!path) continue;
 				if (!matchGlob(def.filePattern, path)) continue;
 			}
 
 			// Check "once" emission policy
 			if (def.emissionPolicy === "once") {
-				const path = typeof eventPayload.path === "string" ? eventPayload.path : undefined;
+				const path = extractStringField(eventPayload, "path");
 				const emitKey = `${def.id}::${path ?? ""}`;
 				if (this.emittedKeys.has(emitKey)) continue;
 				this.addToEmittedKeys(emitKey);
@@ -248,7 +240,7 @@ export class EventDefinitionService {
 			void this.eventBus?.emit("eventDefinition.matched", {
 				definitionId: def.id,
 				domainEventName: def.domainEventName,
-				sourcePath: typeof eventPayload.path === "string" ? eventPayload.path : "",
+				sourcePath: extractStringField(eventPayload, "path") ?? "",
 			});
 
 			// Persist emitted keys for "once" policy
@@ -278,13 +270,9 @@ export class EventDefinitionService {
 	 * Persists state to storage.
 	 */
 	private async saveState(): Promise<void> {
-		const existingData = ((await this.storage.load()) as object) || {};
-		await this.storage.save({
-			...existingData,
-			eventDefinition: {
-				definitions: this.state.definitions,
-				emittedKeys: [...this.emittedKeys],
-			},
+		await safeSaveState(this.storage, "eventDefinition", {
+			definitions: this.state.definitions,
+			emittedKeys: [...this.emittedKeys],
 		});
 	}
 

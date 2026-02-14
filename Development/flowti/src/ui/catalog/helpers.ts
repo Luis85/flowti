@@ -1,5 +1,7 @@
 import { TFile, Setting } from "obsidian";
 import type { App } from "obsidian";
+import type { IVaultQueryService } from "../../infrastructure/services/VaultQueryService";
+import type { IWorkspaceService } from "../../infrastructure/services/WorkspaceService";
 import {
 	EVENT_CATALOG,
 	EVENT_CATEGORIES,
@@ -78,12 +80,8 @@ export function isDiscoveredEvent(
 // Frontmatter utilities
 // ─────────────────────────────────────────────────────────────
 
-export function readFrontmatter(app: App, path: string): Record<string, unknown> | undefined {
-	const file = app.vault.getAbstractFileByPath(path);
-	if (!(file instanceof TFile)) return undefined;
-	return app.metadataCache.getFileCache(file)?.frontmatter as
-		| Record<string, unknown>
-		| undefined;
+export function readFrontmatter(vaultQuery: IVaultQueryService, path: string): Record<string, unknown> | undefined {
+	return vaultQuery.getFrontmatter(path);
 }
 
 export function fmString(fm: Record<string, unknown> | undefined, key: string): string | undefined {
@@ -182,13 +180,13 @@ export function getOrderedCategories(catalogCategories: CatalogCategoryConfig[])
 
 export function discoveredToCatalogEntries(
 	discoveredEvents: DiscoveredEvent[],
-	app: App,
+	vaultQuery: IVaultQueryService,
 	eventsFolder: string,
 ): EventCatalogEntry[] {
 	return discoveredEvents.map((d) => {
-		const sourceFm = readFrontmatter(app, d.sourcePath);
+		const sourceFm = readFrontmatter(vaultQuery, d.sourcePath);
 		const docPath = getEventDocPathResolved(eventsFolder, d.eventName);
-		const docFm = readFrontmatter(app, docPath);
+		const docFm = readFrontmatter(vaultQuery, docPath);
 
 		return {
 			type: d.eventName,
@@ -217,10 +215,10 @@ export function getVisibleEntries(
 	catalogCategories: CatalogCategoryConfig[],
 	showSystemEvents: boolean,
 	discoveredEvents: DiscoveredEvent[],
-	app: App,
+	vaultQuery: IVaultQueryService,
 	eventsFolder: string,
 ): EventCatalogEntry[] {
-	const discoveredEntries = discoveredToCatalogEntries(discoveredEvents, app, eventsFolder);
+	const discoveredEntries = discoveredToCatalogEntries(discoveredEvents, vaultQuery, eventsFolder);
 	const allEntries = [...EVENT_CATALOG, ...discoveredEntries];
 	const visibleCats = new Set(
 		getOrderedCategories(catalogCategories).filter((c) => c.visible).map((c) => c.name),
@@ -239,12 +237,12 @@ export function getVisibleEntries(
 export function resolveEntry(
 	eventType: string,
 	discoveredEvents: DiscoveredEvent[],
-	app: App,
+	vaultQuery: IVaultQueryService,
 	eventsFolder: string,
 ): EventCatalogEntry | undefined {
 	const system = EVENT_CATALOG.find((e) => e.type === eventType);
 	if (system) return system;
-	const discovered = discoveredToCatalogEntries(discoveredEvents, app, eventsFolder)
+	const discovered = discoveredToCatalogEntries(discoveredEvents, vaultQuery, eventsFolder)
 		.find((e) => e.type === eventType);
 	return discovered;
 }
@@ -253,12 +251,12 @@ export function getConfiguredCount(
 	catalogCategories: CatalogCategoryConfig[],
 	showSystemEvents: boolean,
 	discoveredEvents: DiscoveredEvent[],
-	app: App,
+	vaultQuery: IVaultQueryService,
 	eventsFolder: string,
 	subscriptions: Subscription[],
 	definitions: EventDefinition[],
 ): number {
-	return getVisibleEntries(catalogCategories, showSystemEvents, discoveredEvents, app, eventsFolder)
+	return getVisibleEntries(catalogCategories, showSystemEvents, discoveredEvents, vaultQuery, eventsFolder)
 		.filter((e) => isConfigured(e.type, subscriptions, definitions)).length;
 }
 
@@ -266,11 +264,11 @@ export function getFollowedCount(
 	catalogCategories: CatalogCategoryConfig[],
 	showSystemEvents: boolean,
 	discoveredEvents: DiscoveredEvent[],
-	app: App,
+	vaultQuery: IVaultQueryService,
 	eventsFolder: string,
 	notifiedTypes: Set<string>,
 ): number {
-	return getVisibleEntries(catalogCategories, showSystemEvents, discoveredEvents, app, eventsFolder)
+	return getVisibleEntries(catalogCategories, showSystemEvents, discoveredEvents, vaultQuery, eventsFolder)
 		.filter((e) => notifiedTypes.has(e.type)).length;
 }
 
@@ -328,27 +326,21 @@ export function getSourcePath(discoveredEvents: DiscoveredEvent[], eventName: st
 	return discoveredEvents.find((d) => d.eventName === eventName)?.sourcePath;
 }
 
-export async function openFile(app: App, path: string): Promise<void> {
-	const file = app.vault.getAbstractFileByPath(path);
-	if (file && file instanceof TFile) {
-		const leaf = app.workspace.getLeaf(false);
-		await leaf.openFile(file);
-	}
+export async function openFile(workspace: IWorkspaceService, path: string): Promise<void> {
+	await workspace.openFile(path);
 }
 
 export async function openOrCreateEventDoc(
-	app: App,
+	vaultQuery: IVaultQueryService,
+	workspace: IWorkspaceService,
 	eventBus: IEventBus,
 	eventsFolder: string,
 	entry: EventCatalogEntry,
 ): Promise<void> {
 	const docPath = getEventDocPathResolved(eventsFolder, entry.type);
 
-	const file = app.vault.getAbstractFileByPath(docPath);
-
-	if (file && file instanceof TFile) {
-		const leaf = app.workspace.getLeaf(false);
-		await leaf.openFile(file);
+	if (vaultQuery.fileExists(docPath)) {
+		await workspace.openFile(docPath);
 		return;
 	}
 
@@ -363,10 +355,8 @@ export async function openOrCreateEventDoc(
 	});
 
 	// Try to open the newly created file
-	const newFile = app.vault.getAbstractFileByPath(docPath);
-	if (newFile && newFile instanceof TFile) {
-		const leaf = app.workspace.getLeaf(false);
-		await leaf.openFile(newFile);
+	if (vaultQuery.fileExists(docPath)) {
+		await workspace.openFile(docPath);
 	}
 }
 

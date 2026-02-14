@@ -89,7 +89,14 @@ export class SettingsService implements ISettingsService {
 	 * Falls back to defaults if stored settings are invalid.
 	 */
 	async load(): Promise<void> {
-		const data = await this.storage.load();
+		let data: unknown;
+		try {
+			data = await this.storage.load();
+		} catch (err) {
+			console.error("[Flowti] Failed to load settings:", err);
+			data = null;
+		}
+
 		const result = FlowtiSettingsSchema.safeParse(data);
 
 		if (result.success) {
@@ -154,10 +161,14 @@ export class SettingsService implements ISettingsService {
 	 * Preserves other data in storage (like user data).
 	 */
 	private async saveSettings(): Promise<void> {
-		const existingData = ((await this.storage.load()) as object) || {};
-		await this.storage.save({
-			...existingData,
-			...this.settings,
-		});
+		try {
+			const existingData = ((await this.storage.load()) as object) || {};
+			await this.storage.save({
+				...existingData,
+				...this.settings,
+			});
+		} catch (err) {
+			console.error("[Flowti] Failed to save settings:", err);
+		}
 	}
 }

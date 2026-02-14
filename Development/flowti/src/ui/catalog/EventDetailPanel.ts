@@ -44,7 +44,7 @@ export class EventDetailPanel {
 			return;
 		}
 
-		const entry = resolveEntry(eventType, this.deps.getState().discoveredEvents, this.deps.app, this.deps.getEntityFolder("events"));
+		const entry = resolveEntry(eventType, this.deps.getState().discoveredEvents, this.deps.vaultQuery, this.deps.getEntityFolder("events"));
 		if (!entry) {
 			this.renderEmpty();
 			return;
@@ -65,9 +65,9 @@ export class EventDetailPanel {
 		empty.createEl("p", { text: "Select an event to view details" });
 
 		// Quick stats
-		const allEntries = [...EVENT_CATALOG, ...discoveredToCatalogEntries(state.discoveredEvents, this.deps.app, eventsFolder)];
-		const configuredCount = getConfiguredCount(state.catalogCategories, state.showSystemEvents, state.discoveredEvents, this.deps.app, eventsFolder, state.subscriptions, state.definitions);
-		const followedCount = getFollowedCount(state.catalogCategories, state.showSystemEvents, state.discoveredEvents, this.deps.app, eventsFolder, state.notifiedTypes);
+		const allEntries = [...EVENT_CATALOG, ...discoveredToCatalogEntries(state.discoveredEvents, this.deps.vaultQuery, eventsFolder)];
+		const configuredCount = getConfiguredCount(state.catalogCategories, state.showSystemEvents, state.discoveredEvents, this.deps.vaultQuery, eventsFolder, state.subscriptions, state.definitions);
+		const followedCount = getFollowedCount(state.catalogCategories, state.showSystemEvents, state.discoveredEvents, this.deps.vaultQuery, eventsFolder, state.notifiedTypes);
 
 		const stats = empty.createDiv({ cls: "ft-catalog-quick-stats" });
 		renderStat(stats, `${allEntries.length}`, "events");
@@ -156,7 +156,7 @@ export class EventDetailPanel {
 		setIcon(docIcon, "file-text");
 		docBtn.appendText(" Event Doc");
 		docBtn.addEventListener("click", () => {
-			void openOrCreateEventDoc(this.deps.app, this.deps.eventBus, this.deps.getEntityFolder("events"), entry);
+			void openOrCreateEventDoc(this.deps.vaultQuery, this.deps.workspace, this.deps.eventBus, this.deps.getEntityFolder("events"), entry);
 		});
 
 		// Follow toggle
@@ -198,7 +198,7 @@ export class EventDetailPanel {
 				setIcon(srcIcon, "file-input");
 				srcBtn.appendText(" Source");
 				srcBtn.addEventListener("click", () => {
-					void openFile(this.deps.app, sourcePath);
+					void openFile(this.deps.workspace, sourcePath);
 				});
 			}
 		}
@@ -241,7 +241,7 @@ export class EventDetailPanel {
 			cls: "ft-btn ft-btn-secondary ft-text-sm",
 		});
 		addBtn.addEventListener("click", () => {
-			const tempEntry = resolveEntry(entry.type, state.discoveredEvents, this.deps.app, eventsFolder);
+			const tempEntry = resolveEntry(entry.type, state.discoveredEvents, this.deps.vaultQuery, eventsFolder);
 			if (tempEntry) {
 				new EventConfigModal(this.deps.app, this.deps.eventBus, tempEntry, eventsFolder).open();
 			}
@@ -306,7 +306,7 @@ export class EventDetailPanel {
 		editBtn.setAttribute("aria-label", "Edit watcher");
 		editBtn.addEventListener("click", (e) => {
 			e.stopPropagation();
-			const entry = resolveEntry(sub.eventType, state.discoveredEvents, this.deps.app, eventsFolder);
+			const entry = resolveEntry(sub.eventType, state.discoveredEvents, this.deps.vaultQuery, eventsFolder);
 			if (entry) {
 				new EventConfigModal(this.deps.app, this.deps.eventBus, entry, eventsFolder).open();
 			}
@@ -340,7 +340,7 @@ export class EventDetailPanel {
 			cls: "ft-btn ft-btn-secondary ft-text-sm",
 		});
 		addBtn.addEventListener("click", () => {
-			const tempEntry = resolveEntry(entry.type, state.discoveredEvents, this.deps.app, eventsFolder);
+			const tempEntry = resolveEntry(entry.type, state.discoveredEvents, this.deps.vaultQuery, eventsFolder);
 			if (tempEntry) {
 				new EventConfigModal(this.deps.app, this.deps.eventBus, tempEntry, eventsFolder).open();
 			}
@@ -401,7 +401,7 @@ export class EventDetailPanel {
 		editBtn.setAttribute("aria-label", "Edit transform");
 		editBtn.addEventListener("click", (e) => {
 			e.stopPropagation();
-			const entry = resolveEntry(def.sourceEventType, state.discoveredEvents, this.deps.app, eventsFolder);
+			const entry = resolveEntry(def.sourceEventType, state.discoveredEvents, this.deps.vaultQuery, eventsFolder);
 			if (entry) {
 				new EventConfigModal(this.deps.app, this.deps.eventBus, entry, eventsFolder).open();
 			}

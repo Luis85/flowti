@@ -38,6 +38,13 @@ export interface FileOperationOptions {
  */
 export interface IFileSystemClient {
 	/**
+	 * Check if a file exists.
+	 * @param path - File path relative to vault root
+	 * @returns true if the file exists
+	 */
+	fileExists(path: string, options?: FileOperationOptions): Promise<boolean>;
+
+	/**
 	 * Create a new file.
 	 * @param path - File path relative to vault root
 	 * @param content - File content
