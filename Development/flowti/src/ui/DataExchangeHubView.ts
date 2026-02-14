@@ -526,7 +526,7 @@ export class DataExchangeHubView extends ItemView {
 			ctaBtn.addEventListener("click", () => {
 				new FilePickerModal(this.app, ["csv"], (csvPath) => {
 					this.openCsvImport(csvPath);
-				}).open();
+				}, this.dataExchangeService.getHiddenCsvPaths()).open();
 			});
 			return;
 		}
@@ -647,7 +647,7 @@ export class DataExchangeHubView extends ItemView {
 		newBtn.addEventListener("click", () => {
 			new FilePickerModal(this.app, ["csv"], (csvPath) => {
 				this.openCsvImport(csvPath);
-			}).open();
+			}, this.dataExchangeService.getHiddenCsvPaths()).open();
 		});
 	}
 
@@ -1217,7 +1217,7 @@ export class DataExchangeHubView extends ItemView {
 			} else {
 				new FilePickerModal(this.app, ["csv"], (csvPath) => {
 					this.executeImportConfigWithSource(cfg, csvPath);
-				}).open();
+				}, this.dataExchangeService.getHiddenCsvPaths()).open();
 			}
 		});
 
@@ -1232,7 +1232,7 @@ export class DataExchangeHubView extends ItemView {
 			} else {
 				new FilePickerModal(this.app, ["csv"], (csvPath) => {
 					this.openCsvImport(csvPath, cfg);
-				}).open();
+				}, this.dataExchangeService.getHiddenCsvPaths()).open();
 			}
 		});
 
@@ -1737,6 +1737,46 @@ export class DataExchangeHubView extends ItemView {
 			}).open();
 		});
 
+		// ── Linked Pipelines (shown first when present) ─────
+		const linkedPipelines = this.dataExchangeService.getSavedPipelines()
+			.filter((p) => p.exportConfigIds?.includes(cfg.id));
+		if (linkedPipelines.length > 0) {
+			const section = this.detailPanelEl.createDiv({ cls: "ft-card ft-mt-3" });
+			section.createDiv({
+				text: `Pipeline${linkedPipelines.length > 1 ? "s" : ""} (${linkedPipelines.length})`,
+				cls: "ft-detail-section-header",
+			});
+			for (let i = 0; i < linkedPipelines.length; i++) {
+				const pipe = linkedPipelines[i];
+				const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1 ft-px-2" });
+				if (linkedPipelines.length > 1 && i < linkedPipelines.length - 1) {
+					row.style.borderBottom = "1px solid var(--background-modifier-border)";
+				}
+				const icon = row.createSpan();
+				setIcon(icon, "git-merge");
+				icon.style.flexShrink = "0";
+				icon.style.opacity = "0.6";
+				const link = row.createEl("span", {
+					text: pipe.name,
+					cls: "ft-nav-link ft-text-sm",
+				});
+				link.style.flex = "1";
+				link.addEventListener("click", () => {
+					this.selectedPipelineId = pipe.id;
+					this.navigateTo("pipelines");
+				});
+				const infoParts: string[] = [];
+				if (pipe.noteType) infoParts.push(pipe.noteType);
+				infoParts.push(`${pipe.sources.length} source${pipe.sources.length !== 1 ? "s" : ""}`);
+				infoParts.push(`→ ${pipe.targetFolder}`);
+				if (pipe.basePath) infoParts.push(pipe.basePath.split("/").pop() ?? pipe.basePath);
+				row.createSpan({
+					text: infoParts.join(" · "),
+					cls: "ft-text-muted ft-text-sm",
+				});
+			}
+		}
+
 		// ── Description from linked config doc ───────────────
 		if (configDocExists && configDocFile instanceof TFile) {
 			const cache = this.app.metadataCache.getFileCache(configDocFile);
@@ -1824,39 +1864,6 @@ export class DataExchangeHubView extends ItemView {
 			}
 		}
 
-		// ── Linked Pipelines ───────────────────────────────
-		const linkedPipelines = this.dataExchangeService.getSavedPipelines()
-			.filter((p) => p.exportConfigIds?.includes(cfg.id));
-		if (linkedPipelines.length > 0) {
-			const section = this.detailPanelEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
-			section.createDiv({
-				text: `Pipelines (${linkedPipelines.length})`,
-				cls: "ft-detail-section-header",
-			});
-			for (const pipe of linkedPipelines) {
-				const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
-				row.style.borderBottom = "1px solid var(--background-modifier-border)";
-				const icon = row.createSpan();
-				setIcon(icon, "git-merge");
-				icon.style.flexShrink = "0";
-				const link = row.createEl("span", {
-					text: pipe.name,
-					cls: "ft-nav-link ft-text-sm",
-				});
-				link.style.flex = "1";
-				link.addEventListener("click", () => {
-					this.selectedPipelineId = pipe.id;
-					this.navigateTo("pipelines");
-				});
-				if (pipe.noteType) {
-					row.createSpan({ text: pipe.noteType, cls: "ft-badge ft-badge-muted" });
-				}
-				row.createSpan({
-					text: `${pipe.sources.length} source${pipe.sources.length !== 1 ? "s" : ""}`,
-					cls: "ft-text-muted ft-text-sm",
-				});
-			}
-		}
 	}
 
 	private renderExportEditForm(cfg: SavedExportConfig): void {
@@ -2680,6 +2687,7 @@ export class DataExchangeHubView extends ItemView {
 				mergeKey: pipe.mergeKey,
 				otherSources: pipe.sources,
 				savedImportConfigs: this.dataExchangeService.getSavedImportConfigs().filter((c) => c.sourcePath),
+				hiddenCsvPaths: this.dataExchangeService.getHiddenCsvPaths(),
 				onSave: (newSource) => {
 					const updatedSources = [...pipe.sources, newSource];
 					void this.dataExchangeService
@@ -2833,6 +2841,7 @@ export class DataExchangeHubView extends ItemView {
 				existingSource: source,
 				otherSources: pipe.sources.filter((s) => s.id !== source.id),
 				savedImportConfigs: this.dataExchangeService.getSavedImportConfigs().filter((c) => c.sourcePath),
+				hiddenCsvPaths: this.dataExchangeService.getHiddenCsvPaths(),
 				onSave: (updated) => {
 					const updatedSources = pipe.sources.map((s) => (s.id === updated.id ? updated : s));
 					void this.dataExchangeService

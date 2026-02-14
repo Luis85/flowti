@@ -24,6 +24,8 @@ export interface PipelineSourceModalOptions {
 	onSave: (source: MultiImportSource) => void;
 	/** Available saved import configs for the "Load from config" feature */
 	savedImportConfigs?: SavedImportConfig[];
+	/** CSV paths to exclude from the file picker (hidden files) */
+	hiddenCsvPaths?: string[];
 }
 
 function generateSourceId(): string {
@@ -38,6 +40,7 @@ export class PipelineSourceModal extends Modal {
 	/** Frontmatter keys already claimed by other sources in the pipeline */
 	private otherSourceKeys: Set<string>;
 	private savedImportConfigs: SavedImportConfig[];
+	private hiddenCsvPaths: string[];
 
 	// State
 	private csvPath = "";
@@ -54,6 +57,7 @@ export class PipelineSourceModal extends Modal {
 		this.existingSource = options.existingSource;
 		this.onSave = options.onSave;
 		this.savedImportConfigs = options.savedImportConfigs ?? [];
+		this.hiddenCsvPaths = options.hiddenCsvPaths ?? [];
 
 		// Build set of keys already claimed by other sources
 		this.otherSourceKeys = new Set<string>();
@@ -144,7 +148,7 @@ export class PipelineSourceModal extends Modal {
 					new FilePickerModal(this.app, ["csv"], (path) => {
 						this.csvPath = path;
 						void this.parseCsv();
-					}).open();
+					}, this.hiddenCsvPaths).open();
 				}),
 		);
 
@@ -239,7 +243,8 @@ export class PipelineSourceModal extends Modal {
 					included: true,
 				}));
 			} else {
-				// Merge: keep existing mappings, add new headers
+				// Sync with new CSV: keep matching mappings, add new, remove stale
+				const headerSet = new Set(this.csvHeaders);
 				const existingCols = new Set(this.columnMappings.map((m) => m.csvColumn));
 				for (const h of this.csvHeaders) {
 					if (!existingCols.has(h)) {
@@ -250,6 +255,7 @@ export class PipelineSourceModal extends Modal {
 						});
 					}
 				}
+				this.columnMappings = this.columnMappings.filter((m) => headerSet.has(m.csvColumn));
 			}
 		} catch (error) {
 			new Notice(`Failed to parse CSV: ${error instanceof Error ? error.message : String(error)}`);

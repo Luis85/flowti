@@ -15,12 +15,15 @@ export class FilePickerModal extends FuzzySuggestModal<TFile> {
 		app: App,
 		extensions: string[],
 		onChoose: (filePath: string) => void,
+		excludePaths?: string[],
 	) {
 		super(app);
 		const extSet = new Set(extensions.map((e) => e.toLowerCase()));
+		const excludeSet = excludePaths ? new Set(excludePaths) : undefined;
 		this.files = app.vault
 			.getFiles()
 			.filter((f) => extSet.has(f.extension.toLowerCase()))
+			.filter((f) => !excludeSet || !excludeSet.has(f.path))
 			.sort((a, b) => a.path.localeCompare(b.path));
 		this.onChooseFile = onChoose;
 	}

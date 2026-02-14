@@ -277,6 +277,7 @@ export class DataExchangeService {
 		Object.assign(cfg, updates);
 		await this.saveState();
 		this.emitConfigChanged();
+		void this.createImportConfigDoc(cfg);
 		if (cfg.noteType) {
 			void this.createOrUpdateTypeDoc(cfg.noteType);
 		}
@@ -342,6 +343,7 @@ export class DataExchangeService {
 		Object.assign(cfg, updates);
 		await this.saveState();
 		this.emitConfigChanged();
+		void this.createExportConfigDoc(cfg);
 		if (cfg.noteType) {
 			void this.createOrUpdateTypeDoc(cfg.noteType);
 		}
@@ -961,69 +963,176 @@ export class DataExchangeService {
 		return name.replace(/[\\/:*?"<>|#^[\]]/g, "").replace(/\s+/g, " ").trim();
 	}
 
+	private buildImportDocContent(config: SavedImportConfig, userNotes?: string): string {
+		const now = new Date(config.createdAt).toISOString();
+		const included = config.columnMappings.filter((m) => m.included);
+
+		const lines: string[] = [
+			"---",
+			"type: ImportConfigDoc",
+			`configId: "${config.id}"`,
+			`name: "${config.name}"`,
+			`targetFolder: "${config.targetFolder}"`,
+			`nameColumn: "${config.nameColumn}"`,
+			`namePrefix: "${config.namePrefix ?? ""}"`,
+			`nameSuffix: "${config.nameSuffix ?? ""}"`,
+			`conflictStrategy: "${config.conflictStrategy}"`,
+			`columns: ${config.columnMappings.length}`,
+			`includedColumns: ${included.length}`,
+			config.noteType ? `noteType: "${config.noteType}"` : "",
+			config.sourcePath ? `sourcePath: "${config.sourcePath}"` : "",
+			`created: "${now}"`,
+			"---",
+			"",
+			`# ${config.name}`,
+			"",
+			"> Import configuration for CSV-to-Notes pipeline.",
+			"",
+			"## Settings",
+			"",
+			"| Setting           | Value            |",
+			"| ----------------- | ---------------- |",
+			`| **Target Folder** | \`${config.targetFolder}\` |`,
+			`| **Name Column**   | \`${config.nameColumn}\` |`,
+			`| **Name Prefix**   | ${config.namePrefix ? `\`${config.namePrefix}\`` : "_(none)_"} |`,
+			`| **Name Suffix**   | ${config.nameSuffix ? `\`${config.nameSuffix}\`` : "_(none)_"} |`,
+			`| **Conflict**      | ${config.conflictStrategy} |`,
+			`| **Columns**       | ${included.length} of ${config.columnMappings.length} |`,
+			config.noteType ? `| **Note Type**     | [[Type - ${this.sanitizeDocName(config.noteType)}\\|${config.noteType}]] |` : "",
+			config.sourcePath ? `| **Source CSV**    | [[${config.sourcePath}\\|${config.sourcePath.split("/").pop()}]] |` : "",
+			"",
+		];
+
+		// Remove empty lines from conditional entries
+		const filtered = lines.filter((l) => l !== "" || lines.indexOf(l) > 10);
+
+		if (included.length > 0) {
+			filtered.push("## Column Mappings", "");
+			filtered.push("| CSV Column | Frontmatter Key | Included |");
+			filtered.push("| ---------- | --------------- | -------- |");
+			for (const m of config.columnMappings) {
+				filtered.push(`| ${m.csvColumn} | \`${m.frontmatterKey}\` | ${m.included ? "Yes" : "No"} |`);
+			}
+			filtered.push("");
+		}
+
+		if (config.customProperties && Object.keys(config.customProperties).length > 0) {
+			filtered.push("## Custom Properties", "");
+			for (const [k, v] of Object.entries(config.customProperties)) {
+				filtered.push(`- \`${k}\` = \`${v}\``);
+			}
+			filtered.push("");
+		}
+
+		if (userNotes !== undefined) {
+			filtered.push("## Notes", "", userNotes);
+		} else {
+			filtered.push("## Notes", "", "> Document usage notes, scheduling, or workflow context.", "");
+		}
+
+		return filtered.join("\n");
+	}
+
 	private async createImportConfigDoc(config: SavedImportConfig): Promise<void> {
 		if (!this.docsRootPath) return;
 		try {
 			const folder = this.getConfigsFolder();
 			const safeName = this.sanitizeDocName(config.name);
 			const path = `${folder}/Import - ${safeName}.md`;
-			const now = new Date(config.createdAt).toISOString();
-			const included = config.columnMappings.filter((m) => m.included);
 
-			const lines: string[] = [
-				"---",
-				"type: ImportConfigDoc",
-				`configId: "${config.id}"`,
-				`name: "${config.name}"`,
-				`targetFolder: "${config.targetFolder}"`,
-				`nameColumn: "${config.nameColumn}"`,
-				`namePrefix: "${config.namePrefix ?? ""}"`,
-				`nameSuffix: "${config.nameSuffix ?? ""}"`,
-				`conflictStrategy: "${config.conflictStrategy}"`,
-				`columns: ${config.columnMappings.length}`,
-				`includedColumns: ${included.length}`,
-				config.noteType ? `noteType: "${config.noteType}"` : "",
-				`created: "${now}"`,
-				"---",
-				"",
-				`# ${config.name}`,
-				"",
-				"> Import configuration for CSV-to-Notes pipeline.",
-				"",
-				"## Settings",
-				"",
-				"| Setting           | Value            |",
-				"| ----------------- | ---------------- |",
-				`| **Target Folder** | ${config.targetFolder} |`,
-				`| **Name Column**   | ${config.nameColumn} |`,
-				`| **Name Prefix**   | ${config.namePrefix || "_(none)_"} |`,
-				`| **Name Suffix**   | ${config.nameSuffix || "_(none)_"} |`,
-				`| **Conflict**      | ${config.conflictStrategy} |`,
-				`| **Columns**       | ${included.length} of ${config.columnMappings.length} |`,
-				config.noteType ? `| **Note Type**     | [[Type - ${this.sanitizeDocName(config.noteType)}\\|${config.noteType}]] |` : "",
-				"",
-			];
-
-			if (included.length > 0) {
-				lines.push("## Column Mappings");
-				lines.push("");
-				lines.push("| CSV Column | Frontmatter Key | Included |");
-				lines.push("| ---------- | --------------- | -------- |");
-				for (const m of config.columnMappings) {
-					lines.push(`| ${m.csvColumn} | ${m.frontmatterKey} | ${m.included ? "Yes" : "No"} |`);
+			// Try to preserve user-written notes from existing doc
+			let userNotes: string | undefined;
+			try {
+				const existing = await this.fileSystem.readFile(path);
+				const notesMatch = existing.match(/## Notes\n\n([\s\S]*?)$/);
+				if (notesMatch) {
+					const notes = notesMatch[1].trim();
+					if (notes && notes !== "> Document usage notes, scheduling, or workflow context.") {
+						userNotes = notesMatch[1];
+					}
 				}
-				lines.push("");
+			} catch {
+				// File doesn't exist yet — that's fine
 			}
 
-			lines.push("## Notes");
-			lines.push("");
-			lines.push("> Document usage notes, scheduling, or workflow context.");
-			lines.push("");
+			const content = this.buildImportDocContent(config, userNotes);
 
-			await this.fileSystem.createFile(path, lines.join("\n"), { createFolders: true });
+			try {
+				await this.fileSystem.createFile(path, content, { createFolders: true });
+			} catch {
+				// File already exists — update it
+				await this.fileSystem.updateFile(path, content);
+			}
 		} catch (error) {
 			console.error("[Flowti] Failed to create import config doc", error);
 		}
+	}
+
+	private buildExportDocContent(config: SavedExportConfig, userNotes?: string): string {
+		const now = new Date(config.createdAt).toISOString();
+		const formatLabel = config.format === "tab" ? "Tab-delimited" : "CSV";
+
+		const lines: string[] = [
+			"---",
+			"type: ExportConfigDoc",
+			`configId: "${config.id}"`,
+			`name: "${config.name}"`,
+			`sourcePath: "${config.sourcePath}"`,
+			`sourceType: "${config.sourceType}"`,
+			`format: "${config.format}"`,
+			`outputPath: "${config.outputPath}"`,
+			`columns: ${config.columns.length}`,
+			`fileProperties: ${config.fileProperties.length}`,
+			`conflictStrategy: "${config.conflictStrategy ?? "overwrite"}"`,
+			config.isExternal ? `isExternal: true` : "",
+			config.noteType ? `noteType: "${config.noteType}"` : "",
+			`created: "${now}"`,
+			"---",
+			"",
+			`# ${config.name}`,
+			"",
+			"> Export configuration for vault data extraction.",
+			"",
+			"## Settings",
+			"",
+			"| Setting           | Value              |",
+			"| ----------------- | ------------------ |",
+			`| **Source**        | [[${config.sourcePath}\\|${config.sourcePath.split("/").pop()}]] |`,
+			`| **Source Type**   | ${config.sourceType} |`,
+			`| **Format**       | ${formatLabel} |`,
+			`| **Output**       | \`${config.outputPath}\` |`,
+			`| **Conflict**     | ${config.conflictStrategy ?? "overwrite"} |`,
+			config.isExternal ? `| **External**     | Yes |` : "",
+			config.noteType ? `| **Note Type**    | [[Type - ${this.sanitizeDocName(config.noteType)}\\|${config.noteType}]] |` : "",
+			"",
+		];
+
+		// Remove empty lines from conditional entries
+		const filtered = lines.filter((l) => l !== "" || lines.indexOf(l) > 10);
+
+		if (config.columns.length > 0) {
+			filtered.push("## Note Properties", "");
+			for (const col of config.columns) {
+				filtered.push(`- \`${col}\``);
+			}
+			filtered.push("");
+		}
+
+		if (config.fileProperties.length > 0) {
+			filtered.push("## File Properties", "");
+			for (const fp of config.fileProperties) {
+				filtered.push(`- \`${fp}\``);
+			}
+			filtered.push("");
+		}
+
+		if (userNotes !== undefined) {
+			filtered.push("## Notes", "", userNotes);
+		} else {
+			filtered.push("## Notes", "", "> Document usage notes, scheduling, or workflow context.", "");
+		}
+
+		return filtered.join("\n");
 	}
 
 	private async createExportConfigDoc(config: SavedExportConfig): Promise<void> {
@@ -1032,66 +1141,30 @@ export class DataExchangeService {
 			const folder = this.getConfigsFolder();
 			const safeName = this.sanitizeDocName(config.name);
 			const path = `${folder}/Export - ${safeName}.md`;
-			const now = new Date(config.createdAt).toISOString();
-			const formatLabel = config.format === "tab" ? "Tab-delimited" : "CSV";
 
-			const lines: string[] = [
-				"---",
-				"type: ExportConfigDoc",
-				`configId: "${config.id}"`,
-				`name: "${config.name}"`,
-				`sourcePath: "${config.sourcePath}"`,
-				`sourceType: "${config.sourceType}"`,
-				`format: "${config.format}"`,
-				`outputPath: "${config.outputPath}"`,
-				`columns: ${config.columns.length}`,
-				`fileProperties: ${config.fileProperties.length}`,
-				`conflictStrategy: "${config.conflictStrategy ?? "overwrite"}"`,
-				config.noteType ? `noteType: "${config.noteType}"` : "",
-				`created: "${now}"`,
-				"---",
-				"",
-				`# ${config.name}`,
-				"",
-				"> Export configuration for vault data extraction.",
-				"",
-				"## Settings",
-				"",
-				"| Setting           | Value              |",
-				"| ----------------- | ------------------ |",
-				`| **Source**        | ${config.sourcePath} |`,
-				`| **Source Type**   | ${config.sourceType} |`,
-				`| **Format**       | ${formatLabel} |`,
-				`| **Output**       | ${config.outputPath} |`,
-				`| **Conflict**     | ${config.conflictStrategy ?? "overwrite"} |`,
-				config.noteType ? `| **Note Type**    | [[Type - ${this.sanitizeDocName(config.noteType)}\\|${config.noteType}]] |` : "",
-				"",
-			];
-
-			if (config.columns.length > 0) {
-				lines.push("## Note Properties");
-				lines.push("");
-				for (const col of config.columns) {
-					lines.push(`- ${col}`);
+			// Try to preserve user-written notes from existing doc
+			let userNotes: string | undefined;
+			try {
+				const existing = await this.fileSystem.readFile(path);
+				const notesMatch = existing.match(/## Notes\n\n([\s\S]*?)$/);
+				if (notesMatch) {
+					const notes = notesMatch[1].trim();
+					if (notes && notes !== "> Document usage notes, scheduling, or workflow context.") {
+						userNotes = notesMatch[1];
+					}
 				}
-				lines.push("");
+			} catch {
+				// File doesn't exist yet — that's fine
 			}
 
-			if (config.fileProperties.length > 0) {
-				lines.push("## File Properties");
-				lines.push("");
-				for (const fp of config.fileProperties) {
-					lines.push(`- ${fp}`);
-				}
-				lines.push("");
+			const content = this.buildExportDocContent(config, userNotes);
+
+			try {
+				await this.fileSystem.createFile(path, content, { createFolders: true });
+			} catch {
+				// File already exists — update it
+				await this.fileSystem.updateFile(path, content);
 			}
-
-			lines.push("## Notes");
-			lines.push("");
-			lines.push("> Document usage notes, scheduling, or workflow context.");
-			lines.push("");
-
-			await this.fileSystem.createFile(path, lines.join("\n"), { createFolders: true });
 		} catch (error) {
 			console.error("[Flowti] Failed to create export config doc", error);
 		}
@@ -1359,6 +1432,25 @@ export class DataExchangeService {
 			}
 		}
 
+		if (pipeline.exportConfigIds && pipeline.exportConfigIds.length > 0) {
+			filtered.push("## Export Steps", "");
+			filtered.push("| # | Config | Format | Output | Conflict |");
+			filtered.push("| - | ------ | ------ | ------ | -------- |");
+			for (let i = 0; i < pipeline.exportConfigIds.length; i++) {
+				const exportCfg = this.getExportConfig(pipeline.exportConfigIds[i]);
+				if (exportCfg) {
+					const cfgSafe = this.sanitizeDocName(exportCfg.name);
+					const formatLabel = exportCfg.format === "tab" ? "Tab" : "CSV";
+					const outputName = exportCfg.outputPath.split("/").pop() ?? exportCfg.outputPath;
+					const conflict = exportCfg.conflictStrategy ?? "overwrite";
+					filtered.push(`| ${i + 1} | [[Export - ${cfgSafe}\\|${exportCfg.name}]] | ${formatLabel} | \`${outputName}\` | ${conflict} |`);
+				} else {
+					filtered.push(`| ${i + 1} | _(deleted config)_ | — | — | — |`);
+				}
+			}
+			filtered.push("");
+		}
+
 		if (pipeline.createBase && pipeline.basePath) {
 			filtered.push("## Base View", "");
 			filtered.push(`Linked base view: [[${pipeline.basePath}]]`, "");
@@ -1371,6 +1463,16 @@ export class DataExchangeService {
 			for (const source of pipeline.sources) {
 				const csvName = source.csvPath.split("/").pop() ?? source.csvPath;
 				filtered.push(`  - [[${source.csvPath}|${csvName}]]`);
+			}
+		}
+		if (pipeline.exportConfigIds && pipeline.exportConfigIds.length > 0) {
+			filtered.push("- **Export configs**:");
+			for (const exportId of pipeline.exportConfigIds) {
+				const exportCfg = this.getExportConfig(exportId);
+				if (exportCfg) {
+					const cfgSafe = this.sanitizeDocName(exportCfg.name);
+					filtered.push(`  - [[Export - ${cfgSafe}|${exportCfg.name}]]`);
+				}
 			}
 		}
 		filtered.push("");
