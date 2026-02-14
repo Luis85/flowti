@@ -13,14 +13,14 @@ function makeState(overrides: Partial<DataExchangeState> = {}): DataExchangeStat
 
 describe("ConfigPathTracker", () => {
 	let state: DataExchangeState;
-	let saveState: ReturnType<typeof vi.fn>;
-	let emitConfigChanged: ReturnType<typeof vi.fn>;
+	let saveState: ReturnType<typeof vi.fn<() => Promise<void>>>;
+	let emitConfigChanged: ReturnType<typeof vi.fn<() => void>>;
 	let tracker: ConfigPathTracker;
 
 	beforeEach(() => {
 		state = makeState();
-		saveState = vi.fn(async () => {});
-		emitConfigChanged = vi.fn();
+		saveState = vi.fn<() => Promise<void>>(async () => {});
+		emitConfigChanged = vi.fn<() => void>();
 		tracker = new ConfigPathTracker({
 			getState: () => state,
 			saveState,

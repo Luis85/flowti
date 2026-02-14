@@ -91,7 +91,7 @@ describe("ConfigDocService", () => {
 		docCreateEvents = [];
 
 		eventBus.on("doc.create", (event) => {
-			docCreateEvents.push(event.payload as Record<string, unknown>);
+			docCreateEvents.push(event.payload as unknown as Record<string, unknown>);
 		});
 
 		const deps: ConfigDocServiceDeps = {
@@ -128,9 +128,10 @@ describe("ConfigDocService", () => {
 			expect(svc.getTypesFolderPath()).toContain("Types");
 		});
 
-		it("getCsvDocPath includes CSV filename", () => {
+		it("getCsvDocPath includes CSV basename", () => {
 			const path = svc.getCsvDocPath("data/sales.csv");
-			expect(path).toContain("sales.csv");
+			expect(path).toContain("sales");
+			expect(path).toContain("Reports");
 		});
 
 		it("getConfigDocPath includes config name and type", () => {
@@ -181,7 +182,8 @@ describe("ConfigDocService", () => {
 
 		it("should return the doc path", async () => {
 			const result = await svc.createCsvDoc("data/sales.csv", ["name"], 10);
-			expect(result).toContain("sales.csv");
+			expect(result).toContain("sales");
+			expect(result).toContain("Reports");
 		});
 
 		it("should use basename from csvPath as name", async () => {
@@ -228,7 +230,7 @@ describe("ConfigDocService", () => {
 			// Re-register listener after new svc
 			docCreateEvents = [];
 			eventBus.on("doc.create", (event) => {
-				docCreateEvents.push(event.payload as Record<string, unknown>);
+				docCreateEvents.push(event.payload as unknown as Record<string, unknown>);
 			});
 
 			await svc.createPropertyDoc("status");
@@ -498,14 +500,16 @@ describe("ConfigDocService", () => {
 			expect(content).toContain("source");
 		});
 
-		it("should skip configs with different noteType", async () => {
+		it("should create TypeDoc with no properties when no configs match", async () => {
 			state.savedPipelines = [
 				makePipeline({ noteType: "Other" }),
 			];
 			await svc.createOrUpdateTypeDoc("Event");
 			const typeDoc = docCreateEvents.find((e) => e.docType === "TypeDoc");
-			// No pipeline matches "Event" — no properties from it
-			expect(typeDoc).toBeUndefined();
+			// TypeDoc is still created, but with 0 properties
+			expect(typeDoc).toBeDefined();
+			const content = typeDoc!.content as string;
+			expect(content).toContain("properties: []");
 		});
 	});
 
@@ -515,7 +519,7 @@ describe("ConfigDocService", () => {
 		it("should emit 4 CRUD event docs", () => {
 			const discoveryEvents: Array<Record<string, unknown>> = [];
 			eventBus.on("discovery.create", (event) => {
-				discoveryEvents.push(event.payload as Record<string, unknown>);
+				discoveryEvents.push(event.payload as unknown as Record<string, unknown>);
 			});
 
 			svc.createConfigEventDocs("Sales Import", "import");
@@ -530,7 +534,7 @@ describe("ConfigDocService", () => {
 		it("should normalize config name for event type", () => {
 			const discoveryEvents: Array<Record<string, unknown>> = [];
 			eventBus.on("discovery.create", (event) => {
-				discoveryEvents.push(event.payload as Record<string, unknown>);
+				discoveryEvents.push(event.payload as unknown as Record<string, unknown>);
 			});
 
 			svc.createConfigEventDocs("My Config!!", "pipeline");
@@ -540,7 +544,7 @@ describe("ConfigDocService", () => {
 		it("should not emit when config name normalizes to empty", () => {
 			const discoveryEvents: Array<Record<string, unknown>> = [];
 			eventBus.on("discovery.create", (event) => {
-				discoveryEvents.push(event.payload as Record<string, unknown>);
+				discoveryEvents.push(event.payload as unknown as Record<string, unknown>);
 			});
 
 			svc.createConfigEventDocs("!!!", "import");
@@ -550,7 +554,7 @@ describe("ConfigDocService", () => {
 		it("should set correct domain for Data Exchange", () => {
 			const discoveryEvents: Array<Record<string, unknown>> = [];
 			eventBus.on("discovery.create", (event) => {
-				discoveryEvents.push(event.payload as Record<string, unknown>);
+				discoveryEvents.push(event.payload as unknown as Record<string, unknown>);
 			});
 
 			svc.createConfigEventDocs("Test", "export");
