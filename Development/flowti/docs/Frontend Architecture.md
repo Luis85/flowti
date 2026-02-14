@@ -1,3 +1,11 @@
+---
+stage: open
+domain: Flowti/System
+plugin: "[[Development/flowti/README|README]]"
+tags:
+  - frontend
+---
+
 # Frontend Architecture
 
 This document describes the current frontend architecture of the Flowti IBDE Obsidian plugin, its design principles, view inventory, and refactoring history with planned next phases.
