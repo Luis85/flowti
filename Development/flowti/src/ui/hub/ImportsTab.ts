@@ -65,8 +65,8 @@ export class ImportsTab {
 
 		const iconEl = item.createSpan();
 		setIcon(iconEl, "file-input");
-		iconEl.style.opacity = "0.5";
-		iconEl.style.flexShrink = "0";
+		iconEl.addClass("ft-icon-muted");
+		iconEl.addClass("ft-flex-shrink-0");
 		iconEl.style.marginTop = "0.125rem";
 
 		const textBlock = item.createDiv({ cls: "ft-master-event-name" });

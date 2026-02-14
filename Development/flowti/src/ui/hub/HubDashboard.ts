@@ -30,7 +30,7 @@ export class HubDashboard {
 		titleBar.style.paddingBottom = "0.75rem";
 		const titleIcon = titleBar.createSpan();
 		setIcon(titleIcon, "arrow-left-right");
-		titleIcon.style.opacity = "0.5";
+		titleIcon.addClass("ft-icon-muted");
 		titleBar.createEl("h2", {
 			text: "Data Exchange Hub",
 			cls: "ft-heading",
@@ -72,7 +72,7 @@ export class HubDashboard {
 		const header = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
 		const iconEl = header.createSpan();
 		setIcon(iconEl, icon);
-		iconEl.style.opacity = "0.5";
+		iconEl.addClass("ft-icon-muted");
 		header.createSpan({ text: title, cls: "ft-heading ft-heading-sm" });
 		header.createSpan({ text: String(count), cls: "ft-master-category-count" });
 		return header;
@@ -103,13 +103,13 @@ export class HubDashboard {
 
 		for (const card of cards) {
 			const el = row.createDiv({ cls: "ft-card ft-p-3" });
-			el.style.flex = "1";
-			el.style.cursor = "pointer";
+			el.addClass("ft-flex-1");
+			el.addClass("ft-cursor-pointer");
 			el.style.textAlign = "center";
 
 			const iconEl = el.createDiv();
 			setIcon(iconEl, card.icon);
-			iconEl.style.opacity = "0.4";
+			iconEl.addClass("ft-icon-faint");
 			iconEl.style.marginBottom = "0.25rem";
 
 			el.createDiv({
@@ -146,7 +146,7 @@ export class HubDashboard {
 			const cta = section.createDiv({ cls: "ft-card ft-p-3 ft-text-center" });
 			const ctaIcon = cta.createDiv();
 			setIcon(ctaIcon, "layers");
-			ctaIcon.style.opacity = "0.3";
+			ctaIcon.addClass("ft-icon-subtle");
 			ctaIcon.style.marginBottom = "0.5rem";
 			cta.createDiv({
 				text: "No import pipelines yet",
@@ -190,7 +190,7 @@ export class HubDashboard {
 			const nameRow = nameTd.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
 
 			const starIcon = nameRow.createSpan({ cls: "ft-nav-link" });
-			starIcon.style.flexShrink = "0";
+			starIcon.addClass("ft-flex-shrink-0");
 			setIcon(starIcon, pipe.favourite ? "star" : "star-off");
 			if (pipe.favourite) starIcon.style.color = "var(--text-accent)";
 			starIcon.setAttribute("aria-label", pipe.favourite ? "Unfavourite" : "Favourite");
@@ -298,7 +298,7 @@ export class HubDashboard {
 			const cta = section.createDiv({ cls: "ft-card ft-p-3 ft-text-center" });
 			const ctaIcon = cta.createDiv();
 			setIcon(ctaIcon, "file-input");
-			ctaIcon.style.opacity = "0.3";
+			ctaIcon.addClass("ft-icon-subtle");
 			ctaIcon.style.marginBottom = "0.5rem";
 			cta.createDiv({
 				text: "No import configs yet",
@@ -349,7 +349,7 @@ export class HubDashboard {
 				const nameRow = nameTd.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
 
 				const starIcon = nameRow.createSpan({ cls: "ft-nav-link" });
-				starIcon.style.flexShrink = "0";
+				starIcon.addClass("ft-flex-shrink-0");
 				setIcon(starIcon, cfg.favourite ? "star" : "star-off");
 				if (cfg.favourite) starIcon.style.color = "var(--text-accent)";
 				starIcon.setAttribute("aria-label", cfg.favourite ? "Unfavourite" : "Favourite");
@@ -546,7 +546,7 @@ export class HubDashboard {
 			const cta = section.createDiv({ cls: "ft-card ft-p-3 ft-text-center" });
 			const ctaIcon = cta.createDiv();
 			setIcon(ctaIcon, "file-output");
-			ctaIcon.style.opacity = "0.3";
+			ctaIcon.addClass("ft-icon-subtle");
 			ctaIcon.style.marginBottom = "0.5rem";
 			cta.createDiv({
 				text: "No export configs yet",
@@ -589,7 +589,7 @@ export class HubDashboard {
 			const nameRow = nameTd.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
 
 			const starIcon = nameRow.createSpan({ cls: "ft-nav-link" });
-			starIcon.style.flexShrink = "0";
+			starIcon.addClass("ft-flex-shrink-0");
 			setIcon(starIcon, cfg.favourite ? "star" : "star-off");
 			if (cfg.favourite) starIcon.style.color = "var(--text-accent)";
 			starIcon.setAttribute("aria-label", cfg.favourite ? "Unfavourite" : "Favourite");
@@ -724,7 +724,7 @@ export class HubDashboard {
 			const toggleChip = toggleRow.createSpan({
 				cls: `ft-badge ${state.showHiddenCsvs ? "" : "ft-badge-muted"}`,
 			});
-			toggleChip.style.cursor = "pointer";
+			toggleChip.addClass("ft-cursor-pointer");
 			const eyeIcon = toggleChip.createSpan();
 			setIcon(eyeIcon, state.showHiddenCsvs ? "eye" : "eye-off");
 			eyeIcon.style.marginRight = "0.25rem";
@@ -771,7 +771,7 @@ export class HubDashboard {
 	): void {
 		const tr = tbody.createEl("tr");
 		if (isHidden) {
-			tr.style.opacity = "0.5";
+			tr.addClass("ft-icon-muted");
 		}
 
 		// File name

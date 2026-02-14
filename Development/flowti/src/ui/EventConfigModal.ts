@@ -7,7 +7,7 @@
  * Three pages: overview (default), subscription-form, definition-form.
  */
 
-import { App, Modal, Notice, Setting, TFile, setIcon } from "obsidian";
+import { App, Modal, Notice, Setting, setIcon } from "obsidian";
 import type { IEventBus } from "../infrastructure/events/types";
 import type { EventCatalogEntry } from "../infrastructure/events/catalog";
 import type { Subscription } from "../domain/subscription/types";
@@ -17,17 +17,15 @@ import type {
 	EmissionPolicy,
 } from "../domain/eventDefinition/types";
 import { ConfirmModal } from "./modals";
-import { getEventDocPathResolved, generateEventDocContent } from "./eventDocTemplate";
+import {
+	openOrCreateEventDoc,
+	renderSubscriptionForm,
+	renderSubscriptionRow,
+	type SubscriptionFormData,
+} from "./catalog/helpers";
 import { FileSystemClient } from "../infrastructure/filesystem/FileSystemClient";
 
 type Page = "overview" | "subscription-form" | "definition-form";
-
-interface SubscriptionFormData {
-	label: string;
-	pathPattern: string;
-	extension: string;
-	namePattern: string;
-}
 
 interface DefinitionFormData {
 	domainEventName: string;
@@ -174,7 +172,13 @@ export class EventConfigModal extends Modal {
 
 		switch (this.page) {
 			case "subscription-form":
-				this.renderSubscriptionForm(contentEl);
+				renderSubscriptionForm(contentEl, {
+					isEdit: this.editingSubscriptionId !== null,
+					eventTypeLocked: true,
+					formData: this.subFormData,
+					onSave: () => this.saveSubscription(),
+					onCancel: () => { this.page = "overview"; this.render(); },
+				});
 				break;
 			case "definition-form":
 				this.renderDefinitionForm(contentEl);
@@ -216,7 +220,7 @@ export class EventConfigModal extends Modal {
 		setIcon(docIcon, "file-text");
 		docBtn.appendText(" Open Event Doc");
 		docBtn.addEventListener("click", () => {
-			void this.openOrCreateEventDoc();
+			void this.openEventDoc();
 		});
 		docRow.createSpan({
 			text: "View or create the documentation note for this event",
@@ -241,6 +245,7 @@ export class EventConfigModal extends Modal {
 		addSubBtn.addEventListener("click", () => {
 			this.editingSubscriptionId = null;
 			this.subFormData = this.emptySubForm();
+			this.subFormData.eventType = this.entry.type;
 			this.page = "subscription-form";
 			this.render();
 		});
@@ -257,7 +262,33 @@ export class EventConfigModal extends Modal {
 			});
 		} else {
 			for (const sub of this.subscriptions) {
-				this.renderSubscriptionRow(container, sub);
+				renderSubscriptionRow(container, sub, {
+					showEventType: false,
+					eventBus: this.eventBus,
+					onEdit: () => {
+						this.editingSubscriptionId = sub.id;
+						this.subFormData = {
+							eventType: this.entry.type,
+							label: sub.label ?? "",
+							pathPattern: sub.filters.pathPattern ?? "",
+							extension: sub.filters.extension ?? "",
+							namePattern: sub.filters.namePattern ?? "",
+						};
+						this.page = "subscription-form";
+						this.render();
+					},
+					onDelete: () => {
+						new ConfirmModal(this.app, {
+							message: `Delete watcher "${sub.label || sub.eventType}"?`,
+							confirmLabel: "Delete",
+							onConfirm: () => {
+								void this.eventBus.emit("subscription.remove", {
+									subscriptionId: sub.id,
+								});
+							},
+						}).open();
+					},
+				});
 			}
 		}
 
@@ -298,61 +329,6 @@ export class EventConfigModal extends Modal {
 				this.renderDefinitionRow(container, def);
 			}
 		}
-	}
-
-	private renderSubscriptionRow(container: HTMLElement, sub: Subscription): void {
-		const setting = new Setting(container);
-
-		const filterParts: string[] = [];
-		if (sub.filters.pathPattern) filterParts.push(`path: ${sub.filters.pathPattern}`);
-		if (sub.filters.extension) filterParts.push(`ext: ${sub.filters.extension}`);
-		if (sub.filters.namePattern) filterParts.push(`name: ${sub.filters.namePattern}`);
-		const filterDesc = filterParts.length > 0 ? filterParts.join(", ") : "no filters";
-
-		setting.setName(sub.label || "(no label)");
-		setting.setDesc(filterDesc);
-
-		setting.addToggle((toggle) => {
-			toggle.setValue(sub.enabled);
-			toggle.onChange((value) => {
-				void this.eventBus.emit("subscription.update", {
-					subscriptionId: sub.id,
-					enabled: value,
-				});
-			});
-		});
-
-		setting.addExtraButton((btn) => {
-			btn.setIcon("pencil");
-			btn.setTooltip("Edit");
-			btn.onClick(() => {
-				this.editingSubscriptionId = sub.id;
-				this.subFormData = {
-					label: sub.label ?? "",
-					pathPattern: sub.filters.pathPattern ?? "",
-					extension: sub.filters.extension ?? "",
-					namePattern: sub.filters.namePattern ?? "",
-				};
-				this.page = "subscription-form";
-				this.render();
-			});
-		});
-
-		setting.addExtraButton((btn) => {
-			btn.setIcon("trash-2");
-			btn.setTooltip("Delete");
-			btn.onClick(() => {
-				new ConfirmModal(this.app, {
-					message: `Delete watcher "${sub.label || sub.eventType}"?`,
-					confirmLabel: "Delete",
-					onConfirm: () => {
-						void this.eventBus.emit("subscription.remove", {
-							subscriptionId: sub.id,
-						});
-					},
-				}).open();
-			});
-		});
 	}
 
 	private renderDefinitionRow(container: HTMLElement, def: EventDefinition): void {
@@ -405,115 +381,6 @@ export class EventConfigModal extends Modal {
 						});
 					},
 				}).open();
-			});
-		});
-	}
-
-	// ─────────────────────────────────────────────────────────────
-	// Subscription form
-	// ─────────────────────────────────────────────────────────────
-
-	private renderSubscriptionForm(container: HTMLElement): void {
-		const isEdit = this.editingSubscriptionId !== null;
-
-		container.createEl("h3", {
-			text: isEdit ? "Edit Watcher" : "New Watcher",
-		});
-
-		container.createEl("p", {
-			text: "A watcher monitors this event type and filters matching files for processing. All filter fields use AND logic \u2014 a file must match every specified filter.",
-			cls: "ft-text-muted ft-text-sm ft-mb-2",
-		});
-
-		new Setting(container)
-			.setName("Event type")
-			.setDesc("Watched event type")
-			.addText((text) => {
-				text.setValue(this.entry.type);
-				text.setDisabled(true);
-			});
-
-		new Setting(container)
-			.setName("Label")
-			.setDesc("A friendly name to identify this watcher in lists. Recommended when you have multiple watchers for the same event.")
-			.addText((text) => {
-				text.setPlaceholder("My subscription");
-				text.setValue(this.subFormData.label);
-				text.onChange((value) => {
-					this.subFormData.label = value;
-				});
-			});
-
-		new Setting(container)
-			.setName("Path pattern")
-			.setDesc("Glob pattern matched against the full vault path. Use ** for any depth, * for one level. Example: Reports/** matches all files under Reports/. Leave empty to match any path.")
-			.addText((text) => {
-				text.setPlaceholder("Reports/**");
-				text.setValue(this.subFormData.pathPattern);
-				text.onChange((value) => {
-					this.subFormData.pathPattern = value;
-				});
-			});
-
-		new Setting(container)
-			.setName("Extension")
-			.setDesc("File extension without the dot. Only files with this extension will match. Example: csv, md, json. Leave empty to match any extension.")
-			.addText((text) => {
-				text.setPlaceholder("csv");
-				text.setValue(this.subFormData.extension);
-				text.onChange((value) => {
-					this.subFormData.extension = value;
-				});
-			});
-
-		new Setting(container)
-			.setName("Name pattern")
-			.setDesc("Glob pattern matched against the filename only (not the full path). Example: report-*.csv matches report-jan.csv. Leave empty to match any filename.")
-			.addText((text) => {
-				text.setPlaceholder("report-*.csv");
-				text.setValue(this.subFormData.namePattern);
-				text.onChange((value) => {
-					this.subFormData.namePattern = value;
-				});
-			});
-
-		const btnRow = container.createDiv({ cls: "ft-flex ft-gap-2 ft-mt-4" });
-
-		const cancelBtn = btnRow.createEl("button", {
-			text: "Cancel",
-			cls: "ft-btn ft-btn-ghost",
-		});
-		cancelBtn.addEventListener("click", () => {
-			this.page = "overview";
-			this.render();
-		});
-
-		const saveBtn = btnRow.createEl("button", {
-			text: isEdit ? "Save" : "Create",
-			cls: "ft-btn ft-btn-primary",
-		});
-		saveBtn.addEventListener("click", () => {
-			const filters = {
-				pathPattern: this.subFormData.pathPattern || undefined,
-				extension: this.subFormData.extension || undefined,
-				namePattern: this.subFormData.namePattern || undefined,
-			};
-
-			const promise = isEdit && this.editingSubscriptionId
-				? this.eventBus.emit("subscription.update", {
-						subscriptionId: this.editingSubscriptionId,
-						label: this.subFormData.label || undefined,
-						filters,
-					})
-				: this.eventBus.emit("subscription.create", {
-						eventType: this.entry.type,
-						label: this.subFormData.label || undefined,
-						filters,
-					});
-
-			promise.catch((err: unknown) => {
-				console.error("[Flowti] Watcher save failed:", err);
-				new Notice("Failed to save watcher. Check console for details.", 5000);
 			});
 		});
 	}
@@ -668,7 +535,7 @@ export class EventConfigModal extends Modal {
 		fieldInput.type = "text";
 		fieldInput.placeholder = "output field";
 		fieldInput.value = mapping.field;
-		fieldInput.style.flex = "1";
+		fieldInput.addClass("ft-flex-1");
 		fieldInput.addEventListener("input", () => {
 			mapping.field = fieldInput.value;
 		});
@@ -693,7 +560,7 @@ export class EventConfigModal extends Modal {
 		exprInput.type = "text";
 		exprInput.placeholder = "key, regex, or derivation";
 		exprInput.value = mapping.expression;
-		exprInput.style.flex = "1";
+		exprInput.addClass("ft-flex-1");
 		exprInput.addEventListener("input", () => {
 			mapping.expression = exprInput.value;
 		});
@@ -713,31 +580,39 @@ export class EventConfigModal extends Modal {
 	// Helpers
 	// ─────────────────────────────────────────────────────────────
 
-	private async openOrCreateEventDoc(): Promise<void> {
-		const docPath = getEventDocPathResolved(this.eventsFolder, this.entry.type);
-		let file = this.app.vault.getAbstractFileByPath(docPath);
+	private async openEventDoc(): Promise<void> {
+		await openOrCreateEventDoc(this.app, this.fileSystemClient, this.eventsFolder, this.entry);
+	}
 
-		if (!file) {
-			const content = generateEventDocContent(this.entry);
-			try {
-				await this.fileSystemClient.createFile(docPath, content, {
-					createFolders: true,
+	private saveSubscription(): void {
+		const isEdit = this.editingSubscriptionId !== null;
+		const filters = {
+			pathPattern: this.subFormData.pathPattern || undefined,
+			extension: this.subFormData.extension || undefined,
+			namePattern: this.subFormData.namePattern || undefined,
+		};
+
+		const promise = isEdit && this.editingSubscriptionId
+			? this.eventBus.emit("subscription.update", {
+					subscriptionId: this.editingSubscriptionId,
+					label: this.subFormData.label || undefined,
+					filters,
+				})
+			: this.eventBus.emit("subscription.create", {
+					eventType: this.subFormData.eventType,
+					label: this.subFormData.label || undefined,
+					filters,
 				});
-			} catch (err) {
-				console.error(`[Flowti] Failed to create event doc: ${docPath}`, err);
-				return;
-			}
-			file = this.app.vault.getAbstractFileByPath(docPath);
-		}
 
-		if (file && file instanceof TFile) {
-			const leaf = this.app.workspace.getLeaf(false);
-			await leaf.openFile(file);
-		}
+		promise.catch((err: unknown) => {
+			console.error("[Flowti] Watcher save failed:", err);
+			new Notice("Failed to save watcher. Check console for details.", 5000);
+		});
 	}
 
 	private emptySubForm(): SubscriptionFormData {
 		return {
+			eventType: "",
 			label: "",
 			pathPattern: "",
 			extension: "",

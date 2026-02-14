@@ -20,6 +20,7 @@ import type {
 } from "../domain/dataExchange/types";
 import { FolderPickerModal, getVaultFolders } from "./FolderPickerModal";
 import { ConfirmModal, ConfigChooserModal, InputModal } from "./modals";
+import { renderStepBar, renderConfigDropdown } from "./hub/helpers";
 
 export const VIEW_TYPE_CSV = "flowti-csv";
 
@@ -57,7 +58,6 @@ export class CsvActionView extends TextFileView {
 	private pendingSavedConfig: SavedImportConfig | null = null;
 	private unsubscribes: (() => void)[] = [];
 	private columnSearchText = "";
-	private configDropdownOpen = false;
 	private customProperties: Record<string, string> = {};
 	private usageProgressEl: HTMLElement | null = null;
 	private basesContainerEl: HTMLElement | null = null;
@@ -194,7 +194,7 @@ export class CsvActionView extends TextFileView {
 		this.workspaceEl!.classList.toggle("ft-hidden", isLanding);
 
 		if (!isLanding) {
-			this.updateStepperState();
+			this.renderTopBar();
 		}
 
 		switch (this.currentPage) {
@@ -230,7 +230,7 @@ export class CsvActionView extends TextFileView {
 			text: this.file?.basename ?? "CSV File",
 			cls: "ft-heading ft-csv-title",
 		});
-		nameEl.style.cursor = "pointer";
+		nameEl.addClass("ft-cursor-pointer");
 		nameEl.addEventListener("click", () => {
 			this.resetImportState();
 			this.currentPage = "landing";
@@ -273,53 +273,20 @@ export class CsvActionView extends TextFileView {
 		// ── Row 2: Stepper + config dropdown ──
 		const stepRow = bar.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 
-		const stepBar = stepRow.createDiv({ cls: "ft-step-bar" });
-		const steps: CsvPage[] = ["config", "preview", "result"];
-		const pageOrder: CsvPage[] = ["config", "preview", "result"];
-
-		for (let i = 0; i < steps.length; i++) {
-			const step = steps[i];
-			const stepEl = stepBar.createDiv({ cls: "ft-step-indicator" });
-
-			const stepIdx = pageOrder.indexOf(this.currentPage);
-			const thisIdx = i;
-			let stateClass = "ft-step-pending";
-			if (thisIdx < stepIdx) stateClass = "ft-step-completed";
-			else if (thisIdx === stepIdx) stateClass = "ft-step-running";
-			if (step === "result" && this.importResult) stateClass = "ft-step-completed";
-			if (step === "result" && this.importError) stateClass = "ft-step-failed";
-
-			stepEl.addClass(stateClass);
-
-			const stepIconEl = stepEl.createDiv({ cls: "ft-step-icon" });
-			stepIconEl.textContent = String(i + 1);
-
-			stepEl.createSpan({
-				text: STEP_LABELS[step],
-				cls: "ft-step-label",
-			});
-
-			// Allow clicking completed steps for backward navigation
-			if (thisIdx < stepIdx) {
-				stepEl.style.cursor = "pointer";
-				const targetPage = step;
-				stepEl.addEventListener("click", () => {
-					this.currentPage = targetPage;
-					this.renderContent();
-				});
-			}
-
-			// Arrow separator
-			if (i < steps.length - 1) {
-				stepBar.createSpan({
-					text: "\u203A",
-					cls: "ft-text-muted",
-				}).style.margin = "0 0.25rem";
-			}
-		}
+		renderStepBar(stepRow, {
+			steps: ["config", "preview", "result"] as CsvPage[],
+			currentPage: this.currentPage,
+			labels: STEP_LABELS,
+			hasResult: !!this.importResult,
+			hasError: !!this.importError,
+			onNavigate: (page) => {
+				this.currentPage = page;
+				this.renderContent();
+			},
+		});
 
 		// Spacer
-		stepRow.createDiv().style.flex = "1";
+		stepRow.createDiv({ cls: "ft-flex-1" });
 
 		// Save button (only when unsaved changes exist)
 		if (this.hasUnsavedChanges()) {
@@ -330,79 +297,17 @@ export class CsvActionView extends TextFileView {
 		}
 
 		// Config dropdown
-		this.renderConfigDropdownButton(stepRow);
-	}
-
-	private updateStepperState(): void {
-		// Re-render top bar to update stepper states
-		this.renderTopBar();
-	}
-
-	// ── Config dropdown ─────────────────────────────────────
-
-	private renderConfigDropdownButton(bar: HTMLElement): void {
-		const wrapper = bar.createDiv({ cls: "ft-config-dropdown" });
-		const btn = wrapper.createEl("span", { cls: "ft-nav-link" });
-		const btnIcon = btn.createSpan();
-		setIcon(btnIcon, "settings-2");
-		btn.appendText(" Configs");
-
-		btn.addEventListener("click", (e) => {
-			e.stopPropagation();
-			this.configDropdownOpen = !this.configDropdownOpen;
-			const existingMenu = wrapper.querySelector(".ft-config-dropdown-menu");
-			if (existingMenu) {
-				existingMenu.remove();
-				this.configDropdownOpen = false;
-				return;
-			}
-			this.renderConfigDropdownMenu(wrapper);
-		});
-	}
-
-	private renderConfigDropdownMenu(wrapper: HTMLElement): void {
-		const menu = wrapper.createDiv({ cls: "ft-config-dropdown-menu" });
-
-		// Save current config
-		const saveItem = menu.createDiv({ cls: "ft-config-dropdown-item" });
-		const saveIcon = saveItem.createSpan();
-		setIcon(saveIcon, "save");
-		saveItem.appendText(" Save Config...");
-		saveItem.addEventListener("click", () => {
-			menu.remove();
-			this.configDropdownOpen = false;
-			this.promptSaveConfig();
-		});
-
-		// Only show configs that reference this CSV file
 		const fileConfigs = this.savedConfigs.filter(
 			(c) => c.sourcePath === this.file?.path,
 		);
-
-		if (fileConfigs.length > 0) {
-			menu.createDiv({ cls: "ft-config-dropdown-divider" });
-
-			for (const cfg of fileConfigs) {
-				const item = menu.createDiv({ cls: "ft-config-dropdown-item" });
-				item.createSpan({ text: cfg.name }).style.flex = "1";
-				item.addEventListener("click", () => {
-					menu.remove();
-					this.configDropdownOpen = false;
-					this.applySavedImportConfig(cfg.id);
-					this.renderContent();
-				});
-			}
-		}
-
-		// Close on outside click
-		const closeHandler = (e: MouseEvent) => {
-			if (!wrapper.contains(e.target as Node)) {
-				menu.remove();
-				this.configDropdownOpen = false;
-				document.removeEventListener("click", closeHandler);
-			}
-		};
-		setTimeout(() => document.addEventListener("click", closeHandler), 0);
+		renderConfigDropdown(stepRow, {
+			onSave: () => this.promptSaveConfig(),
+			configs: fileConfigs,
+			onLoad: (id) => {
+				this.applySavedImportConfig(id);
+				this.renderContent();
+			},
+		});
 	}
 
 	private promptSaveConfig(): void {
@@ -662,7 +567,7 @@ export class CsvActionView extends TextFileView {
 		// Single-row filter bar (built once — survives table re-renders)
 		const filterBar = container.createDiv({ cls: "ft-preview-filter-bar" });
 		const filterLabel = filterBar.createSpan({ text: "Filter:", cls: "ft-text-sm ft-text-muted" });
-		filterLabel.style.flexShrink = "0";
+		filterLabel.addClass("ft-flex-shrink-0");
 		const select = filterBar.createEl("select");
 		const allOpt = select.createEl("option", { text: "All columns" });
 		allOpt.value = "";
@@ -766,7 +671,7 @@ export class CsvActionView extends TextFileView {
 		const headerRow = thead.createEl("tr");
 		for (const h of visibleHeaders) {
 			const th = headerRow.createEl("th", { cls: "ft-preview-sortable-th" });
-			th.style.cursor = "pointer";
+			th.addClass("ft-cursor-pointer");
 			th.style.userSelect = "none";
 			const label = th.createSpan({ text: h });
 			if (this.previewSortColumn === h) {
@@ -867,7 +772,7 @@ export class CsvActionView extends TextFileView {
 			const importHeader = importCard.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-1" });
 			const importIcon = importHeader.createSpan();
 			setIcon(importIcon, "file-input");
-			importIcon.style.opacity = "0.5";
+			importIcon.addClass("ft-icon-muted");
 			importHeader.createSpan({ text: "Used by import", cls: "ft-text-sm" }).style.fontWeight = "500";
 			for (const cfg of importConfigs) {
 				this.renderImportConfigRow(importCard, cfg);
@@ -954,7 +859,7 @@ export class CsvActionView extends TextFileView {
 		const cardHeader = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-1" });
 		const iconEl = cardHeader.createSpan();
 		setIcon(iconEl, "table");
-		iconEl.style.opacity = "0.5";
+		iconEl.addClass("ft-icon-muted");
 		cardHeader.createSpan({ text: "Base views", cls: "ft-text-sm" }).style.fontWeight = "500";
 
 		for (const base of bases) {
@@ -1092,7 +997,7 @@ export class CsvActionView extends TextFileView {
 		const header = wrapper.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const spinIcon = header.createSpan();
 		setIcon(spinIcon, "loader");
-		spinIcon.style.opacity = "0.5";
+		spinIcon.addClass("ft-icon-muted");
 		header.createSpan({ text: `Running import: ${name}`, cls: "ft-text-sm" }).style.fontWeight = "500";
 
 		wrapper.createDiv({
@@ -1116,9 +1021,9 @@ export class CsvActionView extends TextFileView {
 		const header = wrapper.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const checkIcon = header.createSpan();
 		setIcon(checkIcon, "check-circle");
-		checkIcon.style.opacity = "0.5";
+		checkIcon.addClass("ft-icon-muted");
 		header.createSpan({ text: "Import Complete", cls: "ft-text-sm" }).style.fontWeight = "500";
-		header.createDiv().style.flex = "1";
+		header.createDiv({ cls: "ft-flex-1" });
 		const dismissBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 		setIcon(dismissBtn, "x");
 		dismissBtn.addEventListener("click", () => { this.usageProgressEl?.empty(); });
@@ -1141,7 +1046,7 @@ export class CsvActionView extends TextFileView {
 		const cardHeader = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		cardHeader.createEl("strong", { text: "Import failed: " });
 		cardHeader.createSpan({ text: error });
-		cardHeader.createDiv().style.flex = "1";
+		cardHeader.createDiv({ cls: "ft-flex-1" });
 		const dismissBtn = cardHeader.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 		setIcon(dismissBtn, "x");
 		dismissBtn.addEventListener("click", () => { this.usageProgressEl?.empty(); });
@@ -1307,7 +1212,6 @@ export class CsvActionView extends TextFileView {
 		this.basePath = "";
 		this.savedConfigs = [];
 		this.columnSearchText = "";
-		this.configDropdownOpen = false;
 		this.customProperties = {};
 		this.loadedConfigId = null;
 	}
@@ -1356,7 +1260,7 @@ export class CsvActionView extends TextFileView {
 			this.renderContent();
 		});
 
-		actions.createDiv().style.flex = "1";
+		actions.createDiv({ cls: "ft-flex-1" });
 
 		const nextBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm mod-cta" });
 		setIcon(nextBtn.createSpan({ cls: "flowti-csv-btn-icon" }), "eye");
@@ -1375,7 +1279,7 @@ export class CsvActionView extends TextFileView {
 		const warnIcon = reminder.createSpan();
 		setIcon(warnIcon, "alert-triangle");
 		warnIcon.style.opacity = "0.6";
-		warnIcon.style.flexShrink = "0";
+		warnIcon.addClass("ft-flex-shrink-0");
 		reminder.createSpan({
 			text: "Config has unsaved changes",
 			cls: "ft-text-sm ft-text-muted",
@@ -1500,7 +1404,7 @@ export class CsvActionView extends TextFileView {
 
 		const header = content.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });
 		const headerTitle = header.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		headerTitle.style.flex = "1";
+		headerTitle.addClass("ft-flex-1");
 		headerTitle.createEl("h3", { text: "Column Mapping", cls: "ft-heading ft-heading-sm" });
 		const customPropCount = Object.keys(this.customProperties).length;
 		if (customPropCount > 0) {
@@ -1583,7 +1487,7 @@ export class CsvActionView extends TextFileView {
 			valInput.value = value;
 			const removeBtn = row.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 			setIcon(removeBtn, "x");
-			removeBtn.style.cursor = "pointer";
+			removeBtn.addClass("ft-cursor-pointer");
 
 			const origKey = key;
 			keyInput.addEventListener("change", () => {
@@ -1610,7 +1514,7 @@ export class CsvActionView extends TextFileView {
 		const addLink = container.createEl("span", { cls: "ft-nav-link ft-text-sm ft-mt-1" });
 		setIcon(addLink.createSpan(), "plus");
 		addLink.appendText(" Add Property");
-		addLink.style.cursor = "pointer";
+		addLink.addClass("ft-cursor-pointer");
 		addLink.addEventListener("click", () => {
 			const newKey = `property${entries.length + 1}`;
 			this.customProperties[newKey] = "";
@@ -1699,7 +1603,7 @@ export class CsvActionView extends TextFileView {
 		// Action bar
 		const statsBar = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2" });
 		statsBar.style.borderBottom = "1px solid var(--background-modifier-border)";
-		statsBar.style.flexShrink = "0";
+		statsBar.addClass("ft-flex-shrink-0");
 
 		// Validation
 		const issues: string[] = [];
@@ -1722,7 +1626,7 @@ export class CsvActionView extends TextFileView {
 			this.renderContent();
 		});
 
-		statsBar.createDiv().style.flex = "1";
+		statsBar.createDiv({ cls: "ft-flex-1" });
 
 		if (issues.length === 0) {
 			const importBtn = statsBar.createEl("button", { cls: "ft-btn ft-btn-sm mod-cta" });
@@ -1772,7 +1676,7 @@ export class CsvActionView extends TextFileView {
 		const customProps = Object.entries(this.customProperties);
 		const totalCols = 1 + includedMappings.length + customProps.length;
 		const countBar = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
-		countBar.style.flexShrink = "0";
+		countBar.addClass("ft-flex-shrink-0");
 		countBar.createSpan({
 			text: `${this.parsedCsv.rowCount} rows`,
 			cls: "ft-badge ft-badge-muted",

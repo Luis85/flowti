@@ -2,7 +2,7 @@
  * Shared helpers for Data Exchange Hub components.
  */
 
-import { TFile, setIcon } from "obsidian";
+import { App, TFile, setIcon } from "obsidian";
 import type { SavedImportConfig, SavedMultiImportPipeline } from "../../domain/dataExchange/types";
 import { VIEW_TYPE_EVENT_CATALOG, EventCatalogView } from "../EventCatalogView";
 import type { HubComponentDeps, HubPage } from "./types";
@@ -24,7 +24,7 @@ export function renderEmptyDetail(
 	const empty = container.createDiv({ cls: "ft-catalog-detail-empty" });
 	const iconEl = empty.createDiv();
 	setIcon(iconEl, icon);
-	iconEl.style.opacity = "0.3";
+	iconEl.addClass("ft-icon-subtle");
 	empty.createEl("p", { text: message });
 
 	const stats = empty.createDiv({ cls: "ft-catalog-quick-stats ft-mt-2" });
@@ -91,8 +91,8 @@ export function resolveImportBaseFile(
 }
 
 /** Opens the Event Catalog view and navigates to a specific event type. */
-export function openEventInCatalog(deps: HubComponentDeps, eventType: string): void {
-	const { workspace } = deps.app;
+export function openEventInCatalog(app: App, eventType: string): void {
+	const { workspace } = app;
 	const existing = workspace.getLeavesOfType(VIEW_TYPE_EVENT_CATALOG);
 	if (existing.length > 0) {
 		workspace.revealLeaf(existing[0]);
@@ -132,6 +132,110 @@ export function renderDashboardSectionHeader(
 	}
 
 	return header;
+}
+
+/** Renders a wizard step indicator bar into the given container. */
+export function renderStepBar<P extends string>(container: HTMLElement, opts: {
+	steps: P[];
+	currentPage: P;
+	labels: Record<string, string>;
+	hasResult: boolean;
+	hasError: boolean;
+	onNavigate: (page: P) => void;
+}): void {
+	const stepBar = container.createDiv({ cls: "ft-step-bar" });
+	const { steps, currentPage, labels, hasResult, hasError, onNavigate } = opts;
+	const stepIdx = steps.indexOf(currentPage);
+
+	for (let i = 0; i < steps.length; i++) {
+		const step = steps[i];
+		const stepEl = stepBar.createDiv({ cls: "ft-step-indicator" });
+
+		let stateClass = "ft-step-pending";
+		if (i < stepIdx) stateClass = "ft-step-completed";
+		else if (i === stepIdx) stateClass = "ft-step-running";
+		if (step === "result" && hasResult) stateClass = "ft-step-completed";
+		if (step === "result" && hasError) stateClass = "ft-step-failed";
+
+		stepEl.addClass(stateClass);
+
+		const stepIconEl = stepEl.createDiv({ cls: "ft-step-icon" });
+		stepIconEl.textContent = String(i + 1);
+
+		stepEl.createSpan({
+			text: labels[step] ?? step,
+			cls: "ft-step-label",
+		});
+
+		// Allow clicking completed steps for backward navigation
+		if (i < stepIdx) {
+			stepEl.addClass("ft-cursor-pointer");
+			const targetPage = step;
+			stepEl.addEventListener("click", () => onNavigate(targetPage));
+		}
+
+		// Arrow separator
+		if (i < steps.length - 1) {
+			const sep = stepBar.createSpan({ text: "\u203A", cls: "ft-text-muted" });
+			sep.style.margin = "0 0.25rem";
+		}
+	}
+}
+
+/** Renders a config dropdown button+menu. */
+export function renderConfigDropdown(bar: HTMLElement, opts: {
+	onSave: () => void;
+	configs: { id: string; name: string }[];
+	onLoad: (id: string) => void;
+}): void {
+	const wrapper = bar.createDiv({ cls: "ft-config-dropdown" });
+	const btn = wrapper.createEl("span", { cls: "ft-nav-link" });
+	const btnIcon = btn.createSpan();
+	setIcon(btnIcon, "settings-2");
+	btn.appendText(" Configs");
+
+	btn.addEventListener("click", (e) => {
+		e.stopPropagation();
+		const existingMenu = wrapper.querySelector(".ft-config-dropdown-menu");
+		if (existingMenu) {
+			existingMenu.remove();
+			return;
+		}
+
+		const menu = wrapper.createDiv({ cls: "ft-config-dropdown-menu" });
+
+		// Save current config
+		const saveItem = menu.createDiv({ cls: "ft-config-dropdown-item" });
+		const saveIcon = saveItem.createSpan();
+		setIcon(saveIcon, "save");
+		saveItem.appendText(" Save Config...");
+		saveItem.addEventListener("click", () => {
+			menu.remove();
+			opts.onSave();
+		});
+
+		if (opts.configs.length > 0) {
+			menu.createDiv({ cls: "ft-config-dropdown-divider" });
+
+			for (const cfg of opts.configs) {
+				const item = menu.createDiv({ cls: "ft-config-dropdown-item" });
+				item.createSpan({ text: cfg.name, cls: "ft-flex-1" });
+				item.addEventListener("click", () => {
+					menu.remove();
+					opts.onLoad(cfg.id);
+				});
+			}
+		}
+
+		// Close on outside click
+		const closeHandler = (e2: MouseEvent) => {
+			if (!wrapper.contains(e2.target as Node)) {
+				menu.remove();
+				document.removeEventListener("click", closeHandler);
+			}
+		};
+		setTimeout(() => document.addEventListener("click", closeHandler), 0);
+	});
 }
 
 /** Returns the stats count and label for an empty detail in a given page. */

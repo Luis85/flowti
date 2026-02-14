@@ -25,6 +25,7 @@ import { STANDARD_FILE_PROPERTIES } from "../domain/dataExchange/types";
 import { FolderPickerModal, getVaultFolders } from "./FolderPickerModal";
 import { ConfigChooserModal, ConfirmModal, InputModal } from "./modals";
 import { showNativeSaveDialog } from "./electronDialog";
+import { renderStepBar, renderConfigDropdown } from "./hub/helpers";
 
 export const VIEW_TYPE_EXPORT = "flowti-export";
 
@@ -79,7 +80,6 @@ export class ExportView extends ItemView {
 	private savedConfigs: SavedExportConfig[] = [];
 	private pendingSavedConfig: SavedExportConfig | null = null;
 	private propertySearchText = "";
-	private configDropdownOpen = false;
 	private loadedConfigId: string | null = null;
 
 	// Persistent DOM references
@@ -311,54 +311,24 @@ export class ExportView extends ItemView {
 		// ── Row 2: Stepper + config dropdown ──
 		const stepRow = bar.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 
-		const stepBar = stepRow.createDiv({ cls: "ft-step-bar" });
 		const steps: ExportPage[] = this.sourceType === "base"
 			? ["view-select", "configure", "preview", "result"]
 			: ["configure", "preview", "result"];
 
-		for (let i = 0; i < steps.length; i++) {
-			const step = steps[i];
-			const stepEl = stepBar.createDiv({ cls: "ft-step-indicator" });
-
-			const stepIdx = steps.indexOf(this.currentPage);
-			const thisIdx = i;
-			let stateClass = "ft-step-pending";
-			if (thisIdx < stepIdx) stateClass = "ft-step-completed";
-			else if (thisIdx === stepIdx) stateClass = "ft-step-running";
-			if (step === "result" && this.exportResult) stateClass = "ft-step-completed";
-			if (step === "result" && this.exportError) stateClass = "ft-step-failed";
-
-			stepEl.addClass(stateClass);
-
-			const stepIconEl = stepEl.createDiv({ cls: "ft-step-icon" });
-			stepIconEl.textContent = String(i + 1);
-
-			stepEl.createSpan({
-				text: STEP_LABELS[step],
-				cls: "ft-step-label",
-			});
-
-			// Allow clicking completed steps for backward navigation
-			if (thisIdx < stepIdx) {
-				stepEl.style.cursor = "pointer";
-				const targetPage = step;
-				stepEl.addEventListener("click", () => {
-					this.currentPage = targetPage;
-					this.renderPage();
-				});
-			}
-
-			// Arrow separator
-			if (i < steps.length - 1) {
-				stepBar.createSpan({
-					text: "\u203A",
-					cls: "ft-text-muted",
-				}).style.margin = "0 0.25rem";
-			}
-		}
+		renderStepBar(stepRow, {
+			steps,
+			currentPage: this.currentPage,
+			labels: STEP_LABELS,
+			hasResult: !!this.exportResult,
+			hasError: !!this.exportError,
+			onNavigate: (page) => {
+				this.currentPage = page;
+				this.renderPage();
+			},
+		});
 
 		// Spacer
-		stepRow.createDiv().style.flex = "1";
+		stepRow.createDiv({ cls: "ft-flex-1" });
 
 		// Save button (only when unsaved changes exist)
 		if (this.hasUnsavedChanges()) {
@@ -369,73 +339,16 @@ export class ExportView extends ItemView {
 		}
 
 		// Config dropdown
-		this.renderConfigDropdownButton(stepRow);
-	}
-
-	// ── Config dropdown ─────────────────────────────────────
-
-	private renderConfigDropdownButton(bar: HTMLElement): void {
-		const wrapper = bar.createDiv({ cls: "ft-config-dropdown" });
-		const btn = wrapper.createEl("span", { cls: "ft-nav-link" });
-		const btnIcon = btn.createSpan();
-		setIcon(btnIcon, "settings-2");
-		btn.appendText(" Configs");
-
-		btn.addEventListener("click", (e) => {
-			e.stopPropagation();
-			this.configDropdownOpen = !this.configDropdownOpen;
-			const existingMenu = wrapper.querySelector(".ft-config-dropdown-menu");
-			if (existingMenu) {
-				existingMenu.remove();
-				this.configDropdownOpen = false;
-				return;
-			}
-			this.renderConfigDropdownMenu(wrapper);
-		});
-	}
-
-	private renderConfigDropdownMenu(wrapper: HTMLElement): void {
-		const menu = wrapper.createDiv({ cls: "ft-config-dropdown-menu" });
-
-		// Save current config
-		const saveItem = menu.createDiv({ cls: "ft-config-dropdown-item" });
-		const saveIcon = saveItem.createSpan();
-		setIcon(saveIcon, "save");
-		saveItem.appendText(" Save Config...");
-		saveItem.addEventListener("click", () => {
-			menu.remove();
-			this.configDropdownOpen = false;
-			this.promptSaveConfig();
-		});
-
-		// Only show configs that reference this source file
 		const fileConfigs = this.savedConfigs.filter(
 			(c) => c.sourcePath === this.sourcePath,
 		);
-
-		if (fileConfigs.length > 0) {
-			menu.createDiv({ cls: "ft-config-dropdown-divider" });
-
-			for (const cfg of fileConfigs) {
-				const item = menu.createDiv({ cls: "ft-config-dropdown-item" });
-				item.createSpan({ text: cfg.name }).style.flex = "1";
-				item.addEventListener("click", () => {
-					menu.remove();
-					this.configDropdownOpen = false;
-					this.applySavedExportConfig(cfg.id);
-				});
-			}
-		}
-
-		// Close on outside click
-		const closeHandler = (e: MouseEvent) => {
-			if (!wrapper.contains(e.target as Node)) {
-				menu.remove();
-				this.configDropdownOpen = false;
-				document.removeEventListener("click", closeHandler);
-			}
-		};
-		setTimeout(() => document.addEventListener("click", closeHandler), 0);
+		renderConfigDropdown(stepRow, {
+			onSave: () => this.promptSaveConfig(),
+			configs: fileConfigs,
+			onLoad: (id) => {
+				this.applySavedExportConfig(id);
+			},
+		});
 	}
 
 	private promptSaveConfig(): void {
@@ -543,7 +456,7 @@ export class ExportView extends ItemView {
 		closeBtn.appendText(" Close");
 		closeBtn.addEventListener("click", () => this.leaf.detach());
 
-		actions.createDiv().style.flex = "1";
+		actions.createDiv({ cls: "ft-flex-1" });
 
 		const nextBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm mod-cta" });
 		setIcon(nextBtn.createSpan({ cls: "flowti-csv-btn-icon" }), "arrow-right");
@@ -577,7 +490,7 @@ export class ExportView extends ItemView {
 			const card = container.createDiv({
 				cls: `ft-card ${isSelected ? "ft-card-selected" : ""}`,
 			});
-			card.style.cursor = "pointer";
+			card.addClass("ft-cursor-pointer");
 			card.style.padding = "0.75rem 1rem";
 			card.style.marginBottom = "0.5rem";
 
@@ -587,11 +500,11 @@ export class ExportView extends ItemView {
 			const iconEl = row.createSpan();
 			setIcon(iconEl, "table");
 			iconEl.style.opacity = isSelected ? "1" : "0.4";
-			iconEl.style.flexShrink = "0";
+			iconEl.addClass("ft-flex-shrink-0");
 
 			// Text
 			const text = row.createDiv();
-			text.style.flex = "1";
+			text.addClass("ft-flex-1");
 			text.style.minWidth = "0";
 			text.createDiv({ text: view.name, cls: "ft-font-bold" });
 			const meta: string[] = [view.type];
@@ -604,7 +517,7 @@ export class ExportView extends ItemView {
 				const check = row.createSpan();
 				setIcon(check, "check");
 				check.style.color = "var(--interactive-accent)";
-				check.style.flexShrink = "0";
+				check.addClass("ft-flex-shrink-0");
 			}
 
 			const viewIndex = i;
@@ -649,7 +562,7 @@ export class ExportView extends ItemView {
 			closeBtn.addEventListener("click", () => this.leaf.detach());
 		}
 
-		actions.createDiv().style.flex = "1";
+		actions.createDiv({ cls: "ft-flex-1" });
 
 		const previewBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm mod-cta" });
 		setIcon(previewBtn.createSpan({ cls: "flowti-csv-btn-icon" }), "eye");
@@ -668,7 +581,7 @@ export class ExportView extends ItemView {
 		const warnIcon = reminder.createSpan();
 		setIcon(warnIcon, "alert-triangle");
 		warnIcon.style.opacity = "0.6";
-		warnIcon.style.flexShrink = "0";
+		warnIcon.addClass("ft-flex-shrink-0");
 		reminder.createSpan({
 			text: "Config has unsaved changes",
 			cls: "ft-text-sm ft-text-muted",
@@ -792,7 +705,7 @@ export class ExportView extends ItemView {
 
 		const header = content.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });
 		header.createEl("h3", { text: "Properties", cls: "ft-heading ft-heading-sm" });
-		header.style.flex = "1";
+		header.addClass("ft-flex-1");
 
 		// Select all / deselect all (for note properties)
 		if (this.availableColumns.length > 0) {
@@ -920,7 +833,7 @@ export class ExportView extends ItemView {
 		// Action bar
 		const statsBar = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2" });
 		statsBar.style.borderBottom = "1px solid var(--background-modifier-border)";
-		statsBar.style.flexShrink = "0";
+		statsBar.addClass("ft-flex-shrink-0");
 
 		// Validation
 		const issues: string[] = [];
@@ -943,7 +856,7 @@ export class ExportView extends ItemView {
 			this.renderPage();
 		});
 
-		statsBar.createDiv().style.flex = "1";
+		statsBar.createDiv({ cls: "ft-flex-1" });
 
 		if (issues.length === 0) {
 			const exportBtn = statsBar.createEl("button", { cls: "ft-btn ft-btn-sm mod-cta" });
@@ -990,7 +903,7 @@ export class ExportView extends ItemView {
 
 		// Count bar
 		const countBar = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
-		countBar.style.flexShrink = "0";
+		countBar.addClass("ft-flex-shrink-0");
 		countBar.createSpan({
 			text: `${this.previewFiles.length} rows`,
 			cls: "ft-badge ft-badge-muted",

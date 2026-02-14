@@ -38,7 +38,7 @@ export class TypesTab {
 			cls: "ft-master-category-count",
 		});
 		const headerSpacer = header.createDiv();
-		headerSpacer.style.flex = "1";
+		headerSpacer.addClass("ft-flex-1");
 		const addBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 		const addIcon = addBtn.createSpan();
 		setIcon(addIcon, "plus");
@@ -77,8 +77,8 @@ export class TypesTab {
 
 			const iconEl = item.createSpan();
 			setIcon(iconEl, "shapes");
-			iconEl.style.opacity = "0.5";
-			iconEl.style.flexShrink = "0";
+			iconEl.addClass("ft-icon-muted");
+			iconEl.addClass("ft-flex-shrink-0");
 			iconEl.style.marginTop = "0.125rem";
 
 			const textBlock = item.createDiv({ cls: "ft-master-event-name" });
@@ -92,8 +92,8 @@ export class TypesTab {
 
 			const docIcon = item.createSpan();
 			setIcon(docIcon, "file-text");
-			docIcon.style.opacity = "0.4";
-			docIcon.style.flexShrink = "0";
+			docIcon.addClass("ft-icon-faint");
+			docIcon.addClass("ft-flex-shrink-0");
 			docIcon.setAttribute("aria-label", "TypeDoc");
 
 			item.addEventListener("click", () => {
@@ -190,8 +190,8 @@ export class TypesTab {
 				const isPipeline = "sources" in cfg;
 				const cfgIcon = item.createSpan();
 				setIcon(cfgIcon, isPipeline ? "layers" : "file-input");
-				cfgIcon.style.opacity = "0.5";
-				cfgIcon.style.flexShrink = "0";
+				cfgIcon.addClass("ft-icon-muted");
+				cfgIcon.addClass("ft-flex-shrink-0");
 
 				item.createSpan({ text: cfg.name, cls: "ft-master-event-name" });
 				item.createSpan({
@@ -221,8 +221,8 @@ export class TypesTab {
 				const item = section.createDiv({ cls: "ft-master-event-item" });
 				const cfgIcon = item.createSpan();
 				setIcon(cfgIcon, "file-output");
-				cfgIcon.style.opacity = "0.5";
-				cfgIcon.style.flexShrink = "0";
+				cfgIcon.addClass("ft-icon-muted");
+				cfgIcon.addClass("ft-flex-shrink-0");
 
 				item.createSpan({ text: cfg.name, cls: "ft-master-event-name" });
 				item.createSpan({
@@ -255,11 +255,11 @@ export class TypesTab {
 
 			const evIcon = row.createSpan();
 			setIcon(evIcon, ev.icon);
-			evIcon.style.opacity = "0.5";
-			evIcon.style.flexShrink = "0";
+			evIcon.addClass("ft-icon-muted");
+			evIcon.addClass("ft-flex-shrink-0");
 
 			const textBlock = row.createDiv();
-			textBlock.style.flex = "1";
+			textBlock.addClass("ft-flex-1");
 			textBlock.style.minWidth = "0";
 			const nameEl = textBlock.createDiv({ cls: "ft-text-sm" });
 			nameEl.createEl("code", { text: ev.event });
@@ -267,7 +267,7 @@ export class TypesTab {
 
 			// Open EventDoc
 			const docBtn = row.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-			docBtn.style.flexShrink = "0";
+			docBtn.addClass("ft-flex-shrink-0");
 			const docBtnIcon = docBtn.createSpan();
 			setIcon(docBtnIcon, "file-text");
 			docBtn.title = "Open event doc";
@@ -278,12 +278,12 @@ export class TypesTab {
 
 			// Show in Event Catalog
 			const catalogBtn = row.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-			catalogBtn.style.flexShrink = "0";
+			catalogBtn.addClass("ft-flex-shrink-0");
 			const catIcon = catalogBtn.createSpan();
 			setIcon(catIcon, "list");
 			catalogBtn.title = "Show in Event Catalog";
 			catalogBtn.addEventListener("click", () => {
-				openEventInCatalog(this.deps, ev.event);
+				openEventInCatalog(this.deps.app, ev.event);
 			});
 		}
 
@@ -296,7 +296,7 @@ export class TypesTab {
 			chips.style.padding = "0.25rem 0.5rem";
 			for (const prop of entry.properties) {
 				const chip = chips.createSpan({ text: prop, cls: "ft-badge ft-badge-muted" });
-				chip.style.cursor = "pointer";
+				chip.addClass("ft-cursor-pointer");
 				chip.addEventListener("click", () => {
 					this.deps.setState({ selectedDictProp: prop });
 					this.deps.navigation.navigateTo("properties");

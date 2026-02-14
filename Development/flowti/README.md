@@ -4,10 +4,19 @@ stage: development
 platform: Obsidian (Desktop)
 license: MIT
 author: Luis Mendez
+aliases:
+  - Flowti IBDE
+  - Flowti
+  - Flowti Readme
+  - Flowti Plugin
 ---
 # Flowti - IBDE
 
 The **Integrated Business Development Environment** - An Obsidian plugin that implements the Flowti IBDE concept: a framework for describing, managing, and visualizing digital twins of business processes inside a knowledge base by providing tools for systemic documenting and executing captured processes.
+
+Read more about: 
+
+- [[Frontend Architecture]]
 
 ---
 

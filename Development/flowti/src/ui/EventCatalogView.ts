@@ -26,6 +26,7 @@ import type {
 import {
 	getOrderedCategories,
 	discoveredToCatalogEntries,
+	buildSplitLayout,
 } from "./catalog/helpers";
 import {
 	CatalogDashboard,
@@ -138,10 +139,7 @@ export class EventCatalogView extends ItemView {
 		const container = this.containerEl.children[1];
 		container.empty();
 
-		const wrapper = (container as HTMLElement).createDiv({ cls: "flowti-container" });
-		wrapper.style.height = "100%";
-		wrapper.style.display = "flex";
-		wrapper.style.flexDirection = "column";
+		const wrapper = (container as HTMLElement).createDiv({ cls: "flowti-container ft-view-root" });
 
 		// Top bar
 		this.renderTopBar(wrapper);
@@ -150,34 +148,20 @@ export class EventCatalogView extends ItemView {
 		this.tabBarEl = wrapper.createDiv({ cls: "ft-catalog-tab-bar ft-hidden" });
 		this.renderTabBar();
 
-		// Dashboard panel (shown by default)
-		this.dashboardEl = wrapper.createDiv({ cls: "ft-catalog-dashboard" });
-		this.dashboardEl.style.flex = "1";
-		this.dashboardEl.style.minHeight = "0";
-		this.dashboardEl.style.overflowY = "auto";
-		this.dashboardEl.style.padding = "1.5rem";
+		// Shared split layout (dashboard + master/detail)
+		const layout = buildSplitLayout(wrapper, {
+			searchPlaceholder: "Search events...",
+			onSearch: (text) => { this.filterText = text; this.scheduleRender(); },
+		});
+		this.dashboardEl = layout.dashboardEl;
+		this.splitEl = layout.splitEl;
+		this.searchInput = layout.searchInput;
+		this.masterTreeEl = layout.masterTreeEl;
+		this.detailPanelEl = layout.detailEl;
 		this.dashboard = new CatalogDashboard(this.dashboardEl, this.buildComponentDeps());
 
-		// Split container (hidden when dashboard is active)
-		this.splitEl = wrapper.createDiv({ cls: "ft-catalog-split ft-hidden" });
-		this.splitEl.style.flex = "1";
-		this.splitEl.style.minHeight = "0";
-
-		// Master panel (left)
-		const master = this.splitEl.createDiv({ cls: "ft-catalog-master" });
-
-		// Search
-		const searchHeader = master.createDiv({ cls: "ft-catalog-master-header" });
-		this.searchInput = searchHeader.createEl("input", { cls: "ft-catalog-master-search" });
-		this.searchInput.type = "text";
-		this.searchInput.placeholder = "Search events...";
-		this.searchInput.addEventListener("input", () => {
-			this.filterText = this.searchInput.value.toLowerCase();
-			this.scheduleRender();
-		});
-
-		// Gear icon for events settings (inside search header)
-		this.gearBtn = searchHeader.createSpan({ cls: "ft-visibility-toggle ft-hidden" });
+		// Catalog-specific: gear icon in search header
+		this.gearBtn = layout.searchHeaderEl.createSpan({ cls: "ft-visibility-toggle ft-hidden" });
 		this.gearBtn.setAttribute("aria-label", "Category settings");
 		setIcon(this.gearBtn, "settings");
 		this.gearBtn.addEventListener("click", () => {
@@ -187,11 +171,13 @@ export class EventCatalogView extends ItemView {
 			}
 		});
 
-		// Settings panel (hidden by default, inside master)
-		this.settingsPanel = master.createDiv({ cls: "ft-settings-panel ft-hidden" });
+		// Catalog-specific: settings panel + dot legend (before master tree)
+		this.settingsPanel = layout.masterEl.createDiv({ cls: "ft-settings-panel ft-hidden" });
+		layout.masterEl.insertBefore(this.settingsPanel, this.masterTreeEl);
 
-		// Dot legend + expand/collapse controls
-		this.dotLegendEl = master.createDiv({ cls: "ft-catalog-dot-legend" });
+		this.dotLegendEl = layout.masterEl.createDiv({ cls: "ft-catalog-dot-legend" });
+		layout.masterEl.insertBefore(this.dotLegendEl, this.masterTreeEl);
+
 		const hiddenLegend = this.dotLegendEl.createDiv({ cls: "ft-catalog-dot-legend-item" });
 		hiddenLegend.createDiv({ cls: "ft-master-status-dot ft-master-dot-hidden" });
 		hiddenLegend.createSpan({ text: "hidden" });
@@ -202,11 +188,9 @@ export class EventCatalogView extends ItemView {
 		followLegend.createDiv({ cls: "ft-master-status-dot ft-master-dot-followed" });
 		followLegend.createSpan({ text: "followed" });
 
-		// Spacer pushes expand/collapse to the right
 		const legendSpacer = this.dotLegendEl.createDiv();
-		legendSpacer.style.flex = "1";
+		legendSpacer.addClass("ft-flex-1");
 
-		// Expand all
 		const expandAllBtn = this.dotLegendEl.createSpan({ cls: "ft-tree-toggle" });
 		expandAllBtn.setAttribute("aria-label", "Expand all categories");
 		setIcon(expandAllBtn, "chevrons-up-down");
@@ -215,14 +199,12 @@ export class EventCatalogView extends ItemView {
 			this.scheduleRender();
 		});
 
-		// Collapse all
 		const collapseAllBtn = this.dotLegendEl.createSpan({ cls: "ft-tree-toggle" });
 		collapseAllBtn.setAttribute("aria-label", "Collapse all categories");
 		setIcon(collapseAllBtn, "chevrons-down-up");
 		collapseAllBtn.addEventListener("click", () => {
 			const orderedCategories = getOrderedCategories(this.catalogCategories);
 			const visibleCategories = orderedCategories.filter((c) => c.visible).map((c) => c.name);
-			// Include user categories from discovered events
 			const eventsFolder = this.getEntityFolder("events");
 			const discoveredEntries = discoveredToCatalogEntries(this.discoveredEvents, this.app, eventsFolder);
 			const userCategories = [...new Set(discoveredEntries.map((e) => e.category))];
@@ -231,12 +213,6 @@ export class EventCatalogView extends ItemView {
 			}
 			this.scheduleRender();
 		});
-
-		// Master tree
-		this.masterTreeEl = master.createDiv({ cls: "ft-catalog-master-tree" });
-
-		// Detail panel (right)
-		this.detailPanelEl = this.splitEl.createDiv({ cls: "ft-catalog-detail" });
 
 		// Component tabs
 		const deps = this.buildComponentDeps();
@@ -438,14 +414,14 @@ export class EventCatalogView extends ItemView {
 	private renderTopBar(container: HTMLElement): void {
 		const bar = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-px-3 ft-py-2 ft-hidden" });
 		bar.style.borderBottom = "1px solid var(--background-modifier-border)";
-		bar.style.flexShrink = "0";
+		bar.addClass("ft-flex-shrink-0");
 		this.topBarEl = bar;
 
 		this.topBarTitleEl = bar.createSpan({
 			text: "Event Catalog",
 			cls: "ft-heading ft-heading-sm",
 		});
-		this.topBarTitleEl.style.cursor = "pointer";
+		this.topBarTitleEl.addClass("ft-cursor-pointer");
 		this.topBarTitleEl.addEventListener("click", () => {
 			this.activeTab = "dashboard";
 			this.renderTabBar();
@@ -456,7 +432,7 @@ export class EventCatalogView extends ItemView {
 
 		// Spacer
 		const spacer = bar.createDiv();
-		spacer.style.flex = "1";
+		spacer.addClass("ft-flex-1");
 
 		// Activity Log button
 		const logBtn = bar.createEl("span", { cls: "ft-nav-link" });

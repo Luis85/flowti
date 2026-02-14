@@ -5,7 +5,7 @@ import {
 	isConfigured, discoveredToCatalogEntries,
 	renderStat, renderRelatedSection,
 	findRelatedFlows, findRelatedSystems, findRelatedActors,
-	openFile,
+	openFile, createEntityDoc,
 } from "./helpers";
 import {
 	getServiceDocPathResolved, generateServiceDocContent,
@@ -186,7 +186,7 @@ export class ServicesTab {
 			const hiddenHeader = this.masterEl.createDiv({ cls: "ft-master-category-header" });
 			hiddenHeader.style.marginTop = "8px";
 			hiddenHeader.style.opacity = "0.6";
-			hiddenHeader.style.cursor = "pointer";
+			hiddenHeader.addClass("ft-cursor-pointer");
 			hiddenHeader.createSpan({ text: `${hiddenServices.length} hidden` });
 			const expandIcon = hiddenHeader.createSpan({ cls: "ft-visibility-toggle" });
 			expandIcon.style.marginLeft = "auto";
@@ -221,8 +221,8 @@ export class ServicesTab {
 
 		// Eye icon for visibility toggle
 		const eyeBtn = item.createSpan({ cls: "ft-visibility-toggle" });
-		eyeBtn.style.flexShrink = "0";
-		eyeBtn.style.cursor = "pointer";
+		eyeBtn.addClass("ft-flex-shrink-0");
+		eyeBtn.addClass("ft-cursor-pointer");
 		setIcon(eyeBtn, s.visible ? "eye" : "eye-off");
 		eyeBtn.setAttribute("aria-label", s.visible ? "Hide service" : "Show service");
 		eyeBtn.addEventListener("click", (e) => {
@@ -232,8 +232,8 @@ export class ServicesTab {
 
 		const iconEl = item.createSpan();
 		setIcon(iconEl, "server");
-		iconEl.style.opacity = "0.5";
-		iconEl.style.flexShrink = "0";
+		iconEl.addClass("ft-icon-muted");
+		iconEl.addClass("ft-flex-shrink-0");
 
 		item.createSpan({ text: s.name, cls: "ft-master-event-name" });
 
@@ -397,7 +397,7 @@ export class ServicesTab {
 
 		for (const entry of serviceData.events) {
 			const row = section.createDiv({ cls: "ft-catalog-row" });
-			row.style.cursor = "pointer";
+			row.addClass("ft-cursor-pointer");
 
 			row.createSpan({ text: entry.type, cls: "ft-event-type" });
 			row.createSpan({ text: entry.category, cls: "ft-catalog-meta" });
@@ -443,7 +443,7 @@ export class ServicesTab {
 
 		const icon = empty.createDiv();
 		setIcon(icon, "server");
-		icon.style.opacity = "0.3";
+		icon.addClass("ft-icon-subtle");
 
 		empty.createEl("p", { text: "Select a service to view details" });
 
@@ -460,28 +460,14 @@ export class ServicesTab {
 	// ─────────────────────────────────────────────────────────────
 
 	async createDoc(name: string): Promise<void> {
-		const docPath = getServiceDocPathResolved(this.deps.getEntityFolder("services"), name);
-
-		const existing = this.deps.app.vault.getAbstractFileByPath(docPath);
-		if (existing) {
-			if (existing instanceof TFile) {
-				const leaf = this.deps.app.workspace.getLeaf(false);
-				await leaf.openFile(existing);
-			}
-			return;
-		}
-
 		const serviceEvents = this.entries.find((s) => s.name === name)?.events ?? [];
-		const content = generateServiceDocContent(name, serviceEvents);
-		try {
-			await this.deps.fileSystemClient.createFile(docPath, content, { createFolders: true });
-		} catch (err) {
-			console.error(`[Flowti] Failed to create service doc: ${docPath}`, err);
-			return;
-		}
-
+		await createEntityDoc(this.deps, {
+			entityType: "services",
+			name,
+			getDocPath: getServiceDocPathResolved,
+			generateContent: () => generateServiceDocContent(name, serviceEvents),
+		});
 		this.selectedService = name;
-		setTimeout(() => this.deps.scheduleRender(), 500);
 	}
 
 	async deleteDoc(filePath: string): Promise<void> {
@@ -497,27 +483,13 @@ export class ServicesTab {
 	}
 
 	async createBlueprint(name: string): Promise<void> {
-		const docPath = getServiceBlueprintPathResolved(this.deps.getEntityFolder("services"), name);
-
-		const existing = this.deps.app.vault.getAbstractFileByPath(docPath);
-		if (existing) {
-			if (existing instanceof TFile) {
-				const leaf = this.deps.app.workspace.getLeaf(false);
-				await leaf.openFile(existing);
-			}
-			return;
-		}
-
 		const serviceEvents = this.entries.find((s) => s.name === name)?.events ?? [];
-		const content = generateServiceBlueprintContent(name, serviceEvents);
-		try {
-			await this.deps.fileSystemClient.createFile(docPath, content, { createFolders: true });
-		} catch (err) {
-			console.error(`[Flowti] Failed to create service blueprint: ${docPath}`, err);
-			return;
-		}
-
+		await createEntityDoc(this.deps, {
+			entityType: "services",
+			name,
+			getDocPath: getServiceBlueprintPathResolved,
+			generateContent: () => generateServiceBlueprintContent(name, serviceEvents),
+		});
 		this.selectedService = name;
-		setTimeout(() => this.deps.scheduleRender(), 500);
 	}
 }

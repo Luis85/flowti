@@ -1,8 +1,8 @@
-import { TFile, setIcon } from "obsidian";
+import { setIcon } from "obsidian";
 import {
 	renderStat, renderRelatedSection,
 	findRelatedFlows, findRelatedActors,
-	openFile,
+	openFile, createEntityDoc,
 } from "./helpers";
 import {
 	getSystemDocPathResolved, generateSystemDocContent,
@@ -116,8 +116,8 @@ export class SystemsTab {
 
 			const iconEl = item.createSpan();
 			setIcon(iconEl, "layout-grid");
-			iconEl.style.opacity = "0.5";
-			iconEl.style.flexShrink = "0";
+			iconEl.addClass("ft-icon-muted");
+			iconEl.addClass("ft-flex-shrink-0");
 
 			item.createSpan({ text: s.name, cls: "ft-master-event-name" });
 
@@ -236,7 +236,7 @@ export class SystemsTab {
 
 		for (const entry of systemData.events) {
 			const row = section.createDiv({ cls: "ft-catalog-row" });
-			row.style.cursor = "pointer";
+			row.addClass("ft-cursor-pointer");
 			row.createSpan({ text: entry.type, cls: "ft-event-type" });
 			row.createSpan({ text: entry.category, cls: "ft-catalog-meta" });
 			row.addEventListener("click", () => {
@@ -273,7 +273,7 @@ export class SystemsTab {
 
 		const icon = empty.createDiv();
 		setIcon(icon, "layout-grid");
-		icon.style.opacity = "0.3";
+		icon.addClass("ft-icon-subtle");
 
 		empty.createEl("p", { text: "Select a system to view details" });
 
@@ -290,27 +290,13 @@ export class SystemsTab {
 	// ─────────────────────────────────────────────────────────────
 
 	async createDoc(name: string): Promise<void> {
-		const docPath = getSystemDocPathResolved(this.deps.getEntityFolder("systems"), name);
-
-		const existing = this.deps.app.vault.getAbstractFileByPath(docPath);
-		if (existing) {
-			if (existing instanceof TFile) {
-				const leaf = this.deps.app.workspace.getLeaf(false);
-				await leaf.openFile(existing);
-			}
-			return;
-		}
-
-		const content = generateSystemDocContent(name);
-		try {
-			await this.deps.fileSystemClient.createFile(docPath, content, { createFolders: true });
-		} catch (err) {
-			console.error(`[Flowti] Failed to create system doc: ${docPath}`, err);
-			return;
-		}
-
+		await createEntityDoc(this.deps, {
+			entityType: "systems",
+			name,
+			getDocPath: getSystemDocPathResolved,
+			generateContent: () => generateSystemDocContent(name),
+		});
 		this.selectedSystem = name;
-		setTimeout(() => this.deps.scheduleRender(), 500);
 	}
 
 	async deleteDoc(filePath: string): Promise<void> {

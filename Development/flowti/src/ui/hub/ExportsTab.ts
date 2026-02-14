@@ -66,8 +66,8 @@ export class ExportsTab {
 
 		const iconEl = item.createSpan();
 		setIcon(iconEl, "file-output");
-		iconEl.style.opacity = "0.5";
-		iconEl.style.flexShrink = "0";
+		iconEl.addClass("ft-icon-muted");
+		iconEl.addClass("ft-flex-shrink-0");
 		iconEl.style.marginTop = "0.125rem";
 
 		const textBlock = item.createDiv({ cls: "ft-master-event-name" });
@@ -80,7 +80,7 @@ export class ExportsTab {
 		sub.textContent = cfg.sourcePath || "(no source)";
 
 		const rightBadges = item.createDiv({ cls: "ft-flex ft-gap-1" });
-		rightBadges.style.flexShrink = "0";
+		rightBadges.addClass("ft-flex-shrink-0");
 		const pipelineCount = this.deps.dataExchangeService.getSavedPipelines()
 			.filter((p) => p.exportConfigIds?.includes(cfg.id)).length;
 		if (pipelineCount > 0) {
@@ -256,13 +256,13 @@ export class ExportsTab {
 				}
 				const icon = row.createSpan();
 				setIcon(icon, "git-merge");
-				icon.style.flexShrink = "0";
+				icon.addClass("ft-flex-shrink-0");
 				icon.style.opacity = "0.6";
 				const link = row.createEl("span", {
 					text: pipe.name,
 					cls: "ft-nav-link ft-text-sm",
 				});
-				link.style.flex = "1";
+				link.addClass("ft-flex-1");
 				link.addEventListener("click", () => {
 					this.deps.setState({ selectedPipelineId: pipe.id });
 					this.deps.navigation.navigateTo("pipelines");

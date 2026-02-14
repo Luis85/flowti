@@ -82,7 +82,7 @@ export class ComponentShowcaseView extends ItemView {
 			cls: "ft-btn ft-btn-secondary",
 		});
 		disabledBtn.setAttribute("disabled", "true");
-		disabledBtn.style.opacity = "0.5";
+		disabledBtn.addClass("ft-icon-muted");
 		disabledBtn.style.cursor = "not-allowed";
 	}
 
@@ -121,13 +121,13 @@ export class ComponentShowcaseView extends ItemView {
 
 		// Simple card
 		const card1 = cardsRow.createDiv({ cls: "ft-card" });
-		card1.style.flex = "1";
+		card1.addClass("ft-flex-1");
 		card1.createEl("h3", { text: "Einfache Card", cls: "ft-heading ft-heading-sm ft-mb-2" });
 		card1.createEl("p", { text: "Dies ist eine einfache Card mit Text.", cls: "ft-text-muted" });
 
 		// Card with button
 		const card2 = cardsRow.createDiv({ cls: "ft-card ft-flex ft-flex-col ft-gap-2" });
-		card2.style.flex = "1";
+		card2.addClass("ft-flex-1");
 		card2.createEl("h3", { text: "Card mit Aktion", cls: "ft-heading ft-heading-sm" });
 		card2.createEl("p", {
 			text: "Diese Card enthält einen Button.",

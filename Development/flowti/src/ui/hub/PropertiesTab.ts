@@ -50,16 +50,16 @@ export class PropertiesTab {
 
 			const iconEl = item.createSpan();
 			setIcon(iconEl, "tag");
-			iconEl.style.opacity = "0.5";
-			iconEl.style.flexShrink = "0";
+			iconEl.addClass("ft-icon-muted");
+			iconEl.addClass("ft-flex-shrink-0");
 
 			item.createSpan({ text: entry.propertyName, cls: "ft-master-event-name" });
 
 			if (state.documentedProperties.has(entry.propertyName)) {
 				const docIcon = item.createSpan();
 				setIcon(docIcon, "file-text");
-				docIcon.style.opacity = "0.4";
-				docIcon.style.flexShrink = "0";
+				docIcon.addClass("ft-icon-faint");
+				docIcon.addClass("ft-flex-shrink-0");
 				docIcon.setAttribute("aria-label", "Documented");
 			}
 
@@ -114,7 +114,7 @@ export class PropertiesTab {
 					text: typeName,
 					cls: "ft-badge",
 				});
-				chip.style.cursor = "pointer";
+				chip.addClass("ft-cursor-pointer");
 				chip.addEventListener("click", () => {
 					this.deps.setState({ selectedTypeName: typeName });
 					this.deps.navigation.navigateTo("types");
@@ -159,8 +159,8 @@ export class PropertiesTab {
 				const item = section.createDiv({ cls: "ft-master-event-item" });
 				const iconEl = item.createSpan();
 				setIcon(iconEl, ref.configType === "import" ? "file-input" : "file-output");
-				iconEl.style.opacity = "0.5";
-				iconEl.style.flexShrink = "0";
+				iconEl.addClass("ft-icon-muted");
+				iconEl.addClass("ft-flex-shrink-0");
 
 				item.createSpan({ text: ref.configName, cls: "ft-master-event-name" });
 				item.createSpan({

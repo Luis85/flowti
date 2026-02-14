@@ -1,9 +1,9 @@
-import { TFile, setIcon } from "obsidian";
+import { setIcon } from "obsidian";
 import type { EventCatalogEntry } from "../../infrastructure/events/catalog";
 import {
 	renderStat, renderRelatedSection,
 	findRelatedFlows, findRelatedSystems, findRelatedActors,
-	openFile,
+	openFile, createEntityDoc,
 } from "./helpers";
 import {
 	getProductDocPathResolved, generateProductDocContent,
@@ -106,8 +106,8 @@ export class ProductsTab {
 
 			const iconEl = item.createSpan();
 			setIcon(iconEl, "package");
-			iconEl.style.opacity = "0.5";
-			iconEl.style.flexShrink = "0";
+			iconEl.addClass("ft-icon-muted");
+			iconEl.addClass("ft-flex-shrink-0");
 
 			item.createSpan({ text: p.name, cls: "ft-master-event-name" });
 
@@ -229,7 +229,7 @@ export class ProductsTab {
 			const row = section.createDiv({ cls: "ft-catalog-row" });
 			row.createSpan({ text: eventType, cls: "ft-event-type" });
 			if (resolved) {
-				row.style.cursor = "pointer";
+				row.addClass("ft-cursor-pointer");
 				row.createSpan({ text: resolved.category, cls: "ft-catalog-meta" });
 				row.addEventListener("click", () => {
 					this.deps.navigation.navigateToEvent(eventType);
@@ -275,7 +275,7 @@ export class ProductsTab {
 
 		const icon = empty.createDiv();
 		setIcon(icon, "package");
-		icon.style.opacity = "0.3";
+		icon.addClass("ft-icon-subtle");
 
 		empty.createEl("p", { text: "Select a product to view details" });
 
@@ -292,27 +292,13 @@ export class ProductsTab {
 	// -----------------------------------------------------------------
 
 	async createDoc(name: string): Promise<void> {
-		const docPath = getProductDocPathResolved(this.deps.getEntityFolder("products"), name);
-
-		const existing = this.deps.app.vault.getAbstractFileByPath(docPath);
-		if (existing) {
-			if (existing instanceof TFile) {
-				const leaf = this.deps.app.workspace.getLeaf(false);
-				await leaf.openFile(existing);
-			}
-			return;
-		}
-
-		const content = generateProductDocContent(name);
-		try {
-			await this.deps.fileSystemClient.createFile(docPath, content, { createFolders: true });
-		} catch (err) {
-			console.error(`[Flowti] Failed to create product doc: ${docPath}`, err);
-			return;
-		}
-
+		await createEntityDoc(this.deps, {
+			entityType: "products",
+			name,
+			getDocPath: getProductDocPathResolved,
+			generateContent: () => generateProductDocContent(name),
+		});
 		this.selectedProduct = name;
-		setTimeout(() => this.deps.scheduleRender(), 500);
 	}
 
 	async deleteDoc(filePath: string): Promise<void> {

@@ -2,6 +2,10 @@ filters:
   and:
     - file.inFolder("Development/flowti/docs/features")
     - file.ext == "md"
+formulas:
+  user_stories_count: |+
+    file.backlinks.filter(value.asFile().folder.contains("user-stories")).length
+
 views:
   - type: table
     name: Features
@@ -9,6 +13,7 @@ views:
       - file.name
       - stage
       - domain
+      - formula.user_stories_count
       - plugin
       - tags
     columnSize:
@@ -23,11 +28,14 @@ views:
     order:
       - file.name
       - description
+      - formula.user_stories_count
       - stage
       - domain
       - tags
+    sort: []
     columnSize:
       file.name: 199
       note.description: 395
+      formula.user_stories_count: 151
       note.stage: 126
       note.domain: 132

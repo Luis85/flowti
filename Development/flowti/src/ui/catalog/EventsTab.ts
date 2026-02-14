@@ -557,7 +557,7 @@ export class EventsTab {
 
 		const icon = empty.createDiv();
 		setIcon(icon, "list");
-		icon.style.opacity = "0.3";
+		icon.addClass("ft-icon-subtle");
 
 		empty.createEl("p", { text: "Select an event to view details" });
 
@@ -790,7 +790,7 @@ export class EventsTab {
 		}
 
 		const spacer = row.createDiv();
-		spacer.style.flex = "1";
+		spacer.addClass("ft-flex-1");
 
 		const actions = row.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
 
@@ -885,7 +885,7 @@ export class EventsTab {
 		row.createSpan({ text: meta.join(" \u00B7 "), cls: "ft-text-muted ft-text-sm" });
 
 		const spacer = row.createDiv();
-		spacer.style.flex = "1";
+		spacer.addClass("ft-flex-1");
 
 		const actions = row.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
 

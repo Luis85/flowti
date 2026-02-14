@@ -24,7 +24,8 @@ import { ReportsTab } from "./hub/ReportsTab";
 import { PropertiesTab } from "./hub/PropertiesTab";
 import { PipelinesTab } from "./hub/PipelinesTab";
 import { TypesTab } from "./hub/TypesTab";
-import { VIEW_TYPE_EVENT_CATALOG, EventCatalogView } from "./EventCatalogView";
+import { openEventInCatalog } from "./hub/helpers";
+import { buildSplitLayout } from "./catalog/helpers";
 
 export const VIEW_TYPE_DATA_EXCHANGE_HUB = "flowti-data-exchange-hub";
 
@@ -110,41 +111,21 @@ export class DataExchangeHubView extends ItemView {
 		const container = this.containerEl.children[1] as HTMLElement;
 		container.empty();
 
-		// Root wrapper
-		const wrapper = container.createDiv({ cls: "flowti-container" });
-		wrapper.style.height = "100%";
-		wrapper.style.display = "flex";
-		wrapper.style.flexDirection = "column";
+		const wrapper = container.createDiv({ cls: "flowti-container ft-view-root" });
 
 		// Top bar (hidden on dashboard)
 		this.renderTopBar(wrapper);
 
-		// Dashboard panel
-		this.dashboardEl = wrapper.createDiv({ cls: "ft-catalog-dashboard" });
-		this.dashboardEl.style.flex = "1";
-		this.dashboardEl.style.minHeight = "0";
-		this.dashboardEl.style.overflowY = "auto";
-		this.dashboardEl.style.padding = "1.5rem";
-
-		// Split container (hidden when dashboard is active)
-		this.splitEl = wrapper.createDiv({ cls: "ft-catalog-split ft-hidden" });
-		this.splitEl.style.flex = "1";
-		this.splitEl.style.minHeight = "0";
-
-		// Master panel (left)
-		const master = this.splitEl.createDiv({ cls: "ft-catalog-master" });
-		const searchHeader = master.createDiv({ cls: "ft-catalog-master-header" });
-		this.searchInput = searchHeader.createEl("input", { cls: "ft-catalog-master-search" });
-		this.searchInput.type = "text";
-		this.searchInput.placeholder = "Search configs...";
-		this.searchInput.addEventListener("input", () => {
-			this.filterText = this.searchInput.value.toLowerCase();
-			this.scheduleRender();
+		// Shared split layout (dashboard + master/detail)
+		const layout = buildSplitLayout(wrapper, {
+			searchPlaceholder: "Search configs...",
+			onSearch: (text) => { this.filterText = text; this.scheduleRender(); },
 		});
-		this.masterTreeEl = master.createDiv({ cls: "ft-catalog-master-tree" });
-
-		// Detail panel (right)
-		this.detailPanelEl = this.splitEl.createDiv({ cls: "ft-catalog-detail" });
+		this.dashboardEl = layout.dashboardEl;
+		this.splitEl = layout.splitEl;
+		this.searchInput = layout.searchInput;
+		this.masterTreeEl = layout.masterTreeEl;
+		this.detailPanelEl = layout.detailEl;
 
 		// Create component deps and tab instances
 		const deps = this.buildDeps();
@@ -219,7 +200,7 @@ export class DataExchangeHubView extends ItemView {
 			openCsvImport: (csvPath, cfg?) => this.openCsvImportCb(csvPath, cfg),
 			openExport: (cfg) => this.openExportCb(cfg),
 			openNewExport: (p, t, f) => this.openNewExportCb(p, t, f),
-			openEventInCatalog: (et) => this.openEventInCatalog(et),
+			openEventInCatalog: (et) => openEventInCatalog(this.app, et),
 			createNewPipeline: () => this.pipelinesTab.createNewPipeline(),
 			executeExportConfig: (cfg) => this.exportsTab.executeExportConfig(cfg),
 			runPipelinePreview: (pipe) => {
@@ -489,35 +470,15 @@ export class DataExchangeHubView extends ItemView {
 	private renderTopBar(container: HTMLElement): void {
 		const bar = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-px-3 ft-py-2 ft-hidden" });
 		bar.style.borderBottom = "1px solid var(--background-modifier-border)";
-		bar.style.flexShrink = "0";
+		bar.addClass("ft-flex-shrink-0");
 		this.topBarEl = bar;
 
 		this.topBarTitleEl = bar.createSpan({
 			text: "Data Exchange Hub",
 			cls: "ft-heading ft-heading-sm",
 		});
-		this.topBarTitleEl.style.cursor = "pointer";
+		this.topBarTitleEl.addClass("ft-cursor-pointer");
 		this.topBarTitleEl.addEventListener("click", () => this.navigateTo("dashboard"));
 	}
 
-	// ── Shared ──────────────────────────────────────────────
-
-	private openEventInCatalog(eventType: string): void {
-		const { workspace } = this.app;
-		const existing = workspace.getLeavesOfType(VIEW_TYPE_EVENT_CATALOG);
-		if (existing.length > 0) {
-			workspace.revealLeaf(existing[0]);
-			const view = existing[0].view as EventCatalogView;
-			view.navigateToEvent(eventType);
-			return;
-		}
-		const leaf = workspace.getLeaf(true);
-		void leaf.setViewState({ type: VIEW_TYPE_EVENT_CATALOG, active: true }).then(() => {
-			workspace.revealLeaf(leaf);
-			setTimeout(() => {
-				const view = leaf.view as EventCatalogView;
-				view.navigateToEvent(eventType);
-			}, 300);
-		});
-	}
 }

@@ -43,7 +43,7 @@ export class PipelinesTab {
 			cls: "ft-master-category-count",
 		});
 		const headerSpacer = header.createDiv();
-		headerSpacer.style.flex = "1";
+		headerSpacer.addClass("ft-flex-1");
 		const addBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 		const addIcon = addBtn.createSpan();
 		setIcon(addIcon, "plus");
@@ -76,8 +76,8 @@ export class PipelinesTab {
 
 		const iconEl = item.createSpan();
 		setIcon(iconEl, "layers");
-		iconEl.style.opacity = "0.5";
-		iconEl.style.flexShrink = "0";
+		iconEl.addClass("ft-icon-muted");
+		iconEl.addClass("ft-flex-shrink-0");
 		iconEl.style.marginTop = "0.125rem";
 
 		const textBlock = item.createDiv({ cls: "ft-master-event-name" });
@@ -397,14 +397,14 @@ export class PipelinesTab {
 		const headerRow = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const csvIcon = headerRow.createSpan();
 		setIcon(csvIcon, "file-spreadsheet");
-		csvIcon.style.opacity = "0.5";
-		csvIcon.style.flexShrink = "0";
+		csvIcon.addClass("ft-icon-muted");
+		csvIcon.addClass("ft-flex-shrink-0");
 
 		const nameEl = headerRow.createEl("span", {
 			text: csvName,
 			cls: "ft-heading ft-heading-sm ft-nav-link",
 		});
-		nameEl.style.flex = "1";
+		nameEl.addClass("ft-flex-1");
 		nameEl.style.minWidth = "0";
 		nameEl.style.overflow = "hidden";
 		nameEl.style.textOverflow = "ellipsis";
@@ -483,15 +483,15 @@ export class PipelinesTab {
 		const headerRow = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const icon = headerRow.createSpan();
 		setIcon(icon, "file-output");
-		icon.style.opacity = "0.5";
-		icon.style.flexShrink = "0";
+		icon.addClass("ft-icon-muted");
+		icon.addClass("ft-flex-shrink-0");
 
 		if (exportCfg) {
 			const nameEl = headerRow.createEl("span", {
 				text: exportCfg.name,
 				cls: "ft-heading ft-heading-sm ft-nav-link",
 			});
-			nameEl.style.flex = "1";
+			nameEl.addClass("ft-flex-1");
 			nameEl.style.minWidth = "0";
 			nameEl.style.overflow = "hidden";
 			nameEl.style.textOverflow = "ellipsis";
@@ -638,7 +638,7 @@ export class PipelinesTab {
 		const warnIcon = warnHeader.createSpan();
 		setIcon(warnIcon, "alert-triangle");
 		warnIcon.style.color = "var(--text-warning, #e5a100)";
-		warnIcon.style.flexShrink = "0";
+		warnIcon.addClass("ft-flex-shrink-0");
 		warnHeader.createSpan({
 			text: `${conflicts.length} custom property conflict${conflicts.length !== 1 ? "s" : ""}`,
 			cls: "ft-heading ft-heading-sm",
@@ -1015,7 +1015,7 @@ export class PipelinesTab {
 				dot.textContent = entry.exists ? "○" : "●";
 
 				const keySpan = row.createSpan({ text: entry.key, cls: "ft-text-sm" });
-				keySpan.style.flex = "1";
+				keySpan.addClass("ft-flex-1");
 				keySpan.style.overflow = "hidden";
 				keySpan.style.textOverflow = "ellipsis";
 				keySpan.style.whiteSpace = "nowrap";
@@ -1122,7 +1122,7 @@ export class PipelinesTab {
 						const row = breakdown.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
 						row.style.borderTop = "1px solid var(--background-modifier-border)";
 						const csvName = sr.csvPath.split("/").pop() ?? sr.csvPath;
-						row.createSpan({ text: csvName, cls: "ft-text-sm" }).style.flex = "1";
+						row.createSpan({ text: csvName, cls: "ft-text-sm ft-flex-1" });
 						const counts = [];
 						if (sr.result.created > 0) counts.push(`${sr.result.created} created`);
 						if (sr.result.updated > 0) counts.push(`${sr.result.updated} updated`);

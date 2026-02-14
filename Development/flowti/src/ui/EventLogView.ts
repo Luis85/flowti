@@ -1,10 +1,11 @@
-import { ItemView, WorkspaceLeaf, setIcon, TFile, Notice } from "obsidian";
+import { ItemView, WorkspaceLeaf, setIcon, Notice } from "obsidian";
 import { getEventCategory, getEventEntry, type EventCatalogEntry } from "../infrastructure/events/catalog";
 import type { FlowtiEvents, IEventBus, WildcardEventHandler } from "../infrastructure/events/types";
 import { type CatalogCategoryConfig, type EntityPaths, DEFAULT_ENTITY_PATHS } from "../domain/settings/settings";
 import type { ViewStateProvider } from "../infrastructure/views/registry";
 import { FileSystemClient } from "../infrastructure/filesystem/FileSystemClient";
-import { getEventDocPathResolved, resolveEntityPath, generateEventDocContent } from "./eventDocTemplate";
+import { resolveEntityPath } from "./eventDocTemplate";
+import { openOrCreateEventDoc } from "./catalog/helpers";
 
 export const VIEW_TYPE_EVENT_LOG = "flowti-event-log";
 
@@ -228,7 +229,7 @@ export class EventLogView extends ItemView {
 		this.filterInput = toolbar.createEl("input", { cls: "ft-input" });
 		this.filterInput.type = "text";
 		this.filterInput.placeholder = "Filter events...";
-		this.filterInput.style.flex = "1";
+		this.filterInput.addClass("ft-flex-1");
 		this.filterInput.addEventListener("input", () => {
 			this.activeFilter = this.filterInput.value.toLowerCase();
 			this.renderList();
@@ -501,7 +502,7 @@ export class EventLogView extends ItemView {
 		setIcon(docLink, "file-text");
 		docLink.addEventListener("click", (e) => {
 			e.stopPropagation();
-			void this.openOrCreateEventDoc(docEntry);
+			void this.openEventDoc(docEntry);
 		});
 
 		// Expand/collapse toggle
@@ -543,29 +544,9 @@ export class EventLogView extends ItemView {
 	// Doc link
 	// ─────────────────────────────────────────────────────────────
 
-	private async openOrCreateEventDoc(entry: EventCatalogEntry): Promise<void> {
+	private async openEventDoc(entry: EventCatalogEntry): Promise<void> {
 		const eventsFolder = resolveEntityPath(this.docsRootPath, this.entityPaths.events);
-		const docPath = getEventDocPathResolved(eventsFolder, entry.type);
-
-		let file = this.app.vault.getAbstractFileByPath(docPath);
-
-		if (!file) {
-			const content = generateEventDocContent(entry);
-			try {
-				await this.fileSystemClient.createFile(docPath, content, {
-					createFolders: true,
-				});
-			} catch (err) {
-				console.error(`[Flowti] Failed to create event doc: ${docPath}`, err);
-				return;
-			}
-			file = this.app.vault.getAbstractFileByPath(docPath);
-		}
-
-		if (file && file instanceof TFile) {
-			const leaf = this.app.workspace.getLeaf(false);
-			await leaf.openFile(file);
-		}
+		await openOrCreateEventDoc(this.app, this.fileSystemClient, eventsFolder, entry);
 	}
 
 	// ─────────────────────────────────────────────────────────────

@@ -49,8 +49,8 @@ export class ReportsTab {
 
 			const iconEl = item.createSpan();
 			setIcon(iconEl, "file-spreadsheet");
-			iconEl.style.opacity = "0.5";
-			iconEl.style.flexShrink = "0";
+			iconEl.addClass("ft-icon-muted");
+			iconEl.addClass("ft-flex-shrink-0");
 
 			item.createSpan({ text: report.name, cls: "ft-master-event-name" });
 
@@ -166,8 +166,8 @@ export class ReportsTab {
 					const item = cfgSection.createDiv({ cls: "ft-master-event-item" });
 					const iconEl = item.createSpan();
 					setIcon(iconEl, "file-input");
-					iconEl.style.opacity = "0.5";
-					iconEl.style.flexShrink = "0";
+					iconEl.addClass("ft-icon-muted");
+					iconEl.addClass("ft-flex-shrink-0");
 					item.createSpan({ text: cfg.name, cls: "ft-master-event-name" });
 					item.createSpan({ text: `→ ${cfg.targetFolder}`, cls: "ft-badge ft-badge-muted" });
 					item.addEventListener("click", () => {

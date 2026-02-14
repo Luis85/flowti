@@ -24,7 +24,7 @@ export class CatalogDashboard {
 		titleBar.style.paddingBottom = "0.75rem";
 		const titleIcon = titleBar.createSpan();
 		setIcon(titleIcon, "network");
-		titleIcon.style.opacity = "0.5";
+		titleIcon.addClass("ft-icon-muted");
 		titleBar.createEl("h2", {
 			text: "Event Catalog",
 			cls: "ft-heading",
@@ -61,7 +61,7 @@ export class CatalogDashboard {
 			el.style.border = "1px solid var(--background-modifier-border)";
 			el.style.borderRadius = "8px";
 			el.style.padding = "1rem";
-			el.style.cursor = "pointer";
+			el.addClass("ft-cursor-pointer");
 			el.style.display = "flex";
 			el.style.alignItems = "center";
 			el.style.gap = "0.75rem";

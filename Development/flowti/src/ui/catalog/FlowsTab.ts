@@ -1,9 +1,9 @@
-import { TFile, setIcon } from "obsidian";
+import { setIcon } from "obsidian";
 import type { EventCatalogEntry } from "../../infrastructure/events/catalog";
 import {
 	renderStat, renderRelatedSection,
 	findRelatedSystems, findRelatedActors,
-	openFile,
+	openFile, createEntityDoc,
 } from "./helpers";
 import {
 	getFlowDocPathResolved, generateFlowDocContent,
@@ -107,8 +107,8 @@ export class FlowsTab {
 
 			const iconEl = item.createSpan();
 			setIcon(iconEl, "git-branch");
-			iconEl.style.opacity = "0.5";
-			iconEl.style.flexShrink = "0";
+			iconEl.addClass("ft-icon-muted");
+			iconEl.addClass("ft-flex-shrink-0");
 
 			item.createSpan({ text: f.name, cls: "ft-master-event-name" });
 
@@ -230,7 +230,7 @@ export class FlowsTab {
 			const row = section.createDiv({ cls: "ft-catalog-row" });
 			row.createSpan({ text: eventType, cls: "ft-event-type" });
 			if (resolved) {
-				row.style.cursor = "pointer";
+				row.addClass("ft-cursor-pointer");
 				row.createSpan({ text: resolved.category, cls: "ft-catalog-meta" });
 				row.addEventListener("click", () => {
 					this.deps.navigation.navigateToEvent(eventType);
@@ -269,7 +269,7 @@ export class FlowsTab {
 
 		const icon = empty.createDiv();
 		setIcon(icon, "git-branch");
-		icon.style.opacity = "0.3";
+		icon.addClass("ft-icon-subtle");
 
 		empty.createEl("p", { text: "Select a flow to view details" });
 
@@ -286,27 +286,13 @@ export class FlowsTab {
 	// ─────────────────────────────────────────────────────────────
 
 	async createDoc(name: string): Promise<void> {
-		const docPath = getFlowDocPathResolved(this.deps.getEntityFolder("flows"), name);
-
-		const existing = this.deps.app.vault.getAbstractFileByPath(docPath);
-		if (existing) {
-			if (existing instanceof TFile) {
-				const leaf = this.deps.app.workspace.getLeaf(false);
-				await leaf.openFile(existing);
-			}
-			return;
-		}
-
-		const content = generateFlowDocContent(name);
-		try {
-			await this.deps.fileSystemClient.createFile(docPath, content, { createFolders: true });
-		} catch (err) {
-			console.error(`[Flowti] Failed to create flow doc: ${docPath}`, err);
-			return;
-		}
-
+		await createEntityDoc(this.deps, {
+			entityType: "flows",
+			name,
+			getDocPath: getFlowDocPathResolved,
+			generateContent: () => generateFlowDocContent(name),
+		});
 		this.selectedFlow = name;
-		setTimeout(() => this.deps.scheduleRender(), 500);
 	}
 
 	async deleteDoc(filePath: string): Promise<void> {

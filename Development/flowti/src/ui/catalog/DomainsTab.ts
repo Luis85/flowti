@@ -5,7 +5,7 @@ import {
 	isConfigured, discoveredToCatalogEntries,
 	renderStat, renderRelatedSection,
 	findRelatedFlows, findRelatedSystems, findRelatedActors,
-	openFile,
+	openFile, createEntityDoc,
 } from "./helpers";
 import {
 	getDomainDocPathResolved, generateDomainDocContent,
@@ -195,7 +195,7 @@ export class DomainsTab {
 			const hiddenHeader = this.masterEl.createDiv({ cls: "ft-master-category-header" });
 			hiddenHeader.style.marginTop = "8px";
 			hiddenHeader.style.opacity = "0.6";
-			hiddenHeader.style.cursor = "pointer";
+			hiddenHeader.addClass("ft-cursor-pointer");
 			hiddenHeader.createSpan({ text: `${hiddenDomains.length} hidden` });
 			const expandIcon = hiddenHeader.createSpan({ cls: "ft-visibility-toggle" });
 			expandIcon.style.marginLeft = "auto";
@@ -230,8 +230,8 @@ export class DomainsTab {
 
 		// Eye icon for visibility toggle
 		const eyeBtn = item.createSpan({ cls: "ft-visibility-toggle" });
-		eyeBtn.style.flexShrink = "0";
-		eyeBtn.style.cursor = "pointer";
+		eyeBtn.addClass("ft-flex-shrink-0");
+		eyeBtn.addClass("ft-cursor-pointer");
 		setIcon(eyeBtn, d.visible ? "eye" : "eye-off");
 		eyeBtn.setAttribute("aria-label", d.visible ? "Hide domain" : "Show domain");
 		eyeBtn.addEventListener("click", (e) => {
@@ -241,8 +241,8 @@ export class DomainsTab {
 
 		const iconEl = item.createSpan();
 		setIcon(iconEl, "box");
-		iconEl.style.opacity = "0.5";
-		iconEl.style.flexShrink = "0";
+		iconEl.addClass("ft-icon-muted");
+		iconEl.addClass("ft-flex-shrink-0");
 
 		item.createSpan({ text: d.name, cls: "ft-master-event-name" });
 
@@ -426,7 +426,7 @@ export class DomainsTab {
 
 		for (const entry of domainData.events) {
 			const row = section.createDiv({ cls: "ft-catalog-row" });
-			row.style.cursor = "pointer";
+			row.addClass("ft-cursor-pointer");
 
 			row.createSpan({ text: entry.type, cls: "ft-event-type" });
 			row.createSpan({ text: entry.category, cls: "ft-catalog-meta" });
@@ -472,7 +472,7 @@ export class DomainsTab {
 
 		const icon = empty.createDiv();
 		setIcon(icon, "boxes");
-		icon.style.opacity = "0.3";
+		icon.addClass("ft-icon-subtle");
 
 		empty.createEl("p", { text: "Select a domain to view details" });
 
@@ -489,28 +489,14 @@ export class DomainsTab {
 	// ─────────────────────────────────────────────────────────────
 
 	async createDoc(name: string): Promise<void> {
-		const docPath = getDomainDocPathResolved(this.deps.getEntityFolder("domains"), name);
-
-		const existing = this.deps.app.vault.getAbstractFileByPath(docPath);
-		if (existing) {
-			if (existing instanceof TFile) {
-				const leaf = this.deps.app.workspace.getLeaf(false);
-				await leaf.openFile(existing);
-			}
-			return;
-		}
-
 		const domainEvents = this.entries.find((d) => d.name === name)?.events ?? [];
-		const content = generateDomainDocContent(name, domainEvents);
-		try {
-			await this.deps.fileSystemClient.createFile(docPath, content, { createFolders: true });
-		} catch (err) {
-			console.error(`[Flowti] Failed to create domain doc: ${docPath}`, err);
-			return;
-		}
-
+		await createEntityDoc(this.deps, {
+			entityType: "domains",
+			name,
+			getDocPath: getDomainDocPathResolved,
+			generateContent: () => generateDomainDocContent(name, domainEvents),
+		});
 		this.selectedDomain = name;
-		setTimeout(() => this.deps.scheduleRender(), 500);
 	}
 
 	async deleteDoc(filePath: string): Promise<void> {
