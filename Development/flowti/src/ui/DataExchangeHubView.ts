@@ -2807,56 +2807,25 @@ export class DataExchangeHubView extends ItemView {
 		const card = container.createDiv({ cls: "ft-card ft-mt-1" });
 		card.style.padding = "0.5rem 0.75rem";
 
-		// Header row: CSV name + badges
+		const csvName = source.csvPath.split("/").pop() ?? source.csvPath;
+
+		// Header row: icon + clickable CSV name + badges
 		const headerRow = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const csvIcon = headerRow.createSpan();
 		setIcon(csvIcon, "file-spreadsheet");
 		csvIcon.style.opacity = "0.5";
 		csvIcon.style.flexShrink = "0";
 
-		const csvName = source.csvPath.split("/").pop() ?? source.csvPath;
-		const nameEl = headerRow.createSpan({ text: csvName, cls: "ft-heading ft-heading-sm" });
+		const nameEl = headerRow.createEl("span", {
+			text: csvName,
+			cls: "ft-heading ft-heading-sm ft-nav-link",
+		});
 		nameEl.style.flex = "1";
 		nameEl.style.minWidth = "0";
 		nameEl.style.overflow = "hidden";
 		nameEl.style.textOverflow = "ellipsis";
 		nameEl.style.whiteSpace = "nowrap";
-
-		// Merge key badge
-		headerRow.createSpan({
-			text: `${source.mergeKeyColumn} → ${pipe.mergeKey}`,
-			cls: "ft-badge ft-badge-muted",
-		});
-
-		// Column count badge
-		const included = source.columnMappings.filter((m) => m.included).length;
-		const total = source.columnMappings.length;
-		headerRow.createSpan({
-			text: `${included}/${total} cols`,
-			cls: "ft-badge ft-badge-muted",
-		});
-
-		// Info row
-		const infoRow = card.createDiv({ cls: "ft-text-muted ft-text-sm ft-mt-1" });
-		infoRow.textContent = source.csvPath;
-
-		// Custom properties (show key-value pairs)
-		if (source.customProperties && Object.keys(source.customProperties).length > 0) {
-			const propsRow = card.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
-			propsRow.style.flexWrap = "wrap";
-			for (const [key, value] of Object.entries(source.customProperties)) {
-				const chip = propsRow.createSpan({ cls: "ft-badge ft-badge-muted" });
-				chip.textContent = `${key}: ${value}`;
-			}
-		}
-
-		// Actions: Edit / Remove
-		const actionsRow = card.createDiv({ cls: "ft-flex ft-gap-2 ft-mt-1" });
-		const editLink = actionsRow.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-		const editIcon = editLink.createSpan();
-		setIcon(editIcon, "pencil");
-		editLink.appendText(" Edit");
-		editLink.addEventListener("click", () => {
+		nameEl.addEventListener("click", () => {
 			new PipelineSourceModal({
 				app: this.app,
 				importService: this.dataExchangeService.getImportService(),
@@ -2877,6 +2846,36 @@ export class DataExchangeHubView extends ItemView {
 			}).open();
 		});
 
+		// Merge key badge
+		headerRow.createSpan({
+			text: `${source.mergeKeyColumn} → ${pipe.mergeKey}`,
+			cls: "ft-badge ft-badge-muted",
+		});
+
+		// Column count badge
+		const included = source.columnMappings.filter((m) => m.included).length;
+		const total = source.columnMappings.length;
+		headerRow.createSpan({
+			text: `${included}/${total} cols`,
+			cls: "ft-badge ft-badge-muted",
+		});
+
+		// Info row: full path
+		const infoRow = card.createDiv({ cls: "ft-text-muted ft-text-sm ft-mt-1" });
+		infoRow.textContent = source.csvPath;
+
+		// Custom properties (show key-value pairs)
+		if (source.customProperties && Object.keys(source.customProperties).length > 0) {
+			const propsRow = card.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
+			propsRow.style.flexWrap = "wrap";
+			for (const [key, value] of Object.entries(source.customProperties)) {
+				const chip = propsRow.createSpan({ cls: "ft-badge ft-badge-muted" });
+				chip.textContent = `${key}: ${value}`;
+			}
+		}
+
+		// Actions: Remove only
+		const actionsRow = card.createDiv({ cls: "ft-flex ft-gap-2 ft-mt-1" });
 		const removeLink = actionsRow.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 		removeLink.style.color = "var(--text-error)";
 		const removeIcon = removeLink.createSpan();
@@ -2936,11 +2935,7 @@ export class DataExchangeHubView extends ItemView {
 				cls: "ft-badge ft-badge-muted",
 			});
 
-			// Info row: output path
-			const infoRow = card.createDiv({ cls: "ft-text-muted ft-text-sm ft-mt-1" });
-			infoRow.textContent = exportCfg.outputPath || "(no output path)";
-
-			// Source base/folder — clickable
+			// Source base/folder — clickable (shown first)
 			if (exportCfg.sourcePath) {
 				const sourceRow = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-mt-1" });
 				const sourceLabel = exportCfg.sourceType === "base" ? "Base:" : "Folder:";
@@ -2961,6 +2956,10 @@ export class DataExchangeHubView extends ItemView {
 					});
 				}
 			}
+
+			// Output path (shown second)
+			const infoRow = card.createDiv({ cls: "ft-text-muted ft-text-sm ft-mt-1" });
+			infoRow.textContent = exportCfg.outputPath || "(no output path)";
 
 			if (exportCfg.isExternal) {
 				const extRow = card.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
