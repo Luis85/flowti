@@ -1,4 +1,5 @@
 ---
+type: PluginReadme
 title: Flowti - IBDE
 description: The Integrated Business Development Environment
 stage: development
@@ -11,6 +12,7 @@ aliases:
   - Flowti Readme
   - Flowti Plugin
 ---
+
 # Flowti - IBDE
 
 The **Integrated Business Development Environment** - An Obsidian plugin that implements the Flowti IBDE concept: a framework for describing, managing, and visualizing digital twins of business processes inside a knowledge base by providing tools for systemic documenting and executing captured processes.
@@ -27,6 +29,17 @@ Then open the Vault folder in a terminal and build the Plugin from source.
 2. `npm run build`
 3. Restart Obsidian then activate the Plugin
 4. Finish the Installer
+
+---
+
+## Roadmap
+
+1. Automated Documentation Coverage of all created Domains, Services, Events, Flows
+2. Test-coverage in every aspect of the Test Pyramide, finalized with an end-to-end test-suite build on top of Obsidian CLI
+3. Automated Release Pipeline from Plugin View to Git
+4. Release v0.0.1
+5. ...
+6. Release v1.0.0
 
 ---
 
