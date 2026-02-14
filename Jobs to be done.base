@@ -4,3 +4,5 @@ filters:
 views:
   - type: table
     name: Job to be done
+  - type: table
+    name: View

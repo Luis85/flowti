@@ -14,8 +14,8 @@
 			"label":"Event Catalog - Domains and their events",
 			"background":"03 - Resources/Attachments/Pasted image 20260213190830.png"
 		},
-		{"id":"709db2caae500820","type":"group","x":-40,"y":3520,"width":1648,"height":1100,"label":"Event Catalog - Dashboard","background":"03 - Resources/Attachments/Pasted image 20260213192558.png","backgroundStyle":"ratio"},
-		{"id":"88cf99594f0985d7","type":"group","x":-40,"y":5040,"width":1648,"height":1098,"label":"Event Catalog - Flows","background":"03 - Resources/Attachments/Pasted image 20260213192818.png","backgroundStyle":"ratio"},
+		{"id":"709db2caae500820","type":"group","backgroundStyle":"ratio","x":-40,"y":3520,"width":1648,"height":1100,"label":"Event Catalog - Dashboard","background":"03 - Resources/Attachments/Pasted image 20260213192558.png"},
+		{"id":"88cf99594f0985d7","type":"group","backgroundStyle":"ratio","x":-40,"y":5040,"width":1647,"height":1098,"label":"Event Catalog - Flows","background":"03 - Resources/Attachments/Pasted image 20260213192818.png"},
 		{"id":"abc9776e8773b32b","type":"group","x":-40,"y":880,"width":1060,"height":580,"label":"Frontstage"},
 		{"id":"25c2f8a7fca6c9d7","type":"group","x":1480,"y":880,"width":300,"height":580,"label":"Backstage"},
 		{"id":"5e8bcec9492cfb3e","type":"group","x":-20,"y":950,"width":340,"height":480,"color":"2","label":"Product"},
@@ -23,6 +23,57 @@
 		{"id":"eb56d8b9c2c758f2","type":"group","x":360,"y":950,"width":620,"height":120,"color":"2","label":"Sitemap"},
 		{"id":"5d6cdc543db0af78","type":"file","file":"Development/flowti/docs/Flowti - System Design.canvas","x":320,"y":-280,"width":260,"height":400},
 		{"id":"0b8e15eb023842e5","type":"file","file":"Development/Plugin Design.canvas","x":600,"y":-280,"width":260,"height":400},
+		{
+			"id":"8b42e85c8914f3a7",
+			"type":"text",
+			"text":"# Folderstructure\n\n- `/00 - Connectivity`\n- `/01 - Projects`\n- `/02 - Areas`\n- `/03 - Resources`\n- `/04 - Archive`\n- `/05 - Public Vault`\n- `/var`",
+			"styleAttributes":{},
+			"x":40,
+			"y":-280,
+			"width":260,
+			"height":400
+		},
+		{
+			"id":"3b8e15b7fd161918",
+			"type":"text",
+			"text":"User Story",
+			"styleAttributes":{"textAlign":"center"},
+			"x":20,
+			"y":1170,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"f9fe5f4ef60e6a53",
+			"type":"text",
+			"text":"Use Case",
+			"styleAttributes":{"textAlign":"center"},
+			"x":20,
+			"y":1250,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"74227396a6c77e95",
+			"type":"text",
+			"text":"Gherkin Test",
+			"styleAttributes":{"textAlign":"center"},
+			"x":20,
+			"y":1330,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"cd7a2daabf8bba73",
+			"type":"text",
+			"text":"Feature",
+			"styleAttributes":{"textAlign":"center"},
+			"x":20,
+			"y":980,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
 		{
 			"id":"4f15b20a66e491c0",
 			"type":"text",
@@ -57,16 +108,6 @@
 			"color":"2"
 		},
 		{
-			"id":"8b42e85c8914f3a7",
-			"type":"text",
-			"text":"# Folderstructure\n\n- `/00 - Connectivity`\n- `/01 - Projects`\n- `/02 - Areas`\n- `/03 - Resources`\n- `/04 - Archive`\n- `/05 - Public Vault`\n- `/var`",
-			"styleAttributes":{},
-			"x":40,
-			"y":-280,
-			"width":260,
-			"height":400
-		},
-		{
 			"id":"3a4582b7f06dbcf2",
 			"type":"text",
 			"text":"Views",
@@ -76,6 +117,49 @@
 			"width":260,
 			"height":60,
 			"color":"6"
+		},
+		{
+			"id":"719b2dfadce52cb7",
+			"type":"text",
+			"text":"Domains",
+			"styleAttributes":{"textAlign":"center"},
+			"x":540,
+			"y":440,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"8844baa6c4d7d42b",
+			"type":"text",
+			"text":"# User Groups\n\n- new to Obsidian\n- new to Markdown\n- new to Git\n- new to Obsidian Plugin Development\n- new to Project Management\n- new to Software Design\n- new to Product Development\n",
+			"styleAttributes":{},
+			"x":1210,
+			"y":-280,
+			"width":260,
+			"height":400
+		},
+		{
+			"id":"6fc6f55d39d2a14d",
+			"type":"text",
+			"text":"add connected flows",
+			"styleAttributes":{"textAlign":"center"},
+			"x":360,
+			"y":2820,
+			"width":260,
+			"height":60,
+			"color":"3"
+		},
+		{
+			"id":"37b60e3fcc6abba6",
+			"type":"text",
+			"text":"add start events",
+			"styleAttributes":{"textAlign":"center"},
+			"x":360,
+			"y":2740,
+			"width":260,
+			"height":60,
+			"color":"3"
 		},
 		{
 			"id":"72449dad794f89e3",
@@ -98,80 +182,6 @@
 			"width":260,
 			"height":60,
 			"color":"2"
-		},
-		{
-			"id":"10912870c9bcc94e",
-			"type":"text",
-			"text":"Offer",
-			"styleAttributes":{"textAlign":"center"},
-			"x":540,
-			"y":1680,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"7690eedbe60304e6",
-			"type":"text",
-			"text":"Customer Experience",
-			"styleAttributes":{"textAlign":"center"},
-			"x":540,
-			"y":1820,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"3b8e15b7fd161918",
-			"type":"text",
-			"text":"User Story",
-			"styleAttributes":{"textAlign":"center"},
-			"x":20,
-			"y":1170,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"f9fe5f4ef60e6a53",
-			"type":"text",
-			"text":"Use Case",
-			"styleAttributes":{"textAlign":"center"},
-			"x":20,
-			"y":1250,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"74227396a6c77e95",
-			"type":"text",
-			"text":"Gherkin Test",
-			"styleAttributes":{"textAlign":"center"},
-			"x":20,
-			"y":1330,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"719b2dfadce52cb7",
-			"type":"text",
-			"text":"Domains",
-			"styleAttributes":{"textAlign":"center"},
-			"x":540,
-			"y":440,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"cd7a2daabf8bba73",
-			"type":"text",
-			"text":"Feature",
-			"styleAttributes":{"textAlign":"center"},
-			"x":20,
-			"y":980,
-			"width":260,
-			"height":60,
-			"color":"6"
 		},
 		{
 			"id":"34f728f65d90456d",
@@ -218,6 +228,61 @@
 			"color":"2"
 		},
 		{
+			"id":"06ad3e18891e6b69",
+			"type":"text",
+			"text":"Documentation",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1500,
+			"y":1380,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"e220c03bb0c9e1f8",
+			"type":"text",
+			"text":"add actors",
+			"styleAttributes":{"textAlign":"center"},
+			"x":360,
+			"y":2900,
+			"width":260,
+			"height":60,
+			"color":"3"
+		},
+		{
+			"id":"7eb885012fee3e62",
+			"type":"text",
+			"text":"I want to quickly access my marked domains",
+			"styleAttributes":{"textAlign":"center"},
+			"x":580,
+			"y":3840,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"10912870c9bcc94e",
+			"type":"text",
+			"text":"Offer",
+			"styleAttributes":{"textAlign":"center"},
+			"x":540,
+			"y":1680,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"7690eedbe60304e6",
+			"type":"text",
+			"text":"Customer Experience",
+			"styleAttributes":{"textAlign":"center"},
+			"x":540,
+			"y":1820,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
 			"id":"a0da346fe621e29e",
 			"type":"text",
 			"text":"Props",
@@ -251,38 +316,6 @@
 			"color":"2"
 		},
 		{
-			"id":"06ad3e18891e6b69",
-			"type":"text",
-			"text":"Documentation",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1500,
-			"y":1380,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"8844baa6c4d7d42b",
-			"type":"text",
-			"text":"# User Groups\n\n- new to Obsidian\n- new to Markdown\n- new to Git\n- new to Obsidian Plugin Development\n- new to Project Management\n- new to Software Design\n- new to Product Development\n",
-			"styleAttributes":{},
-			"x":1210,
-			"y":-280,
-			"width":260,
-			"height":400
-		},
-		{
-			"id":"6fc6f55d39d2a14d",
-			"type":"text",
-			"text":"add connected flows",
-			"styleAttributes":{"textAlign":"center"},
-			"x":360,
-			"y":2820,
-			"width":260,
-			"height":60,
-			"color":"3"
-		},
-		{
 			"id":"a3403caee5870e18",
 			"type":"text",
 			"text":"add props",
@@ -294,34 +327,12 @@
 			"color":"3"
 		},
 		{
-			"id":"e220c03bb0c9e1f8",
-			"type":"text",
-			"text":"add actors",
-			"styleAttributes":{"textAlign":"center"},
-			"x":360,
-			"y":2900,
-			"width":260,
-			"height":60,
-			"color":"3"
-		},
-		{
 			"id":"234c521da08cb46a",
 			"type":"text",
 			"text":"add end events",
 			"styleAttributes":{"textAlign":"center"},
 			"x":640,
 			"y":2900,
-			"width":260,
-			"height":60,
-			"color":"3"
-		},
-		{
-			"id":"37b60e3fcc6abba6",
-			"type":"text",
-			"text":"add start events",
-			"styleAttributes":{"textAlign":"center"},
-			"x":360,
-			"y":2740,
 			"width":260,
 			"height":60,
 			"color":"3"
@@ -349,17 +360,6 @@
 			"color":"5"
 		},
 		{
-			"id":"7b3867441155ac77",
-			"type":"text",
-			"text":"what triggers this domain?\nwhat are the outputs of this domain?",
-			"styleAttributes":{},
-			"x":1200,
-			"y":2520,
-			"width":360,
-			"height":110,
-			"color":"5"
-		},
-		{
 			"id":"7fdc8a36c5cc2c85",
 			"type":"text",
 			"text":"## Our Deliverables\n\n- ...\n\n## How to work with us\n\n- ...\n",
@@ -370,14 +370,14 @@
 			"height":440
 		},
 		{
-			"id":"7eb885012fee3e62",
+			"id":"7b3867441155ac77",
 			"type":"text",
-			"text":"I want to quickly access my marked domains",
-			"styleAttributes":{"textAlign":"center"},
-			"x":580,
-			"y":3840,
-			"width":260,
-			"height":60,
+			"text":"what triggers this domain?\nwhat are the outputs of this domain?",
+			"styleAttributes":{},
+			"x":1200,
+			"y":2520,
+			"width":360,
+			"height":110,
 			"color":"5"
 		},
 		{
@@ -441,6 +441,16 @@
 			"y":6460,
 			"width":260,
 			"height":60
+		},
+		{
+			"id":"5c082c855f301737",
+			"type":"text",
+			"text":"## Zielbild\n\n- **Obsidian View**: nur Mount-Point + Lifecycle + minimal wiring\n    \n- **UI App Layer**: Layouts, Komponenten, Routing, State\n    \n- **Eventbus**: zentrale Kommunikation (Commands/Events), möglichst wenig direkte Service-Calls aus UI\n    \n\n---\n\n## 1) Architektur-Bausteine\n\n### A) `ViewContainer` (Obsidian Adapter)\n\nPro View-Typ ein dünner Adapter:\n\n- erstellt root DOM\n    \n- instanziiert deine App/Renderer\n    \n- injiziert Dependencies: `eventBus`, `services`, `router`, `theme`\n    \n- disposed sauber\n    \n\n**Regel:** Keine Business-Logik in Obsidian Views.\n\n---\n\n### B) `AppShell`\n\nDein eigenes UI-Shell-Framework:\n\n- Layout Engine\n    \n- optional: Router (internal)\n    \n- Error Boundary / Toasts / Modals\n    \n- Theme bridge (Obsidian CSS vars)\n    \n\nAppShell rendert **Layout + Slots**.\n\n---\n\n### C) `Layout` als wiederverwendbare Templates\n\nLayouts sind “Page skeletons” mit **Slots**:\n\n- `header`\n    \n- `left_panel`\n    \n- `main`\n    \n- `right_panel`\n    \n- `footer`\n    \n- `statusbar`\n    \n\nLayouts sind reine UI-Struktur + responsive behavior.\n\n---\n\n### D) Komponenten\n\nKomponenten sind:\n\n- rein visuell (presentational) oder\n    \n- “smart” (subscribe/publish auf Eventbus)\n    \n\n**Regel:** Komponenten sprechen primär über den Eventbus.\n\n---\n\n### E) UI-Controller / Presenter (optional, empfohlen)\n\nFür komplexe Views:\n\n- `EventCatalogController`\n    \n- `SubscriptionController`\n    \n\nSie:\n\n- subscriben auf Eventbus\n    \n- selektieren UI state\n    \n- liefern Props an Komponenten\n    \n\nDas hält UI-Komponenten sauber und testbar.\n\n---\n\n## 2) Eventbus-first UI: Kommunikationsmodell\n\nDamit das nicht chaotisch wird, brauchst du 2 Message-Typen:\n\n### ✅ Commands (Intent)\n\n> “mach etwas”\n\n- `catalog.open_event_doc`\n    \n- `subscriptions.create`\n    \n- `ingestion.start_catchup`\n    \n- `events.emit_domain_event_preview`\n    \n\nCommands gehen **an** Application Layer / Services.\n\n### ✅ Events (Facts)\n\n> “etwas ist passiert”\n\n- `catalog.loaded`\n    \n- `subscription.created`\n    \n- `ingestion.progress_updated`\n    \n- `error.raised`\n    \n\nEvents kommen **zurück** in die UI.\n\n**UI darf**:\n\n- Commands senden\n    \n- Events rendern\n    \n\nUI sollte **nicht**:\n\n- Services direkt orchestrieren, wenn es über Commands geht\n    \n\n---\n\n## 3) Layout Framework: schnell Layouts bauen + wiederverwenden\n\nIch würde dir ein kleines eigenes Layout-System empfehlen, das auf **CSS Grid + Slots** basiert.\n\n### Layout-Interface\n\n- Layout = Name + Slot Definition + CSS class\n    \n- Slot = “region” in die du Komponenten steckst\n    \n\nBeispiel Layouts (für dein Event System):\n\n- `master_detail` (links Liste, rechts Detail)\n    \n- `three_pane` (nav + main + inspector)\n    \n- `dashboard` (cards + panels)\n    \n- `fullscreen_console` (log + filters + details)\n    \n\nDu kannst Layouts als:\n\n- TS/JS config + renderer\n    \n- oder als HTML templates mit slot markers\n    \n\nbauen.\n\n---\n\n## 4) UI State: wie Views “State bekommen”\n\nWenn alles über Eventbus läuft, brauchst du “UI State Stores” die Events in State übersetzen.\n\n### Minimal: `Store` pro Domain\n\n- `CatalogStore`\n    \n- `SubscriptionStore`\n    \n- `IngestionStore`\n    \n- `LogStore`\n    \n\nStores:\n\n- abonnieren Domain Events\n    \n- halten den aktuellen UI state\n    \n- bieten `select()` Methoden\n    \n\nKomponenten subscriben **nicht** direkt auf den Bus, sondern auf Stores (empfohlen), sonst wird’s schnell unübersichtlich.\n\n> Bus = Verkehrsnetz  \n> Store = Haltestelle + Fahrplan  \n> UI = Fahrgäste\n\n---\n\n## 5) “Framework” Vorschlag: leichtgewichtig, Obsidian-friendly\n\nOhne zu wissen ob du React/Vue willst, ist diese Kombi extrem gut:\n\n### Option A: Web Components + Lit (sehr geeignet)\n\n- kein React runtime overhead\n    \n- passt gut zu Obsidian DOM\n    \n- components als native custom elements\n    \n- super für reusable layout/components\n    \n\n### Option B: React (wenn du already drin bist)\n\n- schneller UI-Bau\n    \n- aber mehr bundle + lifecycle management\n    \n\n### Option C: Preact + Signals (leicht, schnell)\n\n- quasi React, aber kleiner\n    \n- Signals sind perfekt für store-driven UI\n    \n\nWenn du “Framework” willst, das sich **wie Obsidian** anfühlt: **Lit oder Preact** ist oft der sweet spot.\n\n---\n\n## 6) Konkretes Target Design (für dich)\n\n### Layering\n\n1. `obsidian/`\n    \n    - `EventCatalogView.ts` (Adapter)\n        \n2. `ui/`\n    \n    - `AppShell.ts`\n        \n    - `layouts/`\n        \n    - `components/`\n        \n3. `application/`\n    \n    - command handlers (use cases)\n        \n    - mapping + orchestration\n        \n4. `domain/`\n    \n    - event definitions\n        \n5. `infra/`\n    \n    - persistence, vault, parsing, etc.\n        \n\n---\n\n## 7) Welche Design-Artefakte du jetzt erstellen solltest\n\nWenn du jetzt konzipierst, helfen dir diese 4 Artefakte maximal:\n\n1. **UI Composition Map**\n    \n\n- welche Views gibt es?\n    \n- welche Layouts nutzt jede View?\n    \n- welche Komponenten stecken in welchen Slots?\n    \n\n2. **Layout Library Spec**\n    \n\n- Liste deiner Layouts mit Slots + responsive behavior\n    \n\n3. **Event Contract for UI**\n    \n\n- welche Commands sendet UI?\n    \n- welche Events bekommt UI zurück?\n    \n\n4. **Store Model**\n    \n\n- welche Stores existieren?\n    \n- welche Events konsumieren sie?\n    \n- welche selectors bietet jeder Store?\n    \n\nDamit kannst du extrem schnell iterieren und behältst Ordnung.\n\n---\n\n## 8) Vorschlag: Starter Kit (Minimal V0)\n\nWenn du klein starten willst:\n\n- `EventBus` (typed)\n    \n- `StoreBase`\n    \n- `AppShell + master_detail layout`\n    \n- `EventCatalogView` (Adapter)\n    \n- `CatalogStore`\n    \n- 3 Komponenten:\n    \n    - `EventList`\n        \n    - `EventDetail`\n        \n    - `DocLinksPanel`\n        \n\nAlles andere wächst organisch.\n\n---\n\nWenn du willst, lege ich dir als nächstes **ein konkretes Dateisystem + TypeScript Interfaces** an:\n\n- `LayoutDefinition`\n    \n- `SlotRenderer`\n    \n- `EventBus` typing (commands/events)\n    \n- `StoreBase` + `useStore` binding (für Lit/Preact/React je nach Wahl)\n    \n\nSag mir nur kurz, was du bevorzugst:\n\n- **Lit**, **Preact**, oder **React** (oder “framework-agnostisch, erstmal vanilla + custom elements”).",
+			"styleAttributes":{},
+			"x":3060,
+			"y":840,
+			"width":540,
+			"height":440
 		}
 	],
 	"edges":[
