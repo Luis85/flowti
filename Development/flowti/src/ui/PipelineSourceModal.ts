@@ -233,6 +233,8 @@ export class PipelineSourceModal extends Modal {
 	}
 
 	private renderColumnGrid(container: HTMLElement): void {
+		container.empty();
+
 		// Filter out merge key column from the grid (it's handled separately)
 		const mappings = this.columnMappings.filter(
 			(m) => m.csvColumn !== this.mergeKeyColumn,
