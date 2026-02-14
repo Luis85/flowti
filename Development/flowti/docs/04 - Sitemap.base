@@ -1,0 +1,12 @@
+filters:
+  and:
+    - file.inFolder("Development/flowti/docs/sitemap")
+views:
+  - type: table
+    name: Views
+    order:
+      - file.name
+      - description
+      - Source
+    columnSize:
+      note.description: 450

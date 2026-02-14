@@ -1,0 +1,30 @@
+{
+  "items": [
+    {
+      "type": "file",
+      "ctime": 1771087396881,
+      "path": "01 - Jobs to be done.base"
+    },
+    {
+      "type": "file",
+      "ctime": 1771087412709,
+      "path": "02 - Features.base"
+    },
+    {
+      "type": "file",
+      "ctime": 1771087445825,
+      "path": "Development/flowti/docs/03 - User Stories.base",
+      "title": "03 - User Stories - Flowti"
+    },
+    {
+      "type": "file",
+      "ctime": 1771087433608,
+      "path": "04 - Personas.base"
+    },
+    {
+      "type": "folder",
+      "ctime": 1771087935467,
+      "path": "Development/flowti"
+    }
+  ]
+}

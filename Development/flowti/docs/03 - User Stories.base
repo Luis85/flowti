@@ -8,8 +8,8 @@ views:
       property: feature
       direction: ASC
     order:
-      - file.name
       - feature
+      - file.name
       - tags
       - stage
       - description

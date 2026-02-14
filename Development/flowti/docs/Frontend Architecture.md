@@ -1,6 +1,8 @@
 # Frontend Architecture
 
-This document describes the current frontend architecture of the Flowti IBDE Obsidian plugin, its design principles, view inventory, and a tech debt assessment with refactoring targets.
+This document describes the current frontend architecture of the Flowti IBDE Obsidian plugin, its design principles, view inventory, and refactoring history with planned next phases.
+
+> Last updated: 2026-02-13
 
 ---
 
@@ -23,26 +25,35 @@ This document describes the current frontend architecture of the Flowti IBDE Obs
 ## Layer Overview
 
 ```
-src/
-├── infrastructure/     # EventBus, EventBridge, Logger, FileSystem, Commands, Views, Errors
-├── domain/             # 10 bounded contexts, each with types.ts, events.ts, and *Service.ts
-│   ├── dataExchange/   # CSV import/export, pipelines, type docs
-│   ├── discovery/      # Vault scanning for user-defined events
-│   ├── eventDefinition/# Custom event mapping rules
-│   ├── eventFilter/    # Hidden event types
-│   ├── eventNotify/    # Notification preferences
-│   ├── ingestion/      # File monitoring, job queue, catch-up
-│   ├── installer/      # First-run wizard steps
-│   ├── settings/       # Plugin configuration persistence
-│   ├── subscription/   # Event watchers with filters
-│   ├── user/           # User identity
-│   └── docs/           # Path resolution + content generation (pure functions)
-├── ui/                 # All presentation code
-│   ├── catalog/        # Event Catalog tab components (10 files)
-│   ├── hub/            # Data Exchange Hub tab components (9 files)
-│   └── *.ts            # Views, modals, shared utilities
-├── utils/              # Shared helpers (glob, persistence, types)
-└── main.ts             # Plugin orchestrator, service wiring, view registration
+src/                     # 30,500 LOC across 136 files
+├── main.ts              # Plugin orchestrator (978 LOC)
+├── infrastructure/      # Generic plumbing — events, services, commands, views, filesystem, logger, errors
+│   ├── events/          # EventBus, EventBridge, catalog, FlowtiEventMap
+│   ├── services/        # ServiceContainer (DI), registry
+│   ├── commands/        # CommandRegistry, middleware
+│   ├── errors/          # FlowtiError hierarchy, ErrorService
+│   ├── filesystem/      # FileSystemClient (async ops + events)
+│   ├── logger/          # LoggerService (in-memory buffer + events)
+│   └── views/           # ViewRegistry
+├── domain/              # Business logic (DDD, each owns events.ts)
+│   ├── dataExchange/    # Import/Export orchestration (11 files, 3,553 LOC)
+│   ├── ingestion/       # Vault file batching + retry pipeline
+│   ├── installer/       # First-run wizard + folder scaffold
+│   ├── settings/        # Settings persistence + migration
+│   ├── subscription/    # Event subscription CRUD + matching
+│   ├── eventDefinition/ # Source event → domain event mapping
+│   ├── eventFilter/     # Activity Log visibility toggles
+│   ├── eventNotify/     # Notice popups on event fire
+│   ├── discovery/       # Vault scan for custom events
+│   ├── docs/            # Markdown content generators + path resolvers
+│   └── user/            # User profile management
+├── ui/                  # Presentation layer (57 files, ~17,000 LOC)
+│   ├── catalog/         # Event Catalog components (13 files)
+│   ├── hub/             # Data Exchange Hub components (18 files)
+│   ├── csv/             # CSV import wizard components (7 files)
+│   ├── export/          # Export wizard components (6 files)
+│   └── *.ts             # Orchestrator views + modals
+└── utils/               # Shared helpers (persistence, glob, types)
 ```
 
 ### Communication Flow
@@ -64,8 +75,8 @@ Views read state via `deps.getState()` and write via `deps.setState(partial)`. T
 | `EventCatalogView` | `flowti-event-catalog` | ~825 | master-detail | 8-tab catalog: Dashboard, Domains, Services, Events, Flows, Systems, Actors, Products |
 | `DataExchangeHubView` | `flowti-data-exchange-hub` | ~485 | master-detail | 7-page hub: Dashboard, Imports, Exports, Reports, Properties, Pipelines, Types |
 | `EventLogView` | `flowti-event-log` | ~600 | log list | Activity feed with category/type filters and subscribed/all modes |
-| `ExportView` | `flowti-export` | ~1,355 | wizard stepper | 4-page export wizard: View Select, Configure, Preview, Result |
-| `CsvActionView` | `flowti-csv` | ~2,190 | landing + wizard | CSV file handler: column preview landing page + 4-page inline import wizard |
+| `ExportView` | `flowti-export` | ~655 | wizard stepper | 4-page export wizard: View Select, Configure, Preview, Result |
+| `CsvActionView` | `flowti-csv` | ~747 | landing + wizard | CSV file handler: column preview landing page + 4-page inline import wizard |
 | `ComponentShowcaseView` | `flowti-component-showcase` | ~300 | showcase | Development view for previewing all CSS components |
 
 ### Modals
@@ -91,15 +102,36 @@ Both major views follow the **orchestrator + component** pattern:
 - `CatalogDashboard` — Stats grid, quick actions, recent activity
 - `DomainsTab`, `ServicesTab` — Hybrid file + catalog entity scanning
 - `EventsTab` — Category tree, event list, per-event detail with config counts
+- `EventDetailPanel` — Event detail header, info card, actions, watchers, transforms, related entities
 - `FlowsTab`, `SystemsTab`, `ActorsTab`, `ProductsTab` — File-driven entity management
 
 **Data Exchange Hub** (`src/ui/hub/`):
 - `HubDashboard` — Pipeline summary, config tables, unconfigured CSV list
+- `DashboardImportExecutor` — Inline import progress row with auto-dismiss
 - `ImportsTab`, `ExportsTab` — Saved config management with inline execution
 - `PipelinesTab` — Multi-source import pipeline builder
 - `TypesTab` — Note type documentation with CRUD lifecycle events
 - `PropertiesTab` — Data dictionary with cross-config usage tracking
 - `ReportsTab` — CSV file documentation browser
+
+**CSV Import** (`src/ui/csv/`):
+- `CsvLanding` — File info, data snapshot table, config usage
+- `CsvConfigPage` — Form + column mapping grid
+- `CsvPreviewPage` — Parsed data preview
+- `CsvResultPage` — Import results
+
+**Export** (`src/ui/export/`):
+- `ViewSelectPage` — Source selection
+- `ConfigurePage` — Settings form + property grid
+- `PreviewPage` — Export preview
+- `ResultPage` — Results display
+
+**Pipeline Detail** (`src/ui/hub/pipelines/`):
+- `PipelineDetail` — Single pipeline view
+- `PipelineEditForm` — Edit form
+- `PipelinePreview` — Preview/confirm step
+- `PipelineExecution` — Execution + progress
+- `SourcesExportsGrid` — Two-column sources/exports layout
 
 Each component follows the same constructor pattern:
 ```typescript
@@ -254,56 +286,243 @@ The `FlowtiEventMap` type union contains **~98 events** across 10 domains:
 
 ---
 
-## Tech Debt Assessment
+## Domain Service Composition (DataExchangeService)
 
-### Resolved
+`DataExchangeService` (578 LOC) uses composition with a façade pattern. Four sub-modules handle distinct responsibilities:
 
-The following items were addressed in the Feb 2026 frontend refactoring:
+| Sub-module | LOC | Responsibility |
+|------------|-----|----------------|
+| `ConfigDocService` | 913 | Doc generation, path resolution, event doc emission |
+| `PipelineExecutor` | 223 | Multi-source pipeline execution + .base file creation |
+| `ConfigPathTracker` | 127 | File/folder rename → config path updates |
+| `DataDictionaryBuilder` | 125 | Pure function: aggregate property usage across configs |
 
-| Item | Resolution |
-|------|-----------|
-| **TD-3**: No shared layout system | `buildSplitLayout()` in `catalog/helpers.ts` creates the dashboard + master/detail DOM structure. CSS classes `ft-view-root`, `ft-view-dashboard`, `ft-view-split` replace inline styles. Both orchestrators now use the shared builder. |
-| **TD-4**: Inline styles in component code | ~170 inline `style.*` assignments replaced with CSS utility classes (`ft-icon-muted`, `ft-flex-shrink-0`, `ft-cursor-pointer`, `ft-flex-1`, etc.). Remaining ~300 inline styles are lower-frequency patterns (border, padding, display, margin) with more variation. |
-| **TD-5**: Subscription form duplication | `renderSubscriptionForm()` and `renderSubscriptionRow()` extracted to `catalog/helpers.ts`. Both `EventConfigModal` (~630 LOC, down from ~760) and `SubscriptionManagerModal` (~190 LOC, down from ~310) use the shared functions. |
-| **TD-6**: Duplicated navigation logic | `openOrCreateEventDoc()`, `openEventInCatalog()`, and `createEntityDoc()` consolidated into shared helpers. All 6 catalog tabs use the generic `createEntityDoc()` instead of per-tab copies. |
-
-### Partially Resolved
-
-| Item | What was done | What remains |
-|------|--------------|-------------|
-| **TD-1**: `ExportView` monolith (~1,355 LOC) | Stepper bar and config dropdown extracted to shared `renderStepBar()` and `renderConfigDropdown()` in `hub/helpers.ts`. | Page components (view select, configure, preview, result) still inline. Property grid and preview table extraction is a follow-up. |
-| **TD-2**: `CsvActionView` monolith (~2,190 LOC) | Same stepper and config dropdown extraction. | Landing page, wizard pages, column preview, and data snapshot table still inline. Full decomposition into `src/ui/csv/` components is a dedicated follow-up. |
-
-### Remaining
-
-### TD-7: No component-level testing for UI
-
-**Problem**: The 679 tests cover domain services, EventBus behavior, and utility functions. No tests exercise view rendering or component output.
-
-**Impact**: UI regressions are caught only by manual testing.
-
-**Target**: Add lightweight unit tests for tab components by injecting mock deps and asserting DOM output (using the existing `obsidian-stub` polyfills for `HTMLElement.createDiv`, `createSpan`, etc.).
-
-### TD-8: Scanner duplication between Catalog and Hub
-
-**Problem**: Catalog tabs use `entityScanner.ts` for file-driven entity scanning. Hub tabs (`TypesTab`, `ReportsTab`) implement their own scanning logic in the orchestrator (`scanTypeDocs()`, `scanCsvDocs()`).
-
-**Impact**: Two different scanning patterns for the same fundamental operation (read folder → parse frontmatter → build entries).
-
-**Target**: Generalize `entityScanner.ts` or create a shared `folderScanner` utility that both catalog and hub tabs can use. Note: Hub tabs are storage-driven (not file-driven), so `entityScanner` doesn't directly apply. Low ROI.
+Sub-modules receive dependencies via typed interfaces (`ConfigDocServiceDeps`, `PipelineExecutorDeps`, `ConfigPathTrackerDeps`). The parent service remains the public API — all consumers see the same interface. `ConfigStateAccessor` provides read-only state access to sub-modules.
 
 ---
 
-## Refactoring Priorities
+## File Size Distribution (Feb 2026, post Phase 1-6)
 
-Remaining items ordered by impact and difficulty:
+### Files over 600 LOC
 
-| Priority | Item | Effort | Impact |
-|----------|------|--------|--------|
-| 1 | TD-2: CsvActionView full decomposition | High | High — largest monolith, import logic duplication |
-| 2 | TD-1: ExportView full decomposition | Medium | Medium — follows established hub pattern |
-| 3 | TD-4: Remaining ~300 inline styles | Low | Low — lower-frequency patterns with more variation, incremental |
-| 4 | TD-7: Component-level tests | High | High — long-term quality, but large investment |
-| 5 | TD-8: Scanner generalization | Low | Low — small deduplication win, hub tabs are storage-driven |
+| LOC | File | Role | Status |
+|-----|------|------|--------|
+| 978 | `main.ts` | Plugin orchestrator | **Candidate for Phase 7** |
+| 913 | `domain/dataExchange/ConfigDocService.ts` | Doc generation + path resolution | Extracted from DataExchangeService (Phase 6) |
+| 825 | `ui/EventCatalogView.ts` | Catalog orchestrator | Delegates to 10 components |
+| 766 | `ui/hub/HubDashboard.ts` | Hub dashboard | **Candidate for Phase 8** |
+| 747 | `ui/CsvActionView.ts` | CSV import orchestrator | Delegates to 4 components |
+| 708 | `domain/docs/contentGenerator.ts` | Markdown generators | **Candidate for Phase 9** |
+| 701 | `ui/csv/CsvLanding.ts` | CSV landing page | **Candidate for Phase 8** |
+| 655 | `ui/ExportView.ts` | Export orchestrator | Delegates to 4 components |
+| 649 | `ui/catalog/EventsTab.ts` | Events tab (master list) | Detail extracted to EventDetailPanel |
+| 631 | `ui/EventConfigModal.ts` | Event config modal (3 pages) | **Candidate for Phase 8** |
+| 613 | `infrastructure/events/EventBridge.ts` | Obsidian API bridge | Core infrastructure — careful |
 
-Each refactoring phase should leave the codebase buildable and test-passing, following the same incremental approach used for the Event Catalog and Data Exchange Hub decompositions.
+---
+
+## Completed Refactoring
+
+### Phase 1 — ExportView Decomposition
+**ExportView.ts**: extracted 4-page wizard into `src/ui/export/`
+- `ViewSelectPage.ts` — source selection
+- `ConfigurePage.ts` — settings form + property grid
+- `PreviewPage.ts` — export preview
+- `ResultPage.ts` — results display
+- `exportUtils.ts` — shared helpers
+- `types.ts` — state + deps types
+
+### Phase 2 — CsvActionView Decomposition
+**CsvActionView.ts**: extracted CSV import wizard into `src/ui/csv/`
+- `CsvLanding.ts` — file info, snapshot table, config usage
+- `CsvConfigPage.ts` — form + column mapping grid
+- `CsvPreviewPage.ts` — parsed data preview
+- `CsvResultPage.ts` — import results
+- `csvUtils.ts` — delimiter detection, formatting
+- `types.ts` — state + deps types
+
+### Phase 3 — PipelinesTab Decomposition
+**PipelinesTab.ts**: extracted pipeline detail UI into `src/ui/hub/pipelines/`
+- `PipelineDetail.ts` — single pipeline view
+- `PipelineEditForm.ts` — edit form
+- `PipelinePreview.ts` — preview/confirm step
+- `PipelineExecution.ts` — execution + progress
+- `SourcesExportsGrid.ts` — two-column sources/exports layout
+- `types.ts` — pipeline component types
+
+### Phase 4 — EventsTab Detail Extraction
+**EventsTab.ts** (1,040 → 649 LOC): extracted detail panel into `src/ui/catalog/EventDetailPanel.ts`
+- Header, info card, actions, watchers, transforms, related entities
+- EventsTab retains master list, tree rendering, settings panel
+
+### Phase 5 — HubDashboard Import Executor
+**HubDashboard.ts** (854 → 766 LOC): extracted inline import executor into `src/ui/hub/DashboardImportExecutor.ts`
+- Progress row, event listeners, auto-dismiss
+
+### Phase 6 — DataExchangeService Decomposition
+**DataExchangeService.ts** (1,802 → 578 LOC, 68% reduction): extracted 4 sub-modules
+
+| File | LOC | Responsibility |
+|------|-----|----------------|
+| `ConfigDocService.ts` | 913 | Doc generation, path resolution, event doc emission |
+| `PipelineExecutor.ts` | 223 | Multi-source pipeline execution + .base file creation |
+| `ConfigPathTracker.ts` | 127 | File/folder rename → config path updates |
+| `DataDictionaryBuilder.ts` | 125 | Pure function: aggregate property usage across configs |
+
+**Pattern**: Composition with façade — DataExchangeService remains the public API, sub-modules are internal. Zero UI consumer changes, zero test modifications. `ConfigStateAccessor` interface provides read-only state access.
+
+---
+
+## Planned Refactoring
+
+### Phase 7 — main.ts Decomposition (978 LOC)
+
+**Target**: Split the monolithic plugin orchestrator into focused modules.
+
+`main.ts` currently handles:
+- Plugin lifecycle (onload, onunload, onLayoutReady)
+- View registration (7 views)
+- Command registration delegation
+- Service initialization + callback wiring
+- Settings tab setup
+- Ribbon icon + status bar
+- Event listener setup for settings changes
+
+**Proposed extraction**:
+
+| New File | Responsibility | Est. LOC |
+|----------|---------------|----------|
+| `viewSetup.ts` | All `registerView()` calls + view factory functions | ~200 |
+| `lifecycleCallbacks.ts` | onLayoutReady callback wiring (setListFiles, setDocsRootPath, etc.) | ~150 |
+| `pluginInit.ts` | Infrastructure creation (EventBus, EventBridge, ServiceContainer) | ~100 |
+
+**main.ts after**: ~500 LOC — pure lifecycle orchestration calling extracted setup functions.
+
+**Risk**: Low — these are initialization-time functions, not runtime behavior. Tests don't exercise main.ts directly (tested via integration through services).
+
+### Phase 8 — Large UI Component Extraction
+
+Three UI files over 630 LOC that have clear internal boundaries:
+
+#### 8a. HubDashboard.ts (766 LOC)
+Currently renders 5 distinct sections: stats grid, quick actions, configured imports table, configured exports table, available CSV files table.
+
+**Proposed extraction**:
+
+| New File | Responsibility | Est. LOC |
+|----------|---------------|----------|
+| `DashboardStatsGrid.ts` | Stats cards (imports, exports, pipelines, CSVs) | ~100 |
+| `DashboardQuickActions.ts` | New Import/Export/Pipeline buttons | ~80 |
+| `DashboardConfigTable.ts` | Reusable config table (imports + exports) | ~200 |
+| `DashboardCsvList.ts` | Available CSV files with inline actions | ~150 |
+
+**HubDashboard.ts after**: ~250 LOC — orchestrates sections.
+
+#### 8b. CsvLanding.ts (701 LOC)
+Currently renders: file info header, data snapshot table, config usage list, associated base files, column stats.
+
+**Proposed extraction**:
+
+| New File | Responsibility | Est. LOC |
+|----------|---------------|----------|
+| `CsvSnapshotTable.ts` | Interactive data preview table with sorting/search | ~250 |
+| `CsvConfigUsage.ts` | Lists import/export configs that reference this CSV | ~150 |
+| `CsvFileInfo.ts` | File metadata header (path, size, columns, rows) | ~100 |
+
+**CsvLanding.ts after**: ~200 LOC — orchestrates sections.
+
+#### 8c. EventConfigModal.ts (631 LOC)
+Currently has 3 pages: overview, subscription form, definition form.
+
+**Proposed extraction**:
+
+| New File | Responsibility | Est. LOC |
+|----------|---------------|----------|
+| `EventConfigOverview.ts` | Overview page: info + subscription list + definition list | ~200 |
+| `SubscriptionForm.ts` | Subscription create/edit form | ~150 |
+| `DefinitionForm.ts` | Event definition create/edit form | ~150 |
+
+**EventConfigModal.ts after**: ~150 LOC — page navigation + modal chrome.
+
+### Phase 9 — contentGenerator.ts (708 LOC)
+
+Pure content generation file with markdown builders for 8+ entity types. Could split by category:
+
+| New File | Responsibility | Est. LOC |
+|----------|---------------|----------|
+| `entityDocContent.ts` | Event, Domain, Service, Category doc content | ~300 |
+| `relationalDocContent.ts` | Flow, System, Actor, Product doc content | ~300 |
+| `docHelpers.ts` | Shared frontmatter builders, wikilink formatting | ~100 |
+
+**Risk**: Low — pure functions, easily testable.
+
+### Phase 10 — ConfigDocService.ts (913 LOC)
+
+Just extracted in Phase 6, but already the 2nd largest file. The content builders are long but structurally similar (buildImportDocContent, buildExportDocContent, buildPipelineDocContent). Could split:
+
+| New File | Responsibility | Est. LOC |
+|----------|---------------|----------|
+| `ConfigDocContent.ts` | 3 content builders + sanitizeDocName | ~400 |
+| `TypeDocService.ts` | TypeDoc CRUD + lifecycle event emission | ~250 |
+
+**ConfigDocService.ts after**: ~300 LOC — path resolution + doc CRUD (create/ensure).
+
+---
+
+## Tech Debt
+
+### Resolved
+
+| Item | Resolution |
+|------|-----------|
+| **TD-1**: `ExportView` monolith (~1,355 LOC) | Phase 1: Decomposed into orchestrator (655 LOC) + 4 page components in `src/ui/export/` |
+| **TD-2**: `CsvActionView` monolith (~2,190 LOC) | Phase 2: Decomposed into orchestrator (747 LOC) + 4 page components in `src/ui/csv/` |
+| **TD-3**: No shared layout system | `buildSplitLayout()` in `catalog/helpers.ts` creates the dashboard + master/detail DOM structure. CSS classes `ft-view-root`, `ft-view-dashboard`, `ft-view-split` replace inline styles. Both orchestrators now use the shared builder. |
+| **TD-4**: Inline styles in component code | ~170 inline `style.*` assignments replaced with CSS utility classes (`ft-icon-muted`, `ft-flex-shrink-0`, `ft-cursor-pointer`, `ft-flex-1`, etc.). Remaining ~300 inline styles are lower-frequency patterns with more variation. |
+| **TD-5**: Subscription form duplication | `renderSubscriptionForm()` and `renderSubscriptionRow()` extracted to `catalog/helpers.ts`. Both `EventConfigModal` and `SubscriptionManagerModal` use the shared functions. |
+| **TD-6**: Duplicated navigation logic | `openOrCreateEventDoc()`, `openEventInCatalog()`, and `createEntityDoc()` consolidated into shared helpers. |
+
+### Remaining
+
+| Item | Problem | Target |
+|------|---------|--------|
+| **TD-7**: No component-level testing for UI | 679 tests cover domain services, EventBus, and utilities. No tests exercise view rendering or component output. | Add lightweight unit tests for tab components with mock deps and DOM assertions via `obsidian-stub` polyfills. |
+| **TD-8**: Scanner duplication between Catalog and Hub | Catalog tabs use `entityScanner.ts`; Hub tabs implement their own scanning logic. | Generalize scanner utility. Low ROI — Hub tabs are storage-driven. |
+
+---
+
+## Refactoring Principles
+
+1. **Façade preservation**: Public APIs never change. All consumers see the same interface after extraction.
+2. **Zero test changes**: Extracted code is internal — existing test suites pass without modification.
+3. **Composition over inheritance**: Sub-modules receive deps interfaces, not parent class references.
+4. **Build verification**: `npm run build` (679 tests + tsc + eslint + esbuild) after every step.
+5. **Incremental extraction**: One module at a time, verify, then proceed. Never batch multiple extractions without build checks.
+6. **No premature abstraction**: Extract when a file exceeds ~600 LOC or when distinct responsibilities are clearly identifiable. Don't extract for the sake of extracting.
+
+---
+
+## Architecture Metrics
+
+### Before Refactoring (Jan 2026)
+- Largest file: `EventCatalogView.ts` at 3,714 LOC
+- `DataExchangeService.ts` at 1,802 LOC
+- 4 files over 1,000 LOC
+
+### After Phase 1-6 (Feb 2026)
+- Largest file: `main.ts` at 978 LOC
+- No files over 1,000 LOC
+- `EventCatalogView.ts`: 3,714 → 825 LOC (78% reduction)
+- `DataExchangeService.ts`: 1,802 → 578 LOC (68% reduction)
+- 11 files over 600 LOC (down from 6 files over 1,000 LOC)
+- 36 test files, 679 tests — all passing
+
+### Target After Phase 7-10
+- Largest file: ~500 LOC
+- No files over 600 LOC in `src/ui/`
+- `main.ts`: 978 → ~500 LOC
+- `HubDashboard.ts`: 766 → ~250 LOC
+- `CsvLanding.ts`: 701 → ~200 LOC
+- `EventConfigModal.ts`: 631 → ~150 LOC
+- `contentGenerator.ts`: 708 → ~300 LOC
+- `ConfigDocService.ts`: 913 → ~300 LOC
