@@ -1,14 +1,8 @@
-import { TFile, TFolder, setIcon } from "obsidian";
+import { TFile, TFolder } from "obsidian";
 import {
 	EVENT_CATALOG,
 	type EventCatalogEntry,
 } from "../../infrastructure/events/catalog";
-import { DEFAULT_CATALOG_CATEGORIES } from "../../domain/settings/settings";
-import {
-	getCategoryDocPathResolved,
-	generateCategoryDocContent,
-} from "../eventDocTemplate";
-import { InputModal, CreateEventModal } from "../modals";
 import type { CatalogComponentDeps, CatalogState, CategoryEntry } from "./types";
 import {
 	UNCATEGORIZED_CATEGORY,
@@ -21,15 +15,18 @@ import {
 	discoveredToCatalogEntries,
 	getVisibleEntries,
 	resolveEntry,
-	getConfiguredCount,
-	getFollowedCount,
-	openFile,
 } from "./helpers";
 import { EventDetailPanel } from "./EventDetailPanel";
+import { renderEventsSettingsPanel } from "./EventsSettingsPanel";
+import { renderMasterCategory, type CategoryRenderContext } from "./EventsCategoryRenderer";
 
 /**
  * Events tab component — filter chips, master tree, detail panel,
  * category scanning, settings panel, and category doc helpers.
+ *
+ * Rendering of the settings panel and category tree items is extracted into:
+ * - {@link renderEventsSettingsPanel}
+ * - {@link renderMasterCategory}
  */
 export class EventsTab {
 	private selectedEventType: string | null = null;
@@ -114,123 +111,19 @@ export class EventsTab {
 	// ── Settings panel ──────────────────────────────────────────
 
 	renderSettingsPanel(): void {
-		this.settingsPanel.empty();
-
-		const state = this.deps.getState();
-		const eventsFolder = this.deps.getEntityFolder("events");
-
-		// Configured filter toggle
-		const configuredCount = getConfiguredCount(state.catalogCategories, state.showSystemEvents, state.discoveredEvents, this.deps.vaultQuery, eventsFolder, state.subscriptions, state.definitions);
-		const configuredRow = this.settingsPanel.createDiv({ cls: "ft-settings-row" });
-		const configuredToggle = configuredRow.createSpan({
-			cls: `ft-visibility-toggle${this.filterChipConfigured ? "" : " ft-visibility-off"}`,
-		});
-		setIcon(configuredToggle, this.filterChipConfigured ? "eye" : "eye-off");
-		configuredToggle.setAttribute("aria-label", this.filterChipConfigured ? "Show all" : "Only configured");
-		configuredToggle.addEventListener("click", () => {
-			this.filterChipConfigured = !this.filterChipConfigured;
-			this.renderMasterTree();
-			this.renderSettingsPanel();
-		});
-		configuredRow.createSpan({ text: `Only configured (${configuredCount})`, cls: "ft-settings-row-name" });
-
-		// Followed filter toggle
-		const followedCount = getFollowedCount(state.catalogCategories, state.showSystemEvents, state.discoveredEvents, this.deps.vaultQuery, eventsFolder, state.notifiedTypes);
-		const followedRow = this.settingsPanel.createDiv({ cls: "ft-settings-row" });
-		const followedToggle = followedRow.createSpan({
-			cls: `ft-visibility-toggle${this.filterChipFollowed ? "" : " ft-visibility-off"}`,
-		});
-		setIcon(followedToggle, this.filterChipFollowed ? "eye" : "eye-off");
-		followedToggle.setAttribute("aria-label", this.filterChipFollowed ? "Show all" : "Only followed");
-		followedToggle.addEventListener("click", () => {
-			this.filterChipFollowed = !this.filterChipFollowed;
-			this.renderMasterTree();
-			this.renderSettingsPanel();
-		});
-		followedRow.createSpan({ text: `Only followed (${followedCount})`, cls: "ft-settings-row-name" });
-
-		// Show system events toggle
-		const systemRow = this.settingsPanel.createDiv({ cls: "ft-settings-row" });
-		const systemToggle = systemRow.createSpan({
-			cls: `ft-visibility-toggle${state.showSystemEvents ? "" : " ft-visibility-off"}`,
-		});
-		setIcon(systemToggle, state.showSystemEvents ? "eye" : "eye-off");
-		systemToggle.setAttribute("aria-label", state.showSystemEvents ? "Hide system events" : "Show system events");
-		systemToggle.addEventListener("click", () => {
-			void this.deps.eventBus.emit("settings.updateShowSystemEvents", {
-				showSystemEvents: !state.showSystemEvents,
-			});
-		});
-		systemRow.createSpan({ text: "Show system events", cls: "ft-settings-row-name" });
-
-		// Category visibility section
-		const categories = getOrderedCategories(state.catalogCategories);
-
-		if (!state.showSystemEvents) {
-			const hint = this.settingsPanel.createDiv({ cls: "ft-text-muted ft-text-sm" });
-			hint.style.padding = "0.5rem 0";
-			hint.textContent = "Enable system events to configure category visibility.";
-		} else {
-
-		for (let i = 0; i < categories.length; i++) {
-			const cat = categories[i];
-
-			const row = this.settingsPanel.createDiv({ cls: "ft-settings-row" });
-
-			// Visibility toggle
-			const toggle = row.createSpan({
-				cls: `ft-visibility-toggle${cat.visible ? "" : " ft-visibility-off"}`,
-			});
-			toggle.setAttribute("aria-label", cat.visible ? "Hide category" : "Show category");
-			setIcon(toggle, cat.visible ? "eye" : "eye-off");
-			toggle.addEventListener("click", () => {
-				categories[i] = { ...categories[i], visible: !categories[i].visible };
-				void this.deps.eventBus.emit("settings.updateCatalogCategories", { categories: [...categories] });
-			});
-
-			// Category name
-			row.createSpan({ text: cat.name, cls: "ft-settings-row-name" });
-
-			// Arrow controls
-			const arrows = row.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
-
-			const upBtn = arrows.createSpan({
-				cls: `ft-visibility-toggle${i === 0 ? " ft-btn-disabled" : ""}`,
-			});
-			upBtn.setAttribute("aria-label", "Move up");
-			setIcon(upBtn, "chevron-up");
-			if (i > 0) {
-				upBtn.addEventListener("click", () => {
-					[categories[i - 1], categories[i]] = [categories[i], categories[i - 1]];
-					void this.deps.eventBus.emit("settings.updateCatalogCategories", { categories: [...categories] });
-				});
-			}
-
-			const downBtn = arrows.createSpan({
-				cls: `ft-visibility-toggle${i === categories.length - 1 ? " ft-btn-disabled" : ""}`,
-			});
-			downBtn.setAttribute("aria-label", "Move down");
-			setIcon(downBtn, "chevron-down");
-			if (i < categories.length - 1) {
-				downBtn.addEventListener("click", () => {
-					[categories[i], categories[i + 1]] = [categories[i + 1], categories[i]];
-					void this.deps.eventBus.emit("settings.updateCatalogCategories", { categories: [...categories] });
-				});
-			}
-		}
-
-		} // end if showSystemEvents
-
-		// Reset button
-		const resetRow = this.settingsPanel.createDiv({ cls: "ft-settings-reset" });
-		const resetBtn = resetRow.createEl("button", {
-			text: "Reset to defaults",
-			cls: "ft-btn ft-btn-secondary",
-		});
-		resetBtn.addEventListener("click", () => {
-			void this.deps.eventBus.emit("settings.updateCatalogCategories", {
-				categories: [...DEFAULT_CATALOG_CATEGORIES],
-			});
+		renderEventsSettingsPanel(this.settingsPanel, this.deps, {
+			filterChipConfigured: this.filterChipConfigured,
+			filterChipFollowed: this.filterChipFollowed,
+			onToggleConfigured: () => {
+				this.filterChipConfigured = !this.filterChipConfigured;
+				this.renderMasterTree();
+				this.renderSettingsPanel();
+			},
+			onToggleFollowed: () => {
+				this.filterChipFollowed = !this.filterChipFollowed;
+				this.renderMasterTree();
+				this.renderSettingsPanel();
+			},
 		});
 	}
 
@@ -264,6 +157,7 @@ export class EventsTab {
 		// System categories: visible settings categories, excluding any that overlap with user
 		const systemCategories = visibleCategories.filter((c) => !userCategorySet.has(c));
 
+		const ctx = this.buildRenderContext();
 		let visibleCount = 0;
 
 		// User categories first
@@ -272,7 +166,7 @@ export class EventsTab {
 			entries = this.applyFilters(entries, state);
 			if (entries.length === 0 && category !== UNCATEGORIZED_CATEGORY) continue;
 			visibleCount += entries.length;
-			this.renderMasterCategory(this.masterTreeEl, category, entries, true);
+			renderMasterCategory(this.masterTreeEl, category, entries, true, ctx);
 		}
 
 		// System categories section — only rendered when showSystemEvents is on
@@ -289,7 +183,7 @@ export class EventsTab {
 
 			for (const { category, entries } of systemCategoryEntries) {
 				visibleCount += entries.length;
-				this.renderMasterCategory(this.masterTreeEl, category, entries, false);
+				renderMasterCategory(this.masterTreeEl, category, entries, false, ctx);
 			}
 		}
 
@@ -299,7 +193,10 @@ export class EventsTab {
 			: `${totalVisible} events`;
 
 		// Validate selection still exists
-		this.validateSelection(allEntries);
+		if (this.selectedEventType && !allEntries.some((e) => e.type === this.selectedEventType)) {
+			this.selectedEventType = null;
+			this.renderDetail();
+		}
 	}
 
 	private applyFilters(entries: EventCatalogEntry[], state: CatalogState): EventCatalogEntry[] {
@@ -323,209 +220,6 @@ export class EventsTab {
 			filtered = filtered.filter((e) => state.notifiedTypes.has(e.type));
 		}
 		return filtered;
-	}
-
-	private renderMasterCategory(
-		container: HTMLElement,
-		category: string,
-		entries: EventCatalogEntry[],
-		isUserCategory: boolean,
-	): void {
-		const state = this.deps.getState();
-		const isCollapsed = state.collapsedCategories.has(category);
-		const group = container.createDiv({ cls: "ft-master-category" });
-
-		const headerCls = isUserCategory
-			? "ft-master-category-header"
-			: "ft-master-category-header ft-master-category-system";
-		const header = group.createDiv({ cls: headerCls });
-
-		const isEmptyUncategorized = category === UNCATEGORIZED_CATEGORY && entries.length === 0;
-
-		let chevron: HTMLSpanElement | null = null;
-		if (isEmptyUncategorized) {
-			const plusIcon = header.createSpan();
-			setIcon(plusIcon, "plus");
-			plusIcon.style.opacity = "0.6";
-		} else {
-			chevron = header.createSpan({
-				text: isCollapsed ? "\u25B6" : "\u25BC",
-			});
-			chevron.style.fontSize = "0.6rem";
-		}
-
-		const displayLabel = isEmptyUncategorized ? "Create new Event" : category;
-		const catLabel = header.createSpan({ text: displayLabel });
-
-		// Show description from category doc as tooltip
-		const catEntry = this.categoryEntries.find((c) => c.name === category);
-		if (catEntry?.description) {
-			catLabel.title = catEntry.description;
-		}
-
-		// Count badge with enhanced info
-		if (entries.length > 0) {
-			const visibleInLog = entries.filter((e) => !state.excludedTypes.has(e.type)).length;
-			const configuredInCat = entries.filter((e) => isConfigured(e.type, state.subscriptions, state.definitions)).length;
-
-			const parts: string[] = [String(entries.length)];
-			if (visibleInLog < entries.length) parts.push(`${visibleInLog} vis`);
-			if (configuredInCat > 0) parts.push(`${configuredInCat} conf`);
-
-			header.createSpan({
-				text: parts.join(" \u00B7 "),
-				cls: "ft-master-category-count",
-			});
-		}
-
-		if (isEmptyUncategorized) {
-			// No extra buttons — the whole header is the CTA
-		} else if (isUserCategory) {
-			// Add button for user categories
-			const addBtn = header.createSpan({ cls: "ft-visibility-toggle" });
-			addBtn.style.marginLeft = "auto";
-			setIcon(addBtn, "plus");
-			addBtn.setAttribute("aria-label", "Create event");
-			addBtn.addEventListener("click", (e) => {
-				e.stopPropagation();
-				if (category !== UNCATEGORIZED_CATEGORY) {
-					// Auto-inherit category for named user categories
-					new InputModal(this.deps.app, {
-						title: `Create Event in "${category}"`,
-						placeholder: "my.custom.event",
-						submitLabel: "Create",
-						inputName: "Event name",
-						inputDesc: "Use dot notation (e.g. order.placed)",
-						onSubmit: (name) => {
-							void this.deps.eventBus.emit("discovery.create", { eventName: name, category });
-						},
-					}).open();
-				} else {
-					// Uncategorized — open full CreateEventModal with category choice
-					new CreateEventModal(this.deps.app, {
-						title: "Create Custom Event",
-						existingCategories: this.getUserCategories(),
-						onSubmit: (name, cat) => {
-							void this.deps.eventBus.emit("discovery.create", {
-								eventName: name,
-								...(cat ? { category: cat } : {}),
-							});
-						},
-					}).open();
-				}
-			});
-		} else {
-			// Category doc button (system categories)
-			const catDocBtn = header.createSpan({ cls: "ft-visibility-toggle" });
-			catDocBtn.setAttribute("aria-label", catEntry?.filePath ? "Open category doc" : "Create category doc");
-			setIcon(catDocBtn, "file-text");
-			catDocBtn.addEventListener("click", (e) => {
-				e.stopPropagation();
-				if (catEntry?.filePath) {
-					void openFile(this.deps.workspace, catEntry.filePath);
-				} else {
-					void this.openOrCreateCategoryDoc(category, entries);
-				}
-			});
-
-			// Category visibility toggle (system categories)
-			const catEntries = entries.length > 0 ? entries : [];
-			const excludedCount = catEntries.filter((e) => state.excludedTypes.has(e.type)).length;
-			const vis = excludedCount === 0 ? "all" : excludedCount === catEntries.length ? "none" : "partial";
-
-			const catToggle = header.createSpan({ cls: "ft-visibility-toggle" });
-			catToggle.setAttribute("aria-label", vis === "none" ? "Show all in Activity Log" : "Hide all from Activity Log");
-			setIcon(catToggle, vis === "none" ? "eye-off" : "eye");
-			if (vis === "partial") catToggle.classList.add("ft-visibility-partial");
-			if (vis === "none") catToggle.classList.add("ft-visibility-off");
-
-			catToggle.addEventListener("click", (e) => {
-				e.stopPropagation();
-				void this.deps.eventBus.emit("eventFilter.toggleCategory", { category });
-			});
-		}
-
-		const list = group.createDiv();
-		if (isCollapsed) list.classList.add("ft-hidden");
-
-		for (const entry of entries) {
-			this.renderMasterEventItem(list, entry);
-		}
-
-		if (isEmptyUncategorized) {
-			header.addEventListener("click", () => {
-				new CreateEventModal(this.deps.app, {
-					title: "Create Custom Event",
-					existingCategories: this.getUserCategories(),
-					onSubmit: (name, cat) => {
-						void this.deps.eventBus.emit("discovery.create", {
-							eventName: name,
-							...(cat ? { category: cat } : {}),
-						});
-					},
-				}).open();
-			});
-		} else {
-			header.addEventListener("click", () => {
-				if (state.collapsedCategories.has(category)) {
-					state.collapsedCategories.delete(category);
-				} else {
-					state.collapsedCategories.add(category);
-				}
-				list.classList.toggle("ft-hidden");
-				if (chevron) chevron.textContent = state.collapsedCategories.has(category) ? "\u25B6" : "\u25BC";
-				void this.deps.eventBus.emit("settings.updateCollapsedCategories", {
-					collapsed: [...state.collapsedCategories],
-				});
-			});
-		}
-	}
-
-	private renderMasterEventItem(container: HTMLElement, entry: EventCatalogEntry): void {
-		const state = this.deps.getState();
-		const isSelected = this.selectedEventType === entry.type;
-		const isExcluded = state.excludedTypes.has(entry.type);
-		const cls = `ft-master-event-item${isSelected ? " ft-master-event-selected" : ""}${isExcluded ? " ft-master-event-excluded" : ""}`;
-		const item = container.createDiv({ cls });
-
-		item.createSpan({ text: entry.type, cls: "ft-master-event-name" });
-
-		// Tag badges
-		if (entry.tags.length > 0) {
-			const tagContainer = item.createDiv({ cls: "ft-master-tags" });
-			for (const tag of entry.tags) {
-				tagContainer.createSpan({ text: tag, cls: "ft-badge ft-badge-tag" });
-			}
-		}
-
-		// Status dots
-		const configured = isConfigured(entry.type, state.subscriptions, state.definitions);
-		const followed = state.notifiedTypes.has(entry.type);
-
-		if (configured || followed || isExcluded) {
-			const dots = item.createDiv({ cls: "ft-master-status-dots" });
-			if (isExcluded) {
-				const dot = dots.createDiv({ cls: "ft-master-status-dot ft-master-dot-hidden" });
-				dot.setAttribute("aria-label", "Hidden from Activity Log");
-				dot.title = "Hidden from Activity Log";
-			}
-			if (configured) {
-				const dot = dots.createDiv({ cls: "ft-master-status-dot ft-master-dot-configured" });
-				dot.setAttribute("aria-label", "Has watchers or transforms");
-				dot.title = "Has watchers or transforms";
-			}
-			if (followed) {
-				const dot = dots.createDiv({ cls: "ft-master-status-dot ft-master-dot-followed" });
-				dot.setAttribute("aria-label", "Followed \u2014 triggers Notice popup");
-				dot.title = "Followed \u2014 triggers Notice popup";
-			}
-		}
-
-		item.addEventListener("click", () => {
-			this.selectedEventType = entry.type;
-			this.renderMasterTree();
-			this.renderDetail();
-		});
 	}
 
 	// ── Detail panel ────────────────────────────────────────────
@@ -608,11 +302,19 @@ export class EventsTab {
 
 	// ── Helpers ──────────────────────────────────────────────────
 
-	private validateSelection(allEntries: EventCatalogEntry[]): void {
-		if (this.selectedEventType && !allEntries.some((e) => e.type === this.selectedEventType)) {
-			this.selectedEventType = null;
-			this.renderDetail();
-		}
+	private buildRenderContext(): CategoryRenderContext {
+		return {
+			deps: this.deps,
+			state: this.deps.getState(),
+			categoryEntries: this.categoryEntries,
+			selectedEventType: this.selectedEventType,
+			onSelectEvent: (eventType: string) => {
+				this.selectedEventType = eventType;
+				this.renderMasterTree();
+				this.renderDetail();
+			},
+			getUserCategories: () => this.getUserCategories(),
+		};
 	}
 
 	private getUserCategories(): string[] {
@@ -623,33 +325,5 @@ export class EventsTab {
 		return [...new Set(entries.map((e) => e.category))]
 			.filter((c) => c !== UNCATEGORIZED_CATEGORY)
 			.sort();
-	}
-
-	private async openOrCreateCategoryDoc(category: string, events: EventCatalogEntry[]): Promise<void> {
-		const docPath = getCategoryDocPathResolved(this.deps.getEntityFolder("categories"), category);
-
-		const file = this.deps.app.vault.getAbstractFileByPath(docPath);
-
-		if (file && file instanceof TFile) {
-			const leaf = this.deps.app.workspace.getLeaf(false);
-			await leaf.openFile(file);
-			return;
-		}
-
-		const content = generateCategoryDocContent(category, events);
-		await this.deps.eventBus.emit("doc.create", {
-			docType: "CategoryDoc" as const,
-			name: category,
-			path: docPath,
-			content,
-			source: "EventsTab",
-		});
-
-		// Try to open the newly created file
-		const newFile = this.deps.app.vault.getAbstractFileByPath(docPath);
-		if (newFile && newFile instanceof TFile) {
-			const leaf = this.deps.app.workspace.getLeaf(false);
-			await leaf.openFile(newFile);
-		}
 	}
 }
