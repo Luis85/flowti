@@ -1,8 +1,5 @@
-import { TFile, TFolder, setIcon } from "obsidian";
-import { EVENT_CATALOG } from "../../infrastructure/events/catalog";
+import { TFile, setIcon } from "obsidian";
 import {
-	readFrontmatter, fmString, fmStringArray, normalizeDocFrontmatter,
-	discoveredToCatalogEntries,
 	renderStat, renderRelatedSection,
 	findRelatedFlows, findRelatedActors,
 	openFile,
@@ -12,6 +9,7 @@ import {
 } from "../eventDocTemplate";
 import { InputModal, ConfirmModal } from "../modals";
 import type { CatalogComponentDeps, SystemEntry } from "./types";
+import { scanEntityFolder } from "./entityScanner";
 
 /**
  * Systems tab component for the Event Catalog view.
@@ -42,58 +40,30 @@ export class SystemsTab {
 	// ─────────────────────────────────────────────────────────────
 
 	scan(): void {
-		const systemsFolder = this.deps.getEntityFolder("systems");
-		const folder = this.deps.app.vault.getAbstractFileByPath(systemsFolder);
-
-		if (!folder || !(folder instanceof TFolder)) {
-			this.entries = [];
-			return;
-		}
-
-		const allEntries = [
-			...EVENT_CATALOG,
-			...discoveredToCatalogEntries(
-				this.deps.getState().discoveredEvents,
-				this.deps.app,
-				this.deps.getEntityFolder("events"),
-			),
-		];
-		const entries: SystemEntry[] = [];
-
-		for (const child of folder.children) {
-			if (!(child instanceof TFile) || child.extension !== "md") continue;
-
-			const fm = readFrontmatter(this.deps.app, child.path);
-
-			const name = (fm && (fmString(fm, "system")
-				?? fmString(fm, "name"))) ?? child.basename;
-			const description = (fm && fmString(fm, "description")) ?? "";
-			const domains = [
-				...fmStringArray(fm, "domains"),
-				...fmStringArray(fm, "Domains"),
-			];
-			const services = [
-				...fmStringArray(fm, "services"),
-				...fmStringArray(fm, "Systems"),
-			];
-
-			const domainSet = new Set(domains);
-			const serviceSet = new Set(services);
-			const events = allEntries.filter(
-				(e) => domainSet.has(e.domain) || serviceSet.has(e.services),
-			);
-
-			entries.push({ name, description, domains, services, filePath: child.path, events });
-
-			if (!fm || fm.type !== "SystemDoc") {
-				normalizeDocFrontmatter(
-					this.deps.app, child, "SystemDoc", "system", name,
-					{ description, domains, services },
+		this.entries = scanEntityFolder<SystemEntry>({
+			entityType: "systems",
+			nameFields: ["system", "name"],
+			docType: "SystemDoc",
+			normalizeNameKey: "system",
+			extraServiceFields: ["Systems"],
+			extraDomainFields: ["Domains"],
+			readEvents: false,
+			mapEntry: (raw, ctx) => {
+				const domainSet = new Set(raw.domains);
+				const serviceSet = new Set(raw.services);
+				const events = ctx.allEntries.filter(
+					(e) => domainSet.has(e.domain) || serviceSet.has(e.services),
 				);
-			}
-		}
-
-		this.entries = entries.sort((a, b) => a.name.localeCompare(b.name));
+				return {
+					name: raw.name,
+					description: raw.description,
+					domains: raw.domains,
+					services: raw.services,
+					filePath: raw.filePath,
+					events,
+				};
+			},
+		}, this.deps);
 	}
 
 	// ─────────────────────────────────────────────────────────────

@@ -1,16 +1,12 @@
 /**
- * Re-export barrel for backward compatibility.
+ * Documentation domain — pure path resolution and content generation.
  *
- * All path resolution and content generation functions have moved to
- * `src/domain/docs/` to fix the DDD layer violation (domain importing from UI).
- *
- * UI consumers continue importing from this file — no changes needed.
+ * Safe to import from any layer (domain, infrastructure, UI).
  */
 
-export type { EntityType } from "../domain/docs";
+export type { EntityType } from "./pathResolver";
 
 export {
-	// Path resolution
 	resolveEntityPath,
 	getEventDocPathResolved,
 	getDomainDocPathResolved,
@@ -39,7 +35,9 @@ export {
 	getActorsFolderPath,
 	getProductDocPath,
 	getProductsFolderPath,
-	// Content generators
+} from "./pathResolver";
+
+export {
 	generateEventDocContent,
 	generateDomainDocContent,
 	generateArchitectureDocContent,
@@ -50,4 +48,4 @@ export {
 	generateFlowDocContent,
 	generateActorDocContent,
 	generateProductDocContent,
-} from "../domain/docs";
+} from "./contentGenerator";

@@ -24,6 +24,7 @@ import type {
 import { STANDARD_FILE_PROPERTIES } from "../domain/dataExchange/types";
 import { FolderPickerModal, getVaultFolders } from "./FolderPickerModal";
 import { ConfigChooserModal, ConfirmModal, InputModal } from "./modals";
+import { showNativeSaveDialog } from "./electronDialog";
 
 export const VIEW_TYPE_EXPORT = "flowti-export";
 
@@ -1319,26 +1320,18 @@ export class ExportView extends ItemView {
 	}
 
 	private async openNativeSaveDialog(): Promise<void> {
-		try {
-			// eslint-disable-next-line @typescript-eslint/no-require-imports
-			const { remote } = require("electron");
-			const ext = this.format === "tab" ? "txt" : "csv";
-			const filters = this.format === "tab"
-				? [{ name: "Tab-Separated", extensions: ["txt", "tsv"] }, { name: "All Files", extensions: ["*"] }]
-				: [{ name: "CSV Files", extensions: ["csv"] }, { name: "All Files", extensions: ["*"] }];
-
-			const result = await remote.dialog.showSaveDialog(remote.getCurrentWindow(), {
-				defaultPath: this.getFilenameFromPath(this.outputPath) || `export.${ext}`,
-				filters,
-			});
-
-			if (!result.canceled && result.filePath) {
-				this.outputPath = result.filePath;
-				this.isExternal = true;
-				this.renderPage();
-			}
-		} catch {
+		const result = await showNativeSaveDialog({
+			format: this.format,
+			defaultFilename: this.getFilenameFromPath(this.outputPath),
+		});
+		if (result === null) {
 			new Notice("Could not open save dialog. Try entering the path manually.");
+			return;
+		}
+		if (!result.canceled && result.filePath) {
+			this.outputPath = result.filePath;
+			this.isExternal = true;
+			this.renderPage();
 		}
 	}
 

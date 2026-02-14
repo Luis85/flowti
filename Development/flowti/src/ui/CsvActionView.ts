@@ -20,7 +20,6 @@ import type {
 } from "../domain/dataExchange/types";
 import { FolderPickerModal, getVaultFolders } from "./FolderPickerModal";
 import { ConfirmModal, ConfigChooserModal, InputModal } from "./modals";
-import { DataExchangeHubView, VIEW_TYPE_DATA_EXCHANGE_HUB } from "./DataExchangeHubView";
 
 export const VIEW_TYPE_CSV = "flowti-csv";
 
@@ -36,6 +35,7 @@ export class CsvActionView extends TextFileView {
 	private eventBus: IEventBus;
 	private dataExchangeService: DataExchangeService;
 	private autoStartImport: boolean;
+	private openHubImportConfigCb: ((configId: string) => void) | null = null;
 
 	// Import wizard state
 	private currentPage: CsvPage = "landing";
@@ -92,6 +92,11 @@ export class CsvActionView extends TextFileView {
 		this.eventBus = eventBus;
 		this.dataExchangeService = dataExchangeService;
 		this.autoStartImport = autoStartImport;
+	}
+
+	/** Sets the callback for navigating to the Data Exchange Hub import config page. */
+	setOpenHubImportConfig(cb: (configId: string) => void): void {
+		this.openHubImportConfigCb = cb;
 	}
 
 	getViewType(): string {
@@ -1028,20 +1033,9 @@ export class CsvActionView extends TextFileView {
 
 	/** Opens the Data Exchange Hub and selects a specific import config. */
 	private openHubImportConfig(configId: string): void {
-		const { workspace } = this.app;
-		const existing = workspace.getLeavesOfType(VIEW_TYPE_DATA_EXCHANGE_HUB);
-		if (existing.length > 0) {
-			const view = existing[0].view as DataExchangeHubView;
-			view.showImportConfig(configId);
-			workspace.revealLeaf(existing[0]);
-			return;
+		if (this.openHubImportConfigCb) {
+			this.openHubImportConfigCb(configId);
 		}
-		const leaf = workspace.getLeaf(true);
-		void leaf.setViewState({ type: VIEW_TYPE_DATA_EXCHANGE_HUB, active: true }).then(() => {
-			const view = leaf.view as DataExchangeHubView;
-			view.showImportConfig(configId);
-			workspace.revealLeaf(leaf);
-		});
 	}
 
 	/** Executes a saved import config from the usage section with inline progress. */

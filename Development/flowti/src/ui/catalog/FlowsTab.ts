@@ -1,8 +1,6 @@
-import { TFile, TFolder, setIcon } from "obsidian";
-import { EVENT_CATALOG, type EventCatalogEntry } from "../../infrastructure/events/catalog";
+import { TFile, setIcon } from "obsidian";
+import type { EventCatalogEntry } from "../../infrastructure/events/catalog";
 import {
-	readFrontmatter, fmString, fmStringArray, normalizeDocFrontmatter,
-	discoveredToCatalogEntries,
 	renderStat, renderRelatedSection,
 	findRelatedSystems, findRelatedActors,
 	openFile,
@@ -12,6 +10,7 @@ import {
 } from "../eventDocTemplate";
 import { InputModal, ConfirmModal } from "../modals";
 import type { CatalogComponentDeps, FlowEntry } from "./types";
+import { scanEntityFolder } from "./entityScanner";
 
 /**
  * Flows tab component for the Event Catalog view.
@@ -42,56 +41,19 @@ export class FlowsTab {
 	// ─────────────────────────────────────────────────────────────
 
 	scan(): void {
-		const flowsFolder = this.deps.getEntityFolder("flows");
-		const folder = this.deps.app.vault.getAbstractFileByPath(flowsFolder);
-
-		if (!folder || !(folder instanceof TFolder)) {
-			this.entries = [];
-			return;
-		}
-
-		const allEntries = [
-			...EVENT_CATALOG,
-			...discoveredToCatalogEntries(
-				this.deps.getState().discoveredEvents,
-				this.deps.app,
-				this.deps.getEntityFolder("events"),
-			),
-		];
-		const entryMap = new Map(allEntries.map((e) => [e.type, e]));
-		const entries: FlowEntry[] = [];
-
-		for (const child of folder.children) {
-			if (!(child instanceof TFile) || child.extension !== "md") continue;
-
-			const fm = readFrontmatter(this.deps.app, child.path);
-
-			const name = (fm && (fmString(fm, "flow")
-				?? fmString(fm, "trigger")
-				?? fmString(fm, "name"))) ?? child.basename;
-			const description = (fm && fmString(fm, "description")) ?? "";
-			const events = fmStringArray(fm, "events");
-			const domains = fmStringArray(fm, "domains");
-			const services = [
-				...fmStringArray(fm, "services"),
-				...fmStringArray(fm, "Systems"),
-			];
-
-			const resolvedEvents = events
-				.map((t) => entryMap.get(t))
-				.filter((e): e is EventCatalogEntry => e !== undefined);
-
-			entries.push({ name, description, events, domains, services, filePath: child.path, resolvedEvents });
-
-			if (!fm || fm.type !== "FlowDoc") {
-				normalizeDocFrontmatter(
-					this.deps.app, child, "FlowDoc", "flow", name,
-					{ description, events, domains, services },
-				);
-			}
-		}
-
-		this.entries = entries.sort((a, b) => a.name.localeCompare(b.name));
+		this.entries = scanEntityFolder<FlowEntry>({
+			entityType: "flows",
+			nameFields: ["flow", "trigger", "name"],
+			docType: "FlowDoc",
+			normalizeNameKey: "flow",
+			extraServiceFields: ["Systems"],
+			mapEntry: (raw, ctx) => ({
+				...raw,
+				resolvedEvents: raw.events
+					.map((t) => ctx.entryMap.get(t))
+					.filter((e): e is EventCatalogEntry => e !== undefined),
+			}),
+		}, this.deps);
 	}
 
 	// ─────────────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 import { ValidationError } from "../../infrastructure/errors/FlowtiError";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
+import { loadStateFromStorage, saveStateToStorage } from "../../utils/persistence";
 import type { IStorageProvider } from "../../utils/types";
 import type { IUserService } from "../user/types";
 import type {
@@ -56,9 +57,9 @@ export class InstallerService implements IInstallerService {
 	 * Emits "installer.loaded" if state is found.
 	 */
 	async load(): Promise<void> {
-		const data = (await this.storage.load()) as { installer?: InstallerState } | null;
-		if (data?.installer) {
-			this.state = data.installer;
+		const saved = await loadStateFromStorage<InstallerState>(this.storage, "installer");
+		if (saved) {
+			this.state = saved;
 		}
 		await this.eventBus?.emit("installer.loaded", { state: this.state });
 	}
@@ -173,10 +174,6 @@ export class InstallerService implements IInstallerService {
 	 * Persists the installer state to storage.
 	 */
 	private async saveState(): Promise<void> {
-		const existingData = ((await this.storage.load()) as object) || {};
-		await this.storage.save({
-			...existingData,
-			installer: this.state,
-		});
+		await saveStateToStorage(this.storage, "installer", this.state);
 	}
 }

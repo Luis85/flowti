@@ -601,6 +601,24 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.app.workspace.revealLeaf(leaf);
 	}
 
+	/** Opens the Data Exchange Hub and navigates to a specific import config. */
+	private openHubImportConfig(configId: string): void {
+		const { workspace } = this.app;
+		const existing = workspace.getLeavesOfType(VIEW_TYPE_DATA_EXCHANGE_HUB);
+		if (existing.length > 0) {
+			const view = existing[0].view as DataExchangeHubView;
+			view.showImportConfig(configId);
+			workspace.revealLeaf(existing[0]);
+			return;
+		}
+		const leaf = workspace.getLeaf(true);
+		void leaf.setViewState({ type: VIEW_TYPE_DATA_EXCHANGE_HUB, active: true }).then(() => {
+			const view = leaf.view as DataExchangeHubView;
+			view.showImportConfig(configId);
+			workspace.revealLeaf(leaf);
+		});
+	}
+
 	/**
 	 * Bind registered views to Obsidian.
 	 */
@@ -799,6 +817,9 @@ export default class FlowtiBasePlugin extends Plugin {
 				this.pendingSavedImportConfig = null;
 				const view = new CsvActionView(leaf, this.eventBus, this.dataExchangeService!, auto);
 				if (savedConfig) view.setSavedConfig(savedConfig);
+				view.setOpenHubImportConfig((configId) => {
+					this.openHubImportConfig(configId);
+				});
 				return view;
 			});
 			try {

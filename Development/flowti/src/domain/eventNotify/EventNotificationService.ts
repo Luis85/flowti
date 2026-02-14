@@ -1,4 +1,5 @@
 import type { IEventBus } from "../../infrastructure/events/types";
+import { loadStateFromStorage, saveStateToStorage } from "../../utils/persistence";
 import type { IStorageProvider } from "../../utils/types";
 import type { EventNotifyState } from "./types";
 
@@ -69,11 +70,9 @@ export class EventNotificationService {
 	 * Emits "eventNotify.loaded" with the current notification list.
 	 */
 	async load(): Promise<void> {
-		const data = (await this.storage.load()) as {
-			eventNotify?: EventNotifyState;
-		} | null;
-		if (data?.eventNotify) {
-			this.state = data.eventNotify;
+		const saved = await loadStateFromStorage<EventNotifyState>(this.storage, "eventNotify");
+		if (saved) {
+			this.state = saved;
 			this.notified = new Set(this.state.notifiedTypes);
 		}
 		await this.eventBus?.emit("eventNotify.loaded", {
@@ -122,11 +121,7 @@ export class EventNotificationService {
 	 * Persists the notify state to storage.
 	 */
 	private async saveState(): Promise<void> {
-		const existingData = ((await this.storage.load()) as object) || {};
-		await this.storage.save({
-			...existingData,
-			eventNotify: this.state,
-		});
+		await saveStateToStorage(this.storage, "eventNotify", this.state);
 	}
 
 	/**

@@ -7,6 +7,7 @@
 
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
+import { loadStateFromStorage, saveStateToStorage } from "../../utils/persistence";
 import type { IStorageProvider } from "../../utils/types";
 import type { EventDocMeta } from "../discovery/types";
 import type {
@@ -203,11 +204,9 @@ export class DataExchangeService {
 	/** Loads persisted state from storage. Call once in onLayoutReady. */
 	async load(): Promise<void> {
 		if (!this.storage) return;
-		const data = (await this.storage.load()) as {
-			dataExchange?: DataExchangeState;
-		} | null;
-		if (data?.dataExchange) {
-			this.state = data.dataExchange;
+		const saved = await loadStateFromStorage<DataExchangeState>(this.storage, "dataExchange");
+		if (saved) {
+			this.state = saved;
 			// Migrate legacy singular exportConfigId → exportConfigIds
 			let migrated = false;
 			for (const pipe of this.state.savedPipelines ?? []) {
@@ -225,11 +224,7 @@ export class DataExchangeService {
 
 	private async saveState(): Promise<void> {
 		if (!this.storage) return;
-		const existingData = ((await this.storage.load()) as object) || {};
-		await this.storage.save({
-			...existingData,
-			dataExchange: this.state,
-		});
+		await saveStateToStorage(this.storage, "dataExchange", this.state);
 	}
 
 	// ── Import config CRUD ──────────────────────────────────

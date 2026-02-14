@@ -1,5 +1,6 @@
 import type { IEventBus } from "../../infrastructure/events/types";
 import { getEventsByCategory } from "../../infrastructure/events/catalog";
+import { loadStateFromStorage, saveStateToStorage } from "../../utils/persistence";
 import type { IStorageProvider } from "../../utils/types";
 import type { EventFilterState } from "./types";
 
@@ -56,11 +57,9 @@ export class EventFilterService {
 	 * Emits "eventFilter.loaded" with the current exclusion list.
 	 */
 	async load(): Promise<void> {
-		const data = (await this.storage.load()) as {
-			eventFilter?: EventFilterState;
-		} | null;
-		if (data?.eventFilter) {
-			this.state = data.eventFilter;
+		const saved = await loadStateFromStorage<EventFilterState>(this.storage, "eventFilter");
+		if (saved) {
+			this.state = saved;
 			this.excluded = new Set(this.state.excludedTypes);
 		}
 		await this.eventBus?.emit("eventFilter.loaded", {
@@ -130,11 +129,7 @@ export class EventFilterService {
 	 * Persists the filter state to storage.
 	 */
 	private async saveState(): Promise<void> {
-		const existingData = ((await this.storage.load()) as object) || {};
-		await this.storage.save({
-			...existingData,
-			eventFilter: this.state,
-		});
+		await saveStateToStorage(this.storage, "eventFilter", this.state);
 	}
 
 	/**

@@ -1,8 +1,6 @@
-import { TFile, TFolder, setIcon } from "obsidian";
-import { EVENT_CATALOG, type EventCatalogEntry } from "../../infrastructure/events/catalog";
+import { TFile, setIcon } from "obsidian";
+import type { EventCatalogEntry } from "../../infrastructure/events/catalog";
 import {
-	readFrontmatter, fmString, fmStringArray, normalizeDocFrontmatter,
-	discoveredToCatalogEntries,
 	renderStat, renderRelatedSection,
 	findRelatedFlows, findRelatedSystems, findRelatedActors,
 	openFile,
@@ -12,6 +10,7 @@ import {
 } from "../eventDocTemplate";
 import { InputModal, ConfirmModal } from "../modals";
 import type { CatalogComponentDeps, ProductEntry } from "./types";
+import { scanEntityFolder } from "./entityScanner";
 
 /**
  * Products tab component for the Event Catalog view.
@@ -42,52 +41,18 @@ export class ProductsTab {
 	// -----------------------------------------------------------------
 
 	scan(): void {
-		const productsFolder = this.deps.getEntityFolder("products");
-		const folder = this.deps.app.vault.getAbstractFileByPath(productsFolder);
-
-		if (!folder || !(folder instanceof TFolder)) {
-			this.entries = [];
-			return;
-		}
-
-		const allEntries = [
-			...EVENT_CATALOG,
-			...discoveredToCatalogEntries(
-				this.deps.getState().discoveredEvents,
-				this.deps.app,
-				this.deps.getEntityFolder("events"),
-			),
-		];
-		const entryMap = new Map(allEntries.map((e) => [e.type, e]));
-		const entries: ProductEntry[] = [];
-
-		for (const child of folder.children) {
-			if (!(child instanceof TFile) || child.extension !== "md") continue;
-
-			const fm = readFrontmatter(this.deps.app, child.path);
-
-			const name = (fm && (fmString(fm, "product")
-				?? fmString(fm, "name"))) ?? child.basename;
-			const description = (fm && fmString(fm, "description")) ?? "";
-			const events = fmStringArray(fm, "events");
-			const domains = fmStringArray(fm, "domains");
-			const services = fmStringArray(fm, "services");
-
-			const resolvedEvents = events
-				.map((t) => entryMap.get(t))
-				.filter((e): e is EventCatalogEntry => e !== undefined);
-
-			entries.push({ name, description, events, domains, services, filePath: child.path, resolvedEvents });
-
-			if (!fm || fm.type !== "ProductDoc") {
-				normalizeDocFrontmatter(
-					this.deps.app, child, "ProductDoc", "product", name,
-					{ description, events, domains, services },
-				);
-			}
-		}
-
-		this.entries = entries.sort((a, b) => a.name.localeCompare(b.name));
+		this.entries = scanEntityFolder<ProductEntry>({
+			entityType: "products",
+			nameFields: ["product", "name"],
+			docType: "ProductDoc",
+			normalizeNameKey: "product",
+			mapEntry: (raw, ctx) => ({
+				...raw,
+				resolvedEvents: raw.events
+					.map((t) => ctx.entryMap.get(t))
+					.filter((e): e is EventCatalogEntry => e !== undefined),
+			}),
+		}, this.deps);
 	}
 
 	// -----------------------------------------------------------------

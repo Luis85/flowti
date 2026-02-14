@@ -1,8 +1,9 @@
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
+import { loadStateFromStorage, saveStateToStorage } from "../../utils/persistence";
 import type { IStorageProvider } from "../../utils/types";
 import type { DiscoveredEvent, DiscoveryState, EventDocMeta } from "./types";
-import { generateEventDocContent, getEventDocPath } from "../../ui/eventDocTemplate";
+import { generateEventDocContent, getEventDocPath } from "../docs";
 import type { EventCatalogEntry, EventStability, EventVisibility } from "../../infrastructure/events/catalog";
 
 /**
@@ -87,11 +88,9 @@ export class DiscoveryService {
 	 * Emits "discovery.loaded" with the current discovered events.
 	 */
 	async load(): Promise<void> {
-		const data = (await this.storage.load()) as {
-			discovery?: DiscoveryState;
-		} | null;
-		if (data?.discovery) {
-			this.state = data.discovery;
+		const saved = await loadStateFromStorage<DiscoveryState>(this.storage, "discovery");
+		if (saved) {
+			this.state = saved;
 		}
 		await this.eventBus?.emit("discovery.loaded", {
 			discoveredEvents: this.getDiscoveredEvents(),
@@ -247,11 +246,7 @@ export class DiscoveryService {
 	 * Persists the discovery state to storage.
 	 */
 	private async saveState(): Promise<void> {
-		const existingData = ((await this.storage.load()) as object) || {};
-		await this.storage.save({
-			...existingData,
-			discovery: this.state,
-		});
+		await saveStateToStorage(this.storage, "discovery", this.state);
 	}
 
 	/**

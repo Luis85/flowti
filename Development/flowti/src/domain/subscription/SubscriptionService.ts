@@ -1,4 +1,5 @@
 import type { IEventBus } from "../../infrastructure/events/types";
+import { loadStateFromStorage, saveStateToStorage } from "../../utils/persistence";
 import type { IStorageProvider } from "../../utils/types";
 import { matchGlob } from "../../utils/glob";
 import type { Subscription, SubscriptionFilter, SubscriptionState } from "./types";
@@ -119,11 +120,9 @@ export class SubscriptionService {
 	 * Emits "subscription.loaded" with all subscriptions.
 	 */
 	async load(): Promise<void> {
-		const data = (await this.storage.load()) as {
-			subscription?: SubscriptionState;
-		} | null;
-		if (data?.subscription) {
-			this.state = data.subscription;
+		const saved = await loadStateFromStorage<SubscriptionState>(this.storage, "subscription");
+		if (saved) {
+			this.state = saved;
 		}
 		await this.eventBus?.emit("subscription.loaded", {
 			subscriptions: this.getSubscriptions(),
@@ -254,11 +253,7 @@ export class SubscriptionService {
 	 * Persists subscription state to storage.
 	 */
 	private async saveState(): Promise<void> {
-		const existingData = ((await this.storage.load()) as object) || {};
-		await this.storage.save({
-			...existingData,
-			subscription: this.state,
-		});
+		await saveStateToStorage(this.storage, "subscription", this.state);
 	}
 
 	/**
