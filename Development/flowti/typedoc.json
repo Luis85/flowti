@@ -9,7 +9,7 @@
     "**/node_modules/**",
     "**/tests/**",
     "**/dist/**",
-    "**/docs/**"
+    "docs/**"
   ],
 
   "name": "Flowti - IBDE",

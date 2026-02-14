@@ -12,7 +12,7 @@ import {
 	discoveredToCatalogEntries,
 } from "./helpers";
 import type { CatalogComponentDeps } from "./types";
-import type { EntityType } from "../eventDocTemplate";
+import type { EntityType } from "../../domain/docs/pathResolver";
 
 // ─────────────────────────────────────────────────────────────
 // Types
