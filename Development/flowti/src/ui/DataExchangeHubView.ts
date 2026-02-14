@@ -2560,6 +2560,10 @@ export class DataExchangeHubView extends ItemView {
 		if (pipe.nameSuffix) {
 			this.addInfoRow(configGrid, "Name Suffix", pipe.nameSuffix);
 		}
+		if (pipe.exportConfigId) {
+			const exportCfg = this.dataExchangeService.getExportConfig(pipe.exportConfigId);
+			this.addInfoRow(configGrid, "Export Step", exportCfg?.name ?? "(deleted)");
+		}
 		if (pipe.createBase) {
 			this.addInfoRow(configGrid, "Base View", pipe.basePath || "(auto-generated)");
 		}
@@ -2784,6 +2788,7 @@ export class DataExchangeHubView extends ItemView {
 			nameSuffix: pipe.nameSuffix ?? "",
 			createBase: pipe.createBase ?? false,
 			basePath: pipe.basePath ?? "",
+			exportConfigId: pipe.exportConfigId,
 		};
 
 		new Setting(panel)
@@ -2858,6 +2863,19 @@ export class DataExchangeHubView extends ItemView {
 					.onChange((v) => { edits.basePath = v || undefined; }),
 			);
 		basePathSetting.settingEl.toggle(edits.createBase ?? false);
+
+		const exportConfigs = this.dataExchangeService.getSavedExportConfigs();
+		new Setting(panel)
+			.setName("Export step")
+			.setDesc("Run a saved export after pipeline completes (optional)")
+			.addDropdown((dd) => {
+				dd.addOption("", "None");
+				for (const cfg of exportConfigs) {
+					dd.addOption(cfg.id, cfg.name);
+				}
+				dd.setValue(pipe.exportConfigId ?? "");
+				dd.onChange((v) => { edits.exportConfigId = v || undefined; });
+			});
 
 		const nav = panel.createDiv({ cls: "ft-detail-actions ft-mt-4" });
 

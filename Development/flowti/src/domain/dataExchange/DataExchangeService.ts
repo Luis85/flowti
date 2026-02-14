@@ -1191,6 +1191,28 @@ export class DataExchangeService {
 			await this.createPipelineBaseFile(pipeline);
 		}
 
+		// Run linked export if configured
+		if (pipeline.exportConfigId) {
+			const exportCfg = this.getExportConfig(pipeline.exportConfigId);
+			if (exportCfg) {
+				try {
+					await this.exportService.executeExport({
+						sourcePath: exportCfg.sourcePath,
+						sourceType: exportCfg.sourceType,
+						format: exportCfg.format,
+						outputPath: exportCfg.outputPath,
+						columns: exportCfg.columns,
+						fileProperties: exportCfg.fileProperties,
+						baseViewIndex: exportCfg.baseViewIndex,
+						isExternal: exportCfg.isExternal,
+						conflictStrategy: exportCfg.conflictStrategy,
+					});
+				} catch (err) {
+					console.error(`[Flowti] Pipeline export step failed: ${err instanceof Error ? err.message : String(err)}`);
+				}
+			}
+		}
+
 		return result;
 	}
 
@@ -1271,6 +1293,7 @@ export class DataExchangeService {
 			pipeline.noteType ? `noteType: "${pipeline.noteType}"` : "",
 			pipeline.namePrefix ? `namePrefix: "${pipeline.namePrefix}"` : "",
 			pipeline.nameSuffix ? `nameSuffix: "${pipeline.nameSuffix}"` : "",
+			pipeline.exportConfigId ? `exportConfigId: "${pipeline.exportConfigId}"` : "",
 			`sources: ${pipeline.sources.length}`,
 			`created: "${now}"`,
 			lastRun ? `lastExecuted: "${lastRun}"` : "",
@@ -1290,6 +1313,7 @@ export class DataExchangeService {
 			pipeline.noteType ? `| **Note Type**     | [[Type - ${this.sanitizeDocName(pipeline.noteType)}\\|${pipeline.noteType}]] |` : "",
 			pipeline.namePrefix ? `| **Name Prefix**   | \`${pipeline.namePrefix}\` |` : "",
 			pipeline.nameSuffix ? `| **Name Suffix**   | \`${pipeline.nameSuffix}\` |` : "",
+			pipeline.exportConfigId ? `| **Export Step**   | ${this.getExportConfig(pipeline.exportConfigId)?.name ?? pipeline.exportConfigId} |` : "",
 			lastRun ? `| **Last Run**      | ${lastRun} |` : "",
 			"",
 		];
