@@ -1,4 +1,4 @@
 ---
-persona: The System Designer
+persona: System Designer
 type: Job to be Done
 ---

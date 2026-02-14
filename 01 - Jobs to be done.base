@@ -9,9 +9,11 @@ views:
       direction: ASC
     order:
       - file.name
-      - persona
       - type
+      - persona
     columnSize:
       file.name: 539
+      note.type: 120
+      note.persona: 161
   - type: table
     name: View

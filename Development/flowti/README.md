@@ -20,7 +20,7 @@ The **Integrated Business Development Environment** - An Obsidian plugin that im
 
 ## Product Features
 
-![[02 - Features.base#Product Features|02 - Features]]
+![[Development/flowti/docs/02 - Features.base#Product Features|02 - Features]]
 
 
 ---

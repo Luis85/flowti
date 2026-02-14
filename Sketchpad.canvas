@@ -19,8 +19,11 @@
 		{"id":"abc9776e8773b32b","type":"group","x":-40,"y":880,"width":1060,"height":580,"label":"Frontstage"},
 		{"id":"25c2f8a7fca6c9d7","type":"group","x":1480,"y":880,"width":300,"height":580,"label":"Backstage"},
 		{"id":"5e8bcec9492cfb3e","type":"group","x":-20,"y":950,"width":340,"height":480,"color":"2","label":"Product"},
+		{"id":"1322864aeea97eeb","type":"group","x":1860,"y":880,"width":360,"height":400,"color":"2","label":"Product Backlog Item"},
 		{"id":"173575747476d753","type":"group","x":0,"y":1150,"width":300,"height":260,"color":"5","label":"PBI"},
 		{"id":"eb56d8b9c2c758f2","type":"group","x":360,"y":950,"width":620,"height":120,"color":"2","label":"Sitemap"},
+		{"id":"ac6b4ec2959f3db2","type":"group","x":1890,"y":940,"width":300,"height":110,"color":"6","label":"Problemspace"},
+		{"id":"2262b012353cf0dd","type":"group","x":1890,"y":1120,"width":300,"height":110,"color":"6","label":"Solutionspace"},
 		{
 			"id":"f9fe5f4ef60e6a53",
 			"type":"text",
@@ -30,92 +33,6 @@
 			"y":1250,
 			"width":260,
 			"height":60
-		},
-		{
-			"id":"3a4582b7f06dbcf2",
-			"type":"text",
-			"text":"Views",
-			"styleAttributes":{"textAlign":"center"},
-			"x":400,
-			"y":980,
-			"width":260,
-			"height":60,
-			"color":"6"
-		},
-		{
-			"id":"c0cf2ae5fb7170e1",
-			"type":"text",
-			"text":"I want to know what deliverables I can expect from this domain and what needs to be done to produce this deliverable",
-			"styleAttributes":{},
-			"x":1200,
-			"y":2380,
-			"width":360,
-			"height":120,
-			"color":"5"
-		},
-		{
-			"id":"7b3867441155ac77",
-			"type":"text",
-			"text":"what triggers this domain?\nwhat are the outputs of this domain?",
-			"styleAttributes":{},
-			"x":1200,
-			"y":2520,
-			"width":360,
-			"height":110,
-			"color":"5"
-		},
-		{
-			"id":"10912870c9bcc94e",
-			"type":"text",
-			"text":"Offer",
-			"styleAttributes":{"textAlign":"center"},
-			"x":540,
-			"y":1680,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"7690eedbe60304e6",
-			"type":"text",
-			"text":"Customer Experience",
-			"styleAttributes":{"textAlign":"center"},
-			"x":540,
-			"y":1820,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"3b8e15b7fd161918",
-			"type":"text",
-			"text":"User Story",
-			"styleAttributes":{"textAlign":"center"},
-			"x":20,
-			"y":1170,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"74227396a6c77e95",
-			"type":"text",
-			"text":"Gherkin Test",
-			"styleAttributes":{"textAlign":"center"},
-			"x":20,
-			"y":1330,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"cd7a2daabf8bba73",
-			"type":"text",
-			"text":"Feature",
-			"styleAttributes":{"textAlign":"center"},
-			"x":20,
-			"y":980,
-			"width":260,
-			"height":60,
-			"color":"6"
 		},
 		{
 			"id":"9f82d6e1e60009bb",
@@ -151,6 +68,125 @@
 			"color":"2"
 		},
 		{
+			"id":"37b60e3fcc6abba6",
+			"type":"text",
+			"text":"add start events",
+			"styleAttributes":{"textAlign":"center"},
+			"x":360,
+			"y":2740,
+			"width":260,
+			"height":60,
+			"color":"3"
+		},
+		{
+			"id":"c92dc9495faa6a66",
+			"type":"text",
+			"text":"add services",
+			"styleAttributes":{"textAlign":"center"},
+			"x":640,
+			"y":2740,
+			"width":260,
+			"height":60,
+			"color":"3"
+		},
+		{
+			"id":"3a4582b7f06dbcf2",
+			"type":"text",
+			"text":"Views",
+			"styleAttributes":{"textAlign":"center"},
+			"x":400,
+			"y":980,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"3b8e15b7fd161918",
+			"type":"text",
+			"text":"User Story",
+			"styleAttributes":{"textAlign":"center"},
+			"x":20,
+			"y":1170,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"74227396a6c77e95",
+			"type":"text",
+			"text":"Gherkin Test",
+			"styleAttributes":{"textAlign":"center"},
+			"x":20,
+			"y":1330,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"cd7a2daabf8bba73",
+			"type":"text",
+			"text":"Feature",
+			"styleAttributes":{"textAlign":"center"},
+			"x":20,
+			"y":980,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"8b42e85c8914f3a7",
+			"type":"text",
+			"text":"# Folderstructure\n\n- `/00 - Connectivity`\n- `/01 - Projects`\n- `/02 - Areas`\n- `/03 - Resources`\n- `/04 - Archive`\n- `/05 - Public Vault`\n- `/var`",
+			"styleAttributes":{},
+			"x":40,
+			"y":-280,
+			"width":260,
+			"height":400
+		},
+		{"id":"5d6cdc543db0af78","type":"file","file":"Development/flowti/docs/ideas/Flowti - System Design.canvas","x":320,"y":-280,"width":260,"height":400},
+		{"id":"0b8e15eb023842e5","type":"file","file":"Development/Plugin Design.canvas","x":600,"y":-280,"width":260,"height":400},
+		{
+			"id":"7fdc8a36c5cc2c85",
+			"type":"text",
+			"text":"## Our Deliverables\n\n- ...\n\n## How to work with us\n\n- ...\n",
+			"styleAttributes":{},
+			"x":980,
+			"y":2740,
+			"width":580,
+			"height":440
+		},
+		{
+			"id":"c0cf2ae5fb7170e1",
+			"type":"text",
+			"text":"I want to know what deliverables I can expect from this domain and what needs to be done to produce this deliverable",
+			"styleAttributes":{},
+			"x":1200,
+			"y":2380,
+			"width":360,
+			"height":120,
+			"color":"5"
+		},
+		{
+			"id":"10912870c9bcc94e",
+			"type":"text",
+			"text":"Offer",
+			"styleAttributes":{"textAlign":"center"},
+			"x":540,
+			"y":1680,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"7690eedbe60304e6",
+			"type":"text",
+			"text":"Customer Experience",
+			"styleAttributes":{"textAlign":"center"},
+			"x":540,
+			"y":1820,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
 			"id":"72449dad794f89e3",
 			"type":"text",
 			"text":"Interfaces",
@@ -171,16 +207,6 @@
 			"width":260,
 			"height":60,
 			"color":"2"
-		},
-		{
-			"id":"8b42e85c8914f3a7",
-			"type":"text",
-			"text":"# Folderstructure\n\n- `/00 - Connectivity`\n- `/01 - Projects`\n- `/02 - Areas`\n- `/03 - Resources`\n- `/04 - Archive`\n- `/05 - Public Vault`\n- `/var`",
-			"styleAttributes":{},
-			"x":40,
-			"y":-280,
-			"width":260,
-			"height":400
 		},
 		{
 			"id":"6c18b02696f15954",
@@ -205,6 +231,38 @@
 			"color":"2"
 		},
 		{
+			"id":"34f728f65d90456d",
+			"type":"text",
+			"text":"Events",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1080,
+			"y":1240,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"8844baa6c4d7d42b",
+			"type":"text",
+			"text":"# User Groups\n\n- new to Obsidian\n- new to Markdown\n- new to Git\n- new to Obsidian Plugin Development\n- new to Project Management\n- new to Software Design\n- new to Product Development\n",
+			"styleAttributes":{},
+			"x":880,
+			"y":-280,
+			"width":260,
+			"height":400
+		},
+		{
+			"id":"7b3867441155ac77",
+			"type":"text",
+			"text":"what triggers this domain?\nwhat are the outputs of this domain?",
+			"styleAttributes":{},
+			"x":1200,
+			"y":2520,
+			"width":360,
+			"height":110,
+			"color":"5"
+		},
+		{
 			"id":"beaa7f40ec9e0291",
 			"type":"text",
 			"text":"Components",
@@ -226,8 +284,6 @@
 			"height":60,
 			"color":"2"
 		},
-		{"id":"5d6cdc543db0af78","type":"file","file":"Development/flowti/docs/ideas/Flowti - System Design.canvas","x":320,"y":-280,"width":260,"height":400},
-		{"id":"0b8e15eb023842e5","type":"file","file":"Development/Plugin Design.canvas","x":600,"y":-280,"width":260,"height":400},
 		{
 			"id":"6fc6f55d39d2a14d",
 			"type":"text",
@@ -235,17 +291,6 @@
 			"styleAttributes":{"textAlign":"center"},
 			"x":360,
 			"y":2820,
-			"width":260,
-			"height":60,
-			"color":"3"
-		},
-		{
-			"id":"37b60e3fcc6abba6",
-			"type":"text",
-			"text":"add start events",
-			"styleAttributes":{"textAlign":"center"},
-			"x":360,
-			"y":2740,
 			"width":260,
 			"height":60,
 			"color":"3"
@@ -293,38 +338,6 @@
 			"width":260,
 			"height":60,
 			"color":"3"
-		},
-		{
-			"id":"c92dc9495faa6a66",
-			"type":"text",
-			"text":"add services",
-			"styleAttributes":{"textAlign":"center"},
-			"x":640,
-			"y":2740,
-			"width":260,
-			"height":60,
-			"color":"3"
-		},
-		{
-			"id":"7fdc8a36c5cc2c85",
-			"type":"text",
-			"text":"## Our Deliverables\n\n- ...\n\n## How to work with us\n\n- ...\n",
-			"styleAttributes":{},
-			"x":980,
-			"y":2740,
-			"width":580,
-			"height":440
-		},
-		{
-			"id":"34f728f65d90456d",
-			"type":"text",
-			"text":"Events",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1080,
-			"y":1240,
-			"width":260,
-			"height":60,
-			"color":"2"
 		},
 		{
 			"id":"06ad3e18891e6b69",
@@ -422,14 +435,26 @@
 			"height":60
 		},
 		{
-			"id":"8844baa6c4d7d42b",
+			"id":"85d677cad9d99537",
 			"type":"text",
-			"text":"# User Groups\n\n- new to Obsidian\n- new to Markdown\n- new to Git\n- new to Obsidian Plugin Development\n- new to Project Management\n- new to Software Design\n- new to Product Development\n",
-			"styleAttributes":{},
-			"x":880,
-			"y":-280,
+			"text":"User Story",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1910,
+			"y":965,
 			"width":260,
-			"height":400
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"6a8c1c61e47318ee",
+			"type":"text",
+			"text":"Use Case 2.0",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1910,
+			"y":1145,
+			"width":260,
+			"height":60,
+			"color":"5"
 		}
 	],
 	"edges":[

@@ -1,5 +1,5 @@
 ---
-persona: The System Designer
+persona: System Design
 type: Job to be Done
 ---
 [[Test Management]]
