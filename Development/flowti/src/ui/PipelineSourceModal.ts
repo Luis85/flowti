@@ -7,8 +7,9 @@
 
 import { App, Modal, Notice, Setting, setIcon } from "obsidian";
 import type { ImportService } from "../domain/dataExchange/ImportService";
-import type { ColumnMapping, MultiImportSource } from "../domain/dataExchange/types";
+import type { ColumnMapping, MultiImportSource, SavedImportConfig } from "../domain/dataExchange/types";
 import { FilePickerModal } from "./FilePickerModal";
+import { ConfigChooserModal } from "./modals";
 
 export interface PipelineSourceModalOptions {
 	app: App;
@@ -21,6 +22,8 @@ export interface PipelineSourceModalOptions {
 	otherSources?: MultiImportSource[];
 	/** Callback on save */
 	onSave: (source: MultiImportSource) => void;
+	/** Available saved import configs for the "Load from config" feature */
+	savedImportConfigs?: SavedImportConfig[];
 }
 
 function generateSourceId(): string {
@@ -34,6 +37,7 @@ export class PipelineSourceModal extends Modal {
 	private onSave: (source: MultiImportSource) => void;
 	/** Frontmatter keys already claimed by other sources in the pipeline */
 	private otherSourceKeys: Set<string>;
+	private savedImportConfigs: SavedImportConfig[];
 
 	// State
 	private csvPath = "";
@@ -49,6 +53,7 @@ export class PipelineSourceModal extends Modal {
 		this.mergeKey = options.mergeKey;
 		this.existingSource = options.existingSource;
 		this.onSave = options.onSave;
+		this.savedImportConfigs = options.savedImportConfigs ?? [];
 
 		// Build set of keys already claimed by other sources
 		this.otherSourceKeys = new Set<string>();
@@ -96,6 +101,29 @@ export class PipelineSourceModal extends Modal {
 		contentEl.createEl("h3", {
 			text: isEdit ? "Edit Source" : "Add CSV Source",
 		});
+
+		// "Load from Config" button — only for new sources when configs exist
+		if (!isEdit && this.savedImportConfigs.length > 0) {
+			const loadRow = contentEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });
+			const loadLink = loadRow.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+			const loadIcon = loadLink.createSpan();
+			setIcon(loadIcon, "file-input");
+			loadLink.appendText(" Load from import config");
+			loadLink.addEventListener("click", () => {
+				new ConfigChooserModal(
+					this.app,
+					this.savedImportConfigs.map((c) => ({
+						id: c.id,
+						name: c.name + (c.sourcePath ? ` (${c.sourcePath.split("/").pop()})` : ""),
+					})),
+					(id) => {
+						if (id === null) return;
+						const cfg = this.savedImportConfigs.find((c) => c.id === id);
+						if (cfg) this.loadFromConfig(cfg);
+					},
+				).open();
+			});
+		}
 
 		// CSV file picker
 		const csvSetting = new Setting(contentEl)
@@ -230,6 +258,20 @@ export class PipelineSourceModal extends Modal {
 
 		this.isLoading = false;
 		this.render();
+	}
+
+	private loadFromConfig(config: SavedImportConfig): void {
+		this.csvPath = config.sourcePath ?? "";
+		this.columnMappings = config.columnMappings.map((m) => ({ ...m }));
+		this.customProperties = config.customProperties ? { ...config.customProperties } : {};
+		this.mergeKeyColumn = "";
+		this.csvHeaders = [];
+
+		if (this.csvPath) {
+			void this.parseCsv();
+		} else {
+			this.render();
+		}
 	}
 
 	private renderColumnGrid(container: HTMLElement): void {

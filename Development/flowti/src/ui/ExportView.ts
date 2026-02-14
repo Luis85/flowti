@@ -406,10 +406,15 @@ export class ExportView extends ItemView {
 			this.promptSaveConfig();
 		});
 
-		if (this.savedConfigs.length > 0) {
+		// Only show configs that reference this source file
+		const fileConfigs = this.savedConfigs.filter(
+			(c) => c.sourcePath === this.sourcePath,
+		);
+
+		if (fileConfigs.length > 0) {
 			menu.createDiv({ cls: "ft-config-dropdown-divider" });
 
-			for (const cfg of this.savedConfigs) {
+			for (const cfg of fileConfigs) {
 				const item = menu.createDiv({ cls: "ft-config-dropdown-item" });
 				item.createSpan({ text: cfg.name }).style.flex = "1";
 				item.addEventListener("click", () => {

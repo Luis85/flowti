@@ -2762,6 +2762,7 @@ export class DataExchangeHubView extends ItemView {
 				importService: this.dataExchangeService.getImportService(),
 				mergeKey: pipe.mergeKey,
 				otherSources: pipe.sources,
+				savedImportConfigs: this.dataExchangeService.getSavedImportConfigs().filter((c) => c.sourcePath),
 				onSave: (newSource) => {
 					const updatedSources = [...pipe.sources, newSource];
 					void this.dataExchangeService
@@ -2841,6 +2842,7 @@ export class DataExchangeHubView extends ItemView {
 				mergeKey: pipe.mergeKey,
 				existingSource: source,
 				otherSources: pipe.sources.filter((s) => s.id !== source.id),
+				savedImportConfigs: this.dataExchangeService.getSavedImportConfigs().filter((c) => c.sourcePath),
 				onSave: (updated) => {
 					const updatedSources = pipe.sources.map((s) => (s.id === updated.id ? updated : s));
 					void this.dataExchangeService
