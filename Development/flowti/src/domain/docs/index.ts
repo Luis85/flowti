@@ -1,10 +1,14 @@
 /**
- * Documentation domain — pure path resolution and content generation.
+ * Documentation domain — path resolution, content generation, and
+ * centralized doc creation via DocService.
  *
  * Safe to import from any layer (domain, infrastructure, UI).
  */
 
 export type { EntityType } from "./pathResolver";
+export type { DocType, DocCreateRequest } from "./types";
+export type { DocEventMap } from "./events";
+export { DocService } from "./DocService";
 
 export {
 	resolveEntityPath,

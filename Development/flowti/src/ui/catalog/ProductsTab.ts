@@ -1,12 +1,12 @@
-import { setIcon } from "obsidian";
+import { TFile, setIcon } from "obsidian";
 import type { EventCatalogEntry } from "../../infrastructure/events/catalog";
 import {
 	renderStat, renderRelatedSection,
 	findRelatedFlows, findRelatedSystems, findRelatedActors,
-	openFile, createEntityDoc,
+	openFile,
 } from "./helpers";
 import {
-	getProductDocPathResolved, generateProductDocContent,
+	getProductDocPathResolved,
 } from "../eventDocTemplate";
 import { InputModal, ConfirmModal } from "../modals";
 import type { CatalogComponentDeps, ProductEntry } from "./types";
@@ -291,25 +291,28 @@ export class ProductsTab {
 	// Document CRUD
 	// -----------------------------------------------------------------
 
-	async createDoc(name: string): Promise<void> {
-		await createEntityDoc(this.deps, {
-			entityType: "products",
-			name,
-			getDocPath: getProductDocPathResolved,
-			generateContent: () => generateProductDocContent(name),
-		});
-		this.selectedProduct = name;
-	}
-
-	async deleteDoc(filePath: string): Promise<void> {
-		try {
-			await this.deps.fileSystemClient.deleteFile(filePath);
-		} catch (err) {
-			console.error(`[Flowti] Failed to delete product doc: ${filePath}`, err);
+	createDoc(name: string): void {
+		const folder = this.deps.getEntityFolder("products");
+		const docPath = getProductDocPathResolved(folder, name);
+		const existing = this.deps.app.vault.getAbstractFileByPath(docPath);
+		if (existing instanceof TFile) {
+			void openFile(this.deps.app, docPath);
 			return;
 		}
+		this.selectedProduct = name;
+		void this.deps.eventBus.emit("doc.create", {
+			docType: "ProductDoc",
+			name,
+			entityType: "products",
+			source: "ProductsTab",
+		});
+	}
 
+	deleteDoc(filePath: string): void {
 		this.selectedProduct = null;
-		this.deps.scheduleRender();
+		void this.deps.eventBus.emit("doc.delete", {
+			path: filePath,
+			source: "ProductsTab",
+		});
 	}
 }

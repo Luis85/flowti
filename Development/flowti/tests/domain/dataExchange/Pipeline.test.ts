@@ -701,6 +701,13 @@ describe("Pipeline", () => {
 
 		it("should create TypeDoc on pipeline save with noteType", async () => {
 			svc.setDocsRootPath("03 - Resources/Documentation/Reference");
+
+			// Listen for doc.create event
+			const docCreateEvents: unknown[] = [];
+			eventBus.on("doc.create", (event) => {
+				docCreateEvents.push(event.payload);
+			});
+
 			const saved = await svc.savePipeline({
 				name: "Auto Type",
 				targetFolder: "out",
@@ -721,18 +728,18 @@ describe("Pipeline", () => {
 			// Wait for fire-and-forget TypeDoc creation
 			await new Promise((r) => setTimeout(r, 100));
 
-			// createFile should be called for the TypeDoc
-			const createCalls = (fileSystem.createFile as ReturnType<typeof vi.fn>).mock.calls;
-			const typeDocCalls = createCalls.filter(
-				(c: unknown[]) => (c[0] as string).includes("Type - Service"),
+			// doc.create should be emitted for the TypeDoc
+			const typeDocEvents = docCreateEvents.filter(
+				(p: unknown) => (p as { docType: string }).docType === "TypeDoc",
 			);
-			expect(typeDocCalls.length).toBeGreaterThanOrEqual(1);
+			expect(typeDocEvents.length).toBeGreaterThanOrEqual(1);
 
 			// TypeDoc content should list the properties
-			const typeDocContent = typeDocCalls[0][1] as string;
-			expect(typeDocContent).toContain("type: TypeDoc");
-			expect(typeDocContent).toContain('name: "Service"');
-			expect(typeDocContent).toContain("name"); // property in the list
+			const payload = typeDocEvents[0] as { content: string; name: string; path: string };
+			expect(payload.content).toContain("type: TypeDoc");
+			expect(payload.content).toContain('name: "Service"');
+			expect(payload.content).toContain("name"); // property in the list
+			expect(payload.path).toContain("Type - Service");
 			expect(saved.noteType).toBe("Service");
 		});
 	});

@@ -153,7 +153,13 @@ export class ConfigDocService {
 			"",
 		];
 
-		await this.deps.fileSystem.createFile(docPath, lines.join("\n"), { createFolders: true });
+		await this.deps.eventBus.emit("doc.create", {
+			docType: "CsvDoc" as const,
+			name: basename,
+			path: docPath,
+			content: lines.join("\n"),
+			source: "ConfigDocService",
+		});
 		return docPath;
 	}
 
@@ -255,7 +261,13 @@ export class ConfigDocService {
 			"",
 		);
 
-		await this.deps.fileSystem.createFile(docPath, lines.join("\n"), { createFolders: true });
+		await this.deps.eventBus.emit("doc.create", {
+			docType: "PropertyDoc" as const,
+			name: propertyName,
+			path: docPath,
+			content: lines.join("\n"),
+			source: "ConfigDocService",
+		});
 		return docPath;
 	}
 
@@ -355,12 +367,14 @@ export class ConfigDocService {
 
 			const content = this.buildImportDocContent(config, userNotes);
 
-			try {
-				await this.deps.fileSystem.createFile(path, content, { createFolders: true });
-			} catch {
-				// File already exists — update it
-				await this.deps.fileSystem.updateFile(path, content);
-			}
+			await this.deps.eventBus.emit("doc.create", {
+				docType: "ImportConfigDoc" as const,
+				name: config.name,
+				path,
+				content,
+				upsert: true,
+				source: "ConfigDocService",
+			});
 		} catch (error) {
 			console.error("[Flowti] Failed to create import config doc", error);
 		}
@@ -459,12 +473,14 @@ export class ConfigDocService {
 
 			const content = this.buildExportDocContent(config, userNotes);
 
-			try {
-				await this.deps.fileSystem.createFile(path, content, { createFolders: true });
-			} catch {
-				// File already exists — update it
-				await this.deps.fileSystem.updateFile(path, content);
-			}
+			await this.deps.eventBus.emit("doc.create", {
+				docType: "ExportConfigDoc" as const,
+				name: config.name,
+				path,
+				content,
+				upsert: true,
+				source: "ConfigDocService",
+			});
 		} catch (error) {
 			console.error("[Flowti] Failed to create export config doc", error);
 		}
@@ -619,12 +635,14 @@ export class ConfigDocService {
 
 			const content = this.buildPipelineDocContent(pipeline, userNotes);
 
-			try {
-				await this.deps.fileSystem.createFile(path, content, { createFolders: true });
-			} catch {
-				// File already exists — update it
-				await this.deps.fileSystem.updateFile(path, content);
-			}
+			await this.deps.eventBus.emit("doc.create", {
+				docType: "PipelineConfigDoc" as const,
+				name: pipeline.name,
+				path,
+				content,
+				upsert: true,
+				source: "ConfigDocService",
+			});
 		} catch (error) {
 			console.error("[Flowti] Failed to create pipeline config doc", error);
 		}
@@ -815,11 +833,14 @@ export class ConfigDocService {
 
 			const content = lines.join("\n");
 
-			try {
-				await this.deps.fileSystem.createFile(path, content, { createFolders: true });
-			} catch {
-				await this.deps.fileSystem.updateFile(path, content);
-			}
+			await this.deps.eventBus.emit("doc.create", {
+				docType: "TypeDoc" as const,
+				name: typeName,
+				path,
+				content,
+				upsert: true,
+				source: "ConfigDocService",
+			});
 			// Create CRUD event docs for this type
 			await this.createTypeEventDocs(typeName);
 		} catch (error) {

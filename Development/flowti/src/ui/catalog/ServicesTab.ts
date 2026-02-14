@@ -5,7 +5,7 @@ import {
 	isConfigured, discoveredToCatalogEntries,
 	renderStat, renderRelatedSection,
 	findRelatedFlows, findRelatedSystems, findRelatedActors,
-	openFile, createEntityDoc,
+	openFile,
 } from "./helpers";
 import {
 	getServiceDocPathResolved, generateServiceDocContent,
@@ -459,37 +459,49 @@ export class ServicesTab {
 	// Document CRUD
 	// ─────────────────────────────────────────────────────────────
 
-	async createDoc(name: string): Promise<void> {
-		const serviceEvents = this.entries.find((s) => s.name === name)?.events ?? [];
-		await createEntityDoc(this.deps, {
-			entityType: "services",
-			name,
-			getDocPath: getServiceDocPathResolved,
-			generateContent: () => generateServiceDocContent(name, serviceEvents),
-		});
-		this.selectedService = name;
-	}
-
-	async deleteDoc(filePath: string): Promise<void> {
-		try {
-			await this.deps.fileSystemClient.deleteFile(filePath);
-		} catch (err) {
-			console.error(`[Flowti] Failed to delete service doc: ${filePath}`, err);
+	createDoc(name: string): void {
+		const folder = this.deps.getEntityFolder("services");
+		const docPath = getServiceDocPathResolved(folder, name);
+		const existing = this.deps.app.vault.getAbstractFileByPath(docPath);
+		if (existing instanceof TFile) {
+			void openFile(this.deps.app, docPath);
 			return;
 		}
-
-		this.selectedService = null;
-		this.deps.scheduleRender();
+		const serviceEvents = this.entries.find((s) => s.name === name)?.events ?? [];
+		this.selectedService = name;
+		void this.deps.eventBus.emit("doc.create", {
+			docType: "ServiceDoc",
+			name,
+			entityType: "services",
+			content: generateServiceDocContent(name, serviceEvents),
+			source: "ServicesTab",
+		});
 	}
 
-	async createBlueprint(name: string): Promise<void> {
-		const serviceEvents = this.entries.find((s) => s.name === name)?.events ?? [];
-		await createEntityDoc(this.deps, {
-			entityType: "services",
-			name,
-			getDocPath: getServiceBlueprintPathResolved,
-			generateContent: () => generateServiceBlueprintContent(name, serviceEvents),
+	deleteDoc(filePath: string): void {
+		this.selectedService = null;
+		void this.deps.eventBus.emit("doc.delete", {
+			path: filePath,
+			source: "ServicesTab",
 		});
+	}
+
+	createBlueprint(name: string): void {
+		const folder = this.deps.getEntityFolder("services");
+		const docPath = getServiceBlueprintPathResolved(folder, name);
+		const existing = this.deps.app.vault.getAbstractFileByPath(docPath);
+		if (existing instanceof TFile) {
+			void openFile(this.deps.app, docPath);
+			return;
+		}
+		const serviceEvents = this.entries.find((s) => s.name === name)?.events ?? [];
 		this.selectedService = name;
+		void this.deps.eventBus.emit("doc.create", {
+			docType: "ServiceBlueprintDoc",
+			name,
+			entityType: "services",
+			content: generateServiceBlueprintContent(name, serviceEvents),
+			source: "ServicesTab",
+		});
 	}
 }

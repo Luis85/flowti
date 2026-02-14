@@ -1,11 +1,11 @@
-import { setIcon } from "obsidian";
+import { TFile, setIcon } from "obsidian";
 import {
 	renderStat, renderRelatedSection,
 	findRelatedFlows, findRelatedActors,
-	openFile, createEntityDoc,
+	openFile,
 } from "./helpers";
 import {
-	getSystemDocPathResolved, generateSystemDocContent,
+	getSystemDocPathResolved,
 } from "../eventDocTemplate";
 import { InputModal, ConfirmModal } from "../modals";
 import type { CatalogComponentDeps, SystemEntry } from "./types";
@@ -289,25 +289,28 @@ export class SystemsTab {
 	// Document CRUD
 	// ─────────────────────────────────────────────────────────────
 
-	async createDoc(name: string): Promise<void> {
-		await createEntityDoc(this.deps, {
-			entityType: "systems",
-			name,
-			getDocPath: getSystemDocPathResolved,
-			generateContent: () => generateSystemDocContent(name),
-		});
-		this.selectedSystem = name;
-	}
-
-	async deleteDoc(filePath: string): Promise<void> {
-		try {
-			await this.deps.fileSystemClient.deleteFile(filePath);
-		} catch (err) {
-			console.error(`[Flowti] Failed to delete system doc: ${filePath}`, err);
+	createDoc(name: string): void {
+		const folder = this.deps.getEntityFolder("systems");
+		const docPath = getSystemDocPathResolved(folder, name);
+		const existing = this.deps.app.vault.getAbstractFileByPath(docPath);
+		if (existing instanceof TFile) {
+			void openFile(this.deps.app, docPath);
 			return;
 		}
+		this.selectedSystem = name;
+		void this.deps.eventBus.emit("doc.create", {
+			docType: "SystemDoc",
+			name,
+			entityType: "systems",
+			source: "SystemsTab",
+		});
+	}
 
+	deleteDoc(filePath: string): void {
 		this.selectedSystem = null;
-		this.deps.scheduleRender();
+		void this.deps.eventBus.emit("doc.delete", {
+			path: filePath,
+			source: "SystemsTab",
+		});
 	}
 }

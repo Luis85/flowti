@@ -156,7 +156,7 @@ export class EventDetailPanel {
 		setIcon(docIcon, "file-text");
 		docBtn.appendText(" Event Doc");
 		docBtn.addEventListener("click", () => {
-			void openOrCreateEventDoc(this.deps.app, this.deps.fileSystemClient, this.deps.getEntityFolder("events"), entry);
+			void openOrCreateEventDoc(this.deps.app, this.deps.eventBus, this.deps.getEntityFolder("events"), entry);
 		});
 
 		// Follow toggle

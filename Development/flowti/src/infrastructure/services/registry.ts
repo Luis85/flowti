@@ -19,6 +19,7 @@ import type { IUserService } from "../../domain/user/types";
 import type { IStorageProvider } from "../../utils/types";
 import { UserService } from "../../domain/user/UserService";
 import { DataExchangeService } from "../../domain/dataExchange/DataExchangeService";
+import { DocService } from "../../domain/docs/DocService";
 import { FileSystemClient } from "../filesystem/FileSystemClient";
 import type { IServiceContainer, ServiceRegistration } from "./types";
 
@@ -93,17 +94,26 @@ export function createServiceRegistrations(
 				}),
 		},
 
-		// Discovery Service - discovers user-land events from vault files
+		// Doc Service - centralized documentation file creation
 		{
-			id: "discoveryService",
+			id: "docService",
 			factory: (container: IServiceContainer) => {
 				const eventBus = container.getEventBus();
-				return new DiscoveryService({
-					storage,
+				return new DocService({
 					eventBus,
 					fileSystem: new FileSystemClient({ eventBus }),
 				});
 			},
+		},
+
+		// Discovery Service - discovers user-land events from vault files
+		{
+			id: "discoveryService",
+			factory: (container: IServiceContainer) =>
+				new DiscoveryService({
+					storage,
+					eventBus: container.getEventBus(),
+				}),
 		},
 
 		// Subscription Service - manages event subscriptions with filters

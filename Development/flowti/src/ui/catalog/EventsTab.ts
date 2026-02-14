@@ -628,22 +628,28 @@ export class EventsTab {
 	private async openOrCreateCategoryDoc(category: string, events: EventCatalogEntry[]): Promise<void> {
 		const docPath = getCategoryDocPathResolved(this.deps.getEntityFolder("categories"), category);
 
-		let file = this.deps.app.vault.getAbstractFileByPath(docPath);
-
-		if (!file) {
-			const content = generateCategoryDocContent(category, events);
-			try {
-				await this.deps.fileSystemClient.createFile(docPath, content, { createFolders: true });
-			} catch (err) {
-				console.error(`[Flowti] Failed to create category doc: ${docPath}`, err);
-				return;
-			}
-			file = this.deps.app.vault.getAbstractFileByPath(docPath);
-		}
+		const file = this.deps.app.vault.getAbstractFileByPath(docPath);
 
 		if (file && file instanceof TFile) {
 			const leaf = this.deps.app.workspace.getLeaf(false);
 			await leaf.openFile(file);
+			return;
+		}
+
+		const content = generateCategoryDocContent(category, events);
+		await this.deps.eventBus.emit("doc.create", {
+			docType: "CategoryDoc" as const,
+			name: category,
+			path: docPath,
+			content,
+			source: "EventsTab",
+		});
+
+		// Try to open the newly created file
+		const newFile = this.deps.app.vault.getAbstractFileByPath(docPath);
+		if (newFile && newFile instanceof TFile) {
+			const leaf = this.deps.app.workspace.getLeaf(false);
+			await leaf.openFile(newFile);
 		}
 	}
 }

@@ -1,7 +1,6 @@
 import type { App } from "obsidian";
 import type { EventCatalogEntry } from "../../infrastructure/events/catalog";
 import type { IEventBus } from "../../infrastructure/events/types";
-import type { FileSystemClient } from "../../infrastructure/filesystem/FileSystemClient";
 import type { DiscoveredEvent } from "../../domain/discovery/types";
 import type { Subscription } from "../../domain/subscription/types";
 import type { EventDefinition } from "../../domain/eventDefinition/types";
@@ -129,7 +128,6 @@ export interface NavigationCallbacks {
 export interface CatalogComponentDeps {
 	app: App;
 	eventBus: IEventBus;
-	fileSystemClient: FileSystemClient;
 	getState: () => CatalogState;
 	navigation: NavigationCallbacks;
 	scheduleRender: () => void;

@@ -116,6 +116,7 @@ export const EVENT_CATEGORIES = [
 	"File Processing",
 	"Transforms",
 	"Data Exchange",
+	"Documentation",
 ] as const;
 
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
@@ -300,6 +301,14 @@ const CATALOG_DATA = {
 	"dataExchange.pipeline.completed":       { category: "Data Exchange", description: "Multi-import pipeline completed", direction: "Service → Listeners", domain: "dataExchange", services: "DataExchangeService" },
 	"dataExchange.pipeline.failed":          { category: "Data Exchange", description: "Multi-import pipeline failed", direction: "Service → Listeners", domain: "dataExchange", services: "DataExchangeService" },
 	"dataExchange.config.changed":   { category: "Data Exchange", description: "Saved import/export config created or deleted", direction: "Service → Listeners", domain: "dataExchange", services: "DataExchangeService", tags: ["system"] },
+
+	// ── Documentation ────────────────────────────────────────
+	"doc.create":  { category: "Documentation", description: "Command to create a documentation file", direction: "View → Plugin", domain: "docs", services: "DocService", tags: ["system"] },
+	"doc.created": { category: "Documentation", description: "Documentation file was created or updated", direction: "Service → Listeners", domain: "docs", services: "DocService" },
+	"doc.exists":  { category: "Documentation", description: "Documentation file already exists (no upsert)", direction: "Service → Listeners", domain: "docs", services: "DocService", tags: ["system"] },
+	"doc.failed":  { category: "Documentation", description: "Documentation file creation failed", direction: "Service → Listeners", domain: "docs", services: "DocService" },
+	"doc.delete":  { category: "Documentation", description: "Command to delete a documentation file", direction: "View → Plugin", domain: "docs", services: "DocService", tags: ["system"] },
+	"doc.deleted": { category: "Documentation", description: "Documentation file was deleted", direction: "Service → Listeners", domain: "docs", services: "DocService", tags: ["system"] },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

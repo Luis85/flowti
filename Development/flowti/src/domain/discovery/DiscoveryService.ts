@@ -1,9 +1,8 @@
 import type { IEventBus } from "../../infrastructure/events/types";
-import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
 import { loadStateFromStorage, saveStateToStorage } from "../../utils/persistence";
 import type { IStorageProvider } from "../../utils/types";
 import type { DiscoveredEvent, DiscoveryState, EventDocMeta } from "./types";
-import { generateEventDocContent, getEventDocPath } from "../docs";
+import { generateEventDocContent } from "../docs";
 import type { EventCatalogEntry, EventStability, EventVisibility } from "../../infrastructure/events/catalog";
 
 /**
@@ -12,10 +11,6 @@ import type { EventCatalogEntry, EventStability, EventVisibility } from "../../i
 export interface DiscoveryServiceOptions {
 	storage: IStorageProvider;
 	eventBus?: IEventBus;
-	/** Optional file system client for creating EventDoc files */
-	fileSystem?: IFileSystemClient;
-	/** Optional docs root path (e.g. "03 - Resources/Documentation/Reference") */
-	docsRootPath?: string;
 }
 
 /**
@@ -40,15 +35,11 @@ export class DiscoveryService {
 	private state: DiscoveryState = createDefaultState();
 	private storage: IStorageProvider;
 	private eventBus?: IEventBus;
-	private fileSystem?: IFileSystemClient;
-	private docsRootPath?: string;
 	private unsubscribes: (() => void)[] = [];
 
 	constructor(options: DiscoveryServiceOptions) {
 		this.storage = options.storage;
 		this.eventBus = options.eventBus;
-		this.fileSystem = options.fileSystem;
-		this.docsRootPath = options.docsRootPath;
 
 		if (this.eventBus) {
 			this.unsubscribes.push(
@@ -76,12 +67,7 @@ export class DiscoveryService {
 		}
 	}
 
-	/**
-	 * Sets the docs root path (called when settings change).
-	 */
-	setDocsRootPath(path: string): void {
-		this.docsRootPath = path;
-	}
+
 
 	/**
 	 * Loads discovery state from storage.
@@ -169,31 +155,28 @@ export class DiscoveryService {
 			});
 		}
 
-		// Create EventDoc file if metadata provided and fileSystem available
-		if (docMeta && this.fileSystem && this.docsRootPath) {
-			await this.createEventDoc(eventName, category ?? "Uncategorized", docMeta);
+		// Create EventDoc file via DocService if metadata provided
+		if (docMeta) {
+			const content = this.buildEventDocContent(eventName, category ?? "Uncategorized", docMeta);
+			await this.eventBus?.emit("doc.create", {
+				docType: "EventDoc" as const,
+				name: eventName,
+				entityType: "events" as const,
+				content,
+				source: "DiscoveryService",
+			});
 		}
 	}
 
 	/**
-	 * Creates an EventDoc file using the centralized template.
-	 * Skips creation if file already exists.
+	 * Builds EventDoc content using the centralized template.
+	 * DocService handles file creation and existence checks.
 	 */
-	private async createEventDoc(
+	private buildEventDocContent(
 		eventName: string,
 		category: string,
 		meta: EventDocMeta
-	): Promise<void> {
-		const docPath = getEventDocPath(this.docsRootPath!, eventName);
-
-		// Skip if file already exists
-		try {
-			await this.fileSystem!.readFile(docPath);
-			return;
-		} catch {
-			// File doesn't exist — create it
-		}
-
+	): string {
 		const entry: EventCatalogEntry = {
 			type: eventName,
 			category,
@@ -210,7 +193,6 @@ export class DiscoveryService {
 
 		// Append extra sections (e.g. wikilinks to related events, TypeDoc link)
 		if (meta.relatedEvents && meta.relatedEvents.length > 0) {
-			// Replace the placeholder "Related Events" section
 			const relatedMarker = "## Related Events\n\n> List preceding";
 			const relatedReplacement = [
 				"## Related Events",
@@ -224,11 +206,7 @@ export class DiscoveryService {
 			content = content.trimEnd() + "\n\n" + meta.extraSections.join("\n") + "\n";
 		}
 
-		try {
-			await this.fileSystem!.createFile(docPath, content, { createFolders: true });
-		} catch (err) {
-			console.error(`[Flowti] Failed to create event doc: ${docPath}`, err);
-		}
+		return content;
 	}
 
 	/**

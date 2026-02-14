@@ -3,7 +3,6 @@ import { getEventCategory, getEventEntry, type EventCatalogEntry } from "../infr
 import type { FlowtiEvents, IEventBus, WildcardEventHandler } from "../infrastructure/events/types";
 import { type CatalogCategoryConfig, type EntityPaths, DEFAULT_ENTITY_PATHS } from "../domain/settings/settings";
 import type { ViewStateProvider } from "../infrastructure/views/registry";
-import { FileSystemClient } from "../infrastructure/filesystem/FileSystemClient";
 import { resolveEntityPath } from "./eventDocTemplate";
 import { openOrCreateEventDoc } from "./catalog/helpers";
 
@@ -77,7 +76,6 @@ export interface LoggedEvent {
  */
 export class EventLogView extends ItemView {
 	private eventBus: IEventBus;
-	private fileSystemClient: FileSystemClient;
 	private unsubscribes: (() => void)[] = [];
 	private events: LoggedEvent[] = [];
 
@@ -105,7 +103,6 @@ export class EventLogView extends ItemView {
 		super(leaf);
 		this.eventBus = eventBus;
 		this.state = state;
-		this.fileSystemClient = new FileSystemClient({ eventBus });
 	}
 
 	getViewType(): string {
@@ -546,7 +543,7 @@ export class EventLogView extends ItemView {
 
 	private async openEventDoc(entry: EventCatalogEntry): Promise<void> {
 		const eventsFolder = resolveEntityPath(this.docsRootPath, this.entityPaths.events);
-		await openOrCreateEventDoc(this.app, this.fileSystemClient, eventsFolder, entry);
+		await openOrCreateEventDoc(this.app, this.eventBus, eventsFolder, entry);
 	}
 
 	// ─────────────────────────────────────────────────────────────

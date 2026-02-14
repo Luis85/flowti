@@ -14,10 +14,7 @@ import {
 	getEventDocPathResolved,
 	generateEventDocContent,
 } from "../eventDocTemplate";
-import type { FileSystemClient } from "../../infrastructure/filesystem/FileSystemClient";
-import type { EntityType } from "../eventDocTemplate";
 import type {
-	CatalogComponentDeps,
 	FlowEntry,
 	SystemEntry,
 	ActorEntry,
@@ -341,69 +338,38 @@ export async function openFile(app: App, path: string): Promise<void> {
 
 export async function openOrCreateEventDoc(
 	app: App,
-	fileSystemClient: FileSystemClient,
+	eventBus: IEventBus,
 	eventsFolder: string,
 	entry: EventCatalogEntry,
 ): Promise<void> {
 	const docPath = getEventDocPathResolved(eventsFolder, entry.type);
 
-	let file = app.vault.getAbstractFileByPath(docPath);
-
-	if (!file) {
-		const content = generateEventDocContent(entry);
-		try {
-			await fileSystemClient.createFile(docPath, content, {
-				createFolders: true,
-			});
-		} catch (err) {
-			console.error(`[Flowti] Failed to create event doc: ${docPath}`, err);
-			return;
-		}
-		file = app.vault.getAbstractFileByPath(docPath);
-	}
+	const file = app.vault.getAbstractFileByPath(docPath);
 
 	if (file && file instanceof TFile) {
 		const leaf = app.workspace.getLeaf(false);
 		await leaf.openFile(file);
-	}
-}
-
-/**
- * Creates an entity documentation file, or opens the existing one if it
- * already exists. After creation the view is scheduled to re-render with a
- * 500 ms delay to allow metadataCache to index the new file.
- */
-export async function createEntityDoc(
-	deps: CatalogComponentDeps,
-	opts: {
-		entityType: EntityType;
-		name: string;
-		getDocPath: (folder: string, name: string) => string;
-		generateContent: () => string;
-	},
-): Promise<void> {
-	const folder = deps.getEntityFolder(opts.entityType);
-	const docPath = opts.getDocPath(folder, opts.name);
-
-	const existing = deps.app.vault.getAbstractFileByPath(docPath);
-	if (existing) {
-		if (existing instanceof TFile) {
-			const leaf = deps.app.workspace.getLeaf(false);
-			await leaf.openFile(existing);
-		}
 		return;
 	}
 
-	const content = opts.generateContent();
-	try {
-		await deps.fileSystemClient.createFile(docPath, content, { createFolders: true });
-	} catch (err) {
-		console.error(`[Flowti] Failed to create ${opts.entityType} doc: ${docPath}`, err);
-		return;
-	}
+	// Create via DocService — it will emit doc.created when done
+	const content = generateEventDocContent(entry);
+	await eventBus.emit("doc.create", {
+		docType: "EventDoc" as const,
+		name: entry.type,
+		path: docPath,
+		content,
+		source: "openOrCreateEventDoc",
+	});
 
-	setTimeout(() => deps.scheduleRender(), 500);
+	// Try to open the newly created file
+	const newFile = app.vault.getAbstractFileByPath(docPath);
+	if (newFile && newFile instanceof TFile) {
+		const leaf = app.workspace.getLeaf(false);
+		await leaf.openFile(newFile);
+	}
 }
+
 
 // ─────────────────────────────────────────────────────────────
 // Subscription form helpers

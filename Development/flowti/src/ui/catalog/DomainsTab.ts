@@ -5,7 +5,7 @@ import {
 	isConfigured, discoveredToCatalogEntries,
 	renderStat, renderRelatedSection,
 	findRelatedFlows, findRelatedSystems, findRelatedActors,
-	openFile, createEntityDoc,
+	openFile,
 } from "./helpers";
 import {
 	getDomainDocPathResolved, generateDomainDocContent,
@@ -488,41 +488,40 @@ export class DomainsTab {
 	// Document CRUD
 	// ─────────────────────────────────────────────────────────────
 
-	async createDoc(name: string): Promise<void> {
+	createDoc(name: string): void {
+		const folder = this.deps.getEntityFolder("domains");
+		const docPath = getDomainDocPathResolved(folder, name);
+		const existing = this.deps.app.vault.getAbstractFileByPath(docPath);
+		if (existing instanceof TFile) {
+			void openFile(this.deps.app, docPath);
+			return;
+		}
 		const domainEvents = this.entries.find((d) => d.name === name)?.events ?? [];
-		await createEntityDoc(this.deps, {
-			entityType: "domains",
-			name,
-			getDocPath: getDomainDocPathResolved,
-			generateContent: () => generateDomainDocContent(name, domainEvents),
-		});
 		this.selectedDomain = name;
+		void this.deps.eventBus.emit("doc.create", {
+			docType: "DomainDoc",
+			name,
+			entityType: "domains",
+			content: generateDomainDocContent(name, domainEvents),
+			source: "DomainsTab",
+		});
 	}
 
-	async deleteDoc(filePath: string): Promise<void> {
-		try {
-			await this.deps.fileSystemClient.deleteFile(filePath);
-		} catch (err) {
-			console.error(`[Flowti] Failed to delete domain doc: ${filePath}`, err);
-			return;
-		}
-
+	deleteDoc(filePath: string): void {
 		this.selectedDomain = null;
-		this.deps.scheduleRender();
+		void this.deps.eventBus.emit("doc.delete", {
+			path: filePath,
+			source: "DomainsTab",
+		});
 	}
 
-	async createArea(name: string): Promise<void> {
+	createArea(name: string): void {
 		const areaPath = `02 - Areas/${name}/${name}.md`;
-
 		const existing = this.deps.app.vault.getAbstractFileByPath(areaPath);
-		if (existing) {
-			if (existing instanceof TFile) {
-				const leaf = this.deps.app.workspace.getLeaf(false);
-				await leaf.openFile(existing);
-			}
+		if (existing instanceof TFile) {
+			void openFile(this.deps.app, areaPath);
 			return;
 		}
-
 		const content = [
 			"---",
 			`area: "${name}"`,
@@ -534,39 +533,31 @@ export class DomainsTab {
 			`# ${name}`,
 			"",
 		].join("\n");
-
-		try {
-			await this.deps.fileSystemClient.createFile(areaPath, content, { createFolders: true });
-		} catch (err) {
-			console.error(`[Flowti] Failed to create area: ${areaPath}`, err);
-			return;
-		}
-
-		setTimeout(() => this.deps.scheduleRender(), 500);
+		void this.deps.eventBus.emit("doc.create", {
+			docType: "AreaDoc",
+			name,
+			path: areaPath,
+			content,
+			source: "DomainsTab",
+		});
 	}
 
-	async createArchitectureDoc(name: string): Promise<void> {
-		const docPath = getArchitectureDocPathResolved(this.deps.getEntityFolder("domains"), name);
-
+	createArchitectureDoc(name: string): void {
+		const folder = this.deps.getEntityFolder("domains");
+		const docPath = getArchitectureDocPathResolved(folder, name);
 		const existing = this.deps.app.vault.getAbstractFileByPath(docPath);
-		if (existing) {
-			if (existing instanceof TFile) {
-				const leaf = this.deps.app.workspace.getLeaf(false);
-				await leaf.openFile(existing);
-			}
+		if (existing instanceof TFile) {
+			void openFile(this.deps.app, docPath);
 			return;
 		}
-
 		const domainEvents = this.entries.find((d) => d.name === name)?.events ?? [];
-		const content = generateArchitectureDocContent(name, domainEvents);
-		try {
-			await this.deps.fileSystemClient.createFile(docPath, content, { createFolders: true });
-		} catch (err) {
-			console.error(`[Flowti] Failed to create architecture doc: ${docPath}`, err);
-			return;
-		}
-
 		this.selectedDomain = name;
-		setTimeout(() => this.deps.scheduleRender(), 500);
+		void this.deps.eventBus.emit("doc.create", {
+			docType: "ArchitectureDoc",
+			name,
+			entityType: "domains",
+			content: generateArchitectureDocContent(name, domainEvents),
+			source: "DomainsTab",
+		});
 	}
 }

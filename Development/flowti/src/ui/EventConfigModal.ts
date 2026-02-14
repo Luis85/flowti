@@ -23,7 +23,6 @@ import {
 	renderSubscriptionRow,
 	type SubscriptionFormData,
 } from "./catalog/helpers";
-import { FileSystemClient } from "../infrastructure/filesystem/FileSystemClient";
 
 type Page = "overview" | "subscription-form" | "definition-form";
 
@@ -38,7 +37,6 @@ export class EventConfigModal extends Modal {
 	private eventBus: IEventBus;
 	private entry: EventCatalogEntry;
 	private eventsFolder: string;
-	private fileSystemClient: FileSystemClient;
 	private unsubscribes: (() => void)[] = [];
 
 	private subscriptions: Subscription[] = [];
@@ -55,7 +53,6 @@ export class EventConfigModal extends Modal {
 		this.eventBus = eventBus;
 		this.entry = entry;
 		this.eventsFolder = eventsFolder;
-		this.fileSystemClient = new FileSystemClient({ eventBus });
 	}
 
 	async onOpen(): Promise<void> {
@@ -581,7 +578,7 @@ export class EventConfigModal extends Modal {
 	// ─────────────────────────────────────────────────────────────
 
 	private async openEventDoc(): Promise<void> {
-		await openOrCreateEventDoc(this.app, this.fileSystemClient, this.eventsFolder, this.entry);
+		await openOrCreateEventDoc(this.app, this.eventBus, this.eventsFolder, this.entry);
 	}
 
 	private saveSubscription(): void {

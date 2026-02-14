@@ -3,7 +3,6 @@ import type { IEventBus } from "../infrastructure/events/types";
 import type { DiscoveredEvent } from "../domain/discovery/types";
 import { type CatalogCategoryConfig, DEFAULT_CATALOG_CATEGORIES, type EntityPaths, DEFAULT_ENTITY_PATHS } from "../domain/settings/settings";
 import type { ViewStateProvider } from "../infrastructure/views/registry";
-import { FileSystemClient } from "../infrastructure/filesystem/FileSystemClient";
 import {
 	resolveEntityPath,
 	type EntityType,
@@ -51,7 +50,6 @@ export const VIEW_TYPE_EVENT_CATALOG = "flowti-event-catalog";
  */
 export class EventCatalogView extends ItemView {
 	private eventBus: IEventBus;
-	private fileSystemClient: FileSystemClient;
 	private state: ViewStateProvider;
 
 	// State
@@ -107,7 +105,6 @@ export class EventCatalogView extends ItemView {
 		super(leaf);
 		this.eventBus = eventBus;
 		this.state = state;
-		this.fileSystemClient = new FileSystemClient({ eventBus });
 	}
 
 	getViewType(): string {
@@ -405,6 +402,18 @@ export class EventCatalogView extends ItemView {
 				this.scheduleRender();
 			})
 		);
+
+		// Doc lifecycle — re-render after create/delete so scanned tabs pick up changes
+		this.unsubscribes.push(
+			this.eventBus.on("doc.created", () => {
+				setTimeout(() => this.scheduleRender(), 500);
+			})
+		);
+		this.unsubscribes.push(
+			this.eventBus.on("doc.deleted", () => {
+				this.scheduleRender();
+			})
+		);
 	}
 
 	// ─────────────────────────────────────────────────────────────
@@ -689,7 +698,6 @@ export class EventCatalogView extends ItemView {
 		return {
 			app: this.app,
 			eventBus: this.eventBus,
-			fileSystemClient: this.fileSystemClient,
 			getState: () => this.getCatalogState(),
 			navigation: {
 				navigateToTab: (tab) => {

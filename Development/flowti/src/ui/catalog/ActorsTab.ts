@@ -1,12 +1,12 @@
-import { setIcon } from "obsidian";
+import { TFile, setIcon } from "obsidian";
 import type { EventCatalogEntry } from "../../infrastructure/events/catalog";
 import {
 	renderStat, renderRelatedSection,
 	findRelatedFlows, findRelatedSystems,
-	openFile, createEntityDoc,
+	openFile,
 } from "./helpers";
 import {
-	getActorDocPathResolved, generateActorDocContent,
+	getActorDocPathResolved,
 } from "../eventDocTemplate";
 import { InputModal, ConfirmModal } from "../modals";
 import type { CatalogComponentDeps, ActorEntry } from "./types";
@@ -285,25 +285,28 @@ export class ActorsTab {
 	// Document CRUD
 	// -----------------------------------------------------------------
 
-	async createDoc(name: string): Promise<void> {
-		await createEntityDoc(this.deps, {
-			entityType: "actors",
-			name,
-			getDocPath: getActorDocPathResolved,
-			generateContent: () => generateActorDocContent(name),
-		});
-		this.selectedActor = name;
-	}
-
-	async deleteDoc(filePath: string): Promise<void> {
-		try {
-			await this.deps.fileSystemClient.deleteFile(filePath);
-		} catch (err) {
-			console.error(`[Flowti] Failed to delete actor doc: ${filePath}`, err);
+	createDoc(name: string): void {
+		const folder = this.deps.getEntityFolder("actors");
+		const docPath = getActorDocPathResolved(folder, name);
+		const existing = this.deps.app.vault.getAbstractFileByPath(docPath);
+		if (existing instanceof TFile) {
+			void openFile(this.deps.app, docPath);
 			return;
 		}
+		this.selectedActor = name;
+		void this.deps.eventBus.emit("doc.create", {
+			docType: "ActorDoc",
+			name,
+			entityType: "actors",
+			source: "ActorsTab",
+		});
+	}
 
+	deleteDoc(filePath: string): void {
 		this.selectedActor = null;
-		this.deps.scheduleRender();
+		void this.deps.eventBus.emit("doc.delete", {
+			path: filePath,
+			source: "ActorsTab",
+		});
 	}
 }

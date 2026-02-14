@@ -32,6 +32,7 @@ import type { UserEventMap } from "../../domain/user/events";
 import type { EventDefinitionEventMap } from "../../domain/eventDefinition/events";
 import type { SettingsEventMap } from "../../domain/settings/events";
 import type { DataExchangeEventMap } from "../../domain/dataExchange/events";
+import type { DocEventMap } from "../../domain/docs/events";
 
 // ─────────────────────────────────────────────────────────────
 // File System Types (defined here to avoid circular imports)
@@ -88,7 +89,7 @@ export interface FileOperationError {
  * This is the central registry for all events in the application.
  * The key is the event type string, the value is the payload type.
  */
-export interface FlowtiEventMap extends UserEventMap, SettingsEventMap, InstallerEventMap, DiscoveryEventMap, EventFilterEventMap, EventNotifyEventMap, SubscriptionEventMap, IngestionEventMap, EventDefinitionEventMap, DataExchangeEventMap {
+export interface FlowtiEventMap extends UserEventMap, SettingsEventMap, InstallerEventMap, DiscoveryEventMap, EventFilterEventMap, EventNotifyEventMap, SubscriptionEventMap, IngestionEventMap, EventDefinitionEventMap, DataExchangeEventMap, DocEventMap {
 	// ─────────────────────────────────────────────────────────────
 	// Plugin Lifecycle Events
 	// ─────────────────────────────────────────────────────────────
