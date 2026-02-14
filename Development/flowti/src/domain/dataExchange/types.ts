@@ -460,3 +460,13 @@ export interface VaultFileInfo {
 	/** All tags (frontmatter + inline, without # prefix) */
 	tags?: string[];
 }
+
+// ── Config state accessor (for sub-modules) ─────────────
+
+/** Read-only access to config state, used by extracted sub-services. */
+export interface ConfigStateAccessor {
+	getState(): Readonly<DataExchangeState>;
+	getImportConfig(id: string): SavedImportConfig | undefined;
+	getExportConfig(id: string): SavedExportConfig | undefined;
+	getPipeline(id: string): SavedMultiImportPipeline | undefined;
+}

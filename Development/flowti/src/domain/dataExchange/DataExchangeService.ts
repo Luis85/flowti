@@ -9,15 +9,10 @@ import type { IEventBus } from "../../infrastructure/events/types";
 import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
 import { loadStateFromStorage, saveStateToStorage } from "../../utils/persistence";
 import type { IStorageProvider } from "../../utils/types";
-import type { EventDocMeta } from "../discovery/types";
 import type {
-	ColumnMapping,
 	CsvDisplaySettings,
 	DataDictionaryEntry,
 	DataExchangeState,
-	ImportConfig,
-	MultiImportResult,
-	PipelineSourceResult,
 	SavedImportConfig,
 	SavedExportConfig,
 	SavedMultiImportPipeline,
@@ -25,6 +20,10 @@ import type {
 } from "./types";
 import { ImportService } from "./ImportService";
 import { ExportService, type ListFilesCallback, type WriteExternalFileCallback, type ReadExternalFileCallback } from "./ExportService";
+import { buildDataDictionary as buildDataDictionaryFn } from "./DataDictionaryBuilder";
+import { ConfigPathTracker } from "./ConfigPathTracker";
+import { PipelineExecutor } from "./PipelineExecutor";
+import { ConfigDocService } from "./ConfigDocService";
 
 export interface DataExchangeServiceOptions {
 	eventBus: IEventBus;
@@ -43,17 +42,18 @@ function generateId(): string {
 
 export class DataExchangeService {
 	private eventBus: IEventBus;
-	private fileSystem: IFileSystemClient;
 	private storage: IStorageProvider | null;
 	private state: DataExchangeState = createDefaultState();
 	private importService: ImportService;
 	private exportService: ExportService;
 	private unsubscribes: (() => void)[] = [];
 	private docsRootPath = "";
+	private pathTracker: ConfigPathTracker;
+	private pipelineExecutor: PipelineExecutor;
+	private configDocService: ConfigDocService;
 
 	constructor(options: DataExchangeServiceOptions) {
 		this.eventBus = options.eventBus;
-		this.fileSystem = options.fileSystem;
 		this.storage = options.storage ?? null;
 
 		this.importService = new ImportService({
@@ -65,6 +65,30 @@ export class DataExchangeService {
 			eventBus: options.eventBus,
 			fileSystem: options.fileSystem,
 			listFiles: options.listFiles,
+		});
+
+		this.pathTracker = new ConfigPathTracker({
+			getState: () => this.state,
+			saveState: () => this.saveState(),
+			emitConfigChanged: () => this.emitConfigChanged(),
+		});
+
+		this.pipelineExecutor = new PipelineExecutor({
+			eventBus: this.eventBus,
+			importService: this.importService,
+			exportService: this.exportService,
+			fileSystem: options.fileSystem,
+			getPipeline: (id) => this.getPipeline(id),
+			getExportConfig: (id) => this.getExportConfig(id),
+		});
+
+		this.configDocService = new ConfigDocService({
+			fileSystem: options.fileSystem,
+			eventBus: this.eventBus,
+			getDocsRootPath: () => this.docsRootPath,
+			getState: () => this.state,
+			getExportConfig: (id) => this.getExportConfig(id),
+			buildDataDictionary: () => this.buildDataDictionary(),
 		});
 
 		// Listen for import command
@@ -115,7 +139,7 @@ export class DataExchangeService {
 		this.unsubscribes.push(
 			this.eventBus.on("dataExchange.pipeline.execute", async (event) => {
 				try {
-					const result = await this.executePipeline(
+					const result = await this.pipelineExecutor.executePipeline(
 						event.payload.pipelineId,
 					);
 					await this.updatePipeline(event.payload.pipelineId, {
@@ -139,7 +163,7 @@ export class DataExchangeService {
 		// Track file renames → update saved config paths
 		this.unsubscribes.push(
 			this.eventBus.on("file.renamed", (event) => {
-				void this.handleFileRenamed(
+				void this.pathTracker.handleFileRenamed(
 					event.payload.oldPath,
 					event.payload.newPath,
 				);
@@ -149,7 +173,7 @@ export class DataExchangeService {
 		// Track folder renames → update configs with paths under the folder
 		this.unsubscribes.push(
 			this.eventBus.on("folder.renamed", (event) => {
-				void this.handleFolderRenamed(
+				void this.pathTracker.handleFolderRenamed(
 					event.payload.oldPath,
 					event.payload.newPath,
 				);
@@ -248,10 +272,10 @@ export class DataExchangeService {
 		this.state.savedImportConfigs.push(saved);
 		await this.saveState();
 		this.emitConfigChanged();
-		void this.createImportConfigDoc(saved);
-		this.createConfigEventDocs(saved.name, "import");
+		void this.configDocService.createImportConfigDoc(saved);
+		this.configDocService.createConfigEventDocs(saved.name, "import");
 		if (saved.noteType) {
-			void this.createOrUpdateTypeDoc(saved.noteType);
+			void this.configDocService.createOrUpdateTypeDoc(saved.noteType);
 		}
 		return saved;
 	}
@@ -272,9 +296,9 @@ export class DataExchangeService {
 		Object.assign(cfg, updates);
 		await this.saveState();
 		this.emitConfigChanged();
-		void this.createImportConfigDoc(cfg);
+		void this.configDocService.createImportConfigDoc(cfg);
 		if (cfg.noteType) {
-			void this.createOrUpdateTypeDoc(cfg.noteType);
+			void this.configDocService.createOrUpdateTypeDoc(cfg.noteType);
 		}
 		return { ...cfg };
 	}
@@ -314,10 +338,10 @@ export class DataExchangeService {
 		this.state.savedExportConfigs.push(saved);
 		await this.saveState();
 		this.emitConfigChanged();
-		void this.createExportConfigDoc(saved);
-		this.createConfigEventDocs(saved.name, "export");
+		void this.configDocService.createExportConfigDoc(saved);
+		this.configDocService.createConfigEventDocs(saved.name, "export");
 		if (saved.noteType) {
-			void this.createOrUpdateTypeDoc(saved.noteType);
+			void this.configDocService.createOrUpdateTypeDoc(saved.noteType);
 		}
 		return saved;
 	}
@@ -338,9 +362,9 @@ export class DataExchangeService {
 		Object.assign(cfg, updates);
 		await this.saveState();
 		this.emitConfigChanged();
-		void this.createExportConfigDoc(cfg);
+		void this.configDocService.createExportConfigDoc(cfg);
 		if (cfg.noteType) {
-			void this.createOrUpdateTypeDoc(cfg.noteType);
+			void this.configDocService.createOrUpdateTypeDoc(cfg.noteType);
 		}
 		return { ...cfg };
 	}
@@ -388,10 +412,10 @@ export class DataExchangeService {
 		this.state.savedPipelines.push(saved);
 		await this.saveState();
 		this.emitConfigChanged();
-		void this.createPipelineConfigDoc(saved);
-		this.createConfigEventDocs(saved.name, "pipeline");
+		void this.configDocService.createPipelineConfigDoc(saved);
+		this.configDocService.createConfigEventDocs(saved.name, "pipeline");
 		if (saved.noteType) {
-			void this.createOrUpdateTypeDoc(saved.noteType);
+			void this.configDocService.createOrUpdateTypeDoc(saved.noteType);
 		}
 		return saved;
 	}
@@ -412,9 +436,9 @@ export class DataExchangeService {
 		Object.assign(pipe, updates);
 		await this.saveState();
 		this.emitConfigChanged();
-		void this.createPipelineConfigDoc(pipe);
+		void this.configDocService.createPipelineConfigDoc(pipe);
 		if (pipe.noteType) {
-			void this.createOrUpdateTypeDoc(pipe.noteType);
+			void this.configDocService.createOrUpdateTypeDoc(pipe.noteType);
 		}
 		return { ...pipe };
 	}
@@ -470,1326 +494,78 @@ export class DataExchangeService {
 	// ── Data dictionary ─────────────────────────────────────
 
 	buildDataDictionary(): DataDictionaryEntry[] {
-		const map = new Map<string, DataDictionaryEntry>();
-
-		const getOrCreate = (name: string): DataDictionaryEntry => {
-			let entry = map.get(name);
-			if (!entry) {
-				entry = {
-					propertyName: name,
-					usedInConfigs: [],
-					csvColumnNames: [],
-					sampleValues: [],
-				};
-				map.set(name, entry);
-			}
-			return entry;
-		};
-
-		const tagType = (entry: DataDictionaryEntry, typeName: string): void => {
-			if (!entry.typeNames) entry.typeNames = [];
-			if (!entry.typeNames.includes(typeName)) entry.typeNames.push(typeName);
-		};
-
-		for (const cfg of this.state.savedImportConfigs) {
-			for (const m of cfg.columnMappings) {
-				if (!m.included) continue;
-				const entry = getOrCreate(m.frontmatterKey);
-				entry.usedInConfigs.push({
-					configId: cfg.id,
-					configName: cfg.name,
-					configType: "import",
-				});
-				if (!entry.csvColumnNames.includes(m.csvColumn)) {
-					entry.csvColumnNames.push(m.csvColumn);
-				}
-				if (cfg.noteType) tagType(entry, cfg.noteType);
-			}
-			if (cfg.customProperties) {
-				for (const [key, value] of Object.entries(cfg.customProperties)) {
-					const entry = getOrCreate(key);
-					entry.usedInConfigs.push({
-						configId: cfg.id,
-						configName: cfg.name,
-						configType: "import",
-					});
-					if (value && entry.sampleValues.length < 5 && !entry.sampleValues.includes(value)) {
-						entry.sampleValues.push(value);
-					}
-					if (cfg.noteType) tagType(entry, cfg.noteType);
-				}
-			}
-		}
-
-		for (const cfg of this.state.savedExportConfigs) {
-			for (const col of cfg.columns) {
-				const entry = getOrCreate(col);
-				entry.usedInConfigs.push({
-					configId: cfg.id,
-					configName: cfg.name,
-					configType: "export",
-				});
-				if (cfg.noteType) tagType(entry, cfg.noteType);
-			}
-		}
-
-		for (const pipe of this.state.savedPipelines ?? []) {
-			const mergeEntry = getOrCreate(pipe.mergeKey);
-			if (pipe.noteType) tagType(mergeEntry, pipe.noteType);
-			for (const src of pipe.sources) {
-				if (!mergeEntry.csvColumnNames.includes(src.mergeKeyColumn)) {
-					mergeEntry.csvColumnNames.push(src.mergeKeyColumn);
-				}
-				if (!mergeEntry.usedInConfigs.some((c) => c.configId === pipe.id)) {
-					mergeEntry.usedInConfigs.push({
-						configId: pipe.id,
-						configName: pipe.name,
-						configType: "import",
-					});
-				}
-				for (const m of src.columnMappings) {
-					if (!m.included) continue;
-					const entry = getOrCreate(m.frontmatterKey);
-					if (pipe.noteType) tagType(entry, pipe.noteType);
-					if (!entry.usedInConfigs.some((c) => c.configId === pipe.id)) {
-						entry.usedInConfigs.push({
-							configId: pipe.id,
-							configName: pipe.name,
-							configType: "import",
-						});
-					}
-					if (!entry.csvColumnNames.includes(m.csvColumn)) {
-						entry.csvColumnNames.push(m.csvColumn);
-					}
-				}
-				if (src.customProperties) {
-					for (const [key, value] of Object.entries(src.customProperties)) {
-						const entry = getOrCreate(key);
-						if (pipe.noteType) tagType(entry, pipe.noteType);
-						if (!entry.usedInConfigs.some((c) => c.configId === pipe.id)) {
-							entry.usedInConfigs.push({
-								configId: pipe.id,
-								configName: pipe.name,
-								configType: "import",
-							});
-						}
-						if (value && entry.sampleValues.length < 5 && !entry.sampleValues.includes(value)) {
-							entry.sampleValues.push(value);
-						}
-					}
-				}
-			}
-		}
-
-		return [...map.values()].sort((a, b) =>
-			a.propertyName.localeCompare(b.propertyName),
-		);
+		return buildDataDictionaryFn(this.state);
 	}
 
-	// ── CSV doc path ────────────────────────────────────────
+	// ── Doc delegation ──────────────────────────────────────
 
-	/** Returns the vault path for a CSV file's documentation note. */
 	getCsvDocPath(csvPath: string): string {
-		const folder = this.getReportsFolder();
-		const basename = csvPath.split("/").pop()?.replace(/\.csv$/i, "") ?? "csv";
-		const safeName = this.sanitizeDocName(basename);
-		return `${folder}/CSV - ${safeName}.md`;
+		return this.configDocService.getCsvDocPath(csvPath);
 	}
 
-	/** Creates a documentation note for a CSV file. Returns the doc path. */
-	async createCsvDoc(
-		csvPath: string,
-		headers: string[],
-		rowCount: number,
-		delimiter?: string,
-	): Promise<string> {
-		const docPath = this.getCsvDocPath(csvPath);
-		const basename = csvPath.split("/").pop() ?? "file.csv";
-		const now = new Date().toISOString();
-
-		const lines: string[] = [
-			"---",
-			"type: CsvDoc",
-			`csvFile: "[[${basename}]]"`,
-			`filePath: "${csvPath}"`,
-			`name: "${basename}"`,
-			`description: ""`,
-			`columns: ${headers.length}`,
-			`rows: ${rowCount}`,
-			`delimiter: "${delimiter ?? ","}"`,
-			`headers: [${headers.map((h) => `"${h}"`).join(", ")}]`,
-			`created: "${now}"`,
-			"---",
-			"",
-			`# ${basename}`,
-			"",
-			"> CSV file documentation.",
-			"",
-			"## Overview",
-			"",
-			`- **File**: [[${basename}]]`,
-			`- **Columns**: ${headers.length}`,
-			`- **Rows**: ${rowCount}`,
-			"",
-			"## Notes",
-			"",
-			"> Document usage notes, data source, or workflow context.",
-			"",
-		];
-
-		await this.fileSystem.createFile(docPath, lines.join("\n"), { createFolders: true });
-		return docPath;
+	async createCsvDoc(csvPath: string, headers: string[], rowCount: number, delimiter?: string): Promise<string> {
+		return this.configDocService.createCsvDoc(csvPath, headers, rowCount, delimiter);
 	}
 
-	// ── Config doc path ─────────────────────────────────────
-
-	getConfigDocPath(
-		configName: string,
-		configType: "import" | "export",
-	): string {
-		const folder = this.getConfigsFolder();
-		const safeName = this.sanitizeDocName(configName);
-		const prefix = configType === "import" ? "Import" : "Export";
-		return `${folder}/${prefix} - ${safeName}.md`;
+	getConfigDocPath(configName: string, configType: "import" | "export"): string {
+		return this.configDocService.getConfigDocPath(configName, configType);
 	}
 
-	/** Recreates a config documentation file (e.g. if deleted). */
-	async ensureConfigDoc(
-		configName: string,
-		configType: "import" | "export",
-	): Promise<string> {
-		const path = this.getConfigDocPath(configName, configType);
-		if (configType === "import") {
-			const cfg = this.state.savedImportConfigs.find((c) => c.name === configName);
-			if (cfg) await this.createImportConfigDoc(cfg);
-		} else {
-			const cfg = this.state.savedExportConfigs.find((c) => c.name === configName);
-			if (cfg) await this.createExportConfigDoc(cfg);
-		}
-		return path;
+	async ensureConfigDoc(configName: string, configType: "import" | "export"): Promise<string> {
+		return this.configDocService.ensureConfigDoc(configName, configType);
 	}
 
 	async ensurePipelineDoc(pipelineId: string): Promise<string> {
-		const pipe = this.getPipeline(pipelineId);
-		if (pipe) {
-			await this.createPipelineConfigDoc(pipe);
-			return this.getPipelineDocPath(pipe.name);
-		}
-		return "";
+		return this.configDocService.ensurePipelineDoc(pipelineId);
 	}
+
+	getConfigsFolderPath(): string {
+		return this.configDocService.getConfigsFolderPath();
+	}
+
+	getReportsFolderPath(): string {
+		return this.configDocService.getReportsFolderPath();
+	}
+
+	getPropertiesFolderPath(): string {
+		return this.configDocService.getPropertiesFolderPath();
+	}
+
+	getPropertyDocPath(propertyName: string): string {
+		return this.configDocService.getPropertyDocPath(propertyName);
+	}
+
+	async createPropertyDoc(propertyName: string): Promise<string> {
+		return this.configDocService.createPropertyDoc(propertyName);
+	}
+
+	getTypesFolderPath(): string {
+		return this.configDocService.getTypesFolderPath();
+	}
+
+	getEventDocPath(eventType: string): string {
+		return this.configDocService.getEventDocPath(eventType);
+	}
+
+	getTypeDocPath(typeName: string): string {
+		return this.configDocService.getTypeDocPath(typeName);
+	}
+
+	getPipelineDocPath(pipelineName: string): string {
+		return this.configDocService.getPipelineDocPath(pipelineName);
+	}
+
+	async createOrUpdateTypeDoc(typeName: string): Promise<void> {
+		return this.configDocService.createOrUpdateTypeDoc(typeName);
+	}
+
+	// ── Internal ─────────────────────────────────────────────
 
 	private emitConfigChanged(): void {
 		void this.eventBus.emit("dataExchange.config.changed", {
 			importCount: this.state.savedImportConfigs.length,
 			exportCount: this.state.savedExportConfigs.length,
 		});
-	}
-
-	// ── Path tracking on rename ────────────────────────────
-
-	/** Updates saved configs when a file is renamed/moved. */
-	private async handleFileRenamed(
-		oldPath: string,
-		newPath: string,
-	): Promise<void> {
-		let changed = false;
-
-		for (const cfg of this.state.savedImportConfigs) {
-			if (cfg.sourcePath === oldPath) {
-				cfg.sourcePath = newPath;
-				changed = true;
-			}
-		}
-
-		for (const cfg of this.state.savedExportConfigs) {
-			if (cfg.sourcePath === oldPath) {
-				cfg.sourcePath = newPath;
-				changed = true;
-			}
-			if (!cfg.isExternal && cfg.outputPath === oldPath) {
-				cfg.outputPath = newPath;
-				changed = true;
-			}
-		}
-
-		for (const pipe of this.state.savedPipelines ?? []) {
-			for (const src of pipe.sources) {
-				if (src.csvPath === oldPath) {
-					src.csvPath = newPath;
-					changed = true;
-				}
-			}
-		}
-
-		if (changed) {
-			await this.saveState();
-			this.emitConfigChanged();
-		}
-	}
-
-	/** Updates saved configs when a folder is renamed/moved. */
-	private async handleFolderRenamed(
-		oldPath: string,
-		newPath: string,
-	): Promise<void> {
-		let changed = false;
-		const oldPrefix = oldPath + "/";
-
-		for (const cfg of this.state.savedExportConfigs) {
-			if (
-				cfg.sourcePath === oldPath ||
-				cfg.sourcePath.startsWith(oldPrefix)
-			) {
-				cfg.sourcePath = newPath + cfg.sourcePath.slice(oldPath.length);
-				changed = true;
-			}
-			if (
-				!cfg.isExternal &&
-				(cfg.outputPath === oldPath ||
-					cfg.outputPath.startsWith(oldPrefix))
-			) {
-				cfg.outputPath = newPath + cfg.outputPath.slice(oldPath.length);
-				changed = true;
-			}
-		}
-
-		for (const cfg of this.state.savedImportConfigs) {
-			if (
-				cfg.sourcePath &&
-				(cfg.sourcePath === oldPath ||
-					cfg.sourcePath.startsWith(oldPrefix))
-			) {
-				cfg.sourcePath =
-					newPath + cfg.sourcePath.slice(oldPath.length);
-				changed = true;
-			}
-			if (
-				cfg.targetFolder === oldPath ||
-				cfg.targetFolder.startsWith(oldPrefix)
-			) {
-				cfg.targetFolder =
-					newPath + cfg.targetFolder.slice(oldPath.length);
-				changed = true;
-			}
-		}
-
-		for (const pipe of this.state.savedPipelines ?? []) {
-			if (
-				pipe.targetFolder === oldPath ||
-				pipe.targetFolder.startsWith(oldPrefix)
-			) {
-				pipe.targetFolder = newPath + pipe.targetFolder.slice(oldPath.length);
-				changed = true;
-			}
-			for (const src of pipe.sources) {
-				if (src.csvPath.startsWith(oldPrefix)) {
-					src.csvPath = newPath + src.csvPath.slice(oldPath.length);
-					changed = true;
-				}
-			}
-		}
-
-		if (changed) {
-			await this.saveState();
-			this.emitConfigChanged();
-		}
-	}
-
-	// ── Config documentation ────────────────────────────────
-
-	/** Returns the Configs folder path (public for Hub scanning). */
-	getConfigsFolderPath(): string {
-		return this.getConfigsFolder();
-	}
-
-	/** Returns the Reports folder path (public for Hub scanning). */
-	getReportsFolderPath(): string {
-		return this.getReportsFolder();
-	}
-
-	/** Returns the Properties folder path (public for Hub scanning). */
-	getPropertiesFolderPath(): string {
-		return this.getPropertiesFolder();
-	}
-
-	/** Returns the vault path for a property's documentation note. */
-	getPropertyDocPath(propertyName: string): string {
-		const folder = this.getPropertiesFolder();
-		const safeName = this.sanitizeDocName(propertyName);
-		return `${folder}/Property - ${safeName}.md`;
-	}
-
-	/** Creates a documentation note for a Data Dictionary property. Returns the doc path. */
-	async createPropertyDoc(propertyName: string): Promise<string> {
-		const docPath = this.getPropertyDocPath(propertyName);
-		const entry = this.buildDataDictionary().find((e) => e.propertyName === propertyName);
-		const now = new Date().toISOString();
-
-		const csvColumns = entry?.csvColumnNames ?? [];
-		const configRefs = entry?.usedInConfigs ?? [];
-
-		// Collect wikilinks to all relevant files
-		const relatedFiles = new Set<string>();
-		const configDocLinks: string[] = [];
-
-		for (const ref of configRefs) {
-			// Config doc
-			const configDocPath = this.getConfigDocPath(ref.configName, ref.configType);
-			const configDocName = configDocPath.split("/").pop()?.replace(/\.md$/, "") ?? ref.configName;
-			configDocLinks.push(`- [[${configDocName}]]`);
-
-			if (ref.configType === "import") {
-				const cfg = this.state.savedImportConfigs.find((c) => c.id === ref.configId);
-				if (cfg) {
-					if (cfg.sourcePath) relatedFiles.add(cfg.sourcePath);
-					if (cfg.basePath) relatedFiles.add(cfg.basePath);
-				}
-			} else {
-				const cfg = this.state.savedExportConfigs.find((c) => c.id === ref.configId);
-				if (cfg) {
-					relatedFiles.add(cfg.sourcePath);
-					if (!cfg.isExternal) relatedFiles.add(cfg.outputPath);
-				}
-			}
-		}
-
-		// Build CSV report doc links
-		const reportLinks: string[] = [];
-		for (const filePath of relatedFiles) {
-			if (filePath.toLowerCase().endsWith(".csv")) {
-				const reportDocPath = this.getCsvDocPath(filePath);
-				const reportDocName = reportDocPath.split("/").pop()?.replace(/\.md$/, "") ?? filePath;
-				reportLinks.push(`- [[${reportDocName}]]`);
-			}
-		}
-
-		// Build file wikilinks
-		const fileLinks = [...relatedFiles].map((f) => {
-			const name = f.split("/").pop() ?? f;
-			return `- [[${name}]]`;
-		});
-
-		const lines: string[] = [
-			"---",
-			"type: PropertyDoc",
-			`property: "${propertyName}"`,
-			`description: ""`,
-			`csvColumns: [${csvColumns.map((c) => `"${c}"`).join(", ")}]`,
-			`configs: [${configRefs.map((c) => `"${c.configName}"`).join(", ")}]`,
-			`created: "${now}"`,
-			"---",
-			"",
-			`# ${propertyName}`,
-			"",
-			"> Property documentation.",
-			"",
-			"## Overview",
-			"",
-			`- **Property**: \`${propertyName}\``,
-			...(csvColumns.length > 0
-				? [`- **CSV Columns**: ${csvColumns.join(", ")}`]
-				: []),
-			"",
-			"## Description",
-			"",
-			"> Describe what this property represents, valid values, and any constraints.",
-			"",
-		];
-
-		if (configDocLinks.length > 0) {
-			lines.push("## Configs", "", ...configDocLinks, "");
-		}
-
-		if (fileLinks.length > 0) {
-			lines.push("## Related Files", "", ...fileLinks, "");
-		}
-
-		if (reportLinks.length > 0) {
-			lines.push("## Reports", "", ...reportLinks, "");
-		}
-
-		lines.push(
-			"## Notes",
-			"",
-			"> Document usage context, data lineage, or related properties.",
-			"",
-		);
-
-		await this.fileSystem.createFile(docPath, lines.join("\n"), { createFolders: true });
-		return docPath;
-	}
-
-	private getConfigsFolder(): string {
-		const base = this.docsRootPath.replace(/\/+$/, "");
-		return `${base}/Configs`;
-	}
-
-	private getReportsFolder(): string {
-		const base = this.docsRootPath.replace(/\/+$/, "");
-		return `${base}/Reports`;
-	}
-
-	private getPropertiesFolder(): string {
-		const base = this.docsRootPath.replace(/\/+$/, "");
-		return `${base}/Properties`;
-	}
-
-	private getTypesFolder(): string {
-		const base = this.docsRootPath.replace(/\/+$/, "");
-		return `${base}/Types`;
-	}
-
-	getTypesFolderPath(): string {
-		return this.getTypesFolder();
-	}
-
-	getEventDocPath(eventType: string): string {
-		const base = this.docsRootPath.replace(/\/+$/, "");
-		return `${base}/Events/${eventType}.md`;
-	}
-
-	getTypeDocPath(typeName: string): string {
-		const folder = this.getTypesFolder();
-		const safeName = this.sanitizeDocName(typeName);
-		return `${folder}/Type - ${safeName}.md`;
-	}
-
-	private sanitizeDocName(name: string): string {
-		return name.replace(/[\\/:*?"<>|#^[\]]/g, "").replace(/\s+/g, " ").trim();
-	}
-
-	private buildImportDocContent(config: SavedImportConfig, userNotes?: string): string {
-		const now = new Date(config.createdAt).toISOString();
-		const included = config.columnMappings.filter((m) => m.included);
-
-		const lines: string[] = [
-			"---",
-			"type: ImportConfigDoc",
-			`configId: "${config.id}"`,
-			`name: "${config.name}"`,
-			`targetFolder: "${config.targetFolder}"`,
-			`nameColumn: "${config.nameColumn}"`,
-			`namePrefix: "${config.namePrefix ?? ""}"`,
-			`nameSuffix: "${config.nameSuffix ?? ""}"`,
-			`conflictStrategy: "${config.conflictStrategy}"`,
-			`columns: ${config.columnMappings.length}`,
-			`includedColumns: ${included.length}`,
-			config.noteType ? `noteType: "${config.noteType}"` : "",
-			config.sourcePath ? `sourcePath: "${config.sourcePath}"` : "",
-			`created: "${now}"`,
-			"---",
-			"",
-			`# ${config.name}`,
-			"",
-			"> Import configuration for CSV-to-Notes pipeline.",
-			"",
-			"## Settings",
-			"",
-			"| Setting           | Value            |",
-			"| ----------------- | ---------------- |",
-			`| **Target Folder** | \`${config.targetFolder}\` |`,
-			`| **Name Column**   | \`${config.nameColumn}\` |`,
-			`| **Name Prefix**   | ${config.namePrefix ? `\`${config.namePrefix}\`` : "_(none)_"} |`,
-			`| **Name Suffix**   | ${config.nameSuffix ? `\`${config.nameSuffix}\`` : "_(none)_"} |`,
-			`| **Conflict**      | ${config.conflictStrategy} |`,
-			`| **Columns**       | ${included.length} of ${config.columnMappings.length} |`,
-			config.noteType ? `| **Note Type**     | [[Type - ${this.sanitizeDocName(config.noteType)}\\|${config.noteType}]] |` : "",
-			config.sourcePath ? `| **Source CSV**    | [[${config.sourcePath}\\|${config.sourcePath.split("/").pop()}]] |` : "",
-			"",
-		];
-
-		// Remove empty lines from conditional entries
-		const filtered = lines.filter((l) => l !== "" || lines.indexOf(l) > 10);
-
-		if (included.length > 0) {
-			filtered.push("## Column Mappings", "");
-			filtered.push("| CSV Column | Frontmatter Key | Included |");
-			filtered.push("| ---------- | --------------- | -------- |");
-			for (const m of config.columnMappings) {
-				filtered.push(`| ${m.csvColumn} | \`${m.frontmatterKey}\` | ${m.included ? "Yes" : "No"} |`);
-			}
-			filtered.push("");
-		}
-
-		if (config.customProperties && Object.keys(config.customProperties).length > 0) {
-			filtered.push("## Custom Properties", "");
-			for (const [k, v] of Object.entries(config.customProperties)) {
-				filtered.push(`- \`${k}\` = \`${v}\``);
-			}
-			filtered.push("");
-		}
-
-		if (userNotes !== undefined) {
-			filtered.push("## Notes", "", userNotes);
-		} else {
-			filtered.push("## Notes", "", "> Document usage notes, scheduling, or workflow context.", "");
-		}
-
-		return filtered.join("\n");
-	}
-
-	private async createImportConfigDoc(config: SavedImportConfig): Promise<void> {
-		if (!this.docsRootPath) return;
-		try {
-			const folder = this.getConfigsFolder();
-			const safeName = this.sanitizeDocName(config.name);
-			const path = `${folder}/Import - ${safeName}.md`;
-
-			// Try to preserve user-written notes from existing doc
-			let userNotes: string | undefined;
-			try {
-				const existing = await this.fileSystem.readFile(path);
-				const notesMatch = existing.match(/## Notes\n\n([\s\S]*?)$/);
-				if (notesMatch) {
-					const notes = notesMatch[1].trim();
-					if (notes && notes !== "> Document usage notes, scheduling, or workflow context.") {
-						userNotes = notesMatch[1];
-					}
-				}
-			} catch {
-				// File doesn't exist yet — that's fine
-			}
-
-			const content = this.buildImportDocContent(config, userNotes);
-
-			try {
-				await this.fileSystem.createFile(path, content, { createFolders: true });
-			} catch {
-				// File already exists — update it
-				await this.fileSystem.updateFile(path, content);
-			}
-		} catch (error) {
-			console.error("[Flowti] Failed to create import config doc", error);
-		}
-	}
-
-	private buildExportDocContent(config: SavedExportConfig, userNotes?: string): string {
-		const now = new Date(config.createdAt).toISOString();
-		const formatLabel = config.format === "tab" ? "Tab-delimited" : "CSV";
-
-		const lines: string[] = [
-			"---",
-			"type: ExportConfigDoc",
-			`configId: "${config.id}"`,
-			`name: "${config.name}"`,
-			`sourcePath: "${config.sourcePath}"`,
-			`sourceType: "${config.sourceType}"`,
-			`format: "${config.format}"`,
-			`outputPath: "${config.outputPath}"`,
-			`columns: ${config.columns.length}`,
-			`fileProperties: ${config.fileProperties.length}`,
-			`conflictStrategy: "${config.conflictStrategy ?? "overwrite"}"`,
-			config.isExternal ? `isExternal: true` : "",
-			config.noteType ? `noteType: "${config.noteType}"` : "",
-			`created: "${now}"`,
-			"---",
-			"",
-			`# ${config.name}`,
-			"",
-			"> Export configuration for vault data extraction.",
-			"",
-			"## Settings",
-			"",
-			"| Setting           | Value              |",
-			"| ----------------- | ------------------ |",
-			`| **Source**        | [[${config.sourcePath}\\|${config.sourcePath.split("/").pop()}]] |`,
-			`| **Source Type**   | ${config.sourceType} |`,
-			`| **Format**       | ${formatLabel} |`,
-			`| **Output**       | \`${config.outputPath}\` |`,
-			`| **Conflict**     | ${config.conflictStrategy ?? "overwrite"} |`,
-			config.isExternal ? `| **External**     | Yes |` : "",
-			config.noteType ? `| **Note Type**    | [[Type - ${this.sanitizeDocName(config.noteType)}\\|${config.noteType}]] |` : "",
-			"",
-		];
-
-		// Remove empty lines from conditional entries
-		const filtered = lines.filter((l) => l !== "" || lines.indexOf(l) > 10);
-
-		if (config.columns.length > 0) {
-			filtered.push("## Note Properties", "");
-			for (const col of config.columns) {
-				filtered.push(`- \`${col}\``);
-			}
-			filtered.push("");
-		}
-
-		if (config.fileProperties.length > 0) {
-			filtered.push("## File Properties", "");
-			for (const fp of config.fileProperties) {
-				filtered.push(`- \`${fp}\``);
-			}
-			filtered.push("");
-		}
-
-		if (userNotes !== undefined) {
-			filtered.push("## Notes", "", userNotes);
-		} else {
-			filtered.push("## Notes", "", "> Document usage notes, scheduling, or workflow context.", "");
-		}
-
-		return filtered.join("\n");
-	}
-
-	private async createExportConfigDoc(config: SavedExportConfig): Promise<void> {
-		if (!this.docsRootPath) return;
-		try {
-			const folder = this.getConfigsFolder();
-			const safeName = this.sanitizeDocName(config.name);
-			const path = `${folder}/Export - ${safeName}.md`;
-
-			// Try to preserve user-written notes from existing doc
-			let userNotes: string | undefined;
-			try {
-				const existing = await this.fileSystem.readFile(path);
-				const notesMatch = existing.match(/## Notes\n\n([\s\S]*?)$/);
-				if (notesMatch) {
-					const notes = notesMatch[1].trim();
-					if (notes && notes !== "> Document usage notes, scheduling, or workflow context.") {
-						userNotes = notesMatch[1];
-					}
-				}
-			} catch {
-				// File doesn't exist yet — that's fine
-			}
-
-			const content = this.buildExportDocContent(config, userNotes);
-
-			try {
-				await this.fileSystem.createFile(path, content, { createFolders: true });
-			} catch {
-				// File already exists — update it
-				await this.fileSystem.updateFile(path, content);
-			}
-		} catch (error) {
-			console.error("[Flowti] Failed to create export config doc", error);
-		}
-	}
-
-	// ── Pipeline execution ──────────────────────────────────
-
-	private async executePipeline(pipelineId: string): Promise<MultiImportResult> {
-		const pipeline = this.getPipeline(pipelineId);
-		if (!pipeline) throw new Error(`Pipeline not found: ${pipelineId}`);
-		if (pipeline.sources.length === 0) throw new Error("Pipeline has no sources");
-
-		await this.eventBus.emit("dataExchange.pipeline.started", {
-			pipeline,
-			totalSources: pipeline.sources.length,
-		});
-
-		const result: MultiImportResult = {
-			totalSources: pipeline.sources.length,
-			completedSources: 0,
-			totalRows: 0,
-			created: 0,
-			updated: 0,
-			skipped: 0,
-			failed: 0,
-			errors: [],
-			sourceResults: [],
-		};
-
-		for (let i = 0; i < pipeline.sources.length; i++) {
-			const source = pipeline.sources[i];
-
-			// Auto-build merge key mapping
-			const mergeKeyMapping: ColumnMapping = {
-				csvColumn: source.mergeKeyColumn,
-				frontmatterKey: pipeline.mergeKey,
-				included: true,
-			};
-
-			// Filter out any user mapping that already targets the merge key
-			const otherMappings = source.columnMappings.filter(
-				(m) => m.frontmatterKey !== pipeline.mergeKey,
-			);
-
-			// Merge note type into custom properties if set
-			const customProps = { ...source.customProperties };
-			if (pipeline.noteType) {
-				customProps.type = pipeline.noteType;
-			}
-
-			const importConfig: ImportConfig = {
-				sourcePath: source.csvPath,
-				targetFolder: pipeline.targetFolder,
-				nameColumn: source.mergeKeyColumn,
-				namePrefix: pipeline.namePrefix,
-				nameSuffix: pipeline.nameSuffix,
-				columnMappings: [mergeKeyMapping, ...otherMappings],
-				conflictStrategy: "update",
-				customProperties: Object.keys(customProps).length > 0 ? customProps : undefined,
-			};
-
-			try {
-				const sourceResult = await this.importService.executeImport(importConfig);
-				const psr: PipelineSourceResult = {
-					sourceId: source.id,
-					csvPath: source.csvPath,
-					result: sourceResult,
-				};
-				result.sourceResults.push(psr);
-				result.totalRows += sourceResult.totalRows;
-				result.created += sourceResult.created;
-				result.updated += sourceResult.updated;
-				result.skipped += sourceResult.skipped;
-				result.failed += sourceResult.failed;
-				result.errors.push(...sourceResult.errors);
-				result.completedSources++;
-
-				await this.eventBus.emit("dataExchange.pipeline.sourceCompleted", {
-					pipelineId: pipeline.id,
-					sourceIndex: i,
-					totalSources: pipeline.sources.length,
-					sourceResult: psr,
-				});
-			} catch (error) {
-				result.sourceResults.push({
-					sourceId: source.id,
-					csvPath: source.csvPath,
-					result: {
-						totalRows: 0,
-						created: 0,
-						updated: 0,
-						skipped: 0,
-						failed: 1,
-						errors: [{
-							row: 0,
-							filename: source.csvPath,
-							error: error instanceof Error ? error.message : String(error),
-						}],
-					},
-				});
-				result.failed++;
-				result.errors.push({
-					row: 0,
-					filename: source.csvPath,
-					error: error instanceof Error ? error.message : String(error),
-				});
-			}
-		}
-
-		// Create .base view if configured
-		if (pipeline.createBase) {
-			await this.createPipelineBaseFile(pipeline);
-		}
-
-		// Run linked exports if configured
-		for (const exportId of pipeline.exportConfigIds ?? []) {
-			const exportCfg = this.getExportConfig(exportId);
-			if (exportCfg) {
-				try {
-					await this.exportService.executeExport({
-						sourcePath: exportCfg.sourcePath,
-						sourceType: exportCfg.sourceType,
-						format: exportCfg.format,
-						outputPath: exportCfg.outputPath,
-						columns: exportCfg.columns,
-						fileProperties: exportCfg.fileProperties,
-						baseViewIndex: exportCfg.baseViewIndex,
-						isExternal: exportCfg.isExternal,
-						conflictStrategy: exportCfg.conflictStrategy,
-					});
-				} catch (err) {
-					console.error(`[Flowti] Pipeline export step failed (${exportCfg.name}): ${err instanceof Error ? err.message : String(err)}`);
-				}
-			}
-		}
-
-		return result;
-	}
-
-	/** Creates a .base view file for the pipeline's target folder. */
-	private async createPipelineBaseFile(pipeline: SavedMultiImportPipeline): Promise<void> {
-		let path = (pipeline.basePath ?? "").trim();
-		if (!path) {
-			// Default: {targetFolder}/{pipelineName}.base
-			const safeName = pipeline.name.replace(/[\\/:*?"<>|]/g, "_");
-			path = pipeline.targetFolder
-				? `${pipeline.targetFolder}/${safeName}.base`
-				: `${safeName}.base`;
-		}
-		if (!path.endsWith(".base")) path += ".base";
-
-		// Never overwrite an existing base file
-		try {
-			await this.fileSystem.readFile(path);
-			return; // File exists — don't overwrite
-		} catch {
-			// File doesn't exist — proceed to create
-		}
-
-		// Gather all included column names across all sources
-		const columns = new Set<string>();
-		columns.add(pipeline.mergeKey);
-		if (pipeline.noteType) {
-			columns.add("type");
-		}
-		for (const source of pipeline.sources) {
-			for (const m of source.columnMappings) {
-				if (m.included) columns.add(m.frontmatterKey);
-			}
-			if (source.customProperties) {
-				for (const key of Object.keys(source.customProperties)) {
-					columns.add(key);
-				}
-			}
-		}
-
-		const lines: string[] = [];
-		lines.push("filters:");
-		lines.push("  and:");
-		lines.push(`    - 'file.inFolder("${pipeline.targetFolder}")'`);
-		lines.push(`    - 'file.ext == "md"'`);
-		lines.push("");
-		lines.push("views:");
-		lines.push("  - name: \"Merged Data\"");
-		lines.push("    type: \"table\"");
-		lines.push("    order:");
-		lines.push("      - \"file.name\"");
-		for (const col of columns) {
-			lines.push(`      - "${col}"`);
-		}
-		lines.push("");
-
-		try {
-			await this.fileSystem.createFile(path, lines.join("\n"), { createFolders: true });
-		} catch (error) {
-			console.error("[Flowti] Failed to create pipeline base file", error);
-		}
-	}
-
-	private buildPipelineDocContent(pipeline: SavedMultiImportPipeline, userNotes?: string): string {
-		const now = new Date(pipeline.createdAt).toISOString();
-		const lastRun = pipeline.lastExecutedAt
-			? new Date(pipeline.lastExecutedAt).toISOString()
-			: "";
-
-		const lines: string[] = [
-			"---",
-			"type: PipelineConfigDoc",
-			`configId: "${pipeline.id}"`,
-			`name: "${pipeline.name}"`,
-			`description: ""`,
-			`targetFolder: "${pipeline.targetFolder}"`,
-			`mergeKey: "${pipeline.mergeKey}"`,
-			pipeline.noteType ? `noteType: "${pipeline.noteType}"` : "",
-			pipeline.namePrefix ? `namePrefix: "${pipeline.namePrefix}"` : "",
-			pipeline.nameSuffix ? `nameSuffix: "${pipeline.nameSuffix}"` : "",
-			pipeline.exportConfigIds?.length ? `exportConfigIds: [${pipeline.exportConfigIds.map((id) => `"${id}"`).join(", ")}]` : "",
-			`sources: ${pipeline.sources.length}`,
-			`created: "${now}"`,
-			lastRun ? `lastExecuted: "${lastRun}"` : "",
-			"---",
-			"",
-			`# ${pipeline.name}`,
-			"",
-			"> Multi-import pipeline for merging CSV sources into enriched notes.",
-			"",
-			"## Settings",
-			"",
-			"| Setting           | Value            |",
-			"| ----------------- | ---------------- |",
-			`| **Target Folder** | \`${pipeline.targetFolder}\` |`,
-			`| **Merge Key**     | \`${pipeline.mergeKey}\` |`,
-			`| **Sources**       | ${pipeline.sources.length} |`,
-			pipeline.noteType ? `| **Note Type**     | [[Type - ${this.sanitizeDocName(pipeline.noteType)}\\|${pipeline.noteType}]] |` : "",
-			pipeline.namePrefix ? `| **Name Prefix**   | \`${pipeline.namePrefix}\` |` : "",
-			pipeline.nameSuffix ? `| **Name Suffix**   | \`${pipeline.nameSuffix}\` |` : "",
-			pipeline.exportConfigIds?.length ? `| **Export Steps**  | ${pipeline.exportConfigIds.map((id) => this.getExportConfig(id)?.name ?? id).join(", ")} |` : "",
-			lastRun ? `| **Last Run**      | ${lastRun} |` : "",
-			"",
-		];
-
-		// Remove empty lines from conditional entries in frontmatter/table
-		const filtered = lines.filter((l) => l !== "" || lines.indexOf(l) > 10);
-
-		if (pipeline.sources.length > 0) {
-			filtered.push("## Sources", "");
-			for (const source of pipeline.sources) {
-				const csvName = source.csvPath.split("/").pop() ?? source.csvPath;
-				const included = source.columnMappings.filter((m) => m.included);
-				filtered.push(`### [[${source.csvPath}|${csvName}]]`, "");
-				filtered.push(`- **Merge Key Column**: \`${source.mergeKeyColumn}\` → \`${pipeline.mergeKey}\``);
-				filtered.push(`- **Mapped Columns**: ${included.length} of ${source.columnMappings.length}`);
-				if (source.customProperties && Object.keys(source.customProperties).length > 0) {
-					filtered.push(`- **Custom Properties**: ${Object.entries(source.customProperties).map(([k, v]) => `\`${k}\`=\`${v}\``).join(", ")}`);
-				}
-				if (included.length > 0) {
-					filtered.push("");
-					filtered.push("| CSV Column | Frontmatter Key |");
-					filtered.push("| ---------- | --------------- |");
-					for (const m of included) {
-						filtered.push(`| ${m.csvColumn} | \`${m.frontmatterKey}\` |`);
-					}
-				}
-				filtered.push("");
-			}
-		}
-
-		if (pipeline.exportConfigIds && pipeline.exportConfigIds.length > 0) {
-			filtered.push("## Export Steps", "");
-			filtered.push("| # | Config | Format | Output | Conflict |");
-			filtered.push("| - | ------ | ------ | ------ | -------- |");
-			for (let i = 0; i < pipeline.exportConfigIds.length; i++) {
-				const exportCfg = this.getExportConfig(pipeline.exportConfigIds[i]);
-				if (exportCfg) {
-					const cfgSafe = this.sanitizeDocName(exportCfg.name);
-					const formatLabel = exportCfg.format === "tab" ? "Tab" : "CSV";
-					const outputName = exportCfg.outputPath.split("/").pop() ?? exportCfg.outputPath;
-					const conflict = exportCfg.conflictStrategy ?? "overwrite";
-					filtered.push(`| ${i + 1} | [[Export - ${cfgSafe}\\|${exportCfg.name}]] | ${formatLabel} | \`${outputName}\` | ${conflict} |`);
-				} else {
-					filtered.push(`| ${i + 1} | _(deleted config)_ | — | — | — |`);
-				}
-			}
-			filtered.push("");
-		}
-
-		if (pipeline.createBase && pipeline.basePath) {
-			filtered.push("## Base View", "");
-			filtered.push(`Linked base view: [[${pipeline.basePath}]]`, "");
-		}
-
-		filtered.push("## Related", "");
-		filtered.push(`- **Target folder**: \`${pipeline.targetFolder}\``);
-		if (pipeline.sources.length > 0) {
-			filtered.push("- **Source files**:");
-			for (const source of pipeline.sources) {
-				const csvName = source.csvPath.split("/").pop() ?? source.csvPath;
-				filtered.push(`  - [[${source.csvPath}|${csvName}]]`);
-			}
-		}
-		if (pipeline.exportConfigIds && pipeline.exportConfigIds.length > 0) {
-			filtered.push("- **Export configs**:");
-			for (const exportId of pipeline.exportConfigIds) {
-				const exportCfg = this.getExportConfig(exportId);
-				if (exportCfg) {
-					const cfgSafe = this.sanitizeDocName(exportCfg.name);
-					filtered.push(`  - [[Export - ${cfgSafe}|${exportCfg.name}]]`);
-				}
-			}
-		}
-		filtered.push("");
-
-		if (userNotes !== undefined) {
-			filtered.push("## Notes", "", userNotes);
-		} else {
-			filtered.push("## Notes", "", "> Document usage notes, scheduling, or workflow context.", "");
-		}
-
-		return filtered.join("\n");
-	}
-
-	private async createPipelineConfigDoc(pipeline: SavedMultiImportPipeline): Promise<void> {
-		if (!this.docsRootPath) return;
-		try {
-			const folder = this.getConfigsFolder();
-			const safeName = this.sanitizeDocName(pipeline.name);
-			const path = `${folder}/Pipeline - ${safeName}.md`;
-
-			// Try to preserve user-written notes from existing doc
-			let userNotes: string | undefined;
-			try {
-				const existing = await this.fileSystem.readFile(path);
-				const notesMatch = existing.match(/## Notes\n\n([\s\S]*?)$/);
-				if (notesMatch) {
-					const notes = notesMatch[1].trim();
-					// Only preserve if user replaced the default placeholder
-					if (notes && notes !== "> Document usage notes, scheduling, or workflow context.") {
-						userNotes = notesMatch[1];
-					}
-				}
-			} catch {
-				// File doesn't exist yet — that's fine
-			}
-
-			const content = this.buildPipelineDocContent(pipeline, userNotes);
-
-			try {
-				await this.fileSystem.createFile(path, content, { createFolders: true });
-			} catch {
-				// File already exists — update it
-				await this.fileSystem.updateFile(path, content);
-			}
-		} catch (error) {
-			console.error("[Flowti] Failed to create pipeline config doc", error);
-		}
-	}
-
-	/** Returns the pipeline config doc path. */
-	getPipelineDocPath(pipelineName: string): string {
-		const folder = this.getConfigsFolder();
-		const safeName = this.sanitizeDocName(pipelineName);
-		return `${folder}/Pipeline - ${safeName}.md`;
-	}
-
-	// ── TypeDoc CRUD ────────────────────────────────────────
-
-	/**
-	 * Collects all properties from pipelines, import configs, and export configs
-	 * with the given noteType, then creates or updates the TypeDoc file.
-	 */
-	async createOrUpdateTypeDoc(typeName: string): Promise<void> {
-		const properties = new Set<string>();
-
-		// Collect from pipelines
-		for (const pipe of this.state.savedPipelines ?? []) {
-			if (pipe.noteType !== typeName) continue;
-			properties.add(pipe.mergeKey);
-			for (const src of pipe.sources) {
-				for (const m of src.columnMappings) {
-					if (m.included) properties.add(m.frontmatterKey);
-				}
-				if (src.customProperties) {
-					for (const key of Object.keys(src.customProperties)) {
-						properties.add(key);
-					}
-				}
-			}
-		}
-
-		// Collect from import configs
-		for (const cfg of this.state.savedImportConfigs) {
-			if (cfg.noteType !== typeName) continue;
-			for (const m of cfg.columnMappings) {
-				if (m.included) properties.add(m.frontmatterKey);
-			}
-			if (cfg.customProperties) {
-				for (const key of Object.keys(cfg.customProperties)) {
-					properties.add(key);
-				}
-			}
-		}
-
-		// Collect from export configs (column names = expected properties)
-		for (const cfg of this.state.savedExportConfigs) {
-			if (cfg.noteType !== typeName) continue;
-			for (const col of cfg.columns) {
-				properties.add(col);
-			}
-		}
-
-		await this.createTypeDoc(typeName, [...properties].sort());
-	}
-
-	/** Creates or updates a TypeDoc file in the Types folder. */
-	private async createTypeDoc(typeName: string, properties: string[]): Promise<void> {
-		if (!this.docsRootPath) return;
-		try {
-			const path = this.getTypeDocPath(typeName);
-
-			// Preserve user-written notes from existing doc
-			let userNotes: string | undefined;
-			try {
-				const existing = await this.fileSystem.readFile(path);
-				const notesMatch = existing.match(/## Notes\n\n([\s\S]*?)$/);
-				if (notesMatch) {
-					const notes = notesMatch[1].trim();
-					if (notes && notes !== "> Describe this type, its purpose, and usage guidelines.") {
-						userNotes = notesMatch[1];
-					}
-				}
-			} catch {
-				// File doesn't exist yet
-			}
-
-			const now = new Date().toISOString();
-
-			// Find configs that use this type
-			const pipelines = (this.state.savedPipelines ?? []).filter(
-				(p) => p.noteType === typeName,
-			);
-			const importConfigs = this.state.savedImportConfigs.filter(
-				(c) => c.noteType === typeName,
-			);
-			const exportConfigs = this.state.savedExportConfigs.filter(
-				(c) => c.noteType === typeName,
-			);
-			const totalConfigs = pipelines.length + importConfigs.length + exportConfigs.length;
-
-			const lines: string[] = [
-				"---",
-				"type: TypeDoc",
-				`name: "${typeName}"`,
-				`description: ""`,
-				`properties: [${properties.map((p) => `"${p}"`).join(", ")}]`,
-				`pipelines: ${totalConfigs}`,
-				`created: "${now}"`,
-				"---",
-				"",
-				`# ${typeName}`,
-				"",
-				"> Note type definition.",
-				"",
-				"## Overview",
-				"",
-				`- **Type**: \`${typeName}\``,
-				`- **Expected Properties**: ${properties.length}`,
-				`- **Used by Configs**: ${totalConfigs}`,
-				"",
-			];
-
-			if (properties.length > 0) {
-				lines.push("## Expected Properties", "");
-				lines.push("| Property | Documented |");
-				lines.push("| -------- | ---------- |");
-				for (const prop of properties) {
-					const propDocPath = this.getPropertyDocPath(prop);
-					const propDocName = propDocPath.split("/").pop()?.replace(/\.md$/, "") ?? prop;
-					lines.push(`| [[${propDocName}\\|${prop}]] | — |`);
-				}
-				lines.push("");
-			}
-
-			if (totalConfigs > 0) {
-				lines.push("## Configs", "");
-				for (const pipe of pipelines) {
-					const pipeDocPath = this.getPipelineDocPath(pipe.name);
-					const pipeDocName = pipeDocPath.split("/").pop()?.replace(/\.md$/, "") ?? pipe.name;
-					lines.push(`- [[${pipeDocName}\\|${pipe.name}]] — Pipeline (${pipe.sources.length} source${pipe.sources.length !== 1 ? "s" : ""})`);
-				}
-				for (const cfg of importConfigs) {
-					const docPath = this.getConfigDocPath(cfg.name, "import");
-					const docName = docPath.split("/").pop()?.replace(/\.md$/, "") ?? cfg.name;
-					lines.push(`- [[${docName}\\|${cfg.name}]] — Import`);
-				}
-				for (const cfg of exportConfigs) {
-					const docPath = this.getConfigDocPath(cfg.name, "export");
-					const docName = docPath.split("/").pop()?.replace(/\.md$/, "") ?? cfg.name;
-					lines.push(`- [[${docName}\\|${cfg.name}]] — Export`);
-				}
-				lines.push("");
-			}
-
-			// Lifecycle event wikilinks
-			const lowerType = typeName.toLowerCase();
-			const crudSuffixes = [
-				{ suffix: "created", label: "Created" },
-				{ suffix: "read", label: "Read" },
-				{ suffix: "updated", label: "Updated" },
-				{ suffix: "deleted", label: "Deleted" },
-			];
-			lines.push("## Lifecycle Events", "");
-			for (const crud of crudSuffixes) {
-				const eventType = `${lowerType}.${crud.suffix}`;
-				lines.push(`- [[${eventType}\\|${eventType}]] — ${crud.label}`);
-			}
-			lines.push("");
-
-			if (userNotes !== undefined) {
-				lines.push("## Notes", "", userNotes);
-			} else {
-				lines.push("## Notes", "", "> Describe this type, its purpose, and usage guidelines.", "");
-			}
-
-			const content = lines.join("\n");
-
-			try {
-				await this.fileSystem.createFile(path, content, { createFolders: true });
-			} catch {
-				await this.fileSystem.updateFile(path, content);
-			}
-			// Create CRUD event docs for this type
-			await this.createTypeEventDocs(typeName);
-		} catch (error) {
-			console.error("[Flowti] Failed to create type doc", error);
-		}
-	}
-
-	/**
-	 * Emits `discovery.create` events for the 4 CRUD lifecycle events
-	 * of a note type ({type}.created, .read, .updated, .deleted).
-	 *
-	 * The DiscoveryService handles both registration and EventDoc file creation
-	 * via the centralized `generateEventDocContent()` template.
-	 */
-	private async createTypeEventDocs(typeName: string): Promise<void> {
-		const lowerType = typeName.toLowerCase();
-		const typeDocName = `Type - ${this.sanitizeDocName(typeName)}`;
-
-		const crudDefs = [
-			{ suffix: "created", label: "Created", desc: `A new ${typeName} was added` },
-			{ suffix: "read", label: "Read", desc: `A ${typeName} was viewed or queried` },
-			{ suffix: "updated", label: "Updated", desc: `An existing ${typeName} was modified` },
-			{ suffix: "deleted", label: "Deleted", desc: `A ${typeName} was removed` },
-		];
-
-		for (const def of crudDefs) {
-			const eventType = `${lowerType}.${def.suffix}`;
-			const siblings = crudDefs
-				.filter((d) => d.suffix !== def.suffix)
-				.map((d) => `- [[${lowerType}.${d.suffix}\\|${lowerType}.${d.suffix}]] — ${d.desc}`);
-
-			const docMeta: EventDocMeta = {
-				description: def.desc,
-				domain: "Types",
-				services: "DataExchange",
-				direction: "outbound",
-				stability: "draft",
-				visibility: "public",
-				relatedEvents: siblings,
-				extraSections: [
-					`**Type**: [[${typeDocName}\\|${typeName}]]`,
-				],
-			};
-
-			void this.eventBus.emit("discovery.create", {
-				eventName: eventType,
-				category: typeName,
-				docMeta,
-			});
-		}
-	}
-
-	/**
-	 * Emits `discovery.create` events for the 4 CRUD lifecycle events
-	 * of a config ({prefix}.created, .read, .updated, .deleted).
-	 *
-	 * Called when a new import config, export config, or pipeline is saved.
-	 */
-	private createConfigEventDocs(
-		configName: string,
-		configType: "pipeline" | "import" | "export",
-	): void {
-		const safeName = configName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-		if (!safeName) return;
-
-		const prefix = configType === "pipeline" ? "Pipeline" : configType === "import" ? "Import" : "Export";
-		const configDocName = `${prefix} - ${this.sanitizeDocName(configName)}`;
-
-		const crudDefs = [
-			{ suffix: "created", label: "Created", desc: `A new ${configName} record was created` },
-			{ suffix: "read", label: "Read", desc: `A ${configName} record was viewed or queried` },
-			{ suffix: "updated", label: "Updated", desc: `An existing ${configName} record was modified` },
-			{ suffix: "deleted", label: "Deleted", desc: `A ${configName} record was removed` },
-		];
-
-		for (const def of crudDefs) {
-			const eventType = `${safeName}.${def.suffix}`;
-			const siblings = crudDefs
-				.filter((d) => d.suffix !== def.suffix)
-				.map((d) => `- [[${safeName}.${d.suffix}\\|${safeName}.${d.suffix}]] — ${d.desc}`);
-
-			const docMeta: EventDocMeta = {
-				description: def.desc,
-				domain: "Data Exchange",
-				services: "DataExchange",
-				direction: "outbound",
-				stability: "draft",
-				visibility: "public",
-				relatedEvents: siblings,
-				extraSections: [
-					`**Config**: [[${configDocName}\\|${configName}]]`,
-				],
-			};
-
-			void this.eventBus.emit("discovery.create", {
-				eventName: eventType,
-				category: configName,
-				docMeta,
-			});
-		}
 	}
 
 	/** Cleans up all event listeners. */
