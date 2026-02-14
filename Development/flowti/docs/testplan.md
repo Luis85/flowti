@@ -15,7 +15,11 @@ Vitest generates test and coverage reports. You find them as JSON file in `docs/
 - `docs/tests/testreport.json` for the test report
 - `docs/tests/coverage-final.json` for coverage
 
-Every `npm run build` will also update the reports.
+The codebase gets exported as JSON by typedoc. You find the export here:
+
+- `docs/codebase/codebase.json`
+
+Every `npm run build` will also update the generated exports.
 
 ---
 

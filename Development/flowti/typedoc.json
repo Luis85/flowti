@@ -3,7 +3,17 @@
   "entryPoints": ["src"],
   "entryPointStrategy": "expand",
   "tsconfig": "tsconfig.typedoc.json",
-  "out": "docs/codebase",
+  
+      "outputs": [
+        {
+            "name": "html",
+            "path": "./docs/codebase"
+        },
+        {
+            "name": "json",
+            "path": "./docs/codebase/codebase.json"
+        },
+    ],
 
   "exclude": [
     "**/node_modules/**",
