@@ -640,3 +640,141 @@ End-to-end user journeys crossing multiple views and services are documented in 
 | [[Configure File Ingestion]] | Ingestion, Event Definition | `ingestion.job.completed` → `eventDefinition.matched` |
 | [[Discover Custom Events]] | Discovery, Subscription | `event.file.triggered` → `discovery.loaded` |
 | [[Manage Data Dictionary]] | Data Exchange | `dataExchange.import.completed` |
+
+---
+
+## Refactor & Coherence Checklist (Scored)
+
+Audit of the current frontend architecture against the 12-section coherence checklist. Scored 2026-02-15. Overall: **78%**.
+
+### 1) Boundary Clarity — 75%
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Obsidian Views are thin containers | **Partial** | EventCatalogView, EventLogView: clean. CsvActionView, ExportView, DataExchangeHubView: direct service CRUD calls ([[TD-42 Direct service calls bypass EventBus]]) |
+| View does only mount/unmount, DI, lifecycle | **Partial** | 3 Views also handle config save/load and scanning operations |
+| UI testable without Obsidian | **Yes** | `obsidian-stub.ts` polyfills + `happy-dom` enable component testing. `getState()`/`setState()` pattern decouples state from Obsidian |
+
+### 2) Eventbus-First Communication — 72%
+
+| Item | Status | Notes |
+|------|--------|-------|
+| UI triggers only Commands (Intent) | **Partial** | EventCatalogView: 100% eventbus. CSV/Export/Hub Views: direct service calls for CRUD ([[TD-42 Direct service calls bypass EventBus]]) |
+| Application publishes only Events (Facts) | **Yes** | All domain services emit fact events (`*.created`, `*.loaded`, `*.failed`) |
+| correlation_id / causation_id | **No** | Only file operations use `RequestId`. Domain events lack traceability ([[TD-43 No correlation IDs in domain events]]) |
+| Command/Event naming conventions | **Yes** | Consistent `domain.action` / `domain.fact` hierarchy across 136+ events |
+| Payload properties stable | **Yes** | Consistently camelCase (TypeScript convention, not snake_case). Stable across versions |
+
+### 3) Store Discipline — 90%
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Components read via Selectors | **Yes** | All components use `deps.getState()` — no direct orchestrator field access |
+| Stores own the UI-State | **Yes** | 4 orchestrators own centralized state (CatalogState, HubState, CsvViewState, ExportState) |
+| Stores are pure | **Yes** | Domain services have no Obsidian API, no IO, no DOM. Orchestrator state logic separated from rendering |
+| Loading/error/empty states | **Yes** | All tabs implement empty-state rendering. CSS classes: `.ft-catalog-detail-empty`, `.ft-alert-error` |
+| Draft handling clean | **Partial** | Forms reset on save. No explicit `draft_is_dirty` flag — editing state indicated by `editingSubscriptionId !== null` |
+
+### 4) Layout Library Coherence — 92%
+
+| Item | Status | Notes |
+|------|--------|-------|
+| One Layout per View from library | **Yes** | `buildSplitLayout()` shared by Catalog + Hub. Wizard stepper shared by CSV + Export |
+| Stable Slots | **Yes** | `SplitLayout` interface: `dashboardEl`, `splitEl`, `masterEl`, `searchHeaderEl`, `detailEl` |
+| Consistent slot naming | **Yes** | `ft-catalog-master`, `ft-catalog-detail`, `ft-view-root`, `ft-view-dashboard`, `ft-view-split` |
+| Responsive behavior | **Yes** | State-driven visibility via `ft-hidden` toggles. Obsidian CSS variables for theme auto-adaptation |
+| Empty/Loading/Error per layout | **Partial** | Empty + error states defined. No centralized error boundary pattern ([[TD-46 No error boundaries in views]]) |
+
+### 5) UI Composition Map Alignment — 95%
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Matches UI Composition Map | **Yes** | 6 views documented in `docs/04 - Sitemap.base` with use cases, navigation, source links |
+| Navigation / Deep-links | **Yes** | Event-driven via `ui.*` commands. Within-view via `NavigationCallbacks` interface |
+| Primary entry points | **Yes** | `ui.openEventCatalog`, `ui.openEventLog`, `ui.openDataExchangeHub` + ribbon icons |
+| Contextual navigation | **Yes** | Catalog → EventConfigModal → SubscriptionForm. Log → Event doc. Hub → Export/CSV views |
+
+### 6) Observability & Trust — 82%
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Event Log: what/why/triggered-by/source | **Yes** | Type, category badge, timestamp, description, enriched context lines, expandable JSON payload |
+| Dedup/suppression visible | **No** | Ingestion ledger and "once" policy skip silently ([[TD-47 Dedup not visible to users]]) |
+| Errors as user-safe messages | **Yes** | CSV import has dedicated error cards with retry. Hub uses `ConfirmModal` + Notice toasts |
+| Progress + counters during burst | **Yes** | IngestionStatusBar shows real-time state. CSV import has progress bar + row counter |
+| Pause in log | **Yes** | Toggle button switches icon + aria label. Wildcard listener short-circuits when paused |
+
+### 7) Performance & Scale — 60%
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Large lists virtualized | **No** | All lists render full DOM. Fine at current scale (~136 events, <100 configs) ([[TD-44 No list virtualization]]) |
+| Store updates batched | **Yes** | 16ms render debounce via `scheduleRender()` across all orchestrators. IngestionService uses configurable batch window |
+| Preview/validation debounced | **Yes** | Previews loaded on-demand, capped at 25 rows. No keystroke-level live validation |
+| No long sync in UI thread | **Partial** | CSV parsing is synchronous on main thread ([[TD-48 CSV parsing blocks UI thread]]). Hub scan operations run during render |
+
+### 8) Data & Persistence Consistency — 85%
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Subscription changes atomic | **Yes** | CRUD via events: create ID → mutate state → storage.save() → emit fact |
+| Draft→save correct (IDs/timestamps) | **Yes** | IDs generated at creation (`sub_UUID`, `def_UUID`). Timestamps set. Form resets on save |
+| Post-restart state reproducible | **Partial** | Domain state persisted via `load()`. UI view state (tab, selection) NOT persisted ([[TD-45 View state not persisted]]) |
+| Catch-up avoids duplicates | **Yes** | Deterministic `eventType::path` keys. Ledger checked before event emission |
+
+### 9) Error Handling & Recovery — 70%
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Clear error render path per view | **Partial** | CSV import: dedicated error card. Other views: no error boundary ([[TD-46 No error boundaries in views]]) |
+| Errors don't block entire UI | **Partial** | Render throws crash entire tab. No graceful degradation |
+| Retry actions available | **Yes** | CSV import retry button. Ingestion exponential backoff. Hub inline re-execution |
+| Partial write / locked file | **Yes** | EventBridge emits coded error responses. FileSystemClient checks existence before update |
+
+### 10) Documentation & Contract Hygiene — 88%
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Event Catalog is SoT for semantics | **Yes** | `CATALOG_DATA` in `catalog.ts` + file-driven entries = unified view |
+| UI links to documentation | **Yes** | 53 component docs, 33 use-case docs, 10 flow docs. Cross-references in all detail views |
+| EventBus contract synced | **Yes** | `FlowtiEventMap` is typed. Per-domain `events.ts` files = code-level contracts |
+| Store model spec | **Partial** | State interfaces (`CatalogState`, `HubState`, `CsvViewState`) typed but not formally documented outside code |
+
+### 11) Testability — 75%
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Stores have unit tests | **Partial** | Domain services tested (9/11). UI orchestrator state logic tested via view tests. No dedicated "store" tests |
+| Command handlers have tests | **Yes** | Service-level tests verify command → event chains (SubscriptionService, EventDefinitionService, etc.) |
+| Log pause/resume tested | **No** | EventLogView behavior tests not yet created |
+| Subscription editor validation tested | **Yes** | SubscriptionService CRUD tested. Form validation gates not tested at UI level |
+| Core scenarios as regression | **Yes** | 10 flow integration tests covering all documented user journeys |
+
+### 12) Refactor Safety — 50%
+
+| Item | Status | Notes |
+|------|--------|-------|
+| No slot name changes without migration | **No formal process** | `buildSplitLayout()` slot names changed informally |
+| No command/event name changes without contract update | **No formal process** | FlowtiEventMap is typed (compile-time safety) but no versioning |
+| Payloads extended only additively | **Yes** | TypeScript interfaces enforce additive-only changes at compile time |
+| No new direct service calls in UI | **No formal gate** | [[TD-42 Direct service calls bypass EventBus]] shows this has already happened |
+| UI Composition Map updated on UI changes | **Partial** | Frontend Architecture.md maintained, but not enforced per PR |
+
+### Tech Debt References
+
+| Checklist Gap | TD Item |
+|---------------|---------|
+| Direct service calls bypass EventBus | [[TD-42 Direct service calls bypass EventBus]] |
+| No correlation/causation IDs | [[TD-43 No correlation IDs in domain events]] |
+| No list virtualization | [[TD-44 No list virtualization]] |
+| View state not persisted | [[TD-45 View state not persisted]] |
+| No error boundaries | [[TD-46 No error boundaries in views]] |
+| Dedup not visible | [[TD-47 Dedup not visible to users]] |
+| CSV parsing blocks UI | [[TD-48 CSV parsing blocks UI thread]] |
+
+### Convention Decisions (Intentional Divergences)
+
+| Checklist Item | Current State | Decision |
+|----------------|--------------|----------|
+| Payload properties snake_case | Consistently camelCase across 136+ events | **Keep camelCase** — TypeScript standard. Changing would break all consumers |
+| Formal Store classes with selectors | Orchestrator-owned state with `getState()`/`setState()` | **Keep current pattern** — works well for Obsidian plugin scale. Formal stores add abstraction without clear benefit |

@@ -239,13 +239,13 @@ Confirmed by this review: CsvActionView, DataExchangeHubView, FolderPickerModal,
 
 ## 6. Debt Status Summary
 
-### All tracked items (41 total)
+### All tracked items (48 total)
 
 | Status | Count | Items |
 |--------|-------|-------|
 | Resolved | 30 | TD-02–05, TD-07–11, TD-13–22, TD-24–26, TD-31–35, TD-39–41 |
 | Mitigated | 4 | TD-01, TD-27, TD-29, TD-37 |
-| Open | 7 | TD-06, TD-12, TD-23, TD-28, TD-30, TD-36, TD-38 |
+| Open | 14 | TD-06, TD-12, TD-23, TD-28, TD-30, TD-36, TD-38, TD-42–48 |
 
 ### Open items by severity
 
@@ -258,6 +258,13 @@ Confirmed by this review: CsvActionView, DataExchangeHubView, FolderPickerModal,
 | TD-28 | Scanner duplication between Catalog and Hub | low | low | ui |
 | TD-36 | Folder scans instead of events | low | deferred | infrastructure |
 | TD-38 | Outdated Component Library View | low | small | cross-cutting |
+| TD-42 | Direct service calls bypass EventBus | medium | medium | ui |
+| TD-43 | No correlation IDs in domain events | low | medium | infrastructure |
+| TD-44 | No list virtualization | low | medium | ui |
+| TD-45 | View state not persisted | low | small | ui |
+| TD-46 | No error boundaries in views | medium | small | ui |
+| TD-47 | Dedup not visible to users | low | small | ui |
+| TD-48 | CSV parsing blocks UI thread | low | medium | domain |
 
 ### Mitigated items (conventions established, incremental work remains)
 
@@ -286,6 +293,8 @@ Confirmed by this review: CsvActionView, DataExchangeHubView, FolderPickerModal,
 |---|------|--------|--------|
 | 3 | ~~TD-40 Wire settings.entityPaths~~ | ~~medium~~ | **RESOLVED** — entityPaths IS wired; legacy functions deleted; tests cleaned |
 | 4 | TD-27 Replicate test pattern to more components | medium | Partially done — helpers visibility (23 tests) + CsvDataSnapshot (28 tests) added; ~35 components remain |
+| 5 | TD-42 Route View CRUD through EventBus | medium | CsvActionView, ExportView, DataExchangeHubView bypass EventBus for service calls |
+| 6 | TD-46 Add error boundaries to view render paths | small | Prevents tab crashes from malformed data |
 
 ### Deferred (low priority, no urgency)
 
@@ -298,6 +307,11 @@ Confirmed by this review: CsvActionView, DataExchangeHubView, FolderPickerModal,
 | TD-30 | Tier 3 bootstrap files have low test ROI | Require Obsidian runtime |
 | TD-36 | Scan performance is fine at current scale | Deferred until scale requires it |
 | TD-38 | Component library serves limited purpose | Consider removal vs update |
+| TD-43 | Correlation IDs: not needed at current scale | Aspirational |
+| TD-44 | List virtualization: not needed at current scale | Aspirational |
+| TD-45 | View state persistence: fast to navigate | UX convenience |
+| TD-47 | Dedup visibility: low impact | UX convenience |
+| TD-48 | CSV parsing: fine for typical files <1MB | Defer until reported |
 
 ---
 
