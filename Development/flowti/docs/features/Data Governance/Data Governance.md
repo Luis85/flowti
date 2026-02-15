@@ -1,9 +1,9 @@
 ---
-type: DomainValidationRulesetTemplate
+type: Feature
 domain_id:
-version: 1.0
+version: 1
 status: draft
-enforcement_mode: advisory  # advisory | warning | strict
+enforcement_mode: advisory
 created_at:
 last_updated_at:
 ---

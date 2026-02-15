@@ -13,9 +13,9 @@ tags:
 
 # Flowti Development Lifecycle
 
-> Open Question: How can this process be visible and traceable in Obsidian?
+> **Answered**: The [[Feature Lifecycle PRD]] implements this process as a first-class Flowti domain. PRDs flow through 6 stages (idea → draft → approved → in-progress → review → done), gate readiness is computed automatically, sessions track progress, and FRI/TASM scores enforce quality.
 
-> Objective: Make this document processable by Flowti to document the domain and as codified process inside the plugin
+> Objective: Make this document processable by Flowti to document the domain and as codified process inside the plugin — **see [[Feature Lifecycle PRD]] for implementation**
 
 ## 1. Purpose
 
@@ -98,19 +98,23 @@ Legend: R=Responsible, A=Accountable, C=Consulted
 ### Phase 1 — Feedback & Idea Intake
 
 **Inputs**
-- customer feedback
+- customer feedback (captured as User Stories while using existing solutions)
 - user issues
 - Three Amigos findings
 - tech debt review
 - telemetry/usage signals (if available)
 
+**Primary feedback mechanism: User Stories**
+Feedback is captured primarily through **User Stories** that emerge while users work with existing solutions. When a user encounters friction, discovers a gap, or imagines an improvement, the observation is documented as a User Story linked to the affected Domain and Actor. This keeps feedback grounded in real usage rather than abstract feature requests.
+
 **Activities**
-- capture the idea as an item (event/feature note)
-- link affected hubs/domains
-- initial hypothesis: “what improvement do we expect?”
+- observe Jobs to be done by Actors within a Domain
+- capture the observation as a User Story (user voice)
+- link the story to affected hubs/domains/actors
+- initial hypothesis: "what improvement do we expect?"
 
 **Outputs**
-- idea record (linked to domain + evidence)
+- User Stories (linked to domain + actor + evidence)
 - initial priority signal
 
 **Quality Gate**
@@ -287,12 +291,13 @@ Legend: R=Responsible, A=Accountable, C=Consulted
 ### Phase 10 — Post-Release Feedback Loop
 
 **Activities**
-- collect feedback
-- monitor issues
-- schedule improvements
-- incorporate findings into next cycle
+- collect feedback as User Stories while users work with the published solution
+- monitor issues and friction points observed in real usage
+- schedule improvements based on captured stories
+- incorporate findings into next cycle (new Phase 1 inputs)
 
 **Outputs**
+- User Stories (the primary feedback artifact — grounded in real usage)
 - new inputs to Phase 1
 
 ---
@@ -351,10 +356,85 @@ An increment is “Done” only if:
 
 ---
 
-## 10. Appendix
+## 10. Mental Model — From Domain to Delivery
+
+This section describes the conceptual flow that drives the entire lifecycle. It answers: *How does an observation in a domain become a delivered solution?*
+
+### The Starting Point: A Domain
+
+Everything begins inside a **Domain** — a bounded context where real work happens. Domains are the natural unit of organization in Flowti. They have Actors, Services, Events, and documented knowledge.
+
+### Observe: Jobs to be Done
+
+While working inside a Domain, we **discover or observe Jobs to be Done** performed by **Actors**. These are the real tasks, workflows, and struggles that people encounter. We don't invent problems in the abstract — we observe them in context.
+
+A user struggling to find related events. An architect unable to trace a file operation. A maintainer who can't tell which docs are stale. These are Jobs to be Done that signal an opportunity.
+
+### Capture: User Voice as User Stories
+
+When we observe a Job to be Done, we capture the **User Voice** as a **User Story**. User Stories are the primary feedback artifact throughout the lifecycle — not just at the beginning. They emerge continuously as users work with existing solutions.
+
+> "As a vault maintainer, I want to see where each feature stands so that I can decide what to work on next."
+
+User Stories are grounded in real usage. They carry the Actor's perspective, the context of the Domain, and the friction that triggered the observation.
+
+### Define: PRD as Solution Boundary
+
+When enough User Stories cluster around a common problem, we define a **Solution** and document it as a **PRD** (Product Requirements Document).
+
+A PRD is **tool-agnostic** in its first draft. Before thinking about tabs, events, or adapters, we:
+
+1. **Scope the Domain** — which bounded context does this problem live in?
+2. **Define the Problem** — what breaks, who is affected, why it matters?
+3. **Set Boundaries** — what's in scope, what's deliberately excluded?
+
+The PRD defines a single solution for a single problem. It doesn't prescribe implementation yet — it captures *what* needs to change and *why*.
+
+### Name: Solution as Product
+
+As the PRD matures, we give the Solution a **Product Name**. This name becomes the anchor for all related artifacts. A PRD can be **attached to a Product** later — Products are the user-facing containers that group related solutions.
+
+The relationship: **Products contain Features, Features are defined by PRDs, PRDs solve problems observed through User Stories.**
+
+### Decompose: Features → PBIs → Use Cases
+
+Once the PRD is scoped:
+
+1. **Break into Features** — identify the distinct capabilities the solution provides
+2. **Chunk into PBIs** (Product Backlog Items) — each PBI is a vertical slice of value that can be implemented, tested, and documented independently
+3. **Design Use Cases** — each PBI drives one or more Use Cases that describe the user's interaction step by step
+4. **Link User Stories** — each PBI and Use Case traces back to the User Stories that motivated it
+
+### The Decomposition Hierarchy
+
+```
+Domain
+└── Jobs to be Done (observed from Actors)
+    └── User Stories (captured user voice)
+        └── Solution / PRD (tool-agnostic problem boundary)
+            └── Product (named solution, user-facing container)
+                └── Features (distinct capabilities)
+                    └── PBIs (vertical slices of value)
+                        └── Use Cases + User Stories (interaction design)
+```
+
+### The Feedback Loop
+
+The hierarchy is not a one-way waterfall. At every level, **User Stories flow back up**:
+
+- Using the delivered Use Case generates new User Stories (friction, improvements, ideas)
+- New stories may refine the PBI, expand the Feature, or spawn an entirely new PRD
+- The Domain's documented knowledge grows with every cycle
+
+This is why PRDs are **tokens through the process** — they carry context forward and accumulate knowledge as they advance through stages. And this is why **Sessions** matter: each session picks a PRD, advances it one step, and the work done is documented automatically. Knowledge builds over time.
+
+---
+
+## 11. Appendix
 
 - [[Testplan and Teststrategy]]
 - [[Three Amigos Session Template]]
 - [[PRD Template]]
+- [[Feature Lifecycle PRD]]
 
 

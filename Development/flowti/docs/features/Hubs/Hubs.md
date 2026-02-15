@@ -1,8 +1,8 @@
 ---
-domain: Flowti  
-plugin: "[[Development/flowti/README|README]]"  
-type: Feature  
-stage: draft
+domain: Flowti
+plugin: "[[Development/flowti/README|README]]"
+type: Feature
+stage: design
 ---
 
 # Feature: Domain Hubs
