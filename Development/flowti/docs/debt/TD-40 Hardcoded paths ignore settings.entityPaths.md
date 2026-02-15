@@ -1,82 +1,60 @@
 ---
-status: open
-severity: medium
+status: mitigated
+severity: low
 category: architecture
 layer: domain
 created: 2026-02-15
-effort: medium
-description: pathResolver.ts hardcodes subfolder names ("Flows", "Systems", etc.) and installer/folders.ts hardcodes full paths, both ignoring the settings.entityPaths configuration which is effectively dead code.
+updated: 2026-02-15
+effort: small
+description: "entityPaths IS wired through EventCatalogView → resolveEntityPath(). Legacy path functions in pathResolver.ts are dead code (13/14 unused). Installer folders.ts scaffolds a subset of hardcoded paths."
 source: "[[Technical Review 2026-02-15]]"
 ---
 # TD-40: Hardcoded paths ignore settings.entityPaths
 
-## Problem
+## Original Concern
 
-The `DEFAULT_SETTINGS` defines an `entityPaths` configuration:
+The initial review stated `settings.entityPaths` was "dead code" that nothing reads.
 
-```typescript
-entityPaths: {
-  flows: { subfolder: "Flows", overridePath: "" },
-  systems: { subfolder: "Systems", overridePath: "" },
-  actors: { subfolder: "Actors", overridePath: "" },
-  products: { subfolder: "Products", overridePath: "" },
-}
+## Resolution: Partially False Positive
+
+Investigation confirmed **entityPaths IS properly wired** through the main code path:
+
+```
+EventCatalogView.ts
+  ├── settings.loaded → this.entityPaths = event.payload.settings.entityPaths
+  ├── settings.changed → this.entityPaths = event.payload.settings.entityPaths
+  └── getEntityFolder(entity) → resolveEntityPath(docsRootPath, entityPaths[entity])
+        └── used by all 8 entity tabs via deps.getEntityFolder()
 ```
 
-However, **no code reads this configuration**. Two subsystems hardcode paths instead:
+All entity folder resolution goes through `resolveEntityPath()` which respects both `subfolder` and `overridePath` from `EntityPathConfig`. Changing `entityPaths` in settings DOES affect the entity tab folder resolution.
 
-### 1. pathResolver.ts — hardcoded subfolder names
+## Remaining Issues (Low Severity)
 
-All path functions in `src/domain/docs/pathResolver.ts` hardcode subfolder names:
+### 1. Legacy path functions — dead code
 
-```typescript
-export function getFlowDocPath(basePath: string, flow: string): string {
-  return `${normalize(basePath)}/Flows/${flow}.md`;  // "Flows" hardcoded
-}
-```
+`pathResolver.ts` lines 84-167 contain 14 "legacy" path functions (e.g., `getFlowDocPath(basePath)`) that hardcode subfolder names like `"/Flows/"`. These are re-exported from `index.ts` and `eventDocTemplate.ts` but **13 of 14 are never called** in `src/`. The one exception (`getEventDocPath`) is duplicated in `configDocContent.ts`.
 
-Should be:
+The "Resolved" variants (`getFlowDocPathResolved(flowsFolder)`) accept pre-resolved folder paths and are used everywhere that matters.
 
-```typescript
-export function getFlowDocPath(basePath: string, subfolder: string, flow: string): string {
-  return `${normalize(basePath)}/${subfolder}/${flow}.md`;
-}
-```
+**Action**: Delete 13 unused legacy functions and their re-exports when convenient. Migrate the 1 remaining to use `getEventDocPathResolved`.
 
-### 2. installer/folders.ts — hardcoded full paths
+### 2. Installer folders — hardcoded subset
 
-```typescript
-"03 - Resources/Documentation/Reference/Domains",
-"03 - Resources/Documentation/Reference/Services",
-"03 - Resources/Documentation/Reference/Events",
-// ... etc
-```
+`installer/folders.ts` hardcodes `"03 - Resources/Documentation/Reference/Entities"`, `"Events"`, `"Actors"` etc. It doesn't create all 8 entity folders and doesn't respect `docsRootPath`.
 
-Ignores `settings.docsRootPath` completely. If user changes `docsRootPath`, the installer scaffolds in the wrong location.
+**Impact**: Low — the installer runs once on first install. Entity folders are auto-created by DocService when the first doc is created. The installer is a convenience, not a necessity.
 
-### 3. EventCatalogView.ts — hardcoded default
+### 3. EventCatalogView default — acceptable
 
 ```typescript
 private docsRootPath = "03 - Resources/Documentation/Reference";
 ```
 
-This is a fallback default before `settings.loaded` fires. Acceptable as a default but should be sourced from `DEFAULT_SETTINGS.docsRootPath`.
-
-## Impact
-
-- `settings.entityPaths` is dead code — changing it has no effect
-- Users cannot customize doc folder structure
-- Installer scaffolds at hardcoded paths regardless of settings
-
-## Suggested Fix
-
-1. Refactor `pathResolver.ts` to accept `EntityPathConfig` or accept subfolder as parameter
-2. Refactor `installer/folders.ts` to accept `docsRootPath` from settings context
-3. Remove `entityPaths` from settings if customization is not planned, OR wire it through
+This is a fallback before `settings.loaded` fires. It matches `DEFAULT_SETTINGS.docsRootPath`. Acceptable.
 
 ## Affected Files
 
-- `src/domain/docs/pathResolver.ts`
-- `src/domain/installer/folders.ts`
-- `src/domain/settings/settings.ts` (entityPaths definition)
-- `src/ui/EventCatalogView.ts` (hardcoded default)
+- `src/domain/docs/pathResolver.ts` (13 unused legacy functions — cleanup candidate)
+- `src/domain/installer/folders.ts` (hardcoded subset — low impact)
+- `src/domain/dataExchange/configDocContent.ts` (duplicate `getEventDocPath` — cleanup candidate)

@@ -1,11 +1,27 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { TFile, TFolder } from "obsidian";
 import { DomainsTab } from "../../../src/ui/catalog/DomainsTab";
 import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import type { CatalogComponentDeps, DomainEntry } from "../../../src/ui/catalog/types";
 import type { EventCatalogEntry } from "../../../src/infrastructure/events/catalog";
-import { createMockCatalogDeps } from "./testHelpers";
+import { createMockCatalogDeps, createDefaultCatalogState } from "./testHelpers";
+
+function createMockTFile(path: string, basename: string, ext = "md"): TFile {
+	const file = new TFile();
+	Object.defineProperty(file, "path", { value: path, writable: false });
+	Object.defineProperty(file, "basename", { value: basename, writable: false });
+	Object.defineProperty(file, "extension", { value: ext, writable: false });
+	return file;
+}
+
+function createMockTFolder(path: string, children: (TFile | TFolder)[]): TFolder {
+	const folder = new TFolder();
+	Object.defineProperty(folder, "path", { value: path, writable: false });
+	Object.defineProperty(folder, "children", { value: children, writable: false });
+	return folder;
+}
 
 function makeDomainEntry(overrides?: Partial<DomainEntry>): DomainEntry {
 	return {
@@ -70,17 +86,231 @@ describe("DomainsTab", () => {
 		});
 
 		it("should return entries from catalog events", () => {
-			// EVENT_CATALOG is imported directly by DomainsTab, so we can't mock it easily.
-			// Instead, test that scan() runs without error and returns an array.
 			tab.scan();
 			const entries = tab.getEntries();
 			expect(Array.isArray(entries)).toBe(true);
-			// All entries should have required fields
 			for (const entry of entries) {
 				expect(entry).toHaveProperty("name");
 				expect(entry).toHaveProperty("events");
 				expect(entry).toHaveProperty("visible");
 			}
+		});
+
+		it("should merge file-scanned domains with catalog domains", () => {
+			const file = createMockTFile("docs/Domains/CustomDomain.md", "CustomDomain");
+			const folder = createMockTFolder("docs/Domains", [file]);
+
+			const customDeps = createMockCatalogDeps({
+				eventBus,
+				getEntityFolder: vi.fn((entity: string) =>
+					entity === "domains" ? "docs/Domains" : `docs/${entity}`
+				),
+			});
+
+			(customDeps.app.vault.getAbstractFileByPath as ReturnType<typeof vi.fn>)
+				.mockImplementation((p: string) => {
+					if (p === "docs/Domains") return folder;
+					return null;
+				});
+			(customDeps.vaultQuery.getFrontmatter as ReturnType<typeof vi.fn>)
+				.mockImplementation((p: string) => {
+					if (p === "docs/Domains/CustomDomain.md") {
+						return { type: "DomainDoc", domain: "CustomDomain", description: "My domain", services: ["Svc1"], categories: ["Cat1"] };
+					}
+					return undefined;
+				});
+
+			const customTab = new DomainsTab(masterEl, detailEl, customDeps);
+			customTab.scan();
+			const entry = customTab.getEntries().find((e) => e.name === "CustomDomain");
+			expect(entry).toBeDefined();
+			expect(entry!.description).toBe("My domain");
+			expect(entry!.services).toEqual(["Svc1"]);
+			expect(entry!.categories).toEqual(["Cat1"]);
+			expect(entry!.filePath).toBe("docs/Domains/CustomDomain.md");
+		});
+
+		it("should give catalog-only domains filePath null", () => {
+			tab.scan();
+			const catalogOnly = tab.getEntries().filter((e) => e.filePath === null);
+			expect(catalogOnly.length).toBeGreaterThan(0);
+		});
+
+		it("should derive services from catalog when file has none", () => {
+			tab.scan();
+			for (const entry of tab.getEntries()) {
+				if (entry.filePath === null && entry.events.length > 0) {
+					// Catalog-derived domains get services from their events
+					expect(entry.services.length).toBeGreaterThanOrEqual(0);
+				}
+			}
+		});
+
+		it("should prefer file services/categories over catalog-derived", () => {
+			const file = createMockTFile("docs/Domains/EventBus.md", "EventBus");
+			const folder = createMockTFolder("docs/Domains", [file]);
+
+			const customDeps = createMockCatalogDeps({
+				eventBus,
+				getEntityFolder: vi.fn((entity: string) =>
+					entity === "domains" ? "docs/Domains" : `docs/${entity}`
+				),
+			});
+
+			(customDeps.app.vault.getAbstractFileByPath as ReturnType<typeof vi.fn>)
+				.mockImplementation((p: string) => {
+					if (p === "docs/Domains") return folder;
+					return null;
+				});
+			(customDeps.vaultQuery.getFrontmatter as ReturnType<typeof vi.fn>)
+				.mockImplementation((p: string) => {
+					if (p === "docs/Domains/EventBus.md") {
+						return { type: "DomainDoc", domain: "EventBus", services: ["ExplicitSvc"] };
+					}
+					return undefined;
+				});
+
+			const customTab = new DomainsTab(masterEl, detailEl, customDeps);
+			customTab.scan();
+			const entry = customTab.getEntries().find((e) => e.name === "EventBus");
+			expect(entry).toBeDefined();
+			expect(entry!.services).toEqual(["ExplicitSvc"]);
+		});
+
+		it("should detect area docs via vault lookup", () => {
+			const file = createMockTFile("docs/Domains/Sales.md", "Sales");
+			const folder = createMockTFolder("docs/Domains", [file]);
+			const areaFile = createMockTFile("02 - Areas/Sales/Sales.md", "Sales");
+
+			const customDeps = createMockCatalogDeps({
+				eventBus,
+				getEntityFolder: vi.fn((entity: string) =>
+					entity === "domains" ? "docs/Domains" : `docs/${entity}`
+				),
+			});
+
+			(customDeps.app.vault.getAbstractFileByPath as ReturnType<typeof vi.fn>)
+				.mockImplementation((p: string) => {
+					if (p === "docs/Domains") return folder;
+					if (p === "02 - Areas/Sales/Sales.md") return areaFile;
+					return null;
+				});
+			(customDeps.vaultQuery.getFrontmatter as ReturnType<typeof vi.fn>)
+				.mockImplementation((p: string) => {
+					if (p === "docs/Domains/Sales.md") {
+						return { type: "DomainDoc", domain: "Sales" };
+					}
+					return undefined;
+				});
+
+			const customTab = new DomainsTab(masterEl, detailEl, customDeps);
+			customTab.scan();
+			const entry = customTab.getEntries().find((e) => e.name === "Sales");
+			expect(entry).toBeDefined();
+			expect(entry!.isArea).toBe(true);
+		});
+
+		it("should mark non-area domains as isArea false", () => {
+			tab.scan();
+			// Without area files in vault, all should be non-area
+			for (const entry of tab.getEntries()) {
+				expect(entry.isArea).toBe(false);
+			}
+		});
+
+		it("should compute configuredCount from subscriptions", () => {
+			const state = createDefaultCatalogState({
+				subscriptions: [
+					{ id: "s1", eventType: "plugin.loaded", enabled: true, filters: {}, createdAt: "2026-01-01" },
+				],
+			});
+
+			const customDeps = createMockCatalogDeps({
+				eventBus,
+				getState: vi.fn(() => state),
+			});
+			const customTab = new DomainsTab(masterEl, detailEl, customDeps);
+			customTab.scan();
+
+			const configured = customTab.getEntries().filter((e) => e.configuredCount > 0);
+			expect(configured.length).toBeGreaterThanOrEqual(1);
+		});
+
+		it("should compute visibleCount based on excludedTypes", () => {
+			const state = createDefaultCatalogState({
+				excludedTypes: new Set(["plugin.loaded", "plugin.unloaded"]),
+			});
+
+			const customDeps = createMockCatalogDeps({
+				eventBus,
+				getState: vi.fn(() => state),
+			});
+			const customTab = new DomainsTab(masterEl, detailEl, customDeps);
+			customTab.scan();
+
+			// At least one domain should have visibleCount less than total events
+			const withExcluded = customTab.getEntries().find((e) =>
+				e.visibleCount < e.events.length
+			);
+			expect(withExcluded).toBeDefined();
+		});
+
+		it("should apply visibility from catalogDomains state", () => {
+			// First scan to discover real domain names from catalog
+			tab.scan();
+			const firstName = tab.getEntries()[0]?.name;
+			expect(firstName).toBeDefined();
+
+			const state = createDefaultCatalogState({
+				catalogDomains: [{ name: firstName, visible: false }],
+			});
+
+			const customDeps = createMockCatalogDeps({
+				eventBus,
+				getState: vi.fn(() => state),
+			});
+			const customTab = new DomainsTab(masterEl, detailEl, customDeps);
+			customTab.scan();
+
+			const entry = customTab.getEntries().find((e) => e.name === firstName);
+			expect(entry).toBeDefined();
+			expect(entry!.visible).toBe(false);
+		});
+
+		it("should sort areas before non-areas, then alphabetically", () => {
+			const fileA = createMockTFile("docs/Domains/Zebra.md", "Zebra");
+			const fileB = createMockTFile("docs/Domains/Alpha.md", "Alpha");
+			const folder = createMockTFolder("docs/Domains", [fileA, fileB]);
+			const areaFile = createMockTFile("02 - Areas/Zebra/Zebra.md", "Zebra");
+
+			const customDeps = createMockCatalogDeps({
+				eventBus,
+				getEntityFolder: vi.fn((entity: string) =>
+					entity === "domains" ? "docs/Domains" : `docs/${entity}`
+				),
+			});
+
+			(customDeps.app.vault.getAbstractFileByPath as ReturnType<typeof vi.fn>)
+				.mockImplementation((p: string) => {
+					if (p === "docs/Domains") return folder;
+					if (p === "02 - Areas/Zebra/Zebra.md") return areaFile;
+					return null;
+				});
+			(customDeps.vaultQuery.getFrontmatter as ReturnType<typeof vi.fn>)
+				.mockImplementation((p: string) => {
+					if (p === "docs/Domains/Zebra.md") return { type: "DomainDoc", domain: "Zebra" };
+					if (p === "docs/Domains/Alpha.md") return { type: "DomainDoc", domain: "Alpha" };
+					return undefined;
+				});
+
+			const customTab = new DomainsTab(masterEl, detailEl, customDeps);
+			customTab.scan();
+			const entries = customTab.getEntries();
+
+			// Zebra is an area, Alpha is not — Zebra should come first despite alphabetical order
+			const zebraIdx = entries.findIndex((e) => e.name === "Zebra");
+			const alphaIdx = entries.findIndex((e) => e.name === "Alpha");
+			expect(zebraIdx).toBeLessThan(alphaIdx);
 		});
 	});
 

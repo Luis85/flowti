@@ -1,64 +1,42 @@
 ---
-status: open
+status: resolved
 severity: medium
 category: concurrency
 layer: domain
 created: 2026-02-15
-effort: small
-description: EventDefinitionService "once" emission policy has a race window — emittedKeys Set updates after async payload extraction, allowing duplicate emissions under concurrent load.
+updated: 2026-02-15
+effort: none
+description: EventDefinitionService "once" emission policy was analyzed for a TOCTOU race — investigation found the code is already correct.
 source: "[[Technical Review 2026-02-15]]"
 ---
 # TD-41: EventDefinitionService dedup race condition
 
-## Problem
+## Original Concern
 
-`EventDefinitionService` supports an `emissionPolicy: "once"` option that prevents duplicate domain event emissions for the same (eventType, path) combination. The deduplication uses an `emittedKeys: Set<string>`.
+The initial review identified a potential TOCTOU (time-of-check-to-time-of-use) race in the "once" emission policy of `EventDefinitionService.matchDefinitions()`.
 
-The race condition:
+## Resolution: False Positive
 
+Detailed code analysis confirmed the race **cannot occur**:
+
+1. **`extractPayload()` is synchronous** — a pure function performing regex matching and property lookup. There is no async window.
+
+2. **`addToEmittedKeys()` is called BEFORE extraction** — at line 233, before `extractPayload()` at line 237. The key is optimistically reserved.
+
+3. **`matchDefinitions()` itself is synchronous** — called from the event handler without `await`. In JavaScript's single-threaded execution model, a synchronous function cannot be interrupted by another synchronous function.
+
+4. **The only async operations are fire-and-forget emits** — `void this.eventBus?.emitCustom(...)` and `void this.saveState()` at lines 238-248. These run after the key is already in the Set.
+
+The code order is already correct:
 ```
-Time →
-  Event A arrives (file.created, "Reports/Q1.md")
-  ├── Check emittedKeys → not found ✓
-  ├── Start async extractPayload()          ← takes time
-  │
-  Event B arrives (file.created, "Reports/Q1.md")    ← concurrent
-  ├── Check emittedKeys → not found ✓                ← race window!
-  ├── Start async extractPayload()
-  │
-  Event A completes → add key to emittedKeys → emit domain event
-  Event B completes → add key to emittedKeys → emit DUPLICATE domain event
-```
-
-The key is added to `emittedKeys` **after** the async `extractPayload()` completes, not at the point of checking.
-
-## Impact
-
-- Under rapid file ingestion, duplicate domain events can be emitted
-- Violates the "once" emission policy contract
-- Downstream listeners (subscriptions, custom handlers) may process the same file twice
-
-## Suggested Fix
-
-Add the key to `emittedKeys` **before** starting async operations (optimistic dedup):
-
-```typescript
-// Before:
-const payload = await extractPayload(definition, event);
-this.emittedKeys.add(key);
-
-// After:
-this.emittedKeys.add(key);  // Reserve immediately
-try {
-  const payload = await extractPayload(definition, event);
-  // emit...
-} catch {
-  this.emittedKeys.delete(key);  // Release on failure
-}
+Line 232: if (this.emittedKeys.has(emitKey)) continue;  // CHECK
+Line 233: this.addToEmittedKeys(emitKey);                // ADD (before extraction)
+Line 237: const extracted = extractPayload(...);          // EXTRACT (sync)
+Line 238: void this.eventBus?.emitCustom(...);            // EMIT (fire-and-forget)
 ```
 
-This is a standard "check-then-act" → "act-then-check" concurrency pattern fix.
+No code changes required.
 
 ## Affected Files
 
-- `src/domain/eventDefinition/EventDefinitionService.ts`
+- `src/domain/eventDefinition/EventDefinitionService.ts` (no changes needed)
