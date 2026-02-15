@@ -29,7 +29,7 @@ import { basename, stripExtension } from "../utils/pathUtils";
 
 export const VIEW_TYPE_DATA_EXCHANGE_HUB = "flowti-data-exchange-hub";
 
-type DXTab = "imports" | "exports" | "reports" | "properties" | "pipelines" | "types";
+export type DXTab = "imports" | "exports" | "reports" | "properties" | "pipelines" | "types";
 
 export class DataExchangeHubView extends BaseHubView<DXTab> {
 	private dataExchangeService: DataExchangeService;

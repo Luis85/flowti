@@ -43,7 +43,7 @@ import { BaseHubView, type TabDef } from "./BaseHubView";
 
 export const VIEW_TYPE_EVENT_CATALOG = "flowti-event-catalog";
 
-type CatalogTab = "events" | "domains" | "services" | "flows" | "systems" | "actors" | "products" | "health";
+export type CatalogTab = "events" | "domains" | "services" | "flows" | "systems" | "actors" | "products" | "health";
 
 /**
  * Master-Detail view for browsing and managing all events.
