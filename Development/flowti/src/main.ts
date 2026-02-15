@@ -26,10 +26,10 @@ import type { IngestionService } from "./domain/ingestion/IngestionService";
 import { registerViews } from "./infrastructure/views/registry";
 import type { IViewRegistry } from "./infrastructure/views/types";
 import { IngestionStatusBar } from "./ui/IngestionStatusBar";
-import { VIEW_TYPE_EVENT_CATALOG } from "./ui/EventCatalogView";
 import { DataExchangeService } from "./domain/dataExchange/DataExchangeService";
-import { VIEW_TYPE_DATA_EXCHANGE_HUB } from "./ui/DataExchangeHubView";
 import { DataExchangeSetup } from "./dataExchangeSetup";
+import { UiCommandService } from "./infrastructure/ui/UiCommandService";
+import { InputModal } from "./ui/modals";
 import { createInfrastructure, setupCrossCuttingListeners } from "./pluginBootstrap";
 
 
@@ -85,6 +85,7 @@ export default class FlowtiBasePlugin extends Plugin {
 	private dataExchangeService?: DataExchangeService;
 	private ingestionStatusBar?: IngestionStatusBar;
 	private collapsedCategories = new Set<string>();
+	private uiCommandService?: UiCommandService;
 	private crossCuttingListeners: (() => void)[] = [];
 
 	// ── Notice throttle ──────────────────────────────────────
@@ -164,30 +165,21 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.bindViews();
 			this.bindCommands();
 
-			// Ribbon icon — opens Event Catalog
-			this.addRibbonIcon("list", "Open Event Catalog", () => {
-				const { workspace } = this.app;
-				const existing = workspace.getLeavesOfType(VIEW_TYPE_EVENT_CATALOG);
-				if (existing.length > 0) {
-					workspace.revealLeaf(existing[0]);
-					return;
-				}
-				const leaf = workspace.getLeaf(true);
-				void leaf.setViewState({ type: VIEW_TYPE_EVENT_CATALOG, active: true });
-				workspace.revealLeaf(leaf);
+			// UI command service — central handler for all ui.* events
+			this.uiCommandService = new UiCommandService({
+				app: this.app,
+				eventBus: this.eventBus,
+			});
+			this.uiCommandService.setShowInputModal((config) => {
+				new InputModal(this.app, config).open();
 			});
 
-			// Ribbon icon — opens Data Exchange Hub
+			// Ribbon icons — emit UI command events
+			this.addRibbonIcon("list", "Open Event Catalog", () => {
+				void this.eventBus.emit("ui.openEventCatalog", {});
+			});
 			this.addRibbonIcon("arrow-left-right", "Open Data Exchange Hub", () => {
-				const { workspace } = this.app;
-				const existing = workspace.getLeavesOfType(VIEW_TYPE_DATA_EXCHANGE_HUB);
-				if (existing.length > 0) {
-					workspace.revealLeaf(existing[0]);
-					return;
-				}
-				const leaf = workspace.getLeaf(true);
-				void leaf.setViewState({ type: VIEW_TYPE_DATA_EXCHANGE_HUB, active: true });
-				workspace.revealLeaf(leaf);
+				void this.eventBus.emit("ui.openDataExchangeHub", {});
 			});
 
 			// Status bar
@@ -239,6 +231,7 @@ export default class FlowtiBasePlugin extends Plugin {
 				timestamp: new Date().toISOString(),
 			});
 
+			this.uiCommandService?.dispose();
 			this.ingestionStatusBar?.dispose();
 			this.eventBridge?.dispose();
 			await this.services?.disposeAll();
@@ -437,6 +430,17 @@ export default class FlowtiBasePlugin extends Plugin {
 			dxSetup.registerViews();
 			dxSetup.registerFileMenuItems();
 			dxSetup.registerCommands();
+
+			// Wire data exchange callbacks into UiCommandService
+			this.uiCommandService?.setOpenCsvImport(
+				(filePath, savedConfig) => dxSetup.openCsvImportWithConfig(filePath, savedConfig),
+			);
+			this.uiCommandService?.setOpenExportView(
+				(sourcePath, sourceType, format) => dxSetup.openExportView(sourcePath, sourceType, format),
+			);
+			this.uiCommandService?.setOpenExportWithSavedConfig(
+				(savedConfig) => dxSetup.openExportWithSavedConfig(savedConfig),
+			);
 
 			// Run catch-up if watch folders are configured
 			if (this.settings.watchFolders.length > 0 && this.ingestionService) {

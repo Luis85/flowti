@@ -33,6 +33,7 @@ export const INTERNAL_EVENT_PREFIXES = [
 	"command.",
 	"view.",
 	"settings.",
+	"ui.",
 ] as const;
 
 /**
@@ -156,6 +157,7 @@ export const EVENT_CATEGORIES = [
 	"Transforms",
 	"Data Exchange",
 	"Documentation",
+	"UI Commands",
 ] as const;
 
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
@@ -348,6 +350,16 @@ const CATALOG_DATA = {
 	"doc.failed":  { category: "Documentation", description: "Documentation file creation failed", direction: "Service → Listeners", domain: "docs", services: "DocService" },
 	"doc.delete":  { category: "Documentation", description: "Command to delete a documentation file", direction: "View → Plugin", domain: "docs", services: "DocService", tags: ["system"] },
 	"doc.deleted": { category: "Documentation", description: "Documentation file was deleted", direction: "Service → Listeners", domain: "docs", services: "DocService", tags: ["system"] },
+
+	// ── UI Commands ──────────────────────────────────────────
+	"ui.openEventCatalog":        { category: "UI Commands", description: "Open the Event Catalog view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
+	"ui.openEventLog":            { category: "UI Commands", description: "Open the Event Log view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
+	"ui.openComponentShowcase":   { category: "UI Commands", description: "Open the Component Showcase", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
+	"ui.openDataExchangeHub":     { category: "UI Commands", description: "Open the Data Exchange Hub", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
+	"ui.openSubscriptionManager": { category: "UI Commands", description: "Open the Watcher Manager modal", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
+	"ui.openCsvImport":           { category: "UI Commands", description: "Open CSV import view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
+	"ui.openExport":              { category: "UI Commands", description: "Open export view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
+	"ui.opened":                  { category: "UI Commands", description: "A UI view or modal was opened", direction: "Internal", domain: "ui", services: "UiCommandService", tags: ["system"] },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

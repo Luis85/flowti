@@ -12,7 +12,6 @@ import type { ExportFormat, SavedExportConfig, SavedImportConfig, VaultFileInfo 
 import { CsvActionView, VIEW_TYPE_CSV } from "./ui/CsvActionView";
 import { ExportView, VIEW_TYPE_EXPORT, type ExportViewConfig } from "./ui/ExportView";
 import { DataExchangeHubView, VIEW_TYPE_DATA_EXCHANGE_HUB } from "./ui/DataExchangeHubView";
-import { InputModal } from "./ui/modals";
 
 export interface DataExchangeSetupDeps {
 	app: App;
@@ -138,7 +137,7 @@ export class DataExchangeSetup {
 
 	/** Register file-menu context items for CSV, .base, and TFolder. */
 	registerFileMenuItems(): void {
-		const { app, dataExchangeService, registerEvent } = this.deps;
+		const { app, eventBus, dataExchangeService, registerEvent } = this.deps;
 
 		registerEvent(
 			app.workspace.on("file-menu", (menu, file) => {
@@ -147,9 +146,10 @@ export class DataExchangeSetup {
 						item.setTitle("Import as Notes")
 							.setIcon("file-input")
 							.onClick(() => {
-								this.pendingImportAutoStart = true;
-								const leaf = app.workspace.getLeaf(true);
-								void leaf.openFile(file);
+								void eventBus.emit("ui.openCsvImport", {
+									filePath: file.path,
+									autoStart: true,
+								});
 							});
 					});
 
@@ -162,10 +162,11 @@ export class DataExchangeSetup {
 								item.setTitle(`Import with: ${cfg.name}`)
 									.setIcon("play")
 									.onClick(() => {
-										this.pendingSavedImportConfig = cfg;
-										this.pendingImportAutoStart = true;
-										const leaf = app.workspace.getLeaf(true);
-										void leaf.openFile(file);
+										void eventBus.emit("ui.openCsvImport", {
+											filePath: file.path,
+											savedConfig: cfg,
+											autoStart: true,
+										});
 									});
 							});
 						}
@@ -176,12 +177,24 @@ export class DataExchangeSetup {
 					menu.addItem((item) => {
 						item.setTitle("Export as CSV")
 							.setIcon("file-output")
-							.onClick(() => this.openExportView(file.path, "base", "csv"));
+							.onClick(() => {
+								void eventBus.emit("ui.openExport", {
+									sourcePath: file.path,
+									sourceType: "base",
+									format: "csv",
+								});
+							});
 					});
 					menu.addItem((item) => {
 						item.setTitle("Export as Tab")
 							.setIcon("file-output")
-							.onClick(() => this.openExportView(file.path, "base", "tab"));
+							.onClick(() => {
+								void eventBus.emit("ui.openExport", {
+									sourcePath: file.path,
+									sourceType: "base",
+									format: "tab",
+								});
+							});
 					});
 
 					// Existing export configs for this .base file
@@ -192,7 +205,12 @@ export class DataExchangeSetup {
 							menu.addItem((item) => {
 								item.setTitle(`Export with: ${cfg.name}`)
 									.setIcon("play")
-									.onClick(() => this.openExportWithSavedConfig(cfg));
+									.onClick(() => {
+										void eventBus.emit("ui.openExport", {
+											savedConfig: cfg,
+											format: cfg.format,
+										});
+									});
 							});
 						}
 					}
@@ -202,12 +220,24 @@ export class DataExchangeSetup {
 					menu.addItem((item) => {
 						item.setTitle("Export as CSV")
 							.setIcon("file-output")
-							.onClick(() => this.openExportView(file.path, "folder", "csv"));
+							.onClick(() => {
+								void eventBus.emit("ui.openExport", {
+									sourcePath: file.path,
+									sourceType: "folder",
+									format: "csv",
+								});
+							});
 					});
 					menu.addItem((item) => {
 						item.setTitle("Export as Tab")
 							.setIcon("file-output")
-							.onClick(() => this.openExportView(file.path, "folder", "tab"));
+							.onClick(() => {
+								void eventBus.emit("ui.openExport", {
+									sourcePath: file.path,
+									sourceType: "folder",
+									format: "tab",
+								});
+							});
 					});
 
 					// Existing export configs for this folder
@@ -218,7 +248,12 @@ export class DataExchangeSetup {
 							menu.addItem((item) => {
 								item.setTitle(`Export with: ${cfg.name}`)
 									.setIcon("play")
-									.onClick(() => this.openExportWithSavedConfig(cfg));
+									.onClick(() => {
+										void eventBus.emit("ui.openExport", {
+											savedConfig: cfg,
+											format: cfg.format,
+										});
+									});
 							});
 						}
 					}
@@ -229,30 +264,14 @@ export class DataExchangeSetup {
 
 	/** Register import/export commands for the command palette. */
 	registerCommands(): void {
-		const { app, addCommand } = this.deps;
+		const { addCommand } = this.deps;
 
 		addCommand({
 			id: "flowti:import-csv",
 			name: "Import CSV as Notes",
 			icon: "file-input",
 			callback: () => {
-				new InputModal(app, {
-					title: "Import CSV",
-					inputName: "CSV file path",
-					inputDesc: "Enter the vault path to a .csv file",
-					placeholder: "path/to/data.csv",
-					submitLabel: "Import",
-					onSubmit: (csvPath) => {
-						const csvFile = app.vault.getAbstractFileByPath(csvPath);
-						if (csvFile instanceof TFile) {
-							this.pendingImportAutoStart = true;
-							const leaf = app.workspace.getLeaf(true);
-							void leaf.openFile(csvFile);
-						} else {
-							new Notice(`File not found: ${csvPath}`);
-						}
-					},
-				}).open();
+				void this.deps.eventBus.emit("ui.openCsvImport", {});
 			},
 		});
 
@@ -261,17 +280,7 @@ export class DataExchangeSetup {
 			name: "Export as CSV",
 			icon: "file-output",
 			callback: () => {
-				new InputModal(app, {
-					title: "Export as CSV",
-					inputName: "Source path",
-					inputDesc: "Enter a folder path or .base file path",
-					placeholder: "path/to/folder or path/to/file.base",
-					submitLabel: "Export",
-					onSubmit: (sourcePath) => {
-						const sourceType = sourcePath.endsWith(".base") ? "base" as const : "folder" as const;
-						this.openExportView(sourcePath, sourceType, "csv");
-					},
-				}).open();
+				void this.deps.eventBus.emit("ui.openExport", { format: "csv" });
 			},
 		});
 
@@ -280,17 +289,7 @@ export class DataExchangeSetup {
 			name: "Export as Tab-delimited",
 			icon: "file-output",
 			callback: () => {
-				new InputModal(app, {
-					title: "Export as Tab",
-					inputName: "Source path",
-					inputDesc: "Enter a folder path or .base file path",
-					placeholder: "path/to/folder or path/to/file.base",
-					submitLabel: "Export",
-					onSubmit: (sourcePath) => {
-						const sourceType = sourcePath.endsWith(".base") ? "base" as const : "folder" as const;
-						this.openExportView(sourcePath, sourceType, "tab");
-					},
-				}).open();
+				void this.deps.eventBus.emit("ui.openExport", { format: "tab" });
 			},
 		});
 
@@ -299,22 +298,14 @@ export class DataExchangeSetup {
 			name: "Open Data Exchange Hub",
 			icon: "arrow-left-right",
 			callback: () => {
-				const { workspace } = app;
-				const existing = workspace.getLeavesOfType(VIEW_TYPE_DATA_EXCHANGE_HUB);
-				if (existing.length > 0) {
-					workspace.revealLeaf(existing[0]);
-					return;
-				}
-				const leaf = workspace.getLeaf(true);
-				void leaf.setViewState({ type: VIEW_TYPE_DATA_EXCHANGE_HUB, active: true });
-				workspace.revealLeaf(leaf);
+				void this.deps.eventBus.emit("ui.openDataExchangeHub", {});
 			},
 		});
 	}
 
 	// ── Private helpers ──────────────────────────────────────
 
-	private openExportView(
+	openExportView(
 		sourcePath: string,
 		sourceType: "folder" | "base",
 		format: ExportFormat,
@@ -325,7 +316,7 @@ export class DataExchangeSetup {
 		this.deps.app.workspace.revealLeaf(leaf);
 	}
 
-	private openCsvImportWithConfig(csvPath: string, savedConfig?: SavedImportConfig): void {
+	openCsvImportWithConfig(csvPath: string, savedConfig?: SavedImportConfig): void {
 		const csvFile = this.deps.app.vault.getAbstractFileByPath(csvPath);
 		if (!(csvFile instanceof TFile)) {
 			new Notice(`File not found: ${csvPath}`);
@@ -337,7 +328,7 @@ export class DataExchangeSetup {
 		void leaf.openFile(csvFile);
 	}
 
-	private openExportWithSavedConfig(savedConfig: SavedExportConfig): void {
+	openExportWithSavedConfig(savedConfig: SavedExportConfig): void {
 		this.pendingExportConfig = {
 			sourcePath: savedConfig.sourcePath,
 			sourceType: savedConfig.sourceType,
