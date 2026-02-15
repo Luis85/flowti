@@ -10,7 +10,7 @@ tags:
 
 This document describes the current frontend architecture of the Flowti IBDE Obsidian plugin, its design principles, view inventory, and refactoring history with planned next phases.
 
-> Last updated: 2026-02-14
+> Last updated: 2026-02-15
 
 ---
 
@@ -130,9 +130,9 @@ Both major views follow the **orchestrator + component** pattern:
 - `DashboardImportExecutor` — Inline import progress row with auto-dismiss
 - `ImportsTab`, `ExportsTab` — Saved config management with inline execution
 - `PipelinesTab` — Multi-source import pipeline builder
-- `TypesTab` — Note type documentation with CRUD lifecycle events
+- `TypesTab` — Note type documentation with CRUD lifecycle events and frontmatter scan issues banner
 - `PropertiesTab` — Data dictionary with cross-config usage tracking
-- `ReportsTab` — CSV file documentation browser
+- `ReportsTab` — CSV file documentation browser with frontmatter validation alerts and name disambiguation
 
 **CSV Import** (`src/ui/csv/`, 10 files):
 - `CsvLanding` — Landing page orchestrator delegating to sub-components
@@ -184,11 +184,16 @@ Both decomposed views share extracted helper modules to avoid duplication:
 
 > Note: `createEntityDoc()` was removed in Phase 8. All doc creation now goes through `doc.create` events to the DocService.
 
-**`hub/helpers.ts`** (~253 LOC):
+**`hub/helpers.ts`** (~358 LOC):
 - `renderStepBar()` — generic wizard stepper bar shared between `CsvActionView` and `ExportView`
 - `renderConfigDropdown()` — config save/load dropdown shared between `CsvActionView` and `ExportView`
 - `openEventInCatalog()` — cross-view navigation to Event Catalog
 - `renderDashboardSectionHeader()`, `renderEmptyDetail()` — common hub UI patterns
+- `validateCsvDocFrontmatter()` — validates CsvDoc frontmatter fields (type, csvFile/filePath, headers, columns, rows)
+- `validateTypeDocFrontmatter()` — validates TypeDoc frontmatter fields (type, name, properties)
+- `validateDocFrontmatter()` — generic frontmatter validator (missing/wrong type detection)
+- `renderFrontmatterAlert()` — renders per-entry frontmatter warning alert in detail panels
+- `renderScanIssuesBanner()` — renders collapsible scan-level warning banner (skipped files count + details)
 
 ---
 
@@ -495,6 +500,35 @@ Created `BaseEntityTab<T>` abstract class with `EntityTabConfig<T>` configuratio
 
 **Design**: Composition via config, not inheritance overrides. `SystemsTab` uses `filterIncludesEvents: false` and custom `renderDirectEventsSection()` for `EventCatalogEntry[]` (vs string-based resolution in other tabs). Backward-compatible accessor methods preserved on subclasses.
 
+### Frontmatter Validation & User Feedback (Feb 2026)
+
+Added scan-level and per-entry frontmatter validation across the Data Exchange Hub:
+
+**Scan-level tracking** (`DataExchangeHubView`):
+- `scanCsvDocs()` and `scanTypeDocs()` collect `FrontmatterIssue[]` for files with missing/wrong-type frontmatter
+- Issues stored in `HubState.frontmatterIssues` and passed to tab components
+
+**Per-entry validation** (`hub/helpers.ts`):
+- `validateCsvDocFrontmatter()` checks type, csvFile/filePath, headers (required array), columns/rows (optional numbers)
+- `validateTypeDocFrontmatter()` checks type, name (required string), properties (optional array)
+- `validateDocFrontmatter()` generic validator for type-checking any doc file
+
+**UI feedback**:
+- `renderScanIssuesBanner()` — collapsible `<details>` banner at top of master lists showing "N files skipped" with per-file issue details
+- `renderFrontmatterAlert()` — warning alert in detail panels with bullet list of field-level issues
+- Warning triangle icon on master list items with frontmatter issues (tooltip shows issue summary)
+- ReportsTab and TypesTab both show scan issues banners filtered to their respective doc folders
+
+### Name Collision Disambiguation (Feb 2026)
+
+Added `displayName` field to `CsvFileEntry` to handle same-named CSV files in different folders:
+
+- Post-scan pass in `scanCsvFiles()` detects name collisions via `Map<string, number>`
+- Colliding names get parent folder appended: `employees.csv (HR)` vs `employees.csv (Finance)`
+- Root-level files without a parent folder keep their plain name
+- `displayName` used throughout: master list items, detail headers, filter search, dashboard imports table
+- Sort order uses `displayName` for consistent alphabetical grouping
+
 ---
 
 ## Planned Refactoring
@@ -549,7 +583,7 @@ Pure content generation file with markdown builders for 8+ entity types. Could s
 
 | Item | Problem | Target | Debt File |
 |------|---------|--------|-----------|
-| **TD-7**: Limited UI testing | 1,172 tests across 49 files cover domain services, EventBus, utilities, pure functions, and 6 view orchestrators. Component-level rendering tests (individual tabs, pages) not yet covered. | Add lightweight unit tests for tab components with mock deps and DOM assertions via `obsidian-stub` polyfills. | [[TD-27 Limited UI component testing]] |
+| **TD-7**: Limited UI testing | 1,662 tests across 72 files cover domain services, EventBus, utilities, pure functions, and 6 view orchestrators. Component-level rendering tests (individual tabs, pages) not yet covered. | Add lightweight unit tests for tab components with mock deps and DOM assertions via `obsidian-stub` polyfills. | [[TD-27 Limited UI component testing]] |
 | **TD-8**: Scanner duplication between Catalog and Hub | Catalog tabs use `entityScanner.ts`; Hub tabs implement their own scanning logic. | Generalize scanner utility. Low ROI — Hub tabs are storage-driven. | [[TD-28 Scanner duplication between Catalog and Hub]] |
 
 ---
@@ -559,7 +593,7 @@ Pure content generation file with markdown builders for 8+ entity types. Could s
 1. **Facade preservation**: Public APIs never change. All consumers see the same interface after extraction.
 2. **Zero test changes**: Extracted code is internal — existing test suites pass without modification.
 3. **Composition over inheritance**: Sub-modules receive deps interfaces, not parent class references.
-4. **Build verification**: `npm run build` (1,172 tests + tsc + eslint + esbuild) after every step.
+4. **Build verification**: `npm run build` (1,662 tests + tsc + eslint + esbuild) after every step.
 5. **Incremental extraction**: One module at a time, verify, then proceed. Never batch multiple extractions without build checks.
 6. **No premature abstraction**: Extract when a file exceeds ~600 LOC or when distinct responsibilities are clearly identifiable. Don't extract for the sake of extracting.
 7. **DocService for all docs**: Use `doc.create` events instead of direct `fileSystemClient.createFile()` calls for documentation files.
@@ -584,7 +618,7 @@ Pure content generation file with markdown builders for 8+ entity types. Could s
 - `EventsTab.ts`: 1,040 → 329 LOC (68% reduction)
 - `ConfigDocService.ts`: 934 → 435 LOC (53% reduction)
 - 14 files over 500 LOC (down from 6 files over 1,000 LOC)
-- 49 test files, 1,172 tests — all passing
+- 72 test files, 1,662 tests — all passing
 - 155 source files (BaseEntityTab.ts added), ~31,000 LOC (entity tab deduplication removed ~438 LOC)
 
 ### Target After Phase 11

@@ -89,7 +89,7 @@ export function renderConfiguredImports(
 			// File column — CSV name
 			const fileTd = tr.createEl("td");
 			const fileLink = fileTd.createEl("span", {
-				text: entry.name,
+				text: entry.displayName,
 				cls: "ft-nav-link ft-text-sm",
 			});
 			fileLink.addEventListener("click", () => {

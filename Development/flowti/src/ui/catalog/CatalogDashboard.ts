@@ -1,6 +1,8 @@
 import { TFile, TFolder, setIcon } from "obsidian";
 import { InputModal, CreateEventModal } from "../modals";
 import { getVisibleEntries, discoveredToCatalogEntries, UNCATEGORIZED_CATEGORY } from "./helpers";
+import { renderStatGrid } from "../shared/StatCard";
+import type { StatCardItem } from "../shared/StatCard";
 import type { CatalogComponentDeps } from "./types";
 
 /**
@@ -31,12 +33,6 @@ export class CatalogDashboard {
 		}).style.margin = "0";
 
 		// Stats grid
-		const grid = this.container.createDiv({ cls: "ft-dashboard-grid" });
-		grid.style.display = "grid";
-		grid.style.gridTemplateColumns = "repeat(3, 1fr)";
-		grid.style.gap = "0.75rem";
-		grid.style.marginBottom = "1.5rem";
-
 		const visibleDomains = state.domainEntries.filter((d) =>
 			d.visible && (state.showSystemEvents || !d.isSystem));
 		const visibleServices = state.serviceEntries.filter((s) =>
@@ -46,44 +42,17 @@ export class CatalogDashboard {
 			state.discoveredEvents, this.deps.vaultQuery, this.deps.getEntityFolder("events"),
 		);
 
-		const cards: Array<{ icon: string; count: number; label: string; tab: string }> = [
-			{ icon: "boxes", count: visibleDomains.length, label: "Domains", tab: "domains" },
-			{ icon: "server", count: visibleServices.length, label: "Services", tab: "services" },
-			{ icon: "list", count: visibleEvents.length, label: "Events", tab: "events" },
-			{ icon: "git-branch", count: state.flowEntries.length, label: "Flows", tab: "flows" },
-			{ icon: "layout-grid", count: state.systemEntries.length, label: "Systems", tab: "systems" },
-			{ icon: "users", count: state.actorEntries.length, label: "Actors", tab: "actors" },
-			{ icon: "package", count: state.productEntries.length, label: "Products", tab: "products" },
+		const cards: StatCardItem[] = [
+			{ icon: "boxes", value: String(visibleDomains.length), label: "Domains", onClick: () => this.deps.navigation.navigateToTab("domains") },
+			{ icon: "server", value: String(visibleServices.length), label: "Services", onClick: () => this.deps.navigation.navigateToTab("services") },
+			{ icon: "list", value: String(visibleEvents.length), label: "Events", onClick: () => this.deps.navigation.navigateToTab("events") },
+			{ icon: "git-branch", value: String(state.flowEntries.length), label: "Flows", onClick: () => this.deps.navigation.navigateToTab("flows") },
+			{ icon: "layout-grid", value: String(state.systemEntries.length), label: "Systems", onClick: () => this.deps.navigation.navigateToTab("systems") },
+			{ icon: "users", value: String(state.actorEntries.length), label: "Actors", onClick: () => this.deps.navigation.navigateToTab("actors") },
+			{ icon: "package", value: String(state.productEntries.length), label: "Products", onClick: () => this.deps.navigation.navigateToTab("products") },
 		];
 
-		for (const card of cards) {
-			const el = grid.createDiv({ cls: "ft-dashboard-card" });
-			el.style.border = "1px solid var(--background-modifier-border)";
-			el.style.borderRadius = "8px";
-			el.style.padding = "1rem";
-			el.addClass("ft-cursor-pointer");
-			el.style.display = "flex";
-			el.style.alignItems = "center";
-			el.style.gap = "0.75rem";
-			el.style.transition = "border-color 0.15s";
-			el.addEventListener("mouseenter", () => {
-				el.style.borderColor = "var(--interactive-accent)";
-			});
-			el.addEventListener("mouseleave", () => {
-				el.style.borderColor = "var(--background-modifier-border)";
-			});
-			el.addEventListener("click", () => {
-				this.deps.navigation.navigateToTab(card.tab);
-			});
-
-			const iconEl = el.createDiv();
-			iconEl.style.opacity = "0.6";
-			setIcon(iconEl, card.icon);
-
-			const text = el.createDiv();
-			text.createDiv({ text: String(card.count), cls: "ft-catalog-stat-value" });
-			text.createDiv({ text: card.label, cls: "ft-catalog-stat-label" });
-		}
+		renderStatGrid(this.container, cards, 3);
 
 		// Documentation coverage
 		this.renderCoverage(state);

@@ -6,6 +6,7 @@ import {
 	getPropertiesFolder,
 	getTypesFolder,
 	getCsvDocPath,
+	getLegacyCsvDocPath,
 	getConfigDocPath,
 	getPropertyDocPath,
 	getPipelineDocPath,
@@ -190,12 +191,16 @@ describe("getTypesFolder", () => {
 // ── Document path helpers ────────────────────────────────
 
 describe("getCsvDocPath", () => {
-	it("generates CSV doc path from csv file path", () => {
-		expect(getCsvDocPath("Docs", "Data/products.csv")).toBe("Docs/Reports/CSV - products.md");
+	it("returns basename-only path for root-level csv files", () => {
+		expect(getCsvDocPath("Docs", "file.csv")).toBe("Docs/Reports/CSV - file.md");
 	});
 
-	it("strips .csv extension from basename", () => {
-		expect(getCsvDocPath("Docs", "file.csv")).toBe("Docs/Reports/CSV - file.md");
+	it("includes parent folder for nested csv files", () => {
+		expect(getCsvDocPath("Docs", "Data/products.csv")).toBe("Docs/Reports/CSV - products (Data).md");
+	});
+
+	it("includes full folder path for deeply nested csv files", () => {
+		expect(getCsvDocPath("Root", "a/b/c/deep.csv")).toBe("Root/Reports/CSV - deep (a - b - c).md");
 	});
 
 	it("sanitizes special characters in csv filename", () => {
@@ -206,8 +211,23 @@ describe("getCsvDocPath", () => {
 		expect(getCsvDocPath("Docs/", "data.csv")).toBe("Docs/Reports/CSV - data.md");
 	});
 
-	it("handles nested csv path by extracting basename", () => {
-		expect(getCsvDocPath("Root", "a/b/c/deep.csv")).toBe("Root/Reports/CSV - deep.md");
+	it("disambiguates same-named files in different folders", () => {
+		const pathA = getCsvDocPath("Docs", "HR/employees.csv");
+		const pathB = getCsvDocPath("Docs", "Finance/employees.csv");
+		expect(pathA).not.toBe(pathB);
+		expect(pathA).toBe("Docs/Reports/CSV - employees (HR).md");
+		expect(pathB).toBe("Docs/Reports/CSV - employees (Finance).md");
+	});
+});
+
+describe("getLegacyCsvDocPath", () => {
+	it("returns basename-only path regardless of folder", () => {
+		expect(getLegacyCsvDocPath("Docs", "Data/products.csv")).toBe("Docs/Reports/CSV - products.md");
+		expect(getLegacyCsvDocPath("Docs", "a/b/c/deep.csv")).toBe("Docs/Reports/CSV - deep.md");
+	});
+
+	it("matches getCsvDocPath for root-level files", () => {
+		expect(getLegacyCsvDocPath("Docs", "file.csv")).toBe(getCsvDocPath("Docs", "file.csv"));
 	});
 });
 

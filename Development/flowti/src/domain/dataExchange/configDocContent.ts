@@ -43,6 +43,22 @@ export function getCsvDocPath(docsRoot: string, csvPath: string): string {
 	const folder = getReportsFolder(docsRoot);
 	const csvBasename = stripExtension(basename(csvPath), ".csv") || "csv";
 	const safeName = sanitizeDocName(csvBasename);
+
+	// Include parent folder path to disambiguate CSV files with the same name
+	const lastSlash = csvPath.lastIndexOf("/");
+	if (lastSlash > 0) {
+		const parentPath = csvPath.substring(0, lastSlash).replace(/\//g, " - ");
+		const safeParent = sanitizeDocName(parentPath);
+		return `${folder}/CSV - ${safeName} (${safeParent}).md`;
+	}
+	return `${folder}/CSV - ${safeName}.md`;
+}
+
+/** Legacy path (basename-only) for backward compatibility with pre-existing docs. */
+export function getLegacyCsvDocPath(docsRoot: string, csvPath: string): string {
+	const folder = getReportsFolder(docsRoot);
+	const csvBasename = stripExtension(basename(csvPath), ".csv") || "csv";
+	const safeName = sanitizeDocName(csvBasename);
 	return `${folder}/CSV - ${safeName}.md`;
 }
 
@@ -89,6 +105,8 @@ export function buildCsvDocContent(
 ): string {
 	const csvBasename = basename(csvPath) || "file.csv";
 	const now = new Date().toISOString();
+	// Strip surrounding quotes from headers (CSV parsing may leave them)
+	const cleanHeaders = headers.map((h) => h.replace(/^"+|"+$/g, ""));
 
 	const lines: string[] = [
 		"---",
@@ -97,10 +115,11 @@ export function buildCsvDocContent(
 		`filePath: "${csvPath}"`,
 		`name: "${csvBasename}"`,
 		`description: ""`,
-		`columns: ${headers.length}`,
+		`columns: ${cleanHeaders.length}`,
 		`rows: ${rowCount}`,
 		`delimiter: "${delimiter ?? ","}"`,
-		`headers: [${headers.map((h) => `"${h}"`).join(", ")}]`,
+		`headers: [${cleanHeaders.map((h) => `"${h}"`).join(", ")}]`,
+		`noteType: ""`,
 		`created: "${now}"`,
 		"---",
 		"",

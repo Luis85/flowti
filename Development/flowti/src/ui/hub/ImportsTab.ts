@@ -241,7 +241,7 @@ export class ImportsTab {
 
 		// Description from linked CsvDoc
 		if (cfg.sourcePath) {
-			const csvDocPath = this.deps.dataExchangeService.getCsvDocPath(cfg.sourcePath);
+			const csvDocPath = this.deps.dataExchangeService.resolveCsvDocPath(cfg.sourcePath, (p) => !!this.deps.app.vault.getAbstractFileByPath(p));
 			const csvDocFile = this.deps.app.vault.getAbstractFileByPath(csvDocPath);
 			if (csvDocFile instanceof TFile) {
 				const cache = this.deps.app.metadataCache.getFileCache(csvDocFile);

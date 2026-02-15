@@ -3,6 +3,12 @@
     "aliases": "aliases",
     "cssclasses": "multitext",
     "tags": "tags",
-    "decided": "checkbox"
+    "decided": "checkbox",
+    "maturity_score_architecture": "number",
+    "maturity_score_event_integration": "number",
+    "maturity_score_data_model": "number",
+    "maturity_score_ui_consistency": "number",
+    "maturity_score_validation_testing": "number",
+    "maturity_score_total": "number"
   }
 }

@@ -508,6 +508,11 @@ export class DataExchangeService {
 		return this.configDocService.getCsvDocPath(csvPath);
 	}
 
+	/** Returns the doc path that actually exists (new or legacy), or the new path if neither exists. */
+	resolveCsvDocPath(csvPath: string, fileExists: (path: string) => boolean): string {
+		return this.configDocService.resolveCsvDocPath(csvPath, fileExists);
+	}
+
 	async createCsvDoc(csvPath: string, headers: string[], rowCount: number, delimiter?: string): Promise<string> {
 		return this.configDocService.createCsvDoc(csvPath, headers, rowCount, delimiter);
 	}

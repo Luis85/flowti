@@ -23,6 +23,7 @@ import {
 	getPropertiesFolder,
 	getTypesFolder,
 	getCsvDocPath as _getCsvDocPath,
+	getLegacyCsvDocPath as _getLegacyCsvDocPath,
 	getConfigDocPath as _getConfigDocPath,
 	getPropertyDocPath as _getPropertyDocPath,
 	getPipelineDocPath as _getPipelineDocPath,
@@ -72,6 +73,15 @@ export class ConfigDocService {
 
 	getCsvDocPath(csvPath: string): string {
 		return _getCsvDocPath(this.deps.getDocsRootPath(), csvPath);
+	}
+
+	/** Returns the doc path that actually exists (new or legacy), or the new path if neither exists. */
+	resolveCsvDocPath(csvPath: string, fileExists: (path: string) => boolean): string {
+		const newPath = this.getCsvDocPath(csvPath);
+		if (fileExists(newPath)) return newPath;
+		const legacyPath = _getLegacyCsvDocPath(this.deps.getDocsRootPath(), csvPath);
+		if (newPath !== legacyPath && fileExists(legacyPath)) return legacyPath;
+		return newPath;
 	}
 
 	getConfigDocPath(

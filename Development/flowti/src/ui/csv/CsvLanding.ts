@@ -50,7 +50,7 @@ export class CsvLanding {
 
 		// Show description from CsvDoc if it exists
 		if (file) {
-			const docPath = this.deps.dataExchangeService.getCsvDocPath(file.path);
+			const docPath = this.deps.dataExchangeService.resolveCsvDocPath(file.path, (p) => !!this.deps.app.vault.getAbstractFileByPath(p));
 			const docFile = this.deps.app.vault.getAbstractFileByPath(docPath);
 			if (docFile instanceof TFile) {
 				const fm = this.deps.app.metadataCache.getFileCache(docFile)?.frontmatter;
@@ -105,7 +105,7 @@ export class CsvLanding {
 
 		// Documentation button
 		if (file) {
-			const docPath = this.deps.dataExchangeService.getCsvDocPath(file.path);
+			const docPath = this.deps.dataExchangeService.resolveCsvDocPath(file.path, (p) => !!this.deps.app.vault.getAbstractFileByPath(p));
 			const abstractFile = this.deps.app.vault.getAbstractFileByPath(docPath);
 			const docExists = abstractFile instanceof TFile;
 			if (docExists) {
@@ -182,7 +182,7 @@ export class CsvLanding {
 	private renderCsvDocSection(container: HTMLElement): void {
 		const file = this.deps.getFile();
 		if (!file) return;
-		const docPath = this.deps.dataExchangeService.getCsvDocPath(file.path);
+		const docPath = this.deps.dataExchangeService.resolveCsvDocPath(file.path, (p) => !!this.deps.app.vault.getAbstractFileByPath(p));
 		if (this.deps.app.vault.getAbstractFileByPath(docPath)) return;
 
 		const cta = container.createDiv({ cls: "ft-doc-cta ft-mb-3" });

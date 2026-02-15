@@ -128,10 +128,31 @@ describe("ConfigDocService", () => {
 			expect(svc.getTypesFolderPath()).toContain("Types");
 		});
 
-		it("getCsvDocPath includes CSV basename", () => {
+		it("getCsvDocPath includes CSV basename and folder", () => {
 			const path = svc.getCsvDocPath("data/sales.csv");
 			expect(path).toContain("sales");
 			expect(path).toContain("Reports");
+			expect(path).toContain("data");
+		});
+
+		it("resolveCsvDocPath falls back to legacy path", () => {
+			const newPath = svc.getCsvDocPath("data/sales.csv");
+			// Legacy path exists
+			const legacyPath = `${docsRoot}/Reports/CSV - sales.md`;
+			const resolved = svc.resolveCsvDocPath("data/sales.csv", (p) => p === legacyPath);
+			expect(resolved).toBe(legacyPath);
+		});
+
+		it("resolveCsvDocPath prefers new path when it exists", () => {
+			const newPath = svc.getCsvDocPath("data/sales.csv");
+			const resolved = svc.resolveCsvDocPath("data/sales.csv", (p) => p === newPath);
+			expect(resolved).toBe(newPath);
+		});
+
+		it("resolveCsvDocPath returns new path when neither exists", () => {
+			const newPath = svc.getCsvDocPath("data/sales.csv");
+			const resolved = svc.resolveCsvDocPath("data/sales.csv", () => false);
+			expect(resolved).toBe(newPath);
 		});
 
 		it("getConfigDocPath includes config name and type", () => {

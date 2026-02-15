@@ -1817,3 +1817,22 @@
 .ft-health-severity-pass { background-color: var(--color-green); }
 .ft-health-severity-warn { background-color: var(--color-yellow); }
 .ft-health-severity-fail { background-color: var(--color-red); }
+
+/* Shared stat card grid */
+.ft-stat-grid {
+	display: grid;
+	gap: 0.75rem;
+	margin-bottom: 1.5rem;
+}
+.ft-stat-card {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	padding: 1rem;
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	transition: border-color 0.15s;
+}
+.ft-stat-card:hover {
+	border-color: var(--interactive-accent);
+}

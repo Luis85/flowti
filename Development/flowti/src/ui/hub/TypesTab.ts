@@ -5,7 +5,7 @@
 
 import { setIcon } from "obsidian";
 import { ConfirmModal, InputModal } from "../modals";
-import { renderEmptyDetail, openEventInCatalog, getEmptyDetailStats } from "./helpers";
+import { renderEmptyDetail, openEventInCatalog, getEmptyDetailStats, renderScanIssuesBanner } from "./helpers";
 import type { HubComponentDeps } from "./types";
 
 export class TypesTab {
@@ -23,6 +23,12 @@ export class TypesTab {
 		this.masterEl.empty();
 
 		const state = this.deps.getState();
+
+		// Show scan issues for TypeDoc files
+		const typesFolder = this.deps.dataExchangeService.getTypesFolderPath();
+		const typeIssues = state.frontmatterIssues.filter((i) => i.filePath.startsWith(typesFolder));
+		renderScanIssuesBanner(this.masterEl, typeIssues);
+
 		let entries = state.typeEntries;
 		if (state.filterText) {
 			entries = entries.filter((e) =>

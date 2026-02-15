@@ -5,7 +5,7 @@
 import { App, TFile, setIcon } from "obsidian";
 import type { SavedImportConfig, SavedMultiImportPipeline } from "../../domain/dataExchange/types";
 import { VIEW_TYPE_EVENT_CATALOG, EventCatalogView } from "../EventCatalogView";
-import type { HubComponentDeps, HubPage } from "./types";
+import type { FrontmatterIssue, HubComponentDeps, HubPage } from "./types";
 
 /** Adds a label + value row to an info grid element. */
 export function addInfoRow(grid: HTMLElement, label: string, value: string): void {
@@ -250,4 +250,108 @@ export function getEmptyDetailStats(deps: HubComponentDeps): { count: number; la
 		types: { count: state.typeEntries.length, label: "note types" },
 	};
 	return map[state.currentPage] ?? { count: 0, label: "" };
+}
+
+// ─────────────────────────────────────────────────────────
+// Frontmatter validation
+// ─────────────────────────────────────────────────────────
+
+/** Validates CsvDoc frontmatter and returns a list of issues found. */
+export function validateCsvDocFrontmatter(fm: Record<string, unknown>): string[] {
+	const issues: string[] = [];
+	if (fm.type !== "CsvDoc") {
+		issues.push(`Expected type "CsvDoc" but found "${String(fm.type ?? "missing")}"`);
+	}
+	if (!fm.csvFile && !fm.filePath) {
+		issues.push("Missing csvFile and filePath — cannot link to source CSV");
+	}
+	if (!fm.headers) {
+		issues.push("Missing headers array — column schema not recorded");
+	} else if (!Array.isArray(fm.headers)) {
+		issues.push(`headers should be an array but found ${typeof fm.headers}`);
+	} else if (fm.headers.length === 0) {
+		issues.push("headers array is empty — no columns recorded");
+	}
+	if (fm.columns !== undefined && typeof fm.columns !== "number") {
+		issues.push(`columns should be a number but found ${typeof fm.columns}`);
+	}
+	if (fm.rows !== undefined && typeof fm.rows !== "number") {
+		issues.push(`rows should be a number but found ${typeof fm.rows}`);
+	}
+	return issues;
+}
+
+/** Validates TypeDoc frontmatter and returns a list of issues found. */
+export function validateTypeDocFrontmatter(fm: Record<string, unknown>): string[] {
+	const issues: string[] = [];
+	if (fm.type !== "TypeDoc") {
+		issues.push(`Expected type "TypeDoc" but found "${String(fm.type ?? "missing")}"`);
+	}
+	if (!fm.name || typeof fm.name !== "string") {
+		issues.push("Missing or invalid name field");
+	}
+	if (fm.properties !== undefined && !Array.isArray(fm.properties)) {
+		issues.push(`properties should be an array but found ${typeof fm.properties}`);
+	}
+	return issues;
+}
+
+/** Validates frontmatter for a doc file in a given folder and returns issues. */
+export function validateDocFrontmatter(
+	fm: Record<string, unknown> | undefined,
+	expectedType: string,
+	filePath: string,
+): FrontmatterIssue | null {
+	const fileName = filePath.split("/").pop() ?? filePath;
+	if (!fm) {
+		return { filePath, fileName, issues: ["No frontmatter found — file may be empty or malformed"] };
+	}
+	if (fm.type !== expectedType) {
+		return {
+			filePath, fileName,
+			issues: [`Expected type "${expectedType}" but found "${String(fm.type ?? "missing")}"`],
+		};
+	}
+	return null;
+}
+
+/** Renders a frontmatter warning alert in the detail panel. */
+export function renderFrontmatterAlert(container: HTMLElement, issues: string[]): void {
+	if (issues.length === 0) return;
+	const alert = container.createDiv({ cls: "ft-alert ft-alert-warning ft-mt-2" });
+	const header = alert.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+	const icon = header.createSpan();
+	setIcon(icon, "alert-triangle");
+	header.createEl("strong", { text: "Frontmatter Issues" });
+	const list = alert.createEl("ul");
+	list.style.margin = "0.5rem 0 0";
+	list.style.paddingLeft = "1.5rem";
+	for (const issue of issues) {
+		list.createEl("li", { text: issue, cls: "ft-text-sm" });
+	}
+}
+
+/** Renders a summary alert for files that could not be loaded during scan. */
+export function renderScanIssuesBanner(container: HTMLElement, issues: FrontmatterIssue[]): void {
+	if (issues.length === 0) return;
+	const alert = container.createDiv({ cls: "ft-alert ft-alert-warning ft-text-sm" });
+	alert.style.margin = "0.5rem";
+	const row = alert.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+	const icon = row.createSpan();
+	setIcon(icon, "alert-triangle");
+	row.createSpan({
+		text: `${issues.length} file${issues.length !== 1 ? "s" : ""} skipped due to frontmatter issues`,
+	});
+
+	const details = alert.createEl("details");
+	details.style.marginTop = "0.5rem";
+	details.createEl("summary", { text: "Show details", cls: "ft-cursor-pointer" });
+	const list = details.createEl("ul");
+	list.style.paddingLeft = "1.5rem";
+	list.style.margin = "0.25rem 0 0";
+	for (const fi of issues) {
+		const li = list.createEl("li");
+		li.createEl("strong", { text: fi.fileName });
+		li.appendText(`: ${fi.issues.join("; ")}`);
+	}
 }

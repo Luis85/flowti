@@ -29,16 +29,25 @@ export type HubPage = "dashboard" | "imports" | "exports" | "reports" | "propert
 export interface CsvFileEntry {
 	path: string;
 	name: string;
+	/** Display name with parent folder appended when names collide. */
+	displayName: string;
 	importConfigs: SavedImportConfig[];
 	exportConfigs: SavedExportConfig[];
 	hasDoc: boolean;
 	baseViews: Array<{ path: string; name: string }>;
 }
 
+export interface FrontmatterIssue {
+	filePath: string;
+	fileName: string;
+	issues: string[];
+}
+
 export interface ReportEntry {
 	name: string;
 	path: string;
 	frontmatter: Record<string, unknown>;
+	frontmatterIssues: string[];
 }
 
 export interface HubState {
@@ -53,12 +62,14 @@ export interface HubState {
 	documentedProperties: Set<string>;
 	filterText: string;
 	showHiddenCsvs: boolean;
+	frontmatterIssues: FrontmatterIssue[];
 
 	// Selection & editing state
 	selectedImportId: string | null;
 	selectedExportId: string | null;
 	selectedDictProp: string | null;
 	selectedReportPath: string | null;
+	selectedCsvFilePath: string | null;
 	selectedPipelineId: string | null;
 	selectedTypeName: string | null;
 	editingImportId: string | null;

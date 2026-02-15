@@ -16,7 +16,7 @@ import type {
 	SavedMultiImportPipeline,
 	TypeDocEntry,
 } from "../domain/dataExchange/types";
-import type { HubPage, HubState, HubComponentDeps, HubNavigationCallbacks, CsvFileEntry, ReportEntry } from "./hub/types";
+import type { FrontmatterIssue, HubPage, HubState, HubComponentDeps, HubNavigationCallbacks, CsvFileEntry, ReportEntry } from "./hub/types";
 import { HubDashboard } from "./hub/HubDashboard";
 import { ImportsTab } from "./hub/ImportsTab";
 import { ExportsTab } from "./hub/ExportsTab";
@@ -47,6 +47,7 @@ export class DataExchangeHubView extends ItemView {
 	private typeEntries: TypeDocEntry[] = [];
 	private csvFileEntries: CsvFileEntry[] = [];
 	private documentedProperties = new Set<string>();
+	private frontmatterIssues: FrontmatterIssue[] = [];
 	private filterText = "";
 	private showHiddenCsvs = false;
 
@@ -54,6 +55,7 @@ export class DataExchangeHubView extends ItemView {
 	private selectedExportId: string | null = null;
 	private selectedDictProp: string | null = null;
 	private selectedReportPath: string | null = null;
+	private selectedCsvFilePath: string | null = null;
 	private selectedPipelineId: string | null = null;
 	private selectedTypeName: string | null = null;
 	private editingImportId: string | null = null;
@@ -238,12 +240,14 @@ export class DataExchangeHubView extends ItemView {
 			typeEntries: this.typeEntries,
 			csvFileEntries: this.csvFileEntries,
 			documentedProperties: this.documentedProperties,
+			frontmatterIssues: this.frontmatterIssues,
 			filterText: this.filterText,
 			showHiddenCsvs: this.showHiddenCsvs,
 			selectedImportId: this.selectedImportId,
 			selectedExportId: this.selectedExportId,
 			selectedDictProp: this.selectedDictProp,
 			selectedReportPath: this.selectedReportPath,
+			selectedCsvFilePath: this.selectedCsvFilePath,
 			selectedPipelineId: this.selectedPipelineId,
 			selectedTypeName: this.selectedTypeName,
 			editingImportId: this.editingImportId,
@@ -260,6 +264,7 @@ export class DataExchangeHubView extends ItemView {
 		if (partial.selectedExportId !== undefined) this.selectedExportId = partial.selectedExportId;
 		if (partial.selectedDictProp !== undefined) this.selectedDictProp = partial.selectedDictProp;
 		if (partial.selectedReportPath !== undefined) this.selectedReportPath = partial.selectedReportPath;
+		if (partial.selectedCsvFilePath !== undefined) this.selectedCsvFilePath = partial.selectedCsvFilePath;
 		if (partial.selectedPipelineId !== undefined) this.selectedPipelineId = partial.selectedPipelineId;
 		if (partial.selectedTypeName !== undefined) this.selectedTypeName = partial.selectedTypeName;
 		if (partial.editingImportId !== undefined) this.editingImportId = partial.editingImportId;
@@ -294,15 +299,32 @@ export class DataExchangeHubView extends ItemView {
 
 	private scanTypeDocs(): void {
 		this.typeEntries = [];
+		const typeDocIssues: FrontmatterIssue[] = [];
 		const folder = this.dataExchangeService.getTypesFolderPath();
 		const allFiles = this.app.vault.getMarkdownFiles();
 		for (const file of allFiles) {
 			if (!file.path.startsWith(folder)) continue;
 			const cache = this.app.metadataCache.getFileCache(file);
-			if (cache?.frontmatter?.type !== "TypeDoc") continue;
-			const name = String(cache.frontmatter.name ?? file.basename.replace(/^Type - /, ""));
-			const description = String(cache.frontmatter.description ?? "");
-			const rawProps = cache.frontmatter.properties;
+			const fm = cache?.frontmatter;
+			if (!fm) {
+				typeDocIssues.push({
+					filePath: file.path,
+					fileName: file.basename,
+					issues: ["No frontmatter found — file may be empty or malformed"],
+				});
+				continue;
+			}
+			if (fm.type !== "TypeDoc") {
+				typeDocIssues.push({
+					filePath: file.path,
+					fileName: file.basename,
+					issues: [`Expected type "TypeDoc" but found "${String(fm.type ?? "missing")}"`],
+				});
+				continue;
+			}
+			const name = String(fm.name ?? file.basename.replace(/^Type - /, ""));
+			const description = String(fm.description ?? "");
+			const rawProps = fm.properties;
 			const properties: string[] = Array.isArray(rawProps) ? rawProps.map(String) : [];
 			const pipelineCount = this.pipelineConfigs.filter((p) => p.noteType === name).length
 				+ this.importConfigs.filter((c) => c.noteType === name).length
@@ -310,10 +332,13 @@ export class DataExchangeHubView extends ItemView {
 			this.typeEntries.push({ name, description, properties, filePath: file.path, pipelineCount });
 		}
 		this.typeEntries.sort((a, b) => a.name.localeCompare(b.name));
+		// Merge type doc issues into the shared list
+		this.frontmatterIssues = [...this.frontmatterIssues, ...typeDocIssues];
 	}
 
 	private scanCsvDocs(): void {
 		this.reportEntries = [];
+		const csvDocIssues: FrontmatterIssue[] = [];
 		const folder = this.dataExchangeService.getReportsFolderPath();
 		const abstractFolder = this.app.vault.getAbstractFileByPath(folder);
 		if (!abstractFolder) return;
@@ -324,14 +349,41 @@ export class DataExchangeHubView extends ItemView {
 			if (!file.basename.startsWith("CSV - ")) continue;
 			const cache = this.app.metadataCache.getFileCache(file);
 			const fm = cache?.frontmatter;
-			if (fm?.type !== "CsvDoc") continue;
+			if (!fm) {
+				csvDocIssues.push({
+					filePath: file.path,
+					fileName: file.basename,
+					issues: ["No frontmatter found — file may be empty or malformed"],
+				});
+				continue;
+			}
+			if (fm.type !== "CsvDoc") {
+				csvDocIssues.push({
+					filePath: file.path,
+					fileName: file.basename,
+					issues: [`Expected type "CsvDoc" but found "${String(fm.type ?? "missing")}"`],
+				});
+				continue;
+			}
+			// Validate individual fields
+			const issues: string[] = [];
+			if (!fm.csvFile && !fm.filePath) {
+				issues.push("Missing csvFile and filePath — cannot link to source CSV");
+			}
+			if (!fm.headers) {
+				issues.push("Missing headers — column schema not recorded");
+			} else if (!Array.isArray(fm.headers)) {
+				issues.push(`headers should be an array but found ${typeof fm.headers}`);
+			}
 			this.reportEntries.push({
 				name: fm.name ? String(fm.name) : file.basename.replace("CSV - ", ""),
 				path: file.path,
 				frontmatter: fm,
+				frontmatterIssues: issues,
 			});
 		}
 		this.reportEntries.sort((a, b) => a.name.localeCompare(b.name));
+		this.frontmatterIssues = csvDocIssues;
 	}
 
 	private scanCsvFiles(): void {
@@ -344,7 +396,7 @@ export class DataExchangeHubView extends ItemView {
 
 			const importConfigs = this.dataExchangeService.getImportConfigsForFile(file.path);
 			const exportConfigs = this.dataExchangeService.getExportConfigsForOutput(file.path);
-			const docPath = this.dataExchangeService.getCsvDocPath(file.path);
+			const docPath = this.dataExchangeService.resolveCsvDocPath(file.path, (p) => !!this.app.vault.getAbstractFileByPath(p));
 			const hasDoc = !!this.app.vault.getAbstractFileByPath(docPath);
 
 			const bases: Array<{ path: string; name: string }> = [];
@@ -373,13 +425,32 @@ export class DataExchangeHubView extends ItemView {
 			this.csvFileEntries.push({
 				path: file.path,
 				name: file.name,
+				displayName: file.name, // placeholder, disambiguated below
 				importConfigs,
 				exportConfigs,
 				hasDoc,
 				baseViews: bases,
 			});
 		}
-		this.csvFileEntries.sort((a, b) => a.name.localeCompare(b.name));
+
+		// Disambiguate display names for CSV files with the same name
+		const nameCount = new Map<string, number>();
+		for (const entry of this.csvFileEntries) {
+			nameCount.set(entry.name, (nameCount.get(entry.name) ?? 0) + 1);
+		}
+		for (const entry of this.csvFileEntries) {
+			if ((nameCount.get(entry.name) ?? 0) > 1) {
+				const lastSlash = entry.path.lastIndexOf("/");
+				const parentFolder = lastSlash > 0
+					? entry.path.substring(0, lastSlash).split("/").pop() ?? ""
+					: "";
+				entry.displayName = parentFolder
+					? `${entry.name} (${parentFolder})`
+					: entry.name;
+			}
+		}
+
+		this.csvFileEntries.sort((a, b) => a.displayName.localeCompare(b.displayName));
 	}
 
 	// ══════════════════════════════════════════════════════════

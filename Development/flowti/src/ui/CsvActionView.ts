@@ -5,7 +5,7 @@
  * delegated to components in src/ui/csv/.
  */
 
-import { Notice, TextFileView, WorkspaceLeaf, setIcon } from "obsidian";
+import { Notice, TFile, TextFileView, WorkspaceLeaf, setIcon } from "obsidian";
 import type { IEventBus } from "../infrastructure/events/types";
 import type { DataExchangeService } from "../domain/dataExchange/DataExchangeService";
 import type { SavedImportConfig } from "../domain/dataExchange/types";
@@ -370,6 +370,18 @@ export class CsvActionView extends TextFileView {
 			defaultValue: defaultName,
 			submitLabel: "Save",
 			onSubmit: (name) => {
+				// Look up noteType from linked CsvDoc report (if available)
+				let reportNoteType: string | undefined;
+				if (this.file) {
+					const docPath = this.dataExchangeService.resolveCsvDocPath(this.file.path, (p) => !!this.app.vault.getAbstractFileByPath(p));
+					const docFile = this.app.vault.getAbstractFileByPath(docPath);
+					if (docFile instanceof TFile) {
+						const cache = this.app.metadataCache.getFileCache(docFile);
+						const nt = cache?.frontmatter?.noteType;
+						if (typeof nt === "string" && nt) reportNoteType = nt;
+					}
+				}
+
 				const configData = {
 					name,
 					sourcePath: this.file?.path,
@@ -384,6 +396,7 @@ export class CsvActionView extends TextFileView {
 						: undefined,
 					createBase: this.state.createBase || undefined,
 					basePath: this.state.basePath || undefined,
+					noteType: reportNoteType,
 				};
 
 				const existing = this.dataExchangeService
