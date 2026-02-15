@@ -21,12 +21,12 @@ views:
       - description
       - tags
     columnSize:
-      file.name: 343
+      file.name: 397
       note.status: 90
       note.severity: 90
-      note.category: 120
-      note.layer: 110
       note.effort: 80
+      note.layer: 110
+      note.category: 120
       note.description: 400
   - type: table
     name: By Category

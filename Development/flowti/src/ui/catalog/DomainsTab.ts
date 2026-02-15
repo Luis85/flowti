@@ -3,8 +3,6 @@ import { EVENT_CATALOG, SYSTEM_DOMAINS, type EventCatalogEntry } from "../../inf
 import {
 	readFrontmatter, fmString, fmStringArray,
 	isConfigured, discoveredToCatalogEntries,
-	renderStat, renderRelatedSection,
-	findRelatedFlows, findRelatedSystems, findRelatedActors,
 	openFile, normalizeNonConformingFiles,
 } from "./helpers";
 import type { NonConformingFile } from "./helpers";
@@ -12,23 +10,34 @@ import {
 	getDomainDocPathResolved, generateDomainDocContent,
 	getArchitectureDocPathResolved, generateArchitectureDocContent,
 } from "../eventDocTemplate";
-import { InputModal, ConfirmModal } from "../modals";
+import { InputModal } from "../modals";
 import type { CatalogComponentDeps, DomainEntry } from "./types";
+import { DomainDetailPanel } from "./DomainDetailPanel";
 
 /**
  * Domains tab component for the Event Catalog view.
- * Renders the master list of domains and the detail panel for a selected domain.
+ * Renders the master list of domains. Detail rendering is delegated to DomainDetailPanel.
  */
 export class DomainsTab {
 	private entries: DomainEntry[] = [];
 	private selectedDomain: string | null = null;
 	private showHidden = false;
+	private detailPanel: DomainDetailPanel;
 
 	constructor(
 		private masterEl: HTMLElement,
 		private detailEl: HTMLElement,
 		private deps: CatalogComponentDeps,
-	) {}
+	) {
+		this.detailPanel = new DomainDetailPanel(detailEl, deps, {
+			getSelectedDomain: () => this.selectedDomain,
+			getEntries: () => this.entries,
+			createDoc: (name) => this.createDoc(name),
+			deleteDoc: (path) => this.deleteDoc(path),
+			createArea: (name) => this.createArea(name),
+			createArchitectureDoc: (name) => this.createArchitectureDoc(name),
+		});
+	}
 
 	getEntries(): DomainEntry[] { return this.entries; }
 	getSelectedDomain(): string | null { return this.selectedDomain; }
@@ -127,7 +136,6 @@ export class DomainsTab {
 				};
 			})
 			.sort((a, b) => {
-				// Areas first, then alphabetical
 				if (a.isArea !== b.isArea) return a.isArea ? -1 : 1;
 				return a.name.localeCompare(b.name);
 			});
@@ -293,197 +301,11 @@ export class DomainsTab {
 	}
 
 	// ─────────────────────────────────────────────────────────────
-	// Detail panel
+	// Detail panel — delegated to DomainDetailPanel
 	// ─────────────────────────────────────────────────────────────
 
 	renderDetail(): void {
-		this.detailEl.empty();
-
-		if (!this.selectedDomain) {
-			this.renderDetailEmpty();
-			return;
-		}
-
-		const domainData = this.entries.find((d) => d.name === this.selectedDomain);
-		if (!domainData) {
-			this.renderDetailEmpty();
-			return;
-		}
-
-		// Header
-		const header = this.detailEl.createDiv({ cls: "ft-detail-header" });
-		const left = header.createDiv();
-		left.createDiv({ text: domainData.name, cls: "ft-detail-event-type" });
-		const badges = left.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
-		badges.createSpan({ text: `${domainData.events.length} events`, cls: "ft-badge ft-badge-muted" });
-		if (domainData.isArea) {
-			badges.createSpan({ text: "area", cls: "ft-badge ft-badge-area" });
-		}
-		if (domainData.isSystem) {
-			badges.createSpan({ text: "system", cls: "ft-badge ft-badge-system" });
-		} else if (domainData.filePath === null) {
-			badges.createSpan({ text: "undocumented", cls: "ft-badge ft-badge-muted" });
-		}
-
-		// Description
-		if (domainData.description) {
-			const descCard = this.detailEl.createDiv({ cls: "ft-card ft-mt-2" });
-			descCard.createEl("p", {
-				text: domainData.description,
-				cls: "ft-text-muted ft-text-sm",
-			});
-		}
-
-		// Info card
-		const card = this.detailEl.createDiv({ cls: "ft-card ft-mt-2" });
-		const grid = card.createDiv({ cls: "ft-detail-info-grid" });
-
-		const addRow = (label: string, value: string) => {
-			grid.createDiv({ text: label, cls: "ft-detail-info-label" });
-			grid.createDiv({ text: value, cls: "ft-detail-info-value" });
-		};
-
-		addRow("Total Events", String(domainData.events.length));
-		addRow("Configured", String(domainData.configuredCount));
-		addRow("Visible in Log", `${domainData.visibleCount} / ${domainData.events.length}`);
-		addRow("Categories", domainData.categories.join(", "));
-
-		// Services — each clickable, navigates to Services tab
-		grid.createDiv({ text: "Services", cls: "ft-detail-info-label" });
-		const svcVal = grid.createDiv({ cls: "ft-detail-info-value ft-flex ft-gap-1" });
-		if (domainData.services.length > 0) {
-			for (const svc of domainData.services) {
-				const svcLink = svcVal.createEl("span", { text: svc, cls: "ft-nav-link" });
-				svcLink.addEventListener("click", () => this.deps.navigation.navigateToService(svc));
-			}
-		} else {
-			svcVal.createSpan({ text: "(none)", cls: "ft-text-muted" });
-		}
-
-		// Actions
-		const actions = this.detailEl.createDiv({ cls: "ft-detail-actions" });
-
-		// Open / create doc
-		const docBtn = actions.createEl("span", { cls: "ft-nav-link" });
-		const docIcon = docBtn.createSpan();
-		setIcon(docIcon, "file-text");
-		docBtn.appendText(domainData.filePath ? " Open Doc" : " Create Doc");
-		docBtn.addEventListener("click", () => {
-			if (domainData.filePath) {
-				void openFile(this.deps.workspace, domainData.filePath);
-			} else {
-				void this.createDoc(domainData.name);
-			}
-		});
-
-		// Architecture Doc button
-		const archBtn = actions.createEl("span", { cls: "ft-nav-link" });
-		const archIcon = archBtn.createSpan();
-		setIcon(archIcon, "layout");
-		const archDocPath = getArchitectureDocPathResolved(
-			this.deps.getEntityFolder("domains"), domainData.name,
-		);
-		const archExists = !!this.deps.app.vault.getAbstractFileByPath(archDocPath);
-		archBtn.appendText(archExists ? " Architecture Doc" : " Create Architecture Doc");
-		archBtn.addEventListener("click", () => {
-			void this.createArchitectureDoc(domainData.name);
-		});
-
-		// Mark as Area button
-		const areaPath = `02 - Areas/${domainData.name}/${domainData.name}.md`;
-		const areaExists = !!this.deps.app.vault.getAbstractFileByPath(areaPath);
-		const areaBtn = actions.createEl("span", { cls: "ft-nav-link" });
-		const areaIcon = areaBtn.createSpan();
-		setIcon(areaIcon, areaExists ? "map-pin" : "map");
-		areaBtn.appendText(areaExists ? " Open Area" : " Mark as Area");
-		areaBtn.addEventListener("click", () => {
-			void this.createArea(domainData.name);
-		});
-
-		// Delete button for documented domains (file-based only)
-		if (domainData.filePath) {
-			const delBtn = actions.createEl("button", { cls: "ft-btn ft-btn-ghost ft-text-sm" });
-			delBtn.style.color = "var(--text-error)";
-			const delIcon = delBtn.createSpan();
-			setIcon(delIcon, "trash-2");
-			delBtn.appendText(" Delete");
-			delBtn.addEventListener("click", () => {
-				new ConfirmModal(this.deps.app, {
-					message: `Delete domain doc "${domainData.name}"?`,
-					confirmLabel: "Delete",
-					onConfirm: () => {
-						void this.deleteDoc(domainData.filePath!);
-					},
-				}).open();
-			});
-		}
-
-		// Events list
-		const section = this.detailEl.createDiv({ cls: "ft-detail-section" });
-		const sectionHeader = section.createDiv({ cls: "ft-detail-section-header" });
-		sectionHeader.createSpan({
-			text: `Events (${domainData.events.length})`,
-			cls: "ft-heading ft-heading-sm",
-		});
-
-		for (const entry of domainData.events) {
-			const row = section.createDiv({ cls: "ft-catalog-row" });
-			row.addClass("ft-cursor-pointer");
-
-			row.createSpan({ text: entry.type, cls: "ft-event-type" });
-			row.createSpan({ text: entry.category, cls: "ft-catalog-meta" });
-
-			row.addEventListener("click", () => {
-				this.deps.navigation.navigateToEvent(entry.type);
-			});
-		}
-
-		// Related entities
-		const state = this.deps.getState();
-		const criteria = { domains: [domainData.name] };
-
-		renderRelatedSection(
-			this.detailEl, "Related Flows",
-			findRelatedFlows(state.flowEntries, criteria).map((f) => ({
-				name: f.name,
-				onClick: () => this.deps.navigation.navigateToFlow(f.name),
-			})),
-		);
-		renderRelatedSection(
-			this.detailEl, "Related Systems",
-			findRelatedSystems(state.systemEntries, criteria).map((s) => ({
-				name: s.name,
-				onClick: () => this.deps.navigation.navigateToSystem(s.name),
-			})),
-		);
-		renderRelatedSection(
-			this.detailEl, "Related Actors",
-			findRelatedActors(state.actorEntries, criteria).map((a) => ({
-				name: a.name,
-				onClick: () => this.deps.navigation.navigateToActor(a.name),
-			})),
-		);
-	}
-
-	// ─────────────────────────────────────────────────────────────
-	// Detail empty state
-	// ─────────────────────────────────────────────────────────────
-
-	private renderDetailEmpty(): void {
-		const empty = this.detailEl.createDiv({ cls: "ft-catalog-detail-empty" });
-
-		const icon = empty.createDiv();
-		setIcon(icon, "boxes");
-		icon.addClass("ft-icon-subtle");
-
-		empty.createEl("p", { text: "Select a domain to view details" });
-
-		const stats = empty.createDiv({ cls: "ft-catalog-quick-stats" });
-		renderStat(stats, `${this.entries.length}`, "domains");
-		const totalEvents = this.entries.reduce((sum, d) => sum + d.events.length, 0);
-		renderStat(stats, `${totalEvents}`, "events");
-		const totalConfigured = this.entries.reduce((sum, d) => sum + d.configuredCount, 0);
-		renderStat(stats, `${totalConfigured}`, "configured");
+		this.detailPanel.render();
 	}
 
 	// ─────────────────────────────────────────────────────────────

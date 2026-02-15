@@ -1,6 +1,6 @@
 ---
 status: new
-severity: low
+severity:
 effort:
 layer: infrastructure
 category:
