@@ -3,7 +3,7 @@ severity: medium
 category: architecture
 layer: ui
 status: open
-updated: 2026-02-14
+updated: 2026-02-16
 effort: large
 description: The UI layer directly calls app.vault, app.metadataCache, and app.workspace in 112 locations across 32 UI files, bypassing the EventBridge boundary that the architecture mandates as the sole Obsidian API contact point.
 ---
@@ -37,9 +37,11 @@ However, 112 direct API calls across 32 UI files directly access the Obsidian AP
 3. **Electron dialog** — wrap in a `DialogService` that can be mocked in tests
 4. **Workspace navigation** — add `workspace.navigate` event to EventBridge
 
-## Current Assessment
+## Current Assessment (2026-02-16)
 
 Many of these calls are unavoidable in Obsidian plugin development — metadataCache reads for frontmatter scanning, workspace navigation, and file-picker modals all require direct Obsidian API access. The EventBridge boundary is most critical for write operations and event-producing operations. Read-only queries in UI components are acceptable for now.
+
+**Key insight**: All write operations now route through events (DocService centralization in Phase 8 eliminated 16+ scattered `fileSystemClient.createFile()` calls). The 112 remaining direct API calls are exclusively read-only queries — `metadataCache.getFileCache()`, `vault.getAbstractFileByPath()`, `vault.getFiles()`, `workspace.getLeaf()`, etc. The one write exception (`FolderPickerModal.createFolder`) is a UI utility. This is an acceptable architectural trade-off and should not be treated as blocking.
 
 ## Affected Files
 

@@ -65,9 +65,6 @@ export function buildSplitLayout(wrapper: HTMLElement, opts: {
 /** Category label for discovered events without an assigned category */
 export const UNCATEGORIZED_CATEGORY = "Uncategorized";
 
-/** @deprecated Use UNCATEGORIZED_CATEGORY instead */
-export const CUSTOM_EVENTS_CATEGORY = UNCATEGORIZED_CATEGORY;
-
 /** Returns true if the event type belongs to a user-discovered event (not a system catalog event). */
 export function isDiscoveredEvent(
 	eventType: string,

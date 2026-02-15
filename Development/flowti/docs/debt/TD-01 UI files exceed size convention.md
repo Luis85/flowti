@@ -3,9 +3,9 @@ severity: low
 category: architecture
 layer: ui
 status: mitigated
-updated: 2026-02-14
+updated: 2026-02-16
 effort: large
-description: Multiple UI files exceed 500 LOC. The original 4 files exceeding 1,000 LOC have been significantly reduced through Phases 1-10 component extraction, but 14 files still exceed the 500 LOC threshold.
+description: Multiple UI files exceed 500 LOC. The original 4 files exceeding 1,000 LOC have been significantly reduced through Phases 1-10 component extraction. 13 files still exceed the 500 LOC threshold (down from 14).
 ---
 # TD-01: UI files exceed size convention
 
@@ -22,26 +22,25 @@ Four UI files massively exceeded the 200-300 LOC convention:
 
 Phases 1-8 component extraction reduced these 4 files from an average of 1,744 LOC to 635 LOC.
 
-## Current State (2026-02-14)
+## Current State (2026-02-16)
 
-14 files still exceed 500 LOC:
+13 files exceed 500 LOC (down from 14 — `helpers.ts` dropped from 579 to 531):
 
 | File | LOC | Notes |
 |------|-----|-------|
 | `EventCatalogView.ts` | 836 | Orchestrator with 15 sub-components |
-| `CsvActionView.ts` | 747 | Orchestrator with 10 sub-components |
+| `CsvActionView.ts` | 754 | Orchestrator with 10 sub-components |
 | `contentGenerator.ts` | 708 | Markdown generators — candidate for split |
 | `ExportView.ts` | 655 | Orchestrator with 6 sub-components |
 | `EventConfigModal.ts` | 629 | 3-page wizard modal — candidate for extraction |
 | `EventBridge.ts` | 613 | Core infrastructure — careful |
 | `EventLogView.ts` | 581 | Single-purpose activity log |
-| `DataExchangeService.ts` | 579 | Facade delegating to 5 sub-modules |
-| `catalog/helpers.ts` | 579 | Shared catalog helpers |
-| `catalog/DomainsTab.ts` | 563 | Domain list + detail panel |
-| `hub/ExportsTab.ts` | 544 | Export list + config management |
+| `configDocContent.ts` | 580 | Config doc markdown generators |
+| `DataExchangeService.ts` | 578 | Facade delegating to 5 sub-modules |
+| `catalog/DomainsTab.ts` | 565 | Domain list + detail panel |
+| `hub/ExportsTab.ts` | 543 | Export list + config management |
 | `hub/ImportsTab.ts` | 540 | Import list + config management |
-| `catalog/ServicesTab.ts` | 507 | Service list + detail panel |
-| `DataExchangeHubView.ts` | 484 | Hub orchestrator with 21 components |
+| `catalog/ServicesTab.ts` | 509 | Service list + detail panel |
 
 ## Impact
 

@@ -4,6 +4,7 @@ category: architecture
 layer: ui
 status: open
 created: 2026-02-14
+updated: 2026-02-16
 description: Catalog tabs use entityScanner.ts for file-driven entity scanning; Hub tabs implement their own scanning logic against storage. Duplication is minor and low ROI to fix.
 source: "[[Frontend Architecture]]"
 ---
@@ -27,6 +28,8 @@ Low ROI to fix. The scanning approaches serve different data sources:
 - **Hub**: service storage → config arrays → optional doc file check
 
 Generalizing into a single scanner would add abstraction complexity without meaningful benefit since the data sources are fundamentally different.
+
+**2026-02-16 update**: Both scan patterns are stable and working well. Catalog scans use `metadataCache` (fast, always current). Hub scans use `DataExchangeService` storage (structured, typed). No changes recommended.
 
 ## Affected Files
 

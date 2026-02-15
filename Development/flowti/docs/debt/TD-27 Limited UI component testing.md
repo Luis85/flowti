@@ -4,14 +4,15 @@ category: testing
 layer: ui
 status: open
 created: 2026-02-14
-description: Component-level rendering tests (individual tabs, pages) not yet covered. 854 tests cover domain services, EventBus, utilities, and 6 view orchestrators but not individual UI components.
+description: Component-level rendering tests (individual tabs, pages) not yet covered. 1319 tests across 53 suites cover domain services, EventBus, utilities, pure functions, and 6 view orchestrators but not individual UI components.
+updated: 2026-02-16
 source: "[[Frontend Architecture]]"
 ---
 # TD-27: Limited UI component testing
 
 ## Problem
 
-854 tests across 45 files cover domain services, EventBus, utilities, and 6 view orchestrators (`EventCatalogView`, `ExportView`, `DataExchangeHubView`, `EventLogView`, `EventConfigModal`, `IngestionStatusBar`). However, individual UI components — tabs, pages, dashboard widgets — have no dedicated tests.
+1319 tests across 53 suites cover domain services, EventBus, utilities, pure functions (Tier 1: 298 tests), injectable services (Tier 2: 149 tests), and 6 view orchestrators (`EventCatalogView`, `ExportView`, `DataExchangeHubView`, `EventLogView`, `EventConfigModal`, `IngestionStatusBar`). However, individual UI components — tabs, pages, dashboard widgets — have no dedicated tests.
 
 ### Untested components (~40 files)
 

@@ -3,7 +3,7 @@ severity: low
 category: performance
 layer: domain
 status: open
-updated: 2026-02-14
+updated: 2026-02-16
 effort: medium
 description: EventNotificationService and SubscriptionService each register a wildcard listener that processes every event emitted on the EventBus. At scale, this creates O(n) overhead per event where n is the number of wildcard listeners.
 ---
@@ -33,11 +33,26 @@ The EventBus processes wildcard handlers after type-specific handlers for every 
 3. Add a debounce/batch mechanism for high-frequency events
 4. Consider adding a `filter` parameter to `eventBus.on()` that pre-filters at the bus level
 
-## Current Assessment
+## Current Assessment (2026-02-16)
 
-As of Feb 2026, there are 7 wildcard listeners in the codebase. All wildcard listeners use `isSkippedEvent()` to filter out internal event prefixes (`log.*`, `error.*`, `plugin.*`, etc.), reducing unnecessary processing. At current event volumes (< 1000 events/minute), this is not a performance concern. The O(n) dispatch would only become an issue at enterprise-scale event volumes.
+As of Feb 2026, there are **6 wildcard listeners** in the codebase (down from 7):
+
+| File | Purpose |
+|------|---------|
+| `EventNotificationService.ts` | Notification matching |
+| `IngestionService.ts` | Ingestion batching |
+| `SubscriptionService.ts` | Subscription matching |
+| `FileSystemClient.ts` | File event correlation |
+| `LoggerService.ts` | Event trace logging |
+| `EventLogView.ts` | Live event log display |
+
+All wildcard listeners use `isSkippedEvent()` to filter out internal event prefixes (`log.*`, `error.*`, `plugin.*`, etc.), reducing unnecessary processing. At current event volumes (< 1000 events/minute), this is not a performance concern. The O(n) dispatch would only become an issue at enterprise-scale event volumes.
 
 ## Affected Files
 
 - `src/domain/eventNotify/EventNotificationService.ts`
+- `src/domain/ingestion/IngestionService.ts`
 - `src/domain/subscription/SubscriptionService.ts`
+- `src/infrastructure/filesystem/FileSystemClient.ts`
+- `src/infrastructure/logger/LoggerService.ts`
+- `src/ui/EventLogView.ts`
