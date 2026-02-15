@@ -1,7 +1,9 @@
 filters:
   and:
-    - file.inFolder("Development/flowti/docs/features")
     - file.ext == "md"
+    - and:
+        - '!file.folder.containsAny("backlog")'
+        - file.inFolder("Development/flowti/docs/features")
 formulas:
   user_stories_count: |+
     file.backlinks.filter(value.asFile().folder.contains("user-stories")).length
@@ -13,6 +15,7 @@ views:
       - file.name
       - stage
       - domain
+      - type
       - formula.user_stories_count
       - plugin
       - tags

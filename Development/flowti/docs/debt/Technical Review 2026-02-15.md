@@ -18,7 +18,9 @@ Post-sprint comprehensive review of the Flowti IBDE plugin. This review follows 
 
 ## Executive Summary
 
-The plugin is in **excellent architectural health** after the Tech Debt Sprint. Of 38 tracked debt items, **27 are resolved**, 4 are mitigated, and 7 remain open. The sprint eliminated all high-severity items (TD-32, TD-33, TD-35). This review identified **3 new items** (TD-39, TD-40, TD-41) — none are high severity.
+The plugin is in **excellent architectural health** after the Tech Debt Sprint. Of the original 38 tracked debt items, **27 are resolved**, 4 are mitigated, and 7 remain open. The sprint eliminated all high-severity items (TD-32, TD-33, TD-35). This review identified **3 new items** (TD-39, TD-40, TD-41) — none are high severity.
+
+**Post-review update (PRD Audit):** A comprehensive audit of all 26 PRDs against source code identified **22 new tech debt items** (TD-56–TD-77), including 1 high-severity item (TD-72: SettingsService save race condition). Total tracked items: **77** (30 resolved, 4 mitigated, 43 open). See [[PRD Audit 2026-02-15]] for full findings.
 
 **Key metrics:**
 - 1,571 tests passing, 32 skipped across 70 test files
@@ -239,7 +241,7 @@ Confirmed by this review: CsvActionView, DataExchangeHubView, FolderPickerModal,
 
 ## 6. Debt Status Summary
 
-### All tracked items (55 total)
+### All tracked items (77 total)
 
 | Status | Count | Items |
 |--------|-------|-------|
@@ -247,6 +249,7 @@ Confirmed by this review: CsvActionView, DataExchangeHubView, FolderPickerModal,
 | Mitigated | 4 | TD-01, TD-27, TD-29, TD-37 |
 | Open (existing) | 14 | TD-06, TD-12, TD-23, TD-28, TD-30, TD-36, TD-38, TD-42–48 |
 | Open (Hubs) | 7 | TD-49–55 |
+| Open (PRD Audit) | 22 | TD-56–77 |
 
 ### Hubs feature prerequisites (TD-49–55)
 
@@ -262,7 +265,7 @@ Added 2026-02-15 as part of the [[Hubs PRD]] restructuring. These items track th
 | TD-54 | Event Catalog hub migration | high | large | ui | TD-49, TD-50 |
 | TD-55 | Data Exchange hub migration | high | large | ui | TD-49, TD-50 |
 
-### Open items by severity
+### Open items by severity (existing)
 
 | # | Title | Severity | Effort | Layer |
 |---|-------|----------|--------|-------|
@@ -280,6 +283,35 @@ Added 2026-02-15 as part of the [[Hubs PRD]] restructuring. These items track th
 | TD-46 | No error boundaries in views | medium | small | ui |
 | TD-47 | Dedup not visible to users | low | small | ui |
 | TD-48 | CSV parsing blocks UI thread | low | medium | domain |
+
+### PRD Audit findings (TD-56–77)
+
+Added 2026-02-15 from the [[PRD Audit 2026-02-15]]. These items were identified by cross-referencing all 26 PRDs against source code and existing debt.
+
+| # | Title | Severity | Effort | Layer | PRD Owner |
+|---|-------|----------|--------|-------|-----------|
+| TD-56 | Storage corruption silent fallback | medium | small | infrastructure | Infrastructure |
+| TD-57 | Migration test strategy for Hub conversion | medium | medium | cross-cutting | Hubs |
+| TD-58 | Performance baseline and monitoring thresholds | low | small | cross-cutting | Infrastructure |
+| TD-59 | DomainsTab/ServicesTab not on BaseEntityTab | low | medium | ui | Documentation |
+| TD-60 | Health widget Hub integration gap | low | small | ui | Vault Health Dashboard |
+| TD-61 | IngestionService processJobPayload is dead no-op | low | tiny | domain | Event System |
+| TD-62 | generateEventKey non-deterministic when path absent | medium | small | domain | Event System |
+| TD-63 | No telemetry for event-file delete detection | low | tiny | infrastructure | Event Files |
+| TD-64 | file.renamed payload inconsistency | medium | small | infrastructure | File Events |
+| TD-65 | pendingCreatedPaths Set has no eviction | low | tiny | infrastructure | Event Bridge |
+| TD-66 | FileSystemClient wildcard listener churn | medium | medium | infrastructure | File System |
+| TD-67 | frontmatter.update.response stale data | medium | small | infrastructure | File System |
+| TD-68 | Export emits no per-record progress events | medium | small | domain | Data Exchange Hub |
+| TD-69 | Import runs sequentially with no concurrency | low | medium | domain | Data Exchange Hub |
+| TD-70 | Installer state not persisted per step | medium | small | domain | Installer |
+| TD-71 | FolderScaffoldStep idempotency fragile | medium | small | domain | Installer |
+| TD-72 | SettingsService saveSettings race condition | **high** | small | domain | Settings |
+| TD-73 | CommandRegistry has no unregister() method | low | small | infrastructure | Command Bus |
+| TD-74 | error.handled event is dead definition | medium | tiny | infrastructure | Infrastructure |
+| TD-75 | checkOrphanedFlows quadratic complexity | low | small | ui | Vault Health Dashboard |
+| TD-76 | Health checks no render-to-render caching | low | small | ui | Vault Health Dashboard |
+| TD-77 | Health tab entities not navigable | medium | small | ui | Vault Health Dashboard |
 
 ### Mitigated items (conventions established, incremental work remains)
 
