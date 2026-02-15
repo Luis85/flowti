@@ -4,11 +4,93 @@ filters:
     - and:
         - '!file.folder.containsAny("backlog")'
         - file.inFolder("Development/flowti/docs/features")
+        - type == "ProductRequirementsDocument"
 formulas:
   user_stories_count: |+
     file.backlinks.filter(value.asFile().folder.contains("user-stories")).length
 
+  priority_score: |
+    (business_value - ((discovery_cost + design_cost + implementation_cost + test_cost + maintenance_cost) / 5)).toFixed(2)
+  maturity_score_total: |
+    maturity_score_strategy + maturity_score_scope + maturity_score_architecture + maturity_score_event_integration + maturity_score_data_model + maturity_score_ui_consistency + maturity_score_validation_testing
 views:
+  - type: table
+    name: Features - Maturity
+    filters:
+      and:
+        - "!maturity.isEmpty()"
+    order:
+      - file.name
+      - priority
+      - stage
+      - formula.priority_score
+      - business_value
+      - maturity
+      - discovery_cost
+      - design_cost
+      - implementation_cost
+      - test_cost
+      - maintenance_cost
+      - maturity_score_architecture
+      - maturity_score_data_model
+      - maturity_score_event_integration
+      - maturity_score_scope
+      - maturity_score_strategy
+      - maturity_score_ui_consistency
+      - maturity_score_validation_testing
+      - formula.maturity_score_total
+    sort:
+      - property: formula.priority_score
+        direction: DESC
+      - property: priority
+        direction: DESC
+      - property: formula.user_stories_count
+        direction: DESC
+    columnSize:
+      file.name: 199
+      note.priority: 102
+      note.stage: 126
+      formula.priority_score: 129
+  - type: table
+    name: Features - Roadmap
+    filters:
+      and:
+        - stage != "done"
+    order:
+      - file.name
+      - priority
+      - stage
+      - formula.priority_score
+      - business_value
+      - discovery_cost
+      - design_cost
+      - implementation_cost
+      - test_cost
+      - maintenance_cost
+      - maturity
+      - formula.maturity_score_status
+      - formula.maturity_score_total
+      - maturity_score_architecture
+      - maturity_score_data_model
+      - maturity_score_event_integration
+      - maturity_score_scope
+      - maturity_score_strategy
+      - maturity_score_ui_consistency
+      - maturity_score_validation_testing
+    sort:
+      - property: business_value
+        direction: DESC
+      - property: formula.priority_score
+        direction: DESC
+      - property: formula.maturity_score_total
+        direction: DESC
+      - property: formula.user_stories_count
+        direction: DESC
+    columnSize:
+      file.name: 199
+      note.priority: 102
+      note.stage: 126
+      formula.priority_score: 129
   - type: table
     name: Features
     order:
@@ -43,32 +125,5 @@ views:
       file.name: 199
       note.description: 395
       formula.user_stories_count: 151
-      note.stage: 126
-      note.domain: 132
-  - type: table
-    name: Features - Maturity
-    filters:
-      and:
-        - type == "Feature"
-    order:
-      - file.name
-      - stage
-      - maturity
-      - maturity_score_status
-      - maturity_score_total
-      - maturity_score_architecture
-      - maturity_score_data_model
-      - maturity_score_event_integration
-      - maturity_score_scope
-      - maturity_score_strategy
-      - maturity_score_ui_consistency
-      - maturity_score_validation_testing
-    sort:
-      - property: maturity
-        direction: DESC
-      - property: formula.user_stories_count
-        direction: DESC
-    columnSize:
-      file.name: 199
       note.stage: 126
       note.domain: 132

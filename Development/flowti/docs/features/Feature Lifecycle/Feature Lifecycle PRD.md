@@ -20,8 +20,13 @@ maturity_score_event_integration: 4
 maturity_score_data_model: 4
 maturity_score_ui_consistency: 3
 maturity_score_validation_testing: 2
-maturity_score_total: 27
-maturity_score_status: integration_ready
+business_value: 5
+implementation_cost: 4
+maintenance_cost: 2
+discovery_cost: 1
+design_cost: 3
+test_cost: 3
+priority: 5
 ---
 
 # Feature: Feature Lifecycle
@@ -167,9 +172,18 @@ Measurable success:
 
 - [ ] Score form with 7 dimensions (Strategy, Scope, Architecture, Event Integration, Data Model, UI Consistency, Validation & Testing)
 - [ ] Each dimension scored 0-5 via slider or number input
-- [ ] Total computed and persisted to PRD frontmatter (`maturity_score_*` fields)
-- [ ] Readiness level computed: Not Ready (0-10), Conceptual (11-18), Technically Ready (19-25), Integration Ready (26-30), Production Ready (31-35)
+- [ ] Individual dimension scores persisted to PRD frontmatter (`maturity_score_*` fields)
+- [ ] Total and readiness level computed by Base formulas: Not Ready (0-10), Conceptual (11-18), Technically Ready (19-25), Integration Ready (26-30), Production Ready (31-35)
 - [ ] Score history tracked via `feature.scored` events
+
+### Prioritization Scoring
+
+- [ ] Each feature scored across 7 prioritization dimensions: `business_value`, `implementation_cost`, `maintenance_cost`, `discovery_cost`, `design_cost`, `test_cost`, `priority` (all 0-5 or null)
+- [ ] Scores persisted in PRD frontmatter
+- [ ] Feature Pipeline view supports sorting by priority, business_value, or computed value-to-cost ratio
+- [ ] Priority signal computed as advisory: `business_value - ((discovery_cost + design_cost + implementation_cost + test_cost + maintenance_cost) / 5).round()`
+- [ ] Prioritization scores shown in feature detail panel alongside FRI scores
+- [ ] Pipeline master view shows priority badge (color-coded: 5=red/urgent, 4=orange, 3=yellow, 2=blue, 1=gray, 0=dimmed)
 
 ### Session Tracking
 
@@ -224,7 +238,7 @@ PRDs are **tool-agnostic** in their first draft — they scope the Domain and Pr
 
 | Entity | Source | Key Fields |
 |---|---|---|
-| `FeatureEntry` | PRD frontmatter scan | `name`, `stage`, `maturity`, `friScore`, `friLevel`, `backlogPath`, `gateStatus`, `sessions[]`, `reviews[]` |
+| `FeatureEntry` | PRD frontmatter scan | `name`, `stage`, `maturity`, `friScore`, `friLevel`, `backlogPath`, `gateStatus`, `sessions[]`, `reviews[]`, `businessValue`, `implementationCost`, `maintenanceCost`, `discoveryCost`, `designCost`, `testCost`, `priority` |
 | `GateCheckResult` | Computed on render | `gateId`, `title`, `passed`, `reason`, `severity` |
 | `SessionRecord` | Persisted in storage | `featureName`, `startTime`, `endTime`, `filesCreated[]`, `filesModified[]`, `notes`, `stageAtStart`, `stageAtEnd` |
 | `ReviewRecord` | Three Amigos doc scan | `featureName`, `date`, `tasmScore`, `healthLevel`, `driftDetected`, `filePath` |
@@ -241,8 +255,14 @@ maturity_score_event_integration: 0-5
 maturity_score_data_model: 0-5
 maturity_score_ui_consistency: 0-5
 maturity_score_validation_testing: 0-5
-maturity_score_total: 0-35
-maturity_score_status: not_ready | conceptual | technically_ready | integration_ready | production_ready
+# maturity_score_total and maturity_score_status are computed by Base formulas, not stored in frontmatter
+business_value: null | 0-5
+implementation_cost: null | 0-5
+maintenance_cost: null | 0-5
+discovery_cost: null | 0-5
+design_cost: null | 0-5
+test_cost: null | 0-5
+priority: null | 0-5
 ```
 
 ### Storage Schema

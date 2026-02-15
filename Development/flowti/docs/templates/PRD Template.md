@@ -13,8 +13,13 @@ maturity_score_event_integration:
 maturity_score_data_model:
 maturity_score_ui_consistency:
 maturity_score_validation_testing:
-maturity_score_total:
-maturity_score_status: technically_ready
+business_value:
+implementation_cost:
+maintenance_cost:
+discovery_cost:
+design_cost:
+test_cost:
+priority:
 ---
 
 # Feature: <Feature Name>
@@ -454,19 +459,16 @@ You can automate FRI scoring via:
     - outputs FRI score
         
 
-Example frontmatter extension:
+Example frontmatter (individual dimensions only — totals computed by Base formulas):
 
 ```yaml
-feature_readiness:
-  strategy: 5
-  scope: 4
-  architecture: 5
-  event_integration: 4
-  data_model: 4
-  ui_consistency: 5
-  validation: 4
-  total: 31
-  maturity: production_ready
+maturity_score_strategy: 5
+maturity_score_scope: 4
+maturity_score_architecture: 5
+maturity_score_event_integration: 4
+maturity_score_data_model: 4
+maturity_score_ui_consistency: 5
+maturity_score_validation_testing: 4
 ```
 
 ---
@@ -495,9 +497,96 @@ It enforces:
 
 ---
 
+# 📋 Feature Prioritization Scoring
+
+The **Feature Prioritization Score** complements FRI by measuring **business impact and cost** to help decide **what to build next**.
+
+Where FRI answers "Is this feature ready to build?", prioritization answers "Should we build this feature now?"
+
+---
+
+## Dimensions
+
+Each dimension is scored **0–5** (or `null` if not yet assessed).
+
+| Dimension | Description | Scale |
+|---|---|---|
+| **business_value** | Strategic importance to the product vision and end users | 0 = none, 5 = critical |
+| **implementation_cost** | Effort to build the feature (code, integration, architecture) | 0 = trivial, 5 = massive |
+| **maintenance_cost** | Ongoing effort to maintain (bug surface, complexity, dependencies) | 0 = self-sustaining, 5 = constant upkeep |
+| **discovery_cost** | Effort to research, explore, and understand the problem space | 0 = well understood, 5 = uncharted territory |
+| **design_cost** | Effort for UX/UI design, interaction patterns, and information architecture | 0 = standard patterns, 5 = novel design |
+| **test_cost** | Effort to test (unit, integration, flow, manual verification) | 0 = trivial to test, 5 = exhaustive testing required |
+| **priority** | Overall priority considering all dimensions | 0 = backlog, 5 = build immediately |
+
+---
+
+## Scoring Guidelines
+
+### business_value
+- **5**: Core to the product vision; blocks other features; high user demand
+- **4**: Important capability; significant user value; enables new workflows
+- **3**: Useful improvement; moderate user impact
+- **2**: Nice to have; quality-of-life improvement
+- **1**: Marginal benefit; edge case coverage
+- **0**: No clear business case
+
+### Cost Dimensions (implementation, maintenance, discovery, design, test)
+- **5**: Requires major architectural changes, new domains, extensive research, or novel patterns
+- **4**: Significant effort; multi-service integration; weeks of work
+- **3**: Moderate effort; touches multiple files/modules; days of work
+- **2**: Straightforward; well-understood patterns; hours of focused work
+- **1**: Small change; single module; quick implementation
+- **0**: Trivial; nearly zero effort
+
+### priority
+- **5**: Build immediately — blocks critical path or has exceptional value-to-cost ratio
+- **4**: Build next — high value, manageable cost, strategically important
+- **3**: Build soon — good value, moderate cost, part of the roadmap
+- **2**: Build eventually — useful but not urgent; can wait for the right moment
+- **1**: Consider — low priority; may become relevant later
+- **0**: Parked — no current plan to build
+
+---
+
+## Prioritization Formula (Advisory)
+
+A simple value-weighted priority can be derived:
+
+```
+Priority Signal = business_value - ((discovery_cost + design_cost + implementation_cost + test_cost + maintenance_cost) / 5).round()
+```
+
+This averages all 5 cost dimensions into a single cost score (0–5), then subtracts from business_value.
+
+- **Result range**: -5 to +5
+- **Positive**: value exceeds average cost → prioritize
+- **Negative**: average cost exceeds value → deprioritize
+- **Zero**: value and cost are balanced
+
+This formula is advisory — the `priority` field captures the human judgment that accounts for dependencies, strategic timing, and sequencing.
+
+---
+
+## Frontmatter Fields
+
+```yaml
+business_value: 0-5
+implementation_cost: 0-5
+maintenance_cost: 0-5
+discovery_cost: 0-5
+design_cost: 0-5
+test_cost: 0-5
+priority: 0-5
+```
+
+All fields are optional. `null` (empty) means "not yet assessed."
+
+---
+
 # 🛠 Flowti Technical Review Checklist
 
-**Purpose:**  
+**Purpose:**
 Ensure architectural integrity, manifest compliance, and event-driven consistency before implementation.
 
 **Applies to:**  

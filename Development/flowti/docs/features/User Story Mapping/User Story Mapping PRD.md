@@ -10,6 +10,13 @@ related_events:
   - backlog.item.generated
   - release.plan.updated
 maturity: L1
+business_value: 4
+implementation_cost: 4
+maintenance_cost: 2
+discovery_cost: 3
+design_cost: 4
+test_cost: 3
+priority: 3
 ---
 
 # PRD: User Story Mapping Tool

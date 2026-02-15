@@ -14,6 +14,13 @@ related_events:
   - eventDefinition.loaded
   - settings.updateShowSystemEvents
 maturity: L4
+business_value: 5
+implementation_cost: 5
+maintenance_cost: 3
+discovery_cost: 3
+design_cost: 4
+test_cost: 3
+priority: 5
 ---
 
 # Event Catalog PRD

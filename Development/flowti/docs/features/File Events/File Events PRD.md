@@ -15,6 +15,13 @@ related_events:
   - metadata.changed
   - metadata.resolved
 maturity: L4
+business_value: 4
+implementation_cost: 3
+maintenance_cost: 2
+discovery_cost: 2
+design_cost: 2
+test_cost: 3
+priority: 4
 ---
 
 # File Events PRD

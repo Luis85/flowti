@@ -5,6 +5,13 @@ type: ProductRequirementsDocument
 stage: idea
 related_events: []
 maturity: L0
+business_value: 3
+implementation_cost: 5
+maintenance_cost: 5
+discovery_cost: 5
+design_cost: 4
+test_cost: 5
+priority: 1
 ---
 
 # Feature: Multiplayer

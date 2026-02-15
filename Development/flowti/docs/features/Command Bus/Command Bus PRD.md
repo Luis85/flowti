@@ -8,6 +8,13 @@ related_events:
   - command.executed
   - command.removed
 maturity: L4
+business_value: 4
+implementation_cost: 2
+maintenance_cost: 1
+discovery_cost: 1
+design_cost: 1
+test_cost: 2
+priority: 4
 ---
 
 # Feature: Command Bus

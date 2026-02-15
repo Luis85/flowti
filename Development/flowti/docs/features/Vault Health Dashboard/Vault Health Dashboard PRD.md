@@ -7,6 +7,13 @@ related_events:
   - health.check.completed
   - health.score.changed
 maturity: L1
+business_value: 4
+implementation_cost: 3
+maintenance_cost: 2
+discovery_cost: 2
+design_cost: 3
+test_cost: 3
+priority: 4
 ---
 
 # Feature: Vault Health Dashboard

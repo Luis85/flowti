@@ -36,14 +36,16 @@ A user wants to objectively assess how ready a feature is for the next phase. Th
    - **Data Model** (4/5): Entities and relationships clear
    - **UI Consistency** (5/5): Layout from library, no duplication
    - **Validation & Testing** (4/5): Test approach defined
-4. **Review total** — The form computes: 31/35 → "Production Ready"
-5. **Save** — The user clicks "Save." The system updates the PRD frontmatter:
+4. **Review total** — The form computes: 31/35 → "Production Ready" (total and status are computed by Base formulas, not stored)
+5. **Save** — The user clicks "Save." The system updates the PRD frontmatter with individual dimension scores:
    ```yaml
    maturity_score_strategy: 5
    maturity_score_scope: 4
-   ...
-   maturity_score_total: 31
-   maturity_score_status: production_ready
+   maturity_score_architecture: 5
+   maturity_score_event_integration: 4
+   maturity_score_data_model: 4
+   maturity_score_ui_consistency: 5
+   maturity_score_validation_testing: 4
    ```
 6. **Event emitted** — `feature.scored` fires with the full breakdown. The feature detail panel updates to show the new score.
 7. **Gate impact** — The Design Gate (requires FRI >= 11) and Readiness Gate (requires FRI >= 19) now reflect the updated score.

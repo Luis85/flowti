@@ -23,6 +23,13 @@ related_events:
   - frontmatter.set.request
   - frontmatter.set.response
 maturity: L5
+business_value: 5
+implementation_cost: 3
+maintenance_cost: 2
+discovery_cost: 1
+design_cost: 2
+test_cost: 2
+priority: 5
 ---
 
 # File System PRD

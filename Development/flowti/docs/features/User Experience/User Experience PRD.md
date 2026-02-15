@@ -11,6 +11,13 @@ related_events:
   - technicalReview.completed
   - featureReadiness.updated
 maturity: L1
+business_value: 4
+implementation_cost: 3
+maintenance_cost: 2
+discovery_cost: 3
+design_cost: 4
+test_cost: 2
+priority: 3
 ---
 
 # PRD: User Experience — Guided Tours

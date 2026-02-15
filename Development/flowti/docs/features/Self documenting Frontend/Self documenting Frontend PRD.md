@@ -5,6 +5,13 @@ type: ProductRequirementsDocument
 stage: draft
 related_events: []
 maturity: L0
+business_value: 2
+implementation_cost: 2
+maintenance_cost: 1
+discovery_cost: 2
+design_cost: 1
+test_cost: 1
+priority: 2
 ---
 
 # PRD: Self-Documenting Frontend

@@ -5,6 +5,13 @@ type: ProductRequirementsDocument
 stage: idea
 related_events: []
 maturity: L0
+business_value: 4
+implementation_cost: 4
+maintenance_cost: 3
+discovery_cost: 3
+design_cost: 3
+test_cost: 3
+priority: 2
 ---
 
 # Feature: Test Management

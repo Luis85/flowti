@@ -14,6 +14,13 @@ related_events:
   - dataExchange.export.progress
   - dataExchange.export.preview
 maturity: L4
+business_value: 4
+implementation_cost: 5
+maintenance_cost: 3
+discovery_cost: 3
+design_cost: 4
+test_cost: 4
+priority: 4
 ---
 
 # Data Exchange Hub PRD

@@ -2,7 +2,7 @@
 domain: Flowti
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
-stage: open
+stage: approved
 related_hubs:
   - User Hub
   - Event Catalog (System Hub)
@@ -16,16 +16,21 @@ related_events:
   - session.created
   - session.started
   - session.completed
-maturity: L1
+maturity: L2
 maturity_score_strategy: 5
 maturity_score_scope: 4
 maturity_score_architecture: 4
-maturity_score_event_integration: 3
+maturity_score_event_integration: 4
 maturity_score_data_model: 3
 maturity_score_ui_consistency: 3
 maturity_score_validation_testing: 1
-maturity_score_total: 23
-maturity_score_status: technically_ready
+business_value: 5
+implementation_cost: 5
+maintenance_cost: 3
+discovery_cost: 4
+design_cost: 4
+test_cost: 4
+priority: 3
 ---
 
 # Feature: Hubs - Domain-Centric Workspaces
@@ -367,4 +372,22 @@ Build the User Hub with personal dashboard, inbox, and cross-hub summary.
 ### Phase 4: Sessions + Domain Hubs (PBI-002, PBI-003, PBI-004)
 Add Documentation Sessions domain and first Domain Hubs (Product, Project).
 
+---
 
+## Stage History
+
+| Date | Transition | Gate | FRI | Reviewer | Notes |
+|---|---|---|---|---|---|
+| — | → idea | — | — | — | Hub concept established as architectural vision |
+| — | idea → open | Problem Gate | 23 | — | PRD drafted with full scope, requirements, data model, events, adapter hierarchy, 4 PBIs, 7 TD prerequisites, 4-phase implementation plan |
+| 2026-02-15 | open → draft | — | 23 | — | Stage normalized from legacy `open` value to `draft` per Feature Lifecycle standardization |
+| 2026-02-15 | draft → approved | Design Gate + Readiness Gate | 24 | Technical Architect | FRI re-scored (23 → 24, Event Integration 3→4). Technical Review: Pass. All Design Gate and Readiness Gate criteria met. PRD is development-ready. |
+
+---
+
+## Related
+
+- Architecture: [[Hubs]] (layout library, manifests, region contracts, JSON schemas)
+- Template: [[PRD Template]] (defines FRI scoring dimensions)
+- Technical Review: [[Technical Review 2026-02-15]]
+- TD Prerequisites: [[TD-49 Layout abstraction layer]], [[TD-50 Workspace shell layout]], [[TD-51 Component registry]], [[TD-52 Declarative tab definitions]], [[TD-53 Shared UI primitive library]], [[TD-54 Event Catalog hub migration]], [[TD-55 Data Exchange hub migration]]

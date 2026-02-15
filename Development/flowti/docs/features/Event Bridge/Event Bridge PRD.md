@@ -22,6 +22,13 @@ related_events:
   - frontmatter.get.request
   - frontmatter.get.response
 maturity: L5
+business_value: 5
+implementation_cost: 3
+maintenance_cost: 2
+discovery_cost: 2
+design_cost: 2
+test_cost: 3
+priority: 5
 ---
 
 # Event Bridge PRD

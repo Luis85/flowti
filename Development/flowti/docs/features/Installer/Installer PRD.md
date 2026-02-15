@@ -11,6 +11,13 @@ related_events:
   - installer.failed
   - installer.loaded
 maturity: L5
+business_value: 4
+implementation_cost: 3
+maintenance_cost: 1
+discovery_cost: 2
+design_cost: 3
+test_cost: 2
+priority: 4
 ---
 
 # Installer PRD
