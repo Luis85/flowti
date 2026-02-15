@@ -35,9 +35,9 @@ export class DataExchangeProvider implements HubDashboardProvider {
 
 		return {
 			stats: [
-				{ label: "Imports", value: String(imports.length), icon: "file-input" },
-				{ label: "Exports", value: String(exports.length), icon: "file-output" },
-				{ label: "Pipelines", value: String(pipelines.length), icon: "workflow" },
+				{ label: "Imports", value: String(imports.length), icon: "file-input", tabId: "imports" },
+				{ label: "Exports", value: String(exports.length), icon: "file-output", tabId: "exports" },
+				{ label: "Pipelines", value: String(pipelines.length), icon: "workflow", tabId: "pipelines" },
 			],
 			healthLevel: "healthy",
 			actionItemCount: 0,

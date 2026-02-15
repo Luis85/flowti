@@ -5,7 +5,7 @@ layer: domain
 status: open
 updated: 2026-02-16
 effort: medium
-description: EventNotificationService and SubscriptionService each register a wildcard listener that processes every event emitted on the EventBus. At scale, this creates O(n) overhead per event where n is the number of wildcard listeners.
+description: 7 wildcard listeners (up from 6 — UserHubActivity added). All use isSkippedEvent() filtering. UserHubActivity only active when hub view is open. No performance concern at current volumes.
 ---
 # TD-12: Wildcard listeners on all events degrade performance at scale
 
@@ -35,18 +35,19 @@ The EventBus processes wildcard handlers after type-specific handlers for every 
 
 ## Current Assessment (2026-02-16)
 
-As of Feb 2026, there are **6 wildcard listeners** in the codebase (down from 7):
+As of Feb 2026, there are **7 wildcard listeners** in the codebase:
 
-| File | Purpose |
-|------|---------|
-| `EventNotificationService.ts` | Notification matching |
-| `IngestionService.ts` | Ingestion batching |
-| `SubscriptionService.ts` | Subscription matching |
-| `FileSystemClient.ts` | File event correlation |
-| `LoggerService.ts` | Event trace logging |
-| `EventLogView.ts` | Live event log display |
+| File | Purpose | Lifecycle |
+|------|---------|-----------|
+| `EventNotificationService.ts` | Notification matching | Always active |
+| `IngestionService.ts` | Ingestion batching | Always active |
+| `SubscriptionService.ts` | Subscription matching | Always active |
+| `FileSystemClient.ts` | File event correlation | Always active |
+| `LoggerService.ts` | Event trace logging | Always active |
+| `EventLogView.ts` | Live event log display | While view is open |
+| `UserHubActivity.ts` | User Hub activity feed (200-item cap) | While User Hub is open |
 
-All wildcard listeners use `isSkippedEvent()` to filter out internal event prefixes (`log.*`, `error.*`, `plugin.*`, etc.), reducing unnecessary processing. At current event volumes (< 1000 events/minute), this is not a performance concern. The O(n) dispatch would only become an issue at enterprise-scale event volumes.
+All wildcard listeners use `isSkippedEvent()` to filter out internal event prefixes (`log.*`, `error.*`, `plugin.*`, etc.), reducing unnecessary processing. `UserHubActivity` and `EventLogView` listeners are view-scoped — they only register when the respective view is open and unsubscribe on close. At current event volumes (< 1000 events/minute), this is not a performance concern. The O(n) dispatch would only become an issue at enterprise-scale event volumes.
 
 ## Affected Files
 
@@ -56,3 +57,4 @@ All wildcard listeners use `isSkippedEvent()` to filter out internal event prefi
 - `src/infrastructure/filesystem/FileSystemClient.ts`
 - `src/infrastructure/logger/LoggerService.ts`
 - `src/ui/EventLogView.ts`
+- `src/ui/userHub/UserHubActivity.ts`

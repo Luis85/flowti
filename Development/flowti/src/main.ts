@@ -34,6 +34,8 @@ import { createInfrastructure, setupCrossCuttingListeners } from "./pluginBootst
 import { HubRegistry } from "./domain/hub/HubRegistry";
 import { EventCatalogProvider } from "./domain/hub/EventCatalogProvider";
 import { DataExchangeProvider } from "./domain/hub/DataExchangeProvider";
+import { UserHubProvider } from "./domain/hub/UserHubProvider";
+import { UserHubView, VIEW_TYPE_USER_HUB } from "./ui/UserHubView";
 
 
 /**  
@@ -184,6 +186,9 @@ export default class FlowtiBasePlugin extends Plugin {
 			});
 			this.addRibbonIcon("arrow-left-right", "Open Data Exchange Hub", () => {
 				void this.eventBus.emit("ui.openDataExchangeHub", {});
+			});
+			this.addRibbonIcon("home", "Open User Hub", () => {
+				void this.eventBus.emit("ui.openUserHub", {});
 			});
 
 			// Status bar
@@ -456,6 +461,12 @@ export default class FlowtiBasePlugin extends Plugin {
 				collapsedCategories: this.collapsedCategories,
 			}));
 			this.hubRegistry.register(new DataExchangeProvider(this.dataExchangeService));
+
+			// ── User Hub view + provider ──
+			this.registerView(VIEW_TYPE_USER_HUB, (leaf) =>
+				new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!),
+			);
+			this.hubRegistry.register(new UserHubProvider(this.userService));
 
 			// Run catch-up if watch folders are configured
 			if (this.settings.watchFolders.length > 0 && this.ingestionService) {

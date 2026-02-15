@@ -21,8 +21,8 @@ Baseline audit of the Flowti IBDE plugin codebase. This document summarises the 
 
 | Metric | Value (original) | Value (2026-02-14) | Value (2026-02-16) |
 |--------|-----------------|-------------------|-------------------|
-| Source files | 92 TypeScript files | 155 TypeScript files | 156 TypeScript files |
-| Test files | 35 suites, 654 tests (4 skipped) | 54 suites, 1330 tests (4 skipped) | 53 suites, 1319 tests |
+| Source files | 92 TypeScript files | 155 TypeScript files | 162 TypeScript files |
+| Test files | 35 suites, 654 tests (4 skipped) | 54 suites, 1330 tests (4 skipped) | 77 suites, 1725 tests (32 skipped) |
 | Total source LOC | — | — | ~31,150 LOC |
 | Files > 500 LOC | 4 (>1,000 LOC) | 14 files | 13 files |
 | Test result | All passing | All passing | All passing |
@@ -78,7 +78,7 @@ Dead code cleanup (2026-02-16) removed `persistence.ts` + test (superseded by Ty
 1. **Event-driven backbone** -- The EventBus + EventBridge pattern delivers on its promise. Services are decoupled and testable.
 2. **Type safety** -- Strict TypeScript with Zod validation at boundaries. The composed `FlowtiEventMap` keeps event contracts explicit.
 3. **Registry pattern** -- Commands, views, and services are declaratively registered and automatically wired. Extending the plugin requires minimal boilerplate.
-4. **Test coverage** -- 1319 tests across 53 suites with mirrors of the source tree. Infrastructure and domain layers are well-covered. Tier 1+2 pure function and service tests provide 95-100% coverage on 8 critical files.
+4. **Test coverage** -- 1725 tests across 77 suites with mirrors of the source tree. Infrastructure, domain, and UI layers are well-covered. Tier 1+2 pure function and service tests provide 95-100% coverage on 8 critical files. User Hub components (Dashboard, Inbox, Activity) and Hub domain (HubRegistry, providers) have dedicated test suites.
 5. **Separation of concerns** -- The DDD layer structure (`infrastructure/`, `domain/`, `ui/`) is consistently applied in the codebase.
 6. **Service lifecycle** -- 9 of 11 domain services implement `IDisposable` with proper `dispose()` methods. `ServiceContainer.disposeAll()` handles cleanup on unload.
 7. **DocService centralization** -- All doc creation routes through `doc.create` events (Phase 8), eliminating 16+ scattered `fileSystemClient.createFile()` calls.
@@ -191,7 +191,7 @@ The codebase is in excellent shape. All high-severity items are resolved. The re
 ### Insights from Fresh Scan (2026-02-16)
 
 - **Console usage**: 36 `console.*` calls in `src/`. Concentrated in infrastructure/error/bootstrap paths where LoggerService is unavailable. No silent swallows remain (TD-29 mitigated). Acceptable.
-- **Wildcard listeners**: Down to 6 (from 7). All use `isSkippedEvent()` filter. No performance concern at current volumes.
+- **Wildcard listeners**: Up to 7 (UserHubActivity added). All use `isSkippedEvent()` filter. UserHubActivity and EventLogView are view-scoped (only active while respective view is open). No performance concern at current volumes.
 - **Files > 500 LOC**: Down to 13 (from 14). `helpers.ts` dropped from 579 to 531.
 - **No new debt patterns detected**: No TODO/FIXME comments, no unsafe `any` casts beyond justified exceptions, no circular dependencies.
 
@@ -200,11 +200,11 @@ The codebase is in excellent shape. All high-severity items are resolved. The re
 | Item | Severity | Reason to defer |
 |------|----------|-----------------|
 | **TD-06** (EventBridge bypass, 112 calls) | Medium | All 112 calls are **read-only** UI queries. Routing reads through EventBridge would add boilerplate without safety benefit. |
-| **TD-12** (Wildcard listeners) | Low | 6 listeners, all properly filtered via `isSkippedEvent()`. No measured performance issue. |
+| **TD-12** (Wildcard listeners) | Low | 7 listeners (2 view-scoped), all properly filtered via `isSkippedEvent()`. No measured performance issue. |
 | **TD-23** (InstallerWizardModal state) | Low | Stable modal, runs once per vault, 396 LOC. Low ROI to refactor. |
-| **TD-27** (UI component tests) | Medium | ~40 untested components. Address incrementally as components are modified for features. |
+| **TD-27** (UI component tests) | Medium | ~32 untested components (down from ~40). User Hub components fully tested. Address incrementally as components are modified for features. |
 | **TD-28** (Scanner duplication) | Low | Catalog and Hub use fundamentally different data sources (files vs storage). Low actual duplication. |
-| **TD-30** (Tier 3 bootstrap tests) | Medium | Bootstrap/wiring files have low ROI for unit testing. Tiers 1+2 (447 tests) complete. |
+| **TD-30** (Tier 3 bootstrap tests) | Medium | Bootstrap/wiring files have low ROI for unit testing. Tiers 1+2 (447 tests) + Hub domain (26 tests) complete. |
 | **TD-36** (Folder scans vs events) | Low | Deferred normalization pattern from TD-32 already addresses this. EventBus approach possible but adds complexity for marginal benefit. |
 | **TD-37** (Release strategy) | Postponed | Manual build → copy to plugins folder. GitHub releases deferred until plugin matures. |
 | **TD-38** (Component Library View) | Low | `ComponentShowcaseView` needs update to reflect current component inventory. Low priority. |

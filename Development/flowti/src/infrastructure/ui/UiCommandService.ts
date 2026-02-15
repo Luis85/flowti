@@ -17,6 +17,7 @@ import { VIEW_TYPE_COMPONENT_SHOWCASE } from "../../ui/ComponentShowcaseView";
 import { VIEW_TYPE_EVENT_CATALOG } from "../../ui/EventCatalogView";
 import { VIEW_TYPE_EVENT_LOG } from "../../ui/EventLogView";
 import { VIEW_TYPE_DATA_EXCHANGE_HUB } from "../../ui/DataExchangeHubView";
+import { VIEW_TYPE_USER_HUB } from "../../ui/UserHubView";
 import { SubscriptionManagerModal } from "../../ui/SubscriptionManagerModal";
 
 // ─────────────────────────────────────────────────────────────
@@ -124,6 +125,12 @@ export class UiCommandService implements IDisposable {
 		this.unsubscribes.push(
 			this.eventBus.on("ui.openDataExchangeHub", () =>
 				this.openView(VIEW_TYPE_DATA_EXCHANGE_HUB, "dataExchangeHub", "main"),
+			),
+		);
+
+		this.unsubscribes.push(
+			this.eventBus.on("ui.openUserHub", () =>
+				this.openView(VIEW_TYPE_USER_HUB, "userHub", "main"),
 			),
 		);
 

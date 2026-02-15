@@ -13,6 +13,8 @@ export interface HubStat {
 	label: string;
 	value: string;
 	icon: string;
+	/** Tab to navigate to when this stat is clicked (e.g. "events", "imports") */
+	tabId?: string;
 }
 
 /**

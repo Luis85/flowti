@@ -28,6 +28,9 @@ export interface UiCommandEventMap {
 	/** Open the Data Exchange Hub view */
 	"ui.openDataExchangeHub": Record<string, never>;
 
+	/** Open the User Hub view */
+	"ui.openUserHub": Record<string, never>;
+
 	/** Open the Subscription Manager modal */
 	"ui.openSubscriptionManager": Record<string, never>;
 

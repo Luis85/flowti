@@ -432,7 +432,160 @@ This is why PRDs are **tokens through the process** — they carry context forwa
 
 ---
 
-## 11. Appendix
+## 11. Execution Recap — User Hub First Increment (2026-02-15)
+
+This section traces how the **User Hub (PBI-001)** — the first domain Hub — moved through every lifecycle phase. It serves as a concrete reference for how the process works in practice.
+
+### Feature Context
+
+| | |
+|---|---|
+| **PRD** | [[Hubs PRD]] — Domain-Centric Workspaces |
+| **PBI** | [[PBI-001 User Hub]] — Personal cockpit with dashboard, inbox, activity |
+| **Phase** | Phase 3 of the Hubs implementation roadmap |
+| **Prerequisites** | BaseHubView (Phase 1), System Hub migration (Phase 2), HubRegistry + Navigation (Phase 2.5) |
+
+---
+
+### Phase 1 — Feedback & Idea Intake
+
+**What happened**: The Hubs concept emerged from observing that the Event Catalog and Data Exchange Hub were isolated views with duplicated shell logic. Users had no personal cockpit for cross-domain overview. These observations were captured as User Stories in the Hubs PRD problem statement.
+
+**Artifact**: [[Hubs PRD]] Section 1 (Problem Statement), PBI-001 User Story ("As a knowledge worker, I want a personal cockpit hub...")
+
+---
+
+### Phase 2 — Discovery (Problem Space)
+
+**What happened**: Problem analysis identified 4 user pains: no aggregated activity view, no inbox for actionable notifications, no "today" summary, must open multiple views to understand system state. Success outcomes were defined as measurable criteria.
+
+**Artifact**: PBI-001 "User Pains" and "User Needs" sections
+
+---
+
+### Phase 3 — Solution Exploration
+
+**What happened**: Alternative approaches considered:
+1. Adapter-based (HubAdapter interface with getDashboardData/getEntities) — rejected as premature
+2. Inheritance-based (BaseHubView abstract class with simpler abstract methods) — chosen
+3. Cross-hub data: HubDashboardProvider interface + HubRegistry — lightweight enough to ship
+
+**Artifact**: Pre-Feature Development Review (gap analysis), ADR-024
+
+---
+
+### Phase 4 — Solution Design + PRD Drafting
+
+**What happened**: Hubs PRD drafted with full scope: shell layout, layouts, adapters, tab definitions, 4 PBIs, 7 TD prerequisites, 4-phase implementation plan. FRI scored at 23/35.
+
+**Artifact**: [[Hubs PRD]] (all 13 sections), [[PBI-001 User Hub]] (functional + technical requirements)
+
+---
+
+### Phase 5 — PRD → Development Ready
+
+**What happened**: Technical Review performed (result: Pass). FRI refined from 23 → 24. The Pre-Feature Development Review identified 5 gaps and 2 blockers. Blockers resolved (HubRegistry + hub.navigate). PRD moved to `approved` stage.
+
+**Artifacts**:
+- [[Technical Review 2026-02-15]] (pass)
+- [[Pre-Feature Development Review 2026-02-15]] (gap analysis, 2 blockers identified)
+- [[Three Amigos Review - HubRegistry + Navigation 2026-02-15]] (blockers resolved)
+
+---
+
+### Phase 6 — Delivery Planning + Chunking
+
+**What happened**: PBI-001 was chunked into 3 increments:
+1. **Increment 1**: Working shell — Dashboard (cross-hub summaries), Inbox (placeholder), Activity (live event feed)
+2. **Increment 2**: Inbox population from subscription/ingestion events, persistent state
+3. **Increment 3**: User preferences, activity filtering
+
+An implementation plan was written listing all 11 files, their purpose, estimated LOC, and implementation order. The plan was reviewed and approved before any code was written.
+
+**Artifact**: Implementation plan (approved in-session)
+
+---
+
+### Phase 7 — Iterative Implementation (Increment 1)
+
+**What happened** (step by step):
+
+| Step | Action | Files | LOC |
+|------|--------|-------|-----|
+| 1 | Created type definitions | `src/ui/userHub/types.ts` | 50 |
+| 2 | Created hub provider | `src/domain/hub/UserHubProvider.ts` | 41 |
+| 3 | Created dashboard component | `src/ui/userHub/UserHubDashboard.ts` | 98 |
+| 4 | Created inbox component | `src/ui/userHub/UserHubInbox.ts` | 117 |
+| 5 | Created activity component | `src/ui/userHub/UserHubActivity.ts` | 173 |
+| 6 | Created view orchestrator | `src/ui/UserHubView.ts` | 138 |
+| 7 | Added `ui.openUserHub` event | `src/infrastructure/ui/events.ts` | +3 |
+| 8 | Added catalog entry | `src/infrastructure/events/catalog.ts` | +1 |
+| 9 | Added UiCommandService listener | `src/infrastructure/ui/UiCommandService.ts` | +7 |
+| 10 | Wired in main.ts (view, provider, ribbon, command) | `src/main.ts` | +8 |
+| 11 | Full `npm run build` | — | green |
+
+**Total**: 6 new files (648 LOC), 5 modified files (+43 LOC). Build pipeline passed on first attempt.
+
+---
+
+### Phase 8 — Review + Quality Assurance
+
+**What happened** (step by step):
+
+| Step | Action | Finding | Resolution |
+|------|--------|---------|------------|
+| 1 | Three Amigos Review (code quality) | 3 issues found: dead field, duplicated function, nested stat grids | All 3 fixed same session |
+| 2 | Bug identified: stat card clicks | Stat cards navigated to hub dashboard, not specific tab | Added `tabId` to `HubStat`, populated in providers, passed in dashboard onClick |
+| 3 | Test gap identified | No unit tests for new code | 5 test files created (63 tests): HubRegistry (11), providers (15), Activity (16), Inbox (11), Dashboard (10) |
+| 4 | Test failures resolved | 3 failures: wrong category name, missing mock methods, invalid event type | Fixed: updated expected strings, added mock methods, corrected event payload |
+| 5 | Full `npm run build` | — | 1,725 tests across 77 suites, green pipeline |
+| 6 | TASM scoring | Initial: 30/35 (Strong) → Final: 33/35 (Excellent) | Scores raised after tests + bug fix resolved gaps |
+
+**Artifacts**:
+- [[Three Amigos Review - User Hub First Increment 2026-02-15]] (TASM 33/35)
+- 5 test files under `tests/domain/hub/` and `tests/ui/userHub/`
+
+---
+
+### Phase 9 — Documentation + Publication
+
+**What happened** (step by step):
+
+| Step | Action | Artifact |
+|------|--------|----------|
+| 1 | Updated TD-27 (UI component testing) | Test counts, User Hub coverage section |
+| 2 | Updated TD-30 (untested domain logic) | Hub domain coverage table |
+| 3 | Updated TD-12 (wildcard listeners) | 7th listener added (UserHubActivity) |
+| 4 | Updated Technical Debt Review summary | Scope metrics, wildcard count, test coverage |
+| 5 | Created sitemap entry | `docs/sitemap/User Hub View.md` |
+| 6 | Created 4 component docs | UserHubView, UserHubDashboard, UserHubInbox, UserHubActivity |
+| 7 | Updated Hubs PRD | Stage `approved` → `in-progress`, FRI 24 → 31, checked off completed requirements, updated phases + stage history |
+
+---
+
+### Phase 10 — Post-Release Feedback Loop
+
+**What happened**: Improvement backlog captured during review:
+- **Open**: Optimize Activity state updates when tab isn't visible (performance)
+- **Open**: Populate Inbox from subscription/ingestion events (PBI-001 increment 2)
+- **Open**: Extract formatTimestamp to shared utility (refactor)
+- **Open**: User preference for Activity cap size (feature)
+
+These items feed into PBI-001 increment 2 planning (back to Phase 6).
+
+---
+
+### Key Learnings
+
+1. **Plan before code**: The approved implementation plan prevented scope creep and made the Three Amigos review straightforward — reviewers could compare actual vs planned.
+2. **Incremental delivery works**: Delivering a "working shell" with placeholder Inbox was the right call. The Activity tab provided immediate value, and the empty Inbox has a clear path to increment 2.
+3. **Review catches real issues**: 3 code quality problems and 1 bug (stat card deep-linking) were found during review — none would have been caught by automated tests alone.
+4. **Tests close the loop**: Adding tests after review (not during implementation) served as a verification pass. The 3 test failures revealed real mismatches (wrong category string, missing interface methods, invalid event type).
+5. **Documentation alongside delivery**: Updating tech debt docs, sitemap, and component docs immediately after implementation keeps the knowledge base accurate. Deferring documentation creates debt that compounds.
+
+---
+
+## 12. Appendix
 
 - [[Testplan and Teststrategy]]
 - [[Three Amigos Session Template]]

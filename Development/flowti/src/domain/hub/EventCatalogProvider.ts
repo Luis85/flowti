@@ -38,9 +38,9 @@ export class EventCatalogProvider implements HubDashboardProvider {
 
 		return {
 			stats: [
-				{ label: "Events", value: String(totalEvents), icon: "list" },
-				{ label: "Domains", value: String(domains.size), icon: "boxes" },
-				{ label: "Services", value: String(services.size), icon: "server" },
+				{ label: "Events", value: String(totalEvents), icon: "list", tabId: "events" },
+				{ label: "Domains", value: String(domains.size), icon: "boxes", tabId: "domains" },
+				{ label: "Services", value: String(services.size), icon: "server", tabId: "services" },
 				{ label: "Categories", value: String(categories.size), icon: "tag" },
 			],
 			healthLevel: "healthy",

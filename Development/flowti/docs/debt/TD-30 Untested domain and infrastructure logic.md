@@ -6,7 +6,7 @@ status: open
 created: 2026-02-14
 updated: 2026-02-15
 effort: medium
-description: "15 non-UI source files (~4,200 LOC) with testable pure functions and injectable services. Tier 1 complete (298 tests, 100%). Tier 2 complete (149 tests, 95-100% coverage). Tier 3 (bootstrap) open. Tier 4 (flow integration) complete."
+description: "15 non-UI source files (~4,200 LOC) with testable pure functions and injectable services. Tier 1 complete (298 tests, 100%). Tier 2 complete (149 tests, 95-100% coverage). Tier 3 (bootstrap) open. Tier 4 (flow integration) complete. Hub domain tests added (26 tests, 100% coverage on HubRegistry + 3 providers)."
 source: "[[Technical Review 2026-02-14]]"
 ---
 # TD-30: Untested domain and infrastructure logic
@@ -66,13 +66,22 @@ Target: ~12 new test files, ~50-150 LOC each.
 
 ## Assessment (2026-02-15)
 
-Tiers 1, 2, and 4 are complete. Current metrics: **1,447 tests passing, 32 skipped across 65 test files**. Remaining untested domain files are:
+Tiers 1, 2, and 4 are complete. Hub domain layer fully tested. Current metrics: **1,725 tests passing, 32 skipped across 77 test files**. Remaining untested domain files are:
 - `installer/folders.ts` — pure data array, low complexity
 - `installer/steps/UserCreationStep.ts`, `FolderScaffoldStep.ts` — covered indirectly by InstallerService.test.ts and Flow 01 integration test
 - `settings/FlowtiSettingTab.ts` — Obsidian UI component, low ROI for unit testing
 - Tier 3 bootstrap files (`main.ts`, `pluginBootstrap.ts`, `dataExchangeSetup.ts`) — require Obsidian runtime
 
 All remaining untested domain files have low ROI for unit testing. UI component coverage tracked separately in TD-27.
+
+### Hub domain coverage (2026-02-15)
+
+| File | LOC | Test File | Tests | Coverage |
+|------|-----|-----------|-------|----------|
+| `domain/hub/HubRegistry.ts` | 65 | `tests/domain/hub/HubRegistry.test.ts` | 11 | 100% |
+| `domain/hub/EventCatalogProvider.ts` | 50 | `tests/domain/hub/providers.test.ts` | 6 | 100% |
+| `domain/hub/DataExchangeProvider.ts` | 46 | `tests/domain/hub/providers.test.ts` | 5 | 100% |
+| `domain/hub/UserHubProvider.ts` | 41 | `tests/domain/hub/providers.test.ts` | 4 | 100% |
 
 ## Affected Files
 
@@ -85,3 +94,5 @@ All remaining untested domain files have low ROI for unit testing. UI component 
 - `tests/domain/dataExchange/DataDictionaryBuilder.test.ts` (new)
 - `tests/domain/dataExchange/PipelineExecutor.test.ts` (new)
 - `tests/infrastructure/filesystem/FileSystemClient.test.ts` (new)
+- `tests/domain/hub/HubRegistry.test.ts` (new — 11 tests, 100% coverage)
+- `tests/domain/hub/providers.test.ts` (new — 15 tests, 100% coverage)

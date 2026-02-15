@@ -47,6 +47,15 @@ export function createCommandDefinitions(): CommandDefinition[] {
 			},
 		},
 		{
+			id: "flowti:open-user-hub",
+			name: "Open User Hub",
+			icon: "home",
+			handler: async (ctx) => {
+				ctx.logger.debug("Opening user hub view");
+				void ctx.eventBus.emit("ui.openUserHub", {});
+			},
+		},
+		{
 			id: "flowti:manage-subscriptions",
 			name: "Manage Watchers",
 			icon: "bell",
