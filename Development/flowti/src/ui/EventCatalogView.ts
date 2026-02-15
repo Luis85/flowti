@@ -37,6 +37,7 @@ import {
 	ActorsTab,
 	ProductsTab,
 	EventsTab,
+	HealthTab,
 } from "./catalog";
 
 export const VIEW_TYPE_EVENT_CATALOG = "flowti-event-catalog";
@@ -73,7 +74,7 @@ export class EventCatalogView extends ItemView {
 	private renderTimer: ReturnType<typeof setTimeout> | null = null;
 
 	// Master-detail state
-	private activeTab: "dashboard" | "events" | "domains" | "services" | "flows" | "systems" | "actors" | "products" = "dashboard";
+	private activeTab: "dashboard" | "events" | "domains" | "services" | "flows" | "systems" | "actors" | "products" | "health" = "dashboard";
 	private flowEntries: FlowEntry[] = [];
 	private systemEntries: SystemEntry[] = [];
 	private actorEntries: ActorEntry[] = [];
@@ -101,6 +102,7 @@ export class EventCatalogView extends ItemView {
 	private actorsTab: ActorsTab | null = null;
 	private productsTab: ProductsTab | null = null;
 	private eventsTab: EventsTab | null = null;
+	private healthTab: HealthTab | null = null;
 
 	constructor(leaf: WorkspaceLeaf, eventBus: IEventBus, state: ViewStateProvider) {
 		super(leaf);
@@ -220,6 +222,7 @@ export class EventCatalogView extends ItemView {
 		this.systemsTab = new SystemsTab(this.masterTreeEl, this.detailPanelEl, deps);
 		this.actorsTab = new ActorsTab(this.masterTreeEl, this.detailPanelEl, deps);
 		this.productsTab = new ProductsTab(this.masterTreeEl, this.detailPanelEl, deps);
+		this.healthTab = new HealthTab(this.masterTreeEl, this.detailPanelEl, deps);
 		this.eventsTab = new EventsTab(
 			this.masterTreeEl, this.detailPanelEl,
 			this.settingsPanel, this.countBadge, deps,
@@ -476,6 +479,7 @@ export class EventCatalogView extends ItemView {
 			{ id: "systems", label: "Systems", icon: "layout-grid" },
 			{ id: "actors", label: "Actors", icon: "users" },
 			{ id: "products", label: "Products", icon: "package" },
+			{ id: "health", label: "Health", icon: "heart-pulse" },
 		];
 
 		for (const tab of tabs) {
@@ -517,6 +521,7 @@ export class EventCatalogView extends ItemView {
 				systems: "Systems",
 				actors: "Actors",
 				products: "Products",
+				health: "Health",
 			};
 			this.topBarTitleEl.textContent = `Event Catalog - ${labels[this.activeTab] ?? this.activeTab}`;
 
@@ -528,6 +533,7 @@ export class EventCatalogView extends ItemView {
 				systems: "Search systems...",
 				actors: "Search actors...",
 				products: "Search products...",
+				health: "Search checks...",
 			};
 			this.searchInput.placeholder = placeholders[this.activeTab] ?? "";
 		} else {
@@ -602,6 +608,22 @@ export class EventCatalogView extends ItemView {
 				case "products":
 					this.productsTab!.render();
 					this.productEntries = this.productsTab!.getEntries();
+					break;
+				case "health":
+					// Scan all entities for fresh data (same as dashboard)
+					this.domainsTab!.scan();
+					this.domainEntries = this.domainsTab!.getEntries();
+					this.servicesTab!.scan();
+					this.serviceEntries = this.servicesTab!.getEntries();
+					this.flowsTab!.scan();
+					this.flowEntries = this.flowsTab!.getEntries();
+					this.systemsTab!.scan();
+					this.systemEntries = this.systemsTab!.getEntries();
+					this.actorsTab!.scan();
+					this.actorEntries = this.actorsTab!.getEntries();
+					this.productsTab!.scan();
+					this.productEntries = this.productsTab!.getEntries();
+					this.healthTab!.render();
 					break;
 			}
 			this.updateCountBadge();
@@ -686,6 +708,12 @@ export class EventCatalogView extends ItemView {
 				this.countBadge.textContent = this.filterText
 					? `${filteredProducts.length} / ${products.length} products`
 					: `${products.length} products`;
+				break;
+			}
+			case "health": {
+				const report = this.healthTab!.getReport();
+				const passing = report.checks.filter((c) => c.severity === "pass").length;
+				this.countBadge.textContent = `${passing} / ${report.checks.length} passing`;
 				break;
 			}
 		}
