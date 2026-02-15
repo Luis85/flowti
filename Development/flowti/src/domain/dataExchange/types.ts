@@ -372,6 +372,49 @@ export interface MultiImportResult {
 	sourceResults: PipelineSourceResult[];
 }
 
+// ── Pipeline Preview ─────────────────────────────────────
+
+/** Preview data for a single source within a pipeline. */
+export interface PipelinePreviewSource {
+	/** Source ID within the pipeline */
+	sourceId: string;
+	/** Display name (CSV basename) */
+	csvName: string;
+	/** Row count in the CSV */
+	rowCount: number;
+	/** Included column frontmatter keys (excluding merge key) */
+	columns: string[];
+	/** Extracted merge key values */
+	mergeKeyValues: string[];
+	/** Error message if parsing/detection failed */
+	error?: string;
+}
+
+/** Preview data for a single note entry the pipeline would create/update. */
+export interface PipelinePreviewEntry {
+	/** Original merge key value */
+	key: string;
+	/** Constructed filename (with prefix/suffix, without .md) */
+	filename: string;
+	/** Whether a note already exists at the target path */
+	exists: boolean;
+}
+
+/** Complete preview result for a pipeline. */
+export interface PipelinePreviewResult {
+	/** Per-source breakdown */
+	sources: PipelinePreviewSource[];
+	/** Deduplicated note entries */
+	entries: PipelinePreviewEntry[];
+	/** Count of entries where exists === false */
+	toCreate: number;
+	/** Count of entries where exists === true */
+	toUpdate: number;
+}
+
+/** Callback to check whether a vault file exists at a given path. */
+export type FileExistsCallback = (path: string) => boolean;
+
 /** Persisted state for the Data Exchange domain. */
 export interface DataExchangeState {
 	savedImportConfigs: SavedImportConfig[];

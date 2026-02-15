@@ -21,10 +21,10 @@ Post-sprint comprehensive review of the Flowti IBDE plugin. This review follows 
 The plugin is in **excellent architectural health** after the Tech Debt Sprint. Of 38 tracked debt items, **27 are resolved**, 4 are mitigated, and 7 remain open. The sprint eliminated all high-severity items (TD-32, TD-33, TD-35). This review identified **3 new items** (TD-39, TD-40, TD-41) — none are high severity.
 
 **Key metrics:**
-- 1,447 tests passing, 32 skipped across 65 test files
+- 1,498 tests passing, 32 skipped across 66 test files
 - 164 source files (~25,500 LOC: 8,700 domain + 16,800 UI)
 - 136 typed events in FlowtiEventMap
-- 22 ADRs documenting architectural decisions
+- 23 ADRs documenting architectural decisions
 
 **New findings:**
 1. **TD-39** (low): InstallerService/UserService missing `dispose()`, DocService missing `load()`
@@ -62,7 +62,7 @@ The plugin is in **excellent architectural health** after the Tech Debt Sprint. 
 | Error handling (TD-29) | MEDIUM — 4 strategies, no convention | Mitigated — ADR-021 established |
 | UI testing (TD-27) | MEDIUM — 0% component coverage | Mitigated — DomainsTab exemplar + happy-dom pattern |
 | Release strategy (TD-37) | MEDIUM — no CHANGELOG | Mitigated — CHANGELOG.md + ADR-022 |
-| Test suite | 854 tests, 45 files | 1,447 tests, 65 files |
+| Test suite | 854 tests, 45 files | 1,498 tests, 66 files |
 
 ### Where architecture is still lacking
 
@@ -191,9 +191,9 @@ Confirmed by this review: CsvActionView, DataExchangeHubView, FolderPickerModal,
 | UI | 9 | 71 | ~13% by file |
 | Utils | 5 | 6 | ~83% by file |
 | Flows | 10 | — | 10 user journeys |
-| **Total** | **65** | **164** | **~40% by file** |
+| **Total** | **66** | **164** | **~40% by file** |
 
-**1,447 tests passing, 32 skipped**
+**1,498 tests passing, 32 skipped**
 
 ### What's well-tested
 
@@ -316,7 +316,7 @@ Confirmed by this review: CsvActionView, DataExchangeHubView, FolderPickerModal,
 | Identified potential data-loss scenarios | 8+ |
 | Silent failure points | 12+ |
 
-While 1,447 tests cover domain services, infrastructure, and pure utilities, **the UI layer contains significant business logic that has zero test coverage**. This is not about rendering or CSS — it's about data transforms, aggregation, validation, state machines, and pipeline execution embedded in UI components.
+While 1,498 tests cover domain services, infrastructure, and pure utilities, **the UI layer contains significant business logic that has zero test coverage**. This is not about rendering or CSS — it's about data transforms, aggregation, validation, state machines, and pipeline execution embedded in UI components.
 
 ### 8.1 Critical risk: Functions where bugs cause data loss or corruption
 
@@ -358,17 +358,11 @@ Executes the CSV → vault import pipeline with real-time progress tracking:
 
 **What breaks**: If the event subscription races with import completion, progress callbacks fire after the modal closes. If custom properties merge overwrites user-specified column mappings, imported notes have wrong frontmatter.
 
-#### `PipelinePreview.run()` — preview computation with dedup
+#### ~~`PipelinePreview.run()` — preview computation with dedup~~ **RESOLVED (ADR-023)**
 
-**File**: `src/ui/hub/pipelines/PipelinePreview.ts` (lines 31-135)
+**File**: `src/domain/dataExchange/PipelineExecutor.ts` — `buildPreview()`
 
-Computes a merge preview before executing a pipeline:
-- Reads source CSV, parses merge keys
-- Checks vault for existing files by merge key
-- Deduplicates entries with matching keys
-- Filters out empty/blank merge keys
-
-**What breaks**: If dedup logic has an off-by-one (e.g., case-insensitive matching when keys are case-sensitive), the preview shows "5 new, 0 updates" but execution creates duplicates. The preview becomes misleading rather than protective.
+Preview computation (CSV parsing, merge key extraction, dedup, existence check) extracted from the UI component into the domain layer. **12 dedicated tests** in `PipelineExecutor.test.ts` cover all edge cases. The UI component (`PipelinePreview.ts`) now only handles rendering.
 
 #### `ConfigurePage.ts` external/vault toggle — path conversion
 
@@ -380,32 +374,19 @@ Toggles between vault-relative and filesystem-absolute paths:
 
 **What breaks**: Switching modes loses the folder component of the path. User selects "Reports/Q1" in vault mode, switches to external, path becomes `C:\vault\Reports\Q1`, switches back — path may resolve to wrong location if vault base path doesn't perfectly round-trip.
 
-#### `PipelineSourceModal.parseCsv()` — merge key fuzzy matching
+#### ~~`PipelineSourceModal.parseCsv()` — merge key fuzzy matching~~ **RESOLVED (ADR-023)**
 
-**File**: `src/ui/PipelineSourceModal.ts` (lines 221-269)
+**File**: `src/utils/csvUtils.ts` — `matchMergeKeyColumn()`, `syncColumnMappings()`
 
-Normalizes merge keys by stripping underscores, spaces, and dashes for fuzzy column matching:
-- Parses CSV header row
-- Normalizes each column name: `remove_underscores` → `removeunderscores`
-- 3-way sync between source columns, target columns, and merge key
-
-**What breaks**: Fuzzy matching creates false positives: columns named `first_name` and `firstname` would match when they shouldn't. This silently maps wrong columns during merge operations.
+Fuzzy matching and column sync logic extracted from the modal into pure functions. **15 dedicated tests** (9 for `matchMergeKeyColumn`, 6 for `syncColumnMappings`) cover exact match, case-insensitive, underscore/space/dash normalization, no-match, and empty headers. `PipelineSourceModal.parseCsv()` reduced from 48 → 14 LOC.
 
 ### 8.2 High risk: Functions where bugs cause silent failures or wrong results
 
-#### `csvUtils.ts` — 5 pure functions, 0 tests
+#### ~~`csvUtils.ts` — 5 pure functions, 0 tests~~ **RESOLVED (ADR-023)**
 
-**File**: `src/ui/csv/csvUtils.ts`
+**File**: `src/utils/csvUtils.ts` (moved from `ui/csv/csvUtils.ts`)
 
-| Function | Risk |
-|----------|------|
-| `splitCsvLine()` | Incorrect CSV parsing with quoted fields, embedded commas |
-| `detectDelimiter()` | Wrong delimiter detection → entire CSV misread |
-| `generateBaseYaml()` | Malformed YAML frontmatter in generated `.base` files |
-| `getBaseFilename()` | Wrong filename extraction → file not found |
-| `formatRelativeTime()` | Display-only, low risk |
-
-**This is the highest-ROI testing target** — 5 pure functions with zero dependencies, trivially testable, and 3 of them directly affect data integrity.
+All 7 functions (5 original + 2 extracted from PipelineSourceModal) now have **41 dedicated tests** in `tests/utils/csvUtils.test.ts`. The old UI import path (`ui/csv/csvUtils`) is a backward-compatible re-export barrel.
 
 #### `helpers.ts:getVisibleEntries()` — category/system filtering
 
@@ -448,24 +429,24 @@ Interactive filter + sort state with column visibility:
 
 ### 8.3 Risk summary by tier
 
-| Tier | Functions | Example | Consequence |
-|------|-----------|---------|-------------|
-| **Critical** (data loss) | 6 | `entityScanner.scanEntityFolder()`, `PipelinePreview.run()`, `parseCsv()` | Entries vanish, duplicates created, wrong columns merged |
-| **High** (silent wrong results) | 8 | `csvUtils.splitCsvLine()`, `getVisibleEntries()`, conflict detection | CSV misread, events hidden, file overwrites |
-| **Medium** (degraded UX) | 12+ | `formatRelativeTime()`, progress tracking, sort state | Wrong display, stale UI, cosmetic errors |
+| Tier | Functions | Example | Consequence | Status |
+|------|-----------|---------|-------------|--------|
+| **Critical** (data loss) | 6 → 3 | `entityScanner.scanEntityFolder()`, ~~`PipelinePreview.run()`~~, ~~`parseCsv()`~~ | Entries vanish, duplicates created | 3 resolved (ADR-023) |
+| **High** (silent wrong results) | 8 → 5 | ~~`csvUtils.splitCsvLine()`~~, `getVisibleEntries()`, conflict detection | Events hidden, file overwrites | 3 resolved (ADR-023) |
+| **Medium** (degraded UX) | 12+ | ~~`formatRelativeTime()`~~, progress tracking, sort state | Wrong display, stale UI | 1 resolved (ADR-023) |
 
 ### 8.4 Recommended testing priority
 
-| Priority | Target | Tests | ROI |
-|----------|--------|-------|-----|
-| 1 | `csvUtils.ts` (5 pure functions) | ~30 | Highest — zero deps, data integrity |
-| 2 | `entityScanner.scanEntityFolder()` | ~15 | High — backbone of 4 tabs, mock metadataCache |
-| 3 | `DomainsTab.scan()` / `ServicesTab.scan()` | ~20 | High — aggregation correctness |
-| 4 | `PipelinePreview.run()` | ~10 | High — prevents duplicate creation |
-| 5 | `helpers.ts:getVisibleEntries()` | ~10 | Medium — filtering correctness |
-| 6 | `CsvDataSnapshot` filter/sort | ~15 | Medium — state machine integrity |
+| Priority | Target | Tests | ROI | Status |
+|----------|--------|-------|-----|--------|
+| 1 | `csvUtils.ts` (5 pure functions + 2 extracted) | 41 | Highest — zero deps, data integrity | **RESOLVED** (ADR-023) |
+| 2 | `entityScanner.scanEntityFolder()` | ~15 | High — backbone of 4 tabs, mock metadataCache | Open |
+| 3 | `DomainsTab.scan()` / `ServicesTab.scan()` | ~20 | High — aggregation correctness | Open |
+| 4 | `PipelinePreview.run()` → `PipelineExecutor.buildPreview()` | 12 | High — prevents duplicate creation | **RESOLVED** (ADR-023) |
+| 5 | `helpers.ts:getVisibleEntries()` | ~10 | Medium — filtering correctness | Open |
+| 6 | `CsvDataSnapshot` filter/sort | ~15 | Medium — state machine integrity | Open |
 
-Priorities 1-3 cover the critical risk tier with ~65 tests. All can run in `happy-dom` environment using the existing `obsidian-stub` polyfills.
+Priorities 1 and 4 were resolved via ADR-023 (Modal Business Logic Extraction): csvUtils moved to `utils/csvUtils.ts` with 41 tests; PipelinePreview data gathering extracted to `PipelineExecutor.buildPreview()` with 12 tests. Priorities 2-3 remain the highest-ROI open targets (~35 tests covering the critical risk tier).
 
 ---
 
@@ -474,18 +455,35 @@ Priorities 1-3 cover the critical risk tier with ~65 tests. All can run in `happ
 The Flowti IBDE plugin is in **strong shape** after the Tech Debt Sprint. All high-severity items are resolved. The 10 remaining open items are medium or low severity, with none blocking feature development.
 
 **Biggest improvements since last review:**
-- Test suite grew from 854 → 1,447 tests (+70%)
+- Test suite grew from 854 → 1,498 tests (+75%)
 - High-severity items: 1 → 0
 - Resolved items: 16 → 27
 - 10 flow integration tests now cover all documented user journeys
 - Error handling, release strategy, and UI testing patterns all have established conventions
 
+**Post-review improvement (ADR-023 — Modal Business Logic Extraction):**
+
+The two highest-ROI extractions from Section 8 have been completed:
+
+1. **csvUtils** (Priority 1): 5 pure functions moved from `ui/csv/csvUtils.ts` to `utils/csvUtils.ts`, plus 2 new functions extracted from `PipelineSourceModal.parseCsv()` (`matchMergeKeyColumn`, `syncColumnMappings`). All 7 functions now have 41 dedicated tests. The old UI path is a backward-compatible re-export barrel.
+
+2. **PipelinePreview** (Priority 4): Data gathering extracted from `PipelinePreview.run()` to `PipelineExecutor.buildPreview()` in the domain layer. The UI component now only handles rendering — it receives a `PipelinePreviewResult` and delegates all CSV parsing, merge key extraction, dedup, and existence checking to the domain. 12 dedicated tests cover the domain method.
+
+**Should we invest in more modal refactoring?**
+
+**No.** The two completed extractions addressed the only cases where modals contained critical business logic (data transforms, parsing, deduplication). The remaining modal logic falls into two categories:
+
+- **Thin event emission** (EventConfigModal, SubscriptionManagerModal): These emit `subscription.create`, `eventDefinition.create`, etc. via the EventBus. This is the **intended** pattern per ADR-008 (UI Command Bus) — modals act as command senders, not logic holders. Extracting this into a service would add indirection without reducing risk.
+- **Form state management** (InstallerWizardModal, PipelineSourceModal): These manage local wizard page state and validation. This is inherently UI-scoped and doesn't belong in the domain layer.
+
+Further modal refactoring has **diminishing returns**. The next priorities should focus on the entity scanning layer.
+
 **Biggest remaining gap:**
-The UI layer contains ~3,000 LOC of untested business logic across 21 files (Section 8). Six critical-risk functions — led by `entityScanner.scanEntityFolder()` which is the backbone of 4 entity tabs — have zero test coverage and could silently lose or corrupt data. The highest-ROI fix is testing `csvUtils.ts` (5 pure functions, ~30 tests, zero dependencies) and `entityScanner.ts` (~15 tests with mocked metadataCache).
+The critical-risk tier now has 2 open items (down from 4): `entityScanner.scanEntityFolder()` (backbone of 4 entity tabs) and `DomainsTab.scan()`/`ServicesTab.scan()` (3-source merge aggregation). These ~35 tests would close the last data-integrity coverage gap in the UI layer.
 
 **Top priorities for next sprint:**
 1. TD-41 (small): Fix the dedup race in EventDefinitionService — a 10-line change with high correctness impact
-2. `csvUtils.ts` + `entityScanner.ts` tests (~45 tests): Cover the two highest-risk untested pure/quasi-pure modules
+2. `entityScanner.scanEntityFolder()` + `DomainsTab.scan()` / `ServicesTab.scan()` tests (~35 tests): Cover the remaining critical-risk untested modules
 3. TD-40 (medium): Decide whether to wire `settings.entityPaths` or remove the dead configuration
 
-The plugin's architecture is well-positioned for continued feature development, but the UI business logic testing gap (Section 8) should be addressed before adding more data-pipeline features.
+The plugin's architecture is well-positioned for continued feature development. The modal business logic gap is resolved; the entity scanner testing gap (Section 8, priorities 2-3) should be addressed before adding more data-pipeline features.

@@ -10,12 +10,17 @@ import type { ImportService } from "./ImportService";
 import type { ExportService } from "./ExportService";
 import type {
 	ColumnMapping,
+	FileExistsCallback,
 	ImportConfig,
 	MultiImportResult,
+	PipelinePreviewEntry,
+	PipelinePreviewResult,
+	PipelinePreviewSource,
 	PipelineSourceResult,
 	SavedExportConfig,
 	SavedMultiImportPipeline,
 } from "./types";
+import { basename } from "../../utils/pathUtils";
 
 export interface PipelineExecutorDeps {
 	eventBus: IEventBus;
@@ -28,6 +33,85 @@ export interface PipelineExecutorDeps {
 
 export class PipelineExecutor {
 	constructor(private deps: PipelineExecutorDeps) {}
+
+	/**
+	 * Builds a preview of what the pipeline would do without executing it.
+	 *
+	 * Parses each source CSV, extracts merge key values, deduplicates them,
+	 * constructs expected filenames, and checks whether they already exist.
+	 */
+	async buildPreview(
+		pipeline: SavedMultiImportPipeline,
+		fileExists: FileExistsCallback,
+	): Promise<PipelinePreviewResult> {
+		const sources: PipelinePreviewSource[] = [];
+
+		for (const source of pipeline.sources) {
+			try {
+				const parsed = await this.deps.importService.parseFile(source.csvPath);
+				const mergeKeyIndex = parsed.headers.indexOf(source.mergeKeyColumn);
+				if (mergeKeyIndex < 0) {
+					sources.push({
+						sourceId: source.id,
+						csvName: basename(source.csvPath) || source.csvPath,
+						rowCount: 0,
+						columns: [],
+						mergeKeyValues: [],
+						error: `Merge key column "${source.mergeKeyColumn}" not found`,
+					});
+					continue;
+				}
+
+				const mergeKeyValues = parsed.rows
+					.map((row) => row[mergeKeyIndex])
+					.filter((v): v is string => v !== undefined && v !== "");
+
+				const columns = source.columnMappings
+					.filter((m) => m.included && m.csvColumn !== source.mergeKeyColumn)
+					.map((m) => m.frontmatterKey);
+
+				sources.push({
+					sourceId: source.id,
+					csvName: basename(source.csvPath) || source.csvPath,
+					rowCount: parsed.rows.length,
+					columns,
+					mergeKeyValues,
+				});
+			} catch (err) {
+				sources.push({
+					sourceId: source.id,
+					csvName: basename(source.csvPath) || source.csvPath,
+					rowCount: 0,
+					columns: [],
+					mergeKeyValues: [],
+					error: err instanceof Error ? err.message : String(err),
+				});
+			}
+		}
+
+		const allKeys = new Set<string>();
+		for (const src of sources) {
+			for (const v of src.mergeKeyValues) allKeys.add(v);
+		}
+
+		const entries: PipelinePreviewEntry[] = [];
+		for (const key of allKeys) {
+			const sanitized = this.deps.importService.sanitizeFilename(key);
+			if (!sanitized) continue;
+			const prefix = pipeline.namePrefix ?? "";
+			const suffix = pipeline.nameSuffix ?? "";
+			const filename = `${prefix}${sanitized}${suffix}`;
+			const notePath = `${pipeline.targetFolder}/${filename}.md`;
+			entries.push({ key, filename, exists: fileExists(notePath) });
+		}
+
+		return {
+			sources,
+			entries,
+			toCreate: entries.filter((e) => !e.exists).length,
+			toUpdate: entries.filter((e) => e.exists).length,
+		};
+	}
 
 	async executePipeline(pipelineId: string): Promise<MultiImportResult> {
 		const pipeline = this.deps.getPipeline(pipelineId);

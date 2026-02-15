@@ -4,7 +4,7 @@ category: testing
 layer: ui
 status: mitigated
 created: 2026-02-14
-description: Component-level rendering tests (individual tabs, pages) not yet covered. 1319 tests across 53 suites cover domain services, EventBus, utilities, pure functions, and 6 view orchestrators but not individual UI components.
+description: Component-level rendering tests (individual tabs, pages) not yet covered. 1498 tests across 66 suites cover domain services, EventBus, utilities, pure functions, 6 view orchestrators, and extracted UI logic but not individual UI components.
 updated: 2026-02-16
 source: "[[Frontend Architecture]]"
 ---
@@ -12,7 +12,7 @@ source: "[[Frontend Architecture]]"
 
 ## Problem
 
-1319 tests across 53 suites cover domain services, EventBus, utilities, pure functions (Tier 1: 298 tests), injectable services (Tier 2: 149 tests), and 6 view orchestrators (`EventCatalogView`, `ExportView`, `DataExchangeHubView`, `EventLogView`, `EventConfigModal`, `IngestionStatusBar`). However, individual UI components — tabs, pages, dashboard widgets — have no dedicated tests.
+1498 tests across 66 suites cover domain services, EventBus, utilities, pure functions (Tier 1: 298 tests), injectable services (Tier 2: 149 tests), 6 view orchestrators (`EventCatalogView`, `ExportView`, `DataExchangeHubView`, `EventLogView`, `EventConfigModal`, `IngestionStatusBar`), and extracted UI logic (`csvUtils`, `PipelineExecutor.buildPreview()`). However, individual UI components — tabs, pages, dashboard widgets — have no dedicated tests.
 
 ### Untested components (~40 files)
 
@@ -50,6 +50,7 @@ Established replicable UI component testing pattern:
 - Uses `happy-dom` environment via `// @vitest-environment happy-dom` pragma
 - Pattern: instantiate component with mock deps, call render, assert DOM structure + event emissions
 - Remaining ~39 components can be tested following this pattern incrementally
+- ADR-023 extracted critical business logic from modals: `csvUtils` (41 tests) and `PipelineExecutor.buildPreview()` (12 tests) now fully covered
 
 ## Effort
 

@@ -7,6 +7,7 @@
 
 import { App, Modal, Notice, Setting, setIcon } from "obsidian";
 import { generateUUID } from "../utils/helpers";
+import { matchMergeKeyColumn, syncColumnMappings } from "../utils/csvUtils";
 import type { ImportService } from "../domain/dataExchange/ImportService";
 import type { ColumnMapping, MultiImportSource, SavedImportConfig } from "../domain/dataExchange/types";
 import { FilePickerModal } from "./FilePickerModal";
@@ -229,36 +230,12 @@ export class PipelineSourceModal extends Modal {
 
 			// Auto-detect merge key column if not set
 			if (!this.mergeKeyColumn) {
-				const lower = this.mergeKey.toLowerCase().replace(/[_\s-]/g, "");
-				const match = this.csvHeaders.find((h) => {
-					const hLower = h.toLowerCase().replace(/[_\s-]/g, "");
-					return hLower === lower;
-				});
+				const match = matchMergeKeyColumn(this.mergeKey, this.csvHeaders);
 				if (match) this.mergeKeyColumn = match;
 			}
 
-			// Initialize column mappings if empty
-			if (this.columnMappings.length === 0) {
-				this.columnMappings = this.csvHeaders.map((h) => ({
-					csvColumn: h,
-					frontmatterKey: h,
-					included: true,
-				}));
-			} else {
-				// Sync with new CSV: keep matching mappings, add new, remove stale
-				const headerSet = new Set(this.csvHeaders);
-				const existingCols = new Set(this.columnMappings.map((m) => m.csvColumn));
-				for (const h of this.csvHeaders) {
-					if (!existingCols.has(h)) {
-						this.columnMappings.push({
-							csvColumn: h,
-							frontmatterKey: h,
-							included: true,
-						});
-					}
-				}
-				this.columnMappings = this.columnMappings.filter((m) => headerSet.has(m.csvColumn));
-			}
+			// Initialize or sync column mappings with current headers
+			this.columnMappings = syncColumnMappings(this.csvHeaders, this.columnMappings);
 		} catch (error) {
 			new Notice(`Failed to parse CSV: ${error instanceof Error ? error.message : String(error)}`);
 			this.csvHeaders = [];

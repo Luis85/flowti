@@ -4,7 +4,7 @@ import type { PipelineExecutorDeps } from "../../../src/domain/dataExchange/Pipe
 import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import type { IFileSystemClient } from "../../../src/infrastructure/filesystem/types";
-import type { ImportResult, SavedExportConfig, SavedMultiImportPipeline } from "../../../src/domain/dataExchange/types";
+import type { FileExistsCallback, ImportResult, ParsedCsv, SavedExportConfig, SavedMultiImportPipeline } from "../../../src/domain/dataExchange/types";
 
 function createMockFileSystem(): IFileSystemClient {
 	return {
@@ -572,6 +572,222 @@ describe("PipelineExecutor", () => {
 			await executor.executePipeline(pipe.id);
 
 			expect(mockExportService.executeExport).toHaveBeenCalledTimes(2);
+		});
+	});
+
+	// ── buildPreview ────────────────────────────────────────
+
+	describe("buildPreview", () => {
+		let mockParseFile: ReturnType<typeof vi.fn>;
+		let mockSanitizeFilename: ReturnType<typeof vi.fn>;
+
+		beforeEach(() => {
+			mockParseFile = vi.fn();
+			mockSanitizeFilename = vi.fn((name: string) => name.replace(/[\\/:*?"<>|#^[\]]/g, "").replace(/\s+/g, " ").trim());
+			(mockImportService as Record<string, unknown>).parseFile = mockParseFile;
+			(mockImportService as Record<string, unknown>).sanitizeFilename = mockSanitizeFilename;
+		});
+
+		function makeParsedCsv(headers: string[], rows: string[][]): ParsedCsv {
+			return { headers, rows, rowCount: rows.length, detectedDelimiter: "," };
+		}
+
+		it("should build preview sources from parsed CSV", async () => {
+			const pipe = makePipeline({
+				sources: [{
+					id: "s1", csvPath: "data/items.csv", mergeKeyColumn: "ItemID",
+					columnMappings: [
+						{ csvColumn: "Name", frontmatterKey: "name", included: true },
+					],
+				}],
+			});
+			mockParseFile.mockResolvedValueOnce(makeParsedCsv(
+				["ItemID", "Name"],
+				[["item-1", "Widget"], ["item-2", "Gadget"]],
+			));
+
+			const result = await executor.buildPreview(pipe, () => false);
+
+			expect(result.sources).toHaveLength(1);
+			expect(result.sources[0].csvName).toBe("items.csv");
+			expect(result.sources[0].rowCount).toBe(2);
+			expect(result.sources[0].mergeKeyValues).toEqual(["item-1", "item-2"]);
+			expect(result.sources[0].columns).toEqual(["name"]);
+		});
+
+		it("should report error when merge key column not found", async () => {
+			const pipe = makePipeline({
+				sources: [{
+					id: "s1", csvPath: "data/items.csv", mergeKeyColumn: "missing_col",
+					columnMappings: [],
+				}],
+			});
+			mockParseFile.mockResolvedValueOnce(makeParsedCsv(
+				["ItemID", "Name"],
+				[["item-1", "Widget"]],
+			));
+
+			const result = await executor.buildPreview(pipe, () => false);
+
+			expect(result.sources[0].error).toContain("not found");
+			expect(result.sources[0].rowCount).toBe(0);
+		});
+
+		it("should handle CSV parse failure gracefully", async () => {
+			const pipe = makePipeline({
+				sources: [{
+					id: "s1", csvPath: "bad.csv", mergeKeyColumn: "id",
+					columnMappings: [],
+				}],
+			});
+			mockParseFile.mockRejectedValueOnce(new Error("File not found"));
+
+			const result = await executor.buildPreview(pipe, () => false);
+
+			expect(result.sources[0].error).toBe("File not found");
+		});
+
+		it("should deduplicate merge keys across sources", async () => {
+			const pipe = makePipeline({
+				sources: [
+					{ id: "s1", csvPath: "a.csv", mergeKeyColumn: "id", columnMappings: [] },
+					{ id: "s2", csvPath: "b.csv", mergeKeyColumn: "id", columnMappings: [] },
+				],
+			});
+			mockParseFile
+				.mockResolvedValueOnce(makeParsedCsv(["id"], [["alpha"], ["beta"]]))
+				.mockResolvedValueOnce(makeParsedCsv(["id"], [["beta"], ["gamma"]]));
+
+			const result = await executor.buildPreview(pipe, () => false);
+
+			expect(result.entries).toHaveLength(3);
+			const keys = result.entries.map((e) => e.key);
+			expect(keys).toContain("alpha");
+			expect(keys).toContain("beta");
+			expect(keys).toContain("gamma");
+		});
+
+		it("should filter out empty merge key values", async () => {
+			const pipe = makePipeline({
+				sources: [{
+					id: "s1", csvPath: "data.csv", mergeKeyColumn: "id",
+					columnMappings: [],
+				}],
+			});
+			mockParseFile.mockResolvedValueOnce(makeParsedCsv(
+				["id"],
+				[["item-1"], [""], ["item-2"]],
+			));
+
+			const result = await executor.buildPreview(pipe, () => false);
+
+			expect(result.entries).toHaveLength(2);
+		});
+
+		it("should skip entries with empty sanitized filename", async () => {
+			const pipe = makePipeline({
+				sources: [{
+					id: "s1", csvPath: "data.csv", mergeKeyColumn: "id",
+					columnMappings: [],
+				}],
+			});
+			mockParseFile.mockResolvedValueOnce(makeParsedCsv(
+				["id"],
+				[["valid"], ['*?"<>']],
+			));
+			// sanitizeFilename strips all characters from the second value
+			mockSanitizeFilename.mockImplementation((name: string) => {
+				const result = name.replace(/[\\/:*?"<>|#^[\]]/g, "").trim();
+				return result;
+			});
+
+			const result = await executor.buildPreview(pipe, () => false);
+
+			expect(result.entries).toHaveLength(1);
+			expect(result.entries[0].key).toBe("valid");
+		});
+
+		it("should apply namePrefix and nameSuffix to filenames", async () => {
+			const pipe = makePipeline({
+				namePrefix: "PRE-",
+				nameSuffix: "-v2",
+				sources: [{
+					id: "s1", csvPath: "data.csv", mergeKeyColumn: "id",
+					columnMappings: [],
+				}],
+			});
+			mockParseFile.mockResolvedValueOnce(makeParsedCsv(
+				["id"],
+				[["widget"]],
+			));
+
+			const result = await executor.buildPreview(pipe, () => false);
+
+			expect(result.entries[0].filename).toBe("PRE-widget-v2");
+		});
+
+		it("should detect existing files via fileExists callback", async () => {
+			const pipe = makePipeline({
+				sources: [{
+					id: "s1", csvPath: "data.csv", mergeKeyColumn: "id",
+					columnMappings: [],
+				}],
+			});
+			mockParseFile.mockResolvedValueOnce(makeParsedCsv(
+				["id"],
+				[["new-item"], ["existing-item"]],
+			));
+
+			const existingPaths = new Set(["out/items/existing-item.md"]);
+			const fileExists: FileExistsCallback = (p) => existingPaths.has(p);
+
+			const result = await executor.buildPreview(pipe, fileExists);
+
+			expect(result.toCreate).toBe(1);
+			expect(result.toUpdate).toBe(1);
+			expect(result.entries.find((e) => e.key === "new-item")?.exists).toBe(false);
+			expect(result.entries.find((e) => e.key === "existing-item")?.exists).toBe(true);
+		});
+
+		it("should exclude merge key column from source columns list", async () => {
+			const pipe = makePipeline({
+				sources: [{
+					id: "s1", csvPath: "data.csv", mergeKeyColumn: "id",
+					columnMappings: [
+						{ csvColumn: "id", frontmatterKey: "id", included: true },
+						{ csvColumn: "name", frontmatterKey: "name", included: true },
+						{ csvColumn: "hidden", frontmatterKey: "hidden", included: false },
+					],
+				}],
+			});
+			mockParseFile.mockResolvedValueOnce(makeParsedCsv(
+				["id", "name", "hidden"],
+				[["1", "Widget", "x"]],
+			));
+
+			const result = await executor.buildPreview(pipe, () => false);
+
+			expect(result.sources[0].columns).toEqual(["name"]);
+		});
+
+		it("should return correct toCreate and toUpdate counts", async () => {
+			const pipe = makePipeline({
+				sources: [{
+					id: "s1", csvPath: "data.csv", mergeKeyColumn: "id",
+					columnMappings: [],
+				}],
+			});
+			mockParseFile.mockResolvedValueOnce(makeParsedCsv(
+				["id"],
+				[["a"], ["b"], ["c"]],
+			));
+
+			const existingPaths = new Set(["out/items/a.md"]);
+			const result = await executor.buildPreview(pipe, (p) => existingPaths.has(p));
+
+			expect(result.toCreate).toBe(2);
+			expect(result.toUpdate).toBe(1);
+			expect(result.entries).toHaveLength(3);
 		});
 	});
 });

@@ -1,26 +1,14 @@
 /**
- * Pipeline preview component — async data gathering + preview content rendering.
+ * Pipeline preview component — renders preview results from PipelineExecutor.buildPreview().
+ *
+ * Data gathering is delegated to the domain layer (PipelineExecutor.buildPreview).
+ * This component only handles rendering and user interactions.
  */
 
 import { Notice, TFile, setIcon } from "obsidian";
-import type { SavedMultiImportPipeline } from "../../../domain/dataExchange/types";
+import type { SavedMultiImportPipeline, PipelinePreviewResult } from "../../../domain/dataExchange/types";
 import { basename } from "../../../utils/pathUtils";
 import type { PipelineComponentDeps } from "./types";
-
-interface PreviewSource {
-	sourceId: string;
-	csvName: string;
-	rowCount: number;
-	columns: string[];
-	mergeKeyValues: string[];
-	error?: string;
-}
-
-interface PreviewEntry {
-	key: string;
-	filename: string;
-	exists: boolean;
-}
 
 export class PipelinePreview {
 	constructor(
@@ -53,74 +41,14 @@ export class PipelinePreview {
 		loadingRow.createSpan({ text: "Preparing preview...", cls: "ft-text-sm" });
 
 		try {
-			const importService = this.deps.dataExchangeService.getImportService();
-			const previewSources: PreviewSource[] = [];
+			const executor = this.deps.dataExchangeService.getPipelineExecutor();
+			const fileExists = (path: string): boolean =>
+				this.deps.app.vault.getAbstractFileByPath(path) instanceof TFile;
 
-			for (const source of pipe.sources) {
-				try {
-					const parsed = await importService.parseFile(source.csvPath);
-					const mergeKeyIndex = parsed.headers.indexOf(source.mergeKeyColumn);
-					if (mergeKeyIndex < 0) {
-						previewSources.push({
-							sourceId: source.id,
-							csvName: basename(source.csvPath) || source.csvPath,
-							rowCount: 0,
-							columns: [],
-							mergeKeyValues: [],
-							error: `Merge key column "${source.mergeKeyColumn}" not found`,
-						});
-						continue;
-					}
-
-					const mergeKeyValues = parsed.rows
-						.map((row) => row[mergeKeyIndex])
-						.filter((v): v is string => v !== undefined && v !== "");
-
-					const columns = source.columnMappings
-						.filter((m) => m.included && m.csvColumn !== source.mergeKeyColumn)
-						.map((m) => m.frontmatterKey);
-
-					previewSources.push({
-						sourceId: source.id,
-						csvName: basename(source.csvPath) || source.csvPath,
-						rowCount: parsed.rows.length,
-						columns,
-						mergeKeyValues,
-					});
-				} catch (err) {
-					previewSources.push({
-						sourceId: source.id,
-						csvName: basename(source.csvPath) || source.csvPath,
-						rowCount: 0,
-						columns: [],
-						mergeKeyValues: [],
-						error: err instanceof Error ? err.message : String(err),
-					});
-				}
-			}
-
-			const allKeys = new Set<string>();
-			for (const src of previewSources) {
-				for (const v of src.mergeKeyValues) allKeys.add(v);
-			}
-
-			const entries: PreviewEntry[] = [];
-			for (const key of allKeys) {
-				const sanitized = importService.sanitizeFilename(key);
-				if (!sanitized) continue;
-				const prefix = pipe.namePrefix ?? "";
-				const suffix = pipe.nameSuffix ?? "";
-				const filename = `${prefix}${sanitized}${suffix}`;
-				const notePath = `${pipe.targetFolder}/${filename}.md`;
-				const exists = this.deps.app.vault.getAbstractFileByPath(notePath) instanceof TFile;
-				entries.push({ key, filename, exists });
-			}
-
-			const toCreate = entries.filter((e) => !e.exists).length;
-			const toUpdate = entries.filter((e) => e.exists).length;
+			const result = await executor.buildPreview(pipe, fileExists);
 
 			section.empty();
-			this.renderContent(section, pipe, previewSources, entries, toCreate, toUpdate);
+			this.renderContent(section, pipe, result);
 		} catch (err) {
 			section.empty();
 			const errRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
@@ -137,10 +65,7 @@ export class PipelinePreview {
 	private renderContent(
 		section: HTMLElement,
 		pipe: SavedMultiImportPipeline,
-		previewSources: PreviewSource[],
-		entries: PreviewEntry[],
-		toCreate: number,
-		toUpdate: number,
+		result: PipelinePreviewResult,
 	): void {
 		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
 		const headerIcon = header.createSpan();
@@ -149,22 +74,22 @@ export class PipelinePreview {
 
 		const stats = section.createDiv({ cls: "ft-flex ft-gap-3 ft-px-2 ft-pb-2" });
 		stats.createSpan({
-			text: `${entries.length} items`,
+			text: `${result.entries.length} items`,
 			cls: "ft-badge ft-badge-muted ft-text-sm",
 		});
-		if (toCreate > 0) {
+		if (result.toCreate > 0) {
 			const createBadge = stats.createSpan({ cls: "ft-badge ft-text-sm" });
 			createBadge.style.color = "var(--text-success)";
-			createBadge.textContent = `${toCreate} new`;
+			createBadge.textContent = `${result.toCreate} new`;
 		}
-		if (toUpdate > 0) {
+		if (result.toUpdate > 0) {
 			const updateBadge = stats.createSpan({ cls: "ft-badge ft-text-sm" });
 			updateBadge.style.color = "var(--text-accent)";
-			updateBadge.textContent = `${toUpdate} update`;
+			updateBadge.textContent = `${result.toUpdate} update`;
 		}
 
 		const sourcesDiv = section.createDiv({ cls: "ft-px-2 ft-pb-2" });
-		for (const src of previewSources) {
+		for (const src of result.sources) {
 			const srcRow = sourcesDiv.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
 			if (src.error) {
 				const errIcon = srcRow.createSpan();
@@ -212,7 +137,7 @@ export class PipelinePreview {
 			}
 		}
 
-		if (entries.length > 0) {
+		if (result.entries.length > 0) {
 			section.createDiv({
 				text: "Items",
 				cls: "ft-detail-section-header ft-px-2 ft-mt-1",
@@ -221,7 +146,7 @@ export class PipelinePreview {
 			tableDiv.style.maxHeight = "200px";
 			tableDiv.style.overflowY = "auto";
 
-			for (const entry of entries) {
+			for (const entry of result.entries) {
 				const row = tableDiv.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
 				row.style.borderBottom = "1px solid var(--background-modifier-border)";
 
@@ -249,7 +174,7 @@ export class PipelinePreview {
 		const cancelBtn = footer.createEl("button", { cls: "mod-muted", text: "Cancel" });
 		cancelBtn.addEventListener("click", () => section.remove());
 
-		const hasErrors = previewSources.some((s) => s.error);
+		const hasErrors = result.sources.some((s) => s.error);
 		const runBtn = footer.createEl("button", { cls: "mod-cta", text: "Run Pipeline" });
 		if (hasErrors) {
 			runBtn.disabled = true;

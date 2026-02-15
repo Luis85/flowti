@@ -191,6 +191,11 @@ export class DataExchangeService {
 		return this.exportService;
 	}
 
+	/** Expose pipeline executor for preview building. */
+	getPipelineExecutor(): PipelineExecutor {
+		return this.pipelineExecutor;
+	}
+
 	/**
 	 * Injects the vault-aware listFiles callback.
 	 * Called from main.ts once the vault is available (onLayoutReady).
