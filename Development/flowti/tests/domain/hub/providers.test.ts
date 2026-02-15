@@ -32,6 +32,10 @@ function makeUserService(name?: string): IUserService {
 	} as unknown as IUserService;
 }
 
+function makeInboxService(unread = 0) {
+	return { getUnreadCount: () => unread } as never;
+}
+
 function makeDataExchangeService(imports = 0, exports = 0, pipelines = 0) {
 	return {
 		getSavedImportConfigs: () => Array.from({ length: imports }, (_, i) => ({ id: `imp-${i}` })),
@@ -147,7 +151,7 @@ describe("DataExchangeProvider", () => {
 
 describe("UserHubProvider", () => {
 	it("should return correct hub metadata", () => {
-		const provider = new UserHubProvider(makeUserService("Alice"));
+		const provider = new UserHubProvider(makeUserService("Alice"), makeInboxService());
 
 		expect(provider.getHubId()).toBe("user-hub");
 		expect(provider.getViewType()).toBe(VIEW_TYPE_USER_HUB);
@@ -156,7 +160,7 @@ describe("UserHubProvider", () => {
 	});
 
 	it("should show user name when user exists", () => {
-		const provider = new UserHubProvider(makeUserService("Bob"));
+		const provider = new UserHubProvider(makeUserService("Bob"), makeInboxService());
 		const summary = provider.getSummary();
 
 		expect(summary.stats).toHaveLength(2);
@@ -165,14 +169,14 @@ describe("UserHubProvider", () => {
 	});
 
 	it("should show 'Not set' when no user exists", () => {
-		const provider = new UserHubProvider(makeUserService());
+		const provider = new UserHubProvider(makeUserService(), makeInboxService());
 		const summary = provider.getSummary();
 
 		expect(summary.stats[0].value).toBe("Not set");
 	});
 
 	it("should report healthy status", () => {
-		const provider = new UserHubProvider(makeUserService());
+		const provider = new UserHubProvider(makeUserService(), makeInboxService());
 		const summary = provider.getSummary();
 		expect(summary.healthLevel).toBe("healthy");
 		expect(summary.actionItemCount).toBe(0);

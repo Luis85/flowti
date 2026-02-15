@@ -7,7 +7,7 @@
  */
 
 import { setIcon } from "obsidian";
-import { formatSourceEvent, type UserHubComponentDeps, type InboxItem } from "./types";
+import { formatSourceEvent, formatTime, type UserHubComponentDeps, type InboxItem } from "./types";
 
 export class UserHubInbox {
 	constructor(
@@ -72,7 +72,7 @@ export class UserHubInbox {
 			source.style.marginLeft = "0.5rem";
 
 			const time = row.createSpan({
-				text: this.formatTime(item.timestamp),
+				text: formatTime(item.timestamp),
 				cls: "ft-text-muted ft-text-sm",
 			});
 			time.style.marginLeft = "auto";
@@ -135,7 +135,7 @@ export class UserHubInbox {
 		const meta = header.createDiv({ cls: "ft-flex ft-gap-2 ft-text-sm ft-text-muted" });
 		meta.createSpan({ text: item.type === "action" ? "Action Required" : "Information", cls: "ft-badge ft-badge-muted" });
 		meta.createSpan({ text: formatSourceEvent(item.sourceEvent), cls: "ft-badge ft-badge-muted" });
-		meta.createSpan({ text: this.formatTime(item.timestamp) });
+		meta.createSpan({ text: formatTime(item.timestamp) });
 
 		// Source event type (clickable link to Event Catalog)
 		const eventRow = header.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-text-sm ft-text-muted" });
@@ -170,10 +170,5 @@ export class UserHubInbox {
 		dismissBtn.addEventListener("click", () => {
 			void this.deps.inboxService.dismiss(item.id);
 		});
-	}
-
-	private formatTime(timestamp: string): string {
-		const date = new Date(timestamp);
-		return date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 	}
 }

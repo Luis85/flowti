@@ -34,6 +34,11 @@ export function formatSourceEvent(sourceEvent: string): string {
 	return SOURCE_EVENT_LABELS[sourceEvent] ?? sourceEvent;
 }
 
+/** Formats an ISO timestamp as a short time string (HH:MM). */
+export function formatTime(timestamp: string): string {
+	return new Date(timestamp).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+}
+
 // ─────────────────────────────────────────────────────────────
 // Component deps
 // ─────────────────────────────────────────────────────────────

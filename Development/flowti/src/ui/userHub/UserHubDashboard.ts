@@ -11,7 +11,7 @@ import type { HubRegistry } from "../../domain/hub/HubRegistry";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { InboxService } from "../../domain/inbox/InboxService";
 import { renderStatGrid, type StatCardItem } from "../shared/StatCard";
-import { formatSourceEvent, type InboxItem } from "./types";
+import { formatSourceEvent, formatTime, type InboxItem } from "./types";
 
 export interface UserHubDashboardDeps {
 	userService: IUserService;
@@ -141,7 +141,7 @@ export class UserHubDashboard {
 			source.style.marginLeft = "0.5rem";
 
 			const time = row.createSpan({
-				text: new Date(item.timestamp).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }),
+				text: formatTime(item.timestamp),
 				cls: "ft-text-muted ft-text-sm",
 			});
 			time.style.marginLeft = "auto";

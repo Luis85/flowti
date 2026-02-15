@@ -13,7 +13,7 @@ import type { HubDashboardProvider, HubSummary } from "./types";
 export class UserHubProvider implements HubDashboardProvider {
 	constructor(
 		private userService: IUserService,
-		private inboxService?: InboxService,
+		private inboxService: InboxService,
 	) {}
 
 	getHubId(): string {
@@ -34,7 +34,7 @@ export class UserHubProvider implements HubDashboardProvider {
 
 	getSummary(): HubSummary {
 		const user = this.userService.getUser();
-		const unreadCount = this.inboxService?.getUnreadCount() ?? 0;
+		const unreadCount = this.inboxService.getUnreadCount();
 		return {
 			stats: [
 				{ label: "User", value: user?.name ?? "Not set", icon: "user" },
