@@ -239,13 +239,28 @@ Confirmed by this review: CsvActionView, DataExchangeHubView, FolderPickerModal,
 
 ## 6. Debt Status Summary
 
-### All tracked items (48 total)
+### All tracked items (55 total)
 
 | Status | Count | Items |
 |--------|-------|-------|
 | Resolved | 30 | TD-02–05, TD-07–11, TD-13–22, TD-24–26, TD-31–35, TD-39–41 |
 | Mitigated | 4 | TD-01, TD-27, TD-29, TD-37 |
-| Open | 14 | TD-06, TD-12, TD-23, TD-28, TD-30, TD-36, TD-38, TD-42–48 |
+| Open (existing) | 14 | TD-06, TD-12, TD-23, TD-28, TD-30, TD-36, TD-38, TD-42–48 |
+| Open (Hubs) | 7 | TD-49–55 |
+
+### Hubs feature prerequisites (TD-49–55)
+
+Added 2026-02-15 as part of the [[Hubs PRD]] restructuring. These items track the refactoring needed to support the Hub framework architecture.
+
+| # | Title | Severity | Effort | Layer | Dependencies |
+|---|-------|----------|--------|-------|-------------|
+| TD-49 | Layout abstraction layer | high | large | ui | None |
+| TD-50 | Workspace shell layout | high | large | ui | TD-49 |
+| TD-51 | Component registry | medium | medium | ui | None |
+| TD-52 | Declarative tab definitions | medium | large | ui | TD-49, TD-51 |
+| TD-53 | Shared UI primitive library | low | medium | ui | None |
+| TD-54 | Event Catalog hub migration | high | large | ui | TD-49, TD-50 |
+| TD-55 | Data Exchange hub migration | high | large | ui | TD-49, TD-50 |
 
 ### Open items by severity
 
