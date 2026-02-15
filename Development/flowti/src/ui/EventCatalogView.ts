@@ -1,4 +1,5 @@
-import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
+import { setIcon } from "obsidian";
+import type { WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../infrastructure/events/types";
 import { createVaultQueryService, createWorkspaceService } from "../infrastructure/services/ObsidianAdapters";
 import type { DiscoveredEvent } from "../domain/discovery/types";
@@ -26,7 +27,6 @@ import type {
 import {
 	getOrderedCategories,
 	discoveredToCatalogEntries,
-	buildSplitLayout,
 } from "./catalog/helpers";
 import {
 	CatalogDashboard,
@@ -39,9 +39,11 @@ import {
 	EventsTab,
 	HealthTab,
 } from "./catalog";
+import { BaseHubView, type TabDef } from "./BaseHubView";
 
 export const VIEW_TYPE_EVENT_CATALOG = "flowti-event-catalog";
 
+type CatalogTab = "events" | "domains" | "services" | "flows" | "systems" | "actors" | "products" | "health";
 
 /**
  * Master-Detail view for browsing and managing all events.
@@ -50,8 +52,7 @@ export const VIEW_TYPE_EVENT_CATALOG = "flowti-event-catalog";
  * Right panel: full detail for the selected event, including metadata,
  * quick actions, watchers, and transforms.
  */
-export class EventCatalogView extends ItemView {
-	private eventBus: IEventBus;
+export class EventCatalogView extends BaseHubView<CatalogTab> {
 	private state: ViewStateProvider;
 
 	// State
@@ -70,30 +71,19 @@ export class EventCatalogView extends ItemView {
 	private showSystemEvents = false;
 	private catalogDomains: CatalogCategoryConfig[] = [];
 	private catalogServices: CatalogCategoryConfig[] = [];
-	private unsubscribes: (() => void)[] = [];
-	private renderTimer: ReturnType<typeof setTimeout> | null = null;
 
 	// Master-detail state
-	private activeTab: "dashboard" | "events" | "domains" | "services" | "flows" | "systems" | "actors" | "products" | "health" = "dashboard";
 	private flowEntries: FlowEntry[] = [];
 	private systemEntries: SystemEntry[] = [];
 	private actorEntries: ActorEntry[] = [];
 	private productEntries: ProductEntry[] = [];
-	private filterText = "";
 
-	// DOM references (initialized in onOpen)
-	private topBarEl!: HTMLElement;
-	private topBarTitleEl!: HTMLElement;
-	private masterTreeEl!: HTMLElement;
-	private detailPanelEl!: HTMLElement;
+	// Catalog-specific DOM
 	private gearBtn!: HTMLElement;
 	private settingsPanel!: HTMLElement;
-	private countBadge!: HTMLElement;
-	private tabBarEl!: HTMLElement;
-	private searchInput!: HTMLInputElement;
 	private dotLegendEl!: HTMLElement;
-	private splitEl!: HTMLElement;
-	private dashboardEl!: HTMLElement;
+
+	// Tab components
 	private dashboard: CatalogDashboard | null = null;
 	private domainsTab: DomainsTab | null = null;
 	private servicesTab: ServicesTab | null = null;
@@ -105,24 +95,66 @@ export class EventCatalogView extends ItemView {
 	private healthTab: HealthTab | null = null;
 
 	constructor(leaf: WorkspaceLeaf, eventBus: IEventBus, state: ViewStateProvider) {
-		super(leaf);
-		this.eventBus = eventBus;
+		super(leaf, eventBus);
 		this.state = state;
 	}
+
+	// ─────────────────────────────────────────────────────────────
+	// BaseHubView contract
+	// ─────────────────────────────────────────────────────────────
 
 	getViewType(): string {
 		return VIEW_TYPE_EVENT_CATALOG;
 	}
 
-	getDisplayText(): string {
+	getHubId(): string {
+		return "event-catalog";
+	}
+
+	getHubType(): "system" | "domain" | "user" {
+		return "system";
+	}
+
+	getHubDisplayName(): string {
 		return "Event Catalog";
 	}
 
-	getIcon(): string {
+	getHubIcon(): string {
 		return "list";
 	}
 
-	async onOpen(): Promise<void> {
+	getTabDefinitions(): TabDef[] {
+		return [
+			{ id: "domains", label: "Domains", icon: "boxes", searchPlaceholder: "Search domains..." },
+			{ id: "services", label: "Services", icon: "server", searchPlaceholder: "Search services..." },
+			{ id: "events", label: "Events", icon: "list", searchPlaceholder: "Search events..." },
+			{ id: "flows", label: "Flows", icon: "git-branch", searchPlaceholder: "Search flows..." },
+			{ id: "systems", label: "Systems", icon: "layout-grid", searchPlaceholder: "Search systems..." },
+			{ id: "actors", label: "Actors", icon: "users", searchPlaceholder: "Search actors..." },
+			{ id: "products", label: "Products", icon: "package", searchPlaceholder: "Search products..." },
+			{ id: "health", label: "Health", icon: "heart-pulse", searchPlaceholder: "Search checks..." },
+		];
+	}
+
+	renderTopBarActions(bar: HTMLElement): void {
+		// Activity Log button
+		const logBtn = bar.createEl("span", { cls: "ft-nav-link" });
+		const logIcon = logBtn.createSpan();
+		setIcon(logIcon, "activity");
+		logBtn.appendText(" Activity Log");
+		logBtn.addEventListener("click", () => this.openActivityLog());
+
+		// Watchers button
+		const subBtn = bar.createEl("button", { cls: "ft-btn ft-btn-ghost ft-text-sm" });
+		const subIcon = subBtn.createSpan();
+		setIcon(subIcon, "bell");
+		subBtn.appendText(" Watchers");
+		subBtn.addEventListener("click", () => {
+			new SubscriptionManagerModal(this.app, this.eventBus).open();
+		});
+	}
+
+	onHubOpen(): void {
 		// Initialize state from live providers
 		const settings = this.state.getSettings();
 		this.catalogCategories = settings.catalogCategories;
@@ -136,32 +168,11 @@ export class EventCatalogView extends ItemView {
 		this.discoveredEvents = this.state.getDiscoveredEvents();
 		this.collapsedCategories = this.state.collapsedCategories;
 
-		const container = this.containerEl.children[1];
-		container.empty();
-
-		const wrapper = (container as HTMLElement).createDiv({ cls: "flowti-container ft-view-root" });
-
-		// Top bar
-		this.renderTopBar(wrapper);
-
-		// Tab bar (hidden on dashboard)
-		this.tabBarEl = wrapper.createDiv({ cls: "ft-catalog-tab-bar ft-hidden" });
-		this.renderTabBar();
-
-		// Shared split layout (dashboard + master/detail)
-		const layout = buildSplitLayout(wrapper, {
-			searchPlaceholder: "Search events...",
-			onSearch: (text) => { this.filterText = text; this.scheduleRender(); },
-		});
-		this.dashboardEl = layout.dashboardEl;
-		this.splitEl = layout.splitEl;
-		this.searchInput = layout.searchInput;
-		this.masterTreeEl = layout.masterTreeEl;
-		this.detailPanelEl = layout.detailEl;
+		// Dashboard component
 		this.dashboard = new CatalogDashboard(this.dashboardEl, this.buildComponentDeps());
 
 		// Catalog-specific: gear icon in search header
-		this.gearBtn = layout.searchHeaderEl.createSpan({ cls: "ft-visibility-toggle ft-hidden" });
+		this.gearBtn = this.searchHeaderEl.createSpan({ cls: "ft-visibility-toggle ft-hidden" });
 		this.gearBtn.setAttribute("aria-label", "Category settings");
 		setIcon(this.gearBtn, "settings");
 		this.gearBtn.addEventListener("click", () => {
@@ -172,11 +183,11 @@ export class EventCatalogView extends ItemView {
 		});
 
 		// Catalog-specific: settings panel + dot legend (before master tree)
-		this.settingsPanel = layout.masterEl.createDiv({ cls: "ft-settings-panel ft-hidden" });
-		layout.masterEl.insertBefore(this.settingsPanel, this.masterTreeEl);
+		this.settingsPanel = this.masterEl.createDiv({ cls: "ft-settings-panel ft-hidden" });
+		this.masterEl.insertBefore(this.settingsPanel, this.masterTreeEl);
 
-		this.dotLegendEl = layout.masterEl.createDiv({ cls: "ft-catalog-dot-legend" });
-		layout.masterEl.insertBefore(this.dotLegendEl, this.masterTreeEl);
+		this.dotLegendEl = this.masterEl.createDiv({ cls: "ft-catalog-dot-legend" });
+		this.masterEl.insertBefore(this.dotLegendEl, this.masterTreeEl);
 
 		const hiddenLegend = this.dotLegendEl.createDiv({ cls: "ft-catalog-dot-legend-item" });
 		hiddenLegend.createDiv({ cls: "ft-master-status-dot ft-master-dot-hidden" });
@@ -228,27 +239,97 @@ export class EventCatalogView extends ItemView {
 			this.settingsPanel, this.countBadge, deps,
 		);
 
-		// Subscribe to all events (same 14 subscriptions as before)
+		// Subscribe to events
 		this.subscribeToEvents();
 
 		// Request current subscription and definition state
 		void this.eventBus.emit("subscription.refresh", {});
 		void this.eventBus.emit("eventDefinition.refresh", {});
-
-		// Initial render — dashboard is the default landing page
-		this.renderDashboard();
 	}
 
-	async onClose(): Promise<void> {
-		if (this.renderTimer !== null) {
-			clearTimeout(this.renderTimer);
-			this.renderTimer = null;
-		}
-		for (const unsub of this.unsubscribes) {
-			unsub();
-		}
-		this.unsubscribes = [];
+	onHubClose(): void {
+		// No extra cleanup needed beyond base class unsubscribes
 	}
+
+	onDashboardRender(): void {
+		// Scan all entities to get fresh counts
+		this.domainsTab!.scan();
+		this.domainEntries = this.domainsTab!.getEntries();
+		this.servicesTab!.scan();
+		this.serviceEntries = this.servicesTab!.getEntries();
+		this.flowsTab!.scan();
+		this.flowEntries = this.flowsTab!.getEntries();
+		this.systemsTab!.scan();
+		this.systemEntries = this.systemsTab!.getEntries();
+		this.actorsTab!.scan();
+		this.actorEntries = this.actorsTab!.getEntries();
+		this.productsTab!.scan();
+		this.productEntries = this.productsTab!.getEntries();
+
+		this.dashboard!.render();
+		this.updateCountBadge();
+	}
+
+	onTabRender(tabId: CatalogTab): void {
+		switch (tabId) {
+			case "events":
+				this.eventsTab!.render();
+				this.categoryEntries = this.eventsTab!.getEntries();
+				break;
+			case "domains":
+				this.domainsTab!.render();
+				this.domainEntries = this.domainsTab!.getEntries();
+				break;
+			case "services":
+				this.servicesTab!.render();
+				this.serviceEntries = this.servicesTab!.getEntries();
+				break;
+			case "flows":
+				this.flowsTab!.render();
+				this.flowEntries = this.flowsTab!.getEntries();
+				break;
+			case "systems":
+				this.systemsTab!.render();
+				this.systemEntries = this.systemsTab!.getEntries();
+				break;
+			case "actors":
+				this.actorsTab!.render();
+				this.actorEntries = this.actorsTab!.getEntries();
+				break;
+			case "products":
+				this.productsTab!.render();
+				this.productEntries = this.productsTab!.getEntries();
+				break;
+			case "health":
+				// Scan all entities for fresh data (same as dashboard)
+				this.domainsTab!.scan();
+				this.domainEntries = this.domainsTab!.getEntries();
+				this.servicesTab!.scan();
+				this.serviceEntries = this.servicesTab!.getEntries();
+				this.flowsTab!.scan();
+				this.flowEntries = this.flowsTab!.getEntries();
+				this.systemsTab!.scan();
+				this.systemEntries = this.systemsTab!.getEntries();
+				this.actorsTab!.scan();
+				this.actorEntries = this.actorsTab!.getEntries();
+				this.productsTab!.scan();
+				this.productEntries = this.productsTab!.getEntries();
+				this.healthTab!.render();
+				break;
+		}
+		this.updateCountBadge();
+	}
+
+	protected onTabChanged(): void {
+		// Catalog-specific: toggle gear button + dot legend + settings panel
+		this.gearBtn.classList.toggle("ft-hidden", this.activePage !== "events");
+		this.dotLegendEl.classList.toggle("ft-hidden", this.activePage !== "events");
+		this.settingsPanel.classList.add("ft-hidden");
+	}
+
+	// ─────────────────────────────────────────────────────────────
+	// Helpers
+	// ─────────────────────────────────────────────────────────────
 
 	/** Resolves the vault folder path for a given entity type. */
 	private getEntityFolder(entity: EntityType): string {
@@ -260,14 +341,14 @@ export class EventCatalogView extends ItemView {
 	// ─────────────────────────────────────────────────────────────
 
 	private subscribeToEvents(): void {
-		this.unsubscribes.push(
+		this.addUnsubscribe(
 			this.eventBus.on("discovery.loaded", (event) => {
 				this.discoveredEvents = event.payload.discoveredEvents;
 				this.scheduleRender();
 			})
 		);
 
-		this.unsubscribes.push(
+		this.addUnsubscribe(
 			this.eventBus.on("discovery.updated", (event) => {
 				const idx = this.discoveredEvents.findIndex(
 					(e) => e.eventName === event.payload.event.eventName
@@ -281,7 +362,7 @@ export class EventCatalogView extends ItemView {
 			})
 		);
 
-		this.unsubscribes.push(
+		this.addUnsubscribe(
 			this.eventBus.on("discovery.removed", (event) => {
 				this.discoveredEvents = this.discoveredEvents.filter(
 					(e) => e.eventName !== event.payload.eventName
@@ -290,35 +371,35 @@ export class EventCatalogView extends ItemView {
 			})
 		);
 
-		this.unsubscribes.push(
+		this.addUnsubscribe(
 			this.eventBus.on("eventFilter.loaded", (event) => {
 				this.excludedTypes = new Set(event.payload.excludedTypes);
 				this.scheduleRender();
 			})
 		);
 
-		this.unsubscribes.push(
+		this.addUnsubscribe(
 			this.eventBus.on("eventFilter.changed", (event) => {
 				this.excludedTypes = new Set(event.payload.excludedTypes);
 				this.scheduleRender();
 			})
 		);
 
-		this.unsubscribes.push(
+		this.addUnsubscribe(
 			this.eventBus.on("eventNotify.loaded", (event) => {
 				this.notifiedTypes = new Set(event.payload.notifiedTypes);
 				this.scheduleRender();
 			})
 		);
 
-		this.unsubscribes.push(
+		this.addUnsubscribe(
 			this.eventBus.on("eventNotify.changed", (event) => {
 				this.notifiedTypes = new Set(event.payload.notifiedTypes);
 				this.scheduleRender();
 			})
 		);
 
-		this.unsubscribes.push(
+		this.addUnsubscribe(
 			this.eventBus.on("settings.loaded", (event) => {
 				this.docsRootPath = event.payload.settings.docsRootPath;
 				this.entityPaths = event.payload.settings.entityPaths ?? DEFAULT_ENTITY_PATHS;
@@ -330,7 +411,7 @@ export class EventCatalogView extends ItemView {
 				if (!this.settingsPanel.classList.contains("ft-hidden")) this.eventsTab!.renderSettingsPanel();
 			})
 		);
-		this.unsubscribes.push(
+		this.addUnsubscribe(
 			this.eventBus.on("settings.changed", (event) => {
 				this.docsRootPath = event.payload.settings.docsRootPath;
 				this.entityPaths = event.payload.settings.entityPaths ?? DEFAULT_ENTITY_PATHS;
@@ -343,13 +424,13 @@ export class EventCatalogView extends ItemView {
 			})
 		);
 
-		this.unsubscribes.push(
+		this.addUnsubscribe(
 			this.eventBus.on("subscription.loaded", (event) => {
 				this.subscriptions = event.payload.subscriptions;
 				this.scheduleRender();
 			})
 		);
-		this.unsubscribes.push(
+		this.addUnsubscribe(
 			this.eventBus.on("subscription.created", (event) => {
 				this.subscriptions = [
 					...this.subscriptions.filter((s) => s.id !== event.payload.subscription.id),
@@ -358,7 +439,7 @@ export class EventCatalogView extends ItemView {
 				this.scheduleRender();
 			})
 		);
-		this.unsubscribes.push(
+		this.addUnsubscribe(
 			this.eventBus.on("subscription.updated", (event) => {
 				this.subscriptions = this.subscriptions.map((s) =>
 					s.id === event.payload.subscription.id ? event.payload.subscription : s
@@ -366,7 +447,7 @@ export class EventCatalogView extends ItemView {
 				this.scheduleRender();
 			})
 		);
-		this.unsubscribes.push(
+		this.addUnsubscribe(
 			this.eventBus.on("subscription.deleted", (event) => {
 				this.subscriptions = this.subscriptions.filter(
 					(s) => s.id !== event.payload.subscriptionId
@@ -375,13 +456,13 @@ export class EventCatalogView extends ItemView {
 			})
 		);
 
-		this.unsubscribes.push(
+		this.addUnsubscribe(
 			this.eventBus.on("eventDefinition.loaded", (event) => {
 				this.definitions = event.payload.definitions;
 				this.scheduleRender();
 			})
 		);
-		this.unsubscribes.push(
+		this.addUnsubscribe(
 			this.eventBus.on("eventDefinition.created", (event) => {
 				this.definitions = [
 					...this.definitions.filter((d) => d.id !== event.payload.definition.id),
@@ -390,7 +471,7 @@ export class EventCatalogView extends ItemView {
 				this.scheduleRender();
 			})
 		);
-		this.unsubscribes.push(
+		this.addUnsubscribe(
 			this.eventBus.on("eventDefinition.updated", (event) => {
 				this.definitions = this.definitions.map((d) =>
 					d.id === event.payload.definition.id ? event.payload.definition : d
@@ -398,7 +479,7 @@ export class EventCatalogView extends ItemView {
 				this.scheduleRender();
 			})
 		);
-		this.unsubscribes.push(
+		this.addUnsubscribe(
 			this.eventBus.on("eventDefinition.deleted", (event) => {
 				this.definitions = this.definitions.filter(
 					(d) => d.id !== event.payload.definitionId
@@ -408,12 +489,12 @@ export class EventCatalogView extends ItemView {
 		);
 
 		// Doc lifecycle — re-render after create/delete so scanned tabs pick up changes
-		this.unsubscribes.push(
+		this.addUnsubscribe(
 			this.eventBus.on("doc.created", () => {
 				setTimeout(() => this.scheduleRender(), 500);
 			})
 		);
-		this.unsubscribes.push(
+		this.addUnsubscribe(
 			this.eventBus.on("doc.deleted", () => {
 				this.scheduleRender();
 			})
@@ -421,218 +502,12 @@ export class EventCatalogView extends ItemView {
 	}
 
 	// ─────────────────────────────────────────────────────────────
-	// Top bar
+	// Count badge
 	// ─────────────────────────────────────────────────────────────
-
-	private renderTopBar(container: HTMLElement): void {
-		const bar = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-px-3 ft-py-2 ft-hidden" });
-		bar.style.borderBottom = "1px solid var(--background-modifier-border)";
-		bar.addClass("ft-flex-shrink-0");
-		this.topBarEl = bar;
-
-		this.topBarTitleEl = bar.createSpan({
-			text: "Event Catalog",
-			cls: "ft-heading ft-heading-sm",
-		});
-		this.topBarTitleEl.addClass("ft-cursor-pointer");
-		this.topBarTitleEl.addEventListener("click", () => {
-			this.activeTab = "dashboard";
-			this.renderTabBar();
-			this.onTabChanged();
-		});
-
-		this.countBadge = bar.createSpan({ cls: "ft-badge ft-badge-muted ft-hidden" });
-
-		// Spacer
-		const spacer = bar.createDiv();
-		spacer.addClass("ft-flex-1");
-
-		// Activity Log button
-		const logBtn = bar.createEl("span", { cls: "ft-nav-link" });
-		const logIcon = logBtn.createSpan();
-		setIcon(logIcon, "activity");
-		logBtn.appendText(" Activity Log");
-		logBtn.addEventListener("click", () => this.openActivityLog());
-
-		// Watchers button
-		const subBtn = bar.createEl("button", { cls: "ft-btn ft-btn-ghost ft-text-sm" });
-		const subIcon = subBtn.createSpan();
-		setIcon(subIcon, "bell");
-		subBtn.appendText(" Watchers");
-		subBtn.addEventListener("click", () => {
-			new SubscriptionManagerModal(this.app, this.eventBus).open();
-		});
-	}
-
-	// ─────────────────────────────────────────────────────────────
-	// Tab bar
-	// ─────────────────────────────────────────────────────────────
-
-	private renderTabBar(): void {
-		this.tabBarEl.empty();
-
-		const tabs: Array<{ id: EventCatalogView["activeTab"]; label: string; icon: string }> = [
-			{ id: "domains", label: "Domains", icon: "boxes" },
-			{ id: "services", label: "Services", icon: "server" },
-			{ id: "events", label: "Events", icon: "list" },
-			{ id: "flows", label: "Flows", icon: "git-branch" },
-			{ id: "systems", label: "Systems", icon: "layout-grid" },
-			{ id: "actors", label: "Actors", icon: "users" },
-			{ id: "products", label: "Products", icon: "package" },
-			{ id: "health", label: "Health", icon: "heart-pulse" },
-		];
-
-		for (const tab of tabs) {
-			const btn = this.tabBarEl.createEl("span", {
-				cls: `ft-catalog-tab${this.activeTab === tab.id ? " ft-catalog-tab-active" : ""}`,
-			});
-			const iconEl = btn.createSpan();
-			setIcon(iconEl, tab.icon);
-			btn.appendText(` ${tab.label}`);
-			btn.addEventListener("click", () => {
-				if (this.activeTab === tab.id) return;
-				this.activeTab = tab.id;
-				this.renderTabBar();
-				this.onTabChanged();
-			});
-		}
-	}
-
-	private onTabChanged(): void {
-		const isDashboard = this.activeTab === "dashboard";
-
-		// Toggle dashboard vs split layout + tab bar + top bar
-		this.dashboardEl.classList.toggle("ft-hidden", !isDashboard);
-		this.splitEl.classList.toggle("ft-hidden", isDashboard);
-		this.tabBarEl.classList.toggle("ft-hidden", isDashboard);
-		this.topBarEl.classList.toggle("ft-hidden", isDashboard);
-
-		// Hide search, gear, legend on non-events tabs
-		this.searchInput.parentElement!.classList.toggle("ft-hidden", isDashboard);
-		this.gearBtn.classList.toggle("ft-hidden", this.activeTab !== "events");
-		this.dotLegendEl.classList.toggle("ft-hidden", this.activeTab !== "events");
-
-		if (!isDashboard) {
-			const labels: Record<string, string> = {
-				domains: "Domains",
-				services: "Services",
-				events: "Events",
-				flows: "Flows",
-				systems: "Systems",
-				actors: "Actors",
-				products: "Products",
-				health: "Health",
-			};
-			this.topBarTitleEl.textContent = `Event Catalog - ${labels[this.activeTab] ?? this.activeTab}`;
-
-			const placeholders: Record<string, string> = {
-				domains: "Search domains...",
-				services: "Search services...",
-				events: "Search events...",
-				flows: "Search flows...",
-				systems: "Search systems...",
-				actors: "Search actors...",
-				products: "Search products...",
-				health: "Search checks...",
-			};
-			this.searchInput.placeholder = placeholders[this.activeTab] ?? "";
-		} else {
-			this.topBarTitleEl.textContent = "Event Catalog";
-		}
-
-		// Hide settings panel when switching tabs
-		this.settingsPanel.classList.add("ft-hidden");
-
-		this.scheduleRender();
-	}
-
-	// ─────────────────────────────────────────────────────────────
-	// Dashboard
-	// ─────────────────────────────────────────────────────────────
-
-	private renderDashboard(): void {
-		// Scan all entities to get fresh counts
-		this.domainsTab!.scan();
-		this.domainEntries = this.domainsTab!.getEntries();
-		this.servicesTab!.scan();
-		this.serviceEntries = this.servicesTab!.getEntries();
-		this.flowsTab!.scan();
-		this.flowEntries = this.flowsTab!.getEntries();
-		this.systemsTab!.scan();
-		this.systemEntries = this.systemsTab!.getEntries();
-		this.actorsTab!.scan();
-		this.actorEntries = this.actorsTab!.getEntries();
-
-		this.productsTab!.scan();
-		this.productEntries = this.productsTab!.getEntries();
-
-		this.dashboard!.render();
-	}
-
-	// ─────────────────────────────────────────────────────────────
-	// Helpers
-	// ─────────────────────────────────────────────────────────────
-
-	private scheduleRender(): void {
-		if (this.renderTimer !== null) clearTimeout(this.renderTimer);
-		this.renderTimer = setTimeout(() => {
-			this.renderTimer = null;
-			switch (this.activeTab) {
-				case "dashboard":
-					this.renderDashboard();
-					break;
-				case "events":
-					this.eventsTab!.render();
-					this.categoryEntries = this.eventsTab!.getEntries();
-					break;
-				case "domains":
-					this.domainsTab!.render();
-					this.domainEntries = this.domainsTab!.getEntries();
-					break;
-				case "services":
-					this.servicesTab!.render();
-					this.serviceEntries = this.servicesTab!.getEntries();
-					break;
-				case "flows":
-					this.flowsTab!.render();
-					this.flowEntries = this.flowsTab!.getEntries();
-					break;
-				case "systems":
-					this.systemsTab!.render();
-					this.systemEntries = this.systemsTab!.getEntries();
-					break;
-				case "actors":
-					this.actorsTab!.render();
-					this.actorEntries = this.actorsTab!.getEntries();
-					break;
-				case "products":
-					this.productsTab!.render();
-					this.productEntries = this.productsTab!.getEntries();
-					break;
-				case "health":
-					// Scan all entities for fresh data (same as dashboard)
-					this.domainsTab!.scan();
-					this.domainEntries = this.domainsTab!.getEntries();
-					this.servicesTab!.scan();
-					this.serviceEntries = this.servicesTab!.getEntries();
-					this.flowsTab!.scan();
-					this.flowEntries = this.flowsTab!.getEntries();
-					this.systemsTab!.scan();
-					this.systemEntries = this.systemsTab!.getEntries();
-					this.actorsTab!.scan();
-					this.actorEntries = this.actorsTab!.getEntries();
-					this.productsTab!.scan();
-					this.productEntries = this.productsTab!.getEntries();
-					this.healthTab!.render();
-					break;
-			}
-			this.updateCountBadge();
-		}, 16);
-	}
 
 	private updateCountBadge(): void {
 		this.countBadge.classList.remove("ft-hidden");
-		switch (this.activeTab) {
+		switch (this.activePage) {
 			case "dashboard":
 				this.countBadge.textContent = "";
 				this.countBadge.classList.add("ft-hidden");
@@ -732,9 +607,7 @@ export class EventCatalogView extends ItemView {
 			getState: () => this.getCatalogState(),
 			navigation: {
 				navigateToTab: (tab) => {
-					this.activeTab = tab as typeof this.activeTab;
-					this.renderTabBar();
-					this.onTabChanged();
+					this.navigateTo(tab as CatalogTab);
 				},
 				navigateToEvent: (t) => this.navigateToEvent(t),
 				navigateToDomain: (d) => this.navigateToDomain(d),
@@ -801,51 +674,37 @@ export class EventCatalogView extends ItemView {
 	navigateToEvent(eventType: string): void {
 		this.eventsTab!.setSelectedEventType(eventType);
 		this.eventsTab!.ensureCategoryExpanded(eventType);
-		this.activeTab = "events";
-		this.renderTabBar();
-		this.onTabChanged();
+		this.navigateTo("events");
 	}
 
 	private navigateToDomain(domain: string): void {
 		this.domainsTab!.setSelectedDomain(domain);
-		this.activeTab = "domains";
-		this.renderTabBar();
-		this.onTabChanged();
+		this.navigateTo("domains");
 	}
 
 	private navigateToService(service: string): void {
 		this.servicesTab!.setSelectedService(service);
-		this.activeTab = "services";
-		this.renderTabBar();
-		this.onTabChanged();
+		this.navigateTo("services");
 	}
 
 	private navigateToFlow(flow: string): void {
 		this.flowsTab!.setSelectedFlow(flow);
-		this.activeTab = "flows";
-		this.renderTabBar();
-		this.onTabChanged();
+		this.navigateTo("flows");
 	}
 
 	private navigateToSystem(system: string): void {
 		this.systemsTab!.setSelectedSystem(system);
-		this.activeTab = "systems";
-		this.renderTabBar();
-		this.onTabChanged();
+		this.navigateTo("systems");
 	}
 
 	private navigateToActor(actor: string): void {
 		this.actorsTab!.setSelectedActor(actor);
-		this.activeTab = "actors";
-		this.renderTabBar();
-		this.onTabChanged();
+		this.navigateTo("actors");
 	}
 
 	private navigateToProduct(product: string): void {
 		this.productsTab!.setSelectedProduct(product);
-		this.activeTab = "products";
-		this.renderTabBar();
-		this.onTabChanged();
+		this.navigateTo("products");
 	}
 
 	private openActivityLog(): void {

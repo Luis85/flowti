@@ -1,12 +1,11 @@
 /**
  * Data Exchange Hub — central management view for import/export operations.
  *
- * This is the orchestrator: it owns the Obsidian ItemView lifecycle, state,
- * scanning logic, and navigation. All page rendering is delegated to
- * components under `./hub/`.
+ * This is the orchestrator: it owns state, scanning logic, and tab rendering.
+ * Shell lifecycle (wrapper, top bar, tab bar, split layout) is handled by BaseHubView.
  */
 
-import { ItemView, WorkspaceLeaf } from "obsidian";
+import { WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../infrastructure/events/types";
 import type { DataExchangeService } from "../domain/dataExchange/DataExchangeService";
 import type {
@@ -17,6 +16,7 @@ import type {
 	TypeDocEntry,
 } from "../domain/dataExchange/types";
 import type { FrontmatterIssue, HubPage, HubState, HubComponentDeps, HubNavigationCallbacks, CsvFileEntry, ReportEntry } from "./hub/types";
+import { BaseHubView, type TabDef } from "./BaseHubView";
 import { HubDashboard } from "./hub/HubDashboard";
 import { ImportsTab } from "./hub/ImportsTab";
 import { ExportsTab } from "./hub/ExportsTab";
@@ -25,20 +25,19 @@ import { PropertiesTab } from "./hub/PropertiesTab";
 import { PipelinesTab } from "./hub/PipelinesTab";
 import { TypesTab } from "./hub/TypesTab";
 import { openEventInCatalog } from "./hub/helpers";
-import { buildSplitLayout } from "./catalog/helpers";
 import { basename, stripExtension } from "../utils/pathUtils";
 
 export const VIEW_TYPE_DATA_EXCHANGE_HUB = "flowti-data-exchange-hub";
 
-export class DataExchangeHubView extends ItemView {
-	private eventBus: IEventBus;
+type DXTab = "imports" | "exports" | "reports" | "properties" | "pipelines" | "types";
+
+export class DataExchangeHubView extends BaseHubView<DXTab> {
 	private dataExchangeService: DataExchangeService;
 	private openCsvImportCb: (csvPath: string, savedConfig?: SavedImportConfig) => void;
 	private openExportCb: (savedConfig: SavedExportConfig) => void;
 	private openNewExportCb: (sourcePath: string, sourceType: "folder" | "base", format: ExportFormat) => void;
 
 	// ── State ────────────────────────────────────────────────
-	private currentPage: HubPage = "dashboard";
 	private importConfigs: SavedImportConfig[] = [];
 	private exportConfigs: SavedExportConfig[] = [];
 	private pipelineConfigs: SavedMultiImportPipeline[] = [];
@@ -48,7 +47,6 @@ export class DataExchangeHubView extends ItemView {
 	private csvFileEntries: CsvFileEntry[] = [];
 	private documentedProperties = new Set<string>();
 	private frontmatterIssues: FrontmatterIssue[] = [];
-	private filterText = "";
 	private showHiddenCsvs = false;
 
 	private selectedImportId: string | null = null;
@@ -61,19 +59,6 @@ export class DataExchangeHubView extends ItemView {
 	private editingImportId: string | null = null;
 	private editingExportId: string | null = null;
 	private editingPipelineId: string | null = null;
-
-	// ── DOM references ───────────────────────────────────────
-	private topBarEl!: HTMLElement;
-	private topBarTitleEl!: HTMLElement;
-	private dashboardEl!: HTMLElement;
-	private splitEl!: HTMLElement;
-	private masterTreeEl!: HTMLElement;
-	private detailPanelEl!: HTMLElement;
-	private searchInput!: HTMLInputElement;
-
-	// ── Render ────────────────────────────────────────────────
-	private renderTimer: ReturnType<typeof setTimeout> | null = null;
-	private unsubscribes: (() => void)[] = [];
 
 	// ── Tab components ───────────────────────────────────────
 	private dashboard!: HubDashboard;
@@ -92,45 +77,39 @@ export class DataExchangeHubView extends ItemView {
 		openExport: (savedConfig: SavedExportConfig) => void,
 		openNewExport: (sourcePath: string, sourceType: "folder" | "base", format: ExportFormat) => void,
 	) {
-		super(leaf);
-		this.eventBus = eventBus;
+		super(leaf, eventBus);
 		this.dataExchangeService = dataExchangeService;
 		this.openCsvImportCb = openCsvImport;
 		this.openExportCb = openExport;
 		this.openNewExportCb = openNewExport;
 	}
 
+	// ── BaseHubView abstract implementations ─────────────────
+
 	getViewType(): string { return VIEW_TYPE_DATA_EXCHANGE_HUB; }
-	getDisplayText(): string { return "Data Exchange Hub"; }
-	getIcon(): string { return "arrow-left-right"; }
+	getHubId(): string { return "data-exchange"; }
+	getHubType(): "system" | "domain" | "user" { return "system"; }
+	getHubDisplayName(): string { return "Data Exchange Hub"; }
+	getHubIcon(): string { return "arrow-left-right"; }
 
-	// ══════════════════════════════════════════════════════════
-	// Lifecycle
-	// ══════════════════════════════════════════════════════════
+	getTabDefinitions(): TabDef[] {
+		return [
+			{ id: "imports", label: "Imports", icon: "file-input", searchPlaceholder: "Search import configs..." },
+			{ id: "exports", label: "Exports", icon: "file-output", searchPlaceholder: "Search export configs..." },
+			{ id: "reports", label: "Reports", icon: "file-text", searchPlaceholder: "Search reports..." },
+			{ id: "properties", label: "Properties", icon: "list", searchPlaceholder: "Search properties..." },
+			{ id: "pipelines", label: "Pipelines", icon: "workflow", searchPlaceholder: "Search pipelines..." },
+			{ id: "types", label: "Types", icon: "tag", searchPlaceholder: "Search types..." },
+		];
+	}
 
-	async onOpen(): Promise<void> {
+	renderTopBarActions(_bar: HTMLElement): void {
+		// No extra top bar buttons for Data Exchange Hub
+	}
+
+	onHubOpen(): void {
 		this.refreshConfigs();
 
-		const container = this.containerEl.children[1] as HTMLElement;
-		container.empty();
-
-		const wrapper = container.createDiv({ cls: "flowti-container ft-view-root" });
-
-		// Top bar (hidden on dashboard)
-		this.renderTopBar(wrapper);
-
-		// Shared split layout (dashboard + master/detail)
-		const layout = buildSplitLayout(wrapper, {
-			searchPlaceholder: "Search configs...",
-			onSearch: (text) => { this.filterText = text; this.scheduleRender(); },
-		});
-		this.dashboardEl = layout.dashboardEl;
-		this.splitEl = layout.splitEl;
-		this.searchInput = layout.searchInput;
-		this.masterTreeEl = layout.masterTreeEl;
-		this.detailPanelEl = layout.detailEl;
-
-		// Create component deps and tab instances
 		const deps = this.buildDeps();
 		this.dashboard = new HubDashboard(this.dashboardEl, deps);
 		this.importsTab = new ImportsTab(this.masterTreeEl, this.detailPanelEl, deps);
@@ -140,27 +119,25 @@ export class DataExchangeHubView extends ItemView {
 		this.pipelinesTab = new PipelinesTab(this.masterTreeEl, this.detailPanelEl, deps);
 		this.typesTab = new TypesTab(this.masterTreeEl, this.detailPanelEl, deps);
 
-		// Subscribe to config changes
-		this.unsubscribes.push(
+		this.addUnsubscribe(
 			this.eventBus.on("dataExchange.config.changed", () => {
 				this.refreshConfigs();
 				this.scheduleRender();
 			}),
 		);
-		this.unsubscribes.push(
+		this.addUnsubscribe(
 			this.eventBus.on("dataExchange.import.completed", () => {
 				this.scheduleRender();
 			}),
 		);
-		this.unsubscribes.push(
+		this.addUnsubscribe(
 			this.eventBus.on("dataExchange.export.completed", () => {
 				this.scheduleRender();
 			}),
 		);
 
-		// React to file creates/deletes in the Properties folder
 		const propsFolder = this.dataExchangeService.getPropertiesFolderPath() + "/";
-		this.unsubscribes.push(
+		this.addUnsubscribe(
 			this.eventBus.on("file.created", (event) => {
 				if (event.payload.path.startsWith(propsFolder)) {
 					this.scanPropertyDocs();
@@ -168,7 +145,7 @@ export class DataExchangeHubView extends ItemView {
 				}
 			}),
 		);
-		this.unsubscribes.push(
+		this.addUnsubscribe(
 			this.eventBus.on("file.deleted", (event) => {
 				if (event.payload.path.startsWith(propsFolder)) {
 					this.scanPropertyDocs();
@@ -176,15 +153,60 @@ export class DataExchangeHubView extends ItemView {
 				}
 			}),
 		);
+	}
 
+	onHubClose(): void {
+		// No extra cleanup needed — base class handles unsubscribes and timers
+	}
+
+	protected onTabChanged(): void {
+		// Reset editing states when navigating between tabs
+		this.editingImportId = null;
+		this.editingExportId = null;
+		this.editingPipelineId = null;
+		// Clear filter
+		this.filterText = "";
+		this.searchInput.value = "";
+	}
+
+	onDashboardRender(): void {
+		this.refreshConfigs();
 		this.dashboard.render();
 	}
 
-	async onClose(): Promise<void> {
-		if (this.renderTimer) clearTimeout(this.renderTimer);
-		for (const unsub of this.unsubscribes) unsub();
-		this.unsubscribes = [];
+	onTabRender(tabId: DXTab): void {
+		this.refreshConfigs();
+		switch (tabId) {
+			case "imports":
+				this.importsTab.renderMaster();
+				this.importsTab.renderDetail();
+				break;
+			case "exports":
+				this.exportsTab.renderMaster();
+				this.exportsTab.renderDetail();
+				break;
+			case "reports":
+				this.reportsTab.renderMaster();
+				this.reportsTab.renderDetail();
+				break;
+			case "properties":
+				this.propertiesTab.renderMaster();
+				this.propertiesTab.renderDetail();
+				break;
+			case "pipelines":
+				this.pipelinesTab.renderMaster();
+				this.pipelinesTab.renderDetail();
+				break;
+			case "types":
+				this.typesTab.renderMaster();
+				this.typesTab.renderDetail();
+				break;
+		}
 	}
+
+	// ══════════════════════════════════════════════════════════
+	// Public API
+	// ══════════════════════════════════════════════════════════
 
 	/** Opens the imports page and selects a specific config (for external callers). */
 	showImportConfig(configId: string): void {
@@ -198,7 +220,7 @@ export class DataExchangeHubView extends ItemView {
 
 	private buildDeps(): HubComponentDeps {
 		const navigation: HubNavigationCallbacks = {
-			navigateTo: (page) => this.navigateTo(page),
+			navigateTo: (page) => this.navigateTo(page as DXTab | "dashboard"),
 			showImportConfig: (id) => this.showImportConfig(id),
 			openCsvImport: (csvPath, cfg?) => this.openCsvImportCb(csvPath, cfg),
 			openExport: (cfg) => this.openExportCb(cfg),
@@ -231,7 +253,7 @@ export class DataExchangeHubView extends ItemView {
 
 	private getHubState(): HubState {
 		return {
-			currentPage: this.currentPage,
+			currentPage: this.activePage as HubPage,
 			importConfigs: this.importConfigs,
 			exportConfigs: this.exportConfigs,
 			pipelineConfigs: this.pipelineConfigs,
@@ -257,7 +279,7 @@ export class DataExchangeHubView extends ItemView {
 	}
 
 	private setHubState(partial: Partial<HubState>): void {
-		if (partial.currentPage !== undefined) this.currentPage = partial.currentPage;
+		if (partial.currentPage !== undefined) this.activePage = partial.currentPage as DXTab | "dashboard";
 		if (partial.filterText !== undefined) this.filterText = partial.filterText;
 		if (partial.showHiddenCsvs !== undefined) this.showHiddenCsvs = partial.showHiddenCsvs;
 		if (partial.selectedImportId !== undefined) this.selectedImportId = partial.selectedImportId;
@@ -452,105 +474,4 @@ export class DataExchangeHubView extends ItemView {
 
 		this.csvFileEntries.sort((a, b) => a.displayName.localeCompare(b.displayName));
 	}
-
-	// ══════════════════════════════════════════════════════════
-	// Render scheduling
-	// ══════════════════════════════════════════════════════════
-
-	private scheduleRender(): void {
-		if (this.renderTimer) clearTimeout(this.renderTimer);
-		this.renderTimer = setTimeout(() => {
-			this.refreshConfigs();
-			switch (this.currentPage) {
-				case "dashboard":
-					this.dashboard.render();
-					break;
-				case "imports":
-					this.importsTab.renderMaster();
-					this.importsTab.renderDetail();
-					break;
-				case "exports":
-					this.exportsTab.renderMaster();
-					this.exportsTab.renderDetail();
-					break;
-				case "reports":
-					this.reportsTab.renderMaster();
-					this.reportsTab.renderDetail();
-					break;
-				case "properties":
-					this.propertiesTab.renderMaster();
-					this.propertiesTab.renderDetail();
-					break;
-				case "pipelines":
-					this.pipelinesTab.renderMaster();
-					this.pipelinesTab.renderDetail();
-					break;
-				case "types":
-					this.typesTab.renderMaster();
-					this.typesTab.renderDetail();
-					break;
-			}
-		}, 16);
-	}
-
-	// ══════════════════════════════════════════════════════════
-	// Navigation
-	// ══════════════════════════════════════════════════════════
-
-	private navigateTo(page: HubPage): void {
-		this.currentPage = page;
-		const isDashboard = page === "dashboard";
-
-		this.dashboardEl.classList.toggle("ft-hidden", !isDashboard);
-		this.splitEl.classList.toggle("ft-hidden", isDashboard);
-		this.topBarEl.classList.toggle("ft-hidden", isDashboard);
-
-		if (!isDashboard) {
-			const labels: Record<string, string> = {
-				imports: "Imports",
-				exports: "Exports",
-				reports: "Reports",
-				properties: "Properties",
-				pipelines: "Pipelines",
-				types: "Types",
-			};
-			this.topBarTitleEl.textContent = `Data Exchange Hub - ${labels[page] ?? page}`;
-
-			const placeholders: Record<string, string> = {
-				imports: "Search import configs...",
-				exports: "Search export configs...",
-				reports: "Search reports...",
-				properties: "Search properties...",
-				pipelines: "Search pipelines...",
-				types: "Search types...",
-			};
-			this.searchInput.placeholder = placeholders[page] ?? "Search...";
-			this.filterText = "";
-			this.searchInput.value = "";
-		} else {
-			this.topBarTitleEl.textContent = "Data Exchange Hub";
-		}
-
-		this.editingImportId = null;
-		this.editingExportId = null;
-		this.editingPipelineId = null;
-		this.scheduleRender();
-	}
-
-	// ── Top bar ─────────────────────────────────────────────
-
-	private renderTopBar(container: HTMLElement): void {
-		const bar = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-px-3 ft-py-2 ft-hidden" });
-		bar.style.borderBottom = "1px solid var(--background-modifier-border)";
-		bar.addClass("ft-flex-shrink-0");
-		this.topBarEl = bar;
-
-		this.topBarTitleEl = bar.createSpan({
-			text: "Data Exchange Hub",
-			cls: "ft-heading ft-heading-sm",
-		});
-		this.topBarTitleEl.addClass("ft-cursor-pointer");
-		this.topBarTitleEl.addEventListener("click", () => this.navigateTo("dashboard"));
-	}
-
 }

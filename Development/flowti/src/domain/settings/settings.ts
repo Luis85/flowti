@@ -52,6 +52,7 @@ export const DEFAULT_CATALOG_CATEGORIES: CatalogCategoryConfig[] = [
 	{ name: "Data Exchange", visible: true },
 	{ name: "Documentation", visible: false },
 	{ name: "UI Commands", visible: false },
+	{ name: "Hub", visible: false },
 ];
 
 // ─────────────────────────────────────────────────────────────

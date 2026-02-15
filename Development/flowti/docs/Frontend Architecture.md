@@ -10,7 +10,7 @@ tags:
 
 This document describes the current frontend architecture of the Flowti IBDE Obsidian plugin, its design principles, view inventory, and refactoring history with planned next phases.
 
-> Last updated: 2026-02-15
+> Last updated: 2026-02-15 (Hub Shell Pattern added)
 
 ---
 
@@ -22,15 +22,17 @@ This document describes the current frontend architecture of the Flowti IBDE Obs
 
 3. **Domain Hubs** — The application is organized around domains. Each hub provides focused interfaces that support the user's jobs to be done.
 
-4. **Orchestrator + Component pattern** — Complex views are split into a thin Obsidian `ItemView` orchestrator (lifecycle, state, scanning, navigation) and plain TypeScript component classes (rendering). Components receive dependencies via injection, not inheritance.
+4. **Hub Shell Pattern** — Hub views extend `BaseHubView<TPage>`, which owns the shared shell lifecycle (wrapper, top bar, tab bar, split layout, render scheduling, cleanup, hub lifecycle events). Subclasses implement domain-specific rendering via abstract methods. See [[ADR-024 BaseHubView Shell Extraction]].
 
-5. **File-driven entities** — Domains, services, flows, systems, actors, and products are defined as Markdown files with typed frontmatter. The catalog merges file-driven entries with code-registered metadata to produce a unified view.
+5. **Orchestrator + Component pattern** — Complex views are split into a thin orchestrator (lifecycle, state, scanning, navigation) and plain TypeScript component classes (rendering). Components receive dependencies via injection, not inheritance.
 
-6. **Obsidian-native styling** — All UI uses Obsidian's CSS variables for theming (dark/light mode). Custom classes use the `ft-` prefix to avoid collisions.
+6. **File-driven entities** — Domains, services, flows, systems, actors, and products are defined as Markdown files with typed frontmatter. The catalog merges file-driven entries with code-registered metadata to produce a unified view.
 
-7. **DocService centralization** — All documentation file creation goes through `doc.create` events handled by the DocService. UI components never call `fileSystemClient.createFile()` directly for docs.
+7. **Obsidian-native styling** — All UI uses Obsidian's CSS variables for theming (dark/light mode). Custom classes use the `ft-` prefix to avoid collisions.
 
-8. **UI Command Bus** — All user entry points (Obsidian commands, ribbon icons, file-menu items) emit `ui.*` events on the EventBus. The `UiCommandService` handles the actual view/modal opening, making all user navigation observable and traceable.
+8. **DocService centralization** — All documentation file creation goes through `doc.create` events handled by the DocService. UI components never call `fileSystemClient.createFile()` directly for docs.
+
+9. **UI Command Bus** — All user entry points (Obsidian commands, ribbon icons, file-menu items) emit `ui.*` events on the EventBus. The `UiCommandService` handles the actual view/modal opening, making all user navigation observable and traceable.
 
 ---
 
@@ -85,10 +87,11 @@ Views read state via `deps.getState()` and write via `deps.setState(partial)`. T
 
 ### Obsidian ItemView Subclasses
 
-| View | Type Constant | LOC | Layout | Purpose |
-|------|--------------|-----|--------|---------|
-| `EventCatalogView` | `flowti-event-catalog` | ~836 | master-detail | 8-tab catalog: Dashboard, Domains, Services, Events, Flows, Systems, Actors, Products |
-| `DataExchangeHubView` | `flowti-data-exchange-hub` | ~484 | master-detail | 7-page hub: Dashboard, Imports, Exports, Reports, Properties, Pipelines, Types |
+| View | Type Constant | LOC | Base Class | Layout | Purpose |
+|------|--------------|-----|------------|--------|---------|
+| `BaseHubView<TPage>` | — (abstract) | ~278 | `ItemView` | shell (wrapper + top bar + tab bar + split) | Abstract base: shared Hub lifecycle, navigation, render scheduling, cleanup |
+| `EventCatalogView` | `flowti-event-catalog` | ~723 | `BaseHubView<CatalogTab>` | master-detail | 8-tab catalog: Dashboard, Domains, Services, Events, Flows, Systems, Actors, Products |
+| `DataExchangeHubView` | `flowti-data-exchange-hub` | ~477 | `BaseHubView<DXTab>` | master-detail + tab bar | 7-page hub: Dashboard, Imports, Exports, Reports, Properties, Pipelines, Types |
 | `EventLogView` | `flowti-event-log` | ~581 | log list | Activity feed with category/type filters and subscribed/all modes |
 | `ExportView` | `flowti-export` | ~655 | wizard stepper | 4-page export wizard: View Select, Configure, Preview, Result |
 | `CsvActionView` | `flowti-csv` | ~747 | landing + wizard | CSV file handler: column preview landing page + 4-page inline import wizard |
@@ -111,7 +114,7 @@ Views read state via `deps.getState()` and write via `deps.setState(partial)`. T
 
 ### Component Architecture (Decomposed Views)
 
-Both major views follow the **orchestrator + component** pattern:
+Both major views extend `BaseHubView<TPage>` and follow the **orchestrator + component** pattern:
 
 **Event Catalog** (`src/ui/catalog/`, 15 files):
 - `CatalogDashboard` — Stats grid, quick actions, recent activity
@@ -234,12 +237,12 @@ Each service uses a unique storage key (`"subscription"`, `"eventDefinition"`, `
 
 ### Within-View Navigation
 
-Orchestrators expose navigation callbacks via the `deps.navigation` object:
+Hub views inherit `navigateTo(page)` from `BaseHubView`, which handles dashboard/split visibility toggling, title updates, tab bar highlighting, and hub event emission. Subclass-specific navigation is exposed via `deps.navigation`:
 
-- **Event Catalog**: `navigateToTab(tab)`, `navigateToDomain(name)`, `navigateToEvent(type)`, etc.
-- **Data Exchange Hub**: `navigateTo(page)`, `showImportConfig(id)`, `openCsvImport(path)`, etc.
+- **Event Catalog**: `navigateToDomain(name)`, `navigateToEvent(type)`, `navigateToService(name)`, etc.
+- **Data Exchange Hub**: `showImportConfig(id)`, `openCsvImport(path)`, `openExport(cfg)`, etc.
 
-Tab switching is implemented by toggling DOM visibility and re-rendering the active tab.
+Tab switching toggles DOM visibility and triggers debounced re-rendering via `scheduleRender()`.
 
 ### Cross-View Navigation
 
@@ -282,7 +285,7 @@ dataExchangeSetup.ts ─→ Hub, CSV, Export     (view registration + file menu 
 
 ### Scale
 
-The `FlowtiEventMap` type union contains **128 events** across 11 domains:
+The `FlowtiEventMap` type union contains **131 events** across 12 domains:
 
 | Domain | Events | Examples |
 |--------|--------|---------|
@@ -306,12 +309,14 @@ The `FlowtiEventMap` type union contains **128 events** across 11 domains:
 | Event Definition | 9 | `eventDefinition.create`, `eventDefinition.loaded`, `eventDefinition.matched` |
 | Data Exchange | 15 | `dataExchange.import.execute`, `dataExchange.export.completed` |
 | Documentation | 6 | `doc.create`, `doc.created`, `doc.exists`, `doc.failed` |
+| Hub | 3 | `hub.opened`, `hub.closed`, `hub.tab.changed` |
 | Installer | 6 | `installer.started`, `installer.step.completed` |
 
 ### Conventions
 
 - **Naming**: `domain.action` for commands, `domain.fact` for events
 - **System tags**: Infrastructure events tagged `["system"]`, filterable in catalog
+- **Hub lifecycle events**: `hub.opened`, `hub.closed`, `hub.tab.changed` — emitted by `BaseHubView` automatically for all Hub views
 - **Wildcard listener**: EventLogView uses `eventBus.on("*", ...)` for activity feed (skips `log.*` to avoid recursion)
 - **Per-domain event files**: Each domain exports its own `EventMap` interface, composed into `FlowtiEventMap` via `extends`
 
@@ -349,7 +354,7 @@ Sub-modules receive dependencies via typed interfaces (`ConfigDocServiceDeps`, `
 
 | LOC | File | Role | Status |
 |-----|------|------|--------|
-| 836 | `ui/EventCatalogView.ts` | Catalog orchestrator | Delegates to 15 components |
+| 723 | `ui/EventCatalogView.ts` | Catalog orchestrator | Extends BaseHubView, delegates to 15 components |
 | 747 | `ui/CsvActionView.ts` | CSV import orchestrator | Delegates to 7 components |
 | 708 | `domain/docs/contentGenerator.ts` | Markdown generators | **Candidate for further split** |
 | 655 | `ui/ExportView.ts` | Export orchestrator | Delegates to 4 components |
@@ -500,6 +505,26 @@ Created `BaseEntityTab<T>` abstract class with `EntityTabConfig<T>` configuratio
 
 **Design**: Composition via config, not inheritance overrides. `SystemsTab` uses `filterIncludesEvents: false` and custom `renderDirectEventsSection()` for `EventCatalogEntry[]` (vs string-based resolution in other tabs). Backward-compatible accessor methods preserved on subclasses.
 
+### Phase 12 — BaseHubView Shell Extraction (ADR-024)
+
+Extracted shared Hub shell lifecycle into `BaseHubView<TPage>` abstract base class. Both System Hub views now extend it.
+
+| File | Before | After | Change |
+|------|--------|-------|--------|
+| `BaseHubView.ts` (new) | — | 278 LOC | Abstract base: wrapper, top bar, tab bar, split layout, render scheduling, hub events |
+| `EventCatalogView.ts` | 864 LOC | 723 LOC | -141 LOC — shell code moved to base class |
+| `DataExchangeHubView.ts` | 556 LOC | 477 LOC | -79 LOC — shell code moved to base class, gains tab bar |
+| `hub/events.ts` (new) | — | 11 LOC | HubEventMap (3 lifecycle events) |
+
+**Pattern**: Inheritance with generic type parameter. `BaseHubView<TPage>` owns the Obsidian `ItemView` lifecycle. Subclasses implement ~10 abstract methods for domain-specific rendering. The `onTabChanged()` virtual hook allows tab-specific DOM toggling without overriding `navigateTo()`.
+
+**Hub lifecycle events**: `hub.opened`, `hub.closed`, `hub.tab.changed` — registered in EVENT_CATALOG with category "Hub", tagged `["system"]`, hidden by default in catalog.
+
+**Key design decisions**:
+- `getViewType()` NOT in base class — Obsidian view types differ from hub IDs
+- HubAdapter interface deferred — premature for 2 System Hubs
+- Declarative tab definitions deferred — hardcoded arrays work at current scale
+
 ### Frontmatter Validation & User Feedback (Feb 2026)
 
 Added scan-level and per-entry frontmatter validation across the Data Exchange Hub:
@@ -607,19 +632,21 @@ Pure content generation file with markdown builders for 8+ entity types. Could s
 - `DataExchangeService.ts` at 1,802 LOC
 - 4 files over 1,000 LOC
 
-### After Phase 1-10 (Feb 2026)
-- Largest file: `EventCatalogView.ts` at 836 LOC (orchestrator)
+### After Phase 1-12 (Feb 2026)
+- Largest file: `CsvActionView.ts` at 747 LOC (orchestrator)
 - No files over 1,000 LOC
-- `EventCatalogView.ts`: 3,714 → 836 LOC (78% reduction)
+- `EventCatalogView.ts`: 3,714 → 723 LOC (81% reduction, extends BaseHubView)
+- `DataExchangeHubView.ts`: 556 → 477 LOC (14% reduction, extends BaseHubView)
 - `DataExchangeService.ts`: 1,802 → 579 LOC (68% reduction)
 - `main.ts`: 978 → 482 LOC (51% reduction)
 - `HubDashboard.ts`: 766 → 295 LOC (62% reduction)
 - `CsvLanding.ts`: 701 → 236 LOC (66% reduction)
 - `EventsTab.ts`: 1,040 → 329 LOC (68% reduction)
 - `ConfigDocService.ts`: 934 → 435 LOC (53% reduction)
+- `BaseHubView.ts`: 278 LOC (new — shared shell for all Hub views)
 - 14 files over 500 LOC (down from 6 files over 1,000 LOC)
 - 72 test files, 1,662 tests — all passing
-- 155 source files (BaseEntityTab.ts added), ~31,000 LOC (entity tab deduplication removed ~438 LOC)
+- 157 source files (BaseHubView.ts + hub/events.ts added), ~31,000 LOC
 
 ### Target After Phase 11
 - `EventConfigModal.ts`: 629 → ~150 LOC
@@ -636,7 +663,7 @@ Each UI component has a dedicated documentation file in `docs/components/` (53 f
 
 | Subsystem | Location | Count | Examples |
 |-----------|----------|-------|----------|
-| Orchestrator Views | `src/ui/*.ts` | 6 | [[EventCatalogView]], [[DataExchangeHubView]], [[CsvActionView]], [[ExportView]] |
+| Orchestrator Views | `src/ui/*.ts` | 7 | [[BaseHubView]], [[EventCatalogView]], [[DataExchangeHubView]], [[CsvActionView]], [[ExportView]] |
 | Modals | `src/ui/*.ts` | 7 | [[EventConfigModal]], [[SubscriptionManagerModal]], [[ConfirmModal]] |
 | Standalone UI | `src/ui/*.ts` | 2 | [[IngestionStatusBar]], [[ElectronDialog]] |
 | Catalog | `src/ui/catalog/` | 11 | [[CatalogDashboard]], [[EventsTab]], [[DomainsTab]], [[FlowsTab]] |
@@ -696,7 +723,7 @@ Audit of the current frontend architecture against the 12-section coherence chec
 | UI triggers only Commands (Intent) | **Partial** | EventCatalogView: 100% eventbus. CSV/Export/Hub Views: direct service calls for CRUD ([[TD-42 Direct service calls bypass EventBus]]) |
 | Application publishes only Events (Facts) | **Yes** | All domain services emit fact events (`*.created`, `*.loaded`, `*.failed`) |
 | correlation_id / causation_id | **No** | Only file operations use `RequestId`. Domain events lack traceability ([[TD-43 No correlation IDs in domain events]]) |
-| Command/Event naming conventions | **Yes** | Consistent `domain.action` / `domain.fact` hierarchy across 136+ events |
+| Command/Event naming conventions | **Yes** | Consistent `domain.action` / `domain.fact` hierarchy across 131+ events |
 | Payload properties stable | **Yes** | Consistently camelCase (TypeScript convention, not snake_case). Stable across versions |
 
 ### 3) Store Discipline — 90%
@@ -713,7 +740,7 @@ Audit of the current frontend architecture against the 12-section coherence chec
 
 | Item | Status | Notes |
 |------|--------|-------|
-| One Layout per View from library | **Yes** | `buildSplitLayout()` shared by Catalog + Hub. Wizard stepper shared by CSV + Export |
+| One Layout per View from library | **Yes** | `BaseHubView` owns `buildSplitLayout()` shell for all Hubs. Wizard stepper shared by CSV + Export |
 | Stable Slots | **Yes** | `SplitLayout` interface: `dashboardEl`, `splitEl`, `masterEl`, `searchHeaderEl`, `detailEl` |
 | Consistent slot naming | **Yes** | `ft-catalog-master`, `ft-catalog-detail`, `ft-view-root`, `ft-view-dashboard`, `ft-view-split` |
 | Responsive behavior | **Yes** | State-driven visibility via `ft-hidden` toggles. Obsidian CSS variables for theme auto-adaptation |
@@ -810,5 +837,5 @@ Audit of the current frontend architecture against the 12-section coherence chec
 
 | Checklist Item | Current State | Decision |
 |----------------|--------------|----------|
-| Payload properties snake_case | Consistently camelCase across 136+ events | **Keep camelCase** — TypeScript standard. Changing would break all consumers |
+| Payload properties snake_case | Consistently camelCase across 131+ events | **Keep camelCase** — TypeScript standard. Changing would break all consumers |
 | Formal Store classes with selectors | Orchestrator-owned state with `getState()`/`setState()` | **Keep current pattern** — works well for Obsidian plugin scale. Formal stores add abstraction without clear benefit |
