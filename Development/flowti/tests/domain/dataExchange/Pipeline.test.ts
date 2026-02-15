@@ -3,14 +3,16 @@ import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { DataExchangeService } from "../../../src/domain/dataExchange/DataExchangeService";
 import type { IFileSystemClient } from "../../../src/infrastructure/filesystem/types";
-import type { IStorageProvider } from "../../../src/utils/types";
-import type { MultiImportResult, SavedMultiImportPipeline } from "../../../src/domain/dataExchange/types";
+import type { ITypedStorage } from "../../../src/utils/TypedStorage";
+import type { DataExchangeState, MultiImportResult, SavedMultiImportPipeline } from "../../../src/domain/dataExchange/types";
 
-function createMockStorage(initialData: Record<string, unknown> = {}): IStorageProvider {
-	let data: Record<string, unknown> = { ...initialData };
+function createMockStorage(initialState?: DataExchangeState): ITypedStorage<DataExchangeState> {
+	let data: DataExchangeState | undefined = initialState;
 	return {
 		load: vi.fn(async () => data),
-		save: vi.fn(async (d: unknown) => { data = d as Record<string, unknown>; }),
+		save: vi.fn(async (state: DataExchangeState) => { data = state; }),
+		safeLoad: vi.fn(async () => data),
+		safeSave: vi.fn(async (state: DataExchangeState) => { data = state; return true; }),
 	};
 }
 
@@ -32,7 +34,7 @@ function createMockFileSystem(): IFileSystemClient {
 describe("Pipeline", () => {
 	let eventBus: IEventBus;
 	let fileSystem: IFileSystemClient;
-	let storage: IStorageProvider;
+	let storage: ITypedStorage<DataExchangeState>;
 	let svc: DataExchangeService;
 
 	beforeEach(() => {
@@ -148,29 +150,24 @@ describe("Pipeline", () => {
 			});
 
 			expect(storage.save).toHaveBeenCalled();
-			const storedData = (await storage.load()) as Record<string, unknown>;
-			const state = storedData.dataExchange as {
-				savedPipelines: unknown[];
-			};
-			expect(state.savedPipelines).toHaveLength(1);
+			const state = await storage.load();
+			expect(state?.savedPipelines).toHaveLength(1);
 		});
 
 		it("should load persisted pipelines", async () => {
 			const mockStorage = createMockStorage({
-				dataExchange: {
-					savedImportConfigs: [],
-					savedExportConfigs: [],
-					savedPipelines: [
-						{
-							id: "pipe-1",
-							name: "Existing Pipeline",
-							createdAt: 1000,
-							targetFolder: "out",
-							mergeKey: "id",
-							sources: [],
-						},
-					],
-				},
+				savedImportConfigs: [],
+				savedExportConfigs: [],
+				savedPipelines: [
+					{
+						id: "pipe-1",
+						name: "Existing Pipeline",
+						createdAt: 1000,
+						targetFolder: "out",
+						mergeKey: "id",
+						sources: [],
+					},
+				],
 			});
 
 			const loadedSvc = new DataExchangeService({

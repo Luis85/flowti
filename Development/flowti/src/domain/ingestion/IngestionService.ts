@@ -1,7 +1,6 @@
 import type { IEventBus } from "../../infrastructure/events/types";
 import { isSkippedEvent } from "../../infrastructure/events/catalog";
-import type { IStorageProvider } from "../../utils/types";
-import { safeLoadState, safeSaveState } from "../../utils/persistence";
+import type { ITypedStorage } from "../../utils/TypedStorage";
 import { generateUUID, extractSettingsBoolean, extractStringField } from "../../utils/helpers";
 import { JobQueue } from "./JobQueue";
 import type {
@@ -16,7 +15,7 @@ import { DEFAULT_INGESTION_CONFIG, MAX_LEDGER_SIZE } from "./types";
  * Configuration options for the IngestionService.
  */
 export interface IngestionServiceOptions {
-	storage: IStorageProvider;
+	storage: ITypedStorage<IngestionPersistentState>;
 	eventBus?: IEventBus;
 	config?: Partial<IngestionConfig>;
 }
@@ -44,7 +43,7 @@ const EXTRA_SKIP_PREFIXES = ["ingestion."] as const;
  */
 export class IngestionService {
 	private config: IngestionConfig;
-	private storage: IStorageProvider;
+	private storage: ITypedStorage<IngestionPersistentState>;
 	private eventBus?: IEventBus;
 	private unsubscribes: (() => void)[] = [];
 	private jobQueue: JobQueue<IngestionJob>;
@@ -103,7 +102,7 @@ export class IngestionService {
 	 * Loads the idempotency ledger and recovers pending jobs from storage.
 	 */
 	async load(): Promise<void> {
-		const saved = await safeLoadState<IngestionPersistentState>(this.storage, "ingestion");
+		const saved = await this.storage.safeLoad();
 		if (saved?.processedKeys) {
 			this.processedKeys = new Set(saved.processedKeys);
 		}
@@ -373,7 +372,7 @@ export class IngestionService {
 			processedKeys: [...this.processedKeys],
 			pendingJobs: pendingJobs.length > 0 ? pendingJobs : undefined,
 		};
-		await safeSaveState(this.storage, "ingestion", state);
+		await this.storage.safeSave(state);
 	}
 
 	/**

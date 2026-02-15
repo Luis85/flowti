@@ -3,13 +3,16 @@ import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { DataExchangeService } from "../../../src/domain/dataExchange/DataExchangeService";
 import type { IFileSystemClient } from "../../../src/infrastructure/filesystem/types";
-import type { IStorageProvider } from "../../../src/utils/types";
+import type { ITypedStorage } from "../../../src/utils/TypedStorage";
+import type { DataExchangeState } from "../../../src/domain/dataExchange/types";
 
-function createMockStorage(initialData: Record<string, unknown> = {}): IStorageProvider {
-	let data: Record<string, unknown> = { ...initialData };
+function createMockStorage(initialState?: DataExchangeState): ITypedStorage<DataExchangeState> {
+	let data: DataExchangeState | undefined = initialState;
 	return {
 		load: vi.fn(async () => data),
-		save: vi.fn(async (d: unknown) => { data = d as Record<string, unknown>; }),
+		save: vi.fn(async (state: DataExchangeState) => { data = state; }),
+		safeLoad: vi.fn(async () => data),
+		safeSave: vi.fn(async (state: DataExchangeState) => { data = state; return true; }),
 	};
 }
 
@@ -212,7 +215,7 @@ describe("DataExchangeService", () => {
 	});
 
 	describe("config persistence", () => {
-		let storage: IStorageProvider;
+		let storage: ITypedStorage<DataExchangeState>;
 		let svc: DataExchangeService;
 
 		beforeEach(() => {
@@ -256,11 +259,8 @@ describe("DataExchangeService", () => {
 				});
 
 				expect(storage.save).toHaveBeenCalled();
-				const storedData = (await storage.load()) as Record<string, unknown>;
-				const state = storedData.dataExchange as {
-					savedImportConfigs: unknown[];
-				};
-				expect(state.savedImportConfigs).toHaveLength(1);
+				const state = await storage.load();
+				expect(state?.savedImportConfigs).toHaveLength(1);
 			});
 
 			it("should delete import configs", async () => {
@@ -278,20 +278,18 @@ describe("DataExchangeService", () => {
 
 			it("should load persisted import configs", async () => {
 				const mockStorage = createMockStorage({
-					dataExchange: {
-						savedImportConfigs: [
-							{
-								id: "abc",
-								name: "Existing",
-								createdAt: 1000,
-								targetFolder: "out",
-								nameColumn: "name",
-								columnMappings: [],
-								conflictStrategy: "skip",
-							},
-						],
-						savedExportConfigs: [],
-					},
+					savedImportConfigs: [
+						{
+							id: "abc",
+							name: "Existing",
+							createdAt: 1000,
+							targetFolder: "out",
+							nameColumn: "name",
+							columnMappings: [],
+							conflictStrategy: "skip",
+						},
+					],
+					savedExportConfigs: [],
 				});
 
 				const loadedSvc = new DataExchangeService({
@@ -340,11 +338,8 @@ describe("DataExchangeService", () => {
 					fileProperties: [],
 				});
 
-				const storedData = (await storage.load()) as Record<string, unknown>;
-				const state = storedData.dataExchange as {
-					savedExportConfigs: unknown[];
-				};
-				expect(state.savedExportConfigs).toHaveLength(1);
+				const state = await storage.load();
+				expect(state?.savedExportConfigs).toHaveLength(1);
 			});
 
 			it("should delete export configs", async () => {
@@ -364,22 +359,20 @@ describe("DataExchangeService", () => {
 
 			it("should load persisted export configs", async () => {
 				const mockStorage = createMockStorage({
-					dataExchange: {
-						savedImportConfigs: [],
-						savedExportConfigs: [
-							{
-								id: "xyz",
-								name: "Existing Export",
-								createdAt: 2000,
-								sourcePath: "data.base",
-								sourceType: "base",
-								format: "csv",
-								outputPath: "out.csv",
-								columns: ["col1"],
-								fileProperties: ["file.name"],
-							},
-						],
-					},
+					savedImportConfigs: [],
+					savedExportConfigs: [
+						{
+							id: "xyz",
+							name: "Existing Export",
+							createdAt: 2000,
+							sourcePath: "data.base",
+							sourceType: "base",
+							format: "csv",
+							outputPath: "out.csv",
+							columns: ["col1"],
+							fileProperties: ["file.name"],
+						},
+					],
 				});
 
 				const loadedSvc = new DataExchangeService({
@@ -419,7 +412,7 @@ describe("DataExchangeService", () => {
 
 	describe("config path tracking on rename", () => {
 		let bus: IEventBus;
-		let storage: IStorageProvider;
+		let storage: ITypedStorage<DataExchangeState>;
 		let svc: DataExchangeService;
 
 		beforeEach(() => {

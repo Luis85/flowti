@@ -9,8 +9,7 @@
 
 import type { IEventBus } from "../../infrastructure/events/types";
 import { isSkippedEvent } from "../../infrastructure/events/catalog";
-import type { IStorageProvider } from "../../utils/types";
-import { safeLoadState, safeSaveState } from "../../utils/persistence";
+import type { ITypedStorage } from "../../utils/TypedStorage";
 import { generateUUID, extractSettingsBoolean, extractStringField } from "../../utils/helpers";
 import { matchGlob } from "../../utils/glob";
 import { extractPayload } from "./payloadExtractor";
@@ -24,7 +23,7 @@ import { MAX_EMITTED_KEYS } from "./types";
  * Configuration options for the EventDefinitionService.
  */
 export interface EventDefinitionServiceOptions {
-	storage: IStorageProvider;
+	storage: ITypedStorage<EventDefinitionState>;
 	eventBus?: IEventBus;
 }
 
@@ -48,7 +47,7 @@ const EXTRA_SKIP_PREFIXES = ["eventDefinition.", "ingestion."] as const;
 export class EventDefinitionService {
 	private state: EventDefinitionState = createDefaultState();
 	private emittedKeys: Set<string> = new Set();
-	private storage: IStorageProvider;
+	private storage: ITypedStorage<EventDefinitionState>;
 	private eventBus?: IEventBus;
 	private unsubscribes: (() => void)[] = [];
 
@@ -122,7 +121,7 @@ export class EventDefinitionService {
 	 * Loads event definition state from storage.
 	 */
 	async load(): Promise<void> {
-		const saved = await safeLoadState<EventDefinitionState>(this.storage, "eventDefinition");
+		const saved = await this.storage.safeLoad();
 		if (saved) {
 			this.state = saved;
 			this.emittedKeys = new Set(saved.emittedKeys ?? []);
@@ -270,7 +269,7 @@ export class EventDefinitionService {
 	 * Persists state to storage.
 	 */
 	private async saveState(): Promise<void> {
-		await safeSaveState(this.storage, "eventDefinition", {
+		await this.storage.safeSave({
 			definitions: this.state.definitions,
 			emittedKeys: [...this.emittedKeys],
 		});

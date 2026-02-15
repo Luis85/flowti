@@ -2,23 +2,28 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { SubscriptionService } from "../../../src/domain/subscription/SubscriptionService";
-import type { IStorageProvider } from "../../../src/utils/types";
+import type { ITypedStorage } from "../../../src/utils/TypedStorage";
 import type { SubscriptionState } from "../../../src/domain/subscription/types";
 import { DEFAULT_SETTINGS } from "../../../src/domain/settings/settings";
 
 /**
- * Creates a mock storage provider for testing.
+ * Creates a mock typed storage for testing.
  */
-function createMockStorage(initialData: Record<string, unknown> = {}): {
-	storage: IStorageProvider;
-	getData: () => Record<string, unknown>;
+function createMockStorage(initialState?: SubscriptionState): {
+	storage: ITypedStorage<SubscriptionState>;
+	getData: () => SubscriptionState | undefined;
 } {
-	let data = { ...initialData };
+	let data: SubscriptionState | undefined = initialState;
 	return {
 		storage: {
 			load: vi.fn(async () => data),
-			save: vi.fn(async (newData: unknown) => {
-				data = newData as Record<string, unknown>;
+			save: vi.fn(async (state: SubscriptionState) => {
+				data = state;
+			}),
+			safeLoad: vi.fn(async () => data),
+			safeSave: vi.fn(async (state: SubscriptionState) => {
+				data = state;
+				return true;
 			}),
 		},
 		getData: () => data,
@@ -27,8 +32,8 @@ function createMockStorage(initialData: Record<string, unknown> = {}): {
 
 describe("SubscriptionService", () => {
 	let service: SubscriptionService;
-	let storage: IStorageProvider;
-	let getData: () => Record<string, unknown>;
+	let storage: ITypedStorage<SubscriptionState>;
+	let getData: () => SubscriptionState | undefined;
 	let eventBus: IEventBus;
 
 	beforeEach(() => {
@@ -57,7 +62,7 @@ describe("SubscriptionService", () => {
 					},
 				},
 			};
-			const mock = createMockStorage({ subscription: existingState });
+			const mock = createMockStorage(existingState);
 			service = new SubscriptionService({ storage: mock.storage, eventBus });
 
 			await service.load();
@@ -109,9 +114,8 @@ describe("SubscriptionService", () => {
 				filters: {},
 			});
 
-			const data = getData();
-			const state = data.subscription as SubscriptionState;
-			expect(Object.keys(state.subscriptions)).toHaveLength(1);
+			const state = getData();
+			expect(Object.keys(state!.subscriptions)).toHaveLength(1);
 		});
 	});
 
@@ -468,8 +472,8 @@ describe("SubscriptionService", () => {
 	});
 
 	describe("persistence", () => {
-		it("should preserve other storage keys when saving", async () => {
-			const mock = createMockStorage({ someOtherKey: "preserved" });
+		it("should persist state via typed storage", async () => {
+			const mock = createMockStorage();
 			service = new SubscriptionService({ storage: mock.storage, eventBus });
 
 			await eventBus.emit("subscription.create", {
@@ -477,9 +481,9 @@ describe("SubscriptionService", () => {
 				filters: {},
 			});
 
-			const data = mock.getData();
-			expect(data.someOtherKey).toBe("preserved");
-			expect(data.subscription).toBeDefined();
+			const saved = mock.getData();
+			expect(saved).toBeDefined();
+			expect(Object.keys(saved!.subscriptions)).toHaveLength(1);
 		});
 	});
 

@@ -2,35 +2,45 @@
 severity: medium
 category: duplication
 layer: cross-cutting
-status: open
+status: resolved
 effort: medium
-description: The pattern ((await this.storage.load()) as object) || {} is copy-pasted across 8+ services without type safety. A shared SafeStorage abstraction would eliminate the duplication and add error handling.
+resolved: 2026-02-15
+description: The pattern ((await this.storage.load()) as object) || {} was copy-pasted across 8+ services without type safety. Resolved by creating TypedStorage<T> abstraction and migrating all 9 persistent services.
 ---
 # TD-16: Duplicated storage merging pattern across 8+ services
 
+**Status: RESOLVED** (2026-02-15)
+
 ## Problem
 
-Every service that persists state uses this pattern:
+Every service that persisted state used this pattern:
 
 ```typescript
 const existingData = ((await this.storage.load()) as object) || {};
 await this.storage.save({ ...existingData, ...this.state });
 ```
 
-This appears in: SettingsService, UserService, InstallerService, EventDefinitionService, EventFilterService, EventNotificationService, SubscriptionService, DiscoveryService, IngestionService, DataExchangeService.
+This appeared in 10 services. Issues: unsafe `as object` casts, no error handling, no type safety.
 
-Issues:
-- `as object` cast has no type safety
-- No error handling if `load()` throws
-- No validation that the loaded data matches expected schema
-- Merge strategy (spread) does not handle nested objects correctly
+## Resolution
 
-## Suggested Remediation
+Created `TypedStorage<T>` abstraction (`src/utils/TypedStorage.ts`) with:
+- `ITypedStorage<T>` interface: `load()`, `save()`, `safeLoad()`, `safeSave()`
+- `TypedStorage<T>` class: key-scoped, mutex-protected read-merge-write
+- Module-level `PathMutex` for atomic storage operations
 
-1. Create a `TypedStorage<T>` wrapper that encapsulates load, validate (Zod), merge, and save
-2. Inject it via the service factory instead of raw `IStorageProvider`
-3. Each service defines its schema; the wrapper handles the rest
+Migrated 9 services from raw `IStorageProvider` to `ITypedStorage<T>`:
+- UserService, InstallerService, EventFilterService, EventNotificationService
+- SubscriptionService, DiscoveryService, DataExchangeService
+- IngestionService, EventDefinitionService
+
+Registry (`registry.ts`) wraps shared storage: `new TypedStorage(storage, "key")`.
+
+SettingsService was intentionally NOT migrated — it uses root-level Zod-validated storage with a different pattern (settings spread at root level, not keyed).
+
+Updated 11 test files to use `ITypedStorage<T>` mocks. 9 tests added for TypedStorage itself.
 
 ## Affected Files
 
-- All domain service files that use `IStorageProvider`
+- NEW: `src/utils/TypedStorage.ts`, `tests/utils/TypedStorage.test.ts`
+- MODIFIED: 9 domain service files, `registry.ts`, 11 test files

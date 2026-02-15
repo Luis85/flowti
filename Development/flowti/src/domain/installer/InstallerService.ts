@@ -1,8 +1,7 @@
 import { ValidationError } from "../../infrastructure/errors/FlowtiError";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
-import { loadStateFromStorage, saveStateToStorage } from "../../utils/persistence";
-import type { IStorageProvider } from "../../utils/types";
+import type { ITypedStorage } from "../../utils/TypedStorage";
 import type { IUserService } from "../user/types";
 import type {
 	IInstallerService,
@@ -16,7 +15,7 @@ import type {
  * Configuration options for the InstallerService.
  */
 export interface InstallerServiceOptions {
-	storage: IStorageProvider;
+	storage: ITypedStorage<InstallerState>;
 	eventBus?: IEventBus;
 	fileSystem?: IFileSystemClient;
 	userService?: IUserService;
@@ -40,7 +39,7 @@ function createDefaultState(): InstallerState {
 export class InstallerService implements IInstallerService {
 	private state: InstallerState = createDefaultState();
 	private steps: Map<string, IInstallerStep> = new Map();
-	private storage: IStorageProvider;
+	private storage: ITypedStorage<InstallerState>;
 	private eventBus?: IEventBus;
 	private fileSystem?: IFileSystemClient;
 	private userService?: IUserService;
@@ -57,7 +56,7 @@ export class InstallerService implements IInstallerService {
 	 * Emits "installer.loaded" if state is found.
 	 */
 	async load(): Promise<void> {
-		const saved = await loadStateFromStorage<InstallerState>(this.storage, "installer");
+		const saved = await this.storage.load();
 		if (saved) {
 			this.state = saved;
 		}
@@ -174,6 +173,6 @@ export class InstallerService implements IInstallerService {
 	 * Persists the installer state to storage.
 	 */
 	private async saveState(): Promise<void> {
-		await saveStateToStorage(this.storage, "installer", this.state);
+		await this.storage.save(this.state);
 	}
 }

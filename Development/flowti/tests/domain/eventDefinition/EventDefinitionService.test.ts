@@ -2,37 +2,44 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { EventDefinitionService } from "../../../src/domain/eventDefinition/EventDefinitionService";
-import type { IStorageProvider } from "../../../src/utils/types";
+import type { ITypedStorage } from "../../../src/utils/TypedStorage";
 import type { EventDefinitionState } from "../../../src/domain/eventDefinition/types";
 import { DEFAULT_SETTINGS } from "../../../src/domain/settings/settings";
 
 /**
- * Creates a mock storage provider for testing.
+ * Creates a mock typed storage for testing.
  */
-function createMockStorage(initialData: Record<string, unknown> = {}): {
-	storage: IStorageProvider;
-	getData: () => Record<string, unknown>;
+function createMockTypedStorage(initialState?: EventDefinitionState): {
+	storage: ITypedStorage<EventDefinitionState>;
+	getData: () => EventDefinitionState | undefined;
 } {
-	let data = { ...initialData };
+	let state: EventDefinitionState | undefined = initialState
+		? { ...initialState }
+		: undefined;
 	return {
 		storage: {
-			load: vi.fn(async () => data),
-			save: vi.fn(async (newData: unknown) => {
-				data = newData as Record<string, unknown>;
+			load: vi.fn(async () => state),
+			save: vi.fn(async (newState: EventDefinitionState) => {
+				state = newState;
+			}),
+			safeLoad: vi.fn(async () => state),
+			safeSave: vi.fn(async (newState: EventDefinitionState) => {
+				state = newState;
+				return true;
 			}),
 		},
-		getData: () => data,
+		getData: () => state,
 	};
 }
 
 describe("EventDefinitionService", () => {
 	let service: EventDefinitionService;
-	let storage: IStorageProvider;
-	let getData: () => Record<string, unknown>;
+	let storage: ITypedStorage<EventDefinitionState>;
+	let getData: () => EventDefinitionState | undefined;
 	let eventBus: IEventBus;
 
 	beforeEach(() => {
-		const mock = createMockStorage();
+		const mock = createMockTypedStorage();
 		storage = mock.storage;
 		getData = mock.getData;
 		eventBus = new EventBus();
@@ -61,7 +68,7 @@ describe("EventDefinitionService", () => {
 				},
 				emittedKeys: [],
 			};
-			const mock = createMockStorage({ eventDefinition: existingState });
+			const mock = createMockTypedStorage(existingState);
 			service = new EventDefinitionService({ storage: mock.storage, eventBus });
 
 			await service.load();
@@ -119,9 +126,9 @@ describe("EventDefinitionService", () => {
 				emissionPolicy: "always",
 			});
 
-			const data = getData();
-			const state = data.eventDefinition as EventDefinitionState;
-			expect(Object.keys(state.definitions)).toHaveLength(1);
+			const state = getData();
+			expect(state).toBeDefined();
+			expect(Object.keys(state!.definitions)).toHaveLength(1);
 		});
 	});
 
@@ -468,10 +475,7 @@ describe("EventDefinitionService", () => {
 	});
 
 	describe("persistence", () => {
-		it("should preserve other storage keys when saving", async () => {
-			const mock = createMockStorage({ someOtherKey: "preserved" });
-			service = new EventDefinitionService({ storage: mock.storage, eventBus });
-
+		it("should save state with definitions on create", async () => {
 			await eventBus.emit("eventDefinition.create", {
 				sourceEventType: "file.created",
 				domainEventName: "test.event",
@@ -479,9 +483,10 @@ describe("EventDefinitionService", () => {
 				emissionPolicy: "always",
 			});
 
-			const data = mock.getData();
-			expect(data.someOtherKey).toBe("preserved");
-			expect(data.eventDefinition).toBeDefined();
+			const state = getData();
+			expect(state).toBeDefined();
+			expect(Object.keys(state!.definitions)).toHaveLength(1);
+			expect(state!.emittedKeys).toBeDefined();
 		});
 	});
 

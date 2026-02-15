@@ -7,8 +7,7 @@
 
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
-import { loadStateFromStorage, saveStateToStorage } from "../../utils/persistence";
-import type { IStorageProvider } from "../../utils/types";
+import type { ITypedStorage } from "../../utils/TypedStorage";
 import type {
 	CsvDisplaySettings,
 	DataDictionaryEntry,
@@ -29,7 +28,7 @@ import { generateUUID } from "../../utils/helpers";
 export interface DataExchangeServiceOptions {
 	eventBus: IEventBus;
 	fileSystem: IFileSystemClient;
-	storage?: IStorageProvider;
+	storage?: ITypedStorage<DataExchangeState>;
 	listFiles?: ListFilesCallback;
 }
 
@@ -43,7 +42,7 @@ function generateId(): string {
 
 export class DataExchangeService {
 	private eventBus: IEventBus;
-	private storage: IStorageProvider | null;
+	private storage: ITypedStorage<DataExchangeState> | null;
 	private state: DataExchangeState = createDefaultState();
 	private importService: ImportService;
 	private exportService: ExportService;
@@ -229,7 +228,7 @@ export class DataExchangeService {
 	/** Loads persisted state from storage. Call once in onLayoutReady. */
 	async load(): Promise<void> {
 		if (!this.storage) return;
-		const saved = await loadStateFromStorage<DataExchangeState>(this.storage, "dataExchange");
+		const saved = await this.storage.load();
 		if (saved) {
 			this.state = saved;
 			// Migrate legacy singular exportConfigId → exportConfigIds
@@ -249,7 +248,7 @@ export class DataExchangeService {
 
 	private async saveState(): Promise<void> {
 		if (!this.storage) return;
-		await saveStateToStorage(this.storage, "dataExchange", this.state);
+		await this.storage.save(this.state);
 	}
 
 	// ── Import config CRUD ──────────────────────────────────

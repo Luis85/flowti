@@ -1,14 +1,13 @@
 import type { IEventBus } from "../../infrastructure/events/types";
 import { isSkippedEvent } from "../../infrastructure/events/catalog";
-import { loadStateFromStorage, saveStateToStorage } from "../../utils/persistence";
-import type { IStorageProvider } from "../../utils/types";
+import type { ITypedStorage } from "../../utils/TypedStorage";
 import type { EventNotifyState } from "./types";
 
 /**
  * Configuration options for the EventNotificationService.
  */
 export interface EventNotificationServiceOptions {
-	storage: IStorageProvider;
+	storage: ITypedStorage<EventNotifyState>;
 	eventBus?: IEventBus;
 }
 
@@ -34,7 +33,7 @@ function createDefaultState(): EventNotifyState {
 export class EventNotificationService {
 	private state: EventNotifyState = createDefaultState();
 	private notified: Set<string> = new Set();
-	private storage: IStorageProvider;
+	private storage: ITypedStorage<EventNotifyState>;
 	private eventBus?: IEventBus;
 	private unsubscribes: (() => void)[] = [];
 
@@ -70,7 +69,7 @@ export class EventNotificationService {
 	 * Emits "eventNotify.loaded" with the current notification list.
 	 */
 	async load(): Promise<void> {
-		const saved = await loadStateFromStorage<EventNotifyState>(this.storage, "eventNotify");
+		const saved = await this.storage.load();
 		if (saved) {
 			this.state = saved;
 			this.notified = new Set(this.state.notifiedTypes);
@@ -121,7 +120,7 @@ export class EventNotificationService {
 	 * Persists the notify state to storage.
 	 */
 	private async saveState(): Promise<void> {
-		await saveStateToStorage(this.storage, "eventNotify", this.state);
+		await this.storage.save(this.state);
 	}
 
 	/**

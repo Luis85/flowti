@@ -17,6 +17,7 @@ import { UserCreationStep } from "../../domain/installer/steps/UserCreationStep"
 import { FolderScaffoldStep } from "../../domain/installer/steps/FolderScaffoldStep";
 import type { IUserService } from "../../domain/user/types";
 import type { IStorageProvider } from "../../utils/types";
+import { TypedStorage } from "../../utils/TypedStorage";
 import { UserService } from "../../domain/user/UserService";
 import { DataExchangeService } from "../../domain/dataExchange/DataExchangeService";
 import { DocService } from "../../domain/docs/DocService";
@@ -69,7 +70,7 @@ export function createServiceRegistrations(
 			id: "userService",
 			factory: (container: IServiceContainer) =>
 				new UserService({
-					storage,
+					storage: new TypedStorage(storage, "user"),
 					eventBus: container.getEventBus(),
 				}),
 		},
@@ -79,7 +80,7 @@ export function createServiceRegistrations(
 			id: "eventFilterService",
 			factory: (container: IServiceContainer) =>
 				new EventFilterService({
-					storage,
+					storage: new TypedStorage(storage, "eventFilter"),
 					eventBus: container.getEventBus(),
 				}),
 		},
@@ -89,7 +90,7 @@ export function createServiceRegistrations(
 			id: "eventNotifyService",
 			factory: (container: IServiceContainer) =>
 				new EventNotificationService({
-					storage,
+					storage: new TypedStorage(storage, "eventNotify"),
 					eventBus: container.getEventBus(),
 				}),
 		},
@@ -111,7 +112,7 @@ export function createServiceRegistrations(
 			id: "discoveryService",
 			factory: (container: IServiceContainer) =>
 				new DiscoveryService({
-					storage,
+					storage: new TypedStorage(storage, "discovery"),
 					eventBus: container.getEventBus(),
 				}),
 		},
@@ -121,7 +122,7 @@ export function createServiceRegistrations(
 			id: "subscriptionService",
 			factory: (container: IServiceContainer) =>
 				new SubscriptionService({
-					storage,
+					storage: new TypedStorage(storage, "subscription"),
 					eventBus: container.getEventBus(),
 				}),
 		},
@@ -131,7 +132,7 @@ export function createServiceRegistrations(
 			id: "ingestionService",
 			factory: (container: IServiceContainer) =>
 				new IngestionService({
-					storage,
+					storage: new TypedStorage(storage, "ingestion"),
 					eventBus: container.getEventBus(),
 				}),
 		},
@@ -141,7 +142,7 @@ export function createServiceRegistrations(
 			id: "eventDefinitionService",
 			factory: (container: IServiceContainer) =>
 				new EventDefinitionService({
-					storage,
+					storage: new TypedStorage(storage, "eventDefinition"),
 					eventBus: container.getEventBus(),
 				}),
 		},
@@ -153,7 +154,7 @@ export function createServiceRegistrations(
 				const eventBus = container.getEventBus();
 				const fileSystem = new FileSystemClient({ eventBus });
 				return new DataExchangeService({
-					storage,
+					storage: new TypedStorage(storage, "dataExchange"),
 					eventBus,
 					fileSystem,
 				});
@@ -169,7 +170,7 @@ export function createServiceRegistrations(
 				const eventBus = container.getEventBus();
 				const fileSystem = new FileSystemClient({ eventBus });
 				const service = new InstallerService({
-					storage,
+					storage: new TypedStorage(storage, "installer"),
 					eventBus,
 					fileSystem,
 					userService,

@@ -6,8 +6,10 @@ status: reference
 effort: n/a
 description: Comprehensive technical debt review of the Flowti IBDE codebase as of 2026-02-13. Serves as the baseline reference for all individual debt items.
 reviewed: 2026-02-13
-updated: 2026-02-15
+updated: 2026-02-16
 reviewer: Technical Architect
+tags:
+  - qa
 ---
 # Technical Debt Review - 2026-02-13
 
@@ -19,8 +21,8 @@ Baseline audit of the Flowti IBDE plugin codebase. This document summarises the 
 
 | Metric | Value (original) | Value (2026-02-14) |
 |--------|-----------------|-------------------|
-| Source files | 92 TypeScript files | 154 TypeScript files |
-| Test files | 35 suites, 654 tests (4 skipped) | 48 suites, 1172 tests (4 skipped) |
+| Source files | 92 TypeScript files | 155 TypeScript files |
+| Test files | 35 suites, 654 tests (4 skipped) | 54 suites, 1330 tests (4 skipped) |
 | Test result | All passing | All passing |
 | Type check | Clean (`tsc -noEmit -skipLibCheck`) | Clean (`strict: true`) |
 | Lint | Clean (`eslint ./src/`) | Clean |
@@ -42,22 +44,24 @@ Refactoring phase on 2026-02-14 resolved 5 additional items (TD-18, TD-31, TD-32
 
 Tech debt Round 2 (2026-02-14/15) resolved TD-13 (UUID-based keys), TD-34 (BaseEntityTab deduplication), and completed TD-30 Tier 1 (298 pure function tests, 100% coverage on 3 files). Test count: 854 → 1172 across 48 suites.
 
+Tech debt Round 3 (2026-02-15/16) resolved TD-22 (already fixed during Phase 8), TD-16 (TypedStorage<T> abstraction, 9 services migrated), and completed TD-30 Tier 2 (149 injectable service tests, 95-100% coverage on 5 files). Test count: 1172 → 1330 across 54 suites.
+
 ### Summary by Status (35 total items)
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Resolved | 25 | TD-02, TD-03, TD-04, TD-05, TD-07, TD-08, TD-09, TD-10, TD-11, TD-13, TD-14, TD-15, TD-17, TD-18, TD-19, TD-20, TD-21, TD-24, TD-25, TD-26, TD-31, TD-32, TD-33, TD-34, TD-35 |
+| Resolved | 27 | TD-02, TD-03, TD-04, TD-05, TD-07, TD-08, TD-09, TD-10, TD-11, TD-13, TD-14, TD-15, TD-16, TD-17, TD-18, TD-19, TD-20, TD-21, TD-22, TD-24, TD-25, TD-26, TD-31, TD-32, TD-33, TD-34, TD-35 |
 | Mitigated | 2 | TD-01 (severity: low), TD-29 (severity: low) |
 | Reclassified | 2 | TD-06 (high→medium), TD-12 (high→low) |
-| Open | 8 | TD-06, TD-12, TD-16, TD-22, TD-23, TD-27, TD-28, TD-30 |
+| Open | 6 | TD-06, TD-12, TD-23, TD-27, TD-28, TD-30 |
 
 ### Summary by Severity (current open items)
 
 | Severity | Count | Items |
 |----------|-------|-------|
 | High | 0 | — |
-| Medium | 4 | TD-06, TD-16, TD-27, TD-30 |
-| Low | 6 | TD-01, TD-12, TD-22, TD-23, TD-28, TD-29 |
+| Medium | 3 | TD-06, TD-27, TD-30 |
+| Low | 5 | TD-01, TD-12, TD-23, TD-28, TD-29 |
 
 ---
 
@@ -68,7 +72,7 @@ Tech debt Round 2 (2026-02-14/15) resolved TD-13 (UUID-based keys), TD-34 (BaseE
 1. **Event-driven backbone** -- The EventBus + EventBridge pattern delivers on its promise. Services are decoupled and testable.
 2. **Type safety** -- Strict TypeScript with Zod validation at boundaries. The composed `FlowtiEventMap` keeps event contracts explicit.
 3. **Registry pattern** -- Commands, views, and services are declaratively registered and automatically wired. Extending the plugin requires minimal boilerplate.
-4. **Test coverage** -- 1172 tests across 48 suites with mirrors of the source tree. Infrastructure and domain layers are well-covered.
+4. **Test coverage** -- 1330 tests across 54 suites with mirrors of the source tree. Infrastructure and domain layers are well-covered.
 5. **Separation of concerns** -- The DDD layer structure (`infrastructure/`, `domain/`, `ui/`) is consistently applied in the codebase.
 6. **Service lifecycle** -- 9 of 11 domain services implement `IDisposable` with proper `dispose()` methods. `ServiceContainer.disposeAll()` handles cleanup on unload.
 7. **DocService centralization** -- All doc creation routes through `doc.create` events (Phase 8), eliminating 16+ scattered `fileSystemClient.createFile()` calls.
@@ -77,7 +81,7 @@ Tech debt Round 2 (2026-02-14/15) resolved TD-13 (UUID-based keys), TD-34 (BaseE
 
 1. **EventBridge boundary erosion** -- The UI layer bypasses EventBridge in ~112 locations, directly calling `app.vault`, `app.metadataCache`, and `app.workspace`. This is the largest remaining architectural issue (TD-06, reclassified to medium — acceptable for read-only UI access patterns).
 2. **UI file sizes** -- 14 files exceed 500 LOC (down from 4 exceeding 1,000 LOC). Orchestrator files (600-850 LOC) are expected to be larger. Further decomposition opportunities exist for `contentGenerator.ts` (708), `EventConfigModal.ts` (629), and `DomainsTab.ts` (563) — see TD-01 (mitigated).
-3. **Duplicated infrastructure patterns** -- Storage merging pattern is copy-pasted across services (TD-16). Path extraction duplication (TD-18) has been resolved via `pathUtils.ts`. SKIPPED_PREFIXES duplication (TD-17) has been resolved via centralization in `catalog.ts`. Entity tab structural duplication (TD-34) has been resolved via `BaseEntityTab<T>` base class (-438 LOC).
+3. **Duplicated infrastructure patterns** -- Storage merging pattern (TD-16) resolved via `TypedStorage<T>` abstraction. Path extraction duplication (TD-18) resolved via `pathUtils.ts`. SKIPPED_PREFIXES duplication (TD-17) resolved via centralization in `catalog.ts`. Entity tab structural duplication (TD-34) resolved via `BaseEntityTab<T>` base class (-438 LOC).
 
 ---
 
@@ -114,13 +118,13 @@ Each item below has a dedicated file in this folder with full details. See the `
 
 | # | Item | Layer | Status |
 |---|------|-------|--------|
-| 16 | Duplicated storage merging pattern across 8+ services | Cross-cutting | Open |
+| 16 | Duplicated storage merging pattern across 8+ services | Cross-cutting | **Resolved** (TypedStorage<T> abstraction) |
 | 17 | SKIPPED_PREFIXES duplicated in 4 services | Cross-cutting | **Resolved** (centralized in catalog.ts) |
 | 18 | Path extraction pattern duplicated 75+ times | Cross-cutting | **Resolved** (pathUtils.ts created) |
 | 19 | tsconfig.json not using strict: true | Infrastructure | **Resolved** (strict: true enabled) |
 | 20 | BaseQueryEngine regex patterns not pre-compiled | Domain | **Resolved** (false positive — already pre-compiled at module level) |
 | 21 | ImportService uses exception-based fileExists() | Domain | **Resolved** (boolean API used) |
-| 22 | ExportService type-unsafe payload cast | Domain | Open |
+| 22 | ExportService type-unsafe payload cast | Domain | **Resolved** (removed during Phase 8 refactoring) |
 | 23 | InstallerWizardModal mixes state and rendering | Domain | Open |
 
 ### Low (originally)
@@ -138,7 +142,7 @@ Each item below has a dedicated file in this folder with full details. See the `
 | 27 | Limited UI component testing (~40 components untested) | UI | Medium | Open |
 | 28 | Scanner duplication between Catalog and Hub | UI | Low | Open |
 | 29 | Error handling inconsistency (62 catches, 4 strategies) | Cross-cutting | Low | **Mitigated** (silent swallow fixed) |
-| 30 | Untested domain and infrastructure logic (~15 files, 4,200 LOC) | Cross-cutting | Medium | Open (Tier 1 complete: 298 tests, 100% coverage) |
+| 30 | Untested domain and infrastructure logic (~15 files, 4,200 LOC) | Cross-cutting | Medium | Open (Tier 1+2 complete: 447 tests, 95-100% coverage) |
 | 31 | Direct write mutations bypass EventBridge (4 locations) | UI | Medium | **Resolved** (3/4 routed through events) |
 | 32 | normalizeDocFrontmatter writes during render | UI | High | **Resolved** (scan now read-only) |
 | 33 | Storage save race condition (read-merge-write not atomic) | Infrastructure | Medium | **Resolved** (PathMutex added) |
@@ -149,45 +153,32 @@ Each item below has a dedicated file in this folder with full details. See the `
 
 ## Improvement Plan — Pre-Feature Priorities
 
-> Updated 2026-02-15. This section identifies the recommended improvements to address before continuing feature development.
+> Updated 2026-02-16. All three prioritized items completed.
 
-### State: 25 of 35 items resolved, 0 high-severity open items
+### State: 27 of 35 items resolved, 0 high-severity open items
 
-The codebase is in good shape. All high-severity items are resolved. The remaining 8 open items are 4 medium + 6 low (including 2 mitigated). None are blockers for feature work, but addressing the medium items will reduce friction and risk as the codebase grows.
+The codebase is in excellent shape. All high-severity items are resolved. The remaining 6 open items are 3 medium + 5 low (including 2 mitigated). None are blockers for feature work.
 
-### Priority 1: TD-30 Tier 2 — Injectable Service Tests (medium effort, medium value)
+### Completed: TD-22 — ExportService Type Safety
 
-**Why now**: Coverage on `ConfigDocService` (48%), `PipelineExecutor` (45%), `DataDictionaryBuilder` (52%), and `DiscoveryService` (52%) is below the domain average. These files contain branching logic that accumulates risk as features grow.
+**Resolved**: The unsafe `as Record<string, unknown>` cast was already removed during the Phase 8 DataExchangeService refactoring. Debt file updated to resolved.
 
-**Work**:
-- `tests/domain/dataExchange/ConfigDocService.test.ts` — doc creation/update paths, path resolution
-- `tests/domain/dataExchange/PipelineExecutor.test.ts` — multi-source orchestration, retry, `.base` generation
-- `tests/domain/dataExchange/DataDictionaryBuilder.test.ts` — property aggregation logic
-- `tests/domain/dataExchange/ConfigPathTracker.test.ts` — rename tracking
-- `tests/domain/discovery/DiscoveryService.test.ts` — expand beyond current 10 tests
+### Completed: TD-30 Tier 2 — Injectable Service Tests
 
-**Estimate**: ~5 new test files, ~200 tests, ~2 hours
+**Resolved**: 4 new test files + 1 expanded, 149 tests total:
+- `ConfigDocService.test.ts` (49 tests, 95.74% coverage)
+- `ConfigPathTracker.test.ts` (22 tests, 100% coverage)
+- `DataDictionaryBuilder.test.ts` (30 tests, 95.65% coverage)
+- `PipelineExecutor.test.ts` (31 tests, 98.73% coverage)
+- `DiscoveryService.test.ts` expanded (27 tests, +17, 100% coverage)
 
-### Priority 2: TD-16 — Shared Storage Abstraction (medium effort, medium value)
+Combined with Tier 1 (298 tests): 447 tests across 8 test files. TD-30 Tier 3 (bootstrap/wiring) deferred — low ROI.
 
-**Why now**: The `((await storage.load()) as object) || {}` pattern is duplicated across all 10 persistent services. Adding new services or modifying storage structure risks silent data loss. A `TypedStorage<T>` wrapper with Zod validation at the boundary would eliminate this risk.
+### Completed: TD-16 — Shared Storage Abstraction
 
-**Work**:
-- Create `src/utils/TypedStorage.ts` — `load(): Promise<T>`, `save(state: T): Promise<void>`, Zod schema validation
-- Migrate 10 services to use `TypedStorage<T>` instead of raw `IStorageProvider`
-- Update `persistence.ts` helpers or deprecate in favor of TypedStorage
+**Resolved**: Created `TypedStorage<T>` abstraction (`src/utils/TypedStorage.ts`) with `ITypedStorage<T>` interface. Migrated 9 persistent services from raw `IStorageProvider` to `ITypedStorage<T>`. Registry wraps shared storage with `new TypedStorage(storage, "key")`. SettingsService intentionally not migrated (root-level Zod pattern). 9 tests for TypedStorage, 11 test files updated.
 
-**Estimate**: ~1 new file, 10 file edits, ~2 hours
-
-### Priority 3: TD-22 — ExportService Type Safety (small effort, low risk)
-
-**Why now**: Single `as Record<string, unknown>` cast. Small, low-risk fix that improves type safety.
-
-**Work**: Replace unsafe cast with typed event listener or Zod runtime validation.
-
-**Estimate**: 1 file, <30 min
-
-### Defer: TD-06, TD-12, TD-23, TD-27, TD-28
+### Remaining Open Items (deferred)
 
 | Item | Reason to defer |
 |------|-----------------|
@@ -196,10 +187,10 @@ The codebase is in good shape. All high-severity items are resolved. The remaini
 | **TD-23** (InstallerWizardModal state) | Modal is stable, rarely modified, and only runs once per vault. Low ROI to refactor. |
 | **TD-27** (UI component tests) | ~40 untested components. Important but effort-intensive (~40 test files). Better addressed incrementally as components are modified for features. |
 | **TD-28** (Scanner duplication) | Catalog and Hub use different data sources (files vs storage). Low actual duplication. |
+| **TD-30** (Tier 3 bootstrap tests) | Bootstrap/wiring files (`main.ts`, `pluginBootstrap.ts`) have low ROI for unit testing. |
 
-### Recommended Sequence
+### Recommended Next Steps
 
-1. **TD-22** (30 min) — quick type safety fix
-2. **TD-30 Tier 2** (2 hours) — injectable service tests fill coverage gaps
-3. **TD-16** (2 hours) — storage abstraction eliminates 10-service duplication
-4. **Feature development** — address TD-27 incrementally as components are touched
+1. **Feature development** — the codebase is clean; proceed with new features
+2. **TD-27** — address incrementally as UI components are touched for features
+3. **TD-30 Tier 3** — consider if bootstrap logic grows more complex

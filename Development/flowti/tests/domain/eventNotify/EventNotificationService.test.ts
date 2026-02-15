@@ -2,22 +2,27 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { EventNotificationService } from "../../../src/domain/eventNotify/EventNotificationService";
-import type { IStorageProvider } from "../../../src/utils/types";
+import type { ITypedStorage } from "../../../src/utils/TypedStorage";
 import type { EventNotifyState } from "../../../src/domain/eventNotify/types";
 
 /**
- * Creates a mock storage provider for testing.
+ * Creates a mock typed storage for testing.
  */
-function createMockStorage(initialData: Record<string, unknown> = {}): {
-	storage: IStorageProvider;
-	getData: () => Record<string, unknown>;
+function createMockStorage(initialState?: EventNotifyState): {
+	storage: ITypedStorage<EventNotifyState>;
+	getData: () => EventNotifyState | undefined;
 } {
-	let data = { ...initialData };
+	let data: EventNotifyState | undefined = initialState;
 	return {
 		storage: {
 			load: vi.fn(async () => data),
-			save: vi.fn(async (newData: unknown) => {
-				data = newData as Record<string, unknown>;
+			save: vi.fn(async (state: EventNotifyState) => {
+				data = state;
+			}),
+			safeLoad: vi.fn(async () => data),
+			safeSave: vi.fn(async (state: EventNotifyState) => {
+				data = state;
+				return true;
 			}),
 		},
 		getData: () => data,
@@ -26,8 +31,8 @@ function createMockStorage(initialData: Record<string, unknown> = {}): {
 
 describe("EventNotificationService", () => {
 	let service: EventNotificationService;
-	let storage: IStorageProvider;
-	let getData: () => Record<string, unknown>;
+	let storage: ITypedStorage<EventNotifyState>;
+	let getData: () => EventNotifyState | undefined;
 	let eventBus: IEventBus;
 
 	beforeEach(() => {
@@ -48,7 +53,7 @@ describe("EventNotificationService", () => {
 			const existingState: EventNotifyState = {
 				notifiedTypes: ["file.created", "user.created"],
 			};
-			const mock = createMockStorage({ eventNotify: existingState });
+			const mock = createMockStorage(existingState);
 			service = new EventNotificationService({ storage: mock.storage, eventBus });
 
 			await service.load();
@@ -77,7 +82,7 @@ describe("EventNotificationService", () => {
 			const existingState: EventNotifyState = {
 				notifiedTypes: ["user.created"],
 			};
-			const mock = createMockStorage({ eventNotify: existingState });
+			const mock = createMockStorage(existingState);
 			service = new EventNotificationService({ storage: mock.storage, eventBus });
 
 			const handler = vi.fn();
@@ -119,9 +124,8 @@ describe("EventNotificationService", () => {
 		it("should persist state after toggle", async () => {
 			await eventBus.emit("eventNotify.toggle", { eventType: "file.created" });
 
-			const data = getData();
-			const notify = data.eventNotify as EventNotifyState;
-			expect(notify.notifiedTypes).toContain("file.created");
+			const notify = getData();
+			expect(notify?.notifiedTypes).toContain("file.created");
 		});
 	});
 
@@ -184,15 +188,15 @@ describe("EventNotificationService", () => {
 	});
 
 	describe("persistence", () => {
-		it("should preserve other storage keys when saving", async () => {
-			const mock = createMockStorage({ someOtherKey: "preserved" });
+		it("should persist state via typed storage", async () => {
+			const mock = createMockStorage();
 			service = new EventNotificationService({ storage: mock.storage, eventBus });
 
 			await eventBus.emit("eventNotify.toggle", { eventType: "file.created" });
 
-			const data = mock.getData();
-			expect(data.someOtherKey).toBe("preserved");
-			expect(data.eventNotify).toBeDefined();
+			const saved = mock.getData();
+			expect(saved).toBeDefined();
+			expect(saved?.notifiedTypes).toContain("file.created");
 		});
 	});
 

@@ -1,6 +1,5 @@
 import type { IEventBus } from "../../infrastructure/events/types";
-import { loadStateFromStorage, saveStateToStorage } from "../../utils/persistence";
-import type { IStorageProvider } from "../../utils/types";
+import type { ITypedStorage } from "../../utils/TypedStorage";
 import type { DiscoveredEvent, DiscoveryState, EventDocMeta } from "./types";
 import { generateEventDocContent } from "../docs";
 import type { EventCatalogEntry, EventStability, EventVisibility } from "../../infrastructure/events/catalog";
@@ -9,7 +8,7 @@ import type { EventCatalogEntry, EventStability, EventVisibility } from "../../i
  * Configuration options for the DiscoveryService.
  */
 export interface DiscoveryServiceOptions {
-	storage: IStorageProvider;
+	storage: ITypedStorage<DiscoveryState>;
 	eventBus?: IEventBus;
 }
 
@@ -33,7 +32,7 @@ function createDefaultState(): DiscoveryState {
  */
 export class DiscoveryService {
 	private state: DiscoveryState = createDefaultState();
-	private storage: IStorageProvider;
+	private storage: ITypedStorage<DiscoveryState>;
 	private eventBus?: IEventBus;
 	private unsubscribes: (() => void)[] = [];
 
@@ -74,7 +73,7 @@ export class DiscoveryService {
 	 * Emits "discovery.loaded" with the current discovered events.
 	 */
 	async load(): Promise<void> {
-		const saved = await loadStateFromStorage<DiscoveryState>(this.storage, "discovery");
+		const saved = await this.storage.load();
 		if (saved) {
 			this.state = saved;
 		}
@@ -224,7 +223,7 @@ export class DiscoveryService {
 	 * Persists the discovery state to storage.
 	 */
 	private async saveState(): Promise<void> {
-		await saveStateToStorage(this.storage, "discovery", this.state);
+		await this.storage.save(this.state);
 	}
 
 	/**

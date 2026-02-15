@@ -2,22 +2,27 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { DiscoveryService } from "../../../src/domain/discovery/DiscoveryService";
-import type { IStorageProvider } from "../../../src/utils/types";
+import type { ITypedStorage } from "../../../src/utils/TypedStorage";
 import type { DiscoveryState } from "../../../src/domain/discovery/types";
 
 /**
- * Creates a mock storage provider for testing.
+ * Creates a mock typed storage for testing.
  */
-function createMockStorage(initialData: Record<string, unknown> = {}): {
-	storage: IStorageProvider;
-	getData: () => Record<string, unknown>;
+function createMockStorage(initialState?: DiscoveryState): {
+	storage: ITypedStorage<DiscoveryState>;
+	getData: () => DiscoveryState | undefined;
 } {
-	let data = { ...initialData };
+	let data: DiscoveryState | undefined = initialState;
 	return {
 		storage: {
 			load: vi.fn(async () => data),
-			save: vi.fn(async (newData: unknown) => {
-				data = newData as Record<string, unknown>;
+			save: vi.fn(async (state: DiscoveryState) => {
+				data = state;
+			}),
+			safeLoad: vi.fn(async () => data),
+			safeSave: vi.fn(async (state: DiscoveryState) => {
+				data = state;
+				return true;
 			}),
 		},
 		getData: () => data,
@@ -26,8 +31,8 @@ function createMockStorage(initialData: Record<string, unknown> = {}): {
 
 describe("DiscoveryService", () => {
 	let service: DiscoveryService;
-	let storage: IStorageProvider;
-	let getData: () => Record<string, unknown>;
+	let storage: ITypedStorage<DiscoveryState>;
+	let getData: () => DiscoveryState | undefined;
 	let eventBus: IEventBus;
 
 	beforeEach(() => {
@@ -56,7 +61,7 @@ describe("DiscoveryService", () => {
 					},
 				},
 			};
-			const mock = createMockStorage({ discovery: existingState });
+			const mock = createMockStorage(existingState);
 			storage = mock.storage;
 			service = new DiscoveryService({ storage, eventBus });
 
@@ -186,14 +191,13 @@ describe("DiscoveryService", () => {
 				action: "created",
 			});
 
-			const data = getData();
-			const discovery = data.discovery as DiscoveryState;
-			expect(discovery.events["daily.review"]).toBeDefined();
-			expect(discovery.events["daily.review"].triggerCount).toBe(1);
+			const discovery = getData();
+			expect(discovery?.events["daily.review"]).toBeDefined();
+			expect(discovery?.events["daily.review"].triggerCount).toBe(1);
 		});
 
-		it("should preserve other storage keys when saving", async () => {
-			const mock = createMockStorage({ someOtherKey: "preserved" });
+		it("should persist state via typed storage", async () => {
+			const mock = createMockStorage();
 			service = new DiscoveryService({
 				storage: mock.storage,
 				eventBus,
@@ -205,9 +209,9 @@ describe("DiscoveryService", () => {
 				action: "created",
 			});
 
-			const data = mock.getData();
-			expect(data.someOtherKey).toBe("preserved");
-			expect(data.discovery).toBeDefined();
+			const saved = mock.getData();
+			expect(saved).toBeDefined();
+			expect(saved?.events["daily.review"]).toBeDefined();
 		});
 	});
 
@@ -277,9 +281,8 @@ describe("DiscoveryService", () => {
 				eventName: "order.placed",
 			});
 
-			const data = getData();
-			const discovery = data.discovery as DiscoveryState;
-			expect(discovery.events["order.placed"]).toBeDefined();
+			const discovery = getData();
+			expect(discovery?.events["order.placed"]).toBeDefined();
 		});
 
 		it("should emit doc.create when docMeta is provided", async () => {
@@ -402,9 +405,8 @@ describe("DiscoveryService", () => {
 			await eventBus.emit("discovery.create", { eventName: "order.placed" });
 			await eventBus.emit("discovery.remove", { eventName: "order.placed" });
 
-			const data = getData();
-			const discovery = data.discovery as DiscoveryState;
-			expect(discovery.events["order.placed"]).toBeUndefined();
+			const discovery = getData();
+			expect(discovery?.events["order.placed"]).toBeUndefined();
 		});
 
 		it("should be a no-op for nonexistent event", async () => {

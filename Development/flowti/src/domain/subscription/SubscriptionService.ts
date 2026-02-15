@@ -1,7 +1,6 @@
 import type { IEventBus } from "../../infrastructure/events/types";
 import { isSkippedEvent } from "../../infrastructure/events/catalog";
-import { loadStateFromStorage, saveStateToStorage } from "../../utils/persistence";
-import type { IStorageProvider } from "../../utils/types";
+import type { ITypedStorage } from "../../utils/TypedStorage";
 import { generateUUID, extractSettingsBoolean, extractStringField } from "../../utils/helpers";
 import { matchGlob } from "../../utils/glob";
 import { basename } from "../../utils/pathUtils";
@@ -11,7 +10,7 @@ import type { Subscription, SubscriptionFilter, SubscriptionState } from "./type
  * Configuration options for the SubscriptionService.
  */
 export interface SubscriptionServiceOptions {
-	storage: IStorageProvider;
+	storage: ITypedStorage<SubscriptionState>;
 	eventBus?: IEventBus;
 }
 
@@ -44,7 +43,7 @@ const EXTRA_SKIP_PREFIXES = ["subscription."] as const;
  */
 export class SubscriptionService {
 	private state: SubscriptionState = createDefaultState();
-	private storage: IStorageProvider;
+	private storage: ITypedStorage<SubscriptionState>;
 	private eventBus?: IEventBus;
 	private unsubscribes: (() => void)[] = [];
 
@@ -117,7 +116,7 @@ export class SubscriptionService {
 	 * Emits "subscription.loaded" with all subscriptions.
 	 */
 	async load(): Promise<void> {
-		const saved = await loadStateFromStorage<SubscriptionState>(this.storage, "subscription");
+		const saved = await this.storage.load();
 		if (saved) {
 			this.state = saved;
 		}
@@ -250,7 +249,7 @@ export class SubscriptionService {
 	 * Persists subscription state to storage.
 	 */
 	private async saveState(): Promise<void> {
-		await saveStateToStorage(this.storage, "subscription", this.state);
+		await this.storage.save(this.state);
 	}
 
 	/**

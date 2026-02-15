@@ -9,23 +9,29 @@ import type {
 	InstallerContext,
 	InstallerState,
 } from "../../../src/domain/installer/types";
-import type { IStorageProvider, UUID } from "../../../src/utils/types";
+import type { ITypedStorage } from "../../../src/utils/TypedStorage";
+import type { UUID } from "../../../src/utils/types";
 import type { FlowtiUser } from "../../../src/domain/user/types";
 import type { IFileSystemClient } from "../../../src/infrastructure/filesystem/types";
 
 /**
- * Creates a mock storage provider that persists data in memory.
+ * Creates a mock typed storage that persists data in memory.
  */
-function createMockStorage(initialData: Record<string, unknown> = {}): {
-	storage: IStorageProvider;
-	getData: () => Record<string, unknown>;
+function createMockStorage(initialState?: InstallerState): {
+	storage: ITypedStorage<InstallerState>;
+	getData: () => InstallerState | undefined;
 } {
-	let data = { ...initialData };
+	let data: InstallerState | undefined = initialState;
 	return {
 		storage: {
 			load: vi.fn(async () => data),
-			save: vi.fn(async (newData: unknown) => {
-				data = newData as Record<string, unknown>;
+			save: vi.fn(async (state: InstallerState) => {
+				data = state;
+			}),
+			safeLoad: vi.fn(async () => data),
+			safeSave: vi.fn(async (state: InstallerState) => {
+				data = state;
+				return true;
 			}),
 		},
 		getData: () => data,
@@ -36,7 +42,7 @@ function createMockStorage(initialData: Record<string, unknown> = {}): {
  * Builds a fully wired InstallerService with real steps and mock deps.
  */
 function buildInstaller(options: {
-	storage: IStorageProvider;
+	storage: ITypedStorage<InstallerState>;
 	eventBus: IEventBus;
 	hasUser?: boolean;
 	existingUser?: FlowtiUser;
@@ -139,8 +145,8 @@ describe("Journey: First Run", () => {
 		expect(service.getState().completedSteps["folder-scaffold"]).toBeDefined();
 
 		// Verify persisted to storage
-		const saved = mock.getData().installer as InstallerState;
-		expect(saved.installed).toBe(true);
+		const saved = mock.getData();
+		expect(saved?.installed).toBe(true);
 	});
 
 	it("should emit the full event lifecycle during first run", async () => {
@@ -206,13 +212,11 @@ describe("Journey: Subsequent Launch", () => {
 	it("should detect installation is complete after loading persisted state", async () => {
 		const eventBus = new EventBus();
 		const mock = createMockStorage({
-			installer: {
-				installed: true,
-				installedAt: "2026-01-15T10:00:00.000Z",
-				completedSteps: {
-					"user-creation": { completedAt: "2026-01-15T10:00:00.000Z" },
-					"folder-scaffold": { completedAt: "2026-01-15T10:00:00.000Z" },
-				},
+			installed: true,
+			installedAt: "2026-01-15T10:00:00.000Z",
+			completedSteps: {
+				"user-creation": { completedAt: "2026-01-15T10:00:00.000Z" },
+				"folder-scaffold": { completedAt: "2026-01-15T10:00:00.000Z" },
 			},
 		});
 
@@ -228,13 +232,11 @@ describe("Journey: Subsequent Launch", () => {
 	it("should not run any steps when already installed", async () => {
 		const eventBus = new EventBus();
 		const mock = createMockStorage({
-			installer: {
-				installed: true,
-				installedAt: "2026-01-15T10:00:00.000Z",
-				completedSteps: {
-					"user-creation": { completedAt: "2026-01-15T10:00:00.000Z" },
-					"folder-scaffold": { completedAt: "2026-01-15T10:00:00.000Z" },
-				},
+			installed: true,
+			installedAt: "2026-01-15T10:00:00.000Z",
+			completedSteps: {
+				"user-creation": { completedAt: "2026-01-15T10:00:00.000Z" },
+				"folder-scaffold": { completedAt: "2026-01-15T10:00:00.000Z" },
 			},
 		});
 
@@ -363,10 +365,10 @@ describe("Journey: Restart from Settings", () => {
 		expect(service.getState().installedAt).toBeDefined();
 
 		// Verify persisted to storage
-		const saved = mock.getData().installer as InstallerState;
-		expect(saved.installed).toBe(true);
-		expect(saved.completedSteps["user-creation"]).toBeDefined();
-		expect(saved.completedSteps["folder-scaffold"]).toBeDefined();
+		const saved = mock.getData();
+		expect(saved?.installed).toBe(true);
+		expect(saved?.completedSteps["user-creation"]).toBeDefined();
+		expect(saved?.completedSteps["folder-scaffold"]).toBeDefined();
 	});
 
 	it.skip("should open wizard modal after reset (requires Obsidian Modal)", () => {

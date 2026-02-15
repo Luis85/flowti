@@ -6,24 +6,30 @@ import { InstallerService } from "../../../src/domain/installer/InstallerService
 import type {
 	IInstallerStep,
 	InstallerContext,
+	InstallerState,
 	InstallerStepDeps,
 	InstallerStepResult,
 } from "../../../src/domain/installer/types";
-import type { IStorageProvider } from "../../../src/utils/types";
+import type { ITypedStorage } from "../../../src/utils/TypedStorage";
 
 /**
- * Creates a mock storage provider for testing.
+ * Creates a mock typed storage for testing.
  */
-function createMockStorage(initialData: Record<string, unknown> = {}): {
-	storage: IStorageProvider;
-	getData: () => Record<string, unknown>;
+function createMockStorage(initialState?: InstallerState): {
+	storage: ITypedStorage<InstallerState>;
+	getData: () => InstallerState | undefined;
 } {
-	let data = { ...initialData };
+	let data: InstallerState | undefined = initialState;
 	return {
 		storage: {
 			load: vi.fn(async () => data),
-			save: vi.fn(async (newData: unknown) => {
-				data = newData as Record<string, unknown>;
+			save: vi.fn(async (state: InstallerState) => {
+				data = state;
+			}),
+			safeLoad: vi.fn(async () => data),
+			safeSave: vi.fn(async (state: InstallerState) => {
+				data = state;
+				return true;
 			}),
 		},
 		getData: () => data,
@@ -78,9 +84,9 @@ function createMockDeps(): InstallerStepDeps {
 
 describe("InstallerService", () => {
 	let service: InstallerService;
-	let storage: IStorageProvider;
+	let storage: ITypedStorage<InstallerState>;
 	let eventBus: IEventBus;
-	let getData: () => Record<string, unknown>;
+	let getData: () => InstallerState | undefined;
 	let mockDeps: InstallerStepDeps;
 
 	beforeEach(() => {
@@ -114,12 +120,10 @@ describe("InstallerService", () => {
 	describe("load", () => {
 		it("should load installer state from storage", async () => {
 			const mock = createMockStorage({
-				installer: {
-					installed: true,
-					installedAt: "2026-01-01T00:00:00.000Z",
-					completedSteps: {
-						"step-a": { completedAt: "2026-01-01T00:00:00.000Z" },
-					},
+				installed: true,
+				installedAt: "2026-01-01T00:00:00.000Z",
+				completedSteps: {
+					"step-a": { completedAt: "2026-01-01T00:00:00.000Z" },
 				},
 			});
 			const svc = new InstallerService({ storage: mock.storage, eventBus });
@@ -140,7 +144,7 @@ describe("InstallerService", () => {
 
 		it("should handle null storage gracefully", async () => {
 			const mock = createMockStorage();
-			mock.storage.load = vi.fn(async () => null);
+			mock.storage.load = vi.fn(async () => undefined);
 			const svc = new InstallerService({ storage: mock.storage, eventBus });
 
 			await svc.load();
@@ -354,11 +358,9 @@ describe("InstallerService", () => {
 
 			expect(storage.save).toHaveBeenCalled();
 			const savedData = getData();
-			expect(savedData.installer).toBeDefined();
-
-			const installerState = savedData.installer as Record<string, unknown>;
-			expect(installerState.installed).toBe(true);
-			expect(installerState.installedAt).toBeDefined();
+			expect(savedData).toBeDefined();
+			expect(savedData?.installed).toBe(true);
+			expect(savedData?.installedAt).toBeDefined();
 		});
 
 		it("should set installed=true and installedAt after success", async () => {
@@ -450,8 +452,7 @@ describe("InstallerService", () => {
 
 			expect(storage.save).toHaveBeenCalledOnce();
 			const savedData = getData();
-			const installerState = savedData.installer as Record<string, unknown>;
-			expect(installerState.installed).toBe(false);
+			expect(savedData?.installed).toBe(false);
 		});
 
 		it("should allow runAll to succeed again after reset", async () => {
@@ -467,9 +468,9 @@ describe("InstallerService", () => {
 		});
 	});
 
-	describe("shared storage", () => {
-		it("should preserve other data when saving installer state", async () => {
-			const mock = createMockStorage({ debugMode: true, user: { name: "Test" } });
+	describe("persistence", () => {
+		it("should persist installer state via typed storage", async () => {
+			const mock = createMockStorage();
 			const svc = new InstallerService({
 				storage: mock.storage,
 				eventBus,
@@ -480,10 +481,9 @@ describe("InstallerService", () => {
 
 			await svc.runAll({});
 
-			const savedData = mock.getData();
-			expect(savedData.debugMode).toBe(true);
-			expect(savedData.user).toEqual({ name: "Test" });
-			expect(savedData.installer).toBeDefined();
+			const saved = mock.getData();
+			expect(saved).toBeDefined();
+			expect(saved?.installed).toBe(true);
 		});
 	});
 });

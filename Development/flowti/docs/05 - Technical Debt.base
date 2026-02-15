@@ -19,6 +19,7 @@ views:
       - layer
       - category
       - description
+      - tags
     columnSize:
       file.name: 343
       note.status: 90

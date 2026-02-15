@@ -1,15 +1,14 @@
 import { ValidationError } from "../../infrastructure/errors/FlowtiError";
 import type { IEventBus } from "../../infrastructure/events/types";
 import { generateUUID } from "../../utils/helpers";
-import { loadStateFromStorage, saveStateToStorage } from "../../utils/persistence";
-import type { IStorageProvider } from "../../utils/types";
+import type { ITypedStorage } from "../../utils/TypedStorage";
 import type { FlowtiUser, IUserService } from "./types";
 
 /**
  * Configuration options for the UserService.
  */
 export interface UserServiceOptions {
-	storage: IStorageProvider;
+	storage: ITypedStorage<FlowtiUser>;
 	eventBus?: IEventBus;
 }
 
@@ -19,7 +18,7 @@ export interface UserServiceOptions {
  */
 export class UserService implements IUserService {
 	private user: FlowtiUser | null = null;
-	private storage: IStorageProvider;
+	private storage: ITypedStorage<FlowtiUser>;
 	private eventBus?: IEventBus;
 
 	/**
@@ -37,7 +36,7 @@ export class UserService implements IUserService {
 	 * Should be called during plugin initialization.
 	 */
 	async load(): Promise<void> {
-		const saved = await loadStateFromStorage<FlowtiUser>(this.storage, "user");
+		const saved = await this.storage.load();
 		if (saved) {
 			this.user = saved;
 			await this.eventBus?.emit("user.loaded", { user: this.user });
@@ -123,6 +122,6 @@ export class UserService implements IUserService {
 	 * Persists the current user to storage.
 	 */
 	private async saveUser(): Promise<void> {
-		await saveStateToStorage(this.storage, "user", this.user);
+		await this.storage.save(this.user!);
 	}
 }

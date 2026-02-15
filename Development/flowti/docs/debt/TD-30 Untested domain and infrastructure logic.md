@@ -5,12 +5,14 @@ layer: cross-cutting
 status: open
 created: 2026-02-14
 effort: medium
-description: 15 non-UI source files (~4,200 LOC) with testable pure functions and injectable services have no test coverage. Tier 1 (pure functions) completed — 3 test files, 298 tests, 100% coverage. Tier 2 remains open.
+description: "15 non-UI source files (~4,200 LOC) with testable pure functions and injectable services. Tier 1 complete (298 tests, 100%). Tier 2 complete (149 tests, 95-100% coverage). Tier 3 (bootstrap) remains open."
 source: "[[Technical Review 2026-02-14]]"
 ---
 # TD-30: Untested domain and infrastructure logic
 
-**Tier 1 complete** — 3 test files added with 298 tests achieving 100% coverage on all Tier 1 pure functions. Tier 2 (injectable services) and Tier 3 (bootstrap) remain open.
+**Tier 1 complete** — 3 test files, 298 tests, 100% coverage on pure functions.
+**Tier 2 complete** — 4 new test files + 1 expanded, 149 tests, 95-100% coverage on injectable services.
+**Tier 3 open** — bootstrap/wiring files (low ROI).
 
 ## Problem
 
@@ -25,15 +27,16 @@ While 45 test suites cover domain services, EventBus, and utilities, 15 non-UI s
 | `domain/docs/pathResolver.ts` | 180 | `tests/domain/docs/pathResolver.test.ts` | 82 | 100% |
 | `ui/eventDocTemplate.ts` | ~275 | `tests/ui/eventDocTemplate.test.ts` | (pre-existing) | — |
 
-### Tier 2: Injectable services (~1,360 LOC)
+### Tier 2: Injectable services (~1,360 LOC) — COMPLETE
 
-| File | LOC | Testability |
-|------|-----|-------------|
-| `domain/dataExchange/ConfigDocService.ts` | 435 | Injectable — depends on fileSystem + eventBus |
-| `domain/dataExchange/ConfigPathTracker.ts` | ~200 | Injectable — depends on metadataCache |
-| `domain/dataExchange/DataDictionaryBuilder.ts` | ~250 | Injectable — aggregates property data |
-| `domain/dataExchange/PipelineExecutor.ts` | ~280 | Injectable — orchestrates multi-import |
-| `infrastructure/filesystem/FileSystemClient.ts` | ~195 | Injectable — wraps vault operations |
+| File | LOC | Test File | Tests | Coverage |
+|------|-----|-----------|-------|----------|
+| `domain/dataExchange/ConfigDocService.ts` | 435 | `tests/domain/dataExchange/ConfigDocService.test.ts` | 49 | 95.74% |
+| `domain/dataExchange/ConfigPathTracker.ts` | ~200 | `tests/domain/dataExchange/ConfigPathTracker.test.ts` | 22 | 100% |
+| `domain/dataExchange/DataDictionaryBuilder.ts` | ~250 | `tests/domain/dataExchange/DataDictionaryBuilder.test.ts` | 30 | 95.65% |
+| `domain/dataExchange/PipelineExecutor.ts` | ~280 | `tests/domain/dataExchange/PipelineExecutor.test.ts` | 31 | 98.73% |
+| `domain/discovery/DiscoveryService.ts` | ~200 | `tests/domain/discovery/DiscoveryService.test.ts` | 27 (+17) | 100% |
+| `infrastructure/filesystem/FileSystemClient.ts` | ~195 | — | — | Deferred (thin Obsidian wrapper) |
 
 ### Tier 3: Bootstrap/wiring (~1,030 LOC)
 

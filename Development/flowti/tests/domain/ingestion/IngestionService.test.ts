@@ -2,36 +2,44 @@ import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { IngestionService } from "../../../src/domain/ingestion/IngestionService";
-import type { IStorageProvider } from "../../../src/utils/types";
+import type { ITypedStorage } from "../../../src/utils/TypedStorage";
+import type { IngestionPersistentState } from "../../../src/domain/ingestion/types";
 import { DEFAULT_SETTINGS } from "../../../src/domain/settings/settings";
 
 /**
- * Creates a mock storage provider for testing.
+ * Creates a mock typed storage for testing.
  */
-function createMockStorage(initialData: Record<string, unknown> = {}): {
-	storage: IStorageProvider;
-	getData: () => Record<string, unknown>;
+function createMockTypedStorage(initialState?: IngestionPersistentState): {
+	storage: ITypedStorage<IngestionPersistentState>;
+	getData: () => IngestionPersistentState | undefined;
 } {
-	let data = { ...initialData };
+	let state: IngestionPersistentState | undefined = initialState
+		? { ...initialState }
+		: undefined;
 	return {
 		storage: {
-			load: vi.fn(async () => data),
-			save: vi.fn(async (newData: unknown) => {
-				data = newData as Record<string, unknown>;
+			load: vi.fn(async () => state),
+			save: vi.fn(async (newState: IngestionPersistentState) => {
+				state = newState;
+			}),
+			safeLoad: vi.fn(async () => state),
+			safeSave: vi.fn(async (newState: IngestionPersistentState) => {
+				state = newState;
+				return true;
 			}),
 		},
-		getData: () => data,
+		getData: () => state,
 	};
 }
 
 describe("IngestionService", () => {
 	let service: IngestionService;
-	let storage: IStorageProvider;
+	let storage: ITypedStorage<IngestionPersistentState>;
 	let eventBus: IEventBus;
 
 	beforeEach(() => {
 		vi.useFakeTimers();
-		const mock = createMockStorage();
+		const mock = createMockTypedStorage();
 		storage = mock.storage;
 		eventBus = new EventBus();
 		service = new IngestionService({
@@ -87,8 +95,9 @@ describe("IngestionService", () => {
 		it("should skip ingestion.* events to avoid loops", async () => {
 			// Override with a service that watches ingestion events (edge case)
 			service.dispose();
+			const mock = createMockTypedStorage();
 			service = new IngestionService({
-				storage,
+				storage: mock.storage,
 				eventBus,
 				config: {
 					concurrency: 1,
@@ -203,7 +212,7 @@ describe("IngestionService", () => {
 		});
 
 		it("should persist ledger to storage after processing", async () => {
-			const mock = createMockStorage();
+			const mock = createMockTypedStorage();
 			service.dispose();
 			service = new IngestionService({
 				storage: mock.storage,
@@ -220,16 +229,13 @@ describe("IngestionService", () => {
 			await eventBus.emit("file.created", { path: "test.md", source: "user" });
 			await vi.advanceTimersByTimeAsync(100);
 
-			const data = mock.getData();
-			const state = data.ingestion as { processedKeys: string[] };
-			expect(state.processedKeys).toContain("file.created::test.md");
+			const state = mock.getData();
+			expect(state?.processedKeys).toContain("file.created::test.md");
 		});
 
 		it("should load persisted ledger from storage", async () => {
-			const mock = createMockStorage({
-				ingestion: {
-					processedKeys: ["file.created::existing.md"],
-				},
+			const mock = createMockTypedStorage({
+				processedKeys: ["file.created::existing.md"],
 			});
 			service.dispose();
 			service = new IngestionService({
@@ -272,10 +278,8 @@ describe("IngestionService", () => {
 		});
 
 		it("should skip files already in the ledger", async () => {
-			const mock = createMockStorage({
-				ingestion: {
-					processedKeys: ["file.created::Reports/a.csv"],
-				},
+			const mock = createMockTypedStorage({
+				processedKeys: ["file.created::Reports/a.csv"],
 			});
 			service.dispose();
 			service = new IngestionService({
@@ -381,7 +385,7 @@ describe("IngestionService", () => {
 
 	describe("crash recovery", () => {
 		it("should persist pending jobs to storage", async () => {
-			const mock = createMockStorage();
+			const mock = createMockTypedStorage();
 			service.dispose();
 			service = new IngestionService({
 				storage: mock.storage,
@@ -400,10 +404,9 @@ describe("IngestionService", () => {
 			// Advance to trigger flush (which persists state before processing)
 			await vi.advanceTimersByTimeAsync(100);
 
-			const data = mock.getData();
+			const state = mock.getData();
 			// After processing, pendingJobs should be cleared and processedKeys populated
-			const state = data.ingestion as { processedKeys: string[]; pendingJobs?: unknown[] };
-			expect(state.processedKeys).toContain("file.created::pending.md");
+			expect(state?.processedKeys).toContain("file.created::pending.md");
 		});
 
 		it("should recover pending jobs on load", async () => {
@@ -415,11 +418,9 @@ describe("IngestionService", () => {
 				retryCount: 0,
 				queuedAt: "2026-02-10T00:00:00Z",
 			};
-			const mock = createMockStorage({
-				ingestion: {
-					processedKeys: [],
-					pendingJobs: [pendingJob],
-				},
+			const mock = createMockTypedStorage({
+				processedKeys: [],
+				pendingJobs: [pendingJob],
 			});
 			service.dispose();
 			service = new IngestionService({
@@ -463,11 +464,9 @@ describe("IngestionService", () => {
 				retryCount: 0,
 				queuedAt: "2026-02-10T00:00:00Z",
 			};
-			const mock = createMockStorage({
-				ingestion: {
-					processedKeys: ["file.created::done.md"],
-					pendingJobs: [pendingJob],
-				},
+			const mock = createMockTypedStorage({
+				processedKeys: ["file.created::done.md"],
+				pendingJobs: [pendingJob],
 			});
 			service.dispose();
 			service = new IngestionService({
@@ -497,11 +496,9 @@ describe("IngestionService", () => {
 				{ id: "r-2", eventType: "file.created", payload: { path: "b.md" }, status: "queued" as const, retryCount: 0, queuedAt: "2026-02-10T00:00:00Z" },
 				{ id: "r-3", eventType: "file.created", payload: { path: "c.md" }, status: "queued" as const, retryCount: 0, queuedAt: "2026-02-10T00:00:00Z" },
 			];
-			const mock = createMockStorage({
-				ingestion: {
-					processedKeys: ["file.created::b.md"], // b.md already done
-					pendingJobs,
-				},
+			const mock = createMockTypedStorage({
+				processedKeys: ["file.created::b.md"], // b.md already done
+				pendingJobs,
 			});
 			service.dispose();
 			service = new IngestionService({

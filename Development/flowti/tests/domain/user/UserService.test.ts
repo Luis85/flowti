@@ -4,21 +4,27 @@ import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { UserService } from "../../../src/domain/user/UserService";
 import type { FlowtiUser } from "../../../src/domain/user/types";
-import type { IStorageProvider, UUID } from "../../../src/utils/types";
+import type { ITypedStorage } from "../../../src/utils/TypedStorage";
+import type { UUID } from "../../../src/utils/types";
 
 /**
- * Creates a mock storage provider for testing.
+ * Creates a mock typed storage for testing.
  */
-function createMockStorage(initialData: Record<string, unknown> = {}): {
-	storage: IStorageProvider;
-	getData: () => Record<string, unknown>;
+function createMockStorage(initialState?: FlowtiUser): {
+	storage: ITypedStorage<FlowtiUser>;
+	getData: () => FlowtiUser | undefined;
 } {
-	let data = { ...initialData };
+	let data: FlowtiUser | undefined = initialState;
 	return {
 		storage: {
 			load: vi.fn(async () => data),
-			save: vi.fn(async (newData: unknown) => {
-				data = newData as Record<string, unknown>;
+			save: vi.fn(async (state: FlowtiUser) => {
+				data = state;
+			}),
+			safeLoad: vi.fn(async () => data),
+			safeSave: vi.fn(async (state: FlowtiUser) => {
+				data = state;
+				return true;
 			}),
 		},
 		getData: () => data,
@@ -27,9 +33,9 @@ function createMockStorage(initialData: Record<string, unknown> = {}): {
 
 describe("UserService", () => {
 	let userService: UserService;
-	let storage: IStorageProvider;
+	let storage: ITypedStorage<FlowtiUser>;
 	let eventBus: IEventBus;
-	let getData: () => Record<string, unknown>;
+	let getData: () => FlowtiUser | undefined;
 
 	beforeEach(() => {
 		const mock = createMockStorage();
@@ -80,7 +86,7 @@ describe("UserService", () => {
 			await userService.createUser("Test User");
 
 			expect(storage.save).toHaveBeenCalled();
-			expect((getData().user as FlowtiUser).name).toBe("Test User");
+			expect(getData()?.name).toBe("Test User");
 		});
 	});
 
@@ -93,7 +99,7 @@ describe("UserService", () => {
 			await userService.updateUserName("New Name");
 
 			expect(userService.getUser()?.name).toBe("New Name");
-			expect((getData().user as FlowtiUser).name).toBe("New Name");
+			expect(getData()?.name).toBe("New Name");
 		});
 
 		it("should trim whitespace", async () => {
@@ -124,7 +130,7 @@ describe("UserService", () => {
 				name: "Existing User",
 				createdAt: "2024-01-01T00:00:00.000Z",
 			};
-			const mock = createMockStorage({ user: existingUser });
+			const mock = createMockStorage(existingUser);
 			const service = new UserService({ storage: mock.storage });
 
 			await service.load();
@@ -138,7 +144,7 @@ describe("UserService", () => {
 			expect(userService.hasUser()).toBe(false);
 
 			const nullMock = createMockStorage();
-			nullMock.storage.load = vi.fn(async () => null);
+			nullMock.storage.load = vi.fn(async () => undefined);
 			const nullService = new UserService({ storage: nullMock.storage });
 			await nullService.load();
 			expect(nullService.hasUser()).toBe(false);
@@ -183,7 +189,7 @@ describe("UserService", () => {
 				name: "Existing User",
 				createdAt: "2024-01-01T00:00:00.000Z",
 			};
-			const mock = createMockStorage({ user: existingUser });
+			const mock = createMockStorage(existingUser);
 			const service = new UserService({ storage: mock.storage, eventBus });
 
 			const handler = vi.fn();
@@ -220,41 +226,33 @@ describe("UserService", () => {
 		});
 	});
 
-	describe("shared storage", () => {
-		it("should preserve other data when saving user", async () => {
-			// Simulate shared storage with settings already present
-			const mock = createMockStorage({ debugMode: true, otherSetting: "value" });
+	describe("persistence", () => {
+		it("should persist user via typed storage", async () => {
+			const mock = createMockStorage();
 			const service = new UserService({ storage: mock.storage, eventBus });
 
 			await service.createUser("Test User");
 
-			const savedData = mock.getData();
-			// User should be saved
-			expect((savedData.user as FlowtiUser).name).toBe("Test User");
-			// Other data should be preserved
-			expect(savedData.debugMode).toBe(true);
-			expect(savedData.otherSetting).toBe("value");
+			const saved = mock.getData();
+			expect(saved).toBeDefined();
+			expect(saved?.name).toBe("Test User");
 		});
 
-		it("should preserve user when updating user name", async () => {
+		it("should persist updated user name", async () => {
 			const existingUser: FlowtiUser = {
 				id: "12345678-1234-4123-8123-123456789abc" as UUID,
 				name: "Original",
 				createdAt: "2024-01-01T00:00:00.000Z",
 			};
-			const mock = createMockStorage({
-				debugMode: false,
-				user: existingUser,
-			});
+			const mock = createMockStorage(existingUser);
 			const service = new UserService({ storage: mock.storage, eventBus });
 			await service.load();
 
 			await service.updateUserName("Updated Name");
 
-			const savedData = mock.getData();
-			expect((savedData.user as FlowtiUser).name).toBe("Updated Name");
-			expect((savedData.user as FlowtiUser).id).toBe(existingUser.id);
-			expect(savedData.debugMode).toBe(false);
+			const saved = mock.getData();
+			expect(saved?.name).toBe("Updated Name");
+			expect(saved?.id).toBe(existingUser.id);
 		});
 	});
 });

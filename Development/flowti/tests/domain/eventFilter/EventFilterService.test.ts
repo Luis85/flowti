@@ -2,22 +2,27 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { EventFilterService } from "../../../src/domain/eventFilter/EventFilterService";
-import type { IStorageProvider } from "../../../src/utils/types";
+import type { ITypedStorage } from "../../../src/utils/TypedStorage";
 import type { EventFilterState } from "../../../src/domain/eventFilter/types";
 
 /**
- * Creates a mock storage provider for testing.
+ * Creates a mock typed storage for testing.
  */
-function createMockStorage(initialData: Record<string, unknown> = {}): {
-	storage: IStorageProvider;
-	getData: () => Record<string, unknown>;
+function createMockStorage(initialState?: EventFilterState): {
+	storage: ITypedStorage<EventFilterState>;
+	getData: () => EventFilterState | undefined;
 } {
-	let data = { ...initialData };
+	let data: EventFilterState | undefined = initialState;
 	return {
 		storage: {
 			load: vi.fn(async () => data),
-			save: vi.fn(async (newData: unknown) => {
-				data = newData as Record<string, unknown>;
+			save: vi.fn(async (state: EventFilterState) => {
+				data = state;
+			}),
+			safeLoad: vi.fn(async () => data),
+			safeSave: vi.fn(async (state: EventFilterState) => {
+				data = state;
+				return true;
 			}),
 		},
 		getData: () => data,
@@ -26,8 +31,8 @@ function createMockStorage(initialData: Record<string, unknown> = {}): {
 
 describe("EventFilterService", () => {
 	let service: EventFilterService;
-	let storage: IStorageProvider;
-	let getData: () => Record<string, unknown>;
+	let storage: ITypedStorage<EventFilterState>;
+	let getData: () => EventFilterState | undefined;
 	let eventBus: IEventBus;
 
 	beforeEach(() => {
@@ -48,7 +53,7 @@ describe("EventFilterService", () => {
 			const existingState: EventFilterState = {
 				excludedTypes: ["file.created", "file.modified"],
 			};
-			const mock = createMockStorage({ eventFilter: existingState });
+			const mock = createMockStorage(existingState);
 			service = new EventFilterService({ storage: mock.storage, eventBus });
 
 			await service.load();
@@ -77,7 +82,7 @@ describe("EventFilterService", () => {
 			const existingState: EventFilterState = {
 				excludedTypes: ["user.created"],
 			};
-			const mock = createMockStorage({ eventFilter: existingState });
+			const mock = createMockStorage(existingState);
 			service = new EventFilterService({ storage: mock.storage, eventBus });
 
 			const handler = vi.fn();
@@ -119,9 +124,8 @@ describe("EventFilterService", () => {
 		it("should persist state after toggle", async () => {
 			await eventBus.emit("eventFilter.toggle", { eventType: "file.created" });
 
-			const data = getData();
-			const filter = data.eventFilter as EventFilterState;
-			expect(filter.excludedTypes).toContain("file.created");
+			const filter = getData();
+			expect(filter?.excludedTypes).toContain("file.created");
 		});
 	});
 
@@ -178,23 +182,22 @@ describe("EventFilterService", () => {
 		it("should persist state after category toggle", async () => {
 			await eventBus.emit("eventFilter.toggleCategory", { category: "Logging" });
 
-			const data = getData();
-			const filter = data.eventFilter as EventFilterState;
-			expect(filter.excludedTypes).toContain("log.entry");
-			expect(filter.excludedTypes).toContain("log.error");
+			const filter = getData();
+			expect(filter?.excludedTypes).toContain("log.entry");
+			expect(filter?.excludedTypes).toContain("log.error");
 		});
 	});
 
 	describe("persistence", () => {
-		it("should preserve other storage keys when saving", async () => {
-			const mock = createMockStorage({ someOtherKey: "preserved" });
+		it("should persist state via typed storage", async () => {
+			const mock = createMockStorage();
 			service = new EventFilterService({ storage: mock.storage, eventBus });
 
 			await eventBus.emit("eventFilter.toggle", { eventType: "file.created" });
 
-			const data = mock.getData();
-			expect(data.someOtherKey).toBe("preserved");
-			expect(data.eventFilter).toBeDefined();
+			const saved = mock.getData();
+			expect(saved).toBeDefined();
+			expect(saved?.excludedTypes).toContain("file.created");
 		});
 	});
 
