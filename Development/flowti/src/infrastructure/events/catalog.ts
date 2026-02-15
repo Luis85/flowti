@@ -158,6 +158,7 @@ export const EVENT_CATEGORIES = [
 	"Data Exchange",
 	"Documentation",
 	"UI Commands",
+	"Hub",
 ] as const;
 
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
@@ -360,6 +361,11 @@ const CATALOG_DATA = {
 	"ui.openCsvImport":           { category: "UI Commands", description: "Open CSV import view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.openExport":              { category: "UI Commands", description: "Open export view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.opened":                  { category: "UI Commands", description: "A UI view or modal was opened", direction: "Internal", domain: "ui", services: "UiCommandService", tags: ["system"] },
+
+	// ── Hub ──────────────────────────────────────────────────
+	"hub.opened":      { category: "Hub", description: "A hub view was opened", direction: "View → Plugin", domain: "hub", services: "BaseHubView", tags: ["system"] },
+	"hub.closed":      { category: "Hub", description: "A hub view was closed", direction: "View → Plugin", domain: "hub", services: "BaseHubView", tags: ["system"] },
+	"hub.tab.changed": { category: "Hub", description: "The active tab changed within a hub", direction: "View → Plugin", domain: "hub", services: "BaseHubView", tags: ["system"] },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

@@ -477,6 +477,7 @@ describe("catalog helpers", () => {
 		{ name: "Data Exchange", visible: true },
 		{ name: "Documentation", visible: true },
 		{ name: "UI Commands", visible: true },
+		{ name: "Hub", visible: true },
 	];
 
 	describe("discoveredToCatalogEntries", () => {
