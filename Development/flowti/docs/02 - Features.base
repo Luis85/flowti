@@ -42,3 +42,30 @@ views:
       formula.user_stories_count: 151
       note.stage: 126
       note.domain: 132
+  - type: table
+    name: Features - Maturity
+    filters:
+      and:
+        - type == "Feature"
+    order:
+      - file.name
+      - stage
+      - maturity
+      - maturity_score_status
+      - maturity_score_total
+      - maturity_score_architecture
+      - maturity_score_data_model
+      - maturity_score_event_integration
+      - maturity_score_scope
+      - maturity_score_strategy
+      - maturity_score_ui_consistency
+      - maturity_score_validation_testing
+    sort:
+      - property: maturity
+        direction: DESC
+      - property: formula.user_stories_count
+        direction: DESC
+    columnSize:
+      file.name: 199
+      note.stage: 126
+      note.domain: 132

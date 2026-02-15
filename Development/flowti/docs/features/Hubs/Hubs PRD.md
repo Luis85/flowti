@@ -2,7 +2,7 @@
 domain: Flowti
 plugin: "[[Development/flowti/README|README]]"
 type: Feature
-stage: draft
+stage: open
 related_hubs:
   - User Hub
   - Event Catalog (System Hub)

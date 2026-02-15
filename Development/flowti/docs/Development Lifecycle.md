@@ -19,6 +19,8 @@ tags:
 
 # Flowti Development Lifecycle
 
+> Objective: Make this document processable by Flowti to document the domain
+
 ## 1. Purpose
 
 This process defines how Flowti turns **feedback and ideas** into **tested, documented, published increments**.
@@ -352,9 +354,8 @@ An increment is “Done” only if:
 
 ## 10. Appendix
 
-- [[Flowti IBDE — Testplan and Teststrategy]]
-- [[Development/flowti/standards/technical-review-checklist|Technical Review Checklist]]
-- [[Development/flowti/standards/three-amigos-review-session|Three Amigos Review Session]]
-- [[Development/flowti/standards/feature-readiness-index|Feature Readiness Index]]
+- [[Testplan and Teststrategy]]
+- [[Three Amigos Session Template]]
+- [[PRD Template]]
 
 

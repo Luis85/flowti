@@ -1,5 +1,5 @@
 ---
-type: ProductBacklogItemTemplate
+type: ProductBacklogItem
 feature: "[[Hubs PRD]]"
 priority: high
 phase: 4
