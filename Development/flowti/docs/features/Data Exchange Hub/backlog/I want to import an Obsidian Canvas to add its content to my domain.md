@@ -8,4 +8,5 @@ journey:
 jtbd:
 parent:
 persona:
+type: UserStory
 ---

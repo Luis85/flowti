@@ -1,6 +1,6 @@
 ---
 type: ProductBacklogItem
-feature: "[[Documentation PRD]]"
+feature: "[[Documentation Hub PRD]]"
 priority: high
 stage: draft
 userStories:

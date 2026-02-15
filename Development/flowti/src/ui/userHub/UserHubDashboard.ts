@@ -2,19 +2,24 @@
  * Dashboard component for the User Hub.
  *
  * Renders a welcome section, cross-hub summary cards (from HubRegistry),
- * and quick-action buttons for navigating to other hubs.
+ * an always-visible inbox section, and quick-action buttons.
  */
 
 import { setIcon } from "obsidian";
 import type { IUserService } from "../../domain/user/types";
 import type { HubRegistry } from "../../domain/hub/HubRegistry";
 import type { IEventBus } from "../../infrastructure/events/types";
+import type { InboxService } from "../../domain/inbox/InboxService";
 import { renderStatGrid, type StatCardItem } from "../shared/StatCard";
+import { formatSourceEvent, type InboxItem } from "./types";
 
 export interface UserHubDashboardDeps {
 	userService: IUserService;
 	hubRegistry: HubRegistry;
 	eventBus: IEventBus;
+	inboxService: InboxService;
+	navigateToTab: (tabId: string) => void;
+	onInboxItemClick: (item: InboxItem) => void;
 }
 
 export class UserHubDashboard {
@@ -29,6 +34,7 @@ export class UserHubDashboard {
 		this.renderWelcome();
 		this.renderHubSummaries();
 		this.renderQuickActions();
+		this.renderInboxSection();
 	}
 
 	private renderWelcome(): void {
@@ -44,6 +50,118 @@ export class UserHubDashboard {
 		const greeting = user ? `Welcome, ${user.name}` : "Welcome to Flowti";
 
 		section.createEl("h2", { text: greeting, cls: "ft-heading" }).style.margin = "0";
+	}
+
+	private renderInboxSection(): void {
+		const items = this.deps.inboxService.getItems();
+		const unreadCount = this.deps.inboxService.getUnreadCount();
+		const maxVisible = 5;
+
+		// Always-visible inbox section
+		const section = this.container.createDiv({ cls: "ft-inbox-section" });
+		section.style.marginBottom = "1.5rem";
+		section.style.border = "1px solid var(--background-modifier-border)";
+		section.style.borderRadius = "8px";
+		section.style.overflow = "hidden";
+
+		// Header
+		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		header.style.padding = "0.5rem 0.75rem";
+		header.style.borderBottom = items.length > 0 ? "1px solid var(--background-modifier-border)" : "none";
+		header.style.backgroundColor = "var(--background-secondary)";
+
+		const headerIcon = header.createSpan();
+		setIcon(headerIcon, "inbox");
+		headerIcon.addClass("ft-icon-muted");
+
+		header.createEl("h3", { text: "Inbox", cls: "ft-heading ft-heading-sm" }).style.margin = "0";
+
+		if (unreadCount > 0) {
+			header.createSpan({
+				text: `${unreadCount} unread`,
+				cls: "ft-badge ft-badge-muted ft-text-sm",
+			});
+		}
+
+		// Spacer + clear all button (only when items exist)
+		if (items.length > 0) {
+			const spacer = header.createDiv();
+			spacer.style.flex = "1";
+
+			const clearBtn = header.createEl("button", { cls: "ft-btn ft-btn-sm ft-text-muted" });
+			setIcon(clearBtn, "trash-2");
+			clearBtn.appendText(" Clear");
+			clearBtn.addEventListener("click", () => {
+				void this.deps.inboxService.clearAll();
+			});
+		}
+
+		// Empty state
+		if (items.length === 0) {
+			const empty = section.createDiv({ cls: "ft-flex ft-flex-col ft-items-center" });
+			empty.style.padding = "2rem";
+			empty.style.color = "var(--text-muted)";
+
+			const emptyIcon = empty.createDiv();
+			setIcon(emptyIcon, "inbox");
+			emptyIcon.style.opacity = "0.3";
+			emptyIcon.style.marginBottom = "0.5rem";
+
+			empty.createDiv({ text: "Your inbox is empty", cls: "ft-text-sm" });
+			empty.createDiv({
+				text: "Items from watchers, imports, and exports will appear here.",
+				cls: "ft-text-sm ft-text-muted",
+			}).style.marginTop = "0.25rem";
+			return;
+		}
+
+		// Item rows
+		const visible = items.slice(0, maxVisible);
+		for (const item of visible) {
+			const row = section.createDiv({ cls: "ft-catalog-row ft-cursor-pointer" });
+			row.style.padding = "0.5rem 0.75rem";
+			row.style.borderBottom = "1px solid var(--background-modifier-border)";
+
+			if (!item.read) {
+				row.style.fontWeight = "600";
+				row.style.borderLeft = "3px solid var(--interactive-accent)";
+			}
+
+			const icon = row.createSpan();
+			setIcon(icon, item.type === "action" ? "alert-circle" : "info");
+			icon.style.opacity = "0.6";
+			icon.style.marginRight = "0.5rem";
+
+			row.createSpan({ text: item.title });
+
+			const source = row.createSpan({
+				text: formatSourceEvent(item.sourceEvent),
+				cls: "ft-badge ft-badge-muted ft-text-sm",
+			});
+			source.style.marginLeft = "0.5rem";
+
+			const time = row.createSpan({
+				text: new Date(item.timestamp).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }),
+				cls: "ft-text-muted ft-text-sm",
+			});
+			time.style.marginLeft = "auto";
+
+			row.addEventListener("click", () => this.deps.onInboxItemClick(item));
+		}
+
+		// "View all" link when more items exist
+		if (items.length > maxVisible) {
+			const footer = section.createDiv({ cls: "ft-flex" });
+			footer.style.justifyContent = "flex-end";
+			footer.style.padding = "0.5rem 0.75rem";
+			footer.style.backgroundColor = "var(--background-secondary)";
+
+			const link = footer.createEl("span", {
+				text: `View all (${items.length}) →`,
+				cls: "ft-nav-link ft-text-sm",
+			});
+			link.addEventListener("click", () => this.deps.navigateToTab("inbox"));
+		}
 	}
 
 	private renderHubSummaries(): void {

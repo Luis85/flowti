@@ -72,6 +72,11 @@ export class SettingsService implements ISettingsService {
 					void this.updateSettings({ catalogServices: event.payload.services });
 				})
 			);
+			this.unsubscribes.push(
+				this.eventBus.on("settings.updateInboxEnabledSources", (event) => {
+					void this.updateSettings({ inboxEnabledSources: event.payload.sources });
+				})
+			);
 		}
 	}
 

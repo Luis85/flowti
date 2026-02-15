@@ -22,6 +22,7 @@ import type { EventFilterService } from "./domain/eventFilter/EventFilterService
 import type { DiscoveryService } from "./domain/discovery/DiscoveryService";
 import type { SubscriptionService } from "./domain/subscription/SubscriptionService";
 import type { EventDefinitionService } from "./domain/eventDefinition/EventDefinitionService";
+import type { InboxService } from "./domain/inbox/InboxService";
 import type { IngestionService } from "./domain/ingestion/IngestionService";
 import { registerViews } from "./infrastructure/views/registry";
 import type { IViewRegistry } from "./infrastructure/views/types";
@@ -85,6 +86,7 @@ export default class FlowtiBasePlugin extends Plugin {
 	private eventNotifyService?: EventNotificationService;
 	private discoveryService?: DiscoveryService;
 	private subscriptionService?: SubscriptionService;
+	private inboxService?: InboxService;
 	private ingestionService?: IngestionService;
 	private eventDefinitionService?: EventDefinitionService;
 	private dataExchangeService?: DataExchangeService;
@@ -415,6 +417,15 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.subscriptionService = await this.services.get<SubscriptionService>("subscriptionService");
 			await this.subscriptionService.load();
 
+			this.inboxService = await this.services.get<InboxService>("inboxService");
+			this.inboxService.setEnabledSources(settingsService.getSettings().inboxEnabledSources);
+			await this.inboxService.load();
+
+			// Keep inbox sources in sync with settings
+			this.eventBus.on("settings.changed", (event) => {
+				this.inboxService?.setEnabledSources(event.payload.settings.inboxEnabledSources);
+			});
+
 			this.ingestionService = await this.services.get<IngestionService>("ingestionService");
 			await this.ingestionService.load();
 
@@ -464,9 +475,9 @@ export default class FlowtiBasePlugin extends Plugin {
 
 			// ── User Hub view + provider ──
 			this.registerView(VIEW_TYPE_USER_HUB, (leaf) =>
-				new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!),
+				new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!),
 			);
-			this.hubRegistry.register(new UserHubProvider(this.userService));
+			this.hubRegistry.register(new UserHubProvider(this.userService, this.inboxService));
 
 			// Run catch-up if watch folders are configured
 			if (this.settings.watchFolders.length > 0 && this.ingestionService) {

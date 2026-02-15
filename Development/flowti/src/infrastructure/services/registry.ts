@@ -20,6 +20,7 @@ import type { IStorageProvider } from "../../utils/types";
 import { TypedStorage } from "../../utils/TypedStorage";
 import { UserService } from "../../domain/user/UserService";
 import { DataExchangeService } from "../../domain/dataExchange/DataExchangeService";
+import { InboxService } from "../../domain/inbox/InboxService";
 import { DocService } from "../../domain/docs/DocService";
 import { FileSystemClient } from "../filesystem/FileSystemClient";
 import type { IServiceContainer, ServiceRegistration } from "./types";
@@ -123,6 +124,16 @@ export function createServiceRegistrations(
 			factory: (container: IServiceContainer) =>
 				new SubscriptionService({
 					storage: new TypedStorage(storage, "subscription"),
+					eventBus: container.getEventBus(),
+				}),
+		},
+
+		// Inbox Service - aggregates actionable items from domain events
+		{
+			id: "inboxService",
+			factory: (container: IServiceContainer) =>
+				new InboxService({
+					storage: new TypedStorage(storage, "inbox"),
 					eventBus: container.getEventBus(),
 				}),
 		},

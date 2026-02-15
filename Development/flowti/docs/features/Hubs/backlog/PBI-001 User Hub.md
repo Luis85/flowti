@@ -71,9 +71,9 @@ As a knowledge worker using Flowti, I want a personal cockpit hub so that I can 
 
 ## Acceptance Criteria
 
-- [ ] User Hub opens from ribbon and command palette
-- [ ] Dashboard shows cross-hub summary with real data
-- [ ] Inbox shows at least 2 types of actionable items
-- [ ] Activity feed shows recent events with search/filter
-- [ ] All tabs render via Hub framework (shell + layout + adapter)
-- [ ] `npm run build` passes
+- [x] User Hub opens from ribbon and command palette — *increment 1: ribbon icon + flowti:open-user-hub command + ui.openUserHub event*
+- [x] Dashboard shows cross-hub summary with real data — *increment 1: HubRegistry → provider.getSummary() with tabId deep-linking*
+- [x] Inbox shows at least 2 types of actionable items — *increment 2: subscription.matched, import completed/failed, export completed (4 source events)*
+- [x] Activity feed shows recent events with search/filter — *increment 1: wildcard listener, 200-item cap, search, category badges*
+- [x] All tabs render via Hub framework (shell + layout + adapter) — *increment 1: UserHubView extends BaseHubView*
+- [x] `npm run build` passes — *1,786 tests across 79 suites, green pipeline*

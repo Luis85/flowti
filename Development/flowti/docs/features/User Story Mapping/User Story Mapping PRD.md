@@ -177,3 +177,340 @@ Stories can attach existing events, propose new event names (draft), and validat
 - [ ] Event linking and validation working
 - [ ] Documentation updated
 - [ ] Tests for StoryMapService and generation logic
+
+---
+
+## PRD Addendum: Unified Tool Framework
+
+### Why this is needed
+
+Story Mapping introduces a new category of Flowti UI: **Dedicated Tools** (not just tabs with tables). To scale across domains, Flowti needs a framework to host tools consistently.
+
+---
+
+# Feature PRD: Unified Tool Framework
+
+## 1. Problem Statement
+
+Flowti currently provides Hubs and Views, but dedicated tools (like Story Mapping) require a more advanced environment:
+
+- consistent layout (board + inspector + side panels)
+    
+- persistent tool state
+    
+- context binding (domain, entity, PRD, project)
+    
+- a unified way to register, open, and render tools
+    
+- standardized docking and keyboard commands
+    
+
+Without a tool framework, every new tool becomes a bespoke UI implementation with duplicated patterns and inconsistent UX.
+
+---
+
+## 2. Outcome
+
+After implementation:
+
+- Dedicated tools can be registered via manifest and opened from hubs.
+    
+- Tools run inside a consistent **Tool Workspace** with docking, inspector, overlays.
+    
+- Tools receive context via a standard **Tool Context Contract**.
+    
+- Tool state is persistable (file-based + storage mirror).
+    
+- New tools can be added with minimal wiring: **manifest + adapter + view component**.
+    
+
+---
+
+## 3. Scope
+
+### In Scope (v1)
+
+- Tool Registry (manifest-driven)
+    
+- Tool Workspace layout (board + dock + inspector)
+    
+- Tool Context contract (hub/entity/prd/project)
+    
+- Tool state persistence (load/save)
+    
+- Entry points from hubs + command palette
+    
+- Tool lifecycle events (opened/closed/contextChanged)
+    
+
+### Out of Scope (v1)
+
+- Multi-user collaboration
+    
+- Complex plugin marketplace / external tool loading
+    
+- Tool-to-tool embedding
+    
+
+---
+
+## 4. Core Concept
+
+A Tool is a _dedicated workspace_ hosted inside Flowti:
+
+```
+Hub → ToolLauncher → ToolWorkspace → ToolView + ToolAdapter
+```
+
+Tools are domain-agnostic but context-aware.
+
+---
+
+## 5. Functional Requirements
+
+### 5.1 Tool Registry
+
+-  Tools are defined in a `tools.manifest.md` (or `.json`) and validated.
+    
+-  A tool has:
+    
+    - `tool_id`, `name`, `description`
+        
+    - `supported_contexts` (product, project, domain, user)
+        
+    - `default_layout` (board+inspector, graph+inspector, etc.)
+        
+    - `entry_points` (hub actions, tabs, command palette)
+        
+    - `state_model` reference (where/how to persist)
+        
+
+### 5.2 Tool Workspace
+
+-  Unified layout with regions:
+    
+    - Header (title, breadcrumbs, save/export)
+        
+    - Main canvas (board/graph/canvas)
+        
+    - Inspector dock (right)
+        
+    - Sidebar dock (optional)
+        
+    - Overlays (modals, command palette)
+        
+-  Dock supports tool-defined panels.
+    
+-  Workspace can be embedded as a Hub tab OR opened as full-screen focus mode.
+    
+
+### 5.3 Tool Context Contract
+
+-  Tool receives a standard context object:
+    
+    - active hub
+        
+    - selected PRD
+        
+    - selected entity/project
+        
+    - domain id
+        
+    - user id
+        
+-  Tool can request context updates via events only.
+    
+
+### 5.4 Tool State Persistence
+
+-  Tool state can be saved to Markdown (canonical)
+    
+-  Tool state can be mirrored in storage for fast load
+    
+-  State is deterministic (ordering preserved)
+    
+-  Supports autosave toggle (optional)
+    
+
+### 5.5 Tool Lifecycle Events
+
+Emitted:
+
+- `tool.opened`
+    
+- `tool.closed`
+    
+- `tool.context.changed`
+    
+- `tool.state.saved`
+    
+- `tool.state.loaded`
+    
+
+---
+
+## 6. UI Composition
+
+### 6.1 ToolWorkspace Layout
+
+```
+ToolWorkspaceView
+├─ ToolHeaderRegion
+│  ├─ ToolTitle
+│  ├─ Breadcrumbs (Hub → PRD → Tool)
+│  ├─ Save / Export / Settings
+│  └─ ContextBadge (domain/project)
+│
+├─ ToolMainRegion
+│  └─ ToolCanvasSlot (board/graph/editor)
+│
+├─ ToolDockRegion
+│  ├─ InspectorPanelSlot
+│  ├─ ToolPanelsSlot*
+│  └─ ContextPanelSlot (optional)
+│
+└─ ToolOverlayRegion
+   ├─ ModalHost
+   ├─ CommandPalette
+   └─ ToastHost
+```
+
+### 6.2 Tool View Slotting
+
+A tool provides:
+
+- `ToolCanvasComponent`
+    
+- `InspectorComponent`
+    
+- optional `DockPanels[]`
+    
+
+---
+
+## 7. Adapter Contract
+
+```ts
+interface ToolAdapter<TState, TContext> {
+  tool_id: string;
+
+  // lifecycle
+  open(context: TContext): Promise<void>;
+  close(): Promise<void>;
+  setContext(context: TContext): Promise<void>;
+
+  // state
+  loadState(ref?: { path?: string; id?: string }): Promise<TState>;
+  saveState(state: TState): Promise<void>;
+
+  // domain actions
+  handle(action: ToolAction): Promise<void>;
+
+  // validation
+  validateState(state: TState): ValidationResult;
+}
+```
+
+Tool actions are event-driven:
+
+- UI emits `tool.action.requested`
+    
+- adapter emits `tool.action.completed` / `tool.action.failed`
+    
+
+---
+
+## 8. Manifest Spec (Minimal)
+
+```yaml
+tools:
+  - tool_id: story_map
+    name: User Story Map
+    description: Build a story map, slice releases, generate increments.
+    supported_contexts: [product, prd, project]
+    default_layout: tool_workspace_board
+    entry_points:
+      - hub: product
+        action: create_story_map
+      - command: "Flowti: Open Story Map"
+    persistence:
+      canonical: markdown
+      folder: "03 - Resources/Story Maps"
+      filename_pattern: "{{prd_id}}-story-map.md"
+```
+
+---
+
+## 9. Non-Functional Requirements
+
+- Scales to large boards (virtualization)
+    
+- No full vault scan on open
+    
+- Event-driven updates only
+    
+- Strong separation:
+    
+    - Layout ≠ Tool logic
+        
+    - Tool UI ≠ Domain logic
+        
+    - Adapter mediates all operations
+        
+
+---
+
+## 10. Acceptance Criteria
+
+-  A tool can be registered via manifest
+    
+-  Tool appears as action in Product Hub
+    
+-  Tool opens inside ToolWorkspace with inspector
+    
+-  Tool receives hub/prd context
+    
+-  Tool state can be saved/loaded deterministically
+    
+-  All operations observable through tool events
+    
+
+---
+
+## 11. Definition of Done
+
+-  ToolRegistry implemented + validator
+    
+-  ToolWorkspaceView implemented
+    
+-  ToolAdapter base + event wiring implemented
+    
+-  Story Map uses Tool Framework (first tool)
+    
+-  Documentation updated
+    
+-  Tests: registry + adapter lifecycle + state persistence
+    
+
+---
+
+## How this plugs into the Story Mapping PRD
+
+- StoryMap is a **Tool** hosted by ToolWorkspace
+- It registers in ToolRegistry manifest
+- It uses ToolAdapter + Tool state persistence
+
+This prevents Story Map from becoming a one-off.
+
+---
+
+## Suggested folder structure for tools
+
+src/ui/tools/  
+toolRegistry/  
+toolWorkspace/  
+storyMap/  
+shared/  
+docs/tools/  
+tools-manifest.md  
+tool-workspace.md

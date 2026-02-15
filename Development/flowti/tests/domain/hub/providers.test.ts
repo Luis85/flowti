@@ -159,8 +159,9 @@ describe("UserHubProvider", () => {
 		const provider = new UserHubProvider(makeUserService("Bob"));
 		const summary = provider.getSummary();
 
-		expect(summary.stats).toHaveLength(1);
+		expect(summary.stats).toHaveLength(2);
 		expect(summary.stats[0]).toMatchObject({ label: "User", value: "Bob", icon: "user" });
+		expect(summary.stats[1]).toMatchObject({ label: "Inbox", value: "0", icon: "inbox" });
 	});
 
 	it("should show 'Not set' when no user exists", () => {

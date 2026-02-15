@@ -159,6 +159,7 @@ export const EVENT_CATEGORIES = [
 	"Documentation",
 	"UI Commands",
 	"Hub",
+	"Inbox",
 ] as const;
 
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
@@ -264,6 +265,7 @@ const CATALOG_DATA = {
 	"settings.updateShowSystemEvents":   { category: "Settings", description: "Toggle system events visibility", direction: "View → Plugin", domain: "settings", services: "EventCatalogView" },
 	"settings.updateCatalogDomains":     { category: "Settings", description: "Update domain visibility in catalog", direction: "View → Plugin", domain: "settings", services: "EventCatalogView", tags: ["system"] },
 	"settings.updateCatalogServices":    { category: "Settings", description: "Update service visibility in catalog", direction: "View → Plugin", domain: "settings", services: "EventCatalogView", tags: ["system"] },
+	"settings.updateInboxEnabledSources": { category: "Settings", description: "Update inbox notification source events", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
 
 	// ── Installer Domain ─────────────────────────────────────
 	"installer.started":        { category: "Installer", description: "Installation pipeline started", direction: "Service → Listeners", domain: "installer", services: "InstallerService" },
@@ -368,6 +370,12 @@ const CATALOG_DATA = {
 	"hub.closed":      { category: "Hub", description: "A hub view was closed", direction: "View → Plugin", domain: "hub", services: "BaseHubView", tags: ["system"] },
 	"hub.tab.changed": { category: "Hub", description: "The active tab changed within a hub", direction: "View → Plugin", domain: "hub", services: "BaseHubView", tags: ["system"] },
 	"hub.navigate":    { category: "Hub", description: "Cross-hub navigation request", direction: "Service → Listeners", domain: "hub", services: "HubRegistry", tags: ["system"] },
+
+	// ── Inbox ─────────────────────────────────────────────────
+	"inbox.loaded":       { category: "Inbox", description: "Inbox state loaded from storage", direction: "Service → Listeners", domain: "inbox", services: "InboxService", tags: ["system"] },
+	"inbox.itemAdded":    { category: "Inbox", description: "New item added to inbox", direction: "Service → Listeners", domain: "inbox", services: "InboxService", tags: [] },
+	"inbox.itemsChanged": { category: "Inbox", description: "Inbox items changed (read/dismiss/clear)", direction: "Service → Listeners", domain: "inbox", services: "InboxService", tags: ["system"] },
+	"inbox.refresh":      { category: "Inbox", description: "Request re-emit of inbox state", direction: "View → Plugin", domain: "inbox", services: "InboxService", tags: ["system"] },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

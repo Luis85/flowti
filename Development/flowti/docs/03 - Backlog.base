@@ -1,0 +1,85 @@
+views:
+  - type: table
+    name: Backlog
+    filters:
+      and:
+        - file.folder.containsAll("flowti", "docs", "backlog")
+        - "!type.isEmpty()"
+    groupBy:
+      property: file.folder
+      direction: ASC
+    order:
+      - file.name
+      - type
+  - type: table
+    name: Use Cases
+    filters:
+      and:
+        - file.folder.containsAll("flowti", "docs", "backlog")
+        - type == "UseCase"
+    groupBy:
+      property: file.folder
+      direction: ASC
+    order:
+      - file.name
+      - type
+  - type: table
+    name: Review
+    filters:
+      and:
+        - file.folder.containsAll("flowti", "docs", "backlog")
+        - type.isEmpty()
+    groupBy:
+      property: file.folder
+      direction: ASC
+    order:
+      - file.name
+      - type
+    columnSize:
+      file.name: 912
+  - type: table
+    name: Inbox
+    filters:
+      and:
+        - file.inFolder("Development/flowti/docs/inbox")
+    groupBy:
+      property: feature
+      direction: ASC
+    order:
+      - feature
+      - file.name
+      - tags
+      - stage
+      - description
+      - domain
+      - journey
+      - jtbd
+      - parent
+      - persona
+    sort:
+      - property: file.name
+        direction: DESC
+    columnSize:
+      file.name: 614
+      note.tags: 130
+      note.stage: 101
+      note.parent: 140
+  - type: table
+    name: PBIs
+    filters:
+      and:
+        - file.folder.containsAll("flowti", "docs", "backlog")
+        - type == "ProductBacklogItem"
+    groupBy:
+      property: file.folder
+      direction: ASC
+    order:
+      - file.name
+      - type
+      - stage
+      - priority
+      - feature
+      - dependencies
+      - phase
+      - useCases
+      - userStories

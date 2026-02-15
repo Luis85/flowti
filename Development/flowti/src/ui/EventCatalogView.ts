@@ -327,6 +327,18 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 		this.settingsPanel.classList.add("ft-hidden");
 	}
 
+	protected onNavigateToEntity(tabId: string, entityId: string): void {
+		switch (tabId) {
+			case "events": this.navigateToEvent(entityId); break;
+			case "domains": this.navigateToDomain(entityId); break;
+			case "services": this.navigateToService(entityId); break;
+			case "flows": this.navigateToFlow(entityId); break;
+			case "systems": this.navigateToSystem(entityId); break;
+			case "actors": this.navigateToActor(entityId); break;
+			case "products": this.navigateToProduct(entityId); break;
+		}
+	}
+
 	// ─────────────────────────────────────────────────────────────
 	// Helpers
 	// ─────────────────────────────────────────────────────────────

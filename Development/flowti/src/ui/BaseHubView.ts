@@ -98,6 +98,10 @@ export abstract class BaseHubView<TPage extends string = string> extends ItemVie
 	}
 
 	async onOpen(): Promise<void> {
+		// Hide Obsidian's built-in view header — the hub's own top bar replaces it
+		const header = this.containerEl.children[0] as HTMLElement;
+		if (header) header.style.display = "none";
+
 		const container = this.containerEl.children[1] as HTMLElement;
 		container.empty();
 

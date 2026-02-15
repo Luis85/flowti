@@ -25,6 +25,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 		this.displayUserSection(containerEl);
 		this.displaySetupSection(containerEl);
 		this.displayEventSystemSection(containerEl);
+		this.displayInboxSection(containerEl);
 		this.displayDocumentationSection(containerEl);
 		this.displayEntityPathsSection(containerEl);
 		this.displayGeneralSection(containerEl);
@@ -121,6 +122,47 @@ export class FlowtiSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
+	}
+
+	/**
+	 * Display inbox notification sources section
+	 */
+	private displayInboxSection(containerEl: HTMLElement): void {
+		containerEl.createEl("h3", { text: "Inbox" });
+		containerEl.createEl("p", {
+			text: "Choose which events create inbox notifications. " +
+				"Disabling a source stops new items; existing items are not affected.",
+			cls: "setting-item-description",
+		});
+
+		const sources: Array<{ event: string; label: string; desc: string }> = [
+			{ event: "subscription.matched", label: "Watcher matches", desc: "When a file watcher subscription matches an event" },
+			{ event: "dataExchange.import.completed", label: "Import completed", desc: "When a CSV import finishes successfully" },
+			{ event: "dataExchange.import.failed", label: "Import errors", desc: "When a CSV import fails" },
+			{ event: "dataExchange.export.completed", label: "Export completed", desc: "When a data export finishes successfully" },
+		];
+
+		const enabled = new Set(this.plugin.settings.inboxEnabledSources ?? []);
+
+		for (const src of sources) {
+			new Setting(containerEl)
+				.setName(src.label)
+				.setDesc(src.desc)
+				.addToggle((toggle) =>
+					toggle
+						.setValue(enabled.has(src.event))
+						.onChange(async (value) => {
+							if (value) {
+								enabled.add(src.event);
+							} else {
+								enabled.delete(src.event);
+							}
+							void this.plugin.eventBus.emit("settings.updateInboxEnabledSources", {
+								sources: Array.from(enabled),
+							});
+						})
+				);
+		}
 	}
 
 	/**

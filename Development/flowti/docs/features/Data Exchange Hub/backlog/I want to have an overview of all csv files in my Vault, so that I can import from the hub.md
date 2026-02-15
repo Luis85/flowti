@@ -8,4 +8,5 @@ jtbd:
 parent: "[[03 - Resources/Documentation/Reference/Actors/User|User]]"
 persona: User
 feature: "[[Data Exchange Hub]]"
+type: UserStory
 ---

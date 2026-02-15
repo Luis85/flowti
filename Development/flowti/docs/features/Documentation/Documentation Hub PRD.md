@@ -28,6 +28,8 @@ Documentation is typically treated as a separate chore, disconnected from the sy
 
 Users build a living documentation system by simply using Flowti. Domains, services, categories, flows, systems, actors, and products are documented as markdown files with structured frontmatter. The Event Catalog view provides a central hub where all documentation entities are visible, cross-referenced, and navigable. Documentation stays current because it is file-driven -- the same files that configure behavior also serve as documentation.
 
+The use can explore his knowledge in the Documentation Hub. The Documentation Hub will be core feature and also be integrated into the User Hub.
+
 ## 3. Scope
 
 ### In Scope

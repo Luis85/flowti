@@ -1,13 +1,13 @@
 /**
  * Inbox component for the User Hub.
  *
- * First increment: renders an empty placeholder state.
- * Future increments will populate items from subscription notifications,
- * import/export results, and other actionable events.
+ * Renders actionable and informational items from domain events
+ * in a master-detail split layout. Supports mark-read, dismiss,
+ * and clear-all actions via InboxService.
  */
 
 import { setIcon } from "obsidian";
-import type { UserHubComponentDeps, InboxItem } from "./types";
+import { formatSourceEvent, type UserHubComponentDeps, type InboxItem } from "./types";
 
 export class UserHubInbox {
 	constructor(
@@ -29,8 +29,30 @@ export class UserHubInbox {
 			return;
 		}
 
+		// Header with clear-all action
+		const header = this.masterEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		header.style.padding = "0.25rem 0.5rem";
+		header.style.borderBottom = "1px solid var(--background-modifier-border)";
+
+		const count = header.createSpan({ cls: "ft-text-sm ft-text-muted" });
+		const unread = items.filter((i) => !i.read).length;
+		count.setText(`${items.length} item${items.length === 1 ? "" : "s"}${unread > 0 ? ` (${unread} unread)` : ""}`);
+
+		const clearBtn = header.createEl("button", { cls: "ft-btn ft-btn-sm ft-text-muted" });
+		clearBtn.style.marginLeft = "auto";
+		setIcon(clearBtn, "trash-2");
+		clearBtn.appendText(" Clear all");
+		clearBtn.addEventListener("click", () => {
+			void this.deps.inboxService.clearAll();
+		});
+
 		for (const item of items) {
 			const row = this.masterEl.createDiv({ cls: "ft-catalog-row ft-cursor-pointer" });
+
+			if (state.selectedInboxItem?.id === item.id) {
+				row.addClass("ft-catalog-row-active");
+				row.style.backgroundColor = "var(--background-modifier-hover)";
+			}
 
 			if (!item.read) {
 				row.style.fontWeight = "600";
@@ -43,6 +65,12 @@ export class UserHubInbox {
 
 			row.createSpan({ text: item.title });
 
+			const source = row.createSpan({
+				text: formatSourceEvent(item.sourceEvent),
+				cls: "ft-badge ft-badge-muted ft-text-sm",
+			});
+			source.style.marginLeft = "0.5rem";
+
 			const time = row.createSpan({
 				text: this.formatTime(item.timestamp),
 				cls: "ft-text-muted ft-text-sm",
@@ -51,6 +79,10 @@ export class UserHubInbox {
 
 			row.addEventListener("click", () => {
 				this.deps.setState({ selectedInboxItem: item });
+				// Mark as read when selected
+				if (!item.read) {
+					void this.deps.inboxService.markRead(item.id);
+				}
 				this.deps.scheduleRender();
 			});
 		}
@@ -102,12 +134,42 @@ export class UserHubInbox {
 
 		const meta = header.createDiv({ cls: "ft-flex ft-gap-2 ft-text-sm ft-text-muted" });
 		meta.createSpan({ text: item.type === "action" ? "Action Required" : "Information", cls: "ft-badge ft-badge-muted" });
+		meta.createSpan({ text: formatSourceEvent(item.sourceEvent), cls: "ft-badge ft-badge-muted" });
 		meta.createSpan({ text: this.formatTime(item.timestamp) });
+
+		// Source event type (clickable link to Event Catalog)
+		const eventRow = header.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-text-sm ft-text-muted" });
+		eventRow.style.marginTop = "0.25rem";
+		eventRow.createSpan({ text: "Triggered by: " });
+		const eventLink = eventRow.createSpan({ text: item.sourceEvent, cls: "ft-event-type ft-nav-link ft-cursor-pointer" });
+		eventLink.setAttribute("aria-label", "View in Event Catalog");
+		eventLink.addEventListener("click", () => {
+			this.deps.navigateToEvent(item.sourceEvent);
+		});
 
 		if (item.description) {
 			const body = this.detailEl.createDiv({ cls: "ft-detail-section" });
 			body.createEl("p", { text: item.description });
 		}
+
+		// Actions
+		const actions = this.detailEl.createDiv({ cls: "ft-detail-section ft-flex ft-gap-2" });
+
+		if (!item.read) {
+			const readBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm" });
+			setIcon(readBtn, "check");
+			readBtn.appendText(" Mark read");
+			readBtn.addEventListener("click", () => {
+				void this.deps.inboxService.markRead(item.id);
+			});
+		}
+
+		const dismissBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm" });
+		setIcon(dismissBtn, "x");
+		dismissBtn.appendText(" Dismiss");
+		dismissBtn.addEventListener("click", () => {
+			void this.deps.inboxService.dismiss(item.id);
+		});
 	}
 
 	private formatTime(timestamp: string): string {

@@ -4,15 +4,15 @@ category: testing
 layer: ui
 status: mitigated
 created: 2026-02-14
-description: Component-level rendering tests incrementally being added. 1725 tests across 77 suites cover domain services, EventBus, utilities, pure functions, 6 view orchestrators, extracted UI logic, select UI components, and full User Hub component suite (3 components, 37 tests, 97.9% coverage).
-updated: 2026-02-15
+description: Component-level rendering tests incrementally being added. 1760 tests across 78 suites cover domain services, EventBus, utilities, pure functions, 6 view orchestrators, extracted UI logic, select UI components, and User Hub components (2 components + inbox domain, 24+11+4 tests).
+updated: 2026-02-16
 source: "[[Frontend Architecture]]"
 ---
 # TD-27: Limited UI component testing
 
 ## Problem
 
-1725 tests across 77 suites cover domain services, EventBus, utilities, pure functions (Tier 1: 298 tests), injectable services (Tier 2: 149 tests), 6 view orchestrators (`EventCatalogView`, `ExportView`, `DataExchangeHubView`, `EventLogView`, `EventConfigModal`, `IngestionStatusBar`), extracted UI logic (`csvUtils`, `PipelineExecutor.buildPreview()`), select UI components (DomainsTab, ServicesTab, entityScanner, helpers visibility, CsvDataSnapshot), and the full User Hub component suite. Individual coverage is expanding incrementally.
+1760 tests across 78 suites cover domain services, EventBus, utilities, pure functions (Tier 1: 298 tests), injectable services (Tier 2: 149 tests), 6 view orchestrators (`EventCatalogView`, `ExportView`, `DataExchangeHubView`, `EventLogView`, `EventConfigModal`, `IngestionStatusBar`), extracted UI logic (`csvUtils`, `PipelineExecutor.buildPreview()`), select UI components (DomainsTab, ServicesTab, entityScanner, helpers visibility, CsvDataSnapshot), and the User Hub component suite. Individual coverage is expanding incrementally.
 
 ### Untested components (~32 files)
 
@@ -26,7 +26,7 @@ source: "[[Frontend Architecture]]"
 
 **Export**: `ViewSelectPage`, `ConfigurePage`, `PreviewPage`, `ResultPage`
 
-**User Hub**: ~~`UserHubDashboard`~~, ~~`UserHubInbox`~~, ~~`UserHubActivity`~~ — all tested
+**User Hub**: ~~`UserHubDashboard`~~, ~~`UserHubInbox`~~ — both tested. `UserHubActivity` was removed (functionality moved to standalone `EventLogView` sidebar).
 
 ## Impact
 
@@ -60,12 +60,13 @@ Established replicable UI component testing pattern:
 - `tests/ui/csv/CsvDataSnapshot.test.ts` — 28 new tests covering rendering, column visibility, filtering, sorting, row limit, and combined operations
 - `tests/mocks/obsidian-stub.ts` — added `appendText` polyfill for broader UI component testing
 
-### User Hub component coverage (2026-02-15)
+### User Hub component coverage (2026-02-16)
 
-- `tests/ui/userHub/UserHubActivity.test.ts` — 16 tests: event capture (wildcard, skip internals, newest-first, 200 cap, unsubscribe, catalog category), renderMaster (empty state, rows, filter by type/category, selection, click), renderDetail (placeholder, details, JSON payload). Coverage: 98.9%
-- `tests/ui/userHub/UserHubInbox.test.ts` — 11 tests: renderMaster (empty state, items, filter by title, bold unread, click selection), renderDetail (placeholder, item detail, action badge, empty description). Coverage: 100%
-- `tests/ui/userHub/UserHubDashboard.test.ts` — 10 tests: welcome (user name, generic greeting), hub summaries (stat cards, self-filter, no-providers, tabId click, no-tabId click), quick actions (4 buttons, event emission), re-render idempotency. Coverage: 93.6%
-- Combined ui/userHub coverage: **97.9% statements, 89.7% branches**
+- ~~`tests/ui/userHub/UserHubActivity.test.ts`~~ — removed (component deleted; functionality in standalone `EventLogView`)
+- `tests/ui/userHub/UserHubInbox.test.ts` — 11 tests: renderMaster (empty state, items, filter by title, bold unread, click selection), renderDetail (placeholder, item detail, action badge, empty description). Coverage: 95.7%
+- `tests/ui/userHub/UserHubDashboard.test.ts` — 24 tests: welcome (user name, generic greeting), hub summaries (stat cards, self-filter, no-providers, tabId click, no-tabId click), inbox section (always visible, empty state, unread badge, bold unread, accent border, max 5, view all, click navigation, source badges, clear all), quick actions (4 buttons, event emission), re-render idempotency. Coverage: 97.2%
+- `tests/domain/inbox/InboxService.test.ts` — includes 4 `setEnabledSources` tests for configurable notification sources
+- Combined ui/userHub coverage: **~96.6% statements, ~91.5% branches**
 
 ## Effort
 
@@ -78,4 +79,4 @@ Medium — ~32 remaining test files, each lightweight (50-100 LOC) using the est
 - `tests/ui/csv/*.test.ts` (new, ~7 files)
 - `tests/ui/export/*.test.ts` (new, ~4 files)
 - `tests/ui/hub/pipeline/*.test.ts` (new, ~5 files)
-- `tests/ui/userHub/*.test.ts` (done: 3 files, 37 tests)
+- `tests/ui/userHub/*.test.ts` (done: 2 files, 35 tests)

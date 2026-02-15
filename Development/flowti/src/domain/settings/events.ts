@@ -18,4 +18,6 @@ export interface SettingsEventMap {
 	"settings.updateCatalogDomains": { domains: CatalogCategoryConfig[] };
 	/** Command: update service visibility in catalog */
 	"settings.updateCatalogServices": { services: CatalogCategoryConfig[] };
+	/** Command: update inbox enabled source events */
+	"settings.updateInboxEnabledSources": { sources: string[] };
 }

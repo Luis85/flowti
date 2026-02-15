@@ -3,9 +3,11 @@ import "../../mocks/obsidian-stub";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
-import { UserHubDashboard } from "../../../src/ui/userHub/UserHubDashboard";
-import type { HubDashboardProvider, HubSummary } from "../../../src/domain/hub/types";
+import { UserHubDashboard, type UserHubDashboardDeps } from "../../../src/ui/userHub/UserHubDashboard";
+import type { HubDashboardProvider } from "../../../src/domain/hub/types";
 import type { IUserService } from "../../../src/domain/user/types";
+import type { InboxItem } from "../../../src/domain/inbox/types";
+import type { InboxService } from "../../../src/domain/inbox/InboxService";
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -39,6 +41,42 @@ function makeUserService(name?: string): IUserService {
 	} as IUserService;
 }
 
+function makeInboxService(items: InboxItem[] = [], unreadCount = 0): InboxService {
+	return {
+		getItems: vi.fn(() => items),
+		getUnreadCount: vi.fn(() => unreadCount),
+		markRead: vi.fn(async () => {}),
+		dismiss: vi.fn(async () => {}),
+		clearAll: vi.fn(async () => {}),
+	} as never;
+}
+
+function makeItem(overrides?: Partial<InboxItem>): InboxItem {
+	return {
+		id: "item-1",
+		type: "info",
+		title: "Test item",
+		description: "Some description",
+		sourceEvent: "dataExchange.export.completed",
+		sourceHub: "data-exchange",
+		timestamp: new Date("2026-02-15T10:23:00").toISOString(),
+		read: false,
+		...overrides,
+	};
+}
+
+function makeDeps(overrides?: Partial<UserHubDashboardDeps>): UserHubDashboardDeps {
+	return {
+		userService: makeUserService("Alice"),
+		hubRegistry: makeHubRegistry([]) as never,
+		eventBus: new EventBus(),
+		inboxService: makeInboxService(),
+		navigateToTab: vi.fn(),
+		onInboxItemClick: vi.fn(),
+		...overrides,
+	};
+}
+
 describe("UserHubDashboard", () => {
 	let eventBus: IEventBus;
 	let container: HTMLDivElement;
@@ -52,11 +90,10 @@ describe("UserHubDashboard", () => {
 
 	describe("welcome section", () => {
 		it("should greet the user by name", () => {
-			const dashboard = new UserHubDashboard(container, {
+			const dashboard = new UserHubDashboard(container, makeDeps({
 				userService: makeUserService("Alice"),
-				hubRegistry: makeHubRegistry([]) as never,
 				eventBus,
-			});
+			}));
 
 			dashboard.render();
 
@@ -64,15 +101,234 @@ describe("UserHubDashboard", () => {
 		});
 
 		it("should show generic greeting when no user", () => {
-			const dashboard = new UserHubDashboard(container, {
+			const dashboard = new UserHubDashboard(container, makeDeps({
 				userService: makeUserService(),
-				hubRegistry: makeHubRegistry([]) as never,
 				eventBus,
-			});
+			}));
 
 			dashboard.render();
 
 			expect(container.textContent).toContain("Welcome to Flowti");
+		});
+	});
+
+	// ── Inbox section ───────────────────────────────────────
+
+	describe("inbox section", () => {
+		it("should always render inbox section even when empty", () => {
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				inboxService: makeInboxService([], 0),
+			}));
+
+			dashboard.render();
+
+			expect(container.textContent).toContain("Inbox");
+			expect(container.querySelector(".ft-inbox-section")).toBeTruthy();
+		});
+
+		it("should show empty state message when no items", () => {
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				inboxService: makeInboxService([], 0),
+			}));
+
+			dashboard.render();
+
+			expect(container.textContent).toContain("Your inbox is empty");
+		});
+
+		it("should render inbox items when items exist", () => {
+			const items = [
+				makeItem({ id: "1", title: "Import completed: 10 rows" }),
+				makeItem({ id: "2", title: "Watcher matched: My Watcher" }),
+			];
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				inboxService: makeInboxService(items, 1),
+			}));
+
+			dashboard.render();
+
+			expect(container.textContent).toContain("Inbox");
+			expect(container.textContent).toContain("Import completed: 10 rows");
+			expect(container.textContent).toContain("Watcher matched: My Watcher");
+		});
+
+		it("should show unread count badge when unread > 0", () => {
+			const items = [makeItem()];
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				inboxService: makeInboxService(items, 3),
+			}));
+
+			dashboard.render();
+
+			expect(container.textContent).toContain("3 unread");
+		});
+
+		it("should not show unread badge when unread count is 0", () => {
+			const items = [makeItem({ read: true })];
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				inboxService: makeInboxService(items, 0),
+			}));
+
+			dashboard.render();
+
+			expect(container.textContent).not.toContain("unread");
+		});
+
+		it("should show source event badge on rows", () => {
+			const items = [
+				makeItem({ sourceEvent: "dataExchange.import.completed" }),
+				makeItem({ id: "item-2", sourceEvent: "subscription.matched" }),
+			];
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				inboxService: makeInboxService(items, 0),
+			}));
+
+			dashboard.render();
+
+			const badges = container.querySelectorAll(".ft-badge");
+			const badgeTexts = Array.from(badges).map((b) => b.textContent);
+			expect(badgeTexts).toContain("Import");
+			expect(badgeTexts).toContain("Watcher");
+		});
+
+		it("should bold unread items", () => {
+			const items = [
+				makeItem({ id: "1", read: false, title: "Unread item" }),
+				makeItem({ id: "2", read: true, title: "Read item" }),
+			];
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				inboxService: makeInboxService(items, 1),
+			}));
+
+			dashboard.render();
+
+			const rows = container.querySelectorAll(".ft-catalog-row");
+			expect(rows).toHaveLength(2);
+			expect((rows[0] as HTMLElement).style.fontWeight).toBe("600");
+			expect((rows[1] as HTMLElement).style.fontWeight).not.toBe("600");
+		});
+
+		it("should show accent border on unread items", () => {
+			const items = [
+				makeItem({ id: "1", read: false }),
+				makeItem({ id: "2", read: true }),
+			];
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				inboxService: makeInboxService(items, 1),
+			}));
+
+			dashboard.render();
+
+			const rows = container.querySelectorAll(".ft-catalog-row");
+			expect((rows[0] as HTMLElement).style.borderLeft).toContain("var(--interactive-accent)");
+			expect((rows[1] as HTMLElement).style.borderLeft).not.toContain("var(--interactive-accent)");
+		});
+
+		it("should show at most 5 items", () => {
+			const items = Array.from({ length: 7 }, (_, i) =>
+				makeItem({ id: `item-${i}`, title: `Item ${i}` }),
+			);
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				inboxService: makeInboxService(items, 0),
+			}));
+
+			dashboard.render();
+
+			const rows = container.querySelectorAll(".ft-catalog-row");
+			expect(rows).toHaveLength(5);
+		});
+
+		it("should show 'View all' link when more than 5 items", () => {
+			const items = Array.from({ length: 8 }, (_, i) =>
+				makeItem({ id: `item-${i}`, title: `Item ${i}` }),
+			);
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				inboxService: makeInboxService(items, 0),
+			}));
+
+			dashboard.render();
+
+			expect(container.textContent).toContain("View all (8)");
+		});
+
+		it("should not show 'View all' link when 5 or fewer items", () => {
+			const items = Array.from({ length: 3 }, (_, i) =>
+				makeItem({ id: `item-${i}`, title: `Item ${i}` }),
+			);
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				inboxService: makeInboxService(items, 0),
+			}));
+
+			dashboard.render();
+
+			expect(container.textContent).not.toContain("View all");
+		});
+
+		it("should call onInboxItemClick with the item when row is clicked", () => {
+			const onInboxItemClick = vi.fn();
+			const item = makeItem();
+			const items = [item];
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				inboxService: makeInboxService(items, 1),
+				onInboxItemClick,
+			}));
+
+			dashboard.render();
+
+			const row = container.querySelector(".ft-catalog-row") as HTMLElement;
+			row.click();
+
+			expect(onInboxItemClick).toHaveBeenCalledWith(item);
+		});
+
+		it("should navigate to inbox tab when 'View all' is clicked", () => {
+			const navigateToTab = vi.fn();
+			const items = Array.from({ length: 8 }, (_, i) =>
+				makeItem({ id: `item-${i}`, title: `Item ${i}` }),
+			);
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				inboxService: makeInboxService(items, 0),
+				navigateToTab,
+			}));
+
+			dashboard.render();
+
+			// The "View all" link is a span with ft-nav-link inside the inbox section
+			const navLinks = Array.from(container.querySelectorAll(".ft-nav-link"));
+			const viewAllLink = navLinks.find((el) => el.textContent?.includes("View all")) as HTMLElement | undefined;
+			expect(viewAllLink).toBeDefined();
+			viewAllLink!.click();
+
+			expect(navigateToTab).toHaveBeenCalledWith("inbox");
+		});
+
+		it("should call clearAll when clear button is clicked", () => {
+			const inboxService = makeInboxService([makeItem()], 0);
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				inboxService,
+			}));
+
+			dashboard.render();
+
+			const clearBtn = container.querySelector(".ft-inbox-section button") as HTMLElement;
+			expect(clearBtn).toBeTruthy();
+			clearBtn.click();
+
+			expect(inboxService.clearAll).toHaveBeenCalled();
 		});
 	});
 
@@ -95,11 +351,10 @@ describe("UserHubDashboard", () => {
 				}),
 			];
 
-			const dashboard = new UserHubDashboard(container, {
-				userService: makeUserService("Alice"),
+			const dashboard = new UserHubDashboard(container, makeDeps({
 				hubRegistry: makeHubRegistry(providers) as never,
 				eventBus,
-			});
+			}));
 
 			dashboard.render();
 
@@ -114,11 +369,10 @@ describe("UserHubDashboard", () => {
 				makeProvider({ getHubId: () => "event-catalog", getDisplayName: () => "Event Catalog" }),
 			];
 
-			const dashboard = new UserHubDashboard(container, {
-				userService: makeUserService("Alice"),
+			const dashboard = new UserHubDashboard(container, makeDeps({
 				hubRegistry: makeHubRegistry(providers) as never,
 				eventBus,
-			});
+			}));
 
 			dashboard.render();
 
@@ -131,11 +385,10 @@ describe("UserHubDashboard", () => {
 				makeProvider({ getHubId: () => "user-hub" }),
 			];
 
-			const dashboard = new UserHubDashboard(container, {
-				userService: makeUserService("Alice"),
+			const dashboard = new UserHubDashboard(container, makeDeps({
 				hubRegistry: makeHubRegistry(providers) as never,
 				eventBus,
-			});
+			}));
 
 			dashboard.render();
 
@@ -157,11 +410,10 @@ describe("UserHubDashboard", () => {
 				}),
 			]);
 
-			const dashboard = new UserHubDashboard(container, {
-				userService: makeUserService("Alice"),
+			const dashboard = new UserHubDashboard(container, makeDeps({
 				hubRegistry: hubRegistry as never,
 				eventBus,
-			});
+			}));
 
 			dashboard.render();
 
@@ -188,11 +440,10 @@ describe("UserHubDashboard", () => {
 				}),
 			]);
 
-			const dashboard = new UserHubDashboard(container, {
-				userService: makeUserService("Alice"),
+			const dashboard = new UserHubDashboard(container, makeDeps({
 				hubRegistry: hubRegistry as never,
 				eventBus,
-			});
+			}));
 
 			dashboard.render();
 
@@ -208,14 +459,12 @@ describe("UserHubDashboard", () => {
 
 	describe("quick actions", () => {
 		it("should render 4 quick action buttons", () => {
-			const dashboard = new UserHubDashboard(container, {
-				userService: makeUserService("Alice"),
-				hubRegistry: makeHubRegistry([]) as never,
-				eventBus,
-			});
+			const dashboard = new UserHubDashboard(container, makeDeps({ eventBus }));
 
 			dashboard.render();
 
+			// Quick actions use ft-nav-link class; inbox "View all" also uses it
+			// With empty inbox, only quick actions should produce ft-nav-link
 			const actions = container.querySelectorAll(".ft-nav-link");
 			expect(actions).toHaveLength(4);
 		});
@@ -224,11 +473,7 @@ describe("UserHubDashboard", () => {
 			const spy = vi.fn();
 			eventBus.on("ui.openEventCatalog", spy);
 
-			const dashboard = new UserHubDashboard(container, {
-				userService: makeUserService("Alice"),
-				hubRegistry: makeHubRegistry([]) as never,
-				eventBus,
-			});
+			const dashboard = new UserHubDashboard(container, makeDeps({ eventBus }));
 
 			dashboard.render();
 
@@ -246,11 +491,7 @@ describe("UserHubDashboard", () => {
 
 	describe("re-render", () => {
 		it("should clear and rebuild on subsequent render calls", () => {
-			const dashboard = new UserHubDashboard(container, {
-				userService: makeUserService("Alice"),
-				hubRegistry: makeHubRegistry([]) as never,
-				eventBus,
-			});
+			const dashboard = new UserHubDashboard(container, makeDeps({ eventBus }));
 
 			dashboard.render();
 			const firstH2Count = container.querySelectorAll("h2").length;

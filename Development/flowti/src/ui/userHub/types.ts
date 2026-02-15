@@ -2,39 +2,36 @@
  * Type definitions for the User Hub view and its components.
  */
 
-import type { HubRegistry } from "../../domain/hub/HubRegistry";
+import type { InboxService } from "../../domain/inbox/InboxService";
 import type { IEventBus } from "../../infrastructure/events/types";
 
+// Re-export InboxItem from domain (single source of truth)
+import type { InboxItem } from "../../domain/inbox/types";
+export type { InboxItem } from "../../domain/inbox/types";
+
 // ─────────────────────────────────────────────────────────────
-// Tab & State
+// State
 // ─────────────────────────────────────────────────────────────
-
-/** Tabs available in the User Hub (excluding the implicit "dashboard"). */
-export type UserTab = "inbox" | "activity";
-
-export interface InboxItem {
-	id: string;
-	type: "action" | "info";
-	title: string;
-	description: string;
-	sourceHub: string;
-	timestamp: string;
-	read: boolean;
-}
-
-export interface ActivityLogEntry {
-	type: string;
-	category: string;
-	description: string;
-	payload: unknown;
-	timestamp: string;
-}
 
 export interface UserHubState {
 	inboxItems: InboxItem[];
-	activityLog: ActivityLogEntry[];
 	selectedInboxItem: InboxItem | null;
-	selectedActivity: ActivityLogEntry | null;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────
+
+const SOURCE_EVENT_LABELS: Record<string, string> = {
+	"subscription.matched": "Watcher",
+	"dataExchange.import.completed": "Import",
+	"dataExchange.import.failed": "Import Error",
+	"dataExchange.export.completed": "Export",
+};
+
+/** Returns a human-readable label for an inbox item's source event. */
+export function formatSourceEvent(sourceEvent: string): string {
+	return SOURCE_EVENT_LABELS[sourceEvent] ?? sourceEvent;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -45,6 +42,8 @@ export interface UserHubComponentDeps {
 	getState: () => UserHubState;
 	setState: (partial: Partial<UserHubState>) => void;
 	eventBus: IEventBus;
-	hubRegistry: HubRegistry;
+	inboxService: InboxService;
 	scheduleRender: () => void;
+	/** Navigate to a specific event type in the Event Catalog. */
+	navigateToEvent: (eventType: string) => void;
 }

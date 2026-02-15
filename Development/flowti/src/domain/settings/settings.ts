@@ -53,6 +53,7 @@ export const DEFAULT_CATALOG_CATEGORIES: CatalogCategoryConfig[] = [
 	{ name: "Documentation", visible: false },
 	{ name: "UI Commands", visible: false },
 	{ name: "Hub", visible: false },
+	{ name: "Inbox", visible: true },
 ];
 
 // ─────────────────────────────────────────────────────────────
@@ -133,6 +134,12 @@ export const FlowtiSettingsSchema = z.object({
 	ingestionWatchEventTypes: z.array(z.string()).default(["file.created", "file.modified"]),
 	watchFolders: z.array(z.string()).default([]),
 	entityPaths: EntityPathsSchema.default(DEFAULT_ENTITY_PATHS),
+	inboxEnabledSources: z.array(z.string()).default([
+		"subscription.matched",
+		"dataExchange.import.completed",
+		"dataExchange.import.failed",
+		"dataExchange.export.completed",
+	]),
 });
 
 /**

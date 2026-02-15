@@ -2,8 +2,7 @@
 import "../../mocks/obsidian-stub";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { UserHubInbox } from "../../../src/ui/userHub/UserHubInbox";
-import type { UserHubState, UserHubComponentDeps, InboxItem } from "../../../src/ui/userHub/types";
-import type { HubRegistry } from "../../../src/domain/hub/HubRegistry";
+import { formatSourceEvent, type UserHubState, type UserHubComponentDeps, type InboxItem } from "../../../src/ui/userHub/types";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -14,6 +13,7 @@ function makeItem(overrides?: Partial<InboxItem>): InboxItem {
 		type: "info",
 		title: "Test Item",
 		description: "A test inbox item",
+		sourceEvent: "test.event",
 		sourceHub: "event-catalog",
 		timestamp: new Date().toISOString(),
 		read: false,
@@ -24,9 +24,7 @@ function makeItem(overrides?: Partial<InboxItem>): InboxItem {
 function makeState(): UserHubState {
 	return {
 		inboxItems: [],
-		activityLog: [],
 		selectedInboxItem: null,
-		selectedActivity: null,
 	};
 }
 
@@ -35,10 +33,30 @@ function makeDeps(state: UserHubState): UserHubComponentDeps {
 		getState: () => state,
 		setState: (partial) => Object.assign(state, partial),
 		eventBus: {} as IEventBus,
-		hubRegistry: {} as HubRegistry,
+		inboxService: {
+			markRead: vi.fn(async () => {}),
+			dismiss: vi.fn(async () => {}),
+			clearAll: vi.fn(async () => {}),
+			getItems: vi.fn(() => []),
+			getUnreadCount: vi.fn(() => 0),
+		} as never,
 		scheduleRender: vi.fn(),
+		navigateToEvent: vi.fn(),
 	};
 }
+
+describe("formatSourceEvent", () => {
+	it("should return human-readable labels for known events", () => {
+		expect(formatSourceEvent("subscription.matched")).toBe("Watcher");
+		expect(formatSourceEvent("dataExchange.import.completed")).toBe("Import");
+		expect(formatSourceEvent("dataExchange.import.failed")).toBe("Import Error");
+		expect(formatSourceEvent("dataExchange.export.completed")).toBe("Export");
+	});
+
+	it("should return raw event name for unknown events", () => {
+		expect(formatSourceEvent("custom.event")).toBe("custom.event");
+	});
+});
 
 describe("UserHubInbox", () => {
 	let state: UserHubState;
@@ -118,6 +136,18 @@ describe("UserHubInbox", () => {
 			expect(deps.scheduleRender).toHaveBeenCalled();
 		});
 
+		it("should show source event badge on rows", () => {
+			state.inboxItems = [makeItem({
+				sourceEvent: "dataExchange.export.completed",
+			})];
+
+			inbox.renderMaster("");
+
+			const badges = masterEl.querySelectorAll(".ft-badge");
+			const badgeTexts = Array.from(badges).map((b) => b.textContent);
+			expect(badgeTexts).toContain("Export");
+		});
+
 		it("should show empty state when filter matches nothing", () => {
 			state.inboxItems = [makeItem({ title: "Hello" })];
 
@@ -156,6 +186,77 @@ describe("UserHubInbox", () => {
 			inbox.renderDetail();
 
 			expect(detailEl.textContent).toContain("Action Required");
+		});
+
+		it("should show source event badge and trigger line", () => {
+			state.selectedInboxItem = makeItem({
+				sourceEvent: "dataExchange.import.completed",
+			});
+
+			inbox.renderDetail();
+
+			expect(detailEl.textContent).toContain("Import");
+			expect(detailEl.textContent).toContain("Triggered by:");
+			expect(detailEl.textContent).toContain("dataExchange.import.completed");
+		});
+
+		it("should navigate to event catalog when source event is clicked", () => {
+			state.selectedInboxItem = makeItem({
+				sourceEvent: "dataExchange.import.completed",
+			});
+
+			inbox.renderDetail();
+
+			const eventLink = detailEl.querySelector(".ft-nav-link") as HTMLElement;
+			expect(eventLink).toBeTruthy();
+			expect(eventLink.textContent).toBe("dataExchange.import.completed");
+			eventLink.click();
+
+			expect(deps.navigateToEvent).toHaveBeenCalledWith("dataExchange.import.completed");
+		});
+
+		it("should call dismiss when dismiss button is clicked", () => {
+			state.selectedInboxItem = makeItem({ id: "item-42" });
+
+			inbox.renderDetail();
+
+			const buttons = Array.from(detailEl.querySelectorAll("button"));
+			const dismissBtn = buttons.find((b) => b.textContent?.includes("Dismiss"));
+			expect(dismissBtn).toBeTruthy();
+			dismissBtn!.click();
+
+			expect(deps.inboxService.dismiss).toHaveBeenCalledWith("item-42");
+		});
+
+		it("should show 'Mark read' button only for unread items", () => {
+			state.selectedInboxItem = makeItem({ read: false });
+			inbox.renderDetail();
+
+			const buttons = Array.from(detailEl.querySelectorAll("button"));
+			expect(buttons.some((b) => b.textContent?.includes("Mark read"))).toBe(true);
+
+			// Re-render with read item
+			state.selectedInboxItem = makeItem({ read: true });
+			inbox.renderDetail();
+
+			const readButtons = Array.from(detailEl.querySelectorAll("button"));
+			expect(readButtons.some((b) => b.textContent?.includes("Mark read"))).toBe(false);
+		});
+
+		it("should highlight selected item with active background", () => {
+			const item = makeItem({ id: "selected-item" });
+			state.inboxItems = [
+				item,
+				makeItem({ id: "other-item", title: "Other" }),
+			];
+			state.selectedInboxItem = item;
+
+			inbox.renderMaster("");
+
+			const rows = masterEl.querySelectorAll(".ft-catalog-row");
+			expect((rows[0] as HTMLElement).classList.contains("ft-catalog-row-active")).toBe(true);
+			expect((rows[0] as HTMLElement).style.backgroundColor).toBe("var(--background-modifier-hover)");
+			expect((rows[1] as HTMLElement).classList.contains("ft-catalog-row-active")).toBe(false);
 		});
 
 		it("should omit description section when empty", () => {

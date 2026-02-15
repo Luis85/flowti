@@ -145,7 +145,7 @@ Primary interaction path:
 ### User Hub
 
 - [x] Personal dashboard with today's summary, recent activity, documentation nudges — *UserHubDashboard: welcome + cross-hub cards + quick actions*
-- [ ] Inbox tab with actionable items from all domain hubs — *placeholder delivered (increment 1); population planned for increment 2*
+- [x] Inbox tab with actionable items from all domain hubs — *InboxService domain (increment 2): 4 source events, persistent state, mark read/dismiss/clear all*
 - [x] Cross-hub summary aggregating stats from all registered hubs — *HubRegistry.getAll() → provider.getSummary() with tabId deep-linking*
 
 ### System Hub Migration
@@ -221,7 +221,8 @@ New fields on existing entities: none (Hubs wrap existing entities, not extend t
 - `hub.navigate` — *BaseHubView listens for cross-hub tab switching*
 - `settings.updated` — hub configuration changes
 - `doc.created` / `doc.deleted` — entity CRUD notifications
-- `*` (wildcard) — *UserHubActivity captures non-internal events for activity feed*
+- `inbox.itemAdded` / `inbox.itemsChanged` — *UserHubView re-renders on inbox changes*
+- `settings.changed` — *main.ts updates InboxService enabled sources*
 
 ### Transformed
 
@@ -248,7 +249,7 @@ Tabs affected:
 |-----|------|
 | Event Catalog | Dashboard, Domains, Services, Events, Flows, Systems, Actors, Products |
 | Data Exchange | Dashboard, Reports, Types, Properties, Imports, Exports, Pipelines |
-| User Hub | Dashboard, Inbox, Activity |
+| User Hub | Dashboard, Inbox |
 | Product Hub | Dashboard, Features, Backlog, Sessions |
 | Project Hub | Dashboard, Work Items, Sessions |
 
@@ -290,7 +291,7 @@ HubRegistry (65 LOC — provider registry + navigation)
 |-----|-----------|----------|-----|------|
 | Event Catalog | EventCatalogView | EventCatalogProvider | 723 | Dashboard, Domains, Services, Events, Flows, Systems, Actors, Products, Health |
 | Data Exchange | DataExchangeHubView | DataExchangeProvider | 477 | Dashboard, Imports, Exports, Reports, Properties, Pipelines, Types |
-| User Hub | UserHubView | UserHubProvider | 138 | Dashboard, Inbox, Activity |
+| User Hub | UserHubView | UserHubProvider | 148 | Dashboard, Inbox |
 
 ### Decision: No HubAdapter Interface (ADR-024)
 
@@ -330,7 +331,7 @@ The abstract `HubAdapter` interface was deferred (Three Amigos decision #2). Eac
 - [ ] Documentation Session can be created, started (with timer), and completed with artifact persistence — *PBI-002*
 - [ ] Tab definitions validate against layout and component manifests — *deferred (TD-52)*
 - [x] Adding a new Domain Hub requires only adapter + tab definitions (<200 LOC) — *UserHubView = 138 LOC*
-- [x] All existing 1,662+ tests pass after migration — *1,725 tests across 77 suites*
+- [x] All existing 1,662+ tests pass after migration — *1,760 tests across 78 suites*
 - [x] `npm run build` passes (vitest + typedoc + tsc + eslint + esbuild) — *green*
 
 ---
@@ -342,13 +343,13 @@ The abstract `HubAdapter` interface was deferred (Three Amigos decision #2). Eac
 - [ ] HubAdapter interface defined with unit tests — *deferred; HubDashboardProvider serves cross-hub needs*
 - [x] Shell layout implemented and renders all hub types — *BaseHubView (278 LOC)*
 - [x] At least 2 System Hubs migrated (Event Catalog, Data Exchange) — *both migrated, zero regression*
-- [x] User Hub implemented with dashboard + inbox — *PBI-001 increment 1 delivered (648 LOC)*
+- [x] User Hub implemented with dashboard + inbox — *PBI-001 increment 1 (648 LOC) + increment 2 (398 LOC InboxService domain)*
 - [ ] Documentation Sessions domain implemented with timer + artifacts — *PBI-002*
 - [ ] Tab definition validation passes for all hub configs — *deferred (TD-52)*
-- [x] Unit tests added for all new domain and infrastructure code — *63 tests: HubRegistry, providers, 3 UI components*
+- [x] Unit tests added for all new domain and infrastructure code — *92 tests: HubRegistry, providers, 3 UI components, inbox mappers, InboxService*
 - [ ] Flow integration tests added for hub lifecycle
-- [x] `npm run build` passes — *1,725 tests, green pipeline*
-- [x] Architecture documentation updated — *ADR-024, sitemap, 4 component docs, Three Amigos reviews*
+- [x] `npm run build` passes — *1,760 tests across 78 suites, green pipeline*
+- [x] Architecture documentation updated — *ADR-024, sitemap, 3 component docs, Three Amigos reviews*
 
 ---
 
@@ -401,15 +402,19 @@ Both System Hubs migrated to BaseHubView. EventCatalogView: 864 → 723 LOC (-16
 
 Resolved 2 blockers from Pre-Feature Development Review: (1) HubRegistry + HubDashboardProvider for cross-hub data aggregation, (2) `hub.navigate` event + BaseHubView listener for cross-hub deep linking. Both System Hubs registered as providers. PBI-001 unblocked.
 
-### Phase 3: User Hub (PBI-001) — INCREMENT 1 DONE
+### Phase 3: User Hub (PBI-001) — INCREMENT 3 DONE
 
-> Completed 2026-02-15. Three Amigos Review: 33/35 (Excellent).
+> Increment 1 completed 2026-02-15. Three Amigos Review: 33/35 (Excellent).
+> Increment 2 completed 2026-02-15. Three Amigos Review: 34/35 (Excellent).
 
-Delivered working User Hub with Dashboard (cross-hub summaries with tabId deep-linking), Inbox (placeholder), and Activity (wildcard event feed, 200-item cap). 6 new files (648 LOC), 5 modified files (+43 LOC), 4 files patched (tabId). 63 unit tests added (domain/hub 100%, ui/userHub 97.9%). 1,725 tests pass across 77 suites.
+**Increment 1**: Delivered working User Hub with Dashboard (cross-hub summaries with tabId deep-linking) and Inbox (placeholder). Activity tab was later removed in increment 3 in favour of the standalone EventLogView sidebar.
+
+**Increment 2**: Populated Inbox with real actionable items from domain events. New `InboxService` domain with TypedStorage persistence, 4 pure mapper functions, 4 source event listeners (subscription.matched, import completed/failed, export completed). Mark read, dismiss, clear all actions wired in UI. UserHubProvider shows unread count. 4 new domain files (398 LOC), 9 modified source files (+115 LOC), 2 new test files (29 tests). 1,786 tests pass across 79 suites.
+
+**Increment 3**: Removed Activity tab (redundant with standalone EventLogView sidebar). Restyled dashboard inbox as always-visible mail-inbox section (after quick actions, accent borders for unread, source badges, max 5 with "View all" link). Added inbox source configuration (`inboxEnabledSources` setting with 4 per-source toggles in Settings → Inbox). `InboxService.setEnabledSources()` gates item creation. Dashboard inbox items deep-link to Inbox tab with pre-selected item. Inbox detail "Triggered by" links deep-link to Event Catalog via `HubRegistry.openHub()` + `onNavigateToEntity()` override. Active inbox row highlighted. Obsidian title bar hidden on all hubs (BaseHubView). 1,764 tests pass across 78 suites.
 
 **Remaining for PBI-001:**
-- Increment 2: Inbox population from subscription/ingestion events, persistent inbox state
-- Increment 3: User preferences panel, activity category filtering
+- Increment 4: User preferences panel, pipeline inbox items
 
 ### Phase 4: Sessions + Domain Hubs (PBI-002, PBI-003, PBI-004) — PLANNED
 
@@ -428,6 +433,8 @@ Add Documentation Sessions domain and first Domain Hubs (Product, Project). Not 
 | 2026-02-15 | approved → in-progress | Implementation Start | 29 | Technical Architect | Phase 1+2 completed (BaseHubView + System Hub migrations). TASM 29/35 (Strong). 1,662 tests pass. |
 | 2026-02-15 | in-progress | Phase 2.5 (blockers) | 29 | Technical Architect | HubRegistry + cross-hub navigation. TASM 32/35 (Excellent). PBI-001 unblocked. |
 | 2026-02-15 | in-progress | Phase 3 increment 1 | 31 | Technical Architect | PBI-001 User Hub first increment. 63 tests added. tabId deep-linking. TASM 33/35 (Excellent). 1,725 tests pass across 77 suites. |
+| 2026-02-15 | in-progress | Phase 3 increment 2 | 31 | Technical Architect | PBI-001 Inbox Population. InboxService domain (398 LOC). 4 source events, persistent state, CRUD actions. 29 tests added. TASM 34/35 (Excellent). 1,786 tests pass across 79 suites. |
+| 2026-02-16 | in-progress | Phase 3 increment 3 | 31 | Technical Architect | Activity tab removed (redundant with EventLogView). Dashboard inbox restyled as always-visible mail-inbox. Inbox source config (4 toggles). Deep-linking: inbox→catalog via onNavigateToEntity. Title bar hidden on all hubs. 1,764 tests across 78 suites. |
 
 ---
 
@@ -444,5 +451,6 @@ Add Documentation Sessions domain and first Domain Hubs (Product, Project). Not 
   - [[Pre-Feature Development Review 2026-02-15]] (Gap analysis before Phase 3)
   - [[Three Amigos Review - HubRegistry + Navigation 2026-02-15]] (Phase 2.5: cross-hub infrastructure)
   - [[Three Amigos Review - User Hub First Increment 2026-02-15]] (Phase 3: PBI-001 increment 1)
+  - [[Three Amigos Review - User Hub Inbox Population 2026-02-15]] (Phase 3: PBI-001 increment 2)
 - Sitemap: [[User Hub View]], [[Event Catalog View]], [[Data Exchange Hub View]]
-- Components: [[UserHubView]], [[UserHubDashboard]], [[UserHubInbox]], [[UserHubActivity]]
+- Components: [[UserHubView]], [[UserHubDashboard]], [[UserHubInbox]]
