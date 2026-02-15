@@ -11,6 +11,8 @@ views:
     order:
       - file.name
       - type
+    columnSize:
+      file.name: 556
   - type: table
     name: Use Cases
     filters:
