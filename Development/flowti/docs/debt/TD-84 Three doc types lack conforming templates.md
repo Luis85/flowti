@@ -2,9 +2,10 @@
 severity: high
 category: architecture
 layer: cross-cutting
-status: open
+status: resolved
 effort: medium
 updated: 2026-02-15
+resolved: 2026-02-15
 description: Personas, Jobs to Be Done, and User Stories have no templates in /docs/templates/. These are the only three user-facing doc types without a conforming data shape, causing inconsistent or absent content.
 ---
 # TD-84: Three doc types lack conforming templates
@@ -49,3 +50,14 @@ The correlation is clear: document types with templates have consistent, complet
 - Missing: `docs/templates/JTBD Template.md`
 - Missing: `docs/templates/User Story Template.md`
 - `docs/Data Dictionary.md` (needs schema additions)
+
+## Resolution (2026-02-15)
+
+All three missing templates created:
+- **Persona Template** (227 lines) — 8 sections: Identity, Goals, Pain Points, Context, Behavioral Patterns, Domain Interaction Map, Related Artifacts, Review Log. Includes frontmatter schema with `type: Persona`, related domains/features.
+- **JTBD Template** (208 lines) — 8 sections: Job Statement (When/I need to/So that format), Scope, Success Criteria, Current Alternatives, Form (feature/flow/event links), Prioritization (Ulwick opportunity scoring), Open Questions, Review Log.
+- **User Story Template** (217 lines) — 7 sections: Narrative (As a/I want/So that), Acceptance Criteria (Given/When/Then), Dependencies, Impact (data/event/UI), INVEST Checklist, Related Artifacts, Review Log.
+
+Additionally, a **Documentation Audit Review Template** was created to systematize periodic health checks.
+
+Remaining work: Update Data Dictionary with frontmatter schemas for these three types (tracked separately).
