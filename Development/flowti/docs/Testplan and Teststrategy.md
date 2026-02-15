@@ -43,13 +43,21 @@ This section describes **why** and **how** we test.
 
 ### Frameworks and Tools
 
-| Tool | Purpose |
-|------|---------|
-| **Vitest** | Unit + integration test runner |
-| **vi.fn() / vi.spyOn()** | Mocking and spying |
-| **vi.useFakeTimers()** | Deterministic time in timestamp-dependent tests |
-| **obsidian-stub** | Polyfills Obsidian DOM extensions (`createDiv`, `createEl`, `addClass`, etc.) |
-| **`@vitest/coverage-v8`** | Code coverage via V8 engine |
+| Tool                             | Purpose                                                                          |
+| -------------------------------- | -------------------------------------------------------------------------------- |
+| **Vitest**                       | Unit + integration test runner                                                   |
+| **vi.fn() / vi.spyOn()**         | Mocking and spying                                                               |
+| **vi.useFakeTimers()**           | Deterministic time in timestamp-dependent tests                                  |
+| **obsidian-stub**                | Polyfills Obsidian DOM extensions (`createDiv`, `createEl`, `addClass`, etc.)    |
+| **`@vitest/coverage-v8`**        | Code coverage via V8 engine                                                      |
+| **Architecture and Code Review** | Regular reviews to maintain architecture integrity and an updated tech-debt list |
+| **Agile Development**            | Short development cycles to get testable increments                              |
+| **Domain Driven Development**    |                                                                                  |
+| **Test Driven Development**      |                                                                                  |
+| **Behaviour Driven Development** |                                                                                  |
+| **Clean Code Development**       |                                                                                  |
+| **Three Amigos**                 | Look at the solution from different perspectives                                 |
+| **Gherkin Tests**                | Build the baseline for use-case documentation                                    |
 
 ### Test Isolation
 
