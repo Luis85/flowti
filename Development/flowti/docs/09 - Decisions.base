@@ -1,7 +1,6 @@
 filters:
   and:
     - file.inFolder("Development/flowti/docs/decisions")
-    - file.property("type").isExact("DecisionNote")
 views:
   - type: table
     name: Decision Log
@@ -12,6 +11,7 @@ views:
       - date
       - domain
       - category
+    sort: []
     columnWidths:
       adr: 80
       title: 300
@@ -19,6 +19,3 @@ views:
       date: 100
       domain: 140
       category: 140
-    sort:
-      - column: adr
-        direction: asc
