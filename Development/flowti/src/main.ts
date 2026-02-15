@@ -31,6 +31,9 @@ import { DataExchangeSetup } from "./dataExchangeSetup";
 import { UiCommandService } from "./infrastructure/ui/UiCommandService";
 import { InputModal } from "./ui/modals";
 import { createInfrastructure, setupCrossCuttingListeners } from "./pluginBootstrap";
+import { HubRegistry } from "./domain/hub/HubRegistry";
+import { EventCatalogProvider } from "./domain/hub/EventCatalogProvider";
+import { DataExchangeProvider } from "./domain/hub/DataExchangeProvider";
 
 
 /**  
@@ -86,6 +89,7 @@ export default class FlowtiBasePlugin extends Plugin {
 	private ingestionStatusBar?: IngestionStatusBar;
 	private collapsedCategories = new Set<string>();
 	private uiCommandService?: UiCommandService;
+	private hubRegistry?: HubRegistry;
 	private crossCuttingListeners: (() => void)[] = [];
 
 	// ── Notice throttle ──────────────────────────────────────
@@ -441,6 +445,17 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.uiCommandService?.setOpenExportWithSavedConfig(
 				(savedConfig) => dxSetup.openExportWithSavedConfig(savedConfig),
 			);
+
+			// ── Hub Registry: cross-hub data + navigation ──
+			this.hubRegistry = new HubRegistry(this.app, this.eventBus);
+			this.hubRegistry.register(new EventCatalogProvider({
+				getSettings: () => this.settings,
+				getExcludedTypes: () => this.eventFilterService?.getExcludedTypes() ?? [],
+				getNotifiedTypes: () => this.eventNotifyService?.getNotifiedTypes() ?? [],
+				getDiscoveredEvents: () => this.discoveryService?.getDiscoveredEvents() ?? [],
+				collapsedCategories: this.collapsedCategories,
+			}));
+			this.hubRegistry.register(new DataExchangeProvider(this.dataExchangeService));
 
 			// Run catch-up if watch folders are configured
 			if (this.settings.watchFolders.length > 0 && this.ingestionService) {

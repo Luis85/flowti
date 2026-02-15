@@ -366,6 +366,7 @@ const CATALOG_DATA = {
 	"hub.opened":      { category: "Hub", description: "A hub view was opened", direction: "View → Plugin", domain: "hub", services: "BaseHubView", tags: ["system"] },
 	"hub.closed":      { category: "Hub", description: "A hub view was closed", direction: "View → Plugin", domain: "hub", services: "BaseHubView", tags: ["system"] },
 	"hub.tab.changed": { category: "Hub", description: "The active tab changed within a hub", direction: "View → Plugin", domain: "hub", services: "BaseHubView", tags: ["system"] },
+	"hub.navigate":    { category: "Hub", description: "Cross-hub navigation request", direction: "Service → Listeners", domain: "hub", services: "HubRegistry", tags: ["system"] },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

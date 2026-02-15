@@ -129,6 +129,21 @@ export abstract class BaseHubView<TPage extends string = string> extends ItemVie
 		// Subclass-specific init
 		this.onHubOpen();
 
+		// Listen for cross-hub navigation
+		this.addUnsubscribe(
+			this.eventBus.on("hub.navigate", (event) => {
+				if (event.payload.hubId !== this.getHubId()) return;
+				const tabId = event.payload.tabId;
+				if (tabId) {
+					this.navigateTo(tabId as TPage);
+				}
+				// entityId handling is subclass-specific via onNavigateToEntity()
+				if (event.payload.entityId) {
+					this.onNavigateToEntity(event.payload.tabId ?? "", event.payload.entityId);
+				}
+			}),
+		);
+
 		// Emit hub.opened
 		void this.eventBus.emit("hub.opened", {
 			hubId: this.getHubId(),
@@ -213,6 +228,14 @@ export abstract class BaseHubView<TPage extends string = string> extends ItemVie
 	 * Override in subclasses for tab-specific DOM toggling (e.g. gear button, legend).
 	 */
 	protected onTabChanged(): void {
+		// Default: no-op. Override in subclass.
+	}
+
+	/**
+	 * Called when a hub.navigate event targets a specific entity within a tab.
+	 * Override in subclasses to select the entity in the appropriate tab component.
+	 */
+	protected onNavigateToEntity(_tabId: string, _entityId: string): void {
 		// Default: no-op. Override in subclass.
 	}
 
