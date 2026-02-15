@@ -20,7 +20,7 @@ views:
       - persona
     sort:
       - property: file.name
-        direction: ASC
+        direction: DESC
     columnSize:
       file.name: 614
       note.tags: 130
