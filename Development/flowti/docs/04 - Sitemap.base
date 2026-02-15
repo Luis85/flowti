@@ -13,9 +13,12 @@ views:
     order:
       - file.name
       - description
+      - parent
       - feature
       - Source
+      - tags
     columnSize:
       file.name: 203
       note.description: 450
+      note.parent: 132
       note.feature: 191

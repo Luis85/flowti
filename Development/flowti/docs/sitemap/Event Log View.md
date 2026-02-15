@@ -13,6 +13,7 @@ source: "[[Development/flowti/src/ui/EventLogView.ts|EventLogView.ts]]"
 feature: "[[Event System]]"
 aliases:
   - Activity Log View
+parent: "[[User Hub View]]"
 ---
 
 # Event Log View

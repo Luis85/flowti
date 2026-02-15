@@ -5,6 +5,7 @@ plugin: "[[Development/flowti/README|README]]"
 tags:
   - core
   - view
+  - homepage
 description: Personal cockpit aggregating cross-hub summaries, inbox, and activity feed
 type: View
 viewType: flowti-user-hub

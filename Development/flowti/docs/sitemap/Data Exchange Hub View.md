@@ -11,6 +11,7 @@ viewType: flowti-data-exchange-hub
 extends: ItemView
 source: "[[Development/flowti/src/ui/DataExchangeHubView.ts|DataExchangeHubView.ts]]"
 feature: "[[Data Exchange Hub]]"
+parent: "[[User Hub View]]"
 ---
 
 # Data Exchange Hub View
