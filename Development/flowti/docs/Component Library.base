@@ -9,10 +9,10 @@ views:
       direction: ASC
     order:
       - file.name
-      - type
-      - domain
-      - source
-      - stage
-      - parent
       - description
+      - stage
+      - source
+      - parent
     sort: []
+    columnSize:
+      note.description: 424
