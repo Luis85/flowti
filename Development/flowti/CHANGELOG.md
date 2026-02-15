@@ -25,9 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Error handling: silent `catch {}` replaced with `console.warn`
 - Storage: TypedStorage&lt;T&gt; with mutex-protected saves
-- Testing: 54 test files, 1,344 tests
+- Testing: 65 test files, 1,447 tests (32 skipped)
+- Flow integration tests: 10 suites covering all documented user journeys (87 pass, 28 skip)
 - EventConfigModal decomposed into 3 page components
 - contentGenerator.ts split into 3 focused modules
+- Tech debt: 27 of 41 items resolved, 4 mitigated, 0 high-severity open
 
 ### Fixed
 - Dual-state bug: SettingsService.load() in onLayoutReady

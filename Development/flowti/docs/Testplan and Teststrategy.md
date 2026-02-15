@@ -32,12 +32,15 @@ This section describes **why** and **how** we test.
         │   E2E (planned)      │  Obsidian runtime
         │   ⏭️ Future           │  ~0 tests
         ├──────────────────────┤
+        │   Flow Integration   │  Cross-service journeys
+        │   ✅ 10 flow suites   │  ~87 tests (28 skipped)
+        ├──────────────────────┤
         │   Integration        │  Multi-service flows
         │   ✅ InstallerJourney │  ~20 tests
         │   ✅ Pipeline         │  ~25 tests
         ├──────────────────────┤
         │   Unit               │  Services, pure fns, utils
-        │   ✅ 49 test files    │  ~1,127 tests
+        │   ✅ 55 test files    │  ~1,300 tests
         └──────────────────────┘
 ```
 
@@ -174,10 +177,11 @@ Vitest generates test and coverage reports. You find them as JSON files in `docs
 
 | Metric | Value |
 |--------|-------|
-| Test files | 54 |
-| Tests | 1,344 passing, 4 skipped |
-| Coverage (statements) | ~29% overall (UI layer largely untested — see [[TD-27 Limited UI component testing\|TD-27]]) |
-| Coverage (branches) | ~35% overall |
+| Test files | 65 |
+| Tests | 1,447 passing, 32 skipped |
+| Flow test suites | 10 files covering all documented user journeys (87 pass, 28 skip) |
+| Coverage (statements) | ~31% overall (UI layer largely untested — see [[TD-27 Limited UI component testing\|TD-27]]) |
+| Coverage (branches) | ~36% overall |
 | 100% coverage files | `pathResolver.ts`, `contentGenerator.ts`, `configDocContent.ts`, `CsvParser.ts`, `glob.ts`, `mutex.ts`, `pathUtils.ts`, `folders.ts`, `settings.ts`, `UserService.ts`, `EventBus.ts`, `UiCommandService.ts` |
 | Build pipeline | vitest → typedoc → tsc → eslint → esbuild |
 
@@ -247,6 +251,48 @@ End-to-end path through the installer feature, crossing multiple steps and servi
 | 4 — Failure | Retry succeeds after error resolved | ✅ |
 | 4 — Failure | UserCreationStep skipped on retry | ✅ |
 | 4 — Failure | Failure page with retry button | ⏭️ Obsidian Modal |
+
+---
+
+## Flow Integration Tests
+
+End-to-end user journey test suites covering all 10 documented flows. Each suite exercises multiple services via real `EventBus` instances, verifying cross-domain event contracts.
+
+> **Test directory:** `tests/flows/`
+> **Shared helpers:** `tests/flows/testHelpers.ts` (`createMockStorage<T>`, `createMockFileSystem`, `waitForAsync`)
+> **Flow documentation:** `docs/flows/` (10 files)
+
+### Flow Test Suites
+
+| # | Flow | Test File | Pass | Skip | Services Exercised |
+|---|------|-----------|------|------|--------------------|
+| 01 | First-Run Onboarding | `01-FirstRunOnboarding.test.ts` | 4 | 2 | InstallerService, UserService |
+| 02 | Browse and Configure Events | `02-BrowseAndConfigureEvents.test.ts` | 10 | 2 | SubscriptionService, EventDefinitionService |
+| 03 | Import CSV as Notes | `03-ImportCsvAsNotes.test.ts` | 7 | 2 | DataExchangeService, ImportService |
+| 04 | Export Vault Data | `04-ExportVaultData.test.ts` | 5 | 5 | DataExchangeService, ExportService |
+| 05 | Build Import Pipeline | `05-BuildImportPipeline.test.ts` | 8 | 2 | DataExchangeService, PipelineExecutor |
+| 06 | Create Domain Documentation | `06-CreateDomainDocumentation.test.ts` | 13 | 2 | DocService |
+| 07 | Monitor and Debug Events | `07-MonitorAndDebugEvents.test.ts` | 8 | 3 | SubscriptionService |
+| 08 | Configure File Ingestion | `08-ConfigureFileIngestion.test.ts` | 9 | 4 | IngestionService, EventDefinitionService |
+| 09 | Discover Custom Events | `09-DiscoverCustomEvents.test.ts` | 7 | 3 | DiscoveryService, SubscriptionService |
+| 10 | Manage Data Dictionary | `10-ManageDataDictionary.test.ts` | 16 | 3 | DataExchangeService |
+| | **Total** | | **87** | **28** | |
+
+### Skip Reasons (Flow Tests)
+
+| Category | Affected Tests | Reason |
+|----------|---------------|--------|
+| Obsidian Modal/View | 18 tests | Require Obsidian `App`, `Modal`, or `ItemView` runtime |
+| `emitCustom` limitation | 3 tests | `emitCustom()` only fires wildcard handlers, not typed `on()` handlers — by design |
+| UI rendering | 7 tests | DOM rendering requires live Obsidian workspace |
+
+### Test Pattern
+
+Each flow test:
+1. Creates isolated `EventBus` + mock storage/filesystem per test via `beforeEach()`
+2. Instantiates real service instances (not mocks) with injected dependencies
+3. Emits events and asserts on event handler calls, service state, and side effects
+4. Skips scenarios that require Obsidian runtime with annotated `it.skip()` blocks
 
 ---
 
@@ -798,7 +844,7 @@ npm run build = vitest run --coverage → typedoc → tsc -noEmit -skipLibCheck 
 
 | Stage | What it validates |
 |-------|-------------------|
-| `vitest run` | All 1,344 tests pass, coverage report generated |
+| `vitest run` | All 1,447 tests pass (32 skipped), coverage report generated |
 | `typedoc` | TSDoc comments generate without errors |
 | `tsc` | Type-checking passes (`strict: true`, `-skipLibCheck` for node_modules) |
 | `eslint` | Lint rules pass on `src/` |
@@ -819,7 +865,7 @@ npm run build = vitest run --coverage → typedoc → tsc -noEmit -skipLibCheck 
 
 ## Appendix C: Test File Index
 
-### Domain Tests (29 files)
+### Domain Tests (31 files)
 
 | File | Tests | Source |
 |------|-------|--------|
@@ -830,7 +876,9 @@ npm run build = vitest run --coverage → typedoc → tsc -noEmit -skipLibCheck 
 | `tests/domain/dataExchange/ExportService.test.ts` | 34 | Vault→CSV export |
 | `tests/domain/dataExchange/ImportService.test.ts` | 16 | CSV→vault import |
 | `tests/domain/dataExchange/Pipeline.test.ts` | 25 | Multi-import pipelines |
-| `tests/domain/discovery/DiscoveryService.test.ts` | 10 | Event file discovery |
+| `tests/domain/dataExchange/ConfigPathTracker.test.ts` | 22 | Config path tracking |
+| `tests/domain/dataExchange/DataDictionaryBuilder.test.ts` | 30 | Data dictionary building |
+| `tests/domain/discovery/DiscoveryService.test.ts` | 27 | Event file discovery |
 | `tests/domain/docs/contentGenerator.test.ts` | 64 | Doc content generators |
 | `tests/domain/docs/DocService.test.ts` | 15 | Centralized doc creation |
 | `tests/domain/docs/pathResolver.test.ts` | 82 | Doc path resolution |
@@ -866,7 +914,7 @@ npm run build = vitest run --coverage → typedoc → tsc -noEmit -skipLibCheck 
 | `tests/infrastructure/services/WorkspaceService.test.ts` | 4 | Workspace ops |
 | `tests/infrastructure/ui/UiCommandService.test.ts` | 25 | UI command bus |
 
-### UI Tests (7 files)
+### UI Tests (9 files)
 
 | File | Tests | Source |
 |------|-------|--------|
@@ -878,6 +926,22 @@ npm run build = vitest run --coverage → typedoc → tsc -noEmit -skipLibCheck 
 | `tests/ui/IngestionStatusBar.test.ts` | 7 | Status bar |
 | `tests/ui/eventDocTemplate.test.ts` | 64 | Doc template generators |
 | `tests/ui/catalog/helpers.test.ts` | 44 | Catalog helper functions |
+| `tests/ui/catalog/DomainsTab.test.ts` | 16 | DomainsTab component |
+
+### Flow Integration Tests (10 files)
+
+| File | Pass | Skip | Source |
+|------|------|------|--------|
+| `tests/flows/01-FirstRunOnboarding.test.ts` | 4 | 2 | Installer lifecycle |
+| `tests/flows/02-BrowseAndConfigureEvents.test.ts` | 10 | 2 | Subscription + definition CRUD |
+| `tests/flows/03-ImportCsvAsNotes.test.ts` | 7 | 2 | CSV import pipeline |
+| `tests/flows/04-ExportVaultData.test.ts` | 5 | 5 | Vault data export |
+| `tests/flows/05-BuildImportPipeline.test.ts` | 8 | 2 | Multi-source pipeline |
+| `tests/flows/06-CreateDomainDocumentation.test.ts` | 13 | 2 | Doc creation (7 types) |
+| `tests/flows/07-MonitorAndDebugEvents.test.ts` | 8 | 3 | Subscription matching |
+| `tests/flows/08-ConfigureFileIngestion.test.ts` | 9 | 4 | Ingestion + definition matching |
+| `tests/flows/09-DiscoverCustomEvents.test.ts` | 7 | 3 | Event discovery lifecycle |
+| `tests/flows/10-ManageDataDictionary.test.ts` | 16 | 3 | Config CRUD + data dictionary |
 
 ### Utility Tests (5 files)
 

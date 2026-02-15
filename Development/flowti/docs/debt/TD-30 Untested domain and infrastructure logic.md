@@ -4,8 +4,9 @@ category: testing
 layer: cross-cutting
 status: open
 created: 2026-02-14
+updated: 2026-02-15
 effort: medium
-description: "15 non-UI source files (~4,200 LOC) with testable pure functions and injectable services. Tier 1 complete (298 tests, 100%). Tier 2 complete (149 tests, 95-100% coverage). Tier 3 (bootstrap) remains open."
+description: "15 non-UI source files (~4,200 LOC) with testable pure functions and injectable services. Tier 1 complete (298 tests, 100%). Tier 2 complete (149 tests, 95-100% coverage). Tier 3 (bootstrap) open. Tier 4 (flow integration) complete."
 source: "[[Technical Review 2026-02-14]]"
 ---
 # TD-30: Untested domain and infrastructure logic
@@ -13,6 +14,7 @@ source: "[[Technical Review 2026-02-14]]"
 **Tier 1 complete** — 3 test files, 298 tests, 100% coverage on pure functions.
 **Tier 2 complete** — 4 new test files + 1 expanded, 149 tests, 95-100% coverage on injectable services.
 **Tier 3 open** — bootstrap/wiring files (low ROI).
+**Tier 4 complete** — 10 flow integration test suites, 87 passing, 28 skipped (emitCustom/UI limitations).
 
 ## Problem
 
@@ -55,11 +57,22 @@ While 45 test suites cover domain services, EventBus, and utilities, 15 non-UI s
 
 ## Suggested Approach
 
-1. **Tier 1 first** — pure function tests with zero mocking, highest ROI
-2. **Tier 2 next** — service tests following existing mock patterns from `IngestionService.test.ts`, `ImportService.test.ts`
+1. **Tier 1 first** — pure function tests with zero mocking, highest ROI ✅ DONE
+2. **Tier 2 next** — service tests following existing mock patterns from `IngestionService.test.ts`, `ImportService.test.ts` ✅ DONE
 3. **Tier 3 skip** — bootstrap/wiring files have low ROI for unit testing
+4. **Tier 4** — flow integration tests covering 10 documented user journeys ✅ DONE
 
 Target: ~12 new test files, ~50-150 LOC each.
+
+## Assessment (2026-02-15)
+
+Tiers 1, 2, and 4 are complete. Current metrics: **1,447 tests passing, 32 skipped across 65 test files**. Remaining untested domain files are:
+- `installer/folders.ts` — pure data array, low complexity
+- `installer/steps/UserCreationStep.ts`, `FolderScaffoldStep.ts` — covered indirectly by InstallerService.test.ts and Flow 01 integration test
+- `settings/FlowtiSettingTab.ts` — Obsidian UI component, low ROI for unit testing
+- Tier 3 bootstrap files (`main.ts`, `pluginBootstrap.ts`, `dataExchangeSetup.ts`) — require Obsidian runtime
+
+All remaining untested domain files have low ROI for unit testing. UI component coverage tracked separately in TD-27.
 
 ## Affected Files
 
