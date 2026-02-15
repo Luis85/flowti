@@ -60,4 +60,4 @@ Partially mitigated in refactoring phase 2026-02-14:
 - Silent swallow in `SourcesExportsGrid.ts` replaced with `console.warn`
 - Severity downgraded from medium to low
 - Remaining error handling inconsistency (62 catch blocks, 4 strategies) documented but not fully addressed
-- Broader convention unification deferred to future phase
+- Broader convention codified in [[ADR-021 Error Handling Convention]] (2026-02-15)

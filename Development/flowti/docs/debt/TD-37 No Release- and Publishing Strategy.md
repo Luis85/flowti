@@ -1,5 +1,5 @@
 ---
-status: postponed
+status: mitigated
 severity: low
 effort: medium
 layer: cross-cutting
@@ -22,3 +22,10 @@ In the future releases should target GitHub. The build pipeline (`vitest > typed
 - `manifest.json` version bumping
 
 Put on backburner until the plugin is ready for external distribution.
+
+## Resolution (2026-02-15)
+
+- `CHANGELOG.md` created with Keep a Changelog format
+- Semantic versioning convention documented in [[ADR-022 Release Strategy]]
+- `manifest.json` remains at `0.0.1` — bumps will follow SemVer convention
+- GitHub Actions CI/CD deferred until external distribution

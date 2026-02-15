@@ -2,7 +2,7 @@
 severity: medium
 category: testing
 layer: ui
-status: open
+status: mitigated
 created: 2026-02-14
 description: Component-level rendering tests (individual tabs, pages) not yet covered. 1319 tests across 53 suites cover domain services, EventBus, utilities, pure functions, and 6 view orchestrators but not individual UI components.
 updated: 2026-02-16
@@ -41,6 +41,15 @@ Add lightweight unit tests per component using the existing `obsidian-stub` poly
 3. Call `renderMaster()` / `renderDetail()` on a real `HTMLDivElement`
 4. Assert: element counts, text content, CSS classes, event handler wiring
 5. Target: 1-3 tests per component covering happy path rendering
+
+## Resolution (2026-02-15)
+
+Established replicable UI component testing pattern:
+- `tests/ui/catalog/testHelpers.ts` — reusable `createMockCatalogDeps()` factory
+- `tests/ui/catalog/DomainsTab.test.ts` — 16 tests as exemplar (scan, renderMaster, renderDetail, selection, CRUD)
+- Uses `happy-dom` environment via `// @vitest-environment happy-dom` pragma
+- Pattern: instantiate component with mock deps, call render, assert DOM structure + event emissions
+- Remaining ~39 components can be tested following this pattern incrementally
 
 ## Effort
 

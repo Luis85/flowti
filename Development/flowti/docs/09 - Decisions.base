@@ -5,8 +5,7 @@ views:
   - type: table
     name: Decision Log
     order:
-      - adr
-      - title
+      - file.name
       - status
       - date
       - domain
@@ -19,3 +18,5 @@ views:
       date: 100
       domain: 140
       category: 140
+    columnSize:
+      file.name: 410
