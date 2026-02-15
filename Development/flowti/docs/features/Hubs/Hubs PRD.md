@@ -65,6 +65,7 @@ Measurable success:
 - Event Catalog and Data Exchange Hub operate as System Hubs with zero feature regression.
 - Adding a new Domain Hub (e.g., Product Hub) requires <200 LOC of adapter + config.
 - Tab definitions validate against layout + component manifests at startup.
+- ComponentView previews all of the used Hub Components
 
 ---
 
