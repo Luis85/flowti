@@ -1,16 +1,19 @@
 filters:
   and:
-    - file.inFolder("Development/flowti/docs/use-cases")
+    - file.path.containsAll("flowti", "docs", "features", "backlog")
 views:
   - type: table
-    name: Table
+    name: Backlog
     groupBy:
       property: feature
       direction: ASC
     order:
       - file.name
+      - type
       - description
+      - stage
+      - priority
       - feature
     columnSize:
-      file.name: 225
+      file.name: 352
       note.description: 726

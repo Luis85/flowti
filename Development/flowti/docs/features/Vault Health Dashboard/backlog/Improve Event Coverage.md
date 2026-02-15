@@ -2,10 +2,10 @@
 type: UseCase
 domain: Flowti
 stage: done
-description: "Use the Health tab to identify events without subscriptions or definitions, then navigate to each event to configure monitoring or transformation rules."
+description: Use the Health tab to identify events without subscriptions or definitions, then navigate to each event to configure monitoring or transformation rules.
 view: "[[Event Catalog View]]"
-feature: "[[Vault Health Dashboard]]"
-testplanRef: "UC-96"
+feature: "[[Vault Health Dashboard PRD]]"
+testplanRef: UC-96
 tags:
   - use-case
   - catalog

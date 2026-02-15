@@ -2,14 +2,8 @@
 type: Process
 domain: Flowti/Process
 stage: draft
-version: 1.0
-owner:
+version: 1
 review_cycle: quarterly
-related:
-  - "[[Development/flowti/standards/feature-readiness-index|Feature Readiness Index]]"
-  - "[[Development/flowti/standards/technical-review-checklist|Technical Review Checklist]]"
-  - "[[Development/flowti/standards/three-amigos-review-session|Three Amigos Review Session]]"
-  - "[[Flowti IBDE — Testplan and Teststrategy]]"
 tags:
   - process
   - lifecycle
@@ -19,7 +13,9 @@ tags:
 
 # Flowti Development Lifecycle
 
-> Objective: Make this document processable by Flowti to document the domain
+> Open Question: How can this process be visible and traceable in Obsidian?
+
+> Objective: Make this document processable by Flowti to document the domain and as codified process inside the plugin
 
 ## 1. Purpose
 
@@ -31,6 +27,8 @@ It ensures:
 - continuous documentation
 - predictable quality gates
 - repeatable release outcomes
+
+In short: We document a new solution-idea as PRD, review and refine that PRD during discovery while developing the solution incrementally and in parallel, Flowti supports us by keeping track of undocumented Features and our learnings, each increment must run trough a extensive [[Three Amigos Session Template|Three Amigos Review Session]] where technical-debt and deviations get collected and documented for further improvements. 
 
 ---
 
@@ -335,6 +333,7 @@ Legend: R=Responsible, A=Accountable, C=Consulted
 | 8 | Review notes, QA results, TASM score |
 | 9 | Release note, updated docs, published increment |
 | 10 | Feedback records + next iteration inputs |
+All bundled and linked into the original PRD.
 
 ---
 

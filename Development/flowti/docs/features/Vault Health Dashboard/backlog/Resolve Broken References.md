@@ -2,10 +2,10 @@
 type: UseCase
 domain: Flowti
 stage: done
-description: "Use the Health tab to find broken cross-references in flow, system, actor, and product docs, then navigate to each entity to fix the frontmatter."
+description: Use the Health tab to find broken cross-references in flow, system, actor, and product docs, then navigate to each entity to fix the frontmatter.
 view: "[[Event Catalog View]]"
-feature: "[[Vault Health Dashboard]]"
-testplanRef: "UC-95"
+feature: "[[Vault Health Dashboard PRD]]"
+testplanRef: UC-95
 tags:
   - use-case
   - catalog

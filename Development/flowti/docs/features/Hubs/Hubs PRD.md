@@ -1,7 +1,7 @@
 ---
 domain: Flowti
 plugin: "[[Development/flowti/README|README]]"
-type: Feature
+type: ProductRequirementsDocument
 stage: open
 related_hubs:
   - User Hub

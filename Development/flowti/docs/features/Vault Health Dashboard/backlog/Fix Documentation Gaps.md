@@ -2,10 +2,10 @@
 type: UseCase
 domain: Flowti
 stage: done
-description: "Use the Health tab to identify undocumented domains and services, then navigate directly to each entity to create its documentation file."
+description: Use the Health tab to identify undocumented domains and services, then navigate directly to each entity to create its documentation file.
 view: "[[Event Catalog View]]"
-feature: "[[Vault Health Dashboard]]"
-testplanRef: "UC-94"
+feature: "[[Vault Health Dashboard PRD]]"
+testplanRef: UC-94
 tags:
   - use-case
   - catalog

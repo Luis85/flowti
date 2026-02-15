@@ -1,0 +1,18 @@
+filters:
+  and:
+    - file.inFolder("Development/flowti/docs/components")
+views:
+  - type: table
+    name: Index
+    groupBy:
+      property: parent
+      direction: ASC
+    order:
+      - file.name
+      - type
+      - domain
+      - source
+      - stage
+      - parent
+      - description
+    sort: []

@@ -2,10 +2,10 @@
 type: UseCase
 domain: Flowti
 stage: done
-description: "Open the Health tab to see an overall vault health score, review 6 diagnostic checks grouped by category, and identify areas needing attention."
+description: Open the Health tab to see an overall vault health score, review 6 diagnostic checks grouped by category, and identify areas needing attention.
 view: "[[Event Catalog View]]"
-feature: "[[Vault Health Dashboard]]"
-testplanRef: "UC-93"
+feature: "[[Vault Health Dashboard PRD]]"
+testplanRef: UC-93
 tags:
   - use-case
   - catalog
