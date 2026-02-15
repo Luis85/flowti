@@ -22,12 +22,12 @@ The Flowti IBDE plugin uses an **event-driven architecture** where all inter-ser
 
 | Metric | Value |
 |--------|-------|
-| Total events | 128 (compile-time verified via `satisfies`) |
-| Infrastructure events | 49 (tagged `["system"]`) |
+| Total events | 136 (compile-time verified via `satisfies`) |
+| Infrastructure events | 57 (tagged `["system"]`) |
 | Domain events | 79 |
-| Event categories | 25 |
+| Event categories | 26 |
 | Domain services | 11 |
-| Wildcard listeners | 7 (properly filtered via `INTERNAL_EVENT_PREFIXES`) |
+| Wildcard listeners | 6 (properly filtered via `INTERNAL_EVENT_PREFIXES`) |
 | Event naming | `domain.action` for commands, `domain.fact` for facts |
 
 ### Event Structure
@@ -54,7 +54,7 @@ The plugin is organized into 11 bounded contexts, each owning its events, types,
 
 | Domain | Service | Events | Storage Key | Description |
 |--------|---------|--------|-------------|-------------|
-| **infrastructure** | EventBus, EventBridge, FileSystemClient, LoggerService, ErrorService, ServiceContainer, CommandRegistry, ViewRegistry | 49 | — | Generic plumbing: event routing, vault I/O, logging, errors, DI |
+| **infrastructure** | EventBus, EventBridge, FileSystemClient, LoggerService, ErrorService, ServiceContainer, CommandRegistry, ViewRegistry, UiCommandService | 57 | — | Generic plumbing: event routing, vault I/O, logging, errors, DI, UI commands |
 | **settings** | [[Development/flowti/src/domain/settings/SettingsService.ts|SettingsService]] | 7 | top-level keys | Plugin configuration with Zod validation |
 | **user** | [[Development/flowti/src/domain/user/UserService.ts|UserService]] | 3 | `user` | User profile lifecycle |
 | **installer** | [[Development/flowti/src/domain/installer/InstallerService.ts|InstallerService]] | 6 | `installer` | First-run setup wizard with extensible step pipeline |
@@ -83,6 +83,7 @@ The plugin is organized into 11 bounded contexts, each owning its events, types,
 | **ServiceContainer** | [[Development/flowti/src/infrastructure/services/ServiceContainer.ts|ServiceContainer.ts]] | `IServiceContainer` — `register()`, `get()`, `initializeAll()`, `disposeAll()` | `service.{registered,initialized,disposed,error}` |
 | **CommandRegistry** | [[Development/flowti/src/infrastructure/commands/CommandRegistry.ts|CommandRegistry.ts]] | Middleware pipeline | `command.{registered,executing,executed,failed}` |
 | **ViewRegistry** | [[Development/flowti/src/infrastructure/views/ViewRegistry.ts|ViewRegistry.ts]] | View factory registration | `view.registered` |
+| **UiCommandService** | [[Development/flowti/src/infrastructure/ui/UiCommandService.ts|UiCommandService.ts]] | Listens for `ui.*` events, opens views/modals | `ui.opened` |
 
 ### Domain Services
 
@@ -104,7 +105,7 @@ The plugin is organized into 11 bounded contexts, each owning its events, types,
 
 ## Event Reference
 
-### Infrastructure Events (49)
+### Infrastructure Events (57)
 
 #### Plugin Lifecycle (5)
 
@@ -224,6 +225,19 @@ The plugin is organized into 11 bounded contexts, each owning its events, types,
 |-------|-------------|-----------|
 | `metadata.changed` | File metadata (frontmatter, tags, links) was updated | EventBridge → Services |
 | `metadata.resolved` | All metadata references in the vault resolved | EventBridge → Services |
+
+#### UI Commands (8)
+
+| Event | Description | Direction |
+|-------|-------------|-----------|
+| `ui.openEventCatalog` | Open the Event Catalog view | User → UiCommandService |
+| `ui.openEventLog` | Open the Event Log view in sidebar | User → UiCommandService |
+| `ui.openComponentShowcase` | Open the Component Showcase view in sidebar | User → UiCommandService |
+| `ui.openDataExchangeHub` | Open the Data Exchange Hub view | User → UiCommandService |
+| `ui.openSubscriptionManager` | Open the Subscription Manager modal | User → UiCommandService |
+| `ui.openCsvImport` | Open the CSV import view (with optional file path) | User → UiCommandService |
+| `ui.openExport` | Open the export view (with optional source path) | User → UiCommandService |
+| `ui.opened` | A view or modal was opened by UiCommandService | UiCommandService → Listeners |
 
 ---
 
@@ -385,7 +399,7 @@ The plugin is organized into 11 bounded contexts, each owning its events, types,
 
 ## Event Categories
 
-The catalog organizes events into 25 categories in display order:
+The catalog organizes events into 26 categories in display order:
 
 | # | Category | Domain | Events |
 |---|----------|--------|--------|
@@ -414,7 +428,8 @@ The catalog organizes events into 25 categories in display order:
 | 23 | File Processing | ingestion | 11 |
 | 24 | Transforms | eventDefinition | 9 |
 | 25 | Data Exchange | dataExchange | 16 |
-| — | Documentation | docs | 6 |
+| 26 | UI Commands | infrastructure | 8 |
+| 27 | Documentation | docs | 6 |
 
 ### System Event Tagging
 
@@ -424,16 +439,19 @@ Infrastructure events and internal command events are tagged with `["system"]`. 
 
 ## Commands
 
-Registered Obsidian commands accessible via the command palette:
+Registered Obsidian commands accessible via the command palette.
 
-| Command ID | Icon | Opens | Registered In |
+All commands are stateless emitters — they emit `ui.*` events on the EventBus. The `UiCommandService` handles the actual view/modal opening.
+
+| Command ID | Icon | Opens | Event Emitted |
 |------------|------|-------|---------------|
-| `flowti:open-event-catalog` | `list` | [[Event Catalog View]] | `main.ts` |
-| `flowti:open-event-log` | `activity` | [[Event Log View]] | `main.ts` |
-| `flowti:open-component-showcase` | `palette` | [[Component Showcase View]] | `main.ts` |
-| `flowti:manage-subscriptions` | `bell` | [[SubscriptionManagerModal]] | `main.ts` |
-| `flowti:import-csv` | `file-input` | [[CSV Action View]] | `dataExchangeSetup.ts` |
-| `flowti:export-data` | `file-output` | [[Export View]] | `dataExchangeSetup.ts` |
+| `flowti:open-event-catalog` | `list` | [[Event Catalog View]] | `ui.openEventCatalog` |
+| `flowti:open-event-log` | `activity` | [[Event Log View]] | `ui.openEventLog` |
+| `flowti:open-component-showcase` | `palette` | [[Component Showcase View]] | `ui.openComponentShowcase` |
+| `flowti:open-data-exchange-hub` | `database` | [[Data Exchange Hub View]] | `ui.openDataExchangeHub` |
+| `flowti:manage-subscriptions` | `bell` | [[SubscriptionManagerModal]] | `ui.openSubscriptionManager` |
+| `flowti:import-csv` | `file-input` | [[CSV Action View]] | `ui.openCsvImport` |
+| `flowti:export-data` | `file-output` | [[Export View]] | `ui.openExport` |
 
 ---
 
@@ -490,6 +508,17 @@ Any view emits "doc.create" { docType, name, ... }
     → "doc.created" { path, docType }  OR  "doc.exists" { path }  OR  "doc.failed" { error }
 ```
 
+### UI Command Routing
+
+```
+User triggers Obsidian command / ribbon icon / file-menu item
+  → EventBus.emit("ui.openEventCatalog", {})
+    → UiCommandService.handleOpenView()
+      → workspace.getLeavesOfType() — reveal existing or create new leaf
+      → workspace.setViewState({ type: VIEW_TYPE, active: true })
+      → "ui.opened" { target: "eventCatalog", timestamp }
+```
+
 ### First-Run Onboarding
 
 ```
@@ -534,7 +563,7 @@ import { isSkippedEvent } from "../events/catalog";
 if (isSkippedEvent(event.type, ["myDomain."])) return;
 ```
 
-The shared `INTERNAL_EVENT_PREFIXES` array covers: `log.`, `error.`, `plugin.`, `service.`, `command.`, `view.`, `settings.`.
+The shared `INTERNAL_EVENT_PREFIXES` array covers: `log.`, `error.`, `plugin.`, `service.`, `command.`, `view.`, `settings.`, `ui.`.
 
 ---
 

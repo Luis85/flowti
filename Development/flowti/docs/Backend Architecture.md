@@ -27,7 +27,7 @@ tags:
 ┌──────────────────────────────────────────────────┐
 │             Flowti IBDE Plugin                    │
 │  Event-driven architecture toolkit for Obsidian   │
-│  128 events · 11 domain services · 6 views        │
+│  136 events · 11 domain services · 6 views        │
 └────────────────────┬─────────────────────────────┘
                      │ runs on
                      ▼
@@ -65,10 +65,10 @@ No external network dependencies. All data stored in-vault via `saveData()`.
 │  └────────────────────────────┬────────────────────────────┘ │
 │                               │ events                       │
 │  ┌────────────────────────────┴────────────────────────────┐ │
-│  │  Infrastructure Layer  ·  49 events                      │ │
+│  │  Infrastructure Layer  ·  57 events                      │ │
 │  │  EventBus · EventBridge · FileSystemClient               │ │
 │  │  LoggerService · ErrorService · ServiceContainer         │ │
-│  │  CommandRegistry · ViewRegistry                          │ │
+│  │  CommandRegistry · ViewRegistry · UiCommandService        │ │
 │  └────────────────────────────┬────────────────────────────┘ │
 │                               │                              │
 │  ┌────────────────────────────┴────────────────────────────┐ │
@@ -90,6 +90,7 @@ No external network dependencies. All data stored in-vault via `saveData()`.
 3. File ops use `*.request` → `*.response` correlated by `RequestId`
 4. Domain services register in **ServiceContainer** with explicit dependencies
 5. Doc creation centralized through **DocService** via `doc.create` events
+6. User entry points (commands, ribbon icons, file menus) emit `ui.*` events — **UiCommandService** handles view/modal opening
 
 ---
 
@@ -167,6 +168,8 @@ Topological sort for init order. Circular dependency detection. `IDisposable` se
 
 Middleware pipeline: `createLoggingMiddleware()` → `createErrorMiddleware()` (LIFO).
 
+Commands emit `ui.*` events on the EventBus. The `UiCommandService` listens for these events and performs the actual view/modal opening — commands themselves are stateless emitters.
+
 | ID | Icon | Opens |
 |----|------|-------|
 | `flowti:open-event-catalog` | `list` | [[EventCatalogView]] |
@@ -193,6 +196,23 @@ Middleware pipeline: `createLoggingMiddleware()` → `createErrorMiddleware()` (
 | `flowti-export` | Export | 6 |
 
 `ViewStateProvider` supplies live settings, discovered events, excluded/notified types, and collapsed categories to views opened mid-session.
+
+### UiCommandService
+
+| | |
+|---|---|
+| **Source** | [[Development/flowti/src/infrastructure/ui/UiCommandService.ts\|UiCommandService.ts]] |
+| **Events** | [[Development/flowti/src/infrastructure/ui/events.ts\|events.ts]] |
+| **Listens** | `ui.openEventCatalog`, `ui.openEventLog`, `ui.openComponentShowcase`, `ui.openDataExchangeHub`, `ui.openSubscriptionManager`, `ui.openCsvImport`, `ui.openExport` |
+| **Emits** | `ui.opened` |
+
+Central handler for all user-initiated navigation. Every Obsidian command, ribbon icon, and file-menu item emits a `ui.*` event. UiCommandService listens and opens the appropriate view or modal via the Obsidian workspace API.
+
+- **View commands** (4): reveal existing leaf or create new one. Event Catalog and Hub open in main workspace; Event Log and Component Showcase open in right sidebar.
+- **Modal commands** (1): `ui.openSubscriptionManager` → instantiates and opens `SubscriptionManagerModal`.
+- **Data exchange commands** (2): `ui.openCsvImport` / `ui.openExport` — delegate to injected callbacks (set during `onLayoutReady`) to avoid circular dependency with `DataExchangeSetup`. When no file path is provided (palette flow), shows an `InputModal` first.
+- **Observability**: emits `ui.opened` with `{ target, timestamp }` after every view/modal open.
+- **IDisposable**: properly unsubscribes all listeners on plugin unload.
 
 ---
 
@@ -361,9 +381,9 @@ Extensible: `registerStep(new MyStep())` before `runAll()`.
 
 ## Event Catalog
 
-128 events total: 49 infrastructure + 79 domain.
+136 events total: 57 infrastructure + 79 domain.
 
-### Infrastructure Events (49)
+### Infrastructure Events (57)
 
 | Category | # | Events |
 |----------|---|--------|
@@ -382,6 +402,7 @@ Extensible: `registerStep(new MyStep())` before `runAll()`.
 | Frontmatter Response | 3 | `frontmatter.{get,update,set}.response` |
 | Workspace | 3 | `workspace.{leaf-changed,file-opened,layout-changed}` |
 | Metadata | 2 | `metadata.{changed,resolved}` |
+| UI Commands | 8 | `ui.{openEventCatalog,openEventLog,openComponentShowcase,openDataExchangeHub,openSubscriptionManager,openCsvImport,openExport,opened}` |
 
 ### Domain Events (79)
 

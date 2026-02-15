@@ -43,21 +43,43 @@ This section describes **why** and **how** we test.
 
 ### Frameworks and Tools
 
-| Tool                             | Purpose                                                                          |
-| -------------------------------- | -------------------------------------------------------------------------------- |
-| **Vitest**                       | Unit + integration test runner                                                   |
-| **vi.fn() / vi.spyOn()**         | Mocking and spying                                                               |
-| **vi.useFakeTimers()**           | Deterministic time in timestamp-dependent tests                                  |
-| **obsidian-stub**                | Polyfills Obsidian DOM extensions (`createDiv`, `createEl`, `addClass`, etc.)    |
-| **`@vitest/coverage-v8`**        | Code coverage via V8 engine                                                      |
-| **Architecture and Code Review** | Regular reviews to maintain architecture integrity and an updated tech-debt list |
-| **Agile Development**            | Short development cycles to get testable increments                              |
-| **Domain Driven Development**    |                                                                                  |
-| **Test Driven Development**      |                                                                                  |
-| **Behaviour Driven Development** |                                                                                  |
-| **Clean Code Development**       |                                                                                  |
-| **Three Amigos**                 | Look at the solution from different perspectives                                 |
-| **Gherkin Tests**                | Build the baseline for use-case documentation                                    |
+#### Test Runtime
+
+| Tool | Purpose |
+|------|---------|
+| **Vitest 4.x** | Unit + integration test runner. Runs all suites in parallel via the forks pool. Configured as the first build gate — every `npm run build` runs the full suite before typedoc, tsc, eslint, and esbuild |
+| **`vi.fn()` / `vi.spyOn()`** | Mocking and spying. Services are injected with mock `IStorageProvider` and mock `IEventBus` instances to isolate behavior. Modal constructors are mocked via `vi.mock()` to avoid DOM dependencies |
+| **`vi.useFakeTimers()`** | Deterministic time control for timestamp-dependent tests (batch windows, debounce timers, notice throttles). Ensures reproducible test output regardless of execution speed |
+| **`@vitest/coverage-v8`** | Code coverage via V8's native instrumentation. Reports generated as JSON (`docs/tests/coverage-final.json`) on every build. Target: 100% on pure functions, 80%+ on injectable services |
+
+#### Test Infrastructure
+
+| Tool | Purpose |
+|------|---------|
+| **obsidian-stub** (`tests/mocks/obsidian-stub.ts`) | Polyfills Obsidian's augmented `HTMLElement` methods (`createDiv`, `createEl`, `createSpan`, `addClass`, `setText`, `empty`) and stubs platform classes (`Modal`, `FuzzySuggestModal`, `Setting`, `Plugin`, `PluginSettingTab`, `ButtonComponent`, `ToggleComponent`, `DropdownComponent`, `TextComponent`, `ExtraButtonComponent`, `setIcon`). Enables testing view orchestrators and service wiring without the Obsidian runtime |
+| **Zod** | Runtime schema validation for settings. `FlowtiSettingsSchema.safeParse()` is tested directly for default values, coercion, and invalid input rejection |
+| **Real `EventBus`** | Tests use real `EventBus` instances (not mocks) to verify actual pub/sub behavior. Each test gets a fresh instance via `beforeEach()` to prevent listener leakage between tests |
+
+#### Build Pipeline
+
+| Tool | Purpose |
+|------|---------|
+| **TypeDoc** | API documentation generator. Runs after tests pass. Produces `docs/codebase/codebase.json` and HTML output |
+| **TypeScript (`tsc`)** | Type-checking with `strict: true` and `-skipLibCheck` (avoids node_modules errors). No emit — used purely as a type gate |
+| **ESLint** | Lint rules enforced on `src/` directory. Runs after tsc to catch style and correctness issues |
+| **esbuild** | Bundles `src/main.ts` into `.obsidian/plugins/flowti-ibde/main.js` for Obsidian to load. Production builds use minification |
+
+#### Development Methodologies
+
+| Methodology | Application in this project |
+|-------------|----------------------------|
+| **Domain-Driven Design (DDD)** | 11 bounded contexts (Settings, User, Installer, Discovery, Subscription, Ingestion, EventDefinition, EventFilter, EventNotify, DataExchange, Docs), each owning its events, types, and service. Cross-domain communication exclusively via EventBus |
+| **Test-Driven Development (TDD)** | New services and pure functions are developed test-first. The failing-test → implementation → refactor cycle produces focused, testable units with high coverage from the start |
+| **Behaviour-Driven Development (BDD)** | Use cases (UC-01 through UC-99) link tests to user-visible behavior. Each UC describes preconditions, actions, and expected outcomes. Gherkin-style scenarios serve as executable specifications |
+| **Clean Code** | Single Responsibility Principle enforced through the orchestrator + component pattern. Services implement `IDisposable` for deterministic cleanup. No service imports another service — all coupling is via events |
+| **Agile / Incremental** | Short development cycles produce testable increments. Each feature phase (1–11) adds a complete vertical slice: events → service → tests → UI wiring |
+| **Architecture Reviews** | Regular reviews against the [[Technical Debt Review 2026-02-13\|tech-debt register]] (38 items). Each review updates metrics (LOC, test count, coverage) and reclassifies items by current severity |
+| **Three Amigos** | Solution evaluated from developer, tester, and business perspectives. The persona-driven design ([[personas/]]) ensures features serve real user workflows, not just technical requirements |
 
 ### Test Isolation
 
@@ -73,6 +95,54 @@ This section describes **why** and **how** we test.
 | Obsidian Modals | Require runtime `App` instance | Business logic extracted into testable services |
 | DOM rendering | Component rendering needs Obsidian's augmented `HTMLElement` | `obsidian-stub` polyfills cover event handler wiring; visual correctness is manual |
 | `main.ts` bootstrap | Plugin lifecycle tightly coupled to Obsidian API | Registration order tested indirectly via `ServiceContainer` |
+
+## Roadmap
+
+### E2E Testing
+
+To further improve our test capabilities we will enhance the test suite with user-interface end-to-end tests. In order to make this happen, we will depend on the yet-to-be-released Obsidian CLI, which would enable:
+
+1. **Booting the plugin** inside a headless Obsidian instance with a test vault
+2. **Triggering Obsidian commands** and verifying that the correct views open (now fully observable via `ui.opened` events on the EventBus)
+3. **Interacting with modals** (InputModal, InstallerWizardModal, EventConfigModal) and verifying outcomes
+4. **Asserting vault state** — files created, frontmatter updated, folders scaffolded
+
+The UI CommandBus refactoring (`ui.*` events) lays the groundwork: every user entry point is now an observable event, so E2E tests can assert on event emissions rather than inspecting DOM state directly.
+
+| Dependency | Status | Notes |
+|------------|--------|-------|
+| Obsidian CLI / E2E framework | Not yet released | No official test harness exists; community options are manual only |
+| jsdom environment | Not installed | Would enable testing Modal subclasses but not full workspace behavior |
+| Component-level rendering | [[TD-27 Limited UI component testing\|TD-27]] | 40+ UI components have 0% test coverage |
+
+### Quality Reporting
+
+For easier quality surveillance we will integrate Vitest JSON reports into dedicated Obsidian views for fast quality checks during plugin development. The data pipeline is already in place:
+
+| Asset | Path | Updated | Purpose |
+|-------|------|---------|---------|
+| Test results | `docs/tests/testreport.json` | Every `npm run build` | Suite/test pass/fail/skip counts, durations |
+| Coverage | `docs/tests/coverage-final.json` | Every `npm run build` | Per-file statement/branch/function coverage |
+| Codebase API | `docs/codebase/codebase.json` | Every `npm run build` | TypeDoc-generated API reference |
+
+Planned enhancements:
+
+| Enhancement | Approach | Benefit |
+|-------------|----------|---------|
+| In-vault test dashboard | Custom Flowti view parsing `testreport.json` | Browse pass/fail/skip counts, durations, and trends directly in Obsidian |
+| In-vault coverage view | Parse `coverage-final.json` | Per-file coverage bars with drill-down, highlight low-coverage files |
+| Interactive test explorer | `@vitest/ui` (`vitest --ui`) | Browser-based test tree with re-run, failure diffs, and watch mode |
+| HTML coverage report | `@vitest/coverage-v8` with `reporter: ['html']` | Visual per-file line highlighting in browser |
+| CI trend tracking | GitHub Actions (future, see [[TD-37 No Release- and Publishing Strategy\|TD-37]]) | Test count, coverage %, and failure rate trends across commits |
+
+### Expanded Coverage Targets
+
+| Area | Current | Target | Approach |
+|------|---------|--------|----------|
+| UI components (`catalog/`, `hub/`, `csv/`, `export/`) | 0% | 40%+ | Extract testable logic into helpers; test render side effects via EventBus |
+| DataExchangeService facade | 59% | 80%+ | Test remaining config CRUD and pipeline orchestration |
+| DiscoveryService vault scan | 52% | 80%+ | Mock `metadataCache` with varied frontmatter scenarios |
+| UI command contracts | 100% | 100% | Maintain full coverage on `UiCommandService` event routing |
 
 ### Naming Conventions
 
@@ -104,11 +174,11 @@ Vitest generates test and coverage reports. You find them as JSON files in `docs
 
 | Metric | Value |
 |--------|-------|
-| Test files | 49 |
-| Tests | 1,172 passing, 4 skipped |
-| Coverage (statements) | 74.11% overall |
-| Coverage (branches) | 68.67% overall |
-| 100% coverage files | `pathResolver.ts`, `contentGenerator.ts`, `configDocContent.ts`, `CsvParser.ts`, `glob.ts`, `persistence.ts`, `mutex.ts`, `pathUtils.ts`, `folders.ts`, `settings.ts`, `UserService.ts` |
+| Test files | 54 |
+| Tests | 1,344 passing, 4 skipped |
+| Coverage (statements) | ~29% overall (UI layer largely untested — see [[TD-27 Limited UI component testing\|TD-27]]) |
+| Coverage (branches) | ~35% overall |
+| 100% coverage files | `pathResolver.ts`, `contentGenerator.ts`, `configDocContent.ts`, `CsvParser.ts`, `glob.ts`, `mutex.ts`, `pathUtils.ts`, `folders.ts`, `settings.ts`, `UserService.ts`, `EventBus.ts`, `UiCommandService.ts` |
 | Build pipeline | vitest → typedoc → tsc → eslint → esbuild |
 
 ---
@@ -136,6 +206,7 @@ src/
 │   ├── filesystem/       # Vault I/O abstraction
 │   ├── logger/           # Structured logging
 │   ├── services/         # DI container with lifecycle
+│   ├── ui/               # UiCommandService (UI command bus)
 │   └── views/            # Obsidian pane registration
 ├── ui/                   # Presentation layer (~17,127 LOC)
 │   ├── catalog/          # Event Catalog components (15 files)
@@ -208,6 +279,7 @@ End-to-end path through the installer feature, crossing multiple steps and servi
 | 23 | DocService | domain/docs | `DocService`, `pathResolver`, `contentGenerator` | ✅ |
 | 24 | Event Config Modal | ui | `EventConfigModal` | ✅ |
 | 25 | Ingestion Status Bar | ui | `IngestionStatusBar` | ✅ |
+| 26 | UI Command Bus | infrastructure/ui | `UiCommandService` | ✅ |
 
 ---
 
@@ -630,6 +702,36 @@ Pure helper functions used by the Event Catalog View's tab components. Directly 
 
 ---
 
+## Feature 26: UI Command Bus
+
+Centralized command routing for all user entry points (Obsidian commands, ribbon icons, file-menu items). Every user action emits a `ui.*` event on the EventBus, which `UiCommandService` handles to open the appropriate view or modal.
+
+### Source files
+
+| File | Purpose |
+|------|---------|
+| `infrastructure/ui/events.ts` | `UiCommandEventMap` — 8 events for all user-initiated navigation |
+| `infrastructure/ui/UiCommandService.ts` | Central handler: listens for `ui.*` events, opens views/modals via Obsidian workspace API |
+
+### Test files
+
+| Test File | What it covers |
+|-----------|----------------|
+| `UiCommandService.test.ts` | View opening (new/existing leaf), sidebar vs main, modal delegation, InputModal fallback, callback injection, dispose |
+
+### Use cases
+
+| UC | Use Case | Scenarios | Status |
+|----|----------|-----------|--------|
+| UC-100 | Open views via command palette | 4 commands emit `ui.*` events → UiCommandService opens view or reveals existing | ✅ |
+| UC-101 | Open views via ribbon icons | 2 ribbon icons emit `ui.*` events → same handler as commands | ✅ |
+| UC-102 | Open import/export via file menu | File-menu items emit `ui.openCsvImport` / `ui.openExport` with file path + optional saved config | ✅ |
+| UC-103 | Fallback InputModal for palette commands | Commands without pre-selected file show InputModal, then delegate to callback | ✅ |
+| UC-104 | Observability via ui.opened | Every view/modal opening emits `ui.opened` with target name and timestamp | ✅ |
+| UC-105 | Cleanup on plugin unload | `dispose()` unsubscribes all listeners, no events fire after dispose | ✅ |
+
+---
+
 ## Skip Reasons
 
 | Category | Affected UCs | Unblocking Strategy |
@@ -650,7 +752,7 @@ Coverage is prioritized by ROI — pure functions first, then injectable service
 | Tier | Description | Status | Files | Tests |
 |------|-------------|--------|-------|-------|
 | **Tier 1: Pure functions** | Stateless input→output functions, zero mocking needed | ✅ Complete | `pathResolver`, `contentGenerator`, `configDocContent`, `settings`, `folders`, `glob`, `pathUtils`, `persistence`, `mutex`, `helpers`, `exportUtils`, `BaseQueryEngine`, `CsvParser` | ~500+ |
-| **Tier 2: Injectable services** | Stateful services with injected `EventBus` + `Storage` | ✅ Complete (core) | All 11 domain services + `EventBus`, `EventBridge`, `ServiceContainer`, `CommandRegistry` | ~450+ |
+| **Tier 2: Injectable services** | Stateful services with injected `EventBus` + `Storage` | ✅ Complete (core) | All 11 domain services + `EventBus`, `EventBridge`, `ServiceContainer`, `CommandRegistry`, `UiCommandService` | ~475+ |
 | **Tier 3: View orchestrators** | Obsidian `ItemView` subclasses testing event wiring | ✅ Partial | `EventCatalogView`, `EventLogView`, `DataExchangeHubView`, `ExportView`, `EventConfigModal`, `IngestionStatusBar` | ~170+ |
 | **Tier 4: UI components** | Tab/page components with DOM rendering | ⏭️ Open ([[TD-27 Limited UI component testing|TD-27]]) | ~40 components in `catalog/`, `hub/`, `csv/`, `export/` | 0 |
 | **Tier 5: Bootstrap/wiring** | `main.ts`, `pluginBootstrap.ts`, `dataExchangeSetup.ts` | ⏭️ Low ROI | Plugin lifecycle tightly coupled to Obsidian | 0 |
@@ -673,6 +775,7 @@ These files have full statement and branch coverage:
 | `settings.ts` | 19 | settings |
 | `UserService.ts` | 19 | user |
 | `EventBus.ts` | 13 | events |
+| `UiCommandService.ts` | 25 | ui |
 
 ### Coverage Gaps (known)
 
@@ -695,7 +798,7 @@ npm run build = vitest run --coverage → typedoc → tsc -noEmit -skipLibCheck 
 
 | Stage | What it validates |
 |-------|-------------------|
-| `vitest run` | All 1,172 tests pass, coverage report generated |
+| `vitest run` | All 1,344 tests pass, coverage report generated |
 | `typedoc` | TSDoc comments generate without errors |
 | `tsc` | Type-checking passes (`strict: true`, `-skipLibCheck` for node_modules) |
 | `eslint` | Lint rules pass on `src/` |
@@ -747,7 +850,7 @@ npm run build = vitest run --coverage → typedoc → tsc -noEmit -skipLibCheck 
 | `tests/domain/subscription/SubscriptionService.test.ts` | 25 | Event watchers |
 | `tests/domain/user/UserService.test.ts` | 19 | User profile lifecycle |
 
-### Infrastructure Tests (8 files)
+### Infrastructure Tests (11 files)
 
 | File | Tests | Source |
 |------|-------|--------|
@@ -761,6 +864,7 @@ npm run build = vitest run --coverage → typedoc → tsc -noEmit -skipLibCheck 
 | `tests/infrastructure/services/ServiceContainer.test.ts` | 24 | DI container |
 | `tests/infrastructure/services/VaultQueryService.test.ts` | 12 | Vault queries |
 | `tests/infrastructure/services/WorkspaceService.test.ts` | 4 | Workspace ops |
+| `tests/infrastructure/ui/UiCommandService.test.ts` | 25 | UI command bus |
 
 ### UI Tests (7 files)
 

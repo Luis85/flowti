@@ -30,6 +30,8 @@ This document describes the current frontend architecture of the Flowti IBDE Obs
 
 7. **DocService centralization** — All documentation file creation goes through `doc.create` events handled by the DocService. UI components never call `fileSystemClient.createFile()` directly for docs.
 
+8. **UI Command Bus** — All user entry points (Obsidian commands, ribbon icons, file-menu items) emit `ui.*` events on the EventBus. The `UiCommandService` handles the actual view/modal opening, making all user navigation observable and traceable.
+
 ---
 
 ## Layer Overview
@@ -37,7 +39,7 @@ This document describes the current frontend architecture of the Flowti IBDE Obs
 ```
 src/                     # ~31,467 LOC across 154 files
 ├── main.ts              # Plugin orchestrator (482 LOC)
-├── dataExchangeSetup.ts # Data Exchange UI wiring (368 LOC, extracted Phase 7)
+├── dataExchangeSetup.ts # Data Exchange UI wiring (~310 LOC, CommandBus Phase 8: commands + file-menu emit ui.* events)
 ├── infrastructure/      # Generic plumbing — events, services, commands, views, filesystem, logger, errors
 │   ├── events/          # EventBus, EventBridge, catalog, FlowtiEventMap
 │   ├── services/        # ServiceContainer (DI), registry
@@ -45,6 +47,7 @@ src/                     # ~31,467 LOC across 154 files
 │   ├── errors/          # FlowtiError hierarchy, ErrorService
 │   ├── filesystem/      # FileSystemClient (async ops + events)
 │   ├── logger/          # LoggerService (in-memory buffer + events)
+│   ├── ui/              # UiCommandService (ui.* command bus)
 │   └── views/           # ViewRegistry
 ├── domain/              # Business logic (DDD, each owns events.ts)
 │   ├── dataExchange/    # Import/Export orchestration (11 files, ~3,600 LOC)
@@ -70,7 +73,8 @@ src/                     # ~31,467 LOC across 154 files
 ### Communication Flow
 
 ```
-User Action → View Component → EventBus (command) → Domain Service → EventBus (event) → View Component (re-render)
+User Action → Obsidian Entry Point → EventBus (ui.* command) → UiCommandService → View/Modal
+View Component → EventBus (domain command) → Domain Service → EventBus (domain fact) → View Component (re-render)
 ```
 
 Views read state via `deps.getState()` and write via `deps.setState(partial)`. The orchestrator debounces re-renders with `scheduleRender()` (16ms).
