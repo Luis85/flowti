@@ -57,6 +57,15 @@ export class DocService {
 		);
 	}
 
+	/**
+	 * Loads initial state. DocService derives its state from settings events
+	 * (settings.loaded / settings.changed), so this is a no-op — provided
+	 * for lifecycle consistency with other domain services.
+	 */
+	async load(): Promise<void> {
+		// State is populated by settings.loaded listener — no storage to load
+	}
+
 	// ── Settings sync ───────────────────────────────────────
 
 	private syncSettings(settings: FlowtiSettings): void {

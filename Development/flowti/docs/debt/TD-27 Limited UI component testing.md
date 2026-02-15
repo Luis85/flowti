@@ -4,7 +4,7 @@ category: testing
 layer: ui
 status: mitigated
 created: 2026-02-14
-description: Component-level rendering tests (individual tabs, pages) not yet covered. 1498 tests across 66 suites cover domain services, EventBus, utilities, pure functions, 6 view orchestrators, and extracted UI logic but not individual UI components.
+description: Component-level rendering tests incrementally being added. 1571 tests across 70 suites cover domain services, EventBus, utilities, pure functions, 6 view orchestrators, extracted UI logic, and select UI components.
 updated: 2026-02-16
 source: "[[Frontend Architecture]]"
 ---
@@ -12,17 +12,17 @@ source: "[[Frontend Architecture]]"
 
 ## Problem
 
-1498 tests across 66 suites cover domain services, EventBus, utilities, pure functions (Tier 1: 298 tests), injectable services (Tier 2: 149 tests), 6 view orchestrators (`EventCatalogView`, `ExportView`, `DataExchangeHubView`, `EventLogView`, `EventConfigModal`, `IngestionStatusBar`), and extracted UI logic (`csvUtils`, `PipelineExecutor.buildPreview()`). However, individual UI components — tabs, pages, dashboard widgets — have no dedicated tests.
+1571 tests across 70 suites cover domain services, EventBus, utilities, pure functions (Tier 1: 298 tests), injectable services (Tier 2: 149 tests), 6 view orchestrators (`EventCatalogView`, `ExportView`, `DataExchangeHubView`, `EventLogView`, `EventConfigModal`, `IngestionStatusBar`), extracted UI logic (`csvUtils`, `PipelineExecutor.buildPreview()`), and select UI components (DomainsTab, ServicesTab, entityScanner, helpers visibility, CsvDataSnapshot). Individual coverage is expanding incrementally.
 
-### Untested components (~40 files)
+### Untested components (~35 files)
 
-**Catalog**: `CatalogDashboard`, `DomainsTab`, `ServicesTab`, `EventsTab`, `EventsCategoryRenderer`, `EventsSettingsPanel`, `EventDetailPanel`, `FlowsTab`, `SystemsTab`, `ActorsTab`, `ProductsTab`
+**Catalog**: `CatalogDashboard`, ~~`DomainsTab`~~, ~~`ServicesTab`~~, `EventsTab`, `EventsCategoryRenderer`, `EventsSettingsPanel`, `EventDetailPanel`, `FlowsTab`, `SystemsTab`, `ActorsTab`, `ProductsTab`
 
 **Hub**: `HubDashboard`, `ImportsTab`, `ExportsTab`, `ReportsTab`, `PropertiesTab`, `TypesTab`, `PipelinesTab`, `DashboardImports`, `DashboardExports`, `DashboardPipelines`, `DashboardImportExecutor`
 
 **Pipeline**: `PipelineDetail`, `PipelineEditForm`, `PipelinePreview`, `PipelineExecution`, `SourcesExportsGrid`
 
-**CSV**: `CsvLanding`, `CsvConfigPage`, `CsvPreviewPage`, `CsvResultPage`, `CsvDataSnapshot`, `CsvUsageSection`, `CsvAssociatedBases`
+**CSV**: `CsvLanding`, `CsvConfigPage`, `CsvPreviewPage`, `CsvResultPage`, ~~`CsvDataSnapshot`~~, `CsvUsageSection`, `CsvAssociatedBases`
 
 **Export**: `ViewSelectPage`, `ConfigurePage`, `PreviewPage`, `ResultPage`
 
@@ -51,6 +51,12 @@ Established replicable UI component testing pattern:
 - Pattern: instantiate component with mock deps, call render, assert DOM structure + event emissions
 - Remaining ~39 components can be tested following this pattern incrementally
 - ADR-023 extracted critical business logic from modals: `csvUtils` (41 tests) and `PipelineExecutor.buildPreview()` (12 tests) now fully covered
+
+### Additional coverage (2026-02-15)
+
+- `tests/ui/catalog/helpers.test.ts` — 23 new tests for `getVisibleEntries()`, `discoveredToCatalogEntries()`, `resolveEntry()`, `getConfiguredCount()`, `getFollowedCount()` (67 tests total in file)
+- `tests/ui/csv/CsvDataSnapshot.test.ts` — 28 new tests covering rendering, column visibility, filtering, sorting, row limit, and combined operations
+- `tests/mocks/obsidian-stub.ts` — added `appendText` polyfill for broader UI component testing
 
 ## Effort
 

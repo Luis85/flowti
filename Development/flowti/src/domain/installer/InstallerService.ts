@@ -170,6 +170,14 @@ export class InstallerService implements IInstallerService {
 	}
 
 	/**
+	 * Releases resources. InstallerService is emitter-only (no listeners)
+	 * so this is a no-op, provided for lifecycle consistency.
+	 */
+	dispose(): void {
+		// No listeners to clean up — emitter-only service
+	}
+
+	/**
 	 * Persists the installer state to storage.
 	 */
 	private async saveState(): Promise<void> {

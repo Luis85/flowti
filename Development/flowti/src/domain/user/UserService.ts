@@ -119,6 +119,14 @@ export class UserService implements IUserService {
 	}
 
 	/**
+	 * Releases resources. UserService is emitter-only (no listeners)
+	 * so this is a no-op, provided for lifecycle consistency.
+	 */
+	dispose(): void {
+		// No listeners to clean up — emitter-only service
+	}
+
+	/**
 	 * Persists the current user to storage.
 	 */
 	private async saveUser(): Promise<void> {

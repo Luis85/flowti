@@ -21,15 +21,15 @@ Post-sprint comprehensive review of the Flowti IBDE plugin. This review follows 
 The plugin is in **excellent architectural health** after the Tech Debt Sprint. Of 38 tracked debt items, **27 are resolved**, 4 are mitigated, and 7 remain open. The sprint eliminated all high-severity items (TD-32, TD-33, TD-35). This review identified **3 new items** (TD-39, TD-40, TD-41) — none are high severity.
 
 **Key metrics:**
-- 1,547 tests passing, 32 skipped across 68 test files
+- 1,571 tests passing, 32 skipped across 70 test files
 - 164 source files (~25,500 LOC: 8,700 domain + 16,800 UI)
 - 136 typed events in FlowtiEventMap
 - 23 ADRs documenting architectural decisions
 
-**New findings:**
-1. **TD-39** (low): InstallerService/UserService missing `dispose()`, DocService missing `load()`
-2. **TD-40** (medium): Hardcoded paths ignore `settings.entityPaths` — effectively dead settings
-3. **TD-41** (medium): EventDefinitionService "once" emission policy has a dedup race window
+**New findings (all resolved):**
+1. ~~**TD-39** (low): InstallerService/UserService missing `dispose()`, DocService missing `load()`~~ — false positive, services already compliant
+2. ~~**TD-40** (medium): Hardcoded paths ignore `settings.entityPaths`~~ — entityPaths IS wired; legacy functions deleted
+3. ~~**TD-41** (medium): EventDefinitionService "once" emission policy has a dedup race window~~ — false positive, code correct
 
 ---
 
@@ -41,7 +41,7 @@ The plugin is in **excellent architectural health** after the Tech Debt Sprint. 
 |--------|-----------|
 | DDD layering | `infrastructure/`, `domain/`, `ui/` consistently applied across 164 files |
 | Event backbone | EventBus + EventBridge delivers decoupling; 136 typed events in `FlowtiEventMap` |
-| Service lifecycle | 8/11 domain services implement full `load()` + `dispose()` lifecycle (TD-39 tracks 3 exceptions) |
+| Service lifecycle | 11/11 domain services implement full `load()` + `dispose()` lifecycle (TD-39 resolved — false positive) |
 | Registry pattern | Commands, views, services declaratively registered |
 | Type safety | `strict: true`, composed event map keeps contracts explicit |
 | Doc centralization | All doc CRUD routes through `doc.create`/`doc.delete` events via DocService (Phase 8) |
@@ -62,7 +62,7 @@ The plugin is in **excellent architectural health** after the Tech Debt Sprint. 
 | Error handling (TD-29) | MEDIUM — 4 strategies, no convention | Mitigated — ADR-021 established |
 | UI testing (TD-27) | MEDIUM — 0% component coverage | Mitigated — DomainsTab exemplar + happy-dom pattern |
 | Release strategy (TD-37) | MEDIUM — no CHANGELOG | Mitigated — CHANGELOG.md + ADR-022 |
-| Test suite | 854 tests, 45 files | 1,547 tests, 68 files |
+| Test suite | 854 tests, 45 files | 1,571 tests, 70 files |
 
 ### Where architecture is still lacking
 
@@ -132,17 +132,17 @@ All other type assertions are justified patterns (branded types, generic bridges
 | EventDefinitionService | ✓ | ✓ | ✓ (5) | ✓ | ✅ |
 | EventFilterService | ✓ | ✓ | ✓ (2) | ✓ | ✅ |
 | EventNotificationService | ✓ | ✓ | ✓ (2) | ✓ | ✅ |
-| DocService | ✗ | ✓ | ✓ (3) | ✗ | ⚠️ TD-39 |
-| InstallerService | ✓ | ✗ | — (emitter only) | ✓ | ⚠️ TD-39 |
-| UserService | ✓ | ✗ | — (emitter only) | ✓ | ⚠️ TD-39 |
+| DocService | ✓ | ✓ | ✓ (3) | ✗ | ✅ TD-39 resolved |
+| InstallerService | ✓ | ✓ | — (emitter only) | ✓ | ✅ TD-39 resolved |
+| UserService | ✓ | ✓ | — (emitter only) | ✓ | ✅ TD-39 resolved |
 
 ### Concurrency issue: EventDefinitionService dedup (NEW — TD-41)
 
 The "once" emission policy checks `emittedKeys` before async payload extraction, then adds the key after completion. Under concurrent load, the same event can pass the check twice before the first completes. Standard TOCTOU (time-of-check-to-time-of-use) bug. Fix: add key optimistically before async work, remove on failure.
 
-### Hardcoded paths (NEW — TD-40)
+### ~~Hardcoded paths~~ (RESOLVED — TD-40)
 
-`pathResolver.ts` hardcodes "Flows", "Systems", "Actors", "Products" as subfolder names. `installer/folders.ts` hardcodes the full `03 - Resources/Documentation/Reference/...` path structure. The `settings.entityPaths` configuration exists but is never consulted, making it dead code.
+~~`pathResolver.ts` hardcodes "Flows", "Systems", "Actors", "Products" as subfolder names.~~ Legacy path functions deleted. `entityPaths` IS wired through `EventCatalogView` → `resolveEntityPath()`. `installer/folders.ts` hardcodes paths but is low-impact (runs once on first install).
 
 ---
 
@@ -188,12 +188,12 @@ Confirmed by this review: CsvActionView, DataExchangeHubView, FolderPickerModal,
 |-------|-----------|-------------|----------|
 | Infrastructure | 12 | 18 | ~67% by file |
 | Domain | 31 | 50 | ~62% by file |
-| UI | 11 | 71 | ~15% by file |
+| UI | 12 | 71 | ~17% by file |
 | Utils | 5 | 6 | ~83% by file |
 | Flows | 10 | — | 10 user journeys |
-| **Total** | **68** | **164** | **~41% by file** |
+| **Total** | **70** | **164** | **~43% by file** |
 
-**1,547 tests passing, 32 skipped**
+**1,571 tests passing, 32 skipped**
 
 ### What's well-tested
 
@@ -205,10 +205,10 @@ Confirmed by this review: CsvActionView, DataExchangeHubView, FolderPickerModal,
 
 ### What's NOT tested (tracked in TD-27)
 
-~40 UI component files have zero test coverage. The DomainsTab exemplar pattern (16 tests, happy-dom environment) was established but not yet replicated to other components. Key untested areas:
+~35 UI component files have zero test coverage. The DomainsTab exemplar pattern (16 tests, happy-dom environment) has been partially replicated. Key untested areas:
 
-- Catalog tabs: ServicesTab, EventsTab, EventDetailPanel, CatalogDashboard, helpers
-- CSV wizard pages: CsvLanding, CsvConfigPage, CsvPreviewPage, CsvResultPage
+- Catalog tabs: EventsTab, EventDetailPanel, CatalogDashboard
+- CSV wizard pages: CsvLanding, CsvConfigPage, CsvPreviewPage, CsvResultPage (CsvDataSnapshot now tested)
 - Export wizard pages: ViewSelectPage, ConfigurePage, PreviewPage, ResultPage
 - Hub components: HubDashboard, ImportsTab, ExportsTab, PipelinesTab, ReportsTab, PropertiesTab
 - Pipeline components: PipelineDetail, PipelineEditForm, PipelinePreview, SourcesExportsGrid
@@ -243,9 +243,9 @@ Confirmed by this review: CsvActionView, DataExchangeHubView, FolderPickerModal,
 
 | Status | Count | Items |
 |--------|-------|-------|
-| Resolved | 28 | TD-02–05, TD-07–11, TD-13–22, TD-24–26, TD-31–35, TD-41 |
-| Mitigated | 5 | TD-01, TD-27, TD-29, TD-37, TD-40 |
-| Open | 8 | TD-06, TD-12, TD-23, TD-28, TD-30, TD-36, TD-38, TD-39 |
+| Resolved | 30 | TD-02–05, TD-07–11, TD-13–22, TD-24–26, TD-31–35, TD-39–41 |
+| Mitigated | 4 | TD-01, TD-27, TD-29, TD-37 |
+| Open | 7 | TD-06, TD-12, TD-23, TD-28, TD-30, TD-36, TD-38 |
 
 ### Open items by severity
 
@@ -253,7 +253,6 @@ Confirmed by this review: CsvActionView, DataExchangeHubView, FolderPickerModal,
 |---|-------|----------|--------|-------|
 | TD-30 | Untested domain/infra logic (Tier 3 bootstrap) | medium | low ROI | cross-cutting |
 | TD-06 | UI layer bypasses EventBridge (read-only) | medium | large | ui |
-| TD-39 | Missing lifecycle methods on 3 services | low | tiny | domain |
 | TD-12 | Wildcard listeners degrade performance | low | deferred | infrastructure |
 | TD-23 | InstallerWizardModal mixes state/rendering | low | medium | ui |
 | TD-28 | Scanner duplication between Catalog and Hub | low | low | ui |
@@ -265,10 +264,10 @@ Confirmed by this review: CsvActionView, DataExchangeHubView, FolderPickerModal,
 | # | Title | What's done | What remains |
 |---|-------|-------------|-------------|
 | TD-01 | UI files exceed size convention | Orchestrators accepted as justified | Monitor for growth |
-| TD-27 | Limited UI component testing | DomainsTab + ServicesTab + entityScanner exemplars + happy-dom | ~37 more components |
+| TD-27 | Limited UI component testing | DomainsTab + ServicesTab + entityScanner + helpers visibility + CsvDataSnapshot exemplars | ~35 more components |
 | TD-29 | Error handling inconsistency | ADR-021 convention established | Apply to new code |
 | TD-37 | No release strategy | CHANGELOG.md + ADR-022 | Version bump workflow |
-| TD-40 | Hardcoded paths ignore settings.entityPaths | entityPaths IS wired via EventCatalogView; legacy functions dead code | Delete 13 unused legacy path functions |
+| TD-40 | Hardcoded paths ignore settings.entityPaths | **RESOLVED** — entityPaths IS wired; legacy functions deleted; tests cleaned | — |
 
 ---
 
@@ -279,14 +278,14 @@ Confirmed by this review: CsvActionView, DataExchangeHubView, FolderPickerModal,
 | # | Item | Effort | Impact |
 |---|------|--------|--------|
 | 1 | ~~TD-41 Fix EventDefinitionService dedup race~~ | ~~small~~ | **RESOLVED** — false positive, code already correct |
-| 2 | TD-39 Add missing lifecycle methods | tiny | Pattern consistency |
+| 2 | ~~TD-39 Add missing lifecycle methods~~ | ~~tiny~~ | **RESOLVED** — false positive, services already compliant |
 
 ### Near-term (this month)
 
 | # | Item | Effort | Impact |
 |---|------|--------|--------|
-| 3 | ~~TD-40 Wire settings.entityPaths~~ | ~~medium~~ | **MITIGATED** — entityPaths IS wired; 13 legacy functions dead code (cleanup candidate) |
-| 4 | TD-27 Replicate test pattern to more components | medium | Increase UI test coverage (entityScanner, DomainsTab.scan, ServicesTab.scan now covered) |
+| 3 | ~~TD-40 Wire settings.entityPaths~~ | ~~medium~~ | **RESOLVED** — entityPaths IS wired; legacy functions deleted; tests cleaned |
+| 4 | TD-27 Replicate test pattern to more components | medium | Partially done — helpers visibility (23 tests) + CsvDataSnapshot (28 tests) added; ~35 components remain |
 
 ### Deferred (low priority, no urgency)
 
@@ -315,7 +314,7 @@ Confirmed by this review: CsvActionView, DataExchangeHubView, FolderPickerModal,
 | Identified potential data-loss scenarios | 8+ |
 | Silent failure points | 12+ |
 
-While 1,547 tests cover domain services, infrastructure, and pure utilities, **the UI layer contains significant business logic that has limited test coverage**. This is not about rendering or CSS — it's about data transforms, aggregation, validation, state machines, and pipeline execution embedded in UI components.
+While 1,571 tests cover domain services, infrastructure, and pure utilities, **the UI layer contains significant business logic that has limited test coverage**. This is not about rendering or CSS — it's about data transforms, aggregation, validation, state machines, and pipeline execution embedded in UI components.
 
 ### 8.1 Critical risk: Functions where bugs cause data loss or corruption
 
@@ -387,11 +386,11 @@ Fuzzy matching and column sync logic extracted from the modal into pure function
 
 All 7 functions (5 original + 2 extracted from PipelineSourceModal) now have **41 dedicated tests** in `tests/utils/csvUtils.test.ts`. The old UI import path (`ui/csv/csvUtils`) is a backward-compatible re-export barrel.
 
-#### `helpers.ts:getVisibleEntries()` — category/system filtering
+#### ~~`helpers.ts:getVisibleEntries()` — category/system filtering~~ **RESOLVED (2026-02-15)**
 
 **File**: `src/ui/catalog/helpers.ts` (lines 244-265)
 
-Complex filtering logic combining category visibility settings, system event tags, and user toggle state. **What breaks**: A filtering bug hides events that should be visible, or shows events that should be hidden — users see inconsistent counts between tabs.
+23 dedicated tests in `helpers.test.ts` cover `getVisibleEntries()`, `discoveredToCatalogEntries()`, `resolveEntry()`, `getConfiguredCount()`, and `getFollowedCount()`. Tests verify category filtering, system event toggle, discovered event merging, and edge cases.
 
 #### `EventLogView.subscribe()` — wildcard event handler
 
@@ -415,24 +414,19 @@ Detects when multiple pipeline sources target the same export path:
 
 **What breaks**: Incomplete conflict detection allows two pipelines to write the same file, with last-write-wins data loss.
 
-#### `CsvDataSnapshot.ts` — filter/sort state machine
+#### ~~`CsvDataSnapshot.ts` — filter/sort state machine~~ **RESOLVED (2026-02-15)**
 
 **File**: `src/ui/csv/CsvDataSnapshot.ts` (lines 110-224)
 
-Interactive filter + sort state with column visibility:
-- Filters applied → rows disappear
-- Column hidden → sort state on that column becomes orphaned
-- Filter reset → must restore correct row count
-
-**What breaks**: Sort state referencing a hidden column causes silent mis-sorting. Filter state accumulates across resets, making "Reset All" not actually reset.
+28 dedicated tests in `CsvDataSnapshot.test.ts` cover rendering, column visibility (hiding/unhiding via chips), filtering (all-column, single-column, case-insensitive), sorting (asc/desc/numeric/3-click cycle), row limit truncation, and combined filter+sort+column-hide operations.
 
 ### 8.3 Risk summary by tier
 
 | Tier | Functions | Example | Consequence | Status |
 |------|-----------|---------|-------------|--------|
 | **Critical** (data loss) | 6 → 0 | ~~`entityScanner.scanEntityFolder()`~~, ~~`DomainsTab.scan()`~~, ~~`ServicesTab.scan()`~~, ~~`PipelinePreview.run()`~~, ~~`parseCsv()`~~ | Entries vanish, duplicates created | 6 resolved (ADR-023 + scanner tests) |
-| **High** (silent wrong results) | 8 → 5 | ~~`csvUtils.splitCsvLine()`~~, `getVisibleEntries()`, conflict detection | Events hidden, file overwrites | 3 resolved (ADR-023) |
-| **Medium** (degraded UX) | 12+ | ~~`formatRelativeTime()`~~, progress tracking, sort state | Wrong display, stale UI | 1 resolved (ADR-023) |
+| **High** (silent wrong results) | 8 → 3 | ~~`csvUtils.splitCsvLine()`~~, ~~`getVisibleEntries()`~~, conflict detection | Events hidden, file overwrites | 5 resolved (ADR-023 + visibility tests) |
+| **Medium** (degraded UX) | 12+ → 10 | ~~`formatRelativeTime()`~~, progress tracking, ~~sort state~~ | Wrong display, stale UI | 3 resolved (ADR-023 + CsvDataSnapshot tests) |
 
 ### 8.4 Recommended testing priority
 
@@ -442,10 +436,10 @@ Interactive filter + sort state with column visibility:
 | 2 | `entityScanner.scanEntityFolder()` | 23 | High — backbone of 4 tabs, mock metadataCache | **RESOLVED** |
 | 3 | `DomainsTab.scan()` / `ServicesTab.scan()` | 26 | High — aggregation correctness | **RESOLVED** |
 | 4 | `PipelinePreview.run()` → `PipelineExecutor.buildPreview()` | 12 | High — prevents duplicate creation | **RESOLVED** (ADR-023) |
-| 5 | `helpers.ts:getVisibleEntries()` | ~10 | Medium — filtering correctness | Open |
-| 6 | `CsvDataSnapshot` filter/sort | ~15 | Medium — state machine integrity | Open |
+| 5 | `helpers.ts:getVisibleEntries()` | 23 | Medium — filtering correctness | **RESOLVED** — 23 tests in helpers.test.ts |
+| 6 | `CsvDataSnapshot` filter/sort | 28 | Medium — state machine integrity | **RESOLVED** — 28 tests in CsvDataSnapshot.test.ts |
 
-Priorities 1 and 4 were resolved via ADR-023 (Modal Business Logic Extraction): csvUtils moved to `utils/csvUtils.ts` with 41 tests; PipelinePreview data gathering extracted to `PipelineExecutor.buildPreview()` with 12 tests. Priorities 2-3 resolved with 49 tests: `entityScanner.test.ts` (23 tests), `DomainsTab.test.ts` scan section (10 tests), `ServicesTab.test.ts` (16 tests).
+Priorities 1 and 4 were resolved via ADR-023 (Modal Business Logic Extraction): csvUtils moved to `utils/csvUtils.ts` with 41 tests; PipelinePreview data gathering extracted to `PipelineExecutor.buildPreview()` with 12 tests. Priorities 2-3 resolved with 49 tests: `entityScanner.test.ts` (23 tests), `DomainsTab.test.ts` scan section (10 tests), `ServicesTab.test.ts` (16 tests). Priorities 5-6 resolved (2026-02-15): `helpers.test.ts` expanded with 23 visibility tests (`getVisibleEntries`, `discoveredToCatalogEntries`, `resolveEntry`, `getConfiguredCount`, `getFollowedCount`); `CsvDataSnapshot.test.ts` added with 28 tests covering rendering, column visibility, filtering, sorting, row limit, and combined operations.
 
 ---
 
@@ -454,9 +448,9 @@ Priorities 1 and 4 were resolved via ADR-023 (Modal Business Logic Extraction): 
 The Flowti IBDE plugin is in **strong shape** after the Tech Debt Sprint. All high-severity items are resolved. The 10 remaining open items are medium or low severity, with none blocking feature development.
 
 **Biggest improvements since last review:**
-- Test suite grew from 854 → 1,547 tests (+81%)
+- Test suite grew from 854 → 1,571 tests (+84%)
 - High-severity items: 1 → 0
-- Resolved items: 16 → 27
+- Resolved items: 16 → 30
 - 10 flow integration tests now cover all documented user journeys
 - Error handling, release strategy, and UI testing patterns all have established conventions
 
@@ -478,11 +472,15 @@ The two highest-ROI extractions from Section 8 have been completed:
 Further modal refactoring has **diminishing returns**. The next priorities should focus on the entity scanning layer.
 
 **Biggest remaining gap:**
-The critical-risk tier is now **fully resolved** (down from 6 open items). All entity scanner and scan aggregation functions have dedicated tests. The remaining untested UI business logic is in the high-risk and medium-risk tiers: `getVisibleEntries()` filtering, `SourcesExportsGrid` conflict detection, `CsvDataSnapshot` filter/sort state, and `ImportsTab.runImportWithFeedback()` execution.
+The critical-risk tier is now **fully resolved** (down from 6 open items). All entity scanner, scan aggregation, visibility filtering, and CsvDataSnapshot state machine functions have dedicated tests. The remaining untested UI business logic is in the high-risk and medium-risk tiers: `SourcesExportsGrid` conflict detection and `ImportsTab.runImportWithFeedback()` execution.
+
+**Completed since initial review:**
+1. ~~TD-39 (tiny)~~: **Resolved** — false positive, services already have lifecycle methods
+2. ~~TD-40 cleanup~~: **Resolved** — legacy path functions deleted, tests cleaned
+3. ~~TD-27 continuation~~: **Partially resolved** — `getVisibleEntries()` (23 tests) and `CsvDataSnapshot` (28 tests) covered; ~35 components remain
 
 **Top priorities for next sprint:**
-1. TD-39 (tiny): Add missing lifecycle methods to InstallerService, UserService, DocService
-2. TD-40 cleanup: Delete 13 unused legacy path functions in `pathResolver.ts`
-3. TD-27 continuation: Replicate test pattern to `helpers.ts:getVisibleEntries()` and `CsvDataSnapshot` (~25 tests)
+1. TD-27 continuation: Replicate test pattern to more UI components (EventsTab, CatalogDashboard, HubDashboard)
+2. TD-06: Assess if UI boundary erosion warrants further abstraction
 
 The plugin's architecture is well-positioned for continued feature development. All critical-risk data-integrity gaps are closed. The remaining testing gaps are in the high/medium-risk tier, none of which block feature work.

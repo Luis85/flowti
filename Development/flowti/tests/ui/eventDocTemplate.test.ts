@@ -1,18 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
-	getEventDocPath,
 	generateEventDocContent,
-	getDomainsFolderPath,
-	getServicesFolderPath,
-	getCategoriesFolderPath,
-	getSystemDocPath,
-	getSystemsFolderPath,
 	generateSystemDocContent,
-	getFlowDocPath,
-	getFlowsFolderPath,
 	generateFlowDocContent,
-	getActorDocPath,
-	getActorsFolderPath,
 	generateActorDocContent,
 	resolveEntityPath,
 	getEventDocPathResolved,
@@ -28,28 +18,6 @@ import {
 import type { EventCatalogEntry } from "../../src/infrastructure/events/catalog";
 
 describe("eventDocTemplate", () => {
-	describe("getEventDocPath", () => {
-		it("should combine root path with Events subfolder and event type", () => {
-			const result = getEventDocPath("docs", "plugin.loading");
-			expect(result).toBe("docs/Events/plugin.loading.md");
-		});
-
-		it("should trim trailing slashes from base path", () => {
-			const result = getEventDocPath("docs/", "plugin.loading");
-			expect(result).toBe("docs/Events/plugin.loading.md");
-		});
-
-		it("should handle the default base path", () => {
-			const result = getEventDocPath(
-				"03 - Resources/Documentation/Reference",
-				"file.create.request"
-			);
-			expect(result).toBe(
-				"03 - Resources/Documentation/Reference/Events/file.create.request.md"
-			);
-		});
-	});
-
 	describe("generateEventDocContent", () => {
 		const entry: EventCatalogEntry = {
 			type: "plugin.loading",
@@ -158,66 +126,6 @@ describe("eventDocTemplate", () => {
 		});
 	});
 
-	describe("getDomainsFolderPath", () => {
-		it("should return Domains subfolder path", () => {
-			const result = getDomainsFolderPath("docs");
-			expect(result).toBe("docs/Domains");
-		});
-
-		it("should trim trailing slashes", () => {
-			const result = getDomainsFolderPath("docs/");
-			expect(result).toBe("docs/Domains");
-		});
-	});
-
-	describe("getServicesFolderPath", () => {
-		it("should return Services subfolder path", () => {
-			const result = getServicesFolderPath("docs");
-			expect(result).toBe("docs/Services");
-		});
-
-		it("should trim trailing slashes", () => {
-			const result = getServicesFolderPath("docs/");
-			expect(result).toBe("docs/Services");
-		});
-	});
-
-	describe("getCategoriesFolderPath", () => {
-		it("should return Categories subfolder path", () => {
-			const result = getCategoriesFolderPath("docs");
-			expect(result).toBe("docs/Categories");
-		});
-
-		it("should trim trailing slashes", () => {
-			const result = getCategoriesFolderPath("docs/");
-			expect(result).toBe("docs/Categories");
-		});
-	});
-
-	describe("getSystemDocPath", () => {
-		it("should combine root path with Systems subfolder", () => {
-			const result = getSystemDocPath("docs", "Billing");
-			expect(result).toBe("docs/Systems/Billing.md");
-		});
-
-		it("should trim trailing slashes", () => {
-			const result = getSystemDocPath("docs/", "CRM");
-			expect(result).toBe("docs/Systems/CRM.md");
-		});
-	});
-
-	describe("getSystemsFolderPath", () => {
-		it("should return Systems subfolder path", () => {
-			const result = getSystemsFolderPath("docs");
-			expect(result).toBe("docs/Systems");
-		});
-
-		it("should trim trailing slashes", () => {
-			const result = getSystemsFolderPath("docs/");
-			expect(result).toBe("docs/Systems");
-		});
-	});
-
 	describe("generateSystemDocContent", () => {
 		it("should include SystemDoc type in frontmatter", () => {
 			const content = generateSystemDocContent("Billing");
@@ -243,30 +151,6 @@ describe("eventDocTemplate", () => {
 			const content = generateSystemDocContent("Billing");
 			expect(content).toContain("domains: []");
 			expect(content).toContain("services: []");
-		});
-	});
-
-	describe("getFlowDocPath", () => {
-		it("should combine root path with Flows subfolder", () => {
-			const result = getFlowDocPath("docs", "Order Processing");
-			expect(result).toBe("docs/Flows/Order Processing.md");
-		});
-
-		it("should trim trailing slashes", () => {
-			const result = getFlowDocPath("docs/", "Checkout");
-			expect(result).toBe("docs/Flows/Checkout.md");
-		});
-	});
-
-	describe("getFlowsFolderPath", () => {
-		it("should return Flows subfolder path", () => {
-			const result = getFlowsFolderPath("docs");
-			expect(result).toBe("docs/Flows");
-		});
-
-		it("should trim trailing slashes", () => {
-			const result = getFlowsFolderPath("docs/");
-			expect(result).toBe("docs/Flows");
 		});
 	});
 
@@ -296,30 +180,6 @@ describe("eventDocTemplate", () => {
 			expect(content).toContain("events: []");
 			expect(content).toContain("domains: []");
 			expect(content).toContain("services: []");
-		});
-	});
-
-	describe("getActorDocPath", () => {
-		it("should combine root path with Actors subfolder", () => {
-			const result = getActorDocPath("docs", "Admin");
-			expect(result).toBe("docs/Actors/Admin.md");
-		});
-
-		it("should trim trailing slashes", () => {
-			const result = getActorDocPath("docs/", "Developer");
-			expect(result).toBe("docs/Actors/Developer.md");
-		});
-	});
-
-	describe("getActorsFolderPath", () => {
-		it("should return Actors subfolder path", () => {
-			const result = getActorsFolderPath("docs");
-			expect(result).toBe("docs/Actors");
-		});
-
-		it("should trim trailing slashes", () => {
-			const result = getActorsFolderPath("docs/");
-			expect(result).toBe("docs/Actors");
 		});
 	});
 

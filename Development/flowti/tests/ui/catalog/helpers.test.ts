@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { EventCatalogEntry } from "../../../src/infrastructure/events/catalog";
+import { EVENT_CATALOG } from "../../../src/infrastructure/events/catalog";
 import type { DiscoveredEvent } from "../../../src/domain/discovery/types";
 import type { CatalogCategoryConfig } from "../../../src/domain/settings/settings";
 import type { Subscription } from "../../../src/domain/subscription/types";
@@ -10,6 +11,7 @@ import type {
 	ActorEntry,
 	ProductEntry,
 } from "../../../src/ui/catalog/types";
+import type { IVaultQueryService } from "../../../src/infrastructure/services/VaultQueryService";
 import {
 	fmString,
 	fmStringArray,
@@ -22,6 +24,12 @@ import {
 	findRelatedSystems,
 	findRelatedActors,
 	findRelatedProducts,
+	getVisibleEntries,
+	discoveredToCatalogEntries,
+	resolveEntry,
+	getConfiguredCount,
+	getFollowedCount,
+	UNCATEGORIZED_CATEGORY,
 } from "../../../src/ui/catalog/helpers";
 
 // ── Fixtures ─────────────────────────────────────────────────
@@ -425,6 +433,217 @@ describe("catalog helpers", () => {
 
 		it("should return empty for no overlap", () => {
 			expect(findRelatedProducts(products, { domains: ["unknown"] })).toHaveLength(0);
+		});
+	});
+
+	// ── Visibility & Resolution ─────────────────────────────
+
+	// Shared mock for visibility tests
+	const mockVaultQuery: IVaultQueryService = {
+		fileExists: () => false,
+		getFile: () => null,
+		isFolder: () => false,
+		isFile: () => false,
+		getFrontmatter: () => undefined,
+		getChildren: () => [],
+		listMarkdownFiles: () => [],
+		readFile: () => Promise.resolve(""),
+	};
+	const allVisibleCats: CatalogCategoryConfig[] = [
+		{ name: "User", visible: true },
+		{ name: "Settings", visible: true },
+		{ name: "Plugin Lifecycle", visible: true },
+		{ name: "Service Lifecycle", visible: true },
+		{ name: "Commands", visible: true },
+		{ name: "Views", visible: true },
+		{ name: "Logging", visible: true },
+		{ name: "Errors", visible: true },
+		{ name: "File Requests", visible: true },
+		{ name: "File Responses", visible: true },
+		{ name: "File Notifications", visible: true },
+		{ name: "Folder Notifications", visible: true },
+		{ name: "Event-File Notifications", visible: true },
+		{ name: "Frontmatter Requests", visible: true },
+		{ name: "Frontmatter Responses", visible: true },
+		{ name: "Workspace", visible: true },
+		{ name: "Metadata", visible: true },
+		{ name: "Installer", visible: true },
+		{ name: "Discovery", visible: true },
+		{ name: "Event Filter", visible: true },
+		{ name: "Event Notify", visible: true },
+		{ name: "Watch Rules", visible: true },
+		{ name: "File Processing", visible: true },
+		{ name: "Transforms", visible: true },
+		{ name: "Data Exchange", visible: true },
+		{ name: "Documentation", visible: true },
+		{ name: "UI Commands", visible: true },
+	];
+
+	describe("discoveredToCatalogEntries", () => {
+		it("should convert discovered events to catalog entries", () => {
+			const discovered = [makeDiscovered({ eventName: "custom.report", triggerCount: 5 })];
+			const entries = discoveredToCatalogEntries(discovered, mockVaultQuery, "docs/Events");
+			expect(entries).toHaveLength(1);
+			expect(entries[0].type).toBe("custom.report");
+			expect(entries[0].stability).toBe("experimental");
+			expect(entries[0].visibility).toBe("user-facing");
+			expect(entries[0].tags).toEqual([]);
+		});
+
+		it("should use UNCATEGORIZED_CATEGORY when no doc frontmatter", () => {
+			const discovered = [makeDiscovered({ eventName: "custom.report" })];
+			const entries = discoveredToCatalogEntries(discovered, mockVaultQuery, "docs/Events");
+			expect(entries[0].category).toBe(UNCATEGORIZED_CATEGORY);
+		});
+
+		it("should use discovered category when provided", () => {
+			const discovered = [makeDiscovered({ eventName: "custom.report", category: "Custom" })];
+			const entries = discoveredToCatalogEntries(discovered, mockVaultQuery, "docs/Events");
+			expect(entries[0].category).toBe("Custom");
+		});
+
+		it("should prefer doc frontmatter over discovered metadata", () => {
+			const vq: IVaultQueryService = {
+				...mockVaultQuery,
+				getFrontmatter: (path: string) => {
+					if (path === "docs/Events/custom.report.md") {
+						return { category: "Reports", description: "Doc desc", domain: "analytics" };
+					}
+					return undefined;
+				},
+			};
+			const discovered = [makeDiscovered({ eventName: "custom.report", category: "Custom" })];
+			const entries = discoveredToCatalogEntries(discovered, vq, "docs/Events");
+			expect(entries[0].category).toBe("Reports");
+			expect(entries[0].description).toBe("Doc desc");
+			expect(entries[0].domain).toBe("analytics");
+		});
+
+		it("should return empty array for no discovered events", () => {
+			expect(discoveredToCatalogEntries([], mockVaultQuery, "docs/Events")).toEqual([]);
+		});
+	});
+
+	describe("getVisibleEntries", () => {
+		it("should return all catalog entries when showSystemEvents is true", () => {
+			const result = getVisibleEntries(allVisibleCats, true, [], mockVaultQuery, "docs/Events");
+			expect(result.length).toBe(EVENT_CATALOG.length);
+		});
+
+		it("should return no catalog entries when showSystemEvents is false and no discovered events", () => {
+			const result = getVisibleEntries(allVisibleCats, false, [], mockVaultQuery, "docs/Events");
+			expect(result.length).toBe(0);
+		});
+
+		it("should include discovered events regardless of showSystemEvents", () => {
+			const discovered = [makeDiscovered({ eventName: "custom.report" })];
+			const result = getVisibleEntries(allVisibleCats, false, discovered, mockVaultQuery, "docs/Events");
+			expect(result.some((e) => e.type === "custom.report")).toBe(true);
+		});
+
+		it("should filter by visible categories", () => {
+			// getOrderedCategories adds missing categories as visible, so we must
+			// explicitly mark all known categories as invisible except "User"
+			const cats: CatalogCategoryConfig[] = allVisibleCats.map((c) => ({
+				name: c.name,
+				visible: c.name === "User",
+			}));
+			const result = getVisibleEntries(cats, true, [], mockVaultQuery, "docs/Events");
+			expect(result.every((e) => e.category === "User")).toBe(true);
+			expect(result.length).toBeGreaterThan(0);
+		});
+
+		it("should hide events in invisible categories", () => {
+			const cats: CatalogCategoryConfig[] = allVisibleCats.map((c) => ({
+				name: c.name,
+				visible: c.name !== "User",
+			}));
+			const result = getVisibleEntries(cats, true, [], mockVaultQuery, "docs/Events");
+			expect(result.some((e) => e.category === "User")).toBe(false);
+		});
+
+		it("should always show discovered events' categories even when not in settings", () => {
+			const discovered = [makeDiscovered({ eventName: "custom.report", category: "CustomCat" })];
+			const result = getVisibleEntries([], false, discovered, mockVaultQuery, "docs/Events");
+			expect(result.some((e) => e.type === "custom.report")).toBe(true);
+		});
+
+		it("should merge discovered and system entries when showSystemEvents is true", () => {
+			const discovered = [makeDiscovered({ eventName: "custom.report" })];
+			const result = getVisibleEntries(allVisibleCats, true, discovered, mockVaultQuery, "docs/Events");
+			expect(result.length).toBe(EVENT_CATALOG.length + 1);
+		});
+	});
+
+	describe("resolveEntry", () => {
+		it("should find system catalog entry by type", () => {
+			const systemType = EVENT_CATALOG[0].type;
+			const result = resolveEntry(systemType, [], mockVaultQuery, "docs/Events");
+			expect(result).toBeDefined();
+			expect(result!.type).toBe(systemType);
+		});
+
+		it("should find discovered event by type", () => {
+			const discovered = [makeDiscovered({ eventName: "custom.report" })];
+			const result = resolveEntry("custom.report", discovered, mockVaultQuery, "docs/Events");
+			expect(result).toBeDefined();
+			expect(result!.type).toBe("custom.report");
+		});
+
+		it("should prefer system catalog over discovered", () => {
+			const systemType = EVENT_CATALOG[0].type;
+			const discovered = [makeDiscovered({ eventName: systemType })];
+			const result = resolveEntry(systemType, discovered, mockVaultQuery, "docs/Events");
+			expect(result).toBe(EVENT_CATALOG[0]);
+		});
+
+		it("should return undefined for unknown type", () => {
+			expect(resolveEntry("nonexistent.type", [], mockVaultQuery, "docs/Events")).toBeUndefined();
+		});
+	});
+
+	describe("getConfiguredCount", () => {
+		it("should count visible entries with subscriptions", () => {
+			const subs = [makeSub({ eventType: EVENT_CATALOG[0].type })];
+			const count = getConfiguredCount(allVisibleCats, true, [], mockVaultQuery, "docs/Events", subs, []);
+			expect(count).toBe(1);
+		});
+
+		it("should count visible entries with definitions", () => {
+			const defs = [makeDef({ sourceEventType: EVENT_CATALOG[0].type })];
+			const count = getConfiguredCount(allVisibleCats, true, [], mockVaultQuery, "docs/Events", [], defs);
+			expect(count).toBe(1);
+		});
+
+		it("should return 0 when no entries are configured", () => {
+			const count = getConfiguredCount(allVisibleCats, true, [], mockVaultQuery, "docs/Events", [], []);
+			expect(count).toBe(0);
+		});
+
+		it("should not count invisible entries", () => {
+			const subs = [makeSub({ eventType: EVENT_CATALOG[0].type })];
+			// Empty categories = no visible categories = no entries
+			const count = getConfiguredCount([], false, [], mockVaultQuery, "docs/Events", subs, []);
+			expect(count).toBe(0);
+		});
+	});
+
+	describe("getFollowedCount", () => {
+		it("should count visible entries in notifiedTypes", () => {
+			const notified = new Set([EVENT_CATALOG[0].type, EVENT_CATALOG[1].type]);
+			const count = getFollowedCount(allVisibleCats, true, [], mockVaultQuery, "docs/Events", notified);
+			expect(count).toBe(2);
+		});
+
+		it("should return 0 when notifiedTypes is empty", () => {
+			const count = getFollowedCount(allVisibleCats, true, [], mockVaultQuery, "docs/Events", new Set());
+			expect(count).toBe(0);
+		});
+
+		it("should not count invisible entries", () => {
+			const notified = new Set([EVENT_CATALOG[0].type]);
+			const count = getFollowedCount([], false, [], mockVaultQuery, "docs/Events", notified);
+			expect(count).toBe(0);
 		});
 	});
 });

@@ -1,5 +1,5 @@
 ---
-status: mitigated
+status: resolved
 severity: low
 category: architecture
 layer: domain
@@ -31,13 +31,9 @@ All entity folder resolution goes through `resolveEntityPath()` which respects b
 
 ## Remaining Issues (Low Severity)
 
-### 1. Legacy path functions — dead code
+### 1. Legacy path functions — ~~dead code~~ DELETED (2026-02-15)
 
-`pathResolver.ts` lines 84-167 contain 14 "legacy" path functions (e.g., `getFlowDocPath(basePath)`) that hardcode subfolder names like `"/Flows/"`. These are re-exported from `index.ts` and `eventDocTemplate.ts` but **13 of 14 are never called** in `src/`. The one exception (`getEventDocPath`) is duplicated in `configDocContent.ts`.
-
-The "Resolved" variants (`getFlowDocPathResolved(flowsFolder)`) accept pre-resolved folder paths and are used everywhere that matters.
-
-**Action**: Delete 13 unused legacy functions and their re-exports when convenient. Migrate the 1 remaining to use `getEventDocPathResolved`.
+All 14 legacy path functions were deleted from `pathResolver.ts`, along with their re-exports from `index.ts` and `eventDocTemplate.ts`. The `configDocContent.ts` duplicate `getEventDocPath` was also removed, replaced with `getEventDocPathResolved`. Legacy test blocks (~65 tests) removed from `pathResolver.test.ts` and `eventDocTemplate.test.ts`.
 
 ### 2. Installer folders — hardcoded subset
 
@@ -55,6 +51,6 @@ This is a fallback before `settings.loaded` fires. It matches `DEFAULT_SETTINGS.
 
 ## Affected Files
 
-- `src/domain/docs/pathResolver.ts` (13 unused legacy functions — cleanup candidate)
-- `src/domain/installer/folders.ts` (hardcoded subset — low impact)
-- `src/domain/dataExchange/configDocContent.ts` (duplicate `getEventDocPath` — cleanup candidate)
+- ~~`src/domain/docs/pathResolver.ts`~~ (legacy functions deleted)
+- `src/domain/installer/folders.ts` (hardcoded subset — low impact, acceptable)
+- ~~`src/domain/dataExchange/configDocContent.ts`~~ (duplicate `getEventDocPath` replaced with resolved variant)

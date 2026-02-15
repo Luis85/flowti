@@ -12,6 +12,7 @@ declare global {
 		addClass(...classes: string[]): void;
 		removeClass(...classes: string[]): void;
 		setText(text: string): void;
+		appendText(text: string): void;
 		empty(): void;
 		createDiv(options?: { cls?: string; text?: string } | string): HTMLDivElement;
 		createSpan(options?: { cls?: string; text?: string } | string): HTMLSpanElement;
@@ -39,6 +40,10 @@ if (typeof HTMLElement !== "undefined" && !HTMLElement.prototype.addClass) {
 
 	HTMLElement.prototype.setText = function (text: string) {
 		this.textContent = text;
+	};
+
+	HTMLElement.prototype.appendText = function (text: string) {
+		this.appendChild(document.createTextNode(text));
 	};
 
 	HTMLElement.prototype.empty = function () {
