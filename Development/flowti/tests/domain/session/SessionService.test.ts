@@ -3,8 +3,9 @@ import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { SessionService } from "../../../src/domain/session/SessionService";
 import type { ITypedStorage } from "../../../src/utils/TypedStorage";
-import type { Session, SessionState } from "../../../src/domain/session/types";
-import { MAX_SESSIONS } from "../../../src/domain/session/types";
+import type { Session, SessionState, SessionTemplate } from "../../../src/domain/session/types";
+import { MAX_SESSIONS, MAX_TEMPLATES } from "../../../src/domain/session/types";
+import { generateRerunTitle } from "../../../src/domain/session/SessionService";
 import { createMockStorage } from "../../mocks/storage";
 
 function makeSession(overrides: Partial<Session> = {}): Session {
@@ -695,6 +696,409 @@ describe("SessionService", () => {
 
 			vi.advanceTimersByTime(5000);
 			expect(tickHandler).not.toHaveBeenCalled();
+		});
+	});
+
+	// ── Template CRUD ───────────────────────────────────────
+
+	describe("template CRUD", () => {
+		beforeEach(async () => {
+			await service.load();
+		});
+
+		it("should return empty templates by default", () => {
+			expect(service.getSavedTemplates()).toEqual([]);
+		});
+
+		it("should save a template with generated id and createdAt", async () => {
+			const result = await service.saveTemplate({
+				name: "Sprint Storming",
+				type: "event-storming",
+				durationMinutes: 25,
+			});
+
+			expect(result.id).toMatch(/^tmpl_/);
+			expect(result.createdAt).toBeGreaterThan(0);
+			expect(result.name).toBe("Sprint Storming");
+			expect(result.type).toBe("event-storming");
+			expect(result.durationMinutes).toBe(25);
+		});
+
+		it("should persist templates to storage", async () => {
+			await service.saveTemplate({
+				name: "T1",
+				type: "event-storming",
+				durationMinutes: 25,
+			});
+
+			expect(storage.save).toHaveBeenCalled();
+		});
+
+		it("should return saved templates via getSavedTemplates", async () => {
+			await service.saveTemplate({ name: "T1", type: "event-storming", durationMinutes: 25 });
+			await service.saveTemplate({ name: "T2", type: "service-design", durationMinutes: 50 });
+
+			const templates = service.getSavedTemplates();
+			expect(templates).toHaveLength(2);
+			expect(templates[0].name).toBe("T1");
+			expect(templates[1].name).toBe("T2");
+		});
+
+		it("should return a template by ID", async () => {
+			const saved = await service.saveTemplate({ name: "T1", type: "event-storming", durationMinutes: 25 });
+
+			const found = service.getTemplate(saved.id);
+			expect(found).toBeDefined();
+			expect(found!.name).toBe("T1");
+		});
+
+		it("should return undefined for unknown template ID", () => {
+			expect(service.getTemplate("nonexistent")).toBeUndefined();
+		});
+
+		it("should update an existing template", async () => {
+			const saved = await service.saveTemplate({ name: "T1", type: "event-storming", durationMinutes: 25 });
+
+			await service.updateTemplate(saved.id, { name: "T1 Updated", durationMinutes: 50 });
+
+			const updated = service.getTemplate(saved.id);
+			expect(updated!.name).toBe("T1 Updated");
+			expect(updated!.durationMinutes).toBe(50);
+			expect(updated!.type).toBe("event-storming"); // unchanged
+		});
+
+		it("should no-op when updating a non-existent template", async () => {
+			(storage.save as ReturnType<typeof vi.fn>).mockClear();
+			await service.updateTemplate("nonexistent", { name: "X" });
+			expect(storage.save).not.toHaveBeenCalled();
+		});
+
+		it("should delete a template by ID", async () => {
+			const saved = await service.saveTemplate({ name: "T1", type: "event-storming", durationMinutes: 25 });
+
+			await service.deleteTemplate(saved.id);
+
+			expect(service.getSavedTemplates()).toHaveLength(0);
+			expect(service.getTemplate(saved.id)).toBeUndefined();
+		});
+
+		it("should no-op when deleting a non-existent template", async () => {
+			(storage.save as ReturnType<typeof vi.fn>).mockClear();
+			await service.deleteTemplate("nonexistent");
+			expect(storage.save).not.toHaveBeenCalled();
+		});
+
+		it("should evict oldest templates when exceeding MAX_TEMPLATES", async () => {
+			for (let i = 0; i < MAX_TEMPLATES; i++) {
+				vi.advanceTimersByTime(10); // ensure different createdAt
+				await service.saveTemplate({ name: `T${i}`, type: "event-storming", durationMinutes: 25 });
+			}
+
+			expect(service.getSavedTemplates()).toHaveLength(MAX_TEMPLATES);
+
+			// Add one more — should evict oldest
+			vi.advanceTimersByTime(10);
+			await service.saveTemplate({ name: "Overflow", type: "event-storming", durationMinutes: 25 });
+
+			const templates = service.getSavedTemplates();
+			expect(templates).toHaveLength(MAX_TEMPLATES);
+			// Newest should still be present
+			expect(templates.some((t) => t.name === "Overflow")).toBe(true);
+			// Oldest (T0) should be evicted
+			expect(templates.some((t) => t.name === "T0")).toBe(false);
+		});
+
+		it("should save a template with optional description", async () => {
+			const saved = await service.saveTemplate({
+				name: "T1",
+				type: "event-storming",
+				durationMinutes: 25,
+				description: "My description",
+			});
+
+			expect(saved.description).toBe("My description");
+		});
+	});
+
+	// ── Save Template from Session ──────────────────────────
+
+	describe("saveTemplateFromSession", () => {
+		let completedSessionId: string;
+
+		beforeEach(async () => {
+			await service.load();
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await eventBus.emit("session.create", {
+				type: "service-design",
+				title: "Sprint 12",
+				durationMinutes: 50,
+			});
+			completedSessionId = handler.mock.calls[0][0].payload.session.id;
+
+			// Complete the session
+			await eventBus.emit("session.start", { sessionId: completedSessionId });
+			await eventBus.emit("session.complete", { sessionId: completedSessionId });
+		});
+
+		it("should create template from completed session", async () => {
+			const tmpl = await service.saveTemplateFromSession(completedSessionId, "Sprint Template");
+
+			expect(tmpl).not.toBeNull();
+			expect(tmpl!.name).toBe("Sprint Template");
+			expect(tmpl!.type).toBe("service-design");
+			expect(tmpl!.durationMinutes).toBe(50);
+		});
+
+		it("should create template from archived session", async () => {
+			await eventBus.emit("session.archive", { sessionId: completedSessionId });
+
+			const tmpl = await service.saveTemplateFromSession(completedSessionId, "Archived Template");
+			expect(tmpl).not.toBeNull();
+			expect(tmpl!.name).toBe("Archived Template");
+		});
+
+		it("should return null for active session", async () => {
+			await eventBus.emit("session.create", { type: "event-storming", title: "Active", durationMinutes: 25 });
+			const activeSession = service.getSessions().find((s) => s.title === "Active");
+			expect(activeSession).toBeDefined();
+			await eventBus.emit("session.start", { sessionId: activeSession!.id });
+
+			const tmpl = await service.saveTemplateFromSession(activeSession!.id, "X");
+			expect(tmpl).toBeNull();
+		});
+
+		it("should return null for prepared session", async () => {
+			await eventBus.emit("session.create", { type: "event-storming", title: "Prepared", durationMinutes: 25 });
+			const preparedSession = service.getSessions().find((s) => s.title === "Prepared");
+			expect(preparedSession).toBeDefined();
+
+			const tmpl = await service.saveTemplateFromSession(preparedSession!.id, "X");
+			expect(tmpl).toBeNull();
+		});
+
+		it("should return null for non-existent session", async () => {
+			const tmpl = await service.saveTemplateFromSession("nonexistent", "X");
+			expect(tmpl).toBeNull();
+		});
+	});
+
+	// ── Rerun Session ───────────────────────────────────────
+
+	describe("rerunSession", () => {
+		let completedSessionId: string;
+
+		beforeEach(async () => {
+			await service.load();
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await eventBus.emit("session.create", {
+				type: "event-storming",
+				title: "Sprint 12",
+				durationMinutes: 25,
+			});
+			completedSessionId = handler.mock.calls[0][0].payload.session.id;
+
+			await eventBus.emit("session.start", { sessionId: completedSessionId });
+			await eventBus.emit("session.complete", { sessionId: completedSessionId });
+		});
+
+		it("should create a new prepared session from completed session", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+
+			await service.rerunSession(completedSessionId);
+
+			expect(handler).toHaveBeenCalled();
+			const newSession = handler.mock.calls[0][0].payload.session;
+			expect(newSession.title).toBe("Sprint 12 (2)");
+			expect(newSession.type).toBe("event-storming");
+			expect(newSession.durationMinutes).toBe(25);
+			expect(newSession.status).toBe("prepared");
+		});
+
+		it("should create a new session from archived session", async () => {
+			await eventBus.emit("session.archive", { sessionId: completedSessionId });
+
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await service.rerunSession(completedSessionId);
+
+			expect(handler).toHaveBeenCalled();
+			expect(handler.mock.calls[0][0].payload.session.title).toBe("Sprint 12 (2)");
+		});
+
+		it("should increment suffix on repeated reruns", async () => {
+			// First rerun: Sprint 12 → Sprint 12 (2)
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await service.rerunSession(completedSessionId);
+
+			const rerunId = handler.mock.calls[0][0].payload.session.id;
+			// Complete the rerun
+			await eventBus.emit("session.start", { sessionId: rerunId });
+			await eventBus.emit("session.complete", { sessionId: rerunId });
+
+			// Second rerun: Sprint 12 (2) → Sprint 12 (3)
+			handler.mockClear();
+			await service.rerunSession(rerunId);
+			expect(handler.mock.calls[0][0].payload.session.title).toBe("Sprint 12 (3)");
+		});
+
+		it("should not rerun an active session", async () => {
+			await eventBus.emit("session.create", { type: "event-storming", title: "Active", durationMinutes: 25 });
+			const activeSession = service.getSessions().find((s) => s.title === "Active");
+			expect(activeSession).toBeDefined();
+			await eventBus.emit("session.start", { sessionId: activeSession!.id });
+
+			const countBefore = service.getSessions().length;
+			await service.rerunSession(activeSession!.id);
+			expect(service.getSessions().length).toBe(countBefore);
+		});
+
+		it("should not rerun a prepared session", async () => {
+			await eventBus.emit("session.create", { type: "event-storming", title: "P", durationMinutes: 25 });
+			const preparedSession = service.getSessions().find((s) => s.title === "P");
+			expect(preparedSession).toBeDefined();
+
+			const countBefore = service.getSessions().length;
+			await service.rerunSession(preparedSession!.id);
+			expect(service.getSessions().length).toBe(countBefore);
+		});
+
+		it("should not rerun a non-existent session", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await service.rerunSession("nonexistent");
+			expect(handler).not.toHaveBeenCalled();
+		});
+	});
+
+	// ── Create from Template ────────────────────────────────
+
+	describe("createFromTemplate", () => {
+		let templateId: string;
+
+		beforeEach(async () => {
+			await service.load();
+			const tmpl = await service.saveTemplate({
+				name: "Sprint Storming",
+				type: "event-storming",
+				durationMinutes: 25,
+			});
+			templateId = tmpl.id;
+		});
+
+		it("should create a session from template with template name", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+
+			await service.createFromTemplate(templateId);
+
+			expect(handler).toHaveBeenCalled();
+			const session = handler.mock.calls[0][0].payload.session;
+			expect(session.title).toBe("Sprint Storming");
+			expect(session.type).toBe("event-storming");
+			expect(session.durationMinutes).toBe(25);
+			expect(session.status).toBe("prepared");
+		});
+
+		it("should use titleOverride when provided", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+
+			await service.createFromTemplate(templateId, "Custom Title");
+
+			expect(handler.mock.calls[0][0].payload.session.title).toBe("Custom Title");
+		});
+
+		it("should no-op for non-existent template", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+
+			await service.createFromTemplate("nonexistent");
+
+			expect(handler).not.toHaveBeenCalled();
+		});
+	});
+
+	// ── Backward Compatibility ──────────────────────────────
+
+	describe("backward compatibility", () => {
+		it("should initialize savedTemplates when loading old state without templates", async () => {
+			// Old state shape: no savedTemplates field
+			const oldState = { sessions: [makeSession()], activeSessionId: null } as SessionState;
+			const mock = createMockStorage(oldState);
+			service.dispose();
+			service = new SessionService({ storage: mock.storage, eventBus });
+
+			await service.load();
+
+			expect(service.getSavedTemplates()).toEqual([]);
+		});
+
+		it("should include savedTemplates in session.loaded event", async () => {
+			await service.load();
+			await service.saveTemplate({ name: "T1", type: "event-storming", durationMinutes: 25 });
+
+			const handler = vi.fn();
+			eventBus.on("session.loaded", handler);
+			await eventBus.emit("session.refresh", {});
+
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: expect.objectContaining({
+						savedTemplates: expect.arrayContaining([
+							expect.objectContaining({ name: "T1" }),
+						]),
+					}),
+				}),
+			);
+		});
+
+		it("should load state that already has savedTemplates", async () => {
+			const stateWithTemplates: SessionState = {
+				sessions: [],
+				activeSessionId: null,
+				savedTemplates: [{
+					id: "tmpl_existing",
+					name: "Existing",
+					type: "event-storming",
+					durationMinutes: 25,
+					createdAt: Date.now(),
+				}],
+			};
+			const mock = createMockStorage(stateWithTemplates);
+			service.dispose();
+			service = new SessionService({ storage: mock.storage, eventBus });
+			await service.load();
+
+			expect(service.getSavedTemplates()).toHaveLength(1);
+			expect(service.getSavedTemplates()[0].name).toBe("Existing");
+		});
+	});
+
+	// ── generateRerunTitle ──────────────────────────────────
+
+	describe("generateRerunTitle", () => {
+		it("should append (2) to a title without suffix", () => {
+			expect(generateRerunTitle("Sprint 12")).toBe("Sprint 12 (2)");
+		});
+
+		it("should increment existing suffix", () => {
+			expect(generateRerunTitle("Sprint 12 (2)")).toBe("Sprint 12 (3)");
+		});
+
+		it("should increment high numbers", () => {
+			expect(generateRerunTitle("Sprint 12 (99)")).toBe("Sprint 12 (100)");
+		});
+
+		it("should handle title with no spaces before suffix", () => {
+			expect(generateRerunTitle("Test(5)")).toBe("Test (6)");
+		});
+
+		it("should handle simple single-word title", () => {
+			expect(generateRerunTitle("Review")).toBe("Review (2)");
 		});
 	});
 });

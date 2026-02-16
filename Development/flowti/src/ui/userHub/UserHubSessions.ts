@@ -8,7 +8,7 @@
 
 import { setIcon } from "obsidian";
 import { formatDuration, computeRemainingMs, computeElapsedMs } from "../../domain/session/helpers";
-import type { Session, SessionArtifact } from "../../domain/session/types";
+import type { Session, SessionArtifact, SessionTemplate } from "../../domain/session/types";
 import {
 	SESSION_STATUS_LABELS,
 	SESSION_TYPE_LABELS,
@@ -69,6 +69,7 @@ export class UserHubSessions {
 
 		for (const session of sorted) {
 			const row = this.masterEl.createDiv({ cls: "ft-catalog-row ft-cursor-pointer" });
+			row.style.marginBottom = "2px";
 
 			if (state.selectedSession?.id === session.id) {
 				row.addClass("ft-catalog-row-active");
@@ -115,13 +116,18 @@ export class UserHubSessions {
 		const session = state.selectedSession;
 
 		if (!session) {
-			const empty = this.detailEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			empty.style.justifyContent = "center";
-			empty.style.padding = "3rem";
-			empty.style.color = "var(--text-muted)";
-			const icon = empty.createSpan();
-			setIcon(icon, "timer");
-			empty.createSpan({ text: "Select a session to view details" });
+			const templates = this.deps.sessionService.getSavedTemplates();
+			if (templates.length > 0) {
+				this.renderTemplateList(templates);
+			} else {
+				const empty = this.detailEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+				empty.style.justifyContent = "center";
+				empty.style.padding = "3rem";
+				empty.style.color = "var(--text-muted)";
+				const icon = empty.createSpan();
+				setIcon(icon, "timer");
+				empty.createSpan({ text: "Select a session to view details" });
+			}
 			return;
 		}
 
@@ -182,6 +188,9 @@ export class UserHubSessions {
 			cls: "ft-badge ft-badge-muted",
 		});
 
+		// Actions — directly under header for easy access
+		this.renderActions(session);
+
 		// Timer section (active or paused)
 		if (session.status === "active" || session.status === "paused") {
 			const timerSection = this.detailEl.createDiv({ cls: "ft-detail-section" });
@@ -216,9 +225,6 @@ export class UserHubSessions {
 		if (session.artifacts.length > 0) {
 			this.renderArtifacts(session.artifacts);
 		}
-
-		// Actions section
-		this.renderActions(session);
 	}
 
 	private renderInfoRow(container: HTMLElement, label: string, value: string): void {
@@ -261,12 +267,16 @@ export class UserHubSessions {
 	private renderActions(session: Session): void {
 		const actions = this.detailEl.createDiv({ cls: "ft-detail-section ft-flex ft-gap-2" });
 		const eb = this.deps.eventBus;
+		const state = this.deps.getState();
 
 		switch (session.status) {
 			case "prepared":
-				this.addActionButton(actions, "play", "Start", () => {
-					void eb.emit("session.start", { sessionId: session.id });
-				});
+				// Only show Start when no other session is active
+				if (!state.activeSession) {
+					this.addActionButton(actions, "play", "Start", () => {
+						void eb.emit("session.start", { sessionId: session.id });
+					});
+				}
 				this.addActionButton(actions, "trash-2", "Delete", () => {
 					void eb.emit("session.delete", { sessionId: session.id });
 				});
@@ -291,6 +301,17 @@ export class UserHubSessions {
 				break;
 
 			case "completed":
+				this.addActionButton(actions, "repeat", "Rerun", () => {
+					void this.deps.sessionService.rerunSession(session.id).then((newSession) => {
+						if (newSession) {
+							this.deps.setState({ selectedSession: newSession });
+							this.deps.scheduleRender();
+						}
+					});
+				});
+				this.addActionButton(actions, "bookmark", "Save as Template", () => {
+					this.deps.openSaveTemplateModal(session);
+				});
 				this.addActionButton(actions, "archive", "Archive", () => {
 					void eb.emit("session.archive", { sessionId: session.id });
 				});
@@ -300,10 +321,60 @@ export class UserHubSessions {
 				break;
 
 			case "archived":
+				this.addActionButton(actions, "repeat", "Rerun", () => {
+					void this.deps.sessionService.rerunSession(session.id).then((newSession) => {
+						if (newSession) {
+							this.deps.setState({ selectedSession: newSession });
+							this.deps.scheduleRender();
+						}
+					});
+				});
+				this.addActionButton(actions, "bookmark", "Save as Template", () => {
+					this.deps.openSaveTemplateModal(session);
+				});
 				this.addActionButton(actions, "trash-2", "Delete", () => {
 					void eb.emit("session.delete", { sessionId: session.id });
 				});
 				break;
+		}
+	}
+
+	private renderTemplateList(templates: SessionTemplate[]): void {
+		const section = this.detailEl.createDiv({ cls: "ft-detail-section" });
+		section.style.padding = "1rem";
+		section.createEl("h4", { text: "Saved Templates", cls: "ft-heading ft-heading-sm" });
+
+		for (const tmpl of templates) {
+			const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-text-sm" });
+			row.style.padding = "0.35rem 0";
+			row.style.borderBottom = "1px solid var(--background-modifier-border)";
+
+			const icon = row.createSpan();
+			setIcon(icon, "bookmark");
+			icon.style.opacity = "0.5";
+
+			row.createSpan({ text: tmpl.name });
+
+			row.createSpan({
+				text: SESSION_TYPE_LABELS[tmpl.type] ?? tmpl.type,
+				cls: "ft-badge ft-badge-muted ft-text-sm",
+			});
+
+			row.createSpan({
+				text: `${tmpl.durationMinutes} min`,
+				cls: "ft-text-muted",
+			});
+
+			const spacer = row.createDiv();
+			spacer.style.flex = "1";
+
+			const deleteBtn = row.createEl("button", { cls: "ft-btn ft-btn-sm" });
+			setIcon(deleteBtn, "trash-2");
+			deleteBtn.addEventListener("click", () => {
+				void this.deps.sessionService.deleteTemplate(tmpl.id).then(() => {
+					this.deps.scheduleRender();
+				});
+			});
 		}
 	}
 

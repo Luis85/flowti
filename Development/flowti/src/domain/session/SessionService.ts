@@ -12,8 +12,8 @@
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { ITypedStorage } from "../../utils/TypedStorage";
 import { generateUUID } from "../../utils/helpers";
-import type { Session, SessionState } from "./types";
-import { MAX_SESSIONS, ARTIFACT_DEDUP_WINDOW_MS } from "./types";
+import type { Session, SessionState, SessionTemplate } from "./types";
+import { MAX_SESSIONS, MAX_TEMPLATES, ARTIFACT_DEDUP_WINDOW_MS } from "./types";
 import { createSession, computeRemainingMs, computeElapsedMs, isTimerExpired } from "./helpers";
 
 /**
@@ -28,7 +28,7 @@ export interface SessionServiceOptions {
  * Creates a fresh default session state.
  */
 function createDefaultState(): SessionState {
-	return { sessions: [], activeSessionId: null };
+	return { sessions: [], activeSessionId: null, savedTemplates: [] };
 }
 
 /**
@@ -114,6 +114,10 @@ export class SessionService {
 		const saved = await this.storage.load();
 		if (saved) {
 			this.state = saved;
+			// Backward compat: initialize savedTemplates if missing
+			if (!this.state.savedTemplates) {
+				this.state.savedTemplates = [];
+			}
 		}
 
 		// Resume or expire active session
@@ -146,6 +150,112 @@ export class SessionService {
 		return this.findSession(this.state.activeSessionId) ?? null;
 	}
 
+	// ── Template CRUD ───────────────────────────────────────
+
+	/**
+	 * Returns all saved templates.
+	 */
+	getSavedTemplates(): SessionTemplate[] {
+		return [...(this.state.savedTemplates ?? [])];
+	}
+
+	/**
+	 * Returns a single template by ID, or undefined.
+	 */
+	getTemplate(id: string): SessionTemplate | undefined {
+		return this.state.savedTemplates?.find((t) => t.id === id);
+	}
+
+	/**
+	 * Saves a new template. Evicts oldest if over MAX_TEMPLATES.
+	 */
+	async saveTemplate(template: Omit<SessionTemplate, "id" | "createdAt">): Promise<SessionTemplate> {
+		const saved: SessionTemplate = {
+			...template,
+			id: `tmpl_${generateUUID()}`,
+			createdAt: Date.now(),
+		};
+
+		if (!this.state.savedTemplates) this.state.savedTemplates = [];
+		this.state.savedTemplates.push(saved);
+
+		// Evict oldest if over capacity
+		if (this.state.savedTemplates.length > MAX_TEMPLATES) {
+			this.state.savedTemplates = this.state.savedTemplates
+				.sort((a, b) => b.createdAt - a.createdAt)
+				.slice(0, MAX_TEMPLATES);
+		}
+
+		await this.saveState();
+		return { ...saved };
+	}
+
+	/**
+	 * Partially updates an existing template.
+	 */
+	async updateTemplate(id: string, updates: Partial<Pick<SessionTemplate, "name" | "type" | "durationMinutes" | "description">>): Promise<void> {
+		const tmpl = this.state.savedTemplates?.find((t) => t.id === id);
+		if (!tmpl) return;
+		Object.assign(tmpl, updates);
+		await this.saveState();
+	}
+
+	/**
+	 * Deletes a template by ID.
+	 */
+	async deleteTemplate(id: string): Promise<void> {
+		if (!this.state.savedTemplates) return;
+		const index = this.state.savedTemplates.findIndex((t) => t.id === id);
+		if (index === -1) return;
+		this.state.savedTemplates.splice(index, 1);
+		await this.saveState();
+	}
+
+	/**
+	 * Creates a template from a completed or archived session.
+	 */
+	async saveTemplateFromSession(sessionId: string, name: string): Promise<SessionTemplate | null> {
+		const session = this.findSession(sessionId);
+		if (!session || (session.status !== "completed" && session.status !== "archived")) return null;
+
+		return this.saveTemplate({
+			name,
+			type: session.type,
+			durationMinutes: session.durationMinutes,
+		});
+	}
+
+	// ── Rerun & Create from Template ────────────────────────
+
+	/**
+	 * Creates a new "prepared" session from a completed or archived session.
+	 * Appends (N) suffix to the title.
+	 */
+	async rerunSession(sessionId: string): Promise<Session | null> {
+		const session = this.findSession(sessionId);
+		if (!session || (session.status !== "completed" && session.status !== "archived")) return null;
+
+		return this.handleCreate({
+			type: session.type,
+			title: generateRerunTitle(session.title),
+			durationMinutes: session.durationMinutes,
+		});
+	}
+
+	/**
+	 * Creates a new session from a saved template.
+	 */
+	async createFromTemplate(templateId: string, titleOverride?: string): Promise<void> {
+		const tmpl = this.getTemplate(templateId);
+		if (!tmpl) return;
+
+		await this.handleCreate({
+			type: tmpl.type,
+			title: titleOverride ?? tmpl.name,
+			durationMinutes: tmpl.durationMinutes,
+		});
+	}
+
 	/**
 	 * Unsubscribes from event bus listeners and stops the timer.
 	 */
@@ -159,7 +269,7 @@ export class SessionService {
 
 	// ── Command handlers ─────────────────────────────────────
 
-	private async handleCreate(payload: { type: string; title: string; durationMinutes: number }): Promise<void> {
+	private async handleCreate(payload: { type: string; title: string; durationMinutes: number }): Promise<Session> {
 		const id = `session_${generateUUID()}`;
 		const session = createSession(
 			id,
@@ -177,6 +287,7 @@ export class SessionService {
 
 		await this.saveState();
 		await this.eventBus?.emit("session.created", { session: { ...session } });
+		return { ...session };
 	}
 
 	private async handleStart(sessionId: string): Promise<void> {
@@ -345,6 +456,20 @@ export class SessionService {
 		await this.eventBus?.emit("session.loaded", {
 			sessions: this.getSessions(),
 			activeSessionId: this.state.activeSessionId,
+			savedTemplates: this.getSavedTemplates(),
 		});
 	}
+}
+
+/**
+ * Generates a rerun title by appending or incrementing a `(N)` suffix.
+ * "Sprint 12" → "Sprint 12 (2)"
+ * "Sprint 12 (2)" → "Sprint 12 (3)"
+ */
+export function generateRerunTitle(title: string): string {
+	const match = title.match(/^(.+?)\s*\((\d+)\)$/);
+	if (match) {
+		return `${match[1]} (${Number(match[2]) + 1})`;
+	}
+	return `${title} (2)`;
 }

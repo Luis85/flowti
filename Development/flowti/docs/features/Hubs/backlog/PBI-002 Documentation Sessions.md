@@ -82,8 +82,11 @@ As a domain architect, I want time-boxed documentation sessions with a Pomodoro 
 - [x] Session history shows completed sessions with artifact count — *UserHubSessions master list + detail panel*
 - [ ] `session_focus` layout renders all 5 regions — *remaining work*
 - [x] Session lifecycle events emitted on EventBus — *19 events registered in catalog*
-- [x] `npm run build` passes — *1,887 tests across 82 suites*
-- [x] Unit tests for SessionService lifecycle and timer — *60 tests in SessionService.test.ts*
+- [x] `npm run build` passes — *1,938 tests across 82 suites*
+- [x] Unit tests for SessionService lifecycle, timer, templates, and rerun — *90 tests in SessionService.test.ts*
+- [x] Rerun completed/archived sessions without re-entering configuration — *Increment 3: rerunSession() + auto-select*
+- [x] Save sessions as reusable templates — *Increment 3: SaveTemplateModal + template CRUD + template list in detail panel*
+- [x] Dashboard session callout with live timer and contextual actions — *Increment 3: updateTimerDisplay() + Pause/Resume*
 
 ## Implementation Progress
 
@@ -109,3 +112,19 @@ Modified files:
 - `src/ui/userHub/UserHubDashboard.ts` — Active session card, "Sessions" quick action
 - `src/main.ts` — Pass sessionService to UserHubView
 - 3 test files updated with session state/deps + `openNewSessionModal: vi.fn()`
+
+### Increment 3: Session Templates, Rerun & UX Polish (2026-02-16)
+
+Modified files:
+- `src/domain/session/types.ts` — `SessionTemplate` interface, `MAX_TEMPLATES = 50`, `SessionState.savedTemplates?` (optional for backward compat)
+- `src/domain/session/events.ts` — `savedTemplates: SessionTemplate[]` added to `session.loaded` payload
+- `src/domain/session/SessionService.ts` — 7 new methods: `getSavedTemplates()`, `getTemplate()`, `saveTemplate()`, `updateTemplate()`, `deleteTemplate()`, `saveTemplateFromSession()`, `rerunSession()`, `createFromTemplate()` + `generateRerunTitle()` helper + backward compat migration in `load()`
+- `src/ui/modals.ts` — New `SaveTemplateModal` class + extended `NewSessionModal` with template chooser dropdown + prefill
+- `src/ui/userHub/types.ts` — `openSaveTemplateModal` callback added to `UserHubComponentDeps`
+- `src/ui/userHub/UserHubSessions.ts` — Rerun/Save Template buttons on completed/archived, template list in empty detail panel, actions moved under header, Start hidden when active session exists, margin-bottom on list rows
+- `src/ui/UserHubView.ts` — Wired `openSaveTemplateModal`, pass templates to NewSessionModal, dashboard timer tick
+- `src/ui/userHub/UserHubDashboard.ts` — `updateTimerDisplay()` for live timer, contextual Pause/Resume buttons, Paused badge, muted border for paused sessions
+- `tests/domain/session/SessionService.test.ts` — +30 tests (template CRUD, rerun, createFromTemplate, backward compat, generateRerunTitle)
+- `tests/ui/userHub/UserHubSessions.test.ts` — +12 tests (rerun/save template, template list, Start hidden when active, margin-bottom)
+- `tests/ui/userHub/UserHubDashboard.test.ts` — +5 tests (paused Resume, resume event, Paused badge, updateTimerDisplay, no-op timer)
+- 2 test files updated with `openSaveTemplateModal: vi.fn()`

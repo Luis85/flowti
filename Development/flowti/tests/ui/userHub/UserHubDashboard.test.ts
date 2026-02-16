@@ -624,6 +624,105 @@ describe("UserHubDashboard", () => {
 				payload: { sessionId: "s2" },
 			}));
 		});
+
+		it("should show Resume button instead of Pause when session is paused", () => {
+			const session = makeActiveSession({
+				id: "s3",
+				status: "paused",
+				startedAt: null,
+				pausedAt: new Date().toISOString(),
+				elapsedBeforePauseMs: 60_000,
+			});
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				sessionService: makeSessionService(session),
+			}));
+
+			dashboard.render();
+
+			const buttons = container.querySelectorAll(".ft-active-session button");
+			const labels = Array.from(buttons).map((b) => b.textContent?.trim());
+			expect(labels).toContain("Resume");
+			expect(labels).toContain("Complete");
+			expect(labels).not.toContain("Pause");
+		});
+
+		it("should emit session.resume when Resume is clicked on paused session", async () => {
+			const spy = vi.fn();
+			eventBus.on("session.resume", spy);
+
+			const session = makeActiveSession({
+				id: "s4",
+				status: "paused",
+				startedAt: null,
+				pausedAt: new Date().toISOString(),
+				elapsedBeforePauseMs: 60_000,
+			});
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				sessionService: makeSessionService(session),
+			}));
+
+			dashboard.render();
+
+			const buttons = container.querySelectorAll(".ft-active-session button");
+			const resumeBtn = Array.from(buttons).find((b) => b.textContent?.includes("Resume"));
+			expect(resumeBtn).toBeTruthy();
+			(resumeBtn as HTMLElement).click();
+
+			await new Promise((r) => setTimeout(r, 10));
+			expect(spy).toHaveBeenCalledWith(expect.objectContaining({
+				payload: { sessionId: "s4" },
+			}));
+		});
+
+		it("should show Paused badge when session is paused", () => {
+			const session = makeActiveSession({
+				status: "paused",
+				startedAt: null,
+				pausedAt: new Date().toISOString(),
+				elapsedBeforePauseMs: 60_000,
+			});
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				sessionService: makeSessionService(session),
+			}));
+
+			dashboard.render();
+
+			const badges = container.querySelectorAll(".ft-active-session .ft-badge");
+			const badgeTexts = Array.from(badges).map((b) => b.textContent);
+			expect(badgeTexts).toContain("Paused");
+		});
+
+		it("should update timer display without full re-render", () => {
+			const session = makeActiveSession();
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				sessionService: makeSessionService(session),
+			}));
+
+			dashboard.render();
+
+			const timerEl = container.querySelector(".ft-dashboard-session-timer");
+			expect(timerEl).toBeTruthy();
+
+			dashboard.updateTimerDisplay(5 * 60 * 1000);
+
+			expect(timerEl!.textContent).toBe("05:00");
+		});
+
+		it("should be a no-op for updateTimerDisplay when no active session", () => {
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				sessionService: makeSessionService(null),
+			}));
+
+			dashboard.render();
+
+			// Should not throw
+			dashboard.updateTimerDisplay(1000);
+		});
 	});
 
 	// ── Re-render ───────────────────────────────────────────

@@ -634,6 +634,22 @@ PBI-002 was delivered in **two increments**:
 
 **Total**: 1 new file (316 LOC), 5 modified files (+146 LOC). Build pipeline passed.
 
+#### Increment 3: Session Templates, Rerun & UX Polish
+
+| Step | Action | Files | LOC |
+|------|--------|-------|-----|
+| 1 | Extended session types with `SessionTemplate`, `MAX_TEMPLATES`, optional `savedTemplates` on `SessionState` | `src/domain/session/types.ts` | +20 |
+| 2 | Extended `session.loaded` payload with `savedTemplates` | `src/domain/session/events.ts` | +5 |
+| 3 | Added 7 template/rerun methods to SessionService + `generateRerunTitle` helper + backward compat migration | `src/domain/session/SessionService.ts` | +85 |
+| 4 | Created `SaveTemplateModal` + extended `NewSessionModal` with template chooser dropdown + prefill | `src/ui/modals.ts` | +85 |
+| 5 | Added `openSaveTemplateModal` to `UserHubComponentDeps` | `src/ui/userHub/types.ts` | +3 |
+| 6 | Added Rerun/Save Template buttons, template list in empty detail, actions moved under header, Start hidden when active, margin-bottom on list rows | `src/ui/userHub/UserHubSessions.ts` | +65 |
+| 7 | Wired `openSaveTemplateModal`, pass templates to `openNewSessionModal`, dashboard timer tick | `src/ui/UserHubView.ts` | +15 |
+| 8 | Added `updateTimerDisplay()`, contextual Pause/Resume buttons, Paused badge | `src/ui/userHub/UserHubDashboard.ts` | +30 |
+| 9 | Full `npm run build` | — | green |
+
+**Total**: 0 new files, 8 modified files (+308 LOC). Build pipeline passed.
+
 ---
 
 ### Phase 8 — Review + Quality Assurance
@@ -648,10 +664,25 @@ PBI-002 was delivered in **two increments**:
 | 6 | Test coverage: Mock updates | 3 test files (Inbox, Preferences, Dashboard) missing `openNewSessionModal` mock | Updated all 3 with `openNewSessionModal: vi.fn()` |
 | 7 | Full `npm run build` | — | 1,887 tests across 82 suites, green pipeline |
 
+**Increment 3 review:**
+
+| Step | Action | Finding | Resolution |
+|------|--------|---------|------------|
+| 1 | Test failure: 4 service tests | Tests used event handler approach that couldn't capture `beforeEach`-created sessions — handler registered after `session.created` already fired | Fixed by using `getSessions().find()` instead of event handler mock |
+| 2 | UX review: Detail panel actions | Action buttons placed at bottom of detail (after info/artifacts) — hard to reach | Moved actions directly under header for easy access |
+| 3 | UX review: Start button | Start button shown on prepared sessions even when another session is active — misleading since service rejects the action | Start button hidden when `state.activeSession` is non-null |
+| 4 | UX review: List border clipping | Active session's 3px accent border clipped by adjacent rows | Added `marginBottom: 2px` to all list rows |
+| 5 | Dashboard review: Timer static | Dashboard session card timer rendered once at render time — never updated on tick | Added `updateTimerDisplay()` method, wired to `session.timer.tick` in UserHubView |
+| 6 | Dashboard review: Paused session | Dashboard always showed Pause + Complete — no Resume for paused sessions | Made buttons contextual: active → Pause/Complete, paused → Resume/Complete. Added Paused badge and muted border |
+| 7 | Test coverage: Increment 3 | 47 new tests across 3 files | SessionService.test.ts (+30), UserHubSessions.test.ts (+12), UserHubDashboard.test.ts (+5) |
+| 8 | Mock updates | 2 test files missing `openSaveTemplateModal` mock | Updated Inbox + Preferences test deps |
+| 9 | Full `npm run build` | — | 1,938 tests across 82 suites, green pipeline |
+
 **Artifacts**:
-- `tests/domain/session/SessionService.test.ts` (60 tests)
-- `tests/ui/userHub/UserHubSessions.test.ts` (35 tests)
-- 4 modified test files
+- `tests/domain/session/SessionService.test.ts` (60 → 90 tests)
+- `tests/ui/userHub/UserHubSessions.test.ts` (35 → 47 tests)
+- `tests/ui/userHub/UserHubDashboard.test.ts` (31 → 36 tests)
+- 2 modified test files (mock updates)
 
 ---
 
@@ -666,6 +697,8 @@ PBI-002 was delivered in **two increments**:
 | 5 | Updated sitemap: User Hub View.md | "Create a new documentation session" use case added |
 | 6 | Updated Hubs PRD | Increment 2 description expanded (NewSessionModal, LOC counts, test counts), stage history entry updated |
 | 7 | Updated PBI-002 backlog item | Increment 2 file list updated with modals.ts, types.ts changes, test counts |
+| 8 | Updated Development Lifecycle | Increment 3 added to Phases 7–10 |
+| 9 | Updated PBI-002 backlog item | Increment 3 file list, acceptance criteria, test counts (1,938/82) |
 
 ---
 
@@ -675,7 +708,11 @@ PBI-002 was delivered in **two increments**:
 - **Open**: `session_focus` layout with dedicated workspace regions (PBI-002 remaining work — header, timer, workspace, notes, artifacts regions)
 - **Open**: Session artifacts persist as separate markdown files (currently tracked in-memory)
 - **Open**: Session notes side panel for in-session note-taking
-- **Open**: Session creation from Dashboard quick action (currently only from Sessions tab)
+- **Closed** (Increment 3): Session creation from Dashboard quick action → addressed via template chooser in NewSessionModal
+- **Closed** (Increment 3): Rerun completed sessions without re-entering configuration → `rerunSession()` + auto-select
+- **Closed** (Increment 3): Save session configs as reusable templates → `saveTemplateFromSession()` + template list in detail panel
+- **Closed** (Increment 3): Dashboard timer not updating → `updateTimerDisplay()` wired to tick events
+- **Closed** (Increment 3): Dashboard can't pause/resume → contextual buttons based on session status
 
 These items feed into PBI-002's remaining increment (Session Focus layout) and potential future enhancements.
 
@@ -684,10 +721,13 @@ These items feed into PBI-002's remaining increment (Session Focus layout) and p
 ### Key Learnings
 
 1. **Domain-first, UI-second**: Building the SessionService domain in increment 1 (with 60 tests) before any UI in increment 2 meant the UI layer was pure presentation — no business logic to debug. The service contract was stable by the time components consumed it.
-2. **Timer optimization matters**: Using direct DOM updates for 1-second timer ticks (`updateTimerDisplay()`) instead of full re-renders prevents UI jank. This pattern should be applied to any future real-time display updates.
+2. **Timer optimization matters**: Using direct DOM updates for 1-second timer ticks (`updateTimerDisplay()`) instead of full re-renders prevents UI jank. This pattern should be applied to any future real-time display updates — including dashboard callouts (Increment 3 fix).
 3. **Deps callback pattern for modals**: Rather than having components import modal classes directly, the `openNewSessionModal()` callback in `UserHubComponentDeps` keeps components testable — tests mock it as `vi.fn()` with zero modal dependencies.
 4. **Type safety at boundaries**: The TSC error with `SessionType` cast at the modal→event boundary was a valid catch. Modal callbacks return `string` (generic dropdown), but domain events expect typed unions. The `as SessionType` cast is safe because the dropdown is populated from `SESSION_TYPES`, but this boundary deserves attention in any future modal → event wiring.
 5. **Test mock maintenance**: Adding a new field to `UserHubComponentDeps` required updating 3 test files' mock factories. This is a known cost of the deps injection pattern — worth it for testability, but mock factories should stay in sync.
+6. **Direct CRUD for configuration data**: Template management uses direct methods (no events) — matching the DataExchange saved config pattern. Configuration artifacts (templates, saved configs) don't need event-driven CRUD; they are not domain actions.
+7. **Reuse existing pipelines for new features**: Both `rerunSession()` and `createFromTemplate()` call `handleCreate()` internally. This reuses the existing creation pipeline (eviction, persistence, `session.created` event) with zero duplication.
+8. **UI should reflect service constraints**: The service already rejected starting a session when another is active, but the UI still showed the Start button — misleading. UI must mirror domain constraints to prevent confusion.
 
 ---
 

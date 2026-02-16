@@ -41,6 +41,17 @@ export class UserHubDashboard {
 		this.renderInboxSection();
 	}
 
+	/**
+	 * Directly updates the dashboard session timer without a full re-render.
+	 * Called by UserHubView on every session.timer.tick event.
+	 */
+	updateTimerDisplay(remainingMs: number): void {
+		const el = this.container.querySelector(".ft-dashboard-session-timer");
+		if (el) {
+			el.textContent = formatDuration(remainingMs);
+		}
+	}
+
 	private renderWelcome(): void {
 		const section = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-mb-3" });
 		section.style.borderBottom = "1px solid var(--background-modifier-border)";
@@ -60,16 +71,18 @@ export class UserHubDashboard {
 		const session = this.deps.sessionService.getActiveSession();
 		if (!session) return;
 
+		const isActive = session.status === "active";
+
 		const section = this.container.createDiv({ cls: "ft-active-session" });
 		section.style.marginBottom = "1rem";
 		section.style.padding = "0.75rem";
-		section.style.border = "1px solid var(--interactive-accent)";
+		section.style.border = `1px solid ${isActive ? "var(--interactive-accent)" : "var(--background-modifier-border)"}`;
 		section.style.borderRadius = "8px";
 		section.style.backgroundColor = "var(--background-secondary)";
 
 		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const icon = header.createSpan();
-		setIcon(icon, "timer");
+		setIcon(icon, isActive ? "timer" : "pause");
 
 		header.createSpan({ text: session.title, cls: "ft-heading ft-heading-sm" }).style.margin = "0";
 
@@ -78,31 +91,49 @@ export class UserHubDashboard {
 			cls: "ft-badge ft-badge-muted ft-text-sm",
 		});
 
+		if (!isActive) {
+			header.createSpan({
+				text: "Paused",
+				cls: "ft-badge ft-badge-muted ft-text-sm",
+			});
+		}
+
 		const spacer = header.createDiv();
 		spacer.style.flex = "1";
 
 		const remaining = computeRemainingMs(session);
-		header.createSpan({
+		const timerSpan = header.createSpan({
 			text: formatDuration(remaining),
-			cls: "ft-text-sm",
-		}).style.fontFamily = "var(--font-monospace)";
+			cls: "ft-text-sm ft-dashboard-session-timer",
+		});
+		timerSpan.style.fontFamily = "var(--font-monospace)";
 
-		// Action buttons
+		// Action buttons — contextual based on status
 		const actions = section.createDiv({ cls: "ft-flex ft-gap-2" });
 		actions.style.marginTop = "0.5rem";
+		const eb = this.deps.eventBus;
 
-		const pauseBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm" });
-		setIcon(pauseBtn, "pause");
-		pauseBtn.appendText(" Pause");
-		pauseBtn.addEventListener("click", () => {
-			void this.deps.eventBus.emit("session.pause", { sessionId: session.id });
-		});
+		if (isActive) {
+			const pauseBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm" });
+			setIcon(pauseBtn, "pause");
+			pauseBtn.appendText(" Pause");
+			pauseBtn.addEventListener("click", () => {
+				void eb.emit("session.pause", { sessionId: session.id });
+			});
+		} else {
+			const resumeBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm" });
+			setIcon(resumeBtn, "play");
+			resumeBtn.appendText(" Resume");
+			resumeBtn.addEventListener("click", () => {
+				void eb.emit("session.resume", { sessionId: session.id });
+			});
+		}
 
 		const completeBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm" });
 		setIcon(completeBtn, "check-circle");
 		completeBtn.appendText(" Complete");
 		completeBtn.addEventListener("click", () => {
-			void this.deps.eventBus.emit("session.complete", { sessionId: session.id });
+			void eb.emit("session.complete", { sessionId: session.id });
 		});
 	}
 

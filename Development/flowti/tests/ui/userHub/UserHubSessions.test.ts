@@ -55,6 +55,10 @@ function makeDeps(state: UserHubState, eventBus?: IEventBus): UserHubComponentDe
 		sessionService: {
 			getSessions: vi.fn(() => state.sessions),
 			getActiveSession: vi.fn(() => state.activeSession),
+			getSavedTemplates: vi.fn(() => []),
+			rerunSession: vi.fn(async () => makeSession({ id: "rerun-1", title: "Rerun Session", status: "prepared" })),
+			deleteTemplate: vi.fn(async () => {}),
+			saveTemplateFromSession: vi.fn(async () => null),
 		} as never,
 		userService: {
 			load: vi.fn(async () => {}),
@@ -66,6 +70,7 @@ function makeDeps(state: UserHubState, eventBus?: IEventBus): UserHubComponentDe
 		scheduleRender: vi.fn(),
 		navigateToEvent: vi.fn(),
 		openNewSessionModal: vi.fn(),
+		openSaveTemplateModal: vi.fn(),
 	};
 }
 
@@ -146,6 +151,17 @@ describe("UserHubSessions", () => {
 			// Active session is sorted first
 			expect((rows[0] as HTMLElement).style.borderLeft).toContain("var(--interactive-accent)");
 			expect((rows[1] as HTMLElement).style.borderLeft).not.toContain("var(--interactive-accent)");
+		});
+
+		it("should add margin-bottom to list rows to prevent border clipping", () => {
+			const sessions = [makeSession({ id: "s1" })];
+			const state = makeState(sessions);
+			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
+
+			comp.renderMaster("");
+
+			const row = masterEl.querySelector(".ft-catalog-row") as HTMLElement;
+			expect(row.style.marginBottom).toBe("2px");
 		});
 
 		it("should sort active sessions first", () => {
@@ -356,7 +372,7 @@ describe("UserHubSessions", () => {
 
 		// ── Action buttons per status ─────────────────────────
 
-		it("should show Start and Delete buttons for prepared sessions", () => {
+		it("should show Start and Delete buttons for prepared sessions when no active session", () => {
 			const session = makeSession({ status: "prepared" });
 			const state = makeState([session], session);
 			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
@@ -368,6 +384,20 @@ describe("UserHubSessions", () => {
 			expect(labels).toContain("Start");
 			expect(labels).toContain("Delete");
 			expect(labels).not.toContain("Pause");
+		});
+
+		it("should hide Start button for prepared sessions when another session is active", () => {
+			const active = makeSession({ id: "active-1", status: "active", startedAt: new Date().toISOString() });
+			const prepared = makeSession({ id: "prep-1", status: "prepared" });
+			const state = makeState([active, prepared], prepared);
+			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
+
+			comp.renderDetail();
+
+			const buttons = Array.from(detailEl.querySelectorAll("button"));
+			const labels = buttons.map((b) => b.textContent?.trim());
+			expect(labels).not.toContain("Start");
+			expect(labels).toContain("Delete");
 		});
 
 		it("should show Pause and Complete buttons for active sessions", () => {
@@ -397,7 +427,7 @@ describe("UserHubSessions", () => {
 			expect(labels).toContain("Complete");
 		});
 
-		it("should show Archive and Delete buttons for completed sessions", () => {
+		it("should show Rerun, Save as Template, Archive, and Delete buttons for completed sessions", () => {
 			const session = makeSession({ status: "completed", completedAt: new Date().toISOString() });
 			const state = makeState([session], session);
 			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
@@ -406,11 +436,13 @@ describe("UserHubSessions", () => {
 
 			const buttons = Array.from(detailEl.querySelectorAll("button"));
 			const labels = buttons.map((b) => b.textContent?.trim());
+			expect(labels).toContain("Rerun");
+			expect(labels).toContain("Save as Template");
 			expect(labels).toContain("Archive");
 			expect(labels).toContain("Delete");
 		});
 
-		it("should show only Delete button for archived sessions", () => {
+		it("should show Rerun, Save as Template, and Delete buttons for archived sessions", () => {
 			const session = makeSession({ status: "archived" });
 			const state = makeState([session], session);
 			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
@@ -419,7 +451,9 @@ describe("UserHubSessions", () => {
 
 			const buttons = Array.from(detailEl.querySelectorAll("button"));
 			const labels = buttons.map((b) => b.textContent?.trim());
-			expect(labels).toEqual(["Delete"]);
+			expect(labels).toContain("Rerun");
+			expect(labels).toContain("Save as Template");
+			expect(labels).toContain("Delete");
 		});
 
 		it("should emit session.start when Start is clicked", async () => {
@@ -541,6 +575,161 @@ describe("UserHubSessions", () => {
 			newBtn!.click();
 
 			expect(deps.openNewSessionModal).toHaveBeenCalled();
+		});
+	});
+
+	// ── Rerun & Save as Template ────────────────────────────
+
+	describe("rerun and save as template", () => {
+		it("should call rerunSession when Rerun is clicked on completed session", () => {
+			const session = makeSession({ id: "s1", status: "completed", completedAt: new Date().toISOString() });
+			const state = makeState([session], session);
+			const deps = makeDeps(state);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			const buttons = Array.from(detailEl.querySelectorAll("button"));
+			const rerunBtn = buttons.find((b) => b.textContent?.includes("Rerun"));
+			rerunBtn!.click();
+
+			expect(deps.sessionService.rerunSession).toHaveBeenCalledWith("s1");
+		});
+
+		it("should select the new session after Rerun", async () => {
+			const session = makeSession({ id: "s1", status: "completed", completedAt: new Date().toISOString() });
+			const state = makeState([session], session);
+			const deps = makeDeps(state);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			const buttons = Array.from(detailEl.querySelectorAll("button"));
+			const rerunBtn = buttons.find((b) => b.textContent?.includes("Rerun"));
+			rerunBtn!.click();
+
+			// Wait for the async .then() to resolve
+			await new Promise((r) => setTimeout(r, 10));
+
+			expect(state.selectedSession).toEqual(
+				expect.objectContaining({ id: "rerun-1", title: "Rerun Session" }),
+			);
+			expect(deps.scheduleRender).toHaveBeenCalled();
+		});
+
+		it("should call openSaveTemplateModal when Save as Template is clicked", () => {
+			const session = makeSession({ id: "s2", status: "completed", completedAt: new Date().toISOString() });
+			const state = makeState([session], session);
+			const deps = makeDeps(state);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			const buttons = Array.from(detailEl.querySelectorAll("button"));
+			const saveBtn = buttons.find((b) => b.textContent?.includes("Save as Template"));
+			saveBtn!.click();
+
+			expect(deps.openSaveTemplateModal).toHaveBeenCalledWith(session);
+		});
+
+		it("should show Rerun button for archived sessions", () => {
+			const session = makeSession({ id: "s3", status: "archived" });
+			const state = makeState([session], session);
+			const deps = makeDeps(state);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			const buttons = Array.from(detailEl.querySelectorAll("button"));
+			const rerunBtn = buttons.find((b) => b.textContent?.includes("Rerun"));
+			expect(rerunBtn).toBeTruthy();
+			rerunBtn!.click();
+			expect(deps.sessionService.rerunSession).toHaveBeenCalledWith("s3");
+		});
+
+		it("should not show Rerun/Save for prepared sessions", () => {
+			const session = makeSession({ status: "prepared" });
+			const state = makeState([session], session);
+			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
+
+			comp.renderDetail();
+
+			const buttons = Array.from(detailEl.querySelectorAll("button"));
+			const labels = buttons.map((b) => b.textContent?.trim());
+			expect(labels).not.toContain("Rerun");
+			expect(labels).not.toContain("Save as Template");
+		});
+
+		it("should not show Rerun/Save for active sessions", () => {
+			const session = makeSession({ status: "active", startedAt: new Date().toISOString() });
+			const state = makeState([session], session);
+			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
+
+			comp.renderDetail();
+
+			const buttons = Array.from(detailEl.querySelectorAll("button"));
+			const labels = buttons.map((b) => b.textContent?.trim());
+			expect(labels).not.toContain("Rerun");
+			expect(labels).not.toContain("Save as Template");
+		});
+	});
+
+	// ── Template list in detail ─────────────────────────────
+
+	describe("template list in detail panel", () => {
+		it("should show template list when no session selected and templates exist", () => {
+			const state = makeState();
+			const deps = makeDeps(state);
+			(deps.sessionService.getSavedTemplates as ReturnType<typeof vi.fn>).mockReturnValue([
+				{ id: "t1", name: "Sprint Storming", type: "event-storming", durationMinutes: 25, createdAt: Date.now() },
+				{ id: "t2", name: "Design Review", type: "service-design", durationMinutes: 50, createdAt: Date.now() },
+			]);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			expect(detailEl.textContent).toContain("Saved Templates");
+			expect(detailEl.textContent).toContain("Sprint Storming");
+			expect(detailEl.textContent).toContain("Design Review");
+		});
+
+		it("should show placeholder when no session selected and no templates", () => {
+			const state = makeState();
+			const deps = makeDeps(state);
+			(deps.sessionService.getSavedTemplates as ReturnType<typeof vi.fn>).mockReturnValue([]);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			expect(detailEl.textContent).toContain("Select a session to view details");
+		});
+
+		it("should show type badge and duration on template rows", () => {
+			const state = makeState();
+			const deps = makeDeps(state);
+			(deps.sessionService.getSavedTemplates as ReturnType<typeof vi.fn>).mockReturnValue([
+				{ id: "t1", name: "T1", type: "service-design", durationMinutes: 50, createdAt: Date.now() },
+			]);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			expect(detailEl.textContent).toContain("Service Design");
+			expect(detailEl.textContent).toContain("50 min");
+		});
+
+		it("should have delete button on template rows", () => {
+			const state = makeState();
+			const deps = makeDeps(state);
+			(deps.sessionService.getSavedTemplates as ReturnType<typeof vi.fn>).mockReturnValue([
+				{ id: "t1", name: "T1", type: "event-storming", durationMinutes: 25, createdAt: Date.now() },
+			]);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			const buttons = Array.from(detailEl.querySelectorAll("button"));
+			expect(buttons).toHaveLength(1); // delete button
 		});
 	});
 

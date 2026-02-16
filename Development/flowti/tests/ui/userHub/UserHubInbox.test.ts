@@ -59,6 +59,7 @@ function makeDeps(state: UserHubState): UserHubComponentDeps {
 		scheduleRender: vi.fn(),
 		navigateToEvent: vi.fn(),
 		openNewSessionModal: vi.fn(),
+		openSaveTemplateModal: vi.fn(),
 	};
 }
 

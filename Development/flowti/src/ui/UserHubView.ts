@@ -18,7 +18,8 @@ import { UserHubInbox } from "./userHub/UserHubInbox";
 import { UserHubSessions } from "./userHub/UserHubSessions";
 import { UserHubPreferences } from "./userHub/UserHubPreferences";
 import type { UserHubState, UserHubComponentDeps, InboxItem, UserHubTab } from "./userHub/types";
-import { NewSessionModal } from "./modals";
+import { NewSessionModal, SaveTemplateModal } from "./modals";
+import { SESSION_TYPE_LABELS } from "./userHub/types";
 import { SESSION_TYPES, type SessionType } from "../domain/session/types";
 import { VIEW_TYPE_USER_HUB } from "../domain/hub/types";
 export { VIEW_TYPE_USER_HUB };
@@ -199,6 +200,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 		this.addUnsubscribe(
 			this.eventBus.on("session.timer.tick", (event) => {
 				this.sessions.updateTimerDisplay(event.payload.remainingMs);
+				this.dashboard.updateTimerDisplay(event.payload.remainingMs);
 			}),
 		);
 
@@ -263,8 +265,19 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 			openNewSessionModal: () => {
 				new NewSessionModal(this.app, {
 					sessionTypes: SESSION_TYPES,
+					templates: this.sessionService.getSavedTemplates(),
 					onSubmit: (title, type, durationMinutes) => {
 						void this.eventBus.emit("session.create", { type: type as SessionType, title, durationMinutes });
+					},
+				}).open();
+			},
+			openSaveTemplateModal: (session) => {
+				new SaveTemplateModal(this.app, {
+					sessionTitle: session.title,
+					sessionType: SESSION_TYPE_LABELS[session.type] ?? session.type,
+					sessionDuration: session.durationMinutes,
+					onSubmit: (name) => {
+						void this.sessionService.saveTemplateFromSession(session.id, name);
 					},
 				}).open();
 			},

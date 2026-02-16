@@ -2,7 +2,7 @@
  * Event types owned by the Session domain.
  */
 
-import type { Session, SessionArtifact, SessionType } from "./types";
+import type { Session, SessionArtifact, SessionTemplate, SessionType } from "./types";
 
 export interface SessionEventMap {
 	// ── Commands ──────────────────────────────────────────────
@@ -39,7 +39,7 @@ export interface SessionEventMap {
 	/** Emitted after a session is deleted */
 	"session.deleted": { sessionId: string };
 	/** Emitted after session state is loaded from storage */
-	"session.loaded": { sessions: Session[]; activeSessionId: string | null };
+	"session.loaded": { sessions: Session[]; activeSessionId: string | null; savedTemplates: SessionTemplate[] };
 
 	// ── Timer events ─────────────────────────────────────────
 	/** Emitted every second while a session timer is running */

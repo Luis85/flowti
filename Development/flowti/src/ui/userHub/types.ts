@@ -70,6 +70,8 @@ export interface UserHubComponentDeps {
 	navigateToEvent: (eventType: string) => void;
 	/** Open the New Session creation modal. */
 	openNewSessionModal: () => void;
+	/** Open the Save Template modal for a completed/archived session. */
+	openSaveTemplateModal: (session: Session) => void;
 }
 
 // ─────────────────────────────────────────────────────────────

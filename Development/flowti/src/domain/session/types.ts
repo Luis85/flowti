@@ -66,6 +66,20 @@ export interface Session {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Session Templates
+// ─────────────────────────────────────────────────────────────
+
+/** A reusable session template created from a completed session. */
+export interface SessionTemplate {
+	id: string;
+	name: string;
+	type: SessionType;
+	durationMinutes: number;
+	description?: string;
+	createdAt: number; // epoch ms
+}
+
+// ─────────────────────────────────────────────────────────────
 // Persisted state
 // ─────────────────────────────────────────────────────────────
 
@@ -73,6 +87,7 @@ export interface Session {
 export interface SessionState {
 	sessions: Session[];
 	activeSessionId: string | null;
+	savedTemplates?: SessionTemplate[];
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -81,6 +96,9 @@ export interface SessionState {
 
 /** Maximum number of sessions before oldest-first eviction. */
 export const MAX_SESSIONS = 200;
+
+/** Maximum number of saved templates before oldest-first eviction. */
+export const MAX_TEMPLATES = 50;
 
 /** Deduplication window for artifact tracking (ms). */
 export const ARTIFACT_DEDUP_WINDOW_MS = 1000;

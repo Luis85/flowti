@@ -106,16 +106,29 @@ export class InputModal extends Modal {
  * A modal for creating a new documentation session.
  * Collects title, type, and duration then calls onSubmit.
  */
+export interface SessionTemplateSummary {
+	id: string;
+	name: string;
+	type: string;
+	durationMinutes: number;
+}
+
 export class NewSessionModal extends Modal {
 	private sessionTypes: ReadonlyArray<{ type: string; label: string; description: string }>;
+	private templates: ReadonlyArray<SessionTemplateSummary>;
+	private prefill?: { title: string; type: string; durationMinutes: number };
 	private onSubmit: (title: string, type: string, durationMinutes: number) => void;
 
 	constructor(app: App, options: {
 		sessionTypes: ReadonlyArray<{ type: string; label: string; description: string }>;
+		templates?: ReadonlyArray<SessionTemplateSummary>;
+		prefill?: { title: string; type: string; durationMinutes: number };
 		onSubmit: (title: string, type: string, durationMinutes: number) => void;
 	}) {
 		super(app);
 		this.sessionTypes = options.sessionTypes;
+		this.templates = options.templates ?? [];
+		this.prefill = options.prefill;
 		this.onSubmit = options.onSubmit;
 	}
 
@@ -123,15 +136,43 @@ export class NewSessionModal extends Modal {
 		const { contentEl } = this;
 		contentEl.createEl("h3", { text: "New Session" });
 
-		let title = "";
-		let type = this.sessionTypes[0]?.type ?? "event-storming";
-		let duration = 25;
+		let title = this.prefill?.title ?? "";
+		let type = this.prefill?.type ?? this.sessionTypes[0]?.type ?? "event-storming";
+		let duration = this.prefill?.durationMinutes ?? 25;
+
+		// Template chooser (only shown when templates exist)
+		if (this.templates.length > 0) {
+			new Setting(contentEl)
+				.setName("From Template")
+				.setDesc("Pre-fill from a saved template")
+				.addDropdown((dropdown) => {
+					dropdown.addOption("", "-- None --");
+					for (const t of this.templates) {
+						dropdown.addOption(t.id, t.name);
+					}
+					dropdown.onChange((templateId) => {
+						if (!templateId) return;
+						const tmpl = this.templates.find((t) => t.id === templateId);
+						if (tmpl) {
+							// Close and re-open with prefill (Obsidian controls lack .setValue())
+							this.close();
+							new NewSessionModal(this.app, {
+								sessionTypes: this.sessionTypes,
+								templates: this.templates,
+								prefill: { title: tmpl.name, type: tmpl.type, durationMinutes: tmpl.durationMinutes },
+								onSubmit: this.onSubmit,
+							}).open();
+						}
+					});
+				});
+		}
 
 		new Setting(contentEl)
 			.setName("Title")
 			.setDesc("A short name for this session")
 			.addText((text) =>
 				text.setPlaceholder("e.g. Sprint 12 Event Storming")
+					.setValue(title)
 					.onChange((value) => { title = value; })
 			);
 
@@ -155,7 +196,7 @@ export class NewSessionModal extends Modal {
 				dropdown.addOption("15", "15 min (Quick)");
 				dropdown.addOption("45", "45 min");
 				dropdown.addOption("60", "60 min");
-				dropdown.setValue("25");
+				dropdown.setValue(String(duration));
 				dropdown.onChange((value) => { duration = parseInt(value, 10); });
 			});
 
@@ -168,6 +209,68 @@ export class NewSessionModal extends Modal {
 					const trimmed = title.trim();
 					if (trimmed) {
 						this.onSubmit(trimmed, type, duration);
+						this.close();
+					}
+				})
+			);
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+	}
+}
+
+/**
+ * A modal for saving a session as a reusable template.
+ * Pre-fills the name from the session title; shows type and duration as read-only.
+ */
+export class SaveTemplateModal extends Modal {
+	private sessionTitle: string;
+	private sessionType: string;
+	private sessionDuration: number;
+	private onSubmit: (name: string) => void;
+
+	constructor(app: App, options: {
+		sessionTitle: string;
+		sessionType: string;
+		sessionDuration: number;
+		onSubmit: (name: string) => void;
+	}) {
+		super(app);
+		this.sessionTitle = options.sessionTitle;
+		this.sessionType = options.sessionType;
+		this.sessionDuration = options.sessionDuration;
+		this.onSubmit = options.onSubmit;
+	}
+
+	onOpen(): void {
+		const { contentEl } = this;
+		contentEl.createEl("h3", { text: "Save as Template" });
+
+		const desc = contentEl.createDiv({ cls: "ft-text-sm ft-text-muted" });
+		desc.style.marginBottom = "0.75rem";
+		desc.setText(`Type: ${this.sessionType} | Duration: ${this.sessionDuration} min`);
+
+		let name = this.sessionTitle;
+
+		new Setting(contentEl)
+			.setName("Template Name")
+			.setDesc("A name to identify this template")
+			.addText((text) =>
+				text.setValue(this.sessionTitle)
+					.setPlaceholder("e.g. Sprint Storming")
+					.onChange((value) => { name = value; })
+			);
+
+		new Setting(contentEl)
+			.addButton((btn) =>
+				btn.setButtonText("Cancel").onClick(() => this.close())
+			)
+			.addButton((btn) =>
+				btn.setButtonText("Save Template").setCta().onClick(() => {
+					const trimmed = name.trim();
+					if (trimmed) {
+						this.onSubmit(trimmed);
 						this.close();
 					}
 				})
