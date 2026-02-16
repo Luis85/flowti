@@ -53,6 +53,7 @@ export function createSession(
 	type: SessionType,
 	title: string,
 	durationMinutes: number,
+	focusFile?: string,
 ): Session {
 	return {
 		id,
@@ -67,5 +68,6 @@ export function createSession(
 		completedAt: null,
 		artifacts: [],
 		notes: "",
+		focusFile: focusFile ?? null,
 	};
 }

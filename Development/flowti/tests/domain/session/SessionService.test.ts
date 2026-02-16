@@ -22,6 +22,7 @@ function makeSession(overrides: Partial<Session> = {}): Session {
 		completedAt: null,
 		artifacts: [],
 		notes: "",
+		focusFile: null,
 		...overrides,
 	};
 }
@@ -165,6 +166,41 @@ describe("SessionService", () => {
 				}),
 			);
 			expect(service.getSessions()).toHaveLength(1);
+		});
+
+		it("should create a session with a focus file", async () => {
+			await service.load();
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+
+			await eventBus.emit("session.create", {
+				type: "event-storming",
+				title: "Focused Session",
+				durationMinutes: 25,
+				focusFile: "docs/my-feature.md",
+			});
+
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: expect.objectContaining({
+						session: expect.objectContaining({
+							title: "Focused Session",
+							focusFile: "docs/my-feature.md",
+						}),
+					}),
+				}),
+			);
+		});
+
+		it("should default focusFile to null when not provided", async () => {
+			await service.load();
+			await eventBus.emit("session.create", {
+				type: "event-storming",
+				title: "No Focus",
+				durationMinutes: 25,
+			});
+
+			expect(service.getSessions()[0].focusFile).toBeNull();
 		});
 
 		it("should evict oldest when exceeding MAX_SESSIONS", async () => {
@@ -881,6 +917,26 @@ describe("SessionService", () => {
 			const tmpl = await service.saveTemplateFromSession("nonexistent", "X");
 			expect(tmpl).toBeNull();
 		});
+
+		it("should include focusFile in saved template", async () => {
+			// Create a session with focusFile, complete it, save as template
+			await eventBus.emit("session.create", {
+				type: "event-storming",
+				title: "Focus Sprint",
+				durationMinutes: 25,
+				focusFile: "docs/events.md",
+			});
+			// State mutation is synchronous in handleCreate (before any await)
+			const focused = service.getSessions().find((s) => s.title === "Focus Sprint");
+			expect(focused).toBeDefined();
+			expect(focused!.focusFile).toBe("docs/events.md");
+			await eventBus.emit("session.start", { sessionId: focused!.id });
+			await eventBus.emit("session.complete", { sessionId: focused!.id });
+
+			const tmpl = await service.saveTemplateFromSession(focused!.id, "Focus Template");
+			expect(tmpl).not.toBeNull();
+			expect(tmpl!.focusFile).toBe("docs/events.md");
+		});
 	});
 
 	// ── Rerun Session ───────────────────────────────────────
@@ -972,6 +1028,29 @@ describe("SessionService", () => {
 			await service.rerunSession("nonexistent");
 			expect(handler).not.toHaveBeenCalled();
 		});
+
+		it("should carry focusFile forward on rerun", async () => {
+			// Create a session with focusFile, complete it, then rerun
+			await eventBus.emit("session.create", {
+				type: "event-storming",
+				title: "Focused Sprint",
+				durationMinutes: 25,
+				focusFile: "docs/hubs.md",
+			});
+
+			const focused = service.getSessions().find((s) => s.title === "Focused Sprint");
+			expect(focused).toBeDefined();
+			await eventBus.emit("session.start", { sessionId: focused!.id });
+			await eventBus.emit("session.complete", { sessionId: focused!.id });
+
+			const countBefore = service.getSessions().length;
+			await service.rerunSession(focused!.id);
+
+			// Should have one more session than before
+			expect(service.getSessions().length).toBe(countBefore + 1);
+			const rerun = service.getSessions()[0]; // newest first
+			expect(rerun.focusFile).toBe("docs/hubs.md");
+		});
 	});
 
 	// ── Create from Template ────────────────────────────────
@@ -1019,6 +1098,22 @@ describe("SessionService", () => {
 			await service.createFromTemplate("nonexistent");
 
 			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("should carry focusFile from template", async () => {
+			const tmplWithFocus = await service.saveTemplate({
+				name: "Focused Template",
+				type: "service-design",
+				durationMinutes: 50,
+				focusFile: "docs/services.md",
+			});
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+
+			await service.createFromTemplate(tmplWithFocus.id);
+
+			expect(handler).toHaveBeenCalled();
+			expect(handler.mock.calls[0][0].payload.session.focusFile).toBe("docs/services.md");
 		});
 	});
 

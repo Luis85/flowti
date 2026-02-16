@@ -26,6 +26,7 @@ function makeSession(overrides: Partial<Session> = {}): Session {
 		completedAt: null,
 		artifacts: [],
 		notes: "",
+		focusFile: null,
 		...overrides,
 	};
 }
@@ -217,6 +218,16 @@ describe("createSession", () => {
 		expect(session.completedAt).toBeNull();
 		expect(session.artifacts).toEqual([]);
 		expect(session.notes).toBe("");
+		expect(session.focusFile).toBeNull();
+	});
+
+	it("creates a session with a focus file", () => {
+		vi.setSystemTime(new Date("2026-02-16T10:00:00.000Z"));
+		const session = createSession("s2", "service-design", "Focused", 50, "docs/my-feature.md");
+
+		expect(session.focusFile).toBe("docs/my-feature.md");
+		expect(session.type).toBe("service-design");
+		expect(session.durationMinutes).toBe(50);
 	});
 
 	it("accepts all session types", () => {

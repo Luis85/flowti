@@ -68,8 +68,10 @@ export interface UserHubComponentDeps {
 	scheduleRender: () => void;
 	/** Navigate to a specific event type in the Event Catalog. */
 	navigateToEvent: (eventType: string) => void;
-	/** Open the New Session creation modal. */
-	openNewSessionModal: () => void;
+	/** Open the New Session creation modal. Optionally pre-fills a focus file. */
+	openNewSessionModal: (initialFocusFile?: string) => void;
+	/** Open a file in the workspace. */
+	openFile: (filePath: string) => void;
 	/** Open the Save Template modal for a completed/archived session. */
 	openSaveTemplateModal: (session: Session) => void;
 }

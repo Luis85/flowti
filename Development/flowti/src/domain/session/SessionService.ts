@@ -222,6 +222,7 @@ export class SessionService {
 			name,
 			type: session.type,
 			durationMinutes: session.durationMinutes,
+			focusFile: session.focusFile ?? undefined,
 		});
 	}
 
@@ -239,6 +240,7 @@ export class SessionService {
 			type: session.type,
 			title: generateRerunTitle(session.title),
 			durationMinutes: session.durationMinutes,
+			focusFile: session.focusFile ?? undefined,
 		});
 	}
 
@@ -253,6 +255,7 @@ export class SessionService {
 			type: tmpl.type,
 			title: titleOverride ?? tmpl.name,
 			durationMinutes: tmpl.durationMinutes,
+			focusFile: tmpl.focusFile,
 		});
 	}
 
@@ -269,13 +272,14 @@ export class SessionService {
 
 	// ── Command handlers ─────────────────────────────────────
 
-	private async handleCreate(payload: { type: string; title: string; durationMinutes: number }): Promise<Session> {
+	private async handleCreate(payload: { type: string; title: string; durationMinutes: number; focusFile?: string }): Promise<Session> {
 		const id = `session_${generateUUID()}`;
 		const session = createSession(
 			id,
 			payload.type as Session["type"],
 			payload.title,
 			payload.durationMinutes,
+			payload.focusFile,
 		);
 
 		this.state.sessions.unshift(session);

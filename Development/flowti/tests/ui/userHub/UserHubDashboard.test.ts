@@ -74,6 +74,7 @@ function makeActiveSession(overrides?: Partial<Session>): Session {
 		completedAt: null,
 		artifacts: [],
 		notes: "",
+		focusFile: null,
 		...overrides,
 	};
 }
@@ -722,6 +723,35 @@ describe("UserHubDashboard", () => {
 
 			// Should not throw
 			dashboard.updateTimerDisplay(1000);
+		});
+
+		it("should show focus file badge when active session has focusFile", () => {
+			const session = makeActiveSession({ focusFile: "docs/features/Hubs PRD.md" });
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				sessionService: makeSessionService(session),
+			}));
+
+			dashboard.render();
+
+			const badges = container.querySelectorAll(".ft-active-session .ft-badge");
+			const badgeTexts = Array.from(badges).map((b) => b.textContent?.trim());
+			const hasFocusBadge = badgeTexts.some((t) => t?.includes("Hubs PRD.md"));
+			expect(hasFocusBadge).toBe(true);
+		});
+
+		it("should not show focus file badge when focusFile is null", () => {
+			const session = makeActiveSession({ focusFile: null });
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				sessionService: makeSessionService(session),
+			}));
+
+			dashboard.render();
+
+			const badges = container.querySelectorAll(".ft-active-session .ft-badge");
+			// Only type badge should exist (Event Storming), no focus file badge
+			expect(badges).toHaveLength(1);
 		});
 	});
 

@@ -1,4 +1,4 @@
-import { Notice, Plugin } from "obsidian";
+import { Notice, Plugin, TFile } from "obsidian";
 import { registerCommands } from "./infrastructure/commands/registry";
 import type { CommandContext, ICommandRegistry } from "./infrastructure/commands/types";
 import { LifecycleError } from "./infrastructure/errors/FlowtiError";
@@ -31,7 +31,8 @@ import { IngestionStatusBar } from "./ui/IngestionStatusBar";
 import { DataExchangeService } from "./domain/dataExchange/DataExchangeService";
 import { DataExchangeSetup } from "./dataExchangeSetup";
 import { UiCommandService } from "./infrastructure/ui/UiCommandService";
-import { InputModal } from "./ui/modals";
+import { InputModal, NewSessionModal } from "./ui/modals";
+import { SESSION_TYPES, type SessionType } from "./domain/session/types";
 import { createInfrastructure, setupCrossCuttingListeners } from "./pluginBootstrap";
 import { HubRegistry } from "./domain/hub/HubRegistry";
 import { EventCatalogProvider } from "./domain/hub/EventCatalogProvider";
@@ -404,6 +405,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			const settingsService = await this.loadDomainServices();
 			this.wireDataExchange(settingsService);
 			this.setupHubRegistry();
+			this.registerSessionFileMenu();
 			await this.runIngestionCatchUp();
 
 			this.eventBridge.registerVaultListeners();
@@ -519,6 +521,39 @@ export default class FlowtiBasePlugin extends Plugin {
 			new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.sessionService!, this.settings.inboxEnabledSources),
 		);
 		this.hubRegistry.register(new UserHubProvider(this.userService, this.inboxService!));
+	}
+
+	/**
+	 * Registers a file-menu item so users can right-click any file
+	 * in the navigator and start a documentation session with that
+	 * file as the focus.
+	 */
+	private registerSessionFileMenu(): void {
+		this.registerEvent(
+			this.app.workspace.on("file-menu", (menu, file) => {
+				if (file instanceof TFile) {
+					menu.addItem((item) => {
+						item.setTitle("Start Documentation Session")
+							.setIcon("timer")
+							.onClick(() => {
+								new NewSessionModal(this.app, {
+									sessionTypes: SESSION_TYPES,
+									templates: this.sessionService?.getSavedTemplates() ?? [],
+									prefill: { title: "", type: SESSION_TYPES[0].type, durationMinutes: 25, focusFile: file.path },
+									onSubmit: (title, type, durationMinutes, focusFile) => {
+										void this.eventBus.emit("session.create", {
+											type: type as SessionType,
+											title,
+											durationMinutes,
+											focusFile: focusFile ?? undefined,
+										});
+									},
+								}).open();
+							});
+					});
+				}
+			}),
+		);
 	}
 
 	/**

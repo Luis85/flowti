@@ -91,6 +91,16 @@ export class UserHubDashboard {
 			cls: "ft-badge ft-badge-muted ft-text-sm",
 		});
 
+		if (session.focusFile) {
+			const focusBadge = header.createSpan({
+				cls: "ft-badge ft-badge-muted ft-text-sm",
+			});
+			const focusIcon = focusBadge.createSpan();
+			setIcon(focusIcon, "file");
+			focusIcon.style.marginRight = "0.25rem";
+			focusBadge.appendText(session.focusFile.split("/").pop() ?? session.focusFile);
+		}
+
 		if (!isActive) {
 			header.createSpan({
 				text: "Paused",

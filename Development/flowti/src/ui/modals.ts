@@ -1,4 +1,4 @@
-import { App, FuzzySuggestModal, Modal, Setting } from "obsidian";
+import { App, FuzzySuggestModal, Modal, Setting, TFile } from "obsidian";
 
 /**
  * A simple confirmation modal with a message and confirm/cancel buttons.
@@ -111,19 +111,20 @@ export interface SessionTemplateSummary {
 	name: string;
 	type: string;
 	durationMinutes: number;
+	focusFile?: string;
 }
 
 export class NewSessionModal extends Modal {
 	private sessionTypes: ReadonlyArray<{ type: string; label: string; description: string }>;
 	private templates: ReadonlyArray<SessionTemplateSummary>;
-	private prefill?: { title: string; type: string; durationMinutes: number };
-	private onSubmit: (title: string, type: string, durationMinutes: number) => void;
+	private prefill?: { title: string; type: string; durationMinutes: number; focusFile?: string };
+	private onSubmit: (title: string, type: string, durationMinutes: number, focusFile: string | null) => void;
 
 	constructor(app: App, options: {
 		sessionTypes: ReadonlyArray<{ type: string; label: string; description: string }>;
 		templates?: ReadonlyArray<SessionTemplateSummary>;
-		prefill?: { title: string; type: string; durationMinutes: number };
-		onSubmit: (title: string, type: string, durationMinutes: number) => void;
+		prefill?: { title: string; type: string; durationMinutes: number; focusFile?: string };
+		onSubmit: (title: string, type: string, durationMinutes: number, focusFile: string | null) => void;
 	}) {
 		super(app);
 		this.sessionTypes = options.sessionTypes;
@@ -139,6 +140,7 @@ export class NewSessionModal extends Modal {
 		let title = this.prefill?.title ?? "";
 		let type = this.prefill?.type ?? this.sessionTypes[0]?.type ?? "event-storming";
 		let duration = this.prefill?.durationMinutes ?? 25;
+		let focusFile = this.prefill?.focusFile ?? "";
 
 		// Template chooser (only shown when templates exist)
 		if (this.templates.length > 0) {
@@ -159,7 +161,7 @@ export class NewSessionModal extends Modal {
 							new NewSessionModal(this.app, {
 								sessionTypes: this.sessionTypes,
 								templates: this.templates,
-								prefill: { title: tmpl.name, type: tmpl.type, durationMinutes: tmpl.durationMinutes },
+								prefill: { title: tmpl.name, type: tmpl.type, durationMinutes: tmpl.durationMinutes, focusFile: tmpl.focusFile },
 								onSubmit: this.onSubmit,
 							}).open();
 						}
@@ -200,6 +202,28 @@ export class NewSessionModal extends Modal {
 				dropdown.onChange((value) => { duration = parseInt(value, 10); });
 			});
 
+		const focusSetting = new Setting(contentEl)
+			.setName("Focus File")
+			.setDesc("Optional file to work on during this session");
+
+		focusSetting.addText((text) =>
+			text.setPlaceholder("e.g. docs/my-feature.md")
+				.setValue(focusFile)
+				.onChange((value) => { focusFile = value; })
+		);
+
+		focusSetting.addExtraButton((btn) =>
+			btn.setIcon("folder-open")
+				.setTooltip("Browse vault files")
+				.onClick(() => {
+					new VaultFilePickerModal(this.app, (path) => {
+						focusFile = path;
+						const input = focusSetting.controlEl.querySelector("input");
+						if (input) input.value = path;
+					}).open();
+				})
+		);
+
 		new Setting(contentEl)
 			.addButton((btn) =>
 				btn.setButtonText("Cancel").onClick(() => this.close())
@@ -208,7 +232,7 @@ export class NewSessionModal extends Modal {
 				btn.setButtonText("Create").setCta().onClick(() => {
 					const trimmed = title.trim();
 					if (trimmed) {
-						this.onSubmit(trimmed, type, duration);
+						this.onSubmit(trimmed, type, duration, focusFile.trim() || null);
 						this.close();
 					}
 				})
@@ -323,6 +347,32 @@ export class ConfigChooserModal extends FuzzySuggestModal<ConfigChooserItem> {
 /**
  * A modal for creating a new event with an optional category.
  */
+/**
+ * A fuzzy-suggest picker that shows all vault files (no extension filter).
+ */
+class VaultFilePickerModal extends FuzzySuggestModal<TFile> {
+	private files: TFile[];
+	private onChooseFile: (filePath: string) => void;
+
+	constructor(app: App, onChoose: (filePath: string) => void) {
+		super(app);
+		this.files = app.vault.getFiles().sort((a, b) => a.path.localeCompare(b.path));
+		this.onChooseFile = onChoose;
+	}
+
+	getItems(): TFile[] {
+		return this.files;
+	}
+
+	getItemText(item: TFile): string {
+		return item.path;
+	}
+
+	onChooseItem(item: TFile): void {
+		this.onChooseFile(item.path);
+	}
+}
+
 export class CreateEventModal extends Modal {
 	private title: string;
 	private existingCategories: string[];

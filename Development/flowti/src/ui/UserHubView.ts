@@ -262,14 +262,18 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 			navigateToEvent: (eventType) => {
 				void this.hubRegistry.openHub("event-catalog", "events", eventType);
 			},
-			openNewSessionModal: () => {
+			openNewSessionModal: (initialFocusFile?: string) => {
 				new NewSessionModal(this.app, {
 					sessionTypes: SESSION_TYPES,
 					templates: this.sessionService.getSavedTemplates(),
-					onSubmit: (title, type, durationMinutes) => {
-						void this.eventBus.emit("session.create", { type: type as SessionType, title, durationMinutes });
+					prefill: initialFocusFile ? { title: "", type: SESSION_TYPES[0].type, durationMinutes: 25, focusFile: initialFocusFile } : undefined,
+					onSubmit: (title, type, durationMinutes, focusFile) => {
+						void this.eventBus.emit("session.create", { type: type as SessionType, title, durationMinutes, focusFile: focusFile ?? undefined });
 					},
 				}).open();
+			},
+			openFile: (filePath) => {
+				void this.app.workspace.openLinkText(filePath, "");
 			},
 			openSaveTemplateModal: (session) => {
 				new SaveTemplateModal(this.app, {

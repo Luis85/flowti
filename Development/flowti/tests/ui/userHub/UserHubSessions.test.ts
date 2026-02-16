@@ -24,6 +24,7 @@ function makeSession(overrides?: Partial<Session>): Session {
 		completedAt: null,
 		artifacts: [],
 		notes: "",
+		focusFile: null,
 		...overrides,
 	};
 }
@@ -70,6 +71,7 @@ function makeDeps(state: UserHubState, eventBus?: IEventBus): UserHubComponentDe
 		scheduleRender: vi.fn(),
 		navigateToEvent: vi.fn(),
 		openNewSessionModal: vi.fn(),
+		openFile: vi.fn(),
 		openSaveTemplateModal: vi.fn(),
 	};
 }
@@ -763,6 +765,48 @@ describe("UserHubSessions", () => {
 
 			// Should not throw
 			comp.updateTimerDisplay(1000);
+		});
+	});
+
+	// ── Focus file display ─────────────────────────────────
+
+	describe("focus file display", () => {
+		it("should show focus file link in detail panel when set", () => {
+			const session = makeSession({ focusFile: "docs/features/Hubs PRD.md" });
+			const state = makeState([session], session);
+			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
+
+			comp.renderDetail();
+
+			expect(detailEl.textContent).toContain("Focus");
+			expect(detailEl.textContent).toContain("Hubs PRD.md");
+		});
+
+		it("should not show focus file when null", () => {
+			const session = makeSession({ focusFile: null });
+			const state = makeState([session], session);
+			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
+
+			comp.renderDetail();
+
+			// "Focus" appears nowhere in detail (except header if it had "Focus" in title)
+			const focusLinks = detailEl.querySelectorAll("a.ft-link");
+			expect(focusLinks).toHaveLength(0);
+		});
+
+		it("should call openFile when focus file link is clicked", () => {
+			const session = makeSession({ focusFile: "docs/services.md" });
+			const state = makeState([session], session);
+			const deps = makeDeps(state);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			const link = detailEl.querySelector("a.ft-link") as HTMLElement;
+			expect(link).toBeTruthy();
+			link.click();
+
+			expect(deps.openFile).toHaveBeenCalledWith("docs/services.md");
 		});
 	});
 });

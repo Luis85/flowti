@@ -63,6 +63,8 @@ export interface Session {
 	completedAt: string | null;
 	artifacts: SessionArtifact[];
 	notes: string;
+	/** Optional file path the user is focusing on during this session. */
+	focusFile: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -76,6 +78,7 @@ export interface SessionTemplate {
 	type: SessionType;
 	durationMinutes: number;
 	description?: string;
+	focusFile?: string;
 	createdAt: number; // epoch ms
 }
 

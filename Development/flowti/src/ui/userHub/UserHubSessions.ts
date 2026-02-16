@@ -217,6 +217,24 @@ export class UserHubSessions {
 		this.renderInfoRow(infoGrid, "Duration", `${session.durationMinutes} min`);
 		this.renderInfoRow(infoGrid, "Elapsed", formatDuration(computeElapsedMs(session)));
 
+		if (session.focusFile) {
+			const focusRow = infoGrid.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-text-sm" });
+			focusRow.style.padding = "0.15rem 0";
+			focusRow.createSpan({ text: "Focus", cls: "ft-text-muted" }).style.minWidth = "5rem";
+			const focusIcon = focusRow.createSpan();
+			setIcon(focusIcon, "file");
+			focusIcon.style.opacity = "0.5";
+			const link = focusRow.createEl("a", {
+				text: session.focusFile.split("/").pop() ?? session.focusFile,
+				cls: "ft-link",
+			});
+			link.title = session.focusFile;
+			link.addEventListener("click", (e) => {
+				e.preventDefault();
+				this.deps.openFile(session.focusFile!);
+			});
+		}
+
 		if (session.completedAt) {
 			this.renderInfoRow(infoGrid, "Completed", new Date(session.completedAt).toLocaleString());
 		}

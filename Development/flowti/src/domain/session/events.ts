@@ -7,7 +7,7 @@ import type { Session, SessionArtifact, SessionTemplate, SessionType } from "./t
 export interface SessionEventMap {
 	// ── Commands ──────────────────────────────────────────────
 	/** Command: create a new session */
-	"session.create": { type: SessionType; title: string; durationMinutes: number };
+	"session.create": { type: SessionType; title: string; durationMinutes: number; focusFile?: string };
 	/** Command: start the timer for a prepared session */
 	"session.start": { sessionId: string };
 	/** Command: pause an active session */
