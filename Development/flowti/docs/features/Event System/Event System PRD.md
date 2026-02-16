@@ -22,7 +22,7 @@ maintenance_cost: 2
 discovery_cost: 3
 design_cost: 3
 test_cost: 3
-priority: 5
+priority: 0
 ---
 
 # Event System PRD

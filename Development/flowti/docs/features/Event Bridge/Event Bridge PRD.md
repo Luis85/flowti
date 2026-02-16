@@ -28,7 +28,7 @@ maintenance_cost: 2
 discovery_cost: 2
 design_cost: 2
 test_cost: 3
-priority: 5
+priority: 0
 ---
 
 # Event Bridge PRD

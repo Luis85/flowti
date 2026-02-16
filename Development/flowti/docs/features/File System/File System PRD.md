@@ -29,7 +29,7 @@ maintenance_cost: 2
 discovery_cost: 1
 design_cost: 2
 test_cost: 2
-priority: 5
+priority: 0
 ---
 
 # File System PRD
