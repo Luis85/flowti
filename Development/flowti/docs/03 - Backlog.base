@@ -9,8 +9,12 @@ views:
       property: file.folder
       direction: ASC
     order:
-      - file.name
       - type
+      - file.name
+      - stage
+    sort:
+      - property: type
+        direction: ASC
     columnSize:
       file.name: 556
   - type: table
