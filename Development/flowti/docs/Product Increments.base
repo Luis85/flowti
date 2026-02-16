@@ -1,0 +1,15 @@
+filters:
+  and:
+    - file.folder.contains("increment")
+    - type == "Increment"
+views:
+  - type: table
+    name: Table
+    order:
+      - file.name
+      - stage
+    sort:
+      - property: file.name
+        direction: DESC
+    columnSize:
+      file.name: 374

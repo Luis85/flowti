@@ -552,7 +552,7 @@ New feature work items, each tracked as a separate PBI in `docs/features/Hubs/ba
 | PBI | Title | Status | Dependencies |
 |-----|-------|--------|-------------|
 | [[PBI-001 User Hub]] | Personal cockpit with dashboard, inbox, preferences | **COMPLETE** (4 increments) | TD-50 ✅ |
-| [[PBI-002 Documentation Sessions]] | Time-boxed workflows with Pomodoro timer | **In progress** (5 done, 3 planned) | Increments 6-8: Goals, Workspace, Preparation |
+| [[PBI-002 Documentation Sessions]] | Time-boxed workflows with Pomodoro timer | **In progress** (5 done, 6 planned) | Inc 6-8: Goals, Workspace, Preparation; Inc 9-11: Focus Profiles, Spawning, Session Doc |
 | [[PBI-003 Product Hub]] | Product domain workspace | **PLANNED** | BaseHubView ✅ |
 | [[PBI-004 Project Hub]] | Project domain workspace | **PLANNED** | BaseHubView ✅ |
 

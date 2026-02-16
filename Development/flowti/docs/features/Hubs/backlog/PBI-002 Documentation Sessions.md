@@ -6,7 +6,7 @@ priority: high
 phase: 4
 dependencies:
   - "[[TD-49 Layout abstraction layer]]"
-note: "Core delivery complete (5 increments). Increments 6-8 planned: Goals, Workspace View, Preparation Flow."
+note: "Core delivery complete (5 increments). Increments 6-8 planned: Goals, Workspace View, Preparation Flow. Increments 9-11 planned: Focus File Profiles & Context Files, Session Spawning & Guiding Questions, Session Document Generation."
 user_story: "[[I want to prepare a working session, so that I can focus on one task at a time]]"
 ---
 
@@ -130,6 +130,12 @@ As a vault user, I want sessions to provide contextual tools based on my focus f
 - [ ] SessionWorkspaceView: dedicated focused leaf — *Increment 7*
 - [ ] Goals in NewSessionModal for pre-session preparation — *Increment 8*
 - [ ] Auto-open workspace + focus file on session start — *Increment 8*
+- [ ] Focus file type detection returns correct profile for all 6 categories — *Increment 9*
+- [ ] Context files: attach, remove, deduplicate, cap at 20 — *Increment 9*
+- [ ] Context files carried through rerun, templates, create-from-template — *Increment 9*
+- [ ] Spawn new sessions from existing ones inheriting focus + context — *Increment 10*
+- [ ] Guiding questions visible during active/paused sessions — *Increment 10*
+- [ ] Session document generated on completion as markdown file — *Increment 11*
 
 ## Implementation Progress
 
@@ -235,3 +241,45 @@ Scope:
 - Open focus file in adjacent split leaf on session start
 - "Open Workspace" button on active/paused sessions in `UserHubSessions` detail panel
 - ~111 LOC, ~6 tests
+
+### Increment 9: Focus File Profiles & Context Files (PLANNED)
+
+User story: [[I want to prepare a working session, so that I can focus on one task at a time]]
+
+Scope:
+- `FocusFileCategory`, `FocusFileTool`, `FocusFileProfile` types in new `focusFileProfile.ts`
+- `detectFocusFileCategory(path)` — extension → category mapping (6 categories: markdown, canvas, pdf, image, csv, unknown)
+- `resolveFocusFileProfile(path, frontmatterType?)` — full profile with contextual tools + DocType enrichment
+- `FOCUS_FILE_TOOLS` registry — static tool definitions per category
+- `contextFiles: string[]` on Session, `contextFiles?: string[]` on SessionTemplate
+- 4 new events: `session.context.{add,remove}` commands + `session.context.{added,removed}` state
+- `handleContextAdd` / `handleContextRemove` on SessionService (dedupe + max 20)
+- Threading: rerunSession, createFromTemplate, saveTemplateFromSession carry context files
+- Backward compat in `load()`: `s.contextFiles ??= []`
+- See: [[Phase 4 Inc 9 - Focus File Profiles and Context Files]]
+- ~90 LOC new file + ~50 LOC service changes, ~31 tests
+
+### Increment 10: Session Spawning & Guiding Questions (PLANNED)
+
+User story: [[I want to prepare a working session, so that I can focus on one task at a time]]
+
+Scope:
+- `spawnSession(sessionId)` on SessionService — creates new session inheriting focus file + context files
+- `designSession(sessionId, selectedContextFiles)` — spawn with user-selected context subset
+- 2 new events: `session.spawn` command + `session.spawned` state
+- `GUIDING_QUESTIONS` constant — always-visible prompts: "How should the next increment look like?", "What can be improved?"
+- UI: "New Session from Focus" and "Design Session" actions on completed/archived session detail
+- UI: Guiding Questions rendered in SessionWorkspaceView during active/paused
+- ~120 LOC, ~18 tests
+
+### Increment 11: Session Document Generation (PLANNED)
+
+User story: [[I want to prepare a working session, so that I can focus on one task at a time]]
+
+Scope:
+- `generateSessionDocument(session)` — pure function producing markdown string with metadata, focus file link, context files, artifacts, notes, timeline summary
+- Listen to `session.completed` → create `.md` file via `file.create.request` event
+- Configurable folder: `sessionDocumentsPath` setting (default: `"Sessions/"`)
+- File name pattern: `YYYY-MM-DD <SessionType> - <Title>.md`
+- Backlink from session document to focus file via wiki-link
+- ~100 LOC, ~15 tests
