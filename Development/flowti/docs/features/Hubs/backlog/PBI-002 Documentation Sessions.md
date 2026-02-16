@@ -6,6 +6,8 @@ priority: high
 phase: 4
 dependencies:
   - "[[TD-49 Layout abstraction layer]]"
+note: "Core delivery complete (5 increments). Increments 6-8 planned: Goals, Workspace View, Preparation Flow."
+user_story: "[[I want to prepare a working session, so that I can focus on one task at a time]]"
 ---
 
 ## User Story - Problemspace
@@ -59,6 +61,12 @@ As a domain architect, I want time-boxed documentation sessions with a Pomodoro 
   - Artifact tracking via `file.created`/`file.modified` listeners during active session
 - [x] Timer events: `session.timer.tick` (every second), `session.timer.completed` (on expiry) — *1s setInterval, Date math for surviving window minimize*
 - [ ] Session artifacts persist as markdown files in configurable folder — *currently tracked in-memory, not as separate files*
+- [ ] Session goals: `SessionGoal[]` on Session with add/toggle/remove via events — *Increment 6*
+- [ ] Session notes mutation: `session.notes.update` command + `session.notes.updated` state event — *Increment 6*
+- [ ] Goals threaded through templates, rerun, createFromTemplate — *Increment 6*
+- [ ] SessionWorkspaceView: dedicated leaf with timer, goals checklist, notes textarea, focus file, artifacts — *Increment 7*
+- [ ] Auto-open workspace on session.start + open focus file in adjacent leaf — *Increment 8*
+- [ ] Goals repeater in NewSessionModal for pre-session preparation — *Increment 8*
 
 ### Technical Requirements
 
@@ -89,6 +97,11 @@ As a domain architect, I want time-boxed documentation sessions with a Pomodoro 
 - [x] Dashboard session callout with live timer and contextual actions — *Increment 3: updateTimerDisplay() + Pause/Resume*
 - [x] Focus file selection with vault file picker — *Increment 4: focusFile on Session + VaultFilePickerModal*
 - [x] End-to-end session time tracking with timeline and pause durations — *Increment 5: SessionTimelineEntry[] + computeTimelineSummary + Time Breakdown UI*
+- [ ] Session goals: add, toggle, remove goals during session — *Increment 6*
+- [ ] Session notes: inline editing with auto-save — *Increment 6*
+- [ ] SessionWorkspaceView: dedicated focused leaf — *Increment 7*
+- [ ] Goals in NewSessionModal for pre-session preparation — *Increment 8*
+- [ ] Auto-open workspace + focus file on session start — *Increment 8*
 
 ## Implementation Progress
 
@@ -157,3 +170,40 @@ Modified files:
 - `tests/domain/session/SessionService.test.ts` — +9 tests (timeline recording per lifecycle action, full lifecycle ordering, multiple pause/resume cycles, backward compat)
 - `tests/ui/userHub/UserHubSessions.test.ts` — +6 tests (Time Breakdown rendering, pause count visibility, Timeline section entry count, action labels)
 - `tests/ui/userHub/UserHubDashboard.test.ts` — makeSession updated with `timeline: []`
+
+### Increment 6: Goals & Notes Domain (PLANNED)
+
+User story: [[I want to prepare a working session, so that I can focus on one task at a time]]
+
+Scope:
+- `SessionGoal` interface (id, text, completed, completedAt) in `types.ts`
+- `goals: SessionGoal[]` on Session, `goals?: string[]` on SessionTemplate
+- 8 new events: `session.goal.{add,toggle,remove}` commands + `session.goal.{added,toggled,removed}` state + `session.notes.{update,updated}`
+- 4 new SessionService handlers: `handleGoalAdd`, `handleGoalToggle`, `handleGoalRemove`, `handleNotesUpdate`
+- Threading: `handleCreate`, `rerunSession`, `createFromTemplate`, `saveTemplateFromSession`
+- Backward compat in `load()`: `s.goals ??= []`
+- Pure helper: `createGoal(id, text)`
+- ~203 LOC, ~25 tests
+
+### Increment 7: SessionWorkspaceView (PLANNED)
+
+Scope:
+- New `SessionWorkspaceView` extending `ItemView` directly (not BaseHubView)
+- Layout: header (title + status + actions) → timer → goals checklist → notes textarea → focus file link → artifacts
+- Timer: incremental DOM update via `session.timer.tick`
+- Goals: inline add, checkbox toggle, remove — all via event bus
+- Notes: `<textarea>` with 500ms debounced save via `session.notes.update`
+- Focus file: clickable link → `app.workspace.openLinkText()` in adjacent leaf
+- Artifacts: live list updated on `session.artifact.added`
+- Registered in `registry.ts`, command `flowti:open-session-workspace`
+- ~513 LOC, ~15 tests
+
+### Increment 8: Preparation Flow & Auto-Open (PLANNED)
+
+Scope:
+- Goals repeater in `NewSessionModal` (add/remove goal text inputs before creating session)
+- Update `session.create` payload with optional `goals?: string[]`
+- Auto-open `SessionWorkspaceView` on `session.started` event
+- Open focus file in adjacent split leaf on session start
+- "Open Workspace" button on active/paused sessions in `UserHubSessions` detail panel
+- ~111 LOC, ~6 tests

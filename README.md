@@ -14,7 +14,8 @@ To start your journey you will need to have Obsidian installed which serves as a
 
 ## Why tho?
 
-Curiosity
+First: Curiosity!
+Second: There is no guided structure to start in Obsidian, makes adopting hard.
 
 ## About me
 

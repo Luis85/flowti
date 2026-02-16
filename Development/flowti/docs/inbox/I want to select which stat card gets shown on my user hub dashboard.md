@@ -1,4 +1,0 @@
----
-type:
-feature: "[[Hubs PRD]]"
----

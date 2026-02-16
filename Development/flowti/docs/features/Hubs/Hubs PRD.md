@@ -20,9 +20,9 @@ maturity_score_strategy: 5
 maturity_score_scope: 5
 maturity_score_architecture: 5
 maturity_score_event_integration: 5
-maturity_score_data_model: 4
+maturity_score_data_model: 5
 maturity_score_ui_consistency: 4
-maturity_score_validation_testing: 3
+maturity_score_validation_testing: 4
 business_value: 5
 implementation_cost: 5
 maintenance_cost: 3
@@ -30,16 +30,77 @@ discovery_cost: 4
 design_cost: 4
 test_cost: 4
 priority: 5
-fri_score: 31
+fri_score: 33
 ---
 
 # Feature: Hubs - Domain-Centric Workspaces
 
-> Architecture reference: [[Hubs]] (detailed layout library, manifests, region contracts, JSON schemas)
+> Architecture reference: [[Layout Library and Composition]] (layout library, manifests, region contracts, JSON schemas)
+> Document types: [[ProductRequirementsDocument]], [[ProductBacklogItem]], [[Increment]], [[ReviewSession]], [[TechnicalReview]], [[UserStory]]
 
 ---
 
-## 1. Problem Statement
+## 1. Vision & Strategic Context
+
+> A Hub is the main entry point into a domain (or into the user's work).
+> It is a dedicated workspace that structures data, generates event entries, encourages documentation, connects entities, starts projects, and feeds the knowledge graph.
+
+**Strategic position**: Flowti is a system where the Event Catalog is the Source of Truth, domains generate and consume events, documentation and system state evolve together, Git tracks structural evolution, and the Knowledge Graph reflects operational structure. Instead of navigating files, users navigate **Domains → Hubs → Events & Entities**.
+
+### Core Principles
+
+1. Event Catalog remains the authoritative backbone
+2. Every Hub contributes to the Event Catalog
+3. Hubs generate Entity Docs (Markdown)
+4. Hubs encourage documentation discipline
+5. Documentation Sessions are structured and time-boxed
+6. Hubs are domain-bounded (except User Hub)
+7. System Hubs and User Hubs are distinct
+8. All relationships feed the knowledge graph
+
+### Conceptual Architecture
+
+```
+Flowti
+│
+├── User Hub (Personal cockpit)
+│
+├── System Hubs
+│   ├── Event Catalog
+│   └── Data Exchange
+│
+├── Domain Hubs (Core + User-generated)
+│   ├── Product Hub
+│   ├── Project Hub
+│   ├── Services Hub
+│   ├── Areas Hub
+│   └── User-Generated Hubs (v2+)
+│
+└── 01 - Projects (Project Instances)
+```
+
+### Hub Types
+
+| Type | Description | Examples |
+|------|-------------|---------|
+| **System Hub** | Managed by Flowti Core. Immutable structure, extensible content. | Event Catalog, Data Exchange |
+| **Domain Hub** | Domain-bounded workspace for a specific business area. | Product Hub, Project Hub, Services Hub, Areas Hub |
+| **User Hub** | Personal cockpit: dashboard, inbox, sessions, preferences. | User Hub (singleton) |
+| **User-Generated Hub** (v2+) | Any domain entity can become a Hub workspace. | Custom domain hubs |
+
+### Open Technical Questions (Resolved)
+
+1. Are hubs stored as entities in Event Catalog? → **No** (Hubs are visual representations of domains)
+2. How to enforce bounded contexts? → **HubAdapter pattern + domain-scoped events**
+3. Should user hubs be versioned? → **No**
+4. How are session artifacts persisted? → **Markdown files tracked via file.created/file.modified listeners**
+5. Can hubs subscribe to EventBus namespaces? → **Yes, via wildcard listeners with category filtering**
+6. How does a hub register itself? → **HubRegistry.register(provider) at plugin load**
+7. Is there a HubRegistry service? → **Yes** (65 LOC, register + getAll + openHub)
+
+---
+
+## 2. Problem Statement
 
 Obsidian users managing complex domains (products, projects, services, areas) lack structured workspaces that aggregate relevant entities, events, documentation, and actions into cohesive views.
 
@@ -55,21 +116,21 @@ Obsidian users managing complex domains (products, projects, services, areas) la
 
 ---
 
-## 2. Outcome (Success Definition)
+## 3. Outcome (Success Definition)
 
 - **User can** open domain-centric Hubs from the ribbon or command palette, each with a consistent dashboard, entity tables, and session capabilities.
 - **System can** render any Hub using a shared shell + declarative layout + adapter pattern, eliminating per-view DOM construction.
 - **Domain gains** a reusable framework where adding a new Hub requires only an adapter and tab definitions — no new layout code.
 
 Measurable success:
-- Event Catalog and Data Exchange Hub operate as System Hubs with zero feature regression. **ACHIEVED** — both migrated, 1,725 tests pass.
+- Event Catalog and Data Exchange Hub operate as System Hubs with zero feature regression. **ACHIEVED** — both migrated, 1,988 tests pass.
 - Adding a new Domain Hub (e.g., Product Hub) requires <200 LOC of adapter + config. **ACHIEVED** — UserHubView = 138 LOC.
 - Tab definitions validate against layout + component manifests at startup. *Deferred (TD-52) — hardcoded arrays work at current scale.*
 - ComponentView previews all of the used Hub Components. *Deferred (TD-38).*
 
 ---
 
-## 3. Scope
+## 4. Scope
 
 ### In Scope (v1)
 
@@ -93,7 +154,7 @@ Measurable success:
 
 ---
 
-## 4. UX Entry Points
+## 5. UX Entry Points
 
 Where does this feature live?
 
@@ -109,7 +170,7 @@ Primary interaction path:
 
 ---
 
-## 5. Functional Requirements
+## 6. Functional Requirements
 
 ### Shell
 
@@ -135,12 +196,22 @@ Primary interaction path:
 
 ### Documentation Sessions
 
-- [ ] Session Focus layout renders: header + timer + workspace + notes + artifacts
-- [x] Pomodoro timer with configurable duration (25/50 min) — *SessionService with 1s setInterval, computeRemainingMs()*
+- [ ] Session Focus workspace: dedicated `SessionWorkspaceView` leaf with header + timer + goals + notes + focus file + artifacts — *planned Increment 7*
+- [x] Pomodoro timer with configurable duration (25/50/15/45/60 min) — *SessionService with 1s setInterval, computeRemainingMs()*
 - [x] Session types: Event Storming, Service Design, Requirements Refinement, Backlog Structuring, Knowledge Cleanup — *SessionType union, SESSION_TYPE_LABELS map*
 - [x] Session lifecycle: Prepared → Active → Paused → Completed → Archived — *SessionService state machine (19 events)*
 - [x] Artifacts tracked per session — *file.created/file.modified listeners → session.artifact.added events*
 - [x] Session history visible in User Hub — *UserHubSessions component: master list + detail panel with timer, info, artifacts, contextual actions*
+- [x] Session templates: save, create from template, prefill in NewSessionModal — *SessionService template CRUD (MAX_TEMPLATES=50)*
+- [x] Session rerun: re-create completed/archived sessions with auto-generated title — *SessionService.rerunSession()*
+- [x] Focus file: optional vault file picker in NewSessionModal, clickable link in detail panel — *VaultFilePickerModal + deps.openFile()*
+- [x] Session timeline: chronological lifecycle action log with timestamps — *SessionTimelineEntry[] on Session, timeline.push() in each lifecycle handler*
+- [x] Time breakdown: wall clock, active time, total pause, pause count — *computeTimelineSummary() + formatDurationHuman(), stat pill UI*
+- [x] Clickable templates: template rows in detail panel create new sessions on click — *createFromTemplate() integration*
+- [ ] Session goals: `SessionGoal[]` with add/toggle/remove checklist — *planned Increment 6*
+- [ ] Session notes mutation via events: `session.notes.update/updated` — *planned Increment 6*
+- [ ] Pre-session goal preparation in NewSessionModal — *planned Increment 8*
+- [ ] Auto-open workspace + focus file on session start — *planned Increment 8*
 
 ### User Hub
 
@@ -152,11 +223,11 @@ Primary interaction path:
 
 - [x] Event Catalog operates as System Hub with identical functionality — *extends BaseHubView, zero regression*
 - [x] Data Exchange Hub operates as System Hub with identical functionality — *extends BaseHubView, gains tab bar*
-- [x] Zero feature regression after migration — *1,725 tests pass across 77 suites*
+- [x] Zero feature regression after migration — *1,988 tests pass across 82 suites*
 
 ---
 
-## 6. Data Model Impact
+## 7. Data Model Impact
 
 New entities:
 
@@ -175,13 +246,34 @@ DocumentationSession
   session_id: string
   hub_id: string
   type: "event_storming" | "service_design" | "requirements" | "backlog" | "knowledge_cleanup"
-  status: "prepared" | "scheduled" | "active" | "paused" | "completed" | "archived"
-  scheduled_at?: string
+  status: "prepared" | "active" | "paused" | "completed" | "archived"
   started_at?: string
+  paused_at?: string
   completed_at?: string
   duration_minutes: number
-  artifacts: string[]  (file paths)
+  elapsed_before_pause_ms: number
+  artifacts: SessionArtifact[]  (path + action: "created" | "modified")
+  focus_file?: string  (vault file path — optional focus file for the session)
+  timeline: SessionTimelineEntry[]  (chronological lifecycle action log)
   notes_path?: string
+
+SessionTemplate
+  id: string
+  name: string
+  type: SessionType
+  durationMinutes: number
+  focusFile?: string
+  createdAt: string
+
+SessionTimelineEntry
+  action: "started" | "paused" | "resumed" | "completed"
+  timestamp: string  (ISO 8601)
+
+SessionGoal  (planned — Increment 6)
+  id: string
+  text: string
+  completed: boolean
+  completedAt: string | null
 
 TabDefinition
   id: string
@@ -194,9 +286,13 @@ TabDefinition
 
 New fields on existing entities: none (Hubs wrap existing entities, not extend them).
 
+State containers (TypedStorage):
+- `sessions` — `{ sessions: Session[], savedTemplates: SessionTemplate[] }`
+- `inbox` — `{ items: InboxItem[] }`
+
 ---
 
-## 7. Event Impact
+## 8. Event Impact
 
 ### Produced (implemented)
 
@@ -218,8 +314,21 @@ New fields on existing entities: none (Hubs wrap existing entities, not extend t
 - `session.timer.tick` — payload: `{ sessionId, remainingMs }` — *1s setInterval during active sessions*
 - `session.timer.completed` — payload: `{ sessionId }` — *emitted when timer reaches 0*
 - `session.artifact.added` — payload: `{ sessionId, artifact }` — *file.created/file.modified listener*
-- `session.loaded` — payload: `{ sessions }` — *SessionService.load() on startup*
+- `session.loaded` — payload: `{ sessions, savedTemplates }` — *SessionService.load() on startup*
+- `session.template.saved` — payload: `{ template }` — *SessionService.saveTemplate()*
+- `session.template.deleted` — payload: `{ templateId }` — *SessionService.deleteTemplate()*
 - Plus 8 command events: `session.create`, `session.start`, `session.pause`, `session.resume`, `session.complete`, `session.archive`, `session.delete`, `session.refresh`
+
+### Produced (planned — PBI-002 Increments 6-8)
+
+- `session.goal.add` — payload: `{ sessionId, text }` — *command: add goal to session*
+- `session.goal.toggle` — payload: `{ sessionId, goalId }` — *command: check/uncheck goal*
+- `session.goal.remove` — payload: `{ sessionId, goalId }` — *command: remove goal*
+- `session.goal.added` — payload: `{ sessionId, goal }` — *state: goal was added*
+- `session.goal.toggled` — payload: `{ sessionId, goalId, completed }` — *state: goal toggled*
+- `session.goal.removed` — payload: `{ sessionId, goalId }` — *state: goal was removed*
+- `session.notes.update` — payload: `{ sessionId, notes }` — *command: update notes*
+- `session.notes.updated` — payload: `{ sessionId, notes }` — *state: notes were updated*
 
 ### Consumed
 
@@ -236,7 +345,7 @@ New fields on existing entities: none (Hubs wrap existing entities, not extend t
 
 ---
 
-## 8. UI Layout Impact
+## 9. UI Layout Impact
 
 Layouts used:
 
@@ -261,7 +370,7 @@ Tabs affected:
 
 ---
 
-## 9. Adapter Impact
+## 10. Adapter Impact
 
 ### Implemented Architecture
 
@@ -297,7 +406,7 @@ HubRegistry (65 LOC — provider registry + navigation)
 |-----|-----------|----------|-----|------|
 | Event Catalog | EventCatalogView | EventCatalogProvider | 723 | Dashboard, Domains, Services, Events, Flows, Systems, Actors, Products, Health |
 | Data Exchange | DataExchangeHubView | DataExchangeProvider | 477 | Dashboard, Imports, Exports, Reports, Properties, Pipelines, Types |
-| User Hub | UserHubView | UserHubProvider | ~259 | Dashboard, Inbox, Sessions, Preferences |
+| User Hub | UserHubView | UserHubProvider | ~273 | Dashboard, Inbox, Sessions, Preferences |
 
 ### Decision: No HubAdapter Interface (ADR-024)
 
@@ -305,7 +414,7 @@ The abstract `HubAdapter` interface was deferred (Three Amigos decision #2). Eac
 
 ---
 
-## 10. Non-Functional Requirements
+## 11. Non-Functional Requirements
 
 - **Performance**: VirtualizedTable for lists >100 rows; lazy tab rendering (only active tab mounts)
 - **Event-driven refresh**: No polling — all dashboard updates via EventBus listeners
@@ -315,7 +424,7 @@ The abstract `HubAdapter` interface was deferred (Three Amigos decision #2). Eac
 
 ---
 
-## 11. Risks
+## 12. Risks
 
 | Risk | Mitigation |
 |------|------------|
@@ -327,7 +436,7 @@ The abstract `HubAdapter` interface was deferred (Three Amigos decision #2). Eac
 
 ---
 
-## 12. Acceptance Criteria
+## 13. Acceptance Criteria
 
 - [x] Hub shell renders workspace ribbon, tab bar, and content area — *BaseHubView*
 - [x] Tab bar navigates between tabs; active tab renders correct layout — *navigateTo() + onTabRender()*
@@ -335,14 +444,15 @@ The abstract `HubAdapter` interface was deferred (Three Amigos decision #2). Eac
 - [x] Data Exchange Hub works as System Hub with zero feature regression — *477 LOC, 6+1 tabs*
 - [x] User Hub shows personal dashboard with cross-hub summary — *UserHubDashboard with tabId deep-linking*
 - [x] Documentation Session can be created, started (with timer), and completed with artifact tracking — *PBI-002 increments 1+2: SessionService domain + UserHubSessions tab*
+- [x] Session templates, rerun, focus file, and timeline tracking — *PBI-002 increments 3-5: full session UX*
 - [ ] Tab definitions validate against layout and component manifests — *deferred (TD-52)*
 - [x] Adding a new Domain Hub requires only adapter + tab definitions (<200 LOC) — *UserHubView = 138 LOC*
-- [x] All existing 1,662+ tests pass after migration — *1,887 tests across 82 suites*
+- [x] All existing 1,662+ tests pass after migration — *1,988 tests across 82 suites*
 - [x] `npm run build` passes (vitest + typedoc + tsc + eslint + esbuild) — *green*
 
 ---
 
-## 13. Definition of Done
+## 14. Definition of Done
 
 - [ ] Layout manifest created (`src/ui/layouts/layout-manifest.json`) — *deferred (TD-49)*
 - [ ] Component manifest created (`src/ui/components/component-manifest.json`) — *deferred (TD-51)*
@@ -350,12 +460,12 @@ The abstract `HubAdapter` interface was deferred (Three Amigos decision #2). Eac
 - [x] Shell layout implemented and renders all hub types — *BaseHubView (278 LOC)*
 - [x] At least 2 System Hubs migrated (Event Catalog, Data Exchange) — *both migrated, zero regression*
 - [x] User Hub implemented with dashboard + inbox — *PBI-001 increment 1 (648 LOC) + increment 2 (398 LOC InboxService domain)*
-- [x] Documentation Sessions domain implemented with timer + artifacts — *PBI-002 increments 1+2: SessionService (19 events, TypedStorage) + UserHubSessions tab*
+- [x] Documentation Sessions domain implemented with timer, artifacts, templates, rerun, focus file, timeline — *PBI-002 increments 1-5: SessionService (21 events, TypedStorage) + UserHubSessions tab*
 - [ ] Tab definition validation passes for all hub configs — *deferred (TD-52)*
-- [x] Unit tests added for all new domain and infrastructure code — *193 tests: HubRegistry, providers, 4 UI components, inbox mappers, InboxService, SessionService (60 tests), UserHubSessions (35 tests)*
+- [x] Unit tests added for all new domain and infrastructure code — *~350 tests: HubRegistry, providers, 4 UI components, inbox mappers, InboxService (29 tests), SessionService (99 tests), UserHubSessions (52 tests), helpers (21 tests)*
 - [ ] Flow integration tests added for hub lifecycle
-- [x] `npm run build` passes — *1,887 tests across 82 suites, green pipeline*
-- [x] Architecture documentation updated — *ADR-024, sitemap, 3 component docs, Three Amigos reviews*
+- [x] `npm run build` passes — *1,988 tests across 82 suites, green pipeline*
+- [x] Architecture documentation updated — *ADR-024, sitemap, 5 component docs, 9 Three Amigos reviews*
 
 ---
 
@@ -372,6 +482,8 @@ The following refactoring items were identified during PRD drafting. The actual 
 | [[TD-53 Shared UI primitive library]] | Extract inline styles to reusable primitives | Medium | **Deferred** — ft-* CSS classes cover current needs |
 | [[TD-54 Event Catalog hub migration]] | Migrate Event Catalog to Hub pattern | High | **Resolved** — extends BaseHubView, 723 LOC |
 | [[TD-55 Data Exchange hub migration]] | Migrate Data Exchange Hub to Hub pattern | High | **Resolved** — extends BaseHubView, 477 LOC, gained tab bar |
+| [[TD-57 Migration test strategy]] | Smoke tests for Hub tab rendering + CRUD | Medium | **Open** — can be addressed alongside PBI-003 |
+| [[TD-60 Health widget Hub integration]] | Health score widget on Hub dashboards | Low | **Open** — deferred until Hub widget pattern established |
 
 ---
 
@@ -379,12 +491,12 @@ The following refactoring items were identified during PRD drafting. The actual 
 
 New feature work items, each tracked as a separate PBI in `docs/features/Hubs/backlog/`:
 
-| PBI | Title | Dependencies |
-|-----|-------|-------------|
-| [[PBI-001 User Hub]] | Personal cockpit with dashboard, inbox, activity | TD-49, TD-50 |
-| [[PBI-002 Documentation Sessions]] | Time-boxed workflows with Pomodoro timer | TD-49 (session_focus layout) |
-| [[PBI-003 Product Hub]] | Product domain workspace | TD-49, TD-50, HubAdapter |
-| [[PBI-004 Project Hub]] | Project domain workspace | TD-49, TD-50, HubAdapter |
+| PBI | Title | Status | Dependencies |
+|-----|-------|--------|-------------|
+| [[PBI-001 User Hub]] | Personal cockpit with dashboard, inbox, preferences | **COMPLETE** (4 increments) | TD-50 ✅ |
+| [[PBI-002 Documentation Sessions]] | Time-boxed workflows with Pomodoro timer | **In progress** (5 done, 3 planned) | Increments 6-8: Goals, Workspace, Preparation |
+| [[PBI-003 Product Hub]] | Product domain workspace | **PLANNED** | BaseHubView ✅ |
+| [[PBI-004 Project Hub]] | Project domain workspace | **PLANNED** | BaseHubView ✅ |
 
 ---
 
@@ -408,7 +520,7 @@ Both System Hubs migrated to BaseHubView. EventCatalogView: 864 → 723 LOC (-16
 
 Resolved 2 blockers from Pre-Feature Development Review: (1) HubRegistry + HubDashboardProvider for cross-hub data aggregation, (2) `hub.navigate` event + BaseHubView listener for cross-hub deep linking. Both System Hubs registered as providers. PBI-001 unblocked.
 
-### Phase 3: User Hub (PBI-001) — INCREMENT 4 DONE
+### Phase 3: User Hub (PBI-001) — DONE
 
 > Increment 1 completed 2026-02-15. Three Amigos Review: 33/35 (Excellent).
 > Increment 2 completed 2026-02-15. Three Amigos Review: 34/35 (Excellent).
@@ -429,7 +541,31 @@ Resolved 2 blockers from Pre-Feature Development Review: (1) HubRegistry + HubDa
 
 **Increment 2** (PBI-002): Sessions Tab in User Hub. New `UserHubSessions` component (~316 LOC) with master list (status-sorted, filter, accent border on active, "New" button) and detail panel (timer display, info, artifacts, contextual lifecycle action buttons). `UserHubView` (~273 LOC) wired with 9 session event listeners + timer tick optimization (direct DOM update via `updateTimerDisplay()`, no full re-render). Active session card on dashboard with Pause/Complete actions. `NewSessionModal` (~70 LOC) for session creation (title, type dropdown from `SESSION_TYPES`, duration dropdown). "New Session" buttons in both empty state and master header. 40 new tests. 1,887 tests pass across 82 suites.
 
-Remaining: Session Focus layout, Domain Hubs (Product, Project).
+**Increment 3** (PBI-002): Session Templates, Rerun & UX Polish. `SessionService` gained 7 methods: template CRUD (`saveTemplate`, `updateTemplate`, `deleteTemplate`, `saveTemplateFromSession`, `createFromTemplate`), session rerun (`rerunSession` + `generateRerunTitle`). New `SaveTemplateModal`. `NewSessionModal` extended with template chooser dropdown + prefill. UserHubSessions: Rerun/Save Template buttons on completed/archived, template list in detail panel, actions moved under header. Dashboard: `updateTimerDisplay()` for live timer, contextual Pause/Resume buttons, Paused badge. Backward-compat migration for `savedTemplates` in `load()`. +47 tests. 1,887 tests pass across 82 suites.
+
+**Increment 4** (PBI-002): Focus File & Vault File Picker. `focusFile: string | null` added to Session, threaded through `handleCreate()`, `rerunSession()`, `createFromTemplate()`, `saveTemplateFromSession()`. Focus file text input + "Browse" button (folder-open icon) on `NewSessionModal`. New `VaultFilePickerModal` class using `FuzzySuggestModal`. Clickable focus file link in session detail panel via `deps.openFile()`. +9 tests. 1,887 tests pass across 82 suites.
+
+**Increment 5** (PBI-002): Session Timeline & Pause Duration Tracking. `SessionTimelineEntry[]` on Session records every lifecycle action with ISO timestamps. 6 new pure functions in helpers: `computePauseSegments()`, `computeTotalPauseMs()`, `computeWallClockMs()`, `computeActiveTimeMs()`, `computeTimelineSummary()`, `formatDurationHuman()`. New UI sections: Time Breakdown (stat pills) + Timeline (chronological action log with icons). Backward-compat in `load()` initializes missing `timeline` to `[]`. +35 tests. 1,988 tests pass across 82 suites.
+
+**UX Polish** (PBI-002): Clickable template rows create new sessions via `createFromTemplate()`. Delete button uses `stopPropagation()` to prevent accidental creation. Hint text "Click a template to start a new session". Timeline moved to last section in detail panel. +4 tests.
+
+**PBI-002 core feature delivery complete** (Increments 1-5). Increments 6-8 planned for Session Workspace:
+
+**Increment 6** (PBI-002, PLANNED): Goals & Notes Domain. `SessionGoal` interface (id, text, completed, completedAt). `goals: SessionGoal[]` on Session, `goals?: string[]` on SessionTemplate. 8 new events for goal CRUD + notes mutation. 4 new SessionService handlers. Goals threaded through templates, rerun, createFromTemplate. Backward compat. ~203 LOC, ~25 tests.
+
+**Increment 7** (PBI-002, PLANNED): SessionWorkspaceView. New standalone `ItemView` with timer, goals checklist (inline add/toggle/remove), notes textarea (500ms debounced save), focus file link (opens in adjacent leaf), live artifacts list. Registered in `registry.ts`, command `flowti:open-session-workspace`. ~513 LOC, ~15 tests.
+
+**Increment 8** (PBI-002, PLANNED): Preparation Flow & Auto-Open. Goals repeater in NewSessionModal. Auto-open workspace on `session.started`. Open focus file in adjacent split leaf. "Open Workspace" button on active/paused sessions in Sessions detail panel. ~111 LOC, ~6 tests.
+
+### Phase 5: Domain Hubs (PBI-003, PBI-004) — PLANNED
+
+Next increments planned (see backlog for full PBI details):
+
+**Increment 1** (PBI-003): Product Hub Scaffold. New `ProductHubView` extending `BaseHubView`, `ProductHubProvider` for cross-hub stats. Dashboard tab with product-scoped KPIs (features count, backlog size, maturity breakdown). Ribbon icon + command `flowti:open-product-hub`. Register in `HubRegistry`. Follows UserHubView pattern (~150 LOC estimated).
+
+**Increment 2** (PBI-003): Product Hub Entity Tabs. Features tab scanning `type: FeatureTemplate` files with maturity badges + FRI scores. Backlog tab scanning `type: ProductBacklogItemTemplate` files with status filters. Master-detail split layout reusing existing `buildSplitLayout()` pattern.
+
+**Increment 3** (PBI-004): Project Hub Scaffold. New `ProjectHubView` extending `BaseHubView`, `ProjectHubProvider`. Dashboard with project-scoped stats (work items, documentation coverage). Same pattern as Product Hub.
 
 ---
 
@@ -449,26 +585,39 @@ Remaining: Session Focus layout, Domain Hubs (Product, Project).
 | 2026-02-16 | in-progress | Phase 3 increment 4 | 31 | Technical Architect | Pipeline inbox items (2 mappers, 2 listeners). Preferences tab (profile editing, 6 source toggles). INBOX_SOURCE_DEFINITIONS shared constant. Multi-tab UserHubView. PBI-001 complete. 1,786 tests across 79 suites. |
 | 2026-02-16 | in-progress | Phase 4 increment 1 | 31 | Technical Architect | PBI-002 Session Domain Core. SessionService (19 events, lifecycle state machine, Pomodoro timer, artifact tracking, TypedStorage). Pure helpers. 60 tests added. 1,847 tests across 82 suites. |
 | 2026-02-16 | in-progress | Phase 4 increment 2 | 31 | Technical Architect | PBI-002 Sessions Tab. UserHubSessions component (~316 LOC). 9 event listeners + timer tick optimization. Active session card on dashboard. NewSessionModal (~70 LOC) for session creation (title/type/duration). "New Session" buttons in empty state + header. 40 tests added. 1,887 tests across 82 suites. |
+| 2026-02-16 | in-progress | Phase 4 increment 3 | 31 | Technical Architect | PBI-002 Templates & Rerun. 7 new SessionService methods (template CRUD, rerun, createFromTemplate). SaveTemplateModal. NewSessionModal template chooser. Dashboard live timer with Pause/Resume. +47 tests. TASM 32/35. 1,887 tests across 82 suites. |
+| 2026-02-16 | in-progress | Phase 4 increment 4 | 31 | Technical Architect | PBI-002 Focus File. focusFile on Session, VaultFilePickerModal, focus file link in detail panel. +9 tests. TASM 34/35 (Excellent). 1,887 tests across 82 suites. |
+| 2026-02-16 | in-progress | Phase 4 increment 5 | 31 | Technical Architect | PBI-002 Timeline & Pause Tracking. SessionTimelineEntry[], 6 pure helpers, Time Breakdown + Timeline UI. +35 tests. TASM 34/35 (Excellent). 1,988 tests across 82 suites. |
+| 2026-02-16 | in-progress | Phase 4 UX polish | 31 | Technical Architect | PBI-002 clickable templates, timeline reordering. +4 tests. PBI-002 core feature delivery complete. 1,988 tests across 82 suites. |
 
 ---
 
 ## Related
 
-- Architecture: [[Hubs]] (layout library, manifests, region contracts, JSON schemas)
+- Architecture: [[Layout Library and Composition]] (layout library, manifests, region contracts, JSON schemas)
 - Template: [[PRD Template]] (defines FRI scoring dimensions)
 - Technical Review: [[Technical Review 2026-02-15]]
 - ADR: [[ADR-024 BaseHubView Shell Extraction]]
+- Document Types: [[ProductRequirementsDocument]], [[ProductBacklogItem]], [[Increment]], [[ReviewSession]], [[TechnicalReview]], [[UserStory]]
 - TD Prerequisites: [[TD-49 Layout abstraction layer]], [[TD-50 Workspace shell layout]], [[TD-51 Component registry]], [[TD-52 Declarative tab definitions]], [[TD-53 Shared UI primitive library]], [[TD-54 Event Catalog hub migration]], [[TD-55 Data Exchange hub migration]]
 - Three Amigos Reviews:
-  - [[Three Amigos Review 2026-02-15]] (Phase 1-2: BaseHubView + System Hub migrations)
-  - [[Three Amigos Review - Component Extraction 2026-02-15]] (ReportsTab + DomainsTab decomposition)
+  - [[Three Amigos Review 2026-02-15]] (Phase 1-2: BaseHubView + System Hub migrations — TASM 29/35)
+  - [[Three Amigos Review - Component Extraction 2026-02-15]] (ReportsTab + DomainsTab decomposition — TASM 30/35)
   - [[Pre-Feature Development Review 2026-02-15]] (Gap analysis before Phase 3)
-  - [[Three Amigos Review - HubRegistry + Navigation 2026-02-15]] (Phase 2.5: cross-hub infrastructure)
-  - [[Three Amigos Review - User Hub First Increment 2026-02-15]] (Phase 3: PBI-001 increment 1)
-  - [[Three Amigos Review - User Hub Inbox Population 2026-02-15]] (Phase 3: PBI-001 increment 2)
+  - [[Three Amigos Review - HubRegistry + Navigation 2026-02-15]] (Phase 2.5: cross-hub infrastructure — TASM 32/35)
+  - [[Three Amigos Review - User Hub First Increment 2026-02-15]] (Phase 3: PBI-001 increment 1 — TASM 33/35)
+  - [[Three Amigos Review - User Hub Inbox Population 2026-02-15]] (Phase 3: PBI-001 increment 2 — TASM 34/35)
+  - [[Three Amigos Review - Inbox UX and Source Config 2026-02-16]] (Phase 3: PBI-001 increment 3)
+  - [[Three Amigos Review - Pipeline Inbox and Preferences 2026-02-16]] (Phase 3: PBI-001 increment 4)
+  - [[Three Amigos Review - Session Domain Core 2026-02-16]] (Phase 4: PBI-002 increment 1)
+  - [[Three Amigos Review - Session Templates and Rerun 2026-02-16]] (Phase 4: PBI-002 increment 3 — TASM 32/35)
+  - [[Three Amigos Review - Focus File and Timeline 2026-02-16]] (Phase 4: PBI-002 increments 4+5 — TASM 34/35)
 - Sitemap: [[User Hub View]], [[Event Catalog View]], [[Data Exchange Hub View]]
 - Components: [[UserHubView]], [[UserHubDashboard]], [[UserHubInbox]], [[UserHubSessions]], [[UserHubPreferences]]
+- Workspace: [[SessionWorkspaceView]] (planned — Increment 7)
+- Modals: [[NewSessionModal]], [[SaveTemplateModal]], [[VaultFilePickerModal]]
 - Domain: [[SessionService]], [[InboxService]]
+- Helpers: `src/domain/session/helpers.ts` (formatDuration, computeRemainingMs, computeElapsedMs, computeTimelineSummary, formatDurationHuman)
 
 # Backlog
 
@@ -493,14 +642,41 @@ views:
 
 ```
 
+# Increments
+
+```base
+filters:
+  and:
+    - file.inFolder("Development/flowti/docs/features/Hubs/increments")
+    - note.type.eq("Increment")
+views:
+  - type: table
+    name: Table
+    order:
+      - file.name
+      - stage
+      - phase
+      - increment
+      - tasm_score
+      - tests_total
+      - date
+    sort:
+      - property: phase
+        direction: ASC
+      - property: increment
+        direction: ASC
+    columnSize:
+      file.name: 400
+      note.stage: 100
+
+```
+
 # Reviews
 
 ```base
 filters:
   and:
-    - file.inFolder("Development/flowti/docs/features/Hubs")
-    - '!file.inFolder("Development/flowti/docs/features/Hubs/backlog")'
-    - file.name.contains("Review")
+    - file.inFolder("Development/flowti/docs/features/Hubs/reviews")
 views:
   - type: table
     name: Table
@@ -522,5 +698,24 @@ views:
     columnSize:
       file.name: 430
       note.summary: 491
+
+```
+
+# Document Types
+
+```base
+filters:
+  and:
+    - file.inFolder("Development/flowti/docs/features/Hubs/types")
+views:
+  - type: table
+    name: Table
+    order:
+      - file.name
+      - abbreviation
+      - folder
+    sort:
+      - property: file.name
+        direction: ASC
 
 ```

@@ -1,6 +1,7 @@
 ---
 type: ProductBacklogItem
 feature: "[[Hubs PRD]]"
+stage: done
 priority: high
 phase: 3
 dependencies:
