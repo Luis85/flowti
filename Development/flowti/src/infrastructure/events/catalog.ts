@@ -398,6 +398,14 @@ const CATALOG_DATA = {
 	"session.timer.tick":      { category: "Session", description: "Timer tick with remaining/elapsed time", direction: "Service → Listeners", domain: "session", services: "SessionService", tags: ["system"] },
 	"session.timer.completed": { category: "Session", description: "Session timer reached zero", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.artifact.added":  { category: "Session", description: "Artifact recorded during active session", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.goal.add":        { category: "Session", description: "Command: add a goal to a session", direction: "View → Plugin", domain: "session", services: "SessionService" },
+	"session.goal.toggle":     { category: "Session", description: "Command: toggle a goal's completed state", direction: "View → Plugin", domain: "session", services: "SessionService" },
+	"session.goal.remove":     { category: "Session", description: "Command: remove a goal from a session", direction: "View → Plugin", domain: "session", services: "SessionService" },
+	"session.goal.added":      { category: "Session", description: "Goal added to session", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.goal.toggled":    { category: "Session", description: "Goal completed state toggled", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.goal.removed":    { category: "Session", description: "Goal removed from session", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.notes.update":    { category: "Session", description: "Command: update session notes", direction: "View → Plugin", domain: "session", services: "SessionService" },
+	"session.notes.updated":   { category: "Session", description: "Session notes updated", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

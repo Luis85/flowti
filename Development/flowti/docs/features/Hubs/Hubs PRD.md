@@ -208,8 +208,8 @@ Primary interaction path:
 - [x] Session timeline: chronological lifecycle action log with timestamps — *SessionTimelineEntry[] on Session, timeline.push() in each lifecycle handler*
 - [x] Time breakdown: wall clock, active time, total pause, pause count — *computeTimelineSummary() + formatDurationHuman(), stat pill UI*
 - [x] Clickable templates: template rows in detail panel create new sessions on click — *createFromTemplate() integration*
-- [ ] Session goals: `SessionGoal[]` with add/toggle/remove checklist — *planned Increment 6*
-- [ ] Session notes mutation via events: `session.notes.update/updated` — *planned Increment 6*
+- [x] Session goals: `SessionGoal[]` with add/toggle/remove via events — *Increment 6: 4 handlers, 8 events, 29 tests. 2,017 tests across 82 suites.*
+- [x] Session notes mutation via events: `session.notes.update/updated` — *Increment 6: handleNotesUpdate + persistence*
 - [ ] Pre-session goal preparation in NewSessionModal — *planned Increment 8*
 - [ ] Auto-open workspace + focus file on session start — *planned Increment 8*
 
@@ -258,7 +258,7 @@ Sessions are the primary mechanism for focused, time-boxed content creation and 
 
 - [x] Event Catalog operates as System Hub with identical functionality — *extends BaseHubView, zero regression*
 - [x] Data Exchange Hub operates as System Hub with identical functionality — *extends BaseHubView, gains tab bar*
-- [x] Zero feature regression after migration — *1,988 tests pass across 82 suites*
+- [x] Zero feature regression after migration — *2,017 tests pass across 82 suites*
 
 ---
 
@@ -327,7 +327,7 @@ SessionTimelineEntry
   action: "started" | "paused" | "resumed" | "completed"
   timestamp: string  (ISO 8601)
 
-SessionGoal  (planned — Increment 6)
+SessionGoal  (Increment 6)
   id: string
   text: string
   completed: boolean
@@ -377,15 +377,15 @@ State containers (TypedStorage):
 - `session.template.deleted` — payload: `{ templateId }` — *SessionService.deleteTemplate()*
 - Plus 8 command events: `session.create`, `session.start`, `session.pause`, `session.resume`, `session.complete`, `session.archive`, `session.delete`, `session.refresh`
 
-### Produced (planned — PBI-002 Increments 6-8)
+### Produced (implemented — PBI-002 Increment 6: Goals & Notes)
 
-- `session.goal.add` — payload: `{ sessionId, text }` — *command: add goal to session*
-- `session.goal.toggle` — payload: `{ sessionId, goalId }` — *command: check/uncheck goal*
-- `session.goal.remove` — payload: `{ sessionId, goalId }` — *command: remove goal*
+- `session.goal.add` — payload: `{ sessionId, text }` — *command: add goal to session (SessionService.handleGoalAdd)*
+- `session.goal.toggle` — payload: `{ sessionId, goalId }` — *command: check/uncheck goal (SessionService.handleGoalToggle)*
+- `session.goal.remove` — payload: `{ sessionId, goalId }` — *command: remove goal (SessionService.handleGoalRemove)*
 - `session.goal.added` — payload: `{ sessionId, goal }` — *state: goal was added*
 - `session.goal.toggled` — payload: `{ sessionId, goalId, completed }` — *state: goal toggled*
 - `session.goal.removed` — payload: `{ sessionId, goalId }` — *state: goal was removed*
-- `session.notes.update` — payload: `{ sessionId, notes }` — *command: update notes*
+- `session.notes.update` — payload: `{ sessionId, notes }` — *command: update notes (SessionService.handleNotesUpdate)*
 - `session.notes.updated` — payload: `{ sessionId, notes }` — *state: notes were updated*
 
 ### Consumed
@@ -505,8 +505,8 @@ The abstract `HubAdapter` interface was deferred (Three Amigos decision #2). Eac
 - [x] Session templates, rerun, focus file, and timeline tracking — *PBI-002 increments 3-5: full session UX*
 - [ ] Tab definitions validate against layout and component manifests — *deferred (TD-52)*
 - [x] Adding a new Domain Hub requires only adapter + tab definitions (<200 LOC) — *UserHubView = 138 LOC*
-- [x] All existing 1,662+ tests pass after migration — *1,988 tests across 82 suites*
-- [x] `npm run build` passes (vitest + typedoc + tsc + eslint + esbuild) — *green*
+- [x] All existing 1,662+ tests pass after migration — *2,017 tests across 82 suites*
+- [x] `npm run build` passes (vitest + typedoc + tsc + eslint + esbuild) — *2,017 tests, green*
 
 ---
 
@@ -518,11 +518,11 @@ The abstract `HubAdapter` interface was deferred (Three Amigos decision #2). Eac
 - [x] Shell layout implemented and renders all hub types — *BaseHubView (278 LOC)*
 - [x] At least 2 System Hubs migrated (Event Catalog, Data Exchange) — *both migrated, zero regression*
 - [x] User Hub implemented with dashboard + inbox — *PBI-001 increment 1 (648 LOC) + increment 2 (398 LOC InboxService domain)*
-- [x] Documentation Sessions domain implemented with timer, artifacts, templates, rerun, focus file, timeline — *PBI-002 increments 1-5: SessionService (21 events, TypedStorage) + UserHubSessions tab*
+- [x] Documentation Sessions domain implemented with timer, artifacts, templates, rerun, focus file, timeline, goals, notes — *PBI-002 increments 1-6: SessionService (27 events, TypedStorage) + UserHubSessions tab*
 - [ ] Tab definition validation passes for all hub configs — *deferred (TD-52)*
-- [x] Unit tests added for all new domain and infrastructure code — *~350 tests: HubRegistry, providers, 4 UI components, inbox mappers, InboxService (29 tests), SessionService (99 tests), UserHubSessions (52 tests), helpers (21 tests)*
+- [x] Unit tests added for all new domain and infrastructure code — *~380 tests: HubRegistry, providers, 4 UI components, inbox mappers, InboxService (29 tests), SessionService (112 tests), UserHubSessions (52 tests), helpers (46 tests)*
 - [ ] Flow integration tests added for hub lifecycle
-- [x] `npm run build` passes — *1,988 tests across 82 suites, green pipeline*
+- [x] `npm run build` passes — *2,017 tests across 82 suites, green pipeline*
 - [x] Architecture documentation updated — *ADR-024, sitemap, 5 component docs, 9 Three Amigos reviews*
 
 ---
@@ -552,7 +552,7 @@ New feature work items, each tracked as a separate PBI in `docs/features/Hubs/ba
 | PBI | Title | Status | Dependencies |
 |-----|-------|--------|-------------|
 | [[PBI-001 User Hub]] | Personal cockpit with dashboard, inbox, preferences | **COMPLETE** (4 increments) | TD-50 ✅ |
-| [[PBI-002 Documentation Sessions]] | Time-boxed workflows with Pomodoro timer | **In progress** (5 done, 6 planned) | Inc 6-8: Goals, Workspace, Preparation; Inc 9-11: Focus Profiles, Spawning, Session Doc |
+| [[PBI-002 Documentation Sessions]] | Time-boxed workflows with Pomodoro timer | **In progress** (6 done, 5 planned) | Inc 7-8: Workspace, Preparation; Inc 9-11: Focus Profiles, Spawning, Session Doc |
 | [[PBI-003 Product Hub]] | Product domain workspace | **PLANNED** | BaseHubView ✅ |
 | [[PBI-004 Project Hub]] | Project domain workspace | **PLANNED** | BaseHubView ✅ |
 
@@ -607,9 +607,9 @@ Resolved 2 blockers from Pre-Feature Development Review: (1) HubRegistry + HubDa
 
 **UX Polish** (PBI-002): Clickable template rows create new sessions via `createFromTemplate()`. Delete button uses `stopPropagation()` to prevent accidental creation. Hint text "Click a template to start a new session". Timeline moved to last section in detail panel. +4 tests.
 
-**PBI-002 core feature delivery complete** (Increments 1-5). Increments 6-8 planned for Session Workspace:
+**PBI-002 core feature + goals domain delivery complete** (Increments 1-6). Increments 7-8 planned for Session Workspace:
 
-**Increment 6** (PBI-002, PLANNED): Goals & Notes Domain. `SessionGoal` interface (id, text, completed, completedAt). `goals: SessionGoal[]` on Session, `goals?: string[]` on SessionTemplate. 8 new events for goal CRUD + notes mutation. 4 new SessionService handlers. Goals threaded through templates, rerun, createFromTemplate. Backward compat. ~203 LOC, ~25 tests.
+**Increment 6** (PBI-002): Goals & Notes Domain. `SessionGoal` interface (id, text, completed, completedAt). `goals: SessionGoal[]` on Session, `goals?: string[]` on SessionTemplate. 8 new events for goal CRUD + notes mutation. 4 new SessionService handlers (`handleGoalAdd`, `handleGoalToggle`, `handleGoalRemove`, `handleNotesUpdate`). Goals threaded through create, rerun, createFromTemplate, saveTemplateFromSession. `createGoal()` pure helper. Backward compat in `load()`. 8 catalog entries. +29 tests. 2,017 tests pass across 82 suites.
 
 **Increment 7** (PBI-002, PLANNED): SessionWorkspaceView. New standalone `ItemView` with timer, goals checklist (inline add/toggle/remove), notes textarea (500ms debounced save), focus file link (opens in adjacent leaf), live artifacts list. Registered in `registry.ts`, command `flowti:open-session-workspace`. ~513 LOC, ~15 tests.
 
@@ -647,6 +647,7 @@ Next increments planned (see backlog for full PBI details):
 | 2026-02-16 | in-progress | Phase 4 increment 4 | 31 | Technical Architect | PBI-002 Focus File. focusFile on Session, VaultFilePickerModal, focus file link in detail panel. +9 tests. TASM 34/35 (Excellent). 1,887 tests across 82 suites. |
 | 2026-02-16 | in-progress | Phase 4 increment 5 | 31 | Technical Architect | PBI-002 Timeline & Pause Tracking. SessionTimelineEntry[], 6 pure helpers, Time Breakdown + Timeline UI. +35 tests. TASM 34/35 (Excellent). 1,988 tests across 82 suites. |
 | 2026-02-16 | in-progress | Phase 4 UX polish | 31 | Technical Architect | PBI-002 clickable templates, timeline reordering. +4 tests. PBI-002 core feature delivery complete. 1,988 tests across 82 suites. |
+| 2026-02-16 | in-progress | Phase 4 increment 6 | 31 | Technical Architect | PBI-002 Goals & Notes Domain. SessionGoal interface, 8 new events, 4 handlers (goal add/toggle/remove, notes update), goals threaded through all creation paths, createGoal helper, backward compat. 8 catalog entries. +29 tests. 2,017 tests across 82 suites. |
 
 ---
 

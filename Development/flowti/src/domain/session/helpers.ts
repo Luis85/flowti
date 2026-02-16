@@ -4,7 +4,7 @@
  * All functions are side-effect free and trivially testable.
  */
 
-import type { Session, SessionType, PauseSegment, TimelineSummary } from "./types";
+import type { Session, SessionGoal, SessionType, PauseSegment, TimelineSummary } from "./types";
 
 /**
  * Computes how much time remains on a session's timer (in ms).
@@ -70,6 +70,19 @@ export function createSession(
 		notes: "",
 		focusFile: focusFile ?? null,
 		timeline: [],
+		goals: [],
+	};
+}
+
+/**
+ * Creates a new SessionGoal with default values.
+ */
+export function createGoal(id: string, text: string): SessionGoal {
+	return {
+		id,
+		text,
+		completed: false,
+		completedAt: null,
 	};
 }
 

@@ -602,7 +602,7 @@ This section traces how **PBI-002 Documentation Sessions** — the second PBI of
 
 ### Phase 7 — Iterative Implementation
 
-PBI-002 was delivered in **two increments**:
+PBI-002 was delivered across **five increments** (core delivery complete):
 
 #### Increment 1: Session Domain Core
 
@@ -650,6 +650,47 @@ PBI-002 was delivered in **two increments**:
 
 **Total**: 0 new files, 8 modified files (+308 LOC). Build pipeline passed.
 
+#### Increment 4: Focus File & Vault File Picker
+
+| Step | Action | Files | LOC |
+|------|--------|-------|-----|
+| 1 | Added `focusFile: string \| null` on Session, `focusFile?: string` on SessionTemplate | `src/domain/session/types.ts` | +5 |
+| 2 | Updated `createSession()` to accept optional `focusFile` | `src/domain/session/helpers.ts` | +3 |
+| 3 | Threaded `focusFile` through `handleCreate()`, `rerunSession()`, `createFromTemplate()`, `saveTemplateFromSession()` | `src/domain/session/SessionService.ts` | +15 |
+| 4 | Added focus file text input + "Browse" button on NewSessionModal | `src/ui/modals.ts` | +25 |
+| 5 | Created `VaultFilePickerModal` using `FuzzySuggestModal` | `src/ui/FilePickerModal.ts` | 22 |
+| 6 | Added clickable focus file link in session detail panel | `src/ui/userHub/UserHubSessions.ts` | +15 |
+| 7 | Added `openFile(path)` callback to `UserHubComponentDeps` | `src/ui/userHub/types.ts` | +3 |
+| 8 | Wired `openFile` dep via `app.workspace.openLinkText()` | `src/ui/UserHubView.ts` | +5 |
+| 9 | Full `npm run build` | — | green |
+
+**Total**: 1 new file (22 LOC), 7 modified files (+71 LOC). Build pipeline passed.
+
+#### Increment 5: Session Timeline & Pause Duration Tracking
+
+| Step | Action | Files | LOC |
+|------|--------|-------|-----|
+| 1 | Added `SessionTimelineAction`, `SessionTimelineEntry`, `PauseSegment`, `TimelineSummary` types, `timeline` on Session | `src/domain/session/types.ts` | +30 |
+| 2 | Added 6 pure functions: `computePauseSegments()`, `computeTotalPauseMs()`, `computeWallClockMs()`, `computeActiveTimeMs()`, `computeTimelineSummary()`, `formatDurationHuman()` | `src/domain/session/helpers.ts` | +80 |
+| 3 | Added `timeline.push()` in `handleStart()`, `handlePause()`, `handleResume()`, `completeSession()` + backward compat in `load()` | `src/domain/session/SessionService.ts` | +15 |
+| 4 | Added `renderTimeBreakdown()` (stat pills), `renderStatPill()`, `renderTimeline()` (chronological action log with icons) | `src/ui/userHub/UserHubSessions.ts` | +60 |
+| 5 | Full `npm run build` | — | green |
+
+**Total**: 0 new files, 4 modified files (+185 LOC). Build pipeline passed.
+
+#### Increment 6: Goals & Notes Domain
+
+| Step | Action | Files | LOC |
+|------|--------|-------|-----|
+| 1 | Added `SessionGoal` interface, `goals: SessionGoal[]` on Session, `goals?: string[]` on SessionTemplate | `src/domain/session/types.ts` | +12 |
+| 2 | Added 8 new events (3 goal commands, 3 goal state, notes update/updated) + `goals?` on `session.create` | `src/domain/session/events.ts` | +16 |
+| 3 | Added `createGoal()` pure helper + `goals: []` in `createSession()` | `src/domain/session/helpers.ts` | +10 |
+| 4 | Added 4 handlers (`handleGoalAdd`, `handleGoalToggle`, `handleGoalRemove`, `handleNotesUpdate`) + threading through all 4 creation paths + backward compat | `src/domain/session/SessionService.ts` | +65 |
+| 5 | Added 8 catalog entries for new events | `src/infrastructure/events/catalog.ts` | +8 entries |
+| 6 | Full `npm run build` | — | green |
+
+**Total**: 0 new files, 5 modified files (+103 LOC). Build pipeline passed.
+
 ---
 
 ### Phase 8 — Review + Quality Assurance
@@ -684,6 +725,46 @@ PBI-002 was delivered in **two increments**:
 - `tests/ui/userHub/UserHubDashboard.test.ts` (31 → 36 tests)
 - 2 modified test files (mock updates)
 
+**Increments 4-5 review (combined: Focus File and Timeline):**
+
+| Step | Action | Finding | Resolution |
+|------|--------|---------|------------|
+| 1 | Code review: Focus file threading | `focusFile` correctly threaded through all 4 creation paths (create, rerun, template save, create-from-template) | N/A — clean |
+| 2 | Code review: VaultFilePickerModal | 22 LOC using `FuzzySuggestModal` — minimal surface, correct API usage | N/A |
+| 3 | Code review: Timeline types | 4 new types + `timeline[]` on Session — clean, no redundancy with existing `elapsedBeforePauseMs` (complementary, not duplicate) | N/A |
+| 4 | Code review: Pure helpers | 6 new functions in helpers.ts — all pure, no side effects, trivially testable | N/A |
+| 5 | Code review: Backward compat | `load()` initializes `timeline` to `[]` for legacy sessions, matching pattern from `savedTemplates` compat | N/A |
+| 6 | Test coverage: Increment 4 | 9 tests added | SessionService.test.ts (+5), helpers.test.ts (+1), UserHubSessions.test.ts (+3) |
+| 7 | Test coverage: Increment 5 | 35 tests added | helpers.test.ts (+20), SessionService.test.ts (+9), UserHubSessions.test.ts (+6) |
+| 8 | Mock updates | `openFile: vi.fn()` added to 2 test files (Inbox, Preferences), `timeline: []` added to dashboard `makeSession` | Updated |
+| 9 | TASM scoring | Combined review: 34/35 (Excellent) | Documented in [[Three Amigos Review - Focus File and Timeline 2026-02-16]] |
+| 10 | Full `npm run build` | — | 1,988 tests across 82 suites, green pipeline |
+
+**Artifacts**:
+- `tests/domain/session/SessionService.test.ts` (90 → 104 tests)
+- `tests/domain/session/helpers.test.ts` (+21 tests)
+- `tests/ui/userHub/UserHubSessions.test.ts` (47 → 56 tests)
+- `tests/ui/userHub/UserHubDashboard.test.ts` (makeSession updated)
+
+**Increment 6 review (Goals & Notes Domain):**
+
+| Step | Action | Finding | Resolution |
+|------|--------|---------|------------|
+| 1 | Code review: SessionGoal type | Clean — 4 fields, nullable `completedAt` for toggle semantics | N/A |
+| 2 | Code review: Goal handlers | 4 handlers follow existing pattern (find session → validate → mutate → save → emit) | N/A |
+| 3 | Code review: Goals threading | `goals` threaded through all 4 creation paths (handleCreate, rerunSession, createFromTemplate, saveTemplateFromSession) — consistent with focusFile pattern | N/A |
+| 4 | Code review: Backward compat | `s.goals ??= []` in load() — matches existing pattern for timeline and savedTemplates | N/A |
+| 5 | Build error: Missing catalog entries | 8 new events lacked catalog entries (TS1360) | Added 8 entries with correct direction types |
+| 6 | Build error: Invalid EventDirection | Used `"UI → SessionService"` — not in EventDirection union | Changed to `"View → Plugin"` (commands) and `"Service → Listeners"` (state) |
+| 7 | Build error: Missing `goals` in makeSession | 4 test files' `makeSession` helpers missing required `goals` field | Added `goals: []` to all 4 makeSession functions |
+| 8 | Test coverage: Increment 6 | 29 new tests across 2 files | SessionService.test.ts (+25: goal CRUD, notes, create-with-goals, rerun-with-goals, template-with-goals, backward compat), helpers.test.ts (+4: createGoal, createSession goals) |
+| 9 | Full `npm run build` | — | 2,017 tests across 82 suites, green pipeline |
+
+**Artifacts**:
+- `tests/domain/session/SessionService.test.ts` (104 → 112 tests, +8 test sections)
+- `tests/domain/session/helpers.test.ts` (42 → 46 tests)
+- 4 test files updated with `goals: []` in makeSession helpers
+
 ---
 
 ### Phase 9 — Documentation + Publication
@@ -699,6 +780,14 @@ PBI-002 was delivered in **two increments**:
 | 7 | Updated PBI-002 backlog item | Increment 2 file list updated with modals.ts, types.ts changes, test counts |
 | 8 | Updated Development Lifecycle | Increment 3 added to Phases 7–10 |
 | 9 | Updated PBI-002 backlog item | Increment 3 file list, acceptance criteria, test counts (1,938/82) |
+| 10 | Updated Hubs PRD | Increments 4-5 descriptions (Focus File, Timeline), test counts updated to 1,988/82 |
+| 11 | Updated PBI-002 backlog item | Increments 4-5 file lists, modified files, test counts |
+| 12 | Created increment docs | [[Phase 4 Inc 4 - Focus File]], [[Phase 4 Inc 5 - Timeline and Pause Tracking]] |
+| 13 | Updated Development Lifecycle | Increments 4-5 added to Phases 7–10 |
+| 14 | Updated Inc 6 increment doc | Stage: done, date: 2026-02-16, tests_added: 29, tests_total: 2017, acceptance criteria checked off |
+| 15 | Updated PBI-002 | Inc 6 section from PLANNED to done, acceptance criteria checked (goals, notes, threading), note updated (6 done, 5 planned) |
+| 16 | Updated Hubs PRD | Inc 6 description expanded, goal/notes events moved to "implemented", test counts 2,017/82, stage history entry added, product backlog table (6 done, 5 planned) |
+| 17 | Updated Development Lifecycle | Increment 6 added to Phases 7–10 |
 
 ---
 
@@ -707,14 +796,36 @@ PBI-002 was delivered in **two increments**:
 **Improvement backlog captured during review:**
 - **Open**: `session_focus` layout with dedicated workspace regions (PBI-002 remaining work — header, timer, workspace, notes, artifacts regions)
 - **Open**: Session artifacts persist as separate markdown files (currently tracked in-memory)
-- **Open**: Session notes side panel for in-session note-taking
+- **Closed** (Increment 6): Session notes mutation events → `session.notes.update/updated` + `handleNotesUpdate`
 - **Closed** (Increment 3): Session creation from Dashboard quick action → addressed via template chooser in NewSessionModal
 - **Closed** (Increment 3): Rerun completed sessions without re-entering configuration → `rerunSession()` + auto-select
 - **Closed** (Increment 3): Save session configs as reusable templates → `saveTemplateFromSession()` + template list in detail panel
 - **Closed** (Increment 3): Dashboard timer not updating → `updateTimerDisplay()` wired to tick events
 - **Closed** (Increment 3): Dashboard can't pause/resume → contextual buttons based on session status
 
-These items feed into PBI-002's remaining increment (Session Focus layout) and potential future enhancements.
+**New feedback cycle — Session Focus Tools (post-Increment 5):**
+
+After delivering 5 increments, a significant gap emerged: sessions treat all focus files identically. A `.canvas` file, a `.csv` file, and a `.md` file with frontmatter all show the same plain link. Real-world sessions need contextual tooling based on what the user is working on. Additionally, a single focus file is insufficient — users need companion files, follow-up sessions, and permanent records.
+
+These observations were captured as **Session Focus Tools** — 6 new requirements added to the Hubs PRD and PBI-002:
+1. **Focus File Type Detection** — detect file type and provide contextual tools
+2. **Focus File Profiles** — 6 categories (markdown, canvas, pdf, image, csv, unknown) with tools per category
+3. **Context Files** — attach companion files to sessions as a working set
+4. **Session Spawning** — create follow-up sessions inheriting focus + context
+5. **Guiding Questions** — orient users toward incremental improvement
+6. **Session Document** — generate markdown summary on session completion
+
+This feedback loop triggered a return to **Phase 6 (Delivery Planning)** — the new requirements were chunked into 3 increments:
+
+| Increment | Scope | Est. LOC | Est. Tests |
+|-----------|-------|----------|------------|
+| **9: Focus File Profiles & Context Files** | Types, detection, context CRUD, events, backward compat | ~140 | ~31 |
+| **10: Session Spawning & Guiding Questions** | Spawn logic, inheritable context, guiding questions | ~120 | ~18 |
+| **11: Session Document Generation** | Markdown generation on completion, configurable folder | ~100 | ~15 |
+
+**Artifacts**: [[Phase 4 Inc 9 - Focus File Profiles and Context Files]], [[PBI-002 Documentation Sessions]] (updated with Inc 9-11 planned sections + 6 new acceptance criteria)
+
+These items feed into PBI-002's remaining increments (7-8: Workspace, Preparation) and the new Session Focus Tools increments (9-11). Increment 6 (Goals & Notes) was completed on 2026-02-16.
 
 ---
 
@@ -728,6 +839,11 @@ These items feed into PBI-002's remaining increment (Session Focus layout) and p
 6. **Direct CRUD for configuration data**: Template management uses direct methods (no events) — matching the DataExchange saved config pattern. Configuration artifacts (templates, saved configs) don't need event-driven CRUD; they are not domain actions.
 7. **Reuse existing pipelines for new features**: Both `rerunSession()` and `createFromTemplate()` call `handleCreate()` internally. This reuses the existing creation pipeline (eviction, persistence, `session.created` event) with zero duplication.
 8. **UI should reflect service constraints**: The service already rejected starting a session when another is active, but the UI still showed the Start button — misleading. UI must mirror domain constraints to prevent confusion.
+9. **Thread new fields through all creation paths**: When `focusFile` was added (Inc 4), it required changes in `handleCreate()`, `rerunSession()`, `createFromTemplate()`, and `saveTemplateFromSession()`. This 4-method threading pattern recurs for every new Session field — a checklist for future additions (context files, goals, etc.).
+10. **Pure helpers scale safely**: Adding 6 pure functions (Inc 5) with 20 tests required zero changes to existing code. Pure functions are the cheapest code to add — no mocking, no state, no side effects. When a domain grows, reach for pure helpers first.
+11. **Backward compat is the tax on persisted state**: Both Inc 4 (`focusFile`) and Inc 5 (`timeline`) needed backward-compat patches in `load()`. Every new field on a persisted entity requires a migration guard. This is a structural cost of using TypedStorage — plan for it.
+12. **Feedback loops generate the best requirements**: The Session Focus Tools (Inc 9-11) weren't imagined during initial PRD drafting. They emerged from 5 increments of real usage — observing that a plain focus file link is insufficient. The lifecycle's Phase 10 → Phase 6 loop is how the best features surface.
+13. **Domain-only increments build confidence**: Inc 6 (Goals & Notes) touched zero UI code — types, events, service, helpers, catalog, and tests only. This made the increment small, focused, and easy to review. When UI is built later (Inc 7-8), the domain contract is already stable and tested.
 
 ---
 

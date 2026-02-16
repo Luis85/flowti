@@ -2,12 +2,12 @@
  * Event types owned by the Session domain.
  */
 
-import type { Session, SessionArtifact, SessionTemplate, SessionType } from "./types";
+import type { Session, SessionArtifact, SessionGoal, SessionTemplate, SessionType } from "./types";
 
 export interface SessionEventMap {
 	// ── Commands ──────────────────────────────────────────────
 	/** Command: create a new session */
-	"session.create": { type: SessionType; title: string; durationMinutes: number; focusFile?: string };
+	"session.create": { type: SessionType; title: string; durationMinutes: number; focusFile?: string; goals?: string[] };
 	/** Command: start the timer for a prepared session */
 	"session.start": { sessionId: string };
 	/** Command: pause an active session */
@@ -50,4 +50,26 @@ export interface SessionEventMap {
 	// ── Artifact events ──────────────────────────────────────
 	/** Emitted when an artifact is recorded during an active session */
 	"session.artifact.added": { sessionId: string; artifact: SessionArtifact };
+
+	// ── Goal commands ────────────────────────────────────────
+	/** Command: add a goal to a session */
+	"session.goal.add": { sessionId: string; text: string };
+	/** Command: toggle a goal's completed state */
+	"session.goal.toggle": { sessionId: string; goalId: string };
+	/** Command: remove a goal from a session */
+	"session.goal.remove": { sessionId: string; goalId: string };
+
+	// ── Goal state events ────────────────────────────────────
+	/** Emitted after a goal is added to a session */
+	"session.goal.added": { sessionId: string; goal: SessionGoal };
+	/** Emitted after a goal's completed state is toggled */
+	"session.goal.toggled": { sessionId: string; goalId: string; completed: boolean };
+	/** Emitted after a goal is removed from a session */
+	"session.goal.removed": { sessionId: string; goalId: string };
+
+	// ── Notes events ─────────────────────────────────────────
+	/** Command: update a session's notes */
+	"session.notes.update": { sessionId: string; notes: string };
+	/** Emitted after a session's notes are updated */
+	"session.notes.updated": { sessionId: string; notes: string };
 }

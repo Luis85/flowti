@@ -24,6 +24,7 @@ function makeSession(overrides: Partial<Session> = {}): Session {
 		notes: "",
 		focusFile: null,
 		timeline: [],
+		goals: [],
 		...overrides,
 	};
 }
@@ -1282,6 +1283,441 @@ describe("SessionService", () => {
 			await freshService.load();
 			const loaded = freshService.getSessions().find((s) => s.id === "legacy-1");
 			expect(loaded!.timeline).toEqual([]);
+		});
+	});
+
+	// ── Goal CRUD ───────────────────────────────────────────
+
+	describe("goal CRUD", () => {
+		let sessionId: string;
+
+		beforeEach(async () => {
+			await service.load();
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await eventBus.emit("session.create", {
+				type: "event-storming",
+				title: "Goal Test",
+				durationMinutes: 25,
+			});
+			sessionId = handler.mock.calls[0][0].payload.session.id;
+		});
+
+		it("should add a goal to a session", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.goal.added", handler);
+
+			await eventBus.emit("session.goal.add", { sessionId, text: "Finish review" });
+
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: expect.objectContaining({
+						sessionId,
+						goal: expect.objectContaining({
+							text: "Finish review",
+							completed: false,
+							completedAt: null,
+						}),
+					}),
+				}),
+			);
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			expect(session!.goals).toHaveLength(1);
+		});
+
+		it("should generate a unique goal ID", async () => {
+			await eventBus.emit("session.goal.add", { sessionId, text: "Goal A" });
+			await eventBus.emit("session.goal.add", { sessionId, text: "Goal B" });
+
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			expect(session!.goals).toHaveLength(2);
+			expect(session!.goals[0].id).not.toBe(session!.goals[1].id);
+			expect(session!.goals[0].id).toMatch(/^goal_/);
+		});
+
+		it("should toggle a goal to completed", async () => {
+			const addHandler = vi.fn();
+			eventBus.on("session.goal.added", addHandler);
+			await eventBus.emit("session.goal.add", { sessionId, text: "Toggle me" });
+			const goalId = addHandler.mock.calls[0][0].payload.goal.id;
+
+			const toggleHandler = vi.fn();
+			eventBus.on("session.goal.toggled", toggleHandler);
+			await eventBus.emit("session.goal.toggle", { sessionId, goalId });
+
+			expect(toggleHandler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: { sessionId, goalId, completed: true },
+				}),
+			);
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			const goal = session!.goals.find((g) => g.id === goalId);
+			expect(goal!.completed).toBe(true);
+			expect(goal!.completedAt).not.toBeNull();
+		});
+
+		it("should toggle a goal back to incomplete", async () => {
+			const addHandler = vi.fn();
+			eventBus.on("session.goal.added", addHandler);
+			await eventBus.emit("session.goal.add", { sessionId, text: "Toggle twice" });
+			const goalId = addHandler.mock.calls[0][0].payload.goal.id;
+
+			// Toggle on
+			await eventBus.emit("session.goal.toggle", { sessionId, goalId });
+			// Toggle off
+			const toggleHandler = vi.fn();
+			eventBus.on("session.goal.toggled", toggleHandler);
+			await eventBus.emit("session.goal.toggle", { sessionId, goalId });
+
+			expect(toggleHandler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: { sessionId, goalId, completed: false },
+				}),
+			);
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			const goal = session!.goals.find((g) => g.id === goalId);
+			expect(goal!.completed).toBe(false);
+			expect(goal!.completedAt).toBeNull();
+		});
+
+		it("should remove a goal from a session", async () => {
+			const addHandler = vi.fn();
+			eventBus.on("session.goal.added", addHandler);
+			await eventBus.emit("session.goal.add", { sessionId, text: "Remove me" });
+			const goalId = addHandler.mock.calls[0][0].payload.goal.id;
+
+			const removeHandler = vi.fn();
+			eventBus.on("session.goal.removed", removeHandler);
+			await eventBus.emit("session.goal.remove", { sessionId, goalId });
+
+			expect(removeHandler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: { sessionId, goalId },
+				}),
+			);
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			expect(session!.goals).toHaveLength(0);
+		});
+
+		it("should ignore goal add for non-existent session", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.goal.added", handler);
+			await eventBus.emit("session.goal.add", { sessionId: "nonexistent", text: "X" });
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("should ignore goal toggle for non-existent goal", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.goal.toggled", handler);
+			await eventBus.emit("session.goal.toggle", { sessionId, goalId: "nonexistent" });
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("should ignore goal remove for non-existent goal", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.goal.removed", handler);
+			await eventBus.emit("session.goal.remove", { sessionId, goalId: "nonexistent" });
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("should save state after goal add", async () => {
+			(storage.save as ReturnType<typeof vi.fn>).mockClear();
+			await eventBus.emit("session.goal.add", { sessionId, text: "Persist me" });
+			expect(storage.save).toHaveBeenCalled();
+		});
+
+		it("should save state after goal toggle", async () => {
+			const addHandler = vi.fn();
+			eventBus.on("session.goal.added", addHandler);
+			await eventBus.emit("session.goal.add", { sessionId, text: "T" });
+			const goalId = addHandler.mock.calls[0][0].payload.goal.id;
+
+			(storage.save as ReturnType<typeof vi.fn>).mockClear();
+			await eventBus.emit("session.goal.toggle", { sessionId, goalId });
+			expect(storage.save).toHaveBeenCalled();
+		});
+
+		it("should save state after goal remove", async () => {
+			const addHandler = vi.fn();
+			eventBus.on("session.goal.added", addHandler);
+			await eventBus.emit("session.goal.add", { sessionId, text: "T" });
+			const goalId = addHandler.mock.calls[0][0].payload.goal.id;
+
+			(storage.save as ReturnType<typeof vi.fn>).mockClear();
+			await eventBus.emit("session.goal.remove", { sessionId, goalId });
+			expect(storage.save).toHaveBeenCalled();
+		});
+	});
+
+	// ── Notes ────────────────────────────────────────────────
+
+	describe("notes update", () => {
+		let sessionId: string;
+
+		beforeEach(async () => {
+			await service.load();
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await eventBus.emit("session.create", {
+				type: "event-storming",
+				title: "Notes Test",
+				durationMinutes: 25,
+			});
+			sessionId = handler.mock.calls[0][0].payload.session.id;
+		});
+
+		it("should update session notes", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.notes.updated", handler);
+
+			await eventBus.emit("session.notes.update", { sessionId, notes: "My session notes" });
+
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: { sessionId, notes: "My session notes" },
+				}),
+			);
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			expect(session!.notes).toBe("My session notes");
+		});
+
+		it("should overwrite existing notes", async () => {
+			await eventBus.emit("session.notes.update", { sessionId, notes: "First" });
+			await eventBus.emit("session.notes.update", { sessionId, notes: "Second" });
+
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			expect(session!.notes).toBe("Second");
+		});
+
+		it("should ignore notes update for non-existent session", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.notes.updated", handler);
+			await eventBus.emit("session.notes.update", { sessionId: "nonexistent", notes: "X" });
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("should save state after notes update", async () => {
+			(storage.save as ReturnType<typeof vi.fn>).mockClear();
+			await eventBus.emit("session.notes.update", { sessionId, notes: "Persist" });
+			expect(storage.save).toHaveBeenCalled();
+		});
+	});
+
+	// ── Create with Goals ───────────────────────────────────
+
+	describe("create with goals", () => {
+		beforeEach(async () => {
+			await service.load();
+		});
+
+		it("should create session with goals from string array", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+
+			await eventBus.emit("session.create", {
+				type: "event-storming",
+				title: "Goal Session",
+				durationMinutes: 25,
+				goals: ["Review events", "Update docs"],
+			});
+
+			const session = handler.mock.calls[0][0].payload.session;
+			expect(session.goals).toHaveLength(2);
+			expect(session.goals[0].text).toBe("Review events");
+			expect(session.goals[0].completed).toBe(false);
+			expect(session.goals[0].id).toMatch(/^goal_/);
+			expect(session.goals[1].text).toBe("Update docs");
+		});
+
+		it("should create session with empty goals when not provided", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+
+			await eventBus.emit("session.create", {
+				type: "event-storming",
+				title: "No Goals",
+				durationMinutes: 25,
+			});
+
+			expect(handler.mock.calls[0][0].payload.session.goals).toEqual([]);
+		});
+
+		it("should create session with empty goals when empty array provided", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+
+			await eventBus.emit("session.create", {
+				type: "event-storming",
+				title: "Empty Goals",
+				durationMinutes: 25,
+				goals: [],
+			});
+
+			expect(handler.mock.calls[0][0].payload.session.goals).toEqual([]);
+		});
+	});
+
+	// ── Rerun with Goals ────────────────────────────────────
+
+	describe("rerun with goals", () => {
+		let completedSessionId: string;
+
+		beforeEach(async () => {
+			await service.load();
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await eventBus.emit("session.create", {
+				type: "event-storming",
+				title: "Goal Sprint",
+				durationMinutes: 25,
+				goals: ["Write tests", "Update docs"],
+			});
+			completedSessionId = handler.mock.calls[0][0].payload.session.id;
+
+			// Complete a goal before completing session
+			const session = service.getSessions().find((s) => s.id === completedSessionId);
+			const goalId = session!.goals[0].id;
+			await eventBus.emit("session.goal.toggle", { sessionId: completedSessionId, goalId });
+
+			await eventBus.emit("session.start", { sessionId: completedSessionId });
+			await eventBus.emit("session.complete", { sessionId: completedSessionId });
+		});
+
+		it("should carry goal text forward on rerun", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await service.rerunSession(completedSessionId);
+
+			expect(handler).toHaveBeenCalled();
+			const newSession = handler.mock.calls[0][0].payload.session;
+			expect(newSession.goals).toHaveLength(2);
+			expect(newSession.goals[0].text).toBe("Write tests");
+			expect(newSession.goals[1].text).toBe("Update docs");
+		});
+
+		it("should reset goal completed state on rerun", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await service.rerunSession(completedSessionId);
+
+			const newSession = handler.mock.calls[0][0].payload.session;
+			expect(newSession.goals[0].completed).toBe(false);
+			expect(newSession.goals[0].completedAt).toBeNull();
+			expect(newSession.goals[1].completed).toBe(false);
+		});
+
+		it("should generate new goal IDs on rerun", async () => {
+			const original = service.getSessions().find((s) => s.id === completedSessionId);
+			const originalGoalIds = original!.goals.map((g) => g.id);
+
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await service.rerunSession(completedSessionId);
+
+			const newSession = handler.mock.calls[0][0].payload.session;
+			const newGoalIds = newSession.goals.map((g: { id: string }) => g.id);
+
+			// New IDs should be different from original
+			for (const newId of newGoalIds) {
+				expect(originalGoalIds).not.toContain(newId);
+			}
+		});
+	});
+
+	// ── Template with Goals ─────────────────────────────────
+
+	describe("template with goals", () => {
+		beforeEach(async () => {
+			await service.load();
+		});
+
+		it("should include goal texts in template saved from session", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await eventBus.emit("session.create", {
+				type: "event-storming",
+				title: "Template Sprint",
+				durationMinutes: 25,
+				goals: ["Goal A", "Goal B"],
+			});
+			const sessionId = handler.mock.calls[0][0].payload.session.id;
+			await eventBus.emit("session.start", { sessionId });
+			await eventBus.emit("session.complete", { sessionId });
+
+			const tmpl = await service.saveTemplateFromSession(sessionId, "Sprint Template");
+			expect(tmpl).not.toBeNull();
+			expect(tmpl!.goals).toEqual(["Goal A", "Goal B"]);
+		});
+
+		it("should omit goals from template when session has no goals", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await eventBus.emit("session.create", {
+				type: "event-storming",
+				title: "No Goal Sprint",
+				durationMinutes: 25,
+			});
+			const sessionId = handler.mock.calls[0][0].payload.session.id;
+			await eventBus.emit("session.start", { sessionId });
+			await eventBus.emit("session.complete", { sessionId });
+
+			const tmpl = await service.saveTemplateFromSession(sessionId, "No Goal Template");
+			expect(tmpl).not.toBeNull();
+			expect(tmpl!.goals).toBeUndefined();
+		});
+
+		it("should create session with goals from template", async () => {
+			const tmpl = await service.saveTemplate({
+				name: "Goal Template",
+				type: "event-storming",
+				durationMinutes: 25,
+				goals: ["Task 1", "Task 2", "Task 3"],
+			});
+
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await service.createFromTemplate(tmpl.id);
+
+			const session = handler.mock.calls[0][0].payload.session;
+			expect(session.goals).toHaveLength(3);
+			expect(session.goals[0].text).toBe("Task 1");
+			expect(session.goals[1].text).toBe("Task 2");
+			expect(session.goals[2].text).toBe("Task 3");
+			expect(session.goals[0].completed).toBe(false);
+		});
+
+		it("should create session without goals from template without goals", async () => {
+			const tmpl = await service.saveTemplate({
+				name: "No Goal Template",
+				type: "event-storming",
+				durationMinutes: 25,
+			});
+
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await service.createFromTemplate(tmpl.id);
+
+			expect(handler.mock.calls[0][0].payload.session.goals).toEqual([]);
+		});
+	});
+
+	// ── Backward Compatibility — Goals ──────────────────────
+
+	describe("backward compatibility — goals", () => {
+		it("should initialize goals array for legacy sessions on load", async () => {
+			const legacySession = makeSession({ id: "legacy-goals" }) as unknown as Record<string, unknown>;
+			delete legacySession.goals;
+			await storage.save({
+				sessions: [legacySession as unknown as Session],
+				activeSessionId: null,
+				savedTemplates: [],
+			});
+
+			const freshService = new SessionService({ storage, eventBus });
+			await freshService.load();
+			const loaded = freshService.getSessions().find((s) => s.id === "legacy-goals");
+			expect(loaded!.goals).toEqual([]);
+			freshService.dispose();
 		});
 	});
 

@@ -5,6 +5,7 @@ import {
 	isTimerExpired,
 	formatDuration,
 	createSession,
+	createGoal,
 	computePauseSegments,
 	computeTotalPauseMs,
 	computeWallClockMs,
@@ -34,6 +35,7 @@ function makeSession(overrides: Partial<Session> = {}): Session {
 		notes: "",
 		focusFile: null,
 		timeline: [],
+		goals: [],
 		...overrides,
 	};
 }
@@ -493,5 +495,43 @@ describe("formatDurationHuman", () => {
 
 	it("truncates sub-second precision", () => {
 		expect(formatDurationHuman(61_500)).toBe("1m 1s");
+	});
+});
+
+// ─────────────────────────────────────────────────────────────
+// createGoal
+// ─────────────────────────────────────────────────────────────
+
+describe("createGoal", () => {
+	it("creates a goal with default values", () => {
+		const goal = createGoal("goal_1", "Finish review");
+
+		expect(goal.id).toBe("goal_1");
+		expect(goal.text).toBe("Finish review");
+		expect(goal.completed).toBe(false);
+		expect(goal.completedAt).toBeNull();
+	});
+
+	it("creates distinct goals for different IDs", () => {
+		const g1 = createGoal("goal_a", "First");
+		const g2 = createGoal("goal_b", "Second");
+
+		expect(g1.id).not.toBe(g2.id);
+		expect(g1.text).not.toBe(g2.text);
+	});
+});
+
+// ─────────────────────────────────────────────────────────────
+// createSession — goals field
+// ─────────────────────────────────────────────────────────────
+
+describe("createSession — goals", () => {
+	beforeEach(() => { vi.useFakeTimers(); });
+	afterEach(() => { vi.useRealTimers(); });
+
+	it("creates a session with empty goals array", () => {
+		vi.setSystemTime(new Date("2026-02-16T10:00:00.000Z"));
+		const session = createSession("s1", "event-storming", "Test", 25);
+		expect(session.goals).toEqual([]);
 	});
 });

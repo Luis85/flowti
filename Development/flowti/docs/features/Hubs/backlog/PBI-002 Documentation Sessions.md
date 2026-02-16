@@ -6,7 +6,7 @@ priority: high
 phase: 4
 dependencies:
   - "[[TD-49 Layout abstraction layer]]"
-note: "Core delivery complete (5 increments). Increments 6-8 planned: Goals, Workspace View, Preparation Flow. Increments 9-11 planned: Focus File Profiles & Context Files, Session Spawning & Guiding Questions, Session Document Generation."
+note: "Core delivery + Goals domain complete (6 increments). Increments 7-8 planned: Workspace View, Preparation Flow. Increments 9-11 planned: Focus File Profiles & Context Files, Session Spawning & Guiding Questions, Session Document Generation."
 user_story: "[[I want to prepare a working session, so that I can focus on one task at a time]]"
 ---
 
@@ -73,9 +73,9 @@ As a vault user, I want sessions to provide contextual tools based on my focus f
   - Artifact tracking via `file.created`/`file.modified` listeners during active session
 - [x] Timer events: `session.timer.tick` (every second), `session.timer.completed` (on expiry) — *1s setInterval, Date math for surviving window minimize*
 - [ ] Session artifacts persist as markdown files in configurable folder — *currently tracked in-memory, not as separate files*
-- [ ] Session goals: `SessionGoal[]` on Session with add/toggle/remove via events — *Increment 6*
-- [ ] Session notes mutation: `session.notes.update` command + `session.notes.updated` state event — *Increment 6*
-- [ ] Goals threaded through templates, rerun, createFromTemplate — *Increment 6*
+- [x] Session goals: `SessionGoal[]` on Session with add/toggle/remove via events — *Increment 6: SessionGoal interface + 3 command events + 3 state events*
+- [x] Session notes mutation: `session.notes.update` command + `session.notes.updated` state event — *Increment 6*
+- [x] Goals threaded through templates, rerun, createFromTemplate — *Increment 6: handleCreate, rerunSession, createFromTemplate, saveTemplateFromSession*
 - [ ] SessionWorkspaceView: dedicated leaf with timer, goals checklist, notes textarea, focus file, artifacts — *Increment 7*
 - [ ] Auto-open workspace on session.start + open focus file in adjacent leaf — *Increment 8*
 - [ ] Goals repeater in NewSessionModal for pre-session preparation — *Increment 8*
@@ -118,15 +118,15 @@ As a vault user, I want sessions to provide contextual tools based on my focus f
 - [x] Session history shows completed sessions with artifact count — *UserHubSessions master list + detail panel*
 - [ ] `session_focus` layout renders all 5 regions — *remaining work*
 - [x] Session lifecycle events emitted on EventBus — *19 events registered in catalog*
-- [x] `npm run build` passes — *1,984 tests across 84 suites*
-- [x] Unit tests for SessionService lifecycle, timer, templates, rerun, and timeline — *99 tests in SessionService.test.ts*
+- [x] `npm run build` passes — *2,017 tests across 82 suites*
+- [x] Unit tests for SessionService lifecycle, timer, templates, rerun, timeline, goals, and notes — *112 tests in SessionService.test.ts*
 - [x] Rerun completed/archived sessions without re-entering configuration — *Increment 3: rerunSession() + auto-select*
 - [x] Save sessions as reusable templates — *Increment 3: SaveTemplateModal + template CRUD + template list in detail panel*
 - [x] Dashboard session callout with live timer and contextual actions — *Increment 3: updateTimerDisplay() + Pause/Resume*
 - [x] Focus file selection with vault file picker — *Increment 4: focusFile on Session + VaultFilePickerModal*
 - [x] End-to-end session time tracking with timeline and pause durations — *Increment 5: SessionTimelineEntry[] + computeTimelineSummary + Time Breakdown UI*
-- [ ] Session goals: add, toggle, remove goals during session — *Increment 6*
-- [ ] Session notes: inline editing with auto-save — *Increment 6*
+- [x] Session goals: add, toggle, remove goals during session — *Increment 6: 4 handlers, 8 events, 29 tests*
+- [x] Session notes: inline editing with auto-save — *Increment 6: session.notes.update/updated events*
 - [ ] SessionWorkspaceView: dedicated focused leaf — *Increment 7*
 - [ ] Goals in NewSessionModal for pre-session preparation — *Increment 8*
 - [ ] Auto-open workspace + focus file on session start — *Increment 8*
@@ -205,19 +205,19 @@ Modified files:
 - `tests/ui/userHub/UserHubSessions.test.ts` — +6 tests (Time Breakdown rendering, pause count visibility, Timeline section entry count, action labels)
 - `tests/ui/userHub/UserHubDashboard.test.ts` — makeSession updated with `timeline: []`
 
-### Increment 6: Goals & Notes Domain (PLANNED)
+### Increment 6: Goals & Notes Domain (2026-02-16)
 
 User story: [[I want to prepare a working session, so that I can focus on one task at a time]]
 
-Scope:
-- `SessionGoal` interface (id, text, completed, completedAt) in `types.ts`
-- `goals: SessionGoal[]` on Session, `goals?: string[]` on SessionTemplate
-- 8 new events: `session.goal.{add,toggle,remove}` commands + `session.goal.{added,toggled,removed}` state + `session.notes.{update,updated}`
-- 4 new SessionService handlers: `handleGoalAdd`, `handleGoalToggle`, `handleGoalRemove`, `handleNotesUpdate`
-- Threading: `handleCreate`, `rerunSession`, `createFromTemplate`, `saveTemplateFromSession`
-- Backward compat in `load()`: `s.goals ??= []`
-- Pure helper: `createGoal(id, text)`
-- ~203 LOC, ~25 tests
+Modified files:
+- `src/domain/session/types.ts` — `SessionGoal` interface (id, text, completed, completedAt), `goals: SessionGoal[]` on Session, `goals?: string[]` on SessionTemplate (+12 LOC)
+- `src/domain/session/events.ts` — 8 new events: `session.goal.{add,toggle,remove}` commands + `session.goal.{added,toggled,removed}` state + `session.notes.{update,updated}` (+16 LOC)
+- `src/domain/session/SessionService.ts` — 4 new handlers (`handleGoalAdd`, `handleGoalToggle`, `handleGoalRemove`, `handleNotesUpdate`) + threading through `handleCreate`, `rerunSession`, `createFromTemplate`, `saveTemplateFromSession` + backward compat `s.goals ??= []` (+65 LOC)
+- `src/domain/session/helpers.ts` — `createGoal(id, text)` pure helper + `goals: []` in `createSession()` (+10 LOC)
+- `src/infrastructure/events/catalog.ts` — 8 catalog entries for new events (+8 entries)
+- `tests/domain/session/SessionService.test.ts` — 25 new tests (goal CRUD, notes update, create with goals, rerun with goals, template with goals, backward compat)
+- `tests/domain/session/helpers.test.ts` — 4 new tests (createGoal, createSession goals)
+- 4 test files — `goals: []` added to `makeSession` helpers
 
 ### Increment 7: SessionWorkspaceView (PLANNED)
 

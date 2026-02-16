@@ -12,9 +12,9 @@
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { ITypedStorage } from "../../utils/TypedStorage";
 import { generateUUID } from "../../utils/helpers";
-import type { Session, SessionState, SessionTemplate } from "./types";
+import type { Session, SessionGoal, SessionState, SessionTemplate } from "./types";
 import { MAX_SESSIONS, MAX_TEMPLATES, ARTIFACT_DEDUP_WINDOW_MS } from "./types";
-import { createSession, computeRemainingMs, computeElapsedMs, isTimerExpired } from "./helpers";
+import { createSession, createGoal, computeRemainingMs, computeElapsedMs, isTimerExpired } from "./helpers";
 
 /**
  * Configuration options for the SessionService.
@@ -101,6 +101,30 @@ export class SessionService {
 					void this.onFileEvent(event.payload.path, "modified");
 				}),
 			);
+
+			// Goal commands
+			this.unsubscribes.push(
+				this.eventBus.on("session.goal.add", (event) => {
+					void this.handleGoalAdd(event.payload.sessionId, event.payload.text);
+				}),
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("session.goal.toggle", (event) => {
+					void this.handleGoalToggle(event.payload.sessionId, event.payload.goalId);
+				}),
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("session.goal.remove", (event) => {
+					void this.handleGoalRemove(event.payload.sessionId, event.payload.goalId);
+				}),
+			);
+
+			// Notes command
+			this.unsubscribes.push(
+				this.eventBus.on("session.notes.update", (event) => {
+					void this.handleNotesUpdate(event.payload.sessionId, event.payload.notes);
+				}),
+			);
 		}
 	}
 
@@ -118,10 +142,13 @@ export class SessionService {
 			if (!this.state.savedTemplates) {
 				this.state.savedTemplates = [];
 			}
-			// Backward compat: initialize timeline for legacy sessions
+			// Backward compat: initialize timeline and goals for legacy sessions
 			for (const s of this.state.sessions) {
 				if (!s.timeline) {
 					s.timeline = [];
+				}
+				if (!s.goals) {
+					s.goals = [];
 				}
 			}
 		}
@@ -229,6 +256,7 @@ export class SessionService {
 			type: session.type,
 			durationMinutes: session.durationMinutes,
 			focusFile: session.focusFile ?? undefined,
+			goals: session.goals.length > 0 ? session.goals.map((g) => g.text) : undefined,
 		});
 	}
 
@@ -247,6 +275,7 @@ export class SessionService {
 			title: generateRerunTitle(session.title),
 			durationMinutes: session.durationMinutes,
 			focusFile: session.focusFile ?? undefined,
+			goals: session.goals.map((g) => g.text),
 		});
 	}
 
@@ -262,6 +291,7 @@ export class SessionService {
 			title: titleOverride ?? tmpl.name,
 			durationMinutes: tmpl.durationMinutes,
 			focusFile: tmpl.focusFile,
+			goals: tmpl.goals,
 		});
 	}
 
@@ -278,7 +308,7 @@ export class SessionService {
 
 	// ── Command handlers ─────────────────────────────────────
 
-	private async handleCreate(payload: { type: string; title: string; durationMinutes: number; focusFile?: string }): Promise<Session> {
+	private async handleCreate(payload: { type: string; title: string; durationMinutes: number; focusFile?: string; goals?: string[] }): Promise<Session> {
 		const id = `session_${generateUUID()}`;
 		const session = createSession(
 			id,
@@ -287,6 +317,11 @@ export class SessionService {
 			payload.durationMinutes,
 			payload.focusFile,
 		);
+
+		// Populate goals from text strings if provided
+		if (payload.goals && payload.goals.length > 0) {
+			session.goals = payload.goals.map((text) => createGoal(`goal_${generateUUID()}`, text));
+		}
 
 		this.state.sessions.unshift(session);
 
@@ -381,6 +416,54 @@ export class SessionService {
 		this.state.sessions.splice(index, 1);
 		await this.saveState();
 		await this.eventBus?.emit("session.deleted", { sessionId });
+	}
+
+	// ── Goal handlers ───────────────────────────────────────
+
+	private async handleGoalAdd(sessionId: string, text: string): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session) return;
+
+		const goal: SessionGoal = createGoal(`goal_${generateUUID()}`, text);
+		session.goals.push(goal);
+		await this.saveState();
+		await this.eventBus?.emit("session.goal.added", { sessionId, goal: { ...goal } });
+	}
+
+	private async handleGoalToggle(sessionId: string, goalId: string): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session) return;
+
+		const goal = session.goals.find((g) => g.id === goalId);
+		if (!goal) return;
+
+		goal.completed = !goal.completed;
+		goal.completedAt = goal.completed ? new Date().toISOString() : null;
+		await this.saveState();
+		await this.eventBus?.emit("session.goal.toggled", { sessionId, goalId, completed: goal.completed });
+	}
+
+	private async handleGoalRemove(sessionId: string, goalId: string): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session) return;
+
+		const index = session.goals.findIndex((g) => g.id === goalId);
+		if (index === -1) return;
+
+		session.goals.splice(index, 1);
+		await this.saveState();
+		await this.eventBus?.emit("session.goal.removed", { sessionId, goalId });
+	}
+
+	// ── Notes handler ───────────────────────────────────────
+
+	private async handleNotesUpdate(sessionId: string, notes: string): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session) return;
+
+		session.notes = notes;
+		await this.saveState();
+		await this.eventBus?.emit("session.notes.updated", { sessionId, notes });
 	}
 
 	// ── Timer ────────────────────────────────────────────────

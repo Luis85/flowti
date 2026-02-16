@@ -69,6 +69,14 @@ export interface TimelineSummary {
 	pauseSegments: PauseSegment[];
 }
 
+/** A goal defined for a session. */
+export interface SessionGoal {
+	id: string;
+	text: string;
+	completed: boolean;
+	completedAt: string | null;
+}
+
 /** A time-boxed documentation session. */
 export interface Session {
 	id: string;
@@ -92,6 +100,8 @@ export interface Session {
 	focusFile: string | null;
 	/** Chronological log of lifecycle actions. */
 	timeline: SessionTimelineEntry[];
+	/** Session goals — checklist items for focused work. */
+	goals: SessionGoal[];
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -106,6 +116,8 @@ export interface SessionTemplate {
 	durationMinutes: number;
 	description?: string;
 	focusFile?: string;
+	/** Goal texts to pre-populate on sessions created from this template. */
+	goals?: string[];
 	createdAt: number; // epoch ms
 }
 

@@ -4,13 +4,13 @@ feature: "[[Hubs PRD]]"
 pbi: "[[PBI-002 Documentation Sessions]]"
 phase: 4
 increment: 6
-stage: planned
-date:
+stage: done
+date: 2026-02-16
 tasm_score: 0
-tasm_review: ""
-tests_added: 0
-tests_total: 0
-test_suites: 0
+tasm_review: "Pending Three Amigos review"
+tests_added: 29
+tests_total: 2017
+test_suites: 82
 loc_added: 203
 ---
 
@@ -58,32 +58,36 @@ Add to `SessionTemplate`: `goals?: string[]` (just goal text)
 ### Modified Files
 
 - `src/domain/session/types.ts` — `SessionGoal` + `goals` on Session + `goals` on Template (+12 LOC)
-- `src/domain/session/events.ts` — 8 new events (+16 LOC)
+- `src/domain/session/events.ts` — 8 new events + `goals?` on `session.create` payload (+16 LOC)
 - `src/domain/session/SessionService.ts` — 4 handlers + threading + backward compat (+65 LOC)
 - `src/domain/session/helpers.ts` — `createGoal` + update `createSession` (+10 LOC)
-- `tests/domain/session/SessionService.test.ts` — Goal CRUD + notes + threading tests (+90 LOC)
-- `tests/domain/session/helpers.test.ts` — `createGoal` tests (+10 LOC)
+- `src/infrastructure/events/catalog.ts` — 8 catalog entries for new events (+8 entries)
+- `tests/domain/session/SessionService.test.ts` — Goal CRUD + notes + threading + compat tests (+25 tests)
+- `tests/domain/session/helpers.test.ts` — `createGoal` + goals field tests (+4 tests)
+- 4 test files — `goals: []` added to `makeSession` helpers (SessionService, helpers, Dashboard, Sessions)
 
-## Tests
+## Tests (29 added)
 
-- Goal add: creates goal with id, text, completed=false
-- Goal toggle: flips completed, sets completedAt
-- Goal toggle back: clears completedAt
-- Goal remove: removes from array
-- Notes update: persists notes string
-- Create with goals: converts string[] to SessionGoal[]
-- Rerun with goals: carries forward text, resets completed
-- Template with goals: saves/loads goal texts
-- Backward compat: old sessions get `goals: []`
+**helpers.test.ts** (+4 tests):
+- `createGoal`: creates goal with default values, distinct goals for different IDs
+- `createSession`: session starts with empty goals array
+
+**SessionService.test.ts** (+25 tests):
+- Goal CRUD (11): add, unique IDs, toggle on, toggle off, remove, ignore non-existent session/goal (3), persistence (3)
+- Notes update (4): update, overwrite, ignore non-existent session, persistence
+- Create with goals (3): string array → SessionGoal[], empty when not provided, empty array provided
+- Rerun with goals (3): carry text forward, reset completed state, generate new IDs
+- Template with goals (4): include goal texts in template, omit when empty, create session from template with goals, create without goals
+- Backward compat (1): legacy sessions get `goals: []`
 
 ## Acceptance Criteria
 
-- [ ] `SessionGoal` interface with id, text, completed, completedAt
-- [ ] `goals: SessionGoal[]` on Session with backward compat
-- [ ] 3 goal command events + 3 goal state events working
-- [ ] Notes update/updated events working
-- [ ] Goals threaded through create, rerun, createFromTemplate, saveTemplateFromSession
-- [ ] `npm run build` passes
+- [x] `SessionGoal` interface with id, text, completed, completedAt
+- [x] `goals: SessionGoal[]` on Session with backward compat
+- [x] 3 goal command events + 3 goal state events working
+- [x] Notes update/updated events working
+- [x] Goals threaded through create, rerun, createFromTemplate, saveTemplateFromSession
+- [x] `npm run build` passes — 2,017 tests across 82 suites
 
 ## Verification
 

@@ -26,6 +26,7 @@ function makeSession(overrides?: Partial<Session>): Session {
 		notes: "",
 		focusFile: null,
 		timeline: [],
+		goals: [],
 		...overrides,
 	};
 }
