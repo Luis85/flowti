@@ -160,83 +160,196 @@ export function computeTimelineSummary(session: Session, now: number = Date.now(
 	};
 }
 
+// ── Session Notes Frontmatter ────────────────────────────────
+
+/** Structured frontmatter fields for a session notes file. */
+export interface SessionFrontmatter {
+	title: string;
+	type: string;
+	status: string;
+	duration: number;
+	created: string;
+	started?: string;
+	completed?: string;
+	focusFile?: string;
+	canvasFile?: string;
+	sessionId: string;
+}
+
+/** Generates the YAML frontmatter record for a session. */
+export function generateSessionFrontmatter(session: Session): SessionFrontmatter {
+	const fm: SessionFrontmatter = {
+		title: session.title,
+		type: session.type,
+		status: session.status,
+		duration: session.durationMinutes,
+		created: session.createdAt,
+		sessionId: session.id,
+	};
+	if (session.startedAt) fm.started = session.startedAt;
+	if (session.completedAt) fm.completed = session.completedAt;
+	if (session.focusFile) fm.focusFile = session.focusFile;
+	if (session.canvasFile) fm.canvasFile = session.canvasFile;
+	return fm;
+}
+
+/** Serializes a record as YAML frontmatter (--- delimited). */
+function serializeFrontmatter(fields: Record<string, unknown>): string {
+	const lines = ["---"];
+	for (const [key, value] of Object.entries(fields)) {
+		if (value === undefined || value === null) continue;
+		if (typeof value === "string") {
+			lines.push(`${key}: "${value.replace(/"/g, '\\"')}"`);
+		} else {
+			lines.push(`${key}: ${String(value)}`);
+		}
+	}
+	lines.push("---");
+	return lines.join("\n");
+}
+
 /**
- * Generates a full Markdown summary for a completed session.
- * Pure function — only reads from the Session object.
+ * Parses YAML frontmatter from a markdown file.
+ * Returns the parsed key-value pairs and the body after the closing ---.
  */
-export function generateSessionSummary(session: Session): string {
+function parseFrontmatter(content: string): { fields: Record<string, string>; body: string } {
+	const fields: Record<string, string> = {};
+	if (!content.startsWith("---")) {
+		return { fields, body: content };
+	}
+	const endIndex = content.indexOf("\n---", 3);
+	if (endIndex === -1) {
+		return { fields, body: content };
+	}
+	const yamlBlock = content.substring(4, endIndex).trim();
+	for (const line of yamlBlock.split("\n")) {
+		const colonIdx = line.indexOf(":");
+		if (colonIdx === -1) continue;
+		const key = line.substring(0, colonIdx).trim();
+		let value = line.substring(colonIdx + 1).trim();
+		// Strip surrounding quotes
+		if (value.startsWith('"') && value.endsWith('"')) {
+			value = value.slice(1, -1).replace(/\\"/g, '"');
+		}
+		fields[key] = value;
+	}
+	const bodyStart = endIndex + 4; // skip "\n---"
+	const body = content.substring(bodyStart).replace(/^\n+/, "");
+	return { fields, body };
+}
+
+// ── Session Summary Body ─────────────────────────────────────
+
+const SESSION_SUMMARY_MARKER = "## Session Summary";
+
+/** Generates the markdown summary body (everything below the frontmatter). */
+export function generateSessionSummaryBody(session: Session): string {
 	const lines: string[] = [];
 
-	lines.push(`# ${session.title}`);
+	lines.push(SESSION_SUMMARY_MARKER);
 	lines.push("");
-	lines.push("## Session Info");
-	lines.push(`- **Type:** ${session.type}`);
-	lines.push(`- **Status:** ${session.status}`);
-	lines.push(`- **Duration:** ${session.durationMinutes} minutes`);
-	lines.push(`- **Created:** ${session.createdAt}`);
-	if (session.startedAt) lines.push(`- **Started:** ${session.startedAt}`);
-	if (session.completedAt) lines.push(`- **Completed:** ${session.completedAt}`);
-	if (session.focusFile) lines.push(`- **Focus File:** [[${session.focusFile}]]`);
-	if (session.canvasFile) lines.push(`- **Canvas:** [[${session.canvasFile}]]`);
 
 	// Goals
 	if (session.goals.length > 0) {
-		lines.push("");
-		lines.push("## Goals");
+		lines.push("### Goals");
 		for (const g of session.goals) {
 			lines.push(`- [${g.completed ? "x" : " "}] ${g.text}`);
 		}
+		lines.push("");
 	}
 
 	// Links
 	if (session.links && session.links.length > 0) {
-		lines.push("");
-		lines.push("## Links");
+		lines.push("### Links");
 		for (const l of session.links) {
 			lines.push(`- [[${l.path}]]`);
 		}
+		lines.push("");
 	}
 
 	// Artifacts
 	if (session.artifacts.length > 0) {
-		lines.push("");
-		lines.push("## Artifacts");
+		lines.push("### Artifacts");
 		for (const a of session.artifacts) {
 			lines.push(`- [[${a.path}]] *(${a.action})*`);
 		}
+		lines.push("");
 	}
 
 	// Timeline
 	if (session.timeline.length > 0) {
-		lines.push("");
-		lines.push("## Timeline");
+		lines.push("### Timeline");
 		for (const entry of session.timeline) {
 			const time = new Date(entry.timestamp).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 			lines.push(`- ${time} — ${entry.action}`);
 		}
+		lines.push("");
 	}
 
 	// Time summary
 	const summary = computeTimelineSummary(session);
 	if (summary.wallClockMs > 0) {
-		lines.push("");
-		lines.push("## Time Summary");
+		lines.push("### Time Summary");
 		lines.push(`- **Wall clock:** ${formatDurationHuman(summary.wallClockMs)}`);
 		lines.push(`- **Active time:** ${formatDurationHuman(summary.activeTimeMs)}`);
 		if (summary.pauseCount > 0) {
 			lines.push(`- **Total pause:** ${formatDurationHuman(summary.totalPauseMs)} (${summary.pauseCount} pause${summary.pauseCount > 1 ? "s" : ""})`);
 		}
-	}
-
-	// Notes
-	if (session.notes.trim()) {
 		lines.push("");
-		lines.push("## Notes");
-		lines.push(session.notes.trim());
 	}
 
-	lines.push("");
+	// Session notes (from in-workspace textarea)
+	if (session.notes.trim()) {
+		lines.push("### Session Notes");
+		lines.push(session.notes.trim());
+		lines.push("");
+	}
+
 	return lines.join("\n");
+}
+
+// ── Merge ────────────────────────────────────────────────────
+
+/**
+ * Merges a session's data into an existing notes file.
+ *
+ * - Frontmatter: session fields are updated; user-added fields are preserved.
+ * - Body: everything before the `## Session Summary` marker is preserved (user content).
+ *   The summary section is replaced with the latest session data.
+ */
+export function mergeSessionNotes(existingContent: string, session: Session): string {
+	const { fields: existingFm, body: existingBody } = parseFrontmatter(existingContent);
+
+	// Merge frontmatter: session fields overwrite, user fields preserved
+	const sessionFm = generateSessionFrontmatter(session);
+	const merged: Record<string, unknown> = { ...existingFm, ...sessionFm };
+
+	// Split body at session summary marker — everything before is user content
+	const markerIndex = existingBody.indexOf(SESSION_SUMMARY_MARKER);
+	const userContent = markerIndex >= 0
+		? existingBody.substring(0, markerIndex).trimEnd()
+		: existingBody.trimEnd();
+
+	const summaryBody = generateSessionSummaryBody(session);
+
+	const parts = [serializeFrontmatter(merged)];
+	if (userContent) {
+		parts.push(userContent);
+	}
+	parts.push(summaryBody);
+
+	return parts.join("\n\n") + "\n";
+}
+
+/**
+ * Generates a full Markdown summary for a session (frontmatter + body).
+ * Used for creating new notes files. For existing files, use mergeSessionNotes.
+ */
+export function generateSessionSummary(session: Session): string {
+	const fm = serializeFrontmatter({ ...generateSessionFrontmatter(session) });
+	const title = `# ${session.title}`;
+	const body = generateSessionSummaryBody(session);
+	return `${fm}\n\n${title}\n\n${body}\n`;
 }
 
 /**

@@ -529,7 +529,7 @@ The abstract `HubAdapter` interface was deferred (Three Amigos decision #2). Eac
 - [x] Shell layout implemented and renders all hub types — *BaseHubView (278 LOC)*
 - [x] At least 2 System Hubs migrated (Event Catalog, Data Exchange) — *both migrated, zero regression*
 - [x] User Hub implemented with dashboard + inbox — *PBI-001 increment 1 (648 LOC) + increment 2 (398 LOC InboxService domain)*
-- [x] Documentation Sessions domain implemented with timer, artifacts, templates, rerun, focus file, timeline, goals, notes, workspace, links, notes persistence, canvas, duration editing — *PBI-002 increments 1-8: SessionService (37 events, TypedStorage) + UserHubSessions tab + SessionWorkspaceView (737 LOC)*
+- [x] Documentation Sessions domain implemented with timer, artifacts, templates, rerun, focus file, timeline, goals, notes, workspace, links, notes persistence, canvas, duration editing, preparation flow, notes merge — *PBI-002 increments 1-9: SessionService (37 events, TypedStorage) + UserHubSessions tab + SessionWorkspaceView (754 LOC)*
 - [ ] Tab definition validation passes for all hub configs — *deferred (TD-52)*
 - [x] Unit tests added for all new domain and infrastructure code — *~488 tests: HubRegistry, providers, 4 UI components, inbox mappers, InboxService (29 tests), SessionService (145 tests), UserHubSessions (77 tests), helpers (57 tests), SessionWorkspaceView (36+ tests), Dashboard (20+ tests)*
 - [ ] Flow integration tests added for hub lifecycle
@@ -563,7 +563,7 @@ New feature work items, each tracked as a separate PBI in `docs/features/Hubs/ba
 | PBI | Title | Status | Dependencies |
 |-----|-------|--------|-------------|
 | [[PBI-001 User Hub]] | Personal cockpit with dashboard, inbox, preferences | **COMPLETE** (4 increments) | TD-50 ✅ |
-| [[PBI-002 Documentation Sessions]] | Time-boxed workflows with Pomodoro timer | **In progress** (8 done, 3 planned) | Inc 9: Preparation; Inc 10-11: Focus Profiles, Spawning |
+| [[PBI-002 Documentation Sessions]] | Time-boxed workflows with Pomodoro timer | **In progress** (9 done, 2 planned) | Inc 10: Focus Profiles; Inc 11: Spawning |
 | [[PBI-003 Product Hub]] | Product domain workspace | **PLANNED** | BaseHubView ✅ |
 | [[PBI-004 Project Hub]] | Project domain workspace | **PLANNED** | BaseHubView ✅ |
 
@@ -626,7 +626,7 @@ Resolved 2 blockers from Pre-Feature Development Review: (1) HubRegistry + HubDa
 
 **Increment 8** (PBI-002): Session Workspace Enrichment. Seven capabilities: (1) Session links — `SessionLink` type, `links: SessionLink[]`, 4 link events, "Add to Session" right-click context menu, links UI in workspace + sessions tab. (2) Session notes persistence — auto-set `notesFile` at `03 - Resources/Sessions/`, `generateSessionSummary()` pure function, `writeSessionSummary()` on completion. (3) Session canvas — `canvasFile` on Session, 2 canvas events, "Create Session Canvas" button, auto-embed `![[canvas]]` in notes. (4) Duration editing for prepared sessions. (5) Save as Template for all statuses. (6) Context menu rename → "Create New Session". (7) Workspace for any session state via `workspaceSessionId` + `getCurrentSession()`. 10 new events, 5 new service handlers. `SessionWorkspaceView` grew from 463 → 737 LOC. +72 tests. 2,125 tests pass across 83 suites.
 
-**Increment 9** (PBI-002, PLANNED): Preparation Flow & Auto-Open. Goals repeater in NewSessionModal. Auto-open workspace on `session.started`. Open focus file in adjacent split leaf. ~111 LOC, ~6 tests.
+**Increment 9** (PBI-002): Preparation Flow & Auto-Open. Six capabilities: (1) Goals repeater in `NewSessionModal` — Enter-to-add, x-to-remove, template goals carry-through. (2) Title validation — inline "Title is required" error on empty Create. (3) Auto-open workspace on `session.started` via main.ts `crossCuttingListeners`. (4) Dedicated adjacent leaf management — `getLeaf("split")` tracking for all 6 workspace link handlers, focus on target after async open. (5) Session notes merge — `mergeSessionNotes()` preserves user-added frontmatter fields and markdown content before `## Session Summary` marker, replaces summary with latest data. (6) Vault-hygiene session type as first option in dropdown. Zero new events — existing contracts reused. `SessionWorkspaceView` 737 → 754 LOC, `helpers.ts` gained 6 pure functions. +18 tests. TASM 32/35 (Excellent). 2,141 tests pass across 84 suites.
 
 ### Phase 5: Domain Hubs (PBI-003, PBI-004) — PLANNED
 
@@ -663,6 +663,7 @@ Next increments planned (see backlog for full PBI details):
 | 2026-02-16 | in-progress | Phase 4 increment 6 | 31 | Technical Architect | PBI-002 Goals & Notes Domain. SessionGoal interface, 8 new events, 4 handlers (goal add/toggle/remove, notes update), goals threaded through all creation paths, createGoal helper, backward compat. 8 catalog entries. +29 tests. 2,017 tests across 82 suites. |
 | 2026-02-16 | in-progress | Phase 4 increment 7 | 31 | Technical Architect | PBI-002 SessionWorkspaceView. Standalone ItemView (463 LOC) with header, timer (incremental DOM update), goals checklist (add/toggle/remove via EventBus), notes textarea (500ms debounce), focus file (adjacent leaf), artifacts (live list). Command `flowti:open-session-workspace`. +36 tests. 2,053 tests across 83 suites. |
 | 2026-02-16 | in-progress | Phase 4 increment 8 | 33 | Technical Architect | PBI-002 Session Workspace Enrichment. 7 capabilities: session links (SessionLink + 4 events + "Add to Session" context menu), notes persistence (auto-set notesFile + generateSessionSummary + writeSessionSummary), canvas (canvasFile + 2 events + auto-embed in notes), duration editing, template unlock, "Open Workspace" button, workspace for all statuses. 10 new events, 5 handlers. SessionWorkspaceView 463→737 LOC. +72 tests. TASM 34/35 (Excellent). 2,125 tests across 83 suites. |
+| 2026-02-16 | in-progress | Phase 4 increment 9 | 33 | Technical Architect | PBI-002 Preparation Flow & Auto-Open. Goals repeater in NewSessionModal (Enter-to-add, template carry-through), title validation, auto-open workspace on session.started (main.ts), dedicated adjacent leaf management, session notes merge (mergeSessionNotes preserves user content + frontmatter), vault-hygiene session type. 0 new events, 6 new pure functions. +202 LOC net, +18 tests. TASM 32/35 (Excellent). 2,141 tests across 84 suites. |
 
 ---
 
@@ -686,12 +687,14 @@ Next increments planned (see backlog for full PBI details):
   - [[Three Amigos Review - Session Domain Core 2026-02-16]] (Phase 4: PBI-002 increment 1)
   - [[Three Amigos Review - Session Templates and Rerun 2026-02-16]] (Phase 4: PBI-002 increment 3 — TASM 32/35)
   - [[Three Amigos Review - Focus File and Timeline 2026-02-16]] (Phase 4: PBI-002 increments 4+5 — TASM 34/35)
+  - [[Three Amigos Review - Session Workspace Enrichment 2026-02-16]] (Phase 4: PBI-002 increment 8 — TASM 34/35)
+  - [[Three Amigos Review - Preparation Flow 2026-02-16]] (Phase 4: PBI-002 increment 9 — TASM 32/35)
 - Sitemap: [[User Hub View]], [[Event Catalog View]], [[Data Exchange Hub View]]
 - Components: [[UserHubView]], [[UserHubDashboard]], [[UserHubInbox]], [[UserHubSessions]], [[UserHubPreferences]]
-- Workspace: [[SessionWorkspaceView]] (Increment 7: 463 LOC, 36 tests)
-- Modals: [[NewSessionModal]], [[SaveTemplateModal]], [[VaultFilePickerModal]]
+- Workspace: [[SessionWorkspaceView]] (Inc 7→9: 754 LOC, dedicated adjacent leaf management)
+- Modals: [[NewSessionModal]] (goals repeater, title validation), [[SaveTemplateModal]], [[VaultFilePickerModal]]
 - Domain: [[SessionService]], [[InboxService]]
-- Helpers: `src/domain/session/helpers.ts` (formatDuration, computeRemainingMs, computeElapsedMs, computeTimelineSummary, formatDurationHuman, generateSessionSummary)
+- Helpers: `src/domain/session/helpers.ts` (formatDuration, computeRemainingMs, computeElapsedMs, computeTimelineSummary, formatDurationHuman, generateSessionSummary, generateSessionFrontmatter, generateSessionSummaryBody, mergeSessionNotes)
 
 # Backlog
 
@@ -722,7 +725,6 @@ views:
 filters:
   and:
     - file.inFolder("Development/flowti/docs/features/Hubs/increments")
-    - note.type.eq("Increment")
 views:
   - type: table
     name: Table

@@ -11,6 +11,7 @@
 
 /** Available documentation session types. */
 export type SessionType =
+	| "vault-hygiene"
 	| "event-storming"
 	| "service-design"
 	| "requirements-refinement"
@@ -19,6 +20,7 @@ export type SessionType =
 
 /** Human-readable labels for each session type. */
 export const SESSION_TYPES: ReadonlyArray<{ type: SessionType; label: string; description: string }> = [
+	{ type: "vault-hygiene", label: "Vault Hygiene", description: "Clean up, reorganize, and maintain vault health" },
 	{ type: "event-storming", label: "Event Storming", description: "Discover and map domain events" },
 	{ type: "service-design", label: "Service Design", description: "Design service boundaries and contracts" },
 	{ type: "requirements-refinement", label: "Requirements Refinement", description: "Refine and clarify requirements" },

@@ -722,6 +722,22 @@ PBI-002 was delivered across **five increments** (core delivery complete):
 
 **Total**: 0 new files, 11 modified files (+821 LOC). Build pipeline passed. 2,125 tests across 83 suites.
 
+#### Increment 9: Preparation Flow & Auto-Open
+
+| Step | Action | Files | LOC |
+|------|--------|-------|-----|
+| 1 | Added `"vault-hygiene"` as first SessionType and SESSION_TYPES entry | `src/domain/session/types.ts` | +2 |
+| 2 | Added `"vault-hygiene"` label to SESSION_TYPE_LABELS | `src/ui/userHub/types.ts` | +1 |
+| 3 | Added goals repeater (Enter-to-add, x-to-remove) + title validation error to NewSessionModal | `src/ui/modals.ts` | +58/-9 |
+| 4 | Updated onSubmit callback to pass goals parameter | `src/ui/UserHubView.ts` | +2/-2 |
+| 5 | Updated context menu onSubmit to pass goals parameter | `src/main.ts` | (part of step 7) |
+| 6 | Added `SessionFrontmatter` interface, `generateSessionFrontmatter()`, `serializeFrontmatter()`, `parseFrontmatter()`, `generateSessionSummaryBody()`, `mergeSessionNotes()`, updated `generateSessionSummary()` | `src/domain/session/helpers.ts` | +140/-27 |
+| 7 | Added auto-open workspace on `session.started` via `crossCuttingListeners`, updated `writeSessionSummary()` to merge instead of overwrite | `src/main.ts` | +25/-5 |
+| 8 | Added dedicated `adjacentLeaf` tracking via `getLeaf("split")`, `openInAdjacentLeaf()` method replacing 6 direct `openLinkText` calls, seed notes with `generateSessionSummary()` | `src/ui/SessionWorkspaceView.ts` | +25/-8 |
+| 9 | Full `npm run build` | — | green |
+
+**Total**: 0 new files, 7 modified files (+202 LOC net). Build pipeline passed. 2,141 tests across 84 suites.
+
 ---
 
 ### Phase 8 — Review + Quality Assurance
@@ -834,6 +850,25 @@ PBI-002 was delivered across **five increments** (core delivery complete):
 - `tests/ui/userHub/UserHubSessions.test.ts` (56 → 81 tests)
 - 4 test files updated with `canvasFile: null` and `openSessionWorkspace: vi.fn()` in mock factories
 
+**Increment 9 review (Preparation Flow & Auto-Open):**
+
+| Step | Action | Finding | Resolution |
+|------|--------|---------|------------|
+| 1 | Code review: Goals repeater | Clean — Enter-to-add, x-to-remove, template goals carry-through, empty goals filtered | N/A |
+| 2 | Code review: Title validation | Inline error div with CSS variables, auto-hides on input | N/A |
+| 3 | Code review: Auto-open workspace | Correctly wired in main.ts (not UserHubView) — main.ts always active | N/A |
+| 4 | Code review: Adjacent leaf management | 3 iterations needed: findSibling → focus fix → dedicated tracking. Final solution clean (11 LOC) | Adjacent leaf approach is Obsidian API workaround — documented |
+| 5 | Code review: Session notes merge | Pure functions in helpers.ts. parseFrontmatter simplified (key:value only). mergeSessionNotes preserves user content via marker | parseFrontmatter noted as limited (no arrays/nested) — sufficient for session notes |
+| 6 | Code review: writeSessionSummary | Now reads existing file and merges instead of overwriting. Error handling preserved. | N/A |
+| 7 | Code review: vault-hygiene type | Added to union, SESSION_TYPES, SESSION_TYPE_LABELS — all three locations | N/A |
+| 8 | Test coverage: Increment 9 | 18 new tests across 2 files | helpers.test.ts (+13: frontmatter ×3, body ×5, merge ×5), SessionWorkspaceView.test.ts (+5: mock updates) |
+| 9 | Full `npm run build` | — | 2,141 tests across 84 suites, green pipeline |
+| 10 | TASM scoring | 32/35 (Excellent) — slight dip from 34, within range | Documented in [[Three Amigos Review - Preparation Flow 2026-02-16]] |
+
+**Artifacts**:
+- `tests/domain/session/helpers.test.ts` (57 → 70 tests)
+- `tests/ui/SessionWorkspaceView.test.ts` (36 → 41 tests)
+
 ---
 
 ### Phase 9 — Documentation + Publication
@@ -866,6 +901,11 @@ PBI-002 was delivered across **five increments** (core delivery complete):
 | 24 | Updated Hubs PRD | Inc 8 description, 10 new events in Produced section, functional requirements checked (links, notes, canvas, duration, template, workspace, session document), test counts 2,125/83, stage history entry, PBI-002 status (8 done, 3 planned) |
 | 25 | Updated Development Lifecycle | Increment 8 added to Phases 7–10 |
 | 26 | Three Amigos Review | [[Three Amigos Review - Session Workspace Enrichment 2026-02-16]]: TASM 34/35 (Excellent). 9 decisions documented. 7 action items completed. 3 watch/open items. |
+| 27 | Updated Inc 9 increment doc | Stage: in-review → done, TASM 32/35, +202 LOC, +18 tests, 6 deviations documented |
+| 28 | Updated PBI-002 | Inc 9 section from PLANNED to done, acceptance criteria checked (goals, auto-open, merge, validation, vault-hygiene), note updated (9 done, 2 planned) |
+| 29 | Updated Hubs PRD | Inc 9 description expanded, test counts 2,141/84, stage history entry, PBI-002 status (9 done, 2 planned), review link added |
+| 30 | Updated Development Lifecycle | Increment 9 added to Phases 7–10 |
+| 31 | Three Amigos Review | [[Three Amigos Review - Preparation Flow 2026-02-16]]: TASM 32/35 (Excellent). 7 decisions documented. 9 action items completed. 5 watch/open items. |
 
 ---
 
@@ -879,6 +919,12 @@ PBI-002 was delivered across **five increments** (core delivery complete):
 - **Closed** (Increment 8): Save as Template for all session statuses (not just completed/archived)
 - **Closed** (Increment 8): "Open Workspace" button in sessions tab + dashboard — workspace for any session state
 - **Closed** (Increment 8): Session Document generation → `generateSessionSummary()` + `writeSessionSummary()` (delivered from planned Inc 11)
+- **Closed** (Increment 9): Goals repeater in NewSessionModal — Enter-to-add, x-to-remove, template goals carry-through
+- **Closed** (Increment 9): Auto-open workspace on session.started — main.ts crossCuttingListeners, focus file in adjacent split
+- **Closed** (Increment 9): Title validation — inline "Title is required" error on empty Create
+- **Closed** (Increment 9): Session notes merge — `mergeSessionNotes()` preserves user-added frontmatter and markdown content
+- **Closed** (Increment 9): Vault-hygiene session type — first option in dropdown
+- **Closed** (Increment 9): Adjacent leaf management — dedicated tracking via `getLeaf("split")`, reuse across link clicks
 - **Closed** (Increment 7): Dedicated workspace for active sessions → `SessionWorkspaceView` (463 LOC, standalone ItemView with header, timer, goals, notes, focus file, artifacts)
 - **Open**: Session artifacts persist as separate markdown files (currently tracked in-memory)
 - **Closed** (Increment 6): Session notes mutation events → `session.notes.update/updated` + `handleNotesUpdate`
@@ -902,15 +948,15 @@ These observations were captured as **Session Focus Tools** — 6 new requiremen
 
 This feedback loop triggered a return to **Phase 6 (Delivery Planning)** — the new requirements were chunked into increments. Session Document Generation (originally planned as Inc 11) was delivered early as part of Increment 8.
 
-| Increment | Scope | Est. LOC | Est. Tests |
-|-----------|-------|----------|------------|
-| **9: Preparation Flow & Auto-Open** | Goals repeater in NewSessionModal, auto-open workspace on start | ~111 | ~6 |
-| **10: Focus File Profiles & Context Files** | Types, detection, context CRUD, events, backward compat | ~140 | ~31 |
-| **11: Session Spawning & Guiding Questions** | Spawn logic, inheritable context, guiding questions | ~120 | ~18 |
+| Increment | Scope | Est. LOC | Est. Tests | Status |
+|-----------|-------|----------|------------|--------|
+| ~~**9: Preparation Flow & Auto-Open**~~ | ~~Goals repeater, auto-open, notes merge~~ | ~~111~~ → 202 | ~~6~~ → 18 | **Done** (TASM 32/35) |
+| **10: Focus File Profiles & Context Files** | Types, detection, context CRUD, events, backward compat | ~140 | ~31 | Planned |
+| **11: Session Spawning & Guiding Questions** | Spawn logic, inheritable context, guiding questions | ~120 | ~18 | Planned |
 
-**Artifacts**: [[Phase 4 Inc 8 - Session Workspace Enrichment]], [[Phase 4 Inc 9 - Focus File Profiles and Context Files]], [[PBI-002 Documentation Sessions]] (updated with Inc 9-11 planned sections)
+**Artifacts**: [[Phase 4 Inc 8 - Session Workspace Enrichment]], [[Phase 4 Inc 8 - Preparation Flow]], [[Phase 4 Inc 9 - Focus File Profiles and Context Files]], [[PBI-002 Documentation Sessions]]
 
-Increment 8 (Session Workspace Enrichment) was completed on 2026-02-16. Remaining planned: Inc 9 (Preparation), Inc 10 (Focus Profiles), Inc 11 (Spawning).
+Increment 9 (Preparation Flow & Auto-Open) completed on 2026-02-16. Remaining planned: Inc 10 (Focus Profiles), Inc 11 (Spawning).
 
 ---
 

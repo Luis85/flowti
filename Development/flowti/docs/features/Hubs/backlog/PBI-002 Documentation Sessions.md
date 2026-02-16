@@ -6,7 +6,7 @@ priority: high
 phase: 4
 dependencies:
   - "[[TD-49 Layout abstraction layer]]"
-note: "Core delivery + Goals + Workspace + Workspace Enrichment complete (8 increments). Increment 9 planned: Preparation Flow. Increments 10-12 planned: Focus File Profiles & Context Files, Session Spawning & Guiding Questions, advanced Focus Tools."
+note: "Core delivery + Goals + Workspace + Workspace Enrichment + Preparation Flow complete (9 increments). Increments 10-11 planned: Focus File Profiles & Context Files, Session Spawning & Guiding Questions."
 user_story: "[[I want to prepare a working session, so that I can focus on one task at a time]]"
 ---
 
@@ -77,8 +77,11 @@ As a vault user, I want sessions to provide contextual tools based on my focus f
 - [x] Session notes mutation: `session.notes.update` command + `session.notes.updated` state event — *Increment 6*
 - [x] Goals threaded through templates, rerun, createFromTemplate — *Increment 6: handleCreate, rerunSession, createFromTemplate, saveTemplateFromSession*
 - [x] SessionWorkspaceView: dedicated leaf with timer, goals checklist, notes textarea, focus file, artifacts — *Increment 7: 463 LOC view + 36 tests*
-- [ ] Auto-open workspace on session.start + open focus file in adjacent leaf — *Increment 8*
-- [ ] Goals repeater in NewSessionModal for pre-session preparation — *Increment 8*
+- [x] Auto-open workspace on session.start + open focus file in adjacent leaf — *Increment 9: wired in main.ts via crossCuttingListeners*
+- [x] Goals repeater in NewSessionModal for pre-session preparation — *Increment 9: Enter-to-add, x-to-remove, template goals carry-through*
+- [x] Session notes merge on completion (preserve user content) — *Increment 9: mergeSessionNotes() with frontmatter merge + marker-based body split*
+- [x] Title validation in NewSessionModal — *Increment 9: inline error on empty Create*
+- [x] Vault-hygiene session type — *Increment 9: first option in dropdown*
 - [ ] - [ ] Focus File Profiles — detect file type and provide contextual tools:
   - **Markdown (`.md`)** — open in editor, backlinks, outgoing links, tags; if frontmatter `type` matches a DocType, provide domain-specific actions
   - **Canvas (`.canvas`)** — open canvas, show node/connection summary
@@ -118,8 +121,8 @@ As a vault user, I want sessions to provide contextual tools based on my focus f
 - [x] Session history shows completed sessions with artifact count — *UserHubSessions master list + detail panel*
 - [ ] `session_focus` layout renders all 5 regions — *remaining work*
 - [x] Session lifecycle events emitted on EventBus — *19 events registered in catalog*
-- [x] `npm run build` passes — *2,125 tests across 83 suites*
-- [x] Unit tests for SessionService lifecycle, timer, templates, rerun, timeline, goals, notes, and workspace — *112 tests in SessionService.test.ts + 36 tests in SessionWorkspaceView.test.ts*
+- [x] `npm run build` passes — *2,141 tests across 84 suites*
+- [x] Unit tests for SessionService lifecycle, timer, templates, rerun, timeline, goals, notes, and workspace — *112 tests in SessionService.test.ts + 36 tests in SessionWorkspaceView.test.ts + 18 new tests in Inc 9*
 - [x] Rerun completed/archived sessions without re-entering configuration — *Increment 3: rerunSession() + auto-select*
 - [x] Save sessions as reusable templates — *Increment 3: SaveTemplateModal + template CRUD + template list in detail panel*
 - [x] Dashboard session callout with live timer and contextual actions — *Increment 3: updateTimerDisplay() + Pause/Resume*
@@ -134,8 +137,10 @@ As a vault user, I want sessions to provide contextual tools based on my focus f
 - [x] Duration editing for prepared sessions — *Increment 8: session.duration.update/updated events*
 - [x] Save as Template available for all session statuses — *Increment 8: removed status restriction*
 - [x] "Open Workspace" button in sessions tab + dashboard — *Increment 8: workspaceSessionId + getCurrentSession()*
-- [ ] Goals in NewSessionModal for pre-session preparation — *Increment 9*
-- [ ] Auto-open workspace + focus file on session start — *Increment 9*
+- [x] Goals in NewSessionModal for pre-session preparation — *Increment 9: repeater with template carry-through*
+- [x] Auto-open workspace + focus file on session start — *Increment 9: main.ts listener, adjacent leaf tracking*
+- [x] Session notes merge preserves user content — *Increment 9: mergeSessionNotes()*
+- [x] Title validation error feedback in NewSessionModal — *Increment 9*
 - [ ] Focus file type detection returns correct profile for all 6 categories — *Increment 10*
 - [ ] Context files: attach, remove, deduplicate, cap at 20 — *Increment 10*
 - [ ] Context files carried through rerun, templates, create-from-template — *Increment 10*
@@ -258,14 +263,25 @@ Modified files:
 - `tests/ui/userHub/UserHubSessions.test.ts` — Save template, open workspace, links section (+396 LOC)
 - 4 additional test files — `canvasFile`, `openSessionWorkspace` mock updates
 
-### Increment 9: Preparation Flow & Auto-Open (PLANNED)
+### Increment 9: Preparation Flow & Auto-Open (2026-02-16)
 
-Scope:
-- Goals repeater in `NewSessionModal` (add/remove goal text inputs before creating session)
-- Update `session.create` payload with optional `goals?: string[]`
-- Auto-open `SessionWorkspaceView` on `session.started` event
-- Open focus file in adjacent split leaf on session start
-- ~111 LOC, ~6 tests
+User story: [[I want to prepare a working session, so that I can focus on one task at a time]]
+
+Six capabilities: goals repeater in NewSessionModal (Enter-to-add, x-to-remove, template goals carry-through), title validation ("Title is required" inline error), auto-open workspace on `session.started` (main.ts crossCuttingListeners), dedicated adjacent leaf management for workspace links (getLeaf("split") tracking, focus after async open), session notes merge (`mergeSessionNotes()` preserving user-added frontmatter and markdown content), vault-hygiene session type (first option in dropdown).
+
+Modified files:
+- `src/domain/session/helpers.ts` — `SessionFrontmatter`, `generateSessionFrontmatter()`, `serializeFrontmatter()`, `parseFrontmatter()`, `generateSessionSummaryBody()`, `mergeSessionNotes()`, updated `generateSessionSummary()` (+140/-27)
+- `src/ui/modals.ts` — Goals repeater + title validation error (+58/-9)
+- `src/ui/SessionWorkspaceView.ts` — `adjacentLeaf` tracking, `openInAdjacentLeaf()`, notes file seed with frontmatter (+25/-8)
+- `src/main.ts` — Auto-open workspace listener, `mergeSessionNotes()` in writeSessionSummary (+25/-5)
+- `src/domain/session/types.ts` — `"vault-hygiene"` session type (+2)
+- `src/ui/UserHubView.ts` — Pass goals in onSubmit callback (+2/-2)
+- `src/ui/userHub/types.ts` — `"vault-hygiene"` label (+1)
+- `tests/domain/session/helpers.test.ts` — 13 new tests (frontmatter, body, merge) (+174/-58)
+- `tests/ui/SessionWorkspaceView.test.ts` — Adjacent leaf mock updates (+69/-6)
+
+Total: +202 LOC net (source), +179 LOC net (tests), 18 new tests. Zero new events — existing contracts reused.
+TASM: 32/35 (Excellent). Review: [[Three Amigos Review - Preparation Flow 2026-02-16]]
 
 ### Increment 10: Focus File Profiles & Context Files (PLANNED)
 

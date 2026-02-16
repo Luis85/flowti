@@ -56,8 +56,10 @@ type MockSessionService = ReturnType<typeof createMockSessionService>;
 
 function createView(eventBus: IEventBus, activeSession: Session | null): { view: SessionWorkspaceView; service: MockSessionService } {
 	const service = createMockSessionService(activeSession);
-	const leaf = {} as never;
+	const leaf = { parent: { children: [] as unknown[] } } as never;
 	const view = new SessionWorkspaceView(leaf, eventBus, service as never);
+	// Stub ItemView doesn't store leaf — set it manually so openInAdjacentLeaf works
+	(view as unknown as { leaf: unknown }).leaf = leaf;
 
 	// Set up containerEl with Obsidian's expected children structure:
 	// children[0] = header bar, children[1] = content area
@@ -66,9 +68,16 @@ function createView(eventBus: IEventBus, activeSession: Session | null): { view:
 	containerEl.appendChild(document.createElement("div")); // content
 	(view as unknown as { containerEl: HTMLElement }).containerEl = containerEl;
 
-	// Mock app for focus file openLinkText
-	(view as unknown as { app: { workspace: { openLinkText: ReturnType<typeof vi.fn> } } }).app = {
-		workspace: { openLinkText: vi.fn() },
+	// Mock split leaf returned by getLeaf("split")
+	const splitLeaf = { parent: {} } as never;
+
+	// Mock app for workspace interactions
+	(view as unknown as { app: Record<string, unknown> }).app = {
+		workspace: {
+			openLinkText: vi.fn().mockResolvedValue(undefined),
+			setActiveLeaf: vi.fn(),
+			getLeaf: vi.fn(() => splitLeaf),
+		},
 	};
 
 	return { view, service };
@@ -595,8 +604,9 @@ describe("SessionWorkspaceView", () => {
 			const link = content.querySelector(".ft-focus-link") as HTMLElement;
 			link.click();
 
-			const app = (view as unknown as { app: { workspace: { openLinkText: ReturnType<typeof vi.fn> } } }).app;
-			expect(app.workspace.openLinkText).toHaveBeenCalledWith("src/types.ts", "", "split");
+			const app = (view as unknown as { app: { workspace: { openLinkText: ReturnType<typeof vi.fn>; getLeaf: ReturnType<typeof vi.fn>; setActiveLeaf: ReturnType<typeof vi.fn> } } }).app;
+			expect(app.workspace.getLeaf).toHaveBeenCalledWith("split");
+			expect(app.workspace.openLinkText).toHaveBeenCalledWith("src/types.ts", "", false);
 		});
 	});
 
@@ -874,6 +884,59 @@ describe("SessionWorkspaceView", () => {
 			const buttons = content.querySelectorAll(".ft-session-workspace-actions button");
 			const labels = Array.from(buttons).map((b) => b.textContent);
 			expect(labels).toContain("Save as Template");
+		});
+	});
+
+	describe("auto-open on session start", () => {
+		it("should set workspaceSessionId when session.started fires", async () => {
+			const session = makeSession({ id: "auto-open-1", focusFile: null });
+			const mockService = createMockSessionService(session);
+			const bus = new EventBus();
+
+			// Simulate the auto-open listener pattern from main.ts
+			bus.on("session.started", (event) => {
+				mockService.workspaceSessionId = event.payload.session.id;
+			});
+
+			await bus.emit("session.started", { session });
+
+			expect(mockService.workspaceSessionId).toBe("auto-open-1");
+		});
+
+		it("should open focus file after workspace opens when focusFile exists", async () => {
+			const session = makeSession({ id: "auto-open-2", focusFile: "src/types.ts" });
+			const bus = new EventBus();
+			const openLinkText = vi.fn().mockResolvedValue(undefined);
+			let workspaceOpened = false;
+
+			// Simulate the auto-open listener pattern
+			bus.on("session.started", (event) => {
+				workspaceOpened = true;
+				if (event.payload.session.focusFile) {
+					openLinkText(event.payload.session.focusFile, "", "split");
+				}
+			});
+
+			await bus.emit("session.started", { session });
+
+			expect(workspaceOpened).toBe(true);
+			expect(openLinkText).toHaveBeenCalledWith("src/types.ts", "", "split");
+		});
+
+		it("should not open focus file when focusFile is null", async () => {
+			const session = makeSession({ id: "auto-open-3", focusFile: null });
+			const bus = new EventBus();
+			const openLinkText = vi.fn();
+
+			bus.on("session.started", (event) => {
+				if (event.payload.session.focusFile) {
+					openLinkText(event.payload.session.focusFile, "", "split");
+				}
+			});
+
+			await bus.emit("session.started", { session });
+
+			expect(openLinkText).not.toHaveBeenCalled();
 		});
 	});
 

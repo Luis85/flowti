@@ -13,7 +13,7 @@ import type { WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../infrastructure/events/types";
 import type { SessionService } from "../domain/session/SessionService";
 import type { Session, SessionGoal } from "../domain/session/types";
-import { formatDuration, computeRemainingMs } from "../domain/session/helpers";
+import { formatDuration, computeRemainingMs, generateSessionSummary } from "../domain/session/helpers";
 import { SESSION_TYPE_LABELS, SESSION_STATUS_LABELS } from "./userHub/types";
 import { SaveTemplateModal } from "./modals";
 
@@ -37,6 +37,7 @@ export class SessionWorkspaceView extends ItemView {
 	private actionsEl: HTMLElement | null = null;
 	private goalCountEl: HTMLElement | null = null;
 	private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+	private adjacentLeaf: WorkspaceLeaf | null = null;
 
 	constructor(leaf: WorkspaceLeaf, eventBus: IEventBus, sessionService: SessionService) {
 		super(leaf);
@@ -345,10 +346,10 @@ export class SessionWorkspaceView extends ItemView {
 			if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
 				await this.app.vault.createFolder(folder);
 			}
-			await this.app.vault.create(path, `# ${session.title}\n\n`);
+			await this.app.vault.create(path, generateSessionSummary(session));
 		}
 
-		void this.app.workspace.openLinkText(path, "", "tab");
+		this.openInAdjacentLeaf(path);
 	}
 
 	private renderCanvasFile(container: HTMLElement): void {
@@ -369,7 +370,7 @@ export class SessionWorkspaceView extends ItemView {
 			link.style.cssText = "cursor:pointer;text-decoration:underline;color:var(--text-accent);";
 			link.addEventListener("click", (e) => {
 				e.preventDefault();
-				void this.app.workspace.openLinkText(session.canvasFile!, "", "tab");
+				this.openInAdjacentLeaf(session.canvasFile!);
 			});
 		} else {
 			const btn = section.createEl("button", { text: "Create Session Canvas", cls: "ft-canvasfile-create" });
@@ -407,7 +408,7 @@ export class SessionWorkspaceView extends ItemView {
 			await this.appendCanvasLinkToNotes(session.notesFile, path);
 		}
 
-		void this.app.workspace.openLinkText(path, "", "tab");
+		this.openInAdjacentLeaf(path);
 	}
 
 	private async appendCanvasLinkToNotes(notesPath: string, canvasPath: string): Promise<void> {
@@ -458,7 +459,7 @@ export class SessionWorkspaceView extends ItemView {
 		link.style.cssText = "cursor:pointer;text-decoration:underline;color:var(--text-accent);";
 		link.addEventListener("click", (e) => {
 			e.preventDefault();
-			void this.app.workspace.openLinkText(session.focusFile!, "", "split");
+			this.openInAdjacentLeaf(session.focusFile!);
 		});
 	}
 
@@ -498,7 +499,7 @@ export class SessionWorkspaceView extends ItemView {
 			anchor.style.cssText = "cursor:pointer;text-decoration:underline;color:var(--text-accent);flex:1;";
 			anchor.addEventListener("click", (e) => {
 				e.preventDefault();
-				void this.app.workspace.openLinkText(link.path, "", "split");
+				this.openInAdjacentLeaf(link.path);
 			});
 
 			const removeBtn = row.createEl("button", { cls: "ft-link-remove" });
@@ -563,7 +564,7 @@ export class SessionWorkspaceView extends ItemView {
 			link.style.cssText = "cursor:pointer;text-decoration:underline;color:var(--text-accent);";
 			link.addEventListener("click", (e) => {
 				e.preventDefault();
-				void this.app.workspace.openLinkText(artifact.path, "", "tab");
+				this.openInAdjacentLeaf(artifact.path);
 			});
 
 			row.createEl("span", {
@@ -714,6 +715,22 @@ export class SessionWorkspaceView extends ItemView {
 	private formatGoalCount(goals: SessionGoal[]): string {
 		const done = goals.filter((g) => g.completed).length;
 		return `(${done}/${goals.length})`;
+	}
+
+	/**
+	 * Opens a file in an adjacent split leaf, reusing an existing one if available.
+	 * Avoids replacing the workspace view itself.
+	 */
+	private openInAdjacentLeaf(path: string): void {
+		// Reuse our tracked leaf if still attached, otherwise create a new split
+		if (!this.adjacentLeaf || !this.adjacentLeaf.parent) {
+			this.adjacentLeaf = this.app.workspace.getLeaf("split");
+		}
+		const target = this.adjacentLeaf;
+		this.app.workspace.setActiveLeaf(target, { focus: true });
+		void this.app.workspace.openLinkText(path, "", false).then(() => {
+			if (target.parent) this.app.workspace.setActiveLeaf(target, { focus: true });
+		});
 	}
 
 	private getStatusStyle(status: string): string {

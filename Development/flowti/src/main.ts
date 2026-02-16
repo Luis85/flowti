@@ -33,7 +33,7 @@ import { DataExchangeSetup } from "./dataExchangeSetup";
 import { UiCommandService } from "./infrastructure/ui/UiCommandService";
 import { InputModal, NewSessionModal } from "./ui/modals";
 import { SESSION_TYPES, type SessionType } from "./domain/session/types";
-import { generateSessionSummary } from "./domain/session/helpers";
+import { generateSessionSummary, mergeSessionNotes } from "./domain/session/helpers";
 import { createInfrastructure, setupCrossCuttingListeners } from "./pluginBootstrap";
 import { HubRegistry } from "./domain/hub/HubRegistry";
 import { EventCatalogProvider } from "./domain/hub/EventCatalogProvider";
@@ -477,6 +477,22 @@ export default class FlowtiBasePlugin extends Plugin {
 			}),
 		);
 
+		// Auto-open workspace and focus file when a session starts
+		this.crossCuttingListeners.push(
+			this.eventBus.on("session.started", (event) => {
+				const { session } = event.payload;
+				this.sessionService!.workspaceSessionId = session.id;
+				void this.app.workspace.getLeaf("tab").setViewState({
+					type: VIEW_TYPE_SESSION_WORKSPACE,
+					active: true,
+				}).then(() => {
+					if (session.focusFile) {
+						void this.app.workspace.openLinkText(session.focusFile, "", "split");
+					}
+				});
+			}),
+		);
+
 		return settingsService;
 	}
 
@@ -581,12 +597,13 @@ export default class FlowtiBasePlugin extends Plugin {
 									sessionTypes: SESSION_TYPES,
 									templates: this.sessionService?.getSavedTemplates() ?? [],
 									prefill: { title: "", type: SESSION_TYPES[0].type, durationMinutes: 25, focusFile: file.path },
-									onSubmit: (title, type, durationMinutes, focusFile) => {
+									onSubmit: (title, type, durationMinutes, focusFile, goals) => {
 										void this.eventBus.emit("session.create", {
 											type: type as SessionType,
 											title,
 											durationMinutes,
 											focusFile: focusFile ?? undefined,
+											goals: goals.length > 0 ? goals : undefined,
 										});
 									},
 								}).open();
@@ -626,8 +643,6 @@ export default class FlowtiBasePlugin extends Plugin {
 		if (!session.notesFile) return;
 
 		try {
-			const markdown = generateSessionSummary(session);
-
 			// Ensure folder exists
 			const folder = session.notesFile.substring(0, session.notesFile.lastIndexOf("/"));
 			if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
@@ -636,8 +651,13 @@ export default class FlowtiBasePlugin extends Plugin {
 
 			const existing = this.app.vault.getAbstractFileByPath(session.notesFile);
 			if (existing instanceof TFile) {
-				await this.app.vault.modify(existing, markdown);
+				// Merge: preserve user content, update frontmatter, append/replace summary
+				const existingContent = await this.app.vault.read(existing);
+				const merged = mergeSessionNotes(existingContent, session);
+				await this.app.vault.modify(existing, merged);
 			} else {
+				// New file: generate full document
+				const markdown = generateSessionSummary(session);
 				await this.app.vault.create(session.notesFile, markdown);
 			}
 		} catch (error) {

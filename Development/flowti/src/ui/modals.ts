@@ -112,19 +112,20 @@ export interface SessionTemplateSummary {
 	type: string;
 	durationMinutes: number;
 	focusFile?: string;
+	goals?: string[];
 }
 
 export class NewSessionModal extends Modal {
 	private sessionTypes: ReadonlyArray<{ type: string; label: string; description: string }>;
 	private templates: ReadonlyArray<SessionTemplateSummary>;
-	private prefill?: { title: string; type: string; durationMinutes: number; focusFile?: string };
-	private onSubmit: (title: string, type: string, durationMinutes: number, focusFile: string | null) => void;
+	private prefill?: { title: string; type: string; durationMinutes: number; focusFile?: string; goals?: string[] };
+	private onSubmit: (title: string, type: string, durationMinutes: number, focusFile: string | null, goals: string[]) => void;
 
 	constructor(app: App, options: {
 		sessionTypes: ReadonlyArray<{ type: string; label: string; description: string }>;
 		templates?: ReadonlyArray<SessionTemplateSummary>;
-		prefill?: { title: string; type: string; durationMinutes: number; focusFile?: string };
-		onSubmit: (title: string, type: string, durationMinutes: number, focusFile: string | null) => void;
+		prefill?: { title: string; type: string; durationMinutes: number; focusFile?: string; goals?: string[] };
+		onSubmit: (title: string, type: string, durationMinutes: number, focusFile: string | null, goals: string[]) => void;
 	}) {
 		super(app);
 		this.sessionTypes = options.sessionTypes;
@@ -141,6 +142,7 @@ export class NewSessionModal extends Modal {
 		let type = this.prefill?.type ?? this.sessionTypes[0]?.type ?? "event-storming";
 		let duration = this.prefill?.durationMinutes ?? 25;
 		let focusFile = this.prefill?.focusFile ?? "";
+		const goals: string[] = [...(this.prefill?.goals ?? [])];
 
 		// Template chooser (only shown when templates exist)
 		if (this.templates.length > 0) {
@@ -161,7 +163,7 @@ export class NewSessionModal extends Modal {
 							new NewSessionModal(this.app, {
 								sessionTypes: this.sessionTypes,
 								templates: this.templates,
-								prefill: { title: tmpl.name, type: tmpl.type, durationMinutes: tmpl.durationMinutes, focusFile: tmpl.focusFile },
+								prefill: { title: tmpl.name, type: tmpl.type, durationMinutes: tmpl.durationMinutes, focusFile: tmpl.focusFile, goals: tmpl.goals },
 								onSubmit: this.onSubmit,
 							}).open();
 						}
@@ -175,8 +177,15 @@ export class NewSessionModal extends Modal {
 			.addText((text) =>
 				text.setPlaceholder("e.g. Sprint 12 Event Storming")
 					.setValue(title)
-					.onChange((value) => { title = value; })
+					.onChange((value) => {
+						title = value;
+						if (value.trim()) titleError.style.display = "none";
+					})
 			);
+
+		const titleError = contentEl.createDiv({ cls: "ft-field-error" });
+		titleError.setText("Title is required");
+		titleError.style.cssText = "color:var(--text-error);font-size:var(--font-smallest);margin-top:-0.5rem;margin-bottom:0.75rem;padding-left:0.5rem;display:none;";
 
 		new Setting(contentEl)
 			.setName("Type")
@@ -224,6 +233,44 @@ export class NewSessionModal extends Modal {
 				})
 		);
 
+		// Goals section — same UX as workspace: Enter to add, x to remove
+		const goalsContainer = contentEl.createDiv({ cls: "ft-goals-repeater" });
+		goalsContainer.style.marginBottom = "1rem";
+		goalsContainer.createDiv({ cls: "setting-item-name", text: "Goals" });
+		goalsContainer.createDiv({ cls: "setting-item-description", text: "Press Enter to add a goal" }).style.marginBottom = "8px";
+
+		const goalsList = goalsContainer.createDiv({ cls: "ft-goals-list" });
+
+		const renderGoalsList = (): void => {
+			goalsList.empty();
+			goals.forEach((text, i) => {
+				const row = goalsList.createDiv();
+				row.style.cssText = "display:flex;align-items:center;gap:8px;padding:4px 0;";
+				const label = row.createEl("span", { text });
+				label.style.cssText = "flex:1;color:var(--text-normal);";
+				const removeBtn = row.createEl("button", { text: "\u00d7", cls: "clickable-icon" });
+				removeBtn.style.cssText = "color:var(--text-muted);cursor:pointer;border:none;background:none;font-size:16px;padding:0 4px;";
+				removeBtn.addEventListener("click", () => {
+					goals.splice(i, 1);
+					renderGoalsList();
+				});
+			});
+		};
+		renderGoalsList();
+
+		const addRow = goalsContainer.createDiv();
+		addRow.style.cssText = "display:flex;gap:8px;margin-top:8px;";
+		const goalInput = addRow.createEl("input", { type: "text" });
+		goalInput.placeholder = "Add goal...";
+		goalInput.style.cssText = "flex:1;padding:4px 8px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);color:var(--text-normal);";
+		goalInput.addEventListener("keydown", (e: KeyboardEvent) => {
+			if (e.key === "Enter" && goalInput.value.trim()) {
+				goals.push(goalInput.value.trim());
+				goalInput.value = "";
+				renderGoalsList();
+			}
+		});
+
 		new Setting(contentEl)
 			.addButton((btn) =>
 				btn.setButtonText("Cancel").onClick(() => this.close())
@@ -231,10 +278,12 @@ export class NewSessionModal extends Modal {
 			.addButton((btn) =>
 				btn.setButtonText("Create").setCta().onClick(() => {
 					const trimmed = title.trim();
-					if (trimmed) {
-						this.onSubmit(trimmed, type, duration, focusFile.trim() || null);
-						this.close();
+					if (!trimmed) {
+						titleError.style.display = "block";
+						return;
 					}
+					this.onSubmit(trimmed, type, duration, focusFile.trim() || null, goals.filter((g) => g.trim()));
+					this.close();
 				})
 			);
 	}

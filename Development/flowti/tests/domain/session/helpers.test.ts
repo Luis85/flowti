@@ -13,6 +13,9 @@ import {
 	computeTimelineSummary,
 	formatDurationHuman,
 	generateSessionSummary,
+	generateSessionFrontmatter,
+	generateSessionSummaryBody,
+	mergeSessionNotes,
 } from "../../../src/domain/session/helpers";
 import type { Session, SessionTimelineEntry } from "../../../src/domain/session/types";
 
@@ -566,8 +569,89 @@ describe("createSession — notesFile", () => {
 // generateSessionSummary
 // ─────────────────────────────────────────────────────────────
 
+describe("generateSessionFrontmatter", () => {
+	it("includes core session fields", () => {
+		const session = makeSession({
+			title: "Sprint Planning",
+			type: "event-storming",
+			status: "completed",
+			durationMinutes: 25,
+			completedAt: "2026-02-16T10:25:00.000Z",
+		});
+		const fm = generateSessionFrontmatter(session);
+		expect(fm.title).toBe("Sprint Planning");
+		expect(fm.type).toBe("event-storming");
+		expect(fm.status).toBe("completed");
+		expect(fm.duration).toBe(25);
+		expect(fm.completed).toBe("2026-02-16T10:25:00.000Z");
+	});
+
+	it("includes optional fields when set", () => {
+		const session = makeSession({ focusFile: "src/main.ts", canvasFile: "canvas.canvas" });
+		const fm = generateSessionFrontmatter(session);
+		expect(fm.focusFile).toBe("src/main.ts");
+		expect(fm.canvasFile).toBe("canvas.canvas");
+	});
+
+	it("omits optional fields when null", () => {
+		const session = makeSession({ focusFile: null, canvasFile: null, completedAt: null });
+		const fm = generateSessionFrontmatter(session);
+		expect(fm.focusFile).toBeUndefined();
+		expect(fm.canvasFile).toBeUndefined();
+		expect(fm.completed).toBeUndefined();
+	});
+});
+
+describe("generateSessionSummaryBody", () => {
+	it("starts with session summary marker", () => {
+		const session = makeSession();
+		const body = generateSessionSummaryBody(session);
+		expect(body).toMatch(/^## Session Summary/);
+	});
+
+	it("includes goals with checkmarks", () => {
+		const session = makeSession({
+			goals: [
+				{ id: "g1", text: "Write tests", completed: true, completedAt: "2026-02-16T10:20:00.000Z" },
+				{ id: "g2", text: "Update docs", completed: false, completedAt: null },
+			],
+		});
+		const body = generateSessionSummaryBody(session);
+		expect(body).toContain("### Goals");
+		expect(body).toContain("- [x] Write tests");
+		expect(body).toContain("- [ ] Update docs");
+	});
+
+	it("includes links as wikilinks", () => {
+		const session = makeSession({
+			links: [{ path: "docs/events.md", addedAt: "2026-02-16T10:00:00.000Z" }],
+		});
+		const body = generateSessionSummaryBody(session);
+		expect(body).toContain("### Links");
+		expect(body).toContain("- [[docs/events.md]]");
+	});
+
+	it("includes artifacts section", () => {
+		const session = makeSession({
+			artifacts: [{ path: "src/types.ts", action: "created", timestamp: "2026-02-16T10:05:00.000Z" }],
+		});
+		const body = generateSessionSummaryBody(session);
+		expect(body).toContain("### Artifacts");
+		expect(body).toContain("- [[src/types.ts]] *(created)*");
+	});
+
+	it("omits optional sections when empty", () => {
+		const session = makeSession({ goals: [], links: [], artifacts: [], notes: "" });
+		const body = generateSessionSummaryBody(session);
+		expect(body).not.toContain("### Goals");
+		expect(body).not.toContain("### Links");
+		expect(body).not.toContain("### Artifacts");
+		expect(body).not.toContain("### Session Notes");
+	});
+});
+
 describe("generateSessionSummary", () => {
-	it("generates markdown with title and session info", () => {
+	it("generates frontmatter + title + body", () => {
 		const session = makeSession({
 			title: "Sprint Planning",
 			type: "event-storming",
@@ -576,92 +660,40 @@ describe("generateSessionSummary", () => {
 			completedAt: "2026-02-16T10:25:00.000Z",
 		});
 		const md = generateSessionSummary(session);
+		expect(md).toContain("---");
+		expect(md).toContain('title: "Sprint Planning"');
+		expect(md).toContain('status: "completed"');
 		expect(md).toContain("# Sprint Planning");
-		expect(md).toContain("**Type:** event-storming");
-		expect(md).toContain("**Status:** completed");
-		expect(md).toContain("**Duration:** 25 minutes");
-		expect(md).toContain("**Completed:** 2026-02-16T10:25:00.000Z");
+		expect(md).toContain("## Session Summary");
 	});
 
-	it("includes goals section with checkmarks", () => {
+	it("includes goals and artifacts in body", () => {
 		const session = makeSession({
 			goals: [
 				{ id: "g1", text: "Write tests", completed: true, completedAt: "2026-02-16T10:20:00.000Z" },
-				{ id: "g2", text: "Update docs", completed: false, completedAt: null },
 			],
+			artifacts: [{ path: "src/types.ts", action: "created", timestamp: "2026-02-16T10:05:00.000Z" }],
 		});
 		const md = generateSessionSummary(session);
-		expect(md).toContain("## Goals");
+		expect(md).toContain("### Goals");
 		expect(md).toContain("- [x] Write tests");
-		expect(md).toContain("- [ ] Update docs");
+		expect(md).toContain("### Artifacts");
 	});
 
-	it("includes links section with wikilinks", () => {
-		const session = makeSession({
-			links: [
-				{ path: "docs/events.md", addedAt: "2026-02-16T10:00:00.000Z" },
-			],
-		});
-		const md = generateSessionSummary(session);
-		expect(md).toContain("## Links");
-		expect(md).toContain("- [[docs/events.md]]");
-	});
-
-	it("includes artifacts section", () => {
-		const session = makeSession({
-			artifacts: [
-				{ path: "src/types.ts", action: "created", timestamp: "2026-02-16T10:05:00.000Z" },
-			],
-		});
-		const md = generateSessionSummary(session);
-		expect(md).toContain("## Artifacts");
-		expect(md).toContain("- [[src/types.ts]] *(created)*");
-	});
-
-	it("includes focus file as wikilink", () => {
+	it("includes focus file in frontmatter", () => {
 		const session = makeSession({ focusFile: "src/main.ts" });
 		const md = generateSessionSummary(session);
-		expect(md).toContain("**Focus File:** [[src/main.ts]]");
+		expect(md).toContain('focusFile: "src/main.ts"');
 	});
 
-	it("includes notes section when notes exist", () => {
+	it("includes session notes in body", () => {
 		const session = makeSession({ notes: "Important findings here" });
 		const md = generateSessionSummary(session);
-		expect(md).toContain("## Notes");
+		expect(md).toContain("### Session Notes");
 		expect(md).toContain("Important findings here");
 	});
 
-	it("omits optional sections when empty", () => {
-		const session = makeSession({
-			goals: [],
-			links: [],
-			artifacts: [],
-			notes: "",
-			focusFile: null,
-		});
-		const md = generateSessionSummary(session);
-		expect(md).not.toContain("## Goals");
-		expect(md).not.toContain("## Links");
-		expect(md).not.toContain("## Artifacts");
-		expect(md).not.toContain("## Notes");
-		expect(md).not.toContain("Focus File");
-	});
-
-	it("includes timeline section", () => {
-		const session = makeSession({
-			timeline: [
-				{ action: "started", timestamp: "2026-02-16T10:00:00.000Z" },
-				{ action: "completed", timestamp: "2026-02-16T10:25:00.000Z" },
-			],
-			completedAt: "2026-02-16T10:25:00.000Z",
-		});
-		const md = generateSessionSummary(session);
-		expect(md).toContain("## Timeline");
-		expect(md).toContain("started");
-		expect(md).toContain("completed");
-	});
-
-	it("includes time summary for sessions with timeline", () => {
+	it("includes timeline and time summary", () => {
 		const session = makeSession({
 			timeline: [
 				{ action: "started", timestamp: "2026-02-16T10:00:00.000Z" },
@@ -672,9 +704,93 @@ describe("generateSessionSummary", () => {
 			completedAt: "2026-02-16T10:25:00.000Z",
 		});
 		const md = generateSessionSummary(session);
-		expect(md).toContain("## Time Summary");
+		expect(md).toContain("### Timeline");
+		expect(md).toContain("### Time Summary");
 		expect(md).toContain("**Wall clock:**");
 		expect(md).toContain("**Active time:**");
 		expect(md).toContain("**Total pause:**");
+	});
+});
+
+describe("mergeSessionNotes", () => {
+	it("preserves user content before session summary", () => {
+		const existing = [
+			"---",
+			'title: "My Session"',
+			'status: "active"',
+			"---",
+			"",
+			"# My Session",
+			"",
+			"User wrote this paragraph during the session.",
+			"",
+			"## Session Summary",
+			"",
+			"### Goals",
+			"- [ ] Old goal",
+			"",
+		].join("\n");
+		const session = makeSession({
+			title: "My Session",
+			status: "completed",
+			goals: [{ id: "g1", text: "New goal", completed: true, completedAt: "2026-02-16T10:20:00.000Z" }],
+		});
+		const result = mergeSessionNotes(existing, session);
+		expect(result).toContain("User wrote this paragraph during the session.");
+		expect(result).toContain("### Goals");
+		expect(result).toContain("- [x] New goal");
+		expect(result).not.toContain("- [ ] Old goal");
+	});
+
+	it("updates frontmatter while preserving user-added fields", () => {
+		const existing = [
+			"---",
+			'title: "Old Title"',
+			'status: "active"',
+			'myCustomField: "keep me"',
+			"---",
+			"",
+			"Some content.",
+			"",
+		].join("\n");
+		const session = makeSession({ title: "Updated Title", status: "completed" });
+		const result = mergeSessionNotes(existing, session);
+		expect(result).toContain('title: "Updated Title"');
+		expect(result).toContain('status: "completed"');
+		expect(result).toContain('myCustomField: "keep me"');
+	});
+
+	it("handles file with no frontmatter", () => {
+		const existing = "# My notes\n\nSome user content.\n";
+		const session = makeSession({ title: "Test" });
+		const result = mergeSessionNotes(existing, session);
+		expect(result).toContain("---");
+		expect(result).toContain('title: "Test"');
+		expect(result).toContain("# My notes");
+		expect(result).toContain("Some user content.");
+		expect(result).toContain("## Session Summary");
+	});
+
+	it("handles file with no session summary marker", () => {
+		const existing = [
+			"---",
+			'title: "My Session"',
+			"---",
+			"",
+			"User content without summary.",
+			"",
+		].join("\n");
+		const session = makeSession();
+		const result = mergeSessionNotes(existing, session);
+		expect(result).toContain("User content without summary.");
+		expect(result).toContain("## Session Summary");
+	});
+
+	it("handles empty file", () => {
+		const session = makeSession({ title: "Fresh" });
+		const result = mergeSessionNotes("", session);
+		expect(result).toContain("---");
+		expect(result).toContain('title: "Fresh"');
+		expect(result).toContain("## Session Summary");
 	});
 });
