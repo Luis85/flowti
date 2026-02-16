@@ -23,6 +23,7 @@ import type { DiscoveryService } from "./domain/discovery/DiscoveryService";
 import type { SubscriptionService } from "./domain/subscription/SubscriptionService";
 import type { EventDefinitionService } from "./domain/eventDefinition/EventDefinitionService";
 import type { InboxService } from "./domain/inbox/InboxService";
+import type { SessionService } from "./domain/session/SessionService";
 import type { IngestionService } from "./domain/ingestion/IngestionService";
 import { registerViews } from "./infrastructure/views/registry";
 import type { IViewRegistry } from "./infrastructure/views/types";
@@ -90,6 +91,7 @@ export default class FlowtiBasePlugin extends Plugin {
 	private ingestionService?: IngestionService;
 	private eventDefinitionService?: EventDefinitionService;
 	private dataExchangeService?: DataExchangeService;
+	private sessionService?: SessionService;
 	private ingestionStatusBar?: IngestionStatusBar;
 	private collapsedCategories = new Set<string>();
 	private uiCommandService?: UiCommandService;
@@ -460,6 +462,9 @@ export default class FlowtiBasePlugin extends Plugin {
 
 		this.dataExchangeService = await this.services.get<DataExchangeService>("dataExchangeService");
 		await this.dataExchangeService.load();
+
+		this.sessionService = await this.services.get<SessionService>("sessionService");
+		await this.sessionService.load();
 
 		return settingsService;
 	}

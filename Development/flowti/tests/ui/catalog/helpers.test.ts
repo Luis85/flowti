@@ -479,6 +479,7 @@ describe("catalog helpers", () => {
 		{ name: "UI Commands", visible: true },
 		{ name: "Hub", visible: true },
 		{ name: "Inbox", visible: true },
+		{ name: "Session", visible: true },
 	];
 
 	describe("discoveredToCatalogEntries", () => {

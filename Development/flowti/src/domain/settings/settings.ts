@@ -54,6 +54,7 @@ export const DEFAULT_CATALOG_CATEGORIES: CatalogCategoryConfig[] = [
 	{ name: "UI Commands", visible: false },
 	{ name: "Hub", visible: false },
 	{ name: "Inbox", visible: true },
+	{ name: "Session", visible: true },
 ];
 
 // ─────────────────────────────────────────────────────────────

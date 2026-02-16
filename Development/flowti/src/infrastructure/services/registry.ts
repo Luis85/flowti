@@ -21,6 +21,7 @@ import { TypedStorage } from "../../utils/TypedStorage";
 import { UserService } from "../../domain/user/UserService";
 import { DataExchangeService } from "../../domain/dataExchange/DataExchangeService";
 import { InboxService } from "../../domain/inbox/InboxService";
+import { SessionService } from "../../domain/session/SessionService";
 import { DocService } from "../../domain/docs/DocService";
 import { FileSystemClient } from "../filesystem/FileSystemClient";
 import type { IServiceContainer, ServiceRegistration } from "./types";
@@ -154,6 +155,16 @@ export function createServiceRegistrations(
 			factory: (container: IServiceContainer) =>
 				new EventDefinitionService({
 					storage: new TypedStorage(storage, "eventDefinition"),
+					eventBus: container.getEventBus(),
+				}),
+		},
+
+		// Session Service - time-boxed documentation sessions
+		{
+			id: "sessionService",
+			factory: (container: IServiceContainer) =>
+				new SessionService({
+					storage: new TypedStorage(storage, "sessions"),
 					eventBus: container.getEventBus(),
 				}),
 		},

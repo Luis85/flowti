@@ -160,6 +160,7 @@ export const EVENT_CATEGORIES = [
 	"UI Commands",
 	"Hub",
 	"Inbox",
+	"Session",
 ] as const;
 
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
@@ -376,6 +377,27 @@ const CATALOG_DATA = {
 	"inbox.itemAdded":    { category: "Inbox", description: "New item added to inbox", direction: "Service → Listeners", domain: "inbox", services: "InboxService", tags: [] },
 	"inbox.itemsChanged": { category: "Inbox", description: "Inbox items changed (read/dismiss/clear)", direction: "Service → Listeners", domain: "inbox", services: "InboxService", tags: ["system"] },
 	"inbox.refresh":      { category: "Inbox", description: "Request re-emit of inbox state", direction: "View → Plugin", domain: "inbox", services: "InboxService", tags: ["system"] },
+
+	// ── Session ───────────────────────────────────────────────
+	"session.create":          { category: "Session", description: "Command to create a new session", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
+	"session.start":           { category: "Session", description: "Command to start a session timer", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
+	"session.pause":           { category: "Session", description: "Command to pause an active session", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
+	"session.resume":          { category: "Session", description: "Command to resume a paused session", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
+	"session.complete":        { category: "Session", description: "Command to complete a session", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
+	"session.archive":         { category: "Session", description: "Command to archive a completed session", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
+	"session.delete":          { category: "Session", description: "Command to delete a session", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
+	"session.refresh":         { category: "Session", description: "Request re-emit of session state", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
+	"session.created":         { category: "Session", description: "A new session was created", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.started":         { category: "Session", description: "Session timer was started", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.paused":          { category: "Session", description: "Session was paused", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.resumed":         { category: "Session", description: "Session was resumed", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.completed":       { category: "Session", description: "Session was completed", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.archived":        { category: "Session", description: "Session was archived", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.deleted":         { category: "Session", description: "Session was deleted", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.loaded":          { category: "Session", description: "Session state loaded from storage", direction: "Service → Listeners", domain: "session", services: "SessionService", tags: ["system"] },
+	"session.timer.tick":      { category: "Session", description: "Timer tick with remaining/elapsed time", direction: "Service → Listeners", domain: "session", services: "SessionService", tags: ["system"] },
+	"session.timer.completed": { category: "Session", description: "Session timer reached zero", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.artifact.added":  { category: "Session", description: "Artifact recorded during active session", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────
