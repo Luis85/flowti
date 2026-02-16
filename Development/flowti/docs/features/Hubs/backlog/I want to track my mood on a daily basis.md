@@ -1,0 +1,1 @@
+to encourage daily note taking, I want to track my mood from the User Dashboard. I envision a row of smilies, every mood click gets tracked so that I can track my mood during the day. The first mood click also creates the daily-note if not present. moods get tracked in the frontmatter of the daily note. 
