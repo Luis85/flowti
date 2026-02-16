@@ -213,6 +213,41 @@ Primary interaction path:
 - [ ] Pre-session goal preparation in NewSessionModal — *planned Increment 8*
 - [ ] Auto-open workspace + focus file on session start — *planned Increment 8*
 
+### Session Focus Tools
+
+Sessions are the primary mechanism for focused, time-boxed content creation and improvement inside the Vault. The focus file is the session's anchor — its type drives the available tooling, and its content drives the user's attention. Every session is oriented around two guiding questions: **"How should the next increment look like?"** and **"What can be improved?"**
+
+- [ ] **Focus File Type Detection** — On session start, detect the focus file's extension and (for `.md`) its frontmatter `type` to determine the applicable tool profile
+- [ ] **Focus File Profiles** — Provide contextual tools based on file type:
+  - **Markdown (`.md`)** — Open in editor, show backlinks, outgoing links, tags. If frontmatter `type` matches a known DocType (EventDoc, ServiceDoc, etc.), show domain-specific actions (e.g., "Open in Event Catalog", "Show related Flows")
+  - **Canvas (`.canvas`)** — Open canvas view, show node count, connection summary. Ideal for design sessions
+  - **PDF (`.pdf`)** — Open PDF viewer, show page count, allow annotation notes
+  - **Image (`.png`, `.jpg`, `.svg`, `.gif`, `.webp`)** — Show image preview, dimensions, file size. Allow creating annotation notes
+  - **CSV (`.csv`)** — Open in Flowti table view, show row/column count, link to Data Exchange actions
+  - **Unknown extensions** — Show basic file metadata (name, size, last modified, extension). Provide "Document as MD" action that creates a markdown file with metadata and a `[[link]]` to the original file
+- [ ] **Context Files** — Attach additional files to a session beyond the focus file. Context files form the working set — the material the user needs alongside the focus file to get work done
+  - Attach via vault file picker (reuse VaultFilePickerModal)
+  - Displayed as a collapsible list in the session detail panel
+  - Each context file shows a type icon, filename, and "remove" action
+  - Persisted on the Session entity as `contextFiles: string[]`
+- [ ] **Session Spawning** — From any session (active, completed, or archived), spawn a new session that inherits context:
+  - "New Session from Focus" action: creates a new session with the same focus file
+  - "Design Session" action: opens a file multi-picker to select which context files to carry over, then creates a new session with the focus file and selected context files
+  - Enables iterative work: complete a session, review the output, spawn a follow-up session that picks up where you left off
+- [ ] **Guiding Questions** — Always visible in the session detail panel during active/paused sessions:
+  - "How should the next increment look like?"
+  - "What can be improved?"
+  - These orient the user's attention toward incremental improvement of the focus file's content
+- [ ] **Session Document** — On session completion, generate a session summary document (`.md`) that captures:
+  - Session metadata (title, type, duration, time breakdown)
+  - Focus file reference (as wiki-link)
+  - Context files list
+  - Artifacts created/modified during the session
+  - Session notes
+  - Timeline log
+  - Saved to a configurable session documents folder (default: `Sessions/`)
+  - Linked back to the focus file via backlinks
+
 ### User Hub
 
 - [x] Personal dashboard with today's summary, recent activity, documentation nudges — *UserHubDashboard: welcome + cross-hub cards + quick actions*
@@ -256,6 +291,29 @@ DocumentationSession
   focus_file?: string  (vault file path — optional focus file for the session)
   timeline: SessionTimelineEntry[]  (chronological lifecycle action log)
   notes_path?: string
+  focus_file: string | null  (vault file path — session anchor)
+  context_files: string[]  (additional working set files)
+  timeline: TimelineEntry[]  (lifecycle action log)
+
+FocusFileProfile
+  extension: string  (detected from focus_file path)
+  category: "markdown" | "canvas" | "pdf" | "image" | "csv" | "unknown"
+  doc_type: DocType | null  (from .md frontmatter, if applicable)
+  tools: FocusFileTool[]  (contextual actions available for this file type)
+
+FocusFileTool
+  id: string  (e.g. "open-editor", "show-backlinks", "document-as-md")
+  label: string
+  icon: string
+  action: string  (event or callback identifier)
+
+SessionDocument  (generated on completion)
+  path: string  (e.g. "Sessions/2026-02-16 Event Storming - My Topic.md")
+  session_id: string
+  focus_file: string | null
+  context_files: string[]
+  artifacts: string[]
+  timeline_summary: string
 
 SessionTemplate
   id: string
@@ -354,7 +412,7 @@ Layouts used:
 | `dashboard_grid` | All hub dashboards (User, System, Domain) |
 | `table` | Entity list tabs (events, imports, exports, entities) |
 | `split_dock` | Entity detail tabs (master list + detail panel) |
-| `session_focus` | Documentation sessions (header + timer + workspace + notes) |
+| `session_focus` | Documentation sessions (header + timer + focus file tools + context files + guiding questions + workspace + notes) |
 
 New layouts required: `session_focus` (new).
 

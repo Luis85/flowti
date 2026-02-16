@@ -14,12 +14,18 @@ user_story: "[[I want to prepare a working session, so that I can focus on one t
 
 As a domain architect, I want time-boxed documentation sessions with a Pomodoro timer so that I can maintain documentation discipline through structured workflows like Event Storming and Service Design.
 
+As a vault user, I want sessions to provide contextual tools based on my focus file so that I can work efficiently on the specific type of content I'm improving, always oriented around "How should the next increment look like?" and "What can be improved?"
+
 ### User Pains
 
 - Documentation is always "later" — no structure to enforce discipline
 - Event Storming and Service Design sessions have no tooling support in Obsidian
 - No way to track what was documented during a session or measure documentation velocity
 - Sessions produce scattered notes with no connection to the domain model
+- A focus file alone is not enough — the user needs related files at hand during focused work
+- Different file types need different tools, but sessions treat all focus files the same
+- Completed sessions leave no permanent record in the vault — insights are lost
+- Non-Obsidian files (binaries, unknown extensions) cannot be properly documented or linked
 
 ### User Needs
 
@@ -28,6 +34,12 @@ As a domain architect, I want time-boxed documentation sessions with a Pomodoro 
 - Workspace area for session work (note-taking, event listing, etc.)
 - Artifact tracking — what files were created/modified during the session
 - Session history per hub showing completed sessions and their outputs
+- Contextual tools based on the focus file's type — leverage what Obsidian already knows
+- Ability to attach context files alongside the focus file as a working set
+- Spawn follow-up sessions that inherit context from completed sessions
+- Guiding questions that keep attention on incremental improvement
+- A session document generated at completion that summarizes what happened
+- Unknown file types should be documentable as proper markdown files linked to the original
 
 ## Solutionstatement
 
