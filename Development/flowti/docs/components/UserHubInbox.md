@@ -65,5 +65,5 @@ Items are populated from domain events via the `InboxService`: subscription watc
 ## Related
 
 - Parent: [[UserHubView]]
-- Sibling: [[UserHubDashboard]]
+- Siblings: [[UserHubDashboard]], [[UserHubSessions]], [[UserHubPreferences]]
 - Domain: `InboxService` (`src/domain/inbox/InboxService.ts`)

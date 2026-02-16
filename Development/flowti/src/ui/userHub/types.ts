@@ -3,6 +3,8 @@
  */
 
 import type { InboxService } from "../../domain/inbox/InboxService";
+import type { SessionService } from "../../domain/session/SessionService";
+import type { Session } from "../../domain/session/types";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { IUserService } from "../../domain/user/types";
 
@@ -14,7 +16,7 @@ export type { InboxItem } from "../../domain/inbox/types";
 // Tabs
 // ─────────────────────────────────────────────────────────────
 
-export type UserHubTab = "inbox" | "preferences";
+export type UserHubTab = "inbox" | "sessions" | "preferences";
 
 // ─────────────────────────────────────────────────────────────
 // State
@@ -24,6 +26,9 @@ export interface UserHubState {
 	inboxItems: InboxItem[];
 	selectedInboxItem: InboxItem | null;
 	inboxEnabledSources: string[];
+	sessions: Session[];
+	activeSession: Session | null;
+	selectedSession: Session | null;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -58,8 +63,31 @@ export interface UserHubComponentDeps {
 	setState: (partial: Partial<UserHubState>) => void;
 	eventBus: IEventBus;
 	inboxService: InboxService;
+	sessionService: SessionService;
 	userService: IUserService;
 	scheduleRender: () => void;
 	/** Navigate to a specific event type in the Event Catalog. */
 	navigateToEvent: (eventType: string) => void;
+	/** Open the New Session creation modal. */
+	openNewSessionModal: () => void;
 }
+
+// ─────────────────────────────────────────────────────────────
+// Session display helpers
+// ─────────────────────────────────────────────────────────────
+
+export const SESSION_STATUS_LABELS: Record<string, string> = {
+	prepared: "Ready",
+	active: "Active",
+	paused: "Paused",
+	completed: "Completed",
+	archived: "Archived",
+};
+
+export const SESSION_TYPE_LABELS: Record<string, string> = {
+	"event-storming": "Event Storming",
+	"service-design": "Service Design",
+	"requirements-refinement": "Requirements",
+	"backlog-structuring": "Backlog",
+	"knowledge-cleanup": "Cleanup",
+};

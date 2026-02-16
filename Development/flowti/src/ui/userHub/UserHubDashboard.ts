@@ -10,14 +10,17 @@ import type { IUserService } from "../../domain/user/types";
 import type { HubRegistry } from "../../domain/hub/HubRegistry";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { InboxService } from "../../domain/inbox/InboxService";
+import type { SessionService } from "../../domain/session/SessionService";
+import { computeRemainingMs, formatDuration } from "../../domain/session/helpers";
 import { renderStatGrid, type StatCardItem } from "../shared/StatCard";
-import { formatSourceEvent, formatTime, type InboxItem } from "./types";
+import { formatSourceEvent, formatTime, SESSION_TYPE_LABELS, type InboxItem } from "./types";
 
 export interface UserHubDashboardDeps {
 	userService: IUserService;
 	hubRegistry: HubRegistry;
 	eventBus: IEventBus;
 	inboxService: InboxService;
+	sessionService: SessionService;
 	navigateToTab: (tabId: string) => void;
 	onInboxItemClick: (item: InboxItem) => void;
 }
@@ -32,6 +35,7 @@ export class UserHubDashboard {
 		this.container.empty();
 
 		this.renderWelcome();
+		this.renderActiveSession();
 		this.renderQuickActions();
 		this.renderHubSummaries();
 		this.renderInboxSection();
@@ -50,6 +54,56 @@ export class UserHubDashboard {
 		const greeting = user ? `Welcome, ${user.name}` : "Welcome to Flowti";
 
 		section.createEl("h2", { text: greeting, cls: "ft-heading" }).style.margin = "0";
+	}
+
+	private renderActiveSession(): void {
+		const session = this.deps.sessionService.getActiveSession();
+		if (!session) return;
+
+		const section = this.container.createDiv({ cls: "ft-active-session" });
+		section.style.marginBottom = "1rem";
+		section.style.padding = "0.75rem";
+		section.style.border = "1px solid var(--interactive-accent)";
+		section.style.borderRadius = "8px";
+		section.style.backgroundColor = "var(--background-secondary)";
+
+		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		const icon = header.createSpan();
+		setIcon(icon, "timer");
+
+		header.createSpan({ text: session.title, cls: "ft-heading ft-heading-sm" }).style.margin = "0";
+
+		header.createSpan({
+			text: SESSION_TYPE_LABELS[session.type] ?? session.type,
+			cls: "ft-badge ft-badge-muted ft-text-sm",
+		});
+
+		const spacer = header.createDiv();
+		spacer.style.flex = "1";
+
+		const remaining = computeRemainingMs(session);
+		header.createSpan({
+			text: formatDuration(remaining),
+			cls: "ft-text-sm",
+		}).style.fontFamily = "var(--font-monospace)";
+
+		// Action buttons
+		const actions = section.createDiv({ cls: "ft-flex ft-gap-2" });
+		actions.style.marginTop = "0.5rem";
+
+		const pauseBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm" });
+		setIcon(pauseBtn, "pause");
+		pauseBtn.appendText(" Pause");
+		pauseBtn.addEventListener("click", () => {
+			void this.deps.eventBus.emit("session.pause", { sessionId: session.id });
+		});
+
+		const completeBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm" });
+		setIcon(completeBtn, "check-circle");
+		completeBtn.appendText(" Complete");
+		completeBtn.addEventListener("click", () => {
+			void this.deps.eventBus.emit("session.complete", { sessionId: session.id });
+		});
 	}
 
 	private renderInboxSection(): void {
@@ -206,6 +260,7 @@ export class UserHubDashboard {
 		const nav = this.deps.navigateToTab;
 		const actions: Array<{ icon: string; label: string; action: () => void }> = [
 			{ icon: "inbox", label: "Inbox", action: () => nav("inbox") },
+			{ icon: "timer", label: "Sessions", action: () => nav("sessions") },
 			{ icon: "settings", label: "Preferences", action: () => nav("preferences") },
 			{ icon: "list", label: "Event Catalog", action: () => void eb.emit("ui.openEventCatalog", {}) },
 			{ icon: "arrow-left-right", label: "Data Exchange", action: () => void eb.emit("ui.openDataExchangeHub", {}) },

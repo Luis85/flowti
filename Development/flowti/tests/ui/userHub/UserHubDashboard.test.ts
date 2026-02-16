@@ -8,6 +8,8 @@ import type { HubDashboardProvider } from "../../../src/domain/hub/types";
 import type { IUserService } from "../../../src/domain/user/types";
 import type { InboxItem } from "../../../src/domain/inbox/types";
 import type { InboxService } from "../../../src/domain/inbox/InboxService";
+import type { SessionService } from "../../../src/domain/session/SessionService";
+import type { Session } from "../../../src/domain/session/types";
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -51,6 +53,31 @@ function makeInboxService(items: InboxItem[] = [], unreadCount = 0): InboxServic
 	} as never;
 }
 
+function makeSessionService(activeSession: Session | null = null): SessionService {
+	return {
+		getSessions: vi.fn(() => []),
+		getActiveSession: vi.fn(() => activeSession),
+	} as never;
+}
+
+function makeActiveSession(overrides?: Partial<Session>): Session {
+	return {
+		id: "session-1",
+		type: "event-storming",
+		title: "Active Sprint",
+		status: "active",
+		durationMinutes: 25,
+		createdAt: new Date("2026-02-16T10:00:00").toISOString(),
+		startedAt: new Date("2026-02-16T10:00:00").toISOString(),
+		pausedAt: null,
+		elapsedBeforePauseMs: 0,
+		completedAt: null,
+		artifacts: [],
+		notes: "",
+		...overrides,
+	};
+}
+
 function makeItem(overrides?: Partial<InboxItem>): InboxItem {
 	return {
 		id: "item-1",
@@ -71,6 +98,7 @@ function makeDeps(overrides?: Partial<UserHubDashboardDeps>): UserHubDashboardDe
 		hubRegistry: makeHubRegistry([]) as never,
 		eventBus: new EventBus(),
 		inboxService: makeInboxService(),
+		sessionService: makeSessionService(),
 		navigateToTab: vi.fn(),
 		onInboxItemClick: vi.fn(),
 		...overrides,
@@ -458,7 +486,7 @@ describe("UserHubDashboard", () => {
 	// ── Quick actions ───────────────────────────────────────
 
 	describe("quick actions", () => {
-		it("should render 6 quick action buttons", () => {
+		it("should render 7 quick action buttons", () => {
 			const dashboard = new UserHubDashboard(container, makeDeps({ eventBus }));
 
 			dashboard.render();
@@ -466,7 +494,7 @@ describe("UserHubDashboard", () => {
 			// Quick actions use ft-nav-link class; inbox "View all" also uses it
 			// With empty inbox, only quick actions should produce ft-nav-link
 			const actions = container.querySelectorAll(".ft-nav-link");
-			expect(actions).toHaveLength(6);
+			expect(actions).toHaveLength(7);
 		});
 
 		it("should navigate to inbox tab on Inbox click", () => {
@@ -481,7 +509,7 @@ describe("UserHubDashboard", () => {
 			expect(navigateToTab).toHaveBeenCalledWith("inbox");
 		});
 
-		it("should navigate to preferences tab on Preferences click", () => {
+		it("should navigate to sessions tab on Sessions click", () => {
 			const navigateToTab = vi.fn();
 			const dashboard = new UserHubDashboard(container, makeDeps({ eventBus, navigateToTab }));
 
@@ -489,6 +517,18 @@ describe("UserHubDashboard", () => {
 
 			const actions = container.querySelectorAll(".ft-nav-link");
 			(actions[1] as HTMLElement).click();
+
+			expect(navigateToTab).toHaveBeenCalledWith("sessions");
+		});
+
+		it("should navigate to preferences tab on Preferences click", () => {
+			const navigateToTab = vi.fn();
+			const dashboard = new UserHubDashboard(container, makeDeps({ eventBus, navigateToTab }));
+
+			dashboard.render();
+
+			const actions = container.querySelectorAll(".ft-nav-link");
+			(actions[2] as HTMLElement).click();
 
 			expect(navigateToTab).toHaveBeenCalledWith("preferences");
 		});
@@ -502,12 +542,87 @@ describe("UserHubDashboard", () => {
 			dashboard.render();
 
 			const actions = container.querySelectorAll(".ft-nav-link");
-			(actions[2] as HTMLElement).click();
+			(actions[3] as HTMLElement).click();
 
 			// Allow async event emission to settle
 			await new Promise((r) => setTimeout(r, 10));
 
 			expect(spy).toHaveBeenCalled();
+		});
+	});
+
+	// ── Active session card ────────────────────────────────
+
+	describe("active session card", () => {
+		it("should render active session card when session is active", () => {
+			const session = makeActiveSession();
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				sessionService: makeSessionService(session),
+			}));
+
+			dashboard.render();
+
+			expect(container.querySelector(".ft-active-session")).toBeTruthy();
+			expect(container.textContent).toContain("Active Sprint");
+			expect(container.textContent).toContain("Event Storming");
+		});
+
+		it("should not render active session card when no active session", () => {
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				sessionService: makeSessionService(null),
+			}));
+
+			dashboard.render();
+
+			expect(container.querySelector(".ft-active-session")).toBeNull();
+		});
+
+		it("should emit session.pause when Pause is clicked", async () => {
+			const spy = vi.fn();
+			eventBus.on("session.pause", spy);
+
+			const session = makeActiveSession({ id: "s1" });
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				sessionService: makeSessionService(session),
+			}));
+
+			dashboard.render();
+
+			const buttons = container.querySelectorAll(".ft-active-session button");
+			const pauseBtn = Array.from(buttons).find((b) => b.textContent?.includes("Pause"));
+			expect(pauseBtn).toBeTruthy();
+			(pauseBtn as HTMLElement).click();
+
+			await new Promise((r) => setTimeout(r, 10));
+			expect(spy).toHaveBeenCalledWith(expect.objectContaining({
+				payload: { sessionId: "s1" },
+			}));
+		});
+
+		it("should emit session.complete when Complete is clicked", async () => {
+			const spy = vi.fn();
+			eventBus.on("session.complete", spy);
+
+			const session = makeActiveSession({ id: "s2" });
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				sessionService: makeSessionService(session),
+			}));
+
+			dashboard.render();
+
+			const buttons = container.querySelectorAll(".ft-active-session button");
+			const completeBtn = Array.from(buttons).find((b) => b.textContent?.includes("Complete"));
+			expect(completeBtn).toBeTruthy();
+			(completeBtn as HTMLElement).click();
+
+			await new Promise((r) => setTimeout(r, 10));
+			expect(spy).toHaveBeenCalledWith(expect.objectContaining({
+				payload: { sessionId: "s2" },
+			}));
 		});
 	});
 

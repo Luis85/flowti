@@ -14,6 +14,9 @@ function makeState(overrides?: Partial<UserHubState>): UserHubState {
 		inboxItems: [],
 		selectedInboxItem: null,
 		inboxEnabledSources: INBOX_SOURCE_DEFINITIONS.map((s) => s.event),
+		sessions: [],
+		activeSession: null,
+		selectedSession: null,
 		...overrides,
 	};
 }
@@ -32,6 +35,10 @@ function makeDeps(state: UserHubState): UserHubComponentDeps {
 			getItems: vi.fn(() => []),
 			getUnreadCount: vi.fn(() => 0),
 		} as never,
+		sessionService: {
+			getSessions: vi.fn(() => []),
+			getActiveSession: vi.fn(() => null),
+		} as never,
 		userService: {
 			load: vi.fn(async () => {}),
 			hasUser: vi.fn(() => true),
@@ -45,6 +52,7 @@ function makeDeps(state: UserHubState): UserHubComponentDeps {
 		},
 		scheduleRender: vi.fn(),
 		navigateToEvent: vi.fn(),
+		openNewSessionModal: vi.fn(),
 	};
 }
 

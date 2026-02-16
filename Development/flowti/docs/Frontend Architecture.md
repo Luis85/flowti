@@ -10,7 +10,7 @@ tags:
 
 This document describes the current frontend architecture of the Flowti IBDE Obsidian plugin, its design principles, view inventory, and refactoring history with planned next phases.
 
-> Last updated: 2026-02-15 (Hub Shell Pattern added)
+> Last updated: 2026-02-16 (Session domain + Sessions tab added)
 
 ---
 
@@ -62,12 +62,15 @@ src/                     # ~31,467 LOC across 154 files
 │   ├── eventFilter/     # Activity Log visibility toggles
 │   ├── eventNotify/     # Notice popups on event fire
 │   ├── discovery/       # Vault scan for custom events
+│   ├── session/         # Documentation sessions (timer, artifacts, lifecycle)
+│   ├── inbox/           # User inbox items (mappers, service, persistence)
 │   └── user/            # User profile management
 ├── ui/                  # Presentation layer (~17,127 LOC)
 │   ├── catalog/         # Event Catalog components (15 files, 4,573 LOC)
 │   ├── hub/             # Data Exchange Hub components (21 files, 4,414 LOC)
 │   ├── csv/             # CSV import wizard components (10 files, 1,752 LOC)
 │   ├── export/          # Export wizard components (7 files, 994 LOC)
+│   ├── userHub/         # User Hub components (4 files: Dashboard, Inbox, Sessions, Preferences)
 │   └── *.ts             # Orchestrator views + modals
 └── utils/               # Shared helpers (persistence, glob, types)
 ```
@@ -95,6 +98,7 @@ Views read state via `deps.getState()` and write via `deps.setState(partial)`. T
 | `EventLogView` | `flowti-event-log` | ~581 | log list | Activity feed with category/type filters and subscribed/all modes |
 | `ExportView` | `flowti-export` | ~655 | wizard stepper | 4-page export wizard: View Select, Configure, Preview, Result |
 | `CsvActionView` | `flowti-csv` | ~747 | landing + wizard | CSV file handler: column preview landing page + 4-page inline import wizard |
+| `UserHubView` | `flowti-user-hub` | ~273 | `BaseHubView<UserHubTab>` | 3-tab user hub: Dashboard, Inbox, Sessions (+ Preferences) |
 | `ComponentShowcaseView` | `flowti-component-showcase` | ~297 | showcase | Development view for previewing all CSS components |
 
 ### Modals
@@ -108,6 +112,7 @@ Views read state via `deps.getState()` and write via `deps.setState(partial)`. T
 | `ConfirmModal` | ~40 | Simple confirmation dialog |
 | `InputModal` | ~60 | Single text input dialog |
 | `CreateEventModal` | ~70 | Event creation with name + category |
+| `NewSessionModal` | ~70 | Session creation with title, type, and duration |
 | `ConfigChooserModal` | ~30 | Fuzzy-searchable config picker (`FuzzySuggestModal`) |
 | `FilePickerModal` | ~40 | Fuzzy-searchable file picker with extension filter |
 | `FolderPickerModal` | ~70 | Fuzzy-searchable folder picker with create-on-type |
@@ -151,6 +156,12 @@ Both major views extend `BaseHubView<TPage>` and follow the **orchestrator + com
 - `ConfigurePage` — Settings form + property grid
 - `PreviewPage` — Export preview
 - `ResultPage` — Results display
+
+**User Hub** (`src/ui/userHub/`, 4 files):
+- `UserHubDashboard` — Welcome section, cross-hub summary cards, active session card, inbox preview, quick actions
+- `UserHubInbox` — Inbox master list (filter, source badges, read/unread) + detail panel (type badge, source event link, actions)
+- `UserHubSessions` — Session master list (status sort, accent border on active, filter, "New" button) + detail panel (timer, info, artifacts, contextual lifecycle actions). Empty state shows "New Session" button opening `NewSessionModal`
+- `UserHubPreferences` — User profile editing + inbox source toggles
 
 **Pipeline Detail** (`src/ui/hub/pipelines/`):
 - `PipelineDetail` — Single pipeline view
@@ -229,7 +240,7 @@ loadStateFromStorage<T>(storage, key): Promise<T | undefined>
 saveStateToStorage<T>(storage, key, state): Promise<void>
 ```
 
-Each service uses a unique storage key (`"subscription"`, `"eventDefinition"`, `"installer"`, `"dataExchange"`, `"discovery"`, `"eventFilter"`, `"eventNotify"`, `"ingestion"`, `"eventDefinition"`, `"user"`) within a shared `IStorageProvider`. The `load()` method must be called in `onLayoutReady()` to prevent the dual-state bug where default state overwrites persisted data.
+Each service uses a unique storage key (`"subscription"`, `"eventDefinition"`, `"installer"`, `"dataExchange"`, `"discovery"`, `"eventFilter"`, `"eventNotify"`, `"ingestion"`, `"sessions"`, `"inbox"`, `"user"`) within a shared `IStorageProvider`. The `load()` method must be called in `onLayoutReady()` to prevent the dual-state bug where default state overwrites persisted data.
 
 ---
 
@@ -285,7 +296,7 @@ dataExchangeSetup.ts ─→ Hub, CSV, Export     (view registration + file menu 
 
 ### Scale
 
-The `FlowtiEventMap` type union contains **131 events** across 12 domains:
+The `FlowtiEventMap` type union contains **155 events** across 14 domains:
 
 | Domain | Events | Examples |
 |--------|--------|---------|
@@ -310,6 +321,8 @@ The `FlowtiEventMap` type union contains **131 events** across 12 domains:
 | Data Exchange | 15 | `dataExchange.import.execute`, `dataExchange.export.completed` |
 | Documentation | 6 | `doc.create`, `doc.created`, `doc.exists`, `doc.failed` |
 | Hub | 3 | `hub.opened`, `hub.closed`, `hub.tab.changed` |
+| Session | 19 | `session.create`, `session.started`, `session.timer.tick`, `session.artifact.added` |
+| Inbox | 5 | `inbox.itemAdded`, `inbox.itemsChanged`, `inbox.cleared` |
 | Installer | 6 | `installer.started`, `installer.step.completed` |
 
 ### Conventions
@@ -608,7 +621,7 @@ Pure content generation file with markdown builders for 8+ entity types. Could s
 
 | Item | Problem | Target | Debt File |
 |------|---------|--------|-----------|
-| **TD-7**: Limited UI testing | 1,662 tests across 72 files cover domain services, EventBus, utilities, pure functions, and 6 view orchestrators. Component-level rendering tests (individual tabs, pages) not yet covered. | Add lightweight unit tests for tab components with mock deps and DOM assertions via `obsidian-stub` polyfills. | [[TD-27 Limited UI component testing]] |
+| **TD-7**: Limited UI testing | 1,887 tests across 82 files cover domain services, EventBus, utilities, pure functions, 6 view orchestrators, and 4 User Hub components. Component-level rendering tests expanding. | Add lightweight unit tests for remaining tab components with mock deps and DOM assertions via `obsidian-stub` polyfills. | [[TD-27 Limited UI component testing]] |
 | **TD-8**: Scanner duplication between Catalog and Hub | Catalog tabs use `entityScanner.ts`; Hub tabs implement their own scanning logic. | Generalize scanner utility. Low ROI — Hub tabs are storage-driven. | [[TD-28 Scanner duplication between Catalog and Hub]] |
 
 ---
@@ -618,7 +631,7 @@ Pure content generation file with markdown builders for 8+ entity types. Could s
 1. **Facade preservation**: Public APIs never change. All consumers see the same interface after extraction.
 2. **Zero test changes**: Extracted code is internal — existing test suites pass without modification.
 3. **Composition over inheritance**: Sub-modules receive deps interfaces, not parent class references.
-4. **Build verification**: `npm run build` (1,662 tests + tsc + eslint + esbuild) after every step.
+4. **Build verification**: `npm run build` (1,883 tests + tsc + eslint + esbuild) after every step.
 5. **Incremental extraction**: One module at a time, verify, then proceed. Never batch multiple extractions without build checks.
 6. **No premature abstraction**: Extract when a file exceeds ~600 LOC or when distinct responsibilities are clearly identifiable. Don't extract for the sake of extracting.
 7. **DocService for all docs**: Use `doc.create` events instead of direct `fileSystemClient.createFile()` calls for documentation files.
@@ -645,8 +658,8 @@ Pure content generation file with markdown builders for 8+ entity types. Could s
 - `ConfigDocService.ts`: 934 → 435 LOC (53% reduction)
 - `BaseHubView.ts`: 278 LOC (new — shared shell for all Hub views)
 - 14 files over 500 LOC (down from 6 files over 1,000 LOC)
-- 72 test files, 1,662 tests — all passing
-- 157 source files (BaseHubView.ts + hub/events.ts added), ~31,000 LOC
+- 82 test files, 1,887 tests — all passing
+- ~162 source files, ~32,000 LOC
 
 ### Target After Phase 11
 - `EventConfigModal.ts`: 629 → ~150 LOC
@@ -664,12 +677,13 @@ Each UI component has a dedicated documentation file in `docs/components/` (53 f
 | Subsystem | Location | Count | Examples |
 |-----------|----------|-------|----------|
 | Orchestrator Views | `src/ui/*.ts` | 7 | [[BaseHubView]], [[EventCatalogView]], [[DataExchangeHubView]], [[CsvActionView]], [[ExportView]] |
-| Modals | `src/ui/*.ts` | 7 | [[EventConfigModal]], [[SubscriptionManagerModal]], [[ConfirmModal]] |
+| Modals | `src/ui/*.ts` | 8 | [[EventConfigModal]], [[SubscriptionManagerModal]], [[NewSessionModal]], [[ConfirmModal]] |
 | Standalone UI | `src/ui/*.ts` | 2 | [[IngestionStatusBar]], [[ElectronDialog]] |
 | Catalog | `src/ui/catalog/` | 11 | [[CatalogDashboard]], [[EventsTab]], [[DomainsTab]], [[FlowsTab]] |
 | Hub | `src/ui/hub/` | 11 | [[HubDashboard]], [[ImportsTab]], [[PipelinesTab]] |
 | Pipelines | `src/ui/hub/` | 5 | [[PipelineDetail]], [[PipelineEditForm]], [[PipelineExecution]] |
 | CSV | `src/ui/csv/` | 7 | [[CsvLanding]], [[CsvConfigPage]], [[CsvDataSnapshot]] |
+| User Hub | `src/ui/userHub/` | 4 | [[UserHubDashboard]], [[UserHubInbox]], [[UserHubSessions]], [[UserHubPreferences]] |
 | Export | `src/ui/export/` | 4 | [[ViewSelectPage]], [[ConfigurePage]], [[PreviewPage]] |
 
 ## Use Case Documentation
@@ -723,7 +737,7 @@ Audit of the current frontend architecture against the 12-section coherence chec
 | UI triggers only Commands (Intent) | **Partial** | EventCatalogView: 100% eventbus. CSV/Export/Hub Views: direct service calls for CRUD ([[TD-42 Direct service calls bypass EventBus]]) |
 | Application publishes only Events (Facts) | **Yes** | All domain services emit fact events (`*.created`, `*.loaded`, `*.failed`) |
 | correlation_id / causation_id | **No** | Only file operations use `RequestId`. Domain events lack traceability ([[TD-43 No correlation IDs in domain events]]) |
-| Command/Event naming conventions | **Yes** | Consistent `domain.action` / `domain.fact` hierarchy across 131+ events |
+| Command/Event naming conventions | **Yes** | Consistent `domain.action` / `domain.fact` hierarchy across 155+ events |
 | Payload properties stable | **Yes** | Consistently camelCase (TypeScript convention, not snake_case). Stable across versions |
 
 ### 3) Store Discipline — 90%
@@ -837,5 +851,5 @@ Audit of the current frontend architecture against the 12-section coherence chec
 
 | Checklist Item | Current State | Decision |
 |----------------|--------------|----------|
-| Payload properties snake_case | Consistently camelCase across 131+ events | **Keep camelCase** — TypeScript standard. Changing would break all consumers |
+| Payload properties snake_case | Consistently camelCase across 155+ events | **Keep camelCase** — TypeScript standard. Changing would break all consumers |
 | Formal Store classes with selectors | Orchestrator-owned state with `getState()`/`setState()` | **Keep current pattern** — works well for Obsidian plugin scale. Formal stores add abstraction without clear benefit |

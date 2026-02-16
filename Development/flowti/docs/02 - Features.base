@@ -13,7 +13,51 @@ formulas:
     (business_value - ((discovery_cost + design_cost + implementation_cost + test_cost + maintenance_cost) / 5)).toFixed(2)
   maturity_score_total: |
     maturity_score_strategy + maturity_score_scope + maturity_score_architecture + maturity_score_event_integration + maturity_score_data_model + maturity_score_ui_consistency + maturity_score_validation_testing
+properties:
+  formula.priority_score:
+    displayName: product_value
 views:
+  - type: table
+    name: Features - Roadmap
+    filters:
+      and:
+        - stage != "done"
+    order:
+      - file.name
+      - priority
+      - stage
+      - formula.priority_score
+      - formula.maturity_score_total
+      - business_value
+      - discovery_cost
+      - design_cost
+      - implementation_cost
+      - test_cost
+      - maintenance_cost
+      - maturity
+      - maturity_score_architecture
+      - maturity_score_data_model
+      - maturity_score_event_integration
+      - maturity_score_scope
+      - maturity_score_strategy
+      - maturity_score_ui_consistency
+      - maturity_score_validation_testing
+    sort:
+      - property: priority
+        direction: DESC
+      - property: business_value
+        direction: DESC
+      - property: formula.priority_score
+        direction: DESC
+      - property: formula.maturity_score_total
+        direction: DESC
+      - property: formula.user_stories_count
+        direction: DESC
+    columnSize:
+      file.name: 199
+      note.priority: 102
+      note.stage: 126
+      formula.priority_score: 138
   - type: table
     name: Features - Maturity
     filters:
@@ -44,45 +88,6 @@ views:
       - property: maturity
         direction: ASC
       - property: formula.priority_score
-        direction: DESC
-      - property: formula.user_stories_count
-        direction: DESC
-    columnSize:
-      file.name: 199
-      note.priority: 102
-      note.stage: 126
-      formula.priority_score: 129
-  - type: table
-    name: Features - Roadmap
-    filters:
-      and:
-        - stage != "done"
-    order:
-      - file.name
-      - priority
-      - stage
-      - formula.priority_score
-      - formula.maturity_score_total
-      - business_value
-      - discovery_cost
-      - design_cost
-      - implementation_cost
-      - test_cost
-      - maintenance_cost
-      - maturity
-      - maturity_score_architecture
-      - maturity_score_data_model
-      - maturity_score_event_integration
-      - maturity_score_scope
-      - maturity_score_strategy
-      - maturity_score_ui_consistency
-      - maturity_score_validation_testing
-    sort:
-      - property: business_value
-        direction: DESC
-      - property: formula.priority_score
-        direction: DESC
-      - property: formula.maturity_score_total
         direction: DESC
       - property: formula.user_stories_count
         direction: DESC

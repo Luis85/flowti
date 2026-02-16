@@ -27,6 +27,9 @@ function makeState(): UserHubState {
 		inboxItems: [],
 		selectedInboxItem: null,
 		inboxEnabledSources: [],
+		sessions: [],
+		activeSession: null,
+		selectedSession: null,
 	};
 }
 
@@ -42,6 +45,10 @@ function makeDeps(state: UserHubState): UserHubComponentDeps {
 			getItems: vi.fn(() => []),
 			getUnreadCount: vi.fn(() => 0),
 		} as never,
+		sessionService: {
+			getSessions: vi.fn(() => []),
+			getActiveSession: vi.fn(() => null),
+		} as never,
 		userService: {
 			load: vi.fn(async () => {}),
 			hasUser: vi.fn(() => false),
@@ -51,6 +58,7 @@ function makeDeps(state: UserHubState): UserHubComponentDeps {
 		},
 		scheduleRender: vi.fn(),
 		navigateToEvent: vi.fn(),
+		openNewSessionModal: vi.fn(),
 	};
 }
 

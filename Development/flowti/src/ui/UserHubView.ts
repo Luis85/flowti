@@ -10,12 +10,16 @@ import { setIcon } from "obsidian";
 import type { IUserService } from "../domain/user/types";
 import type { HubRegistry } from "../domain/hub/HubRegistry";
 import type { InboxService } from "../domain/inbox/InboxService";
+import type { SessionService } from "../domain/session/SessionService";
 import type { IEventBus } from "../infrastructure/events/types";
 import { BaseHubView, type TabDef } from "./BaseHubView";
 import { UserHubDashboard } from "./userHub/UserHubDashboard";
 import { UserHubInbox } from "./userHub/UserHubInbox";
+import { UserHubSessions } from "./userHub/UserHubSessions";
 import { UserHubPreferences } from "./userHub/UserHubPreferences";
 import type { UserHubState, UserHubComponentDeps, InboxItem, UserHubTab } from "./userHub/types";
+import { NewSessionModal } from "./modals";
+import { SESSION_TYPES, type SessionType } from "../domain/session/types";
 import { VIEW_TYPE_USER_HUB } from "../domain/hub/types";
 export { VIEW_TYPE_USER_HUB };
 
@@ -23,10 +27,12 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 	private userService: IUserService;
 	private hubRegistry: HubRegistry;
 	private inboxService: InboxService;
+	private sessionService: SessionService;
 
 	// Components
 	private dashboard!: UserHubDashboard;
 	private inbox!: UserHubInbox;
+	private sessions!: UserHubSessions;
 	private preferences!: UserHubPreferences;
 
 	// State
@@ -34,6 +40,9 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 		inboxItems: [],
 		selectedInboxItem: null,
 		inboxEnabledSources: [],
+		sessions: [],
+		activeSession: null,
+		selectedSession: null,
 	};
 
 	constructor(
@@ -42,12 +51,14 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 		userService: IUserService,
 		hubRegistry: HubRegistry,
 		inboxService: InboxService,
+		sessionService: SessionService,
 		initialEnabledSources: string[],
 	) {
 		super(leaf, eventBus);
 		this.userService = userService;
 		this.hubRegistry = hubRegistry;
 		this.inboxService = inboxService;
+		this.sessionService = sessionService;
 		this.state.inboxEnabledSources = initialEnabledSources;
 	}
 
@@ -76,6 +87,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 	getTabDefinitions(): TabDef[] {
 		return [
 			{ id: "inbox", label: "Inbox", icon: "inbox", searchPlaceholder: "Search inbox..." },
+			{ id: "sessions", label: "Sessions", icon: "timer", searchPlaceholder: "Search sessions..." },
 			{ id: "preferences", label: "Preferences", icon: "settings", searchPlaceholder: "" },
 		];
 	}
@@ -99,6 +111,10 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 			this.state.inboxItems = this.inboxService.getItems();
 			this.inbox.renderMaster(this.filterText);
 			this.inbox.renderDetail();
+		} else if (tabId === "sessions") {
+			this.refreshSessionState();
+			this.sessions.renderMaster(this.filterText);
+			this.sessions.renderDetail();
 		} else if (tabId === "preferences") {
 			this.preferences.renderMaster();
 			this.preferences.renderDetail();
@@ -120,11 +136,15 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 		// Initialize inbox state from service
 		this.state.inboxItems = this.inboxService.getItems();
 
+		// Initialize session state from service
+		this.refreshSessionState();
+
 		this.dashboard = new UserHubDashboard(this.dashboardEl, {
 			userService: this.userService,
 			hubRegistry: this.hubRegistry,
 			eventBus: this.eventBus,
 			inboxService: this.inboxService,
+			sessionService: this.sessionService,
 			navigateToTab: (tabId) => this.navigateTo(tabId as UserHubTab),
 			onInboxItemClick: (item: InboxItem) => {
 				this.state.selectedInboxItem = item;
@@ -136,6 +156,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 		});
 
 		this.inbox = new UserHubInbox(this.masterTreeEl, this.detailPanelEl, deps);
+		this.sessions = new UserHubSessions(this.masterTreeEl, this.detailPanelEl, deps);
 		this.preferences = new UserHubPreferences(this.masterTreeEl, this.detailPanelEl, deps);
 
 		// Re-render when inbox changes
@@ -156,6 +177,35 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 					);
 					this.state.selectedInboxItem = fresh ?? null;
 				}
+				this.scheduleRender();
+			}),
+		);
+
+		// Re-render when session state changes
+		const sessionEvents = [
+			"session.created", "session.started", "session.paused", "session.resumed",
+			"session.completed", "session.archived", "session.deleted",
+		] as const;
+		for (const eventType of sessionEvents) {
+			this.addUnsubscribe(
+				this.eventBus.on(eventType, () => {
+					this.refreshSessionState();
+					this.scheduleRender();
+				}),
+			);
+		}
+
+		// Timer tick: direct DOM update, no full re-render
+		this.addUnsubscribe(
+			this.eventBus.on("session.timer.tick", (event) => {
+				this.sessions.updateTimerDisplay(event.payload.remainingMs);
+			}),
+		);
+
+		// Timer completed: full re-render to update status
+		this.addUnsubscribe(
+			this.eventBus.on("session.timer.completed", () => {
+				this.refreshSessionState();
 				this.scheduleRender();
 			}),
 		);
@@ -184,6 +234,18 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 
 	// ── Private ─────────────────────────────────────────────
 
+	private refreshSessionState(): void {
+		this.state.sessions = this.sessionService.getSessions();
+		this.state.activeSession = this.sessionService.getActiveSession();
+		// Keep selection if still present; clear if deleted
+		if (this.state.selectedSession) {
+			const fresh = this.state.sessions.find(
+				(s) => s.id === this.state.selectedSession!.id,
+			);
+			this.state.selectedSession = fresh ?? null;
+		}
+	}
+
 	private buildComponentDeps(): UserHubComponentDeps {
 		return {
 			getState: () => this.state,
@@ -192,10 +254,19 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 			},
 			eventBus: this.eventBus,
 			inboxService: this.inboxService,
+			sessionService: this.sessionService,
 			userService: this.userService,
 			scheduleRender: () => this.scheduleRender(),
 			navigateToEvent: (eventType) => {
 				void this.hubRegistry.openHub("event-catalog", "events", eventType);
+			},
+			openNewSessionModal: () => {
+				new NewSessionModal(this.app, {
+					sessionTypes: SESSION_TYPES,
+					onSubmit: (title, type, durationMinutes) => {
+						void this.eventBus.emit("session.create", { type: type as SessionType, title, durationMinutes });
+					},
+				}).open();
 			},
 		};
 	}

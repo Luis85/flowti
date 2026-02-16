@@ -15,7 +15,6 @@ related_hubs:
 related_features:
   - "[[Hubs PRD]]"
   - "[[PBI-001 User Hub]]"
-
 scores_product_value: 5
 scores_architectural_integrity: 5
 scores_event_discipline: 5
@@ -23,14 +22,12 @@ scores_data_model_integrity: 5
 scores_ux_quality: 5
 scores_performance_scalability: 5
 scores_documentation_discipline: 4
-scores_total: 34
+scores_total:
 scores_max_score: 35
 scores_health_level: excellent
-
 drift_detected: false
 refactor_required: false
 immediate_action_required: false
-
 summary: "Tech Debt Refactoring increment: 6 phases covering layer violation fixes (VIEW_TYPE constants, FlowtiSettingTab circular dep), helpers.ts decomposition (531 LOC -> barrel + 5 modules), onLayoutReady extraction (124 LOC -> 4 private methods), flaky timer test fix, and mock factory consolidation (28+ duplicates -> 3 shared modules). 36 files changed, net -854 LOC. 7 new files (5 helper modules + 2 mock factories). 1,787 tests passing across 79 suites. Zero issues found during review. Build pipeline green. TASM 34/35 -- Excellent."
 ---
 

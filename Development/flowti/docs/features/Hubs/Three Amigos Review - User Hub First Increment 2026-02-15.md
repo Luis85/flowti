@@ -17,7 +17,6 @@ related_features:
   - "[[ADR-024 BaseHubView Shell Extraction]]"
   - "[[PBI-001 User Hub]]"
   - "[[Three Amigos Review - HubRegistry + Navigation 2026-02-15]]"
-
 scores_product_value: 5
 scores_architectural_integrity: 5
 scores_event_discipline: 5
@@ -25,14 +24,12 @@ scores_data_model_integrity: 5
 scores_ux_quality: 4
 scores_performance_scalability: 4
 scores_documentation_discipline: 5
-scores_total: 33
+scores_total:
 scores_max_score: 35
 scores_health_level: excellent
-
 drift_detected: false
 refactor_required: false
 immediate_action_required: false
-
 summary: "User Hub (PBI-001) first increment: 6 new files (648 LOC), 5 modified files (+43 LOC insertions), 4 files patched (tabId deep-linking). Delivers working User Hub with Dashboard (cross-hub summaries via HubRegistry), Inbox (placeholder), and Activity (EventLogView-lite, 200-item cap). Ribbon icon, command palette, UiCommandService wired. 3 code quality issues found and fixed during review. Stat card deep-linking added (tabId on HubStat). 5 test files added (63 tests): domain/hub 100% coverage, ui/userHub 97.9% coverage. 1,725 tests pass across 77 suites. Build pipeline green."
 ---
 

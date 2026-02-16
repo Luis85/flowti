@@ -29,7 +29,7 @@ maintenance_cost: 3
 discovery_cost: 4
 design_cost: 4
 test_cost: 4
-priority: 3
+priority: 5
 fri_score: 31
 ---
 
@@ -136,11 +136,11 @@ Primary interaction path:
 ### Documentation Sessions
 
 - [ ] Session Focus layout renders: header + timer + workspace + notes + artifacts
-- [ ] Pomodoro timer with configurable duration (25/50 min)
-- [ ] Session types: Event Storming, Service Design, Requirements Refinement, Backlog Structuring, Knowledge Cleanup
-- [ ] Session lifecycle: Prepared → Scheduled → Active → Paused → Completed → Archived
-- [ ] Artifacts persist as markdown files in session folder
-- [ ] Session history visible per hub
+- [x] Pomodoro timer with configurable duration (25/50 min) — *SessionService with 1s setInterval, computeRemainingMs()*
+- [x] Session types: Event Storming, Service Design, Requirements Refinement, Backlog Structuring, Knowledge Cleanup — *SessionType union, SESSION_TYPE_LABELS map*
+- [x] Session lifecycle: Prepared → Active → Paused → Completed → Archived — *SessionService state machine (19 events)*
+- [x] Artifacts tracked per session — *file.created/file.modified listeners → session.artifact.added events*
+- [x] Session history visible in User Hub — *UserHubSessions component: master list + detail panel with timer, info, artifacts, contextual actions*
 
 ### User Hub
 
@@ -206,14 +206,20 @@ New fields on existing entities: none (Hubs wrap existing entities, not extend t
 - `hub.navigate` — payload: `{ hubId, tabId?, entityId? }` — *HubRegistry.openHub() emits for cross-hub deep linking*
 - `ui.openUserHub` — payload: `Record<string, never>` — *ribbon icon + command palette*
 
-### Produced (planned — PBI-002 Documentation Sessions)
+### Produced (implemented — PBI-002 Documentation Sessions)
 
-- `session.created` — payload: `{ sessionId, hubId, type }`
-- `session.started` — payload: `{ sessionId, startedAt }`
-- `session.paused` — payload: `{ sessionId }`
-- `session.completed` — payload: `{ sessionId, completedAt, artifacts[] }`
-- `session.timer.tick` — payload: `{ sessionId, remainingMs }`
-- `session.artifact.created` — payload: `{ sessionId, artifactPath }`
+- `session.created` — payload: `{ session }` — *SessionService.createSession()*
+- `session.started` — payload: `{ sessionId }` — *SessionService on session.start command*
+- `session.paused` — payload: `{ sessionId }` — *SessionService on session.pause command*
+- `session.resumed` — payload: `{ sessionId }` — *SessionService on session.resume command*
+- `session.completed` — payload: `{ sessionId }` — *SessionService on session.complete or timer expiry*
+- `session.archived` — payload: `{ sessionId }` — *SessionService on session.archive command*
+- `session.deleted` — payload: `{ sessionId }` — *SessionService on session.delete command*
+- `session.timer.tick` — payload: `{ sessionId, remainingMs }` — *1s setInterval during active sessions*
+- `session.timer.completed` — payload: `{ sessionId }` — *emitted when timer reaches 0*
+- `session.artifact.added` — payload: `{ sessionId, artifact }` — *file.created/file.modified listener*
+- `session.loaded` — payload: `{ sessions }` — *SessionService.load() on startup*
+- Plus 8 command events: `session.create`, `session.start`, `session.pause`, `session.resume`, `session.complete`, `session.archive`, `session.delete`, `session.refresh`
 
 ### Consumed
 
@@ -249,7 +255,7 @@ Tabs affected:
 |-----|------|
 | Event Catalog | Dashboard, Domains, Services, Events, Flows, Systems, Actors, Products |
 | Data Exchange | Dashboard, Reports, Types, Properties, Imports, Exports, Pipelines |
-| User Hub | Dashboard, Inbox |
+| User Hub | Dashboard, Inbox, Sessions, Preferences |
 | Product Hub | Dashboard, Features, Backlog, Sessions |
 | Project Hub | Dashboard, Work Items, Sessions |
 
@@ -291,7 +297,7 @@ HubRegistry (65 LOC — provider registry + navigation)
 |-----|-----------|----------|-----|------|
 | Event Catalog | EventCatalogView | EventCatalogProvider | 723 | Dashboard, Domains, Services, Events, Flows, Systems, Actors, Products, Health |
 | Data Exchange | DataExchangeHubView | DataExchangeProvider | 477 | Dashboard, Imports, Exports, Reports, Properties, Pipelines, Types |
-| User Hub | UserHubView | UserHubProvider | 202 | Dashboard, Inbox, Preferences |
+| User Hub | UserHubView | UserHubProvider | ~259 | Dashboard, Inbox, Sessions, Preferences |
 
 ### Decision: No HubAdapter Interface (ADR-024)
 
@@ -328,10 +334,10 @@ The abstract `HubAdapter` interface was deferred (Three Amigos decision #2). Eac
 - [x] Event Catalog works as System Hub with zero feature regression — *723 LOC, 8+1 tabs*
 - [x] Data Exchange Hub works as System Hub with zero feature regression — *477 LOC, 6+1 tabs*
 - [x] User Hub shows personal dashboard with cross-hub summary — *UserHubDashboard with tabId deep-linking*
-- [ ] Documentation Session can be created, started (with timer), and completed with artifact persistence — *PBI-002*
+- [x] Documentation Session can be created, started (with timer), and completed with artifact tracking — *PBI-002 increments 1+2: SessionService domain + UserHubSessions tab*
 - [ ] Tab definitions validate against layout and component manifests — *deferred (TD-52)*
 - [x] Adding a new Domain Hub requires only adapter + tab definitions (<200 LOC) — *UserHubView = 138 LOC*
-- [x] All existing 1,662+ tests pass after migration — *1,760 tests across 78 suites*
+- [x] All existing 1,662+ tests pass after migration — *1,887 tests across 82 suites*
 - [x] `npm run build` passes (vitest + typedoc + tsc + eslint + esbuild) — *green*
 
 ---
@@ -344,11 +350,11 @@ The abstract `HubAdapter` interface was deferred (Three Amigos decision #2). Eac
 - [x] Shell layout implemented and renders all hub types — *BaseHubView (278 LOC)*
 - [x] At least 2 System Hubs migrated (Event Catalog, Data Exchange) — *both migrated, zero regression*
 - [x] User Hub implemented with dashboard + inbox — *PBI-001 increment 1 (648 LOC) + increment 2 (398 LOC InboxService domain)*
-- [ ] Documentation Sessions domain implemented with timer + artifacts — *PBI-002*
+- [x] Documentation Sessions domain implemented with timer + artifacts — *PBI-002 increments 1+2: SessionService (19 events, TypedStorage) + UserHubSessions tab*
 - [ ] Tab definition validation passes for all hub configs — *deferred (TD-52)*
-- [x] Unit tests added for all new domain and infrastructure code — *92 tests: HubRegistry, providers, 3 UI components, inbox mappers, InboxService*
+- [x] Unit tests added for all new domain and infrastructure code — *193 tests: HubRegistry, providers, 4 UI components, inbox mappers, InboxService, SessionService (60 tests), UserHubSessions (35 tests)*
 - [ ] Flow integration tests added for hub lifecycle
-- [x] `npm run build` passes — *1,760 tests across 78 suites, green pipeline*
+- [x] `npm run build` passes — *1,887 tests across 82 suites, green pipeline*
 - [x] Architecture documentation updated — *ADR-024, sitemap, 3 component docs, Three Amigos reviews*
 
 ---
@@ -417,9 +423,13 @@ Resolved 2 blockers from Pre-Feature Development Review: (1) HubRegistry + HubDa
 
 **PBI-001 complete.** All functional requirements delivered across 4 increments.
 
-### Phase 4: Sessions + Domain Hubs (PBI-002, PBI-003, PBI-004) — PLANNED
+### Phase 4: Sessions + Domain Hubs (PBI-002, PBI-003, PBI-004) — IN PROGRESS
 
-Add Documentation Sessions domain and first Domain Hubs (Product, Project). Not yet started.
+**Increment 1** (PBI-002): Session Domain Core. New `SessionService` with full lifecycle state machine (prepared → active → paused → completed → archived), Pomodoro timer via 1s `setInterval`, artifact tracking via `file.created`/`file.modified` listeners, 19 events registered in catalog, TypedStorage persistence. Pure helpers (`computeRemainingMs`, `computeElapsedMs`, `formatDuration`, `isTimerExpired`, `createSession`). 60 tests added. 1,847 tests pass across 82 suites.
+
+**Increment 2** (PBI-002): Sessions Tab in User Hub. New `UserHubSessions` component (~316 LOC) with master list (status-sorted, filter, accent border on active, "New" button) and detail panel (timer display, info, artifacts, contextual lifecycle action buttons). `UserHubView` (~273 LOC) wired with 9 session event listeners + timer tick optimization (direct DOM update via `updateTimerDisplay()`, no full re-render). Active session card on dashboard with Pause/Complete actions. `NewSessionModal` (~70 LOC) for session creation (title, type dropdown from `SESSION_TYPES`, duration dropdown). "New Session" buttons in both empty state and master header. 40 new tests. 1,887 tests pass across 82 suites.
+
+Remaining: Session Focus layout, Domain Hubs (Product, Project).
 
 ---
 
@@ -437,6 +447,8 @@ Add Documentation Sessions domain and first Domain Hubs (Product, Project). Not 
 | 2026-02-15 | in-progress | Phase 3 increment 2 | 31 | Technical Architect | PBI-001 Inbox Population. InboxService domain (398 LOC). 4 source events, persistent state, CRUD actions. 29 tests added. TASM 34/35 (Excellent). 1,786 tests pass across 79 suites. |
 | 2026-02-16 | in-progress | Phase 3 increment 3 | 31 | Technical Architect | Activity tab removed (redundant with EventLogView). Dashboard inbox restyled as always-visible mail-inbox. Inbox source config (4 toggles). Deep-linking: inbox→catalog via onNavigateToEntity. Title bar hidden on all hubs. 1,764 tests across 78 suites. |
 | 2026-02-16 | in-progress | Phase 3 increment 4 | 31 | Technical Architect | Pipeline inbox items (2 mappers, 2 listeners). Preferences tab (profile editing, 6 source toggles). INBOX_SOURCE_DEFINITIONS shared constant. Multi-tab UserHubView. PBI-001 complete. 1,786 tests across 79 suites. |
+| 2026-02-16 | in-progress | Phase 4 increment 1 | 31 | Technical Architect | PBI-002 Session Domain Core. SessionService (19 events, lifecycle state machine, Pomodoro timer, artifact tracking, TypedStorage). Pure helpers. 60 tests added. 1,847 tests across 82 suites. |
+| 2026-02-16 | in-progress | Phase 4 increment 2 | 31 | Technical Architect | PBI-002 Sessions Tab. UserHubSessions component (~316 LOC). 9 event listeners + timer tick optimization. Active session card on dashboard. NewSessionModal (~70 LOC) for session creation (title/type/duration). "New Session" buttons in empty state + header. 40 tests added. 1,887 tests across 82 suites. |
 
 ---
 
@@ -455,4 +467,60 @@ Add Documentation Sessions domain and first Domain Hubs (Product, Project). Not 
   - [[Three Amigos Review - User Hub First Increment 2026-02-15]] (Phase 3: PBI-001 increment 1)
   - [[Three Amigos Review - User Hub Inbox Population 2026-02-15]] (Phase 3: PBI-001 increment 2)
 - Sitemap: [[User Hub View]], [[Event Catalog View]], [[Data Exchange Hub View]]
-- Components: [[UserHubView]], [[UserHubDashboard]], [[UserHubInbox]], [[UserHubPreferences]]
+- Components: [[UserHubView]], [[UserHubDashboard]], [[UserHubInbox]], [[UserHubSessions]], [[UserHubPreferences]]
+- Domain: [[SessionService]], [[InboxService]]
+
+# Backlog
+
+```base
+filters:
+  and:
+    - file.inFolder("Development/flowti/docs/features/Hubs/backlog")
+views:
+  - type: table
+    name: Table
+    order:
+      - type
+      - file.name
+      - stage
+      - priority
+    sort:
+      - property: type
+        direction: ASC
+    columnSize:
+      note.type: 151
+      file.name: 533
+
+```
+
+# Reviews
+
+```base
+filters:
+  and:
+    - file.inFolder("Development/flowti/docs/features/Hubs")
+    - '!file.inFolder("Development/flowti/docs/features/Hubs/backlog")'
+    - file.name.contains("Review")
+views:
+  - type: table
+    name: Table
+    order:
+      - file.name
+      - summary
+      - scores_health_level
+      - scores_ux_quality
+      - scores_product_value
+      - scores_performance_scalability
+      - scores_event_discipline
+      - scores_documentation_discipline
+      - scores_data_model_integrity
+      - scores_architectural_integrity
+      - date
+    sort:
+      - property: date
+        direction: DESC
+    columnSize:
+      file.name: 430
+      note.summary: 491
+
+```

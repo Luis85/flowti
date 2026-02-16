@@ -585,7 +585,113 @@ These items feed into PBI-001 increment 2 planning (back to Phase 6).
 
 ---
 
-## 12. Appendix
+## 12. Execution Recap — Documentation Sessions (PBI-002, 2026-02-16)
+
+This section traces how **PBI-002 Documentation Sessions** — the second PBI of the Hubs feature — moved through lifecycle phases 7–10 across two increments. Phases 1–6 were shared with the parent Hubs PRD (already completed and documented in Section 11).
+
+### Feature Context
+
+| | |
+|---|---|
+| **PRD** | [[Hubs PRD]] — Domain-Centric Workspaces |
+| **PBI** | [[PBI-002 Documentation Sessions]] — Time-boxed workflows with Pomodoro timer |
+| **Phase** | Phase 4 of the Hubs implementation roadmap |
+| **Prerequisites** | SessionService domain not yet implemented; User Hub already has Inbox + Preferences tabs from PBI-001 |
+
+---
+
+### Phase 7 — Iterative Implementation
+
+PBI-002 was delivered in **two increments**:
+
+#### Increment 1: Session Domain Core
+
+| Step | Action | Files | LOC |
+|------|--------|-------|-----|
+| 1 | Created session type definitions | `src/domain/session/types.ts` | ~70 |
+| 2 | Created session events (19 events: 8 commands + 11 facts) | `src/domain/session/events.ts` | ~90 |
+| 3 | Created SessionService with lifecycle state machine | `src/domain/session/SessionService.ts` | ~280 |
+| 4 | Created pure helpers (formatDuration, computeRemainingMs, etc.) | `src/domain/session/helpers.ts` | ~50 |
+| 5 | Registered 19 events in catalog | `src/infrastructure/events/catalog.ts` | +19 entries |
+| 6 | Composed SessionEventMap into FlowtiEventMap | `src/infrastructure/events/events.ts` | +1 import |
+| 7 | Wired SessionService in main.ts | `src/main.ts` | +8 |
+| 8 | Full `npm run build` | — | green |
+
+**Total**: 4 new files (~490 LOC), 3 modified files (+28 LOC). Build pipeline passed.
+
+#### Increment 2: Sessions Tab + Session Creation UI
+
+| Step | Action | Files | LOC |
+|------|--------|-------|-----|
+| 1 | Extended UserHubTab, UserHubState, UserHubComponentDeps | `src/ui/userHub/types.ts` | +30 |
+| 2 | Created Sessions tab component (master list, detail panel, timer, actions) | `src/ui/userHub/UserHubSessions.ts` | 316 |
+| 3 | Wired sessions tab in UserHubView (9 event listeners, timer tick, refreshSessionState) | `src/ui/UserHubView.ts` | 259→273 |
+| 4 | Added active session card + "Sessions" quick action to dashboard | `src/ui/userHub/UserHubDashboard.ts` | +35 |
+| 5 | Created NewSessionModal (title, type dropdown, duration dropdown) | `src/ui/modals.ts` | +70 |
+| 6 | Wired openNewSessionModal in buildComponentDeps | `src/ui/UserHubView.ts` | +10 |
+| 7 | Passed sessionService to UserHubView constructor | `src/main.ts` | +1 |
+| 8 | Full `npm run build` | — | green |
+
+**Total**: 1 new file (316 LOC), 5 modified files (+146 LOC). Build pipeline passed.
+
+---
+
+### Phase 8 — Review + Quality Assurance
+
+| Step | Action | Finding | Resolution |
+|------|--------|---------|------------|
+| 1 | Code review: SessionService lifecycle | Clean — state machine transitions correct, timer uses Date math (survives window minimize) | N/A |
+| 2 | Code review: UserHubSessions | Timer optimization pattern correct (direct DOM update, no scheduleRender) | N/A |
+| 3 | TSC type error identified | `NewSessionModal.onSubmit` passes `type` as `string`, but `session.create` expects `SessionType` | Fixed with `type as SessionType` cast (safe: dropdown only offers valid `SESSION_TYPES`) |
+| 4 | Test coverage: Increment 1 | SessionService.test.ts created | 60 tests: lifecycle, timer, artifacts, persistence, edge cases |
+| 5 | Test coverage: Increment 2 | UserHubSessions.test.ts created + UserHubDashboard.test.ts updated | 35 session tests (master, detail, actions, timer display, new session buttons) + 5 dashboard tests |
+| 6 | Test coverage: Mock updates | 3 test files (Inbox, Preferences, Dashboard) missing `openNewSessionModal` mock | Updated all 3 with `openNewSessionModal: vi.fn()` |
+| 7 | Full `npm run build` | — | 1,887 tests across 82 suites, green pipeline |
+
+**Artifacts**:
+- `tests/domain/session/SessionService.test.ts` (60 tests)
+- `tests/ui/userHub/UserHubSessions.test.ts` (35 tests)
+- 4 modified test files
+
+---
+
+### Phase 9 — Documentation + Publication
+
+| Step | Action | Artifact |
+|------|--------|----------|
+| 1 | Updated Frontend Architecture.md | NewSessionModal in modals table, UserHubView LOC 259→273, UserHubSessions description, test counts 1,887/82 |
+| 2 | Updated component doc: UserHubSessions.md | "New" button in header, "New Session" button in empty state, openNewSessionModal dep |
+| 3 | Updated component doc: UserHubView.md | NewSessionModal + SESSION_TYPES dependencies, session.create event emission |
+| 4 | Created component doc: NewSessionModal.md | 3-field modal: title, type, duration; wired via openNewSessionModal callback |
+| 5 | Updated sitemap: User Hub View.md | "Create a new documentation session" use case added |
+| 6 | Updated Hubs PRD | Increment 2 description expanded (NewSessionModal, LOC counts, test counts), stage history entry updated |
+| 7 | Updated PBI-002 backlog item | Increment 2 file list updated with modals.ts, types.ts changes, test counts |
+
+---
+
+### Phase 10 — Post-Release Feedback Loop
+
+**Improvement backlog captured during review:**
+- **Open**: `session_focus` layout with dedicated workspace regions (PBI-002 remaining work — header, timer, workspace, notes, artifacts regions)
+- **Open**: Session artifacts persist as separate markdown files (currently tracked in-memory)
+- **Open**: Session notes side panel for in-session note-taking
+- **Open**: Session creation from Dashboard quick action (currently only from Sessions tab)
+
+These items feed into PBI-002's remaining increment (Session Focus layout) and potential future enhancements.
+
+---
+
+### Key Learnings
+
+1. **Domain-first, UI-second**: Building the SessionService domain in increment 1 (with 60 tests) before any UI in increment 2 meant the UI layer was pure presentation — no business logic to debug. The service contract was stable by the time components consumed it.
+2. **Timer optimization matters**: Using direct DOM updates for 1-second timer ticks (`updateTimerDisplay()`) instead of full re-renders prevents UI jank. This pattern should be applied to any future real-time display updates.
+3. **Deps callback pattern for modals**: Rather than having components import modal classes directly, the `openNewSessionModal()` callback in `UserHubComponentDeps` keeps components testable — tests mock it as `vi.fn()` with zero modal dependencies.
+4. **Type safety at boundaries**: The TSC error with `SessionType` cast at the modal→event boundary was a valid catch. Modal callbacks return `string` (generic dropdown), but domain events expect typed unions. The `as SessionType` cast is safe because the dropdown is populated from `SESSION_TYPES`, but this boundary deserves attention in any future modal → event wiring.
+5. **Test mock maintenance**: Adding a new field to `UserHubComponentDeps` required updating 3 test files' mock factories. This is a known cost of the deps injection pattern — worth it for testability, but mock factories should stay in sync.
+
+---
+
+## 13. Appendix
 
 - [[Testplan and Teststrategy]]
 - [[Three Amigos Session Template]]

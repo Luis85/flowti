@@ -103,6 +103,83 @@ export class InputModal extends Modal {
 }
 
 /**
+ * A modal for creating a new documentation session.
+ * Collects title, type, and duration then calls onSubmit.
+ */
+export class NewSessionModal extends Modal {
+	private sessionTypes: ReadonlyArray<{ type: string; label: string; description: string }>;
+	private onSubmit: (title: string, type: string, durationMinutes: number) => void;
+
+	constructor(app: App, options: {
+		sessionTypes: ReadonlyArray<{ type: string; label: string; description: string }>;
+		onSubmit: (title: string, type: string, durationMinutes: number) => void;
+	}) {
+		super(app);
+		this.sessionTypes = options.sessionTypes;
+		this.onSubmit = options.onSubmit;
+	}
+
+	onOpen(): void {
+		const { contentEl } = this;
+		contentEl.createEl("h3", { text: "New Session" });
+
+		let title = "";
+		let type = this.sessionTypes[0]?.type ?? "event-storming";
+		let duration = 25;
+
+		new Setting(contentEl)
+			.setName("Title")
+			.setDesc("A short name for this session")
+			.addText((text) =>
+				text.setPlaceholder("e.g. Sprint 12 Event Storming")
+					.onChange((value) => { title = value; })
+			);
+
+		new Setting(contentEl)
+			.setName("Type")
+			.setDesc("The kind of documentation activity")
+			.addDropdown((dropdown) => {
+				for (const st of this.sessionTypes) {
+					dropdown.addOption(st.type, st.label);
+				}
+				dropdown.setValue(type);
+				dropdown.onChange((value) => { type = value; });
+			});
+
+		new Setting(contentEl)
+			.setName("Duration")
+			.setDesc("Timer length in minutes")
+			.addDropdown((dropdown) => {
+				dropdown.addOption("25", "25 min (Pomodoro)");
+				dropdown.addOption("50", "50 min (Deep Work)");
+				dropdown.addOption("15", "15 min (Quick)");
+				dropdown.addOption("45", "45 min");
+				dropdown.addOption("60", "60 min");
+				dropdown.setValue("25");
+				dropdown.onChange((value) => { duration = parseInt(value, 10); });
+			});
+
+		new Setting(contentEl)
+			.addButton((btn) =>
+				btn.setButtonText("Cancel").onClick(() => this.close())
+			)
+			.addButton((btn) =>
+				btn.setButtonText("Create").setCta().onClick(() => {
+					const trimmed = title.trim();
+					if (trimmed) {
+						this.onSubmit(trimmed, type, duration);
+						this.close();
+					}
+				})
+			);
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+	}
+}
+
+/**
  * A fuzzy-suggest modal for choosing between saved configs (or starting fresh).
  */
 export interface ConfigChooserItem {
