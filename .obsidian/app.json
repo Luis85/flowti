@@ -10,5 +10,6 @@
   "attachmentFolderPath": "03 - Resources/Attachments",
   "showInlineTitle": false,
   "defaultViewMode": "preview",
-  "tabSize": 2
+  "tabSize": 2,
+  "propertiesInDocument": "hidden"
 }
