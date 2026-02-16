@@ -2,7 +2,7 @@
 type: Component
 domain: Flowti
 stage: done
-description: "Master-detail sessions tab with status-sorted list, live timer, artifacts, and contextual lifecycle actions"
+description: "Master-detail sessions tab with status-sorted list, live timer, artifacts, focus file, time breakdown, timeline, and contextual lifecycle actions"
 source: "[[Development/flowti/src/ui/userHub/UserHubSessions.ts|UserHubSessions.ts]]"
 parent: "[[UserHubView]]"
 tags:
@@ -22,10 +22,12 @@ Sessions are managed by the `SessionService` domain. Each session has a lifecycl
 
 | Dependency | Type | Purpose |
 |------------|------|---------|
-| `UserHubComponentDeps` | interface | Provides `getState()`, `setState()`, `eventBus`, `scheduleRender()`, `openNewSessionModal()` |
+| `UserHubComponentDeps` | interface | Provides `getState()`, `setState()`, `eventBus`, `scheduleRender()`, `openNewSessionModal()`, `openFile()` |
 | `formatDuration`, `computeRemainingMs`, `computeElapsedMs` | functions | From `session/helpers` — timer display and info section |
+| `computeTimelineSummary`, `formatDurationHuman` | functions | From `session/helpers` — time breakdown stats |
+| `SessionTimelineEntry` | type | From `session/types` — timeline entry shape for rendering |
 | `SESSION_STATUS_LABELS`, `SESSION_TYPE_LABELS` | maps | Human-readable labels for status and type badges |
-| `setIcon` | obsidian | Renders status icons (circle, play, pause, check-circle, archive) and artifact icons |
+| `setIcon` | obsidian | Renders status icons (circle, play, pause, check-circle, archive), artifact icons, and timeline icons |
 
 ## State
 
@@ -49,15 +51,18 @@ Sessions are managed by the `SessionService` domain. Each session has a lifecycl
 
 **Detail panel (session selected):**
 - Header: title (h3), status badge, type badge
-- Timer section (active/paused only): "Time Remaining" or "Paused" label + large monospace timer display with `.ft-session-timer` class
-- Info section: Created date, Duration (min), Elapsed time, Completed date (if applicable)
-- Artifacts section (when > 0): list of up to 20 artifacts with file-plus/file-edit icon, filename, action badge; overflow shows "+ N more"
-- Actions section: contextual buttons per status:
-  - Prepared: Start, Delete
+- Actions section: contextual buttons per status (placed directly under header for discoverability):
+  - Prepared: Start (hidden when another session is active), Delete
   - Active: Pause, Complete
   - Paused: Resume, Complete
-  - Completed: Archive, Delete
-  - Archived: Delete
+  - Completed: Rerun, Save as Template, Archive, Delete
+  - Archived: Rerun, Save as Template, Delete
+- Timer section (active/paused only): "Time Remaining" or "Paused" label + large monospace timer display with `.ft-session-timer` class
+- Focus File section (when set): clickable file link that opens the file via `deps.openFile()`; hidden when `focusFile` is null
+- Time Breakdown section (when `timeline.length > 0`): stat pills in a flex row showing Wall Clock, Active, Paused, and Pauses count (count only shown when > 0). Uses `computeTimelineSummary()` + `formatDurationHuman()` from helpers
+- Timeline section (when `timeline.length > 0`): chronological list of lifecycle actions (Started, Paused, Resumed, Completed) with colored dot, icon (play/pause-circle/skip-forward/check-circle), action label, and HH:MM:SS timestamp (right-aligned)
+- Info section: Created date, Duration (min), Elapsed time, Completed date (if applicable)
+- Artifacts section (when > 0): list of up to 20 artifacts with file-plus/file-edit icon, filename, action badge; overflow shows "+ N more"
 
 **Empty states:**
 - Master: timer icon (48px), "No sessions yet", descriptive subtext, "New Session" button (opens `NewSessionModal`)
@@ -84,4 +89,4 @@ Sessions are managed by the `SessionService` domain. Each session has a lifecycl
 - Parent: [[UserHubView]]
 - Siblings: [[UserHubDashboard]], [[UserHubInbox]], [[UserHubPreferences]]
 - Domain: `SessionService` (`src/domain/session/SessionService.ts`)
-- Helpers: `src/domain/session/helpers.ts` (formatDuration, computeRemainingMs, computeElapsedMs)
+- Helpers: `src/domain/session/helpers.ts` (formatDuration, computeRemainingMs, computeElapsedMs, computeTimelineSummary, formatDurationHuman)

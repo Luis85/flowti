@@ -23,6 +23,7 @@ function makeSession(overrides: Partial<Session> = {}): Session {
 		artifacts: [],
 		notes: "",
 		focusFile: null,
+		timeline: [],
 		...overrides,
 	};
 }
@@ -1170,6 +1171,117 @@ describe("SessionService", () => {
 
 			expect(service.getSavedTemplates()).toHaveLength(1);
 			expect(service.getSavedTemplates()[0].name).toBe("Existing");
+		});
+	});
+
+	// ── Timeline Recording ──────────────────────────────────
+
+	describe("timeline recording", () => {
+		let sessionId: string;
+
+		beforeEach(async () => {
+			await service.load();
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await eventBus.emit("session.create", {
+				type: "event-storming",
+				title: "Timeline Test",
+				durationMinutes: 25,
+			});
+			sessionId = handler.mock.calls[0][0].payload.session.id;
+		});
+
+		it("should create a session with empty timeline", () => {
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			expect(session!.timeline).toEqual([]);
+		});
+
+		it("should record started entry on start", async () => {
+			await eventBus.emit("session.start", { sessionId });
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			expect(session!.timeline).toHaveLength(1);
+			expect(session!.timeline[0].action).toBe("started");
+			expect(session!.timeline[0].timestamp).toBe(session!.startedAt);
+		});
+
+		it("should record paused entry on pause", async () => {
+			await eventBus.emit("session.start", { sessionId });
+			vi.advanceTimersByTime(5 * 60_000);
+			await eventBus.emit("session.pause", { sessionId });
+
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			expect(session!.timeline).toHaveLength(2);
+			expect(session!.timeline[1].action).toBe("paused");
+			expect(session!.timeline[1].timestamp).toBe(session!.pausedAt);
+		});
+
+		it("should record resumed entry on resume", async () => {
+			await eventBus.emit("session.start", { sessionId });
+			vi.advanceTimersByTime(5 * 60_000);
+			await eventBus.emit("session.pause", { sessionId });
+			await eventBus.emit("session.resume", { sessionId });
+
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			expect(session!.timeline).toHaveLength(3);
+			expect(session!.timeline[2].action).toBe("resumed");
+			expect(session!.timeline[2].timestamp).toBe(session!.startedAt);
+		});
+
+		it("should record completed entry on complete", async () => {
+			await eventBus.emit("session.start", { sessionId });
+			await eventBus.emit("session.complete", { sessionId });
+
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			expect(session!.timeline).toHaveLength(2);
+			expect(session!.timeline[1].action).toBe("completed");
+			expect(session!.timeline[1].timestamp).toBe(session!.completedAt);
+		});
+
+		it("should record full lifecycle in order", async () => {
+			await eventBus.emit("session.start", { sessionId });
+			vi.advanceTimersByTime(5 * 60_000);
+			await eventBus.emit("session.pause", { sessionId });
+			await eventBus.emit("session.resume", { sessionId });
+			vi.advanceTimersByTime(3 * 60_000);
+			await eventBus.emit("session.complete", { sessionId });
+
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			expect(session!.timeline).toHaveLength(4);
+			expect(session!.timeline.map((e) => e.action)).toEqual([
+				"started", "paused", "resumed", "completed",
+			]);
+		});
+
+		it("should accumulate multiple pause/resume cycles", async () => {
+			await eventBus.emit("session.start", { sessionId });
+			vi.advanceTimersByTime(3 * 60_000);
+			await eventBus.emit("session.pause", { sessionId });
+			await eventBus.emit("session.resume", { sessionId });
+			vi.advanceTimersByTime(3 * 60_000);
+			await eventBus.emit("session.pause", { sessionId });
+			await eventBus.emit("session.resume", { sessionId });
+			vi.advanceTimersByTime(3 * 60_000);
+			await eventBus.emit("session.complete", { sessionId });
+
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			expect(session!.timeline).toHaveLength(6); // started, paused, resumed, paused, resumed, completed
+			expect(session!.timeline.filter((e) => e.action === "paused")).toHaveLength(2);
+		});
+
+		it("should initialize timeline for legacy sessions on load", async () => {
+			// Save a session without timeline field
+			const legacySession = makeSession({ id: "legacy-1" }) as unknown as Record<string, unknown>;
+			delete legacySession.timeline;
+			await storage.save({
+				sessions: [legacySession as unknown as Session],
+				activeSessionId: null,
+				savedTemplates: [],
+			});
+
+			const freshService = new SessionService({ storage, eventBus });
+			await freshService.load();
+			const loaded = freshService.getSessions().find((s) => s.id === "legacy-1");
+			expect(loaded!.timeline).toEqual([]);
 		});
 	});
 

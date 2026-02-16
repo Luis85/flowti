@@ -7,8 +7,8 @@
  */
 
 import { setIcon } from "obsidian";
-import { formatDuration, computeRemainingMs, computeElapsedMs } from "../../domain/session/helpers";
-import type { Session, SessionArtifact, SessionTemplate } from "../../domain/session/types";
+import { formatDuration, computeRemainingMs, computeElapsedMs, computeTimelineSummary, formatDurationHuman } from "../../domain/session/helpers";
+import type { Session, SessionArtifact, SessionTemplate, SessionTimelineEntry } from "../../domain/session/types";
 import {
 	SESSION_STATUS_LABELS,
 	SESSION_TYPE_LABELS,
@@ -208,6 +208,11 @@ export class UserHubSessions {
 			timerDisplay.setText(formatDuration(remaining));
 		}
 
+		// Time Breakdown section (for sessions with timeline data)
+		if (session.timeline && session.timeline.length > 0) {
+			this.renderTimeBreakdown(session);
+		}
+
 		// Info section
 		const info = this.detailEl.createDiv({ cls: "ft-detail-section" });
 		info.createEl("h4", { text: "Info", cls: "ft-heading ft-heading-sm" });
@@ -242,6 +247,89 @@ export class UserHubSessions {
 		// Artifacts section
 		if (session.artifacts.length > 0) {
 			this.renderArtifacts(session.artifacts);
+		}
+
+		// Timeline section (last — full audit trail)
+		if (session.timeline && session.timeline.length > 0) {
+			this.renderTimeline(session.timeline);
+		}
+	}
+
+	private renderTimeBreakdown(session: Session): void {
+		const summary = computeTimelineSummary(session);
+		const section = this.detailEl.createDiv({ cls: "ft-detail-section ft-time-breakdown" });
+		section.createEl("h4", { text: "Time Breakdown", cls: "ft-heading ft-heading-sm" });
+
+		const grid = section.createDiv({ cls: "ft-flex ft-gap-2" });
+		grid.style.flexWrap = "wrap";
+
+		this.renderStatPill(grid, "Wall Clock", formatDurationHuman(summary.wallClockMs));
+		this.renderStatPill(grid, "Active", formatDurationHuman(summary.activeTimeMs));
+		this.renderStatPill(grid, "Paused", formatDurationHuman(summary.totalPauseMs));
+		if (summary.pauseCount > 0) {
+			this.renderStatPill(grid, "Pauses", String(summary.pauseCount));
+		}
+	}
+
+	private renderStatPill(container: HTMLElement, label: string, value: string): void {
+		const pill = container.createDiv({ cls: "ft-badge ft-badge-muted" });
+		pill.style.padding = "0.25rem 0.5rem";
+		pill.style.display = "flex";
+		pill.style.flexDirection = "column";
+		pill.style.alignItems = "center";
+		pill.createDiv({ text: value, cls: "ft-text-sm" }).style.fontWeight = "600";
+		pill.createDiv({ text: label, cls: "ft-text-sm ft-text-muted" });
+	}
+
+	private renderTimeline(timeline: SessionTimelineEntry[]): void {
+		const section = this.detailEl.createDiv({ cls: "ft-detail-section ft-session-timeline" });
+		section.createEl("h4", {
+			text: `Timeline (${timeline.length})`,
+			cls: "ft-heading ft-heading-sm",
+		});
+
+		const TIMELINE_ICONS: Record<string, string> = {
+			started: "play",
+			paused: "pause",
+			resumed: "play",
+			completed: "check-circle",
+		};
+
+		const TIMELINE_LABELS: Record<string, string> = {
+			started: "Started",
+			paused: "Paused",
+			resumed: "Resumed",
+			completed: "Completed",
+		};
+
+		for (const entry of timeline) {
+			const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-text-sm" });
+			row.style.padding = "0.2rem 0";
+
+			const dot = row.createDiv();
+			dot.style.width = "8px";
+			dot.style.height = "8px";
+			dot.style.borderRadius = "50%";
+			dot.style.backgroundColor = entry.action === "completed"
+				? "var(--interactive-accent)"
+				: "var(--text-muted)";
+			dot.style.flexShrink = "0";
+
+			const icon = row.createSpan();
+			setIcon(icon, TIMELINE_ICONS[entry.action] ?? "circle");
+			icon.style.opacity = "0.6";
+
+			row.createSpan({ text: TIMELINE_LABELS[entry.action] ?? entry.action });
+
+			const time = row.createSpan({
+				text: new Date(entry.timestamp).toLocaleTimeString(undefined, {
+					hour: "2-digit",
+					minute: "2-digit",
+					second: "2-digit",
+				}),
+				cls: "ft-text-muted",
+			});
+			time.style.marginLeft = "auto";
 		}
 	}
 
@@ -361,10 +449,14 @@ export class UserHubSessions {
 		const section = this.detailEl.createDiv({ cls: "ft-detail-section" });
 		section.style.padding = "1rem";
 		section.createEl("h4", { text: "Saved Templates", cls: "ft-heading ft-heading-sm" });
+		section.createDiv({
+			text: "Click a template to start a new session",
+			cls: "ft-text-sm ft-text-muted",
+		}).style.marginBottom = "0.5rem";
 
 		for (const tmpl of templates) {
-			const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-text-sm" });
-			row.style.padding = "0.35rem 0";
+			const row = section.createDiv({ cls: "ft-catalog-row ft-cursor-pointer ft-flex ft-items-center ft-gap-2 ft-text-sm" });
+			row.style.padding = "0.35rem 0.5rem";
 			row.style.borderBottom = "1px solid var(--background-modifier-border)";
 
 			const icon = row.createSpan();
@@ -388,8 +480,15 @@ export class UserHubSessions {
 
 			const deleteBtn = row.createEl("button", { cls: "ft-btn ft-btn-sm" });
 			setIcon(deleteBtn, "trash-2");
-			deleteBtn.addEventListener("click", () => {
+			deleteBtn.addEventListener("click", (e) => {
+				e.stopPropagation();
 				void this.deps.sessionService.deleteTemplate(tmpl.id).then(() => {
+					this.deps.scheduleRender();
+				});
+			});
+
+			row.addEventListener("click", () => {
+				void this.deps.sessionService.createFromTemplate(tmpl.id).then(() => {
 					this.deps.scheduleRender();
 				});
 			});

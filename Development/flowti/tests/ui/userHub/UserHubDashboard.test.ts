@@ -75,6 +75,7 @@ function makeActiveSession(overrides?: Partial<Session>): Session {
 		artifacts: [],
 		notes: "",
 		focusFile: null,
+		timeline: [],
 		...overrides,
 	};
 }

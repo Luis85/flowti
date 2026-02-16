@@ -48,10 +48,19 @@ Click the "New" button in the Sessions tab header (or the "New Session" button i
 ### Browse and manage documentation sessions
 Switch to the Sessions tab to see all documentation sessions. Active sessions appear first with an accent border. Click a session to view its detail panel:
 - **Header**: title, status badge, type badge
+- **Actions**: contextual buttons directly under header — Prepared: Start/Delete, Active: Pause/Complete, Paused: Resume/Complete, Completed: Rerun/Save as Template/Archive/Delete, Archived: Rerun/Save as Template/Delete
 - **Timer** (active/paused): large monospace countdown timer with "Time Remaining" or "Paused" label
+- **Focus File** (when set): clickable link to the file being worked on; opens the file in the editor
+- **Time Breakdown** (when timeline has entries): stat pills showing Wall Clock, Active time, Paused time, and Pause count
+- **Timeline** (when timeline has entries): chronological log of all lifecycle actions (Started, Paused, Resumed, Completed) with icons and timestamps
 - **Info**: created date, configured duration, elapsed time, completed date
 - **Artifacts**: list of files created/modified during the session (filename + action badge)
-- **Actions**: contextual buttons per status — Prepared: Start/Delete, Active: Pause/Complete, Paused: Resume/Complete, Completed: Archive/Delete, Archived: Delete
+
+### View session time breakdown and timeline
+After starting, pausing, and completing a session, the detail panel shows a Time Breakdown section with Wall Clock (total elapsed), Active (working time), Paused (total pause), and Pauses (count). Below it, a Timeline section lists every lifecycle action in chronological order with timestamps, providing a full audit trail of the session.
+
+### Set a focus file for a session
+When creating a new session via `NewSessionModal`, optionally set a Focus File by typing a path or clicking the "Browse" button (folder-open icon) to open a vault file picker. The focus file appears as a clickable link in the session detail panel.
 
 ### Configure inbox notification sources
 Open the Preferences tab to control which events create inbox notifications. Toggle each of the 6 sources individually (Watcher matches, Import completed, Import errors, Export completed, Pipeline completed, Pipeline errors).
@@ -82,3 +91,6 @@ The User Hub's provider (`UserHubProvider`) exposes the current user name and in
 - `refreshSessionState()` pulls fresh data from `SessionService.getSessions()` and `.getActiveSession()`, preserving selection if the session still exists
 - MAX_INBOX_ITEMS = 500 with oldest-first eviction
 - MAX_SESSIONS = 200 with oldest-first eviction
+- Session timeline: `SessionTimelineEntry[]` records every lifecycle action (started, paused, resumed, completed) with ISO timestamps
+- Time breakdown: `computeTimelineSummary()` returns wall clock, active time, total pause, pause count, and individual `PauseSegment[]`
+- Focus file: optional `focusFile` field on Session; vault file picker via `VaultFilePickerModal` (FuzzySuggestModal)

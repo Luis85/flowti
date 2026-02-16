@@ -25,6 +25,7 @@ function makeSession(overrides?: Partial<Session>): Session {
 		artifacts: [],
 		notes: "",
 		focusFile: null,
+		timeline: [],
 		...overrides,
 	};
 }
@@ -59,6 +60,7 @@ function makeDeps(state: UserHubState, eventBus?: IEventBus): UserHubComponentDe
 			getSavedTemplates: vi.fn(() => []),
 			rerunSession: vi.fn(async () => makeSession({ id: "rerun-1", title: "Rerun Session", status: "prepared" })),
 			deleteTemplate: vi.fn(async () => {}),
+			createFromTemplate: vi.fn(async () => {}),
 			saveTemplateFromSession: vi.fn(async () => null),
 		} as never,
 		userService: {
@@ -733,6 +735,52 @@ describe("UserHubSessions", () => {
 			const buttons = Array.from(detailEl.querySelectorAll("button"));
 			expect(buttons).toHaveLength(1); // delete button
 		});
+
+		it("should create session from template when template row is clicked", () => {
+			const state = makeState();
+			const deps = makeDeps(state);
+			(deps.sessionService.getSavedTemplates as ReturnType<typeof vi.fn>).mockReturnValue([
+				{ id: "t1", name: "Sprint Storming", type: "event-storming", durationMinutes: 25, createdAt: Date.now() },
+			]);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			const rows = Array.from(detailEl.querySelectorAll(".ft-catalog-row"));
+			expect(rows).toHaveLength(1);
+			(rows[0] as HTMLElement).click();
+
+			expect(deps.sessionService.createFromTemplate).toHaveBeenCalledWith("t1");
+		});
+
+		it("should show hint text about clicking templates", () => {
+			const state = makeState();
+			const deps = makeDeps(state);
+			(deps.sessionService.getSavedTemplates as ReturnType<typeof vi.fn>).mockReturnValue([
+				{ id: "t1", name: "T1", type: "event-storming", durationMinutes: 25, createdAt: Date.now() },
+			]);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			expect(detailEl.textContent).toContain("Click a template to start a new session");
+		});
+
+		it("should not trigger createFromTemplate when delete button is clicked", () => {
+			const state = makeState();
+			const deps = makeDeps(state);
+			(deps.sessionService.getSavedTemplates as ReturnType<typeof vi.fn>).mockReturnValue([
+				{ id: "t1", name: "T1", type: "event-storming", durationMinutes: 25, createdAt: Date.now() },
+			]);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			const deleteBtn = detailEl.querySelector("button") as HTMLElement;
+			deleteBtn.click();
+
+			expect(deps.sessionService.createFromTemplate).not.toHaveBeenCalled();
+		});
 	});
 
 	// ── updateTimerDisplay ──────────────────────────────────
@@ -807,6 +855,137 @@ describe("UserHubSessions", () => {
 			link.click();
 
 			expect(deps.openFile).toHaveBeenCalledWith("docs/services.md");
+		});
+	});
+
+	// ── Timeline & Time Breakdown ─────────────────────────────
+
+	describe("timeline and time breakdown display", () => {
+		it("should not show Time Breakdown when timeline is empty", () => {
+			const session = makeSession({ status: "completed", timeline: [] });
+			const state = makeState([session], session);
+			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
+
+			comp.renderDetail();
+
+			expect(detailEl.querySelector(".ft-time-breakdown")).toBeNull();
+		});
+
+		it("should show Time Breakdown when timeline has entries", () => {
+			const session = makeSession({
+				status: "completed",
+				completedAt: "2026-02-16T10:30:00.000Z",
+				timeline: [
+					{ action: "started", timestamp: "2026-02-16T10:00:00.000Z" },
+					{ action: "paused", timestamp: "2026-02-16T10:10:00.000Z" },
+					{ action: "resumed", timestamp: "2026-02-16T10:15:00.000Z" },
+					{ action: "completed", timestamp: "2026-02-16T10:30:00.000Z" },
+				],
+			});
+			const state = makeState([session], session);
+			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
+
+			comp.renderDetail();
+
+			const section = detailEl.querySelector(".ft-time-breakdown");
+			expect(section).toBeTruthy();
+			expect(section!.textContent).toContain("Wall Clock");
+			expect(section!.textContent).toContain("Active");
+			expect(section!.textContent).toContain("Paused");
+			expect(section!.textContent).toContain("Pauses");
+		});
+
+		it("should not show Pauses count when zero pauses", () => {
+			const session = makeSession({
+				status: "completed",
+				completedAt: "2026-02-16T10:25:00.000Z",
+				timeline: [
+					{ action: "started", timestamp: "2026-02-16T10:00:00.000Z" },
+					{ action: "completed", timestamp: "2026-02-16T10:25:00.000Z" },
+				],
+			});
+			const state = makeState([session], session);
+			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
+
+			comp.renderDetail();
+
+			const section = detailEl.querySelector(".ft-time-breakdown");
+			expect(section).toBeTruthy();
+			expect(section!.textContent).not.toContain("Pauses");
+		});
+
+		it("should not show Timeline section when timeline is empty", () => {
+			const session = makeSession({ status: "completed", timeline: [] });
+			const state = makeState([session], session);
+			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
+
+			comp.renderDetail();
+
+			expect(detailEl.querySelector(".ft-session-timeline")).toBeNull();
+		});
+
+		it("should show Timeline section with correct entry count", () => {
+			const session = makeSession({
+				status: "completed",
+				completedAt: "2026-02-16T10:30:00.000Z",
+				timeline: [
+					{ action: "started", timestamp: "2026-02-16T10:00:00.000Z" },
+					{ action: "paused", timestamp: "2026-02-16T10:10:00.000Z" },
+					{ action: "resumed", timestamp: "2026-02-16T10:15:00.000Z" },
+					{ action: "completed", timestamp: "2026-02-16T10:30:00.000Z" },
+				],
+			});
+			const state = makeState([session], session);
+			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
+
+			comp.renderDetail();
+
+			const section = detailEl.querySelector(".ft-session-timeline");
+			expect(section).toBeTruthy();
+			expect(section!.textContent).toContain("Timeline (4)");
+		});
+
+		it("should render timeline after artifacts (last section)", () => {
+			const session = makeSession({
+				status: "completed",
+				completedAt: "2026-02-16T10:30:00.000Z",
+				artifacts: [{ path: "docs/test.md", action: "created", timestamp: "2026-02-16T10:05:00.000Z" }],
+				timeline: [
+					{ action: "started", timestamp: "2026-02-16T10:00:00.000Z" },
+					{ action: "completed", timestamp: "2026-02-16T10:30:00.000Z" },
+				],
+			});
+			const state = makeState([session], session);
+			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
+
+			comp.renderDetail();
+
+			const sections = Array.from(detailEl.querySelectorAll(".ft-detail-section"));
+			const timelineIdx = sections.findIndex((s) => s.classList.contains("ft-session-timeline"));
+			expect(timelineIdx).toBe(sections.length - 1);
+		});
+
+		it("should render timeline action labels", () => {
+			const session = makeSession({
+				status: "completed",
+				completedAt: "2026-02-16T10:25:00.000Z",
+				timeline: [
+					{ action: "started", timestamp: "2026-02-16T10:00:00.000Z" },
+					{ action: "paused", timestamp: "2026-02-16T10:10:00.000Z" },
+					{ action: "resumed", timestamp: "2026-02-16T10:12:00.000Z" },
+					{ action: "completed", timestamp: "2026-02-16T10:25:00.000Z" },
+				],
+			});
+			const state = makeState([session], session);
+			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
+
+			comp.renderDetail();
+
+			const section = detailEl.querySelector(".ft-session-timeline");
+			expect(section!.textContent).toContain("Started");
+			expect(section!.textContent).toContain("Paused");
+			expect(section!.textContent).toContain("Resumed");
+			expect(section!.textContent).toContain("Completed");
 		});
 	});
 });

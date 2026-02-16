@@ -82,11 +82,13 @@ As a domain architect, I want time-boxed documentation sessions with a Pomodoro 
 - [x] Session history shows completed sessions with artifact count — *UserHubSessions master list + detail panel*
 - [ ] `session_focus` layout renders all 5 regions — *remaining work*
 - [x] Session lifecycle events emitted on EventBus — *19 events registered in catalog*
-- [x] `npm run build` passes — *1,938 tests across 82 suites*
-- [x] Unit tests for SessionService lifecycle, timer, templates, and rerun — *90 tests in SessionService.test.ts*
+- [x] `npm run build` passes — *1,984 tests across 84 suites*
+- [x] Unit tests for SessionService lifecycle, timer, templates, rerun, and timeline — *99 tests in SessionService.test.ts*
 - [x] Rerun completed/archived sessions without re-entering configuration — *Increment 3: rerunSession() + auto-select*
 - [x] Save sessions as reusable templates — *Increment 3: SaveTemplateModal + template CRUD + template list in detail panel*
 - [x] Dashboard session callout with live timer and contextual actions — *Increment 3: updateTimerDisplay() + Pause/Resume*
+- [x] Focus file selection with vault file picker — *Increment 4: focusFile on Session + VaultFilePickerModal*
+- [x] End-to-end session time tracking with timeline and pause durations — *Increment 5: SessionTimelineEntry[] + computeTimelineSummary + Time Breakdown UI*
 
 ## Implementation Progress
 
@@ -128,3 +130,30 @@ Modified files:
 - `tests/ui/userHub/UserHubSessions.test.ts` — +12 tests (rerun/save template, template list, Start hidden when active, margin-bottom)
 - `tests/ui/userHub/UserHubDashboard.test.ts` — +5 tests (paused Resume, resume event, Paused badge, updateTimerDisplay, no-op timer)
 - 2 test files updated with `openSaveTemplateModal: vi.fn()`
+
+### Increment 4: Focus File & Vault File Picker (2026-02-16)
+
+Modified files:
+- `src/domain/session/types.ts` — `focusFile: string | null` on Session, `focusFile?: string` on SessionTemplate
+- `src/domain/session/helpers.ts` — `createSession()` accepts optional `focusFile` parameter
+- `src/domain/session/SessionService.ts` — `focusFile` threaded through `handleCreate()`, `rerunSession()`, `createFromTemplate()`, `saveTemplateFromSession()`
+- `src/ui/modals.ts` — Focus file text input + "Browse" button (folder-open icon) on NewSessionModal, new `VaultFilePickerModal` class (~22 LOC) using `FuzzySuggestModal` to pick any vault file
+- `src/ui/userHub/UserHubSessions.ts` — Focus file link in detail panel (clickable, opens file via `deps.openFile()`)
+- `src/ui/userHub/types.ts` — `openFile(path)` callback added to `UserHubComponentDeps`
+- `src/ui/UserHubView.ts` — Wired `openFile` dep via `app.workspace.openLinkText()`
+- `tests/domain/session/SessionService.test.ts` — +5 tests (focusFile creation, default null, template inclusion, rerun carry-forward, template carry-forward)
+- `tests/domain/session/helpers.test.ts` — +1 test (createSession with focusFile)
+- `tests/ui/userHub/UserHubSessions.test.ts` — +3 tests (focus file link display, null handling, openFile click)
+- 2 test files updated with `openFile: vi.fn()`
+
+### Increment 5: Session Timeline & Pause Duration Tracking (2026-02-16)
+
+Modified files:
+- `src/domain/session/types.ts` — `SessionTimelineAction` type, `SessionTimelineEntry` interface, `PauseSegment` interface, `TimelineSummary` interface, `timeline: SessionTimelineEntry[]` on Session
+- `src/domain/session/helpers.ts` — 6 new pure functions: `computePauseSegments()`, `computeTotalPauseMs()`, `computeWallClockMs()`, `computeActiveTimeMs()`, `computeTimelineSummary()`, `formatDurationHuman()` + `createSession()` returns `timeline: []`
+- `src/domain/session/SessionService.ts` — `timeline.push()` in `handleStart()`, `handlePause()`, `handleResume()`, `completeSession()` + backward compat in `load()` initializes missing `timeline` to `[]`
+- `src/ui/userHub/UserHubSessions.ts` — New `renderTimeBreakdown()` (stat pills: Wall Clock, Active, Paused, Pauses count), `renderStatPill()`, `renderTimeline()` (chronological action log with icons and timestamps) sections in detail panel
+- `tests/domain/session/helpers.test.ts` — +20 tests (computePauseSegments, computeTotalPauseMs, computeWallClockMs, computeActiveTimeMs, computeTimelineSummary, formatDurationHuman)
+- `tests/domain/session/SessionService.test.ts` — +9 tests (timeline recording per lifecycle action, full lifecycle ordering, multiple pause/resume cycles, backward compat)
+- `tests/ui/userHub/UserHubSessions.test.ts` — +6 tests (Time Breakdown rendering, pause count visibility, Timeline section entry count, action labels)
+- `tests/ui/userHub/UserHubDashboard.test.ts` — makeSession updated with `timeline: []`

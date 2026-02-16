@@ -118,6 +118,12 @@ export class SessionService {
 			if (!this.state.savedTemplates) {
 				this.state.savedTemplates = [];
 			}
+			// Backward compat: initialize timeline for legacy sessions
+			for (const s of this.state.sessions) {
+				if (!s.timeline) {
+					s.timeline = [];
+				}
+			}
 		}
 
 		// Resume or expire active session
@@ -304,6 +310,7 @@ export class SessionService {
 		session.status = "active";
 		session.startedAt = new Date().toISOString();
 		this.state.activeSessionId = session.id;
+		session.timeline.push({ action: "started", timestamp: session.startedAt });
 
 		this.startTimer(session);
 		await this.saveState();
@@ -321,6 +328,7 @@ export class SessionService {
 		session.status = "paused";
 		session.pausedAt = new Date(now).toISOString();
 		session.startedAt = null;
+		session.timeline.push({ action: "paused", timestamp: session.pausedAt });
 
 		this.stopTimer();
 		await this.saveState();
@@ -338,6 +346,7 @@ export class SessionService {
 		session.startedAt = new Date().toISOString();
 		session.pausedAt = null;
 		this.state.activeSessionId = session.id;
+		session.timeline.push({ action: "resumed", timestamp: session.startedAt });
 
 		this.startTimer(session);
 		await this.saveState();
@@ -438,6 +447,7 @@ export class SessionService {
 		session.status = "completed";
 		session.completedAt = new Date().toISOString();
 		session.pausedAt = null;
+		session.timeline.push({ action: "completed", timestamp: session.completedAt });
 
 		if (this.state.activeSessionId === session.id) {
 			this.stopTimer();

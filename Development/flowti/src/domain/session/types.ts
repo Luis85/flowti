@@ -44,6 +44,31 @@ export interface SessionArtifact {
 	timestamp: string;
 }
 
+/** Actions recorded in the session timeline. */
+export type SessionTimelineAction = "started" | "paused" | "resumed" | "completed";
+
+/** A single entry in the session timeline log. */
+export interface SessionTimelineEntry {
+	action: SessionTimelineAction;
+	timestamp: string; // ISO 8601
+}
+
+/** A computed pause segment derived from timeline entries. */
+export interface PauseSegment {
+	pausedAt: string;
+	resumedAt: string | null;
+	durationMs: number;
+}
+
+/** Aggregated time statistics for a session. */
+export interface TimelineSummary {
+	wallClockMs: number;
+	activeTimeMs: number;
+	totalPauseMs: number;
+	pauseCount: number;
+	pauseSegments: PauseSegment[];
+}
+
 /** A time-boxed documentation session. */
 export interface Session {
 	id: string;
@@ -65,6 +90,8 @@ export interface Session {
 	notes: string;
 	/** Optional file path the user is focusing on during this session. */
 	focusFile: string | null;
+	/** Chronological log of lifecycle actions. */
+	timeline: SessionTimelineEntry[];
 }
 
 // ─────────────────────────────────────────────────────────────
