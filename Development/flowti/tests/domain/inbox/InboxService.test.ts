@@ -165,6 +165,48 @@ describe("InboxService", () => {
 			expect(service.getItems()[0].title).toBe("Import failed");
 		});
 
+		it("should add item when dataExchange.pipeline.completed is emitted", async () => {
+			await service.load();
+
+			await eventBus.emit("dataExchange.pipeline.completed", {
+				result: {
+					totalSources: 2,
+					completedSources: 2,
+					totalRows: 100,
+					created: 80,
+					updated: 15,
+					skipped: 5,
+					failed: 0,
+					errors: [],
+					sourceResults: [],
+				},
+			});
+
+			await vi.waitFor(() => {
+				expect(service.getItems()).toHaveLength(1);
+			});
+
+			expect(service.getItems()[0].type).toBe("info");
+			expect(service.getItems()[0].title).toContain("Pipeline completed");
+			expect(service.getItems()[0].sourceHub).toBe("data-exchange");
+		});
+
+		it("should add action item when dataExchange.pipeline.failed is emitted", async () => {
+			await service.load();
+
+			await eventBus.emit("dataExchange.pipeline.failed", {
+				error: "Source file missing",
+				pipelineId: "pipe_123",
+			});
+
+			await vi.waitFor(() => {
+				expect(service.getItems()).toHaveLength(1);
+			});
+
+			expect(service.getItems()[0].type).toBe("action");
+			expect(service.getItems()[0].title).toBe("Pipeline failed");
+		});
+
 		it("should add item when dataExchange.export.completed is emitted", async () => {
 			await service.load();
 
@@ -462,6 +504,41 @@ describe("InboxService", () => {
 			await vi.waitFor(() => {
 				expect(service.getItems()).toHaveLength(1);
 			});
+		});
+
+		it("should not create items for disabled pipeline sources", async () => {
+			await service.load();
+
+			// Enable only non-pipeline sources
+			service.setEnabledSources([
+				"subscription.matched",
+				"dataExchange.import.completed",
+				"dataExchange.import.failed",
+				"dataExchange.export.completed",
+			]);
+
+			await eventBus.emit("dataExchange.pipeline.completed", {
+				result: {
+					totalSources: 1,
+					completedSources: 1,
+					totalRows: 10,
+					created: 10,
+					updated: 0,
+					skipped: 0,
+					failed: 0,
+					errors: [],
+					sourceResults: [],
+				},
+			});
+			await new Promise((r) => setTimeout(r, 10));
+			expect(service.getItems()).toHaveLength(0);
+
+			await eventBus.emit("dataExchange.pipeline.failed", {
+				error: "error",
+				pipelineId: "pipe_1",
+			});
+			await new Promise((r) => setTimeout(r, 10));
+			expect(service.getItems()).toHaveLength(0);
 		});
 
 		it("should only affect the specified source", async () => {

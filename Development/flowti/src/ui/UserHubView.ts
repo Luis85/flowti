@@ -1,7 +1,7 @@
 /**
  * User Hub view — the personal cockpit.
  *
- * Extends BaseHubView with an Inbox tab and a dashboard
+ * Extends BaseHubView with Inbox and Preferences tabs, plus a dashboard
  * that aggregates cross-hub summaries via HubRegistry.
  */
 
@@ -14,11 +14,12 @@ import type { IEventBus } from "../infrastructure/events/types";
 import { BaseHubView, type TabDef } from "./BaseHubView";
 import { UserHubDashboard } from "./userHub/UserHubDashboard";
 import { UserHubInbox } from "./userHub/UserHubInbox";
-import type { UserHubState, UserHubComponentDeps, InboxItem } from "./userHub/types";
+import { UserHubPreferences } from "./userHub/UserHubPreferences";
+import type { UserHubState, UserHubComponentDeps, InboxItem, UserHubTab } from "./userHub/types";
 
 export const VIEW_TYPE_USER_HUB = "flowti-user-hub";
 
-export class UserHubView extends BaseHubView<"inbox"> {
+export class UserHubView extends BaseHubView<UserHubTab> {
 	private userService: IUserService;
 	private hubRegistry: HubRegistry;
 	private inboxService: InboxService;
@@ -26,11 +27,13 @@ export class UserHubView extends BaseHubView<"inbox"> {
 	// Components
 	private dashboard!: UserHubDashboard;
 	private inbox!: UserHubInbox;
+	private preferences!: UserHubPreferences;
 
 	// State
 	private state: UserHubState = {
 		inboxItems: [],
 		selectedInboxItem: null,
+		inboxEnabledSources: [],
 	};
 
 	constructor(
@@ -39,11 +42,13 @@ export class UserHubView extends BaseHubView<"inbox"> {
 		userService: IUserService,
 		hubRegistry: HubRegistry,
 		inboxService: InboxService,
+		initialEnabledSources: string[],
 	) {
 		super(leaf, eventBus);
 		this.userService = userService;
 		this.hubRegistry = hubRegistry;
 		this.inboxService = inboxService;
+		this.state.inboxEnabledSources = initialEnabledSources;
 	}
 
 	// ── Abstract implementations ────────────────────────────
@@ -71,6 +76,7 @@ export class UserHubView extends BaseHubView<"inbox"> {
 	getTabDefinitions(): TabDef[] {
 		return [
 			{ id: "inbox", label: "Inbox", icon: "inbox", searchPlaceholder: "Search inbox..." },
+			{ id: "preferences", label: "Preferences", icon: "settings", searchPlaceholder: "" },
 		];
 	}
 
@@ -88,11 +94,23 @@ export class UserHubView extends BaseHubView<"inbox"> {
 		this.dashboard.render();
 	}
 
-	onTabRender(tabId: "inbox"): void {
+	onTabRender(tabId: UserHubTab): void {
 		if (tabId === "inbox") {
 			this.state.inboxItems = this.inboxService.getItems();
 			this.inbox.renderMaster(this.filterText);
 			this.inbox.renderDetail();
+		} else if (tabId === "preferences") {
+			this.preferences.renderMaster();
+			this.preferences.renderDetail();
+		}
+	}
+
+	protected onTabChanged(): void {
+		// Hide search bar on preferences tab (no filterable content)
+		if (this.activePage === "preferences") {
+			this.searchHeaderEl.classList.add("ft-hidden");
+		} else {
+			this.searchHeaderEl.classList.remove("ft-hidden");
 		}
 	}
 
@@ -107,7 +125,7 @@ export class UserHubView extends BaseHubView<"inbox"> {
 			hubRegistry: this.hubRegistry,
 			eventBus: this.eventBus,
 			inboxService: this.inboxService,
-			navigateToTab: (tabId) => this.navigateTo(tabId as "inbox"),
+			navigateToTab: (tabId) => this.navigateTo(tabId as UserHubTab),
 			onInboxItemClick: (item: InboxItem) => {
 				this.state.selectedInboxItem = item;
 				if (!item.read) {
@@ -118,6 +136,7 @@ export class UserHubView extends BaseHubView<"inbox"> {
 		});
 
 		this.inbox = new UserHubInbox(this.masterTreeEl, this.detailPanelEl, deps);
+		this.preferences = new UserHubPreferences(this.masterTreeEl, this.detailPanelEl, deps);
 
 		// Re-render when inbox changes
 		this.addUnsubscribe(
@@ -140,10 +159,27 @@ export class UserHubView extends BaseHubView<"inbox"> {
 				this.scheduleRender();
 			}),
 		);
+
+		// Sync inbox enabled sources from settings changes
+		this.addUnsubscribe(
+			this.eventBus.on("settings.changed", (event) => {
+				this.state.inboxEnabledSources = event.payload.settings.inboxEnabledSources;
+				if (this.activePage === "preferences") {
+					this.scheduleRender();
+				}
+			}),
+		);
+
+		// Re-render top bar when user name changes
+		this.addUnsubscribe(
+			this.eventBus.on("user.updated", () => {
+				this.scheduleRender();
+			}),
+		);
 	}
 
 	onHubClose(): void {
-		// Cleanup handled by addUnsubscribe for inbox event listeners
+		// Cleanup handled by addUnsubscribe for event listeners
 	}
 
 	// ── Private ─────────────────────────────────────────────
@@ -156,6 +192,7 @@ export class UserHubView extends BaseHubView<"inbox"> {
 			},
 			eventBus: this.eventBus,
 			inboxService: this.inboxService,
+			userService: this.userService,
 			scheduleRender: () => this.scheduleRender(),
 			navigateToEvent: (eventType) => {
 				void this.hubRegistry.openHub("event-catalog", "events", eventType);

@@ -3,6 +3,7 @@ import FlowtiBasePlugin from "src/main";
 import type { IInstallerService } from "../installer/types";
 import { InstallerWizardModal } from "../installer/InstallerWizardModal";
 import { DEFAULT_ENTITY_PATHS } from "./settings";
+import { INBOX_SOURCE_DEFINITIONS } from "../inbox/types";
 
 /**
  * Settings tab for the Flowti plugin.
@@ -135,16 +136,9 @@ export class FlowtiSettingTab extends PluginSettingTab {
 			cls: "setting-item-description",
 		});
 
-		const sources: Array<{ event: string; label: string; desc: string }> = [
-			{ event: "subscription.matched", label: "Watcher matches", desc: "When a file watcher subscription matches an event" },
-			{ event: "dataExchange.import.completed", label: "Import completed", desc: "When a CSV import finishes successfully" },
-			{ event: "dataExchange.import.failed", label: "Import errors", desc: "When a CSV import fails" },
-			{ event: "dataExchange.export.completed", label: "Export completed", desc: "When a data export finishes successfully" },
-		];
-
 		const enabled = new Set(this.plugin.settings.inboxEnabledSources ?? []);
 
-		for (const src of sources) {
+		for (const src of INBOX_SOURCE_DEFINITIONS) {
 			new Setting(containerEl)
 				.setName(src.label)
 				.setDesc(src.desc)

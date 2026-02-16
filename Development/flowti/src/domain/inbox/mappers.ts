@@ -86,6 +86,60 @@ export function mapImportFailed(
 }
 
 /**
+ * Maps a `dataExchange.pipeline.completed` event to an inbox item.
+ */
+export function mapPipelineCompleted(
+	payload: {
+		result: {
+			totalSources: number;
+			totalRows: number;
+			created: number;
+			updated: number;
+			skipped: number;
+			failed: number;
+		};
+	},
+	id: string,
+): InboxItem {
+	const r = payload.result;
+	const hasFailures = r.failed > 0;
+	return {
+		id,
+		type: hasFailures ? "action" : "info",
+		title: hasFailures
+			? `Pipeline completed with ${r.failed} error${r.failed === 1 ? "" : "s"}`
+			: `Pipeline completed: ${r.created} created, ${r.updated} updated`,
+		description: `${r.totalSources} source${r.totalSources === 1 ? "" : "s"}, ${r.totalRows} rows processed: ${r.created} created, ${r.updated} updated, ${r.skipped} skipped, ${r.failed} failed.`,
+		sourceEvent: "dataExchange.pipeline.completed",
+		sourceHub: "data-exchange",
+		timestamp: new Date().toISOString(),
+		read: false,
+	};
+}
+
+/**
+ * Maps a `dataExchange.pipeline.failed` event to an inbox item.
+ */
+export function mapPipelineFailed(
+	payload: {
+		error: string;
+		pipelineId: string;
+	},
+	id: string,
+): InboxItem {
+	return {
+		id,
+		type: "action",
+		title: "Pipeline failed",
+		description: `Pipeline "${payload.pipelineId}" failed: ${payload.error}`,
+		sourceEvent: "dataExchange.pipeline.failed",
+		sourceHub: "data-exchange",
+		timestamp: new Date().toISOString(),
+		read: false,
+	};
+}
+
+/**
  * Maps a `dataExchange.export.completed` event to an inbox item.
  */
 export function mapExportCompleted(

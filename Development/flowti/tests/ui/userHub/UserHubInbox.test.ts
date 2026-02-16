@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { UserHubInbox } from "../../../src/ui/userHub/UserHubInbox";
 import { formatSourceEvent, type UserHubState, type UserHubComponentDeps, type InboxItem } from "../../../src/ui/userHub/types";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
+import type { UUID } from "../../../src/utils/types";
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -25,6 +26,7 @@ function makeState(): UserHubState {
 	return {
 		inboxItems: [],
 		selectedInboxItem: null,
+		inboxEnabledSources: [],
 	};
 }
 
@@ -40,6 +42,13 @@ function makeDeps(state: UserHubState): UserHubComponentDeps {
 			getItems: vi.fn(() => []),
 			getUnreadCount: vi.fn(() => 0),
 		} as never,
+		userService: {
+			load: vi.fn(async () => {}),
+			hasUser: vi.fn(() => false),
+			getUser: vi.fn(() => null),
+			createUser: vi.fn(async (name: string) => ({ id: "user_1" as UUID, name, createdAt: new Date().toISOString() })),
+			updateUserName: vi.fn(async () => {}),
+		},
 		scheduleRender: vi.fn(),
 		navigateToEvent: vi.fn(),
 	};
@@ -51,6 +60,11 @@ describe("formatSourceEvent", () => {
 		expect(formatSourceEvent("dataExchange.import.completed")).toBe("Import");
 		expect(formatSourceEvent("dataExchange.import.failed")).toBe("Import Error");
 		expect(formatSourceEvent("dataExchange.export.completed")).toBe("Export");
+	});
+
+	it("should return human-readable labels for pipeline events", () => {
+		expect(formatSourceEvent("dataExchange.pipeline.completed")).toBe("Pipeline");
+		expect(formatSourceEvent("dataExchange.pipeline.failed")).toBe("Pipeline Error");
 	});
 
 	it("should return raw event name for unknown events", () => {

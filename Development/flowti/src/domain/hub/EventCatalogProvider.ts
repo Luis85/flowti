@@ -34,14 +34,11 @@ export class EventCatalogProvider implements HubDashboardProvider {
 		const totalEvents = EVENT_CATALOG.length + discovered.length;
 		const domains = new Set(EVENT_CATALOG.map((e) => e.domain));
 		const services = new Set(EVENT_CATALOG.map((e) => e.services));
-		const categories = new Set(EVENT_CATALOG.map((e) => e.category));
-
 		return {
 			stats: [
-				{ label: "Events", value: String(totalEvents), icon: "list", tabId: "events" },
 				{ label: "Domains", value: String(domains.size), icon: "boxes", tabId: "domains" },
 				{ label: "Services", value: String(services.size), icon: "server", tabId: "services" },
-				{ label: "Categories", value: String(categories.size), icon: "tag" },
+				{ label: "Events", value: String(totalEvents), icon: "list", tabId: "events" },
 			],
 			healthLevel: "healthy",
 			actionItemCount: 0,

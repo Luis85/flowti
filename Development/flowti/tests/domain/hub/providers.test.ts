@@ -62,10 +62,10 @@ describe("EventCatalogProvider", () => {
 		expect(provider.getIcon()).toBe("list");
 	});
 
-	it("should return 4 stats", () => {
+	it("should return 3 stats", () => {
 		const summary = provider.getSummary();
-		expect(summary.stats).toHaveLength(4);
-		expect(summary.stats.map((s) => s.label)).toEqual(["Events", "Domains", "Services", "Categories"]);
+		expect(summary.stats).toHaveLength(3);
+		expect(summary.stats.map((s) => s.label)).toEqual(["Domains", "Services", "Events"]);
 	});
 
 	it("should count events including discovered events", () => {
@@ -78,18 +78,12 @@ describe("EventCatalogProvider", () => {
 		expect(Number(eventsStat.value)).toBe(EVENT_CATALOG.length + 2);
 	});
 
-	it("should include tabId on navigable stats", () => {
+	it("should include tabId on all stats", () => {
 		const summary = provider.getSummary();
 
-		expect(summary.stats[0]).toMatchObject({ label: "Events", tabId: "events" });
-		expect(summary.stats[1]).toMatchObject({ label: "Domains", tabId: "domains" });
-		expect(summary.stats[2]).toMatchObject({ label: "Services", tabId: "services" });
-	});
-
-	it("should NOT include tabId on Categories stat", () => {
-		const summary = provider.getSummary();
-		const categoriesStat = summary.stats.find((s) => s.label === "Categories")!;
-		expect(categoriesStat.tabId).toBeUndefined();
+		expect(summary.stats[0]).toMatchObject({ label: "Domains", tabId: "domains" });
+		expect(summary.stats[1]).toMatchObject({ label: "Services", tabId: "services" });
+		expect(summary.stats[2]).toMatchObject({ label: "Events", tabId: "events" });
 	});
 
 	it("should report healthy status", () => {
@@ -116,18 +110,18 @@ describe("DataExchangeProvider", () => {
 		const summary = provider.getSummary();
 
 		expect(summary.stats).toHaveLength(3);
-		expect(summary.stats[0]).toMatchObject({ label: "Imports", value: "3", icon: "file-input" });
-		expect(summary.stats[1]).toMatchObject({ label: "Exports", value: "5", icon: "file-output" });
-		expect(summary.stats[2]).toMatchObject({ label: "Pipelines", value: "2", icon: "workflow" });
+		expect(summary.stats[0]).toMatchObject({ label: "Pipelines", value: "2", icon: "workflow" });
+		expect(summary.stats[1]).toMatchObject({ label: "Imports", value: "3", icon: "file-input" });
+		expect(summary.stats[2]).toMatchObject({ label: "Exports", value: "5", icon: "file-output" });
 	});
 
 	it("should include tabId on all stats", () => {
 		const provider = new DataExchangeProvider(makeDataExchangeService() as never);
 		const summary = provider.getSummary();
 
-		expect(summary.stats[0]).toMatchObject({ label: "Imports", tabId: "imports" });
-		expect(summary.stats[1]).toMatchObject({ label: "Exports", tabId: "exports" });
-		expect(summary.stats[2]).toMatchObject({ label: "Pipelines", tabId: "pipelines" });
+		expect(summary.stats[0]).toMatchObject({ label: "Pipelines", tabId: "pipelines" });
+		expect(summary.stats[1]).toMatchObject({ label: "Imports", tabId: "imports" });
+		expect(summary.stats[2]).toMatchObject({ label: "Exports", tabId: "exports" });
 	});
 
 	it("should report zero counts when no configs exist", () => {

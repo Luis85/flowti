@@ -432,7 +432,7 @@ describe("UserHubDashboard", () => {
 					getDisplayName: () => "Event Catalog",
 					getSummary: () => ({
 						stats: [
-							{ label: "Categories", value: "8", icon: "tag" },
+							{ label: "Some Stat", value: "8", icon: "tag" },
 						],
 						healthLevel: "healthy",
 						actionItemCount: 0,
@@ -458,7 +458,7 @@ describe("UserHubDashboard", () => {
 	// ── Quick actions ───────────────────────────────────────
 
 	describe("quick actions", () => {
-		it("should render 4 quick action buttons", () => {
+		it("should render 6 quick action buttons", () => {
 			const dashboard = new UserHubDashboard(container, makeDeps({ eventBus }));
 
 			dashboard.render();
@@ -466,7 +466,31 @@ describe("UserHubDashboard", () => {
 			// Quick actions use ft-nav-link class; inbox "View all" also uses it
 			// With empty inbox, only quick actions should produce ft-nav-link
 			const actions = container.querySelectorAll(".ft-nav-link");
-			expect(actions).toHaveLength(4);
+			expect(actions).toHaveLength(6);
+		});
+
+		it("should navigate to inbox tab on Inbox click", () => {
+			const navigateToTab = vi.fn();
+			const dashboard = new UserHubDashboard(container, makeDeps({ eventBus, navigateToTab }));
+
+			dashboard.render();
+
+			const actions = container.querySelectorAll(".ft-nav-link");
+			(actions[0] as HTMLElement).click();
+
+			expect(navigateToTab).toHaveBeenCalledWith("inbox");
+		});
+
+		it("should navigate to preferences tab on Preferences click", () => {
+			const navigateToTab = vi.fn();
+			const dashboard = new UserHubDashboard(container, makeDeps({ eventBus, navigateToTab }));
+
+			dashboard.render();
+
+			const actions = container.querySelectorAll(".ft-nav-link");
+			(actions[1] as HTMLElement).click();
+
+			expect(navigateToTab).toHaveBeenCalledWith("preferences");
 		});
 
 		it("should emit ui.openEventCatalog on Event Catalog click", async () => {
@@ -478,7 +502,7 @@ describe("UserHubDashboard", () => {
 			dashboard.render();
 
 			const actions = container.querySelectorAll(".ft-nav-link");
-			(actions[0] as HTMLElement).click();
+			(actions[2] as HTMLElement).click();
 
 			// Allow async event emission to settle
 			await new Promise((r) => setTimeout(r, 10));

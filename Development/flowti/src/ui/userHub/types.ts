@@ -4,10 +4,17 @@
 
 import type { InboxService } from "../../domain/inbox/InboxService";
 import type { IEventBus } from "../../infrastructure/events/types";
+import type { IUserService } from "../../domain/user/types";
 
 // Re-export InboxItem from domain (single source of truth)
 import type { InboxItem } from "../../domain/inbox/types";
 export type { InboxItem } from "../../domain/inbox/types";
+
+// ─────────────────────────────────────────────────────────────
+// Tabs
+// ─────────────────────────────────────────────────────────────
+
+export type UserHubTab = "inbox" | "preferences";
 
 // ─────────────────────────────────────────────────────────────
 // State
@@ -16,6 +23,7 @@ export type { InboxItem } from "../../domain/inbox/types";
 export interface UserHubState {
 	inboxItems: InboxItem[];
 	selectedInboxItem: InboxItem | null;
+	inboxEnabledSources: string[];
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -27,6 +35,8 @@ const SOURCE_EVENT_LABELS: Record<string, string> = {
 	"dataExchange.import.completed": "Import",
 	"dataExchange.import.failed": "Import Error",
 	"dataExchange.export.completed": "Export",
+	"dataExchange.pipeline.completed": "Pipeline",
+	"dataExchange.pipeline.failed": "Pipeline Error",
 };
 
 /** Returns a human-readable label for an inbox item's source event. */
@@ -48,6 +58,7 @@ export interface UserHubComponentDeps {
 	setState: (partial: Partial<UserHubState>) => void;
 	eventBus: IEventBus;
 	inboxService: InboxService;
+	userService: IUserService;
 	scheduleRender: () => void;
 	/** Navigate to a specific event type in the Event Catalog. */
 	navigateToEvent: (eventType: string) => void;

@@ -139,6 +139,8 @@ export const FlowtiSettingsSchema = z.object({
 		"dataExchange.import.completed",
 		"dataExchange.import.failed",
 		"dataExchange.export.completed",
+		"dataExchange.pipeline.completed",
+		"dataExchange.pipeline.failed",
 	]),
 });
 

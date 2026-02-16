@@ -145,7 +145,7 @@ Primary interaction path:
 ### User Hub
 
 - [x] Personal dashboard with today's summary, recent activity, documentation nudges — *UserHubDashboard: welcome + cross-hub cards + quick actions*
-- [x] Inbox tab with actionable items from all domain hubs — *InboxService domain (increment 2): 4 source events, persistent state, mark read/dismiss/clear all*
+- [x] Inbox tab with actionable items from all domain hubs — *InboxService domain (increment 2→4): 6 source events (inc. pipeline completed/failed), persistent state, mark read/dismiss/clear all*
 - [x] Cross-hub summary aggregating stats from all registered hubs — *HubRegistry.getAll() → provider.getSummary() with tabId deep-linking*
 
 ### System Hub Migration
@@ -291,7 +291,7 @@ HubRegistry (65 LOC — provider registry + navigation)
 |-----|-----------|----------|-----|------|
 | Event Catalog | EventCatalogView | EventCatalogProvider | 723 | Dashboard, Domains, Services, Events, Flows, Systems, Actors, Products, Health |
 | Data Exchange | DataExchangeHubView | DataExchangeProvider | 477 | Dashboard, Imports, Exports, Reports, Properties, Pipelines, Types |
-| User Hub | UserHubView | UserHubProvider | 148 | Dashboard, Inbox |
+| User Hub | UserHubView | UserHubProvider | 202 | Dashboard, Inbox, Preferences |
 
 ### Decision: No HubAdapter Interface (ADR-024)
 
@@ -402,7 +402,7 @@ Both System Hubs migrated to BaseHubView. EventCatalogView: 864 → 723 LOC (-16
 
 Resolved 2 blockers from Pre-Feature Development Review: (1) HubRegistry + HubDashboardProvider for cross-hub data aggregation, (2) `hub.navigate` event + BaseHubView listener for cross-hub deep linking. Both System Hubs registered as providers. PBI-001 unblocked.
 
-### Phase 3: User Hub (PBI-001) — INCREMENT 3 DONE
+### Phase 3: User Hub (PBI-001) — INCREMENT 4 DONE
 
 > Increment 1 completed 2026-02-15. Three Amigos Review: 33/35 (Excellent).
 > Increment 2 completed 2026-02-15. Three Amigos Review: 34/35 (Excellent).
@@ -413,8 +413,9 @@ Resolved 2 blockers from Pre-Feature Development Review: (1) HubRegistry + HubDa
 
 **Increment 3**: Removed Activity tab (redundant with standalone EventLogView sidebar). Restyled dashboard inbox as always-visible mail-inbox section (after quick actions, accent borders for unread, source badges, max 5 with "View all" link). Added inbox source configuration (`inboxEnabledSources` setting with 4 per-source toggles in Settings → Inbox). `InboxService.setEnabledSources()` gates item creation. Dashboard inbox items deep-link to Inbox tab with pre-selected item. Inbox detail "Triggered by" links deep-link to Event Catalog via `HubRegistry.openHub()` + `onNavigateToEntity()` override. Active inbox row highlighted. Obsidian title bar hidden on all hubs (BaseHubView). 1,764 tests pass across 78 suites.
 
-**Remaining for PBI-001:**
-- Increment 4: User preferences panel, pipeline inbox items
+**Increment 4**: Pipeline inbox items + Preferences tab. Added 2 pipeline mappers (`mapPipelineCompleted`, `mapPipelineFailed`) and InboxService listeners for `dataExchange.pipeline.completed/failed`. `INBOX_SOURCE_DEFINITIONS` shared constant (6 entries) consumed by both FlowtiSettingTab and Preferences. New `UserHubPreferences` component with user profile editing and 6 inbox source toggles. UserHubView now multi-tab (`"inbox" | "preferences"`) with search bar hidden on preferences. 1,786 tests pass across 79 suites.
+
+**PBI-001 complete.** All functional requirements delivered across 4 increments.
 
 ### Phase 4: Sessions + Domain Hubs (PBI-002, PBI-003, PBI-004) — PLANNED
 
@@ -435,6 +436,7 @@ Add Documentation Sessions domain and first Domain Hubs (Product, Project). Not 
 | 2026-02-15 | in-progress | Phase 3 increment 1 | 31 | Technical Architect | PBI-001 User Hub first increment. 63 tests added. tabId deep-linking. TASM 33/35 (Excellent). 1,725 tests pass across 77 suites. |
 | 2026-02-15 | in-progress | Phase 3 increment 2 | 31 | Technical Architect | PBI-001 Inbox Population. InboxService domain (398 LOC). 4 source events, persistent state, CRUD actions. 29 tests added. TASM 34/35 (Excellent). 1,786 tests pass across 79 suites. |
 | 2026-02-16 | in-progress | Phase 3 increment 3 | 31 | Technical Architect | Activity tab removed (redundant with EventLogView). Dashboard inbox restyled as always-visible mail-inbox. Inbox source config (4 toggles). Deep-linking: inbox→catalog via onNavigateToEntity. Title bar hidden on all hubs. 1,764 tests across 78 suites. |
+| 2026-02-16 | in-progress | Phase 3 increment 4 | 31 | Technical Architect | Pipeline inbox items (2 mappers, 2 listeners). Preferences tab (profile editing, 6 source toggles). INBOX_SOURCE_DEFINITIONS shared constant. Multi-tab UserHubView. PBI-001 complete. 1,786 tests across 79 suites. |
 
 ---
 
@@ -453,4 +455,4 @@ Add Documentation Sessions domain and first Domain Hubs (Product, Project). Not 
   - [[Three Amigos Review - User Hub First Increment 2026-02-15]] (Phase 3: PBI-001 increment 1)
   - [[Three Amigos Review - User Hub Inbox Population 2026-02-15]] (Phase 3: PBI-001 increment 2)
 - Sitemap: [[User Hub View]], [[Event Catalog View]], [[Data Exchange Hub View]]
-- Components: [[UserHubView]], [[UserHubDashboard]], [[UserHubInbox]]
+- Components: [[UserHubView]], [[UserHubDashboard]], [[UserHubInbox]], [[UserHubPreferences]]

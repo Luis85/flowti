@@ -19,6 +19,8 @@ import {
 	mapImportCompleted,
 	mapImportFailed,
 	mapExportCompleted,
+	mapPipelineCompleted,
+	mapPipelineFailed,
 } from "./mappers";
 
 /** All source event types the inbox can listen to. */
@@ -27,6 +29,8 @@ export const ALL_INBOX_SOURCES = [
 	"dataExchange.import.completed",
 	"dataExchange.import.failed",
 	"dataExchange.export.completed",
+	"dataExchange.pipeline.completed",
+	"dataExchange.pipeline.failed",
 ] as const;
 
 /**
@@ -101,6 +105,24 @@ export class InboxService {
 				this.eventBus.on("dataExchange.export.completed", (event) => {
 					if (!this.enabledSources.has("dataExchange.export.completed")) return;
 					const item = mapExportCompleted(event.payload, generateId());
+					void this.addItem(item);
+				}),
+			);
+
+			// Source: pipeline completed
+			this.unsubscribes.push(
+				this.eventBus.on("dataExchange.pipeline.completed", (event) => {
+					if (!this.enabledSources.has("dataExchange.pipeline.completed")) return;
+					const item = mapPipelineCompleted(event.payload, generateId());
+					void this.addItem(item);
+				}),
+			);
+
+			// Source: pipeline failed
+			this.unsubscribes.push(
+				this.eventBus.on("dataExchange.pipeline.failed", (event) => {
+					if (!this.enabledSources.has("dataExchange.pipeline.failed")) return;
+					const item = mapPipelineFailed(event.payload, generateId());
 					void this.addItem(item);
 				}),
 			);

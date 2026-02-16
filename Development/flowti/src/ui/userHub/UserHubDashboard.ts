@@ -32,8 +32,8 @@ export class UserHubDashboard {
 		this.container.empty();
 
 		this.renderWelcome();
-		this.renderHubSummaries();
 		this.renderQuickActions();
+		this.renderHubSummaries();
 		this.renderInboxSection();
 	}
 
@@ -173,7 +173,7 @@ export class UserHubDashboard {
 
 		const section = this.container.createDiv();
 		section.style.marginBottom = "1.5rem";
-		section.createEl("h3", { text: "Your Hubs", cls: "ft-heading ft-heading-sm" });
+		section.createEl("h3", { text: "Your Hubs", cls: "ft-heading ft-heading-sm" }).style.marginBottom = "0.5rem";
 
 		// Collect stat cards from all providers, each clicking through to its hub
 		const cards: StatCardItem[] = [];
@@ -196,14 +196,17 @@ export class UserHubDashboard {
 
 	private renderQuickActions(): void {
 		const section = this.container.createDiv();
-		section.createEl("h3", { text: "Quick Actions", cls: "ft-heading ft-heading-sm" });
+		section.createEl("h3", { text: "Quick Actions", cls: "ft-heading ft-heading-sm" }).style.marginBottom = "0.5rem";
 		section.style.marginBottom = "0.75rem";
 
 		const grid = section.createDiv({ cls: "ft-flex ft-gap-2" });
 		grid.style.flexWrap = "wrap";
 
 		const eb = this.deps.eventBus;
+		const nav = this.deps.navigateToTab;
 		const actions: Array<{ icon: string; label: string; action: () => void }> = [
+			{ icon: "inbox", label: "Inbox", action: () => nav("inbox") },
+			{ icon: "settings", label: "Preferences", action: () => nav("preferences") },
 			{ icon: "list", label: "Event Catalog", action: () => void eb.emit("ui.openEventCatalog", {}) },
 			{ icon: "arrow-left-right", label: "Data Exchange", action: () => void eb.emit("ui.openDataExchangeHub", {}) },
 			{ icon: "activity", label: "Activity Log", action: () => void eb.emit("ui.openEventLog", {}) },

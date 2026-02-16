@@ -4,6 +4,8 @@ import {
 	mapImportCompleted,
 	mapImportFailed,
 	mapExportCompleted,
+	mapPipelineCompleted,
+	mapPipelineFailed,
 } from "../../../src/domain/inbox/mappers";
 
 describe("Inbox mappers", () => {
@@ -156,6 +158,113 @@ describe("Inbox mappers", () => {
 			expect(item.description).toContain("data/contacts.csv");
 			expect(item.description).toContain("File not found");
 			expect(item.sourceEvent).toBe("dataExchange.import.failed");
+			expect(item.sourceHub).toBe("data-exchange");
+			expect(item.read).toBe(false);
+		});
+	});
+
+	describe("mapPipelineCompleted", () => {
+		it("should create an info item for successful pipeline", () => {
+			const item = mapPipelineCompleted(
+				{
+					result: {
+						totalSources: 3,
+						totalRows: 150,
+						created: 120,
+						updated: 20,
+						skipped: 10,
+						failed: 0,
+					},
+				},
+				"inbox_20",
+			);
+
+			expect(item.id).toBe("inbox_20");
+			expect(item.type).toBe("info");
+			expect(item.title).toBe("Pipeline completed: 120 created, 20 updated");
+			expect(item.description).toContain("3 sources");
+			expect(item.description).toContain("150 rows processed");
+			expect(item.description).toContain("120 created");
+			expect(item.description).toContain("20 updated");
+			expect(item.description).toContain("10 skipped");
+			expect(item.description).toContain("0 failed");
+			expect(item.sourceEvent).toBe("dataExchange.pipeline.completed");
+			expect(item.sourceHub).toBe("data-exchange");
+			expect(item.read).toBe(false);
+		});
+
+		it("should create an action item when there are failures", () => {
+			const item = mapPipelineCompleted(
+				{
+					result: {
+						totalSources: 2,
+						totalRows: 50,
+						created: 40,
+						updated: 5,
+						skipped: 0,
+						failed: 5,
+					},
+				},
+				"inbox_21",
+			);
+
+			expect(item.type).toBe("action");
+			expect(item.title).toBe("Pipeline completed with 5 errors");
+		});
+
+		it("should use singular 'error' for exactly 1 failure", () => {
+			const item = mapPipelineCompleted(
+				{
+					result: {
+						totalSources: 1,
+						totalRows: 10,
+						created: 9,
+						updated: 0,
+						skipped: 0,
+						failed: 1,
+					},
+				},
+				"inbox_22",
+			);
+
+			expect(item.title).toBe("Pipeline completed with 1 error");
+		});
+
+		it("should use singular 'source' for exactly 1 source", () => {
+			const item = mapPipelineCompleted(
+				{
+					result: {
+						totalSources: 1,
+						totalRows: 10,
+						created: 10,
+						updated: 0,
+						skipped: 0,
+						failed: 0,
+					},
+				},
+				"inbox_23",
+			);
+
+			expect(item.description).toContain("1 source,");
+		});
+	});
+
+	describe("mapPipelineFailed", () => {
+		it("should create an action item with error details", () => {
+			const item = mapPipelineFailed(
+				{
+					error: "Source file missing",
+					pipelineId: "pipe_123",
+				},
+				"inbox_24",
+			);
+
+			expect(item.id).toBe("inbox_24");
+			expect(item.type).toBe("action");
+			expect(item.title).toBe("Pipeline failed");
+			expect(item.description).toContain("pipe_123");
+			expect(item.description).toContain("Source file missing");
+			expect(item.sourceEvent).toBe("dataExchange.pipeline.failed");
 			expect(item.sourceHub).toBe("data-exchange");
 			expect(item.read).toBe(false);
 		});
