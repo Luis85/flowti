@@ -14,7 +14,7 @@ export default defineConfig({
     include: ["tests/**/*.{test,spec}.{ts,tsx,js,jsx}"],
     exclude: ["node_modules", "dist", "docs"],
     reporters: [
-      "default",
+      "dot",
       [
         "json",
         {
