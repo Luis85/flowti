@@ -21,7 +21,7 @@ maintenance_cost: 2
 discovery_cost: 2
 design_cost: 2
 test_cost: 3
-priority: 4
+priority: 0
 ---
 
 # File Events PRD

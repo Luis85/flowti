@@ -13,7 +13,7 @@ maintenance_cost: 2
 discovery_cost: 2
 design_cost: 2
 test_cost: 2
-priority: 4
+priority: 3
 ---
 
 # Documentation PRD

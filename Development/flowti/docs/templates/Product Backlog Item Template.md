@@ -13,7 +13,7 @@ As User, I want ... so that ...
 
 ## Solutionstatement
 
-### Use Case
+### Use Cases
 
 - Flow
 - Gherkin

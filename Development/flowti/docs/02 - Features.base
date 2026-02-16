@@ -19,9 +19,6 @@ properties:
 views:
   - type: table
     name: Features - Roadmap
-    filters:
-      and:
-        - stage != "done"
     order:
       - file.name
       - priority

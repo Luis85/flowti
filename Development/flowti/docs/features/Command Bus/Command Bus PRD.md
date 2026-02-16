@@ -14,7 +14,7 @@ maintenance_cost: 1
 discovery_cost: 1
 design_cost: 1
 test_cost: 2
-priority: 4
+priority: 0
 ---
 
 # Feature: Command Bus

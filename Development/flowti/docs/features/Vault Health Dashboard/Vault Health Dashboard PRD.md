@@ -13,7 +13,7 @@ maintenance_cost: 2
 discovery_cost: 2
 design_cost: 3
 test_cost: 3
-priority: 4
+priority: 2
 ---
 
 # Feature: Vault Health Dashboard
