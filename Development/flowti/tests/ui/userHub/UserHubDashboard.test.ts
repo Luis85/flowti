@@ -77,6 +77,9 @@ function makeActiveSession(overrides?: Partial<Session>): Session {
 		focusFile: null,
 		timeline: [],
 		goals: [],
+		links: [],
+		notesFile: null,
+		canvasFile: null,
 		...overrides,
 	};
 }
@@ -104,6 +107,7 @@ function makeDeps(overrides?: Partial<UserHubDashboardDeps>): UserHubDashboardDe
 		sessionService: makeSessionService(),
 		navigateToTab: vi.fn(),
 		onInboxItemClick: vi.fn(),
+		openSessionWorkspace: vi.fn(),
 		...overrides,
 	};
 }
@@ -626,6 +630,22 @@ describe("UserHubDashboard", () => {
 			expect(spy).toHaveBeenCalledWith(expect.objectContaining({
 				payload: { sessionId: "s2" },
 			}));
+		});
+
+		it("should open workspace when active session card is clicked", () => {
+			const session = makeActiveSession({ id: "s5" });
+			const deps = makeDeps({
+				eventBus,
+				sessionService: makeSessionService(session),
+			});
+			const dashboard = new UserHubDashboard(container, deps);
+
+			dashboard.render();
+
+			const card = container.querySelector(".ft-active-session") as HTMLElement;
+			card.click();
+
+			expect(deps.openSessionWorkspace).toHaveBeenCalledWith("s5");
 		});
 
 		it("should show Resume button instead of Pause when session is paused", () => {

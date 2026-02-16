@@ -6,7 +6,7 @@ priority: high
 phase: 4
 dependencies:
   - "[[TD-49 Layout abstraction layer]]"
-note: "Core delivery + Goals domain complete (6 increments). Increments 7-8 planned: Workspace View, Preparation Flow. Increments 9-11 planned: Focus File Profiles & Context Files, Session Spawning & Guiding Questions, Session Document Generation."
+note: "Core delivery + Goals + Workspace + Workspace Enrichment complete (8 increments). Increment 9 planned: Preparation Flow. Increments 10-12 planned: Focus File Profiles & Context Files, Session Spawning & Guiding Questions, advanced Focus Tools."
 user_story: "[[I want to prepare a working session, so that I can focus on one task at a time]]"
 ---
 
@@ -76,7 +76,7 @@ As a vault user, I want sessions to provide contextual tools based on my focus f
 - [x] Session goals: `SessionGoal[]` on Session with add/toggle/remove via events — *Increment 6: SessionGoal interface + 3 command events + 3 state events*
 - [x] Session notes mutation: `session.notes.update` command + `session.notes.updated` state event — *Increment 6*
 - [x] Goals threaded through templates, rerun, createFromTemplate — *Increment 6: handleCreate, rerunSession, createFromTemplate, saveTemplateFromSession*
-- [ ] SessionWorkspaceView: dedicated leaf with timer, goals checklist, notes textarea, focus file, artifacts — *Increment 7*
+- [x] SessionWorkspaceView: dedicated leaf with timer, goals checklist, notes textarea, focus file, artifacts — *Increment 7: 463 LOC view + 36 tests*
 - [ ] Auto-open workspace on session.start + open focus file in adjacent leaf — *Increment 8*
 - [ ] Goals repeater in NewSessionModal for pre-session preparation — *Increment 8*
 - [ ] - [ ] Focus File Profiles — detect file type and provide contextual tools:
@@ -118,8 +118,8 @@ As a vault user, I want sessions to provide contextual tools based on my focus f
 - [x] Session history shows completed sessions with artifact count — *UserHubSessions master list + detail panel*
 - [ ] `session_focus` layout renders all 5 regions — *remaining work*
 - [x] Session lifecycle events emitted on EventBus — *19 events registered in catalog*
-- [x] `npm run build` passes — *2,017 tests across 82 suites*
-- [x] Unit tests for SessionService lifecycle, timer, templates, rerun, timeline, goals, and notes — *112 tests in SessionService.test.ts*
+- [x] `npm run build` passes — *2,125 tests across 83 suites*
+- [x] Unit tests for SessionService lifecycle, timer, templates, rerun, timeline, goals, notes, and workspace — *112 tests in SessionService.test.ts + 36 tests in SessionWorkspaceView.test.ts*
 - [x] Rerun completed/archived sessions without re-entering configuration — *Increment 3: rerunSession() + auto-select*
 - [x] Save sessions as reusable templates — *Increment 3: SaveTemplateModal + template CRUD + template list in detail panel*
 - [x] Dashboard session callout with live timer and contextual actions — *Increment 3: updateTimerDisplay() + Pause/Resume*
@@ -127,15 +127,20 @@ As a vault user, I want sessions to provide contextual tools based on my focus f
 - [x] End-to-end session time tracking with timeline and pause durations — *Increment 5: SessionTimelineEntry[] + computeTimelineSummary + Time Breakdown UI*
 - [x] Session goals: add, toggle, remove goals during session — *Increment 6: 4 handlers, 8 events, 29 tests*
 - [x] Session notes: inline editing with auto-save — *Increment 6: session.notes.update/updated events*
-- [ ] SessionWorkspaceView: dedicated focused leaf — *Increment 7*
-- [ ] Goals in NewSessionModal for pre-session preparation — *Increment 8*
-- [ ] Auto-open workspace + focus file on session start — *Increment 8*
-- [ ] Focus file type detection returns correct profile for all 6 categories — *Increment 9*
-- [ ] Context files: attach, remove, deduplicate, cap at 20 — *Increment 9*
-- [ ] Context files carried through rerun, templates, create-from-template — *Increment 9*
-- [ ] Spawn new sessions from existing ones inheriting focus + context — *Increment 10*
-- [ ] Guiding questions visible during active/paused sessions — *Increment 10*
-- [ ] Session document generated on completion as markdown file — *Increment 11*
+- [x] SessionWorkspaceView: dedicated focused leaf — *Increment 7: 463 LOC, 36 tests, 2,053 tests across 83 suites*
+- [x] Session links: attach files to sessions via right-click "Add to Session" — *Increment 8: SessionLink type, 4 link events, context menu*
+- [x] Session notes persistence: auto-set `notesFile`, generate Markdown summary on completion — *Increment 8: generateSessionSummary + writeSessionSummary*
+- [x] Session canvas: create `.canvas` file from workspace, auto-embed in notes — *Increment 8: canvasFile field, 2 events*
+- [x] Duration editing for prepared sessions — *Increment 8: session.duration.update/updated events*
+- [x] Save as Template available for all session statuses — *Increment 8: removed status restriction*
+- [x] "Open Workspace" button in sessions tab + dashboard — *Increment 8: workspaceSessionId + getCurrentSession()*
+- [ ] Goals in NewSessionModal for pre-session preparation — *Increment 9*
+- [ ] Auto-open workspace + focus file on session start — *Increment 9*
+- [ ] Focus file type detection returns correct profile for all 6 categories — *Increment 10*
+- [ ] Context files: attach, remove, deduplicate, cap at 20 — *Increment 10*
+- [ ] Context files carried through rerun, templates, create-from-template — *Increment 10*
+- [ ] Spawn new sessions from existing ones inheriting focus + context — *Increment 11*
+- [ ] Guiding questions visible during active/paused sessions — *Increment 11*
 
 ## Implementation Progress
 
@@ -219,30 +224,50 @@ Modified files:
 - `tests/domain/session/helpers.test.ts` — 4 new tests (createGoal, createSession goals)
 - 4 test files — `goals: []` added to `makeSession` helpers
 
-### Increment 7: SessionWorkspaceView (PLANNED)
+### Increment 7: SessionWorkspaceView (2026-02-16)
 
-Scope:
-- New `SessionWorkspaceView` extending `ItemView` directly (not BaseHubView)
-- Layout: header (title + status + actions) → timer → goals checklist → notes textarea → focus file link → artifacts
-- Timer: incremental DOM update via `session.timer.tick`
-- Goals: inline add, checkbox toggle, remove — all via event bus
-- Notes: `<textarea>` with 500ms debounced save via `session.notes.update`
-- Focus file: clickable link → `app.workspace.openLinkText()` in adjacent leaf
-- Artifacts: live list updated on `session.artifact.added`
-- Registered in `registry.ts`, command `flowti:open-session-workspace`
-- ~513 LOC, ~15 tests
+User story: [[I want to prepare a working session, so that I can focus on one task at a time]]
 
-### Increment 8: Preparation Flow & Auto-Open (PLANNED)
+New files:
+- `src/ui/SessionWorkspaceView.ts` — Standalone `ItemView` workspace (463 LOC): header (title + type badge + status badge + contextual actions), timer (incremental DOM update via `session.timer.tick`), goals checklist (add via Enter, toggle via checkbox, remove via x — all via EventBus), notes textarea (500ms debounced save via `session.notes.update`), focus file link (opens in adjacent leaf via `openLinkText("split")`), live artifacts list (appended on `session.artifact.added`), empty state
+- `tests/ui/SessionWorkspaceView.test.ts` — 36 tests (631 LOC): view metadata, empty state, header rendering + action buttons, timer + incremental update, goals CRUD, notes debounce, focus file, artifacts, cleanup, session lifecycle events
+
+Modified files:
+- `src/main.ts` — Import + `registerView(VIEW_TYPE_SESSION_WORKSPACE)` + `addCommand("flowti:open-session-workspace")` (+13 LOC)
+
+### Increment 8: Session Workspace Enrichment (2026-02-16)
+
+User story: [[I want to prepare a working session, so that I can focus on one task at a time]]
+
+Seven capabilities delivered: session links (attach files via right-click + UI), session notes persistence (`03 - Resources/Sessions/` + auto-summary on completion), session canvas (`.canvas` creation + auto-embed in notes), duration editing (prepared sessions), save template anytime (all statuses), "Open Workspace" button (sessions tab + dashboard), context menu rename ("Create New Session").
+
+Modified files:
+- `src/domain/session/types.ts` — `SessionLink` interface, `links`, `notesFile`, `canvasFile` on Session, `SESSION_NOTES_FOLDER` constant (+15 LOC)
+- `src/domain/session/events.ts` — 10 new events: link, duration, notesFile, canvasFile commands + state events (+32 LOC)
+- `src/domain/session/helpers.ts` — `links: []`, `notesFile: null`, `canvasFile: null` defaults, `generateSessionSummary()` pure function (+82 LOC)
+- `src/domain/session/SessionService.ts` — 5 handlers (link add/remove, duration, notesFile, canvasFile), auto-set `notesFile`, `getCurrentSession()`, `workspaceSessionId`, backward compat, template unlock (+137 LOC)
+- `src/infrastructure/events/catalog.ts` — 10 new catalog entries (+10 entries)
+- `src/main.ts` — `registerSessionFileMenu()` ("Add to Session" + "Create New Session"), `writeSessionSummary()` on completion (+79 LOC)
+- `src/ui/SessionWorkspaceView.ts` — Links, notes file, canvas, duration editor, save template, clickable artifacts, workspace tracking (+274 LOC, total 737 LOC)
+- `src/ui/UserHubView.ts` — 4 new events in re-render array, `openSessionWorkspace` (+20 LOC)
+- `src/ui/userHub/UserHubDashboard.ts` — Active session clickable (opens workspace) (+5 LOC)
+- `src/ui/userHub/UserHubSessions.ts` — "Open Workspace" button, save template all statuses, links section, clickable artifacts (+163 LOC)
+- `src/ui/userHub/types.ts` — `openSessionWorkspace` callback (+4 LOC)
+- `tests/domain/session/SessionService.test.ts` — Link CRUD, duration, notesFile, canvasFile, template unlock, getCurrentSession tests (+336 LOC)
+- `tests/domain/session/helpers.test.ts` — `generateSessionSummary` suite + defaults (+143 LOC)
+- `tests/ui/userHub/UserHubSessions.test.ts` — Save template, open workspace, links section (+396 LOC)
+- 4 additional test files — `canvasFile`, `openSessionWorkspace` mock updates
+
+### Increment 9: Preparation Flow & Auto-Open (PLANNED)
 
 Scope:
 - Goals repeater in `NewSessionModal` (add/remove goal text inputs before creating session)
 - Update `session.create` payload with optional `goals?: string[]`
 - Auto-open `SessionWorkspaceView` on `session.started` event
 - Open focus file in adjacent split leaf on session start
-- "Open Workspace" button on active/paused sessions in `UserHubSessions` detail panel
 - ~111 LOC, ~6 tests
 
-### Increment 9: Focus File Profiles & Context Files (PLANNED)
+### Increment 10: Focus File Profiles & Context Files (PLANNED)
 
 User story: [[I want to prepare a working session, so that I can focus on one task at a time]]
 
@@ -259,7 +284,7 @@ Scope:
 - See: [[Phase 4 Inc 9 - Focus File Profiles and Context Files]]
 - ~90 LOC new file + ~50 LOC service changes, ~31 tests
 
-### Increment 10: Session Spawning & Guiding Questions (PLANNED)
+### Increment 11: Session Spawning & Guiding Questions (PLANNED)
 
 User story: [[I want to prepare a working session, so that I can focus on one task at a time]]
 
@@ -272,14 +297,4 @@ Scope:
 - UI: Guiding Questions rendered in SessionWorkspaceView during active/paused
 - ~120 LOC, ~18 tests
 
-### Increment 11: Session Document Generation (PLANNED)
-
-User story: [[I want to prepare a working session, so that I can focus on one task at a time]]
-
-Scope:
-- `generateSessionDocument(session)` — pure function producing markdown string with metadata, focus file link, context files, artifacts, notes, timeline summary
-- Listen to `session.completed` → create `.md` file via `file.create.request` event
-- Configurable folder: `sessionDocumentsPath` setting (default: `"Sessions/"`)
-- File name pattern: `YYYY-MM-DD <SessionType> - <Title>.md`
-- Backlink from session document to focus file via wiki-link
-- ~100 LOC, ~15 tests
+> **Note**: Increment 11 (Session Document Generation) from the original plan was delivered as part of Increment 8 — `generateSessionSummary()` + `writeSessionSummary()` with `SESSION_NOTES_FOLDER` constant. The session document is now auto-generated at `03 - Resources/Sessions/` on session completion.

@@ -24,7 +24,12 @@ const STATUS_ICONS: Record<string, string> = {
 	archived: "archive",
 };
 
+/** Ordered status categories for the master list. */
+const STATUS_ORDER: string[] = ["active", "paused", "prepared", "completed", "archived"];
+
 export class UserHubSessions {
+	private collapsedCategories = new Set<string>(["completed", "archived"]);
+
 	constructor(
 		private masterEl: HTMLElement,
 		private detailEl: HTMLElement,
@@ -63,50 +68,85 @@ export class UserHubSessions {
 		addBtn.appendText(" New");
 		addBtn.addEventListener("click", () => this.deps.openNewSessionModal());
 
-		// Sort: active first, then paused, prepared, completed, archived
-		const order: Record<string, number> = { active: 0, paused: 1, prepared: 2, completed: 3, archived: 4 };
-		const sorted = [...sessions].sort((a, b) => (order[a.status] ?? 5) - (order[b.status] ?? 5));
+		// Group by status and render collapsible categories
+		for (const status of STATUS_ORDER) {
+			const group = sessions.filter((s) => s.status === status);
+			if (group.length === 0) continue;
 
-		for (const session of sorted) {
-			const row = this.masterEl.createDiv({ cls: "ft-catalog-row ft-cursor-pointer" });
-			row.style.marginBottom = "2px";
+			const isCollapsed = this.collapsedCategories.has(status);
 
-			if (state.selectedSession?.id === session.id) {
-				row.addClass("ft-catalog-row-active");
-				row.style.backgroundColor = "var(--background-modifier-hover)";
-			}
+			const categoryEl = this.masterEl.createDiv({ cls: "ft-session-category" });
 
-			if (session.status === "active") {
-				row.style.borderLeft = "3px solid var(--interactive-accent)";
-			}
+			// Category header
+			const categoryHeader = categoryEl.createDiv({ cls: "ft-session-category-header ft-cursor-pointer" });
+			categoryHeader.style.cssText = "display:flex;align-items:center;gap:6px;padding:4px 8px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);";
 
-			// Status icon
-			const icon = row.createSpan();
-			setIcon(icon, STATUS_ICONS[session.status] ?? "circle");
-			icon.style.opacity = "0.6";
-			icon.style.marginRight = "0.5rem";
+			const chevron = categoryHeader.createSpan({ cls: "ft-category-chevron" });
+			setIcon(chevron, isCollapsed ? "chevron-right" : "chevron-down");
+			chevron.style.opacity = "0.5";
 
-			// Title
-			row.createSpan({ text: session.title });
+			const statusIcon = categoryHeader.createSpan();
+			setIcon(statusIcon, STATUS_ICONS[status] ?? "circle");
+			statusIcon.style.opacity = "0.5";
 
-			// Type badge
-			row.createSpan({
-				text: SESSION_TYPE_LABELS[session.type] ?? session.type,
-				cls: "ft-badge ft-badge-muted ft-text-sm",
-			}).style.marginLeft = "0.5rem";
-
-			// Duration / status badge
-			const statusText = row.createSpan({
-				text: SESSION_STATUS_LABELS[session.status] ?? session.status,
-				cls: "ft-text-muted ft-text-sm",
+			categoryHeader.createSpan({
+				text: `${SESSION_STATUS_LABELS[status] ?? status} (${group.length})`,
 			});
-			statusText.style.marginLeft = "auto";
 
-			row.addEventListener("click", () => {
-				this.deps.setState({ selectedSession: session });
+			// Collapsible content
+			const contentEl = categoryEl.createDiv({ cls: "ft-session-category-content" });
+			if (isCollapsed) {
+				contentEl.style.display = "none";
+			}
+
+			categoryHeader.addEventListener("click", () => {
+				if (this.collapsedCategories.has(status)) {
+					this.collapsedCategories.delete(status);
+				} else {
+					this.collapsedCategories.add(status);
+				}
 				this.deps.scheduleRender();
 			});
+
+			for (const session of group) {
+				this.renderSessionRow(contentEl, session, state);
+			}
 		}
+	}
+
+	private renderSessionRow(container: HTMLElement, session: Session, state: { selectedSession: Session | null }): void {
+		const row = container.createDiv({ cls: "ft-catalog-row ft-cursor-pointer" });
+		row.style.marginBottom = "2px";
+
+		if (state.selectedSession?.id === session.id) {
+			row.addClass("ft-catalog-row-active");
+			row.style.backgroundColor = "var(--background-modifier-hover)";
+		}
+
+		if (session.status === "active") {
+			row.style.borderLeft = "3px solid var(--interactive-accent)";
+		}
+
+		// Status icon
+		const icon = row.createSpan();
+		setIcon(icon, STATUS_ICONS[session.status] ?? "circle");
+		icon.style.opacity = "0.6";
+		icon.style.marginRight = "0.5rem";
+
+		// Title
+		row.createSpan({ text: session.title });
+
+		// Type badge
+		row.createSpan({
+			text: SESSION_TYPE_LABELS[session.type] ?? session.type,
+			cls: "ft-badge ft-badge-muted ft-text-sm",
+		}).style.marginLeft = "0.5rem";
+
+		row.addEventListener("click", () => {
+			const current = this.deps.getState().selectedSession;
+			this.deps.setState({ selectedSession: current?.id === session.id ? null : session });
+			this.deps.scheduleRender();
+		});
 	}
 
 	renderDetail(): void {
@@ -194,7 +234,6 @@ export class UserHubSessions {
 		// Timer section (active or paused)
 		if (session.status === "active" || session.status === "paused") {
 			const timerSection = this.detailEl.createDiv({ cls: "ft-detail-section" });
-			timerSection.style.textAlign = "center";
 			timerSection.style.padding = "1rem";
 
 			const timerLabel = timerSection.createDiv({ cls: "ft-text-sm ft-text-muted" });
@@ -242,6 +281,11 @@ export class UserHubSessions {
 
 		if (session.completedAt) {
 			this.renderInfoRow(infoGrid, "Completed", new Date(session.completedAt).toLocaleString());
+		}
+
+		// Links section
+		if (session.links && session.links.length > 0) {
+			this.renderLinks(session);
 		}
 
 		// Artifacts section
@@ -352,9 +396,15 @@ export class UserHubSessions {
 			setIcon(icon, artifact.action === "created" ? "file-plus" : "file-edit");
 			icon.style.opacity = "0.5";
 
-			// Show just the filename
+			// Clickable filename
 			const parts = artifact.path.split("/");
-			row.createSpan({ text: parts[parts.length - 1] });
+			const link = row.createEl("a", { text: parts[parts.length - 1], cls: "ft-artifact-link" });
+			link.title = artifact.path;
+			link.style.cssText = "cursor:pointer;text-decoration:underline;color:var(--text-accent);";
+			link.addEventListener("click", (e) => {
+				e.preventDefault();
+				this.deps.openFile(artifact.path);
+			});
 
 			row.createSpan({
 				text: artifact.action,
@@ -370,6 +420,28 @@ export class UserHubSessions {
 		}
 	}
 
+	private renderLinks(session: Session): void {
+		const section = this.detailEl.createDiv({ cls: "ft-detail-section" });
+		section.createEl("h4", { text: `Links (${session.links.length})`, cls: "ft-heading ft-heading-sm" });
+
+		for (const link of session.links) {
+			const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-text-sm" });
+			row.style.padding = "0.15rem 0";
+
+			const icon = row.createSpan();
+			setIcon(icon, "file-text");
+			icon.style.opacity = "0.5";
+
+			const parts = link.path.split("/");
+			const linkEl = row.createEl("a", { text: parts[parts.length - 1], cls: "ft-link" });
+			linkEl.title = link.path;
+			linkEl.addEventListener("click", (e) => {
+				e.preventDefault();
+				this.deps.openFile(link.path);
+			});
+		}
+	}
+
 	private renderActions(session: Session): void {
 		const actions = this.detailEl.createDiv({ cls: "ft-detail-section ft-flex ft-gap-2" });
 		const eb = this.deps.eventBus;
@@ -377,32 +449,51 @@ export class UserHubSessions {
 
 		switch (session.status) {
 			case "prepared":
+				this.addActionButton(actions, "layout", "Workspace", () => {
+					this.deps.openSessionWorkspace(session.id);
+				});
 				// Only show Start when no other session is active
 				if (!state.activeSession) {
 					this.addActionButton(actions, "play", "Start", () => {
 						void eb.emit("session.start", { sessionId: session.id });
+						this.deps.openSessionWorkspace(session.id);
 					});
 				}
+				this.addActionButton(actions, "bookmark", "Save as Template", () => {
+					this.deps.openSaveTemplateModal(session);
+				});
 				this.addActionButton(actions, "trash-2", "Delete", () => {
 					void eb.emit("session.delete", { sessionId: session.id });
 				});
 				break;
 
 			case "active":
+				this.addActionButton(actions, "layout", "Workspace", () => {
+					this.deps.openSessionWorkspace(session.id);
+				});
 				this.addActionButton(actions, "pause", "Pause", () => {
 					void eb.emit("session.pause", { sessionId: session.id });
 				});
 				this.addActionButton(actions, "check-circle", "Complete", () => {
 					void eb.emit("session.complete", { sessionId: session.id });
 				});
+				this.addActionButton(actions, "bookmark", "Save as Template", () => {
+					this.deps.openSaveTemplateModal(session);
+				});
 				break;
 
 			case "paused":
+				this.addActionButton(actions, "layout", "Workspace", () => {
+					this.deps.openSessionWorkspace(session.id);
+				});
 				this.addActionButton(actions, "play", "Resume", () => {
 					void eb.emit("session.resume", { sessionId: session.id });
 				});
 				this.addActionButton(actions, "check-circle", "Complete", () => {
 					void eb.emit("session.complete", { sessionId: session.id });
+				});
+				this.addActionButton(actions, "bookmark", "Save as Template", () => {
+					this.deps.openSaveTemplateModal(session);
 				});
 				break;
 

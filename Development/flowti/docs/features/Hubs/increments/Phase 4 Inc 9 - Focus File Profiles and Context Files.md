@@ -3,7 +3,7 @@ type: Increment
 feature: "[[Hubs PRD]]"
 pbi: "[[PBI-002 Documentation Sessions]]"
 phase: 4
-increment: 9
+increment: 10
 stage: planned
 date: 2026-02-16
 tasm_score: 0
@@ -13,7 +13,9 @@ test_suites: 0
 loc_added: 0
 ---
 
-# Phase 4, Increment 9: Focus File Profiles & Context Files
+# Phase 4, Increment 10: Focus File Profiles & Context Files
+
+> **Note**: Originally planned as Increment 9. Renumbered after [[Phase 4 Inc 8 - Session Workspace Enrichment]] was inserted and Preparation Flow moved to Increment 9. Session Links (from Inc 8) partially overlap with Context Files — `links: SessionLink[]` provides file attachment; Context Files may evolve this into a richer working set.
 
 ## Context
 

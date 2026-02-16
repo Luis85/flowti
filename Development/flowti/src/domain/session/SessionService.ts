@@ -12,8 +12,8 @@
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { ITypedStorage } from "../../utils/TypedStorage";
 import { generateUUID } from "../../utils/helpers";
-import type { Session, SessionGoal, SessionState, SessionTemplate } from "./types";
-import { MAX_SESSIONS, MAX_TEMPLATES, ARTIFACT_DEDUP_WINDOW_MS } from "./types";
+import type { Session, SessionGoal, SessionLink, SessionState, SessionTemplate } from "./types";
+import { MAX_SESSIONS, MAX_TEMPLATES, ARTIFACT_DEDUP_WINDOW_MS, SESSION_NOTES_FOLDER } from "./types";
 import { createSession, createGoal, computeRemainingMs, computeElapsedMs, isTimerExpired } from "./helpers";
 
 /**
@@ -119,10 +119,43 @@ export class SessionService {
 				}),
 			);
 
+			// Duration command
+			this.unsubscribes.push(
+				this.eventBus.on("session.duration.update", (event) => {
+					void this.handleDurationUpdate(event.payload.sessionId, event.payload.durationMinutes);
+				}),
+			);
+
 			// Notes command
 			this.unsubscribes.push(
 				this.eventBus.on("session.notes.update", (event) => {
 					void this.handleNotesUpdate(event.payload.sessionId, event.payload.notes);
+				}),
+			);
+
+			// Notes file command
+			this.unsubscribes.push(
+				this.eventBus.on("session.notesFile.set", (event) => {
+					void this.handleNotesFileSet(event.payload.sessionId, event.payload.path);
+				}),
+			);
+
+			// Canvas file command
+			this.unsubscribes.push(
+				this.eventBus.on("session.canvasFile.set", (event) => {
+					void this.handleCanvasFileSet(event.payload.sessionId, event.payload.path);
+				}),
+			);
+
+			// Link commands
+			this.unsubscribes.push(
+				this.eventBus.on("session.link.add", (event) => {
+					void this.handleLinkAdd(event.payload.sessionId, event.payload.path);
+				}),
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("session.link.remove", (event) => {
+					void this.handleLinkRemove(event.payload.sessionId, event.payload.path);
 				}),
 			);
 		}
@@ -149,6 +182,15 @@ export class SessionService {
 				}
 				if (!s.goals) {
 					s.goals = [];
+				}
+				if (!s.links) {
+					s.links = [];
+				}
+				if (s.notesFile === undefined) {
+					s.notesFile = null;
+				}
+				if (s.canvasFile === undefined) {
+					s.canvasFile = null;
 				}
 			}
 		}
@@ -181,6 +223,28 @@ export class SessionService {
 	getActiveSession(): Session | null {
 		if (!this.state.activeSessionId) return null;
 		return this.findSession(this.state.activeSessionId) ?? null;
+	}
+
+	/**
+	 * Returns a session by ID, or null if not found.
+	 */
+	getSessionById(id: string): Session | null {
+		return this.findSession(id) ?? null;
+	}
+
+	/**
+	 * Transient ID of the session currently shown in the workspace view.
+	 * Not persisted — used to link the context menu to a prepared session.
+	 */
+	workspaceSessionId: string | null = null;
+
+	/**
+	 * Returns the current session: active first, then workspace session.
+	 * Used by context menu to determine which session to add links to.
+	 */
+	getCurrentSession(): Session | null {
+		return this.getActiveSession()
+			?? (this.workspaceSessionId ? this.getSessionById(this.workspaceSessionId) : null);
 	}
 
 	// ── Template CRUD ───────────────────────────────────────
@@ -245,11 +309,11 @@ export class SessionService {
 	}
 
 	/**
-	 * Creates a template from a completed or archived session.
+	 * Creates a template from any session.
 	 */
 	async saveTemplateFromSession(sessionId: string, name: string): Promise<SessionTemplate | null> {
 		const session = this.findSession(sessionId);
-		if (!session || (session.status !== "completed" && session.status !== "archived")) return null;
+		if (!session) return null;
 
 		return this.saveTemplate({
 			name,
@@ -317,6 +381,10 @@ export class SessionService {
 			payload.durationMinutes,
 			payload.focusFile,
 		);
+
+		// Auto-set notes file path
+		const safeName = session.title.replace(/[\\/:*?"<>|]/g, "-");
+		session.notesFile = `${SESSION_NOTES_FOLDER}/${safeName}.md`;
 
 		// Populate goals from text strings if provided
 		if (payload.goals && payload.goals.length > 0) {
@@ -455,6 +523,18 @@ export class SessionService {
 		await this.eventBus?.emit("session.goal.removed", { sessionId, goalId });
 	}
 
+	// ── Duration handler ────────────────────────────────────
+
+	private async handleDurationUpdate(sessionId: string, durationMinutes: number): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session || session.status !== "prepared") return;
+		if (durationMinutes < 1) return;
+
+		session.durationMinutes = durationMinutes;
+		await this.saveState();
+		await this.eventBus?.emit("session.duration.updated", { sessionId, durationMinutes });
+	}
+
 	// ── Notes handler ───────────────────────────────────────
 
 	private async handleNotesUpdate(sessionId: string, notes: string): Promise<void> {
@@ -464,6 +544,55 @@ export class SessionService {
 		session.notes = notes;
 		await this.saveState();
 		await this.eventBus?.emit("session.notes.updated", { sessionId, notes });
+	}
+
+	// ── Notes file handler ──────────────────────────────────
+
+	private async handleNotesFileSet(sessionId: string, path: string): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session) return;
+
+		session.notesFile = path;
+		await this.saveState();
+		await this.eventBus?.emit("session.notesFile.updated", { sessionId, path });
+	}
+
+	// ── Canvas file handler ────────────────────────────────
+
+	private async handleCanvasFileSet(sessionId: string, path: string): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session) return;
+
+		session.canvasFile = path;
+		await this.saveState();
+		await this.eventBus?.emit("session.canvasFile.updated", { sessionId, path });
+	}
+
+	// ── Link handlers ───────────────────────────────────────
+
+	private async handleLinkAdd(sessionId: string, path: string): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session) return;
+
+		// Deduplicate by path
+		if (session.links.some((l) => l.path === path)) return;
+
+		const link: SessionLink = { path, addedAt: new Date().toISOString() };
+		session.links.push(link);
+		await this.saveState();
+		await this.eventBus?.emit("session.link.added", { sessionId, link: { ...link } });
+	}
+
+	private async handleLinkRemove(sessionId: string, path: string): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session) return;
+
+		const index = session.links.findIndex((l) => l.path === path);
+		if (index === -1) return;
+
+		session.links.splice(index, 1);
+		await this.saveState();
+		await this.eventBus?.emit("session.link.removed", { sessionId, path });
 	}
 
 	// ── Timer ────────────────────────────────────────────────

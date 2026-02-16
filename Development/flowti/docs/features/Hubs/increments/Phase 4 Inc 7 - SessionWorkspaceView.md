@@ -4,14 +4,14 @@ feature: "[[Hubs PRD]]"
 pbi: "[[PBI-002 Documentation Sessions]]"
 phase: 4
 increment: 7
-stage: planned
-date:
+stage: done
+date: 2026-02-16
 tasm_score: 0
-tasm_review: ""
-tests_added: 0
-tests_total: 0
-test_suites: 0
-loc_added: 513
+tasm_review: "Pending Three Amigos review"
+tests_added: 36
+tests_total: 2053
+test_suites: 83
+loc_added: 476
 ---
 
 # Phase 4, Increment 7: SessionWorkspaceView
@@ -24,19 +24,18 @@ User story: [[I want to prepare a working session, so that I can focus on one ta
 
 ## Scope
 
-New standalone `SessionWorkspaceView` extending `ItemView` directly (not BaseHubView). Layout: header (title + status + actions) to timer to goals checklist to notes textarea to focus file link to artifacts. Registered in `registry.ts`, command `flowti:open-session-workspace`. ~513 LOC, ~15 tests.
+New standalone `SessionWorkspaceView` extending `ItemView` directly (not BaseHubView). Layout: header (title + status + actions) → timer → goals checklist → notes textarea → focus file link → artifacts. Registered in `main.ts` (alongside UserHubView), command `flowti:open-session-workspace`. 463 LOC view + 13 LOC main.ts = 476 LOC. 36 tests.
 
 ## Changes
 
 ### New Files
 
-- `src/ui/SessionWorkspaceView.ts` — Full workspace view (~350 LOC)
-- `tests/ui/SessionWorkspaceView.test.ts` — Rendering + interaction tests (~150 LOC)
+- `src/ui/SessionWorkspaceView.ts` — Full workspace view (463 LOC): header, timer, goals, notes, focus file, artifacts, event subscriptions, empty state
+- `tests/ui/SessionWorkspaceView.test.ts` — 36 tests (631 LOC): rendering, interactions, event subscriptions, cleanup
 
 ### Modified Files
 
-- `src/infrastructure/views/registry.ts` — Add view definition (+8 LOC)
-- `src/main.ts` — Register command (+5 LOC)
+- `src/main.ts` — Import + registerView + addCommand for SessionWorkspaceView (+13 LOC)
 
 ## Layout
 
@@ -88,35 +87,33 @@ New standalone `SessionWorkspaceView` extending `ItemView` directly (not BaseHub
 - `session.notes.updated` — update textarea if not focused
 - `session.artifact.added` — append to artifact list
 
-## Tests
+## Tests (36 added)
 
-- Renders empty state when no active session
-- Renders header with title, type badge, status badge
-- Renders timer with formatted countdown
-- Timer tick updates display without full re-render
-- Renders goals checklist with checkboxes
-- Goal checkbox toggle emits session.goal.toggle
-- Add goal input emits session.goal.add
-- Remove goal button emits session.goal.remove
-- Renders notes textarea with current notes
-- Notes textarea change emits session.notes.update (debounced)
-- Focus file link renders when focusFile is set
-- Focus file click calls openLinkText
-- Artifacts list renders file names with action badges
-- Pause/Resume/Complete buttons emit correct events per status
-- Cleanup: unsubscribes from all events on close
+**SessionWorkspaceView.test.ts** (+36 tests):
+- View metadata (4): correct view type, session title display text, default display text, timer icon
+- Empty state (1): renders when no active session
+- Header rendering (6): title + type badge + status badge, Pause/Complete for active, Resume/Complete for paused, Start for prepared, Pause emits event, Complete emits event
+- Timer (3): formatted countdown, tick updates without re-render, ignores tick for different session
+- Goals (9): checklist with checkboxes, goal count, toggle emits event, add emits event on Enter, clears input after submission, remove emits event, goal.added appends, goal.toggled updates, goal.removed removes
+- Notes (3): renders textarea, debounced save emits event, notes.updated updates textarea when not focused
+- Focus file (3): renders link, no section when null, click calls openLinkText
+- Artifacts (3): renders list with badges, empty message, artifact.added appends
+- Cleanup (2): unsubscribes on close, clears debounce timer on close
+- Session lifecycle (2): re-renders on completed, deleted shows empty state
 
 ## Acceptance Criteria
 
-- [ ] SessionWorkspaceView renders with timer, goals, notes, focus file, artifacts
-- [ ] Timer updates incrementally without full re-render
-- [ ] Goal checklist: add, toggle, remove all functional
-- [ ] Notes textarea auto-saves with debounce
-- [ ] Focus file opens in adjacent leaf on click
-- [ ] Artifacts list updates live
-- [ ] Empty state shows when no active session
-- [ ] All events cleaned up on view close
-- [ ] `npm run build` passes
+- [x] SessionWorkspaceView renders with timer, goals, notes, focus file, artifacts
+- [x] Timer updates incrementally without full re-render
+- [x] Goal checklist: add, toggle, remove all functional
+- [x] Notes textarea auto-saves with debounce
+- [x] Focus file opens in adjacent leaf on click
+- [x] Artifacts list updates live
+- [x] Empty state shows when no active session
+- [x] All events cleaned up on view close
+- [x] `npm run build` passes — 2,053 tests across 83 suites
+
+> **Successor**: [[Phase 4 Inc 8 - Session Workspace Enrichment]] extended the workspace from 463 → 737 LOC with session links, notes file persistence, canvas creation, duration editing, save template for all statuses, and "Open Workspace" button.
 
 ## Verification
 

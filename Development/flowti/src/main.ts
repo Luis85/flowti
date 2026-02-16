@@ -33,12 +33,14 @@ import { DataExchangeSetup } from "./dataExchangeSetup";
 import { UiCommandService } from "./infrastructure/ui/UiCommandService";
 import { InputModal, NewSessionModal } from "./ui/modals";
 import { SESSION_TYPES, type SessionType } from "./domain/session/types";
+import { generateSessionSummary } from "./domain/session/helpers";
 import { createInfrastructure, setupCrossCuttingListeners } from "./pluginBootstrap";
 import { HubRegistry } from "./domain/hub/HubRegistry";
 import { EventCatalogProvider } from "./domain/hub/EventCatalogProvider";
 import { DataExchangeProvider } from "./domain/hub/DataExchangeProvider";
 import { UserHubProvider } from "./domain/hub/UserHubProvider";
 import { UserHubView, VIEW_TYPE_USER_HUB } from "./ui/UserHubView";
+import { SessionWorkspaceView, VIEW_TYPE_SESSION_WORKSPACE } from "./ui/SessionWorkspaceView";
 
 
 /**  
@@ -468,6 +470,13 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.sessionService = await this.services.get<SessionService>("sessionService");
 		await this.sessionService.load();
 
+		// Write session summary to notes file on completion
+		this.crossCuttingListeners.push(
+			this.eventBus.on("session.completed", (event) => {
+				void this.writeSessionSummary(event.payload.session);
+			}),
+		);
+
 		return settingsService;
 	}
 
@@ -521,19 +530,51 @@ export default class FlowtiBasePlugin extends Plugin {
 			new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.sessionService!, this.settings.inboxEnabledSources),
 		);
 		this.hubRegistry.register(new UserHubProvider(this.userService, this.inboxService!));
+
+		// Session Workspace — dedicated focused leaf for active sessions
+		this.registerView(VIEW_TYPE_SESSION_WORKSPACE, (leaf) =>
+			new SessionWorkspaceView(leaf, this.eventBus, this.sessionService!),
+		);
+		this.addCommand({
+			id: "flowti:open-session-workspace",
+			name: "Open Session Workspace",
+			icon: "timer",
+			callback: () => {
+				void this.app.workspace.getLeaf("tab").setViewState({
+					type: VIEW_TYPE_SESSION_WORKSPACE,
+					active: true,
+				});
+			},
+		});
 	}
 
 	/**
-	 * Registers a file-menu item so users can right-click any file
-	 * in the navigator and start a documentation session with that
-	 * file as the focus.
+	 * Registers file-menu items so users can right-click any file
+	 * in the navigator and either add it to the current session
+	 * or create a new session with that file as the focus.
 	 */
 	private registerSessionFileMenu(): void {
 		this.registerEvent(
 			this.app.workspace.on("file-menu", (menu, file) => {
 				if (file instanceof TFile) {
+					// "Add to Session" — when any session is current (active, paused, or in workspace)
+					const active = this.sessionService?.getCurrentSession();
+					if (active) {
+						menu.addItem((item) => {
+							item.setTitle("Add to Session")
+								.setIcon("link")
+								.onClick(() => {
+									void this.eventBus.emit("session.link.add", {
+										sessionId: active.id,
+										path: file.path,
+									});
+									new Notice(`Added "${file.basename}" to session`);
+								});
+						});
+					}
+
 					menu.addItem((item) => {
-						item.setTitle("Start Documentation Session")
+						item.setTitle("Create New Session")
 							.setIcon("timer")
 							.onClick(() => {
 								new NewSessionModal(this.app, {
@@ -573,6 +614,36 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.errorService.handle(
 				error instanceof Error ? error : new Error(String(error)),
 				"ingestion.catchUp"
+			);
+		}
+	}
+
+	/**
+	 * Writes a Markdown summary to the session's notes file.
+	 * Creates the folder and file if they don't exist yet.
+	 */
+	private async writeSessionSummary(session: import("./domain/session/types").Session): Promise<void> {
+		if (!session.notesFile) return;
+
+		try {
+			const markdown = generateSessionSummary(session);
+
+			// Ensure folder exists
+			const folder = session.notesFile.substring(0, session.notesFile.lastIndexOf("/"));
+			if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
+				await this.app.vault.createFolder(folder);
+			}
+
+			const existing = this.app.vault.getAbstractFileByPath(session.notesFile);
+			if (existing instanceof TFile) {
+				await this.app.vault.modify(existing, markdown);
+			} else {
+				await this.app.vault.create(session.notesFile, markdown);
+			}
+		} catch (error) {
+			this.errorService?.handle(
+				error instanceof Error ? error : new Error(String(error)),
+				"writeSessionSummary",
 			);
 		}
 	}

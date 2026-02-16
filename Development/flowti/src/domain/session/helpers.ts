@@ -71,6 +71,9 @@ export function createSession(
 		focusFile: focusFile ?? null,
 		timeline: [],
 		goals: [],
+		links: [],
+		notesFile: null,
+		canvasFile: null,
 	};
 }
 
@@ -155,6 +158,85 @@ export function computeTimelineSummary(session: Session, now: number = Date.now(
 		pauseCount: pauseSegments.length,
 		pauseSegments,
 	};
+}
+
+/**
+ * Generates a full Markdown summary for a completed session.
+ * Pure function — only reads from the Session object.
+ */
+export function generateSessionSummary(session: Session): string {
+	const lines: string[] = [];
+
+	lines.push(`# ${session.title}`);
+	lines.push("");
+	lines.push("## Session Info");
+	lines.push(`- **Type:** ${session.type}`);
+	lines.push(`- **Status:** ${session.status}`);
+	lines.push(`- **Duration:** ${session.durationMinutes} minutes`);
+	lines.push(`- **Created:** ${session.createdAt}`);
+	if (session.startedAt) lines.push(`- **Started:** ${session.startedAt}`);
+	if (session.completedAt) lines.push(`- **Completed:** ${session.completedAt}`);
+	if (session.focusFile) lines.push(`- **Focus File:** [[${session.focusFile}]]`);
+	if (session.canvasFile) lines.push(`- **Canvas:** [[${session.canvasFile}]]`);
+
+	// Goals
+	if (session.goals.length > 0) {
+		lines.push("");
+		lines.push("## Goals");
+		for (const g of session.goals) {
+			lines.push(`- [${g.completed ? "x" : " "}] ${g.text}`);
+		}
+	}
+
+	// Links
+	if (session.links && session.links.length > 0) {
+		lines.push("");
+		lines.push("## Links");
+		for (const l of session.links) {
+			lines.push(`- [[${l.path}]]`);
+		}
+	}
+
+	// Artifacts
+	if (session.artifacts.length > 0) {
+		lines.push("");
+		lines.push("## Artifacts");
+		for (const a of session.artifacts) {
+			lines.push(`- [[${a.path}]] *(${a.action})*`);
+		}
+	}
+
+	// Timeline
+	if (session.timeline.length > 0) {
+		lines.push("");
+		lines.push("## Timeline");
+		for (const entry of session.timeline) {
+			const time = new Date(entry.timestamp).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+			lines.push(`- ${time} — ${entry.action}`);
+		}
+	}
+
+	// Time summary
+	const summary = computeTimelineSummary(session);
+	if (summary.wallClockMs > 0) {
+		lines.push("");
+		lines.push("## Time Summary");
+		lines.push(`- **Wall clock:** ${formatDurationHuman(summary.wallClockMs)}`);
+		lines.push(`- **Active time:** ${formatDurationHuman(summary.activeTimeMs)}`);
+		if (summary.pauseCount > 0) {
+			lines.push(`- **Total pause:** ${formatDurationHuman(summary.totalPauseMs)} (${summary.pauseCount} pause${summary.pauseCount > 1 ? "s" : ""})`);
+		}
+	}
+
+	// Notes
+	if (session.notes.trim()) {
+		lines.push("");
+		lines.push("## Notes");
+		lines.push(session.notes.trim());
+	}
+
+	lines.push("");
+	return lines.join("\n");
 }
 
 /**

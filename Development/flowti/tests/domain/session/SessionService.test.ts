@@ -25,6 +25,9 @@ function makeSession(overrides: Partial<Session> = {}): Session {
 		focusFile: null,
 		timeline: [],
 		goals: [],
+		links: [],
+		notesFile: null,
+		canvasFile: null,
 		...overrides,
 	};
 }
@@ -141,6 +144,76 @@ describe("SessionService", () => {
 		});
 	});
 
+	// ── Session lookup ───────────────────────────────────────
+
+	describe("getSessionById", () => {
+		it("should return session by ID", async () => {
+			const state: SessionState = {
+				sessions: [makeSession({ id: "s1" }), makeSession({ id: "s2" })],
+				activeSessionId: null,
+			};
+			const mock = createMockStorage(state);
+			service.dispose();
+			service = new SessionService({ storage: mock.storage, eventBus });
+			await service.load();
+
+			expect(service.getSessionById("s1")?.id).toBe("s1");
+			expect(service.getSessionById("s2")?.id).toBe("s2");
+			expect(service.getSessionById("unknown")).toBeNull();
+		});
+	});
+
+	describe("getCurrentSession", () => {
+		it("should return active session when one exists", async () => {
+			const state: SessionState = {
+				sessions: [makeSession({ id: "s1", status: "active", startedAt: new Date().toISOString() })],
+				activeSessionId: "s1",
+			};
+			const mock = createMockStorage(state);
+			service.dispose();
+			service = new SessionService({ storage: mock.storage, eventBus });
+			await service.load();
+
+			expect(service.getCurrentSession()?.id).toBe("s1");
+		});
+
+		it("should return workspace session when no active session", async () => {
+			const state: SessionState = {
+				sessions: [makeSession({ id: "s1", status: "prepared" })],
+				activeSessionId: null,
+			};
+			const mock = createMockStorage(state);
+			service.dispose();
+			service = new SessionService({ storage: mock.storage, eventBus });
+			await service.load();
+			service.workspaceSessionId = "s1";
+
+			expect(service.getCurrentSession()?.id).toBe("s1");
+		});
+
+		it("should prefer active session over workspace session", async () => {
+			const state: SessionState = {
+				sessions: [
+					makeSession({ id: "s1", status: "active", startedAt: new Date().toISOString() }),
+					makeSession({ id: "s2", status: "prepared" }),
+				],
+				activeSessionId: "s1",
+			};
+			const mock = createMockStorage(state);
+			service.dispose();
+			service = new SessionService({ storage: mock.storage, eventBus });
+			await service.load();
+			service.workspaceSessionId = "s2";
+
+			expect(service.getCurrentSession()?.id).toBe("s1");
+		});
+
+		it("should return null when no active or workspace session", async () => {
+			await service.load();
+			expect(service.getCurrentSession()).toBeNull();
+		});
+	});
+
 	// ── Create ───────────────────────────────────────────────
 
 	describe("create", () => {
@@ -203,6 +276,28 @@ describe("SessionService", () => {
 			});
 
 			expect(service.getSessions()[0].focusFile).toBeNull();
+		});
+
+		it("should auto-set notesFile path from session title", async () => {
+			await service.load();
+			await eventBus.emit("session.create", {
+				type: "event-storming",
+				title: "Sprint Planning",
+				durationMinutes: 25,
+			});
+
+			expect(service.getSessions()[0].notesFile).toBe("03 - Resources/Sessions/Sprint Planning.md");
+		});
+
+		it("should sanitize special characters in notesFile path", async () => {
+			await service.load();
+			await eventBus.emit("session.create", {
+				type: "event-storming",
+				title: "Sprint: Review/Test",
+				durationMinutes: 25,
+			});
+
+			expect(service.getSessions()[0].notesFile).toBe("03 - Resources/Sessions/Sprint- Review-Test.md");
 		});
 
 		it("should evict oldest when exceeding MAX_SESSIONS", async () => {
@@ -896,23 +991,26 @@ describe("SessionService", () => {
 			expect(tmpl!.name).toBe("Archived Template");
 		});
 
-		it("should return null for active session", async () => {
+		it("should create template from active session", async () => {
 			await eventBus.emit("session.create", { type: "event-storming", title: "Active", durationMinutes: 25 });
 			const activeSession = service.getSessions().find((s) => s.title === "Active");
 			expect(activeSession).toBeDefined();
 			await eventBus.emit("session.start", { sessionId: activeSession!.id });
 
-			const tmpl = await service.saveTemplateFromSession(activeSession!.id, "X");
-			expect(tmpl).toBeNull();
+			const tmpl = await service.saveTemplateFromSession(activeSession!.id, "Active Template");
+			expect(tmpl).not.toBeNull();
+			expect(tmpl!.name).toBe("Active Template");
+			expect(tmpl!.type).toBe("event-storming");
 		});
 
-		it("should return null for prepared session", async () => {
+		it("should create template from prepared session", async () => {
 			await eventBus.emit("session.create", { type: "event-storming", title: "Prepared", durationMinutes: 25 });
 			const preparedSession = service.getSessions().find((s) => s.title === "Prepared");
 			expect(preparedSession).toBeDefined();
 
-			const tmpl = await service.saveTemplateFromSession(preparedSession!.id, "X");
-			expect(tmpl).toBeNull();
+			const tmpl = await service.saveTemplateFromSession(preparedSession!.id, "Prepared Template");
+			expect(tmpl).not.toBeNull();
+			expect(tmpl!.name).toBe("Prepared Template");
 		});
 
 		it("should return null for non-existent session", async () => {
@@ -1449,6 +1547,111 @@ describe("SessionService", () => {
 		});
 	});
 
+	// ── Duration ─────────────────────────────────────────────
+
+	describe("duration update", () => {
+		let sessionId: string;
+
+		beforeEach(async () => {
+			await service.load();
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await eventBus.emit("session.create", {
+				type: "event-storming",
+				title: "Duration Test",
+				durationMinutes: 25,
+			});
+			sessionId = handler.mock.calls[0][0].payload.session.id;
+		});
+
+		it("should update duration for a prepared session", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.duration.updated", handler);
+
+			await eventBus.emit("session.duration.update", { sessionId, durationMinutes: 45 });
+
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: { sessionId, durationMinutes: 45 },
+				}),
+			);
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			expect(session!.durationMinutes).toBe(45);
+		});
+
+		it("should ignore duration update for non-prepared session", async () => {
+			await eventBus.emit("session.start", { sessionId });
+			const handler = vi.fn();
+			eventBus.on("session.duration.updated", handler);
+
+			await eventBus.emit("session.duration.update", { sessionId, durationMinutes: 60 });
+
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("should ignore duration update with value less than 1", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.duration.updated", handler);
+
+			await eventBus.emit("session.duration.update", { sessionId, durationMinutes: 0 });
+
+			expect(handler).not.toHaveBeenCalled();
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			expect(session!.durationMinutes).toBe(25);
+		});
+
+		it("should ignore duration update for non-existent session", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.duration.updated", handler);
+
+			await eventBus.emit("session.duration.update", { sessionId: "unknown", durationMinutes: 30 });
+
+			expect(handler).not.toHaveBeenCalled();
+		});
+	});
+
+	// ── Notes file ──────────────────────────────────────────
+
+	describe("notes file", () => {
+		let sessionId: string;
+
+		beforeEach(async () => {
+			await service.load();
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await eventBus.emit("session.create", {
+				type: "event-storming",
+				title: "Notes File Test",
+				durationMinutes: 25,
+			});
+			sessionId = handler.mock.calls[0][0].payload.session.id;
+		});
+
+		it("should set notes file path", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.notesFile.updated", handler);
+
+			await eventBus.emit("session.notesFile.set", { sessionId, path: "Sessions/Test.md" });
+
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: { sessionId, path: "Sessions/Test.md" },
+				}),
+			);
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			expect(session!.notesFile).toBe("Sessions/Test.md");
+		});
+
+		it("should ignore set for non-existent session", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.notesFile.updated", handler);
+
+			await eventBus.emit("session.notesFile.set", { sessionId: "unknown", path: "x.md" });
+
+			expect(handler).not.toHaveBeenCalled();
+		});
+	});
+
 	// ── Notes ────────────────────────────────────────────────
 
 	describe("notes update", () => {
@@ -1717,6 +1920,127 @@ describe("SessionService", () => {
 			await freshService.load();
 			const loaded = freshService.getSessions().find((s) => s.id === "legacy-goals");
 			expect(loaded!.goals).toEqual([]);
+			freshService.dispose();
+		});
+	});
+
+	// ── Link CRUD ───────────────────────────────────────────
+
+	describe("link CRUD", () => {
+		let sessionId: string;
+
+		beforeEach(async () => {
+			await service.load();
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await eventBus.emit("session.create", {
+				type: "event-storming",
+				title: "Link Test",
+				durationMinutes: 25,
+			});
+			sessionId = handler.mock.calls[0][0].payload.session.id;
+		});
+
+		it("should add a link to a session", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.link.added", handler);
+
+			await eventBus.emit("session.link.add", { sessionId, path: "docs/events.md" });
+
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: expect.objectContaining({
+						sessionId,
+						link: expect.objectContaining({ path: "docs/events.md" }),
+					}),
+				}),
+			);
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			expect(session!.links).toHaveLength(1);
+			expect(session!.links[0].path).toBe("docs/events.md");
+			expect(session!.links[0].addedAt).toBeTruthy();
+		});
+
+		it("should deduplicate links by path", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.link.added", handler);
+
+			await eventBus.emit("session.link.add", { sessionId, path: "docs/events.md" });
+			await eventBus.emit("session.link.add", { sessionId, path: "docs/events.md" });
+
+			expect(handler).toHaveBeenCalledTimes(1);
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			expect(session!.links).toHaveLength(1);
+		});
+
+		it("should allow different paths", async () => {
+			await eventBus.emit("session.link.add", { sessionId, path: "docs/a.md" });
+			await eventBus.emit("session.link.add", { sessionId, path: "docs/b.md" });
+
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			expect(session!.links).toHaveLength(2);
+		});
+
+		it("should remove a link from a session", async () => {
+			await eventBus.emit("session.link.add", { sessionId, path: "docs/events.md" });
+
+			const handler = vi.fn();
+			eventBus.on("session.link.removed", handler);
+			await eventBus.emit("session.link.remove", { sessionId, path: "docs/events.md" });
+
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: { sessionId, path: "docs/events.md" },
+				}),
+			);
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			expect(session!.links).toHaveLength(0);
+		});
+
+		it("should ignore remove for non-existent link", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.link.removed", handler);
+			await eventBus.emit("session.link.remove", { sessionId, path: "nonexistent.md" });
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("should ignore link add for non-existent session", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.link.added", handler);
+			await eventBus.emit("session.link.add", { sessionId: "nonexistent", path: "test.md" });
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("should save state after link add", async () => {
+			(storage.save as ReturnType<typeof vi.fn>).mockClear();
+			await eventBus.emit("session.link.add", { sessionId, path: "docs/test.md" });
+			expect(storage.save).toHaveBeenCalled();
+		});
+
+		it("should save state after link remove", async () => {
+			await eventBus.emit("session.link.add", { sessionId, path: "docs/test.md" });
+			(storage.save as ReturnType<typeof vi.fn>).mockClear();
+			await eventBus.emit("session.link.remove", { sessionId, path: "docs/test.md" });
+			expect(storage.save).toHaveBeenCalled();
+		});
+	});
+
+	// ── Backward Compatibility — Links ─────────────────────
+
+	describe("backward compatibility — links", () => {
+		it("should initialize links array for legacy sessions on load", async () => {
+			const legacySession = makeSession({ id: "legacy-links" }) as unknown as Record<string, unknown>;
+			delete legacySession.links;
+			await storage.save({
+				sessions: [legacySession as unknown as Session],
+				activeSessionId: null,
+				savedTemplates: [],
+			});
+
+			const freshService = new SessionService({ storage, eventBus });
+			await freshService.load();
+			const loaded = freshService.getSessions().find((s) => s.id === "legacy-links");
+			expect(loaded!.links).toEqual([]);
 			freshService.dispose();
 		});
 	});

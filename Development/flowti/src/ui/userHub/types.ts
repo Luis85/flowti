@@ -72,8 +72,10 @@ export interface UserHubComponentDeps {
 	openNewSessionModal: (initialFocusFile?: string) => void;
 	/** Open a file in the workspace. */
 	openFile: (filePath: string) => void;
-	/** Open the Save Template modal for a completed/archived session. */
+	/** Open the Save Template modal for any session. */
 	openSaveTemplateModal: (session: Session) => void;
+	/** Open the Session Workspace view in a new leaf. Optionally targets a specific session. */
+	openSessionWorkspace: (sessionId?: string) => void;
 }
 
 // ─────────────────────────────────────────────────────────────

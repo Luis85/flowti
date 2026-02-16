@@ -27,6 +27,9 @@ function makeSession(overrides?: Partial<Session>): Session {
 		focusFile: null,
 		timeline: [],
 		goals: [],
+		links: [],
+		notesFile: null,
+		canvasFile: null,
 		...overrides,
 	};
 }
@@ -76,6 +79,7 @@ function makeDeps(state: UserHubState, eventBus?: IEventBus): UserHubComponentDe
 		openNewSessionModal: vi.fn(),
 		openFile: vi.fn(),
 		openSaveTemplateModal: vi.fn(),
+		openSessionWorkspace: vi.fn(),
 	};
 }
 
@@ -153,7 +157,7 @@ describe("UserHubSessions", () => {
 			comp.renderMaster("");
 
 			const rows = masterEl.querySelectorAll(".ft-catalog-row");
-			// Active session is sorted first
+			// Active session is in its own category first
 			expect((rows[0] as HTMLElement).style.borderLeft).toContain("var(--interactive-accent)");
 			expect((rows[1] as HTMLElement).style.borderLeft).not.toContain("var(--interactive-accent)");
 		});
@@ -169,7 +173,7 @@ describe("UserHubSessions", () => {
 			expect(row.style.marginBottom).toBe("2px");
 		});
 
-		it("should sort active sessions first", () => {
+		it("should render active category before prepared category", () => {
 			const sessions = [
 				makeSession({ id: "s1", title: "Prepared One", status: "prepared" }),
 				makeSession({ id: "s2", title: "Active One", status: "active", startedAt: new Date().toISOString() }),
@@ -193,7 +197,6 @@ describe("UserHubSessions", () => {
 			comp.renderMaster("");
 
 			const rows = masterEl.querySelectorAll(".ft-catalog-row");
-			// Both sorted as "prepared", so same order
 			expect((rows[0] as HTMLElement).classList.contains("ft-catalog-row-active")).toBe(true);
 			expect((rows[1] as HTMLElement).classList.contains("ft-catalog-row-active")).toBe(false);
 		});
@@ -210,6 +213,21 @@ describe("UserHubSessions", () => {
 			row.click();
 
 			expect(state.selectedSession).toBe(session);
+			expect(deps.scheduleRender).toHaveBeenCalled();
+		});
+
+		it("should deselect session when clicking already-selected row", () => {
+			const session = makeSession();
+			const state = makeState([session], session);
+			const deps = makeDeps(state);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderMaster("");
+
+			const row = masterEl.querySelector(".ft-catalog-row") as HTMLElement;
+			row.click();
+
+			expect(state.selectedSession).toBeNull();
 			expect(deps.scheduleRender).toHaveBeenCalled();
 		});
 
@@ -248,6 +266,168 @@ describe("UserHubSessions", () => {
 			comp.renderMaster("");
 
 			expect(masterEl.textContent).toContain("Service Design");
+		});
+	});
+
+	// ── Collapsible categories ────────────────────────────────
+
+	describe("collapsible categories", () => {
+		it("should render category headers for each status group", () => {
+			const sessions = [
+				makeSession({ id: "s1", status: "active", startedAt: new Date().toISOString() }),
+				makeSession({ id: "s2", status: "prepared" }),
+				makeSession({ id: "s3", status: "completed", completedAt: new Date().toISOString() }),
+			];
+			const state = makeState(sessions);
+			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
+
+			comp.renderMaster("");
+
+			const headers = masterEl.querySelectorAll(".ft-session-category-header");
+			expect(headers).toHaveLength(3);
+			expect(headers[0].textContent).toContain("Active (1)");
+			expect(headers[1].textContent).toContain("Ready (1)");
+			expect(headers[2].textContent).toContain("Completed (1)");
+		});
+
+		it("should not render categories for statuses with no sessions", () => {
+			const sessions = [makeSession({ id: "s1", status: "prepared" })];
+			const state = makeState(sessions);
+			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
+
+			comp.renderMaster("");
+
+			const headers = masterEl.querySelectorAll(".ft-session-category-header");
+			expect(headers).toHaveLength(1);
+			expect(headers[0].textContent).toContain("Ready (1)");
+		});
+
+		it("should collapse completed and archived categories by default", () => {
+			const sessions = [
+				makeSession({ id: "s1", status: "prepared" }),
+				makeSession({ id: "s2", status: "completed", completedAt: new Date().toISOString() }),
+				makeSession({ id: "s3", status: "archived" }),
+			];
+			const state = makeState(sessions);
+			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
+
+			comp.renderMaster("");
+
+			const categories = masterEl.querySelectorAll(".ft-session-category");
+			// prepared (expanded), completed (collapsed), archived (collapsed)
+			const preparedContent = categories[0].querySelector(".ft-session-category-content") as HTMLElement;
+			const completedContent = categories[1].querySelector(".ft-session-category-content") as HTMLElement;
+			const archivedContent = categories[2].querySelector(".ft-session-category-content") as HTMLElement;
+			expect(preparedContent.style.display).not.toBe("none");
+			expect(completedContent.style.display).toBe("none");
+			expect(archivedContent.style.display).toBe("none");
+		});
+
+		it("should hide rows in collapsed archived category", () => {
+			const sessions = [
+				makeSession({ id: "s1", title: "Active Session", status: "active", startedAt: new Date().toISOString() }),
+				makeSession({ id: "s2", title: "Archived Session", status: "archived" }),
+			];
+			const state = makeState(sessions);
+			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
+
+			comp.renderMaster("");
+
+			// Active row is visible
+			const activeContent = masterEl.querySelectorAll(".ft-session-category-content")[0] as HTMLElement;
+			expect(activeContent.style.display).not.toBe("none");
+			expect(activeContent.textContent).toContain("Active Session");
+
+			// Archived rows exist but are hidden
+			const archivedContent = masterEl.querySelectorAll(".ft-session-category-content")[1] as HTMLElement;
+			expect(archivedContent.style.display).toBe("none");
+			expect(archivedContent.textContent).toContain("Archived Session");
+		});
+
+		it("should toggle category collapse on header click", () => {
+			const sessions = [makeSession({ id: "s1", status: "prepared" })];
+			const state = makeState(sessions);
+			const deps = makeDeps(state);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderMaster("");
+
+			// Initially expanded
+			let content = masterEl.querySelector(".ft-session-category-content") as HTMLElement;
+			expect(content.style.display).not.toBe("none");
+
+			// Click header to collapse
+			const header = masterEl.querySelector(".ft-session-category-header") as HTMLElement;
+			header.click();
+
+			expect(deps.scheduleRender).toHaveBeenCalled();
+
+			// Re-render to apply collapse
+			comp.renderMaster("");
+			content = masterEl.querySelector(".ft-session-category-content") as HTMLElement;
+			expect(content.style.display).toBe("none");
+		});
+
+		it("should expand collapsed category on header click", () => {
+			const sessions = [makeSession({ id: "s1", status: "archived" })];
+			const state = makeState(sessions);
+			const deps = makeDeps(state);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderMaster("");
+
+			// Initially collapsed (archived)
+			let content = masterEl.querySelector(".ft-session-category-content") as HTMLElement;
+			expect(content.style.display).toBe("none");
+
+			// Click header to expand
+			const header = masterEl.querySelector(".ft-session-category-header") as HTMLElement;
+			header.click();
+
+			// Re-render
+			comp.renderMaster("");
+			content = masterEl.querySelector(".ft-session-category-content") as HTMLElement;
+			expect(content.style.display).not.toBe("none");
+		});
+
+		it("should show correct count per category", () => {
+			const sessions = [
+				makeSession({ id: "s1", status: "prepared" }),
+				makeSession({ id: "s2", status: "prepared" }),
+				makeSession({ id: "s3", status: "completed", completedAt: new Date().toISOString() }),
+			];
+			const state = makeState(sessions);
+			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
+
+			comp.renderMaster("");
+
+			const headers = masterEl.querySelectorAll(".ft-session-category-header");
+			expect(headers[0].textContent).toContain("Ready (2)");
+			expect(headers[1].textContent).toContain("Completed (1)");
+		});
+
+		it("should preserve collapse state across re-renders", () => {
+			const sessions = [
+				makeSession({ id: "s1", status: "active", startedAt: new Date().toISOString() }),
+				makeSession({ id: "s2", status: "prepared" }),
+			];
+			const state = makeState(sessions);
+			const deps = makeDeps(state);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderMaster("");
+
+			// Collapse "active"
+			const activeHeader = masterEl.querySelectorAll(".ft-session-category-header")[0] as HTMLElement;
+			activeHeader.click();
+
+			// Re-render
+			comp.renderMaster("");
+
+			// Active is now collapsed, prepared still expanded
+			const contents = masterEl.querySelectorAll(".ft-session-category-content");
+			expect((contents[0] as HTMLElement).style.display).toBe("none");
+			expect((contents[1] as HTMLElement).style.display).not.toBe("none");
 		});
 	});
 
@@ -365,6 +545,25 @@ describe("UserHubSessions", () => {
 			expect(detailEl.textContent).toContain("AuthService.md");
 		});
 
+		it("should render artifact names as clickable links", () => {
+			const session = makeSession({
+				artifacts: [
+					{ path: "docs/Events/user.created.md", action: "created", timestamp: new Date().toISOString() },
+				],
+			});
+			const state = makeState([session], session);
+			const deps = makeDeps(state);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			const link = detailEl.querySelector(".ft-artifact-link") as HTMLAnchorElement;
+			expect(link).not.toBeNull();
+			expect(link.textContent).toBe("user.created.md");
+			link.click();
+			expect(deps.openFile).toHaveBeenCalledWith("docs/Events/user.created.md");
+		});
+
 		it("should not show artifacts section when empty", () => {
 			const session = makeSession({ artifacts: [] });
 			const state = makeState([session], session);
@@ -377,7 +576,7 @@ describe("UserHubSessions", () => {
 
 		// ── Action buttons per status ─────────────────────────
 
-		it("should show Start and Delete buttons for prepared sessions when no active session", () => {
+		it("should show Workspace, Start and Delete buttons for prepared sessions when no active session", () => {
 			const session = makeSession({ status: "prepared" });
 			const state = makeState([session], session);
 			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
@@ -386,6 +585,7 @@ describe("UserHubSessions", () => {
 
 			const buttons = Array.from(detailEl.querySelectorAll("button"));
 			const labels = buttons.map((b) => b.textContent?.trim());
+			expect(labels).toContain("Workspace");
 			expect(labels).toContain("Start");
 			expect(labels).toContain("Delete");
 			expect(labels).not.toContain("Pause");
@@ -405,7 +605,7 @@ describe("UserHubSessions", () => {
 			expect(labels).toContain("Delete");
 		});
 
-		it("should show Pause and Complete buttons for active sessions", () => {
+		it("should show Workspace, Pause and Complete buttons for active sessions", () => {
 			const session = makeSession({ status: "active", startedAt: new Date().toISOString() });
 			const state = makeState([session], session);
 			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
@@ -414,12 +614,13 @@ describe("UserHubSessions", () => {
 
 			const buttons = Array.from(detailEl.querySelectorAll("button"));
 			const labels = buttons.map((b) => b.textContent?.trim());
+			expect(labels).toContain("Workspace");
 			expect(labels).toContain("Pause");
 			expect(labels).toContain("Complete");
 			expect(labels).not.toContain("Start");
 		});
 
-		it("should show Resume and Complete buttons for paused sessions", () => {
+		it("should show Workspace, Resume and Complete buttons for paused sessions", () => {
 			const session = makeSession({ status: "paused", pausedAt: new Date().toISOString() });
 			const state = makeState([session], session);
 			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
@@ -428,8 +629,79 @@ describe("UserHubSessions", () => {
 
 			const buttons = Array.from(detailEl.querySelectorAll("button"));
 			const labels = buttons.map((b) => b.textContent?.trim());
+			expect(labels).toContain("Workspace");
 			expect(labels).toContain("Resume");
 			expect(labels).toContain("Complete");
+		});
+
+		it("should call openSessionWorkspace with session ID when Workspace is clicked on active session", () => {
+			const session = makeSession({ status: "active", startedAt: new Date().toISOString() });
+			const state = makeState([session], session);
+			const deps = makeDeps(state);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			const buttons = Array.from(detailEl.querySelectorAll("button"));
+			const wsBtn = buttons.find((b) => b.textContent?.includes("Workspace"));
+			wsBtn!.click();
+
+			expect(deps.openSessionWorkspace).toHaveBeenCalledWith(session.id);
+		});
+
+		it("should call openSessionWorkspace with session ID when Workspace is clicked on paused session", () => {
+			const session = makeSession({ status: "paused", pausedAt: new Date().toISOString() });
+			const state = makeState([session], session);
+			const deps = makeDeps(state);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			const buttons = Array.from(detailEl.querySelectorAll("button"));
+			const wsBtn = buttons.find((b) => b.textContent?.includes("Workspace"));
+			wsBtn!.click();
+
+			expect(deps.openSessionWorkspace).toHaveBeenCalledWith(session.id);
+		});
+
+		it("should call openSessionWorkspace with session ID when Workspace is clicked on prepared session", () => {
+			const session = makeSession({ status: "prepared" });
+			const state = makeState([session], session);
+			const deps = makeDeps(state);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			const buttons = Array.from(detailEl.querySelectorAll("button"));
+			const wsBtn = buttons.find((b) => b.textContent?.includes("Workspace"));
+			wsBtn!.click();
+
+			expect(deps.openSessionWorkspace).toHaveBeenCalledWith(session.id);
+		});
+
+		it("should show Workspace button for prepared sessions", () => {
+			const session = makeSession({ status: "prepared" });
+			const state = makeState([session], session);
+			const deps = makeDeps(state);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			const buttons = Array.from(detailEl.querySelectorAll("button"));
+			const labels = buttons.map((b) => b.textContent?.trim());
+			expect(labels).toContain("Workspace");
+		});
+
+		it("should not show Workspace button for completed sessions", () => {
+			const session = makeSession({ status: "completed", completedAt: new Date().toISOString() });
+			const state = makeState([session], session);
+			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
+
+			comp.renderDetail();
+
+			const buttons = Array.from(detailEl.querySelectorAll("button"));
+			const labels = buttons.map((b) => b.textContent?.trim());
+			expect(labels).not.toContain("Workspace");
 		});
 
 		it("should show Rerun, Save as Template, Archive, and Delete buttons for completed sessions", () => {
@@ -461,14 +733,15 @@ describe("UserHubSessions", () => {
 			expect(labels).toContain("Delete");
 		});
 
-		it("should emit session.start when Start is clicked", async () => {
+		it("should emit session.start and open workspace when Start is clicked", async () => {
 			const eventBus = new EventBus();
 			const spy = vi.fn();
 			eventBus.on("session.start", spy);
 
 			const session = makeSession({ id: "s1", status: "prepared" });
 			const state = makeState([session], session);
-			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state, eventBus));
+			const deps = makeDeps(state, eventBus);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
 
 			comp.renderDetail();
 
@@ -480,6 +753,7 @@ describe("UserHubSessions", () => {
 			expect(spy).toHaveBeenCalledWith(expect.objectContaining({
 				payload: { sessionId: "s1" },
 			}));
+			expect(deps.openSessionWorkspace).toHaveBeenCalledWith("s1");
 		});
 
 		it("should emit session.pause when Pause is clicked", async () => {
@@ -652,7 +926,7 @@ describe("UserHubSessions", () => {
 			expect(deps.sessionService.rerunSession).toHaveBeenCalledWith("s3");
 		});
 
-		it("should not show Rerun/Save for prepared sessions", () => {
+		it("should not show Rerun for prepared sessions", () => {
 			const session = makeSession({ status: "prepared" });
 			const state = makeState([session], session);
 			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
@@ -662,10 +936,10 @@ describe("UserHubSessions", () => {
 			const buttons = Array.from(detailEl.querySelectorAll("button"));
 			const labels = buttons.map((b) => b.textContent?.trim());
 			expect(labels).not.toContain("Rerun");
-			expect(labels).not.toContain("Save as Template");
+			expect(labels).toContain("Save as Template");
 		});
 
-		it("should not show Rerun/Save for active sessions", () => {
+		it("should not show Rerun for active sessions", () => {
 			const session = makeSession({ status: "active", startedAt: new Date().toISOString() });
 			const state = makeState([session], session);
 			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
@@ -675,7 +949,7 @@ describe("UserHubSessions", () => {
 			const buttons = Array.from(detailEl.querySelectorAll("button"));
 			const labels = buttons.map((b) => b.textContent?.trim());
 			expect(labels).not.toContain("Rerun");
-			expect(labels).not.toContain("Save as Template");
+			expect(labels).toContain("Save as Template");
 		});
 	});
 
@@ -987,6 +1261,104 @@ describe("UserHubSessions", () => {
 			expect(section!.textContent).toContain("Paused");
 			expect(section!.textContent).toContain("Resumed");
 			expect(section!.textContent).toContain("Completed");
+		});
+	});
+
+	// ── Save as Template for all statuses ────────────────
+
+	describe("save as template", () => {
+		it("should show Save as Template button for prepared sessions", () => {
+			const session = makeSession({ status: "prepared" });
+			const state = makeState([session], session);
+			const deps = makeDeps(state);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			const buttons = Array.from(detailEl.querySelectorAll("button"));
+			expect(buttons.some((b) => b.textContent?.includes("Save as Template"))).toBe(true);
+		});
+
+		it("should show Save as Template button for active sessions", () => {
+			const session = makeSession({
+				id: "active-1",
+				status: "active",
+				startedAt: new Date().toISOString(),
+			});
+			const state = makeState([session], session);
+			const deps = makeDeps(state);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			const buttons = Array.from(detailEl.querySelectorAll("button"));
+			expect(buttons.some((b) => b.textContent?.includes("Save as Template"))).toBe(true);
+		});
+
+		it("should show Save as Template button for paused sessions", () => {
+			const session = makeSession({
+				id: "paused-1",
+				status: "paused",
+				pausedAt: new Date().toISOString(),
+				elapsedBeforePauseMs: 60000,
+			});
+			const state = makeState([session], session);
+			const deps = makeDeps(state);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			const buttons = Array.from(detailEl.querySelectorAll("button"));
+			expect(buttons.some((b) => b.textContent?.includes("Save as Template"))).toBe(true);
+		});
+	});
+
+	// ── Links section ────────────────────────────────────
+
+	describe("links section", () => {
+		it("should render links section when session has links", () => {
+			const session = makeSession({
+				links: [
+					{ path: "docs/events.md", addedAt: "2026-02-16T10:00:00.000Z" },
+					{ path: "docs/services.md", addedAt: "2026-02-16T10:01:00.000Z" },
+				],
+			});
+			const state = makeState([session], session);
+			const deps = makeDeps(state);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			expect(detailEl.textContent).toContain("Links (2)");
+			expect(detailEl.textContent).toContain("events.md");
+			expect(detailEl.textContent).toContain("services.md");
+		});
+
+		it("should not render links section when session has no links", () => {
+			const session = makeSession({ links: [] });
+			const state = makeState([session], session);
+			const deps = makeDeps(state);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			expect(detailEl.textContent).not.toContain("Links (");
+		});
+
+		it("should open file when clicking a link", () => {
+			const session = makeSession({
+				links: [{ path: "docs/events.md", addedAt: "2026-02-16T10:00:00.000Z" }],
+			});
+			const state = makeState([session], session);
+			const deps = makeDeps(state);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			const linkEl = detailEl.querySelector("a.ft-link") as HTMLAnchorElement;
+			expect(linkEl).not.toBeNull();
+			linkEl!.click();
+			expect(deps.openFile).toHaveBeenCalledWith("docs/events.md");
 		});
 	});
 });

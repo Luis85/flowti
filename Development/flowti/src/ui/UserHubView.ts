@@ -22,6 +22,7 @@ import { NewSessionModal, SaveTemplateModal } from "./modals";
 import { SESSION_TYPE_LABELS } from "./userHub/types";
 import { SESSION_TYPES, type SessionType } from "../domain/session/types";
 import { VIEW_TYPE_USER_HUB } from "../domain/hub/types";
+import { VIEW_TYPE_SESSION_WORKSPACE } from "./SessionWorkspaceView";
 export { VIEW_TYPE_USER_HUB };
 
 export class UserHubView extends BaseHubView<UserHubTab> {
@@ -154,6 +155,15 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 				}
 				this.navigateTo("inbox");
 			},
+			openSessionWorkspace: (sessionId?: string) => {
+				if (sessionId) {
+					this.sessionService.workspaceSessionId = sessionId;
+				}
+				void this.app.workspace.getLeaf("tab").setViewState({
+					type: VIEW_TYPE_SESSION_WORKSPACE,
+					active: true,
+				});
+			},
 		});
 
 		this.inbox = new UserHubInbox(this.masterTreeEl, this.detailPanelEl, deps);
@@ -186,6 +196,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 		const sessionEvents = [
 			"session.created", "session.started", "session.paused", "session.resumed",
 			"session.completed", "session.archived", "session.deleted",
+			"session.link.added", "session.link.removed", "session.notesFile.updated", "session.canvasFile.updated",
 		] as const;
 		for (const eventType of sessionEvents) {
 			this.addUnsubscribe(
@@ -284,6 +295,15 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 						void this.sessionService.saveTemplateFromSession(session.id, name);
 					},
 				}).open();
+			},
+			openSessionWorkspace: (sessionId?: string) => {
+				if (sessionId) {
+					this.sessionService.workspaceSessionId = sessionId;
+				}
+				void this.app.workspace.getLeaf("tab").setViewState({
+					type: VIEW_TYPE_SESSION_WORKSPACE,
+					active: true,
+				});
 			},
 		};
 	}

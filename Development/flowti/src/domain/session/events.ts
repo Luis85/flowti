@@ -2,7 +2,7 @@
  * Event types owned by the Session domain.
  */
 
-import type { Session, SessionArtifact, SessionGoal, SessionTemplate, SessionType } from "./types";
+import type { Session, SessionArtifact, SessionGoal, SessionLink, SessionTemplate, SessionType } from "./types";
 
 export interface SessionEventMap {
 	// ── Commands ──────────────────────────────────────────────
@@ -67,9 +67,39 @@ export interface SessionEventMap {
 	/** Emitted after a goal is removed from a session */
 	"session.goal.removed": { sessionId: string; goalId: string };
 
+	// ── Duration events ──────────────────────────────────────
+	/** Command: update a prepared session's duration */
+	"session.duration.update": { sessionId: string; durationMinutes: number };
+	/** Emitted after a session's duration is updated */
+	"session.duration.updated": { sessionId: string; durationMinutes: number };
+
 	// ── Notes events ─────────────────────────────────────────
 	/** Command: update a session's notes */
 	"session.notes.update": { sessionId: string; notes: string };
 	/** Emitted after a session's notes are updated */
 	"session.notes.updated": { sessionId: string; notes: string };
+
+	// ── Notes file events ───────────────────────────────────
+	/** Command: set the session's dedicated notes file path */
+	"session.notesFile.set": { sessionId: string; path: string };
+	/** Emitted after a session's notes file path is set */
+	"session.notesFile.updated": { sessionId: string; path: string };
+
+	// ── Canvas file events ─────────────────────────────────
+	/** Command: set the session's canvas file path */
+	"session.canvasFile.set": { sessionId: string; path: string };
+	/** Emitted after a session's canvas file path is set */
+	"session.canvasFile.updated": { sessionId: string; path: string };
+
+	// ── Link commands ────────────────────────────────────────
+	/** Command: add a link to a session */
+	"session.link.add": { sessionId: string; path: string };
+	/** Command: remove a link from a session */
+	"session.link.remove": { sessionId: string; path: string };
+
+	// ── Link state events ───────────────────────────────────
+	/** Emitted after a link is added to a session */
+	"session.link.added": { sessionId: string; link: SessionLink };
+	/** Emitted after a link is removed from a session */
+	"session.link.removed": { sessionId: string; path: string };
 }

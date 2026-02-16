@@ -77,6 +77,12 @@ export interface SessionGoal {
 	completedAt: string | null;
 }
 
+/** A user-linked file manually attached to a session. */
+export interface SessionLink {
+	path: string;
+	addedAt: string; // ISO 8601
+}
+
 /** A time-boxed documentation session. */
 export interface Session {
 	id: string;
@@ -102,6 +108,12 @@ export interface Session {
 	timeline: SessionTimelineEntry[];
 	/** Session goals — checklist items for focused work. */
 	goals: SessionGoal[];
+	/** User-linked files manually attached to this session. */
+	links: SessionLink[];
+	/** Optional vault path for a dedicated session notes file. */
+	notesFile: string | null;
+	/** Optional vault path for a session canvas file. */
+	canvasFile: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -144,3 +156,6 @@ export const MAX_TEMPLATES = 50;
 
 /** Deduplication window for artifact tracking (ms). */
 export const ARTIFACT_DEDUP_WINDOW_MS = 1000;
+
+/** Vault folder where session notes (persistent markdown files) are stored. */
+export const SESSION_NOTES_FOLDER = "03 - Resources/Sessions";

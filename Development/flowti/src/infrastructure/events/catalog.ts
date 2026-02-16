@@ -404,8 +404,18 @@ const CATALOG_DATA = {
 	"session.goal.added":      { category: "Session", description: "Goal added to session", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.goal.toggled":    { category: "Session", description: "Goal completed state toggled", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.goal.removed":    { category: "Session", description: "Goal removed from session", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.duration.update":  { category: "Session", description: "Command: update session duration", direction: "View → Plugin", domain: "session", services: "SessionService" },
+	"session.duration.updated": { category: "Session", description: "Session duration updated", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.notes.update":    { category: "Session", description: "Command: update session notes", direction: "View → Plugin", domain: "session", services: "SessionService" },
 	"session.notes.updated":   { category: "Session", description: "Session notes updated", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.notesFile.set":    { category: "Session", description: "Command: set session notes file", direction: "View → Plugin", domain: "session", services: "SessionService" },
+	"session.notesFile.updated": { category: "Session", description: "Session notes file path updated", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.canvasFile.set":    { category: "Session", description: "Command: set session canvas file", direction: "View → Plugin", domain: "session", services: "SessionService" },
+	"session.canvasFile.updated": { category: "Session", description: "Session canvas file path updated", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.link.add":        { category: "Session", description: "Command: add a link to a session", direction: "View → Plugin", domain: "session", services: "SessionService" },
+	"session.link.remove":     { category: "Session", description: "Command: remove a link from a session", direction: "View → Plugin", domain: "session", services: "SessionService" },
+	"session.link.added":      { category: "Session", description: "Link added to session", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.link.removed":    { category: "Session", description: "Link removed from session", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

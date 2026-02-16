@@ -196,7 +196,7 @@ Primary interaction path:
 
 ### Documentation Sessions
 
-- [ ] Session Focus workspace: dedicated `SessionWorkspaceView` leaf with header + timer + goals + notes + focus file + artifacts — *planned Increment 7*
+- [x] Session Focus workspace: dedicated `SessionWorkspaceView` leaf with header + timer + goals + notes + focus file + artifacts — *Increment 7: 463 LOC view, 36 tests*
 - [x] Pomodoro timer with configurable duration (25/50/15/45/60 min) — *SessionService with 1s setInterval, computeRemainingMs()*
 - [x] Session types: Event Storming, Service Design, Requirements Refinement, Backlog Structuring, Knowledge Cleanup — *SessionType union, SESSION_TYPE_LABELS map*
 - [x] Session lifecycle: Prepared → Active → Paused → Completed → Archived — *SessionService state machine (19 events)*
@@ -210,8 +210,14 @@ Primary interaction path:
 - [x] Clickable templates: template rows in detail panel create new sessions on click — *createFromTemplate() integration*
 - [x] Session goals: `SessionGoal[]` with add/toggle/remove via events — *Increment 6: 4 handlers, 8 events, 29 tests. 2,017 tests across 82 suites.*
 - [x] Session notes mutation via events: `session.notes.update/updated` — *Increment 6: handleNotesUpdate + persistence*
-- [ ] Pre-session goal preparation in NewSessionModal — *planned Increment 8*
-- [ ] Auto-open workspace + focus file on session start — *planned Increment 8*
+- [x] Session links: attach files via right-click "Add to Session", clickable links in workspace + sessions tab — *Increment 8: SessionLink type, 4 link events, context menu integration*
+- [x] Session notes persistence: auto-set `notesFile` at `03 - Resources/Sessions/`, Markdown summary on completion — *Increment 8: generateSessionSummary + writeSessionSummary*
+- [x] Session canvas: create `.canvas` from workspace, auto-embed `![[canvas]]` in notes — *Increment 8: canvasFile field, 2 events, canvas creation*
+- [x] Duration editing for prepared sessions in workspace — *Increment 8: session.duration.update/updated events*
+- [x] Save as Template for all session statuses — *Increment 8: removed status restriction*
+- [x] "Open Workspace" button in sessions tab + dashboard — *Increment 8: workspaceSessionId + getCurrentSession()*
+- [ ] Pre-session goal preparation in NewSessionModal — *planned Increment 9*
+- [ ] Auto-open workspace + focus file on session start — *planned Increment 9*
 
 ### Session Focus Tools
 
@@ -238,15 +244,7 @@ Sessions are the primary mechanism for focused, time-boxed content creation and 
   - "How should the next increment look like?"
   - "What can be improved?"
   - These orient the user's attention toward incremental improvement of the focus file's content
-- [ ] **Session Document** — On session completion, generate a session summary document (`.md`) that captures:
-  - Session metadata (title, type, duration, time breakdown)
-  - Focus file reference (as wiki-link)
-  - Context files list
-  - Artifacts created/modified during the session
-  - Session notes
-  - Timeline log
-  - Saved to a configurable session documents folder (default: `Sessions/`)
-  - Linked back to the focus file via backlinks
+- [x] **Session Document** — On session completion, generate a session summary document (`.md`) that captures session metadata, focus file and canvas wikilinks, goals checklist, links, artifacts, timeline, time summary, and notes. Auto-saved to `03 - Resources/Sessions/` via `generateSessionSummary()` + `writeSessionSummary()`. — *Increment 8*
 
 ### User Hub
 
@@ -258,7 +256,7 @@ Sessions are the primary mechanism for focused, time-boxed content creation and 
 
 - [x] Event Catalog operates as System Hub with identical functionality — *extends BaseHubView, zero regression*
 - [x] Data Exchange Hub operates as System Hub with identical functionality — *extends BaseHubView, gains tab bar*
-- [x] Zero feature regression after migration — *2,017 tests pass across 82 suites*
+- [x] Zero feature regression after migration — *2,125 tests pass across 83 suites*
 
 ---
 
@@ -388,6 +386,19 @@ State containers (TypedStorage):
 - `session.notes.update` — payload: `{ sessionId, notes }` — *command: update notes (SessionService.handleNotesUpdate)*
 - `session.notes.updated` — payload: `{ sessionId, notes }` — *state: notes were updated*
 
+### Produced (implemented — PBI-002 Increment 8: Session Workspace Enrichment)
+
+- `session.link.add` — payload: `{ sessionId, path }` — *command: add link to session*
+- `session.link.added` — payload: `{ sessionId, link: SessionLink }` — *state: link was added*
+- `session.link.remove` — payload: `{ sessionId, path }` — *command: remove link from session*
+- `session.link.removed` — payload: `{ sessionId, path }` — *state: link was removed*
+- `session.duration.update` — payload: `{ sessionId, durationMinutes }` — *command: update prepared session duration*
+- `session.duration.updated` — payload: `{ sessionId, durationMinutes }` — *state: duration was updated*
+- `session.notesFile.set` — payload: `{ sessionId, path }` — *command: set session notes file path*
+- `session.notesFile.updated` — payload: `{ sessionId, path }` — *state: notes file path set*
+- `session.canvasFile.set` — payload: `{ sessionId, path }` — *command: set session canvas file path*
+- `session.canvasFile.updated` — payload: `{ sessionId, path }` — *state: canvas file path set*
+
 ### Consumed
 
 - All existing domain events (for dashboard refresh and cross-references)
@@ -505,8 +516,8 @@ The abstract `HubAdapter` interface was deferred (Three Amigos decision #2). Eac
 - [x] Session templates, rerun, focus file, and timeline tracking — *PBI-002 increments 3-5: full session UX*
 - [ ] Tab definitions validate against layout and component manifests — *deferred (TD-52)*
 - [x] Adding a new Domain Hub requires only adapter + tab definitions (<200 LOC) — *UserHubView = 138 LOC*
-- [x] All existing 1,662+ tests pass after migration — *2,017 tests across 82 suites*
-- [x] `npm run build` passes (vitest + typedoc + tsc + eslint + esbuild) — *2,017 tests, green*
+- [x] All existing 1,662+ tests pass after migration — *2,125 tests across 83 suites*
+- [x] `npm run build` passes (vitest + typedoc + tsc + eslint + esbuild) — *2,125 tests, green*
 
 ---
 
@@ -518,11 +529,11 @@ The abstract `HubAdapter` interface was deferred (Three Amigos decision #2). Eac
 - [x] Shell layout implemented and renders all hub types — *BaseHubView (278 LOC)*
 - [x] At least 2 System Hubs migrated (Event Catalog, Data Exchange) — *both migrated, zero regression*
 - [x] User Hub implemented with dashboard + inbox — *PBI-001 increment 1 (648 LOC) + increment 2 (398 LOC InboxService domain)*
-- [x] Documentation Sessions domain implemented with timer, artifacts, templates, rerun, focus file, timeline, goals, notes — *PBI-002 increments 1-6: SessionService (27 events, TypedStorage) + UserHubSessions tab*
+- [x] Documentation Sessions domain implemented with timer, artifacts, templates, rerun, focus file, timeline, goals, notes, workspace, links, notes persistence, canvas, duration editing — *PBI-002 increments 1-8: SessionService (37 events, TypedStorage) + UserHubSessions tab + SessionWorkspaceView (737 LOC)*
 - [ ] Tab definition validation passes for all hub configs — *deferred (TD-52)*
-- [x] Unit tests added for all new domain and infrastructure code — *~380 tests: HubRegistry, providers, 4 UI components, inbox mappers, InboxService (29 tests), SessionService (112 tests), UserHubSessions (52 tests), helpers (46 tests)*
+- [x] Unit tests added for all new domain and infrastructure code — *~488 tests: HubRegistry, providers, 4 UI components, inbox mappers, InboxService (29 tests), SessionService (145 tests), UserHubSessions (77 tests), helpers (57 tests), SessionWorkspaceView (36+ tests), Dashboard (20+ tests)*
 - [ ] Flow integration tests added for hub lifecycle
-- [x] `npm run build` passes — *2,017 tests across 82 suites, green pipeline*
+- [x] `npm run build` passes — *2,125 tests across 83 suites, green pipeline*
 - [x] Architecture documentation updated — *ADR-024, sitemap, 5 component docs, 9 Three Amigos reviews*
 
 ---
@@ -552,7 +563,7 @@ New feature work items, each tracked as a separate PBI in `docs/features/Hubs/ba
 | PBI | Title | Status | Dependencies |
 |-----|-------|--------|-------------|
 | [[PBI-001 User Hub]] | Personal cockpit with dashboard, inbox, preferences | **COMPLETE** (4 increments) | TD-50 ✅ |
-| [[PBI-002 Documentation Sessions]] | Time-boxed workflows with Pomodoro timer | **In progress** (6 done, 5 planned) | Inc 7-8: Workspace, Preparation; Inc 9-11: Focus Profiles, Spawning, Session Doc |
+| [[PBI-002 Documentation Sessions]] | Time-boxed workflows with Pomodoro timer | **In progress** (8 done, 3 planned) | Inc 9: Preparation; Inc 10-11: Focus Profiles, Spawning |
 | [[PBI-003 Product Hub]] | Product domain workspace | **PLANNED** | BaseHubView ✅ |
 | [[PBI-004 Project Hub]] | Project domain workspace | **PLANNED** | BaseHubView ✅ |
 
@@ -607,13 +618,15 @@ Resolved 2 blockers from Pre-Feature Development Review: (1) HubRegistry + HubDa
 
 **UX Polish** (PBI-002): Clickable template rows create new sessions via `createFromTemplate()`. Delete button uses `stopPropagation()` to prevent accidental creation. Hint text "Click a template to start a new session". Timeline moved to last section in detail panel. +4 tests.
 
-**PBI-002 core feature + goals domain delivery complete** (Increments 1-6). Increments 7-8 planned for Session Workspace:
+**PBI-002 core feature + goals domain + workspace delivery complete** (Increments 1-7). Increment 8 planned for Preparation Flow:
 
 **Increment 6** (PBI-002): Goals & Notes Domain. `SessionGoal` interface (id, text, completed, completedAt). `goals: SessionGoal[]` on Session, `goals?: string[]` on SessionTemplate. 8 new events for goal CRUD + notes mutation. 4 new SessionService handlers (`handleGoalAdd`, `handleGoalToggle`, `handleGoalRemove`, `handleNotesUpdate`). Goals threaded through create, rerun, createFromTemplate, saveTemplateFromSession. `createGoal()` pure helper. Backward compat in `load()`. 8 catalog entries. +29 tests. 2,017 tests pass across 82 suites.
 
-**Increment 7** (PBI-002, PLANNED): SessionWorkspaceView. New standalone `ItemView` with timer, goals checklist (inline add/toggle/remove), notes textarea (500ms debounced save), focus file link (opens in adjacent leaf), live artifacts list. Registered in `registry.ts`, command `flowti:open-session-workspace`. ~513 LOC, ~15 tests.
+**Increment 7** (PBI-002): SessionWorkspaceView. New standalone `SessionWorkspaceView` extending `ItemView` directly (463 LOC): header with title + type badge + status badge + contextual action buttons (Pause/Resume/Complete per status), timer with incremental DOM update via `session.timer.tick`, goals checklist (add via Enter key, toggle via checkbox, remove via x button — all through EventBus), notes textarea with 500ms debounced save via `session.notes.update`, focus file link opening in adjacent leaf via `openLinkText("split")`, live artifacts list appended on `session.artifact.added`, empty state when no active session. 10 event subscriptions for lifecycle, timer, goals, notes, artifacts. Registered in `main.ts`, command `flowti:open-session-workspace`. +36 tests. 2,053 tests pass across 83 suites.
 
-**Increment 8** (PBI-002, PLANNED): Preparation Flow & Auto-Open. Goals repeater in NewSessionModal. Auto-open workspace on `session.started`. Open focus file in adjacent split leaf. "Open Workspace" button on active/paused sessions in Sessions detail panel. ~111 LOC, ~6 tests.
+**Increment 8** (PBI-002): Session Workspace Enrichment. Seven capabilities: (1) Session links — `SessionLink` type, `links: SessionLink[]`, 4 link events, "Add to Session" right-click context menu, links UI in workspace + sessions tab. (2) Session notes persistence — auto-set `notesFile` at `03 - Resources/Sessions/`, `generateSessionSummary()` pure function, `writeSessionSummary()` on completion. (3) Session canvas — `canvasFile` on Session, 2 canvas events, "Create Session Canvas" button, auto-embed `![[canvas]]` in notes. (4) Duration editing for prepared sessions. (5) Save as Template for all statuses. (6) Context menu rename → "Create New Session". (7) Workspace for any session state via `workspaceSessionId` + `getCurrentSession()`. 10 new events, 5 new service handlers. `SessionWorkspaceView` grew from 463 → 737 LOC. +72 tests. 2,125 tests pass across 83 suites.
+
+**Increment 9** (PBI-002, PLANNED): Preparation Flow & Auto-Open. Goals repeater in NewSessionModal. Auto-open workspace on `session.started`. Open focus file in adjacent split leaf. ~111 LOC, ~6 tests.
 
 ### Phase 5: Domain Hubs (PBI-003, PBI-004) — PLANNED
 
@@ -648,6 +661,8 @@ Next increments planned (see backlog for full PBI details):
 | 2026-02-16 | in-progress | Phase 4 increment 5 | 31 | Technical Architect | PBI-002 Timeline & Pause Tracking. SessionTimelineEntry[], 6 pure helpers, Time Breakdown + Timeline UI. +35 tests. TASM 34/35 (Excellent). 1,988 tests across 82 suites. |
 | 2026-02-16 | in-progress | Phase 4 UX polish | 31 | Technical Architect | PBI-002 clickable templates, timeline reordering. +4 tests. PBI-002 core feature delivery complete. 1,988 tests across 82 suites. |
 | 2026-02-16 | in-progress | Phase 4 increment 6 | 31 | Technical Architect | PBI-002 Goals & Notes Domain. SessionGoal interface, 8 new events, 4 handlers (goal add/toggle/remove, notes update), goals threaded through all creation paths, createGoal helper, backward compat. 8 catalog entries. +29 tests. 2,017 tests across 82 suites. |
+| 2026-02-16 | in-progress | Phase 4 increment 7 | 31 | Technical Architect | PBI-002 SessionWorkspaceView. Standalone ItemView (463 LOC) with header, timer (incremental DOM update), goals checklist (add/toggle/remove via EventBus), notes textarea (500ms debounce), focus file (adjacent leaf), artifacts (live list). Command `flowti:open-session-workspace`. +36 tests. 2,053 tests across 83 suites. |
+| 2026-02-16 | in-progress | Phase 4 increment 8 | 33 | Technical Architect | PBI-002 Session Workspace Enrichment. 7 capabilities: session links (SessionLink + 4 events + "Add to Session" context menu), notes persistence (auto-set notesFile + generateSessionSummary + writeSessionSummary), canvas (canvasFile + 2 events + auto-embed in notes), duration editing, template unlock, "Open Workspace" button, workspace for all statuses. 10 new events, 5 handlers. SessionWorkspaceView 463→737 LOC. +72 tests. TASM 34/35 (Excellent). 2,125 tests across 83 suites. |
 
 ---
 
@@ -673,10 +688,10 @@ Next increments planned (see backlog for full PBI details):
   - [[Three Amigos Review - Focus File and Timeline 2026-02-16]] (Phase 4: PBI-002 increments 4+5 — TASM 34/35)
 - Sitemap: [[User Hub View]], [[Event Catalog View]], [[Data Exchange Hub View]]
 - Components: [[UserHubView]], [[UserHubDashboard]], [[UserHubInbox]], [[UserHubSessions]], [[UserHubPreferences]]
-- Workspace: [[SessionWorkspaceView]] (planned — Increment 7)
+- Workspace: [[SessionWorkspaceView]] (Increment 7: 463 LOC, 36 tests)
 - Modals: [[NewSessionModal]], [[SaveTemplateModal]], [[VaultFilePickerModal]]
 - Domain: [[SessionService]], [[InboxService]]
-- Helpers: `src/domain/session/helpers.ts` (formatDuration, computeRemainingMs, computeElapsedMs, computeTimelineSummary, formatDurationHuman)
+- Helpers: `src/domain/session/helpers.ts` (formatDuration, computeRemainingMs, computeElapsedMs, computeTimelineSummary, formatDurationHuman, generateSessionSummary)
 
 # Backlog
 

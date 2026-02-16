@@ -23,6 +23,7 @@ export interface UserHubDashboardDeps {
 	sessionService: SessionService;
 	navigateToTab: (tabId: string) => void;
 	onInboxItemClick: (item: InboxItem) => void;
+	openSessionWorkspace: (sessionId?: string) => void;
 }
 
 export class UserHubDashboard {
@@ -79,6 +80,10 @@ export class UserHubDashboard {
 		section.style.border = `1px solid ${isActive ? "var(--interactive-accent)" : "var(--background-modifier-border)"}`;
 		section.style.borderRadius = "8px";
 		section.style.backgroundColor = "var(--background-secondary)";
+		section.style.cursor = "pointer";
+		section.addEventListener("click", () => {
+			this.deps.openSessionWorkspace(session.id);
+		});
 
 		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const icon = header.createSpan();

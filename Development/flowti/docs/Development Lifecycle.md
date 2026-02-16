@@ -32,6 +32,8 @@ It ensures:
 
 In short: We document a new solution-idea as [[PRD Template|PRD]], review and refine that PRD during discovery while developing the solution incrementally and in parallel, Flowti supports us by keeping track of undocumented Features and our learnings, each increment must run trough a extensive [[Three Amigos Session Template|Three Amigos Review Session]] where technical-debt and deviations get collected and documented for further improvements. Imagine PRDs as tokens trough the process. Each Phase Gate triggers a thorough review from the three amigos to ensure quality over time.
 
+How to push a single increment trough the process is described in our [[Increment Lifecycle]].
+
 ---
 
 ## 2. Roles and Responsibilities
@@ -691,6 +693,35 @@ PBI-002 was delivered across **five increments** (core delivery complete):
 
 **Total**: 0 new files, 5 modified files (+103 LOC). Build pipeline passed.
 
+#### Increment 7: SessionWorkspaceView
+
+| Step | Action | Files | LOC |
+|------|--------|-------|-----|
+| 1 | Created standalone `SessionWorkspaceView` extending `ItemView` (header, timer, goals, notes, focus file, artifacts, empty state, 10 event subscriptions) | `src/ui/SessionWorkspaceView.ts` | 463 |
+| 2 | Added import, `registerView()`, and `addCommand("flowti:open-session-workspace")` | `src/main.ts` | +13 |
+| 3 | Full `npm run build` | — | green |
+
+**Total**: 1 new file (463 LOC), 1 modified file (+13 LOC). Build pipeline passed.
+
+#### Increment 8: Session Workspace Enrichment
+
+| Step | Action | Files | LOC |
+|------|--------|-------|-----|
+| 1 | Added `SessionLink` type, `links`, `notesFile`, `canvasFile` on Session, `SESSION_NOTES_FOLDER` constant | `src/domain/session/types.ts` | +15 |
+| 2 | Added 10 new events (link, duration, notesFile, canvasFile commands + state) | `src/domain/session/events.ts` | +32 |
+| 3 | Added `generateSessionSummary()` pure function + `links: []`, `notesFile: null`, `canvasFile: null` defaults | `src/domain/session/helpers.ts` | +82 |
+| 4 | Added 5 handlers (link add/remove, duration, notesFile, canvasFile), auto-set `notesFile`, `getCurrentSession()`, `workspaceSessionId`, backward compat, template unlock | `src/domain/session/SessionService.ts` | +137 |
+| 5 | Added 10 new catalog entries | `src/infrastructure/events/catalog.ts` | +10 |
+| 6 | Added `registerSessionFileMenu()` ("Add to Session" + "Create New Session"), `writeSessionSummary()` on completion | `src/main.ts` | +79 |
+| 7 | Extended workspace: links section, notes file, canvas create/link, duration editor, save template, clickable artifacts, workspace tracking, 5 new event subscriptions | `src/ui/SessionWorkspaceView.ts` | 463→737 |
+| 8 | Added 4 new events in re-render array, `openSessionWorkspace` dep | `src/ui/UserHubView.ts` | +20 |
+| 9 | Made active session clickable (opens workspace) | `src/ui/userHub/UserHubDashboard.ts` | +5 |
+| 10 | Added "Open Workspace" button, save template all statuses, links section, clickable artifacts | `src/ui/userHub/UserHubSessions.ts` | +163 |
+| 11 | Added `openSessionWorkspace` callback to deps | `src/ui/userHub/types.ts` | +4 |
+| 12 | Full `npm run build` | — | green |
+
+**Total**: 0 new files, 11 modified files (+821 LOC). Build pipeline passed. 2,125 tests across 83 suites.
+
 ---
 
 ### Phase 8 — Review + Quality Assurance
@@ -765,6 +796,44 @@ PBI-002 was delivered across **five increments** (core delivery complete):
 - `tests/domain/session/helpers.test.ts` (42 → 46 tests)
 - 4 test files updated with `goals: []` in makeSession helpers
 
+**Increment 7 review (SessionWorkspaceView):**
+
+| Step | Action | Finding | Resolution |
+|------|--------|---------|------------|
+| 1 | Code review: SessionWorkspaceView layout | Clean — 6 sections rendered in correct order: header, timer, goals, notes, focus file, artifacts | N/A |
+| 2 | Code review: Event subscriptions | 10 subscriptions covering timer tick, lifecycle, goals CRUD, notes, artifacts, delete — all properly scoped to current session via ID check | N/A |
+| 3 | Code review: Timer incremental update | `session.timer.tick` updates `timerEl.textContent` directly — no full re-render, matching UserHubSessions pattern | N/A |
+| 4 | Code review: Notes debounce | 500ms debounce via `setTimeout`/`clearTimeout` with cleanup in `onClose()` — prevents orphaned timers | N/A |
+| 5 | Build error: Unused import | `SessionArtifact` imported but not used in type annotations | Removed import |
+| 6 | Build error: Invalid `placeholder` property | `createEl("input", { placeholder })` — Obsidian's DomElementInfo doesn't include `placeholder` | Set `input.placeholder` directly after creation |
+| 7 | Test coverage: Increment 7 | 36 new tests in new file | SessionWorkspaceView.test.ts: view metadata (4), empty state (1), header (6), timer (3), goals (9), notes (3), focus file (3), artifacts (3), cleanup (2), lifecycle (2) |
+| 8 | Full `npm run build` | — | 2,053 tests across 83 suites, green pipeline |
+
+**Artifacts**:
+- `tests/ui/SessionWorkspaceView.test.ts` (36 tests, 631 LOC — new file)
+
+**Increment 8 review (Session Workspace Enrichment):**
+
+| Step | Action | Finding | Resolution |
+|------|--------|---------|------------|
+| 1 | Code review: SessionLink type | Clean — 2 fields (path, addedAt), deduplication by path in handleLinkAdd | N/A |
+| 2 | Code review: Link handlers | Follow existing pattern (find session → validate → mutate → save → emit) | N/A |
+| 3 | Code review: generateSessionSummary | Pure function — covers all session fields (goals, links, artifacts, timeline, time summary, notes, canvas wikilink) | N/A |
+| 4 | Code review: writeSessionSummary | Creates folder + file if missing, overwrites on re-completion, error handling via errorService | N/A |
+| 5 | Code review: Canvas creation | Creates `.canvas` JSON file, emits `session.canvasFile.set`, appends `![[canvas]]` embed to notes file | N/A |
+| 6 | Code review: getCurrentSession | Returns active session or workspace target — context menu uses this for "Add to Session" | N/A |
+| 7 | Code review: Template unlock | Status check removed from saveTemplateFromSession — allows save from any status | N/A |
+| 8 | Code review: Backward compat | 3 new fields (links, notesFile, canvasFile) all get migration guards in load() | N/A |
+| 9 | Test coverage: Increment 8 | 72 new tests across 4 files | SessionService.test.ts (+33), helpers.test.ts (+11), UserHubSessions.test.ts (+25), other mock updates (+3) |
+| 10 | Full `npm run build` | — | 2,125 tests across 83 suites, green pipeline |
+| 11 | TASM scoring | 34/35 (Excellent) — score holds at plateau for third time in four reviews | Documented in [[Three Amigos Review - Session Workspace Enrichment 2026-02-16]] |
+
+**Artifacts**:
+- `tests/domain/session/SessionService.test.ts` (112 → 145 tests)
+- `tests/domain/session/helpers.test.ts` (46 → 57 tests)
+- `tests/ui/userHub/UserHubSessions.test.ts` (56 → 81 tests)
+- 4 test files updated with `canvasFile: null` and `openSessionWorkspace: vi.fn()` in mock factories
+
 ---
 
 ### Phase 9 — Documentation + Publication
@@ -788,13 +857,29 @@ PBI-002 was delivered across **five increments** (core delivery complete):
 | 15 | Updated PBI-002 | Inc 6 section from PLANNED to done, acceptance criteria checked (goals, notes, threading), note updated (6 done, 5 planned) |
 | 16 | Updated Hubs PRD | Inc 6 description expanded, goal/notes events moved to "implemented", test counts 2,017/82, stage history entry added, product backlog table (6 done, 5 planned) |
 | 17 | Updated Development Lifecycle | Increment 6 added to Phases 7–10 |
+| 18 | Updated Inc 7 increment doc | Stage: done, date: 2026-02-16, tests_added: 36, tests_total: 2053, test_suites: 83, acceptance criteria checked off, tests section with actuals |
+| 19 | Updated PBI-002 | Inc 7 section from PLANNED to done, acceptance criteria checked (SessionWorkspaceView), note updated (7 done, 4 planned), test counts |
+| 20 | Updated Hubs PRD | Inc 7 description expanded, SessionWorkspaceView functional requirement checked, test counts 2,053/83, stage history entry, product backlog table (7 done, 4 planned) |
+| 21 | Updated Development Lifecycle | Increment 7 added to Phases 7–10 |
+| 22 | Created Inc 8 increment doc | [[Phase 4 Inc 8 - Session Workspace Enrichment]]: stage done, date 2026-02-16, tests_added 72, tests_total 2125 |
+| 23 | Updated PBI-002 | Inc 8 section added, acceptance criteria checked (links, notes persistence, canvas, duration, template unlock, workspace), note updated (8 done, 3 planned), planned increments renumbered |
+| 24 | Updated Hubs PRD | Inc 8 description, 10 new events in Produced section, functional requirements checked (links, notes, canvas, duration, template, workspace, session document), test counts 2,125/83, stage history entry, PBI-002 status (8 done, 3 planned) |
+| 25 | Updated Development Lifecycle | Increment 8 added to Phases 7–10 |
+| 26 | Three Amigos Review | [[Three Amigos Review - Session Workspace Enrichment 2026-02-16]]: TASM 34/35 (Excellent). 9 decisions documented. 7 action items completed. 3 watch/open items. |
 
 ---
 
 ### Phase 10 — Post-Release Feedback Loop
 
 **Improvement backlog captured during review:**
-- **Open**: `session_focus` layout with dedicated workspace regions (PBI-002 remaining work — header, timer, workspace, notes, artifacts regions)
+- **Closed** (Increment 8): Session links — attach files to sessions via right-click context menu + links UI in workspace and sessions tab
+- **Closed** (Increment 8): Session notes persistence — auto-create notes file, generate Markdown summary on completion at `03 - Resources/Sessions/`
+- **Closed** (Increment 8): Session canvas — create `.canvas` file from workspace, auto-embed in notes
+- **Closed** (Increment 8): Duration editing for prepared sessions in workspace
+- **Closed** (Increment 8): Save as Template for all session statuses (not just completed/archived)
+- **Closed** (Increment 8): "Open Workspace" button in sessions tab + dashboard — workspace for any session state
+- **Closed** (Increment 8): Session Document generation → `generateSessionSummary()` + `writeSessionSummary()` (delivered from planned Inc 11)
+- **Closed** (Increment 7): Dedicated workspace for active sessions → `SessionWorkspaceView` (463 LOC, standalone ItemView with header, timer, goals, notes, focus file, artifacts)
 - **Open**: Session artifacts persist as separate markdown files (currently tracked in-memory)
 - **Closed** (Increment 6): Session notes mutation events → `session.notes.update/updated` + `handleNotesUpdate`
 - **Closed** (Increment 3): Session creation from Dashboard quick action → addressed via template chooser in NewSessionModal
@@ -815,17 +900,17 @@ These observations were captured as **Session Focus Tools** — 6 new requiremen
 5. **Guiding Questions** — orient users toward incremental improvement
 6. **Session Document** — generate markdown summary on session completion
 
-This feedback loop triggered a return to **Phase 6 (Delivery Planning)** — the new requirements were chunked into 3 increments:
+This feedback loop triggered a return to **Phase 6 (Delivery Planning)** — the new requirements were chunked into increments. Session Document Generation (originally planned as Inc 11) was delivered early as part of Increment 8.
 
 | Increment | Scope | Est. LOC | Est. Tests |
 |-----------|-------|----------|------------|
-| **9: Focus File Profiles & Context Files** | Types, detection, context CRUD, events, backward compat | ~140 | ~31 |
-| **10: Session Spawning & Guiding Questions** | Spawn logic, inheritable context, guiding questions | ~120 | ~18 |
-| **11: Session Document Generation** | Markdown generation on completion, configurable folder | ~100 | ~15 |
+| **9: Preparation Flow & Auto-Open** | Goals repeater in NewSessionModal, auto-open workspace on start | ~111 | ~6 |
+| **10: Focus File Profiles & Context Files** | Types, detection, context CRUD, events, backward compat | ~140 | ~31 |
+| **11: Session Spawning & Guiding Questions** | Spawn logic, inheritable context, guiding questions | ~120 | ~18 |
 
-**Artifacts**: [[Phase 4 Inc 9 - Focus File Profiles and Context Files]], [[PBI-002 Documentation Sessions]] (updated with Inc 9-11 planned sections + 6 new acceptance criteria)
+**Artifacts**: [[Phase 4 Inc 8 - Session Workspace Enrichment]], [[Phase 4 Inc 9 - Focus File Profiles and Context Files]], [[PBI-002 Documentation Sessions]] (updated with Inc 9-11 planned sections)
 
-These items feed into PBI-002's remaining increments (7-8: Workspace, Preparation) and the new Session Focus Tools increments (9-11). Increment 6 (Goals & Notes) was completed on 2026-02-16.
+Increment 8 (Session Workspace Enrichment) was completed on 2026-02-16. Remaining planned: Inc 9 (Preparation), Inc 10 (Focus Profiles), Inc 11 (Spawning).
 
 ---
 
@@ -844,6 +929,10 @@ These items feed into PBI-002's remaining increments (7-8: Workspace, Preparatio
 11. **Backward compat is the tax on persisted state**: Both Inc 4 (`focusFile`) and Inc 5 (`timeline`) needed backward-compat patches in `load()`. Every new field on a persisted entity requires a migration guard. This is a structural cost of using TypedStorage — plan for it.
 12. **Feedback loops generate the best requirements**: The Session Focus Tools (Inc 9-11) weren't imagined during initial PRD drafting. They emerged from 5 increments of real usage — observing that a plain focus file link is insufficient. The lifecycle's Phase 10 → Phase 6 loop is how the best features surface.
 13. **Domain-only increments build confidence**: Inc 6 (Goals & Notes) touched zero UI code — types, events, service, helpers, catalog, and tests only. This made the increment small, focused, and easy to review. When UI is built later (Inc 7-8), the domain contract is already stable and tested.
+14. **Standalone views don't need BaseHubView**: Inc 7 (`SessionWorkspaceView`) extends `ItemView` directly because it's a single-purpose focused workspace, not a tabbed hub. BaseHubView's tab bar, search, and split layout would have been unnecessary overhead. Choose the base class that matches the view's purpose — not every view needs a hub shell.
+15. **Bundle related small features into cohesive increments**: Inc 8 delivered 7 capabilities (links, notes persistence, canvas, duration editing, template unlock, workspace button, context menu) as one increment because they were all "workspace enrichment". Individually each was too small for a full increment; together they formed a coherent theme. The key is thematic cohesion — not arbitrary bundling.
+16. **Planned increments shift as reality unfolds**: Inc 8 was originally "Preparation Flow & Auto-Open" but real-world feedback during Inc 7 surfaced more pressing needs (links, persistent notes, canvas). The planned Inc 11 (Session Document) got pulled forward into Inc 8 because `generateSessionSummary()` was needed immediately. Plans are starting points, not contracts.
+17. **Auto-linking artifacts builds the knowledge graph**: When creating a canvas, automatically appending `![[canvas]]` to the session notes file creates a bidirectional link that Obsidian's graph view can traverse. Every auto-link the plugin creates compounds the vault's interconnectedness without manual effort from the user.
 
 ---
 
@@ -853,5 +942,6 @@ These items feed into PBI-002's remaining increments (7-8: Workspace, Preparatio
 - [[Three Amigos Session Template]]
 - [[PRD Template]]
 - [[Feature Lifecycle PRD]]
+- [[Increment Lifecycle]]
 
 

@@ -12,6 +12,7 @@ import {
 	computeActiveTimeMs,
 	computeTimelineSummary,
 	formatDurationHuman,
+	generateSessionSummary,
 } from "../../../src/domain/session/helpers";
 import type { Session, SessionTimelineEntry } from "../../../src/domain/session/types";
 
@@ -36,6 +37,9 @@ function makeSession(overrides: Partial<Session> = {}): Session {
 		focusFile: null,
 		timeline: [],
 		goals: [],
+		links: [],
+		notesFile: null,
+		canvasFile: null,
 		...overrides,
 	};
 }
@@ -533,5 +537,144 @@ describe("createSession — goals", () => {
 		vi.setSystemTime(new Date("2026-02-16T10:00:00.000Z"));
 		const session = createSession("s1", "event-storming", "Test", 25);
 		expect(session.goals).toEqual([]);
+	});
+});
+
+describe("createSession — links", () => {
+	beforeEach(() => { vi.useFakeTimers(); });
+	afterEach(() => { vi.useRealTimers(); });
+
+	it("creates a session with empty links array", () => {
+		vi.setSystemTime(new Date("2026-02-16T10:00:00.000Z"));
+		const session = createSession("s1", "event-storming", "Test", 25);
+		expect(session.links).toEqual([]);
+	});
+});
+
+describe("createSession — notesFile", () => {
+	beforeEach(() => { vi.useFakeTimers(); });
+	afterEach(() => { vi.useRealTimers(); });
+
+	it("creates a session with null notesFile", () => {
+		vi.setSystemTime(new Date("2026-02-16T10:00:00.000Z"));
+		const session = createSession("s1", "event-storming", "Test", 25);
+		expect(session.notesFile).toBeNull();
+	});
+});
+
+// ─────────────────────────────────────────────────────────────
+// generateSessionSummary
+// ─────────────────────────────────────────────────────────────
+
+describe("generateSessionSummary", () => {
+	it("generates markdown with title and session info", () => {
+		const session = makeSession({
+			title: "Sprint Planning",
+			type: "event-storming",
+			status: "completed",
+			durationMinutes: 25,
+			completedAt: "2026-02-16T10:25:00.000Z",
+		});
+		const md = generateSessionSummary(session);
+		expect(md).toContain("# Sprint Planning");
+		expect(md).toContain("**Type:** event-storming");
+		expect(md).toContain("**Status:** completed");
+		expect(md).toContain("**Duration:** 25 minutes");
+		expect(md).toContain("**Completed:** 2026-02-16T10:25:00.000Z");
+	});
+
+	it("includes goals section with checkmarks", () => {
+		const session = makeSession({
+			goals: [
+				{ id: "g1", text: "Write tests", completed: true, completedAt: "2026-02-16T10:20:00.000Z" },
+				{ id: "g2", text: "Update docs", completed: false, completedAt: null },
+			],
+		});
+		const md = generateSessionSummary(session);
+		expect(md).toContain("## Goals");
+		expect(md).toContain("- [x] Write tests");
+		expect(md).toContain("- [ ] Update docs");
+	});
+
+	it("includes links section with wikilinks", () => {
+		const session = makeSession({
+			links: [
+				{ path: "docs/events.md", addedAt: "2026-02-16T10:00:00.000Z" },
+			],
+		});
+		const md = generateSessionSummary(session);
+		expect(md).toContain("## Links");
+		expect(md).toContain("- [[docs/events.md]]");
+	});
+
+	it("includes artifacts section", () => {
+		const session = makeSession({
+			artifacts: [
+				{ path: "src/types.ts", action: "created", timestamp: "2026-02-16T10:05:00.000Z" },
+			],
+		});
+		const md = generateSessionSummary(session);
+		expect(md).toContain("## Artifacts");
+		expect(md).toContain("- [[src/types.ts]] *(created)*");
+	});
+
+	it("includes focus file as wikilink", () => {
+		const session = makeSession({ focusFile: "src/main.ts" });
+		const md = generateSessionSummary(session);
+		expect(md).toContain("**Focus File:** [[src/main.ts]]");
+	});
+
+	it("includes notes section when notes exist", () => {
+		const session = makeSession({ notes: "Important findings here" });
+		const md = generateSessionSummary(session);
+		expect(md).toContain("## Notes");
+		expect(md).toContain("Important findings here");
+	});
+
+	it("omits optional sections when empty", () => {
+		const session = makeSession({
+			goals: [],
+			links: [],
+			artifacts: [],
+			notes: "",
+			focusFile: null,
+		});
+		const md = generateSessionSummary(session);
+		expect(md).not.toContain("## Goals");
+		expect(md).not.toContain("## Links");
+		expect(md).not.toContain("## Artifacts");
+		expect(md).not.toContain("## Notes");
+		expect(md).not.toContain("Focus File");
+	});
+
+	it("includes timeline section", () => {
+		const session = makeSession({
+			timeline: [
+				{ action: "started", timestamp: "2026-02-16T10:00:00.000Z" },
+				{ action: "completed", timestamp: "2026-02-16T10:25:00.000Z" },
+			],
+			completedAt: "2026-02-16T10:25:00.000Z",
+		});
+		const md = generateSessionSummary(session);
+		expect(md).toContain("## Timeline");
+		expect(md).toContain("started");
+		expect(md).toContain("completed");
+	});
+
+	it("includes time summary for sessions with timeline", () => {
+		const session = makeSession({
+			timeline: [
+				{ action: "started", timestamp: "2026-02-16T10:00:00.000Z" },
+				{ action: "paused", timestamp: "2026-02-16T10:10:00.000Z" },
+				{ action: "resumed", timestamp: "2026-02-16T10:12:00.000Z" },
+				{ action: "completed", timestamp: "2026-02-16T10:25:00.000Z" },
+			],
+			completedAt: "2026-02-16T10:25:00.000Z",
+		});
+		const md = generateSessionSummary(session);
+		expect(md).toContain("## Time Summary");
+		expect(md).toContain("**Wall clock:**");
+		expect(md).toContain("**Active time:**");
+		expect(md).toContain("**Total pause:**");
 	});
 });
