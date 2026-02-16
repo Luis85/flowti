@@ -142,6 +142,41 @@ Primary interaction path:
 - [x] Artifacts tracked per session — *file.created/file.modified listeners → session.artifact.added events*
 - [x] Session history visible in User Hub — *UserHubSessions component: master list + detail panel with timer, info, artifacts, contextual actions*
 
+### Session Focus Tools
+
+Sessions are the primary mechanism for focused, time-boxed content creation and improvement inside the Vault. The focus file is the session's anchor — its type drives the available tooling, and its content drives the user's attention. Every session is oriented around two guiding questions: **"How should the next increment look like?"** and **"What can be improved?"**
+
+- [ ] **Focus File Type Detection** — On session start, detect the focus file's extension and (for `.md`) its frontmatter `type` to determine the applicable tool profile
+- [ ] **Focus File Profiles** — Provide contextual tools based on file type:
+  - **Markdown (`.md`)** — Open in editor, show backlinks, outgoing links, tags. If frontmatter `type` matches a known DocType (EventDoc, ServiceDoc, etc.), show domain-specific actions (e.g., "Open in Event Catalog", "Show related Flows")
+  - **Canvas (`.canvas`)** — Open canvas view, show node count, connection summary. Ideal for design sessions
+  - **PDF (`.pdf`)** — Open PDF viewer, show page count, allow annotation notes
+  - **Image (`.png`, `.jpg`, `.svg`, `.gif`, `.webp`)** — Show image preview, dimensions, file size. Allow creating annotation notes
+  - **CSV (`.csv`)** — Open in Flowti table view, show row/column count, link to Data Exchange actions
+  - **Unknown extensions** — Show basic file metadata (name, size, last modified, extension). Provide "Document as MD" action that creates a markdown file with metadata and a `[[link]]` to the original file
+- [ ] **Context Files** — Attach additional files to a session beyond the focus file. Context files form the working set — the material the user needs alongside the focus file to get work done
+  - Attach via vault file picker (reuse VaultFilePickerModal)
+  - Displayed as a collapsible list in the session detail panel
+  - Each context file shows a type icon, filename, and "remove" action
+  - Persisted on the Session entity as `contextFiles: string[]`
+- [ ] **Session Spawning** — From any session (active, completed, or archived), spawn a new session that inherits context:
+  - "New Session from Focus" action: creates a new session with the same focus file
+  - "Design Session" action: opens a file multi-picker to select which context files to carry over, then creates a new session with the focus file and selected context files
+  - Enables iterative work: complete a session, review the output, spawn a follow-up session that picks up where you left off
+- [ ] **Guiding Questions** — Always visible in the session detail panel during active/paused sessions:
+  - "How should the next increment look like?"
+  - "What can be improved?"
+  - These orient the user's attention toward incremental improvement of the focus file's content
+- [ ] **Session Document** — On session completion, generate a session summary document (`.md`) that captures:
+  - Session metadata (title, type, duration, time breakdown)
+  - Focus file reference (as wiki-link)
+  - Context files list
+  - Artifacts created/modified during the session
+  - Session notes
+  - Timeline log
+  - Saved to a configurable session documents folder (default: `Sessions/`)
+  - Linked back to the focus file via backlinks
+
 ### User Hub
 
 - [x] Personal dashboard with today's summary, recent activity, documentation nudges — *UserHubDashboard: welcome + cross-hub cards + quick actions*
@@ -182,6 +217,29 @@ DocumentationSession
   duration_minutes: number
   artifacts: string[]  (file paths)
   notes_path?: string
+  focus_file: string | null  (vault file path — session anchor)
+  context_files: string[]  (additional working set files)
+  timeline: TimelineEntry[]  (lifecycle action log)
+
+FocusFileProfile
+  extension: string  (detected from focus_file path)
+  category: "markdown" | "canvas" | "pdf" | "image" | "csv" | "unknown"
+  doc_type: DocType | null  (from .md frontmatter, if applicable)
+  tools: FocusFileTool[]  (contextual actions available for this file type)
+
+FocusFileTool
+  id: string  (e.g. "open-editor", "show-backlinks", "document-as-md")
+  label: string
+  icon: string
+  action: string  (event or callback identifier)
+
+SessionDocument  (generated on completion)
+  path: string  (e.g. "Sessions/2026-02-16 Event Storming - My Topic.md")
+  session_id: string
+  focus_file: string | null
+  context_files: string[]
+  artifacts: string[]
+  timeline_summary: string
 
 TabDefinition
   id: string
@@ -221,6 +279,13 @@ New fields on existing entities: none (Hubs wrap existing entities, not extend t
 - `session.loaded` — payload: `{ sessions }` — *SessionService.load() on startup*
 - Plus 8 command events: `session.create`, `session.start`, `session.pause`, `session.resume`, `session.complete`, `session.archive`, `session.delete`, `session.refresh`
 
+### Produced (planned — PBI-002 Session Focus Tools)
+
+- `session.contextFile.added` — payload: `{ sessionId, filePath }` — *when a context file is attached to a session*
+- `session.contextFile.removed` — payload: `{ sessionId, filePath }` — *when a context file is detached*
+- `session.document.created` — payload: `{ sessionId, documentPath }` — *when session summary document is generated on completion*
+- `session.spawned` — payload: `{ sourceSessionId, newSessionId }` — *when a new session is spawned from an existing one*
+
 ### Consumed
 
 - All existing domain events (for dashboard refresh and cross-references)
@@ -245,7 +310,7 @@ Layouts used:
 | `dashboard_grid` | All hub dashboards (User, System, Domain) |
 | `table` | Entity list tabs (events, imports, exports, entities) |
 | `split_dock` | Entity detail tabs (master list + detail panel) |
-| `session_focus` | Documentation sessions (header + timer + workspace + notes) |
+| `session_focus` | Documentation sessions (header + timer + focus file tools + context files + guiding questions + workspace + notes) |
 
 New layouts required: `session_focus` (new).
 
@@ -335,6 +400,11 @@ The abstract `HubAdapter` interface was deferred (Three Amigos decision #2). Eac
 - [x] Data Exchange Hub works as System Hub with zero feature regression — *477 LOC, 6+1 tabs*
 - [x] User Hub shows personal dashboard with cross-hub summary — *UserHubDashboard with tabId deep-linking*
 - [x] Documentation Session can be created, started (with timer), and completed with artifact tracking — *PBI-002 increments 1+2: SessionService domain + UserHubSessions tab*
+- [ ] Session provides contextual tools based on focus file type — *PBI-002 increment 6: Focus File Profiles*
+- [ ] Context files can be attached to a session as working set — *PBI-002 increment 6: Context Files*
+- [ ] New sessions can be spawned from existing sessions with inherited context — *PBI-002 increment 6: Session Spawning*
+- [ ] Session completion generates a summary document — *PBI-002 increment 6: Session Document*
+- [ ] Unknown file extensions can be documented as linked markdown files — *PBI-002 increment 6: Unknown Extension Handling*
 - [ ] Tab definitions validate against layout and component manifests — *deferred (TD-52)*
 - [x] Adding a new Domain Hub requires only adapter + tab definitions (<200 LOC) — *UserHubView = 138 LOC*
 - [x] All existing 1,662+ tests pass after migration — *1,887 tests across 82 suites*
@@ -351,6 +421,7 @@ The abstract `HubAdapter` interface was deferred (Three Amigos decision #2). Eac
 - [x] At least 2 System Hubs migrated (Event Catalog, Data Exchange) — *both migrated, zero regression*
 - [x] User Hub implemented with dashboard + inbox — *PBI-001 increment 1 (648 LOC) + increment 2 (398 LOC InboxService domain)*
 - [x] Documentation Sessions domain implemented with timer + artifacts — *PBI-002 increments 1+2: SessionService (19 events, TypedStorage) + UserHubSessions tab*
+- [ ] Session Focus Tools: focus file profiles, context files, session spawning, guiding questions, session documents — *PBI-002 increment 6 (planned)*
 - [ ] Tab definition validation passes for all hub configs — *deferred (TD-52)*
 - [x] Unit tests added for all new domain and infrastructure code — *193 tests: HubRegistry, providers, 4 UI components, inbox mappers, InboxService, SessionService (60 tests), UserHubSessions (35 tests)*
 - [ ] Flow integration tests added for hub lifecycle
@@ -429,7 +500,13 @@ Resolved 2 blockers from Pre-Feature Development Review: (1) HubRegistry + HubDa
 
 **Increment 2** (PBI-002): Sessions Tab in User Hub. New `UserHubSessions` component (~316 LOC) with master list (status-sorted, filter, accent border on active, "New" button) and detail panel (timer display, info, artifacts, contextual lifecycle action buttons). `UserHubView` (~273 LOC) wired with 9 session event listeners + timer tick optimization (direct DOM update via `updateTimerDisplay()`, no full re-render). Active session card on dashboard with Pause/Complete actions. `NewSessionModal` (~70 LOC) for session creation (title, type dropdown from `SESSION_TYPES`, duration dropdown). "New Session" buttons in both empty state and master header. 40 new tests. 1,887 tests pass across 82 suites.
 
-Remaining: Session Focus layout, Domain Hubs (Product, Project).
+**Increment 3** (PBI-002): Session Templates, Rerun & UX Polish. Template CRUD (`saveTemplate`, `updateTemplate`, `deleteTemplate`, `saveTemplateFromSession`), `rerunSession()` for session cloning, `createFromTemplate()`. SaveTemplateModal + extended NewSessionModal with template chooser. Rerun/Save Template buttons on completed/archived sessions. Dashboard timer tick + contextual Pause/Resume. 42 new tests. 1,887 tests across 82 suites.
+
+**Increment 4** (PBI-002): Focus File & Vault File Picker. `focusFile: string | null` on Session, `focusFile?: string` on SessionTemplate. VaultFilePickerModal (FuzzySuggestModal) for vault-wide file browsing. Focus file text input + Browse button on NewSessionModal. Clickable focus file link in detail panel. Threaded through rerun, templates, createFromTemplate. 9 new tests.
+
+**Increment 5** (PBI-002): Session Timeline & Pause Duration Tracking. SessionTimelineEntry[] on Session. 6 pure helper functions (computePauseSegments, computeTotalPauseMs, computeWallClockMs, computeActiveTimeMs, computeTimelineSummary, formatDurationHuman). Timeline recording in all lifecycle handlers. Time Breakdown stat pills + Timeline chronological log in detail panel. Backward compatibility migration. 35 new tests. 1,984 tests across 84 suites.
+
+Remaining: Session Focus Tools (PBI-002 increment 6), Session Focus layout, Domain Hubs (Product, Project).
 
 ---
 
