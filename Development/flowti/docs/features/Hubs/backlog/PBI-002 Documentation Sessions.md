@@ -12,12 +12,18 @@ dependencies:
 
 As a domain architect, I want time-boxed documentation sessions with a Pomodoro timer so that I can maintain documentation discipline through structured workflows like Event Storming and Service Design.
 
+As a vault user, I want sessions to provide contextual tools based on my focus file so that I can work efficiently on the specific type of content I'm improving, always oriented around "How should the next increment look like?" and "What can be improved?"
+
 ### User Pains
 
 - Documentation is always "later" — no structure to enforce discipline
 - Event Storming and Service Design sessions have no tooling support in Obsidian
 - No way to track what was documented during a session or measure documentation velocity
 - Sessions produce scattered notes with no connection to the domain model
+- A focus file alone is not enough — the user needs related files at hand during focused work
+- Different file types need different tools, but sessions treat all focus files the same
+- Completed sessions leave no permanent record in the vault — insights are lost
+- Non-Obsidian files (binaries, unknown extensions) cannot be properly documented or linked
 
 ### User Needs
 
@@ -26,6 +32,12 @@ As a domain architect, I want time-boxed documentation sessions with a Pomodoro 
 - Workspace area for session work (note-taking, event listing, etc.)
 - Artifact tracking — what files were created/modified during the session
 - Session history per hub showing completed sessions and their outputs
+- Contextual tools based on the focus file's type — leverage what Obsidian already knows
+- Ability to attach context files alongside the focus file as a working set
+- Spawn follow-up sessions that inherit context from completed sessions
+- Guiding questions that keep attention on incremental improvement
+- A session document generated at completion that summarizes what happened
+- Unknown file types should be documentable as proper markdown files linked to the original
 
 ## Solutionstatement
 
@@ -59,6 +71,17 @@ As a domain architect, I want time-boxed documentation sessions with a Pomodoro 
   - Artifact tracking via `file.created`/`file.modified` listeners during active session
 - [x] Timer events: `session.timer.tick` (every second), `session.timer.completed` (on expiry) — *1s setInterval, Date math for surviving window minimize*
 - [ ] Session artifacts persist as markdown files in configurable folder — *currently tracked in-memory, not as separate files*
+- [ ] Focus File Profiles — detect file type and provide contextual tools:
+  - **Markdown (`.md`)** — open in editor, backlinks, outgoing links, tags; if frontmatter `type` matches a DocType, provide domain-specific actions
+  - **Canvas (`.canvas`)** — open canvas, show node/connection summary
+  - **PDF (`.pdf`)** — open PDF viewer, page count
+  - **Image (`.png`, `.jpg`, `.svg`, `.gif`, `.webp`)** — preview, dimensions, file size
+  - **CSV (`.csv`)** — open in Flowti table view, row/column count, Data Exchange actions
+  - **Unknown extensions** — show basic metadata (name, size, modified), provide "Document as MD" action that creates a linked markdown file
+- [ ] Context Files — attach additional files to a session as the working set alongside the focus file, with add/remove via vault file picker
+- [ ] Session Spawning — create new sessions from existing ones, inheriting focus file and selectable context files; "New Session from Focus" and "Design Session" actions
+- [ ] Guiding Questions — always-visible prompts during active/paused sessions: "How should the next increment look like?" and "What can be improved?"
+- [ ] Session Document — on completion, generate a markdown summary file with metadata, focus file link, context files, artifacts, notes, and timeline
 
 ### Technical Requirements
 
@@ -89,6 +112,12 @@ As a domain architect, I want time-boxed documentation sessions with a Pomodoro 
 - [x] Dashboard session callout with live timer and contextual actions — *Increment 3: updateTimerDisplay() + Pause/Resume*
 - [x] Focus file selection with vault file picker — *Increment 4: focusFile on Session + VaultFilePickerModal*
 - [x] End-to-end session time tracking with timeline and pause durations — *Increment 5: SessionTimelineEntry[] + computeTimelineSummary + Time Breakdown UI*
+- [ ] Focus file type detected and matching tool profile rendered in detail panel — *Increment 6*
+- [ ] Context files can be attached/removed during a session — *Increment 6*
+- [ ] New session can be spawned from existing session with inherited focus and context — *Increment 6*
+- [ ] Guiding questions displayed during active/paused sessions — *Increment 6*
+- [ ] Session summary document generated on completion as `.md` in configurable folder — *Increment 6*
+- [ ] Unknown file extensions show basic metadata and "Document as MD" action — *Increment 6*
 
 ## Implementation Progress
 
@@ -157,3 +186,162 @@ Modified files:
 - `tests/domain/session/SessionService.test.ts` — +9 tests (timeline recording per lifecycle action, full lifecycle ordering, multiple pause/resume cycles, backward compat)
 - `tests/ui/userHub/UserHubSessions.test.ts` — +6 tests (Time Breakdown rendering, pause count visibility, Timeline section entry count, action labels)
 - `tests/ui/userHub/UserHubDashboard.test.ts` — makeSession updated with `timeline: []`
+
+### Increment 6: Session Focus Tools (planned)
+
+> Sessions are the primary mechanism for focused, time-boxed content creation inside the Vault. The focus file is the session's anchor — its type drives the available tooling, its content drives the user's attention, and the session always pushes toward the next increment. This increment transforms sessions from a timer-with-tracking into a **focused workspace** that leverages Obsidian's tools based on what the user is working on.
+
+#### 6a. Focus File Profiles
+
+Detect the focus file's extension (and for `.md`, its frontmatter `type`) to determine which tools to surface in the session detail panel.
+
+**File type categories:**
+
+| Category | Extensions | Tools / Actions |
+|----------|-----------|-----------------|
+| Markdown | `.md` | Open in editor, show backlinks panel, outgoing links, tags. If frontmatter `type` is a known DocType (EventDoc, ServiceDoc, FlowDoc, etc.), show domain-specific actions: "Open in Event Catalog", "Show related Flows", "View Service Blueprint" |
+| Canvas | `.canvas` | Open canvas view, show node count and connection summary. Design sessions benefit from visual board overview |
+| PDF | `.pdf` | Open in PDF viewer, show page count. Allow creating annotation notes linked to the PDF |
+| Image | `.png`, `.jpg`, `.jpeg`, `.svg`, `.gif`, `.webp` | Show image preview (thumbnail), dimensions, file size. Allow creating annotation/documentation notes linked to the image |
+| CSV | `.csv` | Open in Flowti table view, show row/column count. Link to Data Exchange import/export actions |
+| Unknown | everything else | Show basic file metadata: filename, extension, file size, last modified date. Provide **"Document as MD"** action — creates a new `.md` file with frontmatter metadata and a `[[wiki-link]]` to the original file, enabling the unknown file to participate in the knowledge graph |
+
+**Domain logic:**
+- New pure function `resolveFocusFileProfile(filePath, frontmatterType?)` in `src/domain/session/helpers.ts`
+- Returns a `FocusFileProfile` object: `{ category, extension, docType, tools[] }`
+- Tools are declarative: `{ id, label, icon, actionType }` — UI maps `actionType` to Obsidian workspace operations
+
+**UI:**
+- New `renderFocusFileTools(session, profile)` section in `UserHubSessions` detail panel, positioned after the timer section
+- Shows: file type icon + category badge, then tool buttons in a flex row
+- For `.md` with known DocType: additional domain badge (e.g., "EventDoc") + domain-specific tool buttons
+- For unknown: file metadata card + prominent "Document as MD" button
+
+#### 6b. Context Files
+
+Sessions need more than a single focus file. Context files are the working set — the supporting material the user needs alongside the focus file during focused work.
+
+**Data model:**
+- `contextFiles: string[]` added to `Session` entity (default: `[]`)
+- `contextFiles?: string[]` on `SessionTemplate` (optional, for template carry-forward)
+- Backward compatibility: `load()` initializes missing `contextFiles` to `[]`
+
+**Actions:**
+- "Add Context File" button in session detail panel opens `VaultFilePickerModal` (reuse existing)
+- Each context file row shows: type icon (derived from extension), filename, clickable link (opens file), "remove" action button
+- Context file list is collapsible (collapsed by default when empty, expanded when files present)
+- Context files are tracked through rerun and templates (same pattern as focusFile)
+
+**Events:**
+- `session.contextFile.added` — `{ sessionId, filePath }` — emitted when a context file is attached
+- `session.contextFile.removed` — `{ sessionId, filePath }` — emitted when a context file is detached
+- Both events trigger `save()` and UI refresh
+
+#### 6c. Session Spawning
+
+Enable iterative work by spawning new sessions from existing ones with inherited context.
+
+**Two spawn modes:**
+
+1. **"New Session from Focus"** — quick spawn:
+   - Available on completed/archived sessions (alongside Rerun)
+   - Creates a new "prepared" session with the same focus file, empty context files
+   - Title auto-generated: `"[Focus] <original-title> (cont.)"` or similar
+   - Unlike Rerun (which copies everything), this starts fresh with just the focus anchor
+
+2. **"Design Session"** — curated spawn:
+   - Available on any session with a focus file
+   - Opens a multi-select file picker showing the current session's context files + artifacts
+   - User selects which files to carry into the new session as context files
+   - The focus file is carried over automatically
+   - Creates a new "prepared" session with focus file + selected context files
+   - Enables the user to evolve a work stream: complete a session → review outputs → spawn a design session that carries forward the relevant files
+
+**Event:**
+- `session.spawned` — `{ sourceSessionId, newSessionId }` — emitted after spawn completes
+
+#### 6d. Guiding Questions
+
+Every session is oriented toward incremental improvement. Two guiding questions are always visible during active/paused sessions to keep the user's attention on the focus file's content:
+
+- **"How should the next increment look like?"** — Forward-looking: what is the next concrete step?
+- **"What can be improved?"** — Reflective: what about the current state could be better?
+
+**UI:**
+- Rendered as a subtle callout/card in the session detail panel, between the timer and the tools section
+- Only visible during `active` and `paused` states — not for `prepared`, `completed`, or `archived`
+- Styled as a muted accent card with question mark icon, easy to read but not distracting
+- These are fixed prompts (not user-configurable in v1) — they encode the session philosophy
+
+#### 6e. Session Document
+
+On session completion, generate a permanent markdown record in the vault that captures what happened during the session. This makes sessions first-class vault citizens — discoverable via search, linkable via backlinks, and browsable in the file explorer.
+
+**Generated document structure:**
+
+```markdown
+---
+type: SessionDocument
+session_id: "<id>"
+session_type: "<type>"
+focus_file: "[[<focus-file-path>]]"
+duration_minutes: <n>
+completed_at: "<ISO>"
+---
+
+# Session: <title>
+
+## Focus
+[[<focus-file-path>]]
+
+## Context Files
+- [[file-1]]
+- [[file-2]]
+
+## Time Breakdown
+- Wall Clock: Xm Ys
+- Active: Xm Ys
+- Paused: Xm Ys (N pauses)
+
+## Artifacts
+- [[created-file]] (created)
+- [[modified-file]] (modified)
+
+## Notes
+<session notes content>
+
+## Timeline
+- HH:MM:SS — Started
+- HH:MM:SS — Paused
+- HH:MM:SS — Resumed
+- HH:MM:SS — Completed
+```
+
+**Configuration:**
+- Session documents folder: configurable in Settings (default: `Sessions/`)
+- File naming: `YYYY-MM-DD <SessionType> - <Title>.md` (e.g., `2026-02-16 Event Storming - Order Flow.md`)
+
+**Behavior:**
+- Generated automatically on `session.complete` (not on archive — only the first completion)
+- `session.document.created` event emitted with `{ sessionId, documentPath }`
+- Document path stored on Session entity as `documentPath: string | null`
+- If a session document already exists (e.g., rerun of same session), a new document is created (not overwritten)
+- Uses `DocService` or direct vault file creation depending on implementation simplicity
+
+#### Technical Requirements (Increment 6)
+
+- `FocusFileProfile` type and `resolveFocusFileProfile()` pure helper in `helpers.ts`
+- `contextFiles: string[]` and `documentPath: string | null` fields on `Session`
+- `contextFiles?: string[]` and `documentPath` omitted on `SessionTemplate`
+- New `SessionService` methods: `addContextFile()`, `removeContextFile()`, `spawnSession()`, `spawnDesignSession()`, `generateSessionDocument()`
+- 4 new events in `SessionEventMap`: `session.contextFile.added`, `session.contextFile.removed`, `session.document.created`, `session.spawned`
+- UI: `renderFocusFileTools()`, `renderContextFiles()`, `renderGuidingQuestions()` in `UserHubSessions`
+- Settings: `sessionDocumentsFolder` in FlowtiSettings (default: `"Sessions/"`)
+
+#### Constraints (Increment 6)
+
+- Focus file profile detection must work without reading file content for non-`.md` files (extension-based only)
+- For `.md` files, frontmatter `type` is read via Obsidian's `metadataCache` (no raw file parsing)
+- Session document generation must not block the UI — use async file creation
+- Context files list should be bounded (suggest max 20 per session) to avoid performance issues
+- "Document as MD" action must handle name collisions (append suffix if file exists)
