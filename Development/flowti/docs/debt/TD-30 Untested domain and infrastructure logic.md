@@ -6,7 +6,7 @@ status: open
 created: 2026-02-14
 updated: 2026-02-15
 effort: medium
-description: "15 non-UI source files (~4,200 LOC) with testable pure functions and injectable services. Tier 1 complete (298 tests, 100%). Tier 2 complete (149 tests, 95-100% coverage). Tier 3 (bootstrap) open. Tier 4 (flow integration) complete. Hub domain tests added (26 tests, 100% coverage on HubRegistry + 3 providers)."
+description: "15 non-UI source files (~4,200 LOC) with testable pure functions and injectable services. Tier 1 complete (298 tests, 100%). Tier 2 complete (149 tests, 95-100% coverage). Tier 3 (bootstrap) open. Tier 4 (flow integration) complete. Hub domain tests added (26 tests, 100% coverage on HubRegistry + 3 providers). Current: 1,787 tests, 79 suites."
 source: "[[Technical Review 2026-02-14]]"
 ---
 # TD-30: Untested domain and infrastructure logic
@@ -64,9 +64,9 @@ While 45 test suites cover domain services, EventBus, and utilities, 15 non-UI s
 
 Target: ~12 new test files, ~50-150 LOC each.
 
-## Assessment (2026-02-15)
+## Assessment (2026-02-16)
 
-Tiers 1, 2, and 4 are complete. Hub domain layer fully tested. Current metrics: **1,725 tests passing, 32 skipped across 77 test files**. Remaining untested domain files are:
+Tiers 1, 2, and 4 are complete. Hub domain layer fully tested. Current metrics: **1,787 tests passing, 32 skipped across 79 test files**. Mock factories consolidated into shared modules (see TD-27). Remaining untested domain files are:
 - `installer/folders.ts` — pure data array, low complexity
 - `installer/steps/UserCreationStep.ts`, `FolderScaffoldStep.ts` — covered indirectly by InstallerService.test.ts and Flow 01 integration test
 - `settings/FlowtiSettingTab.ts` — Obsidian UI component, low ROI for unit testing

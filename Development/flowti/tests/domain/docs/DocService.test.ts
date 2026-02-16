@@ -4,32 +4,7 @@ import type { IEventBus } from "../../../src/infrastructure/events/types";
 import type { IFileSystemClient } from "../../../src/infrastructure/filesystem/types";
 import { DocService } from "../../../src/domain/docs/DocService";
 import { DEFAULT_SETTINGS } from "../../../src/domain/settings/settings";
-
-function createMockFileSystem(existingFiles: Record<string, string> = {}): IFileSystemClient {
-	const files = new Map(Object.entries(existingFiles));
-	return {
-		fileExists: vi.fn(async (path: string) => files.has(path)),
-		createFile: vi.fn(async (path: string, content: string) => {
-			files.set(path, content);
-		}),
-		readFile: vi.fn(async (path: string) => {
-			const content = files.get(path);
-			if (content === undefined) throw new Error(`File not found: ${path}`);
-			return content;
-		}),
-		updateFile: vi.fn(async (path: string, content: string) => {
-			files.set(path, content);
-		}),
-		deleteFile: vi.fn(async (path: string) => {
-			files.delete(path);
-		}),
-		moveFile: vi.fn(async () => ""),
-		renameFile: vi.fn(async () => ""),
-		getFrontmatter: vi.fn(async () => ({})),
-		updateFrontmatter: vi.fn(async () => ({})),
-		setFrontmatter: vi.fn(async () => undefined),
-	};
-}
+import { createMockFileSystem } from "../../mocks/filesystem";
 
 describe("DocService", () => {
 	let service: DocService;

@@ -1,9 +1,24 @@
-import { App, PluginSettingTab, Setting } from "obsidian";
-import FlowtiBasePlugin from "src/main";
+import { App, Plugin, PluginSettingTab, Setting } from "obsidian";
+import type { IUserService } from "../user/types";
+import type { IEventBus } from "../../infrastructure/events/types";
 import type { IInstallerService } from "../installer/types";
 import { InstallerWizardModal } from "../installer/InstallerWizardModal";
-import { DEFAULT_ENTITY_PATHS } from "./settings";
+import { DEFAULT_ENTITY_PATHS, type FlowtiSettings } from "./settings";
 import { INBOX_SOURCE_DEFINITIONS } from "../inbox/types";
+
+/**
+ * Dependencies injected into FlowtiSettingTab.
+ *
+ * Replaces the previous direct `FlowtiBasePlugin` reference so
+ * the domain layer never imports the plugin orchestrator.
+ */
+export interface FlowtiSettingTabDeps {
+	userService: IUserService;
+	eventBus: IEventBus;
+	getSettings: () => FlowtiSettings;
+	saveSettings: () => Promise<void>;
+	getInstallerService: () => Promise<IInstallerService>;
+}
 
 /**
  * Settings tab for the Flowti plugin.
@@ -11,11 +26,11 @@ import { INBOX_SOURCE_DEFINITIONS } from "../inbox/types";
  */
 export class FlowtiSettingTab extends PluginSettingTab {
 
-	private plugin: FlowtiBasePlugin
+	private deps: FlowtiSettingTabDeps;
 
-	constructor(app: App, plugin: FlowtiBasePlugin) {
+	constructor(app: App, plugin: Plugin, deps: FlowtiSettingTabDeps) {
 		super(app, plugin);
-		this.plugin = plugin;
+		this.deps = deps;
 	}
 
 	display(): void {
@@ -38,7 +53,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 	private displayUserSection(containerEl: HTMLElement): void {
 		containerEl.createEl("h3", { text: "User profile" });
 
-		const user = this.plugin.userService.getUser();
+		const user = this.deps.userService.getUser();
 
 		if (user) {
 			new Setting(containerEl)
@@ -49,7 +64,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 						.setValue(user.name)
 						.onChange(async (value) => {
 							if (value.trim()) {
-								await this.plugin.userService.updateUserName(value);
+								await this.deps.userService.updateUserName(value);
 							}
 						})
 				);
@@ -76,13 +91,12 @@ export class FlowtiSettingTab extends PluginSettingTab {
 				btn
 					.setButtonText("Restart setup")
 					.onClick(async () => {
-						const installerService =
-							await this.plugin.getService<IInstallerService>("installerService");
+						const installerService = await this.deps.getInstallerService();
 						await installerService.reset();
 						new InstallerWizardModal(
 							this.app,
 							installerService,
-							this.plugin.eventBus,
+							this.deps.eventBus,
 						).open();
 					})
 			);
@@ -94,6 +108,8 @@ export class FlowtiSettingTab extends PluginSettingTab {
 	private displayEventSystemSection(containerEl: HTMLElement): void {
 		containerEl.createEl("h3", { text: "Event System" });
 
+		const settings = this.deps.getSettings();
+
 		new Setting(containerEl)
 			.setName("Enable event system")
 			.setDesc(
@@ -102,10 +118,10 @@ export class FlowtiSettingTab extends PluginSettingTab {
 			)
 			.addToggle((toggle) =>
 				toggle
-					.setValue(this.plugin.settings.eventSystemEnabled)
+					.setValue(settings.eventSystemEnabled)
 					.onChange(async (value) => {
-						this.plugin.settings.eventSystemEnabled = value;
-						await this.plugin.saveSettings();
+						this.deps.getSettings().eventSystemEnabled = value;
+						await this.deps.saveSettings();
 					})
 			);
 
@@ -117,10 +133,10 @@ export class FlowtiSettingTab extends PluginSettingTab {
 			)
 			.addToggle((toggle) =>
 				toggle
-					.setValue(this.plugin.settings.showSystemEvents)
+					.setValue(settings.showSystemEvents)
 					.onChange(async (value) => {
-						this.plugin.settings.showSystemEvents = value;
-						await this.plugin.saveSettings();
+						this.deps.getSettings().showSystemEvents = value;
+						await this.deps.saveSettings();
 					})
 			);
 	}
@@ -136,7 +152,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 			cls: "setting-item-description",
 		});
 
-		const enabled = new Set(this.plugin.settings.inboxEnabledSources ?? []);
+		const enabled = new Set(this.deps.getSettings().inboxEnabledSources ?? []);
 
 		for (const src of INBOX_SOURCE_DEFINITIONS) {
 			new Setting(containerEl)
@@ -151,7 +167,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 							} else {
 								enabled.delete(src.event);
 							}
-							void this.plugin.eventBus.emit("settings.updateInboxEnabledSources", {
+							void this.deps.eventBus.emit("settings.updateInboxEnabledSources", {
 								sources: Array.from(enabled),
 							});
 						})
@@ -173,11 +189,11 @@ export class FlowtiSettingTab extends PluginSettingTab {
 			)
 			.addText((text) =>
 				text
-					.setValue(this.plugin.settings.docsRootPath)
+					.setValue(this.deps.getSettings().docsRootPath)
 					.setPlaceholder("03 - Resources/Documentation/Reference")
 					.onChange(async (value) => {
-						this.plugin.settings.docsRootPath = value;
-						await this.plugin.saveSettings();
+						this.deps.getSettings().docsRootPath = value;
+						await this.deps.saveSettings();
 					})
 			);
 	}
@@ -194,9 +210,11 @@ export class FlowtiSettingTab extends PluginSettingTab {
 			cls: "setting-item-description",
 		});
 
+		const settings = this.deps.getSettings();
+
 		// Ensure entityPaths exists (backwards compat)
-		if (!this.plugin.settings.entityPaths) {
-			this.plugin.settings.entityPaths = { ...DEFAULT_ENTITY_PATHS };
+		if (!settings.entityPaths) {
+			settings.entityPaths = { ...DEFAULT_ENTITY_PATHS };
 		}
 
 		const entities: Array<{ key: keyof typeof DEFAULT_ENTITY_PATHS; label: string; defaultSub: string }> = [
@@ -210,7 +228,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 		];
 
 		for (const entity of entities) {
-			const cfg = this.plugin.settings.entityPaths[entity.key] ?? { subfolder: entity.defaultSub, overridePath: "" };
+			const cfg = settings.entityPaths[entity.key] ?? { subfolder: entity.defaultSub, overridePath: "" };
 
 			new Setting(containerEl)
 				.setName(`${entity.label} subfolder`)
@@ -220,8 +238,8 @@ export class FlowtiSettingTab extends PluginSettingTab {
 						.setValue(cfg.subfolder)
 						.setPlaceholder(entity.defaultSub)
 						.onChange(async (value) => {
-							this.plugin.settings.entityPaths[entity.key].subfolder = value || entity.defaultSub;
-							await this.plugin.saveSettings();
+							this.deps.getSettings().entityPaths[entity.key].subfolder = value || entity.defaultSub;
+							await this.deps.saveSettings();
 						})
 				);
 
@@ -233,8 +251,8 @@ export class FlowtiSettingTab extends PluginSettingTab {
 						.setValue(cfg.overridePath)
 						.setPlaceholder("Leave empty to use default")
 						.onChange(async (value) => {
-							this.plugin.settings.entityPaths[entity.key].overridePath = value;
-							await this.plugin.saveSettings();
+							this.deps.getSettings().entityPaths[entity.key].overridePath = value;
+							await this.deps.saveSettings();
 						})
 				);
 		}
@@ -253,10 +271,10 @@ export class FlowtiSettingTab extends PluginSettingTab {
 			)
 			.addToggle((toggle) =>
 				toggle
-					.setValue(this.plugin.settings.debugMode)
+					.setValue(this.deps.getSettings().debugMode)
 					.onChange(async (value) => {
-						this.plugin.settings.debugMode = value;
-						await this.plugin.saveSettings();
+						this.deps.getSettings().debugMode = value;
+						await this.deps.saveSettings();
 					})
 			);
 	}

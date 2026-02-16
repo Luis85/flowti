@@ -26,8 +26,8 @@ import { PipelinesTab } from "./hub/PipelinesTab";
 import { TypesTab } from "./hub/TypesTab";
 import { openEventInCatalog } from "./hub/helpers";
 import { basename, stripExtension } from "../utils/pathUtils";
-
-export const VIEW_TYPE_DATA_EXCHANGE_HUB = "flowti-data-exchange-hub";
+import { VIEW_TYPE_DATA_EXCHANGE_HUB } from "../domain/hub/types";
+export { VIEW_TYPE_DATA_EXCHANGE_HUB };
 
 export type DXTab = "imports" | "exports" | "reports" | "properties" | "pipelines" | "types";
 

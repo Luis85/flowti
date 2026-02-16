@@ -13,30 +13,7 @@ import type { ITypedStorage } from "../../../src/utils/TypedStorage";
 import type { UUID } from "../../../src/utils/types";
 import type { FlowtiUser } from "../../../src/domain/user/types";
 import type { IFileSystemClient } from "../../../src/infrastructure/filesystem/types";
-
-/**
- * Creates a mock typed storage that persists data in memory.
- */
-function createMockStorage(initialState?: InstallerState): {
-	storage: ITypedStorage<InstallerState>;
-	getData: () => InstallerState | undefined;
-} {
-	let data: InstallerState | undefined = initialState;
-	return {
-		storage: {
-			load: vi.fn(async () => data),
-			save: vi.fn(async (state: InstallerState) => {
-				data = state;
-			}),
-			safeLoad: vi.fn(async () => data),
-			safeSave: vi.fn(async (state: InstallerState) => {
-				data = state;
-				return true;
-			}),
-		},
-		getData: () => data,
-	};
-}
+import { createMockStorage } from "../../mocks/storage";
 
 /**
  * Builds a fully wired InstallerService with real steps and mock deps.
@@ -94,11 +71,11 @@ function buildInstaller(options: {
 
 describe("Journey: First Run", () => {
 	let eventBus: IEventBus;
-	let mock: ReturnType<typeof createMockStorage>;
+	let mock: { storage: ITypedStorage<InstallerState>; getData: () => InstallerState | undefined };
 
 	beforeEach(() => {
 		eventBus = new EventBus();
-		mock = createMockStorage();
+		mock = createMockStorage<InstallerState>();
 	});
 
 	it("should detect first run after loading empty storage", async () => {
@@ -268,11 +245,11 @@ describe("Journey: Subsequent Launch", () => {
 
 describe("Journey: Restart from Settings", () => {
 	let eventBus: IEventBus;
-	let mock: ReturnType<typeof createMockStorage>;
+	let mock: { storage: ITypedStorage<InstallerState>; getData: () => InstallerState | undefined };
 
 	beforeEach(() => {
 		eventBus = new EventBus();
-		mock = createMockStorage();
+		mock = createMockStorage<InstallerState>();
 	});
 
 	it("should allow re-running after reset clears installed state", async () => {
@@ -385,11 +362,11 @@ describe("Journey: Restart from Settings", () => {
 
 describe("Journey: Failure and Retry", () => {
 	let eventBus: IEventBus;
-	let mock: ReturnType<typeof createMockStorage>;
+	let mock: { storage: ITypedStorage<InstallerState>; getData: () => InstallerState | undefined };
 
 	beforeEach(() => {
 		eventBus = new EventBus();
-		mock = createMockStorage();
+		mock = createMockStorage<InstallerState>();
 	});
 
 	it("should fail when FolderScaffoldStep hits a permission error", async () => {

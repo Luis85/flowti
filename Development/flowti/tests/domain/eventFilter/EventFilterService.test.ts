@@ -4,30 +4,7 @@ import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { EventFilterService } from "../../../src/domain/eventFilter/EventFilterService";
 import type { ITypedStorage } from "../../../src/utils/TypedStorage";
 import type { EventFilterState } from "../../../src/domain/eventFilter/types";
-
-/**
- * Creates a mock typed storage for testing.
- */
-function createMockStorage(initialState?: EventFilterState): {
-	storage: ITypedStorage<EventFilterState>;
-	getData: () => EventFilterState | undefined;
-} {
-	let data: EventFilterState | undefined = initialState;
-	return {
-		storage: {
-			load: vi.fn(async () => data),
-			save: vi.fn(async (state: EventFilterState) => {
-				data = state;
-			}),
-			safeLoad: vi.fn(async () => data),
-			safeSave: vi.fn(async (state: EventFilterState) => {
-				data = state;
-				return true;
-			}),
-		},
-		getData: () => data,
-	};
-}
+import { createMockStorage } from "../../mocks/storage";
 
 describe("EventFilterService", () => {
 	let service: EventFilterService;
@@ -36,7 +13,7 @@ describe("EventFilterService", () => {
 	let eventBus: IEventBus;
 
 	beforeEach(() => {
-		const mock = createMockStorage();
+		const mock = createMockStorage<EventFilterState>();
 		storage = mock.storage;
 		getData = mock.getData;
 		eventBus = new EventBus();
@@ -190,7 +167,7 @@ describe("EventFilterService", () => {
 
 	describe("persistence", () => {
 		it("should persist state via typed storage", async () => {
-			const mock = createMockStorage();
+			const mock = createMockStorage<EventFilterState>();
 			service = new EventFilterService({ storage: mock.storage, eventBus });
 
 			await eventBus.emit("eventFilter.toggle", { eventType: "file.created" });

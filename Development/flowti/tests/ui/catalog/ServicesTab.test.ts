@@ -1,28 +1,11 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { TFile, TFolder } from "obsidian";
 import { ServicesTab } from "../../../src/ui/catalog/ServicesTab";
 import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import type { CatalogComponentDeps, ServiceEntry } from "../../../src/ui/catalog/types";
 import { createMockCatalogDeps, createDefaultCatalogState } from "./testHelpers";
-
-// ── Helpers ──────────────────────────────────────────────
-
-function createMockTFile(path: string, basename: string, ext = "md"): TFile {
-	const file = new TFile();
-	Object.defineProperty(file, "path", { value: path, writable: false });
-	Object.defineProperty(file, "basename", { value: basename, writable: false });
-	Object.defineProperty(file, "extension", { value: ext, writable: false });
-	return file;
-}
-
-function createMockTFolder(path: string, children: (TFile | TFolder)[]): TFolder {
-	const folder = new TFolder();
-	Object.defineProperty(folder, "path", { value: path, writable: false });
-	Object.defineProperty(folder, "children", { value: children, writable: false });
-	return folder;
-}
+import { createMockTFile, createMockTFolder } from "../../mocks/obsidian-stub";
 
 // ── Tests ────────────────────────────────────────────────
 

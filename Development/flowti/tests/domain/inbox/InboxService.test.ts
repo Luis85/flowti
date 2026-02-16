@@ -5,30 +5,7 @@ import { InboxService } from "../../../src/domain/inbox/InboxService";
 import type { ITypedStorage } from "../../../src/utils/TypedStorage";
 import type { InboxState, InboxItem } from "../../../src/domain/inbox/types";
 import { MAX_INBOX_ITEMS } from "../../../src/domain/inbox/types";
-
-/**
- * Creates a mock typed storage for testing.
- */
-function createMockStorage(initialState?: InboxState): {
-	storage: ITypedStorage<InboxState>;
-	getData: () => InboxState | undefined;
-} {
-	let data: InboxState | undefined = initialState;
-	return {
-		storage: {
-			load: vi.fn(async () => data),
-			save: vi.fn(async (state: InboxState) => {
-				data = state;
-			}),
-			safeLoad: vi.fn(async () => data),
-			safeSave: vi.fn(async (state: InboxState) => {
-				data = state;
-				return true;
-			}),
-		},
-		getData: () => data,
-	};
-}
+import { createMockStorage } from "../../mocks/storage";
 
 function createTestItem(overrides: Partial<InboxItem> = {}): InboxItem {
 	return {
@@ -50,7 +27,7 @@ describe("InboxService", () => {
 	let eventBus: IEventBus;
 
 	beforeEach(() => {
-		const mock = createMockStorage();
+		const mock = createMockStorage<InboxState>();
 		storage = mock.storage;
 		eventBus = new EventBus();
 		service = new InboxService({ storage, eventBus });

@@ -40,8 +40,8 @@ import {
 	HealthTab,
 } from "./catalog";
 import { BaseHubView, type TabDef } from "./BaseHubView";
-
-export const VIEW_TYPE_EVENT_CATALOG = "flowti-event-catalog";
+import { VIEW_TYPE_EVENT_CATALOG } from "../domain/hub/types";
+export { VIEW_TYPE_EVENT_CATALOG };
 
 export type CatalogTab = "events" | "domains" | "services" | "flows" | "systems" | "actors" | "products" | "health";
 

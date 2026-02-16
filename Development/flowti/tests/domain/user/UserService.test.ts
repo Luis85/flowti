@@ -6,30 +6,7 @@ import { UserService } from "../../../src/domain/user/UserService";
 import type { FlowtiUser } from "../../../src/domain/user/types";
 import type { ITypedStorage } from "../../../src/utils/TypedStorage";
 import type { UUID } from "../../../src/utils/types";
-
-/**
- * Creates a mock typed storage for testing.
- */
-function createMockStorage(initialState?: FlowtiUser): {
-	storage: ITypedStorage<FlowtiUser>;
-	getData: () => FlowtiUser | undefined;
-} {
-	let data: FlowtiUser | undefined = initialState;
-	return {
-		storage: {
-			load: vi.fn(async () => data),
-			save: vi.fn(async (state: FlowtiUser) => {
-				data = state;
-			}),
-			safeLoad: vi.fn(async () => data),
-			safeSave: vi.fn(async (state: FlowtiUser) => {
-				data = state;
-				return true;
-			}),
-		},
-		getData: () => data,
-	};
-}
+import { createMockStorage } from "../../mocks/storage";
 
 describe("UserService", () => {
 	let userService: UserService;
@@ -38,7 +15,7 @@ describe("UserService", () => {
 	let getData: () => FlowtiUser | undefined;
 
 	beforeEach(() => {
-		const mock = createMockStorage();
+		const mock = createMockStorage<FlowtiUser>();
 		storage = mock.storage;
 		getData = mock.getData;
 		eventBus = new EventBus();
@@ -115,7 +92,7 @@ describe("UserService", () => {
 		});
 
 		it("should reject when no user exists with ValidationError", async () => {
-			const freshService = new UserService({ storage: createMockStorage().storage });
+			const freshService = new UserService({ storage: createMockStorage<FlowtiUser>().storage });
 			await expect(freshService.updateUserName("Name")).rejects.toThrow(ValidationError);
 			await expect(freshService.updateUserName("Name")).rejects.toThrow(
 				"No user exists to update"
@@ -130,7 +107,7 @@ describe("UserService", () => {
 				name: "Existing User",
 				createdAt: "2024-01-01T00:00:00.000Z",
 			};
-			const mock = createMockStorage(existingUser);
+			const mock = createMockStorage<FlowtiUser>(existingUser);
 			const service = new UserService({ storage: mock.storage });
 
 			await service.load();
@@ -143,7 +120,7 @@ describe("UserService", () => {
 			await userService.load();
 			expect(userService.hasUser()).toBe(false);
 
-			const nullMock = createMockStorage();
+			const nullMock = createMockStorage<FlowtiUser>();
 			nullMock.storage.load = vi.fn(async () => undefined);
 			const nullService = new UserService({ storage: nullMock.storage });
 			await nullService.load();
@@ -189,7 +166,7 @@ describe("UserService", () => {
 				name: "Existing User",
 				createdAt: "2024-01-01T00:00:00.000Z",
 			};
-			const mock = createMockStorage(existingUser);
+			const mock = createMockStorage<FlowtiUser>(existingUser);
 			const service = new UserService({ storage: mock.storage, eventBus });
 
 			const handler = vi.fn();
@@ -216,7 +193,7 @@ describe("UserService", () => {
 		});
 
 		it("should work without eventBus (optional dependency)", async () => {
-			const serviceWithoutEvents = new UserService({ storage: createMockStorage().storage });
+			const serviceWithoutEvents = new UserService({ storage: createMockStorage<FlowtiUser>().storage });
 
 			// Should not throw
 			await serviceWithoutEvents.createUser("Test");
@@ -228,7 +205,7 @@ describe("UserService", () => {
 
 	describe("persistence", () => {
 		it("should persist user via typed storage", async () => {
-			const mock = createMockStorage();
+			const mock = createMockStorage<FlowtiUser>();
 			const service = new UserService({ storage: mock.storage, eventBus });
 
 			await service.createUser("Test User");
@@ -244,7 +221,7 @@ describe("UserService", () => {
 				name: "Original",
 				createdAt: "2024-01-01T00:00:00.000Z",
 			};
-			const mock = createMockStorage(existingUser);
+			const mock = createMockStorage<FlowtiUser>(existingUser);
 			const service = new UserService({ storage: mock.storage, eventBus });
 			await service.load();
 

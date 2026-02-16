@@ -5,31 +5,8 @@ import { DataExchangeService } from "../../../src/domain/dataExchange/DataExchan
 import type { IFileSystemClient } from "../../../src/infrastructure/filesystem/types";
 import type { ITypedStorage } from "../../../src/utils/TypedStorage";
 import type { DataExchangeState } from "../../../src/domain/dataExchange/types";
-
-function createMockStorage(initialState?: DataExchangeState): ITypedStorage<DataExchangeState> {
-	let data: DataExchangeState | undefined = initialState;
-	return {
-		load: vi.fn(async () => data),
-		save: vi.fn(async (state: DataExchangeState) => { data = state; }),
-		safeLoad: vi.fn(async () => data),
-		safeSave: vi.fn(async (state: DataExchangeState) => { data = state; return true; }),
-	};
-}
-
-function createMockFileSystem(): IFileSystemClient {
-	return {
-		fileExists: vi.fn(async () => false),
-		createFile: vi.fn(async () => {}),
-		readFile: vi.fn(async () => { throw new Error("File not found"); }),
-		updateFile: vi.fn(async () => {}),
-		deleteFile: vi.fn(async () => {}),
-		moveFile: vi.fn(async (_p: string, np: string) => np),
-		renameFile: vi.fn(async (_p: string, nn: string) => nn),
-		getFrontmatter: vi.fn(async () => ({})),
-		updateFrontmatter: vi.fn(async (_p: string, d: Record<string, unknown>) => d),
-		setFrontmatter: vi.fn(async () => {}),
-	} as unknown as IFileSystemClient;
-}
+import { createMockStorage } from "../../mocks/storage";
+import { createMockFileSystemStub as createMockFileSystem } from "../../mocks/filesystem";
 
 describe("DataExchangeService", () => {
 	let service: DataExchangeService;
@@ -219,7 +196,7 @@ describe("DataExchangeService", () => {
 		let svc: DataExchangeService;
 
 		beforeEach(() => {
-			storage = createMockStorage();
+			storage = createMockStorage<DataExchangeState>().storage;
 			svc = new DataExchangeService({
 				eventBus: new EventBus(),
 				fileSystem: createMockFileSystem(),
@@ -277,7 +254,7 @@ describe("DataExchangeService", () => {
 			});
 
 			it("should load persisted import configs", async () => {
-				const mockStorage = createMockStorage({
+				const { storage: mockStorage } = createMockStorage<DataExchangeState>({
 					savedImportConfigs: [
 						{
 							id: "abc",
@@ -358,7 +335,7 @@ describe("DataExchangeService", () => {
 			});
 
 			it("should load persisted export configs", async () => {
-				const mockStorage = createMockStorage({
+				const { storage: mockStorage } = createMockStorage<DataExchangeState>({
 					savedImportConfigs: [],
 					savedExportConfigs: [
 						{
@@ -417,7 +394,7 @@ describe("DataExchangeService", () => {
 
 		beforeEach(() => {
 			bus = new EventBus();
-			storage = createMockStorage();
+			storage = createMockStorage<DataExchangeState>().storage;
 			svc = new DataExchangeService({
 				eventBus: bus,
 				fileSystem: createMockFileSystem(),

@@ -3,9 +3,7 @@ import { EventCatalogProvider } from "../../../src/domain/hub/EventCatalogProvid
 import { DataExchangeProvider } from "../../../src/domain/hub/DataExchangeProvider";
 import { UserHubProvider } from "../../../src/domain/hub/UserHubProvider";
 import { EVENT_CATALOG } from "../../../src/infrastructure/events/catalog";
-import { VIEW_TYPE_EVENT_CATALOG } from "../../../src/ui/EventCatalogView";
-import { VIEW_TYPE_DATA_EXCHANGE_HUB } from "../../../src/ui/DataExchangeHubView";
-import { VIEW_TYPE_USER_HUB } from "../../../src/ui/UserHubView";
+import { VIEW_TYPE_EVENT_CATALOG, VIEW_TYPE_DATA_EXCHANGE_HUB, VIEW_TYPE_USER_HUB } from "../../../src/domain/hub/types";
 import type { ViewStateProvider } from "../../../src/infrastructure/views/registry";
 import type { IUserService } from "../../../src/domain/user/types";
 

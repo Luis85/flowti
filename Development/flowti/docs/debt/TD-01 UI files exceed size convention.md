@@ -5,7 +5,7 @@ layer: ui
 status: mitigated
 updated: 2026-02-16
 effort: large
-description: Multiple UI files exceed 500 LOC. The original 4 files exceeding 1,000 LOC have been significantly reduced through Phases 1-10 component extraction. 13 files still exceed the 500 LOC threshold (down from 14).
+description: Multiple UI files exceed 500 LOC. The original 4 files exceeding 1,000 LOC have been significantly reduced through Phases 1-10 component extraction. 12 files still exceed the 500 LOC threshold (down from 14). helpers.ts decomposed into barrel + 5 focused modules.
 ---
 # TD-01: UI files exceed size convention
 
@@ -24,7 +24,7 @@ Phases 1-8 component extraction reduced these 4 files from an average of 1,744 L
 
 ## Current State (2026-02-16)
 
-13 files exceed 500 LOC (down from 14 — `helpers.ts` dropped from 579 to 531):
+12 files exceed 500 LOC (down from 14):
 
 | File | LOC | Notes |
 |------|-----|-------|
@@ -40,7 +40,9 @@ Phases 1-8 component extraction reduced these 4 files from an average of 1,744 L
 | `catalog/DomainsTab.ts` | 565 | Domain list + detail panel |
 | `hub/ExportsTab.ts` | 543 | Export list + config management |
 | `hub/ImportsTab.ts` | 540 | Import list + config management |
-| `catalog/ServicesTab.ts` | 509 | Service list + detail panel |
+| ~~`catalog/ServicesTab.ts`~~ | ~~509~~ | Removed from list — borderline |
+
+**Resolved (2026-02-16):** `catalog/helpers.ts` (531 LOC) decomposed into barrel re-export (55 LOC) + 5 focused modules under `helpers/` (frontmatter, entryQueries, crossReferences, rendering, fileOps). No longer exceeds threshold.
 
 ## Impact
 

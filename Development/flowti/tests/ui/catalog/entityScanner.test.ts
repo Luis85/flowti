@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { TFile, TFolder } from "obsidian";
 import { scanEntityFolder, type EntityScanConfig, type RawScanEntry, type ScanContext } from "../../../src/ui/catalog/entityScanner";
 import { createMockCatalogDeps, createDefaultCatalogState } from "./testHelpers";
 import type { CatalogComponentDeps } from "../../../src/ui/catalog/types";
+import { TFile, createMockTFile, createMockTFolder } from "../../mocks/obsidian-stub";
 
 // ── Helpers ──────────────────────────────────────────────
 
@@ -32,21 +32,6 @@ function simpleConfig(overrides?: Partial<EntityScanConfig<SimpleEntry>>): Entit
 		}),
 		...overrides,
 	};
-}
-
-function createMockTFile(path: string, basename: string, ext = "md"): TFile {
-	const file = new TFile();
-	Object.defineProperty(file, "path", { value: path, writable: false });
-	Object.defineProperty(file, "basename", { value: basename, writable: false });
-	Object.defineProperty(file, "extension", { value: ext, writable: false });
-	return file;
-}
-
-function createMockTFolder(path: string, children: (TFile | TFolder)[]): TFolder {
-	const folder = new TFolder();
-	Object.defineProperty(folder, "path", { value: path, writable: false });
-	Object.defineProperty(folder, "children", { value: children, writable: false });
-	return folder;
 }
 
 function setupDepsWithFolder(

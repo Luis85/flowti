@@ -1,7 +1,15 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { JobQueue } from "../../../src/domain/ingestion/JobQueue";
 
 describe("JobQueue", () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
 	it("should process items in order", async () => {
 		const processed: number[] = [];
 		const queue = new JobQueue<number>(1, async (item) => {
@@ -32,7 +40,10 @@ describe("JobQueue", () => {
 		queue.enqueue(3);
 		queue.enqueue(4);
 
-		await queue.drain();
+		const drainPromise = queue.drain();
+		await vi.advanceTimersByTimeAsync(100);
+		await drainPromise;
+
 		expect(maxConcurrent).toBe(2);
 	});
 
@@ -107,7 +118,10 @@ describe("JobQueue", () => {
 		queue.enqueue(2);
 		queue.enqueue(3);
 
-		await queue.drain();
+		const drainPromise = queue.drain();
+		await vi.advanceTimersByTimeAsync(100);
+		await drainPromise;
+
 		// All should start before any finishes (with concurrency 3)
 		expect(order[0]).toBe("start-1");
 		expect(order[1]).toBe("start-2");

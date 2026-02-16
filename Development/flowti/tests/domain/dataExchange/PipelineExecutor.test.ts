@@ -5,21 +5,7 @@ import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import type { IFileSystemClient } from "../../../src/infrastructure/filesystem/types";
 import type { FileExistsCallback, ImportResult, ParsedCsv, SavedExportConfig, SavedMultiImportPipeline } from "../../../src/domain/dataExchange/types";
-
-function createMockFileSystem(): IFileSystemClient {
-	return {
-		fileExists: vi.fn(async () => false),
-		createFile: vi.fn(async () => {}),
-		readFile: vi.fn(async () => { throw new Error("File not found"); }),
-		updateFile: vi.fn(async () => {}),
-		deleteFile: vi.fn(async () => {}),
-		moveFile: vi.fn(async (_p: string, np: string) => np),
-		renameFile: vi.fn(async (_p: string, nn: string) => nn),
-		getFrontmatter: vi.fn(async () => ({})),
-		updateFrontmatter: vi.fn(async (_p: string, d: Record<string, unknown>) => d),
-		setFrontmatter: vi.fn(async () => {}),
-	} as unknown as IFileSystemClient;
-}
+import { createMockFileSystemStub as createMockFileSystem } from "../../mocks/filesystem";
 
 function makeSuccessResult(rows = 2, created = 2): ImportResult {
 	return {

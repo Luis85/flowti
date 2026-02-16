@@ -6,6 +6,13 @@
  * the hub view to be open.
  */
 
+// ── View type constants ─────────────────────────────────────
+// Defined here (domain layer) so both domain providers and UI
+// views can reference them without creating a domain → UI import.
+export const VIEW_TYPE_EVENT_CATALOG = "flowti-event-catalog";
+export const VIEW_TYPE_DATA_EXCHANGE_HUB = "flowti-data-exchange-hub";
+export const VIEW_TYPE_USER_HUB = "flowti-user-hub";
+
 /**
  * A single stat for display in a hub summary card.
  */

@@ -285,6 +285,27 @@ export class ExtraButtonComponent {
 export function setIcon(_el: HTMLElement, _iconId: string): void {}
 
 /**
+ * Creates a mock TFile with read-only properties set via defineProperty.
+ */
+export function createMockTFile(path: string, basename: string, ext = "md"): TFile {
+	const file = new TFile();
+	Object.defineProperty(file, "path", { value: path, writable: false });
+	Object.defineProperty(file, "basename", { value: basename, writable: false });
+	Object.defineProperty(file, "extension", { value: ext, writable: false });
+	return file;
+}
+
+/**
+ * Creates a mock TFolder with read-only properties set via defineProperty.
+ */
+export function createMockTFolder(path: string, children: (TFile | TFolder)[] = []): TFolder {
+	const folder = new TFolder();
+	Object.defineProperty(folder, "path", { value: path, writable: false });
+	Object.defineProperty(folder, "children", { value: children, writable: false });
+	return folder;
+}
+
+/**
  * Minimal parseYaml stub matching Obsidian's API.
  * Uses the yaml package (available as transitive dep from vite/typedoc).
  */

@@ -4,7 +4,7 @@ category: testing
 layer: ui
 status: mitigated
 created: 2026-02-14
-description: Component-level rendering tests incrementally being added. 1760 tests across 78 suites cover domain services, EventBus, utilities, pure functions, 6 view orchestrators, extracted UI logic, select UI components, and User Hub components (2 components + inbox domain, 24+11+4 tests).
+description: Component-level rendering tests incrementally being added. 1787 tests across 79 suites cover domain services, EventBus, utilities, pure functions, 6 view orchestrators, extracted UI logic, select UI components, and User Hub components. Mock factory consolidation (2026-02-16) provides shared createMockStorage/createMockFileSystem/createMockTFile factories under tests/mocks/.
 updated: 2026-02-16
 source: "[[Frontend Architecture]]"
 ---
@@ -68,6 +68,17 @@ Established replicable UI component testing pattern:
 - `tests/domain/inbox/InboxService.test.ts` — includes 4 `setEnabledSources` tests for configurable notification sources
 - Combined ui/userHub coverage: **~96.6% statements, ~91.5% branches**
 
+### Mock factory consolidation (2026-02-16)
+
+28+ duplicated mock factory functions across 25 test files consolidated into 3 shared modules:
+
+- `tests/mocks/storage.ts` — `createMockStorage<T>(initialState?)` returns `{ storage: ITypedStorage<T>, getData }` with in-memory persistence. Replaces 13 identical local factories.
+- `tests/mocks/filesystem.ts` — `createMockFileSystem(existingFiles?)` (full in-memory Map) + `createMockFileSystemStub()` (simple defaults). Replaces 15 identical local factories.
+- `tests/mocks/obsidian-stub.ts` — added `createMockTFile(path, basename, ext)` + `createMockTFolder(path, children)`. Replaces 3 identical local factories.
+- `tests/flows/testHelpers.ts` — barrel re-exports from shared mocks for backward compatibility
+
+All 25 updated test files pass with shared factories. Generic type parameter `<T>` enforces correct typing at every call site.
+
 ## Effort
 
 Medium — ~32 remaining test files, each lightweight (50-100 LOC) using the established mock pattern from orchestrator tests.
@@ -79,4 +90,6 @@ Medium — ~32 remaining test files, each lightweight (50-100 LOC) using the est
 - `tests/ui/csv/*.test.ts` (new, ~7 files)
 - `tests/ui/export/*.test.ts` (new, ~4 files)
 - `tests/ui/hub/pipeline/*.test.ts` (new, ~5 files)
-- `tests/ui/userHub/*.test.ts` (done: 2 files, 35 tests)
+- `tests/ui/userHub/*.test.ts` (done: 3 files, 59 tests)
+- `tests/mocks/storage.ts` (new — shared mock factory)
+- `tests/mocks/filesystem.ts` (new — shared mock factory)

@@ -16,8 +16,8 @@ import { UserHubDashboard } from "./userHub/UserHubDashboard";
 import { UserHubInbox } from "./userHub/UserHubInbox";
 import { UserHubPreferences } from "./userHub/UserHubPreferences";
 import type { UserHubState, UserHubComponentDeps, InboxItem, UserHubTab } from "./userHub/types";
-
-export const VIEW_TYPE_USER_HUB = "flowti-user-hub";
+import { VIEW_TYPE_USER_HUB } from "../domain/hub/types";
+export { VIEW_TYPE_USER_HUB };
 
 export class UserHubView extends BaseHubView<UserHubTab> {
 	private userService: IUserService;

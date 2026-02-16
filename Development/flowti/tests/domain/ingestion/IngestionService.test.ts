@@ -5,32 +5,7 @@ import { IngestionService } from "../../../src/domain/ingestion/IngestionService
 import type { ITypedStorage } from "../../../src/utils/TypedStorage";
 import type { IngestionPersistentState } from "../../../src/domain/ingestion/types";
 import { DEFAULT_SETTINGS } from "../../../src/domain/settings/settings";
-
-/**
- * Creates a mock typed storage for testing.
- */
-function createMockTypedStorage(initialState?: IngestionPersistentState): {
-	storage: ITypedStorage<IngestionPersistentState>;
-	getData: () => IngestionPersistentState | undefined;
-} {
-	let state: IngestionPersistentState | undefined = initialState
-		? { ...initialState }
-		: undefined;
-	return {
-		storage: {
-			load: vi.fn(async () => state),
-			save: vi.fn(async (newState: IngestionPersistentState) => {
-				state = newState;
-			}),
-			safeLoad: vi.fn(async () => state),
-			safeSave: vi.fn(async (newState: IngestionPersistentState) => {
-				state = newState;
-				return true;
-			}),
-		},
-		getData: () => state,
-	};
-}
+import { createMockStorage } from "../../mocks/storage";
 
 describe("IngestionService", () => {
 	let service: IngestionService;
@@ -39,7 +14,7 @@ describe("IngestionService", () => {
 
 	beforeEach(() => {
 		vi.useFakeTimers();
-		const mock = createMockTypedStorage();
+		const mock = createMockStorage<IngestionPersistentState>();
 		storage = mock.storage;
 		eventBus = new EventBus();
 		service = new IngestionService({
@@ -95,7 +70,7 @@ describe("IngestionService", () => {
 		it("should skip ingestion.* events to avoid loops", async () => {
 			// Override with a service that watches ingestion events (edge case)
 			service.dispose();
-			const mock = createMockTypedStorage();
+			const mock = createMockStorage<IngestionPersistentState>();
 			service = new IngestionService({
 				storage: mock.storage,
 				eventBus,
@@ -212,7 +187,7 @@ describe("IngestionService", () => {
 		});
 
 		it("should persist ledger to storage after processing", async () => {
-			const mock = createMockTypedStorage();
+			const mock = createMockStorage<IngestionPersistentState>();
 			service.dispose();
 			service = new IngestionService({
 				storage: mock.storage,
@@ -234,7 +209,7 @@ describe("IngestionService", () => {
 		});
 
 		it("should load persisted ledger from storage", async () => {
-			const mock = createMockTypedStorage({
+			const mock = createMockStorage({
 				processedKeys: ["file.created::existing.md"],
 			});
 			service.dispose();
@@ -278,7 +253,7 @@ describe("IngestionService", () => {
 		});
 
 		it("should skip files already in the ledger", async () => {
-			const mock = createMockTypedStorage({
+			const mock = createMockStorage({
 				processedKeys: ["file.created::Reports/a.csv"],
 			});
 			service.dispose();
@@ -385,7 +360,7 @@ describe("IngestionService", () => {
 
 	describe("crash recovery", () => {
 		it("should persist pending jobs to storage", async () => {
-			const mock = createMockTypedStorage();
+			const mock = createMockStorage<IngestionPersistentState>();
 			service.dispose();
 			service = new IngestionService({
 				storage: mock.storage,
@@ -418,7 +393,7 @@ describe("IngestionService", () => {
 				retryCount: 0,
 				queuedAt: "2026-02-10T00:00:00Z",
 			};
-			const mock = createMockTypedStorage({
+			const mock = createMockStorage({
 				processedKeys: [],
 				pendingJobs: [pendingJob],
 			});
@@ -464,7 +439,7 @@ describe("IngestionService", () => {
 				retryCount: 0,
 				queuedAt: "2026-02-10T00:00:00Z",
 			};
-			const mock = createMockTypedStorage({
+			const mock = createMockStorage({
 				processedKeys: ["file.created::done.md"],
 				pendingJobs: [pendingJob],
 			});
@@ -496,7 +471,7 @@ describe("IngestionService", () => {
 				{ id: "r-2", eventType: "file.created", payload: { path: "b.md" }, status: "queued" as const, retryCount: 0, queuedAt: "2026-02-10T00:00:00Z" },
 				{ id: "r-3", eventType: "file.created", payload: { path: "c.md" }, status: "queued" as const, retryCount: 0, queuedAt: "2026-02-10T00:00:00Z" },
 			];
-			const mock = createMockTypedStorage({
+			const mock = createMockStorage({
 				processedKeys: ["file.created::b.md"], // b.md already done
 				pendingJobs,
 			});

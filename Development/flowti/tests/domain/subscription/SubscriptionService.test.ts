@@ -5,30 +5,7 @@ import { SubscriptionService } from "../../../src/domain/subscription/Subscripti
 import type { ITypedStorage } from "../../../src/utils/TypedStorage";
 import type { SubscriptionState } from "../../../src/domain/subscription/types";
 import { DEFAULT_SETTINGS } from "../../../src/domain/settings/settings";
-
-/**
- * Creates a mock typed storage for testing.
- */
-function createMockStorage(initialState?: SubscriptionState): {
-	storage: ITypedStorage<SubscriptionState>;
-	getData: () => SubscriptionState | undefined;
-} {
-	let data: SubscriptionState | undefined = initialState;
-	return {
-		storage: {
-			load: vi.fn(async () => data),
-			save: vi.fn(async (state: SubscriptionState) => {
-				data = state;
-			}),
-			safeLoad: vi.fn(async () => data),
-			safeSave: vi.fn(async (state: SubscriptionState) => {
-				data = state;
-				return true;
-			}),
-		},
-		getData: () => data,
-	};
-}
+import { createMockStorage } from "../../mocks/storage";
 
 describe("SubscriptionService", () => {
 	let service: SubscriptionService;
@@ -37,7 +14,7 @@ describe("SubscriptionService", () => {
 	let eventBus: IEventBus;
 
 	beforeEach(() => {
-		const mock = createMockStorage();
+		const mock = createMockStorage<SubscriptionState>();
 		storage = mock.storage;
 		getData = mock.getData;
 		eventBus = new EventBus();
@@ -473,7 +450,7 @@ describe("SubscriptionService", () => {
 
 	describe("persistence", () => {
 		it("should persist state via typed storage", async () => {
-			const mock = createMockStorage();
+			const mock = createMockStorage<SubscriptionState>();
 			service = new SubscriptionService({ storage: mock.storage, eventBus });
 
 			await eventBus.emit("subscription.create", {

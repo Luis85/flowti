@@ -7,8 +7,7 @@
 
 import { EVENT_CATALOG } from "../../infrastructure/events/catalog";
 import type { ViewStateProvider } from "../../infrastructure/views/registry";
-import { VIEW_TYPE_EVENT_CATALOG } from "../../ui/EventCatalogView";
-import type { HubDashboardProvider, HubSummary } from "./types";
+import { VIEW_TYPE_EVENT_CATALOG, type HubDashboardProvider, type HubSummary } from "./types";
 
 export class EventCatalogProvider implements HubDashboardProvider {
 	constructor(private state: ViewStateProvider) {}

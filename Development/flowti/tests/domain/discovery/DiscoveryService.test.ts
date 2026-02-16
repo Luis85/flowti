@@ -4,30 +4,7 @@ import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { DiscoveryService } from "../../../src/domain/discovery/DiscoveryService";
 import type { ITypedStorage } from "../../../src/utils/TypedStorage";
 import type { DiscoveryState } from "../../../src/domain/discovery/types";
-
-/**
- * Creates a mock typed storage for testing.
- */
-function createMockStorage(initialState?: DiscoveryState): {
-	storage: ITypedStorage<DiscoveryState>;
-	getData: () => DiscoveryState | undefined;
-} {
-	let data: DiscoveryState | undefined = initialState;
-	return {
-		storage: {
-			load: vi.fn(async () => data),
-			save: vi.fn(async (state: DiscoveryState) => {
-				data = state;
-			}),
-			safeLoad: vi.fn(async () => data),
-			safeSave: vi.fn(async (state: DiscoveryState) => {
-				data = state;
-				return true;
-			}),
-		},
-		getData: () => data,
-	};
-}
+import { createMockStorage } from "../../mocks/storage";
 
 describe("DiscoveryService", () => {
 	let service: DiscoveryService;
@@ -36,7 +13,7 @@ describe("DiscoveryService", () => {
 	let eventBus: IEventBus;
 
 	beforeEach(() => {
-		const mock = createMockStorage();
+		const mock = createMockStorage<DiscoveryState>();
 		storage = mock.storage;
 		getData = mock.getData;
 		eventBus = new EventBus();
@@ -197,7 +174,7 @@ describe("DiscoveryService", () => {
 		});
 
 		it("should persist state via typed storage", async () => {
-			const mock = createMockStorage();
+			const mock = createMockStorage<DiscoveryState>();
 			service = new DiscoveryService({
 				storage: mock.storage,
 				eventBus,
@@ -461,7 +438,7 @@ describe("DiscoveryService", () => {
 
 	describe("construction without eventBus", () => {
 		it("should function without event bus", async () => {
-			const mock = createMockStorage();
+			const mock = createMockStorage<DiscoveryState>();
 			const noBusService = new DiscoveryService({ storage: mock.storage });
 
 			await noBusService.load();

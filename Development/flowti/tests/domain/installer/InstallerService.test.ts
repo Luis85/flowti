@@ -11,30 +11,7 @@ import type {
 	InstallerStepResult,
 } from "../../../src/domain/installer/types";
 import type { ITypedStorage } from "../../../src/utils/TypedStorage";
-
-/**
- * Creates a mock typed storage for testing.
- */
-function createMockStorage(initialState?: InstallerState): {
-	storage: ITypedStorage<InstallerState>;
-	getData: () => InstallerState | undefined;
-} {
-	let data: InstallerState | undefined = initialState;
-	return {
-		storage: {
-			load: vi.fn(async () => data),
-			save: vi.fn(async (state: InstallerState) => {
-				data = state;
-			}),
-			safeLoad: vi.fn(async () => data),
-			safeSave: vi.fn(async (state: InstallerState) => {
-				data = state;
-				return true;
-			}),
-		},
-		getData: () => data,
-	};
-}
+import { createMockStorage } from "../../mocks/storage";
 
 /**
  * Creates a mock installer step for testing.
@@ -90,7 +67,7 @@ describe("InstallerService", () => {
 	let mockDeps: InstallerStepDeps;
 
 	beforeEach(() => {
-		const mock = createMockStorage();
+		const mock = createMockStorage<InstallerState>();
 		storage = mock.storage;
 		getData = mock.getData;
 		eventBus = new EventBus();
@@ -143,7 +120,7 @@ describe("InstallerService", () => {
 		});
 
 		it("should handle null storage gracefully", async () => {
-			const mock = createMockStorage();
+			const mock = createMockStorage<InstallerState>();
 			mock.storage.load = vi.fn(async () => undefined);
 			const svc = new InstallerService({ storage: mock.storage, eventBus });
 
@@ -470,7 +447,7 @@ describe("InstallerService", () => {
 
 	describe("persistence", () => {
 		it("should persist installer state via typed storage", async () => {
-			const mock = createMockStorage();
+			const mock = createMockStorage<InstallerState>();
 			const svc = new InstallerService({
 				storage: mock.storage,
 				eventBus,

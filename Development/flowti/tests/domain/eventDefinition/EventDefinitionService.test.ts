@@ -5,32 +5,7 @@ import { EventDefinitionService } from "../../../src/domain/eventDefinition/Even
 import type { ITypedStorage } from "../../../src/utils/TypedStorage";
 import type { EventDefinitionState } from "../../../src/domain/eventDefinition/types";
 import { DEFAULT_SETTINGS } from "../../../src/domain/settings/settings";
-
-/**
- * Creates a mock typed storage for testing.
- */
-function createMockTypedStorage(initialState?: EventDefinitionState): {
-	storage: ITypedStorage<EventDefinitionState>;
-	getData: () => EventDefinitionState | undefined;
-} {
-	let state: EventDefinitionState | undefined = initialState
-		? { ...initialState }
-		: undefined;
-	return {
-		storage: {
-			load: vi.fn(async () => state),
-			save: vi.fn(async (newState: EventDefinitionState) => {
-				state = newState;
-			}),
-			safeLoad: vi.fn(async () => state),
-			safeSave: vi.fn(async (newState: EventDefinitionState) => {
-				state = newState;
-				return true;
-			}),
-		},
-		getData: () => state,
-	};
-}
+import { createMockStorage } from "../../mocks/storage";
 
 describe("EventDefinitionService", () => {
 	let service: EventDefinitionService;
@@ -39,7 +14,7 @@ describe("EventDefinitionService", () => {
 	let eventBus: IEventBus;
 
 	beforeEach(() => {
-		const mock = createMockTypedStorage();
+		const mock = createMockStorage<EventDefinitionState>();
 		storage = mock.storage;
 		getData = mock.getData;
 		eventBus = new EventBus();
@@ -68,7 +43,7 @@ describe("EventDefinitionService", () => {
 				},
 				emittedKeys: [],
 			};
-			const mock = createMockTypedStorage(existingState);
+			const mock = createMockStorage(existingState);
 			service = new EventDefinitionService({ storage: mock.storage, eventBus });
 
 			await service.load();

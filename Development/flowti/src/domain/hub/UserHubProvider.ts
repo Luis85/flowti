@@ -7,8 +7,7 @@
 
 import type { IUserService } from "../user/types";
 import type { InboxService } from "../inbox/InboxService";
-import { VIEW_TYPE_USER_HUB } from "../../ui/UserHubView";
-import type { HubDashboardProvider, HubSummary } from "./types";
+import { VIEW_TYPE_USER_HUB, type HubDashboardProvider, type HubSummary } from "./types";
 
 export class UserHubProvider implements HubDashboardProvider {
 	constructor(

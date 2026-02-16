@@ -161,7 +161,7 @@ The "once" emission policy checks `emittedKeys` before async payload extraction,
 | `DomainsTab.ts` | 565 | File scanning + master-detail | Scanning could extract to service |
 | `ExportsTab.ts` | 543 | Hub export config CRUD | Acceptable for complex UI |
 | `ImportsTab.ts` | 540 | Hub import config CRUD | Acceptable for complex UI |
-| `helpers.ts` | 531 | 20+ utility functions | Should split by concern |
+| ~~`helpers.ts`~~ | ~~531~~ | ~~20+ utility functions~~ | **Resolved 2026-02-16** — split into barrel + 5 modules |
 | `ServicesTab.ts` | 509 | File scanning + master-detail | Same as DomainsTab |
 | `DataExchangeHubView.ts` | 485 | Hub orchestrator | Expected for orchestrator role |
 | `PipelineSourceModal.ts` | 470 | Pipeline source picker | Complex filtering logic |
@@ -195,7 +195,7 @@ Confirmed by this review: CsvActionView, DataExchangeHubView, FolderPickerModal,
 | Flows | 10 | — | 10 user journeys |
 | **Total** | **70** | **164** | **~43% by file** |
 
-**1,571 tests passing, 32 skipped**
+**1,787 tests passing, 32 skipped across 79 suites** (updated 2026-02-16)
 
 ### What's well-tested
 

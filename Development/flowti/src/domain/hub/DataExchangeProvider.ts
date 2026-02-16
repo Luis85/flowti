@@ -6,8 +6,7 @@
  */
 
 import type { DataExchangeService } from "../dataExchange/DataExchangeService";
-import { VIEW_TYPE_DATA_EXCHANGE_HUB } from "../../ui/DataExchangeHubView";
-import type { HubDashboardProvider, HubSummary } from "./types";
+import { VIEW_TYPE_DATA_EXCHANGE_HUB, type HubDashboardProvider, type HubSummary } from "./types";
 
 export class DataExchangeProvider implements HubDashboardProvider {
 	constructor(private dataExchangeService: DataExchangeService) {}

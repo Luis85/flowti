@@ -169,7 +169,15 @@ export default class FlowtiBasePlugin extends Plugin {
 			await this.services.initializeAll();
 
 			// ── Phase 5: UI binding ───────────────────────────────────
-			this.addSettingTab(new FlowtiSettingTab(this.app, this));
+			// eslint-disable-next-line @typescript-eslint/no-this-alias
+			const plugin = this;
+			this.addSettingTab(new FlowtiSettingTab(this.app, this, {
+				get userService() { return plugin.userService; },
+				eventBus: this.eventBus,
+				getSettings: () => this.settings,
+				saveSettings: () => this.saveSettings(),
+				getInstallerService: () => this.services.get<IInstallerService>("installerService"),
+			}));
 			this.bindViews();
 			this.bindCommands();
 
@@ -391,117 +399,12 @@ export default class FlowtiBasePlugin extends Plugin {
 	 */
 	private async onLayoutReady(): Promise<void> {
 		try {
-			// Load SettingsService FIRST so its internal state matches storage.
-			// Without this, any event-driven update (e.g. collapsing a category)
-			// would merge with DEFAULT_SETTINGS and overwrite persisted values.
-			const settingsService = await this.services.get<ISettingsService>("settingsService");
-			await settingsService.load();
+			const settingsService = await this.loadDomainServices();
+			this.wireDataExchange(settingsService);
+			this.setupHubRegistry();
+			await this.runIngestionCatchUp();
 
-			this.userService = await this.services.get<IUserService>("userService");
-			await this.userService.load();
-
-			const installerService = await this.services.get<IInstallerService>("installerService");
-			await installerService.load();
-
-			InstallerWizardModal.showIfNeeded(this.app, installerService, this.eventBus);
-
-			this.eventFilterService = await this.services.get<EventFilterService>("eventFilterService");
-			await this.eventFilterService.load();
-
-			this.eventNotifyService = await this.services.get<EventNotificationService>("eventNotifyService");
-			await this.eventNotifyService.load();
-
-			this.discoveryService = await this.services.get<DiscoveryService>("discoveryService");
-			await this.discoveryService.load();
-
-			this.subscriptionService = await this.services.get<SubscriptionService>("subscriptionService");
-			await this.subscriptionService.load();
-
-			this.inboxService = await this.services.get<InboxService>("inboxService");
-			this.inboxService.setEnabledSources(settingsService.getSettings().inboxEnabledSources);
-			await this.inboxService.load();
-
-			// Keep inbox sources in sync with settings
-			this.eventBus.on("settings.changed", (event) => {
-				this.inboxService?.setEnabledSources(event.payload.settings.inboxEnabledSources);
-			});
-
-			this.ingestionService = await this.services.get<IngestionService>("ingestionService");
-			await this.ingestionService.load();
-
-			this.eventDefinitionService = await this.services.get<EventDefinitionService>("eventDefinitionService");
-			await this.eventDefinitionService.load();
-
-			// ── Data Exchange: load service, wire UI ──
-			this.dataExchangeService = await this.services.get<DataExchangeService>("dataExchangeService");
-			await this.dataExchangeService.load();
-
-			const dxSetup = new DataExchangeSetup({
-				app: this.app,
-				eventBus: this.eventBus,
-				dataExchangeService: this.dataExchangeService,
-				docsRootPath: settingsService.getSettings().docsRootPath,
-				registerView: (type, factory) => this.registerView(type, factory),
-				registerExtensions: (exts, type) => { try { this.registerExtensions(exts, type); } catch { /* may already be registered */ } },
-				registerEvent: (ref) => this.registerEvent(ref),
-				addCommand: (cmd) => this.addCommand(cmd),
-			});
-			dxSetup.wireCallbacks();
-			dxSetup.registerViews();
-			dxSetup.registerFileMenuItems();
-			dxSetup.registerCommands();
-
-			// Wire data exchange callbacks into UiCommandService
-			this.uiCommandService?.setOpenCsvImport(
-				(filePath, savedConfig) => dxSetup.openCsvImportWithConfig(filePath, savedConfig),
-			);
-			this.uiCommandService?.setOpenExportView(
-				(sourcePath, sourceType, format) => dxSetup.openExportView(sourcePath, sourceType, format),
-			);
-			this.uiCommandService?.setOpenExportWithSavedConfig(
-				(savedConfig) => dxSetup.openExportWithSavedConfig(savedConfig),
-			);
-
-			// ── Hub Registry: cross-hub data + navigation ──
-			this.hubRegistry = new HubRegistry(this.app, this.eventBus);
-			this.hubRegistry.register(new EventCatalogProvider({
-				getSettings: () => this.settings,
-				getExcludedTypes: () => this.eventFilterService?.getExcludedTypes() ?? [],
-				getNotifiedTypes: () => this.eventNotifyService?.getNotifiedTypes() ?? [],
-				getDiscoveredEvents: () => this.discoveryService?.getDiscoveredEvents() ?? [],
-				collapsedCategories: this.collapsedCategories,
-			}));
-			this.hubRegistry.register(new DataExchangeProvider(this.dataExchangeService));
-
-			// ── User Hub view + provider ──
-			this.registerView(VIEW_TYPE_USER_HUB, (leaf) =>
-				new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.settings.inboxEnabledSources),
-			);
-			this.hubRegistry.register(new UserHubProvider(this.userService, this.inboxService));
-
-			// Run catch-up if watch folders are configured
-			if (this.settings.watchFolders.length > 0 && this.ingestionService) {
-				const ingestion = this.ingestionService;
-				try {
-					await ingestion.runCatchUp(this.settings.watchFolders, async (folder) => {
-						return this.app.vault.getFiles()
-							.filter((f) => f.path.startsWith(folder + "/"))
-							.map((f) => f.path);
-					});
-				} catch (error) {
-					this.errorService.handle(
-						error instanceof Error ? error : new Error(String(error)),
-						"ingestion.catchUp"
-					);
-				}
-			}
-
-			// Register vault/workspace/metadataCache listeners AFTER all services
-			// have loaded. Doing this earlier causes a flood of file.created and
-			// metadata.changed events during Obsidian's initial cache resolution,
-			// spamming the catalog and other listeners before they're ready.
 			this.eventBridge.registerVaultListeners();
-
 			void this.eventBus.emit("plugin.ready", {
 				timestamp: new Date().toISOString(),
 			});
@@ -509,6 +412,127 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.errorService.handle(
 				error instanceof Error ? error : new Error(String(error)),
 				"onLayoutReady"
+			);
+		}
+	}
+
+	/**
+	 * Loads all domain services in dependency order.
+	 * SettingsService must load first so persisted state is restored
+	 * before any event-driven updates arrive.
+	 */
+	private async loadDomainServices(): Promise<ISettingsService> {
+		const settingsService = await this.services.get<ISettingsService>("settingsService");
+		await settingsService.load();
+
+		this.userService = await this.services.get<IUserService>("userService");
+		await this.userService.load();
+
+		const installerService = await this.services.get<IInstallerService>("installerService");
+		await installerService.load();
+		InstallerWizardModal.showIfNeeded(this.app, installerService, this.eventBus);
+
+		this.eventFilterService = await this.services.get<EventFilterService>("eventFilterService");
+		await this.eventFilterService.load();
+
+		this.eventNotifyService = await this.services.get<EventNotificationService>("eventNotifyService");
+		await this.eventNotifyService.load();
+
+		this.discoveryService = await this.services.get<DiscoveryService>("discoveryService");
+		await this.discoveryService.load();
+
+		this.subscriptionService = await this.services.get<SubscriptionService>("subscriptionService");
+		await this.subscriptionService.load();
+
+		this.inboxService = await this.services.get<InboxService>("inboxService");
+		this.inboxService.setEnabledSources(settingsService.getSettings().inboxEnabledSources);
+		await this.inboxService.load();
+
+		this.eventBus.on("settings.changed", (event) => {
+			this.inboxService?.setEnabledSources(event.payload.settings.inboxEnabledSources);
+		});
+
+		this.ingestionService = await this.services.get<IngestionService>("ingestionService");
+		await this.ingestionService.load();
+
+		this.eventDefinitionService = await this.services.get<EventDefinitionService>("eventDefinitionService");
+		await this.eventDefinitionService.load();
+
+		this.dataExchangeService = await this.services.get<DataExchangeService>("dataExchangeService");
+		await this.dataExchangeService.load();
+
+		return settingsService;
+	}
+
+	/**
+	 * Wires Data Exchange UI: views, commands, file-menu items,
+	 * and UiCommandService callbacks.
+	 */
+	private wireDataExchange(settingsService: ISettingsService): void {
+		const dxSetup = new DataExchangeSetup({
+			app: this.app,
+			eventBus: this.eventBus,
+			dataExchangeService: this.dataExchangeService!,
+			docsRootPath: settingsService.getSettings().docsRootPath,
+			registerView: (type, factory) => this.registerView(type, factory),
+			registerExtensions: (exts, type) => { try { this.registerExtensions(exts, type); } catch { /* may already be registered */ } },
+			registerEvent: (ref) => this.registerEvent(ref),
+			addCommand: (cmd) => this.addCommand(cmd),
+		});
+		dxSetup.wireCallbacks();
+		dxSetup.registerViews();
+		dxSetup.registerFileMenuItems();
+		dxSetup.registerCommands();
+
+		this.uiCommandService?.setOpenCsvImport(
+			(filePath, savedConfig) => dxSetup.openCsvImportWithConfig(filePath, savedConfig),
+		);
+		this.uiCommandService?.setOpenExportView(
+			(sourcePath, sourceType, format) => dxSetup.openExportView(sourcePath, sourceType, format),
+		);
+		this.uiCommandService?.setOpenExportWithSavedConfig(
+			(savedConfig) => dxSetup.openExportWithSavedConfig(savedConfig),
+		);
+	}
+
+	/**
+	 * Configures the HubRegistry with all hub providers and
+	 * registers the User Hub view.
+	 */
+	private setupHubRegistry(): void {
+		this.hubRegistry = new HubRegistry(this.app, this.eventBus);
+		this.hubRegistry.register(new EventCatalogProvider({
+			getSettings: () => this.settings,
+			getExcludedTypes: () => this.eventFilterService?.getExcludedTypes() ?? [],
+			getNotifiedTypes: () => this.eventNotifyService?.getNotifiedTypes() ?? [],
+			getDiscoveredEvents: () => this.discoveryService?.getDiscoveredEvents() ?? [],
+			collapsedCategories: this.collapsedCategories,
+		}));
+		this.hubRegistry.register(new DataExchangeProvider(this.dataExchangeService!));
+
+		this.registerView(VIEW_TYPE_USER_HUB, (leaf) =>
+			new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.settings.inboxEnabledSources),
+		);
+		this.hubRegistry.register(new UserHubProvider(this.userService, this.inboxService!));
+	}
+
+	/**
+	 * Runs ingestion catch-up for configured watch folders,
+	 * processing any files that appeared while the plugin was not running.
+	 */
+	private async runIngestionCatchUp(): Promise<void> {
+		if (this.settings.watchFolders.length === 0 || !this.ingestionService) return;
+
+		try {
+			await this.ingestionService.runCatchUp(this.settings.watchFolders, async (folder) => {
+				return this.app.vault.getFiles()
+					.filter((f) => f.path.startsWith(folder + "/"))
+					.map((f) => f.path);
+			});
+		} catch (error) {
+			this.errorService.handle(
+				error instanceof Error ? error : new Error(String(error)),
+				"ingestion.catchUp"
 			);
 		}
 	}
