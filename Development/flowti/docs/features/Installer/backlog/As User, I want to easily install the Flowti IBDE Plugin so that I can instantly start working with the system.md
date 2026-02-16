@@ -6,7 +6,7 @@ title: Easy first-run installation
 jtbd: When I first open a vault with the Flowti IBDE plugin, I want the system to guide me through setup so I can start working immediately without manual configuration.
 journey: "[[#User Journey]]"
 stage: done
-feature: "[[Installer]]"
+feature: "[[Installer PRD]]"
 ---
 
 ## Acceptance Criteria

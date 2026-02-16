@@ -1,8 +1,9 @@
 ---
+type: UserStory
 title:
-feature: "[[Documentation]]"
+feature: "[[Documentation Hub PRD]]"
 tags:
-stage:
+stage: draft
 description:
 domain: Flowti
 journey:

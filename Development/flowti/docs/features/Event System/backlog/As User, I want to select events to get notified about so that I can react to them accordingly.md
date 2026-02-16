@@ -1,11 +1,12 @@
 ---
+type: UserStory
 title:
-stage:
+stage: draft
 description:
 domain: Flowti/System
 journey:
 jtbd:
 parent: "[[03 - Resources/Documentation/Reference/Actors/User|User]]"
 persona: User
-feature: "[[Event System]]"
+feature: "[[Event System PRD]]"
 ---

@@ -4,7 +4,7 @@ domain: Flowti
 stage: done
 description: "Watch events in real time with color-coded status indicators to verify system health"
 view: "[[Event Log View]]"
-feature: "[[Event System]]"
+feature: "[[Event System PRD]]"
 testplanRef: "UC-64"
 tags:
   - use-case
@@ -45,5 +45,5 @@ The user has a live, color-coded view of system activity confirming that subscri
 ## Related
 
 - View: [[Event Log View]]
-- Feature: [[Event System]]
+- Feature: [[Event System PRD]]
 - Test: UC-64 in [[Testplan and Teststrategy]]

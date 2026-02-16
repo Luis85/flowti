@@ -4,7 +4,7 @@ domain: Flowti
 stage: done
 description: "Switch to All mode, search by pattern, and expand entries to inspect payloads for debugging"
 view: "[[Event Log View]]"
-feature: "[[Event System]]"
+feature: "[[Event System PRD]]"
 testplanRef: "UC-66"
 tags:
   - use-case
@@ -47,5 +47,5 @@ The user has identified the sequence and content of events related to their issu
 ## Related
 
 - View: [[Event Log View]]
-- Feature: [[Event System]]
+- Feature: [[Event System PRD]]
 - Test: UC-66 in [[Testplan and Teststrategy]]

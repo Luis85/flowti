@@ -1,8 +1,10 @@
 ---
+type: UserStory
 domain:
 title:
+stage: draft
 jtbd:
 journey:
 parent:
-feature: "[[Documentation]]"
+feature: "[[Documentation Hub PRD]]"
 ---

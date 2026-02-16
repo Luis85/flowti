@@ -1,8 +1,9 @@
 ---
+type: UserStory
 feature:
 tags:
   - question
-stage:
+stage: draft
 description:
 domain: Design
 journey:

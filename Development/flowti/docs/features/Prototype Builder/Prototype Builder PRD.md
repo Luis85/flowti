@@ -16,8 +16,6 @@ priority: 1
 
 # Feature: Prototype Builder
 
-> Architecture reference: [[Prototype Builder]]
-
 ---
 
 ## 1. Problem Statement

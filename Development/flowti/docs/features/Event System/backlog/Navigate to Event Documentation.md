@@ -4,7 +4,7 @@ domain: Flowti
 stage: done
 description: "Click an event type name in the log to jump to its documentation in the Event Catalog"
 view: "[[Event Log View]]"
-feature: "[[Event System]]"
+feature: "[[Event System PRD]]"
 testplanRef: "UC-68"
 tags:
   - use-case
@@ -46,5 +46,5 @@ The user has navigated from a live event observation to its full documentation, 
 ## Related
 
 - View: [[Event Log View]]
-- Feature: [[Event System]]
+- Feature: [[Event System PRD]]
 - Test: UC-68 in [[Testplan and Teststrategy]]

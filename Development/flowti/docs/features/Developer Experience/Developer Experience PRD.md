@@ -16,8 +16,6 @@ priority: 2
 
 # PRD: Developer Experience
 
-> Architecture reference: [[Developer Experience]]
-
 ---
 
 ## 1. Problem Statement

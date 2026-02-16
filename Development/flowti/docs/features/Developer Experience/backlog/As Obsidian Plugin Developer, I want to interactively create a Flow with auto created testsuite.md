@@ -1,7 +1,8 @@
 ---
-feature: "[[Developer Experience]]"
+type: UserStory
+feature: "[[Developer Experience PRD]]"
 tags:
-stage:
+stage: draft
 description:
 domain:
 journey:

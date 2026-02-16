@@ -18,8 +18,6 @@ priority: 4
 
 # Documentation PRD
 
-> Architecture reference: [[Documentation]]
-
 ## 1. Problem Statement
 
 Documentation is typically treated as a separate chore, disconnected from the system being documented. Teams create documentation artifacts that quickly become stale because maintaining them requires manual effort outside the normal workflow. Domain knowledge, service boundaries, event flows, and system architecture need a living documentation approach that stays current through system usage rather than periodic manual updates.

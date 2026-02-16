@@ -1,7 +1,8 @@
 ---
-feature:
+type: UserStory
+feature: "[[Prototype Builder PRD]]"
 tags:
-stage:
+stage: draft
 description:
 domain:
 journey:

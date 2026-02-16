@@ -16,8 +16,6 @@ priority: 2
 
 # Feature: Requirements Engineering
 
-> Architecture reference: [[Requirements Engineering]]
-
 ---
 
 ## 1. Problem Statement

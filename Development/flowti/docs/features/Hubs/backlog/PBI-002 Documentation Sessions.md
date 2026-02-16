@@ -79,6 +79,17 @@ As a vault user, I want sessions to provide contextual tools based on my focus f
 - [ ] SessionWorkspaceView: dedicated leaf with timer, goals checklist, notes textarea, focus file, artifacts — *Increment 7*
 - [ ] Auto-open workspace on session.start + open focus file in adjacent leaf — *Increment 8*
 - [ ] Goals repeater in NewSessionModal for pre-session preparation — *Increment 8*
+- [ ] - [ ] Focus File Profiles — detect file type and provide contextual tools:
+  - **Markdown (`.md`)** — open in editor, backlinks, outgoing links, tags; if frontmatter `type` matches a DocType, provide domain-specific actions
+  - **Canvas (`.canvas`)** — open canvas, show node/connection summary
+  - **PDF (`.pdf`)** — open PDF viewer, page count
+  - **Image (`.png`, `.jpg`, `.svg`, `.gif`, `.webp`)** — preview, dimensions, file size
+  - **CSV (`.csv`)** — open in Flowti table view, row/column count, Data Exchange actions
+  - **Unknown extensions** — show basic metadata (name, size, modified), provide "Document as MD" action that creates a linked markdown file
+- [ ] Context Files — attach additional files to a session as the working set alongside the focus file, with add/remove via vault file picker
+- [ ] Session Spawning — create new sessions from existing ones, inheriting focus file and selectable context files; "New Session from Focus" and "Design Session" actions
+- [ ] Guiding Questions — always-visible prompts during active/paused sessions: "How should the next increment look like?" and "What can be improved?"
+- [ ] Session Document — on completion, generate a markdown summary file with metadata, focus file link, context files, artifacts, notes, and timeline
 
 ### Technical Requirements
 
@@ -87,7 +98,12 @@ As a vault user, I want sessions to provide contextual tools based on my focus f
 - Artifact tracking: wildcard listener for `file.*` events during active session window
 - Session data model stored in TypedStorage under key `sessions`
 - `session_focus` layout registered in LayoutRegistry (TD-49)
-
+- - [ ] Focus file type detected and matching tool profile rendered in detail panel 
+- [ ] Context files can be attached/removed during a session 
+- [ ] New session can be spawned from existing session with inherited focus and context 
+- [ ] Guiding questions displayed during active/paused sessions 
+- [ ] Session summary document generated on completion as `.md` in configurable folder 
+- [ ] Unknown file extensions show basic metadata and "Document as MD" action 
 ### Constraints
 
 - Timer must survive Obsidian window minimize (use Date math, not accumulated intervals)

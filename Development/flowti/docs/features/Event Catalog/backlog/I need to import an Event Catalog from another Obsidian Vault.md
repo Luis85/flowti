@@ -1,5 +1,6 @@
 ---
-type: Job to be Done
+type: UserStory
+stage: draft
 persona: User
 feature: "[[Event Catalog]]"
 ---

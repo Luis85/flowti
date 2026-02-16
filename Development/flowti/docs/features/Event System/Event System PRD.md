@@ -27,7 +27,7 @@ priority: 5
 
 # Event System PRD
 
-> Architecture reference: [[Event System]]
+> Architecture reference: [[EventBus]]
 
 ---
 

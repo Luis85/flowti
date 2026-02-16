@@ -1,6 +1,7 @@
 ---
+type: UserStory
 title:
-stage:
+stage: draft
 description:
 domain: Flowti
 journey:

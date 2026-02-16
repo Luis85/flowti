@@ -1,11 +1,12 @@
 ---
+type: UserStory
 title:
-stage:
+stage: draft
 description:
 domain: Flowti
 journey:
 jtbd:
 parent: "[[Obsidian Plugin Developer]]"
 persona: Obsidian Plugin Developer
-feature: "[[Developer Experience]]"
+feature: "[[Developer Experience PRD]]"
 ---

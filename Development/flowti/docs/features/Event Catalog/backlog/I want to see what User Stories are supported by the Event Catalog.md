@@ -1,7 +1,8 @@
 ---
+type: UserStory
 title:
 feature: "[[Event Catalog]]"
-stage:
+stage: draft
 description:
 domain: Flowti
 journey:

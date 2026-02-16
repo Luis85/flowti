@@ -16,8 +16,6 @@ priority: 2
 
 # Feature: Test Management
 
-> Architecture reference: [[Test Management]]
-
 ---
 
 ## 1. Problem Statement

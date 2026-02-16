@@ -16,8 +16,6 @@ priority: 2
 
 # Feature: Tracking and Reporting
 
-> Architecture reference: [[Tracking and Reporting]]
-
 ---
 
 ## 1. Problem Statement

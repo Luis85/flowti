@@ -20,8 +20,6 @@ priority: 4
 
 # Settings PRD
 
-> Architecture reference: [[Settings]]
-
 ## 1. Problem Statement
 
 The Flowti plugin has numerous configurable behaviors -- documentation paths, event system toggles, ingestion parameters, subscription defaults, and UI preferences. These settings must be persisted across sessions, reactive to changes (so other services update immediately), and accessible through both the Obsidian Settings tab and programmatic API. Without a centralized, event-driven settings system, each service would manage its own configuration independently, leading to inconsistency and stale state.

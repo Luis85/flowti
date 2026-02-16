@@ -1,7 +1,8 @@
 ---
+type: UserStory
 domain: Flowti
 parent: "[[Obsidian Plugin Developer]]"
 stage: new
 persona: Obsidian Plugin Developer
-feature: "[[Developer Experience]]"
+feature: "[[Developer Experience PRD]]"
 ---

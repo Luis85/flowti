@@ -4,7 +4,7 @@ domain: Flowti
 stage: done
 description: "Read contextual summaries attached to event entries such as watcher labels, file paths, error messages, and emitted domain event names"
 view: "[[Event Log View]]"
-feature: "[[Event System]]"
+feature: "[[Event System PRD]]"
 testplanRef: "UC-69"
 tags:
   - use-case
@@ -46,5 +46,5 @@ The user can rapidly scan the Event Log feed and extract key operational details
 ## Related
 
 - View: [[Event Log View]]
-- Feature: [[Event System]]
+- Feature: [[Event System PRD]]
 - Test: UC-69 in [[Testplan and Teststrategy]]

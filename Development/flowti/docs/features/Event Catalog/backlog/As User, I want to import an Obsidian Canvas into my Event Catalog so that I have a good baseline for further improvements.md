@@ -1,4 +1,5 @@
 ---
+type: UserStory
 title:
 stage: new
 description:

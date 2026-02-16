@@ -1,7 +1,8 @@
 ---
+type: UserStory
 domain: Flowti
 parent: "[[Product Owner]]"
 stage: new
 persona: Product Owner
-feature: "[[Documentation]]"
+feature: "[[Documentation Hub PRD]]"
 ---

@@ -4,7 +4,7 @@ domain: Flowti
 stage: done
 description: "Open the Component Showcase to visually verify all CSS components render correctly under the current Obsidian theme"
 view: "[[Component Showcase View]]"
-feature: "[[Documentation]]"
+feature: "[[Documentation Hub PRD]]"
 testplanRef: "UC-89, UC-90, UC-91, UC-92"
 tags:
   - use-case
@@ -48,5 +48,5 @@ The user has visually confirmed that all Flowti CSS components render correctly 
 ## Related
 
 - View: [[Component Showcase View]]
-- Feature: [[Documentation]]
+- Feature: [[Documentation Hub PRD]]
 - Test: UC-89, UC-90, UC-91, UC-92 in [[Testplan and Teststrategy]]

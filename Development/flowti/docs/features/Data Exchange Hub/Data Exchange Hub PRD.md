@@ -25,8 +25,6 @@ priority: 4
 
 # Data Exchange Hub PRD
 
-> Architecture reference: [[Data Exchange Hub]]
-
 ## 1. Problem Statement
 
 Obsidian excels at collecting, enriching, and linking data into a knowledge graph, but it lacks native CSV import/export capabilities. Organizations need to ingest external data (supplier lists, reports, catalogs), improve data quality inside Obsidian using Bases, and then publish clean datasets for downstream systems. Without a structured import/export pipeline, users resort to manual copy-paste workflows that are error-prone and unsustainable.

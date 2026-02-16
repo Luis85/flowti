@@ -35,8 +35,6 @@ priority: 5
 
 # Feature: Infrastructure
 
-> Architecture reference: [[Infrastructure]]
-
 ---
 
 ## 1. Problem Statement

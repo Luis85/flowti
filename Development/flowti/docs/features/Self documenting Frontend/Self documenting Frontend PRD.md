@@ -16,8 +16,6 @@ priority: 2
 
 # PRD: Self-Documenting Frontend
 
-> Architecture reference: [[Self documenting Frontend]]
-
 ---
 
 ## 1. Problem Statement

@@ -1,4 +1,6 @@
 ---
+type: UserStory
+stage: draft
 domain: Flowti
 title:
 jtbd:

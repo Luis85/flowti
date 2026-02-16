@@ -16,8 +16,6 @@ priority: 1
 
 # Feature: Multiplayer
 
-> Architecture reference: [[Multiplayer]]
-
 ---
 
 ## 1. Problem Statement

@@ -4,7 +4,7 @@ domain: Flowti
 stage: done
 description: "Freeze the live feed to inspect entries while events continue buffering in the background"
 view: "[[Event Log View]]"
-feature: "[[Event System]]"
+feature: "[[Event System PRD]]"
 testplanRef: "UC-67"
 tags:
   - use-case
@@ -46,5 +46,5 @@ The user has inspected event entries without the feed scrolling away, and upon r
 ## Related
 
 - View: [[Event Log View]]
-- Feature: [[Event System]]
+- Feature: [[Event System PRD]]
 - Test: UC-67 in [[Testplan and Teststrategy]]

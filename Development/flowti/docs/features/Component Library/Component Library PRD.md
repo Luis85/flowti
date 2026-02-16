@@ -16,8 +16,6 @@ priority: 2
 
 # PRD: Component Library
 
-> Architecture reference: [[Component Library]]
-
 ---
 
 ## 1. Problem Statement

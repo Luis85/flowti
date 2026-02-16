@@ -19,8 +19,6 @@ priority: 4
 
 # Feature: Command Bus
 
-> Architecture reference: [[Command Bus]]
-
 ---
 
 ## 1. Problem Statement

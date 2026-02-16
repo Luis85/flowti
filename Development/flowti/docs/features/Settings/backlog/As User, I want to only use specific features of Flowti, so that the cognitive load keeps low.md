@@ -1,7 +1,8 @@
 ---
-feature: "[[Settings]]"
+type: UserStory
+feature: "[[Settings PRD]]"
+stage: draft
 tags:
-stage:
 description:
 domain:
 journey:

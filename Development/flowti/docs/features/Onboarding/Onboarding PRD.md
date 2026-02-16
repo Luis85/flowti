@@ -16,8 +16,6 @@ priority: 3
 
 # Onboarding PRD
 
-> Architecture reference: [[Onboarding]]
-
 ## 1. Problem Statement
 
 After the Installer completes its first-run setup (user profile, folder scaffolding), new users are left without guidance on what to do next. The vault is structurally ready but the user does not know how to use Flowti's features -- event catalog, data exchange, documentation tabs, subscriptions, or ingestion. Without progressive onboarding, users explore randomly, miss key features, and fail to build productive habits. The gap between "installed" and "productive" needs to be bridged.

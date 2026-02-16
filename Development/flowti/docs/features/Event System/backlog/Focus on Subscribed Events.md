@@ -4,7 +4,7 @@ domain: Flowti
 stage: done
 description: "Filter the Event Log to show only subscribed events for a focused monitoring experience"
 view: "[[Event Log View]]"
-feature: "[[Event System]]"
+feature: "[[Event System PRD]]"
 testplanRef: "UC-65"
 tags:
   - use-case
@@ -46,5 +46,5 @@ The Event Log displays a focused feed containing only the event types the user h
 ## Related
 
 - View: [[Event Log View]]
-- Feature: [[Event System]]
+- Feature: [[Event System PRD]]
 - Test: UC-65 in [[Testplan and Teststrategy]]

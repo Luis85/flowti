@@ -16,8 +16,6 @@ priority: 1
 
 # PRD: The Designer
 
-> Architecture reference: [[The Designer]]
-
 ---
 
 ## 1. Problem Statement
