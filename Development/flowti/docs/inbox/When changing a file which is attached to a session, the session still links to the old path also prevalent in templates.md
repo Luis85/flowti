@@ -18,4 +18,6 @@ fixed_in: "SessionService.handleFileRenamed() + handleFolderRenamed() — Inc 9 
 
 **Fields covered:** focusFile, notesFile, canvasFile, contextBindings[].path, artifacts[].path, links[].path, activityFilter[], SessionTemplate.focusFile.
 
-**Tests:** 11 new tests in SessionService.test.ts covering file rename, folder rename, multi-session updates, template updates, and non-matching paths.
+**Live UI update:** Both handlers emit `session.paths.updated` with affected session IDs after `saveState()`. SessionWorkspaceView and UserHubView subscribe to this event and re-render immediately — open views reflect the rename without closing and reopening.
+
+**Tests:** 11 path reconciliation tests + 5 event emission assertions in SessionService.test.ts; 2 UI re-render tests in SessionWorkspaceView.test.ts (re-render on match, ignore other sessions).

@@ -210,6 +210,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 			"session.created", "session.started", "session.paused", "session.resumed",
 			"session.completed", "session.archived", "session.deleted",
 			"session.link.added", "session.link.removed", "session.notesFile.updated", "session.canvasFile.updated",
+			"session.paths.updated",
 		] as const;
 		for (const eventType of sessionEvents) {
 			this.addUnsubscribe(

@@ -27,6 +27,7 @@ views:
     order:
       - type
       - file.name
+      - description
       - stage
       - priority
       - rank
@@ -37,7 +38,7 @@ views:
       - property: file.mtime
         direction: DESC
     columnSize:
-      note.type: 91
+      note.type: 75
       file.name: 800
       note.stage: 95
       note.priority: 111

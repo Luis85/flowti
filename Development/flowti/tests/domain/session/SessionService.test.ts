@@ -2290,4 +2290,236 @@ describe("SessionService", () => {
 			expect(generateRerunTitle("Review")).toBe("Review (2)");
 		});
 	});
+
+	// ── File/folder rename path reconciliation ──────────────
+
+	describe("file rename path reconciliation", () => {
+		it("should update focusFile when file is renamed", async () => {
+			const state: SessionState = {
+				sessions: [makeSession({ id: "s1", focusFile: "docs/old.md" })],
+				activeSessionId: null,
+			};
+			const mock = createMockStorage(state);
+			service.dispose();
+			service = new SessionService({ storage: mock.storage, eventBus });
+			await service.load();
+
+			const handler = vi.fn();
+			eventBus.on("session.paths.updated", handler);
+
+			await eventBus.emit("file.renamed", { oldPath: "docs/old.md", newPath: "docs/new.md", source: "obsidian" as const });
+
+			expect(service.getSessionById("s1")?.focusFile).toBe("docs/new.md");
+			expect(handler).toHaveBeenCalledOnce();
+			expect(handler.mock.calls[0][0].payload.sessionIds).toEqual(["s1"]);
+		});
+
+		it("should update notesFile when file is renamed", async () => {
+			const state: SessionState = {
+				sessions: [makeSession({ id: "s1", notesFile: "03 - Resources/Sessions/Test (abc123).md" })],
+				activeSessionId: null,
+			};
+			const mock = createMockStorage(state);
+			service.dispose();
+			service = new SessionService({ storage: mock.storage, eventBus });
+			await service.load();
+
+			await eventBus.emit("file.renamed", {
+				oldPath: "03 - Resources/Sessions/Test (abc123).md",
+				newPath: "03 - Resources/Sessions/Renamed (abc123).md",
+				source: "obsidian" as const,
+			});
+
+			expect(service.getSessionById("s1")?.notesFile).toBe("03 - Resources/Sessions/Renamed (abc123).md");
+		});
+
+		it("should update canvasFile when file is renamed", async () => {
+			const state: SessionState = {
+				sessions: [makeSession({ id: "s1", canvasFile: "canvas/old.canvas" })],
+				activeSessionId: null,
+			};
+			const mock = createMockStorage(state);
+			service.dispose();
+			service = new SessionService({ storage: mock.storage, eventBus });
+			await service.load();
+
+			await eventBus.emit("file.renamed", { oldPath: "canvas/old.canvas", newPath: "canvas/new.canvas", source: "obsidian" as const });
+
+			expect(service.getSessionById("s1")?.canvasFile).toBe("canvas/new.canvas");
+		});
+
+		it("should update context binding paths when file is renamed", async () => {
+			const state: SessionState = {
+				sessions: [makeSession({
+					id: "s1",
+					contextBindings: [{ id: "ctx_1", type: "file", label: "old.md", path: "docs/old.md", boundAt: "2026-02-16T10:00:00.000Z" }],
+				})],
+				activeSessionId: null,
+			};
+			const mock = createMockStorage(state);
+			service.dispose();
+			service = new SessionService({ storage: mock.storage, eventBus });
+			await service.load();
+
+			await eventBus.emit("file.renamed", { oldPath: "docs/old.md", newPath: "docs/new.md", source: "obsidian" as const });
+
+			expect(service.getSessionById("s1")?.contextBindings[0].path).toBe("docs/new.md");
+		});
+
+		it("should update artifact paths when file is renamed", async () => {
+			const state: SessionState = {
+				sessions: [makeSession({
+					id: "s1",
+					artifacts: [{ path: "docs/old.md", action: "created", timestamp: "2026-02-16T10:00:00.000Z" }],
+				})],
+				activeSessionId: null,
+			};
+			const mock = createMockStorage(state);
+			service.dispose();
+			service = new SessionService({ storage: mock.storage, eventBus });
+			await service.load();
+
+			await eventBus.emit("file.renamed", { oldPath: "docs/old.md", newPath: "docs/new.md", source: "obsidian" as const });
+
+			expect(service.getSessionById("s1")?.artifacts[0].path).toBe("docs/new.md");
+		});
+
+		it("should update template focusFile when file is renamed", async () => {
+			const state: SessionState = {
+				sessions: [],
+				activeSessionId: null,
+				savedTemplates: [{ id: "tmpl_1", name: "Test", type: "event-storming", durationMinutes: 25, focusFile: "docs/old.md", createdAt: Date.now() }],
+			};
+			const mock = createMockStorage(state);
+			service.dispose();
+			service = new SessionService({ storage: mock.storage, eventBus });
+			await service.load();
+
+			await eventBus.emit("file.renamed", { oldPath: "docs/old.md", newPath: "docs/new.md", source: "obsidian" as const });
+
+			expect(service.getSavedTemplates()[0].focusFile).toBe("docs/new.md");
+		});
+
+		it("should not update paths that do not match", async () => {
+			const state: SessionState = {
+				sessions: [makeSession({ id: "s1", focusFile: "docs/other.md", notesFile: "notes/keep.md" })],
+				activeSessionId: null,
+			};
+			const mock = createMockStorage(state);
+			service.dispose();
+			service = new SessionService({ storage: mock.storage, eventBus });
+			await service.load();
+
+			const handler = vi.fn();
+			eventBus.on("session.paths.updated", handler);
+
+			await eventBus.emit("file.renamed", { oldPath: "docs/old.md", newPath: "docs/new.md", source: "obsidian" as const });
+
+			expect(service.getSessionById("s1")?.focusFile).toBe("docs/other.md");
+			expect(service.getSessionById("s1")?.notesFile).toBe("notes/keep.md");
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("should update multiple sessions when file is renamed", async () => {
+			const state: SessionState = {
+				sessions: [
+					makeSession({ id: "s1", focusFile: "docs/shared.md" }),
+					makeSession({ id: "s2", focusFile: "docs/shared.md" }),
+					makeSession({ id: "s3", focusFile: "docs/other.md" }),
+				],
+				activeSessionId: null,
+			};
+			const mock = createMockStorage(state);
+			service.dispose();
+			service = new SessionService({ storage: mock.storage, eventBus });
+			await service.load();
+
+			const handler = vi.fn();
+			eventBus.on("session.paths.updated", handler);
+
+			await eventBus.emit("file.renamed", { oldPath: "docs/shared.md", newPath: "docs/moved.md", source: "obsidian" as const });
+
+			expect(service.getSessionById("s1")?.focusFile).toBe("docs/moved.md");
+			expect(service.getSessionById("s2")?.focusFile).toBe("docs/moved.md");
+			expect(service.getSessionById("s3")?.focusFile).toBe("docs/other.md");
+			expect(handler).toHaveBeenCalledOnce();
+			expect(handler.mock.calls[0][0].payload.sessionIds).toEqual(expect.arrayContaining(["s1", "s2"]));
+			expect(handler.mock.calls[0][0].payload.sessionIds).not.toContain("s3");
+		});
+	});
+
+	describe("folder rename path reconciliation", () => {
+		it("should update all paths under renamed folder", async () => {
+			const state: SessionState = {
+				sessions: [makeSession({
+					id: "s1",
+					focusFile: "docs/features/plan.md",
+					notesFile: "docs/features/notes.md",
+					canvasFile: "docs/features/board.canvas",
+					contextBindings: [
+						{ id: "ctx_1", type: "folder", label: "features/", path: "docs/features/", boundAt: "2026-02-16T10:00:00.000Z" },
+						{ id: "ctx_2", type: "file", label: "plan.md", path: "docs/features/plan.md", boundAt: "2026-02-16T10:00:00.000Z" },
+					],
+					artifacts: [{ path: "docs/features/output.md", action: "created", timestamp: "2026-02-16T10:00:00.000Z" }],
+					activityFilter: ["docs/features/drafts"],
+				})],
+				activeSessionId: null,
+			};
+			const mock = createMockStorage(state);
+			service.dispose();
+			service = new SessionService({ storage: mock.storage, eventBus });
+			await service.load();
+
+			const handler = vi.fn();
+			eventBus.on("session.paths.updated", handler);
+
+			await eventBus.emit("folder.renamed", { oldPath: "docs/features", newPath: "docs/specs", source: "obsidian" as const });
+
+			const session = service.getSessionById("s1");
+			expect(session?.focusFile).toBe("docs/specs/plan.md");
+			expect(session?.notesFile).toBe("docs/specs/notes.md");
+			expect(session?.canvasFile).toBe("docs/specs/board.canvas");
+			expect(session?.contextBindings[0].path).toBe("docs/specs/");
+			expect(session?.contextBindings[1].path).toBe("docs/specs/plan.md");
+			expect(session?.artifacts[0].path).toBe("docs/specs/output.md");
+			expect(session?.activityFilter[0]).toBe("docs/specs/drafts");
+			expect(handler).toHaveBeenCalledOnce();
+			expect(handler.mock.calls[0][0].payload.sessionIds).toEqual(["s1"]);
+		});
+
+		it("should update template focusFile under renamed folder", async () => {
+			const state: SessionState = {
+				sessions: [],
+				activeSessionId: null,
+				savedTemplates: [{ id: "tmpl_1", name: "Test", type: "event-storming", durationMinutes: 25, focusFile: "docs/old-folder/focus.md", createdAt: Date.now() }],
+			};
+			const mock = createMockStorage(state);
+			service.dispose();
+			service = new SessionService({ storage: mock.storage, eventBus });
+			await service.load();
+
+			await eventBus.emit("folder.renamed", { oldPath: "docs/old-folder", newPath: "docs/new-folder", source: "obsidian" as const });
+
+			expect(service.getSavedTemplates()[0].focusFile).toBe("docs/new-folder/focus.md");
+		});
+
+		it("should not update paths outside renamed folder", async () => {
+			const state: SessionState = {
+				sessions: [makeSession({ id: "s1", focusFile: "other/plan.md" })],
+				activeSessionId: null,
+			};
+			const mock = createMockStorage(state);
+			service.dispose();
+			service = new SessionService({ storage: mock.storage, eventBus });
+			await service.load();
+
+			const handler = vi.fn();
+			eventBus.on("session.paths.updated", handler);
+
+			await eventBus.emit("folder.renamed", { oldPath: "docs/features", newPath: "docs/specs", source: "obsidian" as const });
+
+			expect(service.getSessionById("s1")?.focusFile).toBe("other/plan.md");
+			expect(handler).not.toHaveBeenCalled();
+		});
+	});
 });

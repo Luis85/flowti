@@ -860,6 +860,34 @@ describe("SessionWorkspaceView", () => {
 			expect(labels).not.toContain("Complete");
 		});
 
+		it("session.paths.updated re-renders with new file paths", async () => {
+			const session = makeSession({ focusFile: "docs/old.md" });
+			const { view, service } = createView(eventBus, session);
+			await view.onOpen();
+
+			const updatedSession = makeSession({ focusFile: "docs/new.md" });
+			service.getSessionById.mockReturnValue(updatedSession);
+
+			await eventBus.emit("session.paths.updated", { sessionIds: ["session-1"] });
+
+			const content = getContentEl(view);
+			const focusSection = content.querySelector(".ft-session-workspace-focus");
+			expect(focusSection).not.toBeNull();
+			expect(focusSection!.textContent).toContain("docs/new.md");
+		});
+
+		it("session.paths.updated ignores other sessions", async () => {
+			const session = makeSession({ focusFile: "docs/old.md" });
+			const { view, service } = createView(eventBus, session);
+			await view.onOpen();
+
+			const callsBefore = service.getSessionById.mock.calls.length;
+			await eventBus.emit("session.paths.updated", { sessionIds: ["other-session"] });
+
+			// Should not have called refreshSession for a different session
+			expect(service.getSessionById).toHaveBeenCalledTimes(callsBefore);
+		});
+
 		it("session.deleted shows empty state", async () => {
 			const session = makeSession();
 			const { view } = createView(eventBus, session);

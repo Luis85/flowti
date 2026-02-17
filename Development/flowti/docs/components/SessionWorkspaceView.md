@@ -51,7 +51,7 @@ The workspace can open as a **tab** (default) or in the **right sidebar** (singl
 | `SaveTemplateModal` | modal | Template creation UI |
 | `attachFolderSuggest` | function | Folder autocomplete on filter input |
 
-## Event Subscriptions (16)
+## Event Subscriptions (17)
 
 | Event | Handler |
 |-------|---------|
@@ -72,6 +72,7 @@ The workspace can open as a **tab** (default) or in the **right sidebar** (singl
 | `session.context.bound/unbound/typeChanged` | Re-render (context section changes) |
 | `session.activity.tracked` | Refresh activity list |
 | `session.activity.filter.updated` | Re-render (filter tags change) |
+| `session.paths.updated` | Re-render when file/folder rename updates session paths (filtered by session ID) |
 | `session.deleted` | Show empty state |
 
 ## Sidebar Support

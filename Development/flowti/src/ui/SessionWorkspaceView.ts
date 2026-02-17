@@ -877,6 +877,16 @@ export class SessionWorkspaceView extends ItemView {
 			}),
 		);
 
+		// Path reconciliation — re-render when attached files are renamed/moved
+		this.unsubscribes.push(
+			this.eventBus.on("session.paths.updated", (event) => {
+				if (this.session && event.payload.sessionIds.includes(this.session.id)) {
+					this.session = this.refreshSession();
+					this.render();
+				}
+			}),
+		);
+
 		// Session deleted — show empty state
 		this.unsubscribes.push(
 			this.eventBus.on("session.deleted", (event) => {

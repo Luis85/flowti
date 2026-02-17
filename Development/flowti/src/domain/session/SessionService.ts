@@ -126,6 +126,18 @@ export class SessionService {
 				}),
 			);
 
+			// Path reconciliation: update stale paths when files/folders move
+			this.unsubscribes.push(
+				this.eventBus.on("file.renamed", (event) => {
+					void this.handleFileRenamed(event.payload.oldPath, event.payload.newPath);
+				}),
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("folder.renamed", (event) => {
+					void this.handleFolderRenamed(event.payload.oldPath, event.payload.newPath);
+				}),
+			);
+
 			// Goal commands
 			this.unsubscribes.push(
 				this.eventBus.on("session.goal.add", (event) => {
@@ -793,6 +805,96 @@ export class SessionService {
 		session.activityFilter = [...filter];
 		await this.saveState();
 		await this.eventBus?.emit("session.activity.filter.updated", { sessionId, filter: [...filter] });
+	}
+
+	// ── Path reconciliation (file/folder rename) ────────────
+
+	/**
+	 * Updates all session and template paths when a file is renamed/moved.
+	 * Covers: focusFile, notesFile, canvasFile, contextBindings, artifacts, links.
+	 */
+	private async handleFileRenamed(oldPath: string, newPath: string): Promise<void> {
+		const affectedIds = new Set<string>();
+
+		for (const session of this.state.sessions) {
+			let hit = false;
+			if (session.focusFile === oldPath) { session.focusFile = newPath; hit = true; }
+			if (session.notesFile === oldPath) { session.notesFile = newPath; hit = true; }
+			if (session.canvasFile === oldPath) { session.canvasFile = newPath; hit = true; }
+			for (const binding of session.contextBindings) {
+				if (binding.path === oldPath) { binding.path = newPath; hit = true; }
+			}
+			for (const artifact of session.artifacts) {
+				if (artifact.path === oldPath) { artifact.path = newPath; hit = true; }
+			}
+			for (const link of session.links) {
+				if (link.path === oldPath) { link.path = newPath; hit = true; }
+			}
+			if (hit) affectedIds.add(session.id);
+		}
+
+		for (const tmpl of this.state.savedTemplates ?? []) {
+			if (tmpl.focusFile === oldPath) { tmpl.focusFile = newPath; }
+		}
+
+		if (affectedIds.size > 0) {
+			await this.saveState();
+			await this.eventBus?.emit("session.paths.updated", { sessionIds: [...affectedIds] });
+		}
+	}
+
+	/**
+	 * Updates all session and template paths when a folder is renamed/moved.
+	 * Uses prefix matching to catch all children under the renamed folder.
+	 */
+	private async handleFolderRenamed(oldPath: string, newPath: string): Promise<void> {
+		const affectedIds = new Set<string>();
+		const oldPrefix = oldPath + "/";
+
+		for (const session of this.state.sessions) {
+			let hit = false;
+			if (session.focusFile && session.focusFile.startsWith(oldPrefix)) {
+				session.focusFile = newPath + session.focusFile.slice(oldPath.length); hit = true;
+			}
+			if (session.notesFile && session.notesFile.startsWith(oldPrefix)) {
+				session.notesFile = newPath + session.notesFile.slice(oldPath.length); hit = true;
+			}
+			if (session.canvasFile && session.canvasFile.startsWith(oldPrefix)) {
+				session.canvasFile = newPath + session.canvasFile.slice(oldPath.length); hit = true;
+			}
+			for (const binding of session.contextBindings) {
+				if (binding.path === oldPath + "/" || binding.path.startsWith(oldPrefix)) {
+					binding.path = newPath + binding.path.slice(oldPath.length); hit = true;
+				}
+			}
+			for (const artifact of session.artifacts) {
+				if (artifact.path.startsWith(oldPrefix)) {
+					artifact.path = newPath + artifact.path.slice(oldPath.length); hit = true;
+				}
+			}
+			for (const link of session.links) {
+				if (link.path.startsWith(oldPrefix)) {
+					link.path = newPath + link.path.slice(oldPath.length); hit = true;
+				}
+			}
+			for (let i = 0; i < session.activityFilter.length; i++) {
+				if (session.activityFilter[i] === oldPath || session.activityFilter[i].startsWith(oldPrefix)) {
+					session.activityFilter[i] = newPath + session.activityFilter[i].slice(oldPath.length); hit = true;
+				}
+			}
+			if (hit) affectedIds.add(session.id);
+		}
+
+		for (const tmpl of this.state.savedTemplates ?? []) {
+			if (tmpl.focusFile && tmpl.focusFile.startsWith(oldPrefix)) {
+				tmpl.focusFile = newPath + tmpl.focusFile.slice(oldPath.length);
+			}
+		}
+
+		if (affectedIds.size > 0) {
+			await this.saveState();
+			await this.eventBus?.emit("session.paths.updated", { sessionIds: [...affectedIds] });
+		}
 	}
 
 	// ── Shared helpers ───────────────────────────────────────

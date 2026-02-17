@@ -8,10 +8,10 @@ stage: in-review
 date: 2026-02-17
 tasm_score:
 tasm_review: "[[Three Amigos Review - Sidebar Workspace and Activity Consolidation 2026-02-17]]"
-tests_added: 39
-tests_total: 2164
+tests_added: 57
+tests_total: 2177
 test_suites: 84
-loc_added: 250
+loc_added: 310
 cross_pbi:
   - "[[PBI-SW-001 Activity Log]]"
   - "[[PBI-SW-002 Context Bindings]]"
@@ -46,6 +46,7 @@ Fifteen capabilities delivered:
 13. **Start Denied Feedback** — If another session becomes active between render and click (race condition), clicking "Start" shows a Notice: "Another session is already active. Complete or pause it first."
 14. **Folder Context Menu** — `registerSessionFileMenu()` now handles both `TFile` and `TFolder`. Right-clicking a folder in the navigator shows "Add to {session}" which binds it as a `folder` type with trailing `/`. "Create New Session" only appears for files.
 15. **Open in Tab from Sidebar** — When the workspace is in the sidebar, the "Sidebar" button is replaced with an "Open in Tab" button (`layout` icon) via `openInTab()` which opens the session in a new tab leaf.
+16. **File/Folder Rename Path Reconciliation** — `SessionService.handleFileRenamed()` and `handleFolderRenamed()` update all path-based fields (focusFile, notesFile, canvasFile, contextBindings, artifacts, links, activityFilter, templates) across all sessions when files/folders are renamed. Emits `session.paths.updated` so open views re-render immediately. Activity log entries are excluded (historical records).
 
 ## Data Model Changes
 
@@ -60,9 +61,10 @@ session.notesFile = `${SESSION_NOTES_FOLDER}/${safeName} (${shortId}).md`;
 const path = `${folder}/${safeName} (${shortId}).canvas`;
 ```
 
-## Events (0 new, 1 behavior change)
+## Events (1 new, 1 behavior change)
 
-No new events introduced. Existing `session.artifact.added` listener redirected from deleted `renderArtifactsList()` to `renderActivityList()`.
+- **`session.paths.updated`** (new) — Emitted by `SessionService` after `handleFileRenamed()` or `handleFolderRenamed()` updates stale paths. Payload: `{ sessionIds: string[] }`. Tagged `["system"]` in event catalog. Subscribed by `SessionWorkspaceView` (filtered re-render for own session) and `UserHubView` (full sessions list refresh).
+- Existing `session.artifact.added` listener redirected from deleted `renderArtifactsList()` to `renderActivityList()`.
 
 ## Changes
 
@@ -73,20 +75,22 @@ No new events introduced. Existing `session.artifact.added` listener redirected 
 - `src/ui/userHub/UserHubSessions.ts` — "Sidebar" button for prepared/active/paused sessions (+12 LOC)
 - `src/ui/userHub/types.ts` — Updated `openSessionWorkspace` signature: `(sessionId?: string, location?: "tab" | "sidebar") => void` (+1 LOC)
 - `src/main.ts` — `openSessionWorkspaceInSidebar()` method, `flowti:open-session-workspace-sidebar` command, start-from-sidebar guard in `session.started` handler, `registerSessionFileMenu()` extended with TFolder support (+40 LOC)
-- `src/domain/session/SessionService.ts` — Short ID suffix on notes file path (+2 LOC)
+- `src/domain/session/SessionService.ts` — Short ID suffix on notes file path; `handleFileRenamed()` and `handleFolderRenamed()` with `session.paths.updated` emission (+60 LOC)
+- `src/domain/session/events.ts` — Added `session.paths.updated` event type (+3 LOC)
+- `src/infrastructure/events/catalog.ts` — Registered `session.paths.updated` in event catalog (+1 LOC)
 - `styles.css` — `.ft-section`, `.ft-section-flush`, `:last-child` rule, dashboard padding fix (+12 LOC)
 
 ### Modified Files (Tests: 2 files)
 
-- `tests/ui/SessionWorkspaceView.test.ts` — Mock leaf `getRoot()`, mock workspace `rightSplit`/`getLeavesOfType`/`getRightLeaf`/`revealLeaf`; replaced artifacts describe with merged-activity tests; removed clickable artifacts tests; `getActiveSession` mock now returns `null` for non-active sessions
-- `tests/domain/session/SessionService.test.ts` — Notes file path assertions changed from `toBe` to `toMatch` regex for short ID suffix
+- `tests/ui/SessionWorkspaceView.test.ts` — Mock leaf `getRoot()`, mock workspace `rightSplit`/`getLeavesOfType`/`getRightLeaf`/`revealLeaf`; replaced artifacts describe with merged-activity tests; removed clickable artifacts tests; `getActiveSession` mock now returns `null` for non-active sessions; 2 new tests for `session.paths.updated` re-render (match + ignore)
+- `tests/domain/session/SessionService.test.ts` — Notes file path assertions changed from `toBe` to `toMatch` regex for short ID suffix; 11 file/folder rename path reconciliation tests with event emission assertions
 
 ## Tests
 
-**SessionWorkspaceView.test.ts**: Updated artifacts section tests (3 removed, 2 added for merge verification), added sidebar mock infrastructure
-**SessionService.test.ts**: 2 assertions updated for regex matching
+**SessionWorkspaceView.test.ts**: Updated artifacts section tests (3 removed, 2 added for merge verification), added sidebar mock infrastructure, 2 new `session.paths.updated` tests
+**SessionService.test.ts**: 2 assertions updated for regex matching, 11 file/folder rename tests with 5 event emission assertions
 
-Final: 84 test files, 2,164 tests passing, 32 skipped
+Final: 84 test files, 2,177 tests passing, 32 skipped
 
 ## Acceptance Criteria
 
@@ -110,7 +114,11 @@ Final: 84 test files, 2,164 tests passing, 32 skipped
 - [x] Right-clicking a folder in file explorer shows "Add to {session}" when a session is current
 - [x] Right-clicking a file in file explorer shows both "Add to {session}" and "Create New Session"
 - [x] "Open in Tab" button visible in sidebar workspace, opens session in a new tab
-- [x] `npm run build` passes — 2,164 tests across 84 suites
+- [x] Renaming a file attached to a session updates all path fields and re-renders open views
+- [x] Renaming a folder updates all child paths in all sessions
+- [x] Activity log entries are not affected by renames (historical records)
+- [x] `session.paths.updated` emitted only for affected sessions
+- [x] `npm run build` passes — 2,177 tests across 84 suites
 
 ## Verification
 
@@ -131,6 +139,8 @@ Final: 84 test files, 2,164 tests passing, 32 skipped
 15. Right-click folder in file explorer with session open in sidebar → "Add to {session title}" appears
 16. Right-click file in file explorer with session open in sidebar → both "Add to {session}" and "Create New Session" appear
 17. Sidebar workspace → click "Open in Tab" → session opens in main tab area
+18. Rename a file linked as focusFile → workspace updates to show new path (no close/reopen needed)
+19. Rename a folder containing session files → all child paths update across all sessions
 
 ## Related
 

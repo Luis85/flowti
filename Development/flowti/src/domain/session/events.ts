@@ -41,6 +41,10 @@ export interface SessionEventMap {
 	/** Emitted after session state is loaded from storage */
 	"session.loaded": { sessions: Session[]; activeSessionId: string | null; savedTemplates: SessionTemplate[] };
 
+	// ── Path reconciliation events ───────────────────────────
+	/** Emitted after file/folder paths are updated across sessions due to a rename/move */
+	"session.paths.updated": { sessionIds: string[] };
+
 	// ── Timer events ─────────────────────────────────────────
 	/** Emitted every second while a session timer is running */
 	"session.timer.tick": { sessionId: string; remainingMs: number; elapsedMs: number };
