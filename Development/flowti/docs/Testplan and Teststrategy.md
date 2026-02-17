@@ -167,11 +167,11 @@ This section describes **what** is tested — use cases, scenarios, and coverage
 
 Vitest generates test and coverage reports. You find them as JSON files in `docs/tests`.
 
-| Report | Path | Updated |
-|--------|------|---------|
-| Test results | `docs/tests/testreport.json` | Every `npm run build` |
-| Coverage | `docs/tests/coverage-final.json` | Every `npm run build` |
-| Codebase (TypeDoc) | `docs/codebase/codebase.json` | Every `npm run build` |
+| Report             | Path                             | Updated                   |
+| ------------------ | -------------------------------- | ------------------------- |
+| Test results       | `docs/tests/testreport.json`     | Every `npm run build`     |
+| Coverage           | `docs/tests/coverage-final.json` | `npm run test --coverage` |
+| Codebase (TypeDoc) | `docs/codebase/codebase.json`    | Every `npm run build`     |
 
 ### Current Metrics (Feb 2026)
 
