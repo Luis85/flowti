@@ -1,11 +1,11 @@
 ---
-feature: "[[Documentation]]"
+type: idea
+stage: discovery
+origin: inbox
+domain: documentation
+parent: "[[Documentation]]"
+description: "Create a review-request for a domain and publish it outside the vault for external review."
 tags:
-stage:
-description:
-domain: Flowti
-journey:
-jtbd:
-parent:
-persona:
+priority: 0 - low
+rank:
 ---

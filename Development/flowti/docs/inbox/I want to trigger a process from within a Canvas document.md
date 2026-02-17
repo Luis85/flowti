@@ -1,11 +1,11 @@
 ---
-feature:
+type: idea
+stage: discovery
+origin: inbox
+domain: canvas
+parent: "[[Hubs PRD]]"
+description: "Trigger Flowti processes directly from within an Obsidian Canvas document."
 tags:
-stage:
-description:
-domain:
-journey:
-jtbd:
-parent:
-persona:
+priority: 0 - low
+rank:
 ---
