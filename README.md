@@ -62,12 +62,14 @@ To update, you need to `git pull` from remote and build the plugin again.
 
 ## Roadmap
 
-- Flowti Installer
 - Dedicated Plugin Repos
 - GitHub Integration
 - Release Workflow
 - …
-- Flowti v1.0.0
+- Release v0.0.1
+- Announce on Obsidian
+- ...
+- Flowti v10.0
 
 ## OneSeater - Impressions
 
