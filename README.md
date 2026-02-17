@@ -4,7 +4,7 @@
 
 > Goal of this project is to provide a simple tool which documents itself and it's usage to iterate quickly and to codify what I learned.
 
-this is a preconfigured Obsidian Vault, ready to go as documentation system called „FLOWTI - IBDE“ an integrated business development environment and management system.
+This is a preconfigured Obsidian Vault, ready to go as documentation system called „FLOWTI - IBDE“ an integrated business development environment and management system.
 Goal of this framework is to provide all necessary utilities to describe and visualize digital twins of things.
 
 This document describes how to get the current implementation up and running.

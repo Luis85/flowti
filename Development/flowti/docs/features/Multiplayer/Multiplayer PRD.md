@@ -16,6 +16,10 @@ priority: 0
 
 # Feature: Multiplayer
 
+## Ideas
+
+- The user can start a multiplayer session and invite others to join
+
 ---
 
 ## 1. Problem Statement
