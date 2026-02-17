@@ -1,367 +1,335 @@
-# Feature PRD: Session Workspaces
-
 ---
+type: PRD
+domain: Session
+stage: draft
+version: 2
+maturity: L2
+created: 2026-02-01
+updated: 2026-02-17
+foundation: "[[PBI-002 Documentation Sessions]]"
+tags:
+  - session
+  - workspace
+  - prd
+---
+
+# Feature PRD: Session Workspaces
 
 ## 1. Feature Overview
 
 **Feature Name:** Session Workspaces
-**Domain:** Flowti – Integrated Business Development Environment  
-**Maturity Target:** L2 (Structured Usage) → L3 (Operational Backbone)
+**Domain:** Flowti – Integrated Business Development Environment
+**Maturity Target:** L2 (Structured Usage)
+**Foundation:** PBI-002 Documentation Sessions (9 increments delivered, 2 planned)
 
 ### Purpose
 
-The Session Workspace provides users with a focused, context-aware working environment that aggregates relevant artifacts, tools, views, and events for a specific work session.
-
-It enables structured thinking, decision-making, and execution within a defined context (e.g., refinement session, architecture workshop, daily execution block, backlog slicing, etc.).
+Session Workspaces extend Flowti's existing session infrastructure into a comprehensive, context-aware working environment. Building on the foundation of Documentation Sessions (timer, goals, notes, focus file, artifacts, links, canvas), this feature adds activity tracking, context bindings, decision recording, session-type orchestration, and structured session summaries.
 
 It acts as:
 
-- A contextual container
-    
-- A collaboration surface
-    
-- An orchestration boundary for tools
-    
-- A stateful working memory layer
-    
+- A **contextual container** — binding sessions to vault entities (domains, features, products)
+- An **activity tracker** — recording vault file activity scoped to the session
+- A **decision log** — capturing decisions within session context
+- A **stateful working memory** — persisting full session state for resume
+- A **documentation anchor** — generating structured summaries on completion
+
+### Scope Boundary
+
+This PRD targets **L2 (single-user structured sessions)**. Multi-user collaboration, real-time sync, and role-based access are documented as L3 future scope and explicitly excluded from this delivery phase.
 
 ---
 
 ## 2. Problem Statement
 
-Currently:
+### What Exists (Foundation from PBI-002)
 
-- Users navigate across multiple views and tools
-    
-- Context switching is expensive
-    
-- Session artifacts are scattered
-    
-- No persistent session state exists
-    
-- No formal boundary between “ongoing work” and “structured session”
-    
+The Documentation Sessions feature delivered under the Hubs PRD provides:
 
-This leads to:
+- **Session domain core**: types, events (29 registered), SessionService state machine
+- **SessionWorkspaceView**: timer, goals checklist, notes, focus file, artifacts, links, canvas
+- **User Hub integration**: sessions tab, NewSessionModal, templates, preparation flow
+- **Session persistence**: TypedStorage, session notes as markdown files
+- **148+ tests** across SessionService and SessionWorkspaceView
 
-- Cognitive overload
-    
-- Lost context
-    
-- Poor traceability
-    
-- Reduced collaboration quality
-    
-- Fragmented documentation
-    
+### What's Missing
+
+Despite a working session infrastructure, users still experience:
+
+- **No activity tracking** — file creates, edits, and opens during a session are not logged; there's no visibility into what happened
+- **No folder filtering** — activity noise from system folders (.obsidian, templates, node_modules) clutters the view
+- **No context binding** — sessions float freely; no link to the feature, domain, or product being worked on
+- **No decision capture** — decisions made during sessions exist only in notes as unstructured text
+- **No structured summary** — session completion produces a notes file but no structured outcome document
+- **No session-type orchestration** — all session types share the same workspace layout; no type-specific guidance or tools
+- **Limited resume** — sessions can be resumed but workspace state (open files, scroll positions) is not restored
+
+### Impact
+
+- Activity during sessions is invisible and untraceable
+- Decisions made in sessions are lost or buried in notes
+- Context switching between sessions and their related vault entities is manual
+- No structured post-session review is possible
+- Session types are labels only — they don't drive workspace behavior
 
 ---
 
 ## 3. Objectives
 
-The Session Workspace shall:
+The Session Workspaces feature shall:
 
-1. Provide a bounded working context
-    
-2. Aggregate relevant tools & views
-    
-3. Maintain session state
-    
-4. Persist artifacts
-    
-5. Emit session-related events
-    
-6. Enable collaboration
-    
-7. Serve as documentation anchor
-    
+1. **Track vault activity** during sessions with configurable folder filtering
+2. **Bind sessions to vault context** (domains, features, products, vault paths)
+3. **Capture decisions** as structured, searchable, linked records
+4. **Generate session summaries** on completion with goals, decisions, artifacts, activity
+5. **Orchestrate by session type** — type-specific layouts, guiding questions, tools
+6. **Restore workspace state** on session resume
 
 ---
 
 ## 4. Jobs To Be Done (JTBD)
 
-### 🎯 Core Jobs
+### JTBD 1 — Focused Work Context
 
-#### JTBD 1 – Focused Work Context
+> When I start working on a specific topic, I want a dedicated workspace that shows only relevant activity so that I can focus without noise.
 
-> When I start working on a specific topic, I want a dedicated workspace that contains everything relevant so that I can focus without context switching.
+### JTBD 2 — Capture & Persist Outcomes
 
-#### JTBD 2 – Structured Collaboration
+> When a session ends, I want a structured summary with decisions, artifacts, and activity so that outcomes are traceable and reviewable.
 
-> When I host or join a session, I want a shared structured environment so that all participants work within the same context.
+### JTBD 3 — Tool Orchestration
 
-#### JTBD 3 – Capture & Persist Outcomes
+> When I select a session type like "Domain Design," I want the workspace pre-configured with relevant tools and guiding questions so that I can start working immediately.
 
-> When a session ends, I want the results documented and linked so that decisions and artifacts are traceable.
+### JTBD 4 — Resume Work
 
-#### JTBD 4 – Tool Orchestration
+> When I return to a paused session, I want the workspace restored exactly as I left it so that I lose no context.
 
-> When I perform specific activities (e.g., story mapping), I want the correct tools pre-configured and ready.
+### JTBD 5 — Traceability
 
-#### JTBD 5 – Resume Work
+> When reviewing what happened, I want to see which session produced which artifacts and decisions so that I can trace outcomes to their origin.
 
-> When I return later, I want to resume exactly where I left off.
+### JTBD 6 — Activity Visibility
 
-#### JTBD 6 – Traceability
-
-> When reviewing changes, I want to understand which session produced which artifacts.
+> When working in a session, I want to see a live activity log of file changes filtered to my working area so that I know what's happening.
 
 ---
 
 ## 5. Personas
 
-- Product Owner
-    
-- UX Designer
-    
-- Architect
-    
-- Engineer
-    
-- Tester
-    
-- Delivery Manager
-    
+| Persona | Primary JTBD | Key Session Types |
+|---------|-------------|-------------------|
+| Domain Architect | Focused Work, Traceability | Domain Design, Event Storming |
+| Product Owner | Capture Outcomes, Tool Orchestration | Requirements Refinement, Backlog Structuring |
+| Engineer | Focused Work, Resume | Knowledge Cleanup, Vault Hygiene |
+| Delivery Manager | Traceability, Capture Outcomes | Review, Retrospective |
 
 ---
 
 ## 6. User Stories
 
-### Epic: Session Creation & Management
+### Epic: Activity Tracking
 
-- As a user, I want to create a new session workspace so that I can start a focused working block.
-    
-- As a user, I want to assign a session type so that the workspace is preconfigured.
-    
-- As a user, I want to save a session so that I can resume it later.
-    
-- As a user, I want to close a session so that its results are archived.
-    
-- As a user, I want to duplicate a session so that I can reuse its structure.
-    
-
----
+- As a session user, I want to see a live log of file changes during my session so that I know what was created and modified
+- As a vault user, I want to filter folders from the activity log so that system folders don't create noise
+- As a session user, I want per-session folder filters so that each session only tracks its relevant vault area
 
 ### Epic: Context Binding
 
-- As a Product Owner, I want to bind a session to a feature so that all actions are scoped.
-    
-- As an Architect, I want to bind architecture views to a session.
-    
-- As a UX Designer, I want design artifacts loaded automatically.
-    
+- As a domain architect, I want to bind my session to a domain so that artifacts are automatically scoped
+- As a product owner, I want to bind a session to a feature or PBI so that session work is traceable to the backlog
+- As a user, I want to see the bound context in the workspace header so that I always know what I'm working on
 
----
+### Epic: Decision Recording
 
-### Epic: Collaboration
+- As a session user, I want to record a decision during my session so that it's captured with context
+- As a reviewer, I want to see all decisions made in a session so that I can verify outcomes
+- As a user, I want decisions linked to the session and its bound context
 
-- As a facilitator, I want to invite participants.
-    
-- As a participant, I want to see who is active.
-    
-- As a team member, I want changes visible in real-time.
-    
+### Epic: Session Summary
 
----
+- As a user, I want a structured summary generated when I complete a session
+- As a reviewer, I want the summary to include goals achieved, decisions made, artifacts produced, and activity timeline
 
-### Epic: Persistence & Traceability
+### Epic: Session Type Orchestration
 
-- As a user, I want session artifacts linked to the originating session.
-    
-- As a manager, I want to review session logs.
-    
-- As a QA, I want to trace decisions to sessions.
-    
+- As a domain architect, I want a "Domain Design" session type that pre-loads domain documentation tools
+- As a user, I want guiding questions specific to my session type visible during work
+- As a user, I want to create custom session types with their own guiding questions
+
+### Epic: Resume & State Restoration
+
+- As a user, I want to resume a session and have my workspace layout restored
+- As a user, I want the files I had open during the session reopened on resume
 
 ---
 
 ## 7. Solution Concept
 
-The Session Workspace is a **stateful orchestration container**.
-
-It consists of:
-
-1. Session Metadata
-    
-2. Context Bindings
-    
-3. Active Views
-    
-4. Tool Configuration
-    
-5. Event Scope
-    
-6. Artifact Registry
-    
-7. Participant Registry
-    
-8. Session Log
-    
-
----
-
-## 8. Conceptual Model
+The Session Workspace extends the existing `SessionService` and `SessionWorkspaceView` with six capabilities:
 
 ```
-SessionWorkspace
- ├── session_id
- ├── session_type
- ├── context_bindings
- ├── active_layout
- ├── tool_state
- ├── participants
- ├── artifacts_created[]
- ├── decisions[]
- ├── events[]
- ├── started_at
- ├── ended_at
+SessionWorkspace (L2)
+ ├── Activity Log          ← NEW: file event tracking + folder filters
+ ├── Context Bindings      ← NEW: link to domains/features/products
+ ├── Decision Log          ← NEW: structured decision records
+ ├── Session Summary       ← NEW: generated on completion
+ ├── Type Orchestration    ← NEW: type-specific config + guiding questions
+ └── State Restoration     ← NEW: workspace state persistence on resume
 ```
 
----
+### Architecture Alignment
 
-## 9. Use Cases (Use Case 2.0 Brief Format)
-
----
-
-### UC-01: Create Session Workspace
-
-**Primary Actor:** User  
-**Scope:** Session Workspace  
-**Level:** User Goal
-
-#### Main Success Scenario
-
-1. User selects "Create Session"
-    
-2. User selects session type
-    
-3. System loads layout template
-    
-4. System binds initial context
-    
-5. Session is created
-    
-6. session.created event emitted
-    
-
-#### Success Guarantee
-
-- Session object created
-    
-- Workspace rendered
-    
-- Event emitted
-    
+- **EventBus**: all new capabilities communicate via events (no direct service coupling)
+- **Domain layer**: new types and services in `src/domain/session/`
+- **UI layer**: new workspace panels in `src/ui/sessionWorkspace/` (component extraction from monolithic view)
+- **Persistence**: TypedStorage for session state, vault files for summaries/decisions
+- **Catalog**: all new events registered with category "Session", tagged `[]` (user-visible)
 
 ---
 
-### UC-02: Bind Context to Session
+## 8. Data Model Extensions
 
-**Primary Actor:** User
+### New Types (extending existing Session interface)
 
-#### Main Flow
+```typescript
+// Activity log entry — tracked per session
+interface SessionActivity {
+  timestamp: string;     // ISO 8601
+  action: "created" | "modified" | "opened" | "deleted" | "renamed";
+  path: string;
+  oldPath?: string;      // for renames
+}
 
-1. User selects "Bind Context"
-    
-2. User selects feature / backlog item / artifact
-    
-3. System validates reference
-    
-4. Context binding stored
-    
-5. session.context.updated emitted
-    
+// Folder filter configuration
+interface SessionFolderFilter {
+  global: string[];      // folders excluded from all sessions
+  perSession: string[];  // folders excluded from this session only
+}
 
----
+// Context binding — links session to vault entity
+interface SessionContextBinding {
+  type: "domain" | "feature" | "product" | "path";
+  label: string;
+  path: string;          // vault path to the entity doc
+  boundAt: string;       // ISO 8601
+}
 
-### UC-03: Capture Decision
+// Decision record
+interface SessionDecision {
+  id: string;
+  title: string;
+  description: string;
+  recordedAt: string;    // ISO 8601
+  context?: string;      // optional reference to bound entity
+}
 
-**Primary Actor:** Facilitator
+// Guiding question set per session type
+interface SessionTypeConfig {
+  type: SessionType;
+  guidingQuestions: string[];
+  defaultDuration: number;
+  defaultGoals: SessionGoal[];
+}
 
-#### Main Flow
+// Extended Session interface (additions)
+interface Session {
+  // ... existing fields ...
+  activity: SessionActivity[];
+  contextBindings: SessionContextBinding[];
+  decisions: SessionDecision[];
+  folderFilter: SessionFolderFilter;
+  summaryFile: string | null;
+}
+```
 
-1. User records decision
-    
-2. System links decision to session
-    
-3. Decision stored
-    
-4. decision.recorded event emitted
-    
+### Persistence
 
----
-
-### UC-04: Generate Artifacts from Session
-
-**Primary Actor:** Product Owner
-
-#### Main Flow
-
-1. User triggers artifact generation
-    
-2. System generates backlog items
-    
-3. Items linked to session_id
-    
-4. backlog.item.generated emitted
-    
-
----
-
-### UC-05: Resume Session
-
-**Primary Actor:** User
-
-1. User selects previous session
-    
-2. System restores layout
-    
-3. System restores tool state
-    
-4. Session becomes active
-    
-5. session.resumed emitted
-    
-
----
-
-### UC-06: Close Session
-
-**Primary Actor:** Facilitator
-
-1. User selects close
-    
-2. System checks for open tasks
-    
-3. System archives session
-    
-4. session.closed emitted
-    
+| Data | Storage | Lifecycle |
+|------|---------|-----------|
+| Activity log | In-memory during session, persisted on pause/complete | Cleared on archive |
+| Folder filters (global) | Settings via SettingsService | Permanent |
+| Folder filters (per-session) | Session state via TypedStorage | Per session |
+| Context bindings | Session state via TypedStorage | Per session |
+| Decisions | Session state via TypedStorage | Per session |
+| Session summary | Vault markdown file | Permanent |
+| Session type config | Settings via SettingsService | Permanent |
 
 ---
 
-## 10. Event Model
+## 9. Event Model
 
-### Core Events
+### New Events
 
-- session.created
-    
-- session.started
-    
-- session.context.updated
-    
-- session.participant.added
-    
-- session.participant.removed
-    
-- session.artifact.created
-    
-- session.decision.recorded
-    
-- session.resumed
-    
-- session.closed
-    
+| Event | Trigger | Payload |
+|-------|---------|---------|
+| `session.activity.tracked` | File event during active session | `{ sessionId, activity: SessionActivity }` |
+| `session.activity.filter.updated` | Folder filter changed | `{ sessionId, filter: SessionFolderFilter }` |
+| `session.context.bind` | User binds context | `{ sessionId, binding: SessionContextBinding }` |
+| `session.context.bound` | Context bound successfully | `{ sessionId, binding: SessionContextBinding }` |
+| `session.context.unbind` | User removes binding | `{ sessionId, path: string }` |
+| `session.context.unbound` | Context removed | `{ sessionId, path: string }` |
+| `session.decision.record` | User records decision | `{ sessionId, decision: SessionDecision }` |
+| `session.decision.recorded` | Decision stored | `{ sessionId, decision: SessionDecision }` |
+| `session.decision.remove` | User removes decision | `{ sessionId, decisionId: string }` |
+| `session.decision.removed` | Decision removed | `{ sessionId, decisionId: string }` |
+| `session.summary.generate` | Session completed, trigger summary | `{ sessionId }` |
+| `session.summary.generated` | Summary file written | `{ sessionId, path: string }` |
+| `session.state.save` | Workspace state snapshot | `{ sessionId, state: WorkspaceState }` |
+| `session.state.saved` | State persisted | `{ sessionId }` |
+| `session.state.restore` | Resume triggers restore | `{ sessionId }` |
+| `session.state.restored` | State applied to workspace | `{ sessionId }` |
+
+### Existing Events (from PBI-002, unchanged)
+
+19 session lifecycle events + 10 workspace enrichment events = 29 existing events.
+
+---
+
+## 10. Functional Requirements
+
+### FR-01: Activity Log
+
+- [ ] Track file creates, modifications, opens, deletes, and renames during active sessions
+- [ ] Display activity as a chronological timeline in the workspace
+- [ ] Global folder filter (settings) excludes paths from all session activity logs
+- [ ] Per-session folder filter excludes paths for a specific session only
+- [ ] Combined filter: global + per-session exclusions merged
+- [ ] Activity persisted with session state; cleared on archive
+
+### FR-02: Context Bindings
+
+- [ ] Bind a session to one or more vault entities (domain, feature, product, arbitrary path)
+- [ ] Display bound context in workspace header with clickable navigation
+- [ ] Context binding persisted with session state
+- [ ] Unbind context via workspace UI
+
+### FR-03: Decision Log
+
+- [ ] Record decisions with title, description, and optional context reference
+- [ ] Display decisions in a dedicated workspace panel
+- [ ] Decisions persisted with session state
+- [ ] Decisions included in session summary
+
+### FR-04: Session Summary
+
+- [ ] Generate a structured markdown file on session completion
+- [ ] Summary includes: metadata, goals (completed/total), decisions, artifacts, activity timeline
+- [ ] Summary file stored in `SESSION_NOTES_FOLDER` alongside session notes
+- [ ] Summary file path stored on session as `summaryFile`
+
+### FR-05: Session Type Orchestration
+
+- [ ] Session types define guiding questions, default duration, and default goals
+- [ ] Guiding questions displayed in workspace during active/paused sessions
+- [ ] Pre-built types: Documentation, Event Storming, Service Design, Requirements Refinement, Backlog Structuring, Knowledge Cleanup, Vault Hygiene, Domain Design
+- [ ] Custom session type creation via settings
+
+### FR-06: State Restoration
+
+- [ ] On pause/complete: save workspace state (open tabs in adjacent leaf, scroll position)
+- [ ] On resume: restore saved workspace state
+- [ ] Graceful degradation if files have been moved/deleted since pause
 
 ---
 
@@ -369,119 +337,120 @@ SessionWorkspace
 
 ### Performance
 
-- Session restoration < 300ms
-    
-- Event propagation < 50ms
-    
+- Activity log updates: < 16ms (debounced to not block UI)
+- Session state save: < 100ms
+- Session state restore: < 300ms
+- Summary generation: < 500ms
 
 ### Reliability
 
-- Session state persisted atomically
-    
-- Crash recovery supported
-    
+- Session state persisted atomically via TypedStorage
+- Activity log survives pause/resume cycles
+- Crash recovery: session state restored from last persisted snapshot
 
-### Security
+### Scalability
 
-- Role-based access
-    
-- Session visibility control
-    
-
-### Traceability
-
-- All generated artifacts reference session_id
-    
+- Activity log capped at 1000 entries per session (oldest evicted)
+- Decisions capped at 100 per session
+- Context bindings capped at 10 per session
 
 ---
 
-## 12. Layout & UI Concept
+## 12. UI Concept
 
-The Session Workspace is composed of:
+The SessionWorkspaceView gains new panels within the existing layout:
 
-- Header (Session Metadata)
-    
-- Context Panel
-    
-- Main Tool Area
-    
-- Artifact Sidebar
-    
-- Activity Log Panel
-    
-
-It is a container view that loads modular tools dynamically.
-
----
-
-## 13. Future Extensions
-
-- AI-assisted session summary
-    
-- Session analytics
-    
-- Heatmap of participation
-    
-- Decision quality scoring
-    
-- Session templates library
-    
-- Session maturity model
-    
+```
++--------------------------------------------------+
+| [Context: Domain Design] [Type] [Status]         |
+| [Pause] [Complete] [Add Context] [Record Decision]|
++--------------------------------------------------+
+|              ##  25:00  ##                         |
+|              Time Remaining                        |
++--------------------------------------------------+
+| Guiding Questions (Domain Design)                 |
+| • What services does this domain provide?         |
+| • What events does this domain produce/consume?   |
++--------------------------------------------------+
+| Goals  (2/5)           | Activity Log             |
+| [ ] Review types.ts    | 14:32 created events.ts  |
+| [v] Update events.ts   | 14:28 modified types.ts  |
+| [+ Add goal...]        | 14:25 opened README.md   |
+|                        | [Filter: src/domain/]    |
++--------------------------------------------------+
+| Decisions (1)                                     |
+| ✓ "Use event sourcing for audit trail"            |
+|   [+ Record Decision]                             |
++--------------------------------------------------+
+| Notes | Links (3) | Canvas                        |
+| +----------------------------------------------+ |
+| | [textarea - debounced save]                   | |
++--------------------------------------------------+
+```
 
 ---
 
-## 14. Business Value
+## 13. Product Backlog Items
 
-- Reduced cognitive load
-    
-- Improved collaboration
-    
-- Better traceability
-    
-- Higher artifact quality
-    
-- Operational discipline
-    
-- Supports ISO 9001 traceability requirements
-    
-- Strengthens Requirements Lifecycle governance
-    
+| PBI | Title | Priority | Depends On |
+|-----|-------|----------|------------|
+| PBI-SW-001 | Activity Log & Folder Filtering | High | PBI-002 (foundation) |
+| PBI-SW-002 | Context Bindings | High | PBI-SW-001 |
+| PBI-SW-003 | Session Types & Orchestration | Medium | PBI-002 Inc 11 (guiding questions) |
+| PBI-SW-004 | Decision Log | Medium | — |
+| PBI-SW-005 | Session Summary | Medium | PBI-SW-001, PBI-SW-004 |
+| PBI-SW-006 | State Restoration | Low | — |
+
+See `backlog/PBI-SW-*.md` for detailed specifications.
 
 ---
 
-# Strategic Perspective
+## 14. Lifecycle Stage Tracking
 
-Given the broader architecture (EventBus, View orchestration, ECS-like thinking, deterministic state machines):
+| Phase | Status | Date | Notes |
+|-------|--------|------|-------|
+| 1 — Feedback & Idea Intake | Done | 2026-02-17 | 3 inbox items ingested as user stories |
+| 2 — Discovery | Done | 2026-02-17 | Problem grounded in PBI-002 foundation gaps |
+| 3 — Solution Exploration | Done | 2026-02-17 | L2 scope selected; L3 deferred |
+| 4 — Solution Design + PRD | Done | 2026-02-17 | PRD v2 with concrete requirements |
+| 5 — Development Ready | Pending | — | FRI + Technical Review needed |
+| 6 — Delivery Planning | Draft | 2026-02-17 | 6 PBIs defined, increment planning pending |
+| 7–10 — Implementation | Pending | — | — |
 
-The Session Workspace should become:
+---
 
-> The bounded event domain for human collaboration.
+## 15. Future Extensions (L3 — Collaboration)
 
-Technically:
+The following capabilities are documented for future maturity levels and explicitly excluded from L2 scope:
 
-- It acts like a temporary bounded context.
-    
-- It scopes events.
-    
-- It aggregates state.
-    
-- It is the human equivalent of a process instance.
-    
+- **Multi-user sessions** — participant registry, invite/join flow
+- **Real-time collaboration** — shared workspace state, live cursor sync
+- **Role-based access** — facilitator, participant, observer roles
+- **AI-assisted summary** — automated session summary generation
+- **Session analytics** — time analysis, participation heatmap
+- **Decision quality scoring** — structured evaluation of decision outcomes
+- **Session maturity model** — progressive capability levels per session type
 
-In the ecosystem, this feature could evolve into:
+---
 
-- The operational backbone for:
-    
-    - Refinement
-        
-    - Story Mapping
-        
-    - Architecture Workshops
-        
-    - Retrospectives
-        
-    - Product Vision Workshops
-        
-    - R&D Sessions (Motorsport Simulation context)
-        
+## 16. Business Value
+
+- **Reduced cognitive load** — context bindings and activity filtering keep focus tight
+- **Better traceability** — decisions, artifacts, and activity linked to sessions
+- **Structured outcomes** — session summaries replace scattered notes
+- **Documentation discipline** — guiding questions and type-specific tools enforce structure
+- **Operational visibility** — activity logs make session work transparent
+- **Resume continuity** — state restoration eliminates re-orientation time
+
+---
+
+## 17. Strategic Perspective
+
+The Session Workspace is the **bounded event domain for structured work**. Within Flowti's architecture:
+
+- It acts as a **temporary bounded context** scoped to a work session
+- It **tracks events** (activity, decisions) within that boundary
+- It **aggregates state** (goals, notes, artifacts, decisions, activity)
+- It is the **human equivalent of a process instance**
+
+At L2, it serves the single user working in their vault. At L3, it becomes the operational backbone for team collaboration across Refinement, Story Mapping, Architecture Workshops, Retrospectives, and R&D Sessions.
