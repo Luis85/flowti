@@ -1,6 +1,0 @@
-filters:
-  and:
-    - file.inFolder("Development/flowti/docs/ideas")
-views:
-  - type: table
-    name: Table

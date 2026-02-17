@@ -1,7 +1,8 @@
 ---
 type: ProductBacklogItem
 feature: "[[Session Workspaces PRD]]"
-stage: planned
+stage: in-progress
+increment: "[[Inc 1 - Activity Log and Folder Filtering]]"
 priority: high
 dependencies:
   - "[[PBI-002 Documentation Sessions]]"
