@@ -24,11 +24,11 @@ The Flowti IBDE plugin uses an **event-driven architecture** where all inter-ser
 
 | Metric | Value |
 |--------|-------|
-| Total events | 136 (compile-time verified via `satisfies`) |
-| Infrastructure events | 57 (tagged `["system"]`) |
-| Domain events | 79 |
-| Event categories | 26 |
-| Domain services | 11 |
+| Total events | 159 (compile-time verified via `satisfies`) |
+| Infrastructure events | 60 (tagged `["system"]`) |
+| Domain events | 99 |
+| Event categories | 28 |
+| Domain services | 14 |
 | Wildcard listeners | 6 (properly filtered via `INTERNAL_EVENT_PREFIXES`) |
 | Event naming | `domain.action` for commands, `domain.fact` for facts |
 
@@ -68,6 +68,9 @@ The plugin is organized into 11 bounded contexts, each owning its events, types,
 | **eventDefinition** | [[Development/flowti/src/domain/eventDefinition/EventDefinitionService.ts|EventDefinitionService]] | 9 | `eventDefinition` | Source event → domain event transforms with payload mapping |
 | **dataExchange** | [[Development/flowti/src/domain/dataExchange/DataExchangeService.ts|DataExchangeService]] | 16 | `dataExchange` | CSV import/export, pipelines, config persistence |
 | **docs** | [[Development/flowti/src/domain/docs/DocService.ts|DocService]] | 6 | — | Centralized documentation file creation for 17 doc types |
+| **session** | [[Development/flowti/src/domain/session/SessionService.ts|SessionService]] | 29 | `sessions` | Time-boxed documentation sessions (timer, goals, artifacts, links, canvas, lifecycle) |
+| **inbox** | [[Development/flowti/src/domain/inbox/InboxService.ts|InboxService]] | 5 | `inbox` | Actionable inbox items from domain events (500-cap, oldest eviction) |
+| **hub** | — (BaseHubView) | 3 | — | Hub lifecycle events emitted by BaseHubView for all Hub views |
 
 ---
 
@@ -102,6 +105,8 @@ The plugin is organized into 11 bounded contexts, each owning its events, types,
 | **EventDefinitionService** | `eventDefinition.{create,update,remove,refresh}`, `ingestion.job.completed` | `eventDefinition.{loaded,created,updated,deleted,matched}` + custom events | No |
 | **DataExchangeService** | `dataExchange.*.execute`, `file.renamed`, `folder.renamed` | `dataExchange.import.*`, `dataExchange.export.*`, `dataExchange.pipeline.*`, `dataExchange.config.changed` | No |
 | **DocService** | `doc.{create,delete}`, `settings.{loaded,changed}` | `doc.{created,exists,failed,deleted}` | No |
+| **SessionService** | `session.{create,start,pause,resume,complete,archive,delete,refresh}`, `session.goal.*`, `session.link.*`, `session.duration.*`, `session.notes.*`, `session.notesFile.*`, `session.canvasFile.*`, `file.{created,modified}` | `session.{created,started,paused,resumed,completed,archived,deleted,loaded}`, `session.timer.{tick,completed}`, `session.artifact.added`, `session.goal.*`, `session.link.*`, `session.duration.*`, `session.notes.*`, `session.notesFile.*`, `session.canvasFile.*` | No |
+| **InboxService** | `subscription.matched`, `dataExchange.import.{completed,failed}`, `dataExchange.export.completed`, `dataExchange.pipeline.{completed,failed}`, `inbox.refresh` | `inbox.{loaded,itemAdded,itemsChanged}` | No |
 
 ---
 

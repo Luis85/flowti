@@ -152,3 +152,11 @@ Following domain-first convention (Types → Events → Domain → Infrastructur
 9. Pause session → resume → activity log preserved
 10. Archive session → activity cleared
 11. Load a session created before this increment → no errors (backward compat)
+
+## Related
+
+- PRD: [[Session Workspaces PRD]] (FR-01: Activity Log)
+- PBI: [[PBI-SW-001 Activity Log]]
+- User story: [[I want to filter folders to not appear in my sessions activity log]]
+- ADR-025: [[ADR-025 Activity Log Separate from Artifacts]]
+- ADR-026: [[ADR-026 Composable Folder Filtering]]

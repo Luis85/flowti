@@ -10,7 +10,7 @@ tags:
 
 This document describes the current frontend architecture of the Flowti IBDE Obsidian plugin, its design principles, view inventory, and refactoring history with planned next phases.
 
-> Last updated: 2026-02-16 (Session domain + Sessions tab added)
+> Last updated: 2026-02-17 (SessionWorkspaceView added to view inventory; session event count updated to 29)
 
 ---
 
@@ -62,7 +62,7 @@ src/                     # ~31,467 LOC across 154 files
 │   ├── eventFilter/     # Activity Log visibility toggles
 │   ├── eventNotify/     # Notice popups on event fire
 │   ├── discovery/       # Vault scan for custom events
-│   ├── session/         # Documentation sessions (timer, artifacts, lifecycle)
+│   ├── session/         # Documentation sessions (timer, goals, artifacts, links, canvas, lifecycle)
 │   ├── inbox/           # User inbox items (mappers, service, persistence)
 │   └── user/            # User profile management
 ├── ui/                  # Presentation layer (~17,127 LOC)
@@ -99,6 +99,7 @@ Views read state via `deps.getState()` and write via `deps.setState(partial)`. T
 | `ExportView` | `flowti-export` | ~655 | wizard stepper | 4-page export wizard: View Select, Configure, Preview, Result |
 | `CsvActionView` | `flowti-csv` | ~747 | landing + wizard | CSV file handler: column preview landing page + 4-page inline import wizard |
 | `UserHubView` | `flowti-user-hub` | ~273 | `BaseHubView<UserHubTab>` | 3-tab user hub: Dashboard, Inbox, Sessions (+ Preferences) |
+| `SessionWorkspaceView` | `flowti-session-workspace` | ~753 | `ItemView` | single-column | Dedicated focused workspace for a single session (timer, goals, notes, links, canvas, artifacts) |
 | `ComponentShowcaseView` | `flowti-component-showcase` | ~297 | showcase | Development view for previewing all CSS components |
 
 ### Modals
@@ -321,7 +322,7 @@ The `FlowtiEventMap` type union contains **155 events** across 14 domains:
 | Data Exchange | 15 | `dataExchange.import.execute`, `dataExchange.export.completed` |
 | Documentation | 6 | `doc.create`, `doc.created`, `doc.exists`, `doc.failed` |
 | Hub | 3 | `hub.opened`, `hub.closed`, `hub.tab.changed` |
-| Session | 19 | `session.create`, `session.started`, `session.timer.tick`, `session.artifact.added` |
+| Session | 29 | `session.create`, `session.started`, `session.timer.tick`, `session.artifact.added`, `session.link.add`, `session.notes.update`, `session.goal.add` |
 | Inbox | 5 | `inbox.itemAdded`, `inbox.itemsChanged`, `inbox.cleared` |
 | Installer | 6 | `installer.started`, `installer.step.completed` |
 
@@ -676,7 +677,7 @@ Each UI component has a dedicated documentation file in `docs/components/` (53 f
 
 | Subsystem | Location | Count | Examples |
 |-----------|----------|-------|----------|
-| Orchestrator Views | `src/ui/*.ts` | 7 | [[BaseHubView]], [[EventCatalogView]], [[DataExchangeHubView]], [[CsvActionView]], [[ExportView]] |
+| Orchestrator Views | `src/ui/*.ts` | 8 | [[BaseHubView]], [[EventCatalogView]], [[DataExchangeHubView]], [[SessionWorkspaceView]], [[CsvActionView]], [[ExportView]] |
 | Modals | `src/ui/*.ts` | 8 | [[EventConfigModal]], [[SubscriptionManagerModal]], [[NewSessionModal]], [[ConfirmModal]] |
 | Standalone UI | `src/ui/*.ts` | 2 | [[IngestionStatusBar]], [[ElectronDialog]] |
 | Catalog | `src/ui/catalog/` | 11 | [[CatalogDashboard]], [[EventsTab]], [[DomainsTab]], [[FlowsTab]] |
