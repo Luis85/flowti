@@ -1,6 +1,11 @@
 {
   "items": [
     {
+      "type": "folder",
+      "ctime": 1771087935467,
+      "path": "Development/flowti"
+    },
+    {
       "type": "file",
       "ctime": 1771087396881,
       "path": "01 - Jobs to be done.base"
@@ -22,9 +27,9 @@
       "path": "04 - Personas.base"
     },
     {
-      "type": "folder",
-      "ctime": 1771087935467,
-      "path": "Development/flowti"
+      "type": "file",
+      "ctime": 1771346438048,
+      "path": "Development/flowti/docs/12 - Inbox.base"
     }
   ]
 }
