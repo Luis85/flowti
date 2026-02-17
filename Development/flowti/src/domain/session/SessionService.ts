@@ -12,9 +12,9 @@
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { ITypedStorage } from "../../utils/TypedStorage";
 import { generateUUID } from "../../utils/helpers";
-import type { Session, SessionActivity, SessionActivityAction, SessionGoal, SessionLink, SessionState, SessionTemplate } from "./types";
-import { MAX_SESSIONS, MAX_TEMPLATES, ARTIFACT_DEDUP_WINDOW_MS, SESSION_NOTES_FOLDER, MAX_SESSION_ACTIVITY, ACTIVITY_DEDUP_WINDOW_MS } from "./types";
-import { createSession, createGoal, computeRemainingMs, computeElapsedMs, isTimerExpired, isExcluded } from "./helpers";
+import type { ContextBindingType, Session, SessionActivity, SessionActivityAction, SessionContextBinding, SessionGoal, SessionLink, SessionState, SessionTemplate } from "./types";
+import { MAX_SESSIONS, MAX_TEMPLATES, ARTIFACT_DEDUP_WINDOW_MS, SESSION_NOTES_FOLDER, MAX_SESSION_ACTIVITY, ACTIVITY_DEDUP_WINDOW_MS, MAX_CONTEXT_BINDINGS } from "./types";
+import { createSession, createGoal, createContextBinding, computeRemainingMs, computeElapsedMs, isTimerExpired, isExcluded } from "./helpers";
 
 /**
  * Configuration options for the SessionService.
@@ -182,6 +182,23 @@ export class SessionService {
 					void this.handleLinkRemove(event.payload.sessionId, event.payload.path);
 				}),
 			);
+
+			// Context binding commands
+			this.unsubscribes.push(
+				this.eventBus.on("session.context.bind", (event) => {
+					void this.handleContextBind(event.payload.sessionId, event.payload.path, event.payload.type);
+				}),
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("session.context.unbind", (event) => {
+					void this.handleContextUnbind(event.payload.sessionId, event.payload.bindingId);
+				}),
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("session.context.changeType", (event) => {
+					void this.handleContextChangeType(event.payload.sessionId, event.payload.bindingId, event.payload.type);
+				}),
+			);
 		}
 	}
 
@@ -200,6 +217,7 @@ export class SessionService {
 				this.state.savedTemplates = [];
 			}
 			// Backward compat: initialize timeline and goals for legacy sessions
+			let migrated = false;
 			for (const s of this.state.sessions) {
 				if (!s.timeline) {
 					s.timeline = [];
@@ -222,6 +240,22 @@ export class SessionService {
 				if (!s.activityFilter) {
 					s.activityFilter = [];
 				}
+				if (!s.contextBindings) {
+					s.contextBindings = [];
+				}
+				// Migrate legacy links → context bindings
+				if (s.links.length > 0) {
+					for (const link of s.links) {
+						if (!s.contextBindings.some((b) => b.path === link.path)) {
+							s.contextBindings.push(createContextBinding(`ctx_${generateUUID()}`, "file", link.path));
+						}
+					}
+					s.links = [];
+					migrated = true;
+				}
+			}
+			if (migrated) {
+				await this.saveState();
 			}
 		}
 
@@ -269,12 +303,12 @@ export class SessionService {
 	workspaceSessionId: string | null = null;
 
 	/**
-	 * Returns the current session: active first, then workspace session.
-	 * Used by context menu to determine which session to add links to.
+	 * Returns the current session: workspace session first, then active.
+	 * Prefers the session the user is viewing over the one with a running timer.
 	 */
 	getCurrentSession(): Session | null {
-		return this.getActiveSession()
-			?? (this.workspaceSessionId ? this.getSessionById(this.workspaceSessionId) : null);
+		return (this.workspaceSessionId ? this.getSessionById(this.workspaceSessionId) : null)
+			?? this.getActiveSession();
 	}
 
 	// ── Template CRUD ───────────────────────────────────────
@@ -412,9 +446,10 @@ export class SessionService {
 			payload.focusFile,
 		);
 
-		// Auto-set notes file path
+		// Auto-set notes file path (include short ID suffix to avoid case-insensitive collisions)
 		const safeName = session.title.replace(/[\\/:*?"<>|]/g, "-");
-		session.notesFile = `${SESSION_NOTES_FOLDER}/${safeName}.md`;
+		const shortId = id.slice(-6);
+		session.notesFile = `${SESSION_NOTES_FOLDER}/${safeName} (${shortId}).md`;
 
 		// Populate goals from text strings if provided
 		if (payload.goals && payload.goals.length > 0) {
@@ -625,6 +660,45 @@ export class SessionService {
 		session.links.splice(index, 1);
 		await this.saveState();
 		await this.eventBus?.emit("session.link.removed", { sessionId, path });
+	}
+
+	// ── Context binding handlers ────────────────────────────
+
+	private async handleContextBind(sessionId: string, path: string, type: ContextBindingType): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session) return;
+
+		if (session.contextBindings.some((b) => b.path === path)) return;
+		if (session.contextBindings.length >= MAX_CONTEXT_BINDINGS) return;
+
+		const binding: SessionContextBinding = createContextBinding(`ctx_${generateUUID()}`, type, path);
+		session.contextBindings.push(binding);
+		await this.saveState();
+		await this.eventBus?.emit("session.context.bound", { sessionId, binding: { ...binding } });
+	}
+
+	private async handleContextUnbind(sessionId: string, bindingId: string): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session) return;
+
+		const index = session.contextBindings.findIndex((b) => b.id === bindingId);
+		if (index === -1) return;
+
+		session.contextBindings.splice(index, 1);
+		await this.saveState();
+		await this.eventBus?.emit("session.context.unbound", { sessionId, bindingId });
+	}
+
+	private async handleContextChangeType(sessionId: string, bindingId: string, type: ContextBindingType): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session) return;
+
+		const binding = session.contextBindings.find((b) => b.id === bindingId);
+		if (!binding) return;
+
+		binding.type = type;
+		await this.saveState();
+		await this.eventBus?.emit("session.context.typeChanged", { sessionId, bindingId, type });
 	}
 
 	// ── Timer ────────────────────────────────────────────────

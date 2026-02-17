@@ -482,10 +482,21 @@ export default class FlowtiBasePlugin extends Plugin {
 		);
 
 		// Auto-open workspace and focus file when a session starts
+		// Skip if a workspace already exists (e.g. started from sidebar)
 		this.crossCuttingListeners.push(
 			this.eventBus.on("session.started", (event) => {
 				const { session } = event.payload;
 				this.sessionService!.workspaceSessionId = session.id;
+
+				const existingLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_SESSION_WORKSPACE);
+				if (existingLeaves.length > 0) {
+					// Workspace already open — just refresh it and open focus file
+					if (session.focusFile) {
+						void this.app.workspace.openLinkText(session.focusFile, "", "split");
+					}
+					return;
+				}
+
 				void this.app.workspace.getLeaf("tab").setViewState({
 					type: VIEW_TYPE_SESSION_WORKSPACE,
 					active: true,
@@ -566,6 +577,37 @@ export default class FlowtiBasePlugin extends Plugin {
 				});
 			},
 		});
+		this.addCommand({
+			id: "flowti:open-session-workspace-sidebar",
+			name: "Open Session Workspace in Sidebar",
+			icon: "panel-right",
+			callback: () => {
+				this.openSessionWorkspaceInSidebar();
+			},
+		});
+	}
+
+	/**
+	 * Opens the Session Workspace in the right sidebar.
+	 * Reuses an existing sidebar leaf if one exists; otherwise creates one.
+	 * Always reveals the leaf so the sidebar opens if collapsed.
+	 */
+	private openSessionWorkspaceInSidebar(sessionId?: string): void {
+		if (sessionId) {
+			this.sessionService!.workspaceSessionId = sessionId;
+		}
+		setTimeout(() => {
+			const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_SESSION_WORKSPACE)
+				.find((l) => l.getRoot() === this.app.workspace.rightSplit);
+			const leaf = existing ?? this.app.workspace.getRightLeaf(false);
+			if (leaf) {
+				void leaf.setViewState({
+					type: VIEW_TYPE_SESSION_WORKSPACE,
+					active: true,
+				});
+				this.app.workspace.revealLeaf(leaf);
+			}
+		}, 0);
 	}
 
 	/**
@@ -577,18 +619,21 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.registerEvent(
 			this.app.workspace.on("file-menu", (menu, file) => {
 				if (file instanceof TFile) {
-					// "Add to Session" — when any session is current (active, paused, or in workspace)
-					const active = this.sessionService?.getCurrentSession();
-					if (active) {
+					menu.addSeparator();
+
+					// "Add to {session title}" — when any session is current
+					const current = this.sessionService?.getCurrentSession();
+					if (current) {
 						menu.addItem((item) => {
-							item.setTitle("Add to Session")
+							item.setTitle(`Add to "${current.title}"`)
 								.setIcon("link")
 								.onClick(() => {
-									void this.eventBus.emit("session.link.add", {
-										sessionId: active.id,
+									void this.eventBus.emit("session.context.bind", {
+										sessionId: current.id,
 										path: file.path,
+										type: "file" as const,
 									});
-									new Notice(`Added "${file.basename}" to session`);
+									new Notice(`Added "${file.basename}" to "${current.title}"`);
 								});
 						});
 					}
@@ -613,6 +658,8 @@ export default class FlowtiBasePlugin extends Plugin {
 								}).open();
 							});
 					});
+
+					menu.addSeparator();
 				}
 			}),
 		);

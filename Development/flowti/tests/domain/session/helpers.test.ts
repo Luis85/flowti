@@ -16,6 +16,7 @@ import {
 	generateSessionFrontmatter,
 	generateSessionSummaryBody,
 	mergeSessionNotes,
+	createContextBinding,
 } from "../../../src/domain/session/helpers";
 import type { Session, SessionTimelineEntry } from "../../../src/domain/session/types";
 
@@ -45,6 +46,7 @@ function makeSession(overrides: Partial<Session> = {}): Session {
 		canvasFile: null,
 		activity: [],
 		activityFilter: [],
+		contextBindings: [],
 		...overrides,
 	};
 }
@@ -624,13 +626,12 @@ describe("generateSessionSummaryBody", () => {
 		expect(body).toContain("- [ ] Update docs");
 	});
 
-	it("includes links as wikilinks", () => {
+	it("does not include links section (merged into context bindings)", () => {
 		const session = makeSession({
 			links: [{ path: "docs/events.md", addedAt: "2026-02-16T10:00:00.000Z" }],
 		});
 		const body = generateSessionSummaryBody(session);
-		expect(body).toContain("### Links");
-		expect(body).toContain("- [[docs/events.md]]");
+		expect(body).not.toContain("### Links");
 	});
 
 	it("includes artifacts section", () => {
@@ -794,5 +795,34 @@ describe("mergeSessionNotes", () => {
 		expect(result).toContain("---");
 		expect(result).toContain('title: "Fresh"');
 		expect(result).toContain("## Session Summary");
+	});
+});
+
+// ─────────────────────────────────────────────────────────────
+// createContextBinding
+// ─────────────────────────────────────────────────────────────
+
+describe("createContextBinding", () => {
+	it("derives label from folder name", () => {
+		const binding = createContextBinding("id-1", "folder", "src/domain/session/");
+		expect(binding.label).toBe("session");
+	});
+
+	it("derives label from file basename without extension", () => {
+		const binding = createContextBinding("id-2", "file", "src/domain/session/types.ts");
+		expect(binding.label).toBe("types");
+	});
+
+	it("sets boundAt to ISO timestamp", () => {
+		const binding = createContextBinding("id-3", "domain", "src/domain/session/");
+		const parsed = Date.parse(binding.boundAt);
+		expect(Number.isNaN(parsed)).toBe(false);
+		expect(binding.boundAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+	});
+
+	it("preserves type and path", () => {
+		const binding = createContextBinding("id-4", "feature", "src/domain/session/helpers.ts");
+		expect(binding.type).toBe("feature");
+		expect(binding.path).toBe("src/domain/session/helpers.ts");
 	});
 });

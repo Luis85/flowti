@@ -452,6 +452,9 @@ export class UserHubSessions {
 				this.addActionButton(actions, "layout", "Workspace", () => {
 					this.deps.openSessionWorkspace(session.id);
 				});
+				this.addActionButton(actions, "panel-right", "Sidebar", () => {
+					this.deps.openSessionWorkspace(session.id, "sidebar");
+				});
 				// Only show Start when no other session is active
 				if (!state.activeSession) {
 					this.addActionButton(actions, "play", "Start", () => {
@@ -471,6 +474,9 @@ export class UserHubSessions {
 				this.addActionButton(actions, "layout", "Workspace", () => {
 					this.deps.openSessionWorkspace(session.id);
 				});
+				this.addActionButton(actions, "panel-right", "Sidebar", () => {
+					this.deps.openSessionWorkspace(session.id, "sidebar");
+				});
 				this.addActionButton(actions, "pause", "Pause", () => {
 					void eb.emit("session.pause", { sessionId: session.id });
 				});
@@ -485,6 +491,9 @@ export class UserHubSessions {
 			case "paused":
 				this.addActionButton(actions, "layout", "Workspace", () => {
 					this.deps.openSessionWorkspace(session.id);
+				});
+				this.addActionButton(actions, "panel-right", "Sidebar", () => {
+					this.deps.openSessionWorkspace(session.id, "sidebar");
 				});
 				this.addActionButton(actions, "play", "Resume", () => {
 					void eb.emit("session.resume", { sessionId: session.id });

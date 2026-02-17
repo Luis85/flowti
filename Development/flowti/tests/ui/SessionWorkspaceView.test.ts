@@ -30,6 +30,7 @@ function makeSession(overrides?: Partial<Session>): Session {
 		canvasFile: null,
 		activity: [],
 		activityFilter: [],
+		contextBindings: [],
 		...overrides,
 	};
 }
@@ -59,7 +60,8 @@ type MockSessionService = ReturnType<typeof createMockSessionService>;
 
 function createView(eventBus: IEventBus, activeSession: Session | null): { view: SessionWorkspaceView; service: MockSessionService } {
 	const service = createMockSessionService(activeSession);
-	const leaf = { parent: { children: [] as unknown[] } } as never;
+	const mainRoot = {};
+	const leaf = { parent: { children: [] as unknown[] }, getRoot: () => mainRoot } as never;
 	const view = new SessionWorkspaceView(leaf, eventBus, service as never);
 	// Stub ItemView doesn't store leaf — set it manually so openInAdjacentLeaf works
 	(view as unknown as { leaf: unknown }).leaf = leaf;
@@ -75,11 +77,16 @@ function createView(eventBus: IEventBus, activeSession: Session | null): { view:
 	const splitLeaf = { parent: {} } as never;
 
 	// Mock app for workspace interactions
+	const rightSplit = {};
 	(view as unknown as { app: Record<string, unknown> }).app = {
 		workspace: {
 			openLinkText: vi.fn().mockResolvedValue(undefined),
 			setActiveLeaf: vi.fn(),
 			getLeaf: vi.fn(() => splitLeaf),
+			getLeavesOfType: vi.fn(() => []),
+			getRightLeaf: vi.fn(() => splitLeaf),
+			revealLeaf: vi.fn(),
+			rightSplit,
 		},
 	};
 
@@ -607,54 +614,43 @@ describe("SessionWorkspaceView", () => {
 		});
 	});
 
-	describe("artifacts", () => {
-		it("renders artifacts list with file names and action badges", async () => {
+	describe("artifacts section removed (merged into activity)", () => {
+		it("does not render a separate artifacts section", async () => {
 			const session = makeSession({
 				artifacts: [
 					{ path: "src/types.ts", action: "modified", timestamp: new Date().toISOString() },
-					{ path: "src/helpers.ts", action: "created", timestamp: new Date().toISOString() },
 				],
 			});
 			const { view } = createView(eventBus, session);
 			await view.onOpen();
 
 			const content = getContentEl(view);
-			const artifacts = content.querySelectorAll(".ft-artifact-row");
-			expect(artifacts).toHaveLength(2);
-			expect(content.textContent).toContain("types.ts");
-			expect(content.textContent).toContain("modified");
-			expect(content.textContent).toContain("helpers.ts");
-			expect(content.textContent).toContain("created");
+			expect(content.querySelector(".ft-session-workspace-artifacts")).toBeNull();
 		});
 
-		it("renders empty artifacts message when no artifacts", async () => {
-			const session = makeSession({ artifacts: [] });
-			const { view } = createView(eventBus, session);
-			await view.onOpen();
-
-			const content = getContentEl(view);
-			expect(content.textContent).toContain("No artifacts yet");
-		});
-
-		it("session.artifact.added appends to artifact list", async () => {
-			const session = makeSession({ artifacts: [] });
+		it("session.artifact.added refreshes the activity list", async () => {
+			const session = makeSession({
+				activity: [{ timestamp: new Date().toISOString(), action: "created", path: "src/new-file.ts" }],
+			});
 			const { view, service } = createView(eventBus, session);
 			await view.onOpen();
 
-			// Service returns session with new artifact
-			const newArtifact = { path: "src/new-file.ts", action: "created" as const, timestamp: new Date().toISOString() };
-			const updatedSession = makeSession({ artifacts: [newArtifact] });
+			const updatedSession = makeSession({
+				activity: [
+					{ timestamp: new Date().toISOString(), action: "created", path: "src/new-file.ts" },
+					{ timestamp: new Date().toISOString(), action: "modified", path: "src/new-file.ts" },
+				],
+			});
 			service.getSessionById.mockReturnValue(updatedSession);
 
 			await eventBus.emit("session.artifact.added", {
 				sessionId: "session-1",
-				artifact: newArtifact,
+				artifact: { path: "src/new-file.ts", action: "modified" as const, timestamp: new Date().toISOString() },
 			});
 
 			const content = getContentEl(view);
-			const artifacts = content.querySelectorAll(".ft-artifact-row");
-			expect(artifacts).toHaveLength(1);
-			expect(content.textContent).toContain("new-file.ts");
+			const rows = content.querySelectorAll(".ft-activity-row");
+			expect(rows).toHaveLength(2);
 		});
 	});
 
@@ -704,88 +700,15 @@ describe("SessionWorkspaceView", () => {
 		});
 	});
 
-	describe("links", () => {
-		it("renders links section when session has links", async () => {
+	describe("links section removed", () => {
+		it("does not render links section even when session has links", async () => {
 			const session = makeSession({
 				links: [
 					{ path: "docs/events.md", addedAt: "2026-02-16T10:00:00.000Z" },
-					{ path: "docs/services.md", addedAt: "2026-02-16T10:01:00.000Z" },
 				],
 			});
 			const { view } = createView(eventBus, session);
 			await view.onOpen();
-
-			const content = getContentEl(view);
-			const linksSection = content.querySelector(".ft-session-workspace-links");
-			expect(linksSection).not.toBeNull();
-			expect(content.textContent).toContain("Links");
-			expect(content.textContent).toContain("events.md");
-			expect(content.textContent).toContain("services.md");
-		});
-
-		it("does not render links section when no links", async () => {
-			const session = makeSession({ links: [] });
-			const { view } = createView(eventBus, session);
-			await view.onOpen();
-
-			const content = getContentEl(view);
-			expect(content.querySelector(".ft-session-workspace-links")).toBeNull();
-		});
-
-		it("remove button emits session.link.remove", async () => {
-			const session = makeSession({
-				links: [{ path: "docs/events.md", addedAt: "2026-02-16T10:00:00.000Z" }],
-			});
-			const { view } = createView(eventBus, session);
-			await view.onOpen();
-
-			const handler = vi.fn();
-			eventBus.on("session.link.remove", handler);
-
-			const content = getContentEl(view);
-			const removeBtn = content.querySelector(".ft-link-remove") as HTMLElement;
-			removeBtn.click();
-
-			await vi.advanceTimersByTimeAsync(0);
-			expect(handler).toHaveBeenCalledWith(expect.objectContaining({
-				payload: { sessionId: "session-1", path: "docs/events.md" },
-			}));
-		});
-
-		it("session.link.added triggers re-render with new link", async () => {
-			const session = makeSession({ links: [] });
-			const { view, service } = createView(eventBus, session);
-			await view.onOpen();
-
-			const updatedSession = makeSession({
-				links: [{ path: "docs/new.md", addedAt: "2026-02-16T10:05:00.000Z" }],
-			});
-			service.getSessionById.mockReturnValue(updatedSession);
-
-			await eventBus.emit("session.link.added", {
-				sessionId: "session-1",
-				link: { path: "docs/new.md", addedAt: "2026-02-16T10:05:00.000Z" },
-			});
-
-			const content = getContentEl(view);
-			expect(content.querySelector(".ft-session-workspace-links")).not.toBeNull();
-			expect(content.textContent).toContain("new.md");
-		});
-
-		it("session.link.removed triggers re-render without link", async () => {
-			const session = makeSession({
-				links: [{ path: "docs/remove.md", addedAt: "2026-02-16T10:00:00.000Z" }],
-			});
-			const { view, service } = createView(eventBus, session);
-			await view.onOpen();
-
-			const updatedSession = makeSession({ links: [] });
-			service.getSessionById.mockReturnValue(updatedSession);
-
-			await eventBus.emit("session.link.removed", {
-				sessionId: "session-1",
-				path: "docs/remove.md",
-			});
 
 			const content = getContentEl(view);
 			expect(content.querySelector(".ft-session-workspace-links")).toBeNull();
@@ -828,24 +751,6 @@ describe("SessionWorkspaceView", () => {
 
 			const content = getContentEl(view);
 			expect(content.querySelector(".ft-notesfile-link")).not.toBeNull();
-		});
-	});
-
-	describe("clickable artifacts", () => {
-		it("renders artifact names as clickable links", async () => {
-			const session = makeSession({
-				artifacts: [
-					{ path: "src/types.ts", action: "created", timestamp: new Date().toISOString() },
-				],
-			});
-			const { view } = createView(eventBus, session);
-			await view.onOpen();
-
-			const content = getContentEl(view);
-			const link = content.querySelector(".ft-artifact-link") as HTMLAnchorElement;
-			expect(link).not.toBeNull();
-			expect(link.textContent).toBe("types.ts");
-			expect(link.title).toBe("src/types.ts");
 		});
 	});
 
@@ -1089,6 +994,125 @@ describe("SessionWorkspaceView", () => {
 
 			const app = (view as unknown as { app: { workspace: { openLinkText: ReturnType<typeof vi.fn> } } }).app;
 			expect(app.workspace.openLinkText).toHaveBeenCalledWith("src/types.ts", "", false);
+		});
+	});
+
+	describe("context bindings", () => {
+		it("renders context section with count badge", async () => {
+			const session = makeSession({
+				contextBindings: [
+					{ id: "ctx-1", type: "domain" as const, label: "session", path: "src/domain/session/", boundAt: "2026-02-17T10:00:00.000Z" },
+					{ id: "ctx-2", type: "file" as const, label: "types.ts", path: "src/domain/session/types.ts", boundAt: "2026-02-17T10:01:00.000Z" },
+				],
+			});
+			const { view } = createView(eventBus, session);
+			await view.onOpen();
+
+			const content = getContentEl(view);
+			const section = content.querySelector(".ft-session-workspace-context");
+			expect(section).not.toBeNull();
+			expect(section!.textContent).toContain("(2/10)");
+		});
+
+		it("renders empty context message", async () => {
+			const session = makeSession({ contextBindings: [] });
+			const { view } = createView(eventBus, session);
+			await view.onOpen();
+
+			const content = getContentEl(view);
+			expect(content.textContent).toContain("No context bindings");
+		});
+
+		it("renders binding rows with type badge and label", async () => {
+			const session = makeSession({
+				contextBindings: [
+					{ id: "ctx-1", type: "domain" as const, label: "session", path: "src/domain/session/", boundAt: "2026-02-17T10:00:00.000Z" },
+				],
+			});
+			const { view } = createView(eventBus, session);
+			await view.onOpen();
+
+			const content = getContentEl(view);
+			const row = content.querySelector(".ft-context-row");
+			expect(row).not.toBeNull();
+			expect(row!.textContent).toContain("domain");
+			expect(row!.textContent).toContain("session");
+		});
+
+		it("remove button emits session.context.unbind", async () => {
+			const session = makeSession({
+				contextBindings: [
+					{ id: "ctx-1", type: "domain" as const, label: "session", path: "src/domain/session/", boundAt: "2026-02-17T10:00:00.000Z" },
+				],
+			});
+			const { view } = createView(eventBus, session);
+			await view.onOpen();
+
+			const handler = vi.fn();
+			eventBus.on("session.context.unbind", handler);
+
+			const content = getContentEl(view);
+			const removeBtn = content.querySelector(".ft-context-remove") as HTMLElement;
+			removeBtn.click();
+
+			await vi.advanceTimersByTimeAsync(0);
+			expect(handler).toHaveBeenCalledWith(expect.objectContaining({
+				payload: { sessionId: "session-1", bindingId: "ctx-1" },
+			}));
+		});
+
+		it("session.context.bound triggers re-render", async () => {
+			const session = makeSession({ contextBindings: [] });
+			const { view, service } = createView(eventBus, session);
+			await view.onOpen();
+
+			const binding = { id: "ctx-1", type: "domain" as const, label: "session", path: "src/domain/session/", boundAt: "2026-02-17T10:00:00.000Z" };
+			const updatedSession = makeSession({ contextBindings: [binding] });
+			service.getSessionById.mockReturnValue(updatedSession);
+
+			await eventBus.emit("session.context.bound", {
+				sessionId: "session-1",
+				binding,
+			});
+
+			const content = getContentEl(view);
+			const rows = content.querySelectorAll(".ft-context-row");
+			expect(rows).toHaveLength(1);
+			expect(content.textContent).toContain("session");
+		});
+
+		it("session.context.unbound triggers re-render", async () => {
+			const session = makeSession({
+				contextBindings: [
+					{ id: "ctx-1", type: "domain" as const, label: "session", path: "src/domain/session/", boundAt: "2026-02-17T10:00:00.000Z" },
+				],
+			});
+			const { view, service } = createView(eventBus, session);
+			await view.onOpen();
+
+			const updatedSession = makeSession({ contextBindings: [] });
+			service.getSessionById.mockReturnValue(updatedSession);
+
+			await eventBus.emit("session.context.unbound", {
+				sessionId: "session-1",
+				bindingId: "ctx-1",
+			});
+
+			const content = getContentEl(view);
+			const rows = content.querySelectorAll(".ft-context-row");
+			expect(rows).toHaveLength(0);
+			expect(content.textContent).toContain("No context bindings");
+		});
+
+		it("shows Add Context button when under max", async () => {
+			const session = makeSession({ contextBindings: [] });
+			const { view } = createView(eventBus, session);
+			await view.onOpen();
+
+			const content = getContentEl(view);
+			const addBtn = content.querySelector(".ft-context-add") as HTMLElement;
+			expect(addBtn).not.toBeNull();
+			expect(addBtn.textContent).toContain("Add Context");
 		});
 	});
 });

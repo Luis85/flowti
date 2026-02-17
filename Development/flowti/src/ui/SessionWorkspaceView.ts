@@ -8,11 +8,12 @@
  * All mutations go through the EventBus; the view is purely reactive.
  */
 
-import { ItemView, setIcon } from "obsidian";
-import type { WorkspaceLeaf } from "obsidian";
+import { FuzzySuggestModal, ItemView, Notice, setIcon } from "obsidian";
+import type { App, TAbstractFile, WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../infrastructure/events/types";
 import type { SessionService } from "../domain/session/SessionService";
-import type { Session, SessionGoal } from "../domain/session/types";
+import type { ContextBindingType, Session, SessionGoal } from "../domain/session/types";
+import { BINDING_TYPES, MAX_CONTEXT_BINDINGS } from "../domain/session/types";
 import { formatDuration, computeRemainingMs, generateSessionSummary } from "../domain/session/helpers";
 import { SESSION_TYPE_LABELS, SESSION_STATUS_LABELS } from "./userHub/types";
 import { SaveTemplateModal } from "./modals";
@@ -32,9 +33,8 @@ export class SessionWorkspaceView extends ItemView {
 	private timerEl: HTMLElement | null = null;
 	private goalsEl: HTMLElement | null = null;
 	private notesTextarea: HTMLTextAreaElement | null = null;
-	private artifactsEl: HTMLElement | null = null;
 	private activityEl: HTMLElement | null = null;
-	private linksEl: HTMLElement | null = null;
+	private contextBindingsEl: HTMLElement | null = null;
 	private headerStatusEl: HTMLElement | null = null;
 	private actionsEl: HTMLElement | null = null;
 	private goalCountEl: HTMLElement | null = null;
@@ -119,8 +119,7 @@ export class SessionWorkspaceView extends ItemView {
 		this.renderFocusFile(container);
 		this.renderNotesFile(container);
 		this.renderCanvasFile(container);
-		this.renderLinks(container);
-		this.renderArtifacts(container);
+		this.renderContextBindings(container);
 		this.renderActivity(container);
 	}
 
@@ -140,8 +139,7 @@ export class SessionWorkspaceView extends ItemView {
 
 	private renderHeader(container: HTMLElement): void {
 		const session = this.session!;
-		const header = container.createDiv({ cls: "ft-session-workspace-header" });
-		header.style.cssText = "padding:12px 16px;border-bottom:1px solid var(--background-modifier-border);";
+		const header = container.createDiv({ cls: "ft-session-workspace-header ft-section" });
 
 		// Title row
 		const titleRow = header.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
@@ -193,6 +191,13 @@ export class SessionWorkspaceView extends ItemView {
 		this.createActionButton(this.actionsEl, "bookmark", "Save as Template", () => {
 			this.openSaveTemplateModal(session);
 		});
+
+		// Only show "Sidebar" when this view is NOT already in the right sidebar
+		if (this.leaf.getRoot() !== this.app.workspace.rightSplit) {
+			this.createActionButton(this.actionsEl, "panel-right", "Sidebar", () => {
+				this.openInSidebar();
+			});
+		}
 	}
 
 	private createActionButton(parent: HTMLElement, icon: string, label: string, onClick: () => void): void {
@@ -204,10 +209,119 @@ export class SessionWorkspaceView extends ItemView {
 		btn.addEventListener("click", onClick);
 	}
 
+	// ── Context Bindings ────────────────────────────────────
+
+	private renderContextBindings(container: HTMLElement): void {
+		const session = this.session!;
+		const section = container.createDiv({ cls: "ft-session-workspace-context ft-section" });
+
+		const headerRow = section.createDiv();
+		headerRow.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:8px;";
+		headerRow.createEl("strong", { text: "Context" });
+		headerRow.createEl("span", {
+			text: `(${session.contextBindings.length}/${MAX_CONTEXT_BINDINGS})`,
+			cls: "ft-text-muted",
+		}).style.cssText = "color:var(--text-muted);font-size:12px;";
+
+		this.contextBindingsEl = section.createDiv({ cls: "ft-context-bindings-list" });
+		this.renderContextBindingsList();
+
+		if (session.contextBindings.length < MAX_CONTEXT_BINDINGS) {
+			const addBtn = section.createEl("button", { text: "Add Context", cls: "ft-context-add" });
+			addBtn.style.cssText = "display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:13px;margin-top:8px;background:var(--interactive-normal);border:1px solid var(--background-modifier-border);color:var(--text-normal);";
+			const iconEl = addBtn.createSpan();
+			setIcon(iconEl, "plus");
+			addBtn.prepend(iconEl);
+			addBtn.addEventListener("click", () => {
+				this.openContextBindingPicker(addBtn);
+			});
+		}
+	}
+
+	private renderContextBindingsList(): void {
+		if (!this.contextBindingsEl || !this.session) return;
+		this.contextBindingsEl.empty();
+
+		if (this.session.contextBindings.length === 0) {
+			this.contextBindingsEl.createDiv({ text: "No context bindings", cls: "ft-text-muted ft-text-sm" })
+				.style.cssText = "color:var(--text-muted);font-size:12px;padding:4px 0;";
+			return;
+		}
+
+		for (const binding of this.session.contextBindings) {
+			const row = this.contextBindingsEl.createDiv({ cls: "ft-context-row" });
+			row.style.cssText = "display:flex;align-items:center;gap:8px;padding:3px 0;";
+
+			const badge = row.createEl("span", { text: binding.type, cls: "ft-context-badge" });
+			badge.style.cssText = "background:var(--background-modifier-hover);padding:1px 6px;border-radius:3px;font-size:11px;color:var(--text-muted);cursor:pointer;user-select:none;";
+			badge.title = "Click to change type";
+			badge.addEventListener("click", () => {
+				const currentIdx = BINDING_TYPES.indexOf(binding.type);
+				const nextType = BINDING_TYPES[(currentIdx + 1) % BINDING_TYPES.length];
+				void this.eventBus.emit("session.context.changeType", {
+					sessionId: this.session!.id,
+					bindingId: binding.id,
+					type: nextType,
+				});
+			});
+
+			const anchor = row.createEl("a", { text: binding.label, cls: "ft-context-link" });
+			anchor.title = binding.path;
+			anchor.style.cssText = "cursor:pointer;text-decoration:underline;color:var(--text-accent);flex:1;";
+			anchor.addEventListener("click", (e) => {
+				e.preventDefault();
+				if (binding.type === "folder") {
+					this.revealInFileExplorer(binding.path);
+				} else {
+					this.openInAdjacentLeaf(binding.path);
+				}
+			});
+
+			const removeBtn = row.createEl("button", { cls: "ft-context-remove clickable-icon" });
+			removeBtn.style.cssText = "background:none;border:none;cursor:pointer;padding:2px;opacity:0.5;color:var(--text-muted);";
+			setIcon(removeBtn, "x");
+			removeBtn.addEventListener("click", () => {
+				void this.eventBus.emit("session.context.unbind", {
+					sessionId: this.session!.id,
+					bindingId: binding.id,
+				});
+			});
+		}
+	}
+
+	private openContextBindingPicker(triggerBtn?: HTMLButtonElement): void {
+		const items = this.app.vault.getAllLoadedFiles();
+		const choices: Array<{ path: string; type: ContextBindingType }> = [];
+
+		for (const item of items) {
+			if ("children" in item && item.path) {
+				choices.push({ path: item.path + "/", type: "folder" });
+			} else if ("extension" in item) {
+				choices.push({ path: (item as TAbstractFile).path, type: "file" });
+			}
+		}
+
+		choices.sort((a, b) => a.path.localeCompare(b.path));
+
+		new ContextBindingPickerModal(this.app, choices, (choice) => {
+			void this.eventBus.emit("session.context.bind", {
+				sessionId: this.session!.id,
+				path: choice.path,
+				type: choice.type,
+			});
+			const name = choice.path.replace(/\/$/, "").split("/").pop() ?? choice.path;
+			if (triggerBtn) {
+				triggerBtn.setText(`Added "${name}"`);
+				triggerBtn.disabled = true;
+			}
+			new Notice(`Added "${name}" as ${choice.type} context`);
+		}).open();
+	}
+
 	private renderTimer(container: HTMLElement): void {
 		const session = this.session!;
-		const section = container.createDiv({ cls: "ft-session-workspace-timer" });
-		section.style.cssText = "text-align:center;padding:16px;border-bottom:1px solid var(--background-modifier-border);";
+		const section = container.createDiv({ cls: "ft-session-workspace-timer ft-section" });
+		section.style.cssText = "text-align:center;";
 
 		this.timerEl = section.createDiv({ cls: "ft-timer-display" });
 		this.timerEl.style.cssText = "font-size:36px;font-weight:700;font-family:var(--font-monospace);letter-spacing:2px;";
@@ -241,8 +355,7 @@ export class SessionWorkspaceView extends ItemView {
 
 	private renderGoals(container: HTMLElement): void {
 		const session = this.session!;
-		const section = container.createDiv({ cls: "ft-session-workspace-goals" });
-		section.style.cssText = "padding:12px 16px;border-bottom:1px solid var(--background-modifier-border);";
+		const section = container.createDiv({ cls: "ft-session-workspace-goals ft-section" });
 
 		const headerRow = section.createDiv();
 		headerRow.style.cssText = "display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;";
@@ -301,8 +414,7 @@ export class SessionWorkspaceView extends ItemView {
 
 	private renderNotes(container: HTMLElement): void {
 		const session = this.session!;
-		const section = container.createDiv({ cls: "ft-session-workspace-notes" });
-		section.style.cssText = "padding:12px 16px;border-bottom:1px solid var(--background-modifier-border);";
+		const section = container.createDiv({ cls: "ft-session-workspace-notes ft-section" });
 
 		section.createEl("strong", { text: "Notes" }).style.cssText = "display:block;margin-bottom:8px;";
 
@@ -320,8 +432,8 @@ export class SessionWorkspaceView extends ItemView {
 		const session = this.session!;
 		if (!session.notesFile) return;
 
-		const section = container.createDiv({ cls: "ft-session-workspace-notesfile" });
-		section.style.cssText = "padding:8px 16px;border-bottom:1px solid var(--background-modifier-border);display:flex;align-items:center;gap:8px;";
+		const section = container.createDiv({ cls: "ft-session-workspace-notesfile ft-section" });
+		section.style.cssText = "display:flex;align-items:center;gap:8px;";
 
 		const iconEl = section.createSpan();
 		setIcon(iconEl, "file-text");
@@ -347,7 +459,11 @@ export class SessionWorkspaceView extends ItemView {
 			if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
 				await this.app.vault.createFolder(folder);
 			}
-			await this.app.vault.create(path, generateSessionSummary(session));
+			try {
+				await this.app.vault.create(path, generateSessionSummary(session));
+			} catch {
+				// File already exists on disk — proceed to open
+			}
 		}
 
 		this.openInAdjacentLeaf(path);
@@ -356,8 +472,8 @@ export class SessionWorkspaceView extends ItemView {
 	private renderCanvasFile(container: HTMLElement): void {
 		const session = this.session!;
 
-		const section = container.createDiv({ cls: "ft-session-workspace-canvas" });
-		section.style.cssText = "padding:8px 16px;border-bottom:1px solid var(--background-modifier-border);display:flex;align-items:center;gap:8px;";
+		const section = container.createDiv({ cls: "ft-session-workspace-canvas ft-section" });
+		section.style.cssText = "display:flex;align-items:center;gap:8px;";
 
 		if (session.canvasFile) {
 			const iconEl = section.createSpan();
@@ -380,6 +496,8 @@ export class SessionWorkspaceView extends ItemView {
 			setIcon(iconEl, "layout-dashboard");
 			btn.prepend(iconEl);
 			btn.addEventListener("click", () => {
+				btn.setText("Creating...");
+				btn.disabled = true;
 				void this.createAndLinkCanvas(session);
 			});
 		}
@@ -387,10 +505,11 @@ export class SessionWorkspaceView extends ItemView {
 
 	private async createAndLinkCanvas(session: Session): Promise<void> {
 		const safeName = session.title.replace(/[\\/:*?"<>|]/g, "-");
+		const shortId = session.id.slice(-6);
 		const folder = session.notesFile
 			? session.notesFile.substring(0, session.notesFile.lastIndexOf("/"))
 			: "03 - Resources/Sessions";
-		const path = `${folder}/${safeName}.canvas`;
+		const path = `${folder}/${safeName} (${shortId}).canvas`;
 
 		// Create canvas file if it doesn't exist
 		const exists = this.app.vault.getAbstractFileByPath(path);
@@ -398,11 +517,16 @@ export class SessionWorkspaceView extends ItemView {
 			if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
 				await this.app.vault.createFolder(folder);
 			}
-			await this.app.vault.create(path, '{\n\t"nodes":[],\n\t"edges":[]\n}');
+			try {
+				await this.app.vault.create(path, '{\n\t"nodes":[],\n\t"edges":[]\n}');
+			} catch {
+				// File already exists on disk — proceed to open
+			}
 		}
 
 		// Set canvas file on session
 		void this.eventBus.emit("session.canvasFile.set", { sessionId: session.id, path });
+		new Notice(`Canvas created: ${path.split("/").pop()}`);
 
 		// Auto-link canvas in the notes file
 		if (session.notesFile) {
@@ -413,16 +537,22 @@ export class SessionWorkspaceView extends ItemView {
 	}
 
 	private async appendCanvasLinkToNotes(notesPath: string, canvasPath: string): Promise<void> {
-		const file = this.app.vault.getAbstractFileByPath(notesPath);
+		let file = this.app.vault.getAbstractFileByPath(notesPath);
 		if (!file) {
 			// Notes file doesn't exist yet — create it with canvas link
 			const folder = notesPath.substring(0, notesPath.lastIndexOf("/"));
 			if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
 				await this.app.vault.createFolder(folder);
 			}
-			const title = this.session?.title ?? "Session";
-			await this.app.vault.create(notesPath, `# ${title}\n\n## Canvas\n![[${canvasPath}]]\n`);
-			return;
+			try {
+				const title = this.session?.title ?? "Session";
+				await this.app.vault.create(notesPath, `# ${title}\n\n## Canvas\n![[${canvasPath}]]\n`);
+				return;
+			} catch {
+				// File exists on disk but not in cache — fall through to append
+				file = this.app.vault.getAbstractFileByPath(notesPath);
+				if (!file) return;
+			}
 		}
 		// File exists — append canvas embed if not already present
 		const existing = await this.app.vault.read(file as import("obsidian").TFile);
@@ -448,8 +578,8 @@ export class SessionWorkspaceView extends ItemView {
 		const session = this.session!;
 		if (!session.focusFile) return;
 
-		const section = container.createDiv({ cls: "ft-session-workspace-focus" });
-		section.style.cssText = "padding:12px 16px;border-bottom:1px solid var(--background-modifier-border);display:flex;align-items:center;gap:8px;";
+		const section = container.createDiv({ cls: "ft-session-workspace-focus ft-section" });
+		section.style.cssText = "display:flex;align-items:center;gap:8px;";
 
 		const iconEl = section.createSpan();
 		setIcon(iconEl, "file-text");
@@ -464,57 +594,6 @@ export class SessionWorkspaceView extends ItemView {
 		});
 	}
 
-	private renderLinks(container: HTMLElement): void {
-		const session = this.session!;
-		if (!session.links || session.links.length === 0) return;
-
-		const section = container.createDiv({ cls: "ft-session-workspace-links" });
-		section.style.cssText = "padding:12px 16px;border-bottom:1px solid var(--background-modifier-border);";
-
-		const headerRow = section.createDiv();
-		headerRow.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:8px;";
-		headerRow.createEl("strong", { text: "Links" });
-		headerRow.createEl("span", {
-			text: `(${session.links.length})`,
-			cls: "ft-text-muted",
-		}).style.cssText = "color:var(--text-muted);font-size:12px;";
-
-		this.linksEl = section.createDiv({ cls: "ft-links-list" });
-		this.renderLinksList();
-	}
-
-	private renderLinksList(): void {
-		if (!this.linksEl || !this.session) return;
-		this.linksEl.empty();
-
-		for (const link of this.session.links) {
-			const row = this.linksEl.createDiv({ cls: "ft-link-row" });
-			row.style.cssText = "display:flex;align-items:center;gap:8px;padding:3px 0;";
-
-			const iconEl = row.createSpan();
-			setIcon(iconEl, "file-text");
-
-			const name = link.path.split("/").pop() ?? link.path;
-			const anchor = row.createEl("a", { text: name, cls: "ft-link" });
-			anchor.title = link.path;
-			anchor.style.cssText = "cursor:pointer;text-decoration:underline;color:var(--text-accent);flex:1;";
-			anchor.addEventListener("click", (e) => {
-				e.preventDefault();
-				this.openInAdjacentLeaf(link.path);
-			});
-
-			const removeBtn = row.createEl("button", { cls: "ft-link-remove" });
-			removeBtn.style.cssText = "background:none;border:none;cursor:pointer;padding:2px;opacity:0.5;color:var(--text-muted);";
-			setIcon(removeBtn, "x");
-			removeBtn.addEventListener("click", () => {
-				void this.eventBus.emit("session.link.remove", {
-					sessionId: this.session!.id,
-					path: link.path,
-				});
-			});
-		}
-	}
-
 	private openSaveTemplateModal(session: Session): void {
 		new SaveTemplateModal(this.app, {
 			sessionTitle: session.title,
@@ -526,59 +605,9 @@ export class SessionWorkspaceView extends ItemView {
 		}).open();
 	}
 
-	private renderArtifacts(container: HTMLElement): void {
-		const session = this.session!;
-		const section = container.createDiv({ cls: "ft-session-workspace-artifacts" });
-		section.style.cssText = "padding:12px 16px;border-bottom:1px solid var(--background-modifier-border);";
-
-		const headerRow = section.createDiv();
-		headerRow.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:8px;";
-		headerRow.createEl("strong", { text: "Artifacts" });
-		headerRow.createEl("span", {
-			text: `(${session.artifacts.length})`,
-			cls: "ft-text-muted",
-		}).style.cssText = "color:var(--text-muted);font-size:12px;";
-
-		this.artifactsEl = section.createDiv({ cls: "ft-artifacts-list" });
-		this.renderArtifactsList();
-	}
-
-	private renderArtifactsList(): void {
-		if (!this.artifactsEl || !this.session) return;
-		this.artifactsEl.empty();
-
-		if (this.session.artifacts.length === 0) {
-			this.artifactsEl.createDiv({ text: "No artifacts yet", cls: "ft-text-muted ft-text-sm" }).style.cssText = "color:var(--text-muted);font-size:12px;padding:4px 0;";
-			return;
-		}
-
-		for (const artifact of this.session.artifacts) {
-			const row = this.artifactsEl.createDiv({ cls: "ft-artifact-row" });
-			row.style.cssText = "display:flex;align-items:center;gap:8px;padding:3px 0;";
-
-			const iconEl = row.createSpan();
-			setIcon(iconEl, artifact.action === "created" ? "file-plus" : "file-edit");
-
-			const name = artifact.path.split("/").pop() ?? artifact.path;
-			const link = row.createEl("a", { text: name, cls: "ft-artifact-link" });
-			link.title = artifact.path;
-			link.style.cssText = "cursor:pointer;text-decoration:underline;color:var(--text-accent);";
-			link.addEventListener("click", (e) => {
-				e.preventDefault();
-				this.openInAdjacentLeaf(artifact.path);
-			});
-
-			row.createEl("span", {
-				text: artifact.action,
-				cls: "ft-badge",
-			}).style.cssText = "background:var(--background-modifier-hover);padding:1px 6px;border-radius:3px;font-size:11px;color:var(--text-muted);";
-		}
-	}
-
 	private renderActivity(container: HTMLElement): void {
 		const session = this.session!;
-		const section = container.createDiv({ cls: "ft-session-workspace-activity" });
-		section.style.cssText = "padding:12px 16px;";
+		const section = container.createDiv({ cls: "ft-session-workspace-activity ft-section" });
 
 		const headerRow = section.createDiv();
 		headerRow.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:8px;";
@@ -744,12 +773,12 @@ export class SessionWorkspaceView extends ItemView {
 			}),
 		);
 
-		// Artifact added — refresh from service and re-render
+		// Artifact added — refresh activity log (artifacts are shown in the activity list)
 		this.unsubscribes.push(
 			this.eventBus.on("session.artifact.added", (event) => {
 				if (event.payload.sessionId === this.session?.id) {
 					this.session = this.refreshSession();
-					this.renderArtifactsList();
+					this.renderActivityList();
 				}
 			}),
 		);
@@ -774,9 +803,9 @@ export class SessionWorkspaceView extends ItemView {
 			}),
 		);
 
-		// Link added/removed — full re-render (section may appear/disappear)
+		// Context binding added/removed/changed — full re-render
 		this.unsubscribes.push(
-			this.eventBus.on("session.link.added", (event) => {
+			this.eventBus.on("session.context.bound", (event) => {
 				if (event.payload.sessionId === this.session?.id) {
 					this.session = this.refreshSession();
 					this.render();
@@ -784,7 +813,15 @@ export class SessionWorkspaceView extends ItemView {
 			}),
 		);
 		this.unsubscribes.push(
-			this.eventBus.on("session.link.removed", (event) => {
+			this.eventBus.on("session.context.unbound", (event) => {
+				if (event.payload.sessionId === this.session?.id) {
+					this.session = this.refreshSession();
+					this.render();
+				}
+			}),
+		);
+		this.unsubscribes.push(
+			this.eventBus.on("session.context.typeChanged", (event) => {
 				if (event.payload.sessionId === this.session?.id) {
 					this.session = this.refreshSession();
 					this.render();
@@ -840,6 +877,34 @@ export class SessionWorkspaceView extends ItemView {
 	 * Opens a file in an adjacent split leaf, reusing an existing one if available.
 	 * Avoids replacing the workspace view itself.
 	 */
+	private openInSidebar(): void {
+		if (!this.session) return;
+		this.sessionService.workspaceSessionId = this.session.id;
+		// Defer to next tick so the browser can process mouseup / cursor reset
+		// before the heavy sidebar + view instantiation runs.
+		setTimeout(() => {
+			const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_SESSION_WORKSPACE)
+				.find((l) => l.getRoot() === this.app.workspace.rightSplit);
+			const leaf = existing ?? this.app.workspace.getRightLeaf(false);
+			if (leaf) {
+				void leaf.setViewState({ type: VIEW_TYPE_SESSION_WORKSPACE, active: true });
+				this.app.workspace.revealLeaf(leaf);
+			}
+		}, 0);
+	}
+
+	private revealInFileExplorer(path: string): void {
+		const cleanPath = path.replace(/\/$/, "");
+		const folder = this.app.vault.getAbstractFileByPath(cleanPath);
+		if (!folder) return;
+
+		const explorers = this.app.workspace.getLeavesOfType("file-explorer");
+		if (explorers.length > 0) {
+			(explorers[0].view as unknown as { revealInFolder: (f: TAbstractFile) => void }).revealInFolder(folder);
+			this.app.workspace.revealLeaf(explorers[0]);
+		}
+	}
+
 	private openInAdjacentLeaf(path: string): void {
 		// Reuse our tracked leaf if still attached, otherwise create a new split
 		if (!this.adjacentLeaf || !this.adjacentLeaf.parent) {
@@ -885,5 +950,38 @@ export class SessionWorkspaceView extends ItemView {
 		if (this.timerEl) {
 			this.timerEl.textContent = formatDuration(remainingMs);
 		}
+	}
+}
+
+// ─────────────────────────────────────────────────────────────
+// Picker modal (private to this module)
+// ─────────────────────────────────────────────────────────────
+
+interface ContextPickerChoice {
+	path: string;
+	type: ContextBindingType;
+}
+
+class ContextBindingPickerModal extends FuzzySuggestModal<ContextPickerChoice> {
+	private choices: ContextPickerChoice[];
+	private onChoose: (choice: ContextPickerChoice) => void;
+
+	constructor(app: App, choices: ContextPickerChoice[], onChoose: (choice: ContextPickerChoice) => void) {
+		super(app);
+		this.choices = choices;
+		this.onChoose = onChoose;
+		this.setPlaceholder("Search for a file or folder to bind...");
+	}
+
+	getItems(): ContextPickerChoice[] {
+		return this.choices;
+	}
+
+	getItemText(item: ContextPickerChoice): string {
+		return item.path;
+	}
+
+	onChooseItem(item: ContextPickerChoice): void {
+		this.onChoose(item);
 	}
 }

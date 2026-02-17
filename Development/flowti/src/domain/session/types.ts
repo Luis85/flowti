@@ -96,6 +96,21 @@ export interface SessionLink {
 	addedAt: string; // ISO 8601
 }
 
+/** Type of context binding attached to a session. */
+export type ContextBindingType = "domain" | "feature" | "product" | "file" | "folder";
+
+/** Ordered list used for cycling through binding types in the UI. */
+export const BINDING_TYPES: readonly ContextBindingType[] = ["file", "folder", "domain", "feature", "product"];
+
+/** A context binding attached to a session workspace. */
+export interface SessionContextBinding {
+	id: string;
+	type: ContextBindingType;
+	label: string;
+	path: string;
+	boundAt: string; // ISO 8601
+}
+
 /** A time-boxed documentation session. */
 export interface Session {
 	id: string;
@@ -131,6 +146,8 @@ export interface Session {
 	activity: SessionActivity[];
 	/** Per-session folder paths excluded from the activity log (see ADR-026). */
 	activityFilter: string[];
+	/** Context bindings scoping this session to vault entities. */
+	contextBindings: SessionContextBinding[];
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -179,6 +196,9 @@ export const MAX_SESSION_ACTIVITY = 1000;
 
 /** Deduplication window for activity tracking (ms). */
 export const ACTIVITY_DEDUP_WINDOW_MS = 1000;
+
+/** Maximum number of context bindings per session. */
+export const MAX_CONTEXT_BINDINGS = 10;
 
 /** Vault folder where session notes (persistent markdown files) are stored. */
 export const SESSION_NOTES_FOLDER = "03 - Resources/Sessions";

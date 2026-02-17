@@ -4,7 +4,7 @@ import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { SessionService } from "../../../src/domain/session/SessionService";
 import type { ITypedStorage } from "../../../src/utils/TypedStorage";
 import type { Session, SessionState, SessionTemplate } from "../../../src/domain/session/types";
-import { MAX_SESSIONS, MAX_TEMPLATES } from "../../../src/domain/session/types";
+import { MAX_SESSIONS, MAX_TEMPLATES, MAX_CONTEXT_BINDINGS } from "../../../src/domain/session/types";
 import { generateRerunTitle } from "../../../src/domain/session/SessionService";
 import { createMockStorage } from "../../mocks/storage";
 
@@ -30,6 +30,7 @@ function makeSession(overrides: Partial<Session> = {}): Session {
 		canvasFile: null,
 		activity: [],
 		activityFilter: [],
+		contextBindings: [],
 		...overrides,
 	};
 }
@@ -193,7 +194,7 @@ describe("SessionService", () => {
 			expect(service.getCurrentSession()?.id).toBe("s1");
 		});
 
-		it("should prefer active session over workspace session", async () => {
+		it("should prefer workspace session over active session", async () => {
 			const state: SessionState = {
 				sessions: [
 					makeSession({ id: "s1", status: "active", startedAt: new Date().toISOString() }),
@@ -207,7 +208,7 @@ describe("SessionService", () => {
 			await service.load();
 			service.workspaceSessionId = "s2";
 
-			expect(service.getCurrentSession()?.id).toBe("s1");
+			expect(service.getCurrentSession()?.id).toBe("s2");
 		});
 
 		it("should return null when no active or workspace session", async () => {
@@ -288,7 +289,7 @@ describe("SessionService", () => {
 				durationMinutes: 25,
 			});
 
-			expect(service.getSessions()[0].notesFile).toBe("03 - Resources/Sessions/Sprint Planning.md");
+			expect(service.getSessions()[0].notesFile).toMatch(/^03 - Resources\/Sessions\/Sprint Planning \([a-f0-9]{6}\)\.md$/);
 		});
 
 		it("should sanitize special characters in notesFile path", async () => {
@@ -299,7 +300,7 @@ describe("SessionService", () => {
 				durationMinutes: 25,
 			});
 
-			expect(service.getSessions()[0].notesFile).toBe("03 - Resources/Sessions/Sprint- Review-Test.md");
+			expect(service.getSessions()[0].notesFile).toMatch(/^03 - Resources\/Sessions\/Sprint- Review-Test \([a-f0-9]{6}\)\.md$/);
 		});
 
 		it("should evict oldest when exceeding MAX_SESSIONS", async () => {
@@ -2043,6 +2044,225 @@ describe("SessionService", () => {
 			await freshService.load();
 			const loaded = freshService.getSessions().find((s) => s.id === "legacy-links");
 			expect(loaded!.links).toEqual([]);
+			freshService.dispose();
+		});
+	});
+
+	// ── Link → Context Binding Migration ───────────────────
+
+	describe("link → context binding migration", () => {
+		it("should migrate links to context bindings on load", async () => {
+			const sessionWithLinks = makeSession({
+				id: "migrate-links",
+				links: [
+					{ path: "docs/events.md", addedAt: "2026-02-16T10:00:00.000Z" },
+					{ path: "docs/services.md", addedAt: "2026-02-16T10:01:00.000Z" },
+				],
+				contextBindings: [],
+			});
+			await storage.save({
+				sessions: [sessionWithLinks],
+				activeSessionId: null,
+				savedTemplates: [],
+			});
+
+			const freshService = new SessionService({ storage, eventBus });
+			await freshService.load();
+			const loaded = freshService.getSessions().find((s) => s.id === "migrate-links");
+			expect(loaded!.links).toEqual([]);
+			expect(loaded!.contextBindings).toHaveLength(2);
+			expect(loaded!.contextBindings[0].path).toBe("docs/events.md");
+			expect(loaded!.contextBindings[0].type).toBe("file");
+			expect(loaded!.contextBindings[0].label).toBe("events");
+			expect(loaded!.contextBindings[1].path).toBe("docs/services.md");
+			expect(loaded!.contextBindings[1].label).toBe("services");
+			freshService.dispose();
+		});
+
+		it("should not duplicate when link path already exists as binding", async () => {
+			const sessionWithBoth = makeSession({
+				id: "dedup-migration",
+				links: [{ path: "docs/events.md", addedAt: "2026-02-16T10:00:00.000Z" }],
+				contextBindings: [{
+					id: "ctx_existing",
+					type: "file",
+					label: "events",
+					path: "docs/events.md",
+					boundAt: "2026-02-16T09:00:00.000Z",
+				}],
+			});
+			await storage.save({
+				sessions: [sessionWithBoth],
+				activeSessionId: null,
+				savedTemplates: [],
+			});
+
+			const freshService = new SessionService({ storage, eventBus });
+			await freshService.load();
+			const loaded = freshService.getSessions().find((s) => s.id === "dedup-migration");
+			expect(loaded!.links).toEqual([]);
+			expect(loaded!.contextBindings).toHaveLength(1);
+			freshService.dispose();
+		});
+
+		it("should persist migration via saveState", async () => {
+			const sessionWithLinks = makeSession({
+				id: "persist-migration",
+				links: [{ path: "docs/a.md", addedAt: "2026-02-16T10:00:00.000Z" }],
+				contextBindings: [],
+			});
+			await storage.save({
+				sessions: [sessionWithLinks],
+				activeSessionId: null,
+				savedTemplates: [],
+			});
+			(storage.save as ReturnType<typeof vi.fn>).mockClear();
+
+			const freshService = new SessionService({ storage, eventBus });
+			await freshService.load();
+			expect(storage.save).toHaveBeenCalled();
+			freshService.dispose();
+		});
+	});
+
+	// ── Context Bindings ───────────────────────────────────
+
+	describe("context bindings", () => {
+		let sessionId: string;
+
+		beforeEach(async () => {
+			await service.load();
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await eventBus.emit("session.create", {
+				type: "event-storming",
+				title: "Context Test",
+				durationMinutes: 25,
+			});
+			sessionId = handler.mock.calls[0][0].payload.session.id;
+		});
+
+		it("should bind a context to a session", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.context.bound", handler);
+
+			await eventBus.emit("session.context.bind", { sessionId, path: "docs/domain/orders", type: "domain" });
+
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: expect.objectContaining({
+						sessionId,
+						binding: expect.objectContaining({
+							path: "docs/domain/orders",
+							type: "domain",
+						}),
+					}),
+				}),
+			);
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			expect(session!.contextBindings).toHaveLength(1);
+		});
+
+		it("should deduplicate bindings by path", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.context.bound", handler);
+
+			await eventBus.emit("session.context.bind", { sessionId, path: "docs/domain/orders", type: "domain" });
+			await eventBus.emit("session.context.bind", { sessionId, path: "docs/domain/orders", type: "feature" });
+
+			expect(handler).toHaveBeenCalledTimes(1);
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			expect(session!.contextBindings).toHaveLength(1);
+		});
+
+		it("should enforce max 10 bindings", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.context.bound", handler);
+
+			for (let i = 0; i < MAX_CONTEXT_BINDINGS; i++) {
+				await eventBus.emit("session.context.bind", { sessionId, path: `docs/ctx-${i}`, type: "file" });
+			}
+			expect(handler).toHaveBeenCalledTimes(MAX_CONTEXT_BINDINGS);
+
+			// 11th binding should be rejected
+			handler.mockClear();
+			await eventBus.emit("session.context.bind", { sessionId, path: "docs/ctx-overflow", type: "file" });
+			expect(handler).not.toHaveBeenCalled();
+
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			expect(session!.contextBindings).toHaveLength(MAX_CONTEXT_BINDINGS);
+		});
+
+		it("should unbind a context", async () => {
+			const boundHandler = vi.fn();
+			eventBus.on("session.context.bound", boundHandler);
+			await eventBus.emit("session.context.bind", { sessionId, path: "docs/domain/orders", type: "domain" });
+			const bindingId = boundHandler.mock.calls[0][0].payload.binding.id;
+
+			const unboundHandler = vi.fn();
+			eventBus.on("session.context.unbound", unboundHandler);
+			await eventBus.emit("session.context.unbind", { sessionId, bindingId });
+
+			expect(unboundHandler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: { sessionId, bindingId },
+				}),
+			);
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			expect(session!.contextBindings).toHaveLength(0);
+		});
+
+		it("should ignore unbind for non-existent binding", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.context.unbound", handler);
+			await eventBus.emit("session.context.unbind", { sessionId, bindingId: "nonexistent" });
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("should ignore bind for non-existent session", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.context.bound", handler);
+			await eventBus.emit("session.context.bind", { sessionId: "nonexistent", path: "docs/test", type: "file" });
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("should change binding type", async () => {
+			const boundHandler = vi.fn();
+			eventBus.on("session.context.bound", boundHandler);
+			await eventBus.emit("session.context.bind", { sessionId, path: "docs/domain/orders", type: "domain" });
+			const bindingId = boundHandler.mock.calls[0][0].payload.binding.id;
+
+			const changedHandler = vi.fn();
+			eventBus.on("session.context.typeChanged", changedHandler);
+			await eventBus.emit("session.context.changeType", { sessionId, bindingId, type: "feature" });
+
+			expect(changedHandler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: { sessionId, bindingId, type: "feature" },
+				}),
+			);
+			const session = service.getSessions().find((s) => s.id === sessionId);
+			const binding = session!.contextBindings.find((b) => b.id === bindingId);
+			expect(binding!.type).toBe("feature");
+		});
+	});
+
+	// ── Backward Compatibility — Context Bindings ──────────
+
+	describe("backward compat — context bindings", () => {
+		it("should initialize contextBindings array for legacy sessions", async () => {
+			const legacySession = makeSession({ id: "legacy-ctx" }) as unknown as Record<string, unknown>;
+			delete legacySession.contextBindings;
+			await storage.save({
+				sessions: [legacySession as unknown as Session],
+				activeSessionId: null,
+				savedTemplates: [],
+			});
+
+			const freshService = new SessionService({ storage, eventBus });
+			await freshService.load();
+			const loaded = freshService.getSessions().find((s) => s.id === "legacy-ctx");
+			expect(loaded!.contextBindings).toEqual([]);
 			freshService.dispose();
 		});
 	});

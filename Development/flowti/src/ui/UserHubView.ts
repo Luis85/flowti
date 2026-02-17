@@ -155,14 +155,26 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 				}
 				this.navigateTo("inbox");
 			},
-			openSessionWorkspace: (sessionId?: string) => {
+			openSessionWorkspace: (sessionId?: string, location?: "tab" | "sidebar") => {
 				if (sessionId) {
 					this.sessionService.workspaceSessionId = sessionId;
 				}
-				void this.app.workspace.getLeaf("tab").setViewState({
-					type: VIEW_TYPE_SESSION_WORKSPACE,
-					active: true,
-				});
+				if (location === "sidebar") {
+					setTimeout(() => {
+						const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_SESSION_WORKSPACE)
+							.find((l) => l.getRoot() === this.app.workspace.rightSplit);
+						const leaf = existing ?? this.app.workspace.getRightLeaf(false);
+						if (leaf) {
+							void leaf.setViewState({ type: VIEW_TYPE_SESSION_WORKSPACE, active: true });
+							this.app.workspace.revealLeaf(leaf);
+						}
+					}, 0);
+				} else {
+					void this.app.workspace.getLeaf("tab").setViewState({
+						type: VIEW_TYPE_SESSION_WORKSPACE,
+						active: true,
+					});
+				}
 			},
 		});
 
@@ -296,14 +308,26 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 					},
 				}).open();
 			},
-			openSessionWorkspace: (sessionId?: string) => {
+			openSessionWorkspace: (sessionId?: string, location?: "tab" | "sidebar") => {
 				if (sessionId) {
 					this.sessionService.workspaceSessionId = sessionId;
 				}
-				void this.app.workspace.getLeaf("tab").setViewState({
-					type: VIEW_TYPE_SESSION_WORKSPACE,
-					active: true,
-				});
+				if (location === "sidebar") {
+					setTimeout(() => {
+						const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_SESSION_WORKSPACE)
+							.find((l) => l.getRoot() === this.app.workspace.rightSplit);
+						const leaf = existing ?? this.app.workspace.getRightLeaf(false);
+						if (leaf) {
+							void leaf.setViewState({ type: VIEW_TYPE_SESSION_WORKSPACE, active: true });
+							this.app.workspace.revealLeaf(leaf);
+						}
+					}, 0);
+				} else {
+					void this.app.workspace.getLeaf("tab").setViewState({
+						type: VIEW_TYPE_SESSION_WORKSPACE,
+						active: true,
+					});
+				}
 			},
 		};
 	}

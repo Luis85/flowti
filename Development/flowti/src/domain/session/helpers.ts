@@ -4,7 +4,7 @@
  * All functions are side-effect free and trivially testable.
  */
 
-import type { Session, SessionGoal, SessionType, PauseSegment, TimelineSummary } from "./types";
+import type { ContextBindingType, Session, SessionContextBinding, SessionGoal, SessionType, PauseSegment, TimelineSummary } from "./types";
 
 // ── Activity filtering (ADR-026) ─────────────────────────────
 
@@ -92,7 +92,22 @@ export function createSession(
 		canvasFile: null,
 		activity: [],
 		activityFilter: [],
+		contextBindings: [],
 	};
+}
+
+/**
+ * Creates a new SessionContextBinding, auto-deriving label from the path basename.
+ */
+export function createContextBinding(
+	id: string,
+	type: ContextBindingType,
+	path: string,
+): SessionContextBinding {
+	const segments = path.replace(/\/$/, "").split("/");
+	const last = segments[segments.length - 1] ?? path;
+	const label = last.includes(".") ? last.replace(/\.[^.]+$/, "") : last;
+	return { id, type, label, path, boundAt: new Date().toISOString() };
 }
 
 /**
@@ -276,11 +291,11 @@ export function generateSessionSummaryBody(session: Session): string {
 		lines.push("");
 	}
 
-	// Links
-	if (session.links && session.links.length > 0) {
-		lines.push("### Links");
-		for (const l of session.links) {
-			lines.push(`- [[${l.path}]]`);
+	// Context Bindings
+	if (session.contextBindings && session.contextBindings.length > 0) {
+		lines.push("### Context Bindings");
+		for (const b of session.contextBindings) {
+			lines.push(`- **${b.type}**: [[${b.path}]] *(${b.label})*`);
 		}
 		lines.push("");
 	}

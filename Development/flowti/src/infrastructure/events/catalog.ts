@@ -418,6 +418,12 @@ const CATALOG_DATA = {
 	"session.link.removed":    { category: "Session", description: "Link removed from session", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.activity.tracked": { category: "Session", description: "Vault file event tracked in session activity log", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.activity.filter.updated": { category: "Session", description: "Per-session activity folder filter updated", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.context.bind":        { category: "Session", description: "Command: bind a context to a session", direction: "View → Plugin", domain: "session", services: "SessionService" },
+	"session.context.unbind":      { category: "Session", description: "Command: unbind a context from a session", direction: "View → Plugin", domain: "session", services: "SessionService" },
+	"session.context.changeType":  { category: "Session", description: "Command: change a context binding type", direction: "View → Plugin", domain: "session", services: "SessionService" },
+	"session.context.bound":       { category: "Session", description: "Context binding added to session", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.context.unbound":     { category: "Session", description: "Context binding removed from session", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.context.typeChanged": { category: "Session", description: "Context binding type changed", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

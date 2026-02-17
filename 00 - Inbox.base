@@ -4,3 +4,10 @@ filters:
 views:
   - type: table
     name: Table
+    order:
+      - file.name
+      - type
+      - stage
+    columnSize:
+      file.name: 409
+      note.type: 91

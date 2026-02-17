@@ -23,7 +23,7 @@ export interface UserHubDashboardDeps {
 	sessionService: SessionService;
 	navigateToTab: (tabId: string) => void;
 	onInboxItemClick: (item: InboxItem) => void;
-	openSessionWorkspace: (sessionId?: string) => void;
+	openSessionWorkspace: (sessionId?: string, location?: "tab" | "sidebar") => void;
 }
 
 export class UserHubDashboard {

@@ -32,6 +32,7 @@ function makeSession(overrides?: Partial<Session>): Session {
 		canvasFile: null,
 		activity: [],
 		activityFilter: [],
+		contextBindings: [],
 		...overrides,
 	};
 }

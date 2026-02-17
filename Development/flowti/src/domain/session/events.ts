@@ -2,7 +2,7 @@
  * Event types owned by the Session domain.
  */
 
-import type { Session, SessionActivity, SessionArtifact, SessionGoal, SessionLink, SessionTemplate, SessionType } from "./types";
+import type { ContextBindingType, Session, SessionActivity, SessionArtifact, SessionContextBinding, SessionGoal, SessionLink, SessionTemplate, SessionType } from "./types";
 
 export interface SessionEventMap {
 	// ── Commands ──────────────────────────────────────────────
@@ -108,4 +108,20 @@ export interface SessionEventMap {
 	"session.link.added": { sessionId: string; link: SessionLink };
 	/** Emitted after a link is removed from a session */
 	"session.link.removed": { sessionId: string; path: string };
+
+	// ── Context binding commands ────────────────────────────
+	/** Command: bind a context to a session */
+	"session.context.bind": { sessionId: string; path: string; type: ContextBindingType };
+	/** Command: unbind a context from a session */
+	"session.context.unbind": { sessionId: string; bindingId: string };
+	/** Command: change the type of an existing context binding */
+	"session.context.changeType": { sessionId: string; bindingId: string; type: ContextBindingType };
+
+	// ── Context binding state events ────────────────────────
+	/** Emitted after a context binding is added to a session */
+	"session.context.bound": { sessionId: string; binding: SessionContextBinding };
+	/** Emitted after a context binding is removed from a session */
+	"session.context.unbound": { sessionId: string; bindingId: string };
+	/** Emitted after a context binding's type is changed */
+	"session.context.typeChanged": { sessionId: string; bindingId: string; type: ContextBindingType };
 }
