@@ -1,4 +1,11 @@
-#flowti
+---
+type: reference
+stage: archived
+description: "Vision document exploring digital twin concepts, AI assistance, and the Flowti platform MVP."
+tags:
+  - reference
+  - vision
+---
 
 Nearly every process in our day to day could and will be digitally represented, which would of course result in information overflow.
 

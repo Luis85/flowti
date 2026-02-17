@@ -1,3 +1,15 @@
+---
+type: idea
+stage: discovery
+origin: inbox
+domain: data-exchange
+parent: "[[Data Exchange Hub PRD]]"
+description: "Build multi-step data pipelines with inputs, processes, outputs — each step has a .base view, doc note, and data quality checks."
+tags:
+priority: 01 - medium
+rank:
+---
+
 Using Flowti I want to build the pipeline like this:
 
 - ...Inputs (sources)

@@ -12,6 +12,8 @@ To get the most out of our documentation we use Obsidian and Git. The Repository
 
 To start your journey you will need to have Obsidian installed which serves as a host for the application. Go get it, install it, and then come back. You will not regret it, trust me bro!
 
+> This Repo also tests, validates, and simulates the Flowti Development Process.
+
 ## Why tho?
 
 First: Curiosity!

@@ -1,3 +1,12 @@
+---
+type: reference
+stage: archived
+description: "Draft vault homepage with Dataview queries — template for the production homepage."
+tags:
+  - reference
+  - homepage
+---
+
 # Flowti - The Business Development Environment
 
 Goal of this system is to provide a unified data-model for core business elements and processes. Obsidian helps consolidating and publishing of content.

@@ -1,9 +1,12 @@
 ---
+type: reference
 doc_type: Vault
-description:
+stage: archived
+description: "Comprehensive vault documentation — PARA structure, domains, processes, datamodel."
 aliases:
   - Flowti
 tags:
+  - reference
   - concept
   - project
   - framework
