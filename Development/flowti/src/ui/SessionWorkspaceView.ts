@@ -58,9 +58,7 @@ export class SessionWorkspaceView extends ItemView {
 	}
 
 	async onOpen(): Promise<void> {
-		// Hide the Obsidian view title bar — workspace is self-contained
-		const viewHeader = this.containerEl.children[0] as HTMLElement;
-		if (viewHeader) viewHeader.style.display = "none";
+		this.containerEl.addClass("ft-hide-header");
 
 		// Load session: prefer workspace target, then fall back to active session
 		const targetId = this.sessionService.workspaceSessionId;

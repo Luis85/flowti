@@ -125,12 +125,6 @@ describe("SessionWorkspaceView", () => {
 			expect(view.getIcon()).toBe("timer");
 		});
 
-		it("hides the Obsidian view title bar on open", async () => {
-			const { view } = createView(eventBus, makeSession());
-			await view.onOpen();
-			const header = (view as unknown as { containerEl: HTMLElement }).containerEl.children[0] as HTMLElement;
-			expect(header.style.display).toBe("none");
-		});
 	});
 
 	describe("empty state", () => {

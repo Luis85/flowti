@@ -14,12 +14,17 @@
  */
 
 /* ─────────────────────────────────────────────────────────────
-   Hide Obsidian view header for the Event Catalog
+   Hidden header — any view that adds ft-hide-header to its
+   containerEl gets the Obsidian view-header hidden and the
+   dashboard content compensated with top padding.
    ───────────────────────────────────────────────────────────── */
 
-.workspace-leaf-content[data-type="flowti-event-catalog"] .view-header,
-.workspace-leaf-content[data-type="flowti-data-exchange-hub"] .view-header {
+.ft-hide-header > .view-header {
 	display: none;
+}
+
+.ft-hide-header .ft-view-dashboard {
+	padding-top: 27px;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -344,7 +349,7 @@
 
 /* View layout utilities */
 .ft-view-root { height: 100%; display: flex; flex-direction: column; }
-.ft-view-dashboard { flex: 1; min-height: 0; overflow-y: auto; padding: 1.5rem; }
+.ft-view-dashboard { flex: 1; min-height: 0; overflow-y: auto; padding: 1.5rem 0; }
 .ft-view-split { flex: 1; min-height: 0; }
 .ft-icon-muted { opacity: 0.5; }
 .ft-icon-faint { opacity: 0.4; }
