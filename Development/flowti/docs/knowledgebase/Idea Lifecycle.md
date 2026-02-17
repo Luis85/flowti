@@ -65,13 +65,17 @@ The system distinguishes between:
 
 Inbox is:
 
-- Write-only entry point
-    
 - Low-friction capture mechanism
-    
+
+- Permanent anchor — notes never leave this folder
+
+- Starting point for all work sessions
+
 - Not part of backlog
-    
+
 - Not yet committed work
+
+> **Key principle:** Inbox notes are never moved, deleted, or locked. They remain as permanent anchors for traceability. All subsequent work — sessions, backlog items, PRDs, increments — traces back to the original idea note in the inbox.
     
 
 ---
@@ -98,9 +102,34 @@ domain:
 parent:
 description:
 tags:
+priority:
+rank:
 ```
 
-If `stage` is empty →  
+### Priority Model
+
+Priority is assigned during or immediately after capture. It drives focus order in the inbox Dataview.
+
+|Value|Meaning|
+|---|---|
+|`2 - high`|Immediate value or blocking dependency — ingest first|
+|`01 - medium`|Clear potential but not urgent — ingest when capacity allows|
+|`0 - low`|Exploratory or long-term — park until context emerges|
+
+### Rank Model
+
+Rank provides granular ordering within the same priority tier. It is optional — unranked ideas (`null`) sort after ranked ones.
+
+|Value|Meaning|
+|---|---|
+|`null`|Not yet ranked — no relative ordering within tier|
+|`0`|Highest rank (do first within tier)|
+|`1–4`|Intermediate ranks|
+|`5`|Lowest rank (do last within tier)|
+
+The inbox Dataview (`00 - Inbox.base`) sorts by `priority` descending, then `rank` ascending (nulls last), then `file.mtime` newest-first. This gives a natural focus order: high-priority, top-ranked, recent ideas surface first.
+
+If `stage` is empty →
 → The idea is **pure and waiting for ingestion**
 
 ---
@@ -133,7 +162,9 @@ stage: (empty)
 origin: (empty)
 domain: (empty)
 tags: (empty)
-...all empty
+priority: (assigned at capture — 0-low, 01-medium, 2-high)
+rank: (optional — 0-5 for granular ordering within tier)
+...remaining fields empty
 ```
 
 ---
@@ -144,20 +175,24 @@ Actor: Product Owner (or responsible domain owner)
 
 Goal: Transform raw thought into structured idea.
 
+**Session:** Start a documentation session from the inbox note. The idea note is added as a context binding (focus file) to the session — this creates the traceability link between idea and work effort. All ingestion work happens within this session.
+
 Actions:
 
+- Start session from inbox note (context binding)
+
 - Clarify problem statement
-    
+
 - Add context
-    
+
 - Add affected domain
-    
+
 - Add potential business value
-    
+
 - Identify stakeholders
-    
+
 - Identify impacted artifacts
-    
+
 - Add first JTBD
     
 
@@ -299,9 +334,9 @@ Now the item enters your standard lifecycle:
 New → Scoping → Discovery → Refinement → Ready → Development → Testing → Review → Done → Closed
 ```
 
-From this point onward:
+From this point onward, the backlog item drives development.
 
-The Inbox is no longer involved.
+The inbox note remains as the permanent traceability anchor. All work — sessions, increments, PRDs — can be traced back to the original idea in the inbox.
 
 ---
 
@@ -333,18 +368,22 @@ The Inbox is no longer involved.
 # 9. Governance Rules
 
 1. Inbox is NOT the backlog.
-    
+
 2. Nothing enters backlog without typing.
-    
+
 3. Nothing enters backlog without Three Amigos review.
-    
+
 4. Ideas can be rejected.
-    
+
 5. Rejected ideas are kept for traceability.
-    
+
 6. All backlog items must reference origin.
-    
+
 7. No development starts from unqualified idea notes.
+
+8. All work sessions start from an inbox note.
+
+9. Inbox notes are permanent — never moved, deleted, or locked.
     
 
 ---
@@ -401,9 +440,11 @@ Events emitted during process:
 # 12. Visual Lifecycle
 
 ```
-Inbox (Pure)
+Inbox (Pure) ← note stays here permanently
    ↓
-Discovery
+Session Started (idea bound as context)
+   ↓
+Discovery (enriched within session)
    ↓
 Refinement (Typed)
    ↓
@@ -411,9 +452,9 @@ Three Amigos Review
    ↓
 Qualified
    ↓
-Backlog Item Created
+Backlog Item Created (references idea)
    ↓
-PRD Lifecycle
+PRD Lifecycle (traceable back to idea)
 ```
 
 ---
@@ -476,7 +517,7 @@ The process ensures that no unqualified ideas enter the backlog and that traceab
 
 ---
 
-# 5. Main Success Scenario
+## 5. Main Success Scenario
 
 ---
 
@@ -574,18 +615,18 @@ The process ensures that no unqualified ideas enter the backlog and that traceab
 
 ### 8. Completion
 
-29. Idea note is locked or marked as promoted
-    
+29. Idea note gains `promoted_to` link — remains in inbox as permanent anchor
+
 30. Backlog item enters PRD lifecycle
     
 
 ---
 
-# 6. Alternative Flows
+## 6. Alternative Flows
 
 ---
 
-## A1 – Idea Rejected
+### A1 – Idea Rejected
 
 At Step 15:
 
@@ -600,7 +641,7 @@ At Step 15:
 
 ---
 
-## A2 – Idea Parked
+### A2 – Idea Parked
 
 At Step 15:
 
@@ -615,7 +656,7 @@ At Step 15:
 
 ---
 
-## A3 – Template Incomplete
+### A3 – Template Incomplete
 
 At Step 13:
 
@@ -628,7 +669,7 @@ At Step 13:
 
 ---
 
-# 7. Special Requirements
+## 7. Special Requirements
 
 ### Governance
 
@@ -653,39 +694,45 @@ Each idea must contain:
 
 ```yaml
 promoted_to: backlog/feature-id.md
+sessions:
+  - session-title (date)
 ```
+
+> The idea note remains in the inbox permanently. Sessions reference the idea via context bindings; the idea references sessions for reverse traceability.
 
 ---
 
-# 8. Frequency of Occurrence
+## 8. Frequency of Occurrence
 
 High – Continuous process
 
 ---
 
-# 9. Business Rules
+## 9. Business Rules
 
-BR-01: Inbox is not backlog  
-BR-02: Typing is mandatory  
-BR-03: Lightweight Three Amigos review mandatory  
-BR-04: No partial backlog item creation  
-BR-05: Rejected ideas remain documented  
+BR-01: Inbox is not backlog
+BR-02: Typing is mandatory
+BR-03: Lightweight Three Amigos review mandatory
+BR-04: No partial backlog item creation
+BR-05: Rejected ideas remain documented
 BR-06: Stage must always reflect maturity
+BR-07: All work sessions originate from an inbox note
+BR-08: Inbox notes are permanent anchors — never moved or deleted
 
 ---
 
-# 10. State Model (Idea Artifact)
+## 10. State Model (Idea Artifact)
 
 ```
 (empty)
    ↓
-discovery
+discovery (session started)
    ↓
 refinement
    ↓
 qualified
    ↓
-promoted
+promoted (note remains in inbox as anchor)
 ```
 
 With branches:
@@ -697,7 +744,7 @@ refinement → parked
 
 ---
 
-# 11. Event Model
+## 11. Event Model
 
 |Event|Trigger|
 |---|---|
@@ -711,7 +758,7 @@ refinement → parked
 
 ---
 
-# 12. Data Model (Conceptual)
+## 12. Data Model (Conceptual)
 
 ### Idea Note
 
@@ -720,25 +767,34 @@ type: Idea
 stage: discovery | refinement | qualified | rejected | parked
 domain:
 maturity: L0–L4
+priority: 0 - low | 01 - medium | 2 - high
+rank: null | 0–5
 reviewed_by:
 reviewed_at:
 promoted_to:
+sessions:
 ```
+
+> `sessions` tracks all work sessions that referenced this idea as a context binding, providing full traceability from idea to work effort.
 
 ---
 
-# 13. Traceability Matrix
+## 13. Traceability Matrix
 
 |Artifact|Linked To|
 |---|---|
-|Idea|Backlog Item|
-|Backlog Item|Idea|
+|Idea|Session, Backlog Item|
+|Session|Idea (via context binding)|
+|Backlog Item|Idea (via `origin_ref`)|
 |Review Notes|Idea|
 |PRD|Backlog Item|
+|Increment|PRD, Backlog Item|
+
+> **Traceability chain:** Idea → Session → Backlog Item → PRD → Increment → Delivered Feature. Every link in this chain can be traced back to the original inbox note.
 
 ---
 
-# 14. Success Metrics
+## 14. Success Metrics
 
 - % of ideas reaching qualified
     

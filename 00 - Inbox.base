@@ -3,11 +3,42 @@ filters:
     - file.inFolder("00 - Connectivity/inbox")
 views:
   - type: table
-    name: Table
+    name: New
+    filters:
+      and:
+        - type.isEmpty()
     order:
-      - file.name
       - type
-      - stage
+      - file.name
+      - tags
+    sort:
+      - property: priority
+        direction: DESC
+      - property: file.mtime
+        direction: DESC
     columnSize:
-      file.name: 565
       note.type: 91
+      file.name: 800
+      note.stage: 95
+      note.priority: 111
+      note.rank: 74
+  - type: table
+    name: Index
+    order:
+      - type
+      - file.name
+      - stage
+      - priority
+      - rank
+      - tags
+    sort:
+      - property: priority
+        direction: DESC
+      - property: file.mtime
+        direction: DESC
+    columnSize:
+      note.type: 91
+      file.name: 800
+      note.stage: 95
+      note.priority: 111
+      note.rank: 74
