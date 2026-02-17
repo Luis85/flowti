@@ -9,5 +9,5 @@ views:
       - type
       - stage
     columnSize:
-      file.name: 409
+      file.name: 565
       note.type: 91

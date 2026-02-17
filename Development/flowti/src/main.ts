@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile } from "obsidian";
+import { Notice, Plugin, TFile, TFolder } from "obsidian";
 import { registerCommands } from "./infrastructure/commands/registry";
 import type { CommandContext, ICommandRegistry } from "./infrastructure/commands/types";
 import { LifecycleError } from "./infrastructure/errors/FlowtiError";
@@ -618,26 +618,33 @@ export default class FlowtiBasePlugin extends Plugin {
 	private registerSessionFileMenu(): void {
 		this.registerEvent(
 			this.app.workspace.on("file-menu", (menu, file) => {
-				if (file instanceof TFile) {
-					menu.addSeparator();
+				const isFile = file instanceof TFile;
+				const isFolder = file instanceof TFolder;
+				if (!isFile && !isFolder) return;
 
-					// "Add to {session title}" — when any session is current
-					const current = this.sessionService?.getCurrentSession();
-					if (current) {
-						menu.addItem((item) => {
-							item.setTitle(`Add to "${current.title}"`)
-								.setIcon("link")
-								.onClick(() => {
-									void this.eventBus.emit("session.context.bind", {
-										sessionId: current.id,
-										path: file.path,
-										type: "file" as const,
-									});
-									new Notice(`Added "${file.basename}" to "${current.title}"`);
+				menu.addSeparator();
+
+				// "Add to {session title}" — when any session is current
+				const current = this.sessionService?.getCurrentSession();
+				if (current) {
+					const bindType = isFolder ? "folder" as const : "file" as const;
+					const bindPath = isFolder ? file.path + "/" : file.path;
+					const label = isFolder ? file.name : (file as TFile).basename;
+					menu.addItem((item) => {
+						item.setTitle(`Add to "${current.title}"`)
+							.setIcon("link")
+							.onClick(() => {
+								void this.eventBus.emit("session.context.bind", {
+									sessionId: current.id,
+									path: bindPath,
+									type: bindType,
 								});
-						});
-					}
+								new Notice(`Added "${label}" to "${current.title}"`);
+							});
+					});
+				}
 
+				if (isFile) {
 					menu.addItem((item) => {
 						item.setTitle("Create New Session")
 							.setIcon("timer")
@@ -658,9 +665,9 @@ export default class FlowtiBasePlugin extends Plugin {
 								}).open();
 							});
 					});
-
-					menu.addSeparator();
 				}
+
+				menu.addSeparator();
 			}),
 		);
 	}

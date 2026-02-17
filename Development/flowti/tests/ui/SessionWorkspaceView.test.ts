@@ -45,13 +45,13 @@ function makeGoal(overrides?: Partial<SessionGoal>): SessionGoal {
 	};
 }
 
-function createMockSessionService(activeSession: Session | null) {
+function createMockSessionService(session: Session | null) {
 	return {
-		getActiveSession: vi.fn(() => activeSession),
-		getSessionById: vi.fn((id: string) => activeSession?.id === id ? activeSession : null),
-		getSessions: vi.fn(() => activeSession ? [activeSession] : []),
+		getActiveSession: vi.fn(() => session?.status === "active" ? session : null),
+		getSessionById: vi.fn((id: string) => session?.id === id ? session : null),
+		getSessions: vi.fn(() => session ? [session] : []),
 		getSavedTemplates: vi.fn(() => []),
-		workspaceSessionId: activeSession?.id ?? null,
+		workspaceSessionId: session?.id ?? null,
 		updateActivityFilter: vi.fn(),
 	};
 }

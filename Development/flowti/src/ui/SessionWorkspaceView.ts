@@ -77,6 +77,23 @@ export class SessionWorkspaceView extends ItemView {
 		this.subscribeToEvents();
 	}
 
+	/**
+	 * Called by Obsidian when setViewState() targets an existing leaf of the same type.
+	 * Switches the displayed session without destroying and recreating the view.
+	 */
+	async setState(state: Record<string, unknown>, result: import("obsidian").ViewStateResult): Promise<void> {
+		if (state?.sessionId && typeof state.sessionId === "string") {
+			this.sessionService.workspaceSessionId = state.sessionId;
+			this.session = this.sessionService.getSessionById(state.sessionId) ?? null;
+			this.render();
+		}
+		await super.setState(state, result);
+	}
+
+	getState(): Record<string, unknown> {
+		return { sessionId: this.session?.id ?? null };
+	}
+
 	async onClose(): Promise<void> {
 		// Clear workspace tracking
 		if (this.session && this.sessionService.workspaceSessionId === this.session.id) {
@@ -182,8 +199,12 @@ export class SessionWorkspaceView extends ItemView {
 			this.createActionButton(this.actionsEl, "check-circle", "Complete", () => {
 				void this.eventBus.emit("session.complete", { sessionId: session.id });
 			});
-		} else if (session.status === "prepared") {
+		} else if (session.status === "prepared" && !this.sessionService.getActiveSession()) {
 			this.createActionButton(this.actionsEl, "play", "Start", () => {
+				if (this.sessionService.getActiveSession()) {
+					new Notice("Another session is already active. Complete or pause it first.");
+					return;
+				}
 				void this.eventBus.emit("session.start", { sessionId: session.id });
 			});
 		}
@@ -192,10 +213,14 @@ export class SessionWorkspaceView extends ItemView {
 			this.openSaveTemplateModal(session);
 		});
 
-		// Only show "Sidebar" when this view is NOT already in the right sidebar
+		// Show "Sidebar" or "Open in Tab" depending on current location
 		if (this.leaf.getRoot() !== this.app.workspace.rightSplit) {
 			this.createActionButton(this.actionsEl, "panel-right", "Sidebar", () => {
 				this.openInSidebar();
+			});
+		} else {
+			this.createActionButton(this.actionsEl, "layout", "Open in Tab", () => {
+				this.openInTab();
 			});
 		}
 	}
@@ -732,7 +757,8 @@ export class SessionWorkspaceView extends ItemView {
 			}),
 		);
 
-		// Session lifecycle changes — full re-render
+		// Session lifecycle changes — full re-render for own session,
+		// action bar refresh for other sessions (Start button visibility depends on active session)
 		const lifecycleEvents = [
 			"session.started", "session.paused", "session.resumed", "session.completed",
 		] as const;
@@ -742,6 +768,8 @@ export class SessionWorkspaceView extends ItemView {
 					if (event.payload.session.id === this.session?.id) {
 						this.session = event.payload.session;
 						this.render();
+					} else {
+						this.renderActions();
 					}
 				}),
 			);
@@ -877,9 +905,21 @@ export class SessionWorkspaceView extends ItemView {
 	 * Opens a file in an adjacent split leaf, reusing an existing one if available.
 	 * Avoids replacing the workspace view itself.
 	 */
+	private openInTab(): void {
+		if (!this.session) return;
+		const sessionId = this.session.id;
+		this.sessionService.workspaceSessionId = sessionId;
+		void this.app.workspace.getLeaf("tab").setViewState({
+			type: VIEW_TYPE_SESSION_WORKSPACE,
+			active: true,
+			state: { sessionId },
+		});
+	}
+
 	private openInSidebar(): void {
 		if (!this.session) return;
-		this.sessionService.workspaceSessionId = this.session.id;
+		const sessionId = this.session.id;
+		this.sessionService.workspaceSessionId = sessionId;
 		// Defer to next tick so the browser can process mouseup / cursor reset
 		// before the heavy sidebar + view instantiation runs.
 		setTimeout(() => {
@@ -887,7 +927,7 @@ export class SessionWorkspaceView extends ItemView {
 				.find((l) => l.getRoot() === this.app.workspace.rightSplit);
 			const leaf = existing ?? this.app.workspace.getRightLeaf(false);
 			if (leaf) {
-				void leaf.setViewState({ type: VIEW_TYPE_SESSION_WORKSPACE, active: true });
+				void leaf.setViewState({ type: VIEW_TYPE_SESSION_WORKSPACE, active: true, state: { sessionId } });
 				this.app.workspace.revealLeaf(leaf);
 			}
 		}, 0);

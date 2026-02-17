@@ -2,8 +2,9 @@
 type: DecisionNote
 adr: ADR-025
 title: Activity Log Separate from Artifacts
-status: Accepted
+status: Superseded
 date: 2026-02-17
+superseded_by: "[[Phase 4 Inc 9 - Sidebar Workspace and Activity Consolidation]]"
 domain: session
 category: Data Model
 drivers:
@@ -21,7 +22,19 @@ tags:
 
 ## Status
 
-**Accepted** — to be applied in PBI-SW-001 Inc 1.
+**Superseded** — by Inc 9 (Sidebar Workspace & Activity Consolidation), 2026-02-17.
+
+### Supersession Rationale
+
+Real-world usage during Inc 8 and Inc 9 revealed that the separate-arrays model (Option 3) created **redundant UI sections** rather than the anticipated clean separation:
+
+1. **Artifacts were a strict subset of activity.** Every artifact (created/modified) also appeared in the activity log. The "curated outputs" value proposition did not materialize — users looked at activity, not artifacts, to understand what happened during a session.
+
+2. **Two sections showing overlapping data confused users.** The workspace had both an "Artifacts" section and an "Activity" section, with file-created and file-modified entries appearing in both. Users questioned why the same file appeared twice.
+
+3. **Activity filtering made artifacts redundant.** Per-session folder filtering on the activity log already scoped results to the working area, achieving the "signal vs. noise" goal that artifacts were meant to address.
+
+**Resolution:** Inc 9 removed the artifacts section entirely. The unified activity log (with folder filtering) serves both purposes — tracking session outputs and session process. `session.artifact.added` events still fire and redirect to `renderActivityList()`. The `SessionArtifact` type and `session.artifacts` array remain on the Session interface for backward compatibility and summary generation (`generateSessionSummary()` still uses artifacts for the "Session Outputs" section of notes files).
 
 ## Context
 

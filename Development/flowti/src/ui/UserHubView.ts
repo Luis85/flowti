@@ -165,7 +165,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 							.find((l) => l.getRoot() === this.app.workspace.rightSplit);
 						const leaf = existing ?? this.app.workspace.getRightLeaf(false);
 						if (leaf) {
-							void leaf.setViewState({ type: VIEW_TYPE_SESSION_WORKSPACE, active: true });
+							void leaf.setViewState({ type: VIEW_TYPE_SESSION_WORKSPACE, active: true, state: { sessionId } });
 							this.app.workspace.revealLeaf(leaf);
 						}
 					}, 0);
@@ -173,6 +173,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 					void this.app.workspace.getLeaf("tab").setViewState({
 						type: VIEW_TYPE_SESSION_WORKSPACE,
 						active: true,
+						state: { sessionId },
 					});
 				}
 			},
@@ -318,7 +319,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 							.find((l) => l.getRoot() === this.app.workspace.rightSplit);
 						const leaf = existing ?? this.app.workspace.getRightLeaf(false);
 						if (leaf) {
-							void leaf.setViewState({ type: VIEW_TYPE_SESSION_WORKSPACE, active: true });
+							void leaf.setViewState({ type: VIEW_TYPE_SESSION_WORKSPACE, active: true, state: { sessionId } });
 							this.app.workspace.revealLeaf(leaf);
 						}
 					}, 0);
@@ -326,6 +327,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 					void this.app.workspace.getLeaf("tab").setViewState({
 						type: VIEW_TYPE_SESSION_WORKSPACE,
 						active: true,
+						state: { sessionId },
 					});
 				}
 			},

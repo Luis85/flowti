@@ -6,7 +6,7 @@ increment: "[[Inc 1 - Activity Log and Folder Filtering]]"
 priority: high
 dependencies:
   - "[[PBI-002 Documentation Sessions]]"
-note: "First PBI for Session Workspaces. Builds on PBI-002 foundation to add file activity tracking and folder filtering."
+note: "First PBI for Session Workspaces. Activity log and folder filtering delivered early via Inc 9 consolidation (artifacts merged into activity). Global filter setting remains."
 user_story: "[[I want to filter folders to not appear in my sessions activity log]]"
 ---
 
@@ -46,16 +46,25 @@ As a session user, I want to see what vault activity happened during my session 
 
 ### Functional Requirements
 
-- [ ] `SessionActivity` type: `{ timestamp, action, path, oldPath? }`
-- [ ] `SessionFolderFilter` type: `{ global: string[], perSession: string[] }`
-- [ ] `session.activity.tracked` event emitted per tracked file event
-- [ ] `session.activity.filter.updated` event for filter changes
+- [x] `SessionActivity` type: `{ timestamp, action, path, oldPath? }`
+- [x] Per-session filter persisted on Session object (`activityFilter: string[]`)
+- [x] `session.activity.tracked` event emitted per tracked file event
+- [x] `session.activity.filter.updated` event for filter changes
+- [ ] `SessionFolderFilter` type: `{ global: string[], perSession: string[] }` (global filter uses `isExcluded()` — global settings UI pending)
 - [ ] Global filter persisted in SettingsService (new setting: `sessionActivityFilterGlobal`)
-- [ ] Per-session filter persisted on Session object
-- [ ] Activity capped at 1000 entries per session (oldest evicted)
-- [ ] Activity timeline panel in SessionWorkspaceView
-- [ ] Filter configuration UI (settings + per-session in workspace)
-- [ ] Activity cleared on session archive
+- [x] Activity capped at 1000 entries per session (oldest evicted)
+- [x] Activity timeline panel in SessionWorkspaceView
+- [x] Per-session filter configuration UI in workspace
+- [ ] Global filter configuration UI in FlowtiSettingTab
+- [x] Activity cleared on session archive
+
+### Delivery Status
+
+**Partially delivered in PBI-002 Inc 9** (Sidebar Workspace & Activity Consolidation):
+- Activity log with folder filtering: **done** (delivered as part of session workspace enrichment)
+- Artifacts section removed — activity is the single unified log: **done** (supersedes ADR-025)
+- Per-session folder filter UI in workspace: **done**
+- Global folder filter in settings: **pending** (requires FlowtiSettingTab update)
 
 ### Technical Requirements
 
@@ -74,10 +83,10 @@ As a session user, I want to see what vault activity happened during my session 
 
 ### Acceptance Criteria
 
-- [ ] Activity log shows file creates, modifications, deletes, renames during active session
+- [x] Activity log shows file creates, modifications, deletes, renames during active session
 - [ ] Global folder filter excludes configured paths from all sessions
-- [ ] Per-session folder filter extends global filter for a specific session
-- [ ] Activity survives pause/resume cycles
-- [ ] Activity capped at 1000 entries with oldest eviction
-- [ ] Activity cleared when session is archived
-- [ ] Build passes: tests + tsc + eslint + esbuild
+- [x] Per-session folder filter extends global filter for a specific session
+- [x] Activity survives pause/resume cycles
+- [x] Activity capped at 1000 entries with oldest eviction
+- [x] Activity cleared when session is archived
+- [x] Build passes: tests + tsc + eslint + esbuild

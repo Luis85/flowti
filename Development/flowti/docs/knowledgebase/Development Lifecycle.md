@@ -34,6 +34,8 @@ In short: We document a new solution-idea as [[PRD Template|PRD]], review and re
 
 How to push a single increment trough the process is described in our [[Increment Lifecycle]].
 
+Before: [[Idea Lifecycle]]
+
 ---
 
 ## 2. Roles and Responsibilities
