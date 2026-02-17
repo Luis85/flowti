@@ -25,15 +25,21 @@ views:
     filters:
       and:
         - file.folder.contains("flowti")
-        - plugin == link("Development/flowti/README", "README")
+        - type == "ProductRequirementsDocument"
     groupBy:
       property: domain
       direction: ASC
     order:
       - file.name
       - stage
-      - domain
-      - file.folder
+      - priority
+      - maturity
+      - description
+    sort:
+      - property: priority
+        direction: DESC
+      - property: maturity
+        direction: DESC
     columnSize:
       file.name: 265
       note.stage: 106
