@@ -1,12 +1,27 @@
 ---
 type: PRD
 domain: Session
-stage: draft
+stage: approved
 version: 2
-maturity: L2
+maturity: L3
 created: 2026-02-01
 updated: 2026-02-17
 foundation: "[[PBI-002 Documentation Sessions]]"
+maturity_score_strategy: 5
+maturity_score_scope: 5
+maturity_score_architecture: 4
+maturity_score_event_integration: 5
+maturity_score_data_model: 4
+maturity_score_ui_consistency: 3
+maturity_score_validation_testing: 3
+fri_score: 29
+business_value: 5
+implementation_cost: 4
+maintenance_cost: 3
+discovery_cost: 3
+design_cost: 4
+test_cost: 4
+priority: 5
 tags:
   - session
   - workspace
@@ -19,7 +34,7 @@ tags:
 
 **Feature Name:** Session Workspaces
 **Domain:** Flowti – Integrated Business Development Environment
-**Maturity Target:** L2 (Structured Usage)
+**Maturity Target:** L3 (Development Ready)
 **Foundation:** PBI-002 Documentation Sessions (9 increments delivered, 2 planned)
 
 ### Purpose
@@ -413,9 +428,16 @@ See `backlog/PBI-SW-*.md` for detailed specifications.
 | 2 — Discovery | Done | 2026-02-17 | Problem grounded in PBI-002 foundation gaps |
 | 3 — Solution Exploration | Done | 2026-02-17 | L2 scope selected; L3 deferred |
 | 4 — Solution Design + PRD | Done | 2026-02-17 | PRD v2 with concrete requirements |
-| 5 — Development Ready | Pending | — | FRI + Technical Review needed |
+| 5 — Development Ready | Done | 2026-02-17 | FRI 29/35; Technical Review: Pass |
 | 6 — Delivery Planning | Draft | 2026-02-17 | 6 PBIs defined, increment planning pending |
 | 7–10 — Implementation | Pending | — | — |
+
+### Stage History
+
+| Date | From | To | Gate | FRI | Reviewer | Notes |
+|------|------|----|------|-----|----------|-------|
+| 2026-02-17 | — | draft | — | — | — | PRD v2 created with L2 scope, 6 FRs, 16 events, 6 PBIs |
+| 2026-02-17 | draft | approved | Design Gate + Readiness Gate | 29/35 | Technical Architect | Technical Review: Pass. Technically Ready. No follow-ups required |
 
 ---
 
