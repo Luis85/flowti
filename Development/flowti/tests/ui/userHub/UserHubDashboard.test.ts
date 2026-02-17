@@ -80,6 +80,8 @@ function makeActiveSession(overrides?: Partial<Session>): Session {
 		links: [],
 		notesFile: null,
 		canvasFile: null,
+		activity: [],
+		activityFilter: [],
 		...overrides,
 	};
 }

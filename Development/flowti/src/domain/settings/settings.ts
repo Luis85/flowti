@@ -135,6 +135,7 @@ export const FlowtiSettingsSchema = z.object({
 	ingestionWatchEventTypes: z.array(z.string()).default(["file.created", "file.modified"]),
 	watchFolders: z.array(z.string()).default([]),
 	entityPaths: EntityPathsSchema.default(DEFAULT_ENTITY_PATHS),
+	sessionActivityFilterGlobal: z.array(z.string()).default([]),
 	inboxEnabledSources: z.array(z.string()).default([
 		"subscription.matched",
 		"dataExchange.import.completed",

@@ -28,6 +28,8 @@ function makeSession(overrides?: Partial<Session>): Session {
 		links: [],
 		notesFile: null,
 		canvasFile: null,
+		activity: [],
+		activityFilter: [],
 		...overrides,
 	};
 }
@@ -49,6 +51,7 @@ function createMockSessionService(activeSession: Session | null) {
 		getSessions: vi.fn(() => activeSession ? [activeSession] : []),
 		getSavedTemplates: vi.fn(() => []),
 		workspaceSessionId: activeSession?.id ?? null,
+		updateActivityFilter: vi.fn(),
 	};
 }
 
@@ -961,6 +964,131 @@ describe("SessionWorkspaceView", () => {
 
 			const content = getContentEl(view);
 			expect(content.querySelector(".ft-session-workspace-empty")).not.toBeNull();
+		});
+	});
+
+	describe("activity", () => {
+		it("renders activity list with entries in reverse chronological order", async () => {
+			const session = makeSession({
+				activity: [
+					{ timestamp: "2026-02-17T10:00:00.000Z", action: "created", path: "src/types.ts" },
+					{ timestamp: "2026-02-17T10:01:00.000Z", action: "modified", path: "src/helpers.ts" },
+				],
+			});
+			const { view } = createView(eventBus, session);
+			await view.onOpen();
+
+			const content = getContentEl(view);
+			const rows = content.querySelectorAll(".ft-activity-row");
+			expect(rows).toHaveLength(2);
+			// Newest first
+			expect(rows[0].textContent).toContain("helpers.ts");
+			expect(rows[0].textContent).toContain("modified");
+			expect(rows[1].textContent).toContain("types.ts");
+			expect(rows[1].textContent).toContain("created");
+		});
+
+		it("renders empty activity message when no activity", async () => {
+			const session = makeSession({ activity: [] });
+			const { view } = createView(eventBus, session);
+			await view.onOpen();
+
+			const content = getContentEl(view);
+			expect(content.textContent).toContain("No activity yet");
+		});
+
+		it("renders activity count", async () => {
+			const session = makeSession({
+				activity: [
+					{ timestamp: "2026-02-17T10:00:00.000Z", action: "created", path: "a.md" },
+					{ timestamp: "2026-02-17T10:01:00.000Z", action: "modified", path: "b.md" },
+					{ timestamp: "2026-02-17T10:02:00.000Z", action: "deleted", path: "c.md" },
+				],
+			});
+			const { view } = createView(eventBus, session);
+			await view.onOpen();
+
+			const content = getContentEl(view);
+			const actSection = content.querySelector(".ft-session-workspace-activity");
+			expect(actSection!.textContent).toContain("(3)");
+		});
+
+		it("session.activity.tracked appends to activity list", async () => {
+			const session = makeSession({ activity: [] });
+			const { view, service } = createView(eventBus, session);
+			await view.onOpen();
+
+			const newActivity = { timestamp: "2026-02-17T10:05:00.000Z", action: "created" as const, path: "src/new.ts" };
+			const updatedSession = makeSession({ activity: [newActivity] });
+			service.getSessionById.mockReturnValue(updatedSession);
+
+			await eventBus.emit("session.activity.tracked", {
+				sessionId: "session-1",
+				activity: newActivity,
+			});
+
+			const content = getContentEl(view);
+			const rows = content.querySelectorAll(".ft-activity-row");
+			expect(rows).toHaveLength(1);
+			expect(content.textContent).toContain("new.ts");
+		});
+
+		it("renders per-session filter tags", async () => {
+			const session = makeSession({
+				activityFilter: [".obsidian/", "node_modules/"],
+			});
+			const { view } = createView(eventBus, session);
+			await view.onOpen();
+
+			const content = getContentEl(view);
+			const tags = content.querySelectorAll(".ft-activity-filter-tag");
+			expect(tags).toHaveLength(2);
+			expect(tags[0].textContent).toContain(".obsidian/");
+			expect(tags[1].textContent).toContain("node_modules/");
+		});
+
+		it("filter input adds folder and calls updateActivityFilter", async () => {
+			const session = makeSession({ activityFilter: [] });
+			const { view, service } = createView(eventBus, session);
+			await view.onOpen();
+
+			const content = getContentEl(view);
+			const input = content.querySelector(".ft-activity-filter-input") as HTMLInputElement;
+			input.value = ".obsidian/";
+			input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+
+			await vi.advanceTimersByTimeAsync(0);
+			expect(service.updateActivityFilter).toHaveBeenCalledWith("session-1", [".obsidian/"]);
+		});
+
+		it("filter remove button calls updateActivityFilter without removed folder", async () => {
+			const session = makeSession({ activityFilter: [".obsidian/", "node_modules/"] });
+			const { view, service } = createView(eventBus, session);
+			await view.onOpen();
+
+			const content = getContentEl(view);
+			const removeBtns = content.querySelectorAll(".ft-activity-filter-remove");
+			(removeBtns[0] as HTMLElement).click();
+
+			await vi.advanceTimersByTimeAsync(0);
+			expect(service.updateActivityFilter).toHaveBeenCalledWith("session-1", ["node_modules/"]);
+		});
+
+		it("activity file link opens in adjacent leaf", async () => {
+			const session = makeSession({
+				activity: [
+					{ timestamp: "2026-02-17T10:00:00.000Z", action: "modified", path: "src/types.ts" },
+				],
+			});
+			const { view } = createView(eventBus, session);
+			await view.onOpen();
+
+			const content = getContentEl(view);
+			const link = content.querySelector(".ft-activity-link") as HTMLElement;
+			link.click();
+
+			const app = (view as unknown as { app: { workspace: { openLinkText: ReturnType<typeof vi.fn> } } }).app;
+			expect(app.workspace.openLinkText).toHaveBeenCalledWith("src/types.ts", "", false);
 		});
 	});
 });

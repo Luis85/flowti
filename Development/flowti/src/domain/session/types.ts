@@ -46,6 +46,17 @@ export interface SessionArtifact {
 	timestamp: string;
 }
 
+/** Actions tracked in the session activity log. */
+export type SessionActivityAction = "created" | "modified" | "opened" | "deleted" | "renamed";
+
+/** A vault file event tracked during an active session (see ADR-025). */
+export interface SessionActivity {
+	timestamp: string;     // ISO 8601
+	action: SessionActivityAction;
+	path: string;
+	oldPath?: string;      // for renames only
+}
+
 /** Actions recorded in the session timeline. */
 export type SessionTimelineAction = "started" | "paused" | "resumed" | "completed";
 
@@ -116,6 +127,10 @@ export interface Session {
 	notesFile: string | null;
 	/** Optional vault path for a session canvas file. */
 	canvasFile: string | null;
+	/** Chronological vault activity log — separate from artifacts (see ADR-025). */
+	activity: SessionActivity[];
+	/** Per-session folder paths excluded from the activity log (see ADR-026). */
+	activityFilter: string[];
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -158,6 +173,12 @@ export const MAX_TEMPLATES = 50;
 
 /** Deduplication window for artifact tracking (ms). */
 export const ARTIFACT_DEDUP_WINDOW_MS = 1000;
+
+/** Maximum activity entries per session before oldest-first eviction. */
+export const MAX_SESSION_ACTIVITY = 1000;
+
+/** Deduplication window for activity tracking (ms). */
+export const ACTIVITY_DEDUP_WINDOW_MS = 1000;
 
 /** Vault folder where session notes (persistent markdown files) are stored. */
 export const SESSION_NOTES_FOLDER = "03 - Resources/Sessions";

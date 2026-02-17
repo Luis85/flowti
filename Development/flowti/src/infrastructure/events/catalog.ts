@@ -416,6 +416,8 @@ const CATALOG_DATA = {
 	"session.link.remove":     { category: "Session", description: "Command: remove a link from a session", direction: "View → Plugin", domain: "session", services: "SessionService" },
 	"session.link.added":      { category: "Session", description: "Link added to session", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.link.removed":    { category: "Session", description: "Link removed from session", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.activity.tracked": { category: "Session", description: "Vault file event tracked in session activity log", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.activity.filter.updated": { category: "Session", description: "Per-session activity folder filter updated", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

@@ -12,9 +12,9 @@
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { ITypedStorage } from "../../utils/TypedStorage";
 import { generateUUID } from "../../utils/helpers";
-import type { Session, SessionGoal, SessionLink, SessionState, SessionTemplate } from "./types";
-import { MAX_SESSIONS, MAX_TEMPLATES, ARTIFACT_DEDUP_WINDOW_MS, SESSION_NOTES_FOLDER } from "./types";
-import { createSession, createGoal, computeRemainingMs, computeElapsedMs, isTimerExpired } from "./helpers";
+import type { Session, SessionActivity, SessionActivityAction, SessionGoal, SessionLink, SessionState, SessionTemplate } from "./types";
+import { MAX_SESSIONS, MAX_TEMPLATES, ARTIFACT_DEDUP_WINDOW_MS, SESSION_NOTES_FOLDER, MAX_SESSION_ACTIVITY, ACTIVITY_DEDUP_WINDOW_MS } from "./types";
+import { createSession, createGoal, computeRemainingMs, computeElapsedMs, isTimerExpired, isExcluded } from "./helpers";
 
 /**
  * Configuration options for the SessionService.
@@ -43,6 +43,8 @@ export class SessionService {
 	private eventBus?: IEventBus;
 	private unsubscribes: (() => void)[] = [];
 	private timerInterval: ReturnType<typeof setInterval> | null = null;
+	/** Global activity filter folders — injected from SettingsService. */
+	globalActivityFilter: string[] = [];
 
 	constructor(options: SessionServiceOptions) {
 		this.storage = options.storage;
@@ -99,6 +101,28 @@ export class SessionService {
 			this.unsubscribes.push(
 				this.eventBus.on("file.modified", (event) => {
 					void this.onFileEvent(event.payload.path, "modified");
+				}),
+			);
+
+			// Activity tracking: listen to all file events (ADR-025)
+			this.unsubscribes.push(
+				this.eventBus.on("file.created", (event) => {
+					void this.onActivityEvent(event.payload.path, "created");
+				}),
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("file.modified", (event) => {
+					void this.onActivityEvent(event.payload.path, "modified");
+				}),
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("file.deleted", (event) => {
+					void this.onActivityEvent(event.payload.path, "deleted");
+				}),
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("file.renamed", (event) => {
+					void this.onActivityEvent(event.payload.newPath, "renamed", event.payload.oldPath);
 				}),
 			);
 
@@ -191,6 +215,12 @@ export class SessionService {
 				}
 				if (s.canvasFile === undefined) {
 					s.canvasFile = null;
+				}
+				if (!s.activity) {
+					s.activity = [];
+				}
+				if (!s.activityFilter) {
+					s.activityFilter = [];
 				}
 			}
 		}
@@ -468,6 +498,8 @@ export class SessionService {
 		if (!session || session.status !== "completed") return;
 
 		session.status = "archived";
+		// Clear activity on archive — operational data, not session record
+		session.activity = [];
 		await this.saveState();
 		await this.eventBus?.emit("session.archived", { session: { ...session } });
 	}
@@ -645,6 +677,48 @@ export class SessionService {
 		session.artifacts.push(artifact);
 		await this.saveState();
 		await this.eventBus?.emit("session.artifact.added", { sessionId: session.id, artifact });
+	}
+
+	// ── Activity tracking (ADR-025, ADR-026) ────────────────
+
+	private async onActivityEvent(path: string, action: SessionActivityAction, oldPath?: string): Promise<void> {
+		if (!this.state.activeSessionId) return;
+
+		const session = this.findSession(this.state.activeSessionId);
+		if (!session || session.status !== "active") return;
+
+		// Apply folder filters (ADR-026)
+		if (isExcluded(path, this.globalActivityFilter, session.activityFilter)) return;
+
+		// Deduplicate: same path+action within ACTIVITY_DEDUP_WINDOW_MS
+		const now = Date.now();
+		const isDuplicate = session.activity.some(
+			(a) => a.path === path && a.action === action &&
+				(now - Date.parse(a.timestamp)) < ACTIVITY_DEDUP_WINDOW_MS,
+		);
+		if (isDuplicate) return;
+
+		const entry: SessionActivity = { timestamp: new Date(now).toISOString(), action, path };
+		if (oldPath !== undefined) entry.oldPath = oldPath;
+
+		session.activity.push(entry);
+
+		// Cap at MAX_SESSION_ACTIVITY — evict oldest
+		if (session.activity.length > MAX_SESSION_ACTIVITY) {
+			session.activity = session.activity.slice(-MAX_SESSION_ACTIVITY);
+		}
+
+		await this.saveState();
+		await this.eventBus?.emit("session.activity.tracked", { sessionId: session.id, activity: { ...entry } });
+	}
+
+	async updateActivityFilter(sessionId: string, filter: string[]): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session) return;
+
+		session.activityFilter = [...filter];
+		await this.saveState();
+		await this.eventBus?.emit("session.activity.filter.updated", { sessionId, filter: [...filter] });
 	}
 
 	// ── Shared helpers ───────────────────────────────────────

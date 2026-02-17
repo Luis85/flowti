@@ -2,7 +2,7 @@
  * Event types owned by the Session domain.
  */
 
-import type { Session, SessionArtifact, SessionGoal, SessionLink, SessionTemplate, SessionType } from "./types";
+import type { Session, SessionActivity, SessionArtifact, SessionGoal, SessionLink, SessionTemplate, SessionType } from "./types";
 
 export interface SessionEventMap {
 	// ── Commands ──────────────────────────────────────────────
@@ -90,6 +90,12 @@ export interface SessionEventMap {
 	"session.canvasFile.set": { sessionId: string; path: string };
 	/** Emitted after a session's canvas file path is set */
 	"session.canvasFile.updated": { sessionId: string; path: string };
+
+	// ── Activity events ─────────────────────────────────────
+	/** Emitted when a vault file event is tracked in the session activity log */
+	"session.activity.tracked": { sessionId: string; activity: SessionActivity };
+	/** Emitted when the per-session activity folder filter is updated */
+	"session.activity.filter.updated": { sessionId: string; filter: string[] };
 
 	// ── Link commands ────────────────────────────────────────
 	/** Command: add a link to a session */

@@ -456,6 +456,9 @@ export default class FlowtiBasePlugin extends Plugin {
 
 		this.eventBus.on("settings.changed", (event) => {
 			this.inboxService?.setEnabledSources(event.payload.settings.inboxEnabledSources);
+			if (this.sessionService) {
+				this.sessionService.globalActivityFilter = event.payload.settings.sessionActivityFilterGlobal ?? [];
+			}
 		});
 
 		this.ingestionService = await this.services.get<IngestionService>("ingestionService");
@@ -468,6 +471,7 @@ export default class FlowtiBasePlugin extends Plugin {
 		await this.dataExchangeService.load();
 
 		this.sessionService = await this.services.get<SessionService>("sessionService");
+		this.sessionService.globalActivityFilter = settingsService.getSettings().sessionActivityFilterGlobal ?? [];
 		await this.sessionService.load();
 
 		// Write session summary to notes file on completion

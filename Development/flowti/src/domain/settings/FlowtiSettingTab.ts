@@ -5,6 +5,7 @@ import type { IInstallerService } from "../installer/types";
 import { InstallerWizardModal } from "../installer/InstallerWizardModal";
 import { DEFAULT_ENTITY_PATHS, type FlowtiSettings } from "./settings";
 import { INBOX_SOURCE_DEFINITIONS } from "../inbox/types";
+import { attachFolderSuggest } from "../../ui/FolderSuggest";
 
 /**
  * Dependencies injected into FlowtiSettingTab.
@@ -42,6 +43,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 		this.displaySetupSection(containerEl);
 		this.displayEventSystemSection(containerEl);
 		this.displayInboxSection(containerEl);
+		this.displaySessionSection(containerEl);
 		this.displayDocumentationSection(containerEl);
 		this.displayEntityPathsSection(containerEl);
 		this.displayGeneralSection(containerEl);
@@ -171,6 +173,51 @@ export class FlowtiSettingTab extends PluginSettingTab {
 								sources: Array.from(enabled),
 							});
 						})
+				);
+		}
+	}
+
+	/**
+	 * Display session settings section
+	 */
+	private displaySessionSection(containerEl: HTMLElement): void {
+		containerEl.createEl("h3", { text: "Sessions" });
+
+		const settings = this.deps.getSettings();
+		const filter = [...(settings.sessionActivityFilterGlobal ?? [])];
+
+		let inputValue = "";
+		new Setting(containerEl)
+			.setName("Activity log folder filter")
+			.setDesc(
+				"Vault folders excluded from the session activity log globally (prefix match). " +
+				"Per-session filters can be set in each Session Workspace."
+			)
+			.addText((text) => {
+				text.setPlaceholder("e.g. .obsidian/");
+				text.onChange((value) => { inputValue = value; });
+				attachFolderSuggest(text.inputEl, this.app, (path) => { inputValue = path; });
+			})
+			.addExtraButton((btn) =>
+				btn.setIcon("plus").setTooltip("Add folder").onClick(async () => {
+					if (inputValue.trim()) {
+						settings.sessionActivityFilterGlobal.push(inputValue.trim());
+						await this.deps.saveSettings();
+						this.display();
+					}
+				})
+			);
+
+		for (const folder of filter) {
+			new Setting(containerEl)
+				.setName(folder)
+				.addExtraButton((btn) =>
+					btn.setIcon("x").setTooltip("Remove").onClick(async () => {
+						settings.sessionActivityFilterGlobal =
+							settings.sessionActivityFilterGlobal.filter((f) => f !== folder);
+						await this.deps.saveSettings();
+						this.display();
+					})
 				);
 		}
 	}

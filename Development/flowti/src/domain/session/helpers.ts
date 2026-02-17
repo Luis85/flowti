@@ -6,6 +6,22 @@
 
 import type { Session, SessionGoal, SessionType, PauseSegment, TimelineSummary } from "./types";
 
+// ── Activity filtering (ADR-026) ─────────────────────────────
+
+/**
+ * Check if a file path is excluded by global or per-session folder filters.
+ * A path is excluded if it starts with any filter prefix.
+ */
+export function isExcluded(path: string, globalFilter: string[], perSessionFilter: string[]): boolean {
+	for (const prefix of globalFilter) {
+		if (prefix && path.startsWith(prefix)) return true;
+	}
+	for (const prefix of perSessionFilter) {
+		if (prefix && path.startsWith(prefix)) return true;
+	}
+	return false;
+}
+
 /**
  * Computes how much time remains on a session's timer (in ms).
  * Returns 0 if the session has expired.
@@ -74,6 +90,8 @@ export function createSession(
 		links: [],
 		notesFile: null,
 		canvasFile: null,
+		activity: [],
+		activityFilter: [],
 	};
 }
 
