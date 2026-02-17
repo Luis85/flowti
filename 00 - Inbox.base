@@ -1,0 +1,6 @@
+filters:
+  and:
+    - file.inFolder("00 - Connectivity/inbox")
+views:
+  - type: table
+    name: Table

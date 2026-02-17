@@ -7,6 +7,11 @@
     },
     {
       "type": "file",
+      "ctime": 1771346438048,
+      "path": "Development/flowti/docs/10 - Inbox.base"
+    },
+    {
+      "type": "file",
       "ctime": 1771087396881,
       "path": "01 - Jobs to be done.base"
     },
@@ -25,11 +30,6 @@
       "type": "file",
       "ctime": 1771087433608,
       "path": "04 - Personas.base"
-    },
-    {
-      "type": "file",
-      "ctime": 1771346438048,
-      "path": "Development/flowti/docs/10 - Inbox.base"
     }
   ]
 }
