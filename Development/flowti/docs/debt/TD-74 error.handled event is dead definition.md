@@ -1,4 +1,5 @@
 ---
+type: TechDebt
 severity: medium
 category: dead-code
 layer: infrastructure

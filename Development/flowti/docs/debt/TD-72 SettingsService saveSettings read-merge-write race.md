@@ -1,4 +1,5 @@
 ---
+type: TechDebt
 severity: high
 category: concurrency
 layer: domain

@@ -1,7 +1,7 @@
 ---
 type: UserStory
 feature: "[[Feature Lifecycle PRD]]"
-stage: draft
+stage: planned
 tags:
   - user-story
   - feature-lifecycle

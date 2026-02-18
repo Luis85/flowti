@@ -1,4 +1,5 @@
 ---
+type: TechDebt
 severity: medium
 category: testing
 layer: cross-cutting

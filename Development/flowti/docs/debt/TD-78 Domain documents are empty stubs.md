@@ -1,4 +1,5 @@
 ---
+type: TechDebt
 severity: high
 category: documentation
 layer: domain

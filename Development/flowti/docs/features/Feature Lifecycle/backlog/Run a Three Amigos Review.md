@@ -1,7 +1,7 @@
 ---
 type: UseCase
 domain: Flowti
-stage: draft
+stage: planned
 description: Create and conduct a Three Amigos review session for a feature, capturing TASM scores that feed into quality gate checks.
 view: "[[Event Catalog View]]"
 feature: "[[Feature Lifecycle PRD]]"

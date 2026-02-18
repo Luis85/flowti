@@ -1,4 +1,5 @@
 ---
+type: TechDebt
 severity: low
 category: documentation
 layer: cross-cutting

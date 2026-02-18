@@ -12,7 +12,7 @@ services:
   - CsvParser
 events:
   - dataExchange.export.execute
-  - dataExchange.export.progress
+  - dataExchange.export.started
   - dataExchange.export.completed
 tags:
   - data-exchange
@@ -70,7 +70,7 @@ User right-clicks a folder or `.base` file in the file explorer and selects "Exp
 - **View/Service**: ExportService
 - **User Action**: User clicks "Export" on the preview page
 - **System Response**: DataExchangeService delegates to ExportService. ExportService resolves the full file list, scans all column values, and passes them to CsvParser's `generate()` method with the chosen format (CSV or Tab). The conflict strategy is applied: skip checks if the output file exists and returns early, append reads the existing file and concatenates (stripping the duplicate header), overwrite replaces entirely. For vault exports, `FileSystemClient.createFile()` writes the output. For external exports, the injected `WriteExternalFileCallback` uses Node.js `fs.writeFileSync` and `fs.mkdirSync`
-- **Events**: `dataExchange.export.execute` → `dataExchange.export.progress` → `dataExchange.export.completed`
+- **Events**: `dataExchange.export.execute` → `dataExchange.export.started` → `dataExchange.export.completed`
 
 ### 7. Review Results
 
@@ -101,7 +101,7 @@ User right-clicks a folder or `.base` file in the file explorer and selects "Exp
 ## Events Sequence
 
 ```
-[right-click] → [ExportModal opens] → [view selection (if .base)] → [configure columns/format] → [preview] → dataExchange.export.execute → dataExchange.export.progress → dataExchange.export.completed → [results displayed]
+[right-click] → [ExportModal opens] → [view selection (if .base)] → [configure columns/format] → [preview] → dataExchange.export.execute → dataExchange.export.started → dataExchange.export.completed → [results displayed]
 ```
 
 ## Related Use Cases
@@ -109,3 +109,20 @@ User right-clicks a folder or `.base` file in the file explorer and selects "Exp
 - [[Import CSV as Notes]] (reverse operation — CSV to vault notes)
 - [[Build Import Pipeline]] (export configs can feed into import pipelines for round-trip workflows)
 - [[Browse and Configure Events]] (export events appear in the catalog)
+
+## Related Decisions
+
+- [[ADR-001 EventBus Architecture]] — export execution emits events through the EventBus (execute → started → completed)
+- [[ADR-004 Single JSON Blob Storage]] — SavedExportConfig persisted under the dataExchange key
+- [[ADR-023 Modal Business Logic Extraction]] — ExportService owns export logic; ExportModal is a thin UI shell
+- [[ADR-024 BaseHubView Shell Extraction]] — DataExchangeHubView extends BaseHubView; Exports tab in inherited tab bar
+
+## Known Debt
+
+- TD-45: DX Hub resets to dashboard on reopen; Exports tab and selected config not persisted
+- TD-97: This flow doc previously referenced `dataExchange.export.progress` which doesn't exist (fixed 2026-02-18)
+
+## Learnings
+
+- [[L-06 Config CRUD goes through EventBus for domain actions]] — export config save is direct CRUD (not a domain action)
+- [[L-22 Every major event domain needs a flow doc]] — stale event references (TD-97) only found during doc audit

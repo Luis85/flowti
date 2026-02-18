@@ -1,7 +1,7 @@
 ---
 type: UseCase
 domain: Flowti
-stage: draft
+stage: planned
 description: Score a feature's readiness using the 7-dimension FRI model and persist the scores to the PRD frontmatter.
 view: "[[Event Catalog View]]"
 feature: "[[Feature Lifecycle PRD]]"

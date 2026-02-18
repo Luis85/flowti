@@ -46,3 +46,18 @@ The Products tab provides a registry of product documents linked to domains, ser
 
 ### Dashboard overview
 The Dashboard tab shows aggregate stats (event count, domain count, subscription count, definition count) and provides quick-action buttons for common tasks like creating a new flow, opening the activity log, or managing subscriptions.
+
+## Related Flows
+
+These flow docs describe end-to-end user journeys that pass through this view:
+
+- [[Browse and Configure Events]] — Browse the catalog, select events, create subscriptions and event definitions via the Event Config Modal
+- [[Create Domain Documentation]] — Use the Domains, Services, Flows, Systems, Actors, and Products tabs to create and manage entity docs
+- [[Discover Custom Events]] — Custom event Markdown files are discovered and appear in the Events tab alongside code-registered events
+- [[Audit Vault Health]] — The Health tab runs checks against entity docs for completeness, consistency, and cross-reference integrity
+- [[Configure File Ingestion]] — Ingestion events appear in the Events tab; event definitions created here drive the ingestion-to-domain mapping
+
+## Related Decisions
+
+- [[ADR-007 Request-Response Correlation via Branded RequestId]]
+- [[ADR-024 BaseHubView Shell Extraction]] — EventCatalogView extends BaseHubView<CatalogTab>

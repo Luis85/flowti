@@ -1,4 +1,5 @@
 ---
+type: TechDebt
 status: resolved
 severity: low
 category: architecture

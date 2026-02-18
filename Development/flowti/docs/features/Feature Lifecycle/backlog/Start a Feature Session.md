@@ -1,7 +1,7 @@
 ---
 type: UseCase
 domain: Flowti
-stage: draft
+stage: planned
 description: Start a focused session on a PRD to automatically track what files are created and modified, building a documented trail of progress.
 view: "[[Event Catalog View]]"
 feature: "[[Feature Lifecycle PRD]]"

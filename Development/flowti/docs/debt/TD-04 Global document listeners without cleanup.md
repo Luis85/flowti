@@ -1,4 +1,5 @@
 ---
+type: TechDebt
 severity: critical
 category: memory-leak
 layer: ui

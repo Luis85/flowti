@@ -34,3 +34,13 @@ Switch between Obsidian's light and dark themes while the showcase is open to ve
 
 ### Onboard new contributors
 Point new contributors to the showcase as a visual guide to the design system. The live examples are more effective than static documentation for understanding available components.
+
+## Related Flows
+
+This is a developer-facing view with no end-user flows. It supports all views indirectly by providing the design reference for their UI components.
+
+## Related Documentation
+
+- [[Frontend Architecture]] — Component inventory and UI architecture patterns
+- [[ADR-019 Obsidian-Native Styling with ft- Prefix]] — CSS class naming convention used throughout the showcase
+- TD-53: Shared UI primitive library (the showcase documents the current state of this aspirational goal)

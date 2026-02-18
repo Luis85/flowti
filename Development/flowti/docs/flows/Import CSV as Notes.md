@@ -106,3 +106,21 @@ User clicks a `.csv` file in the file explorer, or runs the `flowti:import-csv` 
 - [[Export Vault Data]] (reverse operation — vault notes to CSV)
 - [[Build Import Pipeline]] (saved import configs are reusable in pipelines)
 - [[Browse and Configure Events]] (import events appear in the catalog)
+
+## Related Decisions
+
+- [[ADR-001 EventBus Architecture]] — import execution emits progress and completion events through the bus
+- [[ADR-021 Error Handling Convention]] — per-row import failures collected and emitted in completion payload
+- [[ADR-023 Modal Business Logic Extraction]] — csvUtils pure functions extracted from CsvConfigPage to src/utils/
+
+## Known Debt
+
+- TD-48: CsvParser.parse() is synchronous; >10MB CSV files freeze the UI during preview
+- TD-69: ImportService processes rows sequentially; 1000+ rows need 2000+ sequential EventBus round-trips
+- TD-33: Storage save race condition for near-simultaneous DataExchangeState writes
+- TD-93: Imported notes' frontmatter and ImportService progress tracking can diverge
+
+## Learnings
+
+- [[L-06 Config CRUD goes through EventBus for domain actions]] — saving import config is direct CRUD (correct — configuration, not domain action)
+- [[L-10 Pure helpers scale safely]] — 7 csvUtils pure functions added with 35 tests, zero existing code changes

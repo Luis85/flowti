@@ -2,7 +2,7 @@
 type: ProductBacklogItem
 feature: "[[Feature Lifecycle PRD]]"
 priority: high
-stage: draft
+stage: planned
 userStories:
   - "[[As User, I want to start a session on a PRD so that my progress is tracked automatically]]"
 useCases:

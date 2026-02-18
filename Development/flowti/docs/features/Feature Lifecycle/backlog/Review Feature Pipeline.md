@@ -1,7 +1,7 @@
 ---
 type: UseCase
 domain: Flowti
-stage: draft
+stage: planned
 description: Open the Features tab to see all PRDs positioned at their current lifecycle stage, identify blocked features, and decide what to work on next.
 view: "[[Event Catalog View]]"
 feature: "[[Feature Lifecycle PRD]]"

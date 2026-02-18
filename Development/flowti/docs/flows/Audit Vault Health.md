@@ -138,3 +138,24 @@ User wants to assess overall documentation quality, detect broken references, fi
 - [[Fix Documentation Gaps]]
 - [[Resolve Broken References]]
 - [[Improve Event Coverage]]
+
+## Related Decisions
+
+- [[ADR-005 File-Driven Entity Model]] — health checks operate against file-driven entities scanned from metadataCache
+- [[ADR-021 Error Handling Convention]] — health check failures are UI-rendered results (console-only strategy)
+- [[ADR-024 BaseHubView Shell Extraction]] — Health tab in EventCatalogView gets navigation/render from base class
+- [[ADR-030 Frontmatter Type Conformance Standard]] — frontmatter type check validates canonical type: values
+
+## Known Debt
+
+- TD-45: Catalog resets active tab to dashboard on reopen; Health tab selection not persisted
+- TD-75: checkOrphanedFlows() has quadratic complexity; large vaults see lag
+- TD-76: Health checks re-run from scratch on every tab activation with no caching
+- TD-77: Subscription entities in health results are not navigable
+- TD-91: No wikilink validation; Reference Integrity relies on frontmatter arrays only
+
+## Learnings
+
+- [[L-10 Pure helpers scale safely]] — healthChecks.ts is pure functions with no service dependencies
+- [[L-21 Documentation debt compounds silently]] — the audit that prompted this flow doc found 105 missing type: fields
+- [[L-22 Every major event domain needs a flow doc]] — health tooling only catches debt it is programmed to check

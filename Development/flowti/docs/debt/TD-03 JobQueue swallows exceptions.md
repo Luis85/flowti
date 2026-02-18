@@ -1,4 +1,5 @@
 ---
+type: TechDebt
 severity: critical
 category: error-handling
 layer: domain

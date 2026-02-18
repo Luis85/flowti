@@ -1,4 +1,5 @@
 ---
+type: TechDebt
 severity: medium
 category: feature-gap
 layer: domain

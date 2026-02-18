@@ -1,7 +1,7 @@
 ---
 type: UseCase
 domain: Flowti
-stage: draft
+stage: planned
 description: Review the chronological session history for a feature to understand how it evolved over time.
 view: "[[Event Catalog View]]"
 feature: "[[Feature Lifecycle PRD]]"

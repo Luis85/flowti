@@ -81,11 +81,11 @@ Right-click any file in the vault and select "Add to Session" to link it. Links 
 ### View session artifacts
 Files created or modified during the session appear in the artifacts section with action badges (created/modified) and timestamps. Click an artifact to open the file.
 
-### Track session activity (PBI-SW-001)
-**Planned**: A chronological activity log showing all vault file events (created, modified, deleted, renamed) during the session. Filtered by global + per-session folder exclusions. Capped at 1000 entries with oldest-first eviction.
+### Track session activity
+The activity log shows a chronological feed of all vault file events (created, modified, deleted, renamed) during the session. Events are filtered by global + per-session folder exclusions (ADR-026). Capped at 1000 entries with oldest-first eviction. Each entry shows timestamp, action icon, and file path.
 
-### Filter activity by folder (PBI-SW-001)
-**Planned**: Configure per-session folder filters in the workspace to scope the activity log to the session's working area. Combined with global filters from plugin settings.
+### Filter activity by folder
+Configure per-session folder filters in the workspace header to scope the activity log to the session's working area. Per-session filters combine with global filters from plugin settings via the `isExcluded()` pure function.
 
 ### Create a session canvas
 Click "Create Session Canvas" to generate a `.canvas` file linked to the session. The canvas embed is auto-appended to the notes file.
@@ -109,3 +109,17 @@ For prepared sessions, the duration field is an editable number input. Change th
 - All subscriptions cleaned up in `onClose()` via `unsubscribes` array
 - Adjacent leaf tracking for focus file split view
 - Source: `src/ui/SessionWorkspaceView.ts` (~753 LOC)
+
+## Related Flows
+
+These flow docs describe end-to-end user journeys that pass through this view:
+
+- [[Create and Manage Sessions]] — The full session lifecycle from creation through activity tracking to completion and archival, centered on this workspace
+- [[Manage Inbox Notifications]] — Session completion can trigger inbox items (planned future integration)
+
+## Related Decisions
+
+- [[ADR-025 Activity Log Separate from Artifacts]] — Activity log tracks vault file events; artifacts track session-linked files
+- [[ADR-026 Composable Folder Filtering]] — Per-session + global folder filters for the activity log
+- [[ADR-029 ISO Date Prefix for Session Files]] — Session notes file naming convention
+- [[L-14 Standalone views dont need BaseHubView]] — Workspace extends ItemView directly, not BaseHubView

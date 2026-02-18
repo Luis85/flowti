@@ -74,6 +74,14 @@ Use the Quick Actions section on the dashboard to jump directly to any tab or ex
 ### Track unread items across hubs
 The User Hub's provider (`UserHubProvider`) exposes the current user name and inbox unread count as summary stats visible on other hub dashboards.
 
+## Related Flows
+
+These flow docs describe end-to-end user journeys that pass through this view:
+
+- [[Create and Manage Sessions]] — Sessions tab provides master-detail browsing of session lifecycle (create, start, pause, resume, complete, archive)
+- [[Manage Inbox Notifications]] — Inbox tab shows actionable items from subscriptions, imports, exports; dashboard shows 5 most recent
+- [[First-Run Onboarding]] — After first-run install completes, the User Hub is the landing page for new users
+
 ## Technical Notes
 
 - Registered under view type `flowti-user-hub` with the `home` icon

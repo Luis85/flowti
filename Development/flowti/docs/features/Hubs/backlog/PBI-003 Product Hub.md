@@ -1,4 +1,5 @@
 ---
+stage: idea
 type: ProductBacklogItem
 feature: "[[Hubs PRD]]"
 priority: medium

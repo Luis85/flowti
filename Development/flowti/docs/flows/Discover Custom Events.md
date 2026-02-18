@@ -106,3 +106,21 @@ vault.create → metadata.changed → event.file.triggered → discovery.loaded 
 
 - [[Browse and Discover Events]]
 - [[Configure Event Subscriptions]]
+
+## Related Decisions
+
+- [[ADR-001 EventBus Architecture]] — discovery pipeline is event-driven (vault.create → metadata.changed → event.file.triggered)
+- [[ADR-005 File-Driven Entity Model]] — custom events are Markdown files with type: Event frontmatter
+- [[ADR-020 Deferred Vault Listener Registration]] — vault listeners registered last; startup events via catch-up
+- [[ADR-030 Frontmatter Type Conformance Standard]] — event docs must have type: Event frontmatter
+
+## Known Debt
+
+- TD-62: generateEventKey() produces non-deterministic results when file path is absent
+- TD-63: No telemetry for event-file delete detection failures
+- TD-64: file.renamed payload oldPath/newPath inconsistency
+- TD-90: Event Catalog reference must be manually updated for custom events
+
+## Learnings
+
+- [[L-22 Every major event domain needs a flow doc]] — custom event discovery is the gateway for user-defined domains

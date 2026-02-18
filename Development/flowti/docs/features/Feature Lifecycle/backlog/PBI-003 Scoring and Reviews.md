@@ -2,7 +2,7 @@
 type: ProductBacklogItem
 feature: "[[Feature Lifecycle PRD]]"
 priority: medium
-stage: draft
+stage: planned
 userStories:
   - "[[As User, I want to score my features so that I can track readiness objectively]]"
 useCases:

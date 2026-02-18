@@ -42,3 +42,11 @@ Use the column mapping step to rename properties, exclude irrelevant columns, or
 
 ### Handle incremental imports
 Choose the "skip" conflict strategy to only import new rows, or "update" to merge new data into existing notes. This supports recurring imports where the CSV is periodically refreshed.
+
+## Related Flows
+
+These flow docs describe end-to-end user journeys that pass through this view:
+
+- [[Import CSV as Notes]] — The primary flow: open CSV → preview → configure mappings → execute import → review results
+- [[Build Import Pipeline]] — Saved import configs from this view become building blocks for multi-step pipelines
+- [[Manage Data Dictionary]] — Properties discovered during import appear in the Data Exchange Hub's Properties tab

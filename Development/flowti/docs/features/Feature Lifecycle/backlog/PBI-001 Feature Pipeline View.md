@@ -2,7 +2,7 @@
 type: ProductBacklogItem
 feature: "[[Feature Lifecycle PRD]]"
 priority: high
-stage: draft
+stage: planned
 userStories:
   - "[[As User, I want to see where each feature stands in the development lifecycle]]"
 useCases:

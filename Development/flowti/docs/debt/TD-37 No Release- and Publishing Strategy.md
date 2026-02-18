@@ -1,4 +1,5 @@
 ---
+type: TechDebt
 status: mitigated
 severity: low
 effort: medium

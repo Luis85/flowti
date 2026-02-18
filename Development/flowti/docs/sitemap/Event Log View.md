@@ -45,3 +45,11 @@ Click an event type name to jump directly to its documentation in the Event Cata
 
 ### Review enriched context
 Certain event types show context summaries: subscription matches show the watcher label, ingestion completions show the file path, failures show the error message, and definition matches show the emitted domain event name.
+
+## Related Flows
+
+These flow docs describe end-to-end user journeys that pass through this view:
+
+- [[Monitor and Debug Events]] — The primary flow for this view: subscribe, monitor, filter, pause, inspect, and navigate to event documentation
+- [[Browse and Configure Events]] — Subscriptions created in the Event Catalog determine which events appear in the "Subscribed" feed
+- [[Configure File Ingestion]] — Ingestion events (job.started, job.completed, job.failed) appear in the "All" feed for pipeline debugging

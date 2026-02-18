@@ -1,4 +1,5 @@
 ---
+type: TechDebt
 status: open
 severity: medium
 category: architecture

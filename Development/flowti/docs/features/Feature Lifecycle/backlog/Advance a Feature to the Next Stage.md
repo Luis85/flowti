@@ -1,7 +1,7 @@
 ---
 type: UseCase
 domain: Flowti
-stage: draft
+stage: planned
 description: Validate gate criteria for a feature's current stage and advance it to the next stage when all checks pass.
 view: "[[Event Catalog View]]"
 feature: "[[Feature Lifecycle PRD]]"

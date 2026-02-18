@@ -106,3 +106,22 @@ subscription.create → subscription.created → eventNotify.changed → (live s
 - [[Focus on Subscribed Events]]
 - [[Debug Event Flow]]
 - [[Pause and Inspect Events]]
+
+## Related Decisions
+
+- [[ADR-001 EventBus Architecture]] — Event Log is the runtime embodiment of EventBus observability
+- [[ADR-014 Pure Mapper Pattern]] — wildcard listener must call isSkippedEvent() to filter log.* events (infinite recursion prevention)
+- [[ADR-021 Error Handling Convention]] — "All" feed shows domain.*.failed events from services
+- [[ADR-024 BaseHubView Shell Extraction]] — EventCatalogView navigation from Event Log uses BaseHubView lifecycle
+
+## Known Debt
+
+- TD-12: Wildcard listeners degrade performance as event volume increases
+- TD-45: Event Log view resets feed mode, pause state, and filter on reopen
+- TD-47: Deduplicated/suppressed events show nothing in the log; silent gaps
+- TD-90: Event descriptions in catalog may be stale relative to actual events
+
+## Learnings
+
+- [[L-06 Config CRUD goes through EventBus for domain actions]] — subscriptions via bell icon go through EventBus (domain action)
+- [[L-02 Direct DOM manipulation for live feeds]] — Event Log uses direct DOM updates, not full scheduleRender()

@@ -110,3 +110,22 @@ settings.changed → file.created → ingestion.job.started → ingestion.job.co
 
 - [[Configure Event Subscriptions]]
 - [[Configure Event Definitions]]
+
+## Related Decisions
+
+- [[ADR-001 EventBus Architecture]] — ingestion pipeline is fully event-driven (file.created → ingestion.job.* → eventDefinition.matched)
+- [[ADR-020 Deferred Vault Listener Registration]] — vault listeners registered last in onLayoutReady to avoid race conditions
+- [[ADR-021 Error Handling Convention]] — failed ingestion jobs use logged + emitted error strategy
+
+## Known Debt
+
+- TD-10: IngestionService batch timer can leak if service is disposed during batch window
+- TD-41: EventDefinitionService dedup has a race condition for simultaneous "once" matches
+- TD-47: Deduplicated events are silently suppressed with no user feedback
+- TD-61: processJobPayload() is a dead no-op
+- TD-65: pendingCreatedPaths Set has no eviction policy
+
+## Learnings
+
+- [[L-11 Backward compat guards in load()]] — every new IngestionState field needs ??= migration guard
+- [[L-20 Pure functions for filtering compose cleanly]] — ingestion folder filter follows isExcluded() pattern

@@ -1,4 +1,5 @@
 ---
+type: TechDebt
 severity: low
 category: dead-code
 layer: domain

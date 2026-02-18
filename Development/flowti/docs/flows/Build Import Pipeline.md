@@ -105,3 +105,21 @@ User opens the Data Exchange Hub via the sidebar icon or command palette, then n
 - [[Import CSV as Notes]] (individual import configs are the building blocks of pipelines)
 - [[Export Vault Data]] (export results can be re-imported via pipeline for round-trip workflows)
 - [[Browse and Configure Events]] (import events from pipeline execution appear in the catalog)
+
+## Related Decisions
+
+- [[ADR-001 EventBus Architecture]] — pipeline steps emit import events through the EventBus for progress tracking
+- [[ADR-023 Modal Business Logic Extraction]] — PipelineExecutor.buildPreview() extracted from UI to domain service
+- [[ADR-024 BaseHubView Shell Extraction]] — DataExchangeHubView extends BaseHubView; Pipelines tab via inherited tab bar
+- [[ADR-027 JSON Import Export for Component Configuration]] — pipeline definitions exportable to JSON
+
+## Known Debt
+
+- TD-45: Closing and reopening DX Hub resets active tab; pipeline selection state not persisted
+- TD-52: DX Hub tab definitions are hardcoded arrays
+- TD-69: ImportService processes rows sequentially; large pipeline steps are slow
+
+## Learnings
+
+- [[L-06 Config CRUD goes through EventBus for domain actions]] — pipeline CRUD uses direct service methods (correct — config, not domain action)
+- [[L-10 Pure helpers scale safely]] — matchMergeKeyColumn and syncColumnMappings extracted as pure functions

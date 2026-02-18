@@ -106,3 +106,22 @@ dataExchange.import.completed → (scan properties) → dataExchange.config.chan
 - [[Build Data Dictionary]]
 - [[Import CSV as Notes]]
 - [[Manage Import Configurations]]
+
+## Related Decisions
+
+- [[ADR-004 Single JSON Blob Storage]] — SavedImportConfig/ExportConfig persisted under dataExchange key
+- [[ADR-005 File-Driven Entity Model]] — property docs are Markdown files with type: PropertyDoc frontmatter
+- [[ADR-024 BaseHubView Shell Extraction]] — DataExchangeHubView extends BaseHubView; Properties tab in inherited tab bar
+- [[ADR-030 Frontmatter Type Conformance Standard]] — property docs must have type: PropertyDoc
+
+## Known Debt
+
+- TD-45: DX Hub resets to dashboard on reopen; Properties tab selection not persisted
+- TD-90: Data Dictionary markdown document manually maintained; can drift from code schemas
+- TD-93: Property metadata in vault frontmatter and TypedStorage can diverge
+- TD-32: normalizeDocFrontmatter() writes during render cycle (side-effect)
+
+## Learnings
+
+- [[L-06 Config CRUD goes through EventBus for domain actions]] — DataDictionaryBuilder scans metadataCache directly (correct — read-only computation)
+- [[L-21 Documentation debt compounds silently]] — property docs remain empty stubs unless user actively fills them

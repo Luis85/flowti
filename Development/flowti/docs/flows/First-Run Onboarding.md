@@ -92,3 +92,23 @@ settings.loaded → user.loaded → installer.started → installer.step.started
 ## Related Use Cases
 
 - [[First-Run Onboarding]] (this flow is the primary journey)
+
+## Related Decisions
+
+- [[ADR-001 EventBus Architecture]] — onboarding pipeline is event-driven (installer.started → steps → installer.completed)
+- [[ADR-004 Single JSON Blob Storage]] — InstallerService persists state under the installer key
+- [[ADR-020 Deferred Vault Listener Registration]] — vault listeners not registered until after installer runs
+- [[ADR-021 Error Handling Convention]] — wizard step failures use logged + emitted error strategy
+- [[ADR-023 Modal Business Logic Extraction]] — InstallerWizardModal emits commands; step execution in services
+
+## Known Debt
+
+- TD-23: InstallerWizardModal mixes UI state with rendering (predates ADR-023)
+- TD-70: InstallerService.saveState() called once after all steps; crash between steps loses progress
+- TD-71: FolderScaffoldStep idempotency relies on string-matching error messages (fragile)
+
+## Learnings
+
+- [[L-01 Domain-first delivery builds confidence]] — InstallerService built with full test coverage before modal UI
+- [[L-11 Backward compat guards in load()]] — InstallerState fields need migration guards
+- [[L-13 Domain-only increments build confidence]] — installer domain delivered without UI first

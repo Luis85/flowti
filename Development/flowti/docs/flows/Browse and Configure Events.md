@@ -115,3 +115,21 @@ subscription.refresh → subscription.loaded → eventDefinition.refresh → eve
 - [[First-Run Onboarding]] (catalog is empty until events start flowing after install)
 - [[Import CSV as Notes]] (import events appear in the catalog and can be subscribed to)
 - [[Export Vault Data]] (export events appear in the catalog and can be subscribed to)
+
+## Related Decisions
+
+- [[ADR-001 EventBus Architecture]] — subscription and event definition commands flow through the EventBus
+- [[ADR-007 Event Catalog as Central Hub]] — the catalog is the single place to browse and configure all events
+- [[ADR-023 Modal Business Logic Extraction]] — EventConfigModal emits domain commands; business logic lives in services
+- [[ADR-024 BaseHubView Shell Extraction]] — EventCatalogView extends BaseHubView for tab bar and lifecycle
+
+## Known Debt
+
+- TD-52: Tab definitions are hardcoded arrays; no declarative tab system yet
+- TD-90: Event Catalog reference document is manually maintained and can drift from source
+- TD-93: Subscriptions exist in both TypedStorage and event documentation files with no reconciliation
+
+## Learnings
+
+- [[L-01 Domain-first delivery builds confidence]] — subscription and definition domains were built before catalog UI
+- [[L-06 Config CRUD goes through EventBus for domain actions]] — subscriptions are domain actions, not simple CRUD

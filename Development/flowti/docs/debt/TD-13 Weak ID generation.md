@@ -1,4 +1,5 @@
 ---
+type: TechDebt
 severity: low
 category: bug-risk
 layer: domain

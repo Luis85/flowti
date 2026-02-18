@@ -89,3 +89,21 @@ doc.created → metadata.changed → (render) → doc.created (if Mark as Area)
 - [[Model a Business Flow]]
 - [[Map Systems and Actors]]
 - [[Track Products]]
+
+## Related Decisions
+
+- [[ADR-005 File-Driven Entity Model]] — entity docs are the core of the file-driven architecture
+- [[ADR-024 BaseHubView Shell Extraction]] — EventCatalogView tab bar and split layout from base class
+- [[ADR-030 Frontmatter Type Conformance Standard]] — all entity docs must have canonical type: values
+
+## Known Debt
+
+- TD-32: normalizeDocFrontmatter() writes to vault files during render (side-effect)
+- TD-78: Domain documents are empty stubs; filling content is a manual process
+- TD-91: No wikilink validation; cross-references in frontmatter may reference nonexistent entities
+- TD-93: Entity metadata in metadataCache can drift from catalog-registered data
+
+## Learnings
+
+- [[L-17 Auto-linking builds the knowledge graph]] — entity docs auto-link to related events and flows
+- [[L-21 Documentation debt compounds silently]] — empty stubs accumulate without triggering failures

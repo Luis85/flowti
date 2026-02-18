@@ -42,3 +42,10 @@ Save an export configuration for repeat use. Load a saved config to pre-fill sou
 
 ### Export with display name mapping
 Rename columns in the export output using display name mappings. This lets you produce clean, human-readable headers without changing the underlying frontmatter property names.
+
+## Related Flows
+
+These flow docs describe end-to-end user journeys that pass through this view:
+
+- [[Export Vault Data]] — The primary flow: right-click source → configure columns/format → preview → execute export → review results
+- [[Import CSV as Notes]] — Exported CSV files can be re-imported via the CSV Action View for round-trip workflows

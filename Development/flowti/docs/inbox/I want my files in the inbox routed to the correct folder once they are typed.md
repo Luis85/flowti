@@ -9,3 +9,7 @@ tags:
 priority: 01 - medium
 rank:
 ---
+
+# Auto-Route Typed Inbox Files
+
+Files captured quickly into the inbox folder lack proper organization. Once a user sets the `type:` frontmatter on an inbox file, Flowti could automatically move it to the correct destination folder based on configurable routing rules (e.g., `type: TechDebt` routes to `docs/debt/`). This turns the inbox into a true triage zone rather than a permanent dumping ground.

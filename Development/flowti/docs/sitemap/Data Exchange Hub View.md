@@ -44,3 +44,17 @@ The Types tab provides a registry for documenting the various data types (note t
 
 ### Dashboard overview
 The Dashboard tab shows aggregate counts for imports, exports, pipelines, and vault CSV files. Quick-action buttons let you start a new import, export, or open a CSV file directly.
+
+## Related Flows
+
+These flow docs describe end-to-end user journeys that pass through this view:
+
+- [[Import CSV as Notes]] — Saved import configs are managed in the Imports tab; import execution launches from here or from the CSV Action View
+- [[Export Vault Data]] — Saved export configs are managed in the Exports tab; export wizard launches from context menus or this hub
+- [[Build Import Pipeline]] — The Pipelines tab manages multi-step import pipelines that chain saved configs into sequential runs
+- [[Manage Data Dictionary]] — The Properties tab provides a data dictionary for frontmatter properties discovered across the vault
+
+## Related Decisions
+
+- [[ADR-024 BaseHubView Shell Extraction]] — DataExchangeHubView extends BaseHubView<DXTab>
+- [[ADR-027 JSON Import Export for Component Configuration]] — Config persistence for import/export settings
