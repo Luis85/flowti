@@ -16,7 +16,7 @@ import { ItemView, Notice, setIcon } from "obsidian";
 import type { TAbstractFile, WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../infrastructure/events/types";
 import type { SessionService } from "../domain/session/SessionService";
-import type { Session } from "../domain/session/types";
+import type { Session, WorkspaceState } from "../domain/session/types";
 import { generateSessionSummary } from "../domain/session/helpers";
 import { SESSION_TYPE_LABELS, SESSION_STATUS_LABELS } from "./userHub/types";
 import { SaveTemplateModal } from "./modals";
@@ -619,6 +619,68 @@ export class SessionWorkspaceView extends ItemView {
 				}
 			}),
 		);
+
+		// Workspace state capture — service requests snapshot on pause/complete
+		this.unsubscribes.push(
+			this.eventBus.on("session.state.save", (event) => {
+				if (event.payload.sessionId === this.session?.id) {
+					void this.captureWorkspaceState(event.payload.sessionId);
+				}
+			}),
+		);
+
+		// Workspace state restore — service requests file reopening on resume
+		this.unsubscribes.push(
+			this.eventBus.on("session.state.restore", (event) => {
+				if (event.payload.sessionId === this.session?.id) {
+					void this.restoreWorkspaceState(event.payload.sessionId, event.payload.state);
+				}
+			}),
+		);
+	}
+
+	// ── Workspace state capture/restore ─────────────────────
+
+	private async captureWorkspaceState(sessionId: string): Promise<void> {
+		const openFiles: string[] = [];
+		let activeFile: string | null = null;
+
+		// Collect open markdown/canvas files from all workspace leaves
+		this.app.workspace.iterateAllLeaves((leaf) => {
+			const viewState = leaf.getViewState();
+			const file = (viewState.state as Record<string, unknown>)?.file;
+			if (typeof file === "string") {
+				openFiles.push(file);
+			}
+		});
+
+		const current = this.app.workspace.getActiveFile();
+		if (current) {
+			activeFile = current.path;
+		}
+
+		const state: WorkspaceState = { openFiles, activeFile, scrollPositions: {} };
+		await this.eventBus.emit("session.state.saved", { sessionId, state });
+	}
+
+	private async restoreWorkspaceState(sessionId: string, state: WorkspaceState): Promise<void> {
+		// Open each saved file, skipping those that no longer exist
+		for (const filePath of state.openFiles) {
+			const exists = this.app.vault.getAbstractFileByPath(filePath);
+			if (exists) {
+				await this.app.workspace.openLinkText(filePath, "", false);
+			}
+		}
+
+		// Restore active file last so it ends up focused
+		if (state.activeFile) {
+			const exists = this.app.vault.getAbstractFileByPath(state.activeFile);
+			if (exists) {
+				await this.app.workspace.openLinkText(state.activeFile, "", false);
+			}
+		}
+
+		await this.eventBus.emit("session.state.restored", { sessionId });
 	}
 
 	// ── Helpers ───────────────────────────────────────────────

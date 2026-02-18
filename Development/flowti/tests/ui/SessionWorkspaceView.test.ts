@@ -32,6 +32,7 @@ function makeSession(overrides?: Partial<Session>): Session {
 		activityFilter: [],
 		contextBindings: [],
 		decisions: [],
+		workspaceState: null,
 		...overrides,
 	};
 }
@@ -1267,6 +1268,98 @@ describe("SessionWorkspaceView", () => {
 
 			const content = getContentEl(view);
 			expect(content.textContent).not.toContain("Old Decision");
+		});
+	});
+
+	// ── Workspace state capture/restore ────────────────────
+
+	describe("workspace state", () => {
+		it("captures workspace state on session.state.save", async () => {
+			const session = makeSession({ id: "ws-1", status: "paused" });
+			const { view } = createView(eventBus, session);
+			await view.onOpen();
+
+			// Extend mock app with iterateAllLeaves and getActiveFile
+			const app = (view as unknown as { app: Record<string, unknown> }).app as Record<string, Record<string, unknown>>;
+			app.workspace.iterateAllLeaves = vi.fn((cb: (leaf: unknown) => void) => {
+				cb({ getViewState: () => ({ state: { file: "notes/a.md" } }) });
+				cb({ getViewState: () => ({ state: { file: "notes/b.md" } }) });
+				cb({ getViewState: () => ({ state: {} }) }); // leaf without file
+			});
+			app.workspace.getActiveFile = vi.fn(() => ({ path: "notes/a.md" }));
+
+			const handler = vi.fn();
+			eventBus.on("session.state.saved", handler);
+
+			await eventBus.emit("session.state.save", { sessionId: "ws-1" });
+
+			expect(handler).toHaveBeenCalledTimes(1);
+			const payload = handler.mock.calls[0][0].payload;
+			expect(payload.sessionId).toBe("ws-1");
+			expect(payload.state.openFiles).toEqual(["notes/a.md", "notes/b.md"]);
+			expect(payload.state.activeFile).toBe("notes/a.md");
+		});
+
+		it("restores open files on session.state.restore", async () => {
+			const session = makeSession({ id: "ws-2", status: "active" });
+			const { view } = createView(eventBus, session);
+			await view.onOpen();
+
+			// Add vault.getAbstractFileByPath to mock
+			const app = (view as unknown as { app: Record<string, unknown> }).app as Record<string, Record<string, unknown>>;
+			app.vault = {
+				getAbstractFileByPath: vi.fn((path: string) => {
+					if (path === "notes/a.md" || path === "notes/b.md") return { path };
+					return null;
+				}),
+			};
+
+			const handler = vi.fn();
+			eventBus.on("session.state.restored", handler);
+
+			const state = { openFiles: ["notes/a.md", "notes/b.md"], activeFile: "notes/a.md", scrollPositions: {} };
+			await eventBus.emit("session.state.restore", { sessionId: "ws-2", state });
+			// Flush microtasks — handler uses `void` so async work is pending
+			await vi.advanceTimersByTimeAsync(0);
+
+			// openLinkText called for each open file + active file
+			expect(app.workspace.openLinkText).toHaveBeenCalledWith("notes/a.md", "", false);
+			expect(app.workspace.openLinkText).toHaveBeenCalledWith("notes/b.md", "", false);
+			expect(handler).toHaveBeenCalledTimes(1);
+		});
+
+		it("skips missing files during restore", async () => {
+			const session = makeSession({ id: "ws-3", status: "active" });
+			const { view } = createView(eventBus, session);
+			await view.onOpen();
+
+			const app = (view as unknown as { app: Record<string, unknown> }).app as Record<string, Record<string, unknown>>;
+			app.vault = {
+				getAbstractFileByPath: vi.fn((path: string) => {
+					if (path === "exists.md") return { path };
+					return null; // missing.md doesn't exist
+				}),
+			};
+
+			const state = { openFiles: ["exists.md", "missing.md"], activeFile: "missing.md", scrollPositions: {} };
+			await eventBus.emit("session.state.restore", { sessionId: "ws-3", state });
+
+			// Only existing file opened
+			expect(app.workspace.openLinkText).toHaveBeenCalledWith("exists.md", "", false);
+			expect(app.workspace.openLinkText).toHaveBeenCalledTimes(1);
+		});
+
+		it("ignores state.save for a different session", async () => {
+			const session = makeSession({ id: "ws-4", status: "active" });
+			const { view } = createView(eventBus, session);
+			await view.onOpen();
+
+			const handler = vi.fn();
+			eventBus.on("session.state.saved", handler);
+
+			await eventBus.emit("session.state.save", { sessionId: "other-session" });
+
+			expect(handler).not.toHaveBeenCalled();
 		});
 	});
 });

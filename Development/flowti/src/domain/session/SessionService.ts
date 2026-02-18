@@ -12,7 +12,7 @@
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { ITypedStorage } from "../../utils/TypedStorage";
 import { generateUUID } from "../../utils/helpers";
-import type { ContextBindingType, Session, SessionActivity, SessionActivityAction, SessionContextBinding, SessionGoal, SessionLink, SessionState, SessionTemplate, SessionTypeConfig } from "./types";
+import type { ContextBindingType, Session, SessionActivity, SessionActivityAction, SessionContextBinding, SessionGoal, SessionLink, SessionState, SessionTemplate, SessionTypeConfig, WorkspaceState } from "./types";
 import { MAX_SESSIONS, MAX_TEMPLATES, ARTIFACT_DEDUP_WINDOW_MS, SESSION_NOTES_FOLDER, MAX_SESSION_ACTIVITY, ACTIVITY_DEDUP_WINDOW_MS, MAX_CONTEXT_BINDINGS, MAX_SESSION_DECISIONS, SESSION_TYPE_CONFIGS } from "./types";
 import { createSession, createGoal, createDecision, createContextBinding, computeRemainingMs, computeElapsedMs, isTimerExpired, isExcluded, resolveTypeConfig } from "./helpers";
 
@@ -226,6 +226,13 @@ export class SessionService {
 				}),
 			);
 
+			// Workspace state: persist when view reports capture
+			this.unsubscribes.push(
+				this.eventBus.on("session.state.saved", (event) => {
+					void this.handleStateSaved(event.payload.sessionId, event.payload.state);
+				}),
+			);
+
 			// Type configuration commands
 			this.unsubscribes.push(
 				this.eventBus.on("session.type.create", (event) => {
@@ -287,6 +294,9 @@ export class SessionService {
 				}
 				if (!s.decisions) {
 					s.decisions = [];
+				}
+				if (s.workspaceState === undefined) {
+					s.workspaceState = null;
 				}
 				// Migrate legacy links → context bindings
 				if (s.links.length > 0) {
@@ -554,6 +564,8 @@ export class SessionService {
 		this.stopTimer();
 		await this.saveState();
 		await this.eventBus?.emit("session.paused", { session: { ...session } });
+		// Request workspace state capture from view
+		await this.eventBus?.emit("session.state.save", { sessionId: session.id });
 	}
 
 	private async handleResume(sessionId: string): Promise<void> {
@@ -572,6 +584,10 @@ export class SessionService {
 		this.startTimer(session);
 		await this.saveState();
 		await this.eventBus?.emit("session.resumed", { session: { ...session } });
+		// Restore workspace state if previously saved
+		if (session.workspaceState) {
+			await this.eventBus?.emit("session.state.restore", { sessionId: session.id, state: session.workspaceState });
+		}
 	}
 
 	private async handleComplete(sessionId: string): Promise<void> {
@@ -799,6 +815,16 @@ export class SessionService {
 		await this.eventBus?.emit("session.type.configured", { type: type as Session["type"], config: { ...merged } });
 	}
 
+	// ── Workspace state handlers ────────────────────────────
+
+	private async handleStateSaved(sessionId: string, state: WorkspaceState): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session) return;
+
+		session.workspaceState = state;
+		await this.saveState();
+	}
+
 	// ── Timer ────────────────────────────────────────────────
 
 	private startTimer(session: Session): void {
@@ -1004,6 +1030,8 @@ export class SessionService {
 
 		await this.saveState();
 		await this.eventBus?.emit("session.completed", { session: { ...session } });
+		// Request workspace state capture from view
+		await this.eventBus?.emit("session.state.save", { sessionId: session.id });
 	}
 
 	private findSession(id: string): Session | undefined {

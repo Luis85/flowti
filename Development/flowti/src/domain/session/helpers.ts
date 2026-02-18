@@ -112,6 +112,7 @@ export function createSession(
 		activityFilter: [],
 		contextBindings: [],
 		decisions: [],
+		workspaceState: null,
 	};
 }
 
