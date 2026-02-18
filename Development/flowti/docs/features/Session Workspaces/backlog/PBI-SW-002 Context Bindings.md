@@ -1,11 +1,14 @@
 ---
 type: ProductBacklogItem
 feature: "[[Session Workspaces PRD]]"
-stage: in-progress
+stage: done
 priority: high
+effort: medium
 dependencies:
   - "[[PBI-SW-001 Activity Log]]"
-note: "Links sessions to vault entities (domains, features, products) for scoped work and traceability. Core functionality delivered in PBI-002 Inc 8.5/10."
+delivered_via: "[[Phase 4 Inc 9 - Sidebar Workspace and Activity Consolidation]]"
+delivered_date: 2026-02-17
+note: "Delivered via PBI-002 Inc 8.5 (binding CRUD) and Inc 10 (folder reveal, type cycling). All core FRs done. Optional enhancement (auto-populate filter from bound folders) deferred."
 ---
 
 ## User Story — Problem Space

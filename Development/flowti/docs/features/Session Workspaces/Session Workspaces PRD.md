@@ -1,8 +1,8 @@
 ---
-type: PRD
+type: ProductRequirementsDocument
 domain: Session
 stage: in-progress
-version: 3
+version: 4
 maturity: L3
 created: 2026-02-01
 updated: 2026-02-18
@@ -437,16 +437,21 @@ The SessionWorkspaceView gains new panels within the existing layout:
 
 ## 13. Product Backlog Items
 
-| PBI | Title | Priority | Depends On | Status |
-|-----|-------|----------|------------|--------|
-| PBI-SW-001 | Activity Log & Folder Filtering | High | PBI-002 (foundation) | ✅ Done (Inc 10) |
-| PBI-SW-002 | Context Bindings | High | PBI-SW-001 | ✅ Done (Inc 10) |
-| PBI-SW-003 | Session Types & Orchestration | Medium | PBI-002 Inc 11 (guiding questions) | Planned |
-| PBI-SW-004 | Decision Log | Medium | — | Planned |
-| PBI-SW-005 | Session Summary | Medium | PBI-SW-001, PBI-SW-004 | ✅ Partial (Inc 8 — summary without decisions) |
-| PBI-SW-006 | State Restoration | Low | — | Planned |
+| Rank | PBI | Title | Priority | Depends On | Status |
+|------|-----|-------|----------|------------|--------|
+| — | PBI-SW-001 | Activity Log & Folder Filtering | High | PBI-002 (foundation) | ✅ Done (Inc 10) |
+| — | PBI-SW-002 | Context Bindings | High | PBI-SW-001 | ✅ Done (Inc 10) |
+| 1 | PBI-SW-003 | Session Types & Orchestration | High | PBI-SW-001 | Planned — bundles global filter settings UI; enables PBI-SW-009 |
+| 2 | PBI-SW-004 | Decision Log | Medium | — | Planned — independent, unblocks PBI-SW-005 completion |
+| 3 | PBI-SW-007 | Auto-Session & Session Nudges | Medium | — | Planned — daily tracking + nudges; independent |
+| 4 | PBI-SW-009 | Domain Design Session | Medium | PBI-SW-003 | Planned — guided domain decomposition workflow |
+| 5 | PBI-SW-005 | Session Summary | Low | PBI-SW-001, PBI-SW-004 | ✅ Partial (Inc 8 — remaining: decisions section) |
+| 6 | PBI-SW-008 | Session Output Artifacts | Low | PBI-SW-005 | Planned — typed output docs from completed sessions |
+| 7 | PBI-SW-006 | State Restoration | Low | — | Planned — no user demand yet (L-12) |
 
 > **Cross-delivery:** PBI-SW-001 and PBI-SW-002 were delivered together in PBI-002 Increment 10 (Sidebar Workspace & Activity Consolidation), not as standalone increments. This was more efficient — activity log and context bindings share workspace UI surface area and were delivered as one cohesive increment.
+
+> **Priority ranking:** PBIs are ranked by interleaved user value, not sequential delivery order. PBI-SW-003 is ranked highest because it provides the foundation for type-specific tooling (enabling PBI-SW-009) and bundles the global filter settings UI from PBI-SW-001's remainder.
 
 See `backlog/PBI-SW-*.md` for detailed specifications.
 
@@ -461,7 +466,7 @@ See `backlog/PBI-SW-*.md` for detailed specifications.
 | 3 — Solution Exploration | Done | 2026-02-17 | L2 scope selected; L3 deferred |
 | 4 — Solution Design + PRD | Done | 2026-02-17 | PRD v2 with concrete requirements |
 | 5 — Development Ready | Done | 2026-02-17 | FRI 29/35; Technical Review: Pass |
-| 6 — Delivery Planning | Done | 2026-02-17 | 6 PBIs defined; PBI-SW-001 + PBI-SW-002 delivered via PBI-002 Inc 10 |
+| 6 — Delivery Planning | Done | 2026-02-18 | 9 PBIs defined (6 original + 3 new from inbox). SW-001/002 done, SW-005 partial. Priority ranked by value. |
 | 7 — Implementation | In-Progress | 2026-02-18 | FR-01 + FR-02 delivered; FR-04 partial; FR-03/05/06 pending |
 | 8 — Review | In-Progress | 2026-02-18 | Inc 10 in review (TASM pending) |
 | 9–10 | Pending | — | — |
@@ -473,6 +478,7 @@ See `backlog/PBI-SW-*.md` for detailed specifications.
 | 2026-02-17 | — | draft | — | — | — | PRD v2 created with L2 scope, 6 FRs, 16 events, 6 PBIs |
 | 2026-02-17 | draft | approved | Design Gate + Readiness Gate | 29/35 | Technical Architect | Technical Review: Pass. Technically Ready. No follow-ups required |
 | 2026-02-18 | approved | in-progress | — | 29/35 | — | FR-01 (Activity Log) + FR-02 (Context Bindings) delivered via PBI-002 Inc 10. FR-04 (Summary) partially delivered. 9 new events registered. 3 ADRs accepted (025 superseded, 026 accepted, 029 proposed). |
+| 2026-02-18 | in-progress | in-progress | Backlog Refinement | 29/35 | — | PRD v4. PBI-SW-001/002 closed. PBI-SW-003 promoted to High (bundles global filter, enables SW-009). PBI-SW-005 updated to In Progress (partial). 3 new PBIs: SW-007 (Auto-Session), SW-008 (Output Artifacts), SW-009 (Domain Design). Priority ranking interleaved by value. |
 
 ### Related Architecture Decisions
 

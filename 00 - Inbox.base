@@ -40,6 +40,7 @@ views:
     columnSize:
       note.type: 75
       file.name: 800
+      note.description: 366
       note.stage: 95
       note.priority: 111
       note.rank: 74

@@ -4,7 +4,7 @@ feature: "[[Session Workspaces PRD]]"
 stage: planned
 priority: low
 dependencies: []
-note: "Saves and restores workspace state on pause/resume. Independent — can be implemented anytime."
+note: "Saves and restores workspace state on pause/resume. Independent — can be implemented anytime. Overlaps TD-45 (UI view state not persisted). No real-world user demand yet (L-12) — revisit after feedback."
 ---
 
 ## User Story — Problem Space
@@ -35,6 +35,19 @@ As a session user, I want my workspace restored exactly as I left it when I resu
 - [ ] State restored automatically on `session.resumed`
 - [ ] Missing files skipped gracefully (logged but not blocking)
 - [ ] State persisted with session via TypedStorage
+- [ ] Backward compat: `session.workspaceState ??= null` in `load()` (L-11)
+
+### Implementation Approach (from learnings)
+
+- **L-14**: Use Obsidian's `ItemView.getState()`/`setState()` directly — already proven in SessionWorkspaceView's sidebar session switching (Inc 10). No BaseHubView integration needed.
+- **L-11 Backward compat**: `WorkspaceState` is nullable — sessions without it load cleanly.
+- **L-12 Feedback-driven priority**: No real-world user demand for state restoration yet. Keep priority low. Revisit after users report friction with pause/resume workflows.
+- **TD-45 overlap**: TD-45 tracks "UI view state not persisted" as tech debt. This PBI is the solution — close TD-45 when this PBI is delivered.
+
+### Size Estimate
+
+- ~60 LOC source (save/restore logic in SessionService + SessionWorkspaceView)
+- ~15 tests (save on pause, restore on resume, missing files, backward compat)
 
 ### Events
 
@@ -51,4 +64,5 @@ As a session user, I want my workspace restored exactly as I left it when I resu
 - [ ] Resuming a session restores open files
 - [ ] Missing files skipped without error
 - [ ] State persisted across plugin restarts
+- [ ] Legacy sessions without workspaceState load cleanly
 - [ ] Build passes: tests + tsc + eslint + esbuild

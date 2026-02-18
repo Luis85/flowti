@@ -1050,7 +1050,260 @@ Extracted to individual notes in `docs/learnings/` for reuse across features. Se
 
 ---
 
-## 13. Appendix
+## 13. Execution Recap — Session Workspaces PRD (2026-02-17)
+
+This section traces how the **Session Workspaces PRD** — the first standalone L2 feature PRD — moved through every lifecycle phase. Unlike Sections 11–12 which track individual PBIs, this recap tracks a **feature-level PRD** that emerged from a parent PBI's delivery, went through all 10 phases, and demonstrates cross-PBI delivery, backlog refinement from learnings, and priority-based planning.
+
+### Feature Context
+
+| | |
+|---|---|
+| **PRD** | [[Session Workspaces PRD]] — Context-Aware Working Environments |
+| **Maturity** | L2 (single-user structured sessions) |
+| **Foundation** | [[PBI-002 Documentation Sessions]] (10 increments delivered) |
+| **Scope** | 6 FRs: Activity Log, Context Bindings, Decision Log, Session Summary, Type Orchestration, State Restoration |
+| **PBIs** | 9 total (2 done, 1 partial, 6 planned) |
+| **Origin** | Gap analysis after PBI-002 Inc 8 — inbox feedback identified 7 missing capabilities |
+
+---
+
+### Phase 1 — Feedback & Idea Intake
+
+**What happened**: During PBI-002 delivery (increments 5–10), users captured friction points as inbox items. Six user stories emerged from real usage of the session workspace:
+
+| Inbox Item | Domain | Signal |
+|------------|--------|--------|
+| [[I want to filter folders to not appear in my sessions activity log]] | Activity | System folders (.obsidian/) polluting activity view |
+| [[I want to have a Domain Design Session, so that I can easily document a new domain]] | Types | No guided workflow for domain decomposition |
+| [[I want to automatically start a Day Session to track my usage]] | Automation | Day-to-day vault activity goes untracked |
+| [[I want to create an event type document out of a session to prepare an invite for a follow up]] | Output | No structured output from completed sessions |
+| [[I want to easily start a new session while working inside Obsidian]] | Automation | Users forget to start sessions |
+| [[When changing a file which is attached to a session, the session still links to the old path also prevalent in templates]] | Stability | File renames break session paths |
+
+**Artifact**: 6 inbox items linked to Session domain, prioritized by user impact.
+
+---
+
+### Phase 2 — Discovery (Problem Space)
+
+**What happened**: Problem analysis against the PBI-002 foundation identified 7 missing capabilities despite a working session infrastructure with 29 events, SessionService state machine, and SessionWorkspaceView:
+
+1. No activity tracking — file changes during sessions invisible
+2. No folder filtering — system folder noise in activity view
+3. No context binding — sessions unlinked from features/domains
+4. No decision capture — decisions buried in unstructured notes
+5. No structured summary — completion produces raw notes only
+6. No type orchestration — all session types share identical workspace
+7. No state restoration — workspace layout lost on pause/resume
+
+**Artifact**: Problem statement and 7 success outcomes in [[Session Workspaces PRD]] Section 2.
+
+---
+
+### Phase 3 — Solution Exploration
+
+**What happened**: Two approaches considered:
+
+1. **Extend Hubs PRD** — add Session Workspaces as new PBIs under the existing Hubs feature. Rejected: Session Workspaces is an L2 capability with its own FRs, data model, and backlog — it outgrew a single PBI.
+2. **Standalone PRD** — create a dedicated feature PRD with its own lifecycle. Chosen: the scope (6 FRs, 16 events, 6+ PBIs) warrants independent tracking.
+
+L2 (single-user) scope selected. L3 (multi-user collaboration, real-time sync, role-based access) explicitly deferred.
+
+**Artifact**: Solution concept in [[Session Workspaces PRD]] Section 7.
+
+---
+
+### Phase 4 — Solution Design + PRD Drafting
+
+**What happened**: PRD v2 drafted with full scope:
+
+| Dimension | Content |
+|-----------|---------|
+| Functional Requirements | 6 FRs covering activity, context, decisions, summary, types, state |
+| Event Model | 16 planned events (command/state pairs for each capability) |
+| Data Model | 4 new types: `SessionActivity`, `SessionContextBinding`, `SessionDecision`, `SessionTypeConfig` |
+| PBIs | 6 backlog items (SW-001 through SW-006), dependency-ordered |
+| UI Concept | Workspace layout with guiding questions, activity panel, decision log, context header |
+| Non-Functional | Performance budgets (activity <16ms, restore <300ms), scalability caps (1000 activity, 100 decisions, 10 bindings) |
+
+**Artifact**: [[Session Workspaces PRD]] v2 (Sections 1–17).
+
+---
+
+### Phase 5 — PRD → Development Ready
+
+**What happened**: FRI scored at 29/35. Technical Review result: Pass.
+
+| FRI Dimension | Score |
+|---------------|-------|
+| Strategy | 5/5 |
+| Scope | 5/5 |
+| Architecture | 4/5 |
+| Event Integration | 5/5 |
+| Data Model | 4/5 |
+| UI Consistency | 3/5 |
+| Validation & Testing | 3/5 |
+
+Architecture score (4/5): deducted because component extraction threshold for SessionWorkspaceView (~1017 LOC) was noted but not yet addressed.
+
+UI Consistency (3/5): workspace layout concept not yet validated against BaseHubView patterns.
+
+**Artifact**: PRD stage moved to `approved`, FRI 29/35.
+
+---
+
+### Phase 6 — Delivery Planning + Chunking
+
+**What happened**: PRD decomposed into PBIs, then refined through two planning cycles:
+
+**Initial planning (2026-02-17):**
+- 6 PBIs defined (SW-001 through SW-006)
+- Dependency chain: SW-001 → SW-002 (activity before context), SW-004 → SW-005 (decisions before summary), SW-003 independent
+- Cross-PBI delivery decided: SW-001 and SW-002 would be delivered via PBI-002 Inc 10 rather than standalone increments — activity log and context bindings share workspace surface area
+
+**Backlog refinement (2026-02-18):**
+- PBI-SW-001/002 closed as done
+- PBI-SW-005 updated to reflect partial delivery (Inc 8-9 summary functions)
+- PBI-SW-003 promoted to High priority (bundles global filter settings UI, enables SW-009)
+- PBI-SW-004/006 refined with learnings (L-01, L-09, L-10, L-11, L-13, L-14, L-17, L-20)
+- 3 new PBIs created from inbox discoveries (SW-007, SW-008, SW-009)
+- Priority ranking established: interleaved by user value, not sequential order
+
+**Artifact**: 9 PBIs in `backlog/PBI-SW-*.md`, priority table in PRD §13.
+
+---
+
+### Phase 7 — Iterative Implementation
+
+**What happened**: Two FRs delivered via cross-PBI delivery (PBI-002 Inc 10), one FR partially delivered:
+
+#### FR-01: Activity Log (delivered via PBI-002 Inc 10)
+
+| Capability | Implementation |
+|------------|---------------|
+| Activity tracking | `onActivityEvent()` in SessionService — intercepts file.created/modified/deleted/renamed during active sessions |
+| Folder filtering | `isExcluded()` pure function — ADR-026 (composable prefix matching) |
+| Deduplication | 1-second window, same path + action |
+| Cap | 1000 entries per session, oldest-first eviction |
+| Persistence | `activity: SessionActivity[]` on Session via TypedStorage |
+| UI | Unified activity timeline in SessionWorkspaceView (replaced artifacts section, superseding ADR-025) |
+
+#### FR-02: Context Bindings (delivered via PBI-002 Inc 8.5/10)
+
+| Capability | Implementation |
+|------------|---------------|
+| Binding CRUD | `handleContextBind/Unbind/ChangeType()` in SessionService |
+| Types | 5 binding types: file, folder, domain, feature, product |
+| UI | Badge section with click-to-cycle type, fuzzy vault picker, max 10 bindings |
+| Folder handling | `revealInFileExplorer()` for folder bindings (not `openLinkText()`) |
+
+#### FR-04: Session Summary (partially delivered via Inc 8-9)
+
+| Capability | Implementation |
+|------------|---------------|
+| Summary generation | `generateSessionSummary()` pure function |
+| File writing | `writeSessionSummary()` writes to `notesFile` path |
+| Notes merge | `mergeSessionNotes()` preserves user-added content |
+| Remaining | Decisions section blocked by FR-03 (PBI-SW-004) |
+| Design decision | No separate `summaryFile` — `notesFile` serves dual purpose. No dedicated events — synchronous on completion. |
+
+**Additional cross-cutting delivery (Inc 10):**
+- File/folder rename path reconciliation: `handleFileRenamed()` + `handleFolderRenamed()` with `session.paths.updated` emission
+- File collision fix: short ID suffix `(abc123)` on notes/canvas file paths
+- Sidebar workspace: singleton pattern with `setState()`/`getState()` session switching
+- Folder context menu: TFolder right-click shows "Add to {session}"
+- CSS section standardization: `.ft-section` classes
+
+**Totals**: 9 new events registered, ~310 LOC net (Inc 10), 57 tests added. Build: 2,177 tests across 84 suites.
+
+---
+
+### Phase 8 — Review + Quality Assurance
+
+**What happened**: Inc 10 underwent full review:
+
+| Step | Action | Finding | Resolution |
+|------|--------|---------|------------|
+| 1 | Code review: Activity consolidation | Clean — artifacts merged into unified log. ADR-025 superseded. | N/A |
+| 2 | Code review: Folder filtering | `isExcluded()` pure function (ADR-026), 12 LOC, zero dependencies | N/A |
+| 3 | Code review: Context bindings | 5 types, click-to-cycle, folder reveal correct | N/A |
+| 4 | Code review: Path reconciliation | `affectedIds` Set ensures `session.paths.updated` only emitted for affected sessions | N/A |
+| 5 | Build error: `"vault"` not assignable to `FileChangeSource` | Tests used `source: "vault"` | Fixed: replaced with `"obsidian"` |
+| 6 | Build error: Missing catalog entry | `session.paths.updated` missing | Fixed: added with `tags: ["system"]` |
+| 7 | Test coverage | 57 tests across SessionService (+36) and SessionWorkspaceView (+21) | All passing |
+
+**Architecture decisions during PRD lifecycle:**
+
+| ADR | Title | Status | Impact |
+|-----|-------|--------|--------|
+| ADR-025 | Activity Log Separate from Artifacts | Superseded | Inc 10 consolidated into unified log |
+| ADR-026 | Composable Folder Filtering | Accepted | `isExcluded()` pure function pattern |
+| ADR-029 | ISO Date Prefix for Session Files | Proposed | Not yet implemented — session file naming |
+
+**Artifact**: [[Three Amigos Review - Sidebar Workspace and Activity Consolidation 2026-02-17]] (TASM pending).
+
+---
+
+### Phase 9 — Documentation + Publication
+
+**What happened** (step by step):
+
+| Step | Action | Artifact |
+|------|--------|----------|
+| 1 | Created Session Workspaces PRD | [[Session Workspaces PRD]] v2 — 6 FRs, 16 events, data model, PBI table |
+| 2 | Updated PRD to v3 | FR-01/02 checked off, data model updated to match actual types, event model split into delivered/planned |
+| 3 | Created 6 PBIs | PBI-SW-001 through PBI-SW-006 in `backlog/` |
+| 4 | Updated PBI-002 increment doc | [[Phase 4 Inc 9 - Sidebar Workspace and Activity Consolidation]] — 16 capabilities documented |
+| 5 | Updated Hubs PRD | Inc 10 description, test counts, stage history, PBI-002 status |
+| 6 | Closed PBI-SW-001/002 | Stage → done, delivery metadata, delivery status sections updated |
+| 7 | Updated PBI-SW-005 | Stage → in-progress, design decisions documented, partial delivery reflected |
+| 8 | Refined PBI-SW-003/004/006 | Learnings applied, size estimates, implementation approach sections added |
+| 9 | Created 3 new PBIs | PBI-SW-007 (Auto-Session), PBI-SW-008 (Output Artifacts), PBI-SW-009 (Domain Design) |
+| 10 | Updated PRD to v4 | 9-PBI table with priority ranking, stage history entry, delivery planning updated |
+| 11 | Updated Development Lifecycle | This section (Section 13) — full PRD lifecycle recap |
+
+---
+
+### Phase 10 — Post-Release Feedback Loop
+
+**What happened**: Three inbox items from post-Inc 10 usage became new PBIs:
+
+| Inbox Item | New PBI | Priority |
+|------------|---------|----------|
+| Auto-start daily session + session nudges | PBI-SW-007 | Medium |
+| Generate typed output documents from sessions | PBI-SW-008 | Low |
+| Guided domain design workflow | PBI-SW-009 | Medium |
+
+These feed directly into the next planning cycle. PBI-SW-003 (Session Types & Orchestration) is the top-priority next delivery — it provides the foundation for PBI-SW-009 (Domain Design Session) and bundles the remaining global filter settings UI from PBI-SW-001.
+
+**Priority ranking** (interleaved by value):
+
+| Rank | PBI | Title | Priority | Rationale |
+|------|-----|-------|----------|-----------|
+| 1 | PBI-SW-003 | Session Types & Orchestration | High | Foundation for type-specific tooling; bundles global filter; enables SW-009 |
+| 2 | PBI-SW-004 | Decision Log | Medium | Independent, high user value; unblocks SW-005 completion |
+| 3 | PBI-SW-007 | Auto-Session & Nudges | Medium | High quality-of-life; independent |
+| 4 | PBI-SW-009 | Domain Design Session | Medium | Rich workflow; depends on SW-003 |
+| 5 | PBI-SW-005 | Session Summary (completion) | Low | Mostly done; remaining = decisions section |
+| 6 | PBI-SW-008 | Session Output Artifacts | Low | Extends summary capability |
+| 7 | PBI-SW-006 | State Restoration | Low | No user demand yet (L-12) |
+
+---
+
+### Key Learnings
+
+| # | Learning | Pattern |
+|---|---------|---------|
+| 1 | **Cross-PBI delivery keeps momentum** (L-18) | Delivering SW-001/002 within PBI-002 Inc 10 avoided setup overhead. When PBIs share workspace surface area, bundle them into the active delivery stream. |
+| 2 | **Standalone PRDs emerge naturally from parent PBI gaps** | After 8+ increments, PBI-002 had accumulated enough unaddressed feedback to warrant a separate feature PRD. This is not scope creep — it's healthy decomposition. |
+| 3 | **Backlog refinement with learnings produces sharper PBIs** | Applying L-01 (domain-first), L-09 (field threading), L-11 (backward compat) to PBI specs before implementation prevents mid-increment design pivots. |
+| 4 | **Priority ranking by value, not sequence** | Interleaving PBIs by user value (SW-003 → SW-004 → SW-007) rather than technical dependency order (SW-003 → SW-009 → SW-004) delivers more value sooner. |
+| 5 | **Superseding ADRs is healthy** (L-19) | ADR-025 was superseded by Inc 10's activity consolidation. This validates that ADRs are living decisions — not permanent constraints. |
+| 6 | **Design decisions during implementation reduce planned scope** | `summaryFile` and `session.summary.*` events were planned but proved unnecessary. Documenting the design decision (not the absence) keeps the PRD accurate. |
+
+---
+
+## 14. Appendix
 
 - [[Testplan and Teststrategy]]
 - [[Three Amigos Session Template]]

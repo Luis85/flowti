@@ -1,12 +1,15 @@
 ---
 type: ProductBacklogItem
 feature: "[[Session Workspaces PRD]]"
-stage: in-progress
+stage: done
 increment: "[[Inc 1 - Activity Log and Folder Filtering]]"
 priority: high
+effort: medium
 dependencies:
   - "[[PBI-002 Documentation Sessions]]"
-note: "First PBI for Session Workspaces. Activity log and folder filtering delivered early via Inc 10 consolidation (artifacts merged into activity). Global filter setting remains."
+delivered_via: "[[Phase 4 Inc 9 - Sidebar Workspace and Activity Consolidation]]"
+delivered_date: 2026-02-17
+note: "Delivered early via PBI-002 Inc 10 cross-PBI delivery. All core FRs done. Remaining global filter settings UI moved to PBI-SW-003 scope."
 user_story: "[[I want to filter folders to not appear in my sessions activity log]]"
 ---
 
@@ -60,11 +63,14 @@ As a session user, I want to see what vault activity happened during my session 
 
 ### Delivery Status
 
-**Partially delivered in PBI-002 Inc 10** (Sidebar Workspace & Activity Consolidation):
-- Activity log with folder filtering: **done** (delivered as part of session workspace enrichment)
+**Delivered in PBI-002 Inc 10** (Sidebar Workspace & Activity Consolidation, 2026-02-17):
+- Activity log with folder filtering: **done**
 - Artifacts section removed — activity is the single unified log: **done** (supersedes ADR-025)
 - Per-session folder filter UI in workspace: **done**
-- Global folder filter in settings: **pending** (requires FlowtiSettingTab update)
+- `isExcluded()` pure function (ADR-026): **done**
+- Activity capped at 1000 entries with dedup: **done**
+- Activity cleared on archive: **done**
+- Global folder filter settings UI: **moved to PBI-SW-003** (bundled with FlowtiSettingTab session type config)
 
 ### Technical Requirements
 
