@@ -2,7 +2,7 @@
 type: ProductRequirementsDocument
 domain: Session
 stage: in-progress
-version: 6
+version: 7
 maturity: L3
 created: 2026-02-01
 updated: 2026-02-18
@@ -13,8 +13,8 @@ maturity_score_architecture: 5
 maturity_score_event_integration: 5
 maturity_score_data_model: 5
 maturity_score_ui_consistency: 4
-maturity_score_validation_testing: 4
-fri_score: 33
+maturity_score_validation_testing: 5
+fri_score: 34
 business_value: 5
 implementation_cost: 4
 maintenance_cost: 3
@@ -37,7 +37,7 @@ plugin: "[[Development/flowti/README|README]]"
 **Feature Name:** Session Workspaces
 **Domain:** Flowti – Integrated Business Development Environment
 **Maturity Target:** L3 (Development Ready)
-**Foundation:** PBI-002 Documentation Sessions (10 increments delivered) + 3 development cycles
+**Foundation:** PBI-002 Documentation Sessions (10 increments delivered) + 5 development cycles
 
 ### Purpose
 
@@ -63,11 +63,11 @@ This PRD targets **L3 (Development Ready)** for single-user structured sessions.
 
 The Documentation Sessions feature delivered under the Hubs PRD provides:
 
-- **Session domain core**: types, events (29 registered), SessionService state machine
-- **SessionWorkspaceView**: timer, goals checklist, notes, focus file, artifacts, links, canvas
-- **User Hub integration**: sessions tab, NewSessionModal, templates, preparation flow
+- **Session domain core**: types, events (68 registered), SessionService state machine (1,267 LOC)
+- **SessionWorkspaceView**: timer, goals checklist, notes, focus file, artifacts, links, canvas, decisions, activity log, context bindings, output artifacts
+- **User Hub integration**: sessions tab, NewSessionModal, templates, preparation flow, command palette, dashboard quick actions
 - **Session persistence**: TypedStorage, session notes as markdown files
-- **148+ tests** across SessionService and SessionWorkspaceView
+- **650+ tests** across SessionService, SessionWorkspaceView, and domain layer
 
 ### What's Missing
 
@@ -102,7 +102,7 @@ The Session Workspaces feature shall:
 5. **Orchestrate by session type** — type-specific layouts, guiding questions, tools — ✅ Delivered
 6. **Restore workspace state** on session resume — ✅ Delivered
 7. **Generate output artifacts** — template-driven documents from completed sessions — ✅ Delivered
-8. **Auto-track daily activity** — passive daily session with concurrent support and daily note integration — Planned (Cycle 4)
+8. **Auto-track daily activity** — passive daily session with concurrent support, daily note integration, nudge system, daily summary — ✅ Delivered (Cycles 4+5)
 
 ---
 
@@ -200,8 +200,9 @@ SessionWorkspace (L2 → L3)
  ├── Type Orchestration    ✅ Delivered (Cycle 2): type-specific config + guiding questions
  ├── State Restoration     ✅ Delivered (Cycle 3): workspace state persistence on resume
  ├── Output Artifacts      ✅ Delivered (Cycle 3): template-driven output generation
- ├── Daily Auto-Session    🔜 Planned (Cycle 4): passive daily tracking + daily note summary
- └── Domain Design Session 🔜 Planned (Cycle 5+): guided domain decomposition workflow
+ ├── Daily Auto-Session    ✅ Delivered (Cycles 4+5): daily tracking, concurrent sessions, auto-start, nudges, daily summary
+ ├── Session UX Polish     ✅ Delivered (Cycle 5): command palette commands, dashboard quick actions
+ └── Domain Design Session 🔜 Planned (Cycle 6+): guided domain decomposition workflow
 ```
 
 ### Architecture Alignment
@@ -299,7 +300,7 @@ interface SessionOutputArtifact {
 }
 ```
 
-### Planned Types (Cycle 4 — Daily Auto-Session)
+### Delivered Types (Cycles 4+5 — Daily Auto-Session & Nudges)
 
 ```typescript
 // SessionType union extends from 8 → 9 members
@@ -309,12 +310,21 @@ type SessionType = /* existing 8 */ | "daily-tracking";
 interface SessionState {
   sessions: Session[];
   activeSessionId: string | null;     // focused session (unchanged)
-  dailySessionId: string | null;      // 🔜 Planned Cycle 4 — separate daily tracker
+  dailySessionId: string | null;      // ✅ Delivered Cycle 4 — separate daily tracker
   savedTemplates?: SessionTemplate[];
 }
 
-// New constant for daily sessions (30s vs 1s for focused)
+// Constant for daily sessions (30s vs 1s for focused)
 const DAILY_ACTIVITY_DEDUP_WINDOW_MS = 30_000;
+
+// Session nudge — ✅ Delivered Cycle 5
+interface SessionNudge {
+  id: string;
+  time: string;           // HH:mm format
+  templateId?: string;    // reference to SessionTemplate
+  message: string;
+  enabled: boolean;
+}
 ```
 
 ### Extended Session Interface (actual)
@@ -345,8 +355,9 @@ interface Session {
 | Workspace state | Session state via TypedStorage | Per session | ✅ Delivered (Cycle 3) |
 | Output artifacts | Session state via TypedStorage | Per session | ✅ Delivered (Cycle 3) |
 | Custom output templates | Settings via SettingsService | Permanent | ✅ Delivered (Cycle 3, `customOutputTemplates`) |
-| Daily session config | Settings via SettingsService (`enableDailySession`, `dailyNotePath`) | Permanent | 🔜 Planned (Cycle 4) |
-| Daily session ID | Session state via TypedStorage (`dailySessionId`) | Per vault session | 🔜 Planned (Cycle 4) |
+| Daily session config | Settings via SettingsService (`enableDailySession`, `dailyNotePath`) | Permanent | ✅ Delivered (Cycle 4) |
+| Daily session ID | Session state via TypedStorage (`dailySessionId`) | Per vault session | ✅ Delivered (Cycle 4) |
+| Nudge configs | Settings via SettingsService (`sessionNudges`) | Permanent | ✅ Delivered (Cycle 5) |
 
 ---
 
@@ -392,7 +403,7 @@ interface Session {
 
 > **Note:** `session.summary.generate`/`session.summary.generated` removed from plan — summary generation is handled synchronously via `writeSessionSummary()` on `session.completed`, making dedicated events unnecessary.
 
-### Planned Events (Cycle 4 — Daily Auto-Session)
+### Delivered Events (Cycles 4+5 — Daily Auto-Session & Nudges)
 
 | Event | Trigger | Payload | FR |
 |-------|---------|---------|-----|
@@ -401,6 +412,9 @@ interface Session {
 | `session.daily.stop` | Vault close or manual | `{}` | FR-08 |
 | `session.daily.stopped` | Daily session completed | `{ session: Session }` | FR-08 |
 | `session.daily.summary.generated` | Daily summary appended to note | `{ sessionId, path: string }` | FR-08 |
+| `session.nudge.triggered` | Configured nudge time reached | `{ nudge: SessionNudge }` | FR-08 |
+| `session.nudge.dismissed` | User dismisses nudge | `{ nudgeId: string }` | FR-08 |
+| `session.nudge.accepted` | User accepts nudge | `{ nudgeId: string }` | FR-08 |
 
 ### Event Count Summary
 
@@ -410,9 +424,8 @@ interface Session {
 | Session Workspaces Inc 10 (activity, context) | 8 |
 | Cycle 2 (decisions: 4, types: 4) | 8 |
 | Cycle 3 (state: 4, output: 2) | 6 |
-| Cycle 4 (daily: 4, summary: 1) — planned | 5 |
-| **Total session events (delivered)** | **60** |
-| **Total session events (incl. planned)** | **65** |
+| Cycles 4+5 (daily: 5, nudges: 3) | 8 |
+| **Total session events (delivered)** | **68** |
 
 ---
 
@@ -494,23 +507,31 @@ interface Session {
 
 > **Implementation note:** Delivered in Cycle 3 Inc 2-3 (PBI-SW-008). 10 placeholders: `{{title}}`, `{{date}}`, `{{type}}`, `{{duration}}`, `{{goals}}`, `{{decisions}}`, `{{artifacts}}`, `{{context}}`, `{{overview}}`, `{{notes}}`.
 
-### FR-08: Daily Auto-Session & Concurrent Tracking — Planned (Cycle 4)
+### FR-08: Daily Auto-Session, Concurrent Tracking & Nudges — ✅ Delivered (Cycles 4+5)
 
-- [ ] New session type: `"daily-tracking"` — passive, no timer countdown (duration = 0), no goals, no guiding questions
-- [ ] `SessionState.dailySessionId` tracks daily session separately from `activeSessionId`
-- [ ] `getDailySession()` returns daily session; `getActiveSession()` unchanged (focused only)
-- [ ] Auto-start daily session on vault open when `enableDailySession` setting is enabled (default off)
-- [ ] Auto-stop daily session on plugin unload (vault close)
-- [ ] Concurrent session support: activity tracked in **both** daily and focused sessions simultaneously
-- [ ] Daily session uses 30s dedup window (`DAILY_ACTIVITY_DEDUP_WINDOW_MS`) for reduced noise
-- [ ] `generateDailySummary(session)` pure function — grouped markdown activity summary
-- [ ] Daily summary appended to daily note file on session stop (configurable `dailyNotePath` with `{{date:YYYY-MM-DD}}` placeholder)
-- [ ] Missing daily note handled gracefully (summary generated but not written)
-- [ ] Activity log aggregation: group file events by path (one row per file with latest action + edit count)
-- [ ] 5 new events: `session.daily.start/started/stop/stopped`, `session.daily.summary.generated`
-- [ ] Backward compat: `state.dailySessionId ??= null` in `load()`
+- [x] New session type: `"daily-tracking"` — passive, no timer countdown (duration = 0), no goals, no guiding questions
+- [x] `SessionState.dailySessionId` tracks daily session separately from `activeSessionId`
+- [x] `getDailySession()` returns daily session; `getActiveSession()` unchanged (focused only)
+- [x] Auto-start daily session on vault open when `enableDailySession` setting is enabled (default off)
+- [x] Auto-stop daily session on plugin unload (vault close)
+- [x] Concurrent session support: activity tracked in **both** daily and focused sessions simultaneously
+- [x] Daily session uses 30s dedup window (`DAILY_ACTIVITY_DEDUP_WINDOW_MS`) for reduced noise
+- [x] `generateDailySummary(session)` pure function — grouped markdown activity summary
+- [x] Daily summary appended to daily note file on session stop (configurable `dailyNotePath` with `{{date:YYYY-MM-DD}}` placeholder)
+- [x] Missing daily note handled gracefully (summary generated but not written)
+- [x] Activity log aggregation: group file events by path (one row per file with latest action + edit count)
+- [x] 5 daily events: `session.daily.start/started/stop/stopped`, `session.daily.summary.generated`
+- [x] Backward compat: `state.dailySessionId ??= null` in `load()`
+- [x] Session nudge system: `SessionNudge` type with `{ id, time, templateId, message, enabled }` (Cycle 5)
+- [x] Nudge configuration in FlowtiSettingTab (add/edit/remove nudges) (Cycle 5)
+- [x] Nudge triggers Notice with "Start" / "Dismiss" buttons (Cycle 5)
+- [x] Pre-prepared sessions: nudges can reference a `SessionTemplate` for one-click start (Cycle 5)
+- [x] Daily summary generation with activity grouping and session metrics (Cycle 5)
+- [x] 3 nudge events: `session.nudge.triggered/dismissed/accepted` (Cycle 5)
+- [x] Command palette: `flowti:create-session` and `flowti:resume-session` commands (Cycle 5 polish)
+- [x] Dashboard quick action: "New Session" button on User Hub Dashboard (Cycle 5 polish)
 
-> **Architecture note:** Daily session uses the existing Session entity with `type: "daily-tracking"`. No new entity types. Concurrent tracking is achieved by modifying `onActivityEvent()` to emit to both `activeSessionId` and `dailySessionId`. Settings use Zod schema defaults for zero-migration backward compat.
+> **Architecture note:** Daily session uses the existing Session entity with `type: "daily-tracking"`. No new entity types. Concurrent tracking is achieved by modifying `onActivityEvent()` to emit to both `activeSessionId` and `dailySessionId`. Settings use Zod schema defaults for zero-migration backward compat. Nudge scheduler uses `setInterval` with minute-level resolution, cleared on `onunload()`.
 
 ---
 
@@ -583,12 +604,12 @@ The SessionWorkspaceView gains new panels within the existing layout:
 | — | PBI-SW-005 | Session Summary | Low | PBI-SW-001, PBI-SW-004 | ✅ Done (Inc 8 + Cycle 2) — decisions section completed after SW-004 delivery |
 | — | PBI-SW-006 | State Restoration | Low | — | ✅ Done (Cycle 3) — workspace state save/restore on pause/resume |
 | — | PBI-SW-008 | Session Output Artifacts | Low | PBI-SW-005 | ✅ Done (Cycle 3) — 3 built-in templates, custom templates, picker modal |
-| 1 | PBI-SW-007 | Auto-Session & Session Nudges | Medium | — | 🔜 Planned (Cycle 4) — core: daily tracking + concurrent sessions + daily note; nudges deferred to Cycle 5 |
-| 2 | PBI-SW-009 | Domain Design Session | Medium | PBI-SW-003 | Planned (Cycle 5+) — guided domain decomposition workflow (SW-003 unblocked) |
+| — | PBI-SW-007 | Auto-Session & Session Nudges | Medium | — | ✅ Done (Cycles 4+5) — daily tracking, concurrent sessions, auto-start, nudges, daily summary, command palette, dashboard quick action |
+| 1 | PBI-SW-009 | Domain Design Session | Medium | PBI-SW-003 | 🔜 Planned (Cycle 6 spike) — guided domain decomposition workflow (SW-003 unblocked) |
 
-> **Cross-delivery:** PBI-SW-001 and PBI-SW-002 were delivered together in PBI-002 Increment 10 (Sidebar Workspace & Activity Consolidation). PBI-SW-003 and PBI-SW-004 were delivered together in Cycle 2 (Session Types and Decision Log). PBI-SW-006 and PBI-SW-008 were delivered together in Cycle 3 (Session Output Artifacts and State Restoration).
+> **Cross-delivery:** PBI-SW-001 and PBI-SW-002 were delivered together in PBI-002 Increment 10 (Sidebar Workspace & Activity Consolidation). PBI-SW-003 and PBI-SW-004 were delivered together in Cycle 2 (Session Types and Decision Log). PBI-SW-006 and PBI-SW-008 were delivered together in Cycle 3 (Session Output Artifacts and State Restoration). PBI-SW-007 was delivered across Cycles 4+5 (core daily session in Cycle 4; nudges, daily summary, and UX polish in Cycle 5).
 
-> **Remaining backlog:** 2 PBIs remain: PBI-SW-007 (Auto-Session) and PBI-SW-009 (Domain Design Session). PBI-SW-007 is planned for Cycle 4 (partial — core daily session without nudge system). PBI-SW-009 is unblocked by PBI-SW-003 and planned for Cycle 5+.
+> **Remaining backlog:** 1 PBI remains: PBI-SW-009 (Domain Design Session). 8/9 PBIs delivered. PBI-SW-009 is unblocked by PBI-SW-003 and planned as a Cycle 6 spike (UI pattern evaluation, ADR only).
 
 See `backlog/PBI-SW-*.md` for detailed specifications.
 
@@ -604,9 +625,9 @@ See `backlog/PBI-SW-*.md` for detailed specifications.
 | 4 — Solution Design + PRD | Done | 2026-02-17 | PRD v2 with concrete requirements |
 | 5 — Development Ready | Done | 2026-02-17 | FRI 29/35; Technical Review: Pass |
 | 6 — Delivery Planning | Done | 2026-02-18 | 9 PBIs defined (6 original + 3 new from inbox). SW-001/002 done, SW-005 partial. Priority ranked by value. |
-| 7 — Implementation | In-Progress | 2026-02-18 | FR-01 through FR-07 all delivered across Inc 10 + Cycle 2 + Cycle 3. 7/8 FRs complete, FR-08 planned. 7/9 PBIs delivered. |
-| 8 — Review | In-Progress | 2026-02-18 | Cycle 3 Three Amigos review complete. 1 bug found and fixed. 2,318 tests green. Cycle 4 planned (PBI-SW-007 core). |
-| 9–10 | Pending | — | Remaining: PBI-SW-007 partial (nudges), PBI-SW-009 (Domain Design) |
+| 7 — Implementation | In-Progress | 2026-02-18 | FR-01 through FR-08 all delivered across Inc 10 + Cycles 2–5. 8/8 FRs complete. 8/9 PBIs delivered. |
+| 8 — Review | Done | 2026-02-19 | Three Amigos review (Business + Dev + QA): PASS with 5 observations. 2,507 tests green (99 files). Cycle 6 planned. |
+| 9–10 | Pending | — | Remaining: PBI-SW-009 (Domain Design Session — Cycle 6 spike) |
 
 ### Stage History
 
@@ -619,6 +640,9 @@ See `backlog/PBI-SW-*.md` for detailed specifications.
 | 2026-02-18 | in-progress | in-progress | Cycle 2 Delivery | 29/35 | — | Cycle 2 delivered: PBI-SW-003 (Session Types), PBI-SW-004 (Decision Log), PBI-SW-005 (Summary complete). FR-03, FR-04, FR-05 all delivered. 54 session events. |
 | 2026-02-18 | in-progress | in-progress | Cycle 3 Delivery + Three Amigos | 33/35 | Business, Dev, QA | PRD v5. Cycle 3 delivered: PBI-SW-006 (State Restoration), PBI-SW-008 (Output Artifacts). FR-06, FR-07 delivered. 60 session events. FRI updated: architecture 4→5, data_model 4→5, ui_consistency 3→4, validation_testing 3→4. 2,318 tests, 90 files. |
 | 2026-02-18 | in-progress | in-progress | Cycle 4 Planning + Backlog Refinement | 33/35 | — | PRD v6. FR-08 (Daily Auto-Session) added as planned. PBI-SW-007 scoped for Cycle 4 (core: daily tracking + concurrent sessions + daily note; nudges deferred). PBI-SW-009 deferred to Cycle 5+. 65 inbox items reviewed and normalized. Activity log aggregation bundled with TD-01 extraction. |
+| 2026-02-18 | in-progress | in-progress | Cycle 4 Delivery | 33/35 | — | Cycle 4 delivered: PBI-SW-007 core (daily-tracking type, concurrent sessions, auto-start, daily note integration, activity log aggregation). FR-08 partially delivered. 2,440 tests, 95 files. |
+| 2026-02-18 | in-progress | in-progress | Cycle 5 Delivery + Session UX Polish | 34/35 | — | PRD v7. Cycle 5 delivered: PBI-SW-007 complete (nudge system, daily summary, default nudge configs, dashboard indicator). Session UX polish: command palette commands (`create-session`, `resume-session`), dashboard "New Session" quick action. FR-08 fully delivered. 8/8 FRs, 8/9 PBIs done. 68 session events. FRI updated: validation_testing 4→5 (2,507 tests, 99 files, 13 flow tests). |
+| 2026-02-19 | in-progress | in-progress | Three Amigos Review (Cycles 4+5) | 34/35 | Business, Dev, QA | PASS with 5 observations. All 3 perspectives agree: feature production-ready. OBS: (1) PBI-SW-009 scope decision needed, (2) nudge flow test gap, (3) path reconciliation edge cases, (4) daily tracking disable toggle, (5) Cycle 6 increment ordering. 6 action items logged. |
 
 ### Related Architecture Decisions
 
