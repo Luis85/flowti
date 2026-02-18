@@ -23,6 +23,78 @@ views:
     columnSize:
       file.name: 904
   - type: table
+    name: Discovery
+    filters:
+      and:
+        - stage == "discovery"
+    order:
+      - file.name
+      - description
+      - stage
+      - priority
+      - rank
+      - tags
+    sort:
+      - property: priority
+        direction: DESC
+      - property: file.mtime
+        direction: DESC
+    columnSize:
+      note.type: 75
+      file.name: 800
+      note.description: 366
+      note.stage: 95
+      note.priority: 111
+      note.rank: 74
+  - type: table
+    name: Partially Delivered
+    filters:
+      and:
+        - stage == "partially-delivered"
+    order:
+      - file.name
+      - description
+      - priority
+      - rank
+      - stage
+      - tags
+    sort:
+      - property: priority
+        direction: DESC
+      - property: file.mtime
+        direction: DESC
+    columnSize:
+      note.type: 75
+      file.name: 536
+      note.description: 507
+      note.stage: 95
+      note.priority: 111
+      note.rank: 74
+  - type: table
+    name: Delivered
+    filters:
+      and:
+        - stage == "delivered"
+    order:
+      - file.name
+      - description
+      - priority
+      - rank
+      - stage
+      - tags
+    sort:
+      - property: priority
+        direction: DESC
+      - property: file.mtime
+        direction: DESC
+    columnSize:
+      note.type: 75
+      file.name: 800
+      note.description: 366
+      note.stage: 95
+      note.priority: 111
+      note.rank: 74
+  - type: table
     name: Index
     order:
       - type
