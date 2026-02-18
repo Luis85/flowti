@@ -8,7 +8,6 @@ views:
       and:
         - type.isEmpty()
     order:
-      - type
       - file.name
       - tags
     sort:
