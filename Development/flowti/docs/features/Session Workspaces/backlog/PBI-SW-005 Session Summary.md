@@ -1,12 +1,14 @@
 ---
 type: ProductBacklogItem
 feature: "[[Session Workspaces PRD]]"
-stage: in-progress
+stage: done
 priority: low
 dependencies:
   - "[[PBI-SW-001 Activity Log]]"
   - "[[PBI-SW-004 Decision Log]]"
-note: "Core summary generation delivered in PBI-002 Inc 8-9. Remaining: decisions section (blocked by PBI-SW-004). Design decisions: no separate summaryFile (notesFile serves dual purpose), no dedicated events (synchronous on completion)."
+delivered_in: "[[Cycle 2 - Session Types and Decision Log]]"
+delivered_date: 2026-02-18
+note: "Fully delivered in Cycle 2. Summary includes decisions section (unblocked by SW-004). All acceptance criteria met. Design decisions: no separate summaryFile (notesFile serves dual purpose), no dedicated events (synchronous on completion) — intentional scope reductions, not missing features."
 ---
 
 ## User Story — Problem Space
@@ -35,7 +37,7 @@ As a session user, I want a structured summary document generated when I complet
 - [x] Summary markdown template (metadata, goals with checkboxes, activity timeline, notes section)
 - [x] Summary content merged into existing `notesFile` via `mergeSessionNotes()`
 - [x] Graceful fallback: empty sections omitted (no activity → no timeline section)
-- [ ] Summary includes decisions section (blocked by PBI-SW-004 Decision Log)
+- [x] Summary includes decisions section (blocked by PBI-SW-004 Decision Log)
 - [~] ~~`session.summary.generate` / `session.summary.generated` event pair~~ — **Design decision:** handled synchronously on completion, no dedicated events needed
 - [~] ~~Summary file path stored on session as `summaryFile`~~ — **Design decision:** `notesFile` serves dual purpose (user notes + summary), no separate file needed
 
@@ -46,7 +48,7 @@ As a session user, I want a structured summary document generated when I complet
 - `writeSessionSummary()` writes to `notesFile`: **done** (Inc 8)
 - `mergeSessionNotes()` merges user notes into summary: **done** (Inc 9)
 - Summary template with frontmatter, goals, activity, notes: **done**
-- Decisions section in summary: **blocked** (requires PBI-SW-004)
+- Decisions section in summary: **delivered** (requires PBI-SW-004)
 
 ### Design Decisions (from implementation)
 
@@ -63,7 +65,7 @@ No new events — summary generation is handled synchronously within existing `s
 - [x] Completing a session generates a summary in the session notes file
 - [x] Summary includes goals with completion checkboxes
 - [x] Summary includes activity timeline
-- [ ] Summary includes decisions (blocked by PBI-SW-004)
+- [x] Summary includes decisions (blocked by PBI-SW-004)
 - [x] Summary written to configured session notes folder (`notesFile`)
 - [x] Empty sections gracefully omitted
 - [x] Build passes: tests + tsc + eslint + esbuild

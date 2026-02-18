@@ -28,7 +28,9 @@ import { SessionContextPanel } from "./session/SessionContextPanel";
 import { SessionActivityPanel } from "./session/SessionActivityPanel";
 import { SessionGuidingQuestions } from "./session/SessionGuidingQuestions";
 import { SessionDecisionPanel } from "./session/SessionDecisionPanel";
-import { type SessionTypeConfig } from "../domain/session/types";
+import { SessionOutputPanel } from "./session/SessionOutputPanel";
+import { SessionOutputPickerModal } from "./session/SessionOutputPickerModal";
+import { type SessionTypeConfig, type SessionOutputTemplate } from "../domain/session/types";
 
 export const VIEW_TYPE_SESSION_WORKSPACE = "flowti-session-workspace";
 
@@ -46,9 +48,12 @@ export class SessionWorkspaceView extends ItemView {
 	private contextPanel: SessionContextPanel | null = null;
 	private decisionPanel: SessionDecisionPanel | null = null;
 	private activityPanel: SessionActivityPanel | null = null;
+	private outputPanel: SessionOutputPanel | null = null;
 
 	/** Custom session type configs injected from main.ts (synced from SessionService). */
 	customSessionTypes: Record<string, SessionTypeConfig> = {};
+	/** Custom output templates injected from settings. */
+	customOutputTemplates: readonly SessionOutputTemplate[] = [];
 
 	// DOM refs for header (not extracted — tightly coupled to lifecycle actions)
 	private headerStatusEl: HTMLElement | null = null;
@@ -186,6 +191,12 @@ export class SessionWorkspaceView extends ItemView {
 
 		this.activityPanel = new SessionActivityPanel(container, deps);
 		this.activityPanel.render();
+
+		// Output artifacts — visible only for completed/archived sessions
+		if (this.session.status === "completed" || this.session.status === "archived") {
+			this.outputPanel = new SessionOutputPanel(container, deps, () => this.openOutputPicker());
+			this.outputPanel.render();
+		}
 	}
 
 	private renderEmptyState(container: HTMLElement): void {
@@ -610,6 +621,16 @@ export class SessionWorkspaceView extends ItemView {
 			}),
 		);
 
+		// Output artifact generated — refresh output panel
+		this.unsubscribes.push(
+			this.eventBus.on("session.output.generated", (event) => {
+				if (event.payload.sessionId === this.session?.id) {
+					this.session = this.refreshSession();
+					this.outputPanel?.refreshList();
+				}
+			}),
+		);
+
 		// Session deleted — show empty state
 		this.unsubscribes.push(
 			this.eventBus.on("session.deleted", (event) => {
@@ -684,6 +705,17 @@ export class SessionWorkspaceView extends ItemView {
 	}
 
 	// ── Helpers ───────────────────────────────────────────────
+
+	private openOutputPicker(): void {
+		if (!this.session) return;
+		const sessionId = this.session.id;
+		new SessionOutputPickerModal(this.app, {
+			customTemplates: this.customOutputTemplates,
+			onSelect: (template) => {
+				void this.eventBus.emit("session.output.generate", { sessionId, template });
+			},
+		}).open();
+	}
 
 	private openSaveTemplateModal(session: Session): void {
 		new SaveTemplateModal(this.app, {

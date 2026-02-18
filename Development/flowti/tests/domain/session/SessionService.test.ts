@@ -4,8 +4,9 @@ import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { SessionService } from "../../../src/domain/session/SessionService";
 import type { ITypedStorage } from "../../../src/utils/TypedStorage";
 import type { Session, SessionState, SessionTemplate } from "../../../src/domain/session/types";
-import { MAX_SESSIONS, MAX_TEMPLATES, MAX_CONTEXT_BINDINGS } from "../../../src/domain/session/types";
+import { MAX_SESSIONS, MAX_TEMPLATES, MAX_CONTEXT_BINDINGS, MAX_OUTPUT_ARTIFACTS } from "../../../src/domain/session/types";
 import { generateRerunTitle } from "../../../src/domain/session/SessionService";
+import { BUILT_IN_OUTPUT_TEMPLATES } from "../../../src/domain/session/helpers";
 import { createMockStorage } from "../../mocks/storage";
 
 function makeSession(overrides: Partial<Session> = {}): Session {
@@ -33,6 +34,7 @@ function makeSession(overrides: Partial<Session> = {}): Session {
 		contextBindings: [],
 		decisions: [],
 		workspaceState: null,
+		outputArtifacts: [],
 		...overrides,
 	};
 }
@@ -2928,6 +2930,185 @@ describe("SessionService", () => {
 			const state = { openFiles: ["x.md"], activeFile: null, scrollPositions: {} };
 			await eventBus.emit("session.state.saved", { sessionId: "nonexistent", state });
 			// No error thrown — silently ignored
+		});
+	});
+
+	// ── Output Artifacts ─────────────────────────────────────
+
+	describe("output artifacts", () => {
+		it("adds backward-compat outputArtifacts array on load", async () => {
+			const legacySession = makeSession({ id: "legacy-out" });
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			delete (legacySession as any).outputArtifacts;
+
+			await storage.save({
+				sessions: [legacySession],
+				activeSessionId: null,
+				savedTemplates: [],
+			});
+
+			service.dispose();
+			service = new SessionService({ storage, eventBus });
+			await service.load();
+
+			const session = service.getSessionById("legacy-out");
+			expect(session?.outputArtifacts).toEqual([]);
+		});
+
+		it("generates output artifact for completed session", async () => {
+			const mockFs = {
+				createFile: vi.fn().mockResolvedValue(undefined),
+				readFile: vi.fn().mockResolvedValue("# Notes"),
+				updateFile: vi.fn().mockResolvedValue(undefined),
+				fileExists: vi.fn(),
+				deleteFile: vi.fn(),
+				moveFile: vi.fn(),
+				renameFile: vi.fn(),
+				getFrontmatter: vi.fn(),
+				updateFrontmatter: vi.fn(),
+				setFrontmatter: vi.fn(),
+			};
+
+			service.dispose();
+			service = new SessionService({ storage, eventBus, fileSystem: mockFs });
+
+			await eventBus.emit("session.create", { type: "documentation", title: "Output Test", durationMinutes: 25 });
+			const sessionId = service.getSessions()[0].id;
+			await eventBus.emit("session.start", { sessionId });
+			vi.advanceTimersByTime(5000);
+			await eventBus.emit("session.complete", { sessionId });
+			await vi.advanceTimersByTimeAsync(0);
+
+			const template = BUILT_IN_OUTPUT_TEMPLATES[0]; // meeting-invite
+			const handler = vi.fn();
+			eventBus.on("session.output.generated", handler);
+
+			await eventBus.emit("session.output.generate", { sessionId, template });
+			await vi.advanceTimersByTimeAsync(0);
+
+			expect(handler).toHaveBeenCalledTimes(1);
+			const payload = handler.mock.calls[0][0].payload;
+			expect(payload.sessionId).toBe(sessionId);
+			expect(payload.artifact.type).toBe("meeting-invite");
+			expect(payload.artifact.path).toContain("Output Test - Meeting Invite");
+
+			const session = service.getSessionById(sessionId);
+			expect(session?.outputArtifacts).toHaveLength(1);
+		});
+
+		it("rejects output generation for active sessions", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "Active Test", durationMinutes: 25 });
+			const sessionId = service.getSessions()[0].id;
+			await eventBus.emit("session.start", { sessionId });
+
+			const handler = vi.fn();
+			eventBus.on("session.output.generated", handler);
+
+			const template = BUILT_IN_OUTPUT_TEMPLATES[0];
+			await eventBus.emit("session.output.generate", { sessionId, template });
+			await vi.advanceTimersByTimeAsync(0);
+
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("rejects output generation for paused sessions", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "Paused Test", durationMinutes: 25 });
+			const sessionId = service.getSessions()[0].id;
+			await eventBus.emit("session.start", { sessionId });
+			vi.advanceTimersByTime(5000);
+			await eventBus.emit("session.pause", { sessionId });
+			await vi.advanceTimersByTimeAsync(0);
+
+			const handler = vi.fn();
+			eventBus.on("session.output.generated", handler);
+
+			const template = BUILT_IN_OUTPUT_TEMPLATES[0];
+			await eventBus.emit("session.output.generate", { sessionId, template });
+			await vi.advanceTimersByTimeAsync(0);
+
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("rejects output generation for prepared sessions", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "Prepared Test", durationMinutes: 25 });
+			const sessionId = service.getSessions()[0].id;
+			// Session stays in "prepared" status — never started
+
+			const handler = vi.fn();
+			eventBus.on("session.output.generated", handler);
+
+			const template = BUILT_IN_OUTPUT_TEMPLATES[0];
+			await eventBus.emit("session.output.generate", { sessionId, template });
+			await vi.advanceTimersByTimeAsync(0);
+
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("enforces MAX_OUTPUT_ARTIFACTS cap", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "Cap Test", durationMinutes: 25 });
+			const sessionId = service.getSessions()[0].id;
+			await eventBus.emit("session.start", { sessionId });
+			vi.advanceTimersByTime(5000);
+			await eventBus.emit("session.complete", { sessionId });
+			await vi.advanceTimersByTimeAsync(0);
+
+			// Pre-fill to max
+			const session = service.getSessionById(sessionId)!;
+			for (let i = 0; i < MAX_OUTPUT_ARTIFACTS; i++) {
+				session.outputArtifacts.push({ type: "custom", path: `file-${i}.md`, generatedAt: new Date().toISOString() });
+			}
+
+			const handler = vi.fn();
+			eventBus.on("session.output.generated", handler);
+
+			const template = BUILT_IN_OUTPUT_TEMPLATES[0];
+			await eventBus.emit("session.output.generate", { sessionId, template });
+			await vi.advanceTimersByTimeAsync(0);
+
+			expect(handler).not.toHaveBeenCalled();
+			expect(service.getSessionById(sessionId)?.outputArtifacts).toHaveLength(MAX_OUTPUT_ARTIFACTS);
+		});
+
+		it("appends wikilink to notes file when it exists", async () => {
+			const mockFs = {
+				createFile: vi.fn().mockResolvedValue(undefined),
+				readFile: vi.fn().mockResolvedValue("# Session Notes\nSome content"),
+				updateFile: vi.fn().mockResolvedValue(undefined),
+				fileExists: vi.fn(),
+				deleteFile: vi.fn(),
+				moveFile: vi.fn(),
+				renameFile: vi.fn(),
+				getFrontmatter: vi.fn(),
+				updateFrontmatter: vi.fn(),
+				setFrontmatter: vi.fn(),
+			};
+
+			service.dispose();
+			service = new SessionService({ storage, eventBus, fileSystem: mockFs });
+
+			await eventBus.emit("session.create", { type: "documentation", title: "Notes Link", durationMinutes: 25 });
+			const sessionId = service.getSessions()[0].id;
+
+			// Set up notes file
+			await eventBus.emit("session.notesFile.set", { sessionId, path: "03 - Resources/Sessions/Notes Link.md" });
+			await vi.advanceTimersByTimeAsync(0);
+
+			await eventBus.emit("session.start", { sessionId });
+			vi.advanceTimersByTime(5000);
+			await eventBus.emit("session.complete", { sessionId });
+			await vi.advanceTimersByTimeAsync(0);
+
+			const template = BUILT_IN_OUTPUT_TEMPLATES[0];
+			await eventBus.emit("session.output.generate", { sessionId, template });
+			await vi.advanceTimersByTimeAsync(0);
+
+			// File created
+			expect(mockFs.createFile).toHaveBeenCalled();
+			// Wikilink appended to notes
+			expect(mockFs.updateFile).toHaveBeenCalledWith(
+				"03 - Resources/Sessions/Notes Link.md",
+				expect.stringContaining("## Output Artifacts"),
+			);
 		});
 	});
 });

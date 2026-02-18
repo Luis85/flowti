@@ -84,6 +84,11 @@ export class SettingsService implements ISettingsService {
 					void this.updateSettings({ customSessionTypes: event.payload.types as FlowtiSettings["customSessionTypes"] });
 				})
 			);
+			this.unsubscribes.push(
+				this.eventBus.on("settings.updateCustomOutputTemplates", (event) => {
+					void this.updateSettings({ customOutputTemplates: event.payload.templates as FlowtiSettings["customOutputTemplates"] });
+				})
+			);
 		}
 	}
 

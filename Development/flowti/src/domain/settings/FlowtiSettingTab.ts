@@ -222,6 +222,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 		}
 
 		this.displayCustomSessionTypes(containerEl, settings);
+		this.displayCustomOutputTemplates(containerEl, settings);
 	}
 
 	/**
@@ -301,6 +302,85 @@ export class FlowtiSettingTab extends PluginSettingTab {
 						[key]: { type: key, label, icon: "star", guidingQuestions: questions, defaultDuration: dur, defaultGoals: [] },
 					};
 					void this.deps.eventBus.emit("settings.updateCustomSessionTypes", { types: updated });
+					setTimeout(() => this.display(), 50);
+				})
+			);
+	}
+
+	/**
+	 * Display custom output template creation/editing within the Sessions section.
+	 */
+	private displayCustomOutputTemplates(containerEl: HTMLElement, settings: FlowtiSettings): void {
+		containerEl.createEl("h4", { text: "Custom Output Templates" });
+		containerEl.createEl("p", {
+			text: "Create custom templates for generating output artifacts from completed sessions. " +
+				"Use placeholders: {{title}}, {{date}}, {{type}}, {{duration}}, {{goals}}, {{decisions}}, {{artifacts}}, {{context}}, {{notes}}, {{overview}}.",
+			cls: "setting-item-description",
+		});
+
+		const templates = settings.customOutputTemplates ?? [];
+
+		// List existing custom templates
+		for (let i = 0; i < templates.length; i++) {
+			const tmpl = templates[i];
+			new Setting(containerEl)
+				.setName(tmpl.title)
+				.setDesc(`${tmpl.sections.length} sections`)
+				.addExtraButton((btn) =>
+					btn.setIcon("x").setTooltip("Remove").onClick(() => {
+						const updated = templates.filter((_, idx) => idx !== i);
+						void this.deps.eventBus.emit("settings.updateCustomOutputTemplates", { templates: updated });
+						setTimeout(() => this.display(), 50);
+					})
+				);
+		}
+
+		// Add new custom template form
+		let tmplTitle = "";
+		let tmplDesc = "";
+		let tmplSections = "";
+
+		new Setting(containerEl)
+			.setName("Template title")
+			.addText((text) =>
+				text.setPlaceholder("e.g. Sprint Retro")
+					.onChange((value) => { tmplTitle = value; })
+			);
+
+		new Setting(containerEl)
+			.setName("Description")
+			.addText((text) =>
+				text.setPlaceholder("e.g. Sprint retrospective summary")
+					.onChange((value) => { tmplDesc = value; })
+			);
+
+		new Setting(containerEl)
+			.setName("Sections")
+			.setDesc("One per line: Heading|{{placeholder}}")
+			.addTextArea((ta) =>
+				ta.setPlaceholder("Summary|{{overview}}\nAction Items|{{decisions}}")
+					.onChange((value) => { tmplSections = value; })
+			);
+
+		new Setting(containerEl)
+			.addButton((btn) =>
+				btn.setButtonText("Add Output Template").setCta().onClick(() => {
+					const title = tmplTitle.trim();
+					if (!title) return;
+					const sections = tmplSections.split("\n")
+						.map((line) => line.trim())
+						.filter(Boolean)
+						.map((line) => {
+							const [heading, placeholder] = line.split("|").map((s) => s.trim());
+							return { heading: heading || "Section", placeholder: placeholder || "{{overview}}" };
+						});
+					const updated = [...templates, {
+						type: "custom" as const,
+						title,
+						description: tmplDesc.trim() || title,
+						sections,
+					}];
+					void this.deps.eventBus.emit("settings.updateCustomOutputTemplates", { templates: updated });
 					setTimeout(() => this.display(), 50);
 				})
 			);

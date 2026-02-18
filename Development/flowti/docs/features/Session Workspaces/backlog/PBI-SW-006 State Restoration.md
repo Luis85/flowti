@@ -1,10 +1,12 @@
 ---
 type: ProductBacklogItem
 feature: "[[Session Workspaces PRD]]"
-stage: planned
+stage: done
 priority: low
 dependencies: []
-note: "Saves and restores workspace state on pause/resume. Independent — can be implemented anytime. Overlaps TD-45 (UI view state not persisted). No real-world user demand yet (L-12) — revisit after feedback."
+delivered_in: "[[Cycle 3 - Session Output Artifacts and State Restoration]]"
+delivered_date: 2026-02-18
+note: "Delivered in Cycle 3 Inc 1. Workspace state (open files, active file) auto-saved on pause/complete, auto-restored on resume. 4 system events, backward compat guard. Partially resolves TD-45."
 ---
 
 ## User Story — Problem Space
@@ -28,14 +30,14 @@ As a session user, I want my workspace restored exactly as I left it when I resu
 
 ### Functional Requirements
 
-- [ ] `WorkspaceState` type: `{ openFiles: string[], activeFile: string | null, scrollPositions: Record<string, number> }`
-- [ ] `session.state.save` / `session.state.saved` event pair
-- [ ] `session.state.restore` / `session.state.restored` event pair
-- [ ] State saved automatically on `session.paused` and `session.completed`
-- [ ] State restored automatically on `session.resumed`
-- [ ] Missing files skipped gracefully (logged but not blocking)
-- [ ] State persisted with session via TypedStorage
-- [ ] Backward compat: `session.workspaceState ??= null` in `load()` (L-11)
+- [x] `WorkspaceState` type: `{ openFiles: string[], activeFile: string | null, scrollPositions: Record<string, number> }`
+- [x] `session.state.save` / `session.state.saved` event pair
+- [x] `session.state.restore` / `session.state.restored` event pair
+- [x] State saved automatically on `session.paused` and `session.completed`
+- [x] State restored automatically on `session.resumed`
+- [x] Missing files skipped gracefully (logged but not blocking)
+- [x] State persisted with session via TypedStorage
+- [x] Backward compat: `session.workspaceState ??= null` in `load()` (L-11)
 
 ### Implementation Approach (from learnings)
 
@@ -60,9 +62,9 @@ As a session user, I want my workspace restored exactly as I left it when I resu
 
 ### Acceptance Criteria
 
-- [ ] Pausing a session saves workspace state
-- [ ] Resuming a session restores open files
-- [ ] Missing files skipped without error
-- [ ] State persisted across plugin restarts
-- [ ] Legacy sessions without workspaceState load cleanly
-- [ ] Build passes: tests + tsc + eslint + esbuild
+- [x] Pausing a session saves workspace state
+- [x] Resuming a session restores open files
+- [x] Missing files skipped without error
+- [x] State persisted across plugin restarts
+- [x] Legacy sessions without workspaceState load cleanly
+- [x] Build passes: tests + tsc + eslint + esbuild

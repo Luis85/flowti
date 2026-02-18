@@ -19,8 +19,11 @@ import {
 	mergeSessionNotes,
 	createContextBinding,
 	resolveTypeConfig,
+	resolvePlaceholder,
+	generateSessionOutput,
+	BUILT_IN_OUTPUT_TEMPLATES,
 } from "../../../src/domain/session/helpers";
-import type { Session, SessionTimelineEntry, SessionTypeConfig } from "../../../src/domain/session/types";
+import type { Session, SessionOutputTemplate, SessionTimelineEntry, SessionTypeConfig } from "../../../src/domain/session/types";
 import { SESSION_TYPE_CONFIGS } from "../../../src/domain/session/types";
 
 // ─────────────────────────────────────────────────────────────
@@ -52,6 +55,7 @@ function makeSession(overrides: Partial<Session> = {}): Session {
 		contextBindings: [],
 		decisions: [],
 		workspaceState: null,
+		outputArtifacts: [],
 		...overrides,
 	};
 }
@@ -1028,5 +1032,239 @@ describe("createSession — decisions", () => {
 	it("creates a session with empty decisions array", () => {
 		const session = createSession("s1", "documentation", "Test", 25);
 		expect(session.decisions).toEqual([]);
+	});
+});
+
+describe("createSession — outputArtifacts", () => {
+	it("creates a session with empty outputArtifacts array", () => {
+		const session = createSession("s1", "documentation", "Test", 25);
+		expect(session.outputArtifacts).toEqual([]);
+	});
+});
+
+// ─────────────────────────────────────────────────────────────
+// Session Output Artifacts
+// ─────────────────────────────────────────────────────────────
+
+describe("BUILT_IN_OUTPUT_TEMPLATES", () => {
+	it("has 3 templates", () => {
+		expect(BUILT_IN_OUTPUT_TEMPLATES).toHaveLength(3);
+	});
+
+	it("has meeting-invite, action-items, and review-summary types", () => {
+		const types = BUILT_IN_OUTPUT_TEMPLATES.map((t) => t.type);
+		expect(types).toEqual(["meeting-invite", "action-items", "review-summary"]);
+	});
+});
+
+describe("resolvePlaceholder", () => {
+	const session = makeSession({
+		title: "Sprint Review",
+		type: "documentation",
+		completedAt: "2026-02-18T12:00:00.000Z",
+		createdAt: "2026-02-18T10:00:00.000Z",
+		startedAt: null,
+		elapsedBeforePauseMs: 1500000, // 25 minutes
+		goals: [
+			{ id: "g1", text: "Review architecture", completed: true, completedAt: "2026-02-18T11:00:00.000Z" },
+			{ id: "g2", text: "Draft ADR", completed: false, completedAt: null },
+		],
+		decisions: [
+			{ id: "d1", title: "Use EventBus", description: "For decoupled comms", recordedAt: "2026-02-18T11:30:00.000Z" },
+			{ id: "d2", title: "Separate models", recordedAt: "2026-02-18T11:45:00.000Z" },
+		],
+		artifacts: [
+			{ path: "notes/design.md", action: "created", timestamp: "2026-02-18T11:00:00.000Z" },
+		],
+		contextBindings: [
+			{ id: "b1", type: "domain", label: "Session Domain", path: "domains/session", boundAt: "2026-02-18T10:00:00.000Z" },
+		],
+		notes: "Some session notes here.",
+	});
+
+	it("resolves {{title}}", () => {
+		expect(resolvePlaceholder("{{title}}", session)).toBe("Sprint Review");
+	});
+
+	it("resolves {{date}} from completedAt", () => {
+		expect(resolvePlaceholder("{{date}}", session)).toBe("2026-02-18");
+	});
+
+	it("resolves {{date}} from createdAt when no completedAt", () => {
+		const s = makeSession({ completedAt: null, createdAt: "2026-01-15T10:00:00.000Z" });
+		expect(resolvePlaceholder("{{date}}", s)).toBe("2026-01-15");
+	});
+
+	it("resolves {{type}} as human-readable label", () => {
+		expect(resolvePlaceholder("{{type}}", session)).toBe("Documentation");
+	});
+
+	it("resolves {{duration}} as human-readable time", () => {
+		const result = resolvePlaceholder("{{duration}}", session);
+		expect(result).toBe("25m 0s");
+	});
+
+	it("resolves {{goals}} as checkbox list", () => {
+		const result = resolvePlaceholder("{{goals}}", session);
+		expect(result).toContain("- [x] Review architecture");
+		expect(result).toContain("- [ ] Draft ADR");
+	});
+
+	it("resolves {{goals}} as fallback for empty goals", () => {
+		const s = makeSession({ goals: [] });
+		expect(resolvePlaceholder("{{goals}}", s)).toBe("*No goals recorded.*");
+	});
+
+	it("resolves {{decisions}} as bullet list", () => {
+		const result = resolvePlaceholder("{{decisions}}", session);
+		expect(result).toContain("- **Use EventBus**: For decoupled comms");
+		expect(result).toContain("- **Separate models**");
+	});
+
+	it("resolves {{decisions}} as fallback for empty", () => {
+		const s = makeSession({ decisions: [] });
+		expect(resolvePlaceholder("{{decisions}}", s)).toBe("*No decisions recorded.*");
+	});
+
+	it("resolves {{artifacts}} as wikilink list", () => {
+		const result = resolvePlaceholder("{{artifacts}}", session);
+		expect(result).toContain("- [[notes/design.md]] *(created)*");
+	});
+
+	it("resolves {{context}} as comma-separated labels", () => {
+		expect(resolvePlaceholder("{{context}}", session)).toBe("Session Domain");
+	});
+
+	it("resolves {{notes}}", () => {
+		expect(resolvePlaceholder("{{notes}}", session)).toBe("Some session notes here.");
+	});
+
+	it("resolves {{notes}} as fallback for empty", () => {
+		const s = makeSession({ notes: "" });
+		expect(resolvePlaceholder("{{notes}}", s)).toBe("*No notes recorded.*");
+	});
+
+	it("resolves {{overview}} with date, type, and duration", () => {
+		const result = resolvePlaceholder("{{overview}}", session);
+		expect(result).toContain("- **Date:** 2026-02-18");
+		expect(result).toContain("- **Type:** Documentation");
+		// Uses computeElapsedMs (accumulator-based), not computeActiveTimeMs (timeline-based)
+		expect(result).toContain("- **Duration:** 25m 0s");
+	});
+
+	it("resolves {{overview}} correctly with empty timeline", () => {
+		// Session with elapsedBeforePauseMs but no timeline entries
+		// computeActiveTimeMs would return 0, but computeElapsedMs returns 1500000 (25m)
+		const s = makeSession({
+			elapsedBeforePauseMs: 1500000,
+			timeline: [],
+			completedAt: "2026-02-18T12:00:00.000Z",
+			type: "event-storming",
+		});
+		const result = resolvePlaceholder("{{overview}}", s);
+		expect(result).toContain("- **Duration:** 25m 0s");
+		expect(result).not.toContain("- **Duration:** 0s");
+	});
+
+	it("preserves unknown placeholders", () => {
+		expect(resolvePlaceholder("{{unknown}}", session)).toBe("{{unknown}}");
+	});
+});
+
+describe("generateSessionOutput", () => {
+	const session = makeSession({
+		title: "Sprint Review",
+		type: "documentation",
+		status: "completed",
+		completedAt: "2026-02-18T12:00:00.000Z",
+		elapsedBeforePauseMs: 1500000,
+		goals: [{ id: "g1", text: "Review", completed: true, completedAt: "2026-02-18T11:00:00.000Z" }],
+		decisions: [{ id: "d1", title: "Use EventBus", recordedAt: "2026-02-18T11:30:00.000Z" }],
+	});
+
+	it("generates meeting-invite markdown", () => {
+		const template = BUILT_IN_OUTPUT_TEMPLATES.find((t) => t.type === "meeting-invite")!;
+		const output = generateSessionOutput(session, template);
+		expect(output).toContain("# Meeting Invite: Sprint Review");
+		expect(output).toContain("## Overview");
+		expect(output).toContain("## Goals");
+		expect(output).toContain("- [x] Review");
+		expect(output).toContain("## Decisions");
+		expect(output).toContain("- **Use EventBus**");
+	});
+
+	it("generates action-items markdown", () => {
+		const template = BUILT_IN_OUTPUT_TEMPLATES.find((t) => t.type === "action-items")!;
+		const output = generateSessionOutput(session, template);
+		expect(output).toContain("# Action Items: Sprint Review");
+		expect(output).toContain("## Summary");
+		expect(output).toContain("## Action Items");
+		expect(output).toContain("## Files Changed");
+	});
+
+	it("generates review-summary markdown", () => {
+		const template = BUILT_IN_OUTPUT_TEMPLATES.find((t) => t.type === "review-summary")!;
+		const output = generateSessionOutput(session, template);
+		expect(output).toContain("# Review Summary: Sprint Review");
+		expect(output).toContain("## Session Overview");
+		expect(output).toContain("## Goals");
+		expect(output).toContain("## Decisions");
+		expect(output).toContain("## Artifacts");
+		expect(output).toContain("## Notes");
+	});
+
+	it("generates output with a custom template", () => {
+		const custom: SessionOutputTemplate = {
+			type: "custom",
+			title: "Custom Report",
+			description: "A custom output",
+			sections: [
+				{ heading: "Title", placeholder: "{{title}}" },
+				{ heading: "Date", placeholder: "{{date}}" },
+			],
+		};
+		const output = generateSessionOutput(session, custom);
+		expect(output).toContain("# Custom Report: Sprint Review");
+		expect(output).toContain("## Title\n\nSprint Review");
+		expect(output).toContain("## Date\n\n2026-02-18");
+	});
+
+	it("handles empty session fields gracefully", () => {
+		const emptySession = makeSession({ goals: [], decisions: [], artifacts: [], notes: "" });
+		const template = BUILT_IN_OUTPUT_TEMPLATES.find((t) => t.type === "review-summary")!;
+		const output = generateSessionOutput(emptySession, template);
+		expect(output).toContain("*No goals recorded.*");
+		expect(output).toContain("*No decisions recorded.*");
+		expect(output).toContain("*No artifacts tracked.*");
+		expect(output).toContain("*No notes recorded.*");
+	});
+
+	it("preserves unknown placeholders in full output", () => {
+		const custom: SessionOutputTemplate = {
+			type: "custom",
+			title: "Custom",
+			description: "test",
+			sections: [
+				{ heading: "Known", placeholder: "{{title}}" },
+				{ heading: "Unknown", placeholder: "{{future_field}}" },
+			],
+		};
+		const output = generateSessionOutput(session, custom);
+		expect(output).toContain("## Known\n\nSprint Review");
+		expect(output).toContain("## Unknown\n\n{{future_field}}");
+	});
+
+	it("generates output with single-section template", () => {
+		const minimal: SessionOutputTemplate = {
+			type: "custom",
+			title: "Minimal",
+			description: "test",
+			sections: [{ heading: "Overview", placeholder: "{{overview}}" }],
+		};
+		const output = generateSessionOutput(session, minimal);
+		expect(output).toContain("# Minimal: Sprint Review");
+		expect(output).toContain("## Overview");
+		// Overview contains date, duration, type
+		expect(output).toContain("Documentation");
 	});
 });

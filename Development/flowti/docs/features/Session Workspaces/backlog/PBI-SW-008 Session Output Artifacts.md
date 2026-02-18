@@ -1,13 +1,15 @@
 ---
 type: ProductBacklogItem
 feature: "[[Session Workspaces PRD]]"
-stage: planned
+stage: done
 priority: low
 effort: medium
 dependencies:
   - "[[PBI-SW-005 Session Summary]]"
 user_story: "[[I want to create an event type document out of a session to prepare an invite for a follow up]]"
-note: "Generate typed output documents from completed sessions (meeting invites, action item lists, review summaries). Extends existing summary capability."
+delivered_in: "[[Cycle 3 - Session Output Artifacts and State Restoration]]"
+delivered_date: 2026-02-18
+note: "Delivered in Cycle 3 Inc 2-3. 3 built-in templates + custom template support, SessionOutputPanel + SessionOutputPickerModal, 10 placeholders, settings UI. 2 output events + 1 settings event."
 tags:
   - backlog
 ---
@@ -48,14 +50,14 @@ And the file is linked from the session notes via wikilink
 
 ### Functional Requirements
 
-- [ ] `SessionOutputType`: `"meeting-invite" | "action-items" | "review-summary" | "custom"`
-- [ ] `SessionOutputTemplate` type: `{ type, title, sections, format }`
-- [ ] Pre-built templates for: Meeting Invite, Action Items List, Review Summary
-- [ ] Generate output from completed session data (goals, decisions, activity, notes)
-- [ ] Output file created in `SESSION_NOTES_FOLDER` with type-specific naming
-- [ ] Output file auto-linked to session notes via wikilink insertion (L-17)
-- [ ] Custom template creation via settings
-- [ ] Command/state events: `session.output.generate/generated`
+- [x] `SessionOutputType`: `"meeting-invite" | "action-items" | "review-summary" | "custom"`
+- [x] `SessionOutputTemplate` type: `{ type, title, sections, format }`
+- [x] Pre-built templates for: Meeting Invite, Action Items List, Review Summary
+- [x] Generate output from completed session data (goals, decisions, activity, notes)
+- [x] Output file created in `SESSION_NOTES_FOLDER` with type-specific naming
+- [x] Output file auto-linked to session notes via wikilink insertion (L-17)
+- [x] Custom template creation via settings
+- [x] Command/state events: `session.output.generate/generated`
 
 ### Technical Requirements
 
@@ -72,13 +74,13 @@ And the file is linked from the session notes via wikilink
 
 ## Acceptance Criteria
 
-- [ ] Generate a meeting invite document from a completed session
-- [ ] Generate an action items list from a completed session
-- [ ] Generate a review summary from a completed session
-- [ ] Output file created in session notes folder
-- [ ] Output file linked from session notes via wikilink
-- [ ] Custom output templates can be created via settings
-- [ ] `npm run build` passes with all tests green
+- [x] Generate a meeting invite document from a completed session
+- [x] Generate an action items list from a completed session
+- [x] Generate a review summary from a completed session
+- [x] Output file created in session notes folder
+- [x] Output file linked from session notes via wikilink
+- [x] Custom output templates can be created via settings
+- [x] `npm run build` passes with all tests green
 
 ### INVEST Checklist
 

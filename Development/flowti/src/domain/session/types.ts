@@ -255,6 +255,36 @@ export interface Session {
 	decisions: SessionDecision[];
 	/** Saved workspace state for restore on resume (null if never captured). */
 	workspaceState: WorkspaceState | null;
+	/** Output artifacts generated from this session (meeting invites, action items, etc.). */
+	outputArtifacts: SessionOutputArtifact[];
+}
+
+// ─────────────────────────────────────────────────────────────
+// Session Output Artifacts
+// ─────────────────────────────────────────────────────────────
+
+/** Available output artifact types. */
+export type SessionOutputType = "meeting-invite" | "action-items" | "review-summary" | "custom";
+
+/** A section within an output template. */
+export interface SessionOutputSection {
+	heading: string;
+	placeholder: string;
+}
+
+/** A template for generating output artifacts from a session. */
+export interface SessionOutputTemplate {
+	type: SessionOutputType;
+	title: string;
+	description: string;
+	sections: SessionOutputSection[];
+}
+
+/** A generated output artifact linked to a session. */
+export interface SessionOutputArtifact {
+	type: SessionOutputType;
+	path: string;
+	generatedAt: string; // ISO 8601
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -311,6 +341,9 @@ export const MAX_CONTEXT_BINDINGS = 10;
 
 /** Maximum number of decisions per session. */
 export const MAX_SESSION_DECISIONS = 100;
+
+/** Maximum number of output artifacts per session. */
+export const MAX_OUTPUT_ARTIFACTS = 20;
 
 /** Vault folder where session notes (persistent markdown files) are stored. */
 export const SESSION_NOTES_FOLDER = "03 - Resources/Sessions";

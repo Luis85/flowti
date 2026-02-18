@@ -145,6 +145,15 @@ export const FlowtiSettingsSchema = z.object({
 		defaultGoals: z.array(z.string()),
 		color: z.string().optional(),
 	})).default({}),
+	customOutputTemplates: z.array(z.object({
+		type: z.enum(["meeting-invite", "action-items", "review-summary", "custom"]),
+		title: z.string(),
+		description: z.string(),
+		sections: z.array(z.object({
+			heading: z.string(),
+			placeholder: z.string(),
+		})),
+	})).default([]),
 	inboxEnabledSources: z.array(z.string()).default([
 		"subscription.matched",
 		"dataExchange.import.completed",

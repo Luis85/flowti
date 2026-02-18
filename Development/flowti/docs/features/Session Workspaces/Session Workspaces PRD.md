@@ -2,19 +2,19 @@
 type: ProductRequirementsDocument
 domain: Session
 stage: in-progress
-version: 4
+version: 5
 maturity: L3
 created: 2026-02-01
 updated: 2026-02-18
 foundation: "[[PBI-002 Documentation Sessions]]"
 maturity_score_strategy: 5
 maturity_score_scope: 5
-maturity_score_architecture: 4
+maturity_score_architecture: 5
 maturity_score_event_integration: 5
-maturity_score_data_model: 4
-maturity_score_ui_consistency: 3
-maturity_score_validation_testing: 3
-fri_score: 29
+maturity_score_data_model: 5
+maturity_score_ui_consistency: 4
+maturity_score_validation_testing: 4
+fri_score: 33
 business_value: 5
 implementation_cost: 4
 maintenance_cost: 3
@@ -51,7 +51,7 @@ It acts as:
 
 ### Scope Boundary
 
-This PRD targets **L2 (single-user structured sessions)**. Multi-user collaboration, real-time sync, and role-based access are documented as L3 future scope and explicitly excluded from this delivery phase.
+This PRD targets **L3 (Development Ready)** for single-user structured sessions. Multi-user collaboration, real-time sync, and role-based access are documented as future L4 scope and explicitly excluded from this delivery phase.
 
 ---
 
@@ -93,12 +93,13 @@ Despite a working session infrastructure, users still experience:
 
 The Session Workspaces feature shall:
 
-1. **Track vault activity** during sessions with configurable folder filtering
-2. **Bind sessions to vault context** (domains, features, products, vault paths)
-3. **Capture decisions** as structured, searchable, linked records
-4. **Generate session summaries** on completion with goals, decisions, artifacts, activity
-5. **Orchestrate by session type** — type-specific layouts, guiding questions, tools
-6. **Restore workspace state** on session resume
+1. **Track vault activity** during sessions with configurable folder filtering — ✅ Delivered
+2. **Bind sessions to vault context** (domains, features, products, vault paths) — ✅ Delivered
+3. **Capture decisions** as structured, searchable, linked records — ✅ Delivered
+4. **Generate session summaries** on completion with goals, decisions, artifacts, activity — ✅ Delivered
+5. **Orchestrate by session type** — type-specific layouts, guiding questions, tools — ✅ Delivered
+6. **Restore workspace state** on session resume — ✅ Delivered
+7. **Generate output artifacts** — template-driven documents from completed sessions — ✅ Delivered
 
 ---
 
@@ -185,12 +186,13 @@ The Session Workspace extends the existing `SessionService` and `SessionWorkspac
 
 ```
 SessionWorkspace (L2)
- ├── Activity Log          ← NEW: file event tracking + folder filters
- ├── Context Bindings      ← NEW: link to domains/features/products
- ├── Decision Log          ← NEW: structured decision records
- ├── Session Summary       ← NEW: generated on completion
- ├── Type Orchestration    ← NEW: type-specific config + guiding questions
- └── State Restoration     ← NEW: workspace state persistence on resume
+ ├── Activity Log          ✅ Delivered (Inc 10): file event tracking + folder filters
+ ├── Context Bindings      ✅ Delivered (Inc 10): link to domains/features/products
+ ├── Decision Log          ✅ Delivered (Cycle 2): structured decision records
+ ├── Session Summary       ✅ Delivered (Inc 8 + Cycle 2): generated on completion
+ ├── Type Orchestration    ✅ Delivered (Cycle 2): type-specific config + guiding questions
+ ├── State Restoration     ✅ Delivered (Cycle 3): workspace state persistence on resume
+ └── Output Artifacts      ✅ Delivered (Cycle 3): template-driven output generation
 ```
 
 ### Architecture Alignment
@@ -239,24 +241,52 @@ Folder filtering uses a split persistence model rather than a single `SessionFol
 
 Combined filter applied via `isExcluded(path, global, perSession)` pure function (ADR-026).
 
-### Planned Types (not yet implemented)
+### Delivered Types (Cycle 2)
 
 ```typescript
-// Decision record — FR-03
+// Decision record — FR-03 ✅ Delivered Cycle 2
 interface SessionDecision {
   id: string;
   title: string;
-  description: string;
+  description?: string;
   recordedAt: string;    // ISO 8601
-  context?: string;      // optional reference to bound entity
 }
 
-// Guiding question set per session type — FR-05
+// Session type configuration — FR-05 ✅ Delivered Cycle 2
 interface SessionTypeConfig {
-  type: SessionType;
+  type: SessionType;     // 8 built-in + custom
+  label: string;
+  description: string;
   guidingQuestions: string[];
-  defaultDuration: number;
-  defaultGoals: SessionGoal[];
+  defaultDurationMinutes: number;
+  icon: string;
+}
+```
+
+### Delivered Types (Cycle 3)
+
+```typescript
+// Workspace state — FR-06 ✅ Delivered Cycle 3
+interface WorkspaceState {
+  openFiles: string[];
+  activeFile: string | null;
+  scrollPositions: Record<string, number>;
+}
+
+// Output artifact — FR-07 ✅ Delivered Cycle 3
+type SessionOutputType = "meeting-invite" | "action-items" | "review-summary" | "custom";
+
+interface SessionOutputTemplate {
+  type: SessionOutputType;
+  title: string;
+  description: string;
+  sections: SessionOutputSection[];
+}
+
+interface SessionOutputArtifact {
+  type: SessionOutputType;
+  path: string;
+  generatedAt: string;   // ISO 8601
 }
 ```
 
@@ -268,8 +298,9 @@ interface Session {
   activity: SessionActivity[];              // ✅ Delivered Inc 10
   activityFilter: string[];                 // ✅ Delivered Inc 10 (per-session folder exclusions)
   contextBindings: SessionContextBinding[]; // ✅ Delivered Inc 10
-  // decisions: SessionDecision[];          // ❌ Planned (FR-03)
-  // summaryFile: string | null;            // ❌ Planned (FR-04) — notesFile serves dual purpose for now
+  decisions: SessionDecision[];             // ✅ Delivered Cycle 2 (FR-03)
+  workspaceState: WorkspaceState | null;    // ✅ Delivered Cycle 3 (FR-06)
+  outputArtifacts: SessionOutputArtifact[]; // ✅ Delivered Cycle 3 (FR-07)
 }
 ```
 
@@ -281,9 +312,12 @@ interface Session {
 | Folder filters (global) | Settings via SettingsService | Permanent | ✅ Delivered |
 | Folder filters (per-session) | Session state via TypedStorage | Per session | ✅ Delivered |
 | Context bindings | Session state via TypedStorage | Per session | ✅ Delivered |
-| Decisions | Session state via TypedStorage | Per session | ❌ Planned |
-| Session summary | Vault markdown file (notes file) | Permanent | ✅ Partial (via notesFile) |
-| Session type config | Settings via SettingsService | Permanent | ❌ Planned |
+| Decisions | Session state via TypedStorage | Per session | ✅ Delivered (Cycle 2) |
+| Session summary | Vault markdown file (notes file) | Permanent | ✅ Delivered (via notesFile) |
+| Session type config | Settings via SettingsService | Permanent | ✅ Delivered (Cycle 2, `customSessionTypes`) |
+| Workspace state | Session state via TypedStorage | Per session | ✅ Delivered (Cycle 3) |
+| Output artifacts | Session state via TypedStorage | Per session | ✅ Delivered (Cycle 3) |
+| Custom output templates | Settings via SettingsService | Permanent | ✅ Delivered (Cycle 3, `customOutputTemplates`) |
 
 ---
 
@@ -303,24 +337,41 @@ interface Session {
 | `session.context.typeChanged` | Binding type changed | `{ sessionId, bindingId, newType }` | ✅ |
 | `session.paths.updated` | File/folder rename path reconciliation | `{ sessionIds: string[] }` | ✅ |
 
-### Planned Events (not yet implemented)
+### Delivered Events (Cycle 2 — Decision Log + Session Types)
 
 | Event | Trigger | Payload | FR |
 |-------|---------|---------|-----|
-| `session.decision.record` | User records decision | `{ sessionId, decision: SessionDecision }` | FR-03 |
+| `session.decision.record` | User records decision | `{ sessionId, title, description?, context? }` | FR-03 |
 | `session.decision.recorded` | Decision stored | `{ sessionId, decision: SessionDecision }` | FR-03 |
 | `session.decision.remove` | User removes decision | `{ sessionId, decisionId: string }` | FR-03 |
 | `session.decision.removed` | Decision removed | `{ sessionId, decisionId: string }` | FR-03 |
-| `session.state.save` | Workspace state snapshot | `{ sessionId, state: WorkspaceState }` | FR-06 |
-| `session.state.saved` | State persisted | `{ sessionId }` | FR-06 |
-| `session.state.restore` | Resume triggers restore | `{ sessionId }` | FR-06 |
+| `session.type.configure` | User configures type settings | `{ type, config: Partial<SessionTypeConfig> }` | FR-05 |
+| `session.type.configured` | Type config updated | `{ type, config: SessionTypeConfig }` | FR-05 |
+| `session.type.create` | User creates custom type | `{ config: SessionTypeConfig }` | FR-05 |
+| `session.type.created` | Custom type created | `{ config: SessionTypeConfig }` | FR-05 |
+
+### Delivered Events (Cycle 3 — State Restoration + Output Artifacts)
+
+| Event | Trigger | Payload | FR |
+|-------|---------|---------|-----|
+| `session.state.save` | Pause/complete triggers save | `{ sessionId }` | FR-06 |
+| `session.state.saved` | View captured workspace state | `{ sessionId, state: WorkspaceState }` | FR-06 |
+| `session.state.restore` | Resume triggers restore | `{ sessionId, state: WorkspaceState }` | FR-06 |
 | `session.state.restored` | State applied to workspace | `{ sessionId }` | FR-06 |
+| `session.output.generate` | User requests output | `{ sessionId, template: SessionOutputTemplate }` | FR-07 |
+| `session.output.generated` | Output file created | `{ sessionId, artifact: SessionOutputArtifact }` | FR-07 |
 
 > **Note:** `session.summary.generate`/`session.summary.generated` removed from plan — summary generation is handled synchronously via `writeSessionSummary()` on `session.completed`, making dedicated events unnecessary.
 
-### Existing Events (from PBI-002, unchanged)
+### Event Count Summary
 
-19 session lifecycle events + 10 workspace enrichment events = 29 existing events. Plus 9 delivered Session Workspaces events = **38 total session events**.
+| Source | Events |
+|--------|--------|
+| PBI-002 foundation (lifecycle, workspace, timer, artifact, goal, duration, notes, files, links) | 38 |
+| Session Workspaces Inc 10 (activity, context) | 8 |
+| Cycle 2 (decisions: 4, types: 4) | 8 |
+| Cycle 3 (state: 4, output: 2) | 6 |
+| **Total session events in catalog** | **60** |
 
 ---
 
@@ -346,35 +397,61 @@ interface Session {
 
 > **Deviation:** Binding types expanded from 4 (`domain | feature | product | path`) to 5 (`file | folder | domain | feature | product`). Folder bindings reveal in file explorer; file bindings open as notes. Type cycles via click. Max 10 bindings per session (`MAX_CONTEXT_BINDINGS`).
 
-### FR-03: Decision Log — ❌ Not Yet Delivered
+### FR-03: Decision Log — ✅ Delivered (Cycle 2)
 
-- [ ] Record decisions with title, description, and optional context reference
-- [ ] Display decisions in a dedicated workspace panel
-- [ ] Decisions persisted with session state
-- [ ] Decisions included in session summary
+- [x] Record decisions with title and optional description during active sessions
+- [x] Display decisions in a dedicated workspace panel (`SessionDecisionPanel`)
+- [x] Remove decisions from the panel
+- [x] Decisions persisted with session state (max 100 per session)
+- [x] Decisions included in session summary on completion
+- [x] Decisions carried through rerun and template flows
+- [x] Backward compat: `decisions ??= []` in `load()`
 
-### FR-04: Session Summary — ✅ Partially Delivered (Inc 8)
+> **Implementation note:** Delivered in Cycle 2 (PBI-SW-004). 4 decision events registered. `SessionDecisionPanel` follows the shared component pattern (`constructor(el, deps)`, `renderMaster()` + `renderDetail()`).
+
+### FR-04: Session Summary — ✅ Delivered (Inc 8 + Cycle 2)
 
 - [x] Generate a structured markdown file on session completion
 - [x] Summary includes: metadata, goals (completed/total), artifacts, activity timeline, context bindings, time summary
 - [x] Summary file stored in `SESSION_NOTES_FOLDER` alongside session notes
-- [ ] Summary file path stored on session as `summaryFile` — **not implemented; `notesFile` serves dual purpose**
-- [ ] Summary includes decisions — **blocked by FR-03**
+- [x] Summary includes decisions (unblocked by FR-03 delivery in Cycle 2)
+- [x] ~~`summaryFile` field~~ — not needed; `notesFile` serves dual purpose via `mergeSessionNotes()`
 
-> **Implementation note:** `generateSessionSummary()` + `writeSessionSummary()` delivered in Inc 8. Summary written to `notesFile` path with merge semantics (`mergeSessionNotes()` preserves user-added content). No separate `summaryFile` field needed.
+> **Implementation note:** `generateSessionSummary()` + `writeSessionSummary()` delivered in Inc 8. Decisions section added in Cycle 2 after FR-03 delivery. Summary written to `notesFile` path with merge semantics (`mergeSessionNotes()` preserves user-added content).
 
-### FR-05: Session Type Orchestration — ❌ Not Yet Delivered
+### FR-05: Session Type Orchestration — ✅ Delivered (Cycle 2)
 
-- [ ] Session types define guiding questions, default duration, and default goals
-- [ ] Guiding questions displayed in workspace during active/paused sessions
-- [x] Pre-built types: Event Storming, Service Design, Requirements Refinement, Backlog Structuring, Knowledge Cleanup, Vault Hygiene *(types exist as labels but without orchestration)*
-- [ ] Custom session type creation via settings
+- [x] Session types define guiding questions, default duration, and icon
+- [x] Guiding questions displayed in workspace during active/paused sessions
+- [x] Pre-built types (8): Event Storming, Service Design, Requirements Refinement, Backlog Structuring, Knowledge Cleanup, Vault Hygiene, Documentation, Domain Design
+- [x] Custom session type creation via settings (`customSessionTypes` in SettingsService)
+- [x] Global folder filter configurable in settings (bundled from PBI-SW-001 remainder)
 
-### FR-06: State Restoration — ❌ Not Yet Delivered
+> **Implementation note:** Delivered in Cycle 2 (PBI-SW-003). `resolveTypeConfig()` helper resolves built-in + custom types. `SessionTypeConfig` stored in settings via Zod schema. Guiding questions rendered in workspace detail panel.
 
-- [ ] On pause/complete: save workspace state (open tabs in adjacent leaf, scroll position)
-- [ ] On resume: restore saved workspace state
-- [ ] Graceful degradation if files have been moved/deleted since pause
+### FR-06: State Restoration — ✅ Delivered (Cycle 3)
+
+- [x] On pause/complete: save workspace state (open files, active file)
+- [x] On resume: restore saved workspace state
+- [x] Graceful degradation if files have been moved/deleted since pause
+- [x] 4 system events: `session.state.save/saved/restore/restored`
+- [x] Backward compat: `workspaceState ??= null` in `load()`
+
+> **Implementation note:** Delivered in Cycle 3 Inc 1 (PBI-SW-006). Architecture: Service emits `session.state.save` → View captures workspace via `app.workspace` → emits `session.state.saved` → Service persists. Reverse flow for restore. Domain stays pure (no Obsidian API).
+
+### FR-07: Output Artifacts — ✅ Delivered (Cycle 3)
+
+- [x] Generate typed output documents from completed sessions (meeting invite, action items, review summary)
+- [x] 3 pre-built templates via `BUILT_IN_OUTPUT_TEMPLATES` constant
+- [x] Pure function: `generateSessionOutput(session, template)` with 10 mustache placeholders
+- [x] Output file created in `SESSION_NOTES_FOLDER` and linked to session notes via wikilink
+- [x] `SessionOutputPanel` shows existing artifacts + "Generate Output" button (completed/archived only)
+- [x] `SessionOutputPickerModal` for template selection (3 built-in + custom)
+- [x] Custom output templates configurable in settings (`customOutputTemplates`)
+- [x] Max 20 output artifacts per session (`MAX_OUTPUT_ARTIFACTS`)
+- [x] Backward compat: `outputArtifacts ??= []` in `load()`
+
+> **Implementation note:** Delivered in Cycle 3 Inc 2-3 (PBI-SW-008). 10 placeholders: `{{title}}`, `{{date}}`, `{{type}}`, `{{duration}}`, `{{goals}}`, `{{decisions}}`, `{{artifacts}}`, `{{context}}`, `{{overview}}`, `{{notes}}`.
 
 ---
 
@@ -396,8 +473,9 @@ interface Session {
 ### Scalability
 
 - Activity log capped at 1000 entries per session (oldest evicted)
-- Decisions capped at 100 per session
-- Context bindings capped at 10 per session
+- Decisions capped at 100 per session (`MAX_DECISIONS`)
+- Context bindings capped at 10 per session (`MAX_CONTEXT_BINDINGS`)
+- Output artifacts capped at 20 per session (`MAX_OUTPUT_ARTIFACTS`)
 
 ---
 
@@ -441,17 +519,17 @@ The SessionWorkspaceView gains new panels within the existing layout:
 |------|-----|-------|----------|------------|--------|
 | — | PBI-SW-001 | Activity Log & Folder Filtering | High | PBI-002 (foundation) | ✅ Done (Inc 10) |
 | — | PBI-SW-002 | Context Bindings | High | PBI-SW-001 | ✅ Done (Inc 10) |
-| 1 | PBI-SW-003 | Session Types & Orchestration | High | PBI-SW-001 | Planned — bundles global filter settings UI; enables PBI-SW-009 |
-| 2 | PBI-SW-004 | Decision Log | Medium | — | Planned — independent, unblocks PBI-SW-005 completion |
-| 3 | PBI-SW-007 | Auto-Session & Session Nudges | Medium | — | Planned — daily tracking + nudges; independent |
-| 4 | PBI-SW-009 | Domain Design Session | Medium | PBI-SW-003 | Planned — guided domain decomposition workflow |
-| 5 | PBI-SW-005 | Session Summary | Low | PBI-SW-001, PBI-SW-004 | ✅ Partial (Inc 8 — remaining: decisions section) |
-| 6 | PBI-SW-008 | Session Output Artifacts | Low | PBI-SW-005 | Planned — typed output docs from completed sessions |
-| 7 | PBI-SW-006 | State Restoration | Low | — | Planned — no user demand yet (L-12) |
+| — | PBI-SW-003 | Session Types & Orchestration | High | PBI-SW-001 | ✅ Done (Cycle 2) — 8 built-in types, guiding questions, custom types, global filter settings |
+| — | PBI-SW-004 | Decision Log | Medium | — | ✅ Done (Cycle 2) — structured decisions, workspace panel, summary integration |
+| — | PBI-SW-005 | Session Summary | Low | PBI-SW-001, PBI-SW-004 | ✅ Done (Inc 8 + Cycle 2) — decisions section completed after SW-004 delivery |
+| — | PBI-SW-006 | State Restoration | Low | — | ✅ Done (Cycle 3) — workspace state save/restore on pause/resume |
+| — | PBI-SW-008 | Session Output Artifacts | Low | PBI-SW-005 | ✅ Done (Cycle 3) — 3 built-in templates, custom templates, picker modal |
+| 1 | PBI-SW-007 | Auto-Session & Session Nudges | Medium | — | Planned — daily tracking + nudges; independent |
+| 2 | PBI-SW-009 | Domain Design Session | Medium | PBI-SW-003 | Planned — guided domain decomposition workflow (SW-003 unblocked) |
 
-> **Cross-delivery:** PBI-SW-001 and PBI-SW-002 were delivered together in PBI-002 Increment 10 (Sidebar Workspace & Activity Consolidation), not as standalone increments. This was more efficient — activity log and context bindings share workspace UI surface area and were delivered as one cohesive increment.
+> **Cross-delivery:** PBI-SW-001 and PBI-SW-002 were delivered together in PBI-002 Increment 10 (Sidebar Workspace & Activity Consolidation). PBI-SW-003 and PBI-SW-004 were delivered together in Cycle 2 (Session Types and Decision Log). PBI-SW-006 and PBI-SW-008 were delivered together in Cycle 3 (Session Output Artifacts and State Restoration).
 
-> **Priority ranking:** PBIs are ranked by interleaved user value, not sequential delivery order. PBI-SW-003 is ranked highest because it provides the foundation for type-specific tooling (enabling PBI-SW-009) and bundles the global filter settings UI from PBI-SW-001's remainder.
+> **Remaining backlog:** 2 PBIs remain: PBI-SW-007 (Auto-Session) and PBI-SW-009 (Domain Design Session). PBI-SW-009 is now unblocked by PBI-SW-003 delivery.
 
 See `backlog/PBI-SW-*.md` for detailed specifications.
 
@@ -467,9 +545,9 @@ See `backlog/PBI-SW-*.md` for detailed specifications.
 | 4 — Solution Design + PRD | Done | 2026-02-17 | PRD v2 with concrete requirements |
 | 5 — Development Ready | Done | 2026-02-17 | FRI 29/35; Technical Review: Pass |
 | 6 — Delivery Planning | Done | 2026-02-18 | 9 PBIs defined (6 original + 3 new from inbox). SW-001/002 done, SW-005 partial. Priority ranked by value. |
-| 7 — Implementation | In-Progress | 2026-02-18 | FR-01 + FR-02 delivered; FR-04 partial; FR-03/05/06 pending |
-| 8 — Review | In-Progress | 2026-02-18 | Inc 10 in review (TASM pending) |
-| 9–10 | Pending | — | — |
+| 7 — Implementation | In-Progress | 2026-02-18 | FR-01 through FR-07 all delivered across Inc 10 + Cycle 2 + Cycle 3. 7/7 FRs complete. 7/9 PBIs delivered. |
+| 8 — Review | In-Progress | 2026-02-18 | Cycle 3 Three Amigos review complete. 1 bug found and fixed. 2,318 tests green. |
+| 9–10 | Pending | — | Remaining: PBI-SW-007 (Auto-Session), PBI-SW-009 (Domain Design) |
 
 ### Stage History
 
@@ -478,7 +556,9 @@ See `backlog/PBI-SW-*.md` for detailed specifications.
 | 2026-02-17 | — | draft | — | — | — | PRD v2 created with L2 scope, 6 FRs, 16 events, 6 PBIs |
 | 2026-02-17 | draft | approved | Design Gate + Readiness Gate | 29/35 | Technical Architect | Technical Review: Pass. Technically Ready. No follow-ups required |
 | 2026-02-18 | approved | in-progress | — | 29/35 | — | FR-01 (Activity Log) + FR-02 (Context Bindings) delivered via PBI-002 Inc 10. FR-04 (Summary) partially delivered. 9 new events registered. 3 ADRs accepted (025 superseded, 026 accepted, 029 proposed). |
-| 2026-02-18 | in-progress | in-progress | Backlog Refinement | 29/35 | — | PRD v4. PBI-SW-001/002 closed. PBI-SW-003 promoted to High (bundles global filter, enables SW-009). PBI-SW-005 updated to In Progress (partial). 3 new PBIs: SW-007 (Auto-Session), SW-008 (Output Artifacts), SW-009 (Domain Design). Priority ranking interleaved by value. |
+| 2026-02-18 | in-progress | in-progress | Backlog Refinement | 29/35 | — | PRD v4. PBI-SW-001/002 closed. PBI-SW-003 promoted to High (bundles global filter, enables SW-009). PBI-SW-005 updated to In Progress (partial). 3 new PBIs: SW-007, SW-008, SW-009. |
+| 2026-02-18 | in-progress | in-progress | Cycle 2 Delivery | 29/35 | — | Cycle 2 delivered: PBI-SW-003 (Session Types), PBI-SW-004 (Decision Log), PBI-SW-005 (Summary complete). FR-03, FR-04, FR-05 all delivered. 54 session events. |
+| 2026-02-18 | in-progress | in-progress | Cycle 3 Delivery + Three Amigos | 33/35 | Business, Dev, QA | PRD v5. Cycle 3 delivered: PBI-SW-006 (State Restoration), PBI-SW-008 (Output Artifacts). FR-06, FR-07 delivered. 60 session events. FRI updated: architecture 4→5, data_model 4→5, ui_consistency 3→4, validation_testing 3→4. 2,318 tests, 90 files. |
 
 ### Related Architecture Decisions
 

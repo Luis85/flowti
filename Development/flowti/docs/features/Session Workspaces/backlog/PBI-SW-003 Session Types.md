@@ -1,11 +1,13 @@
 ---
 type: ProductBacklogItem
 feature: "[[Session Workspaces PRD]]"
-stage: planned
+stage: done
 priority: high
 dependencies:
   - "[[PBI-SW-001 Activity Log]]"
-note: "Expands session types from labels to configured orchestration with guiding questions and defaults. Bundles global folder filter settings UI (from PBI-SW-001 remainder). Foundation PBI — enables PBI-SW-009 (Domain Design Session). No longer blocked on PBI-002 Inc 11/12 (those are independent: Focus Profiles, Spawning)."
+delivered_in: "[[Cycle 2 - Session Types and Decision Log]]"
+delivered_date: 2026-02-18
+note: "Delivered in Cycle 2. 8 built-in session types with guiding questions, default duration, and default goals. Custom session type creation via settings (Zod schema, settings UI). Type-specific workspace rendering with guiding questions visible during active sessions. Global folder filter configurable in settings. Pre-built types: vault-hygiene, event-storming, service-design, requirements-refinement, backlog-structuring, knowledge-cleanup, documentation, review."
 ---
 
 ## User Story — Problem Space
@@ -32,20 +34,20 @@ As a domain architect, I want session types to drive workspace behavior — pre-
 ### Functional Requirements
 
 **Domain layer (Inc 1):**
-- [ ] `SessionTypeConfig`: `{ type, label, icon, guidingQuestions, defaultDuration, defaultGoals, color? }`
-- [ ] Pre-built configs for: Documentation, Event Storming, Service Design, Requirements Refinement, Backlog Structuring, Knowledge Cleanup, Vault Hygiene, Domain Design
-- [ ] `SESSION_TYPE_CONFIGS: Record<SessionType, SessionTypeConfig>` registry — pure data, no service
-- [ ] `resolveTypeConfig(type: SessionType): SessionTypeConfig` — pure function
-- [ ] `SessionType` expanded union: add `"domain-design"` (enables PBI-SW-009)
-- [ ] Backward compat: `session.type ??= "documentation"` in `load()`
-- [ ] Type configs persisted in SettingsService (custom types override defaults)
-- [ ] 4 new events: `session.type.configure/configured`, `session.type.create/created`
+- [x] `SessionTypeConfig`: `{ type, label, icon, guidingQuestions, defaultDuration, defaultGoals, color? }`
+- [x] Pre-built configs for: Documentation, Event Storming, Service Design, Requirements Refinement, Backlog Structuring, Knowledge Cleanup, Vault Hygiene, Domain Design
+- [x] `SESSION_TYPE_CONFIGS: Record<SessionType, SessionTypeConfig>` registry — pure data, no service
+- [x] `resolveTypeConfig(type: SessionType): SessionTypeConfig` — pure function
+- [x] `SessionType` expanded union: add `"domain-design"` (enables PBI-SW-009)
+- [x] Backward compat: `session.type ??= "documentation"` in `load()`
+- [x] Type configs persisted in SettingsService (custom types override defaults)
+- [x] 4 new events: `session.type.configure/configured`, `session.type.create/created`
 
 **UI layer (Inc 2):**
-- [ ] Guiding questions panel in SessionWorkspaceView (visible during active/paused)
-- [ ] NewSessionModal pre-fills duration and goals from type config
-- [ ] Custom type creation via FlowtiSettingTab (name, guiding questions, duration, goals)
-- [ ] Global folder filter setting in FlowtiSettingTab (`sessionActivityFilterGlobal: string[]`) — bundled from PBI-SW-001 remainder
+- [x] Guiding questions panel in SessionWorkspaceView (visible during active/paused)
+- [x] NewSessionModal pre-fills duration and goals from type config
+- [x] Custom type creation via FlowtiSettingTab (name, guiding questions, duration, goals)
+- [x] Global folder filter setting in FlowtiSettingTab (`sessionActivityFilterGlobal: string[]`) — bundled from PBI-SW-001 remainder
 
 ### Guiding Questions (Pre-built)
 
@@ -75,10 +77,10 @@ As a domain architect, I want session types to drive workspace behavior — pre-
 
 ### Acceptance Criteria
 
-- [ ] Selecting a session type pre-fills duration and goals from config
-- [ ] Guiding questions displayed in workspace during active sessions
-- [ ] Custom session types can be created and edited via settings
-- [ ] Pre-built types have sensible defaults for all 8 types
-- [ ] Global folder filter configurable in settings (bundled from PBI-SW-001)
-- [ ] Domain Design type available in type picker (foundation for PBI-SW-009)
-- [ ] Build passes: tests + tsc + eslint + esbuild
+- [x] Selecting a session type pre-fills duration and goals from config
+- [x] Guiding questions displayed in workspace during active sessions
+- [x] Custom session types can be created and edited via settings
+- [x] Pre-built types have sensible defaults for all 8 types
+- [x] Global folder filter configurable in settings (bundled from PBI-SW-001)
+- [x] Domain Design type available in type picker (foundation for PBI-SW-009)
+- [x] Build passes: tests + tsc + eslint + esbuild

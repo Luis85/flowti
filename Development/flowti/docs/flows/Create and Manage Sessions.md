@@ -2,7 +2,7 @@
 type: Flow
 domain: Flowti
 stage: done
-description: End-to-end journey from creating a session through active work with goals, activity tracking, context bindings, and completion with summary generation
+description: End-to-end journey from creating a session through active work with goals, decisions, activity tracking, context bindings, completion with summary generation, state restoration, and output artifact generation
 domains:
   - Session
 services:
@@ -20,9 +20,29 @@ events:
   - session.completed
   - session.archive
   - session.archived
+  - session.delete
+  - session.deleted
   - session.activity.tracked
+  - session.goal.add
   - session.goal.added
+  - session.goal.toggle
+  - session.goal.toggled
+  - session.goal.remove
+  - session.goal.removed
+  - session.context.bind
   - session.context.bound
+  - session.duration.update
+  - session.duration.updated
+  - session.decision.record
+  - session.decision.recorded
+  - session.decision.remove
+  - session.decision.removed
+  - session.state.save
+  - session.state.saved
+  - session.state.restore
+  - session.state.restored
+  - session.output.generate
+  - session.output.generated
 tags:
   - session
 ---
@@ -31,7 +51,7 @@ tags:
 
 ## Overview
 
-The session lifecycle covers the full journey from creating a focused work session through active tracking to completion and archival. Users create sessions with a type, title, and optional duration, then work within the session while the system tracks vault activity (file creates, edits, deletes, renames). Sessions support goals, context bindings (folder/file associations), notes, linked files, and artifacts. On completion, a summary is generated and written to the session notes folder.
+The session lifecycle covers the full journey from creating a focused work session through active tracking to completion, output generation, and archival. Users create sessions with a type (8 built-in + custom), title, and optional duration, then work within the session while the system tracks vault activity (file creates, edits, deletes, renames). Sessions support goals, decisions, context bindings (folder/file associations), notes, linked files, and artifacts. On pause or completion, workspace state (open files, active file) is automatically saved and restored on resume. On completion, a summary is generated. Users can then generate structured output artifacts (meeting invites, action items, review summaries) from completed sessions using built-in or custom templates.
 
 ## Trigger
 
@@ -42,8 +62,8 @@ User clicks "New Session" in the Session Workspace view, or runs the `flowti:cre
 ### 1. Create Session
 
 - **View/Service**: SessionWorkspaceView → SessionService
-- **User Action**: User clicks "New Session", enters a title, selects a session type, and sets an optional duration
-- **System Response**: SessionService creates a new Session object with status `"prepared"`, generates a unique ID, initializes empty goals/links/activity arrays, and persists to storage. The workspace re-renders to show the new session in the session list
+- **User Action**: User clicks "New Session", enters a title, selects a session type (8 built-in types with guiding questions, or a custom type), and sets an optional duration
+- **System Response**: SessionService creates a new Session object with status `"prepared"`, generates a unique ID, initializes empty goals/links/activity/decisions arrays, and persists to storage. The selected session type's guiding questions are loaded for display. The workspace re-renders to show the new session in the session list
 - **Events**: `session.create` → `session.created`
 
 ### 2. Configure Session (Optional)
@@ -57,7 +77,7 @@ User clicks "New Session" in the Session Workspace view, or runs the `flowti:cre
 
 - **View/Service**: SessionWorkspaceView → SessionService
 - **User Action**: User clicks "Start" on a prepared session
-- **System Response**: SessionService transitions the session to `"active"` status, records `startedAt` timestamp in the timeline, starts the countdown timer (if duration > 0), and begins tracking vault activity. The workspace switches to the active session detail view showing timer, goals, and activity log
+- **System Response**: SessionService transitions the session to `"active"` status, records `startedAt` timestamp in the timeline, starts the countdown timer (if duration > 0), and begins tracking vault activity. The workspace switches to the active session detail view showing timer, guiding questions, goals, and activity log
 - **Events**: `session.start` → `session.started`
 
 ### 4. Track Activity
@@ -74,35 +94,54 @@ User clicks "New Session" in the Session Workspace view, or runs the `flowti:cre
 - **System Response**: Goal mutations fire command/state event pairs. The goals panel re-renders to show completion state. Goal progress contributes to the session summary on completion
 - **Events**: `session.goal.add` → `session.goal.added`, `session.goal.toggle` → `session.goal.toggled`, `session.goal.remove` → `session.goal.removed`
 
-### 6. Pause and Resume (Optional)
+### 6. Record Decisions During Session
+
+- **View/Service**: SessionWorkspaceView (decision panel) → SessionService
+- **User Action**: User clicks "Record Decision", enters a title and optional description
+- **System Response**: SessionService records the decision with a unique ID and timestamp, appends it to the session's `decisions` array (max 100), and persists. The `SessionDecisionPanel` re-renders to show the new decision. Decisions can be removed via the panel. Decisions are included in the session summary and available as `{{decisions}}` placeholder in output templates
+- **Events**: `session.decision.record` → `session.decision.recorded`, `session.decision.remove` → `session.decision.removed`
+
+### 7. Pause and Resume (with State Restoration)
 
 - **View/Service**: SessionWorkspaceView → SessionService
 - **User Action**: User clicks "Pause" to temporarily stop the timer, then "Resume" to continue
-- **System Response**: SessionService transitions to `"paused"` status, stops the timer, and records the pause timestamp. On resume, transitions back to `"active"`, restarts the timer from the remaining duration, and resumes activity tracking. Multiple pause/resume cycles are supported
-- **Events**: `session.pause` → `session.paused`, `session.resume` → `session.resumed`
+- **System Response**:
+  - **On Pause**: SessionService transitions to `"paused"` status, stops the timer, records the pause timestamp, and emits `session.state.save`. The View captures the current workspace state (open files, active file) via `app.workspace` and emits `session.state.saved`. SessionService persists the `WorkspaceState` on the session entity
+  - **On Resume**: SessionService transitions back to `"active"`, emits `session.state.restore` with the saved state. The View opens the saved files and activates the previously active file. Missing files are skipped gracefully. Timer restarts from remaining duration, activity tracking resumes
+  - Multiple pause/resume cycles are supported, each overwriting the previous workspace state
+- **Events**:
+  - Pause: `session.pause` → `session.paused` → `session.state.save` → `session.state.saved`
+  - Resume: `session.resume` → `session.resumed` → `session.state.restore` → `session.state.restored`
 
-### 7. Complete Session
+### 8. Complete Session
 
 - **View/Service**: SessionWorkspaceView → SessionService (manual or timer-triggered)
 - **User Action**: User clicks "Complete", or the timer reaches zero (`session.timer.completed` auto-triggers completion)
-- **System Response**: SessionService transitions to `"completed"` status, records `completedAt` timestamp, stops the timer, and generates a session summary. The summary includes: session metadata, goal completion status, activity count, linked files, context bindings, and inline notes. The summary is written to a markdown file in `SESSION_NOTES_FOLDER` via `FileSystemClient.createFile()`. The workspace re-renders to show the completed session with summary
-- **Events**: `session.complete` → `session.completed`
+- **System Response**: SessionService transitions to `"completed"` status, records `completedAt` timestamp, stops the timer, saves workspace state (same as pause), and generates a session summary. The summary includes: session metadata, goal completion status, decisions, activity count, linked files, context bindings, and inline notes. The summary is written to a markdown file in `SESSION_NOTES_FOLDER` via `FileSystemClient.createFile()`. The workspace re-renders to show the completed session with summary and the Output Artifacts panel
+- **Events**: `session.complete` → `session.completed` → `session.state.save` → `session.state.saved`
 
-### 8. Archive Session (Optional)
+### 9. Generate Output Artifacts (Completed Sessions Only)
+
+- **View/Service**: SessionWorkspaceView (output panel) → SessionOutputPickerModal → SessionService
+- **User Action**: User clicks "Generate Output" on a completed or archived session. A picker modal shows 3 built-in template cards (Meeting Invite, Action Items, Review Summary) plus any custom templates configured in settings
+- **System Response**: User selects a template. The system emits `session.output.generate` with the session ID and selected template. SessionService validates the session is completed/archived, generates markdown content using `generateSessionOutput()` (pure function with 10 mustache placeholders), creates a file in `SESSION_NOTES_FOLDER`, appends a wikilink to the session notes file (if it exists), and persists the `SessionOutputArtifact` on the session entity (max 20 per session). The `SessionOutputPanel` refreshes to show the new artifact as a clickable link
+- **Events**: `session.output.generate` → `session.output.generated`
+
+### 10. Archive Session (Optional)
 
 - **View/Service**: SessionWorkspaceView → SessionService
 - **User Action**: User clicks "Archive" on a completed session to move it out of the active list
-- **System Response**: SessionService transitions to `"archived"` status. The session moves from the active/completed list to the archive. Archived sessions remain accessible but are hidden from the default workspace view
+- **System Response**: SessionService transitions to `"archived"` status. The session moves from the active/completed list to the archive. Archived sessions remain accessible and can still generate output artifacts
 - **Events**: `session.archive` → `session.archived`
 
-### 9. Create from Template (Alternative Start)
+### 11. Create from Template (Alternative Start)
 
 - **View/Service**: SessionWorkspaceView → SessionService
 - **User Action**: User clicks "Use Template" and selects a saved template
-- **System Response**: SessionService creates a new session pre-populated with the template's type, title prefix, duration, and goals. The user can customize before starting. Templates can also be saved from completed sessions for reuse
+- **System Response**: SessionService creates a new session pre-populated with the template's type, title prefix, duration, goals, and decisions. The user can customize before starting. Templates can also be saved from completed sessions for reuse
 - **Events**: `session.create` → `session.created` (same as step 1, with template data pre-filled)
 
-### 10. Delete Session
+### 12. Delete Session
 
 - **View/Service**: SessionWorkspaceView → SessionService
 - **User Action**: User clicks "Delete" on any session (with confirmation)
@@ -113,24 +152,32 @@ User clicks "New Session" in the Session Workspace view, or runs the `flowti:cre
 
 | Decision | Options | Default |
 |----------|---------|---------|
-| Session type | vault-hygiene, event-storming, service-design, requirements-refinement, backlog-structuring, knowledge-cleanup | vault-hygiene |
+| Session type | vault-hygiene, event-storming, service-design, requirements-refinement, backlog-structuring, knowledge-cleanup, documentation, review, or custom | vault-hygiene |
 | Duration | 0 (no timer) / 15 / 30 / 45 / 60 / custom minutes | 30 |
 | Activity tracking | All folders / filtered folders (per-session filter) | All folders |
 | Completion trigger | Manual "Complete" / Timer auto-complete | Timer auto-complete |
 | Notes file | Create new / Link existing / None | None |
 | Template usage | Start fresh / Use saved template | Start fresh |
+| Output type | Meeting Invite / Action Items / Review Summary / Custom template | — (user selects) |
 
 ## Events Sequence
 
 ```
 [New Session] → session.create → session.created
-    → [Configure goals/bindings] → session.goal.add → session.goal.added
-                                  → session.context.bind → session.context.bound
+    → [Configure goals/bindings/decisions]
+        → session.goal.add → session.goal.added
+        → session.context.bind → session.context.bound
     → [Start] → session.start → session.started
         → [Work in vault] → session.activity.tracked (repeated)
         → [Toggle goals] → session.goal.toggle → session.goal.toggled
-        → [Pause/Resume] → session.pause → session.paused → session.resume → session.resumed
+        → [Record decisions] → session.decision.record → session.decision.recorded
+        → [Pause] → session.pause → session.paused
+            → session.state.save → session.state.saved
+        → [Resume] → session.resume → session.resumed
+            → session.state.restore → session.state.restored
     → [Complete] → session.complete → session.completed
+        → session.state.save → session.state.saved
+    → [Generate Output] → session.output.generate → session.output.generated (repeatable)
     → [Archive] → session.archive → session.archived
 ```
 
@@ -142,13 +189,15 @@ User clicks "New Session" in the Session Workspace view, or runs the `flowti:cre
 
 ## Known Debt
 
-- TD-94: This flow doc was itself a missing artifact (now resolved)
 - TD-93: Duplicate data between plugin state and Obsidian metadata (session notes exist in both)
+- SessionWorkspaceView at 791 LOC exceeds 780 threshold — extraction TD pending
 
 ## Learnings
 
 - [[L-20 Pure functions for filtering compose cleanly]] — folder filtering in activity tracking
 - [[L-22 Every major event domain needs a flow doc]] — motivation for creating this doc
+- [[L-25 Overview placeholder bug]] — `computeActiveTimeMs` vs `computeElapsedMs` in output templates
+- [[L-28 Carry-forward escalation]] — this doc was originally a carry-forward item that slipped 3 cycles
 
 ## Related Use Cases
 

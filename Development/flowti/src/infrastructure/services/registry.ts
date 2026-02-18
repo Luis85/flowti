@@ -162,11 +162,14 @@ export function createServiceRegistrations(
 		// Session Service - time-boxed documentation sessions
 		{
 			id: "sessionService",
-			factory: (container: IServiceContainer) =>
-				new SessionService({
+			factory: (container: IServiceContainer) => {
+				const eventBus = container.getEventBus();
+				return new SessionService({
 					storage: new TypedStorage(storage, "sessions"),
-					eventBus: container.getEventBus(),
-				}),
+					eventBus,
+					fileSystem: new FileSystemClient({ eventBus }),
+				});
+			},
 		},
 
 		// Data Exchange Service - CSV import and folder/base export

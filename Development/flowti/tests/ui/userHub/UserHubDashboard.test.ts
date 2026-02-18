@@ -85,6 +85,7 @@ function makeActiveSession(overrides?: Partial<Session>): Session {
 		contextBindings: [],
 		decisions: [],
 		workspaceState: null,
+		outputArtifacts: [],
 		...overrides,
 	};
 }

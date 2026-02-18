@@ -10,11 +10,12 @@
  */
 
 import type { IEventBus } from "../../infrastructure/events/types";
+import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
 import type { ITypedStorage } from "../../utils/TypedStorage";
 import { generateUUID } from "../../utils/helpers";
-import type { ContextBindingType, Session, SessionActivity, SessionActivityAction, SessionContextBinding, SessionGoal, SessionLink, SessionState, SessionTemplate, SessionTypeConfig, WorkspaceState } from "./types";
-import { MAX_SESSIONS, MAX_TEMPLATES, ARTIFACT_DEDUP_WINDOW_MS, SESSION_NOTES_FOLDER, MAX_SESSION_ACTIVITY, ACTIVITY_DEDUP_WINDOW_MS, MAX_CONTEXT_BINDINGS, MAX_SESSION_DECISIONS, SESSION_TYPE_CONFIGS } from "./types";
-import { createSession, createGoal, createDecision, createContextBinding, computeRemainingMs, computeElapsedMs, isTimerExpired, isExcluded, resolveTypeConfig } from "./helpers";
+import type { ContextBindingType, Session, SessionActivity, SessionActivityAction, SessionContextBinding, SessionGoal, SessionLink, SessionOutputArtifact, SessionOutputTemplate, SessionState, SessionTemplate, SessionTypeConfig, WorkspaceState } from "./types";
+import { MAX_SESSIONS, MAX_TEMPLATES, ARTIFACT_DEDUP_WINDOW_MS, SESSION_NOTES_FOLDER, MAX_SESSION_ACTIVITY, ACTIVITY_DEDUP_WINDOW_MS, MAX_CONTEXT_BINDINGS, MAX_SESSION_DECISIONS, MAX_OUTPUT_ARTIFACTS, SESSION_TYPE_CONFIGS } from "./types";
+import { createSession, createGoal, createDecision, createContextBinding, computeRemainingMs, computeElapsedMs, isTimerExpired, isExcluded, resolveTypeConfig, generateSessionOutput } from "./helpers";
 
 /**
  * Configuration options for the SessionService.
@@ -22,6 +23,7 @@ import { createSession, createGoal, createDecision, createContextBinding, comput
 export interface SessionServiceOptions {
 	storage: ITypedStorage<SessionState>;
 	eventBus?: IEventBus;
+	fileSystem?: IFileSystemClient;
 }
 
 /**
@@ -41,6 +43,7 @@ export class SessionService {
 	private state: SessionState = createDefaultState();
 	private storage: ITypedStorage<SessionState>;
 	private eventBus?: IEventBus;
+	private fileSystem?: IFileSystemClient;
 	private unsubscribes: (() => void)[] = [];
 	private timerInterval: ReturnType<typeof setInterval> | null = null;
 	/** Global activity filter folders — injected from SettingsService. */
@@ -51,6 +54,7 @@ export class SessionService {
 	constructor(options: SessionServiceOptions) {
 		this.storage = options.storage;
 		this.eventBus = options.eventBus;
+		this.fileSystem = options.fileSystem;
 
 		if (this.eventBus) {
 			this.unsubscribes.push(
@@ -233,6 +237,13 @@ export class SessionService {
 				}),
 			);
 
+			// Output artifact command
+			this.unsubscribes.push(
+				this.eventBus.on("session.output.generate", (event) => {
+					void this.handleOutputGenerate(event.payload.sessionId, event.payload.template);
+				}),
+			);
+
 			// Type configuration commands
 			this.unsubscribes.push(
 				this.eventBus.on("session.type.create", (event) => {
@@ -297,6 +308,9 @@ export class SessionService {
 				}
 				if (s.workspaceState === undefined) {
 					s.workspaceState = null;
+				}
+				if (!s.outputArtifacts) {
+					s.outputArtifacts = [];
 				}
 				// Migrate legacy links → context bindings
 				if (s.links.length > 0) {
@@ -823,6 +837,57 @@ export class SessionService {
 
 		session.workspaceState = state;
 		await this.saveState();
+	}
+
+	// ── Output artifact handler ─────────────────────────────
+
+	private async handleOutputGenerate(sessionId: string, template: SessionOutputTemplate): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session) return;
+		// Only allow output generation for completed/archived sessions
+		if (session.status !== "completed" && session.status !== "archived") return;
+		// Enforce max cap
+		if (session.outputArtifacts.length >= MAX_OUTPUT_ARTIFACTS) return;
+
+		const content = generateSessionOutput(session, template);
+		const safeName = session.title.replace(/[\\/:*?"<>|]/g, "-");
+		const shortId = session.id.slice(-6);
+		const path = `${SESSION_NOTES_FOLDER}/${safeName} - ${template.title} (${shortId}).md`;
+
+		// Create file if FileSystemClient is available
+		if (this.fileSystem) {
+			try {
+				await this.fileSystem.createFile(path, content);
+			} catch {
+				// File may already exist — continue to persist artifact
+			}
+		}
+
+		// Append wikilink to session notes file if it exists
+		if (session.notesFile && this.fileSystem) {
+			const date = new Date().toISOString().split("T")[0];
+			const wikilink = `- [[${path}]] *(generated ${date})*`;
+			try {
+				const existing = await this.fileSystem.readFile(session.notesFile);
+				if (existing !== null && !existing.includes(`[[${path}]]`)) {
+					const section = existing.includes("## Output Artifacts")
+						? ""
+						: "\n## Output Artifacts\n";
+					await this.fileSystem.updateFile(session.notesFile, existing + section + wikilink + "\n");
+				}
+			} catch {
+				// Notes file doesn't exist or can't be read — skip gracefully
+			}
+		}
+
+		const artifact: SessionOutputArtifact = {
+			type: template.type,
+			path,
+			generatedAt: new Date().toISOString(),
+		};
+		session.outputArtifacts.push(artifact);
+		await this.saveState();
+		await this.eventBus?.emit("session.output.generated", { sessionId, artifact });
 	}
 
 	// ── Timer ────────────────────────────────────────────────

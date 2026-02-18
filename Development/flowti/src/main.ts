@@ -459,6 +459,11 @@ export default class FlowtiBasePlugin extends Plugin {
 			if (this.sessionService) {
 				this.sessionService.globalActivityFilter = event.payload.settings.sessionActivityFilterGlobal ?? [];
 			}
+			// Sync custom output templates to all open workspace views
+			const templates = event.payload.settings.customOutputTemplates ?? [];
+			for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_SESSION_WORKSPACE)) {
+				(leaf.view as SessionWorkspaceView).customOutputTemplates = templates;
+			}
 		});
 
 		this.ingestionService = await this.services.get<IngestionService>("ingestionService");

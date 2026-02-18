@@ -35,6 +35,7 @@ function makeSession(overrides?: Partial<Session>): Session {
 		contextBindings: [],
 		decisions: [],
 		workspaceState: null,
+		outputArtifacts: [],
 		...overrides,
 	};
 }

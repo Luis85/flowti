@@ -268,6 +268,7 @@ const CATALOG_DATA = {
 	"settings.updateCatalogServices":    { category: "Settings", description: "Update service visibility in catalog", direction: "View → Plugin", domain: "settings", services: "EventCatalogView", tags: ["system"] },
 	"settings.updateInboxEnabledSources": { category: "Settings", description: "Update inbox notification source events", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
 	"settings.updateCustomSessionTypes": { category: "Settings", description: "Update custom session type configurations", direction: "Service → Listeners", domain: "settings", services: "SessionService", tags: ["system"] },
+	"settings.updateCustomOutputTemplates": { category: "Settings", description: "Update custom output templates for session artifacts", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
 
 	// ── Installer Domain ─────────────────────────────────────
 	"installer.started":        { category: "Installer", description: "Installation pipeline started", direction: "Service → Listeners", domain: "installer", services: "InstallerService" },
@@ -434,6 +435,8 @@ const CATALOG_DATA = {
 	"session.state.saved":     { category: "Session", description: "Workspace state captured and persisted", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
 	"session.state.restore":   { category: "Session", description: "Command: restore workspace state for session", direction: "Service → Listeners", domain: "session", services: "SessionService", tags: ["system"] },
 	"session.state.restored":  { category: "Session", description: "Workspace state restored in workspace", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
+	"session.output.generate":  { category: "Session", description: "Command: generate output artifact from session", direction: "View → Plugin", domain: "session", services: "SessionService" },
+	"session.output.generated": { category: "Session", description: "Output artifact generated and persisted", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.type.configure":  { category: "Session", description: "Command: configure a session type", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
 	"session.type.configured": { category: "Session", description: "Session type config updated", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.type.create":     { category: "Session", description: "Command: create a custom session type", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },

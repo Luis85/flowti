@@ -22,4 +22,6 @@ export interface SettingsEventMap {
 	"settings.updateInboxEnabledSources": { sources: string[] };
 	/** Command: update custom session type configurations */
 	"settings.updateCustomSessionTypes": { types: Record<string, unknown> };
+	/** Command: update custom output templates for sessions */
+	"settings.updateCustomOutputTemplates": { templates: unknown[] };
 }

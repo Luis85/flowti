@@ -33,6 +33,7 @@ function makeSession(overrides?: Partial<Session>): Session {
 		contextBindings: [],
 		decisions: [],
 		workspaceState: null,
+		outputArtifacts: [],
 		...overrides,
 	};
 }
@@ -1360,6 +1361,59 @@ describe("SessionWorkspaceView", () => {
 			await eventBus.emit("session.state.save", { sessionId: "other-session" });
 
 			expect(handler).not.toHaveBeenCalled();
+		});
+	});
+
+	describe("output panel", () => {
+		it("renders output panel for completed sessions", async () => {
+			const session = makeSession({ status: "completed" });
+			const { view } = createView(eventBus, session);
+			await view.onOpen();
+
+			const content = getContentEl(view);
+			expect(content.querySelector(".ft-session-workspace-outputs")).toBeTruthy();
+		});
+
+		it("does not render output panel for active sessions", async () => {
+			const session = makeSession({ status: "active" });
+			const { view } = createView(eventBus, session);
+			await view.onOpen();
+
+			const content = getContentEl(view);
+			expect(content.querySelector(".ft-session-workspace-outputs")).toBeNull();
+		});
+
+		it("refreshes output panel on session.output.generated", async () => {
+			const session = makeSession({ status: "completed", outputArtifacts: [] });
+			const { view, service } = createView(eventBus, session);
+			await view.onOpen();
+
+			const content = getContentEl(view);
+			expect(content.querySelectorAll(".ft-output-row").length).toBe(0);
+
+			// Simulate artifact being added to session state
+			session.outputArtifacts.push({
+				type: "review-summary",
+				path: "Sessions/Review (abc).md",
+				generatedAt: new Date().toISOString(),
+			});
+			service.getSessionById.mockReturnValue(session);
+
+			await eventBus.emit("session.output.generated", {
+				sessionId: "session-1",
+				artifact: session.outputArtifacts[0],
+			});
+
+			expect(content.querySelectorAll(".ft-output-row").length).toBe(1);
+		});
+
+		it("renders output panel for archived sessions", async () => {
+			const session = makeSession({ status: "archived" as Session["status"] });
+			const { view } = createView(eventBus, session);
+			await view.onOpen();
+
+			const content = getContentEl(view);
+			expect(content.querySelector(".ft-session-workspace-outputs")).toBeTruthy();
 		});
 	});
 });

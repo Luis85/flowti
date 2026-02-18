@@ -1,20 +1,20 @@
 ---
 type: DevelopmentCycle
 feature: "[[Session Workspaces PRD]]"
-stage: in-progress
+stage: done
 cycle: 3
 date_planned: 2026-02-18
-date_completed:
+date_completed: 2026-02-18
 pbis:
   - "[[PBI-SW-006 State Restoration]]"
   - "[[PBI-SW-008 Session Output Artifacts]]"
 tech_debt: []
 estimated_increments: 4
-actual_increments:
+actual_increments: 4
 estimated_tests: 115
-actual_tests:
-total_tests_after:
-total_test_files_after:
+actual_tests: 68
+total_tests_after: 2318
+total_test_files_after: 90
 ---
 
 # Cycle 3: Session Output Artifacts & State Restoration
@@ -44,8 +44,25 @@ total_test_files_after:
 
 PBI-SW-006 is small and independent — it slots in as Inc 1. PBI-SW-008 is the main feature spanning Inc 2 and Inc 3. Together they round out the core session feature set: state preservation across pause/resume, and structured post-session deliverables.
 
-### Post-Cycle State (YYYY-MM-DD)
-<!-- Filled post-delivery -->
+### Post-Cycle State (2026-02-18)
+
+**Plugin health:**
+- 2,318 tests passing (32 skipped), 90 test files
+- Clean build: vitest + typedoc + tsc + eslint + esbuild all green
+- 1 bug found and fixed during Three Amigos review (`{{overview}}` placeholder used `computeActiveTimeMs` instead of `computeElapsedMs`)
+
+**Session Workspaces feature:**
+- PBI-SW-006 (State Restoration): done — workspace state auto-saved on pause/complete, auto-restored on resume
+- PBI-SW-008 (Session Output Artifacts): done — 3 built-in templates, custom template support, output panel + picker modal
+- Session domain: 2,194 LOC across 4 domain files (+253 LOC); 976 LOC across 12 UI files (+3 new components)
+- 60 session events registered (+6: 4 state + 2 output)
+- SessionService: 1,130 LOC (under 1,150 threshold)
+- SessionWorkspaceView: 791 LOC (exceeds 780 threshold by 11 LOC — flagged for extraction)
+
+**Carry-forward status (from Cycle 2):**
+- PRD update: ✅ Delivered post-cycle (PRD v5, FRI 33/35 — all 7 FRs marked delivered, PBI table updated, event model current)
+- Flow doc `Create and Manage Sessions.md`: ✅ Delivered post-cycle (updated with decisions, state restoration, output artifacts, 12 steps)
+- SessionWorkspaceView LOC monitoring: threshold breached (791 > 780); TD filed for component extraction
 
 ---
 
@@ -110,13 +127,13 @@ The following items were deferred from Cycle 2 and must be addressed in this cyc
 | `session.state.restored` | `{ sessionId: string }` | `["system"]` |
 
 **Acceptance criteria:**
-- [ ] `WorkspaceState` type: `{ openFiles: string[], activeFile: string | null, scrollPositions: Record<string, number> }`
-- [ ] `session.workspaceState` optional field on `Session` (backward compat `s.workspaceState ??= null` in `load()`)
-- [ ] Pausing or completing a session triggers workspace state capture
-- [ ] Resuming a session with saved `workspaceState` restores open files
-- [ ] Missing vault files skipped gracefully (no crash)
-- [ ] 4 new events registered in catalog, all tagged `["system"]`
-- [ ] `npm run build` passes
+- [x] `WorkspaceState` type: `{ openFiles: string[], activeFile: string | null, scrollPositions: Record<string, number> }`
+- [x] `session.workspaceState` optional field on `Session` (backward compat `s.workspaceState ??= null` in `load()`)
+- [x] Pausing or completing a session triggers workspace state capture
+- [x] Resuming a session with saved `workspaceState` restores open files
+- [x] Missing vault files skipped gracefully (no crash)
+- [x] 4 new events registered in catalog, all tagged `["system"]`
+- [x] `npm run build` passes
 
 ---
 
@@ -162,15 +179,15 @@ The following items were deferred from Cycle 2 and must be addressed in this cyc
 **Wikilink insertion:** Appends `## Output Artifacts\n- [[{outputPath}]] *(generated {date})*\n` to the notes file body if `session.notesFile` exists, else no-op.
 
 **Acceptance criteria:**
-- [ ] `SessionOutputType`, `SessionOutputTemplate`, `SessionOutputArtifact` types defined
-- [ ] `generateSessionOutput()` handles all 8 placeholders for all 3 template types
-- [ ] 3 pre-built templates (`BUILT_IN_OUTPUT_TEMPLATES`) produce valid markdown
-- [ ] File created at `SESSION_NOTES_FOLDER/{title} - {type} ({shortId}).md`
-- [ ] Wikilink appended to session notes file (if it exists; skip gracefully if not)
-- [ ] `SessionOutputArtifact` persisted on session entity, max 20 enforced
-- [ ] Backward compat `s.outputArtifacts ??= []` in `load()`
-- [ ] 2 new events in catalog
-- [ ] `npm run build` passes
+- [x] `SessionOutputType`, `SessionOutputTemplate`, `SessionOutputArtifact` types defined
+- [x] `generateSessionOutput()` handles all 10 placeholders for all 3 template types (expanded from 8: added `{{overview}}`, `{{notes}}`)
+- [x] 3 pre-built templates (`BUILT_IN_OUTPUT_TEMPLATES`) produce valid markdown
+- [x] File created at `SESSION_NOTES_FOLDER/{title} - {type} ({shortId}).md`
+- [x] Wikilink appended to session notes file (if it exists; skip gracefully if not)
+- [x] `SessionOutputArtifact` persisted on session entity, max 20 enforced
+- [x] Backward compat `s.outputArtifacts ??= []` in `load()`
+- [x] 2 new events in catalog
+- [x] `npm run build` passes
 
 ---
 
@@ -193,13 +210,13 @@ The following items were deferred from Cycle 2 and must be addressed in this cyc
 **Panel visibility:** `SessionOutputPanel` renders only when `session.status === "completed" || session.status === "archived"`.
 
 **Acceptance criteria:**
-- [ ] "Generate Output" button visible only for completed/archived sessions
-- [ ] Clicking opens `SessionOutputPickerModal` with 3 built-in template cards
-- [ ] Custom templates from settings appear in the picker modal
-- [ ] Selecting a template emits `session.output.generate` command
-- [ ] After generation, output artifact appears in panel as wikilink
-- [ ] Custom templates can be created/deleted via settings tab
-- [ ] `npm run build` passes
+- [x] "Generate Output" button visible only for completed/archived sessions
+- [x] Clicking opens `SessionOutputPickerModal` with 3 built-in template cards
+- [x] Custom templates from settings appear in the picker modal
+- [x] Selecting a template emits `session.output.generate` command
+- [x] After generation, output artifact appears in panel as wikilink
+- [x] Custom templates can be created/deleted via settings tab
+- [x] `npm run build` passes
 
 ---
 
@@ -228,13 +245,13 @@ The following items were deferred from Cycle 2 and must be addressed in this cyc
 9. Verify `session.output.generate` on active session does nothing (only completed sessions)
 
 **Acceptance criteria:**
-- [ ] Flow test covers SW-006 state save/restore lifecycle
-- [ ] Flow test covers SW-008 output generation with 2+ template types
-- [ ] All PBI-SW-006 and PBI-SW-008 acceptance criteria checked off
-- [ ] PRD updated: stage, FRI, checked FRs (Cycle 2 + Cycle 3), event count, PBI status (carry-forward from Cycle 2)
-- [ ] Flow doc `Create and Manage Sessions.md` created with full session lifecycle events (carry-forward from Cycle 2)
-- [ ] SessionWorkspaceView LOC verified < 780 (carry-forward: 697 + new subscriptions)
-- [ ] `npm run build` passes — all tests green
+- [x] Flow test covers SW-006 state save/restore lifecycle
+- [x] Flow test covers SW-008 output generation with 2+ template types
+- [x] All PBI-SW-006 and PBI-SW-008 acceptance criteria checked off
+- [x] PRD updated — delivered post-cycle (PRD v5, FRI 33/35, all FRs + PBIs + events current)
+- [x] Flow doc `Create and Manage Sessions.md` updated — delivered post-cycle (12 steps, state restoration + output artifacts added)
+- [ ] ~~SessionWorkspaceView LOC verified < 780~~ — breached at 791 LOC; TD filed for component extraction
+- [x] `npm run build` passes — all tests green (2,318 tests, 90 files)
 
 ---
 
@@ -272,46 +289,64 @@ Inc 4: Flow Integration Test
 
 ## Success Metrics
 
-| Metric | Target |
-|--------|--------|
-| Tests added | ~115 new |
-| Tests total | ~2,365+ |
-| Test suites | ~90+ |
-| LOC added (source) | ~590 |
-| PBIs closed | PBI-SW-006, PBI-SW-008 |
-| New events | 6 (4 state + 2 output) |
-| Total session events | 60+ |
-| Pre-built output templates | 3 (meeting-invite, action-items, review-summary) |
-| Backward compat fields | 2 (`workspaceState ??= null`, `outputArtifacts ??= []`) |
-| SessionService LOC | < 1,150 (flag TD if exceeded) |
-| SessionWorkspaceView LOC | < 780 (from 697; carry-forward monitor) |
-| PRD updated | Stage, FRI, FRs checked, event count (Cycle 2 carry-forward) |
-| Flow doc created | `Create and Manage Sessions.md` (Cycle 2 carry-forward) |
+| Metric | Target | Actual | Status |
+|--------|--------|--------|--------|
+| Tests added | ~115 new | 68 new | Below target — helpers/service layers lighter than estimated |
+| Tests total | ~2,365+ | 2,318 | Below target (delta: -47) |
+| Test suites | ~90+ | 90 | Met |
+| LOC added (source) | ~590 | ~500 (est.) | Close to target |
+| PBIs closed | PBI-SW-006, PBI-SW-008 | Both closed | Met |
+| New events | 6 (4 state + 2 output) | 7 (4 state + 2 output + 1 settings) | Exceeded (+1 settings event) |
+| Total session events | 60+ | 60+ | Met |
+| Pre-built output templates | 3 | 3 (meeting-invite, action-items, review-summary) | Met |
+| Backward compat fields | 2 | 2 (`workspaceState ??= null`, `outputArtifacts ??= []`) | Met |
+| SessionService LOC | < 1,150 | 1,130 | Met (20 LOC headroom) |
+| SessionWorkspaceView LOC | < 780 | 791 | BREACHED (+11 LOC) — TD filed |
+| PRD updated | Yes (carry-forward) | PRD v5, FRI 33/35 | Met (post-cycle delivery) |
+| Flow doc created | Yes (carry-forward) | Updated with 12 steps | Met (post-cycle delivery) |
 
 ---
 
 ## Cycle Retrospective
-<!-- Filled post-delivery -->
 
 ### What Went Well
-<!-- Observations -->
+
+1. **Both PBIs delivered same-day** — Inc 1 through Inc 4 completed in a single session with no blockers. The event-driven architecture made state restoration clean: service stays domain-pure, view handles Obsidian API.
+2. **Three Amigos caught a real bug** — `{{overview}}` placeholder used `computeActiveTimeMs` (timeline-based, returns 0 for empty timelines) instead of `computeElapsedMs` (accumulator-based). Same class of bug as the `{{duration}}` fix from earlier in the cycle — caught and fixed pre-release.
+3. **Component extraction pattern worked** — `SessionOutputPanel` (96 LOC) and `SessionOutputPickerModal` (89 LOC) kept the orchestrator growth manageable. Panel follows the exact same pattern as `SessionGoalsPanel` / `SessionDecisionPanel`.
+4. **Pure function approach** — `generateSessionOutput()` and `resolvePlaceholder()` are fully testable without mocks. 10 placeholder types all tested individually.
+5. **Flow test #12** covered both PBIs end-to-end in a single lifecycle scenario (create → start → pause/resume with state → complete → generate 2 output types).
 
 ### Deviations from Plan
-<!-- What changed and why -->
+
+1. **Test count: 68 vs 115 target (-41%)** — Planned estimates were too generous for helpers/service layers. The pure-function tests cover more ground per test (each placeholder test verifies one thing cleanly). The service tests cover all paths but with fewer distinct scenarios than estimated.
+2. **Placeholder set: 10 vs 8 planned** — Added `{{overview}}` and `{{notes}}` during implementation. `{{overview}}` is a composite (date + type + duration), `{{notes}}` resolves `session.notes`. Both used by built-in templates.
+3. **Settings event** — Added `settings.updateCustomOutputTemplates` event (7 total vs 6 planned). Required for settings tab to notify downstream consumers when custom templates change.
+4. **SessionWorkspaceView LOC breached threshold** — 791 LOC vs 780 limit. The 11 LOC overshoot comes from output panel wiring (subscribe `session.output.generated`, import/render panel, `openOutputPicker` handler). Not critical but TD filed.
+5. **Carry-forward items initially deferred** — PRD update and flow doc `Create and Manage Sessions.md` initially slipped, but delivered post-cycle during Three Amigos review session. PRD updated to v5 (FRI 33/35), flow doc expanded to 12 steps covering all capabilities.
 
 ### Improvement Backlog (from this cycle)
-<!-- - [ ] Items feeding into next cycle -->
+
+- [ ] **TD: Extract `SessionWorkspaceView` output wiring** — 791 LOC exceeds 780 threshold; extract output panel lifecycle into the panel component itself (self-subscribing pattern)
+- [ ] **TD: SessionService approaching 1,150 LOC** — At 1,130 LOC with 20 LOC headroom. Consider `SessionOutputService` extraction if Cycle 4 adds more service logic.
+- [x] ~~**Mandatory: PRD update + flow doc**~~ — Delivered post-cycle. PRD v5 with all 7 FRs, PBI table, event model. Flow doc updated with 12 steps.
+- [ ] **Test count estimation calibration** — Overestimated by 41%. Future cycles should use 60% of naive estimate for pure-function-heavy domains.
+- [ ] **`computeActiveTimeMs` vs `computeElapsedMs` naming** — Two duration functions with subtle differences caused the same bug twice. Consider renaming or adding JSDoc warnings.
 
 ### Learnings
-<!-- - **L-NN**: Title — description -->
+
+- **L-25**: Overview placeholder bug — `computeActiveTimeMs` (timeline-based) returns 0 for sessions without timeline entries. Always use `computeElapsedMs` (accumulator-based via `elapsedBeforePauseMs`) for user-facing duration displays. This was the same class of bug as the `{{duration}}` fix.
+- **L-26**: Three Amigos catches real bugs — The formal review structure (Business/Dev/QA perspectives) found a production-affecting bug that unit tests missed because the test session had `elapsedBeforePauseMs` set but no timeline entries, matching the exact failure scenario.
+- **L-27**: Test count estimation — Pure-function domains need fewer tests per feature than service/UI domains. Each `resolvePlaceholder` test covers one atomic path with no mock setup overhead. Estimate 60% of naive count for pure-function-heavy increments.
+- **L-28**: Carry-forward escalation — Documentation tasks deferred past 2 cycles should be escalated to mandatory pre-feature obligations. Three consecutive slips indicate the task will never be prioritized organically.
 
 ---
 
 ## Related
 
-- PRD: [[Session Workspaces PRD]] (v4, FRI 29/35)
+- PRD: [[Session Workspaces PRD]] (v5, FRI 33/35)
 - PBIs: [[PBI-SW-006 State Restoration]], [[PBI-SW-008 Session Output Artifacts]]
 - Tech Debt: TD-45 (partially resolved by PBI-SW-006 — session workspace state)
 - Learnings (input): [[L-01 Start domain-first]], [[L-09 Thread new fields early]], [[L-11 Backward compat guard in load]], [[L-17 Wikilink insertion pattern]], [[L-20 Pure functions for testability]], [[L-23 Optional fields simplify UX]], [[L-24 Component extraction before feature addition]]
-- Learnings (output): <!-- filled post-delivery -->
+- Learnings (output): [[L-25 Overview placeholder bug]], [[L-26 Three Amigos catches real bugs]], [[L-27 Test count estimation]], [[L-28 Carry-forward escalation]]
 - Previous Cycle: [[Cycle 2 - Session Types and Decision Log]]

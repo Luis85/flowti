@@ -1,10 +1,12 @@
 ---
 type: ProductBacklogItem
 feature: "[[Session Workspaces PRD]]"
-stage: planned
+stage: done
 priority: medium
 dependencies: []
-note: "Adds structured decision recording to sessions. Independent — can be implemented in parallel with PBI-SW-003. Unblocks PBI-SW-005 (decisions in summary). Consider TD-93 overlap (TypedStorage vs vault file canonical source)."
+delivered_in: "[[Cycle 2 - Session Types and Decision Log]]"
+delivered_date: 2026-02-18
+note: "Delivered in Cycle 2. Structured decisions with title, description, recordedAt. SessionDecisionPanel in workspace. Add/remove decisions during active sessions. Decisions persist across pause/resume and carry through rerun and template flows. Max 100 decisions enforced. Decisions included in session summary. Backward compat: decisions ??= []."
 ---
 
 ## User Story — Problem Space
@@ -31,20 +33,20 @@ As a session user, I want to record decisions during my session with structured 
 ### Functional Requirements
 
 **Domain layer (Inc 1):**
-- [ ] `SessionDecision` type: `{ id, title, description, recordedAt, context? }`
-- [ ] `decisions: SessionDecision[]` on `Session` interface
-- [ ] `decisions?: SessionDecision[]` on `SessionTemplate` (optional, carried through templates)
-- [ ] Command/state event pairs: `session.decision.record/recorded`, `session.decision.remove/removed`
-- [ ] Max 100 decisions per session (`MAX_SESSION_DECISIONS = 100`)
-- [ ] Field threading: `handleCreate`, `rerunSession`, `createFromTemplate`, `saveTemplateFromSession` (L-09)
-- [ ] Backward compat: `session.decisions ??= []` in `load()` (L-11)
-- [ ] Decisions persisted with session state via TypedStorage
-- [ ] Pure helper: `formatDecisionsForSummary(decisions: SessionDecision[]): string` for PBI-SW-005 (L-10/L-20)
+- [x] `SessionDecision` type: `{ id, title, description, recordedAt, context? }`
+- [x] `decisions: SessionDecision[]` on `Session` interface
+- [x] `decisions?: SessionDecision[]` on `SessionTemplate` (optional, carried through templates)
+- [x] Command/state event pairs: `session.decision.record/recorded`, `session.decision.remove/removed`
+- [x] Max 100 decisions per session (`MAX_SESSION_DECISIONS = 100`)
+- [x] Field threading: `handleCreate`, `rerunSession`, `createFromTemplate`, `saveTemplateFromSession` (L-09)
+- [x] Backward compat: `session.decisions ??= []` in `load()` (L-11)
+- [x] Decisions persisted with session state via TypedStorage
+- [x] Pure helper: `formatDecisionsForSummary(decisions: SessionDecision[]): string` for PBI-SW-005 (L-10/L-20)
 
 **UI layer (Inc 2):**
-- [ ] Decision panel in SessionWorkspaceView with inline add form
-- [ ] Decisions included in session summary (unblocks PBI-SW-005)
-- [ ] Auto-link decisions to bound context entities when writing to session notes (L-17)
+- [x] Decision panel in SessionWorkspaceView with inline add form
+- [x] Decisions included in session summary (unblocks PBI-SW-005)
+- [x] Auto-link decisions to bound context entities when writing to session notes (L-17)
 
 ### Implementation Approach (from learnings)
 
@@ -71,12 +73,12 @@ As a session user, I want to record decisions during my session with structured 
 
 ### Acceptance Criteria
 
-- [ ] Record a decision with title and description during active session
-- [ ] Decision appears in workspace decision panel
-- [ ] Remove a decision from the panel
-- [ ] Decisions persist across pause/resume
-- [ ] Decisions carried through rerun and template flows
-- [ ] Max 100 decisions enforced
-- [ ] Decisions included in session summary on completion
-- [ ] Legacy sessions load cleanly with `decisions: []`
-- [ ] Build passes: tests + tsc + eslint + esbuild
+- [x] Record a decision with title and description during active session
+- [x] Decision appears in workspace decision panel
+- [x] Remove a decision from the panel
+- [x] Decisions persist across pause/resume
+- [x] Decisions carried through rerun and template flows
+- [x] Max 100 decisions enforced
+- [x] Decisions included in session summary on completion
+- [x] Legacy sessions load cleanly with `decisions: []`
+- [x] Build passes: tests + tsc + eslint + esbuild
