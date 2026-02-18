@@ -220,6 +220,90 @@ export class FlowtiSettingTab extends PluginSettingTab {
 					})
 				);
 		}
+
+		this.displayCustomSessionTypes(containerEl, settings);
+	}
+
+	/**
+	 * Display custom session type creation/editing within the Sessions section.
+	 */
+	private displayCustomSessionTypes(containerEl: HTMLElement, settings: FlowtiSettings): void {
+		containerEl.createEl("h4", { text: "Custom Session Types" });
+		containerEl.createEl("p", {
+			text: "Create custom session types with their own guiding questions, duration, and goals.",
+			cls: "setting-item-description",
+		});
+
+		const customTypes = settings.customSessionTypes ?? {};
+
+		// List existing custom types
+		for (const [key, cfg] of Object.entries(customTypes)) {
+			new Setting(containerEl)
+				.setName(cfg.label || key)
+				.setDesc(`${cfg.defaultDuration} min | ${cfg.guidingQuestions.length} questions`)
+				.addExtraButton((btn) =>
+					btn.setIcon("x").setTooltip("Remove").onClick(() => {
+						const updated = { ...customTypes };
+						delete updated[key];
+						void this.deps.eventBus.emit("settings.updateCustomSessionTypes", { types: updated });
+						// Re-render after a tick to let event propagate
+						setTimeout(() => this.display(), 50);
+					})
+				);
+		}
+
+		// Add new custom type form
+		let typeName = "";
+		let typeLabel = "";
+		let typeDuration = "25";
+		let typeQuestions = "";
+
+		new Setting(containerEl)
+			.setName("Type key")
+			.setDesc("A unique slug (e.g. sprint-review)")
+			.addText((text) =>
+				text.setPlaceholder("e.g. sprint-review")
+					.onChange((value) => { typeName = value; })
+			);
+
+		new Setting(containerEl)
+			.setName("Display label")
+			.addText((text) =>
+				text.setPlaceholder("e.g. Sprint Review")
+					.onChange((value) => { typeLabel = value; })
+			);
+
+		new Setting(containerEl)
+			.setName("Default duration (min)")
+			.addText((text) =>
+				text.setValue("25")
+					.onChange((value) => { typeDuration = value; })
+			);
+
+		new Setting(containerEl)
+			.setName("Guiding questions")
+			.setDesc("One per line")
+			.addTextArea((ta) =>
+				ta.setPlaceholder("What is the goal?\nWhat do we need to decide?")
+					.onChange((value) => { typeQuestions = value; })
+			);
+
+		new Setting(containerEl)
+			.addButton((btn) =>
+				btn.setButtonText("Add Custom Type").setCta().onClick(() => {
+					const key = typeName.trim().toLowerCase().replace(/\s+/g, "-");
+					const label = typeLabel.trim();
+					if (!key || !label) return;
+					const dur = parseInt(typeDuration, 10) || 25;
+					const questions = typeQuestions.split("\n").map((q) => q.trim()).filter(Boolean);
+					const updated = {
+						...customTypes,
+						[key]: { type: key, label, icon: "star", guidingQuestions: questions, defaultDuration: dur, defaultGoals: [] },
+					};
+					void this.deps.eventBus.emit("settings.updateCustomSessionTypes", { types: updated });
+					setTimeout(() => this.display(), 50);
+				})
+			);
 	}
 
 	/**

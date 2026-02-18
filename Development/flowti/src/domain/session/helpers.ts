@@ -4,7 +4,25 @@
  * All functions are side-effect free and trivially testable.
  */
 
-import type { ContextBindingType, Session, SessionContextBinding, SessionGoal, SessionType, PauseSegment, TimelineSummary } from "./types";
+import type { ContextBindingType, Session, SessionContextBinding, SessionDecision, SessionGoal, SessionType, SessionTypeConfig, PauseSegment, TimelineSummary } from "./types";
+import { SESSION_TYPE_CONFIGS } from "./types";
+
+// ── Session Type Resolution ──────────────────────────────────
+
+/**
+ * Resolves the configuration for a session type.
+ * Custom configs take priority over built-in configs.
+ * Returns the built-in "documentation" config as fallback for unknown types.
+ */
+export function resolveTypeConfig(
+	type: SessionType,
+	customConfigs?: Record<string, SessionTypeConfig>,
+): SessionTypeConfig {
+	if (customConfigs && customConfigs[type]) {
+		return customConfigs[type];
+	}
+	return SESSION_TYPE_CONFIGS[type] ?? SESSION_TYPE_CONFIGS["documentation"];
+}
 
 // ── Activity filtering (ADR-026) ─────────────────────────────
 
@@ -93,6 +111,7 @@ export function createSession(
 		activity: [],
 		activityFilter: [],
 		contextBindings: [],
+		decisions: [],
 	};
 }
 
@@ -119,6 +138,19 @@ export function createGoal(id: string, text: string): SessionGoal {
 		text,
 		completed: false,
 		completedAt: null,
+	};
+}
+
+/**
+ * Creates a new SessionDecision.
+ */
+export function createDecision(id: string, title: string, description: string, context?: string): SessionDecision {
+	return {
+		id,
+		title,
+		description,
+		recordedAt: new Date().toISOString(),
+		context,
 	};
 }
 
@@ -296,6 +328,15 @@ export function generateSessionSummaryBody(session: Session): string {
 		lines.push("### Context Bindings");
 		for (const b of session.contextBindings) {
 			lines.push(`- **${b.type}**: [[${b.path}]] *(${b.label})*`);
+		}
+		lines.push("");
+	}
+
+	// Decisions
+	if (session.decisions && session.decisions.length > 0) {
+		lines.push("### Decisions");
+		for (const d of session.decisions) {
+			lines.push(`- **${d.title}**: ${d.description}${d.context ? ` *(${d.context})*` : ""}`);
 		}
 		lines.push("");
 	}

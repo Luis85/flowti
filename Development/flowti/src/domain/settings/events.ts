@@ -20,4 +20,6 @@ export interface SettingsEventMap {
 	"settings.updateCatalogServices": { services: CatalogCategoryConfig[] };
 	/** Command: update inbox enabled source events */
 	"settings.updateInboxEnabledSources": { sources: string[] };
+	/** Command: update custom session type configurations */
+	"settings.updateCustomSessionTypes": { types: Record<string, unknown> };
 }

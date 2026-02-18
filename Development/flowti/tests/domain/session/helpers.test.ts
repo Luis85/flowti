@@ -6,6 +6,7 @@ import {
 	formatDuration,
 	createSession,
 	createGoal,
+	createDecision,
 	computePauseSegments,
 	computeTotalPauseMs,
 	computeWallClockMs,
@@ -17,8 +18,10 @@ import {
 	generateSessionSummaryBody,
 	mergeSessionNotes,
 	createContextBinding,
+	resolveTypeConfig,
 } from "../../../src/domain/session/helpers";
-import type { Session, SessionTimelineEntry } from "../../../src/domain/session/types";
+import type { Session, SessionTimelineEntry, SessionTypeConfig } from "../../../src/domain/session/types";
+import { SESSION_TYPE_CONFIGS } from "../../../src/domain/session/types";
 
 // ─────────────────────────────────────────────────────────────
 // Test helpers
@@ -47,6 +50,7 @@ function makeSession(overrides: Partial<Session> = {}): Session {
 		activity: [],
 		activityFilter: [],
 		contextBindings: [],
+		decisions: [],
 		...overrides,
 	};
 }
@@ -651,6 +655,33 @@ describe("generateSessionSummaryBody", () => {
 		expect(body).not.toContain("### Artifacts");
 		expect(body).not.toContain("### Session Notes");
 	});
+
+	it("includes decisions section with title and description", () => {
+		const session = makeSession({
+			decisions: [
+				{ id: "d1", title: "Use EventBus", description: "For decoupled communication", recordedAt: "2026-02-16T10:10:00.000Z" },
+			],
+		});
+		const body = generateSessionSummaryBody(session);
+		expect(body).toContain("### Decisions");
+		expect(body).toContain("**Use EventBus**: For decoupled communication");
+	});
+
+	it("includes decision context when present", () => {
+		const session = makeSession({
+			decisions: [
+				{ id: "d1", title: "Use DDD", description: "Domain-driven design", recordedAt: "2026-02-16T10:10:00.000Z", context: "architecture review" },
+			],
+		});
+		const body = generateSessionSummaryBody(session);
+		expect(body).toContain("*(architecture review)*");
+	});
+
+	it("omits decisions section when empty", () => {
+		const session = makeSession({ decisions: [] });
+		const body = generateSessionSummaryBody(session);
+		expect(body).not.toContain("### Decisions");
+	});
 });
 
 describe("generateSessionSummary", () => {
@@ -824,5 +855,158 @@ describe("createContextBinding", () => {
 		const binding = createContextBinding("id-4", "feature", "src/domain/session/helpers.ts");
 		expect(binding.type).toBe("feature");
 		expect(binding.path).toBe("src/domain/session/helpers.ts");
+	});
+});
+
+// ─────────────────────────────────────────────────────────────
+// SESSION_TYPE_CONFIGS registry
+// ─────────────────────────────────────────────────────────────
+
+describe("SESSION_TYPE_CONFIGS", () => {
+	it("has 8 pre-built type configs", () => {
+		expect(Object.keys(SESSION_TYPE_CONFIGS)).toHaveLength(8);
+	});
+
+	it("includes all 8 session types", () => {
+		const types = Object.keys(SESSION_TYPE_CONFIGS);
+		expect(types).toContain("documentation");
+		expect(types).toContain("event-storming");
+		expect(types).toContain("service-design");
+		expect(types).toContain("domain-design");
+		expect(types).toContain("requirements-refinement");
+		expect(types).toContain("backlog-structuring");
+		expect(types).toContain("knowledge-cleanup");
+		expect(types).toContain("vault-hygiene");
+	});
+
+	it("each config has required fields", () => {
+		for (const [key, config] of Object.entries(SESSION_TYPE_CONFIGS)) {
+			expect(config.type).toBe(key);
+			expect(config.label).toBeTruthy();
+			expect(config.icon).toBeTruthy();
+			expect(config.guidingQuestions.length).toBeGreaterThan(0);
+			expect(config.defaultDuration).toBeGreaterThan(0);
+			expect(Array.isArray(config.defaultGoals)).toBe(true);
+		}
+	});
+
+	it("vault-hygiene has 15 min default, domain-design has 50 min", () => {
+		expect(SESSION_TYPE_CONFIGS["vault-hygiene"].defaultDuration).toBe(15);
+		expect(SESSION_TYPE_CONFIGS["domain-design"].defaultDuration).toBe(50);
+	});
+});
+
+// ─────────────────────────────────────────────────────────────
+// resolveTypeConfig
+// ─────────────────────────────────────────────────────────────
+
+describe("resolveTypeConfig", () => {
+	it("returns built-in config for known type", () => {
+		const config = resolveTypeConfig("event-storming");
+		expect(config.type).toBe("event-storming");
+		expect(config.label).toBe("Event Storming");
+		expect(config.defaultDuration).toBe(50);
+	});
+
+	it("returns documentation config for each built-in type", () => {
+		const docConfig = resolveTypeConfig("documentation");
+		expect(docConfig.type).toBe("documentation");
+		expect(docConfig.label).toBe("Documentation");
+	});
+
+	it("returns domain-design config", () => {
+		const config = resolveTypeConfig("domain-design");
+		expect(config.type).toBe("domain-design");
+		expect(config.guidingQuestions).toContain("What are the bounded contexts?");
+	});
+
+	it("returns custom config when provided and matching", () => {
+		const custom: Record<string, SessionTypeConfig> = {
+			"event-storming": {
+				type: "event-storming",
+				label: "Custom Storming",
+				icon: "custom-icon",
+				guidingQuestions: ["Custom question?"],
+				defaultDuration: 99,
+				defaultGoals: ["Custom goal"],
+			},
+		};
+		const config = resolveTypeConfig("event-storming", custom);
+		expect(config.label).toBe("Custom Storming");
+		expect(config.defaultDuration).toBe(99);
+	});
+
+	it("falls back to built-in when custom does not match", () => {
+		const custom: Record<string, SessionTypeConfig> = {
+			"event-storming": {
+				type: "event-storming",
+				label: "Custom",
+				icon: "x",
+				guidingQuestions: [],
+				defaultDuration: 10,
+				defaultGoals: [],
+			},
+		};
+		const config = resolveTypeConfig("service-design", custom);
+		expect(config.type).toBe("service-design");
+		expect(config.label).toBe("Service Design");
+	});
+
+	it("returns documentation config as fallback for empty custom map", () => {
+		const config = resolveTypeConfig("documentation", {});
+		expect(config.type).toBe("documentation");
+	});
+
+	it("custom config takes priority over built-in", () => {
+		const custom: Record<string, SessionTypeConfig> = {
+			"documentation": {
+				type: "documentation",
+				label: "My Docs",
+				icon: "pencil",
+				guidingQuestions: ["What to write?"],
+				defaultDuration: 30,
+				defaultGoals: ["Draft outline"],
+			},
+		};
+		const config = resolveTypeConfig("documentation", custom);
+		expect(config.label).toBe("My Docs");
+		expect(config.defaultDuration).toBe(30);
+		expect(config.defaultGoals).toEqual(["Draft outline"]);
+	});
+});
+
+// ─────────────────────────────────────────────────────────────
+// createDecision
+// ─────────────────────────────────────────────────────────────
+
+describe("createDecision", () => {
+	beforeEach(() => { vi.useFakeTimers(); });
+	afterEach(() => { vi.useRealTimers(); });
+
+	it("creates a decision with required fields", () => {
+		vi.setSystemTime(new Date("2026-02-18T14:00:00.000Z"));
+		const d = createDecision("d1", "Use DDD", "Domain-driven design");
+		expect(d.id).toBe("d1");
+		expect(d.title).toBe("Use DDD");
+		expect(d.description).toBe("Domain-driven design");
+		expect(d.recordedAt).toBe("2026-02-18T14:00:00.000Z");
+		expect(d.context).toBeUndefined();
+	});
+
+	it("includes optional context", () => {
+		vi.setSystemTime(new Date("2026-02-18T14:00:00.000Z"));
+		const d = createDecision("d2", "Use Redis", "For caching", "performance review");
+		expect(d.context).toBe("performance review");
+	});
+});
+
+// ─────────────────────────────────────────────────────────────
+// createSession — decisions
+// ─────────────────────────────────────────────────────────────
+
+describe("createSession — decisions", () => {
+	it("creates a session with empty decisions array", () => {
+		const session = createSession("s1", "documentation", "Test", 25);
+		expect(session.decisions).toEqual([]);
 	});
 });

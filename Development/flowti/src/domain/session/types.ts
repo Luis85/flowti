@@ -11,22 +11,109 @@
 
 /** Available documentation session types. */
 export type SessionType =
+	| "documentation"
 	| "vault-hygiene"
 	| "event-storming"
 	| "service-design"
+	| "domain-design"
 	| "requirements-refinement"
 	| "backlog-structuring"
 	| "knowledge-cleanup";
 
 /** Human-readable labels for each session type. */
 export const SESSION_TYPES: ReadonlyArray<{ type: SessionType; label: string; description: string }> = [
+	{ type: "documentation", label: "Documentation", description: "Document systems, processes, and decisions" },
 	{ type: "vault-hygiene", label: "Vault Hygiene", description: "Clean up, reorganize, and maintain vault health" },
 	{ type: "event-storming", label: "Event Storming", description: "Discover and map domain events" },
 	{ type: "service-design", label: "Service Design", description: "Design service boundaries and contracts" },
+	{ type: "domain-design", label: "Domain Design", description: "Design bounded contexts and domain models" },
 	{ type: "requirements-refinement", label: "Requirements Refinement", description: "Refine and clarify requirements" },
 	{ type: "backlog-structuring", label: "Backlog Structuring", description: "Organize and prioritize backlog items" },
 	{ type: "knowledge-cleanup", label: "Knowledge Cleanup", description: "Consolidate and clean up documentation" },
 ];
+
+// ─────────────────────────────────────────────────────────────
+// Session Type Configuration
+// ─────────────────────────────────────────────────────────────
+
+/** Configuration for a session type with defaults and guiding questions. */
+export interface SessionTypeConfig {
+	type: SessionType;
+	label: string;
+	icon: string;
+	guidingQuestions: string[];
+	defaultDuration: number;
+	defaultGoals: string[];
+	color?: string;
+}
+
+/** Pre-built session type configurations. */
+export const SESSION_TYPE_CONFIGS: Record<SessionType, SessionTypeConfig> = {
+	"documentation": {
+		type: "documentation",
+		label: "Documentation",
+		icon: "file-text",
+		guidingQuestions: ["What needs to be documented?", "What is the current gap?"],
+		defaultDuration: 25,
+		defaultGoals: [],
+	},
+	"event-storming": {
+		type: "event-storming",
+		label: "Event Storming",
+		icon: "zap",
+		guidingQuestions: ["What events does this domain produce?", "What triggers each event?"],
+		defaultDuration: 50,
+		defaultGoals: [],
+	},
+	"service-design": {
+		type: "service-design",
+		label: "Service Design",
+		icon: "server",
+		guidingQuestions: ["What services does this domain expose?", "What are the contracts?"],
+		defaultDuration: 50,
+		defaultGoals: [],
+	},
+	"domain-design": {
+		type: "domain-design",
+		label: "Domain Design",
+		icon: "boxes",
+		guidingQuestions: ["What are the bounded contexts?", "What entities belong here?", "What events cross boundaries?"],
+		defaultDuration: 50,
+		defaultGoals: [],
+	},
+	"requirements-refinement": {
+		type: "requirements-refinement",
+		label: "Requirements Refinement",
+		icon: "check-square",
+		guidingQuestions: ["What are the acceptance criteria?", "What edge cases exist?"],
+		defaultDuration: 25,
+		defaultGoals: [],
+	},
+	"backlog-structuring": {
+		type: "backlog-structuring",
+		label: "Backlog Structuring",
+		icon: "list-ordered",
+		guidingQuestions: ["What are the priorities?", "What delivers the most value first?"],
+		defaultDuration: 25,
+		defaultGoals: [],
+	},
+	"knowledge-cleanup": {
+		type: "knowledge-cleanup",
+		label: "Knowledge Cleanup",
+		icon: "book-open",
+		guidingQuestions: ["What is outdated?", "What is missing?", "What is duplicated?"],
+		defaultDuration: 25,
+		defaultGoals: [],
+	},
+	"vault-hygiene": {
+		type: "vault-hygiene",
+		label: "Vault Hygiene",
+		icon: "hard-drive",
+		guidingQuestions: ["What files are orphaned?", "What links are broken?", "What needs reorganizing?"],
+		defaultDuration: 15,
+		defaultGoals: [],
+	},
+};
 
 // ─────────────────────────────────────────────────────────────
 // Session Status
@@ -80,6 +167,15 @@ export interface TimelineSummary {
 	totalPauseMs: number;
 	pauseCount: number;
 	pauseSegments: PauseSegment[];
+}
+
+/** A structured decision recorded during a session. */
+export interface SessionDecision {
+	id: string;
+	title: string;
+	description: string;
+	recordedAt: string; // ISO 8601
+	context?: string;
 }
 
 /** A goal defined for a session. */
@@ -148,6 +244,8 @@ export interface Session {
 	activityFilter: string[];
 	/** Context bindings scoping this session to vault entities. */
 	contextBindings: SessionContextBinding[];
+	/** Structured decisions recorded during this session. */
+	decisions: SessionDecision[];
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -164,6 +262,8 @@ export interface SessionTemplate {
 	focusFile?: string;
 	/** Goal texts to pre-populate on sessions created from this template. */
 	goals?: string[];
+	/** Decision titles to pre-populate on sessions created from this template. */
+	decisions?: string[];
 	createdAt: number; // epoch ms
 }
 
@@ -199,6 +299,9 @@ export const ACTIVITY_DEDUP_WINDOW_MS = 1000;
 
 /** Maximum number of context bindings per session. */
 export const MAX_CONTEXT_BINDINGS = 10;
+
+/** Maximum number of decisions per session. */
+export const MAX_SESSION_DECISIONS = 100;
 
 /** Vault folder where session notes (persistent markdown files) are stored. */
 export const SESSION_NOTES_FOLDER = "03 - Resources/Sessions";

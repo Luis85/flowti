@@ -2,7 +2,7 @@
  * Event types owned by the Session domain.
  */
 
-import type { ContextBindingType, Session, SessionActivity, SessionArtifact, SessionContextBinding, SessionGoal, SessionLink, SessionTemplate, SessionType } from "./types";
+import type { ContextBindingType, Session, SessionActivity, SessionArtifact, SessionContextBinding, SessionDecision, SessionGoal, SessionLink, SessionTemplate, SessionType, SessionTypeConfig } from "./types";
 
 export interface SessionEventMap {
 	// ── Commands ──────────────────────────────────────────────
@@ -128,4 +128,28 @@ export interface SessionEventMap {
 	"session.context.unbound": { sessionId: string; bindingId: string };
 	/** Emitted after a context binding's type is changed */
 	"session.context.typeChanged": { sessionId: string; bindingId: string; type: ContextBindingType };
+
+	// ── Decision commands ────────────────────────────────────
+	/** Command: record a decision during a session */
+	"session.decision.record": { sessionId: string; title: string; description: string; context?: string };
+	/** Command: remove a decision from a session */
+	"session.decision.remove": { sessionId: string; decisionId: string };
+
+	// ── Decision state events ────────────────────────────────
+	/** Emitted after a decision is recorded */
+	"session.decision.recorded": { sessionId: string; decision: SessionDecision };
+	/** Emitted after a decision is removed */
+	"session.decision.removed": { sessionId: string; decisionId: string };
+
+	// ── Type configuration commands ────────────────────────
+	/** Command: configure (update) a session type's config */
+	"session.type.configure": { type: SessionType; config: Partial<SessionTypeConfig> };
+	/** Command: create a custom session type */
+	"session.type.create": { config: SessionTypeConfig };
+
+	// ── Type configuration state events ────────────────────
+	/** Emitted after a session type config is updated */
+	"session.type.configured": { type: SessionType; config: SessionTypeConfig };
+	/** Emitted after a custom session type is created */
+	"session.type.created": { config: SessionTypeConfig };
 }

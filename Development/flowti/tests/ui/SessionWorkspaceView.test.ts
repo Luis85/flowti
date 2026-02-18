@@ -31,6 +31,7 @@ function makeSession(overrides?: Partial<Session>): Session {
 		activity: [],
 		activityFilter: [],
 		contextBindings: [],
+		decisions: [],
 		...overrides,
 	};
 }
@@ -1141,6 +1142,131 @@ describe("SessionWorkspaceView", () => {
 			const addBtn = content.querySelector(".ft-context-add") as HTMLElement;
 			expect(addBtn).not.toBeNull();
 			expect(addBtn.textContent).toContain("Add Context");
+		});
+	});
+
+	describe("guiding questions", () => {
+		it("renders guiding questions for active session", async () => {
+			const session = makeSession({ status: "active", type: "event-storming" });
+			const { view } = createView(eventBus, session);
+			await view.onOpen();
+
+			const content = getContentEl(view);
+			const section = content.querySelector(".ft-session-workspace-guiding");
+			expect(section).not.toBeNull();
+			expect(section!.textContent).toContain("Guiding Questions");
+			expect(section!.textContent).toContain("What events does this domain produce?");
+		});
+
+		it("renders guiding questions for paused session", async () => {
+			const session = makeSession({ status: "paused", startedAt: null, pausedAt: new Date().toISOString(), type: "domain-design" });
+			const { view } = createView(eventBus, session);
+			await view.onOpen();
+
+			const content = getContentEl(view);
+			const section = content.querySelector(".ft-session-workspace-guiding");
+			expect(section).not.toBeNull();
+			expect(section!.textContent).toContain("What are the bounded contexts?");
+		});
+
+		it("does not render guiding questions for prepared session", async () => {
+			const session = makeSession({ status: "prepared", startedAt: null });
+			const { view } = createView(eventBus, session);
+			await view.onOpen();
+
+			const content = getContentEl(view);
+			expect(content.querySelector(".ft-session-workspace-guiding")).toBeNull();
+		});
+
+		it("does not render guiding questions for completed session", async () => {
+			const session = makeSession({ status: "completed", completedAt: new Date().toISOString() });
+			const { view } = createView(eventBus, session);
+			await view.onOpen();
+
+			const content = getContentEl(view);
+			expect(content.querySelector(".ft-session-workspace-guiding")).toBeNull();
+		});
+
+		it("uses custom session type configs when available", async () => {
+			const session = makeSession({ status: "active", type: "event-storming" });
+			const { view } = createView(eventBus, session);
+			view.customSessionTypes = {
+				"event-storming": {
+					type: "event-storming",
+					label: "Custom ES",
+					icon: "zap",
+					guidingQuestions: ["Custom question 1"],
+					defaultDuration: 50,
+					defaultGoals: [],
+				},
+			};
+			await view.onOpen();
+
+			const content = getContentEl(view);
+			const section = content.querySelector(".ft-session-workspace-guiding");
+			expect(section).not.toBeNull();
+			expect(section!.textContent).toContain("Custom question 1");
+		});
+	});
+
+	// ── Decision Panel integration ──────────────────────────
+
+	describe("decisions panel", () => {
+		it("renders decisions section in workspace", async () => {
+			const session = makeSession({
+				status: "active",
+				decisions: [
+					{ id: "d1", title: "Use EventBus", description: "Decoupled comms", recordedAt: "2026-02-18T10:00:00.000Z" },
+				],
+			});
+			const { view } = createView(eventBus, session);
+			await view.onOpen();
+			const content = getContentEl(view);
+
+			const section = content.querySelector(".ft-session-workspace-decisions");
+			expect(section).not.toBeNull();
+			expect(section!.textContent).toContain("Decisions");
+			expect(section!.textContent).toContain("Use EventBus");
+		});
+
+		it("refreshes decisions on session.decision.recorded", async () => {
+			const session = makeSession({ status: "active", decisions: [] });
+			const { view, service } = createView(eventBus, session);
+			await view.onOpen();
+
+			// Simulate decision being recorded — service returns updated session
+			const updatedSession = makeSession({
+				status: "active",
+				decisions: [{ id: "d1", title: "New Decision", description: "desc", recordedAt: "2026-02-18T10:00:00.000Z" }],
+			});
+			(service.getSessionById as ReturnType<typeof vi.fn>).mockReturnValue(updatedSession);
+
+			await eventBus.emit("session.decision.recorded", {
+				sessionId: "session-1",
+				decision: updatedSession.decisions[0],
+			});
+
+			const content = getContentEl(view);
+			expect(content.textContent).toContain("New Decision");
+		});
+
+		it("refreshes decisions on session.decision.removed", async () => {
+			const dec = { id: "d1", title: "Old Decision", description: "desc", recordedAt: "2026-02-18T10:00:00.000Z" };
+			const session = makeSession({ status: "active", decisions: [dec] });
+			const { view, service } = createView(eventBus, session);
+			await view.onOpen();
+
+			// Simulate decision being removed — service returns updated session
+			const updatedSession = makeSession({ status: "active", decisions: [] });
+			(service.getSessionById as ReturnType<typeof vi.fn>).mockReturnValue(updatedSession);
+
+			await eventBus.emit("session.decision.removed", {
+				sessionId: "session-1",
+				decisionId: "d1",
+			});
+
+			const content = getContentEl(view);
+			expect(content.textContent).not.toContain("Old Decision");
 		});
 	});
 });

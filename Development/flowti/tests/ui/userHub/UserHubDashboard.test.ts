@@ -83,6 +83,7 @@ function makeActiveSession(overrides?: Partial<Session>): Session {
 		activity: [],
 		activityFilter: [],
 		contextBindings: [],
+		decisions: [],
 		...overrides,
 	};
 }

@@ -33,6 +33,7 @@ function makeSession(overrides?: Partial<Session>): Session {
 		activity: [],
 		activityFilter: [],
 		contextBindings: [],
+		decisions: [],
 		...overrides,
 	};
 }
