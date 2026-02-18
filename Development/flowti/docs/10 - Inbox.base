@@ -5,13 +5,13 @@ views:
   - type: table
     name: Table
     order:
-      - type
       - file.name
+      - type
       - stage
     sort:
       - property: file.mtime
         direction: DESC
     columnSize:
-      note.type: 71
-      file.name: 704
+      file.name: 1192
+      note.type: 93
       note.stage: 112
