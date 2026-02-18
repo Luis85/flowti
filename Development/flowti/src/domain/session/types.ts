@@ -173,7 +173,7 @@ export interface TimelineSummary {
 export interface SessionDecision {
 	id: string;
 	title: string;
-	description: string;
+	description?: string;
 	recordedAt: string; // ISO 8601
 	context?: string;
 }

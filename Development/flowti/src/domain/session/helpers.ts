@@ -144,7 +144,7 @@ export function createGoal(id: string, text: string): SessionGoal {
 /**
  * Creates a new SessionDecision.
  */
-export function createDecision(id: string, title: string, description: string, context?: string): SessionDecision {
+export function createDecision(id: string, title: string, description?: string, context?: string): SessionDecision {
 	return {
 		id,
 		title,
@@ -336,7 +336,7 @@ export function generateSessionSummaryBody(session: Session): string {
 	if (session.decisions && session.decisions.length > 0) {
 		lines.push("### Decisions");
 		for (const d of session.decisions) {
-			lines.push(`- **${d.title}**: ${d.description}${d.context ? ` *(${d.context})*` : ""}`);
+			lines.push(`- **${d.title}**${d.description ? `: ${d.description}` : ""}${d.context ? ` *(${d.context})*` : ""}`);
 		}
 		lines.push("");
 	}

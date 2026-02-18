@@ -88,33 +88,20 @@ export class SessionDecisionPanel {
 	private renderAddForm(section: HTMLElement): void {
 		const session = this.deps.getSession();
 		const form = section.createDiv({ cls: "ft-decision-add-form" });
-		form.style.cssText = "margin-top:8px;display:flex;flex-direction:column;gap:4px;";
+		form.style.cssText = "margin-top:8px;display:flex;gap:8px;";
 
 		const titleInput = form.createEl("input", { type: "text", cls: "ft-decision-title-input" });
-		titleInput.placeholder = "Decision title...";
-		titleInput.style.cssText = "padding:4px 8px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);color:var(--text-normal);";
-
-		const descInput = form.createEl("input", { type: "text", cls: "ft-decision-desc-input" });
-		descInput.placeholder = "Description (optional)...";
-		descInput.style.cssText = "padding:4px 8px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);color:var(--text-normal);";
-
-		const submit = () => {
-			const title = titleInput.value.trim();
-			if (!title) return;
-			void this.deps.eventBus.emit("session.decision.record", {
-				sessionId: session.id,
-				title,
-				description: descInput.value.trim(),
-			});
-			titleInput.value = "";
-			descInput.value = "";
-		};
+		titleInput.placeholder = "Record a decision...";
+		titleInput.style.cssText = "flex:1;padding:4px 8px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);color:var(--text-normal);";
 
 		titleInput.addEventListener("keydown", (e: KeyboardEvent) => {
-			if (e.key === "Enter") submit();
-		});
-		descInput.addEventListener("keydown", (e: KeyboardEvent) => {
-			if (e.key === "Enter") submit();
+			if (e.key === "Enter" && titleInput.value.trim()) {
+				void this.deps.eventBus.emit("session.decision.record", {
+					sessionId: session.id,
+					title: titleInput.value.trim(),
+				});
+				titleInput.value = "";
+			}
 		});
 	}
 }

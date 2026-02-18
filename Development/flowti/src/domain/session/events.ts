@@ -131,7 +131,7 @@ export interface SessionEventMap {
 
 	// ── Decision commands ────────────────────────────────────
 	/** Command: record a decision during a session */
-	"session.decision.record": { sessionId: string; title: string; description: string; context?: string };
+	"session.decision.record": { sessionId: string; title: string; description?: string; context?: string };
 	/** Command: remove a decision from a session */
 	"session.decision.remove": { sessionId: string; decisionId: string };
 

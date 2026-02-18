@@ -128,7 +128,6 @@ describe("SessionDecisionPanel", () => {
 		panel.render();
 
 		expect(container.querySelector(".ft-decision-title-input")).toBeTruthy();
-		expect(container.querySelector(".ft-decision-desc-input")).toBeTruthy();
 	});
 
 	it("does not render add form for completed sessions", () => {
@@ -152,16 +151,13 @@ describe("SessionDecisionPanel", () => {
 		panel.render();
 
 		const titleInput = container.querySelector(".ft-decision-title-input") as HTMLInputElement;
-		const descInput = container.querySelector(".ft-decision-desc-input") as HTMLInputElement;
 		titleInput.value = "Use EventBus";
-		descInput.value = "For decoupling";
 
 		titleInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
 		expect(emitSpy).toHaveBeenCalledWith("session.decision.record", {
 			sessionId: "session-1",
 			title: "Use EventBus",
-			description: "For decoupling",
 		});
 	});
 

@@ -682,6 +682,17 @@ describe("generateSessionSummaryBody", () => {
 		const body = generateSessionSummaryBody(session);
 		expect(body).not.toContain("### Decisions");
 	});
+
+	it("renders decision with title only (no description)", () => {
+		const session = makeSession({
+			decisions: [
+				{ id: "d1", title: "Use EventBus", recordedAt: "2026-02-16T10:10:00.000Z" },
+			],
+		});
+		const body = generateSessionSummaryBody(session);
+		expect(body).toContain("- **Use EventBus**");
+		expect(body).not.toContain("- **Use EventBus**:");
+	});
 });
 
 describe("generateSessionSummary", () => {
@@ -990,6 +1001,14 @@ describe("createDecision", () => {
 		expect(d.title).toBe("Use DDD");
 		expect(d.description).toBe("Domain-driven design");
 		expect(d.recordedAt).toBe("2026-02-18T14:00:00.000Z");
+		expect(d.context).toBeUndefined();
+	});
+
+	it("creates a decision with title only", () => {
+		vi.setSystemTime(new Date("2026-02-18T14:00:00.000Z"));
+		const d = createDecision("d3", "Use DDD");
+		expect(d.title).toBe("Use DDD");
+		expect(d.description).toBeUndefined();
 		expect(d.context).toBeUndefined();
 	});
 

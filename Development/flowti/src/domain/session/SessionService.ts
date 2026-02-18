@@ -756,12 +756,12 @@ export class SessionService {
 
 	// ── Decision handlers ─────────────────────────────────────
 
-	private async handleDecisionRecord(sessionId: string, title: string, description: string, context?: string): Promise<void> {
+	private async handleDecisionRecord(sessionId: string, title: string, description?: string, context?: string): Promise<void> {
 		const session = this.findSession(sessionId);
 		if (!session || !title.trim()) return;
 		if (session.decisions.length >= MAX_SESSION_DECISIONS) return;
 
-		const decision = createDecision(`dec_${generateUUID()}`, title.trim(), description.trim(), context?.trim() || undefined);
+		const decision = createDecision(`dec_${generateUUID()}`, title.trim(), description?.trim() || undefined, context?.trim() || undefined);
 		session.decisions.push(decision);
 		await this.saveState();
 		await this.eventBus?.emit("session.decision.recorded", { sessionId, decision: { ...decision } });
