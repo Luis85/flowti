@@ -18,11 +18,11 @@ bugs:
 tech_debt:
   - "[[TD-01 UI files exceed size convention]]"
 estimated_increments: 6
-actual_increments: 3
+actual_increments: 4
 estimated_tests: 155
-actual_tests: 44
-total_tests_after: 2362
-total_test_files_after: 92
+actual_tests: 65
+total_tests_after: 2383
+total_test_files_after: 93
 ---
 
 # Cycle 4: Bug Fixes, Auto-Session & Activity Polish
@@ -286,15 +286,15 @@ The exporter shows ALL frontmatter properties instead of only the columns select
 **Est. total:** ~178 LOC source, ~50 tests
 
 **Acceptance criteria:**
-- [ ] `"daily-tracking"` is a valid `SessionType` with config (icon: calendar, duration: 0, no guiding questions)
-- [ ] `SessionState.dailySessionId` tracks the active daily session separately from `activeSessionId`
-- [ ] `getDailySession()` returns the daily session, `getActiveSession()` returns focused session only (unchanged)
-- [ ] `onActivityEvent()` emits to both daily and focused sessions when concurrent (dual tracking)
-- [ ] Daily session uses 30s dedup window (`DAILY_ACTIVITY_DEDUP_WINDOW_MS`)
-- [ ] Daily session has no timer countdown (duration = 0 means passive tracking)
-- [ ] 4 new events in catalog: `session.daily.start/started/stop/stopped`
-- [ ] Backward compat: `state.dailySessionId ??= null` in `load()`
-- [ ] `npm run build` passes
+- [x] `"daily-tracking"` is a valid `SessionType` with config (icon: calendar, duration: 0, no guiding questions)
+- [x] `SessionState.dailySessionId` tracks the active daily session separately from `activeSessionId`
+- [x] `getDailySession()` returns the daily session, `getActiveSession()` returns focused session only (unchanged)
+- [x] `onActivityEvent()` emits to both daily and focused sessions when concurrent (dual tracking)
+- [x] Daily session uses 30s dedup window (`DAILY_ACTIVITY_DEDUP_WINDOW_MS`)
+- [x] Daily session has no timer countdown (duration = 0 means passive tracking)
+- [x] 4 new events in catalog: `session.daily.start/started/stop/stopped`
+- [x] Backward compat: `state.dailySessionId ??= null` in `load()`
+- [x] `npm run build` passes — 2,383 tests (93 files), tsc clean, eslint clean
 
 ### Inc 4: PBI-SW-007 UI — Auto-Start + Settings + Workspace Display
 
@@ -359,7 +359,7 @@ Inc 2: SessionWorkspaceView extraction + Activity aggregation (independent of In
   |
 Inc 2b: DX Progress Tracking Bug Fixes (independent of Inc 1-2, no session deps) ✓
   |
-Inc 3: PBI-SW-007 Domain — types, daily-tracking, concurrent sessions (independent of Inc 1-2b)
+Inc 3: PBI-SW-007 Domain — types, daily-tracking, concurrent sessions (independent of Inc 1-2b) ✓
   |
 Inc 4: PBI-SW-007 UI — auto-start, settings, display (requires Inc 2 extraction + Inc 3 types)
   |
@@ -386,19 +386,19 @@ Inc 5: Daily note integration + flow test (requires Inc 3 + Inc 4)
 
 ## Success Metrics
 
-| Metric | Target |
-|--------|--------|
-| Tests added | ~285 new (~175 session + ~110 DX bugs) |
-| Tests total | ~2,603+ |
-| Test suites | ~97+ |
-| LOC added (source) | ~725 new (~99 Inc 1 bugs + ~230 Inc 2b DX bugs + ~396 features) |
-| LOC refactored | ~420 (extraction — subscriptions + helpers) |
-| SessionWorkspaceView LOC | ≤ 450 (from 791, -341) |
-| Bugs fixed | 7 (2 exporter + TD-62 + TD-64 + 3 DX progress) |
-| PBIs closed | PBI-SW-007 (partial — nudges deferred) |
-| New events | 5 (4 daily lifecycle + 1 summary) |
-| Total session events | 65+ |
-| Flow tests | 13 (new: DailySessionLifecycle) |
+| Metric | Target | Actual (through Inc 3) |
+|--------|--------|------------------------|
+| Tests added | ~285 new (~175 session + ~110 DX bugs) | 65 (39 Inc 1 + 5 Inc 2 + 21 Inc 3) |
+| Tests total | ~2,603+ | 2,383 |
+| Test suites | ~97+ | 93 |
+| LOC added (source) | ~725 new (~99 Inc 1 bugs + ~230 Inc 2b DX bugs + ~396 features) | In progress |
+| LOC refactored | ~420 (extraction — subscriptions + helpers) | ~420 (Inc 2 complete) |
+| SessionWorkspaceView LOC | ≤ 450 (from 791, -341) | 479 (Inc 2 complete) |
+| Bugs fixed | 7 (2 exporter + TD-62 + TD-64 + 3 DX progress) | 7/7 (Inc 1 + Inc 2b) |
+| PBIs closed | PBI-SW-007 (partial — nudges deferred) | Domain layer done (Inc 3) |
+| New events | 5 (4 daily lifecycle + 1 summary) | 4/5 (4 daily lifecycle, summary in Inc 5) |
+| Total session events | 65+ | 64 |
+| Flow tests | 13 (new: DailySessionLifecycle) | 12 (DailySessionLifecycle in Inc 5) |
 
 ---
 
@@ -413,6 +413,10 @@ Inc 5: Daily note integration + flow test (requires Inc 3 + Inc 4)
 - **Inc 2b PipelineExecution.ts deleted:** Original plan had PipelineExecution subscribing to `import.progress` by `pipelineId`. Investigation revealed it created DOM-based progress that was immediately destroyed by `scheduleRender()` from `pipeline.started`. Fixed by **deleting** `PipelineExecution.ts` entirely and adding state-backed `renderPipelineProgress()` to `PipelinesTab` — same pattern as dashboard. Net cleaner: one component less, progress survives re-renders.
 - **Inc 2b ImportService/ExportService became complete lifecycle emitters:** Original plan had `DataExchangeService` emitting `import.completed`/`import.failed`. Refactored so each sub-service emits its own lifecycle events, and `DataExchangeService` handlers became thin delegates. Better separation of concerns.
 - **Inc 2b three additional UX bugs discovered and fixed:** (1) Edit form Save handlers used `scheduleRender()` which raced with `config.changed` event — fixed with direct `renderMaster()`/`renderDetail()` calls. (2) CSV config Save button only appeared after page navigation — fixed by always rendering (hidden) + toggling in `updateUnsavedHint()`. (3) Pipeline export events now carry `pipelineId` for linked export tracking (not in original plan).
+- **Inc 3 `dailySessionId` made optional:** Plan called for `dailySessionId: string | null` (required). Made it `dailySessionId?: string | null` (optional) to avoid updating 30+ existing test state literals. Backward compat `??= null` in `load()` handles undefined.
+- **Inc 3 dual artifact tracking added:** Plan focused on dual `onActivityEvent()` tracking. Implementation also added dual `onFileEvent()` tracking via extracted `trackArtifactToSession()` helper — both artifact and activity events now track to both daily and focused sessions.
+- **Inc 3 `handleDelete()` cleanup added:** Plan didn't mention delete. Added `dailySessionId` cleanup in `handleDelete()` (same pattern as `completeSession()`) to prevent stale reference if a daily session is deleted.
+- **Inc 3 `session.loaded` event updated:** Added `dailySessionId` to `session.loaded` payload type — not in original plan but required for UI consumers to know daily session state on startup.
 
 ### Improvement Backlog (from this cycle)
 <!-- Filled post-delivery -->

@@ -4,7 +4,7 @@ import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { SessionService } from "../../../src/domain/session/SessionService";
 import type { ITypedStorage } from "../../../src/utils/TypedStorage";
 import type { Session, SessionState, SessionTemplate } from "../../../src/domain/session/types";
-import { MAX_SESSIONS, MAX_TEMPLATES, MAX_CONTEXT_BINDINGS, MAX_OUTPUT_ARTIFACTS } from "../../../src/domain/session/types";
+import { MAX_SESSIONS, MAX_TEMPLATES, MAX_CONTEXT_BINDINGS, MAX_OUTPUT_ARTIFACTS, DAILY_ACTIVITY_DEDUP_WINDOW_MS, ACTIVITY_DEDUP_WINDOW_MS } from "../../../src/domain/session/types";
 import { generateRerunTitle } from "../../../src/domain/session/SessionService";
 import { BUILT_IN_OUTPUT_TEMPLATES } from "../../../src/domain/session/helpers";
 import { createMockStorage } from "../../mocks/storage";
@@ -3110,6 +3110,305 @@ describe("SessionService", () => {
 				"03 - Resources/Sessions/Notes Link.md",
 				expect.stringContaining("## Output Artifacts"),
 			);
+		});
+	});
+
+	// ── Daily-Tracking Sessions ─────────────────────────────
+
+	describe("Daily-Tracking Sessions", () => {
+		it("should start a daily session via session.daily.start", async () => {
+			await service.load();
+			await eventBus.emit("session.daily.start", {});
+			await vi.advanceTimersByTimeAsync(0);
+
+			const daily = service.getDailySession();
+			expect(daily).not.toBeNull();
+			expect(daily!.type).toBe("daily-tracking");
+			expect(daily!.status).toBe("active");
+			expect(daily!.durationMinutes).toBe(0);
+			expect(daily!.title).toContain("Daily Tracking");
+		});
+
+		it("should not start a second daily session if one is already active", async () => {
+			await service.load();
+			await eventBus.emit("session.daily.start", {});
+			await vi.advanceTimersByTimeAsync(0);
+			await eventBus.emit("session.daily.start", {});
+			await vi.advanceTimersByTimeAsync(0);
+
+			const sessions = service.getSessions().filter((s) => s.type === "daily-tracking");
+			expect(sessions).toHaveLength(1);
+		});
+
+		it("should stop a daily session via session.daily.stop", async () => {
+			await service.load();
+			await eventBus.emit("session.daily.start", {});
+			await vi.advanceTimersByTimeAsync(0);
+
+			await eventBus.emit("session.daily.stop", {});
+			await vi.advanceTimersByTimeAsync(0);
+
+			expect(service.getDailySession()).toBeNull();
+			const sessions = service.getSessions().filter((s) => s.type === "daily-tracking");
+			expect(sessions).toHaveLength(1);
+			expect(sessions[0].status).toBe("completed");
+		});
+
+		it("should emit session.daily.started with correct session shape", async () => {
+			await service.load();
+			const handler = vi.fn();
+			eventBus.on("session.daily.started", handler);
+
+			await eventBus.emit("session.daily.start", {});
+			await vi.advanceTimersByTimeAsync(0);
+
+			expect(handler).toHaveBeenCalledOnce();
+			const session = handler.mock.calls[0][0].payload.session;
+			expect(session.type).toBe("daily-tracking");
+			expect(session.status).toBe("active");
+			expect(session.startedAt).not.toBeNull();
+		});
+
+		it("should emit session.daily.stopped with completed session", async () => {
+			await service.load();
+			await eventBus.emit("session.daily.start", {});
+			await vi.advanceTimersByTimeAsync(0);
+
+			const handler = vi.fn();
+			eventBus.on("session.daily.stopped", handler);
+
+			await eventBus.emit("session.daily.stop", {});
+			await vi.advanceTimersByTimeAsync(0);
+
+			expect(handler).toHaveBeenCalledOnce();
+			const session = handler.mock.calls[0][0].payload.session;
+			expect(session.status).toBe("completed");
+			expect(session.completedAt).not.toBeNull();
+		});
+
+		it("should set dailySessionId on start and clear on stop", async () => {
+			await service.load();
+			const loadedHandler = vi.fn();
+			eventBus.on("session.loaded", loadedHandler);
+
+			await eventBus.emit("session.daily.start", {});
+			await vi.advanceTimersByTimeAsync(0);
+
+			// Verify dailySessionId is set (via getDailySession)
+			expect(service.getDailySession()).not.toBeNull();
+
+			await eventBus.emit("session.daily.stop", {});
+			await vi.advanceTimersByTimeAsync(0);
+
+			expect(service.getDailySession()).toBeNull();
+		});
+
+		it("should not start a timer for daily sessions", async () => {
+			await service.load();
+			await eventBus.emit("session.daily.start", {});
+			await vi.advanceTimersByTimeAsync(0);
+
+			const timerHandler = vi.fn();
+			eventBus.on("session.timer.tick", timerHandler);
+
+			// Advance time — no timer.tick events should fire
+			await vi.advanceTimersByTimeAsync(3000);
+			expect(timerHandler).not.toHaveBeenCalled();
+
+			// Daily session should still be active (not auto-completed)
+			expect(service.getDailySession()!.status).toBe("active");
+		});
+
+		it("getDailySession() should return null when no daily session", async () => {
+			await service.load();
+			expect(service.getDailySession()).toBeNull();
+		});
+
+		it("getActiveSession() should not return daily session (backward compat)", async () => {
+			await service.load();
+			await eventBus.emit("session.daily.start", {});
+			await vi.advanceTimersByTimeAsync(0);
+
+			// getActiveSession only returns focused sessions
+			expect(service.getActiveSession()).toBeNull();
+			// But getDailySession returns the daily one
+			expect(service.getDailySession()).not.toBeNull();
+		});
+
+		it("should allow concurrent daily + focused sessions", async () => {
+			await service.load();
+			// Start daily session
+			await eventBus.emit("session.daily.start", {});
+			await vi.advanceTimersByTimeAsync(0);
+
+			// Create and start a focused session
+			await eventBus.emit("session.create", { type: "documentation", title: "Focused Work", durationMinutes: 25 });
+			await vi.advanceTimersByTimeAsync(0);
+			const created = service.getSessions().find((s) => s.type === "documentation");
+			await eventBus.emit("session.start", { sessionId: created!.id });
+			await vi.advanceTimersByTimeAsync(0);
+
+			// Both should be active
+			expect(service.getDailySession()!.status).toBe("active");
+			expect(service.getActiveSession()!.status).toBe("active");
+			expect(service.getDailySession()!.id).not.toBe(service.getActiveSession()!.id);
+		});
+
+		// ── Concurrent Activity Tracking ──────────────────────
+
+		describe("Concurrent Activity Tracking", () => {
+			it("should track activity to both daily and focused sessions concurrently", async () => {
+				await service.load();
+				// Start daily
+				await eventBus.emit("session.daily.start", {});
+				await vi.advanceTimersByTimeAsync(0);
+				// Start focused
+				await eventBus.emit("session.create", { type: "documentation", title: "Focus", durationMinutes: 25 });
+				await vi.advanceTimersByTimeAsync(0);
+				const focused = service.getSessions().find((s) => s.type === "documentation");
+				await eventBus.emit("session.start", { sessionId: focused!.id });
+				await vi.advanceTimersByTimeAsync(0);
+
+				// File event triggers activity in both sessions
+				await eventBus.emit("file.created", { path: "test.md", source: "user" });
+				await vi.advanceTimersByTimeAsync(0);
+
+				const dailySession = service.getDailySession();
+				const focusedSession = service.getActiveSession();
+				expect(dailySession!.activity).toHaveLength(1);
+				expect(focusedSession!.activity).toHaveLength(1);
+				expect(dailySession!.activity[0].path).toBe("test.md");
+				expect(focusedSession!.activity[0].path).toBe("test.md");
+			});
+
+			it("should track artifacts to both daily and focused sessions concurrently", async () => {
+				await service.load();
+				await eventBus.emit("session.daily.start", {});
+				await vi.advanceTimersByTimeAsync(0);
+				await eventBus.emit("session.create", { type: "documentation", title: "Focus", durationMinutes: 25 });
+				await vi.advanceTimersByTimeAsync(0);
+				const focused = service.getSessions().find((s) => s.type === "documentation");
+				await eventBus.emit("session.start", { sessionId: focused!.id });
+				await vi.advanceTimersByTimeAsync(0);
+
+				await eventBus.emit("file.created", { path: "new-file.md", source: "user" });
+				await vi.advanceTimersByTimeAsync(0);
+
+				const dailySession = service.getDailySession();
+				const focusedSession = service.getActiveSession();
+				expect(dailySession!.artifacts).toHaveLength(1);
+				expect(focusedSession!.artifacts).toHaveLength(1);
+			});
+
+			it("should use 30s dedup window for daily session activity", async () => {
+				await service.load();
+				await eventBus.emit("session.daily.start", {});
+				await vi.advanceTimersByTimeAsync(0);
+
+				// First event
+				await eventBus.emit("file.created", { path: "test.md", source: "user" });
+				await vi.advanceTimersByTimeAsync(0);
+
+				// 5s later — within 30s window, should be deduplicated
+				vi.setSystemTime(new Date("2026-02-16T10:00:05.000Z"));
+				await eventBus.emit("file.created", { path: "test.md", source: "user" });
+				await vi.advanceTimersByTimeAsync(0);
+
+				expect(service.getDailySession()!.activity).toHaveLength(1);
+
+				// 31s after first event — outside 30s window, should be tracked
+				vi.setSystemTime(new Date("2026-02-16T10:00:31.000Z"));
+				await eventBus.emit("file.created", { path: "test.md", source: "user" });
+				await vi.advanceTimersByTimeAsync(0);
+
+				expect(service.getDailySession()!.activity).toHaveLength(2);
+			});
+
+			it("should use 1s dedup window for focused session activity", async () => {
+				await service.load();
+				await eventBus.emit("session.create", { type: "documentation", title: "Focus", durationMinutes: 25 });
+				await vi.advanceTimersByTimeAsync(0);
+				const focused = service.getSessions().find((s) => s.type === "documentation");
+				await eventBus.emit("session.start", { sessionId: focused!.id });
+				await vi.advanceTimersByTimeAsync(0);
+
+				// First event
+				await eventBus.emit("file.created", { path: "test.md", source: "user" });
+				await vi.advanceTimersByTimeAsync(0);
+
+				// 500ms later — within 1s window, deduplicated
+				vi.setSystemTime(new Date("2026-02-16T10:00:00.500Z"));
+				await eventBus.emit("file.created", { path: "test.md", source: "user" });
+				await vi.advanceTimersByTimeAsync(0);
+
+				expect(service.getActiveSession()!.activity).toHaveLength(1);
+
+				// 1.1s after first event — outside 1s window
+				vi.setSystemTime(new Date("2026-02-16T10:00:01.100Z"));
+				await eventBus.emit("file.created", { path: "test.md", source: "user" });
+				await vi.advanceTimersByTimeAsync(0);
+
+				expect(service.getActiveSession()!.activity).toHaveLength(2);
+			});
+		});
+
+		// ── Backward Compatibility ────────────────────────────
+
+		describe("Backward Compatibility", () => {
+			it("should initialize dailySessionId to null for legacy state", async () => {
+				// Legacy state without dailySessionId
+				const legacyState = {
+					sessions: [makeSession({ id: "s1" })],
+					activeSessionId: null,
+				} as SessionState;
+				const mock = createMockStorage(legacyState);
+				service.dispose();
+				service = new SessionService({ storage: mock.storage, eventBus });
+				await service.load();
+
+				expect(service.getDailySession()).toBeNull();
+			});
+
+			it("should clear stale dailySessionId if session not found on load", async () => {
+				const staleState: SessionState = {
+					sessions: [makeSession({ id: "s1" })],
+					activeSessionId: null,
+					dailySessionId: "non-existent-id",
+				};
+				const mock = createMockStorage(staleState);
+				service.dispose();
+				service = new SessionService({ storage: mock.storage, eventBus });
+				await service.load();
+
+				expect(service.getDailySession()).toBeNull();
+			});
+
+			it("should include dailySessionId in session.loaded event", async () => {
+				await service.load();
+				const handler = vi.fn();
+				eventBus.on("session.loaded", handler);
+
+				await eventBus.emit("session.refresh", {});
+				await vi.advanceTimersByTimeAsync(0);
+
+				expect(handler).toHaveBeenCalledOnce();
+				expect(handler.mock.calls[0][0].payload).toHaveProperty("dailySessionId", null);
+			});
+
+			it("should include dailySessionId in session.loaded when daily is active", async () => {
+				await service.load();
+				await eventBus.emit("session.daily.start", {});
+				await vi.advanceTimersByTimeAsync(0);
+
+				const handler = vi.fn();
+				eventBus.on("session.loaded", handler);
+
+				await eventBus.emit("session.refresh", {});
+				await vi.advanceTimersByTimeAsync(0);
+
+				expect(handler).toHaveBeenCalledOnce();
+				expect(handler.mock.calls[0][0].payload.dailySessionId).toEqual(expect.any(String));
+			});
 		});
 	});
 });

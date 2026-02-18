@@ -441,6 +441,10 @@ const CATALOG_DATA = {
 	"session.type.configured": { category: "Session", description: "Session type config updated", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.type.create":     { category: "Session", description: "Command: create a custom session type", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
 	"session.type.created":    { category: "Session", description: "Custom session type created", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.daily.start":     { category: "Session", description: "Command: start a daily-tracking session", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
+	"session.daily.started":   { category: "Session", description: "A daily-tracking session was started", direction: "Service → Listeners", domain: "session", services: "SessionService", tags: ["system"] },
+	"session.daily.stop":      { category: "Session", description: "Command: stop the daily-tracking session", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
+	"session.daily.stopped":   { category: "Session", description: "The daily-tracking session was stopped", direction: "Service → Listeners", domain: "session", services: "SessionService", tags: ["system"] },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

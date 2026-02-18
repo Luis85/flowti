@@ -879,11 +879,11 @@ describe("createContextBinding", () => {
 // ─────────────────────────────────────────────────────────────
 
 describe("SESSION_TYPE_CONFIGS", () => {
-	it("has 8 pre-built type configs", () => {
-		expect(Object.keys(SESSION_TYPE_CONFIGS)).toHaveLength(8);
+	it("has 9 pre-built type configs", () => {
+		expect(Object.keys(SESSION_TYPE_CONFIGS)).toHaveLength(9);
 	});
 
-	it("includes all 8 session types", () => {
+	it("includes all 9 session types", () => {
 		const types = Object.keys(SESSION_TYPE_CONFIGS);
 		expect(types).toContain("documentation");
 		expect(types).toContain("event-storming");
@@ -893,6 +893,7 @@ describe("SESSION_TYPE_CONFIGS", () => {
 		expect(types).toContain("backlog-structuring");
 		expect(types).toContain("knowledge-cleanup");
 		expect(types).toContain("vault-hygiene");
+		expect(types).toContain("daily-tracking");
 	});
 
 	it("each config has required fields", () => {
@@ -900,8 +901,8 @@ describe("SESSION_TYPE_CONFIGS", () => {
 			expect(config.type).toBe(key);
 			expect(config.label).toBeTruthy();
 			expect(config.icon).toBeTruthy();
-			expect(config.guidingQuestions.length).toBeGreaterThan(0);
-			expect(config.defaultDuration).toBeGreaterThan(0);
+			expect(Array.isArray(config.guidingQuestions)).toBe(true);
+			expect(typeof config.defaultDuration).toBe("number");
 			expect(Array.isArray(config.defaultGoals)).toBe(true);
 		}
 	});

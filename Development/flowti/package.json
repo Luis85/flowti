@@ -14,7 +14,7 @@
 		"docs": "typedoc",
 		"check": "tsc -noEmit -skipLibCheck && npm run lint",
 		"lint": "eslint ./src/",
-		"publish": "npm run test:coverage && npm run docs && npm run check && node esbuild.config.mjs production && npx vite preview --outDir docs/tests --open"
+		"publish": "npm run test:coverage && npm run docs && npm run check && node esbuild.config.mjs production && npx vite preview --outDir docs/tests"
 	},
 	"keywords": [
 		"business-development",

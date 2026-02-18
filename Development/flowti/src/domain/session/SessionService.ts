@@ -14,7 +14,7 @@ import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
 import type { ITypedStorage } from "../../utils/TypedStorage";
 import { generateUUID } from "../../utils/helpers";
 import type { ContextBindingType, Session, SessionActivity, SessionActivityAction, SessionContextBinding, SessionGoal, SessionLink, SessionOutputArtifact, SessionOutputTemplate, SessionState, SessionTemplate, SessionTypeConfig, WorkspaceState } from "./types";
-import { MAX_SESSIONS, MAX_TEMPLATES, ARTIFACT_DEDUP_WINDOW_MS, SESSION_NOTES_FOLDER, MAX_SESSION_ACTIVITY, ACTIVITY_DEDUP_WINDOW_MS, MAX_CONTEXT_BINDINGS, MAX_SESSION_DECISIONS, MAX_OUTPUT_ARTIFACTS, SESSION_TYPE_CONFIGS } from "./types";
+import { MAX_SESSIONS, MAX_TEMPLATES, ARTIFACT_DEDUP_WINDOW_MS, SESSION_NOTES_FOLDER, MAX_SESSION_ACTIVITY, ACTIVITY_DEDUP_WINDOW_MS, DAILY_ACTIVITY_DEDUP_WINDOW_MS, MAX_CONTEXT_BINDINGS, MAX_SESSION_DECISIONS, MAX_OUTPUT_ARTIFACTS, SESSION_TYPE_CONFIGS } from "./types";
 import { createSession, createGoal, createDecision, createContextBinding, computeRemainingMs, computeElapsedMs, isTimerExpired, isExcluded, resolveTypeConfig, generateSessionOutput } from "./helpers";
 
 /**
@@ -30,7 +30,7 @@ export interface SessionServiceOptions {
  * Creates a fresh default session state.
  */
 function createDefaultState(): SessionState {
-	return { sessions: [], activeSessionId: null, savedTemplates: [] };
+	return { sessions: [], activeSessionId: null, dailySessionId: null, savedTemplates: [] };
 }
 
 /**
@@ -95,6 +95,16 @@ export class SessionService {
 			this.unsubscribes.push(
 				this.eventBus.on("session.refresh", () => {
 					void this.emitLoaded();
+				}),
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("session.daily.start", () => {
+					void this.handleDailyStart();
+				}),
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("session.daily.stop", () => {
+					void this.handleDailyStop();
 				}),
 			);
 
@@ -272,6 +282,10 @@ export class SessionService {
 			if (!this.state.savedTemplates) {
 				this.state.savedTemplates = [];
 			}
+			// Backward compat: initialize dailySessionId if missing
+			if (this.state.dailySessionId === undefined) {
+				this.state.dailySessionId = null;
+			}
 			// Backward compat: initialize timeline and goals for legacy sessions
 			let migrated = false;
 			for (const s of this.state.sessions) {
@@ -340,6 +354,15 @@ export class SessionService {
 			}
 		}
 
+		// Resume daily session if one was active
+		if (this.state.dailySessionId) {
+			const dailySession = this.findSession(this.state.dailySessionId);
+			if (!dailySession || dailySession.status !== "active") {
+				this.state.dailySessionId = null;
+			}
+			// No timer to resume — daily sessions are passive
+		}
+
 		await this.emitLoaded();
 	}
 
@@ -356,6 +379,15 @@ export class SessionService {
 	getActiveSession(): Session | null {
 		if (!this.state.activeSessionId) return null;
 		return this.findSession(this.state.activeSessionId) ?? null;
+	}
+
+	/**
+	 * Returns the active daily-tracking session, or null if none.
+	 */
+	getDailySession(): Session | null {
+		if (!this.state.dailySessionId) return null;
+		const s = this.findSession(this.state.dailySessionId);
+		return s ? { ...s } : null;
 	}
 
 	/**
@@ -604,6 +636,51 @@ export class SessionService {
 		}
 	}
 
+	private async handleDailyStart(): Promise<void> {
+		// Only one daily session at a time
+		if (this.state.dailySessionId) return;
+
+		const today = new Date().toISOString().slice(0, 10);
+		const session = createSession(generateUUID(), "daily-tracking", `Daily Tracking \u2014 ${today}`, 0);
+		session.status = "active";
+		session.startedAt = new Date().toISOString();
+		session.timeline.push({ action: "started", timestamp: session.startedAt });
+
+		this.state.sessions.unshift(session);
+		if (this.state.sessions.length > MAX_SESSIONS) {
+			this.state.sessions = this.state.sessions.slice(0, MAX_SESSIONS);
+		}
+		this.state.dailySessionId = session.id;
+		// No timer for daily sessions (durationMinutes = 0)
+
+		await this.saveState();
+		await this.eventBus?.emit("session.daily.started", { session: { ...session } });
+	}
+
+	private async handleDailyStop(): Promise<void> {
+		if (!this.state.dailySessionId) return;
+
+		const session = this.findSession(this.state.dailySessionId);
+		if (!session || session.status !== "active") {
+			this.state.dailySessionId = null;
+			await this.saveState();
+			return;
+		}
+
+		// Accumulate elapsed time
+		if (session.startedAt) {
+			session.elapsedBeforePauseMs += Date.now() - Date.parse(session.startedAt);
+			session.startedAt = null;
+		}
+		session.status = "completed";
+		session.completedAt = new Date().toISOString();
+		session.timeline.push({ action: "completed", timestamp: session.completedAt });
+
+		this.state.dailySessionId = null;
+		await this.saveState();
+		await this.eventBus?.emit("session.daily.stopped", { session: { ...session } });
+	}
+
 	private async handleComplete(sessionId: string): Promise<void> {
 		const session = this.findSession(sessionId);
 		if (!session || session.status === "completed" || session.status === "archived") return;
@@ -629,6 +706,9 @@ export class SessionService {
 		if (this.state.activeSessionId === sessionId) {
 			this.stopTimer();
 			this.state.activeSessionId = null;
+		}
+		if (this.state.dailySessionId === sessionId) {
+			this.state.dailySessionId = null;
 		}
 
 		this.state.sessions.splice(index, 1);
@@ -923,9 +1003,16 @@ export class SessionService {
 	// ── Artifact tracking ────────────────────────────────────
 
 	private async onFileEvent(path: string, action: "created" | "modified"): Promise<void> {
-		if (!this.state.activeSessionId) return;
+		if (this.state.activeSessionId) {
+			await this.trackArtifactToSession(this.state.activeSessionId, path, action);
+		}
+		if (this.state.dailySessionId && this.state.dailySessionId !== this.state.activeSessionId) {
+			await this.trackArtifactToSession(this.state.dailySessionId, path, action);
+		}
+	}
 
-		const session = this.findSession(this.state.activeSessionId);
+	private async trackArtifactToSession(sessionId: string, path: string, action: "created" | "modified"): Promise<void> {
+		const session = this.findSession(sessionId);
 		if (!session || session.status !== "active") return;
 
 		// Deduplicate: same path+action within ARTIFACT_DEDUP_WINDOW_MS
@@ -945,19 +1032,32 @@ export class SessionService {
 	// ── Activity tracking (ADR-025, ADR-026) ────────────────
 
 	private async onActivityEvent(path: string, action: SessionActivityAction, oldPath?: string): Promise<void> {
-		if (!this.state.activeSessionId) return;
+		// Track to focused session (activeSessionId) with standard dedup window
+		if (this.state.activeSessionId) {
+			await this.trackActivityToSession(this.state.activeSessionId, path, action, oldPath, ACTIVITY_DEDUP_WINDOW_MS);
+		}
 
-		const session = this.findSession(this.state.activeSessionId);
+		// Track to daily session (dailySessionId) with longer dedup window
+		if (this.state.dailySessionId && this.state.dailySessionId !== this.state.activeSessionId) {
+			await this.trackActivityToSession(this.state.dailySessionId, path, action, oldPath, DAILY_ACTIVITY_DEDUP_WINDOW_MS);
+		}
+	}
+
+	private async trackActivityToSession(
+		sessionId: string, path: string, action: SessionActivityAction,
+		oldPath: string | undefined, dedupWindowMs: number,
+	): Promise<void> {
+		const session = this.findSession(sessionId);
 		if (!session || session.status !== "active") return;
 
 		// Apply folder filters (ADR-026)
 		if (isExcluded(path, this.globalActivityFilter, session.activityFilter)) return;
 
-		// Deduplicate: same path+action within ACTIVITY_DEDUP_WINDOW_MS
+		// Deduplicate: same path+action within dedupWindowMs
 		const now = Date.now();
 		const isDuplicate = session.activity.some(
 			(a) => a.path === path && a.action === action &&
-				(now - Date.parse(a.timestamp)) < ACTIVITY_DEDUP_WINDOW_MS,
+				(now - Date.parse(a.timestamp)) < dedupWindowMs,
 		);
 		if (isDuplicate) return;
 
@@ -1092,6 +1192,9 @@ export class SessionService {
 			this.stopTimer();
 			this.state.activeSessionId = null;
 		}
+		if (this.state.dailySessionId === session.id) {
+			this.state.dailySessionId = null;
+		}
 
 		await this.saveState();
 		await this.eventBus?.emit("session.completed", { session: { ...session } });
@@ -1111,6 +1214,7 @@ export class SessionService {
 		await this.eventBus?.emit("session.loaded", {
 			sessions: this.getSessions(),
 			activeSessionId: this.state.activeSessionId,
+			dailySessionId: this.state.dailySessionId ?? null,
 			savedTemplates: this.getSavedTemplates(),
 		});
 	}
