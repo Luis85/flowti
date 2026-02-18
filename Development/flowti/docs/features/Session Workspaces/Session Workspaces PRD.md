@@ -26,6 +26,8 @@ tags:
   - session
   - workspace
   - prd
+  - core
+plugin: "[[Development/flowti/README|README]]"
 ---
 
 # Feature PRD: Session Workspaces

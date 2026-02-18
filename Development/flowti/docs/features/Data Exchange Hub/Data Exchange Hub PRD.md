@@ -21,6 +21,8 @@ discovery_cost: 3
 design_cost: 4
 test_cost: 4
 priority: 4
+tags:
+  - core
 ---
 
 # Data Exchange Hub PRD

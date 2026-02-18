@@ -416,7 +416,7 @@ Use the Component Showcase view (`Flowti: Open Component Showcase`) to preview a
 
 ## 11. Testing
 
-Every component has a corresponding test suite. Tests run as part of the build pipeline (`npm run build`) and must pass before the plugin is bundled. The test infrastructure uses Vitest with a custom `obsidian-stub.ts` mock that provides minimal stubs for Obsidian's API surface.
+Every component has a corresponding test suite. Tests run as part of the build pipeline (`npm run test && npm run build`) and must pass before the plugin is bundled (`npm run publish`). The test infrastructure uses Vitest with a custom `obsidian-stub.ts` mock that provides minimal stubs for Obsidian's API surface.
 
 ```bash
 npm test             # Run all tests
@@ -453,7 +453,7 @@ npm install
 The build script runs tests, generates docs, type-checks, lints, and bundles the plugin. The output is automatically placed in `.obsidian/plugins/flowti-ibde/`.
 
 ```bash
-npm run build      # Full pipeline: tests → typedoc → tsc → eslint → esbuild
+npm run build      # esBuild
 npm run dev        # Watch mode with hot-reload
 ```
 
@@ -462,7 +462,7 @@ npm run dev        # Watch mode with hot-reload
 ```bash
 npm run check      # TypeScript + ESLint
 npm run docs       # Generate TypeDoc documentation
-npm run publish    # Full pipeline + coverage report + preview
+npm run publish    # Full pipeline + coverage report + report preview
 ```
 
 ### Extending the Plugin

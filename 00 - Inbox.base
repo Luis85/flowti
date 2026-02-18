@@ -21,11 +21,7 @@ views:
       - property: file.mtime
         direction: DESC
     columnSize:
-      note.type: 91
-      file.name: 800
-      note.stage: 95
-      note.priority: 111
-      note.rank: 74
+      file.name: 904
   - type: table
     name: Index
     order:
