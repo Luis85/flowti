@@ -1,21 +1,24 @@
 /**
  * Preferences component for the User Hub.
  *
- * Master-detail layout with 3 categories:
+ * Master-detail layout with 4 categories:
  * - Profile: display name and user identity
  * - Inbox: notification source toggles
- * - Sessions: daily tracking, activity filter, custom types, output templates
+ * - Sessions: activity filter, custom types, output templates
+ * - Daily Tracking: auto-start and daily note path
  */
 
 import { setIcon } from "obsidian";
 import type { UserHubComponentDeps, PreferencesCategory } from "./types";
 import { INBOX_SOURCE_DEFINITIONS } from "../../domain/inbox/types";
 import { UserHubSessionPreferences } from "./UserHubSessionPreferences";
+import { UserHubDailyTrackingPreferences } from "./UserHubDailyTrackingPreferences";
 
 const CATEGORIES: ReadonlyArray<{ id: PreferencesCategory; label: string; icon: string; description: string }> = [
 	{ id: "profile", label: "Profile", icon: "user", description: "Display name and identity" },
 	{ id: "inbox", label: "Inbox", icon: "inbox", description: "Notification source toggles" },
-	{ id: "sessions", label: "Sessions", icon: "timer", description: "Daily tracking, filters, types, templates" },
+	{ id: "sessions", label: "Sessions", icon: "timer", description: "Activity filter, types, templates" },
+	{ id: "daily-tracking", label: "Daily Tracking", icon: "calendar", description: "Auto-start and daily note" },
 ];
 
 export class UserHubPreferences {
@@ -71,6 +74,8 @@ export class UserHubPreferences {
 			this.renderInboxDetail();
 		} else if (category === "sessions") {
 			new UserHubSessionPreferences(this.detailEl, this.deps).render();
+		} else if (category === "daily-tracking") {
+			new UserHubDailyTrackingPreferences(this.detailEl, this.deps).render();
 		}
 	}
 

@@ -19,7 +19,7 @@ export type { InboxItem } from "../../domain/inbox/types";
 
 export type UserHubTab = "sessions" | "inbox" | "preferences";
 
-export type PreferencesCategory = "profile" | "inbox" | "sessions";
+export type PreferencesCategory = "profile" | "inbox" | "sessions" | "daily-tracking";
 
 // ─────────────────────────────────────────────────────────────
 // State

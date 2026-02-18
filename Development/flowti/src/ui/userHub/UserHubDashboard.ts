@@ -12,6 +12,7 @@ import type { IEventBus } from "../../infrastructure/events/types";
 import type { InboxService } from "../../domain/inbox/InboxService";
 import type { SessionService } from "../../domain/session/SessionService";
 import { computeRemainingMs, formatDuration } from "../../domain/session/helpers";
+import { groupActivityByFile } from "../session/SessionActivityPanel";
 import { renderStatGrid, type StatCardItem } from "../shared/StatCard";
 import { formatSourceEvent, formatTime, SESSION_TYPE_LABELS, type InboxItem } from "./types";
 
@@ -107,6 +108,14 @@ export class UserHubDashboard {
 			focusBadge.appendText(session.focusFile.split("/").pop() ?? session.focusFile);
 		}
 
+		if (session.goals.length > 0) {
+			const completed = session.goals.filter((g) => g.completed).length;
+			header.createSpan({
+				text: `${completed}/${session.goals.length} goals`,
+				cls: "ft-badge ft-badge-muted ft-text-sm",
+			});
+		}
+
 		if (!isActive) {
 			header.createSpan({
 				text: "Paused",
@@ -184,12 +193,62 @@ export class UserHubDashboard {
 			cls: "ft-badge",
 		}).style.cssText = "background:var(--interactive-accent);color:var(--text-on-accent);padding:2px 8px;border-radius:4px;font-size:11px;";
 
-		const activityCount = daily.activity.length;
-		if (activityCount > 0) {
+		const groups = groupActivityByFile(daily.activity);
+		if (groups.length > 0) {
 			row.createSpan({
-				text: `${activityCount} activities`,
+				text: `${groups.length} files`,
 				cls: "ft-text-sm ft-text-muted",
 			}).style.marginLeft = "auto";
+		}
+
+		// Grouped activity preview (max 5 files)
+		if (groups.length > 0) {
+			const preview = section.createDiv();
+			preview.style.cssText = "margin-top:0.5rem;border-top:1px solid var(--background-modifier-border);padding-top:0.5rem;";
+
+			const maxPreview = 5;
+			const visible = groups.slice(0, maxPreview);
+			for (const group of visible) {
+				const actRow = preview.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+				actRow.style.padding = "2px 0";
+
+				const actIcon = actRow.createSpan();
+				setIcon(actIcon, this.getActivityIcon(group.latestAction));
+				actIcon.style.opacity = "0.5";
+
+				const name = group.path.split("/").pop() ?? group.path;
+				actRow.createSpan({ text: name, cls: "ft-text-sm" }).style.flex = "1";
+
+				actRow.createSpan({
+					text: group.latestAction,
+					cls: "ft-text-sm ft-text-muted",
+				});
+
+				if (group.count > 1) {
+					actRow.createSpan({
+						text: `×${group.count}`,
+						cls: "ft-text-sm ft-text-muted",
+					});
+				}
+			}
+
+			if (groups.length > maxPreview) {
+				preview.createDiv({
+					text: `+${groups.length - maxPreview} more files`,
+					cls: "ft-text-sm ft-text-muted",
+				}).style.paddingTop = "2px";
+			}
+		}
+	}
+
+	private getActivityIcon(action: string): string {
+		switch (action) {
+			case "created": return "file-plus";
+			case "modified": return "file-edit";
+			case "deleted": return "file-minus";
+			case "renamed": return "file-symlink";
+			case "opened": return "file-search";
+			default: return "file";
 		}
 	}
 

@@ -754,6 +754,36 @@ describe("UserHubDashboard", () => {
 			dashboard.updateTimerDisplay(1000);
 		});
 
+		it("should show goal progress badge when session has goals", () => {
+			const session = makeActiveSession({
+				goals: [
+					{ id: "g1", text: "Goal 1", completed: true, completedAt: "2026-02-18T10:00:00Z" },
+					{ id: "g2", text: "Goal 2", completed: false, completedAt: null },
+					{ id: "g3", text: "Goal 3", completed: true, completedAt: "2026-02-18T10:00:00Z" },
+				],
+			});
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				sessionService: makeSessionService(session),
+			}));
+
+			dashboard.render();
+
+			expect(container.textContent).toContain("2/3 goals");
+		});
+
+		it("should not show goal badge when no goals", () => {
+			const session = makeActiveSession({ goals: [] });
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				sessionService: makeSessionService(session),
+			}));
+
+			dashboard.render();
+
+			expect(container.textContent).not.toContain("goals");
+		});
+
 		it("should show focus file badge when active session has focusFile", () => {
 			const session = makeActiveSession({ focusFile: "docs/features/Hubs PRD.md" });
 			const dashboard = new UserHubDashboard(container, makeDeps({
@@ -807,7 +837,7 @@ describe("UserHubDashboard", () => {
 			expect(container.querySelector(".ft-daily-session")).toBeTruthy();
 			expect(container.textContent).toContain("Daily Tracking");
 			expect(container.textContent).toContain("Active");
-			expect(container.textContent).toContain("2 activities");
+			expect(container.textContent).toContain("2 files");
 		});
 
 		it("should not render daily session indicator when no daily session", () => {
@@ -838,6 +868,110 @@ describe("UserHubDashboard", () => {
 			// Active session card should exist, but daily indicator should not
 			expect(container.querySelector(".ft-active-session")).toBeTruthy();
 			expect(container.querySelector(".ft-daily-session")).toBeNull();
+		});
+
+		it("should show grouped file names instead of raw activity count", () => {
+			const daily = makeActiveSession({
+				id: "daily-1",
+				type: "daily-tracking",
+				title: "Daily Tracking",
+				activity: [
+					{ timestamp: "2026-02-18T10:00:00Z", action: "modified", path: "notes/test.md" },
+					{ timestamp: "2026-02-18T10:01:00Z", action: "modified", path: "notes/test.md" },
+					{ timestamp: "2026-02-18T10:02:00Z", action: "created", path: "notes/new.md" },
+				],
+			});
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				sessionService: makeSessionService(null, daily),
+			}));
+
+			dashboard.render();
+
+			// Should show "2 files" (grouped) instead of "3 activities" (raw)
+			expect(container.textContent).toContain("2 files");
+			expect(container.textContent).not.toContain("3 activities");
+			// Should show individual file names
+			expect(container.textContent).toContain("test.md");
+			expect(container.textContent).toContain("new.md");
+		});
+
+		it("should show action badges on grouped activity rows", () => {
+			const daily = makeActiveSession({
+				id: "daily-1",
+				type: "daily-tracking",
+				activity: [
+					{ timestamp: "2026-02-18T10:00:00Z", action: "modified", path: "notes/test.md" },
+					{ timestamp: "2026-02-18T10:01:00Z", action: "created", path: "notes/new.md" },
+				],
+			});
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				sessionService: makeSessionService(null, daily),
+			}));
+
+			dashboard.render();
+
+			expect(container.textContent).toContain("modified");
+			expect(container.textContent).toContain("created");
+		});
+
+		it("should show count badge for files with multiple events", () => {
+			const daily = makeActiveSession({
+				id: "daily-1",
+				type: "daily-tracking",
+				activity: [
+					{ timestamp: "2026-02-18T10:00:00Z", action: "modified", path: "notes/test.md" },
+					{ timestamp: "2026-02-18T10:01:00Z", action: "modified", path: "notes/test.md" },
+					{ timestamp: "2026-02-18T10:02:00Z", action: "modified", path: "notes/test.md" },
+				],
+			});
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				sessionService: makeSessionService(null, daily),
+			}));
+
+			dashboard.render();
+
+			expect(container.textContent).toContain("×3");
+		});
+
+		it("should show '+N more files' when more than 5 files", () => {
+			const activity = Array.from({ length: 7 }, (_, i) => ({
+				timestamp: `2026-02-18T10:0${i}:00Z`,
+				action: "modified" as const,
+				path: `notes/file-${i}.md`,
+			}));
+			const daily = makeActiveSession({
+				id: "daily-1",
+				type: "daily-tracking",
+				activity,
+			});
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				sessionService: makeSessionService(null, daily),
+			}));
+
+			dashboard.render();
+
+			expect(container.textContent).toContain("+2 more files");
+		});
+
+		it("should show no activity preview when no activity", () => {
+			const daily = makeActiveSession({
+				id: "daily-1",
+				type: "daily-tracking",
+				activity: [],
+			});
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				sessionService: makeSessionService(null, daily),
+			}));
+
+			dashboard.render();
+
+			expect(container.textContent).not.toContain("files");
+			expect(container.textContent).not.toContain("more");
 		});
 
 		it("should open workspace on daily indicator click", () => {

@@ -59,63 +59,13 @@ describe("UserHubSessionPreferences", () => {
 		component = new UserHubSessionPreferences(container, deps);
 	});
 
-	// ── Daily Tracking section ─────────────────────────────
+	// ── No Daily Tracking section (moved to UserHubDailyTrackingPreferences) ──
 
-	describe("daily tracking section", () => {
-		it("should render enableDailySession toggle", () => {
+	describe("no daily tracking section", () => {
+		it("should not render daily tracking settings", () => {
 			component.render();
-			expect(container.textContent).toContain("Daily Tracking");
-			expect(container.textContent).toContain("Enable daily session");
-			const toggle = container.querySelector("input[type='checkbox']") as HTMLInputElement;
-			expect(toggle).toBeTruthy();
-			expect(toggle.checked).toBe(false);
-		});
-
-		it("should render toggle as checked when enabled", () => {
-			state.settings = makeSettings({ enableDailySession: true });
-			component.render();
-			const toggle = container.querySelector("input[type='checkbox']") as HTMLInputElement;
-			expect(toggle.checked).toBe(true);
-		});
-
-		it("should render dailyNotePath text input", () => {
-			component.render();
-			expect(container.textContent).toContain("Daily note path");
-			const inputs = container.querySelectorAll("input[type='text']") as NodeListOf<HTMLInputElement>;
-			// First text input in the daily section is the path input
-			const pathInput = Array.from(inputs).find((i) => i.placeholder.includes("Daily Notes"));
-			expect(pathInput).toBeTruthy();
-		});
-
-		it("should emit settings.updateDailySession on toggle", () => {
-			component.render();
-			const toggle = container.querySelector("input[type='checkbox']") as HTMLInputElement;
-			toggle.checked = true;
-			toggle.dispatchEvent(new Event("change"));
-
-			expect(deps.eventBus.emit).toHaveBeenCalledWith(
-				"settings.updateDailySession",
-				expect.objectContaining({
-					enableDailySession: true,
-					dailyNotePath: expect.any(String),
-				}),
-			);
-		});
-
-		it("should emit settings.updateDailySession on path change", () => {
-			component.render();
-			const inputs = container.querySelectorAll("input[type='text']") as NodeListOf<HTMLInputElement>;
-			const pathInput = Array.from(inputs).find((i) => i.placeholder.includes("Daily Notes"))!;
-			pathInput.value = "Journal/daily.md";
-			pathInput.dispatchEvent(new Event("change"));
-
-			expect(deps.eventBus.emit).toHaveBeenCalledWith(
-				"settings.updateDailySession",
-				expect.objectContaining({
-					enableDailySession: false,
-					dailyNotePath: "Journal/daily.md",
-				}),
-			);
+			expect(container.textContent).not.toContain("Enable daily session");
+			expect(container.textContent).not.toContain("Daily note path");
 		});
 	});
 

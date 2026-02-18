@@ -81,12 +81,13 @@ describe("UserHubPreferences", () => {
 	// ── Master panel: categories ──────────────────────────
 
 	describe("master panel - categories", () => {
-		it("should render 3 category rows", () => {
+		it("should render 4 category rows", () => {
 			prefs.renderMaster();
 
 			expect(masterEl.textContent).toContain("Profile");
 			expect(masterEl.textContent).toContain("Inbox");
 			expect(masterEl.textContent).toContain("Sessions");
+			expect(masterEl.textContent).toContain("Daily Tracking");
 		});
 
 		it("should render category descriptions", () => {
@@ -94,7 +95,8 @@ describe("UserHubPreferences", () => {
 
 			expect(masterEl.textContent).toContain("Display name and identity");
 			expect(masterEl.textContent).toContain("Notification source toggles");
-			expect(masterEl.textContent).toContain("Daily tracking, filters, types, templates");
+			expect(masterEl.textContent).toContain("Activity filter, types, templates");
+			expect(masterEl.textContent).toContain("Auto-start and daily note");
 		});
 
 		it("should highlight selected category", () => {
@@ -253,11 +255,24 @@ describe("UserHubPreferences", () => {
 			state.selectedPreferencesCategory = "sessions";
 			prefs.renderDetail();
 
-			// Verify that session preferences sections are rendered
-			expect(detailEl.textContent).toContain("Daily Tracking");
+			// Verify that session preferences sections are rendered (no Daily Tracking)
 			expect(detailEl.textContent).toContain("Activity Log Filter");
 			expect(detailEl.textContent).toContain("Custom Session Types");
 			expect(detailEl.textContent).toContain("Custom Output Templates");
+			expect(detailEl.textContent).not.toContain("Enable daily session");
+		});
+	});
+
+	// ── Detail panel: daily tracking ─────────────────────
+
+	describe("detail panel - daily tracking", () => {
+		it("should delegate to UserHubDailyTrackingPreferences", () => {
+			state.selectedPreferencesCategory = "daily-tracking";
+			prefs.renderDetail();
+
+			expect(detailEl.textContent).toContain("Daily Tracking");
+			expect(detailEl.textContent).toContain("Enable daily session");
+			expect(detailEl.textContent).toContain("Daily note path");
 		});
 	});
 });
