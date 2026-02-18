@@ -2,11 +2,12 @@
 type: ProductBacklogItem
 feature: "[[Session Workspaces PRD]]"
 stage: planned
+cycle: "[[Cycle 4 - Auto-Session and Activity Polish]]"
 priority: medium
 effort: large
 dependencies: []
 user_story: "[[I want to automatically start a Day Session to track my usage]]"
-note: "Auto-start daily tracking session on vault open + configurable session nudges. Independent — no blockers."
+note: "Cycle 4 delivers core: daily-tracking type, concurrent sessions, auto-start, daily note summary. Nudges deferred to Cycle 5."
 tags:
   - backlog
 ---
@@ -53,7 +54,24 @@ And vault activity is tracked alongside any focused sessions
 And when the vault closes, a summary is appended to the daily note
 ```
 
-### Functional Requirements
+### Cycle 4 Delivery Scope (core — nudges deferred)
+
+**In scope (Cycle 4):**
+- [x→planned] New session type: `"daily-tracking"` — passive, no timer countdown, no goals
+- [x→planned] Auto-start daily session on `workspace-ready` (configurable in settings: on/off, default off)
+- [x→planned] Concurrent session support: daily session runs alongside one focused session (two concurrent)
+- [x→planned] Daily session activity written to daily note on vault close
+- [x→planned] Daily note integration: append activity summary as a section in the user's daily note
+- [x→planned] Activity log aggregation: group file events by path (one row per file + edit count)
+
+**Deferred to Cycle 5:**
+- [ ] Session nudge system: `SessionNudge` type with `{ time, templateId, message }`
+- [ ] Nudge configuration in FlowtiSettingTab (add/edit/remove nudges)
+- [ ] Nudge triggers Notice with "Start" / "Dismiss" buttons
+- [ ] Pre-prepared sessions: nudges can reference a `SessionTemplate` for one-click start
+- [ ] Midnight rollover for daily sessions spanning midnight
+
+### Functional Requirements (full PBI scope)
 
 - [ ] New session type: `"daily-tracking"` — passive, no timer countdown, no goals
 - [ ] Auto-start daily session on `workspace-ready` (configurable in settings: on/off, default off)

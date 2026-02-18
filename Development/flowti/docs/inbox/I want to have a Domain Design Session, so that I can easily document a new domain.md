@@ -8,6 +8,9 @@ description: "Guided domain design session to decompose a domain into services, 
 tags:
 priority: 01 - medium
 rank:
+pbi: "[[PBI-SW-009 Domain Design Session]]"
+note: "PBI-SW-009 unblocked since Cycle 2 (SW-003 delivered). Deferred to Cycle 5 — SW-007 (auto-session) takes priority in Cycle 4."
+related: "[[I want to create a new area from a decomposed domain]]"
 ---
 
 I want to decompose a domain into it's parts.

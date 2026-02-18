@@ -63,7 +63,11 @@ Do NOT persist:
 - Scroll position (complex, low ROI)
 - Sort state (transient)
 
-## Affected Files
+## Partial Resolution (2026-02-18)
+
+PBI-SW-006 (State Restoration, Cycle 3) resolved the **session workspace** portion of this debt: open files + active file are now auto-saved on pause/complete and restored on resume via `WorkspaceState` on the `Session` entity. However, **hub view state** (active tab, selected item) for EventCatalogView, DataExchangeHubView, and EventLogView remains unresolved — those views still reset to defaults on close/reopen.
+
+## Affected Files (remaining)
 
 - `src/ui/EventCatalogView.ts` — `getState()` / `setState()` overrides
 - `src/ui/DataExchangeHubView.ts` — same pattern

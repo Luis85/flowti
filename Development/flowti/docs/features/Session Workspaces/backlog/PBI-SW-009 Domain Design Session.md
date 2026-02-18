@@ -2,12 +2,13 @@
 type: ProductBacklogItem
 feature: "[[Session Workspaces PRD]]"
 stage: planned
+cycle: "Cycle 5+ (tentative)"
 priority: medium
 effort: large
 dependencies:
   - "[[PBI-SW-003 Session Types]]"
 user_story: "[[I want to have a Domain Design Session, so that I can easily document a new domain]]"
-note: "Rich guided workflow for domain decomposition when session type = 'domain-design'. Requires PBI-SW-003 foundation (type configs, guiding questions)."
+note: "Rich guided workflow for domain decomposition when session type = 'domain-design'. Requires PBI-SW-003 foundation (type configs, guiding questions). PBI-SW-003 delivered in Cycle 2 — unblocked. Deferred to Cycle 5+ to prioritize PBI-SW-007 (daily session, higher user demand)."
 tags:
   - backlog
 ---
