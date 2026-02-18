@@ -2,7 +2,7 @@
  * Event types owned by the Session domain.
  */
 
-import type { ContextBindingType, Session, SessionActivity, SessionArtifact, SessionContextBinding, SessionDecision, SessionGoal, SessionLink, SessionTemplate, SessionType, SessionTypeConfig } from "./types";
+import type { ContextBindingType, Session, SessionActivity, SessionArtifact, SessionContextBinding, SessionDecision, SessionGoal, SessionLink, SessionTemplate, SessionType, SessionTypeConfig, WorkspaceState } from "./types";
 
 export interface SessionEventMap {
 	// ── Commands ──────────────────────────────────────────────
@@ -140,6 +140,16 @@ export interface SessionEventMap {
 	"session.decision.recorded": { sessionId: string; decision: SessionDecision };
 	/** Emitted after a decision is removed */
 	"session.decision.removed": { sessionId: string; decisionId: string };
+
+	// ── Workspace state events ─────────────────────────────
+	/** Command: request workspace state capture (emitted by service, handled by view) */
+	"session.state.save": { sessionId: string };
+	/** Emitted after workspace state is captured by the view */
+	"session.state.saved": { sessionId: string; state: WorkspaceState };
+	/** Command: request workspace state restoration (emitted by service, handled by view) */
+	"session.state.restore": { sessionId: string; state: WorkspaceState };
+	/** Emitted after workspace state is restored by the view */
+	"session.state.restored": { sessionId: string };
 
 	// ── Type configuration commands ────────────────────────
 	/** Command: configure (update) a session type's config */

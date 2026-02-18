@@ -32,6 +32,7 @@ function makeSession(overrides: Partial<Session> = {}): Session {
 		activityFilter: [],
 		contextBindings: [],
 		decisions: [],
+		workspaceState: null,
 		...overrides,
 	};
 }
@@ -2813,6 +2814,120 @@ describe("SessionService", () => {
 
 			const session = service.getSessionById("legacy-dec");
 			expect(session?.decisions).toEqual([]);
+		});
+	});
+
+	// ── Workspace State Restoration ─────────────────────────
+
+	describe("workspace state", () => {
+		it("adds backward-compat workspaceState on load", async () => {
+			const legacySession = makeSession({ id: "legacy-ws" });
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			delete (legacySession as any).workspaceState;
+
+			await storage.save({
+				sessions: [legacySession],
+				activeSessionId: null,
+				savedTemplates: [],
+			});
+
+			service.dispose();
+			service = new SessionService({ storage, eventBus });
+			await service.load();
+
+			const session = service.getSessionById("legacy-ws");
+			expect(session?.workspaceState).toBeNull();
+		});
+
+		it("persists workspace state when session.state.saved is emitted", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "WS Test", durationMinutes: 25 });
+			const sessionId = service.getSessions()[0].id;
+
+			const state = { openFiles: ["a.md", "b.md"], activeFile: "a.md", scrollPositions: {} };
+			await eventBus.emit("session.state.saved", { sessionId, state });
+
+			const session = service.getSessionById(sessionId);
+			expect(session?.workspaceState).toEqual(state);
+		});
+
+		it("emits session.state.save after pause", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "Pause WS", durationMinutes: 25 });
+			const sessionId = service.getSessions()[0].id;
+			await eventBus.emit("session.start", { sessionId });
+
+			const handler = vi.fn();
+			eventBus.on("session.state.save", handler);
+
+			vi.advanceTimersByTime(5000);
+			await eventBus.emit("session.pause", { sessionId });
+			// Flush microtasks — handler uses `void` so async work is pending
+			await vi.advanceTimersByTimeAsync(0);
+
+			expect(handler).toHaveBeenCalledWith(expect.objectContaining({
+				payload: { sessionId },
+			}));
+		});
+
+		it("emits session.state.save after complete", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "Complete WS", durationMinutes: 25 });
+			const sessionId = service.getSessions()[0].id;
+			await eventBus.emit("session.start", { sessionId });
+
+			const handler = vi.fn();
+			eventBus.on("session.state.save", handler);
+
+			vi.advanceTimersByTime(5000);
+			await eventBus.emit("session.complete", { sessionId });
+			await vi.advanceTimersByTimeAsync(0);
+
+			expect(handler).toHaveBeenCalledWith(expect.objectContaining({
+				payload: { sessionId },
+			}));
+		});
+
+		it("emits session.state.restore on resume when workspaceState exists", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "Resume WS", durationMinutes: 25 });
+			const sessionId = service.getSessions()[0].id;
+			await eventBus.emit("session.start", { sessionId });
+			vi.advanceTimersByTime(5000);
+			await eventBus.emit("session.pause", { sessionId });
+			await vi.advanceTimersByTimeAsync(0);
+
+			// Simulate view saving workspace state
+			const state = { openFiles: ["file.md"], activeFile: "file.md", scrollPositions: {} };
+			await eventBus.emit("session.state.saved", { sessionId, state });
+			await vi.advanceTimersByTimeAsync(0);
+
+			const handler = vi.fn();
+			eventBus.on("session.state.restore", handler);
+
+			await eventBus.emit("session.resume", { sessionId });
+			await vi.advanceTimersByTimeAsync(0);
+
+			expect(handler).toHaveBeenCalledWith(expect.objectContaining({
+				payload: { sessionId, state },
+			}));
+		});
+
+		it("does not emit session.state.restore on resume when no workspaceState", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "No WS", durationMinutes: 25 });
+			const sessionId = service.getSessions()[0].id;
+			await eventBus.emit("session.start", { sessionId });
+			vi.advanceTimersByTime(5000);
+			await eventBus.emit("session.pause", { sessionId });
+
+			const handler = vi.fn();
+			eventBus.on("session.state.restore", handler);
+
+			await eventBus.emit("session.resume", { sessionId });
+
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("ignores session.state.saved for non-existent session", async () => {
+			const state = { openFiles: ["x.md"], activeFile: null, scrollPositions: {} };
+			await eventBus.emit("session.state.saved", { sessionId: "nonexistent", state });
+			// No error thrown — silently ignored
 		});
 	});
 });

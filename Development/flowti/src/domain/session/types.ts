@@ -207,6 +207,13 @@ export interface SessionContextBinding {
 	boundAt: string; // ISO 8601
 }
 
+/** Snapshot of workspace state for save/restore on pause/resume. */
+export interface WorkspaceState {
+	openFiles: string[];
+	activeFile: string | null;
+	scrollPositions: Record<string, number>;
+}
+
 /** A time-boxed documentation session. */
 export interface Session {
 	id: string;
@@ -246,6 +253,8 @@ export interface Session {
 	contextBindings: SessionContextBinding[];
 	/** Structured decisions recorded during this session. */
 	decisions: SessionDecision[];
+	/** Saved workspace state for restore on resume (null if never captured). */
+	workspaceState: WorkspaceState | null;
 }
 
 // ─────────────────────────────────────────────────────────────
