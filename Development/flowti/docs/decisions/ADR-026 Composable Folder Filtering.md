@@ -21,7 +21,7 @@ tags:
 
 ## Status
 
-**Accepted** — to be applied in PBI-SW-001 Inc 1.
+**Accepted** — implemented in Inc 9 (Sidebar Workspace & Activity Consolidation).
 
 ## Context
 
@@ -110,6 +110,7 @@ Global filters are read from settings at call time — no caching needed. Per-se
 
 - ADR-015: Composition over Inheritance (simpler approach preferred)
 - ADR-023: Modal Business Logic Extraction (pure function pattern)
-- ADR-025: Activity Log Separate from Artifacts (filtering applies to activity, not artifacts)
+- ADR-025: Activity Log Separate from Artifacts (superseded — filtering validates the unified approach)
 - PRD: [[Session Workspaces PRD]] (FR-01: Activity Log)
 - PBI: [[PBI-SW-001 Activity Log]]
+- Increment: [[Phase 4 Inc 9 - Sidebar Workspace and Activity Consolidation]]

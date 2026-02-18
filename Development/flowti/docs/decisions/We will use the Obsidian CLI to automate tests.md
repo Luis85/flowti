@@ -1,6 +1,0 @@
----
-status:
-date:
-domain:
-category:
----

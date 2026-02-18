@@ -116,5 +116,6 @@ Three approaches were considered:
 
 - PRD: [[Session Workspaces PRD]] (Section 8: Data Model Extensions)
 - PBI: [[PBI-SW-001 Activity Log]]
-- Increment: [[Inc 1 - Activity Log and Folder Filtering]]
+- Increment: [[Phase 4 Inc 9 - Sidebar Workspace and Activity Consolidation]] (activity delivered + ADR superseded)
 - Existing: ADR-004 (Single JSON Blob Storage — activity stored alongside artifacts in TypedStorage)
+- Superseded by: Inc 9 unified activity log — artifacts section removed, single activity log with folder filtering
