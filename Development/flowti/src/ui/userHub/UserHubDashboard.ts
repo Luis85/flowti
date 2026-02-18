@@ -10,6 +10,7 @@ import type { IUserService } from "../../domain/user/types";
 import type { HubRegistry } from "../../domain/hub/HubRegistry";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { InboxService } from "../../domain/inbox/InboxService";
+import type { NudgeService } from "../../domain/nudge/NudgeService";
 import type { SessionService } from "../../domain/session/SessionService";
 import { computeRemainingMs, formatDuration } from "../../domain/session/helpers";
 import { groupActivityByFile } from "../session/SessionActivityPanel";
@@ -22,6 +23,7 @@ export interface UserHubDashboardDeps {
 	eventBus: IEventBus;
 	inboxService: InboxService;
 	sessionService: SessionService;
+	nudgeService?: NudgeService;
 	navigateToTab: (tabId: string) => void;
 	onInboxItemClick: (item: InboxItem) => void;
 	openSessionWorkspace: (sessionId?: string, location?: "tab" | "sidebar") => void;
@@ -37,6 +39,7 @@ export class UserHubDashboard {
 		this.container.empty();
 
 		this.renderWelcome();
+		this.renderNextNudge();
 		this.renderDailySession();
 		this.renderActiveSession();
 		this.renderQuickActions();
@@ -68,6 +71,37 @@ export class UserHubDashboard {
 		const greeting = user ? `Welcome, ${user.name}` : "Welcome to Flowti";
 
 		section.createEl("h2", { text: greeting, cls: "ft-heading" }).style.margin = "0";
+	}
+
+	private renderNextNudge(): void {
+		const nudgeService = this.deps.nudgeService;
+		if (!nudgeService) return;
+
+		const configs = nudgeService.getConfigs().filter((c) => c.enabled && !nudgeService.isDismissedToday(c.id));
+		if (configs.length === 0) return;
+
+		// Find the next upcoming nudge by time (HH:MM string comparison works for 24h format)
+		const now = new Date();
+		const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+		const upcoming = configs.filter((c) => c.time > currentTime).sort((a, b) => a.time.localeCompare(b.time));
+		const next = upcoming[0];
+		if (!next) return;
+
+		const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-next-nudge" });
+		row.style.marginBottom = "0.75rem";
+		row.style.padding = "0.35rem 0.75rem";
+		row.style.borderRadius = "6px";
+		row.style.backgroundColor = "var(--background-secondary)";
+
+		const icon = row.createSpan();
+		setIcon(icon, "bell");
+		icon.style.opacity = "0.5";
+
+		row.createSpan({ text: `Next: ${next.title}`, cls: "ft-text-sm" });
+		row.createSpan({ text: next.time, cls: "ft-badge ft-badge-muted ft-text-sm" });
+
+		const typeLabel = SESSION_TYPE_LABELS[next.sessionType] ?? next.sessionType;
+		row.createSpan({ text: typeLabel, cls: "ft-text-sm ft-text-muted" });
 	}
 
 	private renderActiveSession(): void {

@@ -3,6 +3,7 @@
  */
 
 import type { InboxService } from "../../domain/inbox/InboxService";
+import type { NudgeService } from "../../domain/nudge/NudgeService";
 import type { SessionService } from "../../domain/session/SessionService";
 import type { Session } from "../../domain/session/types";
 import type { IEventBus } from "../../infrastructure/events/types";
@@ -19,7 +20,7 @@ export type { InboxItem } from "../../domain/inbox/types";
 
 export type UserHubTab = "sessions" | "inbox" | "preferences";
 
-export type PreferencesCategory = "profile" | "inbox" | "sessions" | "daily-tracking";
+export type PreferencesCategory = "profile" | "inbox" | "sessions" | "daily-tracking" | "nudges";
 
 // ─────────────────────────────────────────────────────────────
 // State
@@ -85,6 +86,8 @@ export interface UserHubComponentDeps {
 	openSessionWorkspace: (sessionId?: string, location?: "tab" | "sidebar") => void;
 	/** Returns the latest FlowtiSettings snapshot (read-only). */
 	getSettings: () => FlowtiSettings;
+	/** Optional NudgeService for nudge preferences panel. */
+	nudgeService?: NudgeService;
 }
 
 // ─────────────────────────────────────────────────────────────

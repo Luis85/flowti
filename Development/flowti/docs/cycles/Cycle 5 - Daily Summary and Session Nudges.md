@@ -1,19 +1,19 @@
 ---
 type: DevelopmentCycle
 feature: "[[Session Workspaces PRD]]"
-stage: planned
+stage: done
 cycle: 5
 date_planned: 2026-02-18
-date_completed:
+date_completed: 2026-02-18
 pbis:
   - "[[PBI-SW-007 Auto-Session and Session Nudges]]"
 tech_debt: []
 estimated_increments: 4
-actual_increments:
+actual_increments: 4
 estimated_tests: 80
-actual_tests:
-total_tests_after:
-total_test_files_after:
+actual_tests: 69
+total_tests_after: 2504
+total_test_files_after: 99
 ---
 
 # Cycle 5: Daily Summary & Session Nudges
@@ -23,7 +23,7 @@ total_test_files_after:
 ### Pre-Cycle State (2026-02-18)
 
 **Plugin health:**
-- 2,426 tests passing (32 skipped), 94 test files
+- 2,435 tests passing (32 skipped), 95 test files
 - Clean working tree, all builds green
 - `npm run build` pipeline: vitest + typedoc + tsc + eslint + esbuild
 
@@ -59,15 +59,18 @@ total_test_files_after:
 **PBI-SW-007 nudge system deferred because:**
 Cycle 4 prioritized core daily-tracking, concurrent sessions, and settings UI — the foundation that nudges build on. Nudges require timer/scheduling infrastructure that only makes sense once the daily session lifecycle is stable and tested end-to-end.
 
-### Post-Cycle State (YYYY-MM-DD)
-<!-- Filled post-delivery -->
+### Post-Cycle State (2026-02-18)
 
 **Plugin health:**
-- X tests passing (Y skipped), Z test files (+N tests, +M files)
+- 2,504 tests passing (32 skipped), 99 test files (+69 tests, +4 files)
 
 **Session Workspaces feature:**
 - PBI-SW-007: **done** — nudge system delivered, daily summary function extracted
-- Updated domain metrics:
+- New domain: `src/domain/nudge/` (types, events, NudgeService) — ~190 LOC
+- New UI: `src/ui/NudgeNotification.ts`, `src/ui/userHub/UserHubNudgePreferences.ts` — ~250 LOC
+- 8 nudge events registered in catalog (category "Nudge")
+- Dashboard shows next upcoming nudge time indicator
+- Nudge skips when same-type session already active
 
 ---
 
@@ -107,10 +110,10 @@ Cycle 4 prioritized core daily-tracking, concurrent sessions, and settings UI �
 **Est. total:** ~50 LOC source, ~175 LOC tests, ~25 tests
 
 **Acceptance criteria:**
-- [ ] `generateDailySummary()` renders activity as grouped markdown (file name → action + count)
-- [ ] Daily session stop uses `generateDailySummary()` for daily note content
-- [ ] Flow test covers: auto-start → concurrent tracking → focused lifecycle → daily stop → same-day restart → summary
-- [ ] `npm run build` passes
+- [x] `generateDailySummary()` renders activity as grouped markdown (file name → action + count)
+- [x] Daily session stop uses `generateDailySummary()` for daily note content
+- [x] Flow test covers: auto-start → concurrent tracking → focused lifecycle → daily stop → same-day restart → summary
+- [x] `npm run build` passes
 
 ---
 
@@ -137,13 +140,13 @@ Cycle 4 prioritized core daily-tracking, concurrent sessions, and settings UI �
 **Est. total:** ~188 LOC source, ~40 tests
 
 **Acceptance criteria:**
-- [ ] `NudgeConfig` type with time (HH:MM), session type, duration, enabled flag
-- [ ] `NudgeService` evaluates configs every 60s against current time
-- [ ] `nudge.triggered` emitted when time matches and nudge not dismissed today
-- [ ] `nudge.dismissed` clears the nudge for today (re-triggers tomorrow)
-- [ ] Midnight rollover clears dismissed set
-- [ ] 5 new events in catalog: `nudge.configure/configured/triggered/dismissed/loaded`
-- [ ] `npm run build` passes
+- [x] `NudgeConfig` type with time (HH:MM), session type, duration, enabled flag
+- [x] `NudgeService` evaluates configs every 60s against current time
+- [x] `nudge.triggered` emitted when time matches and nudge not dismissed today
+- [x] `nudge.dismissed` clears the nudge for today (re-triggers tomorrow)
+- [x] Midnight rollover clears dismissed set
+- [x] 8 new events in catalog: `nudge.configure/configured/triggered/dismiss/dismissed/remove/removed/loaded`
+- [x] `npm run build` passes
 
 ---
 
@@ -164,12 +167,12 @@ Cycle 4 prioritized core daily-tracking, concurrent sessions, and settings UI �
 **Est. total:** ~280 LOC source, ~35 tests
 
 **Acceptance criteria:**
-- [ ] Nudge notification appears as Obsidian Notice when `nudge.triggered` fires
-- [ ] "Start" creates a session with the nudge's configured type and duration
-- [ ] "Dismiss" marks the nudge as dismissed for today
-- [ ] User Hub Preferences shows "Nudges" category with nudge config list
-- [ ] Add/edit/delete nudge configs with time picker, session type, duration, enable toggle
-- [ ] `npm run build` passes
+- [x] Nudge notification appears as Obsidian Notice when `nudge.triggered` fires
+- [x] "Start" creates a session with the nudge's configured type and duration
+- [x] "Dismiss" marks the nudge as dismissed for today
+- [x] User Hub Preferences shows "Nudges" category with nudge config list
+- [x] Add/edit/delete nudge configs with time picker, session type, duration, enable toggle
+- [x] `npm run build` passes
 
 ---
 
@@ -188,11 +191,11 @@ Cycle 4 prioritized core daily-tracking, concurrent sessions, and settings UI �
 **Est. total:** ~45 LOC source, ~15 tests
 
 **Acceptance criteria:**
-- [ ] 2 default nudge configs created on first load (Morning Review, Afternoon Focus) — disabled by default
-- [ ] Nudge skipped when a session of the same type is already active
-- [ ] Dashboard shows next upcoming nudge time (if any nudges enabled)
-- [ ] All PBI-SW-007 acceptance criteria met (except midnight rollover edge cases, if deferred)
-- [ ] `npm run build` passes — all tests green
+- [x] 2 default nudge configs created on first load (Morning Review, Afternoon Focus) — disabled by default
+- [x] Nudge skipped when a session of the same type is already active
+- [x] Dashboard shows next upcoming nudge time (if any nudges enabled)
+- [x] All PBI-SW-007 acceptance criteria met (except midnight rollover edge cases, if deferred)
+- [x] `npm run build` passes — all tests green
 
 ---
 

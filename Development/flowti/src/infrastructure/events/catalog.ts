@@ -161,6 +161,7 @@ export const EVENT_CATEGORIES = [
 	"Hub",
 	"Inbox",
 	"Session",
+	"Nudge",
 ] as const;
 
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
@@ -447,6 +448,16 @@ const CATALOG_DATA = {
 	"session.daily.started":   { category: "Session", description: "A daily-tracking session was started", direction: "Service → Listeners", domain: "session", services: "SessionService", tags: ["system"] },
 	"session.daily.stop":      { category: "Session", description: "Command: stop the daily-tracking session", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
 	"session.daily.stopped":   { category: "Session", description: "The daily-tracking session was stopped", direction: "Service → Listeners", domain: "session", services: "SessionService", tags: ["system"] },
+
+	// ── Nudge ─────────────────────────────────────────────────
+	"nudge.configure":  { category: "Nudge", description: "Command to add or update a nudge config", direction: "View → Plugin", domain: "nudge", services: "NudgeService", tags: ["system"] },
+	"nudge.configured": { category: "Nudge", description: "A nudge config was added or updated", direction: "Service → Listeners", domain: "nudge", services: "NudgeService", tags: ["system"] },
+	"nudge.remove":     { category: "Nudge", description: "Command to remove a nudge config", direction: "View → Plugin", domain: "nudge", services: "NudgeService", tags: ["system"] },
+	"nudge.removed":    { category: "Nudge", description: "A nudge config was removed", direction: "Service → Listeners", domain: "nudge", services: "NudgeService", tags: ["system"] },
+	"nudge.triggered":  { category: "Nudge", description: "A nudge fired at its scheduled time", direction: "Service → Listeners", domain: "nudge", services: "NudgeService", tags: [] },
+	"nudge.dismiss":    { category: "Nudge", description: "Command to dismiss a nudge for today", direction: "View → Plugin", domain: "nudge", services: "NudgeService", tags: ["system"] },
+	"nudge.dismissed":  { category: "Nudge", description: "A nudge was dismissed for today", direction: "Service → Listeners", domain: "nudge", services: "NudgeService", tags: ["system"] },
+	"nudge.loaded":     { category: "Nudge", description: "Nudge state loaded from storage", direction: "Service → Listeners", domain: "nudge", services: "NudgeService", tags: ["system"] },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

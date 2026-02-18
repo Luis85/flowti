@@ -81,13 +81,14 @@ describe("UserHubPreferences", () => {
 	// ── Master panel: categories ──────────────────────────
 
 	describe("master panel - categories", () => {
-		it("should render 4 category rows", () => {
+		it("should render 5 category rows", () => {
 			prefs.renderMaster();
 
 			expect(masterEl.textContent).toContain("Profile");
 			expect(masterEl.textContent).toContain("Inbox");
 			expect(masterEl.textContent).toContain("Sessions");
 			expect(masterEl.textContent).toContain("Daily Tracking");
+			expect(masterEl.textContent).toContain("Nudges");
 		});
 
 		it("should render category descriptions", () => {
@@ -97,6 +98,7 @@ describe("UserHubPreferences", () => {
 			expect(masterEl.textContent).toContain("Notification source toggles");
 			expect(masterEl.textContent).toContain("Activity filter, types, templates");
 			expect(masterEl.textContent).toContain("Auto-start and daily note");
+			expect(masterEl.textContent).toContain("Time-based session start reminders");
 		});
 
 		it("should highlight selected category", () => {
@@ -273,6 +275,18 @@ describe("UserHubPreferences", () => {
 			expect(detailEl.textContent).toContain("Daily Tracking");
 			expect(detailEl.textContent).toContain("Enable daily session");
 			expect(detailEl.textContent).toContain("Daily note path");
+		});
+	});
+
+	// ── Detail panel: nudges ─────────────────────────────
+
+	describe("detail panel - nudges", () => {
+		it("should delegate to UserHubNudgePreferences", () => {
+			state.selectedPreferencesCategory = "nudges";
+			prefs.renderDetail();
+
+			expect(detailEl.textContent).toContain("Session Nudges");
+			expect(detailEl.textContent).toContain("Time-based reminders");
 		});
 	});
 });

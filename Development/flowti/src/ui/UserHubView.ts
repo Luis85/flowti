@@ -10,6 +10,7 @@ import { setIcon } from "obsidian";
 import type { IUserService } from "../domain/user/types";
 import type { HubRegistry } from "../domain/hub/HubRegistry";
 import type { InboxService } from "../domain/inbox/InboxService";
+import type { NudgeService } from "../domain/nudge/NudgeService";
 import type { SessionService } from "../domain/session/SessionService";
 import type { IEventBus } from "../infrastructure/events/types";
 import type { FlowtiSettings } from "../domain/settings/settings";
@@ -31,6 +32,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 	private hubRegistry: HubRegistry;
 	private inboxService: InboxService;
 	private sessionService: SessionService;
+	private nudgeService: NudgeService;
 
 	// Components
 	private dashboard!: UserHubDashboard;
@@ -48,6 +50,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 		hubRegistry: HubRegistry,
 		inboxService: InboxService,
 		sessionService: SessionService,
+		nudgeService: NudgeService,
 		initialEnabledSources: string[],
 		initialSettings: FlowtiSettings,
 	) {
@@ -56,6 +59,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 		this.hubRegistry = hubRegistry;
 		this.inboxService = inboxService;
 		this.sessionService = sessionService;
+		this.nudgeService = nudgeService;
 		this.state = {
 			inboxItems: [],
 			selectedInboxItem: null,
@@ -151,6 +155,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 			eventBus: this.eventBus,
 			inboxService: this.inboxService,
 			sessionService: this.sessionService,
+			nudgeService: this.nudgeService,
 			navigateToTab: (tabId) => this.navigateTo(tabId as UserHubTab),
 			onInboxItemClick: (item: InboxItem) => {
 				this.state.selectedInboxItem = item;
@@ -287,6 +292,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 			eventBus: this.eventBus,
 			inboxService: this.inboxService,
 			sessionService: this.sessionService,
+			nudgeService: this.nudgeService,
 			userService: this.userService,
 			scheduleRender: () => this.scheduleRender(),
 			navigateToEvent: (eventType) => {

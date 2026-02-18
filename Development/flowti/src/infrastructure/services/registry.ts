@@ -21,6 +21,7 @@ import { TypedStorage } from "../../utils/TypedStorage";
 import { UserService } from "../../domain/user/UserService";
 import { DataExchangeService } from "../../domain/dataExchange/DataExchangeService";
 import { InboxService } from "../../domain/inbox/InboxService";
+import { NudgeService } from "../../domain/nudge/NudgeService";
 import { SessionService } from "../../domain/session/SessionService";
 import { DocService } from "../../domain/docs/DocService";
 import { FileSystemClient } from "../filesystem/FileSystemClient";
@@ -168,6 +169,18 @@ export function createServiceRegistrations(
 					storage: new TypedStorage(storage, "sessions"),
 					eventBus,
 					fileSystem: new FileSystemClient({ eventBus }),
+				});
+			},
+		},
+
+		// Nudge Service - time-based session start reminders
+		{
+			id: "nudgeService",
+			factory: (container: IServiceContainer) => {
+				const eventBus = container.getEventBus();
+				return new NudgeService({
+					storage: new TypedStorage(storage, "nudges"),
+					eventBus,
 				});
 			},
 		},

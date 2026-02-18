@@ -17,6 +17,7 @@ import {
 	generateSessionSummary,
 	generateSessionFrontmatter,
 	generateSessionSummaryBody,
+	generateDailySummary,
 	mergeSessionNotes,
 	createContextBinding,
 	resolveTypeConfig,
@@ -1299,5 +1300,116 @@ describe("resolveDailyNotePath", () => {
 		const date = new Date(2026, 11, 3); // Dec 3, 2026
 		const result = resolveDailyNotePath("{{date:YYYY}}/{{date:MM}}/{{date:DD}}.md", date);
 		expect(result).toBe("2026/12/03.md");
+	});
+});
+
+// ─────────────────────────────────────────────────────────────
+// generateDailySummary
+// ─────────────────────────────────────────────────────────────
+
+describe("generateDailySummary", () => {
+	it("renders 'no activity' message for empty session", () => {
+		const session = makeSession({ activity: [] });
+		const md = generateDailySummary(session);
+		expect(md).toContain("## Daily Activity Summary");
+		expect(md).toContain("No vault activity recorded.");
+	});
+
+	it("groups activity by file and shows count badge", () => {
+		const session = makeSession({
+			activity: [
+				{ timestamp: "2026-02-18T10:00:00Z", action: "modified", path: "notes/readme.md" },
+				{ timestamp: "2026-02-18T10:05:00Z", action: "modified", path: "notes/readme.md" },
+				{ timestamp: "2026-02-18T10:10:00Z", action: "modified", path: "notes/readme.md" },
+			],
+		});
+		const md = generateDailySummary(session);
+		expect(md).toContain("**1 files**");
+		expect(md).toContain("**3 events**");
+		expect(md).toContain("[[notes/readme.md|readme.md]]");
+		expect(md).toContain("(×3)");
+	});
+
+	it("renders multiple files sorted newest-first", () => {
+		const session = makeSession({
+			activity: [
+				{ timestamp: "2026-02-18T09:00:00Z", action: "created", path: "src/old.ts" },
+				{ timestamp: "2026-02-18T11:00:00Z", action: "modified", path: "src/new.ts" },
+			],
+		});
+		const md = generateDailySummary(session);
+		expect(md).toContain("**2 files**");
+		expect(md).toContain("**2 events**");
+		// new.ts should appear before old.ts (newest-first)
+		const newIdx = md.indexOf("new.ts");
+		const oldIdx = md.indexOf("old.ts");
+		expect(newIdx).toBeLessThan(oldIdx);
+	});
+
+	it("does not show count badge for single-event files", () => {
+		const session = makeSession({
+			activity: [
+				{ timestamp: "2026-02-18T10:00:00Z", action: "created", path: "notes/new.md" },
+			],
+		});
+		const md = generateDailySummary(session);
+		expect(md).toContain("[[notes/new.md|new.md]] — created");
+		expect(md).not.toContain("×");
+	});
+
+	it("includes goals section when goals exist", () => {
+		const session = makeSession({
+			activity: [
+				{ timestamp: "2026-02-18T10:00:00Z", action: "modified", path: "test.md" },
+			],
+			goals: [
+				{ id: "g1", text: "Review PRs", completed: true, completedAt: "2026-02-18T12:00:00Z" },
+				{ id: "g2", text: "Write docs", completed: false, completedAt: null },
+			],
+		});
+		const md = generateDailySummary(session);
+		expect(md).toContain("### Goals");
+		expect(md).toContain("- [x] Review PRs");
+		expect(md).toContain("- [ ] Write docs");
+	});
+
+	it("includes time summary when timeline has entries", () => {
+		const session = makeSession({
+			activity: [],
+			timeline: [
+				{ action: "started", timestamp: "2026-02-18T08:00:00.000Z" },
+				{ action: "completed", timestamp: "2026-02-18T16:30:00.000Z" },
+			],
+		});
+		const md = generateDailySummary(session);
+		expect(md).toContain("### Time");
+		expect(md).toContain("**Active:**");
+		expect(md).toContain("**Wall clock:**");
+	});
+
+	it("omits goals section when no goals", () => {
+		const session = makeSession({ activity: [], goals: [] });
+		const md = generateDailySummary(session);
+		expect(md).not.toContain("### Goals");
+	});
+
+	it("handles mixed actions across many files", () => {
+		const session = makeSession({
+			activity: [
+				{ timestamp: "2026-02-18T10:00:00Z", action: "created", path: "a.md" },
+				{ timestamp: "2026-02-18T10:01:00Z", action: "modified", path: "b.md" },
+				{ timestamp: "2026-02-18T10:02:00Z", action: "deleted", path: "c.md" },
+				{ timestamp: "2026-02-18T10:03:00Z", action: "renamed", path: "d.md" },
+				{ timestamp: "2026-02-18T10:04:00Z", action: "opened", path: "e.md" },
+			],
+		});
+		const md = generateDailySummary(session);
+		expect(md).toContain("**5 files**");
+		expect(md).toContain("**5 events**");
+		expect(md).toContain("— created");
+		expect(md).toContain("— modified");
+		expect(md).toContain("— deleted");
+		expect(md).toContain("— renamed");
+		expect(md).toContain("— opened");
 	});
 });

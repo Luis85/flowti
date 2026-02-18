@@ -23,6 +23,7 @@ import type { DiscoveryService } from "./domain/discovery/DiscoveryService";
 import type { SubscriptionService } from "./domain/subscription/SubscriptionService";
 import type { EventDefinitionService } from "./domain/eventDefinition/EventDefinitionService";
 import type { InboxService } from "./domain/inbox/InboxService";
+import type { NudgeService } from "./domain/nudge/NudgeService";
 import type { SessionService } from "./domain/session/SessionService";
 import type { IngestionService } from "./domain/ingestion/IngestionService";
 import { registerViews } from "./infrastructure/views/registry";
@@ -33,7 +34,7 @@ import { DataExchangeSetup } from "./dataExchangeSetup";
 import { UiCommandService } from "./infrastructure/ui/UiCommandService";
 import { InputModal, NewSessionModal } from "./ui/modals";
 import { SESSION_TYPES, type SessionType } from "./domain/session/types";
-import { generateSessionSummary, mergeSessionNotes } from "./domain/session/helpers";
+import { generateSessionSummary, generateDailySummary, mergeSessionNotes } from "./domain/session/helpers";
 import { createInfrastructure, setupCrossCuttingListeners } from "./pluginBootstrap";
 import { HubRegistry } from "./domain/hub/HubRegistry";
 import { EventCatalogProvider } from "./domain/hub/EventCatalogProvider";
@@ -41,6 +42,7 @@ import { DataExchangeProvider } from "./domain/hub/DataExchangeProvider";
 import { UserHubProvider } from "./domain/hub/UserHubProvider";
 import { UserHubView, VIEW_TYPE_USER_HUB } from "./ui/UserHubView";
 import { SessionWorkspaceView, VIEW_TYPE_SESSION_WORKSPACE } from "./ui/SessionWorkspaceView";
+import { showNudgeNotification } from "./ui/NudgeNotification";
 
 
 /**  
@@ -95,6 +97,7 @@ export default class FlowtiBasePlugin extends Plugin {
 	private eventDefinitionService?: EventDefinitionService;
 	private dataExchangeService?: DataExchangeService;
 	private sessionService?: SessionService;
+	private nudgeService?: NudgeService;
 	private ingestionStatusBar?: IngestionStatusBar;
 	private collapsedCategories = new Set<string>();
 	private uiCommandService?: UiCommandService;
@@ -257,6 +260,7 @@ export default class FlowtiBasePlugin extends Plugin {
 				void this.eventBus?.emit("session.daily.stop", {});
 			}
 
+			this.nudgeService?.dispose();
 			this.uiCommandService?.dispose();
 			this.ingestionStatusBar?.dispose();
 			this.eventBridge?.dispose();
@@ -502,10 +506,24 @@ export default class FlowtiBasePlugin extends Plugin {
 			}),
 		);
 
-		// Write daily session summary when daily tracking stops
+		// Write daily-specific summary when daily tracking stops
 		this.crossCuttingListeners.push(
 			this.eventBus.on("session.daily.stopped", (event) => {
-				void this.writeSessionSummary(event.payload.session);
+				void this.writeDailySummary(event.payload.session);
+			}),
+		);
+
+		// Nudge Service — time-based session start reminders
+		this.nudgeService = await this.services.get<NudgeService>("nudgeService");
+		this.nudgeService.isSessionTypeActive = (type) =>
+			this.sessionService?.getActiveSession()?.type === type;
+		await this.nudgeService.load();
+		this.nudgeService.start();
+
+		// Show notification when a nudge fires
+		this.crossCuttingListeners.push(
+			this.eventBus.on("nudge.triggered", (event) => {
+				showNudgeNotification(event.payload.config, this.eventBus);
 			}),
 		);
 
@@ -586,7 +604,7 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.hubRegistry.register(new DataExchangeProvider(this.dataExchangeService!));
 
 		this.registerView(VIEW_TYPE_USER_HUB, (leaf) =>
-			new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.sessionService!, this.settings.inboxEnabledSources, this.settings),
+			new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.sessionService!, this.nudgeService!, this.settings.inboxEnabledSources, this.settings),
 		);
 		this.hubRegistry.register(new UserHubProvider(this.userService, this.inboxService!, this.sessionService));
 
@@ -750,6 +768,36 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.errorService?.handle(
 				error instanceof Error ? error : new Error(String(error)),
 				"writeSessionSummary",
+			);
+		}
+	}
+
+	/**
+	 * Writes a daily-specific activity summary to the daily note file.
+	 * Uses generateDailySummary() which groups activity by file.
+	 */
+	private async writeDailySummary(session: import("./domain/session/types").Session): Promise<void> {
+		if (!session.notesFile) return;
+
+		try {
+			const folder = session.notesFile.substring(0, session.notesFile.lastIndexOf("/"));
+			if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
+				await this.app.vault.createFolder(folder);
+			}
+
+			const dailyMarkdown = generateDailySummary(session);
+			const existing = this.app.vault.getAbstractFileByPath(session.notesFile);
+			if (existing instanceof TFile) {
+				const existingContent = await this.app.vault.read(existing);
+				// Append daily summary below existing content
+				await this.app.vault.modify(existing, existingContent.trimEnd() + "\n\n" + dailyMarkdown);
+			} else {
+				await this.app.vault.create(session.notesFile, `# Daily Tracking\n\n${dailyMarkdown}\n`);
+			}
+		} catch (error) {
+			this.errorService?.handle(
+				error instanceof Error ? error : new Error(String(error)),
+				"writeDailySummary",
 			);
 		}
 	}

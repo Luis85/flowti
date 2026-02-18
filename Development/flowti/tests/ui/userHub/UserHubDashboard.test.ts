@@ -994,6 +994,133 @@ describe("UserHubDashboard", () => {
 		});
 	});
 
+	// ── Next nudge indicator ────────────────────────────────
+
+	describe("next nudge indicator", () => {
+		function makeNudgeService(configs: Array<{ id: string; time: string; title: string; sessionType: string; enabled: boolean; durationMinutes: number }>, dismissedIds: string[] = []) {
+			return {
+				getConfigs: vi.fn(() => configs),
+				isDismissedToday: vi.fn((id: string) => dismissedIds.includes(id)),
+			} as never;
+		}
+
+		it("should show next upcoming nudge when enabled configs exist", () => {
+			// Mock Date to a fixed time (10:00)
+			vi.useFakeTimers();
+			vi.setSystemTime(new Date("2026-02-18T10:00:00"));
+			try {
+				const nudgeService = makeNudgeService([
+					{ id: "n1", time: "14:00", title: "Afternoon Focus", sessionType: "documentation", enabled: true, durationMinutes: 50 },
+				]);
+
+				const dashboard = new UserHubDashboard(container, makeDeps({
+					eventBus,
+					nudgeService,
+				}));
+
+				dashboard.render();
+
+				expect(container.querySelector(".ft-next-nudge")).toBeTruthy();
+				expect(container.textContent).toContain("Afternoon Focus");
+				expect(container.textContent).toContain("14:00");
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
+		it("should not show nudge indicator when no enabled configs", () => {
+			const nudgeService = makeNudgeService([
+				{ id: "n1", time: "14:00", title: "Afternoon Focus", sessionType: "documentation", enabled: false, durationMinutes: 50 },
+			]);
+
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				nudgeService,
+			}));
+
+			dashboard.render();
+
+			expect(container.querySelector(".ft-next-nudge")).toBeNull();
+		});
+
+		it("should not show nudge indicator when all nudges are dismissed", () => {
+			vi.useFakeTimers();
+			vi.setSystemTime(new Date("2026-02-18T08:00:00"));
+			try {
+				const nudgeService = makeNudgeService(
+					[{ id: "n1", time: "14:00", title: "Focus", sessionType: "documentation", enabled: true, durationMinutes: 25 }],
+					["n1"],
+				);
+
+				const dashboard = new UserHubDashboard(container, makeDeps({
+					eventBus,
+					nudgeService,
+				}));
+
+				dashboard.render();
+
+				expect(container.querySelector(".ft-next-nudge")).toBeNull();
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
+		it("should not show nudge indicator when all nudges are in the past", () => {
+			vi.useFakeTimers();
+			vi.setSystemTime(new Date("2026-02-18T15:00:00"));
+			try {
+				const nudgeService = makeNudgeService([
+					{ id: "n1", time: "09:00", title: "Morning", sessionType: "daily-tracking", enabled: true, durationMinutes: 0 },
+					{ id: "n2", time: "14:00", title: "Afternoon", sessionType: "documentation", enabled: true, durationMinutes: 50 },
+				]);
+
+				const dashboard = new UserHubDashboard(container, makeDeps({
+					eventBus,
+					nudgeService,
+				}));
+
+				dashboard.render();
+
+				expect(container.querySelector(".ft-next-nudge")).toBeNull();
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
+		it("should pick the earliest upcoming nudge when multiple exist", () => {
+			vi.useFakeTimers();
+			vi.setSystemTime(new Date("2026-02-18T10:00:00"));
+			try {
+				const nudgeService = makeNudgeService([
+					{ id: "n1", time: "16:00", title: "Late", sessionType: "review", enabled: true, durationMinutes: 25 },
+					{ id: "n2", time: "12:00", title: "Noon", sessionType: "documentation", enabled: true, durationMinutes: 50 },
+				]);
+
+				const dashboard = new UserHubDashboard(container, makeDeps({
+					eventBus,
+					nudgeService,
+				}));
+
+				dashboard.render();
+
+				expect(container.textContent).toContain("Noon");
+				expect(container.textContent).toContain("12:00");
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
+		it("should not render when nudgeService is undefined", () => {
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+			}));
+
+			dashboard.render();
+
+			expect(container.querySelector(".ft-next-nudge")).toBeNull();
+		});
+	});
+
 	// ── Re-render ───────────────────────────────────────────
 
 	describe("re-render", () => {
