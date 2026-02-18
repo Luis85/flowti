@@ -102,6 +102,7 @@ describe("InboxService", () => {
 			await service.load();
 
 			await eventBus.emit("dataExchange.import.completed", {
+				operationId: "test-op-1",
 				result: {
 					totalRows: 10,
 					created: 8,
@@ -124,6 +125,7 @@ describe("InboxService", () => {
 			await service.load();
 
 			await eventBus.emit("dataExchange.import.failed", {
+				operationId: "test-op-2",
 				error: "Parse error",
 				config: {
 					sourcePath: "data.csv",
@@ -188,6 +190,7 @@ describe("InboxService", () => {
 			await service.load();
 
 			await eventBus.emit("dataExchange.export.completed", {
+				operationId: "test-op-3",
 				result: {
 					totalRows: 50,
 					totalColumns: 3,
@@ -529,6 +532,7 @@ describe("InboxService", () => {
 			]);
 
 			await eventBus.emit("dataExchange.import.completed", {
+				operationId: "test-op-4",
 				result: { totalRows: 10, created: 10, updated: 0, skipped: 0, failed: 0, errors: [] },
 			});
 			await new Promise((r) => setTimeout(r, 10));
@@ -536,6 +540,7 @@ describe("InboxService", () => {
 
 			// But other sources should still work
 			await eventBus.emit("dataExchange.export.completed", {
+				operationId: "test-op-5",
 				result: { totalRows: 50, totalColumns: 3, outputPath: "export.csv" },
 			});
 

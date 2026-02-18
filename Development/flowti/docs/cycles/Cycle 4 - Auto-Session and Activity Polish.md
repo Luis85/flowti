@@ -18,11 +18,11 @@ bugs:
 tech_debt:
   - "[[TD-01 UI files exceed size convention]]"
 estimated_increments: 6
-actual_increments:
+actual_increments: 3
 estimated_tests: 155
-actual_tests:
-total_tests_after:
-total_test_files_after:
+actual_tests: 44
+total_tests_after: 2362
+total_test_files_after: 92
 ---
 
 # Cycle 4: Bug Fixes, Auto-Session & Activity Polish
@@ -80,19 +80,19 @@ total_test_files_after:
 - "I want to manage Flowti inside Flowti" — enabled by daily sessions
 - "I want to import and export a session template via JSON" — high priority, low effort
 
-*Open DX bugs (plugin inbox, not in Cycle 4):*
-- DX Dashboard loses running state when navigating away
-- Progress bar confusion with concurrent imports
-- Pipeline detail page progress bar not updating
+*Open DX bugs (plugin inbox):*
+- ~~DX Dashboard loses running state when navigating away~~ — **fixed Inc 2b**, state-backed `ActiveOperation` tracking
+- ~~Progress bar confusion with concurrent imports~~ — **fixed Inc 2b**, `operationId` on all events + filtered listeners
+- ~~Pipeline detail page progress bar not updating~~ — **fixed Inc 2b**, state-backed rendering + `pipelineId` correlation
 
 **Open bugs (7, all bundled into this cycle):**
 1. **Exporter formula evaluation** (HIGH) — export preview shows property names instead of computed formula values from Base views. **Fixed in Inc 1.**
 2. **Exporter view properties** (HIGH) — exporter shows ALL properties instead of only the view's selected/ordered columns. **Fixed in Inc 1.**
 3. **TD-62: generateEventKey UUID fallback** (MEDIUM) — `IngestionService.generateEventKey()` falls back to UUID when path is undefined. **Fixed in Inc 1.**
 4. **TD-64: file.renamed payload inconsistency** (MEDIUM) — `file.renamed` uses `{ oldPath, newPath }` instead of including `path`. **Fixed in Inc 1.**
-5. **DX Dashboard state loss** (MEDIUM) — progress rows destroyed on tab navigation. Root: DOM-only progress state. **Planned in Inc 2b.**
-6. **DX Progress bar merge** (MEDIUM) — concurrent imports share progress. Root: events lack operation ID. **Planned in Inc 2b.**
-7. **DX Pipeline progress not updating** (MEDIUM) — only coarse per-source jumps. Root: no per-row progress subscription. **Planned in Inc 2b.**
+5. **DX Dashboard state loss** (MEDIUM) — progress rows destroyed on tab navigation. Root: DOM-only progress state. **Fixed in Inc 2b.**
+6. **DX Progress bar merge** (MEDIUM) — concurrent imports share progress. Root: events lack operation ID. **Fixed in Inc 2b.**
+7. **DX Pipeline progress not updating** (MEDIUM) — only coarse per-source jumps. Root: no per-row progress subscription. **Fixed in Inc 2b.**
 
 **PBI-SW-007 selected over PBI-SW-009 because:**
 1. Higher user demand — daily session is a high-priority inbox item with duplicate signals
@@ -219,7 +219,7 @@ The exporter shows ALL frontmatter properties instead of only the columns select
 - [x] All existing SessionWorkspaceView tests pass unchanged (1 test updated for grouping behavior)
 - [x] Activity log groups entries by file path (one row per file) — `groupActivityByFile()` pure function
 - [x] Grouped rows show file name, latest action, edit count (`×N` badge if > 1), timestamp
-- [x] `npm run build` passes — 2,357 tests (92 files), tsc clean, eslint clean
+- [x] `npm run build` passes — 2,357 tests (92 files), tsc clean, eslint clean → updated to 2,362 tests after Inc 2b test additions
 
 ### Inc 2b: DX Progress Tracking Bug Fixes
 
@@ -227,30 +227,36 @@ The exporter shows ALL frontmatter properties instead of only the columns select
 
 | Step | File | Purpose | Est. LOC |
 |------|------|---------|----------|
-| 1 | `src/domain/dataExchange/events.ts` | Add `operationId` to all import/export event payloads; add optional `pipelineId` to import events | ~15 |
-| 2 | `src/domain/dataExchange/ImportService.ts` | Accept `{ operationId?, pipelineId? }` options; propagate to all emits | ~12 |
-| 3 | `src/domain/dataExchange/DataExchangeService.ts` | Generate `operationId` in import/export command handlers; pass through to services and completion events | ~20 |
-| 4 | `src/domain/dataExchange/ExportService.ts` | Accept `{ operationId? }` option; include in `export.started` | ~8 |
-| 5 | `src/domain/dataExchange/PipelineExecutor.ts` | Pass `{ pipelineId: pipeline.id }` to each `executeImport()` call | ~3 |
+| 1 | `src/domain/dataExchange/events.ts` | Add `operationId` to all import/export event payloads; add optional `pipelineId` to import+export events | ~15 |
+| 2 | `src/domain/dataExchange/ImportService.ts` | Accept `ImportExecuteOptions { operationId?, pipelineId? }`; propagate to all emits; emit `import.completed`/`import.failed` (complete lifecycle emitter) | ~20 |
+| 3 | `src/domain/dataExchange/DataExchangeService.ts` | Simplify import/export command handlers — generate `operationId`, delegate lifecycle to sub-services | ~20 |
+| 4 | `src/domain/dataExchange/ExportService.ts` | Accept `ExportExecuteOptions { operationId?, pipelineId? }`; include in `export.started`/`export.completed`/`export.failed` (complete lifecycle emitter) | ~15 |
+| 5 | `src/domain/dataExchange/PipelineExecutor.ts` | Pass `{ pipelineId: pipeline.id }` to each `executeImport()` and linked `executeExport()` call | ~5 |
 | 6 | `src/ui/hub/types.ts` | Add `ActiveOperation` interface + `activeOperations` field to `HubState` | ~18 |
-| 7 | `src/ui/DataExchangeHubView.ts` | Subscribe to lifecycle events in `onHubOpen()`; manage `activeOperations` state | ~60 |
-| 8 | `src/ui/hub/HubDashboard.ts` | Render active operations from state after `empty()`; live progress subscriptions | ~60 |
+| 7 | `src/ui/DataExchangeHubView.ts` | Subscribe to lifecycle events in `onHubOpen()`; manage `activeOperations` state; cleanup pipeline listeners in `onHubClose()`/`onTabChanged()` | ~80 |
+| 8 | `src/ui/hub/HubDashboard.ts` | Render active operations from state after `empty()`; live progress subscriptions filtered by `operationId` | ~60 |
 | 9 | `src/ui/hub/DashboardImportExecutor.ts` | Generate + filter by `operationId` | ~10 |
-| 10 | `src/ui/hub/ImportsTab.ts` | Generate + filter by `operationId` in `runImportWithFeedback()` | ~10 |
-| 11 | `src/ui/hub/pipelines/PipelineExecution.ts` | Subscribe to `import.progress` filtered by `pipelineId` for per-row updates | ~14 |
-| 12 | 6 existing test files | Update event payload assertions for `operationId` | ~30 |
-| 13 | 2 new test files | Concurrent isolation + pipeline granular progress tests | ~80 |
+| 10 | `src/ui/hub/ImportsTab.ts` | Generate + filter by `operationId` in `runImportWithFeedback()`; fix Save handler (direct render instead of `scheduleRender()`) | ~15 |
+| 11 | `src/ui/hub/PipelinesTab.ts` | State-backed pipeline progress via `renderPipelineProgress()` with live listeners filtered by `pipelineId`; `cleanupLiveListeners()` | ~80 |
+| 12 | `src/ui/hub/ExportsTab.ts` | Fix Save handler (direct render instead of `scheduleRender()`) | ~3 |
+| 13 | `src/ui/hub/pipelines/PipelineEditForm.ts` | Fix Save handler (direct `renderDetail()` instead of `scheduleRender()`) | ~3 |
+| 14 | `src/ui/CsvActionView.ts` | Save button always rendered (hidden by default), toggled reactively via `updateUnsavedHint()` | ~10 |
+| 15 | `src/ui/csv/CsvConfigPage.ts` | Call `updateUnsavedHint()` at end of render to sync Save button for changes that trigger re-render | ~1 |
+| — | `src/ui/hub/pipelines/PipelineExecution.ts` | **Deleted** — replaced by state-backed rendering in PipelinesTab | -55 |
+| 16 | 3 existing test files | Update event payload assertions for `operationId` + `pipelineId` (10 assertions updated/added) | ~50 |
 
-**Est. total:** ~230 LOC source, ~110 LOC tests
+**Est. total:** ~300 LOC source (net ~245 after deletion), ~50 LOC tests
 
 **Acceptance criteria:**
-- [ ] All import/export events carry `operationId`; pipeline-triggered imports also carry `pipelineId`
-- [ ] `HubState.activeOperations` tracks in-flight operations; survives dashboard re-render
-- [ ] Dashboard progress rows rebuild from state on tab navigation return
-- [ ] Concurrent imports each show independent progress (filtered by `operationId`)
-- [ ] Pipeline detail page shows per-row progress (not just per-source jumps)
-- [ ] All existing tests pass (payload assertions updated)
-- [ ] `npm run build` passes
+- [x] All import/export events carry `operationId`; pipeline-triggered imports also carry `pipelineId`
+- [x] `HubState.activeOperations` tracks in-flight operations; survives dashboard re-render
+- [x] Dashboard progress rows rebuild from state on tab navigation return
+- [x] Concurrent imports each show independent progress (filtered by `operationId`)
+- [x] Pipeline detail page shows per-row progress (not just per-source jumps)
+- [x] Edit form Save returns to detail view (direct render, no race with `scheduleRender()`)
+- [x] CSV config Save button appears immediately on config change (not only on page navigation)
+- [x] All existing tests pass (payload assertions updated)
+- [x] `npm run build` passes — 2,362 tests (92 files), tsc clean, eslint clean
 
 ---
 
@@ -351,7 +357,7 @@ Inc 1: Bug Fixes — exporter + infrastructure (independent, no session deps) �
   |
 Inc 2: SessionWorkspaceView extraction + Activity aggregation (independent of Inc 1) ✓
   |
-Inc 2b: DX Progress Tracking Bug Fixes (independent of Inc 1-2, no session deps)
+Inc 2b: DX Progress Tracking Bug Fixes (independent of Inc 1-2, no session deps) ✓
   |
 Inc 3: PBI-SW-007 Domain — types, daily-tracking, concurrent sessions (independent of Inc 1-2b)
   |
@@ -404,13 +410,20 @@ Inc 5: Daily note integration + flow test (requires Inc 3 + Inc 4)
 ### Deviations from Plan
 - **Inc 1 Bug 1+2 (exporter):** Original plan had incremental fixes to `scanColumns()` and `executeExport()`. Mid-increment, the scope expanded to a full **ResolvedColumn unified descriptor** approach (approved plan) — added `ResolvedColumn` type, `scanResolvedColumns()`, unified column rendering across ExportService, PreviewPage, ConfigurePage, and ViewSelectPage. Better architecture than planned, but more LOC (~200 vs ~70 est).
 - **Inc 2 SessionWorkspaceView:** Target was ≤ 450 LOC. Actual: 479 LOC — canvas/notes file creation sections stayed in view (30 LOC over, acceptable for orchestrator).
+- **Inc 2b PipelineExecution.ts deleted:** Original plan had PipelineExecution subscribing to `import.progress` by `pipelineId`. Investigation revealed it created DOM-based progress that was immediately destroyed by `scheduleRender()` from `pipeline.started`. Fixed by **deleting** `PipelineExecution.ts` entirely and adding state-backed `renderPipelineProgress()` to `PipelinesTab` — same pattern as dashboard. Net cleaner: one component less, progress survives re-renders.
+- **Inc 2b ImportService/ExportService became complete lifecycle emitters:** Original plan had `DataExchangeService` emitting `import.completed`/`import.failed`. Refactored so each sub-service emits its own lifecycle events, and `DataExchangeService` handlers became thin delegates. Better separation of concerns.
+- **Inc 2b three additional UX bugs discovered and fixed:** (1) Edit form Save handlers used `scheduleRender()` which raced with `config.changed` event — fixed with direct `renderMaster()`/`renderDetail()` calls. (2) CSV config Save button only appeared after page navigation — fixed by always rendering (hidden) + toggling in `updateUnsavedHint()`. (3) Pipeline export events now carry `pipelineId` for linked export tracking (not in original plan).
 
 ### Improvement Backlog (from this cycle)
 <!-- Filled post-delivery -->
 - [ ] PBI-SW-007 nudge system — deferred from this cycle
+- [ ] Consider extracting `ActiveOperation` state management into a dedicated `OperationTracker` service if more hub views need progress tracking
 
 ### Learnings
 <!-- Filled post-delivery -->
+- **`scheduleRender()` is wrong for state transitions:** Debounced rendering (16ms via `setTimeout`) races with async EventBus emissions. When a handler calls `scheduleRender()` and a `.then()` callback also needs to render after state change, the handler's render fires first while the old state is still set. Fix: use direct `renderMaster()`/`renderDetail()` for state transitions (same pattern as Cancel buttons).
+- **DOM-based progress is fragile:** Any `el.empty()` call destroys progress bars. State-backed `ActiveOperation` tracking with live listener reattachment on render is the correct pattern for progress that must survive navigation.
+- **Sub-services should own their lifecycle events:** Having `DataExchangeService` emit `import.completed`/`import.failed` on behalf of `ImportService` created unnecessary coupling. Letting each sub-service emit its own lifecycle makes `operationId`/`pipelineId` propagation natural and the orchestrator handler simpler.
 
 ---
 
@@ -426,7 +439,7 @@ Inc 5: Daily note integration + flow test (requires Inc 3 + Inc 4)
   - Partially delivered: 3 items (folder filter, product dev, guided tour)
   - Deferred: 2 items (nudge system Cycle 5, domain design PBI-SW-009)
   - Out of scope: 4 items (idea capture, inbox ingestion, manage Flowti, session template JSON)
-  - Open DX bugs: 3 items → **planned in Inc 2b** (dashboard state, progress bar confusion, pipeline progress)
+  - Open DX bugs: 3 items → **fixed in Inc 2b** (dashboard state, progress bar confusion, pipeline progress) + 3 additional UX bugs discovered and fixed (edit form Save, CSV Save button, pipeline export pipelineId)
 - Learnings (input): [[L-25 Overview placeholder bug]], [[L-28 Carry-forward escalation]]
 - Learnings (output): <!-- filled post-delivery -->
 - Previous Cycle: [[Cycle 3 - Session Output Artifacts and State Restoration]]

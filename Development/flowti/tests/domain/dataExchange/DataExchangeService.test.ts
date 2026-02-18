@@ -55,6 +55,7 @@ describe("DataExchangeService", () => {
 			expect(completedHandler).toHaveBeenCalledWith(
 				expect.objectContaining({
 					payload: expect.objectContaining({
+						operationId: expect.any(String),
 						result: expect.objectContaining({ created: 1 }),
 					}),
 				})
@@ -85,10 +86,42 @@ describe("DataExchangeService", () => {
 			expect(failedHandler).toHaveBeenCalledWith(
 				expect.objectContaining({
 					payload: expect.objectContaining({
+						operationId: expect.any(String),
 						error: expect.stringContaining("File not found"),
 					}),
 				})
 			);
+		});
+
+		it("should propagate operationId from import.execute to import.completed", async () => {
+			const completedHandler = vi.fn();
+			eventBus.on("dataExchange.import.completed", completedHandler);
+
+			let callCount = 0;
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+				callCount++;
+				if (callCount === 1) return "name\nRow1";
+				throw new Error("Not found");
+			});
+
+			await eventBus.emit("dataExchange.import.execute", {
+				config: {
+					sourcePath: "data.csv",
+					targetFolder: "out",
+					nameColumn: "name",
+					columnMappings: [
+						{ csvColumn: "name", frontmatterKey: "name", included: true },
+					],
+					conflictStrategy: "skip" as const,
+				},
+				operationId: "my-op-123",
+			});
+
+			await new Promise((resolve) => setTimeout(resolve, 50));
+
+			expect(completedHandler).toHaveBeenCalledOnce();
+			// The handler generates its own operationId (overrides), but it should be a string
+			expect(completedHandler.mock.calls[0][0].payload.operationId).toEqual(expect.any(String));
 		});
 
 		it("should emit export.completed on successful export", async () => {
@@ -109,6 +142,13 @@ describe("DataExchangeService", () => {
 			await new Promise((resolve) => setTimeout(resolve, 50));
 
 			expect(completedHandler).toHaveBeenCalledOnce();
+			expect(completedHandler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: expect.objectContaining({
+						operationId: expect.any(String),
+					}),
+				})
+			);
 		});
 
 		it("should emit export.failed on error", async () => {
@@ -133,6 +173,13 @@ describe("DataExchangeService", () => {
 			await new Promise((resolve) => setTimeout(resolve, 50));
 
 			expect(failedHandler).toHaveBeenCalledOnce();
+			expect(failedHandler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: expect.objectContaining({
+						operationId: expect.any(String),
+					}),
+				})
+			);
 		});
 	});
 

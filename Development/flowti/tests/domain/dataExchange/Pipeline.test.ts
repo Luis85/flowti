@@ -364,6 +364,124 @@ describe("Pipeline", () => {
 			expect(result.completedSources).toBe(1); // only good source
 		});
 
+		it("should propagate pipelineId to import.progress events", async () => {
+			const { svc: execSvc, bus } = setupExecService({
+				"data.csv": "id,name\n1,Foo\n2,Bar",
+			});
+
+			const saved = await execSvc.savePipeline({
+				name: "PipelineId Test",
+				targetFolder: "out",
+				mergeKey: "id",
+				sources: [
+					{
+						id: "s1",
+						csvPath: "data.csv",
+						mergeKeyColumn: "id",
+						columnMappings: [
+							{ csvColumn: "name", frontmatterKey: "name", included: true },
+						],
+					},
+				],
+			});
+
+			const progressHandler = vi.fn();
+			bus.on("dataExchange.import.progress", progressHandler);
+
+			await bus.emit("dataExchange.pipeline.execute", {
+				pipelineId: saved.id,
+			});
+
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			expect(progressHandler).toHaveBeenCalled();
+			// Every progress event should carry the pipeline's id
+			for (const call of progressHandler.mock.calls) {
+				expect(call[0].payload.pipelineId).toBe(saved.id);
+			}
+		});
+
+		it("should propagate pipelineId to import.completed events", async () => {
+			const { svc: execSvc, bus } = setupExecService({
+				"data.csv": "id,name\n1,Foo",
+			});
+
+			const saved = await execSvc.savePipeline({
+				name: "Completed PipelineId",
+				targetFolder: "out",
+				mergeKey: "id",
+				sources: [
+					{
+						id: "s1",
+						csvPath: "data.csv",
+						mergeKeyColumn: "id",
+						columnMappings: [
+							{ csvColumn: "name", frontmatterKey: "name", included: true },
+						],
+					},
+				],
+			});
+
+			const completedHandler = vi.fn();
+			bus.on("dataExchange.import.completed", completedHandler);
+
+			await bus.emit("dataExchange.pipeline.execute", {
+				pipelineId: saved.id,
+			});
+
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			expect(completedHandler).toHaveBeenCalledOnce();
+			expect(completedHandler.mock.calls[0][0].payload.pipelineId).toBe(saved.id);
+			expect(completedHandler.mock.calls[0][0].payload.operationId).toEqual(expect.any(String));
+		});
+
+		it("should propagate pipelineId to export.started for linked exports", async () => {
+			const { svc: execSvc, bus, fs } = setupExecService({
+				"data.csv": "id,name\n1,Foo",
+			});
+
+			// Save an export config
+			const exportCfg = await execSvc.saveExportConfig({
+				name: "Linked Export",
+				sourcePath: "out",
+				sourceType: "folder",
+				format: "csv",
+				outputPath: "out/export.csv",
+				columns: ["name"],
+				fileProperties: [],
+			});
+
+			const saved = await execSvc.savePipeline({
+				name: "Export Pipeline",
+				targetFolder: "out",
+				mergeKey: "id",
+				exportConfigIds: [exportCfg.id],
+				sources: [
+					{
+						id: "s1",
+						csvPath: "data.csv",
+						mergeKeyColumn: "id",
+						columnMappings: [
+							{ csvColumn: "name", frontmatterKey: "name", included: true },
+						],
+					},
+				],
+			});
+
+			const exportStartedHandler = vi.fn();
+			bus.on("dataExchange.export.started", exportStartedHandler);
+
+			await bus.emit("dataExchange.pipeline.execute", {
+				pipelineId: saved.id,
+			});
+
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			expect(exportStartedHandler).toHaveBeenCalledOnce();
+			expect(exportStartedHandler.mock.calls[0][0].payload.pipelineId).toBe(saved.id);
+		});
+
 		it("should fail when pipeline has no sources", async () => {
 			const saved = await svc.savePipeline({
 				name: "Empty",

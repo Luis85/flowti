@@ -119,7 +119,7 @@ export class PipelineEditForm {
 				.updatePipeline(pipe.id, edits)
 				.then(() => {
 					this.deps.setState({ editingPipelineId: null });
-					this.deps.scheduleRender();
+					this.deps.renderDetail();
 					new Notice("Pipeline updated");
 				});
 		});

@@ -9,9 +9,11 @@ import { ConfirmModal } from "../modals";
 import { FilePickerModal } from "../FilePickerModal";
 import { FolderPickerModal, getVaultFolders } from "../FolderPickerModal";
 import { addInfoRow, renderEmptyDetail, resolveImportBaseFile, getEmptyDetailStats } from "./helpers";
-import type { HubComponentDeps } from "./types";
+import type { ActiveOperation, HubComponentDeps } from "./types";
 
 export class ImportsTab {
+	private liveUnsubscribes: (() => void)[] = [];
+
 	constructor(
 		private masterEl: HTMLElement,
 		private detailEl: HTMLElement,
@@ -95,6 +97,7 @@ export class ImportsTab {
 	// ─────────────────────────────────────────────────────────
 
 	renderDetail(): void {
+		this.cleanupLiveListeners();
 		this.detailEl.empty();
 		const state = this.deps.getState();
 
@@ -238,6 +241,16 @@ export class ImportsTab {
 				},
 			}).open();
 		});
+
+		// Active import operations (state-backed — survives tab navigation)
+		const activeImports = cfg.sourcePath
+			? state.activeOperations.filter(
+				(op) => op.type === "import" && !op.completed && op.sourcePath === cfg.sourcePath,
+			)
+			: [];
+		for (const op of activeImports) {
+			this.renderActiveImportProgress(this.detailEl, op);
+		}
 
 		// Description from linked CsvDoc
 		if (cfg.sourcePath) {
@@ -427,7 +440,8 @@ export class ImportsTab {
 				.updateImportConfig(cfg.id, edits)
 				.then(() => {
 					this.deps.setState({ editingImportId: null });
-					this.deps.scheduleRender();
+					this.renderMaster();
+					this.renderDetail();
 					new Notice("Import config updated");
 				});
 		});
@@ -440,6 +454,84 @@ export class ImportsTab {
 			this.deps.setState({ editingImportId: null });
 			this.renderDetail();
 		});
+	}
+
+	// ─────────────────────────────────────────────────────────
+	// Active operation progress (state-backed)
+	// ─────────────────────────────────────────────────────────
+
+	private renderActiveImportProgress(container: HTMLElement, op: ActiveOperation): void {
+		const section = container.createDiv({ cls: "ft-import-progress ft-card ft-mt-3" });
+
+		const statusRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
+		const spinnerIcon = statusRow.createSpan();
+		setIcon(spinnerIcon, "loader");
+		spinnerIcon.style.opacity = "0.6";
+		spinnerIcon.addClass("ft-spin");
+		const statusText = statusRow.createSpan({ cls: "ft-text-sm" });
+		if (op.progress) {
+			statusText.textContent = `Importing... ${op.progress.current} / ${op.progress.total}`;
+			if (op.progress.lastFilename) statusText.textContent += ` — ${op.progress.lastFilename}`;
+		} else {
+			statusText.textContent = `Running import: ${op.name}...`;
+		}
+
+		const barBg = section.createDiv();
+		barBg.style.cssText = "height:4px;background:var(--background-modifier-border);border-radius:2px;margin:0 0.5rem 0.5rem;overflow:hidden";
+		const barFill = barBg.createDiv();
+		const pct = op.progress && op.progress.total > 0
+			? Math.round((op.progress.current / op.progress.total) * 100)
+			: 0;
+		barFill.style.cssText = `height:100%;width:${pct}%;background:var(--interactive-accent);border-radius:2px;transition:width 0.15s ease`;
+
+		const detailText = section.createDiv({ cls: "ft-text-muted ft-text-sm ft-px-2 ft-pb-2" });
+
+		// Live progress listener
+		this.liveUnsubscribes.push(
+			this.deps.eventBus.on("dataExchange.import.progress", (event) => {
+				if (event.payload.operationId !== op.operationId) return;
+				const { current, total, lastFilename } = event.payload;
+				const livePct = total > 0 ? Math.round((current / total) * 100) : 0;
+				barFill.style.width = `${livePct}%`;
+				statusText.textContent = `Importing... ${current} / ${total}`;
+				if (lastFilename) statusText.textContent += ` — ${lastFilename}`;
+				detailText.textContent = lastFilename ? `Last: ${lastFilename}` : "";
+			}),
+		);
+
+		// Completion/failure listener — update to result state
+		this.liveUnsubscribes.push(
+			this.deps.eventBus.on("dataExchange.import.completed", (event) => {
+				if (event.payload.operationId !== op.operationId) return;
+				section.empty();
+				const resultRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
+				const icon = resultRow.createSpan();
+				setIcon(icon, "check-circle");
+				icon.style.color = "var(--text-success)";
+				const r = event.payload.result;
+				resultRow.createSpan({
+					text: `Import complete: ${r.created} created, ${r.updated} updated, ${r.skipped} skipped` +
+						(r.failed > 0 ? `, ${r.failed} failed` : ""),
+					cls: "ft-text-sm",
+				});
+			}),
+		);
+		this.liveUnsubscribes.push(
+			this.deps.eventBus.on("dataExchange.import.failed", (event) => {
+				if (event.payload.operationId !== op.operationId) return;
+				section.empty();
+				const resultRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
+				const icon = resultRow.createSpan();
+				setIcon(icon, "x-circle");
+				icon.style.color = "var(--text-error)";
+				resultRow.createSpan({ text: `Import failed: ${event.payload.error}`, cls: "ft-text-sm" });
+			}),
+		);
+	}
+
+	cleanupLiveListeners(): void {
+		for (const unsub of this.liveUnsubscribes) unsub();
+		this.liveUnsubscribes = [];
 	}
 
 	// ─────────────────────────────────────────────────────────
@@ -456,74 +548,12 @@ export class ImportsTab {
 	}
 
 	private runImportWithFeedback(cfg: SavedImportConfig, csvPath: string): void {
-		const existing = this.detailEl.querySelector(".ft-import-progress") as HTMLElement | null;
-		if (existing) existing.remove();
-		const section = createDiv({ cls: "ft-import-progress ft-card ft-mt-3" });
-		const actionsBar = this.detailEl.querySelector(".ft-detail-actions");
-		if (actionsBar?.nextSibling) {
-			this.detailEl.insertBefore(section, actionsBar.nextSibling);
-		} else {
-			this.detailEl.appendChild(section);
-		}
-
-		const statusRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
-		const spinnerIcon = statusRow.createSpan();
-		setIcon(spinnerIcon, "loader");
-		spinnerIcon.style.opacity = "0.6";
-		spinnerIcon.addClass("ft-spin");
-		const statusText = statusRow.createSpan({ text: `Running import: ${cfg.name}...`, cls: "ft-text-sm" });
-
-		const barBg = section.createDiv();
-		barBg.style.cssText = "height:4px;background:var(--background-modifier-border);border-radius:2px;margin:0 0.5rem 0.5rem;overflow:hidden";
-		const barFill = barBg.createDiv();
-		barFill.style.cssText = "height:100%;width:0%;background:var(--interactive-accent);border-radius:2px;transition:width 0.15s ease";
-
-		const detailText = section.createDiv({ cls: "ft-text-muted ft-text-sm ft-px-2 ft-pb-2" });
-
-		const offProgress = this.deps.eventBus.on("dataExchange.import.progress", (event) => {
-			const { current, total, lastFilename } = event.payload;
-			const pct = total > 0 ? Math.round((current / total) * 100) : 0;
-			barFill.style.width = `${pct}%`;
-			statusText.textContent = `Importing... ${current} / ${total}`;
-			detailText.textContent = lastFilename ? `Last: ${lastFilename}` : "";
-		});
-
-		const cleanup = (success: boolean, message: string) => {
-			offProgress();
-			section.empty();
-
-			const resultRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
-			const icon = resultRow.createSpan();
-			setIcon(icon, success ? "check-circle" : "x-circle");
-			icon.style.color = success ? "var(--text-success)" : "var(--text-error)";
-			resultRow.createSpan({ text: message, cls: "ft-text-sm" });
-
-			if (success) {
-				this.deps.scheduleRender();
-			}
-		};
-
-		const offComplete = this.deps.eventBus.on("dataExchange.import.completed", (event) => {
-			offComplete();
-			offFailed();
-			const r = event.payload.result;
-			const msg = `Import complete: ${r.created} created, ${r.updated} updated, ${r.skipped} skipped` +
-				(r.failed > 0 ? `, ${r.failed} failed` : "");
-			cleanup(true, msg);
-			new Notice(msg);
-		});
-		const offFailed = this.deps.eventBus.on("dataExchange.import.failed", (event) => {
-			offComplete();
-			offFailed();
-			cleanup(false, `Import failed: ${event.payload.error}`);
-			new Notice(`Import failed: ${event.payload.error}`);
-		});
-
 		const importCustomProps = { ...cfg.customProperties };
 		if (cfg.noteType) {
 			importCustomProps.type = cfg.noteType;
 		}
 
+		// Fire-and-forget — Active Operations (state-backed) tracks progress
 		void this.deps.eventBus.emit("dataExchange.import.execute", {
 			config: {
 				sourcePath: csvPath,

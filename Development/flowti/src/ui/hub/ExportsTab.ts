@@ -489,7 +489,8 @@ export class ExportsTab {
 				.updateExportConfig(cfg.id, edits)
 				.then(() => {
 					this.deps.setState({ editingExportId: null });
-					this.deps.scheduleRender();
+					this.renderMaster();
+					this.renderDetail();
 					new Notice("Export config updated");
 				});
 		});

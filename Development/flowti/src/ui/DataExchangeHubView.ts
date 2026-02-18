@@ -59,6 +59,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 	private editingImportId: string | null = null;
 	private editingExportId: string | null = null;
 	private editingPipelineId: string | null = null;
+	private activeOperations: import("./hub/types").ActiveOperation[] = [];
 
 	// ── Tab components ───────────────────────────────────────
 	private dashboard!: HubDashboard;
@@ -125,14 +126,170 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 				this.scheduleRender();
 			}),
 		);
+		// Track active operations for state-backed progress (survives re-render)
 		this.addUnsubscribe(
-			this.eventBus.on("dataExchange.import.completed", () => {
+			this.eventBus.on("dataExchange.import.started", (event) => {
+				const { operationId, config, pipelineId } = event.payload;
+				if (pipelineId) return; // Pipeline-triggered imports tracked at pipeline level
+				this.activeOperations = [...this.activeOperations, {
+					operationId,
+					type: "import",
+					name: config.sourcePath.split("/").pop() ?? "Import",
+					sourcePath: config.sourcePath,
+					startedAt: Date.now(),
+					progress: null,
+				}];
 				this.scheduleRender();
 			}),
 		);
 		this.addUnsubscribe(
-			this.eventBus.on("dataExchange.export.completed", () => {
+			this.eventBus.on("dataExchange.import.progress", (event) => {
+				const { operationId, current, total, lastFilename, pipelineId } = event.payload;
+				if (pipelineId) return;
+				this.activeOperations = this.activeOperations.map((op) =>
+					op.operationId === operationId
+						? { ...op, progress: { current, total, lastFilename } }
+						: op,
+				);
+				// No scheduleRender — live listeners handle DOM updates
+			}),
+		);
+		this.addUnsubscribe(
+			this.eventBus.on("dataExchange.import.completed", (event) => {
+				const { operationId, result, pipelineId } = event.payload;
+				if (pipelineId) return; // Pipeline-level tracking handles this
+				const msg = `${result.created} created, ${result.updated} updated, ${result.skipped} skipped` +
+					(result.failed > 0 ? `, ${result.failed} failed` : "");
+				this.activeOperations = this.activeOperations.map((op) =>
+					op.operationId === operationId
+						? { ...op, completed: true, success: true, message: msg }
+						: op,
+				);
 				this.scheduleRender();
+				setTimeout(() => {
+					this.activeOperations = this.activeOperations.filter((op) => op.operationId !== operationId);
+					this.scheduleRender();
+				}, 5000);
+			}),
+		);
+		this.addUnsubscribe(
+			this.eventBus.on("dataExchange.import.failed", (event) => {
+				const { operationId, error, pipelineId } = event.payload;
+				if (pipelineId) return; // Pipeline-level tracking handles this
+				this.activeOperations = this.activeOperations.map((op) =>
+					op.operationId === operationId
+						? { ...op, completed: true, success: false, message: `Failed: ${error}` }
+						: op,
+				);
+				this.scheduleRender();
+				setTimeout(() => {
+					this.activeOperations = this.activeOperations.filter((op) => op.operationId !== operationId);
+					this.scheduleRender();
+				}, 5000);
+			}),
+		);
+		this.addUnsubscribe(
+			this.eventBus.on("dataExchange.export.started", (event) => {
+				if (event.payload.pipelineId) return; // Pipeline-triggered exports tracked at pipeline level
+				this.activeOperations = [...this.activeOperations, {
+					operationId: event.payload.operationId,
+					type: "export",
+					name: event.payload.config.outputPath.split("/").pop() ?? "Export",
+					sourcePath: event.payload.config.outputPath,
+					startedAt: Date.now(),
+					progress: null,
+				}];
+				this.scheduleRender();
+			}),
+		);
+		this.addUnsubscribe(
+			this.eventBus.on("dataExchange.export.completed", (event) => {
+				if (event.payload.pipelineId) return;
+				const { operationId, result } = event.payload;
+				const msg = `${result.totalRows} rows, ${result.totalColumns} columns → ${result.outputPath}`;
+				this.activeOperations = this.activeOperations.map((op) =>
+					op.operationId === operationId
+						? { ...op, completed: true, success: true, message: msg }
+						: op,
+				);
+				this.scheduleRender();
+				setTimeout(() => {
+					this.activeOperations = this.activeOperations.filter((op) => op.operationId !== operationId);
+					this.scheduleRender();
+				}, 5000);
+			}),
+		);
+		this.addUnsubscribe(
+			this.eventBus.on("dataExchange.export.failed", (event) => {
+				if (event.payload.pipelineId) return;
+				const { operationId, error } = event.payload;
+				this.activeOperations = this.activeOperations.map((op) =>
+					op.operationId === operationId
+						? { ...op, completed: true, success: false, message: `Failed: ${error}` }
+						: op,
+				);
+				this.scheduleRender();
+				setTimeout(() => {
+					this.activeOperations = this.activeOperations.filter((op) => op.operationId !== operationId);
+					this.scheduleRender();
+				}, 5000);
+			}),
+		);
+		// Track pipeline operations
+		this.addUnsubscribe(
+			this.eventBus.on("dataExchange.pipeline.started", (event) => {
+				const { pipeline, totalSources } = event.payload;
+				this.activeOperations = [...this.activeOperations, {
+					operationId: pipeline.id,
+					type: "pipeline",
+					name: pipeline.name,
+					startedAt: Date.now(),
+					progress: { current: 0, total: totalSources },
+				}];
+				this.scheduleRender();
+			}),
+		);
+		this.addUnsubscribe(
+			this.eventBus.on("dataExchange.pipeline.sourceCompleted", (event) => {
+				const { pipelineId, sourceIndex, totalSources } = event.payload;
+				this.activeOperations = this.activeOperations.map((op) =>
+					op.operationId === pipelineId
+						? { ...op, progress: { current: sourceIndex + 1, total: totalSources } }
+						: op,
+				);
+			}),
+		);
+		this.addUnsubscribe(
+			this.eventBus.on("dataExchange.pipeline.completed", (event) => {
+				const r = event.payload.result;
+				const msg = `${r.created} created, ${r.updated} updated, ${r.skipped} skipped` +
+					(r.failed > 0 ? `, ${r.failed} failed` : "");
+				// Find the pipeline operation (uses pipeline.id as operationId)
+				this.activeOperations = this.activeOperations.map((op) =>
+					op.type === "pipeline" && !op.completed
+						? { ...op, completed: true, success: true, message: msg }
+						: op,
+				);
+				this.scheduleRender();
+				setTimeout(() => {
+					this.activeOperations = this.activeOperations.filter((op) => !(op.type === "pipeline" && op.completed));
+					this.scheduleRender();
+				}, 5000);
+			}),
+		);
+		this.addUnsubscribe(
+			this.eventBus.on("dataExchange.pipeline.failed", (event) => {
+				const { pipelineId, error } = event.payload;
+				this.activeOperations = this.activeOperations.map((op) =>
+					op.operationId === pipelineId
+						? { ...op, completed: true, success: false, message: `Failed: ${error}` }
+						: op,
+				);
+				this.scheduleRender();
+				setTimeout(() => {
+					this.activeOperations = this.activeOperations.filter((op) => op.operationId !== pipelineId);
+					this.scheduleRender();
+				}, 5000);
 			}),
 		);
 
@@ -156,7 +313,9 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 	}
 
 	onHubClose(): void {
-		// No extra cleanup needed — base class handles unsubscribes and timers
+		this.dashboard.cleanupLiveListeners();
+		this.importsTab.cleanupLiveListeners();
+		this.pipelinesTab.cleanupLiveListeners();
 	}
 
 	protected onTabChanged(): void {
@@ -167,6 +326,10 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 		// Clear filter
 		this.filterText = "";
 		this.searchInput.value = "";
+		// Cleanup live listeners from previous tab/dashboard
+		this.dashboard.cleanupLiveListeners();
+		this.importsTab.cleanupLiveListeners();
+		this.pipelinesTab.cleanupLiveListeners();
 	}
 
 	onDashboardRender(): void {
@@ -234,9 +397,8 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 				setTimeout(() => { void this.pipelinesTab.runPipelinePreview(pipe); }, 50);
 			},
 			executePipeline: (pipe) => {
-				this.selectedPipelineId = pipe.id;
-				this.navigateTo("pipelines");
-				setTimeout(() => { this.pipelinesTab.executePipelineWithFeedback(pipe); }, 50);
+				// Fire-and-forget — Active Operations tracks progress on dashboard + detail
+				void this.eventBus.emit("dataExchange.pipeline.execute", { pipelineId: pipe.id });
 			},
 		};
 
@@ -275,6 +437,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 			editingImportId: this.editingImportId,
 			editingExportId: this.editingExportId,
 			editingPipelineId: this.editingPipelineId,
+			activeOperations: this.activeOperations,
 		};
 	}
 
@@ -292,6 +455,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 		if (partial.editingImportId !== undefined) this.editingImportId = partial.editingImportId;
 		if (partial.editingExportId !== undefined) this.editingExportId = partial.editingExportId;
 		if (partial.editingPipelineId !== undefined) this.editingPipelineId = partial.editingPipelineId;
+		if (partial.activeOperations !== undefined) this.activeOperations = partial.activeOperations;
 	}
 
 	// ══════════════════════════════════════════════════════════

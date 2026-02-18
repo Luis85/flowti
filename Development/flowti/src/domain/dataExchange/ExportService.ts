@@ -22,6 +22,12 @@ import { STANDARD_FILE_PROPERTIES } from "./types";
 import { CsvParser } from "./CsvParser";
 import { BaseQueryEngine } from "./BaseQueryEngine";
 import { PathMutex } from "../../utils/mutex";
+import { generateUUID } from "../../utils/helpers";
+
+export interface ExportExecuteOptions {
+	operationId?: string;
+	pipelineId?: string;
+}
 
 export type ListFilesCallback = (folderPath: string) => VaultFileInfo[];
 export type WriteExternalFileCallback = (absolutePath: string, content: string) => Promise<void>;
@@ -340,94 +346,109 @@ export class ExportService {
 	/**
 	 * Executes the full export pipeline.
 	 */
-	async executeExport(config: ExportConfig): Promise<ExportResult> {
-		await this.eventBus.emit("dataExchange.export.started", { config });
+	async executeExport(config: ExportConfig, options?: ExportExecuteOptions): Promise<ExportResult> {
+		const operationId = options?.operationId ?? generateUUID();
+		const pipelineId = options?.pipelineId;
+		await this.eventBus.emit("dataExchange.export.started", { operationId, config, pipelineId });
 
-		const files = await this.resolveFiles(
-			config.sourcePath,
-			config.sourceType,
-			config.baseViewIndex,
-		);
+		try {
+			const files = await this.resolveFiles(
+				config.sourcePath,
+				config.sourceType,
+				config.baseViewIndex,
+			);
 
-		let headers: string[];
-		let rows: Array<Record<string, string>>;
+			let headers: string[];
+			let rows: Array<Record<string, string>>;
 
-		if (config.resolvedColumns && config.resolvedColumns.length > 0) {
-			// Unified column path for Base view exports
-			headers = config.resolvedColumns.map((rc) => rc.header);
-			rows = files.map((file) => {
-				const row: Record<string, string> = {};
-				for (const rc of config.resolvedColumns!) {
-					row[rc.header] = this.resolveColumnValue(file, rc);
+			if (config.resolvedColumns && config.resolvedColumns.length > 0) {
+				// Unified column path for Base view exports
+				headers = config.resolvedColumns.map((rc) => rc.header);
+				rows = files.map((file) => {
+					const row: Record<string, string> = {};
+					for (const rc of config.resolvedColumns!) {
+						row[rc.header] = this.resolveColumnValue(file, rc);
+					}
+					return row;
+				});
+			} else {
+				// Legacy dual-array path for folder exports
+				const dn = config.displayNames ?? {};
+				headers = [
+					...config.fileProperties.map((fp) => dn[fp] ?? this.filePropertyLabel(fp)),
+					...config.columns.map((col) => dn[col] ?? dn[`note.${col}`] ?? col),
+				];
+
+				rows = [];
+				for (const file of files) {
+					const row: Record<string, string> = {};
+					for (let i = 0; i < config.fileProperties.length; i++) {
+						row[headers[i]] = this.resolveFileProperty(file, config.fileProperties[i]);
+					}
+					const fpCount = config.fileProperties.length;
+					for (let i = 0; i < config.columns.length; i++) {
+						const value = file.frontmatter?.[config.columns[i]];
+						row[headers[fpCount + i]] =
+							value !== undefined && value !== null ? String(value) : "";
+					}
+					rows.push(row);
 				}
-				return row;
+			}
+
+			// Generate output content
+			const newContent = this.csvParser.generate(headers, rows, config.format);
+
+			// Serialize all read-check-write operations targeting the same output path
+			const result = await this.writeMutex.withLock(config.outputPath, async () => {
+				const strategy = config.conflictStrategy ?? "overwrite";
+
+				// Check for existing file when skip or append
+				if (strategy !== "overwrite") {
+					const existing = await this.readOutputFile(config);
+					if (existing !== null && strategy === "skip") {
+						return {
+							totalRows: 0,
+							totalColumns: 0,
+							outputPath: config.outputPath,
+							skipped: true,
+						};
+					}
+				}
+
+				let content = newContent;
+
+				// Append: read existing file and prepend its content
+				if (strategy === "append") {
+					const existing = await this.readOutputFile(config);
+					if (existing !== null && existing.trim().length > 0) {
+						// Strip the header line from the new content and append rows to existing
+						const newLines = content.split("\n");
+						const dataOnly = newLines.slice(1).join("\n");
+						content = existing.trimEnd() + "\n" + dataOnly;
+					}
+				}
+
+				// Write output file
+				await this.writeOutputFile(config, content);
+
+				return {
+					totalRows: rows.length,
+					totalColumns: headers.length,
+					outputPath: config.outputPath,
+				};
 			});
-		} else {
-			// Legacy dual-array path for folder exports
-			const dn = config.displayNames ?? {};
-			headers = [
-				...config.fileProperties.map((fp) => dn[fp] ?? this.filePropertyLabel(fp)),
-				...config.columns.map((col) => dn[col] ?? dn[`note.${col}`] ?? col),
-			];
 
-			rows = [];
-			for (const file of files) {
-				const row: Record<string, string> = {};
-				for (let i = 0; i < config.fileProperties.length; i++) {
-					row[headers[i]] = this.resolveFileProperty(file, config.fileProperties[i]);
-				}
-				const fpCount = config.fileProperties.length;
-				for (let i = 0; i < config.columns.length; i++) {
-					const value = file.frontmatter?.[config.columns[i]];
-					row[headers[fpCount + i]] =
-						value !== undefined && value !== null ? String(value) : "";
-				}
-				rows.push(row);
-			}
+			await this.eventBus.emit("dataExchange.export.completed", { operationId, result, pipelineId });
+			return result;
+		} catch (error) {
+			await this.eventBus.emit("dataExchange.export.failed", {
+				operationId,
+				error: error instanceof Error ? error.message : String(error),
+				config,
+				pipelineId,
+			});
+			throw error;
 		}
-
-		// Generate output content
-		const newContent = this.csvParser.generate(headers, rows, config.format);
-
-		// Serialize all read-check-write operations targeting the same output path
-		return this.writeMutex.withLock(config.outputPath, async () => {
-			const strategy = config.conflictStrategy ?? "overwrite";
-
-			// Check for existing file when skip or append
-			if (strategy !== "overwrite") {
-				const existing = await this.readOutputFile(config);
-				if (existing !== null && strategy === "skip") {
-					return {
-						totalRows: 0,
-						totalColumns: 0,
-						outputPath: config.outputPath,
-						skipped: true,
-					};
-				}
-			}
-
-			let content = newContent;
-
-			// Append: read existing file and prepend its content
-			if (strategy === "append") {
-				const existing = await this.readOutputFile(config);
-				if (existing !== null && existing.trim().length > 0) {
-					// Strip the header line from the new content and append rows to existing
-					const newLines = content.split("\n");
-					const dataOnly = newLines.slice(1).join("\n");
-					content = existing.trimEnd() + "\n" + dataOnly;
-				}
-			}
-
-			// Write output file
-			await this.writeOutputFile(config, content);
-
-			return {
-				totalRows: rows.length,
-				totalColumns: headers.length,
-				outputPath: config.outputPath,
-			};
-		});
 	}
 
 	/**

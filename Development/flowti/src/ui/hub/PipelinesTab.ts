@@ -7,15 +7,16 @@ import { setIcon } from "obsidian";
 import type { SavedMultiImportPipeline } from "../../domain/dataExchange/types";
 import { InputModal } from "../modals";
 import { renderEmptyDetail, getEmptyDetailStats } from "./helpers";
-import type { HubComponentDeps } from "./types";
-import { PipelineDetail, PipelineEditForm, PipelinePreview, PipelineExecution } from "./pipelines";
+import type { ActiveOperation, HubComponentDeps } from "./types";
+import { PipelineDetail, PipelineEditForm, PipelinePreview } from "./pipelines";
 import type { PipelineComponentDeps } from "./pipelines";
+import { basename } from "../../utils/pathUtils";
 
 export class PipelinesTab {
 	private detail: PipelineDetail | null = null;
 	private editForm: PipelineEditForm | null = null;
 	private preview: PipelinePreview | null = null;
-	private execution: PipelineExecution | null = null;
+	private liveUnsubscribes: (() => void)[] = [];
 
 	constructor(
 		private masterEl: HTMLElement,
@@ -44,7 +45,6 @@ export class PipelinesTab {
 		this.detail = new PipelineDetail(this.detailEl, deps);
 		this.editForm = new PipelineEditForm(this.detailEl, deps);
 		this.preview = new PipelinePreview(this.detailEl, deps);
-		this.execution = new PipelineExecution(this.detailEl, deps);
 	}
 
 	// ─────────────────────────────────────────────────────────
@@ -154,6 +154,7 @@ export class PipelinesTab {
 	// ─────────────────────────────────────────────────────────
 
 	renderDetail(): void {
+		this.cleanupLiveListeners();
 		this.detailEl.empty();
 		this.ensureComponents();
 
@@ -178,10 +179,18 @@ export class PipelinesTab {
 		}
 
 		this.detail!.render(pipe);
+
+		// Show active operation progress from state (survives re-renders)
+		const activeOp = state.activeOperations.find(
+			(op) => op.operationId === pipe.id && op.type === "pipeline",
+		);
+		if (activeOp) {
+			this.renderPipelineProgress(activeOp, pipe);
+		}
 	}
 
 	// ─────────────────────────────────────────────────────────
-	// Preview & Execution (delegated)
+	// Preview & Execution
 	// ─────────────────────────────────────────────────────────
 
 	async runPipelinePreview(pipe: SavedMultiImportPipeline): Promise<void> {
@@ -190,7 +199,93 @@ export class PipelinesTab {
 	}
 
 	executePipelineWithFeedback(pipe: SavedMultiImportPipeline): void {
-		this.ensureComponents();
-		this.execution!.execute(pipe);
+		// Fire-and-forget — state-backed Active Operations tracks progress
+		this.deps.navigation.executePipeline(pipe);
+	}
+
+	cleanupLiveListeners(): void {
+		for (const unsub of this.liveUnsubscribes) unsub();
+		this.liveUnsubscribes = [];
+	}
+
+	// ─────────────────────────────────────────────────────────
+	// State-backed pipeline progress (survives re-renders)
+	// ─────────────────────────────────────────────────────────
+
+	private renderPipelineProgress(op: ActiveOperation, pipe: SavedMultiImportPipeline): void {
+		const section = this.detailEl.createDiv({ cls: "ft-pipeline-progress ft-card ft-mt-3" });
+		const actionsBar = this.detailEl.querySelector(".ft-detail-actions");
+		if (actionsBar?.nextSibling) {
+			this.detailEl.insertBefore(section, actionsBar.nextSibling);
+		}
+
+		if (op.completed) {
+			const resultRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
+			const icon = resultRow.createSpan();
+			setIcon(icon, op.success ? "check-circle" : "x-circle");
+			icon.style.color = op.success ? "var(--text-success)" : "var(--text-error)";
+			resultRow.createSpan({ text: op.message ?? "Done", cls: "ft-text-sm" });
+			return;
+		}
+
+		// In-progress spinner + status
+		const statusRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
+		const spinnerIcon = statusRow.createSpan();
+		setIcon(spinnerIcon, "loader");
+		spinnerIcon.style.opacity = "0.6";
+		spinnerIcon.addClass("ft-spin");
+		const statusText = statusRow.createSpan({ cls: "ft-text-sm" });
+
+		// Progress bar
+		const barBg = section.createDiv();
+		barBg.style.cssText = "height:4px;background:var(--background-modifier-border);border-radius:2px;margin:0 0.5rem 0.5rem;overflow:hidden";
+		const barFill = barBg.createDiv();
+		const pct = op.progress && op.progress.total > 0
+			? Math.round((op.progress.current / op.progress.total) * 100) : 0;
+		barFill.style.cssText = `height:100%;width:${pct}%;background:var(--interactive-accent);border-radius:2px;transition:width 0.15s ease`;
+
+		if (op.progress) {
+			statusText.textContent = `Processing source ${op.progress.current} of ${op.progress.total}...`;
+		} else {
+			statusText.textContent = `Running pipeline: ${pipe.name}...`;
+		}
+
+		const detailText = section.createDiv({ cls: "ft-text-muted ft-text-sm ft-px-2 ft-pb-2" });
+
+		// Live listeners for granular per-row progress
+		this.liveUnsubscribes.push(
+			this.deps.eventBus.on("dataExchange.import.progress", (event) => {
+				if (event.payload.pipelineId !== pipe.id) return;
+				const { current, total, lastFilename } = event.payload;
+				detailText.textContent = lastFilename
+					? `Row ${current}/${total} — ${lastFilename}`
+					: `Row ${current}/${total}`;
+			}),
+		);
+
+		this.liveUnsubscribes.push(
+			this.deps.eventBus.on("dataExchange.pipeline.sourceCompleted", (event) => {
+				if (event.payload.pipelineId !== pipe.id) return;
+				const { sourceIndex, totalSources, sourceResult } = event.payload;
+				const livePct = totalSources > 0 ? Math.round(((sourceIndex + 1) / totalSources) * 100) : 0;
+				barFill.style.width = `${livePct}%`;
+				statusText.textContent = `Processing source ${sourceIndex + 1} of ${totalSources}...`;
+				const csvName = basename(sourceResult.csvPath) || sourceResult.csvPath;
+				detailText.textContent = `${csvName}: ${sourceResult.result.created} created, ${sourceResult.result.updated} updated`;
+			}),
+		);
+
+		// Export-phase feedback
+		this.liveUnsubscribes.push(
+			this.deps.eventBus.on("dataExchange.export.started", (event) => {
+				if (event.payload.pipelineId !== pipe.id) return;
+				barFill.style.width = "100%";
+				const exportName = event.payload.config.outputPath
+					? basename(event.payload.config.outputPath)
+					: "export";
+				statusText.textContent = "Running export...";
+				detailText.textContent = exportName;
+			}),
+		);
 	}
 }
