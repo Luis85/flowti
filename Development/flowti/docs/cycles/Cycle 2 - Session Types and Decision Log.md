@@ -359,9 +359,9 @@ Inc 5: Flow Integration Test + Docs (TD-94, PBI-SW-005 close)
 - **Doc updates deferred**: PRD stage/FRI update and flow doc creation deferred to documentation audit (separate workstream). Code is complete.
 
 ### Improvement Backlog (from this cycle)
-- [ ] PRD needs stage/FRI update reflecting Cycle 2 delivery
-- [ ] Flow doc `Create and Manage Sessions.md` still missing (tracked in documentation audit plan)
-- [ ] SessionWorkspaceView at 697 LOC — monitor; if Inc 10+ patterns add more panels, consider controller extraction
+- [ ] PRD needs stage/FRI update reflecting Cycle 2 delivery → carried forward to [[Cycle 3 - Session Output Artifacts and State Restoration|Cycle 3]] Inc 4
+- [ ] Flow doc `Create and Manage Sessions.md` still missing → carried forward to [[Cycle 3 - Session Output Artifacts and State Restoration|Cycle 3]] Inc 4
+- [ ] SessionWorkspaceView at 697 LOC — monitor → carried forward to [[Cycle 3 - Session Output Artifacts and State Restoration|Cycle 3]] as LOC monitoring target (< 780)
 
 ### Learnings
 - **L-23**: Optional fields simplify UX — making `description` optional on `SessionDecision` let users record quick decisions without friction. Validate required vs optional fields with the user early.
