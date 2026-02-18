@@ -91,9 +91,11 @@ export const SESSION_STATUS_LABELS: Record<string, string> = {
 };
 
 export const SESSION_TYPE_LABELS: Record<string, string> = {
+	"documentation": "Documentation",
 	"vault-hygiene": "Vault Hygiene",
 	"event-storming": "Event Storming",
 	"service-design": "Service Design",
+	"domain-design": "Domain Design",
 	"requirements-refinement": "Requirements",
 	"backlog-structuring": "Backlog",
 	"knowledge-cleanup": "Cleanup",

@@ -136,6 +136,15 @@ export const FlowtiSettingsSchema = z.object({
 	watchFolders: z.array(z.string()).default([]),
 	entityPaths: EntityPathsSchema.default(DEFAULT_ENTITY_PATHS),
 	sessionActivityFilterGlobal: z.array(z.string()).default([]),
+	customSessionTypes: z.record(z.string(), z.object({
+		type: z.string(),
+		label: z.string(),
+		icon: z.string(),
+		guidingQuestions: z.array(z.string()),
+		defaultDuration: z.number(),
+		defaultGoals: z.array(z.string()),
+		color: z.string().optional(),
+	})).default({}),
 	inboxEnabledSources: z.array(z.string()).default([
 		"subscription.matched",
 		"dataExchange.import.completed",

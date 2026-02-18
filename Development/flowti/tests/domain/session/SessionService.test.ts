@@ -31,6 +31,7 @@ function makeSession(overrides: Partial<Session> = {}): Session {
 		activity: [],
 		activityFilter: [],
 		contextBindings: [],
+		decisions: [],
 		...overrides,
 	};
 }
@@ -2520,6 +2521,298 @@ describe("SessionService", () => {
 
 			expect(service.getSessionById("s1")?.focusFile).toBe("other/plan.md");
 			expect(handler).not.toHaveBeenCalled();
+		});
+	});
+
+	// ── Type configuration ──────────────────────────────────
+
+	describe("type configuration", () => {
+		beforeEach(async () => {
+			await service.load();
+		});
+
+		it("should handle session.type.create for custom types", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.type.created", handler);
+
+			await eventBus.emit("session.type.create", {
+				config: {
+					type: "sprint-review" as Session["type"],
+					label: "Sprint Review",
+					icon: "presentation",
+					guidingQuestions: ["What was delivered?", "What blockers remain?"],
+					defaultDuration: 30,
+					defaultGoals: [],
+				},
+			});
+
+			expect(handler).toHaveBeenCalledOnce();
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: expect.objectContaining({
+						config: expect.objectContaining({ label: "Sprint Review" }),
+					}),
+				}),
+			);
+		});
+
+		it("should emit settings.updateCustomSessionTypes on create", async () => {
+			const settingsHandler = vi.fn();
+			eventBus.on("settings.updateCustomSessionTypes", settingsHandler);
+
+			await eventBus.emit("session.type.create", {
+				config: {
+					type: "sprint-review" as Session["type"],
+					label: "Sprint Review",
+					icon: "presentation",
+					guidingQuestions: [],
+					defaultDuration: 30,
+					defaultGoals: [],
+				},
+			});
+
+			expect(settingsHandler).toHaveBeenCalledOnce();
+			const types = settingsHandler.mock.calls[0][0].payload.types;
+			expect(types["sprint-review"]).toBeDefined();
+			expect(types["sprint-review"].label).toBe("Sprint Review");
+		});
+
+		it("should not overwrite built-in types via create", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.type.created", handler);
+
+			await eventBus.emit("session.type.create", {
+				config: {
+					type: "event-storming" as Session["type"],
+					label: "Overwrite Attempt",
+					icon: "x",
+					guidingQuestions: [],
+					defaultDuration: 1,
+					defaultGoals: [],
+				},
+			});
+
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("should reject create with empty type", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.type.created", handler);
+
+			await eventBus.emit("session.type.create", {
+				config: {
+					type: "" as Session["type"],
+					label: "Empty",
+					icon: "x",
+					guidingQuestions: [],
+					defaultDuration: 25,
+					defaultGoals: [],
+				},
+			});
+
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("should handle session.type.configure for overriding a type", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.type.configured", handler);
+
+			await eventBus.emit("session.type.configure", {
+				type: "event-storming" as Session["type"],
+				config: {
+					defaultDuration: 90,
+					guidingQuestions: ["New question?"],
+				},
+			});
+
+			expect(handler).toHaveBeenCalledOnce();
+			const config = handler.mock.calls[0][0].payload.config;
+			expect(config.type).toBe("event-storming");
+			expect(config.defaultDuration).toBe(90);
+			expect(config.guidingQuestions).toEqual(["New question?"]);
+			expect(config.label).toBe("Event Storming"); // preserved from built-in
+		});
+
+		it("should store configured type in customSessionTypes", async () => {
+			await eventBus.emit("session.type.configure", {
+				type: "documentation" as Session["type"],
+				config: { defaultDuration: 45 },
+			});
+
+			expect(service.customSessionTypes["documentation"]).toBeDefined();
+			expect(service.customSessionTypes["documentation"].defaultDuration).toBe(45);
+		});
+	});
+
+	// ── Backward compatibility ──────────────────────────────
+
+	describe("backward compat — type field", () => {
+		it("should default missing type field to 'documentation'", async () => {
+			const state: SessionState = {
+				sessions: [{
+					id: "s_legacy",
+					title: "Legacy",
+					status: "completed",
+					durationMinutes: 25,
+					createdAt: "2026-01-01T00:00:00.000Z",
+					startedAt: null,
+					pausedAt: null,
+					elapsedBeforePauseMs: 0,
+					completedAt: "2026-01-01T00:25:00.000Z",
+					artifacts: [],
+					notes: "",
+					focusFile: null,
+					timeline: [],
+					goals: [],
+					links: [],
+					notesFile: null,
+					canvasFile: null,
+					activity: [],
+					activityFilter: [],
+					contextBindings: [],
+					decisions: [],
+				} as unknown as Session], // type intentionally missing
+				activeSessionId: null,
+			};
+
+			const mock = createMockStorage(state);
+			service.dispose();
+			service = new SessionService({ storage: mock.storage, eventBus });
+			await service.load();
+
+			const session = service.getSessionById("s_legacy");
+			expect(session?.type).toBe("documentation");
+		});
+	});
+
+	// ── Decisions ─────────────────────────────────────────────
+
+	describe("decisions", () => {
+		it("records a decision and emits session.decision.recorded", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "Dec Test", durationMinutes: 25 });
+			const sessions = service.getSessions();
+			const sessionId = sessions[0].id;
+
+			const handler = vi.fn();
+			eventBus.on("session.decision.recorded", handler);
+
+			await eventBus.emit("session.decision.record", {
+				sessionId,
+				title: "Use EventBus",
+				description: "For decoupled comms",
+				context: "design review",
+			});
+
+			expect(handler).toHaveBeenCalledTimes(1);
+			const payload = handler.mock.calls[0][0].payload;
+			expect(payload.sessionId).toBe(sessionId);
+			expect(payload.decision.title).toBe("Use EventBus");
+			expect(payload.decision.description).toBe("For decoupled comms");
+			expect(payload.decision.context).toBe("design review");
+			expect(payload.decision.id).toMatch(/^dec_/);
+
+			const session = service.getSessionById(sessionId);
+			expect(session?.decisions.length).toBe(1);
+		});
+
+		it("removes a decision and emits session.decision.removed", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "Dec Remove", durationMinutes: 25 });
+			const sessions = service.getSessions();
+			const sessionId = sessions[0].id;
+
+			await eventBus.emit("session.decision.record", {
+				sessionId,
+				title: "Will be removed",
+				description: "Temp",
+			});
+
+			const session = service.getSessionById(sessionId)!;
+			const decisionId = session.decisions[0].id;
+
+			const handler = vi.fn();
+			eventBus.on("session.decision.removed", handler);
+
+			await eventBus.emit("session.decision.remove", { sessionId, decisionId });
+
+			expect(handler).toHaveBeenCalledTimes(1);
+			expect(handler.mock.calls[0][0].payload.decisionId).toBe(decisionId);
+
+			const updated = service.getSessionById(sessionId);
+			expect(updated?.decisions.length).toBe(0);
+		});
+
+		it("ignores record with empty title", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "Dec Empty", durationMinutes: 25 });
+			const sessions = service.getSessions();
+			const sessionId = sessions[0].id;
+
+			await eventBus.emit("session.decision.record", {
+				sessionId,
+				title: "  ",
+				description: "Ignored",
+			});
+
+			const session = service.getSessionById(sessionId);
+			expect(session?.decisions.length).toBe(0);
+		});
+
+		it("enforces MAX_SESSION_DECISIONS cap", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "Cap Test", durationMinutes: 25 });
+			const sessions = service.getSessions();
+			const sessionId = sessions[0].id;
+
+			// Fill to cap
+			for (let i = 0; i < 100; i++) {
+				await eventBus.emit("session.decision.record", {
+					sessionId,
+					title: `Decision ${i}`,
+					description: `Desc ${i}`,
+				});
+			}
+
+			const session = service.getSessionById(sessionId)!;
+			expect(session.decisions.length).toBe(100);
+
+			// One more should be rejected
+			await eventBus.emit("session.decision.record", {
+				sessionId,
+				title: "Overflow",
+				description: "Should not be added",
+			});
+
+			expect(service.getSessionById(sessionId)?.decisions.length).toBe(100);
+		});
+
+		it("ignores remove for non-existent decision", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "Dec Ghost", durationMinutes: 25 });
+			const sessions = service.getSessions();
+			const sessionId = sessions[0].id;
+
+			const handler = vi.fn();
+			eventBus.on("session.decision.removed", handler);
+
+			await eventBus.emit("session.decision.remove", { sessionId, decisionId: "nonexistent" });
+
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("adds backward-compat decisions array on load", async () => {
+			const legacySession = makeSession({ id: "legacy-dec" });
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			delete (legacySession as any).decisions;
+
+			await storage.save({
+				sessions: [legacySession],
+				activeSessionId: null,
+				savedTemplates: [],
+			});
+
+			service.dispose();
+			service = new SessionService({ storage, eventBus });
+			await service.load();
+
+			const session = service.getSessionById("legacy-dec");
+			expect(session?.decisions).toEqual([]);
 		});
 	});
 });

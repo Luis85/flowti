@@ -1,4 +1,6 @@
 import { App, FuzzySuggestModal, Modal, Setting, TFile } from "obsidian";
+import { SESSION_TYPE_CONFIGS } from "../domain/session/types";
+import type { SessionTypeConfig } from "../domain/session/types";
 
 /**
  * A simple confirmation modal with a message and confirm/cancel buttons.
@@ -118,18 +120,21 @@ export interface SessionTemplateSummary {
 export class NewSessionModal extends Modal {
 	private sessionTypes: ReadonlyArray<{ type: string; label: string; description: string }>;
 	private templates: ReadonlyArray<SessionTemplateSummary>;
+	private customConfigs: Record<string, SessionTypeConfig>;
 	private prefill?: { title: string; type: string; durationMinutes: number; focusFile?: string; goals?: string[] };
 	private onSubmit: (title: string, type: string, durationMinutes: number, focusFile: string | null, goals: string[]) => void;
 
 	constructor(app: App, options: {
 		sessionTypes: ReadonlyArray<{ type: string; label: string; description: string }>;
 		templates?: ReadonlyArray<SessionTemplateSummary>;
+		customConfigs?: Record<string, SessionTypeConfig>;
 		prefill?: { title: string; type: string; durationMinutes: number; focusFile?: string; goals?: string[] };
 		onSubmit: (title: string, type: string, durationMinutes: number, focusFile: string | null, goals: string[]) => void;
 	}) {
 		super(app);
 		this.sessionTypes = options.sessionTypes;
 		this.templates = options.templates ?? [];
+		this.customConfigs = options.customConfigs ?? {};
 		this.prefill = options.prefill;
 		this.onSubmit = options.onSubmit;
 	}
@@ -139,7 +144,7 @@ export class NewSessionModal extends Modal {
 		contentEl.createEl("h3", { text: "New Session" });
 
 		let title = this.prefill?.title ?? "";
-		let type = this.prefill?.type ?? this.sessionTypes[0]?.type ?? "event-storming";
+		const type = this.prefill?.type ?? this.sessionTypes[0]?.type ?? "event-storming";
 		let duration = this.prefill?.durationMinutes ?? 25;
 		let focusFile = this.prefill?.focusFile ?? "";
 		const goals: string[] = [...(this.prefill?.goals ?? [])];
@@ -163,6 +168,7 @@ export class NewSessionModal extends Modal {
 							new NewSessionModal(this.app, {
 								sessionTypes: this.sessionTypes,
 								templates: this.templates,
+								customConfigs: this.customConfigs,
 								prefill: { title: tmpl.name, type: tmpl.type, durationMinutes: tmpl.durationMinutes, focusFile: tmpl.focusFile, goals: tmpl.goals },
 								onSubmit: this.onSubmit,
 							}).open();
@@ -195,7 +201,25 @@ export class NewSessionModal extends Modal {
 					dropdown.addOption(st.type, st.label);
 				}
 				dropdown.setValue(type);
-				dropdown.onChange((value) => { type = value; });
+				dropdown.onChange((value) => {
+					if (value === type) return;
+					// Resolve type config and re-open with defaults (close + reopen for Obsidian compat)
+					const cfg = this.customConfigs[value] ?? SESSION_TYPE_CONFIGS[value as keyof typeof SESSION_TYPE_CONFIGS];
+					this.close();
+					new NewSessionModal(this.app, {
+						sessionTypes: this.sessionTypes,
+						templates: this.templates,
+						customConfigs: this.customConfigs,
+						prefill: {
+							title,
+							type: value,
+							durationMinutes: cfg?.defaultDuration ?? 25,
+							focusFile,
+							goals: cfg?.defaultGoals?.length ? [...cfg.defaultGoals] : goals,
+						},
+						onSubmit: this.onSubmit,
+					}).open();
+				});
 			});
 
 		new Setting(contentEl)

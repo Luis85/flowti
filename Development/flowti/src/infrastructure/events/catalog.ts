@@ -267,6 +267,7 @@ const CATALOG_DATA = {
 	"settings.updateCatalogDomains":     { category: "Settings", description: "Update domain visibility in catalog", direction: "View → Plugin", domain: "settings", services: "EventCatalogView", tags: ["system"] },
 	"settings.updateCatalogServices":    { category: "Settings", description: "Update service visibility in catalog", direction: "View → Plugin", domain: "settings", services: "EventCatalogView", tags: ["system"] },
 	"settings.updateInboxEnabledSources": { category: "Settings", description: "Update inbox notification source events", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
+	"settings.updateCustomSessionTypes": { category: "Settings", description: "Update custom session type configurations", direction: "Service → Listeners", domain: "settings", services: "SessionService", tags: ["system"] },
 
 	// ── Installer Domain ─────────────────────────────────────
 	"installer.started":        { category: "Installer", description: "Installation pipeline started", direction: "Service → Listeners", domain: "installer", services: "InstallerService" },
@@ -425,6 +426,14 @@ const CATALOG_DATA = {
 	"session.context.bound":       { category: "Session", description: "Context binding added to session", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.context.unbound":     { category: "Session", description: "Context binding removed from session", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.context.typeChanged": { category: "Session", description: "Context binding type changed", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.decision.record":   { category: "Session", description: "Command: record a decision during session", direction: "View → Plugin", domain: "session", services: "SessionService" },
+	"session.decision.remove":   { category: "Session", description: "Command: remove a decision from session", direction: "View → Plugin", domain: "session", services: "SessionService" },
+	"session.decision.recorded": { category: "Session", description: "Decision recorded in session", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.decision.removed":  { category: "Session", description: "Decision removed from session", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.type.configure":  { category: "Session", description: "Command: configure a session type", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
+	"session.type.configured": { category: "Session", description: "Session type config updated", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.type.create":     { category: "Session", description: "Command: create a custom session type", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
+	"session.type.created":    { category: "Session", description: "Custom session type created", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

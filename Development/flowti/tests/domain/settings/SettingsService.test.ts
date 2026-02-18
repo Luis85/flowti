@@ -186,4 +186,74 @@ describe("SettingsService", () => {
 			expect(serviceWithoutEvents.getSettings().debugMode).toBe(false);
 		});
 	});
+
+	describe("TD-72: concurrent save serialization", () => {
+		beforeEach(async () => {
+			await settingsService.load();
+		});
+
+		it("should not lose updates when two concurrent saves occur", async () => {
+			// Fire two concurrent updates that would race without mutex
+			const update1 = settingsService.updateSettings({ debugMode: true });
+			const update2 = settingsService.updateSettings({ showSystemEvents: true });
+
+			await Promise.all([update1, update2]);
+
+			// Both updates should be visible — no lost writes
+			const settings = settingsService.getSettings();
+			expect(settings.debugMode).toBe(true);
+			expect(settings.showSystemEvents).toBe(true);
+		});
+
+		it("should serialize saves even with rapid event-driven updates", async () => {
+			// Simulate rapid settings events (the original TD-72 scenario)
+			await eventBus.emit("settings.updateShowSystemEvents", { showSystemEvents: true });
+			await eventBus.emit("settings.updateCollapsedCategories", { collapsed: ["User", "Settings"] });
+
+			const settings = settingsService.getSettings();
+			expect(settings.showSystemEvents).toBe(true);
+			expect(settings.collapsedCategories).toEqual(["User", "Settings"]);
+		});
+	});
+
+	describe("custom session types", () => {
+		beforeEach(async () => {
+			await settingsService.load();
+		});
+
+		it("should persist custom session types via settings.updateCustomSessionTypes event", async () => {
+			const customTypes = {
+				"my-custom": {
+					type: "my-custom",
+					label: "My Custom Type",
+					icon: "star",
+					guidingQuestions: ["What is the goal?"],
+					defaultDuration: 30,
+					defaultGoals: [],
+				},
+			};
+
+			await eventBus.emit("settings.updateCustomSessionTypes", { types: customTypes });
+
+			const settings = settingsService.getSettings();
+			expect(settings.customSessionTypes).toEqual(customTypes);
+		});
+
+		it("should default customSessionTypes to empty object", async () => {
+			const settings = settingsService.getSettings();
+			expect(settings.customSessionTypes).toEqual({});
+		});
+
+		it("should emit settings.changed after custom type update", async () => {
+			const changedPromise = new Promise<void>((resolve) => {
+				eventBus.on("settings.changed", () => resolve());
+			});
+
+			await eventBus.emit("settings.updateCustomSessionTypes", { types: { test: { type: "test", label: "Test", icon: "x", guidingQuestions: [], defaultDuration: 25, defaultGoals: [] } } });
+
+			await changedPromise;
+			// If we reach here, the event was emitted
+			expect(true).toBe(true);
+		});
+	});
 });

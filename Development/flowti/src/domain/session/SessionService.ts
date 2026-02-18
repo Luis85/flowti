@@ -12,9 +12,9 @@
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { ITypedStorage } from "../../utils/TypedStorage";
 import { generateUUID } from "../../utils/helpers";
-import type { ContextBindingType, Session, SessionActivity, SessionActivityAction, SessionContextBinding, SessionGoal, SessionLink, SessionState, SessionTemplate } from "./types";
-import { MAX_SESSIONS, MAX_TEMPLATES, ARTIFACT_DEDUP_WINDOW_MS, SESSION_NOTES_FOLDER, MAX_SESSION_ACTIVITY, ACTIVITY_DEDUP_WINDOW_MS, MAX_CONTEXT_BINDINGS } from "./types";
-import { createSession, createGoal, createContextBinding, computeRemainingMs, computeElapsedMs, isTimerExpired, isExcluded } from "./helpers";
+import type { ContextBindingType, Session, SessionActivity, SessionActivityAction, SessionContextBinding, SessionGoal, SessionLink, SessionState, SessionTemplate, SessionTypeConfig } from "./types";
+import { MAX_SESSIONS, MAX_TEMPLATES, ARTIFACT_DEDUP_WINDOW_MS, SESSION_NOTES_FOLDER, MAX_SESSION_ACTIVITY, ACTIVITY_DEDUP_WINDOW_MS, MAX_CONTEXT_BINDINGS, MAX_SESSION_DECISIONS, SESSION_TYPE_CONFIGS } from "./types";
+import { createSession, createGoal, createDecision, createContextBinding, computeRemainingMs, computeElapsedMs, isTimerExpired, isExcluded, resolveTypeConfig } from "./helpers";
 
 /**
  * Configuration options for the SessionService.
@@ -45,6 +45,8 @@ export class SessionService {
 	private timerInterval: ReturnType<typeof setInterval> | null = null;
 	/** Global activity filter folders — injected from SettingsService. */
 	globalActivityFilter: string[] = [];
+	/** Custom session type configs — injected from SettingsService. */
+	customSessionTypes: Record<string, SessionTypeConfig> = {};
 
 	constructor(options: SessionServiceOptions) {
 		this.storage = options.storage;
@@ -211,6 +213,30 @@ export class SessionService {
 					void this.handleContextChangeType(event.payload.sessionId, event.payload.bindingId, event.payload.type);
 				}),
 			);
+
+			// Decision commands
+			this.unsubscribes.push(
+				this.eventBus.on("session.decision.record", (event) => {
+					void this.handleDecisionRecord(event.payload.sessionId, event.payload.title, event.payload.description, event.payload.context);
+				}),
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("session.decision.remove", (event) => {
+					void this.handleDecisionRemove(event.payload.sessionId, event.payload.decisionId);
+				}),
+			);
+
+			// Type configuration commands
+			this.unsubscribes.push(
+				this.eventBus.on("session.type.create", (event) => {
+					void this.handleTypeCreate(event.payload.config);
+				}),
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("session.type.configure", (event) => {
+					void this.handleTypeConfigure(event.payload.type, event.payload.config);
+				}),
+			);
 		}
 	}
 
@@ -254,6 +280,13 @@ export class SessionService {
 				}
 				if (!s.contextBindings) {
 					s.contextBindings = [];
+				}
+				if (!s.type) {
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					(s as any).type = "documentation";
+				}
+				if (!s.decisions) {
+					s.decisions = [];
 				}
 				// Migrate legacy links → context bindings
 				if (s.links.length > 0) {
@@ -397,6 +430,7 @@ export class SessionService {
 			durationMinutes: session.durationMinutes,
 			focusFile: session.focusFile ?? undefined,
 			goals: session.goals.length > 0 ? session.goals.map((g) => g.text) : undefined,
+			decisions: session.decisions.length > 0 ? session.decisions.map((d) => d.title) : undefined,
 		});
 	}
 
@@ -416,6 +450,7 @@ export class SessionService {
 			durationMinutes: session.durationMinutes,
 			focusFile: session.focusFile ?? undefined,
 			goals: session.goals.map((g) => g.text),
+			decisions: session.decisions.map((d) => d.title),
 		});
 	}
 
@@ -432,6 +467,7 @@ export class SessionService {
 			durationMinutes: tmpl.durationMinutes,
 			focusFile: tmpl.focusFile,
 			goals: tmpl.goals,
+			decisions: tmpl.decisions,
 		});
 	}
 
@@ -448,7 +484,7 @@ export class SessionService {
 
 	// ── Command handlers ─────────────────────────────────────
 
-	private async handleCreate(payload: { type: string; title: string; durationMinutes: number; focusFile?: string; goals?: string[] }): Promise<Session> {
+	private async handleCreate(payload: { type: string; title: string; durationMinutes: number; focusFile?: string; goals?: string[]; decisions?: string[] }): Promise<Session> {
 		const id = `session_${generateUUID()}`;
 		const session = createSession(
 			id,
@@ -466,6 +502,11 @@ export class SessionService {
 		// Populate goals from text strings if provided
 		if (payload.goals && payload.goals.length > 0) {
 			session.goals = payload.goals.map((text) => createGoal(`goal_${generateUUID()}`, text));
+		}
+
+		// Populate decisions from titles if provided (from template/rerun)
+		if (payload.decisions && payload.decisions.length > 0) {
+			session.decisions = payload.decisions.map((title) => createDecision(`dec_${generateUUID()}`, title, ""));
 		}
 
 		this.state.sessions.unshift(session);
@@ -711,6 +752,51 @@ export class SessionService {
 		binding.type = type;
 		await this.saveState();
 		await this.eventBus?.emit("session.context.typeChanged", { sessionId, bindingId, type });
+	}
+
+	// ── Decision handlers ─────────────────────────────────────
+
+	private async handleDecisionRecord(sessionId: string, title: string, description: string, context?: string): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session || !title.trim()) return;
+		if (session.decisions.length >= MAX_SESSION_DECISIONS) return;
+
+		const decision = createDecision(`dec_${generateUUID()}`, title.trim(), description.trim(), context?.trim() || undefined);
+		session.decisions.push(decision);
+		await this.saveState();
+		await this.eventBus?.emit("session.decision.recorded", { sessionId, decision: { ...decision } });
+	}
+
+	private async handleDecisionRemove(sessionId: string, decisionId: string): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session) return;
+
+		const idx = session.decisions.findIndex((d) => d.id === decisionId);
+		if (idx === -1) return;
+
+		session.decisions.splice(idx, 1);
+		await this.saveState();
+		await this.eventBus?.emit("session.decision.removed", { sessionId, decisionId });
+	}
+
+	// ── Type configuration handlers ─────────────────────────
+
+	private async handleTypeCreate(config: SessionTypeConfig): Promise<void> {
+		if (!config.type || !config.label) return;
+		// Don't allow overwriting built-in types via create
+		if (SESSION_TYPE_CONFIGS[config.type as keyof typeof SESSION_TYPE_CONFIGS]) return;
+
+		this.customSessionTypes[config.type] = { ...config };
+		await this.eventBus?.emit("settings.updateCustomSessionTypes", { types: { ...this.customSessionTypes } });
+		await this.eventBus?.emit("session.type.created", { config: { ...config } });
+	}
+
+	private async handleTypeConfigure(type: string, updates: Partial<SessionTypeConfig>): Promise<void> {
+		const existing = resolveTypeConfig(type as Session["type"], this.customSessionTypes);
+		const merged: SessionTypeConfig = { ...existing, ...updates, type: type as Session["type"] };
+		this.customSessionTypes[type] = merged;
+		await this.eventBus?.emit("settings.updateCustomSessionTypes", { types: { ...this.customSessionTypes } });
+		await this.eventBus?.emit("session.type.configured", { type: type as Session["type"], config: { ...merged } });
 	}
 
 	// ── Timer ────────────────────────────────────────────────

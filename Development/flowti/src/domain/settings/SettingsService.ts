@@ -1,5 +1,6 @@
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { IStorageProvider } from "../../utils/types";
+import { PathMutex } from "../../utils/mutex";
 import {
 	DEFAULT_SETTINGS,
 	FlowtiSettings,
@@ -37,6 +38,7 @@ export class SettingsService implements ISettingsService {
 	private storage: IStorageProvider;
 	private eventBus?: IEventBus;
 	private unsubscribes: (() => void)[] = [];
+	private readonly saveMutex = new PathMutex();
 
 	/**
 	 * Creates a new SettingsService instance.
@@ -75,6 +77,11 @@ export class SettingsService implements ISettingsService {
 			this.unsubscribes.push(
 				this.eventBus.on("settings.updateInboxEnabledSources", (event) => {
 					void this.updateSettings({ inboxEnabledSources: event.payload.sources });
+				})
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("settings.updateCustomSessionTypes", (event) => {
+					void this.updateSettings({ customSessionTypes: event.payload.types as FlowtiSettings["customSessionTypes"] });
 				})
 			);
 		}
@@ -166,14 +173,16 @@ export class SettingsService implements ISettingsService {
 	 * Preserves other data in storage (like user data).
 	 */
 	private async saveSettings(): Promise<void> {
-		try {
-			const existingData = ((await this.storage.load()) as object) || {};
-			await this.storage.save({
-				...existingData,
-				...this.settings,
-			});
-		} catch (err) {
-			console.error("[Flowti] Failed to save settings:", err);
-		}
+		await this.saveMutex.withLock("settings", async () => {
+			try {
+				const existingData = ((await this.storage.load()) as object) || {};
+				await this.storage.save({
+					...existingData,
+					...this.settings,
+				});
+			} catch (err) {
+				console.error("[Flowti] Failed to save settings:", err);
+			}
+		});
 	}
 }
