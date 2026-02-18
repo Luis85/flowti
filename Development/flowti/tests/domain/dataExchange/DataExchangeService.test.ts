@@ -415,6 +415,7 @@ describe("DataExchangeService", () => {
 				});
 
 				await bus.emit("file.renamed", {
+					path: "data/renamed.base",
 					oldPath: "data/views.base",
 					newPath: "data/renamed.base",
 					source: "obsidian",
@@ -437,6 +438,7 @@ describe("DataExchangeService", () => {
 				});
 
 				await bus.emit("file.renamed", {
+					path: "exports/report-v2.csv",
 					oldPath: "exports/report.csv",
 					newPath: "exports/report-v2.csv",
 					source: "obsidian",
@@ -459,6 +461,7 @@ describe("DataExchangeService", () => {
 				});
 
 				await bus.emit("file.renamed", {
+					path: "C:\\external\\moved.csv",
 					oldPath: "C:\\external\\report.csv",
 					newPath: "C:\\external\\moved.csv",
 					source: "obsidian",
@@ -481,6 +484,7 @@ describe("DataExchangeService", () => {
 				});
 
 				await bus.emit("file.renamed", {
+					path: "data/renamed.base",
 					oldPath: "data/views.base",
 					newPath: "data/renamed.base",
 					source: "obsidian",
@@ -507,6 +511,7 @@ describe("DataExchangeService", () => {
 				const callsBefore = saveSpy.mock.calls.length;
 
 				await bus.emit("file.renamed", {
+					path: "new.base",
 					oldPath: "old.base",
 					newPath: "new.base",
 					source: "obsidian",

@@ -4,9 +4,10 @@
  */
 
 import { setIcon } from "obsidian";
-import { getFilePropertyLabel, resolveFileProperty } from "./exportUtils";
+import { getFilePropertyLabel, resolveFileProperty, resolveColumnValue } from "./exportUtils";
 import { STRATEGY_LABELS } from "./types";
 import type { ExportComponentDeps } from "./types";
+import type { VaultFileInfo } from "../../domain/dataExchange/types";
 
 export class PreviewPage {
 	constructor(
@@ -20,20 +21,39 @@ export class PreviewPage {
 
 		const state = this.deps.getState();
 		const dn = state.displayNames;
-		const fileHeaders: { key: string; label: string }[] =
-			state.selectedFileProperties.map((key) => ({
-				key,
-				label: dn[key] ?? getFilePropertyLabel(key),
-			}));
-		const columnHeaders: { key: string; label: string }[] =
-			state.selectedColumns.map((col) => ({
-				key: col,
-				label: dn[col] ?? dn[`note.${col}`] ?? col,
-			}));
-		const allHeaders = [
-			...fileHeaders.map((h) => h.label),
-			...columnHeaders.map((h) => h.label),
-		];
+
+		// Unified column descriptors when available; legacy split otherwise
+		let allHeaders: string[];
+		let renderCell: (file: VaultFileInfo, colIndex: number) => string;
+
+		if (state.resolvedColumns && state.resolvedColumns.length > 0) {
+			const cols = state.resolvedColumns;
+			allHeaders = cols.map((rc) => rc.header);
+			renderCell = (file, i) => resolveColumnValue(file, cols[i]);
+		} else {
+			const fileHeaders: { key: string; label: string }[] =
+				state.selectedFileProperties.map((key) => ({
+					key,
+					label: dn[key] ?? getFilePropertyLabel(key),
+				}));
+			const columnHeaders: { key: string; label: string }[] =
+				state.selectedColumns.map((col) => ({
+					key: col,
+					label: dn[col] ?? dn[`note.${col}`] ?? col,
+				}));
+			allHeaders = [
+				...fileHeaders.map((h) => h.label),
+				...columnHeaders.map((h) => h.label),
+			];
+			renderCell = (file, i) => {
+				if (i < fileHeaders.length) {
+					return resolveFileProperty(file, fileHeaders[i].key);
+				}
+				const ch = columnHeaders[i - fileHeaders.length];
+				const val = file.frontmatter?.[ch.key];
+				return val !== undefined && val !== null ? String(val) : "";
+			};
+		}
 
 		// Action bar
 		const statsBar = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2" });
@@ -148,17 +168,8 @@ export class PreviewPage {
 
 		for (const file of previewSlice) {
 			const tr = tbody.createEl("tr");
-			for (const fh of fileHeaders) {
-				tr.createEl("td", { text: resolveFileProperty(file, fh.key) });
-			}
-			for (const ch of columnHeaders) {
-				const val = file.frontmatter?.[ch.key];
-				tr.createEl("td", {
-					text:
-						val !== undefined && val !== null
-							? String(val)
-							: "",
-				});
+			for (let i = 0; i < allHeaders.length; i++) {
+				tr.createEl("td", { text: renderCell(file, i) });
 			}
 		}
 

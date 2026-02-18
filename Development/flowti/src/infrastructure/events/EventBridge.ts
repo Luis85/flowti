@@ -474,6 +474,7 @@ export class EventBridge implements IEventBridge {
 				if (!this.cacheResolved) return;
 				if (file instanceof TFile) {
 					void this.eventBus.emit("file.renamed", {
+						path: file.path,
 						oldPath,
 						newPath: file.path,
 						source: "obsidian",

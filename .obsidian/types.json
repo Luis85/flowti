@@ -9,6 +9,7 @@
     "maturity_score_data_model": "number",
     "maturity_score_ui_consistency": "number",
     "maturity_score_validation_testing": "number",
-    "maturity_score_total": "number"
+    "maturity_score_total": "number",
+    "bar.baz": "date"
   }
 }

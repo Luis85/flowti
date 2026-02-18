@@ -609,6 +609,7 @@ describe("EventBridge", () => {
 			expect(handler).toHaveBeenCalledWith(
 				expect.objectContaining({
 					payload: {
+						path: "new-name.md",
 						oldPath: "old-name.md",
 						newPath: "new-name.md",
 						source: "obsidian",

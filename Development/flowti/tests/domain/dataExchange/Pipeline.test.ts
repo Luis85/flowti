@@ -484,6 +484,7 @@ describe("Pipeline", () => {
 			});
 
 			await eventBus.emit("file.renamed", {
+				path: "data/report-v2.csv",
 				oldPath: "data/report.csv",
 				newPath: "data/report-v2.csv",
 				source: "obsidian",

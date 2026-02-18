@@ -9,6 +9,7 @@ import type {
 	ExportFormat,
 	ExportResult,
 	ParsedBaseFile,
+	ResolvedColumn,
 	SavedExportConfig,
 	VaultFileInfo,
 } from "../../domain/dataExchange/types";
@@ -43,6 +44,7 @@ export interface ExportViewState {
 	previewFiles: VaultFileInfo[];
 	conflictStrategy: ExportConflictStrategy;
 	displayNames: Record<string, string>;
+	resolvedColumns: ResolvedColumn[] | null;
 	noteType: string;
 	exportResult: ExportResult | null;
 	exportError: string | null;

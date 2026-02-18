@@ -2311,7 +2311,7 @@ describe("SessionService", () => {
 			const handler = vi.fn();
 			eventBus.on("session.paths.updated", handler);
 
-			await eventBus.emit("file.renamed", { oldPath: "docs/old.md", newPath: "docs/new.md", source: "obsidian" as const });
+			await eventBus.emit("file.renamed", { path: "docs/new.md", oldPath: "docs/old.md", newPath: "docs/new.md", source: "obsidian" as const });
 
 			expect(service.getSessionById("s1")?.focusFile).toBe("docs/new.md");
 			expect(handler).toHaveBeenCalledOnce();
@@ -2329,6 +2329,7 @@ describe("SessionService", () => {
 			await service.load();
 
 			await eventBus.emit("file.renamed", {
+				path: "03 - Resources/Sessions/Renamed (abc123).md",
 				oldPath: "03 - Resources/Sessions/Test (abc123).md",
 				newPath: "03 - Resources/Sessions/Renamed (abc123).md",
 				source: "obsidian" as const,
@@ -2347,7 +2348,7 @@ describe("SessionService", () => {
 			service = new SessionService({ storage: mock.storage, eventBus });
 			await service.load();
 
-			await eventBus.emit("file.renamed", { oldPath: "canvas/old.canvas", newPath: "canvas/new.canvas", source: "obsidian" as const });
+			await eventBus.emit("file.renamed", { path: "canvas/new.canvas", oldPath: "canvas/old.canvas", newPath: "canvas/new.canvas", source: "obsidian" as const });
 
 			expect(service.getSessionById("s1")?.canvasFile).toBe("canvas/new.canvas");
 		});
@@ -2365,7 +2366,7 @@ describe("SessionService", () => {
 			service = new SessionService({ storage: mock.storage, eventBus });
 			await service.load();
 
-			await eventBus.emit("file.renamed", { oldPath: "docs/old.md", newPath: "docs/new.md", source: "obsidian" as const });
+			await eventBus.emit("file.renamed", { path: "docs/new.md", oldPath: "docs/old.md", newPath: "docs/new.md", source: "obsidian" as const });
 
 			expect(service.getSessionById("s1")?.contextBindings[0].path).toBe("docs/new.md");
 		});
@@ -2383,7 +2384,7 @@ describe("SessionService", () => {
 			service = new SessionService({ storage: mock.storage, eventBus });
 			await service.load();
 
-			await eventBus.emit("file.renamed", { oldPath: "docs/old.md", newPath: "docs/new.md", source: "obsidian" as const });
+			await eventBus.emit("file.renamed", { path: "docs/new.md", oldPath: "docs/old.md", newPath: "docs/new.md", source: "obsidian" as const });
 
 			expect(service.getSessionById("s1")?.artifacts[0].path).toBe("docs/new.md");
 		});
@@ -2399,7 +2400,7 @@ describe("SessionService", () => {
 			service = new SessionService({ storage: mock.storage, eventBus });
 			await service.load();
 
-			await eventBus.emit("file.renamed", { oldPath: "docs/old.md", newPath: "docs/new.md", source: "obsidian" as const });
+			await eventBus.emit("file.renamed", { path: "docs/new.md", oldPath: "docs/old.md", newPath: "docs/new.md", source: "obsidian" as const });
 
 			expect(service.getSavedTemplates()[0].focusFile).toBe("docs/new.md");
 		});
@@ -2417,7 +2418,7 @@ describe("SessionService", () => {
 			const handler = vi.fn();
 			eventBus.on("session.paths.updated", handler);
 
-			await eventBus.emit("file.renamed", { oldPath: "docs/old.md", newPath: "docs/new.md", source: "obsidian" as const });
+			await eventBus.emit("file.renamed", { path: "docs/new.md", oldPath: "docs/old.md", newPath: "docs/new.md", source: "obsidian" as const });
 
 			expect(service.getSessionById("s1")?.focusFile).toBe("docs/other.md");
 			expect(service.getSessionById("s1")?.notesFile).toBe("notes/keep.md");
@@ -2441,7 +2442,7 @@ describe("SessionService", () => {
 			const handler = vi.fn();
 			eventBus.on("session.paths.updated", handler);
 
-			await eventBus.emit("file.renamed", { oldPath: "docs/shared.md", newPath: "docs/moved.md", source: "obsidian" as const });
+			await eventBus.emit("file.renamed", { path: "docs/moved.md", oldPath: "docs/shared.md", newPath: "docs/moved.md", source: "obsidian" as const });
 
 			expect(service.getSessionById("s1")?.focusFile).toBe("docs/moved.md");
 			expect(service.getSessionById("s2")?.focusFile).toBe("docs/moved.md");

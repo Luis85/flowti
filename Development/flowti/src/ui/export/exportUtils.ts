@@ -2,7 +2,7 @@
  * Pure helper functions for the ExportView.
  */
 
-import type { FilePropertyDef, VaultFileInfo } from "../../domain/dataExchange/types";
+import type { FilePropertyDef, ResolvedColumn, VaultFileInfo } from "../../domain/dataExchange/types";
 import { STANDARD_FILE_PROPERTIES } from "../../domain/dataExchange/types";
 import { basename as pathBasename, dirname } from "../../utils/pathUtils";
 
@@ -30,6 +30,23 @@ export function resolveFileProperty(file: VaultFileInfo, key: string): string {
 		case "file.tags": return file.tags?.join(", ") ?? "";
 		default: return "";
 	}
+}
+
+/** Resolves a column value from a file using a ResolvedColumn descriptor. */
+export function resolveColumnValue(file: VaultFileInfo, rc: ResolvedColumn): string {
+	if (rc.source === "file") {
+		return resolveFileProperty(file, rc.resolveKey);
+	}
+	if (rc.source === "formula") {
+		if (rc.resolveSource === "file") {
+			return resolveFileProperty(file, rc.resolveKey);
+		}
+		const value = file.frontmatter?.[rc.resolveKey];
+		return value !== undefined && value !== null ? String(value) : "";
+	}
+	// frontmatter
+	const value = file.frontmatter?.[rc.resolveKey];
+	return value !== undefined && value !== null ? String(value) : "";
 }
 
 /** Extracts the filename portion of a path. */

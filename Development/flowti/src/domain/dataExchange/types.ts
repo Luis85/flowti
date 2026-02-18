@@ -112,6 +112,20 @@ export const STANDARD_FILE_PROPERTIES: readonly FilePropertyDef[] = [
 	{ key: "file.tags", label: "tags" },
 ];
 
+/** A single export column with resolution metadata for Base view exports. */
+export interface ResolvedColumn {
+	/** Unique key matching the view order entry (e.g. "file.name", "formula.Foo Bar", "baz.foo") */
+	key: string;
+	/** Display header for CSV output */
+	header: string;
+	/** Value resolution strategy */
+	source: "file" | "frontmatter" | "formula";
+	/** Key used to resolve the value (file.* key or frontmatter key) */
+	resolveKey: string;
+	/** For formulas: whether resolveKey targets a file property or frontmatter */
+	resolveSource?: "file" | "frontmatter";
+}
+
 /** Full configuration for an export operation. */
 export interface ExportConfig {
 	/** Source: folder path OR .base file path */
@@ -134,6 +148,8 @@ export interface ExportConfig {
 	isExternal?: boolean;
 	/** How to handle an existing output file (default: "overwrite") */
 	conflictStrategy?: ExportConflictStrategy;
+	/** Unified ordered columns for Base exports. Overrides columns[]+fileProperties[] when present. */
+	resolvedColumns?: ResolvedColumn[];
 }
 
 // ── Export result ───────────────────────────────────────

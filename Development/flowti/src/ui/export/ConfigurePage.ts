@@ -202,47 +202,72 @@ export class ConfigurePage {
 		// ── Right panel: all properties ──
 		const content = split.createDiv({ cls: "ft-config-content" });
 
-		const header = content.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });
-		header.createEl("h3", { text: "Properties", cls: "ft-heading ft-heading-sm" });
-		header.addClass("ft-flex-1");
+		if (state.resolvedColumns && state.resolvedColumns.length > 0) {
+			// Read-only view columns for Base exports with resolved columns
+			const header = content.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });
+			header.createEl("h3", { text: "View Columns", cls: "ft-heading ft-heading-sm" });
+			header.addClass("ft-flex-1");
 
-		// Select all / deselect all
-		if (state.availableColumns.length > 0) {
-			const selectAllBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-			selectAllBtn.textContent = "All";
-			selectAllBtn.addEventListener("click", () => {
-				this.deps.setState({
-					selectedColumns: [...state.availableColumns],
-					selectedFileProperties: STANDARD_FILE_PROPERTIES.map((fp) => fp.key),
+			const info = content.createDiv({ cls: "ft-text-sm ft-text-muted ft-mb-3" });
+			info.textContent = "Columns defined by Base view (read-only)";
+
+			const grid = content.createDiv({ cls: "ft-property-grid" });
+			for (const rc of state.resolvedColumns) {
+				const item = grid.createDiv({ cls: "ft-property-item" });
+				const cb = item.createEl("input", { type: "checkbox" });
+				cb.checked = true;
+				cb.disabled = true;
+				const label = item.createSpan({ text: rc.header });
+				if (rc.source === "file") {
+					label.createSpan({ text: " (file)", cls: "ft-text-muted ft-text-xs" });
+				} else if (rc.source === "formula") {
+					label.createSpan({ text: " (formula)", cls: "ft-text-muted ft-text-xs" });
+				}
+			}
+		} else {
+			// Legacy editable property grid for folder exports / base without order
+			const header = content.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });
+			header.createEl("h3", { text: "Properties", cls: "ft-heading ft-heading-sm" });
+			header.addClass("ft-flex-1");
+
+			// Select all / deselect all
+			if (state.availableColumns.length > 0) {
+				const selectAllBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+				selectAllBtn.textContent = "All";
+				selectAllBtn.addEventListener("click", () => {
+					this.deps.setState({
+						selectedColumns: [...state.availableColumns],
+						selectedFileProperties: STANDARD_FILE_PROPERTIES.map((fp) => fp.key),
+					});
+					this.render();
 				});
-				this.render();
+
+				const deselectAllBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+				deselectAllBtn.textContent = "None";
+				deselectAllBtn.addEventListener("click", () => {
+					this.deps.setState({
+						selectedColumns: [],
+						selectedFileProperties: [],
+					});
+					this.render();
+				});
+			}
+
+			// Search
+			const search = content.createEl("input", {
+				type: "text",
+				cls: "ft-column-search",
+			});
+			search.placeholder = "Search properties...";
+			search.value = state.propertySearchText;
+			search.addEventListener("input", () => {
+				this.deps.setState({ propertySearchText: search.value });
+				this.renderPropertyGrid(gridContainer);
 			});
 
-			const deselectAllBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-			deselectAllBtn.textContent = "None";
-			deselectAllBtn.addEventListener("click", () => {
-				this.deps.setState({
-					selectedColumns: [],
-					selectedFileProperties: [],
-				});
-				this.render();
-			});
-		}
-
-		// Search
-		const search = content.createEl("input", {
-			type: "text",
-			cls: "ft-column-search",
-		});
-		search.placeholder = "Search properties...";
-		search.value = state.propertySearchText;
-		search.addEventListener("input", () => {
-			this.deps.setState({ propertySearchText: search.value });
+			const gridContainer = content.createDiv();
 			this.renderPropertyGrid(gridContainer);
-		});
-
-		const gridContainer = content.createDiv();
-		this.renderPropertyGrid(gridContainer);
+		}
 	}
 
 	private renderPropertyGrid(container: HTMLElement): void {

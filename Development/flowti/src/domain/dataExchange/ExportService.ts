@@ -15,6 +15,7 @@ import type {
 	ExportConfig,
 	ExportResult,
 	ParsedBaseFile,
+	ResolvedColumn,
 	VaultFileInfo,
 } from "./types";
 import { STANDARD_FILE_PROPERTIES } from "./types";
@@ -122,7 +123,10 @@ export class ExportService {
 	/**
 	 * Normalizes base view column references to clean property names.
 	 * - `note.stage` → `stage`
-	 * - `formula.X` → resolves via formulas map (e.g. `formula.foo` with `foo: description` → `description`)
+	 * - `formula.X` → resolves via formulas map:
+	 *   - simple property: `foo: price` → `price`
+	 *   - prop() reference: `foo: prop("price")` → `price`
+	 *   - compound formula: `foo: prop("a") * prop("b")` → `foo` (formula name)
 	 * - `file.*` → filtered out (handled by fileProperties section)
 	 * - `domain` → `domain` (direct property)
 	 */
@@ -138,15 +142,88 @@ export class ExportService {
 			} else if (col.startsWith("formula.")) {
 				const formulaName = col.slice(8);
 				const expression = formulas?.[formulaName];
-				// If the formula resolves to a simple property name, use it
-				if (expression && /^[\w.]+$/.test(expression)) {
-					result.push(expression);
+				if (expression) {
+					const resolved = this.resolveFormulaExpression(expression);
+					result.push(resolved ?? formulaName);
 				} else {
-					// Fallback: use formula name as-is
 					result.push(formulaName);
 				}
 			} else {
 				result.push(col);
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * Attempts to resolve a formula expression to a frontmatter property name.
+	 * Returns the property name if resolvable, or null for compound formulas.
+	 */
+	private resolveFormulaExpression(expression: string): string | null {
+		// Simple property reference: `price`, `status.value`
+		if (/^[\w.]+$/.test(expression)) {
+			return expression;
+		}
+		// Single prop() reference: `prop("price")` or `prop('price')`
+		const propMatch = expression.match(/^prop\(["']([^"']+)["']\)$/);
+		if (propMatch) {
+			return propMatch[1];
+		}
+		// Compound formula — cannot resolve to a single property
+		return null;
+	}
+
+	/**
+	 * Resolves a formula column entry into a ResolvedColumn descriptor.
+	 * Determines whether the formula targets a file property or frontmatter.
+	 */
+	private resolveFormulaColumn(
+		key: string,
+		formulaName: string,
+		expression: string | undefined,
+	): ResolvedColumn {
+		if (!expression) {
+			return {
+				key,
+				header: formulaName,
+				source: "formula",
+				resolveKey: formulaName,
+				resolveSource: "frontmatter",
+			};
+		}
+
+		const resolved = this.resolveFormulaExpression(expression);
+		if (resolved && resolved.startsWith("file.")) {
+			return {
+				key,
+				header: formulaName,
+				source: "formula",
+				resolveKey: resolved,
+				resolveSource: "file",
+			};
+		}
+
+		return {
+			key,
+			header: formulaName,
+			source: "formula",
+			resolveKey: resolved ?? formulaName,
+			resolveSource: "frontmatter",
+		};
+	}
+
+	/**
+	 * Builds a displayName lookup map from a base file's properties section.
+	 * Keys are the raw property keys (e.g. "note.baz.foo", "file.folder").
+	 */
+	private buildDisplayNameMap(
+		properties?: Record<string, { displayName?: string }>,
+	): Record<string, string> {
+		const result: Record<string, string> = {};
+		if (!properties) return result;
+		for (const [key, config] of Object.entries(properties)) {
+			if (config.displayName) {
+				result[key] = config.displayName;
 			}
 		}
 		return result;
@@ -185,6 +262,50 @@ export class ExportService {
 				result[key] = config.displayName;
 			}
 		}
+		return result;
+	}
+
+	/**
+	 * Scans a Base view and returns unified ResolvedColumn descriptors
+	 * preserving the exact column order, headers, and value resolution.
+	 * Returns null if the view has no `order` array (caller falls back to legacy scan).
+	 */
+	async scanResolvedColumns(
+		sourcePath: string,
+		viewIndex: number,
+	): Promise<ResolvedColumn[] | null> {
+		const content = await this.fileSystem.readFile(sourcePath);
+		const baseFile = this.baseEngine.parseBaseFile(content);
+		const viewColumns = this.baseEngine.getViewColumns(baseFile, viewIndex);
+		if (!viewColumns || viewColumns.length === 0) return null;
+
+		const dnMap = this.buildDisplayNameMap(baseFile.properties);
+		const result: ResolvedColumn[] = [];
+
+		for (const col of viewColumns) {
+			if (col.startsWith("file.")) {
+				result.push({
+					key: col,
+					header: dnMap[col] ?? this.filePropertyLabel(col),
+					source: "file",
+					resolveKey: col,
+				});
+			} else if (col.startsWith("formula.")) {
+				const formulaName = col.slice(8);
+				const expression = baseFile.formulas?.[formulaName];
+				result.push(this.resolveFormulaColumn(col, formulaName, expression));
+			} else {
+				// Bare property (e.g. "baz.foo") or note-prefixed (e.g. "note.stage")
+				const propKey = col.startsWith("note.") ? col.slice(5) : col;
+				result.push({
+					key: col,
+					header: dnMap[`note.${propKey}`] ?? dnMap[col] ?? propKey,
+					source: "frontmatter",
+					resolveKey: propKey,
+				});
+			}
+		}
+
 		return result;
 	}
 
@@ -228,27 +349,41 @@ export class ExportService {
 			config.baseViewIndex,
 		);
 
-		// Build headers: displayNames override → clean label fallback
-		const dn = config.displayNames ?? {};
-		const headers = [
-			...config.fileProperties.map((fp) => dn[fp] ?? this.filePropertyLabel(fp)),
-			...config.columns.map((col) => dn[col] ?? dn[`note.${col}`] ?? col),
-		];
+		let headers: string[];
+		let rows: Array<Record<string, string>>;
 
-		// Build row data (keyed by header labels)
-		const rows: Array<Record<string, string>> = [];
-		for (const file of files) {
-			const row: Record<string, string> = {};
-			for (let i = 0; i < config.fileProperties.length; i++) {
-				row[headers[i]] = this.resolveFileProperty(file, config.fileProperties[i]);
+		if (config.resolvedColumns && config.resolvedColumns.length > 0) {
+			// Unified column path for Base view exports
+			headers = config.resolvedColumns.map((rc) => rc.header);
+			rows = files.map((file) => {
+				const row: Record<string, string> = {};
+				for (const rc of config.resolvedColumns!) {
+					row[rc.header] = this.resolveColumnValue(file, rc);
+				}
+				return row;
+			});
+		} else {
+			// Legacy dual-array path for folder exports
+			const dn = config.displayNames ?? {};
+			headers = [
+				...config.fileProperties.map((fp) => dn[fp] ?? this.filePropertyLabel(fp)),
+				...config.columns.map((col) => dn[col] ?? dn[`note.${col}`] ?? col),
+			];
+
+			rows = [];
+			for (const file of files) {
+				const row: Record<string, string> = {};
+				for (let i = 0; i < config.fileProperties.length; i++) {
+					row[headers[i]] = this.resolveFileProperty(file, config.fileProperties[i]);
+				}
+				const fpCount = config.fileProperties.length;
+				for (let i = 0; i < config.columns.length; i++) {
+					const value = file.frontmatter?.[config.columns[i]];
+					row[headers[fpCount + i]] =
+						value !== undefined && value !== null ? String(value) : "";
+				}
+				rows.push(row);
 			}
-			const fpCount = config.fileProperties.length;
-			for (let i = 0; i < config.columns.length; i++) {
-				const value = file.frontmatter?.[config.columns[i]];
-				row[headers[fpCount + i]] =
-					value !== undefined && value !== null ? String(value) : "";
-			}
-			rows.push(row);
 		}
 
 		// Generate output content
@@ -323,6 +458,25 @@ export class ExportService {
 			case "file.tags": return file.tags?.join(", ") ?? "";
 			default: return "";
 		}
+	}
+
+	/**
+	 * Resolves a column value from a file using a ResolvedColumn descriptor.
+	 */
+	private resolveColumnValue(file: VaultFileInfo, rc: ResolvedColumn): string {
+		if (rc.source === "file") {
+			return this.resolveFileProperty(file, rc.resolveKey);
+		}
+		if (rc.source === "formula") {
+			if (rc.resolveSource === "file") {
+				return this.resolveFileProperty(file, rc.resolveKey);
+			}
+			const value = file.frontmatter?.[rc.resolveKey];
+			return value !== undefined && value !== null ? String(value) : "";
+		}
+		// frontmatter
+		const value = file.frontmatter?.[rc.resolveKey];
+		return value !== undefined && value !== null ? String(value) : "";
 	}
 
 	// ── Private ─────────────────────────────────────────────

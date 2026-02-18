@@ -163,6 +163,19 @@ describe("IngestionService", () => {
 			expect(key1).toBe("file.created::Reports/jan.csv");
 		});
 
+		it("should generate deterministic keys for pathless events (TD-62)", () => {
+			const key1 = service.generateEventKey("settings.changed");
+			const key2 = service.generateEventKey("settings.changed");
+			expect(key1).toBe(key2);
+			expect(key1).toBe("settings.changed::no-path");
+		});
+
+		it("should generate different no-path keys for different event types (TD-62)", () => {
+			const key1 = service.generateEventKey("settings.changed");
+			const key2 = service.generateEventKey("user.logged-in");
+			expect(key1).not.toBe(key2);
+		});
+
 		it("should generate different keys for different paths", () => {
 			const key1 = service.generateEventKey("file.created", "a.md");
 			const key2 = service.generateEventKey("file.created", "b.md");

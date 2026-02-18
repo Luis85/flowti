@@ -1,6 +1,11 @@
 filters:
   and:
     - file.inFolder("00 - Connectivity/inbox")
+formulas:
+  Foo Bar: file.name
+properties:
+  note.baz.foo:
+    displayName: Baz Foo
 views:
   - type: table
     name: New
@@ -43,3 +48,16 @@ views:
       note.stage: 95
       note.priority: 111
       note.rank: 74
+  - type: table
+    name: Test Export View
+    order:
+      - file.name
+      - formula.Foo Bar
+      - baz.foo
+      - bar.baz
+    sort:
+      - property: baz.foo
+        direction: DESC
+    columnSize:
+      file.name: 751
+      formula.Foo Bar: 119

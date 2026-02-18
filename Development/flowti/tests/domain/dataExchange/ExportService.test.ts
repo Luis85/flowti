@@ -3,7 +3,7 @@ import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { ExportService } from "../../../src/domain/dataExchange/ExportService";
 import type { IFileSystemClient } from "../../../src/infrastructure/filesystem/types";
-import type { ExportConfig, VaultFileInfo } from "../../../src/domain/dataExchange/types";
+import type { ExportConfig, ResolvedColumn, VaultFileInfo } from "../../../src/domain/dataExchange/types";
 import { createMockFileSystemStub as createMockFileSystem } from "../../mocks/filesystem";
 
 function makeFiles(): VaultFileInfo[] {
@@ -142,6 +142,66 @@ views:
 			expect(columns).toContain("total");
 			expect(columns).toContain("discount");
 			expect(columns).not.toContain("formula.total");
+		});
+
+		it("should resolve prop() formula expressions to property names", async () => {
+			const baseYaml = `formulas:
+  Total: 'prop("price")'
+  Label: "prop('description')"
+views:
+  - type: table
+    name: Items
+    order:
+      - formula.Total
+      - formula.Label`;
+
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockResolvedValue(baseYaml);
+
+			const columns = await service.scanColumns("items.base", "base", 0);
+
+			// prop("price") → price, prop('description') → description
+			expect(columns).toContain("price");
+			expect(columns).toContain("description");
+			expect(columns).not.toContain("Total");
+			expect(columns).not.toContain("Label");
+		});
+
+		it("should fall back to formula name for compound formulas", async () => {
+			const baseYaml = `formulas:
+  ProductValue: 'prop("price") * prop("quantity")'
+  Status: 'if(prop("done"), "yes", "no")'
+views:
+  - type: table
+    name: Items
+    order:
+      - formula.ProductValue
+      - formula.Status`;
+
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockResolvedValue(baseYaml);
+
+			const columns = await service.scanColumns("items.base", "base", 0);
+
+			// Compound formulas can't resolve to a single property
+			expect(columns).toContain("ProductValue");
+			expect(columns).toContain("Status");
+		});
+
+		it("should preserve view column order for base sources", async () => {
+			const baseYaml = `views:
+  - type: table
+    name: Items
+    order:
+      - note.category
+      - note.type
+      - domain
+      - note.price`;
+
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockResolvedValue(baseYaml);
+
+			const columns = await service.scanColumns("items.base", "base", 0);
+
+			// Order should match the view's order array, not alphabetical
+			expect(columns).toEqual(["category", "type", "domain", "price"]);
 		});
 
 		it("should fall back to frontmatter scan when base view has no order", async () => {
@@ -392,6 +452,47 @@ views:
 
 			// Only .md files should be included (readme.txt filtered out)
 			expect(result.totalRows).toBe(2);
+		});
+
+		it("should export formula-resolved columns with actual frontmatter values", async () => {
+			const baseYaml = `filters:
+  and:
+    - file.ext == "md"
+formulas:
+  Total: 'prop("price")'
+views:
+  - type: table
+    name: Items
+    order:
+      - file.name
+      - formula.Total`;
+
+			// First call: base file parse (resolveFiles). Second call: output file check (should not exist).
+			(fileSystem.readFile as ReturnType<typeof vi.fn>)
+				.mockResolvedValueOnce(baseYaml)
+				.mockResolvedValueOnce(baseYaml)
+				.mockRejectedValue(new Error("Not found"));
+
+			// scanColumns resolves formula.Total → "price"
+			const columns = await service.scanColumns("items.base", "base", 0);
+			expect(columns).toContain("price");
+
+			const config: ExportConfig = {
+				sourcePath: "items.base",
+				sourceType: "base",
+				format: "csv",
+				outputPath: "exports/items.csv",
+				columns: ["price"],
+				fileProperties: ["file.name"],
+				baseViewIndex: 0,
+			};
+
+			await service.executeExport(config);
+
+			const content = (fileSystem.createFile as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+			// Should contain actual price values from frontmatter
+			expect(content).toContain("19.99");
+			expect(content).toContain("49.99");
 		});
 	});
 
@@ -684,6 +785,289 @@ views:
 			expect(result.skipped).toBeUndefined();
 			expect(result.totalRows).toBe(3);
 			expect(fileSystem.createFile).toHaveBeenCalledOnce();
+		});
+	});
+
+	describe("scanResolvedColumns", () => {
+		it("should return ResolvedColumn array for a view with mixed column types", async () => {
+			const baseYaml = `formulas:
+  Foo Bar: file.name
+properties:
+  note.baz.foo:
+    displayName: Baz Foo
+views:
+  - type: table
+    name: Test View
+    order:
+      - file.name
+      - formula.Foo Bar
+      - baz.foo
+      - bar.baz`;
+
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockResolvedValue(baseYaml);
+
+			const result = await service.scanResolvedColumns("test.base", 0);
+
+			expect(result).not.toBeNull();
+			expect(result).toHaveLength(4);
+
+			// file.name → file property
+			expect(result![0]).toEqual({
+				key: "file.name",
+				header: "name",
+				source: "file",
+				resolveKey: "file.name",
+			});
+
+			// formula.Foo Bar → formula resolving to file.name
+			expect(result![1]).toEqual({
+				key: "formula.Foo Bar",
+				header: "Foo Bar",
+				source: "formula",
+				resolveKey: "file.name",
+				resolveSource: "file",
+			});
+
+			// baz.foo → frontmatter with displayName "Baz Foo"
+			expect(result![2]).toEqual({
+				key: "baz.foo",
+				header: "Baz Foo",
+				source: "frontmatter",
+				resolveKey: "baz.foo",
+			});
+
+			// bar.baz → bare frontmatter, no displayName
+			expect(result![3]).toEqual({
+				key: "bar.baz",
+				header: "bar.baz",
+				source: "frontmatter",
+				resolveKey: "bar.baz",
+			});
+		});
+
+		it("should resolve formula with prop() to frontmatter", async () => {
+			const baseYaml = `formulas:
+  Total: 'prop("price")'
+views:
+  - type: table
+    name: Items
+    order:
+      - formula.Total`;
+
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockResolvedValue(baseYaml);
+
+			const result = await service.scanResolvedColumns("test.base", 0);
+
+			expect(result).toHaveLength(1);
+			expect(result![0]).toEqual({
+				key: "formula.Total",
+				header: "Total",
+				source: "formula",
+				resolveKey: "price",
+				resolveSource: "frontmatter",
+			});
+		});
+
+		it("should fall back to formula name for compound formulas", async () => {
+			const baseYaml = `formulas:
+  Revenue: 'prop("price") * prop("quantity")'
+views:
+  - type: table
+    name: Items
+    order:
+      - formula.Revenue`;
+
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockResolvedValue(baseYaml);
+
+			const result = await service.scanResolvedColumns("test.base", 0);
+
+			expect(result).toHaveLength(1);
+			expect(result![0]).toEqual({
+				key: "formula.Revenue",
+				header: "Revenue",
+				source: "formula",
+				resolveKey: "Revenue",
+				resolveSource: "frontmatter",
+			});
+		});
+
+		it("should use displayName from properties section for headers", async () => {
+			const baseYaml = `properties:
+  note.stage:
+    displayName: Phase
+  note.category:
+    displayName: Kategorie
+views:
+  - type: table
+    name: Items
+    order:
+      - note.stage
+      - note.category
+      - domain`;
+
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockResolvedValue(baseYaml);
+
+			const result = await service.scanResolvedColumns("test.base", 0);
+
+			expect(result).toHaveLength(3);
+			expect(result![0].header).toBe("Phase");
+			expect(result![1].header).toBe("Kategorie");
+			expect(result![2].header).toBe("domain"); // no displayName
+		});
+
+		it("should return null when view has no order", async () => {
+			const baseYaml = `views:
+  - type: table
+    name: Items`;
+
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockResolvedValue(baseYaml);
+
+			const result = await service.scanResolvedColumns("test.base", 0);
+
+			expect(result).toBeNull();
+		});
+
+		it("should preserve exact view column order", async () => {
+			const baseYaml = `views:
+  - type: table
+    name: Items
+    order:
+      - file.path
+      - domain
+      - note.category
+      - file.name`;
+
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockResolvedValue(baseYaml);
+
+			const result = await service.scanResolvedColumns("test.base", 0);
+
+			expect(result!.map((rc) => rc.key)).toEqual([
+				"file.path", "domain", "note.category", "file.name",
+			]);
+		});
+
+		it("should handle formula with no formulas section", async () => {
+			const baseYaml = `views:
+  - type: table
+    name: Items
+    order:
+      - formula.Unknown`;
+
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockResolvedValue(baseYaml);
+
+			const result = await service.scanResolvedColumns("test.base", 0);
+
+			expect(result).toHaveLength(1);
+			expect(result![0]).toEqual({
+				key: "formula.Unknown",
+				header: "Unknown",
+				source: "formula",
+				resolveKey: "Unknown",
+				resolveSource: "frontmatter",
+			});
+		});
+	});
+
+	describe("executeExport with resolvedColumns", () => {
+		it("should produce correct headers and values from resolved columns", async () => {
+			const baseYaml = `filters:
+  and:
+    - file.ext == "md"
+views:
+  - type: table
+    name: Items`;
+
+			(fileSystem.readFile as ReturnType<typeof vi.fn>)
+				.mockResolvedValueOnce(baseYaml)
+				.mockRejectedValue(new Error("Not found"));
+
+			const resolvedColumns: ResolvedColumn[] = [
+				{ key: "file.name", header: "name", source: "file", resolveKey: "file.name" },
+				{ key: "formula.Foo Bar", header: "Foo Bar", source: "formula", resolveKey: "file.name", resolveSource: "file" },
+				{ key: "baz.foo", header: "Baz Foo", source: "frontmatter", resolveKey: "baz.foo" },
+				{ key: "bar.baz", header: "bar.baz", source: "frontmatter", resolveKey: "bar.baz" },
+			];
+
+			const config: ExportConfig = {
+				sourcePath: "items.base",
+				sourceType: "base",
+				format: "csv",
+				outputPath: "exports/items.csv",
+				columns: [],
+				fileProperties: [],
+				baseViewIndex: 0,
+				resolvedColumns,
+			};
+
+			const result = await service.executeExport(config);
+
+			expect(result.totalRows).toBe(2); // only .md files
+			expect(result.totalColumns).toBe(4);
+
+			const content = (fileSystem.createFile as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+			const firstLine = content.split("\n")[0].replace(/\r$/, "");
+			// Headers: CSV-quoted where names contain spaces
+			expect(firstLine).toContain("name");
+			expect(firstLine).toContain("Foo Bar");
+			expect(firstLine).toContain("Baz Foo");
+			expect(firstLine).toContain("bar.baz");
+			// Foo Bar formula resolves to file.name → should have basename values
+			expect(content).toContain("widget");
+			expect(content).toContain("gadget");
+		});
+
+		it("should resolve formula column targeting frontmatter", async () => {
+			const baseYaml = `filters:
+  and:
+    - file.ext == "md"
+views:
+  - type: table
+    name: Items`;
+
+			(fileSystem.readFile as ReturnType<typeof vi.fn>)
+				.mockResolvedValueOnce(baseYaml)
+				.mockRejectedValue(new Error("Not found"));
+
+			const resolvedColumns: ResolvedColumn[] = [
+				{ key: "file.name", header: "name", source: "file", resolveKey: "file.name" },
+				{ key: "formula.Total", header: "Total", source: "formula", resolveKey: "price", resolveSource: "frontmatter" },
+			];
+
+			const config: ExportConfig = {
+				sourcePath: "items.base",
+				sourceType: "base",
+				format: "csv",
+				outputPath: "exports/items.csv",
+				columns: [],
+				fileProperties: [],
+				baseViewIndex: 0,
+				resolvedColumns,
+			};
+
+			await service.executeExport(config);
+
+			const content = (fileSystem.createFile as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+			expect(content).toContain("19.99");
+			expect(content).toContain("49.99");
+			const firstLine = content.split("\n")[0].replace(/\r$/, "");
+			expect(firstLine).toContain("name");
+			expect(firstLine).toContain("Total");
+		});
+
+		it("should fall back to legacy path when resolvedColumns is undefined", async () => {
+			const config: ExportConfig = {
+				sourcePath: "items",
+				sourceType: "folder",
+				format: "csv",
+				outputPath: "exports/items.csv",
+				columns: ["type"],
+				fileProperties: ["file.name"],
+			};
+
+			const result = await service.executeExport(config);
+
+			expect(result.totalRows).toBe(3);
+			expect(result.totalColumns).toBe(2);
 		});
 	});
 

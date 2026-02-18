@@ -272,6 +272,8 @@ export interface FlowtiEventMap extends UserEventMap, SettingsEventMap, Installe
 
 	/** Notification: A file was renamed externally */
 	"file.renamed": {
+		/** Canonical path (= newPath) for generic path extraction compatibility */
+		path: string;
 		/** Original path before rename */
 		oldPath: string;
 		/** New path after rename */

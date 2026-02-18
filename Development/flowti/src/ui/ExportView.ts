@@ -15,6 +15,7 @@ import type { ExportService } from "../domain/dataExchange/ExportService";
 import type {
 	ExportResult,
 	ParsedBaseFile,
+	ResolvedColumn,
 	SavedExportConfig,
 	VaultFileInfo,
 } from "../domain/dataExchange/types";
@@ -65,6 +66,7 @@ export class ExportView extends ItemView {
 	private previewFiles: VaultFileInfo[] = [];
 	private conflictStrategy: "overwrite" | "skip" | "append" = "overwrite";
 	private displayNames: Record<string, string> = {};
+	private resolvedColumns: ResolvedColumn[] | null = null;
 	private noteType = "";
 	private exportResult: ExportResult | null = null;
 	private exportError: string | null = null;
@@ -250,6 +252,7 @@ export class ExportView extends ItemView {
 			previewFiles: this.previewFiles,
 			conflictStrategy: this.conflictStrategy,
 			displayNames: this.displayNames,
+			resolvedColumns: this.resolvedColumns,
 			noteType: this.noteType,
 			exportResult: this.exportResult,
 			exportError: this.exportError,
@@ -275,6 +278,7 @@ export class ExportView extends ItemView {
 		if (partial.previewFiles !== undefined) this.previewFiles = partial.previewFiles;
 		if (partial.conflictStrategy !== undefined) this.conflictStrategy = partial.conflictStrategy;
 		if (partial.displayNames !== undefined) this.displayNames = partial.displayNames;
+		if (partial.resolvedColumns !== undefined) this.resolvedColumns = partial.resolvedColumns;
 		if (partial.noteType !== undefined) this.noteType = partial.noteType;
 		if (partial.exportResult !== undefined) this.exportResult = partial.exportResult;
 		if (partial.exportError !== undefined) this.exportError = partial.exportError;
@@ -515,6 +519,7 @@ export class ExportView extends ItemView {
 					: undefined,
 				isExternal: this.isExternal || undefined,
 				conflictStrategy: this.conflictStrategy,
+				resolvedColumns: this.resolvedColumns ?? undefined,
 			});
 			// Auto-save config on first export if none exists for this source
 			await this.autoSaveConfigIfNeeded();
@@ -605,12 +610,6 @@ export class ExportView extends ItemView {
 	}
 
 	private async loadColumnsAndPreview(): Promise<void> {
-		this.availableColumns = await this.exportService.scanColumns(
-			this.sourcePath,
-			this.sourceType,
-			this.baseViewIndex,
-		);
-		this.selectedColumns = [...this.availableColumns];
 		this.previewFiles = await this.exportService.resolveExportFiles(
 			this.sourcePath,
 			this.sourceType,
@@ -618,17 +617,55 @@ export class ExportView extends ItemView {
 		);
 
 		if (this.sourceType === "base") {
+			// Try unified resolved columns first (preserves view order and headers)
+			this.resolvedColumns = await this.exportService.scanResolvedColumns(
+				this.sourcePath,
+				this.baseViewIndex,
+			);
+
+			if (this.resolvedColumns) {
+				// Derive legacy fields for backward compatibility with ConfigurePage
+				this.availableColumns = this.resolvedColumns
+					.filter((rc) => rc.source !== "file")
+					.map((rc) => rc.resolveKey);
+				this.selectedColumns = [...this.availableColumns];
+				this.selectedFileProperties = this.resolvedColumns
+					.filter((rc) => rc.source === "file" || (rc.source === "formula" && rc.resolveSource === "file"))
+					.map((rc) => rc.resolveKey);
+				this.displayNames = {};
+				for (const rc of this.resolvedColumns) {
+					if (rc.header !== rc.resolveKey) {
+						this.displayNames[rc.key] = rc.header;
+					}
+				}
+				return;
+			}
+
+			// Fallback: legacy scan when view has no order
+			this.availableColumns = await this.exportService.scanColumns(
+				this.sourcePath,
+				this.sourceType,
+				this.baseViewIndex,
+			);
+			this.selectedColumns = [...this.availableColumns];
 			const viewFileProps =
 				await this.exportService.scanViewFileProperties(
 					this.sourcePath,
 					this.baseViewIndex,
 				);
-			// Respect the view's explicit configuration — no forced defaults
 			this.selectedFileProperties = viewFileProps;
-
 			this.displayNames =
 				await this.exportService.scanDisplayNames(this.sourcePath);
+			return;
 		}
+
+		// Folder source: scan frontmatter
+		this.resolvedColumns = null;
+		this.availableColumns = await this.exportService.scanColumns(
+			this.sourcePath,
+			this.sourceType,
+		);
+		this.selectedColumns = [...this.availableColumns];
 	}
 
 	// ── Unsaved changes tracking ────────────────────────────

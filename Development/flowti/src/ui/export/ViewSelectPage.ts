@@ -48,29 +48,63 @@ export class ViewSelectPage {
 		setIcon(nextBtn.createSpan({ cls: "flowti-csv-btn-icon" }), "arrow-right");
 		nextBtn.appendText(" Configure");
 		nextBtn.addEventListener("click", async () => {
-			const cols = await this.deps.exportService.scanColumns(
-				state.sourcePath,
-				state.sourceType,
-				state.baseViewIndex,
-			);
 			const files = await this.deps.exportService.resolveExportFiles(
 				state.sourcePath,
 				state.sourceType,
 				state.baseViewIndex,
 			);
-			const viewFileProps = await this.deps.exportService.scanViewFileProperties(
+
+			// Try unified resolved columns (preserves view order and headers)
+			const resolved = await this.deps.exportService.scanResolvedColumns(
 				state.sourcePath,
 				state.baseViewIndex,
 			);
-			const displayNames = await this.deps.exportService.scanDisplayNames(state.sourcePath);
-			this.deps.setState({
-				availableColumns: cols,
-				selectedColumns: [...cols],
-				previewFiles: files,
-				selectedFileProperties: viewFileProps,
-				displayNames,
-				currentPage: "configure",
-			});
+
+			if (resolved) {
+				const availableColumns = resolved
+					.filter((rc) => rc.source !== "file")
+					.map((rc) => rc.resolveKey);
+				const fileProps = resolved
+					.filter((rc) => rc.source === "file" || (rc.source === "formula" && rc.resolveSource === "file"))
+					.map((rc) => rc.resolveKey);
+				const displayNames: Record<string, string> = {};
+				for (const rc of resolved) {
+					if (rc.header !== rc.resolveKey) {
+						displayNames[rc.key] = rc.header;
+					}
+				}
+				this.deps.setState({
+					availableColumns,
+					selectedColumns: [...availableColumns],
+					previewFiles: files,
+					selectedFileProperties: fileProps,
+					resolvedColumns: resolved,
+					displayNames,
+					currentPage: "configure",
+				});
+			} else {
+				// Fallback: legacy scan
+				const cols = await this.deps.exportService.scanColumns(
+					state.sourcePath,
+					state.sourceType,
+					state.baseViewIndex,
+				);
+				const viewFileProps = await this.deps.exportService.scanViewFileProperties(
+					state.sourcePath,
+					state.baseViewIndex,
+				);
+				const displayNames = await this.deps.exportService.scanDisplayNames(state.sourcePath);
+				this.deps.setState({
+					availableColumns: cols,
+					selectedColumns: [...cols],
+					previewFiles: files,
+					selectedFileProperties: viewFileProps,
+					resolvedColumns: null,
+					displayNames,
+					currentPage: "configure",
+				});
+			}
+
 			this.deps.renderPage();
 		});
 

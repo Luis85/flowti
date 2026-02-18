@@ -284,6 +284,7 @@ describe("Flow 10: Manage Data Dictionary", () => {
 			});
 
 			await eventBus.emit("file.renamed", {
+				path: "data/new.csv",
 				oldPath: "data/old.csv",
 				newPath: "data/new.csv",
 				source: "user" as const,

@@ -148,10 +148,11 @@ export class IngestionService {
 
 	/**
 	 * Generates a deterministic key for deduplication.
-	 * Combines event type with file path (if present).
+	 * Combines event type with file path (if present), or falls back
+	 * to a hash of the event type for pathless events (TD-62 fix).
 	 */
 	generateEventKey(eventType: string, path?: string): string {
-		return path ? `${eventType}::${path}` : `${eventType}::${generateUUID()}`;
+		return path ? `${eventType}::${path}` : `${eventType}::no-path`;
 	}
 
 	/**
