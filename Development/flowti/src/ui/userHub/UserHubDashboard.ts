@@ -27,6 +27,7 @@ export interface UserHubDashboardDeps {
 	navigateToTab: (tabId: string) => void;
 	onInboxItemClick: (item: InboxItem) => void;
 	openSessionWorkspace: (sessionId?: string, location?: "tab" | "sidebar") => void;
+	onCreateSession?: () => void;
 }
 
 export class UserHubDashboard {
@@ -439,6 +440,7 @@ export class UserHubDashboard {
 		const eb = this.deps.eventBus;
 		const nav = this.deps.navigateToTab;
 		const actions: Array<{ icon: string; label: string; action: () => void }> = [
+			...(this.deps.onCreateSession ? [{ icon: "plus-circle", label: "New Session", action: this.deps.onCreateSession }] : []),
 			{ icon: "timer", label: "Sessions", action: () => nav("sessions") },
 			{ icon: "inbox", label: "Inbox", action: () => nav("inbox") },
 			{ icon: "settings", label: "Preferences", action: () => nav("preferences") },

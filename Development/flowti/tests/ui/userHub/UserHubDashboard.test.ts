@@ -563,6 +563,40 @@ describe("UserHubDashboard", () => {
 
 			expect(spy).toHaveBeenCalled();
 		});
+
+		it("should show New Session button when onCreateSession is provided", () => {
+			const onCreateSession = vi.fn();
+			const dashboard = new UserHubDashboard(container, makeDeps({ eventBus, onCreateSession }));
+
+			dashboard.render();
+
+			const actions = container.querySelectorAll(".ft-nav-link");
+			expect(actions).toHaveLength(8);
+			expect(actions[0].textContent).toContain("New Session");
+		});
+
+		it("should call onCreateSession when New Session button is clicked", () => {
+			const onCreateSession = vi.fn();
+			const dashboard = new UserHubDashboard(container, makeDeps({ eventBus, onCreateSession }));
+
+			dashboard.render();
+
+			const actions = container.querySelectorAll(".ft-nav-link");
+			(actions[0] as HTMLElement).click();
+
+			expect(onCreateSession).toHaveBeenCalled();
+		});
+
+		it("should not show New Session button when onCreateSession is absent", () => {
+			const dashboard = new UserHubDashboard(container, makeDeps({ eventBus }));
+
+			dashboard.render();
+
+			const actions = container.querySelectorAll(".ft-nav-link");
+			expect(actions).toHaveLength(7);
+			const labels = Array.from(actions).map((a) => a.textContent);
+			expect(labels.every((l) => !l?.includes("New Session"))).toBe(true);
+		});
 	});
 
 	// ── Active session card ────────────────────────────────

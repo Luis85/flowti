@@ -14,7 +14,7 @@ items_updated: 28
 |-------|-------|-------|---------|-----------|---------|------|-----------|
 | 00 - Connectivity | 32 | 32 | 0 (fixed) | 5 | 0 | 0 | 25 |
 | Development/flowti/docs | 33 | 33 | 0 (fixed) | 5 | 0 | 3 | 23 |
-| **Total** | **65** | **65** | **0** | **10** | **0** | **3** | **48** |
+| **Total** | **65** | **65** | **0** | **11** | **0** | **3** | **47** |
 
 **Actions taken this session:**
 - 28 items updated with normalized frontmatter (type, stage, domain, parent, description, priority)
@@ -155,12 +155,13 @@ items_updated: 28
 3. ~~PBI-SW-007 nudges~~ — **DONE** (Cycle 5: nudge system, default configs, dashboard indicator)
 4. ~~Fix 2 exporter bugs~~ — **DONE** (Cycle 4 Inc 1: ResolvedColumn descriptor)
 5. ~~Global activity folder filter~~ — **DONE** (Cycle 4: sessionActivityFilterGlobal)
+6. ~~Sessions feature polish~~ — **DONE** (Cycle 5: command palette commands, dashboard quick action, preferences split)
 
 ### Next (Cycle 6+)
-6. **Sessions feature polish** — coherent UX from User Hub to Workspace (quick-start, commands, sidebar)
 7. **Session template JSON import/export** — high priority, low effort
-8. PBI-SW-009: Domain Design guided workflow
-9. PBI-SW-010 candidate: Guided session tours with quality gates (high user demand)
+8. **3 DX progress bugs** — pipeline detail progress, concurrent operation progress, dashboard state persistence
+9. PBI-SW-009: Domain Design guided workflow
+10. PBI-SW-010 candidate: Guided session tours with quality gates (high user demand)
 
 ### Near-term backlog (Cycles 7-8)
 10. Idea capture on User Hub (high priority, small effort)
@@ -185,7 +186,7 @@ items_updated: 28
 | Metric | Value |
 |--------|-------|
 | Total inbox items | 65 |
-| Delivered/fixed | 10 |
+| Delivered/fixed | 11 |
 | Planned (active) | 0 |
 | Open bugs | 3 (DX progress tracking) |
 | High priority discovery | 6 |
@@ -213,8 +214,9 @@ items_updated: 28
 
 ## Related
 
-- [[Cycle 4 - Auto-Session and Activity Polish]] — current cycle
-- [[Session Workspaces PRD]] — active feature
-- [[Data Exchange Hub PRD]] — 2 open bugs
-- [[PBI-SW-007 Auto-Session and Session Nudges]] — planned
+- [[Cycle 5 - Daily Summary and Session Nudges]] — completed cycle
+- [[Cycle 4 - Auto-Session and Activity Polish]] — completed cycle
+- [[Session Workspaces PRD]] — active feature (FRI 33/35)
+- [[Data Exchange Hub PRD]] — 3 open bugs (DX progress tracking)
+- [[PBI-SW-007 Auto-Session and Session Nudges]] — done (Cycles 4+5)
 - [[PBI-SW-009 Domain Design Session]] — next session PBI

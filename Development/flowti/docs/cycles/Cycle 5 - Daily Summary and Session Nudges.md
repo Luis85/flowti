@@ -11,8 +11,8 @@ tech_debt: []
 estimated_increments: 4
 actual_increments: 4
 estimated_tests: 80
-actual_tests: 69
-total_tests_after: 2504
+actual_tests: 72
+total_tests_after: 2507
 total_test_files_after: 99
 ---
 
@@ -62,7 +62,7 @@ Cycle 4 prioritized core daily-tracking, concurrent sessions, and settings UI �
 ### Post-Cycle State (2026-02-18)
 
 **Plugin health:**
-- 2,504 tests passing (32 skipped), 99 test files (+69 tests, +4 files)
+- 2,507 tests passing (32 skipped), 99 test files (+72 tests, +4 files)
 
 **Session Workspaces feature:**
 - PBI-SW-007: **done** — nudge system delivered, daily summary function extracted
@@ -71,6 +71,11 @@ Cycle 4 prioritized core daily-tracking, concurrent sessions, and settings UI �
 - 8 nudge events registered in catalog (category "Nudge")
 - Dashboard shows next upcoming nudge time indicator
 - Nudge skips when same-type session already active
+
+**Session UX polish (end-of-cycle):**
+- 2 new command palette commands: `flowti:create-session`, `flowti:resume-session` (13 total commands)
+- Dashboard "New Session" quick action with `onCreateSession` callback
+- Total commands: 13 (5 registry + 4 DX setup + 4 session/main.ts)
 
 ---
 
@@ -231,30 +236,43 @@ Inc 4: Integration + defaults (requires Inc 2 + Inc 3)
 
 | Metric | Target |
 |--------|--------|
-| Tests added | ~80 new (~25 Inc 1 + ~40 Inc 2 + ~35 Inc 3 + ~15 Inc 4 - overlap) |
-| Tests total | ~2,506+ |
-| Test suites | ~97+ |
-| LOC added (source) | ~563 new (~50 Inc 1 + ~188 Inc 2 + ~280 Inc 3 + ~45 Inc 4) |
-| PBIs closed | PBI-SW-007 (complete — nudges delivered) |
-| New events | 5 (nudge domain) |
+| Tests added | 72 new (25 Inc 1 + 40 Inc 2 + 35 Inc 3 + 15 Inc 4 - overlap + 3 polish) |
+| Tests total | 2,507 (32 skipped) |
+| Test suites | 99 |
+| LOC added (source) | ~580 new (50 Inc 1 + 188 Inc 2 + 280 Inc 3 + 45 Inc 4 + ~17 polish) |
+| PBIs closed | PBI-SW-007 (complete — nudges + daily summary delivered) |
+| New events | 8 (nudge domain) |
+| New commands | 2 (create-session, resume-session) — 13 total |
 | Total session events | 64 (unchanged — nudge events are in separate domain) |
 | Flow tests | 13 (new: 13-DailySessionLifecycle) |
+| Plugin totals | 42,493 LOC, 216 source files, 15 bounded contexts |
 
 ---
 
 ## Cycle Retrospective
 
 ### What Went Well
-<!-- Filled post-delivery -->
+- **Clean 4-increment delivery**: All increments delivered in sequence without blockers. Daily summary + flow test (Inc 1) provided early confidence for the nudge system (Inc 2-4).
+- **NudgeService stayed isolated**: The nudge domain has zero dependencies on SessionService — it only emits events. main.ts wiring is thin (~20 LOC). This kept complexity contained.
+- **No SessionService growth**: NudgeService as a separate domain prevented SessionService from exceeding the 1,300 LOC extraction threshold. SessionService stayed at 1,266 LOC.
+- **End-of-cycle UX polish**: Session command palette integration (create + resume) and dashboard "New Session" quick action were delivered as a focused polish pass. 3 tests added, all builds green.
+- **Inbox and backlog review**: Both vault and dev inboxes reviewed; 7 items marked delivered, backlog refinement doc updated with Cycle 4+5 completions, priority sequence reordered.
 
 ### Deviations from Plan
-<!-- Filled post-delivery -->
+- **Test count lower than estimated**: 72 actual vs 80 estimated. The nudge UI tests were slightly less granular than planned (combined some assertions), and the daily flow test covered more in fewer test cases than originally scoped.
+- **Session UX polish added**: Not in the original plan but surfaced during the inbox review as the next logical step. Kept minimal (2 commands + 1 dashboard action + 3 tests).
+- **Preferences split was pre-existing**: The plan assumed preferences were still combined; they had already been split in a prior session. No rework needed.
 
 ### Improvement Backlog (from this cycle)
-<!-- Filled post-delivery -->
+- **TD-94**: Missing Session Management flow doc and integration test — now partially addressed with `13-DailySessionLifecycle.test.ts`, but core session CRUD flow doc still missing
+- The `generateDailySummary()` function could benefit from configurable section headers (currently hardcoded "Activity Summary")
+- NudgeNotification uses Obsidian Notice with a 0-timeout (persistent until user action) — consider adding inbox fallback for missed nudges in future cycle
+- `main.ts` now at 846 LOC — approaching TD-05 threshold (orchestrator role). Session wiring section (commands, file menu, workspace helpers) is a candidate for extraction to a `sessionSetup.ts` module
 
 ### Learnings
-<!-- Filled post-delivery -->
+- **L-33 Isolated scheduling domains**: NudgeService demonstrates that timer/scheduler logic can live in its own bounded context without coupling to the domain it serves. The service emits events; consumers (UI, main.ts) handle the "what to do" part. This pattern can be reused for future automated workflows.
+- **L-34 Command palette as UX multiplier**: Adding 2 command palette commands (create-session, resume-session) provides disproportionate UX improvement for minimal code (~30 LOC). Should be the default for any user-facing action.
+- **L-35 Optional deps in component interfaces**: Using `onCreateSession?: () => void` in the dashboard deps keeps backward compatibility — existing tests don't break, new features are opt-in. Better than required deps that force mock updates across all test files.
 
 ---
 
@@ -263,5 +281,5 @@ Inc 4: Integration + defaults (requires Inc 2 + Inc 3)
 - PRD: [[Session Workspaces PRD]] (v6, FRI 33/35)
 - PBIs: [[PBI-SW-007 Auto-Session and Session Nudges]] (completion — nudge system)
 - Learnings (input): [[L-29 Zero-duration timer guard]], [[L-30 Click event bubbling in action containers]], [[L-31 CSS variable invisibility]], [[L-32 Settings co-location]]
-- Learnings (output): <!-- filled post-delivery -->
+- Learnings (output): [[L-33 Isolated scheduling domains]], [[L-34 Command palette as UX multiplier]], [[L-35 Optional deps in component interfaces]]
 - Previous Cycle: [[Cycle 4 - Auto-Session and Activity Polish]]

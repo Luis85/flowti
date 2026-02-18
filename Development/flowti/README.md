@@ -137,34 +137,41 @@ Commands, views, and services are defined declaratively in registry files and bo
 ### Module Overview
 
 ```
-src/                                 # ~31,467 LOC across 154 files
-├── main.ts                          # Plugin lifecycle orchestrator (482 LOC)
+src/                                 # ~42,493 LOC across 216 files
+├── main.ts                          # Plugin lifecycle orchestrator (846 LOC)
 ├── dataExchangeSetup.ts             # Data Exchange UI wiring (368 LOC)
 ├── infrastructure/
-│   ├── events/                      # EventBus, EventBridge, FlowtiEventMap (128 events)
+│   ├── events/                      # EventBus, EventBridge, FlowtiEventMap (~190 events)
 │   ├── errors/                      # Typed error hierarchy + ErrorService
 │   ├── logger/                      # Logging with optional event trace
 │   ├── services/                    # DI container with topological init
 │   ├── commands/                    # Command registry with middleware
 │   ├── views/                       # View registry with factory pattern
+│   ├── ui/                          # UiCommandService — view/modal opening
 │   └── filesystem/                  # Promise-based file ops via events
-├── domain/                          # 11 bounded contexts
+├── domain/                          # 15 bounded contexts
 │   ├── dataExchange/                # CSV import/export, pipelines, type docs
 │   ├── docs/                        # DocService + content generators + path resolvers
 │   ├── discovery/                   # Vault scanning for user-defined events
 │   ├── eventDefinition/             # Custom event mapping rules
 │   ├── eventFilter/                 # Hidden event types
 │   ├── eventNotify/                 # Notification preferences
+│   ├── hub/                         # HubRegistry, providers, hub lifecycle events
+│   ├── inbox/                       # InboxService, mappers, inbox state persistence
 │   ├── ingestion/                   # File monitoring, job queue, catch-up
 │   ├── installer/                   # First-run wizard steps
+│   ├── nudge/                       # NudgeService — time-based session start prompts
+│   ├── session/                     # SessionService — workspaces, activity, templates
 │   ├── settings/                    # Plugin configuration persistence
 │   ├── subscription/                # Event watchers with filters
 │   └── user/                        # User identity
-├── ui/
+├── ui/                              # 106 files
 │   ├── catalog/                     # Event Catalog components (15 files)
 │   ├── hub/                         # Data Exchange Hub components (21 files)
 │   ├── csv/                         # CSV import wizard components (10 files)
 │   ├── export/                      # Export wizard components (7 files)
+│   ├── session/                     # Session Workspace components (12 files)
+│   ├── userHub/                     # User Hub components (8 files)
 │   └── *.ts                         # Orchestrator views + modals
 └── utils/                           # Shared helpers (glob, persistence, types)
 ```
@@ -190,9 +197,13 @@ src/                                 # ~31,467 LOC across 154 files
 | **Data Exchange** | CSV import/export with column mapping, conflict strategies, formula resolution, multi-source pipelines |
 | **Discovery** | Vault scanning for user-defined events via frontmatter |
 | **Event Definition** | Custom event mapping rules: source event + file pattern → domain event with payload extraction |
+| **Hub Registry** | Cross-hub summary aggregation with providers for Event Catalog, Data Exchange, and User Hub |
+| **Inbox** | Unified inbox with mappers for subscription, import, and export events; CRUD with 500-item eviction |
 | **Ingestion** | File monitoring with job queue, time-windowed batching, retry with exponential backoff, catch-up scans |
-| **Subscription** | Event watchers with path/extension/name filters; wildcard listener matching |
 | **Installer** | Step-based first-run pipeline (user creation, folder scaffolding, extensible) |
+| **Nudge** | Time-based session start prompts with 60s interval scheduler, midnight rollover, dismissed-today tracking |
+| **Session** | Timed documentation workspaces with 9 types, activity tracking, goals, decisions, templates, daily tracking |
+| **Subscription** | Event watchers with path/extension/name filters; wildcard listener matching |
 
 #### Frontend Views
 
@@ -200,6 +211,8 @@ src/                                 # ~31,467 LOC across 154 files
 |------|---------|
 | **Event Catalog** | 8-tab master-detail view: Dashboard, Domains, Services, Events, Flows, Systems, Actors, Products |
 | **Data Exchange Hub** | 7-page master-detail hub: Dashboard, Imports, Exports, Reports, Properties, Pipelines, Types |
+| **User Hub** | Personal cockpit: Dashboard (session cards, nudges, inbox, hub summaries), Inbox, Sessions, Preferences |
+| **Session Workspace** | Focused session view: timer, goals, decisions, activity, context bindings, output artifacts |
 | **CSV Action View** | Per-file CSV handler with column preview landing page and inline 4-page import wizard |
 | **Export View** | 4-page export wizard with column scanning, preview, and native save dialog |
 | **Event Log** | Activity feed with category/type filters and subscribed/all modes |
@@ -228,11 +241,13 @@ See [[Frontend Architecture]] for the full view inventory, component architectur
 
 | Directory | Count | Description |
 |-----------|-------|-------------|
-| `docs/components/` | 53 | Per-component documentation with dependencies, state, events, and cross-references |
-| `docs/use-cases/` | 33 | Standalone use case files extracted from view documentation, mapped to testplan IDs |
-| `docs/flows/` | 10 | End-to-end user journeys crossing multiple views and services |
-| `docs/sitemap/` | 6 | View-level documentation with descriptions and use case summaries |
-| `docs/features/` | 26 | Feature specifications |
+| `docs/components/` | 62 | Per-component documentation with dependencies, state, events, and cross-references |
+| `docs/flows/` | 13 | End-to-end user journeys crossing multiple views and services |
+| `docs/sitemap/` | 8 | View-level documentation with descriptions and use case summaries |
+| `docs/features/` | 224 | Feature specifications, PRDs, PBIs, and related documents |
+| `docs/decisions/` | 30 | Architecture Decision Records (ADR-001 through ADR-024 + related) |
+| `docs/cycles/` | 4 | Development cycle planning and retrospectives (Cycles 2-5) |
+| `docs/debt/` | 102 | Technical debt items (TD-01 through TD-99+) |
 
 ---
 
@@ -258,7 +273,7 @@ Plugin.onload()
     │
     ├── Phase 3: Registration
     │   ├── registerAllServices()    # 11 services (src/infrastructure/services/registry.ts)
-    │   ├── registerAllCommands()    # 4 core commands (src/infrastructure/commands/registry.ts)
+    │   ├── registerAllCommands()    # 5 core commands (src/infrastructure/commands/registry.ts)
     │   └── registerAllViews()       # 3 core views (src/infrastructure/views/registry.ts)
     │
     ├── Phase 4: Service Initialization
@@ -281,7 +296,12 @@ Plugin.onload()
         ├── ingestionService.load()
         ├── eventDefinitionService.load()
         ├── dataExchangeService.load()
+        ├── inboxService.load()
+        ├── sessionService.load()
+        ├── nudgeService.load() + start()
         ├── DataExchangeSetup (views, commands, file menus, callbacks)
+        ├── setupHubRegistry() (User Hub, Session Workspace, 4 session commands)
+        ├── registerSessionFileMenu() (right-click add-to-session, create-session)
         ├── ingestionService.runCatchUp() (if watchFolders configured)
         ├── eventBridge.registerVaultListeners()
         └── emit("plugin.ready")
@@ -410,7 +430,7 @@ Use the Component Showcase view (`Flowti: Open Component Showcase`) to preview a
 | No persistence encryption | Plugin data is stored as plain JSON via Obsidian's `saveData` |
 | EventBridge boundary erosion | ~112 direct Obsidian API calls in UI layer; acceptable for read-only access patterns |
 
-26 technical debt items tracked in `docs/debt/`. Current status: 16 resolved, 2 mitigated, 2 reclassified, 6 open (all medium or low severity). See `docs/debt/Technical Debt Review 2026-02-13.md` for the full audit.
+102 technical debt items tracked in `docs/debt/TD-01` through `TD-99` plus 3 additional items. Categories span event/communication, data/storage, testing/quality, architecture/performance, domain logic, file system, and documentation. See `docs/debt/` for individual items.
 
 ---
 

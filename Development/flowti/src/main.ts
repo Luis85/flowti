@@ -631,6 +631,40 @@ export default class FlowtiBasePlugin extends Plugin {
 				this.openSessionWorkspaceInSidebar();
 			},
 		});
+		this.addCommand({
+			id: "flowti:create-session",
+			name: "Create New Session",
+			icon: "timer",
+			callback: () => {
+				new NewSessionModal(this.app, {
+					sessionTypes: SESSION_TYPES,
+					templates: this.sessionService?.getSavedTemplates() ?? [],
+					onSubmit: (title, type, durationMinutes, focusFile, goals) => {
+						void this.eventBus.emit("session.create", {
+							type: type as SessionType,
+							title,
+							durationMinutes,
+							focusFile: focusFile ?? undefined,
+							goals: goals.length > 0 ? goals : undefined,
+						});
+					},
+				}).open();
+			},
+		});
+		this.addCommand({
+			id: "flowti:resume-session",
+			name: "Resume Paused Session",
+			icon: "play",
+			callback: () => {
+				const session = this.sessionService?.getActiveSession();
+				if (session && session.status === "paused") {
+					void this.eventBus.emit("session.resume", { sessionId: session.id });
+					new Notice(`Resumed "${session.title}"`);
+				} else {
+					new Notice("No paused session to resume");
+				}
+			},
+		});
 	}
 
 	/**
