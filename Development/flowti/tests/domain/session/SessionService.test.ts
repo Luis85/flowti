@@ -3410,5 +3410,141 @@ describe("SessionService", () => {
 				expect(handler.mock.calls[0][0].payload.dailySessionId).toEqual(expect.any(String));
 			});
 		});
+
+		// ── Daily Note Auto-Link ──────────────────────────────
+
+		describe("Daily Note Auto-Link", () => {
+			it("should set notesFile from dailyNotePath template", async () => {
+				await service.load();
+				await eventBus.emit("session.daily.start", { dailyNotePath: "Journal/{{date:YYYY-MM-DD}}.md" });
+				await vi.advanceTimersByTimeAsync(0);
+
+				const daily = service.getDailySession();
+				expect(daily).not.toBeNull();
+				// Should contain today's date in the resolved path
+				const today = new Date().toISOString().slice(0, 10);
+				expect(daily!.notesFile).toBe(`Journal/${today}.md`);
+			});
+
+			it("should set notesFile to fallback path when dailyNotePath is empty", async () => {
+				await service.load();
+				await eventBus.emit("session.daily.start", { dailyNotePath: "" });
+				await vi.advanceTimersByTimeAsync(0);
+
+				const daily = service.getDailySession();
+				expect(daily).not.toBeNull();
+				// Fallback uses SESSION_NOTES_FOLDER
+				expect(daily!.notesFile).toContain("03 - Resources/Sessions/");
+			});
+
+			it("should set notesFile to fallback path when no dailyNotePath provided", async () => {
+				await service.load();
+				await eventBus.emit("session.daily.start", {});
+				await vi.advanceTimersByTimeAsync(0);
+
+				const daily = service.getDailySession();
+				expect(daily).not.toBeNull();
+				expect(daily!.notesFile).toContain("03 - Resources/Sessions/");
+			});
+		});
+
+		// ── Same-Day Restart ──────────────────────────────────
+
+		describe("Same-Day Restart", () => {
+			it("should reactivate a completed daily session from today", async () => {
+				await service.load();
+				// Start and stop a daily session
+				await eventBus.emit("session.daily.start", {});
+				await vi.advanceTimersByTimeAsync(0);
+				const dailyId = service.getDailySession()!.id;
+
+				await eventBus.emit("session.daily.stop", {});
+				await vi.advanceTimersByTimeAsync(0);
+				expect(service.getDailySession()).toBeNull();
+
+				// Restart — should reactivate the same session
+				await eventBus.emit("session.daily.start", {});
+				await vi.advanceTimersByTimeAsync(0);
+
+				const restarted = service.getDailySession();
+				expect(restarted).not.toBeNull();
+				expect(restarted!.id).toBe(dailyId);
+				expect(restarted!.status).toBe("active");
+				expect(restarted!.completedAt).toBeNull();
+			});
+
+			it("should add 'resumed' timeline entry on restart", async () => {
+				await service.load();
+				await eventBus.emit("session.daily.start", {});
+				await vi.advanceTimersByTimeAsync(0);
+
+				await eventBus.emit("session.daily.stop", {});
+				await vi.advanceTimersByTimeAsync(0);
+
+				await eventBus.emit("session.daily.start", {});
+				await vi.advanceTimersByTimeAsync(0);
+
+				const daily = service.getDailySession()!;
+				const lastEntry = daily.timeline[daily.timeline.length - 1];
+				expect(lastEntry.action).toBe("resumed");
+			});
+
+			it("should preserve existing activity and notes on restart", async () => {
+				await service.load();
+				await eventBus.emit("session.daily.start", {});
+				await vi.advanceTimersByTimeAsync(0);
+
+				// Track some activity
+				await eventBus.emit("file.created", { path: "test.md", source: "user" });
+				await vi.advanceTimersByTimeAsync(0);
+
+				const dailyBefore = service.getDailySession()!;
+				const activityCount = dailyBefore.activity.length;
+				expect(activityCount).toBeGreaterThan(0);
+
+				// Stop and restart
+				await eventBus.emit("session.daily.stop", {});
+				await vi.advanceTimersByTimeAsync(0);
+
+				await eventBus.emit("session.daily.start", {});
+				await vi.advanceTimersByTimeAsync(0);
+
+				const restarted = service.getDailySession()!;
+				expect(restarted.activity.length).toBe(activityCount);
+			});
+
+			it("should not create a duplicate session on restart", async () => {
+				await service.load();
+				await eventBus.emit("session.daily.start", {});
+				await vi.advanceTimersByTimeAsync(0);
+
+				await eventBus.emit("session.daily.stop", {});
+				await vi.advanceTimersByTimeAsync(0);
+
+				await eventBus.emit("session.daily.start", {});
+				await vi.advanceTimersByTimeAsync(0);
+
+				const dailySessions = service.getSessions().filter((s) => s.type === "daily-tracking");
+				expect(dailySessions).toHaveLength(1);
+			});
+
+			it("should emit session.daily.started on restart", async () => {
+				await service.load();
+				await eventBus.emit("session.daily.start", {});
+				await vi.advanceTimersByTimeAsync(0);
+
+				await eventBus.emit("session.daily.stop", {});
+				await vi.advanceTimersByTimeAsync(0);
+
+				const handler = vi.fn();
+				eventBus.on("session.daily.started", handler);
+
+				await eventBus.emit("session.daily.start", {});
+				await vi.advanceTimersByTimeAsync(0);
+
+				expect(handler).toHaveBeenCalledOnce();
+				expect(handler.mock.calls[0][0].payload.session.status).toBe("active");
+			});
+		});
 	});
 });

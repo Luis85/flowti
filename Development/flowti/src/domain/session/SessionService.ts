@@ -15,7 +15,7 @@ import type { ITypedStorage } from "../../utils/TypedStorage";
 import { generateUUID } from "../../utils/helpers";
 import type { ContextBindingType, Session, SessionActivity, SessionActivityAction, SessionContextBinding, SessionGoal, SessionLink, SessionOutputArtifact, SessionOutputTemplate, SessionState, SessionTemplate, SessionTypeConfig, WorkspaceState } from "./types";
 import { MAX_SESSIONS, MAX_TEMPLATES, ARTIFACT_DEDUP_WINDOW_MS, SESSION_NOTES_FOLDER, MAX_SESSION_ACTIVITY, ACTIVITY_DEDUP_WINDOW_MS, DAILY_ACTIVITY_DEDUP_WINDOW_MS, MAX_CONTEXT_BINDINGS, MAX_SESSION_DECISIONS, MAX_OUTPUT_ARTIFACTS, SESSION_TYPE_CONFIGS } from "./types";
-import { createSession, createGoal, createDecision, createContextBinding, computeRemainingMs, computeElapsedMs, isTimerExpired, isExcluded, resolveTypeConfig, generateSessionOutput } from "./helpers";
+import { createSession, createGoal, createDecision, createContextBinding, computeRemainingMs, computeElapsedMs, isTimerExpired, isExcluded, resolveTypeConfig, generateSessionOutput, resolveDailyNotePath } from "./helpers";
 
 /**
  * Configuration options for the SessionService.
@@ -98,8 +98,8 @@ export class SessionService {
 				}),
 			);
 			this.unsubscribes.push(
-				this.eventBus.on("session.daily.start", () => {
-					void this.handleDailyStart();
+				this.eventBus.on("session.daily.start", (event) => {
+					void this.handleDailyStart(event.payload.dailyNotePath);
 				}),
 			);
 			this.unsubscribes.push(
@@ -636,15 +636,45 @@ export class SessionService {
 		}
 	}
 
-	private async handleDailyStart(): Promise<void> {
+	private async handleDailyStart(dailyNotePath?: string): Promise<void> {
 		// Only one daily session at a time
 		if (this.state.dailySessionId) return;
 
 		const today = new Date().toISOString().slice(0, 10);
+
+		// Check for a completed daily session from today — restart it
+		const existing = this.state.sessions.find(
+			(s) => s.type === "daily-tracking"
+				&& s.status === "completed"
+				&& s.createdAt.startsWith(today),
+		);
+
+		if (existing) {
+			existing.status = "active";
+			existing.startedAt = new Date().toISOString();
+			existing.completedAt = null;
+			existing.timeline.push({ action: "resumed", timestamp: existing.startedAt });
+			this.state.dailySessionId = existing.id;
+
+			await this.saveState();
+			await this.eventBus?.emit("session.daily.started", { session: { ...existing } });
+			return;
+		}
+
+		// Create new daily session
 		const session = createSession(generateUUID(), "daily-tracking", `Daily Tracking \u2014 ${today}`, 0);
 		session.status = "active";
 		session.startedAt = new Date().toISOString();
 		session.timeline.push({ action: "started", timestamp: session.startedAt });
+
+		// Set notes file from dailyNotePath template or fallback
+		if (dailyNotePath) {
+			session.notesFile = resolveDailyNotePath(dailyNotePath);
+		} else {
+			const safeName = session.title.replace(/[\\/:*?"<>|]/g, "-");
+			const shortId = session.id.slice(-6);
+			session.notesFile = `${SESSION_NOTES_FOLDER}/${safeName} (${shortId}).md`;
+		}
 
 		this.state.sessions.unshift(session);
 		if (this.state.sessions.length > MAX_SESSIONS) {
@@ -974,6 +1004,8 @@ export class SessionService {
 
 	private startTimer(session: Session): void {
 		this.stopTimer();
+		// No timer for sessions without a duration (e.g. daily-tracking)
+		if (session.durationMinutes <= 0) return;
 		this.timerInterval = setInterval(() => {
 			const now = Date.now();
 			const remaining = computeRemainingMs(session, now);

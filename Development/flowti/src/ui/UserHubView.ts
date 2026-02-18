@@ -12,6 +12,7 @@ import type { HubRegistry } from "../domain/hub/HubRegistry";
 import type { InboxService } from "../domain/inbox/InboxService";
 import type { SessionService } from "../domain/session/SessionService";
 import type { IEventBus } from "../infrastructure/events/types";
+import type { FlowtiSettings } from "../domain/settings/settings";
 import { BaseHubView, type TabDef } from "./BaseHubView";
 import { UserHubDashboard } from "./userHub/UserHubDashboard";
 import { UserHubInbox } from "./userHub/UserHubInbox";
@@ -38,14 +39,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 	private preferences!: UserHubPreferences;
 
 	// State
-	private state: UserHubState = {
-		inboxItems: [],
-		selectedInboxItem: null,
-		inboxEnabledSources: [],
-		sessions: [],
-		activeSession: null,
-		selectedSession: null,
-	};
+	private state!: UserHubState;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -55,13 +49,23 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 		inboxService: InboxService,
 		sessionService: SessionService,
 		initialEnabledSources: string[],
+		initialSettings: FlowtiSettings,
 	) {
 		super(leaf, eventBus);
 		this.userService = userService;
 		this.hubRegistry = hubRegistry;
 		this.inboxService = inboxService;
 		this.sessionService = sessionService;
-		this.state.inboxEnabledSources = initialEnabledSources;
+		this.state = {
+			inboxItems: [],
+			selectedInboxItem: null,
+			inboxEnabledSources: initialEnabledSources,
+			sessions: [],
+			activeSession: null,
+			selectedSession: null,
+			settings: initialSettings,
+			selectedPreferencesCategory: null,
+		};
 	}
 
 	// ── Abstract implementations ────────────────────────────
@@ -88,8 +92,8 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 
 	getTabDefinitions(): TabDef[] {
 		return [
-			{ id: "inbox", label: "Inbox", icon: "inbox", searchPlaceholder: "Search inbox..." },
 			{ id: "sessions", label: "Sessions", icon: "timer", searchPlaceholder: "Search sessions..." },
+			{ id: "inbox", label: "Inbox", icon: "inbox", searchPlaceholder: "Search inbox..." },
 			{ id: "preferences", label: "Preferences", icon: "settings", searchPlaceholder: "" },
 		];
 	}
@@ -237,10 +241,11 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 			}),
 		);
 
-		// Sync inbox enabled sources from settings changes
+		// Sync settings state from settings.changed events
 		this.addUnsubscribe(
 			this.eventBus.on("settings.changed", (event) => {
 				this.state.inboxEnabledSources = event.payload.settings.inboxEnabledSources;
+				this.state.settings = event.payload.settings;
 				if (this.activePage === "preferences") {
 					this.scheduleRender();
 				}
@@ -332,6 +337,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 					});
 				}
 			},
+			getSettings: () => this.state.settings,
 		};
 	}
 }

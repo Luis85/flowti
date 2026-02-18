@@ -6,6 +6,7 @@ import type { UserHubState, UserHubComponentDeps } from "../../../src/ui/userHub
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import type { UUID } from "../../../src/utils/types";
 import { INBOX_SOURCE_DEFINITIONS } from "../../../src/domain/inbox/types";
+import { DEFAULT_SETTINGS, type FlowtiSettings } from "../../../src/domain/settings/settings";
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -17,6 +18,8 @@ function makeState(overrides?: Partial<UserHubState>): UserHubState {
 		sessions: [],
 		activeSession: null,
 		selectedSession: null,
+		settings: { ...DEFAULT_SETTINGS },
+		selectedPreferencesCategory: null,
 		...overrides,
 	};
 }
@@ -56,6 +59,7 @@ function makeDeps(state: UserHubState): UserHubComponentDeps {
 		openSaveTemplateModal: vi.fn(),
 		openFile: vi.fn(),
 		openSessionWorkspace: vi.fn(),
+		getSettings: () => state.settings,
 	};
 }
 
@@ -74,35 +78,90 @@ describe("UserHubPreferences", () => {
 		prefs = new UserHubPreferences(masterEl, detailEl, deps);
 	});
 
-	// ── renderMaster: Profile section ──────────────────────
+	// ── Master panel: categories ──────────────────────────
 
-	describe("profile section", () => {
-		it("should render user name input", () => {
+	describe("master panel - categories", () => {
+		it("should render 3 category rows", () => {
 			prefs.renderMaster();
 
-			const input = masterEl.querySelector("input[type='text']") as HTMLInputElement;
+			expect(masterEl.textContent).toContain("Profile");
+			expect(masterEl.textContent).toContain("Inbox");
+			expect(masterEl.textContent).toContain("Sessions");
+		});
+
+		it("should render category descriptions", () => {
+			prefs.renderMaster();
+
+			expect(masterEl.textContent).toContain("Display name and identity");
+			expect(masterEl.textContent).toContain("Notification source toggles");
+			expect(masterEl.textContent).toContain("Daily tracking, filters, types, templates");
+		});
+
+		it("should highlight selected category", () => {
+			state.selectedPreferencesCategory = "inbox";
+			prefs.renderMaster();
+
+			const rows = masterEl.querySelectorAll(".ft-catalog-row");
+			// Inbox is the second row (index 1)
+			expect(rows[1].classList.contains("ft-catalog-row-active")).toBe(true);
+			expect(rows[0].classList.contains("ft-catalog-row-active")).toBe(false);
+		});
+
+		it("should update state and schedule render on category click", () => {
+			prefs.renderMaster();
+
+			const rows = masterEl.querySelectorAll(".ft-catalog-row");
+			(rows[0] as HTMLElement).click();
+
+			expect(deps.setState).toHaveBeenCalledWith({ selectedPreferencesCategory: "profile" });
+			expect(deps.scheduleRender).toHaveBeenCalled();
+		});
+	});
+
+	// ── Detail panel: empty state ─────────────────────────
+
+	describe("detail panel - empty state", () => {
+		it("should render help text when no category selected", () => {
+			prefs.renderDetail();
+
+			expect(detailEl.textContent).toContain("Preferences");
+			expect(detailEl.textContent).toContain("Select a category");
+		});
+	});
+
+	// ── Detail panel: profile ─────────────────────────────
+
+	describe("detail panel - profile", () => {
+		beforeEach(() => {
+			state.selectedPreferencesCategory = "profile";
+		});
+
+		it("should render user name input", () => {
+			prefs.renderDetail();
+
+			const input = detailEl.querySelector("input[type='text']") as HTMLInputElement;
 			expect(input).toBeTruthy();
 			expect(input.value).toBe("Test User");
 		});
 
 		it("should render user ID", () => {
-			prefs.renderMaster();
+			prefs.renderDetail();
 
-			expect(masterEl.textContent).toContain("user_abc");
+			expect(detailEl.textContent).toContain("user_abc");
 		});
 
 		it("should show warning when no user configured", () => {
 			(deps.userService.getUser as ReturnType<typeof vi.fn>).mockReturnValue(null);
-			prefs.renderMaster();
+			prefs.renderDetail();
 
-			expect(masterEl.textContent).toContain("No user profile configured");
-			expect(masterEl.querySelector("input[type='text']")).toBeNull();
+			expect(detailEl.textContent).toContain("No user profile configured");
+			expect(detailEl.querySelector("input[type='text']")).toBeNull();
 		});
 
 		it("should call updateUserName on name change", () => {
-			prefs.renderMaster();
+			prefs.renderDetail();
 
-			const input = masterEl.querySelector("input[type='text']") as HTMLInputElement;
+			const input = detailEl.querySelector("input[type='text']") as HTMLInputElement;
 			input.value = "New Name";
 			input.dispatchEvent(new Event("change"));
 
@@ -110,9 +169,9 @@ describe("UserHubPreferences", () => {
 		});
 
 		it("should not call updateUserName for empty names", () => {
-			prefs.renderMaster();
+			prefs.renderDetail();
 
-			const input = masterEl.querySelector("input[type='text']") as HTMLInputElement;
+			const input = detailEl.querySelector("input[type='text']") as HTMLInputElement;
 			input.value = "   ";
 			input.dispatchEvent(new Event("change"));
 
@@ -120,30 +179,33 @@ describe("UserHubPreferences", () => {
 		});
 	});
 
-	// ── renderMaster: Inbox sources section ────────────────
+	// ── Detail panel: inbox ───────────────────────────────
 
-	describe("inbox sources section", () => {
+	describe("detail panel - inbox", () => {
+		beforeEach(() => {
+			state.selectedPreferencesCategory = "inbox";
+		});
+
 		it("should render all inbox source checkboxes", () => {
-			prefs.renderMaster();
+			prefs.renderDetail();
 
-			const checkboxes = masterEl.querySelectorAll("input[type='checkbox']");
+			const checkboxes = detailEl.querySelectorAll("input[type='checkbox']");
 			expect(checkboxes).toHaveLength(INBOX_SOURCE_DEFINITIONS.length);
 		});
 
 		it("should render source labels", () => {
-			prefs.renderMaster();
+			prefs.renderDetail();
 
 			for (const src of INBOX_SOURCE_DEFINITIONS) {
-				expect(masterEl.textContent).toContain(src.label);
-				expect(masterEl.textContent).toContain(src.desc);
+				expect(detailEl.textContent).toContain(src.label);
+				expect(detailEl.textContent).toContain(src.desc);
 			}
 		});
 
 		it("should check enabled sources", () => {
-			prefs.renderMaster();
+			prefs.renderDetail();
 
-			const checkboxes = Array.from(masterEl.querySelectorAll("input[type='checkbox']")) as HTMLInputElement[];
-			// All sources are enabled in default state
+			const checkboxes = Array.from(detailEl.querySelectorAll("input[type='checkbox']")) as HTMLInputElement[];
 			for (const checkbox of checkboxes) {
 				expect(checkbox.checked).toBe(true);
 			}
@@ -151,18 +213,17 @@ describe("UserHubPreferences", () => {
 
 		it("should uncheck disabled sources", () => {
 			state.inboxEnabledSources = ["subscription.matched"];
-			prefs.renderMaster();
+			prefs.renderDetail();
 
-			const checkboxes = masterEl.querySelectorAll("input[type='checkbox']") as NodeListOf<HTMLInputElement>;
+			const checkboxes = detailEl.querySelectorAll("input[type='checkbox']") as NodeListOf<HTMLInputElement>;
 			const checkedCount = Array.from(checkboxes).filter((c) => c.checked).length;
 			expect(checkedCount).toBe(1);
 		});
 
 		it("should emit settings.updateInboxEnabledSources on toggle", () => {
-			prefs.renderMaster();
+			prefs.renderDetail();
 
-			const checkboxes = masterEl.querySelectorAll("input[type='checkbox']") as NodeListOf<HTMLInputElement>;
-			// Uncheck the first checkbox
+			const checkboxes = detailEl.querySelectorAll("input[type='checkbox']") as NodeListOf<HTMLInputElement>;
 			checkboxes[0].checked = false;
 			checkboxes[0].dispatchEvent(new Event("change"));
 
@@ -173,10 +234,9 @@ describe("UserHubPreferences", () => {
 		});
 
 		it("should update local state on toggle", () => {
-			prefs.renderMaster();
+			prefs.renderDetail();
 
-			const checkboxes = masterEl.querySelectorAll("input[type='checkbox']") as NodeListOf<HTMLInputElement>;
-			// Uncheck the first checkbox
+			const checkboxes = detailEl.querySelectorAll("input[type='checkbox']") as NodeListOf<HTMLInputElement>;
 			checkboxes[0].checked = false;
 			checkboxes[0].dispatchEvent(new Event("change"));
 
@@ -186,19 +246,18 @@ describe("UserHubPreferences", () => {
 		});
 	});
 
-	// ── renderDetail ───────────────────────────────────────
+	// ── Detail panel: sessions ────────────────────────────
 
-	describe("renderDetail", () => {
-		it("should render preferences heading", () => {
+	describe("detail panel - sessions", () => {
+		it("should delegate to UserHubSessionPreferences", () => {
+			state.selectedPreferencesCategory = "sessions";
 			prefs.renderDetail();
 
-			expect(detailEl.textContent).toContain("Preferences");
-		});
-
-		it("should render help text", () => {
-			prefs.renderDetail();
-
-			expect(detailEl.textContent).toContain("Changes are saved automatically");
+			// Verify that session preferences sections are rendered
+			expect(detailEl.textContent).toContain("Daily Tracking");
+			expect(detailEl.textContent).toContain("Activity Log Filter");
+			expect(detailEl.textContent).toContain("Custom Session Types");
+			expect(detailEl.textContent).toContain("Custom Output Templates");
 		});
 	});
 });

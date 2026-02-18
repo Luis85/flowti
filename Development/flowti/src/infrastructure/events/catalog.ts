@@ -266,9 +266,11 @@ const CATALOG_DATA = {
 	"settings.updateShowSystemEvents":   { category: "Settings", description: "Toggle system events visibility", direction: "View → Plugin", domain: "settings", services: "EventCatalogView" },
 	"settings.updateCatalogDomains":     { category: "Settings", description: "Update domain visibility in catalog", direction: "View → Plugin", domain: "settings", services: "EventCatalogView", tags: ["system"] },
 	"settings.updateCatalogServices":    { category: "Settings", description: "Update service visibility in catalog", direction: "View → Plugin", domain: "settings", services: "EventCatalogView", tags: ["system"] },
-	"settings.updateInboxEnabledSources": { category: "Settings", description: "Update inbox notification source events", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
-	"settings.updateCustomSessionTypes": { category: "Settings", description: "Update custom session type configurations", direction: "Service → Listeners", domain: "settings", services: "SessionService", tags: ["system"] },
-	"settings.updateCustomOutputTemplates": { category: "Settings", description: "Update custom output templates for session artifacts", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
+	"settings.updateInboxEnabledSources": { category: "Settings", description: "Update inbox notification source events", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
+	"settings.updateCustomSessionTypes": { category: "Settings", description: "Update custom session type configurations", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
+	"settings.updateCustomOutputTemplates": { category: "Settings", description: "Update custom output templates for session artifacts", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
+	"settings.updateSessionActivityFilter": { category: "Settings", description: "Update session activity filter folders", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
+	"settings.updateDailySession": { category: "Settings", description: "Update daily session settings", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
 
 	// ── Installer Domain ─────────────────────────────────────
 	"installer.started":        { category: "Installer", description: "Installation pipeline started", direction: "Service → Listeners", domain: "installer", services: "InstallerService" },

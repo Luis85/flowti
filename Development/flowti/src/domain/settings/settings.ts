@@ -154,6 +154,8 @@ export const FlowtiSettingsSchema = z.object({
 			placeholder: z.string(),
 		})),
 	})).default([]),
+	enableDailySession: z.boolean().default(false),
+	dailyNotePath: z.string().default("03 - Resources/Daily Notes/{{date:YYYY-MM-DD}}.md"),
 	inboxEnabledSources: z.array(z.string()).default([
 		"subscription.matched",
 		"dataExchange.import.completed",

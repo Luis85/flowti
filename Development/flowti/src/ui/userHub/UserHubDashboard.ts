@@ -36,6 +36,7 @@ export class UserHubDashboard {
 		this.container.empty();
 
 		this.renderWelcome();
+		this.renderDailySession();
 		this.renderActiveSession();
 		this.renderQuickActions();
 		this.renderHubSummaries();
@@ -126,6 +127,7 @@ export class UserHubDashboard {
 		// Action buttons — contextual based on status
 		const actions = section.createDiv({ cls: "ft-flex ft-gap-2" });
 		actions.style.marginTop = "0.5rem";
+		actions.addEventListener("click", (e) => e.stopPropagation());
 		const eb = this.deps.eventBus;
 
 		if (isActive) {
@@ -150,6 +152,45 @@ export class UserHubDashboard {
 		completeBtn.addEventListener("click", () => {
 			void eb.emit("session.complete", { sessionId: session.id });
 		});
+	}
+
+	private renderDailySession(): void {
+		const daily = this.deps.sessionService.getDailySession();
+		if (!daily) return;
+
+		// Skip if the daily session IS the active session (already rendered above)
+		const active = this.deps.sessionService.getActiveSession();
+		if (active && active.id === daily.id) return;
+
+		const section = this.container.createDiv({ cls: "ft-daily-session" });
+		section.style.marginBottom = "1rem";
+		section.style.padding = "0.5rem 0.75rem";
+		section.style.border = "1px solid var(--background-modifier-border)";
+		section.style.borderRadius = "8px";
+		section.style.backgroundColor = "var(--background-secondary)";
+		section.style.cursor = "pointer";
+		section.addEventListener("click", () => {
+			this.deps.openSessionWorkspace(daily.id);
+		});
+
+		const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		const icon = row.createSpan();
+		setIcon(icon, "calendar");
+		icon.addClass("ft-icon-muted");
+
+		row.createSpan({ text: "Daily Tracking", cls: "ft-text-sm" }).style.fontWeight = "600";
+		row.createSpan({
+			text: "Active",
+			cls: "ft-badge",
+		}).style.cssText = "background:var(--interactive-accent);color:var(--text-on-accent);padding:2px 8px;border-radius:4px;font-size:11px;";
+
+		const activityCount = daily.activity.length;
+		if (activityCount > 0) {
+			row.createSpan({
+				text: `${activityCount} activities`,
+				cls: "ft-text-sm ft-text-muted",
+			}).style.marginLeft = "auto";
+		}
 	}
 
 	private renderInboxSection(): void {
@@ -305,8 +346,8 @@ export class UserHubDashboard {
 		const eb = this.deps.eventBus;
 		const nav = this.deps.navigateToTab;
 		const actions: Array<{ icon: string; label: string; action: () => void }> = [
-			{ icon: "inbox", label: "Inbox", action: () => nav("inbox") },
 			{ icon: "timer", label: "Sessions", action: () => nav("sessions") },
+			{ icon: "inbox", label: "Inbox", action: () => nav("inbox") },
 			{ icon: "settings", label: "Preferences", action: () => nav("preferences") },
 			{ icon: "list", label: "Event Catalog", action: () => void eb.emit("ui.openEventCatalog", {}) },
 			{ icon: "arrow-left-right", label: "Data Exchange", action: () => void eb.emit("ui.openDataExchangeHub", {}) },

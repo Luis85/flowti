@@ -7,12 +7,14 @@
 
 import type { IUserService } from "../user/types";
 import type { InboxService } from "../inbox/InboxService";
+import type { SessionService } from "../session/SessionService";
 import { VIEW_TYPE_USER_HUB, type HubDashboardProvider, type HubSummary } from "./types";
 
 export class UserHubProvider implements HubDashboardProvider {
 	constructor(
 		private userService: IUserService,
 		private inboxService: InboxService,
+		private sessionService?: SessionService,
 	) {}
 
 	getHubId(): string {
@@ -34,10 +36,12 @@ export class UserHubProvider implements HubDashboardProvider {
 	getSummary(): HubSummary {
 		const user = this.userService.getUser();
 		const unreadCount = this.inboxService.getUnreadCount();
+		const daily = this.sessionService?.getDailySession();
 		return {
 			stats: [
 				{ label: "User", value: user?.name ?? "Not set", icon: "user" },
 				{ label: "Inbox", value: String(unreadCount), icon: "inbox" },
+				{ label: "Daily", value: daily ? "Active" : "Off", icon: "calendar" },
 			],
 			healthLevel: "healthy",
 			actionItemCount: unreadCount,

@@ -174,10 +174,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			await this.services.initializeAll();
 
 			// ── Phase 5: UI binding ───────────────────────────────────
-			// eslint-disable-next-line @typescript-eslint/no-this-alias
-			const plugin = this;
 			this.addSettingTab(new FlowtiSettingTab(this.app, this, {
-				get userService() { return plugin.userService; },
 				eventBus: this.eventBus,
 				getSettings: () => this.settings,
 				saveSettings: () => this.saveSettings(),
@@ -254,6 +251,11 @@ export default class FlowtiBasePlugin extends Plugin {
 			void this.eventBus?.emit("plugin.unloading", {
 				timestamp: new Date().toISOString(),
 			});
+
+			// Auto-stop daily session if running
+			if (this.sessionService?.getDailySession()) {
+				void this.eventBus?.emit("session.daily.stop", {});
+			}
 
 			this.uiCommandService?.dispose();
 			this.ingestionStatusBar?.dispose();
@@ -414,6 +416,13 @@ export default class FlowtiBasePlugin extends Plugin {
 			void this.eventBus.emit("plugin.ready", {
 				timestamp: new Date().toISOString(),
 			});
+
+			// Auto-start daily session if enabled (idempotent — skips if already running)
+			if (this.settings.enableDailySession) {
+				setTimeout(() => {
+					void this.eventBus.emit("session.daily.start", { dailyNotePath: this.settings.dailyNotePath });
+				}, 500);
+			}
 		} catch (error) {
 			this.errorService.handle(
 				error instanceof Error ? error : new Error(String(error)),
@@ -464,6 +473,13 @@ export default class FlowtiBasePlugin extends Plugin {
 			for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_SESSION_WORKSPACE)) {
 				(leaf.view as SessionWorkspaceView).customOutputTemplates = templates;
 			}
+
+			// Runtime toggle: start/stop daily session when setting changes
+			if (event.payload.settings.enableDailySession && !this.sessionService?.getDailySession()) {
+				void this.eventBus.emit("session.daily.start", { dailyNotePath: event.payload.settings.dailyNotePath });
+			} else if (!event.payload.settings.enableDailySession && this.sessionService?.getDailySession()) {
+				void this.eventBus.emit("session.daily.stop", {});
+			}
 		});
 
 		this.ingestionService = await this.services.get<IngestionService>("ingestionService");
@@ -482,6 +498,13 @@ export default class FlowtiBasePlugin extends Plugin {
 		// Write session summary to notes file on completion
 		this.crossCuttingListeners.push(
 			this.eventBus.on("session.completed", (event) => {
+				void this.writeSessionSummary(event.payload.session);
+			}),
+		);
+
+		// Write daily session summary when daily tracking stops
+		this.crossCuttingListeners.push(
+			this.eventBus.on("session.daily.stopped", (event) => {
 				void this.writeSessionSummary(event.payload.session);
 			}),
 		);
@@ -563,9 +586,9 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.hubRegistry.register(new DataExchangeProvider(this.dataExchangeService!));
 
 		this.registerView(VIEW_TYPE_USER_HUB, (leaf) =>
-			new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.sessionService!, this.settings.inboxEnabledSources),
+			new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.sessionService!, this.settings.inboxEnabledSources, this.settings),
 		);
-		this.hubRegistry.register(new UserHubProvider(this.userService, this.inboxService!));
+		this.hubRegistry.register(new UserHubProvider(this.userService, this.inboxService!, this.sessionService));
 
 		// Session Workspace — dedicated focused leaf for active sessions
 		this.registerView(VIEW_TYPE_SESSION_WORKSPACE, (leaf) =>

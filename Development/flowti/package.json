@@ -1,46 +1,46 @@
 {
-	"name": "flowti-ibde",
-	"version": "0.0.1",
-	"description": "The Flowti IBDE.",
-	"main": "main.js",
-	"scripts": {
-		"dev": "node esbuild.config.mjs --watch",
-		"build": "npm run check && node esbuild.config.mjs --production",
-		"version": "node version-bump.mjs && git add manifest.json versions.json",
-		"test": "vitest run",
-		"test:watch": "vitest",
-		"test:ui": "vitest --ui",
-		"test:coverage": "vitest run --coverage",
-		"docs": "typedoc",
-		"check": "tsc -noEmit -skipLibCheck && npm run lint",
-		"lint": "eslint ./src/",
-		"publish": "npm run test:coverage && npm run docs && npm run check && node esbuild.config.mjs production && npx vite preview --outDir docs/tests"
-	},
-	"keywords": [
-		"business-development",
-		"process-management",
-		"quality-management"
-	],
-	"author": "Luis Mendez",
-	"license": "MIT",
-	"devDependencies": {
-		"@types/node": "^25.0.9",
-		"@types/papaparse": "^5.5.2",
-		"@typescript-eslint/eslint-plugin": "8.53.0",
-		"@typescript-eslint/parser": "8.53.0",
-		"@vitest/coverage-v8": "^4.0.17",
-		"@vitest/ui": "^4.0.17",
-		"builtin-modules": "5.0.0",
-		"esbuild": "0.27.2",
-		"happy-dom": "^20.6.1",
-		"obsidian": "latest",
-		"tslib": "2.8.1",
-		"typedoc": "^0.28.16",
-		"typescript": "5.9.3",
-		"vitest": "^4.0.17"
-	},
-	"dependencies": {
-		"papaparse": "^5.5.3",
-		"zod": "^4.3.5"
-	}
+  "name": "flowti-ibde",
+  "version": "0.0.1",
+  "description": "The Flowti IBDE.",
+  "main": "main.js",
+  "scripts": {
+    "test": "npm run check && vitest run",
+    "dev": "node esbuild.config.mjs --watch",
+    "build": "node esbuild.config.mjs --production",
+    "test:watch": "npm run check && vitest",
+    "test:ui": "npm run check && vitest --ui",
+    "test:coverage": "npm run check && vitest run --coverage",
+    "docs": "typedoc",
+    "check": "tsc -noEmit -skipLibCheck && npm run lint",
+    "lint": "eslint ./src/",
+    "version": "node version-bump.mjs && git add manifest.json versions.json",
+    "publish": "npm run test:coverage && npm run docs && node esbuild.config.mjs --production"
+  },
+  "keywords": [
+    "business-development",
+    "process-management",
+    "quality-management"
+  ],
+  "author": "Luis Mendez",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^25.0.9",
+    "@types/papaparse": "^5.5.2",
+    "@typescript-eslint/eslint-plugin": "8.53.0",
+    "@typescript-eslint/parser": "8.53.0",
+    "@vitest/coverage-v8": "^4.0.17",
+    "@vitest/ui": "^4.0.17",
+    "builtin-modules": "5.0.0",
+    "esbuild": "0.27.2",
+    "happy-dom": "^20.6.1",
+    "obsidian": "latest",
+    "tslib": "2.8.1",
+    "typedoc": "^0.28.16",
+    "typescript": "5.9.3",
+    "vitest": "^4.0.17"
+  },
+  "dependencies": {
+    "papaparse": "^5.5.3",
+    "zod": "^4.3.5"
+  }
 }

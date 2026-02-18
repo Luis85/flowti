@@ -477,15 +477,17 @@ export class UserHubSessions {
 				this.addActionButton(actions, "panel-right", "Sidebar", () => {
 					this.deps.openSessionWorkspace(session.id, "sidebar");
 				});
-				this.addActionButton(actions, "pause", "Pause", () => {
-					void eb.emit("session.pause", { sessionId: session.id });
-				});
-				this.addActionButton(actions, "check-circle", "Complete", () => {
-					void eb.emit("session.complete", { sessionId: session.id });
-				});
-				this.addActionButton(actions, "bookmark", "Save as Template", () => {
-					this.deps.openSaveTemplateModal(session);
-				});
+				if (session.type !== "daily-tracking") {
+					this.addActionButton(actions, "pause", "Pause", () => {
+						void eb.emit("session.pause", { sessionId: session.id });
+					});
+					this.addActionButton(actions, "check-circle", "Complete", () => {
+						void eb.emit("session.complete", { sessionId: session.id });
+					});
+					this.addActionButton(actions, "bookmark", "Save as Template", () => {
+						this.deps.openSaveTemplateModal(session);
+					});
+				}
 				break;
 
 			case "paused":
@@ -495,15 +497,17 @@ export class UserHubSessions {
 				this.addActionButton(actions, "panel-right", "Sidebar", () => {
 					this.deps.openSessionWorkspace(session.id, "sidebar");
 				});
-				this.addActionButton(actions, "play", "Resume", () => {
-					void eb.emit("session.resume", { sessionId: session.id });
-				});
-				this.addActionButton(actions, "check-circle", "Complete", () => {
-					void eb.emit("session.complete", { sessionId: session.id });
-				});
-				this.addActionButton(actions, "bookmark", "Save as Template", () => {
-					this.deps.openSaveTemplateModal(session);
-				});
+				if (session.type !== "daily-tracking") {
+					this.addActionButton(actions, "play", "Resume", () => {
+						void eb.emit("session.resume", { sessionId: session.id });
+					});
+					this.addActionButton(actions, "check-circle", "Complete", () => {
+						void eb.emit("session.complete", { sessionId: session.id });
+					});
+					this.addActionButton(actions, "bookmark", "Save as Template", () => {
+						this.deps.openSaveTemplateModal(session);
+					});
+				}
 				break;
 
 			case "completed":

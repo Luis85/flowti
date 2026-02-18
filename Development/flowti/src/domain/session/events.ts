@@ -25,7 +25,7 @@ export interface SessionEventMap {
 
 	// ── Daily session commands ───────────────────────────────
 	/** Command: start a daily-tracking session */
-	"session.daily.start": Record<string, never>;
+	"session.daily.start": { dailyNotePath?: string };
 	/** Command: stop (complete) the daily-tracking session */
 	"session.daily.stop": Record<string, never>;
 

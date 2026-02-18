@@ -162,19 +162,22 @@ export class SessionWorkspaceView extends ItemView {
 		}
 
 		const deps = this.createPanelDeps();
+		const isDaily = this.session.type === "daily-tracking";
 
 		this.renderHeader(container);
 
-		this.timerPanel = new SessionTimerPanel(container, deps);
-		this.timerPanel.render();
+		if (!isDaily) {
+			this.timerPanel = new SessionTimerPanel(container, deps);
+			this.timerPanel.render();
 
-		if (this.session.status === "active" || this.session.status === "paused") {
-			this.guidingPanel = new SessionGuidingQuestions(container, deps, this.customSessionTypes);
-			this.guidingPanel.render();
+			if (this.session.status === "active" || this.session.status === "paused") {
+				this.guidingPanel = new SessionGuidingQuestions(container, deps, this.customSessionTypes);
+				this.guidingPanel.render();
+			}
+
+			this.goalsPanel = new SessionGoalsPanel(container, deps);
+			this.goalsPanel.render();
 		}
-
-		this.goalsPanel = new SessionGoalsPanel(container, deps);
-		this.goalsPanel.render();
 
 		this.notesPanel = new SessionNotesPanel(container, deps);
 		this.notesPanel.render();
@@ -228,6 +231,13 @@ export class SessionWorkspaceView extends ItemView {
 			cls: "ft-badge",
 		}).style.cssText = "background:var(--background-modifier-hover);padding:2px 8px;border-radius:4px;font-size:12px;";
 
+		if (session.type === "daily-tracking") {
+			titleRow.createEl("span", {
+				text: "Daily",
+				cls: "ft-badge",
+			}).style.cssText = "background:var(--interactive-accent);color:var(--text-on-accent);padding:2px 8px;border-radius:4px;font-size:12px;";
+		}
+
 		this.headerStatusEl = titleRow.createEl("span", {
 			text: SESSION_STATUS_LABELS[session.status] ?? session.status,
 			cls: "ft-badge ft-badge-status",
@@ -245,14 +255,16 @@ export class SessionWorkspaceView extends ItemView {
 		const session = this.session;
 		const ctx = this.buildHelperContext();
 
-		if (session.status === "active") {
+		const isDaily = session.type === "daily-tracking";
+
+		if (session.status === "active" && !isDaily) {
 			this.createActionButton(this.actionsEl, "pause", "Pause", () => {
 				void this.eventBus.emit("session.pause", { sessionId: session.id });
 			});
 			this.createActionButton(this.actionsEl, "check-circle", "Complete", () => {
 				void this.eventBus.emit("session.complete", { sessionId: session.id });
 			});
-		} else if (session.status === "paused") {
+		} else if (session.status === "paused" && !isDaily) {
 			this.createActionButton(this.actionsEl, "play", "Resume", () => {
 				void this.eventBus.emit("session.resume", { sessionId: session.id });
 			});

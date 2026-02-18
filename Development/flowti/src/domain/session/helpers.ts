@@ -443,6 +443,25 @@ export function formatDurationHuman(ms: number): string {
 	return `${seconds}s`;
 }
 
+// ── Daily Note Path Resolution ──────────────────────────────
+
+/**
+ * Resolves template placeholders like `{{date:YYYY-MM-DD}}` in a daily note path.
+ * Returns the template string as-is if no placeholders are found.
+ */
+export function resolveDailyNotePath(template: string, date: Date = new Date()): string {
+	return template.replace(/\{\{date:([^}]+)\}\}/g, (_match, format: string) => {
+		const pad = (n: number) => String(n).padStart(2, "0");
+		const y = date.getFullYear();
+		const m = pad(date.getMonth() + 1);
+		const d = pad(date.getDate());
+		return format
+			.replace("YYYY", String(y))
+			.replace("MM", m)
+			.replace("DD", d);
+	});
+}
+
 // ── Session Output Artifacts ────────────────────────────────
 
 /** 3 pre-built output templates for generating session artifacts. */

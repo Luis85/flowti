@@ -1,10 +1,10 @@
 ---
 type: DevelopmentCycle
 feature: "[[Session Workspaces PRD]]"
-stage: in-progress
+stage: completed
 cycle: 4
 date_planned: 2026-02-18
-date_completed:
+date_completed: 2026-02-18
 pbis:
   - "[[PBI-SW-007 Auto-Session and Session Nudges]]"
 bugs:
@@ -18,11 +18,11 @@ bugs:
 tech_debt:
   - "[[TD-01 UI files exceed size convention]]"
 estimated_increments: 6
-actual_increments: 4
+actual_increments: 6
 estimated_tests: 155
-actual_tests: 65
-total_tests_after: 2383
-total_test_files_after: 93
+actual_tests: 108
+total_tests_after: 2426
+total_test_files_after: 94
 ---
 
 # Cycle 4: Bug Fixes, Auto-Session & Activity Polish
@@ -101,17 +101,24 @@ total_test_files_after: 93
 4. Activity log aggregation pairs naturally with daily sessions (high activity volume)
 5. Session nudges can be deferred to Cycle 5 without losing core value
 
-### Post-Cycle State (YYYY-MM-DD)
-<!-- Filled post-delivery -->
+### Post-Cycle State (2026-02-18)
 
 **Plugin health:**
-- X tests passing (Y skipped), Z test files (+N tests, +M files)
+- 2,426 tests passing (32 skipped), 94 test files (+108 tests, +4 files)
+- Clean working tree, all builds green
+- `npm run build` pipeline: vitest + typedoc + tsc + eslint + esbuild
 
 **Session Workspaces feature:**
-- PBI-SW-007: **partial** — daily-tracking type, concurrent sessions, auto-start, daily note integration delivered; nudges deferred to Cycle 5
-- TD-01 partial: SessionWorkspaceView extracted to ~450 LOC (from 791)
+- PBI-SW-007: **partial** — daily-tracking type, concurrent sessions, auto-start, daily note auto-link, same-day restart, preferences UI delivered; nudges + `generateDailySummary()` + flow test deferred to Cycle 5
+- TD-01 partial: SessionWorkspaceView extracted to 479 LOC (from 791)
 - Activity log aggregation: file-level grouping delivered
+- User Hub: 3 tabs (Sessions → Inbox → Preferences), dashboard with quick actions + active session card
+- Session Preferences: 3 categories (Profile, Inbox, Sessions) with daily session toggles, activity filter, custom types, output templates
+- Daily session lifecycle: auto-start on vault open, auto-stop on unload, same-day restart (reactivates completed session from today), daily note auto-link via `resolveDailyNotePath()` template resolution
 - Updated domain metrics:
+  - SessionService: ~1,290 LOC (from 1,130, +160 LOC for daily lifecycle + restart)
+  - Session events: 64 registered (from 60, +4 daily lifecycle)
+  - Session UI: ~1,750 LOC across 16 files (from 976 LOC / 12 files)
 
 ---
 
@@ -314,39 +321,54 @@ The exporter shows ALL frontmatter properties instead of only the columns select
 **Est. total:** ~111 LOC source, ~20 tests
 
 **Acceptance criteria:**
-- [ ] `enableDailySession` setting in FlowtiSettingTab (default off)
-- [ ] `dailyNotePath` setting for daily note location pattern
-- [ ] Daily session auto-starts on vault open when setting is enabled
-- [ ] Daily session auto-stops on plugin unload
-- [ ] User Hub shows "Daily Session: Active" indicator when running
-- [ ] SessionWorkspaceView shows "Daily" badge for daily sessions
-- [ ] Timer panel and goals panel hidden for daily sessions (passive tracking only)
-- [ ] `npm run build` passes
+- [x] `enableDailySession` setting — moved to User Hub Preferences tab (Sessions category) instead of FlowtiSettingTab; default off
+- [x] `dailyNotePath` setting for daily note location pattern — default `"03 - Resources/Daily Notes/{{date:YYYY-MM-DD}}.md"`
+- [x] Daily session auto-starts on vault open when setting is enabled
+- [x] Daily session auto-stops on plugin unload
+- [x] User Hub shows "Daily Session: Active" indicator when running (UserHubProvider stat + dashboard card)
+- [x] SessionWorkspaceView shows "Daily" badge for daily sessions
+- [x] Timer panel and goals panel hidden for daily sessions (passive tracking only)
+- [x] Daily session cannot be manually paused/resumed/completed — only deactivated via settings toggle
+- [x] `npm run build` passes — 2,404 tests (94 files), tsc clean, eslint clean
 
-### Inc 5: Daily Note Integration + Flow Test
+### Inc 5: Tab Polish + Daily Note Auto-Link + Same-Day Restart + Bug Fixes
 
-**Goal:** Append daily activity summary to user's daily note. End-to-end integration test.
+**Goal:** Polish User Hub tab ordering, add daily note auto-link on session start, enable same-day daily session restart, fix 4 UX bugs discovered during live testing.
 
-| Step | File | Purpose | Est. LOC |
-|------|------|---------|----------|
-| 1 | `src/domain/session/helpers.ts` | `generateDailySummary(session): string` — pure function rendering activity summary as markdown list (grouped by file, with action counts) | ~45 |
-| 2 | `src/domain/session/events.ts` | 1 event: `session.daily.summary.generated` | ~5 |
-| 3 | `src/domain/session/SessionService.ts` | On `session.daily.stopped`: generate summary, resolve daily note path, append via `FileSystemClient`, emit `session.daily.summary.generated` | ~55 |
-| 4 | `src/infrastructure/events/catalog.ts` | 1 catalog entry for summary event | ~2 |
-| 5 | `tests/domain/session/helpers.test.ts` | `generateDailySummary()`: grouped output, empty session, many files | ~20 |
-| 6 | `tests/domain/session/SessionService.test.ts` | Daily stop → summary generated → file appended; missing daily note handled gracefully | ~15 |
-| 7 | `tests/flows/13-DailySessionLifecycle.test.ts` | Full lifecycle: vault open → daily auto-start → concurrent focused session → activity tracked in both → focused complete → vault close → daily summary appended to note → verify all events | ~150 |
+| Step | File | Purpose | LOC |
+|------|------|---------|-----|
+| 1 | `src/ui/userHub/types.ts` | Reorder `UserHubTab` type: `"sessions" \| "inbox" \| "preferences"` | ~1 |
+| 2 | `src/ui/UserHubView.ts` | Reorder `getTabDefinitions()`: Sessions → Inbox → Preferences | ~3 |
+| 3 | `src/ui/userHub/UserHubDashboard.ts` | Reorder quick actions: Sessions first; add `stopPropagation()` on actions container (bug fix #4) | ~5 |
+| 4 | `src/domain/session/events.ts` | Add `dailyNotePath?: string` to `session.daily.start` payload | ~1 |
+| 5 | `src/domain/session/helpers.ts` | Add `resolveDailyNotePath(template, date?)` — resolves `{{date:YYYY-MM-DD}}` placeholders | ~12 |
+| 6 | `src/domain/session/SessionService.ts` | Rewrite `handleDailyStart(dailyNotePath?)`: same-day restart (find completed daily from today, reactivate) + daily note auto-link (set `session.notesFile` from template) + `startTimer()` guard for zero-duration sessions (bug fix #3) | ~45 |
+| 7 | `src/main.ts` | Pass `dailyNotePath` setting in `session.daily.start` emit calls; add `session.daily.stopped` listener → `writeSessionSummary()` | ~15 |
+| 8 | `src/ui/userHub/UserHubPreferences.ts` | Change row classes to `ft-catalog-row ft-cursor-pointer` for hover/active state (bug fix #1) | ~3 |
+| 9 | `src/domain/settings/settings.ts` | Change `dailyNotePath` default to `"03 - Resources/Daily Notes/{{date:YYYY-MM-DD}}.md"` | ~1 |
+| 10 | `src/ui/userHub/UserHubSessions.ts` | Add `session.type !== "daily-tracking"` guards on Pause/Resume/Complete/Save buttons (bug fix #2) | ~8 |
+| 11 | `src/ui/SessionWorkspaceView.ts` | Add `isDaily` guard on active/paused action buttons (bug fix #2) | ~5 |
+| 12 | `styles.css` | Fix `.ft-catalog-row:hover` to use `var(--background-modifier-hover)` (was invisible `var(--background-primary)`) (bug fix #1) | ~1 |
+| 13 | 6 test files | New + updated tests: `resolveDailyNotePath`, daily note auto-link, same-day restart, tab order, preference selectors, settings defaults | ~22 |
 
-**Est. total:** ~107 LOC source + ~150 LOC flow test, ~35 tests (including flow)
+**Bug fixes delivered (discovered during live testing):**
+1. **Preference items missing hover/active state** — `ft-tree-item` class had no CSS rules; switched to `ft-catalog-row` with existing `:hover` styles. Also fixed `:hover` color from invisible `var(--background-primary)` to `var(--background-modifier-hover)`.
+2. **Daily sessions could be manually completed** — added `daily-tracking` type guards on Pause/Resume/Complete/Save-as-Template buttons in both UserHubSessions and SessionWorkspaceView.
+3. **Zero-duration sessions instant-complete on Start** — `startTimer()` was called unconditionally; first tick found `remainingMs <= 0` and called `completeSession()`. Fixed with `if (session.durationMinutes <= 0) return;` guard.
+4. **Resume from dashboard opens unrelated file** — click event from Resume button bubbled up to the active session card's click handler, which called `openSessionWorkspace()` and restored saved workspace state (which included `00 - Inbox.base`). Fixed with `stopPropagation()` on actions container.
 
 **Acceptance criteria:**
-- [ ] `generateDailySummary()` renders activity as grouped markdown (file name → actions)
-- [ ] Daily session stop triggers summary generation
-- [ ] Summary appended to daily note file (if configured and file exists)
-- [ ] Missing daily note handled gracefully (summary still generated, not written)
-- [ ] Flow test covers: auto-start → concurrent tracking → focused session lifecycle → daily stop → summary generation
-- [ ] All PBI-SW-007 acceptance criteria checked (except nudge-related ones, deferred)
-- [ ] `npm run build` passes — all tests green
+- [x] User Hub tabs show Sessions → Inbox → Preferences (was Inbox → Sessions)
+- [x] Quick actions show Sessions first in dashboard
+- [x] `resolveDailyNotePath()` resolves `{{date:YYYY-MM-DD}}` template placeholders
+- [x] `handleDailyStart()` sets `session.notesFile` from `dailyNotePath` setting template
+- [x] Same-day restart: completed daily session from today is reactivated instead of creating new
+- [x] `session.daily.stopped` triggers `writeSessionSummary()` to persist daily note
+- [x] Preference items show hover/active state
+- [x] Daily sessions cannot be paused/resumed/completed via UI buttons
+- [x] Zero-duration sessions don't instant-complete on start
+- [x] Resume from dashboard doesn't open unrelated files
+- [x] `npm run build` passes — 2,426 tests (94 files), tsc clean, eslint clean
 
 ---
 
@@ -361,12 +383,12 @@ Inc 2b: DX Progress Tracking Bug Fixes (independent of Inc 1-2, no session deps)
   |
 Inc 3: PBI-SW-007 Domain — types, daily-tracking, concurrent sessions (independent of Inc 1-2b) ✓
   |
-Inc 4: PBI-SW-007 UI — auto-start, settings, display (requires Inc 2 extraction + Inc 3 types)
+Inc 4: PBI-SW-007 UI — auto-start, settings, display (requires Inc 2 extraction + Inc 3 types) ✓
   |
-Inc 5: Daily note integration + flow test (requires Inc 3 + Inc 4)
+Inc 5: Tab polish + daily note auto-link + same-day restart + bug fixes (requires Inc 4) ✓
 ```
 
-**Note:** Inc 1 (bugs) is fully independent — exporter and infrastructure fixes don't touch session code. Inc 2 (extraction) and Inc 3 (domain) are technically independent of each other. Inc 2b (DX bugs) is independent of session code — only touches dataExchange domain + DX Hub UI. Inc 4 (UI) requires both Inc 2 (clean view) and Inc 3 (types). Inc 5 requires the full stack.
+**Note:** All increments delivered. Inc 1 (bugs) and Inc 2b (DX bugs) were independent. Inc 2 and Inc 3 were independent of each other. Inc 4 required Inc 2+3. Inc 5 built on Inc 4's settings and daily session UI.
 
 ---
 
@@ -386,26 +408,30 @@ Inc 5: Daily note integration + flow test (requires Inc 3 + Inc 4)
 
 ## Success Metrics
 
-| Metric | Target | Actual (through Inc 3) |
-|--------|--------|------------------------|
-| Tests added | ~285 new (~175 session + ~110 DX bugs) | 65 (39 Inc 1 + 5 Inc 2 + 21 Inc 3) |
-| Tests total | ~2,603+ | 2,383 |
-| Test suites | ~97+ | 93 |
-| LOC added (source) | ~725 new (~99 Inc 1 bugs + ~230 Inc 2b DX bugs + ~396 features) | In progress |
-| LOC refactored | ~420 (extraction — subscriptions + helpers) | ~420 (Inc 2 complete) |
-| SessionWorkspaceView LOC | ≤ 450 (from 791, -341) | 479 (Inc 2 complete) |
-| Bugs fixed | 7 (2 exporter + TD-62 + TD-64 + 3 DX progress) | 7/7 (Inc 1 + Inc 2b) |
-| PBIs closed | PBI-SW-007 (partial — nudges deferred) | Domain layer done (Inc 3) |
-| New events | 5 (4 daily lifecycle + 1 summary) | 4/5 (4 daily lifecycle, summary in Inc 5) |
+| Metric | Target | Actual (final) |
+|--------|--------|----------------|
+| Tests added | ~285 new | 108 (39 Inc 1 + 5 Inc 2 + 21 Inc 3 + 21 Inc 4 + 22 Inc 5) |
+| Tests total | ~2,603+ | 2,426 |
+| Test suites | ~97+ | 94 |
+| LOC added (source) | ~725 new | ~650 (est.) |
+| LOC refactored | ~420 (extraction) | ~420 (Inc 2) |
+| SessionWorkspaceView LOC | ≤ 450 (from 791) | 479 |
+| Bugs fixed | 7 planned | 11 (7 planned + 4 live-testing bugs in Inc 5) |
+| PBIs closed | PBI-SW-007 (partial) | PBI-SW-007 partial — core + daily note + restart delivered; nudges deferred |
+| New events | 5 (4 daily lifecycle + 1 summary) | 4 (4 daily lifecycle; summary uses existing `writeSessionSummary`) |
 | Total session events | 65+ | 64 |
-| Flow tests | 13 (new: DailySessionLifecycle) | 12 (DailySessionLifecycle in Inc 5) |
+| Flow tests | 13 (new: DailySessionLifecycle) | 12 (DailySessionLifecycle deferred to Cycle 5) |
 
 ---
 
 ## Cycle Retrospective
 
 ### What Went Well
-<!-- Filled post-delivery -->
+- **Bug fixes front-loaded:** Delivering all 7 planned bugs in Inc 1 + Inc 2b de-risked the cycle early and improved plugin stability before feature work
+- **Extraction before features:** Inc 2's SessionWorkspaceView extraction (791 → 479 LOC) made Inc 4-5 changes safe and contained
+- **Settings in User Hub Preferences:** Moving session settings from FlowtiSettingTab to User Hub Preferences (3-category master-detail layout) was a better UX decision than planned — settings are co-located with the features they control
+- **Same-day restart emerged naturally:** The `handleDailyStart()` rewrite to support daily note auto-link made same-day restart trivial to add (check for completed session from today before creating new)
+- **Live testing caught 4 real bugs:** Preference hover, daily completion, zero-duration timer, and click bubbling were all caught and fixed in the same session — each was a 1-5 line fix
 
 ### Deviations from Plan
 - **Inc 1 Bug 1+2 (exporter):** Original plan had incremental fixes to `scanColumns()` and `executeExport()`. Mid-increment, the scope expanded to a full **ResolvedColumn unified descriptor** approach (approved plan) — added `ResolvedColumn` type, `scanResolvedColumns()`, unified column rendering across ExportService, PreviewPage, ConfigurePage, and ViewSelectPage. Better architecture than planned, but more LOC (~200 vs ~70 est).
@@ -417,17 +443,29 @@ Inc 5: Daily note integration + flow test (requires Inc 3 + Inc 4)
 - **Inc 3 dual artifact tracking added:** Plan focused on dual `onActivityEvent()` tracking. Implementation also added dual `onFileEvent()` tracking via extracted `trackArtifactToSession()` helper — both artifact and activity events now track to both daily and focused sessions.
 - **Inc 3 `handleDelete()` cleanup added:** Plan didn't mention delete. Added `dailySessionId` cleanup in `handleDelete()` (same pattern as `completeSession()`) to prevent stale reference if a daily session is deleted.
 - **Inc 3 `session.loaded` event updated:** Added `dailySessionId` to `session.loaded` payload type — not in original plan but required for UI consumers to know daily session state on startup.
+- **Inc 4 settings location changed:** Plan called for `enableDailySession` and `dailyNotePath` settings in `FlowtiSettingTab` (Obsidian settings panel). Instead, all session-related settings moved to a new **User Hub Preferences tab** with 3 categories (Profile, Inbox, Sessions). `UserHubSessionPreferences.ts` (~175 LOC) provides the full session settings UI. Better UX — settings co-located with the features they control.
+- **Inc 4 added daily session completion guard:** Not in original plan. Added `session.type !== "daily-tracking"` guards on Pause/Resume/Complete/Save-as-Template buttons in both UserHubSessions and SessionWorkspaceView. Daily sessions can only be deactivated via settings toggle, not manually completed.
+- **Inc 5 scope changed entirely:** Original Inc 5 was "Daily Note Integration + Flow Test" (`generateDailySummary()`, daily note append, flow test `13-DailySessionLifecycle.test.ts`). Actual Inc 5 became "Tab Polish + Daily Note Auto-Link + Same-Day Restart + Bug Fixes". `generateDailySummary()` was deferred — daily note writing reuses the existing `writeSessionSummary()` pipeline via a `session.daily.stopped` listener. Flow test deferred to Cycle 5.
+- **Inc 5 same-day restart was unplanned:** The user requested that stopping and restarting a daily session on the same day should reactivate the existing session rather than creating a new one. Implemented as a simple `createdAt.startsWith(today)` check in `handleDailyStart()`.
+- **Inc 5 tab reorder was unplanned:** User Hub tab order changed from Inbox → Sessions → Preferences to Sessions → Inbox → Preferences. Quick actions reordered to match.
+- **Inc 5 discovered 4 bugs during live testing:** (1) Preference items had no hover/active CSS, (2) daily sessions could be manually completed, (3) zero-duration sessions instant-completed on Start, (4) Resume from dashboard opened unrelated file via click event bubbling. All fixed inline.
 
 ### Improvement Backlog (from this cycle)
-<!-- Filled post-delivery -->
 - [ ] PBI-SW-007 nudge system — deferred from this cycle
+- [ ] `generateDailySummary()` — dedicated daily activity summary renderer (currently reuses `writeSessionSummary`)
+- [ ] Flow test `13-DailySessionLifecycle.test.ts` — end-to-end daily session lifecycle coverage
 - [ ] Consider extracting `ActiveOperation` state management into a dedicated `OperationTracker` service if more hub views need progress tracking
+- [ ] SessionService at ~1,290 LOC — approaching 1,300 threshold, consider extraction if more features added
+- [ ] Global activity folder filter (per-session filter delivered, global deferred)
 
 ### Learnings
-<!-- Filled post-delivery -->
 - **`scheduleRender()` is wrong for state transitions:** Debounced rendering (16ms via `setTimeout`) races with async EventBus emissions. When a handler calls `scheduleRender()` and a `.then()` callback also needs to render after state change, the handler's render fires first while the old state is still set. Fix: use direct `renderMaster()`/`renderDetail()` for state transitions (same pattern as Cancel buttons).
 - **DOM-based progress is fragile:** Any `el.empty()` call destroys progress bars. State-backed `ActiveOperation` tracking with live listener reattachment on render is the correct pattern for progress that must survive navigation.
 - **Sub-services should own their lifecycle events:** Having `DataExchangeService` emit `import.completed`/`import.failed` on behalf of `ImportService` created unnecessary coupling. Letting each sub-service emit its own lifecycle makes `operationId`/`pipelineId` propagation natural and the orchestrator handler simpler.
+- **Zero-duration sessions need timer guards:** `startTimer()` must early-return for `durationMinutes <= 0` — otherwise the first timer tick (1s later) sees `remainingMs <= 0` and immediately completes the session. Any time-based feature needs explicit duration checks.
+- **Click event bubbling in nested action containers:** When action buttons (Resume, Pause, etc.) live inside clickable cards, the click event bubbles up to the card's handler. Always `stopPropagation()` on the actions container — not on individual buttons, which is error-prone as new buttons are added.
+- **CSS variable invisibility trap:** `.ft-catalog-row:hover` using `var(--background-primary)` was identical to the inherited background, making hover invisible. Always verify hover colors against parent backgrounds — use `var(--background-modifier-hover)` which is guaranteed to be visually distinct.
+- **Settings co-location > central settings panel:** Moving session-related settings from the Obsidian settings tab to User Hub Preferences improved discoverability. Users expect to configure features where they use them, not in a separate modal.
 
 ---
 
@@ -445,5 +483,6 @@ Inc 5: Daily note integration + flow test (requires Inc 3 + Inc 4)
   - Out of scope: 4 items (idea capture, inbox ingestion, manage Flowti, session template JSON)
   - Open DX bugs: 3 items → **fixed in Inc 2b** (dashboard state, progress bar confusion, pipeline progress) + 3 additional UX bugs discovered and fixed (edit form Save, CSV Save button, pipeline export pipelineId)
 - Learnings (input): [[L-25 Overview placeholder bug]], [[L-28 Carry-forward escalation]]
-- Learnings (output): <!-- filled post-delivery -->
+- Learnings (output): [[L-29 Zero-duration timer guard]], [[L-30 Click event bubbling in action containers]], [[L-31 CSS variable invisibility]], [[L-32 Settings co-location]]
 - Previous Cycle: [[Cycle 3 - Session Output Artifacts and State Restoration]]
+- Next Cycle: [[Cycle 5 - Daily Summary and Session Nudges]]

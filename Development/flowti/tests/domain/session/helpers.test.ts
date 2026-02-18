@@ -13,6 +13,7 @@ import {
 	computeActiveTimeMs,
 	computeTimelineSummary,
 	formatDurationHuman,
+	resolveDailyNotePath,
 	generateSessionSummary,
 	generateSessionFrontmatter,
 	generateSessionSummaryBody,
@@ -1267,5 +1268,36 @@ describe("generateSessionOutput", () => {
 		expect(output).toContain("## Overview");
 		// Overview contains date, duration, type
 		expect(output).toContain("Documentation");
+	});
+});
+
+// ── resolveDailyNotePath ─────────────────────────────────────
+
+describe("resolveDailyNotePath", () => {
+	it("resolves {{date:YYYY-MM-DD}} to actual date", () => {
+		const date = new Date(2026, 1, 18); // Feb 18, 2026
+		const result = resolveDailyNotePath("Journal/{{date:YYYY-MM-DD}}.md", date);
+		expect(result).toBe("Journal/2026-02-18.md");
+	});
+
+	it("resolves with different date formats", () => {
+		const date = new Date(2026, 0, 5); // Jan 5, 2026
+		const result = resolveDailyNotePath("Notes/{{date:YYYY}}/{{date:MM-DD}}.md", date);
+		expect(result).toBe("Notes/2026/01-05.md");
+	});
+
+	it("returns template as-is when no date placeholder present", () => {
+		const result = resolveDailyNotePath("Journal/daily.md");
+		expect(result).toBe("Journal/daily.md");
+	});
+
+	it("handles empty string", () => {
+		expect(resolveDailyNotePath("")).toBe("");
+	});
+
+	it("resolves date components independently", () => {
+		const date = new Date(2026, 11, 3); // Dec 3, 2026
+		const result = resolveDailyNotePath("{{date:YYYY}}/{{date:MM}}/{{date:DD}}.md", date);
+		expect(result).toBe("2026/12/03.md");
 	});
 });

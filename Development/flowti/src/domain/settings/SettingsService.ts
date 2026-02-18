@@ -89,6 +89,19 @@ export class SettingsService implements ISettingsService {
 					void this.updateSettings({ customOutputTemplates: event.payload.templates as FlowtiSettings["customOutputTemplates"] });
 				})
 			);
+			this.unsubscribes.push(
+				this.eventBus.on("settings.updateSessionActivityFilter", (event) => {
+					void this.updateSettings({ sessionActivityFilterGlobal: event.payload.filter });
+				})
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("settings.updateDailySession", (event) => {
+					void this.updateSettings({
+						enableDailySession: event.payload.enableDailySession,
+						dailyNotePath: event.payload.dailyNotePath,
+					});
+				})
+			);
 		}
 	}
 

@@ -53,10 +53,11 @@ function makeInboxService(items: InboxItem[] = [], unreadCount = 0): InboxServic
 	} as never;
 }
 
-function makeSessionService(activeSession: Session | null = null): SessionService {
+function makeSessionService(activeSession: Session | null = null, dailySession: Session | null = null): SessionService {
 	return {
 		getSessions: vi.fn(() => []),
 		getActiveSession: vi.fn(() => activeSession),
+		getDailySession: vi.fn(() => dailySession),
 	} as never;
 }
 
@@ -510,7 +511,7 @@ describe("UserHubDashboard", () => {
 			expect(actions).toHaveLength(7);
 		});
 
-		it("should navigate to inbox tab on Inbox click", () => {
+		it("should navigate to sessions tab on Sessions click", () => {
 			const navigateToTab = vi.fn();
 			const dashboard = new UserHubDashboard(container, makeDeps({ eventBus, navigateToTab }));
 
@@ -519,10 +520,10 @@ describe("UserHubDashboard", () => {
 			const actions = container.querySelectorAll(".ft-nav-link");
 			(actions[0] as HTMLElement).click();
 
-			expect(navigateToTab).toHaveBeenCalledWith("inbox");
+			expect(navigateToTab).toHaveBeenCalledWith("sessions");
 		});
 
-		it("should navigate to sessions tab on Sessions click", () => {
+		it("should navigate to inbox tab on Inbox click", () => {
 			const navigateToTab = vi.fn();
 			const dashboard = new UserHubDashboard(container, makeDeps({ eventBus, navigateToTab }));
 
@@ -531,7 +532,7 @@ describe("UserHubDashboard", () => {
 			const actions = container.querySelectorAll(".ft-nav-link");
 			(actions[1] as HTMLElement).click();
 
-			expect(navigateToTab).toHaveBeenCalledWith("sessions");
+			expect(navigateToTab).toHaveBeenCalledWith("inbox");
 		});
 
 		it("should navigate to preferences tab on Preferences click", () => {
@@ -780,6 +781,82 @@ describe("UserHubDashboard", () => {
 			const badges = container.querySelectorAll(".ft-active-session .ft-badge");
 			// Only type badge should exist (Event Storming), no focus file badge
 			expect(badges).toHaveLength(1);
+		});
+	});
+
+	// ── Daily session indicator ──────────────────────────────
+
+	describe("daily session indicator", () => {
+		it("should render daily session indicator when daily session exists", () => {
+			const daily = makeActiveSession({
+				id: "daily-1",
+				type: "daily-tracking",
+				title: "Daily Tracking",
+				activity: [
+					{ timestamp: new Date().toISOString(), action: "modified", path: "notes/test.md" },
+					{ timestamp: new Date().toISOString(), action: "created", path: "notes/new.md" },
+				],
+			});
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				sessionService: makeSessionService(null, daily),
+			}));
+
+			dashboard.render();
+
+			expect(container.querySelector(".ft-daily-session")).toBeTruthy();
+			expect(container.textContent).toContain("Daily Tracking");
+			expect(container.textContent).toContain("Active");
+			expect(container.textContent).toContain("2 activities");
+		});
+
+		it("should not render daily session indicator when no daily session", () => {
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				sessionService: makeSessionService(null, null),
+			}));
+
+			dashboard.render();
+
+			expect(container.querySelector(".ft-daily-session")).toBeNull();
+		});
+
+		it("should skip daily indicator when daily IS the active session", () => {
+			const daily = makeActiveSession({
+				id: "daily-1",
+				type: "daily-tracking",
+				title: "Daily Tracking",
+			});
+			// daily is also the active session
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				sessionService: makeSessionService(daily, daily),
+			}));
+
+			dashboard.render();
+
+			// Active session card should exist, but daily indicator should not
+			expect(container.querySelector(".ft-active-session")).toBeTruthy();
+			expect(container.querySelector(".ft-daily-session")).toBeNull();
+		});
+
+		it("should open workspace on daily indicator click", () => {
+			const daily = makeActiveSession({
+				id: "daily-1",
+				type: "daily-tracking",
+			});
+			const deps = makeDeps({
+				eventBus,
+				sessionService: makeSessionService(null, daily),
+			});
+			const dashboard = new UserHubDashboard(container, deps);
+
+			dashboard.render();
+
+			const card = container.querySelector(".ft-daily-session") as HTMLElement;
+			card.click();
+
+			expect(deps.openSessionWorkspace).toHaveBeenCalledWith("daily-1");
 		});
 	});
 
