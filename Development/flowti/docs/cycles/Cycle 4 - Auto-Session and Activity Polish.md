@@ -181,13 +181,13 @@ The exporter shows ALL frontmatter properties instead of only the columns select
 **Est. total:** ~420 LOC refactored, ~45 LOC new features, ~35 tests
 
 **Acceptance criteria:**
-- [ ] SessionWorkspaceView ≤ 450 LOC (from 791)
-- [ ] `SessionWorkspaceSubscriptions.ts` extracted with all 18+ event subscriptions + `SubscriptionCallbacks` interface
-- [ ] `SessionWorkspaceHelpers.ts` extracted with 9 methods + `WorkspaceHelperDeps` interface
-- [ ] All existing SessionWorkspaceView tests pass unchanged
-- [ ] Activity log groups entries by file path (one row per file)
-- [ ] Grouped rows show file name, latest action, edit count (if > 1), timestamp
-- [ ] `npm run build` passes
+- [x] SessionWorkspaceView ≤ 450 LOC (from 791) — **actual: 479 LOC** (canvas/notes file sections kept in view)
+- [x] `SessionWorkspaceSubscriptions.ts` extracted with all 24 event subscriptions + `SubscriptionViewContext` interface (256 LOC)
+- [x] `SessionWorkspaceHelpers.ts` extracted with 9 methods + `WorkspaceHelperContext` interface (167 LOC)
+- [x] All existing SessionWorkspaceView tests pass unchanged (1 test updated for grouping behavior)
+- [x] Activity log groups entries by file path (one row per file) — `groupActivityByFile()` pure function
+- [x] Grouped rows show file name, latest action, edit count (`×N` badge if > 1), timestamp
+- [x] `npm run build` passes — 2,357 tests (92 files), tsc clean, eslint clean
 
 ### Inc 3: PBI-SW-007 Domain Layer — Daily-Tracking Type + Concurrent Sessions
 

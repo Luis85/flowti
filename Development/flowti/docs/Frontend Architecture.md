@@ -10,7 +10,7 @@ tags:
 
 This document describes the current frontend architecture of the Flowti IBDE Obsidian plugin, its design principles, view inventory, and refactoring history with planned next phases.
 
-> Last updated: 2026-02-17 (SessionWorkspaceView added to view inventory; session event count updated to 29)
+> Last updated: 2026-02-18 (SessionWorkspaceView extracted: subscriptions + helpers + activity aggregation)
 
 ---
 
@@ -70,6 +70,7 @@ src/                     # ~31,467 LOC across 154 files
 │   ├── hub/             # Data Exchange Hub components (21 files, 4,414 LOC)
 │   ├── csv/             # CSV import wizard components (10 files, 1,752 LOC)
 │   ├── export/          # Export wizard components (7 files, 994 LOC)
+│   ├── session/         # Session Workspace components (10 files: panels, subscriptions, helpers)
 │   ├── userHub/         # User Hub components (4 files: Dashboard, Inbox, Sessions, Preferences)
 │   └── *.ts             # Orchestrator views + modals
 └── utils/               # Shared helpers (persistence, glob, types)
@@ -99,7 +100,7 @@ Views read state via `deps.getState()` and write via `deps.setState(partial)`. T
 | `ExportView` | `flowti-export` | ~655 | wizard stepper | 4-page export wizard: View Select, Configure, Preview, Result |
 | `CsvActionView` | `flowti-csv` | ~747 | landing + wizard | CSV file handler: column preview landing page + 4-page inline import wizard |
 | `UserHubView` | `flowti-user-hub` | ~273 | `BaseHubView<UserHubTab>` | 3-tab user hub: Dashboard, Inbox, Sessions (+ Preferences) |
-| `SessionWorkspaceView` | `flowti-session-workspace` | ~753 | `ItemView` | single-column | Dedicated focused workspace for a single session (timer, goals, notes, links, canvas, artifacts) |
+| `SessionWorkspaceView` | `flowti-session-workspace` | ~479 | `ItemView` | single-column | Dedicated focused workspace for a single session (timer, goals, notes, context, decisions, activity, outputs). Subscriptions extracted to `SessionWorkspaceSubscriptions.ts`, helpers to `SessionWorkspaceHelpers.ts` |
 | `ComponentShowcaseView` | `flowti-component-showcase` | ~297 | showcase | Development view for previewing all CSS components |
 
 ### Modals
@@ -157,6 +158,18 @@ Both major views extend `BaseHubView<TPage>` and follow the **orchestrator + com
 - `ConfigurePage` — Settings form + property grid
 - `PreviewPage` — Export preview
 - `ResultPage` — Results display
+
+**Session Workspace** (`src/ui/session/`, 10 files):
+- `SessionWorkspaceSubscriptions` — 24 event listeners extracted via `SubscriptionViewContext` interface
+- `SessionWorkspaceHelpers` — 9 helper functions extracted via `WorkspaceHelperContext` interface (workspace state capture/restore, modal openers, leaf navigation, status styling)
+- `SessionTimerPanel` — Timer display with countdown and editable duration for prepared sessions
+- `SessionGoalsPanel` — Goal checklist with add/toggle/remove actions
+- `SessionNotesPanel` — Auto-saving textarea with debounced event emission
+- `SessionContextPanel` — Context bindings with type badges, add/remove actions
+- `SessionDecisionPanel` — Decision log with record/remove actions
+- `SessionActivityPanel` — File activity log with `groupActivityByFile()` aggregation (one row per file, latest action + count badge)
+- `SessionOutputPanel` — Output artifact list for completed/archived sessions
+- `SessionGuidingQuestions` — Session-type-specific guiding prompts
 
 **User Hub** (`src/ui/userHub/`, 4 files):
 - `UserHubDashboard` — Welcome section, cross-hub summary cards, active session card, inbox preview, quick actions
@@ -297,7 +310,7 @@ dataExchangeSetup.ts ─→ Hub, CSV, Export     (view registration + file menu 
 
 ### Scale
 
-The `FlowtiEventMap` type union contains **155 events** across 14 domains:
+The `FlowtiEventMap` type union contains **216 events** across 15 domains:
 
 | Domain | Events | Examples |
 |--------|--------|---------|
@@ -322,7 +335,7 @@ The `FlowtiEventMap` type union contains **155 events** across 14 domains:
 | Data Exchange | 15 | `dataExchange.import.execute`, `dataExchange.export.completed` |
 | Documentation | 6 | `doc.create`, `doc.created`, `doc.exists`, `doc.failed` |
 | Hub | 3 | `hub.opened`, `hub.closed`, `hub.tab.changed` |
-| Session | 29 | `session.create`, `session.started`, `session.timer.tick`, `session.artifact.added`, `session.link.add`, `session.notes.update`, `session.goal.add` |
+| Session | 60 | `session.create`, `session.started`, `session.timer.tick`, `session.artifact.added`, `session.context.bind`, `session.decision.record`, `session.output.generate`, `session.state.save` |
 | Inbox | 5 | `inbox.itemAdded`, `inbox.itemsChanged`, `inbox.cleared` |
 | Installer | 6 | `installer.started`, `installer.step.completed` |
 
