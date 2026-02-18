@@ -1,6 +1,6 @@
 ---
 type: idea
-stage: planned
+stage: in-progress
 origin: inbox
 domain: session
 parent: "[[Session Workspaces PRD]]"

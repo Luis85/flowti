@@ -11,6 +11,9 @@ rank:
 status: partially-delivered
 delivered_in: "[[Phase 4 Inc 9 - Sidebar Workspace and Activity Consolidation]]"
 remaining: "Global session filter in settings (apply to all sessions by default)"
+related:
+  - "[[file events in the sessions activity log should only be displayed in one item]]"
+  - "[[I always want to have a daily-session to track what I have done over the day]]"
 ---
 
 I want to configure general folders for all sessions and I want to configure filtered folders for every session independently.

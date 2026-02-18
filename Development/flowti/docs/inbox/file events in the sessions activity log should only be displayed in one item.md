@@ -1,6 +1,6 @@
 ---
 type: idea
-stage: planned
+stage: delivered
 origin: inbox
 domain: session
 parent: "[[Session Workspaces PRD]]"
@@ -9,7 +9,9 @@ tags:
 priority: 2 - high
 rank:
 planned_in: "[[Cycle 4 - Auto-Session and Activity Polish]]"
-note: "Scheduled as activity log aggregation in Cycle 4 Inc 1. Especially important before PBI-SW-007 daily sessions generate high activity volume."
+delivered_in: "[[Cycle 4 - Auto-Session and Activity Polish]]"
+delivered_date: 2026-02-18
+note: "Delivered in Cycle 4 Inc 2. groupActivityByFile() pure function groups SessionActivity entries by file path. Rows show file name, latest action badge, ×N count badge, timestamp."
 ---
 
 Currently, every event gets tracked and displayed per action per file. This lets the activity log grow very big. We don't need it that granular. We just need the files in a list with information about creation and how many modifications during session.

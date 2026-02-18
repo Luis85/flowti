@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Session Workspaces PRD]]"
-stage: planned
+stage: in-progress
 cycle: 4
 date_planned: 2026-02-18
 date_completed:
@@ -12,9 +12,12 @@ bugs:
   - "[[exporter should only show view properties]]"
   - "[[TD-62 generateEventKey non-deterministic when path absent]]"
   - "[[TD-64 file.renamed payload inconsistency breaks path extraction]]"
+  - "[[The Data Exchange Dashboard does not know when a Pipeline, Import, or Export was started or is still running after leaving the view]]"
+  - "[[when importing a report from the data-exchange hub dashboard and then starting another one, the progressbar gets confused and the first started export gets combined with the second one]]"
+  - "[[when running a pipeline from the pipeline detail page, the progress bar does not update]]"
 tech_debt:
   - "[[TD-01 UI files exceed size convention]]"
-estimated_increments: 5
+estimated_increments: 6
 actual_increments:
 estimated_tests: 155
 actual_tests:
@@ -51,16 +54,45 @@ total_test_files_after:
 1. PBI-SW-007 (Auto-Session & Session Nudges) — large effort, independent, high user demand
 2. PBI-SW-009 (Domain Design Session) — large effort, unblocked (SW-003 done), needs UI spike
 
-**Inbox signals (session-related, unprocessed):**
-- "file events in the sessions activity log should only be displayed in one item" — activity log too granular, needs file-level aggregation
-- "I always want to have a daily-session to track what I have done over the day" — maps to SW-007
-- "I want to filter folders to not appear in my sessions activity log" — per-session filter UI partially delivered
+**Inbox signals (reviewed 2026-02-18, both vault + plugin inboxes):**
 
-**Open bugs (4, all bundled into this cycle):**
-1. **Exporter formula evaluation** (HIGH) — export preview shows property names instead of computed formula values from Base views. Affects `ExportService.executeExport()` and `PreviewPage.render()`.
-2. **Exporter view properties** (HIGH) — exporter shows ALL properties instead of only the view's selected/ordered columns. Affects `ExportService.scanColumns()` fallback and `ConfigurePage` rendering.
-3. **TD-62: generateEventKey UUID fallback** (MEDIUM) — `IngestionService.generateEventKey()` falls back to UUID when path is undefined, defeating idempotency for pathless events.
-4. **TD-64: file.renamed payload inconsistency** (MEDIUM) — `file.renamed` uses `{ oldPath, newPath }` instead of including `path` like all other file events. Breaks generic path extraction, subscription matching, and ingestion deduplication for renames. Partially causes TD-62.
+*Resolved by Cycle 4:*
+- "file events in the sessions activity log should only be displayed in one item" — **delivered** Inc 2, `groupActivityByFile()`
+- "exporter is not evaluating formulas" — **fixed** Inc 1, ResolvedColumn unified descriptor
+- "exporter should only show view properties" — **fixed** Inc 1, ResolvedColumn + view order preservation
+
+*In-progress (Cycle 4 Inc 3-5):*
+- "I want to automatically start a Day Session to track my usage" — core driver for Inc 3-5
+- "I always want to have a daily-session to track what I have done over the day" — duplicate, stage updated to in-progress
+
+*Partially delivered:*
+- "I want to filter folders to not appear in my sessions activity log" — per-session filter delivered, global filter deferred
+- "I want to capture a Product Development session" — core infra delivered, note updated
+- "Guided Tour for the next development cycle" — partially codified, full guided tours remain PBI-SW-009/010
+
+*Deferred to Cycle 5:*
+- "I want to easily start a new session while working inside Obsidian" — nudge system
+- "I want to have a Domain Design Session" — PBI-SW-009, cross-referenced with 4 related items
+
+*Out of scope (Cycle 5+ candidates):*
+- "I want a capture an idea section on my user-hub" — high priority
+- "How could the Inbox serve as the main note ingestion point" — cross-referenced
+- "I want to manage Flowti inside Flowti" — enabled by daily sessions
+- "I want to import and export a session template via JSON" — high priority, low effort
+
+*Open DX bugs (plugin inbox, not in Cycle 4):*
+- DX Dashboard loses running state when navigating away
+- Progress bar confusion with concurrent imports
+- Pipeline detail page progress bar not updating
+
+**Open bugs (7, all bundled into this cycle):**
+1. **Exporter formula evaluation** (HIGH) — export preview shows property names instead of computed formula values from Base views. **Fixed in Inc 1.**
+2. **Exporter view properties** (HIGH) — exporter shows ALL properties instead of only the view's selected/ordered columns. **Fixed in Inc 1.**
+3. **TD-62: generateEventKey UUID fallback** (MEDIUM) — `IngestionService.generateEventKey()` falls back to UUID when path is undefined. **Fixed in Inc 1.**
+4. **TD-64: file.renamed payload inconsistency** (MEDIUM) — `file.renamed` uses `{ oldPath, newPath }` instead of including `path`. **Fixed in Inc 1.**
+5. **DX Dashboard state loss** (MEDIUM) — progress rows destroyed on tab navigation. Root: DOM-only progress state. **Planned in Inc 2b.**
+6. **DX Progress bar merge** (MEDIUM) — concurrent imports share progress. Root: events lack operation ID. **Planned in Inc 2b.**
+7. **DX Pipeline progress not updating** (MEDIUM) — only coarse per-source jumps. Root: no per-row progress subscription. **Planned in Inc 2b.**
 
 **PBI-SW-007 selected over PBI-SW-009 because:**
 1. Higher user demand — daily session is a high-priority inbox item with duplicate signals
@@ -85,7 +117,7 @@ total_test_files_after:
 
 ## Cycle Goals
 
-1. **Fix all open bugs** — 2 exporter bugs (formula evaluation + view property filtering) and 2 infrastructure bugs (TD-62 idempotency + TD-64 rename payload)
+1. **Fix all open bugs** — 4 Inc 1 bugs (exporter formula + view props, TD-62, TD-64) + 3 Inc 2b DX bugs (dashboard state, progress merge, pipeline progress)
 2. **Extract SessionWorkspaceView** — reduce from 791 LOC to ~450 by extracting subscription wiring (205 LOC) and 9 helper methods (~145 LOC); unblocks safe feature additions
 3. **Deliver activity log aggregation** — group file events by path (one row per file with latest action + edit count) per inbox signal
 4. **Deliver PBI-SW-007 core** — `daily-tracking` session type, concurrent session support (1 daily + 1 focused), auto-start on vault open
@@ -153,14 +185,14 @@ The exporter shows ALL frontmatter properties instead of only the columns select
 **Est. total:** ~99 LOC source, ~55 tests
 
 **Acceptance criteria:**
-- [ ] `file.renamed` payload includes `path` field (= newPath) alongside `oldPath`/`newPath`
-- [ ] `generateEventKey()` uses deterministic hash fallback (not UUID) for pathless events
-- [ ] Exporter `scanColumns()` returns only view-selected columns when `order` array exists
-- [ ] Exporter preserves view column order (not alphabetical sort)
-- [ ] Formula columns resolve to computed values in both export and preview
-- [ ] ConfigurePage property grid filtered to view columns for Base exports
-- [ ] All existing exporter/ingestion tests pass unchanged
-- [ ] `npm run build` passes
+- [x] `file.renamed` payload includes `path` field (= newPath) alongside `oldPath`/`newPath`
+- [x] `generateEventKey()` uses deterministic hash fallback (not UUID) for pathless events
+- [x] Exporter `scanColumns()` returns only view-selected columns when `order` array exists
+- [x] Exporter preserves view column order (not alphabetical sort)
+- [x] Formula columns resolve to computed values in both export and preview — **implemented via ResolvedColumn unified descriptor (plan approved mid-Inc 1)**
+- [x] ConfigurePage property grid filtered to view columns for Base exports
+- [x] All existing exporter/ingestion tests pass unchanged
+- [x] `npm run build` passes — 2,357 tests (92 files), tsc clean, eslint clean
 
 ---
 
@@ -188,6 +220,39 @@ The exporter shows ALL frontmatter properties instead of only the columns select
 - [x] Activity log groups entries by file path (one row per file) — `groupActivityByFile()` pure function
 - [x] Grouped rows show file name, latest action, edit count (`×N` badge if > 1), timestamp
 - [x] `npm run build` passes — 2,357 tests (92 files), tsc clean, eslint clean
+
+### Inc 2b: DX Progress Tracking Bug Fixes
+
+**Goal:** Fix 3 related Data Exchange bugs: dashboard state loss on navigation, progress bar merge on concurrent operations, pipeline detail progress not updating. Root cause: events lack operation identifiers and progress state is DOM-only.
+
+| Step | File | Purpose | Est. LOC |
+|------|------|---------|----------|
+| 1 | `src/domain/dataExchange/events.ts` | Add `operationId` to all import/export event payloads; add optional `pipelineId` to import events | ~15 |
+| 2 | `src/domain/dataExchange/ImportService.ts` | Accept `{ operationId?, pipelineId? }` options; propagate to all emits | ~12 |
+| 3 | `src/domain/dataExchange/DataExchangeService.ts` | Generate `operationId` in import/export command handlers; pass through to services and completion events | ~20 |
+| 4 | `src/domain/dataExchange/ExportService.ts` | Accept `{ operationId? }` option; include in `export.started` | ~8 |
+| 5 | `src/domain/dataExchange/PipelineExecutor.ts` | Pass `{ pipelineId: pipeline.id }` to each `executeImport()` call | ~3 |
+| 6 | `src/ui/hub/types.ts` | Add `ActiveOperation` interface + `activeOperations` field to `HubState` | ~18 |
+| 7 | `src/ui/DataExchangeHubView.ts` | Subscribe to lifecycle events in `onHubOpen()`; manage `activeOperations` state | ~60 |
+| 8 | `src/ui/hub/HubDashboard.ts` | Render active operations from state after `empty()`; live progress subscriptions | ~60 |
+| 9 | `src/ui/hub/DashboardImportExecutor.ts` | Generate + filter by `operationId` | ~10 |
+| 10 | `src/ui/hub/ImportsTab.ts` | Generate + filter by `operationId` in `runImportWithFeedback()` | ~10 |
+| 11 | `src/ui/hub/pipelines/PipelineExecution.ts` | Subscribe to `import.progress` filtered by `pipelineId` for per-row updates | ~14 |
+| 12 | 6 existing test files | Update event payload assertions for `operationId` | ~30 |
+| 13 | 2 new test files | Concurrent isolation + pipeline granular progress tests | ~80 |
+
+**Est. total:** ~230 LOC source, ~110 LOC tests
+
+**Acceptance criteria:**
+- [ ] All import/export events carry `operationId`; pipeline-triggered imports also carry `pipelineId`
+- [ ] `HubState.activeOperations` tracks in-flight operations; survives dashboard re-render
+- [ ] Dashboard progress rows rebuild from state on tab navigation return
+- [ ] Concurrent imports each show independent progress (filtered by `operationId`)
+- [ ] Pipeline detail page shows per-row progress (not just per-source jumps)
+- [ ] All existing tests pass (payload assertions updated)
+- [ ] `npm run build` passes
+
+---
 
 ### Inc 3: PBI-SW-007 Domain Layer — Daily-Tracking Type + Concurrent Sessions
 
@@ -282,18 +347,20 @@ The exporter shows ALL frontmatter properties instead of only the columns select
 ## Dependency Graph
 
 ```
-Inc 1: Bug Fixes — exporter + infrastructure (independent, no session deps)
+Inc 1: Bug Fixes — exporter + infrastructure (independent, no session deps) ✓
   |
-Inc 2: SessionWorkspaceView extraction + Activity aggregation (independent of Inc 1)
+Inc 2: SessionWorkspaceView extraction + Activity aggregation (independent of Inc 1) ✓
   |
-Inc 3: PBI-SW-007 Domain — types, daily-tracking, concurrent sessions (independent of Inc 1-2)
+Inc 2b: DX Progress Tracking Bug Fixes (independent of Inc 1-2, no session deps)
+  |
+Inc 3: PBI-SW-007 Domain — types, daily-tracking, concurrent sessions (independent of Inc 1-2b)
   |
 Inc 4: PBI-SW-007 UI — auto-start, settings, display (requires Inc 2 extraction + Inc 3 types)
   |
 Inc 5: Daily note integration + flow test (requires Inc 3 + Inc 4)
 ```
 
-**Note:** Inc 1 (bugs) is fully independent — exporter and infrastructure fixes don't touch session code. Inc 2 (extraction) and Inc 3 (domain) are technically independent of each other. Inc 4 (UI) requires both Inc 2 (clean view) and Inc 3 (types). Inc 5 requires the full stack.
+**Note:** Inc 1 (bugs) is fully independent — exporter and infrastructure fixes don't touch session code. Inc 2 (extraction) and Inc 3 (domain) are technically independent of each other. Inc 2b (DX bugs) is independent of session code — only touches dataExchange domain + DX Hub UI. Inc 4 (UI) requires both Inc 2 (clean view) and Inc 3 (types). Inc 5 requires the full stack.
 
 ---
 
@@ -315,13 +382,13 @@ Inc 5: Daily note integration + flow test (requires Inc 3 + Inc 4)
 
 | Metric | Target |
 |--------|--------|
-| Tests added | ~175 new |
-| Tests total | ~2,493+ |
-| Test suites | ~95+ |
-| LOC added (source) | ~495 new (~99 bugs + ~396 features) |
+| Tests added | ~285 new (~175 session + ~110 DX bugs) |
+| Tests total | ~2,603+ |
+| Test suites | ~97+ |
+| LOC added (source) | ~725 new (~99 Inc 1 bugs + ~230 Inc 2b DX bugs + ~396 features) |
 | LOC refactored | ~420 (extraction — subscriptions + helpers) |
 | SessionWorkspaceView LOC | ≤ 450 (from 791, -341) |
-| Bugs fixed | 4 (2 exporter + TD-62 + TD-64) |
+| Bugs fixed | 7 (2 exporter + TD-62 + TD-64 + 3 DX progress) |
 | PBIs closed | PBI-SW-007 (partial — nudges deferred) |
 | New events | 5 (4 daily lifecycle + 1 summary) |
 | Total session events | 65+ |
@@ -335,7 +402,8 @@ Inc 5: Daily note integration + flow test (requires Inc 3 + Inc 4)
 <!-- Filled post-delivery -->
 
 ### Deviations from Plan
-<!-- Filled post-delivery -->
+- **Inc 1 Bug 1+2 (exporter):** Original plan had incremental fixes to `scanColumns()` and `executeExport()`. Mid-increment, the scope expanded to a full **ResolvedColumn unified descriptor** approach (approved plan) — added `ResolvedColumn` type, `scanResolvedColumns()`, unified column rendering across ExportService, PreviewPage, ConfigurePage, and ViewSelectPage. Better architecture than planned, but more LOC (~200 vs ~70 est).
+- **Inc 2 SessionWorkspaceView:** Target was ≤ 450 LOC. Actual: 479 LOC — canvas/notes file creation sections stayed in view (30 LOC over, acceptable for orchestrator).
 
 ### Improvement Backlog (from this cycle)
 <!-- Filled post-delivery -->
@@ -350,9 +418,15 @@ Inc 5: Daily note integration + flow test (requires Inc 3 + Inc 4)
 
 - PRD: [[Session Workspaces PRD]] (v6, FRI 33/35)
 - PBIs: [[PBI-SW-007 Auto-Session and Session Nudges]] (partial delivery — core + daily note, nudges deferred)
-- Bugs: [[exporter is not evaluating formulas]], [[exporter should only show view properties]], [[TD-62 generateEventKey non-deterministic when path absent]], [[TD-64 file.renamed payload inconsistency breaks path extraction]]
+- Bugs: [[exporter is not evaluating formulas]], [[exporter should only show view properties]], [[TD-62 generateEventKey non-deterministic when path absent]], [[TD-64 file.renamed payload inconsistency breaks path extraction]], [[The Data Exchange Dashboard does not know when a Pipeline, Import, or Export was started or is still running after leaving the view]], [[when importing a report from the data-exchange hub dashboard and then starting another one, the progressbar gets confused and the first started export gets combined with the second one]], [[when running a pipeline from the pipeline detail page, the progress bar does not update]]
 - Tech Debt: [[TD-01 UI files exceed size convention]] (partial — SessionWorkspaceView extraction)
-- Inbox signals: "file events in the sessions activity log should only be displayed in one item" (resolved by activity aggregation)
+- Inbox signals (reviewed 2026-02-18, vault + plugin inboxes — 32 + 39 items):
+  - Resolved: 3 items (activity aggregation, 2 exporter bugs)
+  - In-progress: 2 items (daily session — canonical + duplicate)
+  - Partially delivered: 3 items (folder filter, product dev, guided tour)
+  - Deferred: 2 items (nudge system Cycle 5, domain design PBI-SW-009)
+  - Out of scope: 4 items (idea capture, inbox ingestion, manage Flowti, session template JSON)
+  - Open DX bugs: 3 items → **planned in Inc 2b** (dashboard state, progress bar confusion, pipeline progress)
 - Learnings (input): [[L-25 Overview placeholder bug]], [[L-28 Carry-forward escalation]]
 - Learnings (output): <!-- filled post-delivery -->
 - Previous Cycle: [[Cycle 3 - Session Output Artifacts and State Restoration]]

@@ -8,6 +8,8 @@ description: "Decompose a flow into user stories using story mapping — attach 
 tags:
 priority: 01 - medium
 rank:
-related: "[[I want to have a Domain Design Session, so that I can easily document a new domain]]"
-note: "Could be a guided workflow step within PBI-SW-009 Domain Design Session."
+related:
+  - "[[I want to have a Domain Design Session, so that I can easily document a new domain]]"
+  - "[[I want to create a flow step by step following service design blueprint]]"
+note: "Could be a guided workflow step within PBI-SW-009 Domain Design Session. Complementary to service design blueprint approach."
 ---
