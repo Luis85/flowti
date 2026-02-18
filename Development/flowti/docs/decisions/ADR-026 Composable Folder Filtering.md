@@ -21,7 +21,7 @@ tags:
 
 ## Status
 
-**Accepted** — implemented in Inc 9 (Sidebar Workspace & Activity Consolidation).
+**Accepted** — implemented in Inc 10 (Sidebar Workspace & Activity Consolidation).
 
 ## Context
 

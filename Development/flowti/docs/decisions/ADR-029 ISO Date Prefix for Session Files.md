@@ -32,7 +32,7 @@ Session notes files and canvas files are currently named with the session title 
 03 - Resources/Sessions/Sprint Planning (abc123).canvas
 ```
 
-This naming convention (introduced in Inc 9 for collision prevention) groups files by title, not by date. In practice, the `03 - Resources/Sessions/` folder accumulates files from many days and sessions. Users browsing the folder in Obsidian's file explorer see an alphabetical list that provides no chronological context.
+This naming convention (introduced in Inc 10 for collision prevention) groups files by title, not by date. In practice, the `03 - Resources/Sessions/` folder accumulates files from many days and sessions. Users browsing the folder in Obsidian's file explorer see an alphabetical list that provides no chronological context.
 
 **Note:** This decision applies only to **session notes files** and **session canvas files** — the two file types auto-created by SessionService. It does not apply to session activity log entries, context bindings, or artifacts (which reference existing vault files by path).
 
@@ -114,5 +114,5 @@ Existing session files are NOT renamed. The new format applies only to newly cre
 ## Related
 
 - ADR-004: Single JSON Blob Storage (session state stores file paths)
-- Inc 9: File Collision Fix (introduced short ID suffix)
+- Inc 10: File Collision Fix (introduced short ID suffix)
 - PRD: [[Session Workspaces PRD]]

@@ -3,7 +3,7 @@ type: Increment
 feature: "[[Hubs PRD]]"
 pbi: "[[PBI-002 Documentation Sessions]]"
 phase: 4
-increment: 9
+increment: 10
 stage: in-review
 date: 2026-02-17
 tasm_score:
@@ -17,7 +17,7 @@ cross_pbi:
   - "[[PBI-SW-002 Context Bindings]]"
 ---
 
-# Phase 4, Increment 9: Sidebar Workspace & Activity Consolidation
+# Phase 4, Increment 10: Sidebar Workspace & Activity Consolidation
 
 ## Context
 

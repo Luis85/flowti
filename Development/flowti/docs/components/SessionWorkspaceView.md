@@ -37,7 +37,7 @@ The workspace can open as a **tab** (default) or in the **right sidebar** (singl
 | Context Bindings | Always | Bound files/folders with type cycling, add/remove. Folders reveal in file explorer. |
 | Activity | Always | Unified log of all vault activity with folder filtering, action badges, timestamps |
 
-**Removed sections (Inc 9):** Links (merged into Context Bindings in Inc 8.5), Artifacts (merged into Activity — artifacts were a strict subset of activity actions).
+**Removed sections (Inc 10):** Links (merged into Context Bindings in Inc 8.5), Artifacts (merged into Activity — artifacts were a strict subset of activity actions).
 
 ## Dependencies
 

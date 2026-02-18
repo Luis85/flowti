@@ -5,7 +5,7 @@ stage: in-progress
 priority: high
 dependencies:
   - "[[PBI-SW-001 Activity Log]]"
-note: "Links sessions to vault entities (domains, features, products) for scoped work and traceability. Core functionality delivered in PBI-002 Inc 8.5/9."
+note: "Links sessions to vault entities (domains, features, products) for scoped work and traceability. Core functionality delivered in PBI-002 Inc 8.5/10."
 ---
 
 ## User Story — Problem Space
@@ -43,11 +43,11 @@ As a domain architect, I want to bind my session to a domain, feature, or produc
 
 ### Delivery Status
 
-**Core functionality delivered in PBI-002 Inc 8.5 and Inc 9:**
+**Core functionality delivered in PBI-002 Inc 8.5 and Inc 10:**
 - Context binding CRUD (bind, unbind, change type): **done**
 - Fuzzy vault picker for files and folders: **done**
 - Workspace context section with badges and navigation: **done**
-- Folder bindings reveal in file explorer: **done** (Inc 9)
+- Folder bindings reveal in file explorer: **done** (Inc 10)
 - Max 10 bindings enforcement: **done**
 - Persistence via TypedStorage: **done**
 - Remaining: auto-populate per-session filter from bound folders

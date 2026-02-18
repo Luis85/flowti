@@ -3,7 +3,7 @@ type: Increment
 feature: "[[Hubs PRD]]"
 pbi: "[[PBI-002 Documentation Sessions]]"
 phase: 4
-increment: 10
+increment: 11
 stage: planned
 date: 2026-02-16
 tasm_score: 0
@@ -13,9 +13,9 @@ test_suites: 0
 loc_added: 0
 ---
 
-# Phase 4, Increment 10: Focus File Profiles & Context Files
+# Phase 4, Increment 11: Focus File Profiles & Context Files
 
-> **Note**: Originally planned as Increment 9. Renumbered after [[Phase 4 Inc 8 - Session Workspace Enrichment]] was inserted and Preparation Flow moved to Increment 9. Session Links (from Inc 8) partially overlap with Context Files — `links: SessionLink[]` provides file attachment; Context Files may evolve this into a richer working set.
+> **Note**: Originally planned as Increment 9. Renumbered to 10 after Session Workspace Enrichment was inserted, then to 11 after Sidebar Workspace & Activity Consolidation (Inc 10) was inserted. Session Links (from Inc 8) partially overlap with Context Files — `links: SessionLink[]` provides file attachment; Context Files may evolve this into a richer working set.
 
 ## Context
 
@@ -54,10 +54,10 @@ Both are pure domain additions. No new views — the existing `UserHubSessions` 
 
 ### Out of scope (future increments)
 
-- UI rendering of profiles/tools (Inc 7 or later — SessionWorkspaceView consumes profiles)
-- Session Spawning with context file picker (Inc 10)
-- Guiding Questions (Inc 10)
-- Session Document generation (Inc 11)
+- UI rendering of profiles/tools — SessionWorkspaceView (built in Inc 7, enriched in Inc 8+10) will consume profiles
+- Session Spawning with context file picker (Inc 12)
+- Guiding Questions (Inc 12)
+- ~~Session Document generation~~ — delivered in Inc 8 (`generateSessionSummary()` + `writeSessionSummary()`)
 
 ## Changes
 

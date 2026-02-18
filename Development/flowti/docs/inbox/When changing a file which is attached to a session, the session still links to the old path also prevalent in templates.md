@@ -9,7 +9,7 @@ tags:
   - bug
 priority: 2 - high
 rank: "0"
-fixed_in: "SessionService.handleFileRenamed() + handleFolderRenamed() — Inc 9 hotfix"
+fixed_in: "SessionService.handleFileRenamed() + handleFolderRenamed() — Inc 10"
 ---
 
 **Root cause:** SessionService listened to `file.renamed` but only recorded the rename in the activity log. It did not update stale paths stored in session fields or templates.

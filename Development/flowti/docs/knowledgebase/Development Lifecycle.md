@@ -209,22 +209,22 @@ Feedback is captured primarily through **User Stories** that emerge while users 
 
 ### Phase 6 — Delivery Planning + Chunking
 
+> Detailed guidance: [[Delivery Planning]]
+
 **Goal**
 - break PRD into vertical slices / manageable increments
 
 **Activities**
-- define increments by value
-- identify dependencies
+- define increments by value (domain-first, UI-second — [[L-01 Domain-first UI-second]])
+- identify dependencies between increments
 - define test coverage per slice
 - define doc updates per slice
+- bundle small features by theme ([[L-15 Bundle related small features into cohesive increments]])
 
 **Outputs**
-- increment plan (slices)
-- each slice has:
-  - scope
-  - acceptance criteria
-  - test intent
-  - documentation intent
+- increment plan (slices) — each slice has:
+  - scope, acceptance criteria, test intent, documentation intent, estimated LOC/tests
+- increment docs created from [[Increment Template]]
 
 **Gate**
 - slices must produce end-to-end value, not partial infrastructure only.
@@ -606,7 +606,7 @@ This section traces how **PBI-002 Documentation Sessions** — the second PBI of
 
 ### Phase 7 — Iterative Implementation
 
-PBI-002 was delivered across **five increments** (core delivery complete):
+PBI-002 was delivered across **ten increments** (core delivery complete, 2 planned):
 
 #### Increment 1: Session Domain Core
 
@@ -740,6 +740,28 @@ PBI-002 was delivered across **five increments** (core delivery complete):
 
 **Total**: 0 new files, 7 modified files (+202 LOC net). Build pipeline passed. 2,141 tests across 84 suites.
 
+#### Increment 10: Sidebar Workspace & Activity Consolidation
+
+> **Cross-PBI:** This increment also delivers [[PBI-SW-001 Activity Log]] and [[PBI-SW-002 Context Bindings]] from the [[Session Workspaces PRD]].
+
+| Step | Action | Files | LOC |
+|------|--------|-------|-----|
+| 1 | Added `SessionActivity`, `SessionActivityAction`, `MAX_SESSION_ACTIVITY`, `ACTIVITY_DEDUP_WINDOW_MS`, `SessionContextBinding`, `ContextBindingType`, `MAX_CONTEXT_BINDINGS`, `BINDING_TYPES` types; added `activity`, `activityFilter`, `contextBindings` on Session | `src/domain/session/types.ts` | +45 |
+| 2 | Added 9 new events: activity (2), context binding (6), paths (1) | `src/domain/session/events.ts` | +28 |
+| 3 | Added `isExcluded()` pure function for composable folder filtering (ADR-026) | `src/domain/session/helpers.ts` | +12 |
+| 4 | Added `onActivityEvent()` (activity tracking with dedup + folder filtering), `handleContextBind/Unbind/ChangeType()`, `updateActivityFilter()`, `handleFileRenamed/handleFolderRenamed()` (path reconciliation with `session.paths.updated` emission), backward compat for activity/activityFilter/contextBindings, links→contextBindings migration | `src/domain/session/SessionService.ts` | +180 |
+| 5 | Added 9 catalog entries for new events | `src/infrastructure/events/catalog.ts` | +9 entries |
+| 6 | Added `sessionActivityFilterGlobal: string[]` setting | `src/domain/settings/settings.ts` | +3 |
+| 7 | Extended workspace: removed artifacts section, added unified activity log with filters, added context bindings section with type cycling and file/folder reveal, added sidebar/tab toggle, added `setState()`/`getState()` for session switching, `.ft-section` on all sections, Start button guard, cross-view lifecycle sync | `src/ui/SessionWorkspaceView.ts` | 737→1017 (+280 net) |
+| 8 | Added `openSessionWorkspaceInSidebar()`, `flowti:open-session-workspace-sidebar` command, start-from-sidebar guard, `registerSessionFileMenu()` extended with TFolder support | `src/main.ts` | +40 |
+| 9 | Updated `openSessionWorkspace` with location parameter, singleton sidebar pattern, `setTimeout(0)` deferral | `src/ui/UserHubView.ts` | +25 |
+| 10 | "Sidebar" button for prepared/active/paused sessions | `src/ui/userHub/UserHubSessions.ts` | +12 |
+| 11 | Updated `openSessionWorkspace` signature with location parameter | `src/ui/userHub/types.ts` | +1 |
+| 12 | Added `.ft-section`, `.ft-section-flush`, `:last-child` rule, dashboard padding fix | `styles.css` | +12 |
+| 13 | Full `npm run build` | — | green |
+
+**Total**: 0 new files, 11 modified files (+310 LOC net). Build pipeline passed. 2,177 tests across 84 suites.
+
 ---
 
 ### Phase 8 — Review + Quality Assurance
@@ -871,6 +893,26 @@ PBI-002 was delivered across **five increments** (core delivery complete):
 - `tests/domain/session/helpers.test.ts` (57 → 70 tests)
 - `tests/ui/SessionWorkspaceView.test.ts` (36 → 41 tests)
 
+**Increment 10 review (Sidebar Workspace & Activity Consolidation):**
+
+| Step | Action | Finding | Resolution |
+|------|--------|---------|------------|
+| 1 | Code review: Activity consolidation | Artifacts section removed; `session.artifact.added` redirected to `renderActivityList()`. Unified activity log with 5 action types. ADR-025 superseded. | N/A — clean design decision |
+| 2 | Code review: Folder filtering | `isExcluded()` pure function (ADR-026), global + per-session composition, prefix matching. 12 LOC, zero dependencies. | N/A |
+| 3 | Code review: Context bindings | 5 types (`file\|folder\|domain\|feature\|product`), click-to-cycle, folder reveal via `revealInFileExplorer()`, max 10 per session | N/A |
+| 4 | Code review: Sidebar singleton | `getLeavesOfType().find(l => l.getRoot() === rightSplit)` + `revealLeaf()`. `setTimeout(0)` deferral prevents click lag. | N/A |
+| 5 | Code review: Path reconciliation | `handleFileRenamed` and `handleFolderRenamed` track `affectedIds` Set, emit `session.paths.updated` only for affected sessions. Activity log excluded (historical). | N/A |
+| 6 | Code review: File collision fix | Short ID suffix `(abc123)` on notes/canvas file paths. `try-catch` on `vault.create()`. | N/A |
+| 7 | Build error: `"vault"` not assignable to `FileChangeSource` | Tests used `source: "vault"` but type is `"user" \| "obsidian" \| "sync" \| "plugin" \| "unknown"` | Fixed: replaced all `"vault"` with `"obsidian"` in tests |
+| 8 | Test error: UI selector mismatch | Test used `.ft-focusfile-link` but actual class is `.ft-session-workspace-focus` | Fixed: updated selector to match implementation |
+| 9 | Build error: Missing catalog entry | `session.paths.updated` missing from `catalog.ts` (TS1360: `satisfies Record<>`) | Fixed: added catalog entry with `tags: ["system"]` |
+| 10 | Test coverage: Increment 10 | 57 new tests across 2 files | SessionService.test.ts (+36: activity tracking, folder filtering, context binding CRUD, file/folder rename path reconciliation with event assertions), SessionWorkspaceView.test.ts (+21: activity section, context bindings, sidebar mocks, `session.paths.updated` re-render) |
+| 11 | Full `npm run build` | — | 2,177 tests across 84 suites, green pipeline |
+
+**Artifacts**:
+- `tests/domain/session/SessionService.test.ts` (145 → 181 tests)
+- `tests/ui/SessionWorkspaceView.test.ts` (41 → 62 tests)
+
 ---
 
 ### Phase 9 — Documentation + Publication
@@ -908,6 +950,9 @@ PBI-002 was delivered across **five increments** (core delivery complete):
 | 29 | Updated Hubs PRD | Inc 9 description expanded, test counts 2,141/84, stage history entry, PBI-002 status (9 done, 2 planned), review link added |
 | 30 | Updated Development Lifecycle | Increment 9 added to Phases 7–10 |
 | 31 | Three Amigos Review | [[Three Amigos Review - Preparation Flow 2026-02-16]]: TASM 32/35 (Excellent). 7 decisions documented. 9 action items completed. 5 watch/open items. |
+| 32 | Updated Inc 10 increment doc | [[Phase 4 Inc 9 - Sidebar Workspace and Activity Consolidation]]: stage in-review, date 2026-02-17, tests_added 57, tests_total 2177, 16 capabilities, 22 acceptance criteria |
+| 33 | Updated Session Workspaces PRD | Stage `approved` → `in-progress`, v3, FR-01/02 checked off, data model updated to match actual types, event model split into delivered/planned, PBI-SW-001/002 marked Done, 3 ADRs linked |
+| 34 | Updated Development Lifecycle | Increment 10 added to Phases 7–10, Key Learnings 18-20 |
 
 ---
 
@@ -928,6 +973,15 @@ PBI-002 was delivered across **five increments** (core delivery complete):
 - **Closed** (Increment 9): Vault-hygiene session type — first option in dropdown
 - **Closed** (Increment 9): Adjacent leaf management — dedicated tracking via `getLeaf("split")`, reuse across link clicks
 - **Closed** (Increment 7): Dedicated workspace for active sessions → `SessionWorkspaceView` (463 LOC, standalone ItemView with header, timer, goals, notes, focus file, artifacts)
+- **Closed** (Increment 10): Activity log — unified activity log with 5 action types, replacing separate artifacts section (ADR-025 superseded)
+- **Closed** (Increment 10): Folder filtering — `isExcluded()` pure function with global + per-session composition (ADR-026)
+- **Closed** (Increment 10): Context bindings — 5 types (file/folder/domain/feature/product) with click-to-cycle, max 10 per session
+- **Closed** (Increment 10): Sidebar workspace — right sidebar singleton with session switching via `setState()`/`getState()`
+- **Closed** (Increment 10): File/folder rename path reconciliation — `session.paths.updated` event, live UI re-render
+- **Closed** (Increment 10): File collision fix — short ID suffix `(abc123)` on notes/canvas files
+- **Closed** (Increment 10): Folder context reveal — `revealInFileExplorer()` instead of `openLinkText()`
+- **Closed** (Increment 10): Folder context menu — right-click TFolder shows "Add to {session}"
+- **Closed** (Increment 10): CSS section standardization — `.ft-section` classes replace inline padding
 - **Open**: Session artifacts persist as separate markdown files (currently tracked in-memory)
 - **Closed** (Increment 6): Session notes mutation events → `session.notes.update/updated` + `handleNotesUpdate`
 - **Closed** (Increment 3): Session creation from Dashboard quick action → addressed via template chooser in NewSessionModal
@@ -953,34 +1007,46 @@ This feedback loop triggered a return to **Phase 6 (Delivery Planning)** — the
 | Increment | Scope | Est. LOC | Est. Tests | Status |
 |-----------|-------|----------|------------|--------|
 | ~~**9: Preparation Flow & Auto-Open**~~ | ~~Goals repeater, auto-open, notes merge~~ | ~~111~~ → 202 | ~~6~~ → 18 | **Done** (TASM 32/35) |
-| **10: Focus File Profiles & Context Files** | Types, detection, context CRUD, events, backward compat | ~140 | ~31 | Planned |
-| **11: Session Spawning & Guiding Questions** | Spawn logic, inheritable context, guiding questions | ~120 | ~18 | Planned |
+| ~~**10: Sidebar Workspace & Activity Consolidation**~~ | ~~Activity log, context bindings, sidebar, path reconciliation, CSS~~ | ~~250~~ → 310 | ~~39~~ → 57 | **Done** (TASM pending) |
+| **11: Focus File Profiles & Context Files** | Types, detection, context CRUD, events, backward compat | ~140 | ~31 | Planned |
+| **12: Session Spawning & Guiding Questions** | Spawn logic, inheritable context, guiding questions | ~120 | ~18 | Planned |
 
-**Artifacts**: [[Phase 4 Inc 8 - Session Workspace Enrichment]], [[Phase 4 Inc 8 - Preparation Flow]], [[Phase 4 Inc 9 - Focus File Profiles and Context Files]], [[PBI-002 Documentation Sessions]]
+> **New feedback cycle — Session Workspaces PRD (post-Increment 9):**
+>
+> After delivering 9 increments, the Session Workspaces PRD (L2 feature) was created to capture the remaining gaps: activity tracking, context bindings, decision recording, session summaries, type orchestration, and state restoration. Increment 10 delivered FR-01 (Activity Log) and FR-02 (Context Bindings) as a cross-PBI delivery — PBI-SW-001 and PBI-SW-002 from the Session Workspaces PRD were delivered within PBI-002's increment structure. This kept the delivery pipeline unified while making progress on the new PRD's requirements.
 
-Increment 9 (Preparation Flow & Auto-Open) completed on 2026-02-16. Remaining planned: Inc 10 (Focus Profiles), Inc 11 (Spawning).
+**Artifacts**: [[Phase 4 Inc 8 - Session Workspace Enrichment]], [[Phase 4 Inc 8 - Preparation Flow]], [[Phase 4 Inc 9 - Sidebar Workspace and Activity Consolidation]], [[Phase 4 Inc 9 - Focus File Profiles and Context Files]], [[Session Workspaces PRD]], [[PBI-002 Documentation Sessions]]
+
+Increment 10 (Sidebar Workspace & Activity Consolidation) delivered on 2026-02-17. Remaining planned: Inc 11 (Focus Profiles), Inc 12 (Spawning).
 
 ---
 
 ### Key Learnings
 
-1. **Domain-first, UI-second**: Building the SessionService domain in increment 1 (with 60 tests) before any UI in increment 2 meant the UI layer was pure presentation — no business logic to debug. The service contract was stable by the time components consumed it.
-2. **Timer optimization matters**: Using direct DOM updates for 1-second timer ticks (`updateTimerDisplay()`) instead of full re-renders prevents UI jank. This pattern should be applied to any future real-time display updates — including dashboard callouts (Increment 3 fix).
-3. **Deps callback pattern for modals**: Rather than having components import modal classes directly, the `openNewSessionModal()` callback in `UserHubComponentDeps` keeps components testable — tests mock it as `vi.fn()` with zero modal dependencies.
-4. **Type safety at boundaries**: The TSC error with `SessionType` cast at the modal→event boundary was a valid catch. Modal callbacks return `string` (generic dropdown), but domain events expect typed unions. The `as SessionType` cast is safe because the dropdown is populated from `SESSION_TYPES`, but this boundary deserves attention in any future modal → event wiring.
-5. **Test mock maintenance**: Adding a new field to `UserHubComponentDeps` required updating 3 test files' mock factories. This is a known cost of the deps injection pattern — worth it for testability, but mock factories should stay in sync.
-6. **Direct CRUD for configuration data**: Template management uses direct methods (no events) — matching the DataExchange saved config pattern. Configuration artifacts (templates, saved configs) don't need event-driven CRUD; they are not domain actions.
-7. **Reuse existing pipelines for new features**: Both `rerunSession()` and `createFromTemplate()` call `handleCreate()` internally. This reuses the existing creation pipeline (eviction, persistence, `session.created` event) with zero duplication.
-8. **UI should reflect service constraints**: The service already rejected starting a session when another is active, but the UI still showed the Start button — misleading. UI must mirror domain constraints to prevent confusion.
-9. **Thread new fields through all creation paths**: When `focusFile` was added (Inc 4), it required changes in `handleCreate()`, `rerunSession()`, `createFromTemplate()`, and `saveTemplateFromSession()`. This 4-method threading pattern recurs for every new Session field — a checklist for future additions (context files, goals, etc.).
-10. **Pure helpers scale safely**: Adding 6 pure functions (Inc 5) with 20 tests required zero changes to existing code. Pure functions are the cheapest code to add — no mocking, no state, no side effects. When a domain grows, reach for pure helpers first.
-11. **Backward compat is the tax on persisted state**: Both Inc 4 (`focusFile`) and Inc 5 (`timeline`) needed backward-compat patches in `load()`. Every new field on a persisted entity requires a migration guard. This is a structural cost of using TypedStorage — plan for it.
-12. **Feedback loops generate the best requirements**: The Session Focus Tools (Inc 9-11) weren't imagined during initial PRD drafting. They emerged from 5 increments of real usage — observing that a plain focus file link is insufficient. The lifecycle's Phase 10 → Phase 6 loop is how the best features surface.
-13. **Domain-only increments build confidence**: Inc 6 (Goals & Notes) touched zero UI code — types, events, service, helpers, catalog, and tests only. This made the increment small, focused, and easy to review. When UI is built later (Inc 7-8), the domain contract is already stable and tested.
-14. **Standalone views don't need BaseHubView**: Inc 7 (`SessionWorkspaceView`) extends `ItemView` directly because it's a single-purpose focused workspace, not a tabbed hub. BaseHubView's tab bar, search, and split layout would have been unnecessary overhead. Choose the base class that matches the view's purpose — not every view needs a hub shell.
-15. **Bundle related small features into cohesive increments**: Inc 8 delivered 7 capabilities (links, notes persistence, canvas, duration editing, template unlock, workspace button, context menu) as one increment because they were all "workspace enrichment". Individually each was too small for a full increment; together they formed a coherent theme. The key is thematic cohesion — not arbitrary bundling.
-16. **Planned increments shift as reality unfolds**: Inc 8 was originally "Preparation Flow & Auto-Open" but real-world feedback during Inc 7 surfaced more pressing needs (links, persistent notes, canvas). The planned Inc 11 (Session Document) got pulled forward into Inc 8 because `generateSessionSummary()` was needed immediately. Plans are starting points, not contracts.
-17. **Auto-linking artifacts builds the knowledge graph**: When creating a canvas, automatically appending `![[canvas]]` to the session notes file creates a bidirectional link that Obsidian's graph view can traverse. Every auto-link the plugin creates compounds the vault's interconnectedness without manual effort from the user.
+Extracted to individual notes in `docs/learnings/` for reuse across features. See each note for detailed pattern guidance.
+
+| # | Learning | Domain | Inc |
+|---|---------|--------|-----|
+| [[L-01 Domain-first UI-second\|L-01]] | Domain-first, UI-second | Architecture | 1 |
+| [[L-02 Timer optimization matters\|L-02]] | Timer optimization matters | UI | 3 |
+| [[L-03 Deps callback pattern for modals\|L-03]] | Deps callback pattern for modals | UI | 2 |
+| [[L-04 Type safety at boundaries\|L-04]] | Type safety at boundaries | Architecture | 2 |
+| [[L-05 Test mock maintenance\|L-05]] | Test mock maintenance | Testing | 2 |
+| [[L-06 Direct CRUD for configuration data\|L-06]] | Direct CRUD for configuration data | Architecture | 3 |
+| [[L-07 Reuse existing pipelines for new features\|L-07]] | Reuse existing pipelines | Architecture | 3 |
+| [[L-08 UI should reflect service constraints\|L-08]] | UI should reflect service constraints | UI | 3 |
+| [[L-09 Thread new fields through all creation paths\|L-09]] | Thread new fields through all creation paths | Architecture | 4 |
+| [[L-10 Pure helpers scale safely\|L-10]] | Pure helpers scale safely | Architecture | 5 |
+| [[L-11 Backward compat is the tax on persisted state\|L-11]] | Backward compat tax on persisted state | Infrastructure | 4 |
+| [[L-12 Feedback loops generate the best requirements\|L-12]] | Feedback loops generate best requirements | Process | 5 |
+| [[L-13 Domain-only increments build confidence\|L-13]] | Domain-only increments build confidence | Architecture | 6 |
+| [[L-14 Standalone views dont need BaseHubView\|L-14]] | Standalone views don't need BaseHubView | UI | 7 |
+| [[L-15 Bundle related small features into cohesive increments\|L-15]] | Bundle related small features | Process | 8 |
+| [[L-16 Planned increments shift as reality unfolds\|L-16]] | Planned increments shift as reality unfolds | Process | 8 |
+| [[L-17 Auto-linking artifacts builds the knowledge graph\|L-17]] | Auto-linking builds knowledge graph | Architecture | 8 |
+| [[L-18 Cross-PBI delivery keeps momentum\|L-18]] | Cross-PBI delivery keeps momentum | Process | 10 |
+| [[L-19 Superseding ADRs is a healthy sign\|L-19]] | Superseding ADRs is a healthy sign | Architecture | 10 |
+| [[L-20 Pure functions for filtering compose cleanly\|L-20]] | Pure functions for filtering compose cleanly | Architecture | 10 |
 
 ---
 
@@ -989,7 +1055,9 @@ Increment 9 (Preparation Flow & Auto-Open) completed on 2026-02-16. Remaining pl
 - [[Testplan and Teststrategy]]
 - [[Three Amigos Session Template]]
 - [[PRD Template]]
+- [[Product Backlog Item Template]]
 - [[Feature Lifecycle PRD]]
 - [[Increment Lifecycle]]
+- [[Delivery Planning]]
 
 

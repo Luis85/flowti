@@ -6,7 +6,7 @@ priority: high
 phase: 4
 dependencies:
   - "[[TD-49 Layout abstraction layer]]"
-note: "Core delivery + Goals + Workspace + Workspace Enrichment + Preparation Flow complete (9 increments). Increments 10-11 planned: Focus File Profiles & Context Files, Session Spawning & Guiding Questions."
+note: "Core delivery + Goals + Workspace + Workspace Enrichment + Preparation Flow + Sidebar Workspace complete (10 increments). Increments 11-12 planned: Focus File Profiles & Context Files, Session Spawning & Guiding Questions."
 user_story: "[[I want to prepare a working session, so that I can focus on one task at a time]]"
 ---
 
@@ -121,7 +121,7 @@ As a vault user, I want sessions to provide contextual tools based on my focus f
 - [x] Session history shows completed sessions with artifact count — *UserHubSessions master list + detail panel*
 - [ ] `session_focus` layout renders all 5 regions — *remaining work*
 - [x] Session lifecycle events emitted on EventBus — *19 events registered in catalog*
-- [x] `npm run build` passes — *2,141 tests across 84 suites*
+- [x] `npm run build` passes — *2,177 tests across 84 suites*
 - [x] Unit tests for SessionService lifecycle, timer, templates, rerun, timeline, goals, notes, and workspace — *112 tests in SessionService.test.ts + 36 tests in SessionWorkspaceView.test.ts + 18 new tests in Inc 9*
 - [x] Rerun completed/archived sessions without re-entering configuration — *Increment 3: rerunSession() + auto-select*
 - [x] Save sessions as reusable templates — *Increment 3: SaveTemplateModal + template CRUD + template list in detail panel*

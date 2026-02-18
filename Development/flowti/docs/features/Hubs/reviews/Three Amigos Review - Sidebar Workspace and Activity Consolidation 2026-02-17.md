@@ -428,7 +428,7 @@ File collision scenario:
 
 UX CONCERN FROM INC 8 RESOLVED:
   Previous review noted "workspace has 9 sections requiring scrolling."
-  Inc 9 removed the Artifacts section, reducing to 8 sections. The
+  Inc 10 removed the Artifacts section, reducing to 8 sections. The
   CSS standardization also makes the visual density more consistent.
   Sidebar mode inherently supports long-form content (scrollable panel).
 
@@ -494,10 +494,10 @@ Edge cases tested:
 
 | Feature | FRI Score | Current Maturity | Needs Update? |
 |----------|-----------|-----------------|---------------|
-| PBI-002 Documentation Sessions | 34/35 | L5 (9 increments: core + tab + templates + focus + timeline + goals + workspace + enrichment + consolidation) | No |
+| PBI-002 Documentation Sessions | 34/35 | L5 (10 increments: core + tab + templates + focus + timeline + goals + workspace + enrichment + preparation + consolidation) | No |
 | PBI-001 User Hub | 32/35 | L4 (Sessions fully featured with sidebar integration) | No |
 | Session Workspace | 34/35 | L3 (workspace + enrichment + sidebar + consolidation) | No |
-| PBI-SW-001 Activity Log | 28/35 | L2 (activity log + folder filtering delivered via Inc 9; global filter pending) | No |
+| PBI-SW-001 Activity Log | 28/35 | L2 (activity log + folder filtering delivered via Inc 10; global filter pending) | No |
 | PBI-SW-002 Context Bindings | 30/35 | L3 (core binding CRUD + folder reveal; auto-filter pending) | No |
 
 ---
@@ -517,7 +517,7 @@ ONE DRIFT ITEM DETECTED -- LOC threshold exceeded.
 
 1. SessionWorkspaceView at 987 LOC (threshold: 900 LOC).
    The view was 737 LOC after Inc 8 with a "watch at 900" recommendation.
-   Inc 9 added 250 LOC (sidebar, try-catch guards, revealInFileExplorer,
+   Inc 10 added 250 LOC (sidebar, try-catch guards, revealInFileExplorer,
    CSS migration) pushing it to 987 LOC.
 
    This is not architectural drift in the traditional sense -- no logic

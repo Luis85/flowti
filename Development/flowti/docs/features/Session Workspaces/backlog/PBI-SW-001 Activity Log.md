@@ -6,7 +6,7 @@ increment: "[[Inc 1 - Activity Log and Folder Filtering]]"
 priority: high
 dependencies:
   - "[[PBI-002 Documentation Sessions]]"
-note: "First PBI for Session Workspaces. Activity log and folder filtering delivered early via Inc 9 consolidation (artifacts merged into activity). Global filter setting remains."
+note: "First PBI for Session Workspaces. Activity log and folder filtering delivered early via Inc 10 consolidation (artifacts merged into activity). Global filter setting remains."
 user_story: "[[I want to filter folders to not appear in my sessions activity log]]"
 ---
 
@@ -60,7 +60,7 @@ As a session user, I want to see what vault activity happened during my session 
 
 ### Delivery Status
 
-**Partially delivered in PBI-002 Inc 9** (Sidebar Workspace & Activity Consolidation):
+**Partially delivered in PBI-002 Inc 10** (Sidebar Workspace & Activity Consolidation):
 - Activity log with folder filtering: **done** (delivered as part of session workspace enrichment)
 - Artifacts section removed — activity is the single unified log: **done** (supersedes ADR-025)
 - Per-session folder filter UI in workspace: **done**

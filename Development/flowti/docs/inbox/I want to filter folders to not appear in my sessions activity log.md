@@ -15,4 +15,4 @@ remaining: "Per-session filter UI (PBI-SW-001)"
 
 I want to configure general folders for all sessions and I want to configure filtered folders for every session independently.
 
-**Status:** Global folder filtering delivered in Inc 9. Per-session filter configuration UI remains in [[PBI-SW-001 Activity Log]].
+**Status:** Global folder filtering delivered in Inc 10. Per-session filter configuration UI remains in [[PBI-SW-001 Activity Log]].
