@@ -215,14 +215,40 @@ estimated_tests: 75
 - Files: 4–5 (SessionService handlers, helpers update, events, types, tests)
 
 **Acceptance criteria:**
-- [ ] `addReflection(sessionId, type, content)` creates entry with timestamp
-- [ ] `removeReflection(sessionId, reflectionId)` removes entry
-- [ ] State guards: only in running/paused sessions
-- [ ] Events emitted: `session.reflection.added`, `session.reflection.removed`
-- [ ] Reflections included in session summary body
-- [ ] Reflections threaded through template save/restore
-- [ ] Backward compat: sessions without reflections load cleanly
-- [ ] Tests pass, `npm test` green
+- [x] `addReflection(sessionId, type, content)` creates entry with timestamp
+- [x] `removeReflection(sessionId, reflectionId)` removes entry
+- [x] State guards: only in running/paused sessions
+- [x] Events emitted: `session.reflection.added`, `session.reflection.removed`
+- [x] Reflections included in session summary body (with category icons)
+- [x] Reflections threaded through template save/restore/rerun/export
+- [x] Backward compat: sessions without reflections load cleanly
+- [x] Tests pass, `npm test` green (2,748 tests, 108 suites)
+
+**Delivery summary:**
+- **Source LOC:** ~60 (handlers ~35, summary body ~10, template threading ~15)
+- **Tests:** 15 new (9 service + 3 helpers + 3 template threading), 2,748 total, 108 suites
+- **Files changed:** 5 source + 2 test files
+- **Deviations:** Added command events (`session.reflection.add`/`remove`) not in original plan — follows command/state event pattern from Cycle 7. Summary body uses category icons (👁🚫💡⚖️). No max reflections cap added (deferred). Source LOC lower than estimated (60 vs 120) — types and events already existed.
+
+**Definition of Done (Increment):**
+- [x] Acceptance criteria met (8/8)
+- [x] Tests added per TestPlan (15 new: 9 service, 3 helpers, 3 template)
+- [x] Build pipeline passes (`npm test` green — 2,748 tests, 108 suites)
+- [ ] Three Amigos review completed (solo delivery — deferred to cycle-level review)
+- [x] All blocker findings resolved (none found)
+- [ ] TASM score recorded (deferred to cycle-level review)
+- [x] Documentation updated:
+  - [x] PRD updated (FR-13 ✅ domain, event table +2, stage history, backlog counts)
+  - [x] PBI updated (PBI-SW-013 stage: planned → in-progress, delivery summary)
+  - [x] Architecture docs updated (N/A — no new UI components in domain increment)
+  - [x] Sitemap updated (N/A)
+  - [x] Tech debt register updated (N/A)
+- [x] Manifests updated (N/A)
+- [x] No architectural boundary violations (command → service → state event pattern)
+- [x] Improvement items captured:
+  - OBS-7: No max reflections cap — no enforcement yet. Add cap if needed (200 suggested in PBI)
+  - OBS-8: Decisions and reflections coexist as separate arrays — migration deferred to avoid complexity
+  - OBS-9: Inc 3 actual LOC (60) much lower than estimate (120) — types/events pre-existed from Cycle 6
 
 ---
 

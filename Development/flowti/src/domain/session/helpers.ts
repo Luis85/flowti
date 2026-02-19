@@ -484,6 +484,16 @@ export function generateSessionSummaryBody(session: Session): string {
 		lines.push("");
 	}
 
+	// Reflections
+	if (session.reflections && session.reflections.length > 0) {
+		lines.push("### Reflections");
+		const REFLECTION_ICONS: Record<string, string> = { observation: "👁", blocker: "🚫", idea: "💡", decision: "⚖️" };
+		for (const r of session.reflections) {
+			lines.push(`- ${REFLECTION_ICONS[r.type] ?? "•"} **[${r.type}]** ${r.content}`);
+		}
+		lines.push("");
+	}
+
 	// Context Bindings
 	if (session.contextBindings && session.contextBindings.length > 0) {
 		lines.push("### Context Bindings");

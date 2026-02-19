@@ -788,6 +788,43 @@ describe("generateSessionSummaryBody", () => {
 		expect(goalsIdx).toBeLessThan(execIdx);
 		expect(execIdx).toBeLessThan(ctxIdx);
 	});
+
+	it("includes reflections section with category icons", () => {
+		const session = makeSession({
+			reflections: [
+				{ id: "r1", type: "observation", content: "Code is clean", timestamp: "2026-02-16T10:10:00.000Z" },
+				{ id: "r2", type: "blocker", content: "API not ready", timestamp: "2026-02-16T10:11:00.000Z" },
+				{ id: "r3", type: "idea", content: "Use caching", timestamp: "2026-02-16T10:12:00.000Z" },
+				{ id: "r4", type: "decision", content: "Go with plan B", timestamp: "2026-02-16T10:13:00.000Z" },
+			],
+		});
+		const body = generateSessionSummaryBody(session);
+		expect(body).toContain("### Reflections");
+		expect(body).toContain("👁 **[observation]** Code is clean");
+		expect(body).toContain("🚫 **[blocker]** API not ready");
+		expect(body).toContain("💡 **[idea]** Use caching");
+		expect(body).toContain("⚖️ **[decision]** Go with plan B");
+	});
+
+	it("omits reflections section when empty", () => {
+		const session = makeSession({ reflections: [] });
+		const body = generateSessionSummaryBody(session);
+		expect(body).not.toContain("### Reflections");
+	});
+
+	it("places reflections between decisions and context bindings", () => {
+		const session = makeSession({
+			decisions: [{ id: "d1", title: "Use DDD", recordedAt: "2026-02-16T10:10:00.000Z" }],
+			reflections: [{ id: "r1", type: "observation", content: "Good approach", timestamp: "2026-02-16T10:11:00.000Z" }],
+			contextBindings: [{ id: "ctx1", path: "src/main.ts", type: "file", label: "main.ts", boundAt: "2026-02-16T10:00:00.000Z" }],
+		});
+		const body = generateSessionSummaryBody(session);
+		const decIdx = body.indexOf("### Decisions");
+		const refIdx = body.indexOf("### Reflections");
+		const ctxIdx = body.indexOf("### Context Bindings");
+		expect(decIdx).toBeLessThan(refIdx);
+		expect(refIdx).toBeLessThan(ctxIdx);
+	});
 });
 
 describe("generateSessionSummary", () => {

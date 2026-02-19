@@ -13,7 +13,7 @@ import type { IEventBus } from "../../infrastructure/events/types";
 import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
 import type { ITypedStorage } from "../../utils/TypedStorage";
 import { generateUUID } from "../../utils/helpers";
-import type { ClosureResponse, ContextBindingType, EnergyLevel, ExecutionTask, Session, SessionActivity, SessionActivityAction, SessionContextBinding, SessionGoal, SessionIntent, SessionLink, SessionOutputArtifact, SessionOutputTemplate, SessionState, SessionStatusV2, SessionTemplate, SessionTemplateExport, SessionTypeConfig, WorkspaceState } from "./types";
+import type { ClosureResponse, ContextBindingType, EnergyLevel, ExecutionTask, ReflectionEntry, Session, SessionActivity, SessionActivityAction, SessionContextBinding, SessionGoal, SessionIntent, SessionLink, SessionOutputArtifact, SessionOutputTemplate, SessionState, SessionStatusV2, SessionTemplate, SessionTemplateExport, SessionTypeConfig, WorkspaceState } from "./types";
 import { MAX_SESSIONS, MAX_TEMPLATES, ARTIFACT_DEDUP_WINDOW_MS, SESSION_NOTES_FOLDER, MAX_SESSION_ACTIVITY, ACTIVITY_DEDUP_WINDOW_MS, MAX_CONTEXT_BINDINGS, MAX_SESSION_DECISIONS, MAX_OUTPUT_ARTIFACTS, SESSION_TYPE_CONFIGS } from "./types";
 import { createSession, createGoal, createDecision, createContextBinding, computeRemainingMs, computeElapsedMs, isTimerExpired, isExcluded, isValidTransition, resolveTypeConfig, generateSessionOutput, updateSessionPathsForFileMove, updateSessionPathsForFolderMove, updateTemplatePathForFileMove, updateTemplatePathForFolderMove, mergeSessionNotes, reverseParseSessionNotes, computeReverseSyncDiff, detectCognitiveOverload } from "./helpers";
 import { SESSION_NOTES_SYNC_DELAY_MS } from "./types";
@@ -246,6 +246,18 @@ export class SessionService {
 			this.unsubscribes.push(
 				this.eventBus.on("session.decision.remove", (event) => {
 					void this.handleDecisionRemove(event.payload.sessionId, event.payload.decisionId);
+				}),
+			);
+
+			// Reflection commands
+			this.unsubscribes.push(
+				this.eventBus.on("session.reflection.add", (event) => {
+					void this.handleReflectionAdd(event.payload.sessionId, event.payload.type, event.payload.content);
+				}),
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("session.reflection.remove", (event) => {
+					void this.handleReflectionRemove(event.payload.sessionId, event.payload.entryId);
 				}),
 			);
 
@@ -534,6 +546,9 @@ export class SessionService {
 				? session.contextBindings.map((b) => ({ path: b.path, type: b.type }))
 				: undefined,
 			notes: session.notes.trim() || undefined,
+			reflections: session.reflections.length > 0
+				? session.reflections.map((r) => ({ type: r.type, content: r.content }))
+				: undefined,
 		});
 	}
 
@@ -560,6 +575,7 @@ export class SessionService {
 				...(tmpl.tasks !== undefined && { tasks: tmpl.tasks }),
 				...(tmpl.contextBindings !== undefined && { contextBindings: tmpl.contextBindings }),
 				...(tmpl.notes !== undefined && { notes: tmpl.notes }),
+				...(tmpl.reflections !== undefined && { reflections: tmpl.reflections }),
 			},
 		};
 
@@ -603,6 +619,9 @@ export class SessionService {
 			tasks: session.executionTasks.map((t) => t.label),
 			contextBindings: session.contextBindings.map((b) => ({ path: b.path, type: b.type })),
 			notes: session.notes.trim() || undefined,
+			reflections: session.reflections.length > 0
+				? session.reflections.map((r) => ({ type: r.type, content: r.content }))
+				: undefined,
 		});
 	}
 
@@ -623,6 +642,7 @@ export class SessionService {
 			tasks: tmpl.tasks,
 			contextBindings: tmpl.contextBindings,
 			notes: tmpl.notes,
+			reflections: tmpl.reflections,
 		});
 	}
 
@@ -791,7 +811,7 @@ export class SessionService {
 
 	// ── Command handlers ─────────────────────────────────────
 
-	private async handleCreate(payload: { type: string; title: string; durationMinutes: number; focusFile?: string; goals?: string[]; decisions?: string[]; tasks?: string[]; contextBindings?: Array<{ path: string; type: ContextBindingType }>; notes?: string }): Promise<Session> {
+	private async handleCreate(payload: { type: string; title: string; durationMinutes: number; focusFile?: string; goals?: string[]; decisions?: string[]; tasks?: string[]; contextBindings?: Array<{ path: string; type: ContextBindingType }>; notes?: string; reflections?: Array<{ type: ReflectionEntry["type"]; content: string }> }): Promise<Session> {
 		const id = `session_${generateUUID()}`;
 		const session = createSession(
 			id,
@@ -842,6 +862,16 @@ export class SessionService {
 		// Populate notes if provided (from template/rerun)
 		if (payload.notes) {
 			session.notes = payload.notes;
+		}
+
+		// Populate reflections if provided (from template/rerun)
+		if (payload.reflections && payload.reflections.length > 0) {
+			session.reflections = payload.reflections.map((r): ReflectionEntry => ({
+				id: `ref_${generateUUID()}`,
+				type: r.type,
+				content: r.content,
+				timestamp: new Date().toISOString(),
+			}));
 		}
 
 		this.state.sessions.unshift(session);
@@ -1150,6 +1180,40 @@ export class SessionService {
 		session.decisions.splice(idx, 1);
 		await this.saveState();
 		await this.eventBus?.emit("session.decision.removed", { sessionId, decisionId });
+		this.scheduleSyncNotesFile(sessionId);
+	}
+
+	// ── Reflection handlers (FR-13) ─────────────────────────
+
+	private async handleReflectionAdd(sessionId: string, type: ReflectionEntry["type"], content: string): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session || !content.trim()) return;
+		if (session.status !== "running" && session.status !== "paused") return;
+
+		const entry: ReflectionEntry = {
+			id: `ref_${generateUUID()}`,
+			type,
+			content: content.trim(),
+			timestamp: new Date().toISOString(),
+		};
+
+		session.reflections.push(entry);
+		await this.saveState();
+		await this.eventBus?.emit("session.reflection.added", { sessionId, entry: { ...entry } });
+		this.scheduleSyncNotesFile(sessionId);
+	}
+
+	private async handleReflectionRemove(sessionId: string, entryId: string): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session) return;
+		if (session.status !== "running" && session.status !== "paused") return;
+
+		const idx = session.reflections.findIndex((r) => r.id === entryId);
+		if (idx === -1) return;
+
+		session.reflections.splice(idx, 1);
+		await this.saveState();
+		await this.eventBus?.emit("session.reflection.removed", { sessionId, entryId });
 		this.scheduleSyncNotesFile(sessionId);
 	}
 

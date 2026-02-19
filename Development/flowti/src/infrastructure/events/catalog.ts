@@ -465,6 +465,8 @@ const CATALOG_DATA = {
 	"session.task.completed":     { category: "Session", description: "Execution task marked completed", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.task.removed":       { category: "Session", description: "Execution task removed from session plan", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.task.reordered":     { category: "Session", description: "Execution tasks reordered", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.reflection.add":     { category: "Session", description: "Command: add reflection entry to session", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
+	"session.reflection.remove":  { category: "Session", description: "Command: remove reflection entry from session", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
 	"session.reflection.added":   { category: "Session", description: "Structured reflection entry added", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.reflection.removed": { category: "Session", description: "Structured reflection entry removed", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.review.started":     { category: "Session", description: "Session entered reviewing state", direction: "Service → Listeners", domain: "session", services: "SessionService" },

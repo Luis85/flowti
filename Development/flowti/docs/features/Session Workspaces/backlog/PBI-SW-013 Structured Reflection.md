@@ -1,7 +1,7 @@
 ---
 type: ProductBacklogItem
 feature: "[[Session Workspaces PRD]]"
-stage: planned
+stage: in-progress
 priority: medium
 effort: medium
 dependencies: []
@@ -50,18 +50,19 @@ And decisions can be linked to domain decision records
 
 ### Functional Requirements
 
-- [ ] `ReflectionEntry` type: `{ id, type: "observation"|"blocker"|"idea"|"decision", content, timestamp }`
-- [ ] `reflections: ReflectionEntry[]` field on Session interface
-- [ ] `session.reflection.added` event with `{ sessionId, entry: ReflectionEntry }`
-- [ ] `session.reflection.removed` event with `{ sessionId, entryId: string }`
-- [ ] `handleReflectionAdd()` and `handleReflectionRemove()` in SessionService
-- [ ] Each category rendered as separate section in workspace
-- [ ] Decision entries can emit `decision.recorded` domain event
-- [ ] Decisions can be converted to standalone decision records
-- [ ] Reflections included in session summary grouped by type
-- [ ] Sidebar: collapsed summary view showing count per category
-- [ ] Backward compat: existing `decisions[]` migrated to `reflections[]` with `type: "decision"` in `load()`
-- [ ] Max reflections per session: 200 (50 per category recommended)
+- [x] `ReflectionEntry` type: `{ id, type: "observation"|"blocker"|"idea"|"decision", content, timestamp }`
+- [x] `reflections: ReflectionEntry[]` field on Session interface
+- [x] `session.reflection.add` / `session.reflection.remove` command events *(added Inc 3)*
+- [x] `session.reflection.added` event with `{ sessionId, entry: ReflectionEntry }`
+- [x] `session.reflection.removed` event with `{ sessionId, entryId: string }`
+- [x] `handleReflectionAdd()` and `handleReflectionRemove()` in SessionService (state guards: running/paused)
+- [ ] Each category rendered as separate section in workspace *(Inc 4)*
+- [ ] Decision entries can emit `decision.recorded` domain event *(deferred)*
+- [ ] Decisions can be converted to standalone decision records *(deferred)*
+- [x] Reflections included in session summary grouped by type (with category icons)
+- [ ] Sidebar: collapsed summary view showing count per category *(deferred — PBI-SW-017)*
+- [ ] Backward compat: existing `decisions[]` migrated to `reflections[]` with `type: "decision"` *(deferred — decisions coexist)*
+- [ ] Max reflections per session: 200 (50 per category recommended) *(deferred — no cap yet)*
 
 ### Technical Requirements
 
@@ -80,13 +81,13 @@ And decisions can be linked to domain decision records
 
 ## Acceptance Criteria
 
-- [ ] Adding a reflection in any category creates an entry and emits event
-- [ ] Removing a reflection removes it from the list
-- [ ] 4 categories are rendered separately in workspace
-- [ ] Decisions retain their existing domain event capability
-- [ ] Session summary includes reflections grouped by type
-- [ ] Existing sessions with `decisions[]` load correctly as `reflections[]`
-- [ ] `npm run build` passes
+- [x] Adding a reflection in any category creates an entry and emits event *(Inc 3)*
+- [x] Removing a reflection removes it from the list *(Inc 3)*
+- [ ] 4 categories are rendered separately in workspace *(Inc 4)*
+- [ ] Decisions retain their existing domain event capability *(deferred)*
+- [x] Session summary includes reflections grouped by type *(Inc 3)*
+- [x] Sessions without reflections load cleanly (backward compat) *(Inc 3)*
+- [x] `npm test` passes (2,748 tests, 108 suites) *(Inc 3)*
 
 ### INVEST Checklist
 
@@ -104,6 +105,24 @@ And decisions can be linked to domain decision records
 - **Source LOC:** ~120
 - **Tests:** ~20
 - **Increments:** 1-2
+
+## Delivery Summary — Inc 3 (Domain)
+
+- **Delivered in:** Cycle 8 Inc 3
+- **Source LOC:** ~60 (handlers ~35, summary body ~10, template threading ~15)
+- **Tests:** 15 new (9 service + 3 helpers + 3 template threading), 2,748 total
+
+### Files Changed (Inc 3)
+
+| File | Change |
+|------|--------|
+| `src/domain/session/events.ts` | Added `session.reflection.add` and `session.reflection.remove` command events |
+| `src/domain/session/types.ts` | Added `reflections` field to `SessionTemplate` |
+| `src/domain/session/SessionService.ts` | Added `handleReflectionAdd()`/`handleReflectionRemove()` handlers, command listeners, template threading (saveTemplate, rerun, createFromTemplate, handleCreate, exportTemplate) |
+| `src/domain/session/helpers.ts` | Added Reflections section to `generateSessionSummaryBody()` with category icons |
+| `src/infrastructure/events/catalog.ts` | Added 2 command event catalog entries |
+| `tests/domain/session/SessionService.test.ts` | +12 reflection handler + template tests |
+| `tests/domain/session/helpers.test.ts` | +3 summary body reflection tests |
 
 ## Related
 

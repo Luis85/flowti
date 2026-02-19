@@ -335,6 +335,8 @@ export interface SessionTemplate {
 	contextBindings?: Array<{ path: string; type: ContextBindingType }>;
 	/** Notes text to pre-populate. */
 	notes?: string;
+	/** Reflection entries to pre-populate (type + content, no IDs/timestamps). */
+	reflections?: Array<{ type: ReflectionEntry["type"]; content: string }>;
 	createdAt: number; // epoch ms
 }
 

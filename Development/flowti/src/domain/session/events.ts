@@ -7,7 +7,7 @@ import type { ClosureResponse, ContextBindingType, EnergyLevel, ExecutionTask, R
 export interface SessionEventMap {
 	// ── Commands ──────────────────────────────────────────────
 	/** Command: create a new session */
-	"session.create": { type: SessionType; title: string; durationMinutes: number; focusFile?: string; goals?: string[]; tasks?: string[]; decisions?: string[]; contextBindings?: Array<{ path: string; type: ContextBindingType }>; notes?: string };
+	"session.create": { type: SessionType; title: string; durationMinutes: number; focusFile?: string; goals?: string[]; tasks?: string[]; decisions?: string[]; contextBindings?: Array<{ path: string; type: ContextBindingType }>; notes?: string; reflections?: Array<{ type: ReflectionEntry["type"]; content: string }> };
 	/** Command: start the timer for a prepared session */
 	"session.start": { sessionId: string };
 	/** Command: pause an active session */
@@ -221,7 +221,13 @@ export interface SessionEventMap {
 	/** Emitted after tasks are reordered */
 	"session.task.reordered": { sessionId: string; taskIds: string[] };
 
-	// ── v2: Reflection events (ADR-031, FR-13) ─────────────
+	// ── v2: Reflection commands (ADR-031, FR-13) ────────────
+	/** Command: add a reflection entry to a session */
+	"session.reflection.add": { sessionId: string; type: ReflectionEntry["type"]; content: string };
+	/** Command: remove a reflection entry from a session */
+	"session.reflection.remove": { sessionId: string; entryId: string };
+
+	// ── v2: Reflection state events (ADR-031, FR-13) ─────────
 	/** Emitted after a reflection entry is added */
 	"session.reflection.added": { sessionId: string; entry: ReflectionEntry };
 	/** Emitted after a reflection entry is removed */

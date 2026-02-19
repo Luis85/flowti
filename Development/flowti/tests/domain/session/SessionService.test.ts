@@ -1316,6 +1316,24 @@ describe("SessionService", () => {
 			expect(tmpl).not.toBeNull();
 			expect(tmpl!.focusFile).toBe("docs/events.md");
 		});
+
+		it("saves reflections in template", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "Ref Template", durationMinutes: 25 });
+			const refSession = service.getSessions().find((s) => s.title === "Ref Template")!;
+			await eventBus.emit("session.start", { sessionId: refSession.id });
+
+			await eventBus.emit("session.reflection.add", { sessionId: refSession.id, type: "observation", content: "Good pattern" });
+			await eventBus.emit("session.reflection.add", { sessionId: refSession.id, type: "idea", content: "Try caching" });
+
+			await eventBus.emit("session.complete", { sessionId: refSession.id });
+
+			const tmpl = await service.saveTemplateFromSession(refSession.id, "Reflection Template");
+			expect(tmpl).not.toBeNull();
+			expect(tmpl!.reflections).toHaveLength(2);
+			expect(tmpl!.reflections![0].type).toBe("observation");
+			expect(tmpl!.reflections![0].content).toBe("Good pattern");
+			expect(tmpl!.reflections![1].type).toBe("idea");
+		});
 	});
 
 	// ── Rerun Session ───────────────────────────────────────
@@ -1433,6 +1451,24 @@ describe("SessionService", () => {
 			const rerun = service.getSessions()[0]; // newest first
 			expect(rerun.focusFile).toBe("docs/hubs.md");
 		});
+
+		it("should carry reflections forward on rerun", async () => {
+			await eventBus.emit("session.create", { type: "event-storming", title: "Ref Rerun", durationMinutes: 25 });
+			const refSession = service.getSessions().find((s) => s.title === "Ref Rerun")!;
+			await eventBus.emit("session.start", { sessionId: refSession.id });
+
+			await eventBus.emit("session.reflection.add", { sessionId: refSession.id, type: "observation", content: "Carry forward" });
+			await eventBus.emit("session.complete", { sessionId: refSession.id });
+			await service.skipClosure(refSession.id);
+
+			await service.rerunSession(refSession.id);
+			const rerun = service.getSessions()[0];
+			expect(rerun.reflections.length).toBe(1);
+			expect(rerun.reflections[0].content).toBe("Carry forward");
+			expect(rerun.reflections[0].type).toBe("observation");
+			// Should have new IDs
+			expect(rerun.reflections[0].id).not.toBe(refSession.reflections[0].id);
+		});
 	});
 
 	// ── Create from Template ────────────────────────────────
@@ -1496,6 +1532,29 @@ describe("SessionService", () => {
 
 			expect(handler).toHaveBeenCalled();
 			expect(handler.mock.calls[0][0].payload.session.focusFile).toBe("docs/services.md");
+		});
+
+		it("should carry reflections from template", async () => {
+			const tmplWithRef = await service.saveTemplate({
+				name: "Reflection Template",
+				type: "documentation",
+				durationMinutes: 25,
+				reflections: [
+					{ type: "observation", content: "Reuse this pattern" },
+					{ type: "idea", content: "Try new approach" },
+				],
+			});
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+
+			await service.createFromTemplate(tmplWithRef.id);
+
+			const session = handler.mock.calls[0][0].payload.session;
+			expect(session.reflections.length).toBe(2);
+			expect(session.reflections[0].type).toBe("observation");
+			expect(session.reflections[0].content).toBe("Reuse this pattern");
+			expect(session.reflections[0].id).toMatch(/^ref_/);
+			expect(session.reflections[1].type).toBe("idea");
 		});
 	});
 
@@ -3255,6 +3314,176 @@ describe("SessionService", () => {
 
 			const session = service.getSessionById("legacy-dec");
 			expect(session?.decisions).toEqual([]);
+		});
+	});
+
+	// ── Reflections (FR-13) ─────────────────────────────────
+
+	describe("reflections", () => {
+		it("adds a reflection and emits session.reflection.added", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "Ref Test", durationMinutes: 25 });
+			const sessions = service.getSessions();
+			const sessionId = sessions[0].id;
+
+			// Start session so it's running
+			await eventBus.emit("session.start", { sessionId });
+
+			const handler = vi.fn();
+			eventBus.on("session.reflection.added", handler);
+
+			await eventBus.emit("session.reflection.add", {
+				sessionId,
+				type: "observation",
+				content: "Code is clean",
+			});
+
+			expect(handler).toHaveBeenCalledTimes(1);
+			const payload = handler.mock.calls[0][0].payload;
+			expect(payload.sessionId).toBe(sessionId);
+			expect(payload.entry.type).toBe("observation");
+			expect(payload.entry.content).toBe("Code is clean");
+			expect(payload.entry.id).toMatch(/^ref_/);
+			expect(payload.entry.timestamp).toBeTruthy();
+
+			const session = service.getSessionById(sessionId);
+			expect(session?.reflections.length).toBe(1);
+		});
+
+		it("removes a reflection and emits session.reflection.removed", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "Ref Remove", durationMinutes: 25 });
+			const sessionId = service.getSessions()[0].id;
+			await eventBus.emit("session.start", { sessionId });
+
+			await eventBus.emit("session.reflection.add", {
+				sessionId,
+				type: "blocker",
+				content: "API not ready",
+			});
+
+			const session = service.getSessionById(sessionId)!;
+			const entryId = session.reflections[0].id;
+
+			const handler = vi.fn();
+			eventBus.on("session.reflection.removed", handler);
+
+			await eventBus.emit("session.reflection.remove", { sessionId, entryId });
+
+			expect(handler).toHaveBeenCalledTimes(1);
+			expect(handler.mock.calls[0][0].payload.entryId).toBe(entryId);
+
+			const updated = service.getSessionById(sessionId);
+			expect(updated?.reflections.length).toBe(0);
+		});
+
+		it("ignores add with empty content", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "Ref Empty", durationMinutes: 25 });
+			const sessionId = service.getSessions()[0].id;
+			await eventBus.emit("session.start", { sessionId });
+
+			await eventBus.emit("session.reflection.add", {
+				sessionId,
+				type: "idea",
+				content: "  ",
+			});
+
+			const session = service.getSessionById(sessionId);
+			expect(session?.reflections.length).toBe(0);
+		});
+
+		it("state guards: rejects add for prepared session", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "Ref Guard", durationMinutes: 25 });
+			const sessionId = service.getSessions()[0].id;
+
+			await eventBus.emit("session.reflection.add", {
+				sessionId,
+				type: "observation",
+				content: "Should be rejected",
+			});
+
+			const session = service.getSessionById(sessionId);
+			expect(session?.reflections.length).toBe(0);
+		});
+
+		it("state guards: allows add for paused session", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "Ref Paused", durationMinutes: 25 });
+			const sessionId = service.getSessions()[0].id;
+			await eventBus.emit("session.start", { sessionId });
+			await eventBus.emit("session.pause", { sessionId });
+
+			await eventBus.emit("session.reflection.add", {
+				sessionId,
+				type: "idea",
+				content: "Paused reflection",
+			});
+
+			const session = service.getSessionById(sessionId);
+			expect(session?.reflections.length).toBe(1);
+		});
+
+		it("state guards: rejects remove for completed session", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "Ref Comp", durationMinutes: 25 });
+			const sessionId = service.getSessions()[0].id;
+			await eventBus.emit("session.start", { sessionId });
+
+			await eventBus.emit("session.reflection.add", {
+				sessionId,
+				type: "observation",
+				content: "Will stay",
+			});
+
+			const entryId = service.getSessionById(sessionId)!.reflections[0].id;
+			await eventBus.emit("session.complete", { sessionId });
+
+			await eventBus.emit("session.reflection.remove", { sessionId, entryId });
+
+			const session = service.getSessionById(sessionId);
+			expect(session?.reflections.length).toBe(1);
+		});
+
+		it("ignores remove for non-existent entry", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "Ref Ghost", durationMinutes: 25 });
+			const sessionId = service.getSessions()[0].id;
+			await eventBus.emit("session.start", { sessionId });
+
+			const handler = vi.fn();
+			eventBus.on("session.reflection.removed", handler);
+
+			await eventBus.emit("session.reflection.remove", { sessionId, entryId: "nonexistent" });
+
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("supports all four reflection types", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "Ref Types", durationMinutes: 25 });
+			const sessionId = service.getSessions()[0].id;
+			await eventBus.emit("session.start", { sessionId });
+
+			for (const type of ["observation", "blocker", "idea", "decision"] as const) {
+				await eventBus.emit("session.reflection.add", {
+					sessionId,
+					type,
+					content: `${type} content`,
+				});
+			}
+
+			const session = service.getSessionById(sessionId)!;
+			expect(session.reflections.length).toBe(4);
+			expect(session.reflections.map((r) => r.type)).toEqual(["observation", "blocker", "idea", "decision"]);
+		});
+
+		it("trims content whitespace", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "Ref Trim", durationMinutes: 25 });
+			const sessionId = service.getSessions()[0].id;
+			await eventBus.emit("session.start", { sessionId });
+
+			await eventBus.emit("session.reflection.add", {
+				sessionId,
+				type: "observation",
+				content: "  padded content  ",
+			});
+
+			const session = service.getSessionById(sessionId)!;
+			expect(session.reflections[0].content).toBe("padded content");
 		});
 	});
 
