@@ -61,20 +61,55 @@ export class SessionGoalsPanel {
 		if (!this.goalsEl) return;
 		this.goalsEl.empty();
 
-		for (const goal of session.goals) {
-			const row = this.goalsEl.createDiv({ cls: "ft-goal-row" });
-			row.style.cssText = "display:flex;align-items:center;gap:8px;padding:4px 0;";
+		const goals = session.goals;
+		for (let i = 0; i < goals.length; i++) {
+			this.renderGoalRow(goals[i], i, goals.length);
+		}
+	}
 
-			const checkbox = row.createEl("input", { type: "checkbox" }) as HTMLInputElement;
-			checkbox.checked = goal.completed;
-			checkbox.addEventListener("change", () => {
-				void this.deps.eventBus.emit("session.goal.toggle", { sessionId: session.id, goalId: goal.id });
+	private renderGoalRow(goal: SessionGoal, index: number, total: number): void {
+		const session = this.deps.getSession();
+		const isEditable = session.status !== "completed" && session.status !== "archived";
+
+		const row = this.goalsEl!.createDiv({ cls: "ft-goal-row" });
+		row.style.cssText = "display:flex;align-items:center;gap:8px;padding:4px 0;";
+
+		const checkbox = row.createEl("input", { type: "checkbox" }) as HTMLInputElement;
+		checkbox.checked = goal.completed;
+		checkbox.addEventListener("change", () => {
+			void this.deps.eventBus.emit("session.goal.toggle", { sessionId: session.id, goalId: goal.id });
+		});
+
+		const textEl = row.createEl("span", { text: goal.text });
+		textEl.style.cssText = "flex:1;" + (goal.completed ? "text-decoration:line-through;opacity:0.6;" : "");
+
+		if (isEditable) {
+			const actionGroup = row.createDiv({ cls: "ft-goal-actions" });
+			actionGroup.style.cssText = "display:flex;align-items:center;gap:2px;";
+
+			const upBtn = actionGroup.createEl("button", { cls: "ft-goal-move-up" });
+			upBtn.style.cssText = "background:none;border:none;cursor:pointer;padding:0 2px;opacity:0.4;color:var(--text-muted);font-size:10px;line-height:1;";
+			setIcon(upBtn, "chevron-up");
+			if (index === 0) { upBtn.disabled = true; upBtn.style.opacity = "0.15"; }
+			upBtn.addEventListener("click", () => {
+				if (index === 0) return;
+				const ids = session.goals.map((g) => g.id);
+				[ids[index - 1], ids[index]] = [ids[index], ids[index - 1]];
+				void this.deps.eventBus.emit("session.goal.reorder", { sessionId: session.id, goalIds: ids });
 			});
 
-			const textEl = row.createEl("span", { text: goal.text });
-			textEl.style.cssText = "flex:1;" + (goal.completed ? "text-decoration:line-through;opacity:0.6;" : "");
+			const downBtn = actionGroup.createEl("button", { cls: "ft-goal-move-down" });
+			downBtn.style.cssText = "background:none;border:none;cursor:pointer;padding:0 2px;opacity:0.4;color:var(--text-muted);font-size:10px;line-height:1;";
+			setIcon(downBtn, "chevron-down");
+			if (index === total - 1) { downBtn.disabled = true; downBtn.style.opacity = "0.15"; }
+			downBtn.addEventListener("click", () => {
+				if (index === total - 1) return;
+				const ids = session.goals.map((g) => g.id);
+				[ids[index], ids[index + 1]] = [ids[index + 1], ids[index]];
+				void this.deps.eventBus.emit("session.goal.reorder", { sessionId: session.id, goalIds: ids });
+			});
 
-			const removeBtn = row.createEl("button", { cls: "ft-goal-remove" });
+			const removeBtn = actionGroup.createEl("button", { cls: "ft-goal-remove" });
 			removeBtn.style.cssText = "background:none;border:none;cursor:pointer;padding:2px;opacity:0.5;color:var(--text-muted);";
 			setIcon(removeBtn, "x");
 			removeBtn.addEventListener("click", () => {

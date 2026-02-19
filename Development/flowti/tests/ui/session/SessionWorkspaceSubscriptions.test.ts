@@ -259,4 +259,29 @@ describe("setupEventSubscriptions", () => {
 
 		expect(ctx.mocks.refreshSession).not.toHaveBeenCalled();
 	});
+
+	it("session.notes.reverseSynced refreshes goals, tasks, and notes panels", async () => {
+		const eventBus = new EventBus();
+		const refreshGoals = vi.fn();
+		const refreshTasks = vi.fn();
+		const updateNotes = vi.fn();
+		const session = makeSession({ notes: "updated notes" });
+		const ctx = makeContext(session);
+		(ctx as { getGoalsPanel: () => unknown }).getGoalsPanel = () => ({ refreshGoals });
+		(ctx as { getExecutionPanel: () => unknown }).getExecutionPanel = () => ({ refreshTasks });
+		(ctx as { getNotesPanel: () => unknown }).getNotesPanel = () => ({ updateNotes });
+		setupEventSubscriptions(ctx, eventBus);
+
+		await eventBus.emit("session.notes.reverseSynced", {
+			sessionId: "session-1",
+			path: "test.md",
+			changes: ['goal "Write tests" checked'],
+		});
+
+		expect(ctx.mocks.refreshSession).toHaveBeenCalled();
+		expect(ctx.mocks.setSession).toHaveBeenCalled();
+		expect(refreshGoals).toHaveBeenCalled();
+		expect(refreshTasks).toHaveBeenCalled();
+		expect(updateNotes).toHaveBeenCalled();
+	});
 });

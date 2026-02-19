@@ -92,8 +92,8 @@ User opens a session in the Obsidian sidebar panel while working in the main vie
 
 - **Trigger**: Session timer reaches zero
 - **System Response**: Sidebar displays **"Review Required"** status badge in the SidebarStatusHeader. The session has entered `reviewing` state. The sidebar does NOT show the closure overlay — that renders only in Main mode
-- **User Action**: User switches to Main mode to complete the closure ritual (SessionReviewOverlay)
-- **Events**: `session.review.started`
+- **User Action**: User switches to Main mode to complete the closure ritual (SessionClosureOverlay). The user may complete the closure questions or skip the ritual entirely
+- **Events**: `session.closure.started`
 
 ### 7. Pause / Resume from Sidebar
 

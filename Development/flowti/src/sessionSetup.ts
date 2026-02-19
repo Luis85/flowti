@@ -71,13 +71,14 @@ export class SessionSetup {
 				new NewSessionModal(this.deps.app, {
 					sessionTypes: SESSION_TYPES,
 					templates: this.deps.sessionService?.getSavedTemplates() ?? [],
-					onSubmit: (title, type, durationMinutes, focusFile, goals) => {
+					onSubmit: (title, type, durationMinutes, focusFile, goals, extra) => {
 						void this.deps.eventBus.emit("session.create", {
 							type: type as SessionType,
 							title,
 							durationMinutes,
 							focusFile: focusFile ?? undefined,
 							goals: goals.length > 0 ? goals : undefined,
+							...extra,
 						});
 					},
 				}).open();
@@ -141,13 +142,14 @@ export class SessionSetup {
 									sessionTypes: SESSION_TYPES,
 									templates: sessionService?.getSavedTemplates() ?? [],
 									prefill: { title: "", type: SESSION_TYPES[0].type, durationMinutes: 25, focusFile: file.path },
-									onSubmit: (title, type, durationMinutes, focusFile, goals) => {
+									onSubmit: (title, type, durationMinutes, focusFile, goals, extra) => {
 										void eventBus.emit("session.create", {
 											type: type as SessionType,
 											title,
 											durationMinutes,
 											focusFile: focusFile ?? undefined,
 											goals: goals.length > 0 ? goals : undefined,
+											...extra,
 										});
 									},
 								}).open();

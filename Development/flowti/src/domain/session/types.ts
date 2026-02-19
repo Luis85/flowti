@@ -46,6 +46,8 @@ export interface SessionTypeConfig {
 	defaultDuration: number;
 	defaultGoals: string[];
 	color?: string;
+	/** Optional closure template override for this session type (3-tier inheritance). */
+	closureTemplate?: ClosureTemplate;
 }
 
 /** Pre-built session type configurations. */
@@ -329,6 +331,10 @@ export interface SessionTemplate {
 	decisions?: string[];
 	/** Execution task labels to pre-populate on sessions created from this template. */
 	tasks?: string[];
+	/** Context binding paths to pre-populate (stored as wikilink-compatible paths). */
+	contextBindings?: Array<{ path: string; type: ContextBindingType }>;
+	/** Notes text to pre-populate. */
+	notes?: string;
 	createdAt: number; // epoch ms
 }
 
@@ -445,3 +451,6 @@ export const MAX_OUTPUT_ARTIFACTS = 20;
 
 /** Vault folder where session notes (persistent markdown files) are stored. */
 export const SESSION_NOTES_FOLDER = "03 - Resources/Sessions";
+
+/** Debounce delay (ms) for syncing session state to/from the notes file. */
+export const SESSION_NOTES_SYNC_DELAY_MS = 500;

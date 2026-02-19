@@ -13,9 +13,10 @@ import type { IEventBus } from "../../infrastructure/events/types";
 import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
 import type { ITypedStorage } from "../../utils/TypedStorage";
 import { generateUUID } from "../../utils/helpers";
-import type { ContextBindingType, EnergyLevel, ExecutionTask, Session, SessionActivity, SessionActivityAction, SessionContextBinding, SessionGoal, SessionIntent, SessionLink, SessionOutputArtifact, SessionOutputTemplate, SessionState, SessionStatusV2, SessionTemplate, SessionTemplateExport, SessionTypeConfig, WorkspaceState } from "./types";
+import type { ClosureResponse, ContextBindingType, EnergyLevel, ExecutionTask, Session, SessionActivity, SessionActivityAction, SessionContextBinding, SessionGoal, SessionIntent, SessionLink, SessionOutputArtifact, SessionOutputTemplate, SessionState, SessionStatusV2, SessionTemplate, SessionTemplateExport, SessionTypeConfig, WorkspaceState } from "./types";
 import { MAX_SESSIONS, MAX_TEMPLATES, ARTIFACT_DEDUP_WINDOW_MS, SESSION_NOTES_FOLDER, MAX_SESSION_ACTIVITY, ACTIVITY_DEDUP_WINDOW_MS, MAX_CONTEXT_BINDINGS, MAX_SESSION_DECISIONS, MAX_OUTPUT_ARTIFACTS, SESSION_TYPE_CONFIGS } from "./types";
-import { createSession, createGoal, createDecision, createContextBinding, computeRemainingMs, computeElapsedMs, isTimerExpired, isExcluded, isValidTransition, resolveTypeConfig, generateSessionOutput, updateSessionPathsForFileMove, updateSessionPathsForFolderMove, updateTemplatePathForFileMove, updateTemplatePathForFolderMove } from "./helpers";
+import { createSession, createGoal, createDecision, createContextBinding, computeRemainingMs, computeElapsedMs, isTimerExpired, isExcluded, isValidTransition, resolveTypeConfig, generateSessionOutput, updateSessionPathsForFileMove, updateSessionPathsForFolderMove, updateTemplatePathForFileMove, updateTemplatePathForFolderMove, mergeSessionNotes, reverseParseSessionNotes, computeReverseSyncDiff } from "./helpers";
+import { SESSION_NOTES_SYNC_DELAY_MS } from "./types";
 
 /**
  * Configuration options for the SessionService.
@@ -46,6 +47,9 @@ export class SessionService {
 	private fileSystem?: IFileSystemClient;
 	private unsubscribes: (() => void)[] = [];
 	private timerInterval: ReturnType<typeof setInterval> | null = null;
+	private noteSyncTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+	private lastSyncedContent: Map<string, string> = new Map();
+	private reverseSyncTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 	/** Global activity filter folders — injected from SettingsService. */
 	globalActivityFilter: string[] = [];
 	/** Custom session type configs — injected from SettingsService. */
@@ -143,6 +147,16 @@ export class SessionService {
 				}),
 			);
 
+			// Reverse sync: note file edits → session state
+			this.unsubscribes.push(
+				this.eventBus.on("file.modified", (event) => {
+					const session = this.findSessionByNotesFile(event.payload.path);
+					if (session) {
+						this.scheduleReverseSync(session.id, event.payload.path);
+					}
+				}),
+			);
+
 			// Goal commands
 			this.unsubscribes.push(
 				this.eventBus.on("session.goal.add", (event) => {
@@ -157,6 +171,11 @@ export class SessionService {
 			this.unsubscribes.push(
 				this.eventBus.on("session.goal.remove", (event) => {
 					void this.handleGoalRemove(event.payload.sessionId, event.payload.goalId);
+				}),
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("session.goal.reorder", (event) => {
+					void this.handleGoalReorder(event.payload.sessionId, event.payload.goalIds);
 				}),
 			);
 
@@ -503,6 +522,10 @@ export class SessionService {
 			goals: session.goals.length > 0 ? session.goals.map((g) => g.text) : undefined,
 			decisions: session.decisions.length > 0 ? session.decisions.map((d) => d.title) : undefined,
 			tasks: session.executionTasks.length > 0 ? session.executionTasks.map((t) => t.label) : undefined,
+			contextBindings: session.contextBindings.length > 0
+				? session.contextBindings.map((b) => ({ path: b.path, type: b.type }))
+				: undefined,
+			notes: session.notes.trim() || undefined,
 		});
 	}
 
@@ -526,6 +549,9 @@ export class SessionService {
 				...(tmpl.focusFile !== undefined && { focusFile: tmpl.focusFile }),
 				...(tmpl.goals !== undefined && { goals: tmpl.goals }),
 				...(tmpl.decisions !== undefined && { decisions: tmpl.decisions }),
+				...(tmpl.tasks !== undefined && { tasks: tmpl.tasks }),
+				...(tmpl.contextBindings !== undefined && { contextBindings: tmpl.contextBindings }),
+				...(tmpl.notes !== undefined && { notes: tmpl.notes }),
 			},
 		};
 
@@ -567,6 +593,8 @@ export class SessionService {
 			goals: session.goals.map((g) => g.text),
 			decisions: session.decisions.map((d) => d.title),
 			tasks: session.executionTasks.map((t) => t.label),
+			contextBindings: session.contextBindings.map((b) => ({ path: b.path, type: b.type })),
+			notes: session.notes.trim() || undefined,
 		});
 	}
 
@@ -585,6 +613,8 @@ export class SessionService {
 			goals: tmpl.goals,
 			decisions: tmpl.decisions,
 			tasks: tmpl.tasks,
+			contextBindings: tmpl.contextBindings,
+			notes: tmpl.notes,
 		});
 	}
 
@@ -593,15 +623,140 @@ export class SessionService {
 	 */
 	dispose(): void {
 		this.stopTimer();
+		for (const timer of this.noteSyncTimers.values()) clearTimeout(timer);
+		this.noteSyncTimers.clear();
+		for (const timer of this.reverseSyncTimers.values()) clearTimeout(timer);
+		this.reverseSyncTimers.clear();
+		this.lastSyncedContent.clear();
 		for (const unsub of this.unsubscribes) {
 			unsub();
 		}
 		this.unsubscribes = [];
 	}
 
+	// ── Notes file sync ──────────────────────────────────────
+
+	/**
+	 * Schedules a debounced sync of the session's notes file.
+	 * Multiple calls within the delay window coalesce into a single write.
+	 */
+	private scheduleSyncNotesFile(sessionId: string): void {
+		if (!this.fileSystem) return;
+		const session = this.findSession(sessionId);
+		if (!session?.notesFile) return;
+
+		const existing = this.noteSyncTimers.get(sessionId);
+		if (existing) clearTimeout(existing);
+
+		this.noteSyncTimers.set(
+			sessionId,
+			setTimeout(() => {
+				this.noteSyncTimers.delete(sessionId);
+				void this.syncNotesFile(sessionId);
+			}, SESSION_NOTES_SYNC_DELAY_MS),
+		);
+	}
+
+	/**
+	 * Reads the session's notes file, merges current session state, and writes it back.
+	 * Only syncs if the file already exists (user must create it first).
+	 */
+	private async syncNotesFile(sessionId: string): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session?.notesFile || !this.fileSystem) return;
+
+		try {
+			const exists = await this.fileSystem.fileExists(session.notesFile);
+			if (!exists) return;
+
+			const existing = await this.fileSystem.readFile(session.notesFile);
+			const merged = mergeSessionNotes(existing, session);
+			await this.fileSystem.updateFile(session.notesFile, merged);
+			this.lastSyncedContent.set(session.notesFile, merged);
+			await this.eventBus?.emit("session.notes.synced", { sessionId, path: session.notesFile });
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			await this.eventBus?.emit("session.notes.syncFailed", { sessionId, path: session.notesFile ?? "", error: msg });
+		}
+	}
+
+	// ── Reverse sync (note file → session) ──────────────────
+
+	private findSessionByNotesFile(path: string): Session | undefined {
+		return this.state.sessions.find(s => s.notesFile === path);
+	}
+
+	private scheduleReverseSync(sessionId: string, path: string): void {
+		if (!this.fileSystem) return;
+
+		const existing = this.reverseSyncTimers.get(sessionId);
+		if (existing) clearTimeout(existing);
+
+		this.reverseSyncTimers.set(
+			sessionId,
+			setTimeout(() => {
+				this.reverseSyncTimers.delete(sessionId);
+				void this.executeReverseSync(sessionId, path);
+			}, SESSION_NOTES_SYNC_DELAY_MS),
+		);
+	}
+
+	private async executeReverseSync(sessionId: string, path: string): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session?.notesFile || session.notesFile !== path || !this.fileSystem) return;
+
+		try {
+			const content = await this.fileSystem.readFile(path);
+
+			// Skip if file content matches what we last wrote (our own forward sync)
+			if (content === this.lastSyncedContent.get(path)) return;
+
+			const parsed = reverseParseSessionNotes(content);
+			const diff = computeReverseSyncDiff(session, parsed);
+			if (diff.changes.length === 0) return;
+
+			for (const toggle of diff.goalToggles) {
+				const goal = session.goals.find(g => g.id === toggle.goalId);
+				if (goal) goal.completed = toggle.completed;
+			}
+			for (const ng of diff.newGoals) {
+				const goal = createGoal(`goal_${generateUUID()}`, ng.label);
+				if (ng.checked) goal.completed = true;
+				session.goals.push(goal);
+			}
+			for (const toggle of diff.taskToggles) {
+				const task = session.executionTasks.find(t => t.id === toggle.taskId);
+				if (task) task.completed = toggle.completed;
+			}
+			for (const nt of diff.newTasks) {
+				const task: ExecutionTask = {
+					id: `task_${generateUUID()}`,
+					label: nt.label,
+					completed: nt.checked,
+					order: session.executionTasks.length,
+				};
+				session.executionTasks.push(task);
+			}
+			if (diff.notesUpdate !== null) {
+				session.notes = diff.notesUpdate;
+			}
+
+			await this.saveState();
+			await this.eventBus?.emit("session.notes.reverseSynced", { sessionId, path, changes: diff.changes });
+
+			// Forward sync only when structural changes need normalization (new items added).
+			// Simple toggles and text edits already match the note — rewriting would cause editor flicker.
+			if (diff.newGoals.length > 0 || diff.newTasks.length > 0) {
+				this.scheduleSyncNotesFile(sessionId);
+			}
+		} catch {
+			// Reverse sync errors are non-critical — silently ignore
+		}
+	}
+
 	// ── Command handlers ─────────────────────────────────────
 
-	private async handleCreate(payload: { type: string; title: string; durationMinutes: number; focusFile?: string; goals?: string[]; decisions?: string[]; tasks?: string[] }): Promise<Session> {
+	private async handleCreate(payload: { type: string; title: string; durationMinutes: number; focusFile?: string; goals?: string[]; decisions?: string[]; tasks?: string[]; contextBindings?: Array<{ path: string; type: ContextBindingType }>; notes?: string }): Promise<Session> {
 		const id = `session_${generateUUID()}`;
 		const session = createSession(
 			id,
@@ -611,10 +766,16 @@ export class SessionService {
 			payload.focusFile,
 		);
 
-		// Auto-set notes file path (include short ID suffix to avoid case-insensitive collisions)
+		// Auto-set notes file path (ISO date prefix + short ID suffix to avoid collisions)
+		const datePrefix = new Date().toISOString().split("T")[0];
 		const safeName = session.title.replace(/[\\/:*?"<>|]/g, "-");
 		const shortId = id.slice(-6);
-		session.notesFile = `${SESSION_NOTES_FOLDER}/${safeName} (${shortId}).md`;
+		session.notesFile = `${SESSION_NOTES_FOLDER}/${datePrefix} ${safeName} (${shortId}).md`;
+
+		// Default focusFile to notesFile if not explicitly set
+		if (!session.focusFile) {
+			session.focusFile = session.notesFile;
+		}
 
 		// Populate goals from text strings if provided
 		if (payload.goals && payload.goals.length > 0) {
@@ -636,6 +797,18 @@ export class SessionService {
 			}));
 		}
 
+		// Populate context bindings from paths if provided (from template/rerun)
+		if (payload.contextBindings && payload.contextBindings.length > 0) {
+			session.contextBindings = payload.contextBindings.map((cb) =>
+				createContextBinding(`ctx_${generateUUID()}`, cb.type, cb.path),
+			);
+		}
+
+		// Populate notes if provided (from template/rerun)
+		if (payload.notes) {
+			session.notes = payload.notes;
+		}
+
 		this.state.sessions.unshift(session);
 
 		// Evict oldest if over capacity
@@ -644,6 +817,7 @@ export class SessionService {
 		}
 
 		await this.saveState();
+		this.scheduleSyncNotesFile(session.id);
 		await this.eventBus?.emit("session.created", { session: { ...session } });
 		return { ...session };
 	}
@@ -663,6 +837,7 @@ export class SessionService {
 		this.startTimer(session);
 		await this.saveState();
 		await this.eventBus?.emit("session.started", { session: { ...session } });
+		this.scheduleSyncNotesFile(sessionId);
 	}
 
 	private async handlePause(sessionId: string): Promise<void> {
@@ -683,6 +858,7 @@ export class SessionService {
 		await this.eventBus?.emit("session.paused", { session: { ...session } });
 		// Request workspace state capture from view
 		await this.eventBus?.emit("session.state.save", { sessionId: session.id });
+		this.scheduleSyncNotesFile(sessionId);
 	}
 
 	private async handleResume(sessionId: string): Promise<void> {
@@ -701,6 +877,7 @@ export class SessionService {
 		this.startTimer(session);
 		await this.saveState();
 		await this.eventBus?.emit("session.resumed", { session: { ...session } });
+		this.scheduleSyncNotesFile(sessionId);
 		// Restore workspace state if previously saved
 		if (session.workspaceState) {
 			await this.eventBus?.emit("session.state.restore", { sessionId: session.id, state: session.workspaceState });
@@ -709,7 +886,7 @@ export class SessionService {
 
 	private async handleComplete(sessionId: string): Promise<void> {
 		const session = this.findSession(sessionId);
-		if (!session || session.status === "completed" || session.status === "archived") return;
+		if (!session || session.status === "completed" || session.status === "archived" || session.status === "reviewing") return;
 
 		await this.completeSession(session);
 	}
@@ -748,6 +925,7 @@ export class SessionService {
 		session.goals.push(goal);
 		await this.saveState();
 		await this.eventBus?.emit("session.goal.added", { sessionId, goal: { ...goal } });
+		this.scheduleSyncNotesFile(sessionId);
 	}
 
 	private async handleGoalToggle(sessionId: string, goalId: string): Promise<void> {
@@ -761,6 +939,7 @@ export class SessionService {
 		goal.completedAt = goal.completed ? new Date().toISOString() : null;
 		await this.saveState();
 		await this.eventBus?.emit("session.goal.toggled", { sessionId, goalId, completed: goal.completed });
+		this.scheduleSyncNotesFile(sessionId);
 	}
 
 	private async handleGoalRemove(sessionId: string, goalId: string): Promise<void> {
@@ -773,6 +952,26 @@ export class SessionService {
 		session.goals.splice(index, 1);
 		await this.saveState();
 		await this.eventBus?.emit("session.goal.removed", { sessionId, goalId });
+		this.scheduleSyncNotesFile(sessionId);
+	}
+
+	private async handleGoalReorder(sessionId: string, goalIds: string[]): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session) return;
+
+		if (goalIds.length !== session.goals.length) return;
+		const goalMap = new Map(session.goals.map((g) => [g.id, g]));
+		const reordered: SessionGoal[] = [];
+		for (const id of goalIds) {
+			const goal = goalMap.get(id);
+			if (!goal) return;
+			reordered.push(goal);
+		}
+
+		session.goals = reordered;
+		await this.saveState();
+		await this.eventBus?.emit("session.goal.reordered", { sessionId, goalIds });
+		this.scheduleSyncNotesFile(sessionId);
 	}
 
 	// ── Duration handler ────────────────────────────────────
@@ -796,6 +995,7 @@ export class SessionService {
 		session.notes = notes;
 		await this.saveState();
 		await this.eventBus?.emit("session.notes.updated", { sessionId, notes });
+		this.scheduleSyncNotesFile(sessionId);
 	}
 
 	// ── Notes file handler ──────────────────────────────────
@@ -860,6 +1060,7 @@ export class SessionService {
 		session.contextBindings.push(binding);
 		await this.saveState();
 		await this.eventBus?.emit("session.context.bound", { sessionId, binding: { ...binding } });
+		this.scheduleSyncNotesFile(sessionId);
 	}
 
 	private async handleContextUnbind(sessionId: string, bindingId: string): Promise<void> {
@@ -872,6 +1073,7 @@ export class SessionService {
 		session.contextBindings.splice(index, 1);
 		await this.saveState();
 		await this.eventBus?.emit("session.context.unbound", { sessionId, bindingId });
+		this.scheduleSyncNotesFile(sessionId);
 	}
 
 	private async handleContextChangeType(sessionId: string, bindingId: string, type: ContextBindingType): Promise<void> {
@@ -884,6 +1086,7 @@ export class SessionService {
 		binding.type = type;
 		await this.saveState();
 		await this.eventBus?.emit("session.context.typeChanged", { sessionId, bindingId, type });
+		this.scheduleSyncNotesFile(sessionId);
 	}
 
 	// ── Decision handlers ─────────────────────────────────────
@@ -897,6 +1100,7 @@ export class SessionService {
 		session.decisions.push(decision);
 		await this.saveState();
 		await this.eventBus?.emit("session.decision.recorded", { sessionId, decision: { ...decision } });
+		this.scheduleSyncNotesFile(sessionId);
 	}
 
 	private async handleDecisionRemove(sessionId: string, decisionId: string): Promise<void> {
@@ -909,6 +1113,7 @@ export class SessionService {
 		session.decisions.splice(idx, 1);
 		await this.saveState();
 		await this.eventBus?.emit("session.decision.removed", { sessionId, decisionId });
+		this.scheduleSyncNotesFile(sessionId);
 	}
 
 	// ── Type configuration handlers ─────────────────────────
@@ -1067,6 +1272,7 @@ export class SessionService {
 		session.executionTasks.push(task);
 		await this.saveState();
 		await this.eventBus?.emit("session.task.added", { sessionId, task: { ...task } });
+		this.scheduleSyncNotesFile(sessionId);
 		return task;
 	}
 
@@ -1085,6 +1291,7 @@ export class SessionService {
 		task.completedAt = task.completed ? new Date().toISOString() : undefined;
 		await this.saveState();
 		await this.eventBus?.emit("session.task.completed", { sessionId, taskId });
+		this.scheduleSyncNotesFile(sessionId);
 	}
 
 	/**
@@ -1105,6 +1312,7 @@ export class SessionService {
 		}
 		await this.saveState();
 		await this.eventBus?.emit("session.task.removed", { sessionId, taskId });
+		this.scheduleSyncNotesFile(sessionId);
 	}
 
 	/**
@@ -1133,6 +1341,7 @@ export class SessionService {
 		session.executionTasks = reordered;
 		await this.saveState();
 		await this.eventBus?.emit("session.task.reordered", { sessionId, taskIds });
+		this.scheduleSyncNotesFile(sessionId);
 	}
 
 	/**
@@ -1337,34 +1546,63 @@ export class SessionService {
 		}
 		session.pausedAt = null;
 
-		// v2 (ADR-031): record reviewing step in timeline, then passthrough to completed.
-		// FR-14 (Closure Ritual) will gate the reviewing→completed transition on user input.
-		// Until then, both transitions happen synchronously before any await.
+		// FR-14 (Closure Ritual): stop at "reviewing" — the closure overlay
+		// gates the reviewing→completed transition on user input.
+		session.status = "reviewing";
 		session.timeline.push({ action: "reviewing", timestamp: new Date().toISOString() });
+
+		await this.saveState();
+		await this.eventBus?.emit("session.closure.started", { sessionId: session.id });
+		this.scheduleSyncNotesFile(session.id);
+	}
+
+	/**
+	 * Transitions a session from reviewing → completed.
+	 * Internal helper shared by completeClosure(), skipClosure(), and finishReview().
+	 */
+	private async transitionToCompleted(session: Session): Promise<void> {
 		session.status = "completed";
 		session.completedAt = new Date().toISOString();
 		session.timeline.push({ action: "completed", timestamp: session.completedAt });
 
 		await this.saveState();
 		await this.eventBus?.emit("session.completed", { session: { ...session } });
-		// Request workspace state capture from view
 		await this.eventBus?.emit("session.state.save", { sessionId: session.id });
 	}
 
 	/**
 	 * Transitions a session from reviewing → completed.
-	 * Called by handleStateTransition when session is already in "reviewing" state.
-	 * FR-14 will use this after closure ritual completion.
+	 * Gated: requires closureResponse to be non-null (FR-14).
+	 * Use completeClosure() or skipClosure() instead of calling directly.
 	 */
 	async finishReview(session: Session): Promise<void> {
 		if (session.status !== "reviewing") return;
-		session.status = "completed";
-		session.completedAt = new Date().toISOString();
-		session.timeline.push({ action: "completed", timestamp: session.completedAt });
+		if (!session.closureResponse) return; // gate: closure must be completed first
+		await this.transitionToCompleted(session);
+	}
 
-		await this.saveState();
-		await this.eventBus?.emit("session.completed", { session: { ...session } });
-		await this.eventBus?.emit("session.state.save", { sessionId: session.id });
+	/**
+	 * Completes the closure ritual by saving the user's response
+	 * and transitioning from reviewing → completed.
+	 */
+	async completeClosure(sessionId: string, response: ClosureResponse): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session || session.status !== "reviewing") return;
+		session.closureResponse = response;
+		await this.transitionToCompleted(session);
+		await this.eventBus?.emit("session.closure.completed", { sessionId, response });
+		this.scheduleSyncNotesFile(sessionId);
+	}
+
+	/**
+	 * Skips the closure ritual and transitions directly
+	 * from reviewing → completed without a closure response.
+	 */
+	async skipClosure(sessionId: string): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session || session.status !== "reviewing") return;
+		await this.transitionToCompleted(session);
+		this.scheduleSyncNotesFile(sessionId);
 	}
 
 	private findSession(id: string): Session | undefined {
@@ -1415,6 +1653,9 @@ function isValidTemplateExport(data: unknown): data is SessionTemplateExport {
 	if (tmpl.focusFile !== undefined && typeof tmpl.focusFile !== "string") return false;
 	if (tmpl.goals !== undefined && !Array.isArray(tmpl.goals)) return false;
 	if (tmpl.decisions !== undefined && !Array.isArray(tmpl.decisions)) return false;
+	if (tmpl.tasks !== undefined && !Array.isArray(tmpl.tasks)) return false;
+	if (tmpl.contextBindings !== undefined && !Array.isArray(tmpl.contextBindings)) return false;
+	if (tmpl.notes !== undefined && typeof tmpl.notes !== "string") return false;
 
 	return true;
 }

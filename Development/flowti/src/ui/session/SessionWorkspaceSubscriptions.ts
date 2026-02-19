@@ -93,8 +93,28 @@ export function setupEventSubscriptions(
 		);
 	}
 
+	// Closure started — full re-render to show closure overlay (FR-14)
+	unsubs.push(
+		eventBus.on("session.closure.started", (event) => {
+			if (event.payload.sessionId === ctx.getSession()?.id) {
+				ctx.setSession(ctx.refreshSession());
+				ctx.render();
+			}
+		}),
+	);
+
+	// Closure completed — full re-render to show completed state
+	unsubs.push(
+		eventBus.on("session.closure.completed", (event) => {
+			if (event.payload.sessionId === ctx.getSession()?.id) {
+				ctx.setSession(ctx.refreshSession());
+				ctx.render();
+			}
+		}),
+	);
+
 	// Goal changes — refresh goals panel
-	const goalEvents = ["session.goal.added", "session.goal.toggled", "session.goal.removed"] as const;
+	const goalEvents = ["session.goal.added", "session.goal.toggled", "session.goal.removed", "session.goal.reordered"] as const;
 	for (const eventType of goalEvents) {
 		unsubs.push(
 			eventBus.on(eventType, (event) => {
@@ -245,6 +265,18 @@ export function setupEventSubscriptions(
 			if (event.payload.sessionId === ctx.getSession()?.id) {
 				ctx.setSession(null);
 				ctx.render();
+			}
+		}),
+	);
+
+	// Reverse sync from notes file — refresh all affected panels
+	unsubs.push(
+		eventBus.on("session.notes.reverseSynced", (event) => {
+			if (event.payload.sessionId === ctx.getSession()?.id) {
+				ctx.setSession(ctx.refreshSession());
+				ctx.getGoalsPanel()?.refreshGoals();
+				ctx.getExecutionPanel()?.refreshTasks();
+				ctx.getNotesPanel()?.updateNotes(ctx.getSession()?.notes ?? "");
 			}
 		}),
 	);

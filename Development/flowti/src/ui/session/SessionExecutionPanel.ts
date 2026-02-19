@@ -120,17 +120,14 @@ export class SessionExecutionPanel {
 		textEl.style.cssText = "flex:1;" + (task.completed ? "text-decoration:line-through;opacity:0.6;" : "");
 
 		if (isEditable) {
-			// Reorder buttons
-			const reorderGroup = row.createDiv({ cls: "ft-task-reorder" });
-			reorderGroup.style.cssText = "display:flex;flex-direction:column;gap:0;";
+			// Reorder + remove buttons (single row)
+			const actionGroup = row.createDiv({ cls: "ft-task-actions" });
+			actionGroup.style.cssText = "display:flex;align-items:center;gap:2px;";
 
-			const upBtn = reorderGroup.createEl("button", { cls: "ft-task-move-up" });
+			const upBtn = actionGroup.createEl("button", { cls: "ft-task-move-up" });
 			upBtn.style.cssText = "background:none;border:none;cursor:pointer;padding:0 2px;opacity:0.4;color:var(--text-muted);font-size:10px;line-height:1;";
 			setIcon(upBtn, "chevron-up");
-			if (index === 0) {
-				upBtn.disabled = true;
-				upBtn.style.opacity = "0.15";
-			}
+			if (index === 0) { upBtn.disabled = true; upBtn.style.opacity = "0.15"; }
 			upBtn.addEventListener("click", () => {
 				if (index === 0) return;
 				const sorted = [...session.executionTasks].sort((a, b) => a.order - b.order);
@@ -139,13 +136,10 @@ export class SessionExecutionPanel {
 				void this.deps.eventBus.emit("session.task.reorder", { sessionId: session.id, taskIds: ids });
 			});
 
-			const downBtn = reorderGroup.createEl("button", { cls: "ft-task-move-down" });
+			const downBtn = actionGroup.createEl("button", { cls: "ft-task-move-down" });
 			downBtn.style.cssText = "background:none;border:none;cursor:pointer;padding:0 2px;opacity:0.4;color:var(--text-muted);font-size:10px;line-height:1;";
 			setIcon(downBtn, "chevron-down");
-			if (index === total - 1) {
-				downBtn.disabled = true;
-				downBtn.style.opacity = "0.15";
-			}
+			if (index === total - 1) { downBtn.disabled = true; downBtn.style.opacity = "0.15"; }
 			downBtn.addEventListener("click", () => {
 				if (index === total - 1) return;
 				const sorted = [...session.executionTasks].sort((a, b) => a.order - b.order);
@@ -154,8 +148,7 @@ export class SessionExecutionPanel {
 				void this.deps.eventBus.emit("session.task.reorder", { sessionId: session.id, taskIds: ids });
 			});
 
-			// Remove button
-			const removeBtn = row.createEl("button", { cls: "ft-task-remove" });
+			const removeBtn = actionGroup.createEl("button", { cls: "ft-task-remove" });
 			removeBtn.style.cssText = "background:none;border:none;cursor:pointer;padding:2px;opacity:0.5;color:var(--text-muted);";
 			setIcon(removeBtn, "x");
 			removeBtn.addEventListener("click", () => {

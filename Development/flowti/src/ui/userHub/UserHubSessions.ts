@@ -270,7 +270,7 @@ export class UserHubSessions {
 		this.renderInfoRow(infoGrid, "Duration", `${session.durationMinutes} min`);
 		this.renderInfoRow(infoGrid, "Elapsed", formatDuration(computeElapsedMs(session)));
 
-		if (session.focusFile) {
+		if (session.focusFile && session.focusFile !== session.notesFile) {
 			const focusRow = infoGrid.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-text-sm" });
 			focusRow.style.padding = "0.15rem 0";
 			focusRow.createSpan({ text: "Focus", cls: "ft-text-muted" }).style.minWidth = "5rem";

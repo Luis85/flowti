@@ -1,6 +1,6 @@
 import { App, FuzzySuggestModal, Modal, Setting, TFile } from "obsidian";
 import { SESSION_TYPE_CONFIGS } from "../domain/session/types";
-import type { SessionTypeConfig } from "../domain/session/types";
+import type { ContextBindingType, SessionTypeConfig } from "../domain/session/types";
 
 /**
  * A simple confirmation modal with a message and confirm/cancel buttons.
@@ -115,21 +115,25 @@ export interface SessionTemplateSummary {
 	durationMinutes: number;
 	focusFile?: string;
 	goals?: string[];
+	tasks?: string[];
+	decisions?: string[];
+	contextBindings?: Array<{ path: string; type: ContextBindingType }>;
+	notes?: string;
 }
 
 export class NewSessionModal extends Modal {
 	private sessionTypes: ReadonlyArray<{ type: string; label: string; description: string }>;
 	private templates: ReadonlyArray<SessionTemplateSummary>;
 	private customConfigs: Record<string, SessionTypeConfig>;
-	private prefill?: { title: string; type: string; durationMinutes: number; focusFile?: string; goals?: string[] };
-	private onSubmit: (title: string, type: string, durationMinutes: number, focusFile: string | null, goals: string[]) => void;
+	private prefill?: { title: string; type: string; durationMinutes: number; focusFile?: string; goals?: string[]; tasks?: string[]; decisions?: string[]; contextBindings?: Array<{ path: string; type: ContextBindingType }>; notes?: string };
+	private onSubmit: (title: string, type: string, durationMinutes: number, focusFile: string | null, goals: string[], extra?: { tasks?: string[]; decisions?: string[]; contextBindings?: Array<{ path: string; type: ContextBindingType }>; notes?: string }) => void;
 
 	constructor(app: App, options: {
 		sessionTypes: ReadonlyArray<{ type: string; label: string; description: string }>;
 		templates?: ReadonlyArray<SessionTemplateSummary>;
 		customConfigs?: Record<string, SessionTypeConfig>;
-		prefill?: { title: string; type: string; durationMinutes: number; focusFile?: string; goals?: string[] };
-		onSubmit: (title: string, type: string, durationMinutes: number, focusFile: string | null, goals: string[]) => void;
+		prefill?: { title: string; type: string; durationMinutes: number; focusFile?: string; goals?: string[]; tasks?: string[]; decisions?: string[]; contextBindings?: Array<{ path: string; type: ContextBindingType }>; notes?: string };
+		onSubmit: (title: string, type: string, durationMinutes: number, focusFile: string | null, goals: string[], extra?: { tasks?: string[]; decisions?: string[]; contextBindings?: Array<{ path: string; type: ContextBindingType }>; notes?: string }) => void;
 	}) {
 		super(app);
 		this.sessionTypes = options.sessionTypes;
@@ -148,6 +152,12 @@ export class NewSessionModal extends Modal {
 		let duration = this.prefill?.durationMinutes ?? 25;
 		let focusFile = this.prefill?.focusFile ?? "";
 		const goals: string[] = [...(this.prefill?.goals ?? [])];
+		const extra: { tasks?: string[]; decisions?: string[]; contextBindings?: Array<{ path: string; type: ContextBindingType }>; notes?: string } = {
+			tasks: this.prefill?.tasks,
+			decisions: this.prefill?.decisions,
+			contextBindings: this.prefill?.contextBindings,
+			notes: this.prefill?.notes,
+		};
 
 		// Template chooser (only shown when templates exist)
 		if (this.templates.length > 0) {
@@ -169,7 +179,7 @@ export class NewSessionModal extends Modal {
 								sessionTypes: this.sessionTypes,
 								templates: this.templates,
 								customConfigs: this.customConfigs,
-								prefill: { title: tmpl.name, type: tmpl.type, durationMinutes: tmpl.durationMinutes, focusFile: tmpl.focusFile, goals: tmpl.goals },
+								prefill: { title: tmpl.name, type: tmpl.type, durationMinutes: tmpl.durationMinutes, focusFile: tmpl.focusFile, goals: tmpl.goals, tasks: tmpl.tasks, decisions: tmpl.decisions, contextBindings: tmpl.contextBindings, notes: tmpl.notes },
 								onSubmit: this.onSubmit,
 							}).open();
 						}
@@ -306,7 +316,7 @@ export class NewSessionModal extends Modal {
 						titleError.style.display = "block";
 						return;
 					}
-					this.onSubmit(trimmed, type, duration, focusFile.trim() || null, goals.filter((g) => g.trim()));
+					this.onSubmit(trimmed, type, duration, focusFile.trim() || null, goals.filter((g) => g.trim()), extra);
 					this.close();
 				})
 			);

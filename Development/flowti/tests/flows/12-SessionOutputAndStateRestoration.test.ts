@@ -125,6 +125,8 @@ describe("Flow 12: Session Output and State Restoration", () => {
 		vi.setSystemTime(new Date("2026-02-18T10:25:00.000Z"));
 		await eventBus.emit("session.complete", { sessionId });
 		await vi.advanceTimersByTimeAsync(0);
+		await service.skipClosure(sessionId);
+		await vi.advanceTimersByTimeAsync(0);
 
 		expect(events).toContain("session.state.save");
 	});
@@ -158,6 +160,8 @@ describe("Flow 12: Session Output and State Restoration", () => {
 		// Complete the session
 		vi.setSystemTime(new Date("2026-02-18T10:50:00.000Z"));
 		await eventBus.emit("session.complete", { sessionId });
+		await vi.advanceTimersByTimeAsync(0);
+		await service.skipClosure(sessionId);
 		await vi.advanceTimersByTimeAsync(0);
 
 		let session = service.getSessionById(sessionId)!;
@@ -238,6 +242,8 @@ describe("Flow 12: Session Output and State Restoration", () => {
 		vi.setSystemTime(new Date("2026-02-18T10:25:00.000Z"));
 		await eventBus.emit("session.complete", { sessionId });
 		await vi.advanceTimersByTimeAsync(0);
+		await service.skipClosure(sessionId);
+		await vi.advanceTimersByTimeAsync(0);
 
 		// Generate output
 		const template = BUILT_IN_OUTPUT_TEMPLATES[0];
@@ -301,6 +307,9 @@ describe("Flow 12: Session Output and State Restoration", () => {
 		// Complete
 		vi.setSystemTime(new Date("2026-02-18T10:50:00.000Z"));
 		await eventBus.emit("session.complete", { sessionId });
+		await vi.advanceTimersByTimeAsync(0);
+		expect(events).toContain("session.closure.started");
+		await service.skipClosure(sessionId);
 		await vi.advanceTimersByTimeAsync(0);
 		expect(events).toContain("session.completed");
 

@@ -13,8 +13,8 @@ maturity_score_architecture: 4
 maturity_score_event_integration: 4
 maturity_score_data_model: 4
 maturity_score_ui_consistency: 2
-maturity_score_validation_testing: 3
-fri_score: 26
+maturity_score_validation_testing: 4
+fri_score: 28
 business_value: 5
 implementation_cost: 4
 maintenance_cost: 3
@@ -495,7 +495,7 @@ Session v2 – Focus & Execution (L3 Extension)
  ├── Energy Tracking           🔜 FR-11: 1–5 scale, event-driven
  ├── Execution Plan            ✅ FR-12: checklist tasks, progress indicator
  ├── Structured Reflection     🔜 FR-13: observations, blockers, ideas, decisions
- ├── Closure Ritual System     🔜 FR-14: configurable review overlay
+ ├── Closure Ritual System     ✅ FR-14: configurable review overlay (Cycle 7)
  ├── Activity Intelligence     🔜 FR-15: computed analytics from activity
  ├── Cognitive Overload        🔜 FR-16: threshold-based warnings
  ├── Main/Sidebar Separation   🔜 FR-17: workspace vs. control surface
@@ -657,7 +657,7 @@ interface ReflectionEntry {
   timestamp: string;            // ISO 8601
 }
 
-// Closure response — FR-14
+// Closure response — FR-14 ✅ Done (Cycle 7)
 interface ClosureResponse {
   outcomeAchieved: "yes" | "partial" | "no";
   whatWorked: string;
@@ -666,7 +666,7 @@ interface ClosureResponse {
   answers: Record<string, string>;
 }
 
-// Closure template — FR-14
+// Closure template — FR-14 ✅ Done (Cycle 7)
 interface ClosureTemplate {
   questions: ClosureQuestion[];
   requiredFields: string[];
@@ -708,7 +708,7 @@ interface Session {
   energy: EnergyLevel | null;              // 🔜 Planned FR-11
   executionTasks: ExecutionTask[];          // ✅ Done FR-12
   reflections: ReflectionEntry[];          // 🔜 Planned FR-13
-  closureResponse: ClosureResponse | null; // 🔜 Planned FR-14
+  closureResponse: ClosureResponse | null; // ✅ Done FR-14 (Cycle 7)
 }
 ```
 
@@ -796,7 +796,8 @@ interface Session {
 | Cycle 2 (decisions: 4, types: 4) | 8 |
 | Cycle 3 (state: 4, output: 2) | 6 |
 | Cycles 4+5 (daily: 5, nudges: 3) | 8 |
-| **Total session events (delivered)** | **68** |
+| Cycle 7 Inc 2.5 (notes sync: 2) | 2 |
+| **Total session events (delivered)** | **70** |
 
 ### Planned Events (v2)
 
@@ -824,7 +825,7 @@ interface Session {
 | Source | Events |
 |--------|--------|
 | v2 Planned | ~14 |
-| **Total session events (delivered + planned)** | **~82** |
+| **Total session events (delivered + planned)** | **~84** |
 
 ---
 
@@ -940,7 +941,7 @@ interface Session {
 
 - [ ] Introduce 6-state lifecycle: `prepared → running → paused → reviewing → completed → archived`
 - [ ] `reviewing` state triggered automatically when timer reaches zero
-- [ ] `reviewing` → `completed` requires closure ritual completion (FR-14)
+- [x] `reviewing` → `completed` requires closure ritual completion or explicit skip (FR-14, Cycle 7)
 - [ ] State changes emit `session.state.changed` event with `{ previousState, newState }`
 - [ ] Backward compatible: existing `active` maps to `running`, existing `completed` unchanged
 - [ ] All state transitions validated (no skipping states, no invalid transitions)
@@ -988,16 +989,16 @@ interface Session {
 - [ ] Reflections included in session summary and closure ritual
 - [ ] Backward compatible: existing `decisions[]` migrated to `reflections[]` with `type: "decision"`
 
-### FR-14: Closure Ritual System — 🔜 Planned
+### FR-14: Closure Ritual System — ✅ Done (Cycle 7)
 
-- [ ] Triggered automatically when session enters `reviewing` state
-- [ ] Overlay blocks main UI with configurable review questions
-- [ ] Standard fields: Outcome achieved? (Yes/Partial/No), What worked?, What didn't?, Next action?
-- [ ] 3-tier template inheritance: Global defaults → Session Type override → Instance override
-- [ ] Completion of required fields required to transition to `completed` state
-- [ ] Follow-up actions: Convert to follow-up session, convert to backlog item, archive
-- [ ] Closure responses persisted with session state
-- [ ] Global closure template configurable in settings
+- [x] Triggered automatically when session enters `reviewing` state (`completeSession()` emits `session.closure.started`)
+- [x] Overlay blocks main UI with configurable review questions (`SessionClosureOverlay` component)
+- [x] Standard fields: Outcome achieved? (Yes/Partial/No), What worked?, What didn't?, Next action? (`DEFAULT_CLOSURE_TEMPLATE`)
+- [x] 3-tier template inheritance: Global defaults → Session Type override → Instance override (`resolveClosureTemplate()`)
+- [x] Completion of required fields required to submit (validation with visual error indicators). Skip option available.
+- [ ] Follow-up actions: Convert to follow-up session, convert to backlog item, archive (deferred — standalone UX enhancement)
+- [x] Closure responses persisted with session state (`closureResponse` field on `Session`)
+- [ ] Global closure template configurable in settings (deferred — works via parameter passing)
 
 ### FR-15: Activity Intelligence — 🔜 Planned
 
@@ -1186,7 +1187,7 @@ SessionSidebarView
 | 3 | PBI-SW-011 | Energy Tracking | Medium | PBI-SW-010 | 🔜 Planned — 1–5 scale energy indicator |
 | 4 | PBI-SW-012 | Execution Plan (Task Checklist) | High | — | ✅ Done (Cycle 7) — domain CRUD (Inc 1), UI panel + progress bar + reorder (Inc 2) |
 | 5 | PBI-SW-013 | Structured Reflection | Medium | FR-03 (delivered) | 🔜 Planned — observations, blockers, ideas, decisions |
-| 6 | PBI-SW-014 | Closure Ritual System | High | PBI-SW-010 | 🔜 Planned — configurable review overlay |
+| 6 | PBI-SW-014 | Closure Ritual System | High | PBI-SW-010 | ✅ Done (Cycle 7) — configurable review overlay |
 | 7 | PBI-SW-015 | Activity Intelligence | Low | FR-01 (delivered) | 🔜 Planned — computed analytics from activity |
 | 8 | PBI-SW-016 | Cognitive Overload Detection | Low | — | 🔜 Planned — threshold-based warnings |
 | 9 | PBI-SW-017 | Main/Sidebar Mode Separation | High | PBI-SW-010 | 🔜 Planned — workspace vs. control surface |
@@ -1236,6 +1237,9 @@ See `backlog/PBI-SW-*.md` for detailed specifications.
 | 2026-02-19 | in-progress | in-progress | Cycle 7 Planning | 26/35 | — | Cycle 7 planned: PBI-SW-012 (Execution Plan — domain + UI), PBI-SW-014 (Closure Ritual — domain + UI), PBI-SW-016 (Cognitive Overload Detection — spike). 4 increments. Inbox hygiene completed (both inboxes normalized). Feature Lifecycle PRD deferred (stays approved, no planning yet). |
 | 2026-02-19 | in-progress | in-progress | Cycle 7 Inc 1 — Execution Plan Domain | 26/35 | — | PBI-SW-012 Part 1 delivered: task CRUD (`addTask`, `toggleTask`, `removeTask`, `reorderTasks`), state guards, `getTaskProgress()` helper, template/rerun threading, 8 new events (4 commands + 4 state). `tasks?: string[]` added to `SessionTemplate`. 36 new tests, 2,576 total. Deviation: command/state event split added to avoid infinite listener loops (follows goal event pattern). SessionService ~1,420 LOC (+120). |
 | 2026-02-19 | in-progress | in-progress | Cycle 7 Inc 2 — Execution Plan UI | 26/35 | — | PBI-SW-012 Part 2 delivered: `SessionExecutionPanel` component (task checklist + progress bar + up/down reorder + add input). Integrated into `SessionWorkspaceView` between goals and notes. 4 new task event subscriptions in `SessionWorkspaceSubscriptions`. Up/down arrows chosen over drag-and-drop (simpler, more accessible). PBI-SW-012 **Done**. 26 new tests, 2,602 total, 104 suites. |
+| 2026-02-19 | in-progress | in-progress | Cycle 7 Inc 2.5 — Note Sync + Templates | 26/35 | — | User-reprioritized increment: debounced session note sync (2.5s) wired to 17 handlers (goals, tasks, decisions, context, notes, lifecycle). `generateSessionSummaryBody()` extended with Execution Plan section. `SessionTemplate` extended with `contextBindings` and `notes` fields — threaded through create/save/rerun/export/import. 2 new events (`session.notes.synced`, `session.notes.syncFailed`). `SESSION_NOTES_SYNC_DELAY_MS = 2500` constant. 28 new tests, 2,628 total, 105 suites. |
+| 2026-02-19 | in-progress | in-progress | Cycle 7 Inc 2.5b — Reverse Sync + UX Polish | 27/35 | — | Reverse note sync (note file → session state): `reverseParseSessionNotes()`, `computeReverseSyncDiff()`, content-based sync loop prevention. Workspace subscribes to `session.notes.reverseSynced`. Conditional forward sync (toggles-only = no rewrite). Session note reorder: Guiding Questions → Goals → Execution → Notes → Decisions → Context → Artifacts → Timeline → Time. Goals sortable (2 new events). Horizontal reorder buttons. Copy-to-clipboard for note path. Focus file wikilink in note body. Auto-open workspace on `session.created`. Full template field threading (`tasks`, `decisions`, `contextBindings`, `notes`) through `session.create` event + modal + all emit sites. ISO date prefix on note filenames (ADR-029 implemented). Notes file written at creation. 32 new tests, 2,660 total, 105 suites. |
+| 2026-02-19 | in-progress | in-progress | Cycle 7 Inc 3 — Closure Ritual | 28/35 | — | PBI-SW-014 delivered: `completeSession()` now stops at "reviewing" state (was passthrough). `completeClosure(id, response)` saves `ClosureResponse` and transitions to completed. `skipClosure(id)` bypasses ritual. `finishReview()` gated on non-null closureResponse. `DEFAULT_CLOSURE_TEMPLATE` (4 questions). `resolveClosureTemplate()` 3-tier inheritance. `SessionClosureOverlay` UI component (~130 LOC) renders in reviewing state. `closureTemplate` added to `SessionTypeConfig`. `transitionToCompleted()` extracted as shared private method. FRI updated: validation_testing 3→4. 27 new tests, 2,687 total, 106 suites. FR-14 **Done**. |
 
 ### Related Architecture Decisions
 
@@ -1243,7 +1247,7 @@ See `backlog/PBI-SW-*.md` for detailed specifications.
 |-----|-------|--------|-----------|
 | ADR-025 | Activity Log Separate from Artifacts | Superseded | Activity consolidated into unified log; artifacts section removed |
 | ADR-026 | Composable Folder Filtering | Accepted | `isExcluded()` pure function for global + per-session folder filtering |
-| ADR-029 | ISO Date Prefix for Session Files | Proposed | Session notes/canvas file naming convention |
+| ADR-029 | ISO Date Prefix for Session Files | Accepted | Session notes file naming convention — implemented in Cycle 7 Inc 2.5b |
 | ADR-031 | Session v2 Architecture | Accepted | 6-state lifecycle, dual rendering, closure ritual, intent layer, energy tracking |
 
 ### Related Flows

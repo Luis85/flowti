@@ -7,7 +7,7 @@ import type { ClosureResponse, ContextBindingType, EnergyLevel, ExecutionTask, R
 export interface SessionEventMap {
 	// ── Commands ──────────────────────────────────────────────
 	/** Command: create a new session */
-	"session.create": { type: SessionType; title: string; durationMinutes: number; focusFile?: string; goals?: string[] };
+	"session.create": { type: SessionType; title: string; durationMinutes: number; focusFile?: string; goals?: string[]; tasks?: string[]; decisions?: string[]; contextBindings?: Array<{ path: string; type: ContextBindingType }>; notes?: string };
 	/** Command: start the timer for a prepared session */
 	"session.start": { sessionId: string };
 	/** Command: pause an active session */
@@ -62,6 +62,8 @@ export interface SessionEventMap {
 	"session.goal.toggle": { sessionId: string; goalId: string };
 	/** Command: remove a goal from a session */
 	"session.goal.remove": { sessionId: string; goalId: string };
+	/** Command: reorder goals by new ID sequence */
+	"session.goal.reorder": { sessionId: string; goalIds: string[] };
 
 	// ── Goal state events ────────────────────────────────────
 	/** Emitted after a goal is added to a session */
@@ -70,6 +72,8 @@ export interface SessionEventMap {
 	"session.goal.toggled": { sessionId: string; goalId: string; completed: boolean };
 	/** Emitted after a goal is removed from a session */
 	"session.goal.removed": { sessionId: string; goalId: string };
+	/** Emitted after goals are reordered */
+	"session.goal.reordered": { sessionId: string; goalIds: string[] };
 
 	// ── Duration events ──────────────────────────────────────
 	/** Command: update a prepared session's duration */
@@ -94,6 +98,14 @@ export interface SessionEventMap {
 	"session.canvasFile.set": { sessionId: string; path: string };
 	/** Emitted after a session's canvas file path is set */
 	"session.canvasFile.updated": { sessionId: string; path: string };
+
+	// ── Notes sync events ───────────────────────────────────
+	/** Emitted after session notes file is synced to disk */
+	"session.notes.synced": { sessionId: string; path: string };
+	/** Emitted when session notes file sync fails */
+	"session.notes.syncFailed": { sessionId: string; path: string; error: string };
+	/** Emitted after reverse sync from notes file to session */
+	"session.notes.reverseSynced": { sessionId: string; path: string; changes: string[] };
 
 	// ── Activity events ─────────────────────────────────────
 	/** Emitted when a vault file event is tracked in the session activity log */

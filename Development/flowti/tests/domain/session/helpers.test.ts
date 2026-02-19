@@ -22,6 +22,10 @@ import {
 	resolvePlaceholder,
 	generateSessionOutput,
 	BUILT_IN_OUTPUT_TEMPLATES,
+	parseSectionCheckboxes,
+	parseSectionText,
+	reverseParseSessionNotes,
+	computeReverseSyncDiff,
 } from "../../../src/domain/session/helpers";
 import type { Session, SessionOutputTemplate, SessionTimelineEntry, SessionTypeConfig } from "../../../src/domain/session/types";
 import { SESSION_TYPE_CONFIGS } from "../../../src/domain/session/types";
@@ -703,6 +707,52 @@ describe("generateSessionSummaryBody", () => {
 		expect(body).toContain("- **Use EventBus**");
 		expect(body).not.toContain("- **Use EventBus**:");
 	});
+
+	it("includes execution plan section with checkmarks", () => {
+		const session = makeSession({
+			executionTasks: [
+				{ id: "t1", label: "Write tests", completed: true, completedAt: "2026-02-16T10:10:00.000Z", order: 0 },
+				{ id: "t2", label: "Update docs", completed: false, order: 1 },
+			],
+		});
+		const body = generateSessionSummaryBody(session);
+		expect(body).toContain("### Execution Plan");
+		expect(body).toContain("- [x] Write tests");
+		expect(body).toContain("- [ ] Update docs");
+	});
+
+	it("omits execution plan section when empty", () => {
+		const session = makeSession({ executionTasks: [] });
+		const body = generateSessionSummaryBody(session);
+		expect(body).not.toContain("### Execution Plan");
+	});
+
+	it("renders execution plan sorted by order", () => {
+		const session = makeSession({
+			executionTasks: [
+				{ id: "t2", label: "Second", completed: false, order: 1 },
+				{ id: "t1", label: "First", completed: false, order: 0 },
+			],
+		});
+		const body = generateSessionSummaryBody(session);
+		const firstIdx = body.indexOf("- [ ] First");
+		const secondIdx = body.indexOf("- [ ] Second");
+		expect(firstIdx).toBeLessThan(secondIdx);
+	});
+
+	it("places execution plan between goals and context bindings", () => {
+		const session = makeSession({
+			goals: [{ id: "g1", text: "Test goal", completed: false, completedAt: null }],
+			executionTasks: [{ id: "t1", label: "Test task", completed: false, order: 0 }],
+			contextBindings: [{ id: "ctx1", path: "src/main.ts", type: "file", label: "main.ts", boundAt: "2026-02-16T10:00:00.000Z" }],
+		});
+		const body = generateSessionSummaryBody(session);
+		const goalsIdx = body.indexOf("### Goals");
+		const execIdx = body.indexOf("### Execution Plan");
+		const ctxIdx = body.indexOf("### Context Bindings");
+		expect(goalsIdx).toBeLessThan(execIdx);
+		expect(execIdx).toBeLessThan(ctxIdx);
+	});
 });
 
 describe("generateSessionSummary", () => {
@@ -1272,6 +1322,220 @@ describe("generateSessionOutput", () => {
 		expect(output).toContain("## Overview");
 		// Overview contains date, duration, type
 		expect(output).toContain("Documentation");
+	});
+});
+
+// ─────────────────────────────────────────────────────────────
+// Reverse Parse Functions
+// ─────────────────────────────────────────────────────────────
+
+describe("parseSectionCheckboxes", () => {
+	it("parses checked and unchecked items", () => {
+		const text = "- [x] Done task\n- [ ] Pending task\n- [x] Another done";
+		const result = parseSectionCheckboxes(text);
+		expect(result).toEqual([
+			{ label: "Done task", checked: true },
+			{ label: "Pending task", checked: false },
+			{ label: "Another done", checked: true },
+		]);
+	});
+
+	it("returns empty array for no checkboxes", () => {
+		expect(parseSectionCheckboxes("Some plain text\n")).toEqual([]);
+	});
+
+	it("ignores non-checkbox bullet lines", () => {
+		const text = "- Regular bullet\n- [x] Checkbox item";
+		expect(parseSectionCheckboxes(text)).toEqual([{ label: "Checkbox item", checked: true }]);
+	});
+});
+
+describe("parseSectionText", () => {
+	it("extracts text between headings", () => {
+		const content = "### Goals\n- [x] Go\n\n### Execution Plan\n- [ ] Task\n\n### Decisions";
+		const result = parseSectionText(content, "### Goals", ["### Execution Plan", "### Decisions"]);
+		expect(result).toContain("- [x] Go");
+		expect(result).not.toContain("Task");
+	});
+
+	it("returns empty string for missing heading", () => {
+		expect(parseSectionText("### Other\nstuff", "### Missing", ["### Other"])).toBe("");
+	});
+
+	it("extracts until end when no next heading", () => {
+		const content = "### Session Notes\nMy notes here.";
+		const result = parseSectionText(content, "### Session Notes", ["### NonExistent"]);
+		expect(result).toBe("My notes here.");
+	});
+});
+
+describe("reverseParseSessionNotes", () => {
+	it("parses goals and tasks from full note content", () => {
+		const content = [
+			"---",
+			"session-id: s1",
+			"---",
+			"# My Session",
+			"User content.",
+			"",
+			"## Session Summary",
+			"",
+			"### Goals",
+			"- [x] Write tests",
+			"- [ ] Deploy",
+			"",
+			"### Execution Plan",
+			"- [ ] Build feature",
+			"- [x] Review code",
+			"",
+			"### Context Bindings",
+			"- **file**: [[src/main.ts]] *(main)*",
+			"",
+			"### Session Notes",
+			"My important notes.",
+		].join("\n");
+		const parsed = reverseParseSessionNotes(content);
+		expect(parsed.goals).toEqual([
+			{ label: "Write tests", checked: true },
+			{ label: "Deploy", checked: false },
+		]);
+		expect(parsed.tasks).toEqual([
+			{ label: "Build feature", checked: false },
+			{ label: "Review code", checked: true },
+		]);
+		expect(parsed.sessionNotes).toBe("My important notes.");
+	});
+
+	it("returns empty result when no summary marker", () => {
+		const parsed = reverseParseSessionNotes("# Just a note\nSome text.");
+		expect(parsed.goals).toEqual([]);
+		expect(parsed.tasks).toEqual([]);
+		expect(parsed.sessionNotes).toBe("");
+	});
+
+	it("handles missing sections gracefully", () => {
+		const content = "## Session Summary\n\n### Goals\n- [x] Only goal\n";
+		const parsed = reverseParseSessionNotes(content);
+		expect(parsed.goals).toEqual([{ label: "Only goal", checked: true }]);
+		expect(parsed.tasks).toEqual([]);
+		expect(parsed.sessionNotes).toBe("");
+	});
+});
+
+describe("computeReverseSyncDiff", () => {
+	it("detects toggled goal checkbox", () => {
+		const session = makeSession({
+			goals: [
+				{ id: "g1", text: "Write tests", completed: false, completedAt: null },
+				{ id: "g2", text: "Deploy", completed: true, completedAt: "2026-02-16T10:20:00.000Z" },
+			],
+		});
+		const parsed = {
+			goals: [
+				{ label: "Write tests", checked: true },
+				{ label: "Deploy", checked: false },
+			],
+			tasks: [],
+			sessionNotes: "",
+		};
+		const diff = computeReverseSyncDiff(session, parsed);
+		expect(diff.goalToggles).toEqual([
+			{ goalId: "g1", completed: true },
+			{ goalId: "g2", completed: false },
+		]);
+		expect(diff.changes).toContain('goal "Write tests" checked');
+		expect(diff.changes).toContain('goal "Deploy" unchecked');
+	});
+
+	it("detects toggled task checkbox", () => {
+		const session = makeSession({
+			executionTasks: [
+				{ id: "t1", label: "Build", completed: false, order: 0 },
+			],
+		});
+		const parsed = {
+			goals: [],
+			tasks: [{ label: "Build", checked: true }],
+			sessionNotes: "",
+		};
+		const diff = computeReverseSyncDiff(session, parsed);
+		expect(diff.taskToggles).toEqual([{ taskId: "t1", completed: true }]);
+		expect(diff.changes).toContain('task "Build" checked');
+	});
+
+	it("detects notes text change", () => {
+		const session = makeSession({ notes: "Old notes" });
+		const parsed = { goals: [], tasks: [], sessionNotes: "New notes" };
+		const diff = computeReverseSyncDiff(session, parsed);
+		expect(diff.notesUpdate).toBe("New notes");
+		expect(diff.changes).toContain("notes updated");
+	});
+
+	it("returns empty diff when nothing changed", () => {
+		const session = makeSession({
+			goals: [{ id: "g1", text: "Write tests", completed: true, completedAt: "2026-02-16T10:20:00.000Z" }],
+			notes: "Same notes",
+		});
+		const parsed = {
+			goals: [{ label: "Write tests", checked: true }],
+			tasks: [],
+			sessionNotes: "Same notes",
+		};
+		const diff = computeReverseSyncDiff(session, parsed);
+		expect(diff.goalToggles).toEqual([]);
+		expect(diff.taskToggles).toEqual([]);
+		expect(diff.notesUpdate).toBeNull();
+		expect(diff.changes).toEqual([]);
+	});
+
+	it("detects new goals not in session", () => {
+		const session = makeSession({ goals: [] });
+		const parsed = {
+			goals: [{ label: "New goal from note", checked: false }],
+			tasks: [],
+			sessionNotes: "",
+		};
+		const diff = computeReverseSyncDiff(session, parsed);
+		expect(diff.goalToggles).toEqual([]);
+		expect(diff.newGoals).toEqual([{ label: "New goal from note", checked: false }]);
+		expect(diff.changes).toContain('goal "New goal from note" added');
+	});
+
+	it("detects new tasks not in session", () => {
+		const session = makeSession({ executionTasks: [] });
+		const parsed = {
+			goals: [],
+			tasks: [{ label: "New task from note", checked: true }],
+			sessionNotes: "",
+		};
+		const diff = computeReverseSyncDiff(session, parsed);
+		expect(diff.taskToggles).toEqual([]);
+		expect(diff.newTasks).toEqual([{ label: "New task from note", checked: true }]);
+		expect(diff.changes).toContain('task "New task from note" added');
+	});
+
+	it("combines toggles and additions in one diff", () => {
+		const session = makeSession({
+			goals: [{ id: "g1", text: "Existing goal", completed: false, completedAt: null }],
+			executionTasks: [{ id: "t1", label: "Existing task", completed: false, order: 0 }],
+		});
+		const parsed = {
+			goals: [
+				{ label: "Existing goal", checked: true },
+				{ label: "Brand new goal", checked: false },
+			],
+			tasks: [
+				{ label: "Existing task", checked: true },
+				{ label: "Brand new task", checked: false },
+			],
+			sessionNotes: "",
+		};
+		const diff = computeReverseSyncDiff(session, parsed);
+		expect(diff.goalToggles).toHaveLength(1);
+		expect(diff.newGoals).toHaveLength(1);
+		expect(diff.taskToggles).toHaveLength(1);
+		expect(diff.newTasks).toHaveLength(1);
+		expect(diff.changes).toHaveLength(4);
 	});
 });
 

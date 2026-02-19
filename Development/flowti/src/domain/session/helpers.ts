@@ -4,7 +4,7 @@
  * All functions are side-effect free and trivially testable.
  */
 
-import type { ContextBindingType, ExecutionTask, Session, SessionContextBinding, SessionDecision, SessionGoal, SessionOutputTemplate, SessionStatusV2, SessionTemplate, SessionType, SessionTypeConfig, PauseSegment, TimelineSummary } from "./types";
+import type { ClosureTemplate, ContextBindingType, ExecutionTask, Session, SessionContextBinding, SessionDecision, SessionGoal, SessionOutputTemplate, SessionStatusV2, SessionTemplate, SessionType, SessionTypeConfig, PauseSegment, TimelineSummary } from "./types";
 import { SESSION_TYPE_CONFIGS } from "./types";
 
 // ── Session v2 State Machine (ADR-031) ───────────────────────
@@ -25,6 +25,35 @@ const VALID_TRANSITIONS: Record<SessionStatusV2, readonly SessionStatusV2[]> = {
  */
 export function isValidTransition(from: SessionStatusV2, to: SessionStatusV2): boolean {
 	return VALID_TRANSITIONS[from]?.includes(to) ?? false;
+}
+
+// ── Closure Ritual Helpers (FR-14) ────────────────────────────
+
+/** Default closure ritual template with 4 standard questions. */
+export const DEFAULT_CLOSURE_TEMPLATE: ClosureTemplate = {
+	questions: [
+		{ id: "outcome", question: "Did you achieve your intended outcome?", type: "select", required: true, options: ["yes", "partial", "no"] },
+		{ id: "what-worked", question: "What worked well?", type: "text", required: false },
+		{ id: "what-didnt", question: "What didn't work?", type: "text", required: false },
+		{ id: "next-action", question: "What's the next action?", type: "text", required: true },
+	],
+	requiredFields: ["outcome", "next-action"],
+};
+
+/**
+ * Resolves the closure template for a session using 3-tier inheritance:
+ * 1. Session type config override (if defined)
+ * 2. Global override (if provided)
+ * 3. Default template (fallback)
+ */
+export function resolveClosureTemplate(
+	session: Session,
+	globalTemplate?: ClosureTemplate,
+	typeTemplates?: Record<string, ClosureTemplate>,
+): ClosureTemplate {
+	if (typeTemplates?.[session.type]) return typeTemplates[session.type];
+	if (globalTemplate) return globalTemplate;
+	return DEFAULT_CLOSURE_TEMPLATE;
 }
 
 // ── Execution Task Helpers (FR-12) ───────────────────────────
@@ -354,6 +383,22 @@ export function generateSessionSummaryBody(session: Session): string {
 	lines.push(SESSION_SUMMARY_MARKER);
 	lines.push("");
 
+	// Focus file (only when different from notes file itself)
+	if (session.focusFile && session.focusFile !== session.notesFile) {
+		lines.push(`**Focus:** [[${session.focusFile}]]`);
+		lines.push("");
+	}
+
+	// Guiding Questions (from session type config)
+	const config = SESSION_TYPE_CONFIGS[session.type];
+	if (config?.guidingQuestions.length > 0) {
+		lines.push("### Guiding Questions");
+		for (const q of config.guidingQuestions) {
+			lines.push(`- ${q}`);
+		}
+		lines.push("");
+	}
+
 	// Goals
 	if (session.goals.length > 0) {
 		lines.push("### Goals");
@@ -363,12 +408,20 @@ export function generateSessionSummaryBody(session: Session): string {
 		lines.push("");
 	}
 
-	// Context Bindings
-	if (session.contextBindings && session.contextBindings.length > 0) {
-		lines.push("### Context Bindings");
-		for (const b of session.contextBindings) {
-			lines.push(`- **${b.type}**: [[${b.path}]] *(${b.label})*`);
+	// Execution Plan
+	if (session.executionTasks && session.executionTasks.length > 0) {
+		lines.push("### Execution Plan");
+		const sorted = [...session.executionTasks].sort((a, b) => a.order - b.order);
+		for (const t of sorted) {
+			lines.push(`- [${t.completed ? "x" : " "}] ${t.label}`);
 		}
+		lines.push("");
+	}
+
+	// Session notes (from in-workspace textarea)
+	if (session.notes.trim()) {
+		lines.push("### Session Notes");
+		lines.push(session.notes.trim());
 		lines.push("");
 	}
 
@@ -377,6 +430,15 @@ export function generateSessionSummaryBody(session: Session): string {
 		lines.push("### Decisions");
 		for (const d of session.decisions) {
 			lines.push(`- **${d.title}**${d.description ? `: ${d.description}` : ""}${d.context ? ` *(${d.context})*` : ""}`);
+		}
+		lines.push("");
+	}
+
+	// Context Bindings
+	if (session.contextBindings && session.contextBindings.length > 0) {
+		lines.push("### Context Bindings");
+		for (const b of session.contextBindings) {
+			lines.push(`- **${b.type}**: [[${b.path}]] *(${b.label})*`);
 		}
 		lines.push("");
 	}
@@ -409,13 +471,6 @@ export function generateSessionSummaryBody(session: Session): string {
 		if (summary.pauseCount > 0) {
 			lines.push(`- **Total pause:** ${formatDurationHuman(summary.totalPauseMs)} (${summary.pauseCount} pause${summary.pauseCount > 1 ? "s" : ""})`);
 		}
-		lines.push("");
-	}
-
-	// Session notes (from in-workspace textarea)
-	if (session.notes.trim()) {
-		lines.push("### Session Notes");
-		lines.push(session.notes.trim());
 		lines.push("");
 	}
 
@@ -453,6 +508,116 @@ export function mergeSessionNotes(existingContent: string, session: Session): st
 	parts.push(summaryBody);
 
 	return parts.join("\n\n") + "\n";
+}
+
+// ── Reverse Parse (note file → session) ──────────────────────
+
+/** Parsed result from a session notes file for reverse sync. */
+export interface ReverseParsedNotes {
+	goals: Array<{ label: string; checked: boolean }>;
+	tasks: Array<{ label: string; checked: boolean }>;
+	sessionNotes: string;
+}
+
+/** Diff between parsed note content and session state. */
+export interface ReverseSyncDiff {
+	goalToggles: Array<{ goalId: string; completed: boolean }>;
+	taskToggles: Array<{ taskId: string; completed: boolean }>;
+	newGoals: Array<{ label: string; checked: boolean }>;
+	newTasks: Array<{ label: string; checked: boolean }>;
+	notesUpdate: string | null;
+	changes: string[];
+}
+
+/** Parses checkbox lines (`- [x] label` / `- [ ] label`) from a section string. */
+export function parseSectionCheckboxes(sectionContent: string): Array<{ label: string; checked: boolean }> {
+	const results: Array<{ label: string; checked: boolean }> = [];
+	const regex = /^- \[(x| )\] (.+)$/gm;
+	let match: RegExpExecArray | null;
+	while ((match = regex.exec(sectionContent)) !== null) {
+		results.push({ label: match[2], checked: match[1] === "x" });
+	}
+	return results;
+}
+
+/** Extracts text between a heading and the next heading (or end of content). */
+export function parseSectionText(content: string, startHeading: string, nextHeadings: string[]): string {
+	const startIdx = content.indexOf(startHeading);
+	if (startIdx < 0) return "";
+	const afterHeading = content.substring(startIdx + startHeading.length);
+	let endIdx = afterHeading.length;
+	for (const heading of nextHeadings) {
+		const idx = afterHeading.indexOf(heading);
+		if (idx >= 0 && idx < endIdx) endIdx = idx;
+	}
+	return afterHeading.substring(0, endIdx).trim();
+}
+
+/** Parses a session notes file and extracts goals, tasks, and notes text. */
+export function reverseParseSessionNotes(content: string): ReverseParsedNotes {
+	const empty: ReverseParsedNotes = { goals: [], tasks: [], sessionNotes: "" };
+	const markerIdx = content.indexOf(SESSION_SUMMARY_MARKER);
+	if (markerIdx < 0) return empty;
+	const summarySection = content.substring(markerIdx);
+
+	const sectionHeadings = ["### Guiding Questions", "### Goals", "### Execution Plan", "### Session Notes", "### Decisions", "### Context Bindings", "### Artifacts", "### Timeline", "### Time Summary"];
+
+	const goalsText = parseSectionText(summarySection, "### Goals", sectionHeadings.filter(h => h !== "### Goals"));
+	const tasksText = parseSectionText(summarySection, "### Execution Plan", sectionHeadings.filter(h => h !== "### Execution Plan"));
+	const notesText = parseSectionText(summarySection, "### Session Notes", sectionHeadings.filter(h => h !== "### Session Notes"));
+
+	return {
+		goals: parseSectionCheckboxes(goalsText),
+		tasks: parseSectionCheckboxes(tasksText),
+		sessionNotes: notesText,
+	};
+}
+
+/** Computes the diff between parsed note content and current session state. */
+export function computeReverseSyncDiff(session: Session, parsed: ReverseParsedNotes): ReverseSyncDiff {
+	const goalToggles: Array<{ goalId: string; completed: boolean }> = [];
+	const taskToggles: Array<{ taskId: string; completed: boolean }> = [];
+	const newGoals: Array<{ label: string; checked: boolean }> = [];
+	const newTasks: Array<{ label: string; checked: boolean }> = [];
+	const changes: string[] = [];
+
+	// Match goals by label text
+	for (const pg of parsed.goals) {
+		const match = session.goals.find(g => g.text === pg.label);
+		if (match) {
+			if (match.completed !== pg.checked) {
+				goalToggles.push({ goalId: match.id, completed: pg.checked });
+				changes.push(`goal "${pg.label}" ${pg.checked ? "checked" : "unchecked"}`);
+			}
+		} else {
+			newGoals.push(pg);
+			changes.push(`goal "${pg.label}" added`);
+		}
+	}
+
+	// Match tasks by label text
+	for (const pt of parsed.tasks) {
+		const match = session.executionTasks.find(t => t.label === pt.label);
+		if (match) {
+			if (match.completed !== pt.checked) {
+				taskToggles.push({ taskId: match.id, completed: pt.checked });
+				changes.push(`task "${pt.label}" ${pt.checked ? "checked" : "unchecked"}`);
+			}
+		} else {
+			newTasks.push(pt);
+			changes.push(`task "${pt.label}" added`);
+		}
+	}
+
+	// Compare notes text
+	const currentNotes = session.notes.trim();
+	const parsedNotes = parsed.sessionNotes.trim();
+	const notesUpdate = parsedNotes !== currentNotes ? parsedNotes : null;
+	if (notesUpdate !== null) {
+		changes.push("notes updated");
+	}
+
+	return { goalToggles, taskToggles, newGoals, newTasks, notesUpdate, changes };
 }
 
 /**

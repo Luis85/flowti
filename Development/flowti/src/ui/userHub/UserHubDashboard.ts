@@ -131,7 +131,7 @@ export class UserHubDashboard {
 			cls: "ft-badge ft-badge-muted ft-text-sm",
 		});
 
-		if (session.focusFile) {
+		if (session.focusFile && session.focusFile !== session.notesFile) {
 			const focusBadge = header.createSpan({
 				cls: "ft-badge ft-badge-muted ft-text-sm",
 			});

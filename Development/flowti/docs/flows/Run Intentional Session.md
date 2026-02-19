@@ -170,13 +170,13 @@ User clicks "New Session" in the Session Workspace view, runs the `flowti:create
 #### 10. Timer Expiry → Reviewing State
 
 - **Trigger**: Timer reaches zero, or user manually clicks "Complete"
-- **System Response**: Session transitions from `running` → `reviewing` (NOT directly to `completed`). The `SessionReviewOverlay` appears, blocking the main workspace content. Sidebar shows "Review Required" status badge. The overlay presents the closure ritual
-- **Events**: `session.review.started`
+- **System Response**: Session transitions from `running` → `reviewing` (NOT directly to `completed`). The `SessionClosureOverlay` appears, blocking the main workspace content. Sidebar shows "Review Required" status badge. The overlay presents the closure ritual
+- **Events**: `session.closure.started` (emitted by `completeSession()`)
 - **State Transition**: `running` → `reviewing`
 
 #### 11. Closure Ritual
 
-- **View/Service**: SessionReviewOverlay → SessionService
+- **View/Service**: SessionClosureOverlay → SessionService
 - **User Action**: User answers structured closure questions:
   - **Outcome achieved?** — Yes / Partial / No (required)
   - **What worked?** — free text (required)
@@ -185,7 +185,8 @@ User clicks "New Session" in the Session Workspace view, runs the `flowti:create
   - Additional configurable questions from closure template
 - **System Response**: Closure response is validated (all required fields must be completed). The "Complete Session" button is disabled until required fields are answered. Closure template follows 3-tier inheritance: Global defaults → Session Type override → Instance override
 - **Events**: `session.closure.started` → `session.closure.completed`
-- **Constraint**: Session cannot transition from `reviewing` → `completed` without completed closure ritual
+- **Skip option**: User may click "Skip" to bypass the closure ritual (`skipClosure()`). This transitions directly to `completed` without saving a `ClosureResponse`. Useful when the user needs to end quickly.
+- **Constraint**: Session must either complete the closure ritual (`completeClosure()`) or explicitly skip it (`skipClosure()`) to transition from `reviewing` → `completed`. The `finishReview()` method is gated on a non-null `closureResponse`.
 
 #### 12. Session Completed
 
@@ -271,9 +272,10 @@ On reload:
 ### Edge 2 — User Ignores Review
 
 System enforces:
-- No transition from `reviewing` → `completed` without closure ritual completion
-- "Complete" button is disabled until all required fields are answered
-- Session remains in `reviewing` state until ritual is completed
+- No transition from `reviewing` → `completed` without explicit action (complete or skip)
+- "Submit" button is disabled until all required fields are answered
+- "Skip" button is always available — allows bypassing closure without answering questions
+- Session remains in `reviewing` state until the user submits or skips
 
 ### Edge 3 — Starting Without Outcome
 

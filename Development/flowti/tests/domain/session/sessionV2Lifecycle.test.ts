@@ -108,7 +108,7 @@ describe("Session v2 Lifecycle & Intent (ADR-031)", () => {
 			expect(service.getActiveSession()!.status).toBe("running");
 		});
 
-		it("complete transitions through reviewing to completed (passthrough)", async () => {
+		it("complete transitions to reviewing, skipClosure reaches completed", async () => {
 			await service.load();
 
 			const completedHandler = vi.fn();
@@ -129,7 +129,13 @@ describe("Session v2 Lifecycle & Intent (ADR-031)", () => {
 			await eventBus.emit("session.complete", { sessionId: id });
 			await flush();
 
-			// Final status is completed (passthrough — reviewing is a timeline entry only)
+			// After complete, session is in reviewing (closure ritual gate)
+			expect(service.getSessionById(id)!.status).toBe("reviewing");
+
+			await service.skipClosure(id);
+			await flush();
+
+			// After skipClosure, session reaches completed
 			const session = service.getSessionById(id);
 			expect(session!.status).toBe("completed");
 			expect(completedHandler).toHaveBeenCalled();
@@ -156,6 +162,8 @@ describe("Session v2 Lifecycle & Intent (ADR-031)", () => {
 			vi.advanceTimersByTime(5000);
 			await eventBus.emit("session.complete", { sessionId: id });
 			await flush();
+			await service.skipClosure(id);
+			await flush();
 
 			await eventBus.emit("session.archive", { sessionId: id });
 			await flush();
@@ -163,11 +171,11 @@ describe("Session v2 Lifecycle & Intent (ADR-031)", () => {
 			expect(service.getSessionById(id)!.status).toBe("archived");
 		});
 
-		it("timer expiry transitions through reviewing to completed", async () => {
+		it("timer expiry transitions to reviewing, skipClosure reaches completed", async () => {
 			await service.load();
 
-			const completedHandler = vi.fn();
-			eventBus.on("session.completed", completedHandler);
+			const closureHandler = vi.fn();
+			eventBus.on("session.closure.started", closureHandler);
 
 			await eventBus.emit("session.create", {
 				type: "documentation" as SessionType,
@@ -184,7 +192,12 @@ describe("Session v2 Lifecycle & Intent (ADR-031)", () => {
 			vi.advanceTimersByTime(61000);
 			await flush();
 
-			expect(completedHandler).toHaveBeenCalled();
+			expect(closureHandler).toHaveBeenCalled();
+			expect(service.getSessionById(id)!.status).toBe("reviewing");
+
+			await service.skipClosure(id);
+			await flush();
+
 			const session = service.getSessionById(id)!;
 			expect(session.status).toBe("completed");
 			// Timeline records both reviewing and completed
@@ -595,6 +608,8 @@ describe("Session v2 Lifecycle & Intent (ADR-031)", () => {
 			await flush();
 			vi.advanceTimersByTime(5000);
 			await eventBus.emit("session.complete", { sessionId: id });
+			await flush();
+			await service.skipClosure(id);
 			await flush();
 
 			// Rerun

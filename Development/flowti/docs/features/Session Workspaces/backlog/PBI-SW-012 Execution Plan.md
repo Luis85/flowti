@@ -141,6 +141,24 @@ Then a warning is shown (threshold: 5)
 **UI components:** 1 new (`SessionExecutionPanel`)
 **Subscriptions:** 4 new task event listeners (28 total in `SessionWorkspaceSubscriptions`)
 
+### Inc 2.5: Session Note Sync + Context-Aware Templates (Cycle 7 Inc 2.5)
+
+**Files modified:**
+| File | Change | LOC |
+|------|--------|-----|
+| `src/domain/session/helpers.ts` | Execution Plan section in `generateSessionSummaryBody()` | +10 |
+| `src/domain/session/events.ts` | 2 new events: `session.notes.synced`, `session.notes.syncFailed` | +5 |
+| `src/domain/session/types.ts` | `SESSION_NOTES_SYNC_DELAY_MS` constant, template fields | +8 |
+| `src/domain/session/SessionService.ts` | Debounced sync (2 methods + 17 wiring points), template threading (6 methods) | +120 |
+| `src/infrastructure/events/catalog.ts` | 2 new event registrations | +2 |
+| `tests/domain/session/noteSync.test.ts` | New test file: debounce, coalesce, guards, events, cleanup | +210 |
+| `tests/domain/session/helpers.test.ts` | Execution Plan section tests (5 new) | +40 |
+| `tests/domain/session/SessionService.test.ts` | Context-aware template tests (11 new) | +120 |
+
+**Tests:** 28 new (2,628 total, 105 suites)
+**Events:** 2 new system-tagged (`session.notes.synced`, `session.notes.syncFailed`)
+**Template fields:** 2 new optional (`contextBindings`, `notes`)
+
 ## Related
 
 - PRD: [[Session Workspaces PRD]] (FR-12)

@@ -12,8 +12,8 @@
  *   session.create → session.created → session.start → session.started →
  *   session.activity.tracked → session.decision.record → session.decision.recorded →
  *   session.pause → session.paused → session.resume → session.resumed →
- *   session.complete → session.completed → session.archive → session.archived →
- *   session.delete → session.deleted
+ *   session.complete → session.closure.started → (skipClosure) → session.completed →
+ *   session.archive → session.archived → session.delete → session.deleted
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -154,9 +154,15 @@ describe("Flow 11: Session Management", () => {
 		// Verify decisions survive resume
 		expect(session.decisions.length).toBe(2);
 
-		// 2h. Complete session
+		// 2h. Complete session (now stops at "reviewing" for closure ritual)
 		vi.setSystemTime(new Date("2026-02-18T10:50:00.000Z"));
 		await eventBus.emit("session.complete", { sessionId });
+		session = service.getSessionById(sessionId)!;
+		expect(session.status).toBe("reviewing");
+		expect(events).toContain("session.closure.started");
+
+		// 2h-2. Skip closure to transition reviewing → completed
+		await service.skipClosure(sessionId);
 		session = service.getSessionById(sessionId)!;
 		expect(session.status).toBe("completed");
 		expect(session.completedAt).not.toBeNull();
@@ -351,6 +357,7 @@ describe("Flow 11: Session Management", () => {
 		});
 
 		await eventBus.emit("session.complete", { sessionId });
+		await service.skipClosure(sessionId);
 
 		await service.rerunSession(sessionId);
 
@@ -367,8 +374,8 @@ describe("Flow 11: Session Management", () => {
 		const events: string[] = [];
 		const lifecycle = [
 			"session.created", "session.started", "session.decision.recorded",
-			"session.paused", "session.resumed", "session.completed",
-			"session.archived", "session.deleted",
+			"session.paused", "session.resumed", "session.closure.started",
+			"session.completed", "session.archived", "session.deleted",
 		] as const;
 		for (const type of lifecycle) {
 			eventBus.on(type, () => { events.push(type); });
@@ -388,6 +395,7 @@ describe("Flow 11: Session Management", () => {
 		await eventBus.emit("session.pause", { sessionId });
 		await eventBus.emit("session.resume", { sessionId });
 		await eventBus.emit("session.complete", { sessionId });
+		await service.skipClosure(sessionId);
 		await eventBus.emit("session.archive", { sessionId });
 		await eventBus.emit("session.delete", { sessionId });
 

@@ -147,12 +147,15 @@ describe("SessionService", () => {
 			service.dispose();
 			service = new SessionService({ storage: mock.storage, eventBus });
 
-			const completeHandler = vi.fn();
-			eventBus.on("session.completed", completeHandler);
+			const closureHandler = vi.fn();
+			eventBus.on("session.closure.started", closureHandler);
 			await service.load();
 
-			expect(completeHandler).toHaveBeenCalled();
+			expect(closureHandler).toHaveBeenCalled();
 			expect(service.getActiveSession()).toBeNull();
+			// Session is now in "reviewing" state (awaiting closure)
+			const session = service.getSessions()[0];
+			expect(session.status).toBe("reviewing");
 		});
 	});
 
@@ -279,7 +282,7 @@ describe("SessionService", () => {
 			);
 		});
 
-		it("should default focusFile to null when not provided", async () => {
+		it("should default focusFile to notesFile when not provided", async () => {
 			await service.load();
 			await eventBus.emit("session.create", {
 				type: "event-storming",
@@ -287,7 +290,8 @@ describe("SessionService", () => {
 				durationMinutes: 25,
 			});
 
-			expect(service.getSessions()[0].focusFile).toBeNull();
+			const session = service.getSessions()[0];
+			expect(session.focusFile).toBe(session.notesFile);
 		});
 
 		it("should auto-set notesFile path from session title", async () => {
@@ -298,7 +302,7 @@ describe("SessionService", () => {
 				durationMinutes: 25,
 			});
 
-			expect(service.getSessions()[0].notesFile).toMatch(/^03 - Resources\/Sessions\/Sprint Planning \([a-f0-9]{6}\)\.md$/);
+			expect(service.getSessions()[0].notesFile).toMatch(/^03 - Resources\/Sessions\/\d{4}-\d{2}-\d{2} Sprint Planning \([a-f0-9]{6}\)\.md$/);
 		});
 
 		it("should sanitize special characters in notesFile path", async () => {
@@ -309,7 +313,33 @@ describe("SessionService", () => {
 				durationMinutes: 25,
 			});
 
-			expect(service.getSessions()[0].notesFile).toMatch(/^03 - Resources\/Sessions\/Sprint- Review-Test \([a-f0-9]{6}\)\.md$/);
+			expect(service.getSessions()[0].notesFile).toMatch(/^03 - Resources\/Sessions\/\d{4}-\d{2}-\d{2} Sprint- Review-Test \([a-f0-9]{6}\)\.md$/);
+		});
+
+		it("should default focusFile to notesFile when not explicitly set", async () => {
+			await service.load();
+			await eventBus.emit("session.create", {
+				type: "event-storming",
+				title: "Focus Test",
+				durationMinutes: 25,
+			});
+
+			const session = service.getSessions()[0];
+			expect(session.focusFile).toBe(session.notesFile);
+		});
+
+		it("should preserve explicit focusFile when provided", async () => {
+			await service.load();
+			await eventBus.emit("session.create", {
+				type: "event-storming",
+				title: "Focus Test",
+				durationMinutes: 25,
+				focusFile: "src/main.ts",
+			});
+
+			const session = service.getSessions()[0];
+			expect(session.focusFile).toBe("src/main.ts");
+			expect(session.focusFile).not.toBe(session.notesFile);
 		});
 
 		it("should evict oldest when exceeding MAX_SESSIONS", async () => {
@@ -434,6 +464,7 @@ describe("SessionService", () => {
 			const handler = vi.fn();
 			eventBus.on("session.completed", handler);
 			await eventBus.emit("session.complete", { sessionId });
+			await service.skipClosure(sessionId);
 
 			expect(handler).toHaveBeenCalled();
 			const session = handler.mock.calls[0][0].payload.session;
@@ -450,6 +481,7 @@ describe("SessionService", () => {
 			const handler = vi.fn();
 			eventBus.on("session.completed", handler);
 			await eventBus.emit("session.complete", { sessionId });
+			await service.skipClosure(sessionId);
 
 			expect(handler).toHaveBeenCalled();
 		});
@@ -468,6 +500,7 @@ describe("SessionService", () => {
 		it("should archive a completed session", async () => {
 			await eventBus.emit("session.start", { sessionId });
 			await eventBus.emit("session.complete", { sessionId });
+			await service.skipClosure(sessionId);
 
 			const handler = vi.fn();
 			eventBus.on("session.archived", handler);
@@ -623,6 +656,9 @@ describe("SessionService", () => {
 					payload: { sessionId },
 				}),
 			);
+
+			// completeSession now stops at "reviewing"; skip closure to reach "completed"
+			await service.skipClosure(sessionId);
 			expect(sessionCompletedHandler).toHaveBeenCalled();
 		});
 
@@ -1214,6 +1250,7 @@ describe("SessionService", () => {
 			// Complete the session
 			await eventBus.emit("session.start", { sessionId: completedSessionId });
 			await eventBus.emit("session.complete", { sessionId: completedSessionId });
+			await service.skipClosure(completedSessionId);
 		});
 
 		it("should create template from completed session", async () => {
@@ -1299,6 +1336,7 @@ describe("SessionService", () => {
 
 			await eventBus.emit("session.start", { sessionId: completedSessionId });
 			await eventBus.emit("session.complete", { sessionId: completedSessionId });
+			await service.skipClosure(completedSessionId);
 		});
 
 		it("should create a new prepared session from completed session", async () => {
@@ -1336,6 +1374,7 @@ describe("SessionService", () => {
 			// Complete the rerun
 			await eventBus.emit("session.start", { sessionId: rerunId });
 			await eventBus.emit("session.complete", { sessionId: rerunId });
+			await service.skipClosure(rerunId);
 
 			// Second rerun: Sprint 12 (2) → Sprint 12 (3)
 			handler.mockClear();
@@ -1384,6 +1423,7 @@ describe("SessionService", () => {
 			expect(focused).toBeDefined();
 			await eventBus.emit("session.start", { sessionId: focused!.id });
 			await eventBus.emit("session.complete", { sessionId: focused!.id });
+			await service.skipClosure(focused!.id);
 
 			const countBefore = service.getSessions().length;
 			await service.rerunSession(focused!.id);
@@ -1571,9 +1611,10 @@ describe("SessionService", () => {
 		it("should record completed entry on complete", async () => {
 			await eventBus.emit("session.start", { sessionId });
 			await eventBus.emit("session.complete", { sessionId });
+			await service.skipClosure(sessionId);
 
 			const session = service.getSessions().find((s) => s.id === sessionId);
-			// v2: timeline includes reviewing + completed (passthrough)
+			// v2: timeline includes reviewing + completed (via skipClosure)
 			expect(session!.timeline).toHaveLength(3);
 			expect(session!.timeline[1].action).toBe("reviewing");
 			expect(session!.timeline[2].action).toBe("completed");
@@ -1587,6 +1628,7 @@ describe("SessionService", () => {
 			await eventBus.emit("session.resume", { sessionId });
 			vi.advanceTimersByTime(3 * 60_000);
 			await eventBus.emit("session.complete", { sessionId });
+			await service.skipClosure(sessionId);
 
 			const session = service.getSessions().find((s) => s.id === sessionId);
 			expect(session!.timeline).toHaveLength(5);
@@ -1605,6 +1647,7 @@ describe("SessionService", () => {
 			await eventBus.emit("session.resume", { sessionId });
 			vi.advanceTimersByTime(3 * 60_000);
 			await eventBus.emit("session.complete", { sessionId });
+			await service.skipClosure(sessionId);
 
 			const session = service.getSessions().find((s) => s.id === sessionId);
 			expect(session!.timeline).toHaveLength(7); // started, paused, resumed, paused, resumed, reviewing, completed
@@ -2028,6 +2071,7 @@ describe("SessionService", () => {
 
 			await eventBus.emit("session.start", { sessionId: completedSessionId });
 			await eventBus.emit("session.complete", { sessionId: completedSessionId });
+			await service.skipClosure(completedSessionId);
 		});
 
 		it("should carry goal text forward on rerun", async () => {
@@ -2145,6 +2189,163 @@ describe("SessionService", () => {
 			await service.createFromTemplate(tmpl.id);
 
 			expect(handler.mock.calls[0][0].payload.session.goals).toEqual([]);
+		});
+	});
+
+	// ── Context-Aware Templates (Inc 2.5) ────────────────────
+
+	describe("context-aware templates", () => {
+		it("saveTemplateFromSession captures context bindings", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await eventBus.emit("session.create", { type: "event-storming", title: "Ctx Session", durationMinutes: 25 });
+			const sessionId = handler.mock.calls[0][0].payload.session.id;
+
+			// Add a context binding
+			await eventBus.emit("session.context.bind", { sessionId, path: "src/main.ts", type: "file" });
+			await eventBus.emit("session.start", { sessionId });
+			await eventBus.emit("session.complete", { sessionId });
+
+			const tmpl = await service.saveTemplateFromSession(sessionId, "Ctx Template");
+			expect(tmpl).not.toBeNull();
+			expect(tmpl!.contextBindings).toEqual([{ path: "src/main.ts", type: "file" }]);
+		});
+
+		it("saveTemplateFromSession captures notes", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await eventBus.emit("session.create", { type: "event-storming", title: "Notes Session", durationMinutes: 25 });
+			const sessionId = handler.mock.calls[0][0].payload.session.id;
+
+			await eventBus.emit("session.notes.update", { sessionId, notes: "Important context" });
+			await eventBus.emit("session.start", { sessionId });
+			await eventBus.emit("session.complete", { sessionId });
+
+			const tmpl = await service.saveTemplateFromSession(sessionId, "Notes Template");
+			expect(tmpl).not.toBeNull();
+			expect(tmpl!.notes).toBe("Important context");
+		});
+
+		it("saveTemplateFromSession omits empty context bindings and notes", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await eventBus.emit("session.create", { type: "event-storming", title: "Empty Session", durationMinutes: 25 });
+			const sessionId = handler.mock.calls[0][0].payload.session.id;
+			await eventBus.emit("session.start", { sessionId });
+			await eventBus.emit("session.complete", { sessionId });
+
+			const tmpl = await service.saveTemplateFromSession(sessionId, "Empty Template");
+			expect(tmpl!.contextBindings).toBeUndefined();
+			expect(tmpl!.notes).toBeUndefined();
+		});
+
+		it("createFromTemplate hydrates context bindings", async () => {
+			const tmpl = await service.saveTemplate({
+				name: "Ctx Template",
+				type: "event-storming",
+				durationMinutes: 25,
+				contextBindings: [
+					{ path: "src/main.ts", type: "file" },
+					{ path: "docs/readme.md", type: "domain" },
+				],
+			});
+
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await service.createFromTemplate(tmpl.id);
+
+			const session = handler.mock.calls[0][0].payload.session;
+			expect(session.contextBindings).toHaveLength(2);
+			expect(session.contextBindings[0].path).toBe("src/main.ts");
+			expect(session.contextBindings[0].type).toBe("file");
+			expect(session.contextBindings[1].path).toBe("docs/readme.md");
+			expect(session.contextBindings[1].type).toBe("domain");
+		});
+
+		it("createFromTemplate hydrates notes", async () => {
+			const tmpl = await service.saveTemplate({
+				name: "Notes Template",
+				type: "event-storming",
+				durationMinutes: 25,
+				notes: "Template notes",
+			});
+
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await service.createFromTemplate(tmpl.id);
+
+			expect(handler.mock.calls[0][0].payload.session.notes).toBe("Template notes");
+		});
+
+		it("rerunSession carries context bindings and notes", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.created", handler);
+			await eventBus.emit("session.create", { type: "event-storming", title: "Rerun Source", durationMinutes: 25 });
+			const sessionId = handler.mock.calls[0][0].payload.session.id;
+
+			await eventBus.emit("session.context.bind", { sessionId, path: "src/service.ts", type: "folder" });
+			await eventBus.emit("session.notes.update", { sessionId, notes: "Session notes" });
+			await eventBus.emit("session.start", { sessionId });
+			await eventBus.emit("session.complete", { sessionId });
+			await service.skipClosure(sessionId);
+
+			handler.mockClear();
+			await service.rerunSession(sessionId);
+
+			const rerun = handler.mock.calls[0][0].payload.session;
+			expect(rerun.contextBindings).toHaveLength(1);
+			expect(rerun.contextBindings[0].path).toBe("src/service.ts");
+			expect(rerun.contextBindings[0].type).toBe("folder");
+			expect(rerun.notes).toBe("Session notes");
+		});
+
+		it("exportTemplate includes context bindings and notes", async () => {
+			const tmpl = await service.saveTemplate({
+				name: "Export Template",
+				type: "event-storming",
+				durationMinutes: 25,
+				contextBindings: [{ path: "src/app.ts", type: "file" }],
+				notes: "Export notes",
+			});
+
+			const exported = service.exportTemplate(tmpl.id);
+			expect(exported).not.toBeNull();
+			expect(exported!.template.contextBindings).toEqual([{ path: "src/app.ts", type: "file" }]);
+			expect(exported!.template.notes).toBe("Export notes");
+		});
+
+		it("importTemplate accepts context bindings and notes", async () => {
+			const exportData = {
+				version: 1,
+				template: {
+					name: "Import Template",
+					type: "event-storming",
+					durationMinutes: 25,
+					contextBindings: [{ path: "src/types.ts", type: "domain" }],
+					notes: "Import notes",
+				},
+			};
+
+			const imported = await service.importTemplate(exportData);
+			expect(imported).not.toBeNull();
+			expect(imported!.contextBindings).toEqual([{ path: "src/types.ts", type: "domain" }]);
+			expect(imported!.notes).toBe("Import notes");
+		});
+
+		it("isValidTemplateExport rejects non-array contextBindings", async () => {
+			const result = await service.importTemplate({
+				version: 1,
+				template: { name: "Bad", type: "event-storming", durationMinutes: 25, contextBindings: "bad" },
+			});
+			expect(result).toBeNull();
+		});
+
+		it("isValidTemplateExport rejects non-string notes", async () => {
+			const result = await service.importTemplate({
+				version: 1,
+				template: { name: "Bad", type: "event-storming", durationMinutes: 25, notes: 123 },
+			});
+			expect(result).toBeNull();
 		});
 	});
 
@@ -3118,6 +3319,8 @@ describe("SessionService", () => {
 
 			vi.advanceTimersByTime(5000);
 			await eventBus.emit("session.complete", { sessionId });
+			// session.state.save now fires from transitionToCompleted, not completeSession
+			await service.skipClosure(sessionId);
 			await vi.advanceTimersByTimeAsync(0);
 
 			expect(handler).toHaveBeenCalledWith(expect.objectContaining({
@@ -3215,6 +3418,7 @@ describe("SessionService", () => {
 			await eventBus.emit("session.start", { sessionId });
 			vi.advanceTimersByTime(5000);
 			await eventBus.emit("session.complete", { sessionId });
+			await service.skipClosure(sessionId);
 			await vi.advanceTimersByTimeAsync(0);
 
 			const template = BUILT_IN_OUTPUT_TEMPLATES[0]; // meeting-invite
@@ -3288,6 +3492,7 @@ describe("SessionService", () => {
 			await eventBus.emit("session.start", { sessionId });
 			vi.advanceTimersByTime(5000);
 			await eventBus.emit("session.complete", { sessionId });
+			await service.skipClosure(sessionId);
 			await vi.advanceTimersByTimeAsync(0);
 
 			// Pre-fill to max
@@ -3334,6 +3539,7 @@ describe("SessionService", () => {
 			await eventBus.emit("session.start", { sessionId });
 			vi.advanceTimersByTime(5000);
 			await eventBus.emit("session.complete", { sessionId });
+			await service.skipClosure(sessionId);
 			await vi.advanceTimersByTimeAsync(0);
 
 			const template = BUILT_IN_OUTPUT_TEMPLATES[0];

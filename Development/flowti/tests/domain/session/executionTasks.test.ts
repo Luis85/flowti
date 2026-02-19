@@ -301,6 +301,7 @@ describe("Execution Tasks (FR-12)", () => {
 			const id = await createSession("running");
 			await eventBus.emit("session.complete", { sessionId: id });
 			await flush();
+			await service.skipClosure(id);
 			await eventBus.emit("session.archive", { sessionId: id });
 			await flush();
 
@@ -405,6 +406,7 @@ describe("Execution Tasks (FR-12)", () => {
 
 			await eventBus.emit("session.complete", { sessionId: id });
 			await flush();
+			await service.skipClosure(id);
 
 			const rerun = await service.rerunSession(id);
 			expect(rerun).not.toBeNull();

@@ -32,7 +32,9 @@ import { SessionActivityPanel } from "./session/SessionActivityPanel";
 import { SessionGuidingQuestions } from "./session/SessionGuidingQuestions";
 import { SessionDecisionPanel } from "./session/SessionDecisionPanel";
 import { SessionOutputPanel } from "./session/SessionOutputPanel";
-import { type SessionTypeConfig, type SessionOutputTemplate } from "../domain/session/types";
+import { type ClosureTemplate, type SessionTypeConfig, type SessionOutputTemplate } from "../domain/session/types";
+import { SessionClosureOverlay } from "./session/SessionClosureOverlay";
+import { resolveClosureTemplate } from "../domain/session/helpers";
 import { setupEventSubscriptions } from "./session/SessionWorkspaceSubscriptions";
 import type { SubscriptionViewContext } from "./session/SessionWorkspaceSubscriptions";
 import {
@@ -167,6 +169,12 @@ export class SessionWorkspaceView extends ItemView {
 
 		this.renderHeader(container);
 
+		// FR-14: Closure overlay replaces normal panels when reviewing
+		if (this.session.status === "reviewing") {
+			this.renderClosureOverlay(container);
+			return;
+		}
+
 		this.timerPanel = new SessionTimerPanel(container, deps);
 		this.timerPanel.render();
 
@@ -202,6 +210,32 @@ export class SessionWorkspaceView extends ItemView {
 			this.outputPanel = new SessionOutputPanel(container, deps, () => openOutputPicker(ctx));
 			this.outputPanel.render();
 		}
+	}
+
+	private renderClosureOverlay(container: HTMLElement): void {
+		const session = this.session!;
+		const template = resolveClosureTemplate(session, undefined, this.getTypeClosureTemplates());
+		const overlay = new SessionClosureOverlay(container, session, template, {
+			onSubmit: (response) => {
+				void this.sessionService.completeClosure(session.id, response);
+			},
+			onSkip: () => {
+				void this.sessionService.skipClosure(session.id);
+			},
+		});
+		overlay.render();
+	}
+
+	private getTypeClosureTemplates(): Record<string, ClosureTemplate> | undefined {
+		const result: Record<string, ClosureTemplate> = {};
+		let hasAny = false;
+		for (const [type, config] of Object.entries(this.customSessionTypes)) {
+			if (config.closureTemplate) {
+				result[type] = config.closureTemplate;
+				hasAny = true;
+			}
+		}
+		return hasAny ? result : undefined;
 	}
 
 	private renderEmptyState(container: HTMLElement): void {
@@ -302,7 +336,7 @@ export class SessionWorkspaceView extends ItemView {
 
 	private renderFocusFile(container: HTMLElement): void {
 		const session = this.session!;
-		if (!session.focusFile) return;
+		if (!session.focusFile || session.focusFile === session.notesFile) return;
 
 		const section = container.createDiv({ cls: "ft-session-workspace-focus ft-section" });
 		section.style.cssText = "display:flex;align-items:center;gap:8px;";
@@ -340,6 +374,23 @@ export class SessionWorkspaceView extends ItemView {
 		link.addEventListener("click", (e) => {
 			e.preventDefault();
 			void this.openOrCreateNotesFile(session);
+		});
+
+		const copyBtn = section.createEl("button", { cls: "ft-copy-path-btn clickable-icon" });
+		copyBtn.title = "Copy vault path to clipboard";
+		copyBtn.style.cssText = "background:none;border:none;cursor:pointer;padding:2px;opacity:0.5;color:var(--text-muted);";
+		setIcon(copyBtn, "clipboard-copy");
+		copyBtn.addEventListener("click", () => {
+			void navigator.clipboard.writeText(session.notesFile!).then(() => {
+				setIcon(copyBtn, "check");
+				copyBtn.style.opacity = "1";
+				copyBtn.style.color = "var(--text-success)";
+				setTimeout(() => {
+					setIcon(copyBtn, "clipboard-copy");
+					copyBtn.style.opacity = "0.5";
+					copyBtn.style.color = "var(--text-muted)";
+				}, 1500);
+			});
 		});
 	}
 
