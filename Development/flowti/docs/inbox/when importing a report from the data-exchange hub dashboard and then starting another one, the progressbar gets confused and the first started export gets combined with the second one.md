@@ -1,4 +1,4 @@
 ---
 type: Bug
-stage:
+stage: fixed
 ---

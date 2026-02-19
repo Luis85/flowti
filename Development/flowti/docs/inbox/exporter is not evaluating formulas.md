@@ -1,10 +1,10 @@
 ---
 type: Bug
-stage: open
+stage: fixed
 origin: inbox
 domain: data-exchange
 parent: "[[Data Exchange Hub PRD]]"
-description: "Exporter does not evaluate Base formulas — preview shows property names instead of computed values."
+description: Exporter does not evaluate Base formulas — preview shows property names instead of computed values.
 tags:
 priority: 2 - high
 rank:
