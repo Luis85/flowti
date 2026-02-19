@@ -37,12 +37,17 @@ function makeSession(overrides?: Partial<Session>): Session {
 		decisions: [],
 		workspaceState: null,
 		outputArtifacts: [],
+		intent: null,
+		energy: null,
+		executionTasks: [],
+		reflections: [],
+		closureResponse: null,
 		...overrides,
 	};
 }
 
 function makeState(sessions: Session[] = [], selectedSession: Session | null = null): UserHubState {
-	const active = sessions.find((s) => s.status === "active") ?? null;
+	const active = sessions.find((s) => s.status === "active" || s.status === "running") ?? null;
 	return {
 		inboxItems: [],
 		selectedInboxItem: null,
@@ -89,6 +94,8 @@ function makeDeps(state: UserHubState, eventBus?: IEventBus): UserHubComponentDe
 		openFile: vi.fn(),
 		openSaveTemplateModal: vi.fn(),
 		openSessionWorkspace: vi.fn(),
+		exportTemplateAsFile: vi.fn(),
+		importTemplateFromFile: vi.fn(),
 		getSettings: () => state.settings,
 	};
 }
@@ -1007,7 +1014,7 @@ describe("UserHubSessions", () => {
 			expect(detailEl.textContent).toContain("50 min");
 		});
 
-		it("should have delete button on template rows", () => {
+		it("should have export and delete buttons on template rows", () => {
 			const state = makeState();
 			const deps = makeDeps(state);
 			(deps.sessionService.getSavedTemplates as ReturnType<typeof vi.fn>).mockReturnValue([
@@ -1017,8 +1024,9 @@ describe("UserHubSessions", () => {
 
 			comp.renderDetail();
 
-			const buttons = Array.from(detailEl.querySelectorAll("button"));
-			expect(buttons).toHaveLength(1); // delete button
+			// Import button in header + export + delete per row
+			const rowButtons = Array.from(detailEl.querySelectorAll(".ft-catalog-row button"));
+			expect(rowButtons).toHaveLength(2); // export + delete
 		});
 
 		it("should create session from template when template row is clicked", () => {
@@ -1061,10 +1069,89 @@ describe("UserHubSessions", () => {
 
 			comp.renderDetail();
 
-			const deleteBtn = detailEl.querySelector("button") as HTMLElement;
+			const rowButtons = Array.from(detailEl.querySelectorAll(".ft-catalog-row button"));
+			const deleteBtn = rowButtons[rowButtons.length - 1] as HTMLElement; // last button is delete
 			deleteBtn.click();
 
 			expect(deps.sessionService.createFromTemplate).not.toHaveBeenCalled();
+		});
+
+		it("should show Import button in template list header", () => {
+			const state = makeState();
+			const deps = makeDeps(state);
+			(deps.sessionService.getSavedTemplates as ReturnType<typeof vi.fn>).mockReturnValue([
+				{ id: "t1", name: "T1", type: "event-storming", durationMinutes: 25, createdAt: Date.now() },
+			]);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			const buttons = Array.from(detailEl.querySelectorAll("button"));
+			const importBtn = buttons.find((b) => b.textContent?.includes("Import"));
+			expect(importBtn).toBeTruthy();
+		});
+
+		it("should call importTemplateFromFile when Import button is clicked", () => {
+			const state = makeState();
+			const deps = makeDeps(state);
+			(deps.sessionService.getSavedTemplates as ReturnType<typeof vi.fn>).mockReturnValue([
+				{ id: "t1", name: "T1", type: "event-storming", durationMinutes: 25, createdAt: Date.now() },
+			]);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			const buttons = Array.from(detailEl.querySelectorAll("button"));
+			const importBtn = buttons.find((b) => b.textContent?.includes("Import"));
+			importBtn!.click();
+
+			expect(deps.importTemplateFromFile).toHaveBeenCalled();
+		});
+
+		it("should call exportTemplateAsFile when export button is clicked on template row", () => {
+			const state = makeState();
+			const deps = makeDeps(state);
+			(deps.sessionService.getSavedTemplates as ReturnType<typeof vi.fn>).mockReturnValue([
+				{ id: "t1", name: "T1", type: "event-storming", durationMinutes: 25, createdAt: Date.now() },
+			]);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			const rowButtons = Array.from(detailEl.querySelectorAll(".ft-catalog-row button"));
+			const exportBtn = rowButtons[0] as HTMLElement; // first button in row is export
+			exportBtn.click();
+
+			expect(deps.exportTemplateAsFile).toHaveBeenCalledWith("t1");
+			expect(deps.sessionService.createFromTemplate).not.toHaveBeenCalled();
+		});
+
+		it("should show Import Template button in empty state", () => {
+			const state = makeState();
+			const deps = makeDeps(state);
+			(deps.sessionService.getSavedTemplates as ReturnType<typeof vi.fn>).mockReturnValue([]);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			const buttons = Array.from(detailEl.querySelectorAll("button"));
+			const importBtn = buttons.find((b) => b.textContent?.includes("Import Template"));
+			expect(importBtn).toBeTruthy();
+		});
+
+		it("should call importTemplateFromFile when empty state Import button is clicked", () => {
+			const state = makeState();
+			const deps = makeDeps(state);
+			(deps.sessionService.getSavedTemplates as ReturnType<typeof vi.fn>).mockReturnValue([]);
+			const comp = new UserHubSessions(masterEl, detailEl, deps);
+
+			comp.renderDetail();
+
+			const buttons = Array.from(detailEl.querySelectorAll("button"));
+			const importBtn = buttons.find((b) => b.textContent?.includes("Import Template"));
+			importBtn!.click();
+
+			expect(deps.importTemplateFromFile).toHaveBeenCalled();
 		});
 	});
 

@@ -4,8 +4,28 @@
  * All functions are side-effect free and trivially testable.
  */
 
-import type { ContextBindingType, Session, SessionContextBinding, SessionDecision, SessionGoal, SessionOutputTemplate, SessionTemplate, SessionType, SessionTypeConfig, PauseSegment, TimelineSummary } from "./types";
+import type { ContextBindingType, Session, SessionContextBinding, SessionDecision, SessionGoal, SessionOutputTemplate, SessionStatusV2, SessionTemplate, SessionType, SessionTypeConfig, PauseSegment, TimelineSummary } from "./types";
 import { SESSION_TYPE_CONFIGS } from "./types";
+
+// ── Session v2 State Machine (ADR-031) ───────────────────────
+
+/** Valid state transitions for the v2 session lifecycle. */
+const VALID_TRANSITIONS: Record<SessionStatusV2, readonly SessionStatusV2[]> = {
+	prepared:  ["running"],
+	running:   ["paused", "reviewing"],
+	paused:    ["running"],
+	reviewing: ["completed"],
+	completed: ["archived"],
+	archived:  [],
+};
+
+/**
+ * Checks whether a session status transition is valid per the v2 lifecycle.
+ * Returns `true` only for transitions defined in the state machine.
+ */
+export function isValidTransition(from: SessionStatusV2, to: SessionStatusV2): boolean {
+	return VALID_TRANSITIONS[from]?.includes(to) ?? false;
+}
 
 // ── Session Type Resolution ──────────────────────────────────
 
@@ -114,6 +134,11 @@ export function createSession(
 		decisions: [],
 		workspaceState: null,
 		outputArtifacts: [],
+		intent: null,
+		energy: null,
+		executionTasks: [],
+		reflections: [],
+		closureResponse: null,
 	};
 }
 

@@ -107,7 +107,7 @@ export class UserHubDashboard {
 		const session = this.deps.sessionService.getActiveSession();
 		if (!session) return;
 
-		const isActive = session.status === "active";
+		const isActive = session.status === "active" || session.status === "running";
 
 		const section = this.container.createDiv({ cls: "ft-active-session" });
 		section.style.marginBottom = "1rem";

@@ -128,8 +128,11 @@ export const SESSION_TYPE_CONFIGS: Record<SessionType, SessionTypeConfig> = {
 // Session Status
 // ─────────────────────────────────────────────────────────────
 
-/** Lifecycle states for a session. */
-export type SessionStatus = "prepared" | "active" | "paused" | "completed" | "archived";
+/** Lifecycle states for a session (v1 — includes legacy "active"). */
+export type SessionStatus = "prepared" | "active" | "paused" | "completed" | "archived" | "running" | "reviewing";
+
+/** Canonical v2 lifecycle states (ADR-031). "active" is legacy; use "running". */
+export type SessionStatusV2 = "prepared" | "running" | "paused" | "reviewing" | "completed" | "archived";
 
 // ─────────────────────────────────────────────────────────────
 // Entity
@@ -154,7 +157,7 @@ export interface SessionActivity {
 }
 
 /** Actions recorded in the session timeline. */
-export type SessionTimelineAction = "started" | "paused" | "resumed" | "completed";
+export type SessionTimelineAction = "started" | "paused" | "resumed" | "reviewing" | "completed";
 
 /** A single entry in the session timeline log. */
 export interface SessionTimelineEntry {
@@ -266,6 +269,18 @@ export interface Session {
 	workspaceState: WorkspaceState | null;
 	/** Output artifacts generated from this session (meeting invites, action items, etc.). */
 	outputArtifacts: SessionOutputArtifact[];
+
+	// ── v2 fields (ADR-031) ─────────────────────────────────
+	/** Structured intent defined before starting (v2). Null for legacy sessions. */
+	intent: SessionIntent | null;
+	/** Energy level indicator (v2). Null if not set. */
+	energy: EnergyLevel | null;
+	/** Execution plan tasks (v2). */
+	executionTasks: ExecutionTask[];
+	/** Structured reflection entries (v2). */
+	reflections: ReflectionEntry[];
+	/** Closure ritual response (v2). Null until review is completed. */
+	closureResponse: ClosureResponse | null;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -319,6 +334,72 @@ export interface SessionTemplate {
 export interface SessionTemplateExport {
 	version: 1;
 	template: Omit<SessionTemplate, "id" | "createdAt">;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Session v2 Types (ADR-031)
+// ─────────────────────────────────────────────────────────────
+
+/** Session execution mode — determines UI behavior and defaults. */
+export type SessionMode = "deep-work" | "planning" | "workshop" | "review" | "exploration";
+
+/** Energy level indicator (1 = drained, 5 = energized). */
+export type EnergyLevel = 1 | 2 | 3 | 4 | 5;
+
+/** Structured intent defined before starting a session. */
+export interface SessionIntent {
+	primaryOutcome: string;
+	whyItMatters?: string;
+	mode: SessionMode;
+}
+
+/** A task in the session execution plan. */
+export interface ExecutionTask {
+	id: string;
+	label: string;
+	completed: boolean;
+	completedAt?: string; // ISO 8601
+	order: number;
+}
+
+/** A structured reflection entry recorded during a session. */
+export interface ReflectionEntry {
+	id: string;
+	type: "observation" | "blocker" | "idea" | "decision";
+	content: string;
+	timestamp: string; // ISO 8601
+}
+
+/** User's response to the closure ritual questions. */
+export interface ClosureResponse {
+	outcomeAchieved: "yes" | "partial" | "no";
+	whatWorked: string;
+	whatDidnt: string;
+	nextAction: string;
+	answers: Record<string, string>;
+}
+
+/** A single question in a closure template. */
+export interface ClosureQuestion {
+	id: string;
+	question: string;
+	type: "text" | "select" | "rating";
+	required: boolean;
+	options?: string[];
+}
+
+/** Configurable closure ritual template (3-tier: global → type → instance). */
+export interface ClosureTemplate {
+	questions: ClosureQuestion[];
+	requiredFields: string[];
+}
+
+/** Thresholds for cognitive overload detection (FR-16). */
+export interface CognitiveLoadThresholds {
+	maxTasks: number;
+	maxBindings: number;
+	maxDurationMinutes: number;
+	lowEnergyThreshold: EnergyLevel;
 }
 
 // ─────────────────────────────────────────────────────────────

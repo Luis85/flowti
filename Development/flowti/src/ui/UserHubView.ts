@@ -6,7 +6,7 @@
  */
 
 import type { WorkspaceLeaf } from "obsidian";
-import { setIcon } from "obsidian";
+import { Notice, setIcon } from "obsidian";
 import type { IUserService } from "../domain/user/types";
 import type { HubRegistry } from "../domain/hub/HubRegistry";
 import type { InboxService } from "../domain/inbox/InboxService";
@@ -357,6 +357,49 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 						state: { sessionId },
 					});
 				}
+			},
+			exportTemplateAsFile: (templateId: string) => {
+				const exported = this.sessionService.exportTemplate(templateId);
+				if (!exported) {
+					new Notice("Template not found");
+					return;
+				}
+				const json = JSON.stringify(exported, null, 2);
+				const blob = new Blob([json], { type: "application/json" });
+				const url = URL.createObjectURL(blob);
+				const a = document.createElement("a");
+				a.href = url;
+				a.download = `${exported.template.name.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`;
+				a.click();
+				URL.revokeObjectURL(url);
+				new Notice("Template exported");
+			},
+			importTemplateFromFile: () => {
+				const input = document.createElement("input");
+				input.type = "file";
+				input.accept = ".json";
+				input.addEventListener("change", () => {
+					const file = input.files?.[0];
+					if (!file) return;
+					const reader = new FileReader();
+					reader.onload = () => {
+						try {
+							const data: unknown = JSON.parse(reader.result as string);
+							void this.sessionService.importTemplate(data).then((tmpl) => {
+								if (tmpl) {
+									new Notice(`Template "${tmpl.name}" imported`);
+									this.scheduleRender();
+								} else {
+									new Notice("Import failed: invalid format or duplicate name");
+								}
+							});
+						} catch {
+							new Notice("Import failed: invalid JSON");
+						}
+					};
+					reader.readAsText(file);
+				});
+				input.click();
 			},
 			getSettings: () => this.state.settings,
 		};

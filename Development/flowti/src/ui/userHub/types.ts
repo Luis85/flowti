@@ -84,6 +84,10 @@ export interface UserHubComponentDeps {
 	openSaveTemplateModal: (session: Session) => void;
 	/** Open the Session Workspace view in a new leaf. Optionally targets a specific session and location. */
 	openSessionWorkspace: (sessionId?: string, location?: "tab" | "sidebar") => void;
+	/** Export a session template as a JSON file (browser download). */
+	exportTemplateAsFile: (templateId: string) => void;
+	/** Import a session template from a JSON file (native file picker). */
+	importTemplateFromFile: () => void;
 	/** Returns the latest FlowtiSettings snapshot (read-only). */
 	getSettings: () => FlowtiSettings;
 	/** Optional NudgeService for nudge preferences panel. */
@@ -97,7 +101,9 @@ export interface UserHubComponentDeps {
 export const SESSION_STATUS_LABELS: Record<string, string> = {
 	prepared: "Ready",
 	active: "Active",
+	running: "Active",
 	paused: "Paused",
+	reviewing: "Reviewing",
 	completed: "Completed",
 	archived: "Archived",
 };

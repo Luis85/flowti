@@ -9,12 +9,12 @@ updated: 2026-02-19
 foundation: "[[PBI-002 Documentation Sessions]]"
 maturity_score_strategy: 5
 maturity_score_scope: 4
-maturity_score_architecture: 3
-maturity_score_event_integration: 3
-maturity_score_data_model: 3
+maturity_score_architecture: 4
+maturity_score_event_integration: 4
+maturity_score_data_model: 4
 maturity_score_ui_consistency: 2
-maturity_score_validation_testing: 2
-fri_score: 22
+maturity_score_validation_testing: 3
+fri_score: 26
 business_value: 5
 implementation_cost: 4
 maintenance_cost: 3
@@ -1178,7 +1178,7 @@ SessionSidebarView
 | — | PBI-SW-008 | Session Output Artifacts | Low | PBI-SW-005 | ✅ Done (Cycle 3) — 3 built-in templates, custom templates, picker modal |
 | — | PBI-SW-007 | Auto-Session & Session Nudges | Medium | — | ✅ Done (Cycles 4+5) — daily tracking, concurrent sessions, auto-start, nudges, daily summary, command palette, dashboard quick action |
 | 1 | PBI-SW-009 | Domain Design Session | Medium | PBI-SW-003 | 🔜 Planned (Cycle 7+) — guided domain decomposition workflow (SW-003 unblocked) |
-| 2 | PBI-SW-010 | Session Lifecycle v2 & Intent Layer | High | — | 🔜 Planned (Cycle 6) — v2 state machine + intent definition |
+| 2 | PBI-SW-010 | Session Lifecycle v2 & Intent Layer | High | — | ✅ Done (Cycle 6) — v2 state machine + intent + energy handlers (domain-first) |
 | 3 | PBI-SW-011 | Energy Tracking | Medium | PBI-SW-010 | 🔜 Planned — 1–5 scale energy indicator |
 | 4 | PBI-SW-012 | Execution Plan (Task Checklist) | High | — | 🔜 Planned — checklist tasks with progress indicator |
 | 5 | PBI-SW-013 | Structured Reflection | Medium | FR-03 (delivered) | 🔜 Planned — observations, blockers, ideas, decisions |
@@ -1228,6 +1228,8 @@ See `backlog/PBI-SW-*.md` for detailed specifications.
 | 2026-02-18 | in-progress | in-progress | Cycle 5 Delivery + Session UX Polish | 34/35 | — | PRD v7. Cycle 5 delivered: PBI-SW-007 complete (nudge system, daily summary, default nudge configs, dashboard indicator). Session UX polish: command palette commands (`create-session`, `resume-session`), dashboard "New Session" quick action. FR-08 fully delivered. 8/8 FRs, 8/9 PBIs done. 68 session events. FRI updated: validation_testing 4→5 (2,507 tests, 99 files, 13 flow tests). |
 | 2026-02-19 | in-progress | in-progress | Three Amigos Review (Cycles 4+5) | 34/35 | Business, Dev, QA | PASS with 5 observations. All 3 perspectives agree: feature production-ready. OBS: (1) PBI-SW-009 scope decision needed, (2) nudge flow test gap, (3) path reconciliation edge cases, (4) daily tracking disable toggle, (5) Cycle 6 increment ordering. 6 action items logged. |
 | 2026-02-19 | in-progress | in-progress | Backlog Refinement (v2) | 22/35 | — | PRD v8: Session v2 – Focus & Execution Environment. **Added:** Executive Summary (strategic purpose, business impact, strategic positioning), 10 new FRs (FR-09–FR-18), 8 new PBIs (SW-010–SW-017), v2 data model (9 new types), v2 event model (14 new events), v2 UI Composition Map (Main + Sidebar modes), Section 16 (Business Value), Section 17 (Strategic Perspective). **Removed:** Daily tracking feature (FR-08, PBI-SW-007 deprecated) — conflicts with intentional execution philosophy. FRI re-scored 34→22 to reflect undelivered v2 scope. Cycle 6 revised: Inc 3–4 replaced with v2 foundation work. |
+| 2026-02-19 | in-progress | in-progress | Cycle 6 Delivery | 26/35 | — | Cycle 6 delivered: Inc 1 (template import/export), Inc 2 (Three Amigos gaps pre-satisfied), Inc 3 (ADR-031, v2 types, state machine, 14 events registered), Inc 4 (PBI-SW-010 domain-first: lifecycle v2, intent, energy handlers). FRI updated: architecture 3→4, event_integration 3→4, data_model 3→4, validation_testing 2→3. 2,540 tests passing, 102 suites. `"active"` → `"running"` canonical status migration with backward compat. |
+| 2026-02-19 | in-progress | in-progress | Cycle 7 Planning | 26/35 | — | Cycle 7 planned: PBI-SW-012 (Execution Plan — domain + UI), PBI-SW-014 (Closure Ritual — domain + UI), PBI-SW-016 (Cognitive Overload Detection — spike). 4 increments. Inbox hygiene completed (both inboxes normalized). Feature Lifecycle PRD deferred (stays approved, no planning yet). |
 
 ### Related Architecture Decisions
 
@@ -1236,6 +1238,7 @@ See `backlog/PBI-SW-*.md` for detailed specifications.
 | ADR-025 | Activity Log Separate from Artifacts | Superseded | Activity consolidated into unified log; artifacts section removed |
 | ADR-026 | Composable Folder Filtering | Accepted | `isExcluded()` pure function for global + per-session folder filtering |
 | ADR-029 | ISO Date Prefix for Session Files | Proposed | Session notes/canvas file naming convention |
+| ADR-031 | Session v2 Architecture | Accepted | 6-state lifecycle, dual rendering, closure ritual, intent layer, energy tracking |
 
 ### Related Flows
 

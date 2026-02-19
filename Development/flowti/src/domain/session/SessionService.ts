@@ -13,9 +13,9 @@ import type { IEventBus } from "../../infrastructure/events/types";
 import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
 import type { ITypedStorage } from "../../utils/TypedStorage";
 import { generateUUID } from "../../utils/helpers";
-import type { ContextBindingType, Session, SessionActivity, SessionActivityAction, SessionContextBinding, SessionGoal, SessionLink, SessionOutputArtifact, SessionOutputTemplate, SessionState, SessionTemplate, SessionTemplateExport, SessionTypeConfig, WorkspaceState } from "./types";
+import type { ContextBindingType, EnergyLevel, Session, SessionActivity, SessionActivityAction, SessionContextBinding, SessionGoal, SessionIntent, SessionLink, SessionOutputArtifact, SessionOutputTemplate, SessionState, SessionStatusV2, SessionTemplate, SessionTemplateExport, SessionTypeConfig, WorkspaceState } from "./types";
 import { MAX_SESSIONS, MAX_TEMPLATES, ARTIFACT_DEDUP_WINDOW_MS, SESSION_NOTES_FOLDER, MAX_SESSION_ACTIVITY, ACTIVITY_DEDUP_WINDOW_MS, MAX_CONTEXT_BINDINGS, MAX_SESSION_DECISIONS, MAX_OUTPUT_ARTIFACTS, SESSION_TYPE_CONFIGS } from "./types";
-import { createSession, createGoal, createDecision, createContextBinding, computeRemainingMs, computeElapsedMs, isTimerExpired, isExcluded, resolveTypeConfig, generateSessionOutput, updateSessionPathsForFileMove, updateSessionPathsForFolderMove, updateTemplatePathForFileMove, updateTemplatePathForFolderMove } from "./helpers";
+import { createSession, createGoal, createDecision, createContextBinding, computeRemainingMs, computeElapsedMs, isTimerExpired, isExcluded, isValidTransition, resolveTypeConfig, generateSessionOutput, updateSessionPathsForFileMove, updateSessionPathsForFolderMove, updateTemplatePathForFileMove, updateTemplatePathForFolderMove } from "./helpers";
 
 /**
  * Configuration options for the SessionService.
@@ -254,6 +254,13 @@ export class SessionService {
 					void this.handleTypeConfigure(event.payload.type, event.payload.config);
 				}),
 			);
+
+			// v2: Intent command (ADR-031)
+			this.unsubscribes.push(
+				this.eventBus.on("session.intent.set", (event) => {
+					void this.handleSetIntent(event.payload.sessionId, event.payload.intent);
+				}),
+			);
 		}
 	}
 
@@ -311,6 +318,25 @@ export class SessionService {
 				if (!s.outputArtifacts) {
 					s.outputArtifacts = [];
 				}
+				// v2 backward compat (ADR-031): map "active" → "running", init v2 fields
+				if (s.status === "active") {
+					s.status = "running";
+				}
+				if (s.intent === undefined) {
+					s.intent = null;
+				}
+				if (s.energy === undefined) {
+					s.energy = null;
+				}
+				if (!s.executionTasks) {
+					s.executionTasks = [];
+				}
+				if (!s.reflections) {
+					s.reflections = [];
+				}
+				if (s.closureResponse === undefined) {
+					s.closureResponse = null;
+				}
 				// Migrate legacy links → context bindings
 				if (s.links.length > 0) {
 					for (const link of s.links) {
@@ -330,7 +356,7 @@ export class SessionService {
 		// Resume or expire active session
 		if (this.state.activeSessionId) {
 			const session = this.findSession(this.state.activeSessionId);
-			if (session && session.status === "active") {
+			if (session && session.status === "running") {
 				if (isTimerExpired(session)) {
 					await this.completeSession(session);
 				} else {
@@ -594,7 +620,7 @@ export class SessionService {
 		// Only one active session at a time
 		if (this.state.activeSessionId) return;
 
-		session.status = "active";
+		session.status = "running";
 		session.startedAt = new Date().toISOString();
 		this.state.activeSessionId = session.id;
 		session.timeline.push({ action: "started", timestamp: session.startedAt });
@@ -606,7 +632,7 @@ export class SessionService {
 
 	private async handlePause(sessionId: string): Promise<void> {
 		const session = this.findSession(sessionId);
-		if (!session || session.status !== "active") return;
+		if (!session || session.status !== "running") return;
 
 		const now = Date.now();
 		if (session.startedAt) {
@@ -631,7 +657,7 @@ export class SessionService {
 		// Only one active session at a time
 		if (this.state.activeSessionId && this.state.activeSessionId !== session.id) return;
 
-		session.status = "active";
+		session.status = "running";
 		session.startedAt = new Date().toISOString();
 		session.pausedAt = null;
 		this.state.activeSessionId = session.id;
@@ -931,6 +957,71 @@ export class SessionService {
 		await this.eventBus?.emit("session.output.generated", { sessionId, artifact });
 	}
 
+	// ── v2: Intent & Energy handlers (ADR-031) ────────────────
+
+	/**
+	 * Sets or updates the intent for a session.
+	 * Only allowed in `prepared` or `paused` states (locked during running).
+	 */
+	private async handleSetIntent(sessionId: string, intent: SessionIntent): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session) return;
+		if (session.status !== "prepared" && session.status !== "paused") return;
+
+		const previous = session.intent;
+		session.intent = { ...intent };
+		await this.saveState();
+		await this.eventBus?.emit("session.intent.updated", { sessionId, intent: { ...intent }, previous });
+		if (intent.mode && (!previous || previous.mode !== intent.mode)) {
+			await this.eventBus?.emit("session.mode.set", { sessionId, mode: intent.mode });
+		}
+	}
+
+	/**
+	 * Changes the energy level for a session.
+	 * Only allowed in `running` or `paused` states.
+	 */
+	async handleEnergyChange(sessionId: string, level: EnergyLevel): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session) return;
+		if (session.status !== "running" && session.status !== "paused") return;
+
+		const before = session.energy;
+		session.energy = level;
+		await this.saveState();
+		await this.eventBus?.emit("session.energy.changed", { sessionId, before, after: level });
+	}
+
+	/**
+	 * Generic state transition handler (ADR-031).
+	 * Validates the transition and delegates to the appropriate handler.
+	 */
+	async handleStateTransition(sessionId: string, targetState: SessionStatusV2): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session) return;
+		const currentStatus = session.status as SessionStatusV2;
+		if (!isValidTransition(currentStatus, targetState)) return;
+
+		switch (targetState) {
+			case "running":
+				if (currentStatus === "prepared") await this.handleStart(sessionId);
+				else if (currentStatus === "paused") await this.handleResume(sessionId);
+				break;
+			case "paused":
+				await this.handlePause(sessionId);
+				break;
+			case "reviewing":
+				await this.handleComplete(sessionId);
+				break;
+			case "completed":
+				if (session.status === "reviewing") await this.finishReview(session);
+				break;
+			case "archived":
+				await this.handleArchive(sessionId);
+				break;
+		}
+	}
+
 	// ── Timer ────────────────────────────────────────────────
 
 	private startTimer(session: Session): void {
@@ -973,7 +1064,7 @@ export class SessionService {
 
 	private async trackArtifactToSession(sessionId: string, path: string, action: "created" | "modified"): Promise<void> {
 		const session = this.findSession(sessionId);
-		if (!session || session.status !== "active") return;
+		if (!session || session.status !== "running") return;
 
 		// Deduplicate: same path+action within ARTIFACT_DEDUP_WINDOW_MS
 		const now = Date.now();
@@ -1004,7 +1095,7 @@ export class SessionService {
 		oldPath: string | undefined, dedupWindowMs: number,
 	): Promise<void> {
 		const session = this.findSession(sessionId);
-		if (!session || session.status !== "active") return;
+		if (!session || session.status !== "running") return;
 
 		// Apply folder filters (ADR-026)
 		if (isExcluded(path, this.globalActivityFilter, session.activityFilter)) return;
@@ -1097,18 +1188,39 @@ export class SessionService {
 			session.startedAt = null;
 		}
 
-		session.status = "completed";
-		session.completedAt = new Date().toISOString();
-		session.pausedAt = null;
-		session.timeline.push({ action: "completed", timestamp: session.completedAt });
-
 		if (this.state.activeSessionId === session.id) {
 			this.stopTimer();
 			this.state.activeSessionId = null;
 		}
+		session.pausedAt = null;
+
+		// v2 (ADR-031): record reviewing step in timeline, then passthrough to completed.
+		// FR-14 (Closure Ritual) will gate the reviewing→completed transition on user input.
+		// Until then, both transitions happen synchronously before any await.
+		session.timeline.push({ action: "reviewing", timestamp: new Date().toISOString() });
+		session.status = "completed";
+		session.completedAt = new Date().toISOString();
+		session.timeline.push({ action: "completed", timestamp: session.completedAt });
+
 		await this.saveState();
 		await this.eventBus?.emit("session.completed", { session: { ...session } });
 		// Request workspace state capture from view
+		await this.eventBus?.emit("session.state.save", { sessionId: session.id });
+	}
+
+	/**
+	 * Transitions a session from reviewing → completed.
+	 * Called by handleStateTransition when session is already in "reviewing" state.
+	 * FR-14 will use this after closure ritual completion.
+	 */
+	async finishReview(session: Session): Promise<void> {
+		if (session.status !== "reviewing") return;
+		session.status = "completed";
+		session.completedAt = new Date().toISOString();
+		session.timeline.push({ action: "completed", timestamp: session.completedAt });
+
+		await this.saveState();
+		await this.eventBus?.emit("session.completed", { session: { ...session } });
 		await this.eventBus?.emit("session.state.save", { sessionId: session.id });
 	}
 

@@ -86,7 +86,7 @@ describe("Flow 12: Session Output and State Restoration", () => {
 		expect(events).toContain("session.state.restore");
 
 		session = service.getSessionById(sessionId)!;
-		expect(session.status).toBe("active");
+		expect(session.status).toBe("running");
 	});
 
 	it("skips state restore when no workspace state was captured", async () => {

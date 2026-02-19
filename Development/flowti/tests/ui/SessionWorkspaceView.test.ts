@@ -34,6 +34,11 @@ function makeSession(overrides?: Partial<Session>): Session {
 		decisions: [],
 		workspaceState: null,
 		outputArtifacts: [],
+		intent: null,
+		energy: null,
+		executionTasks: [],
+		reflections: [],
+		closureResponse: null,
 		...overrides,
 	};
 }
@@ -50,7 +55,7 @@ function makeGoal(overrides?: Partial<SessionGoal>): SessionGoal {
 
 function createMockSessionService(session: Session | null) {
 	return {
-		getActiveSession: vi.fn(() => session?.status === "active" ? session : null),
+		getActiveSession: vi.fn(() => (session?.status === "active" || session?.status === "running") ? session : null),
 		getSessionById: vi.fn((id: string) => session?.id === id ? session : null),
 		getSessions: vi.fn(() => session ? [session] : []),
 		getSavedTemplates: vi.fn(() => []),

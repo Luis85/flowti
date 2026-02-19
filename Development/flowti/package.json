@@ -14,7 +14,7 @@
     "check": "tsc -noEmit -skipLibCheck && npm run lint",
     "lint": "eslint ./src/",
     "version": "node version-bump.mjs && git add manifest.json versions.json",
-    "publish": "npm run test:coverage && npm run docs && node esbuild.config.mjs --production"
+    "publish": "npm run test:coverage && npm run docs && node esbuild.config.mjs --publish"
   },
   "keywords": [
     "business-development",

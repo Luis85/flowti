@@ -35,6 +35,11 @@ function makeSession(overrides: Partial<Session> = {}): Session {
 		decisions: [],
 		workspaceState: null,
 		outputArtifacts: [],
+		intent: null,
+		energy: null,
+		executionTasks: [],
+		reflections: [],
+		closureResponse: null,
 		...overrides,
 	};
 }
@@ -356,7 +361,7 @@ describe("SessionService", () => {
 
 			expect(handler).toHaveBeenCalled();
 			const session = handler.mock.calls[0][0].payload.session;
-			expect(session.status).toBe("active");
+			expect(session.status).toBe("running");
 			expect(session.startedAt).not.toBeNull();
 			expect(service.getActiveSession()?.id).toBe(sessionId);
 		});
@@ -408,7 +413,7 @@ describe("SessionService", () => {
 
 			expect(handler).toHaveBeenCalled();
 			const session = handler.mock.calls[0][0].payload.session;
-			expect(session.status).toBe("active");
+			expect(session.status).toBe("running");
 			expect(session.startedAt).not.toBeNull();
 			expect(session.pausedAt).toBeNull();
 		});
@@ -1568,9 +1573,11 @@ describe("SessionService", () => {
 			await eventBus.emit("session.complete", { sessionId });
 
 			const session = service.getSessions().find((s) => s.id === sessionId);
-			expect(session!.timeline).toHaveLength(2);
-			expect(session!.timeline[1].action).toBe("completed");
-			expect(session!.timeline[1].timestamp).toBe(session!.completedAt);
+			// v2: timeline includes reviewing + completed (passthrough)
+			expect(session!.timeline).toHaveLength(3);
+			expect(session!.timeline[1].action).toBe("reviewing");
+			expect(session!.timeline[2].action).toBe("completed");
+			expect(session!.timeline[2].timestamp).toBe(session!.completedAt);
 		});
 
 		it("should record full lifecycle in order", async () => {
@@ -1582,9 +1589,9 @@ describe("SessionService", () => {
 			await eventBus.emit("session.complete", { sessionId });
 
 			const session = service.getSessions().find((s) => s.id === sessionId);
-			expect(session!.timeline).toHaveLength(4);
+			expect(session!.timeline).toHaveLength(5);
 			expect(session!.timeline.map((e) => e.action)).toEqual([
-				"started", "paused", "resumed", "completed",
+				"started", "paused", "resumed", "reviewing", "completed",
 			]);
 		});
 
@@ -1600,7 +1607,7 @@ describe("SessionService", () => {
 			await eventBus.emit("session.complete", { sessionId });
 
 			const session = service.getSessions().find((s) => s.id === sessionId);
-			expect(session!.timeline).toHaveLength(6); // started, paused, resumed, paused, resumed, completed
+			expect(session!.timeline).toHaveLength(7); // started, paused, resumed, paused, resumed, reviewing, completed
 			expect(session!.timeline.filter((e) => e.action === "paused")).toHaveLength(2);
 		});
 

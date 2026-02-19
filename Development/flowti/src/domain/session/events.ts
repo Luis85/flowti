@@ -2,7 +2,7 @@
  * Event types owned by the Session domain.
  */
 
-import type { ContextBindingType, Session, SessionActivity, SessionArtifact, SessionContextBinding, SessionDecision, SessionGoal, SessionLink, SessionOutputArtifact, SessionOutputTemplate, SessionTemplate, SessionType, SessionTypeConfig, WorkspaceState } from "./types";
+import type { ClosureResponse, ContextBindingType, EnergyLevel, ExecutionTask, ReflectionEntry, Session, SessionActivity, SessionArtifact, SessionContextBinding, SessionDecision, SessionGoal, SessionIntent, SessionLink, SessionMode, SessionOutputArtifact, SessionOutputTemplate, SessionTemplate, SessionType, SessionTypeConfig, WorkspaceState } from "./types";
 
 export interface SessionEventMap {
 	// ── Commands ──────────────────────────────────────────────
@@ -174,4 +174,44 @@ export interface SessionEventMap {
 	"session.type.configured": { type: SessionType; config: SessionTypeConfig };
 	/** Emitted after a custom session type is created */
 	"session.type.created": { config: SessionTypeConfig };
+
+	// ── v2: Intent events (ADR-031, FR-10) ─────────────────
+	/** Command: set session intent (prepared/paused only) */
+	"session.intent.set": { sessionId: string; intent: SessionIntent };
+	/** Emitted after a session's intent is set or updated */
+	"session.intent.updated": { sessionId: string; intent: SessionIntent; previous: SessionIntent | null };
+	/** Emitted after a session's mode is set */
+	"session.mode.set": { sessionId: string; mode: SessionMode };
+
+	// ── v2: Energy events (ADR-031, FR-11) ─────────────────
+	/** Emitted after energy level is changed (running/paused only) */
+	"session.energy.changed": { sessionId: string; before: EnergyLevel | null; after: EnergyLevel };
+
+	// ── v2: Execution task events (ADR-031, FR-12) ─────────
+	/** Command: add a task to the execution plan */
+	"session.task.added": { sessionId: string; task: ExecutionTask };
+	/** Emitted after a task is marked completed */
+	"session.task.completed": { sessionId: string; taskId: string };
+	/** Emitted after a task is removed from the execution plan */
+	"session.task.removed": { sessionId: string; taskId: string };
+	/** Emitted after tasks are reordered */
+	"session.task.reordered": { sessionId: string; taskIds: string[] };
+
+	// ── v2: Reflection events (ADR-031, FR-13) ─────────────
+	/** Emitted after a reflection entry is added */
+	"session.reflection.added": { sessionId: string; entry: ReflectionEntry };
+	/** Emitted after a reflection entry is removed */
+	"session.reflection.removed": { sessionId: string; entryId: string };
+
+	// ── v2: Lifecycle & closure events (ADR-031, FR-09/14) ──
+	/** Emitted when session enters reviewing state */
+	"session.review.started": { sessionId: string };
+	/** Emitted when closure ritual begins (reviewing state) */
+	"session.closure.started": { sessionId: string };
+	/** Emitted after closure ritual is completed */
+	"session.closure.completed": { sessionId: string; response: ClosureResponse };
+
+	// ── v2: Cognitive overload (ADR-031, FR-16) ─────────────
+	/** Emitted when cognitive overload thresholds are exceeded */
+	"session.overload.detected": { sessionId: string; reasons: string[] };
 }

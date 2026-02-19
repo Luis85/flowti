@@ -31,9 +31,11 @@ const REPORTDIR = path.resolve(
 	process.cwd(),
   "docs",
   "reports",
+  "builds",
 );
 
 const isWatch = process.argv.includes("--watch");
+const isPublic = process.argv.includes("--publish");
 const prod = !isWatch;
 
 // --------------------------------------------------
@@ -140,8 +142,14 @@ const writeBuildReport = (result, startTime) => {
 		}
 	}
 
-	const reportName = `${now.toISOString()}-build-report.${manifest.version}.md`;
-	const reportPath = path.join(REPORTDIR, reportName);
+	const safeTimestamp = now.toISOString().replace(/:/g, "-");
+  let reportName = `${safeTimestamp}-build-report.${manifest.version}.md`;
+  
+  if(isPublic) {
+    reportName = `${safeTimestamp}-release-build-report.${manifest.version}.md`;
+  }
+  
+  const reportPath = path.join(REPORTDIR, reportName);
 
 	const frontmatter = [
 		"---",

@@ -60,6 +60,8 @@ function makeDeps(
 		openSaveTemplateModal: vi.fn(),
 		openFile: vi.fn(),
 		openSessionWorkspace: vi.fn(),
+		exportTemplateAsFile: vi.fn(),
+		importTemplateFromFile: vi.fn(),
 		getSettings: () => state.settings,
 	};
 }

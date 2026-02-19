@@ -101,7 +101,7 @@ describe("Flow 11: Session Management", () => {
 		// 2c. Start session
 		await eventBus.emit("session.start", { sessionId });
 		session = service.getSessionById(sessionId)!;
-		expect(session.status).toBe("active");
+		expect(session.status).toBe("running");
 		expect(session.startedAt).not.toBeNull();
 		expect(events).toContain("session.started");
 
@@ -148,7 +148,7 @@ describe("Flow 11: Session Management", () => {
 		vi.setSystemTime(new Date("2026-02-18T10:18:00.000Z"));
 		await eventBus.emit("session.resume", { sessionId });
 		session = service.getSessionById(sessionId)!;
-		expect(session.status).toBe("active");
+		expect(session.status).toBe("running");
 		expect(events).toContain("session.resumed");
 
 		// Verify decisions survive resume

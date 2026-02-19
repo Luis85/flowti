@@ -33,6 +33,11 @@ function makeSession(overrides?: Partial<Session>): Session {
 		decisions: [],
 		workspaceState: null,
 		outputArtifacts: [],
+		intent: null,
+		energy: null,
+		executionTasks: [],
+		reflections: [],
+		closureResponse: null,
 		...overrides,
 	};
 }

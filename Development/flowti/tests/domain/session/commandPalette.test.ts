@@ -116,7 +116,7 @@ describe("command palette integration", () => {
 			await flush();
 
 			expect(handler).toHaveBeenCalledOnce();
-			expect(service.getActiveSession()?.status).toBe("active");
+			expect(service.getActiveSession()?.status).toBe("running");
 		});
 
 		it("returns null from getActiveSession when no paused session exists", async () => {
@@ -143,7 +143,7 @@ describe("command palette integration", () => {
 			// Session is active, not paused — resume command would show Notice
 			const session = service.getActiveSession();
 			expect(session).not.toBeNull();
-			expect(session!.status).toBe("active");
+			expect(session!.status).toBe("running");
 			// The command checks: if (session && session.status === "paused")
 			// This would fail — user sees "No paused session to resume"
 			expect(session!.status !== "paused").toBe(true);

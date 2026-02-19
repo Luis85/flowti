@@ -19,13 +19,15 @@ import {
 const STATUS_ICONS: Record<string, string> = {
 	prepared: "circle",
 	active: "play",
+	running: "play",
 	paused: "pause",
+	reviewing: "eye",
 	completed: "check-circle",
 	archived: "archive",
 };
 
-/** Ordered status categories for the master list. */
-const STATUS_ORDER: string[] = ["active", "paused", "prepared", "completed", "archived"];
+/** Ordered status categories for the master list. "running" is v2 canonical for "active". */
+const STATUS_ORDER: string[] = ["running", "active", "paused", "prepared", "reviewing", "completed", "archived"];
 
 export class UserHubSessions {
 	private collapsedCategories = new Set<string>(["completed", "archived"]);
@@ -55,7 +57,7 @@ export class UserHubSessions {
 		header.style.borderBottom = "1px solid var(--background-modifier-border)";
 
 		const count = header.createSpan({ cls: "ft-text-sm ft-text-muted" });
-		const activeCount = sessions.filter((s) => s.status === "active").length;
+		const activeCount = sessions.filter((s) => s.status === "active" || s.status === "running").length;
 		count.setText(
 			`${sessions.length} session${sessions.length === 1 ? "" : "s"}${activeCount > 0 ? ` (${activeCount} active)` : ""}`,
 		);
@@ -123,7 +125,7 @@ export class UserHubSessions {
 			row.style.backgroundColor = "var(--background-modifier-hover)";
 		}
 
-		if (session.status === "active") {
+		if (session.status === "active" || session.status === "running") {
 			row.style.borderLeft = "3px solid var(--interactive-accent)";
 		}
 
@@ -160,13 +162,20 @@ export class UserHubSessions {
 			if (templates.length > 0) {
 				this.renderTemplateList(templates);
 			} else {
-				const empty = this.detailEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+				const empty = this.detailEl.createDiv({ cls: "ft-flex ft-flex-col ft-items-center ft-gap-2" });
 				empty.style.justifyContent = "center";
 				empty.style.padding = "3rem";
 				empty.style.color = "var(--text-muted)";
-				const icon = empty.createSpan();
+				const row = empty.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+				const icon = row.createSpan();
 				setIcon(icon, "timer");
-				empty.createSpan({ text: "Select a session to view details" });
+				row.createSpan({ text: "Select a session to view details" });
+				const importBtn = empty.createEl("button", { cls: "ft-btn ft-btn-sm" });
+				setIcon(importBtn, "download");
+				importBtn.appendText(" Import Template");
+				importBtn.addEventListener("click", () => {
+					this.deps.importTemplateFromFile();
+				});
 			}
 			return;
 		}
@@ -232,12 +241,12 @@ export class UserHubSessions {
 		this.renderActions(session);
 
 		// Timer section (active or paused)
-		if (session.status === "active" || session.status === "paused") {
+		if (session.status === "active" || session.status === "running" || session.status === "paused") {
 			const timerSection = this.detailEl.createDiv({ cls: "ft-detail-section" });
 			timerSection.style.padding = "1rem";
 
 			const timerLabel = timerSection.createDiv({ cls: "ft-text-sm ft-text-muted" });
-			timerLabel.setText(session.status === "active" ? "Time Remaining" : "Paused");
+			timerLabel.setText(session.status === "paused" ? "Paused" : "Time Remaining");
 
 			const remaining = computeRemainingMs(session);
 			const timerDisplay = timerSection.createDiv({ cls: "ft-session-timer" });
@@ -471,6 +480,7 @@ export class UserHubSessions {
 				break;
 
 			case "active":
+			case "running":
 				this.addActionButton(actions, "layout", "Workspace", () => {
 					this.deps.openSessionWorkspace(session.id);
 				});
@@ -548,7 +558,19 @@ export class UserHubSessions {
 	private renderTemplateList(templates: SessionTemplate[]): void {
 		const section = this.detailEl.createDiv({ cls: "ft-detail-section" });
 		section.style.padding = "1rem";
-		section.createEl("h4", { text: "Saved Templates", cls: "ft-heading ft-heading-sm" });
+
+		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		header.createEl("h4", { text: "Saved Templates", cls: "ft-heading ft-heading-sm" });
+		header.style.marginBottom = "0";
+		const headerSpacer = header.createDiv();
+		headerSpacer.style.flex = "1";
+		const importBtn = header.createEl("button", { cls: "ft-btn ft-btn-sm" });
+		setIcon(importBtn, "download");
+		importBtn.appendText(" Import");
+		importBtn.addEventListener("click", () => {
+			this.deps.importTemplateFromFile();
+		});
+
 		section.createDiv({
 			text: "Click a template to start a new session",
 			cls: "ft-text-sm ft-text-muted",
@@ -577,6 +599,13 @@ export class UserHubSessions {
 
 			const spacer = row.createDiv();
 			spacer.style.flex = "1";
+
+			const exportBtn = row.createEl("button", { cls: "ft-btn ft-btn-sm" });
+			setIcon(exportBtn, "upload");
+			exportBtn.addEventListener("click", (e) => {
+				e.stopPropagation();
+				this.deps.exportTemplateAsFile(tmpl.id);
+			});
 
 			const deleteBtn = row.createEl("button", { cls: "ft-btn ft-btn-sm" });
 			setIcon(deleteBtn, "trash-2");

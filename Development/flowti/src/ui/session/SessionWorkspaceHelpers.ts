@@ -32,8 +32,10 @@ export interface WorkspaceHelperContext {
 /** Returns inline CSS for a session status badge. */
 export function getStatusStyle(status: string): string {
 	switch (status) {
-		case "active": return "background:var(--color-green);color:var(--background-primary);";
+		case "active":
+		case "running": return "background:var(--color-green);color:var(--background-primary);";
 		case "paused": return "background:var(--color-yellow);color:var(--background-primary);";
+		case "reviewing": return "background:var(--color-orange);color:var(--background-primary);";
 		case "completed": return "background:var(--color-blue);color:var(--background-primary);";
 		default: return "background:var(--background-modifier-hover);";
 	}

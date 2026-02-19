@@ -446,6 +446,22 @@ const CATALOG_DATA = {
 	"session.template.exported": { category: "Session", description: "A session template was exported to JSON", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.template.imported": { category: "Session", description: "A session template was imported from JSON", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 
+	// ── Session v2: Intent, Energy, Lifecycle (ADR-031) ──────
+	"session.intent.set":         { category: "Session", description: "Command: set session intent (prepared/paused)", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
+	"session.intent.updated":     { category: "Session", description: "Session intent was set or updated", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.mode.set":           { category: "Session", description: "Session execution mode was set", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.energy.changed":     { category: "Session", description: "Session energy level changed", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.task.added":         { category: "Session", description: "Execution task added to session plan", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.task.completed":     { category: "Session", description: "Execution task marked completed", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.task.removed":       { category: "Session", description: "Execution task removed from session plan", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.task.reordered":     { category: "Session", description: "Execution tasks reordered", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.reflection.added":   { category: "Session", description: "Structured reflection entry added", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.reflection.removed": { category: "Session", description: "Structured reflection entry removed", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.review.started":     { category: "Session", description: "Session entered reviewing state", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.closure.started":    { category: "Session", description: "Closure ritual began (reviewing state)", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.closure.completed":  { category: "Session", description: "Closure ritual completed", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.overload.detected":  { category: "Session", description: "Cognitive overload thresholds exceeded", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+
 	// ── Nudge ─────────────────────────────────────────────────
 	"nudge.configure":  { category: "Nudge", description: "Command to add or update a nudge config", direction: "View → Plugin", domain: "nudge", services: "NudgeService", tags: ["system"] },
 	"nudge.configured": { category: "Nudge", description: "A nudge config was added or updated", direction: "Service → Listeners", domain: "nudge", services: "NudgeService", tags: ["system"] },

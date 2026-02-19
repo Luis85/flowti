@@ -168,7 +168,7 @@ export class SessionWorkspaceView extends ItemView {
 		this.timerPanel = new SessionTimerPanel(container, deps);
 		this.timerPanel.render();
 
-		if (this.session.status === "active" || this.session.status === "paused") {
+		if (this.session.status === "active" || this.session.status === "running" || this.session.status === "paused") {
 			this.guidingPanel = new SessionGuidingQuestions(container, deps, this.customSessionTypes);
 			this.guidingPanel.render();
 		}
@@ -245,7 +245,7 @@ export class SessionWorkspaceView extends ItemView {
 		const session = this.session;
 		const ctx = this.buildHelperContext();
 
-		if (session.status === "active") {
+		if (session.status === "active" || session.status === "running") {
 			this.createActionButton(this.actionsEl, "pause", "Pause", () => {
 				void this.eventBus.emit("session.pause", { sessionId: session.id });
 			});

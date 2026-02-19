@@ -1,10 +1,10 @@
 ---
 type: DevelopmentCycle
 feature: "[[Session Workspaces PRD]]"
-stage: in-progress
+stage: delivered
 cycle: 6
 date_planned: 2026-02-19
-date_completed:
+date_completed: 2026-02-19
 pbis:
   - "[[PBI-SW-010 Session Lifecycle v2 and Intent Layer]]"
 bugs: []
@@ -271,45 +271,64 @@ Inc 4: Session v2 Intent & Lifecycle Domain (depends on Inc 3 types)
 
 ## Success Metrics
 
-| Metric | Target |
-|--------|--------|
-| Tests added | ~67 new (~15 + ~22 + ~5 + ~25 for Inc 3 types + Inc 4 domain) |
-| Tests total | ~2,574+ |
-| Test suites | ~101+ (99 + Flow 14 + path reconciliation + v2 lifecycle) |
-| LOC added (source) | ~420 new (~120 template + ~40 path helper + ~60 types + ~200 service) |
-| Bugs fixed | 3 (DX progress — completed pre-cycle) |
-| PRD version | v8 (Session v2 – Focus & Execution Environment) |
-| FRI score | 22/35 → target 24/35 after Inc 3-4 |
-| PBIs defined | 8 new (PBI-SW-010 through PBI-SW-017) |
-| PBIs progressed | PBI-SW-010 (domain-first delivery in Inc 4) |
-| v2 FRs specified | 10 (FR-09 through FR-18) |
-| New events | ~17 (2 template + ~15 v2 lifecycle/intent/energy) |
-| ADRs produced | 1 (ADR-031: Session v2 Architecture) |
-| Three Amigos gaps closed | Flow 14 (nudges), path reconciliation helper + tests, command palette tests |
-| New flow test suites | 1 (Flow 14: Daily Session Nudges) |
-| Feature removed | FR-08 daily tracking (PBI-SW-007 deprecated) |
+| Metric | Target | Actual |
+|--------|--------|--------|
+| Tests added | ~67 new | ~33 net new (Inc 2 pre-satisfied, some removed with daily tracking) |
+| Tests total | ~2,574+ | 2,540 passing + 32 skipped = 2,572 total |
+| Test suites | ~101+ | 102 suites (794 test groups) |
+| LOC added (source) | ~420 new | ~500 net (+553 insertions, -52 deletions across 32 files) |
+| Bugs fixed | 3 (DX progress) | 3 (pre-cycle) |
+| PRD version | v8 | v8 |
+| FRI score | 22/35 → 24/35 | 22/35 → 26/35 (exceeded target) |
+| PBIs defined | 8 new | 8 (PBI-SW-010 through PBI-SW-017) |
+| PBIs progressed | PBI-SW-010 | PBI-SW-010 domain-first delivered |
+| v2 FRs specified | 10 | 10 (FR-09 through FR-18) |
+| New events | ~17 | 16 (2 template + 14 v2 lifecycle/intent/energy) |
+| ADRs produced | 1 | 1 (ADR-031: Session v2 Architecture) |
+| Three Amigos gaps closed | Flow 14, path recon, command palette | Pre-satisfied by existing tests |
+| New flow test suites | 1 | 0 (Flow 14 already existed) |
+| Feature removed | FR-08 daily tracking | FR-08 deprecated, daily-tracking type removed |
+| New test files | — | 2 (stateMachine.test.ts, sessionV2Lifecycle.test.ts) |
+| Source files modified | — | 11 (4 domain + 1 infrastructure + 6 UI compat) |
 
 ---
 
 ## Cycle Retrospective
 
 ### What Went Well
-<!-- Filled post-delivery -->
+
+- **FRI exceeded target** (26/35 vs 24/35) — v2 domain foundation is solid
+- **Domain-first delivery** worked well — pure types, helpers, and service extensions with no UI coupling
+- **ADR-031** provided clear architectural direction for all v2 work
+- **Backward compatibility** was handled cleanly: `"active"` → `"running"` migration, v2 field initialization
+- **State machine** as pure function (`isValidTransition`) enabled thorough isolated testing
+- **Inc 2 was pre-satisfied** — existing test coverage from Cycle 5 already met Three Amigos gap criteria
+- **Zero regression** — all 2,540 pre-existing tests continued passing after v2 changes
 
 ### Deviations from Plan
-<!-- Filled post-delivery -->
+
+- **Inc 2 required no new work**: The Three Amigos quality hardening tests (Flow 14, path reconciliation, command palette) were already written in previous cycles. This freed capacity for deeper Inc 4 work.
+- **Test count lower than target** (33 vs 67): Because Inc 2 was pre-satisfied, ~34 fewer tests were created. Net test count (2,572) is slightly below target (2,574+).
+- **`"reviewing"` state is passthrough-only**: The plan called for `reviewing → completed` to be gated, but since FR-14 (Closure Ritual) isn't implemented yet, the reviewing state is recorded in the timeline but the status transitions directly to `"completed"`. This avoids breaking the fire-and-forget event handler pattern.
+- **`esbuild.config.mjs` fix added**: ISO timestamp colons in build report filenames caused Windows ENOENT errors. Fixed as operational maintenance.
 
 ### Improvement Backlog (from this cycle)
-<!-- Filled post-delivery -->
+
+- **TD-092**: `SessionService` now at ~1,300 LOC — approaching extraction threshold. Consider extracting v2 handlers to `SessionLifecycleV2Handlers.ts` if Cycle 7 adds more.
+- **TD-093**: Fire-and-forget `void` pattern in event handlers masks async ordering issues. The `completeSession` reviewing passthrough exposed this. Future: consider awaiting handlers or documenting the "synchronous state mutation before first await" contract.
+- **TD-094**: `"active"` status still exists in test mock data and union type. Future cleanup: remove `"active"` from `SessionStatus` union once all consumers verified.
 
 ### Learnings
-<!-- Filled post-delivery -->
+
+- **Fire-and-forget + multi-await chains = ordering bugs**: When event handlers use `void this.handleX()`, all state mutations must complete before the first `await`. The `completeSession` reviewing passthrough broke tests because `session.status` was `"reviewing"` when the handler yielded control at `await saveState()`.
+- **Domain-first delivery de-risks UI work**: By implementing v2 domain types, state machine, and backward compat without any UI changes, we validated the data model and migration path without coupling to rendering concerns.
+- **Pre-existing test coverage can satisfy increment AC**: Inc 2's acceptance criteria were met by tests already written in Cycle 5. Recognizing this early saved time for higher-value work.
 
 ---
 
 ## Related
 
-- PRD: [[Session Workspaces PRD]] (v8, FRI 22/35 — Session v2 scope added)
+- PRD: [[Session Workspaces PRD]] (v8, FRI 26/35 — Cycle 6 delivered)
 - PRD: [[Data Exchange Hub PRD]] (3 bugs fixed pre-cycle)
 - PBIs: [[PBI-SW-010 Session Lifecycle v2 and Intent Layer]] (Inc 4 delivery)
 - Bugs: [[when running a pipeline from the pipeline detail page, the progress bar does not update]], [[when importing a report from the data-exchange hub dashboard and then starting another one, the progressbar gets confused and the first started export gets combined with the second one]], [[The Data Exchange Dashboard does not know when a Pipeline, Import, or Export was started or is still running after leaving the view]]
