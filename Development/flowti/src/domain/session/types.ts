@@ -327,6 +327,8 @@ export interface SessionTemplate {
 	goals?: string[];
 	/** Decision titles to pre-populate on sessions created from this template. */
 	decisions?: string[];
+	/** Execution task labels to pre-populate on sessions created from this template. */
+	tasks?: string[];
 	createdAt: number; // epoch ms
 }
 

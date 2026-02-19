@@ -806,10 +806,14 @@ interface Session {
 | `session.intent.updated` | User modifies intent | `{ sessionId, intent: SessionIntent }` | FR-10 |
 | `session.mode.set` | User selects mode | `{ sessionId, mode: SessionMode }` | FR-10 |
 | `session.energy.changed` | User adjusts energy | `{ sessionId, previous: EnergyLevel, current: EnergyLevel }` | FR-11 |
-| `session.task.added` | User adds execution task | `{ sessionId, task: ExecutionTask }` | FR-12 |
-| `session.task.completed` | User completes task | `{ sessionId, taskId: string }` | FR-12 |
-| `session.task.removed` | User removes task | `{ sessionId, taskId: string }` | FR-12 |
-| `session.task.reordered` | User reorders tasks | `{ sessionId, taskIds: string[] }` | FR-12 |
+| `session.task.add` | Command: add task | `{ sessionId, label: string }` | FR-12 |
+| `session.task.toggle` | Command: toggle task | `{ sessionId, taskId: string }` | FR-12 |
+| `session.task.remove` | Command: remove task | `{ sessionId, taskId: string }` | FR-12 |
+| `session.task.reorder` | Command: reorder tasks | `{ sessionId, taskIds: string[] }` | FR-12 |
+| `session.task.added` | Task added to plan | `{ sessionId, task: ExecutionTask }` | FR-12 |
+| `session.task.completed` | Task toggled complete | `{ sessionId, taskId: string }` | FR-12 |
+| `session.task.removed` | Task removed from plan | `{ sessionId, taskId: string }` | FR-12 |
+| `session.task.reordered` | Tasks reordered | `{ sessionId, taskIds: string[] }` | FR-12 |
 | `session.reflection.added` | User adds reflection | `{ sessionId, entry: ReflectionEntry }` | FR-13 |
 | `session.reflection.removed` | User removes reflection | `{ sessionId, entryId: string }` | FR-13 |
 | `session.review.started` | Timer reaches zero / manual | `{ sessionId }` | FR-09 |
@@ -961,17 +965,17 @@ interface Session {
 - [ ] Energy changes logged in event timeline
 - [ ] Used for cognitive overload detection (FR-16)
 
-### FR-12: Execution Plan — 🔜 Planned
+### FR-12: Execution Plan — 🔧 In Progress (domain delivered, UI pending)
 
-- [ ] Checklist-based task list within sessions
-- [ ] Add/remove/toggle tasks in Main mode
-- [ ] Max recommended tasks: 5 (configurable threshold)
-- [ ] Drag-and-drop reorder in Main mode
-- [ ] Progress indicator: `completedTasks / totalTasks`
-- [ ] Task completion emits `session.task.completed` event
-- [ ] Sidebar: read-only with check/uncheck allowed, no adding or reordering
-- [ ] Tasks persist with session state
-- [ ] Task count feeds cognitive overload detection (FR-16)
+- [x] Checklist-based task list within sessions *(Cycle 7 Inc 1 — domain CRUD)*
+- [ ] Add/remove/toggle tasks in Main mode *(UI — Inc 2)*
+- [x] Max recommended tasks: 5 (configurable threshold via `CognitiveLoadThresholds`)
+- [ ] Drag-and-drop reorder in Main mode *(UI — Inc 2)*
+- [x] Progress indicator: `getTaskProgress()` returns `{ completed, total, percent }` *(Cycle 7 Inc 1)*
+- [x] Task completion emits `session.task.completed` event *(Cycle 7 Inc 1)*
+- [ ] Sidebar: read-only with check/uncheck allowed, no adding or reordering *(deferred — PBI-SW-017)*
+- [x] Tasks persist with session state *(Cycle 7 Inc 1)*
+- [x] Task count feeds cognitive overload detection (FR-16)
 
 ### FR-13: Structured Reflection — 🔜 Planned
 
@@ -1180,7 +1184,7 @@ SessionSidebarView
 | 1 | PBI-SW-009 | Domain Design Session | Medium | PBI-SW-003 | 🔜 Planned (Cycle 7+) — guided domain decomposition workflow (SW-003 unblocked) |
 | 2 | PBI-SW-010 | Session Lifecycle v2 & Intent Layer | High | — | ✅ Done (Cycle 6) — v2 state machine + intent + energy handlers (domain-first) |
 | 3 | PBI-SW-011 | Energy Tracking | Medium | PBI-SW-010 | 🔜 Planned — 1–5 scale energy indicator |
-| 4 | PBI-SW-012 | Execution Plan (Task Checklist) | High | — | 🔜 Planned — checklist tasks with progress indicator |
+| 4 | PBI-SW-012 | Execution Plan (Task Checklist) | High | — | 🔧 In Progress — domain CRUD delivered (Cycle 7 Inc 1), UI pending (Inc 2) |
 | 5 | PBI-SW-013 | Structured Reflection | Medium | FR-03 (delivered) | 🔜 Planned — observations, blockers, ideas, decisions |
 | 6 | PBI-SW-014 | Closure Ritual System | High | PBI-SW-010 | 🔜 Planned — configurable review overlay |
 | 7 | PBI-SW-015 | Activity Intelligence | Low | FR-01 (delivered) | 🔜 Planned — computed analytics from activity |
@@ -1230,6 +1234,7 @@ See `backlog/PBI-SW-*.md` for detailed specifications.
 | 2026-02-19 | in-progress | in-progress | Backlog Refinement (v2) | 22/35 | — | PRD v8: Session v2 – Focus & Execution Environment. **Added:** Executive Summary (strategic purpose, business impact, strategic positioning), 10 new FRs (FR-09–FR-18), 8 new PBIs (SW-010–SW-017), v2 data model (9 new types), v2 event model (14 new events), v2 UI Composition Map (Main + Sidebar modes), Section 16 (Business Value), Section 17 (Strategic Perspective). **Removed:** Daily tracking feature (FR-08, PBI-SW-007 deprecated) — conflicts with intentional execution philosophy. FRI re-scored 34→22 to reflect undelivered v2 scope. Cycle 6 revised: Inc 3–4 replaced with v2 foundation work. |
 | 2026-02-19 | in-progress | in-progress | Cycle 6 Delivery | 26/35 | — | Cycle 6 delivered: Inc 1 (template import/export), Inc 2 (Three Amigos gaps pre-satisfied), Inc 3 (ADR-031, v2 types, state machine, 14 events registered), Inc 4 (PBI-SW-010 domain-first: lifecycle v2, intent, energy handlers). FRI updated: architecture 3→4, event_integration 3→4, data_model 3→4, validation_testing 2→3. 2,540 tests passing, 102 suites. `"active"` → `"running"` canonical status migration with backward compat. |
 | 2026-02-19 | in-progress | in-progress | Cycle 7 Planning | 26/35 | — | Cycle 7 planned: PBI-SW-012 (Execution Plan — domain + UI), PBI-SW-014 (Closure Ritual — domain + UI), PBI-SW-016 (Cognitive Overload Detection — spike). 4 increments. Inbox hygiene completed (both inboxes normalized). Feature Lifecycle PRD deferred (stays approved, no planning yet). |
+| 2026-02-19 | in-progress | in-progress | Cycle 7 Inc 1 — Execution Plan Domain | 26/35 | — | PBI-SW-012 Part 1 delivered: task CRUD (`addTask`, `toggleTask`, `removeTask`, `reorderTasks`), state guards, `getTaskProgress()` helper, template/rerun threading, 8 new events (4 commands + 4 state). `tasks?: string[]` added to `SessionTemplate`. 36 new tests, 2,576 total. Deviation: command/state event split added to avoid infinite listener loops (follows goal event pattern). SessionService ~1,420 LOC (+120). |
 
 ### Related Architecture Decisions
 

@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Session Workspaces PRD]]"
-stage: planned
+stage: in-progress
 cycle: 7
 date_planned: 2026-02-19
 date_completed:
@@ -96,17 +96,21 @@ total_test_files_after:
 **Est.:** ~120 LOC source, ~100 LOC tests, ~25 tests
 
 **Acceptance criteria:**
-- [ ] `addTask(sessionId, label)` creates `ExecutionTask` with generated ID, `order`, `completed: false`
-- [ ] `toggleTask(sessionId, taskId)` toggles `completed` and sets/clears `completedAt` timestamp
-- [ ] `removeTask(sessionId, taskId)` removes task and re-indexes `order` values
-- [ ] `reorderTasks(sessionId, taskIds)` validates all IDs exist and updates `order`
-- [ ] Events emitted: `session.task.added`, `session.task.completed`, `session.task.removed`, `session.task.reordered`
-- [ ] State guards: task operations only allowed in `prepared`, `running`, `paused` states
-- [ ] `getTaskProgress(tasks)` pure helper returns `{ completed, total, percent }`
-- [ ] `executionTasks` threaded through `rerunSession()` and `createFromTemplate()`
-- [ ] `npm test` passes
+- [x] `addTask(sessionId, label)` creates `ExecutionTask` with generated ID, `order`, `completed: false`
+- [x] `toggleTask(sessionId, taskId)` toggles `completed` and sets/clears `completedAt` timestamp
+- [x] `removeTask(sessionId, taskId)` removes task and re-indexes `order` values
+- [x] `reorderTasks(sessionId, taskIds)` validates all IDs exist and updates `order`
+- [x] Events emitted: `session.task.added`, `session.task.completed`, `session.task.removed`, `session.task.reordered`
+- [x] State guards: task operations only allowed in `prepared`, `running`, `paused` states
+- [x] `getTaskProgress(tasks)` pure helper returns `{ completed, total, percent }`
+- [x] `executionTasks` threaded through `rerunSession()` and `createFromTemplate()`
+- [x] `npm test` passes (2,576 tests, 103 suites)
 
-**Architecture seams:** Handlers in `SessionService`. Pure helper in `src/domain/session/helpers.ts`. Events registered in catalog. Types already exist from Cycle 6.
+**Actual:** ~120 LOC source, ~500 LOC tests, 36 tests
+
+**Deviation:** Added 4 command events (`session.task.add/toggle/remove/reorder`) separate from the 4 state events. Original plan had state events serving dual purpose, but this caused infinite listener loops. Fixed by following the established `session.goal.add` → `session.goal.added` command/state pattern. Also threaded tasks through `saveTemplateFromSession()` and added `tasks?: string[]` to `SessionTemplate` type (both unplanned but natural extensions of the threading requirement).
+
+**Architecture seams:** Public methods on `SessionService` (not private handlers). Pure helper in `src/domain/session/helpers.ts`. Events registered in catalog. Types already exist from Cycle 6.
 
 ---
 

@@ -187,10 +187,20 @@ export interface SessionEventMap {
 	/** Emitted after energy level is changed (running/paused only) */
 	"session.energy.changed": { sessionId: string; before: EnergyLevel | null; after: EnergyLevel };
 
-	// ── v2: Execution task events (ADR-031, FR-12) ─────────
+	// ── v2: Execution task commands (ADR-031, FR-12) ────────
 	/** Command: add a task to the execution plan */
+	"session.task.add": { sessionId: string; label: string };
+	/** Command: toggle a task's completed state */
+	"session.task.toggle": { sessionId: string; taskId: string };
+	/** Command: remove a task from the execution plan */
+	"session.task.remove": { sessionId: string; taskId: string };
+	/** Command: reorder tasks by new ID sequence */
+	"session.task.reorder": { sessionId: string; taskIds: string[] };
+
+	// ── v2: Execution task state events (ADR-031, FR-12) ────
+	/** Emitted after a task is added to the execution plan */
 	"session.task.added": { sessionId: string; task: ExecutionTask };
-	/** Emitted after a task is marked completed */
+	/** Emitted after a task's completed state is toggled */
 	"session.task.completed": { sessionId: string; taskId: string };
 	/** Emitted after a task is removed from the execution plan */
 	"session.task.removed": { sessionId: string; taskId: string };

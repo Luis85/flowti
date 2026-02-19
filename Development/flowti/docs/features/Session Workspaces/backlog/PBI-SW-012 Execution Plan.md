@@ -1,7 +1,7 @@
 ---
 type: ProductBacklogItem
 feature: "[[Session Workspaces PRD]]"
-stage: planned
+stage: in-progress
 priority: high
 effort: medium
 dependencies: []
@@ -49,26 +49,29 @@ Then a warning is shown (threshold: 5)
 
 ### Functional Requirements
 
-- [ ] `ExecutionTask` type: `{ id, label, completed, completedAt?, order }`
-- [ ] `executionTasks: ExecutionTask[]` field on Session interface
+- [x] `ExecutionTask` type: `{ id, label, completed, completedAt?, order }` *(Cycle 6)*
+- [x] `executionTasks: ExecutionTask[]` field on Session interface *(Cycle 6)*
 - [ ] Max recommended tasks: 5 (configurable threshold, soft limit)
-- [ ] Add task: `session.task.added` event
-- [ ] Remove task: `session.task.removed` event
-- [ ] Toggle task: `session.task.completed` event
-- [ ] Reorder tasks: `session.task.reordered` event
-- [ ] Progress indicator: `completedTasks / totalTasks`
+- [x] Add task: `session.task.add` command → `session.task.added` state event *(Cycle 7 Inc 1)*
+- [x] Remove task: `session.task.remove` command → `session.task.removed` state event *(Cycle 7 Inc 1)*
+- [x] Toggle task: `session.task.toggle` command → `session.task.completed` state event *(Cycle 7 Inc 1)*
+- [x] Reorder tasks: `session.task.reorder` command → `session.task.reordered` state event *(Cycle 7 Inc 1)*
+- [x] Progress indicator: `getTaskProgress()` pure helper returns `{ completed, total, percent }` *(Cycle 7 Inc 1)*
 - [ ] Main mode: full CRUD + drag-and-drop reorder
 - [ ] Sidebar mode: toggle only (no add, remove, or reorder)
-- [ ] Tasks persist with session state
-- [ ] Tasks carried through rerun and template flows
-- [ ] Backward compat: `executionTasks ??= []` in `load()`
+- [x] Tasks persist with session state *(Cycle 7 Inc 1)*
+- [x] Tasks carried through rerun and template flows *(Cycle 7 Inc 1)*
+- [x] Backward compat: `executionTasks ??= []` in `load()` *(Cycle 6)*
 
 ### Technical Requirements
 
-- `ExecutionTask` type in `src/domain/session/types.ts`
-- `handleTaskAdd()`, `handleTaskRemove()`, `handleTaskToggle()`, `handleTaskReorder()` in SessionService
-- Thread `executionTasks` through all creation paths per L-09
-- 4 new catalog entries for task events
+- [x] `ExecutionTask` type in `src/domain/session/types.ts` *(Cycle 6)*
+- [x] `addTask()`, `removeTask()`, `toggleTask()`, `reorderTasks()` public methods in SessionService *(Cycle 7 Inc 1)*
+- [x] Thread `executionTasks` through `handleCreate`, `rerunSession`, `createFromTemplate`, `saveTemplateFromSession` *(Cycle 7 Inc 1)*
+- [x] 8 catalog entries: 4 command events (`session.task.add/toggle/remove/reorder`) + 4 state events (`session.task.added/completed/removed/reordered`) *(Cycle 7 Inc 1)*
+- [x] `getTaskProgress()` pure helper in `helpers.ts` *(Cycle 7 Inc 1)*
+- [x] `tasks?: string[]` field added to `SessionTemplate` type *(Cycle 7 Inc 1)*
+- [x] State guards: task ops only in `prepared`, `running`, `paused` *(Cycle 7 Inc 1)*
 
 ### Constraints
 
@@ -77,14 +80,14 @@ Then a warning is shown (threshold: 5)
 
 ## Acceptance Criteria
 
-- [ ] Adding a task creates an ExecutionTask and emits event
-- [ ] Toggling a task sets `completed: true` with timestamp
-- [ ] Removing a task removes it from the list
-- [ ] Reordering tasks updates the `order` field
-- [ ] Progress indicator shows completed/total ratio
-- [ ] Tasks persist and restore on reload
+- [x] Adding a task creates an ExecutionTask and emits event *(Inc 1 — 36 tests)*
+- [x] Toggling a task sets `completed: true` with timestamp *(Inc 1)*
+- [x] Removing a task removes it from the list *(Inc 1)*
+- [x] Reordering tasks updates the `order` field *(Inc 1)*
+- [x] Progress indicator shows completed/total ratio *(Inc 1 — `getTaskProgress()`)*
+- [x] Tasks persist and restore on reload *(Inc 1)*
 - [ ] Max 5 recommendation shown (not enforced)
-- [ ] `npm run build` passes
+- [x] `npm run build` passes *(2,576 tests, 103 suites)*
 
 ### INVEST Checklist
 
@@ -102,6 +105,28 @@ Then a warning is shown (threshold: 5)
 - **Source LOC:** ~200 (types ~30, handlers ~100, helpers ~30, catalog ~40)
 - **Tests:** ~25
 - **Increments:** 2 (domain + UI)
+
+## Delivery — Cycle 7
+
+### Inc 1: Domain Layer (Cycle 7 Inc 1)
+
+**Files modified:**
+| File | Change | LOC |
+|------|--------|-----|
+| `src/domain/session/helpers.ts` | Added `getTaskProgress()` | +12 |
+| `src/domain/session/events.ts` | Added 4 command events | +8 |
+| `src/domain/session/types.ts` | Added `tasks?: string[]` to `SessionTemplate` | +2 |
+| `src/domain/session/SessionService.ts` | Task CRUD methods, event wiring, template threading | +100 |
+| `src/infrastructure/events/catalog.ts` | Registered 4 command events | +4 |
+| `tests/domain/session/executionTasks.test.ts` | New test file | +500 |
+
+**Tests:** 36 new (2,576 total, 103 suites)
+**Events:** 8 new (4 commands + 4 state), 90 total session events
+**SessionService LOC:** ~1,300 → ~1,420 (+120). TD-092 threshold approaching — evaluate extraction after Cycle 7.
+
+**Deviation:** Original event definitions used only state events (`session.task.added` etc.) for both commands and state notifications. Listening to these as commands caused infinite event loops. Fixed by adding separate command events (`session.task.add/toggle/remove/reorder`), following the established `session.goal.add` → `session.goal.added` pattern.
+
+### Inc 2: UI Layer (pending)
 
 ## Related
 

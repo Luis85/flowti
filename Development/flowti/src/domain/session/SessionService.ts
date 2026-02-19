@@ -13,7 +13,7 @@ import type { IEventBus } from "../../infrastructure/events/types";
 import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
 import type { ITypedStorage } from "../../utils/TypedStorage";
 import { generateUUID } from "../../utils/helpers";
-import type { ContextBindingType, EnergyLevel, Session, SessionActivity, SessionActivityAction, SessionContextBinding, SessionGoal, SessionIntent, SessionLink, SessionOutputArtifact, SessionOutputTemplate, SessionState, SessionStatusV2, SessionTemplate, SessionTemplateExport, SessionTypeConfig, WorkspaceState } from "./types";
+import type { ContextBindingType, EnergyLevel, ExecutionTask, Session, SessionActivity, SessionActivityAction, SessionContextBinding, SessionGoal, SessionIntent, SessionLink, SessionOutputArtifact, SessionOutputTemplate, SessionState, SessionStatusV2, SessionTemplate, SessionTemplateExport, SessionTypeConfig, WorkspaceState } from "./types";
 import { MAX_SESSIONS, MAX_TEMPLATES, ARTIFACT_DEDUP_WINDOW_MS, SESSION_NOTES_FOLDER, MAX_SESSION_ACTIVITY, ACTIVITY_DEDUP_WINDOW_MS, MAX_CONTEXT_BINDINGS, MAX_SESSION_DECISIONS, MAX_OUTPUT_ARTIFACTS, SESSION_TYPE_CONFIGS } from "./types";
 import { createSession, createGoal, createDecision, createContextBinding, computeRemainingMs, computeElapsedMs, isTimerExpired, isExcluded, isValidTransition, resolveTypeConfig, generateSessionOutput, updateSessionPathsForFileMove, updateSessionPathsForFolderMove, updateTemplatePathForFileMove, updateTemplatePathForFolderMove } from "./helpers";
 
@@ -261,6 +261,28 @@ export class SessionService {
 					void this.handleSetIntent(event.payload.sessionId, event.payload.intent);
 				}),
 			);
+
+			// v2: Execution task commands (ADR-031, FR-12)
+			this.unsubscribes.push(
+				this.eventBus.on("session.task.add", (event) => {
+					void this.handleTaskAdd(event.payload.sessionId, event.payload.label);
+				}),
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("session.task.toggle", (event) => {
+					void this.handleTaskToggle(event.payload.sessionId, event.payload.taskId);
+				}),
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("session.task.remove", (event) => {
+					void this.handleTaskRemove(event.payload.sessionId, event.payload.taskId);
+				}),
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("session.task.reorder", (event) => {
+					void this.handleTaskReorder(event.payload.sessionId, event.payload.taskIds);
+				}),
+			);
 		}
 	}
 
@@ -480,6 +502,7 @@ export class SessionService {
 			focusFile: session.focusFile ?? undefined,
 			goals: session.goals.length > 0 ? session.goals.map((g) => g.text) : undefined,
 			decisions: session.decisions.length > 0 ? session.decisions.map((d) => d.title) : undefined,
+			tasks: session.executionTasks.length > 0 ? session.executionTasks.map((t) => t.label) : undefined,
 		});
 	}
 
@@ -543,6 +566,7 @@ export class SessionService {
 			focusFile: session.focusFile ?? undefined,
 			goals: session.goals.map((g) => g.text),
 			decisions: session.decisions.map((d) => d.title),
+			tasks: session.executionTasks.map((t) => t.label),
 		});
 	}
 
@@ -560,6 +584,7 @@ export class SessionService {
 			focusFile: tmpl.focusFile,
 			goals: tmpl.goals,
 			decisions: tmpl.decisions,
+			tasks: tmpl.tasks,
 		});
 	}
 
@@ -576,7 +601,7 @@ export class SessionService {
 
 	// ── Command handlers ─────────────────────────────────────
 
-	private async handleCreate(payload: { type: string; title: string; durationMinutes: number; focusFile?: string; goals?: string[]; decisions?: string[] }): Promise<Session> {
+	private async handleCreate(payload: { type: string; title: string; durationMinutes: number; focusFile?: string; goals?: string[]; decisions?: string[]; tasks?: string[] }): Promise<Session> {
 		const id = `session_${generateUUID()}`;
 		const session = createSession(
 			id,
@@ -599,6 +624,16 @@ export class SessionService {
 		// Populate decisions from titles if provided (from template/rerun)
 		if (payload.decisions && payload.decisions.length > 0) {
 			session.decisions = payload.decisions.map((title) => createDecision(`dec_${generateUUID()}`, title, ""));
+		}
+
+		// Populate execution tasks from labels if provided (from template/rerun)
+		if (payload.tasks && payload.tasks.length > 0) {
+			session.executionTasks = payload.tasks.map((label, i): ExecutionTask => ({
+				id: `task_${generateUUID()}`,
+				label,
+				completed: false,
+				order: i,
+			}));
 		}
 
 		this.state.sessions.unshift(session);
@@ -990,6 +1025,114 @@ export class SessionService {
 		session.energy = level;
 		await this.saveState();
 		await this.eventBus?.emit("session.energy.changed", { sessionId, before, after: level });
+	}
+
+	// ── v2: Execution Task event delegates ─────────────────────
+
+	private async handleTaskAdd(sessionId: string, label: string): Promise<void> {
+		await this.addTask(sessionId, label);
+	}
+
+	private async handleTaskToggle(sessionId: string, taskId: string): Promise<void> {
+		await this.toggleTask(sessionId, taskId);
+	}
+
+	private async handleTaskRemove(sessionId: string, taskId: string): Promise<void> {
+		await this.removeTask(sessionId, taskId);
+	}
+
+	private async handleTaskReorder(sessionId: string, taskIds: string[]): Promise<void> {
+		await this.reorderTasks(sessionId, taskIds);
+	}
+
+	// ── v2: Execution Task handlers (ADR-031, FR-12) ───────────
+
+	/** Allowed states for task operations. */
+	private static readonly TASK_ALLOWED_STATES: readonly string[] = ["prepared", "running", "paused"];
+
+	/**
+	 * Adds a new execution task to a session.
+	 * Only allowed in prepared, running, or paused states.
+	 */
+	async addTask(sessionId: string, label: string): Promise<ExecutionTask | null> {
+		const session = this.findSession(sessionId);
+		if (!session || !SessionService.TASK_ALLOWED_STATES.includes(session.status)) return null;
+
+		const task: ExecutionTask = {
+			id: `task_${generateUUID()}`,
+			label,
+			completed: false,
+			order: session.executionTasks.length,
+		};
+		session.executionTasks.push(task);
+		await this.saveState();
+		await this.eventBus?.emit("session.task.added", { sessionId, task: { ...task } });
+		return task;
+	}
+
+	/**
+	 * Toggles an execution task's completed state.
+	 * Only allowed in prepared, running, or paused states.
+	 */
+	async toggleTask(sessionId: string, taskId: string): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session || !SessionService.TASK_ALLOWED_STATES.includes(session.status)) return;
+
+		const task = session.executionTasks.find((t) => t.id === taskId);
+		if (!task) return;
+
+		task.completed = !task.completed;
+		task.completedAt = task.completed ? new Date().toISOString() : undefined;
+		await this.saveState();
+		await this.eventBus?.emit("session.task.completed", { sessionId, taskId });
+	}
+
+	/**
+	 * Removes an execution task and re-indexes order values.
+	 * Only allowed in prepared, running, or paused states.
+	 */
+	async removeTask(sessionId: string, taskId: string): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session || !SessionService.TASK_ALLOWED_STATES.includes(session.status)) return;
+
+		const index = session.executionTasks.findIndex((t) => t.id === taskId);
+		if (index === -1) return;
+
+		session.executionTasks.splice(index, 1);
+		// Re-index order values
+		for (let i = 0; i < session.executionTasks.length; i++) {
+			session.executionTasks[i].order = i;
+		}
+		await this.saveState();
+		await this.eventBus?.emit("session.task.removed", { sessionId, taskId });
+	}
+
+	/**
+	 * Reorders execution tasks by the given ID sequence.
+	 * All provided IDs must exist in the session.
+	 * Only allowed in prepared, running, or paused states.
+	 */
+	async reorderTasks(sessionId: string, taskIds: string[]): Promise<void> {
+		const session = this.findSession(sessionId);
+		if (!session || !SessionService.TASK_ALLOWED_STATES.includes(session.status)) return;
+
+		// Validate: all IDs must exist and count must match
+		if (taskIds.length !== session.executionTasks.length) return;
+		const taskMap = new Map(session.executionTasks.map((t) => [t.id, t]));
+		const reordered: ExecutionTask[] = [];
+		for (const id of taskIds) {
+			const task = taskMap.get(id);
+			if (!task) return; // Invalid ID — abort
+			reordered.push(task);
+		}
+
+		// Apply new order
+		for (let i = 0; i < reordered.length; i++) {
+			reordered[i].order = i;
+		}
+		session.executionTasks = reordered;
+		await this.saveState();
+		await this.eventBus?.emit("session.task.reordered", { sessionId, taskIds });
 	}
 
 	/**

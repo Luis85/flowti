@@ -4,7 +4,7 @@
  * All functions are side-effect free and trivially testable.
  */
 
-import type { ContextBindingType, Session, SessionContextBinding, SessionDecision, SessionGoal, SessionOutputTemplate, SessionStatusV2, SessionTemplate, SessionType, SessionTypeConfig, PauseSegment, TimelineSummary } from "./types";
+import type { ContextBindingType, ExecutionTask, Session, SessionContextBinding, SessionDecision, SessionGoal, SessionOutputTemplate, SessionStatusV2, SessionTemplate, SessionType, SessionTypeConfig, PauseSegment, TimelineSummary } from "./types";
 import { SESSION_TYPE_CONFIGS } from "./types";
 
 // ── Session v2 State Machine (ADR-031) ───────────────────────
@@ -25,6 +25,19 @@ const VALID_TRANSITIONS: Record<SessionStatusV2, readonly SessionStatusV2[]> = {
  */
 export function isValidTransition(from: SessionStatusV2, to: SessionStatusV2): boolean {
 	return VALID_TRANSITIONS[from]?.includes(to) ?? false;
+}
+
+// ── Execution Task Helpers (FR-12) ───────────────────────────
+
+/**
+ * Returns progress stats for an execution task list.
+ * Pure function — no side effects.
+ */
+export function getTaskProgress(tasks: ExecutionTask[]): { completed: number; total: number; percent: number } {
+	const total = tasks.length;
+	if (total === 0) return { completed: 0, total: 0, percent: 0 };
+	const completed = tasks.filter((t) => t.completed).length;
+	return { completed, total, percent: Math.round((completed / total) * 100) };
 }
 
 // ── Session Type Resolution ──────────────────────────────────
