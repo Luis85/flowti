@@ -15,6 +15,7 @@ import type { SessionExecutionPanel } from "./SessionExecutionPanel";
 import type { SessionNotesPanel } from "./SessionNotesPanel";
 import type { SessionActivityPanel } from "./SessionActivityPanel";
 import type { SessionDecisionPanel } from "./SessionDecisionPanel";
+import type { SessionReflectionPanel } from "./SessionReflectionPanel";
 import type { SessionOutputPanel } from "./SessionOutputPanel";
 import type { CognitiveLoadAlert } from "./CognitiveLoadAlert";
 
@@ -36,6 +37,7 @@ export interface SubscriptionViewContext {
 	getNotesPanel(): SessionNotesPanel | null;
 	getActivityPanel(): SessionActivityPanel | null;
 	getDecisionPanel(): SessionDecisionPanel | null;
+	getReflectionPanel(): SessionReflectionPanel | null;
 	getOutputPanel(): SessionOutputPanel | null;
 	getOverloadAlert(): CognitiveLoadAlert | null;
 }
@@ -161,6 +163,19 @@ export function setupEventSubscriptions(
 				if (event.payload.sessionId === ctx.getSession()?.id) {
 					ctx.setSession(ctx.refreshSession());
 					ctx.getDecisionPanel()?.refreshList();
+				}
+			}),
+		);
+	}
+
+	// Reflection changes — refresh reflections panel
+	const reflectionEvents = ["session.reflection.added", "session.reflection.removed"] as const;
+	for (const eventType of reflectionEvents) {
+		unsubs.push(
+			eventBus.on(eventType, (event) => {
+				if (event.payload.sessionId === ctx.getSession()?.id) {
+					ctx.setSession(ctx.refreshSession());
+					ctx.getReflectionPanel()?.refreshList();
 				}
 			}),
 		);

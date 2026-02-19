@@ -65,6 +65,7 @@ function makeContext(session: Session | null = makeSession()): SubscriptionViewC
 		getActivityPanel: () => ({ refreshList: vi.fn() }) as never,
 		getExecutionPanel: () => ({ refreshTasks: vi.fn() }) as never,
 		getDecisionPanel: () => ({ refreshList: vi.fn() }) as never,
+		getReflectionPanel: () => ({ refreshList: vi.fn() }) as never,
 		getOutputPanel: () => ({ refreshList: vi.fn() }) as never,
 		getOverloadAlert: () => ({ refreshAlert: vi.fn() }) as never,
 		mocks,
@@ -350,5 +351,52 @@ describe("setupEventSubscriptions", () => {
 		});
 
 		expect(refreshAlert).not.toHaveBeenCalled();
+	});
+
+	it("session.reflection.added refreshes reflection panel", async () => {
+		const eventBus = new EventBus();
+		const refreshList = vi.fn();
+		const ctx = makeContext();
+		(ctx as { getReflectionPanel: () => unknown }).getReflectionPanel = () => ({ refreshList });
+		setupEventSubscriptions(ctx, eventBus);
+
+		await eventBus.emit("session.reflection.added", {
+			sessionId: "session-1",
+			entry: { id: "ref-1", type: "observation", content: "Test", timestamp: new Date().toISOString() },
+		});
+
+		expect(ctx.mocks.setSession).toHaveBeenCalled();
+		expect(refreshList).toHaveBeenCalled();
+	});
+
+	it("session.reflection.removed refreshes reflection panel", async () => {
+		const eventBus = new EventBus();
+		const refreshList = vi.fn();
+		const ctx = makeContext();
+		(ctx as { getReflectionPanel: () => unknown }).getReflectionPanel = () => ({ refreshList });
+		setupEventSubscriptions(ctx, eventBus);
+
+		await eventBus.emit("session.reflection.removed", {
+			sessionId: "session-1",
+			entryId: "ref-1",
+		});
+
+		expect(ctx.mocks.setSession).toHaveBeenCalled();
+		expect(refreshList).toHaveBeenCalled();
+	});
+
+	it("session.reflection.added is ignored for different session", async () => {
+		const eventBus = new EventBus();
+		const refreshList = vi.fn();
+		const ctx = makeContext();
+		(ctx as { getReflectionPanel: () => unknown }).getReflectionPanel = () => ({ refreshList });
+		setupEventSubscriptions(ctx, eventBus);
+
+		await eventBus.emit("session.reflection.added", {
+			sessionId: "other-session",
+			entry: { id: "ref-1", type: "observation", content: "Test", timestamp: new Date().toISOString() },
+		});
+
+		expect(refreshList).not.toHaveBeenCalled();
 	});
 });

@@ -1,7 +1,7 @@
 ---
 type: ProductBacklogItem
 feature: "[[Session Workspaces PRD]]"
-stage: in-progress
+stage: done
 priority: medium
 effort: medium
 dependencies: []
@@ -56,7 +56,7 @@ And decisions can be linked to domain decision records
 - [x] `session.reflection.added` event with `{ sessionId, entry: ReflectionEntry }`
 - [x] `session.reflection.removed` event with `{ sessionId, entryId: string }`
 - [x] `handleReflectionAdd()` and `handleReflectionRemove()` in SessionService (state guards: running/paused)
-- [ ] Each category rendered as separate section in workspace *(Inc 4)*
+- [x] Each category rendered as separate section in workspace *(Inc 4)*
 - [ ] Decision entries can emit `decision.recorded` domain event *(deferred)*
 - [ ] Decisions can be converted to standalone decision records *(deferred)*
 - [x] Reflections included in session summary grouped by type (with category icons)
@@ -83,11 +83,11 @@ And decisions can be linked to domain decision records
 
 - [x] Adding a reflection in any category creates an entry and emits event *(Inc 3)*
 - [x] Removing a reflection removes it from the list *(Inc 3)*
-- [ ] 4 categories are rendered separately in workspace *(Inc 4)*
+- [x] 4 categories are rendered separately in workspace *(Inc 4)*
 - [ ] Decisions retain their existing domain event capability *(deferred)*
 - [x] Session summary includes reflections grouped by type *(Inc 3)*
 - [x] Sessions without reflections load cleanly (backward compat) *(Inc 3)*
-- [x] `npm test` passes (2,748 tests, 108 suites) *(Inc 3)*
+- [x] `npm test` passes (2,768 tests, 109 suites) *(Inc 3 + Inc 4)*
 
 ### INVEST Checklist
 
@@ -123,6 +123,22 @@ And decisions can be linked to domain decision records
 | `src/infrastructure/events/catalog.ts` | Added 2 command event catalog entries |
 | `tests/domain/session/SessionService.test.ts` | +12 reflection handler + template tests |
 | `tests/domain/session/helpers.test.ts` | +3 summary body reflection tests |
+
+## Delivery Summary — Inc 4 (UI)
+
+- **Delivered in:** Cycle 8 Inc 4
+- **Source LOC:** ~130 (SessionReflectionPanel component + view integration + subscription wiring)
+- **Tests:** 20 new (17 component + 3 subscriptions), 2,768 total, 109 suites
+
+### Files Changed (Inc 4)
+
+| File | Change |
+|------|--------|
+| `src/ui/session/SessionReflectionPanel.ts` | **New** — category-grouped entries with Lucide icons, add form (dropdown + input), remove button, `refreshList()` |
+| `src/ui/SessionWorkspaceView.ts` | Added `reflectionPanel` field, render call between decisions and activity, `getReflectionPanel` in subscription context |
+| `src/ui/session/SessionWorkspaceSubscriptions.ts` | Added `getReflectionPanel()` to `SubscriptionViewContext`, wired `session.reflection.added`/`removed` subscriptions |
+| `tests/ui/session/SessionReflectionPanel.test.ts` | **New** — 17 component tests (categories, add form, remove, state guards, refresh) |
+| `tests/ui/session/SessionWorkspaceSubscriptions.test.ts` | +3 reflection subscription tests |
 
 ## Related
 

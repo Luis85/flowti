@@ -984,7 +984,7 @@ interface Session {
 - [x] Tasks persist with session state *(Cycle 7 Inc 1)*
 - [x] Task count feeds cognitive overload detection (FR-16)
 
-### FR-13: Structured Reflection — ✅ Domain Done (Cycle 8 Inc 3), UI Planned (Inc 4)
+### FR-13: Structured Reflection — ✅ Done (Cycle 8 Inc 3 + Inc 4)
 
 - [x] 4 reflection categories: Observations, Blockers, Ideas, Decisions
 - [x] Extends existing FR-03 Decision Log architecture
@@ -995,7 +995,7 @@ interface Session {
 - [x] Reflections included in session summary (note sync) with category icons
 - [x] Template threading: reflections saved/restored through rerun + template + import/export
 - [ ] Backward compatible: existing `decisions[]` migrated to `reflections[]` with `type: "decision"` *(deferred — decisions coexist)*
-- [ ] UI panel rendering (Inc 4)
+- [x] UI panel rendering: `SessionReflectionPanel` with category-grouped entries, add form, remove button (Inc 4)
 
 ### FR-14: Closure Ritual System — ✅ Done (Cycle 7)
 
@@ -1194,7 +1194,7 @@ SessionSidebarView
 | 2 | PBI-SW-010 | Session Lifecycle v2 & Intent Layer | High | — | ✅ Done (Cycle 6) — v2 state machine + intent + energy handlers (domain-first) |
 | 3 | PBI-SW-011 | Energy Tracking | Medium | PBI-SW-010 | ✅ Done (Cycle 8 Inc 1) — SessionEnergyIndicator component, session.energy.set command, note sync, 20 tests |
 | 4 | PBI-SW-012 | Execution Plan (Task Checklist) | High | — | ✅ Done (Cycle 7) — domain CRUD (Inc 1), UI panel + progress bar + reorder (Inc 2) |
-| 5 | PBI-SW-013 | Structured Reflection | Medium | FR-03 (delivered) | 🔧 In Progress (Cycle 8 Inc 3 domain done, Inc 4 UI pending) |
+| 5 | PBI-SW-013 | Structured Reflection | Medium | FR-03 (delivered) | ✅ Done (Cycle 8 Inc 3 + Inc 4) |
 | 6 | PBI-SW-014 | Closure Ritual System | High | PBI-SW-010 | ✅ Done (Cycle 7) — configurable review overlay |
 | 7 | PBI-SW-015 | Activity Intelligence | Low | FR-01 (delivered) | 🔜 Planned — computed analytics from activity |
 | 8 | PBI-SW-016 | Cognitive Overload Detection | Low | — | ✅ Done (Cycle 8 Inc 2) — pure detection + non-blocking alert |
@@ -1204,7 +1204,7 @@ SessionSidebarView
 
 > **v8 change — Daily tracking removed:** PBI-SW-007 (Auto-Session & Session Nudges) has been deprecated. The daily-tracking session type, auto-start, concurrent session support, daily note integration, and nudge system conflict with Session v2's philosophy of intentional execution environments. The `daily-tracking` session type, `dailySessionId`, `getDailySession()`, `generateDailySummary()`, nudge scheduler, and 8 related events (5 daily + 3 nudge) will be removed during v2 implementation. PBI-SW-007 status: Done → Removed.
 
-> **Remaining backlog:** 3 PBIs planned (PBI-SW-009, SW-015, SW-017), 1 in-progress (SW-013 domain done, UI pending). 5 v2 PBIs delivered: SW-010 (Cycle 6), SW-012 + SW-014 (Cycle 7), SW-011 + SW-016 (Cycle 8). 7/8 v1 PBIs remain valid (SW-001 through SW-006, SW-008).
+> **Remaining backlog:** 3 PBIs planned (PBI-SW-009, SW-015, SW-017). 6 v2 PBIs delivered: SW-010 (Cycle 6), SW-012 + SW-014 (Cycle 7), SW-011 + SW-013 + SW-016 (Cycle 8). 7/8 v1 PBIs remain valid (SW-001 through SW-006, SW-008).
 
 > **Priority ranking** (remaining delivery order by value): PBI-SW-013 (Reflection) → PBI-SW-017 (Main/Sidebar) → PBI-SW-015 (Activity Intelligence). PBI-SW-009 deferred (depends on Workshop mode patterns from FR-18). **Rationale:** SW-013 completes the execution layer foundation (small effort); SW-017 is the major UI refactor (large); SW-015 is analytics polish (low priority).
 
@@ -1251,6 +1251,7 @@ See `backlog/PBI-SW-*.md` for detailed specifications.
 | 2026-02-19 | in-progress | in-progress | Cycle 8 Inc 1 — Energy Tracking UI | 29/35 | — | PBI-SW-011 delivered: `session.energy.set` command event + catalog entry. `SessionEnergyIndicator` component (~90 LOC) — clickable 1–5 scale with ⚡ visual, editable in running/paused, read-only otherwise. Integrated into SessionWorkspaceView between timer and guiding questions. Energy subscription wired in SessionWorkspaceSubscriptions. Energy level added to `generateSessionSummaryBody()` for note sync. FRI updated: ui_consistency 2→3. 20 new tests, 2,707 total, 107 suites. FR-11 **Done**. |
 | 2026-02-19 | in-progress | in-progress | Cycle 8 Inc 2 — Cognitive Overload Detection | 30/35 | — | PBI-SW-016 delivered: `detectCognitiveOverload()` pure function in helpers (~40 LOC) — checks 4 thresholds (tasks, bindings, duration, compound energy+tasks). `OverloadResult` + `DEFAULT_COGNITIVE_LOAD_THRESHOLDS` types. `CognitiveLoadAlert` component (~80 LOC) — non-blocking warning banner with reason list, suggestion, dismissible. `checkCognitiveOverload()` in SessionService — deduped emission via reason-key comparison, wired to 5 handlers (addTask, removeTask, contextBind, contextUnbind, energyChange). `session.overload.detected` subscription in workspace. FRI updated: validation_testing 4→5. 26 new tests, 2,733 total, 108 suites. FR-16 **Done**. |
 | 2026-02-19 | in-progress | in-progress | Cycle 8 Inc 3 — Structured Reflection Domain | 30/35 | — | PBI-SW-013 Part 1 delivered: `session.reflection.add`/`remove` command events + catalog entries. `handleReflectionAdd()`/`handleReflectionRemove()` handlers in SessionService with state guards (running/paused only). Reflections section added to `generateSessionSummaryBody()` with category icons (👁🚫💡⚖️). Template threading: `reflections` field on `SessionTemplate`, threaded through `saveTemplateFromSession`, `rerunSession`, `createFromTemplate`, `handleCreate`, `exportTemplate`. `session.create` event payload extended. 15 new tests, 2,748 total, 108 suites. FR-13 domain **Done**. |
+| 2026-02-19 | in-progress | in-progress | Cycle 8 Inc 4 — Structured Reflection UI | 30/35 | — | PBI-SW-013 Part 2 delivered: `SessionReflectionPanel` component (~130 LOC) — category-grouped entries with Lucide icons (eye, alert-circle, lightbulb, scale), add form with category dropdown + text input, remove button per entry, read-only in completed/archived. Integrated into `SessionWorkspaceView` between decisions and activity. 2 reflection event subscriptions wired in `SessionWorkspaceSubscriptions`. PBI-SW-013 **Done**. FR-13 fully **Done**. 20 new tests, 2,768 total, 109 suites. |
 
 ### Related Architecture Decisions
 
