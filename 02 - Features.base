@@ -26,9 +26,6 @@ views:
       and:
         - file.folder.contains("flowti")
         - type == "ProductRequirementsDocument"
-    groupBy:
-      property: domain
-      direction: ASC
     order:
       - file.name
       - stage
