@@ -389,6 +389,13 @@ export function generateSessionSummaryBody(session: Session): string {
 		lines.push("");
 	}
 
+	// Energy level
+	if (session.energy !== null && session.energy !== undefined) {
+		const ENERGY_LABELS: Record<number, string> = { 1: "Drained", 2: "Low", 3: "Moderate", 4: "Good", 5: "Energized" };
+		lines.push(`**Energy:** ${"⚡".repeat(session.energy)} ${ENERGY_LABELS[session.energy] ?? ""} (${session.energy}/5)`);
+		lines.push("");
+	}
+
 	// Guiding Questions (from session type config)
 	const config = SESSION_TYPE_CONFIGS[session.type];
 	if (config?.guidingQuestions.length > 0) {

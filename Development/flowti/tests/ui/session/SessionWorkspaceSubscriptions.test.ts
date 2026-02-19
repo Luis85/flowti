@@ -59,6 +59,7 @@ function makeContext(session: Session | null = makeSession()): SubscriptionViewC
 		captureWorkspaceState: mocks.captureWorkspaceState,
 		restoreWorkspaceState: mocks.restoreWorkspaceState,
 		getTimerPanel: () => ({ updateDisplay: vi.fn() }) as never,
+		getEnergyPanel: () => ({ refreshEnergy: vi.fn() }) as never,
 		getGoalsPanel: () => ({ refreshGoals: vi.fn() }) as never,
 		getNotesPanel: () => ({ updateNotes: vi.fn() }) as never,
 		getActivityPanel: () => ({ refreshList: vi.fn() }) as never,
@@ -257,6 +258,41 @@ describe("setupEventSubscriptions", () => {
 			goal: { id: "g1", text: "test", completed: false, completedAt: null },
 		});
 
+		expect(ctx.mocks.refreshSession).not.toHaveBeenCalled();
+	});
+
+	it("session.energy.changed triggers refreshSession + refreshEnergy on energy panel", async () => {
+		const eventBus = new EventBus();
+		const refreshEnergy = vi.fn();
+		const ctx = makeContext();
+		(ctx as { getEnergyPanel: () => unknown }).getEnergyPanel = () => ({ refreshEnergy });
+		setupEventSubscriptions(ctx, eventBus);
+
+		await eventBus.emit("session.energy.changed", {
+			sessionId: "session-1",
+			before: null,
+			after: 3,
+		});
+
+		expect(ctx.mocks.refreshSession).toHaveBeenCalled();
+		expect(ctx.mocks.setSession).toHaveBeenCalled();
+		expect(refreshEnergy).toHaveBeenCalled();
+	});
+
+	it("session.energy.changed is ignored for different sessions", async () => {
+		const eventBus = new EventBus();
+		const refreshEnergy = vi.fn();
+		const ctx = makeContext();
+		(ctx as { getEnergyPanel: () => unknown }).getEnergyPanel = () => ({ refreshEnergy });
+		setupEventSubscriptions(ctx, eventBus);
+
+		await eventBus.emit("session.energy.changed", {
+			sessionId: "other-session",
+			before: null,
+			after: 3,
+		});
+
+		expect(refreshEnergy).not.toHaveBeenCalled();
 		expect(ctx.mocks.refreshSession).not.toHaveBeenCalled();
 	});
 

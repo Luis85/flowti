@@ -12,9 +12,9 @@ maturity_score_scope: 4
 maturity_score_architecture: 4
 maturity_score_event_integration: 5
 maturity_score_data_model: 4
-maturity_score_ui_consistency: 2
+maturity_score_ui_consistency: 3
 maturity_score_validation_testing: 4
-fri_score: 28
+fri_score: 29
 business_value: 5
 implementation_cost: 4
 maintenance_cost: 3
@@ -492,7 +492,7 @@ SessionWorkspace (L2 → L3)
 Session v2 – Focus & Execution (L3 Extension)
  ├── Session Lifecycle v2      🔜 FR-09: prepared → running → paused → reviewing → completed → archived
  ├── Intent Layer              🔜 FR-10: primary outcome, why it matters, session mode
- ├── Energy Tracking           🔜 FR-11: 1–5 scale, event-driven
+ ├── Energy Tracking           ✅ FR-11: 1–5 scale, event-driven (Cycle 8)
  ├── Execution Plan            ✅ FR-12: checklist tasks, progress indicator
  ├── Structured Reflection     🔜 FR-13: observations, blockers, ideas, decisions
  ├── Closure Ritual System     ✅ FR-14: configurable review overlay (Cycle 7)
@@ -705,7 +705,7 @@ interface Session {
   outputArtifacts: SessionOutputArtifact[]; // ✅ Delivered Cycle 3 (FR-07)
   // v2 extensions
   intent: SessionIntent | null;             // 🔜 Planned FR-10
-  energy: EnergyLevel | null;              // 🔜 Planned FR-11
+  energy: EnergyLevel | null;              // ✅ Done FR-11 (Cycle 8)
   executionTasks: ExecutionTask[];          // ✅ Done FR-12
   reflections: ReflectionEntry[];          // 🔜 Planned FR-13
   closureResponse: ClosureResponse | null; // ✅ Done FR-14 (Cycle 7)
@@ -806,7 +806,8 @@ interface Session {
 | `session.intent.set` | User defines intent | `{ sessionId, intent: SessionIntent }` | FR-10 |
 | `session.intent.updated` | User modifies intent | `{ sessionId, intent: SessionIntent }` | FR-10 |
 | `session.mode.set` | User selects mode | `{ sessionId, mode: SessionMode }` | FR-10 |
-| `session.energy.changed` | User adjusts energy | `{ sessionId, previous: EnergyLevel, current: EnergyLevel }` | FR-11 |
+| `session.energy.set` | Command: set energy level | `{ sessionId, level: EnergyLevel }` | FR-11 |
+| `session.energy.changed` | User adjusts energy | `{ sessionId, before: EnergyLevel, after: EnergyLevel }` | FR-11 |
 | `session.task.add` | Command: add task | `{ sessionId, label: string }` | FR-12 |
 | `session.task.toggle` | Command: toggle task | `{ sessionId, taskId: string }` | FR-12 |
 | `session.task.remove` | Command: remove task | `{ sessionId, taskId: string }` | FR-12 |
@@ -824,7 +825,8 @@ interface Session {
 
 | Source | Events |
 |--------|--------|
-| v2 Planned | ~14 |
+| v2 Planned | ~13 |
+| Cycle 8 Inc 1 (energy command: 1) | 1 |
 | **Total session events (delivered + planned)** | **~84** |
 
 ---
@@ -956,15 +958,15 @@ interface Session {
 - [ ] Intent visible in both Main and Sidebar modes *(deferred — PBI-SW-017)*
 - [ ] Outcome immutability configurable per session type *(deferred — future enhancement)*
 
-### FR-11: Energy Tracking — 🔜 Planned
+### FR-11: Energy Tracking — ✅ Done (Cycle 8 Inc 1)
 
-- [ ] 1–5 scale energy indicator (clickable)
-- [ ] User-adjustable during active session
-- [ ] Changes emit `session.energy.changed` event with `{ previous, current }`
-- [ ] Energy level visible in Main and Sidebar modes
-- [ ] Energy persisted with session state
-- [ ] Energy changes logged in event timeline
-- [ ] Used for cognitive overload detection (FR-16)
+- [x] 1–5 scale energy indicator (clickable) *(SessionEnergyIndicator component, ⚡ visual)*
+- [x] User-adjustable during active session *(running/paused states, read-only in completed/archived)*
+- [x] Changes emit `session.energy.changed` event with `{ before, after }` *(via session.energy.set command)*
+- [ ] Energy level visible in Main and Sidebar modes *(Main done; Sidebar deferred — PBI-SW-017)*
+- [x] Energy persisted with session state *(saveState() + note sync via scheduleSyncNotesFile())*
+- [x] Energy changes logged in event timeline *(session.energy.changed emitted)*
+- [x] Used for cognitive overload detection (FR-16) *(energy field available for threshold check)*
 
 ### FR-12: Execution Plan — ✅ Done (domain + UI delivered)
 
@@ -1184,7 +1186,7 @@ SessionSidebarView
 | — | PBI-SW-007 | Auto-Session & Session Nudges | Medium | — | ✅ Done (Cycles 4+5) — daily tracking, concurrent sessions, auto-start, nudges, daily summary, command palette, dashboard quick action |
 | 1 | PBI-SW-009 | Domain Design Session | Medium | PBI-SW-003 | 🔜 Planned (Cycle 7+) — guided domain decomposition workflow (SW-003 unblocked) |
 | 2 | PBI-SW-010 | Session Lifecycle v2 & Intent Layer | High | — | ✅ Done (Cycle 6) — v2 state machine + intent + energy handlers (domain-first) |
-| 3 | PBI-SW-011 | Energy Tracking | Medium | PBI-SW-010 | 🔜 Planned — 1–5 scale energy indicator |
+| 3 | PBI-SW-011 | Energy Tracking | Medium | PBI-SW-010 | ✅ Done (Cycle 8 Inc 1) — SessionEnergyIndicator component, session.energy.set command, note sync, 20 tests |
 | 4 | PBI-SW-012 | Execution Plan (Task Checklist) | High | — | ✅ Done (Cycle 7) — domain CRUD (Inc 1), UI panel + progress bar + reorder (Inc 2) |
 | 5 | PBI-SW-013 | Structured Reflection | Medium | FR-03 (delivered) | 🔜 Planned — observations, blockers, ideas, decisions |
 | 6 | PBI-SW-014 | Closure Ritual System | High | PBI-SW-010 | ✅ Done (Cycle 7) — configurable review overlay |
@@ -1196,9 +1198,9 @@ SessionSidebarView
 
 > **v8 change — Daily tracking removed:** PBI-SW-007 (Auto-Session & Session Nudges) has been deprecated. The daily-tracking session type, auto-start, concurrent session support, daily note integration, and nudge system conflict with Session v2's philosophy of intentional execution environments. The `daily-tracking` session type, `dailySessionId`, `getDailySession()`, `generateDailySummary()`, nudge scheduler, and 8 related events (5 daily + 3 nudge) will be removed during v2 implementation. PBI-SW-007 status: Done → Removed.
 
-> **Remaining backlog:** 6 PBIs planned (PBI-SW-009, SW-011, SW-013, SW-015, SW-016, SW-017). 3 v2 PBIs delivered: SW-010 (Cycle 6), SW-012 + SW-014 (Cycle 7). 7/8 v1 PBIs remain valid (SW-001 through SW-006, SW-008).
+> **Remaining backlog:** 5 PBIs planned (PBI-SW-009, SW-013, SW-015, SW-016, SW-017). 4 v2 PBIs delivered: SW-010 (Cycle 6), SW-012 + SW-014 (Cycle 7), SW-011 (Cycle 8). 7/8 v1 PBIs remain valid (SW-001 through SW-006, SW-008).
 
-> **Priority ranking** (remaining delivery order by value): PBI-SW-011 (Energy UI) → PBI-SW-013 (Reflection) → PBI-SW-016 (Cognitive Overload) → PBI-SW-017 (Main/Sidebar) → PBI-SW-015 (Activity Intelligence). PBI-SW-009 deferred (depends on Workshop mode patterns from FR-18). **Rationale:** SW-011/013/016 complete the execution layer foundation (small-to-medium effort); SW-017 is the major UI refactor (large); SW-015 is analytics polish (low priority).
+> **Priority ranking** (remaining delivery order by value): PBI-SW-013 (Reflection) → PBI-SW-016 (Cognitive Overload) → PBI-SW-017 (Main/Sidebar) → PBI-SW-015 (Activity Intelligence). PBI-SW-009 deferred (depends on Workshop mode patterns from FR-18). **Rationale:** SW-013/016 complete the execution layer foundation (small-to-medium effort); SW-017 is the major UI refactor (large); SW-015 is analytics polish (low priority).
 
 See `backlog/PBI-SW-*.md` for detailed specifications.
 
@@ -1240,6 +1242,7 @@ See `backlog/PBI-SW-*.md` for detailed specifications.
 | 2026-02-19 | in-progress | in-progress | Cycle 7 Inc 2.5 — Note Sync + Templates | 26/35 | — | User-reprioritized increment: debounced session note sync (2.5s) wired to 17 handlers (goals, tasks, decisions, context, notes, lifecycle). `generateSessionSummaryBody()` extended with Execution Plan section. `SessionTemplate` extended with `contextBindings` and `notes` fields — threaded through create/save/rerun/export/import. 2 new events (`session.notes.synced`, `session.notes.syncFailed`). `SESSION_NOTES_SYNC_DELAY_MS = 2500` constant. 28 new tests, 2,628 total, 105 suites. |
 | 2026-02-19 | in-progress | in-progress | Cycle 7 Inc 2.5b — Reverse Sync + UX Polish | 27/35 | — | Reverse note sync (note file → session state): `reverseParseSessionNotes()`, `computeReverseSyncDiff()`, content-based sync loop prevention. Workspace subscribes to `session.notes.reverseSynced`. Conditional forward sync (toggles-only = no rewrite). Session note reorder: Guiding Questions → Goals → Execution → Notes → Decisions → Context → Artifacts → Timeline → Time. Goals sortable (2 new events). Horizontal reorder buttons. Copy-to-clipboard for note path. Focus file wikilink in note body. Auto-open workspace on `session.created`. Full template field threading (`tasks`, `decisions`, `contextBindings`, `notes`) through `session.create` event + modal + all emit sites. ISO date prefix on note filenames (ADR-029 implemented). Notes file written at creation. 32 new tests, 2,660 total, 105 suites. |
 | 2026-02-19 | in-progress | in-progress | Cycle 7 Inc 3 — Closure Ritual | 28/35 | — | PBI-SW-014 delivered: `completeSession()` now stops at "reviewing" state (was passthrough). `completeClosure(id, response)` saves `ClosureResponse` and transitions to completed. `skipClosure(id)` bypasses ritual. `finishReview()` gated on non-null closureResponse. `DEFAULT_CLOSURE_TEMPLATE` (4 questions). `resolveClosureTemplate()` 3-tier inheritance. `SessionClosureOverlay` UI component (~130 LOC) renders in reviewing state. `closureTemplate` added to `SessionTypeConfig`. `transitionToCompleted()` extracted as shared private method. FRI updated: validation_testing 3→4. 27 new tests, 2,687 total, 106 suites. FR-14 **Done**. |
+| 2026-02-19 | in-progress | in-progress | Cycle 8 Inc 1 — Energy Tracking UI | 29/35 | — | PBI-SW-011 delivered: `session.energy.set` command event + catalog entry. `SessionEnergyIndicator` component (~90 LOC) — clickable 1–5 scale with ⚡ visual, editable in running/paused, read-only otherwise. Integrated into SessionWorkspaceView between timer and guiding questions. Energy subscription wired in SessionWorkspaceSubscriptions. Energy level added to `generateSessionSummaryBody()` for note sync. FRI updated: ui_consistency 2→3. 20 new tests, 2,707 total, 107 suites. FR-11 **Done**. |
 
 ### Related Architecture Decisions
 

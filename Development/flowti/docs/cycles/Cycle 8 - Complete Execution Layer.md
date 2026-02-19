@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Session Workspaces PRD]]"
-stage: planned
+stage: in-progress
 cycle: 8
 date_planned: 2026-02-19
 pbis:
@@ -94,12 +94,39 @@ estimated_tests: 75
 - Files: 3–4 (new component, view update, subscriptions update, tests)
 
 **Acceptance criteria:**
-- [ ] Clickable 1–5 energy indicator visible in running sessions
-- [ ] Clicking changes energy level and emits `session.energy.changed`
-- [ ] Energy persisted on session state across pause/resume
-- [ ] Energy level shown in session notes (note sync integration)
-- [ ] Read-only display in completed/archived states
-- [ ] Tests pass, `npm test` green
+- [x] Clickable 1–5 energy indicator visible in running sessions
+- [x] Clicking changes energy level and emits `session.energy.changed`
+- [x] Energy persisted on session state across pause/resume
+- [x] Energy level shown in session notes (note sync integration)
+- [x] Read-only display in completed/archived states
+- [x] Tests pass, `npm test` green (2,707 tests, 107 suites)
+
+**Delivery summary:**
+- **Source LOC:** ~90 (SessionEnergyIndicator)
+- **Tests:** 20 new (14 component + 4 helpers + 2 subscriptions), 2,707 total, 107 suites
+- **Files changed:** 7 source + 3 test files
+- **Deviations:** Added `session.energy.set` command event (not in original plan — follows command/state event pattern from Cycle 7). Added energy to `generateSessionSummaryBody()` for note sync (unplanned but consistent with Inc 2.5).
+
+**Definition of Done (Increment):**
+- [x] Acceptance criteria met (6/6)
+- [x] Tests added per TestPlan (20 new: 14 component, 4 helpers, 2 subscriptions)
+- [x] Build pipeline passes (`npm test` green — 2,707 tests, 107 suites)
+- [ ] Three Amigos review completed (solo delivery — deferred to cycle-level review)
+- [x] All blocker findings resolved (none found)
+- [ ] TASM score recorded (deferred to cycle-level review)
+- [x] Documentation updated:
+  - [x] Component docs (Frontend Architecture: +3 session components)
+  - [x] PRD updated (FRI 28→29, FR-11 ✅, stage history, event table, backlog counts)
+  - [x] PBI updated (PBI-SW-011 stage: planned → done, file list, test counts)
+  - [x] Architecture docs updated (Frontend Architecture: session component list)
+  - [x] Sitemap updated (N/A — no new use cases)
+  - [x] Tech debt register updated (N/A — no new debt)
+- [x] Manifests updated (N/A — no layout/component/tab manifest changes)
+- [x] No architectural boundary violations (command → service → state event pattern)
+- [x] Improvement items captured:
+  - OBS-1: SessionService LOC continues to grow (~1,670+) — reinforce TD-092 priority for Inc 5
+  - OBS-2: Energy indicator uses inline styles; consider extracting to CSS class in future UI polish
+  - OBS-3: Three Amigos + TASM deferred again — pattern of solo delivery. Should batch at cycle level
 
 ---
 

@@ -70,7 +70,7 @@ src/                     # ~31,467 LOC across 154 files
 │   ├── hub/             # Data Exchange Hub components (21 files, 4,414 LOC)
 │   ├── csv/             # CSV import wizard components (10 files, 1,752 LOC)
 │   ├── export/          # Export wizard components (7 files, 994 LOC)
-│   ├── session/         # Session Workspace components (10 files: panels, subscriptions, helpers)
+│   ├── session/         # Session Workspace components (13 files: panels, subscriptions, helpers)
 │   ├── userHub/         # User Hub components (4 files: Dashboard, Inbox, Sessions, Preferences)
 │   └── *.ts             # Orchestrator views + modals
 └── utils/               # Shared helpers (persistence, glob, types)
@@ -100,7 +100,7 @@ Views read state via `deps.getState()` and write via `deps.setState(partial)`. T
 | `ExportView` | `flowti-export` | ~655 | wizard stepper | 4-page export wizard: View Select, Configure, Preview, Result |
 | `CsvActionView` | `flowti-csv` | ~747 | landing + wizard | CSV file handler: column preview landing page + 4-page inline import wizard |
 | `UserHubView` | `flowti-user-hub` | ~273 | `BaseHubView<UserHubTab>` | 3-tab user hub: Dashboard, Inbox, Sessions (+ Preferences) |
-| `SessionWorkspaceView` | `flowti-session-workspace` | ~479 | `ItemView` | single-column | Dedicated focused workspace for a single session (timer, goals, notes, context, decisions, activity, outputs). Subscriptions extracted to `SessionWorkspaceSubscriptions.ts`, helpers to `SessionWorkspaceHelpers.ts` |
+| `SessionWorkspaceView` | `flowti-session-workspace` | ~537 | `ItemView` | single-column | Dedicated focused workspace for a single session (timer, energy, goals, execution plan, notes, context, decisions, activity, outputs). Subscriptions extracted to `SessionWorkspaceSubscriptions.ts`, helpers to `SessionWorkspaceHelpers.ts` |
 | `ComponentShowcaseView` | `flowti-component-showcase` | ~297 | showcase | Development view for previewing all CSS components |
 
 ### Modals
@@ -159,16 +159,19 @@ Both major views extend `BaseHubView<TPage>` and follow the **orchestrator + com
 - `PreviewPage` — Export preview
 - `ResultPage` — Results display
 
-**Session Workspace** (`src/ui/session/`, 10 files):
+**Session Workspace** (`src/ui/session/`, 13 files):
 - `SessionWorkspaceSubscriptions` — 24 event listeners extracted via `SubscriptionViewContext` interface
 - `SessionWorkspaceHelpers` — 9 helper functions extracted via `WorkspaceHelperContext` interface (workspace state capture/restore, modal openers, leaf navigation, status styling)
 - `SessionTimerPanel` — Timer display with countdown and editable duration for prepared sessions
-- `SessionGoalsPanel` — Goal checklist with add/toggle/remove actions
+- `SessionEnergyIndicator` — Clickable 1–5 energy scale with ⚡ visual, editable in running/paused states (~90 LOC)
+- `SessionGoalsPanel` — Goal checklist with add/toggle/remove/reorder actions
+- `SessionExecutionPanel` — Task checklist with progress bar, add/toggle/remove/reorder actions
 - `SessionNotesPanel` — Auto-saving textarea with debounced event emission
 - `SessionContextPanel` — Context bindings with type badges, add/remove actions
 - `SessionDecisionPanel` — Decision log with record/remove actions
 - `SessionActivityPanel` — File activity log with `groupActivityByFile()` aggregation (one row per file, latest action + count badge)
 - `SessionOutputPanel` — Output artifact list for completed/archived sessions
+- `SessionClosureOverlay` — Closure ritual questionnaire shown in reviewing state (~130 LOC)
 - `SessionGuidingQuestions` — Session-type-specific guiding prompts
 
 **User Hub** (`src/ui/userHub/`, 4 files):

@@ -196,6 +196,8 @@ export interface SessionEventMap {
 	"session.mode.set": { sessionId: string; mode: SessionMode };
 
 	// ── v2: Energy events (ADR-031, FR-11) ─────────────────
+	/** Command: set energy level for a session */
+	"session.energy.set": { sessionId: string; level: EnergyLevel };
 	/** Emitted after energy level is changed (running/paused only) */
 	"session.energy.changed": { sessionId: string; before: EnergyLevel | null; after: EnergyLevel };
 

@@ -34,6 +34,7 @@ import { SessionDecisionPanel } from "./session/SessionDecisionPanel";
 import { SessionOutputPanel } from "./session/SessionOutputPanel";
 import { type ClosureTemplate, type SessionTypeConfig, type SessionOutputTemplate } from "../domain/session/types";
 import { SessionClosureOverlay } from "./session/SessionClosureOverlay";
+import { SessionEnergyIndicator } from "./session/SessionEnergyIndicator";
 import { resolveClosureTemplate } from "../domain/session/helpers";
 import { setupEventSubscriptions } from "./session/SessionWorkspaceSubscriptions";
 import type { SubscriptionViewContext } from "./session/SessionWorkspaceSubscriptions";
@@ -56,6 +57,7 @@ export class SessionWorkspaceView extends ItemView {
 
 	// Panels
 	private timerPanel: SessionTimerPanel | null = null;
+	private energyPanel: SessionEnergyIndicator | null = null;
 	private guidingPanel: SessionGuidingQuestions | null = null;
 	private goalsPanel: SessionGoalsPanel | null = null;
 	private executionPanel: SessionExecutionPanel | null = null;
@@ -177,6 +179,9 @@ export class SessionWorkspaceView extends ItemView {
 
 		this.timerPanel = new SessionTimerPanel(container, deps);
 		this.timerPanel.render();
+
+		this.energyPanel = new SessionEnergyIndicator(container, deps);
+		this.energyPanel.render();
 
 		if (this.session.status === "active" || this.session.status === "running" || this.session.status === "paused") {
 			this.guidingPanel = new SessionGuidingQuestions(container, deps, this.customSessionTypes);
@@ -512,6 +517,7 @@ export class SessionWorkspaceView extends ItemView {
 			captureWorkspaceState: (id) => captureWorkspaceState(this.buildHelperContext(), id),
 			restoreWorkspaceState: (id, state) => restoreWorkspaceState(this.buildHelperContext(), id, state),
 			getTimerPanel: () => this.timerPanel,
+			getEnergyPanel: () => this.energyPanel,
 			getGoalsPanel: () => this.goalsPanel,
 		getExecutionPanel: () => this.executionPanel,
 			getNotesPanel: () => this.notesPanel,

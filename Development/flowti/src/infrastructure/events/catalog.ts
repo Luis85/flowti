@@ -455,6 +455,7 @@ const CATALOG_DATA = {
 	"session.intent.set":         { category: "Session", description: "Command: set session intent (prepared/paused)", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
 	"session.intent.updated":     { category: "Session", description: "Session intent was set or updated", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.mode.set":           { category: "Session", description: "Session execution mode was set", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.energy.set":         { category: "Session", description: "Command: set session energy level", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
 	"session.energy.changed":     { category: "Session", description: "Session energy level changed", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.task.add":           { category: "Session", description: "Command: add task to execution plan", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
 	"session.task.toggle":        { category: "Session", description: "Command: toggle task completed state", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },

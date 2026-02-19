@@ -708,6 +708,40 @@ describe("generateSessionSummaryBody", () => {
 		expect(body).not.toContain("- **Use EventBus**:");
 	});
 
+	it("includes energy level when set", () => {
+		const session = makeSession({ energy: 4 });
+		const body = generateSessionSummaryBody(session);
+		expect(body).toContain("**Energy:**");
+		expect(body).toContain("Good");
+		expect(body).toContain("(4/5)");
+	});
+
+	it("omits energy when null", () => {
+		const session = makeSession({ energy: null });
+		const body = generateSessionSummaryBody(session);
+		expect(body).not.toContain("**Energy:**");
+	});
+
+	it("renders energy with correct label for each level", () => {
+		const labels: Record<number, string> = { 1: "Drained", 2: "Low", 3: "Moderate", 4: "Good", 5: "Energized" };
+		for (const [level, label] of Object.entries(labels)) {
+			const session = makeSession({ energy: Number(level) as 1 | 2 | 3 | 4 | 5 });
+			const body = generateSessionSummaryBody(session);
+			expect(body).toContain(label);
+			expect(body).toContain(`(${level}/5)`);
+		}
+	});
+
+	it("places energy before guiding questions", () => {
+		const session = makeSession({ energy: 3 });
+		const body = generateSessionSummaryBody(session);
+		const energyIdx = body.indexOf("**Energy:**");
+		const questionsIdx = body.indexOf("### Guiding Questions");
+		expect(energyIdx).toBeGreaterThan(-1);
+		expect(questionsIdx).toBeGreaterThan(-1);
+		expect(energyIdx).toBeLessThan(questionsIdx);
+	});
+
 	it("includes execution plan section with checkmarks", () => {
 		const session = makeSession({
 			executionTasks: [

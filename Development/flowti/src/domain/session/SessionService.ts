@@ -281,6 +281,13 @@ export class SessionService {
 				}),
 			);
 
+			// v2: Energy command (ADR-031, FR-11)
+			this.unsubscribes.push(
+				this.eventBus.on("session.energy.set", (event) => {
+					void this.handleEnergyChange(event.payload.sessionId, event.payload.level);
+				}),
+			);
+
 			// v2: Execution task commands (ADR-031, FR-12)
 			this.unsubscribes.push(
 				this.eventBus.on("session.task.add", (event) => {
@@ -1230,6 +1237,7 @@ export class SessionService {
 		session.energy = level;
 		await this.saveState();
 		await this.eventBus?.emit("session.energy.changed", { sessionId, before, after: level });
+		this.scheduleSyncNotesFile(sessionId);
 	}
 
 	// ── v2: Execution Task event delegates ─────────────────────

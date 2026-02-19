@@ -9,6 +9,7 @@
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { Session, WorkspaceState } from "../../domain/session/types";
 import type { SessionTimerPanel } from "./SessionTimerPanel";
+import type { SessionEnergyIndicator } from "./SessionEnergyIndicator";
 import type { SessionGoalsPanel } from "./SessionGoalsPanel";
 import type { SessionExecutionPanel } from "./SessionExecutionPanel";
 import type { SessionNotesPanel } from "./SessionNotesPanel";
@@ -28,6 +29,7 @@ export interface SubscriptionViewContext {
 
 	// Panel accessors
 	getTimerPanel(): SessionTimerPanel | null;
+	getEnergyPanel(): SessionEnergyIndicator | null;
 	getGoalsPanel(): SessionGoalsPanel | null;
 	getExecutionPanel(): SessionExecutionPanel | null;
 	getNotesPanel(): SessionNotesPanel | null;
@@ -109,6 +111,16 @@ export function setupEventSubscriptions(
 			if (event.payload.sessionId === ctx.getSession()?.id) {
 				ctx.setSession(ctx.refreshSession());
 				ctx.render();
+			}
+		}),
+	);
+
+	// Energy changed — refresh energy indicator
+	unsubs.push(
+		eventBus.on("session.energy.changed", (event) => {
+			if (event.payload.sessionId === ctx.getSession()?.id) {
+				ctx.setSession(ctx.refreshSession());
+				ctx.getEnergyPanel()?.refreshEnergy();
 			}
 		}),
 	);
