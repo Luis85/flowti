@@ -132,7 +132,6 @@ export class UserHubNudgePreferences {
 		const typeRow = makeRow("Session type");
 		const typeSelect = typeRow.createEl("select", { cls: "ft-input dropdown" });
 		for (const st of SESSION_TYPES) {
-			if (st.type === "daily-tracking") continue; // Not a nudge target
 			const opt = typeSelect.createEl("option", { text: st.label });
 			opt.value = st.type;
 			if (st.type === "documentation") opt.selected = true;

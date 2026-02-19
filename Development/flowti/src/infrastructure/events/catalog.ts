@@ -271,7 +271,6 @@ const CATALOG_DATA = {
 	"settings.updateCustomSessionTypes": { category: "Settings", description: "Update custom session type configurations", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
 	"settings.updateCustomOutputTemplates": { category: "Settings", description: "Update custom output templates for session artifacts", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
 	"settings.updateSessionActivityFilter": { category: "Settings", description: "Update session activity filter folders", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
-	"settings.updateDailySession": { category: "Settings", description: "Update daily session settings", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
 
 	// ── Installer Domain ─────────────────────────────────────
 	"installer.started":        { category: "Installer", description: "Installation pipeline started", direction: "Service → Listeners", domain: "installer", services: "InstallerService" },
@@ -446,10 +445,6 @@ const CATALOG_DATA = {
 	"session.type.created":    { category: "Session", description: "Custom session type created", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.template.exported": { category: "Session", description: "A session template was exported to JSON", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.template.imported": { category: "Session", description: "A session template was imported from JSON", direction: "Service → Listeners", domain: "session", services: "SessionService" },
-	"session.daily.start":     { category: "Session", description: "Command: start a daily-tracking session", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
-	"session.daily.started":   { category: "Session", description: "A daily-tracking session was started", direction: "Service → Listeners", domain: "session", services: "SessionService", tags: ["system"] },
-	"session.daily.stop":      { category: "Session", description: "Command: stop the daily-tracking session", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
-	"session.daily.stopped":   { category: "Session", description: "The daily-tracking session was stopped", direction: "Service → Listeners", domain: "session", services: "SessionService", tags: ["system"] },
 
 	// ── Nudge ─────────────────────────────────────────────────
 	"nudge.configure":  { category: "Nudge", description: "Command to add or update a nudge config", direction: "View → Plugin", domain: "nudge", services: "NudgeService", tags: ["system"] },

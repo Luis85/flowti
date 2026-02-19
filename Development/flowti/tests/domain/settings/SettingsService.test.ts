@@ -281,40 +281,4 @@ describe("SettingsService", () => {
 		});
 	});
 
-	describe("daily session settings", () => {
-		beforeEach(async () => {
-			await settingsService.load();
-		});
-
-		it("should handle settings.updateDailySession event", async () => {
-			await eventBus.emit("settings.updateDailySession", {
-				enableDailySession: true,
-				dailyNotePath: "Journal/{{date:YYYY-MM-DD}}.md",
-			});
-
-			const settings = settingsService.getSettings();
-			expect(settings.enableDailySession).toBe(true);
-			expect(settings.dailyNotePath).toBe("Journal/{{date:YYYY-MM-DD}}.md");
-		});
-
-		it("should default enableDailySession to false", () => {
-			const settings = settingsService.getSettings();
-			expect(settings.enableDailySession).toBe(false);
-			expect(settings.dailyNotePath).toBe("03 - Resources/Daily Notes/{{date:YYYY-MM-DD}}.md");
-		});
-
-		it("should emit settings.changed after daily session update", async () => {
-			const changedPromise = new Promise<void>((resolve) => {
-				eventBus.on("settings.changed", () => resolve());
-			});
-
-			await eventBus.emit("settings.updateDailySession", {
-				enableDailySession: true,
-				dailyNotePath: "",
-			});
-
-			await changedPromise;
-			expect(settingsService.getSettings().enableDailySession).toBe(true);
-		});
-	});
 });

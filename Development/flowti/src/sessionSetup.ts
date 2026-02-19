@@ -12,7 +12,7 @@ import type { IErrorService } from "./infrastructure/errors/types";
 import type { SessionService } from "./domain/session/SessionService";
 import type { Session } from "./domain/session/types";
 import { SESSION_TYPES, type SessionType } from "./domain/session/types";
-import { generateSessionSummary, generateDailySummary, mergeSessionNotes } from "./domain/session/helpers";
+import { generateSessionSummary, mergeSessionNotes } from "./domain/session/helpers";
 import { NewSessionModal } from "./ui/modals";
 import { SessionWorkspaceView, VIEW_TYPE_SESSION_WORKSPACE } from "./ui/SessionWorkspaceView";
 
@@ -214,33 +214,4 @@ export class SessionSetup {
 		}
 	}
 
-	/**
-	 * Writes a daily-specific activity summary to the daily note file.
-	 * Uses generateDailySummary() which groups activity by file.
-	 */
-	async writeDailySummary(session: Session): Promise<void> {
-		if (!session.notesFile) return;
-
-		try {
-			const { vault } = this.deps.app;
-			const folder = session.notesFile.substring(0, session.notesFile.lastIndexOf("/"));
-			if (folder && !vault.getAbstractFileByPath(folder)) {
-				await vault.createFolder(folder);
-			}
-
-			const dailyMarkdown = generateDailySummary(session);
-			const existing = vault.getAbstractFileByPath(session.notesFile);
-			if (existing instanceof TFile) {
-				const existingContent = await vault.read(existing);
-				await vault.modify(existing, existingContent.trimEnd() + "\n\n" + dailyMarkdown);
-			} else {
-				await vault.create(session.notesFile, `# Daily Tracking\n\n${dailyMarkdown}\n`);
-			}
-		} catch (error) {
-			this.deps.errorService?.handle(
-				error instanceof Error ? error : new Error(String(error)),
-				"writeDailySummary",
-			);
-		}
-	}
 }

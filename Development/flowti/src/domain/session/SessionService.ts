@@ -14,8 +14,8 @@ import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
 import type { ITypedStorage } from "../../utils/TypedStorage";
 import { generateUUID } from "../../utils/helpers";
 import type { ContextBindingType, Session, SessionActivity, SessionActivityAction, SessionContextBinding, SessionGoal, SessionLink, SessionOutputArtifact, SessionOutputTemplate, SessionState, SessionTemplate, SessionTemplateExport, SessionTypeConfig, WorkspaceState } from "./types";
-import { MAX_SESSIONS, MAX_TEMPLATES, ARTIFACT_DEDUP_WINDOW_MS, SESSION_NOTES_FOLDER, MAX_SESSION_ACTIVITY, ACTIVITY_DEDUP_WINDOW_MS, DAILY_ACTIVITY_DEDUP_WINDOW_MS, MAX_CONTEXT_BINDINGS, MAX_SESSION_DECISIONS, MAX_OUTPUT_ARTIFACTS, SESSION_TYPE_CONFIGS } from "./types";
-import { createSession, createGoal, createDecision, createContextBinding, computeRemainingMs, computeElapsedMs, isTimerExpired, isExcluded, resolveTypeConfig, generateSessionOutput, resolveDailyNotePath, updateSessionPathsForFileMove, updateSessionPathsForFolderMove, updateTemplatePathForFileMove, updateTemplatePathForFolderMove } from "./helpers";
+import { MAX_SESSIONS, MAX_TEMPLATES, ARTIFACT_DEDUP_WINDOW_MS, SESSION_NOTES_FOLDER, MAX_SESSION_ACTIVITY, ACTIVITY_DEDUP_WINDOW_MS, MAX_CONTEXT_BINDINGS, MAX_SESSION_DECISIONS, MAX_OUTPUT_ARTIFACTS, SESSION_TYPE_CONFIGS } from "./types";
+import { createSession, createGoal, createDecision, createContextBinding, computeRemainingMs, computeElapsedMs, isTimerExpired, isExcluded, resolveTypeConfig, generateSessionOutput, updateSessionPathsForFileMove, updateSessionPathsForFolderMove, updateTemplatePathForFileMove, updateTemplatePathForFolderMove } from "./helpers";
 
 /**
  * Configuration options for the SessionService.
@@ -30,7 +30,7 @@ export interface SessionServiceOptions {
  * Creates a fresh default session state.
  */
 function createDefaultState(): SessionState {
-	return { sessions: [], activeSessionId: null, dailySessionId: null, savedTemplates: [] };
+	return { sessions: [], activeSessionId: null, savedTemplates: [] };
 }
 
 /**
@@ -97,18 +97,7 @@ export class SessionService {
 					void this.emitLoaded();
 				}),
 			);
-			this.unsubscribes.push(
-				this.eventBus.on("session.daily.start", (event) => {
-					void this.handleDailyStart(event.payload.dailyNotePath);
-				}),
-			);
-			this.unsubscribes.push(
-				this.eventBus.on("session.daily.stop", () => {
-					void this.handleDailyStop();
-				}),
-			);
-
-			// Artifact tracking: listen to file events
+				// Artifact tracking: listen to file events
 			this.unsubscribes.push(
 				this.eventBus.on("file.created", (event) => {
 					void this.onFileEvent(event.payload.path, "created");
@@ -282,10 +271,6 @@ export class SessionService {
 			if (!this.state.savedTemplates) {
 				this.state.savedTemplates = [];
 			}
-			// Backward compat: initialize dailySessionId if missing
-			if (this.state.dailySessionId === undefined) {
-				this.state.dailySessionId = null;
-			}
 			// Backward compat: initialize timeline and goals for legacy sessions
 			let migrated = false;
 			for (const s of this.state.sessions) {
@@ -354,15 +339,6 @@ export class SessionService {
 			}
 		}
 
-		// Resume daily session if one was active
-		if (this.state.dailySessionId) {
-			const dailySession = this.findSession(this.state.dailySessionId);
-			if (!dailySession || dailySession.status !== "active") {
-				this.state.dailySessionId = null;
-			}
-			// No timer to resume — daily sessions are passive
-		}
-
 		await this.emitLoaded();
 	}
 
@@ -379,15 +355,6 @@ export class SessionService {
 	getActiveSession(): Session | null {
 		if (!this.state.activeSessionId) return null;
 		return this.findSession(this.state.activeSessionId) ?? null;
-	}
-
-	/**
-	 * Returns the active daily-tracking session, or null if none.
-	 */
-	getDailySession(): Session | null {
-		if (!this.state.dailySessionId) return null;
-		const s = this.findSession(this.state.dailySessionId);
-		return s ? { ...s } : null;
 	}
 
 	/**
@@ -679,81 +646,6 @@ export class SessionService {
 		}
 	}
 
-	private async handleDailyStart(dailyNotePath?: string): Promise<void> {
-		// Only one daily session at a time
-		if (this.state.dailySessionId) return;
-
-		const today = new Date().toISOString().slice(0, 10);
-
-		// Check for a completed daily session from today — restart it
-		const existing = this.state.sessions.find(
-			(s) => s.type === "daily-tracking"
-				&& s.status === "completed"
-				&& s.createdAt.startsWith(today),
-		);
-
-		if (existing) {
-			existing.status = "active";
-			existing.startedAt = new Date().toISOString();
-			existing.completedAt = null;
-			existing.timeline.push({ action: "resumed", timestamp: existing.startedAt });
-			this.state.dailySessionId = existing.id;
-
-			await this.saveState();
-			await this.eventBus?.emit("session.daily.started", { session: { ...existing } });
-			return;
-		}
-
-		// Create new daily session
-		const session = createSession(generateUUID(), "daily-tracking", `Daily Tracking \u2014 ${today}`, 0);
-		session.status = "active";
-		session.startedAt = new Date().toISOString();
-		session.timeline.push({ action: "started", timestamp: session.startedAt });
-
-		// Set notes file from dailyNotePath template or fallback
-		if (dailyNotePath) {
-			session.notesFile = resolveDailyNotePath(dailyNotePath);
-		} else {
-			const safeName = session.title.replace(/[\\/:*?"<>|]/g, "-");
-			const shortId = session.id.slice(-6);
-			session.notesFile = `${SESSION_NOTES_FOLDER}/${safeName} (${shortId}).md`;
-		}
-
-		this.state.sessions.unshift(session);
-		if (this.state.sessions.length > MAX_SESSIONS) {
-			this.state.sessions = this.state.sessions.slice(0, MAX_SESSIONS);
-		}
-		this.state.dailySessionId = session.id;
-		// No timer for daily sessions (durationMinutes = 0)
-
-		await this.saveState();
-		await this.eventBus?.emit("session.daily.started", { session: { ...session } });
-	}
-
-	private async handleDailyStop(): Promise<void> {
-		if (!this.state.dailySessionId) return;
-
-		const session = this.findSession(this.state.dailySessionId);
-		if (!session || session.status !== "active") {
-			this.state.dailySessionId = null;
-			await this.saveState();
-			return;
-		}
-
-		// Accumulate elapsed time
-		if (session.startedAt) {
-			session.elapsedBeforePauseMs += Date.now() - Date.parse(session.startedAt);
-			session.startedAt = null;
-		}
-		session.status = "completed";
-		session.completedAt = new Date().toISOString();
-		session.timeline.push({ action: "completed", timestamp: session.completedAt });
-
-		this.state.dailySessionId = null;
-		await this.saveState();
-		await this.eventBus?.emit("session.daily.stopped", { session: { ...session } });
-	}
-
 	private async handleComplete(sessionId: string): Promise<void> {
 		const session = this.findSession(sessionId);
 		if (!session || session.status === "completed" || session.status === "archived") return;
@@ -780,10 +672,6 @@ export class SessionService {
 			this.stopTimer();
 			this.state.activeSessionId = null;
 		}
-		if (this.state.dailySessionId === sessionId) {
-			this.state.dailySessionId = null;
-		}
-
 		this.state.sessions.splice(index, 1);
 		await this.saveState();
 		await this.eventBus?.emit("session.deleted", { sessionId });
@@ -1047,7 +935,7 @@ export class SessionService {
 
 	private startTimer(session: Session): void {
 		this.stopTimer();
-		// No timer for sessions without a duration (e.g. daily-tracking)
+		// No timer for sessions without a duration
 		if (session.durationMinutes <= 0) return;
 		this.timerInterval = setInterval(() => {
 			const now = Date.now();
@@ -1081,9 +969,6 @@ export class SessionService {
 		if (this.state.activeSessionId) {
 			await this.trackArtifactToSession(this.state.activeSessionId, path, action);
 		}
-		if (this.state.dailySessionId && this.state.dailySessionId !== this.state.activeSessionId) {
-			await this.trackArtifactToSession(this.state.dailySessionId, path, action);
-		}
 	}
 
 	private async trackArtifactToSession(sessionId: string, path: string, action: "created" | "modified"): Promise<void> {
@@ -1112,10 +997,6 @@ export class SessionService {
 			await this.trackActivityToSession(this.state.activeSessionId, path, action, oldPath, ACTIVITY_DEDUP_WINDOW_MS);
 		}
 
-		// Track to daily session (dailySessionId) with longer dedup window
-		if (this.state.dailySessionId && this.state.dailySessionId !== this.state.activeSessionId) {
-			await this.trackActivityToSession(this.state.dailySessionId, path, action, oldPath, DAILY_ACTIVITY_DEDUP_WINDOW_MS);
-		}
 	}
 
 	private async trackActivityToSession(
@@ -1225,10 +1106,6 @@ export class SessionService {
 			this.stopTimer();
 			this.state.activeSessionId = null;
 		}
-		if (this.state.dailySessionId === session.id) {
-			this.state.dailySessionId = null;
-		}
-
 		await this.saveState();
 		await this.eventBus?.emit("session.completed", { session: { ...session } });
 		// Request workspace state capture from view
@@ -1247,7 +1124,6 @@ export class SessionService {
 		await this.eventBus?.emit("session.loaded", {
 			sessions: this.getSessions(),
 			activeSessionId: this.state.activeSessionId,
-			dailySessionId: this.state.dailySessionId ?? null,
 			savedTemplates: this.getSavedTemplates(),
 		});
 	}

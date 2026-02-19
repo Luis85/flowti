@@ -255,11 +255,6 @@ export default class FlowtiBasePlugin extends Plugin {
 				timestamp: new Date().toISOString(),
 			});
 
-			// Auto-stop daily session if running
-			if (this.sessionService?.getDailySession()) {
-				void this.eventBus?.emit("session.daily.stop", {});
-			}
-
 			this.nudgeService?.dispose();
 			this.uiCommandService?.dispose();
 			this.ingestionStatusBar?.dispose();
@@ -420,12 +415,6 @@ export default class FlowtiBasePlugin extends Plugin {
 				timestamp: new Date().toISOString(),
 			});
 
-			// Auto-start daily session if enabled (idempotent — skips if already running)
-			if (this.settings.enableDailySession) {
-				setTimeout(() => {
-					void this.eventBus.emit("session.daily.start", { dailyNotePath: this.settings.dailyNotePath });
-				}, 500);
-			}
 		} catch (error) {
 			this.errorService.handle(
 				error instanceof Error ? error : new Error(String(error)),
@@ -477,12 +466,6 @@ export default class FlowtiBasePlugin extends Plugin {
 				(leaf.view as SessionWorkspaceView).customOutputTemplates = templates;
 			}
 
-			// Runtime toggle: start/stop daily session when setting changes
-			if (event.payload.settings.enableDailySession && !this.sessionService?.getDailySession()) {
-				void this.eventBus.emit("session.daily.start", { dailyNotePath: event.payload.settings.dailyNotePath });
-			} else if (!event.payload.settings.enableDailySession && this.sessionService?.getDailySession()) {
-				void this.eventBus.emit("session.daily.stop", {});
-			}
 		});
 
 		this.ingestionService = await this.services.get<IngestionService>("ingestionService");
@@ -502,13 +485,6 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.crossCuttingListeners.push(
 			this.eventBus.on("session.completed", (event) => {
 				void this.sessionSetup?.writeSessionSummary(event.payload.session);
-			}),
-		);
-
-		// Write daily-specific summary when daily tracking stops
-		this.crossCuttingListeners.push(
-			this.eventBus.on("session.daily.stopped", (event) => {
-				void this.sessionSetup?.writeDailySummary(event.payload.session);
 			}),
 		);
 
@@ -605,7 +581,7 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.registerView(VIEW_TYPE_USER_HUB, (leaf) =>
 			new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.sessionService!, this.nudgeService!, this.settings.inboxEnabledSources, this.settings),
 		);
-		this.hubRegistry.register(new UserHubProvider(this.userService, this.inboxService!, this.sessionService));
+		this.hubRegistry.register(new UserHubProvider(this.userService, this.inboxService!));
 
 		// Session views, commands, and file-menu items
 		this.sessionSetup = new SessionSetup({

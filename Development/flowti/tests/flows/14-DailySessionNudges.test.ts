@@ -66,8 +66,6 @@ describe("Flow 14: Daily Session Nudges", () => {
 			isSessionTypeActive: (type) => {
 				const active = sessionService.getActiveSession();
 				if (active && active.type === type) return true;
-				const daily = sessionService.getDailySession();
-				if (daily && daily.type === type) return true;
 				return false;
 			},
 		});
@@ -75,15 +73,11 @@ describe("Flow 14: Daily Session Nudges", () => {
 		// Wire nudge.triggered → session.create (simulates main.ts wiring)
 		eventBus.on("nudge.triggered", (event) => {
 			const config = event.payload.config;
-			if (config.sessionType === "daily-tracking") {
-				void eventBus.emit("session.daily.start", {});
-			} else {
-				void eventBus.emit("session.create", {
-					type: config.sessionType,
-					title: config.title,
-					durationMinutes: config.durationMinutes,
-				});
-			}
+			void eventBus.emit("session.create", {
+				type: config.sessionType,
+				title: config.title,
+				durationMinutes: config.durationMinutes,
+			});
 		});
 	});
 
@@ -130,36 +124,6 @@ describe("Flow 14: Daily Session Nudges", () => {
 		expect(sessions[0].title).toBe("Morning Documentation");
 		expect(sessions[0].type).toBe("documentation");
 		expect(sessions[0].durationMinutes).toBe(50);
-	});
-
-	it("triggers a daily-tracking nudge and starts daily session", async () => {
-		await sessionService.load();
-		await nudgeService.load();
-		await flush();
-
-		// Configure a daily nudge
-		await eventBus.emit("nudge.configure", {
-			config: {
-				id: "daily-morning",
-				time: "09:00",
-				sessionType: "daily-tracking",
-				title: "Start Daily Tracking",
-				durationMinutes: 0,
-				enabled: true,
-			} as NudgeConfig,
-		});
-		await flush();
-
-		// Trigger at 09:00
-		currentTime = [9, 0];
-		await nudgeService.evaluate();
-		await flush();
-
-		// Daily session should be started
-		const daily = sessionService.getDailySession();
-		expect(daily).not.toBeNull();
-		expect(daily!.type).toBe("daily-tracking");
-		expect(daily!.status).toBe("active");
 	});
 
 	// ── Nudge skips when session type active ─────────────────

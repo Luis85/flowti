@@ -4,7 +4,7 @@
  * All functions are side-effect free and trivially testable.
  */
 
-import type { ContextBindingType, Session, SessionActivity, SessionContextBinding, SessionDecision, SessionGoal, SessionOutputTemplate, SessionTemplate, SessionType, SessionTypeConfig, PauseSegment, TimelineSummary } from "./types";
+import type { ContextBindingType, Session, SessionContextBinding, SessionDecision, SessionGoal, SessionOutputTemplate, SessionTemplate, SessionType, SessionTypeConfig, PauseSegment, TimelineSummary } from "./types";
 import { SESSION_TYPE_CONFIGS } from "./types";
 
 // ── Session Type Resolution ──────────────────────────────────
@@ -428,77 +428,6 @@ export function generateSessionSummary(session: Session): string {
 	return `${fm}\n\n${title}\n\n${body}\n`;
 }
 
-// ── Daily Summary ────────────────────────────────────────────
-
-/**
- * Groups activity entries by file path.
- * Returns one entry per file sorted newest-first by latest timestamp.
- */
-function groupActivityByFile(entries: readonly SessionActivity[]): { path: string; action: string; count: number }[] {
-	const map = new Map<string, { path: string; action: string; ts: string; count: number }>();
-	for (const e of entries) {
-		const existing = map.get(e.path);
-		if (!existing || e.timestamp > existing.ts) {
-			map.set(e.path, { path: e.path, action: e.action, ts: e.timestamp, count: (existing?.count ?? 0) + 1 });
-		} else {
-			existing.count++;
-		}
-	}
-	return [...map.values()]
-		.sort((a, b) => b.ts.localeCompare(a.ts))
-		.map(({ path, action, count }) => ({ path, action, count }));
-}
-
-/**
- * Generates a markdown summary tailored for daily tracking sessions.
- *
- * Unlike `generateSessionSummaryBody()`, this groups activity by file
- * and presents a compact overview of the day's vault work.
- */
-export function generateDailySummary(session: Session): string {
-	const lines: string[] = [];
-
-	lines.push("## Daily Activity Summary");
-	lines.push("");
-
-	const groups = groupActivityByFile(session.activity);
-
-	if (groups.length === 0) {
-		lines.push("*No vault activity recorded.*");
-		lines.push("");
-	} else {
-		lines.push(`**${groups.length} files** touched, **${session.activity.length} events** total.`);
-		lines.push("");
-
-		for (const g of groups) {
-			const name = g.path.split("/").pop() ?? g.path;
-			const countBadge = g.count > 1 ? ` (×${g.count})` : "";
-			lines.push(`- [[${g.path}|${name}]] — ${g.action}${countBadge}`);
-		}
-		lines.push("");
-	}
-
-	// Goals (if any)
-	if (session.goals.length > 0) {
-		lines.push("### Goals");
-		for (const g of session.goals) {
-			lines.push(`- [${g.completed ? "x" : " "}] ${g.text}`);
-		}
-		lines.push("");
-	}
-
-	// Time summary
-	const summary = computeTimelineSummary(session);
-	if (summary.wallClockMs > 0) {
-		lines.push("### Time");
-		lines.push(`- **Active:** ${formatDurationHuman(summary.activeTimeMs)}`);
-		lines.push(`- **Wall clock:** ${formatDurationHuman(summary.wallClockMs)}`);
-		lines.push("");
-	}
-
-	return lines.join("\n");
-}
-
 /**
  * Formats a duration in ms as a human-readable string.
  * Examples: "45s", "5m 30s", "1h 12m"
@@ -512,25 +441,6 @@ export function formatDurationHuman(ms: number): string {
 	if (hours > 0) return `${hours}h ${minutes}m`;
 	if (minutes > 0) return `${minutes}m ${seconds}s`;
 	return `${seconds}s`;
-}
-
-// ── Daily Note Path Resolution ──────────────────────────────
-
-/**
- * Resolves template placeholders like `{{date:YYYY-MM-DD}}` in a daily note path.
- * Returns the template string as-is if no placeholders are found.
- */
-export function resolveDailyNotePath(template: string, date: Date = new Date()): string {
-	return template.replace(/\{\{date:([^}]+)\}\}/g, (_match, format: string) => {
-		const pad = (n: number) => String(n).padStart(2, "0");
-		const y = date.getFullYear();
-		const m = pad(date.getMonth() + 1);
-		const d = pad(date.getDate());
-		return format
-			.replace("YYYY", String(y))
-			.replace("MM", m)
-			.replace("DD", d);
-	});
 }
 
 // ── Session Output Artifacts ────────────────────────────────

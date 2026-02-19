@@ -55,9 +55,9 @@ export const DEFAULT_NUDGE_CONFIGS: NudgeConfig[] = [
 	{
 		id: "default-morning-review",
 		time: "09:00",
-		sessionType: "daily-tracking",
+		sessionType: "documentation",
 		title: "Morning Review",
-		durationMinutes: 0,
+		durationMinutes: 25,
 		enabled: false,
 	},
 	{

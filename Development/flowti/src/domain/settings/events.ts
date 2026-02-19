@@ -26,6 +26,4 @@ export interface SettingsEventMap {
 	"settings.updateCustomOutputTemplates": { templates: unknown[] };
 	/** Command: update session activity filter folders */
 	"settings.updateSessionActivityFilter": { filter: string[] };
-	/** Command: update daily session settings */
-	"settings.updateDailySession": { enableDailySession: boolean; dailyNotePath: string };
 }

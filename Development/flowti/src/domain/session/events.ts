@@ -23,12 +23,6 @@ export interface SessionEventMap {
 	/** Command: request re-emit of current session state */
 	"session.refresh": Record<string, never>;
 
-	// ── Daily session commands ───────────────────────────────
-	/** Command: start a daily-tracking session */
-	"session.daily.start": { dailyNotePath?: string };
-	/** Command: stop (complete) the daily-tracking session */
-	"session.daily.stop": Record<string, never>;
-
 	// ── State events ─────────────────────────────────────────
 	/** Emitted after a session is created */
 	"session.created": { session: Session };
@@ -44,12 +38,8 @@ export interface SessionEventMap {
 	"session.archived": { session: Session };
 	/** Emitted after a session is deleted */
 	"session.deleted": { sessionId: string };
-	/** Emitted after a daily-tracking session is started */
-	"session.daily.started": { session: Session };
-	/** Emitted after a daily-tracking session is stopped */
-	"session.daily.stopped": { session: Session };
 	/** Emitted after session state is loaded from storage */
-	"session.loaded": { sessions: Session[]; activeSessionId: string | null; dailySessionId: string | null; savedTemplates: SessionTemplate[] };
+	"session.loaded": { sessions: Session[]; activeSessionId: string | null; savedTemplates: SessionTemplate[] };
 
 	// ── Path reconciliation events ───────────────────────────
 	/** Emitted after file/folder paths are updated across sessions due to a rename/move */

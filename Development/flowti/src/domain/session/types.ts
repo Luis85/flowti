@@ -31,7 +31,6 @@ export const SESSION_TYPES: ReadonlyArray<{ type: SessionType; label: string; de
 	{ type: "requirements-refinement", label: "Requirements Refinement", description: "Refine and clarify requirements" },
 	{ type: "backlog-structuring", label: "Backlog Structuring", description: "Organize and prioritize backlog items" },
 	{ type: "knowledge-cleanup", label: "Knowledge Cleanup", description: "Consolidate and clean up documentation" },
-	{ type: "daily-tracking", label: "Daily Tracking", description: "Passive all-day activity tracking" },
 ];
 
 // ─────────────────────────────────────────────────────────────
@@ -330,7 +329,6 @@ export interface SessionTemplateExport {
 export interface SessionState {
 	sessions: Session[];
 	activeSessionId: string | null;
-	dailySessionId?: string | null;
 	savedTemplates?: SessionTemplate[];
 }
 
@@ -352,9 +350,6 @@ export const MAX_SESSION_ACTIVITY = 1000;
 
 /** Deduplication window for activity tracking (ms). */
 export const ACTIVITY_DEDUP_WINDOW_MS = 1000;
-
-/** Deduplication window for daily session activity tracking (ms). */
-export const DAILY_ACTIVITY_DEDUP_WINDOW_MS = 30_000;
 
 /** Maximum number of context bindings per session. */
 export const MAX_CONTEXT_BINDINGS = 10;

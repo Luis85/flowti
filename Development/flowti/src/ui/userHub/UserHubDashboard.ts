@@ -13,7 +13,6 @@ import type { InboxService } from "../../domain/inbox/InboxService";
 import type { NudgeService } from "../../domain/nudge/NudgeService";
 import type { SessionService } from "../../domain/session/SessionService";
 import { computeRemainingMs, formatDuration } from "../../domain/session/helpers";
-import { groupActivityByFile } from "../session/SessionActivityPanel";
 import { renderStatGrid, type StatCardItem } from "../shared/StatCard";
 import { formatSourceEvent, formatTime, SESSION_TYPE_LABELS, type InboxItem } from "./types";
 
@@ -41,7 +40,6 @@ export class UserHubDashboard {
 
 		this.renderWelcome();
 		this.renderNextNudge();
-		this.renderDailySession();
 		this.renderActiveSession();
 		this.renderQuickActions();
 		this.renderHubSummaries();
@@ -196,84 +194,6 @@ export class UserHubDashboard {
 		completeBtn.addEventListener("click", () => {
 			void eb.emit("session.complete", { sessionId: session.id });
 		});
-	}
-
-	private renderDailySession(): void {
-		const daily = this.deps.sessionService.getDailySession();
-		if (!daily) return;
-
-		// Skip if the daily session IS the active session (already rendered above)
-		const active = this.deps.sessionService.getActiveSession();
-		if (active && active.id === daily.id) return;
-
-		const section = this.container.createDiv({ cls: "ft-daily-session" });
-		section.style.marginBottom = "1rem";
-		section.style.padding = "0.5rem 0.75rem";
-		section.style.border = "1px solid var(--background-modifier-border)";
-		section.style.borderRadius = "8px";
-		section.style.backgroundColor = "var(--background-secondary)";
-		section.style.cursor = "pointer";
-		section.addEventListener("click", () => {
-			this.deps.openSessionWorkspace(daily.id);
-		});
-
-		const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		const icon = row.createSpan();
-		setIcon(icon, "calendar");
-		icon.addClass("ft-icon-muted");
-
-		row.createSpan({ text: "Daily Tracking", cls: "ft-text-sm" }).style.fontWeight = "600";
-		row.createSpan({
-			text: "Active",
-			cls: "ft-badge",
-		}).style.cssText = "background:var(--interactive-accent);color:var(--text-on-accent);padding:2px 8px;border-radius:4px;font-size:11px;";
-
-		const groups = groupActivityByFile(daily.activity);
-		if (groups.length > 0) {
-			row.createSpan({
-				text: `${groups.length} files`,
-				cls: "ft-text-sm ft-text-muted",
-			}).style.marginLeft = "auto";
-		}
-
-		// Grouped activity preview (max 5 files)
-		if (groups.length > 0) {
-			const preview = section.createDiv();
-			preview.style.cssText = "margin-top:0.5rem;border-top:1px solid var(--background-modifier-border);padding-top:0.5rem;";
-
-			const maxPreview = 5;
-			const visible = groups.slice(0, maxPreview);
-			for (const group of visible) {
-				const actRow = preview.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-				actRow.style.padding = "2px 0";
-
-				const actIcon = actRow.createSpan();
-				setIcon(actIcon, this.getActivityIcon(group.latestAction));
-				actIcon.style.opacity = "0.5";
-
-				const name = group.path.split("/").pop() ?? group.path;
-				actRow.createSpan({ text: name, cls: "ft-text-sm" }).style.flex = "1";
-
-				actRow.createSpan({
-					text: group.latestAction,
-					cls: "ft-text-sm ft-text-muted",
-				});
-
-				if (group.count > 1) {
-					actRow.createSpan({
-						text: `×${group.count}`,
-						cls: "ft-text-sm ft-text-muted",
-					});
-				}
-			}
-
-			if (groups.length > maxPreview) {
-				preview.createDiv({
-					text: `+${groups.length - maxPreview} more files`,
-					cls: "ft-text-sm ft-text-muted",
-				}).style.paddingTop = "2px";
-			}
-		}
 	}
 
 	private getActivityIcon(action: string): string {

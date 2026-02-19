@@ -20,7 +20,7 @@ export type { InboxItem } from "../../domain/inbox/types";
 
 export type UserHubTab = "sessions" | "inbox" | "preferences";
 
-export type PreferencesCategory = "profile" | "inbox" | "sessions" | "daily-tracking" | "nudges";
+export type PreferencesCategory = "profile" | "inbox" | "sessions" | "nudges";
 
 // ─────────────────────────────────────────────────────────────
 // State
@@ -111,5 +111,4 @@ export const SESSION_TYPE_LABELS: Record<string, string> = {
 	"requirements-refinement": "Requirements",
 	"backlog-structuring": "Backlog",
 	"knowledge-cleanup": "Cleanup",
-	"daily-tracking": "Daily Tracking",
 };

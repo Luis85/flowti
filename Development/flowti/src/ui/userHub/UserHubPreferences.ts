@@ -1,11 +1,10 @@
 /**
  * Preferences component for the User Hub.
  *
- * Master-detail layout with 5 categories:
+ * Master-detail layout with 4 categories:
  * - Profile: display name and user identity
  * - Inbox: notification source toggles
  * - Sessions: activity filter, custom types, output templates
- * - Daily Tracking: auto-start and daily note path
  * - Nudges: time-based session start reminders
  */
 
@@ -13,14 +12,12 @@ import { setIcon } from "obsidian";
 import type { UserHubComponentDeps, PreferencesCategory } from "./types";
 import { INBOX_SOURCE_DEFINITIONS } from "../../domain/inbox/types";
 import { UserHubSessionPreferences } from "./UserHubSessionPreferences";
-import { UserHubDailyTrackingPreferences } from "./UserHubDailyTrackingPreferences";
 import { UserHubNudgePreferences } from "./UserHubNudgePreferences";
 
 const CATEGORIES: ReadonlyArray<{ id: PreferencesCategory; label: string; icon: string; description: string }> = [
 	{ id: "profile", label: "Profile", icon: "user", description: "Display name and identity" },
 	{ id: "inbox", label: "Inbox", icon: "inbox", description: "Notification source toggles" },
 	{ id: "sessions", label: "Sessions", icon: "timer", description: "Activity filter, types, templates" },
-	{ id: "daily-tracking", label: "Daily Tracking", icon: "calendar", description: "Auto-start and daily note" },
 	{ id: "nudges", label: "Nudges", icon: "bell", description: "Time-based session start reminders" },
 ];
 
@@ -77,8 +74,6 @@ export class UserHubPreferences {
 			this.renderInboxDetail();
 		} else if (category === "sessions") {
 			new UserHubSessionPreferences(this.detailEl, this.deps).render();
-		} else if (category === "daily-tracking") {
-			new UserHubDailyTrackingPreferences(this.detailEl, this.deps).render();
 		} else if (category === "nudges") {
 			new UserHubNudgePreferences(this.detailEl, this.deps).render();
 		}
