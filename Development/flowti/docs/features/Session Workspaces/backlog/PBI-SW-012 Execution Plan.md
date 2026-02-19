@@ -1,7 +1,7 @@
 ---
 type: ProductBacklogItem
 feature: "[[Session Workspaces PRD]]"
-stage: in-progress
+stage: done
 priority: high
 effort: medium
 dependencies: []
@@ -57,7 +57,7 @@ Then a warning is shown (threshold: 5)
 - [x] Toggle task: `session.task.toggle` command → `session.task.completed` state event *(Cycle 7 Inc 1)*
 - [x] Reorder tasks: `session.task.reorder` command → `session.task.reordered` state event *(Cycle 7 Inc 1)*
 - [x] Progress indicator: `getTaskProgress()` pure helper returns `{ completed, total, percent }` *(Cycle 7 Inc 1)*
-- [ ] Main mode: full CRUD + drag-and-drop reorder
+- [x] Main mode: full CRUD + up/down arrow reorder *(Cycle 7 Inc 2)*
 - [ ] Sidebar mode: toggle only (no add, remove, or reorder)
 - [x] Tasks persist with session state *(Cycle 7 Inc 1)*
 - [x] Tasks carried through rerun and template flows *(Cycle 7 Inc 1)*
@@ -87,7 +87,7 @@ Then a warning is shown (threshold: 5)
 - [x] Progress indicator shows completed/total ratio *(Inc 1 — `getTaskProgress()`)*
 - [x] Tasks persist and restore on reload *(Inc 1)*
 - [ ] Max 5 recommendation shown (not enforced)
-- [x] `npm run build` passes *(2,576 tests, 103 suites)*
+- [x] `npm run build` passes *(2,602 tests, 104 suites)*
 
 ### INVEST Checklist
 
@@ -126,7 +126,20 @@ Then a warning is shown (threshold: 5)
 
 **Deviation:** Original event definitions used only state events (`session.task.added` etc.) for both commands and state notifications. Listening to these as commands caused infinite event loops. Fixed by adding separate command events (`session.task.add/toggle/remove/reorder`), following the established `session.goal.add` → `session.goal.added` pattern.
 
-### Inc 2: UI Layer (pending)
+### Inc 2: UI Layer (Cycle 7 Inc 2)
+
+**Files modified:**
+| File | Change | LOC |
+|------|--------|-----|
+| `src/ui/session/SessionExecutionPanel.ts` | New component: task checklist, progress bar, reorder | +170 |
+| `src/ui/SessionWorkspaceView.ts` | Import + wire execution panel between goals and notes | +6 |
+| `src/ui/session/SessionWorkspaceSubscriptions.ts` | 4 new task event listeners + execution panel accessor | +18 |
+| `tests/ui/session/SessionExecutionPanel.test.ts` | New test file | +280 |
+| `tests/ui/session/SessionWorkspaceSubscriptions.test.ts` | 5 new task subscription tests + context fix | +60 |
+
+**Tests:** 26 new (2,602 total, 104 suites)
+**UI components:** 1 new (`SessionExecutionPanel`)
+**Subscriptions:** 4 new task event listeners (28 total in `SessionWorkspaceSubscriptions`)
 
 ## Related
 

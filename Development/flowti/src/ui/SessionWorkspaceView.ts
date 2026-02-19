@@ -4,12 +4,12 @@
  * Extends ItemView directly (not BaseHubView) because it renders a
  * single-session workspace rather than a tabbed hub shell.
  *
- * Layout: header → timer → goals → notes → focus file → artifacts.
+ * Layout: header → timer → goals → execution plan → notes → focus file → artifacts.
  * All mutations go through the EventBus; the view is purely reactive.
  *
  * Panel components extracted to src/ui/session/:
- *   SessionTimerPanel, SessionGoalsPanel, SessionNotesPanel,
- *   SessionContextPanel, SessionActivityPanel
+ *   SessionTimerPanel, SessionGoalsPanel, SessionExecutionPanel,
+ *   SessionNotesPanel, SessionContextPanel, SessionActivityPanel
  *
  * Event subscriptions: SessionWorkspaceSubscriptions.ts (~230 LOC)
  * Helper functions:    SessionWorkspaceHelpers.ts (~150 LOC)
@@ -25,6 +25,7 @@ import { SESSION_TYPE_LABELS, SESSION_STATUS_LABELS } from "./userHub/types";
 import type { SessionPanelDeps } from "./session/types";
 import { SessionTimerPanel } from "./session/SessionTimerPanel";
 import { SessionGoalsPanel } from "./session/SessionGoalsPanel";
+import { SessionExecutionPanel } from "./session/SessionExecutionPanel";
 import { SessionNotesPanel } from "./session/SessionNotesPanel";
 import { SessionContextPanel } from "./session/SessionContextPanel";
 import { SessionActivityPanel } from "./session/SessionActivityPanel";
@@ -55,6 +56,7 @@ export class SessionWorkspaceView extends ItemView {
 	private timerPanel: SessionTimerPanel | null = null;
 	private guidingPanel: SessionGuidingQuestions | null = null;
 	private goalsPanel: SessionGoalsPanel | null = null;
+	private executionPanel: SessionExecutionPanel | null = null;
 	private notesPanel: SessionNotesPanel | null = null;
 	private contextPanel: SessionContextPanel | null = null;
 	private decisionPanel: SessionDecisionPanel | null = null;
@@ -175,6 +177,9 @@ export class SessionWorkspaceView extends ItemView {
 
 		this.goalsPanel = new SessionGoalsPanel(container, deps);
 		this.goalsPanel.render();
+
+		this.executionPanel = new SessionExecutionPanel(container, deps);
+		this.executionPanel.render();
 
 		this.notesPanel = new SessionNotesPanel(container, deps);
 		this.notesPanel.render();
@@ -457,6 +462,7 @@ export class SessionWorkspaceView extends ItemView {
 			restoreWorkspaceState: (id, state) => restoreWorkspaceState(this.buildHelperContext(), id, state),
 			getTimerPanel: () => this.timerPanel,
 			getGoalsPanel: () => this.goalsPanel,
+		getExecutionPanel: () => this.executionPanel,
 			getNotesPanel: () => this.notesPanel,
 			getActivityPanel: () => this.activityPanel,
 			getDecisionPanel: () => this.decisionPanel,

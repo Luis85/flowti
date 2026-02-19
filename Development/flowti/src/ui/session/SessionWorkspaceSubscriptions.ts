@@ -10,6 +10,7 @@ import type { IEventBus } from "../../infrastructure/events/types";
 import type { Session, WorkspaceState } from "../../domain/session/types";
 import type { SessionTimerPanel } from "./SessionTimerPanel";
 import type { SessionGoalsPanel } from "./SessionGoalsPanel";
+import type { SessionExecutionPanel } from "./SessionExecutionPanel";
 import type { SessionNotesPanel } from "./SessionNotesPanel";
 import type { SessionActivityPanel } from "./SessionActivityPanel";
 import type { SessionDecisionPanel } from "./SessionDecisionPanel";
@@ -28,6 +29,7 @@ export interface SubscriptionViewContext {
 	// Panel accessors
 	getTimerPanel(): SessionTimerPanel | null;
 	getGoalsPanel(): SessionGoalsPanel | null;
+	getExecutionPanel(): SessionExecutionPanel | null;
 	getNotesPanel(): SessionNotesPanel | null;
 	getActivityPanel(): SessionActivityPanel | null;
 	getDecisionPanel(): SessionDecisionPanel | null;
@@ -99,6 +101,19 @@ export function setupEventSubscriptions(
 				if (event.payload.sessionId === ctx.getSession()?.id) {
 					ctx.setSession(ctx.refreshSession());
 					ctx.getGoalsPanel()?.refreshGoals();
+				}
+			}),
+		);
+	}
+
+	// Task changes — refresh execution panel
+	const taskEvents = ["session.task.added", "session.task.completed", "session.task.removed", "session.task.reordered"] as const;
+	for (const eventType of taskEvents) {
+		unsubs.push(
+			eventBus.on(eventType, (event) => {
+				if (event.payload.sessionId === ctx.getSession()?.id) {
+					ctx.setSession(ctx.refreshSession());
+					ctx.getExecutionPanel()?.refreshTasks();
 				}
 			}),
 		);

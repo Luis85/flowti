@@ -23,7 +23,7 @@ This section describes **why** and **how** we test.
 1. **Prevent regressions** — Every domain service, infrastructure component, and utility function has automated tests that run on every build.
 2. **Document behavior** — Tests serve as executable specifications. Use case IDs (UC-01 through UC-99) link tests to user-visible behavior.
 3. **Enable fearless refactoring** — High coverage on pure functions and service logic allows structural changes (e.g., [[TD-34 Entity tab structural duplication|BaseEntityTab extraction]]) without risk.
-4. **Gate the build** — The `npm run build` pipeline fails if any test fails, preventing broken code from reaching the plugin output.
+4. **Gate the build** — The `npm run publish` pipeline fails if any test fails, preventing broken code from reaching the plugin output.
 
 ### Test Pyramid
 
@@ -50,7 +50,7 @@ This section describes **why** and **how** we test.
 
 | Tool | Purpose |
 |------|---------|
-| **Vitest 4.x** | Unit + integration test runner. Runs all suites in parallel via the forks pool. Configured as the first build gate — every `npm run build` runs the full suite before typedoc, tsc, eslint, and esbuild |
+| **Vitest 4.x** | Unit + integration test runner. Runs all suites in parallel via the forks pool. Configured as the first build gate — every `npm run publish` runs the full suite before typedoc, tsc, eslint, and esbuild |
 | **`vi.fn()` / `vi.spyOn()`** | Mocking and spying. Services are injected with mock `IStorageProvider` and mock `IEventBus` instances to isolate behavior. Modal constructors are mocked via `vi.mock()` to avoid DOM dependencies |
 | **`vi.useFakeTimers()`** | Deterministic time control for timestamp-dependent tests (batch windows, debounce timers, notice throttles). Ensures reproducible test output regardless of execution speed |
 | **`@vitest/coverage-v8`** | Code coverage via V8's native instrumentation. Reports generated as JSON (`docs/tests/coverage-final.json`) on every build. Target: 100% on pure functions, 80%+ on injectable services |
@@ -67,7 +67,7 @@ This section describes **why** and **how** we test.
 
 | Tool | Purpose |
 |------|---------|
-| **TypeDoc** | API documentation generator. Runs after tests pass. Produces `docs/codebase/codebase.json` and HTML output |
+| **TypeDoc** | API documentation generator. Runs after tests pass. Produces `docs/reports/codebase.json` and HTML output |
 | **TypeScript (`tsc`)** | Type-checking with `strict: true` and `-skipLibCheck` (avoids node_modules errors). No emit — used purely as a type gate |
 | **ESLint** | Lint rules enforced on `src/` directory. Runs after tsc to catch style and correctness issues |
 | **esbuild** | Bundles `src/main.ts` into `.obsidian/plugins/flowti-ibde/main.js` for Obsidian to load. Production builds use minification |
@@ -124,9 +124,9 @@ For easier quality surveillance we will integrate Vitest JSON reports into dedic
 
 | Asset | Path | Updated | Purpose |
 |-------|------|---------|---------|
-| Test results | `docs/tests/testreport.json` | Every `npm run build` | Suite/test pass/fail/skip counts, durations |
-| Coverage | `docs/tests/coverage-final.json` | Every `npm run build` | Per-file statement/branch/function coverage |
-| Codebase API | `docs/codebase/codebase.json` | Every `npm run build` | TypeDoc-generated API reference |
+| Test results | `docs/reports/tests/testreport.json` | Every `npm run test` | Suite/test pass/fail/skip counts, durations |
+| Coverage | `docs/reports/tests/coverage-final.json` | Every `npm run test:coverage` | Per-file statement/branch/function coverage |
+| Codebase API | `docs/report/codebase.json` | Every `npm run docs` | TypeDoc-generated API reference |
 
 Planned enhancements:
 

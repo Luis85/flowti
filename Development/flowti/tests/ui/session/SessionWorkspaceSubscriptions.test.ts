@@ -62,6 +62,7 @@ function makeContext(session: Session | null = makeSession()): SubscriptionViewC
 		getGoalsPanel: () => ({ refreshGoals: vi.fn() }) as never,
 		getNotesPanel: () => ({ updateNotes: vi.fn() }) as never,
 		getActivityPanel: () => ({ refreshList: vi.fn() }) as never,
+		getExecutionPanel: () => ({ refreshTasks: vi.fn() }) as never,
 		getDecisionPanel: () => ({ refreshList: vi.fn() }) as never,
 		getOutputPanel: () => ({ refreshList: vi.fn() }) as never,
 		mocks,
@@ -165,6 +166,85 @@ describe("setupEventSubscriptions", () => {
 		await eventBus.emit("session.state.restore", { sessionId: "session-1", state });
 
 		expect(ctx.mocks.restoreWorkspaceState).toHaveBeenCalledWith("session-1", state);
+	});
+
+	it("session.task.added triggers refreshSession + refreshTasks on execution panel", async () => {
+		const eventBus = new EventBus();
+		const refreshTasks = vi.fn();
+		const ctx = makeContext();
+		// Override execution panel to capture the call
+		(ctx as { getExecutionPanel: () => unknown }).getExecutionPanel = () => ({ refreshTasks });
+		setupEventSubscriptions(ctx, eventBus);
+
+		await eventBus.emit("session.task.added", {
+			sessionId: "session-1",
+			task: { id: "t1", label: "Test", completed: false, order: 0 },
+		});
+
+		expect(ctx.mocks.refreshSession).toHaveBeenCalled();
+		expect(ctx.mocks.setSession).toHaveBeenCalled();
+		expect(refreshTasks).toHaveBeenCalled();
+	});
+
+	it("session.task.completed triggers refreshTasks on execution panel", async () => {
+		const eventBus = new EventBus();
+		const refreshTasks = vi.fn();
+		const ctx = makeContext();
+		(ctx as { getExecutionPanel: () => unknown }).getExecutionPanel = () => ({ refreshTasks });
+		setupEventSubscriptions(ctx, eventBus);
+
+		await eventBus.emit("session.task.completed", {
+			sessionId: "session-1",
+			taskId: "t1",
+		});
+
+		expect(refreshTasks).toHaveBeenCalled();
+	});
+
+	it("session.task.removed triggers refreshTasks on execution panel", async () => {
+		const eventBus = new EventBus();
+		const refreshTasks = vi.fn();
+		const ctx = makeContext();
+		(ctx as { getExecutionPanel: () => unknown }).getExecutionPanel = () => ({ refreshTasks });
+		setupEventSubscriptions(ctx, eventBus);
+
+		await eventBus.emit("session.task.removed", {
+			sessionId: "session-1",
+			taskId: "t1",
+		});
+
+		expect(refreshTasks).toHaveBeenCalled();
+	});
+
+	it("session.task.reordered triggers refreshTasks on execution panel", async () => {
+		const eventBus = new EventBus();
+		const refreshTasks = vi.fn();
+		const ctx = makeContext();
+		(ctx as { getExecutionPanel: () => unknown }).getExecutionPanel = () => ({ refreshTasks });
+		setupEventSubscriptions(ctx, eventBus);
+
+		await eventBus.emit("session.task.reordered", {
+			sessionId: "session-1",
+			taskIds: ["t2", "t1"],
+		});
+
+		expect(refreshTasks).toHaveBeenCalled();
+	});
+
+	it("task events are ignored for different sessions", async () => {
+		const eventBus = new EventBus();
+		const refreshTasks = vi.fn();
+		const ctx = makeContext();
+		(ctx as { getExecutionPanel: () => unknown }).getExecutionPanel = () => ({ refreshTasks });
+		setupEventSubscriptions(ctx, eventBus);
+
+		await eventBus.emit("session.task.added", {
+			sessionId: "other-session",
+			task: { id: "t1", label: "Test", completed: false, order: 0 },
+		});
+
+		expect(refreshTasks).not.toHaveBeenCalled();
+		expect(ctx.mocks.refreshSession).not.toHaveBeenCalled();
 	});
 
 	it("ignores events for different sessions", async () => {

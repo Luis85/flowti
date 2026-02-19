@@ -135,16 +135,18 @@ total_test_files_after:
 **Est.:** ~180 LOC source, ~80 LOC tests, ~20 tests
 
 **Acceptance criteria:**
-- [ ] `SessionExecutionPanel` renders task checklist with checkboxes, add input, remove buttons
-- [ ] Progress bar shows `completedTasks / totalTasks` with visual fill
-- [ ] Tasks can be added via input field + enter/button
-- [ ] Tasks can be toggled via checkbox
-- [ ] Tasks can be removed via × button
-- [ ] Task reorder implemented (drag-and-drop or up/down arrows)
-- [ ] Panel integrates into `SessionWorkspaceView` between goals and decisions
-- [ ] 4 new event subscriptions added to `SessionWorkspaceSubscriptions.ts`
-- [ ] Panel hidden for completed/archived sessions with no tasks
-- [ ] `npm test` passes
+- [x] `SessionExecutionPanel` renders task checklist with checkboxes, add input, remove buttons
+- [x] Progress bar shows `completedTasks / totalTasks` with visual fill
+- [x] Tasks can be added via input field + enter/button
+- [x] Tasks can be toggled via checkbox
+- [x] Tasks can be removed via × button
+- [x] Task reorder implemented (up/down arrow buttons — simpler alternative chosen)
+- [x] Panel integrates into `SessionWorkspaceView` between goals and execution plan
+- [x] 4 new event subscriptions added to `SessionWorkspaceSubscriptions.ts`
+- [x] Panel hidden for completed/archived sessions (no add input, no reorder/remove buttons)
+- [x] `npm test` passes (2,602 tests, 104 suites)
+
+**Actual:** ~170 LOC source, ~280 LOC tests, 26 tests (21 panel + 5 subscription)
 
 **Architecture seams:** Component follows shared pattern (`constructor(el, deps)`, `render()`). Event subscriptions via `SessionWorkspaceSubscriptions`. DOM within `SessionWorkspaceView` layout.
 

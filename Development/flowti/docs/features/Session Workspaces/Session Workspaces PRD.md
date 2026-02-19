@@ -493,7 +493,7 @@ Session v2 – Focus & Execution (L3 Extension)
  ├── Session Lifecycle v2      🔜 FR-09: prepared → running → paused → reviewing → completed → archived
  ├── Intent Layer              🔜 FR-10: primary outcome, why it matters, session mode
  ├── Energy Tracking           🔜 FR-11: 1–5 scale, event-driven
- ├── Execution Plan            🔜 FR-12: checklist tasks, progress indicator
+ ├── Execution Plan            ✅ FR-12: checklist tasks, progress indicator
  ├── Structured Reflection     🔜 FR-13: observations, blockers, ideas, decisions
  ├── Closure Ritual System     🔜 FR-14: configurable review overlay
  ├── Activity Intelligence     🔜 FR-15: computed analytics from activity
@@ -706,7 +706,7 @@ interface Session {
   // v2 extensions
   intent: SessionIntent | null;             // 🔜 Planned FR-10
   energy: EnergyLevel | null;              // 🔜 Planned FR-11
-  executionTasks: ExecutionTask[];          // 🔜 Planned FR-12
+  executionTasks: ExecutionTask[];          // ✅ Done FR-12
   reflections: ReflectionEntry[];          // 🔜 Planned FR-13
   closureResponse: ClosureResponse | null; // 🔜 Planned FR-14
 }
@@ -965,12 +965,12 @@ interface Session {
 - [ ] Energy changes logged in event timeline
 - [ ] Used for cognitive overload detection (FR-16)
 
-### FR-12: Execution Plan — 🔧 In Progress (domain delivered, UI pending)
+### FR-12: Execution Plan — ✅ Done (domain + UI delivered)
 
 - [x] Checklist-based task list within sessions *(Cycle 7 Inc 1 — domain CRUD)*
-- [ ] Add/remove/toggle tasks in Main mode *(UI — Inc 2)*
+- [x] Add/remove/toggle tasks in Main mode *(Cycle 7 Inc 2 — SessionExecutionPanel)*
 - [x] Max recommended tasks: 5 (configurable threshold via `CognitiveLoadThresholds`)
-- [ ] Drag-and-drop reorder in Main mode *(UI — Inc 2)*
+- [x] Up/down arrow reorder in Main mode *(Cycle 7 Inc 2 — simpler alternative to DnD)*
 - [x] Progress indicator: `getTaskProgress()` returns `{ completed, total, percent }` *(Cycle 7 Inc 1)*
 - [x] Task completion emits `session.task.completed` event *(Cycle 7 Inc 1)*
 - [ ] Sidebar: read-only with check/uncheck allowed, no adding or reordering *(deferred — PBI-SW-017)*
@@ -1184,7 +1184,7 @@ SessionSidebarView
 | 1 | PBI-SW-009 | Domain Design Session | Medium | PBI-SW-003 | 🔜 Planned (Cycle 7+) — guided domain decomposition workflow (SW-003 unblocked) |
 | 2 | PBI-SW-010 | Session Lifecycle v2 & Intent Layer | High | — | ✅ Done (Cycle 6) — v2 state machine + intent + energy handlers (domain-first) |
 | 3 | PBI-SW-011 | Energy Tracking | Medium | PBI-SW-010 | 🔜 Planned — 1–5 scale energy indicator |
-| 4 | PBI-SW-012 | Execution Plan (Task Checklist) | High | — | 🔧 In Progress — domain CRUD delivered (Cycle 7 Inc 1), UI pending (Inc 2) |
+| 4 | PBI-SW-012 | Execution Plan (Task Checklist) | High | — | ✅ Done (Cycle 7) — domain CRUD (Inc 1), UI panel + progress bar + reorder (Inc 2) |
 | 5 | PBI-SW-013 | Structured Reflection | Medium | FR-03 (delivered) | 🔜 Planned — observations, blockers, ideas, decisions |
 | 6 | PBI-SW-014 | Closure Ritual System | High | PBI-SW-010 | 🔜 Planned — configurable review overlay |
 | 7 | PBI-SW-015 | Activity Intelligence | Low | FR-01 (delivered) | 🔜 Planned — computed analytics from activity |
@@ -1235,6 +1235,7 @@ See `backlog/PBI-SW-*.md` for detailed specifications.
 | 2026-02-19 | in-progress | in-progress | Cycle 6 Delivery | 26/35 | — | Cycle 6 delivered: Inc 1 (template import/export), Inc 2 (Three Amigos gaps pre-satisfied), Inc 3 (ADR-031, v2 types, state machine, 14 events registered), Inc 4 (PBI-SW-010 domain-first: lifecycle v2, intent, energy handlers). FRI updated: architecture 3→4, event_integration 3→4, data_model 3→4, validation_testing 2→3. 2,540 tests passing, 102 suites. `"active"` → `"running"` canonical status migration with backward compat. |
 | 2026-02-19 | in-progress | in-progress | Cycle 7 Planning | 26/35 | — | Cycle 7 planned: PBI-SW-012 (Execution Plan — domain + UI), PBI-SW-014 (Closure Ritual — domain + UI), PBI-SW-016 (Cognitive Overload Detection — spike). 4 increments. Inbox hygiene completed (both inboxes normalized). Feature Lifecycle PRD deferred (stays approved, no planning yet). |
 | 2026-02-19 | in-progress | in-progress | Cycle 7 Inc 1 — Execution Plan Domain | 26/35 | — | PBI-SW-012 Part 1 delivered: task CRUD (`addTask`, `toggleTask`, `removeTask`, `reorderTasks`), state guards, `getTaskProgress()` helper, template/rerun threading, 8 new events (4 commands + 4 state). `tasks?: string[]` added to `SessionTemplate`. 36 new tests, 2,576 total. Deviation: command/state event split added to avoid infinite listener loops (follows goal event pattern). SessionService ~1,420 LOC (+120). |
+| 2026-02-19 | in-progress | in-progress | Cycle 7 Inc 2 — Execution Plan UI | 26/35 | — | PBI-SW-012 Part 2 delivered: `SessionExecutionPanel` component (task checklist + progress bar + up/down reorder + add input). Integrated into `SessionWorkspaceView` between goals and notes. 4 new task event subscriptions in `SessionWorkspaceSubscriptions`. Up/down arrows chosen over drag-and-drop (simpler, more accessible). PBI-SW-012 **Done**. 26 new tests, 2,602 total, 104 suites. |
 
 ### Related Architecture Decisions
 
