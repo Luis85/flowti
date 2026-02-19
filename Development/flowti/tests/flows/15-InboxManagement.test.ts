@@ -57,7 +57,8 @@ describe("Flow 15: Manage Inbox Notifications", () => {
 			eventBus.on("inbox.itemAdded", addedHandler);
 
 			await eventBus.emit("dataExchange.import.completed", {
-				result: { totalRows: 10, created: 8, updated: 1, skipped: 1, failed: 0 },
+				operationId: "op-1",
+				result: { totalRows: 10, created: 8, updated: 1, skipped: 1, failed: 0, errors: [] },
 			});
 			await waitForAsync();
 
@@ -73,7 +74,8 @@ describe("Flow 15: Manage Inbox Notifications", () => {
 			eventBus.on("inbox.itemAdded", addedHandler);
 
 			await eventBus.emit("dataExchange.import.completed", {
-				result: { totalRows: 10, created: 5, updated: 0, skipped: 2, failed: 3 },
+				operationId: "op-2",
+				result: { totalRows: 10, created: 5, updated: 0, skipped: 2, failed: 3, errors: [] },
 			});
 			await waitForAsync();
 
@@ -87,8 +89,15 @@ describe("Flow 15: Manage Inbox Notifications", () => {
 			eventBus.on("inbox.itemAdded", addedHandler);
 
 			await eventBus.emit("dataExchange.import.failed", {
+				operationId: "op-3",
 				error: "File not found",
-				config: { sourcePath: "data/missing.csv" },
+				config: {
+					sourcePath: "data/missing.csv",
+					targetFolder: "imports",
+					nameColumn: "name",
+					columnMappings: [],
+					conflictStrategy: "skip",
+				},
 			});
 			await waitForAsync();
 
@@ -103,6 +112,7 @@ describe("Flow 15: Manage Inbox Notifications", () => {
 			eventBus.on("inbox.itemAdded", addedHandler);
 
 			await eventBus.emit("dataExchange.export.completed", {
+				operationId: "op-4",
 				result: { totalRows: 50, totalColumns: 5, outputPath: "exports/data.csv" },
 			});
 			await waitForAsync();
@@ -118,7 +128,11 @@ describe("Flow 15: Manage Inbox Notifications", () => {
 			eventBus.on("inbox.itemAdded", addedHandler);
 
 			await eventBus.emit("dataExchange.pipeline.completed", {
-				result: { totalSources: 3, totalRows: 100, created: 90, updated: 5, skipped: 3, failed: 2 },
+				result: {
+					totalSources: 3, completedSources: 3, totalRows: 100,
+					created: 90, updated: 5, skipped: 3, failed: 2,
+					errors: [], sourceResults: [],
+				},
 			});
 			await waitForAsync();
 
@@ -152,6 +166,7 @@ describe("Flow 15: Manage Inbox Notifications", () => {
 				timestamp: new Date().toISOString(),
 			});
 			await eventBus.emit("dataExchange.export.completed", {
+				operationId: "op-5",
 				result: { totalRows: 10, totalColumns: 3, outputPath: "out.csv" },
 			});
 			await waitForAsync();
@@ -287,6 +302,7 @@ describe("Flow 15: Manage Inbox Notifications", () => {
 
 			// Enabled source — should create item
 			await eventBus.emit("dataExchange.export.completed", {
+				operationId: "op-6",
 				result: { totalRows: 5, totalColumns: 2, outputPath: "out.csv" },
 			});
 			await waitForAsync();
@@ -299,12 +315,13 @@ describe("Flow 15: Manage Inbox Notifications", () => {
 	describe("end-to-end: source → inbox → user interaction", () => {
 		it("should support the full notification lifecycle", async () => {
 			const events: string[] = [];
-			eventBus.on("inbox.itemAdded", () => events.push("itemAdded"));
-			eventBus.on("inbox.itemsChanged", () => events.push("itemsChanged"));
+			eventBus.on("inbox.itemAdded", () => { events.push("itemAdded"); });
+			eventBus.on("inbox.itemsChanged", () => { events.push("itemsChanged"); });
 
 			// 1. Source event fires → inbox item created
 			await eventBus.emit("dataExchange.import.completed", {
-				result: { totalRows: 20, created: 18, updated: 2, skipped: 0, failed: 0 },
+				operationId: "op-7",
+				result: { totalRows: 20, created: 18, updated: 2, skipped: 0, failed: 0, errors: [] },
 			});
 			await waitForAsync();
 
