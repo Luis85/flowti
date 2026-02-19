@@ -1,0 +1,20 @@
+filters:
+  and:
+    - file.inFolder("Development/flowti/docs/cycles")
+formulas:
+  bugs_count: bugs.length
+views:
+  - type: table
+    name: Table
+    order:
+      - cycle
+      - file.name
+      - stage
+      - formula.bugs_count
+      - type
+    sort:
+      - property: cycle
+        direction: DESC
+    columnSize:
+      file.name: 376
+      note.bugs: 298

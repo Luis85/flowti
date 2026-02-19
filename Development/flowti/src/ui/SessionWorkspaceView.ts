@@ -10,16 +10,18 @@
  * Panel components extracted to src/ui/session/:
  *   SessionTimerPanel, SessionGoalsPanel, SessionNotesPanel,
  *   SessionContextPanel, SessionActivityPanel
+ *
+ * Event subscriptions: SessionWorkspaceSubscriptions.ts (~230 LOC)
+ * Helper functions:    SessionWorkspaceHelpers.ts (~150 LOC)
  */
 
 import { ItemView, Notice, setIcon } from "obsidian";
-import type { TAbstractFile, WorkspaceLeaf } from "obsidian";
+import type { WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../infrastructure/events/types";
 import type { SessionService } from "../domain/session/SessionService";
-import type { Session, WorkspaceState } from "../domain/session/types";
+import type { Session } from "../domain/session/types";
 import { generateSessionSummary } from "../domain/session/helpers";
 import { SESSION_TYPE_LABELS, SESSION_STATUS_LABELS } from "./userHub/types";
-import { SaveTemplateModal } from "./modals";
 import type { SessionPanelDeps } from "./session/types";
 import { SessionTimerPanel } from "./session/SessionTimerPanel";
 import { SessionGoalsPanel } from "./session/SessionGoalsPanel";
@@ -29,10 +31,19 @@ import { SessionActivityPanel } from "./session/SessionActivityPanel";
 import { SessionGuidingQuestions } from "./session/SessionGuidingQuestions";
 import { SessionDecisionPanel } from "./session/SessionDecisionPanel";
 import { SessionOutputPanel } from "./session/SessionOutputPanel";
-import { SessionOutputPickerModal } from "./session/SessionOutputPickerModal";
 import { type SessionTypeConfig, type SessionOutputTemplate } from "../domain/session/types";
+import { setupEventSubscriptions } from "./session/SessionWorkspaceSubscriptions";
+import type { SubscriptionViewContext } from "./session/SessionWorkspaceSubscriptions";
+import {
+	getStatusStyle, captureWorkspaceState, restoreWorkspaceState,
+	openOutputPicker, openSaveTemplateModal, openInTab, openInSidebar,
+	revealInFileExplorer, openInAdjacentLeaf,
+} from "./session/SessionWorkspaceHelpers";
+import type { WorkspaceHelperContext } from "./session/SessionWorkspaceHelpers";
 
-export const VIEW_TYPE_SESSION_WORKSPACE = "flowti-session-workspace";
+// Re-export for backward compat (canonical location: session/types.ts)
+export { VIEW_TYPE_SESSION_WORKSPACE } from "./session/types";
+import { VIEW_TYPE_SESSION_WORKSPACE } from "./session/types";
 
 export class SessionWorkspaceView extends ItemView {
 	private eventBus: IEventBus;
@@ -81,25 +92,19 @@ export class SessionWorkspaceView extends ItemView {
 	async onOpen(): Promise<void> {
 		this.containerEl.addClass("ft-hide-header");
 
-		// Load session: prefer workspace target, then fall back to active session
 		const targetId = this.sessionService.workspaceSessionId;
 		this.session = targetId
 			? this.sessionService.getSessionById(targetId)
 			: this.sessionService.getActiveSession();
 
-		// Track workspace session so context menu "Add to Session" works for prepared sessions
 		if (this.session) {
 			this.sessionService.workspaceSessionId = this.session.id;
 		}
 
 		this.render();
-		this.subscribeToEvents();
+		this.unsubscribes = setupEventSubscriptions(this.buildSubscriptionContext(), this.eventBus);
 	}
 
-	/**
-	 * Called by Obsidian when setViewState() targets an existing leaf of the same type.
-	 * Switches the displayed session without destroying and recreating the view.
-	 */
 	async setState(state: Record<string, unknown>, result: import("obsidian").ViewStateResult): Promise<void> {
 		if (state?.sessionId && typeof state.sessionId === "string") {
 			this.sessionService.workspaceSessionId = state.sessionId;
@@ -114,7 +119,6 @@ export class SessionWorkspaceView extends ItemView {
 	}
 
 	async onClose(): Promise<void> {
-		// Clear workspace tracking
 		if (this.session && this.sessionService.workspaceSessionId === this.session.id) {
 			this.sessionService.workspaceSessionId = null;
 		}
@@ -123,10 +127,6 @@ export class SessionWorkspaceView extends ItemView {
 		this.notesPanel?.destroy();
 	}
 
-	/**
-	 * Updates the timer display without a full re-render.
-	 * Called externally (e.g. from main.ts wiring) for direct DOM updates.
-	 */
 	updateTimerDisplay(remainingMs: number): void {
 		this.timerPanel?.updateDisplay(remainingMs);
 	}
@@ -140,12 +140,13 @@ export class SessionWorkspaceView extends ItemView {
 	}
 
 	private createPanelDeps(): SessionPanelDeps {
+		const ctx = this.buildHelperContext();
 		return {
 			eventBus: this.eventBus,
 			getSession: () => this.session!,
 			app: this.app,
-			openFile: (path) => this.openInAdjacentLeaf(path),
-			revealFolder: (path) => this.revealInFileExplorer(path),
+			openFile: (path) => openInAdjacentLeaf(ctx, path),
+			revealFolder: (path) => revealInFileExplorer(ctx, path),
 			updateActivityFilter: (id, filter) => this.sessionService.updateActivityFilter(id, filter),
 		};
 	}
@@ -167,7 +168,6 @@ export class SessionWorkspaceView extends ItemView {
 		this.timerPanel = new SessionTimerPanel(container, deps);
 		this.timerPanel.render();
 
-		// Guiding questions — visible during active/paused to keep focus
 		if (this.session.status === "active" || this.session.status === "paused") {
 			this.guidingPanel = new SessionGuidingQuestions(container, deps, this.customSessionTypes);
 			this.guidingPanel.render();
@@ -192,9 +192,9 @@ export class SessionWorkspaceView extends ItemView {
 		this.activityPanel = new SessionActivityPanel(container, deps);
 		this.activityPanel.render();
 
-		// Output artifacts — visible only for completed/archived sessions
 		if (this.session.status === "completed" || this.session.status === "archived") {
-			this.outputPanel = new SessionOutputPanel(container, deps, () => this.openOutputPicker());
+			const ctx = this.buildHelperContext();
+			this.outputPanel = new SessionOutputPanel(container, deps, () => openOutputPicker(ctx));
 			this.outputPanel.render();
 		}
 	}
@@ -219,7 +219,6 @@ export class SessionWorkspaceView extends ItemView {
 		const session = this.session!;
 		const header = container.createDiv({ cls: "ft-session-workspace-header ft-section" });
 
-		// Title row
 		const titleRow = header.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		titleRow.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:8px;";
 
@@ -233,9 +232,8 @@ export class SessionWorkspaceView extends ItemView {
 			text: SESSION_STATUS_LABELS[session.status] ?? session.status,
 			cls: "ft-badge ft-badge-status",
 		});
-		this.headerStatusEl.style.cssText = "padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;" + this.getStatusStyle(session.status);
+		this.headerStatusEl.style.cssText = "padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;" + getStatusStyle(session.status);
 
-		// Action buttons
 		this.actionsEl = header.createDiv({ cls: "ft-session-workspace-actions" });
 		this.actionsEl.style.cssText = "display:flex;gap:8px;";
 		this.renderActions();
@@ -245,6 +243,7 @@ export class SessionWorkspaceView extends ItemView {
 		if (!this.actionsEl || !this.session) return;
 		this.actionsEl.empty();
 		const session = this.session;
+		const ctx = this.buildHelperContext();
 
 		if (session.status === "active") {
 			this.createActionButton(this.actionsEl, "pause", "Pause", () => {
@@ -271,17 +270,16 @@ export class SessionWorkspaceView extends ItemView {
 		}
 
 		this.createActionButton(this.actionsEl, "bookmark", "Save as Template", () => {
-			this.openSaveTemplateModal(session);
+			openSaveTemplateModal(ctx, session);
 		});
 
-		// Show "Sidebar" or "Open in Tab" depending on current location
 		if (this.leaf.getRoot() !== this.app.workspace.rightSplit) {
 			this.createActionButton(this.actionsEl, "panel-right", "Sidebar", () => {
-				this.openInSidebar();
+				openInSidebar(ctx);
 			});
 		} else {
 			this.createActionButton(this.actionsEl, "layout", "Open in Tab", () => {
-				this.openInTab();
+				openInTab(ctx);
 			});
 		}
 	}
@@ -309,11 +307,12 @@ export class SessionWorkspaceView extends ItemView {
 
 		section.createEl("span", { text: "Focus:" }).style.cssText = "font-weight:600;";
 
+		const ctx = this.buildHelperContext();
 		const link = section.createEl("a", { text: session.focusFile, cls: "ft-focus-link" });
 		link.style.cssText = "cursor:pointer;text-decoration:underline;color:var(--text-accent);";
 		link.addEventListener("click", (e) => {
 			e.preventDefault();
-			this.openInAdjacentLeaf(session.focusFile!);
+			openInAdjacentLeaf(ctx, session.focusFile!);
 		});
 	}
 
@@ -355,7 +354,7 @@ export class SessionWorkspaceView extends ItemView {
 			}
 		}
 
-		this.openInAdjacentLeaf(path);
+		openInAdjacentLeaf(this.buildHelperContext(), path);
 	}
 
 	private renderCanvasFile(container: HTMLElement): void {
@@ -376,7 +375,7 @@ export class SessionWorkspaceView extends ItemView {
 			link.style.cssText = "cursor:pointer;text-decoration:underline;color:var(--text-accent);";
 			link.addEventListener("click", (e) => {
 				e.preventDefault();
-				this.openInAdjacentLeaf(session.canvasFile!);
+				openInAdjacentLeaf(this.buildHelperContext(), session.canvasFile!);
 			});
 		} else {
 			const btn = section.createEl("button", { text: "Create Session Canvas", cls: "ft-canvasfile-create" });
@@ -400,7 +399,6 @@ export class SessionWorkspaceView extends ItemView {
 			: "03 - Resources/Sessions";
 		const path = `${folder}/${safeName} (${shortId}).canvas`;
 
-		// Create canvas file if it doesn't exist
 		const exists = this.app.vault.getAbstractFileByPath(path);
 		if (!exists) {
 			if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
@@ -413,22 +411,19 @@ export class SessionWorkspaceView extends ItemView {
 			}
 		}
 
-		// Set canvas file on session
 		void this.eventBus.emit("session.canvasFile.set", { sessionId: session.id, path });
 		new Notice(`Canvas created: ${path.split("/").pop()}`);
 
-		// Auto-link canvas in the notes file
 		if (session.notesFile) {
 			await this.appendCanvasLinkToNotes(session.notesFile, path);
 		}
 
-		this.openInAdjacentLeaf(path);
+		openInAdjacentLeaf(this.buildHelperContext(), path);
 	}
 
 	private async appendCanvasLinkToNotes(notesPath: string, canvasPath: string): Promise<void> {
 		let file = this.app.vault.getAbstractFileByPath(notesPath);
 		if (!file) {
-			// Notes file doesn't exist yet — create it with canvas link
 			const folder = notesPath.substring(0, notesPath.lastIndexOf("/"));
 			if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
 				await this.app.vault.createFolder(folder);
@@ -438,12 +433,10 @@ export class SessionWorkspaceView extends ItemView {
 				await this.app.vault.create(notesPath, `# ${title}\n\n## Canvas\n![[${canvasPath}]]\n`);
 				return;
 			} catch {
-				// File exists on disk but not in cache — fall through to append
 				file = this.app.vault.getAbstractFileByPath(notesPath);
 				if (!file) return;
 			}
 		}
-		// File exists — append canvas embed if not already present
 		const existing = await this.app.vault.read(file as import("obsidian").TFile);
 		const embed = `![[${canvasPath}]]`;
 		if (!existing.includes(embed)) {
@@ -451,341 +444,36 @@ export class SessionWorkspaceView extends ItemView {
 		}
 	}
 
-	// ── Event subscriptions ──────────────────────────────────
+	// ── Context builders ─────────────────────────────────────
 
-	private subscribeToEvents(): void {
-		// Timer tick — incremental DOM update only
-		this.unsubscribes.push(
-			this.eventBus.on("session.timer.tick", (event) => {
-				if (this.timerPanel && this.session && event.payload.sessionId === this.session.id) {
-					this.timerPanel.updateDisplay(event.payload.remainingMs);
-				}
-			}),
-		);
-
-		// Timer completed — full re-render for status change
-		this.unsubscribes.push(
-			this.eventBus.on("session.timer.completed", () => {
-				this.session = this.refreshSession();
-				this.render();
-			}),
-		);
-
-		// Duration updated — full re-render to update timer display
-		this.unsubscribes.push(
-			this.eventBus.on("session.duration.updated", (event) => {
-				if (event.payload.sessionId === this.session?.id) {
-					this.session = this.refreshSession();
-					this.render();
-				}
-			}),
-		);
-
-		// Session lifecycle changes — full re-render for own session,
-		// action bar refresh for other sessions (Start button visibility depends on active session)
-		const lifecycleEvents = [
-			"session.started", "session.paused", "session.resumed", "session.completed",
-		] as const;
-		for (const eventType of lifecycleEvents) {
-			this.unsubscribes.push(
-				this.eventBus.on(eventType, (event) => {
-					if (event.payload.session.id === this.session?.id) {
-						this.session = event.payload.session;
-						this.render();
-					} else {
-						this.renderActions();
-					}
-				}),
-			);
-		}
-
-		// Goal changes — refresh goals panel
-		const goalEvents = ["session.goal.added", "session.goal.toggled", "session.goal.removed"] as const;
-		for (const eventType of goalEvents) {
-			this.unsubscribes.push(
-				this.eventBus.on(eventType, (event) => {
-					if (event.payload.sessionId === this.session?.id) {
-						this.session = this.refreshSession();
-						this.goalsPanel?.refreshGoals();
-					}
-				}),
-			);
-		}
-
-		// Decision changes — refresh decisions panel
-		const decisionEvents = ["session.decision.recorded", "session.decision.removed"] as const;
-		for (const eventType of decisionEvents) {
-			this.unsubscribes.push(
-				this.eventBus.on(eventType, (event) => {
-					if (event.payload.sessionId === this.session?.id) {
-						this.session = this.refreshSession();
-						this.decisionPanel?.refreshList();
-					}
-				}),
-			);
-		}
-
-		// Notes updated — update textarea if not focused (avoid overwriting user typing)
-		this.unsubscribes.push(
-			this.eventBus.on("session.notes.updated", (event) => {
-				if (event.payload.sessionId === this.session?.id) {
-					this.session = this.refreshSession();
-					this.notesPanel?.updateNotes(event.payload.notes);
-				}
-			}),
-		);
-
-		// Artifact added — refresh activity list (artifacts are shown in the activity list)
-		this.unsubscribes.push(
-			this.eventBus.on("session.artifact.added", (event) => {
-				if (event.payload.sessionId === this.session?.id) {
-					this.session = this.refreshSession();
-					this.activityPanel?.refreshList();
-				}
-			}),
-		);
-
-		// Notes file set — full re-render (section changes from button to link)
-		this.unsubscribes.push(
-			this.eventBus.on("session.notesFile.updated", (event) => {
-				if (event.payload.sessionId === this.session?.id) {
-					this.session = this.refreshSession();
-					this.render();
-				}
-			}),
-		);
-
-		// Canvas file set — full re-render (section changes from button to link)
-		this.unsubscribes.push(
-			this.eventBus.on("session.canvasFile.updated", (event) => {
-				if (event.payload.sessionId === this.session?.id) {
-					this.session = this.refreshSession();
-					this.render();
-				}
-			}),
-		);
-
-		// Context binding added/removed/changed — full re-render
-		this.unsubscribes.push(
-			this.eventBus.on("session.context.bound", (event) => {
-				if (event.payload.sessionId === this.session?.id) {
-					this.session = this.refreshSession();
-					this.render();
-				}
-			}),
-		);
-		this.unsubscribes.push(
-			this.eventBus.on("session.context.unbound", (event) => {
-				if (event.payload.sessionId === this.session?.id) {
-					this.session = this.refreshSession();
-					this.render();
-				}
-			}),
-		);
-		this.unsubscribes.push(
-			this.eventBus.on("session.context.typeChanged", (event) => {
-				if (event.payload.sessionId === this.session?.id) {
-					this.session = this.refreshSession();
-					this.render();
-				}
-			}),
-		);
-
-		// Activity tracked — incremental update to activity list
-		this.unsubscribes.push(
-			this.eventBus.on("session.activity.tracked", (event) => {
-				if (event.payload.sessionId === this.session?.id) {
-					this.session = this.refreshSession();
-					this.activityPanel?.refreshList();
-				}
-			}),
-		);
-
-		// Activity filter updated — full re-render (filter tags change)
-		this.unsubscribes.push(
-			this.eventBus.on("session.activity.filter.updated", (event) => {
-				if (event.payload.sessionId === this.session?.id) {
-					this.session = this.refreshSession();
-					this.render();
-				}
-			}),
-		);
-
-		// Path reconciliation — re-render when attached files are renamed/moved
-		this.unsubscribes.push(
-			this.eventBus.on("session.paths.updated", (event) => {
-				if (this.session && event.payload.sessionIds.includes(this.session.id)) {
-					this.session = this.refreshSession();
-					this.render();
-				}
-			}),
-		);
-
-		// Output artifact generated — refresh output panel
-		this.unsubscribes.push(
-			this.eventBus.on("session.output.generated", (event) => {
-				if (event.payload.sessionId === this.session?.id) {
-					this.session = this.refreshSession();
-					this.outputPanel?.refreshList();
-				}
-			}),
-		);
-
-		// Session deleted — show empty state
-		this.unsubscribes.push(
-			this.eventBus.on("session.deleted", (event) => {
-				if (event.payload.sessionId === this.session?.id) {
-					this.session = null;
-					this.render();
-				}
-			}),
-		);
-
-		// Workspace state capture — service requests snapshot on pause/complete
-		this.unsubscribes.push(
-			this.eventBus.on("session.state.save", (event) => {
-				if (event.payload.sessionId === this.session?.id) {
-					void this.captureWorkspaceState(event.payload.sessionId);
-				}
-			}),
-		);
-
-		// Workspace state restore — service requests file reopening on resume
-		this.unsubscribes.push(
-			this.eventBus.on("session.state.restore", (event) => {
-				if (event.payload.sessionId === this.session?.id) {
-					void this.restoreWorkspaceState(event.payload.sessionId, event.payload.state);
-				}
-			}),
-		);
+	private buildSubscriptionContext(): SubscriptionViewContext {
+		return {
+			getSession: () => this.session,
+			setSession: (s) => { this.session = s; },
+			refreshSession: () => this.refreshSession(),
+			render: () => this.render(),
+			renderActions: () => this.renderActions(),
+			captureWorkspaceState: (id) => captureWorkspaceState(this.buildHelperContext(), id),
+			restoreWorkspaceState: (id, state) => restoreWorkspaceState(this.buildHelperContext(), id, state),
+			getTimerPanel: () => this.timerPanel,
+			getGoalsPanel: () => this.goalsPanel,
+			getNotesPanel: () => this.notesPanel,
+			getActivityPanel: () => this.activityPanel,
+			getDecisionPanel: () => this.decisionPanel,
+			getOutputPanel: () => this.outputPanel,
+		};
 	}
 
-	// ── Workspace state capture/restore ─────────────────────
-
-	private async captureWorkspaceState(sessionId: string): Promise<void> {
-		const openFiles: string[] = [];
-		let activeFile: string | null = null;
-
-		// Collect open markdown/canvas files from all workspace leaves
-		this.app.workspace.iterateAllLeaves((leaf) => {
-			const viewState = leaf.getViewState();
-			const file = (viewState.state as Record<string, unknown>)?.file;
-			if (typeof file === "string") {
-				openFiles.push(file);
-			}
-		});
-
-		const current = this.app.workspace.getActiveFile();
-		if (current) {
-			activeFile = current.path;
-		}
-
-		const state: WorkspaceState = { openFiles, activeFile, scrollPositions: {} };
-		await this.eventBus.emit("session.state.saved", { sessionId, state });
-	}
-
-	private async restoreWorkspaceState(sessionId: string, state: WorkspaceState): Promise<void> {
-		// Open each saved file, skipping those that no longer exist
-		for (const filePath of state.openFiles) {
-			const exists = this.app.vault.getAbstractFileByPath(filePath);
-			if (exists) {
-				await this.app.workspace.openLinkText(filePath, "", false);
-			}
-		}
-
-		// Restore active file last so it ends up focused
-		if (state.activeFile) {
-			const exists = this.app.vault.getAbstractFileByPath(state.activeFile);
-			if (exists) {
-				await this.app.workspace.openLinkText(state.activeFile, "", false);
-			}
-		}
-
-		await this.eventBus.emit("session.state.restored", { sessionId });
-	}
-
-	// ── Helpers ───────────────────────────────────────────────
-
-	private openOutputPicker(): void {
-		if (!this.session) return;
-		const sessionId = this.session.id;
-		new SessionOutputPickerModal(this.app, {
-			customTemplates: this.customOutputTemplates,
-			onSelect: (template) => {
-				void this.eventBus.emit("session.output.generate", { sessionId, template });
-			},
-		}).open();
-	}
-
-	private openSaveTemplateModal(session: Session): void {
-		new SaveTemplateModal(this.app, {
-			sessionTitle: session.title,
-			sessionType: SESSION_TYPE_LABELS[session.type] ?? session.type,
-			sessionDuration: session.durationMinutes,
-			onSubmit: (name) => {
-				void this.sessionService.saveTemplateFromSession(session.id, name);
-			},
-		}).open();
-	}
-
-	private openInTab(): void {
-		if (!this.session) return;
-		const sessionId = this.session.id;
-		this.sessionService.workspaceSessionId = sessionId;
-		void this.app.workspace.getLeaf("tab").setViewState({
-			type: VIEW_TYPE_SESSION_WORKSPACE,
-			active: true,
-			state: { sessionId },
-		});
-	}
-
-	private openInSidebar(): void {
-		if (!this.session) return;
-		const sessionId = this.session.id;
-		this.sessionService.workspaceSessionId = sessionId;
-		// Defer to next tick so the browser can process mouseup / cursor reset
-		// before the heavy sidebar + view instantiation runs.
-		setTimeout(() => {
-			const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_SESSION_WORKSPACE)
-				.find((l) => l.getRoot() === this.app.workspace.rightSplit);
-			const leaf = existing ?? this.app.workspace.getRightLeaf(false);
-			if (leaf) {
-				void leaf.setViewState({ type: VIEW_TYPE_SESSION_WORKSPACE, active: true, state: { sessionId } });
-				this.app.workspace.revealLeaf(leaf);
-			}
-		}, 0);
-	}
-
-	private revealInFileExplorer(path: string): void {
-		const cleanPath = path.replace(/\/$/, "");
-		const folder = this.app.vault.getAbstractFileByPath(cleanPath);
-		if (!folder) return;
-
-		const explorers = this.app.workspace.getLeavesOfType("file-explorer");
-		if (explorers.length > 0) {
-			(explorers[0].view as unknown as { revealInFolder: (f: TAbstractFile) => void }).revealInFolder(folder);
-			this.app.workspace.revealLeaf(explorers[0]);
-		}
-	}
-
-	private openInAdjacentLeaf(path: string): void {
-		// Reuse our tracked leaf if still attached, otherwise create a new split
-		if (!this.adjacentLeaf || !this.adjacentLeaf.parent) {
-			this.adjacentLeaf = this.app.workspace.getLeaf("split");
-		}
-		const target = this.adjacentLeaf;
-		this.app.workspace.setActiveLeaf(target, { focus: true });
-		void this.app.workspace.openLinkText(path, "", false).then(() => {
-			if (target.parent) this.app.workspace.setActiveLeaf(target, { focus: true });
-		});
-	}
-
-	private getStatusStyle(status: string): string {
-		switch (status) {
-			case "active": return "background:var(--color-green);color:var(--background-primary);";
-			case "paused": return "background:var(--color-yellow);color:var(--background-primary);";
-			case "completed": return "background:var(--color-blue);color:var(--background-primary);";
-			default: return "background:var(--background-modifier-hover);";
-		}
+	private buildHelperContext(): WorkspaceHelperContext {
+		return {
+			app: this.app,
+			eventBus: this.eventBus,
+			leaf: this.leaf,
+			getSession: () => this.session,
+			getAdjacentLeaf: () => this.adjacentLeaf,
+			setAdjacentLeaf: (l) => { this.adjacentLeaf = l; },
+			customOutputTemplates: this.customOutputTemplates,
+			sessionService: this.sessionService,
+		};
 	}
 }

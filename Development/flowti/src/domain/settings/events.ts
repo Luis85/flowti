@@ -24,4 +24,6 @@ export interface SettingsEventMap {
 	"settings.updateCustomSessionTypes": { types: Record<string, unknown> };
 	/** Command: update custom output templates for sessions */
 	"settings.updateCustomOutputTemplates": { templates: unknown[] };
+	/** Command: update session activity filter folders */
+	"settings.updateSessionActivityFilter": { filter: string[] };
 }

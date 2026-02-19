@@ -9,6 +9,12 @@ import type { IEventBus } from "../../infrastructure/events/types";
 import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
 import type { ImportConfig, ImportResult, ParsedCsv } from "./types";
 import { CsvParser } from "./CsvParser";
+import { generateUUID } from "../../utils/helpers";
+
+export interface ImportExecuteOptions {
+	operationId?: string;
+	pipelineId?: string;
+}
 
 export interface ImportServiceDeps {
 	eventBus: IEventBus;
@@ -37,61 +43,83 @@ export class ImportService {
 	/**
 	 * Executes the full import pipeline.
 	 */
-	async executeImport(config: ImportConfig): Promise<ImportResult> {
-		const content = await this.fileSystem.readFile(config.sourcePath);
-		const parsed = this.csvParser.parse(content);
+	async executeImport(config: ImportConfig, options?: ImportExecuteOptions): Promise<ImportResult> {
+		const operationId = options?.operationId ?? generateUUID();
+		const pipelineId = options?.pipelineId;
 
-		await this.eventBus.emit("dataExchange.import.started", {
-			config,
-			totalRows: parsed.rowCount,
-		});
+		try {
+			const content = await this.fileSystem.readFile(config.sourcePath);
+			const parsed = this.csvParser.parse(content);
 
-		const result: ImportResult = {
-			totalRows: parsed.rowCount,
-			created: 0,
-			updated: 0,
-			skipped: 0,
-			failed: 0,
-			errors: [],
-		};
+			await this.eventBus.emit("dataExchange.import.started", {
+				operationId,
+				config,
+				totalRows: parsed.rowCount,
+				pipelineId,
+			});
 
-		const nameColumnIndex = parsed.headers.indexOf(config.nameColumn);
-		if (nameColumnIndex === -1) {
-			throw new Error(
-				`Name column "${config.nameColumn}" not found in CSV headers`,
-			);
-		}
+			const result: ImportResult = {
+				totalRows: parsed.rowCount,
+				created: 0,
+				updated: 0,
+				skipped: 0,
+				failed: 0,
+				errors: [],
+			};
 
-		for (let i = 0; i < parsed.rows.length; i++) {
-			const row = parsed.rows[i];
-			try {
-				await this.processRow(
-					row,
-					i,
-					nameColumnIndex,
-					parsed.headers,
-					config,
-					result,
+			const nameColumnIndex = parsed.headers.indexOf(config.nameColumn);
+			if (nameColumnIndex === -1) {
+				throw new Error(
+					`Name column "${config.nameColumn}" not found in CSV headers`,
 				);
-			} catch (error) {
-				const errMsg =
-					error instanceof Error ? error.message : String(error);
-				result.errors.push({
-					row: i + 1,
-					filename: row[nameColumnIndex] ?? "",
-					error: errMsg,
-				});
-				result.failed++;
 			}
 
-			await this.eventBus.emit("dataExchange.import.progress", {
-				current: i + 1,
-				total: parsed.rowCount,
-				lastFilename: row[nameColumnIndex] ?? "",
-			});
-		}
+			for (let i = 0; i < parsed.rows.length; i++) {
+				const row = parsed.rows[i];
+				try {
+					await this.processRow(
+						row,
+						i,
+						nameColumnIndex,
+						parsed.headers,
+						config,
+						result,
+					);
+				} catch (error) {
+					const errMsg =
+						error instanceof Error ? error.message : String(error);
+					result.errors.push({
+						row: i + 1,
+						filename: row[nameColumnIndex] ?? "",
+						error: errMsg,
+					});
+					result.failed++;
+				}
 
-		return result;
+				await this.eventBus.emit("dataExchange.import.progress", {
+					operationId,
+					current: i + 1,
+					total: parsed.rowCount,
+					lastFilename: row[nameColumnIndex] ?? "",
+					pipelineId,
+				});
+			}
+
+			await this.eventBus.emit("dataExchange.import.completed", {
+				operationId,
+				result,
+				pipelineId,
+			});
+			return result;
+		} catch (error) {
+			await this.eventBus.emit("dataExchange.import.failed", {
+				operationId,
+				error: error instanceof Error ? error.message : String(error),
+				config,
+				pipelineId,
+			});
+			throw error;
+		}
 	}
 
 	/**

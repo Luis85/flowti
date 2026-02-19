@@ -10,6 +10,7 @@ import type { IUserService } from "../../domain/user/types";
 import type { HubRegistry } from "../../domain/hub/HubRegistry";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { InboxService } from "../../domain/inbox/InboxService";
+import type { NudgeService } from "../../domain/nudge/NudgeService";
 import type { SessionService } from "../../domain/session/SessionService";
 import { computeRemainingMs, formatDuration } from "../../domain/session/helpers";
 import { renderStatGrid, type StatCardItem } from "../shared/StatCard";
@@ -21,9 +22,11 @@ export interface UserHubDashboardDeps {
 	eventBus: IEventBus;
 	inboxService: InboxService;
 	sessionService: SessionService;
+	nudgeService?: NudgeService;
 	navigateToTab: (tabId: string) => void;
 	onInboxItemClick: (item: InboxItem) => void;
 	openSessionWorkspace: (sessionId?: string, location?: "tab" | "sidebar") => void;
+	onCreateSession?: () => void;
 }
 
 export class UserHubDashboard {
@@ -36,6 +39,7 @@ export class UserHubDashboard {
 		this.container.empty();
 
 		this.renderWelcome();
+		this.renderNextNudge();
 		this.renderActiveSession();
 		this.renderQuickActions();
 		this.renderHubSummaries();
@@ -66,6 +70,37 @@ export class UserHubDashboard {
 		const greeting = user ? `Welcome, ${user.name}` : "Welcome to Flowti";
 
 		section.createEl("h2", { text: greeting, cls: "ft-heading" }).style.margin = "0";
+	}
+
+	private renderNextNudge(): void {
+		const nudgeService = this.deps.nudgeService;
+		if (!nudgeService) return;
+
+		const configs = nudgeService.getConfigs().filter((c) => c.enabled && !nudgeService.isDismissedToday(c.id));
+		if (configs.length === 0) return;
+
+		// Find the next upcoming nudge by time (HH:MM string comparison works for 24h format)
+		const now = new Date();
+		const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+		const upcoming = configs.filter((c) => c.time > currentTime).sort((a, b) => a.time.localeCompare(b.time));
+		const next = upcoming[0];
+		if (!next) return;
+
+		const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-next-nudge" });
+		row.style.marginBottom = "0.75rem";
+		row.style.padding = "0.35rem 0.75rem";
+		row.style.borderRadius = "6px";
+		row.style.backgroundColor = "var(--background-secondary)";
+
+		const icon = row.createSpan();
+		setIcon(icon, "bell");
+		icon.style.opacity = "0.5";
+
+		row.createSpan({ text: `Next: ${next.title}`, cls: "ft-text-sm" });
+		row.createSpan({ text: next.time, cls: "ft-badge ft-badge-muted ft-text-sm" });
+
+		const typeLabel = SESSION_TYPE_LABELS[next.sessionType] ?? next.sessionType;
+		row.createSpan({ text: typeLabel, cls: "ft-text-sm ft-text-muted" });
 	}
 
 	private renderActiveSession(): void {
@@ -106,6 +141,14 @@ export class UserHubDashboard {
 			focusBadge.appendText(session.focusFile.split("/").pop() ?? session.focusFile);
 		}
 
+		if (session.goals.length > 0) {
+			const completed = session.goals.filter((g) => g.completed).length;
+			header.createSpan({
+				text: `${completed}/${session.goals.length} goals`,
+				cls: "ft-badge ft-badge-muted ft-text-sm",
+			});
+		}
+
 		if (!isActive) {
 			header.createSpan({
 				text: "Paused",
@@ -126,6 +169,7 @@ export class UserHubDashboard {
 		// Action buttons — contextual based on status
 		const actions = section.createDiv({ cls: "ft-flex ft-gap-2" });
 		actions.style.marginTop = "0.5rem";
+		actions.addEventListener("click", (e) => e.stopPropagation());
 		const eb = this.deps.eventBus;
 
 		if (isActive) {
@@ -150,6 +194,17 @@ export class UserHubDashboard {
 		completeBtn.addEventListener("click", () => {
 			void eb.emit("session.complete", { sessionId: session.id });
 		});
+	}
+
+	private getActivityIcon(action: string): string {
+		switch (action) {
+			case "created": return "file-plus";
+			case "modified": return "file-edit";
+			case "deleted": return "file-minus";
+			case "renamed": return "file-symlink";
+			case "opened": return "file-search";
+			default: return "file";
+		}
 	}
 
 	private renderInboxSection(): void {
@@ -305,8 +360,9 @@ export class UserHubDashboard {
 		const eb = this.deps.eventBus;
 		const nav = this.deps.navigateToTab;
 		const actions: Array<{ icon: string; label: string; action: () => void }> = [
-			{ icon: "inbox", label: "Inbox", action: () => nav("inbox") },
+			...(this.deps.onCreateSession ? [{ icon: "plus-circle", label: "New Session", action: this.deps.onCreateSession }] : []),
 			{ icon: "timer", label: "Sessions", action: () => nav("sessions") },
+			{ icon: "inbox", label: "Inbox", action: () => nav("inbox") },
 			{ icon: "settings", label: "Preferences", action: () => nav("preferences") },
 			{ icon: "list", label: "Event Catalog", action: () => void eb.emit("ui.openEventCatalog", {}) },
 			{ icon: "arrow-left-right", label: "Data Exchange", action: () => void eb.emit("ui.openDataExchangeHub", {}) },

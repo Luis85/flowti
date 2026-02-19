@@ -510,7 +510,7 @@ describe("UserHubDashboard", () => {
 			expect(actions).toHaveLength(7);
 		});
 
-		it("should navigate to inbox tab on Inbox click", () => {
+		it("should navigate to sessions tab on Sessions click", () => {
 			const navigateToTab = vi.fn();
 			const dashboard = new UserHubDashboard(container, makeDeps({ eventBus, navigateToTab }));
 
@@ -519,10 +519,10 @@ describe("UserHubDashboard", () => {
 			const actions = container.querySelectorAll(".ft-nav-link");
 			(actions[0] as HTMLElement).click();
 
-			expect(navigateToTab).toHaveBeenCalledWith("inbox");
+			expect(navigateToTab).toHaveBeenCalledWith("sessions");
 		});
 
-		it("should navigate to sessions tab on Sessions click", () => {
+		it("should navigate to inbox tab on Inbox click", () => {
 			const navigateToTab = vi.fn();
 			const dashboard = new UserHubDashboard(container, makeDeps({ eventBus, navigateToTab }));
 
@@ -531,7 +531,7 @@ describe("UserHubDashboard", () => {
 			const actions = container.querySelectorAll(".ft-nav-link");
 			(actions[1] as HTMLElement).click();
 
-			expect(navigateToTab).toHaveBeenCalledWith("sessions");
+			expect(navigateToTab).toHaveBeenCalledWith("inbox");
 		});
 
 		it("should navigate to preferences tab on Preferences click", () => {
@@ -561,6 +561,40 @@ describe("UserHubDashboard", () => {
 			await new Promise((r) => setTimeout(r, 10));
 
 			expect(spy).toHaveBeenCalled();
+		});
+
+		it("should show New Session button when onCreateSession is provided", () => {
+			const onCreateSession = vi.fn();
+			const dashboard = new UserHubDashboard(container, makeDeps({ eventBus, onCreateSession }));
+
+			dashboard.render();
+
+			const actions = container.querySelectorAll(".ft-nav-link");
+			expect(actions).toHaveLength(8);
+			expect(actions[0].textContent).toContain("New Session");
+		});
+
+		it("should call onCreateSession when New Session button is clicked", () => {
+			const onCreateSession = vi.fn();
+			const dashboard = new UserHubDashboard(container, makeDeps({ eventBus, onCreateSession }));
+
+			dashboard.render();
+
+			const actions = container.querySelectorAll(".ft-nav-link");
+			(actions[0] as HTMLElement).click();
+
+			expect(onCreateSession).toHaveBeenCalled();
+		});
+
+		it("should not show New Session button when onCreateSession is absent", () => {
+			const dashboard = new UserHubDashboard(container, makeDeps({ eventBus }));
+
+			dashboard.render();
+
+			const actions = container.querySelectorAll(".ft-nav-link");
+			expect(actions).toHaveLength(7);
+			const labels = Array.from(actions).map((a) => a.textContent);
+			expect(labels.every((l) => !l?.includes("New Session"))).toBe(true);
 		});
 	});
 
@@ -753,6 +787,36 @@ describe("UserHubDashboard", () => {
 			dashboard.updateTimerDisplay(1000);
 		});
 
+		it("should show goal progress badge when session has goals", () => {
+			const session = makeActiveSession({
+				goals: [
+					{ id: "g1", text: "Goal 1", completed: true, completedAt: "2026-02-18T10:00:00Z" },
+					{ id: "g2", text: "Goal 2", completed: false, completedAt: null },
+					{ id: "g3", text: "Goal 3", completed: true, completedAt: "2026-02-18T10:00:00Z" },
+				],
+			});
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				sessionService: makeSessionService(session),
+			}));
+
+			dashboard.render();
+
+			expect(container.textContent).toContain("2/3 goals");
+		});
+
+		it("should not show goal badge when no goals", () => {
+			const session = makeActiveSession({ goals: [] });
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				sessionService: makeSessionService(session),
+			}));
+
+			dashboard.render();
+
+			expect(container.textContent).not.toContain("goals");
+		});
+
 		it("should show focus file badge when active session has focusFile", () => {
 			const session = makeActiveSession({ focusFile: "docs/features/Hubs PRD.md" });
 			const dashboard = new UserHubDashboard(container, makeDeps({
@@ -780,6 +844,133 @@ describe("UserHubDashboard", () => {
 			const badges = container.querySelectorAll(".ft-active-session .ft-badge");
 			// Only type badge should exist (Event Storming), no focus file badge
 			expect(badges).toHaveLength(1);
+		});
+	});
+
+	// ── Next nudge indicator ────────────────────────────────
+
+	describe("next nudge indicator", () => {
+		function makeNudgeService(configs: Array<{ id: string; time: string; title: string; sessionType: string; enabled: boolean; durationMinutes: number }>, dismissedIds: string[] = []) {
+			return {
+				getConfigs: vi.fn(() => configs),
+				isDismissedToday: vi.fn((id: string) => dismissedIds.includes(id)),
+			} as never;
+		}
+
+		it("should show next upcoming nudge when enabled configs exist", () => {
+			// Mock Date to a fixed time (10:00)
+			vi.useFakeTimers();
+			vi.setSystemTime(new Date("2026-02-18T10:00:00"));
+			try {
+				const nudgeService = makeNudgeService([
+					{ id: "n1", time: "14:00", title: "Afternoon Focus", sessionType: "documentation", enabled: true, durationMinutes: 50 },
+				]);
+
+				const dashboard = new UserHubDashboard(container, makeDeps({
+					eventBus,
+					nudgeService,
+				}));
+
+				dashboard.render();
+
+				expect(container.querySelector(".ft-next-nudge")).toBeTruthy();
+				expect(container.textContent).toContain("Afternoon Focus");
+				expect(container.textContent).toContain("14:00");
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
+		it("should not show nudge indicator when no enabled configs", () => {
+			const nudgeService = makeNudgeService([
+				{ id: "n1", time: "14:00", title: "Afternoon Focus", sessionType: "documentation", enabled: false, durationMinutes: 50 },
+			]);
+
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				nudgeService,
+			}));
+
+			dashboard.render();
+
+			expect(container.querySelector(".ft-next-nudge")).toBeNull();
+		});
+
+		it("should not show nudge indicator when all nudges are dismissed", () => {
+			vi.useFakeTimers();
+			vi.setSystemTime(new Date("2026-02-18T08:00:00"));
+			try {
+				const nudgeService = makeNudgeService(
+					[{ id: "n1", time: "14:00", title: "Focus", sessionType: "documentation", enabled: true, durationMinutes: 25 }],
+					["n1"],
+				);
+
+				const dashboard = new UserHubDashboard(container, makeDeps({
+					eventBus,
+					nudgeService,
+				}));
+
+				dashboard.render();
+
+				expect(container.querySelector(".ft-next-nudge")).toBeNull();
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
+		it("should not show nudge indicator when all nudges are in the past", () => {
+			vi.useFakeTimers();
+			vi.setSystemTime(new Date("2026-02-18T15:00:00"));
+			try {
+				const nudgeService = makeNudgeService([
+					{ id: "n1", time: "09:00", title: "Morning", sessionType: "daily-tracking", enabled: true, durationMinutes: 0 },
+					{ id: "n2", time: "14:00", title: "Afternoon", sessionType: "documentation", enabled: true, durationMinutes: 50 },
+				]);
+
+				const dashboard = new UserHubDashboard(container, makeDeps({
+					eventBus,
+					nudgeService,
+				}));
+
+				dashboard.render();
+
+				expect(container.querySelector(".ft-next-nudge")).toBeNull();
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
+		it("should pick the earliest upcoming nudge when multiple exist", () => {
+			vi.useFakeTimers();
+			vi.setSystemTime(new Date("2026-02-18T10:00:00"));
+			try {
+				const nudgeService = makeNudgeService([
+					{ id: "n1", time: "16:00", title: "Late", sessionType: "review", enabled: true, durationMinutes: 25 },
+					{ id: "n2", time: "12:00", title: "Noon", sessionType: "documentation", enabled: true, durationMinutes: 50 },
+				]);
+
+				const dashboard = new UserHubDashboard(container, makeDeps({
+					eventBus,
+					nudgeService,
+				}));
+
+				dashboard.render();
+
+				expect(container.textContent).toContain("Noon");
+				expect(container.textContent).toContain("12:00");
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
+		it("should not render when nudgeService is undefined", () => {
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+			}));
+
+			dashboard.render();
+
+			expect(container.querySelector(".ft-next-nudge")).toBeNull();
 		});
 	});
 

@@ -161,6 +161,7 @@ export const EVENT_CATEGORIES = [
 	"Hub",
 	"Inbox",
 	"Session",
+	"Nudge",
 ] as const;
 
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
@@ -266,9 +267,10 @@ const CATALOG_DATA = {
 	"settings.updateShowSystemEvents":   { category: "Settings", description: "Toggle system events visibility", direction: "View → Plugin", domain: "settings", services: "EventCatalogView" },
 	"settings.updateCatalogDomains":     { category: "Settings", description: "Update domain visibility in catalog", direction: "View → Plugin", domain: "settings", services: "EventCatalogView", tags: ["system"] },
 	"settings.updateCatalogServices":    { category: "Settings", description: "Update service visibility in catalog", direction: "View → Plugin", domain: "settings", services: "EventCatalogView", tags: ["system"] },
-	"settings.updateInboxEnabledSources": { category: "Settings", description: "Update inbox notification source events", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
-	"settings.updateCustomSessionTypes": { category: "Settings", description: "Update custom session type configurations", direction: "Service → Listeners", domain: "settings", services: "SessionService", tags: ["system"] },
-	"settings.updateCustomOutputTemplates": { category: "Settings", description: "Update custom output templates for session artifacts", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
+	"settings.updateInboxEnabledSources": { category: "Settings", description: "Update inbox notification source events", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
+	"settings.updateCustomSessionTypes": { category: "Settings", description: "Update custom session type configurations", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
+	"settings.updateCustomOutputTemplates": { category: "Settings", description: "Update custom output templates for session artifacts", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
+	"settings.updateSessionActivityFilter": { category: "Settings", description: "Update session activity filter folders", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
 
 	// ── Installer Domain ─────────────────────────────────────
 	"installer.started":        { category: "Installer", description: "Installation pipeline started", direction: "Service → Listeners", domain: "installer", services: "InstallerService" },
@@ -441,6 +443,18 @@ const CATALOG_DATA = {
 	"session.type.configured": { category: "Session", description: "Session type config updated", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.type.create":     { category: "Session", description: "Command: create a custom session type", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
 	"session.type.created":    { category: "Session", description: "Custom session type created", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.template.exported": { category: "Session", description: "A session template was exported to JSON", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.template.imported": { category: "Session", description: "A session template was imported from JSON", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+
+	// ── Nudge ─────────────────────────────────────────────────
+	"nudge.configure":  { category: "Nudge", description: "Command to add or update a nudge config", direction: "View → Plugin", domain: "nudge", services: "NudgeService", tags: ["system"] },
+	"nudge.configured": { category: "Nudge", description: "A nudge config was added or updated", direction: "Service → Listeners", domain: "nudge", services: "NudgeService", tags: ["system"] },
+	"nudge.remove":     { category: "Nudge", description: "Command to remove a nudge config", direction: "View → Plugin", domain: "nudge", services: "NudgeService", tags: ["system"] },
+	"nudge.removed":    { category: "Nudge", description: "A nudge config was removed", direction: "Service → Listeners", domain: "nudge", services: "NudgeService", tags: ["system"] },
+	"nudge.triggered":  { category: "Nudge", description: "A nudge fired at its scheduled time", direction: "Service → Listeners", domain: "nudge", services: "NudgeService", tags: [] },
+	"nudge.dismiss":    { category: "Nudge", description: "Command to dismiss a nudge for today", direction: "View → Plugin", domain: "nudge", services: "NudgeService", tags: ["system"] },
+	"nudge.dismissed":  { category: "Nudge", description: "A nudge was dismissed for today", direction: "Service → Listeners", domain: "nudge", services: "NudgeService", tags: ["system"] },
+	"nudge.loaded":     { category: "Nudge", description: "Nudge state loaded from storage", direction: "Service → Listeners", domain: "nudge", services: "NudgeService", tags: ["system"] },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

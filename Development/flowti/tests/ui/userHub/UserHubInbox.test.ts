@@ -5,6 +5,7 @@ import { UserHubInbox } from "../../../src/ui/userHub/UserHubInbox";
 import { formatSourceEvent, type UserHubState, type UserHubComponentDeps, type InboxItem } from "../../../src/ui/userHub/types";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import type { UUID } from "../../../src/utils/types";
+import { DEFAULT_SETTINGS } from "../../../src/domain/settings/settings";
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -30,6 +31,8 @@ function makeState(): UserHubState {
 		sessions: [],
 		activeSession: null,
 		selectedSession: null,
+		settings: { ...DEFAULT_SETTINGS },
+		selectedPreferencesCategory: null,
 	};
 }
 
@@ -62,6 +65,7 @@ function makeDeps(state: UserHubState): UserHubComponentDeps {
 		openSaveTemplateModal: vi.fn(),
 		openFile: vi.fn(),
 		openSessionWorkspace: vi.fn(),
+		getSettings: () => state.settings,
 	};
 }
 

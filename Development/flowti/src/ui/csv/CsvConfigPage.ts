@@ -261,6 +261,9 @@ export class CsvConfigPage {
 
 		const propsContainer = content.createDiv({ cls: "ft-custom-props" });
 		this.renderCustomProperties(propsContainer, headerTitle);
+
+		// Sync top bar Save button visibility after every render
+		this.deps.updateUnsavedHint();
 	}
 
 	private renderCustomProperties(container: HTMLElement, badgeHost?: HTMLElement): void {

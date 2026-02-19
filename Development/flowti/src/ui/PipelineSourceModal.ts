@@ -5,7 +5,7 @@
  * custom properties, and prefix/suffix fields.
  */
 
-import { App, Modal, Notice, Setting, setIcon } from "obsidian";
+import { App, Modal, Notice, Setting, TFile, setIcon } from "obsidian";
 import { generateUUID } from "../utils/helpers";
 import { matchMergeKeyColumn, syncColumnMappings } from "../utils/csvUtils";
 import type { ImportService } from "../domain/dataExchange/ImportService";
@@ -145,6 +145,12 @@ export class PipelineSourceModal extends Modal {
 		);
 		csvSetting.addExtraButton((btn) =>
 			btn
+				.setIcon("search")
+				.setTooltip("Parse CSV")
+				.onClick(() => { void this.parseCsv(); }),
+		);
+		csvSetting.addExtraButton((btn) =>
+			btn
 				.setIcon("folder-open")
 				.setTooltip("Browse CSV files")
 				.onClick(() => {
@@ -154,6 +160,18 @@ export class PipelineSourceModal extends Modal {
 					}, this.hiddenCsvPaths).open();
 				}),
 		);
+
+		// File-not-found warning
+		if (this.csvPath && this.csvHeaders.length === 0 && !this.isLoading) {
+			const file = this.app.vault.getAbstractFileByPath(this.csvPath);
+			if (!file || !(file instanceof TFile)) {
+				const warn = contentEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
+				warn.style.color = "var(--text-error)";
+				const warnIcon = warn.createSpan();
+				setIcon(warnIcon, "alert-triangle");
+				warn.createSpan({ text: `File not found: ${this.csvPath}`, cls: "ft-text-sm" });
+			}
+		}
 
 		if (this.isLoading) {
 			const loading = contentEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-3" });

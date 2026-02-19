@@ -18,37 +18,39 @@ export interface DataExchangeEventMap {
 	// ── Import commands & lifecycle ──────────────────────────
 
 	/** Command: execute CSV import with provided config */
-	"dataExchange.import.execute": { config: ImportConfig };
+	"dataExchange.import.execute": { config: ImportConfig; operationId?: string };
 
 	/** Import process started */
-	"dataExchange.import.started": { config: ImportConfig; totalRows: number };
+	"dataExchange.import.started": { operationId: string; config: ImportConfig; totalRows: number; pipelineId?: string };
 
 	/** Progress update during import */
 	"dataExchange.import.progress": {
+		operationId: string;
 		current: number;
 		total: number;
 		lastFilename: string;
+		pipelineId?: string;
 	};
 
 	/** Import completed successfully */
-	"dataExchange.import.completed": { result: ImportResult };
+	"dataExchange.import.completed": { operationId: string; result: ImportResult; pipelineId?: string };
 
 	/** Import failed */
-	"dataExchange.import.failed": { error: string; config: ImportConfig };
+	"dataExchange.import.failed": { operationId: string; error: string; config: ImportConfig; pipelineId?: string };
 
 	// ── Export commands & lifecycle ──────────────────────────
 
 	/** Command: execute export with provided config */
-	"dataExchange.export.execute": { config: ExportConfig };
+	"dataExchange.export.execute": { config: ExportConfig; operationId?: string };
 
 	/** Export process started */
-	"dataExchange.export.started": { config: ExportConfig };
+	"dataExchange.export.started": { operationId: string; config: ExportConfig; pipelineId?: string };
 
 	/** Export completed successfully */
-	"dataExchange.export.completed": { result: ExportResult };
+	"dataExchange.export.completed": { operationId: string; result: ExportResult; pipelineId?: string };
 
 	/** Export failed */
-	"dataExchange.export.failed": { error: string; config: ExportConfig };
+	"dataExchange.export.failed": { operationId: string; error: string; config: ExportConfig; pipelineId?: string };
 
 	// ── Pipeline commands & lifecycle ───────────────────────
 

@@ -256,4 +256,29 @@ describe("SettingsService", () => {
 			expect(true).toBe(true);
 		});
 	});
+
+	describe("session activity filter", () => {
+		beforeEach(async () => {
+			await settingsService.load();
+		});
+
+		it("should handle settings.updateSessionActivityFilter event", async () => {
+			await eventBus.emit("settings.updateSessionActivityFilter", {
+				filter: [".obsidian/", "node_modules/"],
+			});
+
+			const settings = settingsService.getSettings();
+			expect(settings.sessionActivityFilterGlobal).toEqual([".obsidian/", "node_modules/"]);
+		});
+
+		it("should persist filter to storage", async () => {
+			await eventBus.emit("settings.updateSessionActivityFilter", {
+				filter: [".git/"],
+			});
+
+			expect(storage.save).toHaveBeenCalled();
+			expect(getData().sessionActivityFilterGlobal).toEqual([".git/"]);
+		});
+	});
+
 });

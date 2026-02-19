@@ -861,7 +861,7 @@
 }
 
 .ft-catalog-row:hover {
-	background-color: var(--background-primary);
+	background-color: var(--background-modifier-hover);
 }
 
 /* Domain/service metadata labels */

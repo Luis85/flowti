@@ -157,6 +157,12 @@ export interface SessionEventMap {
 	/** Emitted after an output artifact is generated and persisted */
 	"session.output.generated": { sessionId: string; artifact: SessionOutputArtifact };
 
+	// ── Template import/export events ─────────────────────
+	/** Emitted after a template is exported to JSON */
+	"session.template.exported": { template: SessionTemplate };
+	/** Emitted after a template is imported from JSON */
+	"session.template.imported": { template: SessionTemplate };
+
 	// ── Type configuration commands ────────────────────────
 	/** Command: configure (update) a session type's config */
 	"session.type.configure": { type: SessionType; config: Partial<SessionTypeConfig> };

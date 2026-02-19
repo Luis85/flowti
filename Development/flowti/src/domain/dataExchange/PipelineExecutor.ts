@@ -168,7 +168,7 @@ export class PipelineExecutor {
 			};
 
 			try {
-				const sourceResult = await this.deps.importService.executeImport(importConfig);
+				const sourceResult = await this.deps.importService.executeImport(importConfig, { pipelineId: pipeline.id });
 				const psr: PipelineSourceResult = {
 					sourceId: source.id,
 					csvPath: source.csvPath,
@@ -235,7 +235,7 @@ export class PipelineExecutor {
 						baseViewIndex: exportCfg.baseViewIndex,
 						isExternal: exportCfg.isExternal,
 						conflictStrategy: exportCfg.conflictStrategy,
-					});
+					}, { pipelineId: pipeline.id });
 				} catch (err) {
 					console.error(`[Flowti] Pipeline export step failed (${exportCfg.name}): ${err instanceof Error ? err.message : String(err)}`);
 				}

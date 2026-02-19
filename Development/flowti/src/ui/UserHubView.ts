@@ -10,8 +10,10 @@ import { setIcon } from "obsidian";
 import type { IUserService } from "../domain/user/types";
 import type { HubRegistry } from "../domain/hub/HubRegistry";
 import type { InboxService } from "../domain/inbox/InboxService";
+import type { NudgeService } from "../domain/nudge/NudgeService";
 import type { SessionService } from "../domain/session/SessionService";
 import type { IEventBus } from "../infrastructure/events/types";
+import type { FlowtiSettings } from "../domain/settings/settings";
 import { BaseHubView, type TabDef } from "./BaseHubView";
 import { UserHubDashboard } from "./userHub/UserHubDashboard";
 import { UserHubInbox } from "./userHub/UserHubInbox";
@@ -30,6 +32,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 	private hubRegistry: HubRegistry;
 	private inboxService: InboxService;
 	private sessionService: SessionService;
+	private nudgeService: NudgeService;
 
 	// Components
 	private dashboard!: UserHubDashboard;
@@ -38,14 +41,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 	private preferences!: UserHubPreferences;
 
 	// State
-	private state: UserHubState = {
-		inboxItems: [],
-		selectedInboxItem: null,
-		inboxEnabledSources: [],
-		sessions: [],
-		activeSession: null,
-		selectedSession: null,
-	};
+	private state!: UserHubState;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -54,14 +50,26 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 		hubRegistry: HubRegistry,
 		inboxService: InboxService,
 		sessionService: SessionService,
+		nudgeService: NudgeService,
 		initialEnabledSources: string[],
+		initialSettings: FlowtiSettings,
 	) {
 		super(leaf, eventBus);
 		this.userService = userService;
 		this.hubRegistry = hubRegistry;
 		this.inboxService = inboxService;
 		this.sessionService = sessionService;
-		this.state.inboxEnabledSources = initialEnabledSources;
+		this.nudgeService = nudgeService;
+		this.state = {
+			inboxItems: [],
+			selectedInboxItem: null,
+			inboxEnabledSources: initialEnabledSources,
+			sessions: [],
+			activeSession: null,
+			selectedSession: null,
+			settings: initialSettings,
+			selectedPreferencesCategory: null,
+		};
 	}
 
 	// ── Abstract implementations ────────────────────────────
@@ -88,8 +96,8 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 
 	getTabDefinitions(): TabDef[] {
 		return [
-			{ id: "inbox", label: "Inbox", icon: "inbox", searchPlaceholder: "Search inbox..." },
 			{ id: "sessions", label: "Sessions", icon: "timer", searchPlaceholder: "Search sessions..." },
+			{ id: "inbox", label: "Inbox", icon: "inbox", searchPlaceholder: "Search inbox..." },
 			{ id: "preferences", label: "Preferences", icon: "settings", searchPlaceholder: "" },
 		];
 	}
@@ -147,6 +155,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 			eventBus: this.eventBus,
 			inboxService: this.inboxService,
 			sessionService: this.sessionService,
+			nudgeService: this.nudgeService,
 			navigateToTab: (tabId) => this.navigateTo(tabId as UserHubTab),
 			onInboxItemClick: (item: InboxItem) => {
 				this.state.selectedInboxItem = item;
@@ -154,6 +163,21 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 					void this.inboxService.markRead(item.id);
 				}
 				this.navigateTo("inbox");
+			},
+			onCreateSession: () => {
+				new NewSessionModal(this.app, {
+					sessionTypes: SESSION_TYPES,
+					templates: this.sessionService.getSavedTemplates(),
+					onSubmit: (title, type, durationMinutes, focusFile, goals) => {
+						void this.eventBus.emit("session.create", {
+							type: type as SessionType,
+							title,
+							durationMinutes,
+							focusFile: focusFile ?? undefined,
+							goals: goals.length > 0 ? goals : undefined,
+						});
+					},
+				}).open();
 			},
 			openSessionWorkspace: (sessionId?: string, location?: "tab" | "sidebar") => {
 				if (sessionId) {
@@ -237,10 +261,11 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 			}),
 		);
 
-		// Sync inbox enabled sources from settings changes
+		// Sync settings state from settings.changed events
 		this.addUnsubscribe(
 			this.eventBus.on("settings.changed", (event) => {
 				this.state.inboxEnabledSources = event.payload.settings.inboxEnabledSources;
+				this.state.settings = event.payload.settings;
 				if (this.activePage === "preferences") {
 					this.scheduleRender();
 				}
@@ -282,6 +307,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 			eventBus: this.eventBus,
 			inboxService: this.inboxService,
 			sessionService: this.sessionService,
+			nudgeService: this.nudgeService,
 			userService: this.userService,
 			scheduleRender: () => this.scheduleRender(),
 			navigateToEvent: (eventType) => {
@@ -332,6 +358,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 					});
 				}
 			},
+			getSettings: () => this.state.settings,
 		};
 	}
 }

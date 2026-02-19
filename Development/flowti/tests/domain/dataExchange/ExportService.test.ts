@@ -408,7 +408,7 @@ views:
 			expect(content).toContain("readme.txt");
 		});
 
-		it("should emit export.started event", async () => {
+		it("should emit export.started event with operationId", async () => {
 			const handler = vi.fn();
 			eventBus.on("dataExchange.export.started", handler);
 
@@ -424,6 +424,33 @@ views:
 			await service.executeExport(config);
 
 			expect(handler).toHaveBeenCalledOnce();
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: expect.objectContaining({
+						operationId: expect.any(String),
+						config: expect.objectContaining({ sourcePath: "items" }),
+					}),
+				})
+			);
+		});
+
+		it("should propagate pipelineId to export.started when provided", async () => {
+			const handler = vi.fn();
+			eventBus.on("dataExchange.export.started", handler);
+
+			const config: ExportConfig = {
+				sourcePath: "items",
+				sourceType: "folder",
+				format: "csv",
+				outputPath: "out.csv",
+				columns: ["type"],
+				fileProperties: [],
+			};
+
+			await service.executeExport(config, { pipelineId: "pipe-42" });
+
+			expect(handler).toHaveBeenCalledOnce();
+			expect(handler.mock.calls[0][0].payload.pipelineId).toBe("pipe-42");
 		});
 	});
 

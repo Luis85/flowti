@@ -3,10 +3,12 @@
  */
 
 import type { InboxService } from "../../domain/inbox/InboxService";
+import type { NudgeService } from "../../domain/nudge/NudgeService";
 import type { SessionService } from "../../domain/session/SessionService";
 import type { Session } from "../../domain/session/types";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { IUserService } from "../../domain/user/types";
+import type { FlowtiSettings } from "../../domain/settings/settings";
 
 // Re-export InboxItem from domain (single source of truth)
 import type { InboxItem } from "../../domain/inbox/types";
@@ -16,7 +18,9 @@ export type { InboxItem } from "../../domain/inbox/types";
 // Tabs
 // ─────────────────────────────────────────────────────────────
 
-export type UserHubTab = "inbox" | "sessions" | "preferences";
+export type UserHubTab = "sessions" | "inbox" | "preferences";
+
+export type PreferencesCategory = "profile" | "inbox" | "sessions" | "nudges";
 
 // ─────────────────────────────────────────────────────────────
 // State
@@ -29,6 +33,10 @@ export interface UserHubState {
 	sessions: Session[];
 	activeSession: Session | null;
 	selectedSession: Session | null;
+	/** Latest snapshot of plugin settings — synced from settings.changed events. */
+	settings: FlowtiSettings;
+	/** Currently selected preferences category. */
+	selectedPreferencesCategory: PreferencesCategory | null;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -76,6 +84,10 @@ export interface UserHubComponentDeps {
 	openSaveTemplateModal: (session: Session) => void;
 	/** Open the Session Workspace view in a new leaf. Optionally targets a specific session and location. */
 	openSessionWorkspace: (sessionId?: string, location?: "tab" | "sidebar") => void;
+	/** Returns the latest FlowtiSettings snapshot (read-only). */
+	getSettings: () => FlowtiSettings;
+	/** Optional NudgeService for nudge preferences panel. */
+	nudgeService?: NudgeService;
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -1,7 +1,37 @@
 import { setIcon } from "obsidian";
 import type { SessionPanelDeps } from "./types";
-import type { Session } from "../../domain/session/types";
+import type { Session, SessionActivity } from "../../domain/session/types";
 import { attachFolderSuggest } from "../FolderSuggest";
+
+/** A file-level group of activity entries (one row per file). */
+export interface GroupedActivity {
+	path: string;
+	latestAction: string;
+	latestTimestamp: string;
+	count: number;
+}
+
+/**
+ * Groups activity entries by file path.
+ * Returns one entry per file, sorted newest-first by latest timestamp.
+ */
+export function groupActivityByFile(entries: readonly SessionActivity[]): GroupedActivity[] {
+	const map = new Map<string, GroupedActivity>();
+	for (const entry of entries) {
+		const existing = map.get(entry.path);
+		if (!existing || entry.timestamp > existing.latestTimestamp) {
+			map.set(entry.path, {
+				path: entry.path,
+				latestAction: entry.action,
+				latestTimestamp: entry.timestamp,
+				count: (existing?.count ?? 0) + 1,
+			});
+		} else {
+			existing.count++;
+		}
+	}
+	return [...map.values()].sort((a, b) => b.latestTimestamp.localeCompare(a.latestTimestamp));
+}
 
 export class SessionActivityPanel {
 	private activityEl: HTMLElement | null = null;
@@ -81,33 +111,39 @@ export class SessionActivityPanel {
 			return;
 		}
 
-		// Show newest first
-		const entries = [...session.activity].reverse();
-		for (const entry of entries) {
+		const groups = groupActivityByFile(session.activity);
+		for (const group of groups) {
 			const row = this.activityEl.createDiv({ cls: "ft-activity-row" });
 			row.style.cssText = "display:flex;align-items:center;gap:8px;padding:3px 0;";
 
 			const iconEl = row.createSpan();
-			setIcon(iconEl, this.getActivityIcon(entry.action));
+			setIcon(iconEl, this.getActivityIcon(group.latestAction));
 
-			const name = entry.path.split("/").pop() ?? entry.path;
+			const name = group.path.split("/").pop() ?? group.path;
 			const link = row.createEl("a", { text: name, cls: "ft-activity-link" });
-			link.title = entry.path;
+			link.title = group.path;
 			link.style.cssText = "cursor:pointer;text-decoration:underline;color:var(--text-accent);flex:1;";
 			link.addEventListener("click", (e) => {
 				e.preventDefault();
-				if (entry.action !== "deleted") {
-					this.deps.openFile(entry.path);
+				if (group.latestAction !== "deleted") {
+					this.deps.openFile(group.path);
 				}
 			});
 
 			row.createEl("span", {
-				text: entry.action,
+				text: group.latestAction,
 				cls: "ft-badge",
 			}).style.cssText = "background:var(--background-modifier-hover);padding:1px 6px;border-radius:3px;font-size:11px;color:var(--text-muted);";
 
+			if (group.count > 1) {
+				row.createEl("span", {
+					text: `×${group.count}`,
+					cls: "ft-badge ft-activity-count",
+				}).style.cssText = "background:var(--background-modifier-hover);padding:1px 6px;border-radius:3px;font-size:11px;color:var(--text-muted);";
+			}
+
 			row.createEl("span", {
-				text: this.formatActivityTime(entry.timestamp),
+				text: this.formatActivityTime(group.latestTimestamp),
 				cls: "ft-text-muted",
 			}).style.cssText = "color:var(--text-muted);font-size:11px;font-family:var(--font-monospace);";
 		}

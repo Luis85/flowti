@@ -1,13 +1,25 @@
 /**
  * Preferences component for the User Hub.
  *
- * Renders user profile editing and inbox source toggles
- * in a master-detail split layout.
+ * Master-detail layout with 4 categories:
+ * - Profile: display name and user identity
+ * - Inbox: notification source toggles
+ * - Sessions: activity filter, custom types, output templates
+ * - Nudges: time-based session start reminders
  */
 
 import { setIcon } from "obsidian";
-import type { UserHubComponentDeps } from "./types";
+import type { UserHubComponentDeps, PreferencesCategory } from "./types";
 import { INBOX_SOURCE_DEFINITIONS } from "../../domain/inbox/types";
+import { UserHubSessionPreferences } from "./UserHubSessionPreferences";
+import { UserHubNudgePreferences } from "./UserHubNudgePreferences";
+
+const CATEGORIES: ReadonlyArray<{ id: PreferencesCategory; label: string; icon: string; description: string }> = [
+	{ id: "profile", label: "Profile", icon: "user", description: "Display name and identity" },
+	{ id: "inbox", label: "Inbox", icon: "inbox", description: "Notification source toggles" },
+	{ id: "sessions", label: "Sessions", icon: "timer", description: "Activity filter, types, templates" },
+	{ id: "nudges", label: "Nudges", icon: "bell", description: "Time-based session start reminders" },
+];
 
 export class UserHubPreferences {
 	constructor(
@@ -18,13 +30,58 @@ export class UserHubPreferences {
 
 	renderMaster(): void {
 		this.masterEl.empty();
-		this.renderProfileSection();
-		this.renderInboxSourcesSection();
+
+		const state = this.deps.getState();
+
+		for (const cat of CATEGORIES) {
+			const row = this.masterEl.createDiv({ cls: "ft-catalog-row ft-cursor-pointer" });
+			if (state.selectedPreferencesCategory === cat.id) {
+				row.addClass("ft-catalog-row-active");
+				row.style.backgroundColor = "var(--background-modifier-hover)";
+			}
+			row.style.padding = "0.5rem 0.75rem";
+
+			const content = row.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+			const icon = content.createSpan();
+			setIcon(icon, cat.icon);
+			icon.addClass("ft-icon-muted");
+
+			const text = content.createDiv();
+			text.createDiv({ text: cat.label, cls: "ft-text-sm" });
+			text.createDiv({ text: cat.description, cls: "ft-text-sm ft-text-muted" });
+
+			row.addEventListener("click", () => {
+				this.deps.setState({ selectedPreferencesCategory: cat.id });
+				this.deps.scheduleRender();
+			});
+		}
 	}
 
 	renderDetail(): void {
 		this.detailEl.empty();
 
+		const state = this.deps.getState();
+		const category = state.selectedPreferencesCategory;
+
+		if (!category) {
+			this.renderEmptyDetail();
+			return;
+		}
+
+		if (category === "profile") {
+			this.renderProfileDetail();
+		} else if (category === "inbox") {
+			this.renderInboxDetail();
+		} else if (category === "sessions") {
+			new UserHubSessionPreferences(this.detailEl, this.deps).render();
+		} else if (category === "nudges") {
+			new UserHubNudgePreferences(this.detailEl, this.deps).render();
+		}
+	}
+
+	// ── Detail renderers ───────────────────────────────────────
+
+	private renderEmptyDetail(): void {
 		const info = this.detailEl.createDiv({ cls: "ft-detail-section" });
 		const header = info.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const icon = header.createSpan();
@@ -33,14 +90,18 @@ export class UserHubPreferences {
 		header.createEl("h3", { text: "Preferences", cls: "ft-heading" }).style.margin = "0";
 
 		info.createEl("p", {
-			text: "Configure your personal settings. Changes are saved automatically.",
+			text: "Select a category to configure your personal settings. Changes are saved automatically.",
 			cls: "ft-text-muted",
 		});
 	}
 
-	private renderProfileSection(): void {
-		const section = this.masterEl.createDiv({ cls: "ft-detail-section" });
-		section.createEl("h3", { text: "User Profile", cls: "ft-heading ft-heading-sm" });
+	private renderProfileDetail(): void {
+		const section = this.detailEl.createDiv({ cls: "ft-detail-section" });
+		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		const icon = header.createSpan();
+		setIcon(icon, "user");
+		icon.addClass("ft-icon-muted");
+		header.createEl("h3", { text: "Profile", cls: "ft-heading" }).style.margin = "0";
 
 		const user = this.deps.userService.getUser();
 
@@ -55,7 +116,6 @@ export class UserHubPreferences {
 		// Name editing row
 		const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		row.style.marginTop = "0.5rem";
-
 		const label = row.createSpan({ text: "Display name", cls: "ft-text-sm" });
 		label.style.minWidth = "100px";
 
@@ -76,12 +136,16 @@ export class UserHubPreferences {
 		idRow.createSpan({ text: `User ID: ${user.id}` });
 	}
 
-	private renderInboxSourcesSection(): void {
-		const section = this.masterEl.createDiv({ cls: "ft-detail-section" });
-		section.style.marginTop = "1rem";
-		section.createEl("h3", { text: "Inbox Sources", cls: "ft-heading ft-heading-sm" });
+	private renderInboxDetail(): void {
+		const section = this.detailEl.createDiv({ cls: "ft-detail-section" });
+		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		const icon = header.createSpan();
+		setIcon(icon, "inbox");
+		icon.addClass("ft-icon-muted");
+		header.createEl("h3", { text: "Inbox Sources", cls: "ft-heading" }).style.margin = "0";
+
 		section.createEl("p", {
-			text: "Choose which events create inbox notifications.",
+			text: "Choose which events create inbox notifications. Disabling a source stops new items; existing items are not affected.",
 			cls: "ft-text-sm ft-text-muted",
 		});
 

@@ -652,8 +652,11 @@ describe("SessionWorkspaceView", () => {
 			});
 
 			const content = getContentEl(view);
+			// Grouped: 2 events for same file → 1 row with ×2 count badge
 			const rows = content.querySelectorAll(".ft-activity-row");
-			expect(rows).toHaveLength(2);
+			expect(rows).toHaveLength(1);
+			expect(rows[0].textContent).toContain("new-file.ts");
+			expect(rows[0].querySelector(".ft-activity-count")).not.toBeNull();
 		});
 	});
 

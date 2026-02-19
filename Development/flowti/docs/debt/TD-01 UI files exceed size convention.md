@@ -4,9 +4,9 @@ severity: low
 category: architecture
 layer: ui
 status: mitigated
-updated: 2026-02-16
+updated: 2026-02-18
 effort: large
-description: Multiple UI files exceed 500 LOC. The original 4 files exceeding 1,000 LOC have been significantly reduced through Phases 1-10 component extraction. 12 files still exceed the 500 LOC threshold (down from 14). helpers.ts decomposed into barrel + 5 focused modules.
+description: Multiple UI files exceed 500 LOC. The original 4 files exceeding 1,000 LOC have been significantly reduced through Phases 1-10 component extraction. 11 files still exceed the 500 LOC threshold (down from 14). SessionWorkspaceView extracted from 791→479 LOC (subscriptions + helpers). helpers.ts decomposed into barrel + 5 focused modules.
 ---
 # TD-01: UI files exceed size convention
 
@@ -23,9 +23,9 @@ Four UI files massively exceeded the 200-300 LOC convention:
 
 Phases 1-8 component extraction reduced these 4 files from an average of 1,744 LOC to 635 LOC.
 
-## Current State (2026-02-16)
+## Current State (2026-02-18)
 
-12 files exceed 500 LOC (down from 14):
+11 files exceed 500 LOC (down from 14):
 
 | File | LOC | Notes |
 |------|-----|-------|

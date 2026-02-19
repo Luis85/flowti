@@ -1,11 +1,8 @@
 import { App, Plugin, PluginSettingTab, Setting } from "obsidian";
-import type { IUserService } from "../user/types";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { IInstallerService } from "../installer/types";
 import { InstallerWizardModal } from "../installer/InstallerWizardModal";
 import { DEFAULT_ENTITY_PATHS, type FlowtiSettings } from "./settings";
-import { INBOX_SOURCE_DEFINITIONS } from "../inbox/types";
-import { attachFolderSuggest } from "../../ui/FolderSuggest";
 
 /**
  * Dependencies injected into FlowtiSettingTab.
@@ -14,7 +11,6 @@ import { attachFolderSuggest } from "../../ui/FolderSuggest";
  * the domain layer never imports the plugin orchestrator.
  */
 export interface FlowtiSettingTabDeps {
-	userService: IUserService;
 	eventBus: IEventBus;
 	getSettings: () => FlowtiSettings;
 	saveSettings: () => Promise<void>;
@@ -23,7 +19,10 @@ export interface FlowtiSettingTabDeps {
 
 /**
  * Settings tab for the Flowti plugin.
- * Provides UI for configuring plugin options and viewing user profile.
+ *
+ * Cross-domain infrastructure settings only.
+ * Domain-specific settings (User, Inbox, Sessions) are configured
+ * in User Hub → Preferences tab. See UserHubPreferences.ts.
  */
 export class FlowtiSettingTab extends PluginSettingTab {
 
@@ -39,43 +38,11 @@ export class FlowtiSettingTab extends PluginSettingTab {
 		containerEl.empty();
 		containerEl.addClass("flowti-settings");
 
-		this.displayUserSection(containerEl);
 		this.displaySetupSection(containerEl);
 		this.displayEventSystemSection(containerEl);
-		this.displayInboxSection(containerEl);
-		this.displaySessionSection(containerEl);
 		this.displayDocumentationSection(containerEl);
 		this.displayEntityPathsSection(containerEl);
 		this.displayGeneralSection(containerEl);
-	}
-
-	/**
-	 * Display user profile section
-	 */
-	private displayUserSection(containerEl: HTMLElement): void {
-		containerEl.createEl("h3", { text: "User profile" });
-
-		const user = this.deps.userService.getUser();
-
-		if (user) {
-			new Setting(containerEl)
-				.setName("Your name")
-				.setDesc(`Your display name within Flowti (ID: ${user.id})`)
-				.addText((text) =>
-					text
-						.setValue(user.name)
-						.onChange(async (value) => {
-							if (value.trim()) {
-								await this.deps.userService.updateUserName(value);
-							}
-						})
-				);
-		} else {
-			containerEl.createEl("p", {
-				text: "No user configured. Please restart the plugin to set up your profile.",
-				cls: "flowti-settings-warning",
-			});
-		}
 	}
 
 	/**
@@ -140,249 +107,6 @@ export class FlowtiSettingTab extends PluginSettingTab {
 						this.deps.getSettings().showSystemEvents = value;
 						await this.deps.saveSettings();
 					})
-			);
-	}
-
-	/**
-	 * Display inbox notification sources section
-	 */
-	private displayInboxSection(containerEl: HTMLElement): void {
-		containerEl.createEl("h3", { text: "Inbox" });
-		containerEl.createEl("p", {
-			text: "Choose which events create inbox notifications. " +
-				"Disabling a source stops new items; existing items are not affected.",
-			cls: "setting-item-description",
-		});
-
-		const enabled = new Set(this.deps.getSettings().inboxEnabledSources ?? []);
-
-		for (const src of INBOX_SOURCE_DEFINITIONS) {
-			new Setting(containerEl)
-				.setName(src.label)
-				.setDesc(src.desc)
-				.addToggle((toggle) =>
-					toggle
-						.setValue(enabled.has(src.event))
-						.onChange(async (value) => {
-							if (value) {
-								enabled.add(src.event);
-							} else {
-								enabled.delete(src.event);
-							}
-							void this.deps.eventBus.emit("settings.updateInboxEnabledSources", {
-								sources: Array.from(enabled),
-							});
-						})
-				);
-		}
-	}
-
-	/**
-	 * Display session settings section
-	 */
-	private displaySessionSection(containerEl: HTMLElement): void {
-		containerEl.createEl("h3", { text: "Sessions" });
-
-		const settings = this.deps.getSettings();
-		const filter = [...(settings.sessionActivityFilterGlobal ?? [])];
-
-		let inputValue = "";
-		new Setting(containerEl)
-			.setName("Activity log folder filter")
-			.setDesc(
-				"Vault folders excluded from the session activity log globally (prefix match). " +
-				"Per-session filters can be set in each Session Workspace."
-			)
-			.addText((text) => {
-				text.setPlaceholder("e.g. .obsidian/");
-				text.onChange((value) => { inputValue = value; });
-				attachFolderSuggest(text.inputEl, this.app, (path) => { inputValue = path; });
-			})
-			.addExtraButton((btn) =>
-				btn.setIcon("plus").setTooltip("Add folder").onClick(async () => {
-					if (inputValue.trim()) {
-						settings.sessionActivityFilterGlobal.push(inputValue.trim());
-						await this.deps.saveSettings();
-						this.display();
-					}
-				})
-			);
-
-		for (const folder of filter) {
-			new Setting(containerEl)
-				.setName(folder)
-				.addExtraButton((btn) =>
-					btn.setIcon("x").setTooltip("Remove").onClick(async () => {
-						settings.sessionActivityFilterGlobal =
-							settings.sessionActivityFilterGlobal.filter((f) => f !== folder);
-						await this.deps.saveSettings();
-						this.display();
-					})
-				);
-		}
-
-		this.displayCustomSessionTypes(containerEl, settings);
-		this.displayCustomOutputTemplates(containerEl, settings);
-	}
-
-	/**
-	 * Display custom session type creation/editing within the Sessions section.
-	 */
-	private displayCustomSessionTypes(containerEl: HTMLElement, settings: FlowtiSettings): void {
-		containerEl.createEl("h4", { text: "Custom Session Types" });
-		containerEl.createEl("p", {
-			text: "Create custom session types with their own guiding questions, duration, and goals.",
-			cls: "setting-item-description",
-		});
-
-		const customTypes = settings.customSessionTypes ?? {};
-
-		// List existing custom types
-		for (const [key, cfg] of Object.entries(customTypes)) {
-			new Setting(containerEl)
-				.setName(cfg.label || key)
-				.setDesc(`${cfg.defaultDuration} min | ${cfg.guidingQuestions.length} questions`)
-				.addExtraButton((btn) =>
-					btn.setIcon("x").setTooltip("Remove").onClick(() => {
-						const updated = { ...customTypes };
-						delete updated[key];
-						void this.deps.eventBus.emit("settings.updateCustomSessionTypes", { types: updated });
-						// Re-render after a tick to let event propagate
-						setTimeout(() => this.display(), 50);
-					})
-				);
-		}
-
-		// Add new custom type form
-		let typeName = "";
-		let typeLabel = "";
-		let typeDuration = "25";
-		let typeQuestions = "";
-
-		new Setting(containerEl)
-			.setName("Type key")
-			.setDesc("A unique slug (e.g. sprint-review)")
-			.addText((text) =>
-				text.setPlaceholder("e.g. sprint-review")
-					.onChange((value) => { typeName = value; })
-			);
-
-		new Setting(containerEl)
-			.setName("Display label")
-			.addText((text) =>
-				text.setPlaceholder("e.g. Sprint Review")
-					.onChange((value) => { typeLabel = value; })
-			);
-
-		new Setting(containerEl)
-			.setName("Default duration (min)")
-			.addText((text) =>
-				text.setValue("25")
-					.onChange((value) => { typeDuration = value; })
-			);
-
-		new Setting(containerEl)
-			.setName("Guiding questions")
-			.setDesc("One per line")
-			.addTextArea((ta) =>
-				ta.setPlaceholder("What is the goal?\nWhat do we need to decide?")
-					.onChange((value) => { typeQuestions = value; })
-			);
-
-		new Setting(containerEl)
-			.addButton((btn) =>
-				btn.setButtonText("Add Custom Type").setCta().onClick(() => {
-					const key = typeName.trim().toLowerCase().replace(/\s+/g, "-");
-					const label = typeLabel.trim();
-					if (!key || !label) return;
-					const dur = parseInt(typeDuration, 10) || 25;
-					const questions = typeQuestions.split("\n").map((q) => q.trim()).filter(Boolean);
-					const updated = {
-						...customTypes,
-						[key]: { type: key, label, icon: "star", guidingQuestions: questions, defaultDuration: dur, defaultGoals: [] },
-					};
-					void this.deps.eventBus.emit("settings.updateCustomSessionTypes", { types: updated });
-					setTimeout(() => this.display(), 50);
-				})
-			);
-	}
-
-	/**
-	 * Display custom output template creation/editing within the Sessions section.
-	 */
-	private displayCustomOutputTemplates(containerEl: HTMLElement, settings: FlowtiSettings): void {
-		containerEl.createEl("h4", { text: "Custom Output Templates" });
-		containerEl.createEl("p", {
-			text: "Create custom templates for generating output artifacts from completed sessions. " +
-				"Use placeholders: {{title}}, {{date}}, {{type}}, {{duration}}, {{goals}}, {{decisions}}, {{artifacts}}, {{context}}, {{notes}}, {{overview}}.",
-			cls: "setting-item-description",
-		});
-
-		const templates = settings.customOutputTemplates ?? [];
-
-		// List existing custom templates
-		for (let i = 0; i < templates.length; i++) {
-			const tmpl = templates[i];
-			new Setting(containerEl)
-				.setName(tmpl.title)
-				.setDesc(`${tmpl.sections.length} sections`)
-				.addExtraButton((btn) =>
-					btn.setIcon("x").setTooltip("Remove").onClick(() => {
-						const updated = templates.filter((_, idx) => idx !== i);
-						void this.deps.eventBus.emit("settings.updateCustomOutputTemplates", { templates: updated });
-						setTimeout(() => this.display(), 50);
-					})
-				);
-		}
-
-		// Add new custom template form
-		let tmplTitle = "";
-		let tmplDesc = "";
-		let tmplSections = "";
-
-		new Setting(containerEl)
-			.setName("Template title")
-			.addText((text) =>
-				text.setPlaceholder("e.g. Sprint Retro")
-					.onChange((value) => { tmplTitle = value; })
-			);
-
-		new Setting(containerEl)
-			.setName("Description")
-			.addText((text) =>
-				text.setPlaceholder("e.g. Sprint retrospective summary")
-					.onChange((value) => { tmplDesc = value; })
-			);
-
-		new Setting(containerEl)
-			.setName("Sections")
-			.setDesc("One per line: Heading|{{placeholder}}")
-			.addTextArea((ta) =>
-				ta.setPlaceholder("Summary|{{overview}}\nAction Items|{{decisions}}")
-					.onChange((value) => { tmplSections = value; })
-			);
-
-		new Setting(containerEl)
-			.addButton((btn) =>
-				btn.setButtonText("Add Output Template").setCta().onClick(() => {
-					const title = tmplTitle.trim();
-					if (!title) return;
-					const sections = tmplSections.split("\n")
-						.map((line) => line.trim())
-						.filter(Boolean)
-						.map((line) => {
-							const [heading, placeholder] = line.split("|").map((s) => s.trim());
-							return { heading: heading || "Section", placeholder: placeholder || "{{overview}}" };
-						});
-					const updated = [...templates, {
-						type: "custom" as const,
-						title,
-						description: tmplDesc.trim() || title,
-						sections,
-					}];
-					void this.deps.eventBus.emit("settings.updateCustomOutputTemplates", { templates: updated });
-					setTimeout(() => this.display(), 50);
-				})
 			);
 	}
 

@@ -44,6 +44,7 @@ describe("DataExchangeHubView behavior", () => {
 			});
 
 			await eventBus.emit("dataExchange.import.completed", {
+				operationId: "test-op-1",
 				result: { totalRows: 6, created: 5, updated: 0, skipped: 1, failed: 0, errors: [] },
 			});
 
@@ -58,6 +59,7 @@ describe("DataExchangeHubView behavior", () => {
 			});
 
 			await eventBus.emit("dataExchange.export.completed", {
+				operationId: "test-op-2",
 				result: { totalRows: 10, totalColumns: 5, outputPath: "exports/data.csv" },
 			});
 
@@ -199,6 +201,7 @@ describe("DataExchangeHubView behavior", () => {
 
 			await eventBus.emit("dataExchange.config.changed", {} as never);
 			await eventBus.emit("dataExchange.import.completed", {
+				operationId: "test-op-3",
 				result: { totalRows: 0, created: 0, updated: 0, skipped: 0, failed: 0, errors: [] },
 			});
 

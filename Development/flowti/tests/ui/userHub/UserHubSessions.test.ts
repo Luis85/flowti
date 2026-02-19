@@ -7,6 +7,7 @@ import type { UserHubState, UserHubComponentDeps } from "../../../src/ui/userHub
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import type { Session } from "../../../src/domain/session/types";
 import type { UUID } from "../../../src/utils/types";
+import { DEFAULT_SETTINGS } from "../../../src/domain/settings/settings";
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -49,6 +50,8 @@ function makeState(sessions: Session[] = [], selectedSession: Session | null = n
 		sessions,
 		activeSession: active,
 		selectedSession,
+		settings: { ...DEFAULT_SETTINGS },
+		selectedPreferencesCategory: null,
 	};
 }
 
@@ -86,6 +89,7 @@ function makeDeps(state: UserHubState, eventBus?: IEventBus): UserHubComponentDe
 		openFile: vi.fn(),
 		openSaveTemplateModal: vi.fn(),
 		openSessionWorkspace: vi.fn(),
+		getSettings: () => state.settings,
 	};
 }
 

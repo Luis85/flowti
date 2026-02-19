@@ -34,6 +34,7 @@ export class CsvActionView extends TextFileView {
 	private openHubImportConfigCb: ((configId: string) => void) | null = null;
 	private unsubscribes: (() => void)[] = [];
 	private unsavedHintEl: HTMLElement | null = null;
+	private saveBtnEl: HTMLElement | null = null;
 
 	// Layout skeleton
 	private rootEl: HTMLElement | null = null;
@@ -328,13 +329,13 @@ export class CsvActionView extends TextFileView {
 		// Spacer
 		stepRow.createDiv({ cls: "ft-flex-1" });
 
-		// Save button (only when unsaved changes exist)
-		if (this.hasUnsavedChanges()) {
-			const saveBtn = stepRow.createEl("span", { cls: "ft-nav-link" });
-			setIcon(saveBtn.createSpan(), "save");
-			saveBtn.appendText(" Save");
-			saveBtn.addEventListener("click", () => this.promptSaveConfig());
-		}
+		// Save button (always rendered, toggled by updateUnsavedHint)
+		const saveBtn = stepRow.createEl("span", { cls: "ft-nav-link" });
+		setIcon(saveBtn.createSpan(), "save");
+		saveBtn.appendText(" Save");
+		saveBtn.addEventListener("click", () => this.promptSaveConfig());
+		saveBtn.style.display = this.hasUnsavedChanges() ? "" : "none";
+		this.saveBtnEl = saveBtn;
 
 		// Config dropdown
 		const fileConfigs = this.state.savedConfigs.filter(
@@ -681,8 +682,12 @@ export class CsvActionView extends TextFileView {
 	}
 
 	private updateUnsavedHint(): void {
+		const changed = this.hasUnsavedChanges();
 		if (this.unsavedHintEl) {
-			this.unsavedHintEl.style.display = this.hasUnsavedChanges() ? "flex" : "none";
+			this.unsavedHintEl.style.display = changed ? "flex" : "none";
+		}
+		if (this.saveBtnEl) {
+			this.saveBtnEl.style.display = changed ? "" : "none";
 		}
 	}
 

@@ -91,46 +91,32 @@ export class DataExchangeService {
 			buildDataDictionary: () => this.buildDataDictionary(),
 		});
 
-		// Listen for import command
+		// Listen for import command (ImportService emits started/completed/failed)
 		this.unsubscribes.push(
 			this.eventBus.on("dataExchange.import.execute", async (event) => {
+				const operationId = event.payload.operationId ?? generateUUID();
 				try {
-					const result = await this.importService.executeImport(
+					await this.importService.executeImport(
 						event.payload.config,
+						{ operationId },
 					);
-					await this.eventBus.emit("dataExchange.import.completed", {
-						result,
-					});
-				} catch (error) {
-					await this.eventBus.emit("dataExchange.import.failed", {
-						error:
-							error instanceof Error
-								? error.message
-								: String(error),
-						config: event.payload.config,
-					});
+				} catch {
+					// ImportService already emitted import.failed
 				}
 			}),
 		);
 
-		// Listen for export command
+		// Listen for export command (ExportService emits started/completed/failed)
 		this.unsubscribes.push(
 			this.eventBus.on("dataExchange.export.execute", async (event) => {
+				const operationId = event.payload.operationId ?? generateUUID();
 				try {
-					const result = await this.exportService.executeExport(
+					await this.exportService.executeExport(
 						event.payload.config,
+						{ operationId },
 					);
-					await this.eventBus.emit("dataExchange.export.completed", {
-						result,
-					});
-				} catch (error) {
-					await this.eventBus.emit("dataExchange.export.failed", {
-						error:
-							error instanceof Error
-								? error.message
-								: String(error),
-						config: event.payload.config,
-					});
+				} catch {
+					// ExportService already emitted export.failed
 				}
 			}),
 		);

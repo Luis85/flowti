@@ -50,6 +50,18 @@ export interface ReportEntry {
 	frontmatterIssues: string[];
 }
 
+export interface ActiveOperation {
+	operationId: string;
+	type: "import" | "export" | "pipeline";
+	name: string;
+	sourcePath?: string;
+	startedAt: number;
+	progress: { current: number; total: number; lastFilename?: string } | null;
+	completed?: boolean;
+	success?: boolean;
+	message?: string;
+}
+
 export interface HubState {
 	currentPage: HubPage;
 	importConfigs: SavedImportConfig[];
@@ -63,6 +75,7 @@ export interface HubState {
 	filterText: string;
 	showHiddenCsvs: boolean;
 	frontmatterIssues: FrontmatterIssue[];
+	activeOperations: ActiveOperation[];
 
 	// Selection & editing state
 	selectedImportId: string | null;

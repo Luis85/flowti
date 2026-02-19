@@ -18,7 +18,8 @@ export type SessionType =
 	| "domain-design"
 	| "requirements-refinement"
 	| "backlog-structuring"
-	| "knowledge-cleanup";
+	| "knowledge-cleanup"
+	| "daily-tracking";
 
 /** Human-readable labels for each session type. */
 export const SESSION_TYPES: ReadonlyArray<{ type: SessionType; label: string; description: string }> = [
@@ -111,6 +112,14 @@ export const SESSION_TYPE_CONFIGS: Record<SessionType, SessionTypeConfig> = {
 		icon: "hard-drive",
 		guidingQuestions: ["What files are orphaned?", "What links are broken?", "What needs reorganizing?"],
 		defaultDuration: 15,
+		defaultGoals: [],
+	},
+	"daily-tracking": {
+		type: "daily-tracking",
+		label: "Daily Tracking",
+		icon: "calendar",
+		guidingQuestions: [],
+		defaultDuration: 0,
 		defaultGoals: [],
 	},
 };
@@ -304,6 +313,12 @@ export interface SessionTemplate {
 	/** Decision titles to pre-populate on sessions created from this template. */
 	decisions?: string[];
 	createdAt: number; // epoch ms
+}
+
+/** JSON-serializable shape for template import/export. */
+export interface SessionTemplateExport {
+	version: 1;
+	template: Omit<SessionTemplate, "id" | "createdAt">;
 }
 
 // ─────────────────────────────────────────────────────────────

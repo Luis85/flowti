@@ -5,14 +5,12 @@
 
 import { TFile, setIcon } from "obsidian";
 import { FilePickerModal } from "../FilePickerModal";
-import { DashboardImportExecutor } from "./DashboardImportExecutor";
 import type { CsvFileEntry, HubComponentDeps } from "./types";
 
 export function renderConfiguredImports(
 	container: HTMLElement,
 	entries: CsvFileEntry[],
 	deps: HubComponentDeps,
-	importExecutor: DashboardImportExecutor,
 	renderSectionHeader: (c: HTMLElement, icon: string, title: string, count: number) => HTMLElement,
 ): void {
 	const section = container.createDiv();
@@ -123,7 +121,20 @@ export function renderConfiguredImports(
 			execLink.setAttribute("aria-label", "Execute");
 			execLink.addEventListener("click", () => {
 				const csvPath = cfg.sourcePath || entry.path;
-				importExecutor.run(cfg, csvPath, tr);
+				const importCustomProps = { ...cfg.customProperties };
+				if (cfg.noteType) importCustomProps.type = cfg.noteType;
+				void deps.eventBus.emit("dataExchange.import.execute", {
+					config: {
+						sourcePath: csvPath,
+						targetFolder: cfg.targetFolder,
+						nameColumn: cfg.nameColumn,
+						namePrefix: cfg.namePrefix,
+						nameSuffix: cfg.nameSuffix,
+						columnMappings: cfg.columnMappings,
+						conflictStrategy: cfg.conflictStrategy,
+						customProperties: Object.keys(importCustomProps).length > 0 ? importCustomProps : undefined,
+					},
+				});
 			});
 		}
 	}

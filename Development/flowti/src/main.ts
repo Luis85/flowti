@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile, TFolder } from "obsidian";
+import { Notice, Plugin } from "obsidian";
 import { registerCommands } from "./infrastructure/commands/registry";
 import type { CommandContext, ICommandRegistry } from "./infrastructure/commands/types";
 import { LifecycleError } from "./infrastructure/errors/FlowtiError";
@@ -23,6 +23,7 @@ import type { DiscoveryService } from "./domain/discovery/DiscoveryService";
 import type { SubscriptionService } from "./domain/subscription/SubscriptionService";
 import type { EventDefinitionService } from "./domain/eventDefinition/EventDefinitionService";
 import type { InboxService } from "./domain/inbox/InboxService";
+import type { NudgeService } from "./domain/nudge/NudgeService";
 import type { SessionService } from "./domain/session/SessionService";
 import type { IngestionService } from "./domain/ingestion/IngestionService";
 import { registerViews } from "./infrastructure/views/registry";
@@ -30,10 +31,9 @@ import type { IViewRegistry } from "./infrastructure/views/types";
 import { IngestionStatusBar } from "./ui/IngestionStatusBar";
 import { DataExchangeService } from "./domain/dataExchange/DataExchangeService";
 import { DataExchangeSetup } from "./dataExchangeSetup";
+import { SessionSetup } from "./sessionSetup";
 import { UiCommandService } from "./infrastructure/ui/UiCommandService";
-import { InputModal, NewSessionModal } from "./ui/modals";
-import { SESSION_TYPES, type SessionType } from "./domain/session/types";
-import { generateSessionSummary, mergeSessionNotes } from "./domain/session/helpers";
+import { InputModal } from "./ui/modals";
 import { createInfrastructure, setupCrossCuttingListeners } from "./pluginBootstrap";
 import { HubRegistry } from "./domain/hub/HubRegistry";
 import { EventCatalogProvider } from "./domain/hub/EventCatalogProvider";
@@ -41,6 +41,7 @@ import { DataExchangeProvider } from "./domain/hub/DataExchangeProvider";
 import { UserHubProvider } from "./domain/hub/UserHubProvider";
 import { UserHubView, VIEW_TYPE_USER_HUB } from "./ui/UserHubView";
 import { SessionWorkspaceView, VIEW_TYPE_SESSION_WORKSPACE } from "./ui/SessionWorkspaceView";
+import { showNudgeNotification } from "./ui/NudgeNotification";
 
 
 /**  
@@ -95,10 +96,12 @@ export default class FlowtiBasePlugin extends Plugin {
 	private eventDefinitionService?: EventDefinitionService;
 	private dataExchangeService?: DataExchangeService;
 	private sessionService?: SessionService;
+	private nudgeService?: NudgeService;
 	private ingestionStatusBar?: IngestionStatusBar;
 	private collapsedCategories = new Set<string>();
 	private uiCommandService?: UiCommandService;
 	private hubRegistry?: HubRegistry;
+	private sessionSetup?: SessionSetup;
 	private crossCuttingListeners: (() => void)[] = [];
 
 	// ── Notice throttle ──────────────────────────────────────
@@ -174,10 +177,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			await this.services.initializeAll();
 
 			// ── Phase 5: UI binding ───────────────────────────────────
-			// eslint-disable-next-line @typescript-eslint/no-this-alias
-			const plugin = this;
 			this.addSettingTab(new FlowtiSettingTab(this.app, this, {
-				get userService() { return plugin.userService; },
 				eventBus: this.eventBus,
 				getSettings: () => this.settings,
 				saveSettings: () => this.saveSettings(),
@@ -255,6 +255,7 @@ export default class FlowtiBasePlugin extends Plugin {
 				timestamp: new Date().toISOString(),
 			});
 
+			this.nudgeService?.dispose();
 			this.uiCommandService?.dispose();
 			this.ingestionStatusBar?.dispose();
 			this.eventBridge?.dispose();
@@ -407,13 +408,13 @@ export default class FlowtiBasePlugin extends Plugin {
 			const settingsService = await this.loadDomainServices();
 			this.wireDataExchange(settingsService);
 			this.setupHubRegistry();
-			this.registerSessionFileMenu();
 			await this.runIngestionCatchUp();
 
 			this.eventBridge.registerVaultListeners();
 			void this.eventBus.emit("plugin.ready", {
 				timestamp: new Date().toISOString(),
 			});
+
 		} catch (error) {
 			this.errorService.handle(
 				error instanceof Error ? error : new Error(String(error)),
@@ -464,6 +465,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_SESSION_WORKSPACE)) {
 				(leaf.view as SessionWorkspaceView).customOutputTemplates = templates;
 			}
+
 		});
 
 		this.ingestionService = await this.services.get<IngestionService>("ingestionService");
@@ -482,7 +484,21 @@ export default class FlowtiBasePlugin extends Plugin {
 		// Write session summary to notes file on completion
 		this.crossCuttingListeners.push(
 			this.eventBus.on("session.completed", (event) => {
-				void this.writeSessionSummary(event.payload.session);
+				void this.sessionSetup?.writeSessionSummary(event.payload.session);
+			}),
+		);
+
+		// Nudge Service — time-based session start reminders
+		this.nudgeService = await this.services.get<NudgeService>("nudgeService");
+		this.nudgeService.isSessionTypeActive = (type) =>
+			this.sessionService?.getActiveSession()?.type === type;
+		await this.nudgeService.load();
+		this.nudgeService.start();
+
+		// Show notification when a nudge fires
+		this.crossCuttingListeners.push(
+			this.eventBus.on("nudge.triggered", (event) => {
+				showNudgeNotification(event.payload.config, this.eventBus);
 			}),
 		);
 
@@ -549,7 +565,7 @@ export default class FlowtiBasePlugin extends Plugin {
 
 	/**
 	 * Configures the HubRegistry with all hub providers and
-	 * registers the User Hub view.
+	 * registers the User Hub view + session views/commands.
 	 */
 	private setupHubRegistry(): void {
 		this.hubRegistry = new HubRegistry(this.app, this.eventBus);
@@ -563,118 +579,23 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.hubRegistry.register(new DataExchangeProvider(this.dataExchangeService!));
 
 		this.registerView(VIEW_TYPE_USER_HUB, (leaf) =>
-			new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.sessionService!, this.settings.inboxEnabledSources),
+			new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.sessionService!, this.nudgeService!, this.settings.inboxEnabledSources, this.settings),
 		);
 		this.hubRegistry.register(new UserHubProvider(this.userService, this.inboxService!));
 
-		// Session Workspace — dedicated focused leaf for active sessions
-		this.registerView(VIEW_TYPE_SESSION_WORKSPACE, (leaf) =>
-			new SessionWorkspaceView(leaf, this.eventBus, this.sessionService!),
-		);
-		this.addCommand({
-			id: "flowti:open-session-workspace",
-			name: "Open Session Workspace",
-			icon: "timer",
-			callback: () => {
-				void this.app.workspace.getLeaf("tab").setViewState({
-					type: VIEW_TYPE_SESSION_WORKSPACE,
-					active: true,
-				});
-			},
+		// Session views, commands, and file-menu items
+		this.sessionSetup = new SessionSetup({
+			app: this.app,
+			eventBus: this.eventBus,
+			errorService: this.errorService,
+			sessionService: this.sessionService!,
+			registerView: (type, factory) => this.registerView(type, factory),
+			registerEvent: (ref) => this.registerEvent(ref),
+			addCommand: (cmd) => this.addCommand(cmd),
 		});
-		this.addCommand({
-			id: "flowti:open-session-workspace-sidebar",
-			name: "Open Session Workspace in Sidebar",
-			icon: "panel-right",
-			callback: () => {
-				this.openSessionWorkspaceInSidebar();
-			},
-		});
-	}
-
-	/**
-	 * Opens the Session Workspace in the right sidebar.
-	 * Reuses an existing sidebar leaf if one exists; otherwise creates one.
-	 * Always reveals the leaf so the sidebar opens if collapsed.
-	 */
-	private openSessionWorkspaceInSidebar(sessionId?: string): void {
-		if (sessionId) {
-			this.sessionService!.workspaceSessionId = sessionId;
-		}
-		setTimeout(() => {
-			const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_SESSION_WORKSPACE)
-				.find((l) => l.getRoot() === this.app.workspace.rightSplit);
-			const leaf = existing ?? this.app.workspace.getRightLeaf(false);
-			if (leaf) {
-				void leaf.setViewState({
-					type: VIEW_TYPE_SESSION_WORKSPACE,
-					active: true,
-				});
-				this.app.workspace.revealLeaf(leaf);
-			}
-		}, 0);
-	}
-
-	/**
-	 * Registers file-menu items so users can right-click any file
-	 * in the navigator and either add it to the current session
-	 * or create a new session with that file as the focus.
-	 */
-	private registerSessionFileMenu(): void {
-		this.registerEvent(
-			this.app.workspace.on("file-menu", (menu, file) => {
-				const isFile = file instanceof TFile;
-				const isFolder = file instanceof TFolder;
-				if (!isFile && !isFolder) return;
-
-				menu.addSeparator();
-
-				// "Add to {session title}" — when any session is current
-				const current = this.sessionService?.getCurrentSession();
-				if (current) {
-					const bindType = isFolder ? "folder" as const : "file" as const;
-					const bindPath = isFolder ? file.path + "/" : file.path;
-					const label = isFolder ? file.name : (file as TFile).basename;
-					menu.addItem((item) => {
-						item.setTitle(`Add to "${current.title}"`)
-							.setIcon("link")
-							.onClick(() => {
-								void this.eventBus.emit("session.context.bind", {
-									sessionId: current.id,
-									path: bindPath,
-									type: bindType,
-								});
-								new Notice(`Added "${label}" to "${current.title}"`);
-							});
-					});
-				}
-
-				if (isFile) {
-					menu.addItem((item) => {
-						item.setTitle("Create New Session")
-							.setIcon("timer")
-							.onClick(() => {
-								new NewSessionModal(this.app, {
-									sessionTypes: SESSION_TYPES,
-									templates: this.sessionService?.getSavedTemplates() ?? [],
-									prefill: { title: "", type: SESSION_TYPES[0].type, durationMinutes: 25, focusFile: file.path },
-									onSubmit: (title, type, durationMinutes, focusFile, goals) => {
-										void this.eventBus.emit("session.create", {
-											type: type as SessionType,
-											title,
-											durationMinutes,
-											focusFile: focusFile ?? undefined,
-											goals: goals.length > 0 ? goals : undefined,
-										});
-									},
-								}).open();
-							});
-					});
-				}
-
-				menu.addSeparator();
-			}),
-		);
+		this.sessionSetup.registerViews();
+		this.sessionSetup.registerCommands();
+		this.sessionSetup.registerFileMenuItems();
 	}
 
 	/**
@@ -694,39 +615,6 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.errorService.handle(
 				error instanceof Error ? error : new Error(String(error)),
 				"ingestion.catchUp"
-			);
-		}
-	}
-
-	/**
-	 * Writes a Markdown summary to the session's notes file.
-	 * Creates the folder and file if they don't exist yet.
-	 */
-	private async writeSessionSummary(session: import("./domain/session/types").Session): Promise<void> {
-		if (!session.notesFile) return;
-
-		try {
-			// Ensure folder exists
-			const folder = session.notesFile.substring(0, session.notesFile.lastIndexOf("/"));
-			if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
-				await this.app.vault.createFolder(folder);
-			}
-
-			const existing = this.app.vault.getAbstractFileByPath(session.notesFile);
-			if (existing instanceof TFile) {
-				// Merge: preserve user content, update frontmatter, append/replace summary
-				const existingContent = await this.app.vault.read(existing);
-				const merged = mergeSessionNotes(existingContent, session);
-				await this.app.vault.modify(existing, merged);
-			} else {
-				// New file: generate full document
-				const markdown = generateSessionSummary(session);
-				await this.app.vault.create(session.notesFile, markdown);
-			}
-		} catch (error) {
-			this.errorService?.handle(
-				error instanceof Error ? error : new Error(String(error)),
-				"writeSessionSummary",
 			);
 		}
 	}

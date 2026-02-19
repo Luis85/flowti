@@ -4,7 +4,7 @@ import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { SessionService } from "../../../src/domain/session/SessionService";
 import type { ITypedStorage } from "../../../src/utils/TypedStorage";
 import type { Session, SessionState, SessionTemplate } from "../../../src/domain/session/types";
-import { MAX_SESSIONS, MAX_TEMPLATES, MAX_CONTEXT_BINDINGS, MAX_OUTPUT_ARTIFACTS } from "../../../src/domain/session/types";
+import { MAX_SESSIONS, MAX_TEMPLATES, MAX_CONTEXT_BINDINGS, MAX_OUTPUT_ARTIFACTS, ACTIVITY_DEDUP_WINDOW_MS } from "../../../src/domain/session/types";
 import { generateRerunTitle } from "../../../src/domain/session/SessionService";
 import { BUILT_IN_OUTPUT_TEMPLATES } from "../../../src/domain/session/helpers";
 import { createMockStorage } from "../../mocks/storage";
@@ -957,6 +957,236 @@ describe("SessionService", () => {
 			});
 
 			expect(saved.description).toBe("My description");
+		});
+	});
+
+	// ── Template Import/Export ──────────────────────────────
+
+	describe("template import/export", () => {
+		beforeEach(async () => {
+			await service.load();
+		});
+
+		it("should export a template as JSON with version 1", async () => {
+			const saved = await service.saveTemplate({
+				name: "Sprint Storming",
+				type: "event-storming",
+				durationMinutes: 25,
+				description: "Event storming for sprints",
+				goals: ["Map events", "Find aggregates"],
+			});
+
+			const exported = service.exportTemplate(saved.id);
+			expect(exported).not.toBeNull();
+			expect(exported!.version).toBe(1);
+			expect(exported!.template.name).toBe("Sprint Storming");
+			expect(exported!.template.type).toBe("event-storming");
+			expect(exported!.template.durationMinutes).toBe(25);
+			expect(exported!.template.description).toBe("Event storming for sprints");
+			expect(exported!.template.goals).toEqual(["Map events", "Find aggregates"]);
+		});
+
+		it("should strip id and createdAt from export", async () => {
+			const saved = await service.saveTemplate({
+				name: "Export Clean",
+				type: "documentation",
+				durationMinutes: 30,
+			});
+
+			const exported = service.exportTemplate(saved.id);
+			expect(exported!.template).not.toHaveProperty("id");
+			expect(exported!.template).not.toHaveProperty("createdAt");
+		});
+
+		it("should return null when exporting non-existent template", () => {
+			const exported = service.exportTemplate("tmpl_nonexistent");
+			expect(exported).toBeNull();
+		});
+
+		it("should emit session.template.exported on export", async () => {
+			const saved = await service.saveTemplate({
+				name: "Export Event",
+				type: "event-storming",
+				durationMinutes: 25,
+			});
+
+			const handler = vi.fn();
+			eventBus.on("session.template.exported", handler);
+
+			service.exportTemplate(saved.id);
+
+			await vi.advanceTimersByTimeAsync(0);
+			expect(handler).toHaveBeenCalledOnce();
+			expect(handler.mock.calls[0][0].payload.template.id).toBe(saved.id);
+		});
+
+		it("should import a valid template export", async () => {
+			const exportData = {
+				version: 1,
+				template: {
+					name: "Imported Template",
+					type: "service-design",
+					durationMinutes: 45,
+					description: "From another vault",
+				},
+			};
+
+			const imported = await service.importTemplate(exportData);
+			expect(imported).not.toBeNull();
+			expect(imported!.id).toMatch(/^tmpl_/);
+			expect(imported!.name).toBe("Imported Template");
+			expect(imported!.type).toBe("service-design");
+			expect(imported!.durationMinutes).toBe(45);
+			expect(imported!.createdAt).toBeGreaterThan(0);
+
+			// Verify it's in the templates list
+			expect(service.getSavedTemplates()).toHaveLength(1);
+		});
+
+		it("should emit session.template.imported on import", async () => {
+			const handler = vi.fn();
+			eventBus.on("session.template.imported", handler);
+
+			await service.importTemplate({
+				version: 1,
+				template: {
+					name: "Import Event",
+					type: "event-storming",
+					durationMinutes: 25,
+				},
+			});
+
+			await vi.advanceTimersByTimeAsync(0);
+			expect(handler).toHaveBeenCalledOnce();
+			expect(handler.mock.calls[0][0].payload.template.name).toBe("Import Event");
+		});
+
+		it("should round-trip export then import", async () => {
+			const original = await service.saveTemplate({
+				name: "Round Trip",
+				type: "domain-design",
+				durationMinutes: 60,
+				description: "Full round-trip test",
+				goals: ["Goal A", "Goal B"],
+				decisions: ["Decision X"],
+			});
+
+			const exported = service.exportTemplate(original.id);
+			expect(exported).not.toBeNull();
+
+			// Delete original to simulate importing into a different vault
+			await service.deleteTemplate(original.id);
+			expect(service.getSavedTemplates()).toHaveLength(0);
+
+			const imported = await service.importTemplate(exported);
+			expect(imported).not.toBeNull();
+			expect(imported!.name).toBe("Round Trip");
+			expect(imported!.type).toBe("domain-design");
+			expect(imported!.durationMinutes).toBe(60);
+			expect(imported!.description).toBe("Full round-trip test");
+			expect(imported!.goals).toEqual(["Goal A", "Goal B"]);
+			expect(imported!.decisions).toEqual(["Decision X"]);
+			// ID and createdAt should be new
+			expect(imported!.id).not.toBe(original.id);
+		});
+
+		it("should reject import with duplicate name", async () => {
+			await service.saveTemplate({
+				name: "Existing Template",
+				type: "event-storming",
+				durationMinutes: 25,
+			});
+
+			const result = await service.importTemplate({
+				version: 1,
+				template: {
+					name: "Existing Template",
+					type: "service-design",
+					durationMinutes: 45,
+				},
+			});
+
+			expect(result).toBeNull();
+			expect(service.getSavedTemplates()).toHaveLength(1);
+		});
+
+		it("should reject import with missing version", async () => {
+			const result = await service.importTemplate({
+				template: { name: "No Version", type: "event-storming", durationMinutes: 25 },
+			});
+			expect(result).toBeNull();
+		});
+
+		it("should reject import with wrong version", async () => {
+			const result = await service.importTemplate({
+				version: 2,
+				template: { name: "Wrong Version", type: "event-storming", durationMinutes: 25 },
+			});
+			expect(result).toBeNull();
+		});
+
+		it("should reject import with missing name", async () => {
+			const result = await service.importTemplate({
+				version: 1,
+				template: { type: "event-storming", durationMinutes: 25 },
+			});
+			expect(result).toBeNull();
+		});
+
+		it("should reject import with empty name", async () => {
+			const result = await service.importTemplate({
+				version: 1,
+				template: { name: "  ", type: "event-storming", durationMinutes: 25 },
+			});
+			expect(result).toBeNull();
+		});
+
+		it("should reject import with missing type", async () => {
+			const result = await service.importTemplate({
+				version: 1,
+				template: { name: "No Type", durationMinutes: 25 },
+			});
+			expect(result).toBeNull();
+		});
+
+		it("should reject import with invalid durationMinutes", async () => {
+			const result = await service.importTemplate({
+				version: 1,
+				template: { name: "Bad Duration", type: "event-storming", durationMinutes: -5 },
+			});
+			expect(result).toBeNull();
+		});
+
+		it("should reject import with non-object data", async () => {
+			expect(await service.importTemplate(null)).toBeNull();
+			expect(await service.importTemplate("string")).toBeNull();
+			expect(await service.importTemplate(42)).toBeNull();
+			expect(await service.importTemplate(undefined)).toBeNull();
+		});
+
+		it("should reject import with non-object template field", async () => {
+			const result = await service.importTemplate({
+				version: 1,
+				template: "not an object",
+			});
+			expect(result).toBeNull();
+		});
+
+		it("should import template with optional fields", async () => {
+			const result = await service.importTemplate({
+				version: 1,
+				template: {
+					name: "Minimal Template",
+					type: "documentation",
+					durationMinutes: 25,
+				},
+			});
+
+			expect(result).not.toBeNull();
+			expect(result!.description).toBeUndefined();
+			expect(result!.focusFile).toBeUndefined();
+			expect(result!.goals).toBeUndefined();
+			expect(result!.decisions).toBeUndefined();
 		});
 	});
 

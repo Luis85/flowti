@@ -10,8 +10,7 @@
  */
 
 import { setIcon } from "obsidian";
-import { DashboardImportExecutor } from "./DashboardImportExecutor";
-import type { HubComponentDeps } from "./types";
+import type { ActiveOperation, HubComponentDeps } from "./types";
 import { renderDashboardPipelines } from "./DashboardPipelines";
 import { renderConfiguredImports } from "./DashboardImports";
 import { renderConfiguredExports } from "./DashboardExports";
@@ -19,20 +18,19 @@ import { renderStatGrid } from "../shared/StatCard";
 import type { StatCardItem } from "../shared/StatCard";
 
 export class HubDashboard {
-	private importExecutor: DashboardImportExecutor;
+	private liveUnsubscribes: (() => void)[] = [];
 
 	constructor(
 		private dashboardEl: HTMLElement,
 		private deps: HubComponentDeps,
-	) {
-		this.importExecutor = new DashboardImportExecutor(deps);
-	}
+	) {}
 
 	// ─────────────────────────────────────────────────────────
 	// Main render
 	// ─────────────────────────────────────────────────────────
 
 	render(): void {
+		this.cleanupLiveListeners();
 		this.dashboardEl.empty();
 
 		const state = this.deps.getState();
@@ -51,16 +49,21 @@ export class HubDashboard {
 
 		const configuredCsv = state.csvFileEntries.filter((e) => e.importConfigs.length > 0);
 
-		// Section 1: Data Dictionary
+		// Section 1: Active Operations (top — most visible, rebuilt from state, live listeners)
+		if (state.activeOperations.length > 0) {
+			this.renderActiveOperations(this.dashboardEl, state.activeOperations);
+		}
+
+		// Section 2: Data Dictionary
 		this.renderDictionaryStats(this.dashboardEl);
 
-		// Section 2: Import Pipelines
+		// Section 3: Import Pipelines
 		renderDashboardPipelines(this.dashboardEl, this.deps, this.renderSectionHeader.bind(this));
 
-		// Section 3: Configured Imports
-		renderConfiguredImports(this.dashboardEl, configuredCsv, this.deps, this.importExecutor, this.renderSectionHeader.bind(this));
+		// Section 4: Configured Imports
+		renderConfiguredImports(this.dashboardEl, configuredCsv, this.deps, this.renderSectionHeader.bind(this));
 
-		// Section 4: Configured Exports
+		// Section 5: Configured Exports
 		renderConfiguredExports(this.dashboardEl, this.deps, this.renderSectionHeader.bind(this));
 	}
 
@@ -106,5 +109,156 @@ export class HubDashboard {
 		];
 
 		renderStatGrid(section, cards, 3);
+	}
+
+	// ─────────────────────────────────────────────────────────
+	// Active operations (state-backed, survives re-render)
+	// ─────────────────────────────────────────────────────────
+
+	private renderActiveOperations(container: HTMLElement, operations: ActiveOperation[]): void {
+		const section = container.createDiv();
+		section.style.marginBottom = "2rem";
+		this.renderSectionHeader(section, "activity", "Active Operations", operations.filter((o) => !o.completed).length);
+
+		for (const op of operations) {
+			const card = section.createDiv({ cls: "ft-card ft-mb-2" });
+			const row = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
+
+			if (op.completed) {
+				const icon = row.createSpan();
+				setIcon(icon, op.success ? "check-circle" : "x-circle");
+				icon.style.color = op.success ? "var(--text-success)" : "var(--text-error)";
+				row.createSpan({ text: op.message ?? op.name, cls: "ft-text-sm" });
+			} else {
+				const spinner = row.createSpan();
+				setIcon(spinner, "loader");
+				spinner.style.opacity = "0.6";
+				spinner.addClass("ft-spin");
+				const statusText = row.createSpan({ cls: "ft-text-sm" });
+				const typeLabel = op.type === "import" ? "Importing" : op.type === "export" ? "Exporting" : "Pipeline";
+				if (op.progress) {
+					const pct = op.progress.total > 0 ? Math.round((op.progress.current / op.progress.total) * 100) : 0;
+					statusText.textContent = `${typeLabel}... ${op.progress.current} / ${op.progress.total} (${pct}%)`;
+					if (op.progress.lastFilename) {
+						statusText.textContent += ` — ${op.progress.lastFilename}`;
+					}
+				} else {
+					statusText.textContent = `Running ${op.type}: ${op.name}...`;
+				}
+
+				// Progress bar
+				const barBg = card.createDiv();
+				barBg.style.cssText = "height:3px;background:var(--background-modifier-border);border-radius:2px;margin:0 0.5rem 0.5rem;overflow:hidden";
+				const barFill = barBg.createDiv();
+				const pct = op.progress && op.progress.total > 0
+					? Math.round((op.progress.current / op.progress.total) * 100)
+					: 0;
+				barFill.style.cssText = `height:100%;width:${pct}%;background:var(--interactive-accent);border-radius:2px;transition:width 0.15s ease`;
+
+				this.attachLiveListeners(op, card, barFill, statusText);
+			}
+		}
+	}
+
+	/** Attach real-time event listeners to an active operation card. */
+	private attachLiveListeners(
+		op: ActiveOperation,
+		card: HTMLElement,
+		barFill: HTMLElement,
+		statusText: HTMLElement,
+	): void {
+		const transitionToResult = (success: boolean, message: string) => {
+			card.empty();
+			const resultRow = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
+			const icon = resultRow.createSpan();
+			setIcon(icon, success ? "check-circle" : "x-circle");
+			icon.style.color = success ? "var(--text-success)" : "var(--text-error)";
+			resultRow.createSpan({ text: message, cls: "ft-text-sm" });
+		};
+
+		if (op.type === "import") {
+			this.liveUnsubscribes.push(
+				this.deps.eventBus.on("dataExchange.import.progress", (event) => {
+					if (event.payload.operationId !== op.operationId) return;
+					const { current, total, lastFilename } = event.payload;
+					const livePct = total > 0 ? Math.round((current / total) * 100) : 0;
+					barFill.style.width = `${livePct}%`;
+					statusText.textContent = `Importing... ${current} / ${total} (${livePct}%)`;
+					if (lastFilename) statusText.textContent += ` — ${lastFilename}`;
+				}),
+			);
+			this.liveUnsubscribes.push(
+				this.deps.eventBus.on("dataExchange.import.completed", (event) => {
+					if (event.payload.operationId !== op.operationId) return;
+					const r = event.payload.result;
+					transitionToResult(true, `${r.created} created, ${r.updated} updated, ${r.skipped} skipped` +
+						(r.failed > 0 ? `, ${r.failed} failed` : ""));
+				}),
+			);
+			this.liveUnsubscribes.push(
+				this.deps.eventBus.on("dataExchange.import.failed", (event) => {
+					if (event.payload.operationId !== op.operationId) return;
+					transitionToResult(false, `Failed: ${event.payload.error}`);
+				}),
+			);
+		} else if (op.type === "export") {
+			this.liveUnsubscribes.push(
+				this.deps.eventBus.on("dataExchange.export.completed", (event) => {
+					if (event.payload.operationId !== op.operationId) return;
+					const r = event.payload.result;
+					transitionToResult(true, `${r.totalRows} rows → ${r.outputPath}`);
+				}),
+			);
+			this.liveUnsubscribes.push(
+				this.deps.eventBus.on("dataExchange.export.failed", (event) => {
+					if (event.payload.operationId !== op.operationId) return;
+					transitionToResult(false, `Failed: ${event.payload.error}`);
+				}),
+			);
+		} else if (op.type === "pipeline") {
+			this.liveUnsubscribes.push(
+				this.deps.eventBus.on("dataExchange.pipeline.sourceCompleted", (event) => {
+					if (event.payload.pipelineId !== op.operationId) return;
+					const { sourceIndex, totalSources, sourceResult } = event.payload;
+					const livePct = totalSources > 0 ? Math.round(((sourceIndex + 1) / totalSources) * 100) : 0;
+					barFill.style.width = `${livePct}%`;
+					const csvName = sourceResult.csvPath.split("/").pop() ?? sourceResult.csvPath;
+					statusText.textContent = `Pipeline: source ${sourceIndex + 1} / ${totalSources} — ${csvName}`;
+				}),
+			);
+			this.liveUnsubscribes.push(
+				this.deps.eventBus.on("dataExchange.import.progress", (event) => {
+					if (event.payload.pipelineId !== op.operationId) return;
+					const { current, total, lastFilename } = event.payload;
+					statusText.textContent = `Pipeline: row ${current} / ${total}`;
+					if (lastFilename) statusText.textContent += ` — ${lastFilename}`;
+				}),
+			);
+			this.liveUnsubscribes.push(
+				this.deps.eventBus.on("dataExchange.export.started", (event) => {
+					if (event.payload.pipelineId !== op.operationId) return;
+					barFill.style.width = "100%";
+					statusText.textContent = `Pipeline: running export...`;
+				}),
+			);
+			this.liveUnsubscribes.push(
+				this.deps.eventBus.on("dataExchange.pipeline.completed", (event) => {
+					const r = event.payload.result;
+					transitionToResult(true, `${r.created} created, ${r.updated} updated, ${r.skipped} skipped` +
+						(r.failed > 0 ? `, ${r.failed} failed` : ""));
+				}),
+			);
+			this.liveUnsubscribes.push(
+				this.deps.eventBus.on("dataExchange.pipeline.failed", (event) => {
+					if (event.payload.pipelineId !== op.operationId) return;
+					transitionToResult(false, `Failed: ${event.payload.error}`);
+				}),
+			);
+		}
+	}
+
+	cleanupLiveListeners(): void {
+		for (const unsub of this.liveUnsubscribes) unsub();
+		this.liveUnsubscribes = [];
 	}
 }

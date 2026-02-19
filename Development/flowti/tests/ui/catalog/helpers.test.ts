@@ -480,6 +480,7 @@ describe("catalog helpers", () => {
 		{ name: "Hub", visible: true },
 		{ name: "Inbox", visible: true },
 		{ name: "Session", visible: true },
+		{ name: "Nudge", visible: true },
 	];
 
 	describe("discoveredToCatalogEntries", () => {

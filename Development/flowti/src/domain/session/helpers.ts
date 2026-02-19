@@ -4,7 +4,7 @@
  * All functions are side-effect free and trivially testable.
  */
 
-import type { ContextBindingType, Session, SessionContextBinding, SessionDecision, SessionGoal, SessionOutputTemplate, SessionType, SessionTypeConfig, PauseSegment, TimelineSummary } from "./types";
+import type { ContextBindingType, Session, SessionContextBinding, SessionDecision, SessionGoal, SessionOutputTemplate, SessionTemplate, SessionType, SessionTypeConfig, PauseSegment, TimelineSummary } from "./types";
 import { SESSION_TYPE_CONFIGS } from "./types";
 
 // ── Session Type Resolution ──────────────────────────────────
@@ -541,4 +541,99 @@ export function generateSessionOutput(session: Session, template: SessionOutputT
 		return `## ${section.heading}\n\n${content}`;
 	});
 	return `${titleLine}\n\n${sectionLines.join("\n\n")}\n`;
+}
+
+// ── Path Reconciliation ──────────────────────────────────────
+
+/**
+ * Updates all paths in a session when a file is renamed/moved.
+ * Returns true if any path was updated.
+ *
+ * Checks: focusFile, notesFile, canvasFile, contextBindings[].path,
+ * artifacts[].path, links[].path.
+ */
+export function updateSessionPathsForFileMove(session: Session, oldPath: string, newPath: string): boolean {
+	let hit = false;
+	if (session.focusFile === oldPath) { session.focusFile = newPath; hit = true; }
+	if (session.notesFile === oldPath) { session.notesFile = newPath; hit = true; }
+	if (session.canvasFile === oldPath) { session.canvasFile = newPath; hit = true; }
+	for (const binding of session.contextBindings) {
+		if (binding.path === oldPath) { binding.path = newPath; hit = true; }
+	}
+	for (const artifact of session.artifacts) {
+		if (artifact.path === oldPath) { artifact.path = newPath; hit = true; }
+	}
+	for (const link of session.links) {
+		if (link.path === oldPath) { link.path = newPath; hit = true; }
+	}
+	return hit;
+}
+
+/**
+ * Updates all paths in a session when a folder is renamed/moved.
+ * Uses prefix matching to catch all children under the folder.
+ * Returns true if any path was updated.
+ *
+ * Checks all 7 path fields: focusFile, notesFile, canvasFile,
+ * contextBindings[].path, artifacts[].path, links[].path, activityFilter[].
+ */
+export function updateSessionPathsForFolderMove(session: Session, oldPath: string, newPath: string): boolean {
+	let hit = false;
+	const oldPrefix = oldPath + "/";
+
+	if (session.focusFile && session.focusFile.startsWith(oldPrefix)) {
+		session.focusFile = newPath + session.focusFile.slice(oldPath.length); hit = true;
+	}
+	if (session.notesFile && session.notesFile.startsWith(oldPrefix)) {
+		session.notesFile = newPath + session.notesFile.slice(oldPath.length); hit = true;
+	}
+	if (session.canvasFile && session.canvasFile.startsWith(oldPrefix)) {
+		session.canvasFile = newPath + session.canvasFile.slice(oldPath.length); hit = true;
+	}
+	for (const binding of session.contextBindings) {
+		if (binding.path === oldPath + "/" || binding.path.startsWith(oldPrefix)) {
+			binding.path = newPath + binding.path.slice(oldPath.length); hit = true;
+		}
+	}
+	for (const artifact of session.artifacts) {
+		if (artifact.path.startsWith(oldPrefix)) {
+			artifact.path = newPath + artifact.path.slice(oldPath.length); hit = true;
+		}
+	}
+	for (const link of session.links) {
+		if (link.path.startsWith(oldPrefix)) {
+			link.path = newPath + link.path.slice(oldPath.length); hit = true;
+		}
+	}
+	for (let i = 0; i < session.activityFilter.length; i++) {
+		if (session.activityFilter[i] === oldPath || session.activityFilter[i].startsWith(oldPrefix)) {
+			session.activityFilter[i] = newPath + session.activityFilter[i].slice(oldPath.length); hit = true;
+		}
+	}
+	return hit;
+}
+
+/**
+ * Updates a template's focusFile when a file is renamed.
+ * Returns true if the path was updated.
+ */
+export function updateTemplatePathForFileMove(tmpl: SessionTemplate, oldPath: string, newPath: string): boolean {
+	if (tmpl.focusFile === oldPath) {
+		tmpl.focusFile = newPath;
+		return true;
+	}
+	return false;
+}
+
+/**
+ * Updates a template's focusFile when a folder is renamed.
+ * Returns true if the path was updated.
+ */
+export function updateTemplatePathForFolderMove(tmpl: SessionTemplate, oldPath: string, newPath: string): boolean {
+	const oldPrefix = oldPath + "/";
+	if (tmpl.focusFile && tmpl.focusFile.startsWith(oldPrefix)) {
+		tmpl.focusFile = newPath + tmpl.focusFile.slice(oldPath.length);
+		return true;
+	}
+	return false;
 }
