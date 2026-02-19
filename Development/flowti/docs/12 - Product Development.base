@@ -1,7 +1,7 @@
 filters:
   and:
-    - file.folder.contains("increment")
-    - type == "Increment"
+    - file.inFolder("Development/flowti/docs/cycles")
+    - type == "DevelopmentCycle"
 views:
   - type: table
     name: Table
