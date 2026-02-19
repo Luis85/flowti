@@ -421,10 +421,23 @@ Development Lifecycle (phases 1–10)
 
 ---
 
-## 11. Appendix
+## 11. Cycle-Level Checklists
+
+The increment DoD (Section 5) governs individual increments. For the **cycle** level — where multiple increments are grouped into a planned delivery unit — see:
+
+- [[Definition of Ready (Cycle)]] — what must be true before a cycle starts
+- [[Definition of Done (Cycle)]] — what must be true for a cycle to close
+
+These documents aggregate increment-level criteria with cycle-level planning, review, and retrospective requirements.
+
+---
+
+## 12. Appendix
 
 - [[Development Lifecycle]]
 - [[Testplan and Teststrategy]]
 - [[Three Amigos Session Template]]
 - [[PRD Template]]
 - [[Feature Lifecycle PRD]]
+- [[Definition of Ready (Cycle)]]
+- [[Definition of Done (Cycle)]]

@@ -350,7 +350,7 @@ All bundled and linked into the original PRD.
 
 ## 9. Definition of Done (Increment)
 
-An increment is “Done” only if:
+An increment is "Done" only if:
 
 - [ ] Acceptance criteria met
 - [ ] Tests added/updated according to TestPlan
@@ -359,6 +359,8 @@ An increment is “Done” only if:
 - [ ] Manifests updated (layout/component/tab) if impacted
 - [ ] No architectural boundary violations introduced
 - [ ] Improvement items captured (if found)
+
+> **Cycle-level checklists**: For development cycles (multi-increment delivery units), see [[Definition of Ready (Cycle)]] and [[Definition of Done (Cycle)]]. These aggregate readiness and completion criteria across all increments in a cycle.
 
 ---
 
@@ -1312,5 +1314,7 @@ These feed directly into the next planning cycle. PBI-SW-003 (Session Types & Or
 - [[Feature Lifecycle PRD]]
 - [[Increment Lifecycle]]
 - [[Delivery Planning]]
+- [[Definition of Ready (Cycle)]]
+- [[Definition of Done (Cycle)]]
 
 
