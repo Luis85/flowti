@@ -1,13 +1,14 @@
 ---
 type: DevelopmentCycle
 feature: "[[Session Workspaces PRD]]"
-stage: planning
+stage: planned
 cycle: 6
 date_planned: 2026-02-19
 date_completed:
 pbis:
   - "[[PBI-SW-010 Session Lifecycle v2 and Intent Layer]]"
-bugs:
+bugs: []
+bugs_fixed_precycle:
   - "[[when running a pipeline from the pipeline detail page, the progress bar does not update]]"
   - "[[when importing a report from the data-exchange hub dashboard and then starting another one, the progressbar gets confused and the first started export gets combined with the second one]]"
   - "[[The Data Exchange Dashboard does not know when a Pipeline, Import, or Export was started or is still running after leaving the view]]"
@@ -158,6 +159,15 @@ total_test_files_after:
 
 **Est.:** ~60 LOC types, ~0 LOC implementation, ADR document, ~5 type definition tests
 
+**Acceptance criteria:**
+- [ ] ADR-031 produced covering: 6-state lifecycle, dual rendering, closure system, backward compat, daily tracking removal
+- [ ] v2 domain types defined in `src/domain/session/types.ts` (types only, no implementation): `SessionStatusV2`, `SessionIntent`, `SessionMode`, `EnergyLevel`, `ExecutionTask`, `ReflectionEntry`, `ClosureResponse`, `ClosureTemplate`, `ClosureQuestion`, `CognitiveLoadThresholds`
+- [ ] `isValidTransition(from, to)` pure function with tests
+- [ ] v2 event catalog entries registered (planned, not wired)
+- [ ] UI Composition Map validated against BaseHubView patterns
+- [ ] Validated against v2 flow docs: [[Run Intentional Session]], [[Monitor Session from Sidebar]]
+- [ ] `npm run build` passes
+
 ### Inc 4: Session v2 Intent & Lifecycle Domain (PBI-SW-010)
 
 **Goal:** Deliver PBI-SW-010 domain-first: state machine + intent + energy handlers in SessionService.
@@ -181,6 +191,20 @@ total_test_files_after:
 - **No UI in this increment** — domain-first, UI-second per L-01
 
 **Est.:** ~200 LOC source, ~100 LOC tests, ~30 tests
+
+**Acceptance criteria:**
+- [ ] State machine transitions implemented: `prepared → running → paused → reviewing → completed → archived`
+- [ ] `handleStateTransition(sessionId, targetState)` with validation via `isValidTransition()`
+- [ ] Auto-transition: timer completion → `reviewing` (instead of `completed`)
+- [ ] `reviewing` → `completed` gated (placeholder: always allow until FR-14 Closure Ritual)
+- [ ] `handleSetIntent(sessionId, intent)` — editable in `prepared`/`paused`, locked in `running`
+- [ ] `handleUpdateIntent(sessionId, intent)` — same state guards
+- [ ] `handleEnergyChange(sessionId, level)` — adjustable in `running`/`paused`
+- [ ] Events wired: `session.intent.set`, `session.intent.updated`, `session.mode.set`, `session.energy.changed`, `session.review.started`
+- [ ] Backward compat: `load()` maps `status: "active"` → `"running"`, `intent ??= null`, `energy ??= null`
+- [ ] `intent` and `energy` threaded through create, rerun, template paths
+- [ ] No UI changes (domain-first per L-01)
+- [ ] `npm run build` passes
 
 ---
 
