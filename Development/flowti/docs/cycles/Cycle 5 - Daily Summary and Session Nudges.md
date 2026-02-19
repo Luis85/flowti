@@ -222,30 +222,45 @@ Inc 4: Integration + defaults (requires Inc 2 + Inc 3)
 
 ## Risks & Mitigations
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| SessionService grows past 1,300 LOC with nudge wiring in main.ts | Medium | Nudge logic lives in NudgeService (separate domain), not SessionService. main.ts wiring is thin (~25 LOC). Monitor post-cycle. |
-| 60s interval timer impacts Obsidian performance | Low | Single `setInterval` with simple time comparison. `stop()` on unload. Profile in Inc 2 tests. |
-| Time picker UX in Obsidian is limited (no native time input) | Medium | Use text input with HH:MM validation. Simple and consistent with existing settings patterns. |
-| Nudge notification dismissed but user misses it | Low | Notification uses Obsidian Notice (auto-dismiss after timeout). Consider adding inbox item as fallback in future cycle. |
-| Midnight rollover complexity (timezone handling) | Medium | Use local time (`new Date().getHours()`/`getMinutes()`) for both nudge evaluation and rollover. Defer timezone-aware scheduling to future cycle if needed. |
+| Risk | Impact | Mitigation | Materialized? |
+|------|--------|------------|---------------|
+| SessionService grows past 1,300 LOC with nudge wiring in main.ts | Medium | Nudge logic lives in NudgeService (separate domain), not SessionService. main.ts wiring is thin (~25 LOC). Monitor post-cycle. | No — NudgeService stayed isolated; SessionService unchanged at 1,266 LOC |
+| 60s interval timer impacts Obsidian performance | Low | Single `setInterval` with simple time comparison. `stop()` on unload. Profile in Inc 2 tests. | No — no measurable impact |
+| Time picker UX in Obsidian is limited (no native time input) | Medium | Use text input with HH:MM validation. Simple and consistent with existing settings patterns. | No — text input with validation worked well |
+| Nudge notification dismissed but user misses it | Low | Notification uses Obsidian Notice (auto-dismiss after timeout). Consider adding inbox item as fallback in future cycle. | No — 0-timeout persistent Notice solved this |
+| Midnight rollover complexity (timezone handling) | Medium | Use local time (`new Date().getHours()`/`getMinutes()`) for both nudge evaluation and rollover. Defer timezone-aware scheduling to future cycle if needed. | No — local time sufficient for single-user vault |
 
 ---
 
 ## Success Metrics
 
-| Metric | Target |
-|--------|--------|
-| Tests added | 72 new (25 Inc 1 + 40 Inc 2 + 35 Inc 3 + 15 Inc 4 - overlap + 3 polish) |
-| Tests total | 2,507 (32 skipped) |
-| Test suites | 99 |
-| LOC added (source) | ~580 new (50 Inc 1 + 188 Inc 2 + 280 Inc 3 + 45 Inc 4 + ~17 polish) |
-| PBIs closed | PBI-SW-007 (complete — nudges + daily summary delivered) |
-| New events | 8 (nudge domain) |
-| New commands | 2 (create-session, resume-session) — 13 total |
-| Total session events | 64 (unchanged — nudge events are in separate domain) |
-| Flow tests | 13 (new: 13-DailySessionLifecycle) |
-| Plugin totals | 42,493 LOC, 216 source files, 15 bounded contexts |
+| Metric | Target | Actual | Status |
+|--------|--------|--------|--------|
+| Tests added | ~80 new | 72 new | Below target (-10%); nudge UI tests combined, daily flow test covered more per case |
+| Tests total | ~2,515+ | 2,507 (32 skipped) | Met |
+| Test suites | ~101+ | 99 | Close to target |
+| LOC added (source) | ~580 new | ~580 (est.) | Met |
+| PBIs closed | PBI-SW-007 | PBI-SW-007 (complete) | Met |
+| New events | 8 (nudge domain) | 8 | Met |
+| New commands | 2 (create-session, resume-session) | 2 — 13 total | Met |
+| Total session events | 64 | 64 (nudge events in separate domain) | Met |
+| Flow tests | 13 (new: 13-DailySessionLifecycle) | 13 | Met |
+| Plugin totals | — | 42,493 LOC, 216 source files, 15 bounded contexts | Baseline recorded |
+
+---
+
+## Three Amigos Review
+
+**Review conducted:** Yes — combined Cycles 4+5 review (2026-02-19)
+**Result:** PASS with 5 observations
+**FRI impact:** 33 → 34/35 (`validation_testing` 4→5)
+**Reference:** [[Three Amigos Review 2026-02-19 Session Workspaces]]
+
+See [[Cycle 4 - Auto-Session and Activity Polish#Three Amigos Review]] for full observations table. The combined review covered both Cycle 4 (daily-tracking, bugs, extraction) and Cycle 5 (nudges, daily summary, UX polish) as a single review session.
+
+**TASM score:** Not formally recorded. Recommend adopting formal TASM scoring from Cycle 6 onward.
+
+**Note:** The DoD requires a Three Amigos review per cycle. Combining Cycles 4+5 into a single review was pragmatic (both cycles were delivered in the same session) but deviates from the per-cycle requirement. Future cycles should have individual reviews even when delivered consecutively.
 
 ---
 

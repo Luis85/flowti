@@ -2,19 +2,19 @@
 type: ProductRequirementsDocument
 domain: Session
 stage: in-progress
-version: 7
+version: 8
 maturity: L3
 created: 2026-02-01
-updated: 2026-02-18
+updated: 2026-02-19
 foundation: "[[PBI-002 Documentation Sessions]]"
 maturity_score_strategy: 5
-maturity_score_scope: 5
-maturity_score_architecture: 5
-maturity_score_event_integration: 5
-maturity_score_data_model: 5
-maturity_score_ui_consistency: 4
-maturity_score_validation_testing: 5
-fri_score: 34
+maturity_score_scope: 4
+maturity_score_architecture: 3
+maturity_score_event_integration: 3
+maturity_score_data_model: 3
+maturity_score_ui_consistency: 2
+maturity_score_validation_testing: 2
+fri_score: 22
 business_value: 5
 implementation_cost: 4
 maintenance_cost: 3
@@ -30,30 +30,230 @@ tags:
 plugin: "[[Development/flowti/README|README]]"
 ---
 
-# Feature PRD: Session Workspaces
+# Feature PRD: Session Workspaces → Session v2 – Focus & Execution Environment
+
+# Executive Summary
+
+# Session v2 – Focus & Execution Environment
+
+## Strategic Purpose
+
+Session v2 transforms Sessions from a simple timer into a **structured execution environment** inside Flowti.
+
+It enables intentional work, structured reflection, and measurable outcomes — for both deep individual work and workshop facilitation.
+
+Sessions become a core building block of Flowti’s execution layer.
+
+---
+
+## Why This Matters
+
+Current sessions support timing and notes, but lack:
+
+- Clear outcome definition
+    
+- Measurable execution progress
+    
+- Structured reflection
+    
+- Formal closure discipline
+    
+- Energy awareness
+    
+- Lifecycle management
+    
+
+This limits their impact and prevents Sessions from becoming a true execution framework.
+
+Session v2 addresses these gaps.
+
+---
+
+## What Will Change
+
+### 1. Intent-Driven Work
+
+Each session begins with a defined **Primary Outcome** and optional rationale.  
+Focus shifts from “time spent” to “outcome achieved.”
+
+---
+
+### 2. Structured Execution Layer
+
+Sessions include a prioritized execution checklist with visible progress tracking.
+
+This:
+
+- Improves focus
+    
+- Reduces scope creep
+    
+- Enables measurable completion
+    
+
+---
+
+### 3. Context Intelligence
+
+Users bind relevant knowledge artifacts (PRDs, canvases, notes).  
+The session becomes a **micro execution hub** connected to the knowledge graph.
+
+---
+
+### 4. Energy Awareness
+
+Users track and adjust energy levels during the session.  
+Energy changes are logged and can later support performance analytics.
+
+---
+
+### 5. Structured Reflection
+
+Sessions capture:
+
+- Observations
+    
+- Blockers
+    
+- Ideas
+    
+- Decisions
+    
+
+This increases learning and accountability.
+
+---
+
+### 6. Mandatory Closure Ritual
+
+When time expires, the session enters a **Review state**.
+
+Users must:
+
+- Confirm outcome achievement
+    
+- Reflect on effectiveness
+    
+- Define next actions
+    
+
+Closure templates are configurable globally and per session type.
+
+---
+
+### 7. Two Usage Modes
+
+**Main Workspace Mode**  
+Full execution environment for deep work.
+
+**Sidebar Companion Mode**  
+Lightweight monitoring interface designed for:
+
+- Canvas work
+    
+- PRD refinement
+    
+- Live workshops
+    
+
+The sidebar avoids action clutter and acts as a control surface.
+
+---
+
+### 8. Lifecycle & State Model
+
+Sessions now follow a defined lifecycle:
+
+- Prepared
+    
+- Running
+    
+- Paused
+    
+- Reviewing
+    
+- Completed
+    
+- Archived
+    
+
+All transitions are event-driven and traceable.
+
+---
+
+## Business Impact
+
+Session v2 strengthens Flowti as:
+
+- A Personal Focus Tool
+    
+- An Execution Container
+    
+- A Workshop Facilitation Companion
+    
+- A Measurable Performance System
+    
+
+It increases:
+
+- Completion rates
+    
+- Structured thinking
+    
+- Knowledge binding
+    
+- Decision traceability
+    
+- Execution discipline
+    
+
+---
+
+## Strategic Positioning
+
+Session v2 positions Flowti not as a productivity app, but as:
+
+> A Focus-Oriented Execution Orchestrator  
+> embedded inside an event-driven business operating environment.
+
+This feature becomes a foundational execution primitive for the broader IBDE vision.
+
+---
 
 ## 1. Feature Overview
 
-**Feature Name:** Session Workspaces
-**Domain:** Flowti – Integrated Business Development Environment
+**Feature Name:** Session v2 – Focus & Execution Environment
+**Domain:** Flowti – Integrated Business Development Environment / Personal Productivity / Execution Orchestration
 **Maturity Target:** L3 (Development Ready)
 **Foundation:** PBI-002 Documentation Sessions (10 increments delivered) + 5 development cycles
+**Evolution:** Session Workspaces v1 (8/8 FRs delivered, FRI 34/35) → Session v2
 
 ### Purpose
 
 Session Workspaces extend Flowti's existing session infrastructure into a comprehensive, context-aware working environment. Building on the foundation of Documentation Sessions (timer, goals, notes, focus file, artifacts, links, canvas), this feature adds activity tracking, context bindings, decision recording, session-type orchestration, and structured session summaries.
 
-It acts as:
+**Session v2** transforms sessions from a tracking tool into a **structured, state-driven execution environment**:
 
+- A **focus orchestration system** — defining intentional outcomes before execution
+- A **micro execution environment** — binding context, tracking progress, capturing reflection
 - A **contextual container** — binding sessions to vault entities (domains, features, products)
 - An **activity tracker** — recording vault file activity scoped to the session
 - A **decision log** — capturing decisions within session context
 - A **stateful working memory** — persisting full session state for resume
 - A **documentation anchor** — generating structured summaries on completion
+- A **closure discipline** — enforcing structured review and reflection
+- A **workshop facilitation tool** — supporting agenda tracking and live decision capture
+- An **energy-aware system** — tracking cognitive energy and detecting overload
+
+Sessions act as **micro execution environments** inside Flowti and integrate into the event-driven knowledge graph.
 
 ### Scope Boundary
 
 This PRD targets **L3 (Development Ready)** for single-user structured sessions. Multi-user collaboration, real-time sync, and role-based access are documented as future L4 scope and explicitly excluded from this delivery phase.
+
+**v1 scope (delivered):** Activity tracking, context bindings, decision recording, session-type orchestration, structured summaries, state restoration, output artifacts, daily auto-session & nudges.
+
+**v2 scope (planned):** Session lifecycle state machine, intent layer, energy tracking, execution plan, structured reflection, closure ritual, activity intelligence, cognitive overload detection, main/sidebar mode separation, workshop mode.
 
 ---
 
@@ -89,6 +289,20 @@ Despite a working session infrastructure, users still experience:
 - No structured post-session review is possible
 - Session types are labels only — they don't drive workspace behavior
 
+### What's Still Missing (v2 Gaps)
+
+Despite a fully delivered v1 infrastructure (8/8 FRs, 68 events, 396+ tests), sessions remain a basic tracking tool rather than a focus orchestration system:
+
+- **No structured intent definition** — sessions start without a clear outcome or "why"
+- **Execution progress not meaningfully tracked** — goals exist but there's no dedicated task checklist with progress indicators
+- **Reflection is unstructured** — only decisions are captured; observations, blockers, and ideas have no dedicated structure
+- **Sidebar mode is overloaded** — all actions available in sidebar; no separation between workspace and control surface
+- **No closure ritual** — sessions complete without structured review or reflection enforcement
+- **No energy awareness** — no way to track cognitive energy or detect fatigue during sessions
+- **No cognitive load detection** — no warnings when sessions become overloaded (too many tasks, bindings, or duration)
+- **No state-based lifecycle** — no "reviewing" state between running and completed; no enforcement of closure before completion
+- **No workshop facilitation support** — sessions don't adapt for facilitator use cases (agenda tracking, live decision capture, participant visibility)
+
 ---
 
 ## 3. Objectives
@@ -102,7 +316,17 @@ The Session Workspaces feature shall:
 5. **Orchestrate by session type** — type-specific layouts, guiding questions, tools — ✅ Delivered
 6. **Restore workspace state** on session resume — ✅ Delivered
 7. **Generate output artifacts** — template-driven documents from completed sessions — ✅ Delivered
-8. **Auto-track daily activity** — passive daily session with concurrent support, daily note integration, nudge system, daily summary — ✅ Delivered (Cycles 4+5)
+8. ~~**Auto-track daily activity** — passive daily session with concurrent support, daily note integration, nudge system, daily summary — ✅ Delivered (Cycles 4+5)~~ — ❌ **Removed in v8**: conflicts with intentional execution philosophy
+9. **Introduce a session lifecycle state machine** — prepared → running → paused → reviewing → completed → archived with event-driven transitions
+10. **Provide structured intentional focus** — define primary outcome, why it matters, and session mode before execution
+11. **Track dynamic energy levels** — 1–5 scale energy indicator, adjustable during sessions, logged as events
+12. **Support structured execution plans** — checklist-based task lists with progress indicators and recommended limits
+13. **Introduce structured reflection** — observations, blockers, ideas, and decisions as four distinct categories
+14. **Introduce a configurable closure ritual** — structured review overlay required before session completion
+15. **Provide activity intelligence** — computed analytics from session activity (files, tasks, time breakdown)
+16. **Detect cognitive overload** — threshold-based warnings for task count, binding count, duration, and energy
+17. **Separate main workspace and sidebar companion modes** — full execution environment vs. monitoring control surface
+18. **Support workshop facilitation** — agenda tracking, timed items, live decision capture, participant visibility
 
 ---
 
@@ -134,7 +358,25 @@ The Session Workspaces feature shall:
 
 ### JTBD 7 — Passive Daily Tracking
 
-> When I open my vault, I want my daily activity automatically tracked without starting a session manually so that I have a record of what I did even on days I don't run focused sessions.
+> ~~When I open my vault, I want my daily activity automatically tracked without starting a session manually so that I have a record of what I did even on days I don't run focused sessions.~~
+
+**Removed:** Daily tracking feature removed from scope in v8 (see Stage History). The daily-tracking session type, auto-start, concurrent session support, and daily note integration have been deprecated. Session v2 focuses on intentional execution environments rather than passive background tracking.
+
+### JTBD 8 — Focus Intentionality
+
+> When I start working, I want to define a clear outcome so that I stay focused and can measure whether I achieved what I intended.
+
+### JTBD 9 — Workshop Facilitation
+
+> When facilitating a workshop, I want to track agenda items and time, log decisions live, and capture follow-ups immediately so that the session produces structured, actionable outcomes.
+
+### JTBD 10 — Structured Closure
+
+> When I finish a session, I want to be guided through a structured reflection so that I capture what worked, what didn't, and what comes next.
+
+### JTBD 11 — Energy Awareness
+
+> When working in a session, I want to track my energy level so that I can recognize when to take breaks and build awareness of my productive patterns.
 
 ---
 
@@ -146,6 +388,7 @@ The Session Workspaces feature shall:
 | Product Owner | Capture Outcomes, Tool Orchestration | Requirements Refinement, Backlog Structuring |
 | Engineer | Focused Work, Resume | Knowledge Cleanup, Vault Hygiene |
 | Delivery Manager | Traceability, Capture Outcomes | Review, Retrospective |
+| Workshop Facilitator | Workshop Facilitation, Structured Closure | Workshop, Domain Design, Event Storming |
 
 ---
 
@@ -185,6 +428,47 @@ The Session Workspaces feature shall:
 - As a user, I want to resume a session and have my workspace layout restored
 - As a user, I want the files I had open during the session reopened on resume
 
+### Epic: Intent & Focus (v2)
+
+- As a session user, I want to define a primary outcome before starting so that I stay focused
+- As a session user, I want to see my intended outcome at all times so that I'm reminded of my goal
+- As a session user, I want to select a session mode (Deep Work, Workshop, Planning) so that the workspace adapts
+
+### Epic: Execution Plan (v2)
+
+- As a session user, I want a checklist of tasks so that I can track execution progress
+- As a session user, I want to see a progress indicator so that I know how far I've come
+- As a session user, I want to reorder tasks so that I can reprioritize during execution
+
+### Epic: Structured Reflection (v2)
+
+- As a session user, I want to log observations during my session so that insights are captured in context
+- As a session user, I want to log blockers so that impediments are visible and actionable
+- As a session user, I want to log ideas so that creative thoughts are preserved
+- As a session user, I want decisions separated from observations and ideas for clear traceability
+
+### Epic: Closure Ritual (v2)
+
+- As a session user, I want to be prompted for structured reflection when my session ends
+- As a session user, I want to record whether I achieved my outcome so that I can track effectiveness
+- As a session user, I want configurable closure questions so that different session types have different review structures
+
+### Epic: Energy & Awareness (v2)
+
+- As a session user, I want to track my energy level during sessions so that I can build self-awareness
+- As a session user, I want to be warned when my session is becoming overloaded so that I can adjust scope
+
+### Epic: Workshop Facilitation (v2)
+
+- As a facilitator, I want to track agenda items with time so that I can keep workshops on schedule
+- As a facilitator, I want to log decisions live so that participants see decisions as they're made
+- As a facilitator, I want follow-ups captured immediately so that action items don't get lost
+
+### Epic: Sidebar Companion (v2)
+
+- As a session user, I want a compact monitoring view in the sidebar so that I can see status while working
+- As a session user, I want the sidebar to be read-only for most actions so that I don't accidentally modify session state
+
 ---
 
 ## 7. Solution Concept
@@ -202,7 +486,20 @@ SessionWorkspace (L2 → L3)
  ├── Output Artifacts      ✅ Delivered (Cycle 3): template-driven output generation
  ├── Daily Auto-Session    ✅ Delivered (Cycles 4+5): daily tracking, concurrent sessions, auto-start, nudges, daily summary
  ├── Session UX Polish     ✅ Delivered (Cycle 5): command palette commands, dashboard quick actions
- └── Domain Design Session 🔜 Planned (Cycle 6+): guided domain decomposition workflow
+ ├── Daily Auto-Session    ❌ Removed (v8): daily tracking deprecated in favor of intentional sessions
+ └── Domain Design Session 🔜 Planned (Cycle 7+): guided domain decomposition workflow
+
+Session v2 – Focus & Execution (L3 Extension)
+ ├── Session Lifecycle v2      🔜 FR-09: prepared → running → paused → reviewing → completed → archived
+ ├── Intent Layer              🔜 FR-10: primary outcome, why it matters, session mode
+ ├── Energy Tracking           🔜 FR-11: 1–5 scale, event-driven
+ ├── Execution Plan            🔜 FR-12: checklist tasks, progress indicator
+ ├── Structured Reflection     🔜 FR-13: observations, blockers, ideas, decisions
+ ├── Closure Ritual System     🔜 FR-14: configurable review overlay
+ ├── Activity Intelligence     🔜 FR-15: computed analytics from activity
+ ├── Cognitive Overload        🔜 FR-16: threshold-based warnings
+ ├── Main/Sidebar Separation   🔜 FR-17: workspace vs. control surface
+ └── Workshop Mode             🔜 FR-18: agenda, timed items, decision highlighting
 ```
 
 ### Architecture Alignment
@@ -327,7 +624,75 @@ interface SessionNudge {
 }
 ```
 
-### Extended Session Interface (actual)
+### Planned Types (v2)
+
+```typescript
+// Session intent — FR-10
+interface SessionIntent {
+  primaryOutcome: string;       // required
+  whyItMatters?: string;        // optional
+  mode: SessionMode;
+}
+
+// Session modes — FR-10
+type SessionMode = "deep-work" | "planning" | "workshop" | "review" | "exploration";
+
+// Energy level — FR-11
+type EnergyLevel = 1 | 2 | 3 | 4 | 5;
+
+// Execution task — FR-12
+interface ExecutionTask {
+  id: string;
+  label: string;
+  completed: boolean;
+  completedAt?: string;         // ISO 8601
+  order: number;
+}
+
+// Reflection entry — FR-13
+interface ReflectionEntry {
+  id: string;
+  type: "observation" | "blocker" | "idea" | "decision";
+  content: string;
+  timestamp: string;            // ISO 8601
+}
+
+// Closure response — FR-14
+interface ClosureResponse {
+  outcomeAchieved: "yes" | "partial" | "no";
+  whatWorked: string;
+  whatDidnt: string;
+  nextAction: string;
+  answers: Record<string, string>;
+}
+
+// Closure template — FR-14
+interface ClosureTemplate {
+  questions: ClosureQuestion[];
+  requiredFields: string[];
+}
+
+interface ClosureQuestion {
+  id: string;
+  question: string;
+  type: "text" | "select" | "rating";
+  required: boolean;
+  options?: string[];
+}
+
+// Cognitive load thresholds — FR-16
+interface CognitiveLoadThresholds {
+  maxTasks: number;             // default: 5
+  maxBindings: number;          // default: 8
+  maxDurationMinutes: number;   // default: 120
+  lowEnergyThreshold: number;   // default: 2
+}
+
+// Session lifecycle v2 status — FR-09
+type SessionStatusV2 = "prepared" | "running" | "paused" | "reviewing" | "completed" | "archived";
+```
+
+### Extended Session Interface (actual + planned)
 
 ```typescript
 interface Session {
@@ -338,6 +703,12 @@ interface Session {
   decisions: SessionDecision[];             // ✅ Delivered Cycle 2 (FR-03)
   workspaceState: WorkspaceState | null;    // ✅ Delivered Cycle 3 (FR-06)
   outputArtifacts: SessionOutputArtifact[]; // ✅ Delivered Cycle 3 (FR-07)
+  // v2 extensions
+  intent: SessionIntent | null;             // 🔜 Planned FR-10
+  energy: EnergyLevel | null;              // 🔜 Planned FR-11
+  executionTasks: ExecutionTask[];          // 🔜 Planned FR-12
+  reflections: ReflectionEntry[];          // 🔜 Planned FR-13
+  closureResponse: ClosureResponse | null; // 🔜 Planned FR-14
 }
 ```
 
@@ -427,6 +798,30 @@ interface Session {
 | Cycles 4+5 (daily: 5, nudges: 3) | 8 |
 | **Total session events (delivered)** | **68** |
 
+### Planned Events (v2)
+
+| Event | Trigger | Payload | FR |
+|-------|---------|---------|-----|
+| `session.intent.set` | User defines intent | `{ sessionId, intent: SessionIntent }` | FR-10 |
+| `session.intent.updated` | User modifies intent | `{ sessionId, intent: SessionIntent }` | FR-10 |
+| `session.mode.set` | User selects mode | `{ sessionId, mode: SessionMode }` | FR-10 |
+| `session.energy.changed` | User adjusts energy | `{ sessionId, previous: EnergyLevel, current: EnergyLevel }` | FR-11 |
+| `session.task.added` | User adds execution task | `{ sessionId, task: ExecutionTask }` | FR-12 |
+| `session.task.completed` | User completes task | `{ sessionId, taskId: string }` | FR-12 |
+| `session.task.removed` | User removes task | `{ sessionId, taskId: string }` | FR-12 |
+| `session.task.reordered` | User reorders tasks | `{ sessionId, taskIds: string[] }` | FR-12 |
+| `session.reflection.added` | User adds reflection | `{ sessionId, entry: ReflectionEntry }` | FR-13 |
+| `session.reflection.removed` | User removes reflection | `{ sessionId, entryId: string }` | FR-13 |
+| `session.review.started` | Timer reaches zero / manual | `{ sessionId }` | FR-09 |
+| `session.closure.started` | Closure overlay shown | `{ sessionId }` | FR-14 |
+| `session.closure.completed` | User completes closure | `{ sessionId, response: ClosureResponse }` | FR-14 |
+| `session.overload.detected` | Thresholds exceeded | `{ sessionId, reasons: string[] }` | FR-16 |
+
+| Source | Events |
+|--------|--------|
+| v2 Planned | ~14 |
+| **Total session events (delivered + planned)** | **~82** |
+
 ---
 
 ## 10. Functional Requirements
@@ -507,7 +902,7 @@ interface Session {
 
 > **Implementation note:** Delivered in Cycle 3 Inc 2-3 (PBI-SW-008). 10 placeholders: `{{title}}`, `{{date}}`, `{{type}}`, `{{duration}}`, `{{goals}}`, `{{decisions}}`, `{{artifacts}}`, `{{context}}`, `{{overview}}`, `{{notes}}`.
 
-### FR-08: Daily Auto-Session, Concurrent Tracking & Nudges — ✅ Delivered (Cycles 4+5)
+### FR-08: Daily Auto-Session, Concurrent Tracking & Nudges — ✅ Delivered (Cycles 4+5) → ❌ Removed (v8)
 
 - [x] New session type: `"daily-tracking"` — passive, no timer countdown (duration = 0), no goals, no guiding questions
 - [x] `SessionState.dailySessionId` tracks daily session separately from `activeSessionId`
@@ -532,6 +927,118 @@ interface Session {
 - [x] Dashboard quick action: "New Session" button on User Hub Dashboard (Cycle 5 polish)
 
 > **Architecture note:** Daily session uses the existing Session entity with `type: "daily-tracking"`. No new entity types. Concurrent tracking is achieved by modifying `onActivityEvent()` to emit to both `activeSessionId` and `dailySessionId`. Settings use Zod schema defaults for zero-migration backward compat. Nudge scheduler uses `setInterval` with minute-level resolution, cleared on `onunload()`.
+
+> **⚠ Removed in v8:** The daily-tracking feature (FR-08) has been removed from the Session v2 scope. Session v2 focuses on **intentional execution environments** — structured, outcome-driven sessions with closure discipline. Passive background tracking conflicts with this philosophy. The `daily-tracking` session type, `dailySessionId` state field, auto-start behavior, concurrent session routing, daily note integration, and nudge scheduler are deprecated. Related code (`DAILY_ACTIVITY_DEDUP_WINDOW_MS`, `getDailySession()`, `generateDailySummary()`, daily events) will be removed during v2 implementation. PBI-SW-007 status changed from "Done" to "Done → Removed". 5 daily events and 3 nudge events removed from active event count.
+
+---
+
+### FR-09: Session Lifecycle v2 — 🔜 Planned
+
+- [ ] Introduce 6-state lifecycle: `prepared → running → paused → reviewing → completed → archived`
+- [ ] `reviewing` state triggered automatically when timer reaches zero
+- [ ] `reviewing` → `completed` requires closure ritual completion (FR-14)
+- [ ] State changes emit `session.state.changed` event with `{ previousState, newState }`
+- [ ] Backward compatible: existing `active` maps to `running`, existing `completed` unchanged
+- [ ] All state transitions validated (no skipping states, no invalid transitions)
+
+### FR-10: Intent Layer — 🔜 Planned
+
+- [ ] Primary Outcome field (required text, set before session start)
+- [ ] Why this matters field (optional text)
+- [ ] Session Mode selector: Deep Work, Planning, Workshop, Review, Exploration
+- [ ] Intent editable in `prepared` and `paused` states
+- [ ] Intent locked during `running` unless manually edited via explicit action
+- [ ] Intent visible in both Main and Sidebar modes
+- [ ] Outcome immutability configurable per session type
+
+### FR-11: Energy Tracking — 🔜 Planned
+
+- [ ] 1–5 scale energy indicator (clickable)
+- [ ] User-adjustable during active session
+- [ ] Changes emit `session.energy.changed` event with `{ previous, current }`
+- [ ] Energy level visible in Main and Sidebar modes
+- [ ] Energy persisted with session state
+- [ ] Energy changes logged in event timeline
+- [ ] Used for cognitive overload detection (FR-16)
+
+### FR-12: Execution Plan — 🔜 Planned
+
+- [ ] Checklist-based task list within sessions
+- [ ] Add/remove/toggle tasks in Main mode
+- [ ] Max recommended tasks: 5 (configurable threshold)
+- [ ] Drag-and-drop reorder in Main mode
+- [ ] Progress indicator: `completedTasks / totalTasks`
+- [ ] Task completion emits `session.task.completed` event
+- [ ] Sidebar: read-only with check/uncheck allowed, no adding or reordering
+- [ ] Tasks persist with session state
+- [ ] Task count feeds cognitive overload detection (FR-16)
+
+### FR-13: Structured Reflection — 🔜 Planned
+
+- [ ] 4 reflection categories: Observations, Blockers, Ideas, Decisions
+- [ ] Extends existing FR-03 Decision Log architecture
+- [ ] Each entry: `{ id, type, content, timestamp }`
+- [ ] Add/remove entries per category
+- [ ] Decisions can emit domain events and convert to decision records
+- [ ] Sidebar: collapsed summary view (expandable)
+- [ ] Reflections included in session summary and closure ritual
+- [ ] Backward compatible: existing `decisions[]` migrated to `reflections[]` with `type: "decision"`
+
+### FR-14: Closure Ritual System — 🔜 Planned
+
+- [ ] Triggered automatically when session enters `reviewing` state
+- [ ] Overlay blocks main UI with configurable review questions
+- [ ] Standard fields: Outcome achieved? (Yes/Partial/No), What worked?, What didn't?, Next action?
+- [ ] 3-tier template inheritance: Global defaults → Session Type override → Instance override
+- [ ] Completion of required fields required to transition to `completed` state
+- [ ] Follow-up actions: Convert to follow-up session, convert to backlog item, archive
+- [ ] Closure responses persisted with session state
+- [ ] Global closure template configurable in settings
+
+### FR-15: Activity Intelligence — 🔜 Planned
+
+- [ ] Extends FR-01 Activity Log with computed analytics
+- [ ] Counters: files modified, events emitted, tasks completed
+- [ ] Time analytics: active time vs paused time (from existing timeline data)
+- [ ] Compact stats row in Sidebar
+- [ ] Full analytics card in Main mode
+- [ ] Data sourced from event stream and session state (no additional tracking)
+
+### FR-16: Cognitive Overload Detection — 🔜 Planned
+
+- [ ] Threshold-based detection triggers:
+  - [ ] More than 5 execution tasks (configurable)
+  - [ ] More than 8 context bindings (configurable)
+  - [ ] Duration exceeds threshold (configurable)
+  - [ ] Low energy + high task complexity
+- [ ] Non-blocking warning rendered between ExecutionCard and ContextCard
+- [ ] Warning includes overload reasons and suggestion text
+- [ ] Warning dismissible
+- [ ] Configurable thresholds in settings (`CognitiveLoadThresholds`)
+
+### FR-17: Main/Sidebar Mode Separation — 🔜 Planned
+
+- [ ] SessionMainView: full execution environment (all cards, all actions)
+- [ ] SessionSidebarView: monitoring control surface (snapshots, toggle-only)
+- [ ] State-based rendering rules per session state:
+  - [ ] `prepared`: Main editable, Sidebar static snapshot
+  - [ ] `running`: Main all cards active, Sidebar monitoring dashboard
+  - [ ] `paused`: Main editable, Sidebar monitoring + resume indicator
+  - [ ] `reviewing`: Main overlay replaces content, Sidebar "Review Required" status
+  - [ ] `completed`: Main read-only, Sidebar compact summary
+  - [ ] `archived`: Main read-only, Sidebar minimal meta only
+- [ ] No add/create/template-editing buttons in Sidebar above fold
+- [ ] Sidebar = Control Surface design principle enforced
+
+### FR-18: Workshop Mode — 🔜 Planned
+
+- [ ] When `session.mode === "workshop"`:
+  - [ ] ExecutionCard label changes to "Agenda"
+  - [ ] Task items may support duration per agenda item
+  - [ ] Event timeline auto-expanded in Sidebar
+  - [ ] Decision entries visually highlighted
+- [ ] Workshop-specific guiding questions
+- [ ] Facilitator-optimized layout (screen-share friendly)
 
 ---
 
@@ -561,7 +1068,7 @@ interface Session {
 
 ## 12. UI Concept
 
-The SessionWorkspaceView gains new panels within the existing layout:
+### v1 Layout (delivered — SessionWorkspaceView)
 
 ```
 +--------------------------------------------------+
@@ -591,6 +1098,71 @@ The SessionWorkspaceView gains new panels within the existing layout:
 +--------------------------------------------------+
 ```
 
+### v2 UI Composition Map (planned)
+
+Session v2 has two rendering modes:
+
+```
+SessionView
+ ├── SessionMainView      (full execution environment)
+ └── SessionSidebarView   (monitoring control surface)
+```
+
+#### Main Workspace Mode
+
+```
+SessionMainView
+ ├── SessionHeader         (title, type badge, state badge, meta, controls)
+ ├── IntentCard            (primary outcome, why, mode selector)
+ ├── TimerEnergyCard       (countdown, energy 1-5, controls)
+ ├── ExecutionCard         (task checklist, progress bar, add/reorder)
+ ├── ContextIntelligenceCard (bound entities, metadata, quick preview)
+ ├── ReflectionCard        (observations, blockers, ideas, decisions)
+ ├── ActivityIntelligenceCard (files, tasks, events, time analytics)
+ ├── CognitiveLoadAlert    (conditional — threshold exceeded)
+ └── SessionReviewOverlay  (conditional — reviewing state)
+```
+
+#### Sidebar Companion Mode
+
+```
+SessionSidebarView
+ ├── SidebarStatusHeader   (state, remaining time, energy, progress)
+ ├── SidebarIntentSnapshot (primary outcome, mode badge — read-only)
+ ├── SidebarExecutionSnapshot (compact task list, toggle allowed)
+ ├── SidebarContextSnapshot (compact context cards — collapsed)
+ ├── SidebarActivitySnapshot (one-line metrics: files, tasks, events)
+ └── SidebarEventTimeline  (collapsible event log)
+```
+
+#### State-Based Rendering Rules
+
+| State | Main Mode | Sidebar Mode |
+|-------|-----------|--------------|
+| prepared | Editable intent & tasks | Static snapshot |
+| running | All cards active | Monitoring dashboard |
+| paused | Editable | Monitoring + Resume indicator |
+| reviewing | Overlay replaces content | Status shows "Review Required" |
+| completed | Read-only | Compact summary |
+| archived | Read-only | Minimal meta only |
+
+#### Interaction Zones
+
+**Zone A — Above the Fold (Main):** Intent, Timer + Energy, Execution progress
+**Zone B — Mid Focus:** Execution tasks, Context bindings
+**Zone C — Deep Reflection:** Reflection categories, Activity intelligence
+
+**Sidebar Above Fold:** Only State, Timer, Energy, Progress
+
+#### Design Principles
+
+- Outcome before time
+- Sidebar is monitor, not workspace
+- Reflection is structured, not free-text chaos
+- Overlays for transitions, not hidden state
+- Progressive disclosure for complexity
+- No action clutter above the fold
+
 ---
 
 ## 13. Product Backlog Items
@@ -605,11 +1177,23 @@ The SessionWorkspaceView gains new panels within the existing layout:
 | — | PBI-SW-006 | State Restoration | Low | — | ✅ Done (Cycle 3) — workspace state save/restore on pause/resume |
 | — | PBI-SW-008 | Session Output Artifacts | Low | PBI-SW-005 | ✅ Done (Cycle 3) — 3 built-in templates, custom templates, picker modal |
 | — | PBI-SW-007 | Auto-Session & Session Nudges | Medium | — | ✅ Done (Cycles 4+5) — daily tracking, concurrent sessions, auto-start, nudges, daily summary, command palette, dashboard quick action |
-| 1 | PBI-SW-009 | Domain Design Session | Medium | PBI-SW-003 | 🔜 Planned (Cycle 6 spike) — guided domain decomposition workflow (SW-003 unblocked) |
+| 1 | PBI-SW-009 | Domain Design Session | Medium | PBI-SW-003 | 🔜 Planned (Cycle 7+) — guided domain decomposition workflow (SW-003 unblocked) |
+| 2 | PBI-SW-010 | Session Lifecycle v2 & Intent Layer | High | — | 🔜 Planned (Cycle 6) — v2 state machine + intent definition |
+| 3 | PBI-SW-011 | Energy Tracking | Medium | PBI-SW-010 | 🔜 Planned — 1–5 scale energy indicator |
+| 4 | PBI-SW-012 | Execution Plan (Task Checklist) | High | — | 🔜 Planned — checklist tasks with progress indicator |
+| 5 | PBI-SW-013 | Structured Reflection | Medium | FR-03 (delivered) | 🔜 Planned — observations, blockers, ideas, decisions |
+| 6 | PBI-SW-014 | Closure Ritual System | High | PBI-SW-010 | 🔜 Planned — configurable review overlay |
+| 7 | PBI-SW-015 | Activity Intelligence | Low | FR-01 (delivered) | 🔜 Planned — computed analytics from activity |
+| 8 | PBI-SW-016 | Cognitive Overload Detection | Low | — | 🔜 Planned — threshold-based warnings |
+| 9 | PBI-SW-017 | Main/Sidebar Mode Separation | High | PBI-SW-010 | 🔜 Planned — workspace vs. control surface |
 
 > **Cross-delivery:** PBI-SW-001 and PBI-SW-002 were delivered together in PBI-002 Increment 10 (Sidebar Workspace & Activity Consolidation). PBI-SW-003 and PBI-SW-004 were delivered together in Cycle 2 (Session Types and Decision Log). PBI-SW-006 and PBI-SW-008 were delivered together in Cycle 3 (Session Output Artifacts and State Restoration). PBI-SW-007 was delivered across Cycles 4+5 (core daily session in Cycle 4; nudges, daily summary, and UX polish in Cycle 5).
 
-> **Remaining backlog:** 1 PBI remains: PBI-SW-009 (Domain Design Session). 8/9 PBIs delivered. PBI-SW-009 is unblocked by PBI-SW-003 and planned as a Cycle 6 spike (UI pattern evaluation, ADR only).
+> **v8 change — Daily tracking removed:** PBI-SW-007 (Auto-Session & Session Nudges) has been deprecated. The daily-tracking session type, auto-start, concurrent session support, daily note integration, and nudge system conflict with Session v2's philosophy of intentional execution environments. The `daily-tracking` session type, `dailySessionId`, `getDailySession()`, `generateDailySummary()`, nudge scheduler, and 8 related events (5 daily + 3 nudge) will be removed during v2 implementation. PBI-SW-007 status: Done → Removed.
+
+> **Remaining backlog:** 9 PBIs planned (PBI-SW-009 through PBI-SW-017). 7/8 delivered v1 PBIs remain valid (SW-001 through SW-006, SW-008). PBI-SW-010 (Lifecycle v2 & Intent Layer) is the foundation — all other v2 PBIs build on it.
+
+> **Priority ranking** (delivery order by value): PBI-SW-010 → PBI-SW-012 → PBI-SW-014 → PBI-SW-017 → PBI-SW-013 → PBI-SW-011 → PBI-SW-015 → PBI-SW-016. PBI-SW-009 deferred to Cycle 7+ (depends on Workshop mode patterns from FR-18).
 
 See `backlog/PBI-SW-*.md` for detailed specifications.
 
@@ -643,6 +1227,7 @@ See `backlog/PBI-SW-*.md` for detailed specifications.
 | 2026-02-18 | in-progress | in-progress | Cycle 4 Delivery | 33/35 | — | Cycle 4 delivered: PBI-SW-007 core (daily-tracking type, concurrent sessions, auto-start, daily note integration, activity log aggregation). FR-08 partially delivered. 2,440 tests, 95 files. |
 | 2026-02-18 | in-progress | in-progress | Cycle 5 Delivery + Session UX Polish | 34/35 | — | PRD v7. Cycle 5 delivered: PBI-SW-007 complete (nudge system, daily summary, default nudge configs, dashboard indicator). Session UX polish: command palette commands (`create-session`, `resume-session`), dashboard "New Session" quick action. FR-08 fully delivered. 8/8 FRs, 8/9 PBIs done. 68 session events. FRI updated: validation_testing 4→5 (2,507 tests, 99 files, 13 flow tests). |
 | 2026-02-19 | in-progress | in-progress | Three Amigos Review (Cycles 4+5) | 34/35 | Business, Dev, QA | PASS with 5 observations. All 3 perspectives agree: feature production-ready. OBS: (1) PBI-SW-009 scope decision needed, (2) nudge flow test gap, (3) path reconciliation edge cases, (4) daily tracking disable toggle, (5) Cycle 6 increment ordering. 6 action items logged. |
+| 2026-02-19 | in-progress | in-progress | Backlog Refinement (v2) | 22/35 | — | PRD v8: Session v2 – Focus & Execution Environment. **Added:** Executive Summary (strategic purpose, business impact, strategic positioning), 10 new FRs (FR-09–FR-18), 8 new PBIs (SW-010–SW-017), v2 data model (9 new types), v2 event model (14 new events), v2 UI Composition Map (Main + Sidebar modes), Section 16 (Business Value), Section 17 (Strategic Perspective). **Removed:** Daily tracking feature (FR-08, PBI-SW-007 deprecated) — conflicts with intentional execution philosophy. FRI re-scored 34→22 to reflect undelivered v2 scope. Cycle 6 revised: Inc 3–4 replaced with v2 foundation work. |
 
 ### Related Architecture Decisions
 
@@ -652,19 +1237,31 @@ See `backlog/PBI-SW-*.md` for detailed specifications.
 | ADR-026 | Composable Folder Filtering | Accepted | `isExcluded()` pure function for global + per-session folder filtering |
 | ADR-029 | ISO Date Prefix for Session Files | Proposed | Session notes/canvas file naming convention |
 
+### Related Flows
+
+| Flow | Status | Scope |
+|------|--------|-------|
+| [[Create and Manage Sessions]] | Done | v1 session lifecycle — create, configure, track, pause, complete, output |
+| [[Run Intentional Session]] | Planned | v2 session lifecycle — intent, execution, energy, reflection, closure ritual |
+| [[Monitor Session from Sidebar]] | Planned | v2 sidebar companion — monitoring control surface while working in main |
+
 ---
 
-## 15. Future Extensions (L3 — Collaboration)
+## 15. Future Extensions (L4 — Collaboration & Intelligence)
 
-The following capabilities are documented for future maturity levels and explicitly excluded from L2 scope:
+The following capabilities are documented for future maturity levels and explicitly excluded from current scope:
 
 - **Multi-user sessions** — participant registry, invite/join flow
 - **Real-time collaboration** — shared workspace state, live cursor sync
 - **Role-based access** — facilitator, participant, observer roles
-- **AI-assisted summary** — automated session summary generation
-- **Session analytics** — time analysis, participation heatmap
+- **AI-assisted reflection** — automated pattern detection from reflections
+- **Energy analytics dashboard** — historical energy tracking across sessions
+- **Team session mode** — multi-participant sessions with shared state
+- **Workshop timer per agenda item** — individual agenda item countdown
+- **Auto session splitting suggestions** — AI-driven session scope recommendations
 - **Decision quality scoring** — structured evaluation of decision outcomes
 - **Session maturity model** — progressive capability levels per session type
+- **Pattern detection** — recurring blocker/idea identification across sessions
 
 ---
 

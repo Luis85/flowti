@@ -277,13 +277,13 @@ Inc 4: Flow Integration Test
 
 ## Risks & Mitigations
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| Workspace state capture requires `app.workspace` — architecture tension with domain purity | High | Keep capture/restore in View layer. Domain only persists the `WorkspaceState` payload received via events. No Obsidian API in SessionService. |
-| File creation for output needs `FileSystemClient` or vault API in SessionService | Medium | Follow existing notes file creation pattern (`writeSessionSummary()` already calls `FileSystemClient`). |
-| SessionService at 1,037 LOC grows further (~100 LOC from both PBIs) | Medium | Post-cycle estimate: ~1,140 LOC. Flag as TD if exceeds 1,150 LOC. Consider `SessionOutputService` extraction in future cycle. |
-| Wikilink insertion into notes file fails if notes file doesn't exist | Low | Skip gracefully — output artifact still persisted on session. User can manually link later. |
-| Custom templates in settings adds Zod schema complexity | Low | Follow exact `customSessionTypes` pattern: `z.array().default([])`. No migration needed. |
+| Risk | Impact | Mitigation | Materialized? |
+|------|--------|------------|---------------|
+| Workspace state capture requires `app.workspace` — architecture tension with domain purity | High | Keep capture/restore in View layer. Domain only persists the `WorkspaceState` payload received via events. No Obsidian API in SessionService. | No — event-based handoff kept domain pure |
+| File creation for output needs `FileSystemClient` or vault API in SessionService | Medium | Follow existing notes file creation pattern (`writeSessionSummary()` already calls `FileSystemClient`). | No — existing pattern worked cleanly |
+| SessionService at 1,037 LOC grows further (~100 LOC from both PBIs) | Medium | Post-cycle estimate: ~1,140 LOC. Flag as TD if exceeds 1,150 LOC. Consider `SessionOutputService` extraction in future cycle. | **Partial** — reached 1,130 LOC (20 LOC headroom). Not breached but close |
+| Wikilink insertion into notes file fails if notes file doesn't exist | Low | Skip gracefully — output artifact still persisted on session. User can manually link later. | No — graceful skip worked |
+| Custom templates in settings adds Zod schema complexity | Low | Follow exact `customSessionTypes` pattern: `z.array().default([])`. No migration needed. | No — Zod pattern reused cleanly |
 
 ---
 
@@ -304,6 +304,24 @@ Inc 4: Flow Integration Test
 | SessionWorkspaceView LOC | < 780 | 791 | BREACHED (+11 LOC) — TD filed |
 | PRD updated | Yes (carry-forward) | PRD v5, FRI 33/35 | Met (post-cycle delivery) |
 | Flow doc created | Yes (carry-forward) | Updated with 12 steps | Met (post-cycle delivery) |
+
+---
+
+## Three Amigos Review
+
+**Review conducted:** Yes (2026-02-18)
+**Result:** PASS
+**FRI impact:** 29 → 33/35
+
+| Perspective | Reviewer | Finding |
+|-------------|----------|---------|
+| Engineering | — | `{{overview}}` placeholder used `computeActiveTimeMs` instead of `computeElapsedMs` — **blocker fixed** |
+| QA | — | All 3 built-in output templates verified end-to-end |
+| Product | — | Template content quality validated |
+
+**TASM score:** Not formally recorded. Review was conducted informally during implementation. Future cycles should record TASM scores per the DoD checklist.
+
+**Key finding:** The `computeActiveTimeMs` vs `computeElapsedMs` bug was the same class of error seen earlier — timeline-based calculation returns 0 for sessions without timeline entries. Led to [[L-25 Overview placeholder bug]] and [[L-26 Three Amigos catches real bugs]].
 
 ---
 
@@ -339,6 +357,20 @@ Inc 4: Flow Integration Test
 - **L-26**: Three Amigos catches real bugs — The formal review structure (Business/Dev/QA perspectives) found a production-affecting bug that unit tests missed because the test session had `elapsedBeforePauseMs` set but no timeline entries, matching the exact failure scenario.
 - **L-27**: Test count estimation — Pure-function domains need fewer tests per feature than service/UI domains. Each `resolvePlaceholder` test covers one atomic path with no mock setup overhead. Estimate 60% of naive count for pure-function-heavy increments.
 - **L-28**: Carry-forward escalation — Documentation tasks deferred past 2 cycles should be escalated to mandatory pre-feature obligations. Three consecutive slips indicate the task will never be prioritized organically.
+
+### Inbox & Feedback Loop
+
+**Inbox review:** Not formally conducted during Cycle 3. Carry-forward items from Cycle 2 were tracked and delivered (PRD v5, flow doc), but the broader inbox was not reviewed.
+
+**New feedback captured:**
+- SessionWorkspaceView at 791 LOC (breached 780 threshold) → TD filed
+- SessionService approaching 1,150 LOC threshold → monitor in Cycle 4
+- Test count estimation needs calibration → L-27 produced
+- `computeActiveTimeMs` vs `computeElapsedMs` naming confusing → rename candidate
+
+**Next cycle inputs:**
+- Activity log aggregation (from inbox item: "file events should only be displayed in one item")
+- Daily session auto-tracking (from inbox item: "I want to automatically start a Day Session")
 
 ---
 

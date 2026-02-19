@@ -193,3 +193,5 @@ Plans are starting points, not contracts. After every 2-3 increments:
 - [[Product Backlog Item Template]] — PBI structure
 - [[Testplan and Teststrategy]] — test approach per increment
 - [[Three Amigos Session Template]] — review format
+- [[Definition of Ready (Cycle)]] — cycle readiness checklist
+- [[Definition of Done (Cycle)]] — cycle completion checklist

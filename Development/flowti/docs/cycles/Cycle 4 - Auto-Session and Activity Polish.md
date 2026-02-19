@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Session Workspaces PRD]]"
-stage: completed
+stage: done
 cycle: 4
 date_planned: 2026-02-18
 date_completed: 2026-02-18
@@ -394,15 +394,15 @@ Inc 5: Tab polish + daily note auto-link + same-day restart + bug fixes (require
 
 ## Risks & Mitigations
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| Formula evaluation depends on Base plugin internals / metadataCache | Medium | Investigate `metadataCache.getFileCache()` property resolution first. If formula values aren't exposed, may need to access Base plugin API directly. Spike early in Inc 1. |
-| Exporter view property fix could break existing folder-based exports | Low | Folder exports don't have `order` arrays — fallback behavior stays for folder sources. Only Base view exports change. |
-| Concurrent session activity tracking doubles event volume | Medium | Daily sessions use 30s dedup window (6× focused); profile activity tracking in Inc 3 tests |
-| SessionService at 1,130 LOC grows by ~165 LOC (concurrent + daily note) → ~1,295 LOC | High | Plan extraction TD if exceeds 1,300 LOC post-cycle. Most new code is in handlers (natural growth). |
-| Daily note path resolution depends on Daily Notes plugin or custom pattern | Medium | Use configurable `dailyNotePath` setting with `{{date}}` placeholder. Skip gracefully if file doesn't exist. |
-| `subscribeToEvents()` extraction could break subtle callback ordering | Low | Existing tests cover all subscription behavior. Run full test suite after extraction. |
-| Auto-start on vault open adds startup latency | Low | Defer daily session creation to `setTimeout(() => ..., 500)` after layout-ready, same as existing service loads. |
+| Risk | Impact | Mitigation | Materialized? |
+|------|--------|------------|---------------|
+| Formula evaluation depends on Base plugin internals / metadataCache | Medium | Investigate `metadataCache.getFileCache()` property resolution first. If formula values aren't exposed, may need to access Base plugin API directly. Spike early in Inc 1. | **Partial** — solved via ResolvedColumn unified descriptor (broader approach than planned) |
+| Exporter view property fix could break existing folder-based exports | Low | Folder exports don't have `order` arrays — fallback behavior stays for folder sources. Only Base view exports change. | No — fallback behavior preserved |
+| Concurrent session activity tracking doubles event volume | Medium | Daily sessions use 30s dedup window (6× focused); profile activity tracking in Inc 3 tests | No — 30s dedup window effective |
+| SessionService at 1,130 LOC grows by ~165 LOC (concurrent + daily note) → ~1,295 LOC | High | Plan extraction TD if exceeds 1,300 LOC post-cycle. Most new code is in handlers (natural growth). | **Partial** — reached ~1,290 LOC, approaching threshold |
+| Daily note path resolution depends on Daily Notes plugin or custom pattern | Medium | Use configurable `dailyNotePath` setting with `{{date}}` placeholder. Skip gracefully if file doesn't exist. | No — template-based resolution worked |
+| `subscribeToEvents()` extraction could break subtle callback ordering | Low | Existing tests cover all subscription behavior. Run full test suite after extraction. | No — all tests passed after extraction |
+| Auto-start on vault open adds startup latency | Low | Defer daily session creation to `setTimeout(() => ..., 500)` after layout-ready, same as existing service loads. | No — deferred start had no visible latency |
 
 ---
 
@@ -421,6 +421,25 @@ Inc 5: Tab polish + daily note auto-link + same-day restart + bug fixes (require
 | New events | 5 (4 daily lifecycle + 1 summary) | 4 (4 daily lifecycle; summary uses existing `writeSessionSummary`) |
 | Total session events | 65+ | 64 |
 | Flow tests | 13 (new: DailySessionLifecycle) | 12 (DailySessionLifecycle deferred to Cycle 5) |
+
+---
+
+## Three Amigos Review
+
+**Review conducted:** Yes — combined Cycles 4+5 review (2026-02-19)
+**Result:** PASS with 5 observations
+**FRI impact:** 33 → 34/35 (`validation_testing` 4→5)
+**Reference:** [[Three Amigos Review 2026-02-19 Session Workspaces]]
+
+| # | Observation | Type | Action |
+|---|------------|------|--------|
+| OBS-1 | PBI-SW-009 scope decision needed | Scope | Evaluate in Cycle 6 spike |
+| OBS-2 | Nudge flow integration test gap (FR-08c) | Quality | → Cycle 6 Inc 2a (Flow 14) |
+| OBS-3 | Path reconciliation edge cases untested | Quality | → Cycle 6 Inc 2b (pure helper) |
+| OBS-4 | Daily tracking disable toggle missing | UX | Low-effort; superseded by daily tracking removal in v2 |
+| OBS-5 | Prioritize user-facing increments before tech debt | Process | Applied to Cycle 6 ordering |
+
+**TASM score:** Not formally recorded per TASM dimensions. Review used observation-based assessment. Recommend adopting formal TASM scoring from Cycle 6 onward.
 
 ---
 

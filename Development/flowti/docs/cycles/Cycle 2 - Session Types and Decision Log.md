@@ -317,12 +317,12 @@ Inc 5: Flow Integration Test + Docs (TD-94, PBI-SW-005 close)
 
 ## Risks & Mitigations
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| Component extraction breaks existing tests | High | Pure refactor — extract only, no behavior changes. Run full test suite after each extraction. |
-| Custom type persistence adds complexity to SettingsService | Medium | Fix TD-72 first. Custom types are a simple `Record<string, SessionTypeConfig>` in settings — no new persistence mechanism. |
-| SessionWorkspaceView orchestrator still large after extraction | Low | Target < 500 LOC. If still large, extract lifecycle management into a separate controller class. |
-| Decision field threading misses a creation path | Medium | Follow the exact pattern used for `contextBindings` field threading (Inc 10). Test every creation path: create, rerun, template. |
+| Risk | Impact | Mitigation | Materialized? |
+|------|--------|------------|---------------|
+| Component extraction breaks existing tests | High | Pure refactor — extract only, no behavior changes. Run full test suite after each extraction. | No — all 86 existing tests passed unchanged |
+| Custom type persistence adds complexity to SettingsService | Medium | Fix TD-72 first. Custom types are a simple `Record<string, SessionTypeConfig>` in settings — no new persistence mechanism. | No — TD-72 fix de-risked this completely |
+| SessionWorkspaceView orchestrator still large after extraction | Low | Target < 500 LOC. If still large, extract lifecycle management into a separate controller class. | **Yes** — 697 LOC vs <500 target. Acceptable but flagged for monitoring |
+| Decision field threading misses a creation path | Medium | Follow the exact pattern used for `contextBindings` field threading (Inc 10). Test every creation path: create, rerun, template. | No — all creation paths tested and working |
 
 ---
 
@@ -342,6 +342,16 @@ Inc 5: Flow Integration Test + Docs (TD-94, PBI-SW-005 close)
 | FRs completed | FR-04 (decisions in summary) | Completed | Done |
 | New events | 8 (4 type + 4 decision) | 16 (8 type + 4 decision + 4 goal) | More events than planned — goal events added during SW-003 |
 | Total session events | 46+ | 54 | Exceeded target |
+
+---
+
+## Three Amigos Review
+
+**Review conducted:** No — Cycle 2 did not have a formal Three Amigos review. This was the first development cycle for the Session Workspaces feature, and the review practice was established starting from Cycle 3.
+
+**TASM score:** N/A
+
+**Gap identified retroactively:** The DoD requires a Three Amigos review per cycle. Future cycles should not skip this gate regardless of cycle size.
 
 ---
 
@@ -366,6 +376,16 @@ Inc 5: Flow Integration Test + Docs (TD-94, PBI-SW-005 close)
 ### Learnings
 - **L-23**: Optional fields simplify UX — making `description` optional on `SessionDecision` let users record quick decisions without friction. Validate required vs optional fields with the user early.
 - **L-24**: Component extraction before feature addition reduces merge pain — extracting panels (Inc 1) before adding new panels (Inc 3, 4) kept each increment focused and reviewable.
+
+### Inbox & Feedback Loop
+
+**Inbox review:** Not conducted during Cycle 2. The inbox review practice was established starting from Cycle 4.
+
+**New feedback captured:**
+- PRD update deferred → carry-forward to Cycle 3
+- Flow doc `Create and Manage Sessions.md` missing → carry-forward to Cycle 3
+
+**Gap identified retroactively:** DoD §8 requires inbox items to be reviewed and updated at cycle close. This was not done. Future cycles adopted this practice (Cycle 4 established the categorized inbox review pattern).
 
 ---
 

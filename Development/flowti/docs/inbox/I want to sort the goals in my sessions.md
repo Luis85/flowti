@@ -1,11 +1,13 @@
 ---
 type: UserStory
-stage: discovery
+stage: planned
 origin: inbox
 domain: session
 parent: "[[Session Workspaces PRD]]"
+pbi: "[[PBI-SW-012 Execution Plan]]"
 description: "Allow reordering/sorting of session goals in the workspace."
-priority: 03 - low
-note: "Goals currently display in creation order. Drag-and-drop or manual reordering would be a UI enhancement."
+priority: 02 - medium
+planned_in: "Session v2 (PRD v8)"
+note: "Addressed by FR-12 (Execution Plan) in Session v2 scope. ExecutionTask supports drag-and-drop reorder in Main mode. Goals concept evolves into structured execution tasks with ordering."
 tags:
 ---

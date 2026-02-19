@@ -1,6 +1,7 @@
 ---
 type: idea
-stage: discovery
+stage: planned
+planned_in: "Cycle 6 Inc 1"
 origin: inbox
 domain: session
 parent: "[[Session Workspaces PRD]]"

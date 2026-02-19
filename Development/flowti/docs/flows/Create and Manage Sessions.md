@@ -199,6 +199,13 @@ User clicks "New Session" in the Session Workspace view, or runs the `flowti:cre
 - [[L-25 Overview placeholder bug]] — `computeActiveTimeMs` vs `computeElapsedMs` in output templates
 - [[L-28 Carry-forward escalation]] — this doc was originally a carry-forward item that slipped 3 cycles
 
+## Session v2 Flows
+
+This flow documents the v1 session lifecycle. Session v2 extends this with intent-driven execution, structured reflection, closure rituals, energy tracking, and dual-mode rendering. See:
+
+- [[Run Intentional Session]] — v2 flow: intent → execution → closure ritual → follow-up
+- [[Monitor Session from Sidebar]] — v2 sidebar companion flow: monitoring control surface
+
 ## Related Use Cases
 
 - [[Browse and Configure Events]] (session events appear in the catalog)
