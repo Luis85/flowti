@@ -795,11 +795,14 @@ interface Session {
 | Session Workspaces Inc 10 (activity, context) | 8 |
 | Cycle 2 (decisions: 4, types: 4) | 8 |
 | Cycle 3 (state: 4, output: 2) | 6 |
-| Cycles 4+5 (daily: 5, nudges: 3) | 8 |
-| Cycle 7 Inc 2.5 (notes sync: 2) | 2 |
-| **Total session events (delivered)** | **70** |
+| Cycles 4+5 (daily: 5, nudges: 3) — *8 deprecated with FR-08* | 8 |
+| Cycle 6 (v2 foundation: intent 3, energy 2, lifecycle 2, tasks 8, template 2) | 17 |
+| Cycle 7 (notes sync: 3, closure: 2, goal reorder: 2) | 7 |
+| Cycle 8 (energy command: 1, overload: 1, reflection commands + states: 4) | 6 |
+| **Total session events (delivered)** | **98** |
+| *Active (excluding 8 deprecated FR-08 events)* | *90* |
 
-### Planned Events (v2)
+### Planned Events (v2 — remaining)
 
 | Event | Trigger | Payload | FR |
 |-------|---------|---------|-----|
@@ -825,13 +828,12 @@ interface Session {
 | `session.closure.completed` | User completes closure | `{ sessionId, response: ClosureResponse }` | FR-14 |
 | `session.overload.detected` | Thresholds exceeded | `{ sessionId, reasons: string[] }` | FR-16 |
 
-| Source | Events |
-|--------|--------|
-| v2 Planned | ~10 |
-| Cycle 8 Inc 1 (energy command: 1) | 1 |
-| Cycle 8 Inc 2 (overload: delivered from planned) | 0 |
-| Cycle 8 Inc 3 (reflection commands: 2) | 2 |
-| **Total session events (delivered + planned)** | **~86** |
+| Status | Events | Notes |
+|--------|--------|-------|
+| Delivered (from planned table above) | 20 | intent (3), energy (2), tasks (8), reflection (4), closure (2), overload (1) |
+| Remaining planned | 1 | `session.review.started` (FR-09 UI timer wiring) |
+| **Total session events (delivered + planned)** | **99** |
+| *Active (excluding deprecated)* | *91* |
 
 ---
 
@@ -1206,7 +1208,7 @@ SessionSidebarView
 
 > **Remaining backlog:** 3 PBIs planned (PBI-SW-009, SW-015, SW-017). 6 v2 PBIs delivered: SW-010 (Cycle 6), SW-012 + SW-014 (Cycle 7), SW-011 + SW-013 + SW-016 (Cycle 8). 7/8 v1 PBIs remain valid (SW-001 through SW-006, SW-008).
 
-> **Priority ranking** (remaining delivery order by value): PBI-SW-013 (Reflection) → PBI-SW-017 (Main/Sidebar) → PBI-SW-015 (Activity Intelligence). PBI-SW-009 deferred (depends on Workshop mode patterns from FR-18). **Rationale:** SW-013 completes the execution layer foundation (small effort); SW-017 is the major UI refactor (large); SW-015 is analytics polish (low priority).
+> **Priority ranking** (remaining delivery order by value): TD-092 (SessionService extraction — required before UI refactor) → PBI-SW-017 (Main/Sidebar) → PBI-SW-015 (Activity Intelligence). PBI-SW-009 deferred (depends on Workshop mode patterns from FR-18). **Rationale:** TD-092 reduces SessionService from 1,729 LOC before the major UI refactor; SW-017 is the major UI architecture change (large); SW-015 is analytics polish (low priority).
 
 See `backlog/PBI-SW-*.md` for detailed specifications.
 
@@ -1252,6 +1254,7 @@ See `backlog/PBI-SW-*.md` for detailed specifications.
 | 2026-02-19 | in-progress | in-progress | Cycle 8 Inc 2 — Cognitive Overload Detection | 30/35 | — | PBI-SW-016 delivered: `detectCognitiveOverload()` pure function in helpers (~40 LOC) — checks 4 thresholds (tasks, bindings, duration, compound energy+tasks). `OverloadResult` + `DEFAULT_COGNITIVE_LOAD_THRESHOLDS` types. `CognitiveLoadAlert` component (~80 LOC) — non-blocking warning banner with reason list, suggestion, dismissible. `checkCognitiveOverload()` in SessionService — deduped emission via reason-key comparison, wired to 5 handlers (addTask, removeTask, contextBind, contextUnbind, energyChange). `session.overload.detected` subscription in workspace. FRI updated: validation_testing 4→5. 26 new tests, 2,733 total, 108 suites. FR-16 **Done**. |
 | 2026-02-19 | in-progress | in-progress | Cycle 8 Inc 3 — Structured Reflection Domain | 30/35 | — | PBI-SW-013 Part 1 delivered: `session.reflection.add`/`remove` command events + catalog entries. `handleReflectionAdd()`/`handleReflectionRemove()` handlers in SessionService with state guards (running/paused only). Reflections section added to `generateSessionSummaryBody()` with category icons (👁🚫💡⚖️). Template threading: `reflections` field on `SessionTemplate`, threaded through `saveTemplateFromSession`, `rerunSession`, `createFromTemplate`, `handleCreate`, `exportTemplate`. `session.create` event payload extended. 15 new tests, 2,748 total, 108 suites. FR-13 domain **Done**. |
 | 2026-02-19 | in-progress | in-progress | Cycle 8 Inc 4 — Structured Reflection UI | 30/35 | — | PBI-SW-013 Part 2 delivered: `SessionReflectionPanel` component (~130 LOC) — category-grouped entries with Lucide icons (eye, alert-circle, lightbulb, scale), add form with category dropdown + text input, remove button per entry, read-only in completed/archived. Integrated into `SessionWorkspaceView` between decisions and activity. 2 reflection event subscriptions wired in `SessionWorkspaceSubscriptions`. PBI-SW-013 **Done**. FR-13 fully **Done**. 20 new tests, 2,768 total, 109 suites. |
+| 2026-02-19 | in-progress | in-progress | Cycle 8 Closure + Three Amigos | 30/35 | Business, Dev, QA | **PASS** with 5 observations, 3 action items. Cycle 8 delivered: 4/4 planned increments, 3 PBIs done (SW-011, SW-013, SW-016), 3 FRs done (FR-11, FR-13, FR-16). 81 new tests, 2,768 total, 109 suites. TD-092 stretch deferred (SessionService at 1,729 LOC — extract required for Cycle 9). AI-1: promote TD-092 to required. AI-2: priority ranking updated. AI-3: add MAX_REFLECTIONS guard. v2 status: 7/10 FRs, 6/8 PBIs delivered. |
 
 ### Related Architecture Decisions
 
