@@ -1,6 +1,11 @@
 ---
-type:
-stage:
+type: idea
+stage: discovery
+origin: inbox
+domain: automation
+priority: "01 - medium"
+description: "Bulk edit notes by right-clicking a folder and choosing a template-based edit configuration."
+parent: "[[Automation PRD]]"
 ---
 The user can select a list of notes and bulk edit based on a selected template. The user can then also choose on a prop to prop basis if he wants to change that field. 
 

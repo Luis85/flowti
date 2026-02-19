@@ -1,6 +1,7 @@
 ---
 type: Bug
 stage: fixed
+fixed_in: "Cycle 6"
 origin: inbox
 domain: data-exchange
 parent: "[[Data Exchange Hub PRD]]"
