@@ -3,7 +3,8 @@ type: TechDebt
 severity: high
 category: architecture
 layer: ui
-status: open
+status: resolved
+resolved: 2026-02-15
 created: 2026-02-15
 effort: large
 description: "EventCatalogView is a standalone 836 LOC orchestrator with manual DOM layout. Migrate to Hub framework using Shell + Layout + Adapter pattern."

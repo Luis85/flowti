@@ -32,6 +32,7 @@ A single-page modal for creating a new custom event in the Event Catalog. It col
 | `onSubmit` | `(eventName: string, category?: string) => void` | Callback with the event name and optional category |
 
 Local variables during render:
+
 | Variable | Type | Purpose |
 |----------|------|---------|
 | `eventName` | `string` | Current value of the event name input |

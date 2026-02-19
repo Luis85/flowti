@@ -1,6 +1,7 @@
 ---
 type: TestPlan
 stage: done
+updated: 2026-02-19
 domain: Flowti/Tests
 plugin: "[[Development/flowti/README|README]]"
 tags:

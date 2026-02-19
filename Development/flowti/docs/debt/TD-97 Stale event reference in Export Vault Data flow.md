@@ -3,9 +3,10 @@ type: TechDebt
 severity: high
 category: documentation
 layer: flows
-status: open
+status: resolved
 effort: small
-updated: 2026-02-18
+updated: 2026-02-19
+resolved: 2026-02-18
 description: Export Vault Data flow doc references dataExchange.export.progress which does not exist in the event catalog.
 ---
 # TD-97: Stale event reference in Export Vault Data flow
@@ -27,6 +28,10 @@ The import flow has a progress event (`dataExchange.import.progress`) but the ex
 1. Replace `dataExchange.export.progress` with `dataExchange.export.started` in the Export flow doc
 2. Verify all other event references in flow docs against the catalog
 3. Consider adding a CI check that validates event references in flow docs (future)
+
+## Resolution (2026-02-18)
+
+The Export Vault Data flow doc was corrected during Cycle 8 — `dataExchange.export.progress` removed from the event sequence, replaced with the correct `dataExchange.export.started → dataExchange.export.completed` pattern. The Known Debt section of the flow doc self-documents this fix.
 
 ## Related
 

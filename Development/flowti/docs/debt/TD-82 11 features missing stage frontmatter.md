@@ -3,9 +3,10 @@ type: TechDebt
 severity: medium
 category: architecture
 layer: cross-cutting
-status: open
+status: resolved
 effort: small
-updated: 2026-02-15
+updated: 2026-02-19
+resolved: 2026-02-19
 description: 11 of 28 feature documents lack the stage frontmatter field, breaking lifecycle tracking, Feature Readiness Index scoring, and database view filtering.
 ---
 # TD-82: 11 features missing `stage` frontmatter field
@@ -47,6 +48,10 @@ Additionally, `Requirements Engineering` and `Data Governance` are also missing 
 1. Audit each of the 11 features and assign an appropriate `stage` value (idea, draft, new, approved, design, development, done)
 2. Add `type: Feature` to Requirements Engineering and Data Governance
 3. Consider adding a frontmatter validation step that flags missing required fields
+
+## Resolution (2026-02-19)
+
+All 12 feature PRDs now have both `stage` and `type: ProductRequirementsDocument` frontmatter. Stages assigned: Component Library (draft), Multiplayer (idea), Onboarding (draft), Prototype Builder (idea), Requirements Engineering (idea), Self documenting Frontend (draft), Test Management (idea), The Designer (draft), Tracking and Reporting (idea), User Experience (draft), User Story Mapping (draft), Vault Health Dashboard (draft). Data Governance also confirmed with `type` and `stage`.
 
 ## Affected Files
 

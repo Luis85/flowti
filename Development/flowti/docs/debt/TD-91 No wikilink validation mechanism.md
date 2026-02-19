@@ -3,9 +3,10 @@ type: TechDebt
 severity: medium
 category: architecture
 layer: infrastructure
-status: open
+status: mitigated
 effort: medium
-updated: 2026-02-15
+updated: 2026-02-19
+resolved: 2026-02-19
 description: 216+ wikilinks exist across documentation with no automated validation. Broken references are only discovered at read time, undermining the reliability of cross-references that make the docs a navigable living system.
 ---
 # TD-91: No wikilink validation mechanism
@@ -38,7 +39,22 @@ The PRD Audit (2026-02-15) identified 9 phantom events and multiple naming incon
 3. Consider integrating as a pre-commit hook or CI check
 4. Output a report of broken links with file location and target
 
+## Resolution (2026-02-19)
+
+**Decision: Rely on Obsidian's native wikilink handling.**
+
+Obsidian already provides:
+- Real-time broken link detection (unresolved links shown differently in graph view and link suggestions)
+- Automatic link updating when files are renamed or moved (via vault API)
+- Link hover preview showing target existence
+- Graph view visualization of link health
+- "Outgoing links" and "Backlinks" panels for link auditing
+
+Building a custom wikilink validation script would duplicate Obsidian's built-in capabilities without adding meaningful value. The plugin's documentation is consumed inside Obsidian where these features are always available.
+
+**Status: Mitigated** — the risk is addressed by the platform, not by custom tooling.
+
 ## Affected Files
 
 - Cross-cutting: all 400+ documentation files
-- Implementation target: build tooling or CI pipeline
+- No custom tooling required — Obsidian's native link management is sufficient

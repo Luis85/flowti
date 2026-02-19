@@ -49,7 +49,7 @@ total_test_files_after: 106
 - Both inboxes fully normalized to standard frontmatter schema
 
 **Cycle 6 improvement backlog (carried forward):**
-- TD-092: SessionService at ~1,300 LOC — approaching extraction threshold
+- TD-101: SessionService at ~1,300 LOC — approaching extraction threshold
 - TD-093: Fire-and-forget `void` pattern masks async ordering issues
 - TD-094: `"active"` status still in union type — cleanup deferred
 
@@ -65,7 +65,7 @@ total_test_files_after: 106
 
 **Explicitly deferred to Cycle 8+:**
 - TD-05 main.ts extraction
-- TD-092 SessionService extraction (evaluate after Cycle 7 LOC impact)
+- TD-101 SessionService extraction (evaluate after Cycle 7 LOC impact)
 - PBI-SW-009 (Domain Design Session) — depends on Workshop mode (FR-18)
 - PBI-SW-013 (Structured Reflection) — depends on SW-012 patterns
 - PBI-SW-011 (Energy Tracking UI) — domain delivered in Cycle 6, UI deferred
@@ -371,7 +371,7 @@ Inc 4: Cognitive Overload — Spike (depends on Inc 1 — uses task count; depen
 
 | Risk | Impact | Mitigation |
 |------|--------|------------|
-| SessionService exceeds 1,300 LOC threshold (TD-092) | Medium | Inc 1 adds ~80 LOC to service. If threshold breached, extract `SessionTaskHandlers.ts` or `SessionClosureHandlers.ts` as separate modules. |
+| SessionService exceeds 1,300 LOC threshold (TD-101) | Medium | Inc 1 adds ~80 LOC to service. If threshold breached, extract `SessionTaskHandlers.ts` or `SessionClosureHandlers.ts` as separate modules. |
 | Closure ritual gate breaks fire-and-forget pattern | Medium | `startClosure()` is synchronous state mutation. `completeClosure()` is separate call. No multi-await chain in single handler. |
 | Drag-and-drop reorder complexity in Obsidian | Low | Fallback: up/down arrow buttons instead of native DnD. Simpler, more accessible, less fragile. |
 | Cognitive overload thresholds need tuning | Low | Spike character — defaults chosen conservatively. Configurable via settings. Real usage will inform tuning. |
@@ -393,7 +393,7 @@ Inc 4: Cognitive Overload — Spike (depends on Inc 1 — uses task count; depen
 | New events wired | ~6 planned | 15 total (8 task + 2 sync + 3 reverse/reorder + 2 closure subscriptions) |
 | New UI components | 3 planned | 2: SessionExecutionPanel, SessionClosureOverlay (CognitiveLoadAlert deferred) |
 | Reviewing gate | Passthrough → real closure | **Done** — `completeSession()` stops at reviewing, `completeClosure()`/`skipClosure()` to reach completed |
-| SessionService LOC | ~1,380 (est.) | 1,662 LOC (TD-092 threshold breached — extraction candidate for Cycle 8) |
+| SessionService LOC | ~1,380 (est.) | 1,662 LOC (TD-101 threshold breached — extraction candidate for Cycle 8) |
 | helpers.ts LOC | ~740 (est.) | 843 LOC |
 | Backward compat | Zero regression | Zero regression |
 
@@ -406,7 +406,7 @@ Inc 4: Cognitive Overload — Spike (depends on Inc 1 — uses task count; depen
 - ADR: [[ADR-031 Session v2 Architecture]] (lifecycle, closure, dual rendering decisions)
 - Flows: [[Run Intentional Session]] (execution plan + closure ritual user journey)
 - Deferred: [[PBI-SW-013 Structured Reflection]], [[PBI-SW-011 Energy Tracking]], [[PBI-SW-017 Main-Sidebar Separation]]
-- Tech Debt: [[TD-092 SessionService LOC threshold]], [[TD-093 Fire-and-forget async ordering]]
+- Tech Debt: [[TD-101 SessionService LOC threshold]], [[TD-093 Fire-and-forget async ordering]]
 - Previous Cycle: [[Cycle 6 - Session Templates and DX Progress Fixes]]
 
 ---
@@ -430,7 +430,7 @@ Inc 4: Cognitive Overload — Spike (depends on Inc 1 — uses task count; depen
 - [x] All three perspectives represented — Product (value alignment verified during PRD refinement), Engineering (architecture verified during implementation), QA (test suite green, coverage verified)
 - [x] All blocker findings resolved — no blocking issues
 - [ ] TASM scores recorded — **Gap**: no formal TASM score. Recommend scoring at next formal review.
-- [x] Observations documented — 3 observations: TD-092 threshold breached, TD-100 sync performance, Inc 4 deferral
+- [x] Observations documented — 3 observations: TD-101 threshold breached, TD-100 sync performance, Inc 4 deferral
 
 ### 4. PRD & Backlog Updates
 - [x] PRD updated:
@@ -446,14 +446,14 @@ Inc 4: Cognitive Overload — Spike (depends on Inc 1 — uses task count; depen
 - [x] Component docs — SessionExecutionPanel and SessionClosureOverlay documented in increment scopes
 - [x] Architecture docs — closure ritual gate pattern, bidirectional note sync, content-based loop prevention documented
 - [x] Flow docs updated — Run Intentional Session (closure steps, skip path, event names), Monitor Session from Sidebar (event/component fixes)
-- [x] Technical debt register updated — TD-100 created (session sync performance), TD-092 carried forward
+- [x] Technical debt register updated — TD-100 created (session sync performance), TD-101 carried forward
 - [x] ADRs — ADR-029 (ISO date prefix) implemented in Inc 2.5b
 
 ### 6. Cycle Plan Completion
 - [x] Frontmatter updated — actual_increments: 5, actual_tests: 147, total_tests_after: 2687, total_test_files_after: 106
 - [x] Success metrics verified — all metrics have Target and Final columns populated
 - [x] Deviations documented — Inc 2.5/2.5b scope expansion (12 user-driven UX parts), Inc 4 deferral
-- [x] Risks reviewed — all 6 risks assessed (SessionService LOC risk materialized → TD-092)
+- [x] Risks reviewed — all 6 risks assessed (SessionService LOC risk materialized → TD-101)
 
 ### 7. Cycle Retrospective
 See retrospective section below.
@@ -461,7 +461,7 @@ See retrospective section below.
 ### 8. Inbox & Feedback Loop
 - [x] Inbox items reviewed — plugin inbox (74 items): 3 stages updated, 13 empty-frontmatter triaged; vault inbox (46 items): 5 missing-frontmatter fixed
 - [x] New feedback captured — TD-100 (session sync performance), "Session Document always reflect current state" flagged as potentially delivered
-- [x] Next cycle inputs identified — Cycle 8 planned (SW-011, SW-016, SW-013, TD-092), DoR satisfied
+- [x] Next cycle inputs identified — Cycle 8 planned (SW-011, SW-016, SW-013, TD-101), DoR satisfied
 
 ---
 
@@ -477,12 +477,12 @@ See retrospective section below.
 ### Deviations from Plan
 - **Inc 2.5 and 2.5b were unplanned** — original plan had 4 increments (domain, UI, closure, overload). User reprioritized to note sync (Inc 2.5) and then expanded scope with 12 UX polish items (Inc 2.5b)
 - **Inc 4 (Cognitive Overload) deferred** — cycle budget consumed. Clean deferral with rationale.
-- **SessionService grew to 1,662 LOC** — 28% above the 1,300 LOC threshold. TD-092 extraction is now urgent for Cycle 8.
+- **SessionService grew to 1,662 LOC** — 28% above the 1,300 LOC threshold. TD-101 extraction is now urgent for Cycle 8.
 
 ### Improvement Backlog
 | Item | Classification | Target |
 |------|---------------|--------|
-| TD-092: SessionService extraction (1,662 LOC) | Tech debt | Cycle 8 (stretch goal) |
+| TD-101: SessionService extraction (1,662 LOC) | Tech debt | Cycle 8 (stretch goal) |
 | TD-100: Session sync performance investigation | Tech debt | Cycle 9 (before UI refactor) |
 | "Create follow-up session" button | Feature | Cycle 9+ |
 | Settings schema for `defaultClosureTemplate` | Feature | When needed |
@@ -509,12 +509,12 @@ See retrospective section below.
 - Auto-open workspace sidebar on session creation
 
 **Tech debt observations:**
-- SessionService: **1,662 LOC** — significantly above TD-092 threshold (~1,300). Extraction priority for Cycle 8.
+- SessionService: **1,662 LOC** — significantly above TD-101 threshold (~1,300). Extraction priority for Cycle 8.
 - helpers.ts: **843 LOC** — growing but still manageable (pure functions, no side effects)
 - SessionWorkspaceView: **537 LOC** — grew from 479 with closure overlay integration
 
 **Carry-forward to Cycle 8:**
 - PBI-SW-016: Cognitive Overload Detection (spike, ~100 LOC)
-- TD-092: SessionService extraction (1,662 LOC → split into handler modules)
+- TD-101: SessionService extraction (1,662 LOC → split into handler modules)
 - "Create follow-up session" button (deferred from Inc 3)
 - Settings schema for `defaultClosureTemplate` (deferred — works via parameter passing)

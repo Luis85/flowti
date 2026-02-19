@@ -3,9 +3,10 @@ type: TechDebt
 severity: low
 category: documentation
 layer: cross-cutting
-status: open
+status: resolved
 effort: small
-updated: 2026-02-15
+updated: 2026-02-19
+resolved: 2026-02-19
 description: Backend Architecture.md and Frontend Architecture.md lack type frontmatter and updated timestamps, making it impossible to determine document staleness or include them in typed catalog views.
 ---
 # TD-86: Architecture docs lack `type:` and `updated:` fields
@@ -39,9 +40,12 @@ Only `Data Dictionary.md` includes a "Last updated" note (2026-02-14). The other
 2. Add `updated: 2026-02-15` to all top-level docs
 3. Consider adding `updated:` to the standard frontmatter schema for all document types
 
+## Resolution (2026-02-19)
+
+Added `type: ArchitectureDoc` and `updated: 2026-02-19` to Backend Architecture.md and Frontend Architecture.md. Added `updated: 2026-02-19` to Testplan and Teststrategy.md (already had `type: TestPlan`). Development Lifecycle.md not found as a standalone file — lifecycle content is embedded in cycle docs.
+
 ## Affected Files
 
 - `docs/Backend Architecture.md`
 - `docs/Frontend Architecture.md`
-- `docs/Development Lifecycle.md`
 - `docs/Testplan and Teststrategy.md`

@@ -314,7 +314,7 @@ Inc 4: Session v2 Intent & Lifecycle Domain (depends on Inc 3 types)
 
 ### Improvement Backlog (from this cycle)
 
-- **TD-092**: `SessionService` now at ~1,300 LOC — approaching extraction threshold. Consider extracting v2 handlers to `SessionLifecycleV2Handlers.ts` if Cycle 7 adds more.
+- **TD-101**: `SessionService` now at ~1,300 LOC — approaching extraction threshold. Consider extracting v2 handlers to `SessionLifecycleV2Handlers.ts` if Cycle 7 adds more.
 - **TD-093**: Fire-and-forget `void` pattern in event handlers masks async ordering issues. The `completeSession` reviewing passthrough exposed this. Future: consider awaiting handlers or documenting the "synchronous state mutation before first await" contract.
 - **TD-094**: `"active"` status still exists in test mock data and union type. Future cleanup: remove `"active"` from `SessionStatus` union once all consumers verified.
 

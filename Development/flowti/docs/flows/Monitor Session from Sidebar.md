@@ -161,6 +161,21 @@ Typical setup: Facilitator shares Canvas in main view, keeps sidebar visible for
         → User switches to Main for closure ritual
 ```
 
+## Related Decisions
+
+- [[ADR-031 Session v2 Architecture]] — dual rendering (Main workspace + Sidebar monitor), 6-state lifecycle
+- [[ADR-024 BaseHubView Shell Extraction]] — sidebar reuses hub shell patterns (debounced render, unsubscribe cleanup)
+- [[ADR-032 Plugin State and Vault Metadata Reconciliation]] — session notes sync while monitoring from sidebar
+
+## Known Debt
+
+- [[TD-101 SessionService Handler Extraction]] — must complete before implementing PBI-SW-017 sidebar mode
+- [[TD-100 Session performance and sync behaviour investigation]] — sidebar rendering performance under high activity
+
+## Learnings
+
+- [[L-22 Every major event domain needs a flow doc]] — sidebar companion deserves its own flow (not just a subsection of Run Intentional Session)
+
 ## Related
 
 - [[Run Intentional Session]] — main v2 session flow (all phases)

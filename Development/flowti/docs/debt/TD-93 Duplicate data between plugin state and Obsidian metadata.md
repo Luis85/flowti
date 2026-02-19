@@ -3,9 +3,10 @@ type: TechDebt
 severity: medium
 category: architecture
 layer: infrastructure
-status: open
+status: mitigated
 effort: large
-updated: 2026-02-18
+updated: 2026-02-19
+resolved: 2026-02-19
 description: Plugin state (TypedStorage) and Obsidian metadata (frontmatter, metadataCache) can hold duplicate or conflicting data. No reconciliation strategy exists.
 ---
 # TD-93: Duplicate data between plugin state and Obsidian metadata
@@ -38,7 +39,19 @@ When these diverge, the user sees inconsistent state depending on which view the
 4. **Event-driven sync**: When vault files change (`metadataCache.changed`), update TypedStorage state if frontmatter is canonical
 5. **Consider vault-first**: For data that users might edit (event definitions, subscriptions), vault frontmatter could be the source of truth with TypedStorage as a cache
 
+## Resolution (2026-02-19)
+
+**Mitigated via ADR-032: Plugin State and Vault Metadata Reconciliation.**
+
+The ADR establishes clear ownership rules for each data point:
+- **TypedStorage canonical**: event definitions (config), subscriptions, session state, import/export configs
+- **Vault files canonical**: entity references (scanned fresh via `metadataCache` on each render), generated doc files
+- **Bidirectional sync**: session notes (forward + reverse with write-timestamp suppression)
+
+No automatic reconciliation is needed for definitions/subscriptions (they are purely plugin-managed). Entity scanners already bypass caching. Session notes use the established bidirectional sync pattern.
+
 ## Related
 
+- [[ADR-032 Plugin State and Vault Metadata Reconciliation]]
 - TD-90: Event Catalog and Data Dictionary are manually maintained
 - ADR-004: Single JSON Blob Storage

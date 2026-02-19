@@ -122,7 +122,7 @@ Then a warning is shown (threshold: 5)
 
 **Tests:** 36 new (2,576 total, 103 suites)
 **Events:** 8 new (4 commands + 4 state), 90 total session events
-**SessionService LOC:** ~1,300 → ~1,420 (+120). TD-092 threshold approaching — evaluate extraction after Cycle 7.
+**SessionService LOC:** ~1,300 → ~1,420 (+120). TD-101 threshold approaching — evaluate extraction after Cycle 7.
 
 **Deviation:** Original event definitions used only state events (`session.task.added` etc.) for both commands and state notifications. Listening to these as commands caused infinite event loops. Fixed by adding separate command events (`session.task.add/toggle/remove/reorder`), following the established `session.goal.add` → `session.goal.added` pattern.
 

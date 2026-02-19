@@ -3,9 +3,10 @@ type: TechDebt
 severity: medium
 category: process
 layer: documentation
-status: open
+status: resolved
 effort: small
-updated: 2026-02-18
+updated: 2026-02-19
+resolved: 2026-02-19
 description: Feature Lifecycle PRD was approved (FRI 27) but its PBIs still show stage idea instead of being promoted to planned.
 ---
 # TD-99: Feature Lifecycle PRD PBIs not promoted to planned
@@ -27,6 +28,13 @@ This creates a false signal: the PBIs appear as unrefined ideas when they are ac
 1. Update all Feature Lifecycle PBIs from `stage: idea` to `stage: planned`
 2. Add a checklist item to the PRD approval process: "Promote PBI stages to planned"
 3. Consider automating this as part of the frontmatter conformance script
+
+## Resolution (2026-02-19)
+
+All three Feature Lifecycle PBIs confirmed with `stage: planned`:
+- PBI-001 Feature Pipeline View (planned, priority: high)
+- PBI-002 Session Tracking (planned, priority: high)
+- PBI-003 Scoring and Reviews (planned, priority: medium)
 
 ## Related
 

@@ -388,7 +388,18 @@ This flow enforces five principles:
 
 - [[ADR-026 Composable Folder Filtering]] — activity filtering during execution
 - [[ADR-029 ISO Date Prefix for Session Files]] — session file naming
-- ADR-031 (planned) — Session v2 Architecture (state machine, dual rendering, closure system)
+- [[ADR-031 Session v2 Architecture]] — state machine, dual rendering, closure system
+- [[ADR-032 Plugin State and Vault Metadata Reconciliation]] — session notes bidirectional sync
+
+## Known Debt
+
+- [[TD-101 SessionService Handler Extraction]] — SessionService at 1,729 LOC needs decomposition before sidebar mode separation
+- [[TD-100 Session performance and sync behaviour investigation]] — sync debounce timing may need tuning for responsive sidebar updates
+
+## Learnings
+
+- [[L-22 Every major event domain needs a flow doc]] — this flow documents the v2 session lifecycle
+- [[L-10 Pure helpers scale safely]] — session helpers (843 LOC) handle all state validation as pure functions
 
 ## Related
 

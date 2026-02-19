@@ -1,5 +1,7 @@
 ---
+type: ArchitectureDoc
 stage: done
+updated: 2026-02-19
 domain: Flowti/System
 plugin: "[[Development/flowti/README|README]]"
 tags:
@@ -27,7 +29,7 @@ tags:
 ┌──────────────────────────────────────────────────┐
 │             Flowti IBDE Plugin                    │
 │  Event-driven architecture toolkit for Obsidian   │
-│  136 events · 11 domain services · 6 views        │
+│  308 events · 15 domain services · 8 views        │
 └────────────────────┬─────────────────────────────┘
                      │ runs on
                      ▼
@@ -51,21 +53,22 @@ No external network dependencies. All data stored in-vault via `saveData()`.
 │                                                               │
 │  ┌─────────────────────────────────────────────────────────┐ │
 │  │  UI Layer                                                │ │
-│  │  6 views · 7 modals · status bar                        │ │
+│  │  8 views · 7 modals · status bar                        │ │
 │  │  [[EventCatalogView]] · [[DataExchangeHubView]]          │ │
 │  │  [[CsvActionView]] · [[ExportView]] · [[EventLogView]]   │ │
-│  │  [[ComponentShowcaseView]]                               │ │
+│  │  [[ComponentShowcaseView]] · [[UserHubView]]             │ │
+│  │  [[SessionWorkspaceView]]                                │ │
 │  └────────────────────────────┬──────────────────────────── │ │
 │                               │ events                       │
 │  ┌────────────────────────────┴────────────────────────────┐ │
-│  │  Domain Layer  ·  11 services  ·  79 events              │ │
+│  │  Domain Layer  ·  15 services  ·  194 events              │ │
 │  │  Settings · User · EventFilter · EventNotify · Doc       │ │
 │  │  Discovery · Subscription · Ingestion · EventDefinition  │ │
-│  │  DataExchange · Installer                                │ │
+│  │  DataExchange · Installer · Session · Inbox · Nudge · Hub│ │
 │  └────────────────────────────┬────────────────────────────┘ │
 │                               │ events                       │
 │  ┌────────────────────────────┴────────────────────────────┐ │
-│  │  Infrastructure Layer  ·  57 events                      │ │
+│  │  Infrastructure Layer  ·  114 events                     │ │
 │  │  EventBus · EventBridge · FileSystemClient               │ │
 │  │  LoggerService · ErrorService · ServiceContainer         │ │
 │  │  CommandRegistry · ViewRegistry · UiCommandService        │ │
@@ -194,6 +197,8 @@ Commands emit `ui.*` events on the EventBus. The `UiCommandService` listens for 
 | `flowti-data-exchange-hub` | Data Exchange Hub | 6 |
 | `flowti-csv-action` | CSV Action | 6 |
 | `flowti-export` | Export | 6 |
+| `flowti-user-hub` | User Hub | 6 |
+| `flowti-session-workspace` | Session Workspace | 6 |
 
 `ViewStateProvider` supplies live settings, discovered events, excluded/notified types, and collapsed categories to views opened mid-session.
 
@@ -377,13 +382,60 @@ Extensible: `registerStep(new MyStep())` before `runAll()`.
 
 **Flows**: [[First-Run Onboarding]]
 
+### SessionService
+
+| | |
+|---|---|
+| **Source** | [[Development/flowti/src/domain/session/SessionService.ts\|SessionService.ts]] |
+| **ID** | `sessionService` · **Storage**: `session` |
+| **Consumes** | `session.{create,start,pause,resume,complete,archive,delete,refresh}`, `session.goal.*`, `session.task.*`, `session.reflection.*`, `session.intent.*`, `session.mode.*`, `session.energy.*`, `session.notes.*`, `session.context.*`, `session.decision.*`, `session.closure.*`, `file.modified` |
+| **Emits** | 90 events covering lifecycle, goals, tasks, reflections, intent, energy, decisions, note sync, closure, activity tracking, cognitive overload |
+
+Largest domain service (1,729 LOC). Manages `Session` entities with 6-state lifecycle (`prepared → running → paused → reviewing → completed → archived`), intent/energy tracking, execution tasks, reflections, closure ritual, and bidirectional note sync (forward: session → markdown file, reverse: markdown edits → session state). State machine validated by `isValidTransition()` in [[Development/flowti/src/domain/session/helpers.ts\|helpers.ts]].
+
+**Flows**: [[Create and Manage Sessions]] · [[Run Intentional Session]] · [[Monitor Session from Sidebar]]
+
+### InboxService
+
+| | |
+|---|---|
+| **Source** | [[Development/flowti/src/domain/inbox/InboxService.ts\|InboxService.ts]] |
+| **ID** | `inboxService` · **Storage**: `inbox` |
+| **Consumes** | `subscription.matched`, `dataExchange.import.{completed,failed}`, `dataExchange.export.completed`, `inbox.refresh` |
+| **Emits** | `inbox.{loaded,itemAdded,itemsChanged,refresh}` |
+
+Collects actionable items from other domains via pure mapper functions. `InboxItem { id, type: "action"|"info", title, description, sourceEvent, sourceHub }`. MAX_INBOX_ITEMS=500 with oldest-first eviction. CRUD: `markRead()`, `dismiss()`, `clearAll()`.
+
+### NudgeService
+
+| | |
+|---|---|
+| **Source** | [[Development/flowti/src/domain/nudge/NudgeService.ts\|NudgeService.ts]] |
+| **ID** | `nudgeService` · **Storage**: `nudge` |
+| **Consumes** | `nudge.{configure,remove,dismiss}` |
+| **Emits** | `nudge.{loaded,configured,removed,triggered,dismissed}` |
+
+Scheduled reminders with timer-based triggering. Nudge configurations persist across sessions. Timer management with proper cleanup on dispose.
+
+### HubRegistry
+
+| | |
+|---|---|
+| **Source** | [[Development/flowti/src/domain/hub/HubRegistry.ts\|HubRegistry.ts]] |
+| **Consumes** | `hub.{opened,closed,tab.changed,navigate}` |
+| **Emits** | `hub.{opened,closed,tab.changed}` |
+
+Central registry for hub-type views (Event Catalog, Data Exchange, User Hub). Manages hub lifecycle events and navigation state.
+
 ---
 
 ## Event Catalog
 
-136 events total: 57 infrastructure + 79 domain.
+308 events total: 114 infrastructure + 194 domain.
 
-### Infrastructure Events (57)
+> Note: The full event catalog is in [[Event Catalog]] and `src/infrastructure/events/catalog.ts`. Below is a summary by category.
+
+### Infrastructure Events (114)
 
 | Category | # | Events |
 |----------|---|--------|
@@ -404,7 +456,7 @@ Extensible: `registerStep(new MyStep())` before `runAll()`.
 | Metadata | 2 | `metadata.{changed,resolved}` |
 | UI Commands | 8 | `ui.{openEventCatalog,openEventLog,openComponentShowcase,openDataExchangeHub,openSubscriptionManager,openCsvImport,openExport,opened}` |
 
-### Domain Events (79)
+### Domain Events (194)
 
 | Category | # | Events |
 |----------|---|--------|
@@ -419,6 +471,11 @@ Extensible: `registerStep(new MyStep())` before `runAll()`.
 | Event Definition | 9 | `eventDefinition.{loaded,created,updated,deleted,create,update,remove,refresh,matched}` |
 | Data Exchange | 15 | `dataExchange.import.{execute,started,progress,completed,failed}`, `dataExchange.export.{execute,started,completed,failed}`, `dataExchange.pipeline.{execute,started,sourceCompleted,completed,failed}`, `dataExchange.config.changed` |
 | Installer | 6 | `installer.{loaded,started,completed,failed}`, `installer.step.{started,completed}` |
+| Session | 90 | Lifecycle, goals, tasks, reflections, intent, energy, decisions, note sync, closure, activity, overload (see [[Event Catalog]] for full list) |
+| Inbox | 4 | `inbox.{loaded,itemAdded,itemsChanged,refresh}` |
+| Nudge | 8 | `nudge.{configure,configured,remove,removed,triggered,dismiss,dismissed,loaded}` |
+| Hub | 4 | `hub.{opened,closed,tab.changed,navigate}` |
+| Notification | 8 | `notification.{show,dismiss,action,dismissed,actioned,loaded,updated,cleared}` |
 
 ---
 
@@ -443,7 +500,7 @@ Plugin.onload()
 │  └─ initializeViewRegistry()
 │
 ├─ Phase 3: Registration
-│  ├─ registerAllServices()       → 11 services
+│  ├─ registerAllServices()       → 15 services
 │  ├─ registerAllCommands()       → 4 core commands
 │  └─ registerAllViews()          → 3 core views
 │
@@ -461,7 +518,8 @@ Plugin.onload()
     ├─ installerService.load()
     ├─ InstallerWizardModal.showIfNeeded()
     ├─ [filter, notify, discovery, subscription,
-    │   ingestion, eventDef, dataExchange].load()
+    │   ingestion, eventDef, dataExchange,
+    │   session, inbox, nudge].load()
     ├─ DataExchangeSetup
     │  ├─ wireCallbacks()         → setDocsRootPath, setListFiles, etc.
     │  ├─ registerViews()         → 3 data exchange views
@@ -500,6 +558,10 @@ Plugin.onunload()
 | 9 | `eventDefinitionService` | — |
 | 10 | `dataExchangeService` | — |
 | 11 | `installerService` | `userService` |
+| 12 | `sessionService` | — |
+| 13 | `inboxService` | — |
+| 14 | `nudgeService` | — |
+| 15 | `hubRegistry` | — |
 
 ---
 
@@ -562,6 +624,22 @@ Single JSON blob via `loadData()`/`saveData()`. All services share one `IStorage
     installed: boolean,
     installedAt?: string,
     completedSteps: Record<string, { completedAt: string }>
+  },
+
+  // SessionService
+  session: {
+    sessions: Session[],
+    sessionTypes: SessionType[]
+  },
+
+  // InboxService
+  inbox: {
+    items: InboxItem[]  // MAX_INBOX_ITEMS=500, oldest-first eviction
+  },
+
+  // NudgeService
+  nudge: {
+    nudges: NudgeConfig[]
   }
 }
 ```
@@ -601,6 +679,10 @@ Full type definitions in [[Data Dictionary]].
   │  Installer       │
   │  (→ userService) │
   └──────────────────┘
+  ┌──────────┐┌──────┐┌──────┐┌─────┐
+  │ Session  ││Inbox ││Nudge ││ Hub │
+  │ Service  ││Svc   ││Svc   ││Reg  │
+  └──────────┘└──────┘└──────┘└─────┘
   ┌──────────────┐   ┌──────────────┐
   │CommandRegistry│   │ ViewRegistry │
   └──────────────┘   └──────────────┘

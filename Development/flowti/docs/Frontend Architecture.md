@@ -1,5 +1,7 @@
 ---
+type: ArchitectureDoc
 stage: open
+updated: 2026-02-19
 domain: Flowti/System
 plugin: "[[Development/flowti/README|README]]"
 tags:
@@ -10,7 +12,7 @@ tags:
 
 This document describes the current frontend architecture of the Flowti IBDE Obsidian plugin, its design principles, view inventory, and refactoring history with planned next phases.
 
-> Last updated: 2026-02-19 (SessionReflectionPanel added — 4-category reflection UI for session workspace)
+> Last updated: 2026-02-19 (Post-Cycle 8 full audit — metrics reconciled, session components updated, stale counts corrected)
 
 ---
 
@@ -62,7 +64,7 @@ src/                     # ~31,467 LOC across 154 files
 │   ├── eventFilter/     # Activity Log visibility toggles
 │   ├── eventNotify/     # Notice popups on event fire
 │   ├── discovery/       # Vault scan for custom events
-│   ├── session/         # Documentation sessions (timer, goals, artifacts, links, canvas, lifecycle)
+│   ├── session/         # Session v2 execution environment (timer, goals, execution tasks, intent, energy, reflections, closure, activity, artifacts, note sync, state machine)
 │   ├── inbox/           # User inbox items (mappers, service, persistence)
 │   └── user/            # User profile management
 ├── ui/                  # Presentation layer (~17,127 LOC)
@@ -70,8 +72,8 @@ src/                     # ~31,467 LOC across 154 files
 │   ├── hub/             # Data Exchange Hub components (21 files, 4,414 LOC)
 │   ├── csv/             # CSV import wizard components (10 files, 1,752 LOC)
 │   ├── export/          # Export wizard components (7 files, 994 LOC)
-│   ├── session/         # Session Workspace components (15 files: panels, subscriptions, helpers)
-│   ├── userHub/         # User Hub components (4 files: Dashboard, Inbox, Sessions, Preferences)
+│   ├── session/         # Session Workspace components (17 files: panels, subscriptions, helpers, overlays, indicators)
+│   ├── userHub/         # User Hub components (7 files: Dashboard, Inbox, Sessions, Preferences, SessionPreferences, NudgePreferences, types)
 │   └── *.ts             # Orchestrator views + modals
 └── utils/               # Shared helpers (persistence, glob, types)
 ```
@@ -159,8 +161,8 @@ Both major views extend `BaseHubView<TPage>` and follow the **orchestrator + com
 - `PreviewPage` — Export preview
 - `ResultPage` — Results display
 
-**Session Workspace** (`src/ui/session/`, 15 files):
-- `SessionWorkspaceSubscriptions` — 24 event listeners extracted via `SubscriptionViewContext` interface
+**Session Workspace** (`src/ui/session/`, 17 files):
+- `SessionWorkspaceSubscriptions` — 28 event listeners extracted via `SubscriptionViewContext` interface
 - `SessionWorkspaceHelpers` — 9 helper functions extracted via `WorkspaceHelperContext` interface (workspace state capture/restore, modal openers, leaf navigation, status styling)
 - `SessionTimerPanel` — Timer display with countdown and editable duration for prepared sessions
 - `SessionEnergyIndicator` — Clickable 1–5 energy scale with ⚡ visual, editable in running/paused states (~90 LOC)
@@ -176,11 +178,13 @@ Both major views extend `BaseHubView<TPage>` and follow the **orchestrator + com
 - `SessionClosureOverlay` — Closure ritual questionnaire shown in reviewing state (~130 LOC)
 - `SessionGuidingQuestions` — Session-type-specific guiding prompts
 
-**User Hub** (`src/ui/userHub/`, 4 files):
+**User Hub** (`src/ui/userHub/`, 7 files):
 - `UserHubDashboard` — Welcome section, cross-hub summary cards, active session card, inbox preview, quick actions
 - `UserHubInbox` — Inbox master list (filter, source badges, read/unread) + detail panel (type badge, source event link, actions)
 - `UserHubSessions` — Session master list (status sort, accent border on active, filter, "New" button) + detail panel (timer, info, artifacts, contextual lifecycle actions). Empty state shows "New Session" button opening `NewSessionModal`
 - `UserHubPreferences` — User profile editing + inbox source toggles
+- `UserHubSessionPreferences` — Session type configuration (built-in + custom types, guiding questions, duration defaults)
+- `UserHubNudgePreferences` — Session nudge configuration (add/edit/remove nudges, template linking)
 
 **Pipeline Detail** (`src/ui/hub/pipelines/`):
 - `PipelineDetail` — Single pipeline view
@@ -340,7 +344,7 @@ The `FlowtiEventMap` type union contains **216 events** across 15 domains:
 | Data Exchange | 15 | `dataExchange.import.execute`, `dataExchange.export.completed` |
 | Documentation | 6 | `doc.create`, `doc.created`, `doc.exists`, `doc.failed` |
 | Hub | 3 | `hub.opened`, `hub.closed`, `hub.tab.changed` |
-| Session | 60 | `session.create`, `session.started`, `session.timer.tick`, `session.artifact.added`, `session.context.bind`, `session.decision.record`, `session.output.generate`, `session.state.save` |
+| Session | 90 | `session.create`, `session.started`, `session.timer.tick`, `session.artifact.added`, `session.context.bind`, `session.decision.record`, `session.output.generate`, `session.state.save`, `session.energy.set`, `session.task.add`, `session.reflection.add`, `session.closure.started`, `session.overload.detected`, `session.notes.synced` |
 | Inbox | 5 | `inbox.itemAdded`, `inbox.itemsChanged`, `inbox.cleared` |
 | Installer | 6 | `installer.started`, `installer.step.completed` |
 
@@ -382,12 +386,14 @@ Sub-modules receive dependencies via typed interfaces (`ConfigDocServiceDeps`, `
 
 ## File Size Distribution (Feb 2026, post Phase 1-10)
 
-### Files over 500 LOC (14 files)
+### Files over 500 LOC (17 files)
 
 | LOC | File | Role | Status |
 |-----|------|------|--------|
-| 723 | `ui/EventCatalogView.ts` | Catalog orchestrator | Extends BaseHubView, delegates to 15 components |
+| 1,729 | `domain/session/SessionService.ts` | Session state machine + handlers | **TD-101: extraction required** (largest file in codebase) |
+| 843 | `domain/session/helpers.ts` | Session helper functions | Pure functions — reverse parse, summary, state machine |
 | 747 | `ui/CsvActionView.ts` | CSV import orchestrator | Delegates to 7 components |
+| 723 | `ui/EventCatalogView.ts` | Catalog orchestrator | Extends BaseHubView, delegates to 15 components |
 | 708 | `domain/docs/contentGenerator.ts` | Markdown generators | **Candidate for further split** |
 | 655 | `ui/ExportView.ts` | Export orchestrator | Delegates to 4 components |
 | 629 | `ui/EventConfigModal.ts` | Event config modal (3 pages) | **Candidate for extraction** |
@@ -398,6 +404,7 @@ Sub-modules receive dependencies via typed interfaces (`ConfigDocServiceDeps`, `
 | 563 | `ui/catalog/DomainsTab.ts` | Domains tab | File + catalog hybrid scanning |
 | 544 | `ui/hub/ExportsTab.ts` | Exports tab | Saved config management |
 | 540 | `ui/hub/ImportsTab.ts` | Imports tab | Saved config management |
+| 537 | `ui/SessionWorkspaceView.ts` | Session workspace orchestrator | Delegates to 17 components + subscriptions |
 | 507 | `ui/catalog/ServicesTab.ts` | Services tab | File + catalog hybrid scanning |
 | 501 | `ui/catalog/helpers.ts` | Shared catalog helpers | Cross-cutting utilities |
 
@@ -590,9 +597,9 @@ Added `displayName` field to `CsvFileEntry` to handle same-named CSV files in di
 
 ## Planned Refactoring
 
-### Phase 11 — Remaining Large UI Component Extraction
+### Phase 13 — Remaining Large UI Component Extraction
 
-#### 11a. EventConfigModal.ts (629 LOC)
+#### 13a. EventConfigModal.ts (629 LOC)
 Currently has 3 pages: overview, subscription form, definition form.
 
 **Proposed extraction**:
@@ -605,12 +612,12 @@ Currently has 3 pages: overview, subscription form, definition form.
 
 **EventConfigModal.ts after**: ~150 LOC — page navigation + modal chrome.
 
-#### 11b. DomainsTab.ts (563 LOC)
+#### 13b. DomainsTab.ts (563 LOC)
 Hybrid file + catalog entity scanning with detail panel.
 
 **Proposed extraction**: Extract domain detail panel + domain actions into `DomainDetailPanel.ts`.
 
-#### 11c. contentGenerator.ts (708 LOC)
+#### 13c. contentGenerator.ts (708 LOC)
 Pure content generation file with markdown builders for 8+ entity types. Could split by category:
 
 | New File | Responsibility | Est. LOC |
@@ -650,7 +657,7 @@ Pure content generation file with markdown builders for 8+ entity types. Could s
 1. **Facade preservation**: Public APIs never change. All consumers see the same interface after extraction.
 2. **Zero test changes**: Extracted code is internal — existing test suites pass without modification.
 3. **Composition over inheritance**: Sub-modules receive deps interfaces, not parent class references.
-4. **Build verification**: `npm run build` (1,883 tests + tsc + eslint + esbuild) after every step.
+4. **Build verification**: `npm test` (tsc + eslint + vitest) after every step.
 5. **Incremental extraction**: One module at a time, verify, then proceed. Never batch multiple extractions without build checks.
 6. **No premature abstraction**: Extract when a file exceeds ~600 LOC or when distinct responsibilities are clearly identifiable. Don't extract for the sake of extracting.
 7. **DocService for all docs**: Use `doc.create` events instead of direct `fileSystemClient.createFile()` calls for documentation files.
@@ -664,9 +671,9 @@ Pure content generation file with markdown builders for 8+ entity types. Could s
 - `DataExchangeService.ts` at 1,802 LOC
 - 4 files over 1,000 LOC
 
-### After Phase 1-12 (Feb 2026)
-- Largest file: `CsvActionView.ts` at 747 LOC (orchestrator)
-- No files over 1,000 LOC
+### After Phase 1-12 + Cycles 6-8 (Feb 2026)
+- Largest file: `SessionService.ts` at 1,729 LOC (TD-101: extraction required)
+- 1 file over 1,000 LOC (SessionService — extraction scheduled for Cycle 9)
 - `EventCatalogView.ts`: 3,714 → 723 LOC (81% reduction, extends BaseHubView)
 - `DataExchangeHubView.ts`: 556 → 477 LOC (14% reduction, extends BaseHubView)
 - `DataExchangeService.ts`: 1,802 → 579 LOC (68% reduction)
@@ -676,11 +683,12 @@ Pure content generation file with markdown builders for 8+ entity types. Could s
 - `EventsTab.ts`: 1,040 → 329 LOC (68% reduction)
 - `ConfigDocService.ts`: 934 → 435 LOC (53% reduction)
 - `BaseHubView.ts`: 278 LOC (new — shared shell for all Hub views)
-- 14 files over 500 LOC (down from 6 files over 1,000 LOC)
-- 82 test files, 1,887 tests — all passing
-- ~162 source files, ~32,000 LOC
+- 17 files over 500 LOC (down from 6 files over 1,000 LOC pre-refactor)
+- 109 test suites, 2,768 tests — all passing
+- ~170+ source files
 
-### Target After Phase 11
+### Target After Phase 13
+- `SessionService.ts`: 1,729 → ~580 LOC (TD-101 — highest priority)
 - `EventConfigModal.ts`: 629 → ~150 LOC
 - `DomainsTab.ts`: 563 → ~300 LOC
 - `contentGenerator.ts`: 708 → ~300 LOC
@@ -689,7 +697,7 @@ Pure content generation file with markdown builders for 8+ entity types. Could s
 
 ## Component Documentation
 
-Each UI component has a dedicated documentation file in `docs/components/` (53 files). These follow a standardized template with frontmatter (`type: Component`), dependency tables, state descriptions, event tables, and cross-references.
+Each UI component has a dedicated documentation file in `docs/components/` (61 files). These follow a standardized template with frontmatter (`type: Component`), dependency tables, state descriptions, event tables, and cross-references.
 
 **By subsystem:**
 
@@ -702,8 +710,58 @@ Each UI component has a dedicated documentation file in `docs/components/` (53 f
 | Hub | `src/ui/hub/` | 11 | [[HubDashboard]], [[ImportsTab]], [[PipelinesTab]] |
 | Pipelines | `src/ui/hub/` | 5 | [[PipelineDetail]], [[PipelineEditForm]], [[PipelineExecution]] |
 | CSV | `src/ui/csv/` | 7 | [[CsvLanding]], [[CsvConfigPage]], [[CsvDataSnapshot]] |
-| User Hub | `src/ui/userHub/` | 4 | [[UserHubDashboard]], [[UserHubInbox]], [[UserHubSessions]], [[UserHubPreferences]] |
+| User Hub | `src/ui/userHub/` | 6 | [[UserHubDashboard]], [[UserHubInbox]], [[UserHubSessions]], [[UserHubPreferences]], [[UserHubSessionPreferences]], [[UserHubNudgePreferences]] |
 | Export | `src/ui/export/` | 4 | [[ViewSelectPage]], [[ConfigurePage]], [[PreviewPage]] |
+| Event Config | `src/ui/eventConfig/` | 3 | [[OverviewPage]], [[DefinitionFormPage]], SubscriptionForm (inline) |
+| Session | `src/ui/session/` | 17 | [[SessionWorkspaceView]], [[SessionActivityPanel]], [[SessionClosureOverlay]], [[SessionEnergyIndicator]] |
+
+### Key Undocumented Components
+
+Components that exist in source but lack dedicated component doc files. Brief descriptions for onboarding reference:
+
+**Abstract Base — Catalog**
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `BaseEntityTab<T>` | `src/ui/catalog/BaseEntityTab.ts` | Abstract base class for entity tabs (Flows, Actors, Products, Systems). Captures structural duplication: constructor, scan lifecycle, master list, detail panel, CRUD, and empty state. Tab-specific behavior injected via `EntityTabConfig` |
+| `scanEntityFolder<T>()` | `src/ui/catalog/entityScanner.ts` | Generic entity folder scanner shared by 4+ entity tabs. Extracts: folder resolution, frontmatter reading, field extraction, alphabetical sort. Non-conforming files collected for normalization |
+
+**Event Config Modal Pages**
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `EventConfigModal` | `src/ui/EventConfigModal.ts` | Per-event configuration hub (3 pages: overview, subscription-form, definition-form). Opened from Event Catalog. Delegates page rendering to extracted components in `eventConfig/` |
+| `renderOverviewPage()` | `src/ui/eventConfig/OverviewPage.ts` | Overview page: event info card, subscriptions list, definitions list |
+| `renderDefinitionFormPage()` | `src/ui/eventConfig/DefinitionFormPage.ts` | Definition form: event definition creation/editing with payload mapping repeater |
+
+**Data Exchange Hub Tabs**
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `PipelinesTab` | `src/ui/hub/PipelinesTab.ts` | Pipelines tab orchestrator — delegates to `PipelineDetail`, `PipelineEditForm`, `PipelinePreview` |
+| `PropertiesTab` | `src/ui/hub/PropertiesTab.ts` | Properties tab — data dictionary master list + property detail panel |
+| `TypesTab` | `src/ui/hub/TypesTab.ts` | Types tab — TypeDoc entries master list + lifecycle events detail |
+
+**Shared Modals** (in `src/ui/modals.ts`)
+
+| Component | Purpose |
+|-----------|---------|
+| `ConfirmModal` | Simple confirm/cancel modal. Options: `{ message, confirmLabel?, onConfirm }` |
+| `InputModal` | Single text input modal. Options: `{ title, placeholder?, defaultValue?, onSubmit }` |
+
+**CSV Import Pages**
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `CsvConfigPage` | `src/ui/csv/CsvConfigPage.ts` | Config page: split layout — form (left), column mapping + custom properties (right) |
+| `CsvPreviewPage` | `src/ui/csv/CsvPreviewPage.ts` | Preview page: impact summary + preview table of first 25 rows |
+
+**Export Pages**
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `ConfigurePage` | `src/ui/export/ConfigurePage.ts` | Configure page: settings form (left), property grid (right). Format, conflict strategy, column selection |
+| `PreviewPage` | `src/ui/export/PreviewPage.ts` | Preview page: impact summary + preview table of first 25 rows |
 
 ## Use Case Documentation
 
@@ -720,7 +778,7 @@ All use cases are documented in `docs/use-cases/` (33 files). Each file follows 
 
 ## User Journey Flows
 
-End-to-end user journeys crossing multiple views and services are documented in `docs/flows/` (10 files). Each file follows a standardized template with frontmatter (`type: Flow`), step-by-step walkthroughs with events, decision points, and cross-references to use cases.
+End-to-end user journeys crossing multiple views and services are documented in `docs/flows/` (15 files). Each file follows a standardized template with frontmatter (`type: Flow`), step-by-step walkthroughs with events, decision points, and cross-references to use cases.
 
 | Flow | Domains | Key Events |
 |------|---------|------------|
@@ -838,11 +896,11 @@ Audit of the current frontend architecture against the 12-section coherence chec
 
 | Item | Status | Notes |
 |------|--------|-------|
-| Stores have unit tests | **Partial** | Domain services tested (9/11). UI orchestrator state logic tested via view tests. No dedicated "store" tests |
+| Stores have unit tests | **Partial** | Domain services tested (12/15). UI orchestrator state logic tested via view tests. No dedicated "store" tests |
 | Command handlers have tests | **Yes** | Service-level tests verify command → event chains (SubscriptionService, EventDefinitionService, etc.) |
 | Log pause/resume tested | **No** | EventLogView behavior tests not yet created |
 | Subscription editor validation tested | **Yes** | SubscriptionService CRUD tested. Form validation gates not tested at UI level |
-| Core scenarios as regression | **Yes** | 10 flow integration tests covering all documented user journeys |
+| Core scenarios as regression | **Yes** | 13 flow integration tests covering all documented user journeys (Flows 11-13 session-specific) |
 
 ### 12) Refactor Safety — 50%
 

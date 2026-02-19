@@ -12,7 +12,7 @@ pbis:
 bugs: []
 bugs_fixed_precycle: []
 tech_debt:
-  - "[[TD-092 SessionService Handler Extraction]]"
+  - "[[TD-101 SessionService Handler Extraction]]"
   - "[[TD-100 Session performance and sync behaviour investigation]]"
 estimated_increments: 4
 estimated_tests: 75
@@ -40,7 +40,7 @@ estimated_tests: 75
 
 **Carry-forward from Cycle 7:**
 - PBI-SW-016: Cognitive Overload Detection (spike deferred — cycle budget consumed by note sync expansion)
-- TD-092: SessionService extraction (1,662 LOC — significantly above 1,300 threshold)
+- TD-101: SessionService extraction (1,662 LOC — significantly above 1,300 threshold)
 - "Create follow-up session" button (deferred from Inc 3 closure ritual)
 - Settings schema for `defaultClosureTemplate` (deferred — works via parameter passing)
 
@@ -55,7 +55,7 @@ estimated_tests: 75
 1. **PBI-SW-011: Energy Tracking UI** — clickable 1–5 energy indicator in session workspace (FR-11, domain handlers exist from Cycle 6)
 2. **PBI-SW-016: Cognitive Overload Detection** — threshold-based warnings for task/binding/duration/energy overload (FR-16, carried from Cycle 7)
 3. **PBI-SW-013: Structured Reflection** — 4-category reflection system extending existing decision log (FR-13, domain + UI)
-4. **TD-092: SessionService Handler Extraction** — reduce SessionService from ~1,662 LOC to ~600 LOC by extracting handler modules
+4. **TD-101: SessionService Handler Extraction** — reduce SessionService from ~1,662 LOC to ~600 LOC by extracting handler modules
 
 **Delivery philosophy:** Energy UI first (quick win, unblocks SW-016), then Overload Detection (depends on energy), then Reflection (domain-first, UI-second). Tech debt extraction as final increment or stretch goal.
 
@@ -125,7 +125,7 @@ estimated_tests: 75
 - [x] Manifests updated (N/A — no layout/component/tab manifest changes)
 - [x] No architectural boundary violations (command → service → state event pattern)
 - [x] Improvement items captured:
-  - OBS-1: SessionService LOC continues to grow (~1,670+) — reinforce TD-092 priority for Inc 5
+  - OBS-1: SessionService LOC continues to grow (~1,670+) — reinforce TD-101 priority for Inc 5
   - OBS-2: Energy indicator uses inline styles; consider extracting to CSS class in future UI polish
   - OBS-3: Three Amigos + TASM deferred again — pattern of solo delivery. Should batch at cycle level
 
@@ -311,7 +311,7 @@ estimated_tests: 75
 
 ---
 
-### Inc 5 (Stretch): SessionService Handler Extraction (TD-092)
+### Inc 5 (Stretch): SessionService Handler Extraction (TD-101)
 
 **Goal:** Reduce SessionService from ~1,662 LOC to ~600 LOC by extracting handler methods into focused modules.
 
@@ -352,7 +352,7 @@ Inc 3: Reflection Domain (SW-013 Part 1) — independent
     ↓
 Inc 4: Reflection UI (SW-013 Part 2) — depends on domain
 
-Inc 5: Service Extraction (TD-092) — independent, stretch
+Inc 5: Service Extraction (TD-101) — independent, stretch
 ```
 
 Increments 1–2 and 3–4 can run in parallel chains. Inc 5 is independent.
@@ -363,7 +363,7 @@ Increments 1–2 and 3–4 can run in parallel chains. Inc 5 is independent.
 
 | Risk | Impact | Likelihood | Mitigation |
 |------|--------|------------|------------|
-| SessionService grows further before TD-092 | Medium | High | Schedule TD-092 as Inc 5 (stretch) or promote to Inc 3 if LOC exceeds 1,800 |
+| SessionService grows further before TD-101 | Medium | High | Schedule TD-101 as Inc 5 (stretch) or promote to Inc 3 if LOC exceeds 1,800 |
 | Reflection adds complexity to note sync | Low | Medium | Reuse existing `generateSessionSummaryBody()` pattern — reflections are additive |
 | Overload thresholds need tuning | Low | Medium | Ship configurable defaults, adjust in Cycle 9 based on real usage |
 | Energy UI interactions affect workspace layout | Low | Low | Use compact inline indicator (not a card) — minimal layout impact |
@@ -378,14 +378,14 @@ Increments 1–2 and 3–4 can run in parallel chains. Inc 5 is independent.
 | v2 PBIs delivered | 6/8 (was 3/8) | SW-011, SW-013, SW-016 delivered |
 | FRI score | ≥ 30/35 | Target: ui_consistency 2→3 (energy + reflection UI) |
 | Tests added | ~75 new | 2,687 → ~2,762 |
-| SessionService LOC | < 700 (if TD-092 delivered) | Down from 1,662 |
+| SessionService LOC | < 700 (if TD-101 delivered) | Down from 1,662 |
 | Build green | `npm test` passes | Continuous |
 
 ---
 
 ## Inc 5 Status: Deferred
 
-**TD-092 (SessionService Handler Extraction)** was a stretch goal. After analysis, SessionService stands at ~1,729 LOC (up from pre-cycle 1,662 due to Inc 3 reflection handlers). The extraction requires:
+**TD-101 (SessionService Handler Extraction)** was a stretch goal. After analysis, SessionService stands at ~1,729 LOC (up from pre-cycle 1,662 due to Inc 3 reflection handlers). The extraction requires:
 
 - 6-7 handler modules (`lifecycle`, `field`, `task`, `noteSync`, `tracking`, `wireSubscriptions`, `types`)
 - A `SessionHandlerContext` interface to pass shared dependencies to extracted functions
@@ -393,7 +393,7 @@ Increments 1–2 and 3–4 can run in parallel chains. Inc 5 is independent.
 
 **Deferral reason:** Pure refactoring of the most critical service (1,729 LOC, 280+ tests) requires full test suite verification. Bash tooling was unavailable at cycle close. Risk too high without `npm test` verification.
 
-**Recommendation:** Promote TD-092 to required (not stretch) for Cycle 9. Extract before PBI-SW-017 (Main/Sidebar separation) to reduce merge conflicts. Current LOC exceeds the 1,300 threshold by 429 lines.
+**Recommendation:** Promote TD-101 to required (not stretch) for Cycle 9. Extract before PBI-SW-017 (Main/Sidebar separation) to reduce merge conflicts. Current LOC exceeds the 1,300 threshold by 429 lines.
 
 ---
 
@@ -408,7 +408,7 @@ Increments 1–2 and 3–4 can run in parallel chains. Inc 5 is independent.
 | FRI score | ≥ 30/35 | 30/35 | ✅ Met |
 | Tests added | ~75 new | 81 new (2,687→2,768) | ✅ Exceeded |
 | Test suites | — | 109 (was 106) | ✅ +3 |
-| SessionService LOC | < 700 | 1,729 (TD-092 deferred) | ⚠ Not met (stretch) |
+| SessionService LOC | < 700 | 1,729 (TD-101 deferred) | ⚠ Not met (stretch) |
 | Build green | `npm test` | ✅ Green | ✅ Met |
 | Planned increments | 4 | 4 delivered + 1 stretch deferred | ✅ Met |
 
@@ -420,7 +420,7 @@ Increments 1–2 and 3–4 can run in parallel chains. Inc 5 is independent.
 | 2 | SW-016 | detectCognitiveOverload + CognitiveLoadAlert | +26 (2,733) | ✅ Done |
 | 3 | SW-013 | Reflection domain — handlers, summary, template threading | +15 (2,748) | ✅ Done |
 | 4 | SW-013 | SessionReflectionPanel — category-grouped UI | +20 (2,768) | ✅ Done |
-| 5 | TD-092 | SessionService handler extraction | — | ⚠ Deferred |
+| 5 | TD-101 | SessionService handler extraction | — | ⚠ Deferred |
 
 ### Source Changes
 
@@ -464,7 +464,7 @@ Increments 1–2 and 3–4 can run in parallel chains. Inc 5 is independent.
 - Template threading pattern applied consistently to reflections
 
 **Concerns:**
-1. **SessionService at 1,729 LOC** — continues to grow. Now 429 lines above the 1,300 threshold. TD-092 must be first item in Cycle 9.
+1. **SessionService at 1,729 LOC** — continues to grow. Now 429 lines above the 1,300 threshold. TD-101 must be first item in Cycle 9.
 2. **Decisions and reflections coexist** (OBS-8) — two similar arrays on Session. Should plan migration path.
 3. **Inline styles** (OBS-11) — all session panels use inline styles. Should extract to CSS classes in a polish pass.
 4. **No max reflections cap** (OBS-7) — `reflections` array is unbounded. Should add `MAX_REFLECTIONS = 200` guard.
@@ -490,13 +490,13 @@ Increments 1–2 and 3–4 can run in parallel chains. Inc 5 is independent.
 **Concerns:**
 1. **No integration test** for reflection add→render cycle (unit tests only)
 2. **Overload thresholds hardcoded** — no test for custom threshold injection yet
-3. **SessionService tests at 280+** — getting large, may need suite splitting when TD-092 lands
+3. **SessionService tests at 280+** — getting large, may need suite splitting when TD-101 lands
 
 ### Observations
 
 | # | Source | Observation | Priority | Action |
 |---|--------|-------------|----------|--------|
-| OBS-1 | Dev | SessionService at 1,729 LOC — 429 above threshold | High | TD-092 required in Cycle 9 |
+| OBS-1 | Dev | SessionService at 1,729 LOC — 429 above threshold | High | TD-101 required in Cycle 9 |
 | OBS-2 | Dev | Inline styles in all session panels — no CSS classes | Low | Bundle with UI polish pass |
 | OBS-3 | Business | PRD priority ranking stale (SW-013 listed as next) | Medium | Update PRD now |
 | OBS-4 | Dev | Decisions + reflections coexist as separate arrays | Medium | Plan migration in Cycle 10+ |
@@ -506,7 +506,7 @@ Increments 1–2 and 3–4 can run in parallel chains. Inc 5 is independent.
 
 | # | Action | Owner | Target |
 |---|--------|-------|--------|
-| AI-1 | Promote TD-092 to required for Cycle 9 (not stretch) | Dev | Cycle 9 planning |
+| AI-1 | Promote TD-101 to required for Cycle 9 (not stretch) | Dev | Cycle 9 planning |
 | AI-2 | Update PRD priority ranking — SW-013 done, next is SW-017 | Dev | Now |
 | AI-3 | Add `MAX_REFLECTIONS = 200` guard in Cycle 9 | Dev | Cycle 9 Inc 1 |
 
@@ -519,6 +519,6 @@ Increments 1–2 and 3–4 can run in parallel chains. Inc 5 is independent.
 - [[PBI-SW-011 Energy Tracking]] — energy UI
 - [[PBI-SW-016 Cognitive Overload Detection]] — threshold warnings
 - [[PBI-SW-013 Structured Reflection]] — 4-category reflection system
-- [[TD-092 SessionService Handler Extraction]] — tech debt
+- [[TD-101 SessionService Handler Extraction]] — tech debt
 - [[Run Intentional Session]] — v2 flow (phases 2–3 affected)
 - [[ADR-031 Session v2 Architecture]] — architectural foundation
