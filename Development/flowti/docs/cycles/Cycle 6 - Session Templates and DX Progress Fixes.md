@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Session Workspaces PRD]]"
-stage: planned
+stage: in-progress
 cycle: 6
 date_planned: 2026-02-19
 date_completed:
@@ -113,6 +113,22 @@ total_test_files_after:
 
 **Est.:** ~120 LOC source, ~80 LOC tests, ~15 tests
 
+**Acceptance criteria:**
+- [ ] `SessionService.exportTemplate(id)` returns JSON-serializable `SessionTemplateExport` object
+- [ ] `SessionService.importTemplate(data)` validates via Zod schema and returns `SessionTemplate`
+- [ ] Import detects duplicate templates (by name) and handles conflict
+- [ ] Import rejects malformed/invalid input with descriptive error
+- [ ] Export includes `version: 1` field for future schema evolution
+- [ ] UI: "Export" button on saved templates list downloads JSON file
+- [ ] UI: "Import" button opens file picker, validates, adds to saved templates
+- [ ] Events emitted: `session.template.exported`, `session.template.imported`
+- [ ] Round-trip fidelity: export → import produces identical template
+- [ ] `npm run build` passes
+
+**Documentation intent:** Update Session Workspaces PRD stage history. No new docs beyond code.
+
+**Architecture seams:** Pure functions on SessionService. Zod schema in `src/domain/session/types.ts`. Events registered in catalog. UI buttons wired in `UserHubSessions` template list.
+
 ### Inc 2: Three Amigos Quality Hardening
 
 **Goal:** Close the test coverage gaps identified in the Three Amigos review (OBS-2, OBS-3, OBS-6).
@@ -136,6 +152,18 @@ total_test_files_after:
 - Tests: ~4 new tests
 
 **Est.:** ~40 LOC source (path helper extraction), ~120 LOC tests, ~22 tests
+
+**Acceptance criteria:**
+- [ ] Flow 14 test suite: nudge trigger → Notice → accept/dismiss → session start (~8 tests)
+- [ ] `updateSessionPathsForFolderMove(session, oldPath, newPath)` pure helper extracted from `SessionService.handleFolderRenamed`
+- [ ] Path reconciliation tests cover all 7 fields: focusFile, notesFile, canvasFile, contextBindings[].path, artifacts[].path, links[].path, activityFilter[] (~10 tests)
+- [ ] Template path reconciliation tested
+- [ ] Command palette tests: `flowti:create-session` and `flowti:resume-session` registered, resume with no paused session shows Notice (~4 tests)
+- [ ] `npm run build` passes
+
+**Documentation intent:** No new docs. Tests are the deliverable.
+
+**Architecture seams:** Pure helper in `src/domain/session/helpers/`. Flow 14 test in `tests/flows/`. Command palette tests in `tests/domain/session/`. Existing SessionService handler delegates to new pure helper.
 
 ### Inc 3: Session v2 Architecture Spike
 
