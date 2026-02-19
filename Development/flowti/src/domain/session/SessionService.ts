@@ -13,9 +13,9 @@ import type { IEventBus } from "../../infrastructure/events/types";
 import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
 import type { ITypedStorage } from "../../utils/TypedStorage";
 import { generateUUID } from "../../utils/helpers";
-import type { ContextBindingType, Session, SessionActivity, SessionActivityAction, SessionContextBinding, SessionGoal, SessionLink, SessionOutputArtifact, SessionOutputTemplate, SessionState, SessionTemplate, SessionTypeConfig, WorkspaceState } from "./types";
+import type { ContextBindingType, Session, SessionActivity, SessionActivityAction, SessionContextBinding, SessionGoal, SessionLink, SessionOutputArtifact, SessionOutputTemplate, SessionState, SessionTemplate, SessionTemplateExport, SessionTypeConfig, WorkspaceState } from "./types";
 import { MAX_SESSIONS, MAX_TEMPLATES, ARTIFACT_DEDUP_WINDOW_MS, SESSION_NOTES_FOLDER, MAX_SESSION_ACTIVITY, ACTIVITY_DEDUP_WINDOW_MS, DAILY_ACTIVITY_DEDUP_WINDOW_MS, MAX_CONTEXT_BINDINGS, MAX_SESSION_DECISIONS, MAX_OUTPUT_ARTIFACTS, SESSION_TYPE_CONFIGS } from "./types";
-import { createSession, createGoal, createDecision, createContextBinding, computeRemainingMs, computeElapsedMs, isTimerExpired, isExcluded, resolveTypeConfig, generateSessionOutput, resolveDailyNotePath } from "./helpers";
+import { createSession, createGoal, createDecision, createContextBinding, computeRemainingMs, computeElapsedMs, isTimerExpired, isExcluded, resolveTypeConfig, generateSessionOutput, resolveDailyNotePath, updateSessionPathsForFileMove, updateSessionPathsForFolderMove, updateTemplatePathForFileMove, updateTemplatePathForFolderMove } from "./helpers";
 
 /**
  * Configuration options for the SessionService.
@@ -488,6 +488,49 @@ export class SessionService {
 			goals: session.goals.length > 0 ? session.goals.map((g) => g.text) : undefined,
 			decisions: session.decisions.length > 0 ? session.decisions.map((d) => d.title) : undefined,
 		});
+	}
+
+	// ── Template Import/Export ──────────────────────────────
+
+	/**
+	 * Exports a template as a JSON-serializable object.
+	 * Returns null if the template is not found.
+	 */
+	exportTemplate(id: string): SessionTemplateExport | null {
+		const tmpl = this.getTemplate(id);
+		if (!tmpl) return null;
+
+		const exportData: SessionTemplateExport = {
+			version: 1,
+			template: {
+				name: tmpl.name,
+				type: tmpl.type,
+				durationMinutes: tmpl.durationMinutes,
+				...(tmpl.description !== undefined && { description: tmpl.description }),
+				...(tmpl.focusFile !== undefined && { focusFile: tmpl.focusFile }),
+				...(tmpl.goals !== undefined && { goals: tmpl.goals }),
+				...(tmpl.decisions !== undefined && { decisions: tmpl.decisions }),
+			},
+		};
+
+		void this.eventBus?.emit("session.template.exported", { template: tmpl });
+		return exportData;
+	}
+
+	/**
+	 * Imports a template from a JSON object.
+	 * Validates the shape, checks for duplicate names, and saves.
+	 * Returns the saved template or null if validation fails.
+	 */
+	async importTemplate(data: unknown): Promise<SessionTemplate | null> {
+		if (!isValidTemplateExport(data)) return null;
+
+		const existing = this.getSavedTemplates();
+		if (existing.some((t) => t.name === data.template.name)) return null;
+
+		const saved = await this.saveTemplate(data.template);
+		void this.eventBus?.emit("session.template.imported", { template: saved });
+		return saved;
 	}
 
 	// ── Rerun & Create from Template ────────────────────────
@@ -1126,24 +1169,13 @@ export class SessionService {
 		const affectedIds = new Set<string>();
 
 		for (const session of this.state.sessions) {
-			let hit = false;
-			if (session.focusFile === oldPath) { session.focusFile = newPath; hit = true; }
-			if (session.notesFile === oldPath) { session.notesFile = newPath; hit = true; }
-			if (session.canvasFile === oldPath) { session.canvasFile = newPath; hit = true; }
-			for (const binding of session.contextBindings) {
-				if (binding.path === oldPath) { binding.path = newPath; hit = true; }
+			if (updateSessionPathsForFileMove(session, oldPath, newPath)) {
+				affectedIds.add(session.id);
 			}
-			for (const artifact of session.artifacts) {
-				if (artifact.path === oldPath) { artifact.path = newPath; hit = true; }
-			}
-			for (const link of session.links) {
-				if (link.path === oldPath) { link.path = newPath; hit = true; }
-			}
-			if (hit) affectedIds.add(session.id);
 		}
 
 		for (const tmpl of this.state.savedTemplates ?? []) {
-			if (tmpl.focusFile === oldPath) { tmpl.focusFile = newPath; }
+			updateTemplatePathForFileMove(tmpl, oldPath, newPath);
 		}
 
 		if (affectedIds.size > 0) {
@@ -1158,46 +1190,15 @@ export class SessionService {
 	 */
 	private async handleFolderRenamed(oldPath: string, newPath: string): Promise<void> {
 		const affectedIds = new Set<string>();
-		const oldPrefix = oldPath + "/";
 
 		for (const session of this.state.sessions) {
-			let hit = false;
-			if (session.focusFile && session.focusFile.startsWith(oldPrefix)) {
-				session.focusFile = newPath + session.focusFile.slice(oldPath.length); hit = true;
+			if (updateSessionPathsForFolderMove(session, oldPath, newPath)) {
+				affectedIds.add(session.id);
 			}
-			if (session.notesFile && session.notesFile.startsWith(oldPrefix)) {
-				session.notesFile = newPath + session.notesFile.slice(oldPath.length); hit = true;
-			}
-			if (session.canvasFile && session.canvasFile.startsWith(oldPrefix)) {
-				session.canvasFile = newPath + session.canvasFile.slice(oldPath.length); hit = true;
-			}
-			for (const binding of session.contextBindings) {
-				if (binding.path === oldPath + "/" || binding.path.startsWith(oldPrefix)) {
-					binding.path = newPath + binding.path.slice(oldPath.length); hit = true;
-				}
-			}
-			for (const artifact of session.artifacts) {
-				if (artifact.path.startsWith(oldPrefix)) {
-					artifact.path = newPath + artifact.path.slice(oldPath.length); hit = true;
-				}
-			}
-			for (const link of session.links) {
-				if (link.path.startsWith(oldPrefix)) {
-					link.path = newPath + link.path.slice(oldPath.length); hit = true;
-				}
-			}
-			for (let i = 0; i < session.activityFilter.length; i++) {
-				if (session.activityFilter[i] === oldPath || session.activityFilter[i].startsWith(oldPrefix)) {
-					session.activityFilter[i] = newPath + session.activityFilter[i].slice(oldPath.length); hit = true;
-				}
-			}
-			if (hit) affectedIds.add(session.id);
 		}
 
 		for (const tmpl of this.state.savedTemplates ?? []) {
-			if (tmpl.focusFile && tmpl.focusFile.startsWith(oldPrefix)) {
-				tmpl.focusFile = newPath + tmpl.focusFile.slice(oldPath.length);
-			}
+			updateTemplatePathForFolderMove(tmpl, oldPath, newPath);
 		}
 
 		if (affectedIds.size > 0) {
@@ -1263,4 +1264,26 @@ export function generateRerunTitle(title: string): string {
 		return `${match[1]} (${Number(match[2]) + 1})`;
 	}
 	return `${title} (2)`;
+}
+
+/**
+ * Type guard validating an unknown value is a valid SessionTemplateExport.
+ */
+function isValidTemplateExport(data: unknown): data is SessionTemplateExport {
+	if (typeof data !== "object" || data === null) return false;
+	const obj = data as Record<string, unknown>;
+	if (obj.version !== 1) return false;
+	if (typeof obj.template !== "object" || obj.template === null) return false;
+
+	const tmpl = obj.template as Record<string, unknown>;
+	if (typeof tmpl.name !== "string" || tmpl.name.trim().length === 0) return false;
+	if (typeof tmpl.type !== "string" || tmpl.type.trim().length === 0) return false;
+	if (typeof tmpl.durationMinutes !== "number" || tmpl.durationMinutes <= 0) return false;
+
+	if (tmpl.description !== undefined && typeof tmpl.description !== "string") return false;
+	if (tmpl.focusFile !== undefined && typeof tmpl.focusFile !== "string") return false;
+	if (tmpl.goals !== undefined && !Array.isArray(tmpl.goals)) return false;
+	if (tmpl.decisions !== undefined && !Array.isArray(tmpl.decisions)) return false;
+
+	return true;
 }

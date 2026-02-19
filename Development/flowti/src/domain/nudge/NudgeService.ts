@@ -80,6 +80,7 @@ export class NudgeService {
 			this.state = stored;
 		} else {
 			this.state = createDefaultState();
+			this.state.lastRolloverDate = this.getToday();
 			await this.saveState();
 		}
 		await this.eventBus?.emit("nudge.loaded", { configs: [...this.state.configs] });

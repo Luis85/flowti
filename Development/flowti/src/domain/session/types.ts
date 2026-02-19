@@ -316,6 +316,12 @@ export interface SessionTemplate {
 	createdAt: number; // epoch ms
 }
 
+/** JSON-serializable shape for template import/export. */
+export interface SessionTemplateExport {
+	version: 1;
+	template: Omit<SessionTemplate, "id" | "createdAt">;
+}
+
 // ─────────────────────────────────────────────────────────────
 // Persisted state
 // ─────────────────────────────────────────────────────────────
