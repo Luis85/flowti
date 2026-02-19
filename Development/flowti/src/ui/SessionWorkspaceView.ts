@@ -35,6 +35,7 @@ import { SessionOutputPanel } from "./session/SessionOutputPanel";
 import { type ClosureTemplate, type SessionTypeConfig, type SessionOutputTemplate } from "../domain/session/types";
 import { SessionClosureOverlay } from "./session/SessionClosureOverlay";
 import { SessionEnergyIndicator } from "./session/SessionEnergyIndicator";
+import { CognitiveLoadAlert } from "./session/CognitiveLoadAlert";
 import { resolveClosureTemplate } from "../domain/session/helpers";
 import { setupEventSubscriptions } from "./session/SessionWorkspaceSubscriptions";
 import type { SubscriptionViewContext } from "./session/SessionWorkspaceSubscriptions";
@@ -61,6 +62,7 @@ export class SessionWorkspaceView extends ItemView {
 	private guidingPanel: SessionGuidingQuestions | null = null;
 	private goalsPanel: SessionGoalsPanel | null = null;
 	private executionPanel: SessionExecutionPanel | null = null;
+	private overloadAlert: CognitiveLoadAlert | null = null;
 	private notesPanel: SessionNotesPanel | null = null;
 	private contextPanel: SessionContextPanel | null = null;
 	private decisionPanel: SessionDecisionPanel | null = null;
@@ -193,6 +195,9 @@ export class SessionWorkspaceView extends ItemView {
 
 		this.executionPanel = new SessionExecutionPanel(container, deps);
 		this.executionPanel.render();
+
+		this.overloadAlert = new CognitiveLoadAlert(container, deps);
+		this.overloadAlert.render();
 
 		this.notesPanel = new SessionNotesPanel(container, deps);
 		this.notesPanel.render();
@@ -524,6 +529,7 @@ export class SessionWorkspaceView extends ItemView {
 			getActivityPanel: () => this.activityPanel,
 			getDecisionPanel: () => this.decisionPanel,
 			getOutputPanel: () => this.outputPanel,
+			getOverloadAlert: () => this.overloadAlert,
 		};
 	}
 

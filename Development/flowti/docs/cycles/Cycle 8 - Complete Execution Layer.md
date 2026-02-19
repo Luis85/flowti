@@ -153,15 +153,42 @@ estimated_tests: 75
 - Files: 4–5 (helper function, component, view integration, event registration, tests)
 
 **Acceptance criteria:**
-- [ ] `detectCognitiveOverload()` pure function returns overload reasons
-- [ ] Warning banner renders in workspace when thresholds exceeded
-- [ ] Warning is dismissible (hides for current session)
-- [ ] Warning re-evaluates on task add/remove, energy change, binding change
-- [ ] `session.overload.detected` event emitted
-- [ ] Default thresholds: 5 tasks, 8 bindings, 90min, energy ≤2 + >3 tasks
-- [ ] Tests pass, `npm test` green
+- [x] `detectCognitiveOverload()` pure function returns overload reasons
+- [x] Warning banner renders in workspace when thresholds exceeded
+- [x] Warning is dismissible (hides for current session)
+- [x] Warning re-evaluates on task add/remove, energy change, binding change
+- [x] `session.overload.detected` event emitted
+- [x] Default thresholds: 5 tasks, 8 bindings, 120min, energy ≤2 + >3 tasks
+- [x] Tests pass, `npm test` green (2,733 tests, 108 suites)
 
 **Dependencies:** Inc 1 (energy UI provides the visual feedback that feeds overload detection)
+
+**Delivery summary:**
+- **Source LOC:** ~120 (detectCognitiveOverload ~40, CognitiveLoadAlert ~80, service wiring ~25)
+- **Tests:** 26 new (12 helpers + 12 component + 2 subscriptions), 2,733 total, 108 suites
+- **Files changed:** 6 source + 3 test files (1 new component, 1 new test file)
+- **Deviations:** Duration threshold 90→120min (aligned with PBI spec). Settings UI deferred — defaults hardcoded. Service uses deduped emission (only emits when reasons change) to avoid listener flooding.
+
+**Definition of Done (Increment):**
+- [x] Acceptance criteria met (7/7)
+- [x] Tests added per TestPlan (26 new: 12 helpers, 12 component, 2 subscriptions)
+- [x] Build pipeline passes (`npm test` green — 2,733 tests, 108 suites)
+- [ ] Three Amigos review completed (solo delivery — deferred to cycle-level review)
+- [x] All blocker findings resolved (none found)
+- [ ] TASM score recorded (deferred to cycle-level review)
+- [x] Documentation updated:
+  - [x] Component docs (Frontend Architecture: +1 session component)
+  - [x] PRD updated (FRI 29→30, FR-16 ✅, stage history, event counts, backlog counts)
+  - [x] PBI updated (PBI-SW-016 stage: planned → done, file list, test counts)
+  - [x] Architecture docs updated (Frontend Architecture: session component list 13→14)
+  - [x] Sitemap updated (N/A)
+  - [x] Tech debt register updated (N/A)
+- [x] Manifests updated (N/A)
+- [x] No architectural boundary violations (pure function + event-driven detection)
+- [x] Improvement items captured:
+  - OBS-4: Settings UI for thresholds deferred — hardcoded defaults. Should add to PBI-SW-017 or separate small PBI
+  - OBS-5: Duration check only fires on mutation events, not on timer tick — acceptable since other triggers fire frequently
+  - OBS-6: Compound threshold (energy ≤2 + >3 tasks) may need tuning based on real usage
 
 ---
 

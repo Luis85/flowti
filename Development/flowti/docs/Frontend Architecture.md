@@ -70,7 +70,7 @@ src/                     # ~31,467 LOC across 154 files
 │   ├── hub/             # Data Exchange Hub components (21 files, 4,414 LOC)
 │   ├── csv/             # CSV import wizard components (10 files, 1,752 LOC)
 │   ├── export/          # Export wizard components (7 files, 994 LOC)
-│   ├── session/         # Session Workspace components (13 files: panels, subscriptions, helpers)
+│   ├── session/         # Session Workspace components (14 files: panels, subscriptions, helpers)
 │   ├── userHub/         # User Hub components (4 files: Dashboard, Inbox, Sessions, Preferences)
 │   └── *.ts             # Orchestrator views + modals
 └── utils/               # Shared helpers (persistence, glob, types)
@@ -159,7 +159,7 @@ Both major views extend `BaseHubView<TPage>` and follow the **orchestrator + com
 - `PreviewPage` — Export preview
 - `ResultPage` — Results display
 
-**Session Workspace** (`src/ui/session/`, 13 files):
+**Session Workspace** (`src/ui/session/`, 14 files):
 - `SessionWorkspaceSubscriptions` — 24 event listeners extracted via `SubscriptionViewContext` interface
 - `SessionWorkspaceHelpers` — 9 helper functions extracted via `WorkspaceHelperContext` interface (workspace state capture/restore, modal openers, leaf navigation, status styling)
 - `SessionTimerPanel` — Timer display with countdown and editable duration for prepared sessions
@@ -171,6 +171,7 @@ Both major views extend `BaseHubView<TPage>` and follow the **orchestrator + com
 - `SessionDecisionPanel` — Decision log with record/remove actions
 - `SessionActivityPanel` — File activity log with `groupActivityByFile()` aggregation (one row per file, latest action + count badge)
 - `SessionOutputPanel` — Output artifact list for completed/archived sessions
+- `CognitiveLoadAlert` — Non-blocking overload warning banner with reason list, dismissible (~80 LOC)
 - `SessionClosureOverlay` — Closure ritual questionnaire shown in reviewing state (~130 LOC)
 - `SessionGuidingQuestions` — Session-type-specific guiding prompts
 

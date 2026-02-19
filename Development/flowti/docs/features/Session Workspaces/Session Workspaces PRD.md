@@ -13,8 +13,8 @@ maturity_score_architecture: 4
 maturity_score_event_integration: 5
 maturity_score_data_model: 4
 maturity_score_ui_consistency: 3
-maturity_score_validation_testing: 4
-fri_score: 29
+maturity_score_validation_testing: 5
+fri_score: 30
 business_value: 5
 implementation_cost: 4
 maintenance_cost: 3
@@ -497,7 +497,7 @@ Session v2 – Focus & Execution (L3 Extension)
  ├── Structured Reflection     🔜 FR-13: observations, blockers, ideas, decisions
  ├── Closure Ritual System     ✅ FR-14: configurable review overlay (Cycle 7)
  ├── Activity Intelligence     🔜 FR-15: computed analytics from activity
- ├── Cognitive Overload        🔜 FR-16: threshold-based warnings
+ ├── Cognitive Overload        ✅ FR-16: threshold-based warnings (Cycle 8)
  ├── Main/Sidebar Separation   🔜 FR-17: workspace vs. control surface
  └── Workshop Mode             🔜 FR-18: agenda, timed items, decision highlighting
 ```
@@ -680,7 +680,7 @@ interface ClosureQuestion {
   options?: string[];
 }
 
-// Cognitive load thresholds — FR-16
+// Cognitive load thresholds — ✅ Done FR-16 (Cycle 8)
 interface CognitiveLoadThresholds {
   maxTasks: number;             // default: 5
   maxBindings: number;          // default: 8
@@ -825,8 +825,9 @@ interface Session {
 
 | Source | Events |
 |--------|--------|
-| v2 Planned | ~13 |
+| v2 Planned | ~12 |
 | Cycle 8 Inc 1 (energy command: 1) | 1 |
+| Cycle 8 Inc 2 (overload: delivered from planned) | 0 |
 | **Total session events (delivered + planned)** | **~84** |
 
 ---
@@ -1011,17 +1012,17 @@ interface Session {
 - [ ] Full analytics card in Main mode
 - [ ] Data sourced from event stream and session state (no additional tracking)
 
-### FR-16: Cognitive Overload Detection — 🔜 Planned
+### FR-16: Cognitive Overload Detection — ✅ Delivered (Cycle 8)
 
-- [ ] Threshold-based detection triggers:
-  - [ ] More than 5 execution tasks (configurable)
-  - [ ] More than 8 context bindings (configurable)
-  - [ ] Duration exceeds threshold (configurable)
-  - [ ] Low energy + high task complexity
-- [ ] Non-blocking warning rendered between ExecutionCard and ContextCard
-- [ ] Warning includes overload reasons and suggestion text
-- [ ] Warning dismissible
-- [ ] Configurable thresholds in settings (`CognitiveLoadThresholds`)
+- [x] Threshold-based detection triggers:
+  - [x] More than 5 execution tasks (configurable)
+  - [x] More than 8 context bindings (configurable)
+  - [x] Duration exceeds threshold (configurable)
+  - [x] Low energy + high task complexity (compound)
+- [x] Non-blocking warning rendered between ExecutionPanel and NotesPanel
+- [x] Warning includes overload reasons and suggestion text
+- [x] Warning dismissible
+- [ ] Configurable thresholds in settings (`CognitiveLoadThresholds`) *(deferred — defaults hardcoded, settings UI via PBI-SW-017)*
 
 ### FR-17: Main/Sidebar Mode Separation — 🔜 Planned
 
@@ -1191,16 +1192,16 @@ SessionSidebarView
 | 5 | PBI-SW-013 | Structured Reflection | Medium | FR-03 (delivered) | 🔜 Planned — observations, blockers, ideas, decisions |
 | 6 | PBI-SW-014 | Closure Ritual System | High | PBI-SW-010 | ✅ Done (Cycle 7) — configurable review overlay |
 | 7 | PBI-SW-015 | Activity Intelligence | Low | FR-01 (delivered) | 🔜 Planned — computed analytics from activity |
-| 8 | PBI-SW-016 | Cognitive Overload Detection | Low | — | 🔜 Planned — threshold-based warnings |
+| 8 | PBI-SW-016 | Cognitive Overload Detection | Low | — | ✅ Done (Cycle 8 Inc 2) — pure detection + non-blocking alert |
 | 9 | PBI-SW-017 | Main/Sidebar Mode Separation | High | PBI-SW-010 | 🔜 Planned — workspace vs. control surface |
 
 > **Cross-delivery:** PBI-SW-001 and PBI-SW-002 were delivered together in PBI-002 Increment 10 (Sidebar Workspace & Activity Consolidation). PBI-SW-003 and PBI-SW-004 were delivered together in Cycle 2 (Session Types and Decision Log). PBI-SW-006 and PBI-SW-008 were delivered together in Cycle 3 (Session Output Artifacts and State Restoration). PBI-SW-007 was delivered across Cycles 4+5 (core daily session in Cycle 4; nudges, daily summary, and UX polish in Cycle 5).
 
 > **v8 change — Daily tracking removed:** PBI-SW-007 (Auto-Session & Session Nudges) has been deprecated. The daily-tracking session type, auto-start, concurrent session support, daily note integration, and nudge system conflict with Session v2's philosophy of intentional execution environments. The `daily-tracking` session type, `dailySessionId`, `getDailySession()`, `generateDailySummary()`, nudge scheduler, and 8 related events (5 daily + 3 nudge) will be removed during v2 implementation. PBI-SW-007 status: Done → Removed.
 
-> **Remaining backlog:** 5 PBIs planned (PBI-SW-009, SW-013, SW-015, SW-016, SW-017). 4 v2 PBIs delivered: SW-010 (Cycle 6), SW-012 + SW-014 (Cycle 7), SW-011 (Cycle 8). 7/8 v1 PBIs remain valid (SW-001 through SW-006, SW-008).
+> **Remaining backlog:** 4 PBIs planned (PBI-SW-009, SW-013, SW-015, SW-017). 5 v2 PBIs delivered: SW-010 (Cycle 6), SW-012 + SW-014 (Cycle 7), SW-011 + SW-016 (Cycle 8). 7/8 v1 PBIs remain valid (SW-001 through SW-006, SW-008).
 
-> **Priority ranking** (remaining delivery order by value): PBI-SW-013 (Reflection) → PBI-SW-016 (Cognitive Overload) → PBI-SW-017 (Main/Sidebar) → PBI-SW-015 (Activity Intelligence). PBI-SW-009 deferred (depends on Workshop mode patterns from FR-18). **Rationale:** SW-013/016 complete the execution layer foundation (small-to-medium effort); SW-017 is the major UI refactor (large); SW-015 is analytics polish (low priority).
+> **Priority ranking** (remaining delivery order by value): PBI-SW-013 (Reflection) → PBI-SW-017 (Main/Sidebar) → PBI-SW-015 (Activity Intelligence). PBI-SW-009 deferred (depends on Workshop mode patterns from FR-18). **Rationale:** SW-013 completes the execution layer foundation (small effort); SW-017 is the major UI refactor (large); SW-015 is analytics polish (low priority).
 
 See `backlog/PBI-SW-*.md` for detailed specifications.
 
@@ -1243,6 +1244,7 @@ See `backlog/PBI-SW-*.md` for detailed specifications.
 | 2026-02-19 | in-progress | in-progress | Cycle 7 Inc 2.5b — Reverse Sync + UX Polish | 27/35 | — | Reverse note sync (note file → session state): `reverseParseSessionNotes()`, `computeReverseSyncDiff()`, content-based sync loop prevention. Workspace subscribes to `session.notes.reverseSynced`. Conditional forward sync (toggles-only = no rewrite). Session note reorder: Guiding Questions → Goals → Execution → Notes → Decisions → Context → Artifacts → Timeline → Time. Goals sortable (2 new events). Horizontal reorder buttons. Copy-to-clipboard for note path. Focus file wikilink in note body. Auto-open workspace on `session.created`. Full template field threading (`tasks`, `decisions`, `contextBindings`, `notes`) through `session.create` event + modal + all emit sites. ISO date prefix on note filenames (ADR-029 implemented). Notes file written at creation. 32 new tests, 2,660 total, 105 suites. |
 | 2026-02-19 | in-progress | in-progress | Cycle 7 Inc 3 — Closure Ritual | 28/35 | — | PBI-SW-014 delivered: `completeSession()` now stops at "reviewing" state (was passthrough). `completeClosure(id, response)` saves `ClosureResponse` and transitions to completed. `skipClosure(id)` bypasses ritual. `finishReview()` gated on non-null closureResponse. `DEFAULT_CLOSURE_TEMPLATE` (4 questions). `resolveClosureTemplate()` 3-tier inheritance. `SessionClosureOverlay` UI component (~130 LOC) renders in reviewing state. `closureTemplate` added to `SessionTypeConfig`. `transitionToCompleted()` extracted as shared private method. FRI updated: validation_testing 3→4. 27 new tests, 2,687 total, 106 suites. FR-14 **Done**. |
 | 2026-02-19 | in-progress | in-progress | Cycle 8 Inc 1 — Energy Tracking UI | 29/35 | — | PBI-SW-011 delivered: `session.energy.set` command event + catalog entry. `SessionEnergyIndicator` component (~90 LOC) — clickable 1–5 scale with ⚡ visual, editable in running/paused, read-only otherwise. Integrated into SessionWorkspaceView between timer and guiding questions. Energy subscription wired in SessionWorkspaceSubscriptions. Energy level added to `generateSessionSummaryBody()` for note sync. FRI updated: ui_consistency 2→3. 20 new tests, 2,707 total, 107 suites. FR-11 **Done**. |
+| 2026-02-19 | in-progress | in-progress | Cycle 8 Inc 2 — Cognitive Overload Detection | 30/35 | — | PBI-SW-016 delivered: `detectCognitiveOverload()` pure function in helpers (~40 LOC) — checks 4 thresholds (tasks, bindings, duration, compound energy+tasks). `OverloadResult` + `DEFAULT_COGNITIVE_LOAD_THRESHOLDS` types. `CognitiveLoadAlert` component (~80 LOC) — non-blocking warning banner with reason list, suggestion, dismissible. `checkCognitiveOverload()` in SessionService — deduped emission via reason-key comparison, wired to 5 handlers (addTask, removeTask, contextBind, contextUnbind, energyChange). `session.overload.detected` subscription in workspace. FRI updated: validation_testing 4→5. 26 new tests, 2,733 total, 108 suites. FR-16 **Done**. |
 
 ### Related Architecture Decisions
 

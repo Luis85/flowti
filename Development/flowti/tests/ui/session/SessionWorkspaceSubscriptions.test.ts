@@ -66,6 +66,7 @@ function makeContext(session: Session | null = makeSession()): SubscriptionViewC
 		getExecutionPanel: () => ({ refreshTasks: vi.fn() }) as never,
 		getDecisionPanel: () => ({ refreshList: vi.fn() }) as never,
 		getOutputPanel: () => ({ refreshList: vi.fn() }) as never,
+		getOverloadAlert: () => ({ refreshAlert: vi.fn() }) as never,
 		mocks,
 	};
 }
@@ -319,5 +320,35 @@ describe("setupEventSubscriptions", () => {
 		expect(refreshGoals).toHaveBeenCalled();
 		expect(refreshTasks).toHaveBeenCalled();
 		expect(updateNotes).toHaveBeenCalled();
+	});
+
+	it("session.overload.detected refreshes overload alert", async () => {
+		const eventBus = new EventBus();
+		const refreshAlert = vi.fn();
+		const ctx = makeContext();
+		(ctx as { getOverloadAlert: () => unknown }).getOverloadAlert = () => ({ refreshAlert });
+		setupEventSubscriptions(ctx, eventBus);
+
+		await eventBus.emit("session.overload.detected", {
+			sessionId: "session-1",
+			reasons: ["Too many tasks (6/5)"],
+		});
+
+		expect(refreshAlert).toHaveBeenCalled();
+	});
+
+	it("session.overload.detected is ignored for different session", async () => {
+		const eventBus = new EventBus();
+		const refreshAlert = vi.fn();
+		const ctx = makeContext();
+		(ctx as { getOverloadAlert: () => unknown }).getOverloadAlert = () => ({ refreshAlert });
+		setupEventSubscriptions(ctx, eventBus);
+
+		await eventBus.emit("session.overload.detected", {
+			sessionId: "other-session",
+			reasons: ["Too many tasks (6/5)"],
+		});
+
+		expect(refreshAlert).not.toHaveBeenCalled();
 	});
 });

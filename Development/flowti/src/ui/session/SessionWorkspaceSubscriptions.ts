@@ -16,6 +16,7 @@ import type { SessionNotesPanel } from "./SessionNotesPanel";
 import type { SessionActivityPanel } from "./SessionActivityPanel";
 import type { SessionDecisionPanel } from "./SessionDecisionPanel";
 import type { SessionOutputPanel } from "./SessionOutputPanel";
+import type { CognitiveLoadAlert } from "./CognitiveLoadAlert";
 
 /** Narrow view context consumed by subscription wiring. */
 export interface SubscriptionViewContext {
@@ -36,6 +37,7 @@ export interface SubscriptionViewContext {
 	getActivityPanel(): SessionActivityPanel | null;
 	getDecisionPanel(): SessionDecisionPanel | null;
 	getOutputPanel(): SessionOutputPanel | null;
+	getOverloadAlert(): CognitiveLoadAlert | null;
 }
 
 /**
@@ -267,6 +269,15 @@ export function setupEventSubscriptions(
 			if (event.payload.sessionId === ctx.getSession()?.id) {
 				ctx.setSession(ctx.refreshSession());
 				ctx.getOutputPanel()?.refreshList();
+			}
+		}),
+	);
+
+	// Cognitive overload detected — refresh alert banner
+	unsubs.push(
+		eventBus.on("session.overload.detected", (event) => {
+			if (event.payload.sessionId === ctx.getSession()?.id) {
+				ctx.getOverloadAlert()?.refreshAlert();
 			}
 		}),
 	);

@@ -26,9 +26,10 @@ import {
 	parseSectionText,
 	reverseParseSessionNotes,
 	computeReverseSyncDiff,
+	detectCognitiveOverload,
 } from "../../../src/domain/session/helpers";
 import type { Session, SessionOutputTemplate, SessionTimelineEntry, SessionTypeConfig } from "../../../src/domain/session/types";
-import { SESSION_TYPE_CONFIGS } from "../../../src/domain/session/types";
+import { SESSION_TYPE_CONFIGS, DEFAULT_COGNITIVE_LOAD_THRESHOLDS } from "../../../src/domain/session/types";
 
 // ─────────────────────────────────────────────────────────────
 // Test helpers
@@ -1570,6 +1571,122 @@ describe("computeReverseSyncDiff", () => {
 		expect(diff.taskToggles).toHaveLength(1);
 		expect(diff.newTasks).toHaveLength(1);
 		expect(diff.changes).toHaveLength(4);
+	});
+});
+
+// ─────────────────────────────────────────────────────────────
+// detectCognitiveOverload (FR-16)
+// ─────────────────────────────────────────────────────────────
+
+describe("detectCognitiveOverload", () => {
+	it("returns not overloaded for empty session", () => {
+		const session = makeSession();
+		const result = detectCognitiveOverload(session);
+		expect(result.overloaded).toBe(false);
+		expect(result.reasons).toHaveLength(0);
+	});
+
+	it("detects task count exceeding threshold", () => {
+		const tasks = Array.from({ length: 6 }, (_, i) => ({
+			id: `t${i}`, label: `Task ${i}`, completed: false, order: i,
+		}));
+		const session = makeSession({ executionTasks: tasks });
+		const result = detectCognitiveOverload(session);
+		expect(result.overloaded).toBe(true);
+		expect(result.reasons).toContainEqual(expect.stringContaining("Too many tasks"));
+	});
+
+	it("does not trigger for task count at threshold", () => {
+		const tasks = Array.from({ length: 5 }, (_, i) => ({
+			id: `t${i}`, label: `Task ${i}`, completed: false, order: i,
+		}));
+		const session = makeSession({ executionTasks: tasks });
+		const result = detectCognitiveOverload(session);
+		expect(result.reasons.some(r => r.includes("Too many tasks"))).toBe(false);
+	});
+
+	it("detects binding count exceeding threshold", () => {
+		const bindings = Array.from({ length: 9 }, (_, i) => ({
+			id: `ctx${i}`, type: "file" as const, label: `file${i}.md`, path: `/file${i}.md`, boundAt: new Date().toISOString(),
+		}));
+		const session = makeSession({ contextBindings: bindings });
+		const result = detectCognitiveOverload(session);
+		expect(result.overloaded).toBe(true);
+		expect(result.reasons).toContainEqual(expect.stringContaining("Too many context bindings"));
+	});
+
+	it("detects duration exceeding threshold", () => {
+		const startedAt = new Date(Date.now() - 130 * 60_000).toISOString();
+		const session = makeSession({ startedAt, elapsedBeforePauseMs: 0 });
+		const result = detectCognitiveOverload(session);
+		expect(result.overloaded).toBe(true);
+		expect(result.reasons).toContainEqual(expect.stringContaining("Session duration exceeded"));
+	});
+
+	it("does not trigger duration for sessions not started", () => {
+		const session = makeSession({ startedAt: null });
+		const result = detectCognitiveOverload(session);
+		expect(result.reasons.some(r => r.includes("duration"))).toBe(false);
+	});
+
+	it("detects compound low energy + high task load", () => {
+		const tasks = Array.from({ length: 4 }, (_, i) => ({
+			id: `t${i}`, label: `Task ${i}`, completed: false, order: i,
+		}));
+		const session = makeSession({ energy: 2, executionTasks: tasks });
+		const result = detectCognitiveOverload(session);
+		expect(result.overloaded).toBe(true);
+		expect(result.reasons).toContainEqual(expect.stringContaining("Low energy"));
+	});
+
+	it("skips compound check when energy is null", () => {
+		const tasks = Array.from({ length: 4 }, (_, i) => ({
+			id: `t${i}`, label: `Task ${i}`, completed: false, order: i,
+		}));
+		const session = makeSession({ energy: null, executionTasks: tasks });
+		const result = detectCognitiveOverload(session);
+		expect(result.reasons.some(r => r.includes("Low energy"))).toBe(false);
+	});
+
+	it("does not trigger compound when energy above threshold", () => {
+		const tasks = Array.from({ length: 4 }, (_, i) => ({
+			id: `t${i}`, label: `Task ${i}`, completed: false, order: i,
+		}));
+		const session = makeSession({ energy: 3, executionTasks: tasks });
+		const result = detectCognitiveOverload(session);
+		expect(result.reasons.some(r => r.includes("Low energy"))).toBe(false);
+	});
+
+	it("does not trigger compound when tasks <= 3", () => {
+		const tasks = Array.from({ length: 3 }, (_, i) => ({
+			id: `t${i}`, label: `Task ${i}`, completed: false, order: i,
+		}));
+		const session = makeSession({ energy: 1, executionTasks: tasks });
+		const result = detectCognitiveOverload(session);
+		expect(result.reasons.some(r => r.includes("Low energy"))).toBe(false);
+	});
+
+	it("accumulates multiple reasons", () => {
+		const tasks = Array.from({ length: 6 }, (_, i) => ({
+			id: `t${i}`, label: `Task ${i}`, completed: false, order: i,
+		}));
+		const bindings = Array.from({ length: 9 }, (_, i) => ({
+			id: `ctx${i}`, type: "file" as const, label: `file${i}.md`, path: `/file${i}.md`, boundAt: new Date().toISOString(),
+		}));
+		const session = makeSession({ executionTasks: tasks, contextBindings: bindings, energy: 1 });
+		const result = detectCognitiveOverload(session);
+		expect(result.overloaded).toBe(true);
+		expect(result.reasons.length).toBeGreaterThanOrEqual(3);
+	});
+
+	it("uses custom thresholds when provided", () => {
+		const tasks = Array.from({ length: 3 }, (_, i) => ({
+			id: `t${i}`, label: `Task ${i}`, completed: false, order: i,
+		}));
+		const session = makeSession({ executionTasks: tasks });
+		const result = detectCognitiveOverload(session, { ...DEFAULT_COGNITIVE_LOAD_THRESHOLDS, maxTasks: 2 });
+		expect(result.overloaded).toBe(true);
+		expect(result.reasons).toContainEqual(expect.stringContaining("Too many tasks"));
 	});
 });
 

@@ -4,8 +4,8 @@
  * All functions are side-effect free and trivially testable.
  */
 
-import type { ClosureTemplate, ContextBindingType, ExecutionTask, Session, SessionContextBinding, SessionDecision, SessionGoal, SessionOutputTemplate, SessionStatusV2, SessionTemplate, SessionType, SessionTypeConfig, PauseSegment, TimelineSummary } from "./types";
-import { SESSION_TYPE_CONFIGS } from "./types";
+import type { CognitiveLoadThresholds, ClosureTemplate, ContextBindingType, ExecutionTask, OverloadResult, Session, SessionContextBinding, SessionDecision, SessionGoal, SessionOutputTemplate, SessionStatusV2, SessionTemplate, SessionType, SessionTypeConfig, PauseSegment, TimelineSummary } from "./types";
+import { DEFAULT_COGNITIVE_LOAD_THRESHOLDS, SESSION_TYPE_CONFIGS } from "./types";
 
 // ── Session v2 State Machine (ADR-031) ───────────────────────
 
@@ -25,6 +25,49 @@ const VALID_TRANSITIONS: Record<SessionStatusV2, readonly SessionStatusV2[]> = {
  */
 export function isValidTransition(from: SessionStatusV2, to: SessionStatusV2): boolean {
 	return VALID_TRANSITIONS[from]?.includes(to) ?? false;
+}
+
+// ── Cognitive Overload Detection (FR-16) ─────────────────────
+
+/**
+ * Detects cognitive overload by comparing session state against thresholds.
+ * Pure function — no side effects. Returns reasons for each exceeded threshold.
+ */
+export function detectCognitiveOverload(
+	session: Session,
+	thresholds: CognitiveLoadThresholds = DEFAULT_COGNITIVE_LOAD_THRESHOLDS,
+): OverloadResult {
+	const reasons: string[] = [];
+
+	// Task count
+	if (session.executionTasks.length > thresholds.maxTasks) {
+		reasons.push(`Too many tasks (${session.executionTasks.length}/${thresholds.maxTasks})`);
+	}
+
+	// Context binding count
+	if (session.contextBindings.length > thresholds.maxBindings) {
+		reasons.push(`Too many context bindings (${session.contextBindings.length}/${thresholds.maxBindings})`);
+	}
+
+	// Duration exceeded
+	if (session.startedAt) {
+		const elapsedMs = Date.now() - new Date(session.startedAt).getTime() - (session.elapsedBeforePauseMs ?? 0);
+		const maxMs = thresholds.maxDurationMinutes * 60_000;
+		if (elapsedMs > maxMs) {
+			reasons.push(`Session duration exceeded (>${thresholds.maxDurationMinutes}min)`);
+		}
+	}
+
+	// Compound: low energy + high task load
+	if (
+		session.energy !== null &&
+		session.energy <= thresholds.lowEnergyThreshold &&
+		session.executionTasks.length > 3
+	) {
+		reasons.push(`Low energy (${session.energy}/5) with ${session.executionTasks.length} tasks`);
+	}
+
+	return { overloaded: reasons.length > 0, reasons };
 }
 
 // ── Closure Ritual Helpers (FR-14) ────────────────────────────

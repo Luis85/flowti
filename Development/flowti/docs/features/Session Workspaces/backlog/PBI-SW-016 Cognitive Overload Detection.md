@@ -1,12 +1,13 @@
 ---
 type: ProductBacklogItem
 feature: "[[Session Workspaces PRD]]"
-stage: planned
+stage: done
 priority: low
 effort: small
 dependencies: []
 user_story: "[[I want to be warned when my session becomes overloaded]]"
 note: "Threshold-based overload detection. Triggers on: >5 tasks, >8 context bindings, duration exceeded, low energy + high complexity. Non-blocking warning. Configurable thresholds. Small scope — pure computation + conditional render."
+delivered_in: "[[Cycle 8 - Complete Execution Layer]]"
 tags:
   - backlog
   - session-v2
@@ -34,28 +35,28 @@ As a session user, I want to be warned when my session is becoming overloaded so
 
 ### Functional Requirements
 
-- [ ] `CognitiveLoadThresholds` type: `{ maxTasks, maxBindings, maxDurationMinutes, lowEnergyThreshold }`
-- [ ] `detectOverload(session, thresholds): OverloadResult` pure function
-- [ ] `OverloadResult` type: `{ overloaded: boolean, reasons: string[] }`
-- [ ] Threshold triggers:
-  - [ ] `executionTasks.length > maxTasks` (default: 5)
-  - [ ] `contextBindings.length > maxBindings` (default: 8)
-  - [ ] `elapsedMs > maxDurationMinutes * 60000` (default: 120 min)
-  - [ ] `energy <= lowEnergyThreshold && executionTasks.length > 3` (compound)
-- [ ] `session.overload.detected` event with `{ sessionId, reasons }`
-- [ ] Non-blocking warning rendered in workspace (between ExecutionCard and ContextCard)
-- [ ] Warning includes reason list and suggestion text
-- [ ] Warning dismissible
-- [ ] Thresholds configurable in settings (`cognitiveLoadThresholds`)
-- [ ] Detection runs on task/binding/energy change events
+- [x] `CognitiveLoadThresholds` type: `{ maxTasks, maxBindings, maxDurationMinutes, lowEnergyThreshold }`
+- [x] `detectCognitiveOverload(session, thresholds): OverloadResult` pure function
+- [x] `OverloadResult` type: `{ overloaded: boolean, reasons: string[] }`
+- [x] Threshold triggers:
+  - [x] `executionTasks.length > maxTasks` (default: 5)
+  - [x] `contextBindings.length > maxBindings` (default: 8)
+  - [x] `elapsedMs > maxDurationMinutes * 60000` (default: 120 min)
+  - [x] `energy <= lowEnergyThreshold && executionTasks.length > 3` (compound)
+- [x] `session.overload.detected` event with `{ sessionId, reasons }`
+- [x] Non-blocking warning rendered in workspace (between ExecutionPanel and NotesPanel)
+- [x] Warning includes reason list and suggestion text
+- [x] Warning dismissible
+- [ ] Thresholds configurable in settings (`cognitiveLoadThresholds`) *(deferred — defaults hardcoded)*
+- [x] Detection runs on task/binding/energy change events
 
 ### Technical Requirements
 
-- `CognitiveLoadThresholds` and `OverloadResult` in `src/domain/session/types.ts`
-- `detectOverload()` pure function in `src/domain/session/helpers.ts`
-- Default thresholds via Zod schema defaults in SettingsService
-- Event listener in SessionService triggers detection on relevant changes
-- UI: `CognitiveLoadAlert` component follows shared component pattern
+- [x] `CognitiveLoadThresholds` and `OverloadResult` in `src/domain/session/types.ts`
+- [x] `detectCognitiveOverload()` pure function in `src/domain/session/helpers.ts`
+- [ ] Default thresholds via Zod schema defaults in SettingsService *(deferred)*
+- [x] Event listener in SessionService triggers detection on relevant changes
+- [x] UI: `CognitiveLoadAlert` component follows shared component pattern
 
 ### Constraints
 
@@ -65,14 +66,14 @@ As a session user, I want to be warned when my session is becoming overloaded so
 
 ## Acceptance Criteria
 
-- [ ] Warning shown when task count exceeds threshold
-- [ ] Warning shown when binding count exceeds threshold
-- [ ] Warning shown when session duration exceeds threshold
-- [ ] Compound warning shown when energy low + tasks high
-- [ ] Warning is dismissible
-- [ ] Thresholds configurable in settings
-- [ ] `session.overload.detected` event emitted
-- [ ] `npm run build` passes
+- [x] Warning shown when task count exceeds threshold
+- [x] Warning shown when binding count exceeds threshold
+- [x] Warning shown when session duration exceeds threshold
+- [x] Compound warning shown when energy low + tasks high
+- [x] Warning is dismissible
+- [ ] Thresholds configurable in settings *(deferred — hardcoded defaults)*
+- [x] `session.overload.detected` event emitted
+- [x] `npm test` passes (2,733 tests, 108 suites)
 
 ### INVEST Checklist
 
@@ -81,15 +82,29 @@ As a session user, I want to be warned when my session is becoming overloaded so
 | **I**ndependent | Yes | Pure computation — graceful degradation without energy |
 | **N**egotiable | Yes | Threshold values and compound rules |
 | **V**aluable | Yes | Prevents session scope creep |
-| **E**stimable | Yes | ~80 LOC, ~10 tests |
+| **E**stimable | Yes | ~120 LOC, ~26 tests |
 | **S**mall | Yes | Single increment |
 | **T**estable | Yes | Pure detection function with mock data |
 
-## Estimated Size
+## Delivery Summary
 
-- **Source LOC:** ~80
-- **Tests:** ~10
-- **Increments:** 1
+- **Delivered in:** Cycle 8 Inc 2
+- **Source LOC:** ~120 (detectCognitiveOverload ~40, CognitiveLoadAlert ~80, service wiring ~25)
+- **Tests:** 26 new (12 helpers + 12 component + 2 subscriptions), 2,733 total
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/domain/session/types.ts` | Added `OverloadResult` interface, `DEFAULT_COGNITIVE_LOAD_THRESHOLDS` constant |
+| `src/domain/session/helpers.ts` | Added `detectCognitiveOverload()` pure function (~40 LOC) |
+| `src/domain/session/SessionService.ts` | Added `checkCognitiveOverload()` method + wired to 5 handlers + deduped emission |
+| `src/ui/session/CognitiveLoadAlert.ts` | **New** — non-blocking warning banner (~80 LOC) |
+| `src/ui/SessionWorkspaceView.ts` | Integrated overload alert between execution and notes |
+| `src/ui/session/SessionWorkspaceSubscriptions.ts` | Added `session.overload.detected` subscription + interface update |
+| `tests/domain/session/helpers.test.ts` | +12 detection tests |
+| `tests/ui/session/CognitiveLoadAlert.test.ts` | **New** — 12 component tests |
+| `tests/ui/session/SessionWorkspaceSubscriptions.test.ts` | +2 overload subscription tests |
 
 ## Related
 

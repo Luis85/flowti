@@ -410,6 +410,20 @@ export interface CognitiveLoadThresholds {
 	lowEnergyThreshold: EnergyLevel;
 }
 
+/** Result of cognitive overload detection (FR-16). */
+export interface OverloadResult {
+	overloaded: boolean;
+	reasons: string[];
+}
+
+/** Default thresholds for cognitive overload detection. */
+export const DEFAULT_COGNITIVE_LOAD_THRESHOLDS: CognitiveLoadThresholds = {
+	maxTasks: 5,
+	maxBindings: 8,
+	maxDurationMinutes: 120,
+	lowEnergyThreshold: 2 as EnergyLevel,
+};
+
 // ─────────────────────────────────────────────────────────────
 // Persisted state
 // ─────────────────────────────────────────────────────────────

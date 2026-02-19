@@ -15,7 +15,7 @@ import type { ITypedStorage } from "../../utils/TypedStorage";
 import { generateUUID } from "../../utils/helpers";
 import type { ClosureResponse, ContextBindingType, EnergyLevel, ExecutionTask, Session, SessionActivity, SessionActivityAction, SessionContextBinding, SessionGoal, SessionIntent, SessionLink, SessionOutputArtifact, SessionOutputTemplate, SessionState, SessionStatusV2, SessionTemplate, SessionTemplateExport, SessionTypeConfig, WorkspaceState } from "./types";
 import { MAX_SESSIONS, MAX_TEMPLATES, ARTIFACT_DEDUP_WINDOW_MS, SESSION_NOTES_FOLDER, MAX_SESSION_ACTIVITY, ACTIVITY_DEDUP_WINDOW_MS, MAX_CONTEXT_BINDINGS, MAX_SESSION_DECISIONS, MAX_OUTPUT_ARTIFACTS, SESSION_TYPE_CONFIGS } from "./types";
-import { createSession, createGoal, createDecision, createContextBinding, computeRemainingMs, computeElapsedMs, isTimerExpired, isExcluded, isValidTransition, resolveTypeConfig, generateSessionOutput, updateSessionPathsForFileMove, updateSessionPathsForFolderMove, updateTemplatePathForFileMove, updateTemplatePathForFolderMove, mergeSessionNotes, reverseParseSessionNotes, computeReverseSyncDiff } from "./helpers";
+import { createSession, createGoal, createDecision, createContextBinding, computeRemainingMs, computeElapsedMs, isTimerExpired, isExcluded, isValidTransition, resolveTypeConfig, generateSessionOutput, updateSessionPathsForFileMove, updateSessionPathsForFolderMove, updateTemplatePathForFileMove, updateTemplatePathForFolderMove, mergeSessionNotes, reverseParseSessionNotes, computeReverseSyncDiff, detectCognitiveOverload } from "./helpers";
 import { SESSION_NOTES_SYNC_DELAY_MS } from "./types";
 
 /**
@@ -50,6 +50,7 @@ export class SessionService {
 	private noteSyncTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 	private lastSyncedContent: Map<string, string> = new Map();
 	private reverseSyncTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+	private lastOverloadReasons: Map<string, string> = new Map();
 	/** Global activity filter folders — injected from SettingsService. */
 	globalActivityFilter: string[] = [];
 	/** Custom session type configs — injected from SettingsService. */
@@ -625,6 +626,32 @@ export class SessionService {
 		});
 	}
 
+	// ── Cognitive Overload Detection (FR-16) ────────────────
+
+	/**
+	 * Runs cognitive overload detection and emits event if reasons changed.
+	 * Only emits when the set of reasons differs from the previous check
+	 * to avoid flooding listeners with duplicate events.
+	 */
+	private checkCognitiveOverload(sessionId: string): void {
+		const session = this.findSession(sessionId);
+		if (!session || (session.status !== "running" && session.status !== "paused")) return;
+
+		const result = detectCognitiveOverload(session);
+		const key = result.reasons.join("|");
+		const prev = this.lastOverloadReasons.get(sessionId) ?? "";
+
+		if (key !== prev) {
+			this.lastOverloadReasons.set(sessionId, key);
+			if (result.overloaded) {
+				void this.eventBus?.emit("session.overload.detected", {
+					sessionId,
+					reasons: result.reasons,
+				});
+			}
+		}
+	}
+
 	/**
 	 * Unsubscribes from event bus listeners and stops the timer.
 	 */
@@ -635,6 +662,7 @@ export class SessionService {
 		for (const timer of this.reverseSyncTimers.values()) clearTimeout(timer);
 		this.reverseSyncTimers.clear();
 		this.lastSyncedContent.clear();
+		this.lastOverloadReasons.clear();
 		for (const unsub of this.unsubscribes) {
 			unsub();
 		}
@@ -1068,6 +1096,7 @@ export class SessionService {
 		await this.saveState();
 		await this.eventBus?.emit("session.context.bound", { sessionId, binding: { ...binding } });
 		this.scheduleSyncNotesFile(sessionId);
+		this.checkCognitiveOverload(sessionId);
 	}
 
 	private async handleContextUnbind(sessionId: string, bindingId: string): Promise<void> {
@@ -1081,6 +1110,7 @@ export class SessionService {
 		await this.saveState();
 		await this.eventBus?.emit("session.context.unbound", { sessionId, bindingId });
 		this.scheduleSyncNotesFile(sessionId);
+		this.checkCognitiveOverload(sessionId);
 	}
 
 	private async handleContextChangeType(sessionId: string, bindingId: string, type: ContextBindingType): Promise<void> {
@@ -1238,6 +1268,7 @@ export class SessionService {
 		await this.saveState();
 		await this.eventBus?.emit("session.energy.changed", { sessionId, before, after: level });
 		this.scheduleSyncNotesFile(sessionId);
+		this.checkCognitiveOverload(sessionId);
 	}
 
 	// ── v2: Execution Task event delegates ─────────────────────
@@ -1281,6 +1312,7 @@ export class SessionService {
 		await this.saveState();
 		await this.eventBus?.emit("session.task.added", { sessionId, task: { ...task } });
 		this.scheduleSyncNotesFile(sessionId);
+		this.checkCognitiveOverload(sessionId);
 		return task;
 	}
 
@@ -1321,6 +1353,7 @@ export class SessionService {
 		await this.saveState();
 		await this.eventBus?.emit("session.task.removed", { sessionId, taskId });
 		this.scheduleSyncNotesFile(sessionId);
+		this.checkCognitiveOverload(sessionId);
 	}
 
 	/**
