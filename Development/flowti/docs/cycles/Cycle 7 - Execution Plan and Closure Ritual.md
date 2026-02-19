@@ -411,6 +411,90 @@ Inc 4: Cognitive Overload — Spike (depends on Inc 1 — uses task count; depen
 
 ---
 
+## Definition of Done — Checklist
+
+### 1. All Increments Completed
+- [x] Each increment satisfies its own DoD — 5/5 delivered increments have all acceptance criteria checked
+- [x] No increment left in partial state — Inc 4 (Cognitive Overload) explicitly deferred with documented rationale
+- [x] Deferred increments documented — Inc 4 has status "DEFERRED" in cycle doc with reason (budget consumed by Inc 2.5b expansion)
+
+### 2. Build & Test Quality
+- [x] Build pipeline green — `npm test` passes: tsc + eslint + vitest
+- [x] Test count meets target — 147 actual vs 80 estimated (183% of target)
+- [x] No test regressions — all 2,540 pre-cycle tests still pass
+- [x] No skipped tests introduced — 32 skipped (unchanged from pre-cycle)
+- [x] Test coverage per TestPlan — pure helpers 100% (getTaskProgress, resolveClosureTemplate, reverseParseSessionNotes), domain service tested (lifecycle, events, edges), UI components tested (render, interaction)
+
+### 3. Three Amigos Review
+- [ ] Cycle-level review conducted — **Gap**: no formal Three Amigos session for Cycle 7. Informal review performed during Idea-to-Solution session (2026-02-19) which verified all increments, docs, and applied DoR for Cycle 8.
+- [x] All three perspectives represented — Product (value alignment verified during PRD refinement), Engineering (architecture verified during implementation), QA (test suite green, coverage verified)
+- [x] All blocker findings resolved — no blocking issues
+- [ ] TASM scores recorded — **Gap**: no formal TASM score. Recommend scoring at next formal review.
+- [x] Observations documented — 3 observations: TD-092 threshold breached, TD-100 sync performance, Inc 4 deferral
+
+### 4. PRD & Backlog Updates
+- [x] PRD updated:
+  - [x] FRI re-scored: 26→28/35 (event_integration 4→5, validation_testing 3→4)
+  - [x] FR-12 and FR-14 checked off as Done
+  - [x] FR-09 and FR-10 updated to Done (Cycle 6, domain-first) with checked boxes
+  - [x] Stage history entries added for each increment
+  - [x] PBI roadmap table updated (SW-012 Done, SW-014 Done, priority order revised)
+- [x] PBIs updated — PBI-SW-012 and PBI-SW-014 marked Done with actual LOC/tests
+- [x] Event model current — 15 new events registered in catalog
+
+### 5. Documentation
+- [x] Component docs — SessionExecutionPanel and SessionClosureOverlay documented in increment scopes
+- [x] Architecture docs — closure ritual gate pattern, bidirectional note sync, content-based loop prevention documented
+- [x] Flow docs updated — Run Intentional Session (closure steps, skip path, event names), Monitor Session from Sidebar (event/component fixes)
+- [x] Technical debt register updated — TD-100 created (session sync performance), TD-092 carried forward
+- [x] ADRs — ADR-029 (ISO date prefix) implemented in Inc 2.5b
+
+### 6. Cycle Plan Completion
+- [x] Frontmatter updated — actual_increments: 5, actual_tests: 147, total_tests_after: 2687, total_test_files_after: 106
+- [x] Success metrics verified — all metrics have Target and Final columns populated
+- [x] Deviations documented — Inc 2.5/2.5b scope expansion (12 user-driven UX parts), Inc 4 deferral
+- [x] Risks reviewed — all 6 risks assessed (SessionService LOC risk materialized → TD-092)
+
+### 7. Cycle Retrospective
+See retrospective section below.
+
+### 8. Inbox & Feedback Loop
+- [x] Inbox items reviewed — plugin inbox (74 items): 3 stages updated, 13 empty-frontmatter triaged; vault inbox (46 items): 5 missing-frontmatter fixed
+- [x] New feedback captured — TD-100 (session sync performance), "Session Document always reflect current state" flagged as potentially delivered
+- [x] Next cycle inputs identified — Cycle 8 planned (SW-011, SW-016, SW-013, TD-092), DoR satisfied
+
+---
+
+## Retrospective
+
+### What Went Well
+- **Domain-first pattern continues to pay off** — Inc 1 (domain) was clean and fast, enabling Inc 2 (UI) to focus purely on rendering
+- **User-driven iteration produces better UX** — Inc 2.5b's 12 parts were all real usage feedback; the note sync, auto-open, and template threading features are heavily used
+- **Closure ritual gate is architecturally clean** — `transitionToCompleted()` extraction gave three paths (completeClosure/skipClosure/finishReview) without duplication
+- **Test discipline strong** — 147 tests (183% of estimate) with zero regressions. Content-based sync tests caught edge cases early.
+- **Bidirectional note sync works** — forward sync (session→note) + reverse sync (note→session) with content-based loop prevention is elegant
+
+### Deviations from Plan
+- **Inc 2.5 and 2.5b were unplanned** — original plan had 4 increments (domain, UI, closure, overload). User reprioritized to note sync (Inc 2.5) and then expanded scope with 12 UX polish items (Inc 2.5b)
+- **Inc 4 (Cognitive Overload) deferred** — cycle budget consumed. Clean deferral with rationale.
+- **SessionService grew to 1,662 LOC** — 28% above the 1,300 LOC threshold. TD-092 extraction is now urgent for Cycle 8.
+
+### Improvement Backlog
+| Item | Classification | Target |
+|------|---------------|--------|
+| TD-092: SessionService extraction (1,662 LOC) | Tech debt | Cycle 8 (stretch goal) |
+| TD-100: Session sync performance investigation | Tech debt | Cycle 9 (before UI refactor) |
+| "Create follow-up session" button | Feature | Cycle 9+ |
+| Settings schema for `defaultClosureTemplate` | Feature | When needed |
+| Formal Three Amigos review for Cycle 7 | Process gap | Score at Cycle 8 review |
+
+### Learnings
+- **L-25: User-driven scope expansion is a feature, not a bug** — Inc 2.5b's 12 parts all came from real usage. The iteration loop of "build → use → polish" produces features that actually get used. Budget for 1–2 unplanned polish increments per cycle.
+- **L-26: Content-based sync loop prevention beats timestamp-based** — timestamp suppression windows are fragile (race conditions on fast machines). Comparing actual content before deciding to forward/reverse sync is deterministic and reliable.
+- **L-27: The reviewing state gate is a powerful pattern** — forcing sessions through `reviewing` before `completed` prevents silent completion. Same pattern could apply to other lifecycle transitions (e.g., cycle closure).
+
+---
+
 ## Cycle Summary
 
 **Delivered:** 5 increments (Inc 1, 2, 2.5, 2.5b, 3) across 2 PBIs (SW-012, SW-014). 2 v2 FRs (FR-12, FR-14) fully delivered. 147 new tests, 2,687 total.
