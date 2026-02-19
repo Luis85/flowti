@@ -10,7 +10,7 @@ foundation: "[[PBI-002 Documentation Sessions]]"
 maturity_score_strategy: 5
 maturity_score_scope: 4
 maturity_score_architecture: 4
-maturity_score_event_integration: 4
+maturity_score_event_integration: 5
 maturity_score_data_model: 4
 maturity_score_ui_consistency: 2
 maturity_score_validation_testing: 4
@@ -937,24 +937,24 @@ interface Session {
 
 ---
 
-### FR-09: Session Lifecycle v2 — 🔜 Planned
+### FR-09: Session Lifecycle v2 — ✅ Done (Cycle 6, domain-first)
 
-- [ ] Introduce 6-state lifecycle: `prepared → running → paused → reviewing → completed → archived`
-- [ ] `reviewing` state triggered automatically when timer reaches zero
-- [x] `reviewing` → `completed` requires closure ritual completion or explicit skip (FR-14, Cycle 7)
-- [ ] State changes emit `session.state.changed` event with `{ previousState, newState }`
-- [ ] Backward compatible: existing `active` maps to `running`, existing `completed` unchanged
-- [ ] All state transitions validated (no skipping states, no invalid transitions)
+- [x] Introduce 6-state lifecycle: `prepared → running → paused → reviewing → completed → archived` *(Cycle 6 — `SessionStatusV2`, `VALID_TRANSITIONS` map, `isValidTransition()`)*
+- [ ] `reviewing` state triggered automatically when timer reaches zero *(deferred — UI timer wiring, PBI-SW-017)*
+- [x] `reviewing` → `completed` requires closure ritual completion or explicit skip *(FR-14, Cycle 7)*
+- [x] State changes emit per-transition events: `session.started`, `session.paused`, `session.resumed`, `session.completed`, `session.archived` *(Cycle 6 — individual events preferred over generic `state.changed`)*
+- [x] Backward compatible: existing `active` maps to `running`, existing `completed` unchanged *(Cycle 6 — UI compat accepts both)*
+- [x] All state transitions validated (no skipping states, no invalid transitions) *(Cycle 6 — `isValidTransition()` pure function)*
 
-### FR-10: Intent Layer — 🔜 Planned
+### FR-10: Intent Layer — ✅ Done (Cycle 6, domain-first)
 
-- [ ] Primary Outcome field (required text, set before session start)
-- [ ] Why this matters field (optional text)
-- [ ] Session Mode selector: Deep Work, Planning, Workshop, Review, Exploration
-- [ ] Intent editable in `prepared` and `paused` states
-- [ ] Intent locked during `running` unless manually edited via explicit action
-- [ ] Intent visible in both Main and Sidebar modes
-- [ ] Outcome immutability configurable per session type
+- [x] Primary Outcome field (required text, set before session start) *(Cycle 6 — `SessionIntent.primaryOutcome`, `handleSetIntent()`)*
+- [x] Why this matters field (optional text) *(Cycle 6 — `SessionIntent.whyThisMatters`)*
+- [x] Session Mode selector: Deep Work, Planning, Workshop, Review, Exploration *(Cycle 6 — `SessionMode` type, `handleSetMode()`)*
+- [x] Intent editable in `prepared` and `paused` states *(Cycle 6 — state guard in handler)*
+- [ ] Intent locked during `running` unless manually edited via explicit action *(deferred — UI enforcement, PBI-SW-017)*
+- [ ] Intent visible in both Main and Sidebar modes *(deferred — PBI-SW-017)*
+- [ ] Outcome immutability configurable per session type *(deferred — future enhancement)*
 
 ### FR-11: Energy Tracking — 🔜 Planned
 
@@ -1125,7 +1125,7 @@ SessionMainView
  ├── ReflectionCard        (observations, blockers, ideas, decisions)
  ├── ActivityIntelligenceCard (files, tasks, events, time analytics)
  ├── CognitiveLoadAlert    (conditional — threshold exceeded)
- └── SessionReviewOverlay  (conditional — reviewing state)
+ └── SessionClosureOverlay (conditional — reviewing state, FR-14 ✅)
 ```
 
 #### Sidebar Companion Mode
@@ -1196,9 +1196,9 @@ SessionSidebarView
 
 > **v8 change — Daily tracking removed:** PBI-SW-007 (Auto-Session & Session Nudges) has been deprecated. The daily-tracking session type, auto-start, concurrent session support, daily note integration, and nudge system conflict with Session v2's philosophy of intentional execution environments. The `daily-tracking` session type, `dailySessionId`, `getDailySession()`, `generateDailySummary()`, nudge scheduler, and 8 related events (5 daily + 3 nudge) will be removed during v2 implementation. PBI-SW-007 status: Done → Removed.
 
-> **Remaining backlog:** 9 PBIs planned (PBI-SW-009 through PBI-SW-017). 7/8 delivered v1 PBIs remain valid (SW-001 through SW-006, SW-008). PBI-SW-010 (Lifecycle v2 & Intent Layer) is the foundation — all other v2 PBIs build on it.
+> **Remaining backlog:** 6 PBIs planned (PBI-SW-009, SW-011, SW-013, SW-015, SW-016, SW-017). 3 v2 PBIs delivered: SW-010 (Cycle 6), SW-012 + SW-014 (Cycle 7). 7/8 v1 PBIs remain valid (SW-001 through SW-006, SW-008).
 
-> **Priority ranking** (delivery order by value): PBI-SW-010 → PBI-SW-012 → PBI-SW-014 → PBI-SW-017 → PBI-SW-013 → PBI-SW-011 → PBI-SW-015 → PBI-SW-016. PBI-SW-009 deferred to Cycle 7+ (depends on Workshop mode patterns from FR-18).
+> **Priority ranking** (remaining delivery order by value): PBI-SW-011 (Energy UI) → PBI-SW-013 (Reflection) → PBI-SW-016 (Cognitive Overload) → PBI-SW-017 (Main/Sidebar) → PBI-SW-015 (Activity Intelligence). PBI-SW-009 deferred (depends on Workshop mode patterns from FR-18). **Rationale:** SW-011/013/016 complete the execution layer foundation (small-to-medium effort); SW-017 is the major UI refactor (large); SW-015 is analytics polish (low priority).
 
 See `backlog/PBI-SW-*.md` for detailed specifications.
 

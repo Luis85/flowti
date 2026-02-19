@@ -1,6 +1,14 @@
 ---
-type:
-stage:
+type: idea
+stage: discovery
+origin: inbox
+domain: session
+description: "Start a Canvas Session that opens sidebar monitor and a preconfigured Canvas in main."
+tags: []
+priority: 0 - low
+rank:
+related:
+note:
 ---
 When designing I love to use a whiteboard to connect my ideas and thoughts. 
 

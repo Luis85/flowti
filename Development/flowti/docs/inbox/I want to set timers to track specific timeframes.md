@@ -1,6 +1,14 @@
 ---
-type:
-stage:
+type: idea
+stage: discovery
+origin: inbox
+domain: session
+description: "Set configurable timers to track specific timeframes, trigger events, and attach notes."
+tags: []
+priority: 0 - low
+rank:
+related:
+note:
 ---
 Besides Sessions, I also want to set timers. Either in the past or in the future. 
 

@@ -1,8 +1,15 @@
 ---
-type:
-stage:
+type: idea
+stage: discovery
+origin: inbox
+domain: meta
+description: "Use Flowti itself to maintain, develop, and document Flowti (dogfooding)."
 tags:
   - question
+priority: 01 - medium
+rank:
+related:
+note:
 ---
 Flowti is conceptual based on the PARA and Diataxis frameworks to document it's state. 
 
