@@ -7,11 +7,11 @@
       "outputs": [
         {
             "name": "html",
-            "path": "./docs/codebase"
+            "path": "./docs/reports/codebase"
         },
         {
             "name": "json",
-            "path": "./docs/codebase/codebase.json"
+            "path": "./docs/reports/codebase.json"
         },
     ],
 

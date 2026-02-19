@@ -22,5 +22,4 @@ data.json
 .DS_Store
 
 # Exclude build generated docs
-docs/codebase
-docs/tests
+docs/reports
