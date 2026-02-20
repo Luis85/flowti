@@ -17,13 +17,17 @@
 		{"id":"709db2caae500820","type":"group","backgroundStyle":"ratio","x":-40,"y":3520,"width":1648,"height":1100,"label":"Event Catalog - Dashboard","background":"03 - Resources/Attachments/Pasted image 20260213192558.png"},
 		{"id":"88cf99594f0985d7","type":"group","backgroundStyle":"ratio","x":-40,"y":5040,"width":1647,"height":1098,"label":"Event Catalog - Flows","background":"03 - Resources/Attachments/Pasted image 20260213192818.png"},
 		{"id":"be68efe3c18f4579","type":"group","x":1400,"y":760,"width":960,"height":820,"label":"Product Development"},
+		{"id":"f1ab36403ad8330d","type":"group","x":-120,"y":-1280,"width":1280,"height":600,"label":"Simulation Environment - Product Development"},
 		{"id":"abc9776e8773b32b","type":"group","x":-40,"y":880,"width":1060,"height":580,"label":"Frontstage"},
 		{"id":"25c2f8a7fca6c9d7","type":"group","x":1480,"y":880,"width":300,"height":580,"label":"Backstage"},
 		{"id":"5e8bcec9492cfb3e","type":"group","x":-20,"y":950,"width":340,"height":480,"color":"2","label":"Product"},
 		{"id":"1322864aeea97eeb","type":"group","x":1860,"y":880,"width":360,"height":400,"color":"2","label":"Product Backlog Item"},
+		{"id":"595e466f2e980097","type":"group","x":800,"y":-1180,"width":300,"height":420,"label":"AI Agents"},
 		{"id":"fd0dec85aece3e54","type":"group","x":2480,"y":942,"width":300,"height":275,"label":"Influencer"},
 		{"id":"173575747476d753","type":"group","x":0,"y":1150,"width":300,"height":260,"color":"5","label":"PBI"},
+		{"id":"cd503e9695ad13a0","type":"group","x":360,"y":-1100,"width":300,"height":260,"label":"Product Development"},
 		{"id":"eb56d8b9c2c758f2","type":"group","x":360,"y":950,"width":620,"height":120,"color":"2","label":"Sitemap"},
+		{"id":"0c2045c923d1ccf0","type":"group","x":-80,"y":-1060,"width":300,"height":180,"label":"Obsidian"},
 		{"id":"ac6b4ec2959f3db2","type":"group","x":1890,"y":940,"width":300,"height":110,"color":"6","label":"Problemspace"},
 		{"id":"2262b012353cf0dd","type":"group","x":1890,"y":1120,"width":300,"height":110,"color":"6","label":"Solutionspace"},
 		{
@@ -37,26 +41,142 @@
 			"height":60
 		},
 		{
-			"id":"10912870c9bcc94e",
+			"id":"06ad3e18891e6b69",
 			"type":"text",
-			"text":"Offer",
+			"text":"Documentation",
 			"styleAttributes":{"textAlign":"center"},
-			"x":540,
-			"y":1680,
+			"x":1500,
+			"y":1380,
 			"width":260,
 			"height":60,
 			"color":"2"
 		},
 		{
-			"id":"7690eedbe60304e6",
+			"id":"ef9147a4e239425d",
 			"type":"text",
-			"text":"Customer Experience",
+			"text":"Event Catalog",
 			"styleAttributes":{"textAlign":"center"},
-			"x":540,
-			"y":1820,
+			"x":1500,
+			"y":1300,
 			"width":260,
 			"height":60,
 			"color":"2"
+		},
+		{
+			"id":"f9fe5f4ef60e6a53",
+			"type":"text",
+			"text":"Use Case",
+			"styleAttributes":{"textAlign":"center"},
+			"x":20,
+			"y":1250,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"3a4582b7f06dbcf2",
+			"type":"text",
+			"text":"Views",
+			"styleAttributes":{"textAlign":"center"},
+			"x":400,
+			"y":980,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"3b8e15b7fd161918",
+			"type":"text",
+			"text":"User Story",
+			"styleAttributes":{"textAlign":"center"},
+			"x":20,
+			"y":1170,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"cd7a2daabf8bba73",
+			"type":"text",
+			"text":"Feature",
+			"styleAttributes":{"textAlign":"center"},
+			"x":20,
+			"y":980,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"a0da346fe621e29e",
+			"type":"text",
+			"text":"Props",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1500,
+			"y":1220,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"cf79bf44ea769c98",
+			"type":"text",
+			"text":"Product Increment",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1910,
+			"y":1420,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"85d677cad9d99537",
+			"type":"text",
+			"text":"User Story",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1910,
+			"y":965,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"6a8c1c61e47318ee",
+			"type":"text",
+			"text":"Use Case 2.0",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1910,
+			"y":1145,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"5ee5ae22d389ef82",
+			"type":"text",
+			"text":"Jobs to be done",
+			"styleAttributes":{},
+			"x":2500,
+			"y":967,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"2e90d5366c626d13",
+			"type":"text",
+			"text":"Actors",
+			"styleAttributes":{},
+			"x":2500,
+			"y":1053,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"ccb5ba982245f7b5",
+			"type":"text",
+			"text":"Requirements",
+			"styleAttributes":{},
+			"x":2500,
+			"y":1143,
+			"width":260,
+			"height":60
 		},
 		{
 			"id":"72449dad794f89e3",
@@ -114,29 +234,6 @@
 			"color":"2"
 		},
 		{
-			"id":"719b2dfadce52cb7",
-			"type":"text",
-			"text":"Domains",
-			"styleAttributes":{"textAlign":"center"},
-			"x":540,
-			"y":440,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"8b42e85c8914f3a7",
-			"type":"text",
-			"text":"# Folderstructure\n\n- `/00 - Connectivity`\n- `/01 - Projects`\n- `/02 - Areas`\n- `/03 - Resources`\n- `/04 - Archive`\n- `/05 - Public Vault`\n- `/var`",
-			"styleAttributes":{},
-			"x":40,
-			"y":-280,
-			"width":260,
-			"height":400
-		},
-		{"id":"5d6cdc543db0af78","type":"file","file":"Development/flowti/docs/inbox/Flowti - System Design.canvas","x":320,"y":-280,"width":260,"height":400},
-		{"id":"0b8e15eb023842e5","type":"file","file":"Development/Plugin Design.canvas","x":600,"y":-280,"width":260,"height":400},
-		{
 			"id":"6c18b02696f15954",
 			"type":"text",
 			"text":"Systems",
@@ -146,113 +243,6 @@
 			"width":260,
 			"height":60,
 			"color":"2"
-		},
-		{
-			"id":"06ad3e18891e6b69",
-			"type":"text",
-			"text":"Documentation",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1500,
-			"y":1380,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"ef9147a4e239425d",
-			"type":"text",
-			"text":"Event Catalog",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1500,
-			"y":1300,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"f9fe5f4ef60e6a53",
-			"type":"text",
-			"text":"Use Case",
-			"styleAttributes":{"textAlign":"center"},
-			"x":20,
-			"y":1250,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"37b60e3fcc6abba6",
-			"type":"text",
-			"text":"add start events",
-			"styleAttributes":{"textAlign":"center"},
-			"x":360,
-			"y":2740,
-			"width":260,
-			"height":60,
-			"color":"3"
-		},
-		{
-			"id":"3a4582b7f06dbcf2",
-			"type":"text",
-			"text":"Views",
-			"styleAttributes":{"textAlign":"center"},
-			"x":400,
-			"y":980,
-			"width":260,
-			"height":60,
-			"color":"6"
-		},
-		{
-			"id":"3b8e15b7fd161918",
-			"type":"text",
-			"text":"User Story",
-			"styleAttributes":{"textAlign":"center"},
-			"x":20,
-			"y":1170,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"cd7a2daabf8bba73",
-			"type":"text",
-			"text":"Feature",
-			"styleAttributes":{"textAlign":"center"},
-			"x":20,
-			"y":980,
-			"width":260,
-			"height":60,
-			"color":"6"
-		},
-		{
-			"id":"8844baa6c4d7d42b",
-			"type":"text",
-			"text":"# User Groups\n\n- new to Obsidian\n- new to Markdown\n- new to Git\n- new to Obsidian Plugin Development\n- new to Project Management\n- new to Software Design\n- new to Product Development\n",
-			"styleAttributes":{},
-			"x":880,
-			"y":-280,
-			"width":260,
-			"height":400
-		},
-		{
-			"id":"6fc6f55d39d2a14d",
-			"type":"text",
-			"text":"add connected flows",
-			"styleAttributes":{"textAlign":"center"},
-			"x":360,
-			"y":2820,
-			"width":260,
-			"height":60,
-			"color":"3"
-		},
-		{
-			"id":"e220c03bb0c9e1f8",
-			"type":"text",
-			"text":"add actors",
-			"styleAttributes":{"textAlign":"center"},
-			"x":360,
-			"y":2900,
-			"width":260,
-			"height":60,
-			"color":"3"
 		},
 		{
 			"id":"18d7ac675f7ee8ce",
@@ -288,6 +278,81 @@
 			"color":"2"
 		},
 		{
+			"id":"719b2dfadce52cb7",
+			"type":"text",
+			"text":"Domains",
+			"styleAttributes":{"textAlign":"center"},
+			"x":540,
+			"y":440,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"8b42e85c8914f3a7",
+			"type":"text",
+			"text":"# Folderstructure\n\n- `/00 - Connectivity`\n- `/01 - Projects`\n- `/02 - Areas`\n- `/03 - Resources`\n- `/04 - Archive`\n- `/05 - Public Vault`\n- `/var`",
+			"styleAttributes":{},
+			"x":40,
+			"y":-280,
+			"width":260,
+			"height":400
+		},
+		{"id":"5d6cdc543db0af78","type":"file","file":"Development/flowti/docs/inbox/Flowti - System Design.canvas","x":320,"y":-280,"width":260,"height":400},
+		{"id":"0b8e15eb023842e5","type":"file","file":"Development/Plugin Design.canvas","x":600,"y":-280,"width":260,"height":400},
+		{
+			"id":"8844baa6c4d7d42b",
+			"type":"text",
+			"text":"# User Groups\n\n- new to Obsidian\n- new to Markdown\n- new to Git\n- new to Obsidian Plugin Development\n- new to Project Management\n- new to Software Design\n- new to Product Development\n",
+			"styleAttributes":{},
+			"x":880,
+			"y":-280,
+			"width":260,
+			"height":400
+		},
+		{
+			"id":"9921907f338a95af",
+			"type":"text",
+			"text":"new importer",
+			"styleAttributes":{},
+			"x":280,
+			"y":6520,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"3afc47b192abd632",
+			"type":"text",
+			"text":"CSV Reports Merge",
+			"styleAttributes":{},
+			"x":280,
+			"y":6460,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"37b60e3fcc6abba6",
+			"type":"text",
+			"text":"add start events",
+			"styleAttributes":{"textAlign":"center"},
+			"x":360,
+			"y":2740,
+			"width":260,
+			"height":60,
+			"color":"3"
+		},
+		{
+			"id":"e220c03bb0c9e1f8",
+			"type":"text",
+			"text":"add actors",
+			"styleAttributes":{"textAlign":"center"},
+			"x":360,
+			"y":2900,
+			"width":260,
+			"height":60,
+			"color":"3"
+		},
+		{
 			"id":"7eb885012fee3e62",
 			"type":"text",
 			"text":"I want to quickly access my marked domains",
@@ -299,45 +364,87 @@
 			"color":"5"
 		},
 		{
-			"id":"a0da346fe621e29e",
-			"type":"text",
-			"text":"Props",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1500,
-			"y":1220,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"85d677cad9d99537",
-			"type":"text",
-			"text":"User Story",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1910,
-			"y":965,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"6a8c1c61e47318ee",
-			"type":"text",
-			"text":"Use Case 2.0",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1910,
-			"y":1145,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
 			"id":"c92dc9495faa6a66",
 			"type":"text",
 			"text":"add services",
 			"styleAttributes":{"textAlign":"center"},
 			"x":640,
 			"y":2740,
+			"width":260,
+			"height":60,
+			"color":"3"
+		},
+		{
+			"id":"2ee7c7a2337bb2aa",
+			"type":"text",
+			"text":"I want to access the flow on a canvas",
+			"styleAttributes":{},
+			"x":360,
+			"y":5540,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"700c2bc948091af7",
+			"type":"text",
+			"text":"I want to know which actors are involved",
+			"styleAttributes":{},
+			"x":360,
+			"y":5640,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"4a86450c6a5a3c67",
+			"type":"text",
+			"text":"add n csv",
+			"styleAttributes":{},
+			"x":280,
+			"y":6580,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"d2ee4d7098e59d97",
+			"type":"text",
+			"text":"import sequential",
+			"styleAttributes":{},
+			"x":280,
+			"y":6640,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"10912870c9bcc94e",
+			"type":"text",
+			"text":"Offer",
+			"styleAttributes":{"textAlign":"center"},
+			"x":540,
+			"y":1680,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"7690eedbe60304e6",
+			"type":"text",
+			"text":"Customer Experience",
+			"styleAttributes":{"textAlign":"center"},
+			"x":540,
+			"y":1820,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"6fc6f55d39d2a14d",
+			"type":"text",
+			"text":"add connected flows",
+			"styleAttributes":{"textAlign":"center"},
+			"x":360,
+			"y":2820,
 			"width":260,
 			"height":60,
 			"color":"3"
@@ -397,107 +504,104 @@
 			"color":"3"
 		},
 		{
-			"id":"2ee7c7a2337bb2aa",
+			"id":"f5c6fc5c5a4f7f20",
 			"type":"text",
-			"text":"I want to access the flow on a canvas",
-			"styleAttributes":{},
-			"x":360,
-			"y":5540,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"700c2bc948091af7",
-			"type":"text",
-			"text":"I want to know which actors are involved",
-			"styleAttributes":{},
-			"x":360,
-			"y":5640,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"9921907f338a95af",
-			"type":"text",
-			"text":"new importer",
-			"styleAttributes":{},
-			"x":280,
-			"y":6520,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"4a86450c6a5a3c67",
-			"type":"text",
-			"text":"add n csv",
-			"styleAttributes":{},
-			"x":280,
-			"y":6580,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"d2ee4d7098e59d97",
-			"type":"text",
-			"text":"import sequential",
-			"styleAttributes":{},
-			"x":280,
-			"y":6640,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"3afc47b192abd632",
-			"type":"text",
-			"text":"CSV Reports Merge",
-			"styleAttributes":{},
-			"x":280,
-			"y":6460,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"5ee5ae22d389ef82",
-			"type":"text",
-			"text":"Jobs to be done",
-			"styleAttributes":{},
-			"x":2500,
-			"y":967,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"2e90d5366c626d13",
-			"type":"text",
-			"text":"Actors",
-			"styleAttributes":{},
-			"x":2500,
-			"y":1053,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"ccb5ba982245f7b5",
-			"type":"text",
-			"text":"Requirements",
-			"styleAttributes":{},
-			"x":2500,
-			"y":1143,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"cf79bf44ea769c98",
-			"type":"text",
-			"text":"Product Increment",
+			"text":"Flowti Codebase",
 			"styleAttributes":{"textAlign":"center"},
-			"x":1910,
-			"y":1420,
+			"x":380,
+			"y":-1080,
 			"width":260,
-			"height":60,
-			"color":"5"
+			"height":60
+		},
+		{
+			"id":"1f8ab164b2703eeb",
+			"type":"text",
+			"text":"Git",
+			"styleAttributes":{"textAlign":"center"},
+			"x":380,
+			"y":-1000,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"865bd8c6600cfa02",
+			"type":"text",
+			"text":"GitHub",
+			"styleAttributes":{"textAlign":"center"},
+			"x":380,
+			"y":-920,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"0cc921be6148aa1f",
+			"type":"text",
+			"text":"ChatGPT - Product Owner",
+			"styleAttributes":{"textAlign":"center"},
+			"x":820,
+			"y":-1160,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"882a1ad6195a25d6",
+			"type":"text",
+			"text":"Claude - Software-Developer",
+			"styleAttributes":{"textAlign":"center"},
+			"x":820,
+			"y":-1080,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"6b4577ab4a415979",
+			"type":"text",
+			"text":"Claude - Software-Architect",
+			"styleAttributes":{"textAlign":"center"},
+			"x":820,
+			"y":-1000,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"a545c994c194a993",
+			"type":"text",
+			"text":"Claude - UX-Designer",
+			"styleAttributes":{"textAlign":"center"},
+			"x":820,
+			"y":-920,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"c96c86f2ccab69fa",
+			"type":"text",
+			"text":"Claude - QA-Engineer",
+			"styleAttributes":{"textAlign":"center"},
+			"x":820,
+			"y":-840,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"02a1ec53b7e8088a",
+			"type":"text",
+			"text":"Private Vault",
+			"styleAttributes":{"textAlign":"center"},
+			"x":-60,
+			"y":-1040,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"a9f291e1774772fc",
+			"type":"text",
+			"text":"Public Vault",
+			"styleAttributes":{"textAlign":"center"},
+			"x":-60,
+			"y":-960,
+			"width":260,
+			"height":60
 		}
 	],
 	"edges":[
@@ -648,6 +752,24 @@
 			"toNode":"cf79bf44ea769c98",
 			"toSide":"top",
 			"label":"gets converted to"
+		},
+		{
+			"id":"ca247ac4e32c76b1",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"0c2045c923d1ccf0",
+			"fromSide":"right",
+			"toNode":"cd503e9695ad13a0",
+			"toSide":"left"
+		},
+		{
+			"id":"f3f25fe81a712e13",
+			"styleAttributes":{},
+			"toFloating":false,
+			"fromNode":"595e466f2e980097",
+			"fromSide":"left",
+			"toNode":"cd503e9695ad13a0",
+			"toSide":"right"
 		}
 	],
 	"metadata":{
