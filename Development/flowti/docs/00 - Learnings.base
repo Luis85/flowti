@@ -4,3 +4,6 @@ filters:
 views:
   - type: table
     name: Table
+    sort:
+      - property: file.mtime
+        direction: DESC

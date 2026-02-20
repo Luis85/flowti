@@ -8,6 +8,7 @@ views:
     order:
       - file.name
       - stage
+      - estimated_increments
     sort:
       - property: file.name
         direction: DESC

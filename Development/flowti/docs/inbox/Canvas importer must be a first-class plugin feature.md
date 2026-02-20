@@ -9,12 +9,14 @@ tags:
   - RB-3
 priority: "2 - high"
 rank:
+planned_in: "[[Cycle 12 - Release Preparation]]"
 related:
   - "[[Starting a Canvas Session]]"
   - "[[I want to import an Obsidian Canvas to add its content to my domain]]"
   - "[[Data Exchange Hub PRD]]"
   - "[[backlog-refinement-2026-02-20]]"
-note: "Release blocker RB-3. Canvas importer scripts exist in var/scripts/canvas-importer/ (core, basefile, canvas, constants, logger, notes). These must be migrated into src/domain/dataExchange/ as a CanvasImportService. Canvas nodes become typed notes (using color/shape mapping). Groups become domain containers. Edges become relationships. Legend group provides custom type mapping."
+  - "[[Cycle Sequence Review 2026-02-20 Azure DevOps Prioritization]]"
+note: "Release blocker RB-3. Moved from Cycle 11 to Cycle 12 per cycle sequence review (Azure DevOps prioritized in Cycle 11). Canvas importer scripts exist in var/scripts/canvas-importer/ (core, basefile, canvas, constants, logger, notes). These must be migrated into src/domain/dataExchange/ as a CanvasImportService. Canvas nodes become typed notes (using color/shape mapping). Groups become domain containers. Edges become relationships. Legend group provides custom type mapping."
 ---
 
 ## Problem

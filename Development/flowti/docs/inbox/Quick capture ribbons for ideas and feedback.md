@@ -7,10 +7,12 @@ description: "Two action ribbons and commands for instant idea and feedback capt
 tags: []
 priority: "2 - high"
 rank:
+planned_in: "[[Cycle 12 - Release Preparation]]"
 related:
   - "[[I want to capture feedback and input as fast as possible]]"
   - "[[I want to quickly capture a note to my inbox to distribute the note later]]"
   - "[[backlog-refinement-2026-02-20]]"
+  - "[[Cycle Sequence Review 2026-02-20 Azure DevOps Prioritization]]"
 note: "Dogfooding enabler. Two ribbon actions: 'Add Idea' and 'Add Feedback'. Each opens a minimal modal (title only). Note created in configured target folder with configured template. Third command: type-based quick-capture that asks for type first, then title. Custom types with custom templates and targets can be configured."
 ---
 
