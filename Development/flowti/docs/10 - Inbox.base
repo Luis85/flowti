@@ -3,15 +3,68 @@ filters:
     - file.inFolder("Development/flowti/docs/inbox")
 views:
   - type: table
-    name: Table
+    name: Open
+    filters:
+      and:
+        - type.isEmpty()
+    order:
+      - file.name
+      - type
+      - tags
+    sort:
+      - property: file.mtime
+        direction: DESC
+    columnSize:
+      file.name: 1057
+      note.type: 245
+      note.stage: 270
+  - type: table
+    name: Bugs
+    filters:
+      and:
+        - type == "Bug"
+        - stage != "fixed"
+    order:
+      - file.name
+      - stage
+      - tags
+    sort:
+      - property: stage
+        direction: ASC
+      - property: file.mtime
+        direction: DESC
+    columnSize:
+      file.name: 1192
+      note.type: 149
+      note.stage: 112
+  - type: table
+    name: Discovery
+    filters:
+      and:
+        - stage == "discovery"
     order:
       - file.name
       - type
       - stage
+      - tags
     sort:
       - property: file.mtime
         direction: DESC
     columnSize:
       file.name: 1192
-      note.type: 93
+      note.type: 149
+      note.stage: 112
+  - type: table
+    name: Index
+    order:
+      - file.name
+      - type
+      - stage
+      - tags
+    sort:
+      - property: file.mtime
+        direction: DESC
+    columnSize:
+      file.name: 1192
+      note.type: 149
       note.stage: 112

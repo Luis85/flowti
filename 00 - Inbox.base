@@ -9,9 +9,6 @@ properties:
 views:
   - type: table
     name: New
-    filters:
-      and:
-        - type.isEmpty()
     order:
       - file.name
       - tags
