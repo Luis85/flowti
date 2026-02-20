@@ -1,14 +1,17 @@
 ---
 type: idea
-stage: discovery
+stage: planned
 origin: inbox
 domain: session
 description: "Start a Canvas Session that opens sidebar monitor and a preconfigured Canvas in main."
 tags: []
-priority: 0 - low
+priority: "2 - high"
 rank:
 related:
-note:
+  - "[[Canvas session workspace opens canvas as session anchor with sidebar monitor]]"
+  - "[[Canvas importer must be a first-class plugin feature]]"
+  - "[[backlog-refinement-2026-02-20]]"
+note: "Priority elevated from low to high in 2026-02-20 refinement. Canvas files identified as core session anchors. Elaborated into dedicated item."
 ---
 When designing I love to use a whiteboard to connect my ideas and thoughts. 
 
