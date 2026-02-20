@@ -340,21 +340,50 @@ Service                 EventBus              EventBridge           Obsidian
 
 ## 7. Deployment View
 
-The plugin is built locally and deployed directly into the Obsidian vault's plugin directory.
+The plugin is built locally and deployed directly into the Obsidian vault's plugin directory. Additional vaults can receive builds automatically via the distribution system.
 
 ```
 Development/flowti/          # Source code
     │
-    │  npm run build
-    │  (vitest → typedoc → tsc → eslint → esbuild)
+    │  npm run build             (fast bundle: esbuild only)
+    │  npm run build:release     (full pipeline: test:coverage → typedoc → esbuild)
+    │  npm run build:distribution (release + copy to additional vaults)
     │
     ▼
-.obsidian/plugins/flowti-ibde/
+.obsidian/plugins/flowti-ibde/   # Primary output (always)
     ├── main.js              # Bundled plugin
     ├── manifest.json        # Plugin metadata
     ├── styles.css           # UI components
     └── .hotreload           # Dev: triggers Obsidian hot reload
+
+    ▼ (distribution only)
+Configured endpoint vaults       # Additional vaults via build-endpoints.json
+    ├── main.js
+    ├── manifest.json
+    ├── styles.css
+    └── data.json            # Preserved (never overwritten)
 ```
+
+### Distribution
+
+The `build:distribution` command distributes build artifacts to additional Obsidian vaults, avoiding manual copy-paste. Endpoints are configured in `docs/reports/build-endpoints.json`:
+
+```json
+{
+  "endpoints": [
+    { "name": "TeamVault", "path": "D:/Vaults/Team/.obsidian/plugins/flowti-ibde", "clean": true },
+    { "name": "TestVault", "path": "C:/Vaults/Test/.obsidian/plugins/flowti-ibde", "clean": false }
+  ]
+}
+```
+
+- **Safety**: endpoint folder basename must match the plugin ID
+- **Clean list**: only known build artifacts are removed before copying (`data.json` is never touched)
+- **Env override**: `BUILD_ENDPOINTS_FILE=path/to/endpoints.json`
+
+### Build Reports
+
+Every production build generates a Markdown report in `docs/reports/builds/` with YAML frontmatter (version, duration, bundle size, warnings, errors).
 
 ---
 
@@ -436,13 +465,13 @@ Use the Component Showcase view (`Flowti: Open Component Showcase`) to preview a
 
 ## 11. Testing
 
-Every component has a corresponding test suite. Tests run as part of the build pipeline (`npm run test && npm run build`) and must pass before the plugin is bundled (`npm run publish`). The test infrastructure uses Vitest with a custom `obsidian-stub.ts` mock that provides minimal stubs for Obsidian's API surface.
+Every component has a corresponding test suite. Tests run as part of the verification pipeline (`npm test`) and must pass before the plugin is bundled. The release pipeline (`npm run build:release`) includes full test coverage. The test infrastructure uses Vitest with a custom `obsidian-stub.ts` mock that provides minimal stubs for Obsidian's API surface.
 
 ```bash
-npm test             # Run all tests
-npm run test:watch   # Watch mode
-npm run test:ui      # Vitest UI with browser-based report
-npm run test:coverage # Coverage report
+npm test              # Verification: eslint → tsc → vitest (the standard check command)
+npm run test:watch    # Verification + Vitest watch mode
+npm run test:ui       # Verification + Vitest UI with browser-based report
+npm run test:coverage # Verification + coverage report
 ```
 
 ---
@@ -470,20 +499,32 @@ npm install
 
 ### Build
 
-The build script runs tests, generates docs, type-checks, lints, and bundles the plugin. The output is automatically placed in `.obsidian/plugins/flowti-ibde/`.
+The output is automatically placed in `.obsidian/plugins/flowti-ibde/`.
 
 ```bash
-npm run build      # esBuild
-npm run dev        # Watch mode with hot-reload
+npm run build               # Fast bundle only (esbuild, NO type-check or tests)
+npm run build:dev           # Watch mode with hot-reload
+npm run build:release       # Full release pipeline: test:coverage → typedoc → esbuild
+npm run build:distribution  # Release + distribute to additional vaults
 ```
 
-### Other Commands
+### Verification
 
 ```bash
-npm run check      # TypeScript + ESLint
-npm run docs       # Generate TypeDoc documentation
-npm run publish    # Full pipeline + coverage report + report preview
+npm test              # Standard verification: eslint → tsc → vitest
+npm run check         # Type-check + lint only (no tests)
+npm run docs          # Generate TypeDoc documentation
 ```
+
+### Pipeline Summary
+
+| Goal | Command | What runs |
+|------|---------|-----------|
+| Verify changes | `npm test` | eslint → tsc → vitest |
+| Fast bundle | `npm run build` | esbuild --production |
+| Dev watch | `npm run build:dev` | esbuild --watch |
+| Release build | `npm run build:release` | test:coverage → typedoc → esbuild --publish |
+| Distribute | `npm run build:distribution` | test:coverage → typedoc → esbuild --distribution |
 
 ### Extending the Plugin
 

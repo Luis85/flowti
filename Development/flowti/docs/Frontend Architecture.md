@@ -657,8 +657,18 @@ Pure content generation file with markdown builders for 8+ entity types. Could s
 1. **Facade preservation**: Public APIs never change. All consumers see the same interface after extraction.
 2. **Zero test changes**: Extracted code is internal — existing test suites pass without modification.
 3. **Composition over inheritance**: Sub-modules receive deps interfaces, not parent class references.
-4. **Build verification**: `npm test` (tsc + eslint + vitest) after every step.
+4. **Build verification**: `npm test` (eslint → tsc → vitest) after every step.
 5. **Incremental extraction**: One module at a time, verify, then proceed. Never batch multiple extractions without build checks.
+
+### Build Pipelines
+
+| Goal | Command | What runs |
+|------|---------|-----------|
+| Verify changes | `npm test` | eslint → tsc → vitest |
+| Fast bundle | `npm run build` | esbuild --production (no checks) |
+| Dev watch | `npm run build:dev` | esbuild --watch |
+| Release build | `npm run build:release` | test:coverage → typedoc → esbuild --publish |
+| Distribute | `npm run build:distribution` | release + copy artifacts to configured vault endpoints |
 6. **No premature abstraction**: Extract when a file exceeds ~600 LOC or when distinct responsibilities are clearly identifiable. Don't extract for the sake of extracting.
 7. **DocService for all docs**: Use `doc.create` events instead of direct `fileSystemClient.createFile()` calls for documentation files.
 

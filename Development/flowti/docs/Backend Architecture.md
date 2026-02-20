@@ -719,4 +719,22 @@ Full type definitions in [[Data Dictionary]].
 
 ---
 
+## Appendix: Build & Distribution Pipeline
+
+| Goal | Command | What runs |
+|------|---------|-----------|
+| Verify changes | `npm test` | eslint → tsc → vitest |
+| Fast bundle | `npm run build` | esbuild --production (no checks) |
+| Dev watch | `npm run build:dev` | esbuild --watch |
+| Release build | `npm run build:release` | test:coverage → typedoc → esbuild --publish |
+| Distribute | `npm run build:distribution` | release + copy artifacts to configured vault endpoints |
+
+**Output**: `.obsidian/plugins/flowti-ibde/` (primary) + optional distribution endpoints via `docs/reports/build-endpoints.json`.
+
+**Build reports**: Every production build generates a Markdown report in `docs/reports/builds/` with YAML frontmatter (version, duration, bundle size).
+
+See [[Testplan and Teststrategy]] for full test strategy and [[README|README §7]] for the deployment view.
+
+---
+
 *See also: [[Frontend Architecture]] · [[Event Catalog]] · [[Data Dictionary]] · [[Testplan and Teststrategy]] · [[Technical Debt Review 2026-02-13]]*

@@ -51,7 +51,7 @@ views:
       - property: file.mtime
         direction: DESC
     columnSize:
-      file.name: 1192
+      file.name: 736
       note.type: 149
       note.stage: 112
   - type: table
@@ -60,11 +60,12 @@ views:
       - file.name
       - type
       - stage
+      - file.ctime
       - tags
     sort:
       - property: file.mtime
         direction: DESC
     columnSize:
-      file.name: 1192
+      file.name: 677
       note.type: 149
       note.stage: 112

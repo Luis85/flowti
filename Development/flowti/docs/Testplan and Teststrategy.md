@@ -51,7 +51,7 @@ This section describes **why** and **how** we test.
 
 | Tool | Purpose |
 |------|---------|
-| **Vitest 4.x** | Unit + integration test runner. Runs all suites in parallel via the forks pool. Configured as the first build gate — every `npm run publish` runs the full suite before typedoc, tsc, eslint, and esbuild |
+| **Vitest 4.x** | Unit + integration test runner. Runs all suites in parallel via the forks pool. Configured as a build gate — every `npm run build:release` and `npm run build:distribution` runs the full suite with coverage before typedoc and esbuild |
 | **`vi.fn()` / `vi.spyOn()`** | Mocking and spying. Services are injected with mock `IStorageProvider` and mock `IEventBus` instances to isolate behavior. Modal constructors are mocked via `vi.mock()` to avoid DOM dependencies |
 | **`vi.useFakeTimers()`** | Deterministic time control for timestamp-dependent tests (batch windows, debounce timers, notice throttles). Ensures reproducible test output regardless of execution speed |
 | **`@vitest/coverage-v8`** | Code coverage via V8's native instrumentation. Reports generated as JSON (`docs/tests/coverage-final.json`) on every build. Target: 100% on pure functions, 80%+ on injectable services |
@@ -70,8 +70,8 @@ This section describes **why** and **how** we test.
 |------|---------|
 | **TypeDoc** | API documentation generator. Runs after tests pass. Produces `docs/reports/codebase.json` and HTML output |
 | **TypeScript (`tsc`)** | Type-checking with `strict: true` and `-skipLibCheck` (avoids node_modules errors). No emit — used purely as a type gate |
-| **ESLint** | Lint rules enforced on `src/` directory. Runs after tsc to catch style and correctness issues |
-| **esbuild** | Bundles `src/main.ts` into `.obsidian/plugins/flowti-ibde/main.js` for Obsidian to load. Production builds use minification |
+| **ESLint** | Lint rules enforced on `src/` directory. Runs before tsc in the `npm run check` step |
+| **esbuild** | Bundles `src/main.ts` into `.obsidian/plugins/flowti-ibde/main.js` for Obsidian to load. Production builds use minification. Distribution builds copy artifacts to configured vault endpoints |
 
 #### Development Methodologies
 
@@ -127,7 +127,8 @@ For easier quality surveillance we will integrate Vitest JSON reports into dedic
 |-------|------|---------|---------|
 | Test results | `docs/reports/tests/testreport.json` | Every `npm run test` | Suite/test pass/fail/skip counts, durations |
 | Coverage | `docs/reports/tests/coverage-final.json` | Every `npm run test:coverage` | Per-file statement/branch/function coverage |
-| Codebase API | `docs/report/codebase.json` | Every `npm run docs` | TypeDoc-generated API reference |
+| Codebase API | `docs/reports/codebase.json` | Every `npm run docs` | TypeDoc-generated API reference |
+| Build reports | `docs/reports/builds/*.md` | Every production/release build | Version, bundle size, duration, warnings |
 
 Planned enhancements:
 
@@ -168,11 +169,12 @@ This section describes **what** is tested — use cases, scenarios, and coverage
 
 Vitest generates test and coverage reports. You find them as JSON files in `docs/tests`.
 
-| Report             | Path                             | Updated                   |
-| ------------------ | -------------------------------- | ------------------------- |
-| Test results       | `docs/tests/testreport.json`     | Every `npm run publish`   |
-| Coverage           | `docs/tests/coverage-final.json` | `npm run test --coverage` |
-| Codebase (TypeDoc) | `docs/codebase/codebase.json`    | Every `npm run publish`   |
+| Report             | Path                             | Updated                            |
+| ------------------ | -------------------------------- | ---------------------------------- |
+| Test results       | `docs/tests/testreport.json`     | Every `npm run test`               |
+| Coverage           | `docs/tests/coverage-final.json` | `npm run test:coverage`            |
+| Codebase (TypeDoc) | `docs/reports/codebase.json`     | Every `npm run docs`               |
+| Build reports      | `docs/reports/builds/*.md`       | Every production/release build     |
 
 ### Current Metrics (Feb 2026)
 
@@ -184,7 +186,9 @@ Vitest generates test and coverage reports. You find them as JSON files in `docs
 | Coverage (statements) | ~31% overall (UI layer largely untested — see [[TD-27 Limited UI component testing\|TD-27]]) |
 | Coverage (branches) | ~36% overall |
 | 100% coverage files | `pathResolver.ts`, `contentGenerator.ts`, `configDocContent.ts`, `CsvParser.ts`, `glob.ts`, `mutex.ts`, `pathUtils.ts`, `folders.ts`, `settings.ts`, `UserService.ts`, `EventBus.ts`, `UiCommandService.ts` |
-| Build pipeline | vitest → typedoc → tsc → eslint → esbuild |
+| Verification pipeline | `npm test` = eslint → tsc → vitest |
+| Release pipeline | `npm run build:release` = test:coverage → typedoc → esbuild --publish |
+| Distribution pipeline | `npm run build:distribution` = test:coverage → typedoc → esbuild --distribution |
 
 ---
 
@@ -837,19 +841,65 @@ These files have full statement and branch coverage:
 
 ---
 
-## Appendix A: Build Pipeline
+## Appendix A: Build Pipelines
+
+### Verification (`npm test`)
 
 ```
-npm run build = vitest run --coverage → typedoc → tsc -noEmit -skipLibCheck → eslint → esbuild
+npm test = npm run check && vitest run
+         = eslint ./src/ → tsc -noEmit -skipLibCheck → vitest run
 ```
 
 | Stage | What it validates |
 |-------|-------------------|
-| `vitest run` | All 1,447 tests pass (32 skipped), coverage report generated |
-| `typedoc` | TSDoc comments generate without errors |
-| `tsc` | Type-checking passes (`strict: true`, `-skipLibCheck` for node_modules) |
 | `eslint` | Lint rules pass on `src/` |
-| `esbuild` | Bundle produces `main.js` in `.obsidian/plugins/flowti-ibde/` |
+| `tsc` | Type-checking passes (`strict: true`, `-skipLibCheck` for node_modules) |
+| `vitest run` | All tests pass |
+
+### Fast Bundle (`npm run build`)
+
+```
+npm run build = node esbuild.config.mjs --production
+```
+
+| Stage | What it validates |
+|-------|-------------------|
+| `esbuild` | Bundle produces `main.js` in `.obsidian/plugins/flowti-ibde/` (minified, no sourcemap) |
+
+### Release (`npm run build:release`)
+
+```
+npm run build:release = npm run test:coverage && npm run docs && node esbuild.config.mjs --publish
+```
+
+| Stage | What it validates |
+|-------|-------------------|
+| `eslint` | Lint rules pass on `src/` |
+| `tsc` | Type-checking passes |
+| `vitest run --coverage` | All tests pass, coverage report generated |
+| `typedoc` | TSDoc comments generate without errors |
+| `esbuild --publish` | Bundle produces `main.js` + build report tagged as release |
+
+### Distribution (`npm run build:distribution`)
+
+```
+npm run build:distribution = npm run test:coverage && npm run docs && node esbuild.config.mjs --distribution
+```
+
+Same as release, plus:
+
+| Stage | What it does |
+|-------|--------------|
+| Distribution | Reads `docs/reports/build-endpoints.json`, copies `main.js`, `styles.css`, `manifest.json`, `.hotreload`, `LICENSE` to each endpoint. Never overwrites `data.json`. |
+
+### Build Reports
+
+Every production build generates a Markdown report in `docs/reports/builds/` with YAML frontmatter containing:
+- Plugin version, build mode, duration
+- Bundle size breakdown (JS, CSS, other)
+- Warning and error counts
+- Node.js and esbuild versions
+- Git commit SHA (when available via `GITHUB_SHA`)
 
 ## Appendix B: Test Environment
 

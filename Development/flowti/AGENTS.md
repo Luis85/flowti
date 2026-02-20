@@ -45,13 +45,54 @@ The **Foreign Folder Watcher** plugin lives at `Development/watcher/` with its o
 ### Commands
 
 ```bash
-npm install        # Install dependencies
-npm run dev        # Watch mode (esbuild --watch)
-npm run build      # Full pipeline: vitest → typedoc → tsc → eslint → esbuild
-npm test           # Run tests (npx vitest run)
+npm install              # Install dependencies
+npm test                 # Verification: eslint → tsc → vitest (the default check command)
+npm run build            # Fast bundle only: esbuild --production (NO type-check or tests)
+npm run build:dev        # Watch mode: esbuild --watch with hot-reload
+npm run build:release    # Full release pipeline: test:coverage → typedoc → esbuild --publish
+npm run build:distribution # Release + distribute to additional vaults via endpoints config
+npm run check            # Type-check + lint only: eslint → tsc -noEmit -skipLibCheck (no tests)
+npm run docs             # Generate TypeDoc documentation
 ```
 
-**Note:** `tsc` uses `-skipLibCheck` to avoid `node_modules/` type errors.
+**Notes:**
+- `tsc` uses `-skipLibCheck` to avoid `node_modules/` type errors.
+- `npm test` is the standard verification command — always use it to validate changes.
+- `npm run build` is intentionally fast (esbuild only) for quick iteration during development.
+
+### Build Pipelines
+
+| Goal | Command | What runs |
+|------|---------|-----------|
+| **Verify changes** | `npm test` | eslint → tsc → vitest |
+| **Fast bundle** | `npm run build` | esbuild --production |
+| **Dev watch** | `npm run build:dev` | esbuild --watch (hot-reload) |
+| **Release build** | `npm run build:release` | test:coverage → typedoc → esbuild --publish |
+| **Release + distribute** | `npm run build:distribution` | test:coverage → typedoc → esbuild --distribution |
+| **Type-check only** | `npm run check` | eslint → tsc (no tests) |
+
+### Distribution
+
+The `build:distribution` command copies build artifacts to additional Obsidian vaults after a successful release build. This avoids manual copy-paste of `main.js`, `styles.css`, and `manifest.json`.
+
+**Endpoints config** (`docs/reports/build-endpoints.json`):
+```json
+{
+  "endpoints": [
+    { "name": "TeamVault", "path": "D:/Vaults/Team/.obsidian/plugins/flowti-ibde", "clean": true },
+    { "name": "TestVault", "path": "C:/Vaults/Test/.obsidian/plugins/flowti-ibde", "clean": false }
+  ]
+}
+```
+
+- **Env override**: `BUILD_ENDPOINTS_FILE=path/to/endpoints.json`
+- **Safety**: endpoint folder basename must match the plugin ID (`flowti-ibde`)
+- **Clean list**: only known build artifacts are removed before copying (never deletes `data.json`)
+- **Artifacts copied**: `main.js`, `styles.css`, `manifest.json`, `.hotreload`, `LICENSE`
+
+### Build Reports
+
+Every production build generates a Markdown report in `docs/reports/builds/` with YAML frontmatter containing build metadata (version, duration, bundle size, warnings, errors). Release builds are prefixed with `release-build-report`.
 
 ## Architecture
 
@@ -362,7 +403,11 @@ tests/                                        # 41 files, 811 tests (4 skipped)
 └── utils/                                    # helpers, glob
 ```
 
-**Build verification:** `npm run build` = vitest → typedoc → tsc -noEmit -skipLibCheck → eslint → esbuild
+**Build verification:** `npm test` = eslint → tsc -noEmit -skipLibCheck → vitest run
+
+**Release pipeline:** `npm run build:release` = test:coverage → typedoc → esbuild --publish
+
+**Distribution pipeline:** `npm run build:distribution` = test:coverage → typedoc → esbuild --distribution (copies artifacts to configured vault endpoints)
 
 ### Adding new features
 
