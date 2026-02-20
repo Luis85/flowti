@@ -1,15 +1,30 @@
 /**
  * build.mjs
  *
- * Enhancement:
- * - Reads an endpoints JSON file containing an array of destination paths
- * - After a successful (non-watch) build, distributes the built plugin folder to each endpoint
+ * Distribution enhancements:
+ * - Distribution runs ONLY if --distribution flag is set (and not --watch)
+ * - Endpoints JSON supports named endpoints + per-endpoint "clean" option
+ * - Clean list approach: remove only known build artifacts (never delete folder, preserve data.json)
  *
- * Endpoints file example (default: docs/reports/build-endpoints.json):
+ * Endpoints config (default): docs/reports/build-endpoints.json
+ *
+ * Supported formats:
+ * 1) New (recommended):
+ * {
+ *   "endpoints": [
+ *     { "name": "TeamVault", "path": "D:/Vaults/Team/.obsidian/plugins/<plugin-id>", "clean": true },
+ *     { "name": "MyVault",   "path": "C:/Vault/.obsidian/plugins/<plugin-id>",       "clean": false }
+ *   ]
+ * }
+ *
+ * 2) Backward compatible:
  * [
- *   "C:/some/obsidian/.obsidian/plugins/your-plugin-id",
- *   "D:/Vaults/TeamVault/.obsidian/plugins/your-plugin-id"
+ *   "C:/.../.obsidian/plugins/<plugin-id>",
+ *   "D:/.../.obsidian/plugins/<plugin-id>"
  * ]
+ *
+ * Env:
+ *   BUILD_ENDPOINTS_FILE=path/to/endpoints.json
  */
 
 import esbuild from "esbuild";
@@ -18,16 +33,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-// --------------------------------------------------
-// ESM __dirname equivalent
-// --------------------------------------------------
+// ==================================================
+// INPUT
+// ==================================================
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// --------------------------------------------------
-// Load manifest (safe)
-// --------------------------------------------------
 
 const readJson = (filePath) => {
 	try {
@@ -38,29 +49,13 @@ const readJson = (filePath) => {
 	}
 };
 
-const manifestPath = path.resolve(__dirname, "manifest.json");
-const manifest = readJson(manifestPath);
-
-const PLUGIN_ID = manifest.id;
-
-// Local dev output (your default)
-const OUTDIR = path.resolve(process.cwd(), "..", "..", ".obsidian", "plugins", PLUGIN_ID);
-
-// Build report output
-const REPORTDIR = path.resolve(process.cwd(), "docs", "reports", "builds");
-
-// Endpoints config (JSON array of paths)
-const ENDPOINTS_FILE =
-	process.env.BUILD_ENDPOINTS_FILE ||
-	path.resolve(process.cwd(), "docs", "reports", "build-endpoints.json");
-
-const isWatch = process.argv.includes("--watch");
-const isPublic = process.argv.includes("--publish");
-const prod = !isWatch;
-
-// --------------------------------------------------
-// Utilities (safe filesystem)
-// --------------------------------------------------
+const safeExists = (p) => {
+	try {
+		return fs.existsSync(p);
+	} catch {
+		return false;
+	}
+};
 
 const ensureDir = (dirPath) => {
 	try {
@@ -68,14 +63,6 @@ const ensureDir = (dirPath) => {
 	} catch (err) {
 		console.error(`[build] Failed to create dir: ${dirPath}`);
 		throw err;
-	}
-};
-
-const safeExists = (p) => {
-	try {
-		return fs.existsSync(p);
-	} catch {
-		return false;
 	}
 };
 
@@ -108,13 +95,54 @@ const safeCopyFile = (src, dest) => {
 	}
 };
 
-const removeDirRecursive = (dirPath) => {
-	if (!safeExists(dirPath)) return;
+const safeRmFile = (p) => {
 	try {
-		fs.rmSync(dirPath, { recursive: true, force: true });
+		fs.rmSync(p, { force: true });
 	} catch (err) {
-		console.warn(`[build] Failed to remove dir: ${dirPath}`);
+		console.warn(`[build] Failed to remove file (ignored): ${p}`);
 		console.warn(err);
+	}
+};
+
+const safeRmDir = (p) => {
+	try {
+		fs.rmSync(p, { recursive: true, force: true });
+	} catch (err) {
+		console.warn(`[build] Failed to remove dir (ignored): ${p}`);
+		console.warn(err);
+	}
+};
+
+// Load manifest
+const manifestPath = path.resolve(__dirname, "manifest.json");
+const manifest = readJson(manifestPath);
+const PLUGIN_ID = manifest.id;
+
+// CLI flags
+const isWatch = process.argv.includes("--watch");
+const isPublic = process.argv.includes("--publish");
+const doDistribution = process.argv.includes("--distribution");
+const prod = !isWatch;
+
+// Paths
+const OUTDIR = path.resolve(process.cwd(), "..", "..", ".obsidian", "plugins", PLUGIN_ID);
+const REPORTDIR = path.resolve(process.cwd(), "docs", "reports", "builds");
+const ENDPOINTS_FILE =
+	process.env.BUILD_ENDPOINTS_FILE ||
+	path.resolve(process.cwd(), "docs", "reports", "build-endpoints.json");
+
+// Builtins for esbuild externals
+const nodeBuiltins = builtinModules.flatMap((m) => [m, `node:${m}`]);
+
+// ==================================================
+// PROCESS
+// ==================================================
+
+const syncAssets = () => {
+	const assets = ["manifest.json", ".hotreload", "LICENSE", "styles.css"];
+	for (const file of assets) {
+		const src = path.resolve(__dirname, file);
+		if (safeExists(src)) safeCopyFile(src, path.join(OUTDIR, file));
 	}
 };
 
@@ -132,26 +160,33 @@ const listFilesRecursive = (rootDir) => {
 	return results;
 };
 
-const copyDirRecursive = (srcDir, destDir) => {
+const copyDirRecursive = (srcDir, destDir, options = {}) => {
+	const { excludeBasenames = new Set(), excludeRelPaths = [] } = options;
+
 	ensureDir(destDir);
+
 	const files = listFilesRecursive(srcDir);
 	for (const absSrc of files) {
 		const rel = path.relative(srcDir, absSrc);
+		const relPosix = rel.replace(/\\/g, "/");
+		const base = path.basename(rel);
+
+		if (excludeBasenames.has(base)) continue;
+
+		const excludedByRel = excludeRelPaths.some((p) => {
+			if (p instanceof RegExp) return p.test(relPosix);
+			return relPosix === String(p);
+		});
+		if (excludedByRel) continue;
+
 		const absDest = path.join(destDir, rel);
 		safeCopyFile(absSrc, absDest);
 	}
 };
 
-const ensureOutdir = () => ensureDir(OUTDIR);
-const ensureReportdir = () => ensureDir(REPORTDIR);
-
-const syncAssets = () => {
-	const assets = ["manifest.json", ".hotreload", "LICENSE", "styles.css"];
-	for (const file of assets) {
-		const src = path.resolve(__dirname, file);
-		if (safeExists(src)) safeCopyFile(src, path.join(OUTDIR, file));
-	}
-};
+// ==================================================
+// OUTPUT
+// ==================================================
 
 const safeLocalTime = (d) => {
 	const pad = (n) => String(n).padStart(2, "0");
@@ -180,15 +215,11 @@ const yamlEscape = (value) => {
 	return str;
 };
 
-// --------------------------------------------------
-// Build Report Generator (safe)
-// --------------------------------------------------
-
 const writeBuildReport = (result, startTime) => {
 	if (!prod) return;
 
 	try {
-		ensureReportdir();
+		ensureDir(REPORTDIR);
 
 		const templatePath = path.resolve(__dirname, "docs", "templates", "Build Report.md");
 		if (!safeExists(templatePath)) {
@@ -197,16 +228,16 @@ const writeBuildReport = (result, startTime) => {
 		}
 
 		const templateBody = safeReadText(templatePath);
-		const endTime = Date.now();
-		const duration = endTime - startTime;
+
+		const duration = Date.now() - startTime;
 		const now = new Date();
 
 		let totalBytes = 0;
 		let jsBytes = 0;
 		let cssBytes = 0;
 		let otherBytes = 0;
-		const outputs = [];
 
+		const outputs = [];
 		if (result?.metafile?.outputs) {
 			for (const [file, info] of Object.entries(result.metafile.outputs)) {
 				const bytes = info.bytes || 0;
@@ -284,9 +315,43 @@ const writeBuildReport = (result, startTime) => {
 	}
 };
 
-// --------------------------------------------------
-// Build Distribution
-// --------------------------------------------------
+// ==================================================
+// DISTRIBUTION
+// ==================================================
+
+// User data that must never be overwritten / deleted:
+const PRESERVE_BASENAMES = new Set(["data.json"]);
+
+// Clean list = only remove known build artifacts before copying.
+const CLEAN_REL_PATHS = [
+	"main.js",
+	"styles.css",
+	"manifest.json",
+	".hotreload",
+	"LICENSE",
+	"main.js.map",
+	"styles.css.map",
+	// Add folders if you have them:
+	// "assets",
+];
+
+const normalizeEndpoint = (ep, idx) => {
+	// New format object
+	if (ep && typeof ep === "object" && !Array.isArray(ep)) {
+		const name = typeof ep.name === "string" && ep.name.trim() ? ep.name.trim() : `endpoint-${idx + 1}`;
+		const p = typeof ep.path === "string" ? ep.path.trim() : "";
+		const clean = Boolean(ep.clean);
+		if (!p) return null;
+		return { name, path: path.resolve(p), clean };
+	}
+
+	// Legacy: string path
+	if (typeof ep === "string" && ep.trim()) {
+		return { name: `endpoint-${idx + 1}`, path: path.resolve(ep.trim()), clean: true };
+	}
+
+	return null;
+};
 
 const readEndpoints = () => {
 	if (!safeExists(ENDPOINTS_FILE)) {
@@ -294,28 +359,56 @@ const readEndpoints = () => {
 		return [];
 	}
 
-	const raw = safeReadText(ENDPOINTS_FILE);
 	let json;
 	try {
-		json = JSON.parse(raw);
+		json = JSON.parse(safeReadText(ENDPOINTS_FILE));
 	} catch (err) {
 		console.warn(`[build] Endpoints file is not valid JSON: ${ENDPOINTS_FILE} (skipping distribution).`);
 		console.warn(err);
 		return [];
 	}
 
-	// Support either ["path1", "path2"] or { "endpoints": ["path1", ...] }
-	const endpoints = Array.isArray(json) ? json : Array.isArray(json?.endpoints) ? json.endpoints : [];
+	const rawEndpoints = Array.isArray(json) ? json : Array.isArray(json?.endpoints) ? json.endpoints : [];
+	const normalized = rawEndpoints.map(normalizeEndpoint).filter(Boolean);
 
-	return endpoints
-		.map((p) => (typeof p === "string" ? p.trim() : ""))
-		.filter(Boolean)
-		.map((p) => path.resolve(p));
+	if (!normalized.length) {
+		console.log(`[build] Endpoints file has no valid endpoints: ${ENDPOINTS_FILE}`);
+	}
+
+	return normalized;
+};
+
+const cleanEndpoint = (endpointDir) => {
+	for (const rel of CLEAN_REL_PATHS) {
+		const target = path.join(endpointDir, rel);
+		if (!safeExists(target)) continue;
+
+		const base = path.basename(target);
+		if (PRESERVE_BASENAMES.has(base)) continue;
+
+		try {
+			const stat = fs.lstatSync(target);
+			if (stat.isDirectory()) safeRmDir(target);
+			else safeRmFile(target);
+		} catch (err) {
+			console.warn(`[build] Failed to clean artifact (ignored): ${target}`);
+			console.warn(err);
+		}
+	}
 };
 
 const distributeBuild = () => {
-	// Only distribute on non-watch builds
-	if (isWatch) return;
+	// Gate distribution behind flag
+	if (!doDistribution) {
+		console.log("[build] Distribution disabled (use --distribution to enable).");
+		return;
+	}
+
+	// Never distribute in watch mode
+	if (isWatch) {
+		console.log("[build] Distribution skipped in watch mode.");
+		return;
+	}
 
 	const endpoints = readEndpoints();
 	if (!endpoints.length) return;
@@ -324,33 +417,37 @@ const distributeBuild = () => {
 
 	let failures = 0;
 
-	for (const dest of endpoints) {
+	for (const ep of endpoints) {
 		try {
-			// Safety: require the destination to contain the plugin id folder name
-			// (prevents accidentally wiping random folders)
-			const destBase = path.basename(dest);
+			// Safety: endpoint folder should end with the plugin id
+			const destBase = path.basename(ep.path);
 			if (destBase !== PLUGIN_ID) {
 				console.warn(
-					`[build] Skipping endpoint (basename must be "${PLUGIN_ID}"): ${dest}`
+					`[build] Skipping "${ep.name}" (basename must be "${PLUGIN_ID}"): ${ep.path}`
 				);
 				continue;
 			}
 
-			// Clean destination then copy
-			removeDirRecursive(dest);
-			ensureDir(dest);
-			copyDirRecursive(OUTDIR, dest);
+			ensureDir(ep.path);
 
-			console.log(`[build] ✅ Distributed to: ${dest}`);
+			if (ep.clean) {
+				cleanEndpoint(ep.path);
+			}
+
+			// Copy build output over, but never overwrite user data
+			copyDirRecursive(OUTDIR, ep.path, {
+				excludeBasenames: PRESERVE_BASENAMES,
+			});
+
+			console.log(`[build] ✅ Distributed to "${ep.name}": ${ep.path}`);
 		} catch (err) {
 			failures++;
-			console.warn(`[build] ❌ Failed to distribute to: ${dest}`);
+			console.warn(`[build] ❌ Failed to distribute to "${ep.name}": ${ep.path}`);
 			console.warn(err);
 		}
 	}
 
 	if (failures > 0) {
-		// Do not hard-fail the build by default, but expose it for CI
 		console.warn(`[build] Distribution completed with ${failures} failure(s).`);
 		if (process.env.CI) process.exitCode = 1;
 	} else {
@@ -358,15 +455,13 @@ const distributeBuild = () => {
 	}
 };
 
-// --------------------------------------------------
-// ESBuild
-// --------------------------------------------------
-
-const nodeBuiltins = builtinModules.flatMap((m) => [m, `node:${m}`]);
+// ==================================================
+// MAIN (orchestration)
+// ==================================================
 
 const run = async () => {
-	ensureOutdir();
-	ensureReportdir();
+	ensureDir(OUTDIR);
+	ensureDir(REPORTDIR);
 
 	const startTime = Date.now();
 
@@ -391,7 +486,6 @@ const run = async () => {
 		throw err;
 	}
 
-	// Asset sync should not crash the build
 	try {
 		syncAssets();
 	} catch (err) {
@@ -410,15 +504,15 @@ const run = async () => {
 		return;
 	}
 
-	// One-off build
 	try {
 		const result = await ctx.rebuild();
+
 		writeBuildReport(result, startTime);
 
-		// Treat esbuild errors as failure
+		// mark build failure on esbuild errors
 		if (result?.errors?.length) process.exitCode = 1;
 
-		// Only distribute if build succeeded (no esbuild errors)
+		// distribute only if build succeeded
 		if (!(result?.errors?.length ?? 0)) {
 			distributeBuild();
 		} else {
