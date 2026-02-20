@@ -10,4 +10,6 @@ tags:
 - Easy Git Publishing
 - Code Editor
 - Chat-Bot Integration
+- Bash commands
+- Console
 - 
