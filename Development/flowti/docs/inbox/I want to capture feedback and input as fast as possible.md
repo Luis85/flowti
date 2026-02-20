@@ -1,8 +1,23 @@
+---
+type: idea
+stage: planned
+origin: inbox
+domain: inbox
+description: "Two action-ribbons and commands for instant idea and feedback capture with minimal friction."
+tags: []
+priority: "2 - high"
+rank:
+related:
+  - "[[Quick capture ribbons for ideas and feedback]]"
+  - "[[backlog-refinement-2026-02-20]]"
+note: "Priority elevated and stage set to planned in 2026-02-20 refinement. Dogfooding enabler — reduces friction to feed the knowledge graph. Elaborated into dedicated item."
+---
+
 I envision two action-ribbons
 - add to input
 - add feedback
 
-After clicking on of those, I get just prompted with the title in a modal. By hitting Enter or clicking Ok, the Note gets created in a target folder. 
+After clicking on of those, I get just prompted with the title in a modal. By hitting Enter or clicking Ok, the Note gets created in a target folder.
 
 I can then either work where I was or get redirected to the new Note.
 

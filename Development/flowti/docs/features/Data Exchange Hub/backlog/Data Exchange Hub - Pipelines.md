@@ -1,7 +1,12 @@
 ---
 type: UserStory
 feature: "[[Data Exchange Hub PRD]]"
-stage: draft
+stage: planned
+priority: "2 - high"
+related:
+  - "[[Pipeline multi-source merge with master data builder]]"
+  - "[[backlog-refinement-2026-02-20]]"
+note: "Priority elevated in 2026-02-20 refinement. Pipeline multi-source merge is release blocker RB-7."
 ---
 ## User Stories
 
