@@ -6,7 +6,7 @@ domain: meta
 description: "Use Flowti itself to maintain, develop, and document Flowti (dogfooding)."
 tags:
   - question
-priority: 01 - medium
+priority: "2 - high"
 rank:
 related:
 note:
