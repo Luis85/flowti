@@ -3,10 +3,11 @@ type: TechDebt
 severity: medium
 category: performance
 layer: domain
-status: open
+status: resolved
 effort: medium
-updated: 2026-02-19
-description: Session workspace performance and note sync behaviour feels sluggish and inconsistent. Needs investigation — profiling, debounce tuning, potential race conditions between forward/reverse sync.
+updated: 2026-02-21
+resolved_in: "Cycle 9 Inc 2"
+description: Session workspace render performance investigated and fixed. Added 16ms render debounce + batched panel refreshes to SessionWorkspaceView. Sync timing validated at 500ms (not 2,500ms as documented). No race conditions found.
 domain: session
 parent: "[[Session Workspaces PRD]]"
 ---
@@ -34,18 +35,46 @@ During real usage of the session workspace, the performance and sync behaviour d
 
 ## Affected Files
 
-- `src/domain/session/SessionService.ts` (~1,662 LOC) — sync handlers, debounce timers
+- `src/domain/session/handlers/syncHandlers.ts` — sync handlers, debounce timers
 - `src/domain/session/helpers.ts` (~843 LOC) — `generateSessionSummaryBody()`, `reverseParseSessionNotes()`
-- `src/ui/session/SessionWorkspaceView.ts` (~537 LOC) — render subscriptions
-- `src/ui/session/SessionWorkspaceSubscriptions.ts` (~304 LOC) — 24+ event listeners
+- `src/ui/SessionWorkspaceView.ts` — render scheduling, panel refresh batching
+- `src/ui/session/SessionWorkspaceSubscriptions.ts` — 27 event listeners
 
-## Resolution
+## Resolution (Cycle 9 Inc 2, 2026-02-21)
 
-Investigate first, then decide on fixes. Potential mitigations:
-- Tune debounce values based on profiling
-- Batch related event emissions to reduce render frequency
-- Move file I/O to background where possible
-- Add render coalescing in SessionWorkspaceView
+### Findings
+
+| Area | Finding | Severity |
+|------|---------|----------|
+| **Sync timing** | `SESSION_NOTES_SYNC_DELAY_MS = 500ms` (both forward and reverse) — not 2,500ms as documented in TD-100. 500ms is appropriate for responsiveness. | LOW — documentation discrepancy only |
+| **Render debounce** | SessionWorkspaceView had **NO render debounce** (unlike BaseHubView's 16ms). Every event handler called `render()` synchronously, rebuilding all DOM panels immediately. | **HIGH** — fixed |
+| **Event cascade** | 27 event listeners, 13 triggered full `render()`, rapid cascading events (e.g. complete → closure.started → closure.completed) caused 3+ full DOM rebuilds in quick succession. | **MEDIUM** — fixed |
+| **Reverse sync batching** | `session.notes.reverseSynced` handler triggered 3 separate panel refreshes (goals, tasks, notes) inline — no batching. | **MEDIUM** — fixed |
+| **Race conditions** | Forward/reverse sync loop prevention is **safe** — `lastSyncedContent` cache in reverse sync correctly detects and skips content it just wrote. | NONE |
+| **Listener accumulation** | All 27 listeners are properly unsubscribed in `onClose()`. No accumulation risk. | NONE |
+
+### Fixes Applied
+
+1. **Render debouncing** — Added `scheduleRender()` method to SessionWorkspaceView with 16ms debounce (matching BaseHubView pattern). All full re-render triggers now use `scheduleRender()` instead of direct `render()`. Only `session.timer.completed` and `session.deleted` retain immediate `render()` (important state transitions that must be visible instantly).
+
+2. **Panel refresh batching** — Added `schedulePanelRefresh(panelId)` method that collects panel refresh requests in a `Set<string>` and flushes them in a single 16ms timer callback. 10 panel types supported: goals, tasks, notes, activity, decisions, reflections, energy, output, overload, actions.
+
+3. **Subscription event categorization** — Reorganized all 27 subscriptions into 4 categories:
+   - **Synchronous** (2): timer.tick (lightweight DOM update), timer.completed (important transition)
+   - **Debounced full re-render** (11): lifecycle events, closure, notes/canvas file set, context bindings, activity filter, path reconciliation, deleted
+   - **Debounced panel refresh** (12): energy, goals, tasks, decisions, reflections, notes, artifacts, activity, output, overload, reverse sync (batched)
+   - **Async passthrough** (2): workspace state save/restore
+
+### Outcome
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Render debounce | None | 16ms |
+| Panel refresh batching | None | 16ms with Set<string> coalescing |
+| Full renders per lifecycle transition | 1-3 (cascade) | 1 (coalesced) |
+| Reverse sync panel refreshes | 3 synchronous calls | 1 batched call (3 panels) |
+| Tests passing | 2,794 | 2,805 (+11 new/updated) |
+| Files modified | — | 4 source + 2 test |
 
 ## Related
 

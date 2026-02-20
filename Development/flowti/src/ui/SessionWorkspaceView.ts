@@ -56,6 +56,9 @@ export class SessionWorkspaceView extends ItemView {
 	private sessionService: SessionService;
 	private unsubscribes: (() => void)[] = [];
 	private session: Session | null = null;
+	private renderTimer: ReturnType<typeof setTimeout> | null = null;
+	private panelRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+	private pendingPanelRefreshes = new Set<string>();
 
 	// Panels
 	private timerPanel: SessionTimerPanel | null = null;
@@ -129,6 +132,9 @@ export class SessionWorkspaceView extends ItemView {
 	}
 
 	async onClose(): Promise<void> {
+		if (this.renderTimer !== null) { clearTimeout(this.renderTimer); this.renderTimer = null; }
+		if (this.panelRefreshTimer !== null) { clearTimeout(this.panelRefreshTimer); this.panelRefreshTimer = null; }
+		this.pendingPanelRefreshes.clear();
 		if (this.session && this.sessionService.workspaceSessionId === this.session.id) {
 			this.sessionService.workspaceSessionId = null;
 		}
@@ -139,6 +145,49 @@ export class SessionWorkspaceView extends ItemView {
 
 	updateTimerDisplay(remainingMs: number): void {
 		this.timerPanel?.updateDisplay(remainingMs);
+	}
+
+	// ── Render scheduling ────────────────────────────────────
+
+	/**
+	 * Debounced render — coalesces multiple render requests within 16ms
+	 * into a single DOM rebuild. Mirrors BaseHubView.scheduleRender().
+	 */
+	scheduleRender(): void {
+		if (this.renderTimer !== null) clearTimeout(this.renderTimer);
+		this.renderTimer = setTimeout(() => {
+			this.renderTimer = null;
+			this.render();
+		}, 16);
+	}
+
+	/**
+	 * Debounced panel refresh — coalesces multiple panel refresh requests
+	 * within 16ms into a single batch. Avoids redundant per-panel updates
+	 * when multiple events fire in quick succession (e.g. reverse sync).
+	 */
+	schedulePanelRefresh(panelId: string): void {
+		this.pendingPanelRefreshes.add(panelId);
+		if (this.panelRefreshTimer !== null) return;
+		this.panelRefreshTimer = setTimeout(() => {
+			this.panelRefreshTimer = null;
+			const pending = new Set(this.pendingPanelRefreshes);
+			this.pendingPanelRefreshes.clear();
+			for (const id of pending) {
+				switch (id) {
+					case "goals": this.goalsPanel?.refreshGoals(); break;
+					case "tasks": this.executionPanel?.refreshTasks(); break;
+					case "notes": this.notesPanel?.updateNotes(this.session?.notes ?? ""); break;
+					case "activity": this.activityPanel?.refreshList(); break;
+					case "decisions": this.decisionPanel?.refreshList(); break;
+					case "reflections": this.reflectionPanel?.refreshList(); break;
+					case "energy": this.energyPanel?.refreshEnergy(); break;
+					case "output": this.outputPanel?.refreshList(); break;
+					case "overload": this.overloadAlert?.refreshAlert(); break;
+					case "actions": this.renderActions(); break;
+				}
+			}
+		}, 16);
 	}
 
 	// ── Rendering ────────────────────────────────────────────
@@ -524,13 +573,15 @@ export class SessionWorkspaceView extends ItemView {
 			setSession: (s) => { this.session = s; },
 			refreshSession: () => this.refreshSession(),
 			render: () => this.render(),
+			scheduleRender: () => this.scheduleRender(),
+			schedulePanelRefresh: (id) => this.schedulePanelRefresh(id),
 			renderActions: () => this.renderActions(),
 			captureWorkspaceState: (id) => captureWorkspaceState(this.buildHelperContext(), id),
 			restoreWorkspaceState: (id, state) => restoreWorkspaceState(this.buildHelperContext(), id, state),
 			getTimerPanel: () => this.timerPanel,
 			getEnergyPanel: () => this.energyPanel,
 			getGoalsPanel: () => this.goalsPanel,
-		getExecutionPanel: () => this.executionPanel,
+			getExecutionPanel: () => this.executionPanel,
 			getNotesPanel: () => this.notesPanel,
 			getActivityPanel: () => this.activityPanel,
 			getDecisionPanel: () => this.decisionPanel,

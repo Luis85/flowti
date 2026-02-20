@@ -4,7 +4,7 @@ feature: "[[Session Workspaces PRD]]"
 stage: in-progress
 cycle: 9
 date_planned: 2026-02-19
-date_updated: 2026-02-20
+date_updated: 2026-02-21
 pbis:
   - "[[PBI-SW-015 Activity Intelligence]]"
 bugs: []
@@ -146,6 +146,14 @@ interface SessionHandlerContext {
 **Documentation intent:** Performance report document. Update TD-100 status.
 
 **Deliverable:** Performance report + any fixes applied. TD-100 resolved or mitigated.
+
+**Delivery (2026-02-21):** Investigation complete. **HIGH** finding: SessionWorkspaceView had no render debounce — every event caused immediate full DOM rebuild. Added 16ms `scheduleRender()` + `schedulePanelRefresh()` batching (matching BaseHubView pattern). Sync timing validated at 500ms (corrected documentation discrepancy). No race conditions found — `lastSyncedContent` cache works correctly. All 2,805 tests passing, 0 regressions. TD-100 status: **resolved**.
+- [x] Performance report documenting current sync timings (findings table in TD-100)
+- [x] Forward sync debounce value validated (500ms — not 2,500ms as documented)
+- [x] Reverse sync suppression window validated (500ms)
+- [x] No race conditions between forward and reverse sync (confirmed safe)
+- [x] Large session performance acceptable (render coalescing eliminates cascade)
+- [x] TD-100 status: resolved
 
 ### Inc 3: Activity Intelligence (PBI-SW-015)
 

@@ -348,6 +348,7 @@ describe("SessionWorkspaceView", () => {
 				sessionId: "session-1",
 				durationMinutes: 45,
 			});
+			vi.advanceTimersByTime(16); // flush render debounce
 
 			const content = getContentEl(view);
 			const timer = content.querySelector(".ft-timer-display");
@@ -476,6 +477,7 @@ describe("SessionWorkspaceView", () => {
 				sessionId: "session-1",
 				goal: newGoal,
 			});
+			vi.advanceTimersByTime(16); // flush panel refresh debounce
 
 			const content = getContentEl(view);
 			const goals = content.querySelectorAll(".ft-goal-row");
@@ -501,6 +503,7 @@ describe("SessionWorkspaceView", () => {
 				goalId: "g1",
 				completed: true,
 			});
+			vi.advanceTimersByTime(16); // flush panel refresh debounce
 
 			const content = getContentEl(view);
 			const checkbox = content.querySelector(".ft-goal-row input[type='checkbox']") as HTMLInputElement;
@@ -527,6 +530,7 @@ describe("SessionWorkspaceView", () => {
 				sessionId: "session-1",
 				goalId: "g2",
 			});
+			vi.advanceTimersByTime(16); // flush panel refresh debounce
 
 			const content = getContentEl(view);
 			const goals = content.querySelectorAll(".ft-goal-row");
@@ -573,13 +577,18 @@ describe("SessionWorkspaceView", () => {
 
 		it("session.notes.updated updates textarea when not focused", async () => {
 			const session = makeSession({ notes: "old" });
-			const { view } = createView(eventBus, session);
+			const { view, service } = createView(eventBus, session);
 			await view.onOpen();
+
+			// Service returns session with updated notes (as SessionService does)
+			const updatedSession = makeSession({ notes: "updated from elsewhere" });
+			service.getSessionById.mockReturnValue(updatedSession);
 
 			await eventBus.emit("session.notes.updated", {
 				sessionId: "session-1",
 				notes: "updated from elsewhere",
 			});
+			vi.advanceTimersByTime(16); // flush panel refresh debounce
 
 			const content = getContentEl(view);
 			const textarea = content.querySelector("textarea") as HTMLTextAreaElement;
@@ -656,6 +665,7 @@ describe("SessionWorkspaceView", () => {
 				sessionId: "session-1",
 				artifact: { path: "src/new-file.ts", action: "modified" as const, timestamp: new Date().toISOString() },
 			});
+			vi.advanceTimersByTime(16); // flush panel refresh debounce
 
 			const content = getContentEl(view);
 			// Grouped: 2 events for same file → 1 row with ×2 count badge
@@ -760,6 +770,7 @@ describe("SessionWorkspaceView", () => {
 				sessionId: "session-1",
 				path: "03 - Resources/Sessions/New.md",
 			});
+			vi.advanceTimersByTime(16); // flush render debounce
 
 			const content = getContentEl(view);
 			expect(content.querySelector(".ft-notesfile-link")).not.toBeNull();
@@ -862,6 +873,7 @@ describe("SessionWorkspaceView", () => {
 
 			const completedSession = { ...session, status: "completed" as const, completedAt: new Date().toISOString() };
 			await eventBus.emit("session.completed", { session: completedSession });
+			vi.advanceTimersByTime(16); // flush render debounce
 
 			const content = getContentEl(view);
 			// After completion, only "Save as Template" remains (no lifecycle buttons)
@@ -881,6 +893,7 @@ describe("SessionWorkspaceView", () => {
 			service.getSessionById.mockReturnValue(updatedSession);
 
 			await eventBus.emit("session.paths.updated", { sessionIds: ["session-1"] });
+			vi.advanceTimersByTime(16); // flush render debounce
 
 			const content = getContentEl(view);
 			const focusSection = content.querySelector(".ft-session-workspace-focus");
@@ -971,6 +984,7 @@ describe("SessionWorkspaceView", () => {
 				sessionId: "session-1",
 				activity: newActivity,
 			});
+			vi.advanceTimersByTime(16); // flush panel refresh debounce
 
 			const content = getContentEl(view);
 			const rows = content.querySelectorAll(".ft-activity-row");
@@ -1114,6 +1128,7 @@ describe("SessionWorkspaceView", () => {
 				sessionId: "session-1",
 				binding,
 			});
+			vi.advanceTimersByTime(16); // flush render debounce
 
 			const content = getContentEl(view);
 			const rows = content.querySelectorAll(".ft-context-row");
@@ -1137,6 +1152,7 @@ describe("SessionWorkspaceView", () => {
 				sessionId: "session-1",
 				bindingId: "ctx-1",
 			});
+			vi.advanceTimersByTime(16); // flush render debounce
 
 			const content = getContentEl(view);
 			const rows = content.querySelectorAll(".ft-context-row");
@@ -1256,6 +1272,7 @@ describe("SessionWorkspaceView", () => {
 				sessionId: "session-1",
 				decision: updatedSession.decisions[0],
 			});
+			vi.advanceTimersByTime(16); // flush panel refresh debounce
 
 			const content = getContentEl(view);
 			expect(content.textContent).toContain("New Decision");
@@ -1275,6 +1292,7 @@ describe("SessionWorkspaceView", () => {
 				sessionId: "session-1",
 				decisionId: "d1",
 			});
+			vi.advanceTimersByTime(16); // flush panel refresh debounce
 
 			const content = getContentEl(view);
 			expect(content.textContent).not.toContain("Old Decision");
@@ -1412,6 +1430,7 @@ describe("SessionWorkspaceView", () => {
 				sessionId: "session-1",
 				artifact: session.outputArtifacts[0],
 			});
+			vi.advanceTimersByTime(16); // flush panel refresh debounce
 
 			expect(content.querySelectorAll(".ft-output-row").length).toBe(1);
 		});
