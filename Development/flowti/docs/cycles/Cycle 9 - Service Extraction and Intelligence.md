@@ -4,10 +4,14 @@ feature: "[[Session Workspaces PRD]]"
 stage: planned
 cycle: 9
 date_planned: 2026-02-19
+date_updated: 2026-02-20
 pbis:
   - "[[PBI-SW-015 Activity Intelligence]]"
 bugs: []
-bugs_fixed_precycle: []
+bugs_fixed_precycle:
+  - "[[The Activity Log does not respect set filters]]"
+  - "[[Sessions list does not disambiguate same-titled sessions]]"
+  - "[[Closure review does not open when completing from dashboard with sidebar occupied]]"
 tech_debt:
   - "[[TD-101 SessionService Handler Extraction]]"
   - "[[TD-100 Session performance and sync behaviour investigation]]"
@@ -19,10 +23,10 @@ estimated_tests: 60
 
 ## Situation Assessment
 
-### Pre-Cycle State (2026-02-19)
+### Pre-Cycle State (2026-02-20)
 
 **Plugin health:**
-- 2,768 tests passing (32 skipped), 109 test suites
+- 2,794 tests passing (32 skipped), 110 test suites
 - Clean working tree, all builds green
 - `npm test` pipeline: tsc + eslint + vitest
 
@@ -31,7 +35,12 @@ estimated_tests: 60
 - v1 scope: 8/8 FRs delivered, 7/8 v1 PBIs valid (PBI-SW-007 removed)
 - v2 scope: 7/10 FRs delivered (FR-09, FR-10, FR-11, FR-12, FR-13, FR-14, FR-16), 6/8 v2 PBIs done (SW-010, SW-011, SW-012, SW-013, SW-014, SW-016)
 - 98 total session events (90 active)
-- SessionService at 1,729 LOC — 429 lines above 1,300 threshold
+- SessionService at **1,766 LOC** — 466 lines above 1,300 threshold
+
+**Pre-cycle hotfixes (2026-02-20):**
+- Activity log display-time filtering (8 new tests, 4 source files + 8 test files)
+- Session title disambiguation in User Hub sessions list (1 new test)
+- Closure review auto-open on `session.closure.started` (2 source files)
 
 **Carry-forward from Cycle 8:**
 - TD-101: SessionService Handler Extraction (promoted from stretch to required)
@@ -63,33 +72,45 @@ estimated_tests: 60
 | Module | Handlers | Est. LOC |
 |--------|----------|----------|
 | `lifecycleHandlers.ts` | start, pause, resume, complete, archive, rerun | ~180 |
-| `fieldHandlers.ts` | setIntent, setMode, setEnergy, updateNotes, updateDuration | ~80 |
+| `fieldHandlers.ts` | setIntent, setMode, setEnergy, updateNotes, updateDuration, links, context, decisions | ~160 |
 | `taskHandlers.ts` | goalAdd/Toggle/Remove/Reorder, addTask/toggleTask/removeTask/reorderTasks | ~180 |
-| `reflectionHandlers.ts` | reflectionAdd, reflectionRemove, recordDecision | ~80 |
-| `syncHandlers.ts` | scheduleSyncNotesFile, syncNotesFile, executeReverseSync, scheduleReverseSync | ~100 |
-| `trackingHandlers.ts` | trackActivity, checkCognitiveOverload | ~60 |
+| `closureHandlers.ts` | completeClosure, skipClosure, finishReview | ~70 |
+| `syncHandlers.ts` | scheduleSyncNotesFile, syncNotesFile, executeReverseSync, scheduleReverseSync | ~120 |
+| `trackingHandlers.ts` | trackActivity, trackArtifact, checkCognitiveOverload, pathReconciliation | ~120 |
 
 **SessionHandlerContext interface:**
 ```typescript
 interface SessionHandlerContext {
-    eventBus: EventBus;
+    eventBus: IEventBus;
     state: SessionState;
-    fileSystem: FileSystemClient | null;
+    fileSystem: IFileSystemClient | null;
     save(): void;
     scheduleSyncNotesFile(sessionId: string): void;
     checkCognitiveOverload(sessionId: string): void;
+    globalActivityFilter: string[];
     noteSyncTimers: Map<string, ReturnType<typeof setTimeout>>;
-    noteSyncWriteTimestamps: Map<string, number>;
+    lastSyncedContent: Map<string, string>;
     reverseSyncTimers: Map<string, ReturnType<typeof setTimeout>>;
-    overloadReasonKeys: Map<string, string>;
+    lastOverloadReasons: Map<string, string>;
 }
 ```
 
-**Target:** SessionService reduced from 1,729 → ~580 LOC (constructor + public API + delegation).
+**Target:** SessionService reduced from 1,766 → ~600 LOC (constructor + public API + delegation).
 
-**Tests:** Existing 224 service tests must pass unchanged. New handler-level unit tests optional.
+**Acceptance criteria:**
+- [ ] All handler methods extracted to `src/domain/session/handlers/` modules
+- [ ] `SessionHandlerContext` interface defined and implemented
+- [ ] SessionService delegates to handler modules (1-2 line methods)
+- [ ] SessionService LOC < 700
+- [ ] All existing 224 service tests pass unchanged
+- [ ] `npm test` green (2,794+ tests, 0 regressions)
+- [ ] `npm run build` passes
 
-**Verification:** `npm test` green after each module extraction.
+**Test intent:** Existing 224 service tests validate behavior is preserved. New handler-level tests optional — only add if handler has complex standalone logic not covered by service tests.
+
+**Documentation intent:** Update TD-101 status to resolved. Update MEMORY.md with new handler module paths.
+
+**Est. LOC:** ~830 (new handler modules) + ~-1,100 (removed from SessionService) = net -270 LOC reduction in SessionService
 
 ### Inc 2: Session Performance Investigation (TD-100)
 
@@ -103,6 +124,18 @@ interface SessionHandlerContext {
 - Fix any race conditions found
 - Document performance characteristics
 
+**Acceptance criteria:**
+- [ ] Performance report documenting current sync timings
+- [ ] Forward sync debounce value validated or adjusted
+- [ ] Reverse sync suppression window validated or adjusted
+- [ ] No race conditions between forward and reverse sync
+- [ ] Large session performance acceptable (sync < 500ms)
+- [ ] TD-100 status: resolved or mitigated with documented findings
+
+**Test intent:** Add timing assertions if performance regressions are likely. Profile tests may be `it.skip` for CI (manual profiling).
+
+**Documentation intent:** Performance report document. Update TD-100 status.
+
 **Deliverable:** Performance report + any fixes applied. TD-100 resolved or mitigated.
 
 ### Inc 3: Activity Intelligence (PBI-SW-015)
@@ -115,7 +148,18 @@ interface SessionHandlerContext {
 - Compact stats row rendered in session workspace
 - Analytics included in session summary (note sync)
 
-**Effort:** Small — pure computation on existing data, ~60 LOC production, ~15 tests.
+**Acceptance criteria:**
+- [ ] `computeActivityIntelligence()` returns correct counters for all fields
+- [ ] Stats row visible in session workspace (both sidebar and main)
+- [ ] Analytics included in session summary when syncing notes
+- [ ] Pure function — no side effects, < 16ms computation
+- [ ] `npm test` passes with new tests
+
+**Test intent:** ~15 tests: edge cases (empty session, single activity, many activities), counter accuracy, time computation.
+
+**Documentation intent:** Update PRD FR-15 status to delivered. Update FRI if applicable.
+
+**Effort:** Small — pure computation on existing data, ~100 LOC production, ~15 tests.
 
 ### Inc 4: Hardening + Debt Cleanup
 
@@ -127,13 +171,24 @@ interface SessionHandlerContext {
 - Review and close any newly-resolved TD items
 - Update documentation with Cycle 9 delivery
 
+**Acceptance criteria:**
+- [ ] MAX_REFLECTIONS (200) enforced in handleReflectionAdd
+- [ ] MAX_EXECUTION_TASKS (50) enforced in addTask
+- [ ] Guard behavior tested (cap reached → event emitted, no addition)
+- [ ] TD items reviewed — resolved items closed
+- [ ] Cycle retrospective documented
+
+**Test intent:** ~10 tests: cap enforcement for reflections and tasks, boundary conditions.
+
+**Documentation intent:** Close resolved TD items. Update cycle plan stage to delivered. Three Amigos review preparation.
+
 ---
 
 ## Increment Dependencies
 
 ```
 Inc 1: TD-101 extraction — independent, must complete first
-Inc 2: TD-100 investigation — can run parallel with Inc 1 if careful, easier after extraction
+Inc 2: TD-100 investigation — easier after extraction (handler modules are clearer)
 Inc 3: PBI-SW-015 — independent of Inc 1/2
 Inc 4: Hardening — after all others
 ```
@@ -157,12 +212,23 @@ Inc 4: Hardening — after all others
 
 | Metric | Target | Notes |
 |--------|--------|-------|
-| SessionService LOC | < 700 | Down from 1,729 |
-| Test suite | All 2,768+ passing | Zero regressions |
+| SessionService LOC | < 700 | Down from 1,766 |
+| Test suite | All 2,794+ passing | Zero regressions |
 | TD-101 status | Resolved | Handler extraction complete |
 | TD-100 status | Resolved or Mitigated | Performance investigated |
 | FR-15 status | Done | Activity Intelligence delivered |
 | FRI | 31/35 | +1 from FR-15 delivery |
+
+---
+
+## Completed Pre-Cycle
+
+| Item | Date | Description |
+|------|------|-------------|
+| Activity log filter bug | 2026-02-20 | Display-time filtering with retroactive support, completed/archived bypass |
+| Session title disambiguation | 2026-02-20 | Added creation date+time to session list rows |
+| Closure review auto-open | 2026-02-20 | Added `session.closure.started` listener + `sessionId` in `setViewState()` |
+| Inbox review | 2026-02-20 | 3 bug tickets created/updated (all fixed) |
 
 ---
 
