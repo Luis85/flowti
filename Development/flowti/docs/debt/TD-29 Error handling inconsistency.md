@@ -62,3 +62,10 @@ Partially mitigated in refactoring phase 2026-02-14:
 - Severity downgraded from medium to low
 - Remaining error handling inconsistency (62 catch blocks, 4 strategies) documented but not fully addressed
 - Broader convention codified in [[ADR-021 Error Handling Convention]] (2026-02-15)
+
+## Related
+
+- [[TD-105 void emit fire-and-forget masks handler failures]] — 60+ `void emit()` sites that suppress handler errors
+- [[TD-107 DataExchangeService catch blocks assume child service emitted error]] — empty catch blocks in DataExchangeService
+- [[TD-106 HubRegistry.openHub missing error handling for Obsidian API]] — missing try-catch on workspace API calls
+- [[TD-117 ESLint config missing no-floating-promises rule]] — tooling gap that would catch these patterns
