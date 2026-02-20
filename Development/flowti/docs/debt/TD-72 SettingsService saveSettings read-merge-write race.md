@@ -47,3 +47,8 @@ Option 1 is preferred for consistency with other domain services.
 ## Affected Files
 
 - `src/domain/settings/SettingsService.ts` (lines 163-172)
+
+## Related
+
+- [[TD-33 Storage save race condition]] — same class of issue, resolved for domain services via PathMutex
+- [[TD-115 saveSettings unsafe cast of loadData result]] — additional saveSettings issue (type safety)

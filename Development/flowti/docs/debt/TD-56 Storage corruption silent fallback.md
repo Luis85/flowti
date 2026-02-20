@@ -32,3 +32,8 @@ Emit a `storage.fallback` event or log a visible warning when fallback occurs. T
 ## Affected Files
 
 - TypedStorage implementation
+
+## Related
+
+- [[TD-114 loadSettings warning lost because logger not yet initialized]] — similar silent failure: settings validation warning is lost because logger isn't ready
+- [[TD-115 saveSettings unsafe cast of loadData result]] — related type safety issue in settings persistence
