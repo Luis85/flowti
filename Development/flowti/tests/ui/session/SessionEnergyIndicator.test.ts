@@ -51,6 +51,7 @@ function makeDeps(session: Session): { deps: SessionPanelDeps; eventBus: EventBu
 			openFile: vi.fn(),
 			revealFolder: vi.fn(),
 			updateActivityFilter: vi.fn(),
+			getGlobalActivityFilter: () => [],
 		},
 		eventBus,
 	};

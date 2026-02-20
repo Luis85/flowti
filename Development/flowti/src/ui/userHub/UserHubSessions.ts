@@ -138,6 +138,13 @@ export class UserHubSessions {
 		// Title
 		row.createSpan({ text: session.title });
 
+		// Date hint — always shown to disambiguate same-titled sessions
+		const created = new Date(session.createdAt);
+		row.createSpan({
+			text: `${created.getMonth() + 1}/${created.getDate()} ${String(created.getHours()).padStart(2, "0")}:${String(created.getMinutes()).padStart(2, "0")}`,
+			cls: "ft-text-muted ft-text-sm",
+		}).style.cssText = "margin-left:auto;font-size:11px;color:var(--text-faint);";
+
 		// Type badge
 		row.createSpan({
 			text: SESSION_TYPE_LABELS[session.type] ?? session.type,

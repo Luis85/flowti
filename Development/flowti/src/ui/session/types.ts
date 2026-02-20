@@ -12,4 +12,5 @@ export interface SessionPanelDeps {
 	openFile: (path: string) => void;
 	revealFolder: (path: string) => void;
 	updateActivityFilter: (sessionId: string, filter: string[]) => void;
+	getGlobalActivityFilter: () => string[];
 }

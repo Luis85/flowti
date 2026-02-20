@@ -179,6 +179,7 @@ export class SessionSetup {
 				void leaf.setViewState({
 					type: VIEW_TYPE_SESSION_WORKSPACE,
 					active: true,
+					state: sessionId ? { sessionId } : undefined,
 				});
 				this.deps.app.workspace.revealLeaf(leaf);
 			}

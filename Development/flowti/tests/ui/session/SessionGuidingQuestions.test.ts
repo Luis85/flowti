@@ -49,6 +49,7 @@ function makeDeps(session: Session): SessionPanelDeps {
 		openFile: vi.fn(),
 		revealFolder: vi.fn(),
 		updateActivityFilter: vi.fn(),
+		getGlobalActivityFilter: () => [],
 	};
 }
 

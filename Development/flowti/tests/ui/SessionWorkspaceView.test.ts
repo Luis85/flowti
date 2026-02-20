@@ -61,6 +61,7 @@ function createMockSessionService(session: Session | null) {
 		getSavedTemplates: vi.fn(() => []),
 		workspaceSessionId: session?.id ?? null,
 		updateActivityFilter: vi.fn(),
+		globalActivityFilter: [] as string[],
 	};
 }
 

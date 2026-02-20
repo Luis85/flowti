@@ -284,6 +284,23 @@ describe("UserHubSessions", () => {
 
 			expect(masterEl.textContent).toContain("Service Design");
 		});
+
+		it("should disambiguate same-titled sessions with creation date", () => {
+			const sessions = [
+				makeSession({ id: "s1", title: "Design Session", createdAt: new Date("2026-02-16T09:00:00").toISOString() }),
+				makeSession({ id: "s2", title: "Design Session", createdAt: new Date("2026-02-16T14:30:00").toISOString() }),
+			];
+			const state = makeState(sessions);
+			const comp = new UserHubSessions(masterEl, detailEl, makeDeps(state));
+
+			comp.renderMaster("");
+
+			// Both rows rendered with date hints for disambiguation
+			const rows = masterEl.querySelectorAll(".ft-catalog-row");
+			expect(rows).toHaveLength(2);
+			expect(rows[0].textContent).toContain("09:00");
+			expect(rows[1].textContent).toContain("14:30");
+		});
 	});
 
 	// ── Collapsible categories ────────────────────────────────

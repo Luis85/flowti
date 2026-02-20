@@ -1,6 +1,7 @@
 import { setIcon } from "obsidian";
 import type { SessionPanelDeps } from "./types";
 import type { Session, SessionActivity } from "../../domain/session/types";
+import { isExcluded } from "../../domain/session/helpers";
 import { attachFolderSuggest } from "../FolderSuggest";
 
 /** A file-level group of activity entries (one row per file). */
@@ -35,6 +36,7 @@ export function groupActivityByFile(entries: readonly SessionActivity[]): Groupe
 
 export class SessionActivityPanel {
 	private activityEl: HTMLElement | null = null;
+	private countEl: HTMLElement | null = null;
 	private deps: SessionPanelDeps;
 
 	constructor(private container: HTMLElement, deps: SessionPanelDeps) {
@@ -48,10 +50,11 @@ export class SessionActivityPanel {
 		const headerRow = section.createDiv();
 		headerRow.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:8px;";
 		headerRow.createEl("strong", { text: "Activity" });
-		headerRow.createEl("span", {
+		this.countEl = headerRow.createEl("span", {
 			text: `(${session.activity.length})`,
 			cls: "ft-text-muted",
-		}).style.cssText = "color:var(--text-muted);font-size:12px;";
+		});
+		this.countEl.style.cssText = "color:var(--text-muted);font-size:12px;";
 
 		this.renderActivityFilter(section, session);
 
@@ -101,17 +104,36 @@ export class SessionActivityPanel {
 		});
 	}
 
+	private getFilteredActivity(session: Session): readonly SessionActivity[] {
+		if (session.status === "completed" || session.status === "archived") {
+			return session.activity;
+		}
+		const globalFilter = this.deps.getGlobalActivityFilter();
+		if (globalFilter.length === 0 && session.activityFilter.length === 0) {
+			return session.activity;
+		}
+		return session.activity.filter(
+			(entry) => !isExcluded(entry.path, globalFilter, session.activityFilter),
+		);
+	}
+
 	private renderActivityList(): void {
 		const session = this.deps.getSession();
 		if (!this.activityEl) return;
 		this.activityEl.empty();
 
-		if (session.activity.length === 0) {
+		const filtered = this.getFilteredActivity(session);
+
+		if (this.countEl) {
+			this.countEl.setText(`(${filtered.length})`);
+		}
+
+		if (filtered.length === 0) {
 			this.activityEl.createDiv({ text: "No activity yet", cls: "ft-text-muted ft-text-sm" }).style.cssText = "color:var(--text-muted);font-size:12px;padding:4px 0;";
 			return;
 		}
 
-		const groups = groupActivityByFile(session.activity);
+		const groups = groupActivityByFile(filtered);
 		for (const group of groups) {
 			const row = this.activityEl.createDiv({ cls: "ft-activity-row" });
 			row.style.cssText = "display:flex;align-items:center;gap:8px;padding:3px 0;";

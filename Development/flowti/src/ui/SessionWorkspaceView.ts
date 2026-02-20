@@ -158,6 +158,7 @@ export class SessionWorkspaceView extends ItemView {
 			openFile: (path) => openInAdjacentLeaf(ctx, path),
 			revealFolder: (path) => revealInFileExplorer(ctx, path),
 			updateActivityFilter: (id, filter) => this.sessionService.updateActivityFilter(id, filter),
+			getGlobalActivityFilter: () => this.sessionService.globalActivityFilter,
 		};
 	}
 

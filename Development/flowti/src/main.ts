@@ -495,6 +495,13 @@ export default class FlowtiBasePlugin extends Plugin {
 			}),
 		);
 
+		// Auto-open session workspace when closure review starts (FR-14)
+		this.crossCuttingListeners.push(
+			this.eventBus.on("session.closure.started", (event) => {
+				this.sessionSetup?.openSessionWorkspaceInSidebar(event.payload.sessionId);
+			}),
+		);
+
 		// Nudge Service — time-based session start reminders
 		this.nudgeService = await this.services.get<NudgeService>("nudgeService");
 		this.nudgeService.isSessionTypeActive = (type) =>
