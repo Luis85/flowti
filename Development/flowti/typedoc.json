@@ -11,7 +11,7 @@
         },
         {
             "name": "json",
-            "path": "./docs/reports/codebase.json"
+            "path": "./docs/reports/codebase/codebase.json"
         },
     ],
 
