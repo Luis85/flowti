@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Session Workspaces PRD]]"
-stage: planned
+stage: in-progress
 cycle: 9
 date_planned: 2026-02-19
 date_updated: 2026-02-20
@@ -111,6 +111,15 @@ interface SessionHandlerContext {
 **Documentation intent:** Update TD-101 status to resolved. Update MEMORY.md with new handler module paths.
 
 **Est. LOC:** ~830 (new handler modules) + ~-1,100 (removed from SessionService) = net -270 LOC reduction in SessionService
+
+**Delivery (2026-02-20):** SessionService reduced from **1,766 → 613 LOC** (target: < 700). 6 handler modules + types + barrel = 1,025 LOC under `src/domain/session/handlers/`. `HandlerContextProxy` class bridges service internals to handler context. All 2,794 tests passing, 0 regressions. TD-101 status: **resolved**. All acceptance criteria met.
+- [x] All handler methods extracted to `src/domain/session/handlers/` modules
+- [x] `SessionHandlerContext` interface defined and implemented
+- [x] SessionService delegates to handler modules (1-2 line methods)
+- [x] SessionService LOC < 700 (613)
+- [x] All existing 224 service tests pass unchanged
+- [x] `npm test` green (2,794 tests, 0 regressions)
+- [x] `npm run build` passes
 
 ### Inc 2: Session Performance Investigation (TD-100)
 
