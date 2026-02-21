@@ -24,7 +24,7 @@ tags:
   - capture
   - user-experience
   - release-blocker
-planned_in: "[[Cycle 12 - Release Preparation]]"
+planned_in: "[[Cycle 12 - User Hub Inbox]]"
 ---
 
 # Feature: Quick Capture — Ideas & Feedback Ribbons

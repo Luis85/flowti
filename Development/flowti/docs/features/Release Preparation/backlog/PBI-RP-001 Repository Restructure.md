@@ -7,7 +7,7 @@ tags:
   - release-blocker
   - RB-1
   - publishing
-planned_in: "[[Cycle 12 - Release Preparation]]"
+planned_in: "[[Cycle 13 - Release Preparation]]"
 user_story: "[[We need to have the proper file and folder structure in place before publishing]]"
 ---
 

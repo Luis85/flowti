@@ -9,12 +9,12 @@ tags:
   - RB-1
 priority: "00 - critical"
 rank:
-planned_in: "[[Cycle 12 - Release Preparation]]"
+planned_in: "[[Cycle 13 - Release Preparation]]"
 related:
   - "[[I want to provide a folder-structure as json to the installer]]"
   - "[[backlog-refinement-2026-02-20]]"
   - "[[Cycle Sequence Review 2026-02-20 Azure DevOps Prioritization]]"
-note: "Release blocker RB-1. Moved from Cycle 11 to Cycle 12 per cycle sequence review (Azure DevOps prioritized in Cycle 11). Currently FolderScaffoldStep creates 23 hardcoded PARA folders. As structures and schemas change rapidly, this must be externalized to a JSON config under var/config/installer/ with version folders (v1/, v2/, etc.). Each version defines its folder tree, seed templates, and expected doc types. The installer reads the latest version config on first run. Migration steps handle upgrades between versions."
+note: "Release blocker RB-1. Moved from Cycle 11 to Cycle 13 per cycle sequence review (Azure DevOps prioritized in Cycle 11). Currently FolderScaffoldStep creates 23 hardcoded PARA folders. As structures and schemas change rapidly, this must be externalized to a JSON config under var/config/installer/ with version folders (v1/, v2/, etc.). Each version defines its folder tree, seed templates, and expected doc types. The installer reads the latest version config on first run. Migration steps handle upgrades between versions."
 ---
 
 ## Problem

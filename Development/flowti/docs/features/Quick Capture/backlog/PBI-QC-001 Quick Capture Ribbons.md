@@ -7,7 +7,7 @@ tags:
   - release-blocker
   - inbox
   - capture
-planned_in: "[[Cycle 12 - Release Preparation]]"
+planned_in: "[[Cycle 12 - User Hub Inbox]]"
 user_story: "[[Quick capture ribbons for ideas and feedback]]"
 ---
 

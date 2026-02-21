@@ -10,7 +10,7 @@ tags:
   - RB-4
   - installer
   - onboarding
-planned_in: "[[Cycle 12 - Release Preparation]]"
+planned_in: "[[Cycle 13 - Release Preparation]]"
 user_story: "[[Installer should seed starter content on first run]]"
 ---
 
