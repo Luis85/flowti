@@ -1,16 +1,16 @@
 ---
 type: DevelopmentCycle
 feature: "[[Train of Thoughts PRD]]"
-stage: planned
+stage: in-progress
 cycle: 14
 date_planned: 2026-02-21
 date_completed:
 pbis:
   - "[[PBI-TOT-002 Train Main View and Timeline Sidebar]]"
 bugs:
-  - "TrainMainView does not update during capture (trainId not tracked on train.started)"
-  - "Sidebar button opens main tab instead of right sidebar for train sessions"
-  - "Train sessions from User Hub NewSessionModal have no TrainState"
+  - TrainMainView does not update during capture (trainId not tracked on train.started)
+  - Sidebar button opens main tab instead of right sidebar for train sessions
+  - Train sessions from User Hub NewSessionModal have no TrainState
 bugs_fixed_precycle: []
 tech_debt: []
 estimated_increments: 8
