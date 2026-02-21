@@ -573,6 +573,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			app: this.app,
 			eventBus: this.eventBus,
 			dataExchangeService: this.dataExchangeService!,
+			signalService: this.signalService,
 			docsRootPath: settingsService.getSettings().docsRootPath,
 			registerView: (type, factory) => this.registerView(type, factory),
 			registerExtensions: (exts, type) => { try { this.registerExtensions(exts, type); } catch { /* may already be registered */ } },

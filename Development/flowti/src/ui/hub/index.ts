@@ -9,6 +9,8 @@ export { ReportsTab } from "./ReportsTab";
 export { PropertiesTab } from "./PropertiesTab";
 export { TypesTab } from "./TypesTab";
 export { PipelinesTab } from "./PipelinesTab";
+export { SignalsTab } from "./SignalsTab";
+export { SignalConfigModal } from "./SignalConfigModal";
 
 export type {
 	HubPage,

@@ -217,15 +217,23 @@ estimated_tests: 100
 - Files: ~4
 
 **Acceptance criteria:**
-- [ ] Signals tab visible in DX Hub
-- [ ] Signal list renders with correct status indicators
-- [ ] "+" opens configuration modal
-- [ ] Configuration modal 4-page flow works end-to-end
-- [ ] "Sync Now" triggers sync and displays progress
-- [ ] "Test Connection" shows success or error message
-- [ ] "Remove" removes signal config after confirmation
-- [ ] DX Hub documentation updated with Signals tab (7 tabs)
-- [ ] `npm test` green
+- [x] Signals tab visible in DX Hub
+- [x] Signal list renders with correct status indicators
+- [x] "+" opens configuration modal
+- [x] Configuration modal form works (simplified from 4-page wizard — full wizard deferred to Inc 5)
+- [ ] "Sync Now" triggers sync and displays progress (button rendered disabled — wired in Inc 5)
+- [ ] "Test Connection" shows success or error message (button rendered disabled — wired in Inc 5)
+- [x] "Remove" removes signal config after confirmation
+- [ ] DX Hub documentation updated with Signals tab (7 tabs) (deferred to Inc 5 wrap-up)
+- [x] `npm test` green with 19 new tests (2,998 total, 117 suites)
+
+**Delivery notes (Inc 4):**
+- Production: SignalsTab.ts (245 LOC) + SignalConfigModal.ts (162 LOC) = 407 LOC total
+- Modified: hub/types.ts (+4 LOC), DataExchangeHubView.ts (+22 LOC), dataExchangeSetup.ts (+4 LOC), main.ts (+1 LOC), hub/helpers.ts (+1 LOC), hub/index.ts (+2 LOC)
+- Tests: 19 new (SignalsTab.test.ts: 7 master panel + 8 detail panel + 2 modal + 2 integration)
+- SignalService threaded through: main.ts → dataExchangeSetup → DataExchangeHubView → HubComponentDeps → SignalsTab
+- Sync Now / Test Connection buttons rendered but disabled (Inc 5 wires adapter integration)
+- Config modal is a simple form (not 4-page wizard); can be promoted to wizard in Inc 5
 
 ---
 
