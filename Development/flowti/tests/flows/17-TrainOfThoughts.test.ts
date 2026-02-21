@@ -18,7 +18,7 @@ import { EventBus } from "../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../src/infrastructure/events/types";
 import { TrainService } from "../../src/domain/train/TrainService";
 import { CaptureService } from "../../src/domain/capture/CaptureService";
-import type { TrainServiceState, ThoughtDirection } from "../../src/domain/train/types";
+import type { TrainServiceState, TrainState, ThoughtDirection } from "../../src/domain/train/types";
 import { createMockStorage, createMockFileSystem, waitForAsync } from "./testHelpers";
 
 function createTestHarness(initialState?: TrainServiceState) {
@@ -255,18 +255,18 @@ describe("Flow 17: Start a Train of Thoughts", () => {
 			expect((firstCall![1] as Record<string, unknown>)["train-session"]).toBe("FM Flow");
 		});
 
-		it("should add thought-relations array on linked thoughts", async () => {
+		it("should add nav links (next/back/up/down) on linked thoughts", async () => {
 			const train = await service.startTrain("Relations FM");
 			await service.addThought(train.id, "A");
 			await service.addThought(train.id, "B");
 
 			await vi.waitFor(() => {
 				const calls = (fileSystem.updateFrontmatter as ReturnType<typeof vi.fn>).mock.calls;
-				const relationsCall = calls.find((c: unknown[]) => {
+				const navCall = calls.find((c: unknown[]) => {
 					const data = c[1] as Record<string, unknown>;
-					return Array.isArray(data["thought-relations"]);
+					return Array.isArray(data["back"]) && (data["back"] as string[]).length > 0;
 				});
-				expect(relationsCall).toBeDefined();
+				expect(navCall).toBeDefined();
 			});
 		});
 	});
@@ -321,6 +321,126 @@ describe("Flow 17: Start a Train of Thoughts", () => {
 				"session.resume",
 				"session.complete",
 			]);
+		});
+	});
+
+	// ── Cycle 14: Tree structure, stats, and live updates ────
+
+	describe("tree structure after branching (Cycle 14)", () => {
+		it("should produce correct timeline and branch structure", async () => {
+			const train = await service.startTrain("Tree Test");
+			await service.addThought(train.id, "Root");
+			const root = service.getTrain(train.id)!.thoughts[0];
+
+			await service.addThought(train.id, "Main A");
+			await service.addThought(train.id, "Main B");
+
+			// Branch from root
+			await service.addThought(train.id, "Branch 1", {
+				direction: "branch",
+				fromThoughtId: root.id,
+			});
+			await service.addThought(train.id, "Branch 2", {
+				direction: "branch",
+				fromThoughtId: root.id,
+			});
+
+			const updatedTrain = service.getTrain(train.id)!;
+
+			// Main timeline follows "next" chain
+			const timeline = service.getTimeline(train.id);
+			expect(timeline.map((t) => t.title)).toEqual(["Root", "Main A", "Main B"]);
+
+			// Branches from root
+			const branches = service.getBranches(train.id, root.id);
+			expect(branches.map((t) => t.title)).toEqual(["Branch 1", "Branch 2"]);
+
+			// All children of root
+			const allChildren = service.getChildren(train.id, root.id);
+			expect(allChildren).toHaveLength(3); // Main A + Branch 1 + Branch 2
+
+			// Relations
+			const nextRels = updatedTrain.relations.filter((r) => r.direction === "next");
+			const branchRels = updatedTrain.relations.filter((r) => r.direction === "branch");
+			expect(nextRels).toHaveLength(2); // Root→Main A, Main A→Main B
+			expect(branchRels).toHaveLength(2); // Root→Branch 1, Root→Branch 2
+		});
+
+		it("should track thought count and branch count accurately for stats", async () => {
+			const train = await service.startTrain("Stats Test");
+			await service.addThought(train.id, "A");
+			const thoughtA = service.getTrain(train.id)!.thoughts[0];
+			await service.addThought(train.id, "B");
+			await service.addThought(train.id, "C", {
+				direction: "branch",
+				fromThoughtId: thoughtA.id,
+			});
+
+			const t = service.getTrain(train.id)!;
+			expect(t.thoughts).toHaveLength(3);
+
+			const branchCount = t.relations.filter((r) => r.direction === "branch").length;
+			expect(branchCount).toBe(1);
+
+			const chainLength = service.getTimeline(train.id).length;
+			expect(chainLength).toBe(2); // A → B (C is a branch)
+		});
+	});
+
+	describe("live update events (Cycle 14)", () => {
+		it("should emit train.thought.added with trainId for view subscription matching", async () => {
+			const train = await service.startTrain("Live Update");
+			const captured: Array<{ trainId: string; direction: ThoughtDirection }> = [];
+			eventBus.on("train.thought.added", (e) => {
+				captured.push({
+					trainId: e.payload.trainId,
+					direction: e.payload.direction,
+				});
+			});
+
+			await service.addThought(train.id, "Idea");
+			await service.addThought(train.id, "Follow-up");
+
+			expect(captured).toHaveLength(2);
+			expect(captured[0].trainId).toBe(train.id);
+			expect(captured[1].trainId).toBe(train.id);
+			expect(captured[0].direction).toBe("next");
+		});
+
+		it("should provide train state in train.started payload for view initialization", async () => {
+			let receivedTrain: TrainState | null = null;
+			eventBus.on("train.started", (e) => {
+				receivedTrain = e.payload.train;
+			});
+
+			const train = await service.startTrain("Init Test");
+
+			expect(receivedTrain).not.toBeNull();
+			expect(receivedTrain!.id).toBe(train.id);
+			expect(receivedTrain!.status).toBe("running");
+			expect(receivedTrain!.sessionId).toMatch(/^session_/);
+		});
+	});
+
+	describe("User Hub integration data (Cycle 14)", () => {
+		it("should expose train-of-thought sessions via getAllTrains for User Hub lookup", async () => {
+			const train1 = await service.startTrain("Train A");
+			await service.completeTrain(train1.id);
+			const train2 = await service.startTrain("Train B");
+
+			const allTrains = service.getAllTrains();
+			expect(allTrains).toHaveLength(2);
+			expect(allTrains.find((t) => t.title === "Train A")!.status).toBe("completed");
+			expect(allTrains.find((t) => t.title === "Train B")!.status).toBe("running");
+		});
+
+		it("should allow finding train by sessionId for detail panel rendering", async () => {
+			const train = await service.startTrain("Lookup Test");
+			const sessionId = train.sessionId;
+
+			const found = service.getAllTrains().find((t) => t.sessionId === sessionId);
+			expect(found).toBeDefined();
+			expect(found!.title).toBe("Lookup Test");
 		});
 	});
 });

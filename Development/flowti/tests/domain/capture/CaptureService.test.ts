@@ -198,5 +198,31 @@ describe("CaptureService", () => {
 			expect(events).toHaveLength(1);
 			expect(events[0].type).toBe("learning");
 		});
+
+		it("should use folder override instead of captureFolder when provided", async () => {
+			await service.capture({ title: "Train Thought", type: "thought", folder: "trains/my-train" });
+
+			expect(fileSystem.createFile).toHaveBeenCalledWith(
+				"trains/my-train/Train Thought.md",
+				expect.any(String),
+				expect.any(Object),
+			);
+		});
+
+		it("should fall back to captureFolder when folder override is undefined", async () => {
+			await service.capture({ title: "Normal Note", type: "idea", folder: undefined });
+
+			expect(fileSystem.createFile).toHaveBeenCalledWith(
+				"00 - Connectivity/inbox/Normal Note.md",
+				expect.any(String),
+				expect.any(Object),
+			);
+		});
+
+		it("should return path with overridden folder in CaptureResult", async () => {
+			const result = await service.capture({ title: "Override", type: "thought", folder: "custom/folder" });
+
+			expect(result.path).toBe("custom/folder/Override.md");
+		});
 	});
 });

@@ -16,7 +16,11 @@ import type { IEventBus } from "../../infrastructure/events/types";
 import type { TrainService } from "../../domain/train/TrainService";
 import type { ThoughtNode, TrainState } from "../../domain/train/types";
 import { VIEW_TYPE_TRAIN_MAIN } from "./types";
+import type { TrainPanelDeps } from "./types";
 import { setupTrainViewSubscriptions } from "./TrainMainViewSubscriptions";
+import { TrainStatsPanel } from "./TrainStatsPanel";
+import { TrainControlsPanel } from "./TrainControlsPanel";
+import { TrainBreadcrumbPanel } from "./TrainBreadcrumbPanel";
 
 // Re-export for backward compat
 export { VIEW_TYPE_TRAIN_MAIN } from "./types";
@@ -24,7 +28,8 @@ export { VIEW_TYPE_TRAIN_MAIN } from "./types";
 /** Context interface for subscription handlers. */
 export interface TrainViewContext {
 	getTrainId: () => string | null;
-	setActiveThoughtIndex: (index: number) => void;
+	setTrainId: (trainId: string) => void;
+	setActiveThoughtId: (id: string | null) => void;
 	scheduleRender: () => void;
 }
 
@@ -33,8 +38,10 @@ export class TrainMainView extends ItemView {
 	private trainService: TrainService;
 	private unsubscribes: (() => void)[] = [];
 	private trainId: string | null = null;
-	private activeThoughtIndex = 0;
+	private activeThoughtId: string | null = null;
 	private renderTimer: ReturnType<typeof setTimeout> | null = null;
+	private statsPanel!: TrainStatsPanel;
+	private controlsPanel!: TrainControlsPanel;
 
 	constructor(leaf: WorkspaceLeaf, eventBus: IEventBus, trainService: TrainService) {
 		super(leaf);
@@ -68,12 +75,24 @@ export class TrainMainView extends ItemView {
 
 		this.render();
 		this.unsubscribes = setupTrainViewSubscriptions(this.buildContext(), this.eventBus);
+
+		// Re-render when a thought note is modified (updates content preview)
+		if (this.app?.vault) {
+			this.registerEvent(
+				this.app.vault.on("modify", (file) => {
+					const train = this.getTrain();
+					if (train && train.thoughts.some((t) => t.path === file.path)) {
+						this.scheduleRender();
+					}
+				}),
+			);
+		}
 	}
 
 	async setState(state: Record<string, unknown>, result: import("obsidian").ViewStateResult): Promise<void> {
 		if (state?.trainId && typeof state.trainId === "string") {
 			this.trainId = state.trainId;
-			this.activeThoughtIndex = 0;
+			this.activeThoughtId = null;
 			this.render();
 		}
 		await super.setState(state, result);
@@ -114,135 +133,229 @@ export class TrainMainView extends ItemView {
 			return;
 		}
 
-		const timeline = this.trainService.getTimeline(train.id);
-		const activeThought = timeline[this.activeThoughtIndex] ?? null;
+		const panelDeps = this.buildPanelDeps();
+
+		const allThoughts = this.getSortedThoughts(train);
+		const activeThought = this.resolveActiveThought(allThoughts);
 
 		this.renderHeader(el, train);
-		this.renderNavBar(el, timeline);
+
+		// Parent train link
+		if (train.parentTrainId) {
+			this.renderParentLink(el, train.parentTrainId);
+		}
+
+		// Stats panel
+		const statsEl = el.createDiv({ cls: "ft-section ft-train-stats-section" });
+		this.statsPanel = new TrainStatsPanel(statsEl, panelDeps);
+		this.statsPanel.render(train);
+
+		// Breadcrumb
+		const breadcrumbEl = el.createDiv({ cls: "ft-section ft-train-breadcrumb-section" });
+		const breadcrumb = new TrainBreadcrumbPanel(breadcrumbEl, panelDeps);
+		breadcrumb.render(train, activeThought);
+
+		this.renderNavBar(el, allThoughts, activeThought);
 
 		if (activeThought) {
 			this.renderThoughtDetail(el, activeThought, train);
+			this.renderContentPreview(el, activeThought);
 			this.renderBranchLinks(el, activeThought, train);
 		}
 
-		this.renderActions(el, train);
+		// Controls panel
+		const controlsEl = el.createDiv({ cls: "ft-section ft-train-controls-section" });
+		this.controlsPanel = new TrainControlsPanel(controlsEl, panelDeps);
+		this.controlsPanel.render(train);
 	}
 
 	private renderEmptyState(el: HTMLElement): void {
-		const empty = el.createDiv({ cls: "flowti-train-empty" });
+		const empty = el.createDiv({ cls: "ft-train-empty" });
+		const iconEl = empty.createDiv();
+		setIcon(iconEl, "train-front");
 		empty.createEl("p", { text: "No active train. Start one from the command palette or ribbon." });
 	}
 
 	private renderHeader(el: HTMLElement, train: TrainState): void {
-		const header = el.createDiv({ cls: "flowti-train-header" });
+		const header = el.createDiv({ cls: "ft-section" });
 
-		const titleRow = header.createDiv({ cls: "flowti-train-title-row" });
-		const icon = titleRow.createSpan({ cls: "flowti-train-icon" });
+		const titleRow = header.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		const icon = titleRow.createSpan();
 		setIcon(icon, "train-front");
-		titleRow.createSpan({ cls: "flowti-train-title", text: `Train: ${train.title}` });
+		titleRow.createEl("h3", { cls: "ft-heading ft-train-title", text: `Train: ${train.title}` });
 
-		const badge = titleRow.createSpan({ cls: `flowti-train-status flowti-train-status-${train.status}` });
+		const badge = titleRow.createSpan({ cls: `ft-badge ft-badge-muted ft-train-status ft-train-status-${train.status}` });
 		badge.setText(train.status);
+
+		// Spacer pushes toggle to the right
+		const spacer = titleRow.createSpan();
+		spacer.style.flex = "1";
+
+		// Toggle timeline sidebar button
+		const toggleBtn = titleRow.createEl("button", {
+			cls: "ft-btn ft-btn-ghost ft-btn-sm",
+		});
+		toggleBtn.ariaLabel = "Toggle timeline sidebar";
+		const toggleIcon = toggleBtn.createSpan();
+		setIcon(toggleIcon, "panel-right");
+		toggleBtn.addEventListener("click", () => {
+			void this.eventBus.emit("ui.toggleTrainTimeline", { trainId: train.id });
+		});
 	}
 
-	private renderNavBar(el: HTMLElement, timeline: ThoughtNode[]): void {
-		const nav = el.createDiv({ cls: "flowti-train-nav" });
+	private renderNavBar(el: HTMLElement, allThoughts: ThoughtNode[], activeThought: ThoughtNode | null): void {
+		const nav = el.createDiv({ cls: "ft-section ft-flex ft-items-center ft-justify-between" });
 
-		const prevBtn = nav.createEl("button", { cls: "flowti-train-nav-btn", text: "◄ Prev" });
-		if (this.activeThoughtIndex <= 0) {
+		const activeIdx = activeThought ? allThoughts.findIndex((t) => t.id === activeThought.id) : -1;
+
+		const prevBtn = nav.createEl("button", { cls: "ft-btn ft-btn-ghost ft-btn-sm ft-train-nav-btn" });
+		prevBtn.setText("◄ Prev");
+		if (activeIdx <= 0) {
 			prevBtn.disabled = true;
-			prevBtn.addClass("flowti-train-nav-disabled");
+			prevBtn.addClass("ft-train-nav-disabled");
 		} else {
 			prevBtn.addEventListener("click", () => {
-				this.activeThoughtIndex--;
-				this.emitThoughtActivated(timeline[this.activeThoughtIndex]);
+				const prev = allThoughts[activeIdx - 1];
+				this.activeThoughtId = prev.id;
+				this.emitThoughtActivated(prev);
 				this.render();
 			});
 		}
 
-		const counter = nav.createSpan({ cls: "flowti-train-nav-counter" });
-		counter.setText(timeline.length > 0
-			? `Thought ${this.activeThoughtIndex + 1} of ${timeline.length}`
+		const counter = nav.createSpan({ cls: "ft-text-sm ft-text-muted ft-train-nav-counter" });
+		counter.setText(allThoughts.length > 0
+			? `Thought ${activeIdx + 1} of ${allThoughts.length}`
 			: "No thoughts yet");
 
-		const nextBtn = nav.createEl("button", { cls: "flowti-train-nav-btn", text: "Next ►" });
-		if (this.activeThoughtIndex >= timeline.length - 1) {
+		const nextBtn = nav.createEl("button", { cls: "ft-btn ft-btn-ghost ft-btn-sm ft-train-nav-btn" });
+		nextBtn.setText("Next ►");
+		if (activeIdx >= allThoughts.length - 1) {
 			nextBtn.disabled = true;
-			nextBtn.addClass("flowti-train-nav-disabled");
+			nextBtn.addClass("ft-train-nav-disabled");
 		} else {
 			nextBtn.addEventListener("click", () => {
-				this.activeThoughtIndex++;
-				this.emitThoughtActivated(timeline[this.activeThoughtIndex]);
+				const next = allThoughts[activeIdx + 1];
+				this.activeThoughtId = next.id;
+				this.emitThoughtActivated(next);
 				this.render();
 			});
 		}
 	}
 
 	private renderThoughtDetail(el: HTMLElement, thought: ThoughtNode, train: TrainState): void {
-		const detail = el.createDiv({ cls: "flowti-train-detail" });
+		const detail = el.createDiv({ cls: "ft-section ft-train-detail" });
 
-		detail.createEl("h3", { cls: "flowti-train-thought-title", text: thought.title });
+		detail.createEl("h3", { cls: "ft-heading-sm ft-train-thought-title", text: thought.title });
 
-		const meta = detail.createDiv({ cls: "flowti-train-thought-meta" });
+		const meta = detail.createDiv({ cls: "ft-detail-info-grid ft-train-thought-meta" });
 		const time = new Date(thought.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 		// Find the relation direction for this thought
 		const relation = train.relations.find((r) => r.toId === thought.id);
 		const directionLabel = relation ? `→ ${relation.direction}` : "root";
 
-		meta.setText(`Created: ${time} · Order: #${thought.order + 1} · ${directionLabel}`);
+		this.renderInfoRow(meta, "Created", time);
+		this.renderInfoRow(meta, "Order", `#${thought.order + 1}`);
+		this.renderInfoRow(meta, "Direction", directionLabel);
+
+		// Clickable note link
+		const noteLink = detail.createDiv({ cls: "ft-train-note-link ft-flex ft-items-center ft-gap-1 ft-text-sm" });
+		const noteLinkIcon = noteLink.createSpan();
+		setIcon(noteLinkIcon, "file-text");
+		noteLink.createSpan({ text: thought.path.split("/").pop() ?? thought.path });
+		noteLink.addEventListener("click", () => {
+			if (this.app?.workspace) {
+				void this.app.workspace.openLinkText(thought.path, "", false);
+			}
+		});
+	}
+
+	private renderInfoRow(grid: HTMLElement, label: string, value: string): void {
+		grid.createDiv({ cls: "ft-detail-info-label", text: label });
+		grid.createDiv({ cls: "ft-detail-info-value", text: value });
+	}
+
+	/** Render a truncated content preview from the thought's vault note. */
+	private renderContentPreview(el: HTMLElement, thought: ThoughtNode): void {
+		const preview = el.createDiv({ cls: "ft-train-content-preview" });
+
+		if (!this.app?.vault) {
+			preview.setText("(preview unavailable)");
+			return;
+		}
+
+		preview.setText("Loading preview...");
+
+		// Read the file asynchronously and show first ~200 chars
+		const file = this.app.vault.getAbstractFileByPath(thought.path);
+		if (file && "extension" in file) {
+			void this.app.vault.read(file as import("obsidian").TFile).then((content) => {
+				// Strip frontmatter
+				const body = content.replace(/^---[\s\S]*?---\n?/, "").trim();
+				const snippet = body.length > 200 ? body.slice(0, 200) + "…" : body;
+				preview.setText(snippet || "(empty note)");
+			}).catch(() => {
+				preview.setText("(could not read note)");
+			});
+		} else {
+			preview.setText("(note not found)");
+		}
+	}
+
+	/** Render a link to the parent train when this is a nested train. */
+	private renderParentLink(el: HTMLElement, parentTrainId: string): void {
+		const parentTrain = this.trainService.getTrain(parentTrainId);
+		if (!parentTrain) return;
+
+		const link = el.createDiv({ cls: "ft-section ft-train-parent-link ft-flex ft-items-center ft-gap-1 ft-text-sm ft-text-muted" });
+		const icon = link.createSpan();
+		setIcon(icon, "arrow-up-left");
+		link.appendText(`Parent: ${parentTrain.title}`);
+		link.addEventListener("click", () => {
+			this.trainId = parentTrainId;
+			this.activeThoughtId = null;
+			this.render();
+		});
 	}
 
 	private renderBranchLinks(el: HTMLElement, thought: ThoughtNode, train: TrainState): void {
 		const branches = this.trainService.getBranches(train.id, thought.id);
 		if (branches.length === 0) return;
 
-		const section = el.createDiv({ cls: "flowti-train-branches" });
-		section.createEl("h4", { text: "Branches:" });
+		const section = el.createDiv({ cls: "ft-section ft-train-branches" });
+		section.createEl("h4", { cls: "ft-heading-sm", text: "Branches" });
 
 		for (const branch of branches) {
-			const link = section.createDiv({ cls: "flowti-train-branch-link" });
-			link.createSpan({ text: `↗ ${branch.title}` });
+			const link = section.createDiv({ cls: "ft-train-branch-link" });
+			const linkIcon = link.createSpan();
+			setIcon(linkIcon, "git-branch");
+			link.createSpan({ text: branch.title });
 			link.addEventListener("click", () => {
-				// Find branch index in timeline, or switch to it
-				const timeline = this.trainService.getTimeline(train.id);
-				const idx = timeline.findIndex((t) => t.id === branch.id);
-				if (idx >= 0) {
-					this.activeThoughtIndex = idx;
-				}
+				this.activeThoughtId = branch.id;
 				this.emitThoughtActivated(branch);
 				this.render();
 			});
 		}
 	}
 
-	private renderActions(el: HTMLElement, train: TrainState): void {
-		const actions = el.createDiv({ cls: "flowti-train-actions" });
+	// ── Helpers ──────────────────────────────────────────────
 
-		// Open in editor — opens the active thought's vault note
-		const timeline = this.trainService.getTimeline(train.id);
-		const activeThought = timeline[this.activeThoughtIndex];
-		if (activeThought) {
-			const openBtn = actions.createEl("button", { cls: "flowti-train-action-btn", text: "Open in Editor" });
-			const openIcon = openBtn.createSpan({ cls: "flowti-train-action-icon" });
-			setIcon(openIcon, "file-text");
-			openBtn.addEventListener("click", () => {
-				void this.app.workspace.openLinkText(activeThought.path, "");
-			});
-		}
-
-		// Resume capture — reopens the capture modal
-		if (train.status !== "completed") {
-			const resumeBtn = actions.createEl("button", { cls: "flowti-train-action-btn flowti-train-action-primary", text: "Resume Capture" });
-			const resumeIcon = resumeBtn.createSpan({ cls: "flowti-train-action-icon" });
-			setIcon(resumeIcon, "plus-circle");
-			resumeBtn.addEventListener("click", () => {
-				void this.eventBus.emit("ui.startTrain", {});
-			});
-		}
+	/** Return all thoughts sorted by order — includes main chain AND branches. */
+	private getSortedThoughts(train: TrainState): ThoughtNode[] {
+		return [...train.thoughts].sort((a, b) => a.order - b.order);
 	}
 
-	// ── Helpers ──────────────────────────────────────────────
+	/** Resolve the currently active thought by ID, falling back to the first thought. */
+	private resolveActiveThought(sorted: ThoughtNode[]): ThoughtNode | null {
+		if (sorted.length === 0) return null;
+		if (this.activeThoughtId) {
+			const found = sorted.find((t) => t.id === this.activeThoughtId);
+			if (found) return found;
+		}
+		// Fall back to first thought and pin it
+		this.activeThoughtId = sorted[0].id;
+		return sorted[0];
+	}
 
 	private getTrain(): TrainState | undefined {
 		if (this.trainId) {
@@ -261,8 +374,18 @@ export class TrainMainView extends ItemView {
 	private buildContext(): TrainViewContext {
 		return {
 			getTrainId: () => this.trainId,
-			setActiveThoughtIndex: (index: number) => { this.activeThoughtIndex = index; },
+			setTrainId: (trainId: string) => { this.trainId = trainId; },
+			setActiveThoughtId: (id: string | null) => { this.activeThoughtId = id; },
 			scheduleRender: () => this.scheduleRender(),
+		};
+	}
+
+	private buildPanelDeps(): TrainPanelDeps {
+		return {
+			trainService: this.trainService,
+			eventBus: this.eventBus,
+			scheduleRender: () => this.scheduleRender(),
+			getActiveThoughtId: () => this.activeThoughtId,
 		};
 	}
 }

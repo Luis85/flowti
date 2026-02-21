@@ -8,6 +8,7 @@
 import { setIcon } from "obsidian";
 import { computeElapsedMs, formatDuration } from "../../domain/session/helpers";
 import type { Session, SessionArtifact, SessionTemplate, SessionTimelineEntry } from "../../domain/session/types";
+import type { TrainState } from "../../domain/train/types";
 import { SessionTimerDisplay } from "./SessionTimerDisplay";
 import {
 	SESSION_STATUS_LABELS,
@@ -73,7 +74,15 @@ export class SessionDetailPanel {
 		});
 	}
 
+	/** Returns the TrainState for a session, if available. */
+	private getTrainForSession(session: Session): TrainState | undefined {
+		if (!this.deps.trainService) return undefined;
+		return this.deps.trainService.getAllTrains().find((t) => t.sessionId === session.id);
+	}
+
 	private renderSessionDetail(session: Session): void {
+		const train = session.type === "train-of-thought" ? this.getTrainForSession(session) : undefined;
+
 		// Header
 		const header = this.detailEl.createDiv({ cls: "ft-detail-section" });
 		header.createEl("h3", { text: session.title, cls: "ft-heading" });
@@ -88,8 +97,13 @@ export class SessionDetailPanel {
 			cls: "ft-badge ft-badge-muted",
 		});
 
+		// Train info section
+		if (train) {
+			this.renderTrainSection(train);
+		}
+
 		// Actions — directly under header for easy access
-		this.renderActions(session);
+		this.renderActions(session, train);
 
 		// Timer section (active or paused)
 		this.timerDisplay.render(session);
@@ -258,17 +272,79 @@ export class SessionDetailPanel {
 		}
 	}
 
-	private renderActions(session: Session): void {
+	private renderTrainSection(train: TrainState): void {
+		const section = this.detailEl.createDiv({ cls: "ft-detail-section ft-train-section" });
+		section.createEl("h4", { text: "Train of Thought", cls: "ft-heading ft-heading-sm" });
+
+		const grid = section.createDiv({ cls: "ft-flex ft-gap-3 ft-text-sm" });
+
+		const thoughtCount = grid.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
+		const thoughtIcon = thoughtCount.createSpan();
+		setIcon(thoughtIcon, "brain");
+		thoughtIcon.style.opacity = "0.5";
+		thoughtCount.createSpan({ text: `${train.thoughts.length} thought${train.thoughts.length === 1 ? "" : "s"}` });
+
+		const branchCount = train.relations.filter((r) => r.direction === "branch").length;
+		if (branchCount > 0) {
+			const branchEl = grid.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
+			const branchIcon = branchEl.createSpan();
+			setIcon(branchIcon, "git-branch");
+			branchIcon.style.opacity = "0.5";
+			branchEl.createSpan({ text: `${branchCount} branch${branchCount === 1 ? "" : "es"}` });
+		}
+
+		const statusEl = grid.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
+		statusEl.createSpan({
+			text: train.status,
+			cls: "ft-badge ft-badge-muted",
+		});
+
+		// Clickable thought list (max 5)
+		if (train.thoughts.length > 0) {
+			const list = section.createDiv({ cls: "ft-train-thought-list" });
+			list.style.marginTop = "0.5rem";
+			const visible = train.thoughts.slice(0, 5);
+			for (const thought of visible) {
+				const row = list.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-text-sm ft-cursor-pointer" });
+				row.style.padding = "0.15rem 0";
+				const icon = row.createSpan();
+				setIcon(icon, "file-text");
+				icon.style.opacity = "0.5";
+				const link = row.createEl("a", {
+					text: thought.title,
+					cls: "ft-link",
+				});
+				link.title = thought.path;
+				link.addEventListener("click", (e) => {
+					e.preventDefault();
+					this.deps.openFile(thought.path);
+				});
+			}
+			if (train.thoughts.length > 5) {
+				list.createDiv({
+					text: `+ ${train.thoughts.length - 5} more`,
+					cls: "ft-text-sm ft-text-muted",
+				}).style.padding = "0.15rem 0";
+			}
+		}
+	}
+
+	private renderActions(session: Session, train?: TrainState): void {
 		const actions = this.detailEl.createDiv({ cls: "ft-detail-section ft-flex ft-gap-2" });
 		const eb = this.deps.eventBus;
 		const state = this.deps.getState();
+		const isTrain = !!train;
+		const wsLabel = isTrain ? "Open Train" : "Workspace";
+		const wsIcon = isTrain ? "train-front" : "layout";
+		const sideLabel = isTrain ? "Timeline" : "Sidebar";
+		const sideIcon = isTrain ? "git-branch" : "panel-right";
 
 		switch (session.status) {
 			case "prepared":
-				this.addActionButton(actions, "layout", "Workspace", () => {
+				this.addActionButton(actions, wsIcon, wsLabel, () => {
 					this.deps.openSessionWorkspace(session.id);
 				});
-				this.addActionButton(actions, "panel-right", "Sidebar", () => {
+				this.addActionButton(actions, sideIcon, sideLabel, () => {
 					this.deps.openSessionWorkspace(session.id, "sidebar");
 				});
 				// Only show Start when no other session is active
@@ -288,10 +364,10 @@ export class SessionDetailPanel {
 
 			case "active":
 			case "running":
-				this.addActionButton(actions, "layout", "Workspace", () => {
+				this.addActionButton(actions, wsIcon, wsLabel, () => {
 					this.deps.openSessionWorkspace(session.id);
 				});
-				this.addActionButton(actions, "panel-right", "Sidebar", () => {
+				this.addActionButton(actions, sideIcon, sideLabel, () => {
 					this.deps.openSessionWorkspace(session.id, "sidebar");
 				});
 				this.addActionButton(actions, "pause", "Pause", () => {
@@ -306,10 +382,10 @@ export class SessionDetailPanel {
 				break;
 
 			case "paused":
-				this.addActionButton(actions, "layout", "Workspace", () => {
+				this.addActionButton(actions, wsIcon, wsLabel, () => {
 					this.deps.openSessionWorkspace(session.id);
 				});
-				this.addActionButton(actions, "panel-right", "Sidebar", () => {
+				this.addActionButton(actions, sideIcon, sideLabel, () => {
 					this.deps.openSessionWorkspace(session.id, "sidebar");
 				});
 				this.addActionButton(actions, "play", "Resume", () => {

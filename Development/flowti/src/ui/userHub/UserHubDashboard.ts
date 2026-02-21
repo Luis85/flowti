@@ -12,6 +12,7 @@ import type { IEventBus } from "../../infrastructure/events/types";
 import type { InboxService } from "../../domain/inbox/InboxService";
 import type { NudgeService } from "../../domain/nudge/NudgeService";
 import type { SessionService } from "../../domain/session/SessionService";
+import type { TrainService } from "../../domain/train/TrainService";
 import { computeRemainingMs, formatDuration } from "../../domain/session/helpers";
 import { renderStatGrid, type StatCardItem } from "../shared/StatCard";
 import { formatSourceEvent, formatTime, SESSION_TYPE_LABELS, type InboxItem } from "./types";
@@ -23,6 +24,7 @@ export interface UserHubDashboardDeps {
 	inboxService: InboxService;
 	sessionService: SessionService;
 	nudgeService?: NudgeService;
+	trainService?: TrainService;
 	navigateToTab: (tabId: string) => void;
 	onInboxItemClick: (item: InboxItem) => void;
 	openSessionWorkspace: (sessionId?: string, location?: "tab" | "sidebar") => void;
@@ -41,6 +43,7 @@ export class UserHubDashboard {
 		this.renderWelcome();
 		this.renderNextNudge();
 		this.renderActiveSession();
+		this.renderActiveTrain();
 		this.renderQuickActions();
 		this.renderHubSummaries();
 		this.renderInboxSection();
@@ -54,6 +57,10 @@ export class UserHubDashboard {
 		const el = this.container.querySelector(".ft-dashboard-session-timer");
 		if (el) {
 			el.textContent = formatDuration(remainingMs);
+		}
+		const trainEl = this.container.querySelector(".ft-dashboard-train-timer");
+		if (trainEl) {
+			trainEl.textContent = formatDuration(remainingMs);
 		}
 	}
 
@@ -108,6 +115,10 @@ export class UserHubDashboard {
 		if (!session) return;
 
 		const isActive = session.status === "active" || session.status === "running";
+		const isTrain = session.type === "train-of-thought";
+		const train = isTrain && this.deps.trainService
+			? this.deps.trainService.getAllTrains().find((t) => t.sessionId === session.id)
+			: undefined;
 
 		const section = this.container.createDiv({ cls: "ft-active-session" });
 		section.style.marginBottom = "1rem";
@@ -122,7 +133,7 @@ export class UserHubDashboard {
 
 		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const icon = header.createSpan();
-		setIcon(icon, isActive ? "timer" : "pause");
+		setIcon(icon, isTrain ? "train-front" : (isActive ? "timer" : "pause"));
 
 		header.createSpan({ text: session.title, cls: "ft-heading ft-heading-sm" }).style.margin = "0";
 
@@ -145,6 +156,13 @@ export class UserHubDashboard {
 			const completed = session.goals.filter((g) => g.completed).length;
 			header.createSpan({
 				text: `${completed}/${session.goals.length} goals`,
+				cls: "ft-badge ft-badge-muted ft-text-sm",
+			});
+		}
+
+		if (train) {
+			header.createSpan({
+				text: `${train.thoughts.length} thought${train.thoughts.length === 1 ? "" : "s"}`,
 				cls: "ft-badge ft-badge-muted ft-text-sm",
 			});
 		}
@@ -194,6 +212,84 @@ export class UserHubDashboard {
 		completeBtn.addEventListener("click", () => {
 			void eb.emit("session.complete", { sessionId: session.id });
 		});
+	}
+
+	private renderActiveTrain(): void {
+		const train = this.deps.trainService?.getActiveTrain();
+		if (!train) return;
+
+		// If the train's session is already visible in the active session callout, skip
+		const activeSession = this.deps.sessionService.getActiveSession();
+		if (activeSession && activeSession.id === train.sessionId) return;
+
+		const isTimeboxed = train.durationMinutes > 0;
+		const trainSession = this.deps.sessionService.getSessionById(train.sessionId);
+
+		if (isTimeboxed && trainSession) {
+			// Full callout — same style as active session
+			const section = this.container.createDiv({ cls: "ft-active-train" });
+			section.style.marginBottom = "1rem";
+			section.style.padding = "0.75rem";
+			section.style.border = `1px solid ${train.status === "running" ? "var(--interactive-accent)" : "var(--background-modifier-border)"}`;
+			section.style.borderRadius = "8px";
+			section.style.backgroundColor = "var(--background-secondary)";
+			section.style.cursor = "pointer";
+			section.addEventListener("click", () => {
+				void this.deps.eventBus.emit("ui.openTrainView", {});
+			});
+
+			const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+			const icon = header.createSpan();
+			setIcon(icon, "train-front");
+			header.createSpan({ text: train.title, cls: "ft-heading ft-heading-sm" }).style.margin = "0";
+
+			header.createSpan({
+				text: `${train.thoughts.length} thought${train.thoughts.length === 1 ? "" : "s"}`,
+				cls: "ft-badge ft-badge-muted ft-text-sm",
+			});
+
+			if (train.status === "paused") {
+				header.createSpan({ text: "Paused", cls: "ft-badge ft-badge-muted ft-text-sm" });
+			}
+
+			const spacer = header.createDiv();
+			spacer.style.flex = "1";
+
+			const remaining = computeRemainingMs(trainSession);
+			const timerSpan = header.createSpan({
+				text: formatDuration(remaining),
+				cls: "ft-text-sm ft-dashboard-train-timer",
+			});
+			timerSpan.style.fontFamily = "var(--font-monospace)";
+		} else {
+			// Subtle notice — same pattern as nudge row
+			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-active-train-notice" });
+			row.style.marginBottom = "0.75rem";
+			row.style.padding = "0.35rem 0.75rem";
+			row.style.borderRadius = "6px";
+			row.style.backgroundColor = "var(--background-secondary)";
+			row.style.cursor = "pointer";
+			row.addEventListener("click", () => {
+				void this.deps.eventBus.emit("ui.openTrainView", {});
+			});
+
+			const icon = row.createSpan();
+			setIcon(icon, "train-front");
+			icon.style.opacity = "0.5";
+
+			row.createSpan({ text: train.title, cls: "ft-text-sm" });
+
+			row.createSpan({
+				text: `${train.thoughts.length} thought${train.thoughts.length === 1 ? "" : "s"}`,
+				cls: "ft-badge ft-badge-muted ft-text-sm",
+			});
+
+			if (train.status === "paused") {
+				row.createSpan({ text: "paused", cls: "ft-text-sm ft-text-muted" });
+			} else {
+				row.createSpan({ text: "running", cls: "ft-text-sm ft-text-muted" });
+			}
+		}
 	}
 
 	private getActivityIcon(action: string): string {

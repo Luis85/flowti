@@ -33,11 +33,12 @@ export class CaptureService {
 	 */
 	async capture(input: CaptureInput): Promise<CaptureResult> {
 		const { captureFolder } = this.getSettings();
+		const folder = input.folder ?? captureFolder;
 		const sanitizedTitle = this.sanitizeFileName(input.title);
 		if (!sanitizedTitle) {
 			throw new Error("Capture title is empty after sanitization");
 		}
-		const path = `${captureFolder}/${sanitizedTitle}.md`;
+		const path = `${folder}/${sanitizedTitle}.md`;
 		const timestamp = new Date().toISOString();
 
 		// Build frontmatter — types are title case in vault notes (e.g. "Idea", "Feedback")
@@ -61,12 +62,14 @@ export class CaptureService {
 			void this.eventBus.emit("capture.feedback.created", { path, title: input.title });
 		}
 
-		// Always emit generic capture event
-		void this.eventBus.emit("capture.note.created", {
-			path,
-			title: input.title,
-			type: input.type,
-		});
+		// Emit generic capture event (skip for train thoughts — train domain has its own inbox events)
+		if (input.type !== "thought") {
+			void this.eventBus.emit("capture.note.created", {
+				path,
+				title: input.title,
+				type: input.type,
+			});
+		}
 
 		return { path, title: input.title, type: input.type };
 	}

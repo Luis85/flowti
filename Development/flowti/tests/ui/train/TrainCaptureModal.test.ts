@@ -36,7 +36,7 @@ describe("TrainCaptureModal", () => {
 		});
 		modal.onOpen();
 
-		const counter = modal.contentEl.querySelector(".flowti-train-counter");
+		const counter = modal.contentEl.querySelector(".ft-train-counter");
 		expect(counter?.textContent).toBe("Thought #4");
 	});
 
@@ -52,7 +52,7 @@ describe("TrainCaptureModal", () => {
 		});
 		modal.onOpen();
 
-		const banner = modal.contentEl.querySelector(".flowti-train-context");
+		const banner = modal.contentEl.querySelector(".ft-train-context");
 		expect(banner).not.toBeNull();
 		expect(banner?.textContent).toContain("Previous: Previous Idea");
 	});
@@ -69,7 +69,7 @@ describe("TrainCaptureModal", () => {
 		});
 		modal.onOpen();
 
-		const banner = modal.contentEl.querySelector(".flowti-train-context");
+		const banner = modal.contentEl.querySelector(".ft-train-context");
 		expect(banner).toBeNull();
 	});
 
@@ -150,7 +150,7 @@ describe("TrainCaptureModal", () => {
 		});
 		modal.onOpen();
 
-		const counter = modal.contentEl.querySelector(".flowti-train-counter");
+		const counter = modal.contentEl.querySelector(".ft-train-counter");
 		expect(counter?.textContent).toBe("Thought #1");
 	});
 
@@ -167,7 +167,7 @@ describe("TrainCaptureModal", () => {
 			});
 			modal.onOpen();
 
-			const timer = modal.contentEl.querySelector(".flowti-train-timer");
+			const timer = modal.contentEl.querySelector(".ft-train-timer");
 			expect(timer).toBeNull();
 		});
 
@@ -185,7 +185,7 @@ describe("TrainCaptureModal", () => {
 			});
 			modal.onOpen();
 
-			const timer = modal.contentEl.querySelector(".flowti-train-timer");
+			const timer = modal.contentEl.querySelector(".ft-train-timer");
 			expect(timer).not.toBeNull();
 			expect(timer?.textContent).toBe("25:00");
 		});
@@ -211,7 +211,7 @@ describe("TrainCaptureModal", () => {
 			// Simulate tick at 5:30 remaining
 			tickCb!(5 * 60_000 + 30_000);
 
-			const timer = modal.contentEl.querySelector(".flowti-train-timer");
+			const timer = modal.contentEl.querySelector(".ft-train-timer");
 			expect(timer?.textContent).toBe("05:30");
 		});
 

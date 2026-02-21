@@ -5,6 +5,26 @@ filters:
     - '!file.folder.contains("backlog")'
 views:
   - type: table
+    name: Product Features
+    filters:
+      and:
+        - file.tags.contains("core")
+    groupBy:
+      property: domain
+      direction: ASC
+    order:
+      - file.name
+      - stage
+      - domain
+      - plugin
+      - file.folder
+      - type
+    columnSize:
+      file.name: 276
+      note.stage: 117
+      note.domain: 119
+      note.plugin: 104
+  - type: table
     name: Features
     groupBy:
       property: domain

@@ -54,4 +54,6 @@ export const INBOX_SOURCE_DEFINITIONS: ReadonlyArray<{ event: string; label: str
 	{ event: "capture.note.created", label: "Quick Capture", desc: "When a note is created via Quick Capture" },
 	{ event: "signal.sync.completed", label: "Signal sync completed", desc: "When a signal sync finishes successfully" },
 	{ event: "signal.sync.failed", label: "Signal sync errors", desc: "When a signal sync fails" },
+	{ event: "train.thought.added", label: "Train thought added", desc: "When a thought is captured during a train" },
+	{ event: "train.completed", label: "Train completed", desc: "When a train of thought is completed" },
 ];

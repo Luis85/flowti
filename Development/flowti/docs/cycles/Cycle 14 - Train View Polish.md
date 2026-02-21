@@ -1,24 +1,25 @@
 ---
 type: DevelopmentCycle
 feature: "[[Train of Thoughts PRD]]"
-stage: in-progress
+stage: done
 cycle: 14
 date_planned: 2026-02-21
-date_completed:
+date_completed: 2026-02-21
 pbis:
   - "[[PBI-TOT-002 Train Main View and Timeline Sidebar]]"
 bugs:
   - TrainMainView does not update during capture (trainId not tracked on train.started)
   - Sidebar button opens main tab instead of right sidebar for train sessions
   - Train sessions from User Hub NewSessionModal have no TrainState
+  - trainFolder setting not respected — thought notes go to captureFolder instead
 bugs_fixed_precycle: []
 tech_debt: []
 estimated_increments: 8
-actual_increments:
+actual_increments: 8
 estimated_tests: 100
-actual_tests:
-total_tests_after:
-total_test_files_after:
+actual_tests: 80
+total_tests_after: 3343
+total_test_files_after: 135
 ---
 
 # Cycle 14: Train View Polish & Session Integration
@@ -461,6 +462,70 @@ Inc 8 depends on all.
 - [x] Inbox signals reviewed (backlog refinement 2026-02-20 completed)
 
 **DoR Result: PASS** — All criteria satisfied. Cycle 14 is ready to start.
+
+---
+
+## Post-Increment Bug Fixes
+
+### Bug D: trainFolder setting not respected
+
+**Symptom:** Thought notes created during a train always land in `captureFolder` (inbox) instead of the configured `trainFolder` setting.
+
+**Root cause:** `TrainService.addThought()` called `captureService.capture({ title, type: "thought" })` without a folder override. CaptureService always used `captureFolder` from settings.
+
+**Fix:**
+1. Added optional `folder?: string` to `CaptureInput` type — allows callers to override the default capture folder
+2. Modified `CaptureService.capture()` to use `input.folder ?? captureFolder`
+3. Added `getSettings` late-binding field to `TrainService` (same pattern as CaptureService)
+4. Modified `TrainService.addThought()` to read `trainFolder` from settings and pass it to capture when non-empty
+5. Wired `trainService.getSettings` in `main.ts` to read from `settingsService.getSettings().trainFolder`
+
+**Files modified:** `src/domain/capture/types.ts`, `src/domain/capture/CaptureService.ts`, `src/domain/train/TrainService.ts`, `src/main.ts`
+
+**Tests added:** 6 (3 CaptureService folder override, 3 TrainService trainFolder)
+
+### Bug E: Inbox fills regardless of disabled train sources
+
+**Symptom:** Disabling `train.thought.added` and `train.completed` in Inbox preferences didn't stop train-related inbox items from appearing.
+
+**Root cause (dual):**
+1. `InboxService.enabledSources` initialized to `new Set(ALL_INBOX_SOURCES)` (all sources enabled) before `setEnabledSources()` was called from main.ts — brief window where all sources were active.
+2. `CaptureService.capture()` always emitted `capture.note.created` for ALL captures including train thoughts. Since TrainService uses CaptureService, disabling `train.thought.added` had no effect — the Quick Capture inbox source still created items.
+
+**Fix:**
+1. Changed `enabledSources` default from `new Set(ALL_INBOX_SOURCES)` to `new Set()` — no items created before settings load.
+2. `CaptureService.capture()` now skips `capture.note.created` when `input.type === "thought"` — train domain handles its own inbox events via `train.thought.added` and `train.completed`.
+
+**Files modified:** `src/domain/inbox/InboxService.ts`, `src/domain/capture/CaptureService.ts`, 5 test files (enabledSources setup)
+
+---
+
+## Delivery Summary
+
+| Metric | Target | Actual | Delta |
+|--------|--------|--------|-------|
+| Increments | 8 | 8 | 0 |
+| New tests | ~100 | 80 | -20 |
+| Total tests | ~3,363 | 3,342 | -21 |
+| Test suites | — | 135 | — |
+| Build status | green | green | — |
+| Bugs fixed | 3 critical | 5 (3 planned + 2 post-inc) | +2 |
+| Source LOC (train UI) | ~800 | 1,138 | +338 |
+
+**Source LOC breakdown:**
+- TrainMainView: 237 → 323 (+86)
+- TrainTimelineSidebar: 210 → 297 (+87)
+- TrainStatsPanel: 57 (new)
+- TrainControlsPanel: 63 (new)
+- TrainBreadcrumbPanel: 73 (new)
+- TrainMainViewSubscriptions: 80 → 81 (+1)
+- TrainTimelineSidebarSubscriptions: 80 → 77 (-3)
+- SessionDetailPanel: 350 → 516 (+166)
+- UserHubSessions: → 216
+- UserHubDashboard: → 394
+- UserHubView: → 443
+- TrainService: → 466
+- CaptureService: → 85
 
 ---
 

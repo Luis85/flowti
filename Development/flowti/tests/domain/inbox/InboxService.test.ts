@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
-import { InboxService } from "../../../src/domain/inbox/InboxService";
+import { InboxService, ALL_INBOX_SOURCES } from "../../../src/domain/inbox/InboxService";
 import type { ITypedStorage } from "../../../src/utils/TypedStorage";
 import type { InboxState, InboxItem } from "../../../src/domain/inbox/types";
 import { MAX_INBOX_ITEMS } from "../../../src/domain/inbox/types";
@@ -31,6 +31,7 @@ describe("InboxService", () => {
 		storage = mock.storage;
 		eventBus = new EventBus();
 		service = new InboxService({ storage, eventBus });
+		service.setEnabledSources([...ALL_INBOX_SOURCES]);
 	});
 
 	afterEach(() => {
@@ -254,6 +255,7 @@ describe("InboxService", () => {
 			const mock = createMockStorage({ items });
 			service.dispose();
 			service = new InboxService({ storage: mock.storage, eventBus });
+			service.setEnabledSources([...ALL_INBOX_SOURCES]);
 			await service.load();
 
 			expect(service.getItems()).toHaveLength(MAX_INBOX_ITEMS);

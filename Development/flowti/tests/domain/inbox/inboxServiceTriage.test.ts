@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
-import { InboxService } from "../../../src/domain/inbox/InboxService";
+import { InboxService, ALL_INBOX_SOURCES } from "../../../src/domain/inbox/InboxService";
 import type { ITypedStorage } from "../../../src/utils/TypedStorage";
 import type { InboxState } from "../../../src/domain/inbox/types";
 import { VAULT_FOLDER_SOURCE_HUB } from "../../../src/domain/inbox/vaultFolderMapper";
@@ -19,6 +19,7 @@ describe("InboxService — vault folder triage", () => {
 		storage = mock.storage;
 		eventBus = new EventBus();
 		service = new InboxService({ storage, eventBus });
+		service.setEnabledSources([...ALL_INBOX_SOURCES]);
 
 		// Setup watched folders with one primary and one secondary
 		service.setWatchedFolders([

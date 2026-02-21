@@ -2,7 +2,7 @@
 domain: Session
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
-stage: in-progress
+stage: done
 maturity: L2
 version: 1
 created: 2026-02-21
@@ -11,9 +11,9 @@ foundation: "[[Session Workspaces PRD]]"
 maturity_score_strategy: 5
 maturity_score_scope: 5
 maturity_score_architecture: 5
-maturity_score_event_integration: 4
+maturity_score_event_integration: 5
 maturity_score_data_model: 4
-maturity_score_ui_consistency: 4
+maturity_score_ui_consistency: 5
 maturity_score_validation_testing: 4
 business_value: 5
 implementation_cost: 4
@@ -22,7 +22,7 @@ discovery_cost: 3
 design_cost: 4
 test_cost: 3
 priority: 3
-fri_score: 31
+fri_score: 33
 tags:
   - session
   - capture
@@ -310,7 +310,7 @@ interface TrainState {
 - [x] User can navigate to any thought
 - [x] User can branch from any thought
 - [x] Session lifecycle (pause, resume, closure) works
-- [x] npm test passes (3,263 tests, 73 new for Train of Thoughts)
+- [x] npm test passes (3,342 tests, 153 new for Train of Thoughts across Cycles 13+14)
 
 ---
 
@@ -321,11 +321,11 @@ interface TrainState {
 | Strategy | 5/5 | Delivered — strategic fit proven. Bridges Quick Capture and Sessions as serial capture modality. Fills the ideation gap in Flowti's execution model. |
 | Scope | 5/5 | v1 scope fully delivered. All 3 PBIs done (domain + views + lifecycle). Extended backlog items remain for v2. |
 | Architecture | 5/5 | Domain layer (TrainService, ThoughtNode, TrainState), UI layer (TrainMainView, TrainTimelineSidebar, TrainCaptureModal), and integration (session nesting, commands, ribbons) all implemented. 10 views registered. |
-| Event Integration | 4/5 | Train events implemented and wired. Session lifecycle integration complete (auto-pause, closure ritual). Inbox integration via capture events. -1 for potential extended event coverage in v2. |
+| Event Integration | 5/5 | Delivered — train events implemented and wired. Session lifecycle integration complete (auto-pause, closure ritual). Inbox integration via dedicated train mappers (thought added, train completed). CaptureService skips generic `capture.note.created` for train thoughts to prevent duplicate inbox items. |
 | Data Model | 4/5 | ThoughtNode + ThoughtRelation types working with TypedStorage. Frontmatter relations validated. Branching (next/branch directions) proven. -1 for potential schema evolution in v2. |
-| UI Consistency | 4/5 | TrainMainView for thought navigation, TrainTimelineSidebar for graph visualization, timeboxed countdown timer, ribbons and commands all delivered. -1 for potential polish and accessibility improvements. |
-| Validation & Testing | 4/5 | 73 new tests (3,263 total). Flow docs, component docs, sitemap docs delivered. TrainService + UI views + integration all covered. -1 for visual/E2E testing of timeline renderer. |
-| **Total FRI** | **31/35** | **Substantially Delivered** — v1 core functionality complete. Serial capture, branching, views, session nesting, closure ritual, and timeboxing all working. Extended backlog items remain for v2. |
+| UI Consistency | 5/5 | Delivered — TrainMainView, TrainTimelineSidebar, TrainCaptureModal, extracted panels (stats, controls, breadcrumb) all using `ft-*` design system classes, `renderStatGrid()`, `ft-btn`, `ft-section` layout. CSS styling complete (~130 lines). Ribbons, commands, User Hub integration all delivered. |
+| Validation & Testing | 4/5 | 153 new tests across Cycles 13+14 (3,342 total). Flow docs, component docs, sitemap docs delivered. TrainService + UI views + integration all covered. -1 for visual/E2E testing of timeline renderer. |
+| **Total FRI** | **33/35** | **Done** — v1 fully delivered across Cycles 13+14. Serial capture, branching, compass navigation, styled views (ft-* design system), session nesting, closure ritual, timeboxing, inbox integration, User Hub integration, and preferences all working. Extended backlog items remain for v2. |
 
 ---
 
@@ -369,6 +369,7 @@ All dependencies are met — this feature can begin implementation immediately.
 |------|-------|-----|-------|
 | 2026-02-21 | discovery → approved | 20/35 | Initial PRD created from vault inbox idea. 3 PBIs defined, 5 increments estimated. Dependencies met (Session v2 + Quick Capture delivered). |
 | 2026-02-21 | approved → in-progress | 31/35 | Cycle 13 delivery: v1 scope complete. All 3 PBIs done (TOT-001, TOT-002, TOT-003). 11/11 FRs delivered. 73 new tests (3,263 total). 10 views registered. Delivered: serial capture with thought linking, branching (next/branch), TrainMainView, TrainTimelineSidebar, session nesting with auto-pause, closure ritual with train-specific questions, timeboxed trains with countdown timer. Extended backlog items remain for v2. |
+| 2026-02-21 | in-progress → done | 33/35 | Cycle 14 delivery: 8 increments. Visual refactor (ft-* design system, renderStatGrid, ft-btn, ft-section layout, ~130 lines CSS). Sidebar toggle, modal navigation (prev/next/branch from modal), active thought sync, train preferences in User Hub, dashboard train notice, inbox source configuration, 5 bugs fixed (stale sidebar, modal direction reset, capture.note.created bypass for thoughts, inbox enabledSources empty default, flow doc stale). 153 new tests total (3,342). FRI 31→33. |
 
 ---
 

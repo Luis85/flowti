@@ -4,6 +4,11 @@
  * Follows the same pattern as QuickCaptureModal.
  * Each submission calls onSubmit, which creates the thought and opens
  * a new modal (recursive loop managed by the caller in main.ts).
+ *
+ * Navigation mirrors the frontmatter link model:
+ *   back  — linear parent
+ *   next  — linear child
+ *   up    — first branch child
  */
 
 import { Modal, Setting } from "obsidian";
@@ -25,18 +30,29 @@ export interface TrainCaptureModalOptions {
 	onSubmit: (title: string, direction: ThoughtDirection) => void;
 	onComplete: () => void;
 	onCancel: () => void;
+	/** Navigate to the linear parent (back link). */
+	onBack?: () => void;
+	/** Navigate to the linear child (next link). */
+	onNext?: () => void;
+	/** Navigate to the first branch child (up link). */
+	onUp?: () => void;
 	/** Timer duration in minutes (0 = no timer). */
 	durationMinutes: number;
+	/** Default direction for new thoughts. When the source thought already has a "next" child, defaults to "branch". */
+	defaultDirection?: ThoughtDirection;
 	/** Subscribe to session.timer.tick — returns unsubscribe fn. */
 	subscribeTimerTick?: (cb: (remainingMs: number) => void) => () => void;
 	/** Subscribe to session.timer.completed — returns unsubscribe fn. */
 	subscribeTimerCompleted?: (cb: () => void) => () => void;
 }
 
+type NavAction = "back" | "next" | "up";
+
 export class TrainCaptureModal extends Modal {
 	private readonly options: TrainCaptureModalOptions;
 	private submitted = false;
 	private completed = false;
+	private navAction: NavAction | null = null;
 	private unsubTick: (() => void) | null = null;
 	private unsubCompleted: (() => void) | null = null;
 
@@ -51,19 +67,31 @@ export class TrainCaptureModal extends Modal {
 
 		// Context banner (hidden for first thought)
 		if (this.options.previousThoughtTitle) {
-			const bannerEl = contentEl.createDiv({ cls: "flowti-train-context" });
-			bannerEl.createSpan({ text: `Previous: ${this.options.previousThoughtTitle}` });
+			const bannerEl = contentEl.createDiv({ cls: "ft-train-context" });
+			if (this.options.onBack) {
+				const link = bannerEl.createEl("a", {
+					text: `Previous: ${this.options.previousThoughtTitle}`,
+					cls: "ft-train-context-link",
+				});
+				link.addEventListener("click", (e) => {
+					e.preventDefault();
+					this.navAction = "back";
+					this.close();
+				});
+			} else {
+				bannerEl.createSpan({ text: `Previous: ${this.options.previousThoughtTitle}` });
+			}
 		}
 
 		// Thought counter
 		contentEl.createDiv({
-			cls: "flowti-train-counter",
+			cls: "ft-train-counter",
 			text: `Thought #${this.options.thoughtCount + 1}`,
 		});
 
 		// Timer display (only when timeboxed)
 		if (this.options.durationMinutes > 0 && this.options.subscribeTimerTick) {
-			const timerEl = contentEl.createDiv({ cls: "flowti-train-timer" });
+			const timerEl = contentEl.createDiv({ cls: "ft-train-timer" });
 			timerEl.setText(formatTimer(this.options.durationMinutes * 60_000));
 
 			this.unsubTick = this.options.subscribeTimerTick((remainingMs) => {
@@ -79,7 +107,7 @@ export class TrainCaptureModal extends Modal {
 		}
 
 		let titleValue = "";
-		let selectedDirection: ThoughtDirection = "next";
+		let selectedDirection: ThoughtDirection = this.options.defaultDirection ?? "next";
 
 		const submit = (): void => {
 			const trimmed = titleValue.trim();
@@ -115,8 +143,39 @@ export class TrainCaptureModal extends Modal {
 				.addDropdown((dd) => {
 					dd.addOption("next", "Continue chain \u2192");
 					dd.addOption("branch", "Branch \u2197");
+					dd.setValue(selectedDirection);
 					dd.onChange((value) => { selectedDirection = value as ThoughtDirection; });
 				});
+		}
+
+		// Navigation buttons — mirrors the thought's link directions
+		const hasNav = this.options.onBack || this.options.onNext || this.options.onUp;
+		if (hasNav) {
+			const nav = new Setting(contentEl);
+			if (this.options.onBack) {
+				nav.addButton((btn) =>
+					btn.setButtonText("\u25C4 Back").onClick(() => {
+						this.navAction = "back";
+						this.close();
+					})
+				);
+			}
+			if (this.options.onUp) {
+				nav.addButton((btn) =>
+					btn.setButtonText("\u2191 Up").onClick(() => {
+						this.navAction = "up";
+						this.close();
+					})
+				);
+			}
+			if (this.options.onNext) {
+				nav.addButton((btn) =>
+					btn.setButtonText("Next \u25BA").onClick(() => {
+						this.navAction = "next";
+						this.close();
+					})
+				);
+			}
 		}
 
 		// Action buttons
@@ -143,7 +202,13 @@ export class TrainCaptureModal extends Modal {
 		this.unsubCompleted?.();
 
 		if (!this.submitted) {
-			if (this.completed) {
+			if (this.navAction === "back") {
+				this.options.onBack?.();
+			} else if (this.navAction === "next") {
+				this.options.onNext?.();
+			} else if (this.navAction === "up") {
+				this.options.onUp?.();
+			} else if (this.completed) {
 				this.options.onComplete();
 			} else {
 				this.options.onCancel();

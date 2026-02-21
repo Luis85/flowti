@@ -54,10 +54,13 @@ export interface UiCommandEventMap {
 	"ui.openQuickCapture": { type?: CaptureType };
 
 	/** Start a Train of Thoughts serial capture session */
-	"ui.startTrain": Record<string, never>;
+	"ui.startTrain": { fromThoughtId?: string };
 
 	/** Open the Train Main View (or reveal if already open) */
 	"ui.openTrainView": Record<string, never>;
+
+	/** Toggle the Train Timeline Sidebar (show/hide) */
+	"ui.toggleTrainTimeline": { trainId: string };
 
 	/** Emitted after a view or modal was opened by UiCommandService */
 	"ui.opened": {

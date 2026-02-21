@@ -37,6 +37,9 @@ export class TrainService {
 	private readonly captureService: CaptureService;
 	private state: TrainServiceState = { trains: [] };
 
+	/** Late-binding settings getter for trainFolder — overridden in main.ts after service load. */
+	public getSettings: () => { trainFolder: string } = () => ({ trainFolder: "" });
+
 	constructor(options: TrainServiceOptions) {
 		this.storage = options.storage;
 		this.eventBus = options.eventBus;
@@ -168,10 +171,16 @@ export class TrainService {
 
 		const direction: ThoughtDirection = options?.direction ?? "next";
 
-		// Create note via CaptureService
+		// Create note via CaptureService — use trainFolder when configured
+		// Prefix with compact ISO timestamp to avoid naming collisions
+		const now = new Date();
+		const ts = now.toISOString().replace(/[-:]/g, "").replace("T", "-").slice(0, 15); // YYYYMMDD-HHmmss
+		const fileTitle = `${ts} ${title}`;
+		const { trainFolder } = this.getSettings();
 		const result = await this.captureService.capture({
-			title,
+			title: fileTitle,
 			type: "thought",
+			...(trainFolder ? { folder: trainFolder } : {}),
 		});
 
 		const order = train.thoughts.length;
@@ -386,76 +395,66 @@ export class TrainService {
 	}
 
 	/**
-	 * Enrich thought note frontmatter with train context and links.
+	 * Enrich thought note frontmatter with navigation links.
+	 *
+	 * Navigation model (compass):
+	 *   next  — linear forward  (children with direction="next")
+	 *   back  — linear backward (parent with direction="next")
+	 *   up    — branch children (children with direction="branch")
+	 *   down  — branch parent   (parent with direction="branch")
+	 *
+	 * Each property is a list of wikilinks, rebuilt from the full relation graph.
 	 */
 	private async updateThoughtFrontmatter(
 		thought: ThoughtNode,
 		train: TrainState,
 		fromThought: ThoughtNode | null,
-		direction: ThoughtDirection,
+		_direction: ThoughtDirection,
 	): Promise<void> {
-		const data: Record<string, unknown> = {
+		// Update the new thought's frontmatter
+		await this.fileSystem.updateFrontmatter(thought.path, {
 			"train-session": train.title,
 			"thought-order": thought.order,
-		};
+			...this.buildNavLinks(train, thought.id),
+		});
 
+		// Update the source thought's frontmatter (its nav links changed)
 		if (fromThought) {
-			data["previous-thought"] = `[[${fromThought.title}]]`;
-			data["thought-relations"] = [
-				{ target: `[[${fromThought.title}]]`, direction, role: "parent" },
-			];
-		}
-
-		await this.fileSystem.updateFrontmatter(thought.path, data);
-
-		// Update source thought with forward link + structured relations
-		if (fromThought) {
-			const existingRelations = this.buildExistingRelations(train, fromThought.id);
-			existingRelations.push({
-				target: `[[${thought.title}]]`,
-				direction,
-				role: "child",
-			});
-
 			await this.fileSystem.updateFrontmatter(fromThought.path, {
-				"next-thought": `[[${thought.title}]]`,
-				"thought-relations": existingRelations,
+				...this.buildNavLinks(train, fromThought.id),
 			});
 		}
 	}
 
 	/**
-	 * Build the thought-relations array for a thought's frontmatter.
+	 * Build the navigation wikilink lists for a thought from the train's relations.
 	 */
-	private buildExistingRelations(
+	private buildNavLinks(
 		train: TrainState,
 		thoughtId: string,
-	): Array<{ target: string; direction: string; role: string }> {
+	): Record<string, string[]> {
 		const thoughtById = new Map(train.thoughts.map((t) => [t.id, t]));
-		const relations: Array<{ target: string; direction: string; role: string }> = [];
+		const next: string[] = [];
+		const back: string[] = [];
+		const up: string[] = [];
+		const down: string[] = [];
 
 		for (const r of train.relations) {
 			if (r.fromId === thoughtId) {
 				const child = thoughtById.get(r.toId);
-				if (child) {
-					relations.push({
-						target: `[[${child.title}]]`,
-						direction: r.direction,
-						role: "child",
-					});
-				}
+				if (!child) continue;
+				const link = `[[${child.title}]]`;
+				if (r.direction === "next") next.push(link);
+				else if (r.direction === "branch") up.push(link);
 			} else if (r.toId === thoughtId) {
 				const parent = thoughtById.get(r.fromId);
-				if (parent) {
-					relations.push({
-						target: `[[${parent.title}]]`,
-						direction: r.direction,
-						role: "parent",
-					});
-				}
+				if (!parent) continue;
+				const link = `[[${parent.title}]]`;
+				if (r.direction === "next") back.push(link);
+				else if (r.direction === "branch") down.push(link);
 			}
 		}
 
-		return relations;
+		return { next, back, up, down };
 	}
 }

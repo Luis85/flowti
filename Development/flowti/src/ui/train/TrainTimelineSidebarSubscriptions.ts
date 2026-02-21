@@ -27,10 +27,11 @@ export function setupTrainTimelineSubscriptions(
 		}),
 	);
 
-	// Thought added — re-render to show new node in timeline
+	// Thought added — activate the new thought and re-render
 	unsubs.push(
 		eventBus.on("train.thought.added", (event) => {
 			if (event.payload.trainId === ctx.getTrainId()) {
+				ctx.setActiveThoughtId(event.payload.thought.id);
 				ctx.scheduleRender();
 			}
 		}),

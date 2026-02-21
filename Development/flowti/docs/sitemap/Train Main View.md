@@ -1,5 +1,5 @@
 ---
-stage: development
+stage: done
 domain: Train
 plugin: "[[Development/flowti/README|README]]"
 tags:
@@ -27,16 +27,24 @@ The view auto-opens on `train.started` and loads a specific train (by `trainId` 
 ```
 ┌─────────────────────────────────────────┐
 │ 🚂 Train: My Deep Dive     [running]   │  header
+│ Root > Schema Design > [Active]         │  breadcrumb
 │ ◄ Prev   Thought 3 of 8    Next ►      │  nav bar
+├─────────────────────────────────────────┤
+│ Stats: 8 thoughts · 2 branches · 12m   │  stats panel
 ├─────────────────────────────────────────┤
 │ Database schema needs rethinking        │  thought title
 │ Created: 14:35 · Order: #3 · → next    │  metadata
+│ "The current schema doesn't handle…"   │  content preview
 ├─────────────────────────────────────────┤
 │ Branches:                               │  branch links
 │   ↗ Alternative approach using…         │  (clickable)
 │   ↗ What about NoSQL instead…           │
 ├─────────────────────────────────────────┤
-│ [Open in Editor]   [Resume Capture]     │  actions
+│ [Pause] [Complete] [Resume Capture]     │  controls panel
+│ [Open in Editor]                        │  actions
+├─────────────────────────────────────────┤
+│ ⏱ 12:34 remaining                      │  timer (optional)
+│ ↑ Parent train: Exploration Phase       │  parent link (optional)
 └─────────────────────────────────────────┘
 ```
 
@@ -61,9 +69,13 @@ Click "Open in Editor" to open the thought's vault note in the Obsidian editor f
 - Uses `ft-hide-header` class for Obsidian view header hiding + CSS padding compensation
 - Train loading: `trainId` from `setState()` → `getActiveTrain()` (fallback)
 - `getState()`/`setState()` persist `trainId` for workspace re-open
-- 6 event subscriptions for live updates (started, thought.added, paused, resumed, completed, thought.activated)
+- 7 event subscriptions for live updates (started, thought.added, paused, resumed, completed, thought.activated, session.timer.tick)
 - All subscriptions extracted to `TrainMainViewSubscriptions.ts` and cleaned up in `onClose()`
-- Source: `src/ui/train/TrainMainView.ts` (~237 LOC)
+- 3 extracted panels: `TrainStatsPanel` (stats grid), `TrainControlsPanel` (status-aware buttons), `TrainBreadcrumbPanel` (root-to-active path)
+- Content preview: first ~200 chars of thought note via `app.vault.cachedRead()`
+- Timer display: monospace countdown, updates on `session.timer.tick` (DOM-only, no full re-render)
+- Parent train link: visible when `parentTrainId` exists, links to parent train
+- Source: `src/ui/train/TrainMainView.ts` (~323 LOC)
 
 ## Related Flows
 

@@ -237,6 +237,44 @@ export class FlowtiSettingTab extends PluginSettingTab {
 					});
 				});
 			});
+
+		new Setting(containerEl)
+			.setName("Train folder")
+			.setDesc("Vault folder where Train of Thought notes are saved")
+			.addText((text) =>
+				text
+					.setValue(settings.trainFolder)
+					.setPlaceholder("00 - Connectivity/trains")
+					.onChange((value) => {
+						void this.deps.eventBus.emit("settings.updateTrainFolder", { folder: value });
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Auto-open timeline")
+			.setDesc("Automatically open the timeline sidebar when starting a train")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(settings.trainAutoOpenTimeline)
+					.onChange((value) => {
+						void this.deps.eventBus.emit("settings.updateTrainAutoOpenTimeline", { enabled: value });
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Maximum thoughts per train")
+			.setDesc("Maximum number of thoughts allowed in a single train (1-1000)")
+			.addText((text) =>
+				text
+					.setValue(String(settings.trainMaxThoughts))
+					.setPlaceholder("100")
+					.onChange((value) => {
+						const num = parseInt(value, 10);
+						if (!isNaN(num) && num >= 1 && num <= 1000) {
+							void this.deps.eventBus.emit("settings.updateTrainMaxThoughts", { max: num });
+						}
+					})
+			);
 	}
 
 	/**

@@ -18,21 +18,23 @@ export function setupTrainViewSubscriptions(
 ): (() => void)[] {
 	const unsubs: (() => void)[] = [];
 
-	// New train started — switch to it
+	// New train started — switch to it and track the trainId
 	unsubs.push(
 		eventBus.on("train.started", (event) => {
 			const trainId = ctx.getTrainId();
 			if (!trainId || trainId === event.payload.train.id) {
-				ctx.setActiveThoughtIndex(0);
+				ctx.setTrainId(event.payload.train.id);
+				ctx.setActiveThoughtId(null);
 				ctx.scheduleRender();
 			}
 		}),
 	);
 
-	// Thought added — re-render to show new thought
+	// Thought added — activate the new thought and re-render
 	unsubs.push(
 		eventBus.on("train.thought.added", (event) => {
 			if (event.payload.trainId === ctx.getTrainId()) {
+				ctx.setActiveThoughtId(event.payload.thought.id);
 				ctx.scheduleRender();
 			}
 		}),
@@ -65,12 +67,11 @@ export function setupTrainViewSubscriptions(
 		}),
 	);
 
-	// Thought activated — navigate to the activated thought
+	// Thought activated — navigate to the activated thought (e.g. from timeline sidebar)
 	unsubs.push(
 		eventBus.on("train.thought.activated", (event) => {
 			if (event.payload.trainId === ctx.getTrainId()) {
-				// The view itself emits this event, so we only re-render
-				// if triggered externally (e.g. from timeline sidebar)
+				ctx.setActiveThoughtId(event.payload.thoughtId);
 				ctx.scheduleRender();
 			}
 		}),

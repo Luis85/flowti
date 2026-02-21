@@ -109,6 +109,21 @@ export class SettingsService implements ISettingsService {
 					void this.updateSettings({ defaultTrainDuration: event.payload.value });
 				})
 			);
+			this.unsubscribes.push(
+				this.eventBus.on("settings.updateTrainFolder", (event) => {
+					void this.updateSettings({ trainFolder: event.payload.folder });
+				})
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("settings.updateTrainAutoOpenTimeline", (event) => {
+					void this.updateSettings({ trainAutoOpenTimeline: event.payload.enabled });
+				})
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("settings.updateTrainMaxThoughts", (event) => {
+					void this.updateSettings({ trainMaxThoughts: event.payload.max });
+				})
+			);
 		}
 	}
 

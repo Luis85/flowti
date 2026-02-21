@@ -276,6 +276,9 @@ const CATALOG_DATA = {
 	"settings.updateInboxWatchedFolders": { category: "Settings", description: "Update inbox watched folder configuration", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
 	"settings.updateInboxTriageTargetFolder": { category: "Settings", description: "Update inbox triage target folder path", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
 	"settings.updateDefaultTrainDuration": { category: "Settings", description: "Update default train duration preference", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
+	"settings.updateTrainFolder": { category: "Settings", description: "Update train folder path", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
+	"settings.updateTrainAutoOpenTimeline": { category: "Settings", description: "Update auto-open timeline preference", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
+	"settings.updateTrainMaxThoughts": { category: "Settings", description: "Update max thoughts per train", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
 
 	// ── Installer Domain ─────────────────────────────────────
 	"installer.started":        { category: "Installer", description: "Installation pipeline started", direction: "Service → Listeners", domain: "installer", services: "InstallerService" },
@@ -377,6 +380,7 @@ const CATALOG_DATA = {
 	"ui.openQuickCapture":        { category: "UI Commands", description: "Open the Quick Capture modal", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.startTrain":              { category: "UI Commands", description: "Start a Train of Thoughts serial capture session", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.openTrainView":           { category: "UI Commands", description: "Open the Train Main View", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
+	"ui.toggleTrainTimeline":     { category: "UI Commands", description: "Toggle the Train Timeline Sidebar", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.opened":                  { category: "UI Commands", description: "A UI view or modal was opened", direction: "Internal", domain: "ui", services: "UiCommandService", tags: ["system"] },
 
 	// ── Hub ──────────────────────────────────────────────────

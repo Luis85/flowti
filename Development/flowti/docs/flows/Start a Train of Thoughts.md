@@ -27,7 +27,7 @@ tags:
 
 ## Overview
 
-Train of Thoughts provides serial thought capture via a command palette action or ribbon icon. The user names their train, then enters a recursive modal loop — each thought gets a title, an optional direction (continue chain or branch), and is immediately saved as a vault note with structured frontmatter. CaptureService creates the note, TrainService links it into a directed graph via `ThoughtRelation` records, and frontmatter is enriched with `thought-relations`, `previous-thought`, and `train-session` fields. The user can pause (Escape/close), complete (done forever), or keep adding thoughts. A paused train can be resumed later; a completed train frees the slot for a new one.
+Train of Thoughts provides serial thought capture via a command palette action or ribbon icon. The user names their train, then enters a recursive modal loop — each thought gets a title, an optional direction (continue chain or branch), and is immediately saved as a vault note with structured frontmatter. CaptureService creates the note (skipping `capture.note.created` for thoughts to avoid duplicate inbox items), TrainService links it into a directed graph via `ThoughtRelation` records, and frontmatter is enriched with compass navigation links (`next`, `back`, `up`, `down`) and `train-session` fields. The user can pause (Escape/close), complete (done forever), or keep adding thoughts. A paused train can be resumed later; a completed train frees the slot for a new one.
 
 ## Trigger
 
@@ -46,7 +46,7 @@ User clicks the "Train of Thoughts" ribbon icon (train-front) or invokes the "St
 
 - **View/Service**: InputModal
 - **User Action**: Types a train title and presses Enter or clicks "Start". The modal heading reads "Start a new Train of Thoughts" with the prompt "What are you thinking?" and a placeholder "e.g. Exploring a new idea…".
-- **System Response**: InputModal captures the title. On submit, main.ts reads `defaultTrainDuration` from settings and calls `TrainService.startTrain(title, durationMinutes)`. TrainService creates a linked session via `session.create` event (type: "train-of-thoughts", durationMinutes), waits for `session.created`, starts the session, then creates a `TrainState` with status "running" and `durationMinutes`. The train is persisted via TypedStorage.
+- **System Response**: InputModal captures the title. On submit, main.ts reads `defaultTrainDuration` from settings and calls `TrainService.startTrain(title, durationMinutes)`. TrainService creates a linked session via `session.create` event (type: "train-of-thoughts", durationMinutes), waits for `session.created`, starts the session, then creates a `TrainState` with status "running" and `durationMinutes`. The train is persisted via TypedStorage. If `trainAutoOpenTimeline` is enabled in settings, the Timeline Sidebar auto-opens in the right sidebar.
 - **Events**: `session.create`, `session.created`, `session.start`, `train.started`
 
 ### 3. Capture Modal Opens
@@ -67,8 +67,8 @@ User clicks the "Train of Thoughts" ribbon icon (train-front) or invokes the "St
 
 - **View/Service**: TrainCaptureModal → main.ts → TrainService → CaptureService
 - **User Action**: Presses Enter or clicks "Add Thought"
-- **System Response**: The modal calls `onSubmit(title, direction)`. main.ts fires `addThought(trainId, title, { direction })` as fire-and-forget (no blocking). A new `TrainCaptureModal` opens immediately with optimistic context (previous title = submitted title, count + 1). Meanwhile, TrainService creates the vault note via CaptureService (type: "thought"), creates a `ThoughtNode`, links it to the previous thought via a `ThoughtRelation` with the selected direction, persists state, and enriches frontmatter with `thought-relations`, `previous-thought`, `train-session`, and `thought-order` fields.
-- **Events**: `capture.note.created`, `train.thought.added` (with `direction` field)
+- **System Response**: The modal calls `onSubmit(title, direction)`. main.ts fires `addThought(trainId, title, { direction })` as fire-and-forget (no blocking). A new `TrainCaptureModal` opens immediately with optimistic context (previous title = submitted title, count + 1). Meanwhile, TrainService creates the vault note via CaptureService (type: "thought") — when `trainFolder` is configured in settings, the note is created there instead of the default `captureFolder`. CaptureService skips `capture.note.created` for type "thought" to prevent duplicate inbox items. TrainService creates a `ThoughtNode`, links it to the previous thought via a `ThoughtRelation` with the selected direction, persists state, and enriches frontmatter with compass navigation links (`next`, `back`, `up`, `down`), `train-session`, and `thought-order` fields.
+- **Events**: `train.thought.added` (with `direction` field)
 
 ### 6. User Pauses Train
 
@@ -99,19 +99,22 @@ User clicks the "Train of Thoughts" ribbon icon (train-front) or invokes the "St
 | Close action | Pause (resume later) or Complete (done forever) | Pause (Escape) |
 | Train title | User-entered free text | (required) |
 | Timer duration | Unlimited, 5, 10, 15, 25, 50 min (configurable in Settings) | `defaultTrainDuration` setting (default: 0 = Unlimited) |
+| Thought folder | `trainFolder` setting or `captureFolder` fallback | `captureFolder` (inbox) |
+| Auto-open timeline | `trainAutoOpenTimeline` toggle | enabled |
+| Max thoughts | `trainMaxThoughts` cap | 500 |
 
 ### 9. User Navigates Thoughts in Main View
 
 - **View/Service**: TrainMainView
-- **User Action**: Clicks Previous/Next buttons, branch links, or "Open in Editor" / "Resume Capture" action buttons
-- **System Response**: The Train Main View auto-opens on `train.started` as a new tab (or updates an existing tab). It shows the active thought with title, order, direction, and timestamp metadata. Previous/Next buttons navigate the main chain (disabled at boundaries). Branch links are clickable and switch to the branched thought. "Open in Editor" opens the vault note; "Resume Capture" reopens the serial capture modal at the current position. The view persists `trainId` via `getState()`/`setState()` for workspace re-open. Navigation emits `train.thought.activated` for cross-view sync.
+- **User Action**: Clicks Previous/Next buttons, branch links, breadcrumb segments, or control buttons (Pause/Resume/Complete/Add Thought/Open in Editor)
+- **System Response**: The Train Main View auto-opens on `train.started` as a new tab (or updates an existing tab). It shows a breadcrumb path (root to active thought), a stats grid (thoughts, branches, chain length, elapsed time, status), the active thought with title, order, direction, and metadata, a content preview (first ~200 chars of the vault note), and status-aware control buttons. When `durationMinutes > 0`, a monospace timer counts down via `session.timer.tick`. When `parentTrainId` exists, a link to the parent train is shown. Previous/Next buttons navigate the main chain (disabled at boundaries). Branch links are clickable and switch to the branched thought. The view persists `trainId` via `getState()`/`setState()` for workspace re-open. Navigation emits `train.thought.activated` for cross-view sync.
 - **Events**: `train.thought.activated`
 
 ### 10. User Monitors Timeline in Sidebar
 
 - **View/Service**: TrainTimelineSidebar
-- **User Action**: Views the thought graph in the right sidebar; clicks on nodes to navigate
-- **System Response**: The Train Timeline Sidebar auto-opens in the right sidebar on `train.started`. It renders a vertical node list with the main chain and branch sub-trees. Each node shows a bullet (filled for active, open for inactive), title, and timestamp. Branch nodes are indented with a `↗` indicator. Clicking a node emits `train.thought.activated` which the Main View listens to (and vice versa) for bidirectional sync. The sidebar persists `trainId` + `activeThoughtId` via `getState()`/`setState()`.
+- **User Action**: Views the thought graph in the right sidebar; clicks on nodes to navigate; collapses/expands branches
+- **System Response**: The Train Timeline Sidebar auto-opens in the right sidebar on `train.started`. A compact stats line shows "X thoughts · Y branches · Z min". It renders a recursive tree with the main chain as a depth-0 spine and branches indented at depth+1, connected by tree connectors (`│`, `├─`, `└─`). Each node shows a bullet (filled for active, open for inactive), title, and timestamp. Nodes with branches show a `(+N)` badge and a clickable chevron (▸/▾) for collapse/expand. The active node auto-scrolls into view. Clicking a node emits `train.thought.activated` which the Main View listens to (and vice versa) for bidirectional sync. The sidebar persists `trainId` + `activeThoughtId` via `getState()`/`setState()`.
 - **Events**: `train.thought.activated`
 
 ## Events Sequence
@@ -128,7 +131,7 @@ User clicks the "Train of Thoughts" ribbon icon (train-front) or invokes the "St
     → train.started { train }
     → [TrainCaptureModal opens]
     → [User types thought + submits]
-    → CaptureService.capture() → capture.note.created
+    → CaptureService.capture() (skips capture.note.created for type "thought")
     → train.thought.added { trainId, thought, previousTitle, direction }
     → [Next modal opens immediately — loop continues]
 ```
@@ -179,6 +182,8 @@ User clicks the "Train of Thoughts" ribbon icon (train-front) or invokes the "St
 
 ### Thought note (created by CaptureService + enriched by TrainService)
 
+Navigation uses a compass model: `next` (linear forward), `back` (linear backward), `up` (branch children), `down` (branch parent). Each property is a list of wikilinks rebuilt from the full relation graph.
+
 ```yaml
 ---
 type: Thought
@@ -186,11 +191,11 @@ created: 2026-02-21T14:30:00.000Z
 origin: quick-capture
 train-session: "My Deep Dive"
 thought-order: 2
-previous-thought: "[[Previous Thought Title]]"
-thought-relations:
-  - target: "[[Previous Thought Title]]"
-    direction: next
-    role: parent
+next: []
+back:
+  - "[[Previous Thought Title]]"
+up: []
+down: []
 ---
 ```
 
@@ -198,11 +203,11 @@ thought-relations:
 
 ```yaml
 ---
-next-thought: "[[New Thought Title]]"
-thought-relations:
-  - target: "[[New Thought Title]]"
-    direction: next
-    role: child
+next:
+  - "[[New Thought Title]]"
+back: []
+up: []
+down: []
 ---
 ```
 
@@ -230,16 +235,30 @@ thought-relations:
 | `getBranches(trainId, thoughtId)` | ThoughtNode[] | Branch children of a specific thought |
 | `getChildren(trainId, thoughtId)` | ThoughtNode[] | All children (next + branch) |
 
+## Settings
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `trainFolder` | string | `""` (empty = use `captureFolder`) | Folder for thought notes created during trains |
+| `trainAutoOpenTimeline` | boolean | `true` | Auto-open Timeline Sidebar on `train.started` |
+| `trainMaxThoughts` | number | 500 | Maximum thoughts per train before cap |
+| `defaultTrainDuration` | number | 0 | Default timer duration in minutes (0 = unlimited) |
+
+Settings are accessible from both the Obsidian Settings tab (Train section) and the User Hub Preferences tab (Trains category).
+
 ## Related Decisions
 
 - TrainService depends on CaptureService for note creation — reuses the same file creation + frontmatter logic
+- CaptureInput `folder?` override allows TrainService to redirect note creation to `trainFolder` without bypassing CaptureService
+- TrainService uses a late-binding `getSettings` pattern (same as CaptureService) for trainFolder access
 - Each train creates a linked session (type: "train-of-thoughts") to integrate with session lifecycle
 - `ThoughtRelation` uses `direction: "next" | "branch"` instead of generic `type` for clarity
-- Frontmatter uses `thought-relations` array for machine-parseable graph structure alongside human-readable `previous-thought` / `next-thought` wikilinks
+- Frontmatter uses compass navigation model (`next`, `back`, `up`, `down`) — wikilink arrays rebuilt from the full relation graph on each update
 - Optimistic modal opening (fire-and-forget addThought) keeps the capture loop fast — file I/O doesn't block the next modal
-- MAX_THOUGHTS_PER_TRAIN = 500, MAX_TRAINS = 100 with oldest-first eviction
+- MAX_THOUGHTS_PER_TRAIN = 500 (configurable via `trainMaxThoughts`), MAX_TRAINS = 100 with oldest-first eviction
 - Train sessions suppress Session Workspace auto-open (`session.type === "train-of-thought"` guard) and workspace state restore — trains use TrainMainView as their primary view
 - Train–session lifecycle sync: `session.completed/resumed/paused` events auto-sync the linked train status via `TrainService.setupListeners()`
+- Three extracted panels (TrainStatsPanel, TrainControlsPanel, TrainBreadcrumbPanel) keep TrainMainView focused on orchestration while panels own rendering
 
 ## Closure Ritual
 
@@ -261,6 +280,16 @@ Template resolution follows the 3-tier hierarchy: type-specific (`SESSION_TYPE_C
 Starting a new train while one is already running causes the running train to auto-pause. The new train stores `parentTrainId` linking back to the paused train. Resuming a train also auto-pauses any other running train. This enables quick context switches between thought chains without losing state.
 
 Nesting is limited to one level — there is no deep nesting beyond pausing one train to start another.
+
+## User Hub Integration
+
+Train-of-thought sessions have special treatment in the User Hub:
+
+- **Master list**: train-front icon + "N thoughts" badge on train sessions
+- **Detail panel**: train section showing thought count, branch count, clickable thought list (max 5 shown)
+- **Action buttons**: "Open Train" replaces "Workspace", "Timeline" replaces "Sidebar" for train sessions
+- **Dashboard**: active train card shows train-front icon + thought count badge
+- **NewSessionModal**: `train-of-thought` type is filtered out — trains are only created via ribbon/command
 
 ## Known Limitations
 

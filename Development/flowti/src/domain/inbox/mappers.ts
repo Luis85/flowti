@@ -6,6 +6,7 @@
  */
 
 import type { SyncResult } from "../signal/types";
+import type { ThoughtDirection, ThoughtNode } from "../train/types";
 import type { InboxItem } from "./types";
 
 /**
@@ -245,5 +246,45 @@ export function mapCaptureNoteCreated(
 		timestamp: new Date().toISOString(),
 		read: false,
 		filePath: payload.path,
+	};
+}
+
+/**
+ * Maps a `train.thought.added` event to an inbox item.
+ */
+export function mapTrainThoughtAdded(
+	payload: { trainId: string; thought: ThoughtNode; previousTitle: string | null; direction: ThoughtDirection },
+	id: string,
+): InboxItem {
+	const dirLabel = payload.direction === "branch" ? "branched" : "continued";
+	const fromLabel = payload.previousTitle ? ` from "${payload.previousTitle}"` : "";
+	return {
+		id,
+		type: "info",
+		title: `Thought: ${payload.thought.title}`,
+		description: `${dirLabel}${fromLabel} in train ${payload.trainId}.`,
+		sourceEvent: "train.thought.added",
+		sourceHub: "train",
+		timestamp: new Date().toISOString(),
+		read: false,
+	};
+}
+
+/**
+ * Maps a `train.completed` event to an inbox item.
+ */
+export function mapTrainCompleted(
+	payload: { trainId: string; thoughtCount: number },
+	id: string,
+): InboxItem {
+	return {
+		id,
+		type: "info",
+		title: `Train completed: ${payload.thoughtCount} thoughts`,
+		description: `Train ${payload.trainId} completed with ${payload.thoughtCount} thought${payload.thoughtCount === 1 ? "" : "s"}.`,
+		sourceEvent: "train.completed",
+		sourceHub: "train",
+		timestamp: new Date().toISOString(),
+		read: false,
 	};
 }

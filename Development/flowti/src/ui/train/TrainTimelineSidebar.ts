@@ -36,6 +36,7 @@ export class TrainTimelineSidebar extends ItemView {
 	private trainId: string | null = null;
 	private activeThoughtId: string | null = null;
 	private renderTimer: ReturnType<typeof setTimeout> | null = null;
+	private collapsedNodes = new Set<string>();
 
 	constructor(leaf: WorkspaceLeaf, eventBus: IEventBus, trainService: TrainService) {
 		super(leaf);
@@ -124,40 +125,104 @@ export class TrainTimelineSidebar extends ItemView {
 	}
 
 	private renderEmptyState(el: HTMLElement): void {
-		const empty = el.createDiv({ cls: "flowti-timeline-empty" });
+		const empty = el.createDiv({ cls: "ft-timeline-empty ft-train-empty" });
+		const iconEl = empty.createDiv();
+		setIcon(iconEl, "train-front");
 		empty.createEl("p", { text: "No active train." });
 	}
 
 	private renderHeader(el: HTMLElement, train: TrainState): void {
-		const header = el.createDiv({ cls: "flowti-timeline-header" });
+		const header = el.createDiv({ cls: "ft-section ft-timeline-header" });
 
-		const titleRow = header.createDiv({ cls: "flowti-timeline-title-row" });
-		const icon = titleRow.createSpan({ cls: "flowti-timeline-icon" });
+		const titleRow = header.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		const icon = titleRow.createSpan();
 		setIcon(icon, "train-front");
-		titleRow.createSpan({ cls: "flowti-timeline-title", text: train.title });
+		titleRow.createSpan({ cls: "ft-heading-sm ft-timeline-title", text: train.title });
 
-		const badge = titleRow.createSpan({ cls: `flowti-timeline-status flowti-timeline-status-${train.status}` });
+		const badge = titleRow.createSpan({ cls: `ft-badge ft-badge-muted ft-timeline-status ft-timeline-status-${train.status}` });
 		badge.setText(train.status);
+
+		// Compact stat line
+		let branchCount = 0;
+		for (const thought of train.thoughts) {
+			branchCount += this.trainService.getBranches(train.id, thought.id).length;
+		}
+		const elapsed = train.createdAt
+			? Math.floor((Date.now() - new Date(train.createdAt).getTime()) / 60_000)
+			: 0;
+		header.createDiv({
+			cls: "ft-text-sm ft-text-muted ft-timeline-stat-line",
+			text: `${train.thoughts.length} thoughts · ${branchCount} branches · ${elapsed} min`,
+		});
 	}
 
 	private renderTimeline(el: HTMLElement, train: TrainState): void {
-		const container = el.createDiv({ cls: "flowti-timeline-container" });
+		const container = el.createDiv({ cls: "ft-timeline-container" });
 		const timeline = this.trainService.getTimeline(train.id);
 
 		if (timeline.length === 0) {
-			container.createDiv({ cls: "flowti-timeline-empty-chain", text: "No thoughts yet" });
+			container.createDiv({ cls: "ft-timeline-empty-chain", text: "No thoughts yet" });
 			return;
 		}
 
-		// Render each node in the main chain, with branch sub-trees
-		for (let i = 0; i < timeline.length; i++) {
-			const thought = timeline[i];
-			this.renderNode(container, thought, train, 0);
+		// Chain-based rendering: walk the "next" chain at depth 0,
+		// and for each node render "branch" forks as new chains at depth+1.
+		// "next" continuations stay flat; only "branch" increases depth.
+		this.renderChain(container, timeline[0], train, 0);
 
-			// Render branches for this thought
-			const branches = this.trainService.getBranches(train.id, thought.id);
-			for (const branch of branches) {
-				this.renderNode(container, branch, train, 1);
+		// Auto-scroll active node into view
+		setTimeout(() => {
+			const active = container.querySelector(".ft-timeline-node-active");
+			active?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+		}, 0);
+	}
+
+	/**
+	 * Walk a "next" chain starting from `start`, rendering each node at `depth`.
+	 * For each node, render "branch" children as new chains at `depth + 1`.
+	 * This keeps linear continuations flat and only indents true forks.
+	 *
+	 * @param isBranchStart  true for the first node of a branch chain (shows connector)
+	 * @param isLastBranch   true when this is the last branch sibling (shows └─ vs ├─)
+	 */
+	private renderChain(
+		container: HTMLElement,
+		start: ThoughtNode,
+		train: TrainState,
+		depth: number,
+		isBranchStart = false,
+		isLastBranch = false,
+	): void {
+		let current: ThoughtNode | null = start;
+		const visited = new Set<string>();
+		let isFirst = true;
+
+		while (current && !visited.has(current.id)) {
+			visited.add(current.id);
+
+			// Only the first node of a branch chain gets the connector character
+			const showConnector = isFirst && isBranchStart;
+			const isLast = showConnector && isLastBranch;
+			this.renderNode(container, current, train, depth, isLast, showConnector);
+			isFirst = false;
+
+			// Render "branch" children as new chains at depth+1 (unless collapsed or depth capped)
+			if (!this.collapsedNodes.has(current.id) && depth < 5) {
+				const branches = this.trainService.getBranches(train.id, current.id);
+				for (let i = 0; i < branches.length; i++) {
+					const isLastChild = i === branches.length - 1;
+					this.renderChain(container, branches[i], train, depth + 1, true, isLastChild);
+				}
+			}
+
+			// Follow the "next" child at the SAME depth (linear continuation)
+			const nextRelation = train.relations.find(
+				(r) => r.fromId === current!.id && r.direction === "next",
+			);
+			if (nextRelation) {
+				current = train.thoughts.find((t) => t.id === nextRelation.toId) ?? null;
+			} else {
+				current = null;
 			}
 		}
 	}
@@ -167,12 +232,14 @@ export class TrainTimelineSidebar extends ItemView {
 		thought: ThoughtNode,
 		train: TrainState,
 		depth: number,
+		isLast: boolean,
+		showConnector = false,
 	): void {
 		const isActive = thought.id === this.activeThoughtId;
 		const cls = [
-			"flowti-timeline-node",
-			isActive ? "flowti-timeline-node-active" : "",
-			depth > 0 ? "flowti-timeline-node-branch" : "",
+			"ft-timeline-node",
+			isActive ? "ft-timeline-node-active" : "",
+			depth > 0 ? "ft-timeline-node-branch" : "",
 		].filter(Boolean).join(" ");
 
 		const node = container.createDiv({ cls });
@@ -182,28 +249,51 @@ export class TrainTimelineSidebar extends ItemView {
 		}
 
 		// Connector line + bullet
-		const bulletRow = node.createDiv({ cls: "flowti-timeline-bullet-row" });
+		const bulletRow = node.createDiv({ cls: "ft-timeline-bullet-row" });
+
+		// Tree connector character — only on the first node of a branch fork
+		if (showConnector) {
+			const connector = bulletRow.createSpan({ cls: "ft-timeline-connector" });
+			connector.setText(isLast ? "└─" : "├─");
+		}
 
 		const bullet = bulletRow.createSpan({
-			cls: `flowti-timeline-bullet ${isActive ? "flowti-timeline-bullet-active" : ""}`,
+			cls: `ft-timeline-bullet ${isActive ? "ft-timeline-bullet-active" : ""}`,
 		});
 		bullet.setText(isActive ? "●" : "○");
 
-		if (depth > 0) {
-			const branchIndicator = bulletRow.createSpan({ cls: "flowti-timeline-branch-indicator" });
-			branchIndicator.setText("↗");
-		}
-
 		// Title
 		bulletRow.createSpan({
-			cls: "flowti-timeline-node-title",
+			cls: "ft-timeline-node-title",
 			text: thought.title,
 		});
+
+		// Child count badge + collapse chevron (only "branch" forks — "next" continuations render inline)
+		const branchCount = this.trainService.getBranches(train.id, thought.id).length;
+		if (branchCount > 0) {
+			const isCollapsed = this.collapsedNodes.has(thought.id);
+			const chevron = bulletRow.createSpan({ cls: "ft-timeline-chevron" });
+			chevron.setText(isCollapsed ? "▸" : "▾");
+			chevron.addEventListener("click", (e) => {
+				e.stopPropagation();
+				if (this.collapsedNodes.has(thought.id)) {
+					this.collapsedNodes.delete(thought.id);
+				} else {
+					this.collapsedNodes.add(thought.id);
+				}
+				this.render();
+			});
+
+			bulletRow.createSpan({
+				cls: "ft-badge ft-badge-muted ft-text-sm ft-timeline-branch-badge",
+				text: `+${branchCount}`,
+			});
+		}
 
 		// Timestamp
 		const time = new Date(thought.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 		node.createDiv({
-			cls: "flowti-timeline-node-time",
+			cls: "ft-text-sm ft-text-faint ft-timeline-node-time",
 			text: time,
 		});
 

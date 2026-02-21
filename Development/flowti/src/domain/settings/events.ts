@@ -32,4 +32,10 @@ export interface SettingsEventMap {
 	"settings.updateInboxTriageTargetFolder": { folder: string };
 	/** Command: update default train duration preference */
 	"settings.updateDefaultTrainDuration": { value: number };
+	/** Command: update train folder path */
+	"settings.updateTrainFolder": { folder: string };
+	/** Command: update train auto-open timeline preference */
+	"settings.updateTrainAutoOpenTimeline": { enabled: boolean };
+	/** Command: update maximum thoughts per train */
+	"settings.updateTrainMaxThoughts": { max: number };
 }

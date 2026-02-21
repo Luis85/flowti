@@ -7,6 +7,7 @@ import type { InboxService } from "../../domain/inbox/InboxService";
 import type { NudgeService } from "../../domain/nudge/NudgeService";
 import type { SessionService } from "../../domain/session/SessionService";
 import type { Session } from "../../domain/session/types";
+import type { TrainService } from "../../domain/train/TrainService";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { IUserService } from "../../domain/user/types";
 import type { FlowtiSettings } from "../../domain/settings/settings";
@@ -21,7 +22,7 @@ export type { InboxItem } from "../../domain/inbox/types";
 
 export type UserHubTab = "sessions" | "inbox" | "preferences";
 
-export type PreferencesCategory = "profile" | "inbox" | "sessions" | "nudges";
+export type PreferencesCategory = "profile" | "inbox" | "sessions" | "nudges" | "trains";
 
 // ─────────────────────────────────────────────────────────────
 // State
@@ -55,6 +56,8 @@ const SOURCE_EVENT_LABELS: Record<string, string> = {
 	"capture.note.created": "Quick Capture",
 	"signal.sync.completed": "Signal Sync",
 	"signal.sync.failed": "Signal Sync Error",
+	"train.thought.added": "Train Thought",
+	"train.completed": "Train Completed",
 };
 
 /** Returns a human-readable label for an inbox item's source event. */
@@ -106,6 +109,8 @@ export interface UserHubComponentDeps {
 	getSettings: () => FlowtiSettings;
 	/** Optional NudgeService for nudge preferences panel. */
 	nudgeService?: NudgeService;
+	/** Optional TrainService for train-aware session panels. */
+	trainService?: TrainService;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -131,4 +136,5 @@ export const SESSION_TYPE_LABELS: Record<string, string> = {
 	"requirements-refinement": "Requirements",
 	"backlog-structuring": "Backlog",
 	"knowledge-cleanup": "Cleanup",
+	"train-of-thought": "Train of Thought",
 };

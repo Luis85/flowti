@@ -24,6 +24,8 @@ import {
 	mapSyncCompleted,
 	mapSyncFailed,
 	mapCaptureNoteCreated,
+	mapTrainThoughtAdded,
+	mapTrainCompleted,
 } from "./mappers";
 import { mapVaultFolderNote, VAULT_FOLDER_SOURCE_EVENT, VAULT_FOLDER_SOURCE_HUB } from "./vaultFolderMapper";
 
@@ -39,6 +41,8 @@ export const ALL_INBOX_SOURCES = [
 	"signal.sync.failed",
 	"inbox.vaultFolder.noteDetected",
 	"capture.note.created",
+	"train.thought.added",
+	"train.completed",
 ] as const;
 
 /**
@@ -74,7 +78,7 @@ export class InboxService {
 	private storage: ITypedStorage<InboxState>;
 	private eventBus?: IEventBus;
 	private unsubscribes: (() => void)[] = [];
-	private enabledSources: Set<string> = new Set(ALL_INBOX_SOURCES);
+	private enabledSources: Set<string> = new Set();
 	private watchedFolders: Array<{ path: string; recursive: boolean; isPrimary?: boolean }> = [];
 	private fileDebounceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 	private triageTargetFolder = "";
@@ -170,6 +174,24 @@ export class InboxService {
 				this.eventBus.on("capture.note.created", (event) => {
 					if (!this.enabledSources.has("capture.note.created")) return;
 					const item = mapCaptureNoteCreated(event.payload, generateId());
+					void this.addItem(item);
+				}),
+			);
+
+			// Source: train thought added
+			this.unsubscribes.push(
+				this.eventBus.on("train.thought.added", (event) => {
+					if (!this.enabledSources.has("train.thought.added")) return;
+					const item = mapTrainThoughtAdded(event.payload, generateId());
+					void this.addItem(item);
+				}),
+			);
+
+			// Source: train completed
+			this.unsubscribes.push(
+				this.eventBus.on("train.completed", (event) => {
+					if (!this.enabledSources.has("train.completed")) return;
+					const item = mapTrainCompleted(event.payload, generateId());
 					void this.addItem(item);
 				}),
 			);

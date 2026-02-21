@@ -16,7 +16,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { EventBus } from "../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../src/infrastructure/events/types";
 import { SignalService } from "../../src/domain/signal/SignalService";
-import { InboxService } from "../../src/domain/inbox/InboxService";
+import { InboxService, ALL_INBOX_SOURCES } from "../../src/domain/inbox/InboxService";
 import type { SignalAdapter, TestConnectionResult, FetchItemsResult } from "../../src/domain/signal/adapters/SignalAdapter";
 import type { SignalConfig, SignalState, WorkItemMapping } from "../../src/domain/signal/types";
 import type { InboxState } from "../../src/domain/inbox/types";
@@ -75,6 +75,7 @@ describe("Flow 16: Configure and Sync Azure DevOps Signal", () => {
 
 		const inboxMock = createMockStorage<InboxState>();
 		inboxService = new InboxService({ storage: inboxMock.storage, eventBus });
+		inboxService.setEnabledSources([...ALL_INBOX_SOURCES]);
 		await inboxService.load();
 	});
 

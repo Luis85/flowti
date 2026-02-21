@@ -2,7 +2,7 @@
 type: Component
 domain: Train
 stage: done
-description: "Vertical timeline sidebar showing thought graph with nodes, branches, active highlighting, and click-to-navigate"
+description: "Vertical timeline sidebar showing thought graph as a recursive tree with connectors, collapse/expand, stats line, and click-to-navigate"
 source: "[[Development/flowti/src/ui/train/TrainTimelineSidebar.ts|TrainTimelineSidebar.ts]]"
 tags:
   - train
@@ -14,7 +14,7 @@ tags:
 
 ## Description
 
-TrainTimelineSidebar is a right-sidebar view for visualizing the thought graph of a Train of Thoughts session. It extends `ItemView` directly (not BaseHubView) and renders a vertical node list with connectors, branch indentation, and active-node highlighting. The sidebar syncs bidirectionally with TrainMainView via `train.thought.activated`.
+TrainTimelineSidebar is a right-sidebar view for visualizing the thought graph of a Train of Thoughts session. It extends `ItemView` directly (not BaseHubView) and renders a recursive tree with the main chain as a depth-0 spine, branches indented at depth+1, and tree connectors (`│`, `├─`, `└─`). Nodes with branches show a `(+N)` badge and a clickable chevron (▸/▾) for collapse/expand. A compact stats line in the header shows "X thoughts · Y branches · Z min". The active node auto-scrolls into view. The sidebar syncs bidirectionally with TrainMainView via `train.thought.activated`.
 
 Event subscriptions are extracted to `TrainTimelineSidebarSubscriptions.ts` following the same pattern as `TrainMainViewSubscriptions.ts`.
 
@@ -33,14 +33,20 @@ Event subscriptions are extracted to `TrainTimelineSidebarSubscriptions.ts` foll
 **Internal:**
 - `trainId: string | null` -- ID of the displayed train (persisted via getState/setState)
 - `activeThoughtId: string | null` -- ID of the highlighted thought (persisted via getState/setState)
+- `collapsedNodes: Set<string>` -- IDs of collapsed branch-parent nodes
 - `renderTimer: ReturnType<typeof setTimeout> | null` -- Debounced render scheduling (16ms)
 
 ## Renders
 
 - **Header**: train-front icon, train title, status badge (running/paused/completed)
-- **Timeline container**: vertical node list with main chain + branch sub-trees
-- **Node**: bullet (filled/open), title, timestamp, branch indicator if branched
+- **Stats line**: "X thoughts · Y branches · Z min" compact summary
+- **Timeline container**: recursive tree via `renderSubtree()` — main chain depth-0, branches depth+1
+- **Node**: bullet (filled/open), title, timestamp
+- **Tree connectors**: `│`, `├─`, `└─` via CSS pseudo-elements on `.flowti-timeline-connector`
+- **Branch badge**: `(+N)` count on main-chain nodes with branches
+- **Collapse/expand**: clickable chevron (▸/▾) on branch-parent nodes; collapsed sub-trees hidden
 - **Active highlighting**: `.flowti-timeline-node-active` class + filled bullet
+- **Auto-scroll**: active node scrolls into view (`scrollIntoView({ block: "nearest" })`)
 - **Branch indentation**: 16px padding-left per depth level
 - **Empty state**: shown when no train is loaded
 - **Empty chain**: shown when train has no thoughts yet
@@ -81,3 +87,4 @@ Event subscriptions are extracted to `TrainTimelineSidebarSubscriptions.ts` foll
 - Flow: [[Start a Train of Thoughts]]
 - Service: `TrainService` in `src/domain/train/TrainService.ts`
 - Companion: [[TrainMainView]] (bidirectional sync via `train.thought.activated`)
+- Source: `src/ui/train/TrainTimelineSidebar.ts` (~297 LOC)

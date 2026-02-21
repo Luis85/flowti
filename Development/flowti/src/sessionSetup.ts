@@ -12,6 +12,9 @@ import type { IErrorService } from "./infrastructure/errors/types";
 import type { SessionService } from "./domain/session/SessionService";
 import type { Session } from "./domain/session/types";
 import { SESSION_TYPES, type SessionType } from "./domain/session/types";
+
+/** Session types available in NewSessionModal (excludes train-of-thought — trains are created via ribbon/command). */
+const MODAL_SESSION_TYPES = SESSION_TYPES.filter((st) => st.type !== "train-of-thought");
 import { generateSessionSummary, mergeSessionNotes } from "./domain/session/helpers";
 import { NewSessionModal } from "./ui/modals";
 import { SessionWorkspaceView, VIEW_TYPE_SESSION_WORKSPACE } from "./ui/SessionWorkspaceView";
@@ -69,7 +72,7 @@ export class SessionSetup {
 			icon: "timer",
 			callback: () => {
 				new NewSessionModal(this.deps.app, {
-					sessionTypes: SESSION_TYPES,
+					sessionTypes: MODAL_SESSION_TYPES,
 					templates: this.deps.sessionService?.getSavedTemplates() ?? [],
 					onSubmit: (title, type, durationMinutes, focusFile, goals, extra) => {
 						void this.deps.eventBus.emit("session.create", {
@@ -139,9 +142,9 @@ export class SessionSetup {
 							.setIcon("timer")
 							.onClick(() => {
 								new NewSessionModal(app, {
-									sessionTypes: SESSION_TYPES,
+									sessionTypes: MODAL_SESSION_TYPES,
 									templates: sessionService?.getSavedTemplates() ?? [],
-									prefill: { title: "", type: SESSION_TYPES[0].type, durationMinutes: 25, focusFile: file.path },
+									prefill: { title: "", type: MODAL_SESSION_TYPES[0].type, durationMinutes: 25, focusFile: file.path },
 									onSubmit: (title, type, durationMinutes, focusFile, goals, extra) => {
 										void eventBus.emit("session.create", {
 											type: type as SessionType,

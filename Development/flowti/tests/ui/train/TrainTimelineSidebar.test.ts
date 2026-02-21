@@ -4,7 +4,7 @@ import "../../../tests/mocks/obsidian-stub";
 import { TrainTimelineSidebar } from "../../../src/ui/train/TrainTimelineSidebar";
 import { VIEW_TYPE_TRAIN_TIMELINE } from "../../../src/ui/train/types";
 import { EventBus } from "../../../src/infrastructure/events/EventBus";
-import type { TrainState, ThoughtNode } from "../../../src/domain/train/types";
+import type { TrainState, ThoughtNode, ThoughtRelation } from "../../../src/domain/train/types";
 import type { TrainService } from "../../../src/domain/train/TrainService";
 
 // ── Helpers ──────────────────────────────────────────────
@@ -62,7 +62,11 @@ function createMockTrainService(train: TrainState | undefined = undefined): Trai
 		getBranches: vi.fn((_trainId: string, thoughtId: string) =>
 			thoughtId === "t2" ? [t3] : [],
 		),
-		getChildren: vi.fn(() => []),
+		getChildren: vi.fn((_trainId: string, thoughtId: string) => {
+			if (thoughtId === "t1") return [t2];
+			if (thoughtId === "t2") return [t3, t4];
+			return [];
+		}),
 		getAllTrains: vi.fn(() => [defaultTrain]),
 	} as unknown as TrainService;
 }
@@ -133,36 +137,36 @@ describe("TrainTimelineSidebar", () => {
 			const emptyView = new TrainTimelineSidebar(createMockLeaf(), eventBus, noTrainService);
 			await emptyView.onOpen();
 
-			const empty = emptyView.contentEl.querySelector(".flowti-timeline-empty");
+			const empty = emptyView.contentEl.querySelector(".ft-timeline-empty");
 			expect(empty).not.toBeNull();
 		});
 
 		it("renders header with train title", async () => {
 			await view.onOpen();
 
-			const title = view.contentEl.querySelector(".flowti-timeline-title");
+			const title = view.contentEl.querySelector(".ft-timeline-title");
 			expect(title?.textContent).toBe("My Train");
 		});
 
 		it("renders status badge", async () => {
 			await view.onOpen();
 
-			const badge = view.contentEl.querySelector(".flowti-timeline-status");
+			const badge = view.contentEl.querySelector(".ft-timeline-status");
 			expect(badge?.textContent).toBe("running");
-			expect(badge?.classList.contains("flowti-timeline-status-running")).toBe(true);
+			expect(badge?.classList.contains("ft-timeline-status-running")).toBe(true);
 		});
 
 		it("renders timeline container", async () => {
 			await view.onOpen();
 
-			const container = view.contentEl.querySelector(".flowti-timeline-container");
+			const container = view.contentEl.querySelector(".ft-timeline-container");
 			expect(container).not.toBeNull();
 		});
 
 		it("renders nodes for main chain thoughts", async () => {
 			await view.onOpen();
 
-			const nodes = view.contentEl.querySelectorAll(".flowti-timeline-node");
+			const nodes = view.contentEl.querySelectorAll(".ft-timeline-node");
 			// Main chain: t1, t2, t4 = 3 main nodes + 1 branch (t3) = 4 total
 			expect(nodes.length).toBe(4);
 		});
@@ -170,7 +174,7 @@ describe("TrainTimelineSidebar", () => {
 		it("renders branch nodes with indentation", async () => {
 			await view.onOpen();
 
-			const branchNodes = view.contentEl.querySelectorAll(".flowti-timeline-node-branch");
+			const branchNodes = view.contentEl.querySelectorAll(".ft-timeline-node-branch");
 			expect(branchNodes.length).toBe(1);
 
 			// Branch node should have padding
@@ -178,18 +182,19 @@ describe("TrainTimelineSidebar", () => {
 			expect(branchNode.style.paddingLeft).toBe("16px");
 		});
 
-		it("renders branch indicator on branch nodes", async () => {
+		it("renders tree connectors on branch nodes", async () => {
 			await view.onOpen();
 
-			const indicators = view.contentEl.querySelectorAll(".flowti-timeline-branch-indicator");
-			expect(indicators.length).toBe(1);
-			expect(indicators[0].textContent).toBe("↗");
+			const connectors = view.contentEl.querySelectorAll(".ft-timeline-connector");
+			expect(connectors.length).toBe(1);
+			// Single branch is last child, so uses └─
+			expect(connectors[0].textContent).toBe("└─");
 		});
 
 		it("renders thought titles on nodes", async () => {
 			await view.onOpen();
 
-			const titles = view.contentEl.querySelectorAll(".flowti-timeline-node-title");
+			const titles = view.contentEl.querySelectorAll(".ft-timeline-node-title");
 			expect(titles.length).toBe(4);
 			expect(titles[0].textContent).toBe("Initial idea");
 			expect(titles[1].textContent).toBe("Schema design");
@@ -201,7 +206,7 @@ describe("TrainTimelineSidebar", () => {
 		it("renders timestamps on each node", async () => {
 			await view.onOpen();
 
-			const times = view.contentEl.querySelectorAll(".flowti-timeline-node-time");
+			const times = view.contentEl.querySelectorAll(".ft-timeline-node-time");
 			expect(times.length).toBe(4);
 			// All thoughts share the same timestamp in our fixture
 			for (const time of Array.from(times)) {
@@ -217,7 +222,7 @@ describe("TrainTimelineSidebar", () => {
 			const emptyView = new TrainTimelineSidebar(createMockLeaf(), eventBus, service);
 			await emptyView.onOpen();
 
-			const emptyChain = emptyView.contentEl.querySelector(".flowti-timeline-empty-chain");
+			const emptyChain = emptyView.contentEl.querySelector(".ft-timeline-empty-chain");
 			expect(emptyChain).not.toBeNull();
 			expect(emptyChain?.textContent).toBe("No thoughts yet");
 		});
@@ -228,7 +233,7 @@ describe("TrainTimelineSidebar", () => {
 			await view.onOpen();
 			await view.setState({ trainId: "train_1", activeThoughtId: "t2" }, { history: false });
 
-			const activeNodes = view.contentEl.querySelectorAll(".flowti-timeline-node-active");
+			const activeNodes = view.contentEl.querySelectorAll(".ft-timeline-node-active");
 			expect(activeNodes.length).toBe(1);
 		});
 
@@ -236,7 +241,7 @@ describe("TrainTimelineSidebar", () => {
 			await view.onOpen();
 			await view.setState({ trainId: "train_1", activeThoughtId: "t1" }, { history: false });
 
-			const activeBullets = view.contentEl.querySelectorAll(".flowti-timeline-bullet-active");
+			const activeBullets = view.contentEl.querySelectorAll(".ft-timeline-bullet-active");
 			expect(activeBullets.length).toBe(1);
 			expect(activeBullets[0].textContent).toBe("●");
 		});
@@ -245,7 +250,7 @@ describe("TrainTimelineSidebar", () => {
 			await view.onOpen();
 			await view.setState({ trainId: "train_1", activeThoughtId: "t1" }, { history: false });
 
-			const bullets = view.contentEl.querySelectorAll(".flowti-timeline-bullet:not(.flowti-timeline-bullet-active)");
+			const bullets = view.contentEl.querySelectorAll(".ft-timeline-bullet:not(.ft-timeline-bullet-active)");
 			// 3 inactive nodes out of 4 total
 			expect(bullets.length).toBe(3);
 			for (const bullet of Array.from(bullets)) {
@@ -262,7 +267,7 @@ describe("TrainTimelineSidebar", () => {
 			await view.onOpen();
 
 			// Click the second node (Schema design = t2)
-			const nodes = view.contentEl.querySelectorAll(".flowti-timeline-node");
+			const nodes = view.contentEl.querySelectorAll(".ft-timeline-node");
 			(nodes[1] as HTMLElement).click();
 
 			await new Promise((r) => setTimeout(r, 0));
@@ -277,10 +282,10 @@ describe("TrainTimelineSidebar", () => {
 		it("updates active node on click", async () => {
 			await view.onOpen();
 
-			const nodes = view.contentEl.querySelectorAll(".flowti-timeline-node");
+			const nodes = view.contentEl.querySelectorAll(".ft-timeline-node");
 			(nodes[1] as HTMLElement).click();
 
-			const activeNodes = view.contentEl.querySelectorAll(".flowti-timeline-node-active");
+			const activeNodes = view.contentEl.querySelectorAll(".ft-timeline-node-active");
 			expect(activeNodes.length).toBe(1);
 		});
 
@@ -291,7 +296,7 @@ describe("TrainTimelineSidebar", () => {
 			await view.onOpen();
 
 			// Branch node is the 3rd node (index 2)
-			const branchNode = view.contentEl.querySelector(".flowti-timeline-node-branch") as HTMLElement;
+			const branchNode = view.contentEl.querySelector(".ft-timeline-node-branch") as HTMLElement;
 			branchNode.click();
 
 			await new Promise((r) => setTimeout(r, 0));
@@ -347,7 +352,7 @@ describe("TrainTimelineSidebar", () => {
 
 			await new Promise((r) => setTimeout(r, 30));
 
-			const activeNodes = view.contentEl.querySelectorAll(".flowti-timeline-node-active");
+			const activeNodes = view.contentEl.querySelectorAll(".ft-timeline-node-active");
 			expect(activeNodes.length).toBe(1);
 		});
 
@@ -381,6 +386,251 @@ describe("TrainTimelineSidebar", () => {
 			await new Promise((r) => setTimeout(r, 30));
 
 			expect((trainService.getTrain as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callCount);
+		});
+	});
+
+	// ── Inc 2: Tree structure & connectors ───────────────
+
+	describe("tree structure", () => {
+		it("renders ├─ for non-last branch siblings", async () => {
+			// Two branches from t2: t3a (first), t3b (last)
+			const t1 = createThought({ id: "t1", title: "Root", order: 0 });
+			const t2 = createThought({ id: "t2", title: "Second", order: 1 });
+			const t3a = createThought({ id: "t3a", title: "Branch A", order: 2 });
+			const t3b = createThought({ id: "t3b", title: "Branch B", order: 3 });
+			const train = createTrain({
+				thoughts: [t1, t2, t3a, t3b],
+				relations: [
+					{ fromId: "t1", toId: "t2", direction: "next" },
+					{ fromId: "t2", toId: "t3a", direction: "branch" },
+					{ fromId: "t2", toId: "t3b", direction: "branch" },
+				],
+			});
+			const service = createMockTrainService(train);
+			(service.getTimeline as ReturnType<typeof vi.fn>).mockReturnValue([t1, t2]);
+			(service.getBranches as ReturnType<typeof vi.fn>).mockImplementation(
+				(_tid: string, thoughtId: string) => thoughtId === "t2" ? [t3a, t3b] : [],
+			);
+			(service.getChildren as ReturnType<typeof vi.fn>).mockImplementation(
+				(_tid: string, thoughtId: string) => {
+					if (thoughtId === "t1") return [t2];
+					if (thoughtId === "t2") return [t3a, t3b];
+					return [];
+				},
+			);
+
+			const treeView = new TrainTimelineSidebar(createMockLeaf(), eventBus, service);
+			await treeView.onOpen();
+
+			const connectors = treeView.contentEl.querySelectorAll(".ft-timeline-connector");
+			expect(connectors.length).toBe(2);
+			expect(connectors[0].textContent).toBe("├─"); // first sibling
+			expect(connectors[1].textContent).toBe("└─"); // last sibling
+		});
+
+		it("renders branch count badge (+N)", async () => {
+			await view.onOpen();
+
+			// t2 has 1 branch (t3)
+			const badges = view.contentEl.querySelectorAll(".ft-timeline-branch-badge");
+			expect(badges.length).toBe(1);
+			expect(badges[0].textContent).toBe("+1");
+		});
+
+		it("renders recursive branches at increasing depth", async () => {
+			// t1 → t2 (main), t2 → t3 (branch), t3 → t4 (sub-branch)
+			const t1 = createThought({ id: "t1", title: "Root", order: 0 });
+			const t2 = createThought({ id: "t2", title: "Main", order: 1 });
+			const t3 = createThought({ id: "t3", title: "Branch", order: 2 });
+			const t4 = createThought({ id: "t4", title: "Sub-branch", order: 3 });
+			const train = createTrain({
+				thoughts: [t1, t2, t3, t4],
+				relations: [
+					{ fromId: "t1", toId: "t2", direction: "next" },
+					{ fromId: "t2", toId: "t3", direction: "branch" },
+					{ fromId: "t3", toId: "t4", direction: "branch" },
+				],
+			});
+			const service = createMockTrainService(train);
+			(service.getTimeline as ReturnType<typeof vi.fn>).mockReturnValue([t1, t2]);
+			(service.getBranches as ReturnType<typeof vi.fn>).mockImplementation(
+				(_tid: string, thoughtId: string) => {
+					if (thoughtId === "t2") return [t3];
+					if (thoughtId === "t3") return [t4];
+					return [];
+				},
+			);
+			(service.getChildren as ReturnType<typeof vi.fn>).mockImplementation(
+				(_tid: string, thoughtId: string) => {
+					if (thoughtId === "t1") return [t2];
+					if (thoughtId === "t2") return [t3];
+					if (thoughtId === "t3") return [t4];
+					return [];
+				},
+			);
+
+			const treeView = new TrainTimelineSidebar(createMockLeaf(), eventBus, service);
+			await treeView.onOpen();
+
+			const branchNodes = treeView.contentEl.querySelectorAll(".ft-timeline-node-branch");
+			expect(branchNodes.length).toBe(2);
+
+			// First branch at depth 1 (16px), sub-branch at depth 2 (32px)
+			expect((branchNodes[0] as HTMLElement).style.paddingLeft).toBe("16px");
+			expect((branchNodes[1] as HTMLElement).style.paddingLeft).toBe("32px");
+		});
+
+		it("limits recursion depth to 5", async () => {
+			// Create a chain: root → b1 → b2 → b3 → b4 → b5 → b6 (should be capped)
+			const thoughts: ThoughtNode[] = [];
+			const rels: ThoughtRelation[] = [];
+			const root = createThought({ id: "root", title: "Root", order: 0 });
+			thoughts.push(root);
+
+			let prevId = "root";
+			for (let i = 1; i <= 7; i++) {
+				const t = createThought({ id: `b${i}`, title: `Branch-${i}`, order: i });
+				thoughts.push(t);
+				rels.push({ fromId: prevId, toId: t.id, direction: "branch" });
+				prevId = t.id;
+			}
+
+			const train = createTrain({ thoughts, relations: rels });
+			const service = createMockTrainService(train);
+			(service.getTimeline as ReturnType<typeof vi.fn>).mockReturnValue([root]);
+			(service.getBranches as ReturnType<typeof vi.fn>).mockImplementation(
+				(_tid: string, thoughtId: string) => {
+					const rel = rels.find((r) => r.fromId === thoughtId);
+					if (!rel) return [];
+					return [thoughts.find((t) => t.id === rel.toId)!];
+				},
+			);
+			(service.getChildren as ReturnType<typeof vi.fn>).mockImplementation(
+				(_tid: string, thoughtId: string) => {
+					const rel = rels.find((r) => r.fromId === thoughtId);
+					if (!rel) return [];
+					return [thoughts.find((t) => t.id === rel.toId)!];
+				},
+			);
+
+			const treeView = new TrainTimelineSidebar(createMockLeaf(), eventBus, service);
+			await treeView.onOpen();
+
+			const branchNodes = treeView.contentEl.querySelectorAll(".ft-timeline-node-branch");
+			// Root at depth 0, then b1-b5 at depths 1-5 = 5 branch nodes (b6 and b7 capped)
+			expect(branchNodes.length).toBe(5);
+		});
+
+		it("does not render connector on main chain nodes", async () => {
+			await view.onOpen();
+
+			// Main chain nodes (depth 0) should have no connector
+			const mainNodes = view.contentEl.querySelectorAll(".ft-timeline-node:not(.ft-timeline-node-branch)");
+			for (const node of Array.from(mainNodes)) {
+				const connector = node.querySelector(".ft-timeline-connector");
+				expect(connector).toBeNull();
+			}
+		});
+
+		it("auto-scrolls active node into view", async () => {
+			// Spy on scrollIntoView
+			const scrollSpy = vi.fn();
+			HTMLElement.prototype.scrollIntoView = scrollSpy;
+
+			await view.onOpen();
+			await view.setState({ trainId: "train_1", activeThoughtId: "t4" }, { history: false });
+
+			// Wait for setTimeout(0) used for auto-scroll
+			await new Promise((r) => setTimeout(r, 10));
+
+			expect(scrollSpy).toHaveBeenCalled();
+		});
+	});
+
+	// ── Inc 5: Collapse/Expand & stat line ──────────────
+
+	describe("collapse/expand", () => {
+		it("renders chevron on nodes with branches", async () => {
+			await view.onOpen();
+
+			const chevrons = view.contentEl.querySelectorAll(".ft-timeline-chevron");
+			// t2 has a branch (t3), so 1 chevron expected
+			expect(chevrons.length).toBe(1);
+			expect(chevrons[0].textContent).toBe("▾"); // Expanded by default
+		});
+
+		it("collapses branches when chevron clicked", async () => {
+			await view.onOpen();
+
+			const chevron = view.contentEl.querySelector(".ft-timeline-chevron") as HTMLElement;
+			chevron.click();
+
+			// After click, branch node should be hidden
+			const branchNodes = view.contentEl.querySelectorAll(".ft-timeline-node-branch");
+			expect(branchNodes.length).toBe(0);
+
+			// Chevron should show collapsed state
+			const newChevron = view.contentEl.querySelector(".ft-timeline-chevron");
+			expect(newChevron?.textContent).toBe("▸");
+		});
+
+		it("expands branches when collapsed chevron clicked again", async () => {
+			await view.onOpen();
+
+			// Collapse
+			const chevron = view.contentEl.querySelector(".ft-timeline-chevron") as HTMLElement;
+			chevron.click();
+
+			// Expand
+			const chevron2 = view.contentEl.querySelector(".ft-timeline-chevron") as HTMLElement;
+			chevron2.click();
+
+			// Branch should be visible again
+			const branchNodes = view.contentEl.querySelectorAll(".ft-timeline-node-branch");
+			expect(branchNodes.length).toBe(1);
+		});
+
+		it("chevron click does not trigger node click (stopPropagation)", async () => {
+			const handler = vi.fn();
+			eventBus.on("train.thought.activated", handler);
+
+			await view.onOpen();
+
+			const chevron = view.contentEl.querySelector(".ft-timeline-chevron") as HTMLElement;
+			chevron.click();
+
+			await new Promise((r) => setTimeout(r, 0));
+
+			// train.thought.activated should NOT have been emitted
+			expect(handler).not.toHaveBeenCalled();
+		});
+	});
+
+	describe("stat line", () => {
+		it("renders compact stat line in header", async () => {
+			await view.onOpen();
+
+			const statLine = view.contentEl.querySelector(".ft-timeline-stat-line");
+			expect(statLine).not.toBeNull();
+			expect(statLine?.textContent).toContain("thoughts");
+			expect(statLine?.textContent).toContain("branches");
+			expect(statLine?.textContent).toContain("min");
+		});
+
+		it("shows correct thought count in stat line", async () => {
+			await view.onOpen();
+
+			const statLine = view.contentEl.querySelector(".ft-timeline-stat-line");
+			// 4 thoughts in the default mock train
+			expect(statLine?.textContent).toContain("4 thoughts");
+		});
+
+		it("shows branch count in stat line", async () => {
+			await view.onOpen();
+
+			const statLine = view.contentEl.querySelector(".ft-timeline-stat-line");
+			// t2 has 1 branch (t3)
+			expect(statLine?.textContent).toContain("1 branches");
 		});
 	});
 });

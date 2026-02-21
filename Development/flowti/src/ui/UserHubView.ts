@@ -25,8 +25,12 @@ import { SESSION_TYPE_LABELS } from "./userHub/types";
 import { SESSION_TYPES, type SessionType } from "../domain/session/types";
 import { VIEW_TYPE_USER_HUB } from "../domain/hub/types";
 import { VIEW_TYPE_SESSION_WORKSPACE } from "./SessionWorkspaceView";
-import { VIEW_TYPE_TRAIN_MAIN } from "./train/types";
+import { VIEW_TYPE_TRAIN_MAIN, VIEW_TYPE_TRAIN_TIMELINE } from "./train/types";
+import type { TrainService } from "../domain/train/TrainService";
 export { VIEW_TYPE_USER_HUB };
+
+/** Session types available in NewSessionModal (excludes train-of-thought — trains are created via ribbon/command). */
+const MODAL_SESSION_TYPES = SESSION_TYPES.filter((st) => st.type !== "train-of-thought");
 
 export class UserHubView extends BaseHubView<UserHubTab> {
 	private userService: IUserService;
@@ -34,6 +38,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 	private inboxService: InboxService;
 	private sessionService: SessionService;
 	private nudgeService: NudgeService;
+	private trainService: TrainService | null;
 
 	// Components
 	private dashboard!: UserHubDashboard;
@@ -54,6 +59,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 		nudgeService: NudgeService,
 		initialEnabledSources: string[],
 		initialSettings: FlowtiSettings,
+		trainService?: TrainService | null,
 	) {
 		super(leaf, eventBus);
 		this.userService = userService;
@@ -61,6 +67,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 		this.inboxService = inboxService;
 		this.sessionService = sessionService;
 		this.nudgeService = nudgeService;
+		this.trainService = trainService ?? null;
 		this.state = {
 			inboxItems: [],
 			selectedInboxItem: null,
@@ -157,6 +164,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 			inboxService: this.inboxService,
 			sessionService: this.sessionService,
 			nudgeService: this.nudgeService,
+			trainService: this.trainService ?? undefined,
 			navigateToTab: (tabId) => this.navigateTo(tabId as UserHubTab),
 			onInboxItemClick: (item: InboxItem) => {
 				this.state.selectedInboxItem = item;
@@ -167,7 +175,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 			},
 			onCreateSession: () => {
 				new NewSessionModal(this.app, {
-					sessionTypes: SESSION_TYPES,
+					sessionTypes: MODAL_SESSION_TYPES,
 					templates: this.sessionService.getSavedTemplates(),
 					onSubmit: (title, type, durationMinutes, focusFile, goals, extra) => {
 						void this.eventBus.emit("session.create", {
@@ -299,9 +307,9 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 			},
 			openNewSessionModal: (initialFocusFile?: string) => {
 				new NewSessionModal(this.app, {
-					sessionTypes: SESSION_TYPES,
+					sessionTypes: MODAL_SESSION_TYPES,
 					templates: this.sessionService.getSavedTemplates(),
-					prefill: initialFocusFile ? { title: "", type: SESSION_TYPES[0].type, durationMinutes: 25, focusFile: initialFocusFile } : undefined,
+					prefill: initialFocusFile ? { title: "", type: MODAL_SESSION_TYPES[0].type, durationMinutes: 25, focusFile: initialFocusFile } : undefined,
 					onSubmit: (title, type, durationMinutes, focusFile, goals, extra) => {
 						void this.eventBus.emit("session.create", { type: type as SessionType, title, durationMinutes, focusFile: focusFile ?? undefined, goals: goals.length > 0 ? goals : undefined, ...extra });
 					},
@@ -367,26 +375,20 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 				input.click();
 			},
 			getSettings: () => this.state.settings,
+			trainService: this.trainService ?? undefined,
 		};
 	}
 
 	/**
 	 * Open the appropriate workspace for a session.
-	 * Train-of-thought sessions redirect to Train Main View.
+	 * Train-of-thought sessions with a TrainState open Train views;
+	 * those without a TrainState fall back to Session Workspace.
 	 */
 	private openWorkspaceForSession(sessionId?: string, location?: "tab" | "sidebar"): void {
 		if (sessionId) {
 			const session = this.sessionService.getSessionById(sessionId);
-			if (session?.type === "train-of-thought") {
-				const existingLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TRAIN_MAIN);
-				if (existingLeaves.length > 0) {
-					void this.app.workspace.revealLeaf(existingLeaves[0]);
-				} else {
-					void this.app.workspace.getLeaf("tab").setViewState({
-						type: VIEW_TYPE_TRAIN_MAIN,
-						active: true,
-					});
-				}
+			if (session?.type === "train-of-thought" && this.hasTrainForSession(sessionId)) {
+				this.openTrainView(location);
 				return;
 			}
 			this.sessionService.workspaceSessionId = sessionId;
@@ -407,6 +409,35 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 				active: true,
 				state: { sessionId },
 			});
+		}
+	}
+
+	/** Check if a TrainState exists for the given session. */
+	private hasTrainForSession(sessionId: string): boolean {
+		if (!this.trainService) return false;
+		return this.trainService.getAllTrains().some((t) => t.sessionId === sessionId);
+	}
+
+	/** Open the Train Main View (tab) or Timeline Sidebar depending on location. */
+	private openTrainView(location?: "tab" | "sidebar"): void {
+		if (location === "sidebar") {
+			const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_TRAIN_TIMELINE)
+				.find((l) => l.getRoot() === this.app.workspace.rightSplit);
+			const leaf = existing ?? this.app.workspace.getRightLeaf(false);
+			if (leaf) {
+				void leaf.setViewState({ type: VIEW_TYPE_TRAIN_TIMELINE, active: true });
+				void this.app.workspace.revealLeaf(leaf);
+			}
+		} else {
+			const existingLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TRAIN_MAIN);
+			if (existingLeaves.length > 0) {
+				void this.app.workspace.revealLeaf(existingLeaves[0]);
+			} else {
+				void this.app.workspace.getLeaf("tab").setViewState({
+					type: VIEW_TYPE_TRAIN_MAIN,
+					active: true,
+				});
+			}
 		}
 	}
 }

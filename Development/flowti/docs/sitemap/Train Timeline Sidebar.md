@@ -27,18 +27,20 @@ The sidebar auto-opens in the right split on `train.started` and syncs bidirecti
 ### Layout
 
 ```
-┌──────────────────────┐
-│ 🚂 My Deep Dive      │  header (train title + status)
-├──────────────────────┤
-│ ● Initial idea       │  root node (active = filled bullet)
-│                      │
-│ ○ Schema design      │  next node (open bullet)
-│  ↗ NoSQL branch      │  branch fork (indented)
-│                      │
-│ ○ API endpoints      │  next node
-│                      │
-│ ○ Error handling     │  next node
-└──────────────────────┘
+┌──────────────────────────────────┐
+│ 🚂 My Deep Dive    [running]    │  header
+│ 8 thoughts · 2 branches · 12m   │  stats line
+├──────────────────────────────────┤
+│ ● Initial idea                  │  root (active = filled)
+│ │                               │  tree connector
+│ ○ Schema design          (+2) ▾ │  node + branch badge + chevron
+│ │ ├─ ↗ NoSQL branch             │  branch depth-1 (indented)
+│ │ └─ ↗ Graph approach           │  branch depth-1
+│ │                               │
+│ ○ API endpoints                 │  next node
+│ │                               │
+│ ○ Error handling                │  next node
+└──────────────────────────────────┘
 ```
 
 ## Use Cases
@@ -64,8 +66,13 @@ The header badge shows the train status (running/paused/completed) and updates r
 - `getState()`/`setState()` persist `trainId` + `activeThoughtId` for workspace re-open
 - 6 event subscriptions for live updates (started, thought.added, paused, resumed, completed, thought.activated)
 - All subscriptions extracted to `TrainTimelineSidebarSubscriptions.ts` and cleaned up in `onClose()`
-- Branch depth rendered with 16px padding-left per level
-- Source: `src/ui/train/TrainTimelineSidebar.ts` (~210 LOC)
+- Recursive `renderSubtree()` — main chain as depth-0 spine, branches at depth+1, nested branches at depth+2
+- Tree connectors (`│`, `├─`, `└─`) via CSS pseudo-elements on `.flowti-timeline-connector`
+- `(+N)` branch count badge on main-chain nodes with branches
+- Collapse/expand: `collapsedNodes = new Set<string>()`, clickable chevrons (▸/▾) on branch-parent nodes
+- Compact stats line in header: "X thoughts · Y branches · Z min"
+- Auto-scroll active node into view (`scrollIntoView({ block: "nearest" })`)
+- Source: `src/ui/train/TrainTimelineSidebar.ts` (~297 LOC)
 
 ## Related Flows
 

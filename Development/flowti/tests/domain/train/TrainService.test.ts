@@ -200,6 +200,8 @@ describe("TrainService", () => {
 			expect(thought!.order).toBe(0);
 			expect(thought!.trainId).toBe(train.id);
 			expect(thought!.path).toContain("First Idea.md");
+			// Filename is prefixed with ISO timestamp (YYYYMMDD-HHmmss)
+			expect(thought!.path).toMatch(/\d{8}-\d{6} First Idea\.md$/);
 			expect(thoughtEvents).toHaveLength(1);
 			expect(thoughtEvents[0].previousTitle).toBeNull();
 		});
@@ -243,12 +245,13 @@ describe("TrainService", () => {
 			expect(firstCall).toBeDefined();
 			expect((firstCall![1] as Record<string, unknown>)["train-session"]).toBe("FM Test");
 
-			// Second thought: includes previous-thought link
+			// Second thought: includes back link to First
 			const secondCall = calls.find((c: unknown[]) =>
 				(c[1] as Record<string, unknown>)["thought-order"] === 1
 			);
 			expect(secondCall).toBeDefined();
-			expect((secondCall![1] as Record<string, unknown>)["previous-thought"]).toBe("[[First]]");
+			const back = (secondCall![1] as Record<string, unknown>)["back"] as string[];
+			expect(back).toContain("[[First]]");
 		});
 
 		it("returns null for non-existent train", async () => {
@@ -502,7 +505,7 @@ describe("TrainService", () => {
 			expect(t.relations).toHaveLength(1);
 		});
 
-		it("includes thought-relations in frontmatter", async () => {
+		it("includes nav links in frontmatter (back for linear child)", async () => {
 			const { service, fileSystem } = createTestHarness();
 			const train = await service.startTrain("FM Relations");
 			await service.addThought(train.id, "First");
@@ -513,19 +516,16 @@ describe("TrainService", () => {
 			});
 
 			const calls = (fileSystem.updateFrontmatter as ReturnType<typeof vi.fn>).mock.calls;
-			// Second thought frontmatter should include thought-relations
 			const secondThoughtCall = calls.find((c: unknown[]) =>
 				(c[1] as Record<string, unknown>)["thought-order"] === 1
 			);
 			expect(secondThoughtCall).toBeDefined();
-			const relations = (secondThoughtCall![1] as Record<string, unknown>)["thought-relations"] as Array<{ target: string; direction: string; role: string }>;
-			expect(relations).toHaveLength(1);
-			expect(relations[0].direction).toBe("next");
-			expect(relations[0].role).toBe("parent");
-			expect(relations[0].target).toBe("[[First]]");
+			const data = secondThoughtCall![1] as Record<string, unknown>;
+			expect(data["back"]).toEqual(["[[First]]"]);
+			expect(data["down"]).toEqual([]);
 		});
 
-		it("includes branch direction in frontmatter", async () => {
+		it("includes down link for branch child", async () => {
 			const { service, fileSystem } = createTestHarness();
 			const train = await service.startTrain("FM Branch");
 			await service.addThought(train.id, "Root");
@@ -539,11 +539,12 @@ describe("TrainService", () => {
 			const branchCall = calls.find((c: unknown[]) =>
 				(c[1] as Record<string, unknown>)["thought-order"] === 1
 			);
-			const relations = (branchCall![1] as Record<string, unknown>)["thought-relations"] as Array<{ target: string; direction: string; role: string }>;
-			expect(relations[0].direction).toBe("branch");
+			const data = branchCall![1] as Record<string, unknown>;
+			expect(data["down"]).toEqual(["[[Root]]"]);
+			expect(data["back"]).toEqual([]);
 		});
 
-		it("updates source thought frontmatter with child relation", async () => {
+		it("updates source thought frontmatter with next/up links", async () => {
 			const { service, fileSystem } = createTestHarness();
 			const train = await service.startTrain("Source FM");
 			await service.addThought(train.id, "Parent");
@@ -555,15 +556,15 @@ describe("TrainService", () => {
 			});
 
 			const calls = (fileSystem.updateFrontmatter as ReturnType<typeof vi.fn>).mock.calls;
-			// Find the update to the parent thought that includes thought-relations with child role
+			// Find the update to the parent thought that includes next link
 			const parentUpdate = calls.find((c: unknown[]) => {
 				const data = c[1] as Record<string, unknown>;
-				const rels = data["thought-relations"] as Array<{ role: string }> | undefined;
-				return rels?.some((r) => r.role === "child");
+				const next = data["next"] as string[] | undefined;
+				return next && next.length > 0;
 			});
 			expect(parentUpdate).toBeDefined();
-			const rels = (parentUpdate![1] as Record<string, unknown>)["thought-relations"] as Array<{ target: string; direction: string; role: string }>;
-			expect(rels.some((r) => r.role === "child" && r.target === "[[Child]]")).toBe(true);
+			const data = parentUpdate![1] as Record<string, unknown>;
+			expect(data["next"]).toContain("[[Child]]");
 		});
 	});
 
@@ -631,6 +632,50 @@ describe("TrainService", () => {
 			const train = await service.startTrain("No Branches");
 			const thought = await service.addThought(train.id, "A");
 			expect(service.getBranches(train.id, thought!.id)).toEqual([]);
+		});
+	});
+
+	describe("addThought() — trainFolder override", () => {
+		it("passes trainFolder to CaptureService when configured", async () => {
+			const { service, fileSystem } = createTestHarness();
+			service.getSettings = () => ({ trainFolder: "trains/active" });
+			const train = await service.startTrain("Folder Test");
+
+			await service.addThought(train.id, "Directed Thought");
+
+			expect(fileSystem.createFile).toHaveBeenCalledWith(
+				expect.stringMatching(/^trains\/active\/\d{8}-\d{6} Directed Thought\.md$/),
+				expect.any(String),
+				expect.any(Object),
+			);
+		});
+
+		it("falls back to captureFolder when trainFolder is empty", async () => {
+			const { service, fileSystem } = createTestHarness();
+			service.getSettings = () => ({ trainFolder: "" });
+			const train = await service.startTrain("Default Folder");
+
+			await service.addThought(train.id, "Default Thought");
+
+			expect(fileSystem.createFile).toHaveBeenCalledWith(
+				expect.stringMatching(/^00 - Connectivity\/inbox\/\d{8}-\d{6} Default Thought\.md$/),
+				expect.any(String),
+				expect.any(Object),
+			);
+		});
+
+		it("uses trainFolder for all thoughts in a train", async () => {
+			const { service, fileSystem } = createTestHarness();
+			service.getSettings = () => ({ trainFolder: "trains/folder" });
+			const train = await service.startTrain("Multi Thought");
+
+			await service.addThought(train.id, "First");
+			await service.addThought(train.id, "Second");
+
+			const createCalls = (fileSystem.createFile as ReturnType<typeof vi.fn>).mock.calls;
+			const thoughtPaths = createCalls.map((c: unknown[]) => c[0] as string);
+			expect(thoughtPaths.some((p: string) => /trains\/folder\/\d{8}-\d{6} First\.md$/.test(p))).toBe(true);
+			expect(thoughtPaths.some((p: string) => /trains\/folder\/\d{8}-\d{6} Second\.md$/.test(p))).toBe(true);
 		});
 	});
 

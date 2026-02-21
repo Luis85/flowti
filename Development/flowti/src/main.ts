@@ -306,18 +306,26 @@ export default class FlowtiBasePlugin extends Plugin {
 			// Train of Thoughts serial capture listener
 			// Nesting: if a train is running, prompt for a new title (startTrain auto-pauses)
 			// If paused, resume it. If none, prompt for a new title.
-			this.eventBus.on("ui.startTrain", () => {
+			this.eventBus.on("ui.startTrain", (event) => {
 				if (!this.trainService) return;
 
-				// If paused, resume. The train.resumed listener handles view + modal opening.
+				// If paused, resume and open modal from the selected thought
 				const activeTrain = this.trainService.getActiveTrain();
 				if (activeTrain && activeTrain.status === "paused") {
-					void this.trainService.resume(activeTrain.id);
+					const fromThoughtId = event.payload.fromThoughtId;
+					void this.trainService.resume(activeTrain.id).then(() => {
+						this.openTrainModal(activeTrain.id, activeTrain.title, undefined, fromThoughtId);
+					});
 					return;
 				}
 
-				// Running or no train — prompt for a new title.
-				// startTrain() auto-pauses any running train (nesting).
+				// Running train — open capture modal from the active thought
+				if (activeTrain && activeTrain.status === "running") {
+					this.openTrainModal(activeTrain.id, activeTrain.title, undefined, event.payload.fromThoughtId);
+					return;
+				}
+
+				// No train — prompt for a new title.
 				const duration = this.settings.defaultTrainDuration ?? 0;
 				new InputModal(this.app, {
 					title: "Start a new Train of Thoughts",
@@ -684,6 +692,9 @@ export default class FlowtiBasePlugin extends Plugin {
 
 		// Train Service — serial thought capture sessions
 		this.trainService = await this.services.get<TrainService>("trainService");
+		this.trainService.getSettings = () => ({
+			trainFolder: settingsService.getSettings().trainFolder,
+		});
 		await this.trainService.load();
 
 		// Train Main View — register view factory + auto-open on train start
@@ -703,13 +714,12 @@ export default class FlowtiBasePlugin extends Plugin {
 			}),
 		);
 
-		// Resume train → open/reveal Train Main View + capture modal
+		// Resume train → reveal Train Main View (modal opened separately via ui.startTrain)
 		this.crossCuttingListeners.push(
 			this.eventBus.on("train.resumed", (event) => {
 				const train = this.trainService?.getTrain(event.payload.trainId);
 				if (train) {
 					this.revealOrCreateTrainView(train.id);
-					this.openTrainModal(train.id, train.title);
 				}
 			}),
 		);
@@ -719,6 +729,22 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.eventBus.on("ui.openTrainView", () => {
 				const activeTrain = this.trainService?.getActiveTrain();
 				this.revealOrCreateTrainView(activeTrain?.id ?? null);
+			}),
+		);
+
+		// Toggle Train Timeline Sidebar (show/hide)
+		this.crossCuttingListeners.push(
+			this.eventBus.on("ui.toggleTrainTimeline", (event) => {
+				const rightSplit = (this.app.workspace as unknown as { rightSplit?: { collapsed?: boolean; expand?: () => void; collapse?: () => void } }).rightSplit;
+
+				if (rightSplit && !rightSplit.collapsed) {
+					// Right sidebar is open — collapse it
+					rightSplit.collapse?.();
+				} else {
+					// Right sidebar is collapsed — expand and ensure timeline is present
+					rightSplit?.expand?.();
+					this.revealOrCreateTrainTimeline(event.payload.trainId);
+				}
 			}),
 		);
 
@@ -833,8 +859,14 @@ export default class FlowtiBasePlugin extends Plugin {
 		trainId: string,
 		trainTitle: string,
 		overrides?: { previousTitle: string; thoughtCount: number },
+		fromThoughtId?: string,
 	): void {
 		if (!this.trainService) return;
+
+		// Sync the active thought across all views (main view + timeline sidebar)
+		if (fromThoughtId) {
+			void this.eventBus.emit("train.thought.activated", { trainId, thoughtId: fromThoughtId });
+		}
 
 		let previousThoughtTitle: string | null;
 		let thoughtCount: number;
@@ -845,8 +877,12 @@ export default class FlowtiBasePlugin extends Plugin {
 		} else {
 			const train = this.trainService.getTrain(trainId);
 			if (!train) return;
-			const lastThought = train.thoughts[train.thoughts.length - 1] ?? null;
-			previousThoughtTitle = lastThought?.title ?? null;
+
+			// Use the specified thought as context, otherwise fall back to last thought
+			const contextThought = fromThoughtId
+				? train.thoughts.find((t) => t.id === fromThoughtId) ?? null
+				: train.thoughts[train.thoughts.length - 1] ?? null;
+			previousThoughtTitle = contextThought?.title ?? null;
 			thoughtCount = train.thoughts.length;
 		}
 
@@ -854,6 +890,17 @@ export default class FlowtiBasePlugin extends Plugin {
 		const train = this.trainService.getTrain(trainId);
 		const durationMinutes = train?.durationMinutes ?? 0;
 		const sessionId = train?.sessionId;
+
+		// Auto-detect direction: if the source thought already has a "next" child, default to "branch"
+		let defaultDirection: import("./domain/train/types").ThoughtDirection = "next";
+		if (fromThoughtId && train) {
+			const hasNextChild = train.relations.some(
+				(r) => r.fromId === fromThoughtId && r.direction === "next",
+			);
+			if (hasNextChild) {
+				defaultDirection = "branch";
+			}
+		}
 
 		// Timer subscriptions — closures that filter by sessionId
 		const subscribeTimerTick = (durationMinutes > 0 && sessionId)
@@ -876,20 +923,54 @@ export default class FlowtiBasePlugin extends Plugin {
 			}
 			: undefined;
 
+		// Navigation callbacks — mirrors the thought's link directions (back/next/up)
+		// Each emits train.thought.activated so main view + timeline sync to the new thought.
+		let onBack: (() => void) | undefined;
+		let onNext: (() => void) | undefined;
+		let onUp: (() => void) | undefined;
+		if (fromThoughtId && train) {
+			// back: linear parent (any relation pointing TO this thought)
+			const parentRelation = train.relations.find((r) => r.toId === fromThoughtId);
+			if (parentRelation) {
+				const parentId = parentRelation.fromId;
+				onBack = () => this.openTrainModal(trainId, trainTitle, undefined, parentId);
+			}
+			// next: linear child (direction="next" from this thought)
+			const nextRelation = train.relations.find(
+				(r) => r.fromId === fromThoughtId && r.direction === "next",
+			);
+			if (nextRelation) {
+				const nextId = nextRelation.toId;
+				onNext = () => this.openTrainModal(trainId, trainTitle, undefined, nextId);
+			}
+			// up: first branch child (direction="branch" from this thought)
+			const branchRelation = train.relations.find(
+				(r) => r.fromId === fromThoughtId && r.direction === "branch",
+			);
+			if (branchRelation) {
+				const branchId = branchRelation.toId;
+				onUp = () => this.openTrainModal(trainId, trainTitle, undefined, branchId);
+			}
+		}
+
 		new TrainCaptureModal(this.app, {
 			trainTitle,
 			previousThoughtTitle,
 			thoughtCount,
 			durationMinutes,
+			defaultDirection,
 			subscribeTimerTick,
 			subscribeTimerCompleted,
+			onBack,
+			onNext,
+			onUp,
 			onSubmit: (title, direction) => {
-				// Fire-and-forget — don't block the next modal
-				void this.trainService!.addThought(trainId, title, { direction });
-				// Open next modal immediately with optimistic context
-				this.openTrainModal(trainId, trainTitle, {
-					previousTitle: title,
-					thoughtCount: thoughtCount + 1,
+				// Await addThought so the next modal chains from the correct thought
+				void this.trainService!.addThought(trainId, title, { direction, fromThoughtId }).then((newThought) => {
+					this.openTrainModal(trainId, trainTitle, {
+						previousTitle: title,
+						thoughtCount: thoughtCount + 1,
+					}, newThought?.id);
 				});
 			},
 			onComplete: () => {
@@ -949,7 +1030,7 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.hubRegistry.register(new DataExchangeProvider(this.dataExchangeService!));
 
 		this.registerView(VIEW_TYPE_USER_HUB, (leaf) =>
-			new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.sessionService!, this.nudgeService!, this.settings.inboxEnabledSources, this.settings),
+			new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.sessionService!, this.nudgeService!, this.settings.inboxEnabledSources, this.settings, this.trainService),
 		);
 		this.hubRegistry.register(new UserHubProvider(this.userService, this.inboxService!));
 

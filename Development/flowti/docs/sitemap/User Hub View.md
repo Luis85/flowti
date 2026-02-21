@@ -20,11 +20,11 @@ feature: "[[Hubs]]"
 
 The User Hub is the personal cockpit for the Flowti plugin. It extends `BaseHubView<UserHubTab>` and provides a unified workspace with a **Dashboard** landing page and 3 tabs: **Inbox**, **Sessions**, and **Preferences**.
 
-The Dashboard aggregates stats from all registered hub providers via `HubRegistry.getAll()`, rendering clickable stat cards that deep-link to specific tabs in target hubs. When a documentation session is active, a prominent session card appears with the timer, title, and Pause/Complete actions. An always-visible inbox section displays up to 5 recent items styled as a mail inbox. Quick-action buttons provide shortcuts to frequently used views (7 actions including Inbox, Sessions, Preferences, Event Catalog, Data Exchange, Activity Log, Watchers).
+The Dashboard aggregates stats from all registered hub providers via `HubRegistry.getAll()`, rendering clickable stat cards that deep-link to specific tabs in target hubs. When a documentation session is active, a prominent session card appears with the timer, title, and Pause/Complete actions. Train-of-thought sessions show a `train-front` icon and thought count badge on the active session card. An always-visible inbox section displays up to 5 recent items styled as a mail inbox. Quick-action buttons provide shortcuts to frequently used views (7 actions including Inbox, Sessions, Preferences, Event Catalog, Data Exchange, Activity Log, Watchers).
 
 The Inbox tab surfaces actionable items from domain events via the `InboxService` domain (6 source events including pipeline completed/failed). Items can be marked as read, dismissed, or cleared. **PBI-005 (Cycle 12)** will add a 7th source type (`vaultFolder`) that watches configured vault folders for untyped notes and provides inline triage (type dropdown + description editing) with mark-as-read routing to a target folder.
 
-The Sessions tab provides master-detail browsing of documentation sessions via the `SessionService` domain. The master list shows sessions sorted by status (active first), filterable by title. The detail panel shows session info, a live countdown timer (for active/paused sessions), artifacts list, and contextual lifecycle action buttons (Start, Pause, Resume, Complete, Archive, Delete). Timer ticks update the DOM directly via `updateTimerDisplay()` without triggering full re-renders.
+The Sessions tab provides master-detail browsing of documentation sessions via the `SessionService` domain. The master list shows sessions sorted by status (active first), filterable by title. Train-of-thought sessions display a `train-front` icon and thought count badge ("N thoughts"). The detail panel shows session info, a live countdown timer (for active/paused sessions), artifacts list, and contextual lifecycle action buttons (Start, Pause, Resume, Complete, Archive, Delete). For train sessions, the detail panel includes a train section (thought count, branch count, clickable thought list) and relabels action buttons ("Open Train" instead of "Workspace", "Timeline" instead of "Sidebar"). Timer ticks update the DOM directly via `updateTimerDisplay()` without triggering full re-renders.
 
 The Preferences tab provides user profile editing (display name) and inbox source configuration (6 per-source toggles).
 
@@ -90,6 +90,7 @@ These flow docs describe end-to-end user journeys that pass through this view:
 - Registered under view type `flowti-user-hub` with the `home` icon
 - Accessible via ribbon icon, command palette (`flowti:open-user-hub`), or `ui.openUserHub` event
 - 4 child components: `UserHubDashboard`, `UserHubInbox`, `UserHubSessions`, `UserHubPreferences`
+- Train-aware: `trainService` passed to component deps for train session detection, thought counts, and action button relabeling
 - 3 tab definitions: Inbox (inbox icon), Sessions (timer icon), Preferences (settings icon)
 - Search bar hidden on Preferences tab (no filterable content)
 - Dashboard self-filters: the User Hub's own provider is excluded from the hub summary cards

@@ -16,7 +16,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { EventBus } from "../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../src/infrastructure/events/types";
-import { InboxService } from "../../src/domain/inbox/InboxService";
+import { InboxService, ALL_INBOX_SOURCES } from "../../src/domain/inbox/InboxService";
 import type { InboxState } from "../../src/domain/inbox/types";
 import { createMockStorage, waitForAsync } from "./testHelpers";
 
@@ -28,6 +28,7 @@ describe("Flow 15: Manage Inbox Notifications", () => {
 		eventBus = new EventBus();
 		const mock = createMockStorage<InboxState>();
 		inboxService = new InboxService({ storage: mock.storage, eventBus });
+		inboxService.setEnabledSources([...ALL_INBOX_SOURCES]);
 		await inboxService.load();
 	});
 
@@ -351,6 +352,7 @@ describe("Flow 15: Manage Inbox Notifications", () => {
 
 			// First service instance — add an item
 			const service1 = new InboxService({ storage: mock.storage, eventBus });
+			service1.setEnabledSources([...ALL_INBOX_SOURCES]);
 			await service1.load();
 
 			await eventBus.emit("subscription.matched", {

@@ -16,6 +16,8 @@ export interface CaptureInput {
 	title: string;
 	type: CaptureType;
 	description?: string;
+	/** Optional folder override. When set, the note is created here instead of captureFolder. */
+	folder?: string;
 }
 
 /** Result returned after a note is captured. */

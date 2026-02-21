@@ -1,11 +1,12 @@
 /**
  * Preferences component for the User Hub.
  *
- * Master-detail layout with 4 categories:
+ * Master-detail layout with 5 categories:
  * - Profile: display name and user identity
  * - Inbox: notification source toggles
  * - Sessions: activity filter, custom types, output templates
  * - Nudges: time-based session start reminders
+ * - Trains: train of thought preferences
  */
 
 import { setIcon } from "obsidian";
@@ -13,6 +14,7 @@ import type { UserHubComponentDeps, PreferencesCategory } from "./types";
 import { INBOX_SOURCE_DEFINITIONS } from "../../domain/inbox/types";
 import { UserHubSessionPreferences } from "./UserHubSessionPreferences";
 import { UserHubNudgePreferences } from "./UserHubNudgePreferences";
+import { UserHubTrainPreferences } from "./UserHubTrainPreferences";
 import { attachFolderSuggest } from "../FolderSuggest";
 
 const CATEGORIES: ReadonlyArray<{ id: PreferencesCategory; label: string; icon: string; description: string }> = [
@@ -20,6 +22,7 @@ const CATEGORIES: ReadonlyArray<{ id: PreferencesCategory; label: string; icon: 
 	{ id: "inbox", label: "Inbox", icon: "inbox", description: "Notification source toggles" },
 	{ id: "sessions", label: "Sessions", icon: "timer", description: "Activity filter, types, templates" },
 	{ id: "nudges", label: "Nudges", icon: "bell", description: "Time-based session start reminders" },
+	{ id: "trains", label: "Trains", icon: "train-front", description: "Train of Thought settings" },
 ];
 
 export class UserHubPreferences {
@@ -77,6 +80,8 @@ export class UserHubPreferences {
 			new UserHubSessionPreferences(this.detailEl, this.deps).render();
 		} else if (category === "nudges") {
 			new UserHubNudgePreferences(this.detailEl, this.deps).render();
+		} else if (category === "trains") {
+			new UserHubTrainPreferences(this.detailEl, this.deps).render();
 		}
 	}
 

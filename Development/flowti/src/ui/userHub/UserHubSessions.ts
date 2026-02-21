@@ -146,14 +146,27 @@ export class UserHubSessions {
 			row.style.borderLeft = "3px solid var(--interactive-accent)";
 		}
 
-		// Status icon
+		// Status icon — use train icon for train-of-thought sessions
+		const isTrain = session.type === "train-of-thought";
 		const icon = row.createSpan();
-		setIcon(icon, STATUS_ICONS[session.status] ?? "circle");
+		setIcon(icon, isTrain ? "train-front" : (STATUS_ICONS[session.status] ?? "circle"));
 		icon.style.opacity = "0.6";
 		icon.style.marginRight = "0.5rem";
 
 		// Title
 		row.createSpan({ text: session.title });
+
+		// Thought count badge for train sessions
+		if (isTrain && this.deps.trainService) {
+			const train = this.deps.trainService.getAllTrains().find((t) => t.sessionId === session.id);
+			if (train && train.thoughts.length > 0) {
+				const badge = row.createSpan({
+					text: `${train.thoughts.length} thought${train.thoughts.length === 1 ? "" : "s"}`,
+					cls: "ft-badge ft-badge-muted ft-text-sm ft-train-thought-badge",
+				});
+				badge.style.marginLeft = "0.25rem";
+			}
+		}
 
 		// Date hint — always shown to disambiguate same-titled sessions
 		const created = new Date(session.createdAt);

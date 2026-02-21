@@ -131,54 +131,58 @@ describe("TrainMainView", () => {
 			const emptyView = new TrainMainView(createMockLeaf(), eventBus, noTrainService);
 			await emptyView.onOpen();
 
-			const empty = emptyView.contentEl.querySelector(".flowti-train-empty");
+			const empty = emptyView.contentEl.querySelector(".ft-train-empty");
 			expect(empty).not.toBeNull();
 		});
 
 		it("renders header with train title", async () => {
 			await view.onOpen();
 
-			const title = view.contentEl.querySelector(".flowti-train-title");
+			const title = view.contentEl.querySelector(".ft-train-title");
 			expect(title?.textContent).toBe("Train: My Train");
 		});
 
 		it("renders status badge", async () => {
 			await view.onOpen();
 
-			const badge = view.contentEl.querySelector(".flowti-train-status");
+			const badge = view.contentEl.querySelector(".ft-train-status");
 			expect(badge?.textContent).toBe("running");
-			expect(badge?.classList.contains("flowti-train-status-running")).toBe(true);
+			expect(badge?.classList.contains("ft-train-status-running")).toBe(true);
 		});
 
 		it("renders thought counter", async () => {
 			await view.onOpen();
 
-			const counter = view.contentEl.querySelector(".flowti-train-nav-counter");
-			expect(counter?.textContent).toBe("Thought 1 of 2");
+			const counter = view.contentEl.querySelector(".ft-train-nav-counter");
+			expect(counter?.textContent).toBe("Thought 1 of 3");
 		});
 
 		it("renders active thought title", async () => {
 			await view.onOpen();
 
-			const thoughtTitle = view.contentEl.querySelector(".flowti-train-thought-title");
+			const thoughtTitle = view.contentEl.querySelector(".ft-train-thought-title");
 			expect(thoughtTitle?.textContent).toBe("First Idea");
 		});
 
-		it("renders thought metadata", async () => {
+		it("renders thought metadata as info grid", async () => {
 			await view.onOpen();
 
-			const meta = view.contentEl.querySelector(".flowti-train-thought-meta");
-			expect(meta?.textContent).toContain("Order: #1");
+			const meta = view.contentEl.querySelector(".ft-train-thought-meta");
+			expect(meta).not.toBeNull();
+			expect(meta?.textContent).toContain("#1");
 			expect(meta?.textContent).toContain("root");
+
+			const labels = view.contentEl.querySelectorAll(".ft-detail-info-label");
+			expect(labels.length).toBeGreaterThanOrEqual(3);
 		});
 
 		it("renders branch links for thoughts with branches", async () => {
 			await view.onOpen();
 
-			const branches = view.contentEl.querySelector(".flowti-train-branches");
+			const branches = view.contentEl.querySelector(".ft-train-branches");
 			expect(branches).not.toBeNull();
 
-			const links = view.contentEl.querySelectorAll(".flowti-train-branch-link");
+			const links = view.contentEl.querySelectorAll(".ft-train-branch-link");
 			expect(links.length).toBe(1);
 			expect(links[0].textContent).toContain("Branch Idea");
 		});
@@ -188,10 +192,10 @@ describe("TrainMainView", () => {
 			await view.onOpen();
 
 			// Click next to go to second thought
-			const nextBtn = view.contentEl.querySelectorAll(".flowti-train-nav-btn")[1] as HTMLButtonElement;
+			const nextBtn = view.contentEl.querySelectorAll(".ft-train-nav-btn")[1] as HTMLButtonElement;
 			nextBtn.click();
 
-			const branches = view.contentEl.querySelector(".flowti-train-branches");
+			const branches = view.contentEl.querySelector(".ft-train-branches");
 			expect(branches).toBeNull();
 		});
 	});
@@ -200,15 +204,15 @@ describe("TrainMainView", () => {
 		it("disables Prev button on first thought", async () => {
 			await view.onOpen();
 
-			const prevBtn = view.contentEl.querySelector(".flowti-train-nav-btn") as HTMLButtonElement;
+			const prevBtn = view.contentEl.querySelector(".ft-train-nav-btn") as HTMLButtonElement;
 			expect(prevBtn.disabled).toBe(true);
-			expect(prevBtn.classList.contains("flowti-train-nav-disabled")).toBe(true);
+			expect(prevBtn.classList.contains("ft-train-nav-disabled")).toBe(true);
 		});
 
 		it("enables Next button when not at end", async () => {
 			await view.onOpen();
 
-			const buttons = view.contentEl.querySelectorAll(".flowti-train-nav-btn");
+			const buttons = view.contentEl.querySelectorAll(".ft-train-nav-btn");
 			const nextBtn = buttons[1] as HTMLButtonElement;
 			expect(nextBtn.disabled).toBe(false);
 		});
@@ -216,41 +220,43 @@ describe("TrainMainView", () => {
 		it("navigates to next thought on click", async () => {
 			await view.onOpen();
 
-			const buttons = view.contentEl.querySelectorAll(".flowti-train-nav-btn");
+			const buttons = view.contentEl.querySelectorAll(".ft-train-nav-btn");
 			const nextBtn = buttons[1] as HTMLButtonElement;
 			nextBtn.click();
 
-			const thoughtTitle = view.contentEl.querySelector(".flowti-train-thought-title");
+			const thoughtTitle = view.contentEl.querySelector(".ft-train-thought-title");
 			expect(thoughtTitle?.textContent).toBe("Second Idea");
 
-			const counter = view.contentEl.querySelector(".flowti-train-nav-counter");
-			expect(counter?.textContent).toBe("Thought 2 of 2");
+			const counter = view.contentEl.querySelector(".ft-train-nav-counter");
+			expect(counter?.textContent).toBe("Thought 2 of 3");
 		});
 
 		it("navigates back to previous thought", async () => {
 			await view.onOpen();
 
 			// Go to second thought
-			const nextBtn = view.contentEl.querySelectorAll(".flowti-train-nav-btn")[1] as HTMLButtonElement;
+			const nextBtn = view.contentEl.querySelectorAll(".ft-train-nav-btn")[1] as HTMLButtonElement;
 			nextBtn.click();
 
 			// Go back
-			const prevBtn = view.contentEl.querySelector(".flowti-train-nav-btn") as HTMLButtonElement;
+			const prevBtn = view.contentEl.querySelector(".ft-train-nav-btn") as HTMLButtonElement;
 			prevBtn.click();
 
-			const thoughtTitle = view.contentEl.querySelector(".flowti-train-thought-title");
+			const thoughtTitle = view.contentEl.querySelector(".ft-train-thought-title");
 			expect(thoughtTitle?.textContent).toBe("First Idea");
 		});
 
 		it("disables Next button on last thought", async () => {
 			await view.onOpen();
 
-			// Go to last thought
-			const nextBtn = view.contentEl.querySelectorAll(".flowti-train-nav-btn")[1] as HTMLButtonElement;
+			// Go to last thought (3 total: t1, t2, t3 — need 2 clicks)
+			let nextBtn = view.contentEl.querySelectorAll(".ft-train-nav-btn")[1] as HTMLButtonElement;
+			nextBtn.click();
+			nextBtn = view.contentEl.querySelectorAll(".ft-train-nav-btn")[1] as HTMLButtonElement;
 			nextBtn.click();
 
 			// Now next should be disabled
-			const newNextBtn = view.contentEl.querySelectorAll(".flowti-train-nav-btn")[1] as HTMLButtonElement;
+			const newNextBtn = view.contentEl.querySelectorAll(".ft-train-nav-btn")[1] as HTMLButtonElement;
 			expect(newNextBtn.disabled).toBe(true);
 		});
 
@@ -260,7 +266,7 @@ describe("TrainMainView", () => {
 
 			await view.onOpen();
 
-			const nextBtn = view.contentEl.querySelectorAll(".flowti-train-nav-btn")[1] as HTMLButtonElement;
+			const nextBtn = view.contentEl.querySelectorAll(".ft-train-nav-btn")[1] as HTMLButtonElement;
 			nextBtn.click();
 
 			// Give the event a tick to fire
@@ -274,47 +280,43 @@ describe("TrainMainView", () => {
 		});
 	});
 
-	describe("action buttons", () => {
-		it("renders Open in Editor button", async () => {
+	describe("controls panel integration", () => {
+		it("renders controls section with buttons for running train", async () => {
 			await view.onOpen();
 
-			const btns = view.contentEl.querySelectorAll(".flowti-train-action-btn");
-			const openBtn = Array.from(btns).find((b) => b.textContent?.includes("Open in Editor"));
-			expect(openBtn).not.toBeUndefined();
+			const controlsSection = view.contentEl.querySelector(".ft-train-controls-section");
+			expect(controlsSection).not.toBeNull();
+
+			const btns = view.contentEl.querySelectorAll(".ft-btn");
+			expect(btns.length).toBeGreaterThan(0);
 		});
 
-		it("renders Resume Capture button for running train", async () => {
+		it("renders Add Thought button for running train", async () => {
 			await view.onOpen();
 
-			const btns = view.contentEl.querySelectorAll(".flowti-train-action-btn");
-			const resumeBtn = Array.from(btns).find((b) => b.textContent?.includes("Resume Capture"));
-			expect(resumeBtn).not.toBeUndefined();
+			const btns = view.contentEl.querySelectorAll(".ft-btn");
+			const addBtn = Array.from(btns).find((b) => b.textContent?.includes("Add Thought"));
+			expect(addBtn).not.toBeUndefined();
 		});
 
-		it("hides Resume Capture for completed train", async () => {
+		it("hides controls for completed train", async () => {
 			const completedTrain = createTrain({ status: "completed" });
 			const service = createMockTrainService(completedTrain);
 			const completedView = new TrainMainView(createMockLeaf(), eventBus, service);
 			await completedView.onOpen();
 
-			const btns = completedView.contentEl.querySelectorAll(".flowti-train-action-btn");
-			const resumeBtn = Array.from(btns).find((b) => b.textContent?.includes("Resume Capture"));
-			expect(resumeBtn).toBeUndefined();
+			const btns = completedView.contentEl.querySelectorAll(".ft-btn");
+			expect(btns.length).toBe(0);
 		});
 
-		it("emits ui.startTrain on Resume Capture click", async () => {
-			const handler = vi.fn();
-			eventBus.on("ui.startTrain", handler);
-
+		it("renders stats section with shared stat grid", async () => {
 			await view.onOpen();
 
-			const btns = view.contentEl.querySelectorAll(".flowti-train-action-btn");
-			const resumeBtn = Array.from(btns).find((b) => b.textContent?.includes("Resume Capture")) as HTMLButtonElement;
-			resumeBtn.click();
+			const statsSection = view.contentEl.querySelector(".ft-train-stats-section");
+			expect(statsSection).not.toBeNull();
 
-			await new Promise((r) => setTimeout(r, 0));
-
-			expect(handler).toHaveBeenCalledOnce();
+			const statCards = view.contentEl.querySelectorAll(".ft-stat-card");
+			expect(statCards.length).toBe(4);
 		});
 	});
 
@@ -388,7 +390,7 @@ describe("TrainMainView", () => {
 
 			await view.onOpen();
 
-			const branchLink = view.contentEl.querySelector(".flowti-train-branch-link") as HTMLElement;
+			const branchLink = view.contentEl.querySelector(".ft-train-branch-link") as HTMLElement;
 			branchLink.click();
 
 			await new Promise((r) => setTimeout(r, 0));
