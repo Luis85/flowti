@@ -40,6 +40,7 @@ export class EventBridge implements IEventBridge {
 	private unsubscribers: (() => void)[] = [];
 	/** Paths of files that were just created — consumed by metadata.changed listener */
 	private pendingCreatedPaths = new Set<string>();
+	private static readonly MAX_PENDING_PATHS = 100;
 	/** Gate: suppresses vault/metadata events until first metadata.resolved fires */
 	private cacheResolved = false;
 
@@ -428,6 +429,9 @@ export class EventBridge implements IEventBridge {
 						source: "obsidian",
 					});
 					// Cache is not populated yet on create — defer to metadata.changed
+					if (this.pendingCreatedPaths.size >= EventBridge.MAX_PENDING_PATHS) {
+						this.pendingCreatedPaths.clear();
+					}
 					this.pendingCreatedPaths.add(file.path);
 				} else if (file instanceof TFolder) {
 					void this.eventBus.emit("folder.created", {

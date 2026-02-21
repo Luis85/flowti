@@ -3,7 +3,9 @@ type: TechDebt
 severity: high
 category: resource-leak
 layer: ui
-status: open
+status: resolved
+resolved: 2026-02-21
+resolved_in: "Cycle 10 Inc 2"
 created: 2026-02-20
 effort: small
 description: "ImportsTab.renderActiveImportProgress() appends 3 EventBus listeners per call to liveUnsubscribes. If the detail panel re-renders while an import is active, listeners accumulate because cleanup only runs at the start of renderDetail(), not per operation."

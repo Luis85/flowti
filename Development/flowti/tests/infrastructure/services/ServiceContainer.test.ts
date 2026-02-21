@@ -311,6 +311,48 @@ describe("ServiceContainer", () => {
 			expect(factory).toHaveBeenCalledTimes(2);
 		});
 
+		it("should return failed service IDs when disposal throws", async () => {
+			class FailingDisposable implements IDisposable {
+				dispose() {
+					throw new Error("Dispose failed");
+				}
+			}
+			class GoodDisposable implements IDisposable {
+				dispose() { /* success */ }
+			}
+
+			container.register({
+				id: "goodService",
+				factory: () => new GoodDisposable(),
+			});
+			container.register({
+				id: "failingService",
+				factory: () => new FailingDisposable(),
+			});
+
+			await container.initializeAll();
+			const failed = await container.disposeAll();
+
+			expect(failed).toContain("failingService");
+			expect(failed).not.toContain("goodService");
+		});
+
+		it("should return empty array when all disposals succeed", async () => {
+			class GoodDisposable implements IDisposable {
+				dispose() { /* success */ }
+			}
+
+			container.register({
+				id: "good1",
+				factory: () => new GoodDisposable(),
+			});
+
+			await container.initializeAll();
+			const failed = await container.disposeAll();
+
+			expect(failed).toEqual([]);
+		});
+
 		it("should dispose in reverse order", async () => {
 			const order: string[] = [];
 

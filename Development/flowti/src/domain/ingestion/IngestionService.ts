@@ -278,7 +278,6 @@ export class IngestionService {
 		});
 
 		try {
-			await this.processJobPayload(job);
 			job.status = "completed";
 			job.completedAt = new Date().toISOString();
 			this.processedCount++;
@@ -320,14 +319,6 @@ export class IngestionService {
 		}
 	}
 
-	/**
-	 * Override point for actual processing logic.
-	 * Default implementation is a no-op — external services should
-	 * listen to ingestion events to implement domain-specific behavior.
-	 */
-	protected async processJobPayload(_job: IngestionJob): Promise<void> {
-		// No-op by default. Override or listen to events.
-	}
 
 	/**
 	 * Emits current stats.

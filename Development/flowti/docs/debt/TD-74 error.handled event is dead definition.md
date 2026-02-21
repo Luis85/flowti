@@ -3,7 +3,9 @@ type: TechDebt
 severity: medium
 category: dead-code
 layer: infrastructure
-status: open
+status: resolved
+resolved: 2026-02-21
+resolved_in: "Cycle 10 Inc 2"
 created: 2026-02-15
 effort: tiny
 description: "FlowtiEventMap defines 'error.handled' with type and catalog entry, but ErrorService never emits it. The event has a type definition and catalog metadata but no code path."

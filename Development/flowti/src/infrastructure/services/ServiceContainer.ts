@@ -220,8 +220,10 @@ export class ServiceContainer implements IServiceContainer {
 
 	/**
 	 * Disposes all services that implement IDisposable.
+	 * Returns the IDs of services that failed to dispose.
 	 */
-	async disposeAll(): Promise<void> {
+	async disposeAll(): Promise<string[]> {
+		const failed: string[] = [];
 		// Dispose in reverse initialization order
 		const sorted = this.topologicalSort().reverse();
 
@@ -235,6 +237,7 @@ export class ServiceContainer implements IServiceContainer {
 					// Emit service.disposed event
 					void this.eventBus.emit("service.disposed", { serviceId: id });
 				} catch (error) {
+					failed.push(id);
 					this.logger.error(
 						`Failed to dispose service: ${id}`,
 						error instanceof Error ? error.message : error
@@ -248,6 +251,8 @@ export class ServiceContainer implements IServiceContainer {
 			entry.instance = undefined;
 			entry.initialized = false;
 		}
+
+		return failed;
 	}
 
 	/**

@@ -3,7 +3,9 @@ type: TechDebt
 severity: low
 category: dead-code
 layer: domain
-status: open
+status: resolved
+resolved: 2026-02-21
+resolved_in: "Cycle 10 Inc 2"
 created: 2026-02-15
 effort: tiny
 description: "IngestionService.processJobPayload() is a protected no-op method intended as an extensibility hook, but nothing in the codebase overrides it. The retry/backoff logic can never trigger."

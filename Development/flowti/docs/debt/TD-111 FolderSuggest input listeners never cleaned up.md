@@ -3,7 +3,9 @@ type: TechDebt
 severity: medium
 category: resource-leak
 layer: ui
-status: open
+status: resolved
+resolved: 2026-02-21
+resolved_in: "Cycle 10 Inc 2"
 created: 2026-02-20
 effort: small
 description: "attachFolderSuggest() adds three event listeners (input, keydown, blur) to the input element with no mechanism to remove them when the parent component is destroyed."

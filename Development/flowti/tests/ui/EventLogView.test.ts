@@ -201,7 +201,6 @@ describe("EventLogView behavior", () => {
 
 		it("should return 'error' for error.* events", () => {
 			expect(getStatusClass("error.occurred")).toBe("error");
-			expect(getStatusClass("error.handled")).toBe("error");
 		});
 
 		it("should return 'info' for started events", () => {

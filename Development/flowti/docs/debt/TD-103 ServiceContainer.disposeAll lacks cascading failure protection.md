@@ -3,7 +3,9 @@ type: TechDebt
 severity: medium
 category: architecture
 layer: infrastructure
-status: open
+status: resolved
+resolved: 2026-02-21
+resolved_in: "Cycle 10 Inc 2"
 created: 2026-02-20
 effort: small
 description: "ServiceContainer.disposeAll() catches individual disposal errors and continues, but does not track or report which services failed, leaving dependent services potentially in an inconsistent state."

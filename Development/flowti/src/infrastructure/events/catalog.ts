@@ -203,7 +203,6 @@ const CATALOG_DATA = {
 
 	// ── Errors ───────────────────────────────────────────────
 	"error.occurred": { category: "Errors", description: "An error occurred", direction: "Service → Listeners", domain: "infrastructure", services: "ErrorService", tags: ["system"] },
-	"error.handled":  { category: "Errors", description: "An error was handled/recovered", direction: "Service → Listeners", domain: "infrastructure", services: "ErrorService", tags: ["system"] },
 
 	// ── File Requests ────────────────────────────────────────
 	"file.create.request": { category: "File Requests", description: "Request to create a new file", direction: "Service → EventBridge", domain: "infrastructure", services: "FileSystemClient", tags: ["system"] },

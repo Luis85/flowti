@@ -17,7 +17,7 @@ export function attachFolderSuggest(
 	input: HTMLInputElement,
 	app: App,
 	onSelect?: (path: string) => void,
-): void {
+): () => void {
 	let dropdown: HTMLElement | null = null;
 	let selectedIndex = -1;
 
@@ -85,7 +85,7 @@ export function attachFolderSuggest(
 		}
 	}
 
-	input.addEventListener("input", () => {
+	const onInput = (): void => {
 		const query = input.value.toLowerCase();
 		if (!query) {
 			hide();
@@ -96,9 +96,9 @@ export function attachFolderSuggest(
 			.filter((f) => f.toLowerCase().includes(query))
 			.slice(0, 10);
 		show(matches);
-	});
+	};
 
-	input.addEventListener("keydown", (e: KeyboardEvent) => {
+	const onKeydown = (e: KeyboardEvent): void => {
 		if (!dropdown) return;
 		const items = dropdown.querySelectorAll(".ft-folder-suggest-item");
 
@@ -116,9 +116,20 @@ export function attachFolderSuggest(
 		} else if (e.key === "Escape") {
 			hide();
 		}
-	});
+	};
 
-	input.addEventListener("blur", () => {
+	const onBlur = (): void => {
 		setTimeout(hide, 150);
-	});
+	};
+
+	input.addEventListener("input", onInput);
+	input.addEventListener("keydown", onKeydown);
+	input.addEventListener("blur", onBlur);
+
+	return () => {
+		hide();
+		input.removeEventListener("input", onInput);
+		input.removeEventListener("keydown", onKeydown);
+		input.removeEventListener("blur", onBlur);
+	};
 }

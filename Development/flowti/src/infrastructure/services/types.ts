@@ -82,8 +82,9 @@ export interface IServiceContainer {
 
 	/**
 	 * Disposes all services (calls dispose method if available).
+	 * Returns the IDs of services that failed to dispose.
 	 */
-	disposeAll(): Promise<void>;
+	disposeAll(): Promise<string[]>;
 }
 
 /**

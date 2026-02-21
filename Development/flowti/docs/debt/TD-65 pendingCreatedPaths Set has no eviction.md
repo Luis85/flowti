@@ -3,7 +3,9 @@ type: TechDebt
 severity: low
 category: memory
 layer: infrastructure
-status: open
+status: resolved
+resolved: 2026-02-21
+resolved_in: "Cycle 10 Inc 2"
 created: 2026-02-15
 effort: tiny
 description: "EventBridge.pendingCreatedPaths grows unboundedly if metadata.changed never fires for a created file (e.g., binary file, corrupted file, or Obsidian cache issue)."

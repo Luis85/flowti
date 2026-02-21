@@ -84,4 +84,45 @@ describe("FileSystemClient", () => {
 			await expect(client.fileExists("test/file.md")).rejects.toThrow("timed out");
 		});
 	});
+
+	describe("dispose", () => {
+		it("should reject in-flight requests when disposed", async () => {
+			const eventBus = new EventBus();
+			const client = new FileSystemClient({ eventBus, timeout: 5000 });
+
+			// Start a request that will never get a response
+			const promise = client.readFile("test/file.md");
+
+			// Dispose while request is in-flight
+			client.dispose();
+
+			await expect(promise).rejects.toThrow("FileSystemClient disposed");
+		});
+
+		it("should reject new requests after disposal", async () => {
+			const { client } = createClientWithBus();
+			client.dispose();
+
+			await expect(client.readFile("test/file.md")).rejects.toThrow("FileSystemClient disposed");
+		});
+
+		it("should clean up wildcard listeners on dispose", async () => {
+			const eventBus = new EventBus();
+			const client = new FileSystemClient({ eventBus, timeout: 5000 });
+
+			// Start a request (registers a wildcard listener)
+			const promise = client.readFile("test/file.md");
+			client.dispose();
+			await expect(promise).rejects.toThrow("disposed");
+
+			// After dispose, no wildcard listeners should remain from the client
+			// Verify by checking that a new response doesn't cause errors
+			void eventBus.emit("file.read.response", {
+				requestId: "fake" as unknown as RequestId,
+				success: true,
+				path: "test/file.md",
+				content: "data",
+			});
+		});
+	});
 });

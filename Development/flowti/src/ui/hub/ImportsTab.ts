@@ -461,6 +461,7 @@ export class ImportsTab {
 	// ─────────────────────────────────────────────────────────
 
 	private renderActiveImportProgress(container: HTMLElement, op: ActiveOperation): void {
+		this.cleanupLiveListeners();
 		const section = container.createDiv({ cls: "ft-import-progress ft-card ft-mt-3" });
 
 		const statusRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });

@@ -158,8 +158,6 @@ export interface FlowtiEventMap extends UserEventMap, SettingsEventMap, Installe
 
 	/** Emitted when an error occurs (for centralized error tracking) */
 	"error.occurred": FlowtiErrorInfo;
-	/** Emitted when an error is handled/recovered */
-	"error.handled": { error: FlowtiErrorInfo; recovered: boolean };
 
 	// ─────────────────────────────────────────────────────────────
 	// File Operation Request Events (Service → EventBridge)

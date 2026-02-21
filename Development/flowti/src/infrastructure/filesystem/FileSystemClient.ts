@@ -58,10 +58,23 @@ function generateRequestId(): RequestId {
 export class FileSystemClient implements IFileSystemClient {
 	private eventBus: IEventBus;
 	private defaultTimeout: number;
+	private pendingRequests = new Map<RequestId, { unsubscribe: () => void; timeoutId: ReturnType<typeof setTimeout>; reject: (err: Error) => void }>();
+	private disposed = false;
 
 	constructor(options: FileSystemClientOptions) {
 		this.eventBus = options.eventBus;
 		this.defaultTimeout = options.timeout ?? 5000;
+	}
+
+	dispose(): void {
+		this.disposed = true;
+		const cancelError = new Error("FileSystemClient disposed");
+		for (const [, entry] of this.pendingRequests) {
+			clearTimeout(entry.timeoutId);
+			entry.unsubscribe();
+			entry.reject(cancelError);
+		}
+		this.pendingRequests.clear();
 	}
 
 	async fileExists(path: string, options?: FileOperationOptions): Promise<boolean> {
@@ -228,15 +241,24 @@ export class FileSystemClient implements IFileSystemClient {
 		timeout?: number,
 		transform?: (response: FileResponsePayload) => T
 	): Promise<T> {
+		if (this.disposed) {
+			return Promise.reject(new Error("FileSystemClient disposed"));
+		}
+
 		return new Promise((resolve, reject) => {
 			const timeoutMs = timeout ?? this.defaultTimeout;
 			let settled = false;
+
+			const cleanup = (): void => {
+				this.pendingRequests.delete(requestId);
+			};
 
 			// Set up timeout
 			const timeoutId = setTimeout(() => {
 				if (settled) return;
 				settled = true;
 				unsubscribe();
+				cleanup();
 				reject(new Error(`Request timed out after ${timeoutMs}ms`));
 			}, timeoutMs);
 
@@ -251,6 +273,7 @@ export class FileSystemClient implements IFileSystemClient {
 
 				clearTimeout(timeoutId);
 				unsubscribe();
+				cleanup();
 
 				if (payload.success) {
 					resolve(transform ? transform(payload) : (undefined as unknown as T));
@@ -259,6 +282,8 @@ export class FileSystemClient implements IFileSystemClient {
 					reject(new Error(error?.message ?? "Operation failed"));
 				}
 			});
+
+			this.pendingRequests.set(requestId, { unsubscribe, timeoutId, reject });
 
 			// Emit request
 			void this.eventBus.emit(requestEvent, payload as never);

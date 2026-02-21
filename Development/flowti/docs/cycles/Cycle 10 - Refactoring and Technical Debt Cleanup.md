@@ -66,9 +66,9 @@ This is a dedicated maintenance cycle. No new features are delivered. The goal i
 
 **Tech debt register:**
 - **122 total items** (TD-01 through TD-120 + 2 additional)
-- **~54 resolved** — items fixed in Cycles 1–9 + 7 resolved in Inc 1
+- **~61 resolved** — items fixed in Cycles 1–9 + 14 resolved in Cycle 10 (7 Inc 1 + 7 Inc 2)
 - **~5 mitigated** — partial fixes, downgraded severity
-- **~61 open** — active debt requiring remediation (7 resolved in Inc 1: TD-114, TD-116, TD-115, TD-102, TD-107, TD-106, TD-56)
+- **~54 open** — active debt requiring remediation
 
 **Open debt by severity:**
 
@@ -190,16 +190,18 @@ This is a dedicated maintenance cycle. No new features are delivered. The goal i
 - Files: ~8
 
 **Acceptance criteria:**
-- [ ] ImportsTab listener count does not grow across re-renders during active import
-- [ ] `attachFolderSuggest()` returns cleanup function; callers invoke it
-- [ ] `FileSystemClient.dispose()` rejects pending requests and clears all listeners
-- [ ] `ServiceContainer.disposeAll()` returns list of failed service IDs
-- [ ] `pendingCreatedPaths` does not grow unbounded in long sessions
-- [ ] `error.handled` removed from event type map and catalog
-- [ ] `processJobPayload` and retry wrapper removed from IngestionService
-- [ ] `npm test` green
+- [x] ImportsTab listener count does not grow across re-renders during active import
+- [x] `attachFolderSuggest()` returns cleanup function; callers invoke it
+- [x] `FileSystemClient.dispose()` rejects pending requests and clears all listeners
+- [x] `ServiceContainer.disposeAll()` returns list of failed service IDs
+- [x] `pendingCreatedPaths` does not grow unbounded in long sessions
+- [x] `error.handled` removed from event type map and catalog
+- [x] `processJobPayload` and retry wrapper removed from IngestionService
+- [x] `npm test` green
 
 **Documentation intent:** Update TD-110, TD-111, TD-104, TD-103, TD-65, TD-74, TD-61 status to resolved. Document disposal patterns in review.
+
+**Delivery notes (2026-02-21):** All 7 TD items resolved. 12 files changed (+139/-22). 5 new tests (3 FileSystemClient dispose + 2 ServiceContainer disposeAll). 2,874 tests passing, 0 failures. TASM 32/35. Deviations: TD-103 returns `string[]` instead of emitting event; TD-65 uses cap-100 instead of TTL; TD-111 cleanup not yet consumed by caller. See [[Cycle 10 Inc 2 Review - Resource Leak Remediation]].
 
 ---
 
@@ -367,8 +369,8 @@ Inc 1 and Inc 2 can run in parallel. Inc 3 is most impactful when Inc 1's error 
 
 | Metric | Target | Notes |
 |--------|--------|-------|
-| Open high-severity debt | 6 (was 8) | TD-110 and TD-72 resolved |
-| Open medium-severity debt | 22 (was 36) | 14 items resolved in Inc 1-5 |
+| Open high-severity debt | 5 (was 8) | TD-110 resolved in Inc 2; TD-72 resolved earlier |
+| Open medium-severity debt | 18 (was 36) | 14 items resolved in Inc 1-2 so far; more in Inc 3-6 |
 | Total debt resolved this cycle | 28 items | From 65 open → 37 open |
 | Test suite | All passing, +40 new | Zero regressions |
 | Build green | `npm test` + `npm run lint` | Including new ESLint rule |

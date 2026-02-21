@@ -3,7 +3,9 @@ type: TechDebt
 severity: medium
 category: resource-leak
 layer: infrastructure
-status: open
+status: resolved
+resolved: 2026-02-21
+resolved_in: "Cycle 10 Inc 2"
 created: 2026-02-20
 effort: medium
 description: "FileSystemClient has no dispose or cancel mechanism. In-flight requests register wildcard EventBus listeners that persist until timeout or response, leaking if the owning service is torn down first."
