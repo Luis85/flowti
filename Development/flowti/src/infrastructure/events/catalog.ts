@@ -376,6 +376,7 @@ const CATALOG_DATA = {
 	"ui.openExport":              { category: "UI Commands", description: "Open export view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.openQuickCapture":        { category: "UI Commands", description: "Open the Quick Capture modal", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.startTrain":              { category: "UI Commands", description: "Start a Train of Thoughts serial capture session", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
+	"ui.openTrainView":           { category: "UI Commands", description: "Open the Train Main View", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.opened":                  { category: "UI Commands", description: "A UI view or modal was opened", direction: "Internal", domain: "ui", services: "UiCommandService", tags: ["system"] },
 
 	// ── Hub ──────────────────────────────────────────────────
@@ -519,6 +520,7 @@ const CATALOG_DATA = {
 	"train.paused":         { category: "Train", description: "Train capture was paused", direction: "Service → Listeners", domain: "train", services: "TrainService" },
 	"train.resumed":        { category: "Train", description: "Train capture was resumed", direction: "Service → Listeners", domain: "train", services: "TrainService" },
 	"train.completed":      { category: "Train", description: "Train capture was completed", direction: "Service → Listeners", domain: "train", services: "TrainService" },
+	"train.thought.activated": { category: "Train", description: "A thought was navigated to in a view", direction: "View → Plugin", domain: "train", services: "TrainMainView" },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

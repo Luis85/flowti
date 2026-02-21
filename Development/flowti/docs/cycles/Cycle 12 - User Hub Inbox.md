@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Hubs PRD]]"
-stage: ready
+stage: done
 cycle: 12
 date_planned: 2026-02-21
 date_completed:

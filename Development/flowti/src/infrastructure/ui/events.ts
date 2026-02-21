@@ -56,6 +56,9 @@ export interface UiCommandEventMap {
 	/** Start a Train of Thoughts serial capture session */
 	"ui.startTrain": Record<string, never>;
 
+	/** Open the Train Main View (or reveal if already open) */
+	"ui.openTrainView": Record<string, never>;
+
 	/** Emitted after a view or modal was opened by UiCommandService */
 	"ui.opened": {
 		target: string;

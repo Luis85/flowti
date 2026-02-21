@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Session Workspaces PRD]]"
-stage: completed
+stage: done
 date_completed: 2026-02-21
 cycle: 10
 date_planned: 2026-02-20

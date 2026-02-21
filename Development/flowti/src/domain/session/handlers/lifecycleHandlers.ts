@@ -140,7 +140,8 @@ export async function handleResume(ctx: SessionHandlerContext, sessionId: string
 	await ctx.saveState();
 	await ctx.eventBus?.emit("session.resumed", { session: { ...session } });
 	ctx.scheduleSyncNotesFile(sessionId);
-	if (session.workspaceState) {
+	// Skip workspace state restore for train sessions — they use TrainMainView
+	if (session.workspaceState && session.type !== "train-of-thought") {
 		await ctx.eventBus?.emit("session.state.restore", { sessionId: session.id, state: session.workspaceState });
 	}
 }

@@ -103,6 +103,8 @@ Views read state via `deps.getState()` and write via `deps.setState(partial)`. T
 | `CsvActionView` | `flowti-csv` | ~747 | landing + wizard | CSV file handler: column preview landing page + 4-page inline import wizard |
 | `UserHubView` | `flowti-user-hub` | ~273 | `BaseHubView<UserHubTab>` | 3-tab user hub: Dashboard, Inbox, Sessions (+ Preferences) |
 | `SessionWorkspaceView` | `flowti-session-workspace` | ~537 | `ItemView` | single-column | Dedicated focused workspace for a single session (timer, energy, goals, execution plan, notes, context, decisions, activity, outputs). Subscriptions extracted to `SessionWorkspaceSubscriptions.ts`, helpers to `SessionWorkspaceHelpers.ts` |
+| `TrainMainView` | `flowti-train-main` | ~237 | `ItemView` | single-column | Dedicated train navigator: thought detail, prev/next navigation, branch links, action buttons. Subscriptions extracted to `TrainMainViewSubscriptions.ts` |
+| `TrainTimelineSidebar` | `flowti-train-timeline` | ~210 | `ItemView` | single-column | Vertical timeline graph: thought nodes, branch indentation, active highlighting, click-to-navigate. Subscriptions extracted to `TrainTimelineSidebarSubscriptions.ts` |
 | `ComponentShowcaseView` | `flowti-component-showcase` | ~297 | showcase | Development view for previewing all CSS components |
 
 ### Modals

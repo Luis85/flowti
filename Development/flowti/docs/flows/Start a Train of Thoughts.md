@@ -14,6 +14,7 @@ events:
   - train.paused
   - train.resumed
   - train.completed
+  - train.thought.activated
   - ui.startTrain
 tags:
   - train
@@ -28,7 +29,7 @@ Train of Thoughts provides serial thought capture via a command palette action o
 
 ## Trigger
 
-User clicks the "Start Train of Thoughts" ribbon icon (train-front) or invokes the "Start Train of Thoughts" command from the command palette (Ctrl/Cmd+P → "Start Train of Thoughts").
+User clicks the "Train of Thoughts" ribbon icon (train-front) or invokes the "Start Train of Thoughts" command from the command palette (Ctrl/Cmd+P → "Start Train of Thoughts"). If an active or paused train exists, the ribbon icon opens the Train Main View instead of starting a new train. The "View Train of Thoughts" command is only visible when a train is active or paused.
 
 ## Steps
 
@@ -36,8 +37,8 @@ User clicks the "Start Train of Thoughts" ribbon icon (train-front) or invokes t
 
 - **View/Service**: main.ts (ribbon icon / command registry)
 - **User Action**: Clicks ribbon icon or invokes command from palette
-- **System Response**: Emits `ui.startTrain` via EventBus. The listener checks for an active train (running or paused). If a paused train exists, it resumes it and opens the capture modal. If a running train exists, it opens the capture modal directly. If no active train exists, it opens an InputModal for the train title.
-- **Events**: `ui.startTrain`
+- **System Response**: The ribbon icon first checks for an active train. If one exists (running or paused), it emits `ui.openTrainView` to open the Train Main View. Otherwise, it emits `ui.startTrain`. The `ui.startTrain` listener checks for an active train: if paused, it resumes the train (which auto-opens the Train Main View + capture modal via the `train.resumed` listener). If running, it opens the Train Main View + capture modal directly. If no active train exists, it opens an InputModal for the train title.
+- **Events**: `ui.openTrainView` (if train exists) or `ui.startTrain` (if no train)
 
 ### 2. User Names the Train
 
@@ -96,6 +97,20 @@ User clicks the "Start Train of Thoughts" ribbon icon (train-front) or invokes t
 | Close action | Pause (resume later) or Complete (done forever) | Pause (Escape) |
 | Train title | User-entered free text | (required) |
 | Timer duration | Unlimited, 5, 10, 15, 25, 50 min (configurable in Settings) | `defaultTrainDuration` setting (default: 0 = Unlimited) |
+
+### 9. User Navigates Thoughts in Main View
+
+- **View/Service**: TrainMainView
+- **User Action**: Clicks Previous/Next buttons, branch links, or "Open in Editor" / "Resume Capture" action buttons
+- **System Response**: The Train Main View auto-opens on `train.started` as a new tab (or updates an existing tab). It shows the active thought with title, order, direction, and timestamp metadata. Previous/Next buttons navigate the main chain (disabled at boundaries). Branch links are clickable and switch to the branched thought. "Open in Editor" opens the vault note; "Resume Capture" reopens the serial capture modal at the current position. The view persists `trainId` via `getState()`/`setState()` for workspace re-open. Navigation emits `train.thought.activated` for cross-view sync.
+- **Events**: `train.thought.activated`
+
+### 10. User Monitors Timeline in Sidebar
+
+- **View/Service**: TrainTimelineSidebar
+- **User Action**: Views the thought graph in the right sidebar; clicks on nodes to navigate
+- **System Response**: The Train Timeline Sidebar auto-opens in the right sidebar on `train.started`. It renders a vertical node list with the main chain and branch sub-trees. Each node shows a bullet (filled for active, open for inactive), title, and timestamp. Branch nodes are indented with a `↗` indicator. Clicking a node emits `train.thought.activated` which the Main View listens to (and vice versa) for bidirectional sync. The sidebar persists `trainId` + `activeThoughtId` via `getState()`/`setState()`.
+- **Events**: `train.thought.activated`
 
 ## Events Sequence
 
@@ -200,11 +215,11 @@ thought-relations:
 - Frontmatter uses `thought-relations` array for machine-parseable graph structure alongside human-readable `previous-thought` / `next-thought` wikilinks
 - Optimistic modal opening (fire-and-forget addThought) keeps the capture loop fast — file I/O doesn't block the next modal
 - MAX_THOUGHTS_PER_TRAIN = 500, MAX_TRAINS = 100 with oldest-first eviction
+- Train sessions suppress Session Workspace auto-open (`session.type === "train-of-thought"` guard) and workspace state restore — trains use TrainMainView as their primary view
+- Train–session lifecycle sync: `session.completed/resumed/paused` events auto-sync the linked train status via `TrainService.setupListeners()`
 
 ## Known Limitations
 
-- No timeline visualization yet (planned: Inc 7)
-- No "resume from specific node" in UI (planned: Inc 6 Main View)
 - No session nesting (planned: Inc 8)
 - Branch thoughts always link from the last thought unless caller specifies `fromThoughtId`
 - No way to delete individual thoughts from a train

@@ -234,8 +234,11 @@ export class SessionWorkspaceView extends ItemView {
 			return;
 		}
 
-		this.timerPanel = new SessionTimerPanel(container, deps);
-		this.timerPanel.render();
+		// Only show timer for timed sessions (durationMinutes > 0)
+		if (this.session.durationMinutes > 0) {
+			this.timerPanel = new SessionTimerPanel(container, deps);
+			this.timerPanel.render();
+		}
 
 		this.energyPanel = new SessionEnergyIndicator(container, deps);
 		this.energyPanel.render();

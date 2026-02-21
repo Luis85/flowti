@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Train of Thoughts PRD]]"
-stage: refinement
+stage: in-progress
 cycle: 13
 date_planned: 2026-02-21
 date_completed:
@@ -349,45 +349,118 @@ None bundled — this is a greenfield feature cycle.
 - Unit tests: getState/setState persist trainId
 
 **Acceptance criteria:**
-- [ ] Train Main View registered as Obsidian view (`flowti-train-main`)
-- [ ] Active thought content displayed with title, order, direction, timestamp
-- [ ] Previous/Next navigation buttons (disabled at chain boundaries)
-- [ ] Branch links shown for thoughts with multiple continuations
-- [ ] Click on branch link activates that thought + emits `train.thought.activated`
-- [ ] "Open in editor" opens the vault note
-- [ ] "Resume capture" reopens the serial capture modal
-- [ ] View auto-opens on `train.started` event
-- [ ] View re-renders on thought.added, train.paused, train.completed
-- [ ] `train.thought.activated` event registered in catalog
+- [x] Train Main View registered as Obsidian view (`flowti-train-main`)
+- [x] Active thought content displayed with title, order, direction, timestamp
+- [x] Previous/Next navigation buttons (disabled at chain boundaries)
+- [x] Branch links shown for thoughts with multiple continuations
+- [x] Click on branch link activates that thought + emits `train.thought.activated`
+- [x] "Open in editor" opens the vault note
+- [x] "Resume capture" reopens the serial capture modal
+- [x] View auto-opens on `train.started` event
+- [x] View re-renders on thought.added, train.paused, train.completed
+- [x] `train.thought.activated` event registered in catalog
+
+### Post Inc 6 State (2026-02-21, Inc 6 complete + bug fixes)
+
+**Plugin health:**
+- 3,221 tests passing, 130 test suites, 32 skipped
+- Build status: green (`npm test` = tsc + eslint + vitest)
+- 8 Train events + 1 UI command event in catalog
+
+**Delivered Inc 6 (Train Main View):**
+- `TrainMainView` (~237 LOC) extends ItemView — header, nav bar, thought detail, branch links, action buttons
+- `TrainMainViewSubscriptions.ts` (~80 LOC) — 6 event subscriptions extracted (same pattern as SessionWorkspaceSubscriptions)
+- `train.thought.activated` event added for view↔view navigation sync
+- View auto-opens on `train.started`, persists `trainId` via `getState()`/`setState()`
+- `VIEW_TYPE_TRAIN_MAIN` + `VIEW_TYPE_TRAIN_TIMELINE` constants in `src/ui/train/types.ts`
+- 31 new tests (rendering, navigation, event subscriptions, branch links, action buttons)
+
+**Bug fixes applied post-Inc 6 (5 issues):**
+- **Train–session lifecycle sync** (`TrainService.setupListeners()`): `session.completed`, `session.resumed`, `session.paused` now auto-sync linked train status — prevents trains getting stuck when session is managed externally
+- **Session Workspace suppression** (`main.ts`): `session.started` handler skips auto-open for `train-of-thought` sessions — trains use TrainMainView, not Session Workspace
+- **Workspace state restore skip** (`lifecycleHandlers.ts`): `session.state.restore` skipped for train sessions — prevents stale file opening on resume
+- **Timer hidden for untimed sessions** (`SessionWorkspaceView.ts`): timer panel only renders when `durationMinutes > 0`
+- **"View Train" command + ribbon** (`main.ts`, `registry.ts`): `flowti:view-train` uses `checkCallback` (hidden when no active train); ribbon icon opens Train Main View when train exists, starts new train otherwise
+- **`ui.openTrainView` event** + catalog entry added for manual view opening
+- **`train.resumed` listener** in main.ts auto-opens Train Main View + capture modal on resume
+
+**Remaining:** Inc 7 (Timeline Sidebar), Inc 8 (Session Nesting)
 
 ---
 
 ### Inc 7: Timeline Sidebar (PBI-TOT-002, Part 2)
 
-**Goal:** Sidebar timeline graph visualization with click-to-navigate and branch rendering.
+**Goal:** Right sidebar timeline view showing thought graph with click-to-navigate and branch rendering. Syncs with Train Main View via `train.thought.activated` event (bidirectional).
 
 | Step | File | Purpose | Est. LOC |
 |------|------|---------|----------|
-| 1 | `src/ui/train/TrainTimelineRenderer.ts` | HTML/CSS tree graph component | ~200 |
-| 2 | `src/ui/train/TrainTimelineSidebar.ts` | ItemView wrapper for timeline | ~250 |
-| 3 | `src/main.ts` | Register sidebar view | ~10 |
-| 4 | Integration | Click-to-navigate, active node highlight, auto-scroll | ~40 |
+| 1 | `src/ui/train/TrainTimelineSidebar.ts` | ItemView: vertical timeline with nodes, branches, active highlight | ~200 |
+| 2 | `src/ui/train/TrainTimelineSidebarSubscriptions.ts` | Event subscriptions (same 6 as Main View) | ~80 |
+| 3 | `src/main.ts` | `registerView()` + auto-open in right sidebar on `train.started` | ~20 |
+| 4 | Tests | TrainTimelineSidebar rendering + navigation + sync | ~100 |
 
-**Est. total:** ~500 LOC source, ~80 LOC tests, ~15 new tests
+**Est. total:** ~300 LOC source, ~100 LOC tests, ~20 new tests
+
+**Architecture:**
+- Follows same pattern as TrainMainView: ItemView + extracted subscriptions module
+- `getState()`/`setState()` persist `trainId` + `activeThoughtId` for workspace re-open
+- TrainService provides data: `getTrain()`, `getTimeline()`, `getBranches()`
+- Bidirectional sync with Main View via `train.thought.activated` event
+- Sidebar owns `activeThoughtId`, Main View owns `activeThoughtIndex` — sync via event
+
+**Layout:**
+```
+┌──────────────────────┐
+│ 🚂 My Deep Dive      │  header (train title)
+├──────────────────────┤
+│ ● Initial idea       │  root node (active = highlight)
+│ │                    │
+│ ● Schema design      │  next node
+│ ├─● NoSQL branch     │  branch fork
+│ │                    │
+│ ● API endpoints      │  next node
+│ │                    │
+│ ○ Error handling     │  current (highlighted)
+└──────────────────────┘
+```
 
 **Test intent:**
-- Unit tests: timeline renderer produces correct DOM structure for linear chains
-- Unit tests: branch forks rendered correctly
-- Unit tests: click events dispatch thought.activated
-- Integration: active node highlight syncs with TrainMainView
+- Unit tests: renders correct DOM structure for linear chain (nodes + connectors)
+- Unit tests: branch forks rendered as indented sub-trees
+- Unit tests: active node gets highlight class
+- Unit tests: click on node emits `train.thought.activated`
+- Unit tests: re-renders on `train.thought.added`, `train.thought.activated`
+- Unit tests: `getState`/`setState` persist trainId + activeThoughtId
 
 **Acceptance criteria:**
-- [ ] Timeline Sidebar registered as Obsidian view
-- [ ] Graph shows all thoughts as nodes with connections
-- [ ] Branches visualized as tree forks
-- [ ] Active node highlighted
-- [ ] Click navigates to that thought in Main View
-- [ ] Timestamps shown on timeline
+- [x] Timeline Sidebar registered as Obsidian view (`flowti-train-timeline`)
+- [x] Graph shows all thoughts as vertical nodes with connecting lines
+- [x] Branches visualized as indented sub-trees
+- [x] Active node highlighted with accent style
+- [x] Click on node navigates to that thought in Main View
+- [x] Timestamps shown on each node
+- [x] Auto-opens in right sidebar on `train.started`
+- [x] Syncs with Main View via `train.thought.activated` (bidirectional)
+
+### Post Inc 7 State (2026-02-21, Inc 7 complete)
+
+**Plugin health:**
+- 3,251 tests passing, 131 test suites, 32 skipped
+- Build status: green (`npm test` = tsc + eslint + vitest)
+- 8 Train events + 1 UI command event in catalog
+
+**Delivered Inc 7 (Timeline Sidebar):**
+- `TrainTimelineSidebar` (~210 LOC) extends ItemView — header, vertical timeline with node graph, branch indentation, active highlighting
+- `TrainTimelineSidebarSubscriptions.ts` (~80 LOC) — 6 event subscriptions extracted (same pattern as Main View)
+- Timeline auto-opens in right sidebar on `train.started`
+- Click-to-navigate emits `train.thought.activated` for bidirectional sync with Main View
+- `getState()`/`setState()` persists `trainId` + `activeThoughtId` for workspace re-open
+- Branch nodes rendered with indentation (16px) + `↗` indicator
+- Active node: filled bullet `●` + `.flowti-timeline-node-active` highlight class
+- 30 new tests (rendering, navigation, active highlighting, event subscriptions, click navigation, branch rendering)
+- `revealOrCreateTrainTimeline()` helper in main.ts — opens in right sidebar via `getRightLeaf(false)`
+
+**Remaining:** Inc 8 (Session Nesting)
 
 ---
 

@@ -10,7 +10,7 @@ icon: layout
 
 A **View** documents a top-level Obsidian view (pane) registered by the plugin. View docs describe the view's purpose, use cases, related flows, and architectural decisions — serving as the sitemap of the plugin's user interface.
 
-View docs live in the `sitemap/` folder. The project documents 8 views covering all user-facing panes.
+View docs live in the `sitemap/` folder. The project documents 10 views covering all user-facing panes.
 
 ## Frontmatter Schema
 
@@ -46,6 +46,8 @@ View docs live in the `sitemap/` folder. The project documents 8 views covering 
 | CSV Action | `flowti-csv-action` | ItemView | CSV import wizard |
 | User Hub | `flowti-user-hub` | ItemView | User profile and inbox |
 | Session Workspace | `flowti-session-workspace` | ItemView | Session execution environment |
+| Train Main View | `flowti-train-main` | ItemView | Train thought navigator |
+| Train Timeline Sidebar | `flowti-train-timeline` | ItemView | Vertical timeline graph with click-to-navigate |
 | Component Showcase | `flowti-component-showcase` | ItemView | Design system reference |
 
 ## Relationship to Components

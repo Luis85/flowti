@@ -47,6 +47,8 @@ import { DataExchangeProvider } from "./domain/hub/DataExchangeProvider";
 import { UserHubProvider } from "./domain/hub/UserHubProvider";
 import { UserHubView, VIEW_TYPE_USER_HUB } from "./ui/UserHubView";
 import { SessionWorkspaceView, VIEW_TYPE_SESSION_WORKSPACE } from "./ui/SessionWorkspaceView";
+import { TrainMainView, VIEW_TYPE_TRAIN_MAIN } from "./ui/train/TrainMainView";
+import { TrainTimelineSidebar, VIEW_TYPE_TRAIN_TIMELINE } from "./ui/train/TrainTimelineSidebar";
 import { showNudgeNotification } from "./ui/NudgeNotification";
 
 
@@ -204,6 +206,21 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.bindViews();
 			this.bindCommands();
 
+			// Conditional command — only visible when a train is active/paused
+			this.addCommand({
+				id: "flowti:view-train",
+				name: "View Train of Thoughts",
+				icon: "train-front",
+				checkCallback: (checking) => {
+					const active = this.trainService?.getActiveTrain();
+					if (!active) return false;
+					if (!checking) {
+						void this.eventBus.emit("ui.openTrainView", {});
+					}
+					return true;
+				},
+			});
+
 			// UI command service — central handler for all ui.* events
 			this.uiCommandService = new UiCommandService({
 				app: this.app,
@@ -244,7 +261,12 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.addRibbonIcon("graduation-cap", "Add Learning", () => {
 				void this.eventBus.emit("ui.openQuickCapture", { type: "learning" });
 			});
-			this.addRibbonIcon("train-front", "Start Train of Thoughts", () => {
+			this.addRibbonIcon("train-front", "Train of Thoughts", () => {
+				const activeTrain = this.trainService?.getActiveTrain();
+				if (activeTrain) {
+					void this.eventBus.emit("ui.openTrainView", {});
+					return;
+				}
 				void this.eventBus.emit("ui.startTrain", {});
 			});
 
@@ -268,15 +290,15 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.eventBus.on("ui.startTrain", () => {
 				if (!this.trainService) return;
 
-				// If an active train exists, resume it
+				// If an active train exists, resume or focus it.
+				// The train.resumed listener handles view + modal opening.
 				const activeTrain = this.trainService.getActiveTrain();
 				if (activeTrain && activeTrain.status === "paused") {
-					void this.trainService.resume(activeTrain.id).then(() => {
-						this.openTrainModal(activeTrain.id, activeTrain.title);
-					});
+					void this.trainService.resume(activeTrain.id);
 					return;
 				}
 				if (activeTrain && activeTrain.status === "running") {
+					this.revealOrCreateTrainView(activeTrain.id);
 					this.openTrainModal(activeTrain.id, activeTrain.title);
 					return;
 				}
@@ -650,12 +672,52 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.trainService = await this.services.get<TrainService>("trainService");
 		await this.trainService.load();
 
+		// Train Main View — register view factory + auto-open on train start
+		this.registerView(VIEW_TYPE_TRAIN_MAIN, (leaf) =>
+			new TrainMainView(leaf, this.eventBus, this.trainService!),
+		);
+
+		// Train Timeline Sidebar — register view factory + auto-open in right sidebar
+		this.registerView(VIEW_TYPE_TRAIN_TIMELINE, (leaf) =>
+			new TrainTimelineSidebar(leaf, this.eventBus, this.trainService!),
+		);
+
+		this.crossCuttingListeners.push(
+			this.eventBus.on("train.started", (event) => {
+				this.revealOrCreateTrainView(event.payload.train.id);
+				this.revealOrCreateTrainTimeline(event.payload.train.id);
+			}),
+		);
+
+		// Resume train → open/reveal Train Main View + capture modal
+		this.crossCuttingListeners.push(
+			this.eventBus.on("train.resumed", (event) => {
+				const train = this.trainService?.getTrain(event.payload.trainId);
+				if (train) {
+					this.revealOrCreateTrainView(train.id);
+					this.openTrainModal(train.id, train.title);
+				}
+			}),
+		);
+
+		// Open/reveal Train Main View on command
+		this.crossCuttingListeners.push(
+			this.eventBus.on("ui.openTrainView", () => {
+				const activeTrain = this.trainService?.getActiveTrain();
+				this.revealOrCreateTrainView(activeTrain?.id ?? null);
+			}),
+		);
+
 		// Auto-open workspace and focus file when a session starts
 		// Skip if a workspace already exists (e.g. started from sidebar)
+		// Skip for train-of-thought sessions — they use TrainMainView instead
 		this.crossCuttingListeners.push(
 			this.eventBus.on("session.started", (event) => {
 				const { session } = event.payload;
 				this.sessionService!.workspaceSessionId = session.id;
+
+				// Train sessions use the Train Main View, not Session Workspace
+				if (session.type === "train-of-thought") return;
 
 				const existingLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_SESSION_WORKSPACE);
 				if (existingLeaves.length > 0) {
@@ -686,6 +748,52 @@ export default class FlowtiBasePlugin extends Plugin {
 	 * immediately (optimistic) to keep the capture flow snappy.
 	 * Cancel (escape/close) pauses the train. Complete ends it permanently.
 	 */
+	/**
+	 * Opens the Train Main View for a specific train, or reveals an existing one.
+	 * If no train ID is given (e.g. no active train), opens the view in empty state.
+	 */
+	private revealOrCreateTrainView(trainId: string | null): void {
+		const existingLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TRAIN_MAIN);
+		if (existingLeaves.length > 0) {
+			// Already open — refresh with the given train and reveal
+			for (const leaf of existingLeaves) {
+				void leaf.setViewState({
+					type: VIEW_TYPE_TRAIN_MAIN,
+					state: { trainId },
+				});
+			}
+			void this.app.workspace.revealLeaf(existingLeaves[0]);
+			return;
+		}
+		void this.app.workspace.getLeaf("tab").setViewState({
+			type: VIEW_TYPE_TRAIN_MAIN,
+			active: true,
+			state: { trainId },
+		});
+	}
+
+	/**
+	 * Opens the Train Timeline Sidebar in the right split, or reveals an existing one.
+	 */
+	private revealOrCreateTrainTimeline(trainId: string | null): void {
+		const existingLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TRAIN_TIMELINE);
+		if (existingLeaves.length > 0) {
+			for (const leaf of existingLeaves) {
+				void leaf.setViewState({
+					type: VIEW_TYPE_TRAIN_TIMELINE,
+					state: { trainId },
+				});
+			}
+			void this.app.workspace.revealLeaf(existingLeaves[0]);
+			return;
+		}
+		void this.app.workspace.getRightLeaf(false)?.setViewState({
+			type: VIEW_TYPE_TRAIN_TIMELINE,
+			active: true,
+			state: { trainId },
+		});
+	}
+
 	private openTrainModal(
 		trainId: string,
 		trainTitle: string,

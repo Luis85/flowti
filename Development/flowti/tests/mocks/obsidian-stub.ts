@@ -120,8 +120,35 @@ export class TFolder extends TAbstractFile {
 
 export type EventRef = { id: string };
 
+export interface ViewStateResult {
+	history: boolean;
+}
+
 export class ItemView {
 	file: TFile | null = null;
+	containerEl!: HTMLElement;
+	contentEl!: HTMLElement;
+	leaf: WorkspaceLeaf | null = null;
+	app: App = new App();
+
+	constructor(leaf?: WorkspaceLeaf) {
+		if (leaf) {
+			this.leaf = leaf;
+		}
+		// Guard for non-DOM environments (e.g. EventBridge tests without happy-dom)
+		if (typeof document !== "undefined") {
+			this.containerEl = document.createElement("div");
+			this.contentEl = document.createElement("div");
+		}
+	}
+
+	getViewType(): string { return ""; }
+	getDisplayText(): string { return ""; }
+	getIcon(): string { return ""; }
+	getState(): Record<string, unknown> { return {}; }
+	async setState(_state: Record<string, unknown>, _result: ViewStateResult): Promise<void> {}
+	async onOpen(): Promise<void> {}
+	async onClose(): Promise<void> {}
 }
 
 export class MarkdownView extends ItemView {}

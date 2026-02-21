@@ -17,4 +17,6 @@ export interface TrainEventMap {
 	"train.resumed": { trainId: string };
 	/** Emitted when a train is completed (user is done capturing). */
 	"train.completed": { trainId: string; thoughtCount: number };
+	/** Emitted when a thought is activated (navigated to) in a view. */
+	"train.thought.activated": { trainId: string; thoughtId: string };
 }
