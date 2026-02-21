@@ -3,7 +3,9 @@ type: TechDebt
 severity: medium
 category: reliability
 layer: infrastructure
-status: open
+status: resolved
+resolved: 2026-02-21
+resolved_in: "Cycle 10 Inc 1"
 created: 2026-02-15
 effort: small
 description: "When TypedStorage.safeLoad() falls back to defaults due to corrupted data, the user is not notified. Silently loses persisted subscriptions, event definitions, ingestion state, or import/export configs."

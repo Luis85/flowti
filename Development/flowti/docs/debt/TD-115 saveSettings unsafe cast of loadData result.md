@@ -3,7 +3,9 @@ type: TechDebt
 severity: medium
 category: type-safety
 layer: infrastructure
-status: open
+status: resolved
+resolved: 2026-02-21
+resolved_in: "Cycle 10 Inc 1"
 created: 2026-02-20
 effort: small
 description: "saveSettings() casts loadData() result to object without validation. If the stored data is a non-object (null after corruption, or a primitive), the spread will silently produce unexpected results."

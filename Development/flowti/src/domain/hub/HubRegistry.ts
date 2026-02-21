@@ -37,6 +37,11 @@ export class HubRegistry {
 		return this.providers.get(hubId);
 	}
 
+	/** Clear all registered providers. */
+	clear(): void {
+		this.providers.clear();
+	}
+
 	/**
 	 * Open a hub and optionally navigate to a specific tab/entity.
 	 *
@@ -49,13 +54,18 @@ export class HubRegistry {
 
 		const viewType = provider.getViewType();
 
-		// Reveal or create the leaf
-		let leaf = this.app.workspace.getLeavesOfType(viewType)[0];
-		if (!leaf) {
-			leaf = this.app.workspace.getLeaf("tab");
-			await leaf.setViewState({ type: viewType, active: true });
+		try {
+			// Reveal or create the leaf
+			let leaf = this.app.workspace.getLeavesOfType(viewType)[0];
+			if (!leaf) {
+				leaf = this.app.workspace.getLeaf("tab");
+				await leaf.setViewState({ type: viewType, active: true });
+			}
+			this.app.workspace.revealLeaf(leaf);
+		} catch (err) {
+			console.error(`[Flowti] Failed to open hub "${hubId}":`, err);
+			return;
 		}
-		this.app.workspace.revealLeaf(leaf);
 
 		// Emit navigate event for the hub view to handle
 		if (tabId) {

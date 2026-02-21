@@ -66,9 +66,9 @@ This is a dedicated maintenance cycle. No new features are delivered. The goal i
 
 **Tech debt register:**
 - **122 total items** (TD-01 through TD-120 + 2 additional)
-- **~47 resolved** — items fixed in Cycles 1–9
+- **~54 resolved** — items fixed in Cycles 1–9 + 7 resolved in Inc 1
 - **~5 mitigated** — partial fixes, downgraded severity
-- **~68 open** — active debt requiring remediation (includes TD-118, TD-119, TD-120 added post-Cycle 9)
+- **~61 open** — active debt requiring remediation (7 resolved in Inc 1: TD-114, TD-116, TD-115, TD-102, TD-107, TD-106, TD-56)
 
 **Open debt by severity:**
 
@@ -148,16 +148,23 @@ This is a dedicated maintenance cycle. No new features are delivered. The goal i
 - Files: ~10
 
 **Acceptance criteria:**
-- [ ] `loadSettings()` logs validation warnings even on first load
-- [ ] `onunload()` completes all cleanup steps even if one disposal throws
-- [ ] `saveSettings()` validates `loadData()` result type before spreading
-- [ ] `fileExists()` propagates non-FILE_NOT_FOUND errors
-- [ ] DataExchangeService catch blocks emit fallback failure events
-- [ ] `openHub()` catches Obsidian API errors with user-visible feedback
-- [ ] `TypedStorage.safeLoad()` emits event when falling back to defaults
-- [ ] `npm test` green
+- [x] `loadSettings()` logs validation warnings even on first load
+- [x] `onunload()` completes all cleanup steps even if one disposal throws
+- [x] `saveSettings()` validates `loadData()` result type before spreading
+- [x] `fileExists()` propagates non-FILE_NOT_FOUND errors
+- [x] DataExchangeService catch blocks log fallback errors
+- [x] `openHub()` catches Obsidian API errors with `console.error`
+- [x] `TypedStorage.safeLoad()` emits `log.entry` event when falling back to defaults
+- [x] `npm test` green — 2,869 tests, 0 failures
 
 **Documentation intent:** Update TD-114, TD-116, TD-115, TD-102, TD-107, TD-106, TD-56 status to resolved. Document error handling convention decisions in review.
+
+**Delivery notes (2026-02-21):**
+- All 7 TD items resolved. 14 new tests (+14 from 2,855 → 2,869). 112 suites.
+- Deviations: TD-107/TD-106 use `console.error` instead of event emission (pragmatic — see review); TD-56 uses `onFallback` callback → `log.entry` instead of dedicated event (layer separation).
+- New `createTypedStorage()` helper in registry.ts centralizes storage fallback wiring for all 12 services.
+- `safeDispose()` pattern in `onunload()` established for error-isolated cleanup.
+- TASM: 32/35 (Excellent). Review: [[Cycle 10 Inc 1 Review - Error Handling Foundation]]
 
 ---
 

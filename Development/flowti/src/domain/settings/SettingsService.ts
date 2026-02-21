@@ -185,7 +185,10 @@ export class SettingsService implements ISettingsService {
 	private async saveSettings(): Promise<void> {
 		await this.saveMutex.withLock("settings", async () => {
 			try {
-				const existingData = ((await this.storage.load()) as object) || {};
+				const raw = await this.storage.load();
+				const existingData = (raw !== null && typeof raw === "object" && !Array.isArray(raw))
+					? raw as object
+					: {};
 				await this.storage.save({
 					...existingData,
 					...this.settings,

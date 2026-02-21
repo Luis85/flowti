@@ -281,4 +281,35 @@ describe("SettingsService", () => {
 		});
 	});
 
+	describe("TD-115: saveSettings handles non-object storage data", () => {
+		it("should not crash when storage returns null during save", async () => {
+			const nullStorage: IStorageProvider = {
+				load: vi.fn(async () => null),
+				save: vi.fn(),
+			};
+			const service = new SettingsService({ storage: nullStorage, eventBus });
+			await service.load();
+			await service.updateSettings({ debugMode: true });
+
+			expect(nullStorage.save).toHaveBeenCalledWith(
+				expect.objectContaining({ debugMode: true }),
+			);
+		});
+
+		it("should not crash when storage returns an array during save", async () => {
+			let savedData: unknown = null;
+			const arrayStorage: IStorageProvider = {
+				load: vi.fn(async () => [1, 2, 3]),
+				save: vi.fn(async (d: unknown) => { savedData = d; }),
+			};
+			const service = new SettingsService({ storage: arrayStorage, eventBus });
+			await service.load(); // will use defaults since [1,2,3] fails validation
+			await service.updateSettings({ debugMode: true });
+
+			// Should not spread array properties into saved object
+			expect(savedData).toEqual(expect.objectContaining({ debugMode: true }));
+			expect(Array.isArray(savedData)).toBe(false);
+		});
+	});
+
 });

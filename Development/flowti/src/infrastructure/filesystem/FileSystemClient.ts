@@ -68,8 +68,11 @@ export class FileSystemClient implements IFileSystemClient {
 		try {
 			await this.readFile(path, options);
 			return true;
-		} catch {
-			return false;
+		} catch (err) {
+			if (err instanceof Error && err.message.startsWith("File not found:")) {
+				return false;
+			}
+			throw err;
 		}
 	}
 

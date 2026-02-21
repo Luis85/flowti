@@ -100,8 +100,10 @@ export class DataExchangeService {
 						event.payload.config,
 						{ operationId },
 					);
-				} catch {
-					// ImportService already emitted import.failed
+				} catch (error) {
+					// ImportService normally emits import.failed before throwing.
+					// Log as fallback in case the emit itself failed.
+					console.error("[Flowti] Import execute failed:", error);
 				}
 			}),
 		);
@@ -115,8 +117,10 @@ export class DataExchangeService {
 						event.payload.config,
 						{ operationId },
 					);
-				} catch {
-					// ExportService already emitted export.failed
+				} catch (error) {
+					// ExportService normally emits export.failed before throwing.
+					// Log as fallback in case the emit itself failed.
+					console.error("[Flowti] Export execute failed:", error);
 				}
 			}),
 		);

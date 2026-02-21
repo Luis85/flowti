@@ -3,7 +3,9 @@ type: TechDebt
 severity: medium
 category: error-handling
 layer: domain
-status: open
+status: resolved
+resolved: 2026-02-21
+resolved_in: "Cycle 10 Inc 1"
 created: 2026-02-20
 effort: small
 description: "HubRegistry.openHub() calls four Obsidian workspace API methods without try-catch. A workspace error during leaf creation or reveal propagates unhandled to the caller."

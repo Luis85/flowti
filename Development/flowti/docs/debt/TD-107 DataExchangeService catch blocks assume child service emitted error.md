@@ -3,7 +3,9 @@ type: TechDebt
 severity: medium
 category: error-handling
 layer: domain
-status: open
+status: resolved
+resolved: 2026-02-21
+resolved_in: "Cycle 10 Inc 1"
 created: 2026-02-20
 effort: small
 description: "DataExchangeService catches errors from ImportService and ExportService with empty catch blocks, assuming the child service already emitted a failure event. If the child service throws before emitting, the error is silently lost."

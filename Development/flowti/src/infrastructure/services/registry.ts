@@ -47,6 +47,28 @@ function createStorageProvider(pluginStorage: PluginStorage): IStorageProvider {
 }
 
 /**
+ * Creates a TypedStorage with a fallback callback wired to the EventBus.
+ * When safeLoad() falls back to defaults, emits a log.entry warn event.
+ */
+function createTypedStorage<T>(
+	storage: IStorageProvider,
+	key: string,
+	container: IServiceContainer,
+): TypedStorage<T> {
+	return new TypedStorage<T>(storage, key, {
+		onFallback: (k, err) => {
+			void container.getEventBus().emit("log.entry", {
+				level: "warn",
+				message: `Storage fallback for key "${k}" — using defaults due to load failure`,
+				context: "TypedStorage",
+				data: { error: err instanceof Error ? err.message : String(err) },
+				timestamp: new Date().toISOString(),
+			});
+		},
+	});
+}
+
+/**
  * Creates all service registrations for the application.
  *
  * @param pluginStorage - Plugin's loadData/saveData methods
@@ -73,7 +95,7 @@ export function createServiceRegistrations(
 			id: "userService",
 			factory: (container: IServiceContainer) =>
 				new UserService({
-					storage: new TypedStorage(storage, "user"),
+					storage: createTypedStorage(storage, "user", container),
 					eventBus: container.getEventBus(),
 				}),
 		},
@@ -83,7 +105,7 @@ export function createServiceRegistrations(
 			id: "eventFilterService",
 			factory: (container: IServiceContainer) =>
 				new EventFilterService({
-					storage: new TypedStorage(storage, "eventFilter"),
+					storage: createTypedStorage(storage, "eventFilter", container),
 					eventBus: container.getEventBus(),
 				}),
 		},
@@ -93,7 +115,7 @@ export function createServiceRegistrations(
 			id: "eventNotifyService",
 			factory: (container: IServiceContainer) =>
 				new EventNotificationService({
-					storage: new TypedStorage(storage, "eventNotify"),
+					storage: createTypedStorage(storage, "eventNotify", container),
 					eventBus: container.getEventBus(),
 				}),
 		},
@@ -115,7 +137,7 @@ export function createServiceRegistrations(
 			id: "discoveryService",
 			factory: (container: IServiceContainer) =>
 				new DiscoveryService({
-					storage: new TypedStorage(storage, "discovery"),
+					storage: createTypedStorage(storage, "discovery", container),
 					eventBus: container.getEventBus(),
 				}),
 		},
@@ -125,7 +147,7 @@ export function createServiceRegistrations(
 			id: "subscriptionService",
 			factory: (container: IServiceContainer) =>
 				new SubscriptionService({
-					storage: new TypedStorage(storage, "subscription"),
+					storage: createTypedStorage(storage, "subscription", container),
 					eventBus: container.getEventBus(),
 				}),
 		},
@@ -135,7 +157,7 @@ export function createServiceRegistrations(
 			id: "inboxService",
 			factory: (container: IServiceContainer) =>
 				new InboxService({
-					storage: new TypedStorage(storage, "inbox"),
+					storage: createTypedStorage(storage, "inbox", container),
 					eventBus: container.getEventBus(),
 				}),
 		},
@@ -145,7 +167,7 @@ export function createServiceRegistrations(
 			id: "ingestionService",
 			factory: (container: IServiceContainer) =>
 				new IngestionService({
-					storage: new TypedStorage(storage, "ingestion"),
+					storage: createTypedStorage(storage, "ingestion", container),
 					eventBus: container.getEventBus(),
 				}),
 		},
@@ -155,7 +177,7 @@ export function createServiceRegistrations(
 			id: "eventDefinitionService",
 			factory: (container: IServiceContainer) =>
 				new EventDefinitionService({
-					storage: new TypedStorage(storage, "eventDefinition"),
+					storage: createTypedStorage(storage, "eventDefinition", container),
 					eventBus: container.getEventBus(),
 				}),
 		},
@@ -166,7 +188,7 @@ export function createServiceRegistrations(
 			factory: (container: IServiceContainer) => {
 				const eventBus = container.getEventBus();
 				return new SessionService({
-					storage: new TypedStorage(storage, "sessions"),
+					storage: createTypedStorage(storage, "sessions", container),
 					eventBus,
 					fileSystem: new FileSystemClient({ eventBus }),
 				});
@@ -179,7 +201,7 @@ export function createServiceRegistrations(
 			factory: (container: IServiceContainer) => {
 				const eventBus = container.getEventBus();
 				return new NudgeService({
-					storage: new TypedStorage(storage, "nudges"),
+					storage: createTypedStorage(storage, "nudges", container),
 					eventBus,
 				});
 			},
@@ -192,7 +214,7 @@ export function createServiceRegistrations(
 				const eventBus = container.getEventBus();
 				const fileSystem = new FileSystemClient({ eventBus });
 				return new DataExchangeService({
-					storage: new TypedStorage(storage, "dataExchange"),
+					storage: createTypedStorage(storage, "dataExchange", container),
 					eventBus,
 					fileSystem,
 				});
@@ -208,7 +230,7 @@ export function createServiceRegistrations(
 				const eventBus = container.getEventBus();
 				const fileSystem = new FileSystemClient({ eventBus });
 				const service = new InstallerService({
-					storage: new TypedStorage(storage, "installer"),
+					storage: createTypedStorage(storage, "installer", container),
 					eventBus,
 					fileSystem,
 					userService,

@@ -3,7 +3,9 @@ type: TechDebt
 severity: medium
 category: error-handling
 layer: infrastructure
-status: open
+status: resolved
+resolved: 2026-02-21
+resolved_in: "Cycle 10 Inc 1"
 created: 2026-02-20
 effort: small
 description: "FileSystemClient.fileExists() catches all readFile errors and returns false, making timeouts, permission errors, and actual absence indistinguishable."

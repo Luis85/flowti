@@ -3,7 +3,9 @@ type: TechDebt
 severity: medium
 category: resource-leak
 layer: infrastructure
-status: open
+status: resolved
+resolved: 2026-02-21
+resolved_in: "Cycle 10 Inc 1"
 created: 2026-02-20
 effort: small
 description: "onunload() wraps all cleanup in a single try-catch. Individual service disposals are not error-isolated, so a throw from nudgeService.dispose() would skip all subsequent cleanup. Also, hubRegistry is never disposed."

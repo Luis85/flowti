@@ -91,6 +91,85 @@ describe("TypedStorage", () => {
 		});
 	});
 
+	describe("safeLoad", () => {
+		it("should return loaded value on success", async () => {
+			const { storage } = createMockStorage({ myKey: { count: 10 } });
+			const typed = new TypedStorage<{ count: number }>(storage, "myKey");
+			const result = await typed.safeLoad({ count: 0 });
+			expect(result).toEqual({ count: 10 });
+		});
+
+		it("should return fallback when load throws", async () => {
+			const storage: IStorageProvider = {
+				load: vi.fn(async () => { throw new Error("disk failure"); }),
+				save: vi.fn(),
+			};
+			const typed = new TypedStorage<{ count: number }>(storage, "myKey");
+			const result = await typed.safeLoad({ count: 0 });
+			expect(result).toEqual({ count: 0 });
+		});
+
+		it("should call onFallback callback when load throws", async () => {
+			const storage: IStorageProvider = {
+				load: vi.fn(async () => { throw new Error("corrupt"); }),
+				save: vi.fn(),
+			};
+			const onFallback = vi.fn();
+			const typed = new TypedStorage<string>(storage, "myKey", { onFallback });
+			await typed.safeLoad("default");
+			expect(onFallback).toHaveBeenCalledWith("myKey", expect.any(Error));
+		});
+
+		it("should not call onFallback on successful load", async () => {
+			const { storage } = createMockStorage({ myKey: "ok" });
+			const onFallback = vi.fn();
+			const typed = new TypedStorage<string>(storage, "myKey", { onFallback });
+			await typed.safeLoad("default");
+			expect(onFallback).not.toHaveBeenCalled();
+		});
+	});
+
+	describe("safeSave", () => {
+		it("should return true on success", async () => {
+			const { storage } = createMockStorage();
+			const typed = new TypedStorage<string>(storage, "myKey");
+			const result = await typed.safeSave("value");
+			expect(result).toBe(true);
+		});
+
+		it("should return false when save throws", async () => {
+			const storage: IStorageProvider = {
+				load: vi.fn(async () => ({})),
+				save: vi.fn(async () => { throw new Error("write failure"); }),
+			};
+			const typed = new TypedStorage<string>(storage, "myKey");
+			const result = await typed.safeSave("value");
+			expect(result).toBe(false);
+		});
+	});
+
+	describe("save with non-object storage data", () => {
+		it("should handle storage returning an array gracefully", async () => {
+			const storage: IStorageProvider = {
+				load: vi.fn(async () => [1, 2, 3]),
+				save: vi.fn(),
+			};
+			const typed = new TypedStorage<string>(storage, "key");
+			await typed.save("value");
+			expect(storage.save).toHaveBeenCalledWith({ key: "value" });
+		});
+
+		it("should handle storage returning a string gracefully", async () => {
+			const storage: IStorageProvider = {
+				load: vi.fn(async () => "not-an-object"),
+				save: vi.fn(),
+			};
+			const typed = new TypedStorage<number>(storage, "key");
+			await typed.save(42);
+			expect(storage.save).toHaveBeenCalledWith({ key: 42 });
+		});
+	});
+
 	describe("isolation", () => {
 		it("should scope two TypedStorage instances to different keys", async () => {
 			const { storage, getData } = createMockStorage();

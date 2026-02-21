@@ -37,10 +37,15 @@ export interface ITypedStorage<T> {
  * - `save()` merges the state back under `data[key]` atomically
  */
 export class TypedStorage<T> implements ITypedStorage<T> {
+	private onFallback?: (key: string, error: unknown) => void;
+
 	constructor(
 		private storage: IStorageProvider,
 		private key: string,
-	) {}
+		options?: { onFallback?: (key: string, error: unknown) => void },
+	) {
+		this.onFallback = options?.onFallback;
+	}
 
 	async load(): Promise<T | undefined> {
 		const data = (await this.storage.load()) as Record<string, unknown> | null;
@@ -49,7 +54,10 @@ export class TypedStorage<T> implements ITypedStorage<T> {
 
 	async save(state: T): Promise<void> {
 		await storageMutex.withLock("storage", async () => {
-			const existingData = ((await this.storage.load()) as object) || {};
+			const raw = await this.storage.load();
+			const existingData = (raw !== null && typeof raw === "object" && !Array.isArray(raw))
+				? raw as object
+				: {};
 			await this.storage.save({
 				...existingData,
 				[this.key]: state,
@@ -61,7 +69,8 @@ export class TypedStorage<T> implements ITypedStorage<T> {
 		try {
 			return await this.load();
 		} catch (err) {
-			console.error(`[Flowti] Failed to load state for key "${this.key}":`, err);
+			console.warn(`[Flowti] Storage fallback for key "${this.key}" — using defaults due to load failure:`, err);
+			this.onFallback?.(this.key, err);
 			return fallback;
 		}
 	}

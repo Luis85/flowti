@@ -3,7 +3,9 @@ type: TechDebt
 severity: high
 category: initialization
 layer: infrastructure
-status: open
+status: resolved
+resolved: 2026-02-21
+resolved_in: "Cycle 10 Inc 1"
 created: 2026-02-20
 effort: small
 description: "loadSettings() is called at line 139 before the logger is created at line 147 in onload(). The optional-chained this.logger?.warn() silently drops the settings validation warning on first plugin load."

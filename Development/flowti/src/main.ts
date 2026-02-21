@@ -103,6 +103,7 @@ export default class FlowtiBasePlugin extends Plugin {
 	private hubRegistry?: HubRegistry;
 	private sessionSetup?: SessionSetup;
 	private crossCuttingListeners: (() => void)[] = [];
+	private pendingSettingsWarning?: unknown[];
 
 	// ── Notice throttle ──────────────────────────────────────
 	// Batches rapid-fire notices (e.g. during bulk import) into a single
@@ -146,6 +147,14 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.eventBus = infra.eventBus;
 			this.logger = infra.logger;
 			this.errorService = infra.errorService;
+
+			// Re-emit any settings warning captured before logger existed (TD-114).
+			if (this.pendingSettingsWarning) {
+				this.logger.warn("Invalid settings, using defaults", {
+					errors: this.pendingSettingsWarning,
+				});
+				this.pendingSettingsWarning = undefined;
+			}
 			this.eventBridge = infra.eventBridge;
 			this.services = infra.services;
 			this.commands = infra.commands;
@@ -250,36 +259,38 @@ export default class FlowtiBasePlugin extends Plugin {
 	 * may have left some properties uninitialized.
 	 */
 	async onunload() {
-		try {
-			void this.eventBus?.emit("plugin.unloading", {
-				timestamp: new Date().toISOString(),
-			});
-
-			this.nudgeService?.dispose();
-			this.uiCommandService?.dispose();
-			this.ingestionStatusBar?.dispose();
-			this.eventBridge?.dispose();
-			await this.services?.disposeAll();
-			this.commands?.clear();
-			this.views?.clear();
-
-			// Unsubscribe cross-cutting listeners before clearing EventBus
-			for (const unsub of this.crossCuttingListeners) {
-				unsub();
+		const safeDispose = (name: string, fn: () => unknown): void => {
+			try { fn(); } catch (err) {
+				console.error(`[Flowti] Failed to dispose ${name}:`, err);
 			}
-			this.crossCuttingListeners = [];
+		};
 
-			this.logger?.info("Plugin unloaded");
+		safeDispose("plugin.unloading", () =>
+			void this.eventBus?.emit("plugin.unloading", { timestamp: new Date().toISOString() }),
+		);
+		safeDispose("nudgeService", () => this.nudgeService?.dispose());
+		safeDispose("uiCommandService", () => this.uiCommandService?.dispose());
+		safeDispose("ingestionStatusBar", () => this.ingestionStatusBar?.dispose());
+		safeDispose("eventBridge", () => this.eventBridge?.dispose());
+		safeDispose("services", () => void this.services?.disposeAll());
+		safeDispose("hubRegistry", () => this.hubRegistry?.clear());
+		safeDispose("commands", () => this.commands?.clear());
+		safeDispose("views", () => this.views?.clear());
 
-			void this.eventBus?.emit("plugin.unloaded", {
-				timestamp: new Date().toISOString(),
-			});
-
-			// EventBus is cleared last so that unloaded listeners still fire.
-			this.eventBus?.clear();
-		} catch (error) {
-			console.error("[Flowti] Plugin unload error:", error);
+		// Unsubscribe cross-cutting listeners before clearing EventBus
+		for (const unsub of this.crossCuttingListeners) {
+			safeDispose("crossCuttingListener", unsub);
 		}
+		this.crossCuttingListeners = [];
+
+		this.logger?.info("Plugin unloaded");
+
+		safeDispose("plugin.unloaded", () =>
+			void this.eventBus?.emit("plugin.unloaded", { timestamp: new Date().toISOString() }),
+		);
+
+		// EventBus is cleared last so that unloaded listeners still fire.
+		safeDispose("eventBus", () => this.eventBus?.clear());
 	}
 
 	/**
@@ -292,9 +303,9 @@ export default class FlowtiBasePlugin extends Plugin {
 		const result = FlowtiSettingsSchema.safeParse(data);
 
 		if (!result.success) {
-			this.logger?.warn("Invalid settings, using defaults", {
-				errors: result.error.issues,
-			});
+			// Console fallback — logger may not exist yet (TD-114).
+			console.warn("[Flowti] Invalid settings, using defaults:", result.error.issues);
+			this.pendingSettingsWarning = result.error.issues;
 		}
 
 		this.settings = result.success ? result.data : DEFAULT_SETTINGS;
