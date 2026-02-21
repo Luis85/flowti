@@ -22,6 +22,7 @@ Before Flowti can be published on the Obsidian Community Plugin Marketplace, sev
 | RB-7 | [[PBI-006 Pipeline Multi-Source Merge]] | Data Exchange Hub | High | None |
 | — | [[PBI-RP-003 CI-CD Pipeline]] | Release Preparation | High | RB-1 |
 | — | [[PBI-QC-001 Quick Capture Ribbons]] | Quick Capture | High | None |
+| — | [[PBI-005 Vault Folder Inbox]] | Hubs | High | PBI-001 ✅ |
 
 ## Sequencing
 
@@ -71,6 +72,13 @@ Before Flowti can be published on the Obsidian Community Plugin Marketplace, sev
 - Configurable target folders and custom types
 - Gate: Ribbon actions create typed notes in configured folders
 
+**Increment B.5 — Vault Folder Inbox**
+- Extend InboxService with vault folder watcher source (7th source type)
+- Settings: watched folders (add/remove, recursive toggle), target folder
+- Inline type/description triage in inbox detail panel
+- Mark as read: apply template frontmatter + route to target folder
+- Gate: Full triage flow — capture → surface → type → mark read → note routed
+
 ### Phase C: Polish & Submission
 
 - Final testing across all features
@@ -89,7 +97,8 @@ RB-1 (Repo Restructure)
 RB-3 (Canvas Importer) ──┐
 RB-4 (Seed Content) ─────┤
 RB-7 (Pipeline Merge) ───┤── Phase C
-Quick Capture ────────────┘
+Quick Capture ────────────┤
+Vault Folder Inbox ───────┘
 ```
 
 ## Related
@@ -99,3 +108,4 @@ Quick Capture ────────────┘
 - [[Installer PRD]]
 - [[Data Exchange Hub PRD]]
 - [[Quick Capture PRD]]
+- [[PBI-005 Vault Folder Inbox]]

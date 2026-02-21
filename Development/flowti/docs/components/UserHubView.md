@@ -38,7 +38,7 @@ Registered under view type `flowti-user-hub` with the `home` icon. Accessible vi
 ## State
 
 **Owns `UserHubState`:**
-- `inboxItems: InboxItem[]` — actionable items from domain events (newest first)
+- `inboxItems: InboxItem[]` — actionable items from domain events and vault folder watching (newest first)
 - `selectedInboxItem: InboxItem | null` — currently selected inbox item for detail view
 - `inboxEnabledSources: string[]` — enabled inbox source event types
 - `sessions: Session[]` — all documentation sessions
@@ -73,6 +73,10 @@ State is exposed to child components via `UserHubComponentDeps.getState()` / `se
 | `session.timer.tick` | Listens | Direct DOM update via `sessions.updateTimerDisplay()` (no re-render) |
 | `session.timer.completed` | Listens | Refreshes session state + full re-render |
 | `settings.changed` | Listens | Updates `inboxEnabledSources` in state |
+| `file.created` | Listens (planned PBI-005) | InboxService creates inbox item for untyped note in watched folder |
+| `file.modified` | Listens (planned PBI-005) | InboxService checks if note type changed in watched folder |
+| `inbox.vaultFolder.noteDetected` | Produced (planned PBI-005) | Emitted when untyped note found in watched folder |
+| `inbox.vaultFolder.noteTriaged` | Produced (planned PBI-005) | Emitted when note marked as read with type |
 | `user.updated` | Listens | Re-renders top bar user name |
 | `session.create` | Emits | Via `NewSessionModal.onSubmit()` → `openNewSessionModal()` dep callback |
 
@@ -81,3 +85,4 @@ State is exposed to child components via `UserHubComponentDeps.getState()` / `se
 - Children: [[UserHubDashboard]], [[UserHubInbox]], [[UserHubSessions]], [[UserHubPreferences]]
 - Provider: [[UserHubProvider]] (exposes hub summary for other dashboards)
 - Sibling views: [[EventCatalogView]], [[DataExchangeHubView]], [[EventLogView]]
+- Planned: [[PBI-005 Vault Folder Inbox]] (7th inbox source type with vault folder watching)

@@ -22,7 +22,7 @@ The User Hub is the personal cockpit for the Flowti plugin. It extends `BaseHubV
 
 The Dashboard aggregates stats from all registered hub providers via `HubRegistry.getAll()`, rendering clickable stat cards that deep-link to specific tabs in target hubs. When a documentation session is active, a prominent session card appears with the timer, title, and Pause/Complete actions. An always-visible inbox section displays up to 5 recent items styled as a mail inbox. Quick-action buttons provide shortcuts to frequently used views (7 actions including Inbox, Sessions, Preferences, Event Catalog, Data Exchange, Activity Log, Watchers).
 
-The Inbox tab surfaces actionable items from domain events via the `InboxService` domain (6 source events including pipeline completed/failed). Items can be marked as read, dismissed, or cleared.
+The Inbox tab surfaces actionable items from domain events via the `InboxService` domain (6 source events including pipeline completed/failed). Items can be marked as read, dismissed, or cleared. **PBI-005 (Cycle 12)** will add a 7th source type (`vaultFolder`) that watches configured vault folders for untyped notes and provides inline triage (type dropdown + description editing) with mark-as-read routing to a target folder.
 
 The Sessions tab provides master-detail browsing of documentation sessions via the `SessionService` domain. The master list shows sessions sorted by status (active first), filterable by title. The detail panel shows session info, a live countdown timer (for active/paused sessions), artifacts list, and contextual lifecycle action buttons (Start, Pause, Resume, Complete, Archive, Delete). Timer ticks update the DOM directly via `updateTimerDisplay()` without triggering full re-renders.
 
@@ -41,6 +41,9 @@ The always-visible inbox section on the dashboard shows up to 5 recent items. Un
 
 ### Manage inbox items in detail
 Switch to the Inbox tab to see all actionable items from watchers, imports, exports, and pipelines. Click an item to view its detail panel with type badge, source badge, description, source event link, and action buttons (Mark read, Dismiss).
+
+### Triage vault folder notes (planned — PBI-005)
+Notes created in configured watched vault folders without frontmatter appear in the Inbox tab with a "Vault Folder" source badge. Click an item to see its detail panel with an inline type dropdown and description field. Set the type, optionally add a description, then click "Mark as Read" — the note receives template frontmatter and is routed to the configured target folder. The item disappears from the inbox (Inbox Zero principle).
 
 ### Create a new documentation session
 Click the "New" button in the Sessions tab header (or the "New Session" button in the empty state) to open the `NewSessionModal`. Enter a session title, choose a type (Event Storming, Service Design, Requirements Refinement, Backlog Structuring, Knowledge Cleanup), and select a duration (25/50/15/45/60 min). Click "Create" to emit a `session.create` event, which creates a session in "prepared" status ready to be started.
@@ -63,7 +66,7 @@ After starting, pausing, and completing a session, the detail panel shows a Time
 When creating a new session via `NewSessionModal`, optionally set a Focus File by typing a path or clicking the "Browse" button (folder-open icon) to open a vault file picker. The focus file appears as a clickable link in the session detail panel.
 
 ### Configure inbox notification sources
-Open the Preferences tab to control which events create inbox notifications. Toggle each of the 6 sources individually (Watcher matches, Import completed, Import errors, Export completed, Pipeline completed, Pipeline errors).
+Open the Preferences tab to control which events create inbox notifications. Toggle each of the 6 sources individually (Watcher matches, Import completed, Import errors, Export completed, Pipeline completed, Pipeline errors). **PBI-005** adds a 7th toggle for vault folder watching, plus a folder configuration section for managing watched paths, recursive mode, and target folder.
 
 ### Edit user profile
 Open the Preferences tab to change your display name. Changes are saved automatically via `userService.updateUserName()`.
@@ -93,7 +96,7 @@ These flow docs describe end-to-end user journeys that pass through this view:
 - Stat cards include optional `tabId` for deep-linking via `HubRegistry.openHub(hubId, tabId)`
 - InboxService (`src/domain/inbox/InboxService.ts`) provides persistent inbox state via `TypedStorage<InboxState>` with key `"inbox"`
 - SessionService (`src/domain/session/SessionService.ts`) provides session state via `TypedStorage<SessionState>` with key `"sessions"`
-- 6 source events create inbox items: `subscription.matched`, `dataExchange.import.completed/failed`, `dataExchange.export.completed`, `dataExchange.pipeline.completed/failed`
+- 6 source events create inbox items: `subscription.matched`, `dataExchange.import.completed/failed`, `dataExchange.export.completed`, `dataExchange.pipeline.completed/failed`. PBI-005 adds 7th source: `vaultFolder` (watches `file.created`/`file.modified` in configured folders)
 - UserHubView subscribes to 2 inbox events, 7 session state events, `session.timer.tick`, `session.timer.completed`, `settings.changed`, and `user.updated`
 - Timer optimization: `session.timer.tick` calls `sessions.updateTimerDisplay(remainingMs)` directly — no `scheduleRender()`
 - `refreshSessionState()` pulls fresh data from `SessionService.getSessions()` and `.getActiveSession()`, preserving selection if the session still exists
