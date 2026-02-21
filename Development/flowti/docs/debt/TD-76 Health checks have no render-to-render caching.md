@@ -3,10 +3,12 @@ type: TechDebt
 severity: low
 category: performance
 layer: ui
-status: open
+status: resolved
 created: 2026-02-15
+updated: 2026-02-21
 effort: small
-description: "Health checks re-run on every tab activation with no caching. Navigating away and back re-runs all checks. For large vaults, this causes noticeable lag."
+resolved_in: "Cycle 10 Inc 5"
+description: "HealthTab now caches scan results using a count-based key. Re-scan only occurs when entity counts, reference totals, or documented entity count changes. invalidateCache() API available for explicit invalidation."
 source: "[[PRD Audit 2026-02-15]]"
 tags:
   - prd-audit

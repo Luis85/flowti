@@ -46,6 +46,15 @@ export interface DataExchangeEventMap {
 	/** Export process started */
 	"dataExchange.export.started": { operationId: string; config: ExportConfig; pipelineId?: string };
 
+	/** Progress update during export */
+	"dataExchange.export.progress": {
+		operationId: string;
+		current: number;
+		total: number;
+		currentFile: string;
+		pipelineId?: string;
+	};
+
 	/** Export completed successfully */
 	"dataExchange.export.completed": { operationId: string; result: ExportResult; pipelineId?: string };
 

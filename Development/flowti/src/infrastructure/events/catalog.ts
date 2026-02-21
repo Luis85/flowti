@@ -341,6 +341,7 @@ const CATALOG_DATA = {
 	"dataExchange.import.failed":    { category: "Data Exchange", description: "Import operation failed", direction: "Service → Listeners", domain: "dataExchange", services: "ImportService" },
 	"dataExchange.export.execute":   { category: "Data Exchange", description: "Command to start a data export", direction: "View → Plugin", domain: "dataExchange", services: "DataExchangeService", tags: ["system"] },
 	"dataExchange.export.started":   { category: "Data Exchange", description: "Export operation has started", direction: "Service → Listeners", domain: "dataExchange", services: "ExportService", tags: ["system"] },
+	"dataExchange.export.progress":  { category: "Data Exchange", description: "Per-file progress during export", direction: "Service → Listeners", domain: "dataExchange", services: "ExportService", tags: ["system"] },
 	"dataExchange.export.completed": { category: "Data Exchange", description: "Export operation completed successfully", direction: "Service → Listeners", domain: "dataExchange", services: "ExportService" },
 	"dataExchange.export.failed":    { category: "Data Exchange", description: "Export operation failed", direction: "Service → Listeners", domain: "dataExchange", services: "ExportService" },
 	"dataExchange.pipeline.execute":         { category: "Data Exchange", description: "Command to start a multi-import pipeline", direction: "View → Plugin", domain: "dataExchange", services: "DataExchangeService", tags: ["system"] },

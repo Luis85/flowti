@@ -452,6 +452,31 @@ views:
 			expect(handler).toHaveBeenCalledOnce();
 			expect(handler.mock.calls[0][0].payload.pipelineId).toBe("pipe-42");
 		});
+
+		it("should emit export.progress per file (TD-68)", async () => {
+			const handler = vi.fn();
+			eventBus.on("dataExchange.export.progress", handler);
+
+			const config: ExportConfig = {
+				sourcePath: "items",
+				sourceType: "folder",
+				format: "csv",
+				outputPath: "out.csv",
+				columns: ["type"],
+				fileProperties: [],
+			};
+
+			await service.executeExport(config);
+
+			// 3 files in the mocked "items" folder
+			expect(handler).toHaveBeenCalledTimes(3);
+			expect(handler.mock.calls[0][0].payload).toEqual(
+				expect.objectContaining({ current: 1, total: 3, currentFile: "items/widget.md" }),
+			);
+			expect(handler.mock.calls[2][0].payload).toEqual(
+				expect.objectContaining({ current: 3, total: 3 }),
+			);
+		});
 	});
 
 	describe("executeExport (base)", () => {

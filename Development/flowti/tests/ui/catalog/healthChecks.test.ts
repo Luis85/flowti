@@ -455,6 +455,16 @@ describe("checkOrphanedFlows", () => {
 		expect(result.items).toHaveLength(1);
 		expect(result.score).toBe(0.5);
 	});
+
+	it("passes when flow is referenced by a system via service (TD-75 Set optimization)", () => {
+		const state = createDefaultCatalogState({
+			flowEntries: [makeFlow("Service Flow", { domains: [], services: ["FileService"], events: [] })],
+			systemEntries: [makeSystem("Sys", { domains: [], services: ["FileService"] })],
+		});
+		const result = checkOrphanedFlows(state);
+		expect(result.items).toHaveLength(0);
+		expect(result.severity).toBe("pass");
+	});
 });
 
 describe("checkEventCoverage", () => {

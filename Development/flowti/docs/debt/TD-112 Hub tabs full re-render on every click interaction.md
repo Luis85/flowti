@@ -3,10 +3,12 @@ type: TechDebt
 severity: medium
 category: performance
 layer: ui
-status: open
+status: resolved
 created: 2026-02-20
+updated: 2026-02-21
 effort: medium
-description: "Hub tab click handlers call renderMaster() + renderDetail() synchronously, causing full DOM teardown and rebuild on every selection change. No incremental update or diffing mechanism exists."
+resolved_in: "Cycle 10 Inc 5"
+description: "Hub tabs now use CSS class toggle + data-id attributes for selection changes instead of full renderMaster() rebuild. Applied to ImportsTab, ExportsTab, PipelinesTab, and HealthTab."
 ---
 
 # TD-112: Hub tabs full re-render on every click interaction

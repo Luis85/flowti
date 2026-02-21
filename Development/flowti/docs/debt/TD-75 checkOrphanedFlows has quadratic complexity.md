@@ -3,10 +3,12 @@ type: TechDebt
 severity: low
 category: performance
 layer: ui
-status: open
+status: resolved
 created: 2026-02-15
+updated: 2026-02-21
 effort: small
-description: "HealthTab's checkOrphanedFlows iterates every flow against every system's domains, every actor's events, and every product's events using Array.includes(). O(flows * systems * domains) per check."
+resolved_in: "Cycle 10 Inc 5"
+description: "checkOrphanedFlows() now pre-computes Set objects for system domains, system services, actor events, and product events. Membership tests use Set.has() for O(1) instead of Array.includes() O(n)."
 source: "[[PRD Audit 2026-02-15]]"
 tags:
   - prd-audit

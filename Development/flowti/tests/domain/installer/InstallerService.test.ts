@@ -340,6 +340,29 @@ describe("InstallerService", () => {
 			expect(savedData?.installedAt).toBeDefined();
 		});
 
+		it("should persist state after each completed step (TD-70)", async () => {
+			service.registerStep(createMockStep("step-a", 10));
+			service.registerStep(createMockStep("step-b", 20));
+
+			await service.runAll({});
+
+			// save called once per completed step + once for final installed=true
+			expect(storage.save).toHaveBeenCalledTimes(3);
+		});
+
+		it("should persist progress even when a later step fails (TD-70)", async () => {
+			service.registerStep(createMockStep("good", 10));
+			service.registerStep(createMockStep("bad", 20, { status: "failed", message: "boom" }));
+
+			await service.runAll({});
+
+			// save called once for the completed "good" step; not for the failed step or final
+			expect(storage.save).toHaveBeenCalledTimes(1);
+			const savedData = getData();
+			expect(savedData?.completedSteps["good"]).toBeDefined();
+			expect(savedData?.installed).toBe(false);
+		});
+
 		it("should set installed=true and installedAt after success", async () => {
 			service.registerStep(createMockStep("step-1", 10));
 

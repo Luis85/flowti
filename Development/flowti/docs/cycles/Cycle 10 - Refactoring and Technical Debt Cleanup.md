@@ -322,14 +322,16 @@ This is a dedicated maintenance cycle. No new features are delivered. The goal i
 - Files: ~5
 
 **Acceptance criteria:**
-- [ ] UserHubSessions.ts reduced to ~200 LOC
-- [ ] SessionDetailPanel and SessionTimerDisplay are separate files under `src/ui/userHub/`
-- [ ] All existing UserHub tests pass unchanged
-- [ ] Installer progress survives tab close and reopen
-- [ ] Export operations emit per-record progress events
-- [ ] `npm test` green
+- [x] UserHubSessions.ts reduced to ~200 LOC (203 actual)
+- [x] SessionDetailPanel and SessionTimerDisplay are separate files under `src/ui/userHub/`
+- [x] All existing UserHub tests pass unchanged (87/87)
+- [x] Installer progress survives tab close and reopen
+- [x] Export operations emit per-record progress events
+- [x] `npm test` green (2,896 tests, 113 suites)
 
 **Documentation intent:** Update TD-113, TD-70, TD-68 status to resolved. Update Frontend Architecture doc if UserHubSessions extraction changes component map.
+
+**Delivered:** 2026-02-21. TASM 32/35. Review: [[Cycle 10 Inc 6 Review - Component Extraction and Cleanup]]. UserHubSessions 640→203 LOC, SessionDetailPanel 440 LOC, SessionTimerDisplay 77 LOC. 3 new tests for TD-70 and TD-68.
 
 ---
 

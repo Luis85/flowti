@@ -63,6 +63,7 @@ export class ExportsTab {
 		const item = this.masterEl.createDiv({
 			cls: `ft-master-event-item${isSelected ? " ft-master-event-selected" : ""}`,
 		});
+		item.dataset.id = cfg.id;
 		item.style.alignItems = "flex-start";
 
 		const iconEl = item.createSpan();
@@ -93,8 +94,14 @@ export class ExportsTab {
 
 		item.addEventListener("click", () => {
 			this.deps.setState({ selectedExportId: cfg.id, editingExportId: null });
-			this.renderMaster();
+			this.updateMasterSelection(cfg.id);
 			this.renderDetail();
+		});
+	}
+
+	private updateMasterSelection(selectedId: string): void {
+		this.masterEl.querySelectorAll(".ft-master-event-item").forEach((el) => {
+			el.classList.toggle("ft-master-event-selected", (el as HTMLElement).dataset.id === selectedId);
 		});
 	}
 

@@ -364,13 +364,18 @@ export class ExportService {
 			if (config.resolvedColumns && config.resolvedColumns.length > 0) {
 				// Unified column path for Base view exports
 				headers = config.resolvedColumns.map((rc) => rc.header);
-				rows = files.map((file) => {
+				rows = [];
+				for (let fi = 0; fi < files.length; fi++) {
+					const file = files[fi];
 					const row: Record<string, string> = {};
 					for (const rc of config.resolvedColumns!) {
 						row[rc.header] = this.resolveColumnValue(file, rc);
 					}
-					return row;
-				});
+					rows.push(row);
+					void this.eventBus.emit("dataExchange.export.progress", {
+						operationId, current: fi + 1, total: files.length, currentFile: file.path, pipelineId,
+					});
+				}
 			} else {
 				// Legacy dual-array path for folder exports
 				const dn = config.displayNames ?? {};
@@ -380,7 +385,8 @@ export class ExportService {
 				];
 
 				rows = [];
-				for (const file of files) {
+				for (let fi = 0; fi < files.length; fi++) {
+					const file = files[fi];
 					const row: Record<string, string> = {};
 					for (let i = 0; i < config.fileProperties.length; i++) {
 						row[headers[i]] = this.resolveFileProperty(file, config.fileProperties[i]);
@@ -392,6 +398,9 @@ export class ExportService {
 							value !== undefined && value !== null ? String(value) : "";
 					}
 					rows.push(row);
+					void this.eventBus.emit("dataExchange.export.progress", {
+						operationId, current: fi + 1, total: files.length, currentFile: file.path, pipelineId,
+					});
 				}
 			}
 
