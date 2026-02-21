@@ -4,9 +4,9 @@ feature: "[[Quick Capture PRD]]"
 stage: done
 priority: high
 estimated_loc: 230
-actual_loc: 214
+actual_loc: 258
 estimated_tests: 25
-actual_tests: 23
+actual_tests: 34
 planned_in: "[[Cycle 12 - User Hub Inbox]]"
 delivered_in: "[[Cycle 12 - User Hub Inbox]]"
 user_story: "[[Quick capture ribbons for ideas and feedback]]"
@@ -113,12 +113,12 @@ As a vault user, I want one-click ribbon actions to capture ideas and feedback s
 
 | File | LOC | Purpose |
 |------|-----|---------|
-| `src/domain/capture/types.ts` | 23 | CaptureType, CaptureInput, CaptureResult |
+| `src/domain/capture/types.ts` | 26 | CaptureType (11 built-in types), CaptureInput (with description), CaptureResult |
 | `src/domain/capture/events.ts` | 17 | CaptureEventMap (3 events) |
-| `src/domain/capture/CaptureService.ts` | 81 | Stateless capture service (file creation + event emission) |
-| `src/ui/capture/QuickCaptureModal.ts` | 93 | Minimal modal with title input, optional type selector, Enter to submit |
-| `tests/domain/capture/CaptureService.test.ts` | ~140 | 13 unit tests |
-| `tests/ui/capture/QuickCaptureModal.test.ts` | ~100 | 10 UI tests |
+| `src/domain/capture/CaptureService.ts` | 84 | Stateless capture service (file creation + event emission + description frontmatter) |
+| `src/ui/capture/QuickCaptureModal.ts` | 131 | Modal with title input, description textarea, grouped type selector (General + RAID), Enter to submit |
+| `tests/domain/capture/CaptureService.test.ts` | ~160 | 17 unit tests |
+| `tests/ui/capture/QuickCaptureModal.test.ts` | ~140 | 17 UI tests |
 
 ### Modified Files (7 infrastructure + 2 test fixes)
 
@@ -129,17 +129,20 @@ As a vault user, I want one-click ribbon actions to capture ideas and feedback s
 | `src/infrastructure/events/catalog.ts` | +4 catalog entries (3 capture + 1 ui.openQuickCapture), +`Capture` in EVENT_CATEGORIES |
 | `src/infrastructure/ui/events.ts` | +`ui.openQuickCapture` event in UiCommandEventMap |
 | `src/infrastructure/services/registry.ts` | +CaptureService factory |
-| `src/infrastructure/commands/registry.ts` | +3 commands: `flowti:quick-capture`, `flowti:add-idea`, `flowti:add-feedback` |
-| `src/main.ts` | +2 ribbon icons, +modal listener, +captureService field + wiring |
+| `src/infrastructure/commands/registry.ts` | +12 commands: `flowti:quick-capture`, `flowti:add-idea`, `flowti:add-feedback`, `flowti:add-note`, `flowti:add-task`, `flowti:add-question`, `flowti:add-bug`, `flowti:add-risk`, `flowti:add-assumption`, `flowti:add-issue`, `flowti:add-decision`, `flowti:add-learning` |
+| `src/main.ts` | +7 ribbon icons (idea, note, task, question, feedback, bug, learning), +modal listener with Notice confirmation, +captureService field + wiring |
+| `src/domain/settings/FlowtiSettingTab.ts` | +captureFolder text setting exposed in Settings UI |
 | `tests/infrastructure/events/EventBus.test.ts` | +`captureFolder` in inline settings objects |
 | `tests/ui/catalog/helpers.test.ts` | +`Capture` in allVisibleCats array |
 
 ### Delivery Summary
 
-- **Total new source LOC:** 214
-- **Total new tests:** 23 (13 service + 10 UI)
-- **Total test count:** 3,041 (baseline 3,018 + 23)
-- **Capture actions:** 5 (2 ribbon icons + 3 commands)
+- **Total new source LOC:** 258
+- **Total new tests:** 34 (17 service + 17 UI)
+- **Capture types:** 11 (idea, note, task, question, feedback, bug, risk, assumption, issue, decision, learning)
+- **Ribbon icons:** 7 (idea, note, task, question, feedback, bug, learning)
+- **Command palette commands:** 12 (quick-capture + 11 type-specific)
+- **UI features:** description textarea, grouped optgroups (General + RAID), captureFolder setting, post-capture Notice
 
 ---
 

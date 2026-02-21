@@ -25,6 +25,7 @@ import { SESSION_TYPE_LABELS } from "./userHub/types";
 import { SESSION_TYPES, type SessionType } from "../domain/session/types";
 import { VIEW_TYPE_USER_HUB } from "../domain/hub/types";
 import { VIEW_TYPE_SESSION_WORKSPACE } from "./SessionWorkspaceView";
+import { VIEW_TYPE_TRAIN_MAIN } from "./train/types";
 export { VIEW_TYPE_USER_HUB };
 
 export class UserHubView extends BaseHubView<UserHubTab> {
@@ -181,26 +182,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 				}).open();
 			},
 			openSessionWorkspace: (sessionId?: string, location?: "tab" | "sidebar") => {
-				if (sessionId) {
-					this.sessionService.workspaceSessionId = sessionId;
-				}
-				if (location === "sidebar") {
-					setTimeout(() => {
-						const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_SESSION_WORKSPACE)
-							.find((l) => l.getRoot() === this.app.workspace.rightSplit);
-						const leaf = existing ?? this.app.workspace.getRightLeaf(false);
-						if (leaf) {
-							void leaf.setViewState({ type: VIEW_TYPE_SESSION_WORKSPACE, active: true, state: { sessionId } });
-							void this.app.workspace.revealLeaf(leaf);
-						}
-					}, 0);
-				} else {
-					void this.app.workspace.getLeaf("tab").setViewState({
-						type: VIEW_TYPE_SESSION_WORKSPACE,
-						active: true,
-						state: { sessionId },
-					});
-				}
+				this.openWorkspaceForSession(sessionId, location);
 			},
 		});
 
@@ -339,26 +321,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 				}).open();
 			},
 			openSessionWorkspace: (sessionId?: string, location?: "tab" | "sidebar") => {
-				if (sessionId) {
-					this.sessionService.workspaceSessionId = sessionId;
-				}
-				if (location === "sidebar") {
-					setTimeout(() => {
-						const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_SESSION_WORKSPACE)
-							.find((l) => l.getRoot() === this.app.workspace.rightSplit);
-						const leaf = existing ?? this.app.workspace.getRightLeaf(false);
-						if (leaf) {
-							void leaf.setViewState({ type: VIEW_TYPE_SESSION_WORKSPACE, active: true, state: { sessionId } });
-							void this.app.workspace.revealLeaf(leaf);
-						}
-					}, 0);
-				} else {
-					void this.app.workspace.getLeaf("tab").setViewState({
-						type: VIEW_TYPE_SESSION_WORKSPACE,
-						active: true,
-						state: { sessionId },
-					});
-				}
+				this.openWorkspaceForSession(sessionId, location);
 			},
 			exportTemplateAsFile: (templateId: string) => {
 				const exported = this.sessionService.exportTemplate(templateId);
@@ -405,5 +368,45 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 			},
 			getSettings: () => this.state.settings,
 		};
+	}
+
+	/**
+	 * Open the appropriate workspace for a session.
+	 * Train-of-thought sessions redirect to Train Main View.
+	 */
+	private openWorkspaceForSession(sessionId?: string, location?: "tab" | "sidebar"): void {
+		if (sessionId) {
+			const session = this.sessionService.getSessionById(sessionId);
+			if (session?.type === "train-of-thought") {
+				const existingLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TRAIN_MAIN);
+				if (existingLeaves.length > 0) {
+					void this.app.workspace.revealLeaf(existingLeaves[0]);
+				} else {
+					void this.app.workspace.getLeaf("tab").setViewState({
+						type: VIEW_TYPE_TRAIN_MAIN,
+						active: true,
+					});
+				}
+				return;
+			}
+			this.sessionService.workspaceSessionId = sessionId;
+		}
+		if (location === "sidebar") {
+			setTimeout(() => {
+				const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_SESSION_WORKSPACE)
+					.find((l) => l.getRoot() === this.app.workspace.rightSplit);
+				const leaf = existing ?? this.app.workspace.getRightLeaf(false);
+				if (leaf) {
+					void leaf.setViewState({ type: VIEW_TYPE_SESSION_WORKSPACE, active: true, state: { sessionId } });
+					void this.app.workspace.revealLeaf(leaf);
+				}
+			}, 0);
+		} else {
+			void this.app.workspace.getLeaf("tab").setViewState({
+				type: VIEW_TYPE_SESSION_WORKSPACE,
+				active: true,
+				state: { sessionId },
+			});
+		}
 	}
 }

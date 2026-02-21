@@ -2,19 +2,19 @@
 domain: Session
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
-stage: approved
+stage: in-progress
 maturity: L2
 version: 1
 created: 2026-02-21
 updated: 2026-02-21
 foundation: "[[Session Workspaces PRD]]"
-maturity_score_strategy: 4
-maturity_score_scope: 3
-maturity_score_architecture: 3
-maturity_score_event_integration: 3
-maturity_score_data_model: 3
-maturity_score_ui_consistency: 2
-maturity_score_validation_testing: 2
+maturity_score_strategy: 5
+maturity_score_scope: 5
+maturity_score_architecture: 5
+maturity_score_event_integration: 4
+maturity_score_data_model: 4
+maturity_score_ui_consistency: 4
+maturity_score_validation_testing: 4
 business_value: 5
 implementation_cost: 4
 maintenance_cost: 3
@@ -22,7 +22,7 @@ discovery_cost: 3
 design_cost: 4
 test_cost: 3
 priority: 3
-fri_score: 20
+fri_score: 31
 tags:
   - session
   - capture
@@ -283,32 +283,32 @@ interface TrainState {
 
 | ID | Requirement | Priority | Status |
 |----|-------------|----------|--------|
-| FR-01 | "Start Train of Thoughts" command creates session and opens first capture modal | Must | Planned |
-| FR-02 | Each Enter creates a vault note with typed frontmatter and opens next modal | Must | Planned |
-| FR-03 | Previous thought title displayed as context in capture modal | Must | Planned |
-| FR-04 | Notes linked with directional relations (next, branch) via frontmatter | Must | Planned |
-| FR-05 | Train Main View shows current thought detail with navigation and branch links | Must | Planned |
-| FR-06 | Timeline Sidebar shows top-down graph of all thoughts with branch visualization | Must | Planned |
-| FR-07 | User can navigate to any thought in the timeline (click in sidebar or via main view) | Must | Planned |
-| FR-08 | User can branch from any thought (navigate to it, then resume capture) | Should | Planned |
-| FR-09 | Session nesting: new train pauses current, trains are linked | Should | Planned |
-| FR-10 | Closure ritual triggers on session end | Should | Planned |
-| FR-11 | All thoughts are standard .md vault notes with type frontmatter | Must | Planned |
+| FR-01 | "Start Train of Thoughts" command creates session and opens first capture modal | Must | Done |
+| FR-02 | Each Enter creates a vault note with typed frontmatter and opens next modal | Must | Done |
+| FR-03 | Previous thought title displayed as context in capture modal | Must | Done |
+| FR-04 | Notes linked with directional relations (next, branch) via frontmatter | Must | Done |
+| FR-05 | Train Main View shows current thought detail with navigation and branch links | Must | Done |
+| FR-06 | Timeline Sidebar shows top-down graph of all thoughts with branch visualization | Must | Done |
+| FR-07 | User can navigate to any thought in the timeline (click in sidebar or via main view) | Must | Done |
+| FR-08 | User can branch from any thought (navigate to it, then resume capture) | Should | Done |
+| FR-09 | Session nesting: new train pauses current, trains are linked | Should | Done |
+| FR-10 | Closure ritual triggers on session end | Should | Done |
+| FR-11 | All thoughts are standard .md vault notes with type frontmatter | Must | Done |
 
 ---
 
 ## 10. Acceptance Criteria
 
-- [ ] "Start Train of Thoughts" command visible in command palette
-- [ ] First thought creates session + vault note
-- [ ] Each Enter creates linked note and opens next capture modal
-- [ ] Previous thought title shown as context in modal
-- [ ] Train Main View renders with thought navigation
-- [ ] Timeline Sidebar renders with graph visualization
-- [ ] User can navigate to any thought
-- [ ] User can branch from any thought
-- [ ] Session lifecycle (pause, resume, closure) works
-- [ ] npm test passes
+- [x] "Start Train of Thoughts" command visible in command palette
+- [x] First thought creates session + vault note
+- [x] Each Enter creates linked note and opens next capture modal
+- [x] Previous thought title shown as context in modal
+- [x] Train Main View renders with thought navigation
+- [x] Timeline Sidebar renders with graph visualization
+- [x] User can navigate to any thought
+- [x] User can branch from any thought
+- [x] Session lifecycle (pause, resume, closure) works
+- [x] npm test passes (3,263 tests, 73 new for Train of Thoughts)
 
 ---
 
@@ -316,14 +316,14 @@ interface TrainState {
 
 | Dimension | Score | Rationale |
 |-----------|-------|-----------|
-| Strategy | 4/5 | Clear strategic fit between Quick Capture and Sessions; fills a real gap in Flowti's execution model |
-| Scope | 3/5 | Core scope well-defined; timeline graph visualization complexity needs spike; branching UX needs design |
-| Architecture | 3/5 | Builds on Session + Quick Capture infrastructure; new domain (ThoughtNode) is straightforward; timeline rendering needs design spike |
-| Event Integration | 3/5 | 6 new events mapped; integrates with existing session lifecycle events; inbox integration via capture.note.created |
-| Data Model | 3/5 | ThoughtNode + ThoughtRelation types defined; storage strategy (per-session TrainState in TypedStorage) clear; frontmatter relation format needs validation |
-| UI Consistency | 2/5 | New views (Train Main, Timeline Sidebar) follow ItemView pattern; timeline graph rendering is novel — no existing pattern to follow; needs design spike |
-| Validation & Testing | 2/5 | TrainService testable as pure logic; UI views need happy-dom setup; timeline renderer needs visual testing strategy |
-| **Total FRI** | **20/35** | **Technically Ready** — implementation can begin after architecture spike for timeline rendering |
+| Strategy | 5/5 | Delivered — strategic fit proven. Bridges Quick Capture and Sessions as serial capture modality. Fills the ideation gap in Flowti's execution model. |
+| Scope | 5/5 | v1 scope fully delivered. All 3 PBIs done (domain + views + lifecycle). Extended backlog items remain for v2. |
+| Architecture | 5/5 | Domain layer (TrainService, ThoughtNode, TrainState), UI layer (TrainMainView, TrainTimelineSidebar, TrainCaptureModal), and integration (session nesting, commands, ribbons) all implemented. 10 views registered. |
+| Event Integration | 4/5 | Train events implemented and wired. Session lifecycle integration complete (auto-pause, closure ritual). Inbox integration via capture events. -1 for potential extended event coverage in v2. |
+| Data Model | 4/5 | ThoughtNode + ThoughtRelation types working with TypedStorage. Frontmatter relations validated. Branching (next/branch directions) proven. -1 for potential schema evolution in v2. |
+| UI Consistency | 4/5 | TrainMainView for thought navigation, TrainTimelineSidebar for graph visualization, timeboxed countdown timer, ribbons and commands all delivered. -1 for potential polish and accessibility improvements. |
+| Validation & Testing | 4/5 | 73 new tests (3,263 total). Flow docs, component docs, sitemap docs delivered. TrainService + UI views + integration all covered. -1 for visual/E2E testing of timeline renderer. |
+| **Total FRI** | **31/35** | **Substantially Delivered** — v1 core functionality complete. Serial capture, branching, views, session nesting, closure ritual, and timeboxing all working. Extended backlog items remain for v2. |
 
 ---
 
@@ -353,11 +353,11 @@ All dependencies are met — this feature can begin implementation immediately.
 
 ## Product Backlog Items
 
-| PBI | Title | Status | Priority | Est. Increments |
-|-----|-------|--------|----------|-----------------|
-| [[PBI-TOT-001 Train Domain and Serial Capture]] | Domain types, TrainService, serial capture loop | Planned | Must | 2 |
-| [[PBI-TOT-002 Train Main View and Timeline Sidebar]] | Dedicated views, navigation, branching | Planned | Must | 2 |
-| [[PBI-TOT-003 Session Nesting and Lifecycle]] | Pause/resume, nesting, closure integration | Planned | Should | 1 |
+| PBI | Title | Status | Priority | Est. Increments | Delivered In |
+|-----|-------|--------|----------|-----------------|--------------|
+| [[PBI-TOT-001 Train Domain and Serial Capture]] | Domain types, TrainService, serial capture loop | Done | Must | 2 | Cycle 13 |
+| [[PBI-TOT-002 Train Main View and Timeline Sidebar]] | Dedicated views, navigation, branching | Done | Must | 2 | Cycle 13 |
+| [[PBI-TOT-003 Session Nesting and Lifecycle]] | Pause/resume, nesting, closure integration | Done | Should | 1 | Cycle 13 |
 
 ---
 
@@ -366,6 +366,7 @@ All dependencies are met — this feature can begin implementation immediately.
 | Date | Stage | FRI | Notes |
 |------|-------|-----|-------|
 | 2026-02-21 | discovery → approved | 20/35 | Initial PRD created from vault inbox idea. 3 PBIs defined, 5 increments estimated. Dependencies met (Session v2 + Quick Capture delivered). |
+| 2026-02-21 | approved → in-progress | 31/35 | Cycle 13 delivery: v1 scope complete. All 3 PBIs done (TOT-001, TOT-002, TOT-003). 11/11 FRs delivered. 73 new tests (3,263 total). 10 views registered. Delivered: serial capture with thought linking, branching (next/branch), TrainMainView, TrainTimelineSidebar, session nesting with auto-pause, closure ritual with train-specific questions, timeboxed trains with countdown timer. Extended backlog items remain for v2. |
 
 ---
 

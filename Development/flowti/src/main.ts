@@ -267,6 +267,23 @@ export default class FlowtiBasePlugin extends Plugin {
 					void this.eventBus.emit("ui.openTrainView", {});
 					return;
 				}
+				// Also check for running/paused train-of-thought sessions without a TrainState
+				// (e.g. session started from User Hub sessions panel)
+				const trainSession = this.sessionService?.getSessions().find(
+					(s) => s.type === "train-of-thought" && (s.status === "running" || s.status === "paused"),
+				);
+				if (trainSession) {
+					const existingLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TRAIN_MAIN);
+					if (existingLeaves.length > 0) {
+						void this.app.workspace.revealLeaf(existingLeaves[0]);
+					} else {
+						void this.app.workspace.getLeaf("tab").setViewState({
+							type: VIEW_TYPE_TRAIN_MAIN,
+							active: true,
+						});
+					}
+					return;
+				}
 				void this.eventBus.emit("ui.startTrain", {});
 			});
 

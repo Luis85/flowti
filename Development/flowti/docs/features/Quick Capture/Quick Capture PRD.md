@@ -2,15 +2,15 @@
 domain: Flowti
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
-stage: in-progress
+stage: delivered
 maturity: L2
 maturity_score_strategy: 4
 maturity_score_scope: 4
 maturity_score_architecture: 4
 maturity_score_event_integration: 4
 maturity_score_data_model: 3
-maturity_score_ui_consistency: 3
-maturity_score_validation_testing: 3
+maturity_score_ui_consistency: 4
+maturity_score_validation_testing: 4
 business_value: 5
 implementation_cost: 2
 maintenance_cost: 1
@@ -18,7 +18,7 @@ discovery_cost: 2
 design_cost: 2
 test_cost: 2
 priority: 4
-fri_score: 25
+fri_score: 27
 tags:
   - inbox
   - capture
@@ -116,7 +116,8 @@ Capturing ideas and feedback currently requires: navigate to folder → create n
 
 | Date | Stage | FRI | Notes |
 |------|-------|-----|-------|
-| 2026-02-21 | approved → in-progress | 19 → 25 | Cycle 12 Inc 1: PBI-QC-001 delivered. 2 ribbon icons, 3 commands, 3 events, 23 tests. Deferred: custom types, Settings UI, navigation option. |
+| 2026-02-21 | approved → in-progress | 19 → 25 | Cycle 12 Inc 1: PBI-QC-001 initial delivery. 2 ribbon icons, 3 commands, 3 events, 23 tests. Deferred: custom types, Settings UI, navigation option. |
+| 2026-02-21 | in-progress → delivered | 25 → 27 | Cycle 12+13: expanded to 11 capture types, 7 ribbon icons, 12 command palette commands, description textarea, captureFolder setting exposed, post-capture Notice. 34 tests, 258 LOC. |
 
 ---
 
