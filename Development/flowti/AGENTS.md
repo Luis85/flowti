@@ -99,10 +99,11 @@ Every production build generates a Markdown report in `docs/reports/builds/` wit
 ### DDD layer structure
 
 ```
-src/                                          # 110 files, ~31,000 LOC
-├── main.ts                                   # Plugin orchestrator (482 LOC)
-├── dataExchangeSetup.ts                      # Data Exchange UI wiring (extracted from main.ts)
-├── pluginBootstrap.ts                        # Bootstrap helper
+src/                                          # 230 files, ~44,346 LOC
+├── main.ts                                   # Plugin orchestrator (643 LOC)
+├── dataExchangeSetup.ts                      # Data Exchange UI wiring (359 LOC)
+├── sessionSetup.ts                           # Session UI wiring (221 LOC)
+├── pluginBootstrap.ts                        # Bootstrap helper (178 LOC)
 │
 ├── infrastructure/                           # Generic plumbing (no business logic)
 │   ├── events/
@@ -135,7 +136,7 @@ src/                                          # 110 files, ~31,000 LOC
 │       ├── index.ts
 │       └── types.ts
 │
-├── domain/                                   # Business logic (11 bounded contexts)
+├── domain/                                   # Business logic (15 bounded contexts)
 │   ├── dataExchange/                         # CSV import/export, pipelines, type docs
 │   │   ├── BaseQueryEngine.ts                # .base YAML filter expression evaluator
 │   │   ├── ConfigDocService.ts               # Doc generation + path resolution (934 LOC)
@@ -186,6 +187,35 @@ src/                                          # 110 files, ~31,000 LOC
 │   │   │   └── FolderScaffoldStep.ts         # Order 20: scaffold PARA folders
 │   │   ├── events.ts                         # InstallerEventMap
 │   │   └── types.ts
+│   ├── hub/                                  # Hub registry + cross-hub aggregation
+│   │   ├── HubRegistry.ts                    # Cross-hub summary aggregation
+│   │   ├── EventCatalogProvider.ts           # Event Catalog hub provider
+│   │   ├── DataExchangeProvider.ts           # Data Exchange hub provider
+│   │   ├── UserHubProvider.ts                # User Hub provider
+│   │   ├── events.ts                         # HubEventMap
+│   │   └── types.ts
+│   ├── inbox/                                # Unified inbox for actionable items
+│   │   ├── InboxService.ts                   # CRUD with 500-item eviction
+│   │   ├── mappers.ts                        # Event → inbox item mappers
+│   │   ├── events.ts                         # InboxEventMap
+│   │   └── types.ts
+│   ├── nudge/                                # Time-based session start prompts
+│   │   ├── NudgeService.ts                   # 60s scheduler, midnight rollover
+│   │   ├── events.ts                         # NudgeEventMap
+│   │   └── types.ts
+│   ├── session/                              # Time-boxed documentation workspaces
+│   │   ├── SessionService.ts                 # Session lifecycle orchestrator (613 LOC)
+│   │   ├── helpers.ts                        # Summary generation, parsing, formatters (982 LOC)
+│   │   ├── handlers/                         # Extracted handler modules
+│   │   │   ├── lifecycleHandlers.ts          # start, pause, resume, complete, archive
+│   │   │   ├── fieldHandlers.ts              # setIntent, setMode, setEnergy, decisions, etc.
+│   │   │   ├── syncHandlers.ts               # Forward/reverse note sync
+│   │   │   ├── trackingHandlers.ts           # Activity tracking, daily tracking
+│   │   │   ├── taskHandlers.ts               # Execution task management
+│   │   │   ├── closureHandlers.ts            # Session closure ritual
+│   │   │   └── types.ts
+│   │   ├── events.ts                         # SessionEventMap (~90 event types)
+│   │   └── types.ts                          # Session types + Zod schemas (496 LOC)
 │   ├── settings/                             # Plugin configuration persistence
 │   │   ├── SettingsService.ts                # Load, update, persist with Zod validation
 │   │   ├── FlowtiSettingTab.ts               # Obsidian settings tab UI
@@ -287,12 +317,12 @@ src/                                          # 110 files, ~31,000 LOC
 
 | Module | Responsibility |
 |--------|---------------|
-| **EventBus** | Central pub/sub for decoupled communication (~98 event types) |
+| **EventBus** | Central pub/sub for decoupled communication (~190 event types) |
 | **EventBridge** | Bridges Obsidian workspace/vault events into EventBus |
 | **FileSystemClient** | Promise-based file ops via request/response events with timeout |
 | **LoggerService** | Structured logging with event emission and wildcard event trace |
 | **ErrorService** | Centralized error handling with typed FlowtiError hierarchy |
-| **ServiceContainer** | DI container with topological init/dispose lifecycle (11 services) |
+| **ServiceContainer** | DI container with topological init/dispose lifecycle (14 services) |
 | **CommandRegistry** | Command registration with middleware (logging, error handling) |
 | **ViewRegistry** | View registration for custom ItemViews |
 
@@ -309,8 +339,11 @@ src/                                          # 110 files, ~31,000 LOC
 | 7 | `subscriptionService` | subscription | Event watchers with path/extension/name filters |
 | 8 | `ingestionService` | ingestion | File monitoring, job queue, batching, retry |
 | 9 | `eventDefinitionService` | eventDefinition | Source event → domain event mapping rules |
-| 10 | `dataExchangeService` | dataExchange | CSV import/export, pipelines, config persistence |
-| 11 | `installerService` | installer | First-run wizard, folder scaffolding (depends: userService) |
+| 10 | `sessionService` | session | Time-boxed documentation workspaces with lifecycle, sync, activity |
+| 11 | `nudgeService` | nudge | Time-based session start prompts with 60s scheduler |
+| 12 | `dataExchangeService` | dataExchange | CSV import/export, pipelines, config persistence |
+| 13 | `inboxService` | inbox | Unified inbox with subscription, import, export mappers |
+| 14 | `installerService` | installer | First-run wizard, folder scaffolding (depends: userService) |
 
 ### Views
 
@@ -322,6 +355,8 @@ src/                                          # 110 files, ~31,000 LOC
 | DataExchangeHubView | `flowti-data-exchange-hub` | DataExchangeSetup | 7-page hub: Dashboard, Imports, Exports, Reports, Properties, Pipelines, Types |
 | CsvActionView | `flowti-csv` | DataExchangeSetup | CSV file handler + inline import wizard |
 | ExportView | `flowti-export` | DataExchangeSetup | 4-page export wizard |
+| UserHubView | `flowti-user-hub` | SessionSetup | Personal cockpit: dashboard, inbox, sessions, preferences |
+| SessionWorkspaceView | `flowti-session-workspace` | SessionSetup | Focused session view: timer, goals, decisions, activity |
 
 ### Commands
 
@@ -330,6 +365,7 @@ src/                                          # 110 files, ~31,000 LOC
 | `flowti:open-component-showcase` | Open Component Showcase | CommandRegistry |
 | `flowti:open-event-catalog` | Open Event Catalog | CommandRegistry |
 | `flowti:open-event-log` | Open Event Log | CommandRegistry |
+| `flowti:open-user-hub` | Open User Hub | CommandRegistry |
 | `flowti:manage-subscriptions` | Manage Watchers | CommandRegistry |
 | `flowti:import-csv` | Import CSV | DataExchangeSetup |
 | `flowti:export-data` | Export Data | DataExchangeSetup |
@@ -367,40 +403,59 @@ Phase 6: Post-load (onLayoutReady)
 ### Test structure
 
 ```
-tests/                                        # 41 files, 811 tests (4 skipped)
+tests/                                        # 111 files, 2,855 tests (32 skipped)
 ├── mocks/
 │   ├── obsidian-stub.ts                      # Obsidian DOM polyfills for test env
 │   └── main-stub.ts
 ├── domain/
 │   ├── dataExchange/                         # BaseQueryEngine, CsvParser, DataExchangeService,
-│   │                                         # ExportService, ImportService, Pipeline
+│   │                                         # ExportService, ImportService, Pipeline,
+│   │                                         # ConfigDocService, ConfigPathTracker,
+│   │                                         # DataDictionaryBuilder, configDocContent
 │   ├── discovery/DiscoveryService.test.ts
-│   ├── docs/DocService.test.ts
+│   ├── docs/                                # DocService, contentGenerator, pathResolver
 │   ├── eventDefinition/                      # EventDefinitionService, payloadExtractor
 │   ├── eventFilter/EventFilterService.test.ts
 │   ├── eventNotify/EventNotificationService.test.ts
+│   ├── hub/                                  # HubRegistry, providers
 │   ├── ingestion/                            # IngestionService, JobQueue
 │   ├── installer/                            # InstallerService, InstallerJourney, folders,
 │   │                                         # steps/UserCreationStep, steps/FolderScaffoldStep
+│   ├── session/                              # SessionService, stateMachine, helpers,
+│   │                                         # commandPalette, types
 │   ├── settings/                             # SettingsService, settings (Zod schema)
 │   ├── subscription/SubscriptionService.test.ts
 │   └── user/UserService.test.ts
+├── flows/                                    # 15 integration test suites
+│   ├── 01-FirstRunOnboarding.test.ts
+│   ├── 02-RegisterCustomEvent.test.ts
+│   ├── 03-ImportCsvAsNotes.test.ts
+│   ├── ...through...
+│   └── 15-SessionInbox.test.ts
 ├── infrastructure/
 │   ├── commands/CommandRegistry.test.ts
 │   ├── errors/                               # ErrorService, FlowtiError
 │   ├── events/                               # EventBus, EventBridge, catalog
 │   ├── logger/LoggerService.test.ts
-│   └── services/ServiceContainer.test.ts
+│   └── services/                             # ServiceContainer, VaultQueryService, WorkspaceService
 ├── ui/
-│   ├── catalog/helpers.test.ts               # 44 tests for pure catalog helper functions
-│   ├── EventCatalogView.test.ts              # 23 tests for catalog event contracts
-│   ├── DataExchangeHubView.test.ts           # 10 tests for hub event contracts
-│   ├── ExportView.test.ts                    # 40 tests for export view helpers
+│   ├── catalog/                              # helpers, ServicesTab, EventCatalogView
+│   ├── session/                              # SessionDecisionPanel, SessionEnergyIndicator,
+│   │                                         # SessionOutputPanel, SessionActivityIntelligencePanel,
+│   │                                         # SessionGuidingQuestions, CognitiveLoadAlert,
+│   │                                         # SessionOutputPickerModal
+│   ├── userHub/                              # UserHubInbox, UserHubPreferences,
+│   │                                         # UserHubSessionPreferences, UserHubNudgePreferences,
+│   │                                         # UserHubSessions
+│   ├── DataExchangeHubView.test.ts
 │   ├── EventConfigModal.test.ts
-│   ├── eventDocTemplate.test.ts              # 64 tests for path + content generation
 │   ├── EventLogView.test.ts
-│   └── IngestionStatusBar.test.ts
-└── utils/                                    # helpers, glob
+│   ├── ExportView.test.ts
+│   ├── IngestionStatusBar.test.ts
+│   ├── NudgeNotification.test.ts
+│   ├── modals.test.ts
+│   └── eventDocTemplate.test.ts
+└── utils/                                    # helpers, glob, pathUtils, TypedStorage, mutex
 ```
 
 **Build verification:** `npm test` = eslint → tsc -noEmit -skipLibCheck → vitest run

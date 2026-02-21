@@ -6,7 +6,7 @@ layer: ui
 status: open
 created: 2026-02-20
 effort: medium
-description: "UserHubSessions.ts is 633 LOC, mixing master list rendering, detail panel rendering, state management (collapsed categories), and timer display into a single class."
+description: "UserHubSessions.ts is 640 LOC (up from 633), mixing master list rendering, detail panel rendering, state management (collapsed categories), and timer display into a single class."
 ---
 
 # TD-113: UserHubSessions exceeds 600 LOC with mixed concerns

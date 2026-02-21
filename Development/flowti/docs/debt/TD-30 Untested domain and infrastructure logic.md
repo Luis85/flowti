@@ -5,9 +5,9 @@ category: testing
 layer: cross-cutting
 status: open
 created: 2026-02-14
-updated: 2026-02-15
+updated: 2026-02-21
 effort: medium
-description: "15 non-UI source files (~4,200 LOC) with testable pure functions and injectable services. Tier 1 complete (298 tests, 100%). Tier 2 complete (149 tests, 95-100% coverage). Tier 3 (bootstrap) open. Tier 4 (flow integration) complete. Hub domain tests added (26 tests, 100% coverage on HubRegistry + 3 providers). Current: 1,787 tests, 79 suites."
+description: "Tiers 1, 2, 4 complete. Tier 3 (bootstrap) open but low ROI. Session domain added 11 test files with extensive coverage. Current: 2,855 tests passing (32 skipped), 111 test suites. New untested areas: session handler modules have tests but helpers.ts test is monolithic."
 source: "[[Technical Review 2026-02-14]]"
 ---
 # TD-30: Untested domain and infrastructure logic

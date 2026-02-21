@@ -137,9 +137,10 @@ Commands, views, and services are defined declaratively in registry files and bo
 ### Module Overview
 
 ```
-src/                                 # ~42,493 LOC across 216 files
-├── main.ts                          # Plugin lifecycle orchestrator (846 LOC)
-├── dataExchangeSetup.ts             # Data Exchange UI wiring (368 LOC)
+src/                                 # ~44,346 LOC across 230 files
+├── main.ts                          # Plugin lifecycle orchestrator (643 LOC)
+├── dataExchangeSetup.ts             # Data Exchange UI wiring (359 LOC)
+├── sessionSetup.ts                  # Session UI wiring (221 LOC)
 ├── infrastructure/
 │   ├── events/                      # EventBus, EventBridge, FlowtiEventMap (~190 events)
 │   ├── errors/                      # Typed error hierarchy + ErrorService
@@ -165,7 +166,7 @@ src/                                 # ~42,493 LOC across 216 files
 │   ├── settings/                    # Plugin configuration persistence
 │   ├── subscription/                # Event watchers with filters
 │   └── user/                        # User identity
-├── ui/                              # 106 files
+├── ui/                              # 111 files
 │   ├── catalog/                     # Event Catalog components (15 files)
 │   ├── hub/                         # Data Exchange Hub components (21 files)
 │   ├── csv/                         # CSV import wizard components (10 files)
@@ -241,13 +242,13 @@ See [[Frontend Architecture]] for the full view inventory, component architectur
 
 | Directory | Count | Description |
 |-----------|-------|-------------|
-| `docs/components/` | 62 | Per-component documentation with dependencies, state, events, and cross-references |
-| `docs/flows/` | 13 | End-to-end user journeys crossing multiple views and services |
+| `docs/components/` | 91 | Per-component documentation with dependencies, state, events, and cross-references |
+| `docs/flows/` | 15 | End-to-end user journeys crossing multiple views and services |
 | `docs/sitemap/` | 8 | View-level documentation with descriptions and use case summaries |
-| `docs/features/` | 224 | Feature specifications, PRDs, PBIs, and related documents |
-| `docs/decisions/` | 30 | Architecture Decision Records (ADR-001 through ADR-024 + related) |
-| `docs/cycles/` | 4 | Development cycle planning and retrospectives (Cycles 2-5) |
-| `docs/debt/` | 102 | Technical debt items (TD-01 through TD-99+) |
+| `docs/features/` | 263 | Feature specifications, PRDs, PBIs, and related documents (across 70 feature directories) |
+| `docs/decisions/` | 33 | Architecture Decision Records (ADR-001 through ADR-024 + related) |
+| `docs/cycles/` | 11 | Development cycle planning and retrospectives (Cycles 1-11) |
+| `docs/debt/` | 122 | Technical debt items (TD-01 through TD-120 + 2 additional) |
 
 ---
 
@@ -272,7 +273,7 @@ Plugin.onload()
     │   └── initializeViewRegistry()
     │
     ├── Phase 3: Registration
-    │   ├── registerAllServices()    # 11 services (src/infrastructure/services/registry.ts)
+    │   ├── registerAllServices()    # 14 services (src/infrastructure/services/registry.ts)
     │   ├── registerAllCommands()    # 5 core commands (src/infrastructure/commands/registry.ts)
     │   └── registerAllViews()       # 3 core views (src/infrastructure/views/registry.ts)
     │
@@ -459,7 +460,7 @@ Use the Component Showcase view (`Flowti: Open Component Showcase`) to preview a
 | No persistence encryption | Plugin data is stored as plain JSON via Obsidian's `saveData` |
 | EventBridge boundary erosion | ~112 direct Obsidian API calls in UI layer; acceptable for read-only access patterns |
 
-102 technical debt items tracked in `docs/debt/TD-01` through `TD-99` plus 3 additional items. Categories span event/communication, data/storage, testing/quality, architecture/performance, domain logic, file system, and documentation. See `docs/debt/` for individual items.
+122 technical debt items tracked in `docs/debt/TD-01` through `TD-120` plus 2 additional items. Categories span event/communication, data/storage, testing/quality, architecture/performance, domain logic, file system, and documentation. See `docs/debt/` for individual items.
 
 ---
 
