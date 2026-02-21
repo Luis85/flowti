@@ -1,0 +1,13 @@
+filters:
+  and:
+    - type == "BuildReport"
+views:
+  - type: table
+    name: Table
+    order:
+      - file.name
+      - total_bytes
+      - warnings_count
+    columnSize:
+      file.name: 387
+      note.total_bytes: 116
