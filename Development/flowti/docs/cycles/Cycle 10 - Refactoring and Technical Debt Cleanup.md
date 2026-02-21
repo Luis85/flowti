@@ -4,6 +4,7 @@ feature: "[[Session Workspaces PRD]]"
 stage: planned
 cycle: 10
 date_planned: 2026-02-20
+date_updated: 2026-02-21
 pbis: []
 bugs: []
 bugs_fixed_precycle: []
@@ -48,14 +49,19 @@ This is a dedicated maintenance cycle. No new features are delivered. The goal i
 
 ## Situation Assessment
 
-### Pre-Cycle State
+### Pre-Cycle State (2026-02-21)
 
-**Assumes Cycle 9 is complete.** If Cycle 9 is still in-progress or skipped, adjust pre-cycle baselines accordingly.
+**Cycle 9 delivered.** All 4 increments complete. Retrospective and DoD satisfied.
 
-**Plugin health (post-Cycle 9 expected):**
-- ~2,830 tests passing, ~110 test suites
-- SessionService reduced to ~580 LOC (TD-101 resolved in Cycle 9)
-- TD-100 (session performance) resolved or mitigated in Cycle 9
+**Plugin health (actual post-Cycle 9):**
+- **2,855 tests passing** (32 skipped), **111 test suites**
+- SessionService reduced to **613 LOC** (TD-101 resolved in Cycle 9 Inc 1)
+- TD-100 (session performance) **resolved** in Cycle 9 Inc 2 (render debounce + panel batching)
+- TD-101 (handler extraction) **resolved** in Cycle 9 Inc 1 (1,766→613 LOC)
+- PBI-SW-015 (Activity Intelligence, FR-15) **delivered** in Cycle 9 Inc 3
+- MAX_REFLECTIONS (200) + MAX_EXECUTION_TASKS (50) caps in Cycle 9 Inc 4
+- 100 total session events (92 active + 8 deprecated)
+- PRD v9, FRI 31/35, 8/10 v2 FRs delivered
 - `npm test` pipeline: tsc + eslint + vitest
 
 **Tech debt register:**
@@ -149,6 +155,8 @@ This is a dedicated maintenance cycle. No new features are delivered. The goal i
 - [ ] `TypedStorage.safeLoad()` emits event when falling back to defaults
 - [ ] `npm test` green
 
+**Documentation intent:** Update TD-114, TD-116, TD-115, TD-102, TD-107, TD-106, TD-56 status to resolved. Document error handling convention decisions in review.
+
 ---
 
 ### Inc 2: Resource Leak Remediation
@@ -182,6 +190,8 @@ This is a dedicated maintenance cycle. No new features are delivered. The goal i
 - [ ] `processJobPayload` and retry wrapper removed from IngestionService
 - [ ] `npm test` green
 
+**Documentation intent:** Update TD-110, TD-111, TD-104, TD-103, TD-65, TD-74, TD-61 status to resolved. Document disposal patterns in review.
+
 ---
 
 ### Inc 3: EventBus Resilience
@@ -208,6 +218,8 @@ This is a dedicated maintenance cycle. No new features are delivered. The goal i
 - [ ] `npm run lint` green with new rule
 - [ ] SettingsService concurrent saves are serialized via mutex
 - [ ] `npm test` green
+
+**Documentation intent:** Update TD-105, TD-117, TD-72 status to resolved. Document EventBus error boundary pattern in review (potential ADR candidate).
 
 ---
 
@@ -240,6 +252,8 @@ This is a dedicated maintenance cycle. No new features are delivered. The goal i
 - [ ] CSV column headers are sanitized before use as YAML keys
 - [ ] `npm test` green
 
+**Documentation intent:** Update TD-62, TD-64, TD-67, TD-71, TD-108, TD-109 status to resolved.
+
 ---
 
 ### Inc 5: UI Performance Quick Wins
@@ -267,6 +281,8 @@ This is a dedicated maintenance cycle. No new features are delivered. The goal i
 - [ ] View render errors are caught and displayed as "Something went wrong" state (not blank screen)
 - [ ] `npm test` green
 
+**Documentation intent:** Update TD-112, TD-75, TD-76, TD-46 status to resolved. Document error boundary pattern in review.
+
 ---
 
 ### Inc 6: Stretch — Component Extraction and Cleanup
@@ -293,6 +309,14 @@ This is a dedicated maintenance cycle. No new features are delivered. The goal i
 - [ ] Installer progress survives tab close and reopen
 - [ ] Export operations emit per-record progress events
 - [ ] `npm test` green
+
+**Documentation intent:** Update TD-113, TD-70, TD-68 status to resolved. Update Frontend Architecture doc if UserHubSessions extraction changes component map.
+
+---
+
+## Completed Pre-Cycle
+
+No pre-cycle work required. Cycle 9 delivered cleanly with all DoD criteria satisfied. Build is green at 2,855 tests, 111 suites. No blocking bugs.
 
 ---
 
@@ -366,7 +390,7 @@ TD-112, TD-75, TD-76, TD-46
 **Inc 6 Stretch (3):**
 TD-113, TD-70, TD-68
 
-### Items Remaining Open After Cycle 10 (~37)
+### Items Remaining Open After Cycle 10 (~36)
 
 **High severity (6 remaining):**
 - TD-49: Layout abstraction layer (large, deferred to hub v2)
@@ -376,7 +400,7 @@ TD-113, TD-70, TD-68
 - TD-80: 95% of JTBDs empty stubs (documentation)
 - TD-85: 40% docs lack type frontmatter (documentation)
 
-**Medium severity (22 remaining):**
+**Medium severity (21 remaining):**
 - TD-06: UI bypasses EventBridge (large effort)
 - TD-27: Limited UI component testing (mitigated)
 - TD-30: Untested domain/infra logic (testing cycle)
@@ -392,7 +416,6 @@ TD-113, TD-70, TD-68
 - TD-91: No wikilink validation (mitigated)
 - TD-92: No pull-request process (process)
 - TD-93: Duplicate data plugin state vs metadata (large)
-- TD-100: Session performance (resolved in Cycle 9)
 
 **Low severity (9 remaining):**
 - TD-01: UI files exceed size convention (mitigated)
@@ -437,4 +460,4 @@ TD-113, TD-70, TD-68
 - [[TD-29 Error handling inconsistency]] — foundational debt item, partially mitigated
 - [[TD-35 Fire-and-forget persistence risk]] — resolved precursor to TD-105 pattern
 - [[ADR-021 Error Handling Convention]] — error handling guidelines
-- Next candidate: Cycle 11 — hub v2 architecture (TD-49, TD-50, TD-51, TD-52) or testing cycle (TD-30, TD-57)
+- Next candidate: Cycle 11 — PBI-SW-017 (Main/Sidebar Mode Separation) + remaining v2 features, or hub v2 architecture
