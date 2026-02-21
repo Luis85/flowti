@@ -2,7 +2,11 @@
 type: ProductBacklogItem
 domain: Signal
 feature: "[[Azure DevOps Integration PRD]]"
-stage: planned
+stage: delivered
+delivered_in: "[[Cycle 11 - Azure DevOps Integration]]"
+delivered_date: 2026-02-21
+actual_loc: 192
+actual_tests: 31
 priority: 2
 cycle: "[[Cycle 11 - Azure DevOps Integration]]"
 increment: 2
@@ -38,15 +42,15 @@ Implement `AzureDevOpsAdapter` in `src/domain/signal/adapters/` using Obsidian's
 
 ## Acceptance Criteria
 
-- [ ] `AzureDevOpsAdapter` implements `SignalAdapter` interface
-- [ ] Authenticates via PAT → Base64 Basic auth header (`:${pat}` → base64)
-- [ ] `testConnection()` validates org/project/PAT via project info API
-- [ ] `fetchItems()` retrieves work items via WIQL query + batch GET
-- [ ] Work item type filtering works via WIQL WHERE clause (Bug, User Story, Task, Epic, Feature)
-- [ ] HTTP errors mapped to typed responses: 401→"Invalid PAT", 404→"Project not found", 403→"Insufficient permissions", timeout→"Connection timeout"
-- [ ] Rate limit (429) handled gracefully with Retry-After awareness
-- [ ] PAT never appears in logs, event payloads, or error messages
-- [ ] `npm test` green with ~25 mocked HTTP tests
+- [x] `AzureDevOpsAdapter` implements `SignalAdapter` interface
+- [x] Authenticates via PAT → Base64 Basic auth header (`:${pat}` → base64)
+- [x] `testConnection()` validates org/project/PAT via project info API
+- [x] `fetchItems()` retrieves work items via WIQL query + batch GET
+- [x] Work item type filtering works via WIQL WHERE clause (Bug, User Story, Task, Epic, Feature)
+- [x] HTTP errors mapped to typed responses: 401→"Invalid PAT", 404→"Project not found", 403→"Insufficient permissions", timeout→"Connection timeout"
+- [x] Rate limit (429) handled gracefully with Retry-After awareness
+- [x] PAT never appears in logs, event payloads, or error messages
+- [x] `npm test` green with 31 mocked HTTP tests (2,950 total, 115 suites)
 
 ## Test Intent
 

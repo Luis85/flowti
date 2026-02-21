@@ -305,6 +305,26 @@ export function createMockTFolder(path: string, children: (TFile | TFolder)[] = 
 	return folder;
 }
 
+/* ── requestUrl stub ──────────────────────────────────── */
+
+export interface RequestUrlParam {
+	url: string;
+	method?: string;
+	headers?: Record<string, string>;
+	body?: string;
+}
+
+export interface RequestUrlResponse {
+	status: number;
+	headers: Record<string, string>;
+	json: unknown;
+	text: string;
+}
+
+export async function requestUrl(_request: RequestUrlParam): Promise<RequestUrlResponse> {
+	throw new Error("requestUrl not implemented in test stub — mock via vi.mock");
+}
+
 /**
  * Minimal parseYaml stub matching Obsidian's API.
  * Uses the yaml package (available as transitive dep from vite/typedoc).

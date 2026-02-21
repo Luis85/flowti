@@ -136,14 +136,20 @@ estimated_tests: 100
 - Files: ~3
 
 **Acceptance criteria:**
-- [ ] `testConnection()` validates org/project/PAT and returns typed result
-- [ ] `fetchItems()` retrieves work items via WIQL + batch fetch
-- [ ] Work item type filtering works via WIQL WHERE clause
-- [ ] HTTP errors mapped to typed, sanitized error responses
-- [ ] PAT never appears in logs, events, or error messages
-- [ ] Rate limit (429) handled gracefully with retry-after awareness
+- [x] `testConnection()` validates org/project/PAT and returns typed result
+- [x] `fetchItems()` retrieves work items via WIQL + batch fetch
+- [x] Work item type filtering works via WIQL WHERE clause
+- [x] HTTP errors mapped to typed, sanitized error responses
+- [x] PAT never appears in logs, events, or error messages
+- [x] Rate limit (429) handled gracefully with retry-after awareness
 - [ ] PRD architecture section updated with validated API behavior
-- [ ] `npm test` green with mocked HTTP tests
+- [x] `npm test` green with mocked HTTP tests
+
+**Delivery notes (Inc 2):**
+- Production: AzureDevOpsAdapter.ts (192 LOC) — implements SignalAdapter with WIQL + batch GET
+- Test mock pattern: `vi.hoisted()` + `vi.mock("obsidian")` for requestUrl — first network mock in project
+- Tests: 31 new (AzureDevOpsAdapter.test.ts), 2,950 total passing (115 suites)
+- Also updated: obsidian-stub.ts (+20 LOC for requestUrl stub)
 
 ---
 
