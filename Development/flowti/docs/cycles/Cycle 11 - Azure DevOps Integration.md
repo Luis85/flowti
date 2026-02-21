@@ -175,15 +175,22 @@ estimated_tests: 100
 - Files: ~3
 
 **Acceptance criteria:**
-- [ ] Work items correctly mapped from Azure DevOps JSON to `WorkItemMapping`
-- [ ] Frontmatter includes all specified fields (id, type, state, assignedTo, etc.)
-- [ ] HTML description converted to readable Markdown
-- [ ] All three conflict strategies work (skip, update, overwrite)
-- [ ] File names sanitized (no illegal characters, reasonable length)
-- [ ] Notes created in configured target folder
-- [ ] `signal.item.created` and `signal.item.updated` events emitted per item
-- [ ] HTML→MD known limitations documented in PRD §8
-- [ ] `npm test` green
+- [x] Work items correctly mapped from Azure DevOps JSON to `WorkItemMapping`
+- [x] Frontmatter includes all specified fields (id, type, state, assignedTo, etc.)
+- [x] HTML description converted to readable Markdown
+- [x] All three conflict strategies work (skip, update, overwrite)
+- [x] File names sanitized (no illegal characters, reasonable length)
+- [x] Notes created in configured target folder
+- [ ] `signal.item.created` and `signal.item.updated` events emitted per item (deferred to Inc 5)
+- [ ] HTML→MD known limitations documented in PRD §8 (deferred to Inc 5)
+- [x] `npm test` green
+
+**Delivery notes (Inc 3):**
+- Production: htmlToMarkdown.ts (116 LOC) + workItemNoteMapper.ts (107 LOC) = 223 LOC total
+- Tests: 29 new (workItemNoteMapper.test.ts), 2,979 total passing (116 suites)
+- HTML→MD covers 12 element types, HTML entities, tag stripping, blank line collapse
+- Conflict resolution uses IFileSystemClient: fileExists → createFile / updateFrontmatter / updateFile
+- Event emission (item.created / item.updated) deferred to Inc 5 sync orchestration
 
 ---
 
