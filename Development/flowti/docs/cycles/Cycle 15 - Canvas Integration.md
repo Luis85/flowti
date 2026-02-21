@@ -229,13 +229,21 @@ None bundled — this is a greenfield domain migration cycle.
 - Unit tests: error resilience (single node failure doesn't stop import)
 
 **Acceptance criteria:**
-- [ ] Notes created with frontmatter: type, status, parent, relationship fields
-- [ ] Folder structure created from canvas group hierarchy
-- [ ] Skip strategy: no-op for existing notes
-- [ ] Update strategy: merge frontmatter, preserve body
-- [ ] Overwrite strategy: replace entire note
-- [ ] Progress events fire per-node with current/total counts
-- [ ] Single node failure captured as error, import continues
+- [x] Notes created with frontmatter: type, status, parent, relationship fields — `toCanvasNoteFrontmatter()` builds type, status, canvas_id, parent (wikilink), color, up/down/prev/next (resolved wikilinks), source; 8 tests
+- [x] Folder structure created from canvas group hierarchy — `toCanvasNotePath()` product mode uses `TYPE_FOLDER_MAP` subfolders; `writeCanvasNote()` passes `{ createFolders: true }`; 3 tests
+- [x] Skip strategy: no-op for existing notes — `writeCanvasNote()` returns `{ action: "skipped" }`, no createFile/updateFile called; 1 test
+- [x] Update strategy: merge frontmatter, preserve body — `writeCanvasNote()` calls `updateFrontmatter()` only (preserves body); 1 test
+- [x] Overwrite strategy: replace entire note — `writeCanvasNote()` calls `updateFile()` with full content; 1 test
+- [x] Progress events fire per-node with current/total counts — `importCanvas()` emits `canvas.import.progress` per item with `{ current, total, title }`; 1 test
+- [x] Single node failure captured as error, import continues — try/catch per item, errors collected in array, loop continues; 1 test
+
+**Delivery notes:**
+- 3-layer architecture: pure content functions → I/O function → orchestrator (mirrors Signal `workItemNoteMapper` pattern)
+- 5 exported functions: `toCanvasNotePath`, `toCanvasNoteFrontmatter`, `toCanvasNoteContent`, `writeCanvasNote`, `importCanvas`
+- 2 exported interfaces: `WriteCanvasNoteResult`, `CanvasImporterDeps`
+- ~165 LOC source (est. ~180), ~170 LOC tests (est. ~80), 31 new tests (est. ~18)
+- Events emitted: `canvas.import.started`, `canvas.import.progress`, `canvas.import.completed`, `canvas.import.failed`
+- Cumulative: 103 canvas tests (44 Inc 1 + 28 Inc 2 + 31 Inc 3), 3,445 total (137 suites)
 
 ---
 

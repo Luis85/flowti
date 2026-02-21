@@ -53,23 +53,23 @@ As a domain architect, I want to import Canvas files as typed vault notes from t
 
 - [x] Migrate `canvas-import-core.js` and `canvas-import-constants.js` into `src/domain/canvas/` (Cycle 15 Inc 1)
 - [x] `CanvasParser`: Parse `.canvas` JSON into `CanvasData` type + `CanvasParsedResult` (Cycle 15 Inc 1)
-- [ ] `CanvasImporter`: Convert parsed canvas nodes to typed vault notes
+- [x] `CanvasImporter`: Convert parsed canvas nodes to typed vault notes (Cycle 15 Inc 3 — `toCanvasNotePath`, `toCanvasNoteFrontmatter`, `toCanvasNoteContent`, `writeCanvasNote`, `importCanvas`)
 - [x] Color mapping: 1=Issue, 2=Epic, 3=Task, 4=Test, 5=Deliverable, 6=Feature (DEFAULT_COLOR_MAP) (Cycle 15 Inc 1)
 - [x] Shape mapping: circle=Event, diamond=Gateway, parallelogram=Data, document=Document, database=Database, predefined-process=Subprocess, pill=Terminator (DEFAULT_SHAPE_MAP) (Cycle 15 Inc 1)
 - [x] Legend group detection and override: custom color-to-type within canvas (`extractLegend()`) (Cycle 15 Inc 1)
-- [ ] Group-to-container: canvas groups set `parent` frontmatter on child nodes — parser: `resolveParentage()` delivered (Cycle 15 Inc 2), frontmatter writing pending Inc 3
-- [ ] Edge-to-relationship: edges translate to `up`/`down`/`prev`/`next` frontmatter — parser: `buildRelations()` delivered (Cycle 15 Inc 2), frontmatter writing pending Inc 3
+- [x] Group-to-container: canvas groups set `parent` frontmatter on child nodes — parser: `resolveParentage()` (Inc 2), frontmatter: `toCanvasNoteFrontmatter()` writes `parent: "[[slug]]"` wikilink (Inc 3)
+- [x] Edge-to-relationship: edges translate to `up`/`down`/`prev`/`next` frontmatter — parser: `buildRelations()` (Inc 2), frontmatter: `toCanvasNoteFrontmatter()` resolves IDs to `[[slug]]` wikilinks (Inc 3)
 - [ ] Register as import source type in Data Exchange Hub
 - [ ] Import wizard: 3-page (Select, Preview/Map, Execute)
 - [ ] Right-click `.canvas` → "Import Canvas" context menu
-- [ ] Progress events: `canvas.import.started/progress/completed/failed`
+- [x] Progress events: `canvas.import.started/progress/completed/failed` (Cycle 15 Inc 3 — `importCanvas()` emits all 4 lifecycle events)
 - [ ] Saved import configurations for repeatable imports
 
 ### Technical Requirements
 
 - New bounded context: `src/domain/canvas/` (own domain, not nested under dataExchange)
 - `CanvasParser.ts`: Pure functions, no side effects — `parseCanvasJson()`, `extractLegend()`, `resolveNodeType()`, `slugifyTitle()`, `toPascalCase()`, `isNodeInsideGroup()` ✅, `resolveParentage()`, `buildRelations()`, `filterItemsForImport()` ✅
-- `CanvasImporter.ts`: Uses `fileSystemClient` for note creation with frontmatter
+- `CanvasImporter.ts`: 3-layer architecture (pure content → I/O → orchestrator) — `toCanvasNotePath()`, `toCanvasNoteFrontmatter()`, `toCanvasNoteContent()`, `writeCanvasNote()` (conflict strategies), `importCanvas()` (progress events) ✅
 - 8 events registered in catalog with category "Canvas" ✅
 - All existing QuickAdd canvas-importer test scenarios ported as unit tests
 

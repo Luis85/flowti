@@ -301,6 +301,8 @@ Migrate canvas import logic from `var/scripts/canvas-importer/` into `src/domain
 
 **Cycle 15 Inc 2 delivered:** Parser completion — resolveParentage (smallest enclosing group, self-parent prevention), buildRelations (edge fromSide/toSide → up/down/prev/next, bidirectional, dedup), filterItemsForImport (legend/file/empty exclusion). 28 new tests (3,414 total, 72 canvas-specific). Full parser layer complete.
 
+**Cycle 15 Inc 3 delivered:** Canvas Importer — note creation pipeline. 3-layer architecture: pure content functions (toCanvasNotePath, toCanvasNoteFrontmatter, toCanvasNoteContent), I/O function (writeCanvasNote with skip/update/overwrite conflict strategies), orchestrator (importCanvas with started/progress/completed/failed events, per-node error resilience). 31 new tests (3,445 total, 103 canvas-specific). Full content + write layer complete.
+
 ### Phase 2: Canvas Templates (PBI-CAN-002)
 
 Create canvas template library stored in `var/config/canvas-templates/`. Implement template picker modal. Provide 5 built-in templates.
