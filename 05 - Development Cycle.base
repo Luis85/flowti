@@ -1,20 +1,54 @@
 filters:
   and:
     - file.inFolder("Development/flowti/docs/cycles")
+    - type == "DevelopmentCycle"
 formulas:
   bugs_count: bugs.length
 views:
   - type: table
-    name: Table
+    name: Planned
+    filters:
+      and:
+        - "!cycle.isEmpty()"
     order:
-      - cycle
       - file.name
       - stage
       - formula.bugs_count
-      - type
+      - feature
+      - tags
     sort:
       - property: cycle
         direction: DESC
     columnSize:
       file.name: 376
-      note.bugs: 298
+      note.stage: 104
+  - type: table
+    name: Open
+    filters:
+      and:
+        - cycle.isEmpty()
+    order:
+      - file.name
+      - stage
+      - formula.bugs_count
+      - feature
+    sort:
+      - property: cycle
+        direction: DESC
+    columnSize:
+      file.name: 376
+      note.stage: 104
+  - type: table
+    name: Index
+    order:
+      - cycle
+      - file.name
+      - stage
+      - formula.bugs_count
+      - feature
+    sort:
+      - property: cycle
+        direction: DESC
+    columnSize:
+      file.name: 376
+      note.stage: 104

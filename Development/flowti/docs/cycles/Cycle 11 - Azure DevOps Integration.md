@@ -15,6 +15,8 @@ bugs_fixed_precycle: []
 tech_debt: []
 estimated_increments: 5
 estimated_tests: 100
+tags:
+  - needs-manual-test
 ---
 
 # Cycle 11: Azure DevOps Integration
