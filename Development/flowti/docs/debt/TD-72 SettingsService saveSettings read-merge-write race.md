@@ -3,10 +3,12 @@ type: TechDebt
 severity: high
 category: concurrency
 layer: domain
-status: open
+status: resolved
 created: 2026-02-15
+updated: 2026-02-21
 effort: small
-description: "SettingsService.saveSettings() performs non-atomic read-merge-write. Unlike domain services using saveStateToStorage (protected by PathMutex per TD-33), SettingsService has its own save method without mutex protection."
+resolved_in: "Pre-Cycle 10"
+description: "SettingsService.saveSettings() now uses PathMutex.withLock() to serialize concurrent saves. The read-merge-write race condition is eliminated."
 source: "[[PRD Audit 2026-02-15]]"
 tags:
   - prd-audit
@@ -47,6 +49,10 @@ Option 1 is preferred for consistency with other domain services.
 ## Affected Files
 
 - `src/domain/settings/SettingsService.ts` (lines 163-172)
+
+## Resolution (2026-02-21)
+
+The fix is already in place in `SettingsService.ts`. A `PathMutex` was added with `withLock("settings", ...)` wrapping the read-merge-write sequence, matching the pattern from the TD-33 resolution. Discovered during documentation review — the code was fixed but the debt item was not updated.
 
 ## Related
 

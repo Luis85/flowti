@@ -4,9 +4,9 @@ severity: low
 category: architecture
 layer: ui
 status: mitigated
-updated: 2026-02-18
+updated: 2026-02-21
 effort: large
-description: Multiple UI files exceed 500 LOC. The original 4 files exceeding 1,000 LOC have been significantly reduced through Phases 1-10 component extraction. 11 files still exceed the 500 LOC threshold (down from 14). SessionWorkspaceView extracted from 791→479 LOC (subscriptions + helpers). helpers.ts decomposed into barrel + 5 focused modules.
+description: Multiple files exceed 500 LOC. The original 4 files exceeding 1,000 LOC have been significantly reduced through component extraction. 15 files now exceed the 500 LOC threshold (up from 11, due to session domain growth). session/helpers.ts at 982 LOC is the largest file in the codebase.
 ---
 # TD-01: UI files exceed size convention
 
@@ -23,25 +23,27 @@ Four UI files massively exceeded the 200-300 LOC convention:
 
 Phases 1-8 component extraction reduced these 4 files from an average of 1,744 LOC to 635 LOC.
 
-## Current State (2026-02-18)
+## Current State (2026-02-21)
 
-11 files exceed 500 LOC (down from 14):
+15 files exceed 500 LOC (up from 11, due to session domain growth):
 
 | File | LOC | Notes |
 |------|-----|-------|
-| `EventCatalogView.ts` | 836 | Orchestrator with 15 sub-components |
-| `CsvActionView.ts` | 754 | Orchestrator with 10 sub-components |
-| `contentGenerator.ts` | 708 | Markdown generators — candidate for split |
-| `ExportView.ts` | 655 | Orchestrator with 6 sub-components |
-| `EventConfigModal.ts` | 629 | 3-page wizard modal — candidate for extraction |
-| `EventBridge.ts` | 613 | Core infrastructure — careful |
+| `domain/session/helpers.ts` | 982 | **Largest file in codebase** — see [[TD-118]] |
+| `CsvActionView.ts` | 772 | Orchestrator with 10 sub-components |
+| `EventCatalogView.ts` | 735 | Orchestrator with 15 sub-components |
+| `ExportView.ts` | 692 | Orchestrator with 6 sub-components |
+| `main.ts` | 643 | Plugin lifecycle orchestrator |
+| `DataExchangeHubView.ts` | 641 | Orchestrator with hub sub-components |
+| `userHub/UserHubSessions.ts` | 640 | Mixed concerns — see [[TD-113]] |
+| `EventBridge.ts` | 614 | Core infrastructure — careful |
+| `SessionService.ts` | 613 | Domain service (reduced from 1,766 via TD-101) |
+| `SessionWorkspaceView.ts` | 612 | Orchestrator with session panels |
+| `configDocContent.ts` | 599 | Config doc markdown generators |
 | `EventLogView.ts` | 581 | Single-purpose activity log |
-| `configDocContent.ts` | 580 | Config doc markdown generators |
-| `DataExchangeService.ts` | 578 | Facade delegating to 5 sub-modules |
-| `catalog/DomainsTab.ts` | 565 | Domain list + detail panel |
-| `hub/ExportsTab.ts` | 543 | Export list + config management |
-| `hub/ImportsTab.ts` | 540 | Import list + config management |
-| ~~`catalog/ServicesTab.ts`~~ | ~~509~~ | Removed from list — borderline |
+| `DataExchangeService.ts` | 574 | Facade delegating to 5 sub-modules |
+| `hub/ImportsTab.ts` | 570 | Import list + config management |
+| `ExportService.ts` | 561 | Export pipeline |
 
 **Resolved (2026-02-16):** `catalog/helpers.ts` (531 LOC) decomposed into barrel re-export (55 LOC) + 5 focused modules under `helpers/` (frontmatter, entryQueries, crossReferences, rendering, fileOps). No longer exceeds threshold.
 
@@ -53,14 +55,14 @@ Phases 1-8 component extraction reduced these 4 files from an average of 1,744 L
 
 ## Remaining Decomposition Opportunities
 
-1. **contentGenerator.ts** (708) -- Split markdown generators by doc type (event, domain, service, etc.)
-2. **EventConfigModal.ts** (629) -- Extract per-page components (overview, subscription-form, definition-form)
-3. **DomainsTab.ts** (563) -- Extract domain detail panel + actions
+1. **session/helpers.ts** (982) — **Highest priority**. Split into summaryGenerator, noteParser, templateHelpers, formatters, sessionUtils (see [[TD-118]])
+2. **UserHubSessions.ts** (640) — Extract SessionDetailPanel + SessionTimerDisplay (see [[TD-113]])
+3. **main.ts** (643) — Grew from 482 LOC; evaluate if more logic can be pushed to `sessionSetup.ts` or `pluginBootstrap.ts`
 
-Note: Orchestrator files (`EventCatalogView`, `CsvActionView`, `ExportView`) are expected to be larger since they coordinate sub-components. The 500-800 LOC range is acceptable for orchestrators.
+Note: Orchestrator files (`EventCatalogView`, `CsvActionView`, `ExportView`, `SessionWorkspaceView`) are expected to be larger since they coordinate sub-components. The 500-800 LOC range is acceptable for orchestrators.
 
 ## Affected Files
 
-- `src/ui/contentGenerator.ts`
-- `src/ui/EventConfigModal.ts`
-- `src/ui/catalog/DomainsTab.ts`
+- `src/domain/session/helpers.ts` (982 LOC — highest priority)
+- `src/ui/userHub/UserHubSessions.ts` (640 LOC)
+- `src/main.ts` (643 LOC)

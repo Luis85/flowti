@@ -3,10 +3,12 @@ type: TechDebt
 severity: medium
 category: correctness
 layer: domain
-status: open
+status: resolved
 created: 2026-02-15
+updated: 2026-02-21
 effort: small
-description: "IngestionService.generateEventKey() falls back to UUID when path is undefined, defeating idempotency. Events without paths get unique keys every time, bypassing deduplication."
+resolved_in: "Pre-Cycle 10"
+description: "IngestionService.generateEventKey() now uses deterministic 'no-path' suffix when path is undefined instead of falling back to UUID. Idempotency is preserved for pathless events."
 source: "[[PRD Audit 2026-02-15]]"
 tags:
   - prd-audit
@@ -30,6 +32,18 @@ Use a deterministic fallback instead of UUID. Options include:
 1. Hash of event type + serialized payload JSON (e.g., `"eventType::sha256(JSON.stringify(payload))"`)
 2. Hash of event type + sorted payload keys and values
 3. Require a `correlationId` or `key` field on events that lack a path
+
+## Resolution (2026-02-21)
+
+The fix is already in place in `IngestionService.ts`. The current implementation uses `eventType::no-path` as a deterministic fallback instead of UUID:
+
+```typescript
+generateEventKey(eventType: string, path?: string): string {
+    return path ? `${eventType}::${path}` : `${eventType}::no-path`;
+}
+```
+
+Discovered during documentation review — the code was fixed but the debt item was not updated.
 
 ## Affected Files
 
