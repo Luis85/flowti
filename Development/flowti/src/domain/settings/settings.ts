@@ -59,6 +59,7 @@ export const DEFAULT_CATALOG_CATEGORIES: CatalogCategoryConfig[] = [
 	{ name: "Signal", visible: true },
 	{ name: "Capture", visible: true },
 	{ name: "Train", visible: true },
+	{ name: "Canvas", visible: true },
 ];
 
 // ─────────────────────────────────────────────────────────────

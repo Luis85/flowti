@@ -41,6 +41,7 @@ import type { NudgeEventMap } from "../../domain/nudge/events";
 import type { SignalEventMap } from "../../domain/signal/events";
 import type { CaptureEventMap } from "../../domain/capture/events";
 import type { TrainEventMap } from "../../domain/train/events";
+import type { CanvasEventMap } from "../../domain/canvas/events";
 
 // ─────────────────────────────────────────────────────────────
 // File System Types (defined here to avoid circular imports)
@@ -97,7 +98,7 @@ export interface FileOperationError {
  * This is the central registry for all events in the application.
  * The key is the event type string, the value is the payload type.
  */
-export interface FlowtiEventMap extends UserEventMap, SettingsEventMap, InstallerEventMap, DiscoveryEventMap, EventFilterEventMap, EventNotifyEventMap, SubscriptionEventMap, IngestionEventMap, EventDefinitionEventMap, DataExchangeEventMap, DocEventMap, UiCommandEventMap, HubEventMap, InboxEventMap, SessionEventMap, NudgeEventMap, SignalEventMap, CaptureEventMap, TrainEventMap {
+export interface FlowtiEventMap extends UserEventMap, SettingsEventMap, InstallerEventMap, DiscoveryEventMap, EventFilterEventMap, EventNotifyEventMap, SubscriptionEventMap, IngestionEventMap, EventDefinitionEventMap, DataExchangeEventMap, DocEventMap, UiCommandEventMap, HubEventMap, InboxEventMap, SessionEventMap, NudgeEventMap, SignalEventMap, CaptureEventMap, TrainEventMap, CanvasEventMap {
 	// ─────────────────────────────────────────────────────────────
 	// Plugin Lifecycle Events
 	// ─────────────────────────────────────────────────────────────

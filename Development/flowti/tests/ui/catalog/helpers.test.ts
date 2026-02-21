@@ -484,6 +484,7 @@ describe("catalog helpers", () => {
 		{ name: "Signal", visible: true },
 		{ name: "Capture", visible: true },
 		{ name: "Train", visible: true },
+		{ name: "Canvas", visible: true },
 	];
 
 	describe("discoveredToCatalogEntries", () => {

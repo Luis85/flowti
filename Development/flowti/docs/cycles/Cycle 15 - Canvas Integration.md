@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Obsidian Canvas Integration PRD]]"
-stage: planned
+stage: in-progress
 cycle: 15
 date_planned:
 date_completed:
@@ -18,7 +18,7 @@ total_tests_after:
 total_test_files_after:
 ---
 
-# Cycle 15: Canvas Integration (Draft)
+# Cycle 15: Canvas Integration
 
 ## Cycle Overview
 

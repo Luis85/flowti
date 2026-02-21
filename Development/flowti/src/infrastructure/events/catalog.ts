@@ -165,6 +165,7 @@ export const EVENT_CATEGORIES = [
 	"Signal",
 	"Capture",
 	"Train",
+	"Canvas",
 ] as const;
 
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
@@ -525,6 +526,16 @@ const CATALOG_DATA = {
 	"train.resumed":        { category: "Train", description: "Train capture was resumed", direction: "Service → Listeners", domain: "train", services: "TrainService" },
 	"train.completed":      { category: "Train", description: "Train capture was completed", direction: "Service → Listeners", domain: "train", services: "TrainService" },
 	"train.thought.activated": { category: "Train", description: "A thought was navigated to in a view", direction: "View → Plugin", domain: "train", services: "TrainMainView" },
+
+	// ── Canvas ───────────────────────────────────────────────────
+	"canvas.import.started":   { category: "Canvas", description: "A canvas import operation started", direction: "Service → Listeners", domain: "canvas", services: "CanvasService" },
+	"canvas.import.progress":  { category: "Canvas", description: "Per-node progress during canvas import", direction: "Service → Listeners", domain: "canvas", services: "CanvasService" },
+	"canvas.import.completed": { category: "Canvas", description: "A canvas import operation completed", direction: "Service → Listeners", domain: "canvas", services: "CanvasService" },
+	"canvas.import.failed":    { category: "Canvas", description: "A canvas import operation failed", direction: "Service → Listeners", domain: "canvas", services: "CanvasService" },
+	"canvas.entity.detected":  { category: "Canvas", description: "A canvas node was resolved to a Flowti entity", direction: "Service → Listeners", domain: "canvas", services: "CanvasService" },
+	"canvas.legend.detected":  { category: "Canvas", description: "A Legend group with color-to-type mappings was detected", direction: "Service → Listeners", domain: "canvas", services: "CanvasService" },
+	"canvas.config.saved":     { category: "Canvas", description: "An import configuration was saved", direction: "Service → Listeners", domain: "canvas", services: "CanvasService" },
+	"canvas.loaded":           { category: "Canvas", description: "Canvas state loaded from storage", direction: "Service → Listeners", domain: "canvas", services: "CanvasService" },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────
