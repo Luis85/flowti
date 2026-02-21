@@ -2,6 +2,7 @@ filters:
   and:
     - file.folder.containsAny("features")
     - file.ext == "md"
+    - '!file.folder.contains("backlog")'
 views:
   - type: table
     name: Features
@@ -16,7 +17,7 @@ views:
       - file.folder
       - type
     columnSize:
-      file.name: 265
+      file.name: 276
       note.stage: 117
       note.domain: 119
       note.plugin: 104
@@ -32,7 +33,23 @@ views:
       - priority
       - maturity
       - description
+      - fri_score
+      - implementation_cost
+      - maintenance_cost
+      - maturity_score_architecture
+      - maturity_score_data_model
+      - maturity_score_event_integration
+      - maturity_score_scope
+      - maturity_score_strategy
+      - maturity_score_ui_consistency
+      - maturity_score_validation_testing
+      - test_cost
+      - discovery_cost
+      - design_cost
+      - business_value
     sort:
+      - property: fri_score
+        direction: DESC
       - property: priority
         direction: DESC
       - property: maturity

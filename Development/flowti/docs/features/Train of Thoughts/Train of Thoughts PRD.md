@@ -28,7 +28,9 @@ tags:
   - capture
   - train-of-thought
   - innovation
-planned_in: "[[Cycle 13 - Train of Thoughts]]"
+planned_in:
+  - "[[Cycle 13 - Train of Thoughts]]"
+  - "[[Cycle 14 - Train View Polish]]"
 ---
 
 # Feature PRD: Train of Thoughts — Serial Capture Sessions

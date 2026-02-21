@@ -2,7 +2,7 @@
 domain: Flowti
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
-stage: discovery
+stage: approved
 related_events:
   - dataExchange.canvasImport.execute
   - dataExchange.canvasImport.progress
@@ -14,10 +14,10 @@ maturity: L1
 maturity_score_strategy: 4
 maturity_score_scope: 3
 maturity_score_architecture: 3
-maturity_score_event_integration: 2
+maturity_score_event_integration: 3
 maturity_score_data_model: 3
-maturity_score_ui_consistency: 2
-maturity_score_validation_testing: 1
+maturity_score_ui_consistency: 3
+maturity_score_validation_testing: 2
 business_value: 5
 implementation_cost: 4
 maintenance_cost: 3
@@ -25,7 +25,8 @@ discovery_cost: 3
 design_cost: 4
 test_cost: 3
 priority: 4
-fri_score: 18
+fri_score: 21
+planned_in: "[[Cycle 15 - Canvas Integration]]"
 tags:
   - canvas
   - core

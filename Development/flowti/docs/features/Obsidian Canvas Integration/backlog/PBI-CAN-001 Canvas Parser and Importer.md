@@ -11,7 +11,7 @@ tags:
   - RB-3
   - canvas
   - data-exchange
-planned_in: "[[Release Preparation Cycle]]"
+planned_in: "[[Cycle 15 - Canvas Integration]]"
 user_story: "[[Canvas importer must be a first-class plugin feature]]"
 ---
 
