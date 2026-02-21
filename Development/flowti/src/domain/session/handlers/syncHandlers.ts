@@ -39,7 +39,7 @@ export async function syncNotesFile(ctx: SessionHandlerContext, sessionId: strin
 		if (!exists) return;
 
 		const existing = await ctx.fileSystem.readFile(session.notesFile);
-		const merged = mergeSessionNotes(existing, session);
+		const merged = mergeSessionNotes(existing, session, ctx.globalActivityFilter);
 		await ctx.fileSystem.updateFile(session.notesFile, merged);
 		ctx.lastSyncedContent.set(session.notesFile, merged);
 		await ctx.eventBus?.emit("session.notes.synced", { sessionId, path: session.notesFile });

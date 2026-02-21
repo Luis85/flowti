@@ -4,7 +4,7 @@
  * All functions are side-effect free and trivially testable.
  */
 
-import type { CognitiveLoadThresholds, ClosureTemplate, ContextBindingType, ExecutionTask, OverloadResult, Session, SessionContextBinding, SessionDecision, SessionGoal, SessionOutputTemplate, SessionStatusV2, SessionTemplate, SessionType, SessionTypeConfig, PauseSegment, TimelineSummary } from "./types";
+import type { ActivityIntelligence, CognitiveLoadThresholds, ClosureTemplate, ContextBindingType, ExecutionTask, OverloadResult, Session, SessionContextBinding, SessionDecision, SessionGoal, SessionOutputTemplate, SessionStatusV2, SessionTemplate, SessionType, SessionTypeConfig, PauseSegment, TimelineSummary } from "./types";
 import { DEFAULT_COGNITIVE_LOAD_THRESHOLDS, SESSION_TYPE_CONFIGS } from "./types";
 
 // ── Session v2 State Machine (ADR-031) ───────────────────────
@@ -337,36 +337,93 @@ export function computeTimelineSummary(session: Session, now: number = Date.now(
 	};
 }
 
+// ── Activity Intelligence (FR-15) ────────────────────────────
+
+/**
+ * Computes aggregated activity analytics for a session.
+ * Pure function — no side effects, reuses existing time helpers.
+ */
+export function computeActivityIntelligence(session: Session, now: number = Date.now(), globalFilter: string[] = []): ActivityIntelligence {
+	const perFilter = session.activityFilter ?? [];
+	const activity = (session.activity ?? []).filter((a) => !isExcluded(a.path, globalFilter, perFilter));
+	const uniquePaths = new Set(activity.map((a) => a.path));
+
+	const artifacts = (session.artifacts ?? []).filter((a) => !isExcluded(a.path, globalFilter, perFilter));
+
+	const tasks = session.executionTasks ?? [];
+	const tasksCompleted = tasks.filter((t) => t.completed).length;
+
+	const timeline = session.timeline ?? [];
+
+	return {
+		filesModified: uniquePaths.size,
+		artifactsProduced: artifacts.length,
+		tasksCompleted,
+		eventsEmitted: timeline.length,
+		wallClockMs: computeWallClockMs(session, now),
+		activeTimeMs: computeActiveTimeMs(session, now),
+		pauseTimeMs: computeTotalPauseMs(session, now),
+	};
+}
+
 // ── Session Notes Frontmatter ────────────────────────────────
 
 /** Structured frontmatter fields for a session notes file. */
 export interface SessionFrontmatter {
+	// ── Identity ──────────────────────────────────────────────
+	type: "SessionNote";
 	title: string;
-	type: string;
+	sessionId: string;
+	sessionType: string;
 	status: string;
+	// ── Timing ────────────────────────────────────────────────
 	duration: number;
 	created: string;
 	started?: string;
 	completed?: string;
+	// ── Context ───────────────────────────────────────────────
 	focusFile?: string;
 	canvasFile?: string;
-	sessionId: string;
+	energy?: number;
+	intent?: string;
+	// ── Activity Intelligence (FR-15) ─────────────────────────
+	filesModified?: number;
+	artifactsProduced?: number;
+	tasksCompleted?: number;
+	eventsEmitted?: number;
+	wallClockMs?: number;
+	activeTimeMs?: number;
+	pauseTimeMs?: number;
 }
 
 /** Generates the YAML frontmatter record for a session. */
-export function generateSessionFrontmatter(session: Session): SessionFrontmatter {
+export function generateSessionFrontmatter(session: Session, globalFilter: string[] = []): SessionFrontmatter {
 	const fm: SessionFrontmatter = {
+		type: "SessionNote",
 		title: session.title,
-		type: session.type,
+		sessionId: session.id,
+		sessionType: session.type,
 		status: session.status,
 		duration: session.durationMinutes,
 		created: session.createdAt,
-		sessionId: session.id,
 	};
 	if (session.startedAt) fm.started = session.startedAt;
 	if (session.completedAt) fm.completed = session.completedAt;
 	if (session.focusFile) fm.focusFile = session.focusFile;
 	if (session.canvasFile) fm.canvasFile = session.canvasFile;
+	if (session.energy !== null && session.energy !== undefined) fm.energy = session.energy;
+	if (session.intent) fm.intent = session.intent.primaryOutcome;
+
+	// Activity Intelligence metrics (flat key:value, no objects)
+	const intel = computeActivityIntelligence(session, Date.now(), globalFilter);
+	if (intel.filesModified > 0) fm.filesModified = intel.filesModified;
+	if (intel.artifactsProduced > 0) fm.artifactsProduced = intel.artifactsProduced;
+	if (intel.tasksCompleted > 0) fm.tasksCompleted = intel.tasksCompleted;
+	if (intel.eventsEmitted > 0) fm.eventsEmitted = intel.eventsEmitted;
+	if (intel.wallClockMs > 0) fm.wallClockMs = intel.wallClockMs;
+	if (intel.activeTimeMs > 0) fm.activeTimeMs = intel.activeTimeMs;
+	if (intel.pauseTimeMs > 0) fm.pauseTimeMs = intel.pauseTimeMs;
+
 	return fm;
 }
 
@@ -420,7 +477,7 @@ function parseFrontmatter(content: string): { fields: Record<string, string>; bo
 const SESSION_SUMMARY_MARKER = "## Session Summary";
 
 /** Generates the markdown summary body (everything below the frontmatter). */
-export function generateSessionSummaryBody(session: Session): string {
+export function generateSessionSummaryBody(session: Session, globalFilter: string[] = []): string {
 	const lines: string[] = [];
 
 	lines.push(SESSION_SUMMARY_MARKER);
@@ -494,20 +551,25 @@ export function generateSessionSummaryBody(session: Session): string {
 		lines.push("");
 	}
 
+	// Closure Ritual (FR-14) — captures the session's closure response
+	if (session.closureResponse) {
+		const cr = session.closureResponse;
+		lines.push("### Closure Ritual");
+		lines.push(`- **Outcome achieved:** ${cr.outcomeAchieved}`);
+		if (cr.whatWorked.trim()) lines.push(`- **What worked:** ${cr.whatWorked.trim()}`);
+		if (cr.whatDidnt.trim()) lines.push(`- **What didn't:** ${cr.whatDidnt.trim()}`);
+		if (cr.nextAction.trim()) lines.push(`- **Next action:** ${cr.nextAction.trim()}`);
+		for (const [key, value] of Object.entries(cr.answers)) {
+			if (value.trim()) lines.push(`- **${key}:** ${value.trim()}`);
+		}
+		lines.push("");
+	}
+
 	// Context Bindings
 	if (session.contextBindings && session.contextBindings.length > 0) {
 		lines.push("### Context Bindings");
 		for (const b of session.contextBindings) {
 			lines.push(`- **${b.type}**: [[${b.path}]] *(${b.label})*`);
-		}
-		lines.push("");
-	}
-
-	// Artifacts
-	if (session.artifacts.length > 0) {
-		lines.push("### Artifacts");
-		for (const a of session.artifacts) {
-			lines.push(`- [[${a.path}]] *(${a.action})*`);
 		}
 		lines.push("");
 	}
@@ -522,14 +584,32 @@ export function generateSessionSummaryBody(session: Session): string {
 		lines.push("");
 	}
 
-	// Time summary
-	const summary = computeTimelineSummary(session);
-	if (summary.wallClockMs > 0) {
-		lines.push("### Time Summary");
-		lines.push(`- **Wall clock:** ${formatDurationHuman(summary.wallClockMs)}`);
-		lines.push(`- **Active time:** ${formatDurationHuman(summary.activeTimeMs)}`);
-		if (summary.pauseCount > 0) {
-			lines.push(`- **Total pause:** ${formatDurationHuman(summary.totalPauseMs)} (${summary.pauseCount} pause${summary.pauseCount > 1 ? "s" : ""})`);
+	// Activity Intelligence (FR-15) — single aggregated section replacing
+	// the former Artifacts, Activity Intelligence, and Time Summary sections.
+	const perFilter = session.activityFilter ?? [];
+	const intel = computeActivityIntelligence(session, Date.now(), globalFilter);
+	const filteredArtifacts = (session.artifacts ?? []).filter((a) => !isExcluded(a.path, globalFilter, perFilter));
+	const hasActivity = intel.filesModified > 0 || intel.artifactsProduced > 0
+		|| intel.tasksCompleted > 0 || intel.eventsEmitted > 0 || intel.wallClockMs > 0;
+	if (hasActivity) {
+		lines.push("### Activity Intelligence");
+		lines.push(`- **Files modified:** ${intel.filesModified}`);
+		lines.push(`- **Artifacts produced:** ${intel.artifactsProduced}`);
+		lines.push(`- **Tasks completed:** ${intel.tasksCompleted}`);
+		lines.push(`- **Events emitted:** ${intel.eventsEmitted}`);
+		if (intel.wallClockMs > 0) {
+			lines.push(`- **Wall clock:** ${formatDurationHuman(intel.wallClockMs)}`);
+			lines.push(`- **Active time:** ${formatDurationHuman(intel.activeTimeMs)}`);
+			if (intel.pauseTimeMs > 0) {
+				lines.push(`- **Pause time:** ${formatDurationHuman(intel.pauseTimeMs)}`);
+			}
+		}
+		if (filteredArtifacts.length > 0) {
+			lines.push("");
+			lines.push("**Artifacts:**");
+			for (const a of filteredArtifacts) {
+				lines.push(`- [[${a.path}]] *(${a.action})*`);
+			}
 		}
 		lines.push("");
 	}
@@ -546,11 +626,11 @@ export function generateSessionSummaryBody(session: Session): string {
  * - Body: everything before the `## Session Summary` marker is preserved (user content).
  *   The summary section is replaced with the latest session data.
  */
-export function mergeSessionNotes(existingContent: string, session: Session): string {
+export function mergeSessionNotes(existingContent: string, session: Session, globalFilter: string[] = []): string {
 	const { fields: existingFm, body: existingBody } = parseFrontmatter(existingContent);
 
 	// Merge frontmatter: session fields overwrite, user fields preserved
-	const sessionFm = generateSessionFrontmatter(session);
+	const sessionFm = generateSessionFrontmatter(session, globalFilter);
 	const merged: Record<string, unknown> = { ...existingFm, ...sessionFm };
 
 	// Split body at session summary marker — everything before is user content
@@ -559,7 +639,7 @@ export function mergeSessionNotes(existingContent: string, session: Session): st
 		? existingBody.substring(0, markerIndex).trimEnd()
 		: existingBody.trimEnd();
 
-	const summaryBody = generateSessionSummaryBody(session);
+	const summaryBody = generateSessionSummaryBody(session, globalFilter);
 
 	const parts = [serializeFrontmatter(merged)];
 	if (userContent) {
@@ -620,7 +700,7 @@ export function reverseParseSessionNotes(content: string): ReverseParsedNotes {
 	if (markerIdx < 0) return empty;
 	const summarySection = content.substring(markerIdx);
 
-	const sectionHeadings = ["### Guiding Questions", "### Goals", "### Execution Plan", "### Session Notes", "### Decisions", "### Context Bindings", "### Artifacts", "### Timeline", "### Time Summary"];
+	const sectionHeadings = ["### Guiding Questions", "### Goals", "### Execution Plan", "### Session Notes", "### Decisions", "### Reflections", "### Closure Ritual", "### Context Bindings", "### Timeline", "### Activity Intelligence", "### Artifacts", "### Time Summary"];
 
 	const goalsText = parseSectionText(summarySection, "### Goals", sectionHeadings.filter(h => h !== "### Goals"));
 	const tasksText = parseSectionText(summarySection, "### Execution Plan", sectionHeadings.filter(h => h !== "### Execution Plan"));
@@ -684,10 +764,10 @@ export function computeReverseSyncDiff(session: Session, parsed: ReverseParsedNo
  * Generates a full Markdown summary for a session (frontmatter + body).
  * Used for creating new notes files. For existing files, use mergeSessionNotes.
  */
-export function generateSessionSummary(session: Session): string {
-	const fm = serializeFrontmatter({ ...generateSessionFrontmatter(session) });
+export function generateSessionSummary(session: Session, globalFilter: string[] = []): string {
+	const fm = serializeFrontmatter({ ...generateSessionFrontmatter(session, globalFilter) });
 	const title = `# ${session.title}`;
-	const body = generateSessionSummaryBody(session);
+	const body = generateSessionSummaryBody(session, globalFilter);
 	return `${fm}\n\n${title}\n\n${body}\n`;
 }
 

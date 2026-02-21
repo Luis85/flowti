@@ -166,17 +166,19 @@ interface SessionHandlerContext {
 - Analytics included in session summary (note sync)
 
 **Acceptance criteria:**
-- [ ] `computeActivityIntelligence()` returns correct counters for all fields
-- [ ] Stats row visible in session workspace (both sidebar and main)
-- [ ] Analytics included in session summary when syncing notes
-- [ ] Pure function — no side effects, < 16ms computation
-- [ ] `npm test` passes with new tests
+- [x] `computeActivityIntelligence()` returns correct counters for all fields
+- [x] Stats row visible in session workspace (both sidebar and main)
+- [x] Analytics included in session summary when syncing notes
+- [x] Pure function — no side effects, < 16ms computation
+- [x] `npm test` passes with new tests
 
 **Test intent:** ~15 tests: edge cases (empty session, single activity, many activities), counter accuracy, time computation.
 
 **Documentation intent:** Update PRD FR-15 status to delivered. Update FRI if applicable.
 
 **Effort:** Small — pure computation on existing data, ~100 LOC production, ~15 tests.
+
+**Delivery (2026-02-21):** FR-15 delivered with user-directed scope expansions. `computeActivityIntelligence()` pure function (7 metrics: filesModified, artifactsProduced, tasksCompleted, eventsEmitted, wallClockMs, activeTimeMs, pauseTimeMs). `SessionActivityIntelligencePanel` component (67 LOC). Unified `### Activity Intelligence` section replaces former Artifacts + Time Summary. Artifact wiki-links. `### Closure Ritual` section in session notes. `SessionFrontmatter` restructured: `type: "SessionNote"` literal, flat activity metrics, `sessionType`, `energy`, `intent`. `isExcluded()` filter threading through all note generation (global + per-session, retroactive). FRI 30→31 (ui_consistency 3→4). 60 new tests, 2,849 total, 111 suites. TASM: **33/35 (Excellent)**. PBI-SW-015 **Done**.
 
 ### Inc 4: Hardening + Debt Cleanup
 
