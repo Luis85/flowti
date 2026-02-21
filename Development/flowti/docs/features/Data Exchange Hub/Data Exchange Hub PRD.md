@@ -55,8 +55,8 @@ Users can manage master data end-to-end within Obsidian: import CSV files as not
 ### Out of Scope
 
 - Real-time sync / watcher-based auto-reimport (future)
-- Canvas file import
-- Non-CSV formats (JSON, XML, Excel)
+- Canvas file import — moved to [[Obsidian Canvas Integration PRD]] as dedicated feature
+- Non-CSV formats (JSON, XML, Excel) — except EDI (see [[PBI-005 EDI Format Support]])
 - Direct database connectivity
 - Multi-user collaboration / merge conflict resolution
 
@@ -175,3 +175,17 @@ Users can manage master data end-to-end within Obsidian: import CSV files as not
 - Integration tests cover end-to-end import and export pipelines
 - Event catalog updated with all `dataExchange.*` events
 - `npm run build` passes (vitest, tsc, eslint, esbuild)
+
+## 14. Extended Backlog (from Inbox Triage 2026-02-20)
+
+| PBI | Title | Status | Priority | Source |
+|-----|-------|--------|----------|--------|
+| [[PBI-001 CSV Import Pipeline]] | CSV import pipeline | Done | — | Original scope |
+| [[PBI-002 Data Export Pipeline]] | Data export pipeline | Done | — | Original scope |
+| [[PBI-003 Data Dictionary and Hub Overview]] | Data dictionary and hub overview | Done | — | Original scope |
+| [[PBI-004 Advanced Data Workflows]] | Advanced data workflows | Done | — | Original scope |
+| [[PBI-005 EDI Format Support]] | EDI format as import source | Discovery | Low | [[EDI Integration]] |
+| [[PBI-006 Pipeline Multi-Source Merge]] | Multi-source merge with master data builder | Planned | High (RB-7) | [[Pipeline multi-source merge with master data builder]] |
+| [[PBI-007 Pipeline Step Preview]] | Intermediate Base views between pipeline steps | Discovery | Medium | [[Pipeline step preview with intermediate Base views]] |
+
+> **Canvas import**: Moved to dedicated [[Obsidian Canvas Integration PRD]] with PBI-CAN-001 through PBI-CAN-003.
