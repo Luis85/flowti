@@ -159,6 +159,34 @@ describe("NudgeService", () => {
 			expect(triggered).not.toHaveBeenCalled();
 		});
 
+		it("emits nudge.triggered before persisting dismiss state", async () => {
+			const callOrder: string[] = [];
+
+			// Track emit order
+			eventBus.on("nudge.triggered", () => {
+				callOrder.push("emitted");
+			});
+
+			// Track save order via storage mock
+			const originalSave = storage.storage.save;
+			storage.storage.save = async (state) => {
+				callOrder.push("saved");
+				return originalSave(state);
+			};
+
+			await service.load();
+			await eventBus.emit("nudge.configure", {
+				config: { ...DEFAULT_NUDGE_CONFIGS[0], enabled: true },
+			});
+			callOrder.length = 0; // Reset after configure save
+
+			currentTime = [9, 0];
+			await service.evaluate();
+
+			expect(callOrder[0]).toBe("emitted");
+			expect(callOrder[1]).toBe("saved");
+		});
+
 		it("auto-dismisses after triggering (prevents duplicate trigger same minute)", async () => {
 			const triggered = vi.fn();
 			eventBus.on("nudge.triggered", triggered);

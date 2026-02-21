@@ -3,10 +3,12 @@ type: TechDebt
 severity: medium
 category: correctness
 layer: infrastructure
-status: open
+status: resolved
 created: 2026-02-15
+updated: 2026-02-21
 effort: small
-description: "After processFrontMatter(), EventBridge reads metadataCache immediately. Cache may not have been updated yet, returning stale frontmatter in the response."
+resolved_in: "Cycle 10 Inc 4"
+description: "EventBridge frontmatter.update now captures merged frontmatter from the processFrontMatter callback instead of reading from metadataCache. Response data is always fresh."
 source: "[[PRD Audit 2026-02-15]]"
 tags:
   - prd-audit

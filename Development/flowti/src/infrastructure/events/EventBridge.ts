@@ -339,21 +339,20 @@ export class EventBridge implements IEventBridge {
 						throw new Error(`File not found: ${path}`);
 					}
 
+					let mergedFrontmatter: Record<string, unknown> = {};
 					await this.app.fileManager.processFrontMatter(
 						file,
 						(frontmatter) => {
 							Object.assign(frontmatter, data);
+							mergedFrontmatter = { ...frontmatter };
 						}
 					);
-
-					const cache = this.app.metadataCache.getFileCache(file);
-					const updatedData = cache?.frontmatter ?? {};
 
 					await this.eventBus.emit("frontmatter.update.response", {
 						requestId,
 						success: true,
 						path,
-						data: updatedData,
+						data: mergedFrontmatter,
 					});
 				} catch (error) {
 					await this.eventBus.emit("frontmatter.update.response", {

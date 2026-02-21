@@ -115,10 +115,10 @@ export class NudgeService {
 			if (this.state.dismissedToday.includes(config.id)) continue;
 			if (this.isSessionTypeActive(config.sessionType)) continue;
 
-			// Auto-dismiss after triggering (prevents re-trigger same minute)
+			// Emit first, then persist dismiss (prevents lost nudge if handler fails)
+			await this.eventBus?.emit("nudge.triggered", { config: { ...config } });
 			this.state.dismissedToday.push(config.id);
 			await this.saveState();
-			await this.eventBus?.emit("nudge.triggered", { config: { ...config } });
 		}
 	}
 

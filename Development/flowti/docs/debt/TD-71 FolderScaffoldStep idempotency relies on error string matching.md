@@ -3,10 +3,12 @@ type: TechDebt
 severity: medium
 category: fragility
 layer: domain
-status: open
+status: resolved
 created: 2026-02-15
+updated: 2026-02-21
 effort: small
-description: "FolderScaffoldStep catches errors and checks error.message.includes('already exists') for idempotency. This is coupled to Obsidian's internal error wording."
+resolved_in: "Cycle 10 Inc 4"
+description: "FolderScaffoldStep now uses fileExists() check before createFile() instead of error string matching. Locale-independent and robust against Obsidian error message changes."
 source: "[[PRD Audit 2026-02-15]]"
 tags:
   - prd-audit

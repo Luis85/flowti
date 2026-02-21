@@ -723,13 +723,13 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 		const { workspace } = this.app;
 		const existing = workspace.getLeavesOfType(VIEW_TYPE_EVENT_LOG);
 		if (existing.length > 0) {
-			workspace.revealLeaf(existing[0]);
+			void workspace.revealLeaf(existing[0]);
 			return;
 		}
 		const leaf = workspace.getRightLeaf(false);
 		if (leaf) {
 			void leaf.setViewState({ type: VIEW_TYPE_EVENT_LOG, active: true });
-			workspace.revealLeaf(leaf);
+			void workspace.revealLeaf(leaf);
 		}
 	}
 }

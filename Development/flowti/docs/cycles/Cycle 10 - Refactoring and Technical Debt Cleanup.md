@@ -232,7 +232,7 @@ This is a dedicated maintenance cycle. No new features are delivered. The goal i
 
 **Documentation intent:** Update TD-105, TD-117, TD-72 status to resolved. Document EventBus error boundary pattern in review (potential ADR candidate).
 
-**Delivery notes (2026-02-21):** 2 items implemented (TD-105, TD-117) + 1 confirmed pre-resolved (TD-72). 3 files changed (+25 source, +65 test). 6 new tests (EventBus error boundary). 2,880 tests passing, 0 failures. TASM 33/35. Deviations: TD-72 already resolved in code (documentation lag); TD-105 uses `onError` callback instead of ErrorService (infinite recursion risk); 19 lint warnings expected from `no-floating-promises` at warn level. See [[Cycle 10 Inc 3 Review - EventBus Resilience]].
+**Delivery notes (2026-02-21):** 2 items implemented (TD-105, TD-117) + 1 confirmed pre-resolved (TD-72). 3 files changed (+25 source, +65 test). 6 new tests (EventBus error boundary). 2,880 tests passing, 0 failures. TASM 33/35. Deviations: TD-72 already resolved in code (documentation lag); TD-105 uses `onError` callback instead of ErrorService (infinite recursion risk). All 19 `no-floating-promises` lint warnings resolved post-Inc 4 (see Inter-increment cleanup below). See [[Cycle 10 Inc 3 Review - EventBus Resilience]].
 
 ---
 
@@ -257,15 +257,19 @@ This is a dedicated maintenance cycle. No new features are delivered. The goal i
 - Files: ~7
 
 **Acceptance criteria:**
-- [ ] `generateEventKey()` produces deterministic keys regardless of path presence
-- [ ] `file.renamed` events always include both `oldPath` and `newPath`
-- [ ] Frontmatter update responses reflect committed values
-- [ ] Folder scaffold checks existence before creation (no error string matching)
-- [ ] NudgeService emits trigger before persisting dismiss state
-- [ ] CSV column headers are sanitized before use as YAML keys
-- [ ] `npm test` green
+- [x] `generateEventKey()` produces deterministic keys regardless of path presence
+- [x] `file.renamed` events always include both `oldPath` and `newPath`
+- [x] Frontmatter update responses reflect committed values
+- [x] Folder scaffold checks existence before creation (no error string matching)
+- [x] NudgeService emits trigger before persisting dismiss state
+- [x] CSV column headers are sanitized before use as YAML keys
+- [x] `npm test` green
 
 **Documentation intent:** Update TD-62, TD-64, TD-67, TD-71, TD-108, TD-109 status to resolved.
+
+**Delivery notes (2026-02-21):** 4 items implemented (TD-67, TD-71, TD-108, TD-109) + 2 confirmed pre-resolved (TD-62, TD-64). 4 source files + 4 test files changed. 9 new tests. 2,889 tests passing, 0 failures. TASM 33/35. Deviations: TD-62 and TD-64 already resolved in code (documentation lag); TD-67 captures merged frontmatter from callback instead of omitting data; TD-108 simplified to reorder emit/persist without try-catch wrapper. See [[Cycle 10 Inc 4 Review - Infrastructure Correctness]].
+
+**Inter-increment cleanup (post-Inc 4):** Resolved all 19 `no-floating-promises` ESLint warnings introduced by TD-117 (Inc 3). All were `workspace.revealLeaf()` fire-and-forget calls (18) plus one `onLayoutReady()` call — fixed by adding `void` prefix. 10 source files changed (+19 `void` keywords). `npm test` green: 0 warnings, 0 errors, 2,889 tests.
 
 ---
 

@@ -135,20 +135,32 @@ export class ImportService {
 	}
 
 	/**
+	 * Sanitizes a string for use as a YAML frontmatter key.
+	 * Replaces non-alphanumeric characters (except hyphens and underscores)
+	 * and ensures the key starts with a letter or underscore.
+	 */
+	sanitizeYamlKey(key: string): string {
+		if (!key) return "_empty";
+		const sanitized = key.replace(/[^a-zA-Z0-9_-]/g, "_");
+		return /^[a-zA-Z_]/.test(sanitized) ? sanitized : `_${sanitized}`;
+	}
+
+	/**
 	 * Builds Markdown content with YAML frontmatter.
 	 */
 	buildNoteContent(frontmatter: Record<string, string>): string {
 		const lines = ["---"];
 		for (const [key, value] of Object.entries(frontmatter)) {
+			const safeKey = this.sanitizeYamlKey(key);
 			const needsQuotes =
 				/[:#{}[\],&*?|>!%@`]/.test(value) ||
 				value.includes("\n") ||
 				value.includes('"');
 			if (needsQuotes) {
 				const escaped = value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-				lines.push(`${key}: "${escaped}"`);
+				lines.push(`${safeKey}: "${escaped}"`);
 			} else {
-				lines.push(`${key}: ${value}`);
+				lines.push(`${safeKey}: ${value}`);
 			}
 		}
 		lines.push("---", "", "");

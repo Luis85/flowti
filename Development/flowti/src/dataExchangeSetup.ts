@@ -313,7 +313,7 @@ export class DataExchangeSetup {
 		this.pendingExportConfig = { sourcePath, sourceType, format };
 		const leaf = this.deps.app.workspace.getLeaf(true);
 		void leaf.setViewState({ type: VIEW_TYPE_EXPORT, active: true });
-		this.deps.app.workspace.revealLeaf(leaf);
+		void this.deps.app.workspace.revealLeaf(leaf);
 	}
 
 	openCsvImportWithConfig(csvPath: string, savedConfig?: SavedImportConfig): void {
@@ -337,7 +337,7 @@ export class DataExchangeSetup {
 		this.pendingSavedExportConfig = savedConfig;
 		const leaf = this.deps.app.workspace.getLeaf(true);
 		void leaf.setViewState({ type: VIEW_TYPE_EXPORT, active: true });
-		this.deps.app.workspace.revealLeaf(leaf);
+		void this.deps.app.workspace.revealLeaf(leaf);
 	}
 
 	private openHubImportConfig(configId: string): void {
@@ -346,14 +346,14 @@ export class DataExchangeSetup {
 		if (existing.length > 0) {
 			const view = existing[0].view as DataExchangeHubView;
 			view.showImportConfig(configId);
-			workspace.revealLeaf(existing[0]);
+			void workspace.revealLeaf(existing[0]);
 			return;
 		}
 		const leaf = workspace.getLeaf(true);
 		void leaf.setViewState({ type: VIEW_TYPE_DATA_EXCHANGE_HUB, active: true }).then(() => {
 			const view = leaf.view as DataExchangeHubView;
 			view.showImportConfig(configId);
-			workspace.revealLeaf(leaf);
+			void workspace.revealLeaf(leaf);
 		});
 	}
 }

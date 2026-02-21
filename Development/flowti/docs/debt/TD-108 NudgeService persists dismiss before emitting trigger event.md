@@ -3,10 +3,12 @@ type: TechDebt
 severity: low
 category: race-condition
 layer: domain
-status: open
+status: resolved
 created: 2026-02-20
+updated: 2026-02-21
 effort: small
-description: "NudgeService.evaluate() persists the dismiss state and saves to storage before emitting nudge.triggered. If the event handler fails, the nudge won't re-trigger until the next day's rollover."
+resolved_in: "Cycle 10 Inc 4"
+description: "NudgeService.evaluate() now emits nudge.triggered before persisting dismiss state. If the handler fails, the nudge is not consumed and will re-trigger on the next evaluation cycle."
 ---
 
 # TD-108: NudgeService persists dismiss before emitting trigger event

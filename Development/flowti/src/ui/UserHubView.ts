@@ -191,7 +191,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 						const leaf = existing ?? this.app.workspace.getRightLeaf(false);
 						if (leaf) {
 							void leaf.setViewState({ type: VIEW_TYPE_SESSION_WORKSPACE, active: true, state: { sessionId } });
-							this.app.workspace.revealLeaf(leaf);
+							void this.app.workspace.revealLeaf(leaf);
 						}
 					}, 0);
 				} else {
@@ -348,7 +348,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 						const leaf = existing ?? this.app.workspace.getRightLeaf(false);
 						if (leaf) {
 							void leaf.setViewState({ type: VIEW_TYPE_SESSION_WORKSPACE, active: true, state: { sessionId } });
-							this.app.workspace.revealLeaf(leaf);
+							void this.app.workspace.revealLeaf(leaf);
 						}
 					}, 0);
 				} else {

@@ -95,14 +95,14 @@ export function openEventInCatalog(app: App, eventType: string): void {
 	const { workspace } = app;
 	const existing = workspace.getLeavesOfType(VIEW_TYPE_EVENT_CATALOG);
 	if (existing.length > 0) {
-		workspace.revealLeaf(existing[0]);
+		void workspace.revealLeaf(existing[0]);
 		const view = existing[0].view as EventCatalogView;
 		view.navigateToEvent(eventType);
 		return;
 	}
 	const leaf = workspace.getLeaf(true);
 	void leaf.setViewState({ type: VIEW_TYPE_EVENT_CATALOG, active: true }).then(() => {
-		workspace.revealLeaf(leaf);
+		void workspace.revealLeaf(leaf);
 		setTimeout(() => {
 			const view = leaf.view as EventCatalogView;
 			view.navigateToEvent(eventType);

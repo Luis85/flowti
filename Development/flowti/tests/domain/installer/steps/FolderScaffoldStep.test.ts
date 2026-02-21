@@ -76,14 +76,13 @@ describe("FolderScaffoldStep", () => {
 		}
 	});
 
-	it("should continue if file already exists (idempotent)", async () => {
+	it("should skip existing files via fileExists check (idempotent)", async () => {
 		const deps = createMockDeps();
-		let callCount = 0;
-		vi.mocked(deps.fileSystem.createFile).mockImplementation(async () => {
-			callCount++;
-			if (callCount === 1) {
-				throw new Error("File already exists: 00 - Connectivity/.gitkeep");
-			}
+		let fileExistsCallCount = 0;
+		vi.mocked(deps.fileSystem.fileExists).mockImplementation(async () => {
+			fileExistsCallCount++;
+			// First folder already exists
+			return fileExistsCallCount === 1;
 		});
 
 		const context: InstallerContext = {};
@@ -91,6 +90,26 @@ describe("FolderScaffoldStep", () => {
 
 		expect(result.status).toBe("completed");
 		expect(context.createdFolders).toHaveLength(DEFAULT_IBDE_FOLDERS.length);
+		// First folder skipped (exists), rest created
+		expect(deps.fileSystem.createFile).toHaveBeenCalledTimes(DEFAULT_IBDE_FOLDERS.length - 1);
+	});
+
+	it("should not rely on error string matching for idempotency", async () => {
+		const deps = createMockDeps();
+		// fileExists returns false, but createFile throws a non-English error
+		vi.mocked(deps.fileSystem.fileExists).mockResolvedValue(false);
+		vi.mocked(deps.fileSystem.createFile).mockImplementation(async (path: string) => {
+			if (path.includes("00 - Connectivity")) {
+				throw new Error("El archivo ya existe"); // Non-English error
+			}
+		});
+
+		const context: InstallerContext = {};
+		const result = await step.execute(context, deps);
+
+		// Should properly fail (not silently continue via string matching)
+		expect(result.status).toBe("failed");
+		expect(result.message).toContain("00 - Connectivity");
 	});
 
 	it("should fail and report which folder failed on other errors", async () => {

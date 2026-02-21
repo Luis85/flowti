@@ -3,10 +3,12 @@ type: TechDebt
 severity: medium
 category: consistency
 layer: infrastructure
-status: open
+status: resolved
 created: 2026-02-15
+updated: 2026-02-21
 effort: small
-description: "file.renamed uses { oldPath, newPath } while all other file events use { path }. Generic path extraction via extractStringField(payload, 'path') returns undefined for renames."
+resolved_in: "Pre-Cycle 10 (confirmed Cycle 10 Inc 4)"
+description: "file.renamed payload now includes path (= newPath) alongside oldPath and newPath. Both the type definition in events.ts and the emission in EventBridge.ts already have this fix."
 source: "[[PRD Audit 2026-02-15]]"
 tags:
   - prd-audit

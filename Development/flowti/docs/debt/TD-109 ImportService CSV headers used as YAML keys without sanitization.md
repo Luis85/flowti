@@ -3,10 +3,12 @@ type: TechDebt
 severity: low
 category: security
 layer: domain
-status: open
+status: resolved
 created: 2026-02-20
+updated: 2026-02-21
 effort: small
-description: "ImportService.buildNoteContent() escapes YAML values but uses CSV column headers directly as frontmatter keys without validating they are safe YAML field names."
+resolved_in: "Cycle 10 Inc 4"
+description: "ImportService.buildNoteContent() now sanitizes YAML keys via sanitizeYamlKey(). Special characters replaced with underscores, keys starting with digits prefixed with underscore."
 ---
 
 # TD-109: ImportService CSV headers used as YAML keys without sanitization

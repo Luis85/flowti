@@ -181,7 +181,7 @@ export class SessionSetup {
 					active: true,
 					state: sessionId ? { sessionId } : undefined,
 				});
-				this.deps.app.workspace.revealLeaf(leaf);
+				void this.deps.app.workspace.revealLeaf(leaf);
 			}
 		}, 0);
 	}

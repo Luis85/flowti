@@ -61,7 +61,7 @@ export class HubRegistry {
 				leaf = this.app.workspace.getLeaf("tab");
 				await leaf.setViewState({ type: viewType, active: true });
 			}
-			this.app.workspace.revealLeaf(leaf);
+			void this.app.workspace.revealLeaf(leaf);
 		} catch (err) {
 			console.error(`[Flowti] Failed to open hub "${hubId}":`, err);
 			return;

@@ -136,7 +136,7 @@ export function openInSidebar(ctx: WorkspaceHelperContext): void {
 		const leaf = existing ?? ctx.app.workspace.getRightLeaf(false);
 		if (leaf) {
 			void leaf.setViewState({ type: VIEW_TYPE_SESSION_WORKSPACE, active: true, state: { sessionId } });
-			ctx.app.workspace.revealLeaf(leaf);
+			void ctx.app.workspace.revealLeaf(leaf);
 		}
 	}, 0);
 }
@@ -150,7 +150,7 @@ export function revealInFileExplorer(ctx: WorkspaceHelperContext, path: string):
 	const explorers = ctx.app.workspace.getLeavesOfType("file-explorer");
 	if (explorers.length > 0) {
 		(explorers[0].view as unknown as { revealInFolder: (f: TAbstractFile) => void }).revealInFolder(folder);
-		ctx.app.workspace.revealLeaf(explorers[0]);
+		void ctx.app.workspace.revealLeaf(explorers[0]);
 	}
 }
 

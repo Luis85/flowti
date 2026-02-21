@@ -163,17 +163,17 @@ export class UiCommandService implements IDisposable {
 		const { workspace } = this.app;
 		const existing = workspace.getLeavesOfType(viewType);
 		if (existing.length > 0) {
-			workspace.revealLeaf(existing[0]);
+			void workspace.revealLeaf(existing[0]);
 		} else if (position === "right") {
 			const leaf = workspace.getRightLeaf(false);
 			if (leaf) {
 				void leaf.setViewState({ type: viewType, active: true });
-				workspace.revealLeaf(leaf);
+				void workspace.revealLeaf(leaf);
 			}
 		} else {
 			const leaf = workspace.getLeaf(true);
 			void leaf.setViewState({ type: viewType, active: true });
-			workspace.revealLeaf(leaf);
+			void workspace.revealLeaf(leaf);
 		}
 		void this.eventBus.emit("ui.opened", {
 			target,

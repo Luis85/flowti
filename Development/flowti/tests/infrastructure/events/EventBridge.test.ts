@@ -477,6 +477,39 @@ describe("EventBridge", () => {
 				})
 			);
 		});
+
+		it("should return merged frontmatter from callback, not stale cache", async () => {
+			const tFile = createTFile("test.md");
+			mockApp.vault.getAbstractFileByPath.mockReturnValue(tFile);
+
+			// Simulate existing frontmatter that gets merged
+			const existingFm: Record<string, unknown> = { title: "Original", tags: ["a"] };
+			mockApp.fileManager.processFrontMatter.mockImplementation(
+				async (_file: TFile, cb: (fm: Record<string, unknown>) => void) => {
+					cb(existingFm);
+				}
+			);
+
+			// Cache returns stale data (pre-update)
+			mockApp.metadataCache.getFileCache.mockReturnValue({
+				frontmatter: { title: "Stale" },
+			});
+
+			const handler = vi.fn();
+			eventBus.on("frontmatter.update.response", handler);
+
+			await eventBus.emit("frontmatter.update.request", {
+				requestId: "req-fm-stale" as RequestId,
+				path: "test.md",
+				data: { status: "done" },
+			});
+
+			const responseData = handler.mock.calls[0][0].payload.data;
+			// Should contain merged data, not stale cache
+			expect(responseData.status).toBe("done");
+			expect(responseData.title).toBe("Original");
+			expect(responseData).not.toHaveProperty("title", "Stale");
+		});
 	});
 
 	describe("frontmatter.set", () => {

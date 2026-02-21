@@ -89,6 +89,32 @@ describe("ImportService", () => {
 		});
 	});
 
+	describe("sanitizeYamlKey", () => {
+		it("should pass through clean keys unchanged", () => {
+			expect(service.sanitizeYamlKey("name")).toBe("name");
+			expect(service.sanitizeYamlKey("my-key")).toBe("my-key");
+			expect(service.sanitizeYamlKey("my_key")).toBe("my_key");
+		});
+
+		it("should replace special characters with underscores", () => {
+			expect(service.sanitizeYamlKey("key: value")).toBe("key__value");
+			expect(service.sanitizeYamlKey("a.b.c")).toBe("a_b_c");
+			expect(service.sanitizeYamlKey("col #1")).toBe("col__1");
+		});
+
+		it("should prefix with underscore when starting with a digit", () => {
+			expect(service.sanitizeYamlKey("123abc")).toBe("_123abc");
+		});
+
+		it("should prefix with underscore when starting with a hyphen", () => {
+			expect(service.sanitizeYamlKey("-key")).toBe("_-key");
+		});
+
+		it("should handle empty string", () => {
+			expect(service.sanitizeYamlKey("")).toBe("_empty");
+		});
+	});
+
 	describe("buildNoteContent", () => {
 		it("should build valid YAML frontmatter", () => {
 			const content = service.buildNoteContent({ name: "Alice", age: "30" });
@@ -109,6 +135,13 @@ describe("ImportService", () => {
 		it("should escape double quotes in values", () => {
 			const content = service.buildNoteContent({ name: 'He said "hi"' });
 			expect(content).toContain('name: "He said \\"hi\\""');
+		});
+
+		it("should sanitize keys with special characters", () => {
+			const content = service.buildNoteContent({ "col: 1": "value", "2nd": "other" });
+			expect(content).toContain("col__1: value");
+			expect(content).toContain("_2nd: other");
+			expect(content).not.toContain("col: 1:");
 		});
 	});
 

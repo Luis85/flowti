@@ -223,7 +223,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			// ── Phase 6: Post-load ────────────────────────────────────
 			// Deferred until Obsidian's workspace layout is ready.
 			this.app.workspace.onLayoutReady(() => {
-				this.onLayoutReady();
+				void this.onLayoutReady();
 			});
 
 			// Emit plugin.loaded event

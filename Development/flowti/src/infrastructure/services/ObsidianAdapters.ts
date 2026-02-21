@@ -115,7 +115,7 @@ export function createWorkspaceService(app: App): IWorkspaceService {
 		async openView(viewType: string): Promise<void> {
 			const leaf = app.workspace.getLeaf(true);
 			await leaf.setViewState({ type: viewType, active: true });
-			app.workspace.revealLeaf(leaf);
+			void app.workspace.revealLeaf(leaf);
 		},
 	};
 }

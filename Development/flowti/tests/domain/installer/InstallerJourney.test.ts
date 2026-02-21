@@ -301,7 +301,7 @@ describe("Journey: Restart from Settings", () => {
 
 	it("should skip existing folders on re-run (FolderScaffoldStep idempotent)", async () => {
 		const createFileFn = vi.fn();
-		const { service } = buildInstaller({
+		const { service, fileSystem } = buildInstaller({
 			storage: mock.storage,
 			eventBus,
 			createFileFn,
@@ -309,11 +309,9 @@ describe("Journey: Restart from Settings", () => {
 		await service.load();
 		await service.runAll({ userName: "Alice" });
 
-		// All folders now exist — createFile will throw "already exists"
+		// All folders now exist — fileExists returns true
 		createFileFn.mockReset();
-		createFileFn.mockImplementation(async () => {
-			throw new Error("File already exists");
-		});
+		vi.mocked(fileSystem.fileExists).mockResolvedValue(true);
 
 		await service.reset();
 		const context: InstallerContext = { userName: "Alice" };
@@ -322,6 +320,8 @@ describe("Journey: Restart from Settings", () => {
 		expect(success).toBe(true);
 		// All folders still reported as created (idempotent)
 		expect(context.createdFolders).toEqual([...DEFAULT_IBDE_FOLDERS]);
+		// createFile should not be called since all files exist
+		expect(createFileFn).not.toHaveBeenCalled();
 	});
 
 	it("should persist the new installed state after successful re-run", async () => {

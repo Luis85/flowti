@@ -31,19 +31,16 @@ export class FolderScaffoldStep implements IInstallerStep {
 		for (const folder of DEFAULT_IBDE_FOLDERS) {
 			const placeholderPath = `${folder}/.gitkeep`;
 			try {
+				const exists = await deps.fileSystem.fileExists(placeholderPath);
+				if (exists) {
+					createdFolders.push(folder);
+					continue;
+				}
 				await deps.fileSystem.createFile(placeholderPath, "", {
 					createFolders: true,
 				});
 				createdFolders.push(folder);
 			} catch (error) {
-				// If file already exists, that's fine (idempotent)
-				if (
-					error instanceof Error &&
-					error.message.includes("already exists")
-				) {
-					createdFolders.push(folder);
-					continue;
-				}
 				context.createdFolders = createdFolders;
 				return {
 					status: "failed",
