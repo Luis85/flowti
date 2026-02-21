@@ -250,6 +250,7 @@ Sessions are the primary mechanism for focused, time-boxed content creation and 
 
 - [x] Personal dashboard with today's summary, recent activity, documentation nudges — *UserHubDashboard: welcome + cross-hub cards + quick actions*
 - [x] Inbox tab with actionable items from all domain hubs — *InboxService domain (increment 2→4): 6 source events (inc. pipeline completed/failed), persistent state, mark read/dismiss/clear all*
+- [ ] Vault folder inbox watching with inline triage — *PBI-005 (Cycle 12): 7th source type (`vaultFolder`), configure watched folders (recursive toggle), surface untyped notes, inline type/description editing, mark-as-read applies template frontmatter, route to target folder*
 - [x] Cross-hub summary aggregating stats from all registered hubs — *HubRegistry.getAll() → provider.getSummary() with tabId deep-linking*
 
 ### System Hub Migration
@@ -346,6 +347,22 @@ State containers (TypedStorage):
 - `sessions` — `{ sessions: Session[], savedTemplates: SessionTemplate[] }`
 - `inbox` — `{ items: InboxItem[] }`
 
+Planned extensions (PBI-005 — Vault Folder Inbox):
+
+```
+InboxItem (extended)
+  source: "subscription" | "import" | "export" | "pipeline" | "vaultFolder"  ← NEW
+
+VaultFolderWatchConfig  (new — persisted in SettingsService)
+  path: string  (vault folder path to watch)
+  recursive: boolean  (watch subfolders)
+  isPrimary: boolean  (primary inbox folder routes to target)
+
+InboxVaultFolderSettings  (new — extends inbox settings)
+  watchedFolders: VaultFolderWatchConfig[]
+  targetFolder: string  (destination for primary inbox items on mark-as-read)
+```
+
 ---
 
 ## 8. Event Impact
@@ -407,6 +424,12 @@ State containers (TypedStorage):
 - `doc.created` / `doc.deleted` — entity CRUD notifications
 - `inbox.itemAdded` / `inbox.itemsChanged` — *UserHubView re-renders on inbox changes*
 - `settings.changed` — *main.ts updates InboxService enabled sources*
+- `file.created` / `file.modified` — *PBI-005: InboxService listens for new/changed files in watched folders, creates inbox items for untyped notes*
+
+### Produced (planned — PBI-005 Vault Folder Inbox)
+
+- `inbox.vaultFolder.noteDetected` — payload: `{ path: string, title: string, hasType: boolean }` — *InboxService emits when untyped note found in watched folder*
+- `inbox.vaultFolder.noteTriaged` — payload: `{ path: string, type: string, targetPath: string }` — *InboxService emits when note marked as read with type/description*
 
 ### Transformed
 
@@ -518,6 +541,10 @@ The abstract `HubAdapter` interface was deferred (Three Amigos decision #2). Eac
 - [x] Adding a new Domain Hub requires only adapter + tab definitions (<200 LOC) — *UserHubView = 138 LOC*
 - [x] All existing 1,662+ tests pass after migration — *2,177 tests across 84 suites*
 - [x] `npm run build` passes (vitest + typedoc + tsc + eslint + esbuild) — *2,177 tests, green*
+- [ ] Vault folder inbox: untyped note in watched folder appears in inbox with "Vault Folder" source badge — *PBI-005 increment 1*
+- [ ] Vault folder inbox: inline type/description triage in inbox detail panel — *PBI-005 increment 2*
+- [ ] Vault folder inbox: mark-as-read applies template frontmatter and routes to target folder — *PBI-005 increment 2*
+- [ ] Vault folder inbox: per-source toggle and folder configuration in Settings — *PBI-005 increment 1*
 
 ---
 
@@ -566,6 +593,7 @@ New feature work items, each tracked as a separate PBI in `docs/features/Hubs/ba
 | [[PBI-002 Documentation Sessions]] | Time-boxed workflows with Pomodoro timer | **In progress** (10 done, 2 planned) | Inc 11: Focus Profiles; Inc 12: Spawning |
 | [[PBI-003 Product Hub]] | Product domain workspace | **PLANNED** | BaseHubView ✅ |
 | [[PBI-004 Project Hub]] | Project domain workspace | **PLANNED** | BaseHubView ✅ |
+| [[PBI-005 Vault Folder Inbox]] | Vault folder watching + inline triage for inbox | **PLANNED** (Cycle 12) | PBI-001 ✅ |
 
 ---
 
@@ -632,6 +660,18 @@ Resolved 2 blockers from Pre-Feature Development Review: (1) HubRegistry + HubDa
 
 ### Phase 5: Domain Hubs (PBI-003, PBI-004) — PLANNED
 
+Next increments planned (see backlog for full PBI details).
+
+### Phase 6: Vault Folder Inbox (PBI-005) — PLANNED (Cycle 12)
+
+Extends the User Hub Inbox from a passive notification center to an active vault folder triage workspace. Adds a 7th source type (`vaultFolder`) to InboxService, watches configured folders for untyped notes, and provides inline type/description editing with mark-as-read routing. See [[PBI-005 Vault Folder Inbox]] for full specification.
+
+**Increment 1** (PBI-005): Folder Watcher Core. `mapVaultFolderNote` mapper function, `INBOX_SOURCE_DEFINITIONS` extended with 7th entry, InboxService registers `file.created`/`file.modified` listeners filtered by watched folder paths. Settings: watched folders (add/remove paths, recursive toggle). Per-source toggle. Source badge "Vault Folder". ~200 LOC, ~20 tests.
+
+**Increment 2** (PBI-005): Triage & Routing. Inline type dropdown and description field in inbox detail panel for vault folder items. "Mark as Read" applies note template frontmatter via DocService, moves to target folder (primary) or applies in-place (secondary). Settings: target folder configuration. ~180 LOC, ~15 tests.
+
+### Phase 5 Detail: Domain Hubs
+
 Next increments planned (see backlog for full PBI details):
 
 **Increment 1** (PBI-003): Product Hub Scaffold. New `ProductHubView` extending `BaseHubView`, `ProductHubProvider` for cross-hub stats. Dashboard tab with product-scoped KPIs (features count, backlog size, maturity breakdown). Ribbon icon + command `flowti:open-product-hub`. Register in `HubRegistry`. Follows UserHubView pattern (~150 LOC estimated).
@@ -697,6 +737,7 @@ Next increments planned (see backlog for full PBI details):
 - Workspace: [[SessionWorkspaceView]] (Inc 7→10: ~1017 LOC, sidebar + activity consolidation + path reconciliation)
 - Modals: [[NewSessionModal]] (goals repeater, title validation), [[SaveTemplateModal]], [[VaultFilePickerModal]]
 - Domain: [[SessionService]], [[InboxService]]
+- PBI-005: [[PBI-005 Vault Folder Inbox]] (Cycle 12 — vault folder watching + inline triage)
 - Helpers: `src/domain/session/helpers.ts` (formatDuration, computeRemainingMs, computeElapsedMs, computeTimelineSummary, formatDurationHuman, generateSessionSummary, generateSessionFrontmatter, generateSessionSummaryBody, mergeSessionNotes)
 
 # Backlog

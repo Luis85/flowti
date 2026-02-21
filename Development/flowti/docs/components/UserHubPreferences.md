@@ -23,7 +23,7 @@ Profile changes are saved immediately via `userService.updateUserName()`. Inbox 
 | Dependency | Type | Purpose |
 |------------|------|---------|
 | `UserHubComponentDeps` | interface | Provides `getState()`, `setState()`, `eventBus`, `userService` |
-| `INBOX_SOURCE_DEFINITIONS` | constant | Array of 6 source definitions (event, label, desc) from `domain/inbox/types` |
+| `INBOX_SOURCE_DEFINITIONS` | constant | Array of 6 source definitions (event, label, desc) from `domain/inbox/types` — will grow to 7 with PBI-005 `vaultFolder` entry |
 | `setIcon` | obsidian | Renders settings icon in detail panel |
 
 ## State
@@ -40,6 +40,10 @@ Profile changes are saved immediately via `userService.updateUserName()`. Inbox 
 - **User Profile section**: display name label + text input (change event → `userService.updateUserName()`), User ID display (read-only). Shows "No user profile" message when no user exists.
 - **Inbox Sources section**: heading, descriptive text, and 6 checkbox toggles (one per `INBOX_SOURCE_DEFINITIONS` entry). Each toggle shows label and description text. Checking/unchecking emits `settings.updateInboxEnabledSources` with the updated sources array.
 
+**Planned extensions (PBI-005 — Cycle 12):**
+- **Vault Folder Configuration section**: add/remove watched folder paths with per-folder recursive toggle and primary/secondary designation. Configure target folder for primary inbox routing.
+- **7th inbox source toggle**: `vaultFolder` entry added to `INBOX_SOURCE_DEFINITIONS`, rendered as an additional checkbox in the Inbox Sources section.
+
 **Detail panel:**
 - Settings icon + "Preferences" heading + descriptive paragraph about auto-saving
 
@@ -54,3 +58,4 @@ Profile changes are saved immediately via `userService.updateUserName()`. Inbox 
 - Parent: [[UserHubView]]
 - Siblings: [[UserHubDashboard]], [[UserHubInbox]], [[UserHubSessions]]
 - Domain: `InboxService` (`src/domain/inbox/InboxService.ts`), `INBOX_SOURCE_DEFINITIONS` (`src/domain/inbox/types.ts`)
+- Planned: [[PBI-005 Vault Folder Inbox]] (folder configuration + 7th source toggle)
