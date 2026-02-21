@@ -6,10 +6,6 @@
   
       "outputs": [
         {
-            "name": "html",
-            "path": "./docs/reports/codebase"
-        },
-        {
             "name": "json",
             "path": "./docs/reports/codebase/codebase.json"
         },
