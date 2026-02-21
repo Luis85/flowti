@@ -26,6 +26,7 @@ import { SessionService } from "../../domain/session/SessionService";
 import { SignalService } from "../../domain/signal/SignalService";
 import { AzureDevOpsAdapter } from "../../domain/signal/adapters/AzureDevOpsAdapter";
 import { CaptureService } from "../../domain/capture/CaptureService";
+import { TrainService } from "../../domain/train/TrainService";
 import { DocService } from "../../domain/docs/DocService";
 import { FileSystemClient } from "../filesystem/FileSystemClient";
 import type { IServiceContainer, ServiceRegistration } from "./types";
@@ -267,6 +268,22 @@ export function createServiceRegistrations(
 					eventBus,
 					fileSystem: new FileSystemClient({ eventBus }),
 					getSettings: () => ({ captureFolder: "" }),
+				});
+			},
+		},
+
+		// Train Service - serial thought capture sessions
+		{
+			id: "trainService",
+			dependencies: ["captureService"],
+			factory: async (container: IServiceContainer) => {
+				const captureService = await container.get<CaptureService>("captureService");
+				const eventBus = container.getEventBus();
+				return new TrainService({
+					storage: createTypedStorage(storage, "trains", container),
+					eventBus,
+					fileSystem: new FileSystemClient({ eventBus }),
+					captureService,
 				});
 			},
 		},

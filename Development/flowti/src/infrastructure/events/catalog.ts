@@ -164,6 +164,7 @@ export const EVENT_CATEGORIES = [
 	"Nudge",
 	"Signal",
 	"Capture",
+	"Train",
 ] as const;
 
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
@@ -373,6 +374,7 @@ const CATALOG_DATA = {
 	"ui.openCsvImport":           { category: "UI Commands", description: "Open CSV import view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.openExport":              { category: "UI Commands", description: "Open export view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.openQuickCapture":        { category: "UI Commands", description: "Open the Quick Capture modal", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
+	"ui.startTrain":              { category: "UI Commands", description: "Start a Train of Thoughts serial capture session", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.opened":                  { category: "UI Commands", description: "A UI view or modal was opened", direction: "Internal", domain: "ui", services: "UiCommandService", tags: ["system"] },
 
 	// ── Hub ──────────────────────────────────────────────────
@@ -509,6 +511,12 @@ const CATALOG_DATA = {
 	"capture.idea.created":     { category: "Capture", description: "An idea was captured via Quick Capture", direction: "Service → Listeners", domain: "capture", services: "CaptureService" },
 	"capture.feedback.created": { category: "Capture", description: "Feedback was captured via Quick Capture", direction: "Service → Listeners", domain: "capture", services: "CaptureService" },
 	"capture.note.created":     { category: "Capture", description: "A note was created via Quick Capture (any type)", direction: "Service → Listeners", domain: "capture", services: "CaptureService" },
+
+	// ── Train ────────────────────────────────────────────────────
+	"train.started":        { category: "Train", description: "A train-of-thought capture session started", direction: "Service → Listeners", domain: "train", services: "TrainService" },
+	"train.thought.added":  { category: "Train", description: "A thought was captured and linked in the train", direction: "Service → Listeners", domain: "train", services: "TrainService" },
+	"train.paused":         { category: "Train", description: "Train capture was paused", direction: "Service → Listeners", domain: "train", services: "TrainService" },
+	"train.resumed":        { category: "Train", description: "Train capture was resumed", direction: "Service → Listeners", domain: "train", services: "TrainService" },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

@@ -53,6 +53,8 @@ const SOURCE_EVENT_LABELS: Record<string, string> = {
 	"dataExchange.pipeline.failed": "Pipeline Error",
 	"inbox.vaultFolder.noteDetected": "Vault Folder",
 	"capture.note.created": "Quick Capture",
+	"signal.sync.completed": "Signal Sync",
+	"signal.sync.failed": "Signal Sync Error",
 };
 
 /** Returns a human-readable label for an inbox item's source event. */
@@ -60,9 +62,16 @@ export function formatSourceEvent(sourceEvent: string): string {
 	return SOURCE_EVENT_LABELS[sourceEvent] ?? sourceEvent;
 }
 
-/** Formats an ISO timestamp as a short time string (HH:MM). */
+/** Formats an ISO timestamp as a short time string. Shows "HH:MM" for today, "MMM D HH:MM" for older. */
 export function formatTime(timestamp: string): string {
-	return new Date(timestamp).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+	const date = new Date(timestamp);
+	const now = new Date();
+	const isToday = date.toDateString() === now.toDateString();
+	if (isToday) {
+		return date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+	}
+	return date.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+		+ " " + date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -52,4 +52,6 @@ export const INBOX_SOURCE_DEFINITIONS: ReadonlyArray<{ event: string; label: str
 	{ event: "dataExchange.pipeline.failed", label: "Pipeline errors", desc: "When a multi-import pipeline fails" },
 	{ event: "inbox.vaultFolder.noteDetected", label: "Vault folder notes", desc: "When an untyped note appears in a watched vault folder" },
 	{ event: "capture.note.created", label: "Quick Capture", desc: "When a note is created via Quick Capture" },
+	{ event: "signal.sync.completed", label: "Signal sync completed", desc: "When a signal sync finishes successfully" },
+	{ event: "signal.sync.failed", label: "Signal sync errors", desc: "When a signal sync fails" },
 ];

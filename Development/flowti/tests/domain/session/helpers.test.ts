@@ -1300,11 +1300,11 @@ describe("createContextBinding", () => {
 // ─────────────────────────────────────────────────────────────
 
 describe("SESSION_TYPE_CONFIGS", () => {
-	it("has 9 pre-built type configs", () => {
-		expect(Object.keys(SESSION_TYPE_CONFIGS)).toHaveLength(9);
+	it("has 10 pre-built type configs", () => {
+		expect(Object.keys(SESSION_TYPE_CONFIGS)).toHaveLength(10);
 	});
 
-	it("includes all 9 session types", () => {
+	it("includes all 10 session types", () => {
 		const types = Object.keys(SESSION_TYPE_CONFIGS);
 		expect(types).toContain("documentation");
 		expect(types).toContain("event-storming");
@@ -1315,6 +1315,7 @@ describe("SESSION_TYPE_CONFIGS", () => {
 		expect(types).toContain("knowledge-cleanup");
 		expect(types).toContain("vault-hygiene");
 		expect(types).toContain("daily-tracking");
+		expect(types).toContain("train-of-thought");
 	});
 
 	it("each config has required fields", () => {

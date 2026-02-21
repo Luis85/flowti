@@ -483,6 +483,7 @@ describe("catalog helpers", () => {
 		{ name: "Nudge", visible: true },
 		{ name: "Signal", visible: true },
 		{ name: "Capture", visible: true },
+		{ name: "Train", visible: true },
 	];
 
 	describe("discoveredToCatalogEntries", () => {

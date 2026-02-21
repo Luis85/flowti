@@ -29,7 +29,9 @@ import type { SessionService } from "./domain/session/SessionService";
 import type { SignalService } from "./domain/signal/SignalService";
 import type { IngestionService } from "./domain/ingestion/IngestionService";
 import type { CaptureService } from "./domain/capture/CaptureService";
+import type { TrainService } from "./domain/train/TrainService";
 import { QuickCaptureModal } from "./ui/capture/QuickCaptureModal";
+import { TrainCaptureModal } from "./ui/train/TrainCaptureModal";
 import { registerViews } from "./infrastructure/views/registry";
 import type { IViewRegistry } from "./infrastructure/views/types";
 import { IngestionStatusBar } from "./ui/IngestionStatusBar";
@@ -103,6 +105,7 @@ export default class FlowtiBasePlugin extends Plugin {
 	private nudgeService?: NudgeService;
 	private signalService?: SignalService;
 	private captureService?: CaptureService;
+	private trainService?: TrainService;
 	private ingestionStatusBar?: IngestionStatusBar;
 	private collapsedCategories = new Set<string>();
 	private uiCommandService?: UiCommandService;
@@ -237,6 +240,35 @@ export default class FlowtiBasePlugin extends Plugin {
 						if (this.captureService) {
 							void this.captureService.capture(input);
 						}
+					},
+				}).open();
+			});
+
+			// Train of Thoughts serial capture listener
+			this.eventBus.on("ui.startTrain", () => {
+				if (!this.trainService) return;
+
+				// If an active train exists, resume it
+				const activeTrain = this.trainService.getActiveTrain();
+				if (activeTrain && activeTrain.status === "paused") {
+					void this.trainService.resume(activeTrain.id).then(() => {
+						this.openTrainModal(activeTrain.id, activeTrain.title);
+					});
+					return;
+				}
+				if (activeTrain && activeTrain.status === "running") {
+					this.openTrainModal(activeTrain.id, activeTrain.title);
+					return;
+				}
+
+				// Prompt for train title, then start
+				new InputModal(this.app, {
+					title: "Start Train of Thoughts",
+					placeholder: "Enter a train title\u2026",
+					onSubmit: (title) => {
+						void this.trainService!.startTrain(title).then((train) => {
+							this.openTrainModal(train.id, train.title);
+						});
 					},
 				}).open();
 			});
@@ -580,6 +612,10 @@ export default class FlowtiBasePlugin extends Plugin {
 			captureFolder: settingsService.getSettings().captureFolder,
 		});
 
+		// Train Service — serial thought capture sessions
+		this.trainService = await this.services.get<TrainService>("trainService");
+		await this.trainService.load();
+
 		// Auto-open workspace and focus file when a session starts
 		// Skip if a workspace already exists (e.g. started from sidebar)
 		this.crossCuttingListeners.push(
@@ -608,6 +644,32 @@ export default class FlowtiBasePlugin extends Plugin {
 		);
 
 		return settingsService;
+	}
+
+	/**
+	 * Opens the Train capture modal in a recursive loop.
+	 * Each submit creates a thought and opens the next modal.
+	 * Cancel (escape/close) pauses the train.
+	 */
+	private openTrainModal(trainId: string, trainTitle: string): void {
+		if (!this.trainService) return;
+		const train = this.trainService.getTrain(trainId);
+		if (!train) return;
+		const lastThought = train.thoughts[train.thoughts.length - 1] ?? null;
+
+		new TrainCaptureModal(this.app, {
+			trainTitle,
+			previousThoughtTitle: lastThought?.title ?? null,
+			thoughtCount: train.thoughts.length,
+			onSubmit: (title) => {
+				void this.trainService!.addThought(trainId, title).then(() => {
+					this.openTrainModal(trainId, trainTitle);
+				});
+			},
+			onCancel: () => {
+				void this.trainService!.pause(trainId);
+			},
+		}).open();
 	}
 
 	/**

@@ -163,6 +163,15 @@ export function createCommandDefinitions(): CommandDefinition[] {
 				void ctx.eventBus.emit("ui.openQuickCapture", { type: "decision" });
 			},
 		},
+		{
+			id: "flowti:start-train",
+			name: "Start Train of Thoughts",
+			icon: "brain",
+			handler: async (ctx) => {
+				ctx.logger.debug("Starting train of thoughts");
+				void ctx.eventBus.emit("ui.startTrain", {});
+			},
+		},
 	];
 }
 

@@ -39,6 +39,7 @@ total_test_files_after:
 | RB-5 | External data ingestion | targeted | Cycle 11 | Azure DevOps adapter |
 | RB-6 | Documentation stubs | deferred | — | Not marketplace-required |
 | RB-7 | Pipeline multi-source merge | open | PBI-006 | Data management workflow |
+| RB-8 | CLI-based installer from README | [[I want to have a CLI based Installer starting from the README]] | installer | Open |
 
 ## Situation Assessment
 

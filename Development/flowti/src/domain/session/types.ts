@@ -19,7 +19,8 @@ export type SessionType =
 	| "requirements-refinement"
 	| "backlog-structuring"
 	| "knowledge-cleanup"
-	| "daily-tracking";
+	| "daily-tracking"
+	| "train-of-thought";
 
 /** Human-readable labels for each session type. */
 export const SESSION_TYPES: ReadonlyArray<{ type: SessionType; label: string; description: string }> = [
@@ -31,6 +32,7 @@ export const SESSION_TYPES: ReadonlyArray<{ type: SessionType; label: string; de
 	{ type: "requirements-refinement", label: "Requirements Refinement", description: "Refine and clarify requirements" },
 	{ type: "backlog-structuring", label: "Backlog Structuring", description: "Organize and prioritize backlog items" },
 	{ type: "knowledge-cleanup", label: "Knowledge Cleanup", description: "Consolidate and clean up documentation" },
+	{ type: "train-of-thought", label: "Train of Thought", description: "Rapid serial thought capture with linked notes" },
 ];
 
 // ─────────────────────────────────────────────────────────────
@@ -120,6 +122,14 @@ export const SESSION_TYPE_CONFIGS: Record<SessionType, SessionTypeConfig> = {
 		type: "daily-tracking",
 		label: "Daily Tracking",
 		icon: "calendar",
+		guidingQuestions: [],
+		defaultDuration: 0,
+		defaultGoals: [],
+	},
+	"train-of-thought": {
+		type: "train-of-thought",
+		label: "Train of Thought",
+		icon: "brain",
 		guidingQuestions: [],
 		defaultDuration: 0,
 		defaultGoals: [],

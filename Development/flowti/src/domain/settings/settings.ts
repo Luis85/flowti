@@ -58,6 +58,7 @@ export const DEFAULT_CATALOG_CATEGORIES: CatalogCategoryConfig[] = [
 	{ name: "Nudge", visible: true },
 	{ name: "Signal", visible: true },
 	{ name: "Capture", visible: true },
+	{ name: "Train", visible: true },
 ];
 
 // ─────────────────────────────────────────────────────────────
@@ -173,6 +174,8 @@ export const FlowtiSettingsSchema = z.object({
 		"dataExchange.pipeline.failed",
 		"inbox.vaultFolder.noteDetected",
 		"capture.note.created",
+		"signal.sync.completed",
+		"signal.sync.failed",
 	]),
 });
 
