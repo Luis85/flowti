@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Azure DevOps Integration PRD]]"
-stage: planned
+stage: in-progress
 cycle: 11
 date_planned: 2026-02-20
 pbis:
@@ -89,12 +89,18 @@ estimated_tests: 100
 - Files: ~6
 
 **Acceptance criteria:**
-- [ ] SignalService manages SignalState via TypedStorage
-- [ ] SignalAdapter interface defines `testConnection()` and `fetchItems()` contracts
-- [ ] All 10 signal events compile and are emittable
-- [ ] Signal category visible in Event Catalog
-- [ ] HTTP spike documented (error patterns, timeout approach, `requestUrl()` usage)
-- [ ] `npm test` green
+- [x] SignalService manages SignalState via TypedStorage
+- [x] SignalAdapter interface defines `testConnection()` and `fetchItems()` contracts
+- [x] All 10 signal events compile and are emittable
+- [x] Signal category visible in Event Catalog
+- [x] HTTP spike documented (error patterns, timeout approach, `requestUrl()` usage)
+- [x] `npm test` green
+
+**Delivery notes (Inc 1):**
+- Production: types.ts (73 LOC), events.ts (82 LOC), SignalService.ts (126 LOC), SignalAdapter.ts (31 LOC) = 312 LOC total
+- Tests: 23 new (SignalService.test.ts), 2,919 total passing (114 suites)
+- ADR-034: HTTP Integration Patterns (requestUrl, PAT auth, error mapping, rate limiting, security)
+- Also updated: events.ts, catalog.ts, registry.ts, main.ts, settings.ts, helpers.test.ts
 
 ---
 

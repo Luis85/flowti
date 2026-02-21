@@ -2,7 +2,11 @@
 type: ProductBacklogItem
 domain: Signal
 feature: "[[Azure DevOps Integration PRD]]"
-stage: planned
+stage: delivered
+delivered_in: "[[Cycle 11 - Azure DevOps Integration]]"
+delivered_date: 2026-02-21
+actual_loc: 312
+actual_tests: 23
 priority: 1
 cycle: "[[Cycle 11 - Azure DevOps Integration]]"
 increment: 1
@@ -39,14 +43,14 @@ This increment also serves as the **HTTP spike** — validate Obsidian's `reques
 
 ## Acceptance Criteria
 
-- [ ] `src/domain/signal/types.ts` defines `SignalConfig`, `SignalState`, `SyncResult`, `SyncError`, `WorkItemMapping`
-- [ ] `src/domain/signal/events.ts` defines `SignalEventMap` with 10 signal events
-- [ ] `src/domain/signal/SignalService.ts` manages state via `TypedStorage<SignalState>` — `configure()`, `remove()`, `getSignals()`, `load()`, `save()`
-- [ ] `src/domain/signal/adapters/SignalAdapter.ts` defines adapter interface with `testConnection()` and `fetchItems()` contracts
-- [ ] Signal events compile and are emittable through EventBus
-- [ ] "Signal" category registered and visible in Event Catalog
-- [ ] HTTP spike: `requestUrl()` usage validated, error patterns documented in ADR
-- [ ] `npm test` green with ~25 foundation tests
+- [x] `src/domain/signal/types.ts` defines `SignalConfig`, `SignalState`, `SyncResult`, `SyncError`, `WorkItemMapping`
+- [x] `src/domain/signal/events.ts` defines `SignalEventMap` with 10 signal events
+- [x] `src/domain/signal/SignalService.ts` manages state via `TypedStorage<SignalState>` — `configure()`, `update()`, `remove()`, `getSignals()`, `getSignal()`, `load()`, `dispose()`
+- [x] `src/domain/signal/adapters/SignalAdapter.ts` defines adapter interface with `testConnection()` and `fetchItems()` contracts
+- [x] Signal events compile and are emittable through EventBus
+- [x] "Signal" category registered and visible in Event Catalog
+- [x] HTTP spike: `requestUrl()` usage validated, error patterns documented in ADR-034
+- [x] `npm test` green with 23 foundation tests (2,919 total, 114 suites)
 
 ## Test Intent
 
