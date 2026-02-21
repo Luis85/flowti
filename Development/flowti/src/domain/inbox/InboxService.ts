@@ -24,6 +24,7 @@ import {
 	mapSyncCompleted,
 	mapSyncFailed,
 } from "./mappers";
+import { mapVaultFolderNote, VAULT_FOLDER_SOURCE_EVENT, VAULT_FOLDER_SOURCE_HUB } from "./vaultFolderMapper";
 
 /** All source event types the inbox can listen to. */
 export const ALL_INBOX_SOURCES = [
@@ -35,6 +36,7 @@ export const ALL_INBOX_SOURCES = [
 	"dataExchange.pipeline.failed",
 	"signal.sync.completed",
 	"signal.sync.failed",
+	"inbox.vaultFolder.noteDetected",
 ] as const;
 
 /**
@@ -71,6 +73,11 @@ export class InboxService {
 	private eventBus?: IEventBus;
 	private unsubscribes: (() => void)[] = [];
 	private enabledSources: Set<string> = new Set(ALL_INBOX_SOURCES);
+	private watchedFolders: Array<{ path: string; recursive: boolean }> = [];
+	private fileDebounceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+
+	/** Late-binding frontmatter getter — wired in main.ts to metadataCache. */
+	public getFrontmatter: (path: string) => Record<string, unknown> | undefined = () => undefined;
 
 	constructor(options: InboxServiceOptions) {
 		this.storage = options.storage;
@@ -149,6 +156,20 @@ export class InboxService {
 				}),
 			);
 
+			// Source: vault folder — file created
+			this.unsubscribes.push(
+				this.eventBus.on("file.created", (event) => {
+					this.handleVaultFolderFile(event.payload.path);
+				}),
+			);
+
+			// Source: vault folder — file modified
+			this.unsubscribes.push(
+				this.eventBus.on("file.modified", (event) => {
+					this.handleVaultFolderFile(event.payload.path);
+				}),
+			);
+
 			// Command: refresh — re-emit current state
 			this.unsubscribes.push(
 				this.eventBus.on("inbox.refresh", () => {
@@ -167,6 +188,14 @@ export class InboxService {
 	 */
 	setEnabledSources(sources: string[]): void {
 		this.enabledSources = new Set(sources);
+	}
+
+	/**
+	 * Updates the list of watched vault folders.
+	 * Called from main.ts on settings load/change.
+	 */
+	setWatchedFolders(folders: Array<{ path: string; recursive: boolean }>): void {
+		this.watchedFolders = folders;
 	}
 
 	/**
@@ -267,9 +296,69 @@ export class InboxService {
 	}
 
 	/**
+	 * Handles a file event for vault folder watching.
+	 * Debounces by path (500ms) to allow metadataCache to settle,
+	 * then checks folder membership, frontmatter, and dedup.
+	 */
+	private handleVaultFolderFile(path: string): void {
+		if (!this.enabledSources.has(VAULT_FOLDER_SOURCE_EVENT)) return;
+		if (!path.endsWith(".md")) return;
+		if (this.watchedFolders.length === 0) return;
+
+		const matchedFolder = this.findMatchingFolder(path);
+		if (!matchedFolder) return;
+
+		// Debounce per file path — metadataCache needs time to settle
+		const existing = this.fileDebounceTimers.get(path);
+		if (existing) clearTimeout(existing);
+
+		this.fileDebounceTimers.set(path, setTimeout(() => {
+			this.fileDebounceTimers.delete(path);
+			this.processVaultFolderFile(path, matchedFolder);
+		}, 500));
+	}
+
+	private findMatchingFolder(filePath: string): string | undefined {
+		for (const folder of this.watchedFolders) {
+			if (folder.recursive) {
+				if (filePath.startsWith(folder.path + "/")) return folder.path;
+			} else {
+				const relative = filePath.slice(folder.path.length + 1);
+				if (filePath.startsWith(folder.path + "/") && !relative.includes("/")) {
+					return folder.path;
+				}
+			}
+		}
+		return undefined;
+	}
+
+	private processVaultFolderFile(path: string, folder: string): void {
+		const fm = this.getFrontmatter(path);
+		const typeVal = fm?.["type"];
+		if (typeVal && typeof typeVal === "string" && typeVal.trim()) return;
+
+		// Dedup: skip if unread vault-folder item for this path already exists
+		const duplicate = this.state.items.some(
+			(i) => i.sourceHub === VAULT_FOLDER_SOURCE_HUB && !i.read && i.description?.includes(path),
+		);
+		if (duplicate) return;
+
+		const basename = path.split("/").pop() ?? path;
+		const title = basename.replace(/\.md$/, "");
+
+		const item = mapVaultFolderNote({ path, title, folder }, generateId());
+		void this.addItem(item);
+		void this.eventBus?.emit("inbox.vaultFolder.noteDetected", { path, title });
+	}
+
+	/**
 	 * Unsubscribes from event bus listeners.
 	 */
 	dispose(): void {
+		for (const timer of this.fileDebounceTimers.values()) {
+			clearTimeout(timer);
+		}
+		this.fileDebounceTimers.clear();
 		for (const unsub of this.unsubscribes) {
 			unsub();
 		}

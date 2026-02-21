@@ -13,4 +13,6 @@ export interface InboxEventMap {
 	"inbox.itemsChanged": { items: InboxItem[]; unreadCount: number };
 	/** Command: request re-emit of current inbox state */
 	"inbox.refresh": Record<string, never>;
+	/** Emitted when an untyped note is detected in a watched vault folder */
+	"inbox.vaultFolder.noteDetected": { path: string; title: string };
 }

@@ -174,5 +174,68 @@ export class UserHubPreferences {
 			labelEl.createDiv({ text: src.label, cls: "ft-text-sm" });
 			labelEl.createDiv({ text: src.desc, cls: "ft-text-sm ft-text-muted" });
 		}
+
+		// ── Watched Folders ──
+		const folderSection = section.createDiv({ cls: "ft-detail-section" });
+		folderSection.style.marginTop = "1rem";
+		const folderHeader = folderSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		const folderIcon = folderHeader.createSpan();
+		setIcon(folderIcon, "folder-open");
+		folderIcon.addClass("ft-icon-muted");
+		folderHeader.createEl("h4", { text: "Watched Folders", cls: "ft-heading" }).style.margin = "0";
+
+		folderSection.createEl("p", {
+			text: "Vault folders monitored for untyped notes. Notes without a 'type' frontmatter field will appear in your inbox.",
+			cls: "ft-text-sm ft-text-muted",
+		});
+
+		const settings = this.deps.getSettings();
+		const folders = [...(settings.inboxWatchedFolders ?? [])];
+
+		for (let i = 0; i < folders.length; i++) {
+			const f = folders[i];
+			const fRow = folderSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+			fRow.style.padding = "0.25rem 0";
+
+			const recToggle = fRow.createEl("input");
+			recToggle.type = "checkbox";
+			recToggle.checked = f.recursive;
+			recToggle.title = "Recursive (include subfolders)";
+			recToggle.addEventListener("change", () => {
+				folders[i] = { ...f, recursive: recToggle.checked };
+				void this.deps.eventBus.emit("settings.updateInboxWatchedFolders", { folders });
+				this.deps.scheduleRender();
+			});
+
+			fRow.createSpan({ text: f.path, cls: "ft-text-sm" }).style.flex = "1";
+			fRow.createSpan({ text: f.recursive ? "recursive" : "direct only", cls: "ft-badge ft-badge-muted ft-text-sm" });
+
+			const removeBtn = fRow.createSpan({ cls: "ft-cursor-pointer" });
+			setIcon(removeBtn, "x");
+			removeBtn.addEventListener("click", () => {
+				folders.splice(i, 1);
+				void this.deps.eventBus.emit("settings.updateInboxWatchedFolders", { folders });
+				this.deps.scheduleRender();
+			});
+		}
+
+		// Add row
+		const addRow = folderSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		addRow.style.marginTop = "0.5rem";
+
+		const pathInput = addRow.createEl("input", { cls: "ft-input" });
+		pathInput.type = "text";
+		pathInput.placeholder = "e.g. 00 - Connectivity/inbox";
+		pathInput.style.flex = "1";
+
+		const addBtn = addRow.createEl("button", { text: "+", cls: "mod-cta" });
+		addBtn.style.minWidth = "2rem";
+		addBtn.addEventListener("click", () => {
+			const path = pathInput.value.trim();
+			if (!path) return;
+			folders.push({ path, recursive: false });
+			void this.deps.eventBus.emit("settings.updateInboxWatchedFolders", { folders });
+			this.deps.scheduleRender();
+		});
 	}
 }

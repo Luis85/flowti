@@ -50,6 +50,7 @@ const SOURCE_EVENT_LABELS: Record<string, string> = {
 	"dataExchange.export.completed": "Export",
 	"dataExchange.pipeline.completed": "Pipeline",
 	"dataExchange.pipeline.failed": "Pipeline Error",
+	"inbox.vaultFolder.noteDetected": "Vault Folder",
 };
 
 /** Returns a human-readable label for an inbox item's source event. */

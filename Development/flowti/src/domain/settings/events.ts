@@ -26,4 +26,6 @@ export interface SettingsEventMap {
 	"settings.updateCustomOutputTemplates": { templates: unknown[] };
 	/** Command: update session activity filter folders */
 	"settings.updateSessionActivityFilter": { filter: string[] };
+	/** Command: update inbox watched folder configuration */
+	"settings.updateInboxWatchedFolders": { folders: Array<{ path: string; recursive: boolean }> };
 }

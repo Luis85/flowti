@@ -1,4 +1,4 @@
-import { Notice, Plugin } from "obsidian";
+import { Notice, Plugin, TFile } from "obsidian";
 import { registerCommands } from "./infrastructure/commands/registry";
 import type { CommandContext, ICommandRegistry } from "./infrastructure/commands/types";
 import { LifecycleError } from "./infrastructure/errors/FlowtiError";
@@ -490,10 +490,17 @@ export default class FlowtiBasePlugin extends Plugin {
 
 		this.inboxService = await this.services.get<InboxService>("inboxService");
 		this.inboxService.setEnabledSources(settingsService.getSettings().inboxEnabledSources);
+		this.inboxService.setWatchedFolders(settingsService.getSettings().inboxWatchedFolders ?? []);
+		this.inboxService.getFrontmatter = (path: string) => {
+			const file = this.app.vault.getAbstractFileByPath(path);
+			if (!(file instanceof TFile)) return undefined;
+			return this.app.metadataCache.getFileCache(file)?.frontmatter as Record<string, unknown> | undefined;
+		};
 		await this.inboxService.load();
 
 		this.eventBus.on("settings.changed", (event) => {
 			this.inboxService?.setEnabledSources(event.payload.settings.inboxEnabledSources);
+			this.inboxService?.setWatchedFolders(event.payload.settings.inboxWatchedFolders ?? []);
 			if (this.sessionService) {
 				this.sessionService.globalActivityFilter = event.payload.settings.sessionActivityFilterGlobal ?? [];
 			}

@@ -94,6 +94,11 @@ export class SettingsService implements ISettingsService {
 					void this.updateSettings({ sessionActivityFilterGlobal: event.payload.filter });
 				})
 			);
+			this.unsubscribes.push(
+				this.eventBus.on("settings.updateInboxWatchedFolders", (event) => {
+					void this.updateSettings({ inboxWatchedFolders: event.payload.folders });
+				})
+			);
 		}
 	}
 

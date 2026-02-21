@@ -138,6 +138,10 @@ export const FlowtiSettingsSchema = z.object({
 	ingestionMaxRetries: z.number().min(0).max(10).default(3),
 	ingestionWatchEventTypes: z.array(z.string()).default(["file.created", "file.modified"]),
 	watchFolders: z.array(z.string()).default([]),
+	inboxWatchedFolders: z.array(z.object({
+		path: z.string(),
+		recursive: z.boolean().default(false),
+	})).default([]),
 	entityPaths: EntityPathsSchema.default(DEFAULT_ENTITY_PATHS),
 	sessionActivityFilterGlobal: z.array(z.string()).default([]),
 	customSessionTypes: z.record(z.string(), z.object({
@@ -165,6 +169,7 @@ export const FlowtiSettingsSchema = z.object({
 		"dataExchange.export.completed",
 		"dataExchange.pipeline.completed",
 		"dataExchange.pipeline.failed",
+		"inbox.vaultFolder.noteDetected",
 	]),
 });
 

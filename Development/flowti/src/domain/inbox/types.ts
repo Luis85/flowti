@@ -48,4 +48,5 @@ export const INBOX_SOURCE_DEFINITIONS: ReadonlyArray<{ event: string; label: str
 	{ event: "dataExchange.export.completed", label: "Export completed", desc: "When a data export finishes successfully" },
 	{ event: "dataExchange.pipeline.completed", label: "Pipeline completed", desc: "When a multi-import pipeline finishes successfully" },
 	{ event: "dataExchange.pipeline.failed", label: "Pipeline errors", desc: "When a multi-import pipeline fails" },
+	{ event: "inbox.vaultFolder.noteDetected", label: "Vault folder notes", desc: "When an untyped note appears in a watched vault folder" },
 ];

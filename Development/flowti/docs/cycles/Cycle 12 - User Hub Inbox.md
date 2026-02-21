@@ -277,14 +277,16 @@ Quick Capture and Vault Folder Inbox together create the capture-to-organization
 **Architecture seams:** InboxService extension point (`INBOX_SOURCE_DEFINITIONS`). Event listener seam (`file.created`, `file.modified` filtered by watched paths). Settings integration for folder configuration (`SettingsService`). Path filtering reuses existing event path matching from subscription system.
 
 **Acceptance criteria:**
-- [ ] Settings UI: configure watched folders (add/remove paths, toggle recursive per folder)
-- [ ] InboxService registers new source type: `vaultFolder`
-- [ ] `INBOX_SOURCE_DEFINITIONS` extended with vault folder source entry
-- [ ] Notes with empty or missing `type` frontmatter in watched folders appear as inbox items
-- [ ] Notes with existing `type` frontmatter are excluded
-- [ ] Source badge shows "Vault Folder" for folder-sourced items
-- [ ] Per-source toggle for vault folder watching in Settings
-- [ ] `npm run build` passes
+- [x] Settings UI: configure watched folders (add/remove paths, toggle recursive per folder)
+- [x] InboxService registers new source type: `vaultFolder`
+- [x] `INBOX_SOURCE_DEFINITIONS` extended with vault folder source entry
+- [x] Notes with empty or missing `type` frontmatter in watched folders appear as inbox items
+- [x] Notes with existing `type` frontmatter are excluded
+- [x] Source badge shows "Vault Folder" for folder-sourced items
+- [x] Per-source toggle for vault folder watching in Settings
+- [x] `npm run build` passes
+
+**Delivery notes (2026-02-21):** 32 LOC new source (mapper) + ~130 LOC modifications across 10 files. 25 tests (3,066 total, 122 suites). 9th inbox source type. 2 new events registered in catalog. DoD: PASS. See [[Cycle 12 Inc 2 DoD Check - Vault Folder Inbox]].
 
 ---
 
