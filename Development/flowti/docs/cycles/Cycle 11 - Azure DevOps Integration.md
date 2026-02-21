@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Azure DevOps Integration PRD]]"
-stage: in-progress
+stage: delivered
 cycle: 11
 date_planned: 2026-02-20
 pbis:
@@ -181,7 +181,7 @@ estimated_tests: 100
 - [x] All three conflict strategies work (skip, update, overwrite)
 - [x] File names sanitized (no illegal characters, reasonable length)
 - [x] Notes created in configured target folder
-- [ ] `signal.item.created` and `signal.item.updated` events emitted per item (deferred to Inc 5)
+- [x] `signal.item.created` and `signal.item.updated` events emitted per item (delivered in Inc 5)
 - [ ] HTML→MD known limitations documented in PRD §8 (deferred to Inc 5)
 - [x] `npm test` green
 
@@ -221,8 +221,8 @@ estimated_tests: 100
 - [x] Signal list renders with correct status indicators
 - [x] "+" opens configuration modal
 - [x] Configuration modal form works (simplified from 4-page wizard — full wizard deferred to Inc 5)
-- [ ] "Sync Now" triggers sync and displays progress (button rendered disabled — wired in Inc 5)
-- [ ] "Test Connection" shows success or error message (button rendered disabled — wired in Inc 5)
+- [x] "Sync Now" triggers sync and displays progress (wired in Inc 5)
+- [x] "Test Connection" shows success or error message (wired in Inc 5)
 - [x] "Remove" removes signal config after confirmation
 - [ ] DX Hub documentation updated with Signals tab (7 tabs) (deferred to Inc 5 wrap-up)
 - [x] `npm test` green with 19 new tests (2,998 total, 117 suites)
@@ -260,15 +260,25 @@ estimated_tests: 100
 - Files: ~4
 
 **Acceptance criteria:**
-- [ ] Full sync flow: configure → test → sync → notes created → status updated
-- [ ] Sync errors per item are non-fatal (collected, reported at end)
-- [ ] Progress events emitted during sync
-- [ ] Sync result includes created/updated/skipped/error counts
-- [ ] `flowti:signal-sync` command registered and functional
-- [ ] Failed syncs create inbox notification
-- [ ] Flow test `flow14-signalSync.test.ts` passes
-- [ ] FRI updated to reflect delivery (target 28/35)
-- [ ] `npm test` green
+- [x] Full sync flow: configure → test → sync → notes created → status updated
+- [x] Sync errors per item are non-fatal (collected, reported at end)
+- [x] Progress events emitted during sync
+- [x] Sync result includes created/updated/skipped/error counts
+- [x] `flowti:signal-sync` command registered and functional
+- [x] Failed syncs create inbox notification
+- [x] Flow test `16-SignalSync.test.ts` passes
+- [ ] FRI updated to reflect delivery (target 28/35) — deferred to cycle wrap-up
+- [x] `npm test` green (3,018 tests, 118 suites)
+
+**Delivery notes (Inc 5):**
+- Production: SignalService.ts (+90 LOC for sync/testConnection/syncAll), inbox/mappers.ts (+52 LOC), InboxService.ts (+16 LOC), dataExchangeSetup.ts (+10 LOC) = 168 LOC total
+- Modified: registry.ts (+4 LOC for adapter/fileSystem), SignalsTab.ts (rewired disabled buttons to live handlers)
+- Tests: 20 new (SignalService.test.ts +9 sync/testConnection, 16-SignalSync.test.ts 11 flow tests), 3,018 total passing (118 suites)
+- Full pipeline: adapter.fetchItems → writeWorkItemNote per item → progress events → SyncResult → status persistence
+- Per-item error resilience: one bad writeWorkItemNote collects SyncError, sync continues
+- Inbox: mapSyncCompleted + mapSyncFailed pure mappers, InboxService wired to signal.sync.completed/failed
+- SignalsTab: Sync Now and Test Connection buttons fully wired (opacity/pointer-events during operation)
+- Command: `flowti:signal-sync` registered in dataExchangeSetup.ts
 
 ---
 

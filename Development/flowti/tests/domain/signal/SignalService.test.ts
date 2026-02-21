@@ -2,8 +2,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { SignalService, type SignalConfigInput } from "../../../src/domain/signal/SignalService";
-import type { SignalState } from "../../../src/domain/signal/types";
+import type { SignalState, WorkItemMapping } from "../../../src/domain/signal/types";
+import type { SignalAdapter, TestConnectionResult, FetchItemsResult } from "../../../src/domain/signal/adapters/SignalAdapter";
 import { createMockStorage } from "../../mocks/storage";
+import { createMockFileSystem } from "../../mocks/filesystem";
 
 function makeInput(overrides: Partial<SignalConfigInput> = {}): SignalConfigInput {
 	return {
@@ -294,6 +296,198 @@ describe("SignalService", () => {
 		it("should not throw when called multiple times", () => {
 			service.dispose();
 			expect(() => service.dispose()).not.toThrow();
+		});
+	});
+
+	// ── testConnection ──────────────────────────────────────
+
+	describe("testConnection", () => {
+		let adapter: SignalAdapter;
+		let serviceWithAdapter: SignalService;
+
+		beforeEach(async () => {
+			adapter = {
+				testConnection: vi.fn(async (): Promise<TestConnectionResult> => ({ success: true })),
+				fetchItems: vi.fn(async (): Promise<FetchItemsResult> => ({ items: [], errors: [] })),
+			};
+			const mock = createMockStorage<SignalState>();
+			serviceWithAdapter = new SignalService({
+				storage: mock.storage,
+				eventBus,
+				adapter,
+				fileSystem: createMockFileSystem(),
+			});
+			await serviceWithAdapter.load();
+		});
+
+		afterEach(() => {
+			serviceWithAdapter.dispose();
+		});
+
+		it("should update status to connected on success", async () => {
+			const config = await serviceWithAdapter.configure(makeInput());
+
+			await serviceWithAdapter.testConnection(config.id);
+
+			expect(serviceWithAdapter.getSignal(config.id)?.status).toBe("connected");
+		});
+
+		it("should update status to error on failure", async () => {
+			(adapter.testConnection as ReturnType<typeof vi.fn>).mockResolvedValue({
+				success: false,
+				error: "Bad PAT",
+			});
+			const config = await serviceWithAdapter.configure(makeInput());
+
+			await serviceWithAdapter.testConnection(config.id);
+
+			expect(serviceWithAdapter.getSignal(config.id)?.status).toBe("error");
+		});
+
+		it("should emit signal.connection.tested event", async () => {
+			const config = await serviceWithAdapter.configure(makeInput());
+			const handler = vi.fn();
+			eventBus.on("signal.connection.tested", handler);
+
+			await serviceWithAdapter.testConnection(config.id);
+
+			expect(handler).toHaveBeenCalledOnce();
+			expect(handler.mock.calls[0][0].payload).toMatchObject({
+				signalId: config.id,
+				success: true,
+			});
+		});
+
+		it("should return error for non-existent signal", async () => {
+			const result = await serviceWithAdapter.testConnection("non-existent");
+
+			expect(result.success).toBe(false);
+			expect(result.error).toBe("Signal not found");
+		});
+	});
+
+	// ── sync ────────────────────────────────────────────────
+
+	describe("sync", () => {
+		let adapter: SignalAdapter;
+		let fileSystem: ReturnType<typeof createMockFileSystem>;
+		let serviceWithSync: SignalService;
+
+		function makeWorkItem(overrides: Partial<WorkItemMapping> = {}): WorkItemMapping {
+			return {
+				id: 100,
+				rev: 1,
+				type: "User Story",
+				title: "Test Item",
+				state: "Active",
+				assignedTo: "Dev",
+				areaPath: "Proj\\Area",
+				iterationPath: "Proj\\Sprint",
+				priority: 2,
+				tags: [],
+				url: "https://dev.azure.com/org/Proj/_workitems/edit/100",
+				description: "<p>desc</p>",
+				createdDate: "2026-02-20T10:00:00Z",
+				changedDate: "2026-02-21T10:00:00Z",
+				...overrides,
+			};
+		}
+
+		beforeEach(async () => {
+			adapter = {
+				testConnection: vi.fn(async (): Promise<TestConnectionResult> => ({ success: true })),
+				fetchItems: vi.fn(async (): Promise<FetchItemsResult> => ({ items: [], errors: [] })),
+			};
+			fileSystem = createMockFileSystem();
+			const mock = createMockStorage<SignalState>();
+			serviceWithSync = new SignalService({
+				storage: mock.storage,
+				eventBus,
+				adapter,
+				fileSystem,
+			});
+			await serviceWithSync.load();
+		});
+
+		afterEach(() => {
+			serviceWithSync.dispose();
+		});
+
+		it("should return correct SyncResult for successful sync", async () => {
+			(adapter.fetchItems as ReturnType<typeof vi.fn>).mockResolvedValue({
+				items: [makeWorkItem({ id: 1, title: "A" }), makeWorkItem({ id: 2, title: "B" })],
+				errors: [],
+			});
+			const config = await serviceWithSync.configure(makeInput());
+
+			const result = await serviceWithSync.sync(config.id);
+
+			expect(result.itemsCreated).toBe(2);
+			expect(result.itemsUpdated).toBe(0);
+			expect(result.itemsSkipped).toBe(0);
+			expect(result.errors).toHaveLength(0);
+			expect(result.duration).toBeGreaterThanOrEqual(0);
+		});
+
+		it("should emit sync.failed when adapter throws", async () => {
+			(adapter.fetchItems as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("Network error"));
+			const config = await serviceWithSync.configure(makeInput());
+			const handler = vi.fn();
+			eventBus.on("signal.sync.failed", handler);
+
+			await serviceWithSync.sync(config.id);
+
+			expect(handler).toHaveBeenCalledOnce();
+			expect(handler.mock.calls[0][0].payload.error).toBe("Network error");
+		});
+
+		it("should update config lastSync and status after sync", async () => {
+			(adapter.fetchItems as ReturnType<typeof vi.fn>).mockResolvedValue({
+				items: [makeWorkItem()],
+				errors: [],
+			});
+			const config = await serviceWithSync.configure(makeInput());
+
+			await serviceWithSync.sync(config.id);
+
+			const updated = serviceWithSync.getSignal(config.id)!;
+			expect(updated.lastSync).not.toBeNull();
+			expect(updated.lastSyncItemCount).toBe(1);
+			expect(updated.status).toBe("connected");
+		});
+
+		it("should collect per-item errors without aborting", async () => {
+			(adapter.fetchItems as ReturnType<typeof vi.fn>).mockResolvedValue({
+				items: [makeWorkItem({ id: 1, title: "Good" }), makeWorkItem({ id: 2, title: "Bad" })],
+				errors: [],
+			});
+			let callCount = 0;
+			(fileSystem.createFile as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+				callCount++;
+				if (callCount === 2) throw new Error("Write error");
+			});
+			const config = await serviceWithSync.configure(makeInput());
+
+			const result = await serviceWithSync.sync(config.id);
+
+			expect(result.itemsCreated).toBe(1);
+			expect(result.errors).toHaveLength(1);
+			expect(result.errors[0].workItemId).toBe(2);
+		});
+
+		it("should emit sync.completed with result", async () => {
+			(adapter.fetchItems as ReturnType<typeof vi.fn>).mockResolvedValue({
+				items: [makeWorkItem()],
+				errors: [],
+			});
+			const config = await serviceWithSync.configure(makeInput());
+			const handler = vi.fn();
+			eventBus.on("signal.sync.completed", handler);
+
+			await serviceWithSync.sync(config.id);
+
+			expect(handler).toHaveBeenCalledOnce();
+			expect(handler.mock.calls[0][0].payload.result.itemsCreated).toBe(1);
 		});
 	});
 });

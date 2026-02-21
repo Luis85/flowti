@@ -191,23 +191,47 @@ export class SignalsTab {
 	private renderActions(signal: SignalConfig, signalService: NonNullable<HubComponentDeps["signalService"]>): void {
 		const actions = this.detailEl.createDiv({ cls: "ft-detail-actions ft-mt-2" });
 
-		// Sync Now (disabled — wired in Inc 5)
+		// Sync Now
 		const syncLink = actions.createEl("span", { cls: "ft-nav-link" });
-		syncLink.style.opacity = "0.4";
-		syncLink.style.cursor = "default";
 		const syncIcon = syncLink.createSpan();
 		setIcon(syncIcon, "refresh-cw");
 		syncLink.appendText(" Sync Now");
-		syncLink.setAttribute("aria-label", "Sync Now (available after sync orchestration)");
+		syncLink.setAttribute("aria-label", "Sync Now");
+		syncLink.addEventListener("click", () => {
+			syncLink.style.pointerEvents = "none";
+			syncLink.style.opacity = "0.5";
+			void signalService.sync(signal.id).then(() => {
+				syncLink.style.pointerEvents = "";
+				syncLink.style.opacity = "";
+				this.deps.scheduleRender();
+			});
+		});
 
-		// Test Connection (disabled — wired in Inc 5)
+		// Test Connection
 		const testLink = actions.createEl("span", { cls: "ft-nav-link" });
-		testLink.style.opacity = "0.4";
-		testLink.style.cursor = "default";
 		const testIcon = testLink.createSpan();
 		setIcon(testIcon, "plug");
 		testLink.appendText(" Test Connection");
-		testLink.setAttribute("aria-label", "Test Connection (available after sync orchestration)");
+		testLink.setAttribute("aria-label", "Test Connection");
+		testLink.addEventListener("click", () => {
+			testLink.style.pointerEvents = "none";
+			testLink.style.opacity = "0.5";
+			void signalService.testConnection(signal.id).then((result) => {
+				testLink.style.pointerEvents = "";
+				testLink.style.opacity = "";
+				const feedback = actions.querySelector(".ft-connection-feedback");
+				if (feedback) feedback.remove();
+				const fb = actions.createDiv({ cls: "ft-connection-feedback ft-text-sm ft-mt-1" });
+				if (result.success) {
+					fb.style.color = "var(--color-green)";
+					fb.textContent = "Connected";
+				} else {
+					fb.style.color = "var(--text-error)";
+					fb.textContent = result.error ?? "Connection failed";
+				}
+				this.deps.scheduleRender();
+			});
+		});
 
 		// Edit
 		const editLink = actions.createEl("span", { cls: "ft-nav-link" });

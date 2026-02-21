@@ -304,6 +304,17 @@ export class DataExchangeSetup {
 				void this.deps.eventBus.emit("ui.openDataExchangeHub", {});
 			},
 		});
+
+		if (this.deps.signalService) {
+			addCommand({
+				id: "flowti:signal-sync",
+				name: "Sync All Signals",
+				icon: "radio",
+				callback: () => {
+					void this.deps.signalService!.syncAll();
+				},
+			});
+		}
 	}
 
 	// ── Private helpers ──────────────────────────────────────

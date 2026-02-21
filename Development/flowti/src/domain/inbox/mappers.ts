@@ -5,6 +5,7 @@
  * and returns a fully-formed InboxItem. No side effects, no dependencies.
  */
 
+import type { SyncResult } from "../signal/types";
 import type { InboxItem } from "./types";
 
 /**
@@ -173,6 +174,54 @@ export function mapExportCompleted(
 		description: `Exported ${r.totalRows} rows and ${r.totalColumns} columns to "${r.outputPath}".`,
 		sourceEvent: "dataExchange.export.completed",
 		sourceHub: "data-exchange",
+		timestamp: new Date().toISOString(),
+		read: false,
+	};
+}
+
+/**
+ * Maps a `signal.sync.completed` event to an inbox item.
+ */
+export function mapSyncCompleted(
+	payload: {
+		signalId: string;
+		result: SyncResult;
+	},
+	id: string,
+): InboxItem {
+	const r = payload.result;
+	const hasErrors = r.errors.length > 0;
+	return {
+		id,
+		type: hasErrors ? "action" : "info",
+		title: hasErrors
+			? `Signal sync completed with ${r.errors.length} error${r.errors.length === 1 ? "" : "s"}`
+			: `Signal sync: ${r.itemsCreated} created, ${r.itemsUpdated} updated`,
+		description: `Signal "${payload.signalId}": ${r.itemsCreated} created, ${r.itemsUpdated} updated, ${r.itemsSkipped} skipped, ${r.errors.length} errors.`,
+		sourceEvent: "signal.sync.completed",
+		sourceHub: "signal",
+		timestamp: r.timestamp,
+		read: false,
+	};
+}
+
+/**
+ * Maps a `signal.sync.failed` event to an inbox item.
+ */
+export function mapSyncFailed(
+	payload: {
+		signalId: string;
+		error: string;
+	},
+	id: string,
+): InboxItem {
+	return {
+		id,
+		type: "action",
+		title: "Signal sync failed",
+		description: `Signal "${payload.signalId}" sync failed: ${payload.error}`,
+		sourceEvent: "signal.sync.failed",
+		sourceHub: "signal",
 		timestamp: new Date().toISOString(),
 		read: false,
 	};

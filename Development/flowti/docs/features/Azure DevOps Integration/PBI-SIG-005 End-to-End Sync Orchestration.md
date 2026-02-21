@@ -2,7 +2,11 @@
 type: ProductBacklogItem
 domain: Signal
 feature: "[[Azure DevOps Integration PRD]]"
-stage: planned
+stage: delivered
+delivered_in: "[[Cycle 11 - Azure DevOps Integration]]"
+delivered_date: 2026-02-21
+actual_loc: 168
+actual_tests: 20
 priority: 5
 cycle: "[[Cycle 11 - Azure DevOps Integration]]"
 increment: 5
@@ -37,17 +41,17 @@ Implement `SignalService.sync(signalId)` as the orchestrator that calls adapter,
 
 ## Acceptance Criteria
 
-- [ ] `SignalService.sync(signalId)` executes full flow: fetch → map → create/update → progress → result
-- [ ] Per-item error resilience: one bad work item is collected as SyncError, sync continues
-- [ ] `signal.sync.progress` emitted per item with `{ signalId, current, total }`
-- [ ] `SyncResult` includes `itemsCreated`, `itemsUpdated`, `itemsSkipped`, `errors` counts
-- [ ] `SignalConfig.lastSync`, `lastSyncItemCount`, `status` updated after sync completes
-- [ ] `flowti:signal-sync` command registered in CommandRegistry
-- [ ] Failed sync (`signal.sync.failed`) creates inbox notification via inbox mapper
-- [ ] Flow test `tests/flows/flow14-signalSync.test.ts` passes ("Configure and sync Azure DevOps signal")
-- [ ] FRI updated to reflect delivery (target 28/35)
-- [ ] PRD, cycle plan, and Event Catalog docs updated with final delivery state
-- [ ] `npm test` green with ~15 tests
+- [x] `SignalService.sync(signalId)` executes full flow: fetch → map → create/update → progress → result
+- [x] Per-item error resilience: one bad work item is collected as SyncError, sync continues
+- [x] `signal.sync.progress` emitted per item with `{ signalId, current, total }`
+- [x] `SyncResult` includes `itemsCreated`, `itemsUpdated`, `itemsSkipped`, `errors` counts
+- [x] `SignalConfig.lastSync`, `lastSyncItemCount`, `status` updated after sync completes
+- [x] `flowti:signal-sync` command registered in dataExchangeSetup
+- [x] Failed sync (`signal.sync.failed`) creates inbox notification via inbox mapper
+- [x] Flow test `tests/flows/16-SignalSync.test.ts` passes ("Configure and sync Azure DevOps signal")
+- [ ] FRI updated to reflect delivery (deferred to cycle wrap-up)
+- [ ] PRD, cycle plan, and Event Catalog docs updated with final delivery state (deferred to cycle wrap-up)
+- [x] `npm test` green with 20 new tests (3,018 total, 118 suites)
 
 ## Test Intent
 
