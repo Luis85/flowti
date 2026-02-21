@@ -8,7 +8,7 @@ dependencies:
 tags:
   - publishing
   - developer-experience
-planned_in: "[[Cycle 13 - Release Preparation]]"
+planned_in: "[[Release Preparation Cycle]]"
 ---
 
 ## User Story - Problemspace

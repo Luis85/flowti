@@ -1,16 +1,16 @@
 ---
 type: Redirect
-target: "[[Cycle 13 - Release Preparation]]"
+target: "[[Release Preparation Cycle]]"
 date: 2026-02-21
 ---
 
 # Cycle 13 — Release Preparation Plan
 
-> **Moved.** This document has been promoted to a full cycle plan at [[Cycle 13 - Release Preparation]] in `docs/cycles/`.
+> **Moved.** This document has been promoted to a full cycle plan at [[Release Preparation Cycle]] in `docs/cycles/`.
 
 This file originally contained the initial release preparation sequencing. The full Definition of Ready-compliant cycle plan (with situation assessment, increment details, risks, success metrics, and readiness assessment) now lives in the canonical location:
 
-**-> [[Cycle 13 - Release Preparation]]**
+**-> [[Release Preparation Cycle]]**
 
 ## Original Release Blockers Inventory
 

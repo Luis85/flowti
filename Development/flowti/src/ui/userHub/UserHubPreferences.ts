@@ -13,6 +13,7 @@ import type { UserHubComponentDeps, PreferencesCategory } from "./types";
 import { INBOX_SOURCE_DEFINITIONS } from "../../domain/inbox/types";
 import { UserHubSessionPreferences } from "./UserHubSessionPreferences";
 import { UserHubNudgePreferences } from "./UserHubNudgePreferences";
+import { attachFolderSuggest } from "../FolderSuggest";
 
 const CATEGORIES: ReadonlyArray<{ id: PreferencesCategory; label: string; icon: string; description: string }> = [
 	{ id: "profile", label: "Profile", icon: "user", description: "Display name and identity" },
@@ -197,6 +198,17 @@ export class UserHubPreferences {
 			const fRow = folderSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 			fRow.style.padding = "0.25rem 0";
 
+			const primaryToggle = fRow.createEl("input");
+			primaryToggle.type = "checkbox";
+			primaryToggle.checked = !!f.isPrimary;
+			primaryToggle.title = "Primary (route to target folder on triage)";
+			primaryToggle.addEventListener("change", () => {
+				folders[i] = { ...f, isPrimary: primaryToggle.checked };
+				void this.deps.eventBus.emit("settings.updateInboxWatchedFolders", { folders });
+				this.deps.scheduleRender();
+			});
+			fRow.createSpan({ text: "P", cls: `ft-badge ft-text-sm ${f.isPrimary ? "" : "ft-badge-muted"}` }).title = "Primary";
+
 			const recToggle = fRow.createEl("input");
 			recToggle.type = "checkbox";
 			recToggle.checked = f.recursive;
@@ -227,15 +239,46 @@ export class UserHubPreferences {
 		pathInput.type = "text";
 		pathInput.placeholder = "e.g. 00 - Connectivity/inbox";
 		pathInput.style.flex = "1";
+		attachFolderSuggest(pathInput, this.deps.app, (selected) => {
+			pathInput.value = selected.replace(/\/$/, "");
+		});
 
 		const addBtn = addRow.createEl("button", { text: "+", cls: "mod-cta" });
 		addBtn.style.minWidth = "2rem";
 		addBtn.addEventListener("click", () => {
 			const path = pathInput.value.trim();
 			if (!path) return;
-			folders.push({ path, recursive: false });
+			folders.push({ path, recursive: false, isPrimary: false });
 			void this.deps.eventBus.emit("settings.updateInboxWatchedFolders", { folders });
 			this.deps.scheduleRender();
+		});
+
+		// ── Triage Target Folder ──
+		const targetSection = section.createDiv({ cls: "ft-detail-section" });
+		targetSection.style.marginTop = "1rem";
+		const targetHeader = targetSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		const targetIcon = targetHeader.createSpan();
+		setIcon(targetIcon, "folder-input");
+		targetIcon.addClass("ft-icon-muted");
+		targetHeader.createEl("h4", { text: "Triage Target Folder", cls: "ft-heading" }).style.margin = "0";
+
+		targetSection.createEl("p", {
+			text: "Notes from primary watched folders will be moved here after triage.",
+			cls: "ft-text-sm ft-text-muted",
+		});
+
+		const targetInput = targetSection.createEl("input", { cls: "ft-input" });
+		targetInput.type = "text";
+		targetInput.value = settings.inboxTriageTargetFolder ?? "";
+		targetInput.placeholder = "e.g. 01 - Now/notes";
+		targetInput.style.width = "100%";
+		attachFolderSuggest(targetInput, this.deps.app, (selected) => {
+			const path = selected.replace(/\/$/, "");
+			targetInput.value = path;
+			void this.deps.eventBus.emit("settings.updateInboxTriageTargetFolder", { folder: path });
+		});
+		targetInput.addEventListener("change", () => {
+			void this.deps.eventBus.emit("settings.updateInboxTriageTargetFolder", { folder: targetInput.value.trim() });
 		});
 	}
 }

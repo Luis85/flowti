@@ -27,5 +27,7 @@ export interface SettingsEventMap {
 	/** Command: update session activity filter folders */
 	"settings.updateSessionActivityFilter": { filter: string[] };
 	/** Command: update inbox watched folder configuration */
-	"settings.updateInboxWatchedFolders": { folders: Array<{ path: string; recursive: boolean }> };
+	"settings.updateInboxWatchedFolders": { folders: Array<{ path: string; recursive: boolean; isPrimary: boolean }> };
+	/** Command: update inbox triage target folder path */
+	"settings.updateInboxTriageTargetFolder": { folder: string };
 }

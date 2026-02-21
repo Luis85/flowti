@@ -41,6 +41,7 @@ function makeDeps(state: UserHubState): UserHubComponentDeps {
 		getState: () => state,
 		setState: (partial) => Object.assign(state, partial),
 		eventBus: {} as IEventBus,
+		app: {} as never,
 		inboxService: {
 			markRead: vi.fn(async () => {}),
 			dismiss: vi.fn(async () => {}),
@@ -82,6 +83,10 @@ describe("formatSourceEvent", () => {
 	it("should return human-readable labels for pipeline events", () => {
 		expect(formatSourceEvent("dataExchange.pipeline.completed")).toBe("Pipeline");
 		expect(formatSourceEvent("dataExchange.pipeline.failed")).toBe("Pipeline Error");
+	});
+
+	it("should return human-readable label for capture events", () => {
+		expect(formatSourceEvent("capture.note.created")).toBe("Quick Capture");
 	});
 
 	it("should return raw event name for unknown events", () => {
@@ -297,6 +302,34 @@ describe("UserHubInbox", () => {
 
 			const paragraphs = detailEl.querySelectorAll("p");
 			expect(paragraphs).toHaveLength(0);
+		});
+
+		it("should render clickable file link when item has filePath", () => {
+			state.selectedInboxItem = makeItem({
+				filePath: "inbox/My Idea.md",
+			});
+
+			inbox.renderDetail();
+
+			const links = detailEl.querySelectorAll(".ft-nav-link");
+			const fileLink = Array.from(links).find((el) =>
+				el.textContent === "inbox/My Idea.md",
+			) as HTMLElement;
+			expect(fileLink).toBeTruthy();
+			fileLink.click();
+
+			expect(deps.openFile).toHaveBeenCalledWith("inbox/My Idea.md");
+		});
+
+		it("should not render file link when item has no filePath", () => {
+			state.selectedInboxItem = makeItem();
+
+			inbox.renderDetail();
+
+			// Only the source event nav-link should exist, not a file link
+			const links = detailEl.querySelectorAll(".ft-nav-link");
+			expect(links).toHaveLength(1);
+			expect(links[0].textContent).toContain(state.selectedInboxItem!.sourceEvent);
 		});
 	});
 });

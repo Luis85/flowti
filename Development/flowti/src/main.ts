@@ -23,6 +23,7 @@ import type { DiscoveryService } from "./domain/discovery/DiscoveryService";
 import type { SubscriptionService } from "./domain/subscription/SubscriptionService";
 import type { EventDefinitionService } from "./domain/eventDefinition/EventDefinitionService";
 import type { InboxService } from "./domain/inbox/InboxService";
+import { FileSystemClient } from "./infrastructure/filesystem/FileSystemClient";
 import type { NudgeService } from "./domain/nudge/NudgeService";
 import type { SessionService } from "./domain/session/SessionService";
 import type { SignalService } from "./domain/signal/SignalService";
@@ -496,11 +497,20 @@ export default class FlowtiBasePlugin extends Plugin {
 			if (!(file instanceof TFile)) return undefined;
 			return this.app.metadataCache.getFileCache(file)?.frontmatter as Record<string, unknown> | undefined;
 		};
+		const inboxFileSystem = new FileSystemClient({ eventBus: this.eventBus });
+		this.inboxService.updateFileFrontmatter = async (path: string, data: Record<string, unknown>) => {
+			await inboxFileSystem.updateFrontmatter(path, data);
+		};
+		this.inboxService.moveFile = async (path: string, newPath: string) => {
+			return inboxFileSystem.moveFile(path, newPath);
+		};
+		this.inboxService.setTriageTargetFolder(settingsService.getSettings().inboxTriageTargetFolder ?? "");
 		await this.inboxService.load();
 
 		this.eventBus.on("settings.changed", (event) => {
 			this.inboxService?.setEnabledSources(event.payload.settings.inboxEnabledSources);
 			this.inboxService?.setWatchedFolders(event.payload.settings.inboxWatchedFolders ?? []);
+			this.inboxService?.setTriageTargetFolder(event.payload.settings.inboxTriageTargetFolder ?? "");
 			if (this.sessionService) {
 				this.sessionService.globalActivityFilter = event.payload.settings.sessionActivityFilterGlobal ?? [];
 			}

@@ -100,4 +100,28 @@ describe("QuickCaptureModal", () => {
 		});
 		expect(() => modal.onOpen()).not.toThrow();
 	});
+
+	it("should accept RAID capture types without error", () => {
+		for (const type of ["risk", "assumption", "issue", "decision"] as const) {
+			const modal = new QuickCaptureModal(createMockApp(), {
+				onSubmit: vi.fn(),
+				defaultType: type,
+			});
+			expect(() => modal.onOpen()).not.toThrow();
+		}
+	});
+
+	it("should render optgroup elements when type selector is shown", () => {
+		const modal = new QuickCaptureModal(createMockApp(), {
+			onSubmit: vi.fn(),
+			showTypeSelector: true,
+		});
+		modal.onOpen();
+
+		const optgroups = modal.contentEl.querySelectorAll("optgroup");
+		expect(optgroups.length).toBe(2);
+
+		const options = modal.contentEl.querySelectorAll("option");
+		expect(options.length).toBe(10);
+	});
 });

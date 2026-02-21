@@ -8,6 +8,7 @@
 
 import { setIcon } from "obsidian";
 import { formatSourceEvent, formatTime, type UserHubComponentDeps, type InboxItem } from "./types";
+import { VaultFolderTriagePanel } from "./VaultFolderTriagePanel";
 
 export class UserHubInbox {
 	constructor(
@@ -152,10 +153,28 @@ export class UserHubInbox {
 			body.createEl("p", { text: item.description });
 		}
 
+		// Clickable link to the underlying note file
+		if (item.filePath) {
+			const fileRow = this.detailEl.createDiv({ cls: "ft-detail-section ft-flex ft-items-center ft-gap-1 ft-text-sm" });
+			const fileIcon = fileRow.createSpan();
+			setIcon(fileIcon, "file-text");
+			fileIcon.style.opacity = "0.6";
+			const fileLink = fileRow.createSpan({ text: item.filePath, cls: "ft-nav-link ft-cursor-pointer" });
+			fileLink.setAttribute("aria-label", "Open note");
+			fileLink.addEventListener("click", () => {
+				this.deps.openFile(item.filePath!);
+			});
+		}
+
+		// Vault folder triage panel (replaces generic "Mark read" for vault folder items)
+		if (item.sourceHub === "vault-folder" && !item.read) {
+			new VaultFolderTriagePanel(this.detailEl, this.deps, item).render();
+		}
+
 		// Actions
 		const actions = this.detailEl.createDiv({ cls: "ft-detail-section ft-flex ft-gap-2" });
 
-		if (!item.read) {
+		if (!item.read && item.sourceHub !== "vault-folder") {
 			const readBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm" });
 			setIcon(readBtn, "check");
 			readBtn.appendText(" Mark read");

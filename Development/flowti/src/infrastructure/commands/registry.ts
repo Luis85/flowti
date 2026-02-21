@@ -91,6 +91,78 @@ export function createCommandDefinitions(): CommandDefinition[] {
 				void ctx.eventBus.emit("ui.openQuickCapture", { type: "feedback" });
 			},
 		},
+		{
+			id: "flowti:add-note",
+			name: "Add Note",
+			icon: "file-text",
+			handler: async (ctx) => {
+				ctx.logger.debug("Opening quick capture modal for note");
+				void ctx.eventBus.emit("ui.openQuickCapture", { type: "note" });
+			},
+		},
+		{
+			id: "flowti:add-task",
+			name: "Add Task",
+			icon: "check-square",
+			handler: async (ctx) => {
+				ctx.logger.debug("Opening quick capture modal for task");
+				void ctx.eventBus.emit("ui.openQuickCapture", { type: "task" });
+			},
+		},
+		{
+			id: "flowti:add-question",
+			name: "Add Question",
+			icon: "help-circle",
+			handler: async (ctx) => {
+				ctx.logger.debug("Opening quick capture modal for question");
+				void ctx.eventBus.emit("ui.openQuickCapture", { type: "question" });
+			},
+		},
+		{
+			id: "flowti:add-bug",
+			name: "Add Bug",
+			icon: "bug",
+			handler: async (ctx) => {
+				ctx.logger.debug("Opening quick capture modal for bug");
+				void ctx.eventBus.emit("ui.openQuickCapture", { type: "bug" });
+			},
+		},
+		{
+			id: "flowti:add-risk",
+			name: "Add Risk",
+			icon: "alert-triangle",
+			handler: async (ctx) => {
+				ctx.logger.debug("Opening quick capture modal for risk");
+				void ctx.eventBus.emit("ui.openQuickCapture", { type: "risk" });
+			},
+		},
+		{
+			id: "flowti:add-assumption",
+			name: "Add Assumption",
+			icon: "compass",
+			handler: async (ctx) => {
+				ctx.logger.debug("Opening quick capture modal for assumption");
+				void ctx.eventBus.emit("ui.openQuickCapture", { type: "assumption" });
+			},
+		},
+		{
+			id: "flowti:add-issue",
+			name: "Add Issue",
+			icon: "alert-circle",
+			handler: async (ctx) => {
+				ctx.logger.debug("Opening quick capture modal for issue");
+				void ctx.eventBus.emit("ui.openQuickCapture", { type: "issue" });
+			},
+		},
+		{
+			id: "flowti:add-decision",
+			name: "Add Decision",
+			icon: "scale",
+			handler: async (ctx) => {
+				ctx.logger.debug("Opening quick capture modal for decision");
+				void ctx.eventBus.emit("ui.openQuickCapture", { type: "decision" });
+			},
+		},
 	];
 }
 

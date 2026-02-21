@@ -2,6 +2,7 @@
  * Type definitions for the User Hub view and its components.
  */
 
+import type { App } from "obsidian";
 import type { InboxService } from "../../domain/inbox/InboxService";
 import type { NudgeService } from "../../domain/nudge/NudgeService";
 import type { SessionService } from "../../domain/session/SessionService";
@@ -51,6 +52,7 @@ const SOURCE_EVENT_LABELS: Record<string, string> = {
 	"dataExchange.pipeline.completed": "Pipeline",
 	"dataExchange.pipeline.failed": "Pipeline Error",
 	"inbox.vaultFolder.noteDetected": "Vault Folder",
+	"capture.note.created": "Quick Capture",
 };
 
 /** Returns a human-readable label for an inbox item's source event. */
@@ -71,6 +73,8 @@ export interface UserHubComponentDeps {
 	getState: () => UserHubState;
 	setState: (partial: Partial<UserHubState>) => void;
 	eventBus: IEventBus;
+	/** Obsidian App instance (for vault folder suggestions). */
+	app: App;
 	inboxService: InboxService;
 	sessionService: SessionService;
 	userService: IUserService;

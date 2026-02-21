@@ -35,16 +35,35 @@ export class QuickCaptureModal extends Modal {
 
 		// Type selector (only for command palette)
 		if (this.options.showTypeSelector) {
-			new Setting(contentEl)
-				.setName("Type")
-				.addDropdown((dropdown) =>
-					dropdown
-						.addOption("idea", "Idea")
-						.addOption("feedback", "Feedback")
-						.addOption("bug", "Bug")
-						.setValue(selectedType)
-						.onChange((value) => { selectedType = value as CaptureType; })
-				);
+			const typeRow = contentEl.createDiv({ cls: "setting-item" });
+			typeRow.createDiv({ cls: "setting-item-info" }).createDiv({ cls: "setting-item-name", text: "Type" });
+			const controlEl = typeRow.createDiv({ cls: "setting-item-control" });
+			const selectEl = controlEl.createEl("select", { cls: "dropdown" });
+
+			const generalGroup = selectEl.createEl("optgroup");
+			generalGroup.label = "General";
+			for (const [value, label] of [
+				["idea", "Idea"], ["note", "Note"], ["task", "Task"],
+				["question", "Question"], ["feedback", "Feedback"], ["bug", "Bug"],
+			] as const) {
+				const opt = generalGroup.createEl("option", { text: label });
+				opt.value = value;
+			}
+
+			const raidGroup = selectEl.createEl("optgroup");
+			raidGroup.label = "RAID";
+			for (const [value, label] of [
+				["risk", "Risk"], ["assumption", "Assumption"],
+				["issue", "Issue"], ["decision", "Decision"],
+			] as const) {
+				const opt = raidGroup.createEl("option", { text: label });
+				opt.value = value;
+			}
+
+			selectEl.value = selectedType;
+			selectEl.addEventListener("change", () => {
+				selectedType = selectEl.value as CaptureType;
+			});
 		}
 
 		const submit = (): void => {

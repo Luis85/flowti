@@ -9,7 +9,7 @@ tags:
   - RB-4
 priority: "2 - high"
 rank:
-planned_in: "[[Cycle 13 - Release Preparation]]"
+planned_in: "[[Release Preparation Cycle]]"
 related:
   - "[[I want the installer to use a versioned JSON folder config instead of hardcoded paths]]"
   - "[[backlog-refinement-2026-02-20]]"

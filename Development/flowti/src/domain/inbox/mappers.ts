@@ -226,3 +226,24 @@ export function mapSyncFailed(
 		read: false,
 	};
 }
+
+/**
+ * Maps a `capture.note.created` event to an inbox item.
+ */
+export function mapCaptureNoteCreated(
+	payload: { path: string; title: string; type: string },
+	id: string,
+): InboxItem {
+	const displayType = payload.type.charAt(0).toUpperCase() + payload.type.slice(1);
+	return {
+		id,
+		type: "info",
+		title: `Captured: ${payload.title}`,
+		description: `${displayType} captured via Quick Capture: ${payload.path}`,
+		sourceEvent: "capture.note.created",
+		sourceHub: "capture",
+		timestamp: new Date().toISOString(),
+		read: false,
+		filePath: payload.path,
+	};
+}

@@ -6,7 +6,10 @@
  */
 
 /** Built-in capture types plus any custom string. */
-export type CaptureType = "idea" | "feedback" | "bug" | (string & Record<never, never>);
+export type CaptureType =
+	| "idea" | "note" | "task" | "question" | "feedback" | "bug"
+	| "risk" | "assumption" | "issue" | "decision"
+	| (string & Record<never, never>);
 
 /** Input for creating a captured note. */
 export interface CaptureInput {

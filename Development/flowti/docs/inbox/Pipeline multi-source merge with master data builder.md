@@ -9,7 +9,7 @@ tags:
   - RB-7
 priority: "2 - high"
 rank:
-planned_in: "[[Cycle 13 - Release Preparation]]"
+planned_in: "[[Release Preparation Cycle]]"
 related:
   - "[[Data Exchange Hub - Pipelines]]"
   - "[[I want to combine multiple reports into one import]]"

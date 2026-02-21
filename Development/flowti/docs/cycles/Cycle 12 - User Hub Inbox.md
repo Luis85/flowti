@@ -12,11 +12,11 @@ bugs: []
 bugs_fixed_precycle: []
 tech_debt: []
 estimated_increments: 3
-actual_increments:
+actual_increments: 4
 estimated_tests: 60
-actual_tests:
-total_tests_after:
-total_test_files_after:
+actual_tests: 79
+total_tests_after: 3097
+total_test_files_after: 124
 ---
 
 # Cycle 12: User Hub Inbox
@@ -313,14 +313,58 @@ Quick Capture and Vault Folder Inbox together create the capture-to-organization
 **Architecture seams:** Inbox detail panel extension for triage UI. DocService for frontmatter application. FileSystemClient for file move on primary inbox routing. Settings integration for target folder configuration.
 
 **Acceptance criteria:**
-- [ ] Inbox detail panel shows type dropdown and description field for vault folder items
-- [ ] "Mark as Read" applies configured note template frontmatter to file
-- [ ] "Mark as Read" on primary inbox folder items moves note to target folder
-- [ ] "Mark as Read" on secondary watched folder items applies frontmatter in-place (no move)
-- [ ] Settings UI: configure target folder for primary inbox routing
-- [ ] Inbox item removed after mark-as-read
-- [ ] `inbox.vaultFolder.noteTriaged` event emitted on triage
-- [ ] `npm run build` passes
+- [x] Inbox detail panel shows type dropdown and description field for vault folder items
+- [x] "Mark as Read" applies configured note template frontmatter to file
+- [x] "Mark as Read" on primary inbox folder items moves note to target folder
+- [x] "Mark as Read" on secondary watched folder items applies frontmatter in-place (no move)
+- [x] Settings UI: configure target folder for primary inbox routing
+- [x] Inbox item removed after mark-as-read
+- [x] `inbox.vaultFolder.noteTriaged` event emitted on triage
+- [x] `npm run build` passes
+
+**Delivery notes (2026-02-21):** ~160 LOC source (VaultFolderTriagePanel 80 LOC + InboxService triage 50 LOC + settings 20 LOC + events 10 LOC), 20 tests (3,086 total, 124 suites). Triage panel with type dropdown (10 types), description field, mark-as-read with frontmatter application + primary folder routing. DoD: PASS.
+
+---
+
+### Inc 4: Expanded Quick Capture + Inbox Integration (PBI-QC-001 + PBI-005)
+
+**Goal:** Expand Quick Capture from 3 to 10 entity types (General + RAID), wire captured notes into the inbox as info items, and add clickable file links in inbox detail view.
+
+| Step | File | Purpose | Est. LOC |
+|------|------|---------|----------|
+| 1 | `src/domain/capture/types.ts` | Expand `CaptureType` union to 10 types | ~5 |
+| 2 | `src/infrastructure/commands/registry.ts` | 8 new `flowti:add-*` commands (note, task, question, bug, risk, assumption, issue, decision) | ~40 |
+| 3 | `src/ui/capture/QuickCaptureModal.ts` | Replace 3-option dropdown with 10-type optgroup select (General / RAID) | ~30 |
+| 4 | `src/domain/inbox/mappers.ts` | `mapCaptureNoteCreated` pure mapper function | ~15 |
+| 5 | `src/domain/inbox/InboxService.ts` (extend) | Wire `capture.note.created` listener + add to `ALL_INBOX_SOURCES` | ~15 |
+| 6 | `src/domain/inbox/types.ts` (extend) | Add Quick Capture source definition to `INBOX_SOURCE_DEFINITIONS` | ~5 |
+| 7 | `src/domain/settings/settings.ts` (extend) | Add `capture.note.created` to default enabled sources | ~5 |
+| 8 | `src/ui/userHub/VaultFolderTriagePanel.ts` (extend) | Expand `NOTE_TYPES` to 10 types | ~5 |
+| 9 | `src/ui/userHub/types.ts` (extend) | Add `"capture.note.created": "Quick Capture"` to `SOURCE_EVENT_LABELS` | ~5 |
+| 10 | `src/ui/userHub/UserHubInbox.ts` (extend) | Clickable file link in inbox detail view for items with `filePath` | ~15 |
+
+**Est. total:** ~140 LOC source, ~50 LOC tests, ~11 new tests
+
+**Test intent:** Mapper tests (mapCaptureNoteCreated produces correct InboxItem with title, sourceEvent, filePath). InboxService tests (capture.note.created listener adds item, disabled source skips). CaptureService tests (RAID types emit events). Command registry tests (all 10 add-* commands present). QuickCaptureModal tests (RAID types accepted). Inbox UI tests (clickable file link renders and calls openFile, no link when filePath absent, source label for capture events). Level: unit + UI.
+
+**Documentation intent:** Update Quick Capture PRD with expanded type set. Update Hubs PRD inbox section with Quick Capture source. Update Event Catalog with `capture.note.created` source definition.
+
+**Architecture seams:** CaptureType union extension. Command registry pattern. InboxService source registration pattern (mapper + listener + source definition). Settings default enabled sources. SOURCE_EVENT_LABELS UI map.
+
+**Acceptance criteria:**
+- [x] `CaptureType` union includes 10 types: idea, note, task, question, feedback, bug, risk, assumption, issue, decision
+- [x] 8 new `flowti:add-*` commands registered in command palette (no new ribbons)
+- [x] Quick Capture modal shows 10 types in General / RAID optgroups
+- [x] `mapCaptureNoteCreated` mapper creates InboxItem with title, sourceEvent, filePath
+- [x] InboxService listens to `capture.note.created` and adds inbox item
+- [x] `INBOX_SOURCE_DEFINITIONS` includes Quick Capture source entry
+- [x] `capture.note.created` enabled by default in inbox settings
+- [x] Triage panel type dropdown includes all 10 types
+- [x] Source badge shows "Quick Capture" for capture-sourced items
+- [x] Inbox detail shows clickable file link for items with `filePath`
+- [x] `npm test` passes (tsc + eslint + vitest)
+
+**Delivery notes (2026-02-21):** ~140 LOC source across 10 files, 11 tests (3,097 total, 124 suites). 10 capture types (was 3), 13 total capture commands (was 5). Quick Capture → Inbox pipeline complete. Clickable note link enables direct file access from inbox. DoD: PASS.
 
 ---
 
@@ -332,16 +376,20 @@ Inc 1: Quick Capture Ribbons — independent, no prerequisites
 Inc 2: Vault Folder Inbox — Folder Watcher Core — independent of Inc 1
     ↓ (surfaces notes in inbox)
 Inc 3: Vault Folder Inbox — Triage & Routing — depends on Inc 2
+    ↓ (triage panel in place)
+Inc 4: Expanded Quick Capture + Inbox Integration — depends on Inc 1 + Inc 3
 ```
 
 **Parallelism opportunities:**
 - Inc 1 and Inc 2 are independent and can run in parallel
 - Inc 3 requires Inc 2 (folder watcher) to be complete
+- Inc 4 requires Inc 1 (capture types) + Inc 3 (triage panel, inbox detail)
 - Inc 1 feeds Inc 2 functionally (Quick Capture creates notes that folder watcher surfaces) but has no code dependency
 
-**Recommended execution order:**
+**Actual execution order:**
 Phase A: Inc 1 + Inc 2 (parallel)
 Phase B: Inc 3
+Phase C: Inc 4
 
 ---
 
@@ -359,15 +407,16 @@ Phase B: Inc 3
 
 ## Success Metrics
 
-| Metric | Target |
-|--------|--------|
-| Tests added | ~60 new |
-| Tests total | ~3,078+ (baseline: 3,018) |
-| PBIs closed | 2/2 (QC-001, PBI-005) |
-| New events | ~5 (capture.idea.created, capture.feedback.created, capture.note.created, inbox.vaultFolder.noteDetected, inbox.vaultFolder.noteTriaged) |
-| Inbox sources | 8 → 9 (vault folder added) |
-| Capture actions | 5 new (Add Idea ribbon, Add Feedback ribbon, Quick Capture command, Add Idea command, Add Feedback command) |
-| Build green | `npm test` + `npm run build` pass |
+| Metric | Target | Actual |
+|--------|--------|--------|
+| Tests added | ~60 new | 79 new |
+| Tests total | ~3,078+ (baseline: 3,018) | 3,097 (124 suites) |
+| PBIs closed | 2/2 (QC-001, PBI-005) | 2/2 |
+| New events | ~5 | 5 (capture.idea.created, capture.feedback.created, capture.note.created, inbox.vaultFolder.noteDetected, inbox.vaultFolder.noteTriaged) |
+| Inbox sources | 8 → 9 (vault folder added) | 8 → 10 (vault folder + Quick Capture) |
+| Capture actions | 5 new | 13 total (2 ribbons + 11 commands incl. 8 RAID) |
+| Capture types | 3 | 10 (6 General + 4 RAID) |
+| Build green | `npm test` + `npm run build` pass | PASS |
 
 ---
 
@@ -450,4 +499,4 @@ All prior blockers resolved. No open actions remaining.
 - Prior art: [[Phase 3 Inc 2 - Inbox Population]], [[Phase 3 Inc 3 - Inbox UX and Source Config]], [[Phase 3 Inc 4 - Pipeline Inbox and Preferences]]
 - Reviews: [[backlog-refinement-2026-02-20]], [[Inbox Review 2026-02-20 Azure DevOps Prioritization]]
 - Previous Cycle: [[Cycle 11 - Azure DevOps Integration]]
-- Next Cycle: [[Cycle 13 - Release Preparation]]
+- Next Cycle: [[Cycle 13 - Train of Thoughts]]

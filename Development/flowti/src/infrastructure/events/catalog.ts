@@ -273,6 +273,7 @@ const CATALOG_DATA = {
 	"settings.updateCustomOutputTemplates": { category: "Settings", description: "Update custom output templates for session artifacts", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
 	"settings.updateSessionActivityFilter": { category: "Settings", description: "Update session activity filter folders", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
 	"settings.updateInboxWatchedFolders": { category: "Settings", description: "Update inbox watched folder configuration", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
+	"settings.updateInboxTriageTargetFolder": { category: "Settings", description: "Update inbox triage target folder path", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
 
 	// ── Installer Domain ─────────────────────────────────────
 	"installer.started":        { category: "Installer", description: "Installation pipeline started", direction: "Service → Listeners", domain: "installer", services: "InstallerService" },
@@ -386,6 +387,7 @@ const CATALOG_DATA = {
 	"inbox.itemsChanged": { category: "Inbox", description: "Inbox items changed (read/dismiss/clear)", direction: "Service → Listeners", domain: "inbox", services: "InboxService", tags: ["system"] },
 	"inbox.refresh":      { category: "Inbox", description: "Request re-emit of inbox state", direction: "View → Plugin", domain: "inbox", services: "InboxService", tags: ["system"] },
 	"inbox.vaultFolder.noteDetected": { category: "Inbox", description: "An untyped note was detected in a watched vault folder", direction: "Service → Listeners", domain: "inbox", services: "InboxService" },
+	"inbox.vaultFolder.noteTriaged": { category: "Inbox", description: "A vault folder inbox item was triaged (frontmatter applied, optionally routed)", direction: "Service → Listeners", domain: "inbox", services: "InboxService" },
 
 	// ── Session ───────────────────────────────────────────────
 	"session.create":          { category: "Session", description: "Command to create a new session", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },

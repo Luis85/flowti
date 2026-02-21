@@ -99,6 +99,11 @@ export class SettingsService implements ISettingsService {
 					void this.updateSettings({ inboxWatchedFolders: event.payload.folders });
 				})
 			);
+			this.unsubscribes.push(
+				this.eventBus.on("settings.updateInboxTriageTargetFolder", (event) => {
+					void this.updateSettings({ inboxTriageTargetFolder: event.payload.folder });
+				})
+			);
 		}
 	}
 

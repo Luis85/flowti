@@ -15,4 +15,6 @@ export interface InboxEventMap {
 	"inbox.refresh": Record<string, never>;
 	/** Emitted when an untyped note is detected in a watched vault folder */
 	"inbox.vaultFolder.noteDetected": { path: string; title: string };
+	/** Emitted when a vault folder inbox item is triaged (frontmatter applied, optionally routed) */
+	"inbox.vaultFolder.noteTriaged": { path: string; type: string; moved: boolean; targetPath?: string };
 }

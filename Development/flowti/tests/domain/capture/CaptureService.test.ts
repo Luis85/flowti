@@ -160,5 +160,27 @@ describe("CaptureService", () => {
 			);
 			expect(result.path).toBe("00 - Connectivity/inbox/.md");
 		});
+
+		it("should emit capture.note.created for RAID types", async () => {
+			const events: Array<{ path: string; title: string; type: string }> = [];
+			eventBus.on("capture.note.created", (e) => { events.push(e.payload); });
+
+			for (const type of ["risk", "assumption", "issue", "decision"]) {
+				await service.capture({ title: `Test ${type}`, type });
+			}
+
+			expect(events).toHaveLength(4);
+			expect(events.map((e) => e.type)).toEqual(["risk", "assumption", "issue", "decision"]);
+		});
+
+		it("should create title-cased frontmatter for RAID types", async () => {
+			await service.capture({ title: "Security Risk", type: "risk" });
+
+			expect(fileSystem.createFile).toHaveBeenCalledWith(
+				expect.any(String),
+				expect.stringContaining("type: Risk"),
+				expect.any(Object),
+			);
+		});
 	});
 });

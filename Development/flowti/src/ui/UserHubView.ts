@@ -306,6 +306,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 				Object.assign(this.state, partial);
 			},
 			eventBus: this.eventBus,
+			app: this.app,
 			inboxService: this.inboxService,
 			sessionService: this.sessionService,
 			nudgeService: this.nudgeService,

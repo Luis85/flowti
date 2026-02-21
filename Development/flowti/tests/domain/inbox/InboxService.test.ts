@@ -204,6 +204,44 @@ describe("InboxService", () => {
 
 			expect(service.getItems()[0].title).toBe("Export completed: 50 rows");
 		});
+
+		it("should add item when capture.note.created is emitted", async () => {
+			await service.load();
+
+			const handler = vi.fn();
+			eventBus.on("inbox.itemAdded", handler);
+
+			await eventBus.emit("capture.note.created", {
+				path: "inbox/Test Note.md",
+				title: "Test Note",
+				type: "idea",
+			});
+
+			await vi.waitFor(() => {
+				expect(handler).toHaveBeenCalledOnce();
+			});
+
+			const items = service.getItems();
+			expect(items).toHaveLength(1);
+			expect(items[0].title).toBe("Captured: Test Note");
+			expect(items[0].sourceEvent).toBe("capture.note.created");
+			expect(items[0].sourceHub).toBe("capture");
+			expect(items[0].filePath).toBe("inbox/Test Note.md");
+		});
+
+		it("should not add item when capture.note.created source is disabled", async () => {
+			await service.load();
+			service.setEnabledSources(["subscription.matched"]);
+
+			await eventBus.emit("capture.note.created", {
+				path: "inbox/Test.md",
+				title: "Test",
+				type: "bug",
+			});
+
+			await new Promise((r) => setTimeout(r, 10));
+			expect(service.getItems()).toHaveLength(0);
+		});
 	});
 
 	describe("item cap", () => {

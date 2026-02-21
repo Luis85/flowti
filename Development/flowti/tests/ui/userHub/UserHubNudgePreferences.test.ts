@@ -47,6 +47,7 @@ function makeDeps(
 			emit: vi.fn(async () => {}),
 			on: vi.fn(() => () => {}),
 		} as unknown as IEventBus,
+		app: {} as never,
 		inboxService: {} as never,
 		sessionService: {} as never,
 		nudgeService: {

@@ -9,7 +9,7 @@ tags:
   - RB-7
   - data-exchange
   - pipeline
-planned_in: "[[Cycle 13 - Release Preparation]]"
+planned_in: "[[Release Preparation Cycle]]"
 user_story: "[[Pipeline multi-source merge with master data builder]]"
 ---
 

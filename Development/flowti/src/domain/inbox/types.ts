@@ -22,6 +22,8 @@ export interface InboxItem {
 	sourceHub: string;
 	timestamp: string;
 	read: boolean;
+	/** File path for vault-folder-sourced items (used for triage routing). */
+	filePath?: string;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -49,4 +51,5 @@ export const INBOX_SOURCE_DEFINITIONS: ReadonlyArray<{ event: string; label: str
 	{ event: "dataExchange.pipeline.completed", label: "Pipeline completed", desc: "When a multi-import pipeline finishes successfully" },
 	{ event: "dataExchange.pipeline.failed", label: "Pipeline errors", desc: "When a multi-import pipeline fails" },
 	{ event: "inbox.vaultFolder.noteDetected", label: "Vault folder notes", desc: "When an untyped note appears in a watched vault folder" },
+	{ event: "capture.note.created", label: "Quick Capture", desc: "When a note is created via Quick Capture" },
 ];

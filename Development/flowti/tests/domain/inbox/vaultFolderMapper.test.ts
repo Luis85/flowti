@@ -31,6 +31,15 @@ describe("vaultFolderMapper", () => {
 			expect(item.sourceEvent).toBe(VAULT_FOLDER_SOURCE_EVENT);
 			expect(item.sourceHub).toBe(VAULT_FOLDER_SOURCE_HUB);
 			expect(item.read).toBe(false);
+			expect(item.filePath).toBe("00 - Connectivity/inbox/Quick thought.md");
+		});
+
+		it("should set filePath to the source file path", () => {
+			const item = mapVaultFolderNote(
+				{ path: "notes/deep/sub/file.md", title: "file", folder: "notes" },
+				"id_fp",
+			);
+			expect(item.filePath).toBe("notes/deep/sub/file.md");
 		});
 
 		it("should always set type to action (requires classification)", () => {

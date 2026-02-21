@@ -9,7 +9,7 @@ tags:
   - RB-3
 priority: "2 - high"
 rank:
-planned_in: "[[Cycle 13 - Release Preparation]]"
+planned_in: "[[Release Preparation Cycle]]"
 related:
   - "[[Starting a Canvas Session]]"
   - "[[I want to import an Obsidian Canvas to add its content to my domain]]"

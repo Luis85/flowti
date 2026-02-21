@@ -9,7 +9,7 @@ tags:
   - RB-1
 priority: "00 - critical"
 rank:
-planned_in: "[[Cycle 13 - Release Preparation]]"
+planned_in: "[[Release Preparation Cycle]]"
 related:
   - "[[I want to provide a folder-structure as json to the installer]]"
   - "[[backlog-refinement-2026-02-20]]"

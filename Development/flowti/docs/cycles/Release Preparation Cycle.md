@@ -1,9 +1,10 @@
 ---
 type: DevelopmentCycle
 feature: "[[Release Preparation PRD]]"
-stage: refinement
-cycle: 13
-date_planned: 2026-02-21
+stage: deferred
+cycle:
+rolling: true
+date_planned:
 date_completed:
 pbis:
   - "[[PBI-RP-001 Repository Restructure]]"
@@ -23,7 +24,21 @@ total_tests_after:
 total_test_files_after:
 ---
 
-# Cycle 13: Release Preparation
+# Release Preparation Cycle (Rolling)
+
+> **Rolling cycle**: This cycle prepares the plugin for Obsidian marketplace publication. It is intentionally deferred until the plugin reaches feature stability. As new feature cycles are prioritized, this cycle shifts to the end of the queue. It tracks all go-to-market blockers and will be executed when the feature set is considered release-ready.
+
+## Release Blockers
+
+| ID | Blocker | Status | Owner | Notes |
+|----|---------|--------|-------|-------|
+| RB-1 | Repository Restructure | open | PBI-RP-001 | Move source to root for npm/marketplace |
+| RB-2 | Obsidian ESLint Compliance | open | PBI-RP-002 | Required for community review |
+| RB-3 | Canvas importer as plugin feature | open | PBI-CAN-001 | Migrate QuickAdd scripts |
+| RB-4 | Seed starter content | open | PBI-002 | First-run experience |
+| RB-5 | External data ingestion | targeted | Cycle 11 | Azure DevOps adapter |
+| RB-6 | Documentation stubs | deferred | — | Not marketplace-required |
+| RB-7 | Pipeline multi-source merge | open | PBI-006 | Data management workflow |
 
 ## Situation Assessment
 
@@ -448,8 +463,10 @@ For each of the 7 increments:
 | Complete Cycle 10 (remaining increments + retrospective) | Dev | Blocked on Cycle 10 delivery |
 | Complete Cycle 11 (all increments + retrospective) | Dev | Blocked on Cycle 10 completion |
 | Complete Cycle 12 - User Hub Inbox (all increments + retrospective) | Dev | Blocked on Cycle 11 completion |
+| Complete Cycle 13 - Train of Thoughts (all increments + retrospective) | Dev | Blocked on Cycle 12 completion |
 | Technical review for Release Preparation PRD | Dev | Pending |
 | Advance Canvas Integration PRD from "discovery" to "planned" | Dev | Pending |
+| Assess feature stability for release readiness | Dev | Pending |
 
 ---
 
@@ -459,4 +476,4 @@ For each of the 7 increments:
 - PBIs: [[PBI-RP-001 Repository Restructure]], [[PBI-RP-002 Obsidian ESLint Compliance]], [[PBI-RP-003 CI-CD Pipeline]], [[PBI-CAN-001 Canvas Parser and Importer]], [[PBI-002 Seed Starter Content]], [[PBI-006 Pipeline Multi-Source Merge]]
 - Tech Debt: None bundled (Cycle 10 remaining debt deferred)
 - Reviews: [[backlog-refinement-2026-02-20]], [[Cycle Sequence Review 2026-02-20 Azure DevOps Prioritization]], [[Inbox Review 2026-02-20 Azure DevOps Prioritization]]
-- Previous Cycle: [[Cycle 12 - User Hub Inbox]]
+- Preceding feature cycles: [[Cycle 12 - User Hub Inbox]], [[Cycle 13 - Train of Thoughts]]

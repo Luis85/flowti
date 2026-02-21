@@ -7,7 +7,7 @@ tags:
   - release-blocker
   - RB-2
   - publishing
-planned_in: "[[Cycle 13 - Release Preparation]]"
+planned_in: "[[Release Preparation Cycle]]"
 user_story: "[[We need to implement Obsidian ESLint rules for plugins in order to publish on the marketplace]]"
 ---
 

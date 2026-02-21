@@ -6,6 +6,7 @@ import {
 	mapExportCompleted,
 	mapPipelineCompleted,
 	mapPipelineFailed,
+	mapCaptureNoteCreated,
 } from "../../../src/domain/inbox/mappers";
 
 describe("Inbox mappers", () => {
@@ -327,6 +328,34 @@ describe("Inbox mappers", () => {
 			);
 
 			expect(item.title).toBe("Export completed: 50 rows");
+		});
+	});
+
+	describe("mapCaptureNoteCreated", () => {
+		it("should create an info item with captured title and filePath", () => {
+			const item = mapCaptureNoteCreated(
+				{ path: "inbox/My Idea.md", title: "My Idea", type: "idea" },
+				"inbox_cap_1",
+			);
+
+			expect(item.id).toBe("inbox_cap_1");
+			expect(item.type).toBe("info");
+			expect(item.title).toBe("Captured: My Idea");
+			expect(item.description).toContain("Idea captured via Quick Capture");
+			expect(item.description).toContain("inbox/My Idea.md");
+			expect(item.sourceEvent).toBe("capture.note.created");
+			expect(item.sourceHub).toBe("capture");
+			expect(item.read).toBe(false);
+			expect(item.filePath).toBe("inbox/My Idea.md");
+		});
+
+		it("should capitalize the display type in description", () => {
+			const item = mapCaptureNoteCreated(
+				{ path: "inbox/A Risk.md", title: "A Risk", type: "risk" },
+				"inbox_cap_2",
+			);
+
+			expect(item.description).toContain("Risk captured via Quick Capture");
 		});
 	});
 });

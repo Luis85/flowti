@@ -141,7 +141,9 @@ export const FlowtiSettingsSchema = z.object({
 	inboxWatchedFolders: z.array(z.object({
 		path: z.string(),
 		recursive: z.boolean().default(false),
+		isPrimary: z.boolean().default(false),
 	})).default([]),
+	inboxTriageTargetFolder: z.string().default(""),
 	entityPaths: EntityPathsSchema.default(DEFAULT_ENTITY_PATHS),
 	sessionActivityFilterGlobal: z.array(z.string()).default([]),
 	customSessionTypes: z.record(z.string(), z.object({
@@ -170,6 +172,7 @@ export const FlowtiSettingsSchema = z.object({
 		"dataExchange.pipeline.completed",
 		"dataExchange.pipeline.failed",
 		"inbox.vaultFolder.noteDetected",
+		"capture.note.created",
 	]),
 });
 

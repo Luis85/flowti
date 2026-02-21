@@ -28,5 +28,6 @@ export function mapVaultFolderNote(
 		sourceHub: VAULT_FOLDER_SOURCE_HUB,
 		timestamp: new Date().toISOString(),
 		read: false,
+		filePath: payload.path,
 	};
 }

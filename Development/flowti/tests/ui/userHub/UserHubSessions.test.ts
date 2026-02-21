@@ -65,6 +65,7 @@ function makeDeps(state: UserHubState, eventBus?: IEventBus): UserHubComponentDe
 		getState: () => state,
 		setState: (partial) => Object.assign(state, partial),
 		eventBus: eventBus ?? new EventBus(),
+		app: {} as never,
 		inboxService: {
 			markRead: vi.fn(async () => {}),
 			dismiss: vi.fn(async () => {}),

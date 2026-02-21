@@ -23,6 +23,7 @@ import {
 	mapPipelineFailed,
 	mapSyncCompleted,
 	mapSyncFailed,
+	mapCaptureNoteCreated,
 } from "./mappers";
 import { mapVaultFolderNote, VAULT_FOLDER_SOURCE_EVENT, VAULT_FOLDER_SOURCE_HUB } from "./vaultFolderMapper";
 
@@ -37,6 +38,7 @@ export const ALL_INBOX_SOURCES = [
 	"signal.sync.completed",
 	"signal.sync.failed",
 	"inbox.vaultFolder.noteDetected",
+	"capture.note.created",
 ] as const;
 
 /**
@@ -73,11 +75,18 @@ export class InboxService {
 	private eventBus?: IEventBus;
 	private unsubscribes: (() => void)[] = [];
 	private enabledSources: Set<string> = new Set(ALL_INBOX_SOURCES);
-	private watchedFolders: Array<{ path: string; recursive: boolean }> = [];
+	private watchedFolders: Array<{ path: string; recursive: boolean; isPrimary?: boolean }> = [];
 	private fileDebounceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+	private triageTargetFolder = "";
 
 	/** Late-binding frontmatter getter — wired in main.ts to metadataCache. */
 	public getFrontmatter: (path: string) => Record<string, unknown> | undefined = () => undefined;
+
+	/** Late-binding frontmatter updater — wired in main.ts to FileSystemClient. */
+	public updateFileFrontmatter: (path: string, data: Record<string, unknown>) => Promise<void> = async () => {};
+
+	/** Late-binding file mover — wired in main.ts to FileSystemClient. */
+	public moveFile: (path: string, newPath: string) => Promise<string> = async (_p, np) => np;
 
 	constructor(options: InboxServiceOptions) {
 		this.storage = options.storage;
@@ -156,6 +165,15 @@ export class InboxService {
 				}),
 			);
 
+			// Source: quick capture note created
+			this.unsubscribes.push(
+				this.eventBus.on("capture.note.created", (event) => {
+					if (!this.enabledSources.has("capture.note.created")) return;
+					const item = mapCaptureNoteCreated(event.payload, generateId());
+					void this.addItem(item);
+				}),
+			);
+
 			// Source: vault folder — file created
 			this.unsubscribes.push(
 				this.eventBus.on("file.created", (event) => {
@@ -194,8 +212,61 @@ export class InboxService {
 	 * Updates the list of watched vault folders.
 	 * Called from main.ts on settings load/change.
 	 */
-	setWatchedFolders(folders: Array<{ path: string; recursive: boolean }>): void {
+	setWatchedFolders(folders: Array<{ path: string; recursive: boolean; isPrimary?: boolean }>): void {
 		this.watchedFolders = folders;
+	}
+
+	/**
+	 * Updates the triage target folder path.
+	 * Called from main.ts on settings load/change.
+	 */
+	setTriageTargetFolder(folder: string): void {
+		this.triageTargetFolder = folder;
+	}
+
+	/**
+	 * Triages a vault folder inbox item: applies frontmatter, optionally routes
+	 * to target folder (for primary watched folders), then dismisses the item.
+	 */
+	async triageVaultFolderItem(
+		itemId: string,
+		noteType: string,
+		description?: string,
+	): Promise<void> {
+		const item = this.state.items.find((i) => i.id === itemId);
+		if (!item || item.sourceHub !== VAULT_FOLDER_SOURCE_HUB) return;
+		if (!item.filePath) return;
+
+		// 1. Apply frontmatter
+		const fmData: Record<string, unknown> = { type: noteType };
+		if (description?.trim()) fmData.description = description.trim();
+		await this.updateFileFrontmatter(item.filePath, fmData);
+
+		// 2. Route if primary folder + target configured
+		let moved = false;
+		let targetPath: string | undefined;
+		const sourceFolder = this.findMatchingFolder(item.filePath);
+		const isPrimary = sourceFolder
+			? this.watchedFolders.some((f) => f.path === sourceFolder && f.isPrimary)
+			: false;
+
+		if (isPrimary && this.triageTargetFolder) {
+			const basename = item.filePath.split("/").pop() ?? item.filePath;
+			targetPath = `${this.triageTargetFolder}/${basename}`;
+			await this.moveFile(item.filePath, targetPath);
+			moved = true;
+		}
+
+		// 3. Dismiss item from inbox
+		await this.dismiss(itemId);
+
+		// 4. Emit triage event
+		await this.eventBus?.emit("inbox.vaultFolder.noteTriaged", {
+			path: item.filePath,
+			type: noteType,
+			moved,
+			targetPath,
+		});
 	}
 
 	/**

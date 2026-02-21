@@ -31,6 +31,7 @@ function makeDeps(state: UserHubState): UserHubComponentDeps {
 		eventBus: {
 			emit: vi.fn(async () => {}),
 		} as unknown as IEventBus,
+		app: {} as never,
 		inboxService: {
 			markRead: vi.fn(async () => {}),
 			dismiss: vi.fn(async () => {}),
