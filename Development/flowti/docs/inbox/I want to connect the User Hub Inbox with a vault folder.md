@@ -11,7 +11,7 @@ tags:
   - data-quality
 priority: 2 - high
 rank:
-planned_in: "[[Cycle 12 - Release Preparation]]"
+planned_in: "[[Cycle 12 - User Hub Inbox]]"
 pbi: "[[PBI-005 Vault Folder Inbox]]"
 related:
   - "[[Quick capture ribbons for ideas and feedback]]"

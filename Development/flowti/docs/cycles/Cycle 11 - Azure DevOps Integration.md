@@ -48,13 +48,13 @@ estimated_tests: 100
 - First network call in the plugin
 
 **Release Blockers (updated):**
-- RB-1: Installer JSON config — **open** (Cycle 12)
-- RB-2: No CI/CD — **open** (Cycle 12)
-- RB-3: Canvas importer — **open** (Cycle 12)
-- RB-4: Seed content — **open** (Cycle 12)
+- RB-1: Installer JSON config — **open** (Cycle 13)
+- RB-2: No CI/CD — **open** (Cycle 13)
+- RB-3: Canvas importer — **open** (Cycle 13)
+- RB-4: Seed content — **open** (Cycle 13)
 - RB-5: No external data ingestion — **targeted this cycle**
 - RB-6: Documentation stubs — **open** (medium-term)
-- RB-7: Pipeline multi-source merge — **open** (Cycle 12)
+- RB-7: Pipeline multi-source merge — **open** (Cycle 13)
 
 ### Cycle Goals
 
@@ -304,7 +304,7 @@ Inc 4 (UI) can begin once Inc 1 provides the service skeleton, running in parall
 | Git repository import | Different API surface, different mapping | v2 |
 | Other signal adapters (GitHub, Jira, RSS) | Framework supports them, but one adapter at a time | Cycle 14+ |
 | Work item relationships | Requires recursive fetching, complex linking | v2 |
-| Remaining Cycle 10 tech debt (Inc 4-6) | Deferred to Cycle 12 to prioritize Azure DevOps | Cycle 12 |
+| Remaining Cycle 10 tech debt (Inc 4-6) | Deferred to prioritize Azure DevOps | Cycle 13+ |
 
 ---
 
@@ -315,4 +315,4 @@ Inc 4 (UI) can begin once Inc 1 provides the service skeleton, running in parall
 - Parent hub: [[Data Exchange Hub PRD]]
 - Review: [[Cycle Sequence Review 2026-02-20 Azure DevOps Prioritization]]
 - Previous: [[Cycle 10 - Refactoring and Technical Debt Cleanup]] (slimmed to 3 increments)
-- Next: Cycle 12 — Release Preparation (installer, canvas, quick capture + deferred Cycle 10 debt)
+- Next: [[Cycle 12 - User Hub Inbox]] (Quick Capture + Vault Folder Inbox)

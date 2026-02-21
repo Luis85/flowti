@@ -7,7 +7,7 @@ description: "Two action ribbons and commands for instant idea and feedback capt
 tags: []
 priority: "2 - high"
 rank:
-planned_in: "[[Cycle 12 - Release Preparation]]"
+planned_in: "[[Cycle 12 - User Hub Inbox]]"
 related:
   - "[[I want to capture feedback and input as fast as possible]]"
   - "[[I want to quickly capture a note to my inbox to distribute the note later]]"

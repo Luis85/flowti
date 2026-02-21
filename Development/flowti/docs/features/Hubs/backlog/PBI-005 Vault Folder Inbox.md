@@ -4,7 +4,7 @@ feature: "[[Hubs PRD]]"
 stage: planned
 priority: high
 phase: 5
-planned_in: "[[Cycle 12 - Release Preparation]]"
+planned_in: "[[Cycle 12 - User Hub Inbox]]"
 estimated_loc: 380
 estimated_tests: 35
 dependencies:

@@ -9,12 +9,12 @@ tags:
   - RB-4
 priority: "2 - high"
 rank:
-planned_in: "[[Cycle 12 - Release Preparation]]"
+planned_in: "[[Cycle 13 - Release Preparation]]"
 related:
   - "[[I want the installer to use a versioned JSON folder config instead of hardcoded paths]]"
   - "[[backlog-refinement-2026-02-20]]"
   - "[[Cycle Sequence Review 2026-02-20 Azure DevOps Prioritization]]"
-note: "Release blocker RB-4. Moved from Cycle 11 to Cycle 12 per cycle sequence review (Azure DevOps prioritized in Cycle 11). New users currently see empty folders after install. The knowledge graph has no seed data, making the system feel hollow. First-run should create: (1) example domain with 2-3 events and a flow, (2) session templates for daily session and domain design, (3) a welcome note explaining how to get started."
+note: "Release blocker RB-4. Moved from Cycle 11 to Cycle 13 per cycle sequence review (Azure DevOps prioritized in Cycle 11). New users currently see empty folders after install. The knowledge graph has no seed data, making the system feel hollow. First-run should create: (1) example domain with 2-3 events and a flow, (2) session templates for daily session and domain design, (3) a welcome note explaining how to get started."
 ---
 
 ## Problem

@@ -2,7 +2,7 @@
 type: DevelopmentCycle
 feature: "[[Release Preparation PRD]]"
 stage: planned
-cycle: 12
+cycle: 13
 date_planned: 2026-02-21
 date_completed:
 pbis:
@@ -12,27 +12,25 @@ pbis:
   - "[[PBI-CAN-001 Canvas Parser and Importer]]"
   - "[[PBI-002 Seed Starter Content]]"
   - "[[PBI-006 Pipeline Multi-Source Merge]]"
-  - "[[PBI-QC-001 Quick Capture Ribbons]]"
-  - "[[PBI-005 Vault Folder Inbox]]"
 bugs: []
 bugs_fixed_precycle: []
 tech_debt: []
-estimated_increments: 9
+estimated_increments: 7
 actual_increments:
-estimated_tests: 170
+estimated_tests: 110
 actual_tests:
 total_tests_after:
 total_test_files_after:
 ---
 
-# Cycle 12: Release Preparation
+# Cycle 13: Release Preparation
 
 ## Situation Assessment
 
-### Pre-Cycle State (assumes Cycle 10 + Cycle 11 complete)
+### Pre-Cycle State (assumes Cycle 10 + Cycle 11 + Cycle 12 complete)
 
 **Plugin health (projected):**
-- ~3,000 tests passing, ~127 test suites
+- ~3,060 tests passing, ~130 test suites
 - Build status: green
 - `npm run build` pipeline: vitest + tsc + eslint + esbuild
 - Error handling foundation in place (Cycle 10 Inc 1)
@@ -48,8 +46,8 @@ total_test_files_after:
 | [[Obsidian Canvas Integration PRD]] | discovery | 18/35 | No PBIs delivered — QuickAdd scripts exist as reference |
 | [[Installer PRD]] | done | — | 4-page wizard, PARA scaffolding, idempotent execution |
 | [[Data Exchange Hub PRD]] | done | — | 7-tab hub, CSV import/export, pipelines, saved configs |
-| [[Quick Capture PRD]] | planned | 19/35 | No PBIs delivered — greenfield |
-| [[Hubs PRD]] | in-progress | 33/35 | User Hub, inbox (6 sources), session panel, domain hub |
+| [[Quick Capture PRD]] | done | 19/35 | PBI-QC-001 delivered in Cycle 12 — ribbons, modal, command palette |
+| [[Hubs PRD]] | in-progress | 33/35 | User Hub, inbox (7 sources incl. vault folder), session panel, domain hub |
 
 **Release Blockers (from [[backlog-refinement-2026-02-20]]):**
 - RB-1: Repository Restructure — **open** (this cycle)
@@ -65,6 +63,10 @@ total_test_files_after:
 - 10 signal events registered in Event Catalog
 - Signals tab in Data Exchange Hub (8th tab)
 
+**Capture workflow (delivered in Cycle 12):**
+- PBI-QC-001 Quick Capture Ribbons — **delivered** (Cycle 12)
+- PBI-005 Vault Folder Inbox — **delivered** (Cycle 12)
+
 **What's next per release priority:**
 1. PBI-RP-001 Repository Restructure — critical, no dependencies, unlocks CI/CD + marketplace
 2. PBI-RP-002 Obsidian ESLint Compliance — critical, depends on RB-1
@@ -72,8 +74,6 @@ total_test_files_after:
 4. PBI-CAN-001 Canvas Parser and Importer — high, Data Exchange Hub dependency met
 5. PBI-002 Seed Starter Content — high, Installer dependency met
 6. PBI-006 Pipeline Multi-Source Merge — high, no dependencies
-7. PBI-QC-001 Quick Capture Ribbons — high, no dependencies
-8. PBI-005 Vault Folder Inbox — high, User Hub dependency met
 
 ### Post-Cycle State (YYYY-MM-DD)
 <!-- Filled post-delivery -->
@@ -88,8 +88,6 @@ total_test_files_after:
 - PBI-CAN-001: — brief summary
 - PBI-002: — brief summary
 - PBI-006: — brief summary
-- PBI-QC-001: — brief summary
-- PBI-005: — brief summary
 
 ---
 
@@ -97,13 +95,12 @@ total_test_files_after:
 
 1. **Achieve Obsidian marketplace infrastructure readiness** — Repository restructured to root, Obsidian ESLint compliance enforced, CI/CD pipeline operational with automated builds and releases (PBI-RP-001, PBI-RP-002, PBI-RP-003)
 2. **Complete core features for first public release** — Canvas import as first-class Data Exchange source, seed starter content for first-run experience, pipeline multi-source merge for data management workflows (PBI-CAN-001, PBI-002, PBI-006)
-3. **Deliver frictionless capture workflow** — Quick Capture ribbon actions for one-click idea/feedback capture, vault folder inbox watching for bridging capture-to-organization gap (PBI-QC-001, PBI-005)
 
 ---
 
 ## Tech Debt Bundled
 
-**None bundled this cycle.** Cycle 12 is a cross-feature release preparation cycle focused exclusively on resolving release blockers and delivering feature completeness. Remaining Cycle 10 tech debt (Inc 5–6: UI Performance Quick Wins, Component Extraction) is explicitly deferred to post-release cycles to maintain scope focus.
+**None bundled this cycle.** Cycle 13 is a cross-feature release preparation cycle focused exclusively on resolving release blockers and delivering feature completeness. Remaining Cycle 10 tech debt (Inc 5–6: UI Performance Quick Wins, Component Extraction) is explicitly deferred to post-release cycles to maintain scope focus.
 
 ---
 
@@ -290,81 +287,7 @@ total_test_files_after:
 
 ---
 
-### Inc 7: Quick Capture Ribbons (PBI-QC-001)
-
-**Goal:** Add "Add Idea" and "Add Feedback" ribbon actions and a universal "Quick Capture" command for frictionless note creation.
-
-| Step | File | Purpose | Est. LOC |
-|------|------|---------|----------|
-| 1 | `src/domain/capture/types.ts` | `CaptureType`, `CaptureConfig`, `CaptureResult` types | ~30 |
-| 2 | `src/domain/capture/CaptureService.ts` | Create typed note in configured folder with frontmatter | ~80 |
-| 3 | `src/domain/capture/events.ts` | `capture.idea.created`, `capture.feedback.created`, `capture.note.created` events | ~20 |
-| 4 | `src/ui/capture/QuickCaptureModal.ts` | Minimal modal: title input, type selector, Enter to confirm | ~60 |
-| 5 | `src/infrastructure/capture/captureCommands.ts` | Ribbon actions + command palette registration | ~40 |
-| 6 | `tests/domain/capture/captureService.test.ts` | Note creation, frontmatter, folder routing, custom types | ~80 |
-| 7 | `tests/ui/capture/quickCaptureModal.test.ts` | Modal rendering, type selection, keyboard shortcuts | ~40 |
-
-**Est. total:** ~230 LOC source, ~120 LOC tests, ~25 new tests
-
-**Test intent:** Unit tests for CaptureService (note creation, frontmatter template application, folder routing, custom type handling). UI tests for modal (rendering, type selector, Enter-to-confirm). Command registration tests. Event emission tests. Level: unit + UI.
-
-**Documentation intent:** Create Quick Capture feature documentation. Update Settings documentation with capture type configuration. Register capture events in Event Catalog.
-
-**Architecture seams:** New bounded context `src/domain/capture/`. Ribbon API integration (`plugin.addRibbonIcon()`). Command palette registration. Settings integration for configurable folders and custom types (`SettingsService`). Event emission for capture events.
-
-**Acceptance criteria:**
-- [ ] "Add Idea" (lightbulb) and "Add Feedback" (message-circle) ribbon actions visible
-- [ ] Clicking ribbon opens minimal modal with title input
-- [ ] Notes created in configured folder with correct typed frontmatter
-- [ ] "Quick Capture" command available in command palette with type selector
-- [ ] Custom capture types configurable in Settings
-- [ ] Navigation option: stay or open new note after creation
-- [ ] Capture events emitted on note creation
-- [ ] `npm run build` passes
-
----
-
-### Inc 8: Vault Folder Inbox (PBI-005)
-
-**Goal:** Extend InboxService with vault folder watching (7th source type) so untyped notes in configured folders are surfaced for inline triage.
-
-| Step | File | Purpose | Est. LOC |
-|------|------|---------|----------|
-| 1 | `src/domain/inbox/mappers/vaultFolderMapper.ts` | Pure mapper: file metadata → InboxItem | ~40 |
-| 2 | `src/domain/inbox/InboxService.ts` (extend) | Register `file.created`/`file.modified` listeners for watched folders | ~60 |
-| 3 | `src/domain/inbox/sources.ts` (extend) | Add `vaultFolder` to `INBOX_SOURCE_DEFINITIONS` (7th source) | ~15 |
-| 4 | `src/domain/inbox/events.ts` (extend) | `inbox.vaultFolder.noteDetected`, `inbox.vaultFolder.noteTriaged` events | ~15 |
-| 5 | `src/ui/hub/inbox/VaultFolderTriagePanel.ts` | Type dropdown, description field, "Mark as Read" action | ~80 |
-| 6 | `src/ui/settings/InboxFolderSettings.ts` | Watched folder config (add/remove, recursive toggle, target folder) | ~60 |
-| 7 | `tests/domain/inbox/vaultFolderMapper.test.ts` | Mapper unit tests | ~50 |
-| 8 | `tests/domain/inbox/inboxServiceFolder.test.ts` | Folder watching integration, triage flow, routing | ~80 |
-
-**Est. total:** ~270 LOC source, ~130 LOC tests, ~35 new tests
-
-**Test intent:** Unit tests for `mapVaultFolderNote` mapper (empty frontmatter detection, source badge, dedup by path). Integration tests for InboxService folder watching (event listener registration, filter by watched paths, typed note exclusion). Triage flow tests (mark-as-read applies frontmatter, primary folder routes to target, secondary folder applies in-place). Level: unit + integration.
-
-**Documentation intent:** Update Inbox feature documentation with vault folder source. Update Settings documentation with folder watching configuration. Register inbox vault folder events in Event Catalog.
-
-**Architecture seams:** InboxService extension point (`INBOX_SOURCE_DEFINITIONS`). Event listener seam (`file.created`, `file.modified` filtered by watched paths). Settings integration for folder configuration (`SettingsService`). DocService for frontmatter application. FileSystemClient for file move on primary inbox routing. Inbox detail panel extension for triage UI.
-
-**Acceptance criteria:**
-- [ ] Settings UI: configure watched folders (add/remove paths, toggle recursive per folder)
-- [ ] Settings UI: configure target folder for primary inbox routing
-- [ ] InboxService registers new source type: `vaultFolder`
-- [ ] `INBOX_SOURCE_DEFINITIONS` extended with vault folder source entry
-- [ ] Notes with empty or missing `type` frontmatter in watched folders appear as inbox items
-- [ ] Notes with existing `type` frontmatter are excluded
-- [ ] Inbox detail panel shows type dropdown and description field for vault folder items
-- [ ] "Mark as Read" applies configured note template frontmatter to file
-- [ ] "Mark as Read" on primary inbox folder items moves note to target folder
-- [ ] "Mark as Read" on secondary watched folder items applies frontmatter in-place
-- [ ] Source badge shows "Vault Folder" for folder-sourced items
-- [ ] Per-source toggle for vault folder watching in Settings
-- [ ] `npm run build` passes
-
----
-
-### Inc 9: Polish & Submission
+### Inc 7: Polish & Submission
 
 **Goal:** Final validation, version stamping, and Obsidian community plugin marketplace submission.
 
@@ -401,24 +324,24 @@ Inc 1: Repository Restructure — independent, must complete first
   └── Inc 3: CI/CD Pipeline (requires Inc 1 structure)
        └─────────────────────────────────────────────┐
                                                       │
-Inc 4: Canvas Parser & Importer — independent          │
-Inc 5: Seed Starter Content — independent              ├── Inc 9: Polish & Submission
-Inc 6: Pipeline Multi-Source Merge — independent       │   (requires all prior)
-Inc 7: Quick Capture Ribbons — independent             │
-Inc 8: Vault Folder Inbox — independent                │
+Inc 4: Canvas Parser & Importer — independent          ├── Inc 7: Polish & Submission
+Inc 5: Seed Starter Content — independent              │   (requires all prior)
+Inc 6: Pipeline Multi-Source Merge — independent       │
        └─────────────────────────────────────────────┘
 ```
 
+**Note:** PBI-QC-001 (Quick Capture Ribbons) and PBI-005 (Vault Folder Inbox) were moved to [[Cycle 12 - User Hub Inbox]] and are assumed complete before this cycle starts.
+
 **Parallelism opportunities:**
 - Inc 2 and Inc 3 can run in parallel after Inc 1 completes
-- Inc 4–8 are all independent of each other and can run in parallel
-- Inc 4–8 can start after Inc 1 (repo restructure) since they need the new structure
-- Inc 9 requires all prior increments to be complete
+- Inc 4–6 are all independent of each other and can run in parallel
+- Inc 4–6 can start after Inc 1 (repo restructure) since they need the new structure
+- Inc 7 requires all prior increments to be complete
 
 **Recommended execution order:**
 Phase A: Inc 1 → Inc 2 + Inc 3 (parallel)
-Phase B: Inc 4 → Inc 5 → Inc 6 → Inc 7 → Inc 8 (sequential or parallel as capacity allows)
-Phase C: Inc 9
+Phase B: Inc 4 → Inc 5 → Inc 6 (sequential or parallel as capacity allows)
+Phase C: Inc 7
 
 ---
 
@@ -429,7 +352,7 @@ Phase C: Inc 9
 | Repository restructure breaks import paths silently | High | Full test suite (3,000+ tests) validates all paths. Add explicit path verification tests. Incremental move with build check after each step. |
 | Obsidian ESLint rules reveal extensive violations | Medium | Run audit first to scope the work. Automated fixable rules applied via `--fix` before manual fixes. Violations are likely concentrated in UI layer. |
 | Canvas import complexity exceeds estimates | Medium | Existing QuickAdd scripts provide working reference implementation. Parser is a pure function — testable in isolation without Obsidian runtime. |
-| Cross-feature cycle has wide scope (9 increments) | High | Phased delivery: Phase A (infrastructure) is independently valuable. Each Phase B increment is independent and can be deferred without blocking submission. Phase C only requires Phase A for a minimal viable submission. |
+| Cross-feature cycle has wide scope (7 increments) | Medium | Phased delivery: Phase A (infrastructure) is independently valuable. Each Phase B increment is independent and can be deferred without blocking submission. Phase C only requires Phase A for a minimal viable submission. Scope reduced from 9 increments — Quick Capture and Vault Folder Inbox moved to Cycle 12. |
 | CI/CD setup requires GitHub repository access | Low | GitHub Actions workflow files can be prepared and tested locally via `act`. Branch protection configured post-merge. |
 | Canvas Integration PRD at "discovery" stage (FRI 18/35) | Medium | PBI-CAN-001 is scoped to migrating existing QuickAdd scripts (proven functionality), not designing new features. Canvas PRD discovery status does not block implementation of known, validated behavior. |
 | Merge strategies for pipeline may need more design | Low | Start with two concrete strategies (first-wins, last-wins). Additional strategies (concatenate, manual) can be added in follow-up increments without breaking existing pipelines. |
@@ -440,11 +363,11 @@ Phase C: Inc 9
 
 | Metric | Target |
 |--------|--------|
-| Tests added | ~170 new |
+| Tests added | ~110 new |
 | Tests total | ~3,170+ |
-| PBIs closed | 8/8 (RP-001, RP-002, RP-003, CAN-001, 002, 006, QC-001, 005) |
+| PBIs closed | 6/6 (RP-001, RP-002, RP-003, CAN-001, 002, 006) |
 | Release blockers resolved | RB-1, RB-2, RB-3, RB-4, RB-7 (5 of 7) |
-| New events | ~15 (canvas import, capture, vault folder inbox) |
+| New events | ~10 (canvas import) |
 | CI/CD operational | GitHub Actions CI + release workflows |
 | Obsidian submission | PR to obsidianmd/obsidian-releases |
 | Build green | `npm test` + `npm run build` pass from repository root |
@@ -457,11 +380,10 @@ Phase C: Inc 9
 |------|--------|--------|
 | Remaining Cycle 10 tech debt (Inc 5–6) | UI performance and component extraction are valuable but not release-blocking | Post-release maintenance cycle |
 | RB-6: Documentation stubs | Not a marketplace requirement; can be improved incrementally | Medium-term |
-| Canvas sessions and workspace integration | Canvas PRD phases 2–3; requires canvas import (this cycle) as foundation | Cycle 13+ |
+| Canvas sessions and workspace integration | Canvas PRD phases 2-3; requires canvas import (this cycle) as foundation | Cycle 14+ |
 | Advanced merge strategies (concatenate, manual review) | Two strategies sufficient for v1; extensible by design | Post-release |
 | BRAT (Beta Reviewer Auto-update Tester) integration | Not required for initial marketplace submission | Post-submission |
 | Push/write-back to Azure DevOps | Cycle 11 delivers pull-only; write-back is v2 scope | Cycle 14+ |
-| Custom capture type persistence | Settings-based custom types sufficient for v1; database-backed types deferred | Post-release |
 
 ---
 
@@ -472,33 +394,33 @@ Phase C: Inc 9
 ### 1. Feature PRD Readiness
 
 - [x] **PRD exists and is approved** — [[Release Preparation PRD]] exists (stage: planned, primary cycle driver)
-- [x] **PRD stage is approved or in-progress** — Release Preparation: planned; Installer: done; Data Exchange Hub: done; Hubs: in-progress; Quick Capture: planned
+- [x] **PRD stage is approved or in-progress** — Release Preparation: planned; Installer: done; Data Exchange Hub: done; Canvas Integration: discovery
 - [x] **FRI scored** — All contributing PRDs have FRI scores recorded
-- [x] **FRI meets threshold** — Release Preparation FRI 15/35 (≥11 continuation ✅); Quick Capture FRI 19/35 (≥19 new ✅); Hubs FRI 33/35 (≥11 continuation ✅)
+- [x] **FRI meets threshold** — Release Preparation FRI 15/35 (>=11 continuation)
 - [ ] **FRI gap noted** — Canvas Integration FRI 18/35 (below 19 new threshold). **Accepted risk**: PBI-CAN-001 migrates existing proven QuickAdd scripts, not new feature design. Canvas PRD stage "discovery" is a gap — PRD should advance to "planned" before or during this cycle.
 - [ ] **Technical Review passed** — No formal technical review conducted yet for Release Preparation PRD. **Action**: Schedule technical review before cycle starts.
 
 ### 2. Backlog Readiness
 
-- [x] **PBIs defined** — All 8 PBIs exist with problem statements, solution approaches, and acceptance criteria
-- [x] **PBIs chunked into increments** — 9 increments across 3 phases, each delivering end-to-end value
-- [x] **Dependencies mapped** — Increment dependency graph documented; RB-1 → RB-2/CI-CD chain identified; cross-feature dependencies (Installer ✅, Data Exchange Hub ✅, User Hub ✅) resolved
-- [x] **Priority ranked** — Critical (RB-1, RB-2) → High (RB-3, RB-4, RB-7, QC, Inbox) → Polish
+- [x] **PBIs defined** — All 6 PBIs exist with problem statements, solution approaches, and acceptance criteria
+- [x] **PBIs chunked into increments** — 7 increments across 3 phases, each delivering end-to-end value
+- [x] **Dependencies mapped** — Increment dependency graph documented; RB-1 -> RB-2/CI-CD chain identified; cross-feature dependencies (Installer, Data Exchange Hub) resolved; Quick Capture and Vault Folder Inbox delivered in Cycle 12
+- [x] **Priority ranked** — Critical (RB-1, RB-2) -> High (RB-3, RB-4, RB-7) -> Polish
 
 ### 3. Cycle Plan Document
 
 - [x] **Cycle document exists** — Created with DevelopmentCycle frontmatter, all required fields populated
 - [x] **Situation assessment written** — Pre-cycle state with plugin health, feature status, release blockers, projected metrics
-- [x] **Cycle goals defined** — 3 goals, each with clear deliverables and PBI mapping
-- [x] **Proposed increments specified** — 9 increments, each with goal, step table, estimated LOC, estimated tests
+- [x] **Cycle goals defined** — 2 goals, each with clear deliverables and PBI mapping
+- [x] **Proposed increments specified** — 7 increments, each with goal, step table, estimated LOC, estimated tests
 - [x] **Dependency graph drawn** — Phase A → B → C ordering with parallelism opportunities identified
 - [x] **Risks identified** — 7 risks with impact ratings and mitigations
 - [x] **Success metrics defined** — 8 measurable targets (tests, PBIs, release blockers, CI/CD, submission)
-- [x] **Deferred items documented** — 7 items explicitly excluded with rationale and target timing
+- [x] **Deferred items documented** — 6 items explicitly excluded with rationale and target timing
 
 ### 4. Increment Readiness
 
-For each of the 9 increments:
+For each of the 7 increments:
 - [x] **Scope statement defined** — Each increment has a goal and step table
 - [x] **Acceptance criteria written** — Testable criteria with checkboxes per increment
 - [x] **Test intent stated** — Behaviors to test and testing level specified per increment
@@ -510,12 +432,12 @@ For each of the 9 increments:
 
 - [x] **Build pipeline green** — `npm test` passes (2,889 tests, 32 skipped, 112 test files as of 2026-02-21). `npm run build` succeeds.
 - [x] **No critical bugs open** — Critical technical debt items (TD-02, TD-03, TD-04, TD-05) resolved in prior cycles. No open critical bugs blocking this cycle.
-- [ ] **Previous cycle closed** — Cycle 10 is in-progress (4/6 increments done); Cycle 11 is planned. **Gate**: Cycle 12 starts only after Cycles 10 and 11 complete their retrospectives and stage histories are updated.
+- [ ] **Previous cycle closed** — Cycle 10 is in-progress (4/6 increments done); Cycle 11 and Cycle 12 are planned. **Gate**: Cycle 13 starts only after Cycles 10, 11, and 12 complete their retrospectives and stage histories are updated.
 
 ### 6. Pre-Cycle Completion
 
 - [x] **Pre-cycle work documented** — Backlog refinement (2026-02-20) reviewed 78 items, identified release blockers. Cycle sequence review prioritized Azure DevOps to Cycle 11. Inbox review updated 11 items. All planning documented in review files.
-- [x] **Inbox signals reviewed** — Relevant inbox items linked to cycle goals: [[We need to have the proper file and folder structure in place before publishing]] → RB-1; [[We need to implement Obsidian ESLint rules for plugins in order to publish on the marketplace]] → RB-2; [[Quick capture ribbons for ideas and feedback]] → PBI-QC-001; [[I want to connect the User Hub Inbox with a vault folder]] → PBI-005.
+- [x] **Inbox signals reviewed** — Relevant inbox items linked to cycle goals: [[We need to have the proper file and folder structure in place before publishing]] -> RB-1; [[We need to implement Obsidian ESLint rules for plugins in order to publish on the marketplace]] -> RB-2; [[Canvas importer must be a first-class plugin feature]] -> PBI-CAN-001; [[Installer should seed starter content on first run]] -> PBI-002.
 
 ### Open Actions Before Cycle Start
 
@@ -523,6 +445,7 @@ For each of the 9 increments:
 |--------|-------|--------|
 | Complete Cycle 10 (remaining increments + retrospective) | Dev | Blocked on Cycle 10 delivery |
 | Complete Cycle 11 (all increments + retrospective) | Dev | Blocked on Cycle 10 completion |
+| Complete Cycle 12 - User Hub Inbox (all increments + retrospective) | Dev | Blocked on Cycle 11 completion |
 | Technical review for Release Preparation PRD | Dev | Pending |
 | Advance Canvas Integration PRD from "discovery" to "planned" | Dev | Pending |
 
@@ -530,8 +453,8 @@ For each of the 9 increments:
 
 ## Related
 
-- PRD: [[Release Preparation PRD]] (FRI 15/35), [[Obsidian Canvas Integration PRD]] (FRI 18/35), [[Quick Capture PRD]] (FRI 19/35), [[Hubs PRD]] (FRI 33/35), [[Installer PRD]] (done), [[Data Exchange Hub PRD]] (done)
-- PBIs: [[PBI-RP-001 Repository Restructure]], [[PBI-RP-002 Obsidian ESLint Compliance]], [[PBI-RP-003 CI-CD Pipeline]], [[PBI-CAN-001 Canvas Parser and Importer]], [[PBI-002 Seed Starter Content]], [[PBI-006 Pipeline Multi-Source Merge]], [[PBI-QC-001 Quick Capture Ribbons]], [[PBI-005 Vault Folder Inbox]]
+- PRD: [[Release Preparation PRD]] (FRI 15/35), [[Obsidian Canvas Integration PRD]] (FRI 18/35), [[Installer PRD]] (done), [[Data Exchange Hub PRD]] (done)
+- PBIs: [[PBI-RP-001 Repository Restructure]], [[PBI-RP-002 Obsidian ESLint Compliance]], [[PBI-RP-003 CI-CD Pipeline]], [[PBI-CAN-001 Canvas Parser and Importer]], [[PBI-002 Seed Starter Content]], [[PBI-006 Pipeline Multi-Source Merge]]
 - Tech Debt: None bundled (Cycle 10 remaining debt deferred)
 - Reviews: [[backlog-refinement-2026-02-20]], [[Cycle Sequence Review 2026-02-20 Azure DevOps Prioritization]], [[Inbox Review 2026-02-20 Azure DevOps Prioritization]]
-- Previous Cycle: [[Cycle 11 - Azure DevOps Integration]]
+- Previous Cycle: [[Cycle 12 - User Hub Inbox]]

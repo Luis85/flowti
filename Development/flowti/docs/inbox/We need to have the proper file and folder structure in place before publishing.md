@@ -10,7 +10,7 @@ tags:
   - developer-experience
   - publishing
 priority: "01 - critical"
-planned_in: "[[Cycle 12 - Release Preparation]]"
+planned_in: "[[Cycle 13 - Release Preparation]]"
 parent: "[[Release Preparation PRD]]"
 ---
 
