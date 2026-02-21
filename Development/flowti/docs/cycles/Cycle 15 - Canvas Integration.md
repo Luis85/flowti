@@ -193,12 +193,18 @@ None bundled — this is a greenfield domain migration cycle.
 - Unit tests: complex canvas with overlapping groups
 
 **Acceptance criteria:**
-- [ ] Nodes assigned to smallest enclosing group as parent
-- [ ] Self-parentage prevented (node cannot be its own parent)
-- [ ] Edges mapped to directional relations based on fromSide/toSide
-- [ ] Legend group nodes excluded from import
-- [ ] File nodes (already existing) excluded from import
-- [ ] Empty text nodes excluded
+- [x] Nodes assigned to smallest enclosing group as parent — `resolveParentage()` with smallest-area algorithm, 8 tests
+- [x] Self-parentage prevented (node cannot be its own parent) — `resolveParentage()` skips `group.id === node.id`, dedicated test
+- [x] Edges mapped to directional relations based on fromSide/toSide — `buildRelations()` maps top→up, bottom→down, left→prev, right→next (bidirectional), 11 tests
+- [x] Legend group nodes excluded from import — `filterItemsForImport()` excludes legend group + text children, 3 tests
+- [x] File nodes (already existing) excluded from import — `filterItemsForImport()` excludes `originalType === "file"`, dedicated test
+- [x] Empty text nodes excluded — `filterItemsForImport()` with `skipEmpty: true` (default), 2 tests
+
+**Delivery notes:**
+- 3 exported functions + 1 internal helper (`sideToDirection`) + 1 exported interface (`CanvasFilterOptions`)
+- ~95 LOC source (est. ~100), ~150 LOC tests (est. ~80), 28 new tests (est. ~16)
+- Type fix: `CanvasEdgeData.fromSide`/`.toSide` are optional in Obsidian's `canvas.d.ts` — added nullish guards
+- Cumulative: 72 canvas tests (44 Inc 1 + 28 Inc 2), 3,414 total (136 suites)
 
 ---
 

@@ -6,9 +6,12 @@ import {
 	slugifyTitle,
 	toPascalCase,
 	isNodeInsideGroup,
+	resolveParentage,
+	buildRelations,
+	filterItemsForImport,
 } from "../../../src/domain/canvas/CanvasParser";
-import type { AllCanvasNodeData, CanvasGroupData, CanvasTextData } from "obsidian/canvas";
-import type { CanvasData } from "../../../src/domain/canvas/types";
+import type { AllCanvasNodeData, CanvasGroupData, CanvasTextData, CanvasEdgeData } from "obsidian/canvas";
+import type { CanvasData, CanvasItem } from "../../../src/domain/canvas/types";
 
 // ─────────────────────────────────────────────────────────────
 // Helpers — build minimal canvas fixtures
@@ -286,5 +289,322 @@ describe("isNodeInsideGroup", () => {
 
 	it("returns false when node is partially outside (y)", () => {
 		expect(isNodeInsideGroup({ x: 10, y: -10, width: 50, height: 30 }, group)).toBe(false);
+	});
+});
+
+// ─────────────────────────────────────────────────────────────
+// Inc 2 helpers — CanvasItem and edge fixtures
+// ─────────────────────────────────────────────────────────────
+
+function canvasItem(id: string, overrides: Partial<CanvasItem> = {}): CanvasItem {
+	return {
+		id,
+		title: `Item ${id}`,
+		type: "Node",
+		originalType: "text",
+		status: "new",
+		color: null,
+		shape: null,
+		parentId: null,
+		parent: null,
+		isEmpty: false,
+		x: 0, y: 0, width: 100, height: 50,
+		up: [], down: [], prev: [], next: [],
+		...overrides,
+	};
+}
+
+function edgeData(
+	fromNode: string, toNode: string,
+	fromSide: "top" | "bottom" | "left" | "right",
+	toSide: "top" | "bottom" | "left" | "right",
+	overrides: Partial<CanvasEdgeData> = {},
+): CanvasEdgeData {
+	return {
+		id: `e-${fromNode}-${toNode}`,
+		fromNode, toNode, fromSide, toSide,
+		...overrides,
+	};
+}
+
+// ─────────────────────────────────────────────────────────────
+// resolveParentage
+// ─────────────────────────────────────────────────────────────
+
+describe("resolveParentage", () => {
+	it("assigns node to enclosing group", () => {
+		const node = { id: "n1", x: 50, y: 50, width: 100, height: 50 };
+		const groups = [{ id: "g1", x: 0, y: 0, width: 500, height: 500, label: "Outer Group" }];
+
+		const result = resolveParentage(node, groups);
+		expect(result).toEqual({ parentId: "g1", parent: "Outer Group" });
+	});
+
+	it("picks smallest enclosing group for nested groups", () => {
+		const node = { id: "n1", x: 60, y: 60, width: 50, height: 30 };
+		const groups = [
+			{ id: "g-outer", x: 0, y: 0, width: 500, height: 500, label: "Outer" },
+			{ id: "g-inner", x: 50, y: 50, width: 200, height: 200, label: "Inner" },
+		];
+
+		const result = resolveParentage(node, groups);
+		expect(result).toEqual({ parentId: "g-inner", parent: "Inner" });
+	});
+
+	it("returns null when node is outside all groups", () => {
+		const node = { id: "n1", x: 800, y: 800, width: 50, height: 30 };
+		const groups = [{ id: "g1", x: 0, y: 0, width: 200, height: 200, label: "Group" }];
+
+		expect(resolveParentage(node, groups)).toBeNull();
+	});
+
+	it("prevents self-parentage", () => {
+		const node = { id: "g1", x: 0, y: 0, width: 500, height: 500 };
+		const groups = [{ id: "g1", x: 0, y: 0, width: 500, height: 500, label: "Self" }];
+
+		expect(resolveParentage(node, groups)).toBeNull();
+	});
+
+	it("returns null parent when group has no label", () => {
+		const node = { id: "n1", x: 10, y: 10, width: 50, height: 30 };
+		const groups = [{ id: "g1", x: 0, y: 0, width: 200, height: 200 }];
+
+		const result = resolveParentage(node, groups);
+		expect(result).toEqual({ parentId: "g1", parent: null });
+	});
+
+	it("slugifies the parent group label", () => {
+		const node = { id: "n1", x: 10, y: 10, width: 50, height: 30 };
+		const groups = [{ id: "g1", x: 0, y: 0, width: 200, height: 200, label: "## My Group: Tests" }];
+
+		const result = resolveParentage(node, groups);
+		expect(result).toEqual({ parentId: "g1", parent: "My Group Tests" });
+	});
+
+	it("returns null for empty groups array", () => {
+		const node = { id: "n1", x: 10, y: 10, width: 50, height: 30 };
+		expect(resolveParentage(node, [])).toBeNull();
+	});
+
+	it("skips zero-area groups", () => {
+		const node = { id: "n1", x: 0, y: 0, width: 50, height: 30 };
+		const groups = [
+			{ id: "g-zero", x: 0, y: 0, width: 0, height: 500, label: "Zero Width" },
+			{ id: "g-valid", x: 0, y: 0, width: 200, height: 200, label: "Valid" },
+		];
+
+		const result = resolveParentage(node, groups);
+		expect(result).toEqual({ parentId: "g-valid", parent: "Valid" });
+	});
+});
+
+// ─────────────────────────────────────────────────────────────
+// buildRelations
+// ─────────────────────────────────────────────────────────────
+
+describe("buildRelations", () => {
+	it("maps fromSide top to 'up' on fromItem", () => {
+		const items = [canvasItem("a"), canvasItem("b")];
+		const edges = [edgeData("a", "b", "top", "bottom")];
+
+		buildRelations(items, edges);
+		expect(items[0].up).toEqual(["b"]);
+	});
+
+	it("maps fromSide bottom to 'down' on fromItem", () => {
+		const items = [canvasItem("a"), canvasItem("b")];
+		const edges = [edgeData("a", "b", "bottom", "top")];
+
+		buildRelations(items, edges);
+		expect(items[0].down).toEqual(["b"]);
+	});
+
+	it("maps fromSide left to 'prev' on fromItem", () => {
+		const items = [canvasItem("a"), canvasItem("b")];
+		const edges = [edgeData("a", "b", "left", "right")];
+
+		buildRelations(items, edges);
+		expect(items[0].prev).toEqual(["b"]);
+	});
+
+	it("maps fromSide right to 'next' on fromItem", () => {
+		const items = [canvasItem("a"), canvasItem("b")];
+		const edges = [edgeData("a", "b", "right", "left")];
+
+		buildRelations(items, edges);
+		expect(items[0].next).toEqual(["b"]);
+	});
+
+	it("maps toSide bidirectionally on toItem", () => {
+		const items = [canvasItem("a"), canvasItem("b")];
+		const edges = [edgeData("a", "b", "bottom", "top")];
+
+		buildRelations(items, edges);
+		// fromItem.down = ["b"], toItem.up = ["a"]
+		expect(items[0].down).toEqual(["b"]);
+		expect(items[1].up).toEqual(["a"]);
+	});
+
+	it("removes self-edges", () => {
+		const items = [canvasItem("a")];
+		const edges = [edgeData("a", "a", "bottom", "top")];
+
+		buildRelations(items, edges);
+		expect(items[0].down).toEqual([]);
+		expect(items[0].up).toEqual([]);
+	});
+
+	it("deduplicates relation IDs", () => {
+		const items = [canvasItem("a"), canvasItem("b")];
+		const edges = [
+			edgeData("a", "b", "bottom", "top"),
+			edgeData("a", "b", "bottom", "top"),
+		];
+
+		buildRelations(items, edges);
+		expect(items[0].down).toEqual(["b"]);
+		expect(items[1].up).toEqual(["a"]);
+	});
+
+	it("silently skips edges referencing non-existent items", () => {
+		const items = [canvasItem("a")];
+		const edges = [edgeData("a", "ghost", "bottom", "top")];
+
+		buildRelations(items, edges);
+		expect(items[0].down).toEqual(["ghost"]);
+	});
+
+	it("returns CanvasRelation array", () => {
+		const items = [canvasItem("a"), canvasItem("b")];
+		const edges = [edgeData("a", "b", "right", "left")];
+
+		const relations = buildRelations(items, edges);
+		expect(relations).toHaveLength(1);
+		expect(relations[0]).toEqual({
+			fromId: "a",
+			toId: "b",
+			direction: "next",
+			label: undefined,
+		});
+	});
+
+	it("preserves edge label in relation", () => {
+		const items = [canvasItem("a"), canvasItem("b")];
+		const edges = [edgeData("a", "b", "bottom", "top", { label: "depends on" })];
+
+		const relations = buildRelations(items, edges);
+		expect(relations[0].label).toBe("depends on");
+	});
+
+	it("handles multiple edges between different items", () => {
+		const items = [canvasItem("a"), canvasItem("b"), canvasItem("c")];
+		const edges = [
+			edgeData("a", "b", "bottom", "top"),
+			edgeData("a", "c", "right", "left"),
+			edgeData("b", "c", "right", "left"),
+		];
+
+		const relations = buildRelations(items, edges);
+		expect(relations).toHaveLength(3);
+		expect(items[0].down).toEqual(["b"]);
+		expect(items[0].next).toEqual(["c"]);
+		expect(items[1].next).toEqual(["c"]);
+	});
+});
+
+// ─────────────────────────────────────────────────────────────
+// filterItemsForImport
+// ─────────────────────────────────────────────────────────────
+
+describe("filterItemsForImport", () => {
+	it("excludes file nodes", () => {
+		const items = [
+			canvasItem("t1"),
+			canvasItem("f1", { originalType: "file" }),
+		];
+
+		const result = filterItemsForImport(items);
+		expect(result).toHaveLength(1);
+		expect(result[0].id).toBe("t1");
+	});
+
+	it("excludes legend group node", () => {
+		const legendGroup = { id: "legend", x: 0, y: 0, width: 300, height: 300 };
+		const items = [
+			canvasItem("t1", { x: 500, y: 500 }),
+			canvasItem("legend", { originalType: "group" as "text", x: 0, y: 0, width: 300, height: 300 }),
+		];
+
+		const result = filterItemsForImport(items, { legendGroup });
+		expect(result).toHaveLength(1);
+		expect(result[0].id).toBe("t1");
+	});
+
+	it("excludes text nodes inside legend group", () => {
+		const legendGroup = { id: "legend", x: 0, y: 0, width: 300, height: 300 };
+		const items = [
+			canvasItem("outside", { x: 500, y: 500 }),
+			canvasItem("inside-text", { originalType: "text", x: 10, y: 10 }),
+		];
+
+		const result = filterItemsForImport(items, { legendGroup });
+		expect(result).toHaveLength(1);
+		expect(result[0].id).toBe("outside");
+	});
+
+	it("keeps non-text nodes inside legend group", () => {
+		const legendGroup = { id: "legend", x: 0, y: 0, width: 300, height: 300 };
+		const items = [
+			canvasItem("inside-group", { originalType: "group", x: 10, y: 10 }),
+		];
+
+		const result = filterItemsForImport(items, { legendGroup });
+		expect(result).toHaveLength(1);
+	});
+
+	it("excludes empty nodes by default", () => {
+		const items = [
+			canvasItem("full", { isEmpty: false }),
+			canvasItem("empty", { isEmpty: true }),
+		];
+
+		const result = filterItemsForImport(items);
+		expect(result).toHaveLength(1);
+		expect(result[0].id).toBe("full");
+	});
+
+	it("keeps empty nodes when skipEmpty is false", () => {
+		const items = [
+			canvasItem("full", { isEmpty: false }),
+			canvasItem("empty", { isEmpty: true }),
+		];
+
+		const result = filterItemsForImport(items, { skipEmpty: false });
+		expect(result).toHaveLength(2);
+	});
+
+	it("applies all filters together", () => {
+		const legendGroup = { id: "legend", x: 0, y: 0, width: 300, height: 300 };
+		const items = [
+			canvasItem("keep", { x: 500, y: 500 }),
+			canvasItem("file", { originalType: "file" }),
+			canvasItem("legend"),
+			canvasItem("legend-child", { originalType: "text", x: 10, y: 10 }),
+			canvasItem("empty", { isEmpty: true, x: 500, y: 500 }),
+		];
+
+		const result = filterItemsForImport(items, { legendGroup });
+		expect(result).toHaveLength(1);
+		expect(result[0].id).toBe("keep");
+	});
+
+	it("returns all items when no filters match", () => {
+		const items = [canvasItem("a"), canvasItem("b"), canvasItem("c")];
+		const result = filterItemsForImport(items, { skipEmpty: false });
+		expect(result).toHaveLength(3);
+	});
+
+	it("handles empty input", () => {
+		expect(filterItemsForImport([])).toEqual([]);
 	});
 });

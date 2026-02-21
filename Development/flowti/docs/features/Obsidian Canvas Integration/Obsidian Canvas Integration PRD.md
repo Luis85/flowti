@@ -21,7 +21,7 @@ maturity_score_architecture: 4
 maturity_score_event_integration: 4
 maturity_score_data_model: 4
 maturity_score_ui_consistency: 3
-maturity_score_validation_testing: 3
+maturity_score_validation_testing: 4
 business_value: 5
 implementation_cost: 4
 maintenance_cost: 3
@@ -29,7 +29,7 @@ discovery_cost: 3
 design_cost: 4
 test_cost: 3
 priority: 4
-fri_score: 25
+fri_score: 26
 planned_in: "[[Cycle 15 - Canvas Integration]]"
 tags:
   - canvas
@@ -208,12 +208,16 @@ CanvasTemplate
 
 ### Produced
 
-- `dataExchange.canvasImport.execute` — Canvas import pipeline started
-- `dataExchange.canvasImport.progress` — Per-node import progress
-- `dataExchange.canvasImport.completed` — Canvas import finished
-- `dataExchange.canvasImport.failed` — Canvas import error
-- `canvas.template.applied` — Canvas template applied to session
-- `canvas.session.started` — Canvas session started with template
+- `canvas.import.started` — Canvas import pipeline started ✅
+- `canvas.import.progress` — Per-node import progress ✅
+- `canvas.import.completed` — Canvas import finished ✅
+- `canvas.import.failed` — Canvas import error ✅
+- `canvas.entity.detected` — Entity detected during parsing ✅
+- `canvas.legend.detected` — Legend group detected ✅
+- `canvas.config.saved` — Import configuration saved ✅
+- `canvas.loaded` — Canvas service loaded ✅
+- `canvas.template.applied` — Canvas template applied to session (Phase 2)
+- `canvas.session.started` — Canvas session started with template (Phase 3)
 
 ### Consumed
 
@@ -294,6 +298,8 @@ CanvasTemplate
 Migrate canvas import logic from `var/scripts/canvas-importer/` into `src/domain/canvas/` (own bounded context). Register as import source type in Data Exchange Hub. Implement import wizard, context menu, and progress events.
 
 **Cycle 15 Inc 1 delivered:** Domain types (CanvasItem, CanvasRelation, CanvasParsedResult, CanvasImportConfig), 8 events in CanvasEventMap + catalog, core parser functions (parseCanvasJson, extractLegend, resolveNodeType, slugifyTitle, toPascalCase, isNodeInsideGroup). 44 new tests (3,386 total).
+
+**Cycle 15 Inc 2 delivered:** Parser completion — resolveParentage (smallest enclosing group, self-parent prevention), buildRelations (edge fromSide/toSide → up/down/prev/next, bidirectional, dedup), filterItemsForImport (legend/file/empty exclusion). 28 new tests (3,414 total, 72 canvas-specific). Full parser layer complete.
 
 ### Phase 2: Canvas Templates (PBI-CAN-002)
 

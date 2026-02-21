@@ -57,8 +57,8 @@ As a domain architect, I want to import Canvas files as typed vault notes from t
 - [x] Color mapping: 1=Issue, 2=Epic, 3=Task, 4=Test, 5=Deliverable, 6=Feature (DEFAULT_COLOR_MAP) (Cycle 15 Inc 1)
 - [x] Shape mapping: circle=Event, diamond=Gateway, parallelogram=Data, document=Document, database=Database, predefined-process=Subprocess, pill=Terminator (DEFAULT_SHAPE_MAP) (Cycle 15 Inc 1)
 - [x] Legend group detection and override: custom color-to-type within canvas (`extractLegend()`) (Cycle 15 Inc 1)
-- [ ] Group-to-container: canvas groups set `parent` frontmatter on child nodes
-- [ ] Edge-to-relationship: edges translate to `up`/`down`/`prev`/`next` frontmatter
+- [ ] Group-to-container: canvas groups set `parent` frontmatter on child nodes — parser: `resolveParentage()` delivered (Cycle 15 Inc 2), frontmatter writing pending Inc 3
+- [ ] Edge-to-relationship: edges translate to `up`/`down`/`prev`/`next` frontmatter — parser: `buildRelations()` delivered (Cycle 15 Inc 2), frontmatter writing pending Inc 3
 - [ ] Register as import source type in Data Exchange Hub
 - [ ] Import wizard: 3-page (Select, Preview/Map, Execute)
 - [ ] Right-click `.canvas` → "Import Canvas" context menu
@@ -68,7 +68,7 @@ As a domain architect, I want to import Canvas files as typed vault notes from t
 ### Technical Requirements
 
 - New bounded context: `src/domain/canvas/` (own domain, not nested under dataExchange)
-- `CanvasParser.ts`: Pure functions, no side effects — `parseCanvasJson()`, `extractLegend()`, `resolveNodeType()`, `slugifyTitle()`, `toPascalCase()`, `isNodeInsideGroup()` ✅
+- `CanvasParser.ts`: Pure functions, no side effects — `parseCanvasJson()`, `extractLegend()`, `resolveNodeType()`, `slugifyTitle()`, `toPascalCase()`, `isNodeInsideGroup()` ✅, `resolveParentage()`, `buildRelations()`, `filterItemsForImport()` ✅
 - `CanvasImporter.ts`: Uses `fileSystemClient` for note creation with frontmatter
 - 8 events registered in catalog with category "Canvas" ✅
 - All existing QuickAdd canvas-importer test scenarios ported as unit tests

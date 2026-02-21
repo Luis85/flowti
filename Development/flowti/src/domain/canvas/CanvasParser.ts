@@ -5,16 +5,19 @@
  * No side effects, no Obsidian runtime dependencies — only type imports.
  *
  * Functions:
- *   parseCanvasJson()  — parse raw JSON string to CanvasData
- *   extractLegend()    — detect Legend group and build color→type mapping
- *   resolveNodeType()  — resolve a canvas node to a Flowti entity type
- *   slugifyTitle()     — sanitize a node title for use as file name
- *   toPascalCase()     — convert string to PascalCase
- *   isNodeInsideGroup()— bounding-box spatial containment check
+ *   parseCanvasJson()     — parse raw JSON string to CanvasData
+ *   extractLegend()       — detect Legend group and build color→type mapping
+ *   resolveNodeType()     — resolve a canvas node to a Flowti entity type
+ *   slugifyTitle()        — sanitize a node title for use as file name
+ *   toPascalCase()        — convert string to PascalCase
+ *   isNodeInsideGroup()   — bounding-box spatial containment check
+ *   resolveParentage()    — find smallest enclosing group for a node
+ *   buildRelations()      — map edges to directional relations (up/down/prev/next)
+ *   filterItemsForImport()— exclude legend, file, and empty nodes
  */
 
 import type { AllCanvasNodeData, CanvasGroupData, CanvasTextData } from "obsidian/canvas";
-import type { CanvasData, FlowtiCanvasType } from "./types";
+import type { CanvasData, CanvasItem, CanvasRelation, CanvasRelationDirection, FlowtiCanvasType } from "./types";
 import { DEFAULT_COLOR_MAP, DEFAULT_SHAPE_MAP } from "./types";
 
 /**
@@ -169,4 +172,157 @@ export function isNodeInsideGroup(
 	const ny = node.y;
 
 	return nx >= gx1 && nx <= gx2 && ny >= gy1 && ny <= gy2;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Inc 2 — Parentage, Relations, Filtering
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Find the smallest enclosing group for a node.
+ *
+ * Iterates all groups, checks bounding-box containment, and picks
+ * the group with the smallest area. Prevents self-parentage.
+ *
+ * Returns { parentId, parent (slugified label) } or null if no enclosing group.
+ */
+export function resolveParentage(
+	node: { id: string; x: number; y: number; width: number; height: number },
+	groups: ReadonlyArray<{ id: string; x: number; y: number; width: number; height: number; label?: string }>,
+): { parentId: string; parent: string | null } | null {
+	let bestId: string | null = null;
+	let bestArea = Infinity;
+	let bestLabel = "";
+
+	for (const group of groups) {
+		// Never self-parent
+		if (group.id === node.id) continue;
+
+		// Must be spatially inside
+		if (!isNodeInsideGroup(node, group)) continue;
+
+		const area = group.width * group.height;
+
+		// Smallest enclosing group wins (for nested groups)
+		if (area > 0 && area < bestArea) {
+			bestArea = area;
+			bestId = group.id;
+			bestLabel = group.label ?? "";
+		}
+	}
+
+	if (!bestId) return null;
+
+	return {
+		parentId: bestId,
+		parent: bestLabel ? slugifyTitle(bestLabel) : null,
+	};
+}
+
+/** Map a canvas edge side to a CanvasRelationDirection. */
+function sideToDirection(side: string): CanvasRelationDirection | null {
+	switch (side) {
+		case "top": return "up";
+		case "bottom": return "down";
+		case "left": return "prev";
+		case "right": return "next";
+		default: return null;
+	}
+}
+
+/**
+ * Map canvas edges to directional relations on items.
+ *
+ * For each edge, maps fromSide/toSide to up/down/prev/next and populates
+ * both the from-item and to-item arrays (bidirectional). Self-edges and
+ * duplicates are removed after processing.
+ *
+ * Returns a CanvasRelation[] array (one per edge, from the fromSide perspective).
+ */
+export function buildRelations(
+	items: CanvasItem[],
+	edges: CanvasData["edges"],
+): CanvasRelation[] {
+	const itemById = new Map(items.map(i => [i.id, i]));
+	const relations: CanvasRelation[] = [];
+
+	for (const edge of edges) {
+		const fromItem = itemById.get(edge.fromNode);
+		const toItem = itemById.get(edge.toNode);
+
+		// From side → direction on fromItem
+		if (fromItem && edge.fromSide) {
+			const dir = sideToDirection(edge.fromSide);
+			if (dir) {
+				fromItem[dir].push(edge.toNode);
+				relations.push({
+					fromId: edge.fromNode,
+					toId: edge.toNode,
+					direction: dir,
+					label: edge.label,
+				});
+			}
+		}
+
+		// To side → direction on toItem (bidirectional)
+		if (toItem && edge.toSide) {
+			const dir = sideToDirection(edge.toSide);
+			if (dir) {
+				toItem[dir].push(edge.fromNode);
+			}
+		}
+	}
+
+	// Deduplicate and remove self-edges
+	for (const item of items) {
+		const dedup = (arr: string[]): string[] =>
+			[...new Set(arr)].filter(id => id !== item.id);
+		item.up = dedup(item.up);
+		item.down = dedup(item.down);
+		item.prev = dedup(item.prev);
+		item.next = dedup(item.next);
+	}
+
+	return relations;
+}
+
+/** Options for filtering canvas items before import. */
+export interface CanvasFilterOptions {
+	/** Skip nodes with no text/label content. Default: true. */
+	skipEmpty?: boolean;
+	/** Legend group bounds — the group itself + text nodes inside are excluded. */
+	legendGroup?: { id: string; x: number; y: number; width: number; height: number } | null;
+}
+
+/**
+ * Filter canvas items for import.
+ *
+ * Excludes:
+ *  - File nodes (already existing vault files — not importable)
+ *  - Legend group node itself
+ *  - Text nodes spatially inside the legend group
+ *  - Empty nodes (when skipEmpty is true, default)
+ */
+export function filterItemsForImport(
+	items: CanvasItem[],
+	options: CanvasFilterOptions = {},
+): CanvasItem[] {
+	const { skipEmpty = true, legendGroup = null } = options;
+
+	return items.filter(item => {
+		// File nodes are already vault files — skip
+		if (item.originalType === "file") return false;
+
+		if (legendGroup) {
+			// Legend group itself
+			if (item.id === legendGroup.id) return false;
+			// Text nodes inside the legend group (color swatches)
+			if (item.originalType === "text" && isNodeInsideGroup(item, legendGroup)) return false;
+		}
+
+		// Optionally skip empty nodes (no text/label)
+		if (skipEmpty && item.isEmpty) return false;
+
+		return true;
+	});
 }
