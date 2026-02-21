@@ -2,6 +2,8 @@
 plugin: "[[Development/watcher/README|README]]"
 domain: Folder Watcher
 type: Persona
+roles:
+  - user
 ---
 # Persona: The Collaborator
 

@@ -1,5 +1,9 @@
 ---
 type: Actor
+domain: Flowti
+plugin: "[[Development/flowti/README|README]]"
+roles:
+  - user
 ---
 # The Integration Node (External System Persona)
 

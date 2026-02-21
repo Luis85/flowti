@@ -1,5 +1,9 @@
 ---
 type: Persona
+domain: Flowti
+plugin: "[[Development/flowti/README|README]]"
+roles:
+  - user
 ---
 # The Product Owner (Operational Strategist)
 

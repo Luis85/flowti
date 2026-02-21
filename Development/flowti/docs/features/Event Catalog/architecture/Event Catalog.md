@@ -1,5 +1,5 @@
 ---
-stage: development
+stage: done
 domain: Flowti
 plugin: "[[Development/flowti/README|README]]"
 tags:

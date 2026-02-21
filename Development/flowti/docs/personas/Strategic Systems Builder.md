@@ -1,5 +1,9 @@
 ---
 type: Persona
+roles:
+  - user
+domain: Flowti
+plugin: "[[Development/flowti/README|README]]"
 ---
 # Strategic Systems Builder
 

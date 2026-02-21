@@ -13,8 +13,10 @@ views:
       - domain
       - file.folder
       - type
+      - roles
     columnSize:
-      file.name: 168
+      file.name: 312
       note.plugin: 109
       note.domain: 123
       file.folder: 268
+      note.type: 94

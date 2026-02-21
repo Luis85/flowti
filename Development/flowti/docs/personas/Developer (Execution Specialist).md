@@ -1,5 +1,9 @@
 ---
 type: Persona
+domain: Flowti
+plugin: "[[Development/flowti/README|README]]"
+roles:
+  - user
 ---
 # Developer (Execution Specialist)
 
