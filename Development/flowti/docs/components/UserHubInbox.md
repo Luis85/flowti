@@ -16,7 +16,9 @@ tags:
 
 UserHubInbox renders the Inbox tab of the User Hub using a master-detail split layout. The master panel shows a list of inbox items (filterable by title) with source badges and timestamps, and the detail panel shows the selected item's full details including type badge, source event, description, and action buttons (mark read, dismiss).
 
-Items are populated from domain events via the `InboxService`: subscription watcher matches, import completions/failures, and export completions. Each source can be individually enabled or disabled in the plugin settings.
+Items are populated from domain events via the `InboxService`: subscription watcher matches, import completions/failures, export completions, and pipeline completions/failures (6 source events). Each source can be individually enabled or disabled in the plugin settings.
+
+**Planned (PBI-005 — Cycle 12):** A 7th source type (`vaultFolder`) will watch configured vault folders for notes with empty or missing `type` frontmatter. Vault folder items will support inline triage — type dropdown and description field in the detail panel — and a "Mark as Read" action that applies template frontmatter and routes the note to a configured target folder.
 
 ## Dependencies
 
@@ -52,6 +54,10 @@ Items are populated from domain events via the `InboxService`: subscription watc
 - Description paragraph (omitted when empty)
 - Action buttons: "Mark read" (when unread), "Dismiss"
 
+**Planned detail panel extensions (PBI-005):**
+- **Vault folder items only:** Type dropdown (populated from known doc types) and description text input for inline triage
+- "Mark as Read" on vault folder items: applies note template frontmatter, moves to target folder (primary) or applies in-place (secondary)
+
 **Empty states:**
 - Master: inbox icon (48px), "No items in your inbox", descriptive subtext
 - Detail: inbox icon, "Select an item to view details"
@@ -67,3 +73,4 @@ Items are populated from domain events via the `InboxService`: subscription watc
 - Parent: [[UserHubView]]
 - Siblings: [[UserHubDashboard]], [[UserHubSessions]], [[UserHubPreferences]]
 - Domain: `InboxService` (`src/domain/inbox/InboxService.ts`)
+- Planned: [[PBI-005 Vault Folder Inbox]] (7th source type with inline triage)

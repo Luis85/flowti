@@ -45,7 +45,7 @@ Layout order: Welcome → Active Session → Quick Actions → Hub Summaries →
 - **Active session card** — Only shown when `sessionService.getActiveSession()` returns non-null. Accent-bordered card with timer icon, session title, type badge, remaining time (monospace), Pause and Complete action buttons
 - **Quick actions** — 7 navigation buttons: Inbox, Sessions, Preferences, Event Catalog, Data Exchange, Activity Log, Watchers
 - **Hub summaries** — "Your Hubs" heading with a stat grid. Each provider's stats prefixed with display name. Clicking a card deep-links to the target hub's tab
-- **Inbox section** — Always visible, styled as a mail-inbox container with header (unread count badge, Clear button), up to 5 item rows (type icon, title, source badge, timestamp), and "View all (N) →" footer link
+- **Inbox section** — Always visible, styled as a mail-inbox container with header (unread count badge, Clear button), up to 5 item rows (type icon, title, source badge, timestamp), and "View all (N) →" footer link. **PBI-005** will add vault folder items to this section with "Vault Folder" source badges — untyped notes from watched folders will appear alongside event-driven items
 
 ## Events
 
@@ -63,3 +63,4 @@ Layout order: Welcome → Active Session → Quick Actions → Hub Summaries →
 - Parent: [[UserHubView]]
 - Siblings: [[UserHubInbox]], [[UserHubSessions]], [[UserHubPreferences]]
 - Reuses: [[StatCard]] (`renderStatGrid`)
+- Planned: [[PBI-005 Vault Folder Inbox]] (vault folder items in dashboard inbox section)
