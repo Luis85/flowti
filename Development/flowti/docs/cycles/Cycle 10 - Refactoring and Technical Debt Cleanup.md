@@ -68,9 +68,11 @@ This is a dedicated maintenance cycle. No new features are delivered. The goal i
 
 | Severity | Count | Key Items |
 |----------|-------|-----------|
-| High | 8 | TD-49, TD-50, TD-72, TD-78, TD-79, TD-80, TD-85, TD-110 |
-| Medium | 36 | TD-06, TD-30, TD-42, TD-46, TD-51, TD-52, TD-56, TD-57, TD-62, TD-64, TD-66, TD-67, TD-68, TD-70, TD-71, TD-77, TD-81, TD-83, TD-90, TD-92, TD-100, TD-102, TD-103, TD-104, TD-105, TD-106, TD-107, TD-111, TD-112, TD-113, TD-115, TD-116, TD-117 |
-| Low | 21 | TD-01, TD-12, TD-23, TD-28, TD-29, TD-36, TD-38, TD-43, TD-44, TD-45, TD-47, TD-48, TD-53, TD-58, TD-59, TD-60, TD-61, TD-63, TD-65, TD-73, TD-75, TD-76, TD-87, TD-108, TD-109 |
+| High | 8 | TD-49, TD-50, TD-78, TD-79, TD-80, TD-85, TD-110, TD-118 |
+| Medium | 36 | TD-06, TD-24, TD-30, TD-42, TD-46, TD-51, TD-52, TD-56, TD-57, TD-64, TD-66, TD-67, TD-68, TD-70, TD-71, TD-77, TD-81, TD-83, TD-90, TD-92, TD-102, TD-103, TD-104, TD-105, TD-106, TD-107, TD-111, TD-112, TD-113, TD-115, TD-116, TD-117, TD-119 |
+| Low | 22 | TD-01, TD-12, TD-23, TD-28, TD-29, TD-36, TD-38, TD-43, TD-44, TD-45, TD-47, TD-48, TD-53, TD-58, TD-59, TD-60, TD-61, TD-63, TD-65, TD-73, TD-75, TD-76, TD-87, TD-108, TD-109, TD-120 |
+
+**Note (2026-02-21):** TD-72 and TD-62 were found already fixed in code during documentation review — marked resolved. TD-100 was resolved in Cycle 9 Inc 2. TD-118, TD-119, TD-120 are new items identified during the review.
 
 **Open debt by layer:**
 
