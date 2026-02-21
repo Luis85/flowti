@@ -1,17 +1,20 @@
 ---
-type: Increment
-feature: "[[Release Preparation PRD]]"
-stage: planned
-date: 2026-02-20
+type: Redirect
+target: "[[Cycle 12 - Release Preparation]]"
+date: 2026-02-21
 ---
 
 # Cycle 12 — Release Preparation Plan
 
-## Context
+> **Moved.** This document has been promoted to a full cycle plan at [[Cycle 12 - Release Preparation]] in `docs/cycles/`.
 
-Before Flowti can be published on the Obsidian Community Plugin Marketplace, several release-blocking items must be completed. This cycle plan organizes all release-blocker (RB-*) tagged items into a sequenced delivery plan.
+This file originally contained the initial release preparation sequencing. The full Definition of Ready–compliant cycle plan (with situation assessment, increment details, risks, success metrics, and readiness assessment) now lives in the canonical location:
 
-## Release Blockers Inventory
+**→ [[Cycle 12 - Release Preparation]]**
+
+## Original Release Blockers Inventory
+
+Preserved for reference. See the cycle plan for the full, current version.
 
 | RB | PBI | Feature | Priority | Dependencies |
 |----|-----|---------|----------|-------------|
@@ -23,89 +26,3 @@ Before Flowti can be published on the Obsidian Community Plugin Marketplace, sev
 | — | [[PBI-RP-003 CI-CD Pipeline]] | Release Preparation | High | RB-1 |
 | — | [[PBI-QC-001 Quick Capture Ribbons]] | Quick Capture | High | None |
 | — | [[PBI-005 Vault Folder Inbox]] | Hubs | High | PBI-001 ✅ |
-
-## Sequencing
-
-### Phase A: Infrastructure (RB-1 + RB-2)
-
-**Goal**: Repository structure and code quality meet Obsidian marketplace requirements.
-
-**Increment A.1 — Repository Restructure (RB-1)**
-- Move meta-files to repository root
-- Update all import paths and build configuration
-- Verify all tests pass from new structure
-- Gate: `npm install && npm test && npm run build` from root
-
-**Increment A.2 — Obsidian ESLint Compliance (RB-2)**
-- Configure Obsidian ESLint rules
-- Audit and fix all violations
-- Integrate into build pipeline
-- Gate: `npm run check` includes Obsidian rules, all pass
-
-**Increment A.3 — CI/CD Pipeline**
-- GitHub Actions CI workflow (build + test on push)
-- Release workflow (version bump → build → release → artifacts)
-- Gate: CI passes on push, release creates GitHub release
-
-### Phase B: Feature Completeness (RB-3, RB-4, RB-7, Quick Capture)
-
-**Goal**: Core features complete for first release.
-
-**Increment B.1 — Canvas Parser & Importer (RB-3)**
-- Migrate QuickAdd scripts to `src/domain/dataExchange/canvas/`
-- Canvas import wizard, context menu, progress events
-- Gate: Canvas import from Data Exchange Hub works end-to-end
-
-**Increment B.2 — Seed Starter Content (RB-4)**
-- `SeedContentStep` in installer pipeline
-- Example domain, session templates, welcome note
-- Gate: First-run shows populated vault
-
-**Increment B.3 — Pipeline Multi-Source Merge (RB-7)**
-- Multi-source selection, merge key, merge strategies
-- Merge preview and master data export
-- Gate: 2+ source pipeline with merge works
-
-**Increment B.4 — Quick Capture Ribbons**
-- "Add Idea" and "Add Feedback" ribbon actions
-- Quick Capture command with type selector
-- Configurable target folders and custom types
-- Gate: Ribbon actions create typed notes in configured folders
-
-**Increment B.5 — Vault Folder Inbox**
-- Extend InboxService with vault folder watcher source (7th source type)
-- Settings: watched folders (add/remove, recursive toggle), target folder
-- Inline type/description triage in inbox detail panel
-- Mark as read: apply template frontmatter + route to target folder
-- Gate: Full triage flow — capture → surface → type → mark read → note routed
-
-### Phase C: Polish & Submission
-
-- Final testing across all features
-- Update `manifest.json` version
-- Create `versions.json` for Obsidian compatibility
-- Submit to Obsidian community plugin review
-
-## Dependency Graph
-
-```
-RB-1 (Repo Restructure)
-  └── RB-2 (ESLint Compliance)
-       └── CI/CD Pipeline
-            └── Phase C (Submission)
-
-RB-3 (Canvas Importer) ──┐
-RB-4 (Seed Content) ─────┤
-RB-7 (Pipeline Merge) ───┤── Phase C
-Quick Capture ────────────┤
-Vault Folder Inbox ───────┘
-```
-
-## Related
-
-- [[Release Preparation PRD]]
-- [[Obsidian Canvas Integration PRD]]
-- [[Installer PRD]]
-- [[Data Exchange Hub PRD]]
-- [[Quick Capture PRD]]
-- [[PBI-005 Vault Folder Inbox]]
