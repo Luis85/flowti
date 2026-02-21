@@ -12,7 +12,7 @@ pbis:
 bugs: []
 bugs_fixed_precycle: []
 tech_debt: []
-estimated_increments: 5
+estimated_increments: 6
 actual_increments:
 estimated_tests: 110
 actual_tests:
