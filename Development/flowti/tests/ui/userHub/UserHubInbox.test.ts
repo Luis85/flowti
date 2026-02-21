@@ -2,7 +2,7 @@
 import "../../mocks/obsidian-stub";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { UserHubInbox } from "../../../src/ui/userHub/UserHubInbox";
-import { formatSourceEvent, type UserHubState, type UserHubComponentDeps, type InboxItem } from "../../../src/ui/userHub/types";
+import { formatSourceEvent, formatTime, type UserHubState, type UserHubComponentDeps, type InboxItem } from "../../../src/ui/userHub/types";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import type { UUID } from "../../../src/utils/types";
 import { DEFAULT_SETTINGS } from "../../../src/domain/settings/settings";
@@ -44,6 +44,7 @@ function makeDeps(state: UserHubState): UserHubComponentDeps {
 		app: {} as never,
 		inboxService: {
 			markRead: vi.fn(async () => {}),
+			markAllRead: vi.fn(async () => {}),
 			dismiss: vi.fn(async () => {}),
 			clearAll: vi.fn(async () => {}),
 			getItems: vi.fn(() => []),
@@ -91,6 +92,30 @@ describe("formatSourceEvent", () => {
 
 	it("should return raw event name for unknown events", () => {
 		expect(formatSourceEvent("custom.event")).toBe("custom.event");
+	});
+
+	it("should return human-readable labels for signal sync events", () => {
+		expect(formatSourceEvent("signal.sync.completed")).toBe("Signal Sync");
+		expect(formatSourceEvent("signal.sync.failed")).toBe("Signal Sync Error");
+	});
+});
+
+describe("formatTime", () => {
+	it("should show only time for today's items", () => {
+		const now = new Date();
+		const result = formatTime(now.toISOString());
+		// Should NOT contain a month abbreviation — just time
+		expect(result).toMatch(/\d{1,2}:\d{2}/);
+		// The result should be short (time only, no date prefix)
+		expect(result.length).toBeLessThanOrEqual(8);
+	});
+
+	it("should show date and time for items from previous days", () => {
+		const yesterday = new Date();
+		yesterday.setDate(yesterday.getDate() - 1);
+		const result = formatTime(yesterday.toISOString());
+		// Should be longer than time-only (includes date prefix)
+		expect(result.length).toBeGreaterThan(8);
 	});
 });
 
@@ -182,6 +207,42 @@ describe("UserHubInbox", () => {
 			const badges = masterEl.querySelectorAll(".ft-badge");
 			const badgeTexts = Array.from(badges).map((b) => b.textContent);
 			expect(badgeTexts).toContain("Export");
+		});
+
+		it("should show 'Mark all read' button when unread items exist", () => {
+			state.inboxItems = [
+				makeItem({ id: "1", read: false }),
+				makeItem({ id: "2", read: false }),
+			];
+			inbox.renderMaster("");
+
+			const buttons = Array.from(masterEl.querySelectorAll("button"));
+			const markAllBtn = buttons.find((b) => b.textContent?.includes("Mark all read"));
+			expect(markAllBtn).toBeTruthy();
+		});
+
+		it("should hide 'Mark all read' button when all items are read", () => {
+			state.inboxItems = [
+				makeItem({ id: "1", read: true }),
+				makeItem({ id: "2", read: true }),
+			];
+			inbox.renderMaster("");
+
+			const buttons = Array.from(masterEl.querySelectorAll("button"));
+			const markAllBtn = buttons.find((b) => b.textContent?.includes("Mark all read"));
+			expect(markAllBtn).toBeUndefined();
+		});
+
+		it("should call markAllRead when 'Mark all read' button is clicked", () => {
+			state.inboxItems = [makeItem({ read: false })];
+			inbox.renderMaster("");
+
+			const buttons = Array.from(masterEl.querySelectorAll("button"));
+			const markAllBtn = buttons.find((b) => b.textContent?.includes("Mark all read"));
+			expect(markAllBtn).toBeTruthy();
+			markAllBtn!.click();
+
+			expect(deps.inboxService.markAllRead).toHaveBeenCalledOnce();
 		});
 
 		it("should show empty state when filter matches nothing", () => {

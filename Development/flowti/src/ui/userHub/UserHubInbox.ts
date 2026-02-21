@@ -39,6 +39,15 @@ export class UserHubInbox {
 		const unread = items.filter((i) => !i.read).length;
 		count.setText(`${items.length} item${items.length === 1 ? "" : "s"}${unread > 0 ? ` (${unread} unread)` : ""}`);
 
+		if (unread > 0) {
+			const markAllBtn = header.createEl("button", { cls: "ft-btn ft-btn-sm ft-text-muted" });
+			setIcon(markAllBtn, "check-check");
+			markAllBtn.appendText(" Mark all read");
+			markAllBtn.addEventListener("click", () => {
+				void this.deps.inboxService.markAllRead();
+			});
+		}
+
 		const clearBtn = header.createEl("button", { cls: "ft-btn ft-btn-sm ft-text-muted" });
 		clearBtn.style.marginLeft = "auto";
 		setIcon(clearBtn, "trash-2");

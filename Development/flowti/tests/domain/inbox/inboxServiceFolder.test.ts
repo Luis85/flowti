@@ -142,6 +142,30 @@ describe("InboxService — vault folder watching", () => {
 		expect(handler).not.toHaveBeenCalled();
 	});
 
+	it("should dedup by filePath, not by description content", async () => {
+		const handler = vi.fn();
+		eventBus.on("inbox.itemAdded", handler);
+
+		// First event — creates item
+		await eventBus.emit("file.created", { path: "00 - Connectivity/inbox/dedup-test.md", source: "user" as never });
+		await vi.waitFor(() => {
+			expect(handler).toHaveBeenCalledOnce();
+		}, { timeout: 1000 });
+
+		// Manually mutate the item's description to NOT contain the path
+		const items = service.getItems();
+		expect(items).toHaveLength(1);
+		// Access internal state to mutate description (simulates mapper change)
+		(items[0] as { description: string }).description = "completely different text";
+
+		// Second event for same path — should still be deduped via filePath
+		handler.mockClear();
+		await eventBus.emit("file.modified", { path: "00 - Connectivity/inbox/dedup-test.md", source: "user" as never });
+		await new Promise((r) => setTimeout(r, 700));
+		expect(handler).not.toHaveBeenCalled();
+		expect(service.getItems()).toHaveLength(1);
+	});
+
 	it("should not create duplicate item if unread vault-folder item for same path exists", async () => {
 		const handler = vi.fn();
 		eventBus.on("inbox.itemAdded", handler);

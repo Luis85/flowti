@@ -325,6 +325,63 @@ describe("InboxService", () => {
 		});
 	});
 
+	describe("markAllRead", () => {
+		it("should mark all unread items as read", async () => {
+			const mock = createMockStorage<InboxState>({
+				items: [
+					createTestItem({ id: "item1", read: false }),
+					createTestItem({ id: "item2", read: true }),
+					createTestItem({ id: "item3", read: false }),
+				],
+			});
+			service.dispose();
+			service = new InboxService({ storage: mock.storage, eventBus });
+			await service.load();
+
+			expect(service.getUnreadCount()).toBe(2);
+
+			const handler = vi.fn();
+			eventBus.on("inbox.itemsChanged", handler);
+
+			await service.markAllRead();
+
+			expect(service.getUnreadCount()).toBe(0);
+			expect(service.getItems().every((i) => i.read)).toBe(true);
+			expect(handler).toHaveBeenCalledOnce();
+			expect(mock.storage.save).toHaveBeenCalled();
+		});
+
+		it("should be a no-op when all items are already read", async () => {
+			const mock = createMockStorage<InboxState>({
+				items: [
+					createTestItem({ id: "item1", read: true }),
+					createTestItem({ id: "item2", read: true }),
+				],
+			});
+			service.dispose();
+			service = new InboxService({ storage: mock.storage, eventBus });
+			await service.load();
+
+			const handler = vi.fn();
+			eventBus.on("inbox.itemsChanged", handler);
+
+			await service.markAllRead();
+
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("should be a no-op when inbox is empty", async () => {
+			await service.load();
+
+			const handler = vi.fn();
+			eventBus.on("inbox.itemsChanged", handler);
+
+			await service.markAllRead();
+
+			expect(handler).not.toHaveBeenCalled();
+		});
+	});
+
 	describe("dismiss", () => {
 		it("should remove an item from the inbox", async () => {
 			const mock = createMockStorage({

@@ -132,7 +132,38 @@ None bundled — this is a greenfield feature cycle.
 
 ---
 
-### Inc 2: Thought Linking + Branching (PBI-TOT-001, Part 2)
+### Inc 2: Inbox Polish (cross-cutting)
+
+**Goal:** Polish the Inbox feature based on dogfooding feedback and code gap analysis. Fixes missing signal sync source UI, fragile dedup logic, adds "Mark all read" bulk action, and improves timestamp display.
+
+**Rationale:** Inserted mid-cycle to address UX gaps before adding new features. Independent of Train increments.
+
+| Step | File | Purpose | Est. LOC |
+|------|------|---------|----------|
+| 1 | `src/domain/inbox/types.ts` | Add signal sync entries to INBOX_SOURCE_DEFINITIONS | +2 |
+| 2 | `src/domain/settings/settings.ts` | Add signal sync to default inboxEnabledSources | +2 |
+| 3 | `src/ui/userHub/types.ts` | Add signal sync labels to SOURCE_EVENT_LABELS + smart formatTime | +10 |
+| 4 | `src/domain/inbox/InboxService.ts` | Add markAllRead() + fix dedup to use filePath | +12 |
+| 5 | `src/ui/userHub/UserHubInbox.ts` | Wire "Mark all read" button in header | +8 |
+
+**Est. total:** ~30 LOC source, ~80 LOC tests, ~10 new tests
+
+**Test intent:**
+- Unit tests: markAllRead marks all unread, no-op when empty, no-op when all read
+- Unit tests: dedup uses filePath not description
+- Unit tests: signal sync labels resolve, formatTime date context, Mark all read button visibility + click
+
+**Acceptance criteria:**
+- [x] Signal sync sources visible in Preferences > Inbox checkboxes
+- [x] Signal sync items show "Signal Sync" / "Signal Sync Error" badges
+- [x] "Mark all read" button visible when unread items exist
+- [x] Clicking "Mark all read" marks all items as read
+- [x] Vault folder dedup uses filePath (not description string match)
+- [x] Items from previous days show date prefix (e.g. "Feb 20 14:30")
+
+---
+
+### Inc 3: Thought Linking + Branching (PBI-TOT-001, Part 2)
 
 **Goal:** Wire thought-to-thought linking via frontmatter relations, add branch support, and enable navigation within TrainService.
 
@@ -158,7 +189,7 @@ None bundled — this is a greenfield feature cycle.
 
 ---
 
-### Inc 3: Train Main View (PBI-TOT-002, Part 1)
+### Inc 4: Train Main View (PBI-TOT-002, Part 1)
 
 **Goal:** Dedicated main view for thought navigation, detail display, and branch links.
 
@@ -186,7 +217,7 @@ None bundled — this is a greenfield feature cycle.
 
 ---
 
-### Inc 4: Timeline Sidebar (PBI-TOT-002, Part 2)
+### Inc 5: Timeline Sidebar (PBI-TOT-002, Part 2)
 
 **Goal:** Sidebar timeline graph visualization with click-to-navigate and branch rendering.
 
@@ -215,7 +246,7 @@ None bundled — this is a greenfield feature cycle.
 
 ---
 
-### Inc 5: Session Nesting + Closure (PBI-TOT-003)
+### Inc 6: Session Nesting + Closure (PBI-TOT-003)
 
 **Goal:** Enable session nesting for trains and integrate with the closure ritual system.
 
@@ -250,19 +281,22 @@ None bundled — this is a greenfield feature cycle.
 ```
 Inc 1: Train Domain + Serial Capture
   │
+  │   Inc 2: Inbox Polish (independent)
+  │
   ▼
-Inc 2: Thought Linking + Branching
+Inc 3: Thought Linking + Branching
   │
   ├──────────────────┐
   ▼                  ▼
-Inc 3: Main View   Inc 4: Timeline Sidebar
+Inc 4: Main View   Inc 5: Timeline Sidebar
   │                  │
   └────────┬─────────┘
            ▼
-    Inc 5: Session Nesting + Closure
+    Inc 6: Session Nesting + Closure
 ```
 
-Inc 3 and Inc 4 can be developed in parallel after Inc 2 is complete.
+Inc 2 is independent — no deps on Inc 1 output, no blockers for Inc 3.
+Inc 4 and Inc 5 can be developed in parallel after Inc 3 is complete.
 
 ---
 

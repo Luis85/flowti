@@ -311,6 +311,20 @@ export class InboxService {
 	}
 
 	/**
+	 * Marks all unread items as read.
+	 */
+	async markAllRead(): Promise<void> {
+		const unread = this.state.items.filter((i) => !i.read);
+		if (unread.length === 0) return;
+
+		for (const item of unread) {
+			item.read = true;
+		}
+		await this.saveState();
+		await this.emitItemsChanged();
+	}
+
+	/**
 	 * Removes an item from the inbox.
 	 */
 	async dismiss(itemId: string): Promise<void> {
@@ -410,7 +424,7 @@ export class InboxService {
 
 		// Dedup: skip if unread vault-folder item for this path already exists
 		const duplicate = this.state.items.some(
-			(i) => i.sourceHub === VAULT_FOLDER_SOURCE_HUB && !i.read && i.description?.includes(path),
+			(i) => i.sourceHub === VAULT_FOLDER_SOURCE_HUB && !i.read && i.filePath === path,
 		);
 		if (duplicate) return;
 
