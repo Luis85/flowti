@@ -47,6 +47,8 @@ New users receive guided, contextual onboarding that introduces Flowti's core fe
 
 ## 4. UX Entry Points
 
+The user must be able to pause or resume to the on-boarding at any given time. He can also skip the on-boarding after installation.
+
 - **Post-installer**: Onboarding activates after `installer.completed` event
 - **Event Catalog view**: First-visit callout explaining tabs and navigation
 - **Data Exchange Hub**: First-visit callout explaining import/export workflow

@@ -124,3 +124,4 @@ Inbox items are created automatically when source events fire (subscription.matc
 - [[Import CSV as Notes]] (import completion/failure triggers inbox items)
 - [[Export Vault Data]] (export completion triggers inbox items)
 - [[Create and Manage Sessions]] (session-related inbox items planned for future)
+- [[Capture Ideas and Feedback]] (capture events create notes in inbox folder; vault folder watching will surface them as inbox items when PBI-005 is delivered)

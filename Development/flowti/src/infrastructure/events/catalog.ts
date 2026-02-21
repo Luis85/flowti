@@ -163,6 +163,7 @@ export const EVENT_CATEGORIES = [
 	"Session",
 	"Nudge",
 	"Signal",
+	"Capture",
 ] as const;
 
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
@@ -369,6 +370,7 @@ const CATALOG_DATA = {
 	"ui.openSubscriptionManager": { category: "UI Commands", description: "Open the Watcher Manager modal", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.openCsvImport":           { category: "UI Commands", description: "Open CSV import view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.openExport":              { category: "UI Commands", description: "Open export view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
+	"ui.openQuickCapture":        { category: "UI Commands", description: "Open the Quick Capture modal", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.opened":                  { category: "UI Commands", description: "A UI view or modal was opened", direction: "Internal", domain: "ui", services: "UiCommandService", tags: ["system"] },
 
 	// ── Hub ──────────────────────────────────────────────────
@@ -498,6 +500,11 @@ const CATALOG_DATA = {
 	"signal.item.created":      { category: "Signal", description: "A new work item note was created", direction: "Service → Listeners", domain: "signal", services: "SignalService" },
 	"signal.item.updated":      { category: "Signal", description: "An existing work item note was updated", direction: "Service → Listeners", domain: "signal", services: "SignalService" },
 	"signal.loaded":            { category: "Signal", description: "Signal state loaded from storage", direction: "Service → Listeners", domain: "signal", services: "SignalService", tags: ["system"] },
+
+	// ── Capture ──────────────────────────────────────────────────
+	"capture.idea.created":     { category: "Capture", description: "An idea was captured via Quick Capture", direction: "Service → Listeners", domain: "capture", services: "CaptureService" },
+	"capture.feedback.created": { category: "Capture", description: "Feedback was captured via Quick Capture", direction: "Service → Listeners", domain: "capture", services: "CaptureService" },
+	"capture.note.created":     { category: "Capture", description: "A note was created via Quick Capture (any type)", direction: "Service → Listeners", domain: "capture", services: "CaptureService" },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

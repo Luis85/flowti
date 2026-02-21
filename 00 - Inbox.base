@@ -12,7 +12,10 @@ views:
     order:
       - file.name
       - tags
+      - file.ctime
     sort:
+      - property: file.ctime
+        direction: DESC
       - property: priority
         direction: DESC
       - property: file.mtime

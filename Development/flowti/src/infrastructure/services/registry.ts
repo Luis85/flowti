@@ -25,6 +25,7 @@ import { NudgeService } from "../../domain/nudge/NudgeService";
 import { SessionService } from "../../domain/session/SessionService";
 import { SignalService } from "../../domain/signal/SignalService";
 import { AzureDevOpsAdapter } from "../../domain/signal/adapters/AzureDevOpsAdapter";
+import { CaptureService } from "../../domain/capture/CaptureService";
 import { DocService } from "../../domain/docs/DocService";
 import { FileSystemClient } from "../filesystem/FileSystemClient";
 import type { IServiceContainer, ServiceRegistration } from "./types";
@@ -253,6 +254,19 @@ export function createServiceRegistrations(
 					eventBus,
 					adapter: new AzureDevOpsAdapter(),
 					fileSystem: new FileSystemClient({ eventBus }),
+				});
+			},
+		},
+
+		// Capture Service - quick note capture via ribbons and command palette
+		{
+			id: "captureService",
+			factory: (container: IServiceContainer) => {
+				const eventBus = container.getEventBus();
+				return new CaptureService({
+					eventBus,
+					fileSystem: new FileSystemClient({ eventBus }),
+					getSettings: () => ({ captureFolder: "" }),
 				});
 			},
 		},

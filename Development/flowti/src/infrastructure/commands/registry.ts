@@ -64,6 +64,33 @@ export function createCommandDefinitions(): CommandDefinition[] {
 				void ctx.eventBus.emit("ui.openSubscriptionManager", {});
 			},
 		},
+		{
+			id: "flowti:quick-capture",
+			name: "Quick Capture",
+			icon: "pencil",
+			handler: async (ctx) => {
+				ctx.logger.debug("Opening quick capture modal");
+				void ctx.eventBus.emit("ui.openQuickCapture", {});
+			},
+		},
+		{
+			id: "flowti:add-idea",
+			name: "Add Idea",
+			icon: "lightbulb",
+			handler: async (ctx) => {
+				ctx.logger.debug("Opening quick capture modal for idea");
+				void ctx.eventBus.emit("ui.openQuickCapture", { type: "idea" });
+			},
+		},
+		{
+			id: "flowti:add-feedback",
+			name: "Add Feedback",
+			icon: "message-circle",
+			handler: async (ctx) => {
+				ctx.logger.debug("Opening quick capture modal for feedback");
+				void ctx.eventBus.emit("ui.openQuickCapture", { type: "feedback" });
+			},
+		},
 	];
 }
 

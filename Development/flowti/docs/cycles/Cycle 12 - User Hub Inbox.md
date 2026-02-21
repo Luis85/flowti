@@ -241,14 +241,16 @@ Quick Capture and Vault Folder Inbox together create the capture-to-organization
 **Architecture seams:** New bounded context `src/domain/capture/`. Ribbon API integration (`plugin.addRibbonIcon()`). Command palette registration. Settings integration for configurable folders and custom types (`SettingsService`). Event emission for capture events.
 
 **Acceptance criteria:**
-- [ ] "Add Idea" (lightbulb) and "Add Feedback" (message-circle) ribbon actions visible
-- [ ] Clicking ribbon opens minimal modal with title input
-- [ ] Notes created in configured folder with correct typed frontmatter
-- [ ] "Quick Capture" command available in command palette with type selector
-- [ ] Custom capture types configurable in Settings
-- [ ] Navigation option: stay or open new note after creation
-- [ ] Capture events emitted on note creation
-- [ ] `npm run build` passes
+- [x] "Add Idea" (lightbulb) and "Add Feedback" (message-circle) ribbon actions visible
+- [x] Clicking ribbon opens minimal modal with title input
+- [x] Notes created in configured folder with correct typed frontmatter
+- [x] "Quick Capture" command available in command palette with type selector (+ dedicated Add Idea and Add Feedback commands)
+- [ ] Custom capture types configurable in Settings — DEFERRED (negotiable per INVEST)
+- [ ] Navigation option: stay or open new note after creation — DEFERRED (negotiable per INVEST)
+- [x] Capture events emitted on note creation
+- [x] `npm run build` passes
+
+**Delivery notes (2026-02-21):** 214 LOC source, 23 tests (3,041 total). 5 capture actions: 2 ribbons + 3 commands. DoD: PASS with 2 deferred negotiable items. See [[Cycle 12 Inc 1 DoD Check - Quick Capture Ribbons]].
 
 ---
 
@@ -362,7 +364,7 @@ Phase B: Inc 3
 | PBIs closed | 2/2 (QC-001, PBI-005) |
 | New events | ~5 (capture.idea.created, capture.feedback.created, capture.note.created, inbox.vaultFolder.noteDetected, inbox.vaultFolder.noteTriaged) |
 | Inbox sources | 8 → 9 (vault folder added) |
-| Capture actions | 3 new (Add Idea ribbon, Add Feedback ribbon, Quick Capture command) |
+| Capture actions | 5 new (Add Idea ribbon, Add Feedback ribbon, Quick Capture command, Add Idea command, Add Feedback command) |
 | Build green | `npm test` + `npm run build` pass |
 
 ---

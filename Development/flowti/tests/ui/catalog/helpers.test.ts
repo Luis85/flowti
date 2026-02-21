@@ -482,6 +482,7 @@ describe("catalog helpers", () => {
 		{ name: "Session", visible: true },
 		{ name: "Nudge", visible: true },
 		{ name: "Signal", visible: true },
+		{ name: "Capture", visible: true },
 	];
 
 	describe("discoveredToCatalogEntries", () => {

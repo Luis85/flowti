@@ -57,6 +57,7 @@ export const DEFAULT_CATALOG_CATEGORIES: CatalogCategoryConfig[] = [
 	{ name: "Session", visible: true },
 	{ name: "Nudge", visible: true },
 	{ name: "Signal", visible: true },
+	{ name: "Capture", visible: true },
 ];
 
 // ─────────────────────────────────────────────────────────────
@@ -127,6 +128,7 @@ export const FlowtiSettingsSchema = z.object({
 	eventSystemEnabled: z.boolean().default(true),
 	showSystemEvents: z.boolean().default(false),
 	docsRootPath: z.string().default("03 - Resources/Documentation/Reference"),
+	captureFolder: z.string().default("00 - Connectivity/inbox"),
 	catalogCategories: z.array(CatalogCategoryConfigSchema).default(DEFAULT_CATALOG_CATEGORIES),
 	catalogDomains: z.array(CatalogCategoryConfigSchema).default([]),
 	catalogServices: z.array(CatalogCategoryConfigSchema).default([]),

@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Release Preparation PRD]]"
-stage: planned
+stage: refinement
 cycle: 13
 date_planned: 2026-02-21
 date_completed:
@@ -26,6 +26,8 @@ total_test_files_after:
 # Cycle 13: Release Preparation
 
 ## Situation Assessment
+
+[[Go to Market - Flowti IBDE]]
 
 ### Pre-Cycle State (assumes Cycle 10 + Cycle 11 + Cycle 12 complete)
 

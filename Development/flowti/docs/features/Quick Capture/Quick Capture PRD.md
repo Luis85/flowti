@@ -2,15 +2,15 @@
 domain: Flowti
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
-stage: approved
-maturity: L1
+stage: in-progress
+maturity: L2
 maturity_score_strategy: 4
 maturity_score_scope: 4
-maturity_score_architecture: 3
-maturity_score_event_integration: 2
+maturity_score_architecture: 4
+maturity_score_event_integration: 4
 maturity_score_data_model: 3
-maturity_score_ui_consistency: 2
-maturity_score_validation_testing: 1
+maturity_score_ui_consistency: 3
+maturity_score_validation_testing: 3
 business_value: 5
 implementation_cost: 2
 maintenance_cost: 1
@@ -18,7 +18,7 @@ discovery_cost: 2
 design_cost: 2
 test_cost: 2
 priority: 4
-fri_score: 19
+fri_score: 25
 tags:
   - inbox
   - capture
@@ -81,26 +81,26 @@ Capturing ideas and feedback currently requires: navigate to folder → create n
 
 ## 5. Functional Requirements
 
-- [ ] "Add Idea" ribbon action: opens minimal modal with title input
-- [ ] "Add Feedback" ribbon action: opens minimal modal with title input
-- [ ] "Quick Capture" command: asks for type first, then title
-- [ ] Note created in configured folder with correct frontmatter template
-- [ ] Default folders: `00 - Connectivity/inbox` for ideas, `00 - Connectivity/inbox` for feedback
-- [ ] Configurable target folder per capture type in Settings
-- [ ] Custom capture types definable in Settings (type name, template, target folder)
-- [ ] Navigation option: "Stay here" or "Open note" after creation
-- [ ] Events: `capture.idea.created`, `capture.feedback.created`, `capture.note.created`
+- [x] "Add Idea" ribbon action: opens minimal modal with title input
+- [x] "Add Feedback" ribbon action: opens minimal modal with title input
+- [x] "Quick Capture" command: asks for type first, then title
+- [x] Note created in configured folder with correct frontmatter template
+- [x] Default folders: `00 - Connectivity/inbox` for ideas, `00 - Connectivity/inbox` for feedback
+- [ ] Configurable target folder per capture type in Settings — DEFERRED (PBI-QC-001 I-1)
+- [ ] Custom capture types definable in Settings (type name, template, target folder) — DEFERRED (PBI-QC-001 I-2)
+- [ ] Navigation option: "Stay here" or "Open note" after creation — DEFERRED (PBI-QC-001 I-3)
+- [x] Events: `capture.idea.created`, `capture.feedback.created`, `capture.note.created`
 
 ---
 
 ## 6. Acceptance Criteria
 
-- [ ] "Add Idea" and "Add Feedback" ribbon actions visible
-- [ ] Clicking ribbon opens modal with title input
-- [ ] Note created in configured folder with correct frontmatter
-- [ ] "Quick Capture" command available in command palette
-- [ ] Custom capture types configurable in settings
-- [ ] npm run build passes
+- [x] "Add Idea" and "Add Feedback" ribbon actions visible
+- [x] Clicking ribbon opens modal with title input
+- [x] Note created in configured folder with correct frontmatter
+- [x] "Quick Capture" command available in command palette
+- [ ] Custom capture types configurable in settings — DEFERRED
+- [x] npm run build passes
 
 ---
 
@@ -108,7 +108,15 @@ Capturing ideas and feedback currently requires: navigate to folder → create n
 
 | PBI | Title | Status | Priority |
 |-----|-------|--------|----------|
-| [[PBI-QC-001 Quick Capture Ribbons]] | Ribbon actions and capture modal | PLANNED | High |
+| [[PBI-QC-001 Quick Capture Ribbons]] | Ribbon actions and capture modal | DONE | High |
+
+---
+
+## Stage History
+
+| Date | Stage | FRI | Notes |
+|------|-------|-----|-------|
+| 2026-02-21 | approved → in-progress | 19 → 25 | Cycle 12 Inc 1: PBI-QC-001 delivered. 2 ribbon icons, 3 commands, 3 events, 23 tests. Deferred: custom types, Settings UI, navigation option. |
 
 ---
 

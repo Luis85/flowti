@@ -27,6 +27,8 @@ import type { NudgeService } from "./domain/nudge/NudgeService";
 import type { SessionService } from "./domain/session/SessionService";
 import type { SignalService } from "./domain/signal/SignalService";
 import type { IngestionService } from "./domain/ingestion/IngestionService";
+import type { CaptureService } from "./domain/capture/CaptureService";
+import { QuickCaptureModal } from "./ui/capture/QuickCaptureModal";
 import { registerViews } from "./infrastructure/views/registry";
 import type { IViewRegistry } from "./infrastructure/views/types";
 import { IngestionStatusBar } from "./ui/IngestionStatusBar";
@@ -99,6 +101,7 @@ export default class FlowtiBasePlugin extends Plugin {
 	private sessionService?: SessionService;
 	private nudgeService?: NudgeService;
 	private signalService?: SignalService;
+	private captureService?: CaptureService;
 	private ingestionStatusBar?: IngestionStatusBar;
 	private collapsedCategories = new Set<string>();
 	private uiCommandService?: UiCommandService;
@@ -215,6 +218,26 @@ export default class FlowtiBasePlugin extends Plugin {
 			});
 			this.addRibbonIcon("home", "Open User Hub", () => {
 				void this.eventBus.emit("ui.openUserHub", {});
+			});
+			this.addRibbonIcon("lightbulb", "Add Idea", () => {
+				void this.eventBus.emit("ui.openQuickCapture", { type: "idea" });
+			});
+			this.addRibbonIcon("message-circle", "Add Feedback", () => {
+				void this.eventBus.emit("ui.openQuickCapture", { type: "feedback" });
+			});
+
+			// Quick Capture modal listener
+			this.eventBus.on("ui.openQuickCapture", (event) => {
+				const type = event.payload.type;
+				new QuickCaptureModal(this.app, {
+					showTypeSelector: !type,
+					defaultType: type,
+					onSubmit: (input) => {
+						if (this.captureService) {
+							void this.captureService.capture(input);
+						}
+					},
+				}).open();
 			});
 
 			// Status bar
@@ -533,6 +556,12 @@ export default class FlowtiBasePlugin extends Plugin {
 		// Signal Service — external data source connections
 		this.signalService = await this.services.get<SignalService>("signalService");
 		await this.signalService.load();
+
+		// Capture Service — quick note capture via ribbons and command palette
+		this.captureService = await this.services.get<CaptureService>("captureService");
+		this.captureService.getSettings = () => ({
+			captureFolder: settingsService.getSettings().captureFolder,
+		});
 
 		// Auto-open workspace and focus file when a session starts
 		// Skip if a workspace already exists (e.g. started from sidebar)

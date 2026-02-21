@@ -1,11 +1,14 @@
 ---
 type: ProductBacklogItem
 feature: "[[Quick Capture PRD]]"
-stage: planned
+stage: done
 priority: high
 estimated_loc: 230
+actual_loc: 214
 estimated_tests: 25
+actual_tests: 23
 planned_in: "[[Cycle 12 - User Hub Inbox]]"
+delivered_in: "[[Cycle 12 - User Hub Inbox]]"
 user_story: "[[Quick capture ribbons for ideas and feedback]]"
 tags:
   - release-blocker
@@ -41,14 +44,14 @@ As a vault user, I want one-click ribbon actions to capture ideas and feedback s
 
 ### Functional Requirements
 
-- [ ] Two ribbon actions: "Add Idea" (lightbulb icon) and "Add Feedback" (message-circle icon)
-- [ ] Minimal modal: title input, Enter to confirm
-- [ ] Note created in configured folder with frontmatter template (type, description placeholder, timestamp)
-- [ ] "Quick Capture" command: type selector (idea, feedback, bug, custom) → title input
-- [ ] Configurable target folder per type in Settings
-- [ ] Custom capture types: type name, template, target folder
-- [ ] Navigation option: stay or open new note
-- [ ] Events: `capture.idea.created`, `capture.feedback.created`, `capture.note.created`
+- [x] Two ribbon actions: "Add Idea" (lightbulb icon) and "Add Feedback" (message-circle icon)
+- [x] Minimal modal: title input, Enter to confirm
+- [x] Note created in configured folder with frontmatter template (type, description placeholder, timestamp)
+- [x] "Quick Capture" command: type selector (idea, feedback, bug, custom) → title input
+- [ ] Configurable target folder per type in Settings — DEFERRED
+- [ ] Custom capture types: type name, template, target folder — DEFERRED
+- [ ] Navigation option: stay or open new note — DEFERRED
+- [x] Events: `capture.idea.created`, `capture.feedback.created`, `capture.note.created`
 
 ### Technical Requirements
 
@@ -83,14 +86,14 @@ As a vault user, I want one-click ribbon actions to capture ideas and feedback s
 
 ## Acceptance Criteria
 
-- [ ] "Add Idea" (lightbulb) and "Add Feedback" (message-circle) ribbon actions visible
-- [ ] Clicking ribbon opens minimal modal with title input
-- [ ] Notes created in configured folder with correct typed frontmatter
-- [ ] "Quick Capture" command available in command palette with type selector
-- [ ] Custom capture types configurable in Settings
-- [ ] Navigation option: stay or open new note after creation
-- [ ] Capture events emitted on note creation
-- [ ] `npm run build` passes
+- [x] "Add Idea" (lightbulb) and "Add Feedback" (message-circle) ribbon actions visible
+- [x] Clicking ribbon opens minimal modal with title input
+- [x] Notes created in configured folder with correct typed frontmatter
+- [x] "Quick Capture" command available in command palette with type selector
+- [ ] Custom capture types configurable in Settings — DEFERRED (negotiable per INVEST)
+- [ ] Navigation option: stay or open new note after creation — DEFERRED (negotiable per INVEST)
+- [x] Capture events emitted on note creation
+- [x] `npm run build` passes
 
 ---
 
@@ -101,6 +104,42 @@ As a vault user, I want one-click ribbon actions to capture ideas and feedback s
 | `capture.idea.created` | Capture | Produced | `{ path: string, title: string }` |
 | `capture.feedback.created` | Capture | Produced | `{ path: string, title: string }` |
 | `capture.note.created` | Capture | Produced | `{ path: string, title: string, type: string }` |
+
+---
+
+## Delivered Files
+
+### New Files (4 source + 2 test)
+
+| File | LOC | Purpose |
+|------|-----|---------|
+| `src/domain/capture/types.ts` | 23 | CaptureType, CaptureInput, CaptureResult |
+| `src/domain/capture/events.ts` | 17 | CaptureEventMap (3 events) |
+| `src/domain/capture/CaptureService.ts` | 81 | Stateless capture service (file creation + event emission) |
+| `src/ui/capture/QuickCaptureModal.ts` | 93 | Minimal modal with title input, optional type selector, Enter to submit |
+| `tests/domain/capture/CaptureService.test.ts` | ~140 | 13 unit tests |
+| `tests/ui/capture/QuickCaptureModal.test.ts` | ~100 | 10 UI tests |
+
+### Modified Files (7 infrastructure + 2 test fixes)
+
+| File | Change |
+|------|--------|
+| `src/domain/settings/settings.ts` | +`captureFolder` setting, +`Capture` in DEFAULT_CATALOG_CATEGORIES |
+| `src/infrastructure/events/events.ts` | +CaptureEventMap in FlowtiEventMap extends |
+| `src/infrastructure/events/catalog.ts` | +4 catalog entries (3 capture + 1 ui.openQuickCapture), +`Capture` in EVENT_CATEGORIES |
+| `src/infrastructure/ui/events.ts` | +`ui.openQuickCapture` event in UiCommandEventMap |
+| `src/infrastructure/services/registry.ts` | +CaptureService factory |
+| `src/infrastructure/commands/registry.ts` | +3 commands: `flowti:quick-capture`, `flowti:add-idea`, `flowti:add-feedback` |
+| `src/main.ts` | +2 ribbon icons, +modal listener, +captureService field + wiring |
+| `tests/infrastructure/events/EventBus.test.ts` | +`captureFolder` in inline settings objects |
+| `tests/ui/catalog/helpers.test.ts` | +`Capture` in allVisibleCats array |
+
+### Delivery Summary
+
+- **Total new source LOC:** 214
+- **Total new tests:** 23 (13 service + 10 UI)
+- **Total test count:** 3,041 (baseline 3,018 + 23)
+- **Capture actions:** 5 (2 ribbon icons + 3 commands)
 
 ---
 

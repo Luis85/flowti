@@ -8,6 +8,7 @@
  */
 
 import type { ExportFormat, SavedExportConfig, SavedImportConfig } from "../../domain/dataExchange/types";
+import type { CaptureType } from "../../domain/capture/types";
 
 /**
  * Map of UI command events to their payload types.
@@ -48,6 +49,9 @@ export interface UiCommandEventMap {
 		format: ExportFormat;
 		savedConfig?: SavedExportConfig;
 	};
+
+	/** Open the Quick Capture modal */
+	"ui.openQuickCapture": { type?: CaptureType };
 
 	/** Emitted after a view or modal was opened by UiCommandService */
 	"ui.opened": {
