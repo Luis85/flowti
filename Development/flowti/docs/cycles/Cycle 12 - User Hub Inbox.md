@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Hubs PRD]]"
-stage: planned
+stage: ready
 cycle: 12
 date_planned: 2026-02-21
 date_completed:
@@ -141,28 +141,37 @@ Scenario: Secondary watched folder triages in-place
 
 ## Situation Assessment
 
-### Pre-Cycle State (assumes Cycle 10 + Cycle 11 complete)
+### Pre-Cycle State (Cycle 10 completed, Cycle 11 delivered 2026-02-21)
 
-**Plugin health (projected):**
-- ~3,000 tests passing, ~127 test suites
-- Build status: green
-- `npm run build` pipeline: vitest + tsc + eslint + esbuild
+**Plugin health (verified):**
+- 3,018 tests passing (32 skipped), 118 test suites
+- Build status: green (`npm test` + `npm run build` pass)
 - Error handling foundation in place (Cycle 10 Inc 1)
 - Resource leak patterns fixed (Cycle 10 Inc 2)
 - EventBus resilience with error boundary (Cycle 10 Inc 3)
 - Infrastructure correctness hardened (Cycle 10 Inc 4)
+- Azure DevOps Integration delivered (Cycle 11 — 5/5 PBIs, FRI 30/35, RB-5 resolved)
 
 **User Hub Inbox — current state:**
 
 | Aspect | Status |
 |--------|--------|
-| InboxService | Operational — 6 source event listeners, TypedStorage persistence, 500-item capacity |
-| Mappers | 6 pure functions: subscription.matched, import completed/failed, export completed, pipeline completed/failed |
+| InboxService | Operational — 8 source event listeners, TypedStorage persistence, 500-item capacity |
+| Mappers | 8 pure functions: subscription.matched, import completed/failed, export completed, pipeline completed/failed, signal sync completed/failed |
 | UI Component | Master-detail layout with filtering, read/unread state, source badges, dismiss/clear actions |
-| Source Config | 6 per-source toggles in Preferences tab; `inboxEnabledSources` setting |
+| Source Config | 8 per-source toggles in Preferences tab; `inboxEnabledSources` setting |
 | Events | inbox.loaded, inbox.itemAdded, inbox.itemsChanged, inbox.refresh |
 | Tests | 29 unit tests + 18 flow tests + UI tests (>50 total) |
-| Delivered in | Phase 3 Inc 2 (Inbox Population), Inc 3 (UX & Source Config), Inc 4 (Pipeline Inbox & Preferences) |
+| Delivered in | Phase 3 Inc 2 (Inbox Population), Inc 3 (UX & Source Config), Inc 4 (Pipeline Inbox & Preferences), Cycle 11 Inc 5 (Signal sync mappers) |
+
+**Infrastructure available for this cycle:**
+- `file.created` / `file.modified` events — emitted by EventBridge, consumed by IngestionService + SessionService
+- `FileSystemClient.moveFile()` — file relocation with event emission
+- `FileSystemClient.updateFrontmatter()` — in-place frontmatter modification
+- `FileSystemClient.createFile()` — note creation with frontmatter template
+- `INBOX_SOURCE_DEFINITIONS` pattern — extensible source registration
+- Obsidian ribbon API — `plugin.addRibbonIcon()` for sidebar actions
+- Command palette — `plugin.addCommand()` for keyboard-accessible actions
 
 **What's missing — the capture-to-organization gap:**
 - No frictionless capture mechanism — creating a note requires navigating to a folder, adding frontmatter manually
@@ -176,7 +185,7 @@ Scenario: Secondary watched folder triages in-place
 | PRD | Stage | FRI | Relevant PBIs |
 |-----|-------|-----|---------------|
 | [[Hubs PRD]] | in-progress | 33/35 | PBI-005 (Vault Folder Inbox) |
-| [[Quick Capture PRD]] | planned | 19/35 | PBI-QC-001 (Quick Capture Ribbons) |
+| [[Quick Capture PRD]] | approved | 19/35 | PBI-QC-001 (Quick Capture Ribbons) |
 
 **Why this cycle comes before Release Preparation:**
 Quick Capture and Vault Folder Inbox together create the capture-to-organization pipeline — the core workflow loop for Flowti's "Inbox Zero" philosophy. This is a dogfooding enabler: the team needs frictionless capture and triage to effectively use the system daily. Delivering this before release preparation ensures the product has a complete idea-to-organization flow, which is essential for first-run user experience and demonstrates core product value.
@@ -349,10 +358,10 @@ Phase B: Inc 3
 | Metric | Target |
 |--------|--------|
 | Tests added | ~60 new |
-| Tests total | ~3,060+ |
+| Tests total | ~3,078+ (baseline: 3,018) |
 | PBIs closed | 2/2 (QC-001, PBI-005) |
-| New events | ~6 (capture.idea.created, capture.feedback.created, capture.note.created, inbox.vaultFolder.noteDetected, inbox.vaultFolder.noteTriaged) |
-| Inbox sources | 6 -> 7 (vault folder added) |
+| New events | ~5 (capture.idea.created, capture.feedback.created, capture.note.created, inbox.vaultFolder.noteDetected, inbox.vaultFolder.noteTriaged) |
+| Inbox sources | 8 → 9 (vault folder added) |
 | Capture actions | 3 new (Add Idea ribbon, Add Feedback ribbon, Quick Capture command) |
 | Build green | `npm test` + `npm run build` pass |
 
@@ -373,29 +382,30 @@ Phase B: Inc 3
 
 ## Readiness Assessment
 
-> Explicit verification against [[Definition of Ready (Cycle)]].
+> Explicit verification against [[Definition of Ready (Cycle)]]. Updated 2026-02-21 post-Cycle 11 delivery.
 
 ### 1. Feature PRD Readiness
 
 - [x] **PRD exists and is approved** — [[Hubs PRD]] (PBI-005) and [[Quick Capture PRD]] (PBI-QC-001) both exist
-- [x] **PRD stage is approved or in-progress** — Hubs: in-progress; Quick Capture: planned
+- [x] **PRD stage is approved or in-progress** — Hubs: in-progress (L3, FRI 33/35); Quick Capture: approved (L1, FRI 19/35)
 - [x] **FRI scored** — Hubs FRI 33/35; Quick Capture FRI 19/35
 - [x] **FRI meets threshold** — Hubs 33/35 (>=11 continuation); Quick Capture 19/35 (>=19 new)
+- [x] **Technical Review passed** — Hubs PRD has extensive delivery history (Phases 1-3, Cycles 3-8). Quick Capture PRD reviewed as part of Cycle 12 readiness check (scope small, infrastructure validated, CONDITIONAL PASS — see DoR Check).
 
 ### 2. Backlog Readiness
 
-- [x] **PBIs defined** — PBI-QC-001 and PBI-005 both have problem statements, solution approaches, and acceptance criteria
+- [x] **PBIs defined** — PBI-QC-001 and PBI-005 both have problem statements, solution approaches, acceptance criteria, and INVEST assessments
 - [x] **PBIs chunked into increments** — 3 increments across 2 PBIs, each delivering end-to-end value
-- [x] **Dependencies mapped** — No external dependencies. PBI-005 extends existing InboxService. PBI-QC-001 is greenfield with minimal infrastructure needs.
+- [x] **Dependencies mapped** — No external dependencies. PBI-005 extends existing InboxService. PBI-QC-001 is greenfield with minimal infrastructure needs. Inc 3 depends on Inc 2.
 - [x] **Priority ranked** — Both PBIs are high priority
 
 ### 3. Cycle Plan Document
 
 - [x] **Cycle document exists** — Created with DevelopmentCycle frontmatter, all required fields populated
-- [x] **Situation assessment written** — Pre-cycle state with inbox status, feature gap analysis, projected metrics
+- [x] **Situation assessment written** — Pre-cycle state with verified plugin health (3,018 tests, 118 suites), inbox status, feature gap analysis
 - [x] **Cycle goals defined** — 3 goals mapping to capture, folder watching, and end-to-end pipeline
 - [x] **Proposed increments specified** — 3 increments, each with goal, step table, estimated LOC, estimated tests
-- [x] **Dependency graph drawn** — Phase A (parallel) -> Phase B ordering
+- [x] **Dependency graph drawn** — Phase A (parallel) → Phase B ordering
 - [x] **Risks identified** — 5 risks with impact ratings and mitigations
 - [x] **Success metrics defined** — 7 measurable targets
 - [x] **Deferred items documented** — 6 items explicitly excluded with rationale
@@ -412,21 +422,18 @@ For each of the 3 increments:
 
 ### 5. Quality Baseline
 
-- [x] **Build pipeline green** — `npm test` passes (2,889 tests, 32 skipped, 112 test files as of 2026-02-21). `npm run build` succeeds.
+- [x] **Build pipeline green** — `npm test` passes (3,018 tests, 32 skipped, 118 suites as of 2026-02-21). `npm run build` succeeds.
 - [x] **No critical bugs open** — No open critical bugs blocking this cycle.
-- [ ] **Previous cycle closed** — Cycle 10 is in-progress (4/6 increments done); Cycle 11 is planned. **Gate**: Cycle 12 starts only after Cycles 10 and 11 complete their retrospectives.
+- [x] **Previous cycle closed** — Cycle 10 completed (6/6 increments, stage: completed). Cycle 11 delivered (5/5 PBIs, TASM avg 33/35, Three Amigos PASS, FRI 30/35).
 
 ### 6. Pre-Cycle Completion
 
-- [x] **Pre-cycle work documented** — Backlog refinement (2026-02-20) reviewed inbox items and prioritized capture workflow. PBI-005 fully elaborated with Gherkin scenarios.
-- [x] **Inbox signals reviewed** — Relevant inbox items linked: [[I want to connect the User Hub Inbox with a vault folder]] -> PBI-005; [[Quick capture ribbons for ideas and feedback]] -> PBI-QC-001; [[I want to capture feedback and input as fast as possible]] -> PBI-QC-001.
+- [x] **Pre-cycle work documented** — Backlog refinement (2026-02-20) reviewed inbox items and prioritized capture workflow. PBI-005 fully elaborated with Gherkin scenarios. PBI-QC-001 enriched with INVEST assessment, technical requirements, events table.
+- [x] **Inbox signals reviewed** — Relevant inbox items linked: [[I want to connect the User Hub Inbox with a vault folder]] → PBI-005; [[Quick capture ribbons for ideas and feedback]] → PBI-QC-001; [[I want to capture feedback and input as fast as possible]] → PBI-QC-001.
 
 ### Open Actions Before Cycle Start
 
-| Action | Owner | Status |
-|--------|-------|--------|
-| Complete Cycle 10 (remaining increments + retrospective) | Dev | Blocked on Cycle 10 delivery |
-| Complete Cycle 11 (all increments + retrospective) | Dev | Blocked on Cycle 10 completion |
+All prior blockers resolved. No open actions remaining.
 
 ---
 

@@ -2,7 +2,7 @@
 domain: Flowti
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
-stage: planned
+stage: approved
 maturity: L1
 maturity_score_strategy: 4
 maturity_score_scope: 4
