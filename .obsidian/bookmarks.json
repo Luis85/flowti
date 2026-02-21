@@ -13,12 +13,12 @@
     {
       "type": "file",
       "ctime": 1771087396881,
-      "path": "01 - Jobs to be done.base"
+      "path": "02 - Jobs to be done.base"
     },
     {
       "type": "file",
       "ctime": 1771087412709,
-      "path": "02 - Features.base"
+      "path": "03 - Features.base"
     },
     {
       "type": "file",
@@ -29,7 +29,7 @@
     {
       "type": "file",
       "ctime": 1771087433608,
-      "path": "04 - Personas.base"
+      "path": "01 - Personas.base"
     }
   ]
 }
