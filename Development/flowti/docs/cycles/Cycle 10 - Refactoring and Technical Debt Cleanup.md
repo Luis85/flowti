@@ -292,13 +292,15 @@ This is a dedicated maintenance cycle. No new features are delivered. The goal i
 - Files: ~6
 
 **Acceptance criteria:**
-- [ ] Master list item click does not trigger full `renderMaster()` — only CSS class toggle + `renderDetail()`
-- [ ] `checkOrphanedFlows()` uses Set-based membership tests (O(1) per lookup)
-- [ ] Health check results are cached across renders; invalidated when entity counts change
-- [ ] View render errors are caught and displayed as "Something went wrong" state (not blank screen)
-- [ ] `npm test` green
+- [x] Master list item click does not trigger full `renderMaster()` — only CSS class toggle + `renderDetail()`
+- [x] `checkOrphanedFlows()` uses Set-based membership tests (O(1) per lookup)
+- [x] Health check results are cached across renders; invalidated when entity counts change
+- [x] View render errors are caught and displayed as "Something went wrong" state (not blank screen)
+- [x] `npm test` green
 
 **Documentation intent:** Update TD-112, TD-75, TD-76, TD-46 status to resolved. Document error boundary pattern in review.
+
+**Delivery notes (2026-02-21):** All 4 TD items resolved. 6 source files + 2 test files changed. 4 new tests. 2,893 tests passing, 0 failures. TASM 33/35. Deviations: TD-112 applied to 3 DX Hub tabs + HealthTab (UserHubSessions deferred — different structure); TD-46 error boundary in BaseHubView only (covers all hub views via inheritance); TD-76 uses count-based cache key instead of event-driven invalidation. See [[Cycle 10 Inc 5 Review - UI Performance Quick Wins]].
 
 ---
 
