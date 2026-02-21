@@ -70,8 +70,10 @@ As a domain architect, I want to import Canvas files as typed vault notes from t
 - New bounded context: `src/domain/canvas/` (own domain, not nested under dataExchange)
 - `CanvasParser.ts`: Pure functions, no side effects — `parseCanvasJson()`, `extractLegend()`, `resolveNodeType()`, `slugifyTitle()`, `toPascalCase()`, `isNodeInsideGroup()` ✅, `resolveParentage()`, `buildRelations()`, `filterItemsForImport()` ✅
 - `CanvasImporter.ts`: 3-layer architecture (pure content → I/O → orchestrator) — `toCanvasNotePath()`, `toCanvasNoteFrontmatter()`, `toCanvasNoteContent()`, `writeCanvasNote()` (conflict strategies), `importCanvas()` (progress events) ✅
+- `CanvasRebuilder.ts`: `rebuildCanvasData()` (text→file-node references, edge remapping), `writeRebuiltCanvas()` (skip/overwrite) ✅
+- `CanvasBaseGenerator.ts`: `buildBaseFileContent()` (folder filter + type-grouped table), `writeBaseFile()` (skip/overwrite) ✅
 - 8 events registered in catalog with category "Canvas" ✅
-- All existing QuickAdd canvas-importer test scenarios ported as unit tests
+- All existing QuickAdd canvas-importer test scenarios ported as unit tests — all 5 source scripts migrated (core, constants, notes, canvas, basefile) ✅
 
 ## Acceptance Criteria
 

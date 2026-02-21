@@ -303,6 +303,8 @@ Migrate canvas import logic from `var/scripts/canvas-importer/` into `src/domain
 
 **Cycle 15 Inc 3 delivered:** Canvas Importer — note creation pipeline. 3-layer architecture: pure content functions (toCanvasNotePath, toCanvasNoteFrontmatter, toCanvasNoteContent), I/O function (writeCanvasNote with skip/update/overwrite conflict strategies), orchestrator (importCanvas with started/progress/completed/failed events, per-node error resilience). 31 new tests (3,445 total, 103 canvas-specific). Full content + write layer complete.
 
+**Cycle 15 Inc 4 delivered:** Canvas Rebuilder & Base Generator — post-import artifacts. CanvasRebuilder: rebuildCanvasData (text→file-node references, group/file preserved, edge ID remapping, injectable ID gen), writeRebuiltCanvas (skip/overwrite). CanvasBaseGenerator: buildBaseFileContent (folder filter + type-grouped table with 13 columns), writeBaseFile (skip/overwrite). 28 new tests (3,473 total, 131 canvas-specific). Full QuickAdd script migration complete — all 5 source scripts ported.
+
 ### Phase 2: Canvas Templates (PBI-CAN-002)
 
 Create canvas template library stored in `var/config/canvas-templates/`. Implement template picker modal. Provide 5 built-in templates.

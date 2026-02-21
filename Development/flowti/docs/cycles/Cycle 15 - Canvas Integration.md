@@ -265,10 +265,17 @@ None bundled — this is a greenfield domain migration cycle.
 - Unit tests: rebuilder handles empty canvas, canvas with only groups
 
 **Acceptance criteria:**
-- [ ] Rebuilt canvas replaces text nodes with file-node references
-- [ ] Spatial layout (position, size) preserved from original canvas
-- [ ] `.base` file generated with type-based filters for indexed queries
-- [ ] Rebuilt canvas file written to vault alongside imported notes
+- [x] Rebuilt canvas replaces text nodes with file-node references — `rebuildCanvasData()` maps text/link nodes with imported path to `type: "file"` nodes; groups and existing file nodes preserved; 2 tests
+- [x] Spatial layout (position, size) preserved from original canvas — file references preserve x, y, width, height from original; groups spread all properties; 1 dedicated test
+- [x] `.base` file generated with type-based filters for indexed queries — `buildBaseFileContent()` generates `file.inFolder()` + `file.ext == "md"` filter, table view grouped by type with 13 columns; 3 tests
+- [x] Rebuilt canvas file written to vault alongside imported notes — `writeRebuiltCanvas()` writes to `targetFolder/name.canvas` via `createFile()` with `{ createFolders: true }`; 2 tests
+
+**Delivery notes:**
+- `CanvasRebuilder.ts` (~95 LOC): `generateCanvasId()`, `rebuildCanvasData()` (injectable ID gen for deterministic testing), `writeRebuiltCanvas()` (skip/overwrite)
+- `CanvasBaseGenerator.ts` (~55 LOC): `buildBaseFileContent()` (pure YAML), `writeBaseFile()` (skip/overwrite)
+- Edge remapping: new IDs for all nodes/edges, unmapped edges silently dropped, properties preserved (fromSide, toSide, label, color, fromEnd, toEnd)
+- ~150 LOC source (est. ~80), ~180 LOC tests (est. ~50), 28 new tests (est. ~11)
+- Cumulative: 131 canvas tests (44 Inc 1 + 28 Inc 2 + 31 Inc 3 + 28 Inc 4), 3,473 total (139 suites)
 
 ---
 
