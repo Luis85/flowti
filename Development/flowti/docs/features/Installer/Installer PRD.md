@@ -50,7 +50,7 @@ When a user installs Flowti for the first time, a 4-page setup wizard automatica
 
 ### Out of Scope
 
-- Template deployment (can be added as custom step)
+- Template deployment — now in scope via [[PBI-002 Seed Starter Content]]
 - Plugin configuration beyond user profile
 - Vault migration from other systems
 - Multi-user vault setup
@@ -159,3 +159,12 @@ When a user installs Flowti for the first time, a 4-page setup wizard automatica
 - Context passing between steps tested
 - Event emission verified in tests
 - `npm run build` passes (vitest, tsc, eslint, esbuild)
+
+## 14. Extended Backlog (from Inbox Triage 2026-02-20)
+
+| PBI | Title | Status | Priority | Source |
+|-----|-------|--------|----------|--------|
+| [[PBI-001 First Run Setup]] | First-run setup wizard | Done | — | Original scope |
+| [[PBI-002 Seed Starter Content]] | Seed example content on first run | Planned | High (RB-4) | [[Installer should seed starter content on first run]] |
+| [[PBI-003 Pluggable Step Registry]] | Config-driven step registry | Discovery | Low | [[Installer step registry should support pluggable steps from config]] |
+| [[PBI-004 Folder Mapping]] | Customizable folder-to-concept mapping | Discovery | Medium | [[I must be able to map Flowti Concept Folders to different folder structures for better adaptability]] |

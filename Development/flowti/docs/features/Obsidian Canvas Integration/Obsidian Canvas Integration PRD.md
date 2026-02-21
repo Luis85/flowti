@@ -1,0 +1,305 @@
+---
+domain: Flowti
+plugin: "[[Development/flowti/README|README]]"
+type: ProductRequirementsDocument
+stage: discovery
+related_events:
+  - dataExchange.canvasImport.execute
+  - dataExchange.canvasImport.progress
+  - dataExchange.canvasImport.completed
+  - dataExchange.canvasImport.failed
+  - canvas.template.applied
+  - canvas.session.started
+maturity: L1
+maturity_score_strategy: 4
+maturity_score_scope: 3
+maturity_score_architecture: 3
+maturity_score_event_integration: 2
+maturity_score_data_model: 3
+maturity_score_ui_consistency: 2
+maturity_score_validation_testing: 1
+business_value: 5
+implementation_cost: 4
+maintenance_cost: 3
+discovery_cost: 3
+design_cost: 4
+test_cost: 3
+priority: 4
+fri_score: 18
+tags:
+  - canvas
+  - core
+  - ingestion
+---
+
+# Feature: Obsidian Canvas Integration
+
+> Inbox sources: [[Canvas Integration Plan]], [[Canvas importer must be a first-class plugin feature]], [[Canvas session workspace opens canvas as session anchor with sidebar monitor]], [[Canvas template library for session types]], [[Starting a Canvas Session]], [[How can we make ingestion and connecting of information as easy and enjoyable as possible]]
+
+---
+
+## 1. Vision & Strategic Context
+
+> Canvas is the visual layer of Flowti's knowledge graph. It bridges the gap between creative visual thinking and structured documentation by enabling users to design on a canvas and import their work as typed vault notes.
+
+**Strategic position**: Flowti's current data exchange supports CSV only. Canvas files (`.canvas`) are Obsidian's native visual medium and contain rich structural information (nodes, edges, groups, colors) that maps directly to Flowti's domain model (domains, services, events, actors, flows). Bringing Canvas into the Data Exchange pipeline unlocks visual-first documentation workflows and makes ingestion as intuitive as drawing on a whiteboard.
+
+### Core Principles
+
+1. Canvas is a first-class import source alongside CSV
+2. Groups map to folders or containers
+3. Nodes map to typed notes (color/shape determines type)
+4. Edges map to relationships (up/down/prev/next)
+5. Legend groups override default color mappings
+6. Canvas templates enable preconfigured session workspaces
+7. Round-trip: export vault entities back to canvas for visualization
+
+---
+
+## 2. Problem Statement
+
+- **Canvas import logic lives outside the plugin** — `var/scripts/canvas-importer/` contains standalone QuickAdd scripts that are untested, not shipped with the plugin, and inaccessible from the Data Exchange Hub.
+- **No visual-first documentation workflow** — users must create notes manually in file trees. There is no way to brainstorm visually and then convert that work into structured documentation.
+- **Sessions lack canvas integration** — starting a design session with a preconfigured canvas (e.g., groups for Actors, Systems, Events) is not possible. Canvas files can be attached but not orchestrated.
+- **No canvas templates** — each session type could benefit from a preconfigured canvas layout but no template system exists.
+- **No canvas export** — vault entities cannot be visualized on a canvas for review or presentation.
+
+---
+
+## 3. Outcome (Success Definition)
+
+- **User can** import a `.canvas` file from the Data Exchange Hub, mapping nodes to typed notes with frontmatter.
+- **User can** right-click a `.canvas` file and select "Import Canvas" from the context menu.
+- **User can** start a Canvas Session that opens a preconfigured canvas in main with the session workspace in sidebar.
+- **User can** choose from a library of canvas templates per session type (Domain Design, Sprint Planning, Retrospective, etc.).
+- **System can** round-trip export vault entities to a canvas file for visualization.
+
+---
+
+## 4. Scope
+
+### In Scope (v1)
+
+- Canvas parser: Parse `.canvas` JSON into structured data
+- Canvas importer: Convert canvas nodes to typed vault notes
+- Data Exchange Hub integration: Canvas as import source type
+- Context menu: Right-click `.canvas` → "Import Canvas"
+- Color/shape mapping: Node colors and shapes determine note types
+- Legend support: Legend groups override default mappings
+- Group-to-container: Canvas groups become parent containers or folders
+- Edge-to-relationship: Edges translate to up/down/prev/next frontmatter
+- Canvas templates: Preconfigured layouts for session types
+- Canvas Sessions: Session type that opens canvas + sidebar workspace
+
+### Out of Scope (v2+)
+
+- Canvas export (vault → canvas visualization)
+- Real-time canvas ↔ vault sync
+- Multi-user canvas collaboration
+- Canvas layout engine (auto-layout algorithms)
+- Canvas as BPMN/flow diagram editor
+
+---
+
+## 5. UX Entry Points
+
+- **Data Exchange Hub**: Canvas tab or import source selector
+- **File context menu**: Right-click `.canvas` → "Import Canvas"
+- **Session creation**: "Canvas Session" type in NewSessionModal
+- **Command palette**: `flowti:import-canvas`, `flowti:new-canvas-session`
+
+---
+
+## 6. Functional Requirements
+
+### Canvas Parser & Importer
+
+- [ ] Parse `.canvas` JSON format (nodes, edges, groups, metadata)
+- [ ] Map node colors to types: 1=Issue, 2=Epic, 3=Task, 4=Test, 5=Deliverable, 6=Feature (default mapping)
+- [ ] Map node shapes to types: circle=Event, diamond=Gateway, parallelogram=Data, document=Document, database=Database
+- [ ] Support Legend group: custom color-to-type override within the canvas
+- [ ] Groups become parent containers (frontmatter `parent` field on child nodes)
+- [ ] Edges translate to relationship frontmatter (`up`, `down`, `prev`, `next`)
+- [ ] Import wizard: Select `.canvas` file, preview nodes with type mapping, configure target folder, execute
+- [ ] Progress events fire per-node during import
+- [ ] All existing canvas-importer test scenarios pass after migration
+
+### Data Exchange Hub Integration
+
+- [ ] Canvas registered as import source type alongside CSV
+- [ ] Canvas import available from Data Exchange Hub dashboard
+- [ ] Right-click `.canvas` file shows "Import Canvas" context menu
+- [ ] Import configurations saved and reusable
+
+### Canvas Templates
+
+- [ ] Template library: preconfigured canvas layouts per session type
+- [ ] Built-in templates: Domain Design, Sprint Planning, Retrospective, Brainstorm, Flow Design
+- [ ] Domain Design template: Groups for Actors, Systems, Events, Services, Flows + Legend
+- [ ] Sprint Planning template: Groups for Backlog, Sprint Scope, Risks, Dependencies
+- [ ] Retrospective template: Groups for Went Well, Improve, Actions
+- [ ] Templates stored in `var/config/canvas-templates/` as `.canvas` JSON
+- [ ] Custom template creation and management
+
+### Canvas Sessions
+
+- [ ] "Canvas Session" type in session creation modal
+- [ ] Canvas opens in main pane, session workspace in sidebar
+- [ ] Canvas template applied based on session type selection
+- [ ] Canvas file automatically linked as session artifact
+- [ ] Post-session import: prompt to import canvas nodes as typed notes on session completion
+- [ ] Nodes created during session get session frontmatter reference
+
+---
+
+## 7. Data Model Impact
+
+```
+CanvasDocument
+  nodes: CanvasNode[]
+  edges: CanvasEdge[]
+  groups: CanvasGroup[]
+  metadata: CanvasMetadata
+
+CanvasNode
+  id: string
+  type: "text" | "file" | "link" | "group"
+  text?: string
+  file?: string
+  x: number
+  y: number
+  width: number
+  height: number
+  color?: string
+  styleAttributes?: Record<string, unknown>
+
+CanvasEdge
+  id: string
+  fromNode: string
+  toNode: string
+  fromSide: string
+  toSide: string
+  label?: string
+
+CanvasImportConfig
+  sourcePath: string
+  targetFolder: string
+  colorMapping: Record<string, string>
+  shapeMapping: Record<string, string>
+  legendGroupId?: string
+  createFolders: boolean
+
+CanvasTemplate
+  id: string
+  name: string
+  sessionType: SessionType
+  description: string
+  canvas: CanvasDocument
+```
+
+---
+
+## 8. Event Impact
+
+### Produced
+
+- `dataExchange.canvasImport.execute` — Canvas import pipeline started
+- `dataExchange.canvasImport.progress` — Per-node import progress
+- `dataExchange.canvasImport.completed` — Canvas import finished
+- `dataExchange.canvasImport.failed` — Canvas import error
+- `canvas.template.applied` — Canvas template applied to session
+- `canvas.session.started` — Canvas session started with template
+
+### Consumed
+
+- `session.completed` — Trigger post-session import prompt
+- File system events for context menu integration
+
+---
+
+## 9. UI Layout Impact
+
+- **Canvas Import Wizard**: 3-page wizard (Select, Preview/Map, Execute)
+- **Canvas Template Picker**: Modal for selecting canvas template during session creation
+- **Data Exchange Hub**: Canvas listed as import source type in dashboard
+
+---
+
+## 10. Non-Functional Requirements
+
+- Canvas file parsing must handle files with 500+ nodes
+- Import of 100-node canvas must complete within 10 seconds
+- Templates must load within 500ms
+- All operations must be idempotent when using skip conflict strategy
+
+---
+
+## 11. Risks
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Canvas JSON format changes in Obsidian update | High | Defensive parsing with version detection |
+| Large canvases cause memory issues | Medium | Streaming parser, node count warning |
+| Color/shape mapping conflicts with user conventions | Medium | Legend override + configurable default mappings |
+| Migration from QuickAdd scripts introduces regressions | Medium | Port existing test scenarios first |
+
+---
+
+## 12. Acceptance Criteria
+
+- [ ] Canvas import available from Data Exchange Hub
+- [ ] Right-click `.canvas` file shows "Import Canvas" context menu
+- [ ] Nodes create typed notes with frontmatter (type, parent, relationships)
+- [ ] Legend group overrides default color mapping
+- [ ] Groups create container structure
+- [ ] Progress events fire per-node
+- [ ] Canvas Session type available in session creation
+- [ ] Canvas opens in main with sidebar workspace
+- [ ] At least 3 canvas templates available (Domain Design, Sprint Planning, Retrospective)
+- [ ] Post-session import prompt on Canvas Session completion
+- [ ] All existing canvas-importer test scenarios pass
+- [ ] npm run build passes
+
+---
+
+## 13. Definition of Done
+
+- All acceptance criteria verified manually
+- Unit tests cover CanvasParser, CanvasImporter, template loading
+- Integration tests cover end-to-end canvas import pipeline
+- Event catalog updated with all canvas events
+- `npm run build` passes
+
+---
+
+## Product Backlog Items
+
+| PBI | Title | Status | Dependencies |
+|-----|-------|--------|-------------|
+| [[PBI-CAN-001 Canvas Parser and Importer]] | First-class canvas import in Data Exchange Hub | PLANNED | Data Exchange Hub ✅ |
+| [[PBI-CAN-002 Canvas Templates]] | Preconfigured canvas layouts for session types | PLANNED | PBI-CAN-001 |
+| [[PBI-CAN-003 Canvas Sessions]] | Session type with canvas + sidebar workspace | PLANNED | PBI-CAN-002, Session Workspaces ✅ |
+
+---
+
+## Implementation Phases
+
+### Phase 1: Canvas Parser & Importer (PBI-CAN-001)
+
+Migrate canvas import logic from `var/scripts/canvas-importer/` into `src/domain/dataExchange/canvas/`. Register as import source type in Data Exchange Hub. Implement import wizard, context menu, and progress events.
+
+### Phase 2: Canvas Templates (PBI-CAN-002)
+
+Create canvas template library stored in `var/config/canvas-templates/`. Implement template picker modal. Provide 5 built-in templates.
+
+### Phase 3: Canvas Sessions (PBI-CAN-003)
+
+New Canvas Session type in NewSessionModal. Opens canvas in main pane with sidebar workspace. Template applied on creation. Post-session import prompt.
+
+---
+
+## Related
+
+- Inbox: [[Canvas Integration Plan]], [[Canvas importer must be a first-class plugin feature]], [[Canvas session workspace opens canvas as session anchor with sidebar monitor]], [[Canvas template library for session types]], [[Starting a Canvas Session]], [[How can we make ingestion and connecting of information as easy and enjoyable as possible]]
+- Existing scripts: `var/scripts/canvas-importer/`
+- PRDs: [[Data Exchange Hub PRD]], [[Session Workspaces PRD]], [[Hubs PRD]]

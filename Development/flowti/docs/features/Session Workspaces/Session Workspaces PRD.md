@@ -1201,14 +1201,21 @@ SessionSidebarView
 | 7 | PBI-SW-015 | Activity Intelligence | Low | FR-01 (delivered) | 🔜 Planned — computed analytics from activity |
 | 8 | PBI-SW-016 | Cognitive Overload Detection | Low | — | ✅ Done (Cycle 8 Inc 2) — pure detection + non-blocking alert |
 | 9 | PBI-SW-017 | Main/Sidebar Mode Separation | High | PBI-SW-010 | 🔜 Planned — workspace vs. control surface |
+| 10 | PBI-SW-018 | Session Preparation Checklist | Medium | PBI-SW-010 | 🔜 Discovery — guided pre-session workflow |
+| 11 | PBI-SW-019 | Session Auto-Documentation | Medium | PBI-SW-001 | 🔜 Discovery — auto-link artifacts on file events |
 
 > **Cross-delivery:** PBI-SW-001 and PBI-SW-002 were delivered together in PBI-002 Increment 10 (Sidebar Workspace & Activity Consolidation). PBI-SW-003 and PBI-SW-004 were delivered together in Cycle 2 (Session Types and Decision Log). PBI-SW-006 and PBI-SW-008 were delivered together in Cycle 3 (Session Output Artifacts and State Restoration). PBI-SW-007 was delivered across Cycles 4+5 (core daily session in Cycle 4; nudges, daily summary, and UX polish in Cycle 5).
 
 > **v8 change — Daily tracking removed:** PBI-SW-007 (Auto-Session & Session Nudges) has been deprecated. The daily-tracking session type, auto-start, concurrent session support, daily note integration, and nudge system conflict with Session v2's philosophy of intentional execution environments. The `daily-tracking` session type, `dailySessionId`, `getDailySession()`, `generateDailySummary()`, nudge scheduler, and 8 related events (5 daily + 3 nudge) will be removed during v2 implementation. PBI-SW-007 status: Done → Removed.
 
-> **Remaining backlog:** 3 PBIs planned (PBI-SW-009, SW-015, SW-017). 6 v2 PBIs delivered: SW-010 (Cycle 6), SW-012 + SW-014 (Cycle 7), SW-011 + SW-013 + SW-016 (Cycle 8). 7/8 v1 PBIs remain valid (SW-001 through SW-006, SW-008).
+> **Remaining backlog:** 5 PBIs planned (PBI-SW-009, SW-015, SW-017, SW-018, SW-019). 6 v2 PBIs delivered: SW-010 (Cycle 6), SW-012 + SW-014 (Cycle 7), SW-011 + SW-013 + SW-016 (Cycle 8). 7/8 v1 PBIs remain valid (SW-001 through SW-006, SW-008).
 
 > **Priority ranking** (remaining delivery order by value): TD-101 (SessionService extraction — required before UI refactor) → PBI-SW-017 (Main/Sidebar) → PBI-SW-015 (Activity Intelligence). PBI-SW-009 deferred (depends on Workshop mode patterns from FR-18). **Rationale:** TD-101 reduces SessionService from 1,766 LOC before the major UI refactor; SW-017 is the major UI architecture change (large); SW-015 is analytics polish (low priority, scheduled for Cycle 9 Inc 3).
+
+> **Inbox triage (2026-02-20):** 2 new PBIs added from inbox:
+> - PBI-SW-018 (Session Preparation Checklist) — guided pre-session workflow from [[Session preparation checklist as guided pre-session workflow]]. Discovery stage, depends on SW-010.
+> - PBI-SW-019 (Session Auto-Documentation) — auto-link artifacts on file events from [[Session auto-documentation links artifacts on file events]]. Discovery stage, depends on SW-001.
+> - Related design documents moved from inbox: [[Sessions Service Design Blueprint]], [[Sessions User Flow]]
 
 See `backlog/PBI-SW-*.md` for detailed specifications.
 
