@@ -3,10 +3,12 @@ type: TechDebt
 severity: medium
 category: tooling
 layer: cross-cutting
-status: open
+status: resolved
 created: 2026-02-20
+updated: 2026-02-21
 effort: small
-description: "ESLint configuration does not include @typescript-eslint/no-floating-promises, which would catch unhandled promise chains throughout the codebase and prevent the void emit() pattern from hiding errors."
+resolved_in: "Cycle 10 Inc 3"
+description: "ESLint configuration now includes @typescript-eslint/no-floating-promises at warn level with parserOptions.project for type-aware linting. Existing void usages pass; 19 unhandled promises flagged for triage."
 ---
 
 # TD-117: ESLint config missing `no-floating-promises` rule

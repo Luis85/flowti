@@ -3,10 +3,12 @@ type: TechDebt
 severity: medium
 category: error-handling
 layer: cross-cutting
-status: open
+status: resolved
 created: 2026-02-20
+updated: 2026-02-21
 effort: medium
-description: "Widespread use of void this.eventBus.emit() across all layers suppresses unhandled promise rejections. If an event handler throws, the error is silently lost."
+resolved_in: "Cycle 10 Inc 3"
+description: "EventBus.emit() now wraps each handler in try-catch with onError callback routing. Errors are observable via console.error fallback or injected callback. The void emit() pattern is preserved — fire-and-forget ergonomics unchanged."
 ---
 
 # TD-105: `void emit()` fire-and-forget masks handler failures

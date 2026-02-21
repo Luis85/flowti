@@ -7,7 +7,7 @@ status: resolved
 created: 2026-02-15
 updated: 2026-02-21
 effort: small
-resolved_in: "Pre-Cycle 10"
+resolved_in: "Pre-Cycle 10 (confirmed Cycle 10 Inc 3)"
 description: "SettingsService.saveSettings() now uses PathMutex.withLock() to serialize concurrent saves. The read-merge-write race condition is eliminated."
 source: "[[PRD Audit 2026-02-15]]"
 tags:

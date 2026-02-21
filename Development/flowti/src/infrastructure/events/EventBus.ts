@@ -90,9 +90,11 @@ type StoredHandler = EventHandler | WildcardEventHandler;
  */
 export class EventBus implements IEventBus {
 	private handlers: Map<EventType | typeof WILDCARD, Set<StoredHandler>>;
+	private onError?: (error: unknown, eventType: string) => void;
 
-	constructor() {
+	constructor(options?: { onError?: (error: unknown, eventType: string) => void }) {
 		this.handlers = new Map();
+		this.onError = options?.onError;
 	}
 
 	/**
@@ -128,7 +130,11 @@ export class EventBus implements IEventBus {
 		const typeHandlers = this.handlers.get(type);
 		if (typeHandlers) {
 			for (const handler of typeHandlers) {
-				await (handler as EventHandler<T>)(event);
+				try {
+					await (handler as EventHandler<T>)(event);
+				} catch (err) {
+					this.routeError(err, type);
+				}
 			}
 		}
 
@@ -136,7 +142,11 @@ export class EventBus implements IEventBus {
 		const wildcardHandlers = this.handlers.get(WILDCARD);
 		if (wildcardHandlers) {
 			for (const handler of wildcardHandlers) {
-				await (handler as WildcardEventHandler)(event as FlowtiEvents);
+				try {
+					await (handler as WildcardEventHandler)(event as FlowtiEvents);
+				} catch (err) {
+					this.routeError(err, type);
+				}
 			}
 		}
 	}
@@ -161,8 +171,20 @@ export class EventBus implements IEventBus {
 		const wildcardHandlers = this.handlers.get(WILDCARD);
 		if (wildcardHandlers) {
 			for (const handler of wildcardHandlers) {
-				await (handler as WildcardEventHandler)(event as FlowtiEvents);
+				try {
+					await (handler as WildcardEventHandler)(event as FlowtiEvents);
+				} catch (err) {
+					this.routeError(err, type);
+				}
 			}
+		}
+	}
+
+	private routeError(error: unknown, eventType: string): void {
+		if (this.onError) {
+			this.onError(error, eventType);
+		} else {
+			console.error(`[Flowti] Unhandled error in "${eventType}" handler:`, error);
 		}
 	}
 

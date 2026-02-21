@@ -180,6 +180,84 @@ describe("EventBus", () => {
 		});
 	});
 
+	describe("error boundary", () => {
+		it("should catch handler errors and continue to next handler", async () => {
+			const handler1 = vi.fn(() => { throw new Error("handler1 failed"); });
+			const handler2 = vi.fn();
+			eventBus.on("user.created", handler1);
+			eventBus.on("user.created", handler2);
+
+			await eventBus.emit("user.created", {
+				user: { id: "id" as UUID, name: "Name", createdAt: "2024-01-01T00:00:00.000Z" },
+			});
+
+			expect(handler1).toHaveBeenCalledOnce();
+			expect(handler2).toHaveBeenCalledOnce();
+		});
+
+		it("should route errors to onError callback", async () => {
+			const onError = vi.fn();
+			const bus = new EventBus({ onError });
+			bus.on("user.created", () => { throw new Error("boom"); });
+
+			await bus.emit("user.created", {
+				user: { id: "id" as UUID, name: "Name", createdAt: "2024-01-01T00:00:00.000Z" },
+			});
+
+			expect(onError).toHaveBeenCalledWith(expect.any(Error), "user.created");
+			expect((onError.mock.calls[0][0] as Error).message).toBe("boom");
+		});
+
+		it("should fall back to console.error when no onError callback", async () => {
+			const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+			eventBus.on("user.created", () => { throw new Error("silent fail"); });
+
+			await eventBus.emit("user.created", {
+				user: { id: "id" as UUID, name: "Name", createdAt: "2024-01-01T00:00:00.000Z" },
+			});
+
+			expect(spy).toHaveBeenCalledWith(
+				expect.stringContaining("user.created"),
+				expect.any(Error),
+			);
+			spy.mockRestore();
+		});
+
+		it("should catch wildcard handler errors", async () => {
+			const onError = vi.fn();
+			const bus = new EventBus({ onError });
+			bus.on("*", () => { throw new Error("wildcard boom"); });
+
+			await bus.emit("user.created", {
+				user: { id: "id" as UUID, name: "Name", createdAt: "2024-01-01T00:00:00.000Z" },
+			});
+
+			expect(onError).toHaveBeenCalledWith(expect.any(Error), "user.created");
+		});
+
+		it("should catch async handler rejections", async () => {
+			const onError = vi.fn();
+			const bus = new EventBus({ onError });
+			bus.on("user.created", async () => { throw new Error("async fail"); });
+
+			await bus.emit("user.created", {
+				user: { id: "id" as UUID, name: "Name", createdAt: "2024-01-01T00:00:00.000Z" },
+			});
+
+			expect(onError).toHaveBeenCalledWith(expect.any(Error), "user.created");
+		});
+
+		it("should catch emitCustom handler errors", async () => {
+			const onError = vi.fn();
+			const bus = new EventBus({ onError });
+			bus.on("*", () => { throw new Error("custom boom"); });
+
+			await bus.emitCustom("my.custom.event", { data: 1 });
+
+			expect(onError).toHaveBeenCalledWith(expect.any(Error), "my.custom.event");
+		});
+	});
+
 	describe("once", () => {
 		it("should call handler only once", async () => {
 			const handler = vi.fn();

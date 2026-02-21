@@ -34,6 +34,10 @@ export default defineConfig([globalIgnores(["**/node_modules/", "**/main.js"]), 
         parser: tsParser,
         ecmaVersion: 5,
         sourceType: "module",
+
+        parserOptions: {
+            project: "./tsconfig.json",
+        },
     },
 
     rules: {
@@ -46,6 +50,7 @@ export default defineConfig([globalIgnores(["**/node_modules/", "**/main.js"]), 
         "@typescript-eslint/ban-ts-comment": "off",
         "no-prototype-builtins": "off",
         "@typescript-eslint/no-empty-function": "off",
+        "@typescript-eslint/no-floating-promises": "warn",
     },
 
 	ignores: ["node_modules/"],

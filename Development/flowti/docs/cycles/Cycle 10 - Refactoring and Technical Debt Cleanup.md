@@ -223,14 +223,16 @@ This is a dedicated maintenance cycle. No new features are delivered. The goal i
 - Files: ~5
 
 **Acceptance criteria:**
-- [ ] EventBus.emit() catches subscriber errors and routes to ErrorService
-- [ ] Existing `void emit()` call sites continue to work without modification
-- [ ] ESLint `no-floating-promises` enabled (warning level); existing `void` usages pass
-- [ ] `npm run lint` green with new rule
-- [ ] SettingsService concurrent saves are serialized via mutex
-- [ ] `npm test` green
+- [x] EventBus.emit() catches subscriber errors and routes to onError callback
+- [x] Existing `void emit()` call sites continue to work without modification
+- [x] ESLint `no-floating-promises` enabled (warning level); existing `void` usages pass
+- [x] `npm run lint` green with new rule
+- [x] SettingsService concurrent saves are serialized via mutex
+- [x] `npm test` green
 
 **Documentation intent:** Update TD-105, TD-117, TD-72 status to resolved. Document EventBus error boundary pattern in review (potential ADR candidate).
+
+**Delivery notes (2026-02-21):** 2 items implemented (TD-105, TD-117) + 1 confirmed pre-resolved (TD-72). 3 files changed (+25 source, +65 test). 6 new tests (EventBus error boundary). 2,880 tests passing, 0 failures. TASM 33/35. Deviations: TD-72 already resolved in code (documentation lag); TD-105 uses `onError` callback instead of ErrorService (infinite recursion risk); 19 lint warnings expected from `no-floating-promises` at warn level. See [[Cycle 10 Inc 3 Review - EventBus Resilience]].
 
 ---
 
