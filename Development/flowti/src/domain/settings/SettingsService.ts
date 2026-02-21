@@ -104,6 +104,11 @@ export class SettingsService implements ISettingsService {
 					void this.updateSettings({ inboxTriageTargetFolder: event.payload.folder });
 				})
 			);
+			this.unsubscribes.push(
+				this.eventBus.on("settings.updateDefaultTrainDuration", (event) => {
+					void this.updateSettings({ defaultTrainDuration: event.payload.value });
+				})
+			);
 		}
 	}
 

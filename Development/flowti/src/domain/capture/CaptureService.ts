@@ -34,6 +34,9 @@ export class CaptureService {
 	async capture(input: CaptureInput): Promise<CaptureResult> {
 		const { captureFolder } = this.getSettings();
 		const sanitizedTitle = this.sanitizeFileName(input.title);
+		if (!sanitizedTitle) {
+			throw new Error("Capture title is empty after sanitization");
+		}
 		const path = `${captureFolder}/${sanitizedTitle}.md`;
 		const timestamp = new Date().toISOString();
 

@@ -78,6 +78,7 @@ describe("TrainService", () => {
 					status: "completed",
 					thoughts: [],
 					relations: [],
+					durationMinutes: 0,
 					createdAt: "2026-02-21T10:00:00.000Z",
 					pausedAt: null,
 					completedAt: "2026-02-21T11:00:00.000Z",
@@ -137,6 +138,7 @@ describe("TrainService", () => {
 				status: "completed" as const,
 				thoughts: [],
 				relations: [],
+				durationMinutes: 0,
 				createdAt: new Date(2026, 0, 1 + i).toISOString(),
 				pausedAt: null,
 				completedAt: null,
@@ -149,6 +151,37 @@ describe("TrainService", () => {
 			expect(service.getAllTrains()).toHaveLength(MAX_TRAINS);
 			expect(service.getAllTrains()[0].id).toBe("train_1"); // train_0 evicted
 			expect(newTrain.title).toBe("Overflow Train");
+		});
+	});
+
+	describe("startTrain() — durationMinutes", () => {
+		it("defaults durationMinutes to 0", async () => {
+			const { service } = createTestHarness();
+			const train = await service.startTrain("No Timer");
+			expect(train.durationMinutes).toBe(0);
+		});
+
+		it("passes custom durationMinutes to train state", async () => {
+			const { service } = createTestHarness();
+			const train = await service.startTrain("Timed Train", 25);
+			expect(train.durationMinutes).toBe(25);
+		});
+
+		it("forwards durationMinutes in session.create event", async () => {
+			const { service, eventBus } = createTestHarness();
+			const createPayloads: Array<{ durationMinutes: number }> = [];
+			eventBus.on("session.create", (e) => { createPayloads.push(e.payload); });
+
+			await service.startTrain("Duration Forward", 15);
+
+			expect(createPayloads).toHaveLength(1);
+			expect(createPayloads[0].durationMinutes).toBe(15);
+		});
+
+		it("persists durationMinutes in stored state", async () => {
+			const { service, getData } = createTestHarness();
+			await service.startTrain("Persist Duration", 50);
+			expect(getData()?.trains[0].durationMinutes).toBe(50);
 		});
 	});
 
@@ -187,7 +220,7 @@ describe("TrainService", () => {
 
 			const updatedTrain = service.getTrain(train.id)!;
 			expect(updatedTrain.relations).toHaveLength(1);
-			expect(updatedTrain.relations[0].type).toBe("next");
+			expect(updatedTrain.relations[0].direction).toBe("next");
 		});
 
 		it("updates frontmatter on thought notes", async () => {
@@ -250,6 +283,7 @@ describe("TrainService", () => {
 					status: "running",
 					thoughts,
 					relations: [],
+					durationMinutes: 0,
 					createdAt: new Date().toISOString(),
 					pausedAt: null,
 					completedAt: null,
@@ -321,6 +355,66 @@ describe("TrainService", () => {
 		});
 	});
 
+	describe("completeTrain()", () => {
+		it("marks a running train as completed and emits events", async () => {
+			const { service, eventBus } = createTestHarness();
+			const train = await service.startTrain("Complete Test");
+			await service.addThought(train.id, "Thought A");
+
+			const completed: Array<{ trainId: string; thoughtCount: number }> = [];
+			eventBus.on("train.completed", (e) => { completed.push(e.payload); });
+
+			const result = await service.completeTrain(train.id);
+
+			expect(result).toBe(true);
+			expect(service.getTrain(train.id)!.status).toBe("completed");
+			expect(service.getTrain(train.id)!.completedAt).not.toBeNull();
+			expect(completed).toHaveLength(1);
+			expect(completed[0].thoughtCount).toBe(1);
+		});
+
+		it("marks a paused train as completed", async () => {
+			const { service } = createTestHarness();
+			const train = await service.startTrain("Pause Then Complete");
+			await service.pause(train.id);
+
+			const result = await service.completeTrain(train.id);
+
+			expect(result).toBe(true);
+			expect(service.getTrain(train.id)!.status).toBe("completed");
+		});
+
+		it("returns false for already completed train", async () => {
+			const { service } = createTestHarness();
+			const train = await service.startTrain("Already Done");
+			await service.completeTrain(train.id);
+
+			const result = await service.completeTrain(train.id);
+			expect(result).toBe(false);
+		});
+
+		it("emits session.complete with linked session ID", async () => {
+			const { service, eventBus } = createTestHarness();
+			const train = await service.startTrain("Session Complete");
+
+			const sessionCompletes: Array<{ sessionId: string }> = [];
+			eventBus.on("session.complete", (e) => { sessionCompletes.push(e.payload); });
+
+			await service.completeTrain(train.id);
+
+			expect(sessionCompletes).toHaveLength(1);
+			expect(sessionCompletes[0].sessionId).toBe(train.sessionId);
+		});
+
+		it("completed train is not returned by getActiveTrain()", async () => {
+			const { service } = createTestHarness();
+			const train = await service.startTrain("No Longer Active");
+			await service.completeTrain(train.id);
+
+			expect(service.getActiveTrain()).toBeUndefined();
+		});
+	});
+
 	describe("getActiveTrain()", () => {
 		it("returns running train", async () => {
 			const { service } = createTestHarness();
@@ -338,6 +432,230 @@ describe("TrainService", () => {
 		it("returns undefined when no active train", async () => {
 			const { service } = createTestHarness();
 			expect(service.getActiveTrain()).toBeUndefined();
+		});
+	});
+
+	describe("addThought() — direction + branching", () => {
+		it("defaults to 'next' direction", async () => {
+			const { service, eventBus } = createTestHarness();
+			const train = await service.startTrain("Dir Test");
+			await service.addThought(train.id, "A");
+
+			const events: Array<{ direction: string }> = [];
+			eventBus.on("train.thought.added", (e) => { events.push(e.payload); });
+
+			await service.addThought(train.id, "B");
+
+			const t = service.getTrain(train.id)!;
+			expect(t.relations[0].direction).toBe("next");
+			expect(events[0].direction).toBe("next");
+		});
+
+		it("creates branch relation when direction is 'branch'", async () => {
+			const { service, eventBus } = createTestHarness();
+			const train = await service.startTrain("Branch Test");
+			const thoughtA = await service.addThought(train.id, "A");
+
+			const events: Array<{ direction: string }> = [];
+			eventBus.on("train.thought.added", (e) => { events.push(e.payload); });
+
+			await service.addThought(train.id, "B-branch", { direction: "branch" });
+
+			const t = service.getTrain(train.id)!;
+			expect(t.relations[0].direction).toBe("branch");
+			expect(t.relations[0].fromId).toBe(thoughtA!.id);
+			expect(events[0].direction).toBe("branch");
+		});
+
+		it("links from specified thought via fromThoughtId", async () => {
+			const { service } = createTestHarness();
+			const train = await service.startTrain("From Test");
+			const thoughtA = await service.addThought(train.id, "A");
+			const thoughtB = await service.addThought(train.id, "B");
+
+			// Branch from A (not from last thought B)
+			await service.addThought(train.id, "C-from-A", {
+				direction: "branch",
+				fromThoughtId: thoughtA!.id,
+			});
+
+			const t = service.getTrain(train.id)!;
+			// relations: A→B (next), A→C (branch)
+			expect(t.relations).toHaveLength(2);
+			expect(t.relations[1].fromId).toBe(thoughtA!.id);
+			expect(t.relations[1].direction).toBe("branch");
+		});
+
+		it("falls back to last thought when fromThoughtId is invalid", async () => {
+			const { service } = createTestHarness();
+			const train = await service.startTrain("Fallback Test");
+			await service.addThought(train.id, "A");
+			const thoughtB = await service.addThought(train.id, "B");
+
+			await service.addThought(train.id, "C", {
+				fromThoughtId: "nonexistent",
+			});
+
+			// Should have no relation for C (fromThought is null because find returns undefined)
+			const t = service.getTrain(train.id)!;
+			// A→B (next) + no relation for C (fromThought was null)
+			expect(t.relations).toHaveLength(1);
+		});
+
+		it("includes thought-relations in frontmatter", async () => {
+			const { service, fileSystem } = createTestHarness();
+			const train = await service.startTrain("FM Relations");
+			await service.addThought(train.id, "First");
+			await service.addThought(train.id, "Second");
+
+			await vi.waitFor(() => {
+				expect(fileSystem.updateFrontmatter).toHaveBeenCalled();
+			});
+
+			const calls = (fileSystem.updateFrontmatter as ReturnType<typeof vi.fn>).mock.calls;
+			// Second thought frontmatter should include thought-relations
+			const secondThoughtCall = calls.find((c: unknown[]) =>
+				(c[1] as Record<string, unknown>)["thought-order"] === 1
+			);
+			expect(secondThoughtCall).toBeDefined();
+			const relations = (secondThoughtCall![1] as Record<string, unknown>)["thought-relations"] as Array<{ target: string; direction: string; role: string }>;
+			expect(relations).toHaveLength(1);
+			expect(relations[0].direction).toBe("next");
+			expect(relations[0].role).toBe("parent");
+			expect(relations[0].target).toBe("[[First]]");
+		});
+
+		it("includes branch direction in frontmatter", async () => {
+			const { service, fileSystem } = createTestHarness();
+			const train = await service.startTrain("FM Branch");
+			await service.addThought(train.id, "Root");
+			await service.addThought(train.id, "Branch", { direction: "branch" });
+
+			await vi.waitFor(() => {
+				expect(fileSystem.updateFrontmatter).toHaveBeenCalled();
+			});
+
+			const calls = (fileSystem.updateFrontmatter as ReturnType<typeof vi.fn>).mock.calls;
+			const branchCall = calls.find((c: unknown[]) =>
+				(c[1] as Record<string, unknown>)["thought-order"] === 1
+			);
+			const relations = (branchCall![1] as Record<string, unknown>)["thought-relations"] as Array<{ target: string; direction: string; role: string }>;
+			expect(relations[0].direction).toBe("branch");
+		});
+
+		it("updates source thought frontmatter with child relation", async () => {
+			const { service, fileSystem } = createTestHarness();
+			const train = await service.startTrain("Source FM");
+			await service.addThought(train.id, "Parent");
+			await service.addThought(train.id, "Child");
+
+			await vi.waitFor(() => {
+				const callCount = (fileSystem.updateFrontmatter as ReturnType<typeof vi.fn>).mock.calls.length;
+				expect(callCount).toBeGreaterThanOrEqual(3); // parent fm + child fm + parent update
+			});
+
+			const calls = (fileSystem.updateFrontmatter as ReturnType<typeof vi.fn>).mock.calls;
+			// Find the update to the parent thought that includes thought-relations with child role
+			const parentUpdate = calls.find((c: unknown[]) => {
+				const data = c[1] as Record<string, unknown>;
+				const rels = data["thought-relations"] as Array<{ role: string }> | undefined;
+				return rels?.some((r) => r.role === "child");
+			});
+			expect(parentUpdate).toBeDefined();
+			const rels = (parentUpdate![1] as Record<string, unknown>)["thought-relations"] as Array<{ target: string; direction: string; role: string }>;
+			expect(rels.some((r) => r.role === "child" && r.target === "[[Child]]")).toBe(true);
+		});
+	});
+
+	describe("getTimeline()", () => {
+		it("returns empty for non-existent train", async () => {
+			const { service } = createTestHarness();
+			expect(service.getTimeline("nonexistent")).toEqual([]);
+		});
+
+		it("returns single thought for train with one thought", async () => {
+			const { service } = createTestHarness();
+			const train = await service.startTrain("Single");
+			await service.addThought(train.id, "Only");
+			const timeline = service.getTimeline(train.id);
+			expect(timeline).toHaveLength(1);
+			expect(timeline[0].title).toBe("Only");
+		});
+
+		it("follows 'next' chain in order", async () => {
+			const { service } = createTestHarness();
+			const train = await service.startTrain("Chain");
+			await service.addThought(train.id, "A");
+			await service.addThought(train.id, "B");
+			await service.addThought(train.id, "C");
+
+			const timeline = service.getTimeline(train.id);
+			expect(timeline.map((t) => t.title)).toEqual(["A", "B", "C"]);
+		});
+
+		it("excludes branch thoughts from main timeline", async () => {
+			const { service } = createTestHarness();
+			const train = await service.startTrain("Branch Exclude");
+			await service.addThought(train.id, "A");
+			const thoughtB = await service.addThought(train.id, "B");
+			await service.addThought(train.id, "B-branch", { direction: "branch" });
+			// Continue the main chain from B (not from the branch)
+			await service.addThought(train.id, "C", { fromThoughtId: thoughtB!.id });
+
+			const timeline = service.getTimeline(train.id);
+			expect(timeline.map((t) => t.title)).toEqual(["A", "B", "C"]);
+		});
+	});
+
+	describe("getBranches()", () => {
+		it("returns branch children of a thought", async () => {
+			const { service } = createTestHarness();
+			const train = await service.startTrain("Branches");
+			const thoughtA = await service.addThought(train.id, "A");
+			await service.addThought(train.id, "B"); // next from A
+			await service.addThought(train.id, "A-branch-1", {
+				direction: "branch",
+				fromThoughtId: thoughtA!.id,
+			});
+			await service.addThought(train.id, "A-branch-2", {
+				direction: "branch",
+				fromThoughtId: thoughtA!.id,
+			});
+
+			const branches = service.getBranches(train.id, thoughtA!.id);
+			expect(branches.map((t) => t.title)).toEqual(["A-branch-1", "A-branch-2"]);
+		});
+
+		it("returns empty when no branches", async () => {
+			const { service } = createTestHarness();
+			const train = await service.startTrain("No Branches");
+			const thought = await service.addThought(train.id, "A");
+			expect(service.getBranches(train.id, thought!.id)).toEqual([]);
+		});
+	});
+
+	describe("getChildren()", () => {
+		it("returns all children (next + branch)", async () => {
+			const { service } = createTestHarness();
+			const train = await service.startTrain("Children");
+			const thoughtA = await service.addThought(train.id, "A");
+			await service.addThought(train.id, "B"); // next from A
+			await service.addThought(train.id, "A-branch", {
+				direction: "branch",
+				fromThoughtId: thoughtA!.id,
+			});
+
+			const children = service.getChildren(train.id, thoughtA!.id);
+			expect(children).toHaveLength(2);
+			expect(children.map((t) => t.title).sort()).toEqual(["A-branch", "B"]);
+		});
+
+		it("returns empty for leaf thought", async () => {
+			const { service } = createTestHarness();
+			const train = await service.startTrain("Leaf");
+			await service.addThought(train.id, "A");
+			const thoughtB = await service.addThought(train.id, "B");
+			expect(service.getChildren(train.id, thoughtB!.id)).toEqual([]);
 		});
 	});
 });

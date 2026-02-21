@@ -206,6 +206,10 @@ export class Setting {
 	addExtraButton(_cb: (btn: ExtraButtonComponent) => void): this {
 		return this;
 	}
+
+	addTextArea(_cb: (area: TextAreaComponent) => void): this {
+		return this;
+	}
 }
 
 export class TextComponent {
@@ -218,6 +222,22 @@ export class TextComponent {
 	}
 
 	setDisabled(_disabled: boolean): this {
+		return this;
+	}
+
+	onChange(_cb: (value: string) => void): this {
+		return this;
+	}
+}
+
+export class TextAreaComponent {
+	inputEl: HTMLTextAreaElement = document.createElement("textarea");
+
+	setValue(_value: string): this {
+		return this;
+	}
+
+	setPlaceholder(_placeholder: string): this {
 		return this;
 	}
 

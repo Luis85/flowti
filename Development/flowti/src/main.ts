@@ -226,8 +226,26 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.addRibbonIcon("lightbulb", "Add Idea", () => {
 				void this.eventBus.emit("ui.openQuickCapture", { type: "idea" });
 			});
+			this.addRibbonIcon("file-text", "Add Note", () => {
+				void this.eventBus.emit("ui.openQuickCapture", { type: "note" });
+			});
+			this.addRibbonIcon("check-square", "Add Task", () => {
+				void this.eventBus.emit("ui.openQuickCapture", { type: "task" });
+			});
+			this.addRibbonIcon("help-circle", "Add Question", () => {
+				void this.eventBus.emit("ui.openQuickCapture", { type: "question" });
+			});
 			this.addRibbonIcon("message-circle", "Add Feedback", () => {
 				void this.eventBus.emit("ui.openQuickCapture", { type: "feedback" });
+			});
+			this.addRibbonIcon("bug", "Add Bug", () => {
+				void this.eventBus.emit("ui.openQuickCapture", { type: "bug" });
+			});
+			this.addRibbonIcon("graduation-cap", "Add Learning", () => {
+				void this.eventBus.emit("ui.openQuickCapture", { type: "learning" });
+			});
+			this.addRibbonIcon("train-front", "Start Train of Thoughts", () => {
+				void this.eventBus.emit("ui.startTrain", {});
 			});
 
 			// Quick Capture modal listener
@@ -238,7 +256,9 @@ export default class FlowtiBasePlugin extends Plugin {
 					defaultType: type,
 					onSubmit: (input) => {
 						if (this.captureService) {
-							void this.captureService.capture(input);
+							void this.captureService.capture(input).then((result) => {
+								new Notice(`Captured: ${result.title}`);
+							});
 						}
 					},
 				}).open();
@@ -262,11 +282,15 @@ export default class FlowtiBasePlugin extends Plugin {
 				}
 
 				// Prompt for train title, then start
+				const duration = this.settings.defaultTrainDuration ?? 0;
 				new InputModal(this.app, {
-					title: "Start Train of Thoughts",
-					placeholder: "Enter a train title\u2026",
+					title: "Start a new Train of Thoughts",
+					inputName: "What are you thinking?",
+					inputDesc: "",
+					placeholder: "e.g. Exploring a new idea\u2026",
+					submitLabel: "Start",
 					onSubmit: (title) => {
-						void this.trainService!.startTrain(title).then((train) => {
+						void this.trainService!.startTrain(title, duration).then((train) => {
 							this.openTrainModal(train.id, train.title);
 						});
 					},
@@ -582,9 +606,19 @@ export default class FlowtiBasePlugin extends Plugin {
 		);
 
 		// Auto-open session workspace when closure review starts (FR-14)
+		// Only opens if no SessionWorkspaceView leaf is already displaying this session.
 		this.crossCuttingListeners.push(
 			this.eventBus.on("session.closure.started", (event) => {
-				this.sessionSetup?.openSessionWorkspaceInSidebar(event.payload.sessionId);
+				const sid = event.payload.sessionId;
+				const alreadyVisible = this.app.workspace
+					.getLeavesOfType(VIEW_TYPE_SESSION_WORKSPACE)
+					.some((l) => {
+						const state = l.view.getState() as { sessionId?: string } | undefined;
+						return state?.sessionId === sid;
+					});
+				if (!alreadyVisible) {
+					this.sessionSetup?.openSessionWorkspaceInSidebar(sid);
+				}
 			}),
 		);
 
@@ -648,23 +682,75 @@ export default class FlowtiBasePlugin extends Plugin {
 
 	/**
 	 * Opens the Train capture modal in a recursive loop.
-	 * Each submit creates a thought and opens the next modal.
-	 * Cancel (escape/close) pauses the train.
+	 * Each submit fires addThought in the background and opens the next modal
+	 * immediately (optimistic) to keep the capture flow snappy.
+	 * Cancel (escape/close) pauses the train. Complete ends it permanently.
 	 */
-	private openTrainModal(trainId: string, trainTitle: string): void {
+	private openTrainModal(
+		trainId: string,
+		trainTitle: string,
+		overrides?: { previousTitle: string; thoughtCount: number },
+	): void {
 		if (!this.trainService) return;
+
+		let previousThoughtTitle: string | null;
+		let thoughtCount: number;
+
+		if (overrides) {
+			previousThoughtTitle = overrides.previousTitle;
+			thoughtCount = overrides.thoughtCount;
+		} else {
+			const train = this.trainService.getTrain(trainId);
+			if (!train) return;
+			const lastThought = train.thoughts[train.thoughts.length - 1] ?? null;
+			previousThoughtTitle = lastThought?.title ?? null;
+			thoughtCount = train.thoughts.length;
+		}
+
+		// Resolve timer info from TrainState
 		const train = this.trainService.getTrain(trainId);
-		if (!train) return;
-		const lastThought = train.thoughts[train.thoughts.length - 1] ?? null;
+		const durationMinutes = train?.durationMinutes ?? 0;
+		const sessionId = train?.sessionId;
+
+		// Timer subscriptions — closures that filter by sessionId
+		const subscribeTimerTick = (durationMinutes > 0 && sessionId)
+			? (cb: (remainingMs: number) => void) => {
+				return this.eventBus.on("session.timer.tick", (event) => {
+					if (event.payload.sessionId === sessionId) {
+						cb(event.payload.remainingMs);
+					}
+				});
+			}
+			: undefined;
+
+		const subscribeTimerCompleted = (durationMinutes > 0 && sessionId)
+			? (cb: () => void) => {
+				return this.eventBus.on("session.timer.completed", (event) => {
+					if (event.payload.sessionId === sessionId) {
+						cb();
+					}
+				});
+			}
+			: undefined;
 
 		new TrainCaptureModal(this.app, {
 			trainTitle,
-			previousThoughtTitle: lastThought?.title ?? null,
-			thoughtCount: train.thoughts.length,
-			onSubmit: (title) => {
-				void this.trainService!.addThought(trainId, title).then(() => {
-					this.openTrainModal(trainId, trainTitle);
+			previousThoughtTitle,
+			thoughtCount,
+			durationMinutes,
+			subscribeTimerTick,
+			subscribeTimerCompleted,
+			onSubmit: (title, direction) => {
+				// Fire-and-forget — don't block the next modal
+				void this.trainService!.addThought(trainId, title, { direction });
+				// Open next modal immediately with optimistic context
+				this.openTrainModal(trainId, trainTitle, {
+					previousTitle: title,
+					thoughtCount: thoughtCount + 1,
 				});
+			},
+			onComplete: () => {
+				void this.trainService!.completeTrain(trainId);
 			},
 			onCancel: () => {
 				void this.trainService!.pause(trainId);

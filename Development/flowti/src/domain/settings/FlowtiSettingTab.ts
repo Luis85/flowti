@@ -42,6 +42,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 		this.displayEventSystemSection(containerEl);
 		this.displayDocumentationSection(containerEl);
 		this.displayEntityPathsSection(containerEl);
+		this.displayTrainSection(containerEl);
 		this.displayGeneralSection(containerEl);
 	}
 
@@ -131,6 +132,22 @@ export class FlowtiSettingTab extends PluginSettingTab {
 						await this.deps.saveSettings();
 					})
 			);
+
+		new Setting(containerEl)
+			.setName("Quick Capture folder")
+			.setDesc(
+				"Vault folder where Quick Capture notes are created. " +
+				"The folder is created automatically if it doesn't exist."
+			)
+			.addText((text) =>
+				text
+					.setValue(this.deps.getSettings().captureFolder)
+					.setPlaceholder("00 - Connectivity/inbox")
+					.onChange(async (value) => {
+						this.deps.getSettings().captureFolder = value;
+						await this.deps.saveSettings();
+					})
+			);
 	}
 
 	/**
@@ -191,6 +208,35 @@ export class FlowtiSettingTab extends PluginSettingTab {
 						})
 				);
 		}
+	}
+
+	/**
+	 * Display Train of Thoughts settings section
+	 */
+	private displayTrainSection(containerEl: HTMLElement): void {
+		containerEl.createEl("h3", { text: "Train of Thoughts" });
+
+		const settings = this.deps.getSettings();
+
+		new Setting(containerEl)
+			.setName("Default train duration")
+			.setDesc(
+				"Default timer for Train of Thought sessions (0 = no timer)"
+			)
+			.addDropdown((dd) => {
+				dd.addOption("0", "Unlimited (no timer)");
+				dd.addOption("5", "5 min");
+				dd.addOption("10", "10 min");
+				dd.addOption("15", "15 min");
+				dd.addOption("25", "25 min (Pomodoro)");
+				dd.addOption("50", "50 min (Deep Work)");
+				dd.setValue(String(settings.defaultTrainDuration));
+				dd.onChange((value) => {
+					void this.deps.eventBus.emit("settings.updateDefaultTrainDuration", {
+						value: parseInt(value, 10),
+					});
+				});
+			});
 	}
 
 	/**

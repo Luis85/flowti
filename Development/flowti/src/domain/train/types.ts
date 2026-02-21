@@ -9,11 +9,22 @@
 // ThoughtNode — a single thought in a train
 // ─────────────────────────────────────────────────────────────
 
+/** Direction of a thought relationship. */
+export type ThoughtDirection = "next" | "branch";
+
 /** Relationship between two thoughts in a train. */
 export interface ThoughtRelation {
 	fromId: string;
 	toId: string;
-	type: "next";
+	direction: ThoughtDirection;
+}
+
+/** Options for adding a thought to a train. */
+export interface AddThoughtOptions {
+	/** Link direction — "next" continues the chain, "branch" forks. Default: "next". */
+	direction?: ThoughtDirection;
+	/** ID of the thought to link from. Default: last thought in the train. */
+	fromThoughtId?: string;
 }
 
 /** A single thought in a train. */
@@ -45,6 +56,8 @@ export interface TrainState {
 	status: TrainStatus;
 	thoughts: ThoughtNode[];
 	relations: ThoughtRelation[];
+	/** Timer duration in minutes (0 = unlimited / no timer). */
+	durationMinutes: number;
 	createdAt: string;
 	pausedAt: string | null;
 	completedAt: string | null;

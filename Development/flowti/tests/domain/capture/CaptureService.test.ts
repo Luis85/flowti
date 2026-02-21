@@ -150,15 +150,11 @@ describe("CaptureService", () => {
 			);
 		});
 
-		it("should handle empty title edge case after sanitization", async () => {
-			const result = await service.capture({ title: ":::***", type: "idea" });
+		it("should throw on empty title after sanitization", async () => {
+			await expect(service.capture({ title: ":::***", type: "idea" }))
+				.rejects.toThrow("Capture title is empty after sanitization");
 
-			expect(fileSystem.createFile).toHaveBeenCalledWith(
-				"00 - Connectivity/inbox/.md",
-				expect.any(String),
-				expect.any(Object),
-			);
-			expect(result.path).toBe("00 - Connectivity/inbox/.md");
+			expect(fileSystem.createFile).not.toHaveBeenCalled();
 		});
 
 		it("should emit capture.note.created for RAID types", async () => {
@@ -181,6 +177,26 @@ describe("CaptureService", () => {
 				expect.stringContaining("type: Risk"),
 				expect.any(Object),
 			);
+		});
+
+		it("should create learning type with title-cased frontmatter", async () => {
+			await service.capture({ title: "TIL about events", type: "learning" });
+
+			expect(fileSystem.createFile).toHaveBeenCalledWith(
+				"00 - Connectivity/inbox/TIL about events.md",
+				expect.stringContaining("type: Learning"),
+				expect.any(Object),
+			);
+		});
+
+		it("should emit capture.note.created for learning type", async () => {
+			const events: Array<{ path: string; title: string; type: string }> = [];
+			eventBus.on("capture.note.created", (e) => { events.push(e.payload); });
+
+			await service.capture({ title: "TIL", type: "learning" });
+
+			expect(events).toHaveLength(1);
+			expect(events[0].type).toBe("learning");
 		});
 	});
 });

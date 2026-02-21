@@ -8,7 +8,7 @@
 /** Built-in capture types plus any custom string. */
 export type CaptureType =
 	| "idea" | "note" | "task" | "question" | "feedback" | "bug"
-	| "risk" | "assumption" | "issue" | "decision"
+	| "risk" | "assumption" | "issue" | "decision" | "learning"
 	| (string & Record<never, never>);
 
 /** Input for creating a captured note. */

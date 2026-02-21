@@ -14,7 +14,9 @@ describe("TrainCaptureModal", () => {
 			previousThoughtTitle: null,
 			thoughtCount: 0,
 			onSubmit: vi.fn(),
+			onComplete: vi.fn(),
 			onCancel: vi.fn(),
+		durationMinutes: 0,
 		});
 		modal.onOpen();
 
@@ -28,7 +30,9 @@ describe("TrainCaptureModal", () => {
 			previousThoughtTitle: null,
 			thoughtCount: 3,
 			onSubmit: vi.fn(),
+			onComplete: vi.fn(),
 			onCancel: vi.fn(),
+		durationMinutes: 0,
 		});
 		modal.onOpen();
 
@@ -42,7 +46,9 @@ describe("TrainCaptureModal", () => {
 			previousThoughtTitle: "Previous Idea",
 			thoughtCount: 1,
 			onSubmit: vi.fn(),
+			onComplete: vi.fn(),
 			onCancel: vi.fn(),
+		durationMinutes: 0,
 		});
 		modal.onOpen();
 
@@ -57,7 +63,9 @@ describe("TrainCaptureModal", () => {
 			previousThoughtTitle: null,
 			thoughtCount: 0,
 			onSubmit: vi.fn(),
+			onComplete: vi.fn(),
 			onCancel: vi.fn(),
+		durationMinutes: 0,
 		});
 		modal.onOpen();
 
@@ -72,7 +80,9 @@ describe("TrainCaptureModal", () => {
 			previousThoughtTitle: null,
 			thoughtCount: 0,
 			onSubmit,
+			onComplete: vi.fn(),
 			onCancel: vi.fn(),
+		durationMinutes: 0,
 		});
 		modal.onOpen();
 		expect(onSubmit).not.toHaveBeenCalled();
@@ -85,7 +95,9 @@ describe("TrainCaptureModal", () => {
 			previousThoughtTitle: null,
 			thoughtCount: 0,
 			onSubmit: vi.fn(),
+			onComplete: vi.fn(),
 			onCancel,
+			durationMinutes: 0,
 		});
 		modal.onOpen();
 		modal.onClose();
@@ -99,7 +111,9 @@ describe("TrainCaptureModal", () => {
 			previousThoughtTitle: null,
 			thoughtCount: 0,
 			onSubmit: vi.fn(),
+			onComplete: vi.fn(),
 			onCancel: vi.fn(),
+		durationMinutes: 0,
 		});
 		modal.onOpen();
 		expect(modal.contentEl.children.length).toBeGreaterThan(0);
@@ -114,7 +128,9 @@ describe("TrainCaptureModal", () => {
 			previousThoughtTitle: "Prev",
 			thoughtCount: 5,
 			onSubmit: vi.fn(),
+			onComplete: vi.fn(),
 			onCancel: vi.fn(),
+		durationMinutes: 0,
 		});
 		modal.onOpen();
 
@@ -128,11 +144,124 @@ describe("TrainCaptureModal", () => {
 			previousThoughtTitle: null,
 			thoughtCount: 0,
 			onSubmit: vi.fn(),
+			onComplete: vi.fn(),
 			onCancel: vi.fn(),
+		durationMinutes: 0,
 		});
 		modal.onOpen();
 
 		const counter = modal.contentEl.querySelector(".flowti-train-counter");
 		expect(counter?.textContent).toBe("Thought #1");
+	});
+
+	describe("timer display", () => {
+		it("shows no timer when durationMinutes is 0", () => {
+			const modal = new TrainCaptureModal(createMockApp(), {
+				trainTitle: "No Timer",
+				previousThoughtTitle: null,
+				thoughtCount: 0,
+				onSubmit: vi.fn(),
+				onComplete: vi.fn(),
+				onCancel: vi.fn(),
+				durationMinutes: 0,
+			});
+			modal.onOpen();
+
+			const timer = modal.contentEl.querySelector(".flowti-train-timer");
+			expect(timer).toBeNull();
+		});
+
+		it("shows timer when durationMinutes > 0", () => {
+			const modal = new TrainCaptureModal(createMockApp(), {
+				trainTitle: "With Timer",
+				previousThoughtTitle: null,
+				thoughtCount: 0,
+				onSubmit: vi.fn(),
+				onComplete: vi.fn(),
+				onCancel: vi.fn(),
+				durationMinutes: 25,
+				subscribeTimerTick: () => () => {},
+				subscribeTimerCompleted: () => () => {},
+			});
+			modal.onOpen();
+
+			const timer = modal.contentEl.querySelector(".flowti-train-timer");
+			expect(timer).not.toBeNull();
+			expect(timer?.textContent).toBe("25:00");
+		});
+
+		it("updates timer on tick callback", () => {
+			let tickCb: ((remainingMs: number) => void) | null = null;
+			const modal = new TrainCaptureModal(createMockApp(), {
+				trainTitle: "Tick Timer",
+				previousThoughtTitle: null,
+				thoughtCount: 0,
+				onSubmit: vi.fn(),
+				onComplete: vi.fn(),
+				onCancel: vi.fn(),
+				durationMinutes: 10,
+				subscribeTimerTick: (cb) => {
+					tickCb = cb;
+					return () => {};
+				},
+				subscribeTimerCompleted: () => () => {},
+			});
+			modal.onOpen();
+
+			// Simulate tick at 5:30 remaining
+			tickCb!(5 * 60_000 + 30_000);
+
+			const timer = modal.contentEl.querySelector(".flowti-train-timer");
+			expect(timer?.textContent).toBe("05:30");
+		});
+
+		it("closes modal and calls onComplete when timer completes", () => {
+			let completedCb: (() => void) | null = null;
+			const onComplete = vi.fn();
+			const modal = new TrainCaptureModal(createMockApp(), {
+				trainTitle: "Timer Complete",
+				previousThoughtTitle: null,
+				thoughtCount: 0,
+				onSubmit: vi.fn(),
+				onComplete,
+				onCancel: vi.fn(),
+				durationMinutes: 5,
+				subscribeTimerTick: () => () => {},
+				subscribeTimerCompleted: (cb) => {
+					completedCb = cb;
+					return () => {};
+				},
+			});
+			modal.onOpen();
+
+			// Simulate timer completion — sets completed flag + calls close()
+			completedCb!();
+			// In real Obsidian close() calls onClose(), but stub close() is no-op
+			// so we call onClose() manually (same pattern as other tests)
+			modal.onClose();
+
+			expect(onComplete).toHaveBeenCalledOnce();
+		});
+
+		it("unsubscribes timer listeners on close", () => {
+			const unsubTick = vi.fn();
+			const unsubCompleted = vi.fn();
+			const modal = new TrainCaptureModal(createMockApp(), {
+				trainTitle: "Unsub Timer",
+				previousThoughtTitle: null,
+				thoughtCount: 0,
+				onSubmit: vi.fn(),
+				onComplete: vi.fn(),
+				onCancel: vi.fn(),
+				durationMinutes: 15,
+				subscribeTimerTick: () => unsubTick,
+				subscribeTimerCompleted: () => unsubCompleted,
+			});
+			modal.onOpen();
+			modal.onClose();
+
+			expect(unsubTick).toHaveBeenCalledOnce();
+			expect(unsubCompleted).toHaveBeenCalledOnce();
+		});
 	});
 });

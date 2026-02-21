@@ -122,6 +122,60 @@ describe("QuickCaptureModal", () => {
 		expect(optgroups.length).toBe(2);
 
 		const options = modal.contentEl.querySelectorAll("option");
-		expect(options.length).toBe(10);
+		expect(options.length).toBe(11);
+	});
+
+	it("should show 'Capture Idea' heading when defaultType is idea", () => {
+		const modal = new QuickCaptureModal(createMockApp(), {
+			onSubmit: vi.fn(),
+			defaultType: "idea",
+		});
+		modal.onOpen();
+
+		const h3 = modal.contentEl.querySelector("h3");
+		expect(h3?.textContent).toBe("Capture Idea");
+	});
+
+	it("should show 'Quick Capture' heading when no defaultType", () => {
+		const modal = new QuickCaptureModal(createMockApp(), {
+			onSubmit: vi.fn(),
+		});
+		modal.onOpen();
+
+		const h3 = modal.contentEl.querySelector("h3");
+		expect(h3?.textContent).toBe("Quick Capture");
+	});
+
+	it("should show 'Capture Learning' heading when defaultType is learning", () => {
+		const modal = new QuickCaptureModal(createMockApp(), {
+			onSubmit: vi.fn(),
+			defaultType: "learning",
+		});
+		modal.onOpen();
+
+		const h3 = modal.contentEl.querySelector("h3");
+		expect(h3?.textContent).toBe("Capture Learning");
+	});
+
+	it("should include learning option in type selector dropdown", () => {
+		const modal = new QuickCaptureModal(createMockApp(), {
+			onSubmit: vi.fn(),
+			showTypeSelector: true,
+		});
+		modal.onOpen();
+
+		const options = Array.from(modal.contentEl.querySelectorAll("option"));
+		const learningOption = options.find((o) => o.textContent === "Learning");
+		expect(learningOption).toBeDefined();
+		expect(learningOption?.getAttribute("value") || (learningOption as HTMLOptionElement)?.value).toBe("learning");
+	});
+
+	it("should accept learning as defaultType without error", () => {
+		const modal = new QuickCaptureModal(createMockApp(), {
+			onSubmit: vi.fn(),
+			defaultType: "learning",
+			showTypeSelector: true,
+		});
+		expect(() => modal.onOpen()).not.toThrow();
 	});
 });

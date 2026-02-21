@@ -30,4 +30,6 @@ export interface SettingsEventMap {
 	"settings.updateInboxWatchedFolders": { folders: Array<{ path: string; recursive: boolean; isPrimary: boolean }> };
 	/** Command: update inbox triage target folder path */
 	"settings.updateInboxTriageTargetFolder": { folder: string };
+	/** Command: update default train duration preference */
+	"settings.updateDefaultTrainDuration": { value: number };
 }

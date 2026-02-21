@@ -18,6 +18,8 @@ import type {
 	TrainServiceState,
 	ThoughtNode,
 	ThoughtRelation,
+	AddThoughtOptions,
+	ThoughtDirection,
 } from "./types";
 import { MAX_TRAINS, MAX_THOUGHTS_PER_TRAIN } from "./types";
 
@@ -51,10 +53,11 @@ export class TrainService {
 
 	/**
 	 * Start a new train: create a session via EventBus, then create the TrainState.
+	 * @param durationMinutes Timer duration in minutes (0 = unlimited / no timer).
 	 */
-	async startTrain(title: string): Promise<TrainState> {
+	async startTrain(title: string, durationMinutes = 0): Promise<TrainState> {
 		// Create session via event (avoids direct SessionService dependency)
-		const sessionId = await this.createSessionViaEvent(title);
+		const sessionId = await this.createSessionViaEvent(title, durationMinutes);
 
 		const train: TrainState = {
 			id: `train_${generateUUID()}`,
@@ -63,6 +66,7 @@ export class TrainService {
 			status: "running",
 			thoughts: [],
 			relations: [],
+			durationMinutes,
 			createdAt: new Date().toISOString(),
 			pausedAt: null,
 			completedAt: null,
@@ -86,10 +90,16 @@ export class TrainService {
 	/**
 	 * Add a thought to a running train.
 	 */
-	async addThought(trainId: string, title: string): Promise<ThoughtNode | null> {
+	async addThought(
+		trainId: string,
+		title: string,
+		options?: AddThoughtOptions,
+	): Promise<ThoughtNode | null> {
 		const train = this.findTrain(trainId);
 		if (!train || train.status !== "running") return null;
 		if (train.thoughts.length >= MAX_THOUGHTS_PER_TRAIN) return null;
+
+		const direction: ThoughtDirection = options?.direction ?? "next";
 
 		// Create note via CaptureService
 		const result = await this.captureService.capture({
@@ -107,14 +117,17 @@ export class TrainService {
 			order,
 		};
 
-		const previousThought = train.thoughts[order - 1] ?? null;
+		// Determine source thought for linking
+		const fromThought = options?.fromThoughtId
+			? train.thoughts.find((t) => t.id === options.fromThoughtId) ?? null
+			: train.thoughts[order - 1] ?? null;
 
-		// Link to previous thought
-		if (previousThought) {
+		// Create relation
+		if (fromThought) {
 			const relation: ThoughtRelation = {
-				fromId: previousThought.id,
+				fromId: fromThought.id,
 				toId: thought.id,
-				type: "next",
+				direction,
 			};
 			train.relations.push(relation);
 		}
@@ -123,12 +136,13 @@ export class TrainService {
 		await this.persist();
 
 		// Fire-and-forget frontmatter enrichment
-		void this.updateThoughtFrontmatter(thought, train, previousThought);
+		void this.updateThoughtFrontmatter(thought, train, fromThought, direction);
 
 		void this.eventBus.emit("train.thought.added", {
 			trainId,
 			thought,
-			previousTitle: previousThought?.title ?? null,
+			previousTitle: fromThought?.title ?? null,
+			direction,
 		});
 
 		return thought;
@@ -166,6 +180,22 @@ export class TrainService {
 		return true;
 	}
 
+	/**
+	 * Complete a train — marks it as done so it no longer blocks new trains.
+	 */
+	async completeTrain(trainId: string): Promise<boolean> {
+		const train = this.findTrain(trainId);
+		if (!train || train.status === "completed") return false;
+
+		train.status = "completed";
+		train.completedAt = new Date().toISOString();
+		await this.persist();
+
+		void this.eventBus.emit("session.complete", { sessionId: train.sessionId });
+		void this.eventBus.emit("train.completed", { trainId, thoughtCount: train.thoughts.length });
+		return true;
+	}
+
 	getTrain(trainId: string): TrainState | undefined {
 		return this.findTrain(trainId);
 	}
@@ -176,6 +206,72 @@ export class TrainService {
 
 	getAllTrains(): readonly TrainState[] {
 		return this.state.trains;
+	}
+
+	/**
+	 * Get the main timeline — follows "next" chain from the first thought.
+	 */
+	getTimeline(trainId: string): ThoughtNode[] {
+		const train = this.findTrain(trainId);
+		if (!train || train.thoughts.length === 0) return [];
+
+		// Find root: the thought that has no incoming "next" relation
+		const incomingNext = new Set(
+			train.relations.filter((r) => r.direction === "next").map((r) => r.toId),
+		);
+		const root = train.thoughts.find((t) => !incomingNext.has(t.id)) ?? train.thoughts[0];
+
+		// Build lookup: fromId → child thought with direction "next"
+		const nextMap = new Map<string, string>();
+		for (const r of train.relations) {
+			if (r.direction === "next") {
+				nextMap.set(r.fromId, r.toId);
+			}
+		}
+
+		// Walk the chain
+		const timeline: ThoughtNode[] = [root];
+		const thoughtById = new Map(train.thoughts.map((t) => [t.id, t]));
+		let currentId = root.id;
+		while (nextMap.has(currentId)) {
+			const nextId = nextMap.get(currentId)!;
+			const next = thoughtById.get(nextId);
+			if (!next) break;
+			timeline.push(next);
+			currentId = nextId;
+		}
+
+		return timeline;
+	}
+
+	/**
+	 * Get branch children of a thought (direction = "branch").
+	 */
+	getBranches(trainId: string, thoughtId: string): ThoughtNode[] {
+		const train = this.findTrain(trainId);
+		if (!train) return [];
+
+		const branchIds = train.relations
+			.filter((r) => r.fromId === thoughtId && r.direction === "branch")
+			.map((r) => r.toId);
+
+		const thoughtById = new Map(train.thoughts.map((t) => [t.id, t]));
+		return branchIds.map((id) => thoughtById.get(id)).filter(Boolean) as ThoughtNode[];
+	}
+
+	/**
+	 * Get all children of a thought (any direction).
+	 */
+	getChildren(trainId: string, thoughtId: string): ThoughtNode[] {
+		const train = this.findTrain(trainId);
+		if (!train) return [];
+
+		const childIds = train.relations
+			.filter((r) => r.fromId === thoughtId)
+			.map((r) => r.toId);
+
+		const thoughtById = new Map(train.thoughts.map((t) => [t.id, t]));
+		return childIds.map((id) => thoughtById.get(id)).filter(Boolean) as ThoughtNode[];
 	}
 
 	// ── Private helpers ──────────────────────────────────────────
@@ -192,7 +288,7 @@ export class TrainService {
 	 * Create a session via EventBus and wait for the session.created response.
 	 * Times out after 5 seconds to avoid hanging if SessionService is unavailable.
 	 */
-	private createSessionViaEvent(title: string): Promise<string> {
+	private createSessionViaEvent(title: string, durationMinutes: number): Promise<string> {
 		return new Promise<string>((resolve, reject) => {
 			const timeout = setTimeout(() => {
 				unsub();
@@ -208,7 +304,7 @@ export class TrainService {
 			void this.eventBus.emit("session.create", {
 				type: "train-of-thought" as const,
 				title: `Train: ${title}`,
-				durationMinutes: 0,
+				durationMinutes,
 			});
 		});
 	}
@@ -219,24 +315,71 @@ export class TrainService {
 	private async updateThoughtFrontmatter(
 		thought: ThoughtNode,
 		train: TrainState,
-		previousThought: ThoughtNode | null,
+		fromThought: ThoughtNode | null,
+		direction: ThoughtDirection,
 	): Promise<void> {
 		const data: Record<string, unknown> = {
 			"train-session": train.title,
 			"thought-order": thought.order,
 		};
 
-		if (previousThought) {
-			data["previous-thought"] = `[[${previousThought.title}]]`;
+		if (fromThought) {
+			data["previous-thought"] = `[[${fromThought.title}]]`;
+			data["thought-relations"] = [
+				{ target: `[[${fromThought.title}]]`, direction, role: "parent" },
+			];
 		}
 
 		await this.fileSystem.updateFrontmatter(thought.path, data);
 
-		// Update previous thought with next-thought link
-		if (previousThought) {
-			await this.fileSystem.updateFrontmatter(previousThought.path, {
+		// Update source thought with forward link + structured relations
+		if (fromThought) {
+			const existingRelations = this.buildExistingRelations(train, fromThought.id);
+			existingRelations.push({
+				target: `[[${thought.title}]]`,
+				direction,
+				role: "child",
+			});
+
+			await this.fileSystem.updateFrontmatter(fromThought.path, {
 				"next-thought": `[[${thought.title}]]`,
+				"thought-relations": existingRelations,
 			});
 		}
+	}
+
+	/**
+	 * Build the thought-relations array for a thought's frontmatter.
+	 */
+	private buildExistingRelations(
+		train: TrainState,
+		thoughtId: string,
+	): Array<{ target: string; direction: string; role: string }> {
+		const thoughtById = new Map(train.thoughts.map((t) => [t.id, t]));
+		const relations: Array<{ target: string; direction: string; role: string }> = [];
+
+		for (const r of train.relations) {
+			if (r.fromId === thoughtId) {
+				const child = thoughtById.get(r.toId);
+				if (child) {
+					relations.push({
+						target: `[[${child.title}]]`,
+						direction: r.direction,
+						role: "child",
+					});
+				}
+			} else if (r.toId === thoughtId) {
+				const parent = thoughtById.get(r.fromId);
+				if (parent) {
+					relations.push({
+						target: `[[${parent.title}]]`,
+						direction: r.direction,
+						role: "parent",
+					});
+				}
+			}
+		}
+
+		return relations;
 	}
 }

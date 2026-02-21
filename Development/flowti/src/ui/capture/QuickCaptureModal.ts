@@ -28,7 +28,10 @@ export class QuickCaptureModal extends Modal {
 
 	onOpen(): void {
 		const { contentEl } = this;
-		contentEl.createEl("h3", { text: "Quick Capture" });
+		const typeLabel = this.options.defaultType
+			? this.options.defaultType.charAt(0).toUpperCase() + this.options.defaultType.slice(1)
+			: null;
+		contentEl.createEl("h3", { text: typeLabel ? `Capture ${typeLabel}` : "Quick Capture" });
 
 		let selectedType: CaptureType = this.options.defaultType ?? "idea";
 		let titleValue = "";
@@ -45,6 +48,7 @@ export class QuickCaptureModal extends Modal {
 			for (const [value, label] of [
 				["idea", "Idea"], ["note", "Note"], ["task", "Task"],
 				["question", "Question"], ["feedback", "Feedback"], ["bug", "Bug"],
+				["learning", "Learning"],
 			] as const) {
 				const opt = generalGroup.createEl("option", { text: label });
 				opt.value = value;
@@ -66,12 +70,15 @@ export class QuickCaptureModal extends Modal {
 			});
 		}
 
+		let descriptionValue = "";
+
 		const submit = (): void => {
 			const trimmed = titleValue.trim();
 			if (trimmed) {
 				this.options.onSubmit({
 					title: trimmed,
 					type: selectedType,
+					...(descriptionValue.trim() ? { description: descriptionValue.trim() } : {}),
 				});
 				this.close();
 			}
@@ -91,6 +98,18 @@ export class QuickCaptureModal extends Modal {
 						submit();
 					}
 				});
+			});
+
+		// Description (optional)
+		new Setting(contentEl)
+			.setName("Description")
+			.setDesc("Optional — adds context to the captured note")
+			.addTextArea((area) => {
+				area
+					.setPlaceholder("Add a brief description\u2026")
+					.onChange((value) => { descriptionValue = value; });
+				area.inputEl.style.width = "100%";
+				area.inputEl.rows = 3;
 			});
 
 		// Action buttons

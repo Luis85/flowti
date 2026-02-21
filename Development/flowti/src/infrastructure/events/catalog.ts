@@ -275,6 +275,7 @@ const CATALOG_DATA = {
 	"settings.updateSessionActivityFilter": { category: "Settings", description: "Update session activity filter folders", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
 	"settings.updateInboxWatchedFolders": { category: "Settings", description: "Update inbox watched folder configuration", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
 	"settings.updateInboxTriageTargetFolder": { category: "Settings", description: "Update inbox triage target folder path", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
+	"settings.updateDefaultTrainDuration": { category: "Settings", description: "Update default train duration preference", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
 
 	// ── Installer Domain ─────────────────────────────────────
 	"installer.started":        { category: "Installer", description: "Installation pipeline started", direction: "Service → Listeners", domain: "installer", services: "InstallerService" },
@@ -517,6 +518,7 @@ const CATALOG_DATA = {
 	"train.thought.added":  { category: "Train", description: "A thought was captured and linked in the train", direction: "Service → Listeners", domain: "train", services: "TrainService" },
 	"train.paused":         { category: "Train", description: "Train capture was paused", direction: "Service → Listeners", domain: "train", services: "TrainService" },
 	"train.resumed":        { category: "Train", description: "Train capture was resumed", direction: "Service → Listeners", domain: "train", services: "TrainService" },
+	"train.completed":      { category: "Train", description: "Train capture was completed", direction: "Service → Listeners", domain: "train", services: "TrainService" },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

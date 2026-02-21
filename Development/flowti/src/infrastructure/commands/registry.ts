@@ -164,6 +164,15 @@ export function createCommandDefinitions(): CommandDefinition[] {
 			},
 		},
 		{
+			id: "flowti:add-learning",
+			name: "Add Learning",
+			icon: "graduation-cap",
+			handler: async (ctx) => {
+				ctx.logger.debug("Opening quick capture modal for learning");
+				void ctx.eventBus.emit("ui.openQuickCapture", { type: "learning" });
+			},
+		},
+		{
 			id: "flowti:start-train",
 			name: "Start Train of Thoughts",
 			icon: "brain",

@@ -71,15 +71,30 @@ export class InputModal extends Modal {
 
 		let inputValue = this.defaultValue;
 
+		const submit = (): void => {
+			const trimmed = inputValue.trim();
+			if (trimmed) {
+				this.onSubmit(trimmed);
+				this.close();
+			}
+		};
+
 		new Setting(contentEl)
 			.setName(this.inputName)
 			.setDesc(this.inputDesc)
-			.addText((text) =>
+			.addText((text) => {
 				text
 					.setPlaceholder(this.placeholder)
 					.setValue(this.defaultValue)
-					.onChange((value) => { inputValue = value; })
-			);
+					.onChange((value) => { inputValue = value; });
+				text.inputEl.addEventListener("keydown", (e: KeyboardEvent) => {
+					if (e.key === "Enter") {
+						e.preventDefault();
+						submit();
+					}
+				});
+				setTimeout(() => text.inputEl.focus(), 50);
+			});
 
 		new Setting(contentEl)
 			.addButton((btn) =>
@@ -89,13 +104,7 @@ export class InputModal extends Modal {
 				btn
 					.setButtonText(this.submitLabel)
 					.setCta()
-					.onClick(() => {
-						const trimmed = inputValue.trim();
-						if (trimmed) {
-							this.onSubmit(trimmed);
-							this.close();
-						}
-					})
+					.onClick(() => submit())
 			);
 	}
 
@@ -236,6 +245,7 @@ export class NewSessionModal extends Modal {
 			.setName("Duration")
 			.setDesc("Timer length in minutes")
 			.addDropdown((dropdown) => {
+				dropdown.addOption("0", "Unlimited (no timer)");
 				dropdown.addOption("25", "25 min (Pomodoro)");
 				dropdown.addOption("50", "50 min (Deep Work)");
 				dropdown.addOption("15", "15 min (Quick)");

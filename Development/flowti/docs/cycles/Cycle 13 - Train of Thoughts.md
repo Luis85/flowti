@@ -12,7 +12,7 @@ pbis:
 bugs: []
 bugs_fixed_precycle: []
 tech_debt: []
-estimated_increments: 7
+estimated_increments: 8
 actual_increments:
 estimated_tests: 110
 actual_tests:
@@ -73,9 +73,38 @@ total_test_files_after:
 2. PBI-TOT-002 Train Main View and Timeline Sidebar — high, depends on PBI-TOT-001
 3. PBI-TOT-003 Session Nesting and Lifecycle — medium, depends on PBI-TOT-001 + 002
 
-### Post-Cycle State (YYYY-MM-DD)
+### Post-Cycle Mid-Review State (2026-02-21, Inc 1-4 complete)
 
-_To be filled after delivery._
+**Plugin health:**
+- 3,213 tests passing, 129 test suites, 32 skipped
+- Build status: green (`npm test` = tsc + eslint + vitest)
+- 5 Train events in catalog (started, thought.added, paused, resumed, completed)
+
+**Delivered so far (Inc 1-4):**
+- Train domain: types, TrainService (completeTrain, getTimeline, getBranches, getChildren)
+- Serial capture: TrainCaptureModal with Enter, direction selector, Pause/Complete/Add Thought
+- Thought linking: ThoughtRelation with "next" / "branch" directions, frontmatter `thought-relations`
+- Inbox polish: signal sync sources, mark all read, dedup by filePath, smart timestamps
+- Quick Capture polish: 7 ribbons, 8 commands, 11 types, description textarea, captureFolder setting
+- Review polish: InputModal Enter key, optimistic modal, completeTrain, train ribbon, friendly start modal, session view fix
+- Docs: 2 flow docs updated/created, 1 flow test (13 integration tests)
+
+**Remaining:** Inc 6 (Main View), Inc 7 (Timeline Sidebar), Inc 8 (Session Nesting)
+
+### Post Inc 5 State (2026-02-21, Inc 5 complete)
+
+**Plugin health:**
+- 3,190 tests passing, 129 test suites, 32 skipped
+- Build status: green (`npm test` = tsc + eslint + vitest)
+- 5 Train events + 1 settings event in catalog
+
+**Delivered Inc 5 (Timeboxed Train Sessions):**
+- `defaultTrainDuration` setting (Zod schema, FlowtiSettingTab dropdown)
+- `durationMinutes` field on TrainState, forwarded via `startTrain()` → `session.create`
+- Timer display in TrainCaptureModal (countdown via `session.timer.tick`, auto-complete via `session.timer.completed`)
+- "Unlimited (no timer)" option in NewSessionModal for train-of-thought type
+- `settings.updateDefaultTrainDuration` event + catalog entry
+- 9 new tests (4 TrainService + 5 TrainCaptureModal)
 
 ---
 
@@ -123,12 +152,12 @@ None bundled — this is a greenfield feature cycle.
 - TrainEventMap composed into FlowtiEventMap via `extends`
 
 **Acceptance criteria:**
-- [ ] "Start Train of Thoughts" command visible in command palette
-- [ ] First thought creates a session + vault note
-- [ ] Each Enter creates a linked note and opens next modal
-- [ ] Previous thought title shown as context in modal
-- [ ] `train.started` and `train.thought.added` events emitted
-- [ ] Escape/close pauses the session
+- [x] "Start Train of Thoughts" command visible in command palette
+- [x] First thought creates a session + vault note
+- [x] Each Enter creates a linked note and opens next modal
+- [x] Previous thought title shown as context in modal
+- [x] `train.started` and `train.thought.added` events emitted
+- [x] Escape/close pauses the session
 
 ---
 
@@ -186,13 +215,13 @@ None bundled — this is a greenfield feature cycle.
 - Unit tests: captureFolder setting rendered in FlowtiSettingTab
 
 **Acceptance criteria:**
-- [ ] Settings > Documentation shows "Quick Capture folder" text input
-- [ ] QuickCaptureModal shows description textarea below title
-- [ ] Modal heading says "Capture Idea" from ribbon, "Quick Capture" from command palette
-- [ ] "Add Learning" command visible in command palette
-- [ ] Learning type in dropdown (11 options in 2 groups)
-- [ ] Notice shows "Captured: [title]" after capture
-- [ ] Empty title after sanitization throws error (no `.md` file)
+- [x] Settings > Documentation shows "Quick Capture folder" text input
+- [x] QuickCaptureModal shows description textarea below title
+- [x] Modal heading says "Capture Idea" from ribbon, "Quick Capture" from command palette
+- [x] "Add Learning" command visible in command palette
+- [x] Learning type in dropdown (11 options in 2 groups)
+- [x] Notice shows "Captured: [title]" after capture
+- [x] Empty title after sanitization throws error (no `.md` file)
 
 ---
 
@@ -214,43 +243,126 @@ None bundled — this is a greenfield feature cycle.
 - Unit tests: frontmatter relation serialization/deserialization
 
 **Acceptance criteria:**
-- [ ] Thoughts linked with "next" direction by default
-- [ ] User can select "branch" direction in capture modal
-- [ ] Frontmatter includes `thought-relations` field
-- [ ] TrainService.getTimeline returns ordered chain with branches
-- [ ] `train.thought.added` payload includes `direction` field
+- [x] Thoughts linked with "next" direction by default
+- [x] User can select "branch" direction in capture modal
+- [x] Frontmatter includes `thought-relations` field
+- [x] TrainService.getTimeline returns ordered chain with branches
+- [x] `train.thought.added` payload includes `direction` field
+
+**Also delivered (review polish):**
+- [x] InputModal accepts Enter to submit (benefits all 15+ usages across the plugin)
+- [x] Optimistic modal opening — next TrainCaptureModal opens immediately, addThought runs in background
+- [x] `completeTrain()` method + "Complete" button in modal — frees slot for new trains
+- [x] `train.completed` event registered in catalog (5 Train events total)
+- [x] Train ribbon icon (train-front) for one-click access
+- [x] Friendly start modal: "Start a new Train of Thoughts" / "What are you thinking?"
+- [x] Session completion view fix — no longer auto-opens sidebar when session view already visible
+- [x] Flow doc: "Capture Ideas and Feedback" updated for Inc 3 (7 ribbons, 8 commands, 11 types, description)
+- [x] Flow doc: "Start a Train of Thoughts" created covering Inc 1 + Inc 4 scope
+- [x] Flow test: `17-TrainOfThoughts.test.ts` — 13 integration tests covering full lifecycle
 
 ---
 
-### Inc 5: Train Main View (PBI-TOT-002, Part 1)
+### Inc 5: Timeboxed Train Sessions (PBI-TOT-001, Part 3)
 
-**Goal:** Dedicated main view for thought navigation, detail display, and branch links.
+**Goal:** Add optional timer to trains — frictionless by default (no timer), configurable via settings, visible countdown in capture modal.
+
+**Rationale:** User-requested mid-cycle. Leverages existing session timer infrastructure (`session.timer.tick`, `session.timer.completed`).
 
 | Step | File | Purpose | Est. LOC |
 |------|------|---------|----------|
-| 1 | `src/ui/train/TrainMainView.ts` | ItemView: thought detail, nav buttons, branch links | ~300 |
-| 2 | `src/ui/train/types.ts` | VIEW_TYPE_TRAIN_MAIN, VIEW_TYPE_TRAIN_TIMELINE | ~10 |
-| 3 | `src/main.ts` | Register TrainMainView + leaf activation | ~15 |
-| 4 | Integration | Wire train events to view re-render | ~30 |
+| 1 | `src/domain/train/types.ts` | Add `durationMinutes` to TrainState | +1 |
+| 2 | `src/domain/settings/settings.ts` | Add `defaultTrainDuration` to Zod schema (default: 0) | +1 |
+| 3 | `src/domain/settings/events.ts` | Add `settings.updateDefaultTrainDuration` event | +2 |
+| 4 | `src/domain/settings/SettingsService.ts` | Add handler for new event | +4 |
+| 5 | `src/infrastructure/events/catalog.ts` | Add catalog entry | +1 |
+| 6 | `src/domain/train/TrainService.ts` | Forward `durationMinutes` through `startTrain()` + `createSessionViaEvent()` | +6 |
+| 7 | `src/ui/train/TrainCaptureModal.ts` | Timer display + tick/completed subscriptions + cleanup | +35 |
+| 8 | `src/domain/settings/FlowtiSettingTab.ts` | "Train of Thoughts" section with duration dropdown | +18 |
+| 9 | `src/main.ts` | Read setting, pass duration, build timer subscription closures | +20 |
+| 10 | `src/ui/modals.ts` | "Unlimited (no timer)" option in NewSessionModal | +1 |
 
-**Est. total:** ~355 LOC source, ~100 LOC tests, ~20 new tests
+**Est. total:** ~90 LOC source, ~80 LOC tests, ~9 new tests
 
 **Test intent:**
-- Unit tests: renders active thought, navigation buttons, branch links
-- Unit tests: "Open in editor" link, "Resume capture" button
-- Event subscription: re-renders on thought.added, thought.activated
+- Unit tests: TrainService defaults/forwards durationMinutes, persists on TrainState
+- Unit tests: TrainCaptureModal timer display, tick updates, completion auto-close, cleanup
 
 **Acceptance criteria:**
-- [ ] Train Main View registered as Obsidian view
-- [ ] Active thought content displayed with title and properties
-- [ ] Previous/Next navigation buttons
-- [ ] Branch links shown for thoughts with multiple continuations
-- [ ] "Open in editor" opens the vault note
-- [ ] "Resume capture" reopens the serial capture modal
+- [x] `defaultTrainDuration` setting in preferences (dropdown: Unlimited, 5, 10, 15, 25, 50 min)
+- [x] Default is 0 (Unlimited / no timer) — frictionless capture
+- [x] `durationMinutes` stored on TrainState and forwarded to session.create
+- [x] Timer countdown shown in capture modal when duration > 0
+- [x] Timer updates every second via session.timer.tick
+- [x] Modal auto-closes and train completes when timer expires
+- [x] Timer subscriptions cleaned up on modal close
+- [x] NewSessionModal shows "Unlimited" option for train-of-thought type
+- [x] 9 new tests passing
 
 ---
 
-### Inc 6: Timeline Sidebar (PBI-TOT-002, Part 2)
+### Inc 6: Train Main View (PBI-TOT-002, Part 1)
+
+**Goal:** Dedicated main view for navigating thoughts in a train — shows active thought detail, prev/next navigation, branch links, and action buttons. Extends ItemView directly (like SessionWorkspaceView), not BaseHubView (trains are single-focus, not multi-tab hubs).
+
+| Step | File | Purpose | Est. LOC |
+|------|------|---------|----------|
+| 1 | `src/ui/train/types.ts` | `VIEW_TYPE_TRAIN_MAIN`, `VIEW_TYPE_TRAIN_TIMELINE` constants | ~5 |
+| 2 | `src/ui/train/TrainMainView.ts` | ItemView: header, nav bar, thought detail, branches, actions | ~300 |
+| 3 | `src/ui/train/TrainMainViewSubscriptions.ts` | Event subscriptions (train.started/paused/resumed/completed/thought.added) | ~60 |
+| 4 | `src/domain/train/events.ts` | Add `train.thought.activated` event (view navigation) | ~3 |
+| 5 | `src/infrastructure/events/catalog.ts` | Catalog entry for `train.thought.activated` | ~1 |
+| 6 | `src/main.ts` | `registerView()` + auto-open on `train.started` | ~20 |
+| 7 | Tests | TrainMainView rendering + navigation + event subscriptions | ~120 |
+
+**Est. total:** ~390 LOC source, ~120 LOC tests, ~20 new tests
+
+**Architecture:**
+- Follows SessionWorkspaceView pattern: ItemView + extracted subscriptions module
+- `getState()`/`setState()` persist `trainId` for workspace re-open
+- TrainService provides all data (getTrain, getTimeline, getBranches, getChildren)
+- New `train.thought.activated` event for view↔view navigation sync (needed for Inc 7 timeline)
+
+**Layout:**
+```
+┌─────────────────────────────────────────┐
+│ 🚂 Train: My Deep Dive     [running]   │  header
+│ ◄ Prev   Thought 3 of 8    Next ►      │  nav bar
+├─────────────────────────────────────────┤
+│ Database schema needs rethinking        │  thought title
+│ Created: 14:35 · Order: #3 · → next    │  metadata
+├─────────────────────────────────────────┤
+│ Branches:                               │  branch links
+│   ↗ Alternative approach using…         │  (clickable)
+│   ↗ What about NoSQL instead…           │
+├─────────────────────────────────────────┤
+│ [Open in Editor]   [Resume Capture]     │  actions
+└─────────────────────────────────────────┘
+```
+
+**Test intent:**
+- Unit tests: renders active thought with title, metadata, navigation
+- Unit tests: Previous/Next buttons navigate correctly, disabled at edges
+- Unit tests: branch links rendered, click emits `train.thought.activated`
+- Unit tests: "Open in editor" link, "Resume capture" button
+- Unit tests: re-renders on train events (thought.added, paused, completed)
+- Unit tests: getState/setState persist trainId
+
+**Acceptance criteria:**
+- [ ] Train Main View registered as Obsidian view (`flowti-train-main`)
+- [ ] Active thought content displayed with title, order, direction, timestamp
+- [ ] Previous/Next navigation buttons (disabled at chain boundaries)
+- [ ] Branch links shown for thoughts with multiple continuations
+- [ ] Click on branch link activates that thought + emits `train.thought.activated`
+- [ ] "Open in editor" opens the vault note
+- [ ] "Resume capture" reopens the serial capture modal
+- [ ] View auto-opens on `train.started` event
+- [ ] View re-renders on thought.added, train.paused, train.completed
+- [ ] `train.thought.activated` event registered in catalog
+
+---
+
+### Inc 7: Timeline Sidebar (PBI-TOT-002, Part 2)
 
 **Goal:** Sidebar timeline graph visualization with click-to-navigate and branch rendering.
 
@@ -279,7 +391,7 @@ None bundled — this is a greenfield feature cycle.
 
 ---
 
-### Inc 7: Session Nesting + Closure (PBI-TOT-003)
+### Inc 8: Session Nesting + Closure (PBI-TOT-003)
 
 **Goal:** Enable session nesting for trains and integrate with the closure ritual system.
 
@@ -320,17 +432,19 @@ Inc 1: Train Domain + Serial Capture
   ▼
 Inc 4: Thought Linking + Branching
   │
+  │   Inc 5: Timeboxed Train Sessions (independent — enhances capture modal)
+  │
   ├──────────────────┐
   ▼                  ▼
-Inc 5: Main View   Inc 6: Timeline Sidebar
+Inc 6: Main View   Inc 7: Timeline Sidebar
   │                  │
   └────────┬─────────┘
            ▼
-    Inc 7: Session Nesting + Closure
+    Inc 8: Session Nesting + Closure
 ```
 
-Inc 2 and Inc 3 are independent — no deps on Inc 1 output, no blockers for Inc 4.
-Inc 5 and Inc 6 can be developed in parallel after Inc 4 is complete.
+Inc 2, 3, and 5 are independent cross-cutting increments.
+Inc 6 and Inc 7 can be developed in parallel after Inc 4 is complete.
 
 ---
 

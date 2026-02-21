@@ -165,6 +165,7 @@ export const FlowtiSettingsSchema = z.object({
 			placeholder: z.string(),
 		})),
 	})).default([]),
+	defaultTrainDuration: z.number().default(0),
 	inboxEnabledSources: z.array(z.string()).default([
 		"subscription.matched",
 		"dataExchange.import.completed",
