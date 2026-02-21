@@ -1,0 +1,22 @@
+filters:
+  and:
+    - file.inFolder("Development/flowti/docs/personas")
+views:
+  - type: table
+    name: Personas
+    order:
+      - file.name
+      - type
+      - stage
+    columnSize:
+      file.name: 295
+      note.type: 87
+  - type: table
+    name: Index
+    order:
+      - file.name
+      - type
+      - stage
+    columnSize:
+      file.name: 143
+      note.type: 87
