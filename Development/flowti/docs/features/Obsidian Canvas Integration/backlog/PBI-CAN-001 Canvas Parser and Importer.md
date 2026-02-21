@@ -1,7 +1,7 @@
 ---
 type: ProductBacklogItem
 feature: "[[Obsidian Canvas Integration PRD]]"
-stage: planned
+stage: in-progress
 priority: high
 phase: 1
 dependencies:
@@ -51,26 +51,26 @@ As a domain architect, I want to import Canvas files as typed vault notes from t
 
 ### Functional Requirements
 
-- [ ] Migrate `canvas-import-core.js` and `canvas-import-constants.js` into `src/domain/dataExchange/canvas/`
-- [ ] `CanvasParser`: Parse `.canvas` JSON into `CanvasDocument` type
-- [ ] `CanvasImportService`: Convert parsed canvas nodes to typed vault notes
-- [ ] Color mapping: 1=Issue, 2=Epic, 3=Task, 4=Test, 5=Deliverable, 6=Feature (default)
-- [ ] Shape mapping: circle=Event, diamond=Gateway, parallelogram=Data, document=Document, database=Database
-- [ ] Legend group detection and override: custom color-to-type within canvas
+- [x] Migrate `canvas-import-core.js` and `canvas-import-constants.js` into `src/domain/canvas/` (Cycle 15 Inc 1)
+- [x] `CanvasParser`: Parse `.canvas` JSON into `CanvasData` type + `CanvasParsedResult` (Cycle 15 Inc 1)
+- [ ] `CanvasImporter`: Convert parsed canvas nodes to typed vault notes
+- [x] Color mapping: 1=Issue, 2=Epic, 3=Task, 4=Test, 5=Deliverable, 6=Feature (DEFAULT_COLOR_MAP) (Cycle 15 Inc 1)
+- [x] Shape mapping: circle=Event, diamond=Gateway, parallelogram=Data, document=Document, database=Database, predefined-process=Subprocess, pill=Terminator (DEFAULT_SHAPE_MAP) (Cycle 15 Inc 1)
+- [x] Legend group detection and override: custom color-to-type within canvas (`extractLegend()`) (Cycle 15 Inc 1)
 - [ ] Group-to-container: canvas groups set `parent` frontmatter on child nodes
 - [ ] Edge-to-relationship: edges translate to `up`/`down`/`prev`/`next` frontmatter
 - [ ] Register as import source type in Data Exchange Hub
 - [ ] Import wizard: 3-page (Select, Preview/Map, Execute)
 - [ ] Right-click `.canvas` → "Import Canvas" context menu
-- [ ] Progress events: `dataExchange.canvasImport.execute/progress/completed/failed`
+- [ ] Progress events: `canvas.import.started/progress/completed/failed`
 - [ ] Saved import configurations for repeatable imports
 
 ### Technical Requirements
 
-- New bounded context: `src/domain/dataExchange/canvas/`
-- `CanvasParser.ts`: Pure function, no side effects
-- `CanvasImportService.ts`: Uses `fileSystemClient` via `doc.create` events
-- Events registered in catalog with category "Data Exchange"
+- New bounded context: `src/domain/canvas/` (own domain, not nested under dataExchange)
+- `CanvasParser.ts`: Pure functions, no side effects — `parseCanvasJson()`, `extractLegend()`, `resolveNodeType()`, `slugifyTitle()`, `toPascalCase()`, `isNodeInsideGroup()` ✅
+- `CanvasImporter.ts`: Uses `fileSystemClient` for note creation with frontmatter
+- 8 events registered in catalog with category "Canvas" ✅
 - All existing QuickAdd canvas-importer test scenarios ported as unit tests
 
 ## Acceptance Criteria

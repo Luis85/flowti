@@ -2,22 +2,26 @@
 domain: Flowti
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
-stage: approved
+stage: in-progress
 related_events:
-  - dataExchange.canvasImport.execute
-  - dataExchange.canvasImport.progress
-  - dataExchange.canvasImport.completed
-  - dataExchange.canvasImport.failed
+  - canvas.import.started
+  - canvas.import.progress
+  - canvas.import.completed
+  - canvas.import.failed
+  - canvas.entity.detected
+  - canvas.legend.detected
+  - canvas.config.saved
+  - canvas.loaded
   - canvas.template.applied
   - canvas.session.started
 maturity: L1
 maturity_score_strategy: 4
 maturity_score_scope: 3
-maturity_score_architecture: 3
-maturity_score_event_integration: 3
-maturity_score_data_model: 3
+maturity_score_architecture: 4
+maturity_score_event_integration: 4
+maturity_score_data_model: 4
 maturity_score_ui_consistency: 3
-maturity_score_validation_testing: 2
+maturity_score_validation_testing: 3
 business_value: 5
 implementation_cost: 4
 maintenance_cost: 3
@@ -25,7 +29,7 @@ discovery_cost: 3
 design_cost: 4
 test_cost: 3
 priority: 4
-fri_score: 21
+fri_score: 25
 planned_in: "[[Cycle 15 - Canvas Integration]]"
 tags:
   - canvas
@@ -277,7 +281,7 @@ CanvasTemplate
 
 | PBI | Title | Status | Dependencies |
 |-----|-------|--------|-------------|
-| [[PBI-CAN-001 Canvas Parser and Importer]] | First-class canvas import in Data Exchange Hub | PLANNED | Data Exchange Hub ✅ |
+| [[PBI-CAN-001 Canvas Parser and Importer]] | First-class canvas import in Data Exchange Hub | IN-PROGRESS | Data Exchange Hub ✅ |
 | [[PBI-CAN-002 Canvas Templates]] | Preconfigured canvas layouts for session types | PLANNED | PBI-CAN-001 |
 | [[PBI-CAN-003 Canvas Sessions]] | Session type with canvas + sidebar workspace | PLANNED | PBI-CAN-002, Session Workspaces ✅ |
 
@@ -285,9 +289,11 @@ CanvasTemplate
 
 ## Implementation Phases
 
-### Phase 1: Canvas Parser & Importer (PBI-CAN-001)
+### Phase 1: Canvas Parser & Importer (PBI-CAN-001) — In Progress
 
-Migrate canvas import logic from `var/scripts/canvas-importer/` into `src/domain/dataExchange/canvas/`. Register as import source type in Data Exchange Hub. Implement import wizard, context menu, and progress events.
+Migrate canvas import logic from `var/scripts/canvas-importer/` into `src/domain/canvas/` (own bounded context). Register as import source type in Data Exchange Hub. Implement import wizard, context menu, and progress events.
+
+**Cycle 15 Inc 1 delivered:** Domain types (CanvasItem, CanvasRelation, CanvasParsedResult, CanvasImportConfig), 8 events in CanvasEventMap + catalog, core parser functions (parseCanvasJson, extractLegend, resolveNodeType, slugifyTitle, toPascalCase, isNodeInsideGroup). 44 new tests (3,386 total).
 
 ### Phase 2: Canvas Templates (PBI-CAN-002)
 

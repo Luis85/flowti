@@ -159,12 +159,18 @@ None bundled — this is a greenfield domain migration cycle.
 - Pure functions in CanvasParser — no side effects, no Obsidian dependencies
 
 **Acceptance criteria:**
-- [ ] `CanvasDocument` type represents parsed canvas with nodes, edges, groups, legend
-- [ ] `parseCanvasJson()` handles valid JSON and edge cases (empty, malformed)
-- [ ] `extractLegend()` detects Legend group and returns color mapping
-- [ ] `resolveNodeType()` follows resolution chain: legend → shape → color → default
-- [ ] All 6 default color codes and 7 shape types mapped correctly
-- [ ] 8 canvas events registered in type system
+- [x] `CanvasParsedResult` type represents parsed canvas with items, relations, groups, legendMap (named `CanvasParsedResult` — more descriptive than planned `CanvasDocument`)
+- [x] `parseCanvasJson()` handles valid JSON and edge cases (empty, malformed) — 8 tests
+- [x] `extractLegend()` detects Legend group and returns color mapping — 6 tests
+- [x] `resolveNodeType()` follows resolution chain: legend → shape → color → default — 10 tests
+- [x] All 6 default color codes and 7 shape types mapped correctly — constants + tests
+- [x] 8 canvas events registered in type system — CanvasEventMap + catalog + category
+
+**Delivery notes:**
+- Domain at `src/domain/canvas/` (bounded context, not nested under dataExchange)
+- 44 new tests (est. 18) — added `slugifyTitle`, `toPascalCase`, `isNodeInsideGroup` utilities for Inc 2+
+- ~322 LOC source (est. ~120), ~228 LOC tests (est. ~80) — extra utilities and thorough tests
+- Also updated: `DEFAULT_CATALOG_CATEGORIES` (+Canvas), catalog helpers test fixture (+Canvas)
 
 ---
 
