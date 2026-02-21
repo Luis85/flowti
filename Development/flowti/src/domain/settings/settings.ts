@@ -56,6 +56,7 @@ export const DEFAULT_CATALOG_CATEGORIES: CatalogCategoryConfig[] = [
 	{ name: "Inbox", visible: true },
 	{ name: "Session", visible: true },
 	{ name: "Nudge", visible: true },
+	{ name: "Signal", visible: true },
 ];
 
 // ─────────────────────────────────────────────────────────────

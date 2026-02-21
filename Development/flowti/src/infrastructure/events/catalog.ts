@@ -162,6 +162,7 @@ export const EVENT_CATEGORIES = [
 	"Inbox",
 	"Session",
 	"Nudge",
+	"Signal",
 ] as const;
 
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
@@ -341,6 +342,7 @@ const CATALOG_DATA = {
 	"dataExchange.import.failed":    { category: "Data Exchange", description: "Import operation failed", direction: "Service → Listeners", domain: "dataExchange", services: "ImportService" },
 	"dataExchange.export.execute":   { category: "Data Exchange", description: "Command to start a data export", direction: "View → Plugin", domain: "dataExchange", services: "DataExchangeService", tags: ["system"] },
 	"dataExchange.export.started":   { category: "Data Exchange", description: "Export operation has started", direction: "Service → Listeners", domain: "dataExchange", services: "ExportService", tags: ["system"] },
+	"dataExchange.export.progress":  { category: "Data Exchange", description: "Per-file progress during export", direction: "Service → Listeners", domain: "dataExchange", services: "ExportService", tags: ["system"] },
 	"dataExchange.export.completed": { category: "Data Exchange", description: "Export operation completed successfully", direction: "Service → Listeners", domain: "dataExchange", services: "ExportService" },
 	"dataExchange.export.failed":    { category: "Data Exchange", description: "Export operation failed", direction: "Service → Listeners", domain: "dataExchange", services: "ExportService" },
 	"dataExchange.pipeline.execute":         { category: "Data Exchange", description: "Command to start a multi-import pipeline", direction: "View → Plugin", domain: "dataExchange", services: "DataExchangeService", tags: ["system"] },
@@ -484,6 +486,18 @@ const CATALOG_DATA = {
 	"nudge.dismiss":    { category: "Nudge", description: "Command to dismiss a nudge for today", direction: "View → Plugin", domain: "nudge", services: "NudgeService", tags: ["system"] },
 	"nudge.dismissed":  { category: "Nudge", description: "A nudge was dismissed for today", direction: "Service → Listeners", domain: "nudge", services: "NudgeService", tags: ["system"] },
 	"nudge.loaded":     { category: "Nudge", description: "Nudge state loaded from storage", direction: "Service → Listeners", domain: "nudge", services: "NudgeService", tags: ["system"] },
+
+	// ── Signal ────────────────────────────────────────────────
+	"signal.configured":        { category: "Signal", description: "A signal connection was created or updated", direction: "Service → Listeners", domain: "signal", services: "SignalService" },
+	"signal.removed":           { category: "Signal", description: "A signal connection was removed", direction: "Service → Listeners", domain: "signal", services: "SignalService" },
+	"signal.connection.tested": { category: "Signal", description: "Connection test completed", direction: "Service → Listeners", domain: "signal", services: "SignalService" },
+	"signal.sync.started":      { category: "Signal", description: "Sync operation started", direction: "Service → Listeners", domain: "signal", services: "SignalService" },
+	"signal.sync.progress":     { category: "Signal", description: "Per-item sync progress", direction: "Service → Listeners", domain: "signal", services: "SignalService" },
+	"signal.sync.completed":    { category: "Signal", description: "Sync operation completed successfully", direction: "Service → Listeners", domain: "signal", services: "SignalService" },
+	"signal.sync.failed":       { category: "Signal", description: "Sync operation failed", direction: "Service → Listeners", domain: "signal", services: "SignalService" },
+	"signal.item.created":      { category: "Signal", description: "A new work item note was created", direction: "Service → Listeners", domain: "signal", services: "SignalService" },
+	"signal.item.updated":      { category: "Signal", description: "An existing work item note was updated", direction: "Service → Listeners", domain: "signal", services: "SignalService" },
+	"signal.loaded":            { category: "Signal", description: "Signal state loaded from storage", direction: "Service → Listeners", domain: "signal", services: "SignalService", tags: ["system"] },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

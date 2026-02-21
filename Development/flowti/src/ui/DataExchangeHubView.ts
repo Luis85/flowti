@@ -24,15 +24,18 @@ import { ReportsTab } from "./hub/ReportsTab";
 import { PropertiesTab } from "./hub/PropertiesTab";
 import { PipelinesTab } from "./hub/PipelinesTab";
 import { TypesTab } from "./hub/TypesTab";
+import { SignalsTab } from "./hub/SignalsTab";
 import { openEventInCatalog } from "./hub/helpers";
+import type { SignalService } from "../domain/signal/SignalService";
 import { basename, stripExtension } from "../utils/pathUtils";
 import { VIEW_TYPE_DATA_EXCHANGE_HUB } from "../domain/hub/types";
 export { VIEW_TYPE_DATA_EXCHANGE_HUB };
 
-export type DXTab = "imports" | "exports" | "reports" | "properties" | "pipelines" | "types";
+export type DXTab = "imports" | "exports" | "reports" | "properties" | "pipelines" | "types" | "signals";
 
 export class DataExchangeHubView extends BaseHubView<DXTab> {
 	private dataExchangeService: DataExchangeService;
+	private signalService?: SignalService;
 	private openCsvImportCb: (csvPath: string, savedConfig?: SavedImportConfig) => void;
 	private openExportCb: (savedConfig: SavedExportConfig) => void;
 	private openNewExportCb: (sourcePath: string, sourceType: "folder" | "base", format: ExportFormat) => void;
@@ -56,6 +59,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 	private selectedCsvFilePath: string | null = null;
 	private selectedPipelineId: string | null = null;
 	private selectedTypeName: string | null = null;
+	private selectedSignalId: string | null = null;
 	private editingImportId: string | null = null;
 	private editingExportId: string | null = null;
 	private editingPipelineId: string | null = null;
@@ -69,6 +73,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 	private propertiesTab!: PropertiesTab;
 	private pipelinesTab!: PipelinesTab;
 	private typesTab!: TypesTab;
+	private signalsTab!: SignalsTab;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -77,9 +82,11 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 		openCsvImport: (csvPath: string, savedConfig?: SavedImportConfig) => void,
 		openExport: (savedConfig: SavedExportConfig) => void,
 		openNewExport: (sourcePath: string, sourceType: "folder" | "base", format: ExportFormat) => void,
+		signalService?: SignalService,
 	) {
 		super(leaf, eventBus);
 		this.dataExchangeService = dataExchangeService;
+		this.signalService = signalService;
 		this.openCsvImportCb = openCsvImport;
 		this.openExportCb = openExport;
 		this.openNewExportCb = openNewExport;
@@ -101,6 +108,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 			{ id: "properties", label: "Properties", icon: "list", searchPlaceholder: "Search properties..." },
 			{ id: "pipelines", label: "Pipelines", icon: "workflow", searchPlaceholder: "Search pipelines..." },
 			{ id: "types", label: "Types", icon: "tag", searchPlaceholder: "Search types..." },
+			{ id: "signals", label: "Signals", icon: "radio", searchPlaceholder: "Search signals..." },
 		];
 	}
 
@@ -119,6 +127,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 		this.propertiesTab = new PropertiesTab(this.masterTreeEl, this.detailPanelEl, deps);
 		this.pipelinesTab = new PipelinesTab(this.masterTreeEl, this.detailPanelEl, deps);
 		this.typesTab = new TypesTab(this.masterTreeEl, this.detailPanelEl, deps);
+		this.signalsTab = new SignalsTab(this.masterTreeEl, this.detailPanelEl, deps);
 
 		this.addUnsubscribe(
 			this.eventBus.on("dataExchange.config.changed", () => {
@@ -310,6 +319,13 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 				}
 			}),
 		);
+		// Re-render signals tab when signal configs change
+		this.addUnsubscribe(
+			this.eventBus.on("signal.configured", () => this.scheduleRender()),
+		);
+		this.addUnsubscribe(
+			this.eventBus.on("signal.removed", () => this.scheduleRender()),
+		);
 	}
 
 	onHubClose(): void {
@@ -364,6 +380,10 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 				this.typesTab.renderMaster();
 				this.typesTab.renderDetail();
 				break;
+			case "signals":
+				this.signalsTab.renderMaster();
+				this.signalsTab.renderDetail();
+				break;
 		}
 	}
 
@@ -406,6 +426,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 			app: this.app,
 			eventBus: this.eventBus,
 			dataExchangeService: this.dataExchangeService,
+			signalService: this.signalService,
 			getState: () => this.getHubState(),
 			setState: (partial) => this.setHubState(partial),
 			navigation,
@@ -434,6 +455,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 			selectedCsvFilePath: this.selectedCsvFilePath,
 			selectedPipelineId: this.selectedPipelineId,
 			selectedTypeName: this.selectedTypeName,
+			selectedSignalId: this.selectedSignalId,
 			editingImportId: this.editingImportId,
 			editingExportId: this.editingExportId,
 			editingPipelineId: this.editingPipelineId,
@@ -452,6 +474,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 		if (partial.selectedCsvFilePath !== undefined) this.selectedCsvFilePath = partial.selectedCsvFilePath;
 		if (partial.selectedPipelineId !== undefined) this.selectedPipelineId = partial.selectedPipelineId;
 		if (partial.selectedTypeName !== undefined) this.selectedTypeName = partial.selectedTypeName;
+		if (partial.selectedSignalId !== undefined) this.selectedSignalId = partial.selectedSignalId;
 		if (partial.editingImportId !== undefined) this.editingImportId = partial.editingImportId;
 		if (partial.editingExportId !== undefined) this.editingExportId = partial.editingExportId;
 		if (partial.editingPipelineId !== undefined) this.editingPipelineId = partial.editingPipelineId;

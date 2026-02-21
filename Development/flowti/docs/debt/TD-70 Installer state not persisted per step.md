@@ -3,7 +3,8 @@ type: TechDebt
 severity: medium
 category: reliability
 layer: domain
-status: open
+status: resolved
+resolved_in: "Cycle 10 Inc 6"
 created: 2026-02-15
 effort: small
 description: "InstallerService.saveState() is only called after all steps succeed. If the plugin crashes between steps, completedSteps progress is lost."

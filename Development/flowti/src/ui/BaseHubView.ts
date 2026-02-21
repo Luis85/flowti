@@ -152,7 +152,11 @@ export abstract class BaseHubView<TPage extends string = string> extends ItemVie
 		});
 
 		// Dashboard is the default landing page
-		this.onDashboardRender();
+		try {
+			this.onDashboardRender();
+		} catch (err) {
+			this.renderError(err);
+		}
 	}
 
 	async onClose(): Promise<void> {
@@ -245,12 +249,34 @@ export abstract class BaseHubView<TPage extends string = string> extends ItemVie
 		if (this.renderTimer !== null) clearTimeout(this.renderTimer);
 		this.renderTimer = setTimeout(() => {
 			this.renderTimer = null;
-			if (this.activePage === "dashboard") {
-				this.onDashboardRender();
-			} else {
-				this.onTabRender(this.activePage as TPage);
+			try {
+				if (this.activePage === "dashboard") {
+					this.onDashboardRender();
+				} else {
+					this.onTabRender(this.activePage as TPage);
+				}
+			} catch (err) {
+				this.renderError(err);
 			}
 		}, 16);
+	}
+
+	/** Render an error banner when a tab/dashboard render throws. */
+	private renderError(err: unknown): void {
+		const target = this.activePage === "dashboard" ? this.dashboardEl : this.detailPanelEl;
+		if (this.activePage !== "dashboard") this.masterTreeEl.empty();
+		target.empty();
+		const banner = target.createDiv({ cls: "ft-error-boundary ft-p-4 ft-text-center" });
+		const iconEl = banner.createDiv({ cls: "ft-mb-2" });
+		setIcon(iconEl, "alert-triangle");
+		iconEl.style.opacity = "0.5";
+		banner.createDiv({ text: "Something went wrong", cls: "ft-heading ft-heading-sm ft-mb-1" });
+		banner.createDiv({
+			text: err instanceof Error ? err.message : String(err),
+			cls: "ft-text-muted ft-text-sm ft-mb-3",
+		});
+		const retryBtn = banner.createEl("button", { text: "Retry", cls: "mod-cta" });
+		retryBtn.addEventListener("click", () => this.scheduleRender());
 	}
 
 	/** Re-render the tab bar (e.g. after active tab changes). */

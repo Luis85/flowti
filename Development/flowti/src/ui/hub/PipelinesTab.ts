@@ -101,6 +101,7 @@ export class PipelinesTab {
 		const item = this.masterEl.createDiv({
 			cls: `ft-master-event-item${isSelected ? " ft-master-event-selected" : ""}`,
 		});
+		item.dataset.id = pipe.id;
 		item.style.alignItems = "flex-start";
 
 		const iconEl = item.createSpan();
@@ -125,8 +126,14 @@ export class PipelinesTab {
 
 		item.addEventListener("click", () => {
 			this.deps.setState({ selectedPipelineId: pipe.id, editingPipelineId: null });
-			this.renderMaster();
+			this.updateMasterSelection(pipe.id);
 			this.renderDetail();
+		});
+	}
+
+	private updateMasterSelection(selectedId: string): void {
+		this.masterEl.querySelectorAll(".ft-master-event-item").forEach((el) => {
+			el.classList.toggle("ft-master-event-selected", (el as HTMLElement).dataset.id === selectedId);
 		});
 	}
 

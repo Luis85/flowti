@@ -1,11 +1,11 @@
 ---
 type: ProductRequirementsDocument
 domain: Signal
-stage: draft
-version: 1
-maturity: L1
+stage: in-progress
+version: 2
+maturity: L2
 created: 2026-02-20
-updated: 2026-02-20
+updated: 2026-02-21
 foundation: "[[I want to get my Azure DevOps Boards Backlog into my Vault]]"
 related_events:
   - signal.configured
@@ -20,12 +20,12 @@ related_events:
   - signal.loaded
 maturity_score_strategy: 4
 maturity_score_scope: 4
-maturity_score_architecture: 3
+maturity_score_architecture: 4
 maturity_score_event_integration: 4
 maturity_score_data_model: 3
 maturity_score_ui_consistency: 3
-maturity_score_validation_testing: 2
-fri_score: 24
+maturity_score_validation_testing: 3
+fri_score: 26
 business_value: 5
 implementation_cost: 4
 maintenance_cost: 3
@@ -387,20 +387,20 @@ Legend:  ● connected (green)   ○ disconnected (grey)   ✗ error (red)
 |-----------|-------|-------|
 | Strategy | 4/5 | Addresses RB-5 release blocker. First external integration. Enables dogfooding with real project data. Not 5/5 because this is the first integration domain — strategic value grows with more adapters. |
 | Scope | 4/5 | Clear v1 boundary (pull-only, Azure DevOps only). Well-defined FRs with explicit deferrals. Not 5/5 because push/bi-directional sync scope needs refinement. |
-| Architecture | 3/5 | Adapter pattern defined. Integration points identified. Uses established Obsidian APIs. Not higher because HTTP error handling patterns and HTML→MD conversion approach need spike validation. |
+| Architecture | 4/5 | Adapter pattern defined and implemented. Integration points validated. `requestUrl()` spike completed (ADR-034). Not 5/5 because HTML→MD conversion approach not yet validated. |
 | Event Integration | 4/5 | 10 events with payloads defined. Follows command/state pair pattern. Category assigned. Not 5/5 because event-to-inbox mapping (signal errors → inbox notifications) not yet specified. |
 | Data Model | 3/5 | Core types defined (SignalConfig, WorkItemMapping, SyncResult). Frontmatter schema specified. Not higher because relationship between SignalState and DataExchangeState needs clarification, and PAT storage model needs security review. |
 | UI Consistency | 3/5 | Wireframes for Signals tab and config modal provided. Master/detail layout follows DX Hub pattern. Sync progress display specified. Not higher because no detailed interaction specs for error states and edge case flows. |
-| Validation & Testing | 2/5 | Test strategy outlined (adapter mocking, service tests, mapper tests). Flow test defined (flow14). Acceptance criteria per PBI. Not higher because no formal test plan document yet. |
-| **Total** | **24/35** | **Technically Ready** (threshold: 19/35 for new features) |
+| Validation & Testing | 3/5 | 23 foundation tests passing. Service CRUD, event emission, state persistence all tested. Not higher because adapter and mapper tests not yet written, no flow test yet. |
+| **Total** | **26/35** | **Technically Ready** (threshold: 19/35 for new features) |
 
 ### FRI Improvement Path
 
-To reach 28+/35 during the cycle:
-- **Architecture → 4**: Complete Inc 1 spike (HTTP patterns, error handling, validated API behavior)
-- **Data Model → 4**: Finalize PAT storage approach, clarify SignalState relationship
-- **UI Consistency → 4**: Add error state wireframes, sync progress interaction specs
-- **Validation & Testing → 3**: Write formal test plan document, validate flow test coverage
+Current: 26/35 (post-Inc 1). To reach 28+/35:
+- ~~**Architecture → 4**: Complete Inc 1 spike~~ — **DONE** (ADR-034)
+- ~~**Validation & Testing → 3**: Foundation tests~~ — **DONE** (23 tests)
+- **Data Model → 4**: Finalize PAT storage approach, clarify SignalState relationship (Inc 2)
+- **UI Consistency → 4**: Add error state wireframes, sync progress interaction specs (Inc 4)
 
 ## 12. PBIs
 

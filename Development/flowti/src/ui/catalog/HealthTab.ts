@@ -92,6 +92,7 @@ function navigateToItem(
 export class HealthTab {
 	private report: HealthReport = { overallScore: 100, checks: [] };
 	private selectedCheckId: string | null = null;
+	private scanCacheKey = "";
 
 	constructor(
 		private masterEl: HTMLElement,
@@ -104,7 +105,11 @@ export class HealthTab {
 	}
 
 	render(): void {
-		this.scan();
+		const key = this.computeScanKey();
+		if (key !== this.scanCacheKey) {
+			this.scan();
+			this.scanCacheKey = key;
+		}
 		this.renderMaster();
 		this.renderDetail();
 	}
@@ -118,6 +123,27 @@ export class HealthTab {
 		);
 		const allEvents = [...EVENT_CATALOG, ...discoveredEntries];
 		this.report = runHealthChecks(state, allEvents);
+	}
+
+	invalidateCache(): void {
+		this.scanCacheKey = "";
+	}
+
+	private computeScanKey(): string {
+		const s = this.deps.getState();
+		const docCount =
+			s.domainEntries.filter((d) => d.filePath !== null).length +
+			s.serviceEntries.filter((sv) => sv.filePath !== null).length;
+		const flowRefs = s.flowEntries.reduce((n, f) => n + f.events.length + f.domains.length + f.services.length, 0);
+		const sysRefs = s.systemEntries.reduce((n, sys) => n + sys.domains.length + sys.services.length, 0);
+		const actorRefs = s.actorEntries.reduce((n, a) => n + a.events.length, 0);
+		const productRefs = s.productEntries.reduce((n, p) => n + p.events.length + p.domains.length, 0);
+		return [
+			s.domainEntries.length, s.serviceEntries.length, s.flowEntries.length,
+			s.systemEntries.length, s.actorEntries.length, s.productEntries.length,
+			s.subscriptions.length, s.definitions.length, s.discoveredEvents.length,
+			s.showSystemEvents ? 1 : 0, docCount, flowRefs, sysRefs, actorRefs, productRefs,
+		].join(",");
 	}
 
 	// ─────────────────────────────────────────────────────────
@@ -189,6 +215,7 @@ export class HealthTab {
 				const row = this.masterEl.createDiv({
 					cls: `ft-master-event-item${isSelected ? " ft-master-event-selected" : ""}`,
 				});
+				row.dataset.id = check.id;
 
 				// Severity dot
 				row.createSpan({
@@ -207,11 +234,17 @@ export class HealthTab {
 
 				row.addEventListener("click", () => {
 					this.selectedCheckId = check.id;
-					this.renderMaster();
+					this.updateMasterSelection(check.id);
 					this.renderDetail();
 				});
 			}
 		}
+	}
+
+	private updateMasterSelection(selectedId: string): void {
+		this.masterEl.querySelectorAll(".ft-master-event-item").forEach((el) => {
+			el.classList.toggle("ft-master-event-selected", (el as HTMLElement).dataset.id === selectedId);
+		});
 	}
 
 	// ─────────────────────────────────────────────────────────

@@ -141,6 +141,7 @@ export class InstallerService implements IInstallerService {
 				this.state.completedSteps[step.id] = {
 					completedAt: new Date().toISOString(),
 				};
+				await this.saveState();
 			}
 		}
 

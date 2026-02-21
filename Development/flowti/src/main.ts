@@ -25,6 +25,7 @@ import type { EventDefinitionService } from "./domain/eventDefinition/EventDefin
 import type { InboxService } from "./domain/inbox/InboxService";
 import type { NudgeService } from "./domain/nudge/NudgeService";
 import type { SessionService } from "./domain/session/SessionService";
+import type { SignalService } from "./domain/signal/SignalService";
 import type { IngestionService } from "./domain/ingestion/IngestionService";
 import { registerViews } from "./infrastructure/views/registry";
 import type { IViewRegistry } from "./infrastructure/views/types";
@@ -97,6 +98,7 @@ export default class FlowtiBasePlugin extends Plugin {
 	private dataExchangeService?: DataExchangeService;
 	private sessionService?: SessionService;
 	private nudgeService?: NudgeService;
+	private signalService?: SignalService;
 	private ingestionStatusBar?: IngestionStatusBar;
 	private collapsedCategories = new Set<string>();
 	private uiCommandService?: UiCommandService;
@@ -268,6 +270,7 @@ export default class FlowtiBasePlugin extends Plugin {
 		safeDispose("plugin.unloading", () =>
 			void this.eventBus?.emit("plugin.unloading", { timestamp: new Date().toISOString() }),
 		);
+		safeDispose("signalService", () => this.signalService?.dispose());
 		safeDispose("nudgeService", () => this.nudgeService?.dispose());
 		safeDispose("uiCommandService", () => this.uiCommandService?.dispose());
 		safeDispose("ingestionStatusBar", () => this.ingestionStatusBar?.dispose());
@@ -527,6 +530,10 @@ export default class FlowtiBasePlugin extends Plugin {
 			}),
 		);
 
+		// Signal Service — external data source connections
+		this.signalService = await this.services.get<SignalService>("signalService");
+		await this.signalService.load();
+
 		// Auto-open workspace and focus file when a session starts
 		// Skip if a workspace already exists (e.g. started from sidebar)
 		this.crossCuttingListeners.push(
@@ -566,6 +573,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			app: this.app,
 			eventBus: this.eventBus,
 			dataExchangeService: this.dataExchangeService!,
+			signalService: this.signalService,
 			docsRootPath: settingsService.getSettings().docsRootPath,
 			registerView: (type, factory) => this.registerView(type, factory),
 			registerExtensions: (exts, type) => { try { this.registerExtensions(exts, type); } catch { /* may already be registered */ } },

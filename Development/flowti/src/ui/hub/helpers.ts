@@ -248,6 +248,7 @@ export function getEmptyDetailStats(deps: HubComponentDeps): { count: number; la
 		properties: { count: state.dictionaryEntries.length, label: "properties" },
 		pipelines: { count: state.pipelineConfigs.length, label: "saved pipelines" },
 		types: { count: state.typeEntries.length, label: "note types" },
+		signals: { count: deps.signalService?.getSignals().length ?? 0, label: "signals" },
 	};
 	return map[state.currentPage] ?? { count: 0, label: "" };
 }

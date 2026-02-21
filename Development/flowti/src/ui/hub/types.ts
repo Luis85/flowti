@@ -15,12 +15,13 @@ import type {
 	SavedMultiImportPipeline,
 	TypeDocEntry,
 } from "../../domain/dataExchange/types";
+import type { SignalService } from "../../domain/signal/SignalService";
 
 // ─────────────────────────────────────────────────────────────
 // Hub pages
 // ─────────────────────────────────────────────────────────────
 
-export type HubPage = "dashboard" | "imports" | "exports" | "reports" | "properties" | "pipelines" | "types";
+export type HubPage = "dashboard" | "imports" | "exports" | "reports" | "properties" | "pipelines" | "types" | "signals";
 
 // ─────────────────────────────────────────────────────────────
 // Hub state — owned by the orchestrator
@@ -85,6 +86,7 @@ export interface HubState {
 	selectedCsvFilePath: string | null;
 	selectedPipelineId: string | null;
 	selectedTypeName: string | null;
+	selectedSignalId: string | null;
 	editingImportId: string | null;
 	editingExportId: string | null;
 	editingPipelineId: string | null;
@@ -115,6 +117,7 @@ export interface HubComponentDeps {
 	app: App;
 	eventBus: IEventBus;
 	dataExchangeService: DataExchangeService;
+	signalService?: SignalService;
 	getState: () => HubState;
 	setState: (partial: Partial<HubState>) => void;
 	navigation: HubNavigationCallbacks;

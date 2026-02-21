@@ -245,18 +245,18 @@ function countTotalRefs(state: CatalogState): number {
 export function checkOrphanedFlows(state: CatalogState): HealthCheckResult {
 	const items: HealthCheckItem[] = [];
 
+	// Pre-compute lookup Sets for O(1) membership tests (TD-75)
+	const systemDomains = new Set(state.systemEntries.flatMap((s) => s.domains));
+	const systemServices = new Set(state.systemEntries.flatMap((s) => s.services));
+	const actorEvents = new Set(state.actorEntries.flatMap((a) => a.events));
+	const productEvents = new Set(state.productEntries.flatMap((p) => p.events));
+
 	for (const f of state.flowEntries) {
-		const referencedBySystem = state.systemEntries.some(
-			(s) =>
-				s.domains.some((d) => f.domains.includes(d)) ||
-				s.services.some((sv) => f.services.includes(sv)),
-		);
-		const referencedByActor = state.actorEntries.some((a) =>
-			a.events.some((e) => f.events.includes(e)),
-		);
-		const referencedByProduct = state.productEntries.some((p) =>
-			p.events.some((e) => f.events.includes(e)),
-		);
+		const referencedBySystem =
+			f.domains.some((d) => systemDomains.has(d)) ||
+			f.services.some((sv) => systemServices.has(sv));
+		const referencedByActor = f.events.some((e) => actorEvents.has(e));
+		const referencedByProduct = f.events.some((e) => productEvents.has(e));
 		if (!referencedBySystem && !referencedByActor && !referencedByProduct) {
 			items.push({
 				name: f.name,

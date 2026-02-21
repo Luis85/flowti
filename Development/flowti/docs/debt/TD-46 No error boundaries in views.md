@@ -1,12 +1,14 @@
 ---
 type: TechDebt
-status: open
+status: resolved
 severity: medium
 category: reliability
 layer: ui
 created: 2026-02-15
+updated: 2026-02-21
 effort: small
-description: "No try/catch wraps component render calls. A single throw in renderMaster() or renderDetail() crashes the entire view with no recovery."
+resolved_in: "Cycle 10 Inc 5"
+description: "BaseHubView.scheduleRender() and onOpen() now wrap render dispatch in try-catch. Errors display a 'Something went wrong' banner with error message and Retry button. Covers all hub views via inheritance."
 source: "[[Technical Review 2026-02-15]]"
 ---
 # TD-46: No error boundaries in view render paths

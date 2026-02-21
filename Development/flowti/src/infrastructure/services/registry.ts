@@ -23,6 +23,8 @@ import { DataExchangeService } from "../../domain/dataExchange/DataExchangeServi
 import { InboxService } from "../../domain/inbox/InboxService";
 import { NudgeService } from "../../domain/nudge/NudgeService";
 import { SessionService } from "../../domain/session/SessionService";
+import { SignalService } from "../../domain/signal/SignalService";
+import { AzureDevOpsAdapter } from "../../domain/signal/adapters/AzureDevOpsAdapter";
 import { DocService } from "../../domain/docs/DocService";
 import { FileSystemClient } from "../filesystem/FileSystemClient";
 import type { IServiceContainer, ServiceRegistration } from "./types";
@@ -238,6 +240,20 @@ export function createServiceRegistrations(
 				service.registerStep(new UserCreationStep());
 				service.registerStep(new FolderScaffoldStep());
 				return service;
+			},
+		},
+
+		// Signal Service - external data source connections (Azure DevOps, etc.)
+		{
+			id: "signalService",
+			factory: (container: IServiceContainer) => {
+				const eventBus = container.getEventBus();
+				return new SignalService({
+					storage: createTypedStorage(storage, "signal", container),
+					eventBus,
+					adapter: new AzureDevOpsAdapter(),
+					fileSystem: new FileSystemClient({ eventBus }),
+				});
 			},
 		},
 	];

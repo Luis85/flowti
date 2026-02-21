@@ -2,7 +2,11 @@
 type: ProductBacklogItem
 domain: Signal
 feature: "[[Azure DevOps Integration PRD]]"
-stage: planned
+stage: delivered
+delivered_in: "[[Cycle 11 - Azure DevOps Integration]]"
+delivered_date: 2026-02-21
+actual_loc: 223
+actual_tests: 29
 priority: 3
 cycle: "[[Cycle 11 - Azure DevOps Integration]]"
 increment: 3
@@ -65,15 +69,15 @@ v1 supports a defined subset of HTML elements. This is a deliberate scope limita
 
 ## Acceptance Criteria
 
-- [ ] `mapWorkItem(raw)` correctly extracts fields from Azure DevOps work item JSON
-- [ ] `toNoteFrontmatter()` produces YAML-safe frontmatter with all specified fields (id, type, state, assignedTo, areaPath, iterationPath, priority, tags, url, signalSource, lastSynced)
-- [ ] `toNoteBody()` converts supported HTML elements to Markdown (see table above)
-- [ ] All three conflict strategies work: skip (note exists → no-op), update frontmatter (preserve body), overwrite (full replace)
-- [ ] File names follow pattern: `{workItemId} - {sanitized title}.md` (illegal chars removed, max 100 chars)
-- [ ] Notes created in configured target folder via `FileSystemClient.createFile()`
-- [ ] `signal.item.created` and `signal.item.updated` events emitted per item
-- [ ] Known HTML→MD limitations documented in PRD §8
-- [ ] `npm test` green with ~20 tests
+- [x] `mapWorkItem(raw)` correctly extracts fields from Azure DevOps work item JSON (delivered in Inc 2)
+- [x] `toNoteFrontmatter()` produces YAML-safe frontmatter with all specified fields (id, type, state, assignedTo, areaPath, iterationPath, priority, tags, url, signalSource, lastSynced)
+- [x] `toNoteBody()` converts supported HTML elements to Markdown (see table above)
+- [x] All three conflict strategies work: skip (note exists → no-op), update frontmatter (preserve body), overwrite (full replace)
+- [x] File names follow pattern: `{workItemId} - {sanitized title}.md` (illegal chars removed, max 80 chars)
+- [x] Notes created in configured target folder via `FileSystemClient.createFile()`
+- [ ] `signal.item.created` and `signal.item.updated` events emitted per item (deferred to Inc 5 sync orchestration)
+- [ ] Known HTML→MD limitations documented in PRD §8 (deferred to Inc 5 wrap-up)
+- [x] `npm test` green with 29 tests (2,979 total, 116 suites)
 
 ## Test Intent
 

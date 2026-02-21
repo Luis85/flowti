@@ -12,11 +12,13 @@ import type { ExportFormat, SavedExportConfig, SavedImportConfig, VaultFileInfo 
 import { CsvActionView, VIEW_TYPE_CSV } from "./ui/CsvActionView";
 import { ExportView, VIEW_TYPE_EXPORT, type ExportViewConfig } from "./ui/ExportView";
 import { DataExchangeHubView, VIEW_TYPE_DATA_EXCHANGE_HUB } from "./ui/DataExchangeHubView";
+import type { SignalService } from "./domain/signal/SignalService";
 
 export interface DataExchangeSetupDeps {
 	app: App;
 	eventBus: IEventBus;
 	dataExchangeService: DataExchangeService;
+	signalService?: SignalService;
 	docsRootPath: string;
 	registerView: (type: string, factory: ViewCreator) => void;
 	registerExtensions: (extensions: string[], viewType: string) => void;
@@ -131,6 +133,7 @@ export class DataExchangeSetup {
 				(csvPath, savedConfig) => this.openCsvImportWithConfig(csvPath, savedConfig),
 				(savedConfig) => this.openExportWithSavedConfig(savedConfig),
 				(sourcePath, sourceType, format) => this.openExportView(sourcePath, sourceType, format),
+				this.deps.signalService,
 			),
 		);
 	}
@@ -301,6 +304,17 @@ export class DataExchangeSetup {
 				void this.deps.eventBus.emit("ui.openDataExchangeHub", {});
 			},
 		});
+
+		if (this.deps.signalService) {
+			addCommand({
+				id: "flowti:signal-sync",
+				name: "Sync All Signals",
+				icon: "radio",
+				callback: () => {
+					void this.deps.signalService!.syncAll();
+				},
+			});
+		}
 	}
 
 	// ── Private helpers ──────────────────────────────────────

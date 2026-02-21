@@ -3,7 +3,8 @@ type: TechDebt
 severity: medium
 category: feature-gap
 layer: domain
-status: open
+status: resolved
+resolved_in: "Cycle 10 Inc 6"
 created: 2026-02-15
 effort: small
 description: "PRD claims per-record progress events during export. ImportService correctly emits per-row progress, but ExportService has no progress emission during the export loop."
