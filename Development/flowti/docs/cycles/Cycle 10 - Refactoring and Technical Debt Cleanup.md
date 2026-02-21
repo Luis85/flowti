@@ -59,10 +59,10 @@ This is a dedicated maintenance cycle. No new features are delivered. The goal i
 - `npm test` pipeline: tsc + eslint + vitest
 
 **Tech debt register:**
-- **117 total items** (TD-01 through TD-117)
+- **122 total items** (TD-01 through TD-120 + 2 additional)
 - **~47 resolved** — items fixed in Cycles 1–9
 - **~5 mitigated** — partial fixes, downgraded severity
-- **~65 open** — active debt requiring remediation
+- **~68 open** — active debt requiring remediation (includes TD-118, TD-119, TD-120 added post-Cycle 9)
 
 **Open debt by severity:**
 
