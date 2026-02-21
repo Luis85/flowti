@@ -70,7 +70,8 @@ export class SuppressibleNoticeService implements INoticeService {
 	}
 
 	error(message: string, timeout?: number): void {
-		if (this.settings.showNotifications) this.inner.error(message, timeout);
+		// Errors always shown regardless of showNotifications
+		this.inner.error(message, timeout);
 	}
 
 	success(message: string, timeout?: number): void {
