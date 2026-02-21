@@ -1,6 +1,6 @@
 ---
 type: idea
-stage: discovery
+stage: planned
 origin: inbox
 domain: inbox
 parent: "[[Hubs PRD]]"
@@ -11,6 +11,8 @@ tags:
   - data-quality
 priority: 2 - high
 rank:
+planned_in: "[[Cycle 12 - Release Preparation]]"
+pbi: "[[PBI-005 Vault Folder Inbox]]"
 related:
   - "[[Quick capture ribbons for ideas and feedback]]"
   - "[[I want my files in the inbox routed to the correct folder once they are typed]]"
