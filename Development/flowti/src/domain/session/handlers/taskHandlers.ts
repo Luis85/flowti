@@ -6,6 +6,7 @@
 
 import { generateUUID } from "../../../utils/helpers";
 import type { ExecutionTask, SessionGoal } from "../types";
+import { MAX_EXECUTION_TASKS } from "../types";
 import { createGoal } from "../helpers";
 import type { SessionHandlerContext } from "./types";
 
@@ -76,6 +77,10 @@ export async function handleGoalReorder(ctx: SessionHandlerContext, sessionId: s
 export async function addTask(ctx: SessionHandlerContext, sessionId: string, label: string): Promise<ExecutionTask | null> {
 	const session = ctx.findSession(sessionId);
 	if (!session || !TASK_ALLOWED_STATES.includes(session.status)) return null;
+	if (session.executionTasks.length >= MAX_EXECUTION_TASKS) {
+		await ctx.eventBus?.emit("session.task.capReached", { sessionId, limit: MAX_EXECUTION_TASKS });
+		return null;
+	}
 
 	const task: ExecutionTask = {
 		id: `task_${generateUUID()}`,

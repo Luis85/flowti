@@ -483,6 +483,12 @@ export const MAX_SESSION_DECISIONS = 100;
 /** Maximum number of output artifacts per session. */
 export const MAX_OUTPUT_ARTIFACTS = 20;
 
+/** Maximum number of reflections per session. */
+export const MAX_REFLECTIONS = 200;
+
+/** Maximum number of execution tasks per session. */
+export const MAX_EXECUTION_TASKS = 50;
+
 /** Vault folder where session notes (persistent markdown files) are stored. */
 export const SESSION_NOTES_FOLDER = "03 - Resources/Sessions";
 

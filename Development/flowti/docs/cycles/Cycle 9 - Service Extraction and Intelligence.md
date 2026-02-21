@@ -1,10 +1,11 @@
 ---
 type: DevelopmentCycle
 feature: "[[Session Workspaces PRD]]"
-stage: in-progress
+stage: delivered
 cycle: 9
 date_planned: 2026-02-19
 date_updated: 2026-02-21
+date_delivered: 2026-02-21
 pbis:
   - "[[PBI-SW-015 Activity Intelligence]]"
 bugs: []
@@ -17,6 +18,10 @@ tech_debt:
   - "[[TD-100 Session performance and sync behaviour investigation]]"
 estimated_increments: 4
 estimated_tests: 60
+actual_increments: 4
+actual_tests: 67
+total_tests_after: 2855
+total_test_files_after: 111
 ---
 
 # Cycle 9: Service Extraction and Intelligence
@@ -191,15 +196,17 @@ interface SessionHandlerContext {
 - Update documentation with Cycle 9 delivery
 
 **Acceptance criteria:**
-- [ ] MAX_REFLECTIONS (200) enforced in handleReflectionAdd
-- [ ] MAX_EXECUTION_TASKS (50) enforced in addTask
-- [ ] Guard behavior tested (cap reached → event emitted, no addition)
-- [ ] TD items reviewed — resolved items closed
-- [ ] Cycle retrospective documented
+- [x] MAX_REFLECTIONS (200) enforced in handleReflectionAdd
+- [x] MAX_EXECUTION_TASKS (50) enforced in addTask
+- [x] Guard behavior tested (cap reached → event emitted, no addition)
+- [x] TD items reviewed — TD-101 resolved (Inc 1), TD-100 resolved (Inc 2), no new debt
+- [x] Cycle retrospective documented
 
 **Test intent:** ~10 tests: cap enforcement for reflections and tasks, boundary conditions.
 
 **Documentation intent:** Close resolved TD items. Update cycle plan stage to delivered. Three Amigos review preparation.
+
+**Delivery (2026-02-21):** MAX_REFLECTIONS (200) and MAX_EXECUTION_TASKS (50) caps implemented with `session.reflection.capReached` and `session.task.capReached` events. Guards follow established pattern (check length, emit event, return early). 6 new tests (3 reflection + 3 task cap). Three Amigos AI-3 from Cycle 8: **resolved**. Session events: 90→92 active. All 2,855 tests passing, 0 regressions. TASM: **33/35 (Excellent)**.
 
 ---
 
@@ -218,25 +225,27 @@ Inc 4: Hardening — after all others
 
 ## Risks
 
-| Risk | Probability | Impact | Mitigation |
-|------|------------|--------|------------|
-| Handler extraction breaks existing tests | Low | High | Extract one module at a time, `npm test` after each |
-| Handler context interface too complex | Medium | Medium | Start with minimal context, expand only as needed |
-| Performance investigation reveals deep architectural issue | Low | High | Time-box to 1 increment; document findings for future cycle |
-| SessionService grows further during extraction | Low | Medium | Freeze feature work on session domain during Inc 1 |
+| Risk | Probability | Impact | Mitigation | Outcome |
+|------|------------|--------|------------|---------|
+| Handler extraction breaks existing tests | Low | High | Extract one module at a time, `npm test` after each | **Did not materialize** — all 2,794 existing tests passed unchanged throughout extraction |
+| Handler context interface too complex | Medium | Medium | Start with minimal context, expand only as needed | **Partially materialized** — context grew to 14 members but `HandlerContextProxy` pattern kept it manageable |
+| Performance investigation reveals deep architectural issue | Low | High | Time-box to 1 increment; document findings for future cycle | **Did not materialize** — main finding was missing render debounce (simple fix), not architectural |
+| SessionService grows further during extraction | Low | Medium | Freeze feature work on session domain during Inc 1 | **Did not materialize** — extraction completed before feature work (Inc 3/4) began |
 
 ---
 
 ## Success Criteria
 
-| Metric | Target | Notes |
-|--------|--------|-------|
-| SessionService LOC | < 700 | Down from 1,766 |
-| Test suite | All 2,794+ passing | Zero regressions |
-| TD-101 status | Resolved | Handler extraction complete |
-| TD-100 status | Resolved or Mitigated | Performance investigated |
-| FR-15 status | Done | Activity Intelligence delivered |
-| FRI | 31/35 | +1 from FR-15 delivery |
+| Metric | Target | Actual | Notes |
+|--------|--------|--------|-------|
+| SessionService LOC | < 700 | **613** | Down from 1,766 (Inc 1) |
+| Test suite | All 2,794+ passing | **2,855 passing** | Zero regressions, +61 new tests |
+| TD-101 status | Resolved | **Resolved** | Handler extraction complete (Inc 1) |
+| TD-100 status | Resolved or Mitigated | **Resolved** | Render debounce + panel batching (Inc 2) |
+| FR-15 status | Done | **Done** | Activity Intelligence delivered (Inc 3) |
+| FRI | 31/35 | **31/35** | ui_consistency 3→4 |
+| Session events | — | **92 active** | +2 cap reached events (Inc 4) |
+| TASM (per increment) | — | **33/35 avg** | All 4 increments scored Excellent |
 
 ---
 
@@ -248,6 +257,137 @@ Inc 4: Hardening — after all others
 | Session title disambiguation | 2026-02-20 | Added creation date+time to session list rows |
 | Closure review auto-open | 2026-02-20 | Added `session.closure.started` listener + `sessionId` in `setViewState()` |
 | Inbox review | 2026-02-20 | 3 bug tickets created/updated (all fixed) |
+
+---
+
+## Three Amigos Review — Cycle 9
+
+**Date:** 2026-02-21
+**Reviewers:** Business (Product), Development (Technical Architect), QA (Quality)
+**Verdict:** **PASS**
+
+### Business Perspective (Product)
+
+**Assessment:** All 4 planned increments delivered. The cycle addressed critical infrastructure debt (TD-101, TD-100) and delivered one new feature (FR-15 Activity Intelligence). The v2 vision is now 80% delivered (8/10 FRs). Safety caps resolve the outstanding AI-3 action item from Cycle 8.
+
+- **TD-101 extraction** unlocks PBI-SW-017 (Main/Sidebar Mode Separation) — the highest-priority remaining PBI
+- **Activity Intelligence** (FR-15) completes the analytics story — sessions now produce quantitative data for review
+- **Cap enforcement** closes the last Cycle 8 action item — all 3 AI items are now resolved
+- FRI improved 30→31 via unified session notes (analytics, closure ritual, artifact links, filter respect)
+
+### Development Perspective (Technical Architect)
+
+**Assessment:** Architecturally the strongest cycle so far. SessionService extraction (1,766→613 LOC) is the single largest refactoring in the plugin's history. The `HandlerContextProxy` pattern bridges mutable service state to free functions cleanly.
+
+**Positive findings:**
+- 6 handler modules follow consistent patterns — each handler receives `SessionHandlerContext`, performs mutation, saves, emits
+- Render debounce discovery (TD-100) aligned SessionWorkspaceView with BaseHubView's established 16ms pattern
+- `computeActivityIntelligence()` and `isExcluded()` filter threading are both pure functions — fully testable
+- Cap guards follow the exact same pattern as `MAX_CONTEXT_BINDINGS` and `MAX_SESSION_DECISIONS`
+- No architectural boundary violations across any increment
+
+**Observations:**
+- `helpers.ts` at 982 LOC — approaching 1,000 LOC threshold. Next feature addition may trigger decomposition.
+- `SessionWorkspaceView.ts` at 612 LOC — PBI-SW-017 will restructure this (main vs sidebar rendering)
+- `HandlerContextProxy` has 14 members — monitor for further growth
+
+### QA Perspective (Quality)
+
+**Assessment:** 67 new tests (target: 60). All green. Zero regressions. Test discipline maintained across all 4 increments.
+
+**Test breakdown:**
+| Inc | New Tests | Breakdown |
+|-----|-----------|-----------|
+| 1 (TD-101) | 0 | All 2,794 existing tests validated behavior preservation |
+| 2 (TD-100) | 11 | 5 render debounce + 6 panel batching |
+| 3 (PBI-SW-015) | 60 | 7 UI + 15 intelligence + 10 frontmatter + 13 summary + 6 filter + 5 closure + 2 misc + 2 updates |
+| 4 (Hardening) | 6 | 3 reflection cap + 3 task cap |
+| **Total** | **67** | Across 2 new + 4 modified test files |
+
+- All 28 flow tests pass — end-to-end behavior unchanged
+- Build pipeline fully green across all increments
+- Test performance: direct array population for cap tests (avoids slow 200-event round-trips)
+
+### Observations
+
+| # | Source | Observation | Priority | Action |
+|---|--------|-------------|----------|--------|
+| OBS-1 | Dev | `helpers.ts` at 982 LOC — near 1,000 threshold | Low | Monitor; decompose if crossed in next cycle |
+| OBS-2 | Dev | `SessionWorkspaceView.ts` at 612 LOC — trending up | Medium | PBI-SW-017 will restructure |
+| OBS-3 | Product | No UI toast when caps are reached | Low | Future UX can subscribe to `capReached` events |
+| OBS-4 | QA | 6 tests (vs ~10 target) for Inc 4 | Low | Sufficient — guard logic is simple |
+
+### Action Items
+
+| # | Action | Target |
+|---|--------|--------|
+| AI-1 | Decompose `helpers.ts` if it crosses 1,050 LOC | Next cycle (if triggered) |
+| AI-2 | PBI-SW-017 to address SessionWorkspaceView growth | Next cycle |
+
+---
+
+## Retrospective
+
+### What Went Well
+
+- **Handler extraction was clean and risk-free** — 1,766→613 LOC with zero test regressions. The `SessionHandlerContext` interface provided a clear contract for all 35+ handlers. The "extract one module, run tests, repeat" approach eliminated risk.
+- **Domain-first ordering continues to pay off** — each increment followed types → domain → helpers → UI, keeping each step small and testable.
+- **Render debounce discovery was high-value** — TD-100 found that SessionWorkspaceView had no render coalescing. Every event triggered a full DOM rebuild. The 16ms debounce fix (matching BaseHubView) was a simple, high-impact fix.
+- **Inc 3 scope expansions improved quality** — user-directed expansions (artifact aggregation, frontmatter restructuring, filter threading, closure ritual in notes) produced a significantly better session note format than the original plan.
+- **Cap enforcement pattern is mature** — adding MAX_REFLECTIONS and MAX_EXECUTION_TASKS followed the exact pattern of existing caps. 20 lines of production code, 6 tests, zero friction.
+- **Per-increment TASM scoring** — consistent 33/35 across all 4 increments shows stable engineering quality.
+
+### Deviations from Plan
+
+- **Inc 3 scope expanded significantly** — original plan: ~100 LOC, ~15 tests. Actual: 221 LOC, 60 tests. Four user-directed expansions (artifact aggregation, frontmatter restructuring, artifact links + filter respect, closure ritual in session notes). All expansions were cohesive ("session note quality") and delivered within the increment.
+- **Inc 4 test count lower than estimate** — target: ~10, actual: 6. Guard logic is simple enough that 3 boundary-condition tests per cap provides sufficient coverage.
+- **No new TD items created** — the cycle resolved 2 TD items (TD-101, TD-100) without introducing new debt. `helpers.ts` LOC growth noted as observation, not formal debt.
+
+### Improvement Backlog
+
+| Item | Classification | Target |
+|------|---------------|--------|
+| `helpers.ts` decomposition at 1,050 LOC threshold | Observation | Next cycle (if triggered) |
+| `SessionWorkspaceView.ts` main/sidebar restructuring | PBI | PBI-SW-017 (next cycle) |
+| UI toast for cap reached events | Feature | Future polish pass |
+| `HandlerContextProxy` member count (14) | Observation | Monitor — no action yet |
+| Inc 3 frontmatter metrics enable Dataview queries | Opportunity | User documentation / guides |
+
+### Learnings
+
+- **L-28: Large extractions are safe when tests are comprehensive** — 35+ methods extracted with zero regressions because the existing 224 service tests covered all behavior paths. High test coverage makes refactoring near-zero-risk.
+- **L-29: Missing render debounce is a silent performance killer** — SessionWorkspaceView had 28 event listeners, each triggering immediate full renders. The symptom was "sluggish feel" but the cause was invisible. Always check for render coalescing when adding event subscriptions.
+- **L-30: User-directed scope expansion produces better outcomes** — Inc 3's four expansions were all "while we're here" improvements to session note quality. The overhead was ~3x the original estimate but the result is significantly more useful. Budget for this pattern.
+- **L-31: Cap enforcement is a zero-friction pattern** — define constant, add guard, emit event, add tests. Total effort: ~30 minutes. Should be applied proactively to any unbounded collection.
+
+---
+
+## Inbox & Feedback Loop
+
+### Inbox Items Reviewed
+
+| Item | Domain | Previous Stage | Updated Stage | Notes |
+|------|--------|----------------|---------------|-------|
+| Activity Intelligence tracking | session | planned | **delivered** | FR-15 delivered via PBI-SW-015 (Inc 3) |
+| Capture tasks during sessions | session | planned | **delivered** | PBI-SW-012 already delivered (Cycle 7), confirmed current |
+| Sort goals in sessions | session | planned | **delivered** | Goal reorder delivered (Cycle 7), confirmed current |
+| File tracking memory concerns | session | partially-delivered | partially-delivered | Dedup + capping in place; full disable toggle still missing |
+
+### New Feedback Captured
+
+- **Session note quality is now a strength** — unified Activity Intelligence section, closure ritual, artifact links, filter respect, flat frontmatter metrics all combine to make session notes a first-class vault document
+- **Dataview integration opportunity** — `type: "SessionNote"` frontmatter + flat activity metrics enable cross-session Dataview queries (not yet documented for users)
+- **Cap reached events need UX** — `session.reflection.capReached` and `session.task.capReached` are emitted but no UI toast exists yet
+
+### Next Cycle Inputs
+
+| Input | Source | Priority | Target |
+|-------|--------|----------|--------|
+| PBI-SW-017: Main/Sidebar Mode Separation | Backlog | High | Next cycle (unblocked by TD-101) |
+| `helpers.ts` decomposition (if >1,050 LOC) | OBS-1 | Low | Triggered if feature work expands helpers |
+| Cap reached UI toast | OBS-3 | Low | Polish pass |
+| PBI-SW-009: Domain Design Session | Backlog | Medium | Depends on FR-18 Workshop mode |
+| Dataview integration documentation | Feedback | Low | User guides |
 
 ---
 

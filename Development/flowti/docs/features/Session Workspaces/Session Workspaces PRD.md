@@ -2,7 +2,7 @@
 type: ProductRequirementsDocument
 domain: Session
 stage: in-progress
-version: 8
+version: 9
 maturity: L3
 created: 2026-02-01
 updated: 2026-02-21
@@ -799,8 +799,9 @@ interface Session {
 | Cycle 6 (v2 foundation: intent 3, energy 2, lifecycle 2, tasks 8, template 2) | 17 |
 | Cycle 7 (notes sync: 3, closure: 2, goal reorder: 2) | 7 |
 | Cycle 8 (energy command: 1, overload: 1, reflection commands + states: 4) | 6 |
-| **Total session events (delivered)** | **98** |
-| *Active (excluding 8 deprecated FR-08 events)* | *90* |
+| Cycle 9 (cap reached: reflection 1, task 1) | 2 |
+| **Total session events (delivered)** | **100** |
+| *Active (excluding 8 deprecated FR-08 events)* | *92* |
 
 ### Planned Events (v2 — remaining)
 
@@ -1264,6 +1265,7 @@ See `backlog/PBI-SW-*.md` for detailed specifications.
 | 2026-02-19 | in-progress | in-progress | Cycle 8 Closure + Three Amigos | 30/35 | Business, Dev, QA | **PASS** with 5 observations, 3 action items. Cycle 8 delivered: 4/4 planned increments, 3 PBIs done (SW-011, SW-013, SW-016), 3 FRs done (FR-11, FR-13, FR-16). 81 new tests, 2,768 total, 109 suites. TD-101 stretch deferred (SessionService at 1,729 LOC — extract required for Cycle 9). AI-1: promote TD-101 to required. AI-2: priority ranking updated. AI-3: add MAX_REFLECTIONS guard. v2 status: 7/10 FRs, 6/8 PBIs delivered. |
 | 2026-02-19 | in-progress | in-progress | Full Audit + Cycle 9 Planning | 30/35 | — | Full plugin audit: 17 drift points found and fixed. **Critical:** TD-092 phantom resolved — actual TD-92 = "No pull-request process"; created TD-101 for SessionService extraction. All TD-092 refs across 5 docs updated to TD-101. TD-54/TD-55 marked resolved (BaseHubView Phase 12). Frontend Architecture reconciled (17 session components, 28 subscriptions, 90 session events, 109 suites, 2,768 tests). Cycle 9 planned: TD-101 (required) + TD-100 (investigation) + PBI-SW-015 (Activity Intelligence) + hardening. 4 increments. |
 | 2026-02-21 | in-progress | in-progress | Cycle 9 Inc 3 — Activity Intelligence | 31/35 | — | PBI-SW-015 delivered (FR-15 Done): `computeActivityIntelligence()` pure function, `SessionActivityIntelligencePanel` component (67 LOC), unified `### Activity Intelligence` section in session notes (replaces Artifacts + Time Summary), artifact wiki-links, `### Closure Ritual` section in session notes, `SessionFrontmatter` restructured (`type: "SessionNote"`, flat activity metrics), `isExcluded()` filter threading through all note generation. FRI updated: ui_consistency 3→4. 60 new tests, 2,849 total, 111 suites. TASM: 33/35 (Excellent). |
+| 2026-02-21 | in-progress | in-progress | Cycle 9 Inc 4 — Hardening + Debt Cleanup | 31/35 | — | MAX_REFLECTIONS (200) and MAX_EXECUTION_TASKS (50) caps implemented with `session.reflection.capReached` and `session.task.capReached` events. Follows established guard pattern. Three Amigos AI-3 from Cycle 8 resolved. Session events: 90→92 active. 6 new tests, 2,855 total, 111 suites. TASM: 33/35 (Excellent). Cycle 9 complete: 4/4 increments delivered. |
 
 ### Related Architecture Decisions
 

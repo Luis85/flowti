@@ -472,6 +472,8 @@ const CATALOG_DATA = {
 	"session.review.started":     { category: "Session", description: "Session entered reviewing state", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.closure.started":    { category: "Session", description: "Closure ritual began (reviewing state)", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.closure.completed":  { category: "Session", description: "Closure ritual completed", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.reflection.capReached": { category: "Session", description: "Reflection cap reached (MAX_REFLECTIONS)", direction: "Service → Listeners", domain: "session", services: "SessionService" },
+	"session.task.capReached":    { category: "Session", description: "Execution task cap reached (MAX_EXECUTION_TASKS)", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 	"session.overload.detected":  { category: "Session", description: "Cognitive overload thresholds exceeded", direction: "Service → Listeners", domain: "session", services: "SessionService" },
 
 	// ── Nudge ─────────────────────────────────────────────────

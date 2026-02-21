@@ -8,7 +8,7 @@
 
 import { generateUUID } from "../../../utils/helpers";
 import type { ContextBindingType, EnergyLevel, ReflectionEntry, Session, SessionContextBinding, SessionIntent, SessionLink, SessionOutputArtifact, SessionOutputTemplate, SessionTypeConfig, WorkspaceState } from "../types";
-import { MAX_CONTEXT_BINDINGS, MAX_SESSION_DECISIONS, MAX_OUTPUT_ARTIFACTS, SESSION_NOTES_FOLDER, SESSION_TYPE_CONFIGS } from "../types";
+import { MAX_CONTEXT_BINDINGS, MAX_SESSION_DECISIONS, MAX_OUTPUT_ARTIFACTS, MAX_REFLECTIONS, SESSION_NOTES_FOLDER, SESSION_TYPE_CONFIGS } from "../types";
 import { createContextBinding, createDecision, generateSessionOutput, resolveTypeConfig } from "../helpers";
 import type { SessionHandlerContext } from "./types";
 
@@ -186,6 +186,10 @@ export async function handleReflectionAdd(ctx: SessionHandlerContext, sessionId:
 	const session = ctx.findSession(sessionId);
 	if (!session || !content.trim()) return;
 	if (session.status !== "running" && session.status !== "paused") return;
+	if (session.reflections.length >= MAX_REFLECTIONS) {
+		await ctx.eventBus?.emit("session.reflection.capReached", { sessionId, limit: MAX_REFLECTIONS });
+		return;
+	}
 
 	const entry: ReflectionEntry = {
 		id: `ref_${generateUUID()}`,

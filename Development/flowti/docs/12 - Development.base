@@ -4,13 +4,14 @@ filters:
     - type == "DevelopmentCycle"
 views:
   - type: table
-    name: Table
+    name: Cycles
     order:
-      - file.name
       - stage
+      - file.name
       - estimated_increments
     sort:
       - property: file.name
         direction: DESC
     columnSize:
+      note.stage: 87
       file.name: 374

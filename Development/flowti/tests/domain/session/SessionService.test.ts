@@ -3485,6 +3485,85 @@ describe("SessionService", () => {
 			const session = service.getSessionById(sessionId)!;
 			expect(session.reflections[0].content).toBe("padded content");
 		});
+
+		it("rejects add when MAX_REFLECTIONS cap reached", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "Ref Cap", durationMinutes: 25 });
+			const sessionId = service.getSessions()[0].id;
+			await eventBus.emit("session.start", { sessionId });
+
+			// Directly fill to cap for performance (avoid 200 event round-trips)
+			const session = service.getSessionById(sessionId)!;
+			for (let i = 0; i < 200; i++) {
+				session.reflections.push({
+					id: `ref_${i}`,
+					type: "observation",
+					content: `Reflection ${i}`,
+					timestamp: new Date().toISOString(),
+				});
+			}
+
+			await eventBus.emit("session.reflection.add", {
+				sessionId,
+				type: "idea",
+				content: "Over the limit",
+			});
+
+			expect(service.getSessionById(sessionId)!.reflections).toHaveLength(200);
+		});
+
+		it("emits session.reflection.capReached when cap is hit", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "Ref Cap Event", durationMinutes: 25 });
+			const sessionId = service.getSessions()[0].id;
+			await eventBus.emit("session.start", { sessionId });
+
+			// Fill to cap directly
+			const session = service.getSessionById(sessionId)!;
+			for (let i = 0; i < 200; i++) {
+				session.reflections.push({
+					id: `ref_${i}`,
+					type: "observation",
+					content: `Reflection ${i}`,
+					timestamp: new Date().toISOString(),
+				});
+			}
+
+			const handler = vi.fn();
+			eventBus.on("session.reflection.capReached", handler);
+
+			await eventBus.emit("session.reflection.add", {
+				sessionId,
+				type: "idea",
+				content: "Overflow",
+			});
+
+			expect(handler).toHaveBeenCalledOnce();
+			expect(handler.mock.calls[0][0].payload.sessionId).toBe(sessionId);
+			expect(handler.mock.calls[0][0].payload.limit).toBe(200);
+		});
+
+		it("allows add at exactly one below the cap", async () => {
+			await eventBus.emit("session.create", { type: "documentation", title: "Ref Boundary", durationMinutes: 25 });
+			const sessionId = service.getSessions()[0].id;
+			await eventBus.emit("session.start", { sessionId });
+
+			const session = service.getSessionById(sessionId)!;
+			for (let i = 0; i < 199; i++) {
+				session.reflections.push({
+					id: `ref_${i}`,
+					type: "observation",
+					content: `Reflection ${i}`,
+					timestamp: new Date().toISOString(),
+				});
+			}
+
+			await eventBus.emit("session.reflection.add", {
+				sessionId,
+				type: "idea",
+				content: "Last one allowed",
+			});
+
+			expect(service.getSessionById(sessionId)!.reflections).toHaveLength(200);
+		});
 	});
 
 	// ── Workspace State Restoration ─────────────────────────

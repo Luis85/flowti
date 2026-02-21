@@ -126,6 +126,49 @@ describe("Execution Tasks (FR-12)", () => {
 
 			expect(storage.storage.save).toHaveBeenCalled();
 		});
+
+		it("rejects when MAX_EXECUTION_TASKS reached", async () => {
+			const id = await createSession("prepared");
+
+			// Fill to cap
+			for (let i = 0; i < 50; i++) {
+				await service.addTask(id, `Task ${i}`);
+			}
+			const session = service.getSessionById(id)!;
+			expect(session.executionTasks).toHaveLength(50);
+
+			// Attempt to exceed cap
+			const result = await service.addTask(id, "Over limit");
+			expect(result).toBeNull();
+			expect(service.getSessionById(id)!.executionTasks).toHaveLength(50);
+		});
+
+		it("emits session.task.capReached when cap is hit", async () => {
+			const id = await createSession("prepared");
+			for (let i = 0; i < 50; i++) {
+				await service.addTask(id, `Task ${i}`);
+			}
+
+			const handler = vi.fn();
+			eventBus.on("session.task.capReached", handler);
+
+			await service.addTask(id, "Overflow");
+
+			expect(handler).toHaveBeenCalledOnce();
+			expect(handler.mock.calls[0][0].payload.sessionId).toBe(id);
+			expect(handler.mock.calls[0][0].payload.limit).toBe(50);
+		});
+
+		it("allows adding task at exactly one below the cap", async () => {
+			const id = await createSession("prepared");
+			for (let i = 0; i < 49; i++) {
+				await service.addTask(id, `Task ${i}`);
+			}
+
+			const result = await service.addTask(id, "Task 49");
+			expect(result).not.toBeNull();
+			expect(service.getSessionById(id)!.executionTasks).toHaveLength(50);
+		});
 	});
 
 	// ── toggleTask ──────────────────────────────────────────

@@ -233,6 +233,12 @@ export interface SessionEventMap {
 	/** Emitted after a reflection entry is removed */
 	"session.reflection.removed": { sessionId: string; entryId: string };
 
+	// ── v2: Cap reached events ───────────────────────────────
+	/** Emitted when reflection cap is reached (MAX_REFLECTIONS) */
+	"session.reflection.capReached": { sessionId: string; limit: number };
+	/** Emitted when execution task cap is reached (MAX_EXECUTION_TASKS) */
+	"session.task.capReached": { sessionId: string; limit: number };
+
 	// ── v2: Lifecycle & closure events (ADR-031, FR-09/14) ──
 	/** Emitted when session enters reviewing state */
 	"session.review.started": { sessionId: string };
