@@ -4,7 +4,7 @@ stage: discovery
 origin: inbox
 domain: session
 parent: "[[Session Workspaces PRD]]"
-description: "Create flows step-by-step using service design blueprints — each step documents inputs, process, outputs, events, actors, systems, interfaces."
+description: Create flows step-by-step using service design blueprints — each step documents inputs, process, outputs, events, actors, systems, interfaces.
 tags:
 priority: 01 - medium
 rank:
@@ -24,3 +24,51 @@ I can add Actors, Systems, Events, whatever I need.
 By defining steps, I define the process of the flow. Each step can also have those attached props.
 
 We can also add QA-Checklists after each step
+
+# UX / Concept Designer
+
+### Archetype
+
+Designs interaction, user flows, clarity, and structure.
+
+### Core Goals
+
+- Translate research into flows
+    
+- Maintain consistency
+    
+- Collaborate with architecture
+    
+- Document solution space clearly
+    
+
+### Jobs To Be Done
+
+- Create Story Maps
+    
+- Define User Journeys
+    
+- Model interaction flows
+    
+- Maintain design artifacts
+    
+
+### Pain Points
+
+- Design disconnected from backlog
+    
+- Hard to see system dependencies
+    
+- No unified documentation structure
+    
+
+### What Flowti Must Provide
+
+- Story Mapping tool
+    
+- UI Composition Map
+    
+- Interaction Flow Map
+    
+- Service Blueprint layer (Frontstage / Backstage)
+    

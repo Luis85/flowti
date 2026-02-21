@@ -12,7 +12,7 @@ pbis:
 bugs: []
 bugs_fixed_precycle: []
 tech_debt: []
-estimated_increments: 6
+estimated_increments: 7
 actual_increments:
 estimated_tests: 110
 actual_tests:
@@ -163,7 +163,40 @@ None bundled — this is a greenfield feature cycle.
 
 ---
 
-### Inc 3: Thought Linking + Branching (PBI-TOT-001, Part 2)
+### Inc 3: Quick Capture Polish (cross-cutting)
+
+**Goal:** Polish the Quick Capture feature based on dogfooding feedback and code gap analysis. Exposes the hidden `captureFolder` setting, adds description field to modal, guards empty titles, adds post-capture confirmation Notice, dynamic modal heading, and new `learning` capture type.
+
+**Rationale:** Inserted mid-cycle to address UX gaps before adding new features. Independent of Train increments.
+
+| Step | File | Purpose | Est. LOC |
+|------|------|---------|----------|
+| 1 | `src/domain/capture/types.ts` | Add `learning` to CaptureType union | +1 |
+| 2 | `src/domain/capture/CaptureService.ts` | Guard empty title after sanitization | +3 |
+| 3 | `src/ui/capture/QuickCaptureModal.ts` | Dynamic heading + description textarea + learning in dropdown | +20 |
+| 4 | `src/domain/settings/FlowtiSettingTab.ts` | Expose captureFolder setting in Documentation section | +14 |
+| 5 | `src/main.ts` | Add Notice confirmation after capture | +3 |
+| 6 | `src/infrastructure/commands/registry.ts` | Add `flowti:add-learning` command | +8 |
+
+**Est. total:** ~55 LOC source, ~100 LOC tests, ~11 new tests
+
+**Test intent:**
+- Unit tests: empty title throws error, learning type creates title-cased frontmatter
+- Unit tests: dynamic modal heading, description textarea renders, learning in dropdown, onSubmit with description
+- Unit tests: captureFolder setting rendered in FlowtiSettingTab
+
+**Acceptance criteria:**
+- [ ] Settings > Documentation shows "Quick Capture folder" text input
+- [ ] QuickCaptureModal shows description textarea below title
+- [ ] Modal heading says "Capture Idea" from ribbon, "Quick Capture" from command palette
+- [ ] "Add Learning" command visible in command palette
+- [ ] Learning type in dropdown (11 options in 2 groups)
+- [ ] Notice shows "Captured: [title]" after capture
+- [ ] Empty title after sanitization throws error (no `.md` file)
+
+---
+
+### Inc 4: Thought Linking + Branching (PBI-TOT-001, Part 2)
 
 **Goal:** Wire thought-to-thought linking via frontmatter relations, add branch support, and enable navigation within TrainService.
 
@@ -189,7 +222,7 @@ None bundled — this is a greenfield feature cycle.
 
 ---
 
-### Inc 4: Train Main View (PBI-TOT-002, Part 1)
+### Inc 5: Train Main View (PBI-TOT-002, Part 1)
 
 **Goal:** Dedicated main view for thought navigation, detail display, and branch links.
 
@@ -217,7 +250,7 @@ None bundled — this is a greenfield feature cycle.
 
 ---
 
-### Inc 5: Timeline Sidebar (PBI-TOT-002, Part 2)
+### Inc 6: Timeline Sidebar (PBI-TOT-002, Part 2)
 
 **Goal:** Sidebar timeline graph visualization with click-to-navigate and branch rendering.
 
@@ -246,7 +279,7 @@ None bundled — this is a greenfield feature cycle.
 
 ---
 
-### Inc 6: Session Nesting + Closure (PBI-TOT-003)
+### Inc 7: Session Nesting + Closure (PBI-TOT-003)
 
 **Goal:** Enable session nesting for trains and integrate with the closure ritual system.
 
@@ -282,21 +315,22 @@ None bundled — this is a greenfield feature cycle.
 Inc 1: Train Domain + Serial Capture
   │
   │   Inc 2: Inbox Polish (independent)
+  │   Inc 3: Quick Capture Polish (independent)
   │
   ▼
-Inc 3: Thought Linking + Branching
+Inc 4: Thought Linking + Branching
   │
   ├──────────────────┐
   ▼                  ▼
-Inc 4: Main View   Inc 5: Timeline Sidebar
+Inc 5: Main View   Inc 6: Timeline Sidebar
   │                  │
   └────────┬─────────┘
            ▼
-    Inc 6: Session Nesting + Closure
+    Inc 7: Session Nesting + Closure
 ```
 
-Inc 2 is independent — no deps on Inc 1 output, no blockers for Inc 3.
-Inc 4 and Inc 5 can be developed in parallel after Inc 3 is complete.
+Inc 2 and Inc 3 are independent — no deps on Inc 1 output, no blockers for Inc 4.
+Inc 5 and Inc 6 can be developed in parallel after Inc 4 is complete.
 
 ---
 
