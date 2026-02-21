@@ -658,4 +658,91 @@ describe("TrainService", () => {
 			expect(service.getChildren(train.id, thoughtB!.id)).toEqual([]);
 		});
 	});
+
+	describe("nesting — startTrain()", () => {
+		it("auto-pauses running train when starting a new one", async () => {
+			const { service, eventBus } = createTestHarness();
+			await service.load();
+
+			const train1 = await service.startTrain("First Train");
+			expect(train1.status).toBe("running");
+
+			const pauseEvents: string[] = [];
+			eventBus.on("train.paused", (e) => { pauseEvents.push(e.payload.trainId); });
+
+			const train2 = await service.startTrain("Second Train");
+
+			expect(service.getTrain(train1.id)!.status).toBe("paused");
+			expect(train2.status).toBe("running");
+			expect(pauseEvents).toContain(train1.id);
+		});
+
+		it("sets parentTrainId to the paused train", async () => {
+			const { service } = createTestHarness();
+			await service.load();
+
+			const train1 = await service.startTrain("Parent");
+			const train2 = await service.startTrain("Child");
+
+			expect(train2.parentTrainId).toBe(train1.id);
+		});
+
+		it("sets parentTrainId to paused train when pausing before start", async () => {
+			const { service } = createTestHarness();
+			await service.load();
+
+			const train1 = await service.startTrain("Already Paused");
+			await service.pause(train1.id);
+
+			const train2 = await service.startTrain("New After Pause");
+
+			expect(train2.parentTrainId).toBe(train1.id);
+		});
+
+		it("has no parentTrainId when no active train", async () => {
+			const { service } = createTestHarness();
+			await service.load();
+
+			const train = await service.startTrain("Solo Train");
+
+			expect(train.parentTrainId).toBeUndefined();
+		});
+	});
+
+	describe("nesting — resume()", () => {
+		it("auto-pauses running train when resuming another", async () => {
+			const { service, eventBus } = createTestHarness();
+			await service.load();
+
+			const train1 = await service.startTrain("First");
+			const train2 = await service.startTrain("Second");
+			// train1 is now paused (by nesting), train2 is running
+
+			const pauseEvents: string[] = [];
+			eventBus.on("train.paused", (e) => { pauseEvents.push(e.payload.trainId); });
+
+			// Resume train1 — should pause train2 first
+			await service.resume(train1.id);
+
+			expect(service.getTrain(train1.id)!.status).toBe("running");
+			expect(service.getTrain(train2.id)!.status).toBe("paused");
+			expect(pauseEvents).toContain(train2.id);
+		});
+
+		it("resumes without pausing when no other running train", async () => {
+			const { service, eventBus } = createTestHarness();
+			await service.load();
+
+			const train = await service.startTrain("Only");
+			await service.pause(train.id);
+
+			const pauseEvents: string[] = [];
+			eventBus.on("train.paused", (e) => { pauseEvents.push(e.payload.trainId); });
+
+			await service.resume(train.id);
+
+			expect(service.getTrain(train.id)!.status).toBe("running");
+			expect(pauseEvents).toHaveLength(0);
+		});
+	});
 });

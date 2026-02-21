@@ -11,6 +11,7 @@ import {
 	DEFAULT_CLOSURE_TEMPLATE,
 	resolveClosureTemplate,
 } from "../../../src/domain/session/helpers";
+import { SESSION_TYPE_CONFIGS } from "../../../src/domain/session/types";
 
 // ─────────────────────────────────────────────────────────────
 // Helpers
@@ -93,6 +94,36 @@ describe("DEFAULT_CLOSURE_TEMPLATE", () => {
 	});
 });
 
+describe("SESSION_TYPE_CONFIGS — train-of-thought closure template", () => {
+	const trainConfig = SESSION_TYPE_CONFIGS["train-of-thought"];
+
+	it("has a closureTemplate defined", () => {
+		expect(trainConfig.closureTemplate).toBeDefined();
+	});
+
+	it("has 4 questions", () => {
+		expect(trainConfig.closureTemplate!.questions).toHaveLength(4);
+	});
+
+	it("requires key-insight and outcome", () => {
+		expect(trainConfig.closureTemplate!.requiredFields).toEqual(["key-insight", "outcome"]);
+	});
+
+	it("key-insight is text type", () => {
+		const question = trainConfig.closureTemplate!.questions.find(q => q.id === "key-insight");
+		expect(question).toBeDefined();
+		expect(question!.type).toBe("text");
+		expect(question!.required).toBe(true);
+	});
+
+	it("outcome is select type with 3 options", () => {
+		const question = trainConfig.closureTemplate!.questions.find(q => q.id === "outcome");
+		expect(question).toBeDefined();
+		expect(question!.type).toBe("select");
+		expect(question!.options).toHaveLength(3);
+	});
+});
+
 describe("resolveClosureTemplate", () => {
 	it("returns default template when no overrides", () => {
 		const session = makeSession();
@@ -135,6 +166,20 @@ describe("resolveClosureTemplate", () => {
 	it("falls back to default when type-level map is empty", () => {
 		const session = makeSession();
 		expect(resolveClosureTemplate(session, undefined, {})).toBe(DEFAULT_CLOSURE_TEMPLATE);
+	});
+
+	it("resolves train-of-thought closure template from type map", () => {
+		const session = makeSession({ type: "train-of-thought" });
+		const trainTemplate: ClosureTemplate = {
+			questions: [
+				{ id: "key-insight", question: "What was the key insight?", type: "text", required: true },
+				{ id: "outcome", question: "How productive?", type: "select", required: true, options: ["very", "somewhat", "not"] },
+			],
+			requiredFields: ["key-insight", "outcome"],
+		};
+		const result = resolveClosureTemplate(session, undefined, { "train-of-thought": trainTemplate });
+		expect(result).toBe(trainTemplate);
+		expect(result.questions).toHaveLength(2);
 	});
 });
 

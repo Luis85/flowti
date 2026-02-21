@@ -1,10 +1,10 @@
 ---
 type: DevelopmentCycle
 feature: "[[Train of Thoughts PRD]]"
-stage: in-progress
+stage: done
 cycle: 13
 date_planned: 2026-02-21
-date_completed:
+date_completed: 2026-02-21
 pbis:
   - "[[PBI-TOT-001 Train Domain and Serial Capture]]"
   - "[[PBI-TOT-002 Train Main View and Timeline Sidebar]]"
@@ -13,11 +13,11 @@ bugs: []
 bugs_fixed_precycle: []
 tech_debt: []
 estimated_increments: 8
-actual_increments:
+actual_increments: 8
 estimated_tests: 110
-actual_tests:
-total_tests_after:
-total_test_files_after:
+actual_tests: 73
+total_tests_after: 3263
+total_test_files_after: 131
 ---
 
 # Cycle 13: Train of Thoughts
@@ -485,12 +485,31 @@ None bundled — this is a greenfield feature cycle.
 - Flow test: full nesting lifecycle
 
 **Acceptance criteria:**
-- [ ] Starting a new train pauses the currently running train
-- [ ] New train links to the paused train
-- [ ] Resuming a train pauses the current one
-- [ ] Closure ritual triggers on train completion
-- [ ] Train-specific closure questions shown
-- [ ] Train sessions appear in session history
+- [x] Starting a new train pauses the currently running train
+- [x] New train links to the paused train (`parentTrainId`)
+- [x] Resuming a train pauses the current one
+- [x] Closure ritual triggers on train completion (`session.closure.started` → Session Workspace)
+- [x] Train-specific closure questions shown (4 questions: key-insight, patterns, follow-up, outcome)
+- [x] Train sessions appear in session history (via `session.create` with `train-of-thought` type)
+
+### Post Inc 8 State (2026-02-21, Inc 8 complete)
+
+**Plugin health:**
+- 3,263 tests passing, 131 test suites, 32 skipped
+- Build status: green (`npm test` = tsc + eslint + vitest)
+- 8 Train events + 1 UI command event in catalog
+
+**Delivered Inc 8 (Session Nesting + Closure):**
+- `parentTrainId` field on TrainState — links nested trains to their parent
+- `startTrain()` auto-pauses active running train before creating new one (nesting)
+- `resume()` auto-pauses other running train before resuming target train
+- `closureTemplate` added to `SESSION_TYPE_CONFIGS["train-of-thought"]` — 4 questions (key-insight, patterns, follow-up, outcome), 2 required fields
+- `SessionWorkspaceView.getTypeClosureTemplates()` updated to include built-in `SESSION_TYPE_CONFIGS` closure templates (was only reading custom types)
+- `session.closure.started` listener auto-opens Session Workspace for train-of-thought sessions (train sessions suppress workspace on start but need it for closure)
+- `ui.startTrain` handler updated: paused → resume; running or none → prompt for new title (nesting via `startTrain()`)
+- 12 new tests: 6 nesting tests in TrainService.test.ts + 6 closure template tests in closureRitual.test.ts
+
+**Cycle complete — all 8 increments delivered.**
 
 ---
 

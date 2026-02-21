@@ -287,23 +287,20 @@ export default class FlowtiBasePlugin extends Plugin {
 			});
 
 			// Train of Thoughts serial capture listener
+			// Nesting: if a train is running, prompt for a new title (startTrain auto-pauses)
+			// If paused, resume it. If none, prompt for a new title.
 			this.eventBus.on("ui.startTrain", () => {
 				if (!this.trainService) return;
 
-				// If an active train exists, resume or focus it.
-				// The train.resumed listener handles view + modal opening.
+				// If paused, resume. The train.resumed listener handles view + modal opening.
 				const activeTrain = this.trainService.getActiveTrain();
 				if (activeTrain && activeTrain.status === "paused") {
 					void this.trainService.resume(activeTrain.id);
 					return;
 				}
-				if (activeTrain && activeTrain.status === "running") {
-					this.revealOrCreateTrainView(activeTrain.id);
-					this.openTrainModal(activeTrain.id, activeTrain.title);
-					return;
-				}
 
-				// Prompt for train title, then start
+				// Running or no train — prompt for a new title.
+				// startTrain() auto-pauses any running train (nesting).
 				const duration = this.settings.defaultTrainDuration ?? 0;
 				new InputModal(this.app, {
 					title: "Start a new Train of Thoughts",
@@ -705,6 +702,27 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.eventBus.on("ui.openTrainView", () => {
 				const activeTrain = this.trainService?.getActiveTrain();
 				this.revealOrCreateTrainView(activeTrain?.id ?? null);
+			}),
+		);
+
+		// Auto-open Session Workspace for train closure ritual
+		// Train sessions suppress workspace on start, but need it for closure
+		this.crossCuttingListeners.push(
+			this.eventBus.on("session.closure.started", (event) => {
+				const session = this.sessionService?.getSessionById(event.payload.sessionId);
+				if (!session || session.type !== "train-of-thought") return;
+
+				const existingLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_SESSION_WORKSPACE);
+				if (existingLeaves.length > 0) {
+					// Already open — just reveal it (it will re-render the closure overlay)
+					void this.app.workspace.revealLeaf(existingLeaves[0]);
+					return;
+				}
+
+				void this.app.workspace.getLeaf("tab").setViewState({
+					type: VIEW_TYPE_SESSION_WORKSPACE,
+					active: true,
+				});
 			}),
 		);
 

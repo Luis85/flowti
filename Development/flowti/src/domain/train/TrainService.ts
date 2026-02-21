@@ -108,9 +108,20 @@ export class TrainService {
 
 	/**
 	 * Start a new train: create a session via EventBus, then create the TrainState.
+	 * If another train is running or paused, it is auto-paused (nesting).
 	 * @param durationMinutes Timer duration in minutes (0 = unlimited / no timer).
 	 */
 	async startTrain(title: string, durationMinutes = 0): Promise<TrainState> {
+		// Nesting: pause the active train before starting a new one
+		const activeTrain = this.getActiveTrain();
+		let parentTrainId: string | undefined;
+		if (activeTrain) {
+			if (activeTrain.status === "running") {
+				await this.pause(activeTrain.id);
+			}
+			parentTrainId = activeTrain.id;
+		}
+
 		// Create session via event (avoids direct SessionService dependency)
 		const sessionId = await this.createSessionViaEvent(title, durationMinutes);
 
@@ -125,6 +136,7 @@ export class TrainService {
 			createdAt: new Date().toISOString(),
 			pausedAt: null,
 			completedAt: null,
+			parentTrainId,
 		};
 
 		// Evict oldest if at capacity
@@ -221,10 +233,19 @@ export class TrainService {
 
 	/**
 	 * Resume a paused train.
+	 * If another train is running, it is auto-paused first (nesting).
 	 */
 	async resume(trainId: string): Promise<boolean> {
 		const train = this.findTrain(trainId);
 		if (!train || train.status !== "paused") return false;
+
+		// Nesting: pause the currently running train before resuming this one
+		const runningTrain = this.state.trains.find(
+			(t) => t.id !== trainId && t.status === "running",
+		);
+		if (runningTrain) {
+			await this.pause(runningTrain.id);
+		}
 
 		train.status = "running";
 		train.pausedAt = null;

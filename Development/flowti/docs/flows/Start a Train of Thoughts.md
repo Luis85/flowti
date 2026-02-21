@@ -16,6 +16,8 @@ events:
   - train.completed
   - train.thought.activated
   - ui.startTrain
+  - session.closure.started
+  - session.closure.completed
 tags:
   - train
   - capture
@@ -37,7 +39,7 @@ User clicks the "Train of Thoughts" ribbon icon (train-front) or invokes the "St
 
 - **View/Service**: main.ts (ribbon icon / command registry)
 - **User Action**: Clicks ribbon icon or invokes command from palette
-- **System Response**: The ribbon icon first checks for an active train. If one exists (running or paused), it emits `ui.openTrainView` to open the Train Main View. Otherwise, it emits `ui.startTrain`. The `ui.startTrain` listener checks for an active train: if paused, it resumes the train (which auto-opens the Train Main View + capture modal via the `train.resumed` listener). If running, it opens the Train Main View + capture modal directly. If no active train exists, it opens an InputModal for the train title.
+- **System Response**: The ribbon icon first checks for an active train. If one exists (running or paused), it emits `ui.openTrainView` to open the Train Main View. Otherwise, it emits `ui.startTrain`. The `ui.startTrain` listener checks for an active train: if paused, it resumes the train (which auto-opens the Train Main View + capture modal via the `train.resumed` listener). If no paused train exists (running or none), it opens an InputModal for the train title. Starting a new train while one is already running auto-pauses the running train (session nesting) and sets `parentTrainId` on the new train.
 - **Events**: `ui.openTrainView` (if train exists) or `ui.startTrain` (if no train)
 
 ### 2. User Names the Train
@@ -145,11 +147,31 @@ User clicks the "Train of Thoughts" ribbon icon (train-front) or invokes the "St
     → [TrainCaptureModal opens at current position]
 ```
 
-### Complete
+### Nesting (start new train while one is running)
+
+```
+[User invokes "Start Train" while Train A is running]
+    → ui.startTrain
+    → [InputModal opens — user enters title]
+    → TrainService.startTrain(title)
+    → TrainService.pause(trainA.id)   ← auto-pause
+        → session.pause { sessionId: trainA.sessionId }
+        → train.paused { trainId: trainA.id }
+    → session.create { type: "train-of-thoughts" }
+    → train.started { train: { ...trainB, parentTrainId: trainA.id } }
+```
+
+### Complete + Closure Ritual
 
 ```
 [User clicks Complete]
     → session.complete { sessionId }
+    → session.closure.started { sessionId }  ← session transitions to "reviewing"
+    → [Session Workspace auto-opens for train-of-thought sessions]
+    → [Closure overlay renders train-specific questions]
+    → [User submits closure response]
+    → session.closure.completed { sessionId, response }
+    → session.completed { session }
     → train.completed { trainId, thoughtCount }
 ```
 
@@ -198,6 +220,7 @@ thought-relations:
 | pausedAt | ISO string \| null | Last pause timestamp |
 | durationMinutes | number | Timer duration (0 = unlimited / no timer) |
 | completedAt | ISO string \| null | Completion timestamp |
+| parentTrainId | string \| undefined | ID of the train that was paused when this one started (nesting) |
 
 ## Navigation Helpers
 
@@ -218,9 +241,29 @@ thought-relations:
 - Train sessions suppress Session Workspace auto-open (`session.type === "train-of-thought"` guard) and workspace state restore — trains use TrainMainView as their primary view
 - Train–session lifecycle sync: `session.completed/resumed/paused` events auto-sync the linked train status via `TrainService.setupListeners()`
 
+## Closure Ritual
+
+When a train session completes (via `session.complete`), the session transitions to "reviewing" status and emits `session.closure.started`. For `train-of-thought` sessions, this auto-opens the Session Workspace where the closure overlay renders train-specific questions:
+
+| Question | Type | Required |
+|----------|------|----------|
+| "What was the key insight from this train?" | text | yes |
+| "Did any patterns or connections emerge?" | text | no |
+| "What needs further exploration?" | text | no |
+| "How productive was this session?" | select (very/somewhat/not productive) | yes |
+
+The user can submit the closure response or skip it. Submitting transitions the session to "completed" status; skipping also completes but without a closure response.
+
+Template resolution follows the 3-tier hierarchy: type-specific (`SESSION_TYPE_CONFIGS["train-of-thought"].closureTemplate`) → global override → `DEFAULT_CLOSURE_TEMPLATE`.
+
+## Session Nesting
+
+Starting a new train while one is already running causes the running train to auto-pause. The new train stores `parentTrainId` linking back to the paused train. Resuming a train also auto-pauses any other running train. This enables quick context switches between thought chains without losing state.
+
+Nesting is limited to one level — there is no deep nesting beyond pausing one train to start another.
+
 ## Known Limitations
 
-- No session nesting (planned: Inc 8)
 - Branch thoughts always link from the last thought unless caller specifies `fromThoughtId`
 - No way to delete individual thoughts from a train
 

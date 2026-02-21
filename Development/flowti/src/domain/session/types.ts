@@ -133,6 +133,15 @@ export const SESSION_TYPE_CONFIGS: Record<SessionType, SessionTypeConfig> = {
 		guidingQuestions: [],
 		defaultDuration: 0,
 		defaultGoals: [],
+		closureTemplate: {
+			questions: [
+				{ id: "key-insight", question: "What was the key insight from this train?", type: "text", required: true },
+				{ id: "patterns", question: "Did any patterns or connections emerge?", type: "text", required: false },
+				{ id: "follow-up", question: "What needs further exploration?", type: "text", required: false },
+				{ id: "outcome", question: "How productive was this session?", type: "select", required: true, options: ["very productive", "somewhat productive", "not productive"] },
+			],
+			requiredFields: ["key-insight", "outcome"],
+		},
 	},
 };
 

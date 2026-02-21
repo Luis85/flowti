@@ -61,6 +61,8 @@ export interface TrainState {
 	createdAt: string;
 	pausedAt: string | null;
 	completedAt: string | null;
+	/** ID of the train that was paused when this one started (nesting). */
+	parentTrainId?: string;
 }
 
 // ─────────────────────────────────────────────────────────────

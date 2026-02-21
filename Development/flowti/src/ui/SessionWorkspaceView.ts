@@ -33,7 +33,7 @@ import { SessionGuidingQuestions } from "./session/SessionGuidingQuestions";
 import { SessionDecisionPanel } from "./session/SessionDecisionPanel";
 import { SessionReflectionPanel } from "./session/SessionReflectionPanel";
 import { SessionOutputPanel } from "./session/SessionOutputPanel";
-import { type ClosureTemplate, type SessionTypeConfig, type SessionOutputTemplate } from "../domain/session/types";
+import { type ClosureTemplate, type SessionTypeConfig, type SessionOutputTemplate, SESSION_TYPE_CONFIGS } from "../domain/session/types";
 import { SessionClosureOverlay } from "./session/SessionClosureOverlay";
 import { SessionEnergyIndicator } from "./session/SessionEnergyIndicator";
 import { CognitiveLoadAlert } from "./session/CognitiveLoadAlert";
@@ -303,12 +303,23 @@ export class SessionWorkspaceView extends ItemView {
 	private getTypeClosureTemplates(): Record<string, ClosureTemplate> | undefined {
 		const result: Record<string, ClosureTemplate> = {};
 		let hasAny = false;
+
+		// Include built-in type configs with closure templates
+		for (const [type, config] of Object.entries(SESSION_TYPE_CONFIGS)) {
+			if (config.closureTemplate) {
+				result[type] = config.closureTemplate;
+				hasAny = true;
+			}
+		}
+
+		// Custom types override built-in
 		for (const [type, config] of Object.entries(this.customSessionTypes)) {
 			if (config.closureTemplate) {
 				result[type] = config.closureTemplate;
 				hasAny = true;
 			}
 		}
+
 		return hasAny ? result : undefined;
 	}
 
