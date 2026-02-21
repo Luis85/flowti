@@ -5,16 +5,16 @@ stage: in-progress
 version: 8
 maturity: L3
 created: 2026-02-01
-updated: 2026-02-19
+updated: 2026-02-21
 foundation: "[[PBI-002 Documentation Sessions]]"
 maturity_score_strategy: 5
 maturity_score_scope: 4
 maturity_score_architecture: 4
 maturity_score_event_integration: 5
 maturity_score_data_model: 4
-maturity_score_ui_consistency: 3
+maturity_score_ui_consistency: 4
 maturity_score_validation_testing: 5
-fri_score: 30
+fri_score: 31
 business_value: 5
 implementation_cost: 4
 maintenance_cost: 3
@@ -1010,14 +1010,19 @@ interface Session {
 - [x] Closure responses persisted with session state (`closureResponse` field on `Session`)
 - [ ] Global closure template configurable in settings (deferred — works via parameter passing)
 
-### FR-15: Activity Intelligence — 🔜 Planned
+### FR-15: Activity Intelligence — ✅ Done (Cycle 9)
 
-- [ ] Extends FR-01 Activity Log with computed analytics
-- [ ] Counters: files modified, events emitted, tasks completed
-- [ ] Time analytics: active time vs paused time (from existing timeline data)
-- [ ] Compact stats row in Sidebar
-- [ ] Full analytics card in Main mode
-- [ ] Data sourced from event stream and session state (no additional tracking)
+- [x] Extends FR-01 Activity Log with computed analytics (`computeActivityIntelligence()` pure function)
+- [x] Counters: files modified, artifacts produced, events emitted, tasks completed
+- [x] Time analytics: wall clock, active time, paused time (from existing timeline data)
+- [x] Compact stats row in workspace (`SessionActivityIntelligencePanel`, 67 LOC)
+- [ ] Full analytics card in Main mode (deferred — Main/Sidebar differentiation via PBI-SW-017)
+- [x] Data sourced from event stream and session state (no additional tracking)
+- [x] Unified `### Activity Intelligence` section in session notes (replaces former Artifacts + Time Summary)
+- [x] Artifact wiki-links inside Activity Intelligence section
+- [x] Activity metrics in session note frontmatter (flat key:value pairs)
+- [x] Closure ritual responses rendered as `### Closure Ritual` section in session notes
+- [x] Global + per-session folder filters respected at render time via `isExcluded()` threading
 
 ### FR-16: Cognitive Overload Detection — ✅ Delivered (Cycle 8)
 
@@ -1198,7 +1203,7 @@ SessionSidebarView
 | 4 | PBI-SW-012 | Execution Plan (Task Checklist) | High | — | ✅ Done (Cycle 7) — domain CRUD (Inc 1), UI panel + progress bar + reorder (Inc 2) |
 | 5 | PBI-SW-013 | Structured Reflection | Medium | FR-03 (delivered) | ✅ Done (Cycle 8 Inc 3 + Inc 4) |
 | 6 | PBI-SW-014 | Closure Ritual System | High | PBI-SW-010 | ✅ Done (Cycle 7) — configurable review overlay |
-| 7 | PBI-SW-015 | Activity Intelligence | Low | FR-01 (delivered) | 🔜 Planned — computed analytics from activity |
+| 7 | PBI-SW-015 | Activity Intelligence | Low | FR-01 (delivered) | ✅ Done (Cycle 9 Inc 3) — computed analytics, unified session note, frontmatter metrics, filter respect |
 | 8 | PBI-SW-016 | Cognitive Overload Detection | Low | — | ✅ Done (Cycle 8 Inc 2) — pure detection + non-blocking alert |
 | 9 | PBI-SW-017 | Main/Sidebar Mode Separation | High | PBI-SW-010 | 🔜 Planned — workspace vs. control surface |
 
@@ -1206,9 +1211,9 @@ SessionSidebarView
 
 > **v8 change — Daily tracking removed:** PBI-SW-007 (Auto-Session & Session Nudges) has been deprecated. The daily-tracking session type, auto-start, concurrent session support, daily note integration, and nudge system conflict with Session v2's philosophy of intentional execution environments. The `daily-tracking` session type, `dailySessionId`, `getDailySession()`, `generateDailySummary()`, nudge scheduler, and 8 related events (5 daily + 3 nudge) will be removed during v2 implementation. PBI-SW-007 status: Done → Removed.
 
-> **Remaining backlog:** 3 PBIs planned (PBI-SW-009, SW-015, SW-017). 6 v2 PBIs delivered: SW-010 (Cycle 6), SW-012 + SW-014 (Cycle 7), SW-011 + SW-013 + SW-016 (Cycle 8). 7/8 v1 PBIs remain valid (SW-001 through SW-006, SW-008).
+> **Remaining backlog:** 2 PBIs planned (PBI-SW-009, SW-017). 7 v2 PBIs delivered: SW-010 (Cycle 6), SW-012 + SW-014 (Cycle 7), SW-011 + SW-013 + SW-016 (Cycle 8), SW-015 (Cycle 9). 7/8 v1 PBIs remain valid (SW-001 through SW-006, SW-008).
 
-> **Priority ranking** (remaining delivery order by value): TD-101 (SessionService extraction — required before UI refactor) → PBI-SW-017 (Main/Sidebar) → PBI-SW-015 (Activity Intelligence). PBI-SW-009 deferred (depends on Workshop mode patterns from FR-18). **Rationale:** TD-101 reduces SessionService from 1,766 LOC before the major UI refactor; SW-017 is the major UI architecture change (large); SW-015 is analytics polish (low priority, scheduled for Cycle 9 Inc 3).
+> **Priority ranking** (remaining delivery order by value): PBI-SW-017 (Main/Sidebar Mode Separation) → PBI-SW-009 (Domain Design Session). **Rationale:** SW-017 is the major UI architecture change (large, unblocked by TD-101 completion); SW-009 deferred (depends on Workshop mode patterns from FR-18). TD-101 resolved (Cycle 9 Inc 1). PBI-SW-015 resolved (Cycle 9 Inc 3).
 
 See `backlog/PBI-SW-*.md` for detailed specifications.
 
@@ -1224,9 +1229,9 @@ See `backlog/PBI-SW-*.md` for detailed specifications.
 | 4 — Solution Design + PRD | Done | 2026-02-17 | PRD v2 with concrete requirements |
 | 5 — Development Ready | Done | 2026-02-17 | FRI 29/35; Technical Review: Pass |
 | 6 — Delivery Planning | Done | 2026-02-18 | 9 PBIs defined (6 original + 3 new from inbox). SW-001/002 done, SW-005 partial. Priority ranked by value. |
-| 7 — Implementation | In-Progress | 2026-02-18 | v1: FR-01–FR-08 delivered (Cycles 2–5). v2: FR-09–FR-14 + FR-16 delivered (Cycles 6–8). 15/18 FRs complete. 13/17 PBIs delivered. Cycle 9 planned (TD-101 extraction + FR-15). |
+| 7 — Implementation | In-Progress | 2026-02-21 | v1: FR-01–FR-08 delivered (Cycles 2–5). v2: FR-09–FR-16 delivered (Cycles 6–9). 16/18 FRs complete. 14/17 PBIs delivered. Cycle 9 in-progress (TD-101 + TD-100 resolved, FR-15 delivered). |
 | 8 — Review | In-Progress | 2026-02-19 | Three Amigos review Cycle 8 (2026-02-19): PASS with 5 observations, 3 action items. FRI 30/35. 2,768 tests. |
-| 9–10 | Pending | — | Remaining: FR-15 (Activity Intelligence — Cycle 9), FR-17 (Main/Sidebar — post Cycle 9), FR-18 (Workshop Mode — deferred) |
+| 9–10 | Pending | — | Remaining: FR-17 (Main/Sidebar — post Cycle 9), FR-18 (Workshop Mode — deferred) |
 
 ### Stage History
 
@@ -1258,6 +1263,7 @@ See `backlog/PBI-SW-*.md` for detailed specifications.
 | 2026-02-20 | in-progress | in-progress | Cycle 9 Pre-Cycle Hotfixes | 30/35 | — | 3 bugs fixed: activity log display-time filtering (8 new tests), session title disambiguation (1 test), closure review auto-open on `session.closure.started`. SessionService grew to 1,766 LOC. Cycle 9 planned: TD-101 handler extraction + TD-100 performance + PBI-SW-015 Activity Intelligence + hardening. DoR check: PASS. 2,794 tests, 110 suites. |
 | 2026-02-19 | in-progress | in-progress | Cycle 8 Closure + Three Amigos | 30/35 | Business, Dev, QA | **PASS** with 5 observations, 3 action items. Cycle 8 delivered: 4/4 planned increments, 3 PBIs done (SW-011, SW-013, SW-016), 3 FRs done (FR-11, FR-13, FR-16). 81 new tests, 2,768 total, 109 suites. TD-101 stretch deferred (SessionService at 1,729 LOC — extract required for Cycle 9). AI-1: promote TD-101 to required. AI-2: priority ranking updated. AI-3: add MAX_REFLECTIONS guard. v2 status: 7/10 FRs, 6/8 PBIs delivered. |
 | 2026-02-19 | in-progress | in-progress | Full Audit + Cycle 9 Planning | 30/35 | — | Full plugin audit: 17 drift points found and fixed. **Critical:** TD-092 phantom resolved — actual TD-92 = "No pull-request process"; created TD-101 for SessionService extraction. All TD-092 refs across 5 docs updated to TD-101. TD-54/TD-55 marked resolved (BaseHubView Phase 12). Frontend Architecture reconciled (17 session components, 28 subscriptions, 90 session events, 109 suites, 2,768 tests). Cycle 9 planned: TD-101 (required) + TD-100 (investigation) + PBI-SW-015 (Activity Intelligence) + hardening. 4 increments. |
+| 2026-02-21 | in-progress | in-progress | Cycle 9 Inc 3 — Activity Intelligence | 31/35 | — | PBI-SW-015 delivered (FR-15 Done): `computeActivityIntelligence()` pure function, `SessionActivityIntelligencePanel` component (67 LOC), unified `### Activity Intelligence` section in session notes (replaces Artifacts + Time Summary), artifact wiki-links, `### Closure Ritual` section in session notes, `SessionFrontmatter` restructured (`type: "SessionNote"`, flat activity metrics), `isExcluded()` filter threading through all note generation. FRI updated: ui_consistency 3→4. 60 new tests, 2,849 total, 111 suites. TASM: 33/35 (Excellent). |
 
 ### Related Architecture Decisions
 

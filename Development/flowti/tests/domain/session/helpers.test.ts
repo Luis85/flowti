@@ -27,6 +27,7 @@ import {
 	reverseParseSessionNotes,
 	computeReverseSyncDiff,
 	detectCognitiveOverload,
+	computeActivityIntelligence,
 } from "../../../src/domain/session/helpers";
 import type { Session, SessionOutputTemplate, SessionTimelineEntry, SessionTypeConfig } from "../../../src/domain/session/types";
 import { SESSION_TYPE_CONFIGS, DEFAULT_COGNITIVE_LOAD_THRESHOLDS } from "../../../src/domain/session/types";
@@ -593,6 +594,13 @@ describe("createSession — notesFile", () => {
 // ─────────────────────────────────────────────────────────────
 
 describe("generateSessionFrontmatter", () => {
+	it("sets type to SessionNote and sessionType to the session type", () => {
+		const session = makeSession({ type: "event-storming" });
+		const fm = generateSessionFrontmatter(session);
+		expect(fm.type).toBe("SessionNote");
+		expect(fm.sessionType).toBe("event-storming");
+	});
+
 	it("includes core session fields", () => {
 		const session = makeSession({
 			title: "Sprint Planning",
@@ -603,13 +611,15 @@ describe("generateSessionFrontmatter", () => {
 		});
 		const fm = generateSessionFrontmatter(session);
 		expect(fm.title).toBe("Sprint Planning");
-		expect(fm.type).toBe("event-storming");
+		expect(fm.type).toBe("SessionNote");
+		expect(fm.sessionType).toBe("event-storming");
 		expect(fm.status).toBe("completed");
 		expect(fm.duration).toBe(25);
 		expect(fm.completed).toBe("2026-02-16T10:25:00.000Z");
+		expect(fm.sessionId).toBe("test-1");
 	});
 
-	it("includes optional fields when set", () => {
+	it("includes optional context fields when set", () => {
 		const session = makeSession({ focusFile: "src/main.ts", canvasFile: "canvas.canvas" });
 		const fm = generateSessionFrontmatter(session);
 		expect(fm.focusFile).toBe("src/main.ts");
@@ -622,6 +632,73 @@ describe("generateSessionFrontmatter", () => {
 		expect(fm.focusFile).toBeUndefined();
 		expect(fm.canvasFile).toBeUndefined();
 		expect(fm.completed).toBeUndefined();
+	});
+
+	it("includes energy when set", () => {
+		const session = makeSession({ energy: 4 });
+		const fm = generateSessionFrontmatter(session);
+		expect(fm.energy).toBe(4);
+	});
+
+	it("omits energy when null", () => {
+		const session = makeSession({ energy: null });
+		const fm = generateSessionFrontmatter(session);
+		expect(fm.energy).toBeUndefined();
+	});
+
+	it("includes intent as flat string", () => {
+		const session = makeSession({
+			intent: { primaryOutcome: "Deliver FR-15", mode: "deep-work" },
+		});
+		const fm = generateSessionFrontmatter(session);
+		expect(fm.intent).toBe("Deliver FR-15");
+	});
+
+	it("omits intent when null", () => {
+		const session = makeSession({ intent: null });
+		const fm = generateSessionFrontmatter(session);
+		expect(fm.intent).toBeUndefined();
+	});
+
+	it("includes activity intelligence metrics when non-zero", () => {
+		const session = makeSession({
+			startedAt: "2026-02-20T10:00:00.000Z",
+			completedAt: "2026-02-20T10:30:00.000Z",
+			activity: [
+				{ path: "src/a.ts", action: "modified", timestamp: "2026-02-20T10:05:00.000Z" },
+				{ path: "src/b.ts", action: "created", timestamp: "2026-02-20T10:10:00.000Z" },
+			],
+			artifacts: [
+				{ path: "src/a.ts", action: "created", timestamp: "2026-02-20T10:05:00.000Z" },
+			],
+			executionTasks: [
+				{ id: "t1", label: "Done", completed: true, order: 0 },
+			],
+			timeline: [
+				{ action: "started", timestamp: "2026-02-20T10:00:00.000Z" },
+				{ action: "completed", timestamp: "2026-02-20T10:30:00.000Z" },
+			],
+		});
+		const fm = generateSessionFrontmatter(session);
+		expect(fm.filesModified).toBe(2);
+		expect(fm.artifactsProduced).toBe(1);
+		expect(fm.tasksCompleted).toBe(1);
+		expect(fm.eventsEmitted).toBe(2);
+		expect(fm.wallClockMs).toBe(30 * 60_000);
+		expect(fm.activeTimeMs).toBe(30 * 60_000);
+		expect(fm.pauseTimeMs).toBeUndefined();
+	});
+
+	it("omits activity intelligence metrics when all zero", () => {
+		const session = makeSession();
+		const fm = generateSessionFrontmatter(session);
+		expect(fm.filesModified).toBeUndefined();
+		expect(fm.artifactsProduced).toBeUndefined();
+		expect(fm.tasksCompleted).toBeUndefined();
+		expect(fm.eventsEmitted).toBeUndefined();
+		expect(fm.wallClockMs).toBeUndefined();
+		expect(fm.activeTimeMs).toBeUndefined();
+		expect(fm.pauseTimeMs).toBeUndefined();
 	});
 });
 
@@ -653,13 +730,14 @@ describe("generateSessionSummaryBody", () => {
 		expect(body).not.toContain("### Links");
 	});
 
-	it("includes artifacts section", () => {
+	it("aggregates artifacts into Activity Intelligence instead of separate section", () => {
 		const session = makeSession({
 			artifacts: [{ path: "src/types.ts", action: "created", timestamp: "2026-02-16T10:05:00.000Z" }],
 		});
 		const body = generateSessionSummaryBody(session);
-		expect(body).toContain("### Artifacts");
-		expect(body).toContain("- [[src/types.ts]] *(created)*");
+		expect(body).not.toContain("### Artifacts");
+		expect(body).toContain("### Activity Intelligence");
+		expect(body).toContain("**Artifacts produced:** 1");
 	});
 
 	it("omits optional sections when empty", () => {
@@ -667,7 +745,6 @@ describe("generateSessionSummaryBody", () => {
 		const body = generateSessionSummaryBody(session);
 		expect(body).not.toContain("### Goals");
 		expect(body).not.toContain("### Links");
-		expect(body).not.toContain("### Artifacts");
 		expect(body).not.toContain("### Session Notes");
 	});
 
@@ -825,6 +902,221 @@ describe("generateSessionSummaryBody", () => {
 		expect(decIdx).toBeLessThan(refIdx);
 		expect(refIdx).toBeLessThan(ctxIdx);
 	});
+
+	it("includes closure ritual section with all built-in fields", () => {
+		const session = makeSession({
+			closureResponse: {
+				outcomeAchieved: "partial",
+				whatWorked: "Focused execution on core logic",
+				whatDidnt: "Got distracted by refactoring",
+				nextAction: "Finish remaining tests",
+				answers: {},
+			},
+		});
+		const body = generateSessionSummaryBody(session);
+		expect(body).toContain("### Closure Ritual");
+		expect(body).toContain("**Outcome achieved:** partial");
+		expect(body).toContain("**What worked:** Focused execution on core logic");
+		expect(body).toContain("**What didn't:** Got distracted by refactoring");
+		expect(body).toContain("**Next action:** Finish remaining tests");
+	});
+
+	it("includes custom closure answers", () => {
+		const session = makeSession({
+			closureResponse: {
+				outcomeAchieved: "yes",
+				whatWorked: "Good flow",
+				whatDidnt: "",
+				nextAction: "",
+				answers: { "Satisfaction": "4", "Key insight": "Smaller increments work better" },
+			},
+		});
+		const body = generateSessionSummaryBody(session);
+		expect(body).toContain("**Satisfaction:** 4");
+		expect(body).toContain("**Key insight:** Smaller increments work better");
+	});
+
+	it("omits closure ritual section when no closure response", () => {
+		const session = makeSession({ closureResponse: null });
+		const body = generateSessionSummaryBody(session);
+		expect(body).not.toContain("### Closure Ritual");
+	});
+
+	it("omits empty closure fields", () => {
+		const session = makeSession({
+			closureResponse: {
+				outcomeAchieved: "no",
+				whatWorked: "",
+				whatDidnt: "",
+				nextAction: "",
+				answers: { "Extra": "" },
+			},
+		});
+		const body = generateSessionSummaryBody(session);
+		expect(body).toContain("**Outcome achieved:** no");
+		expect(body).not.toContain("**What worked:**");
+		expect(body).not.toContain("**What didn't:**");
+		expect(body).not.toContain("**Next action:**");
+		expect(body).not.toContain("**Extra:**");
+	});
+
+	it("places closure ritual between reflections and context bindings", () => {
+		const session = makeSession({
+			reflections: [{ id: "r1", type: "observation", content: "Good", timestamp: "2026-02-16T10:10:00.000Z" }],
+			closureResponse: {
+				outcomeAchieved: "yes",
+				whatWorked: "Focus",
+				whatDidnt: "",
+				nextAction: "",
+				answers: {},
+			},
+			contextBindings: [{ id: "ctx1", path: "src/main.ts", type: "file", label: "main.ts", boundAt: "2026-02-16T10:00:00.000Z" }],
+		});
+		const body = generateSessionSummaryBody(session);
+		const refIdx = body.indexOf("### Reflections");
+		const closureIdx = body.indexOf("### Closure Ritual");
+		const ctxIdx = body.indexOf("### Context Bindings");
+		expect(refIdx).toBeLessThan(closureIdx);
+		expect(closureIdx).toBeLessThan(ctxIdx);
+	});
+
+	it("includes Activity Intelligence section with all metrics", () => {
+		const session = makeSession({
+			activity: [
+				{ path: "src/a.ts", action: "modified", timestamp: "2026-02-20T10:05:00.000Z" },
+				{ path: "src/b.ts", action: "created", timestamp: "2026-02-20T10:10:00.000Z" },
+			],
+			artifacts: [
+				{ path: "src/a.ts", action: "created", timestamp: "2026-02-20T10:05:00.000Z" },
+			],
+			executionTasks: [
+				{ id: "t1", label: "Done", completed: true, order: 0 },
+			],
+			timeline: [
+				{ action: "started", timestamp: "2026-02-20T10:00:00.000Z" },
+				{ action: "completed", timestamp: "2026-02-20T10:30:00.000Z" },
+			],
+			startedAt: "2026-02-20T10:00:00.000Z",
+			completedAt: "2026-02-20T10:30:00.000Z",
+		});
+		const body = generateSessionSummaryBody(session);
+		expect(body).toContain("### Activity Intelligence");
+		expect(body).toContain("**Files modified:** 2");
+		expect(body).toContain("**Artifacts produced:** 1");
+		expect(body).toContain("**Tasks completed:** 1");
+		expect(body).toContain("**Events emitted:** 2");
+		expect(body).toContain("**Wall clock:**");
+		expect(body).toContain("**Active time:**");
+		// No separate sections — all aggregated
+		expect(body).not.toContain("### Artifacts");
+		expect(body).not.toContain("### Time Summary");
+	});
+
+	it("omits Activity Intelligence section when no activity data", () => {
+		const session = makeSession();
+		const body = generateSessionSummaryBody(session);
+		expect(body).not.toContain("### Activity Intelligence");
+		expect(body).not.toContain("### Time Summary");
+	});
+
+	it("includes pause time in Activity Intelligence when session was paused", () => {
+		const session = makeSession({
+			activity: [
+				{ path: "src/a.ts", action: "modified", timestamp: "2026-02-20T10:05:00.000Z" },
+			],
+			timeline: [
+				{ action: "started", timestamp: "2026-02-20T10:00:00.000Z" },
+				{ action: "paused", timestamp: "2026-02-20T10:10:00.000Z" },
+				{ action: "resumed", timestamp: "2026-02-20T10:15:00.000Z" },
+				{ action: "completed", timestamp: "2026-02-20T10:30:00.000Z" },
+			],
+			startedAt: "2026-02-20T10:00:00.000Z",
+			completedAt: "2026-02-20T10:30:00.000Z",
+		});
+		const body = generateSessionSummaryBody(session);
+		expect(body).toContain("**Pause time:**");
+	});
+
+	it("includes artifact wiki-links inside Activity Intelligence section", () => {
+		const session = makeSession({
+			artifacts: [
+				{ path: "src/types.ts", action: "created", timestamp: "2026-02-20T10:05:00.000Z" },
+				{ path: "src/helpers.ts", action: "modified", timestamp: "2026-02-20T10:10:00.000Z" },
+			],
+		});
+		const body = generateSessionSummaryBody(session);
+		expect(body).toContain("**Artifacts:**");
+		expect(body).toContain("- [[src/types.ts]] *(created)*");
+		expect(body).toContain("- [[src/helpers.ts]] *(modified)*");
+	});
+
+	it("omits artifact links sub-section when no artifacts", () => {
+		const session = makeSession({
+			activity: [
+				{ path: "src/a.ts", action: "modified", timestamp: "2026-02-20T10:00:00.000Z" },
+			],
+			artifacts: [],
+		});
+		const body = generateSessionSummaryBody(session);
+		expect(body).toContain("### Activity Intelligence");
+		expect(body).not.toContain("**Artifacts:**");
+	});
+
+	it("excludes filtered activity from Activity Intelligence metrics", () => {
+		const session = makeSession({
+			activity: [
+				{ path: "src/a.ts", action: "modified", timestamp: "2026-02-20T10:00:00.000Z" },
+				{ path: "node_modules/lib/b.ts", action: "modified", timestamp: "2026-02-20T10:01:00.000Z" },
+				{ path: "src/c.ts", action: "created", timestamp: "2026-02-20T10:02:00.000Z" },
+			],
+		});
+		const body = generateSessionSummaryBody(session, ["node_modules/"]);
+		expect(body).toContain("**Files modified:** 2");
+	});
+
+	it("excludes filtered artifacts from links and count", () => {
+		const session = makeSession({
+			artifacts: [
+				{ path: "src/types.ts", action: "created", timestamp: "2026-02-20T10:05:00.000Z" },
+				{ path: "dist/bundle.js", action: "created", timestamp: "2026-02-20T10:10:00.000Z" },
+			],
+		});
+		const body = generateSessionSummaryBody(session, ["dist/"]);
+		expect(body).toContain("**Artifacts produced:** 1");
+		expect(body).toContain("- [[src/types.ts]] *(created)*");
+		expect(body).not.toContain("dist/bundle.js");
+	});
+
+	it("respects per-session activityFilter for artifacts", () => {
+		const session = makeSession({
+			artifacts: [
+				{ path: "src/types.ts", action: "created", timestamp: "2026-02-20T10:05:00.000Z" },
+				{ path: "tests/types.test.ts", action: "created", timestamp: "2026-02-20T10:10:00.000Z" },
+			],
+			activityFilter: ["tests/"],
+		});
+		const body = generateSessionSummaryBody(session);
+		expect(body).toContain("**Artifacts produced:** 1");
+		expect(body).toContain("- [[src/types.ts]] *(created)*");
+		expect(body).not.toContain("tests/types.test.ts");
+	});
+
+	it("retroactively filters entries stored before filter was configured", () => {
+		// Activity was stored without filter, now filter is set — entries must be excluded at render time
+		const session = makeSession({
+			activity: [
+				{ path: "src/a.ts", action: "modified", timestamp: "2026-02-20T10:00:00.000Z" },
+				{ path: "vendor/lib.js", action: "modified", timestamp: "2026-02-20T10:01:00.000Z" },
+			],
+			artifacts: [
+				{ path: "vendor/output.js", action: "created", timestamp: "2026-02-20T10:05:00.000Z" },
+			],
+		});
+		const body = generateSessionSummaryBody(session, ["vendor/"]);
+		expect(body).toContain("**Files modified:** 1");
+		expect(body).toContain("**Artifacts produced:** 0");
+		expect(body).not.toContain("vendor/");
+	});
 });
 
 describe("generateSessionSummary", () => {
@@ -838,13 +1130,15 @@ describe("generateSessionSummary", () => {
 		});
 		const md = generateSessionSummary(session);
 		expect(md).toContain("---");
+		expect(md).toContain('type: "SessionNote"');
 		expect(md).toContain('title: "Sprint Planning"');
+		expect(md).toContain('sessionType: "event-storming"');
 		expect(md).toContain('status: "completed"');
 		expect(md).toContain("# Sprint Planning");
 		expect(md).toContain("## Session Summary");
 	});
 
-	it("includes goals and artifacts in body", () => {
+	it("includes goals and aggregated artifacts in body", () => {
 		const session = makeSession({
 			goals: [
 				{ id: "g1", text: "Write tests", completed: true, completedAt: "2026-02-16T10:20:00.000Z" },
@@ -854,7 +1148,7 @@ describe("generateSessionSummary", () => {
 		const md = generateSessionSummary(session);
 		expect(md).toContain("### Goals");
 		expect(md).toContain("- [x] Write tests");
-		expect(md).toContain("### Artifacts");
+		expect(md).toContain("**Artifacts produced:** 1");
 	});
 
 	it("includes focus file in frontmatter", () => {
@@ -870,7 +1164,7 @@ describe("generateSessionSummary", () => {
 		expect(md).toContain("Important findings here");
 	});
 
-	it("includes timeline and time summary", () => {
+	it("includes timeline and time metrics in Activity Intelligence", () => {
 		const session = makeSession({
 			timeline: [
 				{ action: "started", timestamp: "2026-02-16T10:00:00.000Z" },
@@ -882,10 +1176,10 @@ describe("generateSessionSummary", () => {
 		});
 		const md = generateSessionSummary(session);
 		expect(md).toContain("### Timeline");
-		expect(md).toContain("### Time Summary");
+		expect(md).toContain("### Activity Intelligence");
 		expect(md).toContain("**Wall clock:**");
 		expect(md).toContain("**Active time:**");
-		expect(md).toContain("**Total pause:**");
+		expect(md).toContain("**Pause time:**");
 	});
 });
 
@@ -1724,6 +2018,226 @@ describe("detectCognitiveOverload", () => {
 		const result = detectCognitiveOverload(session, { ...DEFAULT_COGNITIVE_LOAD_THRESHOLDS, maxTasks: 2 });
 		expect(result.overloaded).toBe(true);
 		expect(result.reasons).toContainEqual(expect.stringContaining("Too many tasks"));
+	});
+});
+
+// ─────────────────────────────────────────────────────────────
+// computeActivityIntelligence (FR-15)
+// ─────────────────────────────────────────────────────────────
+
+describe("computeActivityIntelligence", () => {
+	it("returns all zeros for an empty session", () => {
+		const session = makeSession();
+		const result = computeActivityIntelligence(session, Date.now());
+		expect(result).toEqual({
+			filesModified: 0,
+			artifactsProduced: 0,
+			tasksCompleted: 0,
+			eventsEmitted: 0,
+			wallClockMs: 0,
+			activeTimeMs: 0,
+			pauseTimeMs: 0,
+		});
+	});
+
+	it("counts unique files modified", () => {
+		const session = makeSession({
+			activity: [
+				{ path: "src/a.ts", action: "modified", timestamp: "2026-02-20T10:00:00.000Z" },
+				{ path: "src/b.ts", action: "created", timestamp: "2026-02-20T10:01:00.000Z" },
+				{ path: "src/a.ts", action: "modified", timestamp: "2026-02-20T10:02:00.000Z" },
+			],
+		});
+		const result = computeActivityIntelligence(session, Date.now());
+		expect(result.filesModified).toBe(2);
+	});
+
+	it("counts completed execution tasks", () => {
+		const session = makeSession({
+			executionTasks: [
+				{ id: "t1", label: "Task 1", completed: true, order: 0 },
+				{ id: "t2", label: "Task 2", completed: false, order: 1 },
+				{ id: "t3", label: "Task 3", completed: true, order: 2 },
+			],
+		});
+		const result = computeActivityIntelligence(session, Date.now());
+		expect(result.tasksCompleted).toBe(2);
+	});
+
+	it("counts timeline entries as events emitted", () => {
+		const session = makeSession({
+			timeline: [
+				{ action: "started", timestamp: "2026-02-20T10:00:00.000Z" },
+				{ action: "paused", timestamp: "2026-02-20T10:15:00.000Z" },
+				{ action: "resumed", timestamp: "2026-02-20T10:20:00.000Z" },
+			],
+		});
+		const result = computeActivityIntelligence(session, Date.now());
+		expect(result.eventsEmitted).toBe(3);
+	});
+
+	it("computes active time from timeline", () => {
+		const now = Date.parse("2026-02-20T10:30:00.000Z");
+		const session = makeSession({
+			status: "running",
+			startedAt: "2026-02-20T10:00:00.000Z",
+			timeline: [
+				{ action: "started", timestamp: "2026-02-20T10:00:00.000Z" },
+			],
+		});
+		const result = computeActivityIntelligence(session, now);
+		expect(result.activeTimeMs).toBe(30 * 60_000);
+		expect(result.pauseTimeMs).toBe(0);
+	});
+
+	it("computes pause time from timeline", () => {
+		const now = Date.parse("2026-02-20T10:30:00.000Z");
+		const session = makeSession({
+			status: "running",
+			startedAt: "2026-02-20T10:00:00.000Z",
+			timeline: [
+				{ action: "started", timestamp: "2026-02-20T10:00:00.000Z" },
+				{ action: "paused", timestamp: "2026-02-20T10:10:00.000Z" },
+				{ action: "resumed", timestamp: "2026-02-20T10:20:00.000Z" },
+			],
+		});
+		const result = computeActivityIntelligence(session, now);
+		expect(result.pauseTimeMs).toBe(10 * 60_000);
+		expect(result.activeTimeMs).toBe(20 * 60_000);
+	});
+
+	it("handles session with all fields populated", () => {
+		const now = Date.parse("2026-02-20T11:00:00.000Z");
+		const session = makeSession({
+			status: "completed",
+			startedAt: "2026-02-20T10:00:00.000Z",
+			completedAt: "2026-02-20T11:00:00.000Z",
+			activity: [
+				{ path: "src/a.ts", action: "modified", timestamp: "2026-02-20T10:05:00.000Z" },
+				{ path: "src/b.ts", action: "created", timestamp: "2026-02-20T10:10:00.000Z" },
+				{ path: "src/c.ts", action: "deleted", timestamp: "2026-02-20T10:15:00.000Z" },
+			],
+			artifacts: [
+				{ path: "src/a.ts", action: "created", timestamp: "2026-02-20T10:05:00.000Z" },
+				{ path: "src/b.ts", action: "modified", timestamp: "2026-02-20T10:10:00.000Z" },
+			],
+			executionTasks: [
+				{ id: "t1", label: "Done", completed: true, order: 0 },
+				{ id: "t2", label: "Pending", completed: false, order: 1 },
+			],
+			timeline: [
+				{ action: "started", timestamp: "2026-02-20T10:00:00.000Z" },
+				{ action: "paused", timestamp: "2026-02-20T10:30:00.000Z" },
+				{ action: "resumed", timestamp: "2026-02-20T10:35:00.000Z" },
+				{ action: "completed", timestamp: "2026-02-20T11:00:00.000Z" },
+			],
+		});
+		const result = computeActivityIntelligence(session, now);
+		expect(result.filesModified).toBe(3);
+		expect(result.artifactsProduced).toBe(2);
+		expect(result.tasksCompleted).toBe(1);
+		expect(result.eventsEmitted).toBe(4);
+		expect(result.wallClockMs).toBe(60 * 60_000);
+		expect(result.activeTimeMs).toBe(55 * 60_000);
+		expect(result.pauseTimeMs).toBe(5 * 60_000);
+	});
+
+	it("counts artifacts produced", () => {
+		const session = makeSession({
+			artifacts: [
+				{ path: "src/a.ts", action: "created", timestamp: "2026-02-20T10:05:00.000Z" },
+				{ path: "src/b.ts", action: "modified", timestamp: "2026-02-20T10:10:00.000Z" },
+				{ path: "src/c.ts", action: "created", timestamp: "2026-02-20T10:15:00.000Z" },
+			],
+		});
+		const result = computeActivityIntelligence(session, Date.now());
+		expect(result.artifactsProduced).toBe(3);
+	});
+
+	it("handles single activity entry", () => {
+		const session = makeSession({
+			activity: [
+				{ path: "README.md", action: "modified", timestamp: "2026-02-20T10:00:00.000Z" },
+			],
+		});
+		const result = computeActivityIntelligence(session, Date.now());
+		expect(result.filesModified).toBe(1);
+	});
+
+	it("handles many duplicate activity paths", () => {
+		const activity = Array.from({ length: 50 }, (_, i) => ({
+			path: `src/file-${i % 5}.ts`,
+			action: "modified" as const,
+			timestamp: new Date(Date.parse("2026-02-20T10:00:00.000Z") + i * 1000).toISOString(),
+		}));
+		const session = makeSession({ activity });
+		const result = computeActivityIntelligence(session, Date.now());
+		expect(result.filesModified).toBe(5);
+	});
+
+	it("returns zero tasks completed when all pending", () => {
+		const session = makeSession({
+			executionTasks: [
+				{ id: "t1", label: "Task 1", completed: false, order: 0 },
+				{ id: "t2", label: "Task 2", completed: false, order: 1 },
+			],
+		});
+		const result = computeActivityIntelligence(session, Date.now());
+		expect(result.tasksCompleted).toBe(0);
+	});
+
+	it("returns zero events for session without timeline", () => {
+		const session = makeSession({ timeline: [] });
+		const result = computeActivityIntelligence(session, Date.now());
+		expect(result.eventsEmitted).toBe(0);
+	});
+
+	it("excludes activity matching global filter", () => {
+		const session = makeSession({
+			activity: [
+				{ path: "src/a.ts", action: "modified", timestamp: "2026-02-20T10:00:00.000Z" },
+				{ path: "node_modules/lib/b.ts", action: "modified", timestamp: "2026-02-20T10:01:00.000Z" },
+				{ path: "src/c.ts", action: "created", timestamp: "2026-02-20T10:02:00.000Z" },
+			],
+		});
+		const result = computeActivityIntelligence(session, Date.now(), ["node_modules/"]);
+		expect(result.filesModified).toBe(2);
+	});
+
+	it("excludes artifacts matching global filter", () => {
+		const session = makeSession({
+			artifacts: [
+				{ path: "src/a.ts", action: "created", timestamp: "2026-02-20T10:05:00.000Z" },
+				{ path: "dist/bundle.js", action: "created", timestamp: "2026-02-20T10:10:00.000Z" },
+			],
+		});
+		const result = computeActivityIntelligence(session, Date.now(), ["dist/"]);
+		expect(result.artifactsProduced).toBe(1);
+	});
+
+	it("excludes activity matching per-session filter", () => {
+		const session = makeSession({
+			activity: [
+				{ path: "src/a.ts", action: "modified", timestamp: "2026-02-20T10:00:00.000Z" },
+				{ path: "tests/b.test.ts", action: "modified", timestamp: "2026-02-20T10:01:00.000Z" },
+			],
+			activityFilter: ["tests/"],
+		});
+		const result = computeActivityIntelligence(session, Date.now());
+		expect(result.filesModified).toBe(1);
+	});
+
+	it("excludes activity matching both global and per-session filters", () => {
+		const session = makeSession({
+			activity: [
+				{ path: "src/a.ts", action: "modified", timestamp: "2026-02-20T10:00:00.000Z" },
+				{ path: "node_modules/lib/b.ts", action: "modified", timestamp: "2026-02-20T10:01:00.000Z" },
+				{ path: "tests/c.test.ts", action: "modified", timestamp: "2026-02-20T10:02:00.000Z" },
+			],
+			activityFilter: ["tests/"],
+		});
+		const result = computeActivityIntelligence(session, Date.now(), ["node_modules/"]);
+		expect(result.filesModified).toBe(1);
 	});
 });
 

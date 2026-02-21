@@ -183,6 +183,24 @@ export interface TimelineSummary {
 	pauseSegments: PauseSegment[];
 }
 
+/** Computed activity analytics for a session (FR-15). */
+export interface ActivityIntelligence {
+	/** Number of unique file paths in session.activity. */
+	filesModified: number;
+	/** Number of session artifacts (files created/modified/linked during session). */
+	artifactsProduced: number;
+	/** Number of completed execution tasks. */
+	tasksCompleted: number;
+	/** Total number of timeline entries (lifecycle events). */
+	eventsEmitted: number;
+	/** Wall clock time from start to completion/now in ms. */
+	wallClockMs: number;
+	/** Active working time in ms (wall clock minus pause time). */
+	activeTimeMs: number;
+	/** Total pause time in ms. */
+	pauseTimeMs: number;
+}
+
 /** A structured decision recorded during a session. */
 export interface SessionDecision {
 	id: string;

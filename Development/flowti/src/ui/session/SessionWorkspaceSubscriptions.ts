@@ -222,6 +222,7 @@ export function setupEventSubscriptions(
 				if (event.payload.sessionId === ctx.getSession()?.id) {
 					ctx.setSession(ctx.refreshSession());
 					ctx.schedulePanelRefresh("tasks");
+					ctx.schedulePanelRefresh("intelligence");
 				}
 			}),
 		);
@@ -279,6 +280,7 @@ export function setupEventSubscriptions(
 			if (event.payload.sessionId === ctx.getSession()?.id) {
 				ctx.setSession(ctx.refreshSession());
 				ctx.schedulePanelRefresh("activity");
+				ctx.schedulePanelRefresh("intelligence");
 			}
 		}),
 	);

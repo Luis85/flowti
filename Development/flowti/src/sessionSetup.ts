@@ -200,13 +200,14 @@ export class SessionSetup {
 				await vault.createFolder(folder);
 			}
 
+			const globalFilter = this.deps.sessionService.globalActivityFilter;
 			const existing = vault.getAbstractFileByPath(session.notesFile);
 			if (existing instanceof TFile) {
 				const existingContent = await vault.read(existing);
-				const merged = mergeSessionNotes(existingContent, session);
+				const merged = mergeSessionNotes(existingContent, session, globalFilter);
 				await vault.modify(existing, merged);
 			} else {
-				const markdown = generateSessionSummary(session);
+				const markdown = generateSessionSummary(session, globalFilter);
 				await vault.create(session.notesFile, markdown);
 			}
 		} catch (error) {

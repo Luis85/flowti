@@ -37,6 +37,7 @@ import { type ClosureTemplate, type SessionTypeConfig, type SessionOutputTemplat
 import { SessionClosureOverlay } from "./session/SessionClosureOverlay";
 import { SessionEnergyIndicator } from "./session/SessionEnergyIndicator";
 import { CognitiveLoadAlert } from "./session/CognitiveLoadAlert";
+import { SessionActivityIntelligencePanel } from "./session/SessionActivityIntelligencePanel";
 import { resolveClosureTemplate } from "../domain/session/helpers";
 import { setupEventSubscriptions } from "./session/SessionWorkspaceSubscriptions";
 import type { SubscriptionViewContext } from "./session/SessionWorkspaceSubscriptions";
@@ -72,6 +73,7 @@ export class SessionWorkspaceView extends ItemView {
 	private decisionPanel: SessionDecisionPanel | null = null;
 	private reflectionPanel: SessionReflectionPanel | null = null;
 	private activityPanel: SessionActivityPanel | null = null;
+	private intelligencePanel: SessionActivityIntelligencePanel | null = null;
 	private outputPanel: SessionOutputPanel | null = null;
 
 	/** Custom session type configs injected from main.ts (synced from SessionService). */
@@ -182,6 +184,7 @@ export class SessionWorkspaceView extends ItemView {
 					case "decisions": this.decisionPanel?.refreshList(); break;
 					case "reflections": this.reflectionPanel?.refreshList(); break;
 					case "energy": this.energyPanel?.refreshEnergy(); break;
+					case "intelligence": this.intelligencePanel?.refreshStats(); break;
 					case "output": this.outputPanel?.refreshList(); break;
 					case "overload": this.overloadAlert?.refreshAlert(); break;
 					case "actions": this.renderActions(); break;
@@ -236,6 +239,9 @@ export class SessionWorkspaceView extends ItemView {
 
 		this.energyPanel = new SessionEnergyIndicator(container, deps);
 		this.energyPanel.render();
+
+		this.intelligencePanel = new SessionActivityIntelligencePanel(container, deps);
+		this.intelligencePanel.render();
 
 		if (this.session.status === "active" || this.session.status === "running" || this.session.status === "paused") {
 			this.guidingPanel = new SessionGuidingQuestions(container, deps, this.customSessionTypes);
@@ -469,7 +475,7 @@ export class SessionWorkspaceView extends ItemView {
 				await this.app.vault.createFolder(folder);
 			}
 			try {
-				await this.app.vault.create(path, generateSessionSummary(session));
+				await this.app.vault.create(path, generateSessionSummary(session, this.sessionService.globalActivityFilter));
 			} catch {
 				// File already exists on disk — proceed to open
 			}
