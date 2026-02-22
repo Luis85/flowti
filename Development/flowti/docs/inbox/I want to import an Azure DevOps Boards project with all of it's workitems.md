@@ -1,6 +1,7 @@
 ---
-type: idea
-stage: planned
+type: Idea
+stage: delivered
+delivered_in: "[[Cycle 11 - Azure DevOps Integration]]"
 origin: inbox
 domain: signal
 parent: "[[Azure DevOps Integration PRD]]"

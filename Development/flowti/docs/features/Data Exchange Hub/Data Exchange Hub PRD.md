@@ -187,5 +187,10 @@ Users can manage master data end-to-end within Obsidian: import CSV files as not
 | [[PBI-005 EDI Format Support]] | EDI format as import source | Discovery | Low | [[EDI Integration]] |
 | [[PBI-006 Pipeline Multi-Source Merge]] | Multi-source merge with master data builder | Planned | High (RB-7) | [[Pipeline multi-source merge with master data builder]] |
 | [[PBI-007 Pipeline Step Preview]] | Intermediate Base views between pipeline steps | Discovery | Medium | [[Pipeline step preview with intermediate Base views]] |
+| [[PBI-008 Execution Timing]] | Execution timing for import/export configs | Discovery | Low | [[I also want to know how long the execution of a Data Exchange Config took]] |
+| [[PBI-009 Report Ingestion]] | Ingest test/coverage reports as vault notes | Discovery | Medium | [[I want to ingest a test-report, a coverage-report, prds, the git-history and lifecycle documents for further analysis]], [[Ingest build reports test reports and coverage as vault notes]] |
+| [[PBI-010 Data Dictionary Integration]] | Entity config from settings into DX Hub data-dictionary | Discovery | Medium | [[We need to integrate the Entity configuration from the settings-tab into the Data Exchange Hub to build the data-dictionary in one place]] |
+
+> **Inbox triage (2026-02-22):** 3 new PBIs added. PBI-008 for execution timing tracking. PBI-009 for report ingestion (test, coverage, build reports). PBI-010 for settings-tab entity config integration into DX Hub data dictionary. Existing bugs tracked in inbox: exporter formula evaluation, exporter view properties, dashboard progress bar issues.
 
 > **Canvas import**: Moved to dedicated [[Obsidian Canvas Integration PRD]] with PBI-CAN-001 through PBI-CAN-003.

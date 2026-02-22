@@ -1,6 +1,7 @@
 ---
-type: idea
-stage: planned
+type: Idea
+stage: delivered
+delivered_in: "[[Cycle 12 - User Hub Inbox]]"
 origin: inbox
 domain: inbox
 parent: "[[Hubs PRD]]"

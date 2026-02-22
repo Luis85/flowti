@@ -1,5 +1,5 @@
 ---
-type: idea
+type: Idea
 stage: delivered
 origin: inbox
 domain: data-exchange

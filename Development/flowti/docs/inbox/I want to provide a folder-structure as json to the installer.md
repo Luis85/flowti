@@ -1,8 +1,10 @@
 ---
-type: idea
+type: Idea
 stage: planned
 origin: inbox
 domain: installer
+parent: "[[Installer PRD]]"
+pbi: PBI-005
 description: "Feed folder-structures from JSON config files to the installer for better isolation, tracking, and documentation."
 tags:
   - release-blocker

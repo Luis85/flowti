@@ -1,5 +1,5 @@
 ---
-type: idea
+type: Idea
 stage: delivered
 delivered_in: Cycle 6
 origin: inbox

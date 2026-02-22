@@ -41,3 +41,7 @@ This is acceptable for a solo developer in early phases but becomes a risk as th
 
 - TD-37: No Release- and Publishing Strategy
 - ADR-028: Obsidian CLI for Automated Testing (proposed)
+
+## Note (2026-02-22)
+
+This item becomes **critical** as the project approaches release. The codebase now contains 230+ source files, 3,548 tests, and 15 bounded contexts. Shipping without a PR process means no gated quality checks before code reaches users. Recommend prioritizing at least branch protection + CI gating before the first public release.

@@ -1,5 +1,5 @@
 ---
-type: idea
+type: Idea
 stage: discovery
 origin: inbox
 domain: process

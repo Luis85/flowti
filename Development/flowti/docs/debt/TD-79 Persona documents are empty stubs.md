@@ -3,9 +3,10 @@ type: TechDebt
 severity: high
 category: documentation
 layer: cross-cutting
-status: open
+status: resolved
 effort: medium
-updated: 2026-02-15
+updated: 2026-02-22
+resolved: 2026-02-22
 description: Both persona files (Citizen Developer, System Designer) contain only partial frontmatter with zero body content. No Persona Template exists to guide creation.
 ---
 # TD-79: Persona documents are empty stubs
@@ -42,3 +43,21 @@ Jobs to Be Done files reference personas by name (e.g., `persona: System Designe
 - `docs/personas/System Designer.md`
 - Missing: `docs/templates/Persona Template.md`
 - Missing: persona docs for Product Owner, Product Manager, Project Manager (referenced in JTBDs)
+
+## Resolution (2026-02-22)
+
+All 9 persona files now have full content following the Persona Template structure:
+
+1. **Strategic Systems Builder** — primary persona, comprehensive (15 domains, 10 features, 9 JTBDs)
+2. **The Product Owner (Operational Strategist)** — enriched with delivered feature context
+3. **Developer (Execution Specialist)** — updated with session-driven development workflow
+4. **System Designer** — expanded from stub to full persona with 7 goals, 6 pain points
+5. **Knowledge Worker** — written from scratch (was empty stub)
+6. **Citizen Developer** — expanded with guided wizard emphasis
+7. **Software Architect** — updated with Event Catalog domain contract focus
+8. **Delivery Manager (Systems Orchestrator)** — updated with Signal sync + "not yet delivered" section
+9. **The Integration Node** — kept as Actor type, expanded with delivered system tables
+
+All personas now include: Identity (name, archetype, quote, profile summary), Goals & Motivations (table), Pain Points (table with severity + Flowti feature), Domain Interaction Map, Related Artifacts (JTBDs + features). Persona Template was already created in a prior cycle.
+
+Referenced personas in JTBDs (Product Owner, Product Manager) now resolve to actual persona files via wikilinks.

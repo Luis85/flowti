@@ -1,6 +1,7 @@
 ---
-type: idea
-stage: discovery
+type: Idea
+stage: delivered
+delivered_in: "[[Cycle 7 - Execution Plan and Closure Ritual]]"
 origin: inbox
 domain: session
 parent: "[[Session Workspaces PRD]]"
@@ -9,6 +10,6 @@ tags: []
 priority: 01 - medium
 rank:
 related:
-note: "Related to note sync functionality. Check if partially delivered in Cycle 7."
+note: "Delivered via scheduleSyncNotesFile() debounced note sync (500ms). Session note stays in sync with 17 handler triggers. Reverse sync also supported."
 ---
 When working on a Session, I want the Session Note always to be in Sync with the Session. 

@@ -5,6 +5,7 @@ fixed_in: "Cycle 6"
 origin: inbox
 domain: data-exchange
 parent: "[[Data Exchange Hub PRD]]"
+pbi: TD-125
 description: "Pipeline progress bar does not update when running a pipeline from the detail page."
 tags:
   - fixed

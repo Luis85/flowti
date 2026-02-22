@@ -5,6 +5,7 @@ fixed_in: "Cycle 6"
 origin: inbox
 domain: data-exchange
 parent: "[[Data Exchange Hub PRD]]"
+pbi: TD-125
 description: "Starting a second import while one is running causes progress bars to merge — both operations share the same progress state."
 tags:
   - fixed

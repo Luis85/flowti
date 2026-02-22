@@ -168,3 +168,7 @@ When a user installs Flowti for the first time, a 4-page setup wizard automatica
 | [[PBI-002 Seed Starter Content]] | Seed example content on first run | Planned | High (RB-4) | [[Installer should seed starter content on first run]] |
 | [[PBI-003 Pluggable Step Registry]] | Config-driven step registry | Discovery | Low | [[Installer step registry should support pluggable steps from config]] |
 | [[PBI-004 Folder Mapping]] | Customizable folder-to-concept mapping | Discovery | Medium | [[I must be able to map Flowti Concept Folders to different folder structures for better adaptability]] |
+| [[PBI-005 JSON Folder Config]] | Versioned JSON folder config instead of hardcoded paths | Discovery | High (RB-1) | [[I want the installer to use a versioned JSON folder config instead of hardcoded paths]], [[I want to provide a folder-structure as json to the installer]] |
+| [[PBI-006 CLI Installer]] | CLI-based installer starting from README for automated setup | Discovery | Medium | [[I want to have a CLI based Installer starting from the README]] |
+
+> **Inbox triage (2026-02-22):** 2 new PBIs added. PBI-005 consolidates 2 inbox items about JSON-based folder configuration (relates to RB-1 repository restructure for marketplace). PBI-006 for CLI-based installer for automation/scripting use cases.

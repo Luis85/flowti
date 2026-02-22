@@ -1,9 +1,10 @@
 ---
-type: idea
-stage: discovery
+type: Idea
+stage: promoted
 origin: inbox
 domain: data-exchange
 parent: "[[Data Exchange Hub PRD]]"
+pbi: PBI-008
 description: "Track and display execution duration for import, export, and pipeline runs."
 tags:
 priority: 01 - medium

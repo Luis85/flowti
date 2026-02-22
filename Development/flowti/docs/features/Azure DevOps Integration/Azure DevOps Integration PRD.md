@@ -494,3 +494,15 @@ Legend:  ● connected (green)   ○ disconnected (grey)   ✗ error (red)
 - [[I want to import an Azure DevOps Boards project with all of it's workitems]] — related inbox item
 - [[Cycle Sequence Review 2026-02-20 Azure DevOps Prioritization]] — prioritization decision
 - [[Cycle 11 - Azure DevOps Integration]] — delivery cycle
+
+## 16. Extended Backlog (from Inbox Triage 2026-02-22)
+
+| PBI | Title | Status | Priority | Source |
+|-----|-------|--------|----------|--------|
+| PBI-SIG-001–005 | v1 Core (5 PBIs) | Delivered | — | Original scope |
+| [[PBI-SIG-006 Outbound Signals]] | Push/write-back to external systems via signal adapters | Discovery | Medium | [[I want to connect a pipeline to a Outbound Signal so that I can push files to other systems]], [[I want to right-click a folder or a base and export them via configured signal adapter into external systems]] |
+| [[PBI-SIG-007 Scheduled Auto-Sync]] | Configurable periodic signal sync intervals | Discovery | Medium | Deferred from v1 FR-11 |
+| [[PBI-SIG-008 Additional Adapters]] | GitHub Issues, Jira, RSS signal adapters | Discovery | Low | Deferred from v1 FR-14, [[How can Obsidian integrate with GitHub to manage a repo]] |
+| [[PBI-SIG-009 Work Item Relationships]] | Parent/child and related work item mapping | Discovery | Low | Deferred from v1 FR-15 |
+
+> **Inbox triage (2026-02-22):** 4 v2 PBIs defined from inbox items and v1 deferrals. Outbound signals (push) is the highest priority v2 item. OneDrive sync belongs to a separate adapter (PBI-SIG-008 scope).

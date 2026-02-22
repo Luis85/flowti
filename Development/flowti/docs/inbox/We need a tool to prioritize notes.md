@@ -1,7 +1,15 @@
 ---
-type:
-stage:
+type: Idea
+stage: promoted
+origin: inbox
+domain: process
+priority: "01 - medium"
+description: "Tool for prioritizing notes using scoring, ranking, and ELO-style comparison sessions"
+parent: "[[Prioritization Hub PRD]]"
+pbi: PBI-PRI-001
 tags:
+  - prioritization
+  - workflow
 ---
 While developing an application new ideas and feedback will emerge constantly, according to the workflow from idea to solution we then create features and PBIs based on those. 
 

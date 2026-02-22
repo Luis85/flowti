@@ -10,7 +10,6 @@ pbis:
   - "[[PBI-RP-001 Repository Restructure]]"
   - "[[PBI-RP-002 Obsidian ESLint Compliance]]"
   - "[[PBI-RP-003 CI-CD Pipeline]]"
-  - "[[PBI-CAN-001 Canvas Parser and Importer]]"
   - "[[PBI-002 Seed Starter Content]]"
   - "[[PBI-006 Pipeline Multi-Source Merge]]"
 bugs: []
@@ -34,10 +33,10 @@ total_test_files_after:
 |----|---------|--------|-------|-------|
 | RB-1 | Repository Restructure | open | PBI-RP-001 | Move source to root for npm/marketplace |
 | RB-2 | Obsidian ESLint Compliance | open | PBI-RP-002 | Required for community review |
-| RB-3 | Canvas importer as plugin feature | open | PBI-CAN-001 | Migrate QuickAdd scripts |
+| RB-3 | Canvas importer as plugin feature | resolved | PBI-CAN-001 | Delivered Cycle 15 — canvas import is first-class plugin feature |
 | RB-4 | Seed starter content | open | PBI-002 | First-run experience |
-| RB-5 | External data ingestion | targeted | Cycle 11 | Azure DevOps adapter |
-| RB-6 | Documentation stubs | deferred | — | Not marketplace-required |
+| RB-5 | External data ingestion | resolved | Cycle 11 | Delivered Cycle 11 — Azure DevOps signal adapter |
+| RB-6 | Documentation stubs | resolved | — | Resolved 2026-02-22 — TD-79 + TD-80 closed, all personas and JTBDs populated |
 | RB-7 | Pipeline multi-source merge | open | PBI-006 | Data management workflow |
 | RB-8 | CLI-based installer from README | [[I want to have a CLI based Installer starting from the README]] | installer | Open |
 

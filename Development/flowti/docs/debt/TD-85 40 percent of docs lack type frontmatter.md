@@ -3,9 +3,9 @@ type: TechDebt
 severity: high
 category: architecture
 layer: cross-cutting
-status: open
+status: partially-resolved
 effort: large
-updated: 2026-02-15
+updated: 2026-02-22
 description: Approximately 40% of markdown documentation files lack the type frontmatter field, preventing automated cataloging, self-documentation, and consistent database view filtering.
 ---
 # TD-85: ~40% of documentation files lack `type:` frontmatter
@@ -57,3 +57,7 @@ Without `type:`, files cannot be:
 ## Affected Files
 
 - ~135 files across multiple directories (feature subdirectories, architecture docs, debt items, knowledgebase)
+
+## Partial Resolution (2026-02-22)
+
+Inbox files fully remediated (265 files, 2026-02-22). A comprehensive inbox refinement sweep added `type:` frontmatter to all 265 inbox files across both inboxes. Remaining gaps in other documentation areas (architecture docs, knowledgebase articles, and some feature subdirectory files still lack `type:` frontmatter).

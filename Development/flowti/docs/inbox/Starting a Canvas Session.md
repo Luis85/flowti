@@ -1,8 +1,10 @@
 ---
-type: idea
+type: Idea
 stage: planned
 origin: inbox
 domain: session
+parent: "[[Obsidian Canvas Integration PRD]]"
+pbi: "[[PBI-CAN-003 Canvas Sessions]]"
 description: "Start a Canvas Session that opens sidebar monitor and a preconfigured Canvas in main."
 tags: []
 priority: "2 - high"

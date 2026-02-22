@@ -53,3 +53,11 @@ Missing domains in AGENTS.md: `hub/`, `inbox/`, `nudge/`, `session/`.
 Missing from test structure: 70 additional test files across all layers.
 
 See also [[TD-119 Documentation stats drift across README AGENTS CHANGELOG]] for the broader documentation accuracy issue.
+
+## Note (2026-02-22)
+
+This item requires periodic audits as the codebase continues to grow rapidly. Current actual stats:
+- **3,548 tests** across **141 suites**
+- **230+ source files**
+
+AGENTS.md should be refreshed at least once per development cycle to prevent stats from drifting beyond acceptable thresholds.

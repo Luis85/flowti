@@ -1,8 +1,10 @@
 ---
-type: idea
-stage: discovery
+type: Idea
+stage: promoted
 origin: inbox
 domain: session
+parent: "[[Obsidian Canvas Integration PRD]]"
+pbi: "[[PBI-CAN-002 Canvas Templates]]"
 description: "Provide preconfigured canvas templates for different session types — Domain Design, Sprint Planning, Retrospective, etc."
 tags: []
 priority: "01 - medium"

@@ -1209,12 +1209,15 @@ SessionSidebarView
 | 9 | PBI-SW-017 | Main/Sidebar Mode Separation | High | PBI-SW-010 | 🔜 Planned — workspace vs. control surface |
 | 10 | PBI-SW-018 | Session Preparation Checklist | Medium | PBI-SW-010 | 🔜 Discovery — guided pre-session workflow |
 | 11 | PBI-SW-019 | Session Auto-Documentation | Medium | PBI-SW-001 | 🔜 Discovery — auto-link artifacts on file events |
+| 12 | PBI-SW-020 | Session Chaining | Medium | PBI-SW-010 | 🔜 Discovery — chain/spawn follow-up sessions with inherited context |
+| 13 | PBI-SW-021 | Session Template Management UI | Low | PBI-SW-003 | 🔜 Discovery — dedicated template management view |
+| 14 | PBI-SW-022 | Clickable Session URLs | Low | — | 🔜 Discovery — attach external URLs to sessions |
 
 > **Cross-delivery:** PBI-SW-001 and PBI-SW-002 were delivered together in PBI-002 Increment 10 (Sidebar Workspace & Activity Consolidation). PBI-SW-003 and PBI-SW-004 were delivered together in Cycle 2 (Session Types and Decision Log). PBI-SW-006 and PBI-SW-008 were delivered together in Cycle 3 (Session Output Artifacts and State Restoration). PBI-SW-007 was delivered across Cycles 4+5 (core daily session in Cycle 4; nudges, daily summary, and UX polish in Cycle 5).
 
 > **v8 change — Daily tracking removed:** PBI-SW-007 (Auto-Session & Session Nudges) has been deprecated. The daily-tracking session type, auto-start, concurrent session support, daily note integration, and nudge system conflict with Session v2's philosophy of intentional execution environments. The `daily-tracking` session type, `dailySessionId`, `getDailySession()`, `generateDailySummary()`, nudge scheduler, and 8 related events (5 daily + 3 nudge) will be removed during v2 implementation. PBI-SW-007 status: Done → Removed.
 
-> **Remaining backlog:** 5 PBIs planned (PBI-SW-009, SW-015, SW-017, SW-018, SW-019). 6 v2 PBIs delivered: SW-010 (Cycle 6), SW-012 + SW-014 (Cycle 7), SW-011 + SW-013 + SW-016 (Cycle 8). 7/8 v1 PBIs remain valid (SW-001 through SW-006, SW-008).
+> **Remaining backlog:** 8 PBIs planned (PBI-SW-009, SW-015, SW-017, SW-018, SW-019, SW-020, SW-021, SW-022). 6 v2 PBIs delivered: SW-010 (Cycle 6), SW-012 + SW-014 (Cycle 7), SW-011 + SW-013 + SW-016 (Cycle 8). 7/8 v1 PBIs remain valid (SW-001 through SW-006, SW-008).
 
 > **Priority ranking** (remaining delivery order by value): PBI-SW-017 (Main/Sidebar Mode Separation) → PBI-SW-009 (Domain Design Session). **Rationale:** SW-017 is the major UI architecture change (large, unblocked by TD-101 completion); SW-009 deferred (depends on Workshop mode patterns from FR-18). TD-101 resolved (Cycle 9 Inc 1). PBI-SW-015 resolved (Cycle 9 Inc 3).
 
@@ -1222,6 +1225,13 @@ SessionSidebarView
 > - PBI-SW-018 (Session Preparation Checklist) — guided pre-session workflow from [[Session preparation checklist as guided pre-session workflow]]. Discovery stage, depends on SW-010.
 > - PBI-SW-019 (Session Auto-Documentation) — auto-link artifacts on file events from [[Session auto-documentation links artifacts on file events]]. Discovery stage, depends on SW-001.
 > - Related design documents moved from inbox: [[Sessions Service Design Blueprint]], [[Sessions User Flow]]
+
+> **Inbox triage (2026-02-22):** 3 new PBIs added from inbox:
+> - PBI-SW-020 (Session Chaining) — chain/spawn follow-up sessions from [[I want to chain Sessions]] and [[I want to pause a session and start a new session if scope changes to track this]]. Discovery stage.
+> - PBI-SW-021 (Session Template Management UI) — from [[I want to manage and maintain my Session Templates in a user-friendly manner]]. Discovery stage.
+> - PBI-SW-022 (Clickable Session URLs) — from [[I want to add clickable URLs to a session]]. Discovery stage.
+> - Bug tracked: [[Closure review does not open when completing from dashboard with sidebar occupied]] (discovery, needs investigation)
+> - Existing PBI cross-refs confirmed: Canvas Session items belong to [[Obsidian Canvas Integration PRD]] PBI-CAN-003.
 
 See `backlog/PBI-SW-*.md` for detailed specifications.
 

@@ -1,5 +1,5 @@
 ---
-type: idea
+type: Idea
 stage: planned
 origin: inbox
 domain: data-exchange

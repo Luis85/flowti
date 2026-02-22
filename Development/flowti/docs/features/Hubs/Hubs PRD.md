@@ -594,6 +594,10 @@ New feature work items, each tracked as a separate PBI in `docs/features/Hubs/ba
 | [[PBI-003 Product Hub]] | Product domain workspace | **PLANNED** | BaseHubView ✅ |
 | [[PBI-004 Project Hub]] | Project domain workspace | **PLANNED** | BaseHubView ✅ |
 | [[PBI-005 Vault Folder Inbox]] | Vault folder watching + inline triage for inbox | **PLANNED** (Cycle 12) | PBI-001 ✅ |
+| [[PBI-006 Inbox Item Routing]] | Route typed inbox items to correct folders automatically | **PLANNED** | PBI-001 ✅, PBI-005 |
+| [[PBI-007 Bulk Frontmatter Updates]] | Right-click folder/base for bulk type/frontmatter operations | **DISCOVERY** | PBI-001 ✅ |
+
+> **Inbox triage (2026-02-22):** 2 new PBIs added. PBI-006 for automatic inbox item routing from [[I want my files in the inbox routed to the correct folder once they are typed]]. PBI-007 for bulk frontmatter operations from [[Feature Idea - Bulk fix my Notes]], [[Right clicking a folder in the file navigator should give me bulk update options for data-quality]], [[I want to right-click a Base or a folder an make sure that every notes type is in titlecase]].
 
 ---
 

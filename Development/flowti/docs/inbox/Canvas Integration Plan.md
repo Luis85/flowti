@@ -3,6 +3,7 @@ type: Plan
 title: Canvas Integration
 stage: discovery
 priority: high
+parent: "[[Obsidian Canvas Integration PRD]]"
 description: Integrate Obsidian Canvas as a first-class visualization and design tool for Flowti
 tags:
   - canvas

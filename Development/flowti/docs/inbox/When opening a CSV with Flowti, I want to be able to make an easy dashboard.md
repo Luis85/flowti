@@ -1,7 +1,11 @@
 ---
-type:
-stage:
-tags:
+type: Idea
+stage: discovery
+origin: inbox
+domain: data-exchange
+parent: "[[Data Exchange Hub PRD]]"
+priority: "0 - low"
+description: "Create easy dashboard/visualization when opening CSV files in Flowti"
 ---
 To make it easier to decide what something is about, visualization is key. 
 

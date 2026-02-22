@@ -1,8 +1,10 @@
 ---
-type: idea
-stage: discovery
+type: Idea
+stage: promoted
 origin: inbox
 domain: ingestion
+parent: "[[Data Exchange Hub PRD]]"
+pbi: PBI-009
 description: "Auto-ingest Vitest JSON reports, V8 coverage summaries, and git log as typed vault notes for analysis and trending."
 tags: []
 priority: "01 - medium"

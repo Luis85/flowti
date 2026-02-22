@@ -1,6 +1,7 @@
 ---
-type: idea
-stage: planned
+type: Idea
+stage: delivered
+delivered_in: "[[Cycle 12 - User Hub Inbox]]"
 origin: inbox
 domain: inbox
 description: "Two action-ribbons and commands for instant idea and feedback capture with minimal friction."

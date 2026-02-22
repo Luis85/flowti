@@ -2,7 +2,9 @@
 domain: Flowti
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
-stage: in-progress
+stage: delivered
+delivered_in: "[[Cycle 15 - Canvas Integration]]"
+delivered_date: 2026-02-22
 related_events:
   - canvas.import.started
   - canvas.import.progress
@@ -341,3 +343,4 @@ New Canvas Session type in NewSessionModal. Opens canvas in main pane with sideb
 - Inbox: [[Canvas Integration Plan]], [[Canvas importer must be a first-class plugin feature]], [[Canvas session workspace opens canvas as session anchor with sidebar monitor]], [[Canvas template library for session types]], [[Starting a Canvas Session]], [[How can we make ingestion and connecting of information as easy and enjoyable as possible]]
 - Existing scripts: `var/scripts/canvas-importer/`
 - PRDs: [[Data Exchange Hub PRD]], [[Session Workspaces PRD]], [[Hubs PRD]]
+- Inbox (v2): [[I can save a Type on Canvas Configs to bridge the gap to the data-dictionary]], [[I want to export a folder to Canvas]], [[I want to capture a canvas as a folder of idea notes to type and tag them in an associated Obsidian Base]], [[I want to start documenting a process on a canvas with prepared fields for input process output this canvas should then auto-create needed notes]]

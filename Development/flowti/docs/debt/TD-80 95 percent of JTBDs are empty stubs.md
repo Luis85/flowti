@@ -3,9 +3,10 @@ type: TechDebt
 severity: high
 category: documentation
 layer: cross-cutting
-status: open
+status: resolved
 effort: large
-updated: 2026-02-15
+updated: 2026-02-22
+resolved: 2026-02-22
 description: 19 of 20 Jobs to Be Done files contain only frontmatter with no body content — no scope, no form, no feature links. Only the Testsuite JTBD is complete.
 ---
 # TD-80: 95% of Jobs to Be Done are empty stubs
@@ -53,3 +54,27 @@ Additionally, no JTBD Template exists in `/docs/templates/`. The single complete
 - 19 stub files in `docs/jobs to be done/`
 - `docs/jobs to be done/I need to design something.md` (malformed frontmatter)
 - Missing: `docs/templates/JTBD Template.md`
+
+## Resolution (2026-02-22)
+
+All 21 JTBD files now have full content following the JTBD Template structure (5 sections each):
+
+**Validated (4)** — map to delivered features with full coverage:
+- "I need to sync my Vault with Azure DevOps Boards" → Signal Integration (full)
+- "I need to design a flow" → Event Catalog Flows tab (full)
+- "I need to distribute my created content" → Data Exchange Hub export (full)
+- "I need to trace my solutions back to the problem" → Event Catalog cross-references (full)
+
+**Draft (16)** — structured with scope, criteria, and feature links:
+- Product backlog management, product management, project management, RAID log
+- Problem space documentation, solution documentation, requirements documentation
+- Data quality, component library, system/service/product/software design
+- JTBD management, entity tracking, content presentation
+- All-in-one product management (meta-JTBD referencing 15 sub-jobs)
+
+**Previously complete (1):**
+- "I need to create and manage a Testsuite for my domain" (unchanged)
+
+All files now have: enriched frontmatter (domain, plugin, stage, description, related_features, priority, persona as wikilink), Job Statement (When/I need to/So that + context + category), Scope (in/out with cross-refs to other JTBDs), Success Criteria (5+ measurable), Current Alternatives, Feature Links + Flow Links.
+
+Malformed frontmatter in "I need to design something.md" has been fixed. JTBD Template was already created in a prior cycle.

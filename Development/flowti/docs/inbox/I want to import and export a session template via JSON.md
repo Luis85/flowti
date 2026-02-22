@@ -1,5 +1,5 @@
 ---
-type: idea
+type: Idea
 stage: delivered
 planned_in: "Cycle 6 Inc 1"
 delivered_in: Cycle 6

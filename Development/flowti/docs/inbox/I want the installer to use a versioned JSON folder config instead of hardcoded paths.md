@@ -1,8 +1,10 @@
 ---
-type: idea
+type: Idea
 stage: planned
 origin: inbox
 domain: installer
+parent: "[[Installer PRD]]"
+pbi: PBI-005
 description: "Externalize the installer folder structure to a versioned JSON config file, decoupling structure from code and supporting rapid schema evolution."
 tags:
   - release-blocker

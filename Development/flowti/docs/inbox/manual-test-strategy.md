@@ -1,5 +1,5 @@
 ---
-type: reference
+type: Reference
 stage: archived
 description: "Manual test strategy and test plan for Flowti plugin (German). Covers all modules, error handling, traceability, performance."
 tags:

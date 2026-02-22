@@ -6,6 +6,7 @@ domain: session
 priority: "2 - high"
 description: "Completing a session from the dashboard does not open the closure review when another session is already visible in the sidebar workspace."
 parent: "[[Session Workspaces PRD]]"
+pbi: TD-123
 fixed_in: "Cycle 8 — post-delivery hotfix"
 related:
   - "[[The Activity Log does not respect set filters]]"

@@ -5,6 +5,7 @@ fixed_in: "Cycle 6"
 origin: inbox
 domain: data-exchange
 parent: "[[Data Exchange Hub PRD]]"
+pbi: TD-125
 description: "DX Dashboard loses running state when user navigates away — re-opening shows no progress for in-flight operations."
 tags:
   - fixed

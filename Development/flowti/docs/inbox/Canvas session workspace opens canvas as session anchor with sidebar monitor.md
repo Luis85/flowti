@@ -1,8 +1,10 @@
 ---
-type: idea
+type: Idea
 stage: planned
 origin: inbox
 domain: session
+parent: "[[Obsidian Canvas Integration PRD]]"
+pbi: "[[PBI-CAN-003 Canvas Sessions]]"
 description: "Start a Canvas Session that opens a preconfigured canvas in main and the session workspace in sidebar, making the canvas the core anchor during the session."
 tags: []
 priority: "2 - high"
