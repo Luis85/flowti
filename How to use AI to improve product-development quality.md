@@ -25,6 +25,11 @@ stage: refinement
 - What data-format works well as interface between Humans and Agents
 - How can Obsidian help in structuring my research project
 - How can we ingrain quality best-practices into our daily-work
+- How can we steer Agents with a scenario like approach
+- How can we describe Agent Environments as digital twin to share the same domain-language
+- How can we provide documentation which is human-readable, machine-readable, digestable, enjoyable, approachable, living, useful,valuable, evolving, naturally improving
+- What must be done or have to be in place to enable an AI Agent
+- What defines an Information-System
 
 ## Assumptions
 
@@ -115,9 +120,11 @@ He simulates external Contributions and a Pull-Request Merge Process. He is used
 
 ## Simulated Workflow
 
-Every Simulation Step should follow the [[Idea to Solution Workflow]] and produce the desired Output, with the Vault as Input. Created Increments must follow a Quality-Assurance Process before getting pushed to the remote repository.
+Every Simulation Step should follow the [[Idea to Solution Workflow]] and produce the desired Output, with the Vault as Input. Created Increments must follow a Quality-Assurance Process before getting pushed to the remote repository. Every Simulation Run must be documented in a Cycle Plan. Every Cycle Plan must adhere to [[Definition of Ready (Cycle)]] and [[Definition of Done (Cycle)]], producing an Output in increments valuable to the user.
 
 Following agile best-practices, the workflow should improve over time, making quality-assurance way easier and the outcome more predictable, enabling a self-organized AI-Assisted team.
+
+Key challenge is, to be able to replace or substitute every needed role in the process by a simulated agent. The workflow must become so robust to be manageable by one person.
 
 Key-Questions:
 
@@ -143,12 +150,13 @@ It is planned to migrate the Machine-Room into the Flowti IBDE Obsidian Plugin.
 
 ## Props
 
-- [[Idea to Solution Workflow]]
 - [[PRD Template]]
+- [[Idea to Solution Workflow]]
 - [[Cycle Planning Template]]
 - [[Definition of Ready (Cycle)]]
 - [[Definition of Done (Cycle)]]
 - [[Three Amigos Session Template]]
+- [[04 - Development.base|Product Development Cycles]]
 
 ## Learnings
 
@@ -174,4 +182,10 @@ In conclusion, AI helps the single-developer producing a Product in acceptable q
 The need for traceability and ISO compliance of AI generated Content could fit well together. As of now, AI is very limited regarding it's context window and needs to be aligned during longer sessions. 
 Required documents and actions from compliance perspective help building a long-term memory in form of Markdown files. Those documents can be templated for the AI to use, helping strengthen compliance and make human reviews easier by transparent paths during state changes.
 
+## Further thinking
 
+- How can Markov-Chains help building a knowledge-graph and leverage good old statistics from that
+
+## Todos
+
+- [ ] Synthesize past research documents from the input folder

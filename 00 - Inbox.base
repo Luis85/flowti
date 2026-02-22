@@ -110,6 +110,8 @@ views:
       - rank
       - tags
     sort:
+      - property: type
+        direction: ASC
       - property: priority
         direction: DESC
       - property: file.mtime
@@ -134,3 +136,24 @@ views:
     columnSize:
       file.name: 751
       formula.Foo Bar: 119
+  - type: table
+    name: Bugs
+    filters:
+      and:
+        - '!stage.containsAny("delivered", "partially-delivered", "done")'
+        - type == "Bug"
+    order:
+      - file.name
+      - stage
+      - file.ctime
+      - tags
+    sort:
+      - property: file.ctime
+        direction: DESC
+      - property: priority
+        direction: DESC
+      - property: file.mtime
+        direction: DESC
+    columnSize:
+      file.name: 554
+      note.stage: 88
