@@ -81,6 +81,9 @@ export class TrainCanvasSyncService {
 		const { trainFolder } = this.getSettings();
 		const canvasPath = `${trainFolder}/${train.title}.canvas`;
 
+		// Read pre-sync managed file node count for reconciliation detection
+		const preSyncCount = await this.countManagedFileNodes(canvasPath);
+
 		const { action } = await writeTrainCanvas(train, canvasPath, this.fileSystem);
 
 		const isFirstCreate = !this.canvasCreated.has(trainId);
@@ -89,10 +92,33 @@ export class TrainCanvasSyncService {
 			void this.eventBus.emit("train.canvas.created", { trainId, canvasPath });
 		}
 
+		// Reconciliation: if pre-sync count differed from train thought count, it was corrected
+		if (preSyncCount !== null && preSyncCount !== train.thoughts.length) {
+			void this.eventBus.emit("train.canvas.reconciled", {
+				trainId,
+				expected: train.thoughts.length,
+				found: preSyncCount,
+				corrected: true,
+			});
+		}
+
 		void this.eventBus.emit("train.canvas.synced", {
 			trainId,
 			canvasPath,
 			nodeCount: train.thoughts.length,
 		});
+	}
+
+	/** Count managed file nodes (ft-t-* prefix) in existing canvas. Returns null if no canvas exists. */
+	private async countManagedFileNodes(canvasPath: string): Promise<number | null> {
+		try {
+			if (!await this.fileSystem.fileExists(canvasPath)) return null;
+			const content = await this.fileSystem.readFile(canvasPath);
+			const canvas = JSON.parse(content) as { nodes?: Array<{ id: string; type?: string }> };
+			if (!canvas.nodes) return 0;
+			return canvas.nodes.filter((n) => n.id.startsWith("ft-t-") && n.type === "file").length;
+		} catch {
+			return null;
+		}
 	}
 }

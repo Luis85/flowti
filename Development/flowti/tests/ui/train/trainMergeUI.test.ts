@@ -133,6 +133,25 @@ function createMergedTrainService(trainData: TrainState): TrainService {
 		mergeBranch: vi.fn(async () => true),
 		undoMerge: vi.fn(async () => true),
 		getAllTrains: vi.fn(() => [trainData]),
+		getMainChainIds: vi.fn(() => {
+			// Walk "next" from root to compute main chain IDs
+			const incomingNext = new Set(
+				trainData.relations.filter((r) => r.direction === "next").map((r) => r.toId),
+			);
+			const root = trainData.thoughts.find((t) => !incomingNext.has(t.id));
+			if (!root) return new Set<string>();
+			const nextMap = new Map<string, string>();
+			for (const r of trainData.relations) {
+				if (r.direction === "next") nextMap.set(r.fromId, r.toId);
+			}
+			const ids = new Set<string>([root.id]);
+			let cur = root.id;
+			while (nextMap.has(cur)) {
+				cur = nextMap.get(cur)!;
+				ids.add(cur);
+			}
+			return ids;
+		}),
 	} as unknown as TrainService;
 }
 
@@ -229,12 +248,12 @@ describe("TrainMainView — merge section", () => {
 		const view = new TrainMainView(createMockLeaf(), eventBus, service);
 		await view.onOpen();
 
-		// Navigate to branch endpoint (d)
+		// Navigate to branch endpoint (d) — re-query buttons after each click since render() rebuilds DOM
 		await view.setState({ trainId: "train_1" }, { history: false });
-		// Click through to thought "d" — it's sorted by order so it's at index 2
-		const navBtns = view.contentEl.querySelectorAll(".ft-train-nav-btn");
-		(navBtns[1] as HTMLButtonElement).click(); // a → b
-		(navBtns[1] as HTMLButtonElement).click(); // b → d
+		for (let i = 0; i < 2; i++) {
+			const btns = view.contentEl.querySelectorAll(".ft-train-nav-btn");
+			(btns[1] as HTMLButtonElement).click();
+		}
 
 		const mergeBtn = view.contentEl.querySelector(".ft-train-merge-btn");
 		expect(mergeBtn).not.toBeNull();
@@ -254,8 +273,8 @@ describe("TrainMainView — merge section", () => {
 		expect(mergeBtn).toBeNull();
 	});
 
-	it("does not show 'Merge into...' on thought with outgoing next", async () => {
-		// b has outgoing next → no merge button
+	it("does not show 'Merge into...' on main chain endpoint (head)", async () => {
+		// b is the head of the main chain — protected, no merge button
 		const { train } = buildUnmergedTrain();
 		const service = createMergedTrainService(train);
 		const eventBus = new EventBus();
@@ -263,17 +282,13 @@ describe("TrainMainView — merge section", () => {
 		const view = new TrainMainView(createMockLeaf(), eventBus, service);
 		await view.onOpen();
 
-		// Navigate to b (second thought)
+		// Navigate to b (second thought on main chain)
 		const navBtns = view.contentEl.querySelectorAll(".ft-train-nav-btn");
 		(navBtns[1] as HTMLButtonElement).click(); // a → b
 
-		// b has no outgoing "next" in our unmerged train... wait, b is the end of the chain
-		// Actually in buildUnmergedTrain, b has no outgoing next, but b IS on the main chain
-		// and is not the root. Let's verify by checking if merge button appears
-		// b has no outgoing next, is not root, and train has >1 thought → merge button should show
+		// b is on the main chain → merge button hidden (main chain protection)
 		const mergeBtn = view.contentEl.querySelector(".ft-train-merge-btn");
-		// b is a chain endpoint (no outgoing next) and not root → shows merge button
-		expect(mergeBtn).not.toBeNull();
+		expect(mergeBtn).toBeNull();
 	});
 
 	it("shows existing merges with undo button", async () => {
@@ -514,5 +529,81 @@ describe("TrainMergeSelector", () => {
 
 		const header = el.querySelector(".ft-merge-selector-header");
 		expect(header?.textContent).toContain("Select merge target");
+	});
+});
+
+// ── Main Chain Merge Protection in UI (Cycle 19 Inc 2) ───
+
+describe("TrainMainView — main chain merge protection", () => {
+	it("hides merge button when navigating to a main chain node", async () => {
+		// Build: A→B→C (main chain), A→D (branch)
+		const a = createThought({ id: "a", title: "Root", order: 0 });
+		const b = createThought({ id: "b", title: "Middle", order: 1 });
+		const c = createThought({ id: "c", title: "Head", order: 2 });
+		const d = createThought({ id: "d", title: "Branch", order: 3 });
+
+		const train = createTrain({
+			thoughts: [a, b, c, d],
+			relations: [
+				{ fromId: "a", toId: "b", direction: "next" },
+				{ fromId: "b", toId: "c", direction: "next" },
+				{ fromId: "a", toId: "d", direction: "branch" },
+			],
+		});
+
+		const service = createMergedTrainService(train);
+		const eventBus = new EventBus();
+
+		const view = new TrainMainView(createMockLeaf(), eventBus, service);
+		await view.onOpen();
+
+		// Navigate to C (head of main chain) — re-query buttons after each click since render() rebuilds DOM
+		for (let i = 0; i < 2; i++) {
+			const btns = view.contentEl.querySelectorAll(".ft-train-nav-btn");
+			(btns[1] as HTMLButtonElement).click();
+		}
+
+		// C is on main chain (head) — no merge button
+		const mergeBtn = view.contentEl.querySelector(".ft-train-merge-btn");
+		expect(mergeBtn).toBeNull();
+	});
+
+	it("shows merge button on branch endpoint thought", async () => {
+		const { train } = buildUnmergedTrain();
+		const service = createMergedTrainService(train);
+		const eventBus = new EventBus();
+
+		const view = new TrainMainView(createMockLeaf(), eventBus, service);
+		await view.onOpen();
+
+		// Navigate to branch endpoint d — re-query buttons after each click since render() rebuilds DOM
+		for (let i = 0; i < 2; i++) {
+			const btns = view.contentEl.querySelectorAll(".ft-train-nav-btn");
+			(btns[1] as HTMLButtonElement).click();
+		}
+
+		const mergeBtn = view.contentEl.querySelector(".ft-train-merge-btn");
+		expect(mergeBtn).not.toBeNull();
+	});
+
+	it("getMainChainIds mock returns correct IDs for buildUnmergedTrain", () => {
+		const { train, thoughts } = buildUnmergedTrain();
+		const service = createMergedTrainService(train);
+
+		const mainIds = service.getMainChainIds(train.id);
+		expect(mainIds.has(thoughts.a.id)).toBe(true);
+		expect(mainIds.has(thoughts.b.id)).toBe(true);
+		expect(mainIds.has(thoughts.d.id)).toBe(false); // branch child
+	});
+
+	it("getMainChainIds mock returns correct IDs for buildMergedTrain", () => {
+		const { train, thoughts } = buildMergedTrain();
+		const service = createMergedTrainService(train);
+
+		const mainIds = service.getMainChainIds(train.id);
+		expect(mainIds.has(thoughts.a.id)).toBe(true);
+		expect(mainIds.has(thoughts.b.id)).toBe(true);
+		expect(mainIds.has(thoughts.c.id)).toBe(true);
+		expect(mainIds.has(thoughts.d.id)).toBe(false); // branch child
 	});
 });

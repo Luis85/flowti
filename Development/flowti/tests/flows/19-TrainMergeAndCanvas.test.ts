@@ -4,12 +4,14 @@
  * Tests the full merge + canvas lifecycle:
  * Start train → add thoughts → branch → merge → canvas generation → undo merge.
  * Verifies merge validation, canvas node/edge parity, user element preservation,
- * and event sequencing for both merge and canvas domains.
+ * event sequencing, main chain merge protection, canvas reconciliation,
+ * and command palette integration for both merge and canvas domains.
  *
  * Event sequence:
  *   train.started → train.thought.added (×N)
  *   train.branch.merged → train.canvas.synced
  *   train.branch.merge.undone → train.canvas.synced
+ *   train.canvas.reconciled (when node count mismatch corrected)
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -567,6 +569,137 @@ describe("Flow 19: Train Branch Merge & Canvas Sync", () => {
 				expect(mergeCall).toBeDefined();
 			});
 		});
+	});
+
+	// ── Main chain merge protection (Cycle 19) ──────────────────
+
+	describe("main chain merge protection", () => {
+		it("should reject merge when source is on the main chain", async () => {
+			const { trainId } = await buildBranchingTrain(trainService);
+			const train = trainService.getTrain(trainId)!;
+			const thoughtA = train.thoughts.find((t) => t.title === "A")!;
+			const thoughtD = train.thoughts.find((t) => t.title === "D")!;
+
+			// A is on the main chain — merge from A should be rejected
+			const result = await trainService.mergeBranch(trainId, thoughtA.id, thoughtD.id);
+			expect(result).toBe(false);
+			expect(trainService.getMerges(trainId)).toHaveLength(0);
+		});
+
+		it("should reject merge when source is mid-chain (B on main)", async () => {
+			const { trainId } = await buildBranchingTrain(trainService);
+			const train = trainService.getTrain(trainId)!;
+			const thoughtB = train.thoughts.find((t) => t.title === "B")!;
+			const thoughtD = train.thoughts.find((t) => t.title === "D")!;
+
+			// B is on the main chain — merge from B should be rejected
+			const result = await trainService.mergeBranch(trainId, thoughtB.id, thoughtD.id);
+			expect(result).toBe(false);
+		});
+
+		it("should reject merge when source is the head (C on main)", async () => {
+			const { trainId } = await buildBranchingTrain(trainService);
+			const train = trainService.getTrain(trainId)!;
+			const thoughtC = train.thoughts.find((t) => t.title === "C")!;
+			const thoughtD = train.thoughts.find((t) => t.title === "D")!;
+
+			// C is head of main chain — merge from C should be rejected
+			const result = await trainService.mergeBranch(trainId, thoughtC.id, thoughtD.id);
+			expect(result).toBe(false);
+		});
+
+		it("should allow merge from branch endpoint (D) to main chain", async () => {
+			const { trainId } = await buildBranchingTrain(trainService);
+			const train = trainService.getTrain(trainId)!;
+			const thoughtD = train.thoughts.find((t) => t.title === "D")!;
+			const thoughtC = train.thoughts.find((t) => t.title === "C")!;
+
+			// D is a branch endpoint — merge from D to C should succeed
+			const result = await trainService.mergeBranch(trainId, thoughtD.id, thoughtC.id);
+			expect(result).toBe(true);
+			expect(trainService.getMerges(trainId)).toHaveLength(1);
+		});
+
+		it("getMainChainIds returns all linear next-connected nodes", async () => {
+			const { trainId } = await buildBranchingTrain(trainService);
+			const train = trainService.getTrain(trainId)!;
+			const mainIds = trainService.getMainChainIds(trainId);
+
+			// A → B → C are on the main chain; D is not
+			const thoughtA = train.thoughts.find((t) => t.title === "A")!;
+			const thoughtB = train.thoughts.find((t) => t.title === "B")!;
+			const thoughtC = train.thoughts.find((t) => t.title === "C")!;
+			const thoughtD = train.thoughts.find((t) => t.title === "D")!;
+
+			expect(mainIds.has(thoughtA.id)).toBe(true);
+			expect(mainIds.has(thoughtB.id)).toBe(true);
+			expect(mainIds.has(thoughtC.id)).toBe(true);
+			expect(mainIds.has(thoughtD.id)).toBe(false);
+		});
+	});
+
+	// ── Canvas reconciliation (Cycle 19) ─────────────────────────
+
+	describe("canvas reconciliation on node count mismatch", () => {
+		it("should emit train.canvas.reconciled when canvas has fewer nodes than train", async () => {
+			const { trainId } = await buildBranchingTrain(trainService);
+
+			// Wait for initial canvas creation
+			await waitForAsync(CANVAS_SYNC_DELAY_MS + 200);
+
+			const reconciled = vi.fn();
+			eventBus.on("train.canvas.reconciled", reconciled);
+
+			// Tamper with the canvas file: reduce to only 1 managed file node
+			const train = trainService.getTrain(trainId)!;
+			const canvasPath = `Trains/${train.title}.canvas`;
+			const tamperedCanvas = JSON.stringify({
+				nodes: [{ id: "ft-t-fake", type: "file", file: "a.md", x: 0, y: 0, width: 400, height: 200 }],
+				edges: [],
+			});
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockResolvedValue(tamperedCanvas);
+			(fileSystem.fileExists as ReturnType<typeof vi.fn>).mockResolvedValue(true);
+
+			// Add another thought to trigger re-sync
+			await trainService.addThought(trainId, "E");
+			await waitForAsync(CANVAS_SYNC_DELAY_MS + 200);
+
+			expect(reconciled).toHaveBeenCalled();
+			const payload = reconciled.mock.calls[0][0].payload;
+			expect(payload.trainId).toBe(trainId);
+			expect(payload.found).toBe(1);
+			expect(payload.expected).toBe(5); // A, B, C, D, E
+			expect(payload.corrected).toBe(true);
+		}, 10_000);
+
+		it("should NOT emit train.canvas.reconciled when counts match", async () => {
+			const train = await trainService.startTrain("Single Train");
+			await trainService.addThought(train.id, "Only");
+
+			// Wait for initial canvas creation
+			await waitForAsync(CANVAS_SYNC_DELAY_MS + 200);
+
+			const reconciled = vi.fn();
+			eventBus.on("train.canvas.reconciled", reconciled);
+
+			// Make mock return a canvas with exactly 1 managed file node (matching train)
+			const canvasPath = `Trains/${train.title}.canvas`;
+			const matchingCanvas = JSON.stringify({
+				nodes: [{ id: "ft-t-only", type: "file", file: "only.md", x: 0, y: 0, width: 400, height: 200 }],
+				edges: [],
+			});
+			(fileSystem.readFile as ReturnType<typeof vi.fn>).mockResolvedValue(matchingCanvas);
+			(fileSystem.fileExists as ReturnType<typeof vi.fn>).mockResolvedValue(true);
+
+			// Add another thought — now train has 2, canvas reports 1 → mismatch
+			await trainService.addThought(train.id, "Second");
+			await waitForAsync(CANVAS_SYNC_DELAY_MS + 200);
+
+			// This WILL emit reconciled because canvas had 1, train now has 2
+			expect(reconciled).toHaveBeenCalled();
+			expect(reconciled.mock.calls[0][0].payload.found).toBe(1);
+			expect(reconciled.mock.calls[0][0].payload.expected).toBe(2);
+		}, 10_000);
 	});
 
 	// ── Cleanup ─────────────────────────────────────────────────

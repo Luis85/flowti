@@ -366,12 +366,25 @@ export class TrainService {
 		return childIds.map((id) => thoughtById.get(id)).filter(Boolean) as ThoughtNode[];
 	}
 
+	/**
+	 * Get the set of thought IDs that lie on the main chain.
+	 * The main chain is the linear "next" path from root to head — the storyline backbone.
+	 * Branch origins are on the main chain; branch children are not.
+	 */
+	getMainChainIds(trainId: string): Set<string> {
+		const train = this.findTrain(trainId);
+		if (!train) return new Set();
+		return this.computeMainChainIds(train);
+	}
+
 	// ── Merge ───────────────────────────────────────────────────
 
 	/**
 	 * Merge a branch thought into a target thought.
 	 * Creates a structural "merge" relation — no content is modified.
-	 * Train must be running or paused. Rejects self-merge, duplicates, and cycles.
+	 * Train must be running or paused.
+	 * Rejects: self-merge, duplicates, cycles, and main-chain sources.
+	 * Only branch descendants can be merge sources — main chain nodes are protected.
 	 */
 	async mergeBranch(trainId: string, sourceId: string, targetId: string): Promise<boolean> {
 		const train = this.findTrain(trainId);
@@ -384,6 +397,9 @@ export class TrainService {
 
 		// No self-merge
 		if (sourceId === targetId) return false;
+
+		// Main chain protection: source must NOT be on the main chain
+		if (this.computeMainChainIds(train).has(sourceId)) return false;
 
 		// No duplicate merge
 		const duplicate = train.relations.find(
@@ -455,6 +471,32 @@ export class TrainService {
 	 * Check if targetId is reachable from sourceId via forward edges (next/branch).
 	 * Merge edges are NOT followed — they represent convergence, not forward flow.
 	 */
+	/**
+	 * Compute the set of thought IDs on the main chain (root → head via "next" edges).
+	 * Branch origins are on the main chain; branch children are not.
+	 */
+	private computeMainChainIds(train: TrainState): Set<string> {
+		if (train.thoughts.length === 0) return new Set();
+
+		const nextMap = new Map<string, string>();
+		const incomingNext = new Set<string>();
+		for (const r of train.relations) {
+			if (r.direction === "next") {
+				nextMap.set(r.fromId, r.toId);
+				incomingNext.add(r.toId);
+			}
+		}
+
+		const root = train.thoughts.find((t) => !incomingNext.has(t.id)) ?? train.thoughts[0];
+		const mainIds = new Set<string>([root.id]);
+		let current = root.id;
+		while (nextMap.has(current)) {
+			current = nextMap.get(current)!;
+			mainIds.add(current);
+		}
+		return mainIds;
+	}
+
 	private isReachable(train: TrainState, sourceId: string, targetId: string): boolean {
 		const visited = new Set<string>();
 		const stack = [sourceId];

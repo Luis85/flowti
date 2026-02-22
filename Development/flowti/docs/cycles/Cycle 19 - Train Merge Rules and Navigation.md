@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Train Improvements PRD]]"
-stage: ready
+stage: in-progress
 cycle: 19
 date_planned: 2026-02-22
 date_completed:
@@ -102,6 +102,52 @@ total_test_files_after: 155
 
 ---
 
+## Definition of Ready — Verification
+
+### 1. Feature PRD Readiness
+- [x] PRD exists and is approved — [[Train Improvements PRD]] (stage: in-progress, updated from planned)
+- [x] PRD stage is `in-progress` — Cycles 17-18 delivered under this PRD
+- [x] FRI scored — 25/35 across 7 dimensions
+- [x] FRI meets threshold — 25/35 ≥ 19/35 (Technically Ready) and ≥ 11/35 (continuation)
+- [x] Technical Review passed — Cycles 17-18 delivered successfully (implicit pass)
+
+### 2. Backlog Readiness
+- [x] PBIs defined — PBI-TOT-006 (Canvas Visualization Enrichment — continuation)
+- [x] PBIs chunked into increments — 5 vertical slices with end-to-end value
+- [x] Dependencies mapped — Inc 1→2→5, Inc 3→5, Inc 4→5
+- [x] Priority ranked — merge rules (value) → UI → commands → keyboard → integration
+
+### 3. Cycle Plan Document
+- [x] Cycle document exists — Cycle 19 with proper frontmatter
+- [x] Situation assessment written — plugin health, feature status, test counts, bugs
+- [x] Cycle goals defined — 5 goals with clear deliverables
+- [x] Proposed increments specified — 5 increments with goal, scope, LOC, tests
+- [x] Dependency graph drawn — 3-phase execution order
+- [x] Risks identified — 5 risks with mitigations
+- [x] Success metrics defined — table with targets
+- [x] Deferred items documented — 6 items with rationale and target
+
+### 4. Increment Readiness
+- [x] Scope statement defined — each increment has goal and scope
+- [x] Acceptance criteria written — testable criteria per increment
+- [x] Test intent stated — behaviors and levels specified
+- [x] Documentation intent stated — added per increment
+- [x] Architecture seams confirmed — service methods, UI components, events
+- [x] Estimated size — LOC and test count per increment
+
+### 5. Quality Baseline
+- [x] Build pipeline green — `npm run build` passes, 3,792 tests, 154 suites
+- [x] No critical bugs open — canvas sync bug fixed pre-cycle
+- [x] Previous cycle closed — Cycle 18 delivered, stage=delivered
+
+### 6. Pre-Cycle Completion
+- [x] Pre-cycle work documented — canvas sync createFile→updateFile bug fix
+- [x] Inbox signals reviewed — 11 inbox items mapped (3 addressed, 8 deferred)
+
+**Result: All 22 DoR items satisfied. Cycle is READY to start.**
+
+---
+
 ### Completed Pre-Cycle
 
 **Bug fix: Canvas sync createFile→updateFile**
@@ -134,6 +180,8 @@ total_test_files_after: 155
 
 **Test intent:** Main chain node as source → returns false. Branch endpoint as source → succeeds. Branch node merged into main chain node (target) → succeeds (target on main chain is fine, source must NOT be). Root node as source → rejected. Head node as source → rejected. Branch origin (has outgoing branch edge but is on main chain) → rejected as source. Sub-branch nodes → can merge.
 
+**Documentation intent:** Update Train Improvements PRD with merge rule semantics (AD-7: Main Chain Protection Rule).
+
 **Acceptance criteria:**
 - [ ] `mergeBranch(trainId, mainChainNodeId, targetId)` returns false
 - [ ] `mergeBranch(trainId, branchNodeId, mainChainNodeId)` succeeds
@@ -158,6 +206,8 @@ total_test_files_after: 155
 **Est. total:** ~27 LOC source, ~60 LOC tests, ~8 new tests
 
 **Test intent:** Main chain thought selected → "Merge into..." button hidden. Branch thought selected → button visible. TrainMergeSelector dims main chain nodes when shown. `getMainChainIds()` returns correct set for various train topologies.
+
+**Documentation intent:** None (UI behavior change, no new docs needed).
 
 **Acceptance criteria:**
 - [ ] "Merge into..." button not shown when active thought is on main chain
@@ -191,6 +241,8 @@ total_test_files_after: 155
 
 **Test intent:** Each command: calls the right service method or emits the right event. "No active train" edge cases show Notice. Canvas command opens correct file path.
 
+**Documentation intent:** Register 4 new commands in event catalog.
+
 **Acceptance criteria:**
 - [ ] 4 new commands visible in command palette
 - [ ] Each command operates on the active/paused train
@@ -219,6 +271,8 @@ total_test_files_after: 155
 
 **Test intent:** Esc keydown event → modal `close()` called. Tab keydown → direction toggles. Hint text "(Tab to switch)" rendered near direction dropdown. First thought (no direction selector) → Tab does nothing.
 
+**Documentation intent:** None (keyboard UX, no new docs needed).
+
 **Acceptance criteria:**
 - [ ] Esc closes the capture modal
 - [ ] Tab toggles direction selector between Continue and Branch
@@ -245,6 +299,8 @@ total_test_files_after: 155
 **Reconciliation logic:** After `writeTrainCanvas()` returns, read back the written canvas, count file nodes, compare with `train.thoughts.length`. If they match → normal `train.canvas.synced`. If they differed before write → emit `train.canvas.reconciled` with `{ trainId, expected, found, corrected: true }`.
 
 **Test intent:** Mismatch detected → reconciled event emitted. No mismatch → no reconciled event. Flow 19 updated: merge from main chain fails, merge from branch succeeds, canvas reconciles after sync.
+
+**Documentation intent:** Register `train.canvas.reconciled` event in catalog. Update cycle plan with actuals.
 
 **Acceptance criteria:**
 - [ ] `train.canvas.reconciled` emitted when node count was corrected

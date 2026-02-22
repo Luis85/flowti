@@ -2,7 +2,7 @@
 domain: Session
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
-stage: planned
+stage: in-progress
 maturity: L1
 version: 1
 created: 2026-02-22

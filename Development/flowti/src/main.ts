@@ -793,6 +793,60 @@ export default class FlowtiBasePlugin extends Plugin {
 			}),
 		);
 
+		// Resume paused train (command palette)
+		this.crossCuttingListeners.push(
+			this.eventBus.on("ui.resumeTrain", () => {
+				const paused = this.trainService?.getAllTrains().find((t) => t.status === "paused");
+				if (!paused) {
+					new Notice("No paused train to resume");
+					return;
+				}
+				void this.trainService!.resume(paused.id);
+			}),
+		);
+
+		// Complete current train (command palette)
+		this.crossCuttingListeners.push(
+			this.eventBus.on("ui.completeTrain", () => {
+				const active = this.trainService?.getActiveTrain();
+				if (!active) {
+					new Notice("No active train to complete");
+					return;
+				}
+				void this.trainService!.completeTrain(active.id);
+			}),
+		);
+
+		// Open canvas for active train (command palette)
+		this.crossCuttingListeners.push(
+			this.eventBus.on("ui.openTrainCanvas", () => {
+				const active = this.trainService?.getActiveTrain();
+				if (!active) {
+					new Notice("No active train");
+					return;
+				}
+				const settings = settingsService.getSettings();
+				if (!settings.trainCanvasEnabled || !settings.trainFolder) {
+					new Notice("Train canvas is not enabled");
+					return;
+				}
+				const canvasPath = `${settings.trainFolder}/${active.title}.canvas`;
+				void this.app.workspace.openLinkText(canvasPath, "", false);
+			}),
+		);
+
+		// Open train timeline sidebar for active train (command palette)
+		this.crossCuttingListeners.push(
+			this.eventBus.on("ui.openTrainTimeline", () => {
+				const active = this.trainService?.getActiveTrain();
+				if (!active) {
+					new Notice("No active train");
+					return;
+				}
+				this.revealOrCreateTrainTimeline(active.id);
+			}),
+		);
+
 		// Auto-open Session Workspace for train closure ritual
 		// Train sessions suppress workspace on start, but need it for closure
 		this.crossCuttingListeners.push(

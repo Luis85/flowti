@@ -62,6 +62,18 @@ export interface UiCommandEventMap {
 	/** Toggle the Train Timeline Sidebar (show/hide) */
 	"ui.toggleTrainTimeline": { trainId: string };
 
+	/** Resume the active paused train (command palette) */
+	"ui.resumeTrain": Record<string, never>;
+
+	/** Complete the active running/paused train (command palette) */
+	"ui.completeTrain": Record<string, never>;
+
+	/** Open the canvas for the active train (command palette) */
+	"ui.openTrainCanvas": Record<string, never>;
+
+	/** Open the train timeline sidebar for the active train (command palette) */
+	"ui.openTrainTimeline": Record<string, never>;
+
 	/** Emitted after a view or modal was opened by UiCommandService */
 	"ui.opened": {
 		target: string;

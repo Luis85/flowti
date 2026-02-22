@@ -154,6 +154,151 @@ describe("TrainCaptureModal", () => {
 		expect(counter?.textContent).toBe("Thought #1");
 	});
 
+	describe("keyboard navigation", () => {
+		it("Esc key closes modal and triggers onCancel", () => {
+			const onCancel = vi.fn();
+			const modal = new TrainCaptureModal(createMockApp(), {
+				trainTitle: "Esc Test",
+				previousThoughtTitle: null,
+				thoughtCount: 0,
+				onSubmit: vi.fn(),
+				onComplete: vi.fn(),
+				onCancel,
+				durationMinutes: 0,
+			});
+			modal.onOpen();
+
+			modal.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+			// Stub close() is no-op, so call onClose() manually
+			modal.onClose();
+
+			expect(onCancel).toHaveBeenCalledOnce();
+		});
+
+		it("Tab key toggles direction from next to branch", () => {
+			const onSubmit = vi.fn();
+			const modal = new TrainCaptureModal(createMockApp(), {
+				trainTitle: "Tab Test",
+				previousThoughtTitle: "Previous",
+				thoughtCount: 1,
+				onSubmit,
+				onComplete: vi.fn(),
+				onCancel: vi.fn(),
+				durationMinutes: 0,
+			});
+			modal.onOpen();
+
+			// Direction starts as "next" (default)
+			const dropdown = modal.contentEl.querySelector("select") as HTMLSelectElement;
+			expect(dropdown.value).toBe("next");
+
+			// Press Tab → should toggle to "branch"
+			modal.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+			expect(dropdown.value).toBe("branch");
+		});
+
+		it("Tab key toggles direction from branch back to next", () => {
+			const modal = new TrainCaptureModal(createMockApp(), {
+				trainTitle: "Tab Toggle",
+				previousThoughtTitle: "Previous",
+				thoughtCount: 1,
+				onSubmit: vi.fn(),
+				onComplete: vi.fn(),
+				onCancel: vi.fn(),
+				durationMinutes: 0,
+				defaultDirection: "branch",
+			});
+			modal.onOpen();
+
+			const dropdown = modal.contentEl.querySelector("select") as HTMLSelectElement;
+			expect(dropdown.value).toBe("branch");
+
+			modal.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+			expect(dropdown.value).toBe("next");
+		});
+
+		it("Tab does nothing when no direction selector (first thought)", () => {
+			const modal = new TrainCaptureModal(createMockApp(), {
+				trainTitle: "Tab No-op",
+				previousThoughtTitle: null,
+				thoughtCount: 0,
+				onSubmit: vi.fn(),
+				onComplete: vi.fn(),
+				onCancel: vi.fn(),
+				durationMinutes: 0,
+			});
+			modal.onOpen();
+
+			// No dropdown present
+			const dropdown = modal.contentEl.querySelector("select");
+			expect(dropdown).toBeNull();
+
+			// Tab should not throw or affect state
+			modal.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+		});
+
+		it("shows keyboard hint near direction selector", () => {
+			const modal = new TrainCaptureModal(createMockApp(), {
+				trainTitle: "Hint Test",
+				previousThoughtTitle: "Previous",
+				thoughtCount: 1,
+				onSubmit: vi.fn(),
+				onComplete: vi.fn(),
+				onCancel: vi.fn(),
+				durationMinutes: 0,
+			});
+			modal.onOpen();
+
+			const hint = modal.contentEl.querySelector(".ft-train-keyboard-hint");
+			expect(hint).not.toBeNull();
+			expect(hint?.textContent).toContain("Tab to switch");
+		});
+
+		it("hides keyboard hint when no direction selector", () => {
+			const modal = new TrainCaptureModal(createMockApp(), {
+				trainTitle: "No Hint",
+				previousThoughtTitle: null,
+				thoughtCount: 0,
+				onSubmit: vi.fn(),
+				onComplete: vi.fn(),
+				onCancel: vi.fn(),
+				durationMinutes: 0,
+			});
+			modal.onOpen();
+
+			const hint = modal.contentEl.querySelector(".ft-train-keyboard-hint");
+			expect(hint).toBeNull();
+		});
+
+		it("submits with toggled direction after Tab", () => {
+			const onSubmit = vi.fn();
+			const modal = new TrainCaptureModal(createMockApp(), {
+				trainTitle: "Submit Toggle",
+				previousThoughtTitle: "Previous",
+				thoughtCount: 1,
+				onSubmit,
+				onComplete: vi.fn(),
+				onCancel: vi.fn(),
+				durationMinutes: 0,
+			});
+			modal.onOpen();
+
+			// Tab to toggle to "branch"
+			modal.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+
+			// Type a title and submit
+			const input = modal.contentEl.querySelector("input") as HTMLInputElement;
+			input.value = "Branched thought";
+			input.dispatchEvent(new Event("input", { bubbles: true }));
+
+			// Trigger Enter to submit
+			input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+			modal.onClose();
+
+			expect(onSubmit).toHaveBeenCalledWith("Branched thought", "branch");
+		});
+	});
+
 	describe("timer display", () => {
 		it("shows no timer when durationMinutes is 0", () => {
 			const modal = new TrainCaptureModal(createMockApp(), {

@@ -62,6 +62,24 @@ function createMockTrainService(train: TrainState | undefined = undefined): Trai
 		),
 		getChildren: vi.fn(() => []),
 		getAllTrains: vi.fn(() => [defaultTrain]),
+		getMainChainIds: vi.fn(() => {
+			const incomingNext = new Set(
+				defaultTrain.relations.filter((r) => r.direction === "next").map((r) => r.toId),
+			);
+			const root = defaultTrain.thoughts.find((t) => !incomingNext.has(t.id));
+			if (!root) return new Set<string>();
+			const nextMap = new Map<string, string>();
+			for (const r of defaultTrain.relations) {
+				if (r.direction === "next") nextMap.set(r.fromId, r.toId);
+			}
+			const ids = new Set<string>([root.id]);
+			let cur = root.id;
+			while (nextMap.has(cur)) {
+				cur = nextMap.get(cur)!;
+				ids.add(cur);
+			}
+			return ids;
+		}),
 	} as unknown as TrainService;
 }
 

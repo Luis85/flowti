@@ -368,29 +368,28 @@ describe("TrainService — mergeBranch()", () => {
 	// ── Cycle detection edge cases ────────────────────────────
 
 	describe("cycle detection", () => {
-		it("allows backward merge (B→A) when A→B exists as next", async () => {
+		it("rejects backward merge (B→A) because B is on main chain", async () => {
 			const { service } = createTestHarness();
-			const train = await service.startTrain("Backward OK");
+			const train = await service.startTrain("Backward Rejected");
 			const a = await service.addThought(train.id, "A");
 			const b = await service.addThought(train.id, "B");
 
-			// A→B via next. B cannot reach A via forward edges. So B→A merge is valid.
+			// A→B via next. Both are on main chain. Main chain nodes cannot be merge sources.
 			const result = await service.mergeBranch(train.id, b!.id, a!.id);
-			expect(result).toBe(true);
+			expect(result).toBe(false);
 		});
 
-		it("does not follow merge edges during cycle check", async () => {
+		it("rejects merge from main chain even when no cycle would occur", async () => {
 			const { service } = createTestHarness();
 			const { train, a, b, c, d } = await buildTrainWithBranch(service);
 
-			// First: merge D→B (valid)
+			// First: merge D→B (valid — D is on branch)
 			await service.mergeBranch(train.id, d.id, b.id);
 
-			// Now try: merge B→D
-			// B has no outgoing next/branch to D. The existing D→B merge edge should NOT
-			// be followed in reverse, so B cannot reach D via forward edges. This should be valid.
+			// Now try: merge B→D. B is on main chain, so this is rejected
+			// regardless of cycle detection.
 			const result = await service.mergeBranch(train.id, b.id, d.id);
-			expect(result).toBe(true);
+			expect(result).toBe(false);
 		});
 
 		it("detects deep chain reachability", async () => {
@@ -666,5 +665,112 @@ describe("TrainService — merge edge cases", () => {
 
 		const branchesAfter = service.getBranches(train.id, a.id).map((t) => t.title);
 		expect(branchesAfter).toEqual(branchesBefore);
+	});
+});
+
+// ── Main Chain Protection Rule (Cycle 19 Inc 1) ──────────────
+
+describe("TrainService — main chain merge restriction", () => {
+	it("rejects merge when source is root (first main chain node)", async () => {
+		const { service } = createTestHarness();
+		const { train, a, d } = await buildTrainWithBranch(service);
+
+		const result = await service.mergeBranch(train.id, a.id, d.id);
+		expect(result).toBe(false);
+	});
+
+	it("rejects merge when source is head (last main chain node)", async () => {
+		const { service } = createTestHarness();
+		const { train, c, d } = await buildTrainWithBranch(service);
+
+		const result = await service.mergeBranch(train.id, c.id, d.id);
+		expect(result).toBe(false);
+	});
+
+	it("rejects merge when source is middle main chain node", async () => {
+		const { service } = createTestHarness();
+		const { train, b, d } = await buildTrainWithBranch(service);
+
+		const result = await service.mergeBranch(train.id, b.id, d.id);
+		expect(result).toBe(false);
+	});
+
+	it("rejects merge when source is branch origin (on main chain with outgoing branch)", async () => {
+		const { service } = createTestHarness();
+		const { train, a, d } = await buildTrainWithBranch(service);
+
+		// A has outgoing branch to D, but A is on the main chain
+		const result = await service.mergeBranch(train.id, a.id, d.id);
+		expect(result).toBe(false);
+	});
+
+	it("allows merge when source is branch child (not on main chain)", async () => {
+		const { service } = createTestHarness();
+		const { train, d, b } = await buildTrainWithBranch(service);
+
+		// D is a branch child (A→D via branch) — NOT on main chain
+		const result = await service.mergeBranch(train.id, d.id, b.id);
+		expect(result).toBe(true);
+	});
+
+	it("allows merge when source is deeper branch descendant", async () => {
+		const { service } = createTestHarness();
+		const { train, a, d } = await buildTrainWithBranch(service);
+
+		// Add E as next after D (within the branch)
+		const e = await service.addThought(train.id, "E", {
+			direction: "next",
+			fromThoughtId: d.id,
+		});
+
+		// E is deep in branch: A→D(branch)→E(next). E can merge into A.
+		const result = await service.mergeBranch(train.id, e!.id, a.id);
+		expect(result).toBe(true);
+	});
+
+	it("allows merge when source is on sub-branch", async () => {
+		const { service } = createTestHarness();
+		const { train, d, c } = await buildTrainWithBranch(service);
+
+		// Add F as branch from D (sub-branch)
+		const f = await service.addThought(train.id, "F", {
+			direction: "branch",
+			fromThoughtId: d.id,
+		});
+
+		// F is on sub-branch: A→D(branch)→F(branch). F can merge into C.
+		const result = await service.mergeBranch(train.id, f!.id, c.id);
+		expect(result).toBe(true);
+	});
+
+	it("getMainChainIds returns correct set for linear train", async () => {
+		const { service } = createTestHarness();
+		const train = await service.startTrain("Linear");
+		const a = await service.addThought(train.id, "A");
+		const b = await service.addThought(train.id, "B");
+		const c = await service.addThought(train.id, "C");
+
+		const mainIds = service.getMainChainIds(train.id);
+		expect(mainIds.has(a!.id)).toBe(true);
+		expect(mainIds.has(b!.id)).toBe(true);
+		expect(mainIds.has(c!.id)).toBe(true);
+		expect(mainIds.size).toBe(3);
+	});
+
+	it("getMainChainIds excludes branch children", async () => {
+		const { service } = createTestHarness();
+		const { train, a, b, c, d } = await buildTrainWithBranch(service);
+
+		const mainIds = service.getMainChainIds(train.id);
+		expect(mainIds.has(a.id)).toBe(true);
+		expect(mainIds.has(b.id)).toBe(true);
+		expect(mainIds.has(c.id)).toBe(true);
+		expect(mainIds.has(d.id)).toBe(false); // D is branch child
+	});
+
+	it("getMainChainIds returns empty set for nonexistent train", () => {
+		const { service } = createTestHarness();
+		const mainIds = service.getMainChainIds("nonexistent");
+		expect(mainIds.size).toBe(0);
 	});
 });

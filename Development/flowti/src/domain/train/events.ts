@@ -27,4 +27,6 @@ export interface TrainEventMap {
 	"train.canvas.created": { trainId: string; canvasPath: string };
 	/** Emitted when a train canvas is synced (regenerated from graph state). */
 	"train.canvas.synced": { trainId: string; canvasPath: string; nodeCount: number };
+	/** Emitted when a canvas sync corrected a node count mismatch (reconciliation). */
+	"train.canvas.reconciled": { trainId: string; expected: number; found: number; corrected: boolean };
 }

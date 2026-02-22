@@ -108,6 +108,8 @@ export class TrainCaptureModal extends Modal {
 
 		let titleValue = "";
 		let selectedDirection: ThoughtDirection = this.options.defaultDirection ?? "next";
+		let dropdownEl: HTMLSelectElement | null = null;
+		const hasDirection = !!this.options.previousThoughtTitle;
 
 		const submit = (): void => {
 			const trimmed = titleValue.trim();
@@ -117,6 +119,24 @@ export class TrainCaptureModal extends Modal {
 				this.close();
 			}
 		};
+
+		const toggleDirection = (): void => {
+			if (!hasDirection || !dropdownEl) return;
+			selectedDirection = selectedDirection === "next" ? "branch" : "next";
+			dropdownEl.value = selectedDirection;
+			dropdownEl.dispatchEvent(new Event("change"));
+		};
+
+		// Modal-level keyboard handler: Esc to cancel, Tab to toggle direction
+		contentEl.addEventListener("keydown", (e: KeyboardEvent) => {
+			if (e.key === "Escape") {
+				e.preventDefault();
+				this.close();
+			} else if (e.key === "Tab" && hasDirection) {
+				e.preventDefault();
+				toggleDirection();
+			}
+		});
 
 		// Title input
 		new Setting(contentEl)
@@ -137,15 +157,21 @@ export class TrainCaptureModal extends Modal {
 			});
 
 		// Direction selector (hidden for first thought — no previous to branch from)
-		if (this.options.previousThoughtTitle) {
+		if (hasDirection) {
 			new Setting(contentEl)
 				.setName("Direction")
+				.setDesc("(Tab to switch)")
 				.addDropdown((dd) => {
 					dd.addOption("next", "Continue chain \u2192");
 					dd.addOption("branch", "Branch \u2197");
 					dd.setValue(selectedDirection);
 					dd.onChange((value) => { selectedDirection = value as ThoughtDirection; });
+					dropdownEl = dd.selectEl;
 				});
+			// Add visible keyboard hint near the dropdown
+			const hint = contentEl.createDiv({ cls: "ft-train-keyboard-hint", text: "(Tab to switch)" });
+			hint.style.fontSize = "0.85em";
+			hint.style.opacity = "0.7";
 		}
 
 		// Navigation buttons — mirrors the thought's link directions

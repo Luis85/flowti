@@ -409,8 +409,9 @@ export class TrainMainView extends ItemView {
 			}
 		}
 
-		// Show "Merge into..." button for branch endpoint thoughts
-		// A branch endpoint has no outgoing "next" relation
+		// Show "Merge into..." button for branch endpoint thoughts ONLY.
+		// Main chain nodes are protected — they cannot be merge sources.
+		const mainChainIds = this.trainService.getMainChainIds(train.id);
 		const hasOutgoingNext = train.relations.some(
 			(r) => r.fromId === thought.id && r.direction === "next",
 		);
@@ -418,9 +419,8 @@ export class TrainMainView extends ItemView {
 			(r) => r.toId === thought.id && (r.direction === "next" || r.direction === "branch"),
 		);
 
-		// Show merge button on non-root thoughts with no outgoing "next"
-		// (branch endpoints and chain endpoints that aren't the root)
-		if (!hasOutgoingNext && !isRoot && train.thoughts.length > 1) {
+		// Show merge button on non-root, non-main-chain thoughts with no outgoing "next"
+		if (!hasOutgoingNext && !isRoot && !mainChainIds.has(thought.id) && train.thoughts.length > 1) {
 			if (this.mergeSelectorOpen) {
 				const selectorEl = section.createDiv({ cls: "ft-train-merge-selector-container" });
 				const selector = new TrainMergeSelector(selectorEl, {

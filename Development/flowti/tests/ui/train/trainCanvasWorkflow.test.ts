@@ -61,6 +61,24 @@ function createMockTrainService(train: TrainState): TrainService {
 		mergeBranch: vi.fn(async () => true),
 		undoMerge: vi.fn(async () => true),
 		getAllTrains: vi.fn(() => [train]),
+		getMainChainIds: vi.fn(() => {
+			const incomingNext = new Set(
+				train.relations.filter((r) => r.direction === "next").map((r) => r.toId),
+			);
+			const root = train.thoughts.find((t) => !incomingNext.has(t.id));
+			if (!root) return new Set<string>();
+			const nextMap = new Map<string, string>();
+			for (const r of train.relations) {
+				if (r.direction === "next") nextMap.set(r.fromId, r.toId);
+			}
+			const ids = new Set<string>([root.id]);
+			let cur = root.id;
+			while (nextMap.has(cur)) {
+				cur = nextMap.get(cur)!;
+				ids.add(cur);
+			}
+			return ids;
+		}),
 	} as unknown as TrainService;
 }
 

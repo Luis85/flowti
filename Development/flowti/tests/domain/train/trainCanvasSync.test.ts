@@ -327,6 +327,138 @@ describe("TrainCanvasSyncService", () => {
 		});
 	});
 
+	// ── Reconciliation ───────────────────────────────────────
+
+	describe("reconciliation", () => {
+		it("emits train.canvas.reconciled when existing canvas has fewer nodes than train", async () => {
+			const train = makeTrain({
+				thoughts: [
+					{ id: "t1", trainId: "train_1", title: "A", path: "trains/A.md", createdAt: "", order: 0 },
+					{ id: "t2", trainId: "train_1", title: "B", path: "trains/B.md", createdAt: "", order: 1 },
+					{ id: "t3", trainId: "train_1", title: "C", path: "trains/C.md", createdAt: "", order: 2 },
+				],
+				relations: [
+					{ fromId: "t1", toId: "t2", direction: "next" },
+					{ fromId: "t2", toId: "t3", direction: "next" },
+				],
+			});
+
+			// Existing canvas with only 1 managed file node (out of sync)
+			const existingCanvas = JSON.stringify({
+				nodes: [
+					{ id: "ft-t-t1", type: "file", file: "trains/A.md", x: 0, y: 0, width: 400, height: 200 },
+				],
+				edges: [],
+			});
+
+			const fileSystem = createMockFileSystem({
+				"trains/Test Train.canvas": existingCanvas,
+			});
+
+			const eventBus: IEventBus = new EventBus();
+			const reconciledEvents: Array<{ expected: number; found: number; corrected: boolean }> = [];
+			eventBus.on("train.canvas.reconciled", (e) => { reconciledEvents.push(e.payload); });
+
+			const service = new TrainCanvasSyncService({
+				eventBus,
+				fileSystem,
+				getSettings: () => ({ trainFolder: "trains", trainCanvasEnabled: true }),
+				getTrain: () => train,
+			});
+			service.setup();
+
+			void eventBus.emit("train.thought.added", {
+				trainId: "train_1",
+				thought: { id: "t3", trainId: "train_1", title: "C", path: "trains/C.md", createdAt: "", order: 2 },
+				previousTitle: "B",
+				direction: "next",
+			});
+
+			vi.advanceTimersByTime(CANVAS_SYNC_DELAY_MS + 10);
+			await vi.waitFor(() => {
+				expect(reconciledEvents).toHaveLength(1);
+			});
+			expect(reconciledEvents[0].expected).toBe(3);
+			expect(reconciledEvents[0].found).toBe(1);
+			expect(reconciledEvents[0].corrected).toBe(true);
+
+			service.destroy();
+		});
+
+		it("does not emit reconciled when canvas node count matches train", async () => {
+			const train = makeTrain({
+				thoughts: [
+					{ id: "t1", trainId: "train_1", title: "A", path: "trains/A.md", createdAt: "", order: 0 },
+				],
+			});
+
+			// Existing canvas has exactly 1 managed file node (in sync)
+			const existingCanvas = JSON.stringify({
+				nodes: [
+					{ id: "ft-t-t1", type: "file", file: "trains/A.md", x: 0, y: 0, width: 400, height: 200 },
+				],
+				edges: [],
+			});
+
+			const fileSystem = createMockFileSystem({
+				"trains/Test Train.canvas": existingCanvas,
+			});
+
+			const eventBus: IEventBus = new EventBus();
+			const reconciledEvents: unknown[] = [];
+			eventBus.on("train.canvas.reconciled", (e) => { reconciledEvents.push(e.payload); });
+
+			const service = new TrainCanvasSyncService({
+				eventBus,
+				fileSystem,
+				getSettings: () => ({ trainFolder: "trains", trainCanvasEnabled: true }),
+				getTrain: () => train,
+			});
+			service.setup();
+
+			void eventBus.emit("train.thought.added", {
+				trainId: "train_1",
+				thought: { id: "t1", trainId: "train_1", title: "A", path: "trains/A.md", createdAt: "", order: 0 },
+				previousTitle: null,
+				direction: "next",
+			});
+
+			vi.advanceTimersByTime(CANVAS_SYNC_DELAY_MS + 10);
+			await vi.waitFor(() => {
+				expect(fileSystem.updateFile).toHaveBeenCalled();
+			});
+
+			// No reconciliation needed
+			expect(reconciledEvents).toHaveLength(0);
+
+			service.destroy();
+		});
+
+		it("does not emit reconciled on first canvas creation (no pre-existing file)", async () => {
+			const { eventBus } = createSyncHarness();
+
+			const reconciledEvents: unknown[] = [];
+			eventBus.on("train.canvas.reconciled", (e) => { reconciledEvents.push(e.payload); });
+
+			void eventBus.emit("train.thought.added", {
+				trainId: "train_1",
+				thought: { id: "t1", trainId: "train_1", title: "A", path: "trains/A.md", createdAt: "", order: 0 },
+				previousTitle: null,
+				direction: "next",
+			});
+
+			vi.advanceTimersByTime(CANVAS_SYNC_DELAY_MS + 10);
+			await vi.waitFor(() => {
+				// Should have created the file
+			});
+			// Small delay for async processing
+			await Promise.resolve();
+
+			// No reconciliation on first create (preSyncCount is null)
+			expect(reconciledEvents).toHaveLength(0);
+		});
+	});
+
 	// ── User element preservation ─────────────────────────────
 
 	describe("user element preservation", () => {

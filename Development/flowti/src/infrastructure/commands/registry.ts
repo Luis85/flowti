@@ -181,6 +181,42 @@ export function createCommandDefinitions(): CommandDefinition[] {
 				void ctx.eventBus.emit("ui.startTrain", {});
 			},
 		},
+		{
+			id: "flowti:resume-train",
+			name: "Resume paused train",
+			icon: "play",
+			handler: async (ctx) => {
+				ctx.logger.debug("Resuming paused train");
+				void ctx.eventBus.emit("ui.resumeTrain", {});
+			},
+		},
+		{
+			id: "flowti:complete-train",
+			name: "Complete current train",
+			icon: "check-circle",
+			handler: async (ctx) => {
+				ctx.logger.debug("Completing current train");
+				void ctx.eventBus.emit("ui.completeTrain", {});
+			},
+		},
+		{
+			id: "flowti:open-train-canvas",
+			name: "Open train canvas",
+			icon: "layout-dashboard",
+			handler: async (ctx) => {
+				ctx.logger.debug("Opening train canvas");
+				void ctx.eventBus.emit("ui.openTrainCanvas", {});
+			},
+		},
+		{
+			id: "flowti:open-train-timeline",
+			name: "Open train timeline sidebar",
+			icon: "git-branch",
+			handler: async (ctx) => {
+				ctx.logger.debug("Opening train timeline sidebar");
+				void ctx.eventBus.emit("ui.openTrainTimeline", {});
+			},
+		},
 	];
 }
 

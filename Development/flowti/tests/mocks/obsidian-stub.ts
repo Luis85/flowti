@@ -204,7 +204,13 @@ export class PluginSettingTab {
 }
 
 export class Setting {
-	constructor(_containerEl: HTMLElement) {}
+	settingEl: HTMLElement;
+	controlEl: HTMLElement;
+
+	constructor(containerEl: HTMLElement) {
+		this.settingEl = containerEl.createDiv({ cls: "setting-item" });
+		this.controlEl = this.settingEl.createDiv({ cls: "setting-item-control" });
+	}
 
 	setName(_name: string): this {
 		return this;
@@ -214,45 +220,66 @@ export class Setting {
 		return this;
 	}
 
-	addText(_cb: (text: TextComponent) => void): this {
+	addText(cb: (text: TextComponent) => void): this {
+		const comp = new TextComponent(this.controlEl);
+		cb(comp);
 		return this;
 	}
 
-	addToggle(_cb: (toggle: ToggleComponent) => void): this {
+	addToggle(cb: (toggle: ToggleComponent) => void): this {
+		cb(new ToggleComponent());
 		return this;
 	}
 
-	addButton(_cb: (btn: ButtonComponent) => void): this {
+	addButton(cb: (btn: ButtonComponent) => void): this {
+		const btn = new ButtonComponent(this.controlEl);
+		cb(btn);
 		return this;
 	}
 
-	addDropdown(_cb: (dropdown: DropdownComponent) => void): this {
+	addDropdown(cb: (dropdown: DropdownComponent) => void): this {
+		const comp = new DropdownComponent(this.controlEl);
+		cb(comp);
 		return this;
 	}
 
-	addExtraButton(_cb: (btn: ExtraButtonComponent) => void): this {
+	addExtraButton(cb: (btn: ExtraButtonComponent) => void): this {
+		cb(new ExtraButtonComponent());
 		return this;
 	}
 
-	addTextArea(_cb: (area: TextAreaComponent) => void): this {
+	addTextArea(cb: (area: TextAreaComponent) => void): this {
+		cb(new TextAreaComponent());
 		return this;
 	}
 }
 
 export class TextComponent {
-	setValue(_value: string): this {
+	inputEl: HTMLInputElement;
+
+	constructor(containerEl?: HTMLElement) {
+		this.inputEl = document.createElement("input");
+		this.inputEl.type = "text";
+		containerEl?.appendChild(this.inputEl);
+	}
+
+	setValue(value: string): this {
+		this.inputEl.value = value;
 		return this;
 	}
 
-	setPlaceholder(_placeholder: string): this {
+	setPlaceholder(placeholder: string): this {
+		this.inputEl.placeholder = placeholder;
 		return this;
 	}
 
-	setDisabled(_disabled: boolean): this {
+	setDisabled(disabled: boolean): this {
+		this.inputEl.disabled = disabled;
 		return this;
 	}
 
-	onChange(_cb: (value: string) => void): this {
+	onChange(cb: (value: string) => void): this {
+		this.inputEl.addEventListener("input", () => cb(this.inputEl.value));
 		return this;
 	}
 }
@@ -284,7 +311,15 @@ export class ToggleComponent {
 }
 
 export class ButtonComponent {
-	setButtonText(_text: string): this {
+	buttonEl: HTMLButtonElement;
+
+	constructor(containerEl?: HTMLElement) {
+		this.buttonEl = document.createElement("button");
+		containerEl?.appendChild(this.buttonEl);
+	}
+
+	setButtonText(text: string): this {
+		this.buttonEl.textContent = text;
 		return this;
 	}
 
@@ -296,21 +331,35 @@ export class ButtonComponent {
 		return this;
 	}
 
-	onClick(_cb: () => void): this {
+	onClick(cb: () => void): this {
+		this.buttonEl.addEventListener("click", cb);
 		return this;
 	}
 }
 
 export class DropdownComponent {
-	addOption(_value: string, _display: string): this {
+	selectEl: HTMLSelectElement;
+
+	constructor(containerEl?: HTMLElement) {
+		this.selectEl = document.createElement("select");
+		containerEl?.appendChild(this.selectEl);
+	}
+
+	addOption(value: string, display: string): this {
+		const option = document.createElement("option");
+		option.value = value;
+		option.textContent = display;
+		this.selectEl.appendChild(option);
 		return this;
 	}
 
-	setValue(_value: string): this {
+	setValue(value: string): this {
+		this.selectEl.value = value;
 		return this;
 	}
 
-	onChange(_cb: (value: string) => void): this {
+	onChange(cb: (value: string) => void): this {
+		this.selectEl.addEventListener("change", () => cb(this.selectEl.value));
 		return this;
 	}
 }
