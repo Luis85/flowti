@@ -73,6 +73,12 @@ To update, you need to `git pull` from remote and build the plugin again.
 - ...
 - Flowti v10.0
 
+## Current Ideas and Concepts to work on
+
+- How to migrate Flowti IBDE Development into the Flowti structure
+- How to manage a GitHub repo out of Flowti
+- How to manage an Obsidian Plugin within Flowti
+
 ## OneSeater - Impressions
 
 ### The Office
