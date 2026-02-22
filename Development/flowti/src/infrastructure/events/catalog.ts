@@ -280,6 +280,7 @@ const CATALOG_DATA = {
 	"settings.updateTrainFolder": { category: "Settings", description: "Update train folder path", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
 	"settings.updateTrainAutoOpenTimeline": { category: "Settings", description: "Update auto-open timeline preference", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
 	"settings.updateTrainMaxThoughts": { category: "Settings", description: "Update max thoughts per train", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
+	"settings.saveFailed":             { category: "Settings", description: "Settings persistence failed", direction: "Service → Listeners", domain: "settings", services: "SettingsService", tags: ["system"] },
 
 	// ── Installer Domain ─────────────────────────────────────
 	"installer.started":        { category: "Installer", description: "Installation pipeline started", direction: "Service → Listeners", domain: "installer", services: "InstallerService" },

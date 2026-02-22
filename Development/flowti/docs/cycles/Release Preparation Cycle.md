@@ -31,8 +31,8 @@ total_test_files_after:
 
 | ID | Blocker | Status | Owner | Notes |
 |----|---------|--------|-------|-------|
-| RB-1 | Repository Restructure | open | PBI-RP-001 | Move source to root for npm/marketplace |
-| RB-2 | Obsidian ESLint Compliance | open | PBI-RP-002 | Required for community review |
+| RB-1 | Repository Restructure | open (ADR-035 proposal ready) | PBI-RP-001 | Cycle 16 Inc 1: ADR-035 created with 4 options, Option A recommended, 12-step migration checklist |
+| RB-2 | Obsidian ESLint Compliance | resolved | PBI-RP-002 | Cycle 16 Inc 2: innerHTML fixed, 28 commands sentence-cased, ESLint rules configured |
 | RB-3 | Canvas importer as plugin feature | resolved | PBI-CAN-001 | Delivered Cycle 15 — canvas import is first-class plugin feature |
 | RB-4 | Seed starter content | open | PBI-002 | First-run experience |
 | RB-5 | External data ingestion | resolved | Cycle 11 | Delivered Cycle 11 — Azure DevOps signal adapter |

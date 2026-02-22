@@ -1,6 +1,6 @@
 ---
 type: Idea
-stage: discovery
+stage: delivered
 origin: inbox
 domain: session
 parent: "[[Session Workspaces PRD]]"
@@ -9,5 +9,5 @@ tags: []
 priority: 01 - medium
 rank:
 related:
-note:
+note: "SessionTemplate.contextBindings already implemented — save/create/rerun/export/import all thread context bindings. Verified Cycle 16."
 ---

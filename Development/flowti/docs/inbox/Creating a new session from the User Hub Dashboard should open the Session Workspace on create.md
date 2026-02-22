@@ -1,6 +1,7 @@
 ---
 type: Idea
-stage: discovery
+stage: delivered
+note: "Already wired in main.ts:650 — session.created event triggers openSessionWorkspaceInSidebar(). Verified Cycle 16."
 origin: inbox
 domain: session
 priority: "01 - medium"

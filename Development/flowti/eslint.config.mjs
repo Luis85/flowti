@@ -51,6 +51,25 @@ export default defineConfig([globalIgnores(["**/node_modules/", "**/main.js"]), 
         "no-prototype-builtins": "off",
         "@typescript-eslint/no-empty-function": "off",
         "@typescript-eslint/no-floating-promises": "warn",
+
+        // Obsidian submission compliance rules (Cycle 16, Inc 2)
+        // Ban innerHTML/outerHTML to prevent XSS — use createEl()/empty() instead
+        "no-restricted-properties": ["error",
+            {
+                object: "el",
+                property: "innerHTML",
+                message: "Use el.empty() or DOM methods instead of innerHTML (Obsidian compliance).",
+            },
+            {
+                object: "el",
+                property: "outerHTML",
+                message: "Use DOM methods instead of outerHTML (Obsidian compliance).",
+            },
+            {
+                property: "insertAdjacentHTML",
+                message: "Use createEl()/createDiv() instead of insertAdjacentHTML (Obsidian compliance).",
+            },
+        ],
     },
 
 	ignores: ["node_modules/"],

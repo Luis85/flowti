@@ -3,7 +3,8 @@ type: TechDebt
 severity: low
 category: error-handling
 layer: cross-cutting
-status: open
+stage: resolved
+resolved_in: "[[Cycle 16 - Improvement Sprint]]"
 created: 2026-02-21
 effort: medium
 description: "22 empty catch {} blocks across 17 source files. Most have inline comments explaining intent, but several are truly silent. The pattern makes it impossible to distinguish intentional error suppression from accidental swallowing."
@@ -40,6 +41,10 @@ The codebase contains **22 empty `catch {}` blocks** spread across 17 source fil
 1. Replace silent `catch {}` with `catch { /* intentional: reason */ }` standardized comment
 2. For medium-risk catches, add fallback error emission via ErrorService
 3. When TD-117 (no-floating-promises) and TD-105 (void emit) are addressed, many of these catches become less necessary since the EventBus will have its own error boundary
+
+## Resolution
+
+Audit of 85+ catch blocks across 37 files. 17 justified empty catches documented with // intentional: comments. 6 unjustified catches fixed. See ADR-036.
 
 ## Related
 

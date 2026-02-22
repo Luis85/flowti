@@ -10,7 +10,8 @@
       "Bash(npm run check:*)",
       "Bash(npm install)",
       "Bash(npx vitest:*)",
-      "Bash(node esbuild.config.mjs:*)"
+      "Bash(node esbuild.config.mjs:*)",
+      "Bash(ls:*)"
     ]
   }
 }

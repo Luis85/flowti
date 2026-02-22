@@ -45,7 +45,7 @@ export class CanvasResultPage {
 	renderProgressIndicator(): void {
 		const progressEl = this.container.querySelector(".ft-import-progress");
 		if (!progressEl) return;
-		progressEl.innerHTML = "";
+		while (progressEl.firstChild) progressEl.removeChild(progressEl.firstChild);
 
 		const state = this.deps.getState();
 		const wrapper = document.createElement("div");

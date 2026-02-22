@@ -3,7 +3,8 @@ type: TechDebt
 severity: low
 category: architecture
 layer: cross-cutting
-status: mitigated
+stage: resolved
+resolved_in: "[[Cycle 16 - Improvement Sprint]]"
 created: 2026-02-14
 updated: 2026-02-14
 effort: medium
@@ -62,6 +63,9 @@ Partially mitigated in refactoring phase 2026-02-14:
 - Severity downgraded from medium to low
 - Remaining error handling inconsistency (62 catch blocks, 4 strategies) documented but not fully addressed
 - Broader convention codified in [[ADR-021 Error Handling Convention]] (2026-02-15)
+
+Fully resolved in [[Cycle 16 - Improvement Sprint]]:
+- ADR-036 Error Handling Convention established. 6 unjustified catches fixed, 3 high-risk catches addressed. All catch blocks now follow one of 6 documented strategies.
 
 ## Related
 

@@ -244,8 +244,12 @@ export async function handleOutputGenerate(ctx: SessionHandlerContext, sessionId
 	if (ctx.fileSystem) {
 		try {
 			await ctx.fileSystem.createFile(path, content);
-		} catch {
-			// File may already exist — continue to persist artifact
+		} catch (err: unknown) {
+			// File may already exist — only warn on unexpected errors
+			const msg = err instanceof Error ? err.message : String(err);
+			if (!msg.includes("already exists") && !msg.includes("File exists")) {
+				console.warn("[Flowti] Output artifact creation failed:", msg);
+			}
 		}
 	}
 
@@ -260,8 +264,9 @@ export async function handleOutputGenerate(ctx: SessionHandlerContext, sessionId
 					: "\n## Output Artifacts\n";
 				await ctx.fileSystem.updateFile(session.notesFile, existing + section + wikilink + "\n");
 			}
-		} catch {
-			// Notes file doesn't exist or can't be read — skip gracefully
+		} catch (err: unknown) {
+			// Notes file doesn't exist or can't be read — log and skip
+			console.warn("[Flowti] Could not append artifact link to notes file:", err instanceof Error ? err.message : err);
 		}
 	}
 

@@ -38,4 +38,6 @@ export interface SettingsEventMap {
 	"settings.updateTrainAutoOpenTimeline": { enabled: boolean };
 	/** Command: update maximum thoughts per train */
 	"settings.updateTrainMaxThoughts": { max: number };
+	/** Emitted when settings persistence fails */
+	"settings.saveFailed": { error: string };
 }

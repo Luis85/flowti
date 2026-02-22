@@ -155,6 +155,8 @@ Graph view is visually impressive but practically limited for large vaults.
 
 ## 6. Obsidian Submission Requirements Summary
 
+> **Flowti compliance status:** FULL PASS (Cycle 16 Inc 6 audit, 2026-02-22). Zero blockers, zero warnings across all 7 categories. See [[Obsidian Submission Compliance Audit]] for detailed evidence.
+
 ### Manifest Requirements
 - `id`: unique, no "obsidian" substring, matches folder name
 - `version`: semver (x.y.z)

@@ -330,7 +330,7 @@ export class DataExchangeSetup {
 
 		addCommand({
 			id: "flowti:import-csv",
-			name: "Import CSV as Notes",
+			name: "Import CSV as notes",
 			icon: "file-input",
 			callback: () => {
 				void this.deps.eventBus.emit("ui.openCsvImport", {});
@@ -348,7 +348,7 @@ export class DataExchangeSetup {
 
 		addCommand({
 			id: "flowti:export-tab",
-			name: "Export as Tab-delimited",
+			name: "Export as tab-delimited",
 			icon: "file-output",
 			callback: () => {
 				void this.deps.eventBus.emit("ui.openExport", { format: "tab" });
@@ -357,7 +357,7 @@ export class DataExchangeSetup {
 
 		addCommand({
 			id: "flowti:open-data-exchange",
-			name: "Open Data Exchange Hub",
+			name: "Open data exchange hub",
 			icon: "arrow-left-right",
 			callback: () => {
 				void this.deps.eventBus.emit("ui.openDataExchangeHub", {});
@@ -367,7 +367,7 @@ export class DataExchangeSetup {
 		if (this.deps.signalService) {
 			addCommand({
 				id: "flowti:signal-sync",
-				name: "Sync All Signals",
+				name: "Sync all signals",
 				icon: "radio",
 				callback: () => {
 					void this.deps.signalService!.syncAll();
@@ -378,7 +378,7 @@ export class DataExchangeSetup {
 		if (this.deps.canvasService) {
 			addCommand({
 				id: "flowti:import-canvas",
-				name: "Import Canvas as Notes",
+				name: "Import canvas as notes",
 				icon: "layout-dashboard",
 				callback: () => {
 					this.openCanvasImportView();

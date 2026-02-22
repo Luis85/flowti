@@ -40,7 +40,7 @@ export class CsvResultPage {
 	renderProgressIndicator(): void {
 		const progressEl = this.container.querySelector(".ft-import-progress");
 		if (!progressEl) return;
-		progressEl.innerHTML = "";
+		while (progressEl.firstChild) progressEl.removeChild(progressEl.firstChild);
 
 		const state = this.deps.getState();
 

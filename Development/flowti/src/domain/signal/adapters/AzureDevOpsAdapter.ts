@@ -167,10 +167,11 @@ export class AzureDevOpsAdapter implements SignalAdapter {
 				for (const raw of data.value ?? []) {
 					try {
 						items.push(mapWorkItem(raw));
-					} catch {
+					} catch (err: unknown) {
+						const detail = err instanceof Error ? err.message : String(err);
 						errors.push({
 							workItemId: raw.id,
-							message: "Failed to map work item fields",
+							message: `Failed to map work item fields: ${detail}`,
 							recoverable: true,
 						});
 					}

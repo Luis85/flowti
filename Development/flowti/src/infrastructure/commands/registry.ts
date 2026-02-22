@@ -21,7 +21,7 @@ export function createCommandDefinitions(): CommandDefinition[] {
 	return [
 		{
 			id: "flowti:open-component-showcase",
-			name: "Open Component Showcase",
+			name: "Open component showcase",
 			icon: "palette",
 			handler: async (ctx) => {
 				ctx.logger.debug("Opening component showcase view");
@@ -30,7 +30,7 @@ export function createCommandDefinitions(): CommandDefinition[] {
 		},
 		{
 			id: "flowti:open-event-catalog",
-			name: "Open Event Catalog",
+			name: "Open event catalog",
 			icon: "list",
 			handler: async (ctx) => {
 				ctx.logger.debug("Opening event catalog view");
@@ -39,7 +39,7 @@ export function createCommandDefinitions(): CommandDefinition[] {
 		},
 		{
 			id: "flowti:open-event-log",
-			name: "Open Event Log",
+			name: "Open event log",
 			icon: "activity",
 			handler: async (ctx) => {
 				ctx.logger.debug("Opening event log view");
@@ -48,7 +48,7 @@ export function createCommandDefinitions(): CommandDefinition[] {
 		},
 		{
 			id: "flowti:open-user-hub",
-			name: "Open User Hub",
+			name: "Open user hub",
 			icon: "home",
 			handler: async (ctx) => {
 				ctx.logger.debug("Opening user hub view");
@@ -57,7 +57,7 @@ export function createCommandDefinitions(): CommandDefinition[] {
 		},
 		{
 			id: "flowti:manage-subscriptions",
-			name: "Manage Watchers",
+			name: "Manage watchers",
 			icon: "bell",
 			handler: async (ctx) => {
 				ctx.logger.debug("Opening watcher manager");
@@ -66,7 +66,7 @@ export function createCommandDefinitions(): CommandDefinition[] {
 		},
 		{
 			id: "flowti:quick-capture",
-			name: "Quick Capture",
+			name: "Quick capture",
 			icon: "pencil",
 			handler: async (ctx) => {
 				ctx.logger.debug("Opening quick capture modal");
@@ -75,7 +75,7 @@ export function createCommandDefinitions(): CommandDefinition[] {
 		},
 		{
 			id: "flowti:add-idea",
-			name: "Add Idea",
+			name: "Add idea",
 			icon: "lightbulb",
 			handler: async (ctx) => {
 				ctx.logger.debug("Opening quick capture modal for idea");
@@ -84,7 +84,7 @@ export function createCommandDefinitions(): CommandDefinition[] {
 		},
 		{
 			id: "flowti:add-feedback",
-			name: "Add Feedback",
+			name: "Add feedback",
 			icon: "message-circle",
 			handler: async (ctx) => {
 				ctx.logger.debug("Opening quick capture modal for feedback");
@@ -93,7 +93,7 @@ export function createCommandDefinitions(): CommandDefinition[] {
 		},
 		{
 			id: "flowti:add-note",
-			name: "Add Note",
+			name: "Add note",
 			icon: "file-text",
 			handler: async (ctx) => {
 				ctx.logger.debug("Opening quick capture modal for note");
@@ -102,7 +102,7 @@ export function createCommandDefinitions(): CommandDefinition[] {
 		},
 		{
 			id: "flowti:add-task",
-			name: "Add Task",
+			name: "Add task",
 			icon: "check-square",
 			handler: async (ctx) => {
 				ctx.logger.debug("Opening quick capture modal for task");
@@ -111,7 +111,7 @@ export function createCommandDefinitions(): CommandDefinition[] {
 		},
 		{
 			id: "flowti:add-question",
-			name: "Add Question",
+			name: "Add question",
 			icon: "help-circle",
 			handler: async (ctx) => {
 				ctx.logger.debug("Opening quick capture modal for question");
@@ -120,7 +120,7 @@ export function createCommandDefinitions(): CommandDefinition[] {
 		},
 		{
 			id: "flowti:add-bug",
-			name: "Add Bug",
+			name: "Add bug",
 			icon: "bug",
 			handler: async (ctx) => {
 				ctx.logger.debug("Opening quick capture modal for bug");
@@ -129,7 +129,7 @@ export function createCommandDefinitions(): CommandDefinition[] {
 		},
 		{
 			id: "flowti:add-risk",
-			name: "Add Risk",
+			name: "Add risk",
 			icon: "alert-triangle",
 			handler: async (ctx) => {
 				ctx.logger.debug("Opening quick capture modal for risk");
@@ -138,7 +138,7 @@ export function createCommandDefinitions(): CommandDefinition[] {
 		},
 		{
 			id: "flowti:add-assumption",
-			name: "Add Assumption",
+			name: "Add assumption",
 			icon: "compass",
 			handler: async (ctx) => {
 				ctx.logger.debug("Opening quick capture modal for assumption");
@@ -147,7 +147,7 @@ export function createCommandDefinitions(): CommandDefinition[] {
 		},
 		{
 			id: "flowti:add-issue",
-			name: "Add Issue",
+			name: "Add issue",
 			icon: "alert-circle",
 			handler: async (ctx) => {
 				ctx.logger.debug("Opening quick capture modal for issue");
@@ -156,7 +156,7 @@ export function createCommandDefinitions(): CommandDefinition[] {
 		},
 		{
 			id: "flowti:add-decision",
-			name: "Add Decision",
+			name: "Add decision",
 			icon: "scale",
 			handler: async (ctx) => {
 				ctx.logger.debug("Opening quick capture modal for decision");
@@ -165,7 +165,7 @@ export function createCommandDefinitions(): CommandDefinition[] {
 		},
 		{
 			id: "flowti:add-learning",
-			name: "Add Learning",
+			name: "Add learning",
 			icon: "graduation-cap",
 			handler: async (ctx) => {
 				ctx.logger.debug("Opening quick capture modal for learning");
@@ -174,7 +174,7 @@ export function createCommandDefinitions(): CommandDefinition[] {
 		},
 		{
 			id: "flowti:start-train",
-			name: "Start Train of Thoughts",
+			name: "Start train of thoughts",
 			icon: "brain",
 			handler: async (ctx) => {
 				ctx.logger.debug("Starting train of thoughts");

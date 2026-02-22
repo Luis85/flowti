@@ -47,7 +47,7 @@ export class SessionSetup {
 
 		addCommand({
 			id: "flowti:open-session-workspace",
-			name: "Open Session Workspace",
+			name: "Open session workspace",
 			icon: "timer",
 			callback: () => {
 				void this.deps.app.workspace.getLeaf("tab").setViewState({
@@ -59,7 +59,7 @@ export class SessionSetup {
 
 		addCommand({
 			id: "flowti:open-session-workspace-sidebar",
-			name: "Open Session Workspace in Sidebar",
+			name: "Open session workspace in sidebar",
 			icon: "panel-right",
 			callback: () => {
 				this.openSessionWorkspaceInSidebar();
@@ -68,7 +68,7 @@ export class SessionSetup {
 
 		addCommand({
 			id: "flowti:create-session",
-			name: "Create New Session",
+			name: "Create new session",
 			icon: "timer",
 			callback: () => {
 				new NewSessionModal(this.deps.app, {
@@ -90,7 +90,7 @@ export class SessionSetup {
 
 		addCommand({
 			id: "flowti:resume-session",
-			name: "Resume Paused Session",
+			name: "Resume paused session",
 			icon: "play",
 			callback: () => {
 				const session = this.deps.sessionService?.getActiveSession();

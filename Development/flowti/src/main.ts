@@ -211,7 +211,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			// Conditional command — only visible when a train is active/paused
 			this.addCommand({
 				id: "flowti:view-train",
-				name: "View Train of Thoughts",
+				name: "View train of thoughts",
 				icon: "train-front",
 				checkCallback: (checking) => {
 					const active = this.trainService?.getActiveTrain();

@@ -573,9 +573,13 @@ export class SessionWorkspaceView extends ItemView {
 				const title = this.session?.title ?? "Session";
 				await this.app.vault.create(notesPath, `# ${title}\n\n## Canvas\n![[${canvasPath}]]\n`);
 				return;
-			} catch {
+			} catch (err: unknown) {
+				// File may have been created concurrently — check before giving up
 				file = this.app.vault.getAbstractFileByPath(notesPath);
-				if (!file) return;
+				if (!file) {
+					console.warn("[Flowti] Failed to create notes file:", err instanceof Error ? err.message : err);
+					return;
+				}
 			}
 		}
 		const existing = await this.app.vault.read(file as import("obsidian").TFile);

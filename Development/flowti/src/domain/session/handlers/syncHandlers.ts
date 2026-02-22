@@ -117,7 +117,8 @@ export async function executeReverseSync(ctx: SessionHandlerContext, sessionId: 
 		if (diff.newGoals.length > 0 || diff.newTasks.length > 0) {
 			ctx.scheduleSyncNotesFile(sessionId);
 		}
-	} catch {
-		// Reverse sync errors are non-critical — silently ignore
+	} catch (err: unknown) {
+		// Reverse sync parse errors are non-critical — log but don't disrupt
+		console.warn("[Flowti] Reverse sync failed for session", sessionId, err instanceof Error ? err.message : err);
 	}
 }

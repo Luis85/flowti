@@ -225,6 +225,9 @@ export class SettingsService implements ISettingsService {
 				});
 			} catch (err) {
 				console.error("[Flowti] Failed to save settings:", err);
+				void this.eventBus?.emit("settings.saveFailed", {
+					error: err instanceof Error ? err.message : String(err),
+				});
 			}
 		});
 	}
