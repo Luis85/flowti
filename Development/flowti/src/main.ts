@@ -30,6 +30,7 @@ import type { SignalService } from "./domain/signal/SignalService";
 import type { IngestionService } from "./domain/ingestion/IngestionService";
 import type { CaptureService } from "./domain/capture/CaptureService";
 import type { TrainService } from "./domain/train/TrainService";
+import type { CanvasService } from "./domain/canvas/CanvasService";
 import { QuickCaptureModal } from "./ui/capture/QuickCaptureModal";
 import { TrainCaptureModal } from "./ui/train/TrainCaptureModal";
 import { registerViews } from "./infrastructure/views/registry";
@@ -108,6 +109,7 @@ export default class FlowtiBasePlugin extends Plugin {
 	private signalService?: SignalService;
 	private captureService?: CaptureService;
 	private trainService?: TrainService;
+	private canvasService?: CanvasService;
 	private ingestionStatusBar?: IngestionStatusBar;
 	private collapsedCategories = new Set<string>();
 	private uiCommandService?: UiCommandService;
@@ -394,6 +396,7 @@ export default class FlowtiBasePlugin extends Plugin {
 		safeDispose("plugin.unloading", () =>
 			void this.eventBus?.emit("plugin.unloading", { timestamp: new Date().toISOString() }),
 		);
+		safeDispose("canvasService", () => this.canvasService?.dispose());
 		safeDispose("signalService", () => this.signalService?.dispose());
 		safeDispose("nudgeService", () => this.nudgeService?.dispose());
 		safeDispose("uiCommandService", () => this.uiCommandService?.dispose());
@@ -697,6 +700,10 @@ export default class FlowtiBasePlugin extends Plugin {
 		});
 		await this.trainService.load();
 
+		// Canvas Service — canvas import configurations and orchestration
+		this.canvasService = await this.services.get<CanvasService>("canvasService");
+		await this.canvasService.load();
+
 		// Train Main View — register view factory + auto-open on train start
 		this.registerView(VIEW_TYPE_TRAIN_MAIN, (leaf) =>
 			new TrainMainView(leaf, this.eventBus, this.trainService!),
@@ -992,6 +999,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			eventBus: this.eventBus,
 			dataExchangeService: this.dataExchangeService!,
 			signalService: this.signalService,
+			canvasService: this.canvasService,
 			docsRootPath: settingsService.getSettings().docsRootPath,
 			registerView: (type, factory) => this.registerView(type, factory),
 			registerExtensions: (exts, type) => { try { this.registerExtensions(exts, type); } catch { /* may already be registered */ } },

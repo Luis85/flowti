@@ -77,6 +77,7 @@ export interface HubState {
 	showHiddenCsvs: boolean;
 	frontmatterIssues: FrontmatterIssue[];
 	activeOperations: ActiveOperation[];
+	canvasConfigCount: number;
 
 	// Selection & editing state
 	selectedImportId: string | null;

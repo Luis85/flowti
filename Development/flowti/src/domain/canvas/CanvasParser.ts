@@ -11,6 +11,8 @@
  *   slugifyTitle()        — sanitize a node title for use as file name
  *   toPascalCase()        — convert string to PascalCase
  *   isNodeInsideGroup()   — bounding-box spatial containment check
+ *   getNodeTitle()        — extract display title from raw canvas node
+ *   buildCanvasItems()    — transform raw nodes into CanvasItem array
  *   resolveParentage()    — find smallest enclosing group for a node
  *   buildRelations()      — map edges to directional relations (up/down/prev/next)
  *   filterItemsForImport()— exclude legend, file, and empty nodes
@@ -172,6 +174,85 @@ export function isNodeInsideGroup(
 	const ny = node.y;
 
 	return nx >= gx1 && nx <= gx2 && ny >= gy1 && ny <= gy2;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Canvas item construction
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Extract the display title from a raw canvas node.
+ *
+ * - Text nodes: first line of text, stripped of markdown headers
+ * - Group nodes: label property
+ * - File nodes: filename without extension
+ * - Link nodes: url
+ * - Fallback: "untitled"
+ */
+export function getNodeTitle(node: AllCanvasNodeData): string {
+	if (node.type === "text") {
+		const text = (node as CanvasTextData).text || "";
+		const firstLine = text.split("\n")[0] || "";
+		return firstLine.replace(/^#+\s*/, "").trim() || "untitled";
+	}
+	if (node.type === "group") {
+		return (node as CanvasGroupData).label || "untitled";
+	}
+	if (node.type === "file") {
+		const file = (node as { file?: string }).file || "";
+		const basename = file.split("/").pop() || file;
+		return basename.replace(/\.\w+$/, "") || "untitled";
+	}
+	if (node.type === "link") {
+		return (node as { url?: string }).url || "untitled";
+	}
+	return "untitled";
+}
+
+/**
+ * Transform raw canvas nodes into CanvasItems.
+ *
+ * Resolves node types via the legend/color/shape waterfall,
+ * extracts titles, and initialises empty relation arrays.
+ * Parentage and relations are populated separately.
+ */
+export function buildCanvasItems(
+	data: CanvasData,
+	legendMap: Record<string, FlowtiCanvasType> | null,
+	colorMap: Record<string, FlowtiCanvasType> = DEFAULT_COLOR_MAP,
+	shapeMap: Record<string, FlowtiCanvasType> = DEFAULT_SHAPE_MAP,
+): CanvasItem[] {
+	return data.nodes.map((node) => {
+		const title = getNodeTitle(node);
+		const type = resolveNodeType(node, legendMap, colorMap, shapeMap);
+		const shape = (node as Record<string, unknown>).shape as string | undefined;
+		const isEmpty = node.type === "text"
+			? !((node as CanvasTextData).text || "").trim()
+			: node.type === "group"
+				? !((node as CanvasGroupData).label || "").trim()
+				: false;
+
+		return {
+			id: node.id,
+			title,
+			type,
+			originalType: node.type as CanvasItem["originalType"],
+			status: "new",
+			color: node.color ?? null,
+			shape: shape ?? null,
+			parentId: null,
+			parent: null,
+			isEmpty,
+			x: node.x,
+			y: node.y,
+			width: node.width,
+			height: node.height,
+			up: [],
+			down: [],
+			prev: [],
+			next: [],
+		};
+	});
 }
 
 // ─────────────────────────────────────────────────────────────

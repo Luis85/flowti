@@ -26,6 +26,8 @@ import {
 	mapCaptureNoteCreated,
 	mapTrainThoughtAdded,
 	mapTrainCompleted,
+	mapCanvasImportCompleted,
+	mapCanvasImportFailed,
 } from "./mappers";
 import { mapVaultFolderNote, VAULT_FOLDER_SOURCE_EVENT, VAULT_FOLDER_SOURCE_HUB } from "./vaultFolderMapper";
 
@@ -43,6 +45,8 @@ export const ALL_INBOX_SOURCES = [
 	"capture.note.created",
 	"train.thought.added",
 	"train.completed",
+	"canvas.import.completed",
+	"canvas.import.failed",
 ] as const;
 
 /**
@@ -192,6 +196,24 @@ export class InboxService {
 				this.eventBus.on("train.completed", (event) => {
 					if (!this.enabledSources.has("train.completed")) return;
 					const item = mapTrainCompleted(event.payload, generateId());
+					void this.addItem(item);
+				}),
+			);
+
+			// Source: canvas import completed
+			this.unsubscribes.push(
+				this.eventBus.on("canvas.import.completed", (event) => {
+					if (!this.enabledSources.has("canvas.import.completed")) return;
+					const item = mapCanvasImportCompleted(event.payload, generateId());
+					void this.addItem(item);
+				}),
+			);
+
+			// Source: canvas import failed
+			this.unsubscribes.push(
+				this.eventBus.on("canvas.import.failed", (event) => {
+					if (!this.enabledSources.has("canvas.import.failed")) return;
+					const item = mapCanvasImportFailed(event.payload, generateId());
 					void this.addItem(item);
 				}),
 			);

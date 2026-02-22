@@ -300,11 +300,20 @@ None bundled — this is a greenfield domain migration cycle.
 - Unit tests: inbox items created for import completion/failure
 
 **Acceptance criteria:**
-- [ ] CanvasService registered in ServiceContainer
-- [ ] Canvas events registered in Event Catalog
-- [ ] Canvas listed as import source in Data Exchange Hub dashboard
-- [ ] Saved import configurations persist across sessions
-- [ ] Inbox integration: items created for import success/failure
+- [x] CanvasService registered in ServiceContainer — `registry.ts` registers `canvasService` with TypedStorage (key "canvas"), EventBus, and FileSystemClient; `main.ts` calls `load()` on startup + `dispose()` on unload; 16 service tests
+- [x] Canvas events registered in Event Catalog — 8 events in catalog with category "Canvas", domain "canvas", services "CanvasService" (delivered Inc 1)
+- [x] Canvas listed as import source in Data Exchange Hub dashboard — `canvasConfigCount` added to `HubState`, `renderCanvasStats()` in HubDashboard shows "Canvas Imports" section with stat card when count > 0; `canvasService` threaded through `dataExchangeSetup.ts` → `DataExchangeHubView` → `HubDashboard`
+- [x] Saved import configurations persist across sessions — `CanvasService.saveConfig()` persists via `ITypedStorage<CanvasState>`; `load()` restores from storage; `MAX_CANVAS_CONFIGS = 50` cap; 3 persistence tests
+- [x] Inbox integration: items created for import success/failure — `mapCanvasImportCompleted()` + `mapCanvasImportFailed()` pure mappers in `mappers.ts`; wired in `InboxService.ts` via `ALL_INBOX_SOURCES` + 2 event listeners; 4 mapper tests
+
+**Delivery notes:**
+- `CanvasService.ts` (~150 LOC): constructor options, `load()`/`dispose()` lifecycle, CRUD (`saveConfig`/`removeConfig`/`getConfigs`), 10-step import pipeline (read → parse → legend → items → parentage → relations → filter → import → rebuild → base)
+- `CanvasParser.ts` extended: `getNodeTitle()` (title extraction by node type), `buildCanvasItems()` (raw nodes → typed CanvasItem array with legend/color/shape resolution)
+- `CanvasImporter.ts` extended: `importedPaths: Record<string, string>` added to `CanvasImportResult` for rebuilder integration
+- Inbox mappers: `mapCanvasImportCompleted` (info/action based on error count), `mapCanvasImportFailed` (always action type)
+- Dashboard: `HubState.canvasConfigCount`, `renderCanvasStats()` section in HubDashboard, `CanvasService` threaded via DataExchangeSetup
+- ~230 LOC source (est. ~120), ~310 LOC tests (est. ~60), 34 new tests (est. ~14)
+- Cumulative: 165 canvas tests (44 Inc 1 + 28 Inc 2 + 31 Inc 3 + 28 Inc 4 + 34 Inc 5), 3,507 total (140 suites)
 
 ---
 
@@ -317,9 +326,9 @@ None bundled — this is a greenfield domain migration cycle.
 | 1 | `src/ui/canvas/CanvasImportWizard.ts` (new) | 3-page modal: Select .canvas file → Preview nodes with type mapping → Execute import | ~100 |
 | 2 | `src/main.ts` | Register `flowti:import-canvas` command | +5 |
 | 3 | `src/main.ts` | Register file context menu: `.canvas` → "Import Canvas" | +15 |
-| 4 | `src/domain/inbox/mappers.ts` | Add `mapCanvasImportCompleted`, `mapCanvasImportFailed` | +15 |
+| 4 | ~~`src/domain/inbox/mappers.ts`~~ | ~~Add `mapCanvasImportCompleted`, `mapCanvasImportFailed`~~ | ~~+15~~ (delivered Inc 5) |
 
-**Est. total:** ~150 LOC source, ~50 LOC tests, ~11 new tests
+**Est. total:** ~135 LOC source, ~50 LOC tests, ~11 new tests
 
 **Test intent:**
 - Unit tests: wizard page navigation (Select → Preview → Execute)

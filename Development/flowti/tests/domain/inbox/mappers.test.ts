@@ -7,6 +7,8 @@ import {
 	mapPipelineCompleted,
 	mapPipelineFailed,
 	mapCaptureNoteCreated,
+	mapCanvasImportCompleted,
+	mapCanvasImportFailed,
 } from "../../../src/domain/inbox/mappers";
 
 describe("Inbox mappers", () => {
@@ -356,6 +358,81 @@ describe("Inbox mappers", () => {
 			);
 
 			expect(item.description).toContain("Risk captured via Quick Capture");
+		});
+	});
+
+	describe("mapCanvasImportCompleted", () => {
+		it("should create an info item for successful import", () => {
+			const item = mapCanvasImportCompleted(
+				{
+					result: {
+						canvasPath: "design/arch.canvas",
+						targetFolder: "resources/arch",
+						totalNodes: 10,
+						imported: 8,
+						skipped: 2,
+						errors: [],
+						duration: 500,
+						importedPaths: {},
+					},
+				},
+				"inbox_canvas_1",
+			);
+
+			expect(item.id).toBe("inbox_canvas_1");
+			expect(item.type).toBe("info");
+			expect(item.title).toBe("Canvas import: 8 notes created");
+			expect(item.description).toContain("design/arch.canvas");
+			expect(item.description).toContain("8 imported");
+			expect(item.description).toContain("2 skipped");
+			expect(item.sourceEvent).toBe("canvas.import.completed");
+			expect(item.sourceHub).toBe("canvas");
+			expect(item.read).toBe(false);
+		});
+
+		it("should create an action item when there are errors", () => {
+			const item = mapCanvasImportCompleted(
+				{
+					result: {
+						canvasPath: "design/arch.canvas",
+						targetFolder: "resources/arch",
+						totalNodes: 5,
+						imported: 3,
+						skipped: 0,
+						errors: [
+							{ nodeId: "n1", title: "Bad Node", error: "write failed" },
+							{ nodeId: "n2", title: "Other Node", error: "no content" },
+						],
+						duration: 300,
+						importedPaths: {},
+					},
+				},
+				"inbox_canvas_2",
+			);
+
+			expect(item.type).toBe("action");
+			expect(item.title).toContain("2 errors");
+		});
+	});
+
+	describe("mapCanvasImportFailed", () => {
+		it("should create an action item for failed import", () => {
+			const item = mapCanvasImportFailed(
+				{
+					canvasPath: "design/broken.canvas",
+					error: "Invalid JSON",
+				},
+				"inbox_canvas_3",
+			);
+
+			expect(item.id).toBe("inbox_canvas_3");
+			expect(item.type).toBe("action");
+			expect(item.title).toBe("Canvas import failed");
+			expect(item.description).toContain("design/broken.canvas");
+			expect(item.description).toContain("Invalid JSON");
+			expect(item.sourceEvent).toBe("canvas.import.failed");
+			expect(item.sourceHub).toBe("canvas");
+			expect(item.read).toBe(false);
 		});
 	});
 });

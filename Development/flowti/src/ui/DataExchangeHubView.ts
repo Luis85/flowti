@@ -27,6 +27,7 @@ import { TypesTab } from "./hub/TypesTab";
 import { SignalsTab } from "./hub/SignalsTab";
 import { openEventInCatalog } from "./hub/helpers";
 import type { SignalService } from "../domain/signal/SignalService";
+import type { CanvasService } from "../domain/canvas/CanvasService";
 import { basename, stripExtension } from "../utils/pathUtils";
 import { VIEW_TYPE_DATA_EXCHANGE_HUB } from "../domain/hub/types";
 export { VIEW_TYPE_DATA_EXCHANGE_HUB };
@@ -36,6 +37,7 @@ export type DXTab = "imports" | "exports" | "reports" | "properties" | "pipeline
 export class DataExchangeHubView extends BaseHubView<DXTab> {
 	private dataExchangeService: DataExchangeService;
 	private signalService?: SignalService;
+	private canvasService?: CanvasService;
 	private openCsvImportCb: (csvPath: string, savedConfig?: SavedImportConfig) => void;
 	private openExportCb: (savedConfig: SavedExportConfig) => void;
 	private openNewExportCb: (sourcePath: string, sourceType: "folder" | "base", format: ExportFormat) => void;
@@ -83,10 +85,12 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 		openExport: (savedConfig: SavedExportConfig) => void,
 		openNewExport: (sourcePath: string, sourceType: "folder" | "base", format: ExportFormat) => void,
 		signalService?: SignalService,
+		canvasService?: CanvasService,
 	) {
 		super(leaf, eventBus);
 		this.dataExchangeService = dataExchangeService;
 		this.signalService = signalService;
+		this.canvasService = canvasService;
 		this.openCsvImportCb = openCsvImport;
 		this.openExportCb = openExport;
 		this.openNewExportCb = openNewExport;
@@ -460,6 +464,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 			editingExportId: this.editingExportId,
 			editingPipelineId: this.editingPipelineId,
 			activeOperations: this.activeOperations,
+			canvasConfigCount: this.canvasService?.getConfigs().length ?? 0,
 		};
 	}
 

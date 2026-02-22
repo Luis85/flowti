@@ -59,11 +59,11 @@ As a domain architect, I want to import Canvas files as typed vault notes from t
 - [x] Legend group detection and override: custom color-to-type within canvas (`extractLegend()`) (Cycle 15 Inc 1)
 - [x] Group-to-container: canvas groups set `parent` frontmatter on child nodes — parser: `resolveParentage()` (Inc 2), frontmatter: `toCanvasNoteFrontmatter()` writes `parent: "[[slug]]"` wikilink (Inc 3)
 - [x] Edge-to-relationship: edges translate to `up`/`down`/`prev`/`next` frontmatter — parser: `buildRelations()` (Inc 2), frontmatter: `toCanvasNoteFrontmatter()` resolves IDs to `[[slug]]` wikilinks (Inc 3)
-- [ ] Register as import source type in Data Exchange Hub
+- [x] Register as import source type in Data Exchange Hub (Cycle 15 Inc 5 — CanvasService registered, DX Hub dashboard stat card)
 - [ ] Import wizard: 3-page (Select, Preview/Map, Execute)
 - [ ] Right-click `.canvas` → "Import Canvas" context menu
 - [x] Progress events: `canvas.import.started/progress/completed/failed` (Cycle 15 Inc 3 — `importCanvas()` emits all 4 lifecycle events)
-- [ ] Saved import configurations for repeatable imports
+- [x] Saved import configurations for repeatable imports (Cycle 15 Inc 5 — CanvasService CRUD + TypedStorage, `MAX_CANVAS_CONFIGS = 50`)
 
 ### Technical Requirements
 
@@ -72,12 +72,16 @@ As a domain architect, I want to import Canvas files as typed vault notes from t
 - `CanvasImporter.ts`: 3-layer architecture (pure content → I/O → orchestrator) — `toCanvasNotePath()`, `toCanvasNoteFrontmatter()`, `toCanvasNoteContent()`, `writeCanvasNote()` (conflict strategies), `importCanvas()` (progress events) ✅
 - `CanvasRebuilder.ts`: `rebuildCanvasData()` (text→file-node references, edge remapping), `writeRebuiltCanvas()` (skip/overwrite) ✅
 - `CanvasBaseGenerator.ts`: `buildBaseFileContent()` (folder filter + type-grouped table), `writeBaseFile()` (skip/overwrite) ✅
+- `CanvasService.ts`: Service facade with CRUD (saveConfig/removeConfig/getConfigs), TypedStorage persistence, 10-step import orchestration pipeline, registered in ServiceContainer ✅
+- `CanvasParser.ts` extensions: `getNodeTitle()` (title by node type), `buildCanvasItems()` (raw nodes → typed CanvasItem[]) ✅
+- Inbox mappers: `mapCanvasImportCompleted()`, `mapCanvasImportFailed()` wired in InboxService ✅
+- DX Hub dashboard: `canvasConfigCount` in HubState, `renderCanvasStats()` section in HubDashboard ✅
 - 8 events registered in catalog with category "Canvas" ✅
 - All existing QuickAdd canvas-importer test scenarios ported as unit tests — all 5 source scripts migrated (core, constants, notes, canvas, basefile) ✅
 
 ## Acceptance Criteria
 
-- [ ] Canvas import available from Data Exchange Hub
+- [x] Canvas import available from Data Exchange Hub (Cycle 15 Inc 5)
 - [ ] Right-click `.canvas` file shows "Import Canvas" context menu
 - [ ] Nodes create typed notes with frontmatter (type, parent, relationships)
 - [ ] Legend group overrides default color mapping

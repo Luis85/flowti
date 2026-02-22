@@ -16,12 +16,12 @@ related_events:
   - canvas.session.started
 maturity: L1
 maturity_score_strategy: 4
-maturity_score_scope: 3
-maturity_score_architecture: 4
+maturity_score_scope: 4
+maturity_score_architecture: 5
 maturity_score_event_integration: 4
 maturity_score_data_model: 4
 maturity_score_ui_consistency: 3
-maturity_score_validation_testing: 4
+maturity_score_validation_testing: 5
 business_value: 5
 implementation_cost: 4
 maintenance_cost: 3
@@ -29,7 +29,7 @@ discovery_cost: 3
 design_cost: 4
 test_cost: 3
 priority: 4
-fri_score: 26
+fri_score: 29
 planned_in: "[[Cycle 15 - Canvas Integration]]"
 tags:
   - canvas
@@ -131,10 +131,10 @@ tags:
 
 ### Data Exchange Hub Integration
 
-- [ ] Canvas registered as import source type alongside CSV
-- [ ] Canvas import available from Data Exchange Hub dashboard
+- [x] Canvas registered as import source type alongside CSV (Cycle 15 Inc 5 — CanvasService registered in ServiceContainer, DX Hub dashboard stat card)
+- [x] Canvas import available from Data Exchange Hub dashboard (Cycle 15 Inc 5 — renderCanvasStats section in HubDashboard)
 - [ ] Right-click `.canvas` file shows "Import Canvas" context menu
-- [ ] Import configurations saved and reusable
+- [x] Import configurations saved and reusable (Cycle 15 Inc 5 — CanvasService CRUD + TypedStorage persistence)
 
 ### Canvas Templates
 
@@ -256,7 +256,7 @@ CanvasTemplate
 
 ## 12. Acceptance Criteria
 
-- [ ] Canvas import available from Data Exchange Hub
+- [x] Canvas import available from Data Exchange Hub (Cycle 15 Inc 5)
 - [ ] Right-click `.canvas` file shows "Import Canvas" context menu
 - [ ] Nodes create typed notes with frontmatter (type, parent, relationships)
 - [ ] Legend group overrides default color mapping
@@ -304,6 +304,8 @@ Migrate canvas import logic from `var/scripts/canvas-importer/` into `src/domain
 **Cycle 15 Inc 3 delivered:** Canvas Importer — note creation pipeline. 3-layer architecture: pure content functions (toCanvasNotePath, toCanvasNoteFrontmatter, toCanvasNoteContent), I/O function (writeCanvasNote with skip/update/overwrite conflict strategies), orchestrator (importCanvas with started/progress/completed/failed events, per-node error resilience). 31 new tests (3,445 total, 103 canvas-specific). Full content + write layer complete.
 
 **Cycle 15 Inc 4 delivered:** Canvas Rebuilder & Base Generator — post-import artifacts. CanvasRebuilder: rebuildCanvasData (text→file-node references, group/file preserved, edge ID remapping, injectable ID gen), writeRebuiltCanvas (skip/overwrite). CanvasBaseGenerator: buildBaseFileContent (folder filter + type-grouped table with 13 columns), writeBaseFile (skip/overwrite). 28 new tests (3,473 total, 131 canvas-specific). Full QuickAdd script migration complete — all 5 source scripts ported.
+
+**Cycle 15 Inc 5 delivered:** CanvasService & Data Exchange Hub Integration. CanvasService: service facade with CRUD (saveConfig/removeConfig/getConfigs), TypedStorage persistence, 10-step import orchestration (read→parse→legend→items→parentage→relations→filter→import→rebuild→base). Registered in ServiceContainer, loaded/disposed in main.ts. Canvas shown in DX Hub dashboard (stat card for saved configs). Inbox integration via mapCanvasImportCompleted + mapCanvasImportFailed pure mappers. Parser extended with getNodeTitle + buildCanvasItems glue functions. importedPaths tracking in CanvasImportResult for rebuilder bridge. 34 new tests (3,507 total, 165 canvas-specific).
 
 ### Phase 2: Canvas Templates (PBI-CAN-002)
 

@@ -43,6 +43,7 @@ function makeState(overrides: Partial<HubState> = {}): HubState {
 		showHiddenCsvs: false,
 		frontmatterIssues: [],
 		activeOperations: [],
+		canvasConfigCount: 0,
 		selectedImportId: null,
 		selectedExportId: null,
 		selectedDictProp: null,

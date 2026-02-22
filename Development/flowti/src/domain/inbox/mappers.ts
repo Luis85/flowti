@@ -5,6 +5,7 @@
  * and returns a fully-formed InboxItem. No side effects, no dependencies.
  */
 
+import type { CanvasImportResult } from "../canvas/types";
 import type { SyncResult } from "../signal/types";
 import type { ThoughtDirection, ThoughtNode } from "../train/types";
 import type { InboxItem } from "./types";
@@ -284,6 +285,48 @@ export function mapTrainCompleted(
 		description: `Train ${payload.trainId} completed with ${payload.thoughtCount} thought${payload.thoughtCount === 1 ? "" : "s"}.`,
 		sourceEvent: "train.completed",
 		sourceHub: "train",
+		timestamp: new Date().toISOString(),
+		read: false,
+	};
+}
+
+/**
+ * Maps a `canvas.import.completed` event to an inbox item.
+ */
+export function mapCanvasImportCompleted(
+	payload: { result: CanvasImportResult },
+	id: string,
+): InboxItem {
+	const r = payload.result;
+	const hasErrors = r.errors.length > 0;
+	return {
+		id,
+		type: hasErrors ? "action" : "info",
+		title: hasErrors
+			? `Canvas import completed with ${r.errors.length} error${r.errors.length === 1 ? "" : "s"}`
+			: `Canvas import: ${r.imported} notes created`,
+		description: `Canvas "${r.canvasPath}": ${r.imported} imported, ${r.skipped} skipped, ${r.errors.length} errors.`,
+		sourceEvent: "canvas.import.completed",
+		sourceHub: "canvas",
+		timestamp: new Date().toISOString(),
+		read: false,
+	};
+}
+
+/**
+ * Maps a `canvas.import.failed` event to an inbox item.
+ */
+export function mapCanvasImportFailed(
+	payload: { canvasPath: string; error: string },
+	id: string,
+): InboxItem {
+	return {
+		id,
+		type: "action",
+		title: "Canvas import failed",
+		description: `Canvas "${payload.canvasPath}" import failed: ${payload.error}`,
+		sourceEvent: "canvas.import.failed",
+		sourceHub: "canvas",
 		timestamp: new Date().toISOString(),
 		read: false,
 	};

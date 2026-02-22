@@ -106,6 +106,8 @@ export interface CanvasImportResult {
 	skipped: number;
 	errors: CanvasImportError[];
 	duration: number;
+	/** Map of original canvas node ID → created vault note path (for rebuilder). */
+	importedPaths: Record<string, string>;
 }
 
 /** Error for a single node during import. */

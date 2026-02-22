@@ -57,6 +57,9 @@ export class HubDashboard {
 		// Section 2: Data Dictionary
 		this.renderDictionaryStats(this.dashboardEl);
 
+		// Section 2b: Canvas Import Configs
+		this.renderCanvasStats(this.dashboardEl);
+
 		// Section 3: Import Pipelines
 		renderDashboardPipelines(this.dashboardEl, this.deps, this.renderSectionHeader.bind(this));
 
@@ -255,6 +258,26 @@ export class HubDashboard {
 				}),
 			);
 		}
+	}
+
+	// ─────────────────────────────────────────────────────────
+	// Canvas import configs
+	// ─────────────────────────────────────────────────────────
+
+	private renderCanvasStats(container: HTMLElement): void {
+		const state = this.deps.getState();
+		const count = state.canvasConfigCount;
+		if (count === 0) return;
+
+		const section = container.createDiv();
+		section.style.marginBottom = "2rem";
+		this.renderSectionHeader(section, "layout-dashboard", "Canvas Imports", count);
+
+		const cards: StatCardItem[] = [
+			{ icon: "layout-dashboard", value: String(count), label: "Saved Configs" },
+		];
+
+		renderStatGrid(section, cards, 3);
 	}
 
 	cleanupLiveListeners(): void {

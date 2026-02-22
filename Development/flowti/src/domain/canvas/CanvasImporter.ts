@@ -196,6 +196,7 @@ export async function importCanvas(
 ): Promise<CanvasImportResult> {
 	const startTime = Date.now();
 	const errors: CanvasImportError[] = [];
+	const importedPaths: Record<string, string> = {};
 	let imported = 0;
 	let skipped = 0;
 	const itemsById = new Map(items.map(i => [i.id, i]));
@@ -215,6 +216,7 @@ export async function importCanvas(
 				skipped++;
 			} else {
 				imported++;
+				importedPaths[item.id] = result.path;
 			}
 
 			await deps.emit("canvas.import.progress", {
@@ -237,6 +239,7 @@ export async function importCanvas(
 		skipped,
 		errors,
 		duration: Date.now() - startTime,
+		importedPaths,
 	};
 
 	if (errors.length > 0 && imported === 0) {

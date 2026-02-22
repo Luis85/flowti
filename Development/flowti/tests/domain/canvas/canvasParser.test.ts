@@ -6,6 +6,8 @@ import {
 	slugifyTitle,
 	toPascalCase,
 	isNodeInsideGroup,
+	getNodeTitle,
+	buildCanvasItems,
 	resolveParentage,
 	buildRelations,
 	filterItemsForImport,
@@ -606,5 +608,121 @@ describe("filterItemsForImport", () => {
 
 	it("handles empty input", () => {
 		expect(filterItemsForImport([])).toEqual([]);
+	});
+});
+
+// ─────────────────────────────────────────────────────────────
+// getNodeTitle
+// ─────────────────────────────────────────────────────────────
+
+describe("getNodeTitle", () => {
+	it("extracts first line from text node, stripping markdown header", () => {
+		const node = textNode("t1", "# My Title\nBody text");
+		expect(getNodeTitle(node)).toBe("My Title");
+	});
+
+	it("returns 'untitled' for empty text node", () => {
+		const node = textNode("t2", "");
+		expect(getNodeTitle(node)).toBe("untitled");
+	});
+
+	it("extracts label from group node", () => {
+		const node = groupNode("g1", "My Group");
+		expect(getNodeTitle(node)).toBe("My Group");
+	});
+
+	it("returns 'untitled' for group without label", () => {
+		const node = groupNode("g2", "");
+		expect(getNodeTitle(node)).toBe("untitled");
+	});
+
+	it("extracts filename from file node", () => {
+		const node: AllCanvasNodeData = {
+			id: "f1", type: "file", file: "notes/My Document.md",
+			x: 0, y: 0, width: 200, height: 100,
+		} as AllCanvasNodeData;
+		expect(getNodeTitle(node)).toBe("My Document");
+	});
+
+	it("extracts URL from link node", () => {
+		const node: AllCanvasNodeData = {
+			id: "l1", type: "link", url: "https://example.com",
+			x: 0, y: 0, width: 200, height: 100,
+		} as AllCanvasNodeData;
+		expect(getNodeTitle(node)).toBe("https://example.com");
+	});
+});
+
+// ─────────────────────────────────────────────────────────────
+// buildCanvasItems
+// ─────────────────────────────────────────────────────────────
+
+describe("buildCanvasItems", () => {
+	it("transforms text nodes into CanvasItems with resolved types", () => {
+		const data: CanvasData = {
+			nodes: [
+				textNode("n1", "# My Task", { color: "3" }),
+			],
+			edges: [],
+		};
+
+		const items = buildCanvasItems(data, null);
+
+		expect(items).toHaveLength(1);
+		expect(items[0].id).toBe("n1");
+		expect(items[0].title).toBe("My Task");
+		expect(items[0].type).toBe("Task"); // color "3" = Task
+		expect(items[0].originalType).toBe("text");
+		expect(items[0].status).toBe("new");
+		expect(items[0].isEmpty).toBe(false);
+		expect(items[0].up).toEqual([]);
+	});
+
+	it("marks empty text nodes as isEmpty", () => {
+		const data: CanvasData = {
+			nodes: [textNode("n1", "   ")],
+			edges: [],
+		};
+
+		const items = buildCanvasItems(data, null);
+		expect(items[0].isEmpty).toBe(true);
+	});
+
+	it("uses legend map for type resolution when present", () => {
+		const data: CanvasData = {
+			nodes: [textNode("n1", "Spike", { color: "1" })],
+			edges: [],
+		};
+		const legendMap = { "1": "Requirement" };
+
+		const items = buildCanvasItems(data, legendMap);
+		expect(items[0].type).toBe("Requirement");
+	});
+
+	it("transforms group nodes", () => {
+		const data: CanvasData = {
+			nodes: [groupNode("g1", "Phase 1")],
+			edges: [],
+		};
+
+		const items = buildCanvasItems(data, null);
+		expect(items[0].type).toBe("Group");
+		expect(items[0].title).toBe("Phase 1");
+		expect(items[0].originalType).toBe("group");
+	});
+
+	it("initialises all relation arrays as empty", () => {
+		const data: CanvasData = {
+			nodes: [textNode("n1", "Test")],
+			edges: [],
+		};
+
+		const items = buildCanvasItems(data, null);
+		expect(items[0].up).toEqual([]);
+		expect(items[0].down).toEqual([]);
+		expect(items[0].prev).toEqual([]);
+		expect(items[0].next).toEqual([]);
+		expect(items[0].parentId).toBeNull();
+		expect(items[0].parent).toBeNull();
 	});
 });

@@ -27,6 +27,7 @@ import { SignalService } from "../../domain/signal/SignalService";
 import { AzureDevOpsAdapter } from "../../domain/signal/adapters/AzureDevOpsAdapter";
 import { CaptureService } from "../../domain/capture/CaptureService";
 import { TrainService } from "../../domain/train/TrainService";
+import { CanvasService } from "../../domain/canvas/CanvasService";
 import { DocService } from "../../domain/docs/DocService";
 import { FileSystemClient } from "../filesystem/FileSystemClient";
 import type { IServiceContainer, ServiceRegistration } from "./types";
@@ -268,6 +269,19 @@ export function createServiceRegistrations(
 					eventBus,
 					fileSystem: new FileSystemClient({ eventBus }),
 					getSettings: () => ({ captureFolder: "" }),
+				});
+			},
+		},
+
+		// Canvas Service - canvas import configurations and orchestration
+		{
+			id: "canvasService",
+			factory: (container: IServiceContainer) => {
+				const eventBus = container.getEventBus();
+				return new CanvasService({
+					storage: createTypedStorage(storage, "canvas", container),
+					eventBus,
+					fileSystem: new FileSystemClient({ eventBus }),
 				});
 			},
 		},
