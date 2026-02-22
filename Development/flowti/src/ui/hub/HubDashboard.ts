@@ -138,7 +138,7 @@ export class HubDashboard {
 				spinner.style.opacity = "0.6";
 				spinner.addClass("ft-spin");
 				const statusText = row.createSpan({ cls: "ft-text-sm" });
-				const typeLabel = op.type === "import" ? "Importing" : op.type === "export" ? "Exporting" : "Pipeline";
+				const typeLabel = op.type === "canvas-import" ? "Canvas Import" : op.type === "import" ? "Importing" : op.type === "export" ? "Exporting" : "Pipeline";
 				if (op.progress) {
 					const pct = op.progress.total > 0 ? Math.round((op.progress.current / op.progress.total) * 100) : 0;
 					statusText.textContent = `${typeLabel}... ${op.progress.current} / ${op.progress.total} (${pct}%)`;
@@ -257,6 +257,34 @@ export class HubDashboard {
 					transitionToResult(false, `Failed: ${event.payload.error}`);
 				}),
 			);
+		} else if (op.type === "canvas-import") {
+			this.liveUnsubscribes.push(
+				this.deps.eventBus.on("canvas.import.progress", (event) => {
+					const opId = `canvas:${event.payload.canvasPath}`;
+					if (opId !== op.operationId) return;
+					const { current, total, title } = event.payload;
+					const livePct = total > 0 ? Math.round((current / total) * 100) : 0;
+					barFill.style.width = `${livePct}%`;
+					statusText.textContent = `Canvas Import... ${current} / ${total} (${livePct}%)`;
+					if (title) statusText.textContent += ` — ${title}`;
+				}),
+			);
+			this.liveUnsubscribes.push(
+				this.deps.eventBus.on("canvas.import.completed", (event) => {
+					const r = event.payload.result;
+					const opId = `canvas:${r.canvasPath}`;
+					if (opId !== op.operationId) return;
+					transitionToResult(true, `${r.imported} imported, ${r.skipped} skipped` +
+						(r.errors.length > 0 ? `, ${r.errors.length} errors` : ""));
+				}),
+			);
+			this.liveUnsubscribes.push(
+				this.deps.eventBus.on("canvas.import.failed", (event) => {
+					const opId = `canvas:${event.payload.canvasPath}`;
+					if (opId !== op.operationId) return;
+					transitionToResult(false, `Failed: ${event.payload.error}`);
+				}),
+			);
 		}
 	}
 
@@ -266,7 +294,7 @@ export class HubDashboard {
 
 	private renderCanvasStats(container: HTMLElement): void {
 		const state = this.deps.getState();
-		const count = state.canvasConfigCount;
+		const count = state.canvasConfigs.length;
 		if (count === 0) return;
 
 		const section = container.createDiv();
@@ -274,7 +302,7 @@ export class HubDashboard {
 		this.renderSectionHeader(section, "layout-dashboard", "Canvas Imports", count);
 
 		const cards: StatCardItem[] = [
-			{ icon: "layout-dashboard", value: String(count), label: "Saved Configs" },
+			{ icon: "layout-dashboard", value: String(count), label: "Saved Configs", onClick: () => this.deps.navigation.navigateTo("canvas") },
 		];
 
 		renderStatGrid(section, cards, 3);

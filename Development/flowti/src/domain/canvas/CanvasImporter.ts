@@ -38,20 +38,52 @@ export interface CanvasImporterDeps {
 // ── Pure content functions ────────────────────────────────────
 
 /**
+ * Walk the parentId chain to build a group-based folder path.
+ * Returns segments joined by "/", e.g. "outer-group/inner-group".
+ */
+export function resolveGroupPath(item: CanvasItem, itemsById: Map<string, CanvasItem>): string {
+	const segments: string[] = [];
+	let currentId = item.parentId;
+	const visited = new Set<string>();
+	while (currentId && !visited.has(currentId)) {
+		visited.add(currentId);
+		const parent = itemsById.get(currentId);
+		if (!parent || parent.originalType !== "group") break;
+		segments.unshift(slugifyTitle(parent.title));
+		currentId = parent.parentId;
+	}
+	return segments.join("/");
+}
+
+/**
  * Build the file path for a canvas note.
  *
  * In "flat" mode: `targetFolder/slug.md`
  * In "product" mode: `targetFolder/TypeFolder/slug.md`
+ * In "group" mode: `targetFolder/groupPath/slug.md`
  */
 export function toCanvasNotePath(
 	item: CanvasItem,
 	targetFolder: string,
-	hierarchyMode: "flat" | "product",
+	hierarchyMode: "flat" | "product" | "group",
+	itemsById?: Map<string, CanvasItem>,
 ): string {
 	const slug = slugifyTitle(item.title);
 	if (hierarchyMode === "product") {
 		const subfolder = TYPE_FOLDER_MAP[item.type] || "Other";
 		return `${targetFolder}/${subfolder}/${slug}.md`;
+	}
+	if (hierarchyMode === "group" && itemsById) {
+		const groupPath = resolveGroupPath(item, itemsById);
+		// Groups place their note inside their own folder to avoid
+		// a slug.md file conflicting with a slug/ folder for children.
+		if (item.originalType === "group") {
+			const ownFolder = groupPath ? `${groupPath}/${slug}` : slug;
+			return `${targetFolder}/${ownFolder}/${slug}.md`;
+		}
+		return groupPath
+			? `${targetFolder}/${groupPath}/${slug}.md`
+			: `${targetFolder}/${slug}.md`;
 	}
 	return `${targetFolder}/${slug}.md`;
 }
@@ -82,7 +114,13 @@ export function toCanvasNoteFrontmatter(
 		canvas_id: item.id,
 	};
 
-	if (item.parent) {
+	// Resolve parent from parentId (group containment) using the items map
+	if (item.parentId) {
+		const parentItem = itemsById.get(item.parentId);
+		if (parentItem) {
+			fm.parent = `[[${slugifyTitle(parentItem.title)}]]`;
+		}
+	} else if (item.parent) {
 		fm.parent = `[[${item.parent}]]`;
 	}
 	if (item.color) {
@@ -160,7 +198,7 @@ export async function writeCanvasNote(
 	fileSystem: IFileSystemClient,
 	itemsById: Map<string, CanvasItem>,
 ): Promise<WriteCanvasNoteResult> {
-	const path = toCanvasNotePath(item, config.targetFolder, config.hierarchyMode);
+	const path = toCanvasNotePath(item, config.targetFolder, config.hierarchyMode, itemsById);
 	const exists = await fileSystem.fileExists(path);
 
 	if (exists) {

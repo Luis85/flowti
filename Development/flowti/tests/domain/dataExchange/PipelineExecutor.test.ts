@@ -561,6 +561,153 @@ describe("PipelineExecutor", () => {
 		});
 	});
 
+	// ── Canvas steps ────────────────────────────────────────
+
+	describe("canvas steps", () => {
+		let mockCanvasService: {
+			runImport: ReturnType<typeof vi.fn>;
+			getConfig: ReturnType<typeof vi.fn>;
+		};
+
+		beforeEach(() => {
+			mockCanvasService = {
+				runImport: vi.fn(async () => ({
+					canvasPath: "boards/arch.canvas",
+					targetFolder: "out/canvas",
+					totalNodes: 10,
+					imported: 8,
+					skipped: 2,
+					errors: [],
+					duration: 150,
+					importedPaths: {},
+				})),
+				getConfig: vi.fn(() => ({ name: "Arch Import" })),
+			};
+
+			const deps: PipelineExecutorDeps = {
+				eventBus,
+				importService: mockImportService as never,
+				exportService: mockExportService as never,
+				fileSystem,
+				getPipeline: (id) => pipelines.get(id),
+				getExportConfig: (id) => exportConfigs.get(id),
+				getCanvasService: () => mockCanvasService as never,
+			};
+			executor = new PipelineExecutor(deps);
+		});
+
+		it("should execute canvas config after CSV sources", async () => {
+			const pipe = makePipeline({ canvasConfigIds: ["canvas-1"] });
+			pipelines.set(pipe.id, pipe);
+
+			const result = await executor.executePipeline(pipe.id);
+
+			expect(mockImportService.executeImport).toHaveBeenCalledOnce();
+			expect(mockCanvasService.runImport).toHaveBeenCalledWith("canvas-1");
+			expect(result.totalSources).toBe(2);
+			expect(result.completedSources).toBe(2);
+			expect(result.created).toBe(10); // 2 from CSV + 8 from canvas
+		});
+
+		it("should aggregate canvas results into pipeline totals", async () => {
+			const pipe = makePipeline({
+				sources: [],
+				canvasConfigIds: ["canvas-1"],
+			});
+			pipelines.set(pipe.id, pipe);
+
+			const result = await executor.executePipeline(pipe.id);
+
+			expect(result.totalSources).toBe(1);
+			expect(result.created).toBe(8);
+			expect(result.skipped).toBe(2);
+			expect(result.totalRows).toBe(10);
+		});
+
+		it("should continue when canvas step fails", async () => {
+			mockCanvasService.runImport
+				.mockRejectedValueOnce(new Error("Canvas not found"))
+				.mockResolvedValueOnce({
+					canvasPath: "ok.canvas", targetFolder: "out", totalNodes: 5,
+					imported: 5, skipped: 0, errors: [], duration: 50, importedPaths: {},
+				});
+
+			const pipe = makePipeline({
+				sources: [],
+				canvasConfigIds: ["bad-canvas", "good-canvas"],
+			});
+			pipelines.set(pipe.id, pipe);
+
+			const result = await executor.executePipeline(pipe.id);
+
+			expect(result.completedSources).toBe(1);
+			expect(result.failed).toBeGreaterThanOrEqual(1);
+			expect(result.errors.length).toBeGreaterThan(0);
+			expect(result.created).toBe(5);
+		});
+
+		it("should map canvas import errors to pipeline error format", async () => {
+			mockCanvasService.runImport.mockResolvedValueOnce({
+				canvasPath: "arch.canvas", targetFolder: "out", totalNodes: 3,
+				imported: 1, skipped: 0,
+				errors: [
+					{ nodeId: "n1", title: "Bad Node", error: "Invalid content" },
+				],
+				duration: 100, importedPaths: {},
+			});
+
+			const pipe = makePipeline({
+				sources: [],
+				canvasConfigIds: ["canvas-1"],
+			});
+			pipelines.set(pipe.id, pipe);
+
+			const result = await executor.executePipeline(pipe.id);
+
+			expect(result.failed).toBe(1);
+			expect(result.errors).toHaveLength(1);
+			expect(result.errors[0].filename).toBe("Bad Node");
+			expect(result.errors[0].error).toBe("Invalid content");
+		});
+
+		it("should emit sourceCompleted events with correct index offset", async () => {
+			const pipe = makePipeline({ canvasConfigIds: ["canvas-1"] });
+			pipelines.set(pipe.id, pipe);
+
+			const handler = vi.fn();
+			eventBus.on("dataExchange.pipeline.sourceCompleted", handler);
+
+			await executor.executePipeline(pipe.id);
+
+			expect(handler).toHaveBeenCalledTimes(2);
+			// CSV source at index 0, canvas at index 1
+			expect(handler.mock.calls[0][0].payload.sourceIndex).toBe(0);
+			expect(handler.mock.calls[1][0].payload.sourceIndex).toBe(1);
+			expect(handler.mock.calls[1][0].payload.totalSources).toBe(2);
+		});
+
+		it("should work without canvasConfigIds (backward compat)", async () => {
+			// Use executor without canvas service
+			const plainDeps: PipelineExecutorDeps = {
+				eventBus,
+				importService: mockImportService as never,
+				exportService: mockExportService as never,
+				fileSystem,
+				getPipeline: (id) => pipelines.get(id),
+				getExportConfig: (id) => exportConfigs.get(id),
+			};
+			const plainExecutor = new PipelineExecutor(plainDeps);
+
+			const pipe = makePipeline();
+			pipelines.set(pipe.id, pipe);
+
+			const result = await plainExecutor.executePipeline(pipe.id);
+
+			expect(result.totalSources).toBe(1);
+			expect(result.completedSources).toBe(1);
+		});
+	});
+
 	// ── buildPreview ────────────────────────────────────────
 
 	describe("buildPreview", () => {

@@ -354,6 +354,8 @@ export interface SavedMultiImportPipeline {
 	nameSuffix?: string;
 	/** IDs of saved export configs to run after pipeline completes */
 	exportConfigIds?: string[];
+	/** IDs of saved canvas import configs to run after CSV sources */
+	canvasConfigIds?: string[];
 }
 
 /** Result summary for a single source within a pipeline run. */

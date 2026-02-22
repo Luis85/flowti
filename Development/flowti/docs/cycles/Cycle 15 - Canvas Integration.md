@@ -11,11 +11,11 @@ bugs: []
 bugs_fixed_precycle: []
 tech_debt: []
 estimated_increments: 7
-actual_increments:
+actual_increments: 8
 estimated_tests: 90
-actual_tests:
-total_tests_after:
-total_test_files_after:
+actual_tests: 186
+total_tests_after: 3528
+total_test_files_after: 140
 ---
 
 # Cycle 15: Canvas Integration
@@ -337,16 +337,111 @@ None bundled — this is a greenfield domain migration cycle.
 - Unit tests: context menu visible for .canvas files only
 
 **Acceptance criteria:**
-- [ ] Import wizard: 3-page flow (Select → Preview/Map → Execute)
-- [ ] Preview page shows node count, type mapping, group structure
-- [ ] Execute triggers import with progress feedback
-- [ ] `flowti:import-canvas` command in palette
-- [ ] Right-click `.canvas` → "Import Canvas" in file context menu
-- [ ] Inbox mappers create items for import completion/failure
+- [x] Import wizard: 3-page flow (Select → Preview/Map → Execute) — `CanvasImportWizard` with `WizardPage = "select" | "preview" | "execute"`, full page rendering with navigation, file/folder pickers, dropdown settings; 13 unit tests
+- [x] Preview page shows node count, type mapping, group structure — stat badges (nodes, groups, legend entries), type distribution table, group structure with child counts, config summary, legend mappings section; 4 tests
+- [x] Execute triggers import with progress feedback — `runImport()` calls `canvasService.saveConfig()` + `canvasService.runImport()`; live `canvas.import.started` + `canvas.import.progress` event subscriptions update progress bar + status text; success/error result display; 3 tests
+- [x] `flowti:import-canvas` command in palette — `dataExchangeSetup.ts` registers `flowti:import-canvas` command (guarded on `this.deps.canvasService`)
+- [x] Right-click `.canvas` → "Import Canvas" in file context menu — `dataExchangeSetup.ts` `registerFileMenuItems()` adds `.canvas` block: "Import Canvas" item + existing config "Import with: {name}" items (up to 5)
+- [x] Inbox mappers create items for import completion/failure — delivered Inc 5
+
+**Delivery notes:**
+- `src/ui/canvas/CanvasImportWizard.ts` (~280 LOC): 3-page modal following InstallerWizardModal pattern. Page 1: FilePickerModal (.canvas), FolderPickerModal, config name, conflict strategy dropdown, hierarchy mode dropdown. Page 2: stat badges, legend mappings, type distribution, group structure, config summary. Page 3: live progress bar + status via event subscriptions, success/error result with close button.
+- `dataExchangeSetup.ts` extended: `.canvas` file-menu context menu (Import Canvas + saved config quick-run items), `flowti:import-canvas` command, `openCanvasImportWizard()` helper with vault file read callback
+- Tests: 13 new (select page render, close cleanup, parse error empty, parse error invalid JSON, node/group counts, legend mappings, type distribution, group structure, saveConfig + runImport called, success result, error result, initialCanvasPath skip, no initialCanvasPath)
+- ~310 LOC source (est. ~135), ~250 LOC tests (est. ~50), 13 new tests (est. ~11)
+- Cumulative: 178 canvas tests (44 Inc 1 + 28 Inc 2 + 31 Inc 3 + 28 Inc 4 + 34 Inc 5 + 13 Inc 6), 3,520 total (141 suites)
 
 ---
 
-### Inc 7: Integration Tests & Verification
+### Inc 7: Canvas Action View + Type Exclusion + DX Hub Canvas Tab
+
+**Goal:** Replace the modal-based import wizard with a full ItemView-based canvas import experience. Add type exclusion, preview/result storytelling, and a Canvas tab in the Data Exchange Hub for config management.
+
+| Step | File | Purpose | Est. LOC |
+|------|------|---------|----------|
+| 1 | `src/ui/CanvasActionView.ts` (new) | ItemView-based orchestrator: landing → config → preview → result pages | ~540 |
+| 2 | `src/ui/canvas/CanvasLanding.ts` (new) | Landing page: canvas file picker, saved config cards | ~130 |
+| 3 | `src/ui/canvas/CanvasConfigPage.ts` (new) | Config page: target folder, hierarchy mode, color/shape mapping, type exclusion | ~250 |
+| 4 | `src/ui/canvas/CanvasPreviewPage.ts` (new) | Preview page: node table with type badges, type breakdown, legend overrides | ~200 |
+| 5 | `src/ui/canvas/CanvasResultPage.ts` (new) | Result page: per-type breakdown, error details, artifact links, "What's next" actions | ~350 |
+| 6 | `src/ui/canvas/types.ts` (new) | CanvasViewState, CanvasComponentDeps, CanvasPage, STEP_LABELS | ~80 |
+| 7 | `src/domain/canvas/types.ts` | Add `excludedTypes?: string[]` to CanvasImportConfig | +5 |
+| 8 | `src/domain/canvas/CanvasImporter.ts` | Filter excluded types during import | +15 |
+| 9 | `src/domain/canvas/CanvasService.ts` | Thread excludedTypes through import pipeline | +10 |
+| 10 | `src/ui/hub/CanvasTab.ts` (new) | DX Hub Canvas tab: config CRUD, detail view, inline actions | ~250 |
+| 11 | `src/ui/DataExchangeHubView.ts` | Register Canvas tab in DX Hub | +20 |
+| 12 | `src/dataExchangeSetup.ts` | Open CanvasActionView from context menu + commands | +30 |
+
+**Acceptance criteria:**
+- [x] Canvas import uses full ItemView (landing → config → preview → result) instead of modal
+- [x] Config page supports color/shape mapping, hierarchy mode, subfolder name, type exclusion
+- [x] Preview page shows node table with type badges, legend override visualization, type breakdown
+- [x] Result page shows per-type breakdown, error details, artifact links, "What's next" actions
+- [x] Type exclusion: `excludedTypes` on config filters types from import and rebuilder
+- [x] DX Hub Canvas tab: saved config cards, detail view, CRUD actions (edit, delete, run, test)
+- [x] Step bar navigation between config/preview/result pages
+- [x] Unsaved changes detection with save button in top bar
+- [x] `npm test` passes — 3,522 total tests, 140 suites
+
+**Delivery notes:**
+- Full Canvas Action View: 6 new files under `src/ui/canvas/` (~1,550 LOC) + `CanvasActionView.ts` (~540 LOC)
+- Canvas domain: `excludedTypes` threaded through config → importer → rebuilder → base generator
+- DX Hub: Canvas tab with master/detail split, config cards, inline run/delete actions
+- `dataExchangeSetup.ts`: context menu opens CanvasActionView (not modal), auto-run for saved configs
+- Tests: 2 new tests (type exclusion in importer + service), cumulative 3,522 total
+
+---
+
+### Inc 8: Pipeline-Canvas Integration + DX Hub Polish + Bug Fixes
+
+**Goal:** Enable canvas import configs as pipeline sources, restructure pipeline detail view, fix folder reveal bug, and reorder DX Hub tabs.
+
+| Step | File | Purpose | Est. LOC |
+|------|------|---------|----------|
+| 1 | `src/domain/dataExchange/types.ts` | Add `canvasConfigIds?: string[]` to `SavedMultiImportPipeline` | +2 |
+| 2 | `src/domain/dataExchange/PipelineExecutor.ts` | Execute canvas steps after CSV sources, aggregate results | +79 |
+| 3 | `src/domain/dataExchange/DataExchangeService.ts` | Thread canvasService via lazy getter pattern | +7 |
+| 4 | `src/main.ts` | Wire canvasService to DataExchangeService after init | +1 |
+| 5 | `src/ui/hub/pipelines/types.ts` | Add `canvasService?` to PipelineComponentDeps | +2 |
+| 6 | `src/ui/hub/pipelines/SourcesExportsGrid.ts` | Canvas step cards, "Add Canvas Step" button, Inputs/Outputs row layout | +165 |
+| 7 | `src/ui/hub/pipelines/PipelineDetail.ts` | Canvas count badge, canvas info in config card | +9 |
+| 8 | `src/ui/hub/PipelinesTab.ts` | Thread canvasService, total source count in master list | +4 |
+| 9 | `src/ui/DataExchangeHubView.ts` | Reorder tabs: Pipelines, Imports, Exports, Types, Properties, Signals, Reports, Canvas | refactor |
+| 10 | `src/ui/hub/helpers.ts` | `revealFolderInExplorer()` — safe folder reveal via file explorer API | +12 |
+| 11 | `src/ui/CanvasActionView.ts` | Re-add auto-reveal with safe `revealFolderInExplorer` after import | +2 |
+| 12 | `src/ui/canvas/CanvasResultPage.ts` | Fix "Open Target Folder" button to use `revealFolderInExplorer` | +3 |
+| 13 | `src/ui/csv/CsvResultPage.ts` | Fix "Open Target Folder" button to use `revealFolderInExplorer` (same bug) | +3 |
+| 14 | `tests/domain/dataExchange/PipelineExecutor.test.ts` | 6 canvas step execution tests | +147 |
+
+**Acceptance criteria:**
+- [x] `canvasConfigIds?: string[]` on `SavedMultiImportPipeline` — backward compatible optional field
+- [x] PipelineExecutor runs canvas steps after CSV sources, before .base creation and exports
+- [x] Canvas results aggregate into pipeline totals (created, skipped, failed, errors)
+- [x] Per-step error resilience — one failing canvas step doesn't stop pipeline
+- [x] Canvas-only pipelines valid (no CSV sources required)
+- [x] Pipeline detail shows canvas step count badge and canvas info in config card
+- [x] Pipeline detail: Inputs row (CSV sources + canvas configs) and Outputs row (exports)
+- [x] "Add Canvas Step" button uses ConfigChooserModal with available canvas configs
+- [x] DX Hub tab order: Pipelines, Imports, Exports, Types, Properties, Signals, Reports, Canvas
+- [x] Bug fix: `revealTargetFolder` no longer creates unwanted markdown files
+- [x] `revealFolderInExplorer` shared utility for safe folder navigation (canvas + CSV)
+- [x] Auto-reveal target folder after canvas import (using safe method)
+- [x] 6 new PipelineExecutor tests (execute, aggregate, error resilience, error format, event index offset, backward compat)
+- [x] `npm test` passes — 3,528 total tests, 140 suites
+
+**Delivery notes:**
+- Pipeline-Canvas integration follows `exportConfigIds` pattern: store IDs, resolve at execution time
+- Late binding: `DataExchangeService` created before `CanvasService` in `main.ts` — solved with `setCanvasService()` setter + `getCanvasService` lazy getter in PipelineExecutorDeps
+- Canvas results mapping: `CanvasImportResult` (imported/skipped/errors with nodeId/title) → pipeline `MultiImportResult` (created/failed/errors with row/filename)
+- Pipeline detail restructured from 2-column grid to 2 stacked rows (Inputs/Outputs)
+- Bug root cause: `openLinkText(folderPath)` creates markdown file if folder doesn't exist as file — replaced with file explorer `revealInFolder` API
+- `revealFolderInExplorer` also fixes same bug in CSV import "Open Target Folder" button
+- ~499 LOC source (net), ~376 LOC tests, 6 new tests
+- Cumulative: 3,528 total tests (140 suites)
+
+---
+
+### Inc 9: Integration Tests & Verification
 
 **Goal:** End-to-end verification with flow tests.
 
@@ -394,10 +489,16 @@ Inc 5 (CanvasService + DX Hub)
 Inc 6 (Import Wizard + Context Menu)
     │
     ▼
-Inc 7 (Integration Tests)
+Inc 7 (Canvas Action View + Type Exclusion + DX Hub Canvas Tab)
+    │
+    ▼
+Inc 8 (Pipeline-Canvas Integration + DX Hub Polish + Bug Fixes)
+    │
+    ▼
+Inc 9 (Integration Tests)
 ```
 
-Strictly sequential: each increment depends on the previous. This is intentional — the canvas domain builds layer-by-layer from types through service to UI.
+Sequential build: types → parser → importer → service → UI wizard → full action view → pipeline integration → verification.
 
 ---
 

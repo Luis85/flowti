@@ -60,8 +60,8 @@ As a domain architect, I want to import Canvas files as typed vault notes from t
 - [x] Group-to-container: canvas groups set `parent` frontmatter on child nodes — parser: `resolveParentage()` (Inc 2), frontmatter: `toCanvasNoteFrontmatter()` writes `parent: "[[slug]]"` wikilink (Inc 3)
 - [x] Edge-to-relationship: edges translate to `up`/`down`/`prev`/`next` frontmatter — parser: `buildRelations()` (Inc 2), frontmatter: `toCanvasNoteFrontmatter()` resolves IDs to `[[slug]]` wikilinks (Inc 3)
 - [x] Register as import source type in Data Exchange Hub (Cycle 15 Inc 5 — CanvasService registered, DX Hub dashboard stat card)
-- [ ] Import wizard: 3-page (Select, Preview/Map, Execute)
-- [ ] Right-click `.canvas` → "Import Canvas" context menu
+- [x] Import wizard: 3-page (Select, Preview/Map, Execute) (Cycle 15 Inc 6 — `CanvasImportWizard` with file/folder pickers, config settings, preview, live progress)
+- [x] Right-click `.canvas` → "Import Canvas" context menu (Cycle 15 Inc 6 — `dataExchangeSetup.ts` file-menu handler + saved config quick-run items)
 - [x] Progress events: `canvas.import.started/progress/completed/failed` (Cycle 15 Inc 3 — `importCanvas()` emits all 4 lifecycle events)
 - [x] Saved import configurations for repeatable imports (Cycle 15 Inc 5 — CanvasService CRUD + TypedStorage, `MAX_CANVAS_CONFIGS = 50`)
 
@@ -78,17 +78,27 @@ As a domain architect, I want to import Canvas files as typed vault notes from t
 - DX Hub dashboard: `canvasConfigCount` in HubState, `renderCanvasStats()` section in HubDashboard ✅
 - 8 events registered in catalog with category "Canvas" ✅
 - All existing QuickAdd canvas-importer test scenarios ported as unit tests — all 5 source scripts migrated (core, constants, notes, canvas, basefile) ✅
+- `CanvasImportWizard.ts` (~280 LOC): 3-page modal (Select → Preview → Execute), FilePickerModal + FolderPickerModal integration, live progress via event subscriptions ✅
+- `dataExchangeSetup.ts`: `.canvas` file-menu context menu ("Import Canvas" + saved config quick-run), `flowti:import-canvas` command, `openCanvasImportWizard()` helper ✅
+- `CanvasActionView.ts` (~540 LOC): ItemView-based orchestrator (landing → config → preview → result), replaces modal wizard, unsaved changes detection, step bar navigation ✅
+- `src/ui/canvas/` (5 page components, ~1,550 LOC): CanvasLanding, CanvasConfigPage, CanvasPreviewPage, CanvasResultPage, types ✅
+- `excludedTypes?: string[]` on CanvasImportConfig: type exclusion filter in importer + rebuilder + base generator ✅
+- `src/ui/hub/CanvasTab.ts` (~250 LOC): DX Hub Canvas tab with master/detail split, config CRUD, inline actions ✅
+- Pipeline integration: `canvasConfigIds?: string[]` on SavedMultiImportPipeline, PipelineExecutor canvas step execution, UI cards + "Add Canvas Step" ✅
+- `revealFolderInExplorer()` utility: safe folder reveal replacing `openLinkText` (prevents file creation) ✅
 
 ## Acceptance Criteria
 
 - [x] Canvas import available from Data Exchange Hub (Cycle 15 Inc 5)
-- [ ] Right-click `.canvas` file shows "Import Canvas" context menu
-- [ ] Nodes create typed notes with frontmatter (type, parent, relationships)
-- [ ] Legend group overrides default color mapping
-- [ ] Groups create container structure
-- [ ] Progress events fire per-node
-- [ ] All existing canvas-importer test scenarios pass
-- [ ] npm run build passes
+- [x] Right-click `.canvas` file shows "Import Canvas" context menu (Cycle 15 Inc 6)
+- [x] Nodes create typed notes with frontmatter (type, parent, relationships) (Cycle 15 Inc 3 — toCanvasNoteFrontmatter, 178 canvas tests)
+- [x] Legend group overrides default color mapping (Cycle 15 Inc 1 — extractLegend + resolveNodeType priority chain)
+- [x] Groups create container structure (Cycle 15 Inc 2-3 — resolveParentage + toCanvasNoteFrontmatter parent wikilink)
+- [x] Progress events fire per-node (Cycle 15 Inc 3 — importCanvas emits canvas.import.progress per item)
+- [x] All existing canvas-importer test scenarios pass (Cycle 15 Inc 4 — all 5 scripts ported, 186 canvas-specific tests)
+- [x] Full Canvas Action View with type exclusion and DX Hub Canvas tab (Cycle 15 Inc 7)
+- [x] Canvas configs as pipeline sources with execution, aggregation, and UI (Cycle 15 Inc 8)
+- [x] npm run build passes (verified Cycle 15 Inc 8 — 3,528 tests, 140 suites)
 
 ## Related
 

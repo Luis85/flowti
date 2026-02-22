@@ -5,6 +5,7 @@
 import type { App } from "obsidian";
 import type { IEventBus } from "../../../infrastructure/events/types";
 import type { DataExchangeService } from "../../../domain/dataExchange/DataExchangeService";
+import type { CanvasService } from "../../../domain/canvas/CanvasService";
 import type { SavedMultiImportPipeline } from "../../../domain/dataExchange/types";
 import type { HubState, HubNavigationCallbacks } from "../types";
 
@@ -12,6 +13,7 @@ export interface PipelineComponentDeps {
 	app: App;
 	eventBus: IEventBus;
 	dataExchangeService: DataExchangeService;
+	canvasService?: CanvasService;
 	getState: () => HubState;
 	setState: (partial: Partial<HubState>) => void;
 	navigation: HubNavigationCallbacks;

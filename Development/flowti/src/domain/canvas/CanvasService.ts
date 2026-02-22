@@ -116,6 +116,21 @@ export class CanvasService {
 		return config;
 	}
 
+	async updateConfig(id: string, input: Partial<CanvasConfigInput>): Promise<CanvasImportConfig | undefined> {
+		const config = this.state.configs.find((c) => c.id === id);
+		if (!config) return undefined;
+
+		Object.assign(config, input);
+		await this.saveState();
+
+		await this.eventBus?.emit("canvas.config.saved", {
+			configId: config.id,
+			name: config.name,
+		});
+
+		return config;
+	}
+
 	async removeConfig(id: string): Promise<boolean> {
 		const index = this.state.configs.findIndex((c) => c.id === id);
 		if (index === -1) return false;
@@ -153,6 +168,13 @@ export class CanvasService {
 
 		const fileSystem = this.fileSystem;
 		const eventBus = this.eventBus;
+
+		// Derive subfolder name: use explicit subfolderName if set, else canvas file basename
+		const canvasBasename = config.canvasPath.split("/").pop()?.replace(/\.canvas$/, "") ?? "canvas";
+		const subfolder = config.subfolderName || canvasBasename;
+		const effectiveTarget = config.targetFolder
+			? `${config.targetFolder}/${subfolder}`
+			: subfolder;
 
 		// 1. Read canvas JSON
 		const json = await fileSystem.readFile(config.canvasPath);
@@ -208,7 +230,7 @@ export class CanvasService {
 			(n) => n.type === "group" && !!("label" in n && n.label) &&
 				String((n as { label?: string }).label).toLowerCase() === "legend",
 		);
-		const filteredItems = filterItemsForImport(items, {
+		let filteredItems = filterItemsForImport(items, {
 			legendGroup: legendGroup ? {
 				id: legendGroup.id,
 				x: legendGroup.x,
@@ -218,22 +240,31 @@ export class CanvasService {
 			} : null,
 		});
 
-		// 8. Import as vault notes
+		// 7b. Exclude user-specified types
+		if (config.excludedTypes?.length) {
+			filteredItems = filteredItems.filter(
+				(item) => !config.excludedTypes.includes(item.type),
+			);
+		}
+
+		// 8. Import as vault notes (using canvas-named subfolder)
 		const emit = async (type: string, payload: Record<string, unknown>): Promise<void> => {
 			await eventBus?.emit(type as never, payload as never);
 		};
-		const result = await importCanvas(filteredItems, config, { fileSystem, emit });
+		const importConfig = { ...config, targetFolder: effectiveTarget };
+		const result = await importCanvas(filteredItems, importConfig, { fileSystem, emit });
 
-		// 9. Rebuild canvas with file-node references
+		// 9. Rebuild canvas with file-node references (gated on createCanvas)
 		const filePathById = new Map(Object.entries(result.importedPaths));
-		if (filePathById.size > 0) {
+		if (config.createCanvas !== false && filePathById.size > 0) {
 			const rebuilt = rebuildCanvasData(canvasData.nodes, canvasData.edges, filePathById);
-			const canvasName = config.canvasPath.split("/").pop()?.replace(/\.canvas$/, "") || "canvas";
-			await writeRebuiltCanvas(rebuilt, config.targetFolder, canvasName, fileSystem);
+			await writeRebuiltCanvas(rebuilt, effectiveTarget, subfolder, fileSystem);
 		}
 
-		// 10. Write .base index file
-		await writeBaseFile(config.targetFolder, fileSystem);
+		// 10. Write .base index file (gated on createBase)
+		if (config.createBase !== false) {
+			await writeBaseFile(effectiveTarget, fileSystem);
+		}
 
 		// Update config lastUsed
 		config.lastUsed = new Date().toISOString();

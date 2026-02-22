@@ -20,6 +20,7 @@ import type {
 	SavedExportConfig,
 	SavedMultiImportPipeline,
 } from "./types";
+import type { CanvasService } from "../canvas/CanvasService";
 import { basename } from "../../utils/pathUtils";
 
 export interface PipelineExecutorDeps {
@@ -29,6 +30,7 @@ export interface PipelineExecutorDeps {
 	fileSystem: IFileSystemClient;
 	getPipeline: (id: string) => SavedMultiImportPipeline | undefined;
 	getExportConfig: (id: string) => SavedExportConfig | undefined;
+	getCanvasService?: () => CanvasService | undefined;
 }
 
 export class PipelineExecutor {
@@ -116,15 +118,17 @@ export class PipelineExecutor {
 	async executePipeline(pipelineId: string): Promise<MultiImportResult> {
 		const pipeline = this.deps.getPipeline(pipelineId);
 		if (!pipeline) throw new Error(`Pipeline not found: ${pipelineId}`);
-		if (pipeline.sources.length === 0) throw new Error("Pipeline has no sources");
+		const canvasCount = pipeline.canvasConfigIds?.length ?? 0;
+		const totalSourceCount = pipeline.sources.length + canvasCount;
+		if (totalSourceCount === 0) throw new Error("Pipeline has no sources");
 
 		await this.deps.eventBus.emit("dataExchange.pipeline.started", {
 			pipeline,
-			totalSources: pipeline.sources.length,
+			totalSources: totalSourceCount,
 		});
 
 		const result: MultiImportResult = {
-			totalSources: pipeline.sources.length,
+			totalSources: totalSourceCount,
 			completedSources: 0,
 			totalRows: 0,
 			created: 0,
@@ -186,7 +190,7 @@ export class PipelineExecutor {
 				await this.deps.eventBus.emit("dataExchange.pipeline.sourceCompleted", {
 					pipelineId: pipeline.id,
 					sourceIndex: i,
-					totalSources: pipeline.sources.length,
+					totalSources: totalSourceCount,
 					sourceResult: psr,
 				});
 			} catch (error) {
@@ -212,6 +216,73 @@ export class PipelineExecutor {
 					filename: source.csvPath,
 					error: error instanceof Error ? error.message : String(error),
 				});
+			}
+		}
+
+		// Execute canvas import steps
+		const canvasService = this.deps.getCanvasService?.();
+		if (canvasService && pipeline.canvasConfigIds?.length) {
+			const csvCount = pipeline.sources.length;
+			for (let j = 0; j < pipeline.canvasConfigIds.length; j++) {
+				const configId = pipeline.canvasConfigIds[j];
+				try {
+					const canvasResult = await canvasService.runImport(configId);
+					const mappedErrors = canvasResult.errors.map((e) => ({
+						row: 0,
+						filename: e.title || e.nodeId,
+						error: e.error,
+					}));
+					const psr: PipelineSourceResult = {
+						sourceId: configId,
+						csvPath: canvasResult.canvasPath,
+						result: {
+							totalRows: canvasResult.totalNodes,
+							created: canvasResult.imported,
+							updated: 0,
+							skipped: canvasResult.skipped,
+							failed: canvasResult.errors.length,
+							errors: mappedErrors,
+						},
+					};
+					result.sourceResults.push(psr);
+					result.totalRows += canvasResult.totalNodes;
+					result.created += canvasResult.imported;
+					result.skipped += canvasResult.skipped;
+					result.failed += canvasResult.errors.length;
+					result.errors.push(...mappedErrors);
+					result.completedSources++;
+
+					await this.deps.eventBus.emit("dataExchange.pipeline.sourceCompleted", {
+						pipelineId: pipeline.id,
+						sourceIndex: csvCount + j,
+						totalSources: totalSourceCount,
+						sourceResult: psr,
+					});
+				} catch (error) {
+					const configName = canvasService.getConfig(configId)?.name ?? configId;
+					result.sourceResults.push({
+						sourceId: configId,
+						csvPath: configName,
+						result: {
+							totalRows: 0,
+							created: 0,
+							updated: 0,
+							skipped: 0,
+							failed: 1,
+							errors: [{
+								row: 0,
+								filename: configName,
+								error: error instanceof Error ? error.message : String(error),
+							}],
+						},
+					});
+					result.failed++;
+					result.errors.push({
+						row: 0,
+						filename: configName,
+						error: error instanceof Error ? error.message : String(error),
+					});
+				}
 			}
 		}
 

@@ -18,6 +18,10 @@ function makeConfigInput(overrides: Partial<CanvasConfigInput> = {}): CanvasConf
 		shapeMap: {},
 		conflictStrategy: "skip",
 		hierarchyMode: "flat",
+		subfolderName: "",
+		createCanvas: true,
+		createBase: true,
+		excludedTypes: [],
 		...overrides,
 	};
 }
@@ -57,6 +61,10 @@ describe("CanvasService", () => {
 					shapeMap: {},
 					conflictStrategy: "skip",
 					hierarchyMode: "flat",
+					subfolderName: "",
+					createCanvas: true,
+					createBase: true,
+					excludedTypes: [],
 					createdAt: "2026-02-20T10:00:00Z",
 					lastUsed: null,
 				}],
@@ -313,6 +321,122 @@ describe("CanvasService", () => {
 			);
 		});
 
+		it("should skip .base file when createBase is false", async () => {
+			const canvasJson = JSON.stringify({
+				nodes: [
+					{ id: "n1", type: "text", text: "Node", x: 0, y: 0, width: 200, height: 100 },
+				],
+				edges: [],
+			});
+
+			const fs = createMockFileSystem();
+			(fs.readFile as MockFn).mockResolvedValue(canvasJson);
+			(fs.fileExists as MockFn).mockResolvedValue(false);
+			(fs.createFile as MockFn).mockResolvedValue(undefined);
+
+			const mock = createMockStorage<CanvasState>();
+			service = new CanvasService({ storage: mock.storage, eventBus, fileSystem: fs });
+			await service.load();
+			const config = await service.saveConfig(makeConfigInput({
+				targetFolder: "resources/arch",
+				createBase: false,
+			}));
+
+			await service.runImport(config.id);
+
+			const createCalls = (fs.createFile as MockFn).mock.calls;
+			const baseCalls = createCalls.filter(
+				(call: unknown[]) => typeof call[0] === "string" && (call[0] as string).endsWith(".base"),
+			);
+			expect(baseCalls.length).toBe(0);
+		});
+
+		it("should skip rebuilt canvas when createCanvas is false", async () => {
+			const canvasJson = JSON.stringify({
+				nodes: [
+					{ id: "n1", type: "text", text: "Node", x: 0, y: 0, width: 200, height: 100 },
+				],
+				edges: [],
+			});
+
+			const fs = createMockFileSystem();
+			(fs.readFile as MockFn).mockResolvedValue(canvasJson);
+			(fs.fileExists as MockFn).mockResolvedValue(false);
+			(fs.createFile as MockFn).mockResolvedValue(undefined);
+
+			const mock = createMockStorage<CanvasState>();
+			service = new CanvasService({ storage: mock.storage, eventBus, fileSystem: fs });
+			await service.load();
+			const config = await service.saveConfig(makeConfigInput({
+				targetFolder: "resources/arch",
+				createCanvas: false,
+			}));
+
+			await service.runImport(config.id);
+
+			const createCalls = (fs.createFile as MockFn).mock.calls;
+			const canvasCalls = createCalls.filter(
+				(call: unknown[]) => typeof call[0] === "string" && (call[0] as string).endsWith(".canvas"),
+			);
+			expect(canvasCalls.length).toBe(0);
+		});
+
+		it("should exclude items matching excludedTypes", async () => {
+			const canvasJson = JSON.stringify({
+				nodes: [
+					{ id: "n1", type: "text", text: "# Bug Report", x: 0, y: 0, width: 200, height: 100, color: "1" },
+					{ id: "n2", type: "text", text: "# Feature Req", x: 200, y: 0, width: 200, height: 100, color: "6" },
+					{ id: "n3", type: "text", text: "# A Task", x: 400, y: 0, width: 200, height: 100, color: "3" },
+				],
+				edges: [],
+			});
+
+			const fs = createMockFileSystem();
+			(fs.readFile as MockFn).mockResolvedValue(canvasJson);
+			(fs.fileExists as MockFn).mockResolvedValue(false);
+			(fs.createFile as MockFn).mockResolvedValue(undefined);
+
+			const mock = createMockStorage<CanvasState>();
+			service = new CanvasService({ storage: mock.storage, eventBus, fileSystem: fs });
+			await service.load();
+			const config = await service.saveConfig(makeConfigInput({
+				excludedTypes: ["Issue"],
+			}));
+
+			const result = await service.runImport(config.id);
+
+			// "Issue" type excluded — only Feature + Task imported
+			expect(result.imported).toBe(2);
+			expect(result.totalNodes).toBe(2);
+		});
+
+		it("should import all items when excludedTypes is empty", async () => {
+			const canvasJson = JSON.stringify({
+				nodes: [
+					{ id: "n1", type: "text", text: "# Item A", x: 0, y: 0, width: 200, height: 100, color: "1" },
+					{ id: "n2", type: "text", text: "# Item B", x: 200, y: 0, width: 200, height: 100, color: "6" },
+				],
+				edges: [],
+			});
+
+			const fs = createMockFileSystem();
+			(fs.readFile as MockFn).mockResolvedValue(canvasJson);
+			(fs.fileExists as MockFn).mockResolvedValue(false);
+			(fs.createFile as MockFn).mockResolvedValue(undefined);
+
+			const mock = createMockStorage<CanvasState>();
+			service = new CanvasService({ storage: mock.storage, eventBus, fileSystem: fs });
+			await service.load();
+			const config = await service.saveConfig(makeConfigInput({
+				excludedTypes: [],
+			}));
+
+			const result = await service.runImport(config.id);
+
+			expect(result.imported).toBe(2);
+			expect(result.totalNodes).toBe(2);
+		});
+
 		it("should write .base file after import", async () => {
 			const canvasJson = JSON.stringify({
 				nodes: [
@@ -341,7 +465,8 @@ describe("CanvasService", () => {
 				(call: unknown[]) => typeof call[0] === "string" && (call[0] as string).endsWith(".base"),
 			);
 			expect(baseCalls.length).toBe(1);
-			expect(baseCalls[0][0]).toBe("resources/arch/arch.base");
+			// Canvas-named subfolder: "resources/arch/architecture/"
+			expect(baseCalls[0][0]).toBe("resources/arch/architecture/architecture.base");
 		});
 	});
 });

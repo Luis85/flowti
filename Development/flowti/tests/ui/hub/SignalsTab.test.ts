@@ -43,7 +43,7 @@ function makeState(overrides: Partial<HubState> = {}): HubState {
 		showHiddenCsvs: false,
 		frontmatterIssues: [],
 		activeOperations: [],
-		canvasConfigCount: 0,
+		canvasConfigs: [],
 		selectedImportId: null,
 		selectedExportId: null,
 		selectedDictProp: null,
@@ -52,9 +52,11 @@ function makeState(overrides: Partial<HubState> = {}): HubState {
 		selectedPipelineId: null,
 		selectedTypeName: null,
 		selectedSignalId: null,
+		selectedCanvasId: null,
 		editingImportId: null,
 		editingExportId: null,
 		editingPipelineId: null,
+		editingCanvasId: null,
 		...overrides,
 	};
 }
@@ -99,6 +101,7 @@ function createMockDeps(
 				executeExportConfig: vi.fn(),
 				runPipelinePreview: vi.fn(),
 				executePipeline: vi.fn(),
+				openCanvasImport: vi.fn(),
 			},
 			scheduleRender: vi.fn(),
 		},

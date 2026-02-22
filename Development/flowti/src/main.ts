@@ -703,6 +703,7 @@ export default class FlowtiBasePlugin extends Plugin {
 		// Canvas Service — canvas import configurations and orchestration
 		this.canvasService = await this.services.get<CanvasService>("canvasService");
 		await this.canvasService.load();
+		this.dataExchangeService!.setCanvasService(this.canvasService);
 
 		// Train Main View — register view factory + auto-open on train start
 		this.registerView(VIEW_TYPE_TRAIN_MAIN, (leaf) =>

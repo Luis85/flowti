@@ -5,6 +5,7 @@ import {
 	toCanvasNoteContent,
 	writeCanvasNote,
 	importCanvas,
+	resolveGroupPath,
 } from "../../../src/domain/canvas/CanvasImporter";
 import type { CanvasImporterDeps } from "../../../src/domain/canvas/CanvasImporter";
 import type { CanvasItem, CanvasImportConfig } from "../../../src/domain/canvas/types";
@@ -32,12 +33,14 @@ function canvasItem(id: string, overrides: Partial<CanvasItem> = {}): CanvasItem
 	};
 }
 
-function defaultConfig(): Pick<CanvasImportConfig, "canvasPath" | "targetFolder" | "conflictStrategy" | "hierarchyMode"> {
+function defaultConfig(): Pick<CanvasImportConfig, "canvasPath" | "targetFolder" | "conflictStrategy" | "hierarchyMode" | "createCanvas" | "createBase"> {
 	return {
 		canvasPath: "designs/my-canvas.canvas",
 		targetFolder: "output/notes",
 		conflictStrategy: "skip",
 		hierarchyMode: "flat",
+		createCanvas: true,
+		createBase: true,
 	};
 }
 
@@ -70,6 +73,94 @@ describe("toCanvasNotePath", () => {
 		const item = canvasItem("n1", { title: "" });
 		expect(toCanvasNotePath(item, "out", "flat")).toBe("out/untitled.md");
 	});
+
+	it("builds group hierarchy path for item in a group", () => {
+		const group = canvasItem("g1", { title: "Backend", originalType: "group" });
+		const item = canvasItem("n1", { title: "API Service", parentId: "g1" });
+		const itemsById = new Map([["g1", group], ["n1", item]]);
+
+		expect(toCanvasNotePath(item, "output", "group", itemsById)).toBe("output/Backend/API Service.md");
+	});
+
+	it("builds nested group hierarchy path", () => {
+		const outer = canvasItem("g1", { title: "Platform", originalType: "group" });
+		const inner = canvasItem("g2", { title: "Backend", originalType: "group", parentId: "g1" });
+		const item = canvasItem("n1", { title: "Auth Service", parentId: "g2" });
+		const itemsById = new Map([["g1", outer], ["g2", inner], ["n1", item]]);
+
+		expect(toCanvasNotePath(item, "output", "group", itemsById)).toBe("output/Platform/Backend/Auth Service.md");
+	});
+
+	it("falls back to flat when item has no group in group mode", () => {
+		const item = canvasItem("n1", { title: "Orphan Node" });
+		const itemsById = new Map([["n1", item]]);
+
+		expect(toCanvasNotePath(item, "output", "group", itemsById)).toBe("output/Orphan Node.md");
+	});
+
+	it("places group note inside its own folder in group mode", () => {
+		const group = canvasItem("g1", { title: "Backend", originalType: "group" });
+		const child = canvasItem("n1", { title: "Server", parentId: "g1" });
+		const itemsById = new Map([["g1", group], ["n1", child]]);
+
+		expect(toCanvasNotePath(group, "output", "group", itemsById)).toBe("output/Backend/Backend.md");
+	});
+
+	it("places nested group note inside its own folder in group mode", () => {
+		const outer = canvasItem("g1", { title: "Platform", originalType: "group" });
+		const inner = canvasItem("g2", { title: "Auth", originalType: "group", parentId: "g1" });
+		const item = canvasItem("n1", { title: "Login", parentId: "g2" });
+		const itemsById = new Map([["g1", outer], ["g2", inner], ["n1", item]]);
+
+		expect(toCanvasNotePath(inner, "output", "group", itemsById)).toBe("output/Platform/Auth/Auth.md");
+	});
+});
+
+// ─────────────────────────────────────────────────────────────
+// resolveGroupPath
+// ─────────────────────────────────────────────────────────────
+
+describe("resolveGroupPath", () => {
+	it("returns empty string for item without parent", () => {
+		const item = canvasItem("n1");
+		expect(resolveGroupPath(item, new Map([["n1", item]]))).toBe("");
+	});
+
+	it("returns single group name", () => {
+		const group = canvasItem("g1", { title: "Sprint 1", originalType: "group" });
+		const item = canvasItem("n1", { parentId: "g1" });
+		const map = new Map([["g1", group], ["n1", item]]);
+
+		expect(resolveGroupPath(item, map)).toBe("Sprint 1");
+	});
+
+	it("chains nested groups", () => {
+		const outer = canvasItem("g1", { title: "Release", originalType: "group" });
+		const inner = canvasItem("g2", { title: "Sprint 1", originalType: "group", parentId: "g1" });
+		const item = canvasItem("n1", { parentId: "g2" });
+		const map = new Map([["g1", outer], ["g2", inner], ["n1", item]]);
+
+		expect(resolveGroupPath(item, map)).toBe("Release/Sprint 1");
+	});
+
+	it("stops at non-group parent", () => {
+		const textNode = canvasItem("t1", { title: "Not a Group", originalType: "text" });
+		const item = canvasItem("n1", { parentId: "t1" });
+		const map = new Map([["t1", textNode], ["n1", item]]);
+
+		expect(resolveGroupPath(item, map)).toBe("");
+	});
+
+	it("handles circular parentage safely", () => {
+		const g1 = canvasItem("g1", { title: "A", originalType: "group", parentId: "g2" });
+		const g2 = canvasItem("g2", { title: "B", originalType: "group", parentId: "g1" });
+		const item = canvasItem("n1", { parentId: "g1" });
+		const map = new Map([["g1", g1], ["g2", g2], ["n1", item]]);
+
+		// Should not infinite loop — visited set prevents it
+		const result = resolveGroupPath(item, map);
+		expect(result).toBeTruthy();
+	});
 });
 
 // ─────────────────────────────────────────────────────────────
@@ -86,14 +177,24 @@ describe("toCanvasNoteFrontmatter", () => {
 		expect(fm.canvas_id).toBe("abc");
 	});
 
-	it("includes parent as wikilink", () => {
+	it("includes parent as wikilink from legacy parent field", () => {
 		const item = canvasItem("n1", { parent: "My Group" });
 		const fm = toCanvasNoteFrontmatter(item, "", new Map());
 
 		expect(fm.parent).toBe("[[My Group]]");
 	});
 
-	it("omits parent when null", () => {
+	it("resolves parent from parentId via itemsById map", () => {
+		const group = canvasItem("g1", { title: "Backend Services", originalType: "group" });
+		const item = canvasItem("n1", { title: "Auth", parentId: "g1" });
+		const itemsById = new Map([["g1", group], ["n1", item]]);
+
+		const fm = toCanvasNoteFrontmatter(item, "canvas.canvas", itemsById);
+
+		expect(fm.parent).toBe("[[Backend Services]]");
+	});
+
+	it("omits parent when null and no parentId", () => {
 		const item = canvasItem("n1");
 		const fm = toCanvasNoteFrontmatter(item, "", new Map());
 

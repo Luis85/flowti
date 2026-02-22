@@ -7,6 +7,18 @@ import type { SavedImportConfig, SavedMultiImportPipeline } from "../../domain/d
 import { VIEW_TYPE_EVENT_CATALOG, EventCatalogView } from "../EventCatalogView";
 import type { FrontmatterIssue, HubComponentDeps, HubPage } from "./types";
 
+/** Reveals a folder in the file explorer sidebar without creating any files. */
+export function revealFolderInExplorer(app: App, folderPath: string): void {
+	const folder = app.vault.getAbstractFileByPath(folderPath.replace(/\/$/, ""));
+	if (!folder) return;
+	const explorers = app.workspace.getLeavesOfType("file-explorer");
+	if (explorers.length > 0) {
+		const view = explorers[0].view as unknown as { revealInFolder?: (f: unknown) => void };
+		view.revealInFolder?.(folder);
+		void app.workspace.revealLeaf(explorers[0]);
+	}
+}
+
 /** Adds a label + value row to an info grid element. */
 export function addInfoRow(grid: HTMLElement, label: string, value: string): void {
 	grid.createDiv({ text: label, cls: "ft-detail-info-label" });

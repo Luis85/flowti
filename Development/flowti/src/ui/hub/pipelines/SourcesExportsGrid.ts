@@ -1,5 +1,6 @@
 /**
- * Two-column grid showing pipeline sources (left) and export steps (right).
+ * Pipeline detail sections — Inputs row (CSV sources + canvas configs)
+ * and Outputs row (export steps).
  */
 
 import { Notice, TFile, setIcon } from "obsidian";
@@ -28,28 +29,23 @@ export class SourcesExportsGrid {
 	}
 
 	private renderSourcesAndExports(pipe: SavedMultiImportPipeline): void {
-		const twoColGrid = this.container.createDiv({ cls: "ft-mt-3" });
-		twoColGrid.style.display = "grid";
-		twoColGrid.style.gridTemplateColumns = "1fr 1fr";
-		twoColGrid.style.gap = "1rem";
-		twoColGrid.style.alignItems = "start";
+		// --- Inputs row ---
+		const inputsRow = this.container.createDiv({ cls: "ft-mt-3" });
+		inputsRow.createDiv({ text: "Inputs", cls: "ft-detail-section-header" });
 
-		// Left column: Sources
-		const sourcesCol = twoColGrid.createDiv();
-		sourcesCol.createDiv({ text: "Sources", cls: "ft-detail-section-header" });
-
-		if (pipe.sources.length === 0) {
-			sourcesCol.createDiv({
-				text: "No sources configured yet.",
+		if (pipe.sources.length === 0 && !(pipe.canvasConfigIds?.length)) {
+			inputsRow.createDiv({
+				text: "No inputs configured yet.",
 				cls: "ft-text-muted ft-text-sm ft-p-2",
 			});
-		} else {
-			for (let i = 0; i < pipe.sources.length; i++) {
-				this.renderSourceCard(sourcesCol, pipe, pipe.sources[i], i);
-			}
 		}
 
-		const addSourceRow = sourcesCol.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-mt-2" });
+		// CSV sources
+		for (let i = 0; i < pipe.sources.length; i++) {
+			this.renderSourceCard(inputsRow, pipe, pipe.sources[i], i);
+		}
+
+		const addSourceRow = inputsRow.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-mt-2" });
 		const addSourceLink = addSourceRow.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 		const addSourceIcon = addSourceLink.createSpan();
 		setIcon(addSourceIcon, "plus");
@@ -71,22 +67,25 @@ export class SourcesExportsGrid {
 			}).open();
 		});
 
-		// Right column: Export Steps
-		const exportsCol = twoColGrid.createDiv();
-		exportsCol.createDiv({ text: "Export Steps", cls: "ft-detail-section-header" });
+		// Canvas configs (same Inputs row)
+		this.renderCanvasSteps(inputsRow, pipe);
+
+		// --- Outputs row ---
+		const outputsRow = this.container.createDiv({ cls: "ft-mt-3" });
+		outputsRow.createDiv({ text: "Outputs", cls: "ft-detail-section-header" });
 
 		if (!pipe.exportConfigIds?.length) {
-			exportsCol.createDiv({
-				text: "No export steps configured.",
+			outputsRow.createDiv({
+				text: "No outputs configured.",
 				cls: "ft-text-muted ft-text-sm ft-p-2",
 			});
 		} else {
 			for (const exportId of pipe.exportConfigIds) {
-				this.renderExportCard(exportsCol, pipe, exportId);
+				this.renderExportCard(outputsRow, pipe, exportId);
 			}
 		}
 
-		const addExportRow = exportsCol.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-mt-2" });
+		const addExportRow = outputsRow.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-mt-2" });
 		const addExportLink = addExportRow.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 		const addExportIcon = addExportLink.createSpan();
 		setIcon(addExportIcon, "plus");
@@ -331,6 +330,120 @@ export class SourcesExportsGrid {
 					.then(() => this.deps.scheduleRender());
 			});
 		}
+	}
+
+	private renderCanvasSteps(sourcesCol: HTMLElement, pipe: SavedMultiImportPipeline): void {
+		const canvasService = this.deps.canvasService;
+		if (!canvasService) return;
+
+		const canvasConfigIds = pipe.canvasConfigIds ?? [];
+
+		if (canvasConfigIds.length > 0) {
+			sourcesCol.createDiv({ text: "Canvas Steps", cls: "ft-detail-section-header ft-mt-3" });
+			for (let i = 0; i < canvasConfigIds.length; i++) {
+				this.renderCanvasCard(sourcesCol, pipe, canvasConfigIds[i], i);
+			}
+		}
+
+		const addCanvasRow = sourcesCol.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-mt-2" });
+		const addCanvasLink = addCanvasRow.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		const addCanvasIcon = addCanvasLink.createSpan();
+		setIcon(addCanvasIcon, "plus");
+		addCanvasLink.appendText(" Add Canvas Step");
+		addCanvasLink.addEventListener("click", () => {
+			const allConfigs = canvasService.getConfigs();
+			const existing = new Set(canvasConfigIds);
+			const available = allConfigs.filter((c) => !existing.has(c.id));
+			if (available.length === 0) {
+				new Notice("No canvas configs available. Create one first in the Canvas tab.");
+				return;
+			}
+			new ConfigChooserModal(
+				this.deps.app,
+				available.map((c) => ({ id: c.id, name: c.name })),
+				(id: string | null) => {
+					if (id === null) return;
+					const updatedIds = [...canvasConfigIds, id];
+					void this.deps.dataExchangeService
+						.updatePipeline(pipe.id, { canvasConfigIds: updatedIds })
+						.then(() => this.deps.scheduleRender());
+				},
+			).open();
+		});
+	}
+
+	private renderCanvasCard(
+		container: HTMLElement,
+		pipe: SavedMultiImportPipeline,
+		configId: string,
+		index: number,
+	): void {
+		const canvasService = this.deps.canvasService;
+		const config = canvasService?.getConfig(configId);
+		const card = container.createDiv({ cls: "ft-card ft-mt-1" });
+		card.style.padding = "0.5rem 0.75rem";
+
+		const headerRow = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		const icon = headerRow.createSpan();
+		setIcon(icon, "square");
+		icon.addClass("ft-icon-muted");
+		icon.addClass("ft-flex-shrink-0");
+
+		if (config) {
+			const nameEl = headerRow.createEl("span", {
+				text: config.name,
+				cls: "ft-heading ft-heading-sm ft-nav-link",
+			});
+			nameEl.addClass("ft-flex-1");
+			nameEl.style.minWidth = "0";
+			nameEl.style.overflow = "hidden";
+			nameEl.style.textOverflow = "ellipsis";
+			nameEl.style.whiteSpace = "nowrap";
+			nameEl.addEventListener("click", () => {
+				this.deps.setState({ selectedCanvasId: config.id });
+				this.deps.navigation.navigateTo("canvas");
+			});
+
+			headerRow.createSpan({
+				text: config.hierarchyMode,
+				cls: "ft-badge ft-badge-muted",
+			});
+
+			const infoRow = card.createDiv({ cls: "ft-text-muted ft-text-sm ft-mt-1" });
+			infoRow.textContent = config.canvasPath;
+
+			const targetRow = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-mt-1" });
+			targetRow.createSpan({ text: "Target:", cls: "ft-text-muted ft-text-sm" });
+			const subfolder = config.subfolderName || (config.canvasPath.split("/").pop()?.replace(/\.canvas$/, "") ?? "canvas");
+			const effectiveTarget = config.targetFolder ? `${config.targetFolder}/${subfolder}` : subfolder;
+			targetRow.createSpan({ text: effectiveTarget, cls: "ft-text-sm" });
+		} else {
+			headerRow.createSpan({ text: "(deleted)", cls: "ft-heading ft-heading-sm ft-text-muted" });
+			card.createDiv({
+				text: "Canvas config has been deleted",
+				cls: "ft-text-muted ft-text-sm ft-mt-1",
+			});
+		}
+
+		const actionsRow = card.createDiv({ cls: "ft-flex ft-gap-2 ft-mt-1" });
+		const removeLink = actionsRow.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		removeLink.style.color = "var(--text-error)";
+		const removeIcon = removeLink.createSpan();
+		setIcon(removeIcon, "x");
+		removeLink.appendText(" Remove");
+		removeLink.addEventListener("click", () => {
+			const name = config?.name ?? configId;
+			new ConfirmModal(this.deps.app, {
+				message: `Remove canvas step "${name}" from pipeline?`,
+				confirmLabel: "Remove",
+				onConfirm: () => {
+					const updatedIds = (pipe.canvasConfigIds ?? []).filter((_, idx) => idx !== index);
+					void this.deps.dataExchangeService
+						.updatePipeline(pipe.id, { canvasConfigIds: updatedIds })
+						.then(() => this.deps.scheduleRender());
+				},
+			}).open();
+		});
 	}
 
 	private renderConflictWarnings(pipe: SavedMultiImportPipeline): void {

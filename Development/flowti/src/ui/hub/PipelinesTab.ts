@@ -29,6 +29,7 @@ export class PipelinesTab {
 			app: this.deps.app,
 			eventBus: this.deps.eventBus,
 			dataExchangeService: this.deps.dataExchangeService,
+			canvasService: this.deps.canvasService,
 			getState: () => this.deps.getState(),
 			setState: (partial) => this.deps.setState(partial),
 			navigation: this.deps.navigation,
@@ -117,7 +118,8 @@ export class PipelinesTab {
 		sub.style.whiteSpace = "nowrap";
 		sub.style.overflow = "hidden";
 		sub.style.textOverflow = "ellipsis";
-		sub.textContent = `${pipe.targetFolder || "(no folder)"} · ${pipe.sources.length} source${pipe.sources.length !== 1 ? "s" : ""}`;
+		const totalSources = pipe.sources.length + (pipe.canvasConfigIds?.length ?? 0);
+		sub.textContent = `${pipe.targetFolder || "(no folder)"} · ${totalSources} source${totalSources !== 1 ? "s" : ""}`;
 
 		item.createSpan({
 			text: pipe.mergeKey,

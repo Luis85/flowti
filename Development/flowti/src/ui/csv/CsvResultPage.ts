@@ -4,6 +4,7 @@
  */
 
 import { setIcon } from "obsidian";
+import { revealFolderInExplorer } from "../hub/helpers";
 import type { CsvComponentDeps } from "./types";
 
 export class CsvResultPage {
@@ -197,7 +198,7 @@ export class CsvResultPage {
 		setIcon(openFolderBtn.createSpan({ cls: "flowti-csv-btn-icon" }), "folder-open");
 		openFolderBtn.appendText(" Open Target Folder");
 		openFolderBtn.addEventListener("click", () => {
-			void this.deps.app.workspace.openLinkText(state.targetFolder, "", false);
+			revealFolderInExplorer(this.deps.app, state.targetFolder);
 		});
 
 		// Open .base view if exists

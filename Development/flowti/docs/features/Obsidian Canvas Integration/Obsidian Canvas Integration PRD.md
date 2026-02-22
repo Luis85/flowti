@@ -20,8 +20,9 @@ maturity_score_scope: 4
 maturity_score_architecture: 5
 maturity_score_event_integration: 4
 maturity_score_data_model: 4
-maturity_score_ui_consistency: 3
+maturity_score_ui_consistency: 4
 maturity_score_validation_testing: 5
+maturity_score_pipeline_integration: 5
 business_value: 5
 implementation_cost: 4
 maintenance_cost: 3
@@ -29,7 +30,7 @@ discovery_cost: 3
 design_cost: 4
 test_cost: 3
 priority: 4
-fri_score: 29
+fri_score: 30
 planned_in: "[[Cycle 15 - Canvas Integration]]"
 tags:
   - canvas
@@ -119,22 +120,28 @@ tags:
 
 ### Canvas Parser & Importer
 
-- [ ] Parse `.canvas` JSON format (nodes, edges, groups, metadata)
-- [ ] Map node colors to types: 1=Issue, 2=Epic, 3=Task, 4=Test, 5=Deliverable, 6=Feature (default mapping)
-- [ ] Map node shapes to types: circle=Event, diamond=Gateway, parallelogram=Data, document=Document, database=Database
-- [ ] Support Legend group: custom color-to-type override within the canvas
-- [ ] Groups become parent containers (frontmatter `parent` field on child nodes)
-- [ ] Edges translate to relationship frontmatter (`up`, `down`, `prev`, `next`)
-- [ ] Import wizard: Select `.canvas` file, preview nodes with type mapping, configure target folder, execute
-- [ ] Progress events fire per-node during import
-- [ ] All existing canvas-importer test scenarios pass after migration
+- [x] Parse `.canvas` JSON format (nodes, edges, groups, metadata) (Cycle 15 Inc 1 — parseCanvasJson)
+- [x] Map node colors to types: 1=Issue, 2=Epic, 3=Task, 4=Test, 5=Deliverable, 6=Feature (default mapping) (Cycle 15 Inc 1 — DEFAULT_COLOR_MAP)
+- [x] Map node shapes to types: circle=Event, diamond=Gateway, parallelogram=Data, document=Document, database=Database (Cycle 15 Inc 1 — DEFAULT_SHAPE_MAP)
+- [x] Support Legend group: custom color-to-type override within the canvas (Cycle 15 Inc 1 — extractLegend)
+- [x] Groups become parent containers (frontmatter `parent` field on child nodes) (Cycle 15 Inc 2-3 — resolveParentage + toCanvasNoteFrontmatter)
+- [x] Edges translate to relationship frontmatter (`up`, `down`, `prev`, `next`) (Cycle 15 Inc 2-3 — buildRelations + toCanvasNoteFrontmatter)
+- [x] Import wizard: Select `.canvas` file, preview nodes with type mapping, configure target folder, execute (Cycle 15 Inc 6 — CanvasImportWizard 3-page modal)
+- [x] Progress events fire per-node during import (Cycle 15 Inc 3 — importCanvas lifecycle events)
+- [x] All existing canvas-importer test scenarios pass after migration (Cycle 15 Inc 4 — all 5 scripts ported, 131 canvas tests)
 
 ### Data Exchange Hub Integration
 
 - [x] Canvas registered as import source type alongside CSV (Cycle 15 Inc 5 — CanvasService registered in ServiceContainer, DX Hub dashboard stat card)
 - [x] Canvas import available from Data Exchange Hub dashboard (Cycle 15 Inc 5 — renderCanvasStats section in HubDashboard)
-- [ ] Right-click `.canvas` file shows "Import Canvas" context menu
+- [x] Right-click `.canvas` file shows "Import Canvas" context menu (Cycle 15 Inc 6 — dataExchangeSetup file-menu handler for .canvas extension)
 - [x] Import configurations saved and reusable (Cycle 15 Inc 5 — CanvasService CRUD + TypedStorage persistence)
+- [x] Full Canvas Action View: ItemView-based wizard (landing → config → preview → result) replacing modal (Cycle 15 Inc 7 — CanvasActionView + 5 page components)
+- [x] Type exclusion: configurable excluded types filter during import (Cycle 15 Inc 7 — excludedTypes on CanvasImportConfig)
+- [x] DX Hub Canvas tab: config CRUD, detail view, inline run/delete actions (Cycle 15 Inc 7 — CanvasTab in DataExchangeHubView)
+- [x] Canvas configs as pipeline sources: `canvasConfigIds` on pipelines, executed after CSV sources (Cycle 15 Inc 8 — PipelineExecutor canvas step execution)
+- [x] Pipeline detail: Inputs/Outputs row layout with canvas step cards and "Add Canvas Step" button (Cycle 15 Inc 8 — SourcesExportsGrid restructure)
+- [x] Safe folder reveal: `revealFolderInExplorer` utility prevents creating unwanted files (Cycle 15 Inc 8 — bug fix for openLinkText on folder paths)
 
 ### Canvas Templates
 
@@ -257,17 +264,19 @@ CanvasTemplate
 ## 12. Acceptance Criteria
 
 - [x] Canvas import available from Data Exchange Hub (Cycle 15 Inc 5)
-- [ ] Right-click `.canvas` file shows "Import Canvas" context menu
-- [ ] Nodes create typed notes with frontmatter (type, parent, relationships)
-- [ ] Legend group overrides default color mapping
-- [ ] Groups create container structure
-- [ ] Progress events fire per-node
+- [x] Right-click `.canvas` file shows "Import Canvas" context menu (Cycle 15 Inc 6)
+- [x] Nodes create typed notes with frontmatter (type, parent, relationships) (Cycle 15 Inc 3)
+- [x] Legend group overrides default color mapping (Cycle 15 Inc 1)
+- [x] Groups create container structure (Cycle 15 Inc 2-3)
+- [x] Progress events fire per-node (Cycle 15 Inc 3)
+- [x] Full Canvas Action View with 4-page wizard (Cycle 15 Inc 7)
+- [x] Canvas configs usable as pipeline sources (Cycle 15 Inc 8)
+- [x] All existing canvas-importer test scenarios pass (Cycle 15 Inc 4 — 186 canvas tests)
+- [x] npm run build passes (Cycle 15 Inc 8 — 3,528 tests, 140 suites)
 - [ ] Canvas Session type available in session creation
 - [ ] Canvas opens in main with sidebar workspace
 - [ ] At least 3 canvas templates available (Domain Design, Sprint Planning, Retrospective)
 - [ ] Post-session import prompt on Canvas Session completion
-- [ ] All existing canvas-importer test scenarios pass
-- [ ] npm run build passes
 
 ---
 
@@ -306,6 +315,12 @@ Migrate canvas import logic from `var/scripts/canvas-importer/` into `src/domain
 **Cycle 15 Inc 4 delivered:** Canvas Rebuilder & Base Generator — post-import artifacts. CanvasRebuilder: rebuildCanvasData (text→file-node references, group/file preserved, edge ID remapping, injectable ID gen), writeRebuiltCanvas (skip/overwrite). CanvasBaseGenerator: buildBaseFileContent (folder filter + type-grouped table with 13 columns), writeBaseFile (skip/overwrite). 28 new tests (3,473 total, 131 canvas-specific). Full QuickAdd script migration complete — all 5 source scripts ported.
 
 **Cycle 15 Inc 5 delivered:** CanvasService & Data Exchange Hub Integration. CanvasService: service facade with CRUD (saveConfig/removeConfig/getConfigs), TypedStorage persistence, 10-step import orchestration (read→parse→legend→items→parentage→relations→filter→import→rebuild→base). Registered in ServiceContainer, loaded/disposed in main.ts. Canvas shown in DX Hub dashboard (stat card for saved configs). Inbox integration via mapCanvasImportCompleted + mapCanvasImportFailed pure mappers. Parser extended with getNodeTitle + buildCanvasItems glue functions. importedPaths tracking in CanvasImportResult for rebuilder bridge. 34 new tests (3,507 total, 165 canvas-specific).
+
+**Cycle 15 Inc 6 delivered:** Import Wizard, Context Menu & Commands. CanvasImportWizard: 3-page modal (Select → Preview → Execute) following InstallerWizardModal pattern. Select page: FilePickerModal (.canvas), FolderPickerModal, config name, conflict strategy, hierarchy mode. Preview page: stat badges (nodes, groups, legend entries), type distribution, group structure with child counts, legend mappings, config summary. Execute page: live progress bar via canvas.import.started/progress event subscriptions, success/error result display. Context menu: .canvas file-menu "Import Canvas" + saved config quick-run items. Command: flowti:import-canvas in palette. 13 new tests (3,520 total, 178 canvas-specific).
+
+**Cycle 15 Inc 7 delivered:** Canvas Action View + Type Exclusion + DX Hub Canvas Tab. Full ItemView-based import experience replacing the modal wizard: CanvasActionView (~540 LOC) orchestrates landing → config → preview → result pages. 5 page components under `src/ui/canvas/` (~1,550 LOC). Type exclusion (`excludedTypes` on CanvasImportConfig) filters types from import, rebuilder, and base generator. DX Hub Canvas tab with master/detail split for config CRUD. Step bar navigation, unsaved changes detection. 2 new tests (3,522 total).
+
+**Cycle 15 Inc 8 delivered:** Pipeline-Canvas Integration + DX Hub Polish + Bug Fixes. Canvas configs as pipeline sources: `canvasConfigIds?: string[]` on SavedMultiImportPipeline, executed by PipelineExecutor after CSV sources. Late binding via `setCanvasService()` setter + `getCanvasService` lazy getter. Pipeline detail restructured: Inputs row (CSV + canvas) and Outputs row (exports). DX Hub tab reorder: Pipelines first. Bug fix: `revealFolderInExplorer` utility replaces `openLinkText` for safe folder reveal (prevents creating unwanted markdown files). Fix applied to canvas auto-reveal, canvas result page, and CSV result page. 6 new pipeline tests (3,528 total).
 
 ### Phase 2: Canvas Templates (PBI-CAN-002)
 

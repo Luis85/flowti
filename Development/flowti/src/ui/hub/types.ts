@@ -16,12 +16,14 @@ import type {
 	TypeDocEntry,
 } from "../../domain/dataExchange/types";
 import type { SignalService } from "../../domain/signal/SignalService";
+import type { CanvasService } from "../../domain/canvas/CanvasService";
+import type { CanvasImportConfig } from "../../domain/canvas/types";
 
 // ─────────────────────────────────────────────────────────────
 // Hub pages
 // ─────────────────────────────────────────────────────────────
 
-export type HubPage = "dashboard" | "imports" | "exports" | "reports" | "properties" | "pipelines" | "types" | "signals";
+export type HubPage = "dashboard" | "imports" | "exports" | "reports" | "properties" | "pipelines" | "types" | "signals" | "canvas";
 
 // ─────────────────────────────────────────────────────────────
 // Hub state — owned by the orchestrator
@@ -53,7 +55,7 @@ export interface ReportEntry {
 
 export interface ActiveOperation {
 	operationId: string;
-	type: "import" | "export" | "pipeline";
+	type: "import" | "export" | "pipeline" | "canvas-import";
 	name: string;
 	sourcePath?: string;
 	startedAt: number;
@@ -77,7 +79,7 @@ export interface HubState {
 	showHiddenCsvs: boolean;
 	frontmatterIssues: FrontmatterIssue[];
 	activeOperations: ActiveOperation[];
-	canvasConfigCount: number;
+	canvasConfigs: CanvasImportConfig[];
 
 	// Selection & editing state
 	selectedImportId: string | null;
@@ -88,9 +90,11 @@ export interface HubState {
 	selectedPipelineId: string | null;
 	selectedTypeName: string | null;
 	selectedSignalId: string | null;
+	selectedCanvasId: string | null;
 	editingImportId: string | null;
 	editingExportId: string | null;
 	editingPipelineId: string | null;
+	editingCanvasId: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -108,6 +112,7 @@ export interface HubNavigationCallbacks {
 	executeExportConfig: (cfg: SavedExportConfig) => void;
 	runPipelinePreview: (pipe: SavedMultiImportPipeline) => void;
 	executePipeline: (pipe: SavedMultiImportPipeline) => void;
+	openCanvasImport: (canvasPath: string, configId?: string, autoRun?: boolean) => void;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -119,6 +124,7 @@ export interface HubComponentDeps {
 	eventBus: IEventBus;
 	dataExchangeService: DataExchangeService;
 	signalService?: SignalService;
+	canvasService?: CanvasService;
 	getState: () => HubState;
 	setState: (partial: Partial<HubState>) => void;
 	navigation: HubNavigationCallbacks;

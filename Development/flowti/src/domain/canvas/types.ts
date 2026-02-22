@@ -92,7 +92,15 @@ export interface CanvasImportConfig {
 	colorMap: Record<string, FlowtiCanvasType>;
 	shapeMap: Record<string, FlowtiCanvasType>;
 	conflictStrategy: "skip" | "update" | "overwrite";
-	hierarchyMode: "flat" | "product";
+	hierarchyMode: "flat" | "product" | "group";
+	/** Override for the import subfolder name. Defaults to canvas file basename if empty. */
+	subfolderName: string;
+	/** Whether to create a rebuilt .canvas file after import. */
+	createCanvas: boolean;
+	/** Whether to create a .base index file after import. */
+	createBase: boolean;
+	/** Types to exclude from import (empty = import all). */
+	excludedTypes: string[];
 	createdAt: string;
 	lastUsed: string | null;
 }
@@ -129,6 +137,12 @@ export interface CanvasState {
 // ─────────────────────────────────────────────────────────────
 // Constants — default mappings ported from canvas-import-constants.js
 // ─────────────────────────────────────────────────────────────
+
+/** Human-readable labels for Obsidian canvas color codes. */
+export const CANVAS_COLOR_LABELS: Record<string, string> = {
+	"1": "red", "2": "orange", "3": "yellow",
+	"4": "green", "5": "blue", "6": "purple",
+};
 
 /** Default Obsidian canvas color → Flowti type mapping. */
 export const DEFAULT_COLOR_MAP: Record<string, FlowtiCanvasType> = {

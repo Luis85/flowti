@@ -25,6 +25,7 @@ import { PropertiesTab } from "./hub/PropertiesTab";
 import { PipelinesTab } from "./hub/PipelinesTab";
 import { TypesTab } from "./hub/TypesTab";
 import { SignalsTab } from "./hub/SignalsTab";
+import { CanvasTab } from "./hub/CanvasTab";
 import { openEventInCatalog } from "./hub/helpers";
 import type { SignalService } from "../domain/signal/SignalService";
 import type { CanvasService } from "../domain/canvas/CanvasService";
@@ -32,7 +33,7 @@ import { basename, stripExtension } from "../utils/pathUtils";
 import { VIEW_TYPE_DATA_EXCHANGE_HUB } from "../domain/hub/types";
 export { VIEW_TYPE_DATA_EXCHANGE_HUB };
 
-export type DXTab = "imports" | "exports" | "reports" | "properties" | "pipelines" | "types" | "signals";
+export type DXTab = "imports" | "exports" | "reports" | "properties" | "pipelines" | "types" | "signals" | "canvas";
 
 export class DataExchangeHubView extends BaseHubView<DXTab> {
 	private dataExchangeService: DataExchangeService;
@@ -41,6 +42,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 	private openCsvImportCb: (csvPath: string, savedConfig?: SavedImportConfig) => void;
 	private openExportCb: (savedConfig: SavedExportConfig) => void;
 	private openNewExportCb: (sourcePath: string, sourceType: "folder" | "base", format: ExportFormat) => void;
+	private openCanvasImportCb: (canvasPath: string, configId?: string, autoRun?: boolean) => void;
 
 	// ── State ────────────────────────────────────────────────
 	private importConfigs: SavedImportConfig[] = [];
@@ -62,9 +64,11 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 	private selectedPipelineId: string | null = null;
 	private selectedTypeName: string | null = null;
 	private selectedSignalId: string | null = null;
+	private selectedCanvasId: string | null = null;
 	private editingImportId: string | null = null;
 	private editingExportId: string | null = null;
 	private editingPipelineId: string | null = null;
+	private editingCanvasId: string | null = null;
 	private activeOperations: import("./hub/types").ActiveOperation[] = [];
 
 	// ── Tab components ───────────────────────────────────────
@@ -76,6 +80,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 	private pipelinesTab!: PipelinesTab;
 	private typesTab!: TypesTab;
 	private signalsTab!: SignalsTab;
+	private canvasTab!: CanvasTab;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -84,6 +89,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 		openCsvImport: (csvPath: string, savedConfig?: SavedImportConfig) => void,
 		openExport: (savedConfig: SavedExportConfig) => void,
 		openNewExport: (sourcePath: string, sourceType: "folder" | "base", format: ExportFormat) => void,
+		openCanvasImport: (canvasPath: string, configId?: string, autoRun?: boolean) => void,
 		signalService?: SignalService,
 		canvasService?: CanvasService,
 	) {
@@ -94,6 +100,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 		this.openCsvImportCb = openCsvImport;
 		this.openExportCb = openExport;
 		this.openNewExportCb = openNewExport;
+		this.openCanvasImportCb = openCanvasImport;
 	}
 
 	// ── BaseHubView abstract implementations ─────────────────
@@ -106,13 +113,14 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 
 	getTabDefinitions(): TabDef[] {
 		return [
+			{ id: "pipelines", label: "Pipelines", icon: "workflow", searchPlaceholder: "Search pipelines..." },
 			{ id: "imports", label: "Imports", icon: "file-input", searchPlaceholder: "Search import configs..." },
 			{ id: "exports", label: "Exports", icon: "file-output", searchPlaceholder: "Search export configs..." },
-			{ id: "reports", label: "Reports", icon: "file-text", searchPlaceholder: "Search reports..." },
-			{ id: "properties", label: "Properties", icon: "list", searchPlaceholder: "Search properties..." },
-			{ id: "pipelines", label: "Pipelines", icon: "workflow", searchPlaceholder: "Search pipelines..." },
 			{ id: "types", label: "Types", icon: "tag", searchPlaceholder: "Search types..." },
+			{ id: "properties", label: "Properties", icon: "list", searchPlaceholder: "Search properties..." },
 			{ id: "signals", label: "Signals", icon: "radio", searchPlaceholder: "Search signals..." },
+			{ id: "reports", label: "Reports", icon: "file-text", searchPlaceholder: "Search reports..." },
+			{ id: "canvas", label: "Canvas", icon: "square", searchPlaceholder: "Search canvas configs..." },
 		];
 	}
 
@@ -132,6 +140,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 		this.pipelinesTab = new PipelinesTab(this.masterTreeEl, this.detailPanelEl, deps);
 		this.typesTab = new TypesTab(this.masterTreeEl, this.detailPanelEl, deps);
 		this.signalsTab = new SignalsTab(this.masterTreeEl, this.detailPanelEl, deps);
+		this.canvasTab = new CanvasTab(this.masterTreeEl, this.detailPanelEl, deps);
 
 		this.addUnsubscribe(
 			this.eventBus.on("dataExchange.config.changed", () => {
@@ -306,6 +315,69 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 			}),
 		);
 
+		// Track canvas import operations
+		this.addUnsubscribe(
+			this.eventBus.on("canvas.import.started", (event) => {
+				const { canvasPath, totalNodes } = event.payload;
+				const name = canvasPath.split("/").pop()?.replace(/\.canvas$/, "") ?? "Canvas";
+				this.activeOperations = [...this.activeOperations, {
+					operationId: `canvas:${canvasPath}`,
+					type: "canvas-import",
+					name,
+					sourcePath: canvasPath,
+					startedAt: Date.now(),
+					progress: { current: 0, total: totalNodes },
+				}];
+				this.scheduleRender();
+			}),
+		);
+		this.addUnsubscribe(
+			this.eventBus.on("canvas.import.progress", (event) => {
+				const { canvasPath, current, total, title } = event.payload;
+				const opId = `canvas:${canvasPath}`;
+				this.activeOperations = this.activeOperations.map((op) =>
+					op.operationId === opId
+						? { ...op, progress: { current, total, lastFilename: title } }
+						: op,
+				);
+			}),
+		);
+		this.addUnsubscribe(
+			this.eventBus.on("canvas.import.completed", (event) => {
+				const r = event.payload.result;
+				const opId = `canvas:${r.canvasPath}`;
+				const msg = `${r.imported} imported, ${r.skipped} skipped` +
+					(r.errors.length > 0 ? `, ${r.errors.length} errors` : "") +
+					` (${r.duration}ms)`;
+				this.activeOperations = this.activeOperations.map((op) =>
+					op.operationId === opId
+						? { ...op, completed: true, success: true, message: msg }
+						: op,
+				);
+				this.scheduleRender();
+				setTimeout(() => {
+					this.activeOperations = this.activeOperations.filter((op) => op.operationId !== opId);
+					this.scheduleRender();
+				}, 5000);
+			}),
+		);
+		this.addUnsubscribe(
+			this.eventBus.on("canvas.import.failed", (event) => {
+				const { canvasPath, error } = event.payload;
+				const opId = `canvas:${canvasPath}`;
+				this.activeOperations = this.activeOperations.map((op) =>
+					op.operationId === opId
+						? { ...op, completed: true, success: false, message: `Failed: ${error}` }
+						: op,
+				);
+				this.scheduleRender();
+				setTimeout(() => {
+					this.activeOperations = this.activeOperations.filter((op) => op.operationId !== opId);
+					this.scheduleRender();
+				}, 5000);
+			}),
+		);
+
 		const propsFolder = this.dataExchangeService.getPropertiesFolderPath() + "/";
 		this.addUnsubscribe(
 			this.eventBus.on("file.created", (event) => {
@@ -322,6 +394,10 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 					this.scheduleRender();
 				}
 			}),
+		);
+		// Re-render canvas tab when canvas configs change
+		this.addUnsubscribe(
+			this.eventBus.on("canvas.config.saved", () => this.scheduleRender()),
 		);
 		// Re-render signals tab when signal configs change
 		this.addUnsubscribe(
@@ -343,6 +419,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 		this.editingImportId = null;
 		this.editingExportId = null;
 		this.editingPipelineId = null;
+		this.editingCanvasId = null;
 		// Clear filter
 		this.filterText = "";
 		this.searchInput.value = "";
@@ -388,6 +465,10 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 				this.signalsTab.renderMaster();
 				this.signalsTab.renderDetail();
 				break;
+			case "canvas":
+				this.canvasTab.renderMaster();
+				this.canvasTab.renderDetail();
+				break;
 		}
 	}
 
@@ -424,6 +505,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 				// Fire-and-forget — Active Operations tracks progress on dashboard + detail
 				void this.eventBus.emit("dataExchange.pipeline.execute", { pipelineId: pipe.id });
 			},
+			openCanvasImport: (canvasPath, configId?, autoRun?) => this.openCanvasImportCb(canvasPath, configId, autoRun),
 		};
 
 		return {
@@ -431,6 +513,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 			eventBus: this.eventBus,
 			dataExchangeService: this.dataExchangeService,
 			signalService: this.signalService,
+			canvasService: this.canvasService,
 			getState: () => this.getHubState(),
 			setState: (partial) => this.setHubState(partial),
 			navigation,
@@ -460,11 +543,13 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 			selectedPipelineId: this.selectedPipelineId,
 			selectedTypeName: this.selectedTypeName,
 			selectedSignalId: this.selectedSignalId,
+			selectedCanvasId: this.selectedCanvasId,
 			editingImportId: this.editingImportId,
 			editingExportId: this.editingExportId,
 			editingPipelineId: this.editingPipelineId,
+			editingCanvasId: this.editingCanvasId,
 			activeOperations: this.activeOperations,
-			canvasConfigCount: this.canvasService?.getConfigs().length ?? 0,
+			canvasConfigs: this.canvasService?.getConfigs() ?? [],
 		};
 	}
 
@@ -480,9 +565,11 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 		if (partial.selectedPipelineId !== undefined) this.selectedPipelineId = partial.selectedPipelineId;
 		if (partial.selectedTypeName !== undefined) this.selectedTypeName = partial.selectedTypeName;
 		if (partial.selectedSignalId !== undefined) this.selectedSignalId = partial.selectedSignalId;
+		if (partial.selectedCanvasId !== undefined) this.selectedCanvasId = partial.selectedCanvasId;
 		if (partial.editingImportId !== undefined) this.editingImportId = partial.editingImportId;
 		if (partial.editingExportId !== undefined) this.editingExportId = partial.editingExportId;
 		if (partial.editingPipelineId !== undefined) this.editingPipelineId = partial.editingPipelineId;
+		if (partial.editingCanvasId !== undefined) this.editingCanvasId = partial.editingCanvasId;
 		if (partial.activeOperations !== undefined) this.activeOperations = partial.activeOperations;
 	}
 

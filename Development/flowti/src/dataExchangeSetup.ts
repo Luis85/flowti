@@ -10,6 +10,7 @@ import type { IEventBus } from "./infrastructure/events/types";
 import { DataExchangeService } from "./domain/dataExchange/DataExchangeService";
 import type { ExportFormat, SavedExportConfig, SavedImportConfig, VaultFileInfo } from "./domain/dataExchange/types";
 import { CsvActionView, VIEW_TYPE_CSV } from "./ui/CsvActionView";
+import { CanvasActionView, VIEW_TYPE_CANVAS } from "./ui/CanvasActionView";
 import { ExportView, VIEW_TYPE_EXPORT, type ExportViewConfig } from "./ui/ExportView";
 import { DataExchangeHubView, VIEW_TYPE_DATA_EXCHANGE_HUB } from "./ui/DataExchangeHubView";
 import type { SignalService } from "./domain/signal/SignalService";
@@ -33,6 +34,9 @@ export class DataExchangeSetup {
 	private pendingImportAutoStart = false;
 	private pendingSavedImportConfig: SavedImportConfig | null = null;
 	private pendingSavedExportConfig: SavedExportConfig | null = null;
+	private pendingCanvasPath: string | null = null;
+	private pendingCanvasConfigId: string | null = null;
+	private pendingCanvasAutoRun = false;
 
 	constructor(private deps: DataExchangeSetupDeps) {}
 
@@ -113,6 +117,23 @@ export class DataExchangeSetup {
 			// Extension may already be registered by another plugin
 		}
 
+		// Canvas view — import workflow for .canvas files
+		if (this.deps.canvasService) {
+			const canvasService = this.deps.canvasService;
+			registerView(VIEW_TYPE_CANVAS, (leaf) => {
+				const canvasPath = this.pendingCanvasPath;
+				this.pendingCanvasPath = null;
+				const configId = this.pendingCanvasConfigId;
+				this.pendingCanvasConfigId = null;
+				const autoRun = this.pendingCanvasAutoRun;
+				this.pendingCanvasAutoRun = false;
+				const view = new CanvasActionView(leaf, eventBus, canvasService);
+				if (canvasPath) view.setCanvasPath(canvasPath, configId ?? undefined);
+				if (autoRun && configId) view.setAutoRun(configId);
+				return view;
+			});
+		}
+
 		// Export view — opens from context menus and commands
 		registerView(VIEW_TYPE_EXPORT, (leaf) => {
 			const savedCfg = this.pendingSavedExportConfig;
@@ -135,6 +156,7 @@ export class DataExchangeSetup {
 				(csvPath, savedConfig) => this.openCsvImportWithConfig(csvPath, savedConfig),
 				(savedConfig) => this.openExportWithSavedConfig(savedConfig),
 				(sourcePath, sourceType, format) => this.openExportView(sourcePath, sourceType, format),
+				(canvasPath, configId?, autoRun?) => this.openCanvasImportView(canvasPath, configId, autoRun),
 				this.deps.signalService,
 				this.deps.canvasService,
 			),
@@ -147,6 +169,13 @@ export class DataExchangeSetup {
 
 		registerEvent(
 			app.workspace.on("file-menu", (menu, file) => {
+				// Separator before Flowti items (groups all DX + session items together)
+				const isFlowtiTarget = (file instanceof TFile && ["csv", "base", "canvas"].includes(file.extension))
+					|| file instanceof TFolder;
+				if (isFlowtiTarget) {
+					menu.addSeparator();
+				}
+
 				if (file instanceof TFile && file.extension === "csv") {
 					menu.addItem((item) => {
 						item.setTitle("Import as Notes")
@@ -216,6 +245,33 @@ export class DataExchangeSetup {
 											savedConfig: cfg,
 											format: cfg.format,
 										});
+									});
+							});
+						}
+					}
+				}
+
+				if (file instanceof TFile && file.extension === "canvas" && this.deps.canvasService) {
+					menu.addItem((item) => {
+						item.setTitle("Import Canvas")
+							.setIcon("layout-dashboard")
+							.onClick(() => {
+								this.openCanvasImportView(file.path);
+							});
+					});
+
+					// Existing canvas configs for this file
+					const canvasConfigs = this.deps.canvasService.getConfigs().filter(
+						(c) => c.canvasPath === file.path,
+					);
+					if (canvasConfigs.length > 0) {
+						menu.addSeparator();
+						for (const cfg of canvasConfigs.slice(0, 5)) {
+							menu.addItem((item) => {
+								item.setTitle(`Import with: ${cfg.name}`)
+									.setIcon("play")
+									.onClick(() => {
+										this.openCanvasImportView(file.path, cfg.id, true);
 									});
 							});
 						}
@@ -318,6 +374,17 @@ export class DataExchangeSetup {
 				},
 			});
 		}
+
+		if (this.deps.canvasService) {
+			addCommand({
+				id: "flowti:import-canvas",
+				name: "Import Canvas as Notes",
+				icon: "layout-dashboard",
+				callback: () => {
+					this.openCanvasImportView();
+				},
+			});
+		}
 	}
 
 	// ── Private helpers ──────────────────────────────────────
@@ -354,6 +421,16 @@ export class DataExchangeSetup {
 		this.pendingSavedExportConfig = savedConfig;
 		const leaf = this.deps.app.workspace.getLeaf(true);
 		void leaf.setViewState({ type: VIEW_TYPE_EXPORT, active: true });
+		void this.deps.app.workspace.revealLeaf(leaf);
+	}
+
+	openCanvasImportView(canvasPath?: string, configId?: string, autoRun = false): void {
+		if (!this.deps.canvasService) return;
+		this.pendingCanvasPath = canvasPath ?? null;
+		this.pendingCanvasConfigId = configId ?? null;
+		this.pendingCanvasAutoRun = autoRun;
+		const leaf = this.deps.app.workspace.getLeaf(true);
+		void leaf.setViewState({ type: VIEW_TYPE_CANVAS, active: true });
 		void this.deps.app.workspace.revealLeaf(leaf);
 	}
 

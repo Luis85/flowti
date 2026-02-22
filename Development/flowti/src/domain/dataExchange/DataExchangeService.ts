@@ -51,6 +51,7 @@ export class DataExchangeService {
 	private pathTracker: ConfigPathTracker;
 	private pipelineExecutor: PipelineExecutor;
 	private configDocService: ConfigDocService;
+	private canvasService?: import("../canvas/CanvasService").CanvasService;
 
 	constructor(options: DataExchangeServiceOptions) {
 		this.eventBus = options.eventBus;
@@ -80,6 +81,7 @@ export class DataExchangeService {
 			fileSystem: options.fileSystem,
 			getPipeline: (id) => this.getPipeline(id),
 			getExportConfig: (id) => this.getExportConfig(id),
+			getCanvasService: () => this.canvasService,
 		});
 
 		this.configDocService = new ConfigDocService({
@@ -184,6 +186,11 @@ export class DataExchangeService {
 	/** Expose pipeline executor for preview building. */
 	getPipelineExecutor(): PipelineExecutor {
 		return this.pipelineExecutor;
+	}
+
+	/** Set canvas service for pipeline canvas step execution (late binding). */
+	setCanvasService(service: import("../canvas/CanvasService").CanvasService): void {
+		this.canvasService = service;
 	}
 
 	/**

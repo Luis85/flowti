@@ -35,6 +35,12 @@ export class PipelineDetail {
 		if (pipe.noteType) {
 			badges.createSpan({ text: pipe.noteType, cls: "ft-badge" });
 		}
+		if (pipe.canvasConfigIds?.length) {
+			badges.createSpan({
+				text: `${pipe.canvasConfigIds.length} canvas`,
+				cls: "ft-badge ft-badge-muted",
+			});
+		}
 		if (pipe.exportConfigIds?.length) {
 			for (const exportId of pipe.exportConfigIds) {
 				const exportCfg = this.deps.dataExchangeService.getExportConfig(exportId);
@@ -150,7 +156,8 @@ export class PipelineDetail {
 		const configGrid = configCard.createDiv({ cls: "ft-detail-info-grid" });
 		addInfoRow(configGrid, "Target Folder", pipe.targetFolder || "(not set)");
 		addInfoRow(configGrid, "Merge Key", pipe.mergeKey);
-		addInfoRow(configGrid, "Sources", String(pipe.sources.length));
+		addInfoRow(configGrid, "CSV Sources", String(pipe.sources.length));
+		if (pipe.canvasConfigIds?.length) addInfoRow(configGrid, "Canvas Steps", String(pipe.canvasConfigIds.length));
 		if (pipe.noteType) addInfoRow(configGrid, "Note Type", pipe.noteType);
 		if (pipe.namePrefix) addInfoRow(configGrid, "Name Prefix", pipe.namePrefix);
 		if (pipe.nameSuffix) addInfoRow(configGrid, "Name Suffix", pipe.nameSuffix);
