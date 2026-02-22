@@ -186,6 +186,201 @@ Required documents and actions from compliance perspective help building a long-
 
 - How can Markov-Chains help building a knowledge-graph and leverage good old statistics from that
 
-## Todos
+---
+# Core Thesis
 
-- [ ] Synthesize past research documents from the input folder
+AI Agents can simulate and partially replace roles in a product-development lifecycle if guided by structured documentation, quality frameworks, and human-in-the-loop governance.
+
+This could enable a single developer to orchestrate complex product development workflows with acceptable quality.
+
+---
+
+# 🟢 LEVEL 1 — Idea Clarification
+
+## 1. Problem Statement
+
+Modern AI produces large amounts of output, but:
+
+- It creates false confidence
+- It lacks domain validation
+- It degrades without feedback
+- It is difficult to govern in structured environments
+
+There is no robust framework to align AI output with product-quality standards.
+
+## 2. Hypothesis Statement
+
+If AI Agents are guided through structured workflows,
+with best practices from Design, Quality Management, and Engineering,
+then they can produce acceptable product increments,
+because structured context and governance reduce ambiguity and drift.
+
+## 3. Expected Outcome
+
+- A fully documented open-source product
+- Simulated AI-driven development lifecycle
+- Measurable improvements in traceability and output quality
+
+---
+
+# 🟡 LEVEL 2 — Structured Foundation
+
+## 4. Assumptions
+
+| ID  | Assumption                             | Risk   | Validation              |
+| --- | -------------------------------------- | ------ | ----------------------- |
+| A1  | Structured templates improve AI output | Medium | Compare outputs         |
+| A2  | Human-in-the-loop reduces slop         | Low    | Review cycles           |
+| A3  | External signals prevent drift         | Medium | Multi-cycle observation |
+|     |                                        |        |                         |
+
+## 5. Research Questions
+
+- What defines acceptable-output?
+- What defines quality-output?
+- How does Markdown influence AI structure?
+- What framework is needed for governance?
+- How does AI fit into IT security?
+- What is the ideal Human ↔ Agent interface?
+
+## 6. Conceptual Model
+
+System = AI-Driven Product Lifecycle Simulation
+
+Inputs:
+- Markdown documentation
+- Git history
+- Public signals
+
+Transformation:
+- Agent execution of workflows
+
+Outputs:
+- Code
+- Documentation
+- Product increments
+
+Feedback:
+- GitHub PR reviews
+- Human evaluation
+- Real-world usage validation
+
+---
+
+## 7. Constraints
+
+- AI context window limits
+- Domain knowledge gaps
+- Security & compliance
+- Biased manual feedback input
+
+---
+
+## 8. Quality Definition
+
+Acceptable Output:
+- Traceable
+- Structured
+- Reviewable
+- Constrained by templates
+
+High Quality Output:
+- Aligns with domain language
+- Follows DoR / DoD
+- Measurable impact
+- Improves over cycles
+
+Failure:
+- Drift
+- Overproduction without validation
+- Metrics without meaning
+
+---
+
+# 🔴 LEVEL 3 — Strategic Expansion
+
+## 9. System Architecture Hypothesis
+
+Roles simulated:
+- Product Owner Agent
+- Development Team Agent
+- Quality Manager Agent
+- Product Trio
+- Three Amigos
+
+Governance:
+- Cycle Plans
+- Definition of Ready
+- Definition of Done
+- Git Pull Request review
+
+---
+
+## 10. Experiment Design
+
+Environment:
+- Obsidian Vault (Public & Private)
+- Flowti IBDE Plugin
+- GitHub Repo
+- VS Code orchestration
+
+Devices simulate distributed collaboration:
+- Mobile (external contributor)
+- Tablet (design)
+- Laptop (orchestration)
+
+---
+
+## 11. Traceability Model
+
+- Markdown as long-term memory
+- Git as state-history
+- Structured templates as alignment anchors
+- Simulation cycles documented
+
+---
+
+## 12. Evaluation Framework
+
+Measure:
+- Increment clarity
+- Context alignment
+- Output drift over cycles
+- Documentation-to-code ratio
+- Review friction
+
+---
+
+# 14. Risks
+
+- AI false authority bias
+- Over-documentation illusion
+- Domain blind spots
+- Metric without context overload
+
+---
+
+# 15. Learnings
+
+- Cycle Plans confine context
+- AI mimics documented language
+- Traceability is critical
+- Testsuite ≠ real understanding
+- Context maps improve alignment
+
+---
+
+# 16. Conclusions
+
+AI is effective as a companion agent.
+Not as an autonomous authority.
+
+Structured governance + documentation + human review enables sustainable AI-assisted development.
+
+ISO-style traceability may be the key enabler for long-term AI integration.
+
+---
+
+# 17. Next Actions
+
+- [ ] Synthesize past research documents
