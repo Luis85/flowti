@@ -22,6 +22,7 @@ import { TrainStatsPanel } from "./TrainStatsPanel";
 import { TrainControlsPanel } from "./TrainControlsPanel";
 import { TrainBreadcrumbPanel } from "./TrainBreadcrumbPanel";
 import { TrainMergeSelector } from "./TrainMergeSelector";
+import { TrainHistoryPanel } from "./TrainHistoryPanel";
 
 // Re-export for backward compat
 export { VIEW_TYPE_TRAIN_MAIN } from "./types";
@@ -94,6 +95,10 @@ export class TrainMainView extends ItemView {
 
 		this.render();
 		this.unsubscribes = setupTrainViewSubscriptions(this.buildContext(), this.eventBus);
+
+		// Keyboard navigation: Arrow Up/Down for thought traversal, Enter to open note
+		this.contentEl.tabIndex = 0;
+		this.contentEl.addEventListener("keydown", (e) => this.handleKeydown(e));
 
 		// Re-render when a thought note is modified (updates content preview)
 		if (this.app?.vault) {
@@ -190,10 +195,16 @@ export class TrainMainView extends ItemView {
 	}
 
 	private renderEmptyState(el: HTMLElement): void {
-		const empty = el.createDiv({ cls: "ft-train-empty" });
-		const iconEl = empty.createDiv();
-		setIcon(iconEl, "train-front");
-		empty.createEl("p", { text: "No active train. Start one from the command palette or ribbon." });
+		const historyEl = el.createDiv({ cls: "ft-train-empty" });
+		const panel = new TrainHistoryPanel(historyEl, {
+			trainService: this.trainService,
+			onSelectTrain: (trainId) => {
+				this.trainId = trainId;
+				this.activeThoughtId = null;
+				this.render();
+			},
+		});
+		panel.render();
 	}
 
 	private renderHeader(el: HTMLElement, train: TrainState): void {
@@ -446,6 +457,40 @@ export class TrainMainView extends ItemView {
 					this.mergeSelectorOpen = true;
 					this.render();
 				});
+			}
+		}
+	}
+
+	// ── Keyboard navigation ─────────────────────────────────
+
+	private handleKeydown(e: KeyboardEvent): void {
+		const train = this.getTrain();
+		if (!train) return;
+
+		const allThoughts = this.getSortedThoughts(train);
+		if (allThoughts.length === 0) return;
+
+		const activeIdx = this.activeThoughtId
+			? allThoughts.findIndex((t) => t.id === this.activeThoughtId)
+			: -1;
+
+		if (e.key === "ArrowDown" && activeIdx < allThoughts.length - 1) {
+			e.preventDefault();
+			const next = allThoughts[activeIdx + 1];
+			this.activeThoughtId = next.id;
+			this.emitThoughtActivated(next);
+			this.render();
+		} else if (e.key === "ArrowUp" && activeIdx > 0) {
+			e.preventDefault();
+			const prev = allThoughts[activeIdx - 1];
+			this.activeThoughtId = prev.id;
+			this.emitThoughtActivated(prev);
+			this.render();
+		} else if (e.key === "Enter" && activeIdx >= 0) {
+			e.preventDefault();
+			const thought = allThoughts[activeIdx];
+			if (this.app?.workspace) {
+				void this.app.workspace.openLinkText(thought.path, "", false);
 			}
 		}
 	}

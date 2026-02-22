@@ -29,4 +29,6 @@ export interface TrainEventMap {
 	"train.canvas.synced": { trainId: string; canvasPath: string; nodeCount: number };
 	/** Emitted when a canvas sync corrected a node count mismatch (reconciliation). */
 	"train.canvas.reconciled": { trainId: string; expected: number; found: number; corrected: boolean };
+	/** Emitted when a train summary document was generated on completion. */
+	"train.summary.created": { trainId: string; summaryPath: string };
 }

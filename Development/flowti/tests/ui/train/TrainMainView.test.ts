@@ -323,8 +323,9 @@ describe("TrainMainView", () => {
 			const completedView = new TrainMainView(createMockLeaf(), eventBus, service);
 			await completedView.onOpen();
 
-			const btns = completedView.contentEl.querySelectorAll(".ft-btn");
-			expect(btns.length).toBe(0);
+			// Completed train → empty state (history panel), no controls section
+			const controls = completedView.contentEl.querySelector(".ft-train-controls-section");
+			expect(controls).toBeNull();
 		});
 
 		it("renders stats section with shared stat grid", async () => {
@@ -415,6 +416,123 @@ describe("TrainMainView", () => {
 
 			expect(handler).toHaveBeenCalledOnce();
 			expect(handler.mock.calls[0][0].payload.thoughtId).toBe("t3");
+		});
+	});
+
+	// ── Inc 3: Keyboard navigation ───────────────────────
+
+	describe("keyboard navigation", () => {
+		it("sets tabIndex on contentEl for keyboard focus", async () => {
+			await view.onOpen();
+			expect(view.contentEl.tabIndex).toBe(0);
+		});
+
+		it("ArrowDown navigates to next thought", async () => {
+			await view.onOpen();
+
+			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
+
+			const thoughtTitle = view.contentEl.querySelector(".ft-train-thought-title");
+			expect(thoughtTitle?.textContent).toBe("Second Idea");
+		});
+
+		it("ArrowUp navigates to previous thought", async () => {
+			await view.onOpen();
+
+			// First go to second thought
+			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
+			// Then go back
+			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp" }));
+
+			const thoughtTitle = view.contentEl.querySelector(".ft-train-thought-title");
+			expect(thoughtTitle?.textContent).toBe("First Idea");
+		});
+
+		it("ArrowDown at last thought does nothing", async () => {
+			await view.onOpen();
+
+			// Navigate to last thought (3 total)
+			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
+			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
+			// Try one more — should stay at last
+			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
+
+			const counter = view.contentEl.querySelector(".ft-train-nav-counter");
+			expect(counter?.textContent).toBe("Thought 3 of 3");
+		});
+
+		it("ArrowUp at first thought does nothing", async () => {
+			await view.onOpen();
+
+			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp" }));
+
+			const counter = view.contentEl.querySelector(".ft-train-nav-counter");
+			expect(counter?.textContent).toBe("Thought 1 of 3");
+		});
+
+		it("emits train.thought.activated on ArrowDown", async () => {
+			const handler = vi.fn();
+			eventBus.on("train.thought.activated", handler);
+
+			await view.onOpen();
+
+			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
+
+			await new Promise((r) => setTimeout(r, 0));
+
+			expect(handler).toHaveBeenCalledOnce();
+			expect(handler.mock.calls[0][0].payload).toEqual({
+				trainId: "train_1",
+				thoughtId: "t2",
+			});
+		});
+
+		it("emits train.thought.activated on ArrowUp", async () => {
+			const handler = vi.fn();
+			eventBus.on("train.thought.activated", handler);
+
+			await view.onOpen();
+
+			// Go to t2 first
+			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
+			handler.mockClear();
+
+			// Go back to t1
+			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp" }));
+
+			await new Promise((r) => setTimeout(r, 0));
+
+			expect(handler).toHaveBeenCalledOnce();
+			expect(handler.mock.calls[0][0].payload.thoughtId).toBe("t1");
+		});
+
+		it("Enter does not emit train.thought.activated", async () => {
+			const handler = vi.fn();
+			eventBus.on("train.thought.activated", handler);
+
+			await view.onOpen();
+
+			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+
+			await new Promise((r) => setTimeout(r, 0));
+
+			// Enter opens the note, doesn't emit activated
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("ignores unrelated keys", async () => {
+			const handler = vi.fn();
+			eventBus.on("train.thought.activated", handler);
+
+			await view.onOpen();
+
+			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "a" }));
+			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" }));
+
+			await new Promise((r) => setTimeout(r, 0));
+
+			expect(handler).not.toHaveBeenCalled();
 		});
 	});
 });

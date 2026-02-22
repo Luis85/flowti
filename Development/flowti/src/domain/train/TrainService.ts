@@ -22,6 +22,7 @@ import type {
 	ThoughtDirection,
 } from "./types";
 import { MAX_TRAINS, MAX_THOUGHTS_PER_TRAIN } from "./types";
+import { generateTrainSummary } from "./TrainSummaryWriter";
 
 export interface TrainServiceOptions {
 	storage: ITypedStorage<TrainServiceState>;
@@ -78,6 +79,7 @@ export class TrainService {
 				trainId: train.id,
 				thoughtCount: train.thoughts.length,
 			});
+			void this.writeSummary(train);
 		});
 
 		// Session resumed externally → auto-resume the linked train
@@ -274,6 +276,7 @@ export class TrainService {
 
 	/**
 	 * Complete a train — marks it as done so it no longer blocks new trains.
+	 * Generates a summary document in the train folder.
 	 */
 	async completeTrain(trainId: string): Promise<boolean> {
 		const train = this.findTrain(trainId);
@@ -285,6 +288,9 @@ export class TrainService {
 
 		void this.eventBus.emit("session.complete", { sessionId: train.sessionId });
 		void this.eventBus.emit("train.completed", { trainId, thoughtCount: train.thoughts.length });
+
+		// Fire-and-forget summary generation
+		void this.writeSummary(train);
 		return true;
 	}
 
@@ -537,6 +543,22 @@ export class TrainService {
 		await this.fileSystem.updateFrontmatter(target.path, {
 			...this.buildNavLinks(train, target.id),
 		});
+	}
+
+	/**
+	 * Generate and write a summary document for a completed train.
+	 */
+	private async writeSummary(train: TrainState): Promise<void> {
+		if (train.thoughts.length === 0) return;
+
+		const markdown = generateTrainSummary(train);
+		const { trainFolder } = this.getSettings();
+		const folder = trainFolder || "";
+		const fileName = `${train.title} — Summary`;
+		const summaryPath = folder ? `${folder}/${fileName}.md` : `${fileName}.md`;
+
+		await this.fileSystem.createFile(summaryPath, markdown);
+		void this.eventBus.emit("train.summary.created", { trainId: train.id, summaryPath });
 	}
 
 	private async persist(): Promise<void> {

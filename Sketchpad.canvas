@@ -955,87 +955,6 @@
 		{"id":"5d6cdc543db0af78","type":"file","file":"Development/flowti/docs/inbox/Flowti - System Design.canvas","x":2000,"y":-1320,"width":260,"height":400},
 		{"id":"0b8e15eb023842e5","type":"file","file":"Development/Plugin Design.canvas","x":2280,"y":-1320,"width":260,"height":400},
 		{
-			"id":"882a1ad6195a25d6",
-			"type":"text",
-			"text":"Claude - Software-Developer",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2200,
-			"y":-580,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"6b4577ab4a415979",
-			"type":"text",
-			"text":"Claude - Software-Architect",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2200,
-			"y":-500,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"a545c994c194a993",
-			"type":"text",
-			"text":"Claude - UX-Designer",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2200,
-			"y":-420,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"c96c86f2ccab69fa",
-			"type":"text",
-			"text":"Claude - QA-Engineer",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2200,
-			"y":-340,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"1fb3cf12d3fea7bf",
-			"type":"text",
-			"text":"Flowti - IBDE",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1760,
-			"y":-310,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"865bd8c6600cfa02",
-			"type":"text",
-			"text":"GitHub",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1760,
-			"y":-420,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"1f8ab164b2703eeb",
-			"type":"text",
-			"text":"Git",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1760,
-			"y":-500,
-			"width":260,
-			"height":60
-		},
-		{
-			"id":"a9f291e1774772fc",
-			"type":"text",
-			"text":"Public Vault",
-			"styleAttributes":{"textAlign":"center"},
-			"x":1320,
-			"y":-460,
-			"width":260,
-			"height":60
-		},
-		{
 			"id":"f5c6fc5c5a4f7f20",
 			"type":"text",
 			"text":"Flowti Codebase",
@@ -1116,6 +1035,87 @@
 			"styleAttributes":{"textAlign":"center"},
 			"x":2200,
 			"y":-660,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"882a1ad6195a25d6",
+			"type":"text",
+			"text":"Claude - Software-Developer",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2200,
+			"y":-580,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"6b4577ab4a415979",
+			"type":"text",
+			"text":"Claude - Software-Architect",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2200,
+			"y":-500,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"a545c994c194a993",
+			"type":"text",
+			"text":"Claude - UX-Designer",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2200,
+			"y":-420,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"c96c86f2ccab69fa",
+			"type":"text",
+			"text":"Claude - QA-Engineer",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2200,
+			"y":-340,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"1fb3cf12d3fea7bf",
+			"type":"text",
+			"text":"Flowti - IBDE",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1760,
+			"y":-310,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
+			"id":"865bd8c6600cfa02",
+			"type":"text",
+			"text":"GitHub",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1760,
+			"y":-420,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"1f8ab164b2703eeb",
+			"type":"text",
+			"text":"Git",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1760,
+			"y":-500,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"a9f291e1774772fc",
+			"type":"text",
+			"text":"Public Vault",
+			"styleAttributes":{"textAlign":"center"},
+			"x":1320,
+			"y":-460,
 			"width":260,
 			"height":60
 		},

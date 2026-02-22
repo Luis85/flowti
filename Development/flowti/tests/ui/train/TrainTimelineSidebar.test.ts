@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import "../../../tests/mocks/obsidian-stub";
-import { TrainTimelineSidebar } from "../../../src/ui/train/TrainTimelineSidebar";
+import { TrainTimelineSidebar, computeGraphLayout, LANE_COLORS, LANE_WIDTH } from "../../../src/ui/train/TrainTimelineSidebar";
 import { VIEW_TYPE_TRAIN_TIMELINE } from "../../../src/ui/train/types";
 import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { TrainState, ThoughtNode, ThoughtRelation } from "../../../src/domain/train/types";
@@ -68,6 +68,7 @@ function createMockTrainService(train: TrainState | undefined = undefined): Trai
 			return [];
 		}),
 		getAllTrains: vi.fn(() => [defaultTrain]),
+		getMainChainIds: vi.fn(() => new Set(["t1", "t2", "t4"])),
 	} as unknown as TrainService;
 }
 
@@ -156,59 +157,61 @@ describe("TrainTimelineSidebar", () => {
 			expect(badge?.classList.contains("ft-timeline-status-running")).toBe(true);
 		});
 
-		it("renders timeline container", async () => {
+		it("renders graph timeline container", async () => {
 			await view.onOpen();
 
-			const container = view.contentEl.querySelector(".ft-timeline-container");
+			const container = view.contentEl.querySelector(".ft-graph-timeline");
 			expect(container).not.toBeNull();
 		});
 
-		it("renders nodes for main chain thoughts", async () => {
+		it("renders nodes for all thoughts including branches", async () => {
 			await view.onOpen();
 
 			const nodes = view.contentEl.querySelectorAll(".ft-timeline-node");
-			// Main chain: t1, t2, t4 = 3 main nodes + 1 branch (t3) = 4 total
+			// Main chain: t1, t2, t4 + branch: t3 = 4 total
 			expect(nodes.length).toBe(4);
 		});
 
-		it("renders branch nodes with indentation", async () => {
-			await view.onOpen();
-
-			const branchNodes = view.contentEl.querySelectorAll(".ft-timeline-node-branch");
-			expect(branchNodes.length).toBe(1);
-
-			// Branch node should have padding
-			const branchNode = branchNodes[0] as HTMLElement;
-			expect(branchNode.style.paddingLeft).toBe("16px");
-		});
-
-		it("renders tree connectors on branch nodes", async () => {
-			await view.onOpen();
-
-			const connectors = view.contentEl.querySelectorAll(".ft-timeline-connector");
-			expect(connectors.length).toBe(1);
-			// Single branch is last child, so uses └─
-			expect(connectors[0].textContent).toBe("└─");
-		});
-
-		it("renders thought titles on nodes", async () => {
+		it("renders nodes bottom-to-top (newest first)", async () => {
 			await view.onOpen();
 
 			const titles = view.contentEl.querySelectorAll(".ft-timeline-node-title");
 			expect(titles.length).toBe(4);
-			expect(titles[0].textContent).toBe("Initial idea");
-			expect(titles[1].textContent).toBe("Schema design");
-			// Node 2 is the branch (NoSQL branch), Node 3 is API endpoints
-			expect(titles[2].textContent).toBe("NoSQL branch");
-			expect(titles[3].textContent).toBe("API endpoints");
+			// Reversed order: t4 (newest main), t3 (branch), t2, t1 (root at bottom)
+			expect(titles[0].textContent).toBe("API endpoints");
+			expect(titles[1].textContent).toBe("NoSQL branch");
+			expect(titles[2].textContent).toBe("Schema design");
+			expect(titles[3].textContent).toBe("Initial idea");
+		});
+
+		it("renders branch nodes with ft-timeline-node-branch class", async () => {
+			await view.onOpen();
+
+			const branchNodes = view.contentEl.querySelectorAll(".ft-timeline-node-branch");
+			expect(branchNodes.length).toBe(1);
+		});
+
+		it("renders graph dots instead of text bullets", async () => {
+			await view.onOpen();
+
+			const dots = view.contentEl.querySelectorAll(".ft-graph-dot");
+			expect(dots.length).toBe(4);
+		});
+
+		it("renders graph rails for active lanes", async () => {
+			await view.onOpen();
+
+			const rails = view.contentEl.querySelectorAll(".ft-graph-rail");
+			// Most rows have 1 rail (lane 0). The branch row (t3) has 2 rails (lane 0 + lane 1)
+			// 3 rows with 1 rail + 1 row with 2 rails = 5 total
+			expect(rails.length).toBe(5);
 		});
 
 		it("renders timestamps on each node", async () => {
 			await view.onOpen();
 
-			const times = view.contentEl.querySelectorAll(".ft-timeline-node-time");
+			const times = view.contentEl.querySelectorAll(".ft-graph-time");
 			expect(times.length).toBe(4);
-			// All thoughts share the same timestamp in our fixture
 			for (const time of Array.from(times)) {
 				expect(time.textContent).toBeTruthy();
 			}
@@ -228,6 +231,49 @@ describe("TrainTimelineSidebar", () => {
 		});
 	});
 
+	// ── Inc 1: Open Train button ─────────────────────────
+
+	describe("open train button", () => {
+		it("renders open train button in header", async () => {
+			await view.onOpen();
+
+			const btn = view.contentEl.querySelector(".ft-timeline-open-train-btn");
+			expect(btn).not.toBeNull();
+			expect((btn as HTMLElement).ariaLabel).toBe("Open train detail");
+		});
+
+		it("emits ui.openTrainView with trainId on click", async () => {
+			const handler = vi.fn();
+			eventBus.on("ui.openTrainView", handler);
+
+			await view.onOpen();
+
+			const btn = view.contentEl.querySelector(".ft-timeline-open-train-btn") as HTMLElement;
+			btn.click();
+
+			await new Promise((r) => setTimeout(r, 0));
+
+			expect(handler).toHaveBeenCalledOnce();
+			expect(handler.mock.calls[0][0].payload).toEqual({ trainId: "train_1" });
+		});
+
+		it("stopPropagation prevents node click", async () => {
+			const handler = vi.fn();
+			eventBus.on("train.thought.activated", handler);
+
+			await view.onOpen();
+
+			const btn = view.contentEl.querySelector(".ft-timeline-open-train-btn") as HTMLElement;
+			btn.click();
+
+			await new Promise((r) => setTimeout(r, 0));
+
+			expect(handler).not.toHaveBeenCalled();
+		});
+	});
+
+	// ── Active node highlighting ─────────────────────────
+
 	describe("active node highlighting", () => {
 		it("highlights active thought node", async () => {
 			await view.onOpen();
@@ -237,27 +283,25 @@ describe("TrainTimelineSidebar", () => {
 			expect(activeNodes.length).toBe(1);
 		});
 
-		it("shows filled bullet for active node", async () => {
+		it("shows active dot for active node", async () => {
 			await view.onOpen();
 			await view.setState({ trainId: "train_1", activeThoughtId: "t1" }, { history: false });
 
-			const activeBullets = view.contentEl.querySelectorAll(".ft-timeline-bullet-active");
-			expect(activeBullets.length).toBe(1);
-			expect(activeBullets[0].textContent).toBe("●");
+			const activeDots = view.contentEl.querySelectorAll(".ft-graph-dot-active");
+			expect(activeDots.length).toBe(1);
 		});
 
-		it("shows open bullet for inactive nodes", async () => {
+		it("shows normal dots for inactive nodes", async () => {
 			await view.onOpen();
 			await view.setState({ trainId: "train_1", activeThoughtId: "t1" }, { history: false });
 
-			const bullets = view.contentEl.querySelectorAll(".ft-timeline-bullet:not(.ft-timeline-bullet-active)");
+			const normalDots = view.contentEl.querySelectorAll(".ft-graph-dot:not(.ft-graph-dot-active)");
 			// 3 inactive nodes out of 4 total
-			expect(bullets.length).toBe(3);
-			for (const bullet of Array.from(bullets)) {
-				expect(bullet.textContent).toBe("○");
-			}
+			expect(normalDots.length).toBe(3);
 		});
 	});
+
+	// ── Click navigation ─────────────────────────────────
 
 	describe("click navigation", () => {
 		it("emits train.thought.activated on node click", async () => {
@@ -266,9 +310,10 @@ describe("TrainTimelineSidebar", () => {
 
 			await view.onOpen();
 
-			// Click the second node (Schema design = t2)
+			// In bottom-to-top order: [t4, t3, t2, t1]
+			// Click t2 (index 2 in reversed order)
 			const nodes = view.contentEl.querySelectorAll(".ft-timeline-node");
-			(nodes[1] as HTMLElement).click();
+			(nodes[2] as HTMLElement).click();
 
 			await new Promise((r) => setTimeout(r, 0));
 
@@ -283,7 +328,7 @@ describe("TrainTimelineSidebar", () => {
 			await view.onOpen();
 
 			const nodes = view.contentEl.querySelectorAll(".ft-timeline-node");
-			(nodes[1] as HTMLElement).click();
+			(nodes[2] as HTMLElement).click();
 
 			const activeNodes = view.contentEl.querySelectorAll(".ft-timeline-node-active");
 			expect(activeNodes.length).toBe(1);
@@ -295,7 +340,7 @@ describe("TrainTimelineSidebar", () => {
 
 			await view.onOpen();
 
-			// Branch node is the 3rd node (index 2)
+			// Branch node is t3 (index 1 in reversed: [t4, t3, t2, t1])
 			const branchNode = view.contentEl.querySelector(".ft-timeline-node-branch") as HTMLElement;
 			branchNode.click();
 
@@ -305,6 +350,8 @@ describe("TrainTimelineSidebar", () => {
 			expect(handler.mock.calls[0][0].payload.thoughtId).toBe("t3");
 		});
 	});
+
+	// ── Event subscriptions ──────────────────────────────
 
 	describe("event subscriptions", () => {
 		it("re-renders on train.thought.added", async () => {
@@ -389,11 +436,65 @@ describe("TrainTimelineSidebar", () => {
 		});
 	});
 
-	// ── Inc 2: Tree structure & connectors ───────────────
+	// ── Git Graph structure ──────────────────────────────
 
-	describe("tree structure", () => {
-		it("renders ├─ for non-last branch siblings", async () => {
-			// Two branches from t2: t3a (first), t3b (last)
+	describe("graph structure", () => {
+		it("renders graph cells with lane rails", async () => {
+			await view.onOpen();
+
+			const cells = view.contentEl.querySelectorAll(".ft-graph-cell");
+			expect(cells.length).toBe(4);
+		});
+
+		it("renders fork connector on branch start", async () => {
+			await view.onOpen();
+
+			const forks = view.contentEl.querySelectorAll(".ft-graph-fork");
+			expect(forks.length).toBe(1); // t3 is the only branch start
+		});
+
+		it("fork connector spans from parent lane to branch lane", async () => {
+			await view.onOpen();
+
+			const fork = view.contentEl.querySelector(".ft-graph-fork") as HTMLElement;
+			// Parent lane 0 center: 0 * 20 + 10 = 10
+			// Branch lane 1 center: 1 * 20 + 10 = 30
+			expect(fork.style.left).toBe(`${0 * LANE_WIDTH + LANE_WIDTH / 2}px`);
+			expect(fork.style.width).toBe(`${LANE_WIDTH}px`);
+		});
+
+		it("renders branch count badge (+N)", async () => {
+			await view.onOpen();
+
+			// t2 has 1 branch (t3)
+			const badges = view.contentEl.querySelectorAll(".ft-timeline-branch-badge");
+			expect(badges.length).toBe(1);
+			expect(badges[0].textContent).toBe("+1");
+		});
+
+		it("does not render fork connector on main chain nodes", async () => {
+			await view.onOpen();
+
+			const mainNodes = view.contentEl.querySelectorAll(".ft-timeline-node:not(.ft-timeline-node-branch)");
+			for (const node of Array.from(mainNodes)) {
+				const fork = node.querySelector(".ft-graph-fork");
+				expect(fork).toBeNull();
+			}
+		});
+
+		it("auto-scrolls active node into view", async () => {
+			const scrollSpy = vi.fn();
+			HTMLElement.prototype.scrollIntoView = scrollSpy;
+
+			await view.onOpen();
+			await view.setState({ trainId: "train_1", activeThoughtId: "t4" }, { history: false });
+
+			await new Promise((r) => setTimeout(r, 10));
+
+			expect(scrollSpy).toHaveBeenCalled();
+		});
+
+		it("renders multiple fork connectors for sibling branches", async () => {
 			const t1 = createThought({ id: "t1", title: "Root", order: 0 });
 			const t2 = createThought({ id: "t2", title: "Second", order: 1 });
 			const t3a = createThought({ id: "t3a", title: "Branch A", order: 2 });
@@ -411,34 +512,15 @@ describe("TrainTimelineSidebar", () => {
 			(service.getBranches as ReturnType<typeof vi.fn>).mockImplementation(
 				(_tid: string, thoughtId: string) => thoughtId === "t2" ? [t3a, t3b] : [],
 			);
-			(service.getChildren as ReturnType<typeof vi.fn>).mockImplementation(
-				(_tid: string, thoughtId: string) => {
-					if (thoughtId === "t1") return [t2];
-					if (thoughtId === "t2") return [t3a, t3b];
-					return [];
-				},
-			);
 
 			const treeView = new TrainTimelineSidebar(createMockLeaf(), eventBus, service);
 			await treeView.onOpen();
 
-			const connectors = treeView.contentEl.querySelectorAll(".ft-timeline-connector");
-			expect(connectors.length).toBe(2);
-			expect(connectors[0].textContent).toBe("├─"); // first sibling
-			expect(connectors[1].textContent).toBe("└─"); // last sibling
+			const forks = treeView.contentEl.querySelectorAll(".ft-graph-fork");
+			expect(forks.length).toBe(2); // Both branch starts get fork connectors
 		});
 
-		it("renders branch count badge (+N)", async () => {
-			await view.onOpen();
-
-			// t2 has 1 branch (t3)
-			const badges = view.contentEl.querySelectorAll(".ft-timeline-branch-badge");
-			expect(badges.length).toBe(1);
-			expect(badges[0].textContent).toBe("+1");
-		});
-
-		it("renders recursive branches at increasing depth", async () => {
-			// t1 → t2 (main), t2 → t3 (branch), t3 → t4 (sub-branch)
+		it("renders sub-branches at increasing lane depth", async () => {
 			const t1 = createThought({ id: "t1", title: "Root", order: 0 });
 			const t2 = createThought({ id: "t2", title: "Main", order: 1 });
 			const t3 = createThought({ id: "t3", title: "Branch", order: 2 });
@@ -460,28 +542,18 @@ describe("TrainTimelineSidebar", () => {
 					return [];
 				},
 			);
-			(service.getChildren as ReturnType<typeof vi.fn>).mockImplementation(
-				(_tid: string, thoughtId: string) => {
-					if (thoughtId === "t1") return [t2];
-					if (thoughtId === "t2") return [t3];
-					if (thoughtId === "t3") return [t4];
-					return [];
-				},
-			);
 
 			const treeView = new TrainTimelineSidebar(createMockLeaf(), eventBus, service);
 			await treeView.onOpen();
 
 			const branchNodes = treeView.contentEl.querySelectorAll(".ft-timeline-node-branch");
-			expect(branchNodes.length).toBe(2);
+			expect(branchNodes.length).toBe(2); // t3 at lane 1, t4 at lane 2
 
-			// First branch at depth 1 (16px), sub-branch at depth 2 (32px)
-			expect((branchNodes[0] as HTMLElement).style.paddingLeft).toBe("16px");
-			expect((branchNodes[1] as HTMLElement).style.paddingLeft).toBe("32px");
+			const forks = treeView.contentEl.querySelectorAll(".ft-graph-fork");
+			expect(forks.length).toBe(2);
 		});
 
-		it("limits recursion depth to 5", async () => {
-			// Create a chain: root → b1 → b2 → b3 → b4 → b5 → b6 (should be capped)
+		it("limits recursion depth to 5 lanes", async () => {
 			const thoughts: ThoughtNode[] = [];
 			const rels: ThoughtRelation[] = [];
 			const root = createThought({ id: "root", title: "Root", order: 0 });
@@ -505,49 +577,17 @@ describe("TrainTimelineSidebar", () => {
 					return [thoughts.find((t) => t.id === rel.toId)!];
 				},
 			);
-			(service.getChildren as ReturnType<typeof vi.fn>).mockImplementation(
-				(_tid: string, thoughtId: string) => {
-					const rel = rels.find((r) => r.fromId === thoughtId);
-					if (!rel) return [];
-					return [thoughts.find((t) => t.id === rel.toId)!];
-				},
-			);
 
 			const treeView = new TrainTimelineSidebar(createMockLeaf(), eventBus, service);
 			await treeView.onOpen();
 
 			const branchNodes = treeView.contentEl.querySelectorAll(".ft-timeline-node-branch");
-			// Root at depth 0, then b1-b5 at depths 1-5 = 5 branch nodes (b6 and b7 capped)
+			// Root at lane 0, then b1-b5 at lanes 1-5 = 5 branch nodes (b6 and b7 capped)
 			expect(branchNodes.length).toBe(5);
-		});
-
-		it("does not render connector on main chain nodes", async () => {
-			await view.onOpen();
-
-			// Main chain nodes (depth 0) should have no connector
-			const mainNodes = view.contentEl.querySelectorAll(".ft-timeline-node:not(.ft-timeline-node-branch)");
-			for (const node of Array.from(mainNodes)) {
-				const connector = node.querySelector(".ft-timeline-connector");
-				expect(connector).toBeNull();
-			}
-		});
-
-		it("auto-scrolls active node into view", async () => {
-			// Spy on scrollIntoView
-			const scrollSpy = vi.fn();
-			HTMLElement.prototype.scrollIntoView = scrollSpy;
-
-			await view.onOpen();
-			await view.setState({ trainId: "train_1", activeThoughtId: "t4" }, { history: false });
-
-			// Wait for setTimeout(0) used for auto-scroll
-			await new Promise((r) => setTimeout(r, 10));
-
-			expect(scrollSpy).toHaveBeenCalled();
 		});
 	});
 
-	// ── Inc 5: Collapse/Expand & stat line ──────────────
+	// ── Collapse/Expand ──────────────────────────────────
 
 	describe("collapse/expand", () => {
 		it("renders chevron on nodes with branches", async () => {
@@ -606,6 +646,8 @@ describe("TrainTimelineSidebar", () => {
 		});
 	});
 
+	// ── Stat line ────────────────────────────────────────
+
 	describe("stat line", () => {
 		it("renders compact stat line in header", async () => {
 			await view.onOpen();
@@ -621,7 +663,6 @@ describe("TrainTimelineSidebar", () => {
 			await view.onOpen();
 
 			const statLine = view.contentEl.querySelector(".ft-timeline-stat-line");
-			// 4 thoughts in the default mock train
 			expect(statLine?.textContent).toContain("4 thoughts");
 		});
 
@@ -629,8 +670,166 @@ describe("TrainTimelineSidebar", () => {
 			await view.onOpen();
 
 			const statLine = view.contentEl.querySelector(".ft-timeline-stat-line");
-			// t2 has 1 branch (t3)
 			expect(statLine?.textContent).toContain("1 branches");
 		});
+	});
+});
+
+// ── computeGraphLayout (pure function) ──────────────────
+
+describe("computeGraphLayout", () => {
+	function thought(id: string, title: string, order: number): ThoughtNode {
+		return {
+			id, trainId: "train_1", title, path: `${title}.md`,
+			createdAt: "2026-02-21T14:30:00.000Z", order,
+		};
+	}
+
+	it("returns empty array for empty timeline", () => {
+		const train = { id: "t", thoughts: [], relations: [] } as unknown as TrainState;
+		const rows = computeGraphLayout([], train, () => [], new Set());
+		expect(rows).toEqual([]);
+	});
+
+	it("assigns lane 0 to main chain", () => {
+		const t1 = thought("t1", "First", 0);
+		const t2 = thought("t2", "Second", 1);
+		const train = {
+			id: "t", thoughts: [t1, t2],
+			relations: [{ fromId: "t1", toId: "t2", direction: "next" }],
+		} as unknown as TrainState;
+
+		const rows = computeGraphLayout([t1, t2], train, () => [], new Set());
+		expect(rows.length).toBe(2);
+		expect(rows[0].lane).toBe(0);
+		expect(rows[1].lane).toBe(0);
+		expect(rows[0].isBranchStart).toBe(false);
+	});
+
+	it("assigns lane 1 to first branch", () => {
+		const t1 = thought("t1", "Root", 0);
+		const t2 = thought("t2", "Main", 1);
+		const b1 = thought("b1", "Branch", 2);
+		const train = {
+			id: "t", thoughts: [t1, t2, b1],
+			relations: [
+				{ fromId: "t1", toId: "t2", direction: "next" },
+				{ fromId: "t1", toId: "b1", direction: "branch" },
+			],
+		} as unknown as TrainState;
+
+		const getBranches = (_tid: string, nid: string) => nid === "t1" ? [b1] : [];
+		const rows = computeGraphLayout([t1, t2], train, getBranches, new Set());
+
+		expect(rows.length).toBe(3); // t1, b1, t2
+		expect(rows[0].lane).toBe(0); // t1
+		expect(rows[1].lane).toBe(1); // b1 (branch)
+		expect(rows[1].isBranchStart).toBe(true);
+		expect(rows[1].parentLane).toBe(0);
+		expect(rows[2].lane).toBe(0); // t2 (main chain continues)
+	});
+
+	it("tracks active lanes correctly", () => {
+		const t1 = thought("t1", "Root", 0);
+		const b1 = thought("b1", "Branch", 1);
+		const t2 = thought("t2", "Main", 2);
+		const train = {
+			id: "t", thoughts: [t1, b1, t2],
+			relations: [
+				{ fromId: "t1", toId: "t2", direction: "next" },
+				{ fromId: "t1", toId: "b1", direction: "branch" },
+			],
+		} as unknown as TrainState;
+
+		const getBranches = (_tid: string, nid: string) => nid === "t1" ? [b1] : [];
+		const rows = computeGraphLayout([t1, t2], train, getBranches, new Set());
+
+		// t1: only lane 0 active
+		expect(rows[0].activeLanes.has(0)).toBe(true);
+		expect(rows[0].activeLanes.has(1)).toBe(false);
+
+		// b1 (branch): lane 0 + lane 1 active
+		expect(rows[1].activeLanes.has(0)).toBe(true);
+		expect(rows[1].activeLanes.has(1)).toBe(true);
+
+		// t2 (after branch ends): only lane 0 active
+		expect(rows[2].activeLanes.has(0)).toBe(true);
+		expect(rows[2].activeLanes.has(1)).toBe(false);
+	});
+
+	it("respects collapsed nodes", () => {
+		const t1 = thought("t1", "Root", 0);
+		const b1 = thought("b1", "Branch", 1);
+		const train = {
+			id: "t", thoughts: [t1, b1],
+			relations: [{ fromId: "t1", toId: "b1", direction: "branch" }],
+		} as unknown as TrainState;
+
+		const getBranches = (_tid: string, nid: string) => nid === "t1" ? [b1] : [];
+		const collapsed = new Set(["t1"]);
+		const rows = computeGraphLayout([t1], train, getBranches, collapsed);
+
+		// Only t1 in layout — branch b1 is suppressed
+		expect(rows.length).toBe(1);
+		expect(rows[0].thought.id).toBe("t1");
+	});
+
+	it("assigns increasing lanes to nested branches", () => {
+		const t1 = thought("t1", "Root", 0);
+		const b1 = thought("b1", "Branch L1", 1);
+		const b2 = thought("b2", "Branch L2", 2);
+		const train = {
+			id: "t", thoughts: [t1, b1, b2],
+			relations: [
+				{ fromId: "t1", toId: "b1", direction: "branch" },
+				{ fromId: "b1", toId: "b2", direction: "branch" },
+			],
+		} as unknown as TrainState;
+
+		const getBranches = (_tid: string, nid: string) => {
+			if (nid === "t1") return [b1];
+			if (nid === "b1") return [b2];
+			return [];
+		};
+		const rows = computeGraphLayout([t1], train, getBranches, new Set());
+
+		expect(rows[0].lane).toBe(0); // t1
+		expect(rows[1].lane).toBe(1); // b1
+		expect(rows[2].lane).toBe(2); // b2
+	});
+
+	it("uses LANE_COLORS for lane coloring", () => {
+		const t1 = thought("t1", "Root", 0);
+		const train = {
+			id: "t", thoughts: [t1], relations: [],
+		} as unknown as TrainState;
+
+		const rows = computeGraphLayout([t1], train, () => [], new Set());
+		expect(rows[0].activeLanes.get(0)).toBe(LANE_COLORS[0]);
+	});
+
+	it("caps depth at 5 lanes", () => {
+		const thoughts: ThoughtNode[] = [];
+		const rels: { fromId: string; toId: string; direction: string }[] = [];
+		let prevId = "root";
+		for (let i = 0; i <= 7; i++) {
+			const t = thought(i === 0 ? "root" : `b${i}`, `N${i}`, i);
+			thoughts.push(t);
+			if (i > 0) {
+				rels.push({ fromId: prevId, toId: t.id, direction: "branch" });
+				prevId = t.id;
+			}
+		}
+
+		const train = { id: "t", thoughts, relations: rels } as unknown as TrainState;
+		const getBranches = (_tid: string, nid: string) => {
+			const rel = rels.find((r) => r.fromId === nid);
+			return rel ? [thoughts.find((t) => t.id === rel.toId)!] : [];
+		};
+
+		const rows = computeGraphLayout([thoughts[0]], train, getBranches, new Set());
+		// root(0) + b1(1) + b2(2) + b3(3) + b4(4) + b5(5) = 6 nodes (b6, b7 capped)
+		expect(rows.length).toBe(6);
+		expect(rows[5].lane).toBe(5);
 	});
 });

@@ -56,8 +56,8 @@ export interface UiCommandEventMap {
 	/** Start a Train of Thoughts serial capture session */
 	"ui.startTrain": { fromThoughtId?: string; fromFilePath?: string };
 
-	/** Open the Train Main View (or reveal if already open) */
-	"ui.openTrainView": Record<string, never>;
+	/** Open the Train Main View (or reveal if already open). Optional trainId targets a specific train. */
+	"ui.openTrainView": { trainId?: string };
 
 	/** Toggle the Train Timeline Sidebar (show/hide) */
 	"ui.toggleTrainTimeline": { trainId: string };

@@ -51,7 +51,7 @@ export function isManagedElement(id: string): boolean {
 
 // ── Layout ────────────────────────────────────────────────────
 
-interface NodePosition {
+export interface NodePosition {
 	x: number;
 	y: number;
 }

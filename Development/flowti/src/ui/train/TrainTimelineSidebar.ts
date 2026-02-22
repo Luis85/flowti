@@ -1,12 +1,11 @@
 /**
- * Train Timeline Sidebar — vertical timeline view showing the thought graph.
+ * Train Timeline Sidebar — git-graph style vertical timeline.
  *
- * Extends ItemView directly (same pattern as TrainMainView).
- * Renders a vertical node list with connectors, branch indentation,
- * and active-node highlighting. Syncs bidirectionally with TrainMainView
- * via `train.thought.activated`.
+ * Renders a VS Code-like git graph with colored lane rails, circular node
+ * dots, and fork connectors. The timeline is rendered bottom-to-top so the
+ * newest thought appears at the top (stacking metaphor).
  *
- * Layout: header → scrollable node list (main chain + branch forks).
+ * Layout: header → scrollable graph timeline (main chain + branch forks).
  * Event subscriptions: TrainTimelineSidebarSubscriptions.ts
  */
 
@@ -22,6 +21,108 @@ import { setupTrainTimelineSubscriptions } from "./TrainTimelineSidebarSubscript
 // Re-export for backward compat
 export { VIEW_TYPE_TRAIN_TIMELINE } from "./types";
 
+// ── Graph Layout ─────────────────────────────────────────
+
+/** A single row in the computed graph layout. */
+export interface GraphRow {
+	thought: ThoughtNode;
+	/** Lane index (0 = main chain, 1+ = branch depth). */
+	lane: number;
+	/** Snapshot of which lanes are active at this row, keyed by lane index → CSS color. */
+	activeLanes: Map<number, string>;
+	/** True for the first node of a branch chain (shows fork connector). */
+	isBranchStart: boolean;
+	/** Lane of the parent that forked this branch. */
+	parentLane: number;
+}
+
+/** CSS color values for each graph lane. Defined via custom properties with hex fallbacks. */
+export const LANE_COLORS = [
+	"var(--ft-lane-0)",
+	"var(--ft-lane-1)",
+	"var(--ft-lane-2)",
+	"var(--ft-lane-3)",
+	"var(--ft-lane-4)",
+	"var(--ft-lane-5)",
+];
+
+/** Width of each lane column in pixels. */
+export const LANE_WIDTH = 20;
+
+/**
+ * Compute graph layout rows by walking the train thought graph.
+ *
+ * Pure function — walks "next" chains at the same lane and "branch" forks
+ * at lane+1. Collapsed nodes suppress their branch children.
+ *
+ * Returns rows in top-to-bottom (root-first) order. The caller should
+ * reverse the array for bottom-to-top rendering.
+ */
+export function computeGraphLayout(
+	timeline: ThoughtNode[],
+	train: TrainState,
+	getBranches: (trainId: string, thoughtId: string) => ThoughtNode[],
+	collapsedNodes: Set<string>,
+): GraphRow[] {
+	const rows: GraphRow[] = [];
+	const activeLanes = new Map<number, string>();
+
+	function walk(
+		start: ThoughtNode,
+		lane: number,
+		isBranchStart: boolean,
+		parentLane: number,
+	): void {
+		let current: ThoughtNode | null = start;
+		const visited = new Set<string>();
+		let isFirst = true;
+
+		activeLanes.set(lane, LANE_COLORS[lane % LANE_COLORS.length]);
+
+		while (current && !visited.has(current.id)) {
+			visited.add(current.id);
+
+			rows.push({
+				thought: current,
+				lane,
+				activeLanes: new Map(activeLanes),
+				isBranchStart: isFirst && isBranchStart,
+				parentLane,
+			});
+			isFirst = false;
+
+			// Recurse into branches (unless collapsed or depth capped)
+			if (!collapsedNodes.has(current.id) && lane < 5) {
+				const branches = getBranches(train.id, current.id);
+				for (const branch of branches) {
+					walk(branch, lane + 1, true, lane);
+				}
+			}
+
+			// Follow the "next" chain at the same lane
+			const nextRel = train.relations.find(
+				(r) => r.fromId === current!.id && r.direction === "next",
+			);
+			current = nextRel
+				? train.thoughts.find((t) => t.id === nextRel.toId) ?? null
+				: null;
+		}
+
+		// Close lane when branch ends (main chain at lane 0 stays open)
+		if (lane > 0) {
+			activeLanes.delete(lane);
+		}
+	}
+
+	if (timeline.length > 0) {
+		walk(timeline[0], 0, false, 0);
+	}
+
+	return rows;
+}
+
+// ── Context ──────────────────────────────────────────────
+
 /** Context interface for subscription handlers. */
 export interface TrainTimelineContext {
 	getTrainId: () => string | null;
@@ -29,6 +130,8 @@ export interface TrainTimelineContext {
 	setActiveThoughtId: (id: string | null) => void;
 	scheduleRender: () => void;
 }
+
+// ── View ─────────────────────────────────────────────────
 
 export class TrainTimelineSidebar extends ItemView {
 	private eventBus: IEventBus;
@@ -133,7 +236,7 @@ export class TrainTimelineSidebar extends ItemView {
 		}
 
 		this.renderHeader(el, train);
-		this.renderTimeline(el, train);
+		this.renderGraphTimeline(el, train);
 	}
 
 	private renderEmptyState(el: HTMLElement): void {
@@ -153,6 +256,18 @@ export class TrainTimelineSidebar extends ItemView {
 
 		const badge = titleRow.createSpan({ cls: `ft-badge ft-badge-muted ft-timeline-status ft-timeline-status-${train.status}` });
 		badge.setText(train.status);
+
+		// Open Train Main View button (Inc 1)
+		const openBtn = titleRow.createEl("button", {
+			cls: "ft-btn ft-btn-ghost ft-btn-sm ft-timeline-open-train-btn",
+		});
+		openBtn.ariaLabel = "Open train detail";
+		const openBtnIcon = openBtn.createSpan();
+		setIcon(openBtnIcon, "maximize-2");
+		openBtn.addEventListener("click", (e) => {
+			e.stopPropagation();
+			void this.eventBus.emit("ui.openTrainView", { trainId: train.id });
+		});
 
 		// Open Canvas button — visible when canvas file exists
 		const canvasPath = this.getCanvasPath(train);
@@ -185,8 +300,10 @@ export class TrainTimelineSidebar extends ItemView {
 		});
 	}
 
-	private renderTimeline(el: HTMLElement, train: TrainState): void {
-		const container = el.createDiv({ cls: "ft-timeline-container" });
+	// ── Graph Timeline ───────────────────────────────────────
+
+	private renderGraphTimeline(el: HTMLElement, train: TrainState): void {
+		const container = el.createDiv({ cls: "ft-timeline-container ft-graph-timeline" });
 		const timeline = this.trainService.getTimeline(train.id);
 
 		if (timeline.length === 0) {
@@ -194,10 +311,19 @@ export class TrainTimelineSidebar extends ItemView {
 			return;
 		}
 
-		// Chain-based rendering: walk the "next" chain at depth 0,
-		// and for each node render "branch" forks as new chains at depth+1.
-		// "next" continuations stay flat; only "branch" increases depth.
-		this.renderChain(container, timeline[0], train, 0);
+		const rows = computeGraphLayout(
+			timeline, train,
+			(tid, nid) => this.trainService.getBranches(tid, nid),
+			this.collapsedNodes,
+		);
+		const maxLane = Math.max(...rows.map((r) => r.lane), 0);
+
+		// Reverse for bottom-to-top rendering (newest at top)
+		const reversed = [...rows].reverse();
+
+		for (const row of reversed) {
+			this.renderGraphRow(container, row, train, maxLane);
+		}
 
 		// Auto-scroll active node into view
 		setTimeout(() => {
@@ -206,102 +332,67 @@ export class TrainTimelineSidebar extends ItemView {
 		}, 0);
 	}
 
-	/**
-	 * Walk a "next" chain starting from `start`, rendering each node at `depth`.
-	 * For each node, render "branch" children as new chains at `depth + 1`.
-	 * This keeps linear continuations flat and only indents true forks.
-	 *
-	 * @param isBranchStart  true for the first node of a branch chain (shows connector)
-	 * @param isLastBranch   true when this is the last branch sibling (shows └─ vs ├─)
-	 */
-	private renderChain(
+	private renderGraphRow(
 		container: HTMLElement,
-		start: ThoughtNode,
+		row: GraphRow,
 		train: TrainState,
-		depth: number,
-		isBranchStart = false,
-		isLastBranch = false,
+		maxLane: number,
 	): void {
-		let current: ThoughtNode | null = start;
-		const visited = new Set<string>();
-		let isFirst = true;
-
-		while (current && !visited.has(current.id)) {
-			visited.add(current.id);
-
-			// Only the first node of a branch chain gets the connector character
-			const showConnector = isFirst && isBranchStart;
-			const isLast = showConnector && isLastBranch;
-			this.renderNode(container, current, train, depth, isLast, showConnector);
-			isFirst = false;
-
-			// Render "branch" children as new chains at depth+1 (unless collapsed or depth capped)
-			if (!this.collapsedNodes.has(current.id) && depth < 5) {
-				const branches = this.trainService.getBranches(train.id, current.id);
-				for (let i = 0; i < branches.length; i++) {
-					const isLastChild = i === branches.length - 1;
-					this.renderChain(container, branches[i], train, depth + 1, true, isLastChild);
-				}
-			}
-
-			// Follow the "next" child at the SAME depth (linear continuation)
-			const nextRelation = train.relations.find(
-				(r) => r.fromId === current!.id && r.direction === "next",
-			);
-			if (nextRelation) {
-				current = train.thoughts.find((t) => t.id === nextRelation.toId) ?? null;
-			} else {
-				current = null;
-			}
-		}
-	}
-
-	private renderNode(
-		container: HTMLElement,
-		thought: ThoughtNode,
-		train: TrainState,
-		depth: number,
-		isLast: boolean,
-		showConnector = false,
-	): void {
+		const { thought, lane, activeLanes, isBranchStart, parentLane } = row;
 		const isActive = thought.id === this.activeThoughtId;
+
 		const cls = [
 			"ft-timeline-node",
+			"ft-graph-node",
 			isActive ? "ft-timeline-node-active" : "",
-			depth > 0 ? "ft-timeline-node-branch" : "",
+			lane > 0 ? "ft-timeline-node-branch" : "",
 		].filter(Boolean).join(" ");
 
 		const node = container.createDiv({ cls });
 
-		if (depth > 0) {
-			node.style.paddingLeft = `${depth * 16}px`;
+		// ── Graph cell: lane rails + node dot ──
+		const graphCell = node.createDiv({ cls: "ft-graph-cell" });
+		const cellWidth = (maxLane + 1) * LANE_WIDTH + 4;
+		graphCell.style.width = `${cellWidth}px`;
+		graphCell.style.minWidth = `${cellWidth}px`;
+
+		// Vertical rails for each active lane
+		for (const [laneIdx, color] of activeLanes) {
+			const rail = graphCell.createDiv({ cls: "ft-graph-rail" });
+			rail.style.left = `${laneIdx * LANE_WIDTH + LANE_WIDTH / 2 - 1}px`;
+			rail.style.backgroundColor = color;
 		}
 
-		// Connector line + bullet
-		const bulletRow = node.createDiv({ cls: "ft-timeline-bullet-row" });
-
-		// Tree connector character — only on the first node of a branch fork
-		if (showConnector) {
-			const connector = bulletRow.createSpan({ cls: "ft-timeline-connector" });
-			connector.setText(isLast ? "└─" : "├─");
+		// Fork connector for branch start (horizontal line from parent lane to branch lane)
+		if (isBranchStart && parentLane !== lane) {
+			const forkColor = activeLanes.get(lane) ?? LANE_COLORS[lane % LANE_COLORS.length];
+			const fork = graphCell.createDiv({ cls: "ft-graph-fork" });
+			const fromX = parentLane * LANE_WIDTH + LANE_WIDTH / 2;
+			const toX = lane * LANE_WIDTH + LANE_WIDTH / 2;
+			fork.style.left = `${fromX}px`;
+			fork.style.width = `${toX - fromX}px`;
+			fork.style.backgroundColor = forkColor;
 		}
 
-		const bullet = bulletRow.createSpan({
-			cls: `ft-timeline-bullet ${isActive ? "ft-timeline-bullet-active" : ""}`,
+		// Node circle (dot)
+		const dotColor = activeLanes.get(lane) ?? LANE_COLORS[lane % LANE_COLORS.length];
+		const dot = graphCell.createDiv({
+			cls: `ft-graph-dot ${isActive ? "ft-graph-dot-active" : ""}`,
 		});
-		bullet.setText(isActive ? "●" : "○");
+		dot.style.left = `${lane * LANE_WIDTH + LANE_WIDTH / 2}px`;
+		dot.style.backgroundColor = dotColor;
+
+		// ── Content area ──
+		const content = node.createDiv({ cls: "ft-graph-content" });
 
 		// Title
-		bulletRow.createSpan({
-			cls: "ft-timeline-node-title",
-			text: thought.title,
-		});
+		content.createSpan({ cls: "ft-timeline-node-title", text: thought.title });
 
-		// Child count badge + collapse chevron (only "branch" forks — "next" continuations render inline)
+		// Collapse chevron + branch count badge
 		const branchCount = this.trainService.getBranches(train.id, thought.id).length;
 		if (branchCount > 0) {
 			const isCollapsed = this.collapsedNodes.has(thought.id);
-			const chevron = bulletRow.createSpan({ cls: "ft-timeline-chevron" });
+			const chevron = content.createSpan({ cls: "ft-timeline-chevron" });
 			chevron.setText(isCollapsed ? "▸" : "▾");
 			chevron.addEventListener("click", (e) => {
 				e.stopPropagation();
@@ -313,7 +404,7 @@ export class TrainTimelineSidebar extends ItemView {
 				this.render();
 			});
 
-			bulletRow.createSpan({
+			content.createSpan({
 				cls: "ft-badge ft-badge-muted ft-text-sm ft-timeline-branch-badge",
 				text: `+${branchCount}`,
 			});
@@ -327,13 +418,13 @@ export class TrainTimelineSidebar extends ItemView {
 			(r) => r.toId === thought.id && r.direction === "merge",
 		);
 		if (hasOutgoingMerge) {
-			bulletRow.createSpan({
+			content.createSpan({
 				cls: "ft-badge ft-badge-accent ft-text-sm ft-timeline-merge-badge",
 				text: "⤴ merged",
 			});
 		}
 		if (hasIncomingMerge) {
-			bulletRow.createSpan({
+			content.createSpan({
 				cls: "ft-badge ft-badge-info ft-text-sm ft-timeline-merge-target-badge",
 				text: "⤵ target",
 			});
@@ -341,10 +432,7 @@ export class TrainTimelineSidebar extends ItemView {
 
 		// Timestamp
 		const time = new Date(thought.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-		node.createDiv({
-			cls: "ft-text-sm ft-text-faint ft-timeline-node-time",
-			text: time,
-		});
+		content.createSpan({ cls: "ft-text-sm ft-text-faint ft-graph-time", text: time });
 
 		// Click to navigate
 		node.addEventListener("click", () => {

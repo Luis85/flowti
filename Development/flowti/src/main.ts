@@ -769,11 +769,11 @@ export default class FlowtiBasePlugin extends Plugin {
 			}),
 		);
 
-		// Open/reveal Train Main View on command
+		// Open/reveal Train Main View on command (accepts optional trainId)
 		this.crossCuttingListeners.push(
-			this.eventBus.on("ui.openTrainView", () => {
-				const activeTrain = this.trainService?.getActiveTrain();
-				this.revealOrCreateTrainView(activeTrain?.id ?? null);
+			this.eventBus.on("ui.openTrainView", (event) => {
+				const trainId = event.payload.trainId ?? this.trainService?.getActiveTrain()?.id ?? null;
+				this.revealOrCreateTrainView(trainId);
 			}),
 		);
 
