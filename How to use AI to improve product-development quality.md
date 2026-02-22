@@ -30,6 +30,7 @@ stage: refinement
 - How can we provide documentation which is human-readable, machine-readable, digestable, enjoyable, approachable, living, useful,valuable, evolving, naturally improving
 - What must be done or have to be in place to enable an AI Agent
 - What defines an Information-System
+- How can those systems scale
 
 ## Assumptions
 
