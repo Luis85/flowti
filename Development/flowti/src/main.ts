@@ -722,18 +722,35 @@ export default class FlowtiBasePlugin extends Plugin {
 
 		// Train Main View — register view factory + auto-open on train start
 		this.registerView(VIEW_TYPE_TRAIN_MAIN, (leaf) =>
-			new TrainMainView(leaf, this.eventBus, this.trainService!),
+			new TrainMainView(leaf, this.eventBus, this.trainService!, () => ({
+				trainFolder: settingsService.getSettings().trainFolder,
+				trainCanvasEnabled: settingsService.getSettings().trainCanvasEnabled,
+				trainCanvasAutoOpen: settingsService.getSettings().trainCanvasAutoOpen,
+			})),
 		);
 
 		// Train Timeline Sidebar — register view factory + auto-open in right sidebar
 		this.registerView(VIEW_TYPE_TRAIN_TIMELINE, (leaf) =>
-			new TrainTimelineSidebar(leaf, this.eventBus, this.trainService!),
+			new TrainTimelineSidebar(leaf, this.eventBus, this.trainService!, () => ({
+				trainFolder: settingsService.getSettings().trainFolder,
+				trainCanvasEnabled: settingsService.getSettings().trainCanvasEnabled,
+				trainCanvasAutoOpen: settingsService.getSettings().trainCanvasAutoOpen,
+			})),
 		);
 
 		this.crossCuttingListeners.push(
 			this.eventBus.on("train.started", (event) => {
 				this.revealOrCreateTrainView(event.payload.train.id);
 				this.revealOrCreateTrainTimeline(event.payload.train.id);
+			}),
+		);
+
+		// Auto-open canvas when created (if trainCanvasAutoOpen is enabled)
+		this.crossCuttingListeners.push(
+			this.eventBus.on("train.canvas.created", (event) => {
+				if (settingsService.getSettings().trainCanvasAutoOpen) {
+					void this.app.workspace.openLinkText(event.payload.canvasPath, "", false);
+				}
 			}),
 		);
 

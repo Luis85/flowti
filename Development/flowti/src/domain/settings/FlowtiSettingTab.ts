@@ -275,6 +275,28 @@ export class FlowtiSettingTab extends PluginSettingTab {
 						}
 					})
 			);
+
+		new Setting(containerEl)
+			.setName("Canvas auto-generation")
+			.setDesc("Automatically generate a .canvas file mirroring the train graph")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(settings.trainCanvasEnabled)
+					.onChange((value) => {
+						void this.deps.eventBus.emit("settings.updateTrainCanvasEnabled", { enabled: value });
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Auto-open canvas")
+			.setDesc("Automatically open the canvas when a train starts")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(settings.trainCanvasAutoOpen)
+					.onChange((value) => {
+						void this.deps.eventBus.emit("settings.updateTrainCanvasAutoOpen", { enabled: value });
+					})
+			);
 	}
 
 	/**

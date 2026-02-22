@@ -279,7 +279,9 @@ const CATALOG_DATA = {
 	"settings.updateDefaultTrainDuration": { category: "Settings", description: "Update default train duration preference", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
 	"settings.updateTrainFolder": { category: "Settings", description: "Update train folder path", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
 	"settings.updateTrainAutoOpenTimeline": { category: "Settings", description: "Update auto-open timeline preference", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
-	"settings.updateTrainMaxThoughts": { category: "Settings", description: "Update max thoughts per train", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
+	"settings.updateTrainMaxThoughts":  { category: "Settings", description: "Update max thoughts per train", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
+	"settings.updateTrainCanvasEnabled": { category: "Settings", description: "Toggle train canvas auto-generation", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
+	"settings.updateTrainCanvasAutoOpen": { category: "Settings", description: "Toggle auto-open canvas on train start", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
 	"settings.saveFailed":             { category: "Settings", description: "Settings persistence failed", direction: "Service → Listeners", domain: "settings", services: "SettingsService", tags: ["system"] },
 
 	// ── Installer Domain ─────────────────────────────────────

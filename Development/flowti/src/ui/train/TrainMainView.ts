@@ -34,9 +34,16 @@ export interface TrainViewContext {
 	scheduleRender: () => void;
 }
 
+export interface TrainViewSettings {
+	trainFolder: string;
+	trainCanvasEnabled: boolean;
+	trainCanvasAutoOpen: boolean;
+}
+
 export class TrainMainView extends ItemView {
 	private eventBus: IEventBus;
 	private trainService: TrainService;
+	private getTrainSettings: () => TrainViewSettings;
 	private unsubscribes: (() => void)[] = [];
 	private trainId: string | null = null;
 	private activeThoughtId: string | null = null;
@@ -45,10 +52,20 @@ export class TrainMainView extends ItemView {
 	private controlsPanel!: TrainControlsPanel;
 	private mergeSelectorOpen = false;
 
-	constructor(leaf: WorkspaceLeaf, eventBus: IEventBus, trainService: TrainService) {
+	constructor(
+		leaf: WorkspaceLeaf,
+		eventBus: IEventBus,
+		trainService: TrainService,
+		getTrainSettings?: () => TrainViewSettings,
+	) {
 		super(leaf);
 		this.eventBus = eventBus;
 		this.trainService = trainService;
+		this.getTrainSettings = getTrainSettings ?? (() => ({
+			trainFolder: "",
+			trainCanvasEnabled: true,
+			trainCanvasAutoOpen: false,
+		}));
 	}
 
 	getViewType(): string {
@@ -190,9 +207,26 @@ export class TrainMainView extends ItemView {
 		const badge = titleRow.createSpan({ cls: `ft-badge ft-badge-muted ft-train-status ft-train-status-${train.status}` });
 		badge.setText(train.status);
 
-		// Spacer pushes toggle to the right
+		// Spacer pushes buttons to the right
 		const spacer = titleRow.createSpan();
 		spacer.style.flex = "1";
+
+		// Open Canvas button — visible when canvas file exists
+		const canvasPath = this.getCanvasPath(train);
+		if (canvasPath && this.app?.vault?.getAbstractFileByPath(canvasPath)) {
+			const canvasBtn = titleRow.createEl("button", {
+				cls: "ft-btn ft-btn-ghost ft-btn-sm ft-train-open-canvas-btn",
+			});
+			canvasBtn.ariaLabel = "Open canvas";
+			const canvasIcon = canvasBtn.createSpan();
+			setIcon(canvasIcon, "layout-dashboard");
+			canvasBtn.appendText(" Canvas");
+			canvasBtn.addEventListener("click", () => {
+				if (this.app?.workspace) {
+					void this.app.workspace.openLinkText(canvasPath, "", false);
+				}
+			});
+		}
 
 		// Toggle timeline sidebar button
 		const toggleBtn = titleRow.createEl("button", {
@@ -440,6 +474,13 @@ export class TrainMainView extends ItemView {
 			return this.trainService.getTrain(this.trainId);
 		}
 		return this.trainService.getActiveTrain();
+	}
+
+	/** Derive the canvas path for a train from settings. */
+	private getCanvasPath(train: TrainState): string | null {
+		const { trainFolder, trainCanvasEnabled } = this.getTrainSettings();
+		if (!trainCanvasEnabled || !trainFolder) return null;
+		return `${trainFolder}/${train.title}.canvas`;
 	}
 
 	private emitThoughtActivated(thought: ThoughtNode): void {

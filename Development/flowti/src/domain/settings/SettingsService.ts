@@ -124,6 +124,16 @@ export class SettingsService implements ISettingsService {
 					void this.updateSettings({ trainMaxThoughts: event.payload.max });
 				})
 			);
+			this.unsubscribes.push(
+				this.eventBus.on("settings.updateTrainCanvasEnabled", (event) => {
+					void this.updateSettings({ trainCanvasEnabled: event.payload.enabled });
+				})
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("settings.updateTrainCanvasAutoOpen", (event) => {
+					void this.updateSettings({ trainCanvasAutoOpen: event.payload.enabled });
+				})
+			);
 		}
 	}
 

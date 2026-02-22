@@ -38,6 +38,10 @@ export interface SettingsEventMap {
 	"settings.updateTrainAutoOpenTimeline": { enabled: boolean };
 	/** Command: update maximum thoughts per train */
 	"settings.updateTrainMaxThoughts": { max: number };
+	/** Command: toggle train canvas auto-generation */
+	"settings.updateTrainCanvasEnabled": { enabled: boolean };
+	/** Command: toggle auto-open canvas on train start */
+	"settings.updateTrainCanvasAutoOpen": { enabled: boolean };
 	/** Emitted when settings persistence fails */
 	"settings.saveFailed": { error: string };
 }

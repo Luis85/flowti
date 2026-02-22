@@ -15,6 +15,7 @@ import type { WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { TrainService } from "../../domain/train/TrainService";
 import type { ThoughtNode, TrainState } from "../../domain/train/types";
+import type { TrainViewSettings } from "./TrainMainView";
 import { VIEW_TYPE_TRAIN_TIMELINE } from "./types";
 import { setupTrainTimelineSubscriptions } from "./TrainTimelineSidebarSubscriptions";
 
@@ -32,16 +33,27 @@ export interface TrainTimelineContext {
 export class TrainTimelineSidebar extends ItemView {
 	private eventBus: IEventBus;
 	private trainService: TrainService;
+	private getTrainSettings: () => TrainViewSettings;
 	private unsubscribes: (() => void)[] = [];
 	private trainId: string | null = null;
 	private activeThoughtId: string | null = null;
 	private renderTimer: ReturnType<typeof setTimeout> | null = null;
 	private collapsedNodes = new Set<string>();
 
-	constructor(leaf: WorkspaceLeaf, eventBus: IEventBus, trainService: TrainService) {
+	constructor(
+		leaf: WorkspaceLeaf,
+		eventBus: IEventBus,
+		trainService: TrainService,
+		getTrainSettings?: () => TrainViewSettings,
+	) {
 		super(leaf);
 		this.eventBus = eventBus;
 		this.trainService = trainService;
+		this.getTrainSettings = getTrainSettings ?? (() => ({
+			trainFolder: "",
+			trainCanvasEnabled: true,
+			trainCanvasAutoOpen: false,
+		}));
 	}
 
 	getViewType(): string {
@@ -141,6 +153,23 @@ export class TrainTimelineSidebar extends ItemView {
 
 		const badge = titleRow.createSpan({ cls: `ft-badge ft-badge-muted ft-timeline-status ft-timeline-status-${train.status}` });
 		badge.setText(train.status);
+
+		// Open Canvas button — visible when canvas file exists
+		const canvasPath = this.getCanvasPath(train);
+		if (canvasPath && this.app?.vault?.getAbstractFileByPath(canvasPath)) {
+			const canvasBtn = titleRow.createEl("button", {
+				cls: "ft-btn ft-btn-ghost ft-btn-sm ft-timeline-open-canvas-btn",
+			});
+			canvasBtn.ariaLabel = "Open canvas";
+			const canvasIcon = canvasBtn.createSpan();
+			setIcon(canvasIcon, "layout-dashboard");
+			canvasBtn.addEventListener("click", (e) => {
+				e.stopPropagation();
+				if (this.app?.workspace) {
+					void this.app.workspace.openLinkText(canvasPath, "", false);
+				}
+			});
+		}
 
 		// Compact stat line
 		let branchCount = 0;
@@ -329,6 +358,13 @@ export class TrainTimelineSidebar extends ItemView {
 	}
 
 	// ── Helpers ──────────────────────────────────────────────
+
+	/** Derive the canvas path for a train from settings. */
+	private getCanvasPath(train: TrainState): string | null {
+		const { trainFolder, trainCanvasEnabled } = this.getTrainSettings();
+		if (!trainCanvasEnabled || !trainFolder) return null;
+		return `${trainFolder}/${train.title}.canvas`;
+	}
 
 	private getTrain(): TrainState | undefined {
 		if (this.trainId) {

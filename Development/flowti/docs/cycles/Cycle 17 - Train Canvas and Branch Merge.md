@@ -287,12 +287,21 @@ total_test_files_after:
 **Architecture seams:** Canvas existence check via `app.vault.getAbstractFileByPath()`. Open via `workspace.openLinkText()` (Obsidian native). Settings follow existing FlowtiSettingTab pattern with `Setting` + `ToggleComponent`.
 
 **Acceptance criteria:**
-- [ ] "Open Canvas" button in TrainMainView header (visible when canvas exists)
-- [ ] "Open Canvas" button in TrainTimelineSidebar header
-- [ ] Button opens canvas in Obsidian's native canvas viewer
-- [ ] `trainCanvasAutoOpen=true` opens canvas on train start
-- [ ] `trainCanvasEnabled` and `trainCanvasAutoOpen` appear in settings UI
-- [ ] `npm test` passes
+- [x] "Open Canvas" button in TrainMainView header (visible when canvas exists)
+- [x] "Open Canvas" button in TrainTimelineSidebar header
+- [x] Button opens canvas in Obsidian's native canvas viewer
+- [x] `trainCanvasAutoOpen=true` opens canvas on train start
+- [x] `trainCanvasEnabled` and `trainCanvasAutoOpen` appear in settings UI
+- [x] `npm test` passes
+
+**Delivery notes (Inc 5):**
+- **TrainMainView.ts** (+35 LOC): `TrainViewSettings` interface, optional `getTrainSettings` constructor param, `getCanvasPath()` helper, "Canvas" button in header (visible when `vault.getAbstractFileByPath()` finds canvas file).
+- **TrainTimelineSidebar.ts** (+30 LOC): Same pattern — optional `getTrainSettings` param, `getCanvasPath()` helper, canvas icon button in header with `stopPropagation`.
+- **main.ts** (+15 LOC): Settings getter passed to both view factories. Auto-open canvas via `train.canvas.created` listener gated on `trainCanvasAutoOpen`.
+- **FlowtiSettingTab.ts** (+20 LOC): Two new toggles — "Canvas auto-generation" (`trainCanvasEnabled`) and "Auto-open canvas" (`trainCanvasAutoOpen`).
+- **Settings wiring**: 2 new events (`settings.updateTrainCanvasEnabled`, `settings.updateTrainCanvasAutoOpen`) in events.ts, SettingsService, and catalog.
+- **11 new tests** in `trainCanvasWorkflow.test.ts`: 5 main view, 4 sidebar, 2 auto-open.
+- **Total**: 3,726 tests, 152 suites, tsc + eslint clean.
 
 ---
 
