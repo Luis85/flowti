@@ -13,7 +13,7 @@ tech_debt:
   - "[[TD-122 Systemic empty catch blocks]]"
 estimated_increments: 8
 actual_increments:
-estimated_tests: 80
+estimated_tests: 95
 actual_tests:
 total_tests_after:
 total_test_files_after:
@@ -34,7 +34,7 @@ total_test_files_after:
 - ~35 UI components remain untested — silent regressions possible
 - Missing flow tests for session nudges and path reconciliation — OBS-2 and OBS-3 from Three Amigos unresolved
 - Plugin not audited against Obsidian's published submission requirements — unknown gaps to marketplace listing
-- Cycle 15 Three Amigos review still pending
+- Canvas UI components lack direct rendering tests (~30 tests needed per Cycle 15 OBS-2)
 
 **User Needs:**
 - Repository structure compatible with Obsidian marketplace (package.json at root)
@@ -76,9 +76,16 @@ total_test_files_after:
 - Marketplace listing requires repository structure compliance, ESLint standards, and submission audit
 
 **Unresolved review observations (Three Amigos):**
+
+*From Session Workspaces review (2026-02-19):*
 - OBS-2: Session nudge flow test missing — nudge trigger → notice → accept/dismiss → session start untested
 - OBS-3: Path reconciliation edge cases — file/folder rename impact on session fields not tested
 - OBS-4: Daily tracking toggle — no user-facing setting to disable automatic daily session tracking
+
+*From Canvas Integration review (2026-02-22):*
+- C15-OBS-2: Canvas UI test coverage gap — page components (~930 LOC) and CanvasTab (~250 LOC) lack direct rendering tests → Inc 5
+- C15-OBS-3: Large canvas performance not validated — 500+ node import untested → Deferred
+- C15-OBS-5: CanvasImportWizard (~280 LOC) retained but superseded by CanvasActionView → Inc 7
 
 ---
 
@@ -127,6 +134,8 @@ total_test_files_after:
 ### Inc 1: Repository Restructure (RB-1)
 
 **Goal:** Move meta-files to repo root so `npm install && npm run build && npm test` work from the git root.
+
+The Scope for this Cycle is not the restructuring of the Folders but to create a proposal based on current known constraints and requirements, as we can't migrate yet with too many open questions, still.
 
 | Step | File | Purpose | Est. LOC |
 |------|------|---------|----------|
@@ -220,20 +229,20 @@ total_test_files_after:
 |------|------|---------|----------|
 | 1 | `tests/flows/14-SessionNudges.test.ts` (new) | Nudge flow: trigger → notice → accept/dismiss → session start | ~150 |
 | 2 | `tests/domain/session/pathReconciliation.test.ts` (new) | Path reconciliation edge cases for file/folder renames | ~100 |
-| 3 | `docs/reviews/Three Amigos Review - Cycle 15 Canvas.md` (new) | Cycle 15 Three Amigos review closure document | ~80 (doc) |
 
-**Est. total:** ~250 LOC tests, ~80 LOC review doc, ~20 new tests
+**Est. total:** ~250 LOC tests, ~20 new tests
 
-**Test intent:** Flow 14 covering nudge trigger → Notice → accept → session start (~8 tests). Path reconciliation: file rename across 7 session fields + templates (~12 tests). Three Amigos review documents Cycle 15.
+**Test intent:** Flow 14 covering nudge trigger → Notice → accept → session start (~8 tests). Path reconciliation: file rename across 7 session fields + templates (~12 tests).
 
-**Documentation intent:** Three Amigos Review - Cycle 15 closure document. OBS-2 and OBS-3 marked resolved.
+**Documentation intent:** OBS-2 and OBS-3 marked resolved.
 
 **Architecture seams:** Flow tests follow established `tests/flows/` pattern. Path reconciliation tests use existing mock factories (`createMockStorage`, `createMockFileSystem`).
+
+**Pre-cycle completed:** Cycle 15 Three Amigos review already conducted — see [[Three Amigos Review 2026-02-22 Canvas Integration]].
 
 **Acceptance criteria:**
 - [ ] Flow 14 (SessionNudges) created with ~8 tests covering nudge lifecycle
 - [ ] Path reconciliation tests covering file/folder rename across session fields (~12 tests)
-- [ ] Cycle 15 Three Amigos review documented
 - [ ] OBS-2 and OBS-3 marked resolved
 - [ ] `npm test` passes with ~20 new tests
 
@@ -241,28 +250,34 @@ total_test_files_after:
 
 ### Inc 5: UI Component Test Coverage
 
-**Goal:** Add tests for the 3 highest-impact untested UI components.
+**Goal:** Add tests for the highest-impact untested UI components, including Canvas page components identified in Cycle 15 Three Amigos OBS-2.
 
 | Step | File | Purpose | Est. LOC |
 |------|------|---------|----------|
 | 1 | `tests/ui/catalog/EventsTab.test.ts` (new) | Event Catalog Events tab rendering and interaction | ~200 |
 | 2 | `tests/ui/catalog/CatalogDashboard.test.ts` (new) | Catalog dashboard rendering, statistics, navigation | ~150 |
 | 3 | `tests/ui/hub/HubDashboard.test.ts` (new) | DX Hub dashboard rendering, stat cards, navigation | ~150 |
+| 4 | `tests/ui/canvas/CanvasConfigPage.test.ts` (new) | Canvas config page: mapping, hierarchy, exclusion (Cycle 15 OBS-2) | ~120 |
+| 5 | `tests/ui/canvas/CanvasResultPage.test.ts` (new) | Canvas result page: per-type breakdown, errors, next actions (Cycle 15 OBS-2) | ~100 |
+| 6 | `tests/ui/hub/CanvasTab.test.ts` (new) | DX Hub Canvas tab: config CRUD, detail view (Cycle 15 OBS-2) | ~80 |
 
-**Est. total:** ~500 LOC tests, ~45 new tests
+**Est. total:** ~800 LOC tests, ~60 new tests
 
-**Test intent:** EventsTab: renders event list, filters by category, shows detail panel (~15 tests). CatalogDashboard: renders stats, category cards, quick actions (~15 tests). HubDashboard: renders stat cards, import/export counts, navigation (~15 tests).
+**Test intent:** EventsTab: renders event list, filters by category, shows detail panel (~15 tests). CatalogDashboard: renders stats, category cards, quick actions (~15 tests). HubDashboard: renders stat cards, import/export counts, navigation (~15 tests). Canvas pages: config rendering, result display, tab CRUD (~15 tests across 3 files — addresses Cycle 15 Three Amigos OBS-2).
 
 **Documentation intent:** Note test pattern in Frontend Architecture (established UI test template).
 
-**Architecture seams:** Follow existing `DomainsTab.test.ts` pattern: mock deps interface, mock EventBus, render into jsdom container, assert DOM state.
+**Architecture seams:** Follow existing `DomainsTab.test.ts` pattern: mock deps interface, mock EventBus, render into jsdom container, assert DOM state. Canvas page tests follow same pattern with `CanvasComponentDeps` mock.
 
 **Acceptance criteria:**
 - [ ] EventsTab test suite: ~15 tests (render, filter, detail)
 - [ ] CatalogDashboard test suite: ~15 tests (stats, cards, actions)
 - [ ] HubDashboard test suite: ~15 tests (stats, navigation)
-- [ ] All 3 test files follow established DomainsTab pattern
-- [ ] `npm test` passes with ~45 new tests
+- [ ] CanvasConfigPage test suite: ~5 tests (mapping config, exclusion) — Cycle 15 OBS-2
+- [ ] CanvasResultPage test suite: ~5 tests (breakdown, errors, actions) — Cycle 15 OBS-2
+- [ ] CanvasTab test suite: ~5 tests (CRUD, detail) — Cycle 15 OBS-2
+- [ ] All 6 test files follow established DomainsTab pattern
+- [ ] `npm test` passes with ~60 new tests
 
 ---
 
@@ -303,20 +318,22 @@ total_test_files_after:
 | 3 | `tests/domain/session/SessionService.test.ts` | Tests for tracking toggle | ~40 |
 | 4 | `src/domain/settings/types.ts` | Add `disableDailyTracking?: boolean` setting | ~5 |
 | 5 | Source files | Top 3 quick-win UX fixes from inbox | ~30 |
+| 6 | `src/ui/canvas/CanvasImportWizard.ts` | Evaluate removal — superseded by CanvasActionView (Cycle 15 OBS-5, ~280 LOC) | -280 or ~0 |
 
-**Est. total:** ~155 LOC source, ~40 LOC tests, ~8 new tests
+**Est. total:** ~155 LOC source, ~40 LOC tests, ~8 new tests (net LOC may decrease if wizard removed)
 
 **Test intent:** Daily tracking toggle: enable/disable setting, session respects setting, default is enabled (~8 tests).
 
-**Documentation intent:** Update settings documentation with new toggle.
+**Documentation intent:** Update settings documentation with new toggle. Document wizard removal decision if applicable.
 
-**Architecture seams:** Setting added to FlowtiSettings type. SessionService checks setting during daily session creation. Compliance fixes are per-violation (no new patterns).
+**Architecture seams:** Setting added to FlowtiSettings type. SessionService checks setting during daily session creation. Compliance fixes are per-violation (no new patterns). Wizard removal: verify no remaining callers before deleting.
 
 **Acceptance criteria:**
 - [ ] All non-trivial compliance violations from Inc 6 resolved
 - [ ] Daily tracking disable toggle implemented and tested
 - [ ] `disableDailyTracking` setting added to FlowtiSettings
 - [ ] 3 quick-win UX fixes delivered
+- [ ] CanvasImportWizard evaluated: removed if unused, or justified if retained (Cycle 15 OBS-5)
 - [ ] `npm run check` passes (all Obsidian rules clean)
 - [ ] `npm test` passes with ~8 new tests
 
@@ -329,21 +346,23 @@ total_test_files_after:
 | Step | File | Purpose | Est. LOC |
 |------|------|---------|----------|
 | 1 | `docs/features/Improvement Backlog.md` (new) | Per-area scored backlog: Release Readiness, Quality, Polish | ~300 (doc) |
-| 2 | `docs/features/Obsidian Market Research 2026.md` (new) | Ecosystem stats, user pain points, competitive positioning, submission reqs | ~250 (doc) |
+| 2 | `docs/features/Obsidian Market Research 2026.md` (existing) | Review and refine pre-cycle market research with cycle findings | ~30 (updates) |
 | 3 | `docs/cycles/Release Preparation Cycle.md` | Update release blocker status, release readiness assessment | ~20 |
 
-**Est. total:** ~570 LOC docs, ~0 new tests
+**Est. total:** ~350 LOC docs, ~0 new tests
 
 **Test intent:** No new tests — this is a documentation and planning increment.
 
-**Documentation intent:** Two major documents: Improvement Backlog (structured per-area with severity/effort/impact/recommended cycle per item) and Market Research (ecosystem data, user needs, Flowti positioning). Release readiness percentage assessment.
+**Documentation intent:** Improvement Backlog (structured per-area with severity/effort/impact/recommended cycle per item). Market Research document already created pre-cycle — refine with submission audit findings from Inc 6. Release readiness percentage assessment.
 
 **Architecture seams:** No code changes. Documents reference existing TD items, inbox items, and PRDs via wikilinks.
+
+**Pre-cycle completed:** [[Obsidian Market Research 2026]] created during Cycle 16 planning. [[Three Amigos Review 2026-02-22 Canvas Integration]] already conducted.
 
 **Acceptance criteria:**
 - [ ] Improvement Backlog created with all remaining items scored (severity, effort, user impact, recommended cycle)
 - [ ] Items grouped by area: Release Readiness, Quality & Stability, Polish & UX
-- [ ] Market Research document with ecosystem stats, user pain points, competitive landscape
+- [ ] Market Research document refined with submission audit findings
 - [ ] Flowti positioning analysis against top Obsidian plugins
 - [ ] Release readiness percentage assessed (e.g., "X of Y requirements met")
 - [ ] Release blocker status updated
@@ -383,10 +402,10 @@ Note: The three tracks (Inc 1-2, Inc 3-5, Inc 6-7) can run in parallel. Inc 8 is
 
 | Metric | Target | Actual | Status |
 |--------|--------|--------|--------|
-| New tests | ~80 | | |
+| New tests | ~95 | | |
 | Release blockers closed | 2 (RB-1, RB-2) | | |
 | Empty catches resolved | 22 → 0 unjustified | | |
-| UI components tested | +3 | | |
+| UI components tested | +6 (3 core + 3 canvas per OBS-2) | | |
 | Compliance audit | complete | | |
 | Improvement backlog | created | | |
 | Market research | created | | |
@@ -404,6 +423,9 @@ Note: The three tracks (Inc 1-2, Inc 3-5, Inc 6-7) can run in parallel. Inc 8 is
 | Remaining ~32 untested UI components | 3 highest-impact tested this cycle; rest in improvement backlog | Future |
 | TD-43: Correlation IDs | Infrastructure enhancement — not blocking | Future |
 | TD-48: CSV parsing blocks UI | Low priority — acceptable at current scale | Future |
+| EventBus domain-scoped listeners | `bus.on("canvas.*")` not supported — only `"*"` wildcard works. Forces prefix filtering. Infrastructure improvement. | Future |
+| BaseActionView extraction | CanvasActionView (~540 LOC) and SessionWorkspaceView (~600 LOC) are both ItemView orchestrators managing page state. Extract `BaseActionView` abstract class (like BaseHubView) if a third appears. | Future (when 3rd action view built) |
+| Large canvas performance testing | 500+ node canvas import untested (Cycle 15 OBS-3). Parser is pure but importer makes per-node FileSystemClient calls. | Future (performance spike) |
 | AI integration | New feature — market research informs future planning | Future |
 | Mobile optimization | Platform constraint — not plugin-addressable | Out of scope |
 
@@ -414,7 +436,8 @@ Note: The three tracks (Inc 1-2, Inc 3-5, Inc 6-7) can run in parallel. Inc 8 is
 ### Already Ready
 - [x] Release Preparation PRD exists with RB-1 through RB-8 documented
 - [x] TD-29 and TD-122 documented with affected files
-- [x] OBS-2, OBS-3, OBS-4 documented in Three Amigos review
+- [x] OBS-2, OBS-3, OBS-4 documented in Session Workspaces Three Amigos review
+- [x] Cycle 15 Canvas Integration Three Amigos review completed (OBS-1 through OBS-5 documented)
 - [x] Obsidian submission requirements researched and documented
 - [x] Market research data collected (ecosystem stats, user pain points, competitive landscape)
 - [x] DomainsTab.test.ts exists as UI test pattern exemplar
@@ -439,7 +462,7 @@ Note: The three tracks (Inc 1-2, Inc 3-5, Inc 6-7) can run in parallel. Inc 8 is
 ### 2. Build & Test Quality
 - [ ] `npm test` passes from repo root (post-restructure)
 - [ ] `npm run check` passes with Obsidian ESLint rules
-- [ ] Test count meets target (~80 new tests)
+- [ ] Test count meets target (~95 new tests)
 - [ ] No test regressions
 - [ ] Error handling ADR created and followed
 
@@ -454,7 +477,7 @@ Note: The three tracks (Inc 1-2, Inc 3-5, Inc 6-7) can run in parallel. Inc 8 is
 - [ ] Obsidian Submission Compliance Audit created
 - [ ] Improvement Backlog created with scored items
 - [ ] Market Research document created
-- [ ] Three Amigos Cycle 15 review documented
+- [x] Three Amigos Cycle 15 review documented — [[Three Amigos Review 2026-02-22 Canvas Integration]] (completed pre-cycle)
 
 ### 5. Cycle Plan Completion
 - [ ] Cycle plan frontmatter updated with actual values
@@ -468,6 +491,7 @@ Note: The three tracks (Inc 1-2, Inc 3-5, Inc 6-7) can run in parallel. Inc 8 is
 - Tech Debt: [[TD-29 Error handling inconsistency]], [[TD-122 Systemic empty catch blocks]]
 - Release Blockers: RB-1, RB-2
 - Review: OBS-2, OBS-3, OBS-4 from [[Three Amigos Review 2026-02-19 Session Workspaces]]
+- Review: OBS-1 through OBS-5 from [[Three Amigos Review 2026-02-22 Canvas Integration]] (OBS-2 → Inc 5, OBS-5 → Inc 7)
 - Prior Cycle: [[Cycle 15 - Canvas Integration]]
 - Next Cycle: [[Cycle 17 - Backlog Intelligence]]
 - Backlog Refinement: [[backlog-refinement-2026-02-22]]
