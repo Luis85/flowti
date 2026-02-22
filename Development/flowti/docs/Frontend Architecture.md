@@ -65,13 +65,15 @@ src/                     # ~31,467 LOC across 154 files
 │   ├── eventNotify/     # Notice popups on event fire
 │   ├── discovery/       # Vault scan for custom events
 │   ├── session/         # Session v2 execution environment (timer, goals, execution tasks, intent, energy, reflections, closure, activity, artifacts, note sync, state machine)
+│   ├── canvas/          # Canvas import pipeline (parser, importer, rebuilder, base generator, service)
 │   ├── inbox/           # User inbox items (mappers, service, persistence)
 │   └── user/            # User profile management
-├── ui/                  # Presentation layer (~17,127 LOC)
-│   ├── catalog/         # Event Catalog components (15 files, 4,573 LOC)
-│   ├── hub/             # Data Exchange Hub components (21 files, 4,414 LOC)
-│   ├── csv/             # CSV import wizard components (10 files, 1,752 LOC)
-│   ├── export/          # Export wizard components (7 files, 994 LOC)
+├── ui/                  # Presentation layer
+│   ├── catalog/         # Event Catalog components (15 files)
+│   ├── hub/             # Data Exchange Hub components (22 files, incl. CanvasTab)
+│   ├── canvas/          # Canvas import wizard components (5 files: Landing, Config, Preview, Result, types)
+│   ├── csv/             # CSV import wizard components (10 files)
+│   ├── export/          # Export wizard components (7 files)
 │   ├── session/         # Session Workspace components (17 files: panels, subscriptions, helpers, overlays, indicators)
 │   ├── userHub/         # User Hub components (7 files: Dashboard, Inbox, Sessions, Preferences, SessionPreferences, NudgePreferences, types)
 │   └── *.ts             # Orchestrator views + modals
@@ -97,9 +99,10 @@ Views read state via `deps.getState()` and write via `deps.setState(partial)`. T
 |------|--------------|-----|------------|--------|---------|
 | `BaseHubView<TPage>` | — (abstract) | ~278 | `ItemView` | shell (wrapper + top bar + tab bar + split) | Abstract base: shared Hub lifecycle, navigation, render scheduling, cleanup |
 | `EventCatalogView` | `flowti-event-catalog` | ~723 | `BaseHubView<CatalogTab>` | master-detail | 8-tab catalog: Dashboard, Domains, Services, Events, Flows, Systems, Actors, Products |
-| `DataExchangeHubView` | `flowti-data-exchange-hub` | ~477 | `BaseHubView<DXTab>` | master-detail + tab bar | 7-page hub: Dashboard, Imports, Exports, Reports, Properties, Pipelines, Types |
+| `DataExchangeHubView` | `flowti-data-exchange-hub` | ~477 | `BaseHubView<DXTab>` | master-detail + tab bar | 8-page hub: Dashboard, Imports, Exports, Reports, Properties, Pipelines, Types, Canvas |
 | `EventLogView` | `flowti-event-log` | ~581 | log list | Activity feed with category/type filters and subscribed/all modes |
 | `ExportView` | `flowti-export` | ~655 | wizard stepper | 4-page export wizard: View Select, Configure, Preview, Result |
+| `CanvasActionView` | `flowti-canvas` | ~545 | `ItemView` | page navigation | Canvas import: 4-page wizard (landing, config, preview, result) with saved config quick-run |
 | `CsvActionView` | `flowti-csv` | ~747 | landing + wizard | CSV file handler: column preview landing page + 4-page inline import wizard |
 | `UserHubView` | `flowti-user-hub` | ~273 | `BaseHubView<UserHubTab>` | 3-tab user hub: Dashboard, Inbox, Sessions (+ Preferences) |
 | `SessionWorkspaceView` | `flowti-session-workspace` | ~537 | `ItemView` | single-column | Dedicated focused workspace for a single session (timer, energy, goals, execution plan, notes, context, decisions, activity, outputs). Subscriptions extracted to `SessionWorkspaceSubscriptions.ts`, helpers to `SessionWorkspaceHelpers.ts` |
@@ -136,7 +139,7 @@ Both major views extend `BaseHubView<TPage>` and follow the **orchestrator + com
 - `EventDetailPanel` — Event detail header, info card, actions, watchers, transforms, related entities
 - `FlowsTab`, `SystemsTab`, `ActorsTab`, `ProductsTab` — File-driven entity management
 
-**Data Exchange Hub** (`src/ui/hub/`, 21 files):
+**Data Exchange Hub** (`src/ui/hub/`, 22 files):
 - `HubDashboard` — Dashboard orchestrator delegating to sub-components
 - `DashboardPipelines` — Pipeline summary table section
 - `DashboardImports` — Import configs table with inline execution
@@ -144,6 +147,7 @@ Both major views extend `BaseHubView<TPage>` and follow the **orchestrator + com
 - `DashboardImportExecutor` — Inline import progress row with auto-dismiss
 - `ImportsTab`, `ExportsTab` — Saved config management with inline execution
 - `PipelinesTab` — Multi-source import pipeline builder
+- `CanvasTab` — Canvas import config management with master/detail split and live progress (~551 LOC)
 - `TypesTab` — Note type documentation with CRUD lifecycle events and frontmatter scan issues banner
 - `PropertiesTab` — Data dictionary with cross-config usage tracking
 - `ReportsTab` — CSV file documentation browser with frontmatter validation alerts and name disambiguation
@@ -188,12 +192,18 @@ Both major views extend `BaseHubView<TPage>` and follow the **orchestrator + com
 - `UserHubSessionPreferences` — Session type configuration (built-in + custom types, guiding questions, duration defaults)
 - `UserHubNudgePreferences` — Session nudge configuration (add/edit/remove nudges, template linking)
 
+**Canvas Import** (`src/ui/canvas/`, 5 files):
+- `CanvasLanding` — Landing page: file info, stats, saved configs with quick-run (~120 LOC)
+- `CanvasConfigPage` — Split layout: general settings (left), color/shape mappings + type exclusion (right) (~304 LOC)
+- `CanvasPreviewPage` — Impact analysis: type distribution, group/product structure, legend (~269 LOC)
+- `CanvasResultPage` — Live progress bar, completion summary, per-type breakdown, error details, next actions (~359 LOC)
+
 **Pipeline Detail** (`src/ui/hub/pipelines/`):
 - `PipelineDetail` — Single pipeline view
 - `PipelineEditForm` — Edit form
 - `PipelinePreview` — Preview/confirm step
 - `PipelineExecution` — Execution + progress
-- `SourcesExportsGrid` — Two-column sources/exports layout
+- `SourcesExportsGrid` — Inputs/Outputs stacked row layout (CSV sources + canvas configs → export steps)
 
 Each component follows the same constructor pattern:
 ```typescript
@@ -321,7 +331,7 @@ dataExchangeSetup.ts ─→ Hub, CSV, Export     (view registration + file menu 
 
 ### Scale
 
-The `FlowtiEventMap` type union contains **216 events** across 15 domains:
+The `FlowtiEventMap` type union contains **234 events** across 17 domains:
 
 | Domain | Events | Examples |
 |--------|--------|---------|
@@ -348,6 +358,8 @@ The `FlowtiEventMap` type union contains **216 events** across 15 domains:
 | Hub | 3 | `hub.opened`, `hub.closed`, `hub.tab.changed` |
 | Session | 90 | `session.create`, `session.started`, `session.timer.tick`, `session.artifact.added`, `session.context.bind`, `session.decision.record`, `session.output.generate`, `session.state.save`, `session.energy.set`, `session.task.add`, `session.reflection.add`, `session.closure.started`, `session.overload.detected`, `session.notes.synced` |
 | Inbox | 5 | `inbox.itemAdded`, `inbox.itemsChanged`, `inbox.cleared` |
+| Signal | 10 | `signal.configured`, `signal.sync.started`, `signal.sync.completed` |
+| Canvas | 8 | `canvas.import.started`, `canvas.import.completed`, `canvas.config.saved` |
 | Installer | 6 | `installer.started`, `installer.step.completed` |
 
 ### Conventions
@@ -709,18 +721,19 @@ Pure content generation file with markdown builders for 8+ entity types. Could s
 
 ## Component Documentation
 
-Each UI component has a dedicated documentation file in `docs/components/` (61 files). These follow a standardized template with frontmatter (`type: Component`), dependency tables, state descriptions, event tables, and cross-references.
+Each UI component has a dedicated documentation file in `docs/components/` (68 files). These follow a standardized template with frontmatter (`type: Component`), dependency tables, state descriptions, event tables, and cross-references.
 
 **By subsystem:**
 
 | Subsystem | Location | Count | Examples |
 |-----------|----------|-------|----------|
-| Orchestrator Views | `src/ui/*.ts` | 8 | [[BaseHubView]], [[EventCatalogView]], [[DataExchangeHubView]], [[SessionWorkspaceView]], [[CsvActionView]], [[ExportView]] |
+| Orchestrator Views | `src/ui/*.ts` | 9 | [[BaseHubView]], [[EventCatalogView]], [[DataExchangeHubView]], [[CanvasActionView]], [[SessionWorkspaceView]], [[CsvActionView]], [[ExportView]] |
 | Modals | `src/ui/*.ts` | 8 | [[EventConfigModal]], [[SubscriptionManagerModal]], [[NewSessionModal]], [[ConfirmModal]] |
 | Standalone UI | `src/ui/*.ts` | 2 | [[IngestionStatusBar]], [[ElectronDialog]] |
 | Catalog | `src/ui/catalog/` | 11 | [[CatalogDashboard]], [[EventsTab]], [[DomainsTab]], [[FlowsTab]] |
-| Hub | `src/ui/hub/` | 11 | [[HubDashboard]], [[ImportsTab]], [[PipelinesTab]] |
+| Hub | `src/ui/hub/` | 12 | [[HubDashboard]], [[ImportsTab]], [[PipelinesTab]], [[CanvasTab]] |
 | Pipelines | `src/ui/hub/` | 5 | [[PipelineDetail]], [[PipelineEditForm]], [[PipelineExecution]] |
+| Canvas | `src/ui/canvas/` | 4 | [[CanvasLanding]], [[CanvasConfigPage]], [[CanvasPreviewPage]], [[CanvasResultPage]] |
 | CSV | `src/ui/csv/` | 7 | [[CsvLanding]], [[CsvConfigPage]], [[CsvDataSnapshot]] |
 | User Hub | `src/ui/userHub/` | 6 | [[UserHubDashboard]], [[UserHubInbox]], [[UserHubSessions]], [[UserHubPreferences]], [[UserHubSessionPreferences]], [[UserHubNudgePreferences]] |
 | Export | `src/ui/export/` | 4 | [[ViewSelectPage]], [[ConfigurePage]], [[PreviewPage]] |
@@ -790,20 +803,22 @@ All use cases are documented in `docs/use-cases/` (33 files). Each file follows 
 
 ## User Journey Flows
 
-End-to-end user journeys crossing multiple views and services are documented in `docs/flows/` (15 files). Each file follows a standardized template with frontmatter (`type: Flow`), step-by-step walkthroughs with events, decision points, and cross-references to use cases.
+End-to-end user journeys crossing multiple views and services are documented in `docs/flows/` (25 files). Each file follows a standardized template with frontmatter (`type: Flow`), step-by-step walkthroughs with events, decision points, and cross-references to use cases.
 
 | Flow | Domains | Key Events |
 |------|---------|------------|
 | [[First-Run Onboarding]] | Installer, User, Settings | `installer.started` → `installer.completed` |
 | [[Browse and Configure Events]] | Subscription, Event Definition | `subscription.create` → `subscription.created` |
 | [[Import CSV as Notes]] | Data Exchange | `dataExchange.import.execute` → `dataExchange.import.completed` |
+| [[Import Canvas as Notes]] | Canvas, Data Exchange | `canvas.import.started` → `canvas.import.completed` |
 | [[Export Vault Data]] | Data Exchange | `dataExchange.export.execute` → `dataExchange.export.completed` |
-| [[Build Import Pipeline]] | Data Exchange | Pipeline execution events |
+| [[Build Import Pipeline]] | Data Exchange, Canvas | Pipeline execution events (CSV + canvas steps) |
 | [[Create Domain Documentation]] | Settings | `doc.created` → `metadata.changed` |
 | [[Monitor and Debug Events]] | Subscription, Settings | `eventNotify.changed` |
 | [[Configure File Ingestion]] | Ingestion, Event Definition | `ingestion.job.completed` → `eventDefinition.matched` |
 | [[Discover Custom Events]] | Discovery, Subscription | `event.file.triggered` → `discovery.loaded` |
 | [[Manage Data Dictionary]] | Data Exchange | `dataExchange.import.completed` |
+| [[Connect Azure DevOps Signal]] | Signal | `signal.sync.started` → `signal.sync.completed` |
 
 ---
 

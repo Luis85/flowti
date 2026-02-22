@@ -235,9 +235,10 @@ CanvasTemplate
 
 ## 9. UI Layout Impact
 
-- **Canvas Import Wizard**: 3-page wizard (Select, Preview/Map, Execute)
-- **Canvas Template Picker**: Modal for selecting canvas template during session creation
-- **Data Exchange Hub**: Canvas listed as import source type in dashboard
+- **Canvas Action View**: 4-page ItemView wizard (Landing, Configure, Preview, Result) — replaces the initial 3-page modal wizard (Cycle 15 Inc 7)
+- **DX Hub Canvas Tab**: Master-detail split for canvas config CRUD (Cycle 15 Inc 7)
+- **Data Exchange Hub**: Canvas listed as import source type in dashboard, Pipeline Inputs row includes canvas step cards (Cycle 15 Inc 5, 8)
+- **Canvas Template Picker**: Modal for selecting canvas template during session creation (Phase 2)
 
 ---
 
@@ -272,7 +273,8 @@ CanvasTemplate
 - [x] Full Canvas Action View with 4-page wizard (Cycle 15 Inc 7)
 - [x] Canvas configs usable as pipeline sources (Cycle 15 Inc 8)
 - [x] All existing canvas-importer test scenarios pass (Cycle 15 Inc 4 — 186 canvas tests)
-- [x] npm run build passes (Cycle 15 Inc 8 — 3,528 tests, 140 suites)
+- [x] Integration flow test covers end-to-end canvas import pipeline (Cycle 15 Inc 9 — 18-CanvasImport.test.ts, 20 tests)
+- [x] npm run build passes (Cycle 15 Inc 9 — 3,548 tests, 141 suites)
 - [ ] Canvas Session type available in session creation
 - [ ] Canvas opens in main with sidebar workspace
 - [ ] At least 3 canvas templates available (Domain Design, Sprint Planning, Retrospective)
@@ -321,6 +323,8 @@ Migrate canvas import logic from `var/scripts/canvas-importer/` into `src/domain
 **Cycle 15 Inc 7 delivered:** Canvas Action View + Type Exclusion + DX Hub Canvas Tab. Full ItemView-based import experience replacing the modal wizard: CanvasActionView (~540 LOC) orchestrates landing → config → preview → result pages. 5 page components under `src/ui/canvas/` (~1,550 LOC). Type exclusion (`excludedTypes` on CanvasImportConfig) filters types from import, rebuilder, and base generator. DX Hub Canvas tab with master/detail split for config CRUD. Step bar navigation, unsaved changes detection. 2 new tests (3,522 total).
 
 **Cycle 15 Inc 8 delivered:** Pipeline-Canvas Integration + DX Hub Polish + Bug Fixes. Canvas configs as pipeline sources: `canvasConfigIds?: string[]` on SavedMultiImportPipeline, executed by PipelineExecutor after CSV sources. Late binding via `setCanvasService()` setter + `getCanvasService` lazy getter. Pipeline detail restructured: Inputs row (CSV + canvas) and Outputs row (exports). DX Hub tab reorder: Pipelines first. Bug fix: `revealFolderInExplorer` utility replaces `openLinkText` for safe folder reveal (prevents creating unwanted markdown files). Fix applied to canvas auto-reveal, canvas result page, and CSV result page. 6 new pipeline tests (3,528 total).
+
+**Cycle 15 Inc 9 delivered:** Integration Tests & Documentation. Flow test `18-CanvasImport.test.ts` (20 tests, ~470 LOC) covering config CRUD, import pipeline, legend override, group containment, edge relations, type exclusion, error handling, inbox integration, and event sequence verification. 10 documentation files: 6 component docs (CanvasActionView, CanvasLanding, CanvasConfigPage, CanvasPreviewPage, CanvasResultPage, CanvasTab), 1 flow doc (Import Canvas as Notes), 1 sitemap entry (Canvas Action View), 2 stale docs updated (SourcesExportsGrid, DataExchangeHubView). Frontend Architecture.md updated with full Canvas component inventory. 20 new tests (3,548 total, 141 suites).
 
 ### Phase 2: Canvas Templates (PBI-CAN-002)
 

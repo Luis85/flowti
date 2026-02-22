@@ -11,11 +11,11 @@ bugs: []
 bugs_fixed_precycle: []
 tech_debt: []
 estimated_increments: 7
-actual_increments: 8
+actual_increments: 9
 estimated_tests: 90
-actual_tests: 186
-total_tests_after: 3528
-total_test_files_after: 140
+actual_tests: 206
+total_tests_after: 3548
+total_test_files_after: 141
 ---
 
 # Cycle 15: Canvas Integration
@@ -441,33 +441,56 @@ None bundled — this is a greenfield domain migration cycle.
 
 ---
 
-### Inc 9: Integration Tests & Verification
+### Inc 9: Integration Tests, Documentation & Verification ✅
 
-**Goal:** End-to-end verification with flow tests.
+**Goal:** End-to-end verification with flow tests + comprehensive documentation.
 
 | Step | File | Purpose | Est. LOC |
 |------|------|---------|----------|
-| 1 | `tests/flows/18-CanvasImport.test.ts` (new) | Parse → import → verify notes → verify frontmatter → verify events | ~60 |
-| 2 | Verify | `npm test` — all tests pass | — |
-| 3 | Verify | `npm run check` — tsc + eslint clean | — |
+| 1 | `tests/flows/18-CanvasImport.test.ts` (new) | Parse → import → verify notes → verify frontmatter → verify events | ~470 |
+| 2 | `docs/components/Canvas*.md` (6 new) | Component docs: CanvasActionView, CanvasLanding, CanvasConfigPage, CanvasPreviewPage, CanvasResultPage, CanvasTab | — |
+| 3 | `docs/flows/Import Canvas as Notes.md` (new) | Flow doc: end-to-end canvas import journey (10 steps, decision points, event sequence) | — |
+| 4 | `docs/sitemap/Canvas Action View.md` (new) | Sitemap entry for Canvas Action View | — |
+| 5 | `docs/components/SourcesExportsGrid.md` (updated) | Reflect Inputs/Outputs row layout + canvas config cards | — |
+| 6 | `docs/components/DataExchangeHubView.md` (updated) | Add Canvas tab, CanvasService dep, CanvasTab child | — |
+| 7 | `docs/sitemap/Data Exchange Hub View.md` (updated) | Add Canvas tab use case + flow cross-reference | — |
+| 8 | `docs/Frontend Architecture.md` (updated) | Canvas domain, Canvas UI components, CanvasActionView in view inventory, Canvas events | — |
+| 9 | Verify | `npm test` — 3,548 tests, 141 suites, 0 failures | — |
 
-**Est. total:** ~60 LOC tests, ~13 new tests
+**Actual total:** ~470 LOC tests (20 tests), 10 documentation files created/updated
 
-**Test intent:**
-- Integration: full import pipeline from canvas JSON to vault notes
-- Integration: frontmatter correctness (type, parent, relationships)
-- Integration: events fired in correct order (started → progress × N → completed)
-- Integration: legend override, group structure, edge relations
-- Integration: conflict strategies with pre-existing notes
+**Test coverage (20 tests in 7 describe blocks):**
+- Config CRUD: save, emit, update, remove, persistence across load cycles (5 tests)
+- Import pipeline: full pipeline, progress events per node, skip conflict strategy, lastUsed update (4 tests)
+- Legend override: detect legend group and apply custom color mappings (1 test)
+- Group containment: import both group and contained nodes (1 test)
+- Edge relations: directional relationships from edges (1 test)
+- Type exclusion: exclude specified types from import (1 test)
+- Error handling: missing file, invalid JSON, nonexistent config, per-node error resilience (4 tests)
+- Inbox integration: inbox items on success and failure (2 tests)
+- Event sequence: correct event ordering (started → progress → completed) (1 test)
+
+**Documentation deliverables:**
+- 6 new component docs in `docs/components/` (CanvasActionView, CanvasLanding, CanvasConfigPage, CanvasPreviewPage, CanvasResultPage, CanvasTab)
+- 1 new flow doc: `Import Canvas as Notes.md` (10 steps, quick-run and pipeline execution sections)
+- 1 new sitemap entry: `Canvas Action View.md`
+- 3 updated docs: SourcesExportsGrid (Inputs/Outputs layout), DataExchangeHubView (8 tabs + Canvas), Data Exchange Hub sitemap (Canvas tab + flow)
+- Frontend Architecture updated: Canvas domain in layer overview, CanvasActionView in view inventory, Canvas UI components section, Canvas events in EventBus scale, flow table, component doc count
 
 **Acceptance criteria:**
-- [ ] Flow 18 covers end-to-end canvas import pipeline
-- [ ] All created notes have correct frontmatter
-- [ ] Events fire in order: started → progress × N → completed
-- [ ] Legend override tested
-- [ ] Conflict strategies tested
-- [ ] `npm test` passes
-- [ ] `npm run check` clean
+- [x] Flow 18 covers end-to-end canvas import pipeline (20 tests, 7 describe blocks)
+- [x] Events fire in order: started → progress × N → completed (event sequence test)
+- [x] Legend override tested (legend detection test)
+- [x] Conflict strategies tested (skip conflict test)
+- [x] Type exclusion tested
+- [x] Error handling tested (4 error scenarios)
+- [x] Inbox integration tested (success + failure notifications)
+- [x] Component documentation complete (6 new docs)
+- [x] Flow documentation complete (1 new flow doc)
+- [x] Sitemap updated (new Canvas Action View entry)
+- [x] Frontend Architecture updated with Canvas inventory
+- [x] `npm test` passes — 3,548 tests, 141 suites
+- [x] `npm run check` clean — tsc + eslint
 
 ---
 

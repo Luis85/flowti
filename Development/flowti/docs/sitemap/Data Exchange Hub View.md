@@ -18,7 +18,7 @@ parent: "[[User Hub View]]"
 
 ## Description
 
-The Data Exchange Hub is the central management view for all import and export operations. It provides a master-detail layout across 7 tabs: **Dashboard**, **Imports**, **Exports**, **Reports**, **Properties**, **Pipelines**, and **Types**.
+The Data Exchange Hub is the central management view for all import and export operations. It provides a master-detail layout across 8 tabs: **Dashboard**, **Imports**, **Exports**, **Reports**, **Properties**, **Pipelines**, **Types**, and **Canvas**.
 
 The hub acts as the operational control center for data flowing in and out of the vault. It tracks saved configurations, provides a data dictionary for documenting frontmatter properties, manages multi-step import pipelines, and catalogs CSV reports and type documentation.
 
@@ -42,8 +42,11 @@ The Pipelines tab manages multi-import pipelines that chain several import confi
 ### Document data types
 The Types tab provides a registry for documenting the various data types (note types, record schemas) used across import and export configurations.
 
+### Manage canvas import configurations
+The Canvas tab lists all saved canvas import configurations. Select one to review its settings (canvas file, target folder, color/shape mappings, hierarchy mode, type exclusion). Edit, delete, or run an import directly from the detail panel. Live progress indicators show active imports with real-time event updates.
+
 ### Dashboard overview
-The Dashboard tab shows aggregate counts for imports, exports, pipelines, and vault CSV files. Quick-action buttons let you start a new import, export, or open a CSV file directly.
+The Dashboard tab shows aggregate counts for imports, exports, pipelines, canvas configs, and vault CSV files. Quick-action buttons let you start a new import, export, or open a CSV file directly.
 
 ## Related Flows
 
@@ -53,6 +56,7 @@ These flow docs describe end-to-end user journeys that pass through this view:
 - [[Export Vault Data]] — Saved export configs are managed in the Exports tab; export wizard launches from context menus or this hub
 - [[Build Import Pipeline]] — The Pipelines tab manages multi-step import pipelines that chain saved configs into sequential runs
 - [[Manage Data Dictionary]] — The Properties tab provides a data dictionary for frontmatter properties discovered across the vault
+- [[Import Canvas as Notes]] — The Canvas tab manages saved canvas import configs; import execution launches from here or the Canvas Action View
 
 ## Related Decisions
 

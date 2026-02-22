@@ -14,7 +14,7 @@ tags:
 
 ## Description
 
-DataExchangeHubView is the orchestrator for the Data Exchange Hub, a central management view for all import and export operations. It extends Obsidian's `ItemView` and provides a tabbed interface with a dashboard landing page and 6 sub-tabs: Imports, Exports, Reports, Properties, Pipelines, and Types. Each sub-tab uses a master-detail split layout.
+DataExchangeHubView is the orchestrator for the Data Exchange Hub, a central management view for all import and export operations. It extends `BaseHubView<DXTab>` and provides a tabbed interface with a dashboard landing page and 7 sub-tabs: Imports, Exports, Reports, Properties, Pipelines, Types, and Canvas. Each sub-tab uses a master-detail split layout.
 
 The view is registered under the type `flowti-data-exchange-hub` and displays as "Data Exchange Hub" with the `arrow-left-right` icon. It owns all scanning logic for configs, CSV files, property docs, type docs, and report docs, passing this data to child components via `HubComponentDeps`.
 
@@ -34,13 +34,15 @@ The view is registered under the type `flowti-data-exchange-hub` and displays as
 | `PropertiesTab` | class | Renders the data dictionary properties master-detail tab |
 | `PipelinesTab` | class | Renders the multi-import pipelines master-detail tab |
 | `TypesTab` | class | Renders the note type docs master-detail tab |
+| `CanvasTab` | class | Renders the canvas import configs master-detail tab |
+| `CanvasService` | class | Canvas config CRUD and import orchestration |
 | `buildSplitLayout` | function | Creates the shared dashboard + master/detail DOM skeleton |
 
 ## State
 
 The view manages state for all hub sub-tabs:
 
-- **`currentPage`**: Active tab (`"dashboard" | "imports" | "exports" | "reports" | "properties" | "pipelines" | "types"`)
+- **`currentPage`**: Active tab (`"dashboard" | "imports" | "exports" | "reports" | "properties" | "pipelines" | "types" | "canvas"`)
 - **`importConfigs`**: Array of `SavedImportConfig` from DataExchangeService
 - **`exportConfigs`**: Array of `SavedExportConfig` from DataExchangeService
 - **`pipelineConfigs`**: Array of `SavedMultiImportPipeline` from DataExchangeService
@@ -77,5 +79,5 @@ State is exposed to child components via `getState()` / `setState()` on `HubComp
 
 ## Related
 
-- Children: [[HubDashboard]], [[ImportsTab]], [[ExportsTab]], [[ReportsTab]], [[PropertiesTab]], [[PipelinesTab]], [[TypesTab]], [[DashboardImports]], [[DashboardExports]], [[DashboardPipelines]], [[DashboardImportExecutor]]
-- Opens: [[CsvActionView]], [[ExportView]]
+- Children: [[HubDashboard]], [[ImportsTab]], [[ExportsTab]], [[ReportsTab]], [[PropertiesTab]], [[PipelinesTab]], [[TypesTab]], [[CanvasTab]], [[DashboardImports]], [[DashboardExports]], [[DashboardPipelines]], [[DashboardImportExecutor]]
+- Opens: [[CsvActionView]], [[ExportView]], [[CanvasActionView]]
