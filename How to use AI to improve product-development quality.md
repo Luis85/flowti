@@ -27,6 +27,8 @@ stage: refinement
 
 ## Assumptions
 
+[[Sketchpad.canvas]]
+
 - As LLMs are language processors, generating natural language based on given content as input, in well documented content templates like the user-story or use-case format, generates well enough code for sustainable development, behaving like a compiler between humans and not so predictable machine-code, mimicking the real-world problem of explaining requirements and understanding requirements.
 - Using real-world outside signals for the feedback-loop provides enough fresh data for each simulation step to not let quality degrade over time and preventing Agents eating too much of their own content.
 
@@ -55,6 +57,21 @@ To quickly gather feedback, each generated Plugin Increment gets validated in a 
 To further open up the input channels, publishing of the produced plugin is planned to use GitHub as first main touchpoint for feedback ingestion and further simulating interactions and processes within the lifecycle.
 
 A desired outcome will be a fully documented, open-source product, serving as proof-of-concept and test-platform for further, community-driven, and agile improvements.
+
+## Test-Environment
+
+- Obsidian for Content Consumption and Creation
+- Flowti IBDE Plugin as Dog-Food
+- Public Obsidian Vault for Documentation
+- Private Obsidian Vault for Documentation and Input
+- GitHub Public Git Repository for external Contributions and Touchpoint
+- Microsoft VS Code for Agent Orchestration
+- Claude Code Mobile for external Contributor Simulation
+- ChatGPT as Product Owner Assistent
+
+- The Plugins Inbox gets filled from Refinement of public and private Vault
+- The Product Team owns the Public GitHub Repository
+- The Product Development Team owns the Plugins `src` folder
 
 ## Simulated Entities
 
