@@ -1,10 +1,10 @@
 ---
 type: DevelopmentCycle
 feature: "[[Train Improvements PRD]]"
-stage: ready
+stage: delivered
 cycle: 17
 date_planned: 2026-02-22
-date_completed:
+date_completed: 2026-02-22
 pbis:
   - "[[PBI-TOT-004 Branch Merge]]"
   - "[[PBI-TOT-005 Train Canvas Generation and Sync]]"
@@ -12,11 +12,11 @@ bugs: []
 bugs_fixed_precycle: []
 tech_debt: []
 estimated_increments: 6
-actual_increments:
+actual_increments: 6
 estimated_tests: 165
-actual_tests:
-total_tests_after:
-total_test_files_after:
+actual_tests: 144
+total_tests_after: 3744
+total_test_files_after: 153
 ---
 
 # Cycle 17: Train Canvas & Branch Merge
@@ -324,12 +324,17 @@ total_test_files_after:
 **Architecture seams:** Flow tests follow established pattern (tests/flows/). Mock FileSystem for canvas write verification. Event sequence assertions via EventBus spy.
 
 **Acceptance criteria:**
-- [ ] Flow 19 covers full merge + canvas lifecycle (start → capture → branch → merge → canvas verify → undo)
-- [ ] Canvas node count equals train thought count
-- [ ] Canvas edge count equals train relation count
-- [ ] User-added canvas elements survive sync cycle
-- [ ] All 4 new events registered in Event Catalog
-- [ ] `npm test` passes with all new tests
+- [x] Flow 19 covers full merge + canvas lifecycle (start → capture → branch → merge → canvas verify → undo)
+- [x] Canvas node count equals train thought count
+- [x] Canvas edge count equals train relation count
+- [x] User-added canvas elements survive sync cycle
+- [x] All 4 new events registered in Event Catalog
+- [x] `npm test` passes with all new tests
+
+**Delivered:**
+- `tests/flows/19-TrainMergeAndCanvas.test.ts` (18 tests): merge lifecycle (7), canvas parity (4), user element preservation (2), canvas sync service integration (2), event sequencing (2), cleanup (1)
+- All 4 new train events already in catalog from Inc 1-3
+- 3,744 tests, 153 suites, 32 skipped — all green
 
 ---
 
