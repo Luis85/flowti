@@ -529,6 +529,8 @@ const CATALOG_DATA = {
 	"train.thought.activated": { category: "Train", description: "A thought was navigated to in a view", direction: "View → Plugin", domain: "train", services: "TrainMainView" },
 	"train.branch.merged":     { category: "Train", description: "A branch was merged into a target thought", direction: "Service → Listeners", domain: "train", services: "TrainService" },
 	"train.branch.merge.undone": { category: "Train", description: "A branch merge was undone", direction: "Service → Listeners", domain: "train", services: "TrainService" },
+	"train.canvas.created":    { category: "Train", description: "A train canvas was created for the first time", direction: "Service → Listeners", domain: "train", services: "TrainCanvasSyncService" },
+	"train.canvas.synced":     { category: "Train", description: "A train canvas was synced from graph state", direction: "Service → Listeners", domain: "train", services: "TrainCanvasSyncService" },
 
 	// ── Canvas ───────────────────────────────────────────────────
 	"canvas.import.started":   { category: "Canvas", description: "A canvas import operation started", direction: "Service → Listeners", domain: "canvas", services: "CanvasService" },

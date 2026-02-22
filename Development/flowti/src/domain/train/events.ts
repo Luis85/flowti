@@ -23,4 +23,8 @@ export interface TrainEventMap {
 	"train.branch.merged": { trainId: string; sourceId: string; targetId: string };
 	/** Emitted when a branch merge is undone. */
 	"train.branch.merge.undone": { trainId: string; sourceId: string; targetId: string };
+	/** Emitted when a train canvas file is created for the first time. */
+	"train.canvas.created": { trainId: string; canvasPath: string };
+	/** Emitted when a train canvas is synced (regenerated from graph state). */
+	"train.canvas.synced": { trainId: string; canvasPath: string; nodeCount: number };
 }

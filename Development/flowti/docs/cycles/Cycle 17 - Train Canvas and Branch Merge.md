@@ -164,16 +164,24 @@ total_test_files_after:
 **Architecture seams:** Pure functions for canvas data generation (no I/O — testable without mocks). Separate I/O function for file operations. CanvasData type from Obsidian's canvas format. Layout constants: `NODE_WIDTH=250`, `NODE_HEIGHT=60`, `SPACING_Y=120`, `BRANCH_LANE_WIDTH=300`.
 
 **Acceptance criteria:**
-- [ ] `generateTrainCanvasData(train)` returns valid CanvasData with nodes and edges
-- [ ] Node IDs use `ft-t-{thoughtId}` deterministic pattern
-- [ ] Edge IDs use `ft-e-{fromId}-{toId}` deterministic pattern
-- [ ] Layout: top-to-bottom, branches offset right by lane width
-- [ ] Current head node colored green (color 5)
-- [ ] Branch origin nodes colored orange (color 2)
-- [ ] Merge target nodes colored blue (color 4)
-- [ ] Merge edges labeled "merge"
-- [ ] `writeTrainCanvas()` preserves non-ft-* elements in existing canvas
-- [ ] `npm test` passes
+- [x] `generateTrainCanvasData(train)` returns valid CanvasData with nodes and edges
+- [x] Node IDs use `ft-t-{thoughtId}` deterministic pattern
+- [x] Edge IDs use `ft-e-{fromId}-{toId}` deterministic pattern
+- [x] Layout: top-to-bottom, branches offset right by lane width
+- [x] Current head node colored green (color 5)
+- [x] Branch origin nodes colored orange (color 2)
+- [x] Merge target nodes colored blue (color 4)
+- [x] Merge edges labeled "merge"
+- [x] `writeTrainCanvas()` preserves non-ft-* elements in existing canvas
+- [x] `npm test` passes
+
+**Delivery notes (Inc 2):**
+- 36 new tests (est. ~35) across 6 groups: ID gen, layout, node roles, canvas gen, layer merge, I/O, full pipeline
+- TrainCanvasWriter.ts: ~210 LOC (est. ~280) — pure functions + I/O cleanly separated
+- Node role priority: head > merge-target > branch-origin > normal (discovered during testing)
+- Exports all pure functions for testability: `computeLayout()`, `computeNodeRoles()`, `generateTrainCanvasData()`, `mergeCanvasLayers()`
+- 2 canvas events registered in catalog (`train.canvas.created`, `train.canvas.synced`)
+- 3,679 tests passing, 149 suites, tsc + eslint clean
 
 ---
 
@@ -335,15 +343,15 @@ Phase D: Inc 6 (depends on all)
 
 | Metric | Target | Actual | Status |
 |--------|--------|--------|--------|
-| New tests | ~165 | 43 | In progress |
+| New tests | ~165 | 79 | In progress |
 | Merge domain tests | ~40 | 43 | Done |
-| Canvas writer tests | ~35 | | |
+| Canvas writer tests | ~35 | 36 | Done |
 | Canvas sync tests | ~25 | | |
 | Merge UI tests | ~20 | | |
 | Canvas workflow tests | ~15 | | |
 | Flow integration tests | ~30 | | |
-| New events | 4 | 2 | In progress |
-| Source LOC | ~1,100 | ~115 | In progress |
+| New events | 4 | 4 | Done |
+| Source LOC | ~1,100 | ~325 | In progress |
 
 ---
 
