@@ -779,17 +779,39 @@ export default class FlowtiBasePlugin extends Plugin {
 			}),
 		);
 
-		// Toggle Train Timeline Sidebar (show/hide)
+		// Toggle Train Timeline Sidebar — 3-state: open, reveal, or collapse
 		this.crossCuttingListeners.push(
 			this.eventBus.on("ui.toggleTrainTimeline", (event) => {
-				const rightSplit = (this.app.workspace as unknown as { rightSplit?: { collapsed?: boolean; expand?: () => void; collapse?: () => void } }).rightSplit;
+				const rightSplit = (this.app.workspace as unknown as {
+					rightSplit?: { collapsed?: boolean; expand?: () => void; collapse?: () => void };
+				}).rightSplit;
+				const existingLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TRAIN_TIMELINE);
 
-				if (rightSplit && !rightSplit.collapsed) {
-					// Right sidebar is open — collapse it
-					rightSplit.collapse?.();
+				// Case 1: Sidebar is collapsed → expand and show timeline
+				if (rightSplit?.collapsed) {
+					rightSplit.expand?.();
+					if (existingLeaves.length > 0) {
+						void this.app.workspace.revealLeaf(existingLeaves[0]);
+					} else {
+						this.revealOrCreateTrainTimeline(event.payload.trainId);
+					}
+					return;
+				}
+
+				// Sidebar is open
+				if (existingLeaves.length > 0) {
+					// Timeline leaf exists — check if it's the active tab
+					const timelineLeaf = existingLeaves[0];
+					const isActive = (timelineLeaf as unknown as { containerEl: HTMLElement }).containerEl.hasClass("mod-active");
+					if (isActive) {
+						// Case 2: Timeline is active tab → collapse sidebar
+						rightSplit?.collapse?.();
+					} else {
+						// Case 3: Different tab is active → reveal timeline
+						void this.app.workspace.revealLeaf(timelineLeaf);
+					}
 				} else {
-					// Right sidebar is collapsed — expand and ensure timeline is present
-					rightSplit?.expand?.();
+					// No timeline leaf exists → create it
 					this.revealOrCreateTrainTimeline(event.payload.trainId);
 				}
 			}),
@@ -1054,6 +1076,14 @@ export default class FlowtiBasePlugin extends Plugin {
 			}
 		}
 
+		// Detect branch endpoint for merge-down option
+		let isBranchEndpoint = false;
+		let mergeDownTargetId: string | null = null;
+		if (fromThoughtId && train) {
+			mergeDownTargetId = this.trainService.findMergeDownTarget(trainId, fromThoughtId);
+			isBranchEndpoint = mergeDownTargetId !== null;
+		}
+
 		new TrainCaptureModal(this.app, {
 			trainTitle,
 			previousThoughtTitle,
@@ -1065,6 +1095,19 @@ export default class FlowtiBasePlugin extends Plugin {
 			onBack,
 			onNext,
 			onUp,
+			isBranchEndpoint,
+			onMergeDown: isBranchEndpoint ? (title) => {
+				// Add thought with direction "next" then auto-merge the source into the main chain target
+				void this.trainService!.addThought(trainId, title, { direction: "next", fromThoughtId }).then((newThought) => {
+					// Merge the source thought (fromThoughtId) into the main chain target
+					void this.trainService!.mergeBranch(trainId, fromThoughtId!, mergeDownTargetId!);
+					// Continue capture loop from the new thought
+					this.openTrainModal(trainId, trainTitle, {
+						previousTitle: title,
+						thoughtCount: thoughtCount + 1,
+					}, newThought?.id);
+				});
+			} : undefined,
 			onSubmit: (title, direction) => {
 				// Await addThought so the next modal chains from the correct thought
 				void this.trainService!.addThought(trainId, title, { direction, fromThoughtId }).then((newThought) => {

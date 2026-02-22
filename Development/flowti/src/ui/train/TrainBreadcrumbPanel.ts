@@ -18,15 +18,27 @@ export class TrainBreadcrumbPanel {
 
 		if (!activeThought) return;
 
+		this.el.createEl("h4", { cls: "ft-heading-sm ft-text-muted", text: "Path" });
 		const breadcrumb = this.el.createDiv({ cls: "ft-train-breadcrumb" });
 		const path = this.buildPathToRoot(train, activeThought);
 
 		for (let i = 0; i < path.length; i++) {
 			const thought = path[i];
+			const isFirst = i === 0;
 			const isLast = i === path.length - 1;
 
-			const segment = breadcrumb.createSpan({
-				cls: isLast ? "ft-train-breadcrumb-segment ft-train-breadcrumb-active" : "ft-train-breadcrumb-segment",
+			const row = breadcrumb.createDiv({
+				cls: isLast
+					? "ft-train-breadcrumb-row ft-train-breadcrumb-active"
+					: "ft-train-breadcrumb-row",
+			});
+
+			// Step number or start indicator
+			const marker = row.createSpan({ cls: "ft-train-breadcrumb-marker ft-text-muted" });
+			marker.setText(isFirst ? "Start" : `${i + 1}`);
+
+			const segment = row.createSpan({
+				cls: "ft-train-breadcrumb-segment",
 				text: thought.title,
 			});
 
@@ -37,7 +49,6 @@ export class TrainBreadcrumbPanel {
 						thoughtId: thought.id,
 					});
 				});
-				breadcrumb.createSpan({ cls: "ft-train-breadcrumb-sep", text: " › " });
 			}
 		}
 	}

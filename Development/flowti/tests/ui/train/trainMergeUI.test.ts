@@ -152,6 +152,7 @@ function createMergedTrainService(trainData: TrainState): TrainService {
 			}
 			return ids;
 		}),
+		findMergeDownTarget: vi.fn(() => null),
 	} as unknown as TrainService;
 }
 
@@ -240,9 +241,13 @@ describe("TrainTimelineSidebar — merge indicators", () => {
 // ── TrainMainView merge section ─────────────────────────
 
 describe("TrainMainView — merge section", () => {
-	it("shows 'Merge into...' button on branch endpoint thought", async () => {
+	it("shows merge-down button on branch endpoint with valid target", async () => {
 		const { train } = buildUnmergedTrain();
 		const service = createMergedTrainService(train);
+		// Mock findMergeDownTarget to return "b" when source is "d"
+		(service.findMergeDownTarget as ReturnType<typeof vi.fn>).mockImplementation(
+			(_trainId: string, sourceId: string) => sourceId === "d" ? "b" : null,
+		);
 		const eventBus = new EventBus();
 
 		const view = new TrainMainView(createMockLeaf(), eventBus, service);
@@ -255,12 +260,13 @@ describe("TrainMainView — merge section", () => {
 			(btns[1] as HTMLButtonElement).click();
 		}
 
-		const mergeBtn = view.contentEl.querySelector(".ft-train-merge-btn");
-		expect(mergeBtn).not.toBeNull();
-		expect(mergeBtn?.textContent).toContain("Merge into...");
+		const mergeDownBtn = view.contentEl.querySelector(".ft-train-merge-down-btn");
+		expect(mergeDownBtn).not.toBeNull();
+		expect(mergeDownBtn?.textContent).toContain("Merge down");
+		expect(mergeDownBtn?.textContent).toContain("Second"); // target title
 	});
 
-	it("does not show 'Merge into...' on root thought", async () => {
+	it("does not show merge-down on root thought", async () => {
 		const { train } = buildUnmergedTrain();
 		const service = createMergedTrainService(train);
 		const eventBus = new EventBus();
@@ -268,12 +274,12 @@ describe("TrainMainView — merge section", () => {
 		const view = new TrainMainView(createMockLeaf(), eventBus, service);
 		await view.onOpen();
 
-		// First thought (root) should be active by default
-		const mergeBtn = view.contentEl.querySelector(".ft-train-merge-btn");
-		expect(mergeBtn).toBeNull();
+		// First thought (root) should be active by default — root is on main chain
+		const mergeDownBtn = view.contentEl.querySelector(".ft-train-merge-down-btn");
+		expect(mergeDownBtn).toBeNull();
 	});
 
-	it("does not show 'Merge into...' on main chain endpoint (head)", async () => {
+	it("does not show merge-down on main chain endpoint (head)", async () => {
 		// b is the head of the main chain — protected, no merge button
 		const { train } = buildUnmergedTrain();
 		const service = createMergedTrainService(train);
@@ -286,9 +292,9 @@ describe("TrainMainView — merge section", () => {
 		const navBtns = view.contentEl.querySelectorAll(".ft-train-nav-btn");
 		(navBtns[1] as HTMLButtonElement).click(); // a → b
 
-		// b is on the main chain → merge button hidden (main chain protection)
-		const mergeBtn = view.contentEl.querySelector(".ft-train-merge-btn");
-		expect(mergeBtn).toBeNull();
+		// b is on the main chain → no merge-down button
+		const mergeDownBtn = view.contentEl.querySelector(".ft-train-merge-down-btn");
+		expect(mergeDownBtn).toBeNull();
 	});
 
 	it("shows existing merges with undo button", async () => {
@@ -535,7 +541,7 @@ describe("TrainMergeSelector", () => {
 // ── Main Chain Merge Protection in UI (Cycle 19 Inc 2) ───
 
 describe("TrainMainView — main chain merge protection", () => {
-	it("hides merge button when navigating to a main chain node", async () => {
+	it("hides merge-down button when navigating to a main chain node", async () => {
 		// Build: A→B→C (main chain), A→D (branch)
 		const a = createThought({ id: "a", title: "Root", order: 0 });
 		const b = createThought({ id: "b", title: "Middle", order: 1 });
@@ -563,14 +569,18 @@ describe("TrainMainView — main chain merge protection", () => {
 			(btns[1] as HTMLButtonElement).click();
 		}
 
-		// C is on main chain (head) — no merge button
-		const mergeBtn = view.contentEl.querySelector(".ft-train-merge-btn");
-		expect(mergeBtn).toBeNull();
+		// C is on main chain (head) — no merge-down button
+		const mergeDownBtn = view.contentEl.querySelector(".ft-train-merge-down-btn");
+		expect(mergeDownBtn).toBeNull();
 	});
 
-	it("shows merge button on branch endpoint thought", async () => {
+	it("shows merge-down button on branch endpoint thought", async () => {
 		const { train } = buildUnmergedTrain();
 		const service = createMergedTrainService(train);
+		// Mock findMergeDownTarget to return "b" when source is "d"
+		(service.findMergeDownTarget as ReturnType<typeof vi.fn>).mockImplementation(
+			(_trainId: string, sourceId: string) => sourceId === "d" ? "b" : null,
+		);
 		const eventBus = new EventBus();
 
 		const view = new TrainMainView(createMockLeaf(), eventBus, service);
@@ -582,8 +592,8 @@ describe("TrainMainView — main chain merge protection", () => {
 			(btns[1] as HTMLButtonElement).click();
 		}
 
-		const mergeBtn = view.contentEl.querySelector(".ft-train-merge-btn");
-		expect(mergeBtn).not.toBeNull();
+		const mergeDownBtn = view.contentEl.querySelector(".ft-train-merge-down-btn");
+		expect(mergeDownBtn).not.toBeNull();
 	});
 
 	it("getMainChainIds mock returns correct IDs for buildUnmergedTrain", () => {

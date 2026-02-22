@@ -44,6 +44,10 @@ export interface TrainCaptureModalOptions {
 	subscribeTimerTick?: (cb: (remainingMs: number) => void) => () => void;
 	/** Subscribe to session.timer.completed — returns unsubscribe fn. */
 	subscribeTimerCompleted?: (cb: () => void) => () => void;
+	/** True when the source thought is a branch endpoint eligible for merge-down. */
+	isBranchEndpoint?: boolean;
+	/** Called when user selects "Merge down" direction. Creates thought + auto-merges to main chain. */
+	onMergeDown?: (title: string) => void;
 }
 
 type NavAction = "back" | "next" | "up";
@@ -63,30 +67,9 @@ export class TrainCaptureModal extends Modal {
 
 	onOpen(): void {
 		const { contentEl } = this;
-		contentEl.createEl("h3", { text: `Train: ${this.options.trainTitle}` });
-
-		// Context banner (hidden for first thought)
-		if (this.options.previousThoughtTitle) {
-			const bannerEl = contentEl.createDiv({ cls: "ft-train-context" });
-			if (this.options.onBack) {
-				const link = bannerEl.createEl("a", {
-					text: `Previous: ${this.options.previousThoughtTitle}`,
-					cls: "ft-train-context-link",
-				});
-				link.addEventListener("click", (e) => {
-					e.preventDefault();
-					this.navAction = "back";
-					this.close();
-				});
-			} else {
-				bannerEl.createSpan({ text: `Previous: ${this.options.previousThoughtTitle}` });
-			}
-		}
-
-		// Thought counter
-		contentEl.createDiv({
-			cls: "ft-train-counter",
-			text: `Thought #${this.options.thoughtCount + 1}`,
+		// Title: show previous thought title (or train title for the first thought)
+		contentEl.createEl("h3", {
+			text: this.options.previousThoughtTitle ?? this.options.trainTitle,
 		});
 
 		// Timer display (only when timeboxed)
@@ -107,34 +90,50 @@ export class TrainCaptureModal extends Modal {
 		}
 
 		let titleValue = "";
-		let selectedDirection: ThoughtDirection = this.options.defaultDirection ?? "next";
+		let selectedDirection: string = this.options.defaultDirection ?? "next";
 		let dropdownEl: HTMLSelectElement | null = null;
 		const hasDirection = !!this.options.previousThoughtTitle;
+		const hasMergeDown = !!this.options.isBranchEndpoint && !!this.options.onMergeDown;
+		let mergeDownPending = false;
+
+		// Build the list of available directions for Tab cycling
+		const directionOptions: string[] = ["next", "branch"];
+		if (hasMergeDown) directionOptions.push("merge-down");
 
 		const submit = (): void => {
 			const trimmed = titleValue.trim();
-			if (trimmed) {
+			if (!trimmed) return;
+
+			if (mergeDownPending || selectedDirection === "merge-down") {
+				// Merge-down: intercepted before onSubmit — creates thought + auto-merges
 				this.submitted = true;
-				this.options.onSubmit(trimmed, selectedDirection);
+				this.options.onMergeDown!(trimmed);
+				this.close();
+			} else {
+				this.submitted = true;
+				this.options.onSubmit(trimmed, selectedDirection as ThoughtDirection);
 				this.close();
 			}
 		};
 
-		const toggleDirection = (): void => {
+		const cycleDirection = (): void => {
 			if (!hasDirection || !dropdownEl) return;
-			selectedDirection = selectedDirection === "next" ? "branch" : "next";
+			const currentIdx = directionOptions.indexOf(selectedDirection);
+			const nextIdx = (currentIdx + 1) % directionOptions.length;
+			selectedDirection = directionOptions[nextIdx];
+			mergeDownPending = selectedDirection === "merge-down";
 			dropdownEl.value = selectedDirection;
 			dropdownEl.dispatchEvent(new Event("change"));
 		};
 
-		// Modal-level keyboard handler: Esc to cancel, Tab to toggle direction
+		// Modal-level keyboard handler: Esc to cancel, Tab to cycle direction
 		contentEl.addEventListener("keydown", (e: KeyboardEvent) => {
 			if (e.key === "Escape") {
 				e.preventDefault();
 				this.close();
 			} else if (e.key === "Tab" && hasDirection) {
 				e.preventDefault();
-				toggleDirection();
+				cycleDirection();
 			}
 		});
 
@@ -155,24 +154,6 @@ export class TrainCaptureModal extends Modal {
 				// Auto-focus with slight delay for modal rendering
 				setTimeout(() => text.inputEl.focus(), 50);
 			});
-
-		// Direction selector (hidden for first thought — no previous to branch from)
-		if (hasDirection) {
-			new Setting(contentEl)
-				.setName("Direction")
-				.setDesc("(Tab to switch)")
-				.addDropdown((dd) => {
-					dd.addOption("next", "Continue chain \u2192");
-					dd.addOption("branch", "Branch \u2197");
-					dd.setValue(selectedDirection);
-					dd.onChange((value) => { selectedDirection = value as ThoughtDirection; });
-					dropdownEl = dd.selectEl;
-				});
-			// Add visible keyboard hint near the dropdown
-			const hint = contentEl.createDiv({ cls: "ft-train-keyboard-hint", text: "(Tab to switch)" });
-			hint.style.fontSize = "0.85em";
-			hint.style.opacity = "0.7";
-		}
 
 		// Navigation buttons — mirrors the thought's link directions
 		const hasNav = this.options.onBack || this.options.onNext || this.options.onUp;
@@ -204,8 +185,27 @@ export class TrainCaptureModal extends Modal {
 			}
 		}
 
-		// Action buttons
-		new Setting(contentEl)
+		// Action row: direction dropdown (left) + buttons (right) + thought count
+		const actionSetting = new Setting(contentEl);
+
+		// Direction dropdown in the left name area (hidden for first thought)
+		if (hasDirection) {
+			actionSetting.addDropdown((dd) => {
+				dd.addOption("next", "Continue chain \u2192");
+				dd.addOption("branch", "Branch \u2197");
+				if (hasMergeDown) {
+					dd.addOption("merge-down", "Merge down \u2193");
+				}
+				dd.setValue(selectedDirection);
+				dd.onChange((value) => {
+					selectedDirection = value;
+					mergeDownPending = value === "merge-down";
+				});
+				dropdownEl = dd.selectEl;
+			});
+		}
+
+		actionSetting
 			.addButton((btn) =>
 				btn.setButtonText("Pause").onClick(() => this.close())
 			)
@@ -221,6 +221,18 @@ export class TrainCaptureModal extends Modal {
 					.setCta()
 					.onClick(() => submit())
 			);
+
+		// Keyboard hint below action row (only when direction is available)
+		if (hasDirection) {
+			const hint = actionSetting.controlEl.createSpan({ cls: "ft-text-sm ft-text-muted" });
+			hint.style.marginLeft = "0.5rem";
+			hint.setText("Tab to cycle");
+		}
+
+		// Thought count
+		const countEl = actionSetting.controlEl.createSpan({ cls: "ft-text-sm ft-text-muted" });
+		countEl.style.marginLeft = "0.5rem";
+		countEl.setText(`#${this.options.thoughtCount + 1}`);
 	}
 
 	onClose(): void {

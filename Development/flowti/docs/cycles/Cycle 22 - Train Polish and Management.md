@@ -448,8 +448,20 @@ Inc 5 (Canvas Error/Path) ──→ Inc 6 (Integration)
 - [x] `npm test` passes — 3,936 tests, 160 suites, 32 skipped
 - [x] `npm run check` passes (tsc + eslint clean)
 - [x] No test regressions on existing 3,896 tests (+40 new)
+- [x] Test count deviation documented — see §Deviations from Plan
 
-### 3. Feature Completeness
+### 3. Three Amigos Review
+- [x] Cycle-level review conducted — see [[Three Amigos Review 2026-02-22 Train Polish and Merge Down]]
+- [x] All three perspectives represented
+- [x] TASM scores recorded (33/35)
+- [x] Observations documented
+
+### 4. PRD & Backlog Updates
+- [x] PRD updated — [[Train Improvements PRD]] v2 (FRI 25→28, stage history added)
+- [x] PBI updated — [[PBI-TOT-008 Train Polish and Management]] (stage: done)
+- [x] Event model current — `train.renamed`, `train.deleted` registered in catalog
+
+### 5. Feature Completeness
 - [x] trainMaxThoughts setting controls max thoughts (critical bug fixed)
 - [x] Active thought dot has visible glow ring in sidebar
 - [x] Train rename: pencil icon in header + history cards, `renameTrain()` API
@@ -457,14 +469,78 @@ Inc 5 (Canvas Error/Path) ──→ Inc 6 (Integration)
 - [x] Canvas catch blocks log warnings; `getCanvasPath()` shared helper
 - [x] Integration test covers management lifecycle (Flow 21, 13 tests)
 
-### 4. Documentation
+### 6. Documentation
 - [x] Cycle plan updated with actual values
 - [x] Success metrics verified
 - [x] `train.renamed` and `train.deleted` events registered in catalog
+- [x] Tech debt register updated (TD-122 addressed for train domain)
+
+### 7. Cycle Plan Completion
+- [x] Frontmatter updated (actual_increments, actual_tests, total_tests_after)
+- [x] Success metrics verified with actual values
+- [x] Deviations documented
+- [x] Risks reviewed
+
+### 8. Cycle Retrospective
+- [x] "What Went Well" section completed
+- [x] "Deviations from Plan" section completed
+- [x] "Improvement Backlog" section completed
+- [x] "Learnings" section completed
+
+---
+
+## Retrospective
+
+### What Went Well
+- **All 6 increments delivered in a single session** — parallel execution of independent fixes (Inc 1+2+5) followed by rename+delete was efficient
+- **Critical bug fix (trainMaxThoughts)** resolved a longstanding user-facing issue in 3 LOC change + 5 tests
+- **`getCanvasPath()` extraction** eliminated 3 duplicated derivations — clean shared helper
+- **Flow 21 integration tests** catch management lifecycle regressions end-to-end
+- **Pre-cycle refinement** caught the trainMaxThoughts bug and CSS dot issue before they became urgent
+
+### Deviations from Plan
+- **Test count: 70 estimated → 40 actual (-30)**: Rename and delete tests were simpler than estimated because the service methods are thin (validate + mutate + persist + emit). UI tests for pencil/trash icons were also simpler than planned because the rendering follows the established pattern. The integration test (Flow 21) covered most edge cases, reducing the need for isolated unit tests.
+- **No flow documentation created**: Rename/delete are discoverable actions (pencil icon, trash icon) that don't require a dedicated flow doc. Deferred.
+
+### Improvement Backlog
+| Item | Classification | Target |
+|------|---------------|--------|
+| File rename on train rename (canvas + summary) | Future PBI | Cycle 24+ |
+| Bulk operations (delete all completed) | Future PBI | Future |
+| Undo for delete (soft-delete + TTL) | Future PBI | Future |
+| Train types at creation time | Next cycle input | Cycle 24+ |
+
+### Learnings
+- **Settings integration testing matters**: The trainMaxThoughts bug showed that wiring a setting in the UI is not enough — the service must actually read it. A one-line test would have caught this.
+- **Canvas sync listeners need to mirror state mutations**: When adding state-change events (renamed, deleted), always check if canvas sync needs to listen too. This was caught in Cycle 23 pre-cycle fixes.
+- **Rename modals**: `prompt()` does not work in Electron/Obsidian — always use custom `InputModal`. This was discovered as a pre-cycle fix for Cycle 23.
+
+---
+
+## Inbox & Feedback Loop
+
+### Inbox Items Updated
+| Item | Disposition |
+|------|-------------|
+| trainMaxThoughts setting ignored | **Delivered** in Inc 1 (stage: delivered) |
+| Active thought hard to spot | **Delivered** in Inc 2 (stage: delivered) |
+| No way to rename/delete trains | **Delivered** in Inc 3 + Inc 4 (stage: delivered) |
+| Canvas errors swallowed silently | **Delivered** in Inc 5 (stage: delivered) |
+
+### New Feedback Captured
+- `prompt()` doesn't work in Electron — captured as pre-cycle bug fix for Cycle 23
+- Wikilinks should use file basename, not thought title — captured as pre-cycle bug fix for Cycle 23
+
+### Next Cycle Inputs
+- Merge-down direction (→ Cycle 23)
+- Detail view layout restructure (→ Cycle 23)
+- Canvas sync on state changes (→ Cycle 23 pre-cycle fix)
 
 ---
 
 ## Related
 - PRD: [[Train Improvements PRD]], [[Train of Thoughts PRD]]
+- Review: [[Three Amigos Review 2026-02-22 Train Polish and Merge Down]]
+- PBI: [[PBI-TOT-008 Train Polish and Management]]
 - Prior Cycles: [[Cycle 17 - Train Canvas and Branch Merge]], [[Cycle 18 - Train Canvas Visualization]], [[Cycle 19 - Train Merge Rules and Navigation]], [[Cycle 20 - Train Enhancements]]
 - Tech Debt: [[TD-122 Systemic empty catch blocks across codebase]] (addressed for train domain in Inc 5)

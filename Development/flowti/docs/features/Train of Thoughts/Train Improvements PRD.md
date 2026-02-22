@@ -2,19 +2,19 @@
 domain: Session
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
-stage: in-progress
-maturity: L1
-version: 1
+stage: delivered
+maturity: L2
+version: 2
 created: 2026-02-22
 updated: 2026-02-22
 foundation: "[[Train of Thoughts PRD]]"
 maturity_score_strategy: 4
-maturity_score_scope: 4
-maturity_score_architecture: 3
+maturity_score_scope: 5
+maturity_score_architecture: 4
 maturity_score_event_integration: 4
 maturity_score_data_model: 3
 maturity_score_ui_consistency: 4
-maturity_score_validation_testing: 3
+maturity_score_validation_testing: 4
 business_value: 4
 implementation_cost: 3
 maintenance_cost: 3
@@ -22,7 +22,7 @@ discovery_cost: 2
 design_cost: 3
 test_cost: 3
 priority: 3
-fri_score: 25
+fri_score: 28
 tags:
   - session
   - train-of-thought
@@ -30,6 +30,8 @@ tags:
   - merge
 planned_in:
   - "[[Cycle 17 - Train Canvas and Branch Merge]]"
+  - "[[Cycle 22 - Train Polish and Management]]"
+  - "[[Cycle 23 - Merge Down and Detail Restructure]]"
 ---
 
 # Feature PRD: Train of Thoughts — Branch Merge & Canvas Journey
@@ -202,6 +204,31 @@ Canvas nodes must be visually distinct by role.
 - Branch: labeled "branch"
 - Merge: labeled "merge", different color
 
+### FR-08: Train Rename
+The system must allow renaming a train. Rename updates the train title, renames the folder, updates all thought note paths, and syncs the canvas.
+
+**Delivered:** Cycle 22. Uses `InputModal` (not `prompt()` which fails in Electron).
+
+### FR-09: Train Delete
+The system must allow deleting a train with confirmation. Delete removes the train folder and all thought notes, removes the train from state, and emits `train.deleted`.
+
+**Delivered:** Cycle 22. Confirmation via `InputModal` with "DELETE" confirmation text.
+
+### FR-10: Train Max Thoughts Enforcement
+The system must enforce the `trainMaxThoughts` setting. When the limit is reached, the capture modal auto-completes the train instead of allowing more thoughts.
+
+**Delivered:** Cycle 22. Pre-existing setting was not enforced; now checked in `openTrainModal()`.
+
+### FR-11: Merge Down Auto-Target
+The system must provide `findMergeDownTarget(trainId, sourceId)` that determines the best merge target for a branch endpoint. The algorithm walks backward from source to find the branch origin (first main-chain ancestor), then returns the next main-chain node after origin.
+
+**Delivered:** Cycle 23. Pure graph traversal with 11 unit tests + 11 integration tests.
+
+### FR-12: Detail View Layout Restructure
+The detail view must prioritize actionable controls at the top. New order: Header → Nav bar + Controls → Stats → Thought detail → Canvas callout → Content preview → Branches → Merge → Breadcrumb (last).
+
+**Delivered:** Cycle 23. Includes one-click "Merge down" button with auto-target, canvas callout section, and "Path" heading on breadcrumb.
+
 ---
 
 ## 7. Jobs To Be Done
@@ -248,10 +275,12 @@ trainCanvasAutoOpen:  boolean  (default: false)
 
 ## 9. PBI Summary
 
-| PBI | Title | FRs | Priority |
-|-----|-------|-----|----------|
-| PBI-TOT-004 | Branch Merge | FR-01, FR-02, FR-06 | 1 (must-have) |
-| PBI-TOT-005 | Train Canvas Generation & Sync | FR-03, FR-04, FR-05, FR-07 | 2 (must-have) |
+| PBI | Title | FRs | Priority | Status |
+|-----|-------|-----|----------|--------|
+| PBI-TOT-004 | Branch Merge | FR-01, FR-02, FR-06 | 1 (must-have) | Done (Cycle 17) |
+| PBI-TOT-005 | Train Canvas Generation & Sync | FR-03, FR-04, FR-05, FR-07 | 2 (must-have) | Done (Cycle 17) |
+| PBI-TOT-008 | Train Polish and Management | FR-08, FR-09, FR-10 | 3 (should-have) | Done (Cycle 22) |
+| PBI-TOT-009 | Merge Down Direction | FR-11, FR-12 | 4 (should-have) | Done (Cycle 23) |
 
 ---
 
@@ -277,7 +306,24 @@ trainCanvasAutoOpen:  boolean  (default: false)
 
 ---
 
-## 12. Deferred to v2
+## 12. Stage History
+
+| Version | FRI | Stage | Cycles | Notes |
+|---------|-----|-------|--------|-------|
+| v1 | 25/35 | in-progress | Cycle 17 | Initial delivery: branch merge, canvas generation & sync |
+| v2 | 28/35 | delivered | Cycles 22, 23 | Train polish (rename, delete, maxThoughts) + merge-down auto-target + detail view restructure |
+
+### FRI v1 → v2 Changes
+
+| Dimension | v1 | v2 | Rationale |
+|-----------|----|----|-----------|
+| Scope | 4 | 5 | All 12 FRs delivered across 4 PBIs. Clear deferred items. |
+| Architecture | 3 | 4 | `findMergeDownTarget()` pure graph traversal, `TrainCanvasSyncService` event-driven sync, clean handler extraction |
+| Validation & Testing | 3 | 4 | 3,952 tests total. Train domain tests: merge (11), canvas sync (4), merge-down flow (11), modal (26), main view (15+) |
+
+---
+
+## 13. Deferred to v3
 
 | Item | Rationale |
 |------|-----------|
@@ -287,6 +333,9 @@ trainCanvasAutoOpen:  boolean  (default: false)
 | Canvas elaboration mode (context nodes influence layout) | v1 preserves user elements but doesn't optimize layout around them |
 | Story Maps / Event Maps reuse | Future features will build on the managed/user layer pattern established here |
 | Merge preview ghost edge | Nice-to-have UX polish deferred to avoid scope creep |
+| Merge-down for sub-branches into parent branches | Only main chain targeted in Cycle 23 |
+| Auto-merge all branches on completeTrain() | Changes completion semantics |
+| Train types at creation | Needs type registry + design session |
 
 ---
 
@@ -295,4 +344,5 @@ trainCanvasAutoOpen:  boolean  (default: false)
 - Foundation: [[Train of Thoughts PRD]] (FRI 33/35, done)
 - Canvas: [[Obsidian Canvas Integration PRD]] (FRI 30/35, done)
 - Inbox: [[Train Improvements]], [[I want to configure my Train of Thoughts]], [[How can I combine Sessions and Trains to create a Quality AssuranceWorkflow]]
-- Cycles: [[Cycle 13 - Train of Thoughts]], [[Cycle 14 - Train View Polish]], [[Cycle 15 - Canvas Integration]]
+- Cycles: [[Cycle 13 - Train of Thoughts]], [[Cycle 14 - Train View Polish]], [[Cycle 15 - Canvas Integration]], [[Cycle 22 - Train Polish and Management]], [[Cycle 23 - Merge Down and Detail Restructure]]
+- Reviews: [[Three Amigos Review 2026-02-22 Train Polish and Merge Down]]

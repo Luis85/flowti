@@ -19,9 +19,7 @@ import { VIEW_TYPE_TRAIN_MAIN } from "./types";
 import type { TrainPanelDeps } from "./types";
 import { setupTrainViewSubscriptions } from "./TrainMainViewSubscriptions";
 import { TrainStatsPanel } from "./TrainStatsPanel";
-import { TrainControlsPanel } from "./TrainControlsPanel";
 import { TrainBreadcrumbPanel } from "./TrainBreadcrumbPanel";
-import { TrainMergeSelector } from "./TrainMergeSelector";
 import { TrainHistoryPanel } from "./TrainHistoryPanel";
 import { getCanvasPath } from "../../domain/train/helpers";
 import { InputModal, ConfirmModal } from "../modals";
@@ -52,8 +50,6 @@ export class TrainMainView extends ItemView {
 	private activeThoughtId: string | null = null;
 	private renderTimer: ReturnType<typeof setTimeout> | null = null;
 	private statsPanel!: TrainStatsPanel;
-	private controlsPanel!: TrainControlsPanel;
-	private mergeSelectorOpen = false;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -98,10 +94,6 @@ export class TrainMainView extends ItemView {
 		this.render();
 		this.unsubscribes = setupTrainViewSubscriptions(this.buildContext(), this.eventBus);
 
-		// Keyboard navigation: Arrow Up/Down for thought traversal, Enter to open note
-		this.contentEl.tabIndex = 0;
-		this.contentEl.addEventListener("keydown", (e) => this.handleKeydown(e));
-
 		// Re-render when a thought note is modified (updates content preview)
 		if (this.app?.vault) {
 			this.registerEvent(
@@ -117,8 +109,12 @@ export class TrainMainView extends ItemView {
 
 	async setState(state: Record<string, unknown>, result: import("obsidian").ViewStateResult): Promise<void> {
 		if (state?.trainId && typeof state.trainId === "string") {
+			const trainChanged = this.trainId !== state.trainId;
 			this.trainId = state.trainId;
-			this.activeThoughtId = null;
+			// Only reset activeThoughtId when switching to a different train
+			if (trainChanged) {
+				this.activeThoughtId = null;
+			}
 			this.render();
 		}
 		await super.setState(state, result);
@@ -164,36 +160,37 @@ export class TrainMainView extends ItemView {
 		const allThoughts = this.getSortedThoughts(train);
 		const activeThought = this.resolveActiveThought(allThoughts);
 
+		// 1. Header
 		this.renderHeader(el, train);
 
-		// Parent train link
+		// 2. Parent train link
 		if (train.parentTrainId) {
 			this.renderParentLink(el, train.parentTrainId);
 		}
 
-		// Stats panel
+		// 3. Nav bar + inline controls (combined row — most actionable element)
+		this.renderNavBar(el, allThoughts, activeThought, train);
+
+		// 4. Stats panel
 		const statsEl = el.createDiv({ cls: "ft-section ft-train-stats-section" });
 		this.statsPanel = new TrainStatsPanel(statsEl, panelDeps);
 		this.statsPanel.render(train);
 
-		// Breadcrumb
-		const breadcrumbEl = el.createDiv({ cls: "ft-section ft-train-breadcrumb-section" });
-		const breadcrumb = new TrainBreadcrumbPanel(breadcrumbEl, panelDeps);
-		breadcrumb.render(train, activeThought);
-
-		this.renderNavBar(el, allThoughts, activeThought);
-
+		// 5–9. Active thought sections
 		if (activeThought) {
 			this.renderThoughtDetail(el, activeThought, train);
+			this.renderCanvasCallout(el, train);
 			this.renderContentPreview(el, activeThought);
 			this.renderBranchLinks(el, activeThought, train);
 			this.renderMergeSection(el, activeThought, train);
+		} else {
+			this.renderCanvasCallout(el, train);
 		}
 
-		// Controls panel
-		const controlsEl = el.createDiv({ cls: "ft-section ft-train-controls-section" });
-		this.controlsPanel = new TrainControlsPanel(controlsEl, panelDeps);
-		this.controlsPanel.render(train);
+		// 10. Breadcrumb (last — grows fast during a session)
+		const breadcrumbEl = el.createDiv({ cls: "ft-section ft-train-breadcrumb-section" });
+		const breadcrumb = new TrainBreadcrumbPanel(breadcrumbEl, panelDeps);
+		breadcrumb.render(train, activeThought);
 	}
 
 	private renderEmptyState(el: HTMLElement): void {
@@ -268,23 +265,6 @@ export class TrainMainView extends ItemView {
 		const spacer = titleRow.createSpan();
 		spacer.style.flex = "1";
 
-		// Open Canvas button — visible when canvas file exists
-		const canvasPath = this.getCanvasPathForTrain(train);
-		if (canvasPath && this.app?.vault?.getAbstractFileByPath(canvasPath)) {
-			const canvasBtn = titleRow.createEl("button", {
-				cls: "ft-btn ft-btn-ghost ft-btn-sm ft-train-open-canvas-btn",
-			});
-			canvasBtn.ariaLabel = "Open canvas";
-			const canvasIcon = canvasBtn.createSpan();
-			setIcon(canvasIcon, "layout-dashboard");
-			canvasBtn.appendText(" Canvas");
-			canvasBtn.addEventListener("click", () => {
-				if (this.app?.workspace) {
-					void this.app.workspace.openLinkText(canvasPath, "", false);
-				}
-			});
-		}
-
 		// Toggle timeline sidebar button
 		const toggleBtn = titleRow.createEl("button", {
 			cls: "ft-btn ft-btn-ghost ft-btn-sm",
@@ -297,11 +277,18 @@ export class TrainMainView extends ItemView {
 		});
 	}
 
-	private renderNavBar(el: HTMLElement, allThoughts: ThoughtNode[], activeThought: ThoughtNode | null): void {
-		const nav = el.createDiv({ cls: "ft-section ft-flex ft-items-center ft-justify-between" });
+	private renderNavBar(
+		el: HTMLElement,
+		allThoughts: ThoughtNode[],
+		activeThought: ThoughtNode | null,
+		train: TrainState,
+	): void {
+		const navWrapper = el.createDiv({ cls: "ft-section ft-train-nav-wrapper" });
 
+		const nav = navWrapper.createDiv({ cls: "ft-flex ft-items-center ft-justify-between ft-gap-2 ft-train-nav-bar" });
 		const activeIdx = activeThought ? allThoughts.findIndex((t) => t.id === activeThought.id) : -1;
 
+		// Left: ◄ Prev
 		const prevBtn = nav.createEl("button", { cls: "ft-btn ft-btn-ghost ft-btn-sm ft-train-nav-btn" });
 		prevBtn.setText("◄ Prev");
 		if (activeIdx <= 0) {
@@ -316,23 +303,122 @@ export class TrainMainView extends ItemView {
 			});
 		}
 
-		const counter = nav.createSpan({ cls: "ft-text-sm ft-text-muted ft-train-nav-counter" });
-		counter.setText(allThoughts.length > 0
-			? `Thought ${activeIdx + 1} of ${allThoughts.length}`
-			: "No thoughts yet");
+		// Center: inline controls
+		if (train.status !== "completed") {
+			const controls = nav.createDiv({ cls: "ft-detail-actions ft-flex ft-items-center ft-gap-1" });
+			this.renderInlineControls(controls, train);
+		}
 
-		const nextBtn = nav.createEl("button", { cls: "ft-btn ft-btn-ghost ft-btn-sm ft-train-nav-btn" });
-		nextBtn.setText("Next ►");
-		if (activeIdx >= allThoughts.length - 1) {
-			nextBtn.disabled = true;
-			nextBtn.addClass("ft-train-nav-disabled");
-		} else {
+		// Right: Merge Down / Next ► / Add Thought (context-aware, graph-based)
+		// Priority: merge-down (branch endpoint) > next (sorted list) > add thought (end of list)
+		const mergeDownTargetId = (activeThought && train.status !== "completed")
+			? this.trainService.findMergeDownTarget(train.id, activeThought.id)
+			: null;
+		const hasNext = activeIdx >= 0 && activeIdx < allThoughts.length - 1;
+
+		if (mergeDownTargetId) {
+			// Branch endpoint → Merge Down (always takes priority)
+			const target = train.thoughts.find((t) => t.id === mergeDownTargetId);
+			const mergeBtn = nav.createEl("button", {
+				cls: "ft-btn ft-btn-primary ft-btn-sm ft-train-nav-btn ft-train-merge-down-btn",
+			});
+			const mdIcon = mergeBtn.createSpan();
+			setIcon(mdIcon, "git-merge");
+			mergeBtn.appendText(` Merge down${target ? ` → ${target.title}` : ""}`);
+			mergeBtn.addEventListener("click", () => {
+				void this.trainService.mergeBranch(train.id, activeThought!.id, mergeDownTargetId);
+			});
+		} else if (hasNext) {
+			const nextBtn = nav.createEl("button", { cls: "ft-btn ft-btn-ghost ft-btn-sm ft-train-nav-btn" });
+			nextBtn.setText("Next ►");
 			nextBtn.addEventListener("click", () => {
 				const next = allThoughts[activeIdx + 1];
 				this.activeThoughtId = next.id;
 				this.emitThoughtActivated(next);
 				this.render();
 			});
+		} else if (activeThought && train.status !== "completed") {
+			// End of sorted list, not a branch endpoint → Add Thought
+			const addBtn = nav.createEl("button", {
+				cls: "ft-btn ft-btn-primary ft-btn-sm ft-train-nav-btn ft-train-add-thought-btn",
+			});
+			const addIcon = addBtn.createSpan();
+			setIcon(addIcon, "plus-circle");
+			addBtn.appendText(" Add Thought");
+			addBtn.addEventListener("click", () => {
+				const fromThoughtId = this.activeThoughtId ?? undefined;
+				void this.eventBus.emit("ui.startTrain", { fromThoughtId });
+			});
+		}
+
+		// Counter on its own row below controls
+		const counter = navWrapper.createDiv({ cls: "ft-text-sm ft-text-muted ft-text-center ft-train-nav-counter" });
+		counter.setText(allThoughts.length > 0
+			? `Thought ${activeIdx + 1} of ${allThoughts.length}`
+			: "No thoughts yet");
+	}
+
+	private renderInlineControls(container: HTMLElement, train: TrainState): void {
+		if (train.status === "running") {
+			this.addNavButton(container, "Pause", "pause", async () => {
+				await this.trainService.pause(train.id);
+				this.scheduleRender();
+			});
+			this.addNavButton(container, "Complete", "check-circle", async () => {
+				await this.trainService.completeTrain(train.id);
+				this.scheduleRender();
+			});
+		} else if (train.status === "paused") {
+			this.addNavButton(container, "Resume", "play", () => {
+				const fromThoughtId = this.activeThoughtId ?? undefined;
+				void this.eventBus.emit("ui.startTrain", { fromThoughtId });
+			}, true);
+			this.addNavButton(container, "Complete", "check-circle", async () => {
+				await this.trainService.completeTrain(train.id);
+				this.scheduleRender();
+			});
+		}
+	}
+
+	private addNavButton(
+		bar: HTMLElement,
+		label: string,
+		icon: string,
+		onClick: () => void | Promise<void>,
+		primary = false,
+	): void {
+		const cls = primary
+			? "ft-btn ft-btn-primary ft-btn-sm"
+			: "ft-btn ft-btn-secondary ft-btn-sm";
+		const btn = bar.createEl("button", { cls });
+		const iconEl = btn.createSpan();
+		setIcon(iconEl, icon);
+		btn.appendText(` ${label}`);
+		btn.addEventListener("click", () => { void onClick(); });
+	}
+
+	/** Render a canvas callout card — shows canvas status, clickable to open. */
+	private renderCanvasCallout(el: HTMLElement, train: TrainState): void {
+		const canvasPath = this.getCanvasPathForTrain(train);
+		if (!canvasPath) return;
+
+		const callout = el.createDiv({ cls: "ft-section ft-train-canvas-callout ft-flex ft-items-center ft-gap-2" });
+		const icon = callout.createSpan();
+		setIcon(icon, "layout-dashboard");
+
+		const canvasExists = this.app?.vault?.getAbstractFileByPath(canvasPath);
+
+		if (canvasExists) {
+			callout.createSpan({ cls: "ft-text-sm", text: `Canvas: ${train.title}` });
+			const openBtn = callout.createEl("button", { cls: "ft-btn ft-btn-ghost ft-btn-sm" });
+			openBtn.setText("Open");
+			openBtn.addEventListener("click", () => {
+				if (this.app?.workspace) {
+					void this.app.workspace.openLinkText(canvasPath, "", false);
+				}
+			});
+		} else {
+			callout.createSpan({ cls: "ft-text-sm ft-text-muted", text: "Canvas will be created on first thought" });
 		}
 	}
 
@@ -438,106 +524,37 @@ export class TrainMainView extends ItemView {
 		// Only show merge UI on running/paused trains
 		if (train.status === "completed") return;
 
-		const section = el.createDiv({ cls: "ft-section ft-train-merge-section" });
-
-		// Show existing merges from this thought
+		// Show existing outgoing merges from this thought
 		const outgoingMerges = train.relations.filter(
 			(r) => r.fromId === thought.id && r.direction === "merge",
 		);
 
-		if (outgoingMerges.length > 0) {
-			section.createEl("h4", { cls: "ft-heading-sm", text: "Merges" });
-			for (const merge of outgoingMerges) {
-				const target = train.thoughts.find((t) => t.id === merge.toId);
-				if (!target) continue;
+		// Skip section entirely if no existing merges to display
+		if (outgoingMerges.length === 0) return;
 
-				const row = section.createDiv({ cls: "ft-train-merge-link ft-flex ft-items-center ft-gap-1" });
-				const icon = row.createSpan();
-				setIcon(icon, "git-merge");
-				row.createSpan({ text: `→ ${target.title}` });
+		const section = el.createDiv({ cls: "ft-section ft-train-merge-section" });
 
-				const undoBtn = row.createEl("button", {
-					cls: "ft-btn ft-btn-ghost ft-btn-sm ft-train-merge-undo",
-				});
-				undoBtn.setText("Undo");
-				undoBtn.addEventListener("click", () => {
-					void this.trainService.undoMerge(train.id, thought.id, target.id);
-				});
-			}
-		}
+		// Existing merges with undo
+		const mergeHeader = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-mb-1" });
+		const headerIcon = mergeHeader.createSpan();
+		setIcon(headerIcon, "git-merge");
+		mergeHeader.createSpan({ cls: "ft-heading-sm", text: "Merged into" });
 
-		// Show "Merge into..." button for branch endpoint thoughts ONLY.
-		// Main chain nodes are protected — they cannot be merge sources.
-		const mainChainIds = this.trainService.getMainChainIds(train.id);
-		const hasOutgoingNext = train.relations.some(
-			(r) => r.fromId === thought.id && r.direction === "next",
-		);
-		const isRoot = !train.relations.some(
-			(r) => r.toId === thought.id && (r.direction === "next" || r.direction === "branch"),
-		);
+		for (const merge of outgoingMerges) {
+			const target = train.thoughts.find((t) => t.id === merge.toId);
+			if (!target) continue;
 
-		// Show merge button on non-root, non-main-chain thoughts with no outgoing "next"
-		if (!hasOutgoingNext && !isRoot && !mainChainIds.has(thought.id) && train.thoughts.length > 1) {
-			if (this.mergeSelectorOpen) {
-				const selectorEl = section.createDiv({ cls: "ft-train-merge-selector-container" });
-				const selector = new TrainMergeSelector(selectorEl, {
-					trainService: this.trainService,
-					onSelect: (targetId) => {
-						this.mergeSelectorOpen = false;
-						void this.trainService.mergeBranch(train.id, thought.id, targetId);
-					},
-					onCancel: () => {
-						this.mergeSelectorOpen = false;
-						this.render();
-					},
-				});
-				selector.render(train, thought.id);
-			} else {
-				const mergeBtn = section.createEl("button", {
-					cls: "ft-btn ft-btn-secondary ft-btn-sm ft-train-merge-btn",
-				});
-				const mergeIcon = mergeBtn.createSpan();
-				setIcon(mergeIcon, "git-merge");
-				mergeBtn.appendText(" Merge into...");
-				mergeBtn.addEventListener("click", () => {
-					this.mergeSelectorOpen = true;
-					this.render();
-				});
-			}
-		}
-	}
+			const row = section.createDiv({ cls: "ft-train-merge-link ft-flex ft-items-center ft-gap-2 ft-pl-2" });
+			row.createSpan({ cls: "ft-text-sm", text: `→ ${target.title}` });
 
-	// ── Keyboard navigation ─────────────────────────────────
-
-	private handleKeydown(e: KeyboardEvent): void {
-		const train = this.getTrain();
-		if (!train) return;
-
-		const allThoughts = this.getSortedThoughts(train);
-		if (allThoughts.length === 0) return;
-
-		const activeIdx = this.activeThoughtId
-			? allThoughts.findIndex((t) => t.id === this.activeThoughtId)
-			: -1;
-
-		if (e.key === "ArrowDown" && activeIdx < allThoughts.length - 1) {
-			e.preventDefault();
-			const next = allThoughts[activeIdx + 1];
-			this.activeThoughtId = next.id;
-			this.emitThoughtActivated(next);
-			this.render();
-		} else if (e.key === "ArrowUp" && activeIdx > 0) {
-			e.preventDefault();
-			const prev = allThoughts[activeIdx - 1];
-			this.activeThoughtId = prev.id;
-			this.emitThoughtActivated(prev);
-			this.render();
-		} else if (e.key === "Enter" && activeIdx >= 0) {
-			e.preventDefault();
-			const thought = allThoughts[activeIdx];
-			if (this.app?.workspace) {
-				void this.app.workspace.openLinkText(thought.path, "", false);
-			}
+			const undoBtn = row.createEl("button", {
+				cls: "ft-btn ft-btn-ghost ft-btn-sm ft-train-merge-undo",
+			});
+			undoBtn.ariaLabel = "Undo merge";
+			setIcon(undoBtn, "undo-2");
+			undoBtn.addEventListener("click", () => {
+				void this.trainService.undoMerge(train.id, thought.id, target.id);
+			});
 		}
 	}
 

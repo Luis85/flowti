@@ -1872,11 +1872,7 @@
 
 .ft-train-content-preview {
 	margin-top: 0.5rem;
-	padding: 0.5rem 0.75rem;
-	background: var(--background-secondary);
-	border-radius: var(--radius-s, 4px);
-	border-left: 3px solid var(--interactive-accent);
-	font-style: italic;
+	padding: 0.25rem 0;
 	font-size: var(--font-ui-small);
 	line-height: 1.5;
 	color: var(--text-muted);
@@ -2002,11 +1998,28 @@
 	transition: box-shadow 150ms ease;
 }
 
+/* Head dot: diamond shape to indicate the most recent thought */
+.ft-graph-dot-head {
+	width: 14px;
+	height: 14px;
+	border-radius: 2px;
+	transform: translate(-50%, -50%) rotate(45deg);
+}
+
 /* Fork connector: horizontal line from parent lane to branch lane */
 .ft-graph-fork {
 	position: absolute;
 	top: 50%;
 	transform: translateY(-1px);
+	height: 2px;
+	border-radius: 1px;
+	z-index: 0;
+}
+
+/* Merge connector: horizontal line from branch lane back to target lane */
+.ft-graph-merge {
+	position: absolute;
+	bottom: 2px;
 	height: 2px;
 	border-radius: 1px;
 	z-index: 0;
@@ -2058,36 +2071,44 @@
 
 .ft-train-breadcrumb {
 	display: flex;
-	align-items: center;
-	flex-wrap: wrap;
-	gap: 0;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+
+.ft-train-breadcrumb-row {
+	display: flex;
+	align-items: baseline;
+	gap: 0.5rem;
+	font-size: var(--font-ui-smaller);
+	line-height: 1.4;
+}
+
+.ft-train-breadcrumb-marker {
+	flex-shrink: 0;
+	min-width: 2.5rem;
+	text-align: right;
+	font-size: var(--font-ui-smaller);
 }
 
 .ft-train-breadcrumb-segment {
 	cursor: pointer;
 	color: var(--text-muted);
-	font-size: var(--font-ui-smaller);
 	transition: color 0.15s;
+	word-break: break-word;
 }
 
 .ft-train-breadcrumb-segment:hover {
 	color: var(--interactive-accent);
 }
 
-.ft-train-breadcrumb-active {
+.ft-train-breadcrumb-active .ft-train-breadcrumb-segment {
 	color: var(--text-normal);
 	font-weight: 500;
 	cursor: default;
 }
 
-.ft-train-breadcrumb-active:hover {
+.ft-train-breadcrumb-active .ft-train-breadcrumb-segment:hover {
 	color: var(--text-normal);
-}
-
-.ft-train-breadcrumb-sep {
-	color: var(--text-faint);
-	font-size: var(--font-ui-smaller);
-	padding: 0 0.15rem;
 }
 
 /* ── Train Capture Modal ─────────────────────────────── */

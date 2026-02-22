@@ -86,10 +86,16 @@ describe("TrainBreadcrumbPanel", () => {
 		const panel = new TrainBreadcrumbPanel(el, deps);
 		panel.render(train, root);
 
-		const segments = el.querySelectorAll(".ft-train-breadcrumb-segment");
-		expect(segments.length).toBe(1);
-		expect(segments[0].textContent).toBe("Root Idea");
-		expect(segments[0].classList.contains("ft-train-breadcrumb-active")).toBe(true);
+		const rows = el.querySelectorAll(".ft-train-breadcrumb-row");
+		expect(rows.length).toBe(1);
+
+		const segment = rows[0].querySelector(".ft-train-breadcrumb-segment");
+		expect(segment?.textContent).toBe("Root Idea");
+
+		const marker = rows[0].querySelector(".ft-train-breadcrumb-marker");
+		expect(marker?.textContent).toBe("Start");
+
+		expect(rows[0].classList.contains("ft-train-breadcrumb-active")).toBe(true);
 	});
 
 	it("renders full path for deeply nested thought", () => {
@@ -115,7 +121,7 @@ describe("TrainBreadcrumbPanel", () => {
 		expect(segments[2].textContent).toBe("Leaf");
 	});
 
-	it("marks only the last segment as active", () => {
+	it("marks only the last row as active", () => {
 		const { deps } = createDeps();
 		const t1 = createThought({ id: "t1", title: "Root" });
 		const t2 = createThought({ id: "t2", title: "Leaf" });
@@ -127,12 +133,12 @@ describe("TrainBreadcrumbPanel", () => {
 		const panel = new TrainBreadcrumbPanel(el, deps);
 		panel.render(train, t2);
 
-		const segments = el.querySelectorAll(".ft-train-breadcrumb-segment");
-		expect(segments[0].classList.contains("ft-train-breadcrumb-active")).toBe(false);
-		expect(segments[1].classList.contains("ft-train-breadcrumb-active")).toBe(true);
+		const rows = el.querySelectorAll(".ft-train-breadcrumb-row");
+		expect(rows[0].classList.contains("ft-train-breadcrumb-active")).toBe(false);
+		expect(rows[1].classList.contains("ft-train-breadcrumb-active")).toBe(true);
 	});
 
-	it("renders separators between segments", () => {
+	it("renders step markers for each row", () => {
 		const { deps } = createDeps();
 		const t1 = createThought({ id: "t1", title: "A" });
 		const t2 = createThought({ id: "t2", title: "B" });
@@ -148,8 +154,11 @@ describe("TrainBreadcrumbPanel", () => {
 		const panel = new TrainBreadcrumbPanel(el, deps);
 		panel.render(train, t3);
 
-		const seps = el.querySelectorAll(".ft-train-breadcrumb-sep");
-		expect(seps.length).toBe(2); // 2 separators for 3 segments
+		const markers = el.querySelectorAll(".ft-train-breadcrumb-marker");
+		expect(markers.length).toBe(3);
+		expect(markers[0].textContent).toBe("Start");
+		expect(markers[1].textContent).toBe("2");
+		expect(markers[2].textContent).toBe("3");
 	});
 
 	it("emits train.thought.activated when non-active segment clicked", async () => {

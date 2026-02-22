@@ -637,6 +637,164 @@ describe("TrainService — buildNavLinks integration (merge)", () => {
 	});
 });
 
+describe("TrainService — findMergeDownTarget()", () => {
+	it("returns next main-chain node for simple branch endpoint", async () => {
+		const { service } = createTestHarness();
+		// Main: A → B → C, Branch: A → D
+		const { train, d, b } = await buildTrainWithBranch(service);
+
+		const target = service.findMergeDownTarget(train.id, d.id);
+		expect(target).toBe(b.id);
+	});
+
+	it("returns next main-chain node for deep branch (follow parents to origin)", async () => {
+		const { service } = createTestHarness();
+		const { train, a, d, b } = await buildTrainWithBranch(service);
+
+		// Add E as next after D (within branch chain: A→D→E)
+		const e = await service.addThought(train.id, "E", {
+			direction: "next",
+			fromThoughtId: d.id,
+		});
+
+		// E is deep in the branch. Origin is A, next after A is B.
+		const target = service.findMergeDownTarget(train.id, e!.id);
+		expect(target).toBe(b.id);
+	});
+
+	it("returns null when branch origin is head of main chain", async () => {
+		const { service } = createTestHarness();
+		// Main: A → B, Branch from B: B → D
+		const train = await service.startTrain("Head Branch");
+		const a = await service.addThought(train.id, "A");
+		const b = await service.addThought(train.id, "B");
+		const d = await service.addThought(train.id, "D", {
+			direction: "branch",
+			fromThoughtId: b!.id,
+		});
+
+		// Origin is B (head of main chain) — no "next" after B
+		const target = service.findMergeDownTarget(train.id, d!.id);
+		expect(target).toBeNull();
+	});
+
+	it("returns null when source is on main chain", async () => {
+		const { service } = createTestHarness();
+		const { train, b } = await buildTrainWithBranch(service);
+
+		const target = service.findMergeDownTarget(train.id, b.id);
+		expect(target).toBeNull();
+	});
+
+	it("returns null when source is root", async () => {
+		const { service } = createTestHarness();
+		const { train, a } = await buildTrainWithBranch(service);
+
+		const target = service.findMergeDownTarget(train.id, a.id);
+		expect(target).toBeNull();
+	});
+
+	it("returns null for non-existent train", () => {
+		const { service } = createTestHarness();
+		const target = service.findMergeDownTarget("nonexistent", "any");
+		expect(target).toBeNull();
+	});
+
+	it("returns null for non-existent source thought", async () => {
+		const { service } = createTestHarness();
+		const { train } = await buildTrainWithBranch(service);
+
+		const target = service.findMergeDownTarget(train.id, "nonexistent");
+		expect(target).toBeNull();
+	});
+
+	it("handles sub-branch: falls through to main chain when parent branch has no next", async () => {
+		const { service } = createTestHarness();
+		const { train, d, b } = await buildTrainWithBranch(service);
+
+		// Add F as branch from D (sub-branch: A→D(branch)→F(branch))
+		// D has no "next" child, so merge-down falls through to main chain origin A → target B
+		const f = await service.addThought(train.id, "F", {
+			direction: "branch",
+			fromThoughtId: d.id,
+		});
+
+		const target = service.findMergeDownTarget(train.id, f!.id);
+		expect(target).toBe(b.id);
+	});
+
+	it("handles sub-branch: merges to parent branch when parent has next child", async () => {
+		const { service } = createTestHarness();
+		const { train, a, d } = await buildTrainWithBranch(service);
+
+		// Extend branch: D → E (next on branch)
+		const e = await service.addThought(train.id, "E", {
+			direction: "next",
+			fromThoughtId: d.id,
+		});
+
+		// Sub-branch from D: D → F (branch)
+		const f = await service.addThought(train.id, "F", {
+			direction: "branch",
+			fromThoughtId: d.id,
+		});
+
+		// F is on sub-branch from D. D has a "next" child (E). Target = E (parent branch).
+		const target = service.findMergeDownTarget(train.id, f!.id);
+		expect(target).toBe(e!.id);
+	});
+
+	it("returns correct target when main chain extends past origin", async () => {
+		const { service } = createTestHarness();
+		// Main: A → B → C → D, Branch from A: A → E
+		const train = await service.startTrain("Extended Main");
+		const a = await service.addThought(train.id, "A");
+		const b = await service.addThought(train.id, "B");
+		const c = await service.addThought(train.id, "C");
+		const d = await service.addThought(train.id, "D");
+		const e = await service.addThought(train.id, "E", {
+			direction: "branch",
+			fromThoughtId: a!.id,
+		});
+
+		// Origin is A, next after A is B (not D — only the immediate next)
+		const target = service.findMergeDownTarget(train.id, e!.id);
+		expect(target).toBe(b!.id);
+	});
+
+	it("returns correct target for branch from middle of main chain", async () => {
+		const { service } = createTestHarness();
+		// Main: A → B → C, Branch from B: B → E
+		const train = await service.startTrain("Mid Branch");
+		const a = await service.addThought(train.id, "A");
+		const b = await service.addThought(train.id, "B");
+		const c = await service.addThought(train.id, "C");
+		const e = await service.addThought(train.id, "E", {
+			direction: "branch",
+			fromThoughtId: b!.id,
+		});
+
+		// Origin is B, next after B is C
+		const target = service.findMergeDownTarget(train.id, e!.id);
+		expect(target).toBe(c!.id);
+	});
+
+	it("returns correct target for single-thought main chain with branch", async () => {
+		const { service } = createTestHarness();
+		// Main: A → B, Branch from A: A → D (same as buildTrainWithBranch minus C)
+		const train = await service.startTrain("Short Main");
+		const a = await service.addThought(train.id, "A");
+		const b = await service.addThought(train.id, "B");
+		const d = await service.addThought(train.id, "D", {
+			direction: "branch",
+			fromThoughtId: a!.id,
+		});
+
+		const target = service.findMergeDownTarget(train.id, d!.id);
+		expect(target).toBe(b!.id);
+	});
+});
+
 describe("TrainService — merge edge cases", () => {
 	it("train with only 1 thought has no valid merge targets", async () => {
 		const { service } = createTestHarness();

@@ -8,7 +8,7 @@ function createMockApp(): import("obsidian").App {
 }
 
 describe("TrainCaptureModal", () => {
-	it("renders train title heading", () => {
+	it("renders train title heading (no prefix for first thought)", () => {
 		const modal = new TrainCaptureModal(createMockApp(), {
 			trainTitle: "My Train",
 			previousThoughtTitle: null,
@@ -21,10 +21,26 @@ describe("TrainCaptureModal", () => {
 		modal.onOpen();
 
 		const h3 = modal.contentEl.querySelector("h3");
-		expect(h3?.textContent).toBe("Train: My Train");
+		expect(h3?.textContent).toBe("My Train");
 	});
 
-	it("shows thought counter", () => {
+	it("renders previous thought title as heading when provided", () => {
+		const modal = new TrainCaptureModal(createMockApp(), {
+			trainTitle: "My Train",
+			previousThoughtTitle: "Previous Idea",
+			thoughtCount: 1,
+			onSubmit: vi.fn(),
+			onComplete: vi.fn(),
+			onCancel: vi.fn(),
+		durationMinutes: 0,
+		});
+		modal.onOpen();
+
+		const h3 = modal.contentEl.querySelector("h3");
+		expect(h3?.textContent).toBe("Previous Idea");
+	});
+
+	it("shows thought counter in button row", () => {
 		const modal = new TrainCaptureModal(createMockApp(), {
 			trainTitle: "Counter Test",
 			previousThoughtTitle: null,
@@ -36,41 +52,10 @@ describe("TrainCaptureModal", () => {
 		});
 		modal.onOpen();
 
-		const counter = modal.contentEl.querySelector(".ft-train-counter");
-		expect(counter?.textContent).toBe("Thought #4");
-	});
-
-	it("shows context banner when previousThoughtTitle is provided", () => {
-		const modal = new TrainCaptureModal(createMockApp(), {
-			trainTitle: "Context Test",
-			previousThoughtTitle: "Previous Idea",
-			thoughtCount: 1,
-			onSubmit: vi.fn(),
-			onComplete: vi.fn(),
-			onCancel: vi.fn(),
-		durationMinutes: 0,
-		});
-		modal.onOpen();
-
-		const banner = modal.contentEl.querySelector(".ft-train-context");
-		expect(banner).not.toBeNull();
-		expect(banner?.textContent).toContain("Previous: Previous Idea");
-	});
-
-	it("hides context banner for first thought (null previousTitle)", () => {
-		const modal = new TrainCaptureModal(createMockApp(), {
-			trainTitle: "No Context",
-			previousThoughtTitle: null,
-			thoughtCount: 0,
-			onSubmit: vi.fn(),
-			onComplete: vi.fn(),
-			onCancel: vi.fn(),
-		durationMinutes: 0,
-		});
-		modal.onOpen();
-
-		const banner = modal.contentEl.querySelector(".ft-train-context");
-		expect(banner).toBeNull();
+		// Counter is now a span inside the button row's controlEl
+		const allSpans = modal.contentEl.querySelectorAll("span");
+		const counterSpan = Array.from(allSpans).find((s) => s.textContent === "#4");
+		expect(counterSpan).not.toBeUndefined();
 	});
 
 	it("does not call onSubmit on open (requires user interaction)", () => {
@@ -122,7 +107,7 @@ describe("TrainCaptureModal", () => {
 		expect(modal.contentEl.children.length).toBe(0);
 	});
 
-	it("creates DOM elements on open (h3, counter, settings)", () => {
+	it("creates DOM elements on open (h3 + settings)", () => {
 		const modal = new TrainCaptureModal(createMockApp(), {
 			trainTitle: "DOM Test",
 			previousThoughtTitle: "Prev",
@@ -134,8 +119,8 @@ describe("TrainCaptureModal", () => {
 		});
 		modal.onOpen();
 
-		// h3 + context banner + counter + 2 Setting wrappers
-		expect(modal.contentEl.children.length).toBeGreaterThanOrEqual(3);
+		// h3 + Setting wrappers (title input, direction, buttons)
+		expect(modal.contentEl.children.length).toBeGreaterThanOrEqual(2);
 	});
 
 	it("displays thought count starting at 1 for first thought", () => {
@@ -150,8 +135,10 @@ describe("TrainCaptureModal", () => {
 		});
 		modal.onOpen();
 
-		const counter = modal.contentEl.querySelector(".ft-train-counter");
-		expect(counter?.textContent).toBe("Thought #1");
+		// Counter is now a span inside the button row
+		const allSpans = modal.contentEl.querySelectorAll("span");
+		const counterSpan = Array.from(allSpans).find((s) => s.textContent === "#1");
+		expect(counterSpan).not.toBeUndefined();
 	});
 
 	describe("keyboard navigation", () => {
@@ -249,9 +236,8 @@ describe("TrainCaptureModal", () => {
 			});
 			modal.onOpen();
 
-			const hint = modal.contentEl.querySelector(".ft-train-keyboard-hint");
-			expect(hint).not.toBeNull();
-			expect(hint?.textContent).toContain("Tab to switch");
+			const allText = modal.contentEl.textContent ?? "";
+			expect(allText).toContain("Tab to cycle");
 		});
 
 		it("hides keyboard hint when no direction selector", () => {
@@ -266,8 +252,8 @@ describe("TrainCaptureModal", () => {
 			});
 			modal.onOpen();
 
-			const hint = modal.contentEl.querySelector(".ft-train-keyboard-hint");
-			expect(hint).toBeNull();
+			const allText = modal.contentEl.textContent ?? "";
+			expect(allText).not.toContain("Tab to cycle");
 		});
 
 		it("submits with toggled direction after Tab", () => {

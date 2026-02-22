@@ -494,6 +494,45 @@ describe("TrainTimelineSidebar", () => {
 			expect(scrollSpy).toHaveBeenCalled();
 		});
 
+		it("renders merge connector when branch is merged back to main chain", async () => {
+			const t1 = createThought({ id: "t1", title: "Root", order: 0 });
+			const t2 = createThought({ id: "t2", title: "Main Next", order: 1 });
+			const b1 = createThought({ id: "b1", title: "Branch", order: 2 });
+			const train = createTrain({
+				thoughts: [t1, t2, b1],
+				relations: [
+					{ fromId: "t1", toId: "t2", direction: "next" },
+					{ fromId: "t1", toId: "b1", direction: "branch" },
+					{ fromId: "b1", toId: "t2", direction: "merge" },
+				],
+			});
+			const service = createMockTrainService(train);
+			(service.getTimeline as ReturnType<typeof vi.fn>).mockReturnValue([t1, t2]);
+			(service.getBranches as ReturnType<typeof vi.fn>).mockImplementation(
+				(_trainId: string, thoughtId: string) => thoughtId === "t1" ? [b1] : [],
+			);
+
+			const treeView = new TrainTimelineSidebar(createMockLeaf(), eventBus, service);
+			await treeView.onOpen();
+
+			const mergeConnectors = treeView.contentEl.querySelectorAll(".ft-graph-merge");
+			expect(mergeConnectors.length).toBe(1);
+
+			// Connector spans from main chain lane (0) to branch lane (1)
+			const connector = mergeConnectors[0] as HTMLElement;
+			const fromX = 0 * LANE_WIDTH + LANE_WIDTH / 2;
+			const toX = 1 * LANE_WIDTH + LANE_WIDTH / 2;
+			expect(connector.style.left).toBe(`${fromX}px`);
+			expect(connector.style.width).toBe(`${toX - fromX}px`);
+		});
+
+		it("does not render merge connector for non-merged branches", async () => {
+			await view.onOpen();
+
+			const mergeConnectors = view.contentEl.querySelectorAll(".ft-graph-merge");
+			expect(mergeConnectors.length).toBe(0);
+		});
+
 		it("renders multiple fork connectors for sibling branches", async () => {
 			const t1 = createThought({ id: "t1", title: "Root", order: 0 });
 			const t2 = createThought({ id: "t2", title: "Second", order: 1 });

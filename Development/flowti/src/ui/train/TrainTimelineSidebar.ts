@@ -318,11 +318,27 @@ export class TrainTimelineSidebar extends ItemView {
 		);
 		const maxLane = Math.max(...rows.map((r) => r.lane), 0);
 
+		// Build merge target lane lookup: sourceId → targetLane
+		const laneByThought = new Map<string, number>();
+		for (const row of rows) {
+			laneByThought.set(row.thought.id, row.lane);
+		}
+		const mergeTargetLanes = new Map<string, number>();
+		for (const rel of train.relations) {
+			if (rel.direction === "merge") {
+				const targetLane = laneByThought.get(rel.toId);
+				if (targetLane !== undefined) {
+					mergeTargetLanes.set(rel.fromId, targetLane);
+				}
+			}
+		}
+
 		// Reverse for bottom-to-top rendering (newest at top)
 		const reversed = [...rows].reverse();
 
-		for (const row of reversed) {
-			this.renderGraphRow(container, row, train, maxLane);
+		for (let i = 0; i < reversed.length; i++) {
+			const mergeTargetLane = mergeTargetLanes.get(reversed[i].thought.id) ?? null;
+			this.renderGraphRow(container, reversed[i], train, maxLane, i === 0, mergeTargetLane);
 		}
 
 		// Auto-scroll active node into view
@@ -337,6 +353,8 @@ export class TrainTimelineSidebar extends ItemView {
 		row: GraphRow,
 		train: TrainState,
 		maxLane: number,
+		isHead = false,
+		mergeTargetLane: number | null = null,
 	): void {
 		const { thought, lane, activeLanes, isBranchStart, parentLane } = row;
 		const isActive = thought.id === this.activeThoughtId;
@@ -374,11 +392,23 @@ export class TrainTimelineSidebar extends ItemView {
 			fork.style.backgroundColor = forkColor;
 		}
 
+		// Merge connector for branch endpoint merging back to target lane
+		if (mergeTargetLane !== null && mergeTargetLane !== lane) {
+			const mergeColor = activeLanes.get(lane) ?? LANE_COLORS[lane % LANE_COLORS.length];
+			const merge = graphCell.createDiv({ cls: "ft-graph-merge" });
+			const fromX = Math.min(lane, mergeTargetLane) * LANE_WIDTH + LANE_WIDTH / 2;
+			const toX = Math.max(lane, mergeTargetLane) * LANE_WIDTH + LANE_WIDTH / 2;
+			merge.style.left = `${fromX}px`;
+			merge.style.width = `${toX - fromX}px`;
+			merge.style.backgroundColor = mergeColor;
+		}
+
 		// Node circle (dot)
 		const dotColor = activeLanes.get(lane) ?? LANE_COLORS[lane % LANE_COLORS.length];
-		const dot = graphCell.createDiv({
-			cls: `ft-graph-dot ${isActive ? "ft-graph-dot-active" : ""}`,
-		});
+		const dotCls = ["ft-graph-dot"];
+		if (isActive) dotCls.push("ft-graph-dot-active");
+		if (isHead) dotCls.push("ft-graph-dot-head");
+		const dot = graphCell.createDiv({ cls: dotCls.join(" ") });
 		dot.style.left = `${lane * LANE_WIDTH + LANE_WIDTH / 2}px`;
 		dot.style.backgroundColor = dotColor;
 
@@ -434,13 +464,14 @@ export class TrainTimelineSidebar extends ItemView {
 		const time = new Date(thought.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 		content.createSpan({ cls: "ft-text-sm ft-text-faint ft-graph-time", text: time });
 
-		// Click to navigate
+		// Click to navigate — activates thought AND opens detail view
 		node.addEventListener("click", () => {
 			this.activeThoughtId = thought.id;
 			void this.eventBus.emit("train.thought.activated", {
 				trainId: train.id,
 				thoughtId: thought.id,
 			});
+			void this.eventBus.emit("ui.openTrainView", { trainId: train.id });
 			this.render();
 		});
 	}

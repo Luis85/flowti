@@ -80,6 +80,7 @@ function createMockTrainService(train: TrainState | undefined = undefined): Trai
 			}
 			return ids;
 		}),
+		findMergeDownTarget: vi.fn(() => null),
 	} as unknown as TrainService;
 }
 
@@ -264,7 +265,7 @@ describe("TrainMainView", () => {
 			expect(thoughtTitle?.textContent).toBe("First Idea");
 		});
 
-		it("disables Next button on last thought", async () => {
+		it("shows Add Thought button on last thought instead of disabled Next", async () => {
 			await view.onOpen();
 
 			// Go to last thought (3 total: t1, t2, t3 — need 2 clicks)
@@ -273,9 +274,10 @@ describe("TrainMainView", () => {
 			nextBtn = view.contentEl.querySelectorAll(".ft-train-nav-btn")[1] as HTMLButtonElement;
 			nextBtn.click();
 
-			// Now next should be disabled
-			const newNextBtn = view.contentEl.querySelectorAll(".ft-train-nav-btn")[1] as HTMLButtonElement;
-			expect(newNextBtn.disabled).toBe(true);
+			// Last thought — should show Add Thought instead of disabled Next
+			const addBtn = view.contentEl.querySelector(".ft-train-add-thought-btn");
+			expect(addBtn).not.toBeNull();
+			expect(addBtn?.textContent).toContain("Add Thought");
 		});
 
 		it("emits train.thought.activated on navigation", async () => {
@@ -299,22 +301,26 @@ describe("TrainMainView", () => {
 	});
 
 	describe("controls panel integration", () => {
-		it("renders controls section with buttons for running train", async () => {
+		it("renders inline controls in nav bar for running train", async () => {
 			await view.onOpen();
 
-			const controlsSection = view.contentEl.querySelector(".ft-train-controls-section");
-			expect(controlsSection).not.toBeNull();
+			const navBar = view.contentEl.querySelector(".ft-train-nav-bar");
+			expect(navBar).not.toBeNull();
 
 			const btns = view.contentEl.querySelectorAll(".ft-btn");
 			expect(btns.length).toBeGreaterThan(0);
 		});
 
-		it("renders Add Thought button for running train", async () => {
-			await view.onOpen();
+		it("renders Add Thought button in nav bar when on last thought", async () => {
+			const singleThought = createThought({ id: "solo", title: "Only Thought", order: 0 });
+			const soloTrain = createTrain({ thoughts: [singleThought], relations: [] });
+			const soloService = createMockTrainService(soloTrain);
+			const soloView = new TrainMainView(createMockLeaf(), eventBus, soloService);
+			await soloView.onOpen();
 
-			const btns = view.contentEl.querySelectorAll(".ft-btn");
-			const addBtn = Array.from(btns).find((b) => b.textContent?.includes("Add Thought"));
-			expect(addBtn).not.toBeUndefined();
+			const addBtn = soloView.contentEl.querySelector(".ft-train-add-thought-btn");
+			expect(addBtn).not.toBeNull();
+			expect(addBtn?.textContent).toContain("Add Thought");
 		});
 
 		it("hides controls for completed train", async () => {
@@ -323,9 +329,9 @@ describe("TrainMainView", () => {
 			const completedView = new TrainMainView(createMockLeaf(), eventBus, service);
 			await completedView.onOpen();
 
-			// Completed train → empty state (history panel), no controls section
-			const controls = completedView.contentEl.querySelector(".ft-train-controls-section");
-			expect(controls).toBeNull();
+			// Completed train → empty state (history panel), no controls in nav bar
+			const navBar = completedView.contentEl.querySelector(".ft-detail-actions");
+			expect(navBar).toBeNull();
 		});
 
 		it("renders stats section with shared stat grid", async () => {
@@ -421,118 +427,4 @@ describe("TrainMainView", () => {
 
 	// ── Inc 3: Keyboard navigation ───────────────────────
 
-	describe("keyboard navigation", () => {
-		it("sets tabIndex on contentEl for keyboard focus", async () => {
-			await view.onOpen();
-			expect(view.contentEl.tabIndex).toBe(0);
-		});
-
-		it("ArrowDown navigates to next thought", async () => {
-			await view.onOpen();
-
-			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
-
-			const thoughtTitle = view.contentEl.querySelector(".ft-train-thought-title");
-			expect(thoughtTitle?.textContent).toBe("Second Idea");
-		});
-
-		it("ArrowUp navigates to previous thought", async () => {
-			await view.onOpen();
-
-			// First go to second thought
-			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
-			// Then go back
-			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp" }));
-
-			const thoughtTitle = view.contentEl.querySelector(".ft-train-thought-title");
-			expect(thoughtTitle?.textContent).toBe("First Idea");
-		});
-
-		it("ArrowDown at last thought does nothing", async () => {
-			await view.onOpen();
-
-			// Navigate to last thought (3 total)
-			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
-			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
-			// Try one more — should stay at last
-			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
-
-			const counter = view.contentEl.querySelector(".ft-train-nav-counter");
-			expect(counter?.textContent).toBe("Thought 3 of 3");
-		});
-
-		it("ArrowUp at first thought does nothing", async () => {
-			await view.onOpen();
-
-			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp" }));
-
-			const counter = view.contentEl.querySelector(".ft-train-nav-counter");
-			expect(counter?.textContent).toBe("Thought 1 of 3");
-		});
-
-		it("emits train.thought.activated on ArrowDown", async () => {
-			const handler = vi.fn();
-			eventBus.on("train.thought.activated", handler);
-
-			await view.onOpen();
-
-			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
-
-			await new Promise((r) => setTimeout(r, 0));
-
-			expect(handler).toHaveBeenCalledOnce();
-			expect(handler.mock.calls[0][0].payload).toEqual({
-				trainId: "train_1",
-				thoughtId: "t2",
-			});
-		});
-
-		it("emits train.thought.activated on ArrowUp", async () => {
-			const handler = vi.fn();
-			eventBus.on("train.thought.activated", handler);
-
-			await view.onOpen();
-
-			// Go to t2 first
-			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
-			handler.mockClear();
-
-			// Go back to t1
-			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp" }));
-
-			await new Promise((r) => setTimeout(r, 0));
-
-			expect(handler).toHaveBeenCalledOnce();
-			expect(handler.mock.calls[0][0].payload.thoughtId).toBe("t1");
-		});
-
-		it("Enter does not emit train.thought.activated", async () => {
-			const handler = vi.fn();
-			eventBus.on("train.thought.activated", handler);
-
-			await view.onOpen();
-
-			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
-
-			await new Promise((r) => setTimeout(r, 0));
-
-			// Enter opens the note, doesn't emit activated
-			expect(handler).not.toHaveBeenCalled();
-		});
-
-		it("ignores unrelated keys", async () => {
-			const handler = vi.fn();
-			eventBus.on("train.thought.activated", handler);
-
-			await view.onOpen();
-
-			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "a" }));
-			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
-			view.contentEl.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" }));
-
-			await new Promise((r) => setTimeout(r, 0));
-
-			expect(handler).not.toHaveBeenCalled();
-		});
-	});
 });

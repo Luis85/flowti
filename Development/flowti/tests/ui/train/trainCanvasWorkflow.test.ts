@@ -61,6 +61,7 @@ function createMockTrainService(train: TrainState): TrainService {
 		mergeBranch: vi.fn(async () => true),
 		undoMerge: vi.fn(async () => true),
 		getAllTrains: vi.fn(() => [train]),
+		findMergeDownTarget: vi.fn(() => null),
 		getMainChainIds: vi.fn(() => {
 			const incomingNext = new Set(
 				train.relations.filter((r) => r.direction === "next").map((r) => r.toId),
@@ -125,7 +126,7 @@ describe("TrainMainView — canvas workflow", () => {
 		expect(canvasBtn).toBeNull();
 	});
 
-	it("shows canvas button when canvas file exists", async () => {
+	it("shows canvas callout with open button when canvas file exists", async () => {
 		const view = new TrainMainView(
 			createMockLeaf(), eventBus, service,
 			() => defaultSettings,
@@ -147,12 +148,13 @@ describe("TrainMainView — canvas workflow", () => {
 
 		await view.onOpen();
 
-		const canvasBtn = view.contentEl.querySelector(".ft-train-open-canvas-btn");
-		expect(canvasBtn).not.toBeNull();
-		expect(canvasBtn?.textContent).toContain("Canvas");
+		const callout = view.contentEl.querySelector(".ft-train-canvas-callout");
+		expect(callout).not.toBeNull();
+		const openBtn = callout?.querySelector("button");
+		expect(openBtn?.textContent).toContain("Open");
 	});
 
-	it("opens canvas when button clicked", async () => {
+	it("opens canvas when callout open button clicked", async () => {
 		const mockOpenLinkText = vi.fn();
 		const view = new TrainMainView(
 			createMockLeaf(), eventBus, service,
@@ -174,8 +176,9 @@ describe("TrainMainView — canvas workflow", () => {
 
 		await view.onOpen();
 
-		const canvasBtn = view.contentEl.querySelector(".ft-train-open-canvas-btn") as HTMLButtonElement;
-		canvasBtn.click();
+		const callout = view.contentEl.querySelector(".ft-train-canvas-callout");
+		const openBtn = callout?.querySelector("button") as HTMLButtonElement;
+		openBtn.click();
 
 		expect(mockOpenLinkText).toHaveBeenCalledWith("trains/My Train.canvas", "", false);
 	});

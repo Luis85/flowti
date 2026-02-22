@@ -427,6 +427,63 @@ export class TrainService {
 	// ── Merge ───────────────────────────────────────────────────
 
 	/**
+	 * Find the default merge-down target for a branch endpoint.
+	 *
+	 * Algorithm:
+	 * 1. Reject if source is on the main chain (only branch nodes can merge down).
+	 * 2. Walk backward through parent relations. At each "branch" edge, the
+	 *    parent is a branch origin — check if it has a "next" child.
+	 * 3. If yes, that "next" child is the merge-down target (merge to parent chain).
+	 * 4. If no, continue walking backward to find a higher-level branch origin.
+	 * 5. This recurses all the way to the main chain if needed.
+	 *
+	 * @returns The targetId suitable for `mergeBranch(trainId, sourceId, targetId)`, or null.
+	 */
+	findMergeDownTarget(trainId: string, sourceId: string): string | null {
+		const train = this.findTrain(trainId);
+		if (!train) return null;
+
+		// Source must exist
+		if (!train.thoughts.some((t) => t.id === sourceId)) return null;
+
+		// Build reverse adjacency: childId → { parentId, direction }
+		const parentMap = new Map<string, { parentId: string; direction: string }>();
+		for (const r of train.relations) {
+			if (r.direction === "next" || r.direction === "branch") {
+				parentMap.set(r.toId, { parentId: r.fromId, direction: r.direction });
+			}
+		}
+
+		// Build forward "next" map for finding the target after each branch origin
+		const nextMap = new Map<string, string>();
+		for (const r of train.relations) {
+			if (r.direction === "next") {
+				nextMap.set(r.fromId, r.toId);
+			}
+		}
+
+		let current = sourceId;
+		const visited = new Set<string>();
+		while (current) {
+			if (visited.has(current)) return null; // Cycle protection
+			visited.add(current);
+
+			const parent = parentMap.get(current);
+			if (!parent) return null; // Reached root without finding a branch edge
+
+			if (parent.direction === "branch") {
+				// Found a branch point — check if origin has a "next" child
+				const nextId = nextMap.get(parent.parentId);
+				if (nextId) return nextId;
+				// No "next" after this origin — continue walking to find a higher-level origin
+			}
+
+			current = parent.parentId;
+		}
+		return null;
+	}
+
+	/**
 	 * Merge a branch thought into a target thought.
 	 * Creates a structural "merge" relation — no content is modified.
 	 * Train must be running or paused.
