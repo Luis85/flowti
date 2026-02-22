@@ -545,5 +545,5 @@ Note: Inc 1 is now proposal-only, removing the GATE dependency for Inc 2. The th
 - Review: OBS-2, OBS-3, OBS-4 from [[Three Amigos Review 2026-02-19 Session Workspaces]]
 - Review: OBS-1 through OBS-5 from [[Three Amigos Review 2026-02-22 Canvas Integration]] (OBS-2 → Inc 5, OBS-5 → Inc 7)
 - Prior Cycle: [[Cycle 15 - Canvas Integration]]
-- Next Cycle: [[Cycle 17 - Backlog Intelligence]]
+- Next Cycle: [[Cycle 17 - Train Canvas and Branch Merge]]
 - Backlog Refinement: [[backlog-refinement-2026-02-22]]

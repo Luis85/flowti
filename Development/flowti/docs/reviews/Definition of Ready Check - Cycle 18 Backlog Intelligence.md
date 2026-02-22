@@ -1,12 +1,12 @@
 ---
 type: ReadinessCheck
 date: 2026-02-22
-cycle: 17
+cycle: 18
 feature: "[[Prioritization Hub PRD]]"
 result: CONDITIONAL PASS
 ---
 
-# Definition of Ready Check — Cycle 17: Backlog Intelligence
+# Definition of Ready Check — Cycle 18: Backlog Intelligence
 
 > Evaluated against [[Definition of Ready (Cycle)]] v1.
 
@@ -48,7 +48,7 @@ result: CONDITIONAL PASS
 
 | Criterion | Status | Evidence |
 |-----------|--------|----------|
-| Cycle document exists | PASS | [[Cycle 17 - Backlog Intelligence]] created with standard frontmatter (type, feature, stage, pbis, estimated_increments, estimated_tests) |
+| Cycle document exists | PASS | [[Cycle 18 - Backlog Intelligence]] created with standard frontmatter (type, feature, stage, pbis, estimated_increments, estimated_tests) |
 | Situation assessment written | PASS | Pre-cycle state covers: plugin health (3,548 tests, 141 suites), feature status (3 contributing PRDs), infrastructure available, backlog refinement context |
 | Cycle goals defined | PASS | 6 numbered goals, each with clear deliverable and increment range |
 | Proposed increments specified | PASS | 8 increments, each with: goal, scope table, estimated LOC, estimated tests, acceptance criteria, test intent, documentation intent, architecture seams |
@@ -215,7 +215,7 @@ result: CONDITIONAL PASS
 
 - [[Definition of Ready (Cycle)]] — source checklist
 - [[Prioritization Hub PRD]] — feature PRD (FRI 23/35)
-- [[Cycle 17 - Backlog Intelligence]] — cycle plan
+- [[Cycle 18 - Backlog Intelligence]] — cycle plan
 - [[PBI-PRI-001 Scoring and Ranking Engine]] — primary PBI
 - [[backlog-refinement-2026-02-22]] — pre-cycle analysis
 - [[We need a tool to prioritize notes]] — source inbox item

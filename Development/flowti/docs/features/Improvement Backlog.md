@@ -30,7 +30,7 @@ Structured inventory of remaining improvement work, scored and prioritized for f
 
 | # | Item | Severity | Effort | User Impact | Recommended |
 |---|---|---|---|---|---|
-| R-1 | Repository restructure (RB-1) — move build config to repo root | Blocker | High (1 cycle) | Critical | Cycle 17 or dedicated sprint |
+| R-1 | Repository restructure (RB-1) — move build config to repo root | Blocker | High (1 cycle) | Critical | Cycle 18 or dedicated sprint |
 | R-2 | GitHub release automation — tag matching, main.js + manifest.json in release | Medium | Medium | High | Post-restructure |
 | R-3 | Plugin description — action verb start, better marketplace positioning | Low | Trivial | Medium | Pre-submission |
 | R-4 | fundingUrl in manifest — optional but recommended | Info | Trivial | Low | Pre-submission |
@@ -60,7 +60,7 @@ Structured inventory of remaining improvement work, scored and prioritized for f
 | P-1 | Signal Configuration Wizard (C11-OBS-3) — replace inline form | Low | Medium | Medium | Backlog |
 | P-2 | Canvas Action View extraction if 3rd ItemView appears (C15-OBS-1) | Low | Medium | Low | Monitor |
 | P-3 | EventBus domain-scoped listeners (C15-OBS-4) | Low | High | Low | Backlog |
-| P-4 | Quick Capture PRD (FRI 27/35) — needs 3 more points | Medium | Medium | High | Cycle 17-18 |
+| P-4 | Quick Capture PRD (FRI 27/35) — needs 3 more points | Medium | Medium | High | Cycle 18-19 |
 | P-5 | Domain Design Session UI pattern (ADR-030) | Low | High | Medium | Backlog |
 | P-6 | 56 discovery-stage inbox items (see inbox inventory) | Mixed | Mixed | Mixed | Ongoing triage |
 | P-7 | PBI-SW-009 scope decision (C9-OBS-1) | Medium | Low | Medium | Next session cycle |

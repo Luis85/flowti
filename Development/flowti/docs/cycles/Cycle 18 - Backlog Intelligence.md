@@ -2,7 +2,7 @@
 type: DevelopmentCycle
 feature: "[[Prioritization Hub PRD]]"
 stage: ready
-cycle: 17
+cycle: 18
 date_planned: 2026-02-22
 date_completed:
 pbis:
@@ -18,7 +18,7 @@ total_tests_after:
 total_test_files_after:
 ---
 
-# Cycle 17: Backlog Intelligence
+# Cycle 18: Backlog Intelligence
 
 ## Cycle Overview
 
@@ -497,8 +497,8 @@ Sequential build: types → engines → service → frontmatter → UI views →
 
 | Item | Rationale | Target |
 |------|-----------|--------|
-| PBI-PRI-002 Prioritization Hub View (extended) | Context menu "Prioritize folder", Obsidian Base integration | Cycle 17 |
-| PBI-PRI-003 Session Type Integration (advanced) | Workshop mode, multi-session comparison | Cycle 17+ |
+| PBI-PRI-002 Prioritization Hub View (extended) | Context menu "Prioritize folder", Obsidian Base integration | Cycle 18 |
+| PBI-PRI-003 Session Type Integration (advanced) | Workshop mode, multi-session comparison | Cycle 18+ |
 | AI-assisted prioritization | Requires AI infrastructure not yet built | Future |
 | Scheduled re-prioritization | Automated triggers — complex, low priority | Future |
 
@@ -506,7 +506,7 @@ Sequential build: types → engines → service → frontmatter → UI views →
 
 ## DoR Preparation Notes
 
-### Gaps to Close Before Cycle 17 Starts
+### Gaps to Close Before Cycle 18 Starts
 
 | # | Gap | Current | Required | Action |
 |---|-----|---------|----------|--------|
