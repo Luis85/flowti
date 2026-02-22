@@ -170,6 +170,8 @@ export const FlowtiSettingsSchema = z.object({
 	trainFolder: z.string().default("00 - Connectivity/trains"),
 	trainAutoOpenTimeline: z.boolean().default(true),
 	trainMaxThoughts: z.number().min(1).max(1000).default(100),
+	trainCanvasEnabled: z.boolean().default(true),
+	trainCanvasAutoOpen: z.boolean().default(false),
 	inboxEnabledSources: z.array(z.string()).default([
 		"subscription.matched",
 		"dataExchange.import.completed",

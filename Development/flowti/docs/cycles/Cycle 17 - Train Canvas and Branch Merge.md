@@ -206,16 +206,24 @@ total_test_files_after:
 **Architecture seams:** Follows `SessionWorkspaceSubscriptions` pattern — extracted listener setup. Debounce at 500ms matching session sync pattern. Uses TrainCanvasWriter for generation + FileSystemClient for I/O. Late-bound settings via `getSettings()`.
 
 **Acceptance criteria:**
-- [ ] Canvas auto-created on first thought capture
-- [ ] Canvas updated on `train.thought.added` (new node + edge appear)
-- [ ] Canvas updated on `train.branch.merged` (merge edge appears)
-- [ ] Canvas updated on `train.branch.merge.undone` (merge edge removed)
-- [ ] Sync debounced at 500ms (rapid captures coalesced)
-- [ ] User-added canvas elements preserved across syncs
-- [ ] `trainCanvasEnabled=false` disables canvas generation
-- [ ] Canvas path: `{trainFolder}/{trainTitle}.canvas`
-- [ ] `train.canvas.created` and `train.canvas.synced` events emitted
-- [ ] `npm test` passes
+- [x] Canvas auto-created on first thought capture
+- [x] Canvas updated on `train.thought.added` (new node + edge appear)
+- [x] Canvas updated on `train.branch.merged` (merge edge appears)
+- [x] Canvas updated on `train.branch.merge.undone` (merge edge removed)
+- [x] Sync debounced at 500ms (rapid captures coalesced)
+- [x] User-added canvas elements preserved across syncs
+- [x] `trainCanvasEnabled=false` disables canvas generation
+- [x] Canvas path: `{trainFolder}/{trainTitle}.canvas`
+- [x] `train.canvas.created` and `train.canvas.synced` events emitted
+- [x] `npm test` passes
+
+**Delivery notes (Inc 3):**
+- 14 new tests (est. ~25 — sync tests are more coarse-grained than unit tests)
+- TrainCanvasSyncService.ts: ~100 LOC (est. ~250 — writer already handles heavy lifting from Inc 2)
+- Settings added: `trainCanvasEnabled` (default true), `trainCanvasAutoOpen` (default false) in `settings.ts`
+- Wired in main.ts: creates dedicated FileSystemClient, late-bound settings, destroy on plugin unload
+- Fixed 2 TypeScript compilation issues: fileSystem property + EventBus test settings objects
+- 3,693 tests passing, 150 suites, tsc + eslint clean
 
 ---
 
@@ -343,15 +351,15 @@ Phase D: Inc 6 (depends on all)
 
 | Metric | Target | Actual | Status |
 |--------|--------|--------|--------|
-| New tests | ~165 | 79 | In progress |
+| New tests | ~165 | 93 | In progress |
 | Merge domain tests | ~40 | 43 | Done |
 | Canvas writer tests | ~35 | 36 | Done |
-| Canvas sync tests | ~25 | | |
+| Canvas sync tests | ~25 | 14 | Done |
 | Merge UI tests | ~20 | | |
 | Canvas workflow tests | ~15 | | |
 | Flow integration tests | ~30 | | |
 | New events | 4 | 4 | Done |
-| Source LOC | ~1,100 | ~325 | In progress |
+| Source LOC | ~1,100 | ~425 | In progress |
 
 ---
 

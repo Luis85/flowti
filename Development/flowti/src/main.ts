@@ -30,6 +30,7 @@ import type { SignalService } from "./domain/signal/SignalService";
 import type { IngestionService } from "./domain/ingestion/IngestionService";
 import type { CaptureService } from "./domain/capture/CaptureService";
 import type { TrainService } from "./domain/train/TrainService";
+import { TrainCanvasSyncService } from "./domain/train/TrainCanvasSyncService";
 import type { CanvasService } from "./domain/canvas/CanvasService";
 import { QuickCaptureModal } from "./ui/capture/QuickCaptureModal";
 import { TrainCaptureModal } from "./ui/train/TrainCaptureModal";
@@ -699,6 +700,20 @@ export default class FlowtiBasePlugin extends Plugin {
 			trainFolder: settingsService.getSettings().trainFolder,
 		});
 		await this.trainService.load();
+
+		// Train Canvas Sync — auto-generate canvas from train graph
+		const trainCanvasFileSystem = new FileSystemClient({ eventBus: this.eventBus });
+		const trainCanvasSync = new TrainCanvasSyncService({
+			eventBus: this.eventBus,
+			fileSystem: trainCanvasFileSystem,
+			getSettings: () => ({
+				trainFolder: settingsService.getSettings().trainFolder,
+				trainCanvasEnabled: settingsService.getSettings().trainCanvasEnabled,
+			}),
+			getTrain: (id) => this.trainService?.getTrain(id),
+		});
+		trainCanvasSync.setup();
+		this.register(() => trainCanvasSync.destroy());
 
 		// Canvas Service — canvas import configurations and orchestration
 		this.canvasService = await this.services.get<CanvasService>("canvasService");
