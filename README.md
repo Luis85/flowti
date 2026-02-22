@@ -61,25 +61,15 @@ To update, you need to `git pull` from remote and build the plugin again.
 > [!NOTE] Heads up
 > This is a temporary solution, in a future release Plugins will be installed trough BRAT
 
-
-## Roadmap
-
-- Dedicated Plugin Repos
-- GitHub Integration
-- Release Workflow
-- …
-- Release v0.0.1
-- Announce on Obsidian
-- ...
-- Flowti v10.0
-
 ## Current Ideas and Concepts to work on
 
 - How to migrate Flowti IBDE Development into the Flowti structure
 - How to manage a GitHub repo out of Flowti
 - How to manage an Obsidian Plugin within Flowti
+- How to come from Idea to Solution to Feedback to Improvement to Product Market Fit to Release and Publishing to Continuous Improvement
+- How can we manage an Obsidian Plugin like a Product, guided by industries best-practices
 
-## OneSeater - Impressions
+## Testlab - The OneSeater Motorsport Manager
 
 ### The Office
 
