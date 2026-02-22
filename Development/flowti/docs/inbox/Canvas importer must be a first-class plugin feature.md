@@ -1,6 +1,6 @@
 ---
 type: idea
-stage: planned
+stage: delivered
 origin: inbox
 domain: data-exchange
 description: "Move canvas import logic from external QuickAdd scripts into the plugin as a first-class import source type alongside CSV."
@@ -10,6 +10,7 @@ tags:
 priority: "2 - high"
 rank:
 planned_in: "[[Release Preparation Cycle]]"
+delivered_in: "[[Cycle 15 - Canvas Integration]]"
 related:
   - "[[Starting a Canvas Session]]"
   - "[[I want to import an Obsidian Canvas to add its content to my domain]]"

@@ -296,7 +296,7 @@ CanvasTemplate
 
 | PBI | Title | Status | Dependencies |
 |-----|-------|--------|-------------|
-| [[PBI-CAN-001 Canvas Parser and Importer]] | First-class canvas import in Data Exchange Hub | IN-PROGRESS | Data Exchange Hub ✅ |
+| [[PBI-CAN-001 Canvas Parser and Importer]] | First-class canvas import in Data Exchange Hub | DONE | Data Exchange Hub ✅ |
 | [[PBI-CAN-002 Canvas Templates]] | Preconfigured canvas layouts for session types | PLANNED | PBI-CAN-001 |
 | [[PBI-CAN-003 Canvas Sessions]] | Session type with canvas + sidebar workspace | PLANNED | PBI-CAN-002, Session Workspaces ✅ |
 
@@ -304,7 +304,7 @@ CanvasTemplate
 
 ## Implementation Phases
 
-### Phase 1: Canvas Parser & Importer (PBI-CAN-001) — In Progress
+### Phase 1: Canvas Parser & Importer (PBI-CAN-001) — Done (Cycle 15, 9 increments)
 
 Migrate canvas import logic from `var/scripts/canvas-importer/` into `src/domain/canvas/` (own bounded context). Register as import source type in Data Exchange Hub. Implement import wizard, context menu, and progress events.
 

@@ -1,7 +1,8 @@
 ---
 type: ProductBacklogItem
 feature: "[[Obsidian Canvas Integration PRD]]"
-stage: in-progress
+stage: done
+delivered_in: "[[Cycle 15 - Canvas Integration]]"
 priority: high
 phase: 1
 dependencies:
@@ -98,7 +99,8 @@ As a domain architect, I want to import Canvas files as typed vault notes from t
 - [x] All existing canvas-importer test scenarios pass (Cycle 15 Inc 4 — all 5 scripts ported, 186 canvas-specific tests)
 - [x] Full Canvas Action View with type exclusion and DX Hub Canvas tab (Cycle 15 Inc 7)
 - [x] Canvas configs as pipeline sources with execution, aggregation, and UI (Cycle 15 Inc 8)
-- [x] npm run build passes (verified Cycle 15 Inc 8 — 3,528 tests, 140 suites)
+- [x] Integration flow test covers end-to-end pipeline (Cycle 15 Inc 9 — 18-CanvasImport.test.ts, 20 tests)
+- [x] npm run build passes (verified Cycle 15 Inc 9 — 3,548 tests, 141 suites)
 
 ## Related
 
