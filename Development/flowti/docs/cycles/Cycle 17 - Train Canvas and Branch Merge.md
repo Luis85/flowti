@@ -248,13 +248,21 @@ total_test_files_after:
 **Architecture seams:** TrainMergeSelector renders inside TrainMainView detail panel. Target validation reuses `TrainService.mergeBranch()` validation (try/catch pattern). Timeline merge indicator uses CSS class for badge styling. Follows existing `TrainControlsPanel` action button pattern.
 
 **Acceptance criteria:**
-- [ ] "Merge into..." button visible on branch endpoint thoughts (not on main chain)
-- [ ] Target selection panel shows valid merge targets
-- [ ] Invalid targets (self, descendants) visually dimmed
-- [ ] Successful merge updates timeline with merge indicator
-- [ ] Undo merge button visible on merged thoughts
-- [ ] Undo removes merge indicator from timeline
-- [ ] `npm test` passes
+- [x] "Merge into..." button visible on branch endpoint thoughts (not on main chain)
+- [x] Target selection panel shows valid merge targets
+- [x] Invalid targets (self, descendants) visually dimmed
+- [x] Successful merge updates timeline with merge indicator
+- [x] Undo merge button visible on merged thoughts
+- [x] Undo removes merge indicator from timeline
+- [x] `npm test` passes
+
+**Delivery notes (Inc 4):**
+- **TrainMergeSelector.ts** (new, 119 LOC): inline target selection panel with DFS-based invalid target computation. Marks self, descendants, and already-merged targets as disabled with explanatory labels.
+- **TrainMainView.ts** (+65 LOC): `renderMergeSection()` shows existing merges with undo buttons + "Merge into..." button on branch endpoints. Inline merge selector toggled via `mergeSelectorOpen` flag.
+- **TrainTimelineSidebar.ts** (+15 LOC): merge badges in `renderNode()` — "⤴ merged" (outgoing) and "⤵ target" (incoming) badges on affected nodes.
+- **Both subscription files** (+12 LOC each): `train.branch.merged` and `train.branch.merge.undone` listeners for re-render.
+- **22 new tests** in `trainMergeUI.test.ts`: 5 timeline sidebar, 8 main view, 9 merge selector tests.
+- **Total**: 3,715 tests, 151 suites, tsc + eslint clean.
 
 ---
 

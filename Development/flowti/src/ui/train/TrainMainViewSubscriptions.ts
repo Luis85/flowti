@@ -77,5 +77,23 @@ export function setupTrainViewSubscriptions(
 		}),
 	);
 
+	// Branch merged — re-render to show merge state
+	unsubs.push(
+		eventBus.on("train.branch.merged", (event) => {
+			if (event.payload.trainId === ctx.getTrainId()) {
+				ctx.scheduleRender();
+			}
+		}),
+	);
+
+	// Merge undone — re-render to remove merge state
+	unsubs.push(
+		eventBus.on("train.branch.merge.undone", (event) => {
+			if (event.payload.trainId === ctx.getTrainId()) {
+				ctx.scheduleRender();
+			}
+		}),
+	);
+
 	return unsubs;
 }

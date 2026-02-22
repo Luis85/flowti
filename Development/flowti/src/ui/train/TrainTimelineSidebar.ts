@@ -290,6 +290,26 @@ export class TrainTimelineSidebar extends ItemView {
 			});
 		}
 
+		// Merge indicators
+		const hasOutgoingMerge = train.relations.some(
+			(r) => r.fromId === thought.id && r.direction === "merge",
+		);
+		const hasIncomingMerge = train.relations.some(
+			(r) => r.toId === thought.id && r.direction === "merge",
+		);
+		if (hasOutgoingMerge) {
+			bulletRow.createSpan({
+				cls: "ft-badge ft-badge-accent ft-text-sm ft-timeline-merge-badge",
+				text: "⤴ merged",
+			});
+		}
+		if (hasIncomingMerge) {
+			bulletRow.createSpan({
+				cls: "ft-badge ft-badge-info ft-text-sm ft-timeline-merge-target-badge",
+				text: "⤵ target",
+			});
+		}
+
 		// Timestamp
 		const time = new Date(thought.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 		node.createDiv({

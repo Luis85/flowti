@@ -21,6 +21,7 @@ import { setupTrainViewSubscriptions } from "./TrainMainViewSubscriptions";
 import { TrainStatsPanel } from "./TrainStatsPanel";
 import { TrainControlsPanel } from "./TrainControlsPanel";
 import { TrainBreadcrumbPanel } from "./TrainBreadcrumbPanel";
+import { TrainMergeSelector } from "./TrainMergeSelector";
 
 // Re-export for backward compat
 export { VIEW_TYPE_TRAIN_MAIN } from "./types";
@@ -42,6 +43,7 @@ export class TrainMainView extends ItemView {
 	private renderTimer: ReturnType<typeof setTimeout> | null = null;
 	private statsPanel!: TrainStatsPanel;
 	private controlsPanel!: TrainControlsPanel;
+	private mergeSelectorOpen = false;
 
 	constructor(leaf: WorkspaceLeaf, eventBus: IEventBus, trainService: TrainService) {
 		super(leaf);
@@ -161,6 +163,7 @@ export class TrainMainView extends ItemView {
 			this.renderThoughtDetail(el, activeThought, train);
 			this.renderContentPreview(el, activeThought);
 			this.renderBranchLinks(el, activeThought, train);
+			this.renderMergeSection(el, activeThought, train);
 		}
 
 		// Controls panel
@@ -335,6 +338,81 @@ export class TrainMainView extends ItemView {
 				this.emitThoughtActivated(branch);
 				this.render();
 			});
+		}
+	}
+
+	// ── Merge UI ─────────────────────────────────────────────
+
+	private renderMergeSection(el: HTMLElement, thought: ThoughtNode, train: TrainState): void {
+		// Only show merge UI on running/paused trains
+		if (train.status === "completed") return;
+
+		const section = el.createDiv({ cls: "ft-section ft-train-merge-section" });
+
+		// Show existing merges from this thought
+		const outgoingMerges = train.relations.filter(
+			(r) => r.fromId === thought.id && r.direction === "merge",
+		);
+
+		if (outgoingMerges.length > 0) {
+			section.createEl("h4", { cls: "ft-heading-sm", text: "Merges" });
+			for (const merge of outgoingMerges) {
+				const target = train.thoughts.find((t) => t.id === merge.toId);
+				if (!target) continue;
+
+				const row = section.createDiv({ cls: "ft-train-merge-link ft-flex ft-items-center ft-gap-1" });
+				const icon = row.createSpan();
+				setIcon(icon, "git-merge");
+				row.createSpan({ text: `→ ${target.title}` });
+
+				const undoBtn = row.createEl("button", {
+					cls: "ft-btn ft-btn-ghost ft-btn-sm ft-train-merge-undo",
+				});
+				undoBtn.setText("Undo");
+				undoBtn.addEventListener("click", () => {
+					void this.trainService.undoMerge(train.id, thought.id, target.id);
+				});
+			}
+		}
+
+		// Show "Merge into..." button for branch endpoint thoughts
+		// A branch endpoint has no outgoing "next" relation
+		const hasOutgoingNext = train.relations.some(
+			(r) => r.fromId === thought.id && r.direction === "next",
+		);
+		const isRoot = !train.relations.some(
+			(r) => r.toId === thought.id && (r.direction === "next" || r.direction === "branch"),
+		);
+
+		// Show merge button on non-root thoughts with no outgoing "next"
+		// (branch endpoints and chain endpoints that aren't the root)
+		if (!hasOutgoingNext && !isRoot && train.thoughts.length > 1) {
+			if (this.mergeSelectorOpen) {
+				const selectorEl = section.createDiv({ cls: "ft-train-merge-selector-container" });
+				const selector = new TrainMergeSelector(selectorEl, {
+					trainService: this.trainService,
+					onSelect: (targetId) => {
+						this.mergeSelectorOpen = false;
+						void this.trainService.mergeBranch(train.id, thought.id, targetId);
+					},
+					onCancel: () => {
+						this.mergeSelectorOpen = false;
+						this.render();
+					},
+				});
+				selector.render(train, thought.id);
+			} else {
+				const mergeBtn = section.createEl("button", {
+					cls: "ft-btn ft-btn-secondary ft-btn-sm ft-train-merge-btn",
+				});
+				const mergeIcon = mergeBtn.createSpan();
+				setIcon(mergeIcon, "git-merge");
+				mergeBtn.appendText(" Merge into...");
+				mergeBtn.addEventListener("click", () => {
+					this.mergeSelectorOpen = true;
+					this.render();
+				});
+			}
 		}
 	}
 
