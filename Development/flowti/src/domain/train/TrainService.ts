@@ -38,8 +38,11 @@ export class TrainService {
 	private readonly captureService: CaptureService;
 	private state: TrainServiceState = { trains: [] };
 
-	/** Late-binding settings getter for trainFolder — overridden in main.ts after service load. */
-	public getSettings: () => { trainFolder: string } = () => ({ trainFolder: "" });
+	/** Late-binding settings getter — overridden in main.ts after service load. */
+	public getSettings: () => { trainFolder: string; trainMaxThoughts: number } = () => ({
+		trainFolder: "",
+		trainMaxThoughts: 100,
+	});
 
 	constructor(options: TrainServiceOptions) {
 		this.storage = options.storage;
@@ -169,7 +172,8 @@ export class TrainService {
 	): Promise<ThoughtNode | null> {
 		const train = this.findTrain(trainId);
 		if (!train || train.status !== "running") return null;
-		if (train.thoughts.length >= MAX_THOUGHTS_PER_TRAIN) return null;
+		const maxThoughts = Math.min(this.getSettings().trainMaxThoughts, MAX_THOUGHTS_PER_TRAIN);
+		if (train.thoughts.length >= maxThoughts) return null;
 
 		const direction: ThoughtDirection = options?.direction ?? "next";
 
@@ -304,6 +308,43 @@ export class TrainService {
 
 	getAllTrains(): readonly TrainState[] {
 		return this.state.trains;
+	}
+
+	/**
+	 * Rename a train. Updates state only — does not rename canvas/summary files.
+	 */
+	async renameTrain(trainId: string, newTitle: string): Promise<boolean> {
+		const trimmed = newTitle.trim();
+		if (!trimmed) return false;
+
+		const train = this.findTrain(trainId);
+		if (!train) return false;
+		if (train.title === trimmed) return false;
+
+		const oldTitle = train.title;
+		train.title = trimmed;
+		await this.persist();
+
+		void this.eventBus.emit("train.renamed", { trainId, oldTitle, newTitle: trimmed });
+		return true;
+	}
+
+	/**
+	 * Delete a train from history. Running trains cannot be deleted.
+	 * Does NOT delete thought note files — they may be linked elsewhere.
+	 */
+	async deleteTrain(trainId: string): Promise<boolean> {
+		const idx = this.state.trains.findIndex((t) => t.id === trainId);
+		if (idx === -1) return false;
+
+		const train = this.state.trains[idx];
+		if (train.status === "running") return false;
+
+		this.state.trains.splice(idx, 1);
+		await this.persist();
+
+		void this.eventBus.emit("train.deleted", { trainId, title: train.title });
+		return true;
 	}
 
 	/**
@@ -624,6 +665,8 @@ export class TrainService {
 
 	/**
 	 * Build the navigation wikilink lists for a thought from the train's relations.
+	 * Uses file basename (from path) for wikilinks — not thought.title — because
+	 * file names include an ISO timestamp prefix that titles lack.
 	 */
 	private buildNavLinks(
 		train: TrainState,
@@ -641,14 +684,14 @@ export class TrainService {
 			if (r.fromId === thoughtId) {
 				const child = thoughtById.get(r.toId);
 				if (!child) continue;
-				const link = `[[${child.title}]]`;
+				const link = `[[${this.basenameFromPath(child.path)}]]`;
 				if (r.direction === "next") next.push(link);
 				else if (r.direction === "branch") up.push(link);
 				else if (r.direction === "merge") mergeTarget.push(link);
 			} else if (r.toId === thoughtId) {
 				const parent = thoughtById.get(r.fromId);
 				if (!parent) continue;
-				const link = `[[${parent.title}]]`;
+				const link = `[[${this.basenameFromPath(parent.path)}]]`;
 				if (r.direction === "next") back.push(link);
 				else if (r.direction === "branch") down.push(link);
 				else if (r.direction === "merge") mergedFrom.push(link);
@@ -656,5 +699,11 @@ export class TrainService {
 		}
 
 		return { next, back, up, down, "merge-target": mergeTarget, "merged-from": mergedFrom };
+	}
+
+	/** Extract file basename without extension from a vault path. */
+	private basenameFromPath(path: string): string {
+		const filename = path.split("/").pop() ?? path;
+		return filename.replace(/\.md$/, "");
 	}
 }

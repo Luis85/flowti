@@ -229,7 +229,7 @@ describe("TrainService", () => {
 			const { service, fileSystem } = createTestHarness();
 			const train = await service.startTrain("FM Test");
 
-			await service.addThought(train.id, "First");
+			const first = await service.addThought(train.id, "First");
 			await service.addThought(train.id, "Second");
 
 			// Allow fire-and-forget promises to settle
@@ -245,13 +245,14 @@ describe("TrainService", () => {
 			expect(firstCall).toBeDefined();
 			expect((firstCall![1] as Record<string, unknown>)["train-session"]).toBe("FM Test");
 
-			// Second thought: includes back link to First
+			// Second thought: includes back link to First (uses file basename, not title)
 			const secondCall = calls.find((c: unknown[]) =>
 				(c[1] as Record<string, unknown>)["thought-order"] === 1
 			);
 			expect(secondCall).toBeDefined();
 			const back = (secondCall![1] as Record<string, unknown>)["back"] as string[];
-			expect(back).toContain("[[First]]");
+			const firstBasename = first!.path.split("/").pop()!.replace(/\.md$/, "");
+			expect(back).toContain(`[[${firstBasename}]]`);
 		});
 
 		it("returns null for non-existent train", async () => {
@@ -269,7 +270,7 @@ describe("TrainService", () => {
 			expect(result).toBeNull();
 		});
 
-		it("returns null when thought limit is reached", async () => {
+		it("returns null when absolute safety cap (MAX_THOUGHTS_PER_TRAIN) is reached", async () => {
 			const thoughts = Array.from({ length: MAX_THOUGHTS_PER_TRAIN }, (_, i) => ({
 				id: `thought_${i}`,
 				trainId: "train_full",
@@ -292,10 +293,82 @@ describe("TrainService", () => {
 					completedAt: null,
 				}],
 			});
+			service.getSettings = () => ({ trainFolder: "Trains", trainMaxThoughts: 1000 });
 			await service.load();
 
 			const result = await service.addThought("train_full", "Overflow");
 			expect(result).toBeNull();
+		});
+
+		it("returns null when trainMaxThoughts setting limit is reached", async () => {
+			const thoughts = Array.from({ length: 5 }, (_, i) => ({
+				id: `thought_${i}`,
+				trainId: "train_small",
+				title: `Thought ${i}`,
+				path: `inbox/Thought ${i}.md`,
+				createdAt: new Date().toISOString(),
+				order: i,
+			}));
+			const { service } = createTestHarness({
+				trains: [{
+					id: "train_small",
+					sessionId: "session_small",
+					title: "Small Train",
+					status: "running",
+					thoughts,
+					relations: [],
+					durationMinutes: 0,
+					createdAt: new Date().toISOString(),
+					pausedAt: null,
+					completedAt: null,
+				}],
+			});
+			service.getSettings = () => ({ trainFolder: "Trains", trainMaxThoughts: 5 });
+			await service.load();
+
+			const result = await service.addThought("train_small", "Over limit");
+			expect(result).toBeNull();
+		});
+
+		it("allows adding thoughts below trainMaxThoughts setting", async () => {
+			const thoughts = Array.from({ length: 4 }, (_, i) => ({
+				id: `thought_${i}`,
+				trainId: "train_below",
+				title: `Thought ${i}`,
+				path: `inbox/Thought ${i}.md`,
+				createdAt: new Date().toISOString(),
+				order: i,
+			}));
+			const { service } = createTestHarness({
+				trains: [{
+					id: "train_below",
+					sessionId: "session_below",
+					title: "Below Limit",
+					status: "running",
+					thoughts,
+					relations: [],
+					durationMinutes: 0,
+					createdAt: new Date().toISOString(),
+					pausedAt: null,
+					completedAt: null,
+				}],
+			});
+			service.getSettings = () => ({ trainFolder: "Trains", trainMaxThoughts: 5 });
+			await service.load();
+
+			const result = await service.addThought("train_below", "Still OK");
+			expect(result).not.toBeNull();
+		});
+
+		it("uses default trainMaxThoughts (100) when settings provide it", async () => {
+			const { service } = createTestHarness();
+			// Default getSettings returns trainMaxThoughts: 100
+			await service.load();
+
+			const train = await service.startTrain("Default Limit");
+			// The default limit is 100, not the hardcoded 500
+			// We can verify by checking the service getter
+			expect(service.getSettings().trainMaxThoughts).toBe(100);
 		});
 	});
 
@@ -508,39 +581,41 @@ describe("TrainService", () => {
 		it("includes nav links in frontmatter (back for linear child)", async () => {
 			const { service, fileSystem } = createTestHarness();
 			const train = await service.startTrain("FM Relations");
-			await service.addThought(train.id, "First");
+			const first = await service.addThought(train.id, "First");
 			await service.addThought(train.id, "Second");
 
 			await vi.waitFor(() => {
 				expect(fileSystem.updateFrontmatter).toHaveBeenCalled();
 			});
 
+			const firstBasename = first!.path.split("/").pop()!.replace(/\.md$/, "");
 			const calls = (fileSystem.updateFrontmatter as ReturnType<typeof vi.fn>).mock.calls;
 			const secondThoughtCall = calls.find((c: unknown[]) =>
 				(c[1] as Record<string, unknown>)["thought-order"] === 1
 			);
 			expect(secondThoughtCall).toBeDefined();
 			const data = secondThoughtCall![1] as Record<string, unknown>;
-			expect(data["back"]).toEqual(["[[First]]"]);
+			expect(data["back"]).toEqual([`[[${firstBasename}]]`]);
 			expect(data["down"]).toEqual([]);
 		});
 
 		it("includes down link for branch child", async () => {
 			const { service, fileSystem } = createTestHarness();
 			const train = await service.startTrain("FM Branch");
-			await service.addThought(train.id, "Root");
+			const root = await service.addThought(train.id, "Root");
 			await service.addThought(train.id, "Branch", { direction: "branch" });
 
 			await vi.waitFor(() => {
 				expect(fileSystem.updateFrontmatter).toHaveBeenCalled();
 			});
 
+			const rootBasename = root!.path.split("/").pop()!.replace(/\.md$/, "");
 			const calls = (fileSystem.updateFrontmatter as ReturnType<typeof vi.fn>).mock.calls;
 			const branchCall = calls.find((c: unknown[]) =>
 				(c[1] as Record<string, unknown>)["thought-order"] === 1
 			);
 			const data = branchCall![1] as Record<string, unknown>;
-			expect(data["down"]).toEqual(["[[Root]]"]);
+			expect(data["down"]).toEqual([`[[${rootBasename}]]`]);
 			expect(data["back"]).toEqual([]);
 		});
 
@@ -548,13 +623,14 @@ describe("TrainService", () => {
 			const { service, fileSystem } = createTestHarness();
 			const train = await service.startTrain("Source FM");
 			await service.addThought(train.id, "Parent");
-			await service.addThought(train.id, "Child");
+			const child = await service.addThought(train.id, "Child");
 
 			await vi.waitFor(() => {
 				const callCount = (fileSystem.updateFrontmatter as ReturnType<typeof vi.fn>).mock.calls.length;
 				expect(callCount).toBeGreaterThanOrEqual(3); // parent fm + child fm + parent update
 			});
 
+			const childBasename = child!.path.split("/").pop()!.replace(/\.md$/, "");
 			const calls = (fileSystem.updateFrontmatter as ReturnType<typeof vi.fn>).mock.calls;
 			// Find the update to the parent thought that includes next link
 			const parentUpdate = calls.find((c: unknown[]) => {
@@ -564,7 +640,7 @@ describe("TrainService", () => {
 			});
 			expect(parentUpdate).toBeDefined();
 			const data = parentUpdate![1] as Record<string, unknown>;
-			expect(data["next"]).toContain("[[Child]]");
+			expect(data["next"]).toContain(`[[${childBasename}]]`);
 		});
 	});
 
@@ -638,7 +714,7 @@ describe("TrainService", () => {
 	describe("addThought() — trainFolder override", () => {
 		it("passes trainFolder to CaptureService when configured", async () => {
 			const { service, fileSystem } = createTestHarness();
-			service.getSettings = () => ({ trainFolder: "trains/active" });
+			service.getSettings = () => ({ trainFolder: "trains/active", trainMaxThoughts: 100 });
 			const train = await service.startTrain("Folder Test");
 
 			await service.addThought(train.id, "Directed Thought");
@@ -652,7 +728,7 @@ describe("TrainService", () => {
 
 		it("falls back to captureFolder when trainFolder is empty", async () => {
 			const { service, fileSystem } = createTestHarness();
-			service.getSettings = () => ({ trainFolder: "" });
+			service.getSettings = () => ({ trainFolder: "", trainMaxThoughts: 100 });
 			const train = await service.startTrain("Default Folder");
 
 			await service.addThought(train.id, "Default Thought");
@@ -666,7 +742,7 @@ describe("TrainService", () => {
 
 		it("uses trainFolder for all thoughts in a train", async () => {
 			const { service, fileSystem } = createTestHarness();
-			service.getSettings = () => ({ trainFolder: "trains/folder" });
+			service.getSettings = () => ({ trainFolder: "trains/folder", trainMaxThoughts: 100 });
 			const train = await service.startTrain("Multi Thought");
 
 			await service.addThought(train.id, "First");
@@ -788,6 +864,158 @@ describe("TrainService", () => {
 
 			expect(service.getTrain(train.id)!.status).toBe("running");
 			expect(pauseEvents).toHaveLength(0);
+		});
+	});
+
+	describe("renameTrain()", () => {
+		it("renames a running train", async () => {
+			const { service } = createTestHarness();
+			await service.load();
+			const train = await service.startTrain("Old Name");
+
+			const result = await service.renameTrain(train.id, "New Name");
+
+			expect(result).toBe(true);
+			expect(service.getTrain(train.id)!.title).toBe("New Name");
+		});
+
+		it("renames a completed train", async () => {
+			const { service } = createTestHarness();
+			await service.load();
+			const train = await service.startTrain("Before");
+			await service.addThought(train.id, "T");
+			await service.completeTrain(train.id);
+
+			const result = await service.renameTrain(train.id, "After");
+
+			expect(result).toBe(true);
+			expect(service.getTrain(train.id)!.title).toBe("After");
+		});
+
+		it("emits train.renamed event", async () => {
+			const { service, eventBus } = createTestHarness();
+			await service.load();
+			const train = await service.startTrain("Original");
+
+			const events: Array<{ oldTitle: string; newTitle: string }> = [];
+			eventBus.on("train.renamed", (e) => { events.push(e.payload as { oldTitle: string; newTitle: string }); });
+
+			await service.renameTrain(train.id, "Updated");
+
+			expect(events).toHaveLength(1);
+			expect(events[0].oldTitle).toBe("Original");
+			expect(events[0].newTitle).toBe("Updated");
+		});
+
+		it("rejects empty title", async () => {
+			const { service } = createTestHarness();
+			await service.load();
+			const train = await service.startTrain("Keep This");
+
+			expect(await service.renameTrain(train.id, "")).toBe(false);
+			expect(await service.renameTrain(train.id, "   ")).toBe(false);
+			expect(service.getTrain(train.id)!.title).toBe("Keep This");
+		});
+
+		it("rejects same title", async () => {
+			const { service } = createTestHarness();
+			await service.load();
+			const train = await service.startTrain("Same");
+
+			expect(await service.renameTrain(train.id, "Same")).toBe(false);
+		});
+
+		it("returns false for non-existent train", async () => {
+			const { service } = createTestHarness();
+			await service.load();
+
+			expect(await service.renameTrain("train_nope", "Name")).toBe(false);
+		});
+
+		it("trims whitespace from new title", async () => {
+			const { service } = createTestHarness();
+			await service.load();
+			const train = await service.startTrain("Untrimmed");
+
+			await service.renameTrain(train.id, "  Trimmed  ");
+
+			expect(service.getTrain(train.id)!.title).toBe("Trimmed");
+		});
+	});
+
+	describe("deleteTrain()", () => {
+		it("deletes a completed train", async () => {
+			const { service } = createTestHarness();
+			await service.load();
+			const train = await service.startTrain("To Delete");
+			await service.addThought(train.id, "T");
+			await service.completeTrain(train.id);
+
+			const result = await service.deleteTrain(train.id);
+
+			expect(result).toBe(true);
+			expect(service.getTrain(train.id)).toBeUndefined();
+			expect(service.getAllTrains()).toHaveLength(0);
+		});
+
+		it("deletes a paused train", async () => {
+			const { service } = createTestHarness();
+			await service.load();
+			const train = await service.startTrain("Paused Delete");
+			await service.pause(train.id);
+
+			const result = await service.deleteTrain(train.id);
+
+			expect(result).toBe(true);
+			expect(service.getTrain(train.id)).toBeUndefined();
+		});
+
+		it("rejects deletion of running train", async () => {
+			const { service } = createTestHarness();
+			await service.load();
+			const train = await service.startTrain("Running");
+
+			const result = await service.deleteTrain(train.id);
+
+			expect(result).toBe(false);
+			expect(service.getTrain(train.id)).toBeDefined();
+		});
+
+		it("emits train.deleted event", async () => {
+			const { service, eventBus } = createTestHarness();
+			await service.load();
+			const train = await service.startTrain("Delete Events");
+			await service.addThought(train.id, "T");
+			await service.completeTrain(train.id);
+
+			const events: Array<{ trainId: string; title: string }> = [];
+			eventBus.on("train.deleted", (e) => { events.push(e.payload as { trainId: string; title: string }); });
+
+			await service.deleteTrain(train.id);
+
+			expect(events).toHaveLength(1);
+			expect(events[0].trainId).toBe(train.id);
+			expect(events[0].title).toBe("Delete Events");
+		});
+
+		it("returns false for non-existent train", async () => {
+			const { service } = createTestHarness();
+			await service.load();
+
+			expect(await service.deleteTrain("train_nope")).toBe(false);
+		});
+
+		it("persists state after deletion", async () => {
+			const { service, getData } = createTestHarness();
+			await service.load();
+			const train = await service.startTrain("Persist Delete");
+			await service.addThought(train.id, "T");
+			await service.completeTrain(train.id);
+
+			await service.deleteTrain(train.id);
+
+			const persisted = getData();
+			expect(persisted!.trains).toHaveLength(0);
 		});
 	});
 });

@@ -10,6 +10,7 @@ import type { IEventBus } from "../../infrastructure/events/types";
 import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
 import type { TrainState } from "./types";
 import { writeTrainCanvas } from "./TrainCanvasWriter";
+import { getCanvasPath } from "./helpers";
 
 export const CANVAS_SYNC_DELAY_MS = 500;
 
@@ -79,7 +80,7 @@ export class TrainCanvasSyncService {
 		if (!train || train.thoughts.length === 0) return;
 
 		const { trainFolder } = this.getSettings();
-		const canvasPath = `${trainFolder}/${train.title}.canvas`;
+		const canvasPath = getCanvasPath(train.title, trainFolder);
 
 		// Read pre-sync managed file node count for reconciliation detection
 		const preSyncCount = await this.countManagedFileNodes(canvasPath);
@@ -117,7 +118,8 @@ export class TrainCanvasSyncService {
 			const canvas = JSON.parse(content) as { nodes?: Array<{ id: string; type?: string }> };
 			if (!canvas.nodes) return 0;
 			return canvas.nodes.filter((n) => n.id.startsWith("ft-t-") && n.type === "file").length;
-		} catch {
+		} catch (error) {
+			console.warn("[Flowti] Failed to count managed nodes in canvas:", canvasPath, error);
 			return null;
 		}
 	}

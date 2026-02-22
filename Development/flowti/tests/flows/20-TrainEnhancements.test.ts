@@ -73,7 +73,7 @@ function createTestHarness() {
 	eventBus.on("session.complete", () => {});
 
 	const trainService = new TrainService({ storage, eventBus, fileSystem, captureService });
-	trainService.getSettings = () => ({ trainFolder: "Trains" });
+	trainService.getSettings = () => ({ trainFolder: "Trains", trainMaxThoughts: 100 });
 
 	return { trainService, eventBus, fileSystem };
 }
@@ -143,12 +143,17 @@ describe("Flow 20: Train Enhancements", () => {
 			const completedTrain = trainService.getTrain(train.id)!;
 			const summary = generateTrainSummary(completedTrain);
 
+			// Wikilinks use file basenames (includes ISO timestamp prefix)
+			const basename = (t: { path: string }) => t.path.split("/").pop()!.replace(/\.md$/, "");
+			const foundationsLink = `[[${basename(completedTrain.thoughts[0])}]]`;
+			const patternsLink = `[[${basename(completedTrain.thoughts[1])}]]`;
+
 			expect(summary).toContain("# Train Summary: Architecture");
 			expect(summary).toContain("thoughts: 3");
 			expect(summary).toContain("branches: 1");
 			expect(summary).toContain("## Timeline");
-			expect(summary).toContain("[[Foundations]]");
-			expect(summary).toContain("[[Patterns]]");
+			expect(summary).toContain(foundationsLink);
+			expect(summary).toContain(patternsLink);
 			expect(summary).toContain("## Branches");
 		});
 
@@ -283,9 +288,14 @@ describe("Flow 20: Train Enhancements", () => {
 			const currentTrain = trainService.getTrain(train.id)!;
 			const summary = generateTrainSummary(currentTrain);
 
+			// Wikilinks use file basenames (includes ISO timestamp prefix)
+			const basename = (t: { path: string }) => t.path.split("/").pop()!.replace(/\.md$/, "");
+			const branchLink = `[[${basename(branchThought)}]]`;
+			const continueLink = `[[${basename(continueThought)}]]`;
+
 			expect(summary).toContain("merges: 1");
 			expect(summary).toContain("## Merges");
-			expect(summary).toContain("[[Branch]] → [[Continue]]");
+			expect(summary).toContain(`${branchLink} → ${continueLink}`);
 		});
 	});
 });

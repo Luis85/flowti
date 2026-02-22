@@ -1,10 +1,10 @@
 ---
 type: DevelopmentCycle
 feature: "[[Train Improvements PRD]]"
-stage: planned
+stage: delivered
 cycle: 22
 date_planned: 2026-02-22
-date_completed:
+date_completed: 2026-02-22
 pbis:
   - "[[PBI-TOT-008 Train Polish and Management]]"
 bugs:
@@ -14,11 +14,11 @@ tech_debt:
   - "Silent catch blocks in canvas writer/sync (TD-122 pattern)"
   - "Canvas path derivation duplicated across 3 files"
 estimated_increments: 6
-actual_increments:
+actual_increments: 6
 estimated_tests: 70
-actual_tests:
-total_tests_after:
-total_test_files_after:
+actual_tests: 40
+total_tests_after: 3936
+total_test_files_after: 160
 ---
 
 # Cycle 22: Train Polish & Management
@@ -77,12 +77,12 @@ total_test_files_after:
 
 ## Cycle Goals
 
-1. **Fix trainMaxThoughts setting** — TrainService reads `getSettings().trainMaxThoughts` instead of hardcoded constant
-2. **Active thought visual ring** — Box-shadow glow on `.ft-graph-dot-active` matching lane color
-3. **Train rename** — In-place edit in main view header + history cards, updates state + note references
-4. **Train delete** — Trash button in history panel, confirmation, removes from state
-5. **Canvas error logging + path dedup** — Replace silent catches with event bus logging, extract shared `getCanvasPath()`
-6. **Integration tests** — Flow 21 covering management operations
+1. **Fix trainMaxThoughts setting** — TrainService reads `getSettings().trainMaxThoughts` instead of hardcoded constant ✅
+2. **Active thought visual ring** — Box-shadow glow on `.ft-graph-dot-active` matching lane color ✅
+3. **Train rename** — In-place edit in main view header + history cards, updates state + note references ✅
+4. **Train delete** — Trash button in history panel, confirmation, removes from state ✅
+5. **Canvas error logging + path dedup** — Replace silent catches with event bus logging, extract shared `getCanvasPath()` ✅
+6. **Integration tests** — Flow 21 covering management operations ✅
 
 ---
 
@@ -174,10 +174,10 @@ total_test_files_after:
 **Test intent:** Verify setting value is respected; verify absolute cap (500) cannot be exceeded even if setting is >500; verify default (100) applies when no explicit setting.
 
 **Acceptance criteria:**
-- [ ] `trainMaxThoughts` setting controls max thoughts per train
-- [ ] `MAX_THOUGHTS_PER_TRAIN` (500) serves as absolute safety cap
-- [ ] Thought addition rejected when limit reached (returns null)
-- [ ] `npm test` passes
+- [x]`trainMaxThoughts` setting controls max thoughts per train
+- [x]`MAX_THOUGHTS_PER_TRAIN` (500) serves as absolute safety cap
+- [x]Thought addition rejected when limit reached (returns null)
+- [x]`npm test` passes
 
 ---
 
@@ -207,10 +207,10 @@ total_test_files_after:
 The existing tests in `TrainTimelineSidebar.test.ts` already verify that exactly 1 dot gets the `.ft-graph-dot-active` class (lines 287–301). No new test code needed — this is a pure CSS fix.
 
 **Acceptance criteria:**
-- [ ] Active thought dot has visible glow ring
-- [ ] Ring uses `--interactive-accent` (adapts to theme)
-- [ ] Normal dots remain unchanged (10px, no shadow)
-- [ ] `npm test` passes
+- [x]Active thought dot has visible glow ring
+- [x]Ring uses `--interactive-accent` (adapts to theme)
+- [x]Normal dots remain unchanged (10px, no shadow)
+- [x]`npm test` passes
 
 ---
 
@@ -245,13 +245,13 @@ The existing tests in `TrainTimelineSidebar.test.ts` already verify that exactly
 **Documentation intent:** Register `train.renamed` event in catalog.
 
 **Acceptance criteria:**
-- [ ] `renameTrain()` updates train title in state
-- [ ] `train.renamed` event emitted with old + new title
-- [ ] Pencil icon in main view header triggers rename
-- [ ] Pencil icon in history cards triggers rename
-- [ ] Empty/whitespace-only title rejected
-- [ ] Canvas/summary files not renamed (documented limitation)
-- [ ] `npm test` passes
+- [x]`renameTrain()` updates train title in state
+- [x]`train.renamed` event emitted with old + new title
+- [x]Pencil icon in main view header triggers rename
+- [x]Pencil icon in history cards triggers rename
+- [x]Empty/whitespace-only title rejected
+- [x]Canvas/summary files not renamed (documented limitation)
+- [x]`npm test` passes
 
 ---
 
@@ -284,14 +284,14 @@ The existing tests in `TrainTimelineSidebar.test.ts` already verify that exactly
 **Documentation intent:** Register `train.deleted` event in catalog.
 
 **Acceptance criteria:**
-- [ ] `deleteTrain()` removes train from state
-- [ ] Running trains cannot be deleted (returns false)
-- [ ] Paused + completed trains can be deleted
-- [ ] Thought note files are NOT deleted (preserved)
-- [ ] `train.deleted` event emitted
-- [ ] Confirmation dialog before delete
-- [ ] History panel re-renders after delete
-- [ ] `npm test` passes
+- [x]`deleteTrain()` removes train from state
+- [x]Running trains cannot be deleted (returns false)
+- [x]Paused + completed trains can be deleted
+- [x]Thought note files are NOT deleted (preserved)
+- [x]`train.deleted` event emitted
+- [x]Confirmation dialog before delete
+- [x]History panel re-renders after delete
+- [x]`npm test` passes
 
 ---
 
@@ -321,10 +321,10 @@ The existing tests in `TrainTimelineSidebar.test.ts` already verify that exactly
 **Test intent:** Helper: correct path for folder + title, empty folder, title with special chars. Canvas writer: spy on `console.warn` to verify error is logged on invalid JSON.
 
 **Acceptance criteria:**
-- [ ] Canvas read failures log a warning with the file path and error
-- [ ] `getCanvasPath()` used in all 3 locations (no duplicated derivation)
-- [ ] `getCanvasPath()` handles empty trainFolder gracefully
-- [ ] `npm test` passes
+- [x]Canvas read failures log a warning with the file path and error
+- [x]`getCanvasPath()` used in all 3 locations (no duplicated derivation)
+- [x]`getCanvasPath()` handles empty trainFolder gracefully
+- [x]`npm test` passes
 
 ---
 
@@ -351,12 +351,12 @@ The existing tests in `TrainTimelineSidebar.test.ts` already verify that exactly
 10. **Canvas path consistency**: Verify `getCanvasPath()` matches the path used in sync events
 
 **Acceptance criteria:**
-- [ ] Flow 21 covers trainMaxThoughts setting enforcement
-- [ ] Flow 21 covers rename lifecycle (success + rejection)
-- [ ] Flow 21 covers delete lifecycle (success + rejection + running blocked)
-- [ ] Flow 21 covers full management lifecycle
-- [ ] All existing tests pass
-- [ ] `npm test` passes
+- [x]Flow 21 covers trainMaxThoughts setting enforcement
+- [x]Flow 21 covers rename lifecycle (success + rejection)
+- [x]Flow 21 covers delete lifecycle (success + rejection + running blocked)
+- [x]Flow 21 covers full management lifecycle
+- [x]All existing tests pass
+- [x]`npm test` passes
 
 ---
 
@@ -391,16 +391,16 @@ Inc 5 (Canvas Error/Path) ──→ Inc 6 (Integration)
 
 ## Success Metrics
 
-| Metric | Target |
-|--------|--------|
-| New tests | ~70 |
-| Source LOC | ~170 |
-| CSS LOC | ~7 |
-| Post-cycle total tests | ~3,966 |
-| Post-cycle test suites | ~161 |
-| Critical bugs fixed | 1 (trainMaxThoughts) |
-| New TrainService APIs | 2 (renameTrain, deleteTrain) |
-| New events | 2 (train.renamed, train.deleted) |
+| Metric | Target | Actual |
+|--------|--------|--------|
+| New tests | ~70 | 40 |
+| Source LOC | ~170 | ~120 |
+| CSS LOC | ~7 | 5 |
+| Post-cycle total tests | ~3,966 | 3,936 |
+| Post-cycle test suites | ~161 | 160 |
+| Critical bugs fixed | 1 (trainMaxThoughts) | 1 |
+| New TrainService APIs | 2 (renameTrain, deleteTrain) | 2 |
+| New events | 2 (train.renamed, train.deleted) | 2 |
 
 ---
 
@@ -434,6 +434,33 @@ Inc 5 (Canvas Error/Path) ──→ Inc 6 (Integration)
 | Train frontmatter enrichment UI | **Deferred** — low priority; frontmatter updates automatically |
 | Multi-window train + canvas | **Deferred** — Obsidian-native, workaround exists |
 | AI follow train-of-thought | **Deferred** — requires AI infrastructure |
+
+---
+
+## Definition of Done (Cycle)
+
+### 1. All Increments Completed
+- [x] Each increment satisfies its own acceptance criteria (6/6 ✅)
+- [x] No increment left in partial state
+- [x] Deferred items documented with rationale
+
+### 2. Build & Test Quality
+- [x] `npm test` passes — 3,936 tests, 160 suites, 32 skipped
+- [x] `npm run check` passes (tsc + eslint clean)
+- [x] No test regressions on existing 3,896 tests (+40 new)
+
+### 3. Feature Completeness
+- [x] trainMaxThoughts setting controls max thoughts (critical bug fixed)
+- [x] Active thought dot has visible glow ring in sidebar
+- [x] Train rename: pencil icon in header + history cards, `renameTrain()` API
+- [x] Train delete: trash icon in history cards, confirmation, `deleteTrain()` API
+- [x] Canvas catch blocks log warnings; `getCanvasPath()` shared helper
+- [x] Integration test covers management lifecycle (Flow 21, 13 tests)
+
+### 4. Documentation
+- [x] Cycle plan updated with actual values
+- [x] Success metrics verified
+- [x] `train.renamed` and `train.deleted` events registered in catalog
 
 ---
 

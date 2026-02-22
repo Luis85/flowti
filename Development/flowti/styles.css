@@ -1993,10 +1993,13 @@
 	transform: translate(-50%, -50%);
 }
 
-/* Active dot: slightly larger with subtle ring */
+/* Active dot: slightly larger with glowing ring */
 .ft-graph-dot-active {
 	width: 12px;
 	height: 12px;
+	box-shadow: 0 0 0 3px var(--interactive-accent, #7f6df2),
+		0 0 8px var(--interactive-accent, #7f6df2);
+	transition: box-shadow 150ms ease;
 }
 
 /* Fork connector: horizontal line from parent lane to branch lane */

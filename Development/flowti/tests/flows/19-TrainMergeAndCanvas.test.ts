@@ -81,7 +81,7 @@ function createTestHarness() {
 	});
 
 	const trainService = new TrainService({ storage, eventBus, fileSystem, captureService });
-	trainService.getSettings = () => ({ trainFolder: "Trains" });
+	trainService.getSettings = () => ({ trainFolder: "Trains", trainMaxThoughts: 100 });
 
 	const canvasSyncService = new TrainCanvasSyncService({
 		eventBus,

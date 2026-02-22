@@ -81,4 +81,5 @@ export interface TrainServiceState {
 // ─────────────────────────────────────────────────────────────
 
 export const MAX_TRAINS = 100;
+/** Absolute safety cap — user-facing limit is `trainMaxThoughts` in settings (default 100). */
 export const MAX_THOUGHTS_PER_TRAIN = 500;

@@ -525,8 +525,8 @@ export async function writeTrainCanvas(
 			const content = await fileSystem.readFile(canvasPath);
 			existing = JSON.parse(content) as CanvasData;
 		}
-	} catch {
-		// Invalid JSON or read error — will overwrite with fresh canvas
+	} catch (error) {
+		console.warn("[Flowti] Failed to read existing canvas for reconciliation:", canvasPath, error);
 	}
 
 	const merged = mergeCanvasLayers(managed, existing);

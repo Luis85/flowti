@@ -31,6 +31,7 @@ import type { IngestionService } from "./domain/ingestion/IngestionService";
 import type { CaptureService } from "./domain/capture/CaptureService";
 import type { TrainService } from "./domain/train/TrainService";
 import { TrainCanvasSyncService } from "./domain/train/TrainCanvasSyncService";
+import { getCanvasPath } from "./domain/train/helpers";
 import type { CanvasService } from "./domain/canvas/CanvasService";
 import { QuickCaptureModal } from "./ui/capture/QuickCaptureModal";
 import { TrainCaptureModal } from "./ui/train/TrainCaptureModal";
@@ -703,6 +704,7 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.trainService = await this.services.get<TrainService>("trainService");
 		this.trainService.getSettings = () => ({
 			trainFolder: settingsService.getSettings().trainFolder,
+			trainMaxThoughts: settingsService.getSettings().trainMaxThoughts,
 		});
 		await this.trainService.load();
 
@@ -830,7 +832,7 @@ export default class FlowtiBasePlugin extends Plugin {
 					new Notice("Train canvas is not enabled");
 					return;
 				}
-				const canvasPath = `${settings.trainFolder}/${active.title}.canvas`;
+				const canvasPath = getCanvasPath(active.title, settings.trainFolder);
 				void this.app.workspace.openLinkText(canvasPath, "", false);
 			}),
 		);

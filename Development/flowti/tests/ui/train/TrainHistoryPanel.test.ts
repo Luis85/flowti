@@ -244,4 +244,106 @@ describe("TrainHistoryPanel", () => {
 			expect(card.dataset.trainId).toBe("train_xyz");
 		});
 	});
+
+	describe("rename", () => {
+		it("renders rename button when onRenameTrain is provided", () => {
+			const train = makeTrain({ id: "t1" });
+			const panel = new TrainHistoryPanel(el, {
+				trainService: makeTrainService([train]),
+				onSelectTrain,
+				onRenameTrain: vi.fn(),
+			});
+			panel.render();
+
+			const renameBtn = el.querySelector(".ft-train-history-rename-btn");
+			expect(renameBtn).not.toBeNull();
+		});
+
+		it("does not render rename button when onRenameTrain is not provided", () => {
+			const train = makeTrain({ id: "t1" });
+			const panel = new TrainHistoryPanel(el, {
+				trainService: makeTrainService([train]),
+				onSelectTrain,
+			});
+			panel.render();
+
+			const renameBtn = el.querySelector(".ft-train-history-rename-btn");
+			expect(renameBtn).toBeNull();
+		});
+
+		it("calls onRenameTrain with train ID and title when clicked", () => {
+			const onRename = vi.fn();
+			const train = makeTrain({ id: "t1", title: "My Train" });
+			const panel = new TrainHistoryPanel(el, {
+				trainService: makeTrainService([train]),
+				onSelectTrain,
+				onRenameTrain: onRename,
+			});
+			panel.render();
+
+			const renameBtn = el.querySelector(".ft-train-history-rename-btn") as HTMLElement;
+			renameBtn.click();
+
+			expect(onRename).toHaveBeenCalledWith("t1", "My Train");
+			expect(onSelectTrain).not.toHaveBeenCalled(); // stopPropagation
+		});
+	});
+
+	describe("delete", () => {
+		it("renders delete button for completed trains when onDeleteTrain is provided", () => {
+			const train = makeTrain({ id: "t1", status: "completed" });
+			const panel = new TrainHistoryPanel(el, {
+				trainService: makeTrainService([train]),
+				onSelectTrain,
+				onDeleteTrain: vi.fn(),
+			});
+			panel.render();
+
+			const deleteBtn = el.querySelector(".ft-train-history-delete-btn");
+			expect(deleteBtn).not.toBeNull();
+		});
+
+		it("does not render delete button for running trains", () => {
+			const train = makeTrain({ id: "t1", status: "running", completedAt: null });
+			const panel = new TrainHistoryPanel(el, {
+				trainService: makeTrainService([train]),
+				onSelectTrain,
+				onDeleteTrain: vi.fn(),
+			});
+			panel.render();
+
+			const deleteBtn = el.querySelector(".ft-train-history-delete-btn");
+			expect(deleteBtn).toBeNull();
+		});
+
+		it("renders delete button for paused trains", () => {
+			const train = makeTrain({ id: "t1", status: "paused", completedAt: null });
+			const panel = new TrainHistoryPanel(el, {
+				trainService: makeTrainService([train]),
+				onSelectTrain,
+				onDeleteTrain: vi.fn(),
+			});
+			panel.render();
+
+			const deleteBtn = el.querySelector(".ft-train-history-delete-btn");
+			expect(deleteBtn).not.toBeNull();
+		});
+
+		it("calls onDeleteTrain with train ID and title when clicked", () => {
+			const onDelete = vi.fn();
+			const train = makeTrain({ id: "t1", title: "Doomed", status: "completed" });
+			const panel = new TrainHistoryPanel(el, {
+				trainService: makeTrainService([train]),
+				onSelectTrain,
+				onDeleteTrain: onDelete,
+			});
+			panel.render();
+
+			const deleteBtn = el.querySelector(".ft-train-history-delete-btn") as HTMLElement;
+			deleteBtn.click();
+
+			expect(onDelete).toHaveBeenCalledWith("t1", "Doomed");
+			expect(onSelectTrain).not.toHaveBeenCalled(); // stopPropagation
+		});
+	});
 });

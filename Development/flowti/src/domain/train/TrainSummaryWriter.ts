@@ -59,13 +59,13 @@ export function generateTrainSummary(train: TrainState): string {
 			const t = timeline[i];
 			const time = formatTime(t.createdAt);
 			const suffix = i === 0 ? " — root" : "";
-			lines.push(`${i + 1}. [[${t.title}]] (${time})${suffix}`);
+			lines.push(`${i + 1}. ${wikilink(t)} (${time})${suffix}`);
 
 			// Show branch children inline
 			const branches = branchMap.get(t.id);
 			if (branches) {
 				for (const b of branches) {
-					lines.push(`   - ↗ [[${b.title}]] (${formatTime(b.createdAt)})`);
+					lines.push(`   - ↗ ${wikilink(b)} (${formatTime(b.createdAt)})`);
 				}
 			}
 		}
@@ -78,8 +78,8 @@ export function generateTrainSummary(train: TrainState): string {
 		const thoughtById = new Map(train.thoughts.map((t) => [t.id, t]));
 		const grouped = groupBranchRelations(branchRelations, thoughtById);
 
-		for (const [originTitle, childTitles] of grouped) {
-			lines.push(`- Branch from "[[${originTitle}]]": ${childTitles.map((t) => `[[${t}]]`).join(", ")}`);
+		for (const [originLink, childLinks] of grouped) {
+			lines.push(`- Branch from "${originLink}": ${childLinks.join(", ")}`);
 		}
 		lines.push("");
 	}
@@ -92,7 +92,7 @@ export function generateTrainSummary(train: TrainState): string {
 			const source = thoughtById.get(m.fromId);
 			const target = thoughtById.get(m.toId);
 			if (source && target) {
-				lines.push(`- [[${source.title}]] → [[${target.title}]]`);
+				lines.push(`- ${wikilink(source)} → ${wikilink(target)}`);
 			}
 		}
 		lines.push("");
@@ -170,7 +170,7 @@ function computeBranchMap(train: TrainState): Map<string, ThoughtNode[]> {
 	return map;
 }
 
-/** Group branch relations by origin thought title. */
+/** Group branch relations by origin thought — returns wikilink strings. */
 function groupBranchRelations(
 	branchRelations: ThoughtRelation[],
 	thoughtById: Map<string, ThoughtNode>,
@@ -180,9 +180,10 @@ function groupBranchRelations(
 		const origin = thoughtById.get(r.fromId);
 		const child = thoughtById.get(r.toId);
 		if (!origin || !child) continue;
-		const list = grouped.get(origin.title) ?? [];
-		list.push(child.title);
-		grouped.set(origin.title, list);
+		const key = wikilink(origin);
+		const list = grouped.get(key) ?? [];
+		list.push(wikilink(child));
+		grouped.set(key, list);
 	}
 	return grouped;
 }
@@ -203,4 +204,10 @@ function formatTime(iso: string): string {
 /** Escape double quotes in frontmatter values. */
 function escapeFrontmatter(value: string): string {
 	return value.replace(/"/g, '\\"');
+}
+
+/** Extract file basename without extension from a vault path for wikilinks. */
+function wikilink(thought: ThoughtNode): string {
+	const filename = thought.path.split("/").pop() ?? thought.path;
+	return `[[${filename.replace(/\.md$/, "")}]]`;
 }

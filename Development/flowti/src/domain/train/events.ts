@@ -31,4 +31,8 @@ export interface TrainEventMap {
 	"train.canvas.reconciled": { trainId: string; expected: number; found: number; corrected: boolean };
 	/** Emitted when a train summary document was generated on completion. */
 	"train.summary.created": { trainId: string; summaryPath: string };
+	/** Emitted when a train is renamed. */
+	"train.renamed": { trainId: string; oldTitle: string; newTitle: string };
+	/** Emitted when a train is deleted from history. */
+	"train.deleted": { trainId: string; title: string };
 }

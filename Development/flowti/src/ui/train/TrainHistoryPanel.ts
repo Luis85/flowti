@@ -15,6 +15,8 @@ export type TrainStatusFilter = "all" | "active" | "completed";
 export interface TrainHistoryPanelDeps {
 	trainService: TrainService;
 	onSelectTrain: (trainId: string) => void;
+	onRenameTrain?: (trainId: string, currentTitle: string) => void;
+	onDeleteTrain?: (trainId: string, title: string) => void;
 }
 
 export class TrainHistoryPanel {
@@ -91,7 +93,7 @@ export class TrainHistoryPanel {
 		const card = container.createDiv({ cls: "ft-train-history-card" });
 		card.dataset.trainId = train.id;
 
-		// Top row: icon + title + status badge
+		// Top row: icon + title + status badge + action buttons
 		const top = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const icon = top.createSpan();
 		setIcon(icon, "train-front");
@@ -102,6 +104,34 @@ export class TrainHistoryPanel {
 			text: train.status,
 		});
 		badge.addClass("ft-train-history-status");
+
+		// Action buttons (spacer → rename → delete)
+		const spacer = top.createSpan();
+		spacer.style.flex = "1";
+
+		if (this.deps.onRenameTrain) {
+			const renameBtn = top.createEl("button", {
+				cls: "clickable-icon ft-train-history-rename-btn",
+			});
+			renameBtn.ariaLabel = "Rename train";
+			setIcon(renameBtn, "pencil");
+			renameBtn.addEventListener("click", (e) => {
+				e.stopPropagation();
+				this.deps.onRenameTrain!(train.id, train.title);
+			});
+		}
+
+		if (this.deps.onDeleteTrain && train.status !== "running") {
+			const deleteBtn = top.createEl("button", {
+				cls: "clickable-icon ft-train-history-delete-btn",
+			});
+			deleteBtn.ariaLabel = "Delete train";
+			setIcon(deleteBtn, "trash-2");
+			deleteBtn.addEventListener("click", (e) => {
+				e.stopPropagation();
+				this.deps.onDeleteTrain!(train.id, train.title);
+			});
+		}
 
 		// Stats row: thoughts · branches · duration
 		const stats = card.createDiv({ cls: "ft-train-history-stats ft-text-sm ft-text-muted" });

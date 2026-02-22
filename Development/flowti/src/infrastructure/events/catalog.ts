@@ -539,6 +539,8 @@ const CATALOG_DATA = {
 	"train.canvas.synced":     { category: "Train", description: "A train canvas was synced from graph state", direction: "Service → Listeners", domain: "train", services: "TrainCanvasSyncService" },
 	"train.canvas.reconciled": { category: "Train", description: "A train canvas was reconciled (node count mismatch corrected)", direction: "Service → Listeners", domain: "train", services: "TrainCanvasSyncService" },
 	"train.summary.created":   { category: "Train", description: "A train summary document was generated on completion", direction: "Service → Listeners", domain: "train", services: "TrainService" },
+	"train.renamed":           { category: "Train", description: "A train was renamed", direction: "Service → Listeners", domain: "train", services: "TrainService" },
+	"train.deleted":           { category: "Train", description: "A train was deleted from history", direction: "Service → Listeners", domain: "train", services: "TrainService" },
 
 	// ── Canvas ───────────────────────────────────────────────────
 	"canvas.import.started":   { category: "Canvas", description: "A canvas import operation started", direction: "Service → Listeners", domain: "canvas", services: "CanvasService" },

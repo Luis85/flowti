@@ -168,6 +168,7 @@ describe("TrainService — mergeBranch()", () => {
 
 			await service.mergeBranch(train.id, d.id, b.id);
 
+			const bBasename = b.path.split("/").pop()!.replace(/\.md$/, "");
 			await vi.waitFor(() => {
 				const calls = (fileSystem.updateFrontmatter as ReturnType<typeof vi.fn>).mock.calls;
 				const sourceCall = calls.find(
@@ -175,7 +176,7 @@ describe("TrainService — mergeBranch()", () => {
 						((c[1] as Record<string, unknown>)["merge-target"] as string[])?.length > 0,
 				);
 				expect(sourceCall).toBeDefined();
-				expect((sourceCall![1] as Record<string, unknown>)["merge-target"]).toContain("[[B]]");
+				expect((sourceCall![1] as Record<string, unknown>)["merge-target"]).toContain(`[[${bBasename}]]`);
 			});
 		});
 
@@ -185,6 +186,7 @@ describe("TrainService — mergeBranch()", () => {
 
 			await service.mergeBranch(train.id, d.id, b.id);
 
+			const dBasename = d.path.split("/").pop()!.replace(/\.md$/, "");
 			await vi.waitFor(() => {
 				const calls = (fileSystem.updateFrontmatter as ReturnType<typeof vi.fn>).mock.calls;
 				const targetCall = calls.find(
@@ -192,7 +194,7 @@ describe("TrainService — mergeBranch()", () => {
 						((c[1] as Record<string, unknown>)["merged-from"] as string[])?.length > 0,
 				);
 				expect(targetCall).toBeDefined();
-				expect((targetCall![1] as Record<string, unknown>)["merged-from"]).toContain("[[D]]");
+				expect((targetCall![1] as Record<string, unknown>)["merged-from"]).toContain(`[[${dBasename}]]`);
 			});
 		});
 
@@ -564,11 +566,12 @@ describe("TrainService — buildNavLinks integration (merge)", () => {
 
 		await service.mergeBranch(train.id, d.id, b.id);
 
+		const bBasename = b.path.split("/").pop()!.replace(/\.md$/, "");
 		await vi.waitFor(() => {
 			const calls = (fileSystem.updateFrontmatter as ReturnType<typeof vi.fn>).mock.calls;
 			const sourceCall = calls.find(
 				(c: unknown[]) => c[0] === d.path &&
-					((c[1] as Record<string, unknown>)["merge-target"] as string[])?.includes("[[B]]"),
+					((c[1] as Record<string, unknown>)["merge-target"] as string[])?.includes(`[[${bBasename}]]`),
 			);
 			expect(sourceCall).toBeDefined();
 		});
@@ -618,6 +621,8 @@ describe("TrainService — buildNavLinks integration (merge)", () => {
 		await service.mergeBranch(train.id, d.id, b.id);
 		await service.mergeBranch(train.id, d.id, c.id);
 
+		const bBasename = b.path.split("/").pop()!.replace(/\.md$/, "");
+		const cBasename = c.path.split("/").pop()!.replace(/\.md$/, "");
 		await vi.waitFor(() => {
 			const calls = (fileSystem.updateFrontmatter as ReturnType<typeof vi.fn>).mock.calls;
 			const sourceCall = calls.find(
@@ -626,8 +631,8 @@ describe("TrainService — buildNavLinks integration (merge)", () => {
 			);
 			expect(sourceCall).toBeDefined();
 			const targets = (sourceCall![1] as Record<string, unknown>)["merge-target"] as string[];
-			expect(targets).toContain("[[B]]");
-			expect(targets).toContain("[[C]]");
+			expect(targets).toContain(`[[${bBasename}]]`);
+			expect(targets).toContain(`[[${cBasename}]]`);
 		});
 	});
 });

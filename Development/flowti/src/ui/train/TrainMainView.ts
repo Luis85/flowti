@@ -23,6 +23,8 @@ import { TrainControlsPanel } from "./TrainControlsPanel";
 import { TrainBreadcrumbPanel } from "./TrainBreadcrumbPanel";
 import { TrainMergeSelector } from "./TrainMergeSelector";
 import { TrainHistoryPanel } from "./TrainHistoryPanel";
+import { getCanvasPath } from "../../domain/train/helpers";
+import { InputModal, ConfirmModal } from "../modals";
 
 // Re-export for backward compat
 export { VIEW_TYPE_TRAIN_MAIN } from "./types";
@@ -203,6 +205,39 @@ export class TrainMainView extends ItemView {
 				this.activeThoughtId = null;
 				this.render();
 			},
+			onRenameTrain: (trainId, currentTitle) => {
+				new InputModal(this.app, {
+					title: "Rename Train",
+					inputName: "New title",
+					inputDesc: "Enter a new name for this train",
+					defaultValue: currentTitle,
+					submitLabel: "Rename",
+					onSubmit: (newTitle) => {
+						if (newTitle !== currentTitle) {
+							void this.trainService.renameTrain(trainId, newTitle).then((ok) => {
+								if (ok) this.render();
+							});
+						}
+					},
+				}).open();
+			},
+			onDeleteTrain: (trainId, title) => {
+				new ConfirmModal(this.app, {
+					message: `Delete train "${title}"? This removes the train from history. Thought notes are preserved.`,
+					confirmLabel: "Delete",
+					onConfirm: () => {
+						void this.trainService.deleteTrain(trainId).then((ok) => {
+							if (ok) {
+								if (this.trainId === trainId) {
+									this.trainId = null;
+									this.activeThoughtId = null;
+								}
+								this.render();
+							}
+						});
+					},
+				}).open();
+			},
 		});
 		panel.render();
 	}
@@ -215,6 +250,17 @@ export class TrainMainView extends ItemView {
 		setIcon(icon, "train-front");
 		titleRow.createEl("h3", { cls: "ft-heading ft-train-title", text: `Train: ${train.title}` });
 
+		// Rename button (pencil icon)
+		const renameBtn = titleRow.createEl("button", {
+			cls: "clickable-icon ft-train-rename-btn",
+		});
+		renameBtn.ariaLabel = "Rename train";
+		setIcon(renameBtn, "pencil");
+		renameBtn.addEventListener("click", (e) => {
+			e.stopPropagation();
+			this.showRenameInput(train);
+		});
+
 		const badge = titleRow.createSpan({ cls: `ft-badge ft-badge-muted ft-train-status ft-train-status-${train.status}` });
 		badge.setText(train.status);
 
@@ -223,7 +269,7 @@ export class TrainMainView extends ItemView {
 		spacer.style.flex = "1";
 
 		// Open Canvas button — visible when canvas file exists
-		const canvasPath = this.getCanvasPath(train);
+		const canvasPath = this.getCanvasPathForTrain(train);
 		if (canvasPath && this.app?.vault?.getAbstractFileByPath(canvasPath)) {
 			const canvasBtn = titleRow.createEl("button", {
 				cls: "ft-btn ft-btn-ghost ft-btn-sm ft-train-open-canvas-btn",
@@ -522,10 +568,27 @@ export class TrainMainView extends ItemView {
 	}
 
 	/** Derive the canvas path for a train from settings. */
-	private getCanvasPath(train: TrainState): string | null {
+	private getCanvasPathForTrain(train: TrainState): string | null {
 		const { trainFolder, trainCanvasEnabled } = this.getTrainSettings();
 		if (!trainCanvasEnabled || !trainFolder) return null;
-		return `${trainFolder}/${train.title}.canvas`;
+		return getCanvasPath(train.title, trainFolder);
+	}
+
+	private showRenameInput(train: TrainState): void {
+		new InputModal(this.app, {
+			title: "Rename Train",
+			inputName: "New title",
+			inputDesc: "Enter a new name for this train",
+			defaultValue: train.title,
+			submitLabel: "Rename",
+			onSubmit: (newTitle) => {
+				if (newTitle !== train.title) {
+					void this.trainService.renameTrain(train.id, newTitle).then((ok) => {
+						if (ok) this.render();
+					});
+				}
+			},
+		}).open();
 	}
 
 	private emitThoughtActivated(thought: ThoughtNode): void {
