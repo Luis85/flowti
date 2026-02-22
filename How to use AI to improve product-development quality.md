@@ -22,6 +22,10 @@ type: Hypothesis
 - How does AI match real-world outcomes in a constraint workspace
 - How can we make changes to a system traceable
 
+## Assumptions
+
+- As LLMs are language processors, generating natural language based on given content as input, in well documented content templates like the user-story or use-case format, generates well enough code for sustainable development, behaving like a compiler between humans and not so predictable machine-code, mimicking the real-world problem of explaining requirements and understanding requirements.
+
 ## Experiment Setup
 
 To strengthen the human-in-the-middle approach we will simulate Product-Development in an agile setting. Shipping increments fast, validate, get feedback, and improve. This process produces a good amount of documentation and communication based on a real-world example. This should combat the situation of stale content or AI re-cycled learnings with fresh genuine input.
