@@ -13,6 +13,7 @@ views:
     order:
       - file.name
       - stage
+      - priority
       - formula.bugs_count
       - feature
       - tags

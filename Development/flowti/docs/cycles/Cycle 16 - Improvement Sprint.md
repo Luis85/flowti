@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Release Preparation PRD]]"
-stage: completed
+stage: done
 cycle: 16
 date_planned: 2026-02-22
 date_completed: 2026-02-22

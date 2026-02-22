@@ -17,6 +17,7 @@ estimated_tests: 85
 actual_tests: 48
 total_tests_after: 3792
 total_test_files_after: 154
+tags:
 ---
 
 # Cycle 18: Train Canvas Visualization

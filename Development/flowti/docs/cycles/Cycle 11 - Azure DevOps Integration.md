@@ -19,6 +19,7 @@ estimated_tests: 100
 tags:
   - needs-manual-test
   - untested
+priority: 01 - medium
 ---
 
 # Cycle 11: Azure DevOps Integration
