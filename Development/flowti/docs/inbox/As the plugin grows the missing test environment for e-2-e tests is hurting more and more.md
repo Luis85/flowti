@@ -5,4 +5,6 @@ origin: inbox
 domain: testing
 priority: "2 - high"
 description: "E2E testing capability is becoming critical as the plugin grows"
+related: "[[Obsidian Market Research 2026]]"
+planned_in: "[[Improvement Backlog]]"
 ---

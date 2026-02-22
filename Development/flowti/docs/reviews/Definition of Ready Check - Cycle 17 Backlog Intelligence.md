@@ -1,12 +1,12 @@
 ---
 type: ReadinessCheck
 date: 2026-02-22
-cycle: 16
+cycle: 17
 feature: "[[Prioritization Hub PRD]]"
 result: CONDITIONAL PASS
 ---
 
-# Definition of Ready Check — Cycle 16: Backlog Intelligence
+# Definition of Ready Check — Cycle 17: Backlog Intelligence
 
 > Evaluated against [[Definition of Ready (Cycle)]] v1.
 
@@ -20,12 +20,12 @@ result: CONDITIONAL PASS
 | PRD stage is `approved` or `in-progress` | PASS | Stage: `approved` |
 | FRI scored | PASS | FRI computed: 23/35 across 7 dimensions |
 | FRI meets threshold (≥ 19/35 for new features) | PASS | 23/35 ≥ 19/35 threshold |
-| Technical Review passed | NOT YET | No formal Technical Review conducted. PRD created today — review should precede Cycle 16 start. |
+| Technical Review passed | NOT YET | No formal Technical Review conducted. PRD created today — review should precede Cycle 17 start. |
 
 **Section result: CONDITIONAL PASS** — PRD exists, stage is approved, FRI clears threshold. Technical Review pending.
 
 **Action items:**
-- [ ] Schedule Technical Review before Cycle 16 starts (can be async)
+- [ ] Schedule Technical Review before Cycle 17 starts (can be async)
 
 ---
 
@@ -48,7 +48,7 @@ result: CONDITIONAL PASS
 
 | Criterion | Status | Evidence |
 |-----------|--------|----------|
-| Cycle document exists | PASS | [[Cycle 16 - Backlog Intelligence]] created with standard frontmatter (type, feature, stage, pbis, estimated_increments, estimated_tests) |
+| Cycle document exists | PASS | [[Cycle 17 - Backlog Intelligence]] created with standard frontmatter (type, feature, stage, pbis, estimated_increments, estimated_tests) |
 | Situation assessment written | PASS | Pre-cycle state covers: plugin health (3,548 tests, 141 suites), feature status (3 contributing PRDs), infrastructure available, backlog refinement context |
 | Cycle goals defined | PASS | 6 numbered goals, each with clear deliverable and increment range |
 | Proposed increments specified | PASS | 8 increments, each with: goal, scope table, estimated LOC, estimated tests, acceptance criteria, test intent, documentation intent, architecture seams |
@@ -166,7 +166,7 @@ result: CONDITIONAL PASS
 **Section result: CONDITIONAL PASS** — Build is green, no critical bugs. Cycle 15 Three Amigos review is a timing dependency.
 
 **Action items:**
-- [ ] Complete Cycle 15 Three Amigos review before Cycle 16 starts
+- [ ] Complete Cycle 15 Three Amigos review before Cycle 17 starts
 
 ---
 
@@ -193,7 +193,7 @@ result: CONDITIONAL PASS
 | 6. Pre-Cycle Completion | PASS |
 | **Overall** | **CONDITIONAL PASS** |
 
-### Conditions to Clear Before Cycle 16 Starts
+### Conditions to Clear Before Cycle 17 Starts
 
 | # | Condition | Owner | Effort |
 |---|-----------|-------|--------|
@@ -205,7 +205,7 @@ result: CONDITIONAL PASS
 | # | Observation | Severity | Recommendation |
 |---|-------------|----------|----------------|
 | O-1 | PRD UI Consistency is 2/5 — no wireframes | Low | Add ASCII wireframes during Inc 5 (Hub View). FRI improvement path documented in PRD §12. |
-| O-2 | PBI-PRI-002 and PBI-PRI-003 are referenced in PRD backlog but don't have individual PBI documents yet | Low | Create PBI documents when those PBIs are selected for a future cycle. Not needed for Cycle 16. |
+| O-2 | PBI-PRI-002 and PBI-PRI-003 are referenced in PRD backlog but don't have individual PBI documents yet | Low | Create PBI documents when those PBIs are selected for a future cycle. Not needed for Cycle 17. |
 | O-3 | ELO algorithm not validated with proof of concept | Low | Inc 2 engines are pure functions — algorithm correctness will be fully validated by unit tests before any UI work. Low risk. |
 | O-4 | No ADR for the Prioritization Hub yet | Low | Create ADR during cycle if any design decisions deviate from initial plan. DoR gap noted in cycle plan. |
 
@@ -215,7 +215,7 @@ result: CONDITIONAL PASS
 
 - [[Definition of Ready (Cycle)]] — source checklist
 - [[Prioritization Hub PRD]] — feature PRD (FRI 23/35)
-- [[Cycle 16 - Backlog Intelligence]] — cycle plan
+- [[Cycle 17 - Backlog Intelligence]] — cycle plan
 - [[PBI-PRI-001 Scoring and Ranking Engine]] — primary PBI
 - [[backlog-refinement-2026-02-22]] — pre-cycle analysis
 - [[We need a tool to prioritize notes]] — source inbox item

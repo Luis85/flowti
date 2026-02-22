@@ -2,8 +2,8 @@
 	"nodes":[
 		{"id":"b166cd871972398d","type":"group","x":-40,"y":400,"width":2860,"height":1520,"label":"Flowti - Mental Model"},
 		{"id":"f1ab36403ad8330d","type":"group","x":1260,"y":-780,"width":1280,"height":600,"label":"Simulation Environment - Product Development"},
-		{"id":"30eac272b7498959","type":"group","x":1260,"y":-2000,"width":880,"height":500,"label":"Problem"},
 		{"id":"595e466f2e980097","type":"group","x":2180,"y":-680,"width":300,"height":420,"label":"AI Agents"},
+		{"id":"30eac272b7498959","type":"group","x":1260,"y":-2000,"width":880,"height":500,"label":"Problem"},
 		{"id":"cd503e9695ad13a0","type":"group","x":1740,"y":-600,"width":300,"height":260,"label":"Product Development"},
 		{"id":"69533e597bf70e07","type":"group","x":-40,"y":-2000,"width":1120,"height":1820,"label":"Process - From Idea to Solution"},
 		{"id":"8cbc340c22bf6acf","type":"group","x":-20,"y":-1880,"width":300,"height":1580,"label":"Input"},
@@ -52,16 +52,6 @@
 		},
 		{"id":"5e20e595aaae0f17","type":"file","file":"02 - Jobs to be done.base","x":1280,"y":-1920,"width":400,"height":400},
 		{"id":"c40b11027e8bac16","type":"file","file":"00 - Inbox.base","x":1720,"y":-1920,"width":400,"height":400},
-		{
-			"id":"8844baa6c4d7d42b",
-			"type":"text",
-			"text":"# User Groups\n\n- new to Obsidian\n- new to Markdown\n- new to Git\n- new to Obsidian Plugin Development\n- new to Project Management\n- new to Software Design\n- new to Product Development\n",
-			"styleAttributes":{},
-			"x":2560,
-			"y":-1320,
-			"width":260,
-			"height":400
-		},
 		{
 			"id":"4fea4d5d896f7410",
 			"type":"text",
@@ -282,17 +272,6 @@
 			"color":"2"
 		},
 		{
-			"id":"4ef49a3684f6a3d2",
-			"type":"text",
-			"text":"Release",
-			"styleAttributes":{"textAlign":"center"},
-			"x":380,
-			"y":-400,
-			"width":260,
-			"height":60,
-			"color":"6"
-		},
-		{
 			"id":"587a4f2dafd783c5",
 			"type":"text",
 			"text":"Test and Review",
@@ -428,17 +407,6 @@
 			"height":60
 		},
 		{
-			"id":"dc8b1ed0fc69fe71",
-			"type":"text",
-			"text":"Denied Product Increment",
-			"styleAttributes":{"textAlign":"center"},
-			"x":780,
-			"y":-600,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
 			"id":"bb93b9fc8d2c5414",
 			"type":"text",
 			"text":"Development Cycle - 1",
@@ -507,17 +475,6 @@
 			"y":-330,
 			"width":260,
 			"height":60
-		},
-		{
-			"id":"6819f68b4fb6e079",
-			"type":"text",
-			"text":"Release Candidate",
-			"styleAttributes":{"textAlign":"right"},
-			"x":0,
-			"y":-400,
-			"width":260,
-			"height":60,
-			"color":"5"
 		},
 		{
 			"id":"eb9d5794187ece00",
@@ -995,17 +952,8 @@
 			"height":60,
 			"color":"5"
 		},
-		{"id":"83c9ad2da538d079","type":"file","file":"Development/flowti/docs/learnings/AI is a very good tool to simulate document heavy processes to quickly iterate on them.md","x":1280,"y":-1320,"width":400,"height":400},
-		{
-			"id":"8b42e85c8914f3a7",
-			"type":"text",
-			"text":"# Folderstructure\n\n- `/00 - Connectivity`\n- `/01 - Projects`\n- `/02 - Areas`\n- `/03 - Resources`\n- `/03 - Resources/Documentations/...Diataxis`\n- `/04 - Archive`\n- `/05 - Public Vault`\n- `/var`",
-			"styleAttributes":{},
-			"x":1720,
-			"y":-1320,
-			"width":260,
-			"height":400
-		},
+		{"id":"5d6cdc543db0af78","type":"file","file":"Development/flowti/docs/inbox/Flowti - System Design.canvas","x":2000,"y":-1320,"width":260,"height":400},
+		{"id":"0b8e15eb023842e5","type":"file","file":"Development/Plugin Design.canvas","x":2280,"y":-1320,"width":260,"height":400},
 		{
 			"id":"882a1ad6195a25d6",
 			"type":"text",
@@ -1087,18 +1035,6 @@
 			"width":260,
 			"height":60
 		},
-		{"id":"5d6cdc543db0af78","type":"file","file":"Development/flowti/docs/inbox/Flowti - System Design.canvas","x":2000,"y":-1320,"width":260,"height":400},
-		{"id":"0b8e15eb023842e5","type":"file","file":"Development/Plugin Design.canvas","x":2280,"y":-1320,"width":260,"height":400},
-		{
-			"id":"0cc921be6148aa1f",
-			"type":"text",
-			"text":"ChatGPT - Product Owner",
-			"styleAttributes":{"textAlign":"center"},
-			"x":2200,
-			"y":-660,
-			"width":260,
-			"height":60
-		},
 		{
 			"id":"f5c6fc5c5a4f7f20",
 			"type":"text",
@@ -1116,6 +1052,70 @@
 			"styleAttributes":{"textAlign":"center"},
 			"x":1320,
 			"y":-540,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"8844baa6c4d7d42b",
+			"type":"text",
+			"text":"# User Groups\n\n- new to Obsidian\n- new to Markdown\n- new to Git\n- new to Obsidian Plugin Development\n- new to Project Management\n- new to Software Design\n- new to Product Development\n",
+			"styleAttributes":{},
+			"x":2560,
+			"y":-1320,
+			"width":260,
+			"height":400
+		},
+		{
+			"id":"4ef49a3684f6a3d2",
+			"type":"text",
+			"text":"Release",
+			"styleAttributes":{"textAlign":"center"},
+			"x":380,
+			"y":-400,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"dc8b1ed0fc69fe71",
+			"type":"text",
+			"text":"Denied Product Increment",
+			"styleAttributes":{"textAlign":"center"},
+			"x":780,
+			"y":-600,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"6819f68b4fb6e079",
+			"type":"text",
+			"text":"Release Candidate",
+			"styleAttributes":{"textAlign":"right"},
+			"x":0,
+			"y":-400,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{"id":"83c9ad2da538d079","type":"file","file":"Development/flowti/docs/learnings/AI is a very good tool to simulate document heavy processes to quickly iterate on them.md","x":1280,"y":-1320,"width":400,"height":400},
+		{
+			"id":"8b42e85c8914f3a7",
+			"type":"text",
+			"text":"# Folderstructure\n\n- `/00 - Connectivity`\n- `/01 - Projects`\n- `/02 - Areas`\n- `/03 - Resources`\n- `/03 - Resources/Documentations/...Diataxis`\n- `/04 - Archive`\n- `/05 - Public Vault`\n- `/var`",
+			"styleAttributes":{},
+			"x":1720,
+			"y":-1320,
+			"width":260,
+			"height":400
+		},
+		{
+			"id":"0cc921be6148aa1f",
+			"type":"text",
+			"text":"ChatGPT - Product Owner",
+			"styleAttributes":{"textAlign":"center"},
+			"x":2200,
+			"y":-660,
 			"width":260,
 			"height":60
 		},

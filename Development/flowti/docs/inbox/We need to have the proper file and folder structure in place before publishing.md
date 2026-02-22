@@ -1,6 +1,6 @@
 ---
 type: Idea
-stage: planned
+stage: in-progress
 origin: inbox
 domain: developer-experience
 description: "Restructure the repository so the plugin lives at the project root with proper meta-files for GitHub publishing and Obsidian marketplace submission."
@@ -10,7 +10,7 @@ tags:
   - developer-experience
   - publishing
 priority: "01 - critical"
-planned_in: "[[Release Preparation Cycle]]"
+planned_in: "[[Cycle 16 - Improvement Sprint]]"
 parent: "[[Release Preparation PRD]]"
 ---
 

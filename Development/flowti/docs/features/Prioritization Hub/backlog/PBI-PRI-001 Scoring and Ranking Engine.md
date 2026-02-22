@@ -9,7 +9,7 @@ dependencies:
 tags:
   - prioritization
   - backlog-intelligence
-planned_in: "[[Cycle 16 - Backlog Intelligence]]"
+planned_in: "[[Cycle 17 - Backlog Intelligence]]"
 user_story: "[[We need a tool to prioritize notes]]"
 ---
 
