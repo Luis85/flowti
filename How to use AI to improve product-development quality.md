@@ -23,7 +23,8 @@ stage: refinement
 - How does AI match real-world outcomes in a constraint workspace
 - How can we make changes to a system traceable
 - What data-format works well as interface between Humans and Agents
-
+- How can Obsidian help in structuring my research project
+- How can we ingrain quality best-practices into our daily-work
 
 ## Assumptions
 
@@ -31,6 +32,7 @@ stage: refinement
 
 - As LLMs are language processors, generating natural language based on given content as input, in well documented content templates like the user-story or use-case format, generates well enough code for sustainable development, behaving like a compiler between humans and not so predictable machine-code, mimicking the real-world problem of explaining requirements and understanding requirements.
 - Using real-world outside signals for the feedback-loop provides enough fresh data for each simulation step to not let quality degrade over time and preventing Agents eating too much of their own content.
+- Following best-practices from agile and quality-management, we have all the tools needed to build a solid framework producing desired, AI-Assisted output which turn into a high-quality product increment by using the human-in-the-middle-approach for quality-assurance and needed alignments during development cycles.
 
 ## Experiment Setup
 
@@ -69,9 +71,10 @@ A desired outcome will be a fully documented, open-source product, serving as pr
 - Claude Code Mobile for external Contributor Simulation
 - ChatGPT as Product Owner Assistent
 
-- The Plugins Inbox gets filled from Refinement of public and private Vault
+- The Plugins (Product) Inbox gets filled from Refinement of public and private Vault
 - The Product Team owns the Public GitHub Repository
 - The Product Development Team owns the Plugins `src` folder
+- The Private Vault is the main source for Agent Steering and can be synced via Cloud Services
 
 ## Simulated Entities
 
@@ -157,6 +160,7 @@ It is planned to migrate the Machine-Room into the Flowti IBDE Obsidian Plugin.
 - System generated metrics need to have context, explanation, and how they impact the quality or kpis of the system in the grand scheme of things otherwise they are just numbers and add to cognitive overload
 - A Testsuite must be the authoritative catalog about the functionality of a system of what it can, can't, should, or should not do to be used as foundation for an audit
 - Context-Management is crucial, providing the Agent a map of needed context helps alignment. Obsidian Bases are a great tool to make those maps easily.
+- Ideas are cheap - The sheer amount of documentation needed to keep track of decisions and solutions can be overwhelming, tracking the amount of connections over time helps making impact visible
 
 
 ## Conclusions
