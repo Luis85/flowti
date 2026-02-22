@@ -370,10 +370,10 @@ describe("TrainCanvasSyncService", () => {
 
 			vi.advanceTimersByTime(CANVAS_SYNC_DELAY_MS + 10);
 			await vi.waitFor(() => {
-				expect(fileSystem.createFile).toHaveBeenCalled();
+				expect(fileSystem.updateFile).toHaveBeenCalled();
 			});
 
-			const writtenJson = (fileSystem.createFile as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+			const writtenJson = (fileSystem.updateFile as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
 			const written = JSON.parse(writtenJson);
 
 			// Managed elements replaced

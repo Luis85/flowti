@@ -171,24 +171,31 @@ export class TrainService {
 
 		const direction: ThoughtDirection = options?.direction ?? "next";
 
-		// Create note via CaptureService — use trainFolder when configured
-		// Prefix with compact ISO timestamp to avoid naming collisions
-		const now = new Date();
-		const ts = now.toISOString().replace(/[-:]/g, "").replace("T", "-").slice(0, 15); // YYYYMMDD-HHmmss
-		const fileTitle = `${ts} ${title}`;
-		const { trainFolder } = this.getSettings();
-		const result = await this.captureService.capture({
-			title: fileTitle,
-			type: "thought",
-			...(trainFolder ? { folder: trainFolder } : {}),
-		});
+		let thoughtPath: string;
+		if (options?.path) {
+			// Use existing file path (e.g., "Start new Train from this file")
+			thoughtPath = options.path;
+		} else {
+			// Create note via CaptureService — use trainFolder when configured
+			// Prefix with compact ISO timestamp to avoid naming collisions
+			const now = new Date();
+			const ts = now.toISOString().replace(/[-:]/g, "").replace("T", "-").slice(0, 15); // YYYYMMDD-HHmmss
+			const fileTitle = `${ts} ${title}`;
+			const { trainFolder } = this.getSettings();
+			const result = await this.captureService.capture({
+				title: fileTitle,
+				type: "thought",
+				...(trainFolder ? { folder: trainFolder } : {}),
+			});
+			thoughtPath = result.path;
+		}
 
 		const order = train.thoughts.length;
 		const thought: ThoughtNode = {
 			id: `thought_${generateUUID()}`,
 			trainId,
 			title,
-			path: result.path,
+			path: thoughtPath,
 			createdAt: new Date().toISOString(),
 			order,
 		};

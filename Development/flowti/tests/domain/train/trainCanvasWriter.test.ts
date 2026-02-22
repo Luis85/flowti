@@ -1,16 +1,24 @@
 import { describe, it, expect, vi } from "vitest";
-import type { CanvasData, CanvasFileData } from "obsidian/canvas";
+import type { CanvasData, CanvasFileData, CanvasGroupData } from "obsidian/canvas";
 import type { TrainState, ThoughtNode, ThoughtRelation } from "../../../src/domain/train/types";
 import {
 	NODE_WIDTH,
 	NODE_HEIGHT,
 	SPACING_Y,
 	BRANCH_LANE_WIDTH,
+	GROUP_PREFIX,
+	GROUP_PADDING,
+	ANNOTATION_PREFIX,
+	ROLE_COLOR,
 	nodeId,
 	edgeId,
+	groupId,
+	annotationId,
 	isManagedElement,
 	computeLayout,
 	computeNodeRoles,
+	computeGroups,
+	computeAnnotations,
 	generateTrainCanvasData,
 	mergeCanvasLayers,
 	writeTrainCanvas,
@@ -59,11 +67,23 @@ describe("TrainCanvasWriter — ID generation", () => {
 		expect(edgeId("a", "b")).toBe("ft-e-a-b");
 	});
 
-	it("isManagedElement detects ft- prefix", () => {
+	it("isManagedElement detects ft- prefix (nodes, edges, groups, annotations)", () => {
 		expect(isManagedElement("ft-t-abc")).toBe(true);
 		expect(isManagedElement("ft-e-a-b")).toBe(true);
+		expect(isManagedElement("ft-g-main")).toBe(true);
+		expect(isManagedElement("ft-a-header")).toBe(true);
 		expect(isManagedElement("user-node-123")).toBe(false);
 		expect(isManagedElement("abc123def456")).toBe(false);
+	});
+
+	it("groupId uses ft-g- prefix", () => {
+		expect(groupId("main")).toBe("ft-g-main");
+		expect(groupId("branch-abc")).toBe("ft-g-branch-abc");
+	});
+
+	it("annotationId uses ft-a- prefix", () => {
+		expect(annotationId("header")).toBe("ft-a-header");
+		expect(annotationId("branch-abc")).toBe("ft-a-branch-abc");
 	});
 });
 
@@ -114,7 +134,7 @@ describe("TrainCanvasWriter — computeLayout()", () => {
 		);
 
 		const layout = computeLayout(train);
-		// A at (0,0), B at (0,120) — next stays in lane 0
+		// A at (0,0), B at (0,SPACING_Y) — next stays in lane 0
 		expect(layout.get("a")).toEqual({ x: 0, y: 0 });
 		expect(layout.get("b")).toEqual({ x: 0, y: SPACING_Y });
 		// D is branch from A → lane 1
@@ -254,9 +274,471 @@ describe("TrainCanvasWriter — computeNodeRoles()", () => {
 		);
 
 		const roles = computeNodeRoles(train);
-		expect(roles.get("a")).toBe("normal");
+		expect(roles.get("a")).toBe("root");
 		expect(roles.get("b")).toBe("normal");
 		expect(roles.get("c")).toBe("head");
+	});
+
+	it("root: first thought with no incoming edges gets yellow", () => {
+		const a = makeThought("a", "A", 0);
+		const b = makeThought("b", "B", 1);
+		const train = makeTrain(
+			[a, b],
+			[{ fromId: "a", toId: "b", direction: "next" }],
+		);
+
+		const roles = computeNodeRoles(train);
+		expect(roles.get("a")).toBe("root");
+		expect(ROLE_COLOR["root"]).toBe("3");
+	});
+
+	it("root: single thought is normal (not root)", () => {
+		const a = makeThought("a", "A", 0);
+		const train = makeTrain([a], []);
+
+		const roles = computeNodeRoles(train);
+		// Single thought is head (walk from root to end = itself)
+		expect(roles.get("a")).toBe("head");
+	});
+
+	it("leaf: branch endpoint with no outgoing edges gets purple", () => {
+		const a = makeThought("a", "A", 0);
+		const b = makeThought("b", "B", 1);
+		const d = makeThought("d", "D", 2);
+		const e = makeThought("e", "E", 3);
+		const train = makeTrain(
+			[a, b, d, e],
+			[
+				{ fromId: "a", toId: "b", direction: "next" },
+				{ fromId: "a", toId: "d", direction: "branch" },
+				{ fromId: "d", toId: "e", direction: "next" },
+			],
+		);
+
+		const roles = computeNodeRoles(train);
+		// e: has incoming next, no outgoing → leaf
+		expect(roles.get("e")).toBe("leaf");
+		expect(ROLE_COLOR["leaf"]).toBe("1");
+	});
+
+	it("merge-source: thought with outgoing merge edge", () => {
+		const a = makeThought("a", "A", 0);
+		const b = makeThought("b", "B", 1);
+		const c = makeThought("c", "C", 2);
+		const d = makeThought("d", "D", 3);
+		const train = makeTrain(
+			[a, b, c, d],
+			[
+				{ fromId: "a", toId: "b", direction: "next" },
+				{ fromId: "b", toId: "c", direction: "next" },
+				{ fromId: "a", toId: "d", direction: "branch" },
+				{ fromId: "d", toId: "b", direction: "merge" },
+			],
+		);
+
+		const roles = computeNodeRoles(train);
+		expect(roles.get("d")).toBe("merge-source");
+		expect(ROLE_COLOR["merge-source"]).toBe("#a855f7");
+	});
+
+	it("priority: head > merge-target > merge-source > branch-origin > root > leaf > normal", () => {
+		// head already tested above (head > merge-target)
+
+		// merge-target > merge-source: a node that is both merge target and source
+		const a = makeThought("a", "A", 0);
+		const b = makeThought("b", "B", 1);
+		const c = makeThought("c", "C", 2);
+		const d = makeThought("d", "D", 3);
+		const e = makeThought("e", "E", 4);
+		const train = makeTrain(
+			[a, b, c, d, e],
+			[
+				{ fromId: "a", toId: "b", direction: "next" },
+				{ fromId: "b", toId: "c", direction: "next" },
+				{ fromId: "a", toId: "d", direction: "branch" },
+				{ fromId: "d", toId: "b", direction: "merge" }, // d is merge-source, b is merge-target
+				{ fromId: "b", toId: "e", direction: "branch" },
+				{ fromId: "e", toId: "c", direction: "merge" }, // e is merge-source, c is head (not merge-target)
+			],
+		);
+
+		const roles = computeNodeRoles(train);
+		// b: is merge-target AND branch-origin → merge-target wins
+		expect(roles.get("b")).toBe("merge-target");
+		// d: is merge-source → merge-source
+		expect(roles.get("d")).toBe("merge-source");
+		// a: is branch-origin AND root → branch-origin wins (higher priority)
+		expect(roles.get("a")).toBe("branch-origin");
+	});
+
+	it("branch-origin > root priority", () => {
+		const a = makeThought("a", "A", 0);
+		const b = makeThought("b", "B", 1);
+		const d = makeThought("d", "D", 2);
+		const train = makeTrain(
+			[a, b, d],
+			[
+				{ fromId: "a", toId: "b", direction: "next" },
+				{ fromId: "a", toId: "d", direction: "branch" },
+			],
+		);
+
+		const roles = computeNodeRoles(train);
+		// a is both root (no incoming) and branch-origin → branch-origin wins
+		expect(roles.get("a")).toBe("branch-origin");
+	});
+
+	it("all 7 role colors are defined", () => {
+		const roles: Array<string> = ["head", "merge-target", "merge-source", "branch-origin", "root", "leaf", "normal"];
+		for (const role of roles) {
+			expect(role in ROLE_COLOR).toBe(true);
+		}
+		// normal has no color
+		expect(ROLE_COLOR["normal"]).toBeUndefined();
+		// All others have colors
+		expect(ROLE_COLOR["head"]).toBe("5");
+		expect(ROLE_COLOR["merge-target"]).toBe("4");
+		expect(ROLE_COLOR["merge-source"]).toBe("#a855f7");
+		expect(ROLE_COLOR["branch-origin"]).toBe("2");
+		expect(ROLE_COLOR["root"]).toBe("3");
+		expect(ROLE_COLOR["leaf"]).toBe("1");
+	});
+});
+
+// ── Groups ───────────────────────────────────────────────────
+
+describe("TrainCanvasWriter — computeGroups()", () => {
+	it("returns empty array for empty train", () => {
+		const train = makeTrain([], []);
+		const positions = computeLayout(train);
+		expect(computeGroups(train, positions)).toEqual([]);
+	});
+
+	it("returns empty array for single-thought train", () => {
+		const a = makeThought("a", "A", 0);
+		const train = makeTrain([a], []);
+		const positions = computeLayout(train);
+		expect(computeGroups(train, positions)).toEqual([]);
+	});
+
+	it("creates main chain group for linear chain", () => {
+		const a = makeThought("a", "A", 0);
+		const b = makeThought("b", "B", 1);
+		const c = makeThought("c", "C", 2);
+		const train = makeTrain(
+			[a, b, c],
+			[
+				{ fromId: "a", toId: "b", direction: "next" },
+				{ fromId: "b", toId: "c", direction: "next" },
+			],
+		);
+
+		const positions = computeLayout(train);
+		const groups = computeGroups(train, positions);
+
+		expect(groups).toHaveLength(1);
+		expect(groups[0].id).toBe("ft-g-main");
+		expect(groups[0].label).toBe("Main Chain");
+		expect(groups[0].color).toBe("3");
+		expect(groups[0].type).toBe("group");
+	});
+
+	it("main chain bounding box includes all nodes with padding", () => {
+		const a = makeThought("a", "A", 0);
+		const b = makeThought("b", "B", 1);
+		const train = makeTrain(
+			[a, b],
+			[{ fromId: "a", toId: "b", direction: "next" }],
+		);
+
+		const positions = computeLayout(train);
+		const groups = computeGroups(train, positions);
+		const main = groups[0];
+
+		// A at (0,0), B at (0,SPACING_Y)
+		expect(main.x).toBe(0 - GROUP_PADDING);
+		expect(main.y).toBe(0 - GROUP_PADDING);
+		expect(main.width).toBe(NODE_WIDTH + GROUP_PADDING * 2);
+		expect(main.height).toBe(SPACING_Y + NODE_HEIGHT + GROUP_PADDING * 2);
+	});
+
+	it("creates branch group for each branch", () => {
+		const a = makeThought("a", "A", 0);
+		const b = makeThought("b", "B", 1);
+		const d = makeThought("d", "D", 2);
+		const train = makeTrain(
+			[a, b, d],
+			[
+				{ fromId: "a", toId: "b", direction: "next" },
+				{ fromId: "a", toId: "d", direction: "branch" },
+			],
+		);
+
+		const positions = computeLayout(train);
+		const groups = computeGroups(train, positions);
+
+		// Main chain (a, b) + branch group (d)
+		expect(groups).toHaveLength(2);
+		const mainGroup = groups.find((g) => g.id === "ft-g-main");
+		const branchGroup = groups.find((g) => g.id === "ft-g-branch-a");
+
+		expect(mainGroup).toBeDefined();
+		expect(branchGroup).toBeDefined();
+		expect(branchGroup!.label).toBe("Branch from: A");
+		expect(branchGroup!.color).toBe("2");
+	});
+
+	it("branch group contains all descendants (next + nested branch)", () => {
+		const a = makeThought("a", "A", 0);
+		const b = makeThought("b", "B", 1);
+		const d = makeThought("d", "D", 2);
+		const e = makeThought("e", "E", 3);
+		const train = makeTrain(
+			[a, b, d, e],
+			[
+				{ fromId: "a", toId: "b", direction: "next" },
+				{ fromId: "a", toId: "d", direction: "branch" },
+				{ fromId: "d", toId: "e", direction: "next" },
+			],
+		);
+
+		const positions = computeLayout(train);
+		const groups = computeGroups(train, positions);
+		const branchGroup = groups.find((g) => g.id === "ft-g-branch-a");
+
+		// Branch should contain d and e
+		expect(branchGroup).toBeDefined();
+		const posD = positions.get("d")!;
+		const posE = positions.get("e")!;
+		// Both d and e should be within the bounding box
+		expect(branchGroup!.x).toBeLessThanOrEqual(posD.x);
+		expect(branchGroup!.y).toBeLessThanOrEqual(posD.y);
+		expect(branchGroup!.x).toBeLessThanOrEqual(posE.x);
+		expect(branchGroup!.y).toBeLessThanOrEqual(posE.y);
+	});
+
+	it("branch bounding box has correct padding", () => {
+		const a = makeThought("a", "A", 0);
+		const b = makeThought("b", "B", 1);
+		const d = makeThought("d", "D", 2);
+		const train = makeTrain(
+			[a, b, d],
+			[
+				{ fromId: "a", toId: "b", direction: "next" },
+				{ fromId: "a", toId: "d", direction: "branch" },
+			],
+		);
+
+		const positions = computeLayout(train);
+		const groups = computeGroups(train, positions);
+		const branchGroup = groups.find((g) => g.id === "ft-g-branch-a")!;
+		const posD = positions.get("d")!;
+
+		// Single-node branch: bounding box = node + padding
+		expect(branchGroup.x).toBe(posD.x - GROUP_PADDING);
+		expect(branchGroup.y).toBe(posD.y - GROUP_PADDING);
+		expect(branchGroup.width).toBe(NODE_WIDTH + GROUP_PADDING * 2);
+		expect(branchGroup.height).toBe(NODE_HEIGHT + GROUP_PADDING * 2);
+	});
+
+	it("multiple branches from same origin create separate groups", () => {
+		const a = makeThought("a", "A", 0);
+		const b = makeThought("b", "B", 1);
+		const d = makeThought("d", "D", 2);
+		const e = makeThought("e", "E", 3);
+		const train = makeTrain(
+			[a, b, d, e],
+			[
+				{ fromId: "a", toId: "b", direction: "next" },
+				{ fromId: "a", toId: "d", direction: "branch" },
+				{ fromId: "a", toId: "e", direction: "branch" },
+			],
+		);
+
+		const positions = computeLayout(train);
+		const groups = computeGroups(train, positions);
+
+		// Main chain + 2 branch groups (both from a, but each gets own group per relation)
+		const branchGroups = groups.filter((g) => g.id.startsWith("ft-g-branch-"));
+		expect(branchGroups).toHaveLength(2);
+	});
+
+	it("group IDs are managed elements", () => {
+		const a = makeThought("a", "A", 0);
+		const b = makeThought("b", "B", 1);
+		const d = makeThought("d", "D", 2);
+		const train = makeTrain(
+			[a, b, d],
+			[
+				{ fromId: "a", toId: "b", direction: "next" },
+				{ fromId: "a", toId: "d", direction: "branch" },
+			],
+		);
+
+		const positions = computeLayout(train);
+		const groups = computeGroups(train, positions);
+
+		for (const group of groups) {
+			expect(isManagedElement(group.id)).toBe(true);
+			expect(group.id.startsWith(GROUP_PREFIX)).toBe(true);
+		}
+	});
+
+	it("groups appear in generated canvas data", () => {
+		const a = makeThought("a", "A", 0);
+		const b = makeThought("b", "B", 1);
+		const d = makeThought("d", "D", 2);
+		const train = makeTrain(
+			[a, b, d],
+			[
+				{ fromId: "a", toId: "b", direction: "next" },
+				{ fromId: "a", toId: "d", direction: "branch" },
+			],
+		);
+
+		const canvas = generateTrainCanvasData(train);
+		const groupNodes = canvas.nodes.filter((n) => n.type === "group") as CanvasGroupData[];
+		expect(groupNodes.length).toBeGreaterThanOrEqual(2); // main + branch
+	});
+});
+
+// ── Annotations ──────────────────────────────────────────────
+
+describe("TrainCanvasWriter — computeAnnotations()", () => {
+	it("returns empty for empty train", () => {
+		const train = makeTrain([], []);
+		const positions = computeLayout(train);
+		expect(computeAnnotations(train, positions)).toEqual([]);
+	});
+
+	it("creates header annotation above root node", () => {
+		const a = makeThought("a", "A", 0);
+		const b = makeThought("b", "B", 1);
+		const train = makeTrain(
+			[a, b],
+			[{ fromId: "a", toId: "b", direction: "next" }],
+		);
+
+		const positions = computeLayout(train);
+		const annotations = computeAnnotations(train, positions);
+		const header = annotations.find((a) => a.id === "ft-a-header");
+
+		expect(header).toBeDefined();
+		expect(header!.type).toBe("text");
+		expect(header!.text).toContain("# Test Train");
+		expect(header!.text).toContain("running");
+		expect(header!.text).toContain("2");
+		// Positioned above root
+		expect(header!.y).toBeLessThan(0);
+	});
+
+	it("header shows duration when > 0", () => {
+		const a = makeThought("a", "A", 0);
+		const train = makeTrain([a], []);
+		train.durationMinutes = 45;
+
+		const positions = computeLayout(train);
+		const annotations = computeAnnotations(train, positions);
+		const header = annotations.find((a) => a.id === "ft-a-header");
+
+		expect(header!.text).toContain("45 min");
+	});
+
+	it("header shows 'in progress' when duration is 0", () => {
+		const a = makeThought("a", "A", 0);
+		const train = makeTrain([a], []);
+
+		const positions = computeLayout(train);
+		const annotations = computeAnnotations(train, positions);
+		const header = annotations.find((a) => a.id === "ft-a-header");
+
+		expect(header!.text).toContain("in progress");
+	});
+
+	it("creates branch annotations near branch start", () => {
+		const a = makeThought("a", "A", 0);
+		const b = makeThought("b", "B", 1);
+		const d = makeThought("d", "D", 2);
+		const e = makeThought("e", "E", 3);
+		const train = makeTrain(
+			[a, b, d, e],
+			[
+				{ fromId: "a", toId: "b", direction: "next" },
+				{ fromId: "a", toId: "d", direction: "branch" },
+				{ fromId: "d", toId: "e", direction: "next" },
+			],
+		);
+
+		const positions = computeLayout(train);
+		const annotations = computeAnnotations(train, positions);
+		const branchAnnotation = annotations.find((a) => a.id === "ft-a-branch-a");
+
+		expect(branchAnnotation).toBeDefined();
+		expect(branchAnnotation!.text).toBe("Branch (2 thoughts)");
+	});
+
+	it("singular 'thought' for single-node branch", () => {
+		const a = makeThought("a", "A", 0);
+		const b = makeThought("b", "B", 1);
+		const d = makeThought("d", "D", 2);
+		const train = makeTrain(
+			[a, b, d],
+			[
+				{ fromId: "a", toId: "b", direction: "next" },
+				{ fromId: "a", toId: "d", direction: "branch" },
+			],
+		);
+
+		const positions = computeLayout(train);
+		const annotations = computeAnnotations(train, positions);
+		const branchAnnotation = annotations.find((a) => a.id === "ft-a-branch-a");
+
+		expect(branchAnnotation!.text).toBe("Branch (1 thought)");
+	});
+
+	it("annotation IDs are managed elements", () => {
+		const a = makeThought("a", "A", 0);
+		const b = makeThought("b", "B", 1);
+		const d = makeThought("d", "D", 2);
+		const train = makeTrain(
+			[a, b, d],
+			[
+				{ fromId: "a", toId: "b", direction: "next" },
+				{ fromId: "a", toId: "d", direction: "branch" },
+			],
+		);
+
+		const positions = computeLayout(train);
+		const annotations = computeAnnotations(train, positions);
+
+		for (const ann of annotations) {
+			expect(isManagedElement(ann.id)).toBe(true);
+			expect(ann.id.startsWith(ANNOTATION_PREFIX)).toBe(true);
+		}
+	});
+
+	it("annotations appear in generated canvas data", () => {
+		const a = makeThought("a", "A", 0);
+		const b = makeThought("b", "B", 1);
+		const train = makeTrain(
+			[a, b],
+			[{ fromId: "a", toId: "b", direction: "next" }],
+		);
+
+		const canvas = generateTrainCanvasData(train);
+		const textNodes = canvas.nodes.filter((n) => n.type === "text");
+		expect(textNodes.length).toBeGreaterThanOrEqual(1); // at least header
+	});
+
+	it("single thought gets header annotation", () => {
+		const a = makeThought("a", "A", 0);
+		const train = makeTrain([a], []);
+
+		const positions = computeLayout(train);
+		const annotations = computeAnnotations(train, positions);
+
+		expect(annotations).toHaveLength(1);
+		expect(annotations[0].id).toBe("ft-a-header");
 	});
 });
 
@@ -275,8 +757,9 @@ describe("TrainCanvasWriter — generateTrainCanvasData()", () => {
 		const train = makeTrain([a], []);
 
 		const canvas = generateTrainCanvasData(train);
-		expect(canvas.nodes).toHaveLength(1);
-		const node = canvas.nodes[0] as CanvasFileData;
+		const fileNodes = canvas.nodes.filter((n) => n.type === "file");
+		expect(fileNodes).toHaveLength(1);
+		const node = fileNodes[0] as CanvasFileData;
 		expect(node.id).toBe("ft-t-a");
 		expect(node.type).toBe("file");
 		expect(node.file).toBe("trains/A.md");
@@ -299,7 +782,7 @@ describe("TrainCanvasWriter — generateTrainCanvasData()", () => {
 		expect(canvas.edges[0].toNode).toBe("ft-t-b");
 	});
 
-	it("next edges: fromSide=bottom, toSide=top, no label", () => {
+	it("next edges: fromSide=bottom, toSide=top, arrow, no label/color", () => {
 		const a = makeThought("a", "A", 0);
 		const b = makeThought("b", "B", 1);
 		const train = makeTrain(
@@ -310,10 +793,13 @@ describe("TrainCanvasWriter — generateTrainCanvasData()", () => {
 		const edge = generateTrainCanvasData(train).edges[0];
 		expect(edge.fromSide).toBe("bottom");
 		expect(edge.toSide).toBe("top");
+		expect(edge.fromEnd).toBe("none");
+		expect(edge.toEnd).toBe("arrow");
 		expect(edge.label).toBeUndefined();
+		expect(edge.color).toBeUndefined();
 	});
 
-	it("branch edges: fromSide=right, toSide=top, label='branch'", () => {
+	it("branch edges: fromSide=right, toSide=top, arrow, orange, label='branch'", () => {
 		const a = makeThought("a", "A", 0);
 		const d = makeThought("d", "D", 1);
 		const train = makeTrain(
@@ -324,10 +810,13 @@ describe("TrainCanvasWriter — generateTrainCanvasData()", () => {
 		const edge = generateTrainCanvasData(train).edges[0];
 		expect(edge.fromSide).toBe("right");
 		expect(edge.toSide).toBe("top");
+		expect(edge.fromEnd).toBe("none");
+		expect(edge.toEnd).toBe("arrow");
 		expect(edge.label).toBe("branch");
+		expect(edge.color).toBe("2"); // orange
 	});
 
-	it("merge edges: label='merge', color='4', toSide='left'", () => {
+	it("merge edges: fromSide=right, toSide=left, arrow, blue, label='merge'", () => {
 		const a = makeThought("a", "A", 0);
 		const d = makeThought("d", "D", 1);
 		const train = makeTrain(
@@ -337,9 +826,33 @@ describe("TrainCanvasWriter — generateTrainCanvasData()", () => {
 
 		const edge = generateTrainCanvasData(train).edges[0];
 		expect(edge.label).toBe("merge");
-		expect(edge.color).toBe("4");
-		expect(edge.fromSide).toBe("bottom");
+		expect(edge.color).toBe("4"); // blue
+		expect(edge.fromSide).toBe("right");
 		expect(edge.toSide).toBe("left");
+		expect(edge.fromEnd).toBe("none");
+		expect(edge.toEnd).toBe("arrow");
+	});
+
+	it("all edge types have arrow heads", () => {
+		const a = makeThought("a", "A", 0);
+		const b = makeThought("b", "B", 1);
+		const c = makeThought("c", "C", 2);
+		const d = makeThought("d", "D", 3);
+		const train = makeTrain(
+			[a, b, c, d],
+			[
+				{ fromId: "a", toId: "b", direction: "next" },
+				{ fromId: "b", toId: "c", direction: "next" },
+				{ fromId: "a", toId: "d", direction: "branch" },
+				{ fromId: "d", toId: "b", direction: "merge" },
+			],
+		);
+
+		const canvas = generateTrainCanvasData(train);
+		for (const edge of canvas.edges) {
+			expect(edge.toEnd).toBe("arrow");
+			expect(edge.fromEnd).toBe("none");
+		}
 	});
 
 	it("head node colored green (5)", () => {
@@ -406,7 +919,8 @@ describe("TrainCanvasWriter — generateTrainCanvasData()", () => {
 		);
 
 		const canvas = generateTrainCanvasData(train);
-		const normalNode = canvas.nodes.find((n) => n.id === "ft-t-a");
+		// b is the only "normal" role in this chain (a=root, c=head)
+		const normalNode = canvas.nodes.find((n) => n.id === "ft-t-b");
 		expect((normalNode as CanvasFileData).color).toBeUndefined();
 	});
 
@@ -422,7 +936,8 @@ describe("TrainCanvasWriter — generateTrainCanvasData()", () => {
 		]);
 
 		const canvas = generateTrainCanvasData(train);
-		expect(canvas.nodes).toHaveLength(3);
+		const fileNodes = canvas.nodes.filter((n) => n.type === "file");
+		expect(fileNodes).toHaveLength(3);
 	});
 
 	it("edge count matches relation count", () => {
@@ -535,8 +1050,9 @@ describe("TrainCanvasWriter — writeTrainCanvas()", () => {
 
 		const written = (fileSystem.createFile as ReturnType<typeof vi.fn>).mock.calls[0];
 		const parsed = JSON.parse(written[1] as string) as CanvasData;
-		expect(parsed.nodes).toHaveLength(1);
-		expect(parsed.nodes[0].id).toBe("ft-t-a");
+		const fileNodes = parsed.nodes.filter((n) => n.type === "file");
+		expect(fileNodes).toHaveLength(1);
+		expect(fileNodes[0].id).toBe("ft-t-a");
 	});
 
 	it("updates existing canvas preserving user elements", async () => {
@@ -557,8 +1073,10 @@ describe("TrainCanvasWriter — writeTrainCanvas()", () => {
 		const result = await writeTrainCanvas(train, "trains/Test Train.canvas", fileSystem);
 
 		expect(result.action).toBe("updated");
+		expect(fileSystem.updateFile).toHaveBeenCalledOnce();
+		expect(fileSystem.createFile).not.toHaveBeenCalled();
 
-		const written = (fileSystem.createFile as ReturnType<typeof vi.fn>).mock.calls[0];
+		const written = (fileSystem.updateFile as ReturnType<typeof vi.fn>).mock.calls[0];
 		const parsed = JSON.parse(written[1] as string) as CanvasData;
 		// Managed element replaced, user element preserved
 		expect(parsed.nodes.find((n) => n.id === "ft-t-a")).toBeDefined();
@@ -575,11 +1093,14 @@ describe("TrainCanvasWriter — writeTrainCanvas()", () => {
 
 		const result = await writeTrainCanvas(train, "trains/Test Train.canvas", fileSystem);
 
-		// Falls back to creating fresh canvas
-		expect(result.action).toBe("created");
-		const written = (fileSystem.createFile as ReturnType<typeof vi.fn>).mock.calls[0];
+		// File exists so action is "updated", even though JSON was invalid
+		expect(result.action).toBe("updated");
+		expect(fileSystem.updateFile).toHaveBeenCalledOnce();
+		expect(fileSystem.createFile).not.toHaveBeenCalled();
+		const written = (fileSystem.updateFile as ReturnType<typeof vi.fn>).mock.calls[0];
 		const parsed = JSON.parse(written[1] as string) as CanvasData;
-		expect(parsed.nodes).toHaveLength(1);
+		const fileNodes = parsed.nodes.filter((n) => n.type === "file");
+		expect(fileNodes).toHaveLength(1);
 	});
 
 	it("writes valid JSON with indentation", async () => {
@@ -615,8 +1136,12 @@ describe("TrainCanvasWriter — full pipeline", () => {
 		const train = makeTrain([a, b, c, d], relations);
 		const canvas = generateTrainCanvasData(train);
 
-		// 4 nodes
-		expect(canvas.nodes).toHaveLength(4);
+		// 4 file nodes + groups
+		const fileNodes = canvas.nodes.filter((n) => n.type === "file");
+		expect(fileNodes).toHaveLength(4);
+		// Groups: main chain + branch
+		const groupNodes = canvas.nodes.filter((n) => n.type === "group");
+		expect(groupNodes.length).toBeGreaterThanOrEqual(2);
 		// 4 edges (2 next + 1 branch + 1 merge)
 		expect(canvas.edges).toHaveLength(4);
 
@@ -629,8 +1154,8 @@ describe("TrainCanvasWriter — full pipeline", () => {
 		expect((nodeA as CanvasFileData).color).toBe("2");
 		// C is both head and merge-target → head wins (green)
 		expect((nodeC as CanvasFileData).color).toBe("5");
-		// D is normal (it's the merge source, not a special role)
-		expect((nodeD as CanvasFileData).color).toBeUndefined();
+		// D is merge-source → purple hex
+		expect((nodeD as CanvasFileData).color).toBe("#a855f7");
 
 		// Merge edge
 		const mergeEdge = canvas.edges.find((e) => e.id === "ft-e-d-c");

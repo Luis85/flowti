@@ -25,6 +25,8 @@ export interface AddThoughtOptions {
 	direction?: ThoughtDirection;
 	/** ID of the thought to link from. Default: last thought in the train. */
 	fromThoughtId?: string;
+	/** Use an existing file path instead of creating a new note. */
+	path?: string;
 }
 
 /** A single thought in a train. */

@@ -330,6 +330,7 @@ export default class FlowtiBasePlugin extends Plugin {
 
 				// No train — prompt for a new title.
 				const duration = this.settings.defaultTrainDuration ?? 0;
+				const fromFilePath = event.payload.fromFilePath;
 				new InputModal(this.app, {
 					title: "Start a new Train of Thoughts",
 					inputName: "What are you thinking?",
@@ -337,7 +338,11 @@ export default class FlowtiBasePlugin extends Plugin {
 					placeholder: "e.g. Exploring a new idea\u2026",
 					submitLabel: "Start",
 					onSubmit: (title) => {
-						void this.trainService!.startTrain(title, duration).then((train) => {
+						void this.trainService!.startTrain(title, duration).then(async (train) => {
+							if (fromFilePath) {
+								const basename = fromFilePath.replace(/^.*[\\/]/, "").replace(/\.md$/, "");
+								await this.trainService!.addThought(train.id, basename, { path: fromFilePath });
+							}
 							this.openTrainModal(train.id, train.title);
 						});
 					},

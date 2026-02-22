@@ -54,7 +54,7 @@ export interface UiCommandEventMap {
 	"ui.openQuickCapture": { type?: CaptureType };
 
 	/** Start a Train of Thoughts serial capture session */
-	"ui.startTrain": { fromThoughtId?: string };
+	"ui.startTrain": { fromThoughtId?: string; fromFilePath?: string };
 
 	/** Open the Train Main View (or reveal if already open) */
 	"ui.openTrainView": Record<string, never>;

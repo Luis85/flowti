@@ -19,6 +19,19 @@ import { generateSessionSummary, mergeSessionNotes } from "./domain/session/help
 import { NewSessionModal } from "./ui/modals";
 import { SessionWorkspaceView, VIEW_TYPE_SESSION_WORKSPACE } from "./ui/SessionWorkspaceView";
 
+/** Terminal session statuses where "Add to" context menu should be hidden for train sessions. */
+const TERMINAL_STATUSES = new Set(["completed", "reviewing", "archived"]);
+
+/**
+ * Determine whether the "Add to {session}" context menu item should be shown.
+ * Returns false for completed train sessions (train can't accept new thoughts).
+ */
+export function shouldShowAddToSession(session: { type: string; status: string } | null): boolean {
+	if (!session) return false;
+	if (session.type === "train-of-thought" && TERMINAL_STATUSES.has(session.status)) return false;
+	return true;
+}
+
 export interface SessionSetupDeps {
 	app: App;
 	eventBus: IEventBus;
@@ -117,8 +130,9 @@ export class SessionSetup {
 				menu.addSeparator();
 
 				// "Add to {session title}" — when any session is current
+				// Skip for completed train sessions (train can't accept new thoughts)
 				const current = sessionService?.getCurrentSession();
-				if (current) {
+				if (current && shouldShowAddToSession(current)) {
 					const bindType = isFolder ? "folder" as const : "file" as const;
 					const bindPath = isFolder ? file.path + "/" : file.path;
 					const label = isFolder ? file.name : (file as TFile).basename;
@@ -158,6 +172,17 @@ export class SessionSetup {
 								}).open();
 							});
 					});
+
+					// "Start new Train from this file" — always available for .md files
+					if (file.extension === "md") {
+						menu.addItem((item) => {
+							item.setTitle("Start new Train from this file")
+								.setIcon("train-front")
+								.onClick(() => {
+									void eventBus.emit("ui.startTrain", { fromFilePath: file.path });
+								});
+						});
+					}
 				}
 
 				menu.addSeparator();

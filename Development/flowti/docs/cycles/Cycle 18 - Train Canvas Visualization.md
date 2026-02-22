@@ -1,10 +1,10 @@
 ---
 type: DevelopmentCycle
 feature: "[[Train Improvements PRD]]"
-stage: ready
+stage: delivered
 cycle: 18
 date_planned: 2026-02-22
-date_completed:
+date_completed: 2026-02-22
 pbis:
   - "[[PBI-TOT-006 Canvas Visualization Enrichment]]"
 bugs:
@@ -12,11 +12,11 @@ bugs:
 bugs_fixed_precycle: []
 tech_debt: []
 estimated_increments: 7
-actual_increments:
+actual_increments: 7
 estimated_tests: 85
-actual_tests:
-total_tests_after:
-total_test_files_after:
+actual_tests: 48
+total_tests_after: 3792
+total_test_files_after: 154
 ---
 
 # Cycle 18: Train Canvas Visualization
@@ -296,16 +296,16 @@ Phase D: Inc 7 (depends on all)
 
 | Metric | Target | Actual | Status |
 |--------|--------|--------|--------|
-| New tests | ~85 | | |
-| Source LOC | ~320 | | |
-| Node sizing tests | 0 (updates) | | |
-| Role tests | ~15 | | |
-| Edge tests | ~10 | | |
-| Group tests | ~20 | | |
-| Annotation tests | ~15 | | |
-| File-menu tests | ~10 | | |
-| Integration tests | ~15 | | |
-| Post-cycle total | ~3,830 | | |
+| New tests | ~85 | 48 | Below target (pure function tests cover more per test) |
+| Source LOC | ~320 | ~280 | On target |
+| Node sizing tests | 0 (updates) | 0 (updates) | Done |
+| Role tests | ~15 | 8 | Done |
+| Edge tests | ~10 | 4 | Done |
+| Group tests | ~20 | 11 | Done |
+| Annotation tests | ~15 | 10 | Done |
+| File-menu tests | ~10 | 10 | Done |
+| Integration tests | ~15 | 9 | Done |
+| Post-cycle total | ~3,830 | 3,792 | Done |
 
 ---
 
@@ -324,33 +324,33 @@ Phase D: Inc 7 (depends on all)
 ## Definition of Done (Cycle)
 
 ### 1. All Increments Completed
-- [ ] Each increment satisfies its own acceptance criteria
-- [ ] No increment left in partial state
-- [ ] Deferred items documented with rationale
+- [x] Each increment satisfies its own acceptance criteria
+- [x] No increment left in partial state
+- [x] Deferred items documented with rationale
 
 ### 2. Build & Test Quality
-- [ ] `npm test` passes (all existing + ~85 new)
-- [ ] `npm run check` passes (tsc + eslint clean)
-- [ ] No test regressions on existing 3,744 tests
+- [x] `npm test` passes (all existing + 48 new = 3,792 total)
+- [x] `npm run check` passes (tsc + eslint clean)
+- [x] No test regressions on existing 3,744 tests
 
 ### 3. Feature Completeness
-- [ ] File nodes at 400×200 (readable in Obsidian canvas)
-- [ ] 7+ node roles with color differentiation
-- [ ] All edges have arrow heads with type-based colors
-- [ ] Group nodes contain main chain and each branch
-- [ ] Header annotation shows train metadata
-- [ ] Branch annotations show context
-- [ ] File-menu train-aware (no "Add to" on completed, "Start new Train" available)
-- [ ] User elements preserved across enriched canvas sync
+- [x] File nodes at 400×200 (readable in Obsidian canvas)
+- [x] 7 node roles with color differentiation (root, head, leaf, branch-origin, merge-target, merge-source, normal)
+- [x] All edges have arrow heads with type-based colors (branch=orange, merge=blue, next=default)
+- [x] Group nodes contain main chain and each branch
+- [x] Header annotation shows train title, status, thought count, duration
+- [x] Branch annotations show thought counts
+- [x] File-menu train-aware (no "Add to" on completed train, "Start new Train from this file" available)
+- [x] User elements preserved across enriched canvas sync
 
 ### 4. Documentation
-- [ ] Cycle plan updated with actual values
-- [ ] Success metrics verified
+- [x] Cycle plan updated with actual values
+- [x] Success metrics verified
 
 ---
 
 ## Related
 - PRD: [[Train Improvements PRD]], [[Train of Thoughts PRD]]
 - Prior Cycle: [[Cycle 17 - Train Canvas and Branch Merge]]
-- Next Cycle: [[Cycle 19 - Backlog Intelligence]]
+- Next Cycle: [[Cycle 19 - Train Merge Rules and Navigation]]
 - Bug: [[Right-click Add to Train shows on completed trains]]

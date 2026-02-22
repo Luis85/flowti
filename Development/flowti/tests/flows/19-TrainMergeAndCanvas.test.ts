@@ -22,6 +22,8 @@ import {
 	generateTrainCanvasData,
 	mergeCanvasLayers,
 	isManagedElement,
+	NODE_WIDTH,
+	NODE_HEIGHT,
 } from "../../src/domain/train/TrainCanvasWriter";
 import type { TrainServiceState, TrainState } from "../../src/domain/train/types";
 import type { CanvasData } from "obsidian/canvas";
@@ -233,13 +235,14 @@ describe("Flow 19: Train Branch Merge & Canvas Sync", () => {
 	// ── Canvas generation parity ────────────────────────────────
 
 	describe("canvas generation matches train graph", () => {
-		it("should generate canvas with node count equal to thought count", async () => {
+		it("should generate canvas with file node count equal to thought count", async () => {
 			const { trainId } = await buildBranchingTrain(trainService);
 			const train = trainService.getTrain(trainId)!;
 
 			const canvasData = generateTrainCanvasData(train);
+			const fileNodes = canvasData.nodes.filter((n) => n.type === "file");
 
-			expect(canvasData.nodes).toHaveLength(train.thoughts.length);
+			expect(fileNodes).toHaveLength(train.thoughts.length);
 		});
 
 		it("should generate canvas with edge count equal to relation count", async () => {
@@ -283,6 +286,155 @@ describe("Flow 19: Train Branch Merge & Canvas Sync", () => {
 
 			const mergeEdge = canvasData.edges.find((e) => e.label === "merge");
 			expect(mergeEdge).toBeUndefined();
+		});
+	});
+
+	// ── Enriched canvas output (Cycle 18) ──────────────────────
+
+	describe("enriched canvas: groups, annotations, arrows", () => {
+		it("should include group nodes for main chain and branches", async () => {
+			const { trainId } = await buildBranchingTrain(trainService);
+			const train = trainService.getTrain(trainId)!;
+			const canvasData = generateTrainCanvasData(train);
+
+			const groups = canvasData.nodes.filter((n) => n.type === "group");
+			// Main chain group + branch group (A→D)
+			expect(groups.length).toBeGreaterThanOrEqual(2);
+			expect(groups.some((g) => g.id === "ft-g-main")).toBe(true);
+		});
+
+		it("should include header annotation text node", async () => {
+			const { trainId } = await buildBranchingTrain(trainService);
+			const train = trainService.getTrain(trainId)!;
+			const canvasData = generateTrainCanvasData(train);
+
+			const textNodes = canvasData.nodes.filter((n) => n.type === "text");
+			const header = textNodes.find((n) => n.id === "ft-a-header");
+			expect(header).toBeDefined();
+			expect(header!.text).toContain("Merge Flow");
+		});
+
+		it("should include branch annotation text node", async () => {
+			const { trainId } = await buildBranchingTrain(trainService);
+			const train = trainService.getTrain(trainId)!;
+			const canvasData = generateTrainCanvasData(train);
+
+			const textNodes = canvasData.nodes.filter((n) => n.type === "text");
+			const branchAnnotation = textNodes.find((n) => n.id.startsWith("ft-a-branch-"));
+			expect(branchAnnotation).toBeDefined();
+			expect(branchAnnotation!.text).toContain("Branch");
+		});
+
+		it("should set arrow heads on all edges", async () => {
+			const { trainId } = await buildBranchingTrain(trainService);
+			const train = trainService.getTrain(trainId)!;
+			const canvasData = generateTrainCanvasData(train);
+
+			for (const edge of canvasData.edges) {
+				expect(edge.toEnd).toBe("arrow");
+				expect(edge.fromEnd).toBe("none");
+			}
+		});
+
+		it("should color branch edges orange and merge edges blue", async () => {
+			const { trainId } = await buildBranchingTrain(trainService);
+			const train = trainService.getTrain(trainId)!;
+			const thoughtD = train.thoughts.find((t) => t.title === "D")!;
+			const thoughtB = train.thoughts.find((t) => t.title === "B")!;
+
+			await trainService.mergeBranch(trainId, thoughtD.id, thoughtB.id);
+			const updatedTrain = trainService.getTrain(trainId)!;
+			const canvasData = generateTrainCanvasData(updatedTrain);
+
+			const branchEdge = canvasData.edges.find((e) => e.label === "branch");
+			expect(branchEdge!.color).toBe("2"); // orange
+
+			const mergeEdge = canvasData.edges.find((e) => e.label === "merge");
+			expect(mergeEdge!.color).toBe("4"); // blue
+			expect(mergeEdge!.fromSide).toBe("right");
+			expect(mergeEdge!.toSide).toBe("left");
+		});
+
+		it("should use enlarged node dimensions (400×200)", async () => {
+			const { trainId } = await buildBranchingTrain(trainService);
+			const train = trainService.getTrain(trainId)!;
+			const canvasData = generateTrainCanvasData(train);
+
+			const fileNodes = canvasData.nodes.filter((n) => n.type === "file");
+			for (const node of fileNodes) {
+				expect(node.width).toBe(NODE_WIDTH);
+				expect(node.height).toBe(NODE_HEIGHT);
+				expect(node.width).toBe(400);
+				expect(node.height).toBe(200);
+			}
+		});
+
+		it("should assign enriched node roles with color differentiation", async () => {
+			const { trainId } = await buildBranchingTrain(trainService);
+			const train = trainService.getTrain(trainId)!;
+			const canvasData = generateTrainCanvasData(train);
+
+			const fileNodes = canvasData.nodes.filter((n) => n.type === "file");
+			// At least one node should have a color (head, branch-origin, root, etc.)
+			const colored = fileNodes.filter((n) => n.color !== undefined);
+			expect(colored.length).toBeGreaterThanOrEqual(2);
+		});
+
+		it("all managed elements (groups, annotations, nodes, edges) have ft- prefix", async () => {
+			const { trainId } = await buildBranchingTrain(trainService);
+			const train = trainService.getTrain(trainId)!;
+			const canvasData = generateTrainCanvasData(train);
+
+			for (const node of canvasData.nodes) {
+				expect(isManagedElement(node.id)).toBe(true);
+			}
+			for (const edge of canvasData.edges) {
+				expect(isManagedElement(edge.id)).toBe(true);
+			}
+		});
+	});
+
+	// ── Backward compatibility ──────────────────────────────────
+
+	describe("backward compatibility: old canvas upgrades", () => {
+		it("should preserve user elements when upgrading old canvas with only file nodes", () => {
+			// Simulate old canvas: only file nodes, no groups/annotations
+			const oldCanvas: CanvasData = {
+				nodes: [
+					{ id: "ft-t-a", type: "file", file: "a.md", x: 0, y: 0, width: 250, height: 60 },
+					{ id: "ft-t-b", type: "file", file: "b.md", x: 0, y: 120, width: 250, height: 60 },
+					{ id: "user-sticky", type: "text", text: "User note", x: 400, y: 0, width: 200, height: 100 },
+				],
+				edges: [
+					{ id: "ft-e-a-b", fromNode: "ft-t-a", toNode: "ft-t-b" },
+					{ id: "user-link", fromNode: "ft-t-a", toNode: "user-sticky" },
+				],
+			};
+
+			// New managed layer has groups + annotations + file nodes
+			const newManaged: CanvasData = {
+				nodes: [
+					{ id: "ft-g-main", type: "group", x: -40, y: -40, width: 480, height: 600, label: "Main Chain" },
+					{ id: "ft-a-header", type: "text", text: "# Train", x: 0, y: -160, width: 400, height: 120 },
+					{ id: "ft-t-a", type: "file", file: "a.md", x: 0, y: 0, width: 400, height: 200 },
+					{ id: "ft-t-b", type: "file", file: "b.md", x: 0, y: 280, width: 400, height: 200 },
+				],
+				edges: [
+					{ id: "ft-e-a-b", fromNode: "ft-t-a", toNode: "ft-t-b", toEnd: "arrow", fromEnd: "none" },
+				],
+			};
+
+			const merged = mergeCanvasLayers(newManaged, oldCanvas);
+
+			// Old managed elements (ft-*) replaced, user elements preserved
+			expect(merged.nodes.find((n) => n.id === "user-sticky")).toBeDefined();
+			expect(merged.edges.find((e) => e.id === "user-link")).toBeDefined();
+			// New elements present
+			expect(merged.nodes.find((n) => n.id === "ft-g-main")).toBeDefined();
+			expect(merged.nodes.find((n) => n.id === "ft-a-header")).toBeDefined();
+			// Old-size nodes gone (replaced by new 400×200)
+			const fileA = merged.nodes.find((n) => n.id === "ft-t-a");
+			expect(fileA!.width).toBe(400);
 		});
 	});
 
