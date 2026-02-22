@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Prioritization Hub PRD]]"
-stage: planned
+stage: ready
 cycle: 16
 date_planned: 2026-02-22
 date_completed:
@@ -141,6 +141,15 @@ None bundled — this is a greenfield domain cycle.
 - Unit tests: event map type-checks with correct payload shapes
 - Unit tests: catalog entries match event map keys
 
+**Documentation intent:**
+- Event Catalog: 8 prioritization events with descriptions
+- Update `DEFAULT_CATALOG_CATEGORIES` with "Prioritization" category
+
+**Architecture seams:**
+- New bounded context `src/domain/prioritization/` — isolated from other domains
+- PrioritizationEventMap composed into FlowtiEventMap via `extends` (same as Canvas, Signal)
+- Pure types with no Obsidian dependencies
+
 **Acceptance criteria:**
 - [ ] All prioritization types exported from `types.ts`
 - [ ] 5 default scoring dimensions defined with weights (importance 1.0, satisfaction 1.0, effort 0.5, risk 0.5, urgency 0.5)
@@ -166,6 +175,14 @@ None bundled — this is a greenfield domain cycle.
 - Unit tests: scoring dimension validation (1-5 scale), weighted total calculation, Ulwick opportunity formula
 - Unit tests: ranking move operations, position persistence, rebalance with gaps
 - Unit tests: ELO expected score calculation, rating updates (winner gains, loser drops), K-factor effect, pair selection (fewest comparisons first), confidence levels (low < 5, medium 5-10, high > 10)
+
+**Documentation intent:**
+- JSDoc on all exported pure functions
+- Consider ADR if ELO algorithm deviates from standard formula
+
+**Architecture seams:**
+- All three engines are pure functions — no side effects, no Obsidian dependencies, no EventBus
+- Engines consumed by PrioritizationService (Inc 3) — no direct UI coupling
 
 **Acceptance criteria:**
 - [ ] `calculateWeightedScore()` produces correct totals for given dimension scores and weights
@@ -198,6 +215,15 @@ None bundled — this is a greenfield domain cycle.
 - Unit tests: state persistence across load/dispose cycles
 - Unit tests: events emitted for session lifecycle and config changes
 
+**Documentation intent:**
+- Service registered in ServiceContainer (same pattern as CanvasService, SignalService)
+- Update `main.ts` onload/unload lifecycle documentation comments
+
+**Architecture seams:**
+- PrioritizationService follows ServiceContainer pattern (TypedStorage, EventBus, FileSystemClient)
+- Service registered in `registry.ts`, instantiated in `main.ts`
+- Folder scanning uses FileSystemClient.listFiles() with type filter callback
+
 **Acceptance criteria:**
 - [ ] PrioritizationService registered in ServiceContainer with TypedStorage
 - [ ] Session CRUD: create, get, list active, delete
@@ -227,6 +253,14 @@ None bundled — this is a greenfield domain cycle.
 - Unit tests: batch write processes multiple notes
 - Unit tests: existing frontmatter preserved (only priority fields updated)
 - Unit tests: `prioritization.results.applied` event emitted with item count
+
+**Documentation intent:**
+- Document frontmatter schema for prioritization fields (priority_score, priority_rank, elo_rating, etc.)
+- Add to PRD §6 Data Model Impact with concrete field examples
+
+**Architecture seams:**
+- FrontmatterWriter uses FileSystemClient for all I/O — pure functions for field preparation
+- Batch writes use sequential FileSystemClient.updateFrontmatter() with error collection per note
 
 **Acceptance criteria:**
 - [ ] Scores written: `priority_score`, `opportunity_score`, dimension scores
@@ -259,6 +293,17 @@ None bundled — this is a greenfield domain cycle.
 - Unit tests: score changes trigger recalculation and display update
 - Unit tests: "Apply Scores" button calls frontmatter writer
 
+**Documentation intent:**
+- Create component doc: `docs/components/PrioritizationHubView.md`
+- Create component doc: `docs/components/DashboardPanel.md`
+- Create component doc: `docs/components/ScoringPanel.md`
+- Update Frontend Architecture.md with Prioritization Hub View in view inventory
+
+**Architecture seams:**
+- PrioritizationHubView extends BaseHubView (inherits tab bar, debounced render, split layout)
+- VIEW_TYPE constant in `src/domain/hub/types.ts`, re-exported from view
+- Components follow `constructor(el, deps)` + `renderMaster()` + `renderDetail()` pattern
+
 **Acceptance criteria:**
 - [ ] PrioritizationHubView extends BaseHubView with 5 tab definitions
 - [ ] Dashboard tab: active sessions list, recent results, quick-start buttons
@@ -287,6 +332,15 @@ None bundled — this is a greenfield domain cycle.
 - Unit tests: rank change indicators show movement direction
 - Unit tests: "Apply Ranks" triggers frontmatter write-back
 - Unit tests: empty state renders prompt to add items
+
+**Documentation intent:**
+- Create component doc: `docs/components/RankingPanel.md`
+- Document drag-and-drop interaction pattern for reuse
+
+**Architecture seams:**
+- RankingPanel uses native HTML5 drag-and-drop API (dragstart, dragover, drop)
+- Panel calls RankingEngine pure functions for position calculation — no direct state mutation
+- "Apply Ranks" delegates to PrioritizationService → FrontmatterWriter
 
 **Acceptance criteria:**
 - [ ] Items displayed in sortable list with rank badges (#1, #2, ...)
@@ -318,6 +372,15 @@ None bundled — this is a greenfield domain cycle.
 - Unit tests: results view shows items sorted by ELO rating
 - Unit tests: confidence indicators (low/medium/high) display correctly
 - Unit tests: session completes when minimum comparisons reached for all items
+
+**Documentation intent:**
+- Create component doc: `docs/components/EloComparisonPanel.md`
+- Document keyboard shortcut mapping
+
+**Architecture seams:**
+- EloComparisonPanel calls EloEngine pure functions for rating calculation and pair selection
+- Keyboard shortcuts registered via Obsidian scope (component-scoped, not global)
+- Auto-completion wired to EloEngine.getConfidenceLevel() for all items
 
 **Acceptance criteria:**
 - [ ] Two items displayed side-by-side with title, description, and metadata
@@ -351,6 +414,18 @@ None bundled — this is a greenfield domain cycle.
 - Flow tests: session integration (start session → run prioritization → closure ritual)
 - Flow tests: inbox item created on completion
 - Flow tests: event sequence verification (started → scored/ranked/compared → completed → applied)
+
+**Documentation intent:**
+- Create flow doc: `docs/flows/Prioritize Backlog Items.md` (scoring, ranking, ELO flows)
+- Create sitemap entry: `docs/sitemap/Prioritization Hub View.md`
+- Update Frontend Architecture.md: Prioritization domain, event scale, component count
+- Update PRD: FRI re-score, delivery notes, acceptance criteria checked
+
+**Architecture seams:**
+- Session type registration via SessionService type registry (same as existing session types)
+- Inbox mapper follows `mapXCompleted()` pattern (same as Canvas, Signal)
+- Flow test follows `tests/flows/` pattern (19-Prioritization.test.ts)
+- Command registered in `main.ts` via `addCommand()`
 
 **Acceptance criteria:**
 - [ ] "Prioritization" session type registered and runnable

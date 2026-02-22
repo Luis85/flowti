@@ -2,9 +2,10 @@
 domain: Flowti
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
-stage: draft
+stage: approved
 related_events: []
-maturity: L0
+maturity: L1
+fri: 23
 business_value: 5
 implementation_cost: 3
 maintenance_cost: 2
@@ -153,7 +154,28 @@ Prioritization sessions are traceable: every score, rank change, and comparison 
 | Large item sets (500+) overwhelm comparison view | Medium | Sample-based comparison; focus on uncertain items |
 | Users abandon sessions before completing | Low | Save session state; resume later |
 
-## 12. Acceptance Criteria
+## 12. FRI Score (Planning)
+
+| Dimension | Score | Notes |
+|-----------|-------|-------|
+| Strategy | 3/5 | Clear problem (manual prioritization overwhelming at 265+ items). Aligned with Product Owner persona and product backlog JTBD. Not 5/5 — new untested domain, strategic value grows with usage data. |
+| Scope | 4/5 | Well-defined in/out scope. 3 clear modes (Scoring, Ranking, ELO). 12 FRs. Clear deferrals (AI, multi-user, external sync). Not 5/5 — edge cases for large sets need refinement. |
+| Architecture | 3/5 | New bounded context following proven patterns (Canvas, Signal). Service + TypedStorage + EventBus composition. Not 5/5 — no ADR yet, no proof of concept for ELO algorithm or drag-and-drop. |
+| Event Integration | 4/5 | 8 events defined with payloads. 2 consumed events (session lifecycle). Follows established event composition pattern. Not 5/5 — no event sequence diagram yet. |
+| Data Model | 4/5 | 8 entities clearly defined. ELO parameters specified. Default scoring dimensions with weights. Storage key defined. Not 5/5 — frontmatter write-back schema not fully specified. |
+| UI Consistency | 2/5 | Hub view described with 5 tabs. Follows BaseHubView pattern. No wireframes or ASCII mockups yet. |
+| Validation & Testing | 3/5 | Test intent stated per increment. Flow test planned. ~120 tests estimated. ELO convergence test planned. Not 5/5 — no Gherkin scenarios at PRD level. |
+| **Total** | **23/35** | **Technically Ready** (threshold: ≥ 19/35 for new features) |
+
+### FRI Improvement Path
+
+| Dimension | Current | Target | How |
+|-----------|---------|--------|-----|
+| Architecture | 3 | 4 | Create ADR for ELO algorithm + frontmatter write-back pattern |
+| UI Consistency | 2 | 4 | Add ASCII wireframes for scoring, ranking, and ELO views |
+| Validation & Testing | 3 | 4 | Add Gherkin scenarios for each prioritization mode |
+
+## 13. Acceptance Criteria
 
 - [ ] User can select a folder of notes and score them on weighted dimensions
 - [ ] Opportunity score (Ulwick) is calculated and displayed for each item
@@ -166,7 +188,7 @@ Prioritization sessions are traceable: every score, rank change, and comparison 
 - [ ] All 8 prioritization events emit with correct payloads
 - [ ] Dashboard shows overview of active sessions and recent results
 
-## 13. Definition of Done
+## 14. Definition of Done
 
 - All acceptance criteria verified manually
 - Unit tests cover PrioritizationService, scoring engine, ELO calculator, ranking engine
@@ -176,7 +198,7 @@ Prioritization sessions are traceable: every score, rank change, and comparison 
 - Event emission verified in tests
 - `npm run build` passes (vitest, tsc, eslint, esbuild)
 
-## 14. Extended Backlog
+## 15. Extended Backlog
 
 | PBI | Title | Status | Priority | Depends On | Source |
 |-----|-------|--------|----------|------------|--------|
@@ -186,7 +208,7 @@ Prioritization sessions are traceable: every score, rank change, and comparison 
 
 > **Inbox triage (2026-02-22):** PRD created from inbox item [[We need a tool to prioritize notes]]. 3 PBIs scoped. PBI-PRI-001 selected for Cycle 16.
 
-## 15. Related
+## 16. Related
 
 - Persona: [[The Product Owner (Operational Strategist)]], [[Strategic Systems Builder]]
 - JTBD: [[I need to manage a product backlog]], [[I need an all-in-one Product Management Solution]]
