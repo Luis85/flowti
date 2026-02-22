@@ -37,6 +37,8 @@ Before we get started, make sure the following things are in place:
 
 ## Tutorial - How to get in
 
+> You want a **system that turns structured thinking into structured execution**.
+
 ### Step 1 - Clone the repo
 
 - Copy the repo url
