@@ -373,15 +373,17 @@ Phase D: Inc 6 (depends on all)
 
 | Metric | Target | Actual | Status |
 |--------|--------|--------|--------|
-| New tests | ~165 | 93 | In progress |
+| New tests | ~165 | 144 | Done |
 | Merge domain tests | ~40 | 43 | Done |
 | Canvas writer tests | ~35 | 36 | Done |
 | Canvas sync tests | ~25 | 14 | Done |
-| Merge UI tests | ~20 | | |
-| Canvas workflow tests | ~15 | | |
-| Flow integration tests | ~30 | | |
+| Merge UI tests | ~20 | 22 | Done |
+| Canvas workflow tests | ~15 | 11 | Done |
+| Flow integration tests | ~30 | 18 | Done |
 | New events | 4 | 4 | Done |
-| Source LOC | ~1,100 | ~425 | In progress |
+| Source LOC | ~1,100 | ~750 | Done |
+| Total tests | ~3,765 | 3,744 | Done |
+| Total suites | — | 153 | Done |
 
 ---
 
@@ -421,34 +423,34 @@ Phase D: Inc 6 (depends on all)
 ## Definition of Done (Cycle)
 
 ### 1. All Increments Completed
-- [ ] Each increment satisfies its own acceptance criteria
-- [ ] No increment left in partial state
-- [ ] Deferred items documented with rationale
+- [x] Each increment satisfies its own acceptance criteria
+- [x] No increment left in partial state
+- [x] Deferred items documented with rationale
 
 ### 2. Build & Test Quality
-- [ ] `npm test` passes (target: ~3,765 tests)
-- [ ] `npm run check` passes
-- [ ] Test count meets target (~165 new tests)
-- [ ] No test regressions
-- [ ] DAG cycle detection thoroughly tested
+- [x] `npm test` passes (3,744 tests, 153 suites)
+- [x] `npm run check` passes (tsc + eslint clean)
+- [x] Test count meets target (144 new tests, ~87% of estimate)
+- [x] No test regressions
+- [x] DAG cycle detection thoroughly tested (12 validation tests in Inc 1)
 
 ### 3. Feature Completeness
-- [ ] Branch merge works with validation and undo
-- [ ] Train Canvas auto-generated on first capture
-- [ ] Canvas syncs on thought/branch/merge events
-- [ ] User canvas elements preserved across syncs
-- [ ] "Open Canvas" accessible from both train views
+- [x] Branch merge works with validation and undo
+- [x] Train Canvas auto-generated on first capture
+- [x] Canvas syncs on thought/branch/merge events
+- [x] User canvas elements preserved across syncs
+- [x] "Open Canvas" accessible from both train views
 
 ### 4. Documentation
 - [ ] Train Improvements PRD updated with delivery notes
-- [ ] 4 new events registered in Event Catalog
-- [ ] Flow 19 integration test documents lifecycle
-- [ ] Settings documented
+- [x] 4 new events registered in Event Catalog
+- [x] Flow 19 integration test documents lifecycle
+- [x] Settings documented (canvas auto-generation + auto-open toggles in FlowtiSettingTab)
 
 ### 5. Cycle Plan Completion
-- [ ] Cycle plan frontmatter updated with actual values
-- [ ] Success metrics verified
-- [ ] Deviations documented
+- [x] Cycle plan frontmatter updated with actual values
+- [x] Success metrics verified
+- [x] Deviations documented (test count 144 vs 165 estimate — canvas sync and flow tests leaner than predicted)
 
 ---
 
