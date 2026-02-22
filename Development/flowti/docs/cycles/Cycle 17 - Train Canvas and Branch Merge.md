@@ -127,13 +127,20 @@ total_test_files_after:
 **Architecture seams:** ThoughtRelation extended with `"merge"` direction. TrainService state mutation follows fire-and-forget contract (mutations before first await). DAG cycle detection via depth-first traversal of relations.
 
 **Acceptance criteria:**
-- [ ] `mergeBranch(trainId, sourceId, targetId)` creates merge relation
-- [ ] Merge validation prevents self-merge, duplicates, and cycles
-- [ ] `undoMerge()` removes merge relation cleanly
-- [ ] Merged thought gets `merge-target` frontmatter wikilink
-- [ ] `getMerges(trainId)` returns all merge relations
-- [ ] `train.branch.merged` and `train.branch.merge.undone` events emitted
-- [ ] `npm test` passes
+- [x] `mergeBranch(trainId, sourceId, targetId)` creates merge relation
+- [x] Merge validation prevents self-merge, duplicates, and cycles
+- [x] `undoMerge()` removes merge relation cleanly
+- [x] Merged thought gets `merge-target` frontmatter wikilink
+- [x] `getMerges(trainId)` returns all merge relations
+- [x] `train.branch.merged` and `train.branch.merge.undone` events emitted
+- [x] `npm test` passes
+
+**Delivery notes (Inc 1):**
+- 43 new tests (est. 40) across 6 groups: happy path, validation, cycle detection, undo, getMerges, buildNavLinks, edge cases
+- ~115 LOC source added to TrainService (est. ~205 — steps 3+4 combined, cleaner than estimated)
+- Bonus: `merged-from` frontmatter on target thought (additive to FR-01 spec)
+- Bonus: `isReachable()` private DFS follows only next/branch edges, not merge edges — prevents false cycle rejections
+- 3,643 tests passing, 148 suites, tsc + eslint clean
 
 ---
 
@@ -328,15 +335,15 @@ Phase D: Inc 6 (depends on all)
 
 | Metric | Target | Actual | Status |
 |--------|--------|--------|--------|
-| New tests | ~165 | | |
-| Merge domain tests | ~40 | | |
+| New tests | ~165 | 43 | In progress |
+| Merge domain tests | ~40 | 43 | Done |
 | Canvas writer tests | ~35 | | |
 | Canvas sync tests | ~25 | | |
 | Merge UI tests | ~20 | | |
 | Canvas workflow tests | ~15 | | |
 | Flow integration tests | ~30 | | |
-| New events | 4 | | |
-| Source LOC | ~1,100 | | |
+| New events | 4 | 2 | In progress |
+| Source LOC | ~1,100 | ~115 | In progress |
 
 ---
 

@@ -10,7 +10,7 @@
 // ─────────────────────────────────────────────────────────────
 
 /** Direction of a thought relationship. */
-export type ThoughtDirection = "next" | "branch";
+export type ThoughtDirection = "next" | "branch" | "merge";
 
 /** Relationship between two thoughts in a train. */
 export interface ThoughtRelation {

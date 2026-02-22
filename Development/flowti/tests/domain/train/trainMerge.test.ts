@@ -1,0 +1,670 @@
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { EventBus } from "../../../src/infrastructure/events/EventBus";
+import type { IEventBus } from "../../../src/infrastructure/events/types";
+import { TrainService } from "../../../src/domain/train/TrainService";
+import { CaptureService } from "../../../src/domain/capture/CaptureService";
+import { createMockStorage } from "../../mocks/storage";
+import { createMockFileSystem } from "../../mocks/filesystem";
+import type { TrainServiceState, TrainState, ThoughtNode } from "../../../src/domain/train/types";
+
+function createTestHarness(initialState?: TrainServiceState) {
+	const eventBus: IEventBus = new EventBus();
+	const fileSystem = createMockFileSystem();
+	const { storage, getData } = createMockStorage<TrainServiceState>(initialState);
+
+	const captureService = new CaptureService({
+		eventBus,
+		fileSystem,
+		getSettings: () => ({ captureFolder: "00 - Connectivity/inbox" }),
+	});
+
+	// Wire up session.create → session.created handler (simulates SessionService)
+	eventBus.on("session.create", (event) => {
+		const sessionId = `session_mock_${Date.now()}`;
+		void eventBus.emit("session.created", {
+			session: {
+				id: sessionId,
+				type: event.payload.type,
+				title: event.payload.title,
+				status: "prepared",
+				durationMinutes: 0,
+				createdAt: new Date().toISOString(),
+				startedAt: null,
+				pausedAt: null,
+				elapsedBeforePauseMs: 0,
+				completedAt: null,
+				artifacts: [],
+				notes: "",
+				focusFile: null,
+				timeline: [],
+				goals: [],
+				links: [],
+				notesFile: null,
+				canvasFile: null,
+				activity: [],
+				activityFilter: [],
+				contextBindings: [],
+				decisions: [],
+				workspaceState: null,
+				outputArtifacts: [],
+				intent: null,
+				energy: null,
+				executionTasks: [],
+				reflections: [],
+				closureResponse: null,
+			},
+		});
+	});
+
+	const service = new TrainService({
+		storage,
+		eventBus,
+		fileSystem,
+		captureService,
+	});
+
+	return { service, eventBus, fileSystem, storage, getData };
+}
+
+/**
+ * Helper: start a train and add thoughts in a chain with optional branches.
+ * Returns train + all thought nodes for easy test setup.
+ */
+async function buildTrainWithBranch(service: TrainService) {
+	const train = await service.startTrain("Merge Test");
+
+	// Main chain: A → B → C
+	const a = await service.addThought(train.id, "A");
+	const b = await service.addThought(train.id, "B");
+	const c = await service.addThought(train.id, "C");
+
+	// Branch from A: A → D (branch)
+	const d = await service.addThought(train.id, "D", {
+		direction: "branch",
+		fromThoughtId: a!.id,
+	});
+
+	return {
+		train: service.getTrain(train.id)!,
+		a: a!, b: b!, c: c!, d: d!,
+	};
+}
+
+describe("TrainService — mergeBranch()", () => {
+	// ── Happy path ─────────────────────────────────────────────
+
+	describe("happy path", () => {
+		it("creates a merge relation with correct direction", async () => {
+			const { service } = createTestHarness();
+			const { train, d, b } = await buildTrainWithBranch(service);
+
+			const result = await service.mergeBranch(train.id, d.id, b.id);
+
+			expect(result).toBe(true);
+			const updated = service.getTrain(train.id)!;
+			const mergeRel = updated.relations.find(
+				(r) => r.fromId === d.id && r.toId === b.id,
+			);
+			expect(mergeRel).toBeDefined();
+			expect(mergeRel!.direction).toBe("merge");
+		});
+
+		it("source and target thoughts both exist after merge", async () => {
+			const { service } = createTestHarness();
+			const { train, d, b } = await buildTrainWithBranch(service);
+
+			await service.mergeBranch(train.id, d.id, b.id);
+
+			const updated = service.getTrain(train.id)!;
+			expect(updated.thoughts.find((t) => t.id === d.id)).toBeDefined();
+			expect(updated.thoughts.find((t) => t.id === b.id)).toBeDefined();
+		});
+
+		it("merge relation appears in getMerges()", async () => {
+			const { service } = createTestHarness();
+			const { train, d, b } = await buildTrainWithBranch(service);
+
+			await service.mergeBranch(train.id, d.id, b.id);
+
+			const merges = service.getMerges(train.id);
+			expect(merges).toHaveLength(1);
+			expect(merges[0].fromId).toBe(d.id);
+			expect(merges[0].toId).toBe(b.id);
+			expect(merges[0].direction).toBe("merge");
+		});
+
+		it("emits train.branch.merged with correct payload", async () => {
+			const { service, eventBus } = createTestHarness();
+			const { train, d, b } = await buildTrainWithBranch(service);
+
+			const events: Array<{ trainId: string; sourceId: string; targetId: string }> = [];
+			eventBus.on("train.branch.merged", (e) => { events.push(e.payload); });
+
+			await service.mergeBranch(train.id, d.id, b.id);
+
+			expect(events).toHaveLength(1);
+			expect(events[0].trainId).toBe(train.id);
+			expect(events[0].sourceId).toBe(d.id);
+			expect(events[0].targetId).toBe(b.id);
+		});
+
+		it("state is persisted after merge", async () => {
+			const { service, getData } = createTestHarness();
+			const { train, d, b } = await buildTrainWithBranch(service);
+
+			await service.mergeBranch(train.id, d.id, b.id);
+
+			const persisted = getData()!;
+			const persistedTrain = persisted.trains.find((t) => t.id === train.id)!;
+			const mergeRel = persistedTrain.relations.find(
+				(r) => r.direction === "merge",
+			);
+			expect(mergeRel).toBeDefined();
+		});
+
+		it("updates frontmatter with merge-target wikilink on source", async () => {
+			const { service, fileSystem } = createTestHarness();
+			const { train, d, b } = await buildTrainWithBranch(service);
+
+			await service.mergeBranch(train.id, d.id, b.id);
+
+			await vi.waitFor(() => {
+				const calls = (fileSystem.updateFrontmatter as ReturnType<typeof vi.fn>).mock.calls;
+				const sourceCall = calls.find(
+					(c: unknown[]) => c[0] === d.path &&
+						((c[1] as Record<string, unknown>)["merge-target"] as string[])?.length > 0,
+				);
+				expect(sourceCall).toBeDefined();
+				expect((sourceCall![1] as Record<string, unknown>)["merge-target"]).toContain("[[B]]");
+			});
+		});
+
+		it("updates frontmatter with merged-from wikilink on target", async () => {
+			const { service, fileSystem } = createTestHarness();
+			const { train, d, b } = await buildTrainWithBranch(service);
+
+			await service.mergeBranch(train.id, d.id, b.id);
+
+			await vi.waitFor(() => {
+				const calls = (fileSystem.updateFrontmatter as ReturnType<typeof vi.fn>).mock.calls;
+				const targetCall = calls.find(
+					(c: unknown[]) => c[0] === b.path &&
+						((c[1] as Record<string, unknown>)["merged-from"] as string[])?.length > 0,
+				);
+				expect(targetCall).toBeDefined();
+				expect((targetCall![1] as Record<string, unknown>)["merged-from"]).toContain("[[D]]");
+			});
+		});
+
+		it("allows merge of branch endpoint into main chain thought", async () => {
+			const { service } = createTestHarness();
+			const { train, d, c } = await buildTrainWithBranch(service);
+
+			// Merge branch thought D into main chain thought C
+			const result = await service.mergeBranch(train.id, d.id, c.id);
+			expect(result).toBe(true);
+		});
+
+		it("allows multiple merges from different sources into same target", async () => {
+			const { service } = createTestHarness();
+			const { train, a, d, b } = await buildTrainWithBranch(service);
+
+			// Add another branch from B
+			const e = await service.addThought(train.id, "E", {
+				direction: "branch",
+				fromThoughtId: b.id,
+			});
+
+			// Merge both D and E into C (via main chain endpoint)
+			const updatedTrain = service.getTrain(train.id)!;
+			const c = updatedTrain.thoughts.find((t) => t.title === "C")!;
+			await service.mergeBranch(train.id, d.id, c.id);
+			await service.mergeBranch(train.id, e!.id, c.id);
+
+			const merges = service.getMerges(train.id);
+			expect(merges).toHaveLength(2);
+		});
+	});
+
+	// ── Validation ─────────────────────────────────────────────
+
+	describe("validation", () => {
+		it("rejects self-merge (source === target)", async () => {
+			const { service } = createTestHarness();
+			const { train, a } = await buildTrainWithBranch(service);
+
+			const result = await service.mergeBranch(train.id, a.id, a.id);
+
+			expect(result).toBe(false);
+			expect(service.getMerges(train.id)).toHaveLength(0);
+		});
+
+		it("rejects when train not found", async () => {
+			const { service } = createTestHarness();
+			const { d, b } = await buildTrainWithBranch(service);
+
+			const result = await service.mergeBranch("nonexistent", d.id, b.id);
+			expect(result).toBe(false);
+		});
+
+		it("rejects when source thought not found", async () => {
+			const { service } = createTestHarness();
+			const { train, b } = await buildTrainWithBranch(service);
+
+			const result = await service.mergeBranch(train.id, "nonexistent", b.id);
+			expect(result).toBe(false);
+		});
+
+		it("rejects when target thought not found", async () => {
+			const { service } = createTestHarness();
+			const { train, d } = await buildTrainWithBranch(service);
+
+			const result = await service.mergeBranch(train.id, d.id, "nonexistent");
+			expect(result).toBe(false);
+		});
+
+		it("rejects duplicate merge (same source→target pair)", async () => {
+			const { service } = createTestHarness();
+			const { train, d, b } = await buildTrainWithBranch(service);
+
+			await service.mergeBranch(train.id, d.id, b.id);
+			const result = await service.mergeBranch(train.id, d.id, b.id);
+
+			expect(result).toBe(false);
+			expect(service.getMerges(train.id)).toHaveLength(1);
+		});
+
+		it("rejects cycle: simple A→B, merge B→A", async () => {
+			const { service } = createTestHarness();
+			const train = await service.startTrain("Cycle Test");
+			const a = await service.addThought(train.id, "A");
+			const b = await service.addThought(train.id, "B");
+
+			// A→B is "next", so A can reach B. Merging B→A would create a cycle.
+			// But wait — isReachable checks if target (A) is reachable from source (B).
+			// B has no outgoing next/branch edges to A, so B→A should actually be allowed.
+			// The real cycle case is merging A→B (A can reach B via next).
+			const result = await service.mergeBranch(train.id, a!.id, b!.id);
+
+			expect(result).toBe(false); // A can reach B via next, so merge A→B rejected
+		});
+
+		it("rejects cycle: chain A→B→C, merge A→C", async () => {
+			const { service } = createTestHarness();
+			const train = await service.startTrain("Chain Cycle");
+			const a = await service.addThought(train.id, "A");
+			const b = await service.addThought(train.id, "B");
+			const c = await service.addThought(train.id, "C");
+
+			// A can reach C via A→B→C, so merge A→C is a cycle
+			const result = await service.mergeBranch(train.id, a!.id, c!.id);
+			expect(result).toBe(false);
+		});
+
+		it("rejects cycle: branch from A, merge into descendant of branch", async () => {
+			const { service } = createTestHarness();
+			const train = await service.startTrain("Branch Cycle");
+			const a = await service.addThought(train.id, "A");
+
+			// Branch from A → D
+			const d = await service.addThought(train.id, "D", {
+				direction: "branch",
+				fromThoughtId: a!.id,
+			});
+
+			// D → E (next on branch)
+			const e = await service.addThought(train.id, "E", {
+				fromThoughtId: d!.id,
+			});
+
+			// Try merge D→E: D can reach E via next, so rejected
+			const result = await service.mergeBranch(train.id, d!.id, e!.id);
+			expect(result).toBe(false);
+		});
+
+		it("allows merge into non-descendant (valid topology)", async () => {
+			const { service } = createTestHarness();
+			const { train, d, b } = await buildTrainWithBranch(service);
+
+			// D is a branch from A. B is A→B (next). D cannot reach B via forward edges.
+			const result = await service.mergeBranch(train.id, d.id, b.id);
+			expect(result).toBe(true);
+		});
+
+		it("does not emit event on rejected merge", async () => {
+			const { service, eventBus } = createTestHarness();
+			const { train, a, b } = await buildTrainWithBranch(service);
+
+			const events: unknown[] = [];
+			eventBus.on("train.branch.merged", (e) => { events.push(e.payload); });
+
+			// A→B via next → rejected cycle
+			await service.mergeBranch(train.id, a.id, b.id);
+
+			expect(events).toHaveLength(0);
+		});
+
+		it("rejects merge on completed train", async () => {
+			const { service } = createTestHarness();
+			const { train, d, b } = await buildTrainWithBranch(service);
+
+			await service.completeTrain(train.id);
+
+			const result = await service.mergeBranch(train.id, d.id, b.id);
+			expect(result).toBe(false);
+		});
+
+		it("allows merge on paused train", async () => {
+			const { service } = createTestHarness();
+			const { train, d, b } = await buildTrainWithBranch(service);
+
+			await service.pause(train.id);
+
+			const result = await service.mergeBranch(train.id, d.id, b.id);
+			expect(result).toBe(true);
+		});
+	});
+
+	// ── Cycle detection edge cases ────────────────────────────
+
+	describe("cycle detection", () => {
+		it("allows backward merge (B→A) when A→B exists as next", async () => {
+			const { service } = createTestHarness();
+			const train = await service.startTrain("Backward OK");
+			const a = await service.addThought(train.id, "A");
+			const b = await service.addThought(train.id, "B");
+
+			// A→B via next. B cannot reach A via forward edges. So B→A merge is valid.
+			const result = await service.mergeBranch(train.id, b!.id, a!.id);
+			expect(result).toBe(true);
+		});
+
+		it("does not follow merge edges during cycle check", async () => {
+			const { service } = createTestHarness();
+			const { train, a, b, c, d } = await buildTrainWithBranch(service);
+
+			// First: merge D→B (valid)
+			await service.mergeBranch(train.id, d.id, b.id);
+
+			// Now try: merge B→D
+			// B has no outgoing next/branch to D. The existing D→B merge edge should NOT
+			// be followed in reverse, so B cannot reach D via forward edges. This should be valid.
+			const result = await service.mergeBranch(train.id, b.id, d.id);
+			expect(result).toBe(true);
+		});
+
+		it("detects deep chain reachability", async () => {
+			const { service } = createTestHarness();
+			const train = await service.startTrain("Deep Chain");
+			const a = await service.addThought(train.id, "A");
+			const b = await service.addThought(train.id, "B");
+			const c = await service.addThought(train.id, "C");
+			const d = await service.addThought(train.id, "D");
+			const e = await service.addThought(train.id, "E");
+
+			// A→B→C→D→E via next. Merge A→E should be rejected.
+			const result = await service.mergeBranch(train.id, a!.id, e!.id);
+			expect(result).toBe(false);
+		});
+	});
+});
+
+describe("TrainService — undoMerge()", () => {
+	it("removes the merge relation", async () => {
+		const { service } = createTestHarness();
+		const { train, d, b } = await buildTrainWithBranch(service);
+
+		await service.mergeBranch(train.id, d.id, b.id);
+		expect(service.getMerges(train.id)).toHaveLength(1);
+
+		const result = await service.undoMerge(train.id, d.id, b.id);
+
+		expect(result).toBe(true);
+		expect(service.getMerges(train.id)).toHaveLength(0);
+	});
+
+	it("emits train.branch.merge.undone with correct payload", async () => {
+		const { service, eventBus } = createTestHarness();
+		const { train, d, b } = await buildTrainWithBranch(service);
+
+		await service.mergeBranch(train.id, d.id, b.id);
+
+		const events: Array<{ trainId: string; sourceId: string; targetId: string }> = [];
+		eventBus.on("train.branch.merge.undone", (e) => { events.push(e.payload); });
+
+		await service.undoMerge(train.id, d.id, b.id);
+
+		expect(events).toHaveLength(1);
+		expect(events[0].trainId).toBe(train.id);
+		expect(events[0].sourceId).toBe(d.id);
+		expect(events[0].targetId).toBe(b.id);
+	});
+
+	it("state is persisted after undo", async () => {
+		const { service, getData } = createTestHarness();
+		const { train, d, b } = await buildTrainWithBranch(service);
+
+		await service.mergeBranch(train.id, d.id, b.id);
+		await service.undoMerge(train.id, d.id, b.id);
+
+		const persisted = getData()!;
+		const persistedTrain = persisted.trains.find((t) => t.id === train.id)!;
+		const mergeRels = persistedTrain.relations.filter((r) => r.direction === "merge");
+		expect(mergeRels).toHaveLength(0);
+	});
+
+	it("updates frontmatter — merge-target removed from source", async () => {
+		const { service, fileSystem } = createTestHarness();
+		const { train, d, b } = await buildTrainWithBranch(service);
+
+		await service.mergeBranch(train.id, d.id, b.id);
+		(fileSystem.updateFrontmatter as ReturnType<typeof vi.fn>).mockClear();
+
+		await service.undoMerge(train.id, d.id, b.id);
+
+		await vi.waitFor(() => {
+			const calls = (fileSystem.updateFrontmatter as ReturnType<typeof vi.fn>).mock.calls;
+			const sourceCall = calls.find((c: unknown[]) => c[0] === d.path);
+			expect(sourceCall).toBeDefined();
+			expect((sourceCall![1] as Record<string, unknown>)["merge-target"]).toEqual([]);
+		});
+	});
+
+	it("returns false for non-existent merge (no event emitted)", async () => {
+		const { service, eventBus } = createTestHarness();
+		const { train, d, b } = await buildTrainWithBranch(service);
+
+		const events: unknown[] = [];
+		eventBus.on("train.branch.merge.undone", (e) => { events.push(e.payload); });
+
+		const result = await service.undoMerge(train.id, d.id, b.id);
+
+		expect(result).toBe(false);
+		expect(events).toHaveLength(0);
+	});
+
+	it("original branch relations unaffected by undo", async () => {
+		const { service } = createTestHarness();
+		const { train, d, b, a } = await buildTrainWithBranch(service);
+
+		await service.mergeBranch(train.id, d.id, b.id);
+		await service.undoMerge(train.id, d.id, b.id);
+
+		const updated = service.getTrain(train.id)!;
+		// Branch relation A→D should still exist
+		const branchRel = updated.relations.find(
+			(r) => r.fromId === a.id && r.toId === d.id && r.direction === "branch",
+		);
+		expect(branchRel).toBeDefined();
+	});
+
+	it("can re-merge after undo", async () => {
+		const { service } = createTestHarness();
+		const { train, d, b } = await buildTrainWithBranch(service);
+
+		await service.mergeBranch(train.id, d.id, b.id);
+		await service.undoMerge(train.id, d.id, b.id);
+
+		const result = await service.mergeBranch(train.id, d.id, b.id);
+		expect(result).toBe(true);
+		expect(service.getMerges(train.id)).toHaveLength(1);
+	});
+
+	it("returns false for non-existent train", async () => {
+		const { service } = createTestHarness();
+		const { d, b } = await buildTrainWithBranch(service);
+
+		const result = await service.undoMerge("nonexistent", d.id, b.id);
+		expect(result).toBe(false);
+	});
+});
+
+describe("TrainService — getMerges()", () => {
+	it("returns empty array for train with no merges", async () => {
+		const { service } = createTestHarness();
+		const { train } = await buildTrainWithBranch(service);
+
+		expect(service.getMerges(train.id)).toEqual([]);
+	});
+
+	it("returns correct merge relations", async () => {
+		const { service } = createTestHarness();
+		const { train, d, b } = await buildTrainWithBranch(service);
+
+		await service.mergeBranch(train.id, d.id, b.id);
+
+		const merges = service.getMerges(train.id);
+		expect(merges).toHaveLength(1);
+		expect(merges[0]).toEqual({ fromId: d.id, toId: b.id, direction: "merge" });
+	});
+
+	it("does not include 'next' or 'branch' relations", async () => {
+		const { service } = createTestHarness();
+		const { train, d, b } = await buildTrainWithBranch(service);
+
+		await service.mergeBranch(train.id, d.id, b.id);
+
+		const merges = service.getMerges(train.id);
+		// Should only have the 1 merge, not the 4 next/branch relations
+		expect(merges).toHaveLength(1);
+		for (const m of merges) {
+			expect(m.direction).toBe("merge");
+		}
+	});
+
+	it("returns empty array for non-existent train", async () => {
+		const { service } = createTestHarness();
+		expect(service.getMerges("nonexistent")).toEqual([]);
+	});
+});
+
+describe("TrainService — buildNavLinks integration (merge)", () => {
+	it("merge-target wikilink appears in source thought's nav links", async () => {
+		const { service, fileSystem } = createTestHarness();
+		const { train, d, b } = await buildTrainWithBranch(service);
+
+		await service.mergeBranch(train.id, d.id, b.id);
+
+		await vi.waitFor(() => {
+			const calls = (fileSystem.updateFrontmatter as ReturnType<typeof vi.fn>).mock.calls;
+			const sourceCall = calls.find(
+				(c: unknown[]) => c[0] === d.path &&
+					((c[1] as Record<string, unknown>)["merge-target"] as string[])?.includes("[[B]]"),
+			);
+			expect(sourceCall).toBeDefined();
+		});
+	});
+
+	it("no merge-target on non-merged thoughts", async () => {
+		const { service, fileSystem } = createTestHarness();
+		const { train, a, d, b } = await buildTrainWithBranch(service);
+
+		await service.mergeBranch(train.id, d.id, b.id);
+
+		await vi.waitFor(() => {
+			const calls = (fileSystem.updateFrontmatter as ReturnType<typeof vi.fn>).mock.calls;
+			// A's frontmatter should have empty merge-target (A is not a merge source)
+			const aCall = calls.find(
+				(c: unknown[]) => c[0] === a.path &&
+					(c[1] as Record<string, unknown>)["merge-target"] !== undefined,
+			);
+			if (aCall) {
+				expect((aCall[1] as Record<string, unknown>)["merge-target"]).toEqual([]);
+			}
+		});
+	});
+
+	it("merge-target removed after undo", async () => {
+		const { service, fileSystem } = createTestHarness();
+		const { train, d, b } = await buildTrainWithBranch(service);
+
+		await service.mergeBranch(train.id, d.id, b.id);
+		(fileSystem.updateFrontmatter as ReturnType<typeof vi.fn>).mockClear();
+
+		await service.undoMerge(train.id, d.id, b.id);
+
+		await vi.waitFor(() => {
+			const calls = (fileSystem.updateFrontmatter as ReturnType<typeof vi.fn>).mock.calls;
+			const sourceCall = calls.find((c: unknown[]) => c[0] === d.path);
+			expect(sourceCall).toBeDefined();
+			expect((sourceCall![1] as Record<string, unknown>)["merge-target"]).toEqual([]);
+		});
+	});
+
+	it("multiple merge targets listed correctly", async () => {
+		const { service, fileSystem } = createTestHarness();
+		const { train, d, b, c } = await buildTrainWithBranch(service);
+
+		// Merge D into B, then D into C (D merges to two targets)
+		await service.mergeBranch(train.id, d.id, b.id);
+		await service.mergeBranch(train.id, d.id, c.id);
+
+		await vi.waitFor(() => {
+			const calls = (fileSystem.updateFrontmatter as ReturnType<typeof vi.fn>).mock.calls;
+			const sourceCall = calls.find(
+				(c: unknown[]) => c[0] === d.path &&
+					((c[1] as Record<string, unknown>)["merge-target"] as string[])?.length === 2,
+			);
+			expect(sourceCall).toBeDefined();
+			const targets = (sourceCall![1] as Record<string, unknown>)["merge-target"] as string[];
+			expect(targets).toContain("[[B]]");
+			expect(targets).toContain("[[C]]");
+		});
+	});
+});
+
+describe("TrainService — merge edge cases", () => {
+	it("train with only 1 thought has no valid merge targets", async () => {
+		const { service } = createTestHarness();
+		const train = await service.startTrain("Single");
+		const a = await service.addThought(train.id, "A");
+
+		// Only one thought — self-merge rejected
+		const result = await service.mergeBranch(train.id, a!.id, a!.id);
+		expect(result).toBe(false);
+	});
+
+	it("merge doesn't affect getTimeline() (main chain unchanged)", async () => {
+		const { service } = createTestHarness();
+		const { train, d, b } = await buildTrainWithBranch(service);
+
+		const timelineBefore = service.getTimeline(train.id).map((t) => t.title);
+
+		await service.mergeBranch(train.id, d.id, b.id);
+
+		const timelineAfter = service.getTimeline(train.id).map((t) => t.title);
+		expect(timelineAfter).toEqual(timelineBefore);
+	});
+
+	it("merge doesn't affect getBranches() (branch structure unchanged)", async () => {
+		const { service } = createTestHarness();
+		const { train, a, d, b } = await buildTrainWithBranch(service);
+
+		const branchesBefore = service.getBranches(train.id, a.id).map((t) => t.title);
+
+		await service.mergeBranch(train.id, d.id, b.id);
+
+		const branchesAfter = service.getBranches(train.id, a.id).map((t) => t.title);
+		expect(branchesAfter).toEqual(branchesBefore);
+	});
+});

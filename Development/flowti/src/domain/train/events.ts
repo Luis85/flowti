@@ -19,4 +19,8 @@ export interface TrainEventMap {
 	"train.completed": { trainId: string; thoughtCount: number };
 	/** Emitted when a thought is activated (navigated to) in a view. */
 	"train.thought.activated": { trainId: string; thoughtId: string };
+	/** Emitted when a branch is merged into a target thought. */
+	"train.branch.merged": { trainId: string; sourceId: string; targetId: string };
+	/** Emitted when a branch merge is undone. */
+	"train.branch.merge.undone": { trainId: string; sourceId: string; targetId: string };
 }

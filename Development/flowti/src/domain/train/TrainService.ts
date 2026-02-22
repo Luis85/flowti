@@ -359,10 +359,135 @@ export class TrainService {
 		return childIds.map((id) => thoughtById.get(id)).filter(Boolean) as ThoughtNode[];
 	}
 
+	// ── Merge ───────────────────────────────────────────────────
+
+	/**
+	 * Merge a branch thought into a target thought.
+	 * Creates a structural "merge" relation — no content is modified.
+	 * Train must be running or paused. Rejects self-merge, duplicates, and cycles.
+	 */
+	async mergeBranch(trainId: string, sourceId: string, targetId: string): Promise<boolean> {
+		const train = this.findTrain(trainId);
+		if (!train || train.status === "completed") return false;
+
+		// Both thoughts must exist
+		const source = train.thoughts.find((t) => t.id === sourceId);
+		const target = train.thoughts.find((t) => t.id === targetId);
+		if (!source || !target) return false;
+
+		// No self-merge
+		if (sourceId === targetId) return false;
+
+		// No duplicate merge
+		const duplicate = train.relations.find(
+			(r) => r.fromId === sourceId && r.toId === targetId && r.direction === "merge",
+		);
+		if (duplicate) return false;
+
+		// No cycles — target must not be reachable from source via forward edges
+		if (this.isReachable(train, sourceId, targetId)) return false;
+
+		const relation: ThoughtRelation = {
+			fromId: sourceId,
+			toId: targetId,
+			direction: "merge",
+		};
+		train.relations.push(relation);
+		await this.persist();
+
+		// Fire-and-forget frontmatter update
+		void this.updateMergeFrontmatter(source, target, train);
+
+		void this.eventBus.emit("train.branch.merged", { trainId, sourceId, targetId });
+		return true;
+	}
+
+	/**
+	 * Undo a merge — remove the merge relation between source and target.
+	 */
+	async undoMerge(trainId: string, sourceId: string, targetId: string): Promise<boolean> {
+		const train = this.findTrain(trainId);
+		if (!train) return false;
+
+		const idx = train.relations.findIndex(
+			(r) => r.fromId === sourceId && r.toId === targetId && r.direction === "merge",
+		);
+		if (idx === -1) return false;
+
+		train.relations.splice(idx, 1);
+		await this.persist();
+
+		// Fire-and-forget frontmatter update
+		const source = train.thoughts.find((t) => t.id === sourceId);
+		if (source) {
+			void this.fileSystem.updateFrontmatter(source.path, {
+				...this.buildNavLinks(train, sourceId),
+			});
+		}
+
+		void this.eventBus.emit("train.branch.merge.undone", { trainId, sourceId, targetId });
+		return true;
+	}
+
+	/**
+	 * Get all merge relations for a train.
+	 */
+	getMerges(trainId: string): ThoughtRelation[] {
+		const train = this.findTrain(trainId);
+		if (!train) return [];
+		return train.relations.filter((r) => r.direction === "merge");
+	}
+
 	// ── Private helpers ──────────────────────────────────────────
 
 	private findTrain(trainId: string): TrainState | undefined {
 		return this.state.trains.find((t) => t.id === trainId);
+	}
+
+	/**
+	 * Check if targetId is reachable from sourceId via forward edges (next/branch).
+	 * Merge edges are NOT followed — they represent convergence, not forward flow.
+	 */
+	private isReachable(train: TrainState, sourceId: string, targetId: string): boolean {
+		const visited = new Set<string>();
+		const stack = [sourceId];
+
+		// Build adjacency: fromId → [toId] for next/branch only
+		const adj = new Map<string, string[]>();
+		for (const r of train.relations) {
+			if (r.direction === "next" || r.direction === "branch") {
+				const list = adj.get(r.fromId) ?? [];
+				list.push(r.toId);
+				adj.set(r.fromId, list);
+			}
+		}
+
+		while (stack.length > 0) {
+			const current = stack.pop()!;
+			if (current === targetId) return true;
+			if (visited.has(current)) continue;
+			visited.add(current);
+			for (const neighbor of adj.get(current) ?? []) {
+				stack.push(neighbor);
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Update frontmatter for both source and target after a merge.
+	 */
+	private async updateMergeFrontmatter(
+		source: ThoughtNode,
+		target: ThoughtNode,
+		train: TrainState,
+	): Promise<void> {
+		await this.fileSystem.updateFrontmatter(source.path, {
+			...this.buildNavLinks(train, source.id),
+		});
+		await this.fileSystem.updateFrontmatter(target.path, {
+			...this.buildNavLinks(train, target.id),
+		});
 	}
 
 	private async persist(): Promise<void> {
@@ -438,6 +563,8 @@ export class TrainService {
 		const back: string[] = [];
 		const up: string[] = [];
 		const down: string[] = [];
+		const mergeTarget: string[] = [];
+		const mergedFrom: string[] = [];
 
 		for (const r of train.relations) {
 			if (r.fromId === thoughtId) {
@@ -446,15 +573,17 @@ export class TrainService {
 				const link = `[[${child.title}]]`;
 				if (r.direction === "next") next.push(link);
 				else if (r.direction === "branch") up.push(link);
+				else if (r.direction === "merge") mergeTarget.push(link);
 			} else if (r.toId === thoughtId) {
 				const parent = thoughtById.get(r.fromId);
 				if (!parent) continue;
 				const link = `[[${parent.title}]]`;
 				if (r.direction === "next") back.push(link);
 				else if (r.direction === "branch") down.push(link);
+				else if (r.direction === "merge") mergedFrom.push(link);
 			}
 		}
 
-		return { next, back, up, down };
+		return { next, back, up, down, "merge-target": mergeTarget, "merged-from": mergedFrom };
 	}
 }
