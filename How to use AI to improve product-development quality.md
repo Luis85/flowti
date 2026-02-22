@@ -19,6 +19,7 @@ type: Hypothesis
 - What defines acceptable-output
 - How does AI fit into IT-Security Concepts
 - What influences Product-Development
+- How does AI match real-world outcomes in a constraint workspace
 
 ## Experiment Setup
 
@@ -34,7 +35,9 @@ Mobile - for simulating external contributions to the Codebase
 Tablet - for Product Design work and documentation
 Laptop - for Design work, documentation and orchestration
 
-The basic idea is to simulate the whole Product Lifecycle with all it's Artifacts and steer a Product-Development Team guided by agile methodology and industry best-practices.
+Documentation and generated output will be saved in a public Vault hosted on GitHub. The created Product aims to document it's own development lifecycle.
+
+The basic idea is to simulate the whole Product Lifecycle with all it's Artifacts and steer a simulated Product-Development Team guided by agile methodology and industry best-practices to generate real-world like documentation in a best-case setting.
 
 Using Obsidian as Documentation and Development Platform to have a flexible tool for quick iterations and documented learnings, backed by a publicly available and a private Git repository to build a versioned history.
 
@@ -79,7 +82,15 @@ He simulates external Contributions and a Pull-Request Merge Process. He is used
 
 ## Simulated Workflow
 
-[[Idea to Solution Workflow]]
+Every Simulation Step should follow the [[Idea to Solution Workflow]] and produce the desired Output, with the Vault as Input. Created Increments must follow a Quality-Assurance Process before getting pushed to the remote repository.
+
+Following agile best-practices, the workflow should improve over time, making quality-assurance way easier and the outcome more predictable, enabling a self-organized AI-Assisted team.
+
+Key-Questions:
+
+- How do we get accurate data out of the system
+- How can we measure improvements over time
+- How can we measure the impact of an idea to a system
 
 ## The Flowti IBDE Machine-Room
 
@@ -115,6 +126,7 @@ It is planned to migrate the Machine-Room into the Flowti IBDE Obsidian Plugin.
 - A comprehensive test-suite gives a false sense of security, if the consumer is no domain expert, he just sees a tremendous amount of words
 - System generated metrics need to have context, explanation, and how they impact the quality or kpis of the system in the grand scheme of things otherwise they are just numbers and add to cognitive overload
 - A Testsuite must be the authoritative catalog about the functionality of a system of what it can, can't, should, or should not do to be used as foundation for an audit
+- Context-Management is crucial, providing the Agent a map of needed context helps alignment. Obsidian Bases are a great tool to make those maps easily.
 
 
 ## Conclusions
