@@ -4,7 +4,7 @@
 
 > Goal of this project is to provide a simple tool which documents itself and it's usage to iterate quickly and to codify what I learned.
 
-This is a preconfigured Obsidian Vault, ready to go as documentation system called „FLOWTI - IBDE“ an integrated business development environment and management system.
+This is a pre-configured Obsidian Vault, ready to go as documentation system called "Flowti - IBDE" an integrated business development environment and management system.
 Goal of this framework is to provide all necessary utilities to describe and visualize digital twins of things.
 
 This document describes how to get the current implementation up and running.
@@ -45,6 +45,7 @@ Before we get started, make sure the following things are in place:
 - Enable the Git Community Plugin
 - Open the Command Palette
 - Git Clone into `/05 - Public Vault`
+- Comeback to the Readme but now inside your Vault
 
 ### Step 2 - Plugins
 

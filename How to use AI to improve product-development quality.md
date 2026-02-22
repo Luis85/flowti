@@ -20,6 +20,7 @@ type: Hypothesis
 - How does AI fit into IT-Security Concepts
 - What influences Product-Development
 - How does AI match real-world outcomes in a constraint workspace
+- How can we make changes to a system traceable
 
 ## Experiment Setup
 
@@ -44,6 +45,8 @@ Using Obsidian as Documentation and Development Platform to have a flexible tool
 To quickly gather feedback, each generated Plugin Increment gets validated in a real work-environment, consisting of service-delivery, project-management, and business-development. This feedback get's observed and manually entered into the system. This is already a biased entry point which should be minimized in the future.
 
 To further open up the input channels, publishing of the produced plugin is planned to use GitHub as first main touchpoint for feedback ingestion and further simulating interactions and processes within the lifecycle.
+
+A desired outcome will be a fully documented, open-source product, serving as proof-of-concept and test-platform for further, community-driven, and agile improvements.
 
 ### The Product Team Agent
 
