@@ -1,5 +1,6 @@
 ---
 type: Hypothesis
+stage: refinement
 ---
 # Hypothesis - AI Assisted Product Development
 
@@ -21,10 +22,13 @@ type: Hypothesis
 - What influences Product-Development
 - How does AI match real-world outcomes in a constraint workspace
 - How can we make changes to a system traceable
+- What data-format works well as interface between Humans and Agents
+
 
 ## Assumptions
 
 - As LLMs are language processors, generating natural language based on given content as input, in well documented content templates like the user-story or use-case format, generates well enough code for sustainable development, behaving like a compiler between humans and not so predictable machine-code, mimicking the real-world problem of explaining requirements and understanding requirements.
+- Using real-world outside signals for the feedback-loop provides enough fresh data for each simulation step to not let quality degrade over time and preventing Agents eating too much of their own content.
 
 ## Experiment Setup
 
@@ -52,9 +56,11 @@ To further open up the input channels, publishing of the produced plugin is plan
 
 A desired outcome will be a fully documented, open-source product, serving as proof-of-concept and test-platform for further, community-driven, and agile improvements.
 
+## Simulated Entities
+
 ### The Product Team Agent
 
-The Product-Team creates and maintains the Cycle Plan which displays a comprehensive execution plan, sliced into Product Increments. Each trying to deliver value to the End-User. The Product-Team owns the Cycle Plan.
+The Product-Team creates and maintains the Cycle Plan which displays a comprehensive execution plan, sliced into Product Increments. Each Increment trying to deliver value to the End-User. The Product-Team owns the Cycle Plan.
 
 - Claude Code
 
