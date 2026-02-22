@@ -2,6 +2,7 @@
 type: DevelopmentCycle
 feature: "[[Azure DevOps Integration PRD]]"
 stage: delivered
+risk: high
 cycle: 11
 date_planned: 2026-02-20
 pbis:
