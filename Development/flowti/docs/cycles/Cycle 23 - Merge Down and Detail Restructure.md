@@ -10,9 +10,11 @@ pbis:
 bugs:
   - "prompt() does not work in Electron — replaced with InputModal (pre-cycle fix)"
   - "Wikilinks used thought.title instead of file basename — broken links (pre-cycle fix)"
+  - "Canvas not synced on train completion/pause/resume/rename — status annotation stale (pre-cycle fix)"
 bugs_fixed_precycle:
   - "Rename modal prompt() replaced with InputModal"
   - "buildNavLinks() and generateTrainSummary() use path basename for wikilinks"
+  - "TrainCanvasSyncService now listens to train.completed/paused/resumed/renamed"
 tech_debt: []
 estimated_increments: 5
 actual_increments:

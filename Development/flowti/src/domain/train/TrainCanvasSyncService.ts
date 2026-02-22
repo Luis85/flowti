@@ -50,6 +50,18 @@ export class TrainCanvasSyncService {
 			this.eventBus.on("train.branch.merge.undone", (event) => {
 				this.scheduleSync(event.payload.trainId);
 			}),
+			this.eventBus.on("train.completed", (event) => {
+				this.scheduleSync(event.payload.trainId);
+			}),
+			this.eventBus.on("train.paused", (event) => {
+				this.scheduleSync(event.payload.trainId);
+			}),
+			this.eventBus.on("train.resumed", (event) => {
+				this.scheduleSync(event.payload.trainId);
+			}),
+			this.eventBus.on("train.renamed", (event) => {
+				this.scheduleSync(event.payload.trainId);
+			}),
 		);
 	}
 

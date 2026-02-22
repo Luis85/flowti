@@ -112,6 +112,57 @@ describe("TrainCanvasSyncService", () => {
 				expect(fileSystem.createFile).toHaveBeenCalled();
 			});
 		});
+
+		it("syncs on train.completed", async () => {
+			const { eventBus, fileSystem } = createSyncHarness();
+
+			void eventBus.emit("train.completed", {
+				trainId: "train_1",
+				thoughtCount: 1,
+			});
+
+			vi.advanceTimersByTime(CANVAS_SYNC_DELAY_MS + 10);
+			await vi.waitFor(() => {
+				expect(fileSystem.createFile).toHaveBeenCalled();
+			});
+		});
+
+		it("syncs on train.paused", async () => {
+			const { eventBus, fileSystem } = createSyncHarness();
+
+			void eventBus.emit("train.paused", { trainId: "train_1" });
+
+			vi.advanceTimersByTime(CANVAS_SYNC_DELAY_MS + 10);
+			await vi.waitFor(() => {
+				expect(fileSystem.createFile).toHaveBeenCalled();
+			});
+		});
+
+		it("syncs on train.resumed", async () => {
+			const { eventBus, fileSystem } = createSyncHarness();
+
+			void eventBus.emit("train.resumed", { trainId: "train_1" });
+
+			vi.advanceTimersByTime(CANVAS_SYNC_DELAY_MS + 10);
+			await vi.waitFor(() => {
+				expect(fileSystem.createFile).toHaveBeenCalled();
+			});
+		});
+
+		it("syncs on train.renamed", async () => {
+			const { eventBus, fileSystem } = createSyncHarness();
+
+			void eventBus.emit("train.renamed", {
+				trainId: "train_1",
+				oldTitle: "Old Title",
+				newTitle: "New Title",
+			});
+
+			vi.advanceTimersByTime(CANVAS_SYNC_DELAY_MS + 10);
+			await vi.waitFor(() => {
+				expect(fileSystem.createFile).toHaveBeenCalled();
+			});
+		});
 	});
 
 	// ── Debounce ───────────────────────────────────────────────
