@@ -2,7 +2,7 @@
 type: DevelopmentCycle
 feature: "[[Prioritization Hub PRD]]"
 stage: deferred
-cycle: 20
+cycle: 21
 date_planned: 2026-02-22
 date_completed:
 pbis:
