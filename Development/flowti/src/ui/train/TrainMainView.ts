@@ -15,6 +15,7 @@ import type { WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { TrainService } from "../../domain/train/TrainService";
 import type { ThoughtNode, TrainState } from "../../domain/train/types";
+import { BUILT_IN_TRAIN_TYPES } from "../../domain/train/types";
 import type { Session, ClosureResponse, ClosureTemplate } from "../../domain/session/types";
 import { SESSION_TYPE_CONFIGS } from "../../domain/session/types";
 import { resolveClosureTemplate } from "../../domain/session/helpers";
@@ -25,6 +26,7 @@ import { setupTrainViewSubscriptions } from "./TrainMainViewSubscriptions";
 import { TrainStatsPanel } from "./TrainStatsPanel";
 import { TrainBreadcrumbPanel } from "./TrainBreadcrumbPanel";
 import { TrainHistoryPanel } from "./TrainHistoryPanel";
+import { TrainPropertyEditor } from "./TrainPropertyEditor";
 import { getCanvasPath } from "../../domain/train/helpers";
 import { InputModal, ConfirmModal } from "../modals";
 
@@ -63,6 +65,7 @@ export class TrainMainView extends ItemView {
 	private activeThoughtId: string | null = null;
 	private renderTimer: ReturnType<typeof setTimeout> | null = null;
 	private statsPanel!: TrainStatsPanel;
+	private propertyEditor: TrainPropertyEditor | null = null;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -204,6 +207,7 @@ export class TrainMainView extends ItemView {
 		// 5–9. Active thought sections
 		if (activeThought) {
 			this.renderThoughtDetail(el, activeThought, train);
+			this.renderPropertyEditor(el, activeThought);
 			this.renderCanvasCallout(el, train);
 			this.renderContentPreview(el, activeThought);
 			this.renderBranchLinks(el, activeThought, train);
@@ -286,6 +290,14 @@ export class TrainMainView extends ItemView {
 		const badge = titleRow.createSpan({ cls: `ft-badge ft-badge-muted ft-train-status ft-train-status-${train.status}` });
 		badge.setText(train.status);
 
+		// Type badge
+		const typeConfig = BUILT_IN_TRAIN_TYPES.find((t) => t.id === train.trainType);
+		const typeLabel = typeConfig?.label ?? "Free-form";
+		const typeBadge = titleRow.createSpan({ cls: "ft-badge ft-badge-muted ft-train-type-badge" });
+		const typeIcon = typeBadge.createSpan();
+		setIcon(typeIcon, typeConfig?.icon ?? "pen-line");
+		typeBadge.appendText(` ${typeLabel}`);
+
 		// Spacer pushes buttons to the right
 		const spacer = titleRow.createSpan();
 		spacer.style.flex = "1";
@@ -313,8 +325,9 @@ export class TrainMainView extends ItemView {
 		const nav = navWrapper.createDiv({ cls: "ft-flex ft-items-center ft-justify-between ft-gap-2 ft-train-nav-bar" });
 		const activeIdx = activeThought ? allThoughts.findIndex((t) => t.id === activeThought.id) : -1;
 
-		// Left: ◄ Prev
-		const prevBtn = nav.createEl("button", { cls: "ft-btn ft-btn-ghost ft-btn-sm ft-train-nav-btn" });
+		// Left: ◄ Prev + Jump to End
+		const leftGroup = nav.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
+		const prevBtn = leftGroup.createEl("button", { cls: "ft-btn ft-btn-ghost ft-btn-sm ft-train-nav-btn ft-train-prev-btn" });
 		prevBtn.setText("◄ Prev");
 		if (activeIdx <= 0) {
 			prevBtn.disabled = true;
@@ -324,6 +337,22 @@ export class TrainMainView extends ItemView {
 				const prev = allThoughts[activeIdx - 1];
 				this.activeThoughtId = prev.id;
 				this.emitThoughtActivated(prev);
+				this.render();
+			});
+		}
+
+		// Jump to end — visible when active thought is not the head node
+		const headNode = this.trainService.getHeadNode(train.id);
+		if (headNode && activeThought && headNode.id !== activeThought.id) {
+			const jumpBtn = leftGroup.createEl("button", {
+				cls: "ft-btn ft-btn-ghost ft-btn-sm ft-train-nav-btn ft-train-jump-to-end-btn",
+			});
+			const jumpIcon = jumpBtn.createSpan();
+			setIcon(jumpIcon, "fast-forward");
+			jumpBtn.appendText(" End");
+			jumpBtn.addEventListener("click", () => {
+				this.activeThoughtId = headNode.id;
+				this.emitThoughtActivated(headNode);
 				this.render();
 			});
 		}
@@ -357,7 +386,7 @@ export class TrainMainView extends ItemView {
 				void this.eventBus.emit("ui.startTrain", { fromThoughtId, mergeDown: true });
 			});
 		} else if (hasNext) {
-			const nextBtn = nav.createEl("button", { cls: "ft-btn ft-btn-ghost ft-btn-sm ft-train-nav-btn" });
+			const nextBtn = nav.createEl("button", { cls: "ft-btn ft-btn-ghost ft-btn-sm ft-train-nav-btn ft-train-next-btn" });
 			nextBtn.setText("Next ►");
 			nextBtn.addEventListener("click", () => {
 				const next = allThoughts[activeIdx + 1];
@@ -476,6 +505,17 @@ export class TrainMainView extends ItemView {
 				void this.app.workspace.openLinkText(thought.path, "", false);
 			}
 		});
+	}
+
+	private renderPropertyEditor(el: HTMLElement, thought: ThoughtNode): void {
+		if (!this.app) return;
+		const editorEl = el.createDiv({ cls: "ft-train-property-editor-wrapper" });
+		this.propertyEditor?.destroy();
+		this.propertyEditor = new TrainPropertyEditor(editorEl, {
+			app: this.app,
+			thoughtPath: thought.path,
+		});
+		this.propertyEditor.render();
 	}
 
 	private renderInfoRow(grid: HTMLElement, label: string, value: string): void {

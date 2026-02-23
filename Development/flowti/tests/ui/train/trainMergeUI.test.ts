@@ -154,6 +154,26 @@ function createMergedTrainService(trainData: TrainState): TrainService {
 			return ids;
 		}),
 		findMergeDownTarget: vi.fn(() => null),
+		getHeadNode: vi.fn(() => {
+			// Walk main chain to find head
+			const incomingNext = new Set(
+				trainData.relations.filter((r) => r.direction === "next").map((r) => r.toId),
+			);
+			const root = trainData.thoughts.find((t) => !incomingNext.has(t.id));
+			if (!root) return null;
+			const nextMap = new Map<string, string>();
+			for (const r of trainData.relations) {
+				if (r.direction === "next") nextMap.set(r.fromId, r.toId);
+			}
+			let cur = root;
+			while (nextMap.has(cur.id)) {
+				const nextId = nextMap.get(cur.id)!;
+				const next = trainData.thoughts.find((t) => t.id === nextId);
+				if (!next) break;
+				cur = next;
+			}
+			return cur;
+		}),
 	} as unknown as TrainService;
 }
 
@@ -306,10 +326,10 @@ describe("TrainMainView — merge section", () => {
 		const view = new TrainMainView(createMockLeaf(), eventBus, service);
 		await view.onOpen();
 
-		// Navigate to d (index 3 in order-sorted list) — re-query buttons after each click
+		// Navigate to d (index 3 in order-sorted list) — re-query Next button after each click
 		for (let i = 0; i < 3; i++) {
-			const btns = view.contentEl.querySelectorAll(".ft-train-nav-btn");
-			(btns[1] as HTMLButtonElement).click();
+			const nextBtn = view.contentEl.querySelector(".ft-train-next-btn") as HTMLButtonElement;
+			nextBtn.click();
 		}
 
 		const mergeLinks = view.contentEl.querySelectorAll(".ft-train-merge-link");
@@ -328,10 +348,10 @@ describe("TrainMainView — merge section", () => {
 		const view = new TrainMainView(createMockLeaf(), eventBus, service);
 		await view.onOpen();
 
-		// Navigate to d — re-query buttons after each click
+		// Navigate to d — re-query Next button after each click
 		for (let i = 0; i < 3; i++) {
-			const btns = view.contentEl.querySelectorAll(".ft-train-nav-btn");
-			(btns[1] as HTMLButtonElement).click();
+			const nextBtn = view.contentEl.querySelector(".ft-train-next-btn") as HTMLButtonElement;
+			nextBtn.click();
 		}
 
 		const undoBtn = view.contentEl.querySelector(".ft-train-merge-undo") as HTMLButtonElement;

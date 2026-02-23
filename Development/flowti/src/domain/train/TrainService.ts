@@ -125,7 +125,7 @@ export class TrainService {
 	 * If another train is running or paused, it is auto-paused (nesting).
 	 * @param durationMinutes Timer duration in minutes (0 = unlimited / no timer).
 	 */
-	async startTrain(title: string, durationMinutes = 0): Promise<TrainState> {
+	async startTrain(title: string, durationMinutes = 0, trainType?: string): Promise<TrainState> {
 		// Nesting: pause the active train before starting a new one
 		const activeTrain = this.getActiveTrain();
 		let parentTrainId: string | undefined;
@@ -153,6 +153,7 @@ export class TrainService {
 			completedAt: null,
 			parentTrainId,
 			folderPath: this.computeFolderPath(title, createdAt),
+			trainType,
 		};
 
 		// Evict oldest if at capacity
@@ -494,6 +495,15 @@ export class TrainService {
 		const train = this.findTrain(trainId);
 		if (!train) return new Set();
 		return this.computeMainChainIds(train);
+	}
+
+	/**
+	 * Get the head node (last main-chain thought) of a train.
+	 * Returns null if the train has no thoughts.
+	 */
+	getHeadNode(trainId: string): ThoughtNode | null {
+		const timeline = this.getTimeline(trainId);
+		return timeline.length > 0 ? timeline[timeline.length - 1] : null;
 	}
 
 	// ── Merge ───────────────────────────────────────────────────

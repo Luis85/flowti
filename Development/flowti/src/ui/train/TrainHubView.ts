@@ -12,6 +12,7 @@ import { setIcon, type WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { TrainService } from "../../domain/train/TrainService";
 import type { TrainState, TrainStatus } from "../../domain/train/types";
+import { BUILT_IN_TRAIN_TYPES } from "../../domain/train/types";
 import { BaseHubView, type TabDef } from "../BaseHubView";
 import { VIEW_TYPE_TRAIN_HUB } from "../../domain/hub/types";
 export { VIEW_TYPE_TRAIN_HUB };
@@ -320,6 +321,8 @@ export class TrainHubView extends BaseHubView<TrainHubPage> {
 		const leftSide = flex.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		this.renderStatusBadge(leftSide, train.status);
 		leftSide.createSpan({ text: train.title, cls: "ft-text-sm" });
+		const typeConfig = BUILT_IN_TRAIN_TYPES.find((t) => t.id === train.trainType);
+		leftSide.createSpan({ text: typeConfig?.label ?? "Free-form", cls: "ft-badge ft-badge-muted ft-text-xs ft-train-type-badge" });
 		flex.createSpan({ text: `${train.thoughts.length}`, cls: "ft-badge ft-badge-muted ft-text-xs" });
 		return row;
 	}

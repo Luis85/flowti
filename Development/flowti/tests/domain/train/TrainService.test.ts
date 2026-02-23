@@ -684,6 +684,48 @@ describe("TrainService", () => {
 		});
 	});
 
+	describe("getHeadNode()", () => {
+		it("returns null for non-existent train", () => {
+			const { service } = createTestHarness();
+			expect(service.getHeadNode("nonexistent")).toBeNull();
+		});
+
+		it("returns null for train with no thoughts", async () => {
+			const { service } = createTestHarness();
+			const train = await service.startTrain("Empty");
+			expect(service.getHeadNode(train.id)).toBeNull();
+		});
+
+		it("returns the single thought when train has one", async () => {
+			const { service } = createTestHarness();
+			const train = await service.startTrain("Single");
+			await service.addThought(train.id, "Only");
+			const head = service.getHeadNode(train.id);
+			expect(head?.title).toBe("Only");
+		});
+
+		it("returns the last main-chain thought", async () => {
+			const { service } = createTestHarness();
+			const train = await service.startTrain("Chain");
+			await service.addThought(train.id, "A");
+			await service.addThought(train.id, "B");
+			await service.addThought(train.id, "C");
+			const head = service.getHeadNode(train.id);
+			expect(head?.title).toBe("C");
+		});
+
+		it("excludes branch thoughts from head determination", async () => {
+			const { service } = createTestHarness();
+			const train = await service.startTrain("Branch Test");
+			await service.addThought(train.id, "A");
+			const thoughtB = await service.addThought(train.id, "B");
+			await service.addThought(train.id, "B-branch", { direction: "branch" });
+			await service.addThought(train.id, "C", { fromThoughtId: thoughtB!.id });
+			const head = service.getHeadNode(train.id);
+			expect(head?.title).toBe("C");
+		});
+	});
+
 	describe("getBranches()", () => {
 		it("returns branch children of a thought", async () => {
 			const { service } = createTestHarness();

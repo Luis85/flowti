@@ -1,10 +1,10 @@
 ---
 type: DevelopmentCycle
 feature: "[[Train Improvements PRD]]"
-stage: in-progress
+stage: delivered
 cycle: 24
 date_planned: 2026-02-23
-date_completed:
+date_completed: 2026-02-23
 pbis:
   - "[[PBI-TOT-010 Train Hub]]"
   - "[[PBI-TOT-011 Train UX Sprint]]"
@@ -14,11 +14,11 @@ bugs_fixed_precycle:
   - "Clicking timeline node does not open detail view — ui.openTrainView emitted on node click"
 tech_debt: []
 estimated_increments: 5
-actual_increments:
+actual_increments: 5
 estimated_tests: 80
-actual_tests:
-total_tests_after:
-total_test_files_after:
+actual_tests: 98
+total_tests_after: 4074
+total_test_files_after: 167
 ---
 
 # Cycle 24: Train Value Sprint
@@ -145,11 +145,11 @@ total_test_files_after:
 **Architecture seams:** Follows BaseHubView pattern (EventCatalogView, DataExchangeHubView). Uses `trainService.getAllTrains()` + `trainService.getActiveTrain()` for data. No new events needed — reuses existing `train.started`, `train.completed`, `train.paused`, `train.resumed` for re-render triggers.
 
 **AC:**
-- [ ] Train Hub lists all trains with status badges
-- [ ] Active tab shows running/paused trains with action buttons
-- [ ] History tab shows completed trains, searchable
-- [ ] Dashboard shows train stats
-- [ ] `npm test` passes
+- [x] Train Hub lists all trains with status badges
+- [x] Active tab shows running/paused trains with action buttons
+- [x] History tab shows completed trains, searchable
+- [x] Dashboard shows train stats
+- [x] `npm test` passes
 
 ---
 
@@ -178,13 +178,13 @@ total_test_files_after:
 **Architecture seams:** `getHeadNode()` is a pure graph traversal (like `getTimeline()` but returns last element). Resume modal follows `TrainCaptureModal` pattern (extends `Modal`, 3 buttons). Integration point: `openTrainModal()` in `main.ts` checks head vs active before opening capture modal.
 
 **AC:**
-- [ ] "Jump to end" button appears when not on head node
-- [ ] Clicking it navigates to the head thought
-- [ ] On resume from mid-chain, modal appears with 3 options
-- [ ] "Jump to end" moves to head and continues capture flow
-- [ ] "Branch from here" stays on current node, opens capture modal with branch direction
-- [ ] "Stay here" dismisses without action
-- [ ] `npm test` passes
+- [x] "Jump to end" button appears when not on head node
+- [x] Clicking it navigates to the head thought
+- [x] On resume from mid-chain, modal appears with 3 options
+- [x] "Jump to end" moves to head and continues capture flow
+- [x] "Branch from here" stays on current node, opens capture modal with branch direction
+- [x] "Stay here" dismisses without action
+- [x] `npm test` passes
 
 ---
 
@@ -214,13 +214,13 @@ total_test_files_after:
 **Architecture seams:** Property editor is a standalone component following `TrainStatsPanel` pattern (constructor receives container + deps). Uses `metadataCache` (read) and `processFrontMatter` (write) — no new service methods needed. TrainMainView passes thought path to editor.
 
 **AC:**
-- [ ] Properties section shows in thought detail view
-- [ ] Existing frontmatter properties displayed as key-value list
-- [ ] User can edit values inline
-- [ ] User can add new key-value properties
-- [ ] Built-in properties (type, train, direction) are read-only
-- [ ] Changes persist to the file's frontmatter
-- [ ] `npm test` passes
+- [x] Properties section shows in thought detail view
+- [x] Existing frontmatter properties displayed as key-value list
+- [x] User can edit values inline
+- [x] User can add new key-value properties
+- [x] Built-in properties (type, train, direction) are read-only
+- [x] Changes persist to the file's frontmatter
+- [x] `npm test` passes
 
 ---
 
@@ -255,14 +255,14 @@ total_test_files_after:
 **Architecture seams:** `TrainTypeConfig` is a simple data type (no domain service). Type picker follows Obsidian `Modal` pattern. `startTrain()` change is additive (optional parameter). Type badge is a DOM element in existing header render.
 
 **AC:**
-- [ ] Type picker shown before train starts
-- [ ] 4 built-in types with icons and default durations
-- [ ] Selected type stored on TrainState
-- [ ] Type badge visible in detail view header
-- [ ] Type-specific default duration applied to timer
-- [ ] Type visible in Train Hub list
-- [ ] Existing trains without type show "free-form" fallback
-- [ ] `npm test` passes
+- [x] Type picker shown before train starts
+- [x] 4 built-in types with icons and default durations
+- [x] Selected type stored on TrainState
+- [x] Type badge visible in detail view header
+- [x] Type-specific default duration applied to timer
+- [x] Type visible in Train Hub list
+- [x] Existing trains without type show "free-form" fallback (via `typeConfig?.label ?? "Free-form"` in both Hub and detail view)
+- [x] `npm test` passes
 
 ---
 
@@ -288,10 +288,10 @@ total_test_files_after:
 **Architecture seams:** Flow tests use existing test harness pattern (EventBus + TrainService + CaptureService + mocks). TrainMainView tests follow existing `TrainMainView.test.ts` pattern.
 
 **AC:**
-- [ ] All 12 integration scenarios pass
-- [ ] 8 TrainMainView rendering tests pass (OBS-1 resolved)
-- [ ] No regression on existing 3,976 tests
-- [ ] `npm test` passes
+- [x] All 12 integration scenarios pass (Flow 23: 12 tests)
+- [x] 7 TrainMainView rendering tests pass (OBS-1 resolved — layout order, jump-to-end visibility, type badge)
+- [x] No regression on existing 3,976 tests (4,074 total — all passing)
+- [x] `npm test` passes
 
 ---
 
@@ -328,18 +328,18 @@ Inc 1 + Inc 2 + Inc 3 + Inc 4 ──→ Inc 5 (Integration)
 
 ## Success Metrics
 
-| Metric | Target |
-|--------|--------|
-| New tests | ~80 |
-| Source LOC | ~400 |
-| Post-cycle total tests | ~4,056 |
-| Post-cycle test suites | ~167 |
-| New TrainService APIs | 1 (getHeadNode) |
-| New views | 1 (TrainHubView) |
-| New modals | 2 (TrainResumeModal, TrainTypePickerModal) |
-| New events | 0 (reuses existing) |
-| FRI score | 28 → 31/35 |
-| Review OBS resolved | OBS-1 (TrainMainView rendering tests) |
+| Metric | Target | Actual | Status |
+|--------|--------|--------|--------|
+| New tests | ~80 | 98 | Exceeded (+23%) — more comprehensive modal/rendering tests |
+| Source LOC | ~400 | ~809 | Exceeded — robust implementations (TrainHubView 376, TrainPropertyEditor 256, TrainResumeModal 109, TrainTypePickerModal 68) |
+| Post-cycle total tests | ~4,056 | 4,074 | Close (+18 over target) |
+| Post-cycle test suites | ~167 | 167 | Exact match |
+| New TrainService APIs | 1 (getHeadNode) | 1 (getHeadNode) | Match |
+| New views | 1 (TrainHubView) | 1 (TrainHubView, 376 LOC) | Match |
+| New modals | 2 | 2 (TrainResumeModal 109 LOC, TrainTypePickerModal 68 LOC) | Match |
+| New events | 0 | 0 | Match |
+| FRI score | 28 → 31/35 | 28 → 31/35 | Match |
+| Review OBS resolved | OBS-1 | OBS-1 resolved (7 rendering tests) | Match |
 
 ---
 
@@ -364,40 +364,40 @@ Inc 1 + Inc 2 + Inc 3 + Inc 4 ──→ Inc 5 (Integration)
 ## Definition of Done (Cycle)
 
 ### 1. All Increments Completed
-- [ ] Each increment satisfies its own acceptance criteria
-- [ ] No increment left in partial state
-- [ ] Deferred items documented with rationale
+- [x] Each increment satisfies its own acceptance criteria
+- [x] No increment left in partial state
+- [x] Deferred items documented with rationale
 
 ### 2. Build & Test Quality
-- [ ] `npm test` passes
-- [ ] `npm run check` passes (tsc + eslint clean)
-- [ ] No test regressions on existing 3,976 tests
-- [ ] Test count deviation documented
+- [x] `npm test` passes (4,074 tests, 167 suites, 0 failures)
+- [x] `npm run check` passes (tsc + eslint clean)
+- [x] No test regressions on existing 3,976 tests (4,074 > 3,976)
+- [x] Test count deviation documented (98 actual vs ~80 estimated — exceeded due to more comprehensive modal and rendering tests)
 
 ### 3. Three Amigos Review
-- [ ] Cycle-level review conducted
-- [ ] All three perspectives represented
-- [ ] TASM scores recorded
-- [ ] Observations documented
+- [x] Cycle-level review conducted
+- [x] All three perspectives represented
+- [x] TASM scores recorded
+- [x] Observations documented
 
 ### 4. PRD & Backlog Updates
-- [ ] PRD updated — Train Improvements PRD v3 (FRI 28→31)
-- [ ] PBIs updated (PBI-TOT-010, PBI-TOT-011)
-- [ ] Event model current
+- [x] PRD updated — Train Improvements PRD v3 (FRI 28→31)
+- [x] PBIs updated (PBI-TOT-010 done, PBI-TOT-011 done)
+- [x] Event model current (15 train events, no new events needed)
 
 ### 5. Documentation
-- [ ] Cycle plan updated with actual values
-- [ ] Success metrics verified
+- [x] Cycle plan updated with actual values
+- [x] Success metrics verified
 
 ### 6. Cycle Plan Completion
-- [ ] Frontmatter updated
-- [ ] Success metrics verified with actual values
-- [ ] Deviations documented
+- [x] Frontmatter updated
+- [x] Success metrics verified with actual values
+- [x] Deviations documented
 
 ### 7. Cycle Retrospective
-- [ ] "What Went Well" section completed
-- [ ] "Deviations from Plan" section completed
-- [ ] "Learnings" section completed
+- [x] "What Went Well" section completed
+- [x] "Deviations from Plan" section completed
+- [x] "Learnings" section completed
 
 ---
 
@@ -439,9 +439,37 @@ Inc 1 + Inc 2 + Inc 3 + Inc 4 ──→ Inc 5 (Integration)
 
 ---
 
+## Retrospective
+
+### What Went Well
+
+1. **BaseHubView reuse validated** — TrainHubView at 376 LOC demonstrates the shell extraction pays dividends. Dashboard + 2 tabs + detail panels in a single file with zero boilerplate for layout, tab bar, or event cleanup.
+2. **Standalone component pattern** — TrainPropertyEditor (256 LOC) and TrainResumeModal (109 LOC) are fully self-contained with clean `constructor(el, deps)` interfaces. No orchestrator pollution.
+3. **Test count exceeded estimate** — 98 new tests vs 80 estimated. The comprehensive modal tests (TrainTypePickerModal 9, TrainResumeModal 12) and rendering tests (OBS-1 7 tests) provide strong regression coverage.
+4. **Zero new events needed** — All 5 increments reused existing train events for re-render triggers. Event model is well-designed.
+5. **Integration tests caught nesting behavior** — Flow 23 test "nesting: second train pauses first" validated the auto-pause mechanism works correctly with type preservation.
+6. **OBS-1 resolved** — TrainMainView rendering tests (7 tests covering layout order, jump-to-end visibility, type badge) close the action item from the Cycles 22-23 review.
+
+### Deviations from Plan
+
+1. **Source LOC exceeded** — 809 actual vs 400 estimated. TrainHubView (376) and TrainPropertyEditor (256) were more comprehensive than anticipated. This is acceptable — both components are well-structured and follow established patterns.
+2. **Inc 5 rendering tests** — 7 OBS-1 tests instead of 8 estimated. The layout order verification covered 3 sections, jump-to-end visibility 2, and type badge 2 — all critical assertions present.
+3. **Train closure context deferred** — Cycle goal #5 mentioned "Train stats in closure overlay" but this was not in any increment's AC. Deferred as it requires SessionService integration work beyond this cycle's scope.
+4. **Execution was sequential** — Plan suggested Phase A (Inc 1+2+3 parallel) but increments were executed sequentially due to context window management. No impact on delivery quality.
+
+### Learnings
+
+1. **`vi.fn<FnType>()` pattern** — Vitest 4 requires explicit function type annotation on mock factories to avoid `Mock<Procedure | Constructable>` type errors. Use `type Fn = (arg: T) => void; vi.fn<Fn>()` pattern.
+2. **Obsidian `createEl` API limitations** — `createEl("input", { value, placeholder })` fails because these aren't in the DomElementInfo type. Must set as properties after creation.
+3. **happy-dom blur limitation** — `.blur()` inside a keydown handler doesn't fire the blur event in happy-dom. Workaround: dispatch blur explicitly in tests.
+4. **Button index fragility** — Adding new buttons (jump-to-end) shifted index-based selectors in tests (`btns[1]` → wrong button). Solution: always use CSS class selectors (`.ft-train-next-btn`) instead of positional indexing.
+5. **LOC estimates need multiplier** — Standalone components consistently exceed estimates because of render helpers, cleanup logic, and edge case handling. Apply 1.5-2x multiplier for UI components.
+
+---
+
 ## Related
 - PRD: [[Train Improvements PRD]], [[Train of Thoughts PRD]]
-- Review: [[Three Amigos Review 2026-02-22 Train Polish and Merge Down]]
+- Review: [[Three Amigos Review 2026-02-22 Train Polish and Merge Down]], [[Three Amigos Review 2026-02-23 Train Value Sprint]]
 - Prior Cycles: [[Cycle 22 - Train Polish and Management]], [[Cycle 23 - Merge Down and Detail Restructure]]
 - PBIs: [[PBI-TOT-010 Train Hub]], [[PBI-TOT-011 Train UX Sprint]]
 - Inbox: [[We need a dedicated Train Hub]], [[The session complete view needs to be adjusted when coming from a train]], [[I want to enrich the frontmatter of train-of-thought notes on the detail page]], [[I want to choose a type of train at the beginning of a new one]]
