@@ -17,14 +17,14 @@ export const CANVAS_SYNC_DELAY_MS = 500;
 export interface TrainCanvasSyncOptions {
 	eventBus: IEventBus;
 	fileSystem: IFileSystemClient;
-	getSettings: () => { trainFolder: string; trainCanvasEnabled: boolean };
+	getSettings: () => { trainCanvasEnabled: boolean };
 	getTrain: (trainId: string) => TrainState | undefined;
 }
 
 export class TrainCanvasSyncService {
 	private readonly eventBus: IEventBus;
 	private readonly fileSystem: IFileSystemClient;
-	private readonly getSettings: () => { trainFolder: string; trainCanvasEnabled: boolean };
+	private readonly getSettings: () => { trainCanvasEnabled: boolean };
 	private readonly getTrain: (trainId: string) => TrainState | undefined;
 	private readonly syncTimers = new Map<string, ReturnType<typeof setTimeout>>();
 	private readonly unsubscribers: Array<() => void> = [];
@@ -91,8 +91,7 @@ export class TrainCanvasSyncService {
 		const train = this.getTrain(trainId);
 		if (!train || train.thoughts.length === 0) return;
 
-		const { trainFolder } = this.getSettings();
-		const canvasPath = getCanvasPath(train.title, trainFolder);
+		const canvasPath = getCanvasPath(train.title, train.folderPath ?? "");
 
 		// Read pre-sync managed file node count for reconciliation detection
 		const preSyncCount = await this.countManagedFileNodes(canvasPath);

@@ -54,13 +54,13 @@ export interface UiCommandEventMap {
 	"ui.openQuickCapture": { type?: CaptureType };
 
 	/** Start a Train of Thoughts serial capture session */
-	"ui.startTrain": { fromThoughtId?: string; fromFilePath?: string };
+	"ui.startTrain": { fromThoughtId?: string; fromFilePath?: string; mergeDown?: boolean };
 
 	/** Open the Train Main View (or reveal if already open). Optional trainId targets a specific train. */
 	"ui.openTrainView": { trainId?: string };
 
-	/** Toggle the Train Timeline Sidebar (show/hide) */
-	"ui.toggleTrainTimeline": { trainId: string };
+	/** Toggle the Train Timeline Sidebar (show/hide). forceClose=true always collapses. */
+	"ui.toggleTrainTimeline": { trainId: string; forceClose?: boolean };
 
 	/** Resume the active paused train (command palette) */
 	"ui.resumeTrain": Record<string, never>;

@@ -109,7 +109,8 @@ describe("Flow 20: Train Enhancements", () => {
 				(c: unknown[]) => typeof c[0] === "string" && (c[0] as string).includes("Summary"),
 			);
 			expect(summaryCall).toBeDefined();
-			expect(summaryCall![0]).toBe("Trains/API Design — Summary.md");
+			// Summary path is now inside the per-train subfolder
+			expect(summaryCall![0]).toMatch(/^Trains\/\d{8}-\d{4} API Design\/API Design — Summary\.md$/);
 		});
 
 		it("emits train.summary.created event", async () => {
@@ -237,7 +238,7 @@ describe("Flow 20: Train Enhancements", () => {
 
 			// Step 5: Verify summary created
 			expect(summaryEvents.length).toBe(1);
-			expect(summaryEvents[0].summaryPath).toBe("Trains/Full Lifecycle — Summary.md");
+			expect(summaryEvents[0].summaryPath).toMatch(/^Trains\/\d{8}-\d{4} Full Lifecycle\/Full Lifecycle — Summary\.md$/);
 
 			// Step 6: Train accessible in history
 			const all = trainService.getAllTrains();

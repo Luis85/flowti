@@ -41,6 +41,7 @@ function createTrain(overrides: Partial<TrainState> = {}): TrainState {
 		createdAt: "2026-02-21T14:00:00.000Z",
 		pausedAt: null,
 		completedAt: null,
+		folderPath: "trains",
 		...overrides,
 	};
 }
@@ -55,6 +56,7 @@ function buildMockContext(): TrainViewContext & {
 		_activeThoughtId: null as string | null,
 		_renderCount: 0,
 		getTrainId: () => ctx._trainId,
+		getSessionId: () => null,
 		setTrainId: (trainId: string) => { ctx._trainId = trainId; },
 		setActiveThoughtId: (id: string | null) => { ctx._activeThoughtId = id; },
 		scheduleRender: () => { ctx._renderCount++; },

@@ -11,6 +11,9 @@ bugs:
   - "prompt() does not work in Electron — replaced with InputModal (pre-cycle fix)"
   - "Wikilinks used thought.title instead of file basename — broken links (pre-cycle fix)"
   - "Canvas not synced on train completion/pause/resume/rename — status annotation stale (pre-cycle fix)"
+  - "Sidebar toggle button did nothing when Train Timeline was visible (post-delivery fix)"
+  - "Merge-down added thought to branch instead of main chain (post-delivery fix)"
+  - "Merge-down Case 1 created duplicate 'next' relations from target node (post-delivery fix)"
 bugs_fixed_precycle:
   - "Rename modal prompt() replaced with InputModal"
   - "buildNavLinks() and generateTrainSummary() use path basename for wikilinks"
@@ -20,7 +23,7 @@ estimated_increments: 5
 actual_increments: 4
 estimated_tests: 80
 actual_tests: 26
-total_tests_after: 3952
+total_tests_after: 3976
 total_test_files_after: 161
 ---
 
@@ -97,19 +100,82 @@ total_test_files_after: 161
 ## Increments
 
 ### Inc 1: findMergeDownTarget() Helper
-*(See plan file for full details)*
+
+**Goal:** Pure function determining the best merge target for a branch endpoint.
+
+| Step | File | Purpose |
+|------|------|---------|
+| 1 | `src/domain/train/TrainService.ts` | `findMergeDownTarget(trainId, sourceId)` — walks backward from source through parent relations; at each "branch" edge, checks if the origin has a "next" child. Returns `{ targetId, originId }` or null. |
+| 2 | `tests/domain/train/trainMerge.test.ts` | 12 tests: simple branch, deep branch, branch from head, main-chain rejection, root rejection, nonexistent, sub-branches, extended main chain, middle branch |
+
+**Return type:** `{ targetId: string | null; originId: string } | null` — `targetId` is the existing merge target (or null if origin has no next), `originId` is the branch point.
+
+**AC:**
+- [x] Returns correct target for branch endpoints
+- [x] Returns null for main-chain and root nodes
+- [x] Handles sub-branches (returns nearest branch origin)
+- [x] Returns originId even when no next exists (enables merge-down from branch endpoint at main chain head)
+- [x] `npm test` passes
+
+---
 
 ### Inc 2: Detail View Layout Restructure
-*(See plan file for full details)*
+
+**Goal:** Restructure TrainMainView: nav+controls first, canvas callout section, breadcrumb last. Merge-down button integrated.
+
+| Step | File | Purpose |
+|------|------|---------|
+| 1 | `src/ui/train/TrainMainView.ts` | Reorder `render()` sections: header → inline controls (Pause/Complete/Resume) → nav bar (Back/Next/Add/Merge Down) → canvas callout → thought detail → breadcrumb |
+| 2 | `src/ui/train/TrainMainView.ts` | Merge-down button in nav bar: emits `ui.startTrain` with `mergeDown: true` flag to open capture modal pre-set to merge-down direction |
+
+**Merge-down in detail view:** Clicking "Merge down" in the nav bar opens the capture modal with direction pre-selected to "merge-down". User enters a thought title, and the system adds the thought + auto-merges.
+
+**AC:**
+- [x] Nav bar at top with context-aware right action (Merge Down / Next / Add Thought)
+- [x] Merge-down button opens capture modal (not direct merge)
+- [x] Canvas callout section between controls and detail
+- [x] Breadcrumb at bottom
+- [x] `npm test` passes
+
+---
 
 ### Inc 3: Capture Modal "Merge Down" Direction
-*(See plan file for full details)*
 
-### Inc 4: Detail View "Merge Down" Button
-*(See plan file for full details)*
+**Goal:** Third dropdown option in direction selector, Tab-cycleable, triggers add-thought + auto-merge.
+
+| Step | File | Purpose |
+|------|------|---------|
+| 1 | `src/ui/train/TrainCaptureModal.ts` | Added `isBranchEndpoint`, `onMergeDown`, `defaultMergeDown` options. "Merge down ↓" added to dropdown when `isBranchEndpoint`. Tab cycles: next → branch → merge-down. |
+| 2 | `src/main.ts` | `openTrainModal()` detects branch endpoint via `findMergeDownTarget()`, wires `onMergeDown` callback: adds thought then merges. Two code paths: with existing target (merge into it) and without (create next from origin, then merge). |
+| 3 | `tests/flows/22-TrainMergeDown.test.ts` | 11 integration tests covering findMergeDownTarget + merge-down action + event sequencing |
+
+**AC:**
+- [x] "Merge down ↓" appears in dropdown when on branch endpoint
+- [x] Tab cycles through next/branch/merge-down
+- [x] Submitting with merge-down creates thought + auto-merges
+- [x] Works both with and without existing merge target on main chain
+- [x] `npm test` passes
+
+---
+
+### Inc 4: Detail View "Merge Down" Button *(merged into Inc 2)*
+
+Absorbed into Inc 2. The merge-down button in the detail view nav bar was implemented as part of the layout restructure.
+
+---
 
 ### Inc 5: Integration Tests
-*(See plan file for full details)*
+
+**Goal:** Flow 22 covering merge-down scenarios end-to-end.
+
+| Step | File | Purpose |
+|------|------|---------|
+| 1 | `tests/flows/22-TrainMergeDown.test.ts` | 11 tests: target detection (happy path, deep branch, head branch, sub-branch), merge-down action (add + merge), canvas sync on merge, multiple branches, event sequencing, target-changes-as-chain-grows |
+
+**AC:**
+- [x] All 11 integration tests pass
+- [x] No regression on existing tests
+- [x] `npm test` passes
 
 ---
 
@@ -148,7 +214,7 @@ Inc 1 + Inc 2 + Inc 3 + Inc 4 ──→ Inc 5 (Integration)
 |--------|--------|--------|
 | New tests | ~80 | 26 (+11 merge, +4 canvasSync, +11 flow) |
 | Removed tests | 0 | -9 (keyboard nav removed by request) |
-| Post-cycle total tests | ~4,016 | 3,952 |
+| Post-cycle total tests | ~4,016 | 3,976 (3,952 at delivery + 24 post-delivery) |
 | Post-cycle test suites | ~163 | 161 |
 | New TrainService APIs | 1 | 1 (findMergeDownTarget) |
 
@@ -172,7 +238,7 @@ Inc 1 + Inc 2 + Inc 3 + Inc 4 ──→ Inc 5 (Integration)
 - [x] Deferred items documented with rationale
 
 ### 2. Build & Test Quality
-- [x] `npm test` passes — 3,952 tests, 161 suites, 32 skipped
+- [x] `npm test` passes — 3,976 tests, 161 suites, 32 skipped (updated post-delivery)
 - [x] `npm run check` passes (tsc + eslint clean)
 - [x] No test regressions on existing 3,936 tests
 - [x] Test count deviation documented — see §Deviations from Plan
@@ -241,6 +307,41 @@ Inc 1 + Inc 2 + Inc 3 + Inc 4 ──→ Inc 5 (Integration)
 
 ---
 
+## Post-Delivery Amendments (2026-02-23)
+
+Changes applied after initial delivery during user testing. All amendments maintain green build (3,976 tests, 161 suites).
+
+### Bug Fixes
+
+| Bug | Root Cause | Fix |
+|-----|-----------|-----|
+| Sidebar toggle did nothing when Train Timeline visible | `containerEl.hasClass("mod-active")` unreliable with single-tab sidebar | Replaced with `timelineLeaf.view?.containerEl?.isShown?.()` in `main.ts` |
+| Merge-down added thought to old branch | `addThought("next", fromThoughtId)` from branch endpoint stays on branch | Restructured: Case 1 adds on branch then merges into target; Case 2 adds on main then merges branch into it |
+| Case 1 merge-down created duplicate "next" relations | `addThought("next", targetId)` when target already has a "next" child | Changed Case 1: add thought on branch from endpoint, merge new thought into target, continue from target |
+| Post-merge modal continued from branch instead of main | `openTrainModal` passed `newThought.id` (branch node) | Changed to pass `mergeDownInfo.targetId` (main chain) |
+| Merge-down button/option still visible after branch already merged | `findMergeDownTarget()` didn't check for existing merge relations | Added forward walk from source through "next" edges; returns null if any node is already a merge source |
+
+### Enhancements
+
+| Enhancement | Files Changed |
+|-------------|--------------|
+| `findMergeDownTarget()` returns `{ targetId, originId }` instead of `string \| null` — enables merge-down on all branch endpoints (even when origin has no "next") | `TrainService.ts`, `TrainMainView.ts`, `main.ts`, 5 test files |
+| Detail view "Merge down" button opens capture modal (via `ui.startTrain` with `mergeDown: true`) instead of calling `mergeBranch()` directly | `TrainMainView.ts`, `main.ts`, `events.ts` |
+| `TrainCaptureModalOptions.defaultMergeDown` pre-selects merge-down direction | `TrainCaptureModal.ts`, `main.ts` |
+| Back button moved to action row (outer left, `marginRight: auto`), styled as text button matching Next | `TrainCaptureModal.ts` |
+| "Tab to cycle" hint positioned before dropdown (not after) | `TrainCaptureModal.ts` |
+| Action row spans full modal width (`settingEl.style.width = "100%"`) | `TrainCaptureModal.ts` |
+| Rename thought from capture modal (pencil icon in title row) | `TrainCaptureModal.ts`, `TrainService.ts`, `main.ts` |
+
+### Merge-Down Flow (Final Design)
+
+Two code paths based on `findMergeDownTarget()` result:
+
+- **Case 1** (`targetId` exists): Add thought on branch (from endpoint) → merge new thought into main chain target → continue modal from target
+- **Case 2** (`targetId` null, origin is head): Add thought as "next" from origin (extends main chain) → merge branch endpoint into new thought → continue modal from new thought
+
+---
+
 ## Inbox & Feedback Loop
 
 ### Inbox Items Updated
@@ -256,6 +357,11 @@ Inc 1 + Inc 2 + Inc 3 + Inc 4 ──→ Inc 5 (Integration)
 - Keyboard navigation doesn't work in Obsidian views — feature removed, use commands instead
 - Modal title should show thought context — addressed in UI polish round
 - Timeline head node needs visual distinction — addressed with diamond dot
+- Sidebar toggle should close when Train Timeline is open — fixed post-delivery
+- Merge-down should always be available on branch endpoints — fixed post-delivery (enhanced `findMergeDownTarget`)
+- Detail merge-down should open capture modal for a concluding thought — fixed post-delivery
+- Back button should match Next button style — fixed post-delivery
+- Merge-down from main should add to main chain, not old branch — fixed post-delivery (Case 1/2 restructure)
 
 ### Next Cycle Inputs
 - Train types at creation time

@@ -38,6 +38,7 @@ function createTrain(overrides: Partial<TrainState> = {}): TrainState {
 		createdAt: "2026-02-21T14:00:00.000Z",
 		pausedAt: null,
 		completedAt: null,
+		folderPath: "trains",
 		...overrides,
 	};
 }

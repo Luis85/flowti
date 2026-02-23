@@ -38,6 +38,7 @@ function createTrain(overrides: Partial<TrainState> = {}): TrainState {
 		createdAt: "2026-02-22T14:00:00.000Z",
 		pausedAt: null,
 		completedAt: null,
+		folderPath: "trains",
 		...overrides,
 	};
 }
@@ -183,14 +184,22 @@ describe("TrainMainView — canvas workflow", () => {
 		expect(mockOpenLinkText).toHaveBeenCalledWith("trains/My Train.canvas", "", false);
 	});
 
-	it("derives canvas path from trainFolder + train title", async () => {
+	it("derives canvas path from train.folderPath + train title", async () => {
+		// Create a train with a custom folderPath
+		const t1 = createThought({ id: "t1", title: "Idea", order: 0 });
+		const customTrain = createTrain({
+			thoughts: [t1],
+			folderPath: "00 - Connectivity/trains/20260222-1400 My Train",
+		});
+		const customService = createMockTrainService(customTrain);
+
 		const view = new TrainMainView(
-			createMockLeaf(), eventBus, service,
-			() => ({ ...defaultSettings, trainFolder: "00 - Connectivity/trains" }),
+			createMockLeaf(), eventBus, customService,
+			() => defaultSettings,
 		);
 
 		const mockGetAbstract = vi.fn((path: string) =>
-			path === "00 - Connectivity/trains/My Train.canvas" ? { path } : null,
+			path === "00 - Connectivity/trains/20260222-1400 My Train/My Train.canvas" ? { path } : null,
 		);
 
 		(view as unknown as Record<string, unknown>).registerEvent = vi.fn();
@@ -204,7 +213,7 @@ describe("TrainMainView — canvas workflow", () => {
 
 		await view.onOpen();
 
-		expect(mockGetAbstract).toHaveBeenCalledWith("00 - Connectivity/trains/My Train.canvas");
+		expect(mockGetAbstract).toHaveBeenCalledWith("00 - Connectivity/trains/20260222-1400 My Train/My Train.canvas");
 	});
 });
 

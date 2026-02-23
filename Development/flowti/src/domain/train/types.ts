@@ -65,6 +65,8 @@ export interface TrainState {
 	completedAt: string | null;
 	/** ID of the train that was paused when this one started (nesting). */
 	parentTrainId?: string;
+	/** Per-train subfolder path (e.g. "00 - Connectivity/trains/20260223-1430 My Train"). */
+	folderPath?: string;
 }
 
 // ─────────────────────────────────────────────────────────────

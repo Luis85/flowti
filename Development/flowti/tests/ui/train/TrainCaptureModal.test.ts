@@ -285,6 +285,99 @@ describe("TrainCaptureModal", () => {
 		});
 	});
 
+	describe("back button", () => {
+		it("shows back button in the action row when onBack is provided", () => {
+			const modal = new TrainCaptureModal(createMockApp(), {
+				trainTitle: "My Train",
+				previousThoughtTitle: "Previous",
+				thoughtCount: 1,
+				onSubmit: vi.fn(),
+				onComplete: vi.fn(),
+				onCancel: vi.fn(),
+				durationMinutes: 0,
+				onBack: vi.fn(),
+			});
+			modal.onOpen();
+
+			const backBtn = Array.from(modal.contentEl.querySelectorAll("button")).find(
+				(b) => b.textContent?.includes("Back"),
+			);
+			expect(backBtn).toBeDefined();
+			// Back button should be in the same Setting row as the Add Thought button
+			const addBtn = Array.from(modal.contentEl.querySelectorAll("button")).find(
+				(b) => b.textContent?.includes("Add Thought"),
+			);
+			const actionSetting = addBtn?.closest(".setting-item");
+			expect(backBtn?.closest(".setting-item")).toBe(actionSetting);
+		});
+
+		it("does not show back button when onBack is not provided", () => {
+			const modal = new TrainCaptureModal(createMockApp(), {
+				trainTitle: "My Train",
+				previousThoughtTitle: null,
+				thoughtCount: 0,
+				onSubmit: vi.fn(),
+				onComplete: vi.fn(),
+				onCancel: vi.fn(),
+				durationMinutes: 0,
+			});
+			modal.onOpen();
+
+			const backBtn = Array.from(modal.contentEl.querySelectorAll("button")).find(
+				(b) => b.textContent?.includes("Back"),
+			);
+			expect(backBtn).toBeUndefined();
+		});
+
+		it("triggers onBack when back button is clicked", () => {
+			const onBack = vi.fn();
+			const modal = new TrainCaptureModal(createMockApp(), {
+				trainTitle: "My Train",
+				previousThoughtTitle: "Previous",
+				thoughtCount: 1,
+				onSubmit: vi.fn(),
+				onComplete: vi.fn(),
+				onCancel: vi.fn(),
+				durationMinutes: 0,
+				onBack,
+			});
+			modal.onOpen();
+
+			const backBtn = Array.from(modal.contentEl.querySelectorAll("button")).find(
+				(b) => b.textContent?.includes("Back"),
+			) as HTMLButtonElement;
+			backBtn.click();
+			modal.onClose();
+
+			expect(onBack).toHaveBeenCalledOnce();
+		});
+	});
+
+	describe("direction row", () => {
+		it("renders direction dropdown on a separate row from action buttons", () => {
+			const modal = new TrainCaptureModal(createMockApp(), {
+				trainTitle: "Direction Row",
+				previousThoughtTitle: "Previous",
+				thoughtCount: 4,
+				onSubmit: vi.fn(),
+				onComplete: vi.fn(),
+				onCancel: vi.fn(),
+				durationMinutes: 0,
+			});
+			modal.onOpen();
+
+			const dropdown = modal.contentEl.querySelector("select") as HTMLSelectElement;
+			expect(dropdown).not.toBeNull();
+			// Direction dropdown is in its own Setting row, separate from the action buttons
+			const dropdownSetting = dropdown.closest(".setting-item");
+			const addBtn = Array.from(modal.contentEl.querySelectorAll("button")).find(
+				(b) => b.textContent?.includes("Add Thought"),
+			);
+			const actionSetting = addBtn?.closest(".setting-item");
+			expect(dropdownSetting).not.toBe(actionSetting);
+		});
+	});
+
 	describe("timer display", () => {
 		it("shows no timer when durationMinutes is 0", () => {
 			const modal = new TrainCaptureModal(createMockApp(), {
@@ -393,6 +486,127 @@ describe("TrainCaptureModal", () => {
 
 			expect(unsubTick).toHaveBeenCalledOnce();
 			expect(unsubCompleted).toHaveBeenCalledOnce();
+		});
+	});
+
+	describe("thought rename", () => {
+		it("shows pencil icon when onRenameThought and previousThoughtTitle are provided", () => {
+			const modal = new TrainCaptureModal(createMockApp(), {
+				trainTitle: "My Train",
+				previousThoughtTitle: "Existing Thought",
+				thoughtCount: 2,
+				onSubmit: vi.fn(),
+				onComplete: vi.fn(),
+				onCancel: vi.fn(),
+				durationMinutes: 0,
+				onRenameThought: vi.fn(),
+			});
+			modal.onOpen();
+
+			const editBtn = modal.contentEl.querySelector("button[aria-label='Rename thought']");
+			expect(editBtn).not.toBeNull();
+		});
+
+		it("does not show pencil icon when onRenameThought is not provided", () => {
+			const modal = new TrainCaptureModal(createMockApp(), {
+				trainTitle: "My Train",
+				previousThoughtTitle: "Existing Thought",
+				thoughtCount: 2,
+				onSubmit: vi.fn(),
+				onComplete: vi.fn(),
+				onCancel: vi.fn(),
+				durationMinutes: 0,
+			});
+			modal.onOpen();
+
+			const editBtn = modal.contentEl.querySelector("button[aria-label='Rename thought']");
+			expect(editBtn).toBeNull();
+		});
+
+		it("does not show pencil icon for first thought (no previousThoughtTitle)", () => {
+			const modal = new TrainCaptureModal(createMockApp(), {
+				trainTitle: "My Train",
+				previousThoughtTitle: null,
+				thoughtCount: 0,
+				onSubmit: vi.fn(),
+				onComplete: vi.fn(),
+				onCancel: vi.fn(),
+				durationMinutes: 0,
+				onRenameThought: vi.fn(),
+			});
+			modal.onOpen();
+
+			const editBtn = modal.contentEl.querySelector("button[aria-label='Rename thought']");
+			expect(editBtn).toBeNull();
+		});
+
+		it("shows input field when pencil is clicked", () => {
+			const modal = new TrainCaptureModal(createMockApp(), {
+				trainTitle: "My Train",
+				previousThoughtTitle: "Existing Thought",
+				thoughtCount: 2,
+				onSubmit: vi.fn(),
+				onComplete: vi.fn(),
+				onCancel: vi.fn(),
+				durationMinutes: 0,
+				onRenameThought: vi.fn(),
+			});
+			modal.onOpen();
+
+			const editBtn = modal.contentEl.querySelector("button[aria-label='Rename thought']") as HTMLButtonElement;
+			editBtn.click();
+
+			const input = modal.contentEl.querySelector("input.ft-train-rename-input") as HTMLInputElement;
+			expect(input).not.toBeNull();
+			expect(input.value).toBe("Existing Thought");
+		});
+
+		it("calls onRenameThought when Enter is pressed with new title", () => {
+			const onRename = vi.fn();
+			const modal = new TrainCaptureModal(createMockApp(), {
+				trainTitle: "My Train",
+				previousThoughtTitle: "Old Title",
+				thoughtCount: 2,
+				onSubmit: vi.fn(),
+				onComplete: vi.fn(),
+				onCancel: vi.fn(),
+				durationMinutes: 0,
+				onRenameThought: onRename,
+			});
+			modal.onOpen();
+
+			const editBtn = modal.contentEl.querySelector("button[aria-label='Rename thought']") as HTMLButtonElement;
+			editBtn.click();
+
+			const input = modal.contentEl.querySelector("input.ft-train-rename-input") as HTMLInputElement;
+			input.value = "New Title";
+			input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+
+			expect(onRename).toHaveBeenCalledWith("New Title");
+		});
+
+		it("does not call onRenameThought when title is unchanged", () => {
+			const onRename = vi.fn();
+			const modal = new TrainCaptureModal(createMockApp(), {
+				trainTitle: "My Train",
+				previousThoughtTitle: "Same Title",
+				thoughtCount: 2,
+				onSubmit: vi.fn(),
+				onComplete: vi.fn(),
+				onCancel: vi.fn(),
+				durationMinutes: 0,
+				onRenameThought: onRename,
+			});
+			modal.onOpen();
+
+			const editBtn = modal.contentEl.querySelector("button[aria-label='Rename thought']") as HTMLButtonElement;
+			editBtn.click();
+
+			const input = modal.contentEl.querySelector("input.ft-train-rename-input") as HTMLInputElement;
+			// Value is still "Same Title" — press Enter
+			input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+
+			expect(onRename).not.toHaveBeenCalled();
 		});
 	});
 });

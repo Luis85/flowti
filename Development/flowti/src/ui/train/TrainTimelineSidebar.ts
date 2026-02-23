@@ -478,11 +478,11 @@ export class TrainTimelineSidebar extends ItemView {
 
 	// ── Helpers ──────────────────────────────────────────────
 
-	/** Derive the canvas path for a train from settings. */
+	/** Derive the canvas path for a train from its per-train folder. */
 	private getCanvasPath(train: TrainState): string | null {
-		const { trainFolder, trainCanvasEnabled } = this.getTrainSettings();
-		if (!trainCanvasEnabled || !trainFolder) return null;
-		return `${trainFolder}/${train.title}.canvas`;
+		const { trainCanvasEnabled } = this.getTrainSettings();
+		if (!trainCanvasEnabled || !train.folderPath) return null;
+		return `${train.folderPath}/${train.title}.canvas`;
 	}
 
 	private getTrain(): TrainState | undefined {

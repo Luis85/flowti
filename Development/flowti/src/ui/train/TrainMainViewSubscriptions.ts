@@ -95,5 +95,34 @@ export function setupTrainViewSubscriptions(
 		}),
 	);
 
+	// Thought renamed — re-render to show updated title
+	unsubs.push(
+		eventBus.on("train.thought.renamed", (event) => {
+			if (event.payload.trainId === ctx.getTrainId()) {
+				ctx.scheduleRender();
+			}
+		}),
+	);
+
+	// Session closure started — re-render to show closure overlay
+	unsubs.push(
+		eventBus.on("session.closure.started", (event) => {
+			const sessionId = ctx.getSessionId();
+			if (sessionId && event.payload.sessionId === sessionId) {
+				ctx.scheduleRender();
+			}
+		}),
+	);
+
+	// Session completed — re-render to hide closure overlay
+	unsubs.push(
+		eventBus.on("session.completed", (event) => {
+			const sessionId = ctx.getSessionId();
+			if (sessionId && event.payload.session.id === sessionId) {
+				ctx.scheduleRender();
+			}
+		}),
+	);
+
 	return unsubs;
 }

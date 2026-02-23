@@ -317,15 +317,16 @@ export default class FlowtiBasePlugin extends Plugin {
 				const activeTrain = this.trainService.getActiveTrain();
 				if (activeTrain && activeTrain.status === "paused") {
 					const fromThoughtId = event.payload.fromThoughtId;
+					const mdFlag = event.payload.mergeDown;
 					void this.trainService.resume(activeTrain.id).then(() => {
-						this.openTrainModal(activeTrain.id, activeTrain.title, undefined, fromThoughtId);
+						this.openTrainModal(activeTrain.id, activeTrain.title, undefined, fromThoughtId, mdFlag);
 					});
 					return;
 				}
 
 				// Running train — open capture modal from the active thought
 				if (activeTrain && activeTrain.status === "running") {
-					this.openTrainModal(activeTrain.id, activeTrain.title, undefined, event.payload.fromThoughtId);
+					this.openTrainModal(activeTrain.id, activeTrain.title, undefined, event.payload.fromThoughtId, event.payload.mergeDown);
 					return;
 				}
 
@@ -714,7 +715,6 @@ export default class FlowtiBasePlugin extends Plugin {
 			eventBus: this.eventBus,
 			fileSystem: trainCanvasFileSystem,
 			getSettings: () => ({
-				trainFolder: settingsService.getSettings().trainFolder,
 				trainCanvasEnabled: settingsService.getSettings().trainCanvasEnabled,
 			}),
 			getTrain: (id) => this.trainService?.getTrain(id),
@@ -733,7 +733,15 @@ export default class FlowtiBasePlugin extends Plugin {
 				trainFolder: settingsService.getSettings().trainFolder,
 				trainCanvasEnabled: settingsService.getSettings().trainCanvasEnabled,
 				trainCanvasAutoOpen: settingsService.getSettings().trainCanvasAutoOpen,
-			})),
+			}), {
+				getSession: (sessionId) => this.sessionService?.getSessionById(sessionId) ?? null,
+				completeClosure: (sessionId, response) => {
+					void this.sessionService?.completeClosure(sessionId, response);
+				},
+				skipClosure: (sessionId) => {
+					void this.sessionService?.skipClosure(sessionId);
+				},
+			}),
 		);
 
 		// Train Timeline Sidebar — register view factory + auto-open in right sidebar
@@ -787,6 +795,12 @@ export default class FlowtiBasePlugin extends Plugin {
 				}).rightSplit;
 				const existingLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TRAIN_TIMELINE);
 
+				// Force close — always collapse (used after closure ritual)
+				if (event.payload.forceClose) {
+					rightSplit?.collapse?.();
+					return;
+				}
+
 				// Case 1: Sidebar is collapsed → expand and show timeline
 				if (rightSplit?.collapsed) {
 					rightSplit.expand?.();
@@ -800,11 +814,11 @@ export default class FlowtiBasePlugin extends Plugin {
 
 				// Sidebar is open
 				if (existingLeaves.length > 0) {
-					// Timeline leaf exists — check if it's the active tab
+					// Timeline leaf exists — check if it's visible
 					const timelineLeaf = existingLeaves[0];
-					const isActive = (timelineLeaf as unknown as { containerEl: HTMLElement }).containerEl.hasClass("mod-active");
-					if (isActive) {
-						// Case 2: Timeline is active tab → collapse sidebar
+					const isVisible = timelineLeaf.view?.containerEl?.isShown?.() !== false;
+					if (isVisible) {
+						// Case 2: Timeline is visible → collapse sidebar
 						rightSplit?.collapse?.();
 					} else {
 						// Case 3: Different tab is active → reveal timeline
@@ -841,6 +855,32 @@ export default class FlowtiBasePlugin extends Plugin {
 			}),
 		);
 
+		// Rename train folder when train is renamed
+		this.crossCuttingListeners.push(
+			this.eventBus.on("train.renamed", (event) => {
+				const { oldFolder, newFolder } = event.payload;
+				if (oldFolder && newFolder && oldFolder !== newFolder) {
+					const folder = this.app.vault.getAbstractFileByPath(oldFolder);
+					if (folder) {
+						void this.app.vault.rename(folder, newFolder);
+					}
+				}
+			}),
+		);
+
+		// Rename vault note when a thought is renamed
+		this.crossCuttingListeners.push(
+			this.eventBus.on("train.thought.renamed", (event) => {
+				const { oldPath, newPath } = event.payload;
+				if (oldPath !== newPath) {
+					const file = this.app.vault.getAbstractFileByPath(oldPath);
+					if (file) {
+						void this.app.vault.rename(file, newPath);
+					}
+				}
+			}),
+		);
+
 		// Open canvas for active train (command palette)
 		this.crossCuttingListeners.push(
 			this.eventBus.on("ui.openTrainCanvas", () => {
@@ -850,11 +890,11 @@ export default class FlowtiBasePlugin extends Plugin {
 					return;
 				}
 				const settings = settingsService.getSettings();
-				if (!settings.trainCanvasEnabled || !settings.trainFolder) {
+				if (!settings.trainCanvasEnabled || !active.folderPath) {
 					new Notice("Train canvas is not enabled");
 					return;
 				}
-				const canvasPath = getCanvasPath(active.title, settings.trainFolder);
+				const canvasPath = getCanvasPath(active.title, active.folderPath);
 				void this.app.workspace.openLinkText(canvasPath, "", false);
 			}),
 		);
@@ -983,6 +1023,7 @@ export default class FlowtiBasePlugin extends Plugin {
 		trainTitle: string,
 		overrides?: { previousTitle: string; thoughtCount: number },
 		fromThoughtId?: string,
+		mergeDown?: boolean,
 	): void {
 		if (!this.trainService) return;
 
@@ -1076,13 +1117,11 @@ export default class FlowtiBasePlugin extends Plugin {
 			}
 		}
 
-		// Detect branch endpoint for merge-down option
-		let isBranchEndpoint = false;
-		let mergeDownTargetId: string | null = null;
-		if (fromThoughtId && train) {
-			mergeDownTargetId = this.trainService.findMergeDownTarget(trainId, fromThoughtId);
-			isBranchEndpoint = mergeDownTargetId !== null;
-		}
+		// Detect branch for merge-down option (available whenever thought is on a branch)
+		const mergeDownInfo = (fromThoughtId && train)
+			? this.trainService.findMergeDownTarget(trainId, fromThoughtId)
+			: null;
+		const isBranchEndpoint = mergeDownInfo !== null;
 
 		new TrainCaptureModal(this.app, {
 			trainTitle,
@@ -1096,17 +1135,38 @@ export default class FlowtiBasePlugin extends Plugin {
 			onNext,
 			onUp,
 			isBranchEndpoint,
+			defaultMergeDown: mergeDown,
+			onRenameThought: fromThoughtId ? (newTitle) => {
+				void this.trainService!.renameThought(trainId, fromThoughtId, newTitle);
+			} : undefined,
 			onMergeDown: isBranchEndpoint ? (title) => {
-				// Add thought with direction "next" then auto-merge the source into the main chain target
-				void this.trainService!.addThought(trainId, title, { direction: "next", fromThoughtId }).then((newThought) => {
-					// Merge the source thought (fromThoughtId) into the main chain target
-					void this.trainService!.mergeBranch(trainId, fromThoughtId!, mergeDownTargetId!);
-					// Continue capture loop from the new thought
-					this.openTrainModal(trainId, trainTitle, {
-						previousTitle: title,
-						thoughtCount: thoughtCount + 1,
-					}, newThought?.id);
-				});
+				if (mergeDownInfo.targetId) {
+					// Add thought on branch, then merge it into main chain target
+					void this.trainService!.addThought(trainId, title, {
+						direction: "next",
+						fromThoughtId: fromThoughtId!,
+					}).then(async (newThought) => {
+						if (newThought) {
+							await this.trainService!.mergeBranch(trainId, newThought.id, mergeDownInfo.targetId!);
+						}
+						// Continue from the main chain target
+						this.openTrainModal(trainId, trainTitle, {
+							previousTitle: title,
+							thoughtCount: thoughtCount + 1,
+						}, mergeDownInfo.targetId!);
+					});
+				} else {
+					// No next on main chain — add thought as "next" from origin, then merge branch into it
+					void this.trainService!.addThought(trainId, title, { direction: "next", fromThoughtId: mergeDownInfo.originId }).then(async (newThought) => {
+						if (newThought) {
+							await this.trainService!.mergeBranch(trainId, fromThoughtId!, newThought.id);
+						}
+						this.openTrainModal(trainId, trainTitle, {
+							previousTitle: title,
+							thoughtCount: thoughtCount + 1,
+						}, newThought?.id);
+					});
+				}
 			} : undefined,
 			onSubmit: (title, direction) => {
 				// Await addThought so the next modal chains from the correct thought

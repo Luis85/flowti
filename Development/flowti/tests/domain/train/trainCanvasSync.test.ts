@@ -29,6 +29,7 @@ function makeTrain(overrides: Partial<TrainState> = {}): TrainState {
 		createdAt: "2026-02-22T10:00:00.000Z",
 		pausedAt: null,
 		completedAt: null,
+		folderPath: "trains",
 		...overrides,
 	};
 }
@@ -45,7 +46,6 @@ function createSyncHarness(opts: {
 		eventBus,
 		fileSystem,
 		getSettings: () => ({
-			trainFolder: "trains",
 			trainCanvasEnabled: opts.trainCanvasEnabled ?? true,
 		}),
 		getTrain: () => train,
@@ -413,7 +413,7 @@ describe("TrainCanvasSyncService", () => {
 			const service = new TrainCanvasSyncService({
 				eventBus,
 				fileSystem,
-				getSettings: () => ({ trainFolder: "trains", trainCanvasEnabled: true }),
+				getSettings: () => ({ trainCanvasEnabled: true }),
 				getTrain: () => train,
 			});
 			service.setup();
@@ -462,7 +462,7 @@ describe("TrainCanvasSyncService", () => {
 			const service = new TrainCanvasSyncService({
 				eventBus,
 				fileSystem,
-				getSettings: () => ({ trainFolder: "trains", trainCanvasEnabled: true }),
+				getSettings: () => ({ trainCanvasEnabled: true }),
 				getTrain: () => train,
 			});
 			service.setup();
@@ -539,7 +539,7 @@ describe("TrainCanvasSyncService", () => {
 			const service = new TrainCanvasSyncService({
 				eventBus,
 				fileSystem,
-				getSettings: () => ({ trainFolder: "trains", trainCanvasEnabled: true }),
+				getSettings: () => ({ trainCanvasEnabled: true }),
 				getTrain: () => train,
 			});
 			service.setup();

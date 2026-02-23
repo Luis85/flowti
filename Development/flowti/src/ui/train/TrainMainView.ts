@@ -15,6 +15,10 @@ import type { WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { TrainService } from "../../domain/train/TrainService";
 import type { ThoughtNode, TrainState } from "../../domain/train/types";
+import type { Session, ClosureResponse, ClosureTemplate } from "../../domain/session/types";
+import { SESSION_TYPE_CONFIGS } from "../../domain/session/types";
+import { resolveClosureTemplate } from "../../domain/session/helpers";
+import { SessionClosureOverlay } from "../session/SessionClosureOverlay";
 import { VIEW_TYPE_TRAIN_MAIN } from "./types";
 import type { TrainPanelDeps } from "./types";
 import { setupTrainViewSubscriptions } from "./TrainMainViewSubscriptions";
@@ -30,6 +34,7 @@ export { VIEW_TYPE_TRAIN_MAIN } from "./types";
 /** Context interface for subscription handlers. */
 export interface TrainViewContext {
 	getTrainId: () => string | null;
+	getSessionId: () => string | null;
 	setTrainId: (trainId: string) => void;
 	setActiveThoughtId: (id: string | null) => void;
 	scheduleRender: () => void;
@@ -41,10 +46,18 @@ export interface TrainViewSettings {
 	trainCanvasAutoOpen: boolean;
 }
 
+/** Optional closure ritual dependencies — when provided, train detail shows closure after completion. */
+export interface TrainClosureDeps {
+	getSession: (sessionId: string) => Session | null;
+	completeClosure: (sessionId: string, response: ClosureResponse) => void;
+	skipClosure: (sessionId: string) => void;
+}
+
 export class TrainMainView extends ItemView {
 	private eventBus: IEventBus;
 	private trainService: TrainService;
 	private getTrainSettings: () => TrainViewSettings;
+	private closureDeps: TrainClosureDeps | null;
 	private unsubscribes: (() => void)[] = [];
 	private trainId: string | null = null;
 	private activeThoughtId: string | null = null;
@@ -56,6 +69,7 @@ export class TrainMainView extends ItemView {
 		eventBus: IEventBus,
 		trainService: TrainService,
 		getTrainSettings?: () => TrainViewSettings,
+		closureDeps?: TrainClosureDeps,
 	) {
 		super(leaf);
 		this.eventBus = eventBus;
@@ -65,6 +79,7 @@ export class TrainMainView extends ItemView {
 			trainCanvasEnabled: true,
 			trainCanvasAutoOpen: false,
 		}));
+		this.closureDeps = closureDeps ?? null;
 	}
 
 	getViewType(): string {
@@ -152,6 +167,16 @@ export class TrainMainView extends ItemView {
 		const train = this.getTrain();
 		if (!train) {
 			this.renderEmptyState(el);
+			return;
+		}
+
+		// Closure ritual: when train is completed and session is "reviewing", show overlay
+		const linkedSession = this.closureDeps && train.sessionId
+			? this.closureDeps.getSession(train.sessionId)
+			: null;
+		if (linkedSession?.status === "reviewing" && this.closureDeps) {
+			this.renderHeader(el, train);
+			this.renderClosureOverlay(el, linkedSession, train);
 			return;
 		}
 
@@ -311,22 +336,25 @@ export class TrainMainView extends ItemView {
 
 		// Right: Merge Down / Next ► / Add Thought (context-aware, graph-based)
 		// Priority: merge-down (branch endpoint) > next (sorted list) > add thought (end of list)
-		const mergeDownTargetId = (activeThought && train.status !== "completed")
+		const mergeDownInfo = (activeThought && train.status !== "completed")
 			? this.trainService.findMergeDownTarget(train.id, activeThought.id)
 			: null;
 		const hasNext = activeIdx >= 0 && activeIdx < allThoughts.length - 1;
 
-		if (mergeDownTargetId) {
-			// Branch endpoint → Merge Down (always takes priority)
-			const target = train.thoughts.find((t) => t.id === mergeDownTargetId);
+		if (mergeDownInfo) {
+			// Branch endpoint → Merge Down (opens capture modal with merge-down preset)
+			const target = mergeDownInfo.targetId
+				? train.thoughts.find((t) => t.id === mergeDownInfo.targetId)
+				: null;
 			const mergeBtn = nav.createEl("button", {
 				cls: "ft-btn ft-btn-primary ft-btn-sm ft-train-nav-btn ft-train-merge-down-btn",
 			});
 			const mdIcon = mergeBtn.createSpan();
 			setIcon(mdIcon, "git-merge");
-			mergeBtn.appendText(` Merge down${target ? ` → ${target.title}` : ""}`);
+			mergeBtn.appendText(` Merge down${target ? ` \u2192 ${target.title}` : ""}`);
 			mergeBtn.addEventListener("click", () => {
-				void this.trainService.mergeBranch(train.id, activeThought!.id, mergeDownTargetId);
+				const fromThoughtId = activeThought!.id;
+				void this.eventBus.emit("ui.startTrain", { fromThoughtId, mergeDown: true });
 			});
 		} else if (hasNext) {
 			const nextBtn = nav.createEl("button", { cls: "ft-btn ft-btn-ghost ft-btn-sm ft-train-nav-btn" });
@@ -584,11 +612,11 @@ export class TrainMainView extends ItemView {
 		return this.trainService.getActiveTrain();
 	}
 
-	/** Derive the canvas path for a train from settings. */
+	/** Derive the canvas path for a train from its per-train folder. */
 	private getCanvasPathForTrain(train: TrainState): string | null {
-		const { trainFolder, trainCanvasEnabled } = this.getTrainSettings();
-		if (!trainCanvasEnabled || !trainFolder) return null;
-		return getCanvasPath(train.title, trainFolder);
+		const { trainCanvasEnabled } = this.getTrainSettings();
+		if (!trainCanvasEnabled || !train.folderPath) return null;
+		return getCanvasPath(train.title, train.folderPath);
 	}
 
 	private showRenameInput(train: TrainState): void {
@@ -608,6 +636,39 @@ export class TrainMainView extends ItemView {
 		}).open();
 	}
 
+	/** Render closure ritual overlay in place of normal train content. */
+	private renderClosureOverlay(el: HTMLElement, session: Session, train: TrainState): void {
+		const typeTemplates = this.getTypeClosureTemplates();
+		const template = resolveClosureTemplate(session, undefined, typeTemplates);
+		const deps = this.closureDeps!;
+
+		const overlay = new SessionClosureOverlay(el, session, template, {
+			onSubmit: (response) => {
+				deps.completeClosure(session.id, response);
+				// Close timeline sidebar after closure
+				void this.eventBus.emit("ui.toggleTrainTimeline", { trainId: train.id, forceClose: true });
+			},
+			onSkip: () => {
+				deps.skipClosure(session.id);
+				void this.eventBus.emit("ui.toggleTrainTimeline", { trainId: train.id, forceClose: true });
+			},
+		});
+		overlay.render();
+	}
+
+	/** Collect type-specific closure templates from built-in session type configs. */
+	private getTypeClosureTemplates(): Record<string, ClosureTemplate> | undefined {
+		const result: Record<string, ClosureTemplate> = {};
+		let hasAny = false;
+		for (const [type, config] of Object.entries(SESSION_TYPE_CONFIGS)) {
+			if (config.closureTemplate) {
+				result[type] = config.closureTemplate;
+				hasAny = true;
+			}
+		}
+		return hasAny ? result : undefined;
+	}
+
 	private emitThoughtActivated(thought: ThoughtNode): void {
 		void this.eventBus.emit("train.thought.activated", {
 			trainId: thought.trainId,
@@ -618,6 +679,10 @@ export class TrainMainView extends ItemView {
 	private buildContext(): TrainViewContext {
 		return {
 			getTrainId: () => this.trainId,
+			getSessionId: () => {
+				const train = this.getTrain();
+				return train?.sessionId ?? null;
+			},
 			setTrainId: (trainId: string) => { this.trainId = trainId; },
 			setActiveThoughtId: (id: string | null) => { this.activeThoughtId = id; },
 			scheduleRender: () => this.scheduleRender(),

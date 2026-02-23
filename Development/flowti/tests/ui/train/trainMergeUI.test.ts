@@ -38,6 +38,7 @@ function createTrain(overrides: Partial<TrainState> = {}): TrainState {
 		createdAt: "2026-02-22T14:00:00.000Z",
 		pausedAt: null,
 		completedAt: null,
+		folderPath: "trains",
 		...overrides,
 	};
 }
@@ -244,9 +245,9 @@ describe("TrainMainView — merge section", () => {
 	it("shows merge-down button on branch endpoint with valid target", async () => {
 		const { train } = buildUnmergedTrain();
 		const service = createMergedTrainService(train);
-		// Mock findMergeDownTarget to return "b" when source is "d"
+		// Mock findMergeDownTarget to return merge info when source is "d"
 		(service.findMergeDownTarget as ReturnType<typeof vi.fn>).mockImplementation(
-			(_trainId: string, sourceId: string) => sourceId === "d" ? "b" : null,
+			(_trainId: string, sourceId: string) => sourceId === "d" ? { targetId: "b", originId: "a" } : null,
 		);
 		const eventBus = new EventBus();
 
@@ -577,9 +578,9 @@ describe("TrainMainView — main chain merge protection", () => {
 	it("shows merge-down button on branch endpoint thought", async () => {
 		const { train } = buildUnmergedTrain();
 		const service = createMergedTrainService(train);
-		// Mock findMergeDownTarget to return "b" when source is "d"
+		// Mock findMergeDownTarget to return merge info when source is "d"
 		(service.findMergeDownTarget as ReturnType<typeof vi.fn>).mockImplementation(
-			(_trainId: string, sourceId: string) => sourceId === "d" ? "b" : null,
+			(_trainId: string, sourceId: string) => sourceId === "d" ? { targetId: "b", originId: "a" } : null,
 		);
 		const eventBus = new EventBus();
 

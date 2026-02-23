@@ -5,13 +5,15 @@
  * Each submission calls onSubmit, which creates the thought and opens
  * a new modal (recursive loop managed by the caller in main.ts).
  *
- * Navigation mirrors the frontmatter link model:
- *   back  — linear parent
- *   next  — linear child
- *   up    — first branch child
+ * Layout (top to bottom):
+ *   1. Title (h3) + rename pencil
+ *   2. Timer (if timeboxed)
+ *   3. Title input (primary interaction)
+ *   4. Direction row: counter + dropdown + Tab hint (secondary interaction)
+ *   5. Action row: Back (outer left) | nav (Up/Next) + Pause/Complete/Add Thought
  */
 
-import { Modal, Setting } from "obsidian";
+import { Modal, Setting, setIcon } from "obsidian";
 import type { App } from "obsidian";
 import type { ThoughtDirection } from "../../domain/train/types";
 
@@ -48,6 +50,10 @@ export interface TrainCaptureModalOptions {
 	isBranchEndpoint?: boolean;
 	/** Called when user selects "Merge down" direction. Creates thought + auto-merges to main chain. */
 	onMergeDown?: (title: string) => void;
+	/** Called when user renames the current thought via the pencil icon. */
+	onRenameThought?: (newTitle: string) => void;
+	/** Pre-select "Merge down" direction when opening from the detail view merge button. */
+	defaultMergeDown?: boolean;
 }
 
 type NavAction = "back" | "next" | "up";
@@ -67,12 +73,60 @@ export class TrainCaptureModal extends Modal {
 
 	onOpen(): void {
 		const { contentEl } = this;
-		// Title: show previous thought title (or train title for the first thought)
-		contentEl.createEl("h3", {
+
+		// ── Row 1: Title + rename pencil ──
+		const titleRow = contentEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
+
+		const titleEl = titleRow.createEl("h3", {
 			text: this.options.previousThoughtTitle ?? this.options.trainTitle,
 		});
 
-		// Timer display (only when timeboxed)
+		// Rename thought (pencil icon) — only when navigated to an existing thought
+		if (this.options.onRenameThought && this.options.previousThoughtTitle) {
+			const editBtn = titleRow.createEl("button", { cls: "clickable-icon" });
+			editBtn.setAttribute("aria-label", "Rename thought");
+			setIcon(editBtn, "pencil");
+			editBtn.addEventListener("click", () => {
+				titleEl.style.display = "none";
+				editBtn.style.display = "none";
+
+				const input = document.createElement("input");
+				input.type = "text";
+				input.className = "ft-train-rename-input";
+				input.value = titleEl.textContent ?? "";
+				input.style.width = "100%";
+				input.style.fontSize = "inherit";
+				titleRow.appendChild(input);
+				input.focus();
+				input.select();
+
+				const confirm = (): void => {
+					const newTitle = input.value.trim();
+					if (newTitle && newTitle !== this.options.previousThoughtTitle) {
+						this.options.onRenameThought!(newTitle);
+						titleEl.setText(newTitle);
+					}
+					input.remove();
+					titleEl.style.display = "";
+					editBtn.style.display = "";
+				};
+
+				const cancel = (): void => {
+					input.remove();
+					titleEl.style.display = "";
+					editBtn.style.display = "";
+				};
+
+				input.addEventListener("keydown", (e: KeyboardEvent) => {
+					if (e.key === "Enter") { e.preventDefault(); confirm(); }
+					if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); cancel(); }
+					if (e.key === "Tab") { e.stopPropagation(); } // Don't cycle direction while renaming
+				});
+				input.addEventListener("blur", confirm);
+			});
+		}
+
+		// ── Row 2: Timer display (only when timeboxed) ──
 		if (this.options.durationMinutes > 0 && this.options.subscribeTimerTick) {
 			const timerEl = contentEl.createDiv({ cls: "ft-train-timer" });
 			timerEl.setText(formatTimer(this.options.durationMinutes * 60_000));
@@ -90,11 +144,13 @@ export class TrainCaptureModal extends Modal {
 		}
 
 		let titleValue = "";
-		let selectedDirection: string = this.options.defaultDirection ?? "next";
+		const hasMergeDown = !!this.options.isBranchEndpoint && !!this.options.onMergeDown;
+		let selectedDirection: string = (this.options.defaultMergeDown && hasMergeDown)
+			? "merge-down"
+			: (this.options.defaultDirection ?? "next");
 		let dropdownEl: HTMLSelectElement | null = null;
 		const hasDirection = !!this.options.previousThoughtTitle;
-		const hasMergeDown = !!this.options.isBranchEndpoint && !!this.options.onMergeDown;
-		let mergeDownPending = false;
+		let mergeDownPending = selectedDirection === "merge-down";
 
 		// Build the list of available directions for Tab cycling
 		const directionOptions: string[] = ["next", "branch"];
@@ -137,7 +193,7 @@ export class TrainCaptureModal extends Modal {
 			}
 		});
 
-		// Title input
+		// ── Row 3: Title input (primary interaction) ──
 		new Setting(contentEl)
 			.setName("Thought")
 			.addText((text) => {
@@ -155,42 +211,19 @@ export class TrainCaptureModal extends Modal {
 				setTimeout(() => text.inputEl.focus(), 50);
 			});
 
-		// Navigation buttons — mirrors the thought's link directions
-		const hasNav = this.options.onBack || this.options.onNext || this.options.onUp;
-		if (hasNav) {
-			const nav = new Setting(contentEl);
-			if (this.options.onBack) {
-				nav.addButton((btn) =>
-					btn.setButtonText("\u25C4 Back").onClick(() => {
-						this.navAction = "back";
-						this.close();
-					})
-				);
-			}
-			if (this.options.onUp) {
-				nav.addButton((btn) =>
-					btn.setButtonText("\u2191 Up").onClick(() => {
-						this.navAction = "up";
-						this.close();
-					})
-				);
-			}
-			if (this.options.onNext) {
-				nav.addButton((btn) =>
-					btn.setButtonText("Next \u25BA").onClick(() => {
-						this.navAction = "next";
-						this.close();
-					})
-				);
-			}
-		}
-
-		// Action row: direction dropdown (left) + buttons (right) + thought count
-		const actionSetting = new Setting(contentEl);
-
-		// Direction dropdown in the left name area (hidden for first thought)
+		// ── Row 4: Direction row — counter (left) + Tab hint + dropdown (right) ──
 		if (hasDirection) {
-			actionSetting.addDropdown((dd) => {
+			const dirRow = new Setting(contentEl);
+
+			// Counter at the left end (in the name slot)
+			dirRow.setName(`#${this.options.thoughtCount + 1}`);
+
+			// Tab hint (before dropdown)
+			const hint = dirRow.controlEl.createSpan({ cls: "ft-text-sm ft-text-muted" });
+			hint.setText("Tab to cycle");
+			hint.style.marginRight = "0.5rem";
+
+			dirRow.addDropdown((dd) => {
 				dd.addOption("next", "Continue chain \u2192");
 				dd.addOption("branch", "Branch \u2197");
 				if (hasMergeDown) {
@@ -203,6 +236,40 @@ export class TrainCaptureModal extends Modal {
 				});
 				dropdownEl = dd.selectEl;
 			});
+		}
+
+		// ── Row 5: Action row — Back (outer left) | nav (Up/Next) + Pause/Complete/Add Thought ──
+		const actionSetting = new Setting(contentEl);
+		actionSetting.settingEl.style.width = "100%";
+
+		// Back button at the outermost left of the action row (same style as Next)
+		if (this.options.onBack) {
+			actionSetting.addButton((btn) => {
+				btn.setButtonText("\u25C4 Back").onClick(() => {
+					this.navAction = "back";
+					this.close();
+				});
+				btn.buttonEl.style.marginRight = "auto";
+				btn.buttonEl.classList.add("ft-train-back-btn");
+			});
+		}
+
+		// Navigation buttons (Up, Next)
+		if (this.options.onUp) {
+			actionSetting.addButton((btn) =>
+				btn.setButtonText("\u2191 Up").onClick(() => {
+					this.navAction = "up";
+					this.close();
+				})
+			);
+		}
+		if (this.options.onNext) {
+			actionSetting.addButton((btn) =>
+				btn.setButtonText("Next \u25BA").onClick(() => {
+					this.navAction = "next";
+					this.close();
+				})
+			);
 		}
 
 		actionSetting
@@ -222,17 +289,12 @@ export class TrainCaptureModal extends Modal {
 					.onClick(() => submit())
 			);
 
-		// Keyboard hint below action row (only when direction is available)
-		if (hasDirection) {
-			const hint = actionSetting.controlEl.createSpan({ cls: "ft-text-sm ft-text-muted" });
-			hint.style.marginLeft = "0.5rem";
-			hint.setText("Tab to cycle");
+		// Counter for first thought (no direction row)
+		if (!hasDirection) {
+			const countEl = actionSetting.controlEl.createSpan({ cls: "ft-text-sm ft-text-muted" });
+			countEl.style.marginLeft = "0.5rem";
+			countEl.setText(`#${this.options.thoughtCount + 1}`);
 		}
-
-		// Thought count
-		const countEl = actionSetting.controlEl.createSpan({ cls: "ft-text-sm ft-text-muted" });
-		countEl.style.marginLeft = "0.5rem";
-		countEl.setText(`#${this.options.thoughtCount + 1}`);
 	}
 
 	onClose(): void {

@@ -711,36 +711,38 @@ describe("TrainService", () => {
 		});
 	});
 
-	describe("addThought() — trainFolder override", () => {
-		it("passes trainFolder to CaptureService when configured", async () => {
+	describe("addThought() — per-train folder", () => {
+		it("creates thoughts inside per-train subfolder when trainFolder is configured", async () => {
 			const { service, fileSystem } = createTestHarness();
 			service.getSettings = () => ({ trainFolder: "trains/active", trainMaxThoughts: 100 });
 			const train = await service.startTrain("Folder Test");
 
 			await service.addThought(train.id, "Directed Thought");
 
+			// Path: trains/active/{YYYYMMDD-HHmm Folder Test}/{YYYYMMDD-HHmmss Directed Thought}.md
 			expect(fileSystem.createFile).toHaveBeenCalledWith(
-				expect.stringMatching(/^trains\/active\/\d{8}-\d{6} Directed Thought\.md$/),
+				expect.stringMatching(/^trains\/active\/\d{8}-\d{4} Folder Test\/\d{8}-\d{6} Directed Thought\.md$/),
 				expect.any(String),
 				expect.any(Object),
 			);
 		});
 
-		it("falls back to captureFolder when trainFolder is empty", async () => {
+		it("creates thoughts in timestamp-prefixed folder when trainFolder is empty", async () => {
 			const { service, fileSystem } = createTestHarness();
 			service.getSettings = () => ({ trainFolder: "", trainMaxThoughts: 100 });
 			const train = await service.startTrain("Default Folder");
 
 			await service.addThought(train.id, "Default Thought");
 
+			// Path: {YYYYMMDD-HHmm Default Folder}/{YYYYMMDD-HHmmss Default Thought}.md
 			expect(fileSystem.createFile).toHaveBeenCalledWith(
-				expect.stringMatching(/^00 - Connectivity\/inbox\/\d{8}-\d{6} Default Thought\.md$/),
+				expect.stringMatching(/^\d{8}-\d{4} Default Folder\/\d{8}-\d{6} Default Thought\.md$/),
 				expect.any(String),
 				expect.any(Object),
 			);
 		});
 
-		it("uses trainFolder for all thoughts in a train", async () => {
+		it("uses per-train folder for all thoughts in a train", async () => {
 			const { service, fileSystem } = createTestHarness();
 			service.getSettings = () => ({ trainFolder: "trains/folder", trainMaxThoughts: 100 });
 			const train = await service.startTrain("Multi Thought");
@@ -750,8 +752,9 @@ describe("TrainService", () => {
 
 			const createCalls = (fileSystem.createFile as ReturnType<typeof vi.fn>).mock.calls;
 			const thoughtPaths = createCalls.map((c: unknown[]) => c[0] as string);
-			expect(thoughtPaths.some((p: string) => /trains\/folder\/\d{8}-\d{6} First\.md$/.test(p))).toBe(true);
-			expect(thoughtPaths.some((p: string) => /trains\/folder\/\d{8}-\d{6} Second\.md$/.test(p))).toBe(true);
+			// Both thoughts should be in the same per-train subfolder
+			expect(thoughtPaths.some((p: string) => /trains\/folder\/\d{8}-\d{4} Multi Thought\/\d{8}-\d{6} First\.md$/.test(p))).toBe(true);
+			expect(thoughtPaths.some((p: string) => /trains\/folder\/\d{8}-\d{4} Multi Thought\/\d{8}-\d{6} Second\.md$/.test(p))).toBe(true);
 		});
 	});
 
@@ -940,6 +943,93 @@ describe("TrainService", () => {
 			await service.renameTrain(train.id, "  Trimmed  ");
 
 			expect(service.getTrain(train.id)!.title).toBe("Trimmed");
+		});
+	});
+
+	describe("renameThought()", () => {
+		it("renames a thought title and updates path", async () => {
+			const { service } = createTestHarness();
+			await service.load();
+			const train = await service.startTrain("My Train");
+			const thought = await service.addThought(train.id, "First Idea");
+
+			const result = await service.renameThought(train.id, thought!.id, "Better Idea");
+
+			expect(result).toBe(true);
+			const updated = service.getTrain(train.id)!.thoughts[0];
+			expect(updated.title).toBe("Better Idea");
+			// Path should contain new title with timestamp prefix preserved
+			expect(updated.path).toMatch(/\d{8}-\d{6} Better Idea\.md$/);
+		});
+
+		it("emits train.thought.renamed event with old/new paths", async () => {
+			const { service, eventBus } = createTestHarness();
+			await service.load();
+			const train = await service.startTrain("My Train");
+			const thought = await service.addThought(train.id, "Original");
+
+			const events: unknown[] = [];
+			eventBus.on("train.thought.renamed", (e) => { events.push(e.payload); });
+
+			await service.renameThought(train.id, thought!.id, "Renamed");
+
+			expect(events).toHaveLength(1);
+			const payload = events[0] as Record<string, unknown>;
+			expect(payload.oldTitle).toBe("Original");
+			expect(payload.newTitle).toBe("Renamed");
+			expect(payload.oldPath).toMatch(/Original/);
+			expect(payload.newPath).toMatch(/Renamed/);
+		});
+
+		it("rejects empty title", async () => {
+			const { service } = createTestHarness();
+			await service.load();
+			const train = await service.startTrain("My Train");
+			const thought = await service.addThought(train.id, "Keep");
+
+			expect(await service.renameThought(train.id, thought!.id, "")).toBe(false);
+			expect(await service.renameThought(train.id, thought!.id, "   ")).toBe(false);
+			expect(service.getTrain(train.id)!.thoughts[0].title).toBe("Keep");
+		});
+
+		it("rejects same title", async () => {
+			const { service } = createTestHarness();
+			await service.load();
+			const train = await service.startTrain("My Train");
+			const thought = await service.addThought(train.id, "Same");
+
+			expect(await service.renameThought(train.id, thought!.id, "Same")).toBe(false);
+		});
+
+		it("returns false for non-existent thought", async () => {
+			const { service } = createTestHarness();
+			await service.load();
+			const train = await service.startTrain("My Train");
+
+			expect(await service.renameThought(train.id, "thought_nope", "New")).toBe(false);
+		});
+
+		it("returns false for non-existent train", async () => {
+			const { service } = createTestHarness();
+			await service.load();
+
+			expect(await service.renameThought("train_nope", "thought_nope", "New")).toBe(false);
+		});
+
+		it("sanitizes special characters in new title for path", async () => {
+			const { service } = createTestHarness();
+			await service.load();
+			const train = await service.startTrain("My Train");
+			const thought = await service.addThought(train.id, "Original");
+
+			await service.renameThought(train.id, thought!.id, 'Has/Special:Chars*"here');
+
+			const updated = service.getTrain(train.id)!.thoughts[0];
+			expect(updated.title).toBe('Has/Special:Chars*"here');
+			// Filename (not full path) should have sanitized characters
+			const filename = updated.path.split("/").pop()!;
+			expect(filename).not.toMatch(/[/:*?"<>|]/);
+			expect(filename).toContain("Has-Special-Chars--here");
 		});
 	});
 

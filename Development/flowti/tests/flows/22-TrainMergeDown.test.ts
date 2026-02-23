@@ -100,8 +100,9 @@ describe("Flow 22: Train Merge Down", () => {
 				fromThoughtId: a!.id,
 			});
 
-			const target = trainService.findMergeDownTarget(train.id, d!.id);
-			expect(target).toBe(b!.id);
+			const result = trainService.findMergeDownTarget(train.id, d!.id);
+			expect(result).not.toBeNull();
+			expect(result!.targetId).toBe(b!.id);
 		});
 
 		it("deep branch: A→D→E, target for E is B (next after A)", async () => {
@@ -117,11 +118,12 @@ describe("Flow 22: Train Merge Down", () => {
 				fromThoughtId: d!.id,
 			});
 
-			const target = trainService.findMergeDownTarget(train.id, e!.id);
-			expect(target).toBe(b!.id);
+			const result = trainService.findMergeDownTarget(train.id, e!.id);
+			expect(result).not.toBeNull();
+			expect(result!.targetId).toBe(b!.id);
 		});
 
-		it("branch from head → null (no next after origin)", async () => {
+		it("branch from head → originId with null targetId", async () => {
 			const train = await trainService.startTrain("Head Branch");
 			await trainService.addThought(train.id, "A");
 			const b = await trainService.addThought(train.id, "B");
@@ -130,11 +132,13 @@ describe("Flow 22: Train Merge Down", () => {
 				fromThoughtId: b!.id,
 			});
 
-			const target = trainService.findMergeDownTarget(train.id, d!.id);
-			expect(target).toBeNull();
+			const result = trainService.findMergeDownTarget(train.id, d!.id);
+			expect(result).not.toBeNull();
+			expect(result!.targetId).toBeNull();
+			expect(result!.originId).toBe(b!.id);
 		});
 
-		it("sub-branch: A→D(branch)→F(branch), target for F is B", async () => {
+		it("sub-branch: A→D(branch)→F(branch), returns nearest branch origin D", async () => {
 			const train = await trainService.startTrain("Sub Branch");
 			const a = await trainService.addThought(train.id, "A");
 			const b = await trainService.addThought(train.id, "B");
@@ -147,8 +151,10 @@ describe("Flow 22: Train Merge Down", () => {
 				fromThoughtId: d!.id,
 			});
 
-			const target = trainService.findMergeDownTarget(train.id, f!.id);
-			expect(target).toBe(b!.id);
+			const result = trainService.findMergeDownTarget(train.id, f!.id);
+			expect(result).not.toBeNull();
+			expect(result!.targetId).toBeNull();
+			expect(result!.originId).toBe(d!.id);
 		});
 	});
 
@@ -267,8 +273,8 @@ describe("Flow 22: Train Merge Down", () => {
 			});
 
 			// Both should target B
-			expect(trainService.findMergeDownTarget(train.id, d!.id)).toBe(b!.id);
-			expect(trainService.findMergeDownTarget(train.id, e!.id)).toBe(b!.id);
+			expect(trainService.findMergeDownTarget(train.id, d!.id)?.targetId).toBe(b!.id);
+			expect(trainService.findMergeDownTarget(train.id, e!.id)?.targetId).toBe(b!.id);
 
 			// Merge both
 			await trainService.mergeBranch(train.id, d!.id, b!.id);
@@ -308,6 +314,35 @@ describe("Flow 22: Train Merge Down", () => {
 		});
 	});
 
+	// ── Already merged branches ─────────────────────────────
+
+	describe("already merged branch hides merge-down", () => {
+		it("findMergeDownTarget returns null after merge-down completes", async () => {
+			const train = await trainService.startTrain("Post-Merge");
+			const a = await trainService.addThought(train.id, "A");
+			const b = await trainService.addThought(train.id, "B");
+			const d = await trainService.addThought(train.id, "D", {
+				direction: "branch",
+				fromThoughtId: a!.id,
+			});
+
+			// Before merge — merge-down available
+			expect(trainService.findMergeDownTarget(train.id, d!.id)).not.toBeNull();
+
+			// Perform merge-down (Case 1: add on branch, merge into target)
+			const conclusion = await trainService.addThought(train.id, "Conclusion", {
+				direction: "next",
+				fromThoughtId: d!.id,
+			});
+			await trainService.mergeBranch(train.id, conclusion!.id, b!.id);
+
+			// After merge — merge-down no longer available from D
+			expect(trainService.findMergeDownTarget(train.id, d!.id)).toBeNull();
+			// Nor from the merged Conclusion node
+			expect(trainService.findMergeDownTarget(train.id, conclusion!.id)).toBeNull();
+		});
+	});
+
 	// ── findMergeDownTarget after main chain extends ─────────
 
 	describe("target changes as main chain grows", () => {
@@ -319,8 +354,11 @@ describe("Flow 22: Train Merge Down", () => {
 				fromThoughtId: a!.id,
 			});
 
-			// No "next" after A yet → target should be null
-			expect(trainService.findMergeDownTarget(train.id, d!.id)).toBeNull();
+			// No "next" after A yet → on branch but no target
+			const before = trainService.findMergeDownTarget(train.id, d!.id);
+			expect(before).not.toBeNull();
+			expect(before!.targetId).toBeNull();
+			expect(before!.originId).toBe(a!.id);
 
 			// Extend main chain: A → B
 			const b = await trainService.addThought(train.id, "B", {
@@ -329,7 +367,9 @@ describe("Flow 22: Train Merge Down", () => {
 			});
 
 			// Now target should be B
-			expect(trainService.findMergeDownTarget(train.id, d!.id)).toBe(b!.id);
+			const after = trainService.findMergeDownTarget(train.id, d!.id);
+			expect(after).not.toBeNull();
+			expect(after!.targetId).toBe(b!.id);
 		});
 	});
 });

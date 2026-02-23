@@ -533,6 +533,7 @@ const CATALOG_DATA = {
 	"train.resumed":        { category: "Train", description: "Train capture was resumed", direction: "Service → Listeners", domain: "train", services: "TrainService" },
 	"train.completed":      { category: "Train", description: "Train capture was completed", direction: "Service → Listeners", domain: "train", services: "TrainService" },
 	"train.thought.activated": { category: "Train", description: "A thought was navigated to in a view", direction: "View → Plugin", domain: "train", services: "TrainMainView" },
+	"train.thought.renamed":   { category: "Train", description: "A thought was renamed (title + vault note)", direction: "Service → Listeners", domain: "train", services: "TrainService" },
 	"train.branch.merged":     { category: "Train", description: "A branch was merged into a target thought", direction: "Service → Listeners", domain: "train", services: "TrainService" },
 	"train.branch.merge.undone": { category: "Train", description: "A branch merge was undone", direction: "Service → Listeners", domain: "train", services: "TrainService" },
 	"train.canvas.created":    { category: "Train", description: "A train canvas was created for the first time", direction: "Service → Listeners", domain: "train", services: "TrainCanvasSyncService" },

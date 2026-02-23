@@ -55,6 +55,12 @@ export class TrainService {
 		const persisted = await this.storage.safeLoad();
 		if (persisted) {
 			this.state = persisted;
+			// Backward compat: compute folderPath for trains created before per-train folders
+			for (const train of this.state.trains) {
+				if (!train.folderPath) {
+					train.folderPath = this.computeFolderPath(train.title, train.createdAt);
+				}
+			}
 		}
 		this.setupListeners();
 	}
@@ -133,6 +139,7 @@ export class TrainService {
 		// Create session via event (avoids direct SessionService dependency)
 		const sessionId = await this.createSessionViaEvent(title, durationMinutes);
 
+		const createdAt = new Date().toISOString();
 		const train: TrainState = {
 			id: `train_${generateUUID()}`,
 			sessionId,
@@ -141,10 +148,11 @@ export class TrainService {
 			thoughts: [],
 			relations: [],
 			durationMinutes,
-			createdAt: new Date().toISOString(),
+			createdAt,
 			pausedAt: null,
 			completedAt: null,
 			parentTrainId,
+			folderPath: this.computeFolderPath(title, createdAt),
 		};
 
 		// Evict oldest if at capacity
@@ -182,16 +190,16 @@ export class TrainService {
 			// Use existing file path (e.g., "Start new Train from this file")
 			thoughtPath = options.path;
 		} else {
-			// Create note via CaptureService — use trainFolder when configured
+			// Create note via CaptureService in the train's own subfolder
 			// Prefix with compact ISO timestamp to avoid naming collisions
 			const now = new Date();
 			const ts = now.toISOString().replace(/[-:]/g, "").replace("T", "-").slice(0, 15); // YYYYMMDD-HHmmss
 			const fileTitle = `${ts} ${title}`;
-			const { trainFolder } = this.getSettings();
+			const folder = train.folderPath ?? "";
 			const result = await this.captureService.capture({
 				title: fileTitle,
 				type: "thought",
-				...(trainFolder ? { folder: trainFolder } : {}),
+				...(folder ? { folder } : {}),
 			});
 			thoughtPath = result.path;
 		}
@@ -311,7 +319,9 @@ export class TrainService {
 	}
 
 	/**
-	 * Rename a train. Updates state only — does not rename canvas/summary files.
+	 * Rename a train. Updates state + folder path + thought paths.
+	 * Emits oldFolder/newFolder so the caller (main.ts) can rename
+	 * the vault folder via Obsidian API.
 	 */
 	async renameTrain(trainId: string, newTitle: string): Promise<boolean> {
 		const trimmed = newTitle.trim();
@@ -322,10 +332,72 @@ export class TrainService {
 		if (train.title === trimmed) return false;
 
 		const oldTitle = train.title;
+		const oldFolder = train.folderPath ?? "";
+
 		train.title = trimmed;
+		const newFolder = this.computeFolderPath(trimmed, train.createdAt);
+		train.folderPath = newFolder;
+
+		// Update thought paths to reflect new folder
+		if (oldFolder && newFolder !== oldFolder) {
+			for (const thought of train.thoughts) {
+				if (thought.path.startsWith(oldFolder + "/")) {
+					thought.path = newFolder + thought.path.slice(oldFolder.length);
+				}
+			}
+		}
+
 		await this.persist();
 
-		void this.eventBus.emit("train.renamed", { trainId, oldTitle, newTitle: trimmed });
+		void this.eventBus.emit("train.renamed", { trainId, oldTitle, newTitle: trimmed, oldFolder, newFolder });
+		return true;
+	}
+
+	/**
+	 * Rename a thought. Updates title + computes new vault note path.
+	 * Emits train.thought.renamed so the caller (main.ts) can rename
+	 * the vault file via Obsidian API.
+	 */
+	async renameThought(trainId: string, thoughtId: string, newTitle: string): Promise<boolean> {
+		const trimmed = newTitle.trim();
+		if (!trimmed) return false;
+
+		const train = this.findTrain(trainId);
+		if (!train) return false;
+
+		const thought = train.thoughts.find((t) => t.id === thoughtId);
+		if (!thought) return false;
+		if (thought.title === trimmed) return false;
+
+		const oldTitle = thought.title;
+		const oldPath = thought.path;
+
+		// Update title
+		thought.title = trimmed;
+
+		// Compute new path: keep timestamp prefix, change title portion
+		// Filename format: "YYYYMMDD-HHmmss OldTitle.md"
+		const dir = oldPath.substring(0, oldPath.lastIndexOf("/"));
+		const filename = oldPath.split("/").pop() ?? oldPath;
+		const baseName = filename.replace(/\.md$/, "");
+		const spaceIdx = baseName.indexOf(" ");
+		const prefix = spaceIdx >= 0 ? baseName.substring(0, spaceIdx) : "";
+		const safeTitle = trimmed.replace(/[\\/:*?"<>|]/g, "-");
+		const newFileName = prefix ? `${prefix} ${safeTitle}.md` : `${safeTitle}.md`;
+		const newPath = dir ? `${dir}/${newFileName}` : newFileName;
+
+		thought.path = newPath;
+		await this.persist();
+
+		void this.eventBus.emit("train.thought.renamed", {
+			trainId,
+			thoughtId,
+			oldTitle,
+			newTitle: trimmed,
+			oldPath,
+			newPath,
+		});
+
 		return true;
 	}
 
@@ -427,19 +499,21 @@ export class TrainService {
 	// ── Merge ───────────────────────────────────────────────────
 
 	/**
-	 * Find the default merge-down target for a branch endpoint.
+	 * Find the merge-down info for a branch thought.
 	 *
 	 * Algorithm:
 	 * 1. Reject if source is on the main chain (only branch nodes can merge down).
 	 * 2. Walk backward through parent relations. At each "branch" edge, the
 	 *    parent is a branch origin — check if it has a "next" child.
 	 * 3. If yes, that "next" child is the merge-down target (merge to parent chain).
-	 * 4. If no, continue walking backward to find a higher-level branch origin.
-	 * 5. This recurses all the way to the main chain if needed.
+	 * 4. If no, return the branch origin as the merge point (new thought will be
+	 *    created as "next" from the origin).
 	 *
-	 * @returns The targetId suitable for `mergeBranch(trainId, sourceId, targetId)`, or null.
+	 * @returns `{ targetId, originId }` where targetId is the existing merge target
+	 *          (or null if origin has no next), and originId is the branch origin.
+	 *          Returns null if source is not on a branch.
 	 */
-	findMergeDownTarget(trainId: string, sourceId: string): string | null {
+	findMergeDownTarget(trainId: string, sourceId: string): { targetId: string | null; originId: string } | null {
 		const train = this.findTrain(trainId);
 		if (!train) return null;
 
@@ -462,6 +536,21 @@ export class TrainService {
 			}
 		}
 
+		// Check if branch is already merged: walk forward from source through "next"
+		// edges — if any node is already the source of a merge relation, branch is merged
+		const mergedSources = new Set<string>();
+		for (const r of train.relations) {
+			if (r.direction === "merge") mergedSources.add(r.fromId);
+		}
+		let fwd = sourceId;
+		const fwdVisited = new Set<string>();
+		while (fwd) {
+			if (fwdVisited.has(fwd)) break;
+			fwdVisited.add(fwd);
+			if (mergedSources.has(fwd)) return null; // Already merged
+			fwd = nextMap.get(fwd) ?? "";
+		}
+
 		let current = sourceId;
 		const visited = new Set<string>();
 		while (current) {
@@ -474,8 +563,7 @@ export class TrainService {
 			if (parent.direction === "branch") {
 				// Found a branch point — check if origin has a "next" child
 				const nextId = nextMap.get(parent.parentId);
-				if (nextId) return nextId;
-				// No "next" after this origin — continue walking to find a higher-level origin
+				return { targetId: nextId ?? null, originId: parent.parentId };
 			}
 
 			current = parent.parentId;
@@ -572,6 +660,17 @@ export class TrainService {
 	}
 
 	/**
+	 * Compute a per-train subfolder path from the train title and creation timestamp.
+	 * Format: `{trainFolder}/{YYYYMMDD-HHmm} {safeTitle}`
+	 */
+	private computeFolderPath(title: string, createdAt: string): string {
+		const ts = createdAt.replace(/[-:]/g, "").replace("T", "-").slice(0, 13); // YYYYMMDD-HHmm
+		const safeTitle = title.replace(/[\\/:*?"<>|]/g, "-");
+		const { trainFolder } = this.getSettings();
+		return trainFolder ? `${trainFolder}/${ts} ${safeTitle}` : `${ts} ${safeTitle}`;
+	}
+
+	/**
 	 * Check if targetId is reachable from sourceId via forward edges (next/branch).
 	 * Merge edges are NOT followed — they represent convergence, not forward flow.
 	 */
@@ -650,8 +749,7 @@ export class TrainService {
 		if (train.thoughts.length === 0) return;
 
 		const markdown = generateTrainSummary(train);
-		const { trainFolder } = this.getSettings();
-		const folder = trainFolder || "";
+		const folder = train.folderPath ?? "";
 		const fileName = `${train.title} — Summary`;
 		const summaryPath = folder ? `${folder}/${fileName}.md` : `${fileName}.md`;
 
