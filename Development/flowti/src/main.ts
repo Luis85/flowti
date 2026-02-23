@@ -774,6 +774,14 @@ export default class FlowtiBasePlugin extends Plugin {
 		});
 		this.analyticsService.setQueryFolder(`${settingsService.getSettings().docsRootPath}/Queries`);
 
+		// Wire .base file analytics adapter (delegates to ExportService)
+		const { BaseAnalyticsAdapter } = await import("./domain/analytics/BaseAnalyticsAdapter");
+		const exportSvc = this.dataExchangeService!.getExportService();
+		this.analyticsService.setBaseAdapter(new BaseAnalyticsAdapter({
+			scanColumns: (path, viewIndex) => exportSvc.scanResolvedColumns(path, viewIndex),
+			resolveFiles: (path, sourceType, viewIndex) => exportSvc.resolveExportFiles(path, sourceType, viewIndex),
+		}));
+
 		// Train Main View — register view factory + auto-open on train start
 		this.registerView(VIEW_TYPE_TRAIN_MAIN, (leaf) =>
 			new TrainMainView(leaf, this.eventBus, this.trainService!, () => ({

@@ -160,12 +160,17 @@ export interface AnalyticsResult {
 // ── Saved query ─────────────────────────────────────────
 
 /**
- * Serializable query config for persistence (no parsed data — uses CSV paths).
- * The AnalyticsService resolves paths to parsed data at execution time.
+ * Serializable query source for persistence (no parsed data — resolved at runtime).
+ * Supports CSV files and .base vault views.
  */
 export interface SavedAnalyticsQuerySource {
 	alias: string;
+	/** Path to the source file (.csv or .base) */
 	csvPath: string;
+	/** Source type: "csv" (default) or "base" */
+	sourceType?: AnalyticsSourceType;
+	/** For .base sources: which view to use (0-indexed) */
+	viewIndex?: number;
 	locale?: LocaleId;
 }
 

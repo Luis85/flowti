@@ -13,7 +13,7 @@ import { BaseHubView, type TabDef } from "./BaseHubView";
 import { QueriesTab } from "./analytics/QueriesTab";
 import { DashboardsTab } from "./analytics/DashboardsTab";
 import { AnalyticsDashboardPage } from "./analytics/AnalyticsDashboardPage";
-import type { AnalyticsHubPage, AnalyticsHubState, AnalyticsCsvEntry, AnalyticsHubDeps, AnalyticsNavigationCallbacks } from "./analytics/types";
+import type { AnalyticsHubPage, AnalyticsHubState, AnalyticsCsvEntry, AnalyticsBaseEntry, AnalyticsHubDeps, AnalyticsNavigationCallbacks } from "./analytics/types";
 export { VIEW_TYPE_ANALYTICS_HUB };
 
 export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
@@ -23,6 +23,7 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 	private queries: AnalyticsHubState["queries"] = [];
 	private dashboards: AnalyticsHubState["dashboards"] = [];
 	private csvFiles: AnalyticsCsvEntry[] = [];
+	private baseFiles: AnalyticsBaseEntry[] = [];
 	private selectedQueryId: string | null = null;
 	private selectedDashboardId: string | null = null;
 
@@ -168,6 +169,7 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 			queries: this.queries,
 			dashboards: this.dashboards,
 			csvFiles: this.csvFiles,
+			baseFiles: this.baseFiles,
 			filterText: this.filterText,
 			selectedQueryId: this.selectedQueryId,
 			selectedDashboardId: this.selectedDashboardId,
@@ -187,6 +189,7 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 		this.queries = this.analyticsService.listQueries();
 		this.dashboards = this.analyticsService.listDashboards();
 		this.scanCsvFiles();
+		this.scanBaseFiles();
 	}
 
 	private scanCsvFiles(): void {
@@ -213,5 +216,31 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 		}
 
 		this.csvFiles.sort((a, b) => a.displayName.localeCompare(b.displayName));
+	}
+
+	private scanBaseFiles(): void {
+		this.baseFiles = [];
+		const nameCount = new Map<string, number>();
+		const entries: Array<{ path: string; name: string }> = [];
+
+		for (const file of this.app.vault.getFiles()) {
+			if (!file.path.toLowerCase().endsWith(".base")) continue;
+			entries.push({ path: file.path, name: file.name });
+			nameCount.set(file.name, (nameCount.get(file.name) ?? 0) + 1);
+		}
+
+		for (const entry of entries) {
+			let displayName = entry.name;
+			if ((nameCount.get(entry.name) ?? 0) > 1) {
+				const lastSlash = entry.path.lastIndexOf("/");
+				const parentFolder = lastSlash > 0
+					? entry.path.substring(0, lastSlash).split("/").pop() ?? ""
+					: "";
+				displayName = parentFolder ? `${entry.name} (${parentFolder})` : entry.name;
+			}
+			this.baseFiles.push({ path: entry.path, displayName });
+		}
+
+		this.baseFiles.sort((a, b) => a.displayName.localeCompare(b.displayName));
 	}
 }

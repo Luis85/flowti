@@ -22,6 +22,7 @@ import type {
 	AggregationFunction,
 	AnalyticsQuery,
 	AnalyticsSource,
+	AnalyticsSourceType,
 	AnalyticsResult,
 	ParsedSourceData,
 	SavedAnalyticsQuerySource,
@@ -33,6 +34,8 @@ interface QuerySource {
 	csvPath: string;
 	alias: string;
 	locale: LocaleId;
+	sourceType: AnalyticsSourceType;
+	viewIndex?: number;
 	data: ParsedSourceData | null;
 	loading: boolean;
 }
@@ -155,6 +158,8 @@ export class QueriesTab {
 		}
 
 		// Available CSVs
+		const addedPaths = new Set(this.sources.map((s) => s.csvPath));
+
 		let csvFiles = state.csvFiles;
 		if (state.filterText) {
 			csvFiles = csvFiles.filter((f) =>
@@ -162,38 +167,67 @@ export class QueriesTab {
 				f.path.toLowerCase().includes(state.filterText),
 			);
 		}
-		const addedPaths = new Set(this.sources.map((s) => s.csvPath));
-		const available = csvFiles.filter((f) => !addedPaths.has(f.path));
+		const availableCsv = csvFiles.filter((f) => !addedPaths.has(f.path));
 
 		const csvHeader = this.masterEl.createDiv({ cls: "ft-master-category-header" });
-		csvHeader.createSpan({ text: "Available CSVs" });
-		csvHeader.createSpan({ text: `${available.length}`, cls: "ft-master-category-count" });
+		csvHeader.createSpan({ text: "CSV Sources" });
+		csvHeader.createSpan({ text: `${availableCsv.length}`, cls: "ft-master-category-count" });
 
-		if (available.length === 0) {
+		if (availableCsv.length === 0) {
 			const empty = this.masterEl.createDiv({ cls: "ft-text-muted ft-p-3 ft-text-center ft-text-sm" });
 			empty.textContent = state.filterText
 				? "No matching CSVs"
 				: this.sources.length > 0 ? "All CSVs added" : "No CSV files in vault";
-			return;
+		} else {
+			for (const csv of availableCsv) {
+				this.renderSourceItem(csv.displayName, csv.path, () => {
+					this.addSource(csv.path, csv.displayName.replace(/\.csv$/i, ""));
+				});
+			}
 		}
 
-		for (const csv of available) {
-			const item = this.masterEl.createDiv({ cls: "ft-master-event-item" });
-			item.style.alignItems = "flex-start";
-
-			const textBlock = item.createDiv({ cls: "ft-master-event-name" });
-			textBlock.style.minWidth = "0";
-			textBlock.createDiv({ text: csv.displayName });
-			const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-sm" });
-			sub.style.whiteSpace = "nowrap";
-			sub.style.overflow = "hidden";
-			sub.style.textOverflow = "ellipsis";
-			sub.textContent = csv.path;
-
-			item.addEventListener("click", () => {
-				this.addSource(csv.path, csv.displayName.replace(/\.csv$/i, ""));
-			});
+		// Available .base files
+		let baseFiles = state.baseFiles;
+		if (state.filterText) {
+			baseFiles = baseFiles.filter((f) =>
+				f.displayName.toLowerCase().includes(state.filterText) ||
+				f.path.toLowerCase().includes(state.filterText),
+			);
 		}
+		const availableBase = baseFiles.filter((f) => !addedPaths.has(f.path));
+
+		const baseHeader = this.masterEl.createDiv({ cls: "ft-master-category-header" });
+		baseHeader.createSpan({ text: "Base Views" });
+		baseHeader.createSpan({ text: `${availableBase.length}`, cls: "ft-master-category-count" });
+
+		if (availableBase.length === 0) {
+			const empty = this.masterEl.createDiv({ cls: "ft-text-muted ft-p-3 ft-text-center ft-text-sm" });
+			empty.textContent = state.filterText
+				? "No matching .base files"
+				: "No .base files in vault";
+		} else {
+			for (const base of availableBase) {
+				this.renderSourceItem(base.displayName, base.path, () => {
+					this.addSource(base.path, base.displayName.replace(/\.base$/i, ""), "base", 0);
+				});
+			}
+		}
+	}
+
+	private renderSourceItem(displayName: string, path: string, onClick: () => void): void {
+		const item = this.masterEl.createDiv({ cls: "ft-master-event-item" });
+		item.style.alignItems = "flex-start";
+
+		const textBlock = item.createDiv({ cls: "ft-master-event-name" });
+		textBlock.style.minWidth = "0";
+		textBlock.createDiv({ text: displayName });
+		const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-sm" });
+		sub.style.whiteSpace = "nowrap";
+		sub.style.overflow = "hidden";
+		sub.style.textOverflow = "ellipsis";
+		sub.textContent = path;
+
+		item.addEventListener("click", onClick);
 	}
 
 	// ─────────────────────────────────────────────────────────
@@ -281,7 +315,7 @@ export class QueriesTab {
 	// Source management
 	// ─────────────────────────────────────────────────────────
 
-	private addSource(csvPath: string, defaultAlias: string): void {
+	private addSource(csvPath: string, defaultAlias: string, sourceType: AnalyticsSourceType = "csv", viewIndex?: number): void {
 		let alias = defaultAlias;
 		const existing = new Set(this.sources.map((s) => s.alias));
 		let counter = 2;
@@ -289,7 +323,7 @@ export class QueriesTab {
 			alias = `${defaultAlias}_${counter++}`;
 		}
 
-		const source: QuerySource = { csvPath, alias, locale: "auto", data: null, loading: true };
+		const source: QuerySource = { csvPath, alias, locale: "auto", sourceType, viewIndex, data: null, loading: true };
 		this.sources.push(source);
 		this.renderMaster();
 		this.renderDetail();
@@ -306,11 +340,22 @@ export class QueriesTab {
 	private async loadSourceData(source: QuerySource): Promise<void> {
 		const svc = this.deps.analyticsService;
 
-		const parsed = await svc.loadCsv(source.csvPath);
-		source.loading = false;
-		if (parsed) {
-			source.data = { headers: parsed.headers, rows: parsed.rows };
-			this.autoDetectTypeHints(source);
+		try {
+			let data: ParsedSourceData | null = null;
+			if (source.sourceType === "base") {
+				data = await svc.loadBase(source.csvPath, source.viewIndex ?? 0);
+			} else {
+				const parsed = await svc.loadCsv(source.csvPath);
+				if (parsed) data = { headers: parsed.headers, rows: parsed.rows };
+			}
+
+			source.loading = false;
+			if (data) {
+				source.data = data;
+				this.autoDetectTypeHints(source);
+			}
+		} catch {
+			source.loading = false;
 		}
 		this.renderMaster();
 		this.renderDetail();
@@ -761,6 +806,8 @@ export class QueriesTab {
 		const sources: SavedAnalyticsQuerySource[] = this.sources.map((s) => ({
 			alias: s.alias,
 			csvPath: s.csvPath,
+			sourceType: s.sourceType !== "csv" ? s.sourceType : undefined,
+			viewIndex: s.viewIndex,
 			locale: s.locale !== "auto" ? s.locale : undefined,
 		}));
 
@@ -797,6 +844,8 @@ export class QueriesTab {
 				csvPath: src.csvPath,
 				alias: src.alias,
 				locale: src.locale ?? "auto",
+				sourceType: src.sourceType ?? "csv",
+				viewIndex: src.viewIndex,
 				data: null,
 				loading: true,
 			};

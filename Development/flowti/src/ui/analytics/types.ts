@@ -14,10 +14,15 @@ import type { Dashboard, SavedAnalyticsQuery } from "../../domain/analytics/type
 export type AnalyticsHubPage = "dashboards" | "queries";
 
 // ─────────────────────────────────────────────────────────────
-// CSV file entry (lightweight, for source picker)
+// Source file entries (lightweight, for source picker)
 // ─────────────────────────────────────────────────────────────
 
 export interface AnalyticsCsvEntry {
+	path: string;
+	displayName: string;
+}
+
+export interface AnalyticsBaseEntry {
 	path: string;
 	displayName: string;
 }
@@ -31,6 +36,7 @@ export interface AnalyticsHubState {
 	queries: SavedAnalyticsQuery[];
 	dashboards: Dashboard[];
 	csvFiles: AnalyticsCsvEntry[];
+	baseFiles: AnalyticsBaseEntry[];
 	filterText: string;
 	selectedQueryId: string | null;
 	selectedDashboardId: string | null;

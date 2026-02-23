@@ -17,10 +17,12 @@ import type {
 	Dashboard,
 	DashboardTile,
 	TileDisplayMode,
+	ParsedSourceData,
 	SavedAnalyticsQuery,
 	SavedAnalyticsQuerySource,
 } from "./types";
 import { AnalyticsEngine } from "./AnalyticsEngine";
+import type { BaseAnalyticsAdapter } from "./BaseAnalyticsAdapter";
 
 /** Callback to read a CSV file's content from the vault. */
 export type ReadCsvCallback = (csvPath: string) => Promise<ParsedCsv | null>;
@@ -46,6 +48,7 @@ export class AnalyticsService {
 	private state: AnalyticsState = createDefaultState();
 	private eventBus?: IEventBus;
 	private readCsv?: ReadCsvCallback;
+	private baseAdapter?: BaseAnalyticsAdapter;
 	private fileSystem?: IFileSystemClient;
 	private queryFolder?: string;
 
@@ -79,10 +82,21 @@ export class AnalyticsService {
 		this.queryFolder = folder;
 	}
 
+	/** Set the base analytics adapter (wired during setup). */
+	setBaseAdapter(adapter: BaseAnalyticsAdapter): void {
+		this.baseAdapter = adapter;
+	}
+
 	/** Read and parse a CSV file from vault. Returns null if reader not configured or file not found. */
 	async loadCsv(csvPath: string): Promise<ParsedCsv | null> {
 		if (!this.readCsv) return null;
 		return this.readCsv(csvPath);
+	}
+
+	/** Resolve a .base file view into ParsedSourceData. Returns null if adapter not configured. */
+	async loadBase(basePath: string, viewIndex: number): Promise<ParsedSourceData | null> {
+		if (!this.baseAdapter) return null;
+		return this.baseAdapter.resolve(basePath, viewIndex);
 	}
 
 	// ── Query execution ──────────────────────────────────
@@ -126,21 +140,19 @@ export class AnalyticsService {
 
 	/**
 	 * Execute a saved query by ID.
-	 * Loads CSVs from vault, builds AnalyticsQuery, and runs the engine.
+	 * Loads sources from vault (CSV or .base), builds AnalyticsQuery, and runs the engine.
 	 */
 	async runSavedQuery(queryId: string): Promise<AnalyticsResult> {
 		const saved = this.getQuery(queryId);
 		if (!saved) throw new Error(`Saved query not found: ${queryId}`);
-		if (!this.readCsv) throw new Error("CSV reader not configured");
 
-		// Load CSV sources
+		// Load sources (CSV or .base)
 		const sources: AnalyticsSource[] = [];
 		for (const src of saved.sources) {
-			const parsed = await this.readCsv(src.csvPath);
-			if (!parsed) throw new Error(`CSV not found: ${src.csvPath}`);
+			const data = await this.resolveSource(src);
 			sources.push({
 				alias: src.alias,
-				data: { headers: parsed.headers, rows: parsed.rows },
+				data,
 				locale: src.locale,
 			});
 		}
@@ -365,6 +377,22 @@ export class AnalyticsService {
 		await this.eventBus?.emit("analytics.dashboard.tile.updated", { dashboardId, tile });
 
 		return tile;
+	}
+
+	// ── Source resolution ────────────────────────────────
+
+	/** Resolve a saved query source to ParsedSourceData, regardless of type. */
+	private async resolveSource(src: SavedAnalyticsQuerySource): Promise<ParsedSourceData> {
+		if (src.sourceType === "base") {
+			if (!this.baseAdapter) throw new Error("Base adapter not configured");
+			return this.baseAdapter.resolve(src.csvPath, src.viewIndex ?? 0);
+		}
+
+		// Default: CSV
+		if (!this.readCsv) throw new Error("CSV reader not configured");
+		const parsed = await this.readCsv(src.csvPath);
+		if (!parsed) throw new Error(`CSV not found: ${src.csvPath}`);
+		return { headers: parsed.headers, rows: parsed.rows };
 	}
 
 	// ── File persistence ────────────────────────────────
