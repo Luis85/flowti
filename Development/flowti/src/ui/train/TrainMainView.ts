@@ -26,7 +26,6 @@ import { setupTrainViewSubscriptions } from "./TrainMainViewSubscriptions";
 import { TrainStatsPanel } from "./TrainStatsPanel";
 import { TrainBreadcrumbPanel } from "./TrainBreadcrumbPanel";
 import { TrainHistoryPanel } from "./TrainHistoryPanel";
-import { TrainPropertyEditor } from "./TrainPropertyEditor";
 import { getCanvasPath } from "../../domain/train/helpers";
 import { InputModal, ConfirmModal } from "../modals";
 
@@ -65,7 +64,6 @@ export class TrainMainView extends ItemView {
 	private activeThoughtId: string | null = null;
 	private renderTimer: ReturnType<typeof setTimeout> | null = null;
 	private statsPanel!: TrainStatsPanel;
-	private propertyEditor: TrainPropertyEditor | null = null;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -143,6 +141,7 @@ export class TrainMainView extends ItemView {
 	}
 
 	async onClose(): Promise<void> {
+		this.statsPanel?.destroy();
 		if (this.renderTimer !== null) {
 			clearTimeout(this.renderTimer);
 			this.renderTimer = null;
@@ -164,6 +163,7 @@ export class TrainMainView extends ItemView {
 	// ── Render ───────────────────────────────────────────────
 
 	render(): void {
+		this.statsPanel?.destroy();
 		const el = this.contentEl;
 		el.empty();
 
@@ -196,18 +196,31 @@ export class TrainMainView extends ItemView {
 			this.renderParentLink(el, train.parentTrainId);
 		}
 
-		// 3. Nav bar + inline controls (combined row — most actionable element)
+		// 3. Completed train: show completion callout + stats summary
+		if (train.status === "completed") {
+			this.renderCompletionCallout(el, train);
+
+			const statsEl = el.createDiv({ cls: "ft-section ft-train-stats-section" });
+			this.statsPanel = new TrainStatsPanel(statsEl, panelDeps);
+			this.statsPanel.render(train);
+			return;
+		}
+
+		// 4. Nav bar + inline controls (combined row — most actionable element)
 		this.renderNavBar(el, allThoughts, activeThought, train);
 
-		// 4. Stats panel
+		// 5. Stats panel (with active thought position indicator)
 		const statsEl = el.createDiv({ cls: "ft-section ft-train-stats-section" });
 		this.statsPanel = new TrainStatsPanel(statsEl, panelDeps);
-		this.statsPanel.render(train);
+		const activeIdx = activeThought ? allThoughts.findIndex((t) => t.id === activeThought.id) : -1;
+		const activePosition = activeIdx >= 0
+			? { index: activeIdx, total: allThoughts.length }
+			: undefined;
+		this.statsPanel.render(train, activePosition);
 
-		// 5–9. Active thought sections
+		// 6–10. Active thought sections
 		if (activeThought) {
 			this.renderThoughtDetail(el, activeThought, train);
-			this.renderPropertyEditor(el, activeThought);
 			this.renderCanvasCallout(el, train);
 			this.renderContentPreview(el, activeThought);
 			this.renderBranchLinks(el, activeThought, train);
@@ -216,7 +229,7 @@ export class TrainMainView extends ItemView {
 			this.renderCanvasCallout(el, train);
 		}
 
-		// 10. Breadcrumb (last — grows fast during a session)
+		// 11. Breadcrumb (last — grows fast during a session)
 		const breadcrumbEl = el.createDiv({ cls: "ft-section ft-train-breadcrumb-section" });
 		const breadcrumb = new TrainBreadcrumbPanel(breadcrumbEl, panelDeps);
 		breadcrumb.render(train, activeThought);
@@ -268,6 +281,79 @@ export class TrainMainView extends ItemView {
 		panel.render();
 	}
 
+	private renderCompletionCallout(el: HTMLElement, train: TrainState): void {
+		const section = el.createDiv({ cls: "ft-section ft-train-completion-callout" });
+
+		// Icon + heading row
+		const headingRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		const iconEl = headingRow.createSpan({ cls: "ft-icon-muted" });
+		setIcon(iconEl, "check-circle");
+		headingRow.createEl("h3", { cls: "ft-heading-sm", text: "Ride complete" });
+
+		// Summary line
+		let branchCount = 0;
+		for (const thought of train.thoughts) {
+			branchCount += this.trainService.getBranches(train.id, thought.id).length;
+		}
+		const elapsed = this.computeElapsedLabel(train);
+		const parts = [`${train.thoughts.length} thought${train.thoughts.length !== 1 ? "s" : ""}`];
+		if (branchCount > 0) parts.push(`${branchCount} branch${branchCount !== 1 ? "es" : ""}`);
+		if (elapsed) parts.push(elapsed);
+		section.createDiv({ cls: "ft-text-sm ft-text-muted", text: parts.join(" · ") });
+
+		// Artifact links
+		const linksRow = section.createDiv({ cls: "ft-flex ft-flex-col ft-gap-1 ft-mt-2" });
+
+		// Summary note link
+		const summaryPath = this.getSummaryPath(train);
+		if (summaryPath && this.app?.vault?.getAbstractFileByPath(summaryPath)) {
+			const summaryRow = linksRow.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+			const summaryIcon = summaryRow.createSpan({ cls: "ft-icon-muted" });
+			setIcon(summaryIcon, "file-text");
+			const summaryLink = summaryRow.createEl("a", { cls: "ft-text-sm", text: `${train.title} — Summary` });
+			summaryLink.addEventListener("click", (e) => {
+				e.preventDefault();
+				if (this.app?.workspace) {
+					void this.app.workspace.openLinkText(summaryPath, "", false);
+				}
+			});
+		}
+
+		// Canvas link
+		const canvasPath = this.getCanvasPathForTrain(train);
+		if (canvasPath && this.app?.vault?.getAbstractFileByPath(canvasPath)) {
+			const canvasRow = linksRow.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+			const canvasIcon = canvasRow.createSpan({ cls: "ft-icon-muted" });
+			setIcon(canvasIcon, "layout-dashboard");
+			const canvasLink = canvasRow.createEl("a", { cls: "ft-text-sm", text: `${train.title}.canvas` });
+			canvasLink.addEventListener("click", (e) => {
+				e.preventDefault();
+				if (this.app?.workspace) {
+					void this.app.workspace.openLinkText(canvasPath, "", false);
+				}
+			});
+		}
+
+		// CTA
+		const ctaRow = section.createDiv({ cls: "ft-mt-3" });
+		const cta = ctaRow.createEl("button", { cls: "ft-btn ft-btn-primary" });
+		cta.setText("Start a new ride");
+		cta.addEventListener("click", () => {
+			void this.eventBus.emit("ui.startTrain", {});
+		});
+	}
+
+	private computeElapsedLabel(train: TrainState): string {
+		if (!train.createdAt) return "";
+		const start = new Date(train.createdAt).getTime();
+		const end = train.completedAt
+			? new Date(train.completedAt).getTime()
+			: Date.now();
+		const mins = Math.floor(Math.max(0, end - start) / 60_000);
+		if (mins < 1) return "< 1 min";
+		return `${mins} min`;
+	}
+
 	private renderHeader(el: HTMLElement, train: TrainState): void {
 		const header = el.createDiv({ cls: "ft-section" });
 
@@ -286,6 +372,22 @@ export class TrainMainView extends ItemView {
 			e.stopPropagation();
 			this.showRenameInput(train);
 		});
+
+		// Summary note link (file-text icon) — only when summary exists
+		const summaryPath = this.getSummaryPath(train);
+		if (summaryPath && this.app?.vault?.getAbstractFileByPath(summaryPath)) {
+			const summaryBtn = titleRow.createEl("button", {
+				cls: "clickable-icon ft-train-summary-btn",
+			});
+			summaryBtn.ariaLabel = "Open summary note";
+			setIcon(summaryBtn, "file-text");
+			summaryBtn.addEventListener("click", (e) => {
+				e.stopPropagation();
+				if (this.app?.workspace) {
+					void this.app.workspace.openLinkText(summaryPath, "", false);
+				}
+			});
+		}
 
 		const badge = titleRow.createSpan({ cls: `ft-badge ft-badge-muted ft-train-status ft-train-status-${train.status}` });
 		badge.setText(train.status);
@@ -323,28 +425,83 @@ export class TrainMainView extends ItemView {
 		const navWrapper = el.createDiv({ cls: "ft-section ft-train-nav-wrapper" });
 
 		const nav = navWrapper.createDiv({ cls: "ft-flex ft-items-center ft-justify-between ft-gap-2 ft-train-nav-bar" });
-		const activeIdx = activeThought ? allThoughts.findIndex((t) => t.id === activeThought.id) : -1;
 
-		// Left: ◄ Prev + Jump to End
-		const leftGroup = nav.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
-		const prevBtn = leftGroup.createEl("button", { cls: "ft-btn ft-btn-ghost ft-btn-sm ft-train-nav-btn ft-train-prev-btn" });
+		// Graph-based navigation: follow relations instead of flat order
+		const thoughtById = new Map(train.thoughts.map((t) => [t.id, t]));
+		const prevRelation = activeThought
+			? train.relations.find((r) => r.toId === activeThought.id && r.direction === "next")
+			: null;
+		const prevThought = prevRelation ? thoughtById.get(prevRelation.fromId) ?? null : null;
+		const nextRelation = activeThought
+			? train.relations.find((r) => r.fromId === activeThought.id && r.direction === "next")
+			: null;
+		const nextThought = nextRelation ? thoughtById.get(nextRelation.toId) ?? null : null;
+
+		// Left: ◄ Prev
+		const prevBtn = nav.createEl("button", { cls: "ft-btn ft-btn-ghost ft-btn-sm ft-train-nav-btn ft-train-prev-btn" });
 		prevBtn.setText("◄ Prev");
-		if (activeIdx <= 0) {
+		if (!prevThought) {
 			prevBtn.disabled = true;
 			prevBtn.addClass("ft-train-nav-disabled");
 		} else {
 			prevBtn.addEventListener("click", () => {
-				const prev = allThoughts[activeIdx - 1];
-				this.activeThoughtId = prev.id;
-				this.emitThoughtActivated(prev);
+				this.activeThoughtId = prevThought.id;
+				this.emitThoughtActivated(prevThought);
 				this.render();
 			});
 		}
 
-		// Jump to end — visible when active thought is not the head node
+		// Center: inline controls
+		if (train.status !== "completed") {
+			const controls = nav.createDiv({ cls: "ft-detail-actions ft-flex ft-items-center ft-gap-1" });
+			this.renderInlineControls(controls, train);
+		}
+
+		// Right group: Merge Down / Next ► / Add Thought + End
+		const rightGroup = nav.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
+		const mergeDownInfo = (activeThought && train.status !== "completed")
+			? this.trainService.findMergeDownTarget(train.id, activeThought.id)
+			: null;
+
+		if (mergeDownInfo) {
+			const target = mergeDownInfo.targetId
+				? train.thoughts.find((t) => t.id === mergeDownInfo.targetId)
+				: null;
+			const mergeBtn = rightGroup.createEl("button", {
+				cls: "ft-btn ft-btn-primary ft-btn-sm ft-train-nav-btn ft-train-merge-down-btn",
+			});
+			const mdIcon = mergeBtn.createSpan();
+			setIcon(mdIcon, "git-merge");
+			mergeBtn.appendText(` Merge down${target ? ` \u2192 ${target.title}` : ""}`);
+			mergeBtn.addEventListener("click", () => {
+				const fromThoughtId = activeThought!.id;
+				void this.eventBus.emit("ui.startTrain", { fromThoughtId, mergeDown: true });
+			});
+		} else if (nextThought) {
+			const nextBtn = rightGroup.createEl("button", { cls: "ft-btn ft-btn-ghost ft-btn-sm ft-train-nav-btn ft-train-next-btn" });
+			nextBtn.setText("Next ►");
+			nextBtn.addEventListener("click", () => {
+				this.activeThoughtId = nextThought.id;
+				this.emitThoughtActivated(nextThought);
+				this.render();
+			});
+		} else if (activeThought && train.status !== "completed") {
+			const addBtn = rightGroup.createEl("button", {
+				cls: "ft-btn ft-btn-primary ft-btn-sm ft-train-nav-btn ft-train-add-thought-btn",
+			});
+			const addIcon = addBtn.createSpan();
+			setIcon(addIcon, "plus-circle");
+			addBtn.appendText(" Add Thought");
+			addBtn.addEventListener("click", () => {
+				const fromThoughtId = this.activeThoughtId ?? undefined;
+				void this.eventBus.emit("ui.startTrain", { fromThoughtId });
+			});
+		}
+
+		// End button — last in the row (far right)
 		const headNode = this.trainService.getHeadNode(train.id);
 		if (headNode && activeThought && headNode.id !== activeThought.id) {
-			const jumpBtn = leftGroup.createEl("button", {
+			const jumpBtn = rightGroup.createEl("button", {
 				cls: "ft-btn ft-btn-ghost ft-btn-sm ft-train-nav-btn ft-train-jump-to-end-btn",
 			});
 			const jumpIcon = jumpBtn.createSpan();
@@ -357,62 +514,6 @@ export class TrainMainView extends ItemView {
 			});
 		}
 
-		// Center: inline controls
-		if (train.status !== "completed") {
-			const controls = nav.createDiv({ cls: "ft-detail-actions ft-flex ft-items-center ft-gap-1" });
-			this.renderInlineControls(controls, train);
-		}
-
-		// Right: Merge Down / Next ► / Add Thought (context-aware, graph-based)
-		// Priority: merge-down (branch endpoint) > next (sorted list) > add thought (end of list)
-		const mergeDownInfo = (activeThought && train.status !== "completed")
-			? this.trainService.findMergeDownTarget(train.id, activeThought.id)
-			: null;
-		const hasNext = activeIdx >= 0 && activeIdx < allThoughts.length - 1;
-
-		if (mergeDownInfo) {
-			// Branch endpoint → Merge Down (opens capture modal with merge-down preset)
-			const target = mergeDownInfo.targetId
-				? train.thoughts.find((t) => t.id === mergeDownInfo.targetId)
-				: null;
-			const mergeBtn = nav.createEl("button", {
-				cls: "ft-btn ft-btn-primary ft-btn-sm ft-train-nav-btn ft-train-merge-down-btn",
-			});
-			const mdIcon = mergeBtn.createSpan();
-			setIcon(mdIcon, "git-merge");
-			mergeBtn.appendText(` Merge down${target ? ` \u2192 ${target.title}` : ""}`);
-			mergeBtn.addEventListener("click", () => {
-				const fromThoughtId = activeThought!.id;
-				void this.eventBus.emit("ui.startTrain", { fromThoughtId, mergeDown: true });
-			});
-		} else if (hasNext) {
-			const nextBtn = nav.createEl("button", { cls: "ft-btn ft-btn-ghost ft-btn-sm ft-train-nav-btn ft-train-next-btn" });
-			nextBtn.setText("Next ►");
-			nextBtn.addEventListener("click", () => {
-				const next = allThoughts[activeIdx + 1];
-				this.activeThoughtId = next.id;
-				this.emitThoughtActivated(next);
-				this.render();
-			});
-		} else if (activeThought && train.status !== "completed") {
-			// End of sorted list, not a branch endpoint → Add Thought
-			const addBtn = nav.createEl("button", {
-				cls: "ft-btn ft-btn-primary ft-btn-sm ft-train-nav-btn ft-train-add-thought-btn",
-			});
-			const addIcon = addBtn.createSpan();
-			setIcon(addIcon, "plus-circle");
-			addBtn.appendText(" Add Thought");
-			addBtn.addEventListener("click", () => {
-				const fromThoughtId = this.activeThoughtId ?? undefined;
-				void this.eventBus.emit("ui.startTrain", { fromThoughtId });
-			});
-		}
-
-		// Counter on its own row below controls
-		const counter = navWrapper.createDiv({ cls: "ft-text-sm ft-text-muted ft-text-center ft-train-nav-counter" });
-		counter.setText(allThoughts.length > 0
-			? `Thought ${activeIdx + 1} of ${allThoughts.length}`
-			: "No thoughts yet");
 	}
 
 	private renderInlineControls(container: HTMLElement, train: TrainState): void {
@@ -482,7 +583,15 @@ export class TrainMainView extends ItemView {
 	private renderThoughtDetail(el: HTMLElement, thought: ThoughtNode, train: TrainState): void {
 		const detail = el.createDiv({ cls: "ft-section ft-train-detail" });
 
-		detail.createEl("h3", { cls: "ft-heading-sm ft-train-thought-title", text: thought.title });
+		const titleRow = detail.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
+		titleRow.createEl("h3", { cls: "ft-heading-sm ft-train-thought-title", text: thought.title });
+
+		// Merged badge — shown when this thought was merged into another
+		const isMerged = train.relations.some((r) => r.fromId === thought.id && r.direction === "merge");
+		if (isMerged) {
+			const badge = titleRow.createSpan({ cls: "ft-badge ft-badge-muted ft-train-merged-badge" });
+			badge.setText("merged");
+		}
 
 		const meta = detail.createDiv({ cls: "ft-detail-info-grid ft-train-thought-meta" });
 		const time = new Date(thought.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -505,17 +614,6 @@ export class TrainMainView extends ItemView {
 				void this.app.workspace.openLinkText(thought.path, "", false);
 			}
 		});
-	}
-
-	private renderPropertyEditor(el: HTMLElement, thought: ThoughtNode): void {
-		if (!this.app) return;
-		const editorEl = el.createDiv({ cls: "ft-train-property-editor-wrapper" });
-		this.propertyEditor?.destroy();
-		this.propertyEditor = new TrainPropertyEditor(editorEl, {
-			app: this.app,
-			thoughtPath: thought.path,
-		});
-		this.propertyEditor.render();
 	}
 
 	private renderInfoRow(grid: HTMLElement, label: string, value: string): void {
@@ -657,6 +755,12 @@ export class TrainMainView extends ItemView {
 		const { trainCanvasEnabled } = this.getTrainSettings();
 		if (!trainCanvasEnabled || !train.folderPath) return null;
 		return getCanvasPath(train.title, train.folderPath);
+	}
+
+	private getSummaryPath(train: TrainState): string | null {
+		const folder = train.folderPath;
+		if (!folder) return null;
+		return `${folder}/${train.title} — Summary.md`;
 	}
 
 	private showRenameInput(train: TrainState): void {

@@ -140,6 +140,46 @@ export class TrainHubView extends BaseHubView<TrainHubPage> {
 			openBtn.addEventListener("click", () => this.openTrainCb(running.id));
 		}
 
+		// ── Paused train callout ──
+		const paused = this.trains.find((t) => t.status === "paused");
+		if (!running && paused) {
+			const pausedCard = container.createDiv({ cls: "ft-card ft-p-3 ft-mb-4" });
+			const pausedHeader = pausedCard.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
+			const pauseIcon = pausedHeader.createSpan();
+			setIcon(pauseIcon, "pause");
+			pauseIcon.style.color = "var(--text-warning)";
+			pausedHeader.createSpan({ text: "Paused", cls: "ft-heading ft-heading-sm" });
+
+			const pausedBody = pausedCard.createDiv({ cls: "ft-flex ft-items-center ft-gap-3" });
+			pausedBody.createSpan({ text: paused.title, cls: "ft-text-bold" });
+			pausedBody.createSpan({ text: `${paused.thoughts.length} thoughts`, cls: "ft-text-muted ft-text-sm" });
+
+			const resumeBtn = pausedBody.createEl("button", { text: "Resume", cls: "ft-btn ft-btn-primary ft-text-sm" });
+			resumeBtn.style.marginLeft = "auto";
+			resumeBtn.addEventListener("click", () => {
+				void this.eventBus.emit("ui.startTrain", {});
+			});
+
+			const openBtn = pausedBody.createEl("button", { text: "Open", cls: "ft-btn ft-btn-ghost ft-text-sm" });
+			openBtn.addEventListener("click", () => this.openTrainCb(paused.id));
+		}
+
+		// ── Start a Ride callout ──
+		if (!running && !paused) {
+			const callout = container.createDiv({ cls: "ft-card ft-train-hub-start-callout ft-mb-4" });
+			const calloutRow = callout.createDiv({ cls: "ft-flex ft-items-center ft-gap-3" });
+			const calloutIcon = calloutRow.createSpan({ cls: "ft-icon-muted" });
+			setIcon(calloutIcon, "train-front");
+			const calloutText = calloutRow.createDiv();
+			calloutText.createDiv({ text: "Ready for a new ride?", cls: "ft-heading ft-heading-sm" });
+			calloutText.createDiv({ text: "Capture a stream of connected thoughts.", cls: "ft-text-muted ft-text-sm" });
+			const startBtn = calloutRow.createEl("button", { text: "Start a ride", cls: "ft-btn ft-btn-primary ft-text-sm" });
+			startBtn.style.marginLeft = "auto";
+			startBtn.addEventListener("click", () => {
+				void this.eventBus.emit("ui.startTrain", {});
+			});
+		}
+
 		// ── Quick actions ──
 		const actions = container.createDiv({ cls: "ft-flex ft-gap-2" });
 		const activeBtn = actions.createEl("button", { text: "View Active Trains", cls: "ft-btn ft-btn-ghost ft-text-sm" });

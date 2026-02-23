@@ -174,6 +174,7 @@ export class TrainTimelineSidebar extends ItemView {
 
 	async onOpen(): Promise<void> {
 		this.containerEl.addClass("ft-hide-header");
+		this.contentEl.addClass("ft-timeline-sidebar");
 
 		if (!this.trainId) {
 			const active = this.trainService.getActiveTrain();
@@ -400,7 +401,17 @@ export class TrainTimelineSidebar extends ItemView {
 			const toX = Math.max(lane, mergeTargetLane) * LANE_WIDTH + LANE_WIDTH / 2;
 			merge.style.left = `${fromX}px`;
 			merge.style.width = `${toX - fromX}px`;
-			merge.style.backgroundColor = mergeColor;
+			merge.style.borderBottomColor = mergeColor;
+
+			// Arrow pointing toward the target lane
+			const arrow = merge.createDiv({ cls: "ft-graph-merge-arrow" });
+			arrow.style.borderTopColor = mergeColor;
+			// Position arrow at the target end
+			if (mergeTargetLane < lane) {
+				arrow.style.left = "-3px";
+			} else {
+				arrow.style.right = "-3px";
+			}
 		}
 
 		// Node circle (dot)

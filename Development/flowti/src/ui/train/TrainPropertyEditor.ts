@@ -17,7 +17,7 @@ export interface TrainPropertyEditorDeps {
 }
 
 /** Properties managed by the train system — read-only in the editor. */
-const BUILT_IN_KEYS = new Set(["type", "train", "direction", "order", "parent"]);
+const BUILT_IN_KEYS = new Set(["type", "train", "direction", "order", "parent", "prev", "next", "up", "down", "merge-target", "merged-from"]);
 
 const WRITE_DEBOUNCE_MS = 500;
 

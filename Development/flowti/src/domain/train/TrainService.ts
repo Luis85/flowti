@@ -801,7 +801,7 @@ export class TrainService {
 	 *
 	 * Navigation model (compass):
 	 *   next  — linear forward  (children with direction="next")
-	 *   back  — linear backward (parent with direction="next")
+	 *   prev  — linear backward (parent with direction="next")
 	 *   up    — branch children (children with direction="branch")
 	 *   down  — branch parent   (parent with direction="branch")
 	 *
@@ -839,7 +839,7 @@ export class TrainService {
 	): Record<string, string[]> {
 		const thoughtById = new Map(train.thoughts.map((t) => [t.id, t]));
 		const next: string[] = [];
-		const back: string[] = [];
+		const prev: string[] = [];
 		const up: string[] = [];
 		const down: string[] = [];
 		const mergeTarget: string[] = [];
@@ -857,13 +857,13 @@ export class TrainService {
 				const parent = thoughtById.get(r.fromId);
 				if (!parent) continue;
 				const link = `[[${this.basenameFromPath(parent.path)}]]`;
-				if (r.direction === "next") back.push(link);
+				if (r.direction === "next") prev.push(link);
 				else if (r.direction === "branch") down.push(link);
 				else if (r.direction === "merge") mergedFrom.push(link);
 			}
 		}
 
-		return { next, back, up, down, "merge-target": mergeTarget, "merged-from": mergedFrom };
+		return { next, prev, up, down, "merge-target": mergeTarget, "merged-from": mergedFrom };
 	}
 
 	/** Extract file basename without extension from a vault path. */

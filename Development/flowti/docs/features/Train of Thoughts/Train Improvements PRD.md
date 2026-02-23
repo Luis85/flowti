@@ -33,6 +33,7 @@ planned_in:
   - "[[Cycle 22 - Train Polish and Management]]"
   - "[[Cycle 23 - Merge Down and Detail Restructure]]"
   - "[[Cycle 24 - Train Value Sprint]]"
+  - "[[Cycle 25 - Train Completion and Experience]]"
 ---
 
 # Feature PRD: Train of Thoughts — Branch Merge & Canvas Journey

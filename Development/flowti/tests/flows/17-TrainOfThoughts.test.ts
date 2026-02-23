@@ -264,7 +264,7 @@ describe("Flow 17: Start a Train of Thoughts", () => {
 				const calls = (fileSystem.updateFrontmatter as ReturnType<typeof vi.fn>).mock.calls;
 				const navCall = calls.find((c: unknown[]) => {
 					const data = c[1] as Record<string, unknown>;
-					return Array.isArray(data["back"]) && (data["back"] as string[]).length > 0;
+					return Array.isArray(data["prev"]) && (data["prev"] as string[]).length > 0;
 				});
 				expect(navCall).toBeDefined();
 			});

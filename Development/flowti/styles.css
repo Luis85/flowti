@@ -170,6 +170,10 @@
 	font-size: 0.75rem;
 	font-weight: 500;
 }
+.ft-badge svg {
+	width: 0.85em;
+	height: 0.85em;
+}
 
 .ft-badge-accent {
 	background-color: var(--interactive-accent);
@@ -179,6 +183,12 @@
 .ft-badge-muted {
 	background-color: var(--background-secondary);
 	color: var(--text-muted);
+	border: 1px solid var(--background-modifier-border);
+}
+
+.ft-badge-info {
+	background-color: var(--background-secondary-alt, var(--background-secondary));
+	color: var(--text-normal);
 	border: 1px solid var(--background-modifier-border);
 }
 
@@ -237,18 +247,21 @@
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
-	padding: 0.5rem;
+	padding: 0.5rem 0.75rem;
 	border-radius: var(--radius-s, 4px);
+	border-left: 2px solid transparent;
 	cursor: pointer;
-	transition: background-color 0.15s ease;
+	transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .ft-list-item:hover {
 	background-color: var(--background-secondary);
 }
 
-.ft-list-item-active {
-	background-color: var(--interactive-accent-hover);
+.ft-list-item-active,
+.ft-list-item-active:hover {
+	background-color: var(--background-modifier-active-hover, var(--interactive-accent-hover));
+	border-left-color: var(--interactive-accent);
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -1857,6 +1870,10 @@
 .ft-stat-card:hover {
 	border-color: var(--interactive-accent);
 }
+.ft-stat-card svg {
+	width: 18px;
+	height: 18px;
+}
 
 /* ── Train Main View ─────────────────────────────────── */
 
@@ -1868,6 +1885,10 @@
 	height: 100%;
 	gap: 0.75rem;
 	color: var(--text-muted);
+}
+
+.ft-train-hub-start-callout {
+	padding: 1.25rem;
 }
 
 .ft-train-content-preview {
@@ -1921,9 +1942,122 @@
 	cursor: not-allowed;
 }
 
+/* ── Train Nav Bar ──────────────────────────────────── */
+.ft-train-stats-section .ft-stat-grid {
+	margin-top: 1rem;
+	margin-bottom: 1rem;
+}
+
+.ft-train-nav-bar {
+	align-items: center;
+}
+
+.ft-train-nav-bar .ft-detail-actions {
+	flex-wrap: nowrap;
+	align-items: center;
+	margin-top: 0;
+}
+
+/* ── Train Type Picker Modal ─────────────────────────── */
+.ft-train-type-picker {
+	padding: 1.5rem;
+}
+.ft-train-type-picker-header {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	margin-bottom: 0.35rem;
+}
+.ft-train-type-picker-header h3 {
+	margin: 0;
+	font-size: 1.15rem;
+	font-weight: 600;
+}
+.ft-train-type-picker-desc {
+	margin-bottom: 1.25rem;
+}
+.ft-train-type-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 0.75rem;
+}
+.ft-train-type-card {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.6rem;
+	padding: 1.5rem 1rem 1.25rem;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 10px;
+	background: var(--background-primary);
+	cursor: pointer;
+	transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s, transform 0.1s;
+}
+.ft-train-type-card:hover,
+.ft-train-type-card:focus-visible {
+	border-color: var(--interactive-accent);
+	background-color: var(--background-secondary);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+	outline: none;
+}
+.ft-train-type-card:active {
+	transform: scale(0.97);
+}
+.ft-train-type-card-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 48px;
+	height: 48px;
+	border-radius: 12px;
+	background: var(--background-secondary);
+	color: var(--interactive-accent);
+}
+.ft-train-type-card-icon svg {
+	width: 24px;
+	height: 24px;
+}
+.ft-train-type-card-label {
+	font-weight: 600;
+	font-size: 0.9rem;
+}
+.ft-train-type-card-duration {
+	font-size: 0.7rem;
+	color: var(--text-muted);
+	background: var(--background-modifier-hover);
+	padding: 0.15rem 0.5rem;
+	border-radius: 9999px;
+}
+
+/* ── Train Resume Modal ─────────────────────────────── */
+.ft-train-resume-option {
+	width: 100%;
+	padding: 0.75rem 1rem;
+	text-align: left;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s, 4px);
+}
+
+.ft-train-resume-option:hover {
+	background-color: var(--background-secondary);
+}
+
+/* ── Train Completion Callout ─────────────────────────── */
+.ft-train-completion-callout {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+
 /* ── Train Timeline Sidebar — Git Graph ──────────────── */
 
 /* Lane color definitions with theme-safe fallbacks */
+.ft-timeline-sidebar {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
 .ft-graph-timeline {
 	--ft-lane-0: var(--interactive-accent, #7b68ee);
 	--ft-lane-1: var(--color-orange, #e67e22);
@@ -1937,7 +2071,7 @@
 	flex: 1;
 	min-height: 0;
 	overflow-y: auto;
-	padding: 0.5rem 0;
+	padding: 0.5rem 0 0.5rem 0.75rem;
 }
 
 .ft-timeline-node {
@@ -2016,13 +2150,24 @@
 	z-index: 0;
 }
 
-/* Merge connector: horizontal line from branch lane back to target lane */
+/* Merge connector: dashed horizontal line from branch lane back to target lane */
 .ft-graph-merge {
 	position: absolute;
-	bottom: 2px;
-	height: 2px;
-	border-radius: 1px;
+	bottom: 3px;
+	height: 0;
+	border-bottom: 2px dashed;
 	z-index: 0;
+}
+
+/* Arrow at the target end of the merge connector */
+.ft-graph-merge-arrow {
+	position: absolute;
+	bottom: -5px;
+	width: 0;
+	height: 0;
+	border-left: 3px solid transparent;
+	border-right: 3px solid transparent;
+	border-top: 5px solid;
 }
 
 /* Content area: title, badges, time */
@@ -2032,7 +2177,7 @@
 	gap: 0.35rem;
 	flex: 1;
 	min-width: 0;
-	padding-left: 0.35rem;
+	padding-left: 0.5rem;
 }
 
 .ft-timeline-node-title {

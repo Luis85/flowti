@@ -274,15 +274,13 @@ describe("TrainMainView — merge section", () => {
 		const view = new TrainMainView(createMockLeaf(), eventBus, service);
 		await view.onOpen();
 
-		// Navigate to branch endpoint (d) — re-query buttons after each click since render() rebuilds DOM
-		await view.setState({ trainId: "train_1" }, { history: false });
-		for (let i = 0; i < 2; i++) {
-			const btns = view.contentEl.querySelectorAll(".ft-train-nav-btn");
-			(btns[1] as HTMLButtonElement).click();
-		}
+		// Navigate directly to branch endpoint (d) — not reachable via "Next" on main chain
+		await eventBus.emit("train.thought.activated", { trainId: "train_1", thoughtId: "d" });
+		await vi.waitFor(() => {
+			expect(view.contentEl.querySelector(".ft-train-merge-down-btn")).not.toBeNull();
+		});
 
 		const mergeDownBtn = view.contentEl.querySelector(".ft-train-merge-down-btn");
-		expect(mergeDownBtn).not.toBeNull();
 		expect(mergeDownBtn?.textContent).toContain("Merge down");
 		expect(mergeDownBtn?.textContent).toContain("Second"); // target title
 	});
@@ -326,14 +324,13 @@ describe("TrainMainView — merge section", () => {
 		const view = new TrainMainView(createMockLeaf(), eventBus, service);
 		await view.onOpen();
 
-		// Navigate to d (index 3 in order-sorted list) — re-query Next button after each click
-		for (let i = 0; i < 3; i++) {
-			const nextBtn = view.contentEl.querySelector(".ft-train-next-btn") as HTMLButtonElement;
-			nextBtn.click();
-		}
+		// Navigate directly to d (branch node — not reachable via "Next" on main chain)
+		await eventBus.emit("train.thought.activated", { trainId: "train_1", thoughtId: "d" });
+		await vi.waitFor(() => {
+			expect(view.contentEl.querySelectorAll(".ft-train-merge-link").length).toBe(1);
+		});
 
 		const mergeLinks = view.contentEl.querySelectorAll(".ft-train-merge-link");
-		expect(mergeLinks.length).toBe(1);
 		expect(mergeLinks[0].textContent).toContain("Second"); // target title
 
 		const undoBtn = view.contentEl.querySelector(".ft-train-merge-undo");
@@ -348,11 +345,11 @@ describe("TrainMainView — merge section", () => {
 		const view = new TrainMainView(createMockLeaf(), eventBus, service);
 		await view.onOpen();
 
-		// Navigate to d — re-query Next button after each click
-		for (let i = 0; i < 3; i++) {
-			const nextBtn = view.contentEl.querySelector(".ft-train-next-btn") as HTMLButtonElement;
-			nextBtn.click();
-		}
+		// Navigate directly to d (branch node)
+		await eventBus.emit("train.thought.activated", { trainId: "train_1", thoughtId: "d" });
+		await vi.waitFor(() => {
+			expect(view.contentEl.querySelector(".ft-train-merge-undo")).not.toBeNull();
+		});
 
 		const undoBtn = view.contentEl.querySelector(".ft-train-merge-undo") as HTMLButtonElement;
 		undoBtn.click();
@@ -607,14 +604,11 @@ describe("TrainMainView — main chain merge protection", () => {
 		const view = new TrainMainView(createMockLeaf(), eventBus, service);
 		await view.onOpen();
 
-		// Navigate to branch endpoint d — re-query buttons after each click since render() rebuilds DOM
-		for (let i = 0; i < 2; i++) {
-			const btns = view.contentEl.querySelectorAll(".ft-train-nav-btn");
-			(btns[1] as HTMLButtonElement).click();
-		}
-
-		const mergeDownBtn = view.contentEl.querySelector(".ft-train-merge-down-btn");
-		expect(mergeDownBtn).not.toBeNull();
+		// Navigate directly to branch endpoint d (not reachable via "Next" on main chain)
+		await eventBus.emit("train.thought.activated", { trainId: "train_1", thoughtId: "d" });
+		await vi.waitFor(() => {
+			expect(view.contentEl.querySelector(".ft-train-merge-down-btn")).not.toBeNull();
+		});
 	});
 
 	it("getMainChainIds mock returns correct IDs for buildUnmergedTrain", () => {

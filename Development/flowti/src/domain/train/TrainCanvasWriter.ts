@@ -366,6 +366,10 @@ export function computeAnnotations(
 			`**Thoughts:** ${train.thoughts.length} | **Duration:** ${durationText}`,
 		].join("\n");
 
+		const statusColor = train.status === "running" ? "4"   // green
+			: train.status === "paused" ? "2"                      // orange
+			: undefined;                                           // completed — no color
+
 		annotations.push({
 			id: annotationId("header"),
 			type: "text",
@@ -374,6 +378,7 @@ export function computeAnnotations(
 			y: rootPos.y - HEADER_OFFSET_Y,
 			width: ANNOTATION_WIDTH,
 			height: ANNOTATION_HEIGHT,
+			...(statusColor ? { color: statusColor } : {}),
 		});
 	}
 

@@ -40,7 +40,7 @@ describe("TrainCaptureModal", () => {
 		expect(h3?.textContent).toBe("Previous Idea");
 	});
 
-	it("shows thought counter in button row", () => {
+	it("shows thought counter in title input label", () => {
 		const modal = new TrainCaptureModal(createMockApp(), {
 			trainTitle: "Counter Test",
 			previousThoughtTitle: null,
@@ -52,10 +52,8 @@ describe("TrainCaptureModal", () => {
 		});
 		modal.onOpen();
 
-		// Counter is now a span inside the button row's controlEl
-		const allSpans = modal.contentEl.querySelectorAll("span");
-		const counterSpan = Array.from(allSpans).find((s) => s.textContent === "#4");
-		expect(counterSpan).not.toBeUndefined();
+		const text = modal.contentEl.textContent ?? "";
+		expect(text).toContain("Thought #4");
 	});
 
 	it("does not call onSubmit on open (requires user interaction)", () => {
@@ -135,10 +133,8 @@ describe("TrainCaptureModal", () => {
 		});
 		modal.onOpen();
 
-		// Counter is now a span inside the button row
-		const allSpans = modal.contentEl.querySelectorAll("span");
-		const counterSpan = Array.from(allSpans).find((s) => s.textContent === "#1");
-		expect(counterSpan).not.toBeUndefined();
+		const text = modal.contentEl.textContent ?? "";
+		expect(text).toContain("Thought #1");
 	});
 
 	describe("keyboard navigation", () => {

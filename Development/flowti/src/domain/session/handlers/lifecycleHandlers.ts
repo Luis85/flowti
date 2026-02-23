@@ -90,7 +90,13 @@ export async function handleStart(ctx: SessionHandlerContext, sessionId: string)
 	if (!session || session.status !== "prepared") return;
 
 	const state = ctx.getState();
-	if (state.activeSessionId) return;
+	if (state.activeSessionId) {
+		// Only block if the existing active session is actually running
+		const existingSession = ctx.findSession(state.activeSessionId);
+		if (existingSession && existingSession.status === "running") return;
+		// Clear stale activeSessionId (session was paused, completed, or deleted)
+		state.activeSessionId = null;
+	}
 
 	session.status = "running";
 	session.startedAt = new Date().toISOString();

@@ -174,11 +174,11 @@ describe("TrainMainView", () => {
 			expect(badge?.classList.contains("ft-train-status-running")).toBe(true);
 		});
 
-		it("renders thought counter", async () => {
+		it("shows thought position in stat card", async () => {
 			await view.onOpen();
 
-			const counter = view.contentEl.querySelector(".ft-train-nav-counter");
-			expect(counter?.textContent).toBe("Thought 1 of 3");
+			const values = view.contentEl.querySelectorAll(".ft-catalog-stat-value");
+			expect(values[0]?.textContent).toBe("1/3");
 		});
 
 		it("renders active thought title", async () => {
@@ -251,8 +251,8 @@ describe("TrainMainView", () => {
 			const thoughtTitle = view.contentEl.querySelector(".ft-train-thought-title");
 			expect(thoughtTitle?.textContent).toBe("Second Idea");
 
-			const counter = view.contentEl.querySelector(".ft-train-nav-counter");
-			expect(counter?.textContent).toBe("Thought 2 of 3");
+			const values = view.contentEl.querySelectorAll(".ft-catalog-stat-value");
+			expect(values[0]?.textContent).toBe("2/3");
 		});
 
 		it("navigates back to previous thought", async () => {
@@ -270,16 +270,14 @@ describe("TrainMainView", () => {
 			expect(thoughtTitle?.textContent).toBe("First Idea");
 		});
 
-		it("shows Add Thought button on last thought instead of disabled Next", async () => {
+		it("shows Add Thought button on last thought of chain instead of Next", async () => {
 			await view.onOpen();
 
-			// Go to last thought (3 total: t1, t2, t3 — need 2 clicks)
-			let nextBtn = view.contentEl.querySelectorAll(".ft-train-nav-btn")[1] as HTMLButtonElement;
-			nextBtn.click();
-			nextBtn = view.contentEl.querySelectorAll(".ft-train-nav-btn")[1] as HTMLButtonElement;
+			// Navigate to t2 (end of main chain: t1 → t2)
+			const nextBtn = view.contentEl.querySelectorAll(".ft-train-nav-btn")[1] as HTMLButtonElement;
 			nextBtn.click();
 
-			// Last thought — should show Add Thought instead of disabled Next
+			// t2 has no "next" relation → should show Add Thought instead of Next
 			const addBtn = view.contentEl.querySelector(".ft-train-add-thought-btn");
 			expect(addBtn).not.toBeNull();
 			expect(addBtn?.textContent).toContain("Add Thought");
@@ -456,13 +454,6 @@ describe("TrainMainView", () => {
 			expect(detail).not.toBeNull();
 		});
 
-		it("renders property editor wrapper after thought detail", async () => {
-			view = new TrainMainView(createMockLeaf(), eventBus, trainService);
-			await view.onOpen();
-
-			const wrapper = view.contentEl.querySelector(".ft-train-property-editor-wrapper");
-			expect(wrapper).not.toBeNull();
-		});
 	});
 
 	describe("jump-to-end visibility (OBS-1)", () => {

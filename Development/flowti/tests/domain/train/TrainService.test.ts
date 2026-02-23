@@ -245,14 +245,14 @@ describe("TrainService", () => {
 			expect(firstCall).toBeDefined();
 			expect((firstCall![1] as Record<string, unknown>)["train-session"]).toBe("FM Test");
 
-			// Second thought: includes back link to First (uses file basename, not title)
+			// Second thought: includes prev link to First (uses file basename, not title)
 			const secondCall = calls.find((c: unknown[]) =>
 				(c[1] as Record<string, unknown>)["thought-order"] === 1
 			);
 			expect(secondCall).toBeDefined();
-			const back = (secondCall![1] as Record<string, unknown>)["back"] as string[];
+			const prev = (secondCall![1] as Record<string, unknown>)["prev"] as string[];
 			const firstBasename = first!.path.split("/").pop()!.replace(/\.md$/, "");
-			expect(back).toContain(`[[${firstBasename}]]`);
+			expect(prev).toContain(`[[${firstBasename}]]`);
 		});
 
 		it("returns null for non-existent train", async () => {
@@ -595,7 +595,7 @@ describe("TrainService", () => {
 			);
 			expect(secondThoughtCall).toBeDefined();
 			const data = secondThoughtCall![1] as Record<string, unknown>;
-			expect(data["back"]).toEqual([`[[${firstBasename}]]`]);
+			expect(data["prev"]).toEqual([`[[${firstBasename}]]`]);
 			expect(data["down"]).toEqual([]);
 		});
 
@@ -616,7 +616,7 @@ describe("TrainService", () => {
 			);
 			const data = branchCall![1] as Record<string, unknown>;
 			expect(data["down"]).toEqual([`[[${rootBasename}]]`]);
-			expect(data["back"]).toEqual([]);
+			expect(data["prev"]).toEqual([]);
 		});
 
 		it("updates source thought frontmatter with next/up links", async () => {

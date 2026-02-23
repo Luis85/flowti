@@ -205,14 +205,19 @@ export class PluginSettingTab {
 
 export class Setting {
 	settingEl: HTMLElement;
+	infoEl: HTMLElement;
 	controlEl: HTMLElement;
 
 	constructor(containerEl: HTMLElement) {
 		this.settingEl = containerEl.createDiv({ cls: "setting-item" });
+		this.infoEl = this.settingEl.createDiv({ cls: "setting-item-info" });
 		this.controlEl = this.settingEl.createDiv({ cls: "setting-item-control" });
 	}
 
-	setName(_name: string): this {
+	setName(name: string): this {
+		let nameEl = this.infoEl.querySelector(".setting-item-name") as HTMLElement | null;
+		if (!nameEl) nameEl = this.infoEl.createDiv({ cls: "setting-item-name" });
+		nameEl.textContent = name;
 		return this;
 	}
 

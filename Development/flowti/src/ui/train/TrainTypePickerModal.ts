@@ -1,8 +1,9 @@
 /**
  * TrainTypePickerModal — type selection modal shown before starting a new train.
  *
- * Displays built-in train types as icon cards. Selection provides
- * the type config (including default duration) to the caller.
+ * Displays built-in train types as bordered icon cards in a 2-column grid.
+ * Uses div-based cards (not <button>) to avoid Obsidian's aggressive button styling.
+ * Selection provides the type config (including default duration) to the caller.
  */
 
 import { Modal, setIcon } from "obsidian";
@@ -26,43 +27,54 @@ export class TrainTypePickerModal extends Modal {
 		const { contentEl } = this;
 		contentEl.addClass("ft-train-type-picker");
 
-		contentEl.createEl("h3", { text: "Choose a train type" });
+		// Header
+		const header = contentEl.createDiv({ cls: "ft-train-type-picker-header" });
+		const headerIcon = header.createSpan({ cls: "ft-icon-muted" });
+		setIcon(headerIcon, "train-front");
+		header.createEl("h3", { text: "Start a new ride" });
+
 		contentEl.createDiv({
-			text: "Each type has a default timer duration.",
-			cls: "ft-text-muted ft-text-sm ft-mb-3",
+			text: "Pick a mode — each comes with a suggested timer.",
+			cls: "ft-text-muted ft-text-sm ft-train-type-picker-desc",
 		});
 
-		const grid = contentEl.createDiv({ cls: "ft-grid ft-grid-cols-2 ft-gap-2 ft-train-type-grid" });
+		// Card grid
+		const grid = contentEl.createDiv({ cls: "ft-train-type-grid" });
 
 		for (const typeConfig of BUILT_IN_TRAIN_TYPES) {
-			const card = grid.createEl("button", {
-				cls: "ft-btn ft-btn-ghost ft-p-3 ft-text-left ft-train-type-card",
-			});
+			const card = grid.createDiv({ cls: "ft-train-type-card" });
 			card.dataset.typeId = typeConfig.id;
+			card.setAttribute("role", "button");
+			card.tabIndex = 0;
 
-			const row = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			const iconEl = row.createSpan();
+			const iconEl = card.createDiv({ cls: "ft-train-type-card-icon" });
 			setIcon(iconEl, typeConfig.icon);
-			const textCol = row.createDiv();
-			textCol.createDiv({ text: typeConfig.label, cls: "ft-text-sm ft-text-bold" });
-			const durationText = typeConfig.defaultDuration > 0
-				? `${typeConfig.defaultDuration} min`
-				: "No timer";
-			textCol.createDiv({ text: durationText, cls: "ft-text-xs ft-text-muted" });
 
-			card.addEventListener("click", () => {
+			const label = card.createDiv({ cls: "ft-train-type-card-label" });
+			label.setText(typeConfig.label);
+
+			const duration = card.createDiv({ cls: "ft-train-type-card-duration" });
+			duration.setText(typeConfig.defaultDuration > 0
+				? `${typeConfig.defaultDuration} min`
+				: "No timer");
+
+			const select = (): void => {
 				this.selected = true;
 				this.options.onSelect(typeConfig);
 				this.close();
+			};
+
+			card.addEventListener("click", select);
+			card.addEventListener("keydown", (e: KeyboardEvent) => {
+				if (e.key === "Enter" || e.key === " ") {
+					e.preventDefault();
+					select();
+				}
 			});
 		}
 	}
 
 	onClose(): void {
-		if (!this.selected) {
-			// Default to free-form on dismiss
-			const freeForm = BUILT_IN_TRAIN_TYPES.find((t) => t.id === "free-form");
-			if (freeForm) this.options.onSelect(freeForm);
-		}
+		// No-op: if the user dismissed without selecting, do nothing
 	}
 }

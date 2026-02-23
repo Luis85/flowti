@@ -38,8 +38,12 @@ export interface TrainCaptureModalOptions {
 	onNext?: () => void;
 	/** Navigate to the first branch child (up link). */
 	onUp?: () => void;
+	/** Navigate to the branch parent (down link). */
+	onDown?: () => void;
 	/** Timer duration in minutes (0 = no timer). */
 	durationMinutes: number;
+	/** Current remaining time in ms — used as initial display to avoid reset flash. */
+	initialRemainingMs?: number;
 	/** Default direction for new thoughts. When the source thought already has a "next" child, defaults to "branch". */
 	defaultDirection?: ThoughtDirection;
 	/** Subscribe to session.timer.tick — returns unsubscribe fn. */
@@ -54,9 +58,11 @@ export interface TrainCaptureModalOptions {
 	onRenameThought?: (newTitle: string) => void;
 	/** Pre-select "Merge down" direction when opening from the detail view merge button. */
 	defaultMergeDown?: boolean;
+	/** True when the source thought has been merged into another thought. */
+	isMerged?: boolean;
 }
 
-type NavAction = "back" | "next" | "up";
+type NavAction = "back" | "next" | "up" | "down";
 
 export class TrainCaptureModal extends Modal {
 	private readonly options: TrainCaptureModalOptions;
@@ -80,6 +86,12 @@ export class TrainCaptureModal extends Modal {
 		const titleEl = titleRow.createEl("h3", {
 			text: this.options.previousThoughtTitle ?? this.options.trainTitle,
 		});
+
+		// Merged badge
+		if (this.options.isMerged) {
+			const badge = titleRow.createSpan({ cls: "ft-badge ft-badge-muted ft-train-merged-badge" });
+			badge.setText("merged");
+		}
 
 		// Rename thought (pencil icon) — only when navigated to an existing thought
 		if (this.options.onRenameThought && this.options.previousThoughtTitle) {
@@ -129,7 +141,8 @@ export class TrainCaptureModal extends Modal {
 		// ── Row 2: Timer display (only when timeboxed) ──
 		if (this.options.durationMinutes > 0 && this.options.subscribeTimerTick) {
 			const timerEl = contentEl.createDiv({ cls: "ft-train-timer" });
-			timerEl.setText(formatTimer(this.options.durationMinutes * 60_000));
+			const initialMs = this.options.initialRemainingMs ?? this.options.durationMinutes * 60_000;
+			timerEl.setText(formatTimer(initialMs));
 
 			this.unsubTick = this.options.subscribeTimerTick((remainingMs) => {
 				timerEl.setText(formatTimer(remainingMs));
@@ -195,7 +208,7 @@ export class TrainCaptureModal extends Modal {
 
 		// ── Row 3: Title input (primary interaction) ──
 		new Setting(contentEl)
-			.setName("Thought")
+			.setName(`Thought #${this.options.thoughtCount + 1}`)
 			.addText((text) => {
 				text
 					.setPlaceholder("What\u2019s on your mind\u2026")
@@ -211,12 +224,9 @@ export class TrainCaptureModal extends Modal {
 				setTimeout(() => text.inputEl.focus(), 50);
 			});
 
-		// ── Row 4: Direction row — counter (left) + Tab hint + dropdown (right) ──
+		// ── Row 4: Direction row — Tab hint + dropdown ──
 		if (hasDirection) {
 			const dirRow = new Setting(contentEl);
-
-			// Counter at the left end (in the name slot)
-			dirRow.setName(`#${this.options.thoughtCount + 1}`);
 
 			// Tab hint (before dropdown)
 			const hint = dirRow.controlEl.createSpan({ cls: "ft-text-sm ft-text-muted" });
@@ -241,6 +251,7 @@ export class TrainCaptureModal extends Modal {
 		// ── Row 5: Action row — Back (outer left) | nav (Up/Next) + Pause/Complete/Add Thought ──
 		const actionSetting = new Setting(contentEl);
 		actionSetting.settingEl.style.width = "100%";
+		if (actionSetting.infoEl) actionSetting.infoEl.style.display = "none";
 
 		// Back button at the outermost left of the action row (same style as Next)
 		if (this.options.onBack) {
@@ -254,11 +265,19 @@ export class TrainCaptureModal extends Modal {
 			});
 		}
 
-		// Navigation buttons (Up, Next)
+		// Navigation buttons (Up, Down, Next)
 		if (this.options.onUp) {
 			actionSetting.addButton((btn) =>
 				btn.setButtonText("\u2191 Up").onClick(() => {
 					this.navAction = "up";
+					this.close();
+				})
+			);
+		}
+		if (this.options.onDown) {
+			actionSetting.addButton((btn) =>
+				btn.setButtonText("\u2193 Down").onClick(() => {
+					this.navAction = "down";
 					this.close();
 				})
 			);
@@ -289,12 +308,6 @@ export class TrainCaptureModal extends Modal {
 					.onClick(() => submit())
 			);
 
-		// Counter for first thought (no direction row)
-		if (!hasDirection) {
-			const countEl = actionSetting.controlEl.createSpan({ cls: "ft-text-sm ft-text-muted" });
-			countEl.style.marginLeft = "0.5rem";
-			countEl.setText(`#${this.options.thoughtCount + 1}`);
-		}
 	}
 
 	onClose(): void {
@@ -308,6 +321,8 @@ export class TrainCaptureModal extends Modal {
 				this.options.onNext?.();
 			} else if (this.navAction === "up") {
 				this.options.onUp?.();
+			} else if (this.navAction === "down") {
+				this.options.onDown?.();
 			} else if (this.completed) {
 				this.options.onComplete();
 			} else {

@@ -56,6 +56,7 @@ import { TrainHubView, VIEW_TYPE_TRAIN_HUB } from "./ui/train/TrainHubView";
 import { TrainResumeModal } from "./ui/train/TrainResumeModal";
 import { TrainTypePickerModal } from "./ui/train/TrainTypePickerModal";
 import { showNudgeNotification } from "./ui/NudgeNotification";
+import { computeRemainingMs } from "./domain/session/helpers";
 
 
 /**  
@@ -268,27 +269,13 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.addRibbonIcon("graduation-cap", "Add Learning", () => {
 				void this.eventBus.emit("ui.openQuickCapture", { type: "learning" });
 			});
+			this.addRibbonIcon("waypoints", "Open Train Hub", () => {
+				void this.eventBus.emit("ui.openTrainHub", {});
+			});
 			this.addRibbonIcon("train-front", "Train of Thoughts", () => {
 				const activeTrain = this.trainService?.getActiveTrain();
 				if (activeTrain) {
-					void this.eventBus.emit("ui.openTrainView", {});
-					return;
-				}
-				// Also check for running/paused train-of-thought sessions without a TrainState
-				// (e.g. session started from User Hub sessions panel)
-				const trainSession = this.sessionService?.getSessions().find(
-					(s) => s.type === "train-of-thought" && (s.status === "running" || s.status === "paused"),
-				);
-				if (trainSession) {
-					const existingLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TRAIN_MAIN);
-					if (existingLeaves.length > 0) {
-						void this.app.workspace.revealLeaf(existingLeaves[0]);
-					} else {
-						void this.app.workspace.getLeaf("tab").setViewState({
-							type: VIEW_TYPE_TRAIN_MAIN,
-							active: true,
-						});
-					}
+					void this.eventBus.emit("ui.openTrainView", { trainId: activeTrain.id });
 					return;
 				}
 				void this.eventBus.emit("ui.startTrain", {});
@@ -329,7 +316,7 @@ export default class FlowtiBasePlugin extends Plugin {
 						? activeTrain.thoughts.find((t) => t.id === activeThoughtId)
 						: null;
 
-					if (headNode && currentThought && headNode.id !== currentThought.id) {
+					if (headNode && currentThought && headNode.id !== currentThought.id && !mdFlag && !fromThoughtId) {
 						new TrainResumeModal(this.app, {
 							trainTitle: activeTrain.title,
 							currentThoughtTitle: currentThought.title,
@@ -347,7 +334,7 @@ export default class FlowtiBasePlugin extends Plugin {
 										});
 										break;
 									case "stay-here":
-										void this.trainService!.resume(activeTrain.id);
+										// Don't resume — leave the train paused at current position
 										break;
 								}
 							},
@@ -1118,6 +1105,15 @@ export default class FlowtiBasePlugin extends Plugin {
 		const durationMinutes = train?.durationMinutes ?? 0;
 		const sessionId = train?.sessionId;
 
+		// Compute current remaining time to avoid timer reset flash when modal reopens
+		let initialRemainingMs: number | undefined;
+		if (durationMinutes > 0 && sessionId && this.sessionService) {
+			const session = this.sessionService.getSessionById(sessionId);
+			if (session) {
+				initialRemainingMs = computeRemainingMs(session);
+			}
+		}
+
 		// Auto-detect direction: if the source thought already has a "next" child, default to "branch"
 		let defaultDirection: import("./domain/train/types").ThoughtDirection = "next";
 		if (fromThoughtId && train) {
@@ -1150,13 +1146,14 @@ export default class FlowtiBasePlugin extends Plugin {
 			}
 			: undefined;
 
-		// Navigation callbacks — mirrors the thought's link directions (back/next/up)
+		// Navigation callbacks — mirrors the thought's link directions (prev/next/up)
 		// Each emits train.thought.activated so main view + timeline sync to the new thought.
 		let onBack: (() => void) | undefined;
 		let onNext: (() => void) | undefined;
 		let onUp: (() => void) | undefined;
+		let onDown: (() => void) | undefined;
 		if (fromThoughtId && train) {
-			// back: linear parent (any relation pointing TO this thought)
+			// prev: linear parent (any relation pointing TO this thought)
 			const parentRelation = train.relations.find((r) => r.toId === fromThoughtId);
 			if (parentRelation) {
 				const parentId = parentRelation.fromId;
@@ -1178,6 +1175,14 @@ export default class FlowtiBasePlugin extends Plugin {
 				const branchId = branchRelation.toId;
 				onUp = () => this.openTrainModal(trainId, trainTitle, undefined, branchId);
 			}
+			// down: branch parent (parent with direction="branch" pointing TO this thought)
+			const branchParentRelation = train.relations.find(
+				(r) => r.toId === fromThoughtId && r.direction === "branch",
+			);
+			if (branchParentRelation) {
+				const branchParentId = branchParentRelation.fromId;
+				onDown = () => this.openTrainModal(trainId, trainTitle, undefined, branchParentId);
+			}
 		}
 
 		// Detect branch for merge-down option (available whenever thought is on a branch)
@@ -1186,18 +1191,26 @@ export default class FlowtiBasePlugin extends Plugin {
 			: null;
 		const isBranchEndpoint = mergeDownInfo !== null;
 
+		// Check if source thought has been merged into another thought
+		const isMerged = (fromThoughtId && train)
+			? train.relations.some((r) => r.fromId === fromThoughtId && r.direction === "merge")
+			: false;
+
 		new TrainCaptureModal(this.app, {
 			trainTitle,
 			previousThoughtTitle,
 			thoughtCount,
 			durationMinutes,
+			initialRemainingMs,
 			defaultDirection,
 			subscribeTimerTick,
 			subscribeTimerCompleted,
 			onBack,
 			onNext,
 			onUp,
+			onDown,
 			isBranchEndpoint,
+			isMerged,
 			defaultMergeDown: mergeDown,
 			onRenameThought: fromThoughtId ? (newTitle) => {
 				void this.trainService!.renameThought(trainId, fromThoughtId, newTitle);

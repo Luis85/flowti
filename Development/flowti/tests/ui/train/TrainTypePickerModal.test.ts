@@ -30,7 +30,7 @@ describe("TrainTypePickerModal", () => {
 		it("renders heading", () => {
 			const modal = createModal(onSelect);
 			modal.onOpen();
-			expect(getContentEl(modal).textContent).toContain("Choose a train type");
+			expect(getContentEl(modal).textContent).toContain("Start a new ride");
 		});
 
 		it("renders 4 type cards", () => {
@@ -81,12 +81,11 @@ describe("TrainTypePickerModal", () => {
 			expect(onSelect).toHaveBeenCalledWith(BUILT_IN_TRAIN_TYPES[1]);
 		});
 
-		it("defaults to free-form on close without selection", () => {
+		it("does not call onSelect when dismissed without selection", () => {
 			const modal = createModal(onSelect);
 			modal.onOpen();
 			modal.onClose();
-			const freeForm = BUILT_IN_TRAIN_TYPES.find((t) => t.id === "free-form");
-			expect(onSelect).toHaveBeenCalledWith(freeForm);
+			expect(onSelect).not.toHaveBeenCalled();
 		});
 
 		it("does not call onSelect again on close after selection", () => {
