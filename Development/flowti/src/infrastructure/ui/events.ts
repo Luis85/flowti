@@ -74,6 +74,9 @@ export interface UiCommandEventMap {
 	/** Open the train timeline sidebar for the active train (command palette) */
 	"ui.openTrainTimeline": Record<string, never>;
 
+	/** Open the Train Hub view (or reveal if already open) */
+	"ui.openTrainHub": Record<string, never>;
+
 	/** Emitted after a view or modal was opened by UiCommandService */
 	"ui.opened": {
 		target: string;

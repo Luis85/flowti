@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Train Improvements PRD]]"
-stage: ready
+stage: in-progress
 cycle: 24
 date_planned: 2026-02-23
 date_completed:
@@ -54,6 +54,7 @@ total_test_files_after:
 **Plugin health:**
 - 3,976 tests passing, 161 test suites, 32 skipped
 - Build status: green (`npm test` + `npm run check` clean)
+- Flow test suite: `npm run test:flows` — 21 suites, 248 tests with coverage; gates every `npm run build` to ensure critical user journey coverage before production bundles
 - Pre-cycle bug fixes applied: merge connector visualization, timeline node opens detail view
 
 **Train domain status:**

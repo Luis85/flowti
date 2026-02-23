@@ -389,6 +389,7 @@ const CATALOG_DATA = {
 	"ui.completeTrain":           { category: "UI Commands", description: "Complete the active running/paused train", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.openTrainCanvas":         { category: "UI Commands", description: "Open canvas for the active train", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.openTrainTimeline":       { category: "UI Commands", description: "Open train timeline sidebar for the active train", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
+	"ui.openTrainHub":            { category: "UI Commands", description: "Open the Train Hub view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.opened":                  { category: "UI Commands", description: "A UI view or modal was opened", direction: "Internal", domain: "ui", services: "UiCommandService", tags: ["system"] },
 
 	// ── Hub ──────────────────────────────────────────────────

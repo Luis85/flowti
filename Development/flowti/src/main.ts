@@ -52,6 +52,7 @@ import { UserHubView, VIEW_TYPE_USER_HUB } from "./ui/UserHubView";
 import { SessionWorkspaceView, VIEW_TYPE_SESSION_WORKSPACE } from "./ui/SessionWorkspaceView";
 import { TrainMainView, VIEW_TYPE_TRAIN_MAIN } from "./ui/train/TrainMainView";
 import { TrainTimelineSidebar, VIEW_TYPE_TRAIN_TIMELINE } from "./ui/train/TrainTimelineSidebar";
+import { TrainHubView, VIEW_TYPE_TRAIN_HUB } from "./ui/train/TrainHubView";
 import { showNudgeNotification } from "./ui/NudgeNotification";
 
 
@@ -751,6 +752,28 @@ export default class FlowtiBasePlugin extends Plugin {
 				trainCanvasEnabled: settingsService.getSettings().trainCanvasEnabled,
 				trainCanvasAutoOpen: settingsService.getSettings().trainCanvasAutoOpen,
 			})),
+		);
+
+		// Train Hub — central management view for all trains
+		this.registerView(VIEW_TYPE_TRAIN_HUB, (leaf) =>
+			new TrainHubView(leaf, this.eventBus, this.trainService!, (trainId) => {
+				this.revealOrCreateTrainView(trainId);
+			}),
+		);
+
+		// Open Train Hub on command
+		this.crossCuttingListeners.push(
+			this.eventBus.on("ui.openTrainHub", () => {
+				const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_TRAIN_HUB);
+				if (existing.length > 0) {
+					void this.app.workspace.revealLeaf(existing[0]);
+					return;
+				}
+				void this.app.workspace.getLeaf("tab").setViewState({
+					type: VIEW_TYPE_TRAIN_HUB,
+					active: true,
+				});
+			}),
 		);
 
 		this.crossCuttingListeners.push(

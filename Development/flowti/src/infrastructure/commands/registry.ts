@@ -173,6 +173,15 @@ export function createCommandDefinitions(): CommandDefinition[] {
 			},
 		},
 		{
+			id: "flowti:open-train-hub",
+			name: "Open train hub",
+			icon: "train-front",
+			handler: async (ctx) => {
+				ctx.logger.debug("Opening train hub view");
+				void ctx.eventBus.emit("ui.openTrainHub", {});
+			},
+		},
+		{
 			id: "flowti:start-train",
 			name: "Start train of thoughts",
 			icon: "brain",
