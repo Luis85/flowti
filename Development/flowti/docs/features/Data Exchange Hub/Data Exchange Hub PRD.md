@@ -13,6 +13,11 @@ related_events:
   - dataExchange.export.failed
   - dataExchange.export.progress
   - dataExchange.export.preview
+  - analytics.query.started
+  - analytics.query.completed
+  - analytics.query.failed
+  - analytics.query.saved
+  - analytics.query.deleted
 maturity: L4
 business_value: 4
 implementation_cost: 5
@@ -48,9 +53,13 @@ Users can manage master data end-to-end within Obsidian: import CSV files as not
 - Saved import/export configurations with persistence
 - External filesystem export (outside vault) via Electron dialog
 - Formula resolution from `.base` YAML view definitions
-- Data Exchange Hub view with 7 tabs (Dashboard, Reports, Types, Properties, Imports, Exports, Pipelines)
+- Data Exchange Hub view with 9 tabs (Dashboard, Reports, Types, Properties, Imports, Exports, Pipelines, Signals, Analytics)
 - Data dictionary builder for type and property documentation
 - Column mapping during import
+- **In-memory CSV analytics engine** — join, group, aggregate across 2-3 CSV sources
+- **Locale-aware parsing** — number and date parsing with 5 locale presets (en-US, de-DE, en-GB, nl-NL, fr-FR) + auto-detect
+- **Analytics query builder** — visual interface for source/join/dimension/measure/time bucket configuration
+- **Saved analytics queries** — persistent query configs for re-execution when CSVs are updated
 
 ### Out of Scope
 
@@ -59,6 +68,9 @@ Users can manage master data end-to-end within Obsidian: import CSV files as not
 - Non-CSV formats (JSON, XML, Excel) — except EDI (see [[PBI-005 EDI Format Support]])
 - Direct database connectivity
 - Multi-user collaboration / merge conflict resolution
+- Charts or visualizations — tables and stat cards for analytics (charts deferred)
+- Calculated columns or formula expressions in analytics engine
+- Scheduled or automated re-analysis
 
 ## 4. UX Entry Points
 
@@ -86,6 +98,16 @@ Users can manage master data end-to-end within Obsidian: import CSV files as not
 - [x] Sanitize filenames derived from CSV data
 - [x] Data Exchange Hub dashboard with activity overview
 - [x] Data dictionary builder (Types, Properties tabs)
+- [ ] In-memory hash join on 2-3 CSV sources via specified key columns (inner + left join)
+- [ ] GROUP BY on 1-3 dimension columns with aggregation (SUM, COUNT, AVG, MIN, MAX)
+- [ ] Locale-aware number parsing: US (`1,234.56`), EU (`1.234,56`), FR (`1 234,56`)
+- [ ] Locale-aware date parsing: US (`MM/DD/YYYY`), EU (`DD/MM/YYYY`, `DD.MM.YYYY`), ISO (`YYYY-MM-DD`)
+- [ ] Time bucketing: month, quarter, year from locale-parsed date columns
+- [ ] Per-source locale selection (5 presets + auto-detect) and per-column type hints
+- [ ] Analytics query builder UI in DX Hub (9th tab)
+- [ ] Sortable results table with summary stat cards
+- [ ] Export analytics results as CSV
+- [ ] Saved analytics queries with persistence across reloads
 
 ## 6. Data Model Impact
 
@@ -98,6 +120,12 @@ Users can manage master data end-to-end within Obsidian: import CSV files as not
 | `ParsedBaseFile` | filters, order, formulas | Runtime (YAML parse) |
 | `ImportConfig` | sourcePath, targetFolder, nameColumn, columnMappings, conflictStrategy | Runtime |
 | `ExportConfig` | sourcePath, sourceType, format, outputPath, columns, isExternal, conflictStrategy | Runtime |
+| `AnalyticsQuery` | sources (with locale), joins, dimensions, measures, timeBucket, columnTypeHints | Runtime |
+| `AnalyticsSource` | id, alias, csvPath, locale (SourceLocale) | Runtime |
+| `SourceLocale` | id (en-US/de-DE/en-GB/nl-NL/fr-FR/auto), numberFormat, dateFormat | Runtime |
+| `ColumnTypeHint` | column, type (number/date/string) | Runtime |
+| `AnalyticsResult` | columns, rows, groupCount | Runtime |
+| `SavedAnalyticsQuery` | id, name, query (AnalyticsQuery), lastRun, lastRowCount | `dataExchange` storage key |
 
 ## 7. Event Impact
 
@@ -113,6 +141,12 @@ Users can manage master data end-to-end within Obsidian: import CSV files as not
 - `dataExchange.export.progress` -- Per-record export progress
 - `dataExchange.export.preview` -- Export preview generated
 
+- `analytics.query.started` -- Analytics query execution started
+- `analytics.query.completed` -- Analytics query finished successfully
+- `analytics.query.failed` -- Analytics query encountered error
+- `analytics.query.saved` -- Analytics query saved to persistence
+- `analytics.query.deleted` -- Saved analytics query removed
+
 ### Consumed
 
 - File system events for context menu integration
@@ -122,7 +156,8 @@ Users can manage master data end-to-end within Obsidian: import CSV files as not
 
 - **ImportModal**: 4-page wizard integrated as Obsidian Modal
 - **ExportModal**: 3-4 page wizard integrated as Obsidian Modal
-- **Data Exchange Hub**: Full sidebar view with tab navigation (Dashboard, Reports, Types, Properties, Imports, Exports, Pipelines)
+- **Data Exchange Hub**: Full sidebar view with tab navigation (Dashboard, Reports, Types, Properties, Imports, Exports, Pipelines, Signals, Analytics)
+- **Analytics Tab**: Query builder (sources + locale → type hints + joins → dimensions + measures → time bucket) + results table + saved queries list
 - **File menu**: 3 new context menu items
 
 ## 9. Adapter Impact
@@ -134,6 +169,10 @@ Users can manage master data end-to-end within Obsidian: import CSV files as not
 - `DataExchangeService`: Orchestrator facade with ConfigDocService, PipelineExecutor, ConfigPathTracker, DataDictionaryBuilder sub-modules
 - `WriteExternalFileCallback`: Node.js `fs.writeFileSync` for external export
 - `ReadExternalFileCallback`: Node.js file reading for append conflict strategy
+- `AnalyticsEngine`: Pure in-memory engine — join, group, aggregate with locale-aware parsing
+- `AnalyticsService`: Orchestrator facade — load CSVs, execute engine, emit events, manage saved queries
+- `localeUtils`: Number parsing with 5 locale presets + auto-detect heuristic
+- `dateUtils`: Date parsing + time bucketing (month/quarter/year)
 
 ## 10. Non-Functional Requirements
 
@@ -167,6 +206,13 @@ Users can manage master data end-to-end within Obsidian: import CSV files as not
 - [x] Formula columns resolve to actual frontmatter keys
 - [x] Data Exchange Hub displays dashboard with activity summary
 - [x] Commands `flowti:import-csv` and `flowti:export-data` work from command palette
+- [ ] Analytics tab visible in DX Hub with query builder
+- [ ] Join 2-3 CSV files on shared key columns (inner + left join)
+- [ ] GROUP BY dimensions with SUM/COUNT/AVG/MIN/MAX aggregation
+- [ ] Locale-aware number/date parsing with per-source locale selection
+- [ ] Sortable results table with summary stat cards
+- [ ] Export analytics results as CSV
+- [ ] Saved analytics queries persist across plugin reloads
 
 ## 13. Definition of Done
 
@@ -190,7 +236,13 @@ Users can manage master data end-to-end within Obsidian: import CSV files as not
 | [[PBI-008 Execution Timing]] | Execution timing for import/export configs | Discovery | Low | [[I also want to know how long the execution of a Data Exchange Config took]] |
 | [[PBI-009 Report Ingestion]] | Ingest test/coverage reports as vault notes | Discovery | Medium | [[I want to ingest a test-report, a coverage-report, prds, the git-history and lifecycle documents for further analysis]], [[Ingest build reports test reports and coverage as vault notes]] |
 | [[PBI-010 Data Dictionary Integration]] | Entity config from settings into DX Hub data-dictionary | Discovery | Medium | [[We need to integrate the Entity configuration from the settings-tab into the Data Exchange Hub to build the data-dictionary in one place]] |
+| [[PBI-ANA-001 Analytics Engine Core]] | In-memory join + GROUP BY + aggregation with locale-aware parsing | Planned | Critical | [[When opening a CSV with Flowti, I want to be able to make an easy dashboard]] |
+| [[PBI-ANA-002 Analytics Query Builder UI]] | Visual query builder in DX Hub Analytics tab | Planned | Critical | [[When opening a CSV with Flowti, I want to be able to make an easy dashboard]] |
+| [[PBI-ANA-003 Analytics Results View]] | Sortable results table + stat cards + export | Planned | Critical | [[When opening a CSV with Flowti, I want to be able to make an easy dashboard]] |
+| [[PBI-ANA-004 Saved Analytics Queries]] | Persistent query configs for re-execution | Planned | High | [[When opening a CSV with Flowti, I want to be able to make an easy dashboard]] |
 
 > **Inbox triage (2026-02-22):** 3 new PBIs added. PBI-008 for execution timing tracking. PBI-009 for report ingestion (test, coverage, build reports). PBI-010 for settings-tab entity config integration into DX Hub data dictionary. Existing bugs tracked in inbox: exporter formula evaluation, exporter view properties, dashboard progress bar issues.
+
+> **Analytics sprint (2026-02-23):** 4 PBIs added for in-memory CSV analytics engine. PBI-ANA-001 (engine core with locale-aware parsing), PBI-ANA-002 (query builder UI as 9th DX Hub tab), PBI-ANA-003 (results view + export), PBI-ANA-004 (saved queries). Planned for [[Cycle 27 - Analytics Sprint]]. Business trigger: US-locale CSVs (Items, Suppliers, Sales) arriving end of week.
 
 > **Canvas import**: Moved to dedicated [[Obsidian Canvas Integration PRD]] with PBI-CAN-001 through PBI-CAN-003.
