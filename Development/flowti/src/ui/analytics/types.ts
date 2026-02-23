@@ -6,6 +6,7 @@ import type { App } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { AnalyticsService } from "../../domain/analytics/AnalyticsService";
 import type { Dashboard, SavedAnalyticsQuery } from "../../domain/analytics/types";
+import type { TileResultCache } from "./TileResultCache";
 
 // ─────────────────────────────────────────────────────────────
 // Hub pages
@@ -58,6 +59,7 @@ export interface AnalyticsHubDeps {
 	app: App;
 	eventBus: IEventBus;
 	analyticsService: AnalyticsService;
+	tileResultCache: TileResultCache;
 	getState: () => AnalyticsHubState;
 	setState: (partial: Partial<AnalyticsHubState>) => void;
 	navigation: AnalyticsNavigationCallbacks;

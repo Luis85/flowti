@@ -573,6 +573,9 @@ const CATALOG_DATA = {
 	"analytics.dashboard.tile.removed": { category: "Analytics", description: "A tile was removed from a dashboard", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
 	"analytics.dashboard.tile.updated": { category: "Analytics", description: "A tile was updated within a dashboard", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
 	"analytics.dashboard.refreshed":    { category: "Analytics", description: "A dashboard's tiles were refreshed", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
+	"analytics.query.favorited":        { category: "Analytics", description: "A saved query's favorite status was toggled", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
+	"analytics.dashboard.favorited":    { category: "Analytics", description: "A dashboard's favorite status was toggled", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
+	"analytics.dashboard.defaultChanged": { category: "Analytics", description: "The default dashboard was changed", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

@@ -116,8 +116,12 @@ export class QueriesTab {
 			}
 		}
 
-		// Saved queries
-		const savedQueries = this.deps.analyticsService.listQueries();
+		// Saved queries (favorites first)
+		const savedQueries = [...this.deps.analyticsService.listQueries()].sort((a, b) => {
+			if (a.isFavorite && !b.isFavorite) return -1;
+			if (!a.isFavorite && b.isFavorite) return 1;
+			return 0;
+		});
 		if (savedQueries.length > 0) {
 			const sqHeader = this.masterEl.createDiv({ cls: "ft-master-category-header" });
 			sqHeader.createSpan({ text: "Saved Queries" });
@@ -129,6 +133,23 @@ export class QueriesTab {
 					cls: `ft-master-event-item${isSelected ? " ft-master-event-selected" : ""}`,
 				});
 				item.style.alignItems = "flex-start";
+
+				// Star toggle
+				const starBtn = item.createEl("span", { cls: "ft-nav-link" });
+				starBtn.style.flexShrink = "0";
+				starBtn.style.cursor = "pointer";
+				const starIcon = starBtn.createSpan();
+				setIcon(starIcon, "star");
+				starIcon.style.width = "14px";
+				starIcon.style.height = "14px";
+				if (!sq.isFavorite) {
+					starBtn.style.opacity = "0.3";
+				}
+				starBtn.setAttribute("aria-label", sq.isFavorite ? "Unfavorite" : "Favorite");
+				starBtn.addEventListener("click", (e) => {
+					e.stopPropagation();
+					void this.deps.analyticsService.toggleQueryFavorite(sq.id);
+				});
 
 				const textBlock = item.createDiv({ cls: "ft-master-event-name" });
 				textBlock.style.minWidth = "0";

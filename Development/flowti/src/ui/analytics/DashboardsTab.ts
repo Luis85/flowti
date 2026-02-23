@@ -6,10 +6,11 @@
  */
 
 import { setIcon } from "obsidian";
-import type { AnalyticsResult, Dashboard } from "../../domain/analytics/types";
+import type { Dashboard } from "../../domain/analytics/types";
 import type { AnalyticsHubDeps } from "./types";
 import { DashboardTileRenderer, type TileRenderContext } from "./DashboardTileRenderer";
 import { AddTileDialog } from "./AddTileDialog";
+import { DashboardNameModal } from "./DashboardNameModal";
 
 export class DashboardsTab {
 	private addTileDialogVisible = false;
@@ -51,6 +52,13 @@ export class DashboardsTab {
 			void this.createDashboard();
 		});
 
+		// Sort favorites first
+		dashboards = [...dashboards].sort((a, b) => {
+			if (a.isFavorite && !b.isFavorite) return -1;
+			if (!a.isFavorite && b.isFavorite) return 1;
+			return 0;
+		});
+
 		// List
 		if (dashboards.length === 0) {
 			const empty = this.masterEl.createDiv({ cls: "ft-text-muted ft-text-sm" });
@@ -82,6 +90,23 @@ export class DashboardsTab {
 		left.style.flex = "1";
 		left.style.minWidth = "0";
 
+		// Star toggle
+		const starBtn = left.createSpan({ cls: "ft-nav-link" });
+		starBtn.style.flexShrink = "0";
+		starBtn.style.cursor = "pointer";
+		const starIcon = starBtn.createSpan();
+		setIcon(starIcon, "star");
+		starIcon.style.width = "14px";
+		starIcon.style.height = "14px";
+		if (!dashboard.isFavorite) {
+			starBtn.style.opacity = "0.3";
+		}
+		starBtn.setAttribute("aria-label", dashboard.isFavorite ? "Unfavorite" : "Favorite");
+		starBtn.addEventListener("click", (e) => {
+			e.stopPropagation();
+			void this.deps.analyticsService.toggleDashboardFavorite(dashboard.id);
+		});
+
 		const iconEl = left.createSpan();
 		setIcon(iconEl, "layout-grid");
 		iconEl.style.width = "14px";
@@ -98,6 +123,15 @@ export class DashboardsTab {
 			cls: "ft-badge ft-text-xs",
 		});
 		tileCount.style.flexShrink = "0";
+
+		// Default badge
+		const defaultDashboard = this.deps.analyticsService.getDefaultDashboard();
+		if (defaultDashboard?.id === dashboard.id) {
+			const defaultBadge = left.createSpan({ text: "Default", cls: "ft-badge ft-text-xs" });
+			defaultBadge.style.flexShrink = "0";
+			defaultBadge.style.background = "var(--interactive-accent)";
+			defaultBadge.style.color = "var(--text-on-accent)";
+		}
 
 		// Delete button
 		const deleteBtn = row.createSpan({ cls: "ft-nav-link ft-text-muted" });
@@ -158,10 +192,42 @@ export class DashboardsTab {
 		header.style.justifyContent = "space-between";
 		header.style.marginBottom = "0.75rem";
 
-		const titleEl = header.createSpan({ text: dashboard.name, cls: "ft-text-lg" });
+		const titleLeft = header.createDiv();
+		titleLeft.style.display = "flex";
+		titleLeft.style.alignItems = "center";
+		titleLeft.style.gap = "0.5rem";
+
+		const titleEl = titleLeft.createSpan({ text: dashboard.name, cls: "ft-text-lg" });
 		titleEl.style.fontWeight = "600";
 
-		const addTileBtn = header.createEl("button", { cls: "ft-text-sm" });
+		const isDefault = this.deps.analyticsService.getDefaultDashboard()?.id === dashboard.id;
+		if (isDefault) {
+			const badge = titleLeft.createSpan({ text: "Default", cls: "ft-badge ft-text-xs" });
+			badge.style.background = "var(--interactive-accent)";
+			badge.style.color = "var(--text-on-accent)";
+		}
+
+		const headerActions = header.createDiv();
+		headerActions.style.display = "flex";
+		headerActions.style.alignItems = "center";
+		headerActions.style.gap = "0.5rem";
+
+		if (!isDefault) {
+			const setDefaultBtn = headerActions.createEl("button", { cls: "ft-text-sm" });
+			setDefaultBtn.style.display = "flex";
+			setDefaultBtn.style.alignItems = "center";
+			setDefaultBtn.style.gap = "0.25rem";
+			const defIcon = setDefaultBtn.createSpan();
+			setIcon(defIcon, "star");
+			defIcon.style.width = "14px";
+			defIcon.style.height = "14px";
+			setDefaultBtn.createSpan({ text: "Set as Default" });
+			setDefaultBtn.addEventListener("click", () => {
+				void this.deps.analyticsService.setDefaultDashboard(dashboard.id);
+			});
+		}
+
+		const addTileBtn = headerActions.createEl("button", { cls: "ft-text-sm" });
 		addTileBtn.style.display = "flex";
 		addTileBtn.style.alignItems = "center";
 		addTileBtn.style.gap = "0.25rem";
@@ -223,7 +289,11 @@ export class DashboardsTab {
 			const tileHost = grid.createDiv();
 			tileHost.style.gridColumn = `span ${Math.min(tile.width, 2)}`;
 
-			const tileResult = this.tryRunQuery(tile.queryId);
+			const tileResult = this.deps.tileResultCache.tryRun(
+				tile.queryId,
+				(id) => this.deps.analyticsService.runSavedQuery(id),
+				() => this.deps.scheduleRender(),
+			);
 
 			const renderer = new DashboardTileRenderer(tileHost);
 			renderer.render({
@@ -236,17 +306,25 @@ export class DashboardsTab {
 						this.deps.scheduleRender();
 					});
 				},
+				onRefresh: () => {
+					this.deps.tileResultCache.clearOne(tile.queryId);
+					this.deps.scheduleRender();
+				},
 			} satisfies TileRenderContext);
 		}
 	}
 
 	// ── Dashboard CRUD ───────────────────────────────────────
 
-	private async createDashboard(): Promise<void> {
-		const name = `Dashboard ${this.deps.getState().dashboards.length + 1}`;
-		const dashboard = await this.deps.analyticsService.createDashboard(name);
-		this.deps.setState({ selectedDashboardId: dashboard.id });
-		this.deps.scheduleRender();
+	private createDashboard(): void {
+		new DashboardNameModal(this.deps.app, {
+			onConfirm: (name) => {
+				void this.deps.analyticsService.createDashboard(name).then((dashboard) => {
+					this.deps.setState({ selectedDashboardId: dashboard.id });
+					this.deps.scheduleRender();
+				});
+			},
+		}).open();
 	}
 
 	private async deleteDashboard(dashboard: Dashboard): Promise<void> {
@@ -258,37 +336,4 @@ export class DashboardsTab {
 		this.deps.scheduleRender();
 	}
 
-	// ── Query execution ──────────────────────────────────────
-
-	/**
-	 * Attempt to run a saved query synchronously from cached results.
-	 * For Inc 3 we kick off async execution and show loading until results arrive.
-	 */
-	private tileResults = new Map<string, { result: AnalyticsResult | null; error: string | null }>();
-
-	private tryRunQuery(queryId: string): { result: AnalyticsResult | null; error: string | null } {
-		const cached = this.tileResults.get(queryId);
-		if (cached) return cached;
-
-		// Start async load
-		this.tileResults.set(queryId, { result: null, error: null });
-		void this.deps.analyticsService.runSavedQuery(queryId).then(
-			(result) => {
-				this.tileResults.set(queryId, { result, error: null });
-				this.deps.scheduleRender();
-			},
-			(err) => {
-				const message = err instanceof Error ? err.message : String(err);
-				this.tileResults.set(queryId, { result: null, error: message });
-				this.deps.scheduleRender();
-			},
-		);
-
-		return { result: null, error: null };
-	}
-
-	/** Clear cached tile results (called on dashboard switch or refresh). */
-	clearResultCache(): void {
-		this.tileResults.clear();
-	}
 }

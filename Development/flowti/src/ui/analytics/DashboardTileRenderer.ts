@@ -15,6 +15,7 @@ export interface TileRenderContext {
 	result: AnalyticsResult | null;
 	error: string | null;
 	onRemove: (tileId: string) => void;
+	onRefresh?: (tileId: string) => void;
 }
 
 export class DashboardTileRenderer {
@@ -45,7 +46,26 @@ export class DashboardTileRenderer {
 		});
 		titleEl.style.fontWeight = "600";
 
-		const removeBtn = header.createSpan({ cls: "ft-nav-link ft-text-muted" });
+		const actions = header.createDiv();
+		actions.style.display = "flex";
+		actions.style.alignItems = "center";
+		actions.style.gap = "0.25rem";
+
+		if (ctx.onRefresh) {
+			const refreshBtn = actions.createSpan({ cls: "ft-nav-link ft-text-muted" });
+			const refreshIcon = refreshBtn.createSpan();
+			setIcon(refreshIcon, "refresh-cw");
+			refreshIcon.style.width = "14px";
+			refreshIcon.style.height = "14px";
+			refreshBtn.style.cursor = "pointer";
+			refreshBtn.setAttribute("aria-label", "Refresh tile");
+			refreshBtn.addEventListener("click", (e) => {
+				e.stopPropagation();
+				ctx.onRefresh!(ctx.tile.id);
+			});
+		}
+
+		const removeBtn = actions.createSpan({ cls: "ft-nav-link ft-text-muted" });
 		const removeIcon = removeBtn.createSpan();
 		setIcon(removeIcon, "x");
 		removeIcon.style.width = "14px";

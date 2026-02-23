@@ -299,6 +299,12 @@ export class AnalyticsService {
 		const removed = dashboards[idx];
 		dashboards.splice(idx, 1);
 		this.state.dashboards = dashboards;
+
+		// Clear default if the deleted dashboard was the default
+		if (this.state.defaultDashboardId === id) {
+			this.state.defaultDashboardId = null;
+		}
+
 		await this.storage.save(this.state);
 
 		await this.eventBus?.emit("analytics.dashboard.deleted", {
@@ -307,6 +313,64 @@ export class AnalyticsService {
 		});
 
 		return true;
+	}
+
+	// ── Favorites & Default ─────────────────────────────
+
+	/** Toggle a saved query's favorite status. */
+	async toggleQueryFavorite(id: string): Promise<boolean | undefined> {
+		const query = this.getQuery(id);
+		if (!query) return undefined;
+
+		query.isFavorite = !query.isFavorite;
+		await this.storage.save(this.state);
+
+		await this.eventBus?.emit("analytics.query.favorited", {
+			queryId: query.id,
+			queryName: query.name,
+			isFavorite: query.isFavorite,
+		});
+
+		return query.isFavorite;
+	}
+
+	/** Toggle a dashboard's favorite status. */
+	async toggleDashboardFavorite(id: string): Promise<boolean | undefined> {
+		const dashboard = this.getDashboard(id);
+		if (!dashboard) return undefined;
+
+		dashboard.isFavorite = !dashboard.isFavorite;
+		dashboard.updatedAt = Date.now();
+		await this.storage.save(this.state);
+
+		await this.eventBus?.emit("analytics.dashboard.favorited", {
+			dashboardId: dashboard.id,
+			dashboardName: dashboard.name,
+			isFavorite: dashboard.isFavorite,
+		});
+
+		return dashboard.isFavorite;
+	}
+
+	/** Set the default dashboard (shown on hub overview). Pass null to clear. */
+	async setDefaultDashboard(id: string | null): Promise<void> {
+		if (id !== null && !this.getDashboard(id)) return;
+
+		this.state.defaultDashboardId = id;
+		await this.storage.save(this.state);
+
+		const dashboard = id ? this.getDashboard(id) : undefined;
+		await this.eventBus?.emit("analytics.dashboard.defaultChanged", {
+			dashboardId: id,
+			dashboardName: dashboard?.name,
+		});
+	}
+
+	/** Get the default dashboard, or undefined if not set or not found. */
+	getDefaultDashboard(): Dashboard | undefined {
+		const id = this.state.defaultDashboardId;
+		if (!id) return undefined;
+		return this.getDashboard(id);
 	}
 
 	/** Add a tile to a dashboard. */

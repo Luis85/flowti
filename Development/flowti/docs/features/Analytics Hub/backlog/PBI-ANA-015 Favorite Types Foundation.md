@@ -1,7 +1,7 @@
 ---
 type: ProductBacklogItem
 feature: "[[Analytics Hub PRD]]"
-stage: planned
+stage: delivered
 priority: critical
 dependencies: []
 tags:

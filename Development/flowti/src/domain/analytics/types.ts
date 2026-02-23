@@ -180,6 +180,8 @@ export interface SavedAnalyticsQuery {
 	id: string;
 	/** User-provided name */
 	name: string;
+	/** Whether this query is marked as a favorite */
+	isFavorite?: boolean;
 	/** Timestamp when saved */
 	createdAt: number;
 	/** Timestamp of last execution */
@@ -245,6 +247,8 @@ export interface Dashboard {
 	name: string;
 	/** Optional description */
 	description?: string;
+	/** Whether this dashboard is marked as a favorite */
+	isFavorite?: boolean;
 	/** Tiles in this dashboard */
 	tiles: DashboardTile[];
 	/** Timestamp when created */
@@ -261,4 +265,6 @@ export interface AnalyticsState {
 	savedAnalyticsQueries: SavedAnalyticsQuery[];
 	/** Named dashboards */
 	dashboards: Dashboard[];
+	/** ID of the default dashboard shown on hub overview (null = no default) */
+	defaultDashboardId?: string | null;
 }

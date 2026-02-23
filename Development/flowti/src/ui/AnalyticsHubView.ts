@@ -13,6 +13,7 @@ import { BaseHubView, type TabDef } from "./BaseHubView";
 import { QueriesTab } from "./analytics/QueriesTab";
 import { DashboardsTab } from "./analytics/DashboardsTab";
 import { AnalyticsDashboardPage } from "./analytics/AnalyticsDashboardPage";
+import { TileResultCache } from "./analytics/TileResultCache";
 import type { AnalyticsHubPage, AnalyticsHubState, AnalyticsCsvEntry, AnalyticsBaseEntry, AnalyticsHubDeps, AnalyticsNavigationCallbacks } from "./analytics/types";
 export { VIEW_TYPE_ANALYTICS_HUB };
 
@@ -28,6 +29,7 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 	private selectedDashboardId: string | null = null;
 
 	// ── Tab components ───────────────────────────────────────
+	private tileResultCache = new TileResultCache();
 	private dashboardPage!: AnalyticsDashboardPage;
 	private queriesTab!: QueriesTab;
 	private dashboardsTab!: DashboardsTab;
@@ -104,14 +106,35 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 		this.addUnsubscribe(
 			this.eventBus.on("analytics.dashboard.tile.added", () => {
 				this.refreshData();
-				this.dashboardsTab.clearResultCache();
+				this.tileResultCache.clear();
 				this.scheduleRender();
 			}),
 		);
 		this.addUnsubscribe(
 			this.eventBus.on("analytics.dashboard.tile.removed", () => {
 				this.refreshData();
-				this.dashboardsTab.clearResultCache();
+				this.tileResultCache.clear();
+				this.scheduleRender();
+			}),
+		);
+
+		// Re-render when favorites or default change
+		this.addUnsubscribe(
+			this.eventBus.on("analytics.query.favorited", () => {
+				this.refreshData();
+				this.scheduleRender();
+			}),
+		);
+		this.addUnsubscribe(
+			this.eventBus.on("analytics.dashboard.favorited", () => {
+				this.refreshData();
+				this.scheduleRender();
+			}),
+		);
+		this.addUnsubscribe(
+			this.eventBus.on("analytics.dashboard.defaultChanged", () => {
+				this.refreshData();
+				this.tileResultCache.clear();
 				this.scheduleRender();
 			}),
 		);
@@ -156,6 +179,7 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 			app: this.app,
 			eventBus: this.eventBus,
 			analyticsService: this.analyticsService,
+			tileResultCache: this.tileResultCache,
 			getState: () => this.getHubState(),
 			setState: (partial) => this.setHubState(partial),
 			navigation,

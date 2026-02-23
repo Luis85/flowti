@@ -1,11 +1,13 @@
 /**
  * Event definitions for the Analytics domain.
  *
- * 13 events covering analytics queries and dashboards:
+ * 16 events covering analytics queries and dashboards:
  * - Lifecycle: loaded
  * - Query execution: started / completed / failed
  * - Query persistence: query.saved / query.deleted
+ * - Query favorites: query.favorited
  * - Dashboard CRUD: dashboard.created / updated / deleted
+ * - Dashboard favorites: dashboard.favorited / dashboard.defaultChanged
  * - Tile CRUD: dashboard.tile.added / removed / updated
  * - Dashboard refresh: dashboard.refreshed
  */
@@ -54,6 +56,13 @@ export interface AnalyticsEventMap {
 		queryName: string;
 	};
 
+	/** A saved query's favorite status was toggled */
+	"analytics.query.favorited": {
+		queryId: string;
+		queryName: string;
+		isFavorite: boolean;
+	};
+
 	/** A new dashboard was created */
 	"analytics.dashboard.created": {
 		dashboard: Dashboard;
@@ -68,6 +77,19 @@ export interface AnalyticsEventMap {
 	"analytics.dashboard.deleted": {
 		dashboardId: string;
 		dashboardName: string;
+	};
+
+	/** A dashboard's favorite status was toggled */
+	"analytics.dashboard.favorited": {
+		dashboardId: string;
+		dashboardName: string;
+		isFavorite: boolean;
+	};
+
+	/** The default dashboard was changed */
+	"analytics.dashboard.defaultChanged": {
+		dashboardId: string | null;
+		dashboardName?: string;
 	};
 
 	/** A tile was added to a dashboard */
