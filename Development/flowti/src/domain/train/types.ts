@@ -67,6 +67,8 @@ export interface TrainState {
 	parentTrainId?: string;
 	/** Per-train subfolder path (e.g. "00 - Connectivity/trains/20260223-1430 My Train"). */
 	folderPath?: string;
+	/** Train type ID (e.g. "brainstorm", "research"). Undefined for legacy trains. */
+	trainType?: string;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -77,6 +79,27 @@ export interface TrainState {
 export interface TrainServiceState {
 	trains: TrainState[];
 }
+
+// ─────────────────────────────────────────────────────────────
+// Train Types
+// ─────────────────────────────────────────────────────────────
+
+/** Configuration for a train type. */
+export interface TrainTypeConfig {
+	id: string;
+	label: string;
+	icon: string;
+	/** Default duration in minutes (0 = no timer). */
+	defaultDuration: number;
+}
+
+/** Built-in train types available at creation. */
+export const BUILT_IN_TRAIN_TYPES: readonly TrainTypeConfig[] = [
+	{ id: "brainstorm", label: "Brainstorm", icon: "lightbulb", defaultDuration: 15 },
+	{ id: "research", label: "Research", icon: "search", defaultDuration: 25 },
+	{ id: "decision", label: "Decision", icon: "scale", defaultDuration: 10 },
+	{ id: "free-form", label: "Free-form", icon: "pen-line", defaultDuration: 0 },
+];
 
 // ─────────────────────────────────────────────────────────────
 // Constants

@@ -4,16 +4,16 @@ plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
 stage: delivered
 maturity: L2
-version: 2
+version: 3
 created: 2026-02-22
-updated: 2026-02-22
+updated: 2026-02-23
 foundation: "[[Train of Thoughts PRD]]"
 maturity_score_strategy: 4
 maturity_score_scope: 5
-maturity_score_architecture: 4
+maturity_score_architecture: 5
 maturity_score_event_integration: 4
-maturity_score_data_model: 3
-maturity_score_ui_consistency: 4
+maturity_score_data_model: 4
+maturity_score_ui_consistency: 5
 maturity_score_validation_testing: 4
 business_value: 4
 implementation_cost: 3
@@ -22,7 +22,7 @@ discovery_cost: 2
 design_cost: 3
 test_cost: 3
 priority: 3
-fri_score: 28
+fri_score: 31
 tags:
   - session
   - train-of-thought
@@ -32,6 +32,7 @@ planned_in:
   - "[[Cycle 17 - Train Canvas and Branch Merge]]"
   - "[[Cycle 22 - Train Polish and Management]]"
   - "[[Cycle 23 - Merge Down and Detail Restructure]]"
+  - "[[Cycle 24 - Train Value Sprint]]"
 ---
 
 # Feature PRD: Train of Thoughts — Branch Merge & Canvas Journey
@@ -229,6 +230,51 @@ The detail view must prioritize actionable controls at the top. New order: Heade
 
 **Delivered:** Cycle 23. Includes one-click "Merge down" button with auto-target, canvas callout section, and "Path" heading on breadcrumb.
 
+### FR-15: Train Hub View
+The system must provide a dedicated Train Hub (`TrainHubView`) extending `BaseHubView<TrainHubPage>` with dashboard, active, and history pages. Dashboard shows active train card + aggregate statistics (total, active, completed, avg thoughts). Active tab lists running/paused trains with Resume/Pause/Open/Delete actions. History tab lists completed trains, searchable by title.
+
+**Delivered:** Cycle 24 Inc 1. TrainHubView 376 LOC.
+
+### FR-16: Train Hub Command
+The system must register `flowti:open-train-hub` command in the command palette to open the Train Hub.
+
+**Delivered:** Cycle 24 Inc 1. Registered in `src/infrastructure/commands/registry.ts`.
+
+### FR-17: Head Node Utility
+The system must provide `getHeadNode(trainId)` on TrainService that returns the last main-chain thought node. Returns null for empty trains.
+
+**Delivered:** Cycle 24 Inc 2. Pure graph traversal via `getTimeline()`.
+
+### FR-18: Jump-to-End Button
+The system must show a "Jump to end" button in TrainMainView nav bar when the active thought is not the head node. Clicking navigates to the head thought via `train.thought.activated` event.
+
+**Delivered:** Cycle 24 Inc 2. Button with `ft-train-jump-to-end-btn` class, fast-forward icon.
+
+### FR-19: Smart Resume Modal
+When resuming a paused train and the active thought is not the head node, the system must show a resume modal with three options: "Jump to end" (navigates to head + opens capture), "Branch from here" (stays on current node + opens capture with branch direction), "Stay here" (dismisses without action).
+
+**Delivered:** Cycle 24 Inc 2. TrainResumeModal 109 LOC.
+
+### FR-20: Inline Property Editor
+The system must show an inline frontmatter property editor on the thought detail section. Reads via `metadataCache.getCache(path)?.frontmatter`, writes via `app.fileManager.processFrontMatter()` with 500ms debounce. Built-in properties (type, train, direction, order, parent) are read-only with lock icon. Users can add new key-value properties.
+
+**Delivered:** Cycle 24 Inc 3. TrainPropertyEditor 256 LOC.
+
+### FR-21: Built-in Train Types
+The system must define `TrainTypeConfig` interface and `BUILT_IN_TRAIN_TYPES` constant with 4 types: brainstorm (15min, lightbulb), research (25min, search), decision (10min, scale), free-form (0min, pen-line).
+
+**Delivered:** Cycle 24 Inc 4. Types in `src/domain/train/types.ts`.
+
+### FR-22: Type Picker Modal
+The system must show a type picker modal (`TrainTypePickerModal`) before creating a new train. Displays 4 types as icon cards in 2x2 grid. Selection provides type config (including default duration) to caller. Defaults to free-form on dismiss.
+
+**Delivered:** Cycle 24 Inc 4. TrainTypePickerModal 68 LOC.
+
+### FR-23: Type Badge Display
+The system must show a type badge with icon in both TrainMainView header and TrainHubView list rows. Existing trains without a type display "Free-form" fallback.
+
+**Delivered:** Cycle 24 Inc 4. Uses `typeConfig?.label ?? "Free-form"` and `typeConfig?.icon ?? "pen-line"`.
+
 ---
 
 ## 7. Jobs To Be Done
@@ -281,6 +327,8 @@ trainCanvasAutoOpen:  boolean  (default: false)
 | PBI-TOT-005 | Train Canvas Generation & Sync | FR-03, FR-04, FR-05, FR-07 | 2 (must-have) | Done (Cycle 17) |
 | PBI-TOT-008 | Train Polish and Management | FR-08, FR-09, FR-10 | 3 (should-have) | Done (Cycle 22) |
 | PBI-TOT-009 | Merge Down Direction | FR-11, FR-12 | 4 (should-have) | Done (Cycle 23) |
+| PBI-TOT-010 | Train Hub | FR-15, FR-16 | 5 (should-have) | Done (Cycle 24) |
+| PBI-TOT-011 | Train UX Sprint | FR-17–FR-23 | 6 (should-have) | Done (Cycle 24) |
 
 ---
 
@@ -312,6 +360,15 @@ trainCanvasAutoOpen:  boolean  (default: false)
 |---------|-----|-------|--------|-------|
 | v1 | 25/35 | in-progress | Cycle 17 | Initial delivery: branch merge, canvas generation & sync |
 | v2 | 28/35 | delivered | Cycles 22, 23 | Train polish (rename, delete, maxThoughts) + merge-down auto-target + detail view restructure |
+| v3 | 31/35 | delivered | Cycle 24 | Train Hub, jump-to-end, smart resume, property editor, train types. 23 FRs across 6 PBIs. |
+
+### FRI v2 → v3 Changes
+
+| Dimension | v2 | v3 | Rationale |
+|-----------|----|----|-----------|
+| Architecture | 4 | 5 | BaseHubView reuse for TrainHubView, pure `getHeadNode()` graph utility, standalone component pattern (TrainPropertyEditor, TrainResumeModal) |
+| Data Model | 3 | 4 | `TrainTypeConfig` interface, `BUILT_IN_TRAIN_TYPES` constant, `trainType` optional field on TrainState — backward compatible type system |
+| UI Consistency | 4 | 5 | 4 new UI components all follow established patterns: BaseHubView, Modal, standalone component. Type badges, property editor, resume modal — consistent with Obsidian UX conventions |
 
 ### FRI v1 → v2 Changes
 
@@ -335,7 +392,7 @@ trainCanvasAutoOpen:  boolean  (default: false)
 | Merge preview ghost edge | Nice-to-have UX polish deferred to avoid scope creep |
 | Merge-down for sub-branches into parent branches | Only main chain targeted in Cycle 23 |
 | Auto-merge all branches on completeTrain() | Changes completion semantics |
-| Train types at creation | Needs type registry + design session |
+| ~~Train types at creation~~ | ~~Needs type registry + design session~~ — **Delivered in v3 (Cycle 24)** |
 
 ---
 
@@ -344,5 +401,5 @@ trainCanvasAutoOpen:  boolean  (default: false)
 - Foundation: [[Train of Thoughts PRD]] (FRI 33/35, done)
 - Canvas: [[Obsidian Canvas Integration PRD]] (FRI 30/35, done)
 - Inbox: [[Train Improvements]], [[I want to configure my Train of Thoughts]], [[How can I combine Sessions and Trains to create a Quality AssuranceWorkflow]]
-- Cycles: [[Cycle 13 - Train of Thoughts]], [[Cycle 14 - Train View Polish]], [[Cycle 15 - Canvas Integration]], [[Cycle 22 - Train Polish and Management]], [[Cycle 23 - Merge Down and Detail Restructure]]
-- Reviews: [[Three Amigos Review 2026-02-22 Train Polish and Merge Down]]
+- Cycles: [[Cycle 13 - Train of Thoughts]], [[Cycle 14 - Train View Polish]], [[Cycle 15 - Canvas Integration]], [[Cycle 22 - Train Polish and Management]], [[Cycle 23 - Merge Down and Detail Restructure]], [[Cycle 24 - Train Value Sprint]]
+- Reviews: [[Three Amigos Review 2026-02-22 Train Polish and Merge Down]], [[Three Amigos Review 2026-02-23 Train Value Sprint]]

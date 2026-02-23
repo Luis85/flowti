@@ -1,7 +1,8 @@
 ---
 type: ProductBacklogItem
 feature: "[[Train Improvements PRD]]"
-stage: planned
+stage: done
+delivered_in: "[[Cycle 24 - Train Value Sprint]]"
 priority: high
 effort: medium
 dependencies:
@@ -37,8 +38,8 @@ As a Train of Thoughts user managing multiple trains across sessions, I want a d
 
 ### Functional Requirements
 
-- [ ] FR-15: Train Hub view (`TrainHubView`) extending `BaseHubView<TrainHubPage>` with 3 pages: dashboard, active, history
-- [ ] FR-16: Train Hub command (`flowti:open-train-hub`) registered in command palette
+- [x] FR-15: Train Hub view (`TrainHubView`) extending `BaseHubView<TrainHubPage>` with 3 pages: dashboard, active, history
+- [x] FR-16: Train Hub command (`flowti:open-train-hub`) registered in command palette
 
 ### Key Design Decisions
 

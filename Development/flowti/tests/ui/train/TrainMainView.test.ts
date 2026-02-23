@@ -82,6 +82,10 @@ function createMockTrainService(train: TrainState | undefined = undefined): Trai
 			return ids;
 		}),
 		findMergeDownTarget: vi.fn(() => null),
+		getHeadNode: vi.fn(() => {
+			const timeline = [t1, t2]; // matches getTimeline mock
+			return timeline.length > 0 ? timeline[timeline.length - 1] : null;
+		}),
 	} as unknown as TrainService;
 }
 
@@ -426,6 +430,99 @@ describe("TrainMainView", () => {
 		});
 	});
 
-	// ── Inc 3: Keyboard navigation ───────────────────────
+	// ── OBS-1: Layout order and context-aware navigation ──
 
+	describe("layout order (OBS-1)", () => {
+		it("renders sections in correct order: header → nav → stats → detail → property editor", async () => {
+			view = new TrainMainView(createMockLeaf(), eventBus, trainService);
+			await view.onOpen();
+
+			const sections = view.contentEl.querySelectorAll(".ft-section, .ft-train-property-editor-wrapper");
+			const classes = Array.from(sections).map((s) => s.className);
+
+			// Header is first section
+			expect(classes.findIndex((c) => c.includes("ft-section"))).toBeLessThan(classes.length);
+			// Nav bar comes before stats
+			const navIdx = classes.findIndex((c) => c.includes("ft-train-nav-wrapper"));
+			const statsIdx = classes.findIndex((c) => c.includes("ft-train-stats-section"));
+			expect(navIdx).toBeLessThan(statsIdx);
+		});
+
+		it("renders thought detail section when active thought exists", async () => {
+			view = new TrainMainView(createMockLeaf(), eventBus, trainService);
+			await view.onOpen();
+
+			const detail = view.contentEl.querySelector(".ft-train-detail");
+			expect(detail).not.toBeNull();
+		});
+
+		it("renders property editor wrapper after thought detail", async () => {
+			view = new TrainMainView(createMockLeaf(), eventBus, trainService);
+			await view.onOpen();
+
+			const wrapper = view.contentEl.querySelector(".ft-train-property-editor-wrapper");
+			expect(wrapper).not.toBeNull();
+		});
+	});
+
+	describe("jump-to-end visibility (OBS-1)", () => {
+		it("shows jump-to-end button when not at head", async () => {
+			// Default: t1 is active, t2 is head → not at head
+			view = new TrainMainView(createMockLeaf(), eventBus, trainService);
+			await view.onOpen();
+
+			const jumpBtn = view.contentEl.querySelector(".ft-train-jump-to-end-btn");
+			expect(jumpBtn).not.toBeNull();
+		});
+
+		it("hides jump-to-end button when at head", async () => {
+			// Navigate to t2 (which is head)
+			view = new TrainMainView(createMockLeaf(), eventBus, trainService);
+			await view.onOpen();
+
+			// Click next to go to t2 (head)
+			const nextBtn = view.contentEl.querySelector(".ft-train-next-btn") as HTMLElement;
+			nextBtn.click();
+
+			const jumpBtn = view.contentEl.querySelector(".ft-train-jump-to-end-btn");
+			expect(jumpBtn).toBeNull();
+		});
+
+		it("jump-to-end button navigates to head thought", async () => {
+			view = new TrainMainView(createMockLeaf(), eventBus, trainService);
+			await view.onOpen();
+
+			// Start at t1, head is t2
+			const jumpBtn = view.contentEl.querySelector(".ft-train-jump-to-end-btn") as HTMLElement;
+			jumpBtn.click();
+
+			// After jump, active thought title should be "Second Idea" (t2)
+			const title = view.contentEl.querySelector(".ft-train-thought-title");
+			expect(title?.textContent).toBe("Second Idea");
+		});
+	});
+
+	describe("type badge (OBS-1)", () => {
+		it("renders type badge in header for typed train", async () => {
+			const typedTrain = createTrain({ trainType: "brainstorm" });
+			const service = createMockTrainService(typedTrain);
+			view = new TrainMainView(createMockLeaf(), eventBus, service);
+			await view.onOpen();
+
+			const badge = view.contentEl.querySelector(".ft-train-type-badge");
+			expect(badge).not.toBeNull();
+			expect(badge?.textContent).toContain("Brainstorm");
+		});
+
+		it("renders Free-form fallback for train without type", async () => {
+			const untyped = createTrain({}); // no trainType
+			const service = createMockTrainService(untyped);
+			view = new TrainMainView(createMockLeaf(), eventBus, service);
+			await view.onOpen();
+
+			const badge = view.contentEl.querySelector(".ft-train-type-badge");
+			expect(badge).not.toBeNull();
+			expect(badge?.textContent).toContain("Free-form");
+		});
+	});
 });

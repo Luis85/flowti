@@ -1,7 +1,8 @@
 ---
 type: ProductBacklogItem
 feature: "[[Train Improvements PRD]]"
-stage: planned
+stage: done
+delivered_in: "[[Cycle 24 - Train Value Sprint]]"
 priority: high
 effort: high
 dependencies:
@@ -38,13 +39,13 @@ As a Train of Thoughts user, I want smarter navigation when resuming trains (jum
 
 ### Functional Requirements
 
-- [ ] FR-17: `getHeadNode(trainId)` — returns last main-chain thought
-- [ ] FR-18: Jump-to-end button in TrainMainView nav bar (visible when not on head)
-- [ ] FR-19: Smart resume modal with 3 options (jump to end, branch from here, stay)
-- [ ] FR-20: Inline frontmatter property editor on thought detail section
-- [ ] FR-21: Built-in train types with `TrainTypeConfig` (brainstorm, research, decision, free-form)
-- [ ] FR-22: Type picker modal before train creation
-- [ ] FR-23: Type badge in detail view header and Train Hub list
+- [x] FR-17: `getHeadNode(trainId)` — returns last main-chain thought
+- [x] FR-18: Jump-to-end button in TrainMainView nav bar (visible when not on head)
+- [x] FR-19: Smart resume modal with 3 options (jump to end, branch from here, stay)
+- [x] FR-20: Inline frontmatter property editor on thought detail section
+- [x] FR-21: Built-in train types with `TrainTypeConfig` (brainstorm, research, decision, free-form)
+- [x] FR-22: Type picker modal before train creation
+- [x] FR-23: Type badge in detail view header and Train Hub list
 
 ### Key Design Decisions
 

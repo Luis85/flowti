@@ -53,6 +53,8 @@ import { SessionWorkspaceView, VIEW_TYPE_SESSION_WORKSPACE } from "./ui/SessionW
 import { TrainMainView, VIEW_TYPE_TRAIN_MAIN } from "./ui/train/TrainMainView";
 import { TrainTimelineSidebar, VIEW_TYPE_TRAIN_TIMELINE } from "./ui/train/TrainTimelineSidebar";
 import { TrainHubView, VIEW_TYPE_TRAIN_HUB } from "./ui/train/TrainHubView";
+import { TrainResumeModal } from "./ui/train/TrainResumeModal";
+import { TrainTypePickerModal } from "./ui/train/TrainTypePickerModal";
 import { showNudgeNotification } from "./ui/NudgeNotification";
 
 
@@ -319,6 +321,40 @@ export default class FlowtiBasePlugin extends Plugin {
 				if (activeTrain && activeTrain.status === "paused") {
 					const fromThoughtId = event.payload.fromThoughtId;
 					const mdFlag = event.payload.mergeDown;
+
+					// Smart resume: check if active thought is NOT the head node
+					const headNode = this.trainService.getHeadNode(activeTrain.id);
+					const activeThoughtId = fromThoughtId ?? activeTrain.thoughts[activeTrain.thoughts.length - 1]?.id;
+					const currentThought = activeThoughtId
+						? activeTrain.thoughts.find((t) => t.id === activeThoughtId)
+						: null;
+
+					if (headNode && currentThought && headNode.id !== currentThought.id) {
+						new TrainResumeModal(this.app, {
+							trainTitle: activeTrain.title,
+							currentThoughtTitle: currentThought.title,
+							headThoughtTitle: headNode.title,
+							onChoice: (choice) => {
+								switch (choice) {
+									case "jump-to-end":
+										void this.trainService!.resume(activeTrain.id).then(() => {
+											this.openTrainModal(activeTrain.id, activeTrain.title, undefined, headNode.id);
+										});
+										break;
+									case "branch-from-here":
+										void this.trainService!.resume(activeTrain.id).then(() => {
+											this.openTrainModal(activeTrain.id, activeTrain.title, undefined, currentThought.id);
+										});
+										break;
+									case "stay-here":
+										void this.trainService!.resume(activeTrain.id);
+										break;
+								}
+							},
+						}).open();
+						return;
+					}
+
 					void this.trainService.resume(activeTrain.id).then(() => {
 						this.openTrainModal(activeTrain.id, activeTrain.title, undefined, fromThoughtId, mdFlag);
 					});
@@ -331,23 +367,27 @@ export default class FlowtiBasePlugin extends Plugin {
 					return;
 				}
 
-				// No train — prompt for a new title.
-				const duration = this.settings.defaultTrainDuration ?? 0;
+				// No train — type picker → title input → start
 				const fromFilePath = event.payload.fromFilePath;
-				new InputModal(this.app, {
-					title: "Start a new Train of Thoughts",
-					inputName: "What are you thinking?",
-					inputDesc: "",
-					placeholder: "e.g. Exploring a new idea\u2026",
-					submitLabel: "Start",
-					onSubmit: (title) => {
-						void this.trainService!.startTrain(title, duration).then(async (train) => {
-							if (fromFilePath) {
-								const basename = fromFilePath.replace(/^.*[\\/]/, "").replace(/\.md$/, "");
-								await this.trainService!.addThought(train.id, basename, { path: fromFilePath });
-							}
-							this.openTrainModal(train.id, train.title);
-						});
+				new TrainTypePickerModal(this.app, {
+					onSelect: (typeConfig) => {
+						const duration = typeConfig.defaultDuration || (this.settings.defaultTrainDuration ?? 0);
+						new InputModal(this.app, {
+							title: `Start a ${typeConfig.label} Train`,
+							inputName: "What are you thinking?",
+							inputDesc: "",
+							placeholder: "e.g. Exploring a new idea\u2026",
+							submitLabel: "Start",
+							onSubmit: (title) => {
+								void this.trainService!.startTrain(title, duration, typeConfig.id).then(async (train) => {
+									if (fromFilePath) {
+										const basename = fromFilePath.replace(/^.*[\\/]/, "").replace(/\.md$/, "");
+										await this.trainService!.addThought(train.id, basename, { path: fromFilePath });
+									}
+									this.openTrainModal(train.id, train.title);
+								});
+							},
+						}).open();
 					},
 				}).open();
 			});

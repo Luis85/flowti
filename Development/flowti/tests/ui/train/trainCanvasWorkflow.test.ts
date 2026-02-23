@@ -81,6 +81,12 @@ function createMockTrainService(train: TrainState): TrainService {
 			}
 			return ids;
 		}),
+		getHeadNode: vi.fn(() => {
+			const timeline = train.thoughts.filter((t) =>
+				!train.relations.some((r) => r.toId === t.id && r.direction === "branch"),
+			);
+			return timeline.length > 0 ? timeline[timeline.length - 1] : null;
+		}),
 	} as unknown as TrainService;
 }
 
