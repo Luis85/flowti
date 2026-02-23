@@ -1,9 +1,9 @@
 ---
 type: DevelopmentCycle
 feature: "[[Train Improvements PRD]]"
-stage: planned
+stage: ready
 cycle: 24
-date_planned: 2026-02-22
+date_planned: 2026-02-23
 date_completed:
 pbis:
   - "[[PBI-TOT-010 Train Hub]]"
@@ -49,28 +49,48 @@ total_test_files_after:
 
 ## Situation Assessment
 
-### Pre-Cycle State (post-Cycle 23 + bug fixes)
+### Pre-Cycle State (post-Cycle 23 + post-delivery amendments)
 
 **Plugin health:**
-- 3,954 tests passing, 161 test suites, 32 skipped
-- Build status: green
+- 3,976 tests passing, 161 test suites, 32 skipped
+- Build status: green (`npm test` + `npm run check` clean)
 - Pre-cycle bug fixes applied: merge connector visualization, timeline node opens detail view
 
 **Train domain status:**
-- Domain: ~1,800 LOC (TrainService 710, TrainCanvasWriter 543, TrainCanvasSyncService 124, TrainSummaryWriter 214, helpers 12)
-- UI: ~2,300 LOC (TrainMainView 686, TrainTimelineSidebar 490, TrainCaptureModal 271, TrainHistoryPanel ~171, panels ~180, subscriptions ~450)
+- Domain: ~1,895 LOC (TrainService 864, TrainCanvasWriter 543, TrainCanvasSyncService 137, TrainSummaryWriter 213, helpers 11, types 87, events 40)
+- UI: ~2,260 LOC (TrainMainView 700, TrainTimelineSidebar 503, TrainCaptureModal 319, TrainHistoryPanel 171, TrainMergeSelector 127, subscriptions 224, panels 201, types 15)
+- Tests: 683 train-specific tests across 18 test files (363 domain + 290 UI + 30 flow)
 - FRI: 28/35 (Train Improvements PRD v2)
-- 14 events, 23 public service methods, 11 UI components
+- 15 events, 20 public service methods, 5 commands, 11 UI components
+- 9/9 PBIs delivered (TOT-001 through TOT-009)
+
+**Post-Cycle 23 amendments (2026-02-23):**
+- `findMergeDownTarget()` enhanced: returns `{ targetId, originId }` for all branch endpoints
+- Merge-down flow redesigned: Case 1 (add on branch, merge into target), Case 2 (add on main, merge branch)
+- Already-merged guard: `findMergeDownTarget` returns null when branch is merged
+- Per-train timestamped subfolders: each train gets `YYYYMMDD-HHmm Title/` folder
+- Rename thought from capture modal (pencil icon)
+- Sidebar toggle fix (`isShown()` vs `hasClass`)
+- Back button restyled in action row
+- 3,976 tests passing (up from 3,952 at Cycle 23 delivery)
+
+**Open review action items (Three Amigos):**
+- OBS-1: TrainMainView rendering tests for new layout (QA — this cycle)
+- OBS-2: Monitor TrainMainView LOC growth (700 LOC — approaching extraction threshold)
+
+**Inbox signals reviewed (28 vault items):**
+- **Addressed this cycle:** Train Hub, train types, frontmatter enrichment, train closure context
+- **Deferred with rationale:** Pre-configured train routes (needs template system), branch promotion (complex graph semantics), decision nodes (new type system needed), Zettelkasten method (specialized workflow), AI-assisted trains (infrastructure dependency), multi-window display (Obsidian limitation)
 
 ---
 
 ## Cycle Goals
 
-1. **Train Hub** — Dedicated BaseHubView for managing all trains
-2. **Jump-to-End & Smart Resume** — Quick navigation + resume decision modal
-3. **Frontmatter Enrichment** — Property editor on thought detail
-4. **Train Types at Creation** — Type selection with type-specific config
-5. **Train Closure Context + Integration Tests**
+1. **Train Hub** — Dedicated BaseHubView for managing all trains from one central place
+2. **Jump-to-End & Smart Resume** — Quick navigation + resume decision modal when not at head
+3. **Frontmatter Enrichment** — Property editor on thought detail page
+4. **Train Types at Creation** — Type selection with type-specific default duration
+5. **Train Closure Context + Integration Tests** — Train stats in closure overlay, flow tests for all new behaviors
 
 ---
 
@@ -88,9 +108,11 @@ total_test_files_after:
 
 ### Out of Scope
 - Custom train type creation/editing (use built-in types only)
-- Train Hub as full BaseHubView with split layout (start simple — single list view)
+- Train Hub split layout master/detail (start with single list view, add later)
 - Cyclical trains / multiple concurrent train management
 - AI-driven synthesis
+- Pre-configured train routes/templates
+- Branch promotion (branch becomes main line)
 
 ---
 
@@ -105,15 +127,21 @@ total_test_files_after:
 - Dashboard: active train card (if any) + train stats (total, completed, avg thoughts, avg duration)
 - Active tab: currently running/paused trains with Resume/Pause/Open/Delete actions
 - History tab: completed trains with Open/Delete actions, searchable by title
-- Command: `flowti:open-train-hub` — "Open Train Hub"
+- Command: `flowti:open-train-hub` — "Open Train hub"
 - VIEW_TYPE: `"flowti-train-hub"` in `src/domain/hub/types.ts`
 
 | File | Purpose | Est. LOC |
 |------|---------|----------|
-| `src/ui/train/TrainHubView.ts` | BaseHubView subclass | ~250 |
+| `src/ui/train/TrainHubView.ts` (new) | BaseHubView subclass | ~250 |
 | `src/domain/hub/types.ts` | Add VIEW_TYPE_TRAIN_HUB | ~2 |
 | `src/main.ts` | Register view + command | ~15 |
-| `tests/ui/train/TrainHubView.test.ts` | 15 tests | ~200 |
+| `tests/ui/train/TrainHubView.test.ts` (new) | 15 tests | ~200 |
+
+**Test intent:** Dashboard renders stats, active tab lists running trains with actions, history tab lists completed trains with search, tab navigation works, cleanup on close.
+
+**Documentation intent:** Update command registry documentation. Add Train Hub to hub registry.
+
+**Architecture seams:** Follows BaseHubView pattern (EventCatalogView, DataExchangeHubView). Uses `trainService.getAllTrains()` + `trainService.getActiveTrain()` for data. No new events needed — reuses existing `train.started`, `train.completed`, `train.paused`, `train.resumed` for re-render triggers.
 
 **AC:**
 - [ ] Train Hub lists all trains with status badges
@@ -129,25 +157,31 @@ total_test_files_after:
 **Goal:** Quick "Jump to end" button and a smart resume modal that asks what to do when not on the head node.
 
 **Design:**
-- **Jump to end button:** In TrainMainView nav bar, right side. Emits `train.thought.activated` with the head node ID. Button label: fast-forward icon. Visible only when active thought is not the head.
-- **Smart resume modal:** When `resumeTrain()` is called and the persisted `activeThoughtId` is NOT the head node, show a modal: "You're on '{activeNode.title}' — not the latest thought." Options: "Jump to end" (navigates to head, continue adding next), "Branch from here" (stays on current node, next thought branches), "Stay here" (dismisses modal).
-- `getHeadNode(trainId)` helper on TrainService: returns the last node on main chain.
+- **Jump to end button:** In TrainMainView nav bar, left side (before context-aware right action). Fast-forward icon. Visible only when active thought is not the head. Emits `train.thought.activated` with head node ID.
+- **Smart resume modal:** When `ui.startTrain` fires for a paused train and the last `activeThoughtId` is NOT the head node, show a modal: "You're on '{activeNode.title}' — not the latest thought." Options: "Jump to end" (navigates to head, opens capture modal from there), "Branch from here" (stays on current node, opens capture modal with branch direction), "Stay here" (dismisses, opens detail view).
+- `getHeadNode(trainId)` helper on TrainService: walks main chain via "next" relations, returns last node.
 
 | File | Purpose | Est. LOC |
 |------|---------|----------|
 | `src/domain/train/TrainService.ts` | `getHeadNode(trainId)` public method | ~15 |
 | `src/ui/train/TrainMainView.ts` | Jump-to-end button in nav bar | ~20 |
-| `src/ui/train/TrainResumeModal.ts` | Smart resume modal (3 options) | ~80 |
-| `src/main.ts` | Wire resume modal in `handleTrainResume()` | ~25 |
+| `src/ui/train/TrainResumeModal.ts` (new) | Smart resume modal (3 options) | ~80 |
+| `src/main.ts` | Wire resume modal in `openTrainModal()` | ~25 |
 | `tests/domain/train/trainService.test.ts` | `getHeadNode()` tests | ~20 |
-| `tests/ui/train/TrainResumeModal.test.ts` | 8 tests | ~100 |
+| `tests/ui/train/TrainResumeModal.test.ts` (new) | 8 tests | ~100 |
+
+**Test intent:** `getHeadNode()` unit tests (linear chain, branched chain, empty train, single thought). Resume modal: renders 3 options, "Jump to end" navigates + opens capture, "Branch from here" opens capture with branch direction, "Stay here" dismisses. Jump button visibility: hidden at head, visible mid-chain.
+
+**Documentation intent:** Update `openTrainModal()` JSDoc with resume flow.
+
+**Architecture seams:** `getHeadNode()` is a pure graph traversal (like `getTimeline()` but returns last element). Resume modal follows `TrainCaptureModal` pattern (extends `Modal`, 3 buttons). Integration point: `openTrainModal()` in `main.ts` checks head vs active before opening capture modal.
 
 **AC:**
 - [ ] "Jump to end" button appears when not on head node
 - [ ] Clicking it navigates to the head thought
-- [ ] On resume, if not on head, modal appears with 3 options
+- [ ] On resume from mid-chain, modal appears with 3 options
 - [ ] "Jump to end" moves to head and continues capture flow
-- [ ] "Branch from here" stays on current node and next thought creates a branch
+- [ ] "Branch from here" stays on current node, opens capture modal with branch direction
 - [ ] "Stay here" dismisses without action
 - [ ] `npm test` passes
 
@@ -159,17 +193,24 @@ total_test_files_after:
 
 **Design:**
 - New section in `renderThoughtDetail()`: "Properties" collapsible section
-- Read existing frontmatter from the thought file via `metadataCache`
-- Display key-value pairs with inline edit (click to edit)
+- Read existing frontmatter from the thought file via `metadataCache.getCache(path)?.frontmatter`
+- Display key-value pairs with inline edit (click to edit value)
 - "Add property" button adds a new key-value row
-- On edit/add, write updated frontmatter to the file via `processFrontMatter()`
-- Built-in properties (type, train, direction, etc.) are read-only
+- On edit/add, write updated frontmatter to the file via `app.fileManager.processFrontMatter()`
+- Built-in properties (type, train, direction, order, parent) are read-only with lock icon
+- Debounce writes at 500ms to avoid rapid file mutations
 
 | File | Purpose | Est. LOC |
 |------|---------|----------|
-| `src/ui/train/TrainPropertyEditor.ts` | Property editor component | ~150 |
+| `src/ui/train/TrainPropertyEditor.ts` (new) | Property editor component | ~150 |
 | `src/ui/train/TrainMainView.ts` | Wire into `renderThoughtDetail()` | ~10 |
-| `tests/ui/train/TrainPropertyEditor.test.ts` | 10 tests | ~120 |
+| `tests/ui/train/TrainPropertyEditor.test.ts` (new) | 10 tests | ~120 |
+
+**Test intent:** Renders existing properties as key-value list, built-in properties read-only, edit triggers frontmatter update, add new property, empty state message, debounce prevents rapid writes.
+
+**Documentation intent:** None beyond inline code comments.
+
+**Architecture seams:** Property editor is a standalone component following `TrainStatsPanel` pattern (constructor receives container + deps). Uses `metadataCache` (read) and `processFrontMatter` (write) — no new service methods needed. TrainMainView passes thought path to editor.
 
 **AC:**
 - [ ] Properties section shows in thought detail view
@@ -184,26 +225,33 @@ total_test_files_after:
 
 ### Inc 4: Train Types at Creation
 
-**Goal:** Allow choosing a train type when starting a new train. Types have default duration and closure template.
+**Goal:** Allow choosing a train type when starting a new train. Types have default duration.
 
 **Design:**
 - Built-in types: `brainstorm` (default 15min), `research` (25min), `decision` (10min), `free-form` (no timer)
-- `TrainTypeConfig`: `{ id, label, icon, defaultDuration, closureTemplate? }`
-- `BUILT_IN_TRAIN_TYPES` constant array
-- Start command opens type picker (dropdown or quick-select modal) before creating train
-- Type stored on `TrainState.trainType` field (optional, backward compat)
+- `TrainTypeConfig`: `{ id: string, label: string, icon: string, defaultDuration: number }`
+- `BUILT_IN_TRAIN_TYPES` constant array in `types.ts`
+- Start command opens type picker modal before creating train
+- Type stored on `TrainState.trainType?: string` (backward compat — existing trains have no type)
 - Type badge shown in TrainMainView header and Train Hub list
-- Type-specific closure template passed to session closure overlay
+- `startTrain()` signature extended: `startTrain(title, durationMinutes?, trainType?)` — duration falls back to type default when not specified
 
 | File | Purpose | Est. LOC |
 |------|---------|----------|
 | `src/domain/train/types.ts` | `TrainTypeConfig`, `BUILT_IN_TRAIN_TYPES`, add `trainType` to TrainState | ~40 |
-| `src/ui/train/TrainTypePickerModal.ts` | Type selection modal | ~60 |
+| `src/ui/train/TrainTypePickerModal.ts` (new) | Type selection modal with icons | ~60 |
 | `src/domain/train/TrainService.ts` | Accept `trainType` in `startTrain()` | ~10 |
 | `src/main.ts` | Wire type picker before train start | ~15 |
 | `src/ui/train/TrainMainView.ts` | Type badge in header | ~5 |
-| `tests/domain/train/trainTypes.test.ts` | 8 tests | ~80 |
-| `tests/ui/train/TrainTypePickerModal.test.ts` | 6 tests | ~60 |
+| `src/ui/train/TrainHubView.ts` | Type badge in train list | ~5 |
+| `tests/domain/train/trainTypes.test.ts` (new) | 8 tests | ~80 |
+| `tests/ui/train/TrainTypePickerModal.test.ts` (new) | 6 tests | ~60 |
+
+**Test intent:** Built-in types constant has 4 entries with correct defaults. `startTrain()` accepts type parameter and stores on state. Type picker renders 4 options. Selection callback returns correct config. Type badge renders in detail view. Existing trains without type display "free-form" fallback.
+
+**Documentation intent:** Update Train Improvements PRD with new FR. Add types to event catalog if new events needed.
+
+**Architecture seams:** `TrainTypeConfig` is a simple data type (no domain service). Type picker follows Obsidian `Modal` pattern. `startTrain()` change is additive (optional parameter). Type badge is a DOM element in existing header render.
 
 **AC:**
 - [ ] Type picker shown before train starts
@@ -212,30 +260,36 @@ total_test_files_after:
 - [ ] Type badge visible in detail view header
 - [ ] Type-specific default duration applied to timer
 - [ ] Type visible in Train Hub list
+- [ ] Existing trains without type show "free-form" fallback
 - [ ] `npm test` passes
 
 ---
 
-### Inc 5: Train Closure Context + Integration Tests
+### Inc 5: Integration Tests + TrainMainView Rendering Tests
 
-**Goal:** Inject train graph context into the session closure overlay and add integration tests for all new behaviors.
+**Goal:** Flow tests for all new Cycle 24 behaviors + resolve review action item OBS-1 (TrainMainView rendering tests for new layout).
 
 **Design:**
-- When closure overlay renders for a train session, show train stats section: thought count, branch count, merge count, duration, main chain length
-- `computeTrainClosureContext(train)` pure function → `{ thoughtCount, branchCount, mergeCount, mainChainLength, duration }`
-- Integration test file: `tests/flows/23-TrainHub.test.ts`
+- New flow test file: `tests/flows/23-TrainHub.test.ts` covering Train Hub, resume flow, types, frontmatter
+- TrainMainView rendering tests: verify layout order (nav → controls → canvas callout → detail → breadcrumb), merge-down button visibility, jump-to-end button visibility
 
 | File | Purpose | Est. LOC |
 |------|---------|----------|
-| `src/domain/train/helpers.ts` | `computeTrainClosureContext()` pure function | ~20 |
-| `src/ui/session/SessionClosureOverlay.ts` | Render train context section when session has trainId | ~25 |
-| `tests/flows/23-TrainHub.test.ts` | 15 integration tests | ~250 |
+| `tests/flows/23-TrainHub.test.ts` (new) | 12 integration tests | ~200 |
+| `tests/ui/train/TrainMainView.test.ts` | 8 additional rendering tests (OBS-1) | ~100 |
+
+**Test intent:**
+- Flow 23: Train Hub renders with active trains, resume modal appears when mid-chain, jump-to-end works, type selection flows through to TrainState, frontmatter edit persists, type badge appears.
+- TrainMainView OBS-1: layout section order, merge-down button hidden after merge, jump-to-end button hidden at head, nav bar context-aware action.
+
+**Documentation intent:** Flow documentation for Train Hub user journey.
+
+**Architecture seams:** Flow tests use existing test harness pattern (EventBus + TrainService + CaptureService + mocks). TrainMainView tests follow existing `TrainMainView.test.ts` pattern.
 
 **AC:**
-- [ ] Closure overlay shows train stats when session is a train session
-- [ ] Stats match actual train graph state
-- [ ] All 15 integration scenarios pass
-- [ ] No regression on existing tests
+- [ ] All 12 integration scenarios pass
+- [ ] 8 TrainMainView rendering tests pass (OBS-1 resolved)
+- [ ] No regression on existing 3,976 tests
 - [ ] `npm test` passes
 
 ---
@@ -246,7 +300,7 @@ total_test_files_after:
 Inc 1 (Train Hub)           ──→ Inc 4 (type badge in Hub)
 Inc 2 (Jump/Resume modal)   ──  (independent)
 Inc 3 (Property editor)     ──  (independent)
-Inc 4 (Train types)         ──→ Inc 5 (type-specific closure)
+Inc 4 (Train types)         ──→ Inc 5 (type in flow tests)
 
 Inc 1 + Inc 2 + Inc 3 + Inc 4 ──→ Inc 5 (Integration)
 ```
@@ -263,10 +317,11 @@ Inc 1 + Inc 2 + Inc 3 + Inc 4 ──→ Inc 5 (Integration)
 | Risk | Impact | Mitigation |
 |------|--------|------------|
 | Train Hub scope creep (tabs, filters, sorting) | Medium | Start with 3 simple tabs, defer advanced features |
-| Resume modal interrupts flow | Medium | "Don't show again" option, or skip when on head node |
-| `processFrontMatter()` race with note sync | Medium | Debounce writes, check lastSyncedContent |
+| Resume modal interrupts flow | Medium | Skip modal entirely when on head node (common case) |
+| `processFrontMatter()` race with note sync | Medium | Debounce writes at 500ms, check lastSyncedContent pattern |
 | Train type registry grows complex | Low | Built-in types only, no custom types in v1 |
-| BaseHubView overhead for simple list | Low | Use minimal tab set, no split layout needed |
+| BaseHubView overhead for simple list | Low | Use minimal tab set, no split layout in this cycle |
+| TrainMainView grows past extraction threshold | Medium | Currently 700 LOC — property editor is a standalone component, not inline code |
 
 ---
 
@@ -276,12 +331,14 @@ Inc 1 + Inc 2 + Inc 3 + Inc 4 ──→ Inc 5 (Integration)
 |--------|--------|
 | New tests | ~80 |
 | Source LOC | ~400 |
-| Post-cycle total tests | ~4,034 |
-| Post-cycle test suites | ~166 |
+| Post-cycle total tests | ~4,056 |
+| Post-cycle test suites | ~167 |
 | New TrainService APIs | 1 (getHeadNode) |
 | New views | 1 (TrainHubView) |
+| New modals | 2 (TrainResumeModal, TrainTypePickerModal) |
 | New events | 0 (reuses existing) |
 | FRI score | 28 → 31/35 |
+| Review OBS resolved | OBS-1 (TrainMainView rendering tests) |
 
 ---
 
@@ -291,9 +348,15 @@ Inc 1 + Inc 2 + Inc 3 + Inc 4 ──→ Inc 5 (Integration)
 |------|-----------|--------|
 | Custom train type creation | Built-in types sufficient for v1 | Future |
 | Train Hub split layout (master/detail) | Simple list is enough for now | Future |
+| Pre-configured train routes/templates | Needs template system design | Future |
+| Branch promotion (branch becomes main) | Complex graph semantics, needs design session | Future |
+| Decision nodes | New node type system needed | Future |
 | Cyclical trains | Novel concept, needs design session | Future |
 | Multiple concurrent train management | Complex, needs UX design | Future |
 | AI-driven train synthesis | Blocked on AI infrastructure | Future |
+| Zettelkasten method support | Specialized workflow, needs design | Future |
+| Canvas round-trip sync | Canvas→train write-back is complex | Future |
+| Horizontal/radial canvas layout | Canvas layout API needed | Future |
 
 ---
 
@@ -307,7 +370,7 @@ Inc 1 + Inc 2 + Inc 3 + Inc 4 ──→ Inc 5 (Integration)
 ### 2. Build & Test Quality
 - [ ] `npm test` passes
 - [ ] `npm run check` passes (tsc + eslint clean)
-- [ ] No test regressions on existing tests
+- [ ] No test regressions on existing 3,976 tests
 - [ ] Test count deviation documented
 
 ### 3. Three Amigos Review
@@ -317,8 +380,8 @@ Inc 1 + Inc 2 + Inc 3 + Inc 4 ──→ Inc 5 (Integration)
 - [ ] Observations documented
 
 ### 4. PRD & Backlog Updates
-- [ ] PRD updated — Train Improvements PRD v3
-- [ ] PBIs updated
+- [ ] PRD updated — Train Improvements PRD v3 (FRI 28→31)
+- [ ] PBIs updated (PBI-TOT-010, PBI-TOT-011)
 - [ ] Event model current
 
 ### 5. Documentation
@@ -337,8 +400,47 @@ Inc 1 + Inc 2 + Inc 3 + Inc 4 ──→ Inc 5 (Integration)
 
 ---
 
+## DoR Preparation Notes
+
+### 1. Feature PRD Readiness
+- [x] PRD exists — [[Train Improvements PRD]] v2, stage: delivered
+- [x] PRD stage is `delivered` (continuation cycle — threshold: FRI ≥ 11/35)
+- [x] FRI scored — 28/35 (exceeds continuation threshold of 11/35)
+- [x] Technical Review passed — [[Three Amigos Review 2026-02-22 Train Polish and Merge Down]] (PASS, TASM 30/35)
+
+### 2. Backlog Readiness
+- [x] PBIs defined — [[PBI-TOT-010 Train Hub]], [[PBI-TOT-011 Train UX Sprint]]
+- [x] PBIs chunked into 5 increments — vertical slices with end-to-end value
+- [x] Dependencies mapped — Inc 1→4→5 chain, Inc 2+3 independent
+- [x] Priority ranked — Hub first (highest demand), then UX improvements, types, integration last
+
+### 3. Cycle Plan Document
+- [x] Cycle document exists with standard frontmatter
+- [x] Situation assessment written (post-Cycle 23 + amendments, 3,976 tests)
+- [x] Cycle goals defined (5 goals)
+- [x] Proposed increments specified (5 increments with scope, LOC, tests)
+- [x] Dependency graph drawn
+- [x] Risks identified (6 risks)
+- [x] Success metrics defined
+- [x] Deferred items documented (11 items)
+
+### 4. Increment Readiness
+- [x] All 5 increments have: scope statement, AC, test intent, documentation intent, architecture seams, estimates
+
+### 5. Quality Baseline
+- [x] Build pipeline green — `npm test` passes (3,976 tests, 161 suites)
+- [x] No critical bugs open — post-delivery amendments resolved all known issues
+- [x] Previous cycle closed — Cycle 23 retrospective completed, improvement backlog captured
+
+### 6. Pre-Cycle Completion
+- [x] Pre-cycle work documented — merge connector fix, timeline node click fix
+- [x] Inbox signals reviewed — 28 vault items triaged (4 addressed, 7 deferred with rationale)
+
+---
+
 ## Related
 - PRD: [[Train Improvements PRD]], [[Train of Thoughts PRD]]
+- Review: [[Three Amigos Review 2026-02-22 Train Polish and Merge Down]]
 - Prior Cycles: [[Cycle 22 - Train Polish and Management]], [[Cycle 23 - Merge Down and Detail Restructure]]
 - PBIs: [[PBI-TOT-010 Train Hub]], [[PBI-TOT-011 Train UX Sprint]]
 - Inbox: [[We need a dedicated Train Hub]], [[The session complete view needs to be adjusted when coming from a train]], [[I want to enrich the frontmatter of train-of-thought notes on the detail page]], [[I want to choose a type of train at the beginning of a new one]]
