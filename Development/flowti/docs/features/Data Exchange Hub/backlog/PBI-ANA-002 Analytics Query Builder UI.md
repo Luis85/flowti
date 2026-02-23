@@ -1,7 +1,9 @@
 ---
 type: ProductBacklogItem
 feature: "[[Data Exchange Hub PRD]]"
-stage: planned
+stage: done
+date_completed: 2026-02-23
+delivered_in: "[[Cycle 27 - Analytics Sprint]]"
 priority: critical
 dependencies:
   - "[[PBI-ANA-001 Analytics Engine Core]]"
@@ -37,17 +39,17 @@ As a user, I want a visual interface to configure which CSVs to analyze, set loc
 
 ### Functional Requirements
 
-- [ ] New "Analytics" tab in DX Hub (9th tab, icon: `bar-chart-2`)
-- [ ] Source picker: select 1-3 CSV files from vault
-- [ ] Per-source locale dropdown with 6 options (5 presets + auto)
-- [ ] Auto-detect columns from selected CSVs (parse headers + sample 10 rows)
-- [ ] Column type badges pre-filled from locale + sample heuristic, editable per column
-- [ ] Join configuration: left/right column dropdowns (visible when 2+ sources)
-- [ ] Dimension picker: checkboxes from available columns
-- [ ] Measure picker: column + aggregation dropdown (only `number`-typed columns for SUM/AVG)
-- [ ] Time bucket: toggle + date column picker (only `date`-typed columns) + period selector
-- [ ] Validation: at least 1 source, 1 dimension, 1 measure
-- [ ] "Run Query" button triggers AnalyticsService.runQuery()
+- [x] New "Analytics" tab in DX Hub (9th tab, icon: `bar-chart-2`)
+- [x] Source picker: select 1-3 CSV files from vault
+- [x] Per-source locale dropdown with 6 options (5 presets + auto)
+- [x] Auto-detect columns from selected CSVs (parse headers + sample 10 rows)
+- [x] Column type badges pre-filled from locale + sample heuristic, editable per column
+- [x] Join configuration: left/right column dropdowns (visible when 2+ sources)
+- [x] Dimension picker: checkboxes from available columns
+- [x] Measure picker: column + aggregation dropdown (only `number`-typed columns for SUM/AVG)
+- [x] Time bucket: toggle + date column picker (only `date`-typed columns) + period selector
+- [x] Validation: at least 1 source, 1 dimension, 1 measure
+- [x] "Run Query" button triggers AnalyticsService.runQuery()
 
 ### Architecture
 
@@ -58,17 +60,17 @@ As a user, I want a visual interface to configure which CSVs to analyze, set loc
 
 ## Acceptance Criteria
 
-- [ ] Analytics tab visible in DX Hub
-- [ ] Can select 1-3 CSV files as sources
-- [ ] Locale dropdown per source with 6 options
-- [ ] Column type badges shown and pre-filled after CSV detection
-- [ ] User can override type per column
-- [ ] Only `number`-typed columns available for SUM/AVG measures
-- [ ] Only `date`-typed columns available for time bucket
-- [ ] Join config shows column dropdowns
-- [ ] Validation prevents running without required fields
-- [ ] "Run Query" triggers engine execution
-- [ ] `npm test` passes
+- [x] Analytics tab visible in DX Hub
+- [x] Can select 1-3 CSV files as sources
+- [x] Locale dropdown per source with 6 options
+- [x] Column type badges shown and pre-filled after CSV detection
+- [x] User can override type per column
+- [x] Only `number`-typed columns available for SUM/AVG measures
+- [x] Only `date`-typed columns available for time bucket
+- [x] Join config shows column dropdowns
+- [x] Validation prevents running without required fields
+- [x] "Run Query" triggers engine execution
+- [x] `npm test` passes
 
 ## Test Intent
 

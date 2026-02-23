@@ -166,6 +166,7 @@ export const EVENT_CATEGORIES = [
 	"Capture",
 	"Train",
 	"Canvas",
+	"Analytics",
 ] as const;
 
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
@@ -554,6 +555,13 @@ const CATALOG_DATA = {
 	"canvas.legend.detected":  { category: "Canvas", description: "A Legend group with color-to-type mappings was detected", direction: "Service → Listeners", domain: "canvas", services: "CanvasService" },
 	"canvas.config.saved":     { category: "Canvas", description: "An import configuration was saved", direction: "Service → Listeners", domain: "canvas", services: "CanvasService" },
 	"canvas.loaded":           { category: "Canvas", description: "Canvas state loaded from storage", direction: "Service → Listeners", domain: "canvas", services: "CanvasService" },
+
+	// ── Analytics ────────────────────────────────────────────
+	"analytics.query.started":   { category: "Analytics", description: "Analytics query execution started", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
+	"analytics.query.completed": { category: "Analytics", description: "Analytics query completed successfully", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
+	"analytics.query.failed":    { category: "Analytics", description: "Analytics query failed", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
+	"analytics.query.saved":     { category: "Analytics", description: "Analytics query saved to persistence", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
+	"analytics.query.deleted":   { category: "Analytics", description: "Saved analytics query removed", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

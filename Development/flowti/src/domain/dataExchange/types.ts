@@ -5,6 +5,8 @@
  * column mapping, and `.base` file filter parsing.
  */
 
+import type { SavedAnalyticsQuery } from "../analytics/types";
+
 // ── Export format ────────────────────────────────────────
 
 /** Supported output formats for export. */
@@ -443,6 +445,8 @@ export interface DataExchangeState {
 	csvDisplaySettings?: Record<string, CsvDisplaySettings>;
 	/** Vault paths of CSV files hidden from the "Available Files" dashboard section */
 	hiddenCsvPaths?: string[];
+	/** Saved analytics query configurations */
+	savedAnalyticsQueries?: SavedAnalyticsQuery[];
 }
 
 // ── CSV display settings ────────────────────────────────

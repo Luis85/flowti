@@ -33,6 +33,7 @@ import type { TrainService } from "./domain/train/TrainService";
 import { TrainCanvasSyncService } from "./domain/train/TrainCanvasSyncService";
 import { getCanvasPath } from "./domain/train/helpers";
 import type { CanvasService } from "./domain/canvas/CanvasService";
+import type { AnalyticsService } from "./domain/analytics/AnalyticsService";
 import { QuickCaptureModal } from "./ui/capture/QuickCaptureModal";
 import { TrainCaptureModal } from "./ui/train/TrainCaptureModal";
 import { registerViews } from "./infrastructure/views/registry";
@@ -116,6 +117,7 @@ export default class FlowtiBasePlugin extends Plugin {
 	private captureService?: CaptureService;
 	private trainService?: TrainService;
 	private canvasService?: CanvasService;
+	private analyticsService?: AnalyticsService;
 	private ingestionStatusBar?: IngestionStatusBar;
 	private collapsedCategories = new Set<string>();
 	private uiCommandService?: UiCommandService;
@@ -755,6 +757,18 @@ export default class FlowtiBasePlugin extends Plugin {
 		await this.canvasService.load();
 		this.dataExchangeService!.setCanvasService(this.canvasService);
 
+		// Analytics Service — in-memory CSV analytics engine
+		this.analyticsService = await this.services.get<AnalyticsService>("analyticsService");
+		await this.analyticsService.load();
+		this.analyticsService.setReadCsv(async (csvPath: string) => {
+			const file = this.app.vault.getAbstractFileByPath(csvPath);
+			if (!file || !(file instanceof TFile)) return null;
+			const content = await this.app.vault.read(file);
+			const { CsvParser } = await import("./domain/dataExchange/CsvParser");
+			return new CsvParser().parse(content);
+		});
+		this.analyticsService.setQueryFolder(`${settingsService.getSettings().docsRootPath}/Queries`);
+
 		// Train Main View — register view factory + auto-open on train start
 		this.registerView(VIEW_TYPE_TRAIN_MAIN, (leaf) =>
 			new TrainMainView(leaf, this.eventBus, this.trainService!, () => ({
@@ -1273,6 +1287,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			dataExchangeService: this.dataExchangeService!,
 			signalService: this.signalService,
 			canvasService: this.canvasService,
+			analyticsService: this.analyticsService,
 			docsRootPath: settingsService.getSettings().docsRootPath,
 			registerView: (type, factory) => this.registerView(type, factory),
 			registerExtensions: (exts, type) => { try { this.registerExtensions(exts, type); } catch { /* may already be registered */ } },

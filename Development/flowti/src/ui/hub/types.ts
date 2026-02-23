@@ -18,12 +18,13 @@ import type {
 import type { SignalService } from "../../domain/signal/SignalService";
 import type { CanvasService } from "../../domain/canvas/CanvasService";
 import type { CanvasImportConfig } from "../../domain/canvas/types";
+import type { AnalyticsService } from "../../domain/analytics/AnalyticsService";
 
 // ─────────────────────────────────────────────────────────────
 // Hub pages
 // ─────────────────────────────────────────────────────────────
 
-export type HubPage = "dashboard" | "imports" | "exports" | "reports" | "properties" | "pipelines" | "types" | "signals" | "canvas";
+export type HubPage = "dashboard" | "imports" | "exports" | "reports" | "properties" | "pipelines" | "types" | "signals" | "canvas" | "analytics";
 
 // ─────────────────────────────────────────────────────────────
 // Hub state — owned by the orchestrator
@@ -95,6 +96,7 @@ export interface HubState {
 	editingExportId: string | null;
 	editingPipelineId: string | null;
 	editingCanvasId: string | null;
+	selectedAnalyticsQueryId: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -125,6 +127,7 @@ export interface HubComponentDeps {
 	dataExchangeService: DataExchangeService;
 	signalService?: SignalService;
 	canvasService?: CanvasService;
+	analyticsService?: AnalyticsService;
 	getState: () => HubState;
 	setState: (partial: Partial<HubState>) => void;
 	navigation: HubNavigationCallbacks;

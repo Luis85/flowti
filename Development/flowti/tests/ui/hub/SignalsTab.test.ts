@@ -53,6 +53,7 @@ function makeState(overrides: Partial<HubState> = {}): HubState {
 		selectedTypeName: null,
 		selectedSignalId: null,
 		selectedCanvasId: null,
+		selectedAnalyticsQueryId: null,
 		editingImportId: null,
 		editingExportId: null,
 		editingPipelineId: null,

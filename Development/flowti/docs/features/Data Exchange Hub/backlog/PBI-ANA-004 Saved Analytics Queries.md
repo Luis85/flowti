@@ -1,7 +1,9 @@
 ---
 type: ProductBacklogItem
 feature: "[[Data Exchange Hub PRD]]"
-stage: planned
+stage: done
+date_completed: 2026-02-23
+delivered_in: "[[Cycle 27 - Analytics Sprint]]"
 priority: high
 dependencies:
   - "[[PBI-ANA-001 Analytics Engine Core]]"
@@ -34,13 +36,13 @@ As a user, I want to save analytics queries so I can rerun them when CSVs are up
 
 ### Functional Requirements
 
-- [ ] Save analytics query to `DataExchangeState.savedAnalyticsQueries`
-- [ ] Saved query includes all config: sources, locales, type hints, joins, dimensions, measures, time bucket
-- [ ] List saved queries in Analytics tab master panel
-- [ ] Click saved query loads it into builder
-- [ ] Delete saved query with confirmation
-- [ ] Queries persist across plugin reloads
-- [ ] Integration flow test: full pipeline (3 CSVs → join → group → aggregate → verify)
+- [x] Save analytics query to `DataExchangeState.savedAnalyticsQueries`
+- [x] Saved query includes all config: sources, locales, type hints, joins, dimensions, measures, time bucket
+- [x] List saved queries in Analytics tab master panel
+- [x] Click saved query loads it into builder
+- [x] Delete saved query with confirmation
+- [x] Queries persist across plugin reloads
+- [x] Integration flow test: full pipeline (3 CSVs → join → group → aggregate → verify)
 
 ### Architecture
 
@@ -50,15 +52,15 @@ As a user, I want to save analytics queries so I can rerun them when CSVs are up
 
 ## Acceptance Criteria
 
-- [ ] Save a query with name
-- [ ] Saved queries appear in master list
-- [ ] Click saved query loads it into builder
-- [ ] Delete removes query with confirmation
-- [ ] Queries survive plugin reload
-- [ ] Full pipeline flow test passes: 3 CSVs → join → group → aggregate → result
-- [ ] Save → reload → rerun flow test passes
-- [ ] Event sequence: started → completed fires correctly
-- [ ] `npm test` passes
+- [x] Save a query with name
+- [x] Saved queries appear in master list
+- [x] Click saved query loads it into builder
+- [x] Delete removes query with confirmation
+- [x] Queries survive plugin reload
+- [x] Full pipeline flow test passes: 3 CSVs → join → group → aggregate → result
+- [x] Save → reload → rerun flow test passes
+- [x] Event sequence: started → completed fires correctly
+- [x] `npm test` passes
 
 ## Test Intent
 

@@ -98,16 +98,16 @@ Users can manage master data end-to-end within Obsidian: import CSV files as not
 - [x] Sanitize filenames derived from CSV data
 - [x] Data Exchange Hub dashboard with activity overview
 - [x] Data dictionary builder (Types, Properties tabs)
-- [ ] In-memory hash join on 2-3 CSV sources via specified key columns (inner + left join)
-- [ ] GROUP BY on 1-3 dimension columns with aggregation (SUM, COUNT, AVG, MIN, MAX)
-- [ ] Locale-aware number parsing: US (`1,234.56`), EU (`1.234,56`), FR (`1 234,56`)
-- [ ] Locale-aware date parsing: US (`MM/DD/YYYY`), EU (`DD/MM/YYYY`, `DD.MM.YYYY`), ISO (`YYYY-MM-DD`)
-- [ ] Time bucketing: month, quarter, year from locale-parsed date columns
-- [ ] Per-source locale selection (5 presets + auto-detect) and per-column type hints
-- [ ] Analytics query builder UI in DX Hub (9th tab)
-- [ ] Sortable results table with summary stat cards
-- [ ] Export analytics results as CSV
-- [ ] Saved analytics queries with persistence across reloads
+- [x] In-memory hash join on 2-3 CSV sources via specified key columns (inner + left join)
+- [x] GROUP BY on 1-3 dimension columns with aggregation (SUM, COUNT, AVG, MIN, MAX)
+- [x] Locale-aware number parsing: US (`1,234.56`), EU (`1.234,56`), FR (`1 234,56`)
+- [x] Locale-aware date parsing: US (`MM/DD/YYYY`), EU (`DD/MM/YYYY`, `DD.MM.YYYY`), ISO (`YYYY-MM-DD`)
+- [x] Time bucketing: month, quarter, year from locale-parsed date columns
+- [x] Per-source locale selection (5 presets + auto-detect) and per-column type hints
+- [x] Analytics query builder UI in DX Hub (9th tab)
+- [x] Sortable results table with summary stat cards
+- [x] Export analytics results as CSV
+- [x] Saved analytics queries with persistence across reloads (state + JSON file)
 
 ## 6. Data Model Impact
 
@@ -206,13 +206,13 @@ Users can manage master data end-to-end within Obsidian: import CSV files as not
 - [x] Formula columns resolve to actual frontmatter keys
 - [x] Data Exchange Hub displays dashboard with activity summary
 - [x] Commands `flowti:import-csv` and `flowti:export-data` work from command palette
-- [ ] Analytics tab visible in DX Hub with query builder
-- [ ] Join 2-3 CSV files on shared key columns (inner + left join)
-- [ ] GROUP BY dimensions with SUM/COUNT/AVG/MIN/MAX aggregation
-- [ ] Locale-aware number/date parsing with per-source locale selection
-- [ ] Sortable results table with summary stat cards
-- [ ] Export analytics results as CSV
-- [ ] Saved analytics queries persist across plugin reloads
+- [x] Analytics tab visible in DX Hub with query builder
+- [x] Join 2-3 CSV files on shared key columns (inner + left join)
+- [x] GROUP BY dimensions with SUM/COUNT/AVG/MIN/MAX aggregation
+- [x] Locale-aware number/date parsing with per-source locale selection
+- [x] Sortable results table with summary stat cards
+- [x] Export analytics results as CSV
+- [x] Saved analytics queries persist across plugin reloads (state + JSON file)
 
 ## 13. Definition of Done
 
@@ -236,10 +236,10 @@ Users can manage master data end-to-end within Obsidian: import CSV files as not
 | [[PBI-008 Execution Timing]] | Execution timing for import/export configs | Discovery | Low | [[I also want to know how long the execution of a Data Exchange Config took]] |
 | [[PBI-009 Report Ingestion]] | Ingest test/coverage reports as vault notes | Discovery | Medium | [[I want to ingest a test-report, a coverage-report, prds, the git-history and lifecycle documents for further analysis]], [[Ingest build reports test reports and coverage as vault notes]] |
 | [[PBI-010 Data Dictionary Integration]] | Entity config from settings into DX Hub data-dictionary | Discovery | Medium | [[We need to integrate the Entity configuration from the settings-tab into the Data Exchange Hub to build the data-dictionary in one place]] |
-| [[PBI-ANA-001 Analytics Engine Core]] | In-memory join + GROUP BY + aggregation with locale-aware parsing | Planned | Critical | [[When opening a CSV with Flowti, I want to be able to make an easy dashboard]] |
-| [[PBI-ANA-002 Analytics Query Builder UI]] | Visual query builder in DX Hub Analytics tab | Planned | Critical | [[When opening a CSV with Flowti, I want to be able to make an easy dashboard]] |
-| [[PBI-ANA-003 Analytics Results View]] | Sortable results table + stat cards + export | Planned | Critical | [[When opening a CSV with Flowti, I want to be able to make an easy dashboard]] |
-| [[PBI-ANA-004 Saved Analytics Queries]] | Persistent query configs for re-execution | Planned | High | [[When opening a CSV with Flowti, I want to be able to make an easy dashboard]] |
+| [[PBI-ANA-001 Analytics Engine Core]] | In-memory join + GROUP BY + aggregation with locale-aware parsing | Done | Critical | [[When opening a CSV with Flowti, I want to be able to make an easy dashboard]] |
+| [[PBI-ANA-002 Analytics Query Builder UI]] | Visual query builder in DX Hub Analytics tab | Done | Critical | [[When opening a CSV with Flowti, I want to be able to make an easy dashboard]] |
+| [[PBI-ANA-003 Analytics Results View]] | Sortable results table + stat cards + export | Done | Critical | [[When opening a CSV with Flowti, I want to be able to make an easy dashboard]] |
+| [[PBI-ANA-004 Saved Analytics Queries]] | Persistent query configs for re-execution + JSON file artifacts | Done | High | [[When opening a CSV with Flowti, I want to be able to make an easy dashboard]] |
 
 > **Inbox triage (2026-02-22):** 3 new PBIs added. PBI-008 for execution timing tracking. PBI-009 for report ingestion (test, coverage, build reports). PBI-010 for settings-tab entity config integration into DX Hub data dictionary. Existing bugs tracked in inbox: exporter formula evaluation, exporter view properties, dashboard progress bar issues.
 

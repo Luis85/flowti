@@ -26,19 +26,22 @@ import { PipelinesTab } from "./hub/PipelinesTab";
 import { TypesTab } from "./hub/TypesTab";
 import { SignalsTab } from "./hub/SignalsTab";
 import { CanvasTab } from "./hub/CanvasTab";
+import { AnalyticsTab } from "./hub/AnalyticsTab";
 import { openEventInCatalog } from "./hub/helpers";
 import type { SignalService } from "../domain/signal/SignalService";
 import type { CanvasService } from "../domain/canvas/CanvasService";
+import type { AnalyticsService } from "../domain/analytics/AnalyticsService";
 import { basename, stripExtension } from "../utils/pathUtils";
 import { VIEW_TYPE_DATA_EXCHANGE_HUB } from "../domain/hub/types";
 export { VIEW_TYPE_DATA_EXCHANGE_HUB };
 
-export type DXTab = "imports" | "exports" | "reports" | "properties" | "pipelines" | "types" | "signals" | "canvas";
+export type DXTab = "imports" | "exports" | "reports" | "properties" | "pipelines" | "types" | "signals" | "canvas" | "analytics";
 
 export class DataExchangeHubView extends BaseHubView<DXTab> {
 	private dataExchangeService: DataExchangeService;
 	private signalService?: SignalService;
 	private canvasService?: CanvasService;
+	private analyticsService?: AnalyticsService;
 	private openCsvImportCb: (csvPath: string, savedConfig?: SavedImportConfig) => void;
 	private openExportCb: (savedConfig: SavedExportConfig) => void;
 	private openNewExportCb: (sourcePath: string, sourceType: "folder" | "base", format: ExportFormat) => void;
@@ -65,6 +68,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 	private selectedTypeName: string | null = null;
 	private selectedSignalId: string | null = null;
 	private selectedCanvasId: string | null = null;
+	private selectedAnalyticsQueryId: string | null = null;
 	private editingImportId: string | null = null;
 	private editingExportId: string | null = null;
 	private editingPipelineId: string | null = null;
@@ -81,6 +85,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 	private typesTab!: TypesTab;
 	private signalsTab!: SignalsTab;
 	private canvasTab!: CanvasTab;
+	private analyticsTab!: AnalyticsTab;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -92,6 +97,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 		openCanvasImport: (canvasPath: string, configId?: string, autoRun?: boolean) => void,
 		signalService?: SignalService,
 		canvasService?: CanvasService,
+		analyticsService?: AnalyticsService,
 	) {
 		super(leaf, eventBus);
 		this.dataExchangeService = dataExchangeService;
@@ -101,6 +107,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 		this.openExportCb = openExport;
 		this.openNewExportCb = openNewExport;
 		this.openCanvasImportCb = openCanvasImport;
+		this.analyticsService = analyticsService;
 	}
 
 	// ── BaseHubView abstract implementations ─────────────────
@@ -121,6 +128,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 			{ id: "signals", label: "Signals", icon: "radio", searchPlaceholder: "Search signals..." },
 			{ id: "reports", label: "Reports", icon: "file-text", searchPlaceholder: "Search reports..." },
 			{ id: "canvas", label: "Canvas", icon: "square", searchPlaceholder: "Search canvas configs..." },
+			{ id: "analytics", label: "Analytics", icon: "bar-chart-2", searchPlaceholder: "Search CSV sources..." },
 		];
 	}
 
@@ -141,6 +149,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 		this.typesTab = new TypesTab(this.masterTreeEl, this.detailPanelEl, deps);
 		this.signalsTab = new SignalsTab(this.masterTreeEl, this.detailPanelEl, deps);
 		this.canvasTab = new CanvasTab(this.masterTreeEl, this.detailPanelEl, deps);
+		this.analyticsTab = new AnalyticsTab(this.masterTreeEl, this.detailPanelEl, deps);
 
 		this.addUnsubscribe(
 			this.eventBus.on("dataExchange.config.changed", () => {
@@ -469,6 +478,10 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 				this.canvasTab.renderMaster();
 				this.canvasTab.renderDetail();
 				break;
+			case "analytics":
+				this.analyticsTab.renderMaster();
+				this.analyticsTab.renderDetail();
+				break;
 		}
 	}
 
@@ -514,6 +527,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 			dataExchangeService: this.dataExchangeService,
 			signalService: this.signalService,
 			canvasService: this.canvasService,
+			analyticsService: this.analyticsService,
 			getState: () => this.getHubState(),
 			setState: (partial) => this.setHubState(partial),
 			navigation,
@@ -544,6 +558,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 			selectedTypeName: this.selectedTypeName,
 			selectedSignalId: this.selectedSignalId,
 			selectedCanvasId: this.selectedCanvasId,
+			selectedAnalyticsQueryId: this.selectedAnalyticsQueryId,
 			editingImportId: this.editingImportId,
 			editingExportId: this.editingExportId,
 			editingPipelineId: this.editingPipelineId,
@@ -566,6 +581,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 		if (partial.selectedTypeName !== undefined) this.selectedTypeName = partial.selectedTypeName;
 		if (partial.selectedSignalId !== undefined) this.selectedSignalId = partial.selectedSignalId;
 		if (partial.selectedCanvasId !== undefined) this.selectedCanvasId = partial.selectedCanvasId;
+		if (partial.selectedAnalyticsQueryId !== undefined) this.selectedAnalyticsQueryId = partial.selectedAnalyticsQueryId;
 		if (partial.editingImportId !== undefined) this.editingImportId = partial.editingImportId;
 		if (partial.editingExportId !== undefined) this.editingExportId = partial.editingExportId;
 		if (partial.editingPipelineId !== undefined) this.editingPipelineId = partial.editingPipelineId;

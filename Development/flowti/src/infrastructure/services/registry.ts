@@ -28,6 +28,7 @@ import { AzureDevOpsAdapter } from "../../domain/signal/adapters/AzureDevOpsAdap
 import { CaptureService } from "../../domain/capture/CaptureService";
 import { TrainService } from "../../domain/train/TrainService";
 import { CanvasService } from "../../domain/canvas/CanvasService";
+import { AnalyticsService } from "../../domain/analytics/AnalyticsService";
 import { DocService } from "../../domain/docs/DocService";
 import { FileSystemClient } from "../filesystem/FileSystemClient";
 import type { IServiceContainer, ServiceRegistration } from "./types";
@@ -280,6 +281,19 @@ export function createServiceRegistrations(
 				const eventBus = container.getEventBus();
 				return new CanvasService({
 					storage: createTypedStorage(storage, "canvas", container),
+					eventBus,
+					fileSystem: new FileSystemClient({ eventBus }),
+				});
+			},
+		},
+
+		// Analytics Service - in-memory CSV analytics engine
+		{
+			id: "analyticsService",
+			factory: (container: IServiceContainer) => {
+				const eventBus = container.getEventBus();
+				return new AnalyticsService({
+					storage: createTypedStorage(storage, "dataExchange", container),
 					eventBus,
 					fileSystem: new FileSystemClient({ eventBus }),
 				});
