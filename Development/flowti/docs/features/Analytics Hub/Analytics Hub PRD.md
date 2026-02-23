@@ -3,7 +3,7 @@ domain: Analytics
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
 stage: delivered
-version: 2
+version: 3
 maturity: L2
 created: 2026-02-23
 updated: 2026-02-23
@@ -14,12 +14,16 @@ related_events:
   - analytics.query.failed
   - analytics.query.saved
   - analytics.query.deleted
+  - analytics.query.favorited
   - analytics.dashboard.created
   - analytics.dashboard.updated
   - analytics.dashboard.deleted
+  - analytics.dashboard.favorited
+  - analytics.dashboard.defaultChanged
   - analytics.dashboard.tile.added
   - analytics.dashboard.tile.removed
   - analytics.dashboard.tile.updated
+  - analytics.dashboard.refreshed
   - analytics.loaded
 maturity_score_strategy: 4
 maturity_score_scope: 4
@@ -137,6 +141,15 @@ Primary interaction path:
 
 - [x] FR-14: The Analytics tab is removed from DataExchangeHubView; DX Hub tab definitions no longer include analytics
 
+### Favorites & Default Dashboard (v2 — Cycle 29)
+
+- [ ] FR-15: User can mark dashboards as favorites; favorited dashboards appear first in dashboard lists
+- [ ] FR-16: User can mark saved queries as favorites; favorited queries appear first in query lists
+- [ ] FR-17: User can set one dashboard as the "default"; the default dashboard ID is persisted in AnalyticsState
+- [ ] FR-18: Hub overview page renders default dashboard tiles directly on open (zero-click to metrics); falls back to stats when no default is set
+- [ ] FR-19: User can refresh a single dashboard tile without leaving the dashboard; refresh re-executes the tile's query
+- [ ] FR-20: Creating a dashboard prompts for a name via modal dialog (no auto-naming)
+
 ## 6. Data Model Impact
 
 ### New Types
@@ -146,14 +159,15 @@ Primary interaction path:
 | `TileDisplayMode` | `"table" \| "stat-card"` | Runtime |
 | `AnalyticsSourceType` | `"csv" \| "base"` | Runtime |
 | `DashboardTile` | id, queryId, title?, displayMode, row, col, width, height | `"analytics"` key |
-| `Dashboard` | id, name, description?, tiles[], createdAt, updatedAt | `"analytics"` key |
-| `AnalyticsState` | savedAnalyticsQueries[], dashboards[] | `"analytics"` key |
+| `Dashboard` | id, name, description?, isFavorite?, tiles[], createdAt, updatedAt | `"analytics"` key |
+| `AnalyticsState` | savedAnalyticsQueries[], dashboards[], defaultDashboardId? | `"analytics"` key |
 
 ### Modified Types
 
 | Type | Change |
 |------|--------|
 | `SavedAnalyticsQuerySource` | Add `sourcePath`, `sourceType` (`"csv" \| "base"`), `viewIndex?`; backward-compat with existing `csvPath` |
+| `SavedAnalyticsQuery` | Add `isFavorite?: boolean` (v2) |
 
 ### Removed from DataExchangeState
 
@@ -175,11 +189,19 @@ Primary interaction path:
 | `analytics.dashboard.tile.updated` | `{ dashboardId, tileId }` | Analytics | — |
 | `analytics.loaded` | `{ queryCount, dashboardCount }` | Analytics | `["system"]` |
 
+### v2 Events (3 — Cycle 29)
+
+| Event | Payload | Category | Tags |
+|-------|---------|----------|------|
+| `analytics.query.favorited` | `{ queryId, queryName, isFavorite }` | Analytics | — |
+| `analytics.dashboard.favorited` | `{ dashboardId, dashboardName, isFavorite }` | Analytics | — |
+| `analytics.dashboard.defaultChanged` | `{ dashboardId: string \| null, dashboardName?: string }` | Analytics | — |
+
 ### Existing Events (retained)
 
 5 query lifecycle events: `analytics.query.started`, `.completed`, `.failed`, `.saved`, `.deleted`
 
-**Total analytics events after migration:** 12
+**Total analytics events:** 16 (12 v1 + 1 loaded + 3 v2)
 
 ### Consumed
 
@@ -262,6 +284,16 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 - [x] All existing analytics tests pass (163 tests)
 - [x] New tests cover: dashboard CRUD, tile CRUD, state migration, base adapter, hub view
 
+### v2 Acceptance Criteria (Cycle 29)
+
+- [ ] User can favorite/unfavorite dashboards and queries via star icons
+- [ ] Favorited items sort to top of their respective lists
+- [ ] User can set a default dashboard; overview renders its tiles on hub open
+- [ ] Hub overview falls back to stats page when no default dashboard is set
+- [ ] Per-tile refresh re-executes the query and updates the tile
+- [ ] Dashboard creation prompts for a name
+- [ ] Flow 29 integration test passes (Supplier Manager daily workflow)
+
 ## 13. Definition of Done
 
 - `VIEW_TYPE_ANALYTICS_HUB` constant added to `src/domain/hub/types.ts`
@@ -286,8 +318,14 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 | [[PBI-ANA-012 Dashboard Tile Grid UI]] | Tile layout, rendering, dashboard CRUD UI | Delivered | Critical | ANA-011 |
 | [[PBI-ANA-013 Base File Analytics Source]] | BaseAnalyticsAdapter + source picker | Delivered | High | ANA-010 |
 | [[PBI-ANA-014 Analytics Integration and Polish]] | HubProvider, command, flow tests, polish | Delivered | High | ANA-010–013 |
+| [[PBI-ANA-015 Favorite Types Foundation]] | isFavorite + defaultDashboardId types, service CRUD, events | Planned | Critical | — |
+| [[PBI-ANA-016 Dashboard First Overview]] | Overview renders default dashboard tiles on open | Planned | Critical | ANA-015 |
+| [[PBI-ANA-017 Favorites UI]] | Star icons in master lists, sort favorites first | Planned | High | ANA-015, ANA-016 |
+| [[PBI-ANA-018 Dashboard UX Polish]] | Per-tile refresh, name prompt, default badge | Planned | High | ANA-015 |
+| [[PBI-ANA-019 Supplier Manager Flow Test]] | End-to-end flow test + final polish | Planned | High | ANA-015–018 |
 
-> **Analytics Hub delivered (2026-02-23):** All 5 PBIs delivered in Cycle 28. Analytics moved from DX Hub tab to dedicated hub with dashboard tile grid, `.base` file sources, and independent persistence. 4,338 tests (178 suites).
+> **Analytics Hub v1 delivered (2026-02-23):** 5 PBIs in Cycle 28. Hub shell, dashboards, .base sources, independent persistence. 4,338 tests (178 suites).
+> **Analytics Hub v2 planned (Cycle 29):** 5 PBIs. Favorites, default dashboard, dashboard-first overview, per-tile refresh, Supplier Manager persona.
 
 ## Related
 
@@ -297,4 +335,7 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 - Review: [[Three Amigos Review 2026-02-23 Analytics Sprint]] (PASS, TASM 31/35)
 - Flow: [[Build Analytics Dashboard]]
 - Inbox: [[When opening a CSV with Flowti, I want to be able to make an easy dashboard]]
-- PBIs: [[PBI-ANA-010 Analytics Hub Shell]], [[PBI-ANA-011 Dashboard Domain]], [[PBI-ANA-012 Dashboard Tile Grid UI]], [[PBI-ANA-013 Base File Analytics Source]], [[PBI-ANA-014 Analytics Integration and Polish]]
+- Cycle: [[Cycle 29 - Analytics Supplier Manager]] (favorites, default dashboard, dashboard-first overview — planned)
+- Persona: [[Supplier Manager]] (non-technical operations user driving v2 direction)
+- PBIs (v1): [[PBI-ANA-010 Analytics Hub Shell]], [[PBI-ANA-011 Dashboard Domain]], [[PBI-ANA-012 Dashboard Tile Grid UI]], [[PBI-ANA-013 Base File Analytics Source]], [[PBI-ANA-014 Analytics Integration and Polish]]
+- PBIs (v2): [[PBI-ANA-015 Favorite Types Foundation]], [[PBI-ANA-016 Dashboard First Overview]], [[PBI-ANA-017 Favorites UI]], [[PBI-ANA-018 Dashboard UX Polish]], [[PBI-ANA-019 Supplier Manager Flow Test]]
