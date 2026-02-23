@@ -27,3 +27,5 @@ node_modules
 /watcher/
 
 /Solutions/
+
+build-endpoints.json
