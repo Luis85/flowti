@@ -1,7 +1,7 @@
 ---
 type: ArchitectureDoc
 stage: done
-updated: 2026-02-19
+updated: 2026-02-23
 domain: Flowti/System
 plugin: "[[Development/flowti/README|README]]"
 tags:
@@ -29,7 +29,7 @@ tags:
 ┌──────────────────────────────────────────────────┐
 │             Flowti IBDE Plugin                    │
 │  Event-driven architecture toolkit for Obsidian   │
-│  308 events · 15 domain services · 8 views        │
+│  330+ events · 19 domain services · 10 views       │
 └────────────────────┬─────────────────────────────┘
                      │ runs on
                      ▼
@@ -53,18 +53,20 @@ No external network dependencies. All data stored in-vault via `saveData()`.
 │                                                               │
 │  ┌─────────────────────────────────────────────────────────┐ │
 │  │  UI Layer                                                │ │
-│  │  8 views · 7 modals · status bar                        │ │
+│  │  10 views · 7 modals · status bar                       │ │
 │  │  [[EventCatalogView]] · [[DataExchangeHubView]]          │ │
 │  │  [[CsvActionView]] · [[ExportView]] · [[EventLogView]]   │ │
 │  │  [[ComponentShowcaseView]] · [[UserHubView]]             │ │
-│  │  [[SessionWorkspaceView]]                                │ │
+│  │  [[SessionWorkspaceView]] · [[TrainMainView]]            │ │
+│  │  [[TrainTimelineSidebar]] · [[TrainHubView]]             │ │
 │  └────────────────────────────┬──────────────────────────── │ │
 │                               │ events                       │
 │  ┌────────────────────────────┴────────────────────────────┐ │
-│  │  Domain Layer  ·  15 services  ·  194 events              │ │
+│  │  Domain Layer  ·  19 services  ·  216+ events             │ │
 │  │  Settings · User · EventFilter · EventNotify · Doc       │ │
 │  │  Discovery · Subscription · Ingestion · EventDefinition  │ │
-│  │  DataExchange · Installer · Session · Inbox · Nudge · Hub│ │
+│  │  DataExchange · Installer · Session · Inbox · Nudge      │ │
+│  │  Signal · Canvas · Analytics · Capture · Train           │ │
 │  └────────────────────────────┬────────────────────────────┘ │
 │                               │ events                       │
 │  ┌────────────────────────────┴────────────────────────────┐ │
@@ -199,6 +201,8 @@ Commands emit `ui.*` events on the EventBus. The `UiCommandService` listens for 
 | `flowti-export` | Export | 6 |
 | `flowti-user-hub` | User Hub | 6 |
 | `flowti-session-workspace` | Session Workspace | 6 |
+| `flowti-train-main` | Train Main | 6 |
+| `flowti-train-timeline` | Train Timeline | 6 |
 
 `ViewStateProvider` supplies live settings, discovered events, excluded/notified types, and collapsed categories to views opened mid-session.
 
@@ -427,11 +431,62 @@ Scheduled reminders with timer-based triggering. Nudge configurations persist ac
 
 Central registry for hub-type views (Event Catalog, Data Exchange, User Hub). Manages hub lifecycle events and navigation state.
 
+### SignalService
+
+| | |
+|---|---|
+| **Source** | [[Development/flowti/src/domain/signal/SignalService.ts\|SignalService.ts]] |
+| **ID** | `signalService` · **Storage**: `signal` |
+| **Consumes** | `signal.{configure,remove,sync,testConnection}` |
+| **Emits** | `signal.{loaded,configured,removed,connection.tested,sync.started,sync.progress,sync.completed,sync.failed,item.created,item.updated}` |
+
+Manages external signal connections (Azure DevOps work items). CRUD for `SignalConfig`, sync orchestration with per-item error resilience. Adapter pattern: `SignalAdapter` interface with `AzureDevOpsAdapter` implementation (WIQL + batch GET, PAT auth).
+
+**Flows**: [[Connect Azure DevOps Signal]]
+
+### CanvasService
+
+| | |
+|---|---|
+| **Source** | [[Development/flowti/src/domain/canvas/CanvasService.ts\|CanvasService.ts]] |
+| **ID** | `canvasService` |
+| **Emits** | `canvas.import.{started,progress,completed,failed}`, `canvas.config.{saved,deleted,loaded}` |
+
+Orchestrates `.canvas` file parsing and import. Composes CanvasParser, CanvasImporter, CanvasRebuilder, and BaseGenerator.
+
+### AnalyticsService
+
+| | |
+|---|---|
+| **Source** | [[Development/flowti/src/domain/analytics/AnalyticsService.ts\|AnalyticsService.ts]] |
+| **ID** | `analyticsService` · **Storage**: `dataExchange` (savedAnalyticsQueries within DataExchangeState) |
+| **Emits** | `analytics.query.{started,completed,failed,saved,deleted}` |
+
+Facade for the in-memory AnalyticsEngine. Manages saved query persistence, query execution with locale-aware parsing, joins, aggregation, and time bucketing. Currently stored within `"dataExchange"` key — planned migration to dedicated `"analytics"` key in [[Cycle 28 - Analytics Hub]].
+
+### CaptureService
+
+| | |
+|---|---|
+| **Source** | [[Development/flowti/src/domain/capture/CaptureService.ts\|CaptureService.ts]] |
+| **ID** | `captureService` |
+
+Thought capture and train composition for the Train domain.
+
+### TrainService
+
+| | |
+|---|---|
+| **Source** | [[Development/flowti/src/domain/train/TrainService.ts\|TrainService.ts]] |
+| **ID** | `trainService` · **Dependencies**: `captureService` |
+
+Train navigation and thought sequencing for linear/branching thought trains.
+
 ---
 
 ## Event Catalog
 
-308 events total: 114 infrastructure + 194 domain.
+330+ events total: 114 infrastructure + 216+ domain.
 
 > Note: The full event catalog is in [[Event Catalog]] and `src/infrastructure/events/catalog.ts`. Below is a summary by category.
 
@@ -476,6 +531,9 @@ Central registry for hub-type views (Event Catalog, Data Exchange, User Hub). Ma
 | Nudge | 8 | `nudge.{configure,configured,remove,removed,triggered,dismiss,dismissed,loaded}` |
 | Hub | 4 | `hub.{opened,closed,tab.changed,navigate}` |
 | Notification | 8 | `notification.{show,dismiss,action,dismissed,actioned,loaded,updated,cleared}` |
+| Signal | 10 | `signal.{configured,removed,connection.tested,loaded}`, `signal.sync.{started,progress,completed,failed}`, `signal.item.{created,updated}` |
+| Canvas | 8 | `canvas.import.{started,progress,completed,failed}`, `canvas.config.{saved,deleted,loaded}`, `canvas.rebuild.completed` |
+| Analytics | 5 | `analytics.query.{started,completed,failed,saved,deleted}` |
 
 ---
 
@@ -500,7 +558,7 @@ Plugin.onload()
 │  └─ initializeViewRegistry()
 │
 ├─ Phase 3: Registration
-│  ├─ registerAllServices()       → 15 services
+│  ├─ registerAllServices()       → 19 services
 │  ├─ registerAllCommands()       → 4 core commands
 │  └─ registerAllViews()          → 3 core views
 │
@@ -562,6 +620,11 @@ Plugin.onunload()
 | 13 | `inboxService` | — |
 | 14 | `nudgeService` | — |
 | 15 | `hubRegistry` | — |
+| 16 | `signalService` | — |
+| 17 | `canvasService` | — |
+| 18 | `analyticsService` | — |
+| 19 | `captureService` | — |
+| 20 | `trainService` | `captureService` |
 
 ---
 
@@ -640,7 +703,15 @@ Single JSON blob via `loadData()`/`saveData()`. All services share one `IStorage
   // NudgeService
   nudge: {
     nudges: NudgeConfig[]
+  },
+
+  // SignalService
+  signal: {
+    signals: SignalConfig[]  // Azure DevOps connection configs + sync state
   }
+
+  // Note: AnalyticsService stores savedAnalyticsQueries within dataExchange key.
+  // Planned migration to dedicated "analytics" key in Cycle 28.
 }
 ```
 
@@ -683,6 +754,14 @@ Full type definitions in [[Data Dictionary]].
   │ Session  ││Inbox ││Nudge ││ Hub │
   │ Service  ││Svc   ││Svc   ││Reg  │
   └──────────┘└──────┘└──────┘└─────┘
+  ┌──────────┐┌──────────┐┌───────────┐
+  │ Signal   ││ Canvas   ││ Analytics │
+  │ Service  ││ Service  ││ Service   │
+  └──────────┘└──────────┘└───────────┘
+  ┌──────────┐┌──────────┐
+  │ Capture  ││ Train    │
+  │ Service  ││(→capture)│
+  └──────────┘└──────────┘
   ┌──────────────┐   ┌──────────────┐
   │CommandRegistry│   │ ViewRegistry │
   └──────────────┘   └──────────────┘

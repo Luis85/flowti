@@ -14,7 +14,7 @@ tags:
 
 ## Description
 
-DataExchangeHubView is the orchestrator for the Data Exchange Hub, a central management view for all import and export operations. It extends `BaseHubView<DXTab>` and provides a tabbed interface with a dashboard landing page and 7 sub-tabs: Imports, Exports, Reports, Properties, Pipelines, Types, and Canvas. Each sub-tab uses a master-detail split layout.
+DataExchangeHubView is the orchestrator for the Data Exchange Hub, a central management view for all import and export operations. It extends `BaseHubView<DXTab>` and provides a tabbed interface with a dashboard landing page and 9 sub-tabs: Pipelines, Imports, Exports, Types, Properties, Signals, Reports, Canvas, and Analytics. Each sub-tab uses a master-detail split layout.
 
 The view is registered under the type `flowti-data-exchange-hub` and displays as "Data Exchange Hub" with the `arrow-left-right` icon. It owns all scanning logic for configs, CSV files, property docs, type docs, and report docs, passing this data to child components via `HubComponentDeps`.
 
@@ -35,14 +35,19 @@ The view is registered under the type `flowti-data-exchange-hub` and displays as
 | `PipelinesTab` | class | Renders the multi-import pipelines master-detail tab |
 | `TypesTab` | class | Renders the note type docs master-detail tab |
 | `CanvasTab` | class | Renders the canvas import configs master-detail tab |
+| `SignalsTab` | class | Renders the Azure DevOps signal connections master-detail tab |
+| `AnalyticsTab` | class | Renders the CSV analytics query builder master-detail tab |
+| `AnalyticsResultsPanel` | class | Renders query results within AnalyticsTab |
 | `CanvasService` | class | Canvas config CRUD and import orchestration |
+| `SignalService` | class | Signal CRUD, sync orchestration, and connection testing |
+| `AnalyticsService` | class | Analytics query execution and saved query persistence |
 | `buildSplitLayout` | function | Creates the shared dashboard + master/detail DOM skeleton |
 
 ## State
 
 The view manages state for all hub sub-tabs:
 
-- **`currentPage`**: Active tab (`"dashboard" | "imports" | "exports" | "reports" | "properties" | "pipelines" | "types" | "canvas"`)
+- **`currentPage`**: Active tab (`"dashboard" | "pipelines" | "imports" | "exports" | "types" | "properties" | "signals" | "reports" | "canvas" | "analytics"`)
 - **`importConfigs`**: Array of `SavedImportConfig` from DataExchangeService
 - **`exportConfigs`**: Array of `SavedExportConfig` from DataExchangeService
 - **`pipelineConfigs`**: Array of `SavedMultiImportPipeline` from DataExchangeService
@@ -79,5 +84,6 @@ State is exposed to child components via `getState()` / `setState()` on `HubComp
 
 ## Related
 
-- Children: [[HubDashboard]], [[ImportsTab]], [[ExportsTab]], [[ReportsTab]], [[PropertiesTab]], [[PipelinesTab]], [[TypesTab]], [[CanvasTab]], [[DashboardImports]], [[DashboardExports]], [[DashboardPipelines]], [[DashboardImportExecutor]]
+- Children: [[HubDashboard]], [[PipelinesTab]], [[ImportsTab]], [[ExportsTab]], [[TypesTab]], [[PropertiesTab]], [[SignalsTab]], [[ReportsTab]], [[CanvasTab]], [[AnalyticsTab]], [[AnalyticsResultsPanel]], [[DashboardImports]], [[DashboardExports]], [[DashboardPipelines]], [[DashboardImportExecutor]]
 - Opens: [[CsvActionView]], [[ExportView]], [[CanvasActionView]]
+- Planned: Analytics tab extraction to dedicated Analytics Hub in [[Cycle 28 - Analytics Hub]]

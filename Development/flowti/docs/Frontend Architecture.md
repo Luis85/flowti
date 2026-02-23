@@ -1,7 +1,7 @@
 ---
 type: ArchitectureDoc
 stage: open
-updated: 2026-02-19
+updated: 2026-02-23
 domain: Flowti/System
 plugin: "[[Development/flowti/README|README]]"
 tags:
@@ -12,7 +12,7 @@ tags:
 
 This document describes the current frontend architecture of the Flowti IBDE Obsidian plugin, its design principles, view inventory, and refactoring history with planned next phases.
 
-> Last updated: 2026-02-19 (Post-Cycle 8 full audit — metrics reconciled, session components updated, stale counts corrected)
+> Last updated: 2026-02-23 (Post-Cycle 27 — analytics domain, signal domain, train domain, canvas domain added; metrics and counts updated)
 
 ---
 
@@ -66,6 +66,10 @@ src/                     # ~31,467 LOC across 154 files
 │   ├── discovery/       # Vault scan for custom events
 │   ├── session/         # Session v2 execution environment (timer, goals, execution tasks, intent, energy, reflections, closure, activity, artifacts, note sync, state machine)
 │   ├── canvas/          # Canvas import pipeline (parser, importer, rebuilder, base generator, service)
+│   ├── analytics/       # In-memory analytics engine, query execution, locale/date utils (6 files, ~1,058 LOC)
+│   ├── signal/          # External signal connections — Azure DevOps adapter, sync orchestration (7 files, ~857 LOC)
+│   ├── capture/         # Thought capture for Train domain
+│   ├── train/           # Train navigation and thought sequencing
 │   ├── inbox/           # User inbox items (mappers, service, persistence)
 │   └── user/            # User profile management
 ├── ui/                  # Presentation layer
@@ -99,15 +103,15 @@ Views read state via `deps.getState()` and write via `deps.setState(partial)`. T
 |------|--------------|-----|------------|--------|---------|
 | `BaseHubView<TPage>` | — (abstract) | ~278 | `ItemView` | shell (wrapper + top bar + tab bar + split) | Abstract base: shared Hub lifecycle, navigation, render scheduling, cleanup |
 | `EventCatalogView` | `flowti-event-catalog` | ~723 | `BaseHubView<CatalogTab>` | master-detail | 8-tab catalog: Dashboard, Domains, Services, Events, Flows, Systems, Actors, Products |
-| `DataExchangeHubView` | `flowti-data-exchange-hub` | ~477 | `BaseHubView<DXTab>` | master-detail + tab bar | 8-page hub: Dashboard, Imports, Exports, Reports, Properties, Pipelines, Types, Canvas |
+| `DataExchangeHubView` | `flowti-data-exchange-hub` | ~477 | `BaseHubView<DXTab>` | master-detail + tab bar | 10-page hub: Dashboard + 9 tabs (Pipelines, Imports, Exports, Types, Properties, Signals, Reports, Canvas, Analytics) |
 | `EventLogView` | `flowti-event-log` | ~581 | log list | Activity feed with category/type filters and subscribed/all modes |
 | `ExportView` | `flowti-export` | ~655 | wizard stepper | 4-page export wizard: View Select, Configure, Preview, Result |
 | `CanvasActionView` | `flowti-canvas` | ~545 | `ItemView` | page navigation | Canvas import: 4-page wizard (landing, config, preview, result) with saved config quick-run |
 | `CsvActionView` | `flowti-csv` | ~747 | landing + wizard | CSV file handler: column preview landing page + 4-page inline import wizard |
 | `UserHubView` | `flowti-user-hub` | ~273 | `BaseHubView<UserHubTab>` | 3-tab user hub: Dashboard, Inbox, Sessions (+ Preferences) |
 | `SessionWorkspaceView` | `flowti-session-workspace` | ~537 | `ItemView` | single-column | Dedicated focused workspace for a single session (timer, energy, goals, execution plan, notes, context, decisions, activity, outputs). Subscriptions extracted to `SessionWorkspaceSubscriptions.ts`, helpers to `SessionWorkspaceHelpers.ts` |
-| `TrainMainView` | `flowti-train-main` | ~237 | `ItemView` | single-column | Dedicated train navigator: thought detail, prev/next navigation, branch links, action buttons. Subscriptions extracted to `TrainMainViewSubscriptions.ts` |
-| `TrainTimelineSidebar` | `flowti-train-timeline` | ~210 | `ItemView` | single-column | Vertical timeline graph: thought nodes, branch indentation, active highlighting, click-to-navigate. Subscriptions extracted to `TrainTimelineSidebarSubscriptions.ts` |
+| `TrainMainView` | `flowti-train-main` | ~237 | `ItemView` | single-column | Train navigator: thought detail, prev/next navigation, branch links. Subscriptions extracted to `TrainMainViewSubscriptions.ts` |
+| `TrainTimelineSidebar` | `flowti-train-timeline` | ~210 | `ItemView` | single-column | Vertical timeline graph: thought nodes, branch indentation, click-to-navigate. Subscriptions extracted to `TrainTimelineSidebarSubscriptions.ts` |
 | `ComponentShowcaseView` | `flowti-component-showcase` | ~297 | showcase | Development view for previewing all CSS components |
 
 ### Modals
@@ -139,7 +143,7 @@ Both major views extend `BaseHubView<TPage>` and follow the **orchestrator + com
 - `EventDetailPanel` — Event detail header, info card, actions, watchers, transforms, related entities
 - `FlowsTab`, `SystemsTab`, `ActorsTab`, `ProductsTab` — File-driven entity management
 
-**Data Exchange Hub** (`src/ui/hub/`, 22 files):
+**Data Exchange Hub** (`src/ui/hub/`, 22+ files):
 - `HubDashboard` — Dashboard orchestrator delegating to sub-components
 - `DashboardPipelines` — Pipeline summary table section
 - `DashboardImports` — Import configs table with inline execution
@@ -151,6 +155,11 @@ Both major views extend `BaseHubView<TPage>` and follow the **orchestrator + com
 - `TypesTab` — Note type documentation with CRUD lifecycle events and frontmatter scan issues banner
 - `PropertiesTab` — Data dictionary with cross-config usage tracking
 - `ReportsTab` — CSV file documentation browser with frontmatter validation alerts and name disambiguation
+- `SignalsTab` — Azure DevOps signal configuration with CRUD, inline Sync Now / Test Connection buttons (~333 LOC)
+- `AnalyticsTab` — CSV analytics query builder: source picker, joins, dimensions, measures, time bucketing, execution (~806 LOC)
+- `AnalyticsResultsPanel` — Results display with stat cards, sortable table, CSV export (~172 LOC)
+
+> **Planned**: Analytics tab will be extracted to a dedicated **Analytics Hub** in [[Cycle 28 - Analytics Hub]], reducing DX Hub from 9 to 8 tabs.
 
 **CSV Import** (`src/ui/csv/`, 10 files):
 - `CsvLanding` — Landing page orchestrator delegating to sub-components
@@ -331,7 +340,7 @@ dataExchangeSetup.ts ─→ Hub, CSV, Export     (view registration + file menu 
 
 ### Scale
 
-The `FlowtiEventMap` type union contains **234 events** across 17 domains:
+The `FlowtiEventMap` type union contains **260+ events** across 20+ domains:
 
 | Domain | Events | Examples |
 |--------|--------|---------|
@@ -360,6 +369,7 @@ The `FlowtiEventMap` type union contains **234 events** across 17 domains:
 | Inbox | 5 | `inbox.itemAdded`, `inbox.itemsChanged`, `inbox.cleared` |
 | Signal | 10 | `signal.configured`, `signal.sync.started`, `signal.sync.completed` |
 | Canvas | 8 | `canvas.import.started`, `canvas.import.completed`, `canvas.config.saved` |
+| Analytics | 5 | `analytics.query.started`, `analytics.query.completed`, `analytics.query.saved` |
 | Installer | 6 | `installer.started`, `installer.step.completed` |
 
 ### Conventions
@@ -708,11 +718,24 @@ Pure content generation file with markdown builders for 8+ entity types. Could s
 - `ConfigDocService.ts`: 934 → 435 LOC (53% reduction)
 - `BaseHubView.ts`: 278 LOC (new — shared shell for all Hub views)
 - 17 files over 500 LOC (down from 6 files over 1,000 LOC pre-refactor)
-- 109 test suites, 2,768 tests — all passing
-- ~170+ source files
+- 176 test suites, 4,271 tests — all passing
+- ~190+ source files
+
+### After Cycles 9-11, 27 (Feb 2026)
+- `SessionService.ts`: 1,729 → 613 LOC (TD-101 resolved — handler extraction)
+- Signal domain: +857 LOC (7 files), +10 events
+- Analytics domain: +1,058 LOC (6 files), +5 events, +978 LOC UI (AnalyticsTab + ResultsPanel)
+- Canvas domain: fully integrated
+- Train domain: 2 views + capture service
+
+### Planned: Cycle 28 — Analytics Hub
+- Extract `AnalyticsTab` from DX Hub into dedicated `AnalyticsHubView` (BaseHubView subclass)
+- Add dashboard domain: Dashboard, DashboardTile, TileDisplayMode types
+- Add `.base` file analytics source adapter
+- State migration from `"dataExchange"` to `"analytics"` storage key
+- See [[Analytics Hub PRD]] and [[Cycle 28 - Analytics Hub]]
 
 ### Target After Phase 13
-- `SessionService.ts`: 1,729 → ~580 LOC (TD-101 — highest priority)
 - `EventConfigModal.ts`: 629 → ~150 LOC
 - `DomainsTab.ts`: 563 → ~300 LOC
 - `contentGenerator.ts`: 708 → ~300 LOC
@@ -731,7 +754,7 @@ Each UI component has a dedicated documentation file in `docs/components/` (68 f
 | Modals | `src/ui/*.ts` | 8 | [[EventConfigModal]], [[SubscriptionManagerModal]], [[NewSessionModal]], [[ConfirmModal]] |
 | Standalone UI | `src/ui/*.ts` | 2 | [[IngestionStatusBar]], [[ElectronDialog]] |
 | Catalog | `src/ui/catalog/` | 11 | [[CatalogDashboard]], [[EventsTab]], [[DomainsTab]], [[FlowsTab]] |
-| Hub | `src/ui/hub/` | 12 | [[HubDashboard]], [[ImportsTab]], [[PipelinesTab]], [[CanvasTab]] |
+| Hub | `src/ui/hub/` | 14 | [[HubDashboard]], [[ImportsTab]], [[PipelinesTab]], [[CanvasTab]], [[SignalsTab]], [[AnalyticsTab]] |
 | Pipelines | `src/ui/hub/` | 5 | [[PipelineDetail]], [[PipelineEditForm]], [[PipelineExecution]] |
 | Canvas | `src/ui/canvas/` | 4 | [[CanvasLanding]], [[CanvasConfigPage]], [[CanvasPreviewPage]], [[CanvasResultPage]] |
 | CSV | `src/ui/csv/` | 7 | [[CsvLanding]], [[CsvConfigPage]], [[CsvDataSnapshot]] |

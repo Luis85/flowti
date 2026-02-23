@@ -88,7 +88,11 @@ export class EventBridge implements IEventBridge {
 							folderPath &&
 							!this.app.vault.getAbstractFileByPath(folderPath)
 						) {
-							await this.app.vault.createFolder(folderPath);
+							try {
+								await this.app.vault.createFolder(folderPath);
+							} catch {
+								// Folder may already exist due to race condition or stale metadata cache — skip
+							}
 						}
 					}
 
