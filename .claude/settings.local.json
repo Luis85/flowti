@@ -12,7 +12,8 @@
       "Bash(npx vitest:*)",
       "Bash(node esbuild.config.mjs:*)",
       "Bash(ls:*)",
-      "Bash(git mv:*)"
+      "Bash(git mv:*)",
+      "Bash(npm run test:flows:*)"
     ]
   }
 }
