@@ -3,9 +3,9 @@ type: idea
 stage: delivered
 delivered_in: Cycle 6
 origin: inbox
-domain: session
+domain: Session
 parent: "[[Session Workspaces PRD]]"
-description: "Session v2 user flow drafts — deep work, sidebar companion, workshop facilitation, state model, and edge cases."
+description: Session v2 user flow drafts — deep work, sidebar companion, workshop facilitation, state model, and edge cases.
 tags:
 priority: 2 - high
 rank:

@@ -1,13 +1,15 @@
 /**
- * Analytics tab component for the Data Exchange Hub.
+ * Queries tab component for the Analytics Hub.
  *
  * Query builder UI: source selection, column type hints, joins,
  * dimensions, measures, time bucketing, and query execution.
+ *
+ * Migrated from AnalyticsTab (DX Hub) — same rendering logic,
+ * adapted to AnalyticsHubDeps with non-optional analyticsService.
  */
 
 import { setIcon } from "obsidian";
-import { renderEmptyDetail, getEmptyDetailStats } from "./helpers";
-import type { HubComponentDeps } from "./types";
+import type { AnalyticsHubDeps } from "./types";
 import type {
 	LocaleId,
 	ColumnTypeHint,
@@ -25,7 +27,7 @@ import type {
 	SavedAnalyticsQuerySource,
 } from "../../domain/analytics/types";
 import { AnalyticsEngine } from "../../domain/analytics/AnalyticsEngine";
-import { AnalyticsResultsPanel } from "./AnalyticsResultsPanel";
+import { AnalyticsResultsPanel } from "../hub/AnalyticsResultsPanel";
 
 interface QuerySource {
 	csvPath: string;
@@ -49,7 +51,7 @@ const TIME_PERIODS: TimeBucketPeriod[] = ["month", "quarter", "year"];
 const SELECT_CSS = "padding:2px 6px;font-size:var(--font-ui-small);background:var(--background-primary);border:1px solid var(--background-modifier-border);border-radius:var(--radius-s,4px);color:var(--text-normal)";
 const INPUT_CSS = SELECT_CSS + ";width:80px";
 
-export class AnalyticsTab {
+export class QueriesTab {
 	private sources: QuerySource[] = [];
 	private columnTypeHints: ColumnTypeHint[] = [];
 	private joins: JoinSpec[] = [];
@@ -64,7 +66,7 @@ export class AnalyticsTab {
 	constructor(
 		private masterEl: HTMLElement,
 		private detailEl: HTMLElement,
-		private deps: HubComponentDeps,
+		private deps: AnalyticsHubDeps,
 	) {}
 
 	// ─────────────────────────────────────────────────────────
@@ -112,14 +114,14 @@ export class AnalyticsTab {
 		}
 
 		// Saved queries
-		const savedQueries = this.deps.analyticsService?.listQueries() ?? [];
+		const savedQueries = this.deps.analyticsService.listQueries();
 		if (savedQueries.length > 0) {
 			const sqHeader = this.masterEl.createDiv({ cls: "ft-master-category-header" });
 			sqHeader.createSpan({ text: "Saved Queries" });
 			sqHeader.createSpan({ text: `${savedQueries.length}`, cls: "ft-master-category-count" });
 
 			for (const sq of savedQueries) {
-				const isSelected = state.selectedAnalyticsQueryId === sq.id;
+				const isSelected = state.selectedQueryId === sq.id;
 				const item = this.masterEl.createDiv({
 					cls: `ft-master-event-item${isSelected ? " ft-master-event-selected" : ""}`,
 				});
@@ -135,15 +137,25 @@ export class AnalyticsTab {
 					item.createSpan({ text: `${sq.lastRowCount} rows`, cls: "ft-badge ft-badge-muted" });
 				}
 
+				// Delete button
+				const delBtn = item.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+				const delIcon = delBtn.createSpan();
+				setIcon(delIcon, "trash-2");
+				delBtn.setAttribute("aria-label", "Delete query");
+				delBtn.addEventListener("click", (e) => {
+					e.stopPropagation();
+					void this.deleteSavedQuery(sq.id);
+				});
+
 				item.addEventListener("click", () => {
-					this.deps.setState({ selectedAnalyticsQueryId: sq.id });
+					this.deps.setState({ selectedQueryId: sq.id });
 					this.loadSavedQuery(sq.id);
 				});
 			}
 		}
 
 		// Available CSVs
-		let csvFiles = state.csvFileEntries;
+		let csvFiles = state.csvFiles;
 		if (state.filterText) {
 			csvFiles = csvFiles.filter((f) =>
 				f.displayName.toLowerCase().includes(state.filterText) ||
@@ -192,8 +204,7 @@ export class AnalyticsTab {
 		this.detailEl.empty();
 
 		if (this.sources.length === 0) {
-			const { count, label } = getEmptyDetailStats(this.deps);
-			renderEmptyDetail(this.detailEl, "bar-chart-2", "Add a CSV source to build a query", count, label);
+			this.renderEmptyDetail();
 			return;
 		}
 
@@ -246,6 +257,27 @@ export class AnalyticsTab {
 	}
 
 	// ─────────────────────────────────────────────────────────
+	// Empty state
+	// ─────────────────────────────────────────────────────────
+
+	private renderEmptyDetail(): void {
+		const state = this.deps.getState();
+		const queryCount = state.queries.length;
+		const wrap = this.detailEl.createDiv({ cls: "ft-empty-detail" });
+		wrap.style.textAlign = "center";
+		wrap.style.padding = "3rem 1.5rem";
+		const iconEl = wrap.createDiv();
+		setIcon(iconEl, "bar-chart-2");
+		iconEl.style.fontSize = "2rem";
+		iconEl.style.opacity = "0.5";
+		iconEl.style.marginBottom = "0.5rem";
+		wrap.createDiv({ text: "Add a CSV source to build a query", cls: "ft-text-muted" });
+		if (queryCount > 0) {
+			wrap.createDiv({ text: `${queryCount} saved queries available`, cls: "ft-text-muted ft-text-sm ft-mt-1" });
+		}
+	}
+
+	// ─────────────────────────────────────────────────────────
 	// Source management
 	// ─────────────────────────────────────────────────────────
 
@@ -273,12 +305,6 @@ export class AnalyticsTab {
 
 	private async loadSourceData(source: QuerySource): Promise<void> {
 		const svc = this.deps.analyticsService;
-		if (!svc) {
-			source.loading = false;
-			this.renderMaster();
-			this.renderDetail();
-			return;
-		}
 
 		const parsed = await svc.loadCsv(source.csvPath);
 		source.loading = false;
@@ -371,8 +397,8 @@ export class AnalyticsTab {
 			this.renderDetail();
 		});
 
-		// Save Query (only when measures exist and service is available)
-		if (this.measures.length > 0 && this.deps.analyticsService) {
+		// Save Query (always available since analyticsService is required)
+		if (this.measures.length > 0) {
 			const saveLink = actions.createEl("span", { cls: "ft-nav-link" });
 			const saveIcon = saveLink.createSpan();
 			setIcon(saveIcon, "save");
@@ -530,7 +556,6 @@ export class AnalyticsTab {
 		}
 		srcSelect.addEventListener("change", () => {
 			join[sourceKey] = srcSelect.value;
-			// Reset column to first header of the new source
 			const newSource = loaded.find((s) => s.alias === srcSelect.value);
 			join[columnKey] = newSource?.data?.headers[0] ?? "";
 			this.renderDetail();
@@ -712,13 +737,7 @@ export class AnalyticsTab {
 				timeBucket: this.timeBucket ?? undefined,
 			};
 
-			const svc = this.deps.analyticsService;
-			if (svc) {
-				this.lastResult = await svc.runQuery(query);
-			} else {
-				const engine = new AnalyticsEngine();
-				this.lastResult = engine.run(query);
-			}
+			this.lastResult = await this.deps.analyticsService.runQuery(query);
 			this.lastDurationMs = Date.now() - start;
 		} catch (err) {
 			this.lastError = err instanceof Error ? err.message : String(err);
@@ -738,8 +757,6 @@ export class AnalyticsTab {
 
 	private async saveCurrentQuery(): Promise<void> {
 		const svc = this.deps.analyticsService;
-		if (!svc) return;
-
 		const name = `Query ${new Date().toISOString().slice(0, 16).replace("T", " ")}`;
 		const sources: SavedAnalyticsQuerySource[] = this.sources.map((s) => ({
 			alias: s.alias,
@@ -760,8 +777,6 @@ export class AnalyticsTab {
 
 	private loadSavedQuery(queryId: string): void {
 		const svc = this.deps.analyticsService;
-		if (!svc) return;
-
 		const saved = svc.getQuery(queryId);
 		if (!saved) return;
 
@@ -794,12 +809,11 @@ export class AnalyticsTab {
 	}
 
 	/** Delete a saved query by ID. */
-	async deleteSavedQuery(queryId: string): Promise<void> {
+	private async deleteSavedQuery(queryId: string): Promise<void> {
 		const svc = this.deps.analyticsService;
-		if (!svc) return;
 		await svc.deleteQuery(queryId);
-		if (this.deps.getState().selectedAnalyticsQueryId === queryId) {
-			this.deps.setState({ selectedAnalyticsQueryId: null });
+		if (this.deps.getState().selectedQueryId === queryId) {
+			this.deps.setState({ selectedQueryId: null });
 		}
 		this.renderMaster();
 	}

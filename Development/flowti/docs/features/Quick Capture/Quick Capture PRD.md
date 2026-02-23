@@ -17,7 +17,7 @@ maintenance_cost: 1
 discovery_cost: 2
 design_cost: 2
 test_cost: 2
-priority: 4
+priority: 3
 fri_score: 27
 tags:
   - inbox

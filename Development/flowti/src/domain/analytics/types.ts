@@ -203,3 +203,57 @@ export interface ParsedDate {
 	month: number;
 	day: number;
 }
+
+// ── Dashboard types ─────────────────────────────────────
+
+/** Display mode for a dashboard tile. */
+export type TileDisplayMode = "table" | "stat-card";
+
+/** Source type for analytics queries. */
+export type AnalyticsSourceType = "csv" | "base";
+
+/** A single tile within a dashboard. */
+export interface DashboardTile {
+	/** Unique tile ID */
+	id: string;
+	/** ID of the saved query this tile renders */
+	queryId: string;
+	/** Optional display title (defaults to query name) */
+	title?: string;
+	/** How to render the query results */
+	displayMode: TileDisplayMode;
+	/** Grid row position */
+	row: number;
+	/** Grid column position */
+	col: number;
+	/** Grid column span */
+	width: number;
+	/** Grid row span */
+	height: number;
+}
+
+/** A named dashboard containing a grid of tiles. */
+export interface Dashboard {
+	/** Unique dashboard ID */
+	id: string;
+	/** User-provided name */
+	name: string;
+	/** Optional description */
+	description?: string;
+	/** Tiles in this dashboard */
+	tiles: DashboardTile[];
+	/** Timestamp when created */
+	createdAt: number;
+	/** Timestamp of last update */
+	updatedAt: number;
+}
+
+// ── Analytics state ─────────────────────────────────────
+
+/** Persisted state for the Analytics domain (TypedStorage key: "analytics"). */
+export interface AnalyticsState {
+	/** Saved query configurations */
+	savedAnalyticsQueries: SavedAnalyticsQuery[];
+	/** Named dashboards */
+	dashboards: Dashboard[];
+}

@@ -2,17 +2,19 @@
  * Analytics domain service — orchestrates query execution and saved query management.
  *
  * Thin facade: loads CSV data, delegates to AnalyticsEngine, emits events,
- * and persists saved query configurations via DataExchangeState.
+ * and persists saved query configurations via AnalyticsState.
  */
 
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
-import type { DataExchangeState, ParsedCsv } from "../dataExchange/types";
+import type { ParsedCsv } from "../dataExchange/types";
 import type { ITypedStorage } from "../../utils/TypedStorage";
 import type {
 	AnalyticsQuery,
 	AnalyticsResult,
 	AnalyticsSource,
+	AnalyticsState,
+	Dashboard,
 	SavedAnalyticsQuery,
 	SavedAnalyticsQuerySource,
 } from "./types";
@@ -22,40 +24,70 @@ import { AnalyticsEngine } from "./AnalyticsEngine";
 export type ReadCsvCallback = (csvPath: string) => Promise<ParsedCsv | null>;
 
 export interface AnalyticsServiceOptions {
-	storage: ITypedStorage<DataExchangeState>;
+	storage: ITypedStorage<AnalyticsState>;
 	eventBus?: IEventBus;
 	readCsv?: ReadCsvCallback;
 	fileSystem?: IFileSystemClient;
+	/** Optional callback to read legacy "dataExchange" storage for migration. */
+	migrationReader?: () => Promise<unknown>;
 }
 
 function generateId(): string {
 	return `aq_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function createDefaultState(): DataExchangeState {
-	return { savedImportConfigs: [], savedExportConfigs: [] };
+function createDefaultState(): AnalyticsState {
+	return { savedAnalyticsQueries: [], dashboards: [] };
 }
 
 export class AnalyticsService {
 	private engine = new AnalyticsEngine();
-	private storage: ITypedStorage<DataExchangeState>;
-	private state: DataExchangeState = createDefaultState();
+	private storage: ITypedStorage<AnalyticsState>;
+	private state: AnalyticsState = createDefaultState();
 	private eventBus?: IEventBus;
 	private readCsv?: ReadCsvCallback;
 	private fileSystem?: IFileSystemClient;
 	private queryFolder?: string;
+	private migrationReader?: () => Promise<unknown>;
 
 	constructor(options: AnalyticsServiceOptions) {
 		this.storage = options.storage;
 		this.eventBus = options.eventBus;
 		this.readCsv = options.readCsv;
 		this.fileSystem = options.fileSystem;
+		this.migrationReader = options.migrationReader;
 	}
 
-	/** Load persisted state from storage. */
+	/**
+	 * Load persisted state from storage.
+	 * On first load, migrates saved queries from the legacy "dataExchange" key
+	 * if the "analytics" key is empty and migration data exists.
+	 */
 	async load(): Promise<void> {
 		const saved = await this.storage.load();
-		if (saved) this.state = saved;
+		if (saved && (saved.savedAnalyticsQueries?.length > 0 || saved.dashboards?.length > 0)) {
+			this.state = saved;
+		} else if (this.migrationReader) {
+			// Attempt migration from legacy "dataExchange" key
+			try {
+				const legacyData = await this.migrationReader() as Record<string, unknown> | null;
+				if (legacyData) {
+					const legacyKey = legacyData["dataExchange"] as Record<string, unknown> | undefined;
+					const queries = (legacyKey?.savedAnalyticsQueries ?? []) as SavedAnalyticsQuery[];
+					if (queries.length > 0) {
+						this.state = { savedAnalyticsQueries: queries, dashboards: [] };
+						await this.storage.save(this.state);
+					}
+				}
+			} catch {
+				// Migration failure is non-fatal — start with empty state
+			}
+		}
+
+		await this.eventBus?.emit("analytics.loaded", {
+			queryCount: this.state.savedAnalyticsQueries?.length ?? 0,
+			dashboardCount: this.state.dashboards?.length ?? 0,
+		});
 	}
 
 	/** Set the CSV reading callback (wired during setup). */
@@ -217,6 +249,13 @@ export class AnalyticsService {
 		await this.deleteQueryFile(removed.name);
 
 		return true;
+	}
+
+	// ── Dashboard accessors (CRUD added in Inc 2) ───────
+
+	/** List all dashboards. */
+	listDashboards(): Dashboard[] {
+		return this.state.dashboards ?? [];
 	}
 
 	// ── File persistence ────────────────────────────────

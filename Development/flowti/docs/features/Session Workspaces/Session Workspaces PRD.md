@@ -23,10 +23,8 @@ design_cost: 4
 test_cost: 4
 priority: 5
 tags:
-  - session
   - workspace
   - prd
-  - core
 plugin: "[[Development/flowti/README|README]]"
 ---
 

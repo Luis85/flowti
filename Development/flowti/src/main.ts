@@ -48,12 +48,14 @@ import { createInfrastructure, setupCrossCuttingListeners } from "./pluginBootst
 import { HubRegistry } from "./domain/hub/HubRegistry";
 import { EventCatalogProvider } from "./domain/hub/EventCatalogProvider";
 import { DataExchangeProvider } from "./domain/hub/DataExchangeProvider";
+import { AnalyticsHubProvider } from "./domain/hub/AnalyticsHubProvider";
 import { UserHubProvider } from "./domain/hub/UserHubProvider";
 import { UserHubView, VIEW_TYPE_USER_HUB } from "./ui/UserHubView";
 import { SessionWorkspaceView, VIEW_TYPE_SESSION_WORKSPACE } from "./ui/SessionWorkspaceView";
 import { TrainMainView, VIEW_TYPE_TRAIN_MAIN } from "./ui/train/TrainMainView";
 import { TrainTimelineSidebar, VIEW_TYPE_TRAIN_TIMELINE } from "./ui/train/TrainTimelineSidebar";
 import { TrainHubView, VIEW_TYPE_TRAIN_HUB } from "./ui/train/TrainHubView";
+import { AnalyticsHubView, VIEW_TYPE_ANALYTICS_HUB } from "./ui/AnalyticsHubView";
 import { TrainResumeModal } from "./ui/train/TrainResumeModal";
 import { TrainTypePickerModal } from "./ui/train/TrainTypePickerModal";
 import { showNudgeNotification } from "./ui/NudgeNotification";
@@ -273,6 +275,9 @@ export default class FlowtiBasePlugin extends Plugin {
 			});
 			this.addRibbonIcon("waypoints", "Open Train Hub", () => {
 				void this.eventBus.emit("ui.openTrainHub", {});
+			});
+			this.addRibbonIcon("bar-chart-2", "Open Analytics Hub", () => {
+				void this.eventBus.emit("ui.openAnalyticsHub", {});
 			});
 			this.addRibbonIcon("train-front", "Train of Thoughts", () => {
 				const activeTrain = this.trainService?.getActiveTrain();
@@ -817,6 +822,26 @@ export default class FlowtiBasePlugin extends Plugin {
 			}),
 		);
 
+		// Analytics Hub — dedicated analytics view
+		this.registerView(VIEW_TYPE_ANALYTICS_HUB, (leaf) =>
+			new AnalyticsHubView(leaf, this.eventBus, this.analyticsService!),
+		);
+
+		// Open Analytics Hub on command
+		this.crossCuttingListeners.push(
+			this.eventBus.on("ui.openAnalyticsHub", () => {
+				const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_ANALYTICS_HUB);
+				if (existing.length > 0) {
+					void this.app.workspace.revealLeaf(existing[0]);
+					return;
+				}
+				void this.app.workspace.getLeaf("tab").setViewState({
+					type: VIEW_TYPE_ANALYTICS_HUB,
+					active: true,
+				});
+			}),
+		);
+
 		this.crossCuttingListeners.push(
 			this.eventBus.on("train.started", (event) => {
 				this.revealOrCreateTrainView(event.payload.train.id);
@@ -1287,7 +1312,6 @@ export default class FlowtiBasePlugin extends Plugin {
 			dataExchangeService: this.dataExchangeService!,
 			signalService: this.signalService,
 			canvasService: this.canvasService,
-			analyticsService: this.analyticsService,
 			docsRootPath: settingsService.getSettings().docsRootPath,
 			registerView: (type, factory) => this.registerView(type, factory),
 			registerExtensions: (exts, type) => { try { this.registerExtensions(exts, type); } catch { /* may already be registered */ } },
@@ -1324,6 +1348,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			collapsedCategories: this.collapsedCategories,
 		}));
 		this.hubRegistry.register(new DataExchangeProvider(this.dataExchangeService!));
+		this.hubRegistry.register(new AnalyticsHubProvider(this.analyticsService!));
 
 		this.registerView(VIEW_TYPE_USER_HUB, (leaf) =>
 			new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.sessionService!, this.nudgeService!, this.settings.inboxEnabledSources, this.settings, this.trainService),

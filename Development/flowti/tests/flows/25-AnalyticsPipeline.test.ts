@@ -22,7 +22,7 @@ import type {
 	SavedAnalyticsQuery,
 	ParsedSourceData,
 } from "../../src/domain/analytics/types";
-import type { DataExchangeState } from "../../src/domain/dataExchange/types";
+import type { AnalyticsState } from "../../src/domain/analytics/types";
 import { createMockStorage, collectEvents, waitForAsync } from "./testHelpers";
 
 // ── Fixtures ─────────────────────────────────────────────────
@@ -70,7 +70,7 @@ describe("Flow 25: Analytics Pipeline", () => {
 
 	beforeEach(async () => {
 		eventBus = new EventBus();
-		const mock = createMockStorage<DataExchangeState>();
+		const mock = createMockStorage<AnalyticsState>();
 		analyticsService = new AnalyticsService({
 			storage: mock.storage,
 			eventBus,
@@ -571,7 +571,7 @@ describe("Flow 25: Analytics Pipeline", () => {
 
 	describe("persistence", () => {
 		it("should persist saved queries across service instances", async () => {
-			const mock = createMockStorage<DataExchangeState>();
+			const mock = createMockStorage<AnalyticsState>();
 			const service1 = new AnalyticsService({ storage: mock.storage, eventBus });
 			await service1.load();
 

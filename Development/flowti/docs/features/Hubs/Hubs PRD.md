@@ -31,6 +31,8 @@ design_cost: 4
 test_cost: 4
 priority: 5
 fri_score: 33
+tags:
+  - core
 ---
 
 # Feature: Hubs - Domain-Centric Workspaces

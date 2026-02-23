@@ -24,10 +24,10 @@ test_cost: 3
 priority: 3
 fri_score: 33
 tags:
-  - session
   - capture
   - train-of-thought
   - innovation
+  - core
 planned_in:
   - "[[Cycle 13 - Train of Thoughts]]"
   - "[[Cycle 14 - Train View Polish]]"

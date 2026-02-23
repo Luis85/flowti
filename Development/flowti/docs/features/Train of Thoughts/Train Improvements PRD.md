@@ -24,7 +24,6 @@ test_cost: 3
 priority: 3
 fri_score: 31
 tags:
-  - session
   - train-of-thought
   - canvas
   - merge

@@ -20,7 +20,7 @@ maintenance_cost: 3
 discovery_cost: 3
 design_cost: 4
 test_cost: 3
-priority: 3
+priority: 2
 ---
 
 # Event Catalog PRD

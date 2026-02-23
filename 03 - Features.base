@@ -47,12 +47,16 @@ views:
       and:
         - file.folder.contains("flowti")
         - type == "ProductRequirementsDocument"
+    groupBy:
+      property: domain
+      direction: ASC
     order:
       - file.name
+      - domain
       - stage
       - priority
       - maturity
-      - description
+      - tags
       - fri_score
       - implementation_cost
       - maintenance_cost
@@ -68,9 +72,9 @@ views:
       - design_cost
       - business_value
     sort:
-      - property: fri_score
-        direction: DESC
       - property: priority
+        direction: DESC
+      - property: fri_score
         direction: DESC
       - property: maturity
         direction: DESC

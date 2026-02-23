@@ -31,7 +31,7 @@ maintenance_cost: 3
 discovery_cost: 3
 design_cost: 4
 test_cost: 3
-priority: 4
+priority: 3
 fri_score: 30
 planned_in: "[[Cycle 15 - Canvas Integration]]"
 tags:

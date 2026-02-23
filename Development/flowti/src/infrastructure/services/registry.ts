@@ -293,9 +293,10 @@ export function createServiceRegistrations(
 			factory: (container: IServiceContainer) => {
 				const eventBus = container.getEventBus();
 				return new AnalyticsService({
-					storage: createTypedStorage(storage, "dataExchange", container),
+					storage: createTypedStorage(storage, "analytics", container),
 					eventBus,
 					fileSystem: new FileSystemClient({ eventBus }),
+					migrationReader: () => storage.load() as Promise<unknown>,
 				});
 			},
 		},

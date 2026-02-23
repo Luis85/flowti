@@ -1,22 +1,23 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { AnalyticsService, type ReadCsvCallback } from "../../../src/domain/analytics/AnalyticsService";
-import type { DataExchangeState, ParsedCsv } from "../../../src/domain/dataExchange/types";
+import type { AnalyticsState } from "../../../src/domain/analytics/types";
+import type { ParsedCsv } from "../../../src/domain/dataExchange/types";
 import type { ITypedStorage } from "../../../src/utils/TypedStorage";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 
 // ── Test helpers ──────────────────────────────────────────
 
-function createMockStorage(): ITypedStorage<DataExchangeState> {
-	let data: DataExchangeState = {
-		savedImportConfigs: [],
-		savedExportConfigs: [],
+function createMockStorage(): ITypedStorage<AnalyticsState> {
+	let data: AnalyticsState = {
+		savedAnalyticsQueries: [],
+		dashboards: [],
 	};
 	return {
 		load: vi.fn(async () => data),
-		save: vi.fn(async (state: DataExchangeState) => { data = state; }),
+		save: vi.fn(async (state: AnalyticsState) => { data = state; }),
 		safeLoad: vi.fn(async () => data),
-		safeSave: vi.fn(async (state: DataExchangeState) => { data = state; return true; }),
-	} as unknown as ITypedStorage<DataExchangeState>;
+		safeSave: vi.fn(async (state: AnalyticsState) => { data = state; return true; }),
+	} as unknown as ITypedStorage<AnalyticsState>;
 }
 
 function createMockEventBus(): IEventBus {
@@ -50,7 +51,7 @@ const mockReadCsv: ReadCsvCallback = vi.fn(async (path: string) => {
 
 describe("AnalyticsService", () => {
 	let service: AnalyticsService;
-	let storage: ITypedStorage<DataExchangeState>;
+	let storage: ITypedStorage<AnalyticsState>;
 	let eventBus: IEventBus & { _emitted: Array<{ type: string; payload: unknown }> };
 
 	beforeEach(async () => {

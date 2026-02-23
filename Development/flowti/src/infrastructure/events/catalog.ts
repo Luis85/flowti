@@ -391,6 +391,7 @@ const CATALOG_DATA = {
 	"ui.openTrainCanvas":         { category: "UI Commands", description: "Open canvas for the active train", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.openTrainTimeline":       { category: "UI Commands", description: "Open train timeline sidebar for the active train", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.openTrainHub":            { category: "UI Commands", description: "Open the Train Hub view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
+	"ui.openAnalyticsHub":        { category: "UI Commands", description: "Open the Analytics Hub view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.opened":                  { category: "UI Commands", description: "A UI view or modal was opened", direction: "Internal", domain: "ui", services: "UiCommandService", tags: ["system"] },
 
 	// ── Hub ──────────────────────────────────────────────────
@@ -557,6 +558,7 @@ const CATALOG_DATA = {
 	"canvas.loaded":           { category: "Canvas", description: "Canvas state loaded from storage", direction: "Service → Listeners", domain: "canvas", services: "CanvasService" },
 
 	// ── Analytics ────────────────────────────────────────────
+	"analytics.loaded":          { category: "Analytics", description: "Analytics domain loaded from storage", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService", tags: ["system"] },
 	"analytics.query.started":   { category: "Analytics", description: "Analytics query execution started", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
 	"analytics.query.completed": { category: "Analytics", description: "Analytics query completed successfully", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
 	"analytics.query.failed":    { category: "Analytics", description: "Analytics query failed", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },

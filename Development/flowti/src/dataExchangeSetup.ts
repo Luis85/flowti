@@ -15,15 +15,12 @@ import { ExportView, VIEW_TYPE_EXPORT, type ExportViewConfig } from "./ui/Export
 import { DataExchangeHubView, VIEW_TYPE_DATA_EXCHANGE_HUB } from "./ui/DataExchangeHubView";
 import type { SignalService } from "./domain/signal/SignalService";
 import type { CanvasService } from "./domain/canvas/CanvasService";
-import type { AnalyticsService } from "./domain/analytics/AnalyticsService";
-
 export interface DataExchangeSetupDeps {
 	app: App;
 	eventBus: IEventBus;
 	dataExchangeService: DataExchangeService;
 	signalService?: SignalService;
 	canvasService?: CanvasService;
-	analyticsService?: AnalyticsService;
 	docsRootPath: string;
 	registerView: (type: string, factory: ViewCreator) => void;
 	registerExtensions: (extensions: string[], viewType: string) => void;
@@ -161,7 +158,6 @@ export class DataExchangeSetup {
 				(canvasPath, configId?, autoRun?) => this.openCanvasImportView(canvasPath, configId, autoRun),
 				this.deps.signalService,
 				this.deps.canvasService,
-				this.deps.analyticsService,
 			),
 		);
 	}

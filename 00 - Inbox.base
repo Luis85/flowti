@@ -15,11 +15,10 @@ views:
     order:
       - file.name
       - stage
+      - priority
       - file.ctime
       - tags
     sort:
-      - property: file.ctime
-        direction: DESC
       - property: priority
         direction: DESC
       - property: file.mtime

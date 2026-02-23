@@ -77,6 +77,9 @@ export interface UiCommandEventMap {
 	/** Open the Train Hub view (or reveal if already open) */
 	"ui.openTrainHub": Record<string, never>;
 
+	/** Open the Analytics Hub view (or reveal if already open) */
+	"ui.openAnalyticsHub": Record<string, never>;
+
 	/** Emitted after a view or modal was opened by UiCommandService */
 	"ui.opened": {
 		target: string;

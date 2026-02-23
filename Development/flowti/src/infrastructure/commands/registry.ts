@@ -182,6 +182,15 @@ export function createCommandDefinitions(): CommandDefinition[] {
 			},
 		},
 		{
+			id: "flowti:open-analytics-hub",
+			name: "Open analytics hub",
+			icon: "bar-chart-2",
+			handler: async (ctx) => {
+				ctx.logger.debug("Opening analytics hub view");
+				void ctx.eventBus.emit("ui.openAnalyticsHub", {});
+			},
+		},
+		{
 			id: "flowti:start-train",
 			name: "Start train of thoughts",
 			icon: "brain",

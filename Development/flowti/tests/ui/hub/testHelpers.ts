@@ -39,7 +39,6 @@ export function makeDefaultHubState(overrides: Partial<HubState> = {}): HubState
 		editingExportId: null,
 		editingPipelineId: null,
 		editingCanvasId: null,
-		selectedAnalyticsQueryId: null,
 		...overrides,
 	};
 }

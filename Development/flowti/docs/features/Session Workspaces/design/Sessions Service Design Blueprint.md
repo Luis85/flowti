@@ -3,9 +3,9 @@ type: idea
 stage: delivered
 delivered_in: Cycle 6
 origin: inbox
-domain: session
+domain: Session
 parent: "[[Session Workspaces PRD]]"
-description: "Service Design Blueprint for Session v2 — 5 phases (Preparation, Execution, Monitoring, Review, Post-Processing), 4 layers (User Actions, Frontstage, Backstage, Supporting Systems), service boundary lines."
+description: Service Design Blueprint for Session v2 — 5 phases (Preparation, Execution, Monitoring, Review, Post-Processing), 4 layers (User Actions, Frontstage, Backstage, Supporting Systems), service boundary lines.
 tags:
   - service-blueprint
 priority: 2 - high
