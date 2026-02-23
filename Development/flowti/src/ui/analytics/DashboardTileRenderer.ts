@@ -62,16 +62,21 @@ export class DashboardTileRenderer {
 		body.style.overflow = "auto";
 		body.style.padding = "0.5rem";
 
-		if (ctx.error) {
-			this.renderError(body, ctx.error);
-		} else if (!ctx.query) {
-			this.renderError(body, "Query not found — it may have been deleted");
-		} else if (!ctx.result) {
-			this.renderLoading(body);
-		} else if (ctx.tile.displayMode === "stat-card") {
-			this.renderStatCard(body, ctx.result, ctx.query.name);
-		} else {
-			this.renderTable(body, ctx.result);
+		try {
+			if (ctx.error) {
+				this.renderError(body, ctx.error);
+			} else if (!ctx.query) {
+				this.renderError(body, "Query not found — it may have been deleted");
+			} else if (!ctx.result) {
+				this.renderLoading(body);
+			} else if (ctx.tile.displayMode === "stat-card") {
+				this.renderStatCard(body, ctx.result, ctx.query.name);
+			} else {
+				this.renderTable(body, ctx.result);
+			}
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err);
+			this.renderError(body, `Render failed: ${message}`);
 		}
 	}
 

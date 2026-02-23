@@ -1,7 +1,8 @@
 ---
 type: ProductBacklogItem
 feature: "[[Analytics Hub PRD]]"
-stage: planned
+stage: delivered
+delivered_in: "[[Cycle 28 - Analytics Hub]]"
 priority: critical
 dependencies:
   - "[[PBI-ANA-011 Dashboard Domain]]"

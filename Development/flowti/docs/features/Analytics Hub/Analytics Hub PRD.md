@@ -2,9 +2,9 @@
 domain: Analytics
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
-stage: draft
-version: 1
-maturity: L1
+stage: delivered
+version: 2
+maturity: L2
 created: 2026-02-23
 updated: 2026-02-23
 foundation: "[[When opening a CSV with Flowti, I want to be able to make an easy dashboard]]"
@@ -24,10 +24,10 @@ related_events:
 maturity_score_strategy: 4
 maturity_score_scope: 4
 maturity_score_architecture: 4
-maturity_score_event_integration: 3
-maturity_score_data_model: 3
-maturity_score_ui_consistency: 3
-maturity_score_validation_testing: 2
+maturity_score_event_integration: 4
+maturity_score_data_model: 4
+maturity_score_ui_consistency: 4
+maturity_score_validation_testing: 3
 business_value: 4
 implementation_cost: 3
 maintenance_cost: 2
@@ -110,32 +110,32 @@ Primary interaction path:
 
 ### Analytics Hub Shell
 
-- [ ] FR-01: Analytics Hub is a separate BaseHubView subclass with VIEW_TYPE `"flowti-analytics-hub"` and hub ID `"analytics"`
-- [ ] FR-02: Analytics Hub has 2 tabs: Dashboards (tile grid), Queries (query builder)
-- [ ] FR-03: Hub dashboard page shows overview stats: saved query count, dashboard count, last query run time
-- [ ] FR-04: Analytics Hub is accessible via command palette (`flowti:open-analytics-hub`) and User Hub cross-hub card
+- [x] FR-01: Analytics Hub is a separate BaseHubView subclass with VIEW_TYPE `"flowti-analytics-hub"` and hub ID `"analytics"`
+- [x] FR-02: Analytics Hub has 2 tabs: Dashboards (tile grid), Queries (query builder)
+- [x] FR-03: Hub dashboard page shows overview stats: saved query count, dashboard count, last query run time
+- [x] FR-04: Analytics Hub is accessible via command palette (`flowti:open-analytics-hub`) and User Hub cross-hub card
 
 ### Dashboard Domain
 
-- [ ] FR-05: User can create a named dashboard (title, optional description)
-- [ ] FR-06: User can add tiles to a dashboard; each tile references a saved query ID and specifies a display mode (table or stat-card)
-- [ ] FR-07: User can remove tiles from a dashboard
-- [ ] FR-08: User can delete a dashboard
-- [ ] FR-09: Dashboard and tile state is persisted via TypedStorage under key `"analytics"`
-- [ ] FR-10: Dashboard tiles render query results inline using AnalyticsResultsPanel (table mode) or stat card summary (stat-card mode)
+- [x] FR-05: User can create a named dashboard (title, optional description)
+- [x] FR-06: User can add tiles to a dashboard; each tile references a saved query ID and specifies a display mode (table or stat-card)
+- [x] FR-07: User can remove tiles from a dashboard
+- [x] FR-08: User can delete a dashboard
+- [x] FR-09: Dashboard and tile state is persisted via TypedStorage under key `"analytics"`
+- [x] FR-10: Dashboard tiles render query results inline using AnalyticsResultsPanel (table mode) or stat card summary (stat-card mode)
 
 ### State Migration
 
-- [ ] FR-11: On first load, AnalyticsService reads `savedAnalyticsQueries` from the `"dataExchange"` storage key and migrates them to the `"analytics"` key; after migration, the old field is cleared
+- [x] FR-11: On first load, AnalyticsService reads `savedAnalyticsQueries` from the `"dataExchange"` storage key and migrates them to the `"analytics"` key; after migration, the old field is cleared
 
 ### Source Enhancement
 
-- [ ] FR-12: Analytics source picker shows `.base` files alongside CSV files; user can select a `.base` file as an analytics source
-- [ ] FR-13: `BaseAnalyticsAdapter` resolves `.base` files using BaseQueryEngine + vault file scanning to produce headers + rows compatible with the analytics engine
+- [x] FR-12: Analytics source picker shows `.base` files alongside CSV files; user can select a `.base` file as an analytics source
+- [x] FR-13: `BaseAnalyticsAdapter` resolves `.base` files using BaseQueryEngine + vault file scanning to produce headers + rows compatible with the analytics engine
 
 ### DX Hub Cleanup
 
-- [ ] FR-14: The Analytics tab is removed from DataExchangeHubView; DX Hub tab definitions no longer include analytics
+- [x] FR-14: The Analytics tab is removed from DataExchangeHubView; DX Hub tab definitions no longer include analytics
 
 ## 6. Data Model Impact
 
@@ -251,16 +251,16 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 
 ## 12. Acceptance Criteria
 
-- [ ] Analytics Hub opens via command palette and shows 2 tabs (Dashboards, Queries)
-- [ ] Queries tab reproduces all current AnalyticsTab functionality (source picker, query builder, execution, results, save/load)
-- [ ] User can create a dashboard, add tiles referencing saved queries, and see results rendered
-- [ ] User can delete dashboards and remove tiles
-- [ ] Analytics tab no longer appears in Data Exchange Hub
-- [ ] Saved queries migrated from DX state to analytics state on first load
-- [ ] `.base` files appear in the source picker and produce valid analytics results
-- [ ] Analytics Hub appears in User Hub cross-hub card with query + dashboard counts
-- [ ] All existing analytics tests pass (163 tests)
-- [ ] New tests cover: dashboard CRUD, tile CRUD, state migration, base adapter, hub view
+- [x] Analytics Hub opens via command palette and shows 2 tabs (Dashboards, Queries)
+- [x] Queries tab reproduces all current AnalyticsTab functionality (source picker, query builder, execution, results, save/load)
+- [x] User can create a dashboard, add tiles referencing saved queries, and see results rendered
+- [x] User can delete dashboards and remove tiles
+- [x] Analytics tab no longer appears in Data Exchange Hub
+- [x] Saved queries migrated from DX state to analytics state on first load
+- [x] `.base` files appear in the source picker and produce valid analytics results
+- [x] Analytics Hub appears in User Hub cross-hub card with query + dashboard counts
+- [x] All existing analytics tests pass (163 tests)
+- [x] New tests cover: dashboard CRUD, tile CRUD, state migration, base adapter, hub view
 
 ## 13. Definition of Done
 
@@ -281,18 +281,20 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 
 | PBI | Title | Status | Priority | Dependencies |
 |-----|-------|--------|----------|-------------|
-| [[PBI-ANA-010 Analytics Hub Shell]] | Hub view + query migration + DX cleanup | Planned | Critical | — |
-| [[PBI-ANA-011 Dashboard Domain]] | Types, service CRUD, events, persistence | Planned | Critical | ANA-010 |
-| [[PBI-ANA-012 Dashboard Tile Grid UI]] | Tile layout, rendering, dashboard CRUD UI | Planned | Critical | ANA-011 |
-| [[PBI-ANA-013 Base File Analytics Source]] | BaseAnalyticsAdapter + source picker | Planned | High | ANA-010 |
-| [[PBI-ANA-014 Analytics Integration and Polish]] | HubProvider, command, flow tests, polish | Planned | High | ANA-010–013 |
+| [[PBI-ANA-010 Analytics Hub Shell]] | Hub view + query migration + DX cleanup | Delivered | Critical | — |
+| [[PBI-ANA-011 Dashboard Domain]] | Types, service CRUD, events, persistence | Delivered | Critical | ANA-010 |
+| [[PBI-ANA-012 Dashboard Tile Grid UI]] | Tile layout, rendering, dashboard CRUD UI | Delivered | Critical | ANA-011 |
+| [[PBI-ANA-013 Base File Analytics Source]] | BaseAnalyticsAdapter + source picker | Delivered | High | ANA-010 |
+| [[PBI-ANA-014 Analytics Integration and Polish]] | HubProvider, command, flow tests, polish | Delivered | High | ANA-010–013 |
 
-> **Analytics Hub inception (2026-02-23):** Analytics moves from DX Hub tab to dedicated hub with dashboard tile grid. `.base` file sources and state migration included in first cycle. Planned for [[Cycle 28 - Analytics Hub]].
+> **Analytics Hub delivered (2026-02-23):** All 5 PBIs delivered in Cycle 28. Analytics moved from DX Hub tab to dedicated hub with dashboard tile grid, `.base` file sources, and independent persistence. 4,338 tests (178 suites).
 
 ## Related
 
 - Foundation: [[Data Exchange Hub PRD]] (analytics delivered in Cycle 27)
 - Cycle: [[Cycle 27 - Analytics Sprint]] (engine + query builder delivered)
+- Cycle: [[Cycle 28 - Analytics Hub]] (hub + dashboards + .base sources delivered)
 - Review: [[Three Amigos Review 2026-02-23 Analytics Sprint]] (PASS, TASM 31/35)
+- Flow: [[Build Analytics Dashboard]]
 - Inbox: [[When opening a CSV with Flowti, I want to be able to make an easy dashboard]]
 - PBIs: [[PBI-ANA-010 Analytics Hub Shell]], [[PBI-ANA-011 Dashboard Domain]], [[PBI-ANA-012 Dashboard Tile Grid UI]], [[PBI-ANA-013 Base File Analytics Source]], [[PBI-ANA-014 Analytics Integration and Polish]]

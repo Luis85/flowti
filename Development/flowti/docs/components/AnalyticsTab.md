@@ -1,8 +1,9 @@
 ---
 type: Component
 domain: Flowti
-stage: done
-description: "CSV analytics query builder with source selection, joins, dimensions, measures, time bucketing, and query results"
+stage: superseded
+superseded_by: "[[QueriesTab]]"
+description: "CSV analytics query builder with source selection, joins, dimensions, measures, time bucketing, and query results — superseded by QueriesTab in Analytics Hub (Cycle 28)"
 source: "[[Development/flowti/src/ui/hub/AnalyticsTab.ts|AnalyticsTab.ts]]"
 parent: "[[DataExchangeHubView]]"
 tags:

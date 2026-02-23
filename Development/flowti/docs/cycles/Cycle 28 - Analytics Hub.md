@@ -1,9 +1,10 @@
 ---
 type: DevelopmentCycle
 feature: "[[Analytics Hub PRD]]"
-stage: planned
+stage: delivered
 cycle: 28
 date_planned: 2026-02-23
+date_completed: 2026-02-23
 pbis:
   - "[[PBI-ANA-010 Analytics Hub Shell]]"
   - "[[PBI-ANA-011 Dashboard Domain]]"
@@ -14,7 +15,13 @@ bugs: []
 bugs_fixed_precycle: []
 tech_debt: []
 estimated_increments: 5
+actual_increments: 5
 estimated_tests: 165
+actual_new_tests: 67
+pre_cycle_tests: 4271
+post_cycle_tests: 4338
+pre_cycle_suites: 176
+post_cycle_suites: 178
 ---
 
 # Cycle 28: Analytics Hub — Dashboards & Intelligence
@@ -132,13 +139,13 @@ estimated_tests: 165
 | `src/main.ts` | Wire new hub view | +20 |
 
 **AC:**
-- [ ] Analytics Hub opens with 2 tabs (Dashboards, Queries)
-- [ ] Queries tab has full query builder functionality
-- [ ] Hub dashboard shows overview stats
-- [ ] DX Hub no longer has analytics tab (8 tabs)
-- [ ] Saved queries migrate automatically on first load
-- [ ] Existing 163 analytics tests pass
-- [ ] `npm test` passes
+- [x] Analytics Hub opens with 2 tabs (Dashboards, Queries)
+- [x] Queries tab has full query builder functionality
+- [x] Hub dashboard shows overview stats
+- [x] DX Hub no longer has analytics tab (8 tabs)
+- [x] Saved queries migrate automatically on first load
+- [x] Existing 163 analytics tests pass
+- [x] `npm test` passes
 
 ---
 
@@ -160,12 +167,12 @@ estimated_tests: 165
 | `src/infrastructure/events/catalog.ts` | Register 8 new events | +10 |
 
 **AC:**
-- [ ] Dashboard create, list, get, update, delete work
-- [ ] Tile add, remove, update work within a dashboard
-- [ ] All operations emit correct events
-- [ ] Events appear in Event Catalog under "Analytics" category
-- [ ] State round-trips through TypedStorage
-- [ ] `npm test` passes
+- [x] Dashboard create, list, get, update, delete work
+- [x] Tile add, remove, update work within a dashboard
+- [x] All operations emit correct events
+- [x] Events appear in Event Catalog under "Analytics" category
+- [x] State round-trips through TypedStorage
+- [x] `npm test` passes
 
 ---
 
@@ -187,13 +194,13 @@ estimated_tests: 165
 | `src/ui/AnalyticsHubView.ts` | Wire DashboardsTab | +15 |
 
 **AC:**
-- [ ] User can create, select, delete dashboards from master list
-- [ ] Selected dashboard shows tile grid in detail panel
-- [ ] Tiles render query results in correct display mode
-- [ ] Tile add dialog lets user pick query + display mode
-- [ ] Tile removal works
-- [ ] Empty state shown when no dashboards or no tiles
-- [ ] `npm test` passes
+- [x] User can create, select, delete dashboards from master list
+- [x] Selected dashboard shows tile grid in detail panel
+- [x] Tiles render query results in correct display mode
+- [x] Tile add dialog lets user pick query + display mode
+- [x] Tile removal works
+- [x] Empty state shown when no dashboards or no tiles
+- [x] `npm test` passes
 
 ---
 
@@ -215,12 +222,12 @@ estimated_tests: 165
 | `src/ui/analytics/QueriesTab.ts` | Source picker update | +30 |
 
 **AC:**
-- [ ] `.base` files appear in source picker alongside CSVs
-- [ ] Selecting `.base` file loads resolved data as analytics source
-- [ ] Column type detection works on `.base`-sourced data
-- [ ] Saved queries can reference `.base` sources and re-execute
-- [ ] Existing CSV-only queries continue working
-- [ ] `npm test` passes
+- [x] `.base` files appear in source picker alongside CSVs
+- [x] Selecting `.base` file loads resolved data as analytics source
+- [x] Column type detection works on `.base`-sourced data
+- [x] Saved queries can reference `.base` sources and re-execute
+- [x] Existing CSV-only queries continue working
+- [x] `npm test` passes
 
 ---
 
@@ -243,12 +250,12 @@ estimated_tests: 165
 | Polish across QueriesTab + DashboardsTab | Empty states, search, errors | +50 |
 
 **AC:**
-- [ ] Analytics Hub card appears in User Hub
-- [ ] `flowti:open-analytics-hub` opens hub from command palette
-- [ ] End-to-end flow test passes
-- [ ] Existing 25-AnalyticsPipeline.test.ts passes
-- [ ] Empty states render correctly
-- [ ] `npm test` passes
+- [x] Analytics Hub card appears in User Hub
+- [x] `flowti:open-analytics-hub` opens hub from command palette
+- [x] End-to-end flow test passes (19 tests in Flow 28)
+- [x] Existing 25-AnalyticsPipeline.test.ts passes
+- [x] Empty states render correctly
+- [x] `npm test` passes
 
 ---
 
@@ -280,15 +287,15 @@ Inc 1 (hub shell + migration)
 
 ## Success Metrics
 
-| Metric | Target |
-|--------|--------|
-| New tests | ~165 |
-| Post-cycle total tests | ~4,436 |
-| New source LOC | ~1,550 |
-| DX Hub tabs | 9 → 8 (analytics removed) |
-| Analytics events | 5 → 12 |
-| New domain types | 5 |
-| New UI components | 6 (hub view, 2 tabs, tile renderer, dialog, dashboard page) |
+| Metric | Target | Actual | Delta |
+|--------|--------|--------|-------|
+| New tests | ~165 | 67 | -98 (see deviations) |
+| Post-cycle total tests | ~4,436 | 4,338 (178 suites) | -98 |
+| New source LOC | ~1,550 | ~1,970 | +420 |
+| DX Hub tabs | 9 → 8 | 8 tabs | On target |
+| Analytics events | 5 → 12 | 12 events | On target |
+| New domain types | 5 | 5 (Dashboard, DashboardTile, TileDisplayMode, AnalyticsSourceType, AnalyticsState) | On target |
+| New UI components | 6 | 6 (AnalyticsHubView, QueriesTab, DashboardsTab, DashboardTileRenderer, AddTileDialog, AnalyticsDashboardPage) | On target |
 
 ---
 
@@ -309,15 +316,15 @@ Inc 1 (hub shell + migration)
 ## Definition of Done (Cycle)
 
 ### 1. All Increments Completed
-- [ ] Each increment satisfies its own acceptance criteria
-- [ ] No increment left in partial state
-- [ ] Deferred items documented with rationale
+- [x] Each increment satisfies its own acceptance criteria
+- [x] No increment left in partial state
+- [x] Deferred items documented with rationale
 
 ### 2. Build & Test Quality
-- [ ] `npm test` passes
-- [ ] `npm run check` passes (tsc + eslint clean)
-- [ ] No test regressions on existing 4,271 tests
-- [ ] Test count deviation documented
+- [x] `npm test` passes — 4,338 tests, 178 suites, 0 failures
+- [x] `npm run check` passes (tsc + eslint clean)
+- [x] No test regressions on existing 4,271 tests
+- [x] Test count deviation documented (see Deviations section)
 
 ### 3. Three Amigos Review
 - [ ] Cycle-level review conducted
@@ -326,23 +333,23 @@ Inc 1 (hub shell + migration)
 - [ ] Observations documented
 
 ### 4. PRD & Backlog Updates
-- [ ] Analytics Hub PRD updated (stage: in-progress → delivered)
-- [ ] PBIs updated (ANA-010 through ANA-014)
-- [ ] Event model current
+- [x] Analytics Hub PRD updated (stage: draft → delivered, v2, FRI 31/35)
+- [x] PBIs updated (ANA-010 through ANA-014 → delivered)
+- [x] Event model current (12 events in catalog)
 
 ### 5. Documentation
-- [ ] Cycle plan updated with actual values
-- [ ] Success metrics verified
-- [ ] Component docs updated for new components
+- [x] Cycle plan updated with actual values
+- [x] Success metrics verified
+- [x] Component docs updated for new components
 
 ### 6. Cycle Plan Completion
-- [ ] Frontmatter updated (stage, date_completed, actual values)
-- [ ] Deviations documented
+- [x] Frontmatter updated (stage, date_completed, actual values)
+- [x] Deviations documented
 
 ### 7. Cycle Retrospective
-- [ ] "What Went Well" section completed
-- [ ] "Deviations from Plan" section completed
-- [ ] "Learnings" section completed
+- [x] "What Went Well" section completed
+- [x] "Deviations from Plan" section completed
+- [x] "Learnings" section completed
 
 ---
 
@@ -383,9 +390,56 @@ Inc 1 (hub shell + migration)
 
 ---
 
+## Cycle Retrospective
+
+### What Went Well
+
+1. **Smooth BaseHubView inheritance** — 4th hub using BaseHubView (after Event Catalog, DX Hub, Train Hub). The pattern is well-established; AnalyticsHubView was functional in ~250 LOC with all shell features (tabs, search, debounced render, hub lifecycle events) inherited.
+
+2. **Clean DX Hub decoupling** — Removing the analytics tab from DX Hub was straightforward. The hub's dependency bag pattern meant removing `analyticsService` from `HubComponentDeps` was the only interface change needed. No cascading test failures.
+
+3. **BaseAnalyticsAdapter reuse** — Instead of modifying ExportService (which would have crossed domain boundaries), creating pure functions that mirror `resolveColumnValue()` kept the analytics domain self-contained while reusing ExportService as a callback provider.
+
+4. **Flow 28 test coverage** — 19 integration tests covering the full pipeline (hub lifecycle → query → save → dashboard → tile → results → persistence → edge cases) in a single coherent flow test.
+
+5. **Execution order** — Inc 1 → Inc 2 → Inc 3 → Inc 4 → Inc 5 followed the dependency graph cleanly. Each increment had a green `npm test` at completion.
+
+### Deviations from Plan
+
+| Deviation | Planned | Actual | Impact |
+|-----------|---------|--------|--------|
+| New tests | ~165 | 67 | Test intent was overly optimistic — UI rendering tests (DashboardsTab, QueriesTab, AddTileDialog) were deprioritized in favor of domain + flow tests. The 19 flow tests cover the critical paths end-to-end. |
+| New source LOC | ~1,550 | ~1,970 | QueriesTab migrated at ~800 LOC (vs. estimated ~450) due to retaining full query builder complexity. DashboardsTab at ~225 LOC (vs. ~200). Additional wiring in hub view. |
+| Execution order | Inc 2 + Inc 4 parallel | Sequential | Inc 2 completed before Inc 4 started; no parallel execution but no impact on delivery. |
+
+### Learnings
+
+- **L-31: Obsidian `createEl()` value gotcha** — `createEl("option", { value: "..." })` doesn't work because `value` is not in Obsidian's `DomElementInfo` type. Must set `.value` separately after element creation.
+- **L-32: FlowtiEvent wrapper in tests** — Event handlers receive `FlowtiEvent<T, P>` (with `.type`, `.payload`, `.timestamp`), not raw payload. Test event listeners must access `.payload` from the wrapper object.
+- **L-33: Test count estimates need grounding** — Estimated ~165 tests but delivered 67. UI component tests (rendering, DOM assertions) require obsidian-stub enhancements for CSS Grid and other modern patterns. Domain + flow tests provide better coverage-per-LOC.
+
+---
+
+## Delivery Summary
+
+| Metric | Value |
+|--------|-------|
+| Increments delivered | 5/5 |
+| PBIs delivered | 5/5 (ANA-010 through ANA-014) |
+| New tests | 67 (19 BaseAnalyticsAdapter + 19 Flow 28 + 29 service/domain) |
+| Post-cycle total | 4,338 tests, 178 suites |
+| New source files | 6 (AnalyticsHubView, QueriesTab, DashboardsTab, DashboardTileRenderer, AddTileDialog, AnalyticsDashboardPage, BaseAnalyticsAdapter, AnalyticsHubProvider) |
+| Modified files | ~10 (AnalyticsService, types, events, catalog, main, DX Hub view, registry) |
+| New source LOC | ~1,970 |
+| Analytics events | 5 → 12 |
+| DX Hub tabs | 9 → 8 |
+
+---
+
 ## Related
 - PRD: [[Analytics Hub PRD]]
 - Prior Cycle: [[Cycle 27 - Analytics Sprint]]
 - Review: [[Three Amigos Review 2026-02-23 Analytics Sprint]]
+- Flow: [[Build Analytics Dashboard]]
 - PBIs: [[PBI-ANA-010 Analytics Hub Shell]], [[PBI-ANA-011 Dashboard Domain]], [[PBI-ANA-012 Dashboard Tile Grid UI]], [[PBI-ANA-013 Base File Analytics Source]], [[PBI-ANA-014 Analytics Integration and Polish]]
 - Inbox: [[When opening a CSV with Flowti, I want to be able to make an easy dashboard]]
