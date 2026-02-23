@@ -6,12 +6,12 @@
  */
 
 import type { WorkspaceLeaf } from "obsidian";
-import { setIcon } from "obsidian";
 import type { IEventBus } from "../infrastructure/events/types";
 import type { AnalyticsService } from "../domain/analytics/AnalyticsService";
 import { VIEW_TYPE_ANALYTICS_HUB } from "../domain/hub/types";
 import { BaseHubView, type TabDef } from "./BaseHubView";
 import { QueriesTab } from "./analytics/QueriesTab";
+import { DashboardsTab } from "./analytics/DashboardsTab";
 import { AnalyticsDashboardPage } from "./analytics/AnalyticsDashboardPage";
 import type { AnalyticsHubPage, AnalyticsHubState, AnalyticsCsvEntry, AnalyticsHubDeps, AnalyticsNavigationCallbacks } from "./analytics/types";
 export { VIEW_TYPE_ANALYTICS_HUB };
@@ -29,6 +29,7 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 	// ── Tab components ───────────────────────────────────────
 	private dashboardPage!: AnalyticsDashboardPage;
 	private queriesTab!: QueriesTab;
+	private dashboardsTab!: DashboardsTab;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -64,6 +65,7 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 		const deps = this.buildDeps();
 		this.dashboardPage = new AnalyticsDashboardPage(this.dashboardEl, deps);
 		this.queriesTab = new QueriesTab(this.masterTreeEl, this.detailPanelEl, deps);
+		this.dashboardsTab = new DashboardsTab(this.masterTreeEl, this.detailPanelEl, deps);
 
 		// Re-render when queries change
 		this.addUnsubscribe(
@@ -75,6 +77,40 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 		this.addUnsubscribe(
 			this.eventBus.on("analytics.query.deleted", () => {
 				this.refreshData();
+				this.scheduleRender();
+			}),
+		);
+
+		// Re-render when dashboards change
+		this.addUnsubscribe(
+			this.eventBus.on("analytics.dashboard.created", () => {
+				this.refreshData();
+				this.scheduleRender();
+			}),
+		);
+		this.addUnsubscribe(
+			this.eventBus.on("analytics.dashboard.deleted", () => {
+				this.refreshData();
+				this.scheduleRender();
+			}),
+		);
+		this.addUnsubscribe(
+			this.eventBus.on("analytics.dashboard.updated", () => {
+				this.refreshData();
+				this.scheduleRender();
+			}),
+		);
+		this.addUnsubscribe(
+			this.eventBus.on("analytics.dashboard.tile.added", () => {
+				this.refreshData();
+				this.dashboardsTab.clearResultCache();
+				this.scheduleRender();
+			}),
+		);
+		this.addUnsubscribe(
+			this.eventBus.on("analytics.dashboard.tile.removed", () => {
+				this.refreshData();
+				this.dashboardsTab.clearResultCache();
 				this.scheduleRender();
 			}),
 		);
@@ -102,27 +138,10 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 				this.queriesTab.renderDetail();
 				break;
 			case "dashboards":
-				this.renderDashboardsPlaceholder();
+				this.dashboardsTab.renderMaster();
+				this.dashboardsTab.renderDetail();
 				break;
 		}
-	}
-
-	// ── Dashboards placeholder (Inc 3 will implement) ────────
-
-	private renderDashboardsPlaceholder(): void {
-		this.masterTreeEl.empty();
-		this.detailPanelEl.empty();
-
-		const empty = this.detailPanelEl.createDiv({ cls: "ft-empty-detail" });
-		empty.style.textAlign = "center";
-		empty.style.padding = "3rem 1.5rem";
-		const iconEl = empty.createDiv();
-		setIcon(iconEl, "layout-grid");
-		iconEl.style.fontSize = "2rem";
-		iconEl.style.opacity = "0.5";
-		iconEl.style.marginBottom = "0.5rem";
-		empty.createDiv({ text: "Dashboards coming soon", cls: "ft-text-muted" });
-		empty.createDiv({ text: "Compose multiple query results into a single view", cls: "ft-text-muted ft-text-sm ft-mt-1" });
 	}
 
 	// ── Deps & state ─────────────────────────────────────────
