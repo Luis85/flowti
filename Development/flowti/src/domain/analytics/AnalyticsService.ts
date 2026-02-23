@@ -15,6 +15,8 @@ import type {
 	AnalyticsSource,
 	AnalyticsState,
 	Dashboard,
+	DashboardTile,
+	TileDisplayMode,
 	SavedAnalyticsQuery,
 	SavedAnalyticsQuerySource,
 } from "./types";
@@ -28,8 +30,6 @@ export interface AnalyticsServiceOptions {
 	eventBus?: IEventBus;
 	readCsv?: ReadCsvCallback;
 	fileSystem?: IFileSystemClient;
-	/** Optional callback to read legacy "dataExchange" storage for migration. */
-	migrationReader?: () => Promise<unknown>;
 }
 
 function generateId(): string {
@@ -48,40 +48,19 @@ export class AnalyticsService {
 	private readCsv?: ReadCsvCallback;
 	private fileSystem?: IFileSystemClient;
 	private queryFolder?: string;
-	private migrationReader?: () => Promise<unknown>;
 
 	constructor(options: AnalyticsServiceOptions) {
 		this.storage = options.storage;
 		this.eventBus = options.eventBus;
 		this.readCsv = options.readCsv;
 		this.fileSystem = options.fileSystem;
-		this.migrationReader = options.migrationReader;
 	}
 
-	/**
-	 * Load persisted state from storage.
-	 * On first load, migrates saved queries from the legacy "dataExchange" key
-	 * if the "analytics" key is empty and migration data exists.
-	 */
+	/** Load persisted state from storage. */
 	async load(): Promise<void> {
 		const saved = await this.storage.load();
 		if (saved && (saved.savedAnalyticsQueries?.length > 0 || saved.dashboards?.length > 0)) {
 			this.state = saved;
-		} else if (this.migrationReader) {
-			// Attempt migration from legacy "dataExchange" key
-			try {
-				const legacyData = await this.migrationReader() as Record<string, unknown> | null;
-				if (legacyData) {
-					const legacyKey = legacyData["dataExchange"] as Record<string, unknown> | undefined;
-					const queries = (legacyKey?.savedAnalyticsQueries ?? []) as SavedAnalyticsQuery[];
-					if (queries.length > 0) {
-						this.state = { savedAnalyticsQueries: queries, dashboards: [] };
-						await this.storage.save(this.state);
-					}
-				}
-			} catch {
-				// Migration failure is non-fatal — start with empty state
-			}
 		}
 
 		await this.eventBus?.emit("analytics.loaded", {
@@ -251,11 +230,141 @@ export class AnalyticsService {
 		return true;
 	}
 
-	// ── Dashboard accessors (CRUD added in Inc 2) ───────
+	// ── Dashboard CRUD ───────────────────────────────────
 
 	/** List all dashboards. */
 	listDashboards(): Dashboard[] {
 		return this.state.dashboards ?? [];
+	}
+
+	/** Get a dashboard by ID. */
+	getDashboard(id: string): Dashboard | undefined {
+		return this.listDashboards().find((d) => d.id === id);
+	}
+
+	/** Create a new dashboard. */
+	async createDashboard(name: string, description?: string): Promise<Dashboard> {
+		const dashboard: Dashboard = {
+			id: generateId(),
+			name,
+			description,
+			tiles: [],
+			createdAt: Date.now(),
+			updatedAt: Date.now(),
+		};
+
+		const dashboards = this.state.dashboards ?? [];
+		dashboards.push(dashboard);
+		this.state.dashboards = dashboards;
+		await this.storage.save(this.state);
+
+		await this.eventBus?.emit("analytics.dashboard.created", { dashboard });
+
+		return dashboard;
+	}
+
+	/** Update a dashboard's name and/or description. */
+	async updateDashboard(id: string, changes: { name?: string; description?: string }): Promise<Dashboard | undefined> {
+		const dashboard = this.getDashboard(id);
+		if (!dashboard) return undefined;
+
+		if (changes.name !== undefined) dashboard.name = changes.name;
+		if (changes.description !== undefined) dashboard.description = changes.description;
+		dashboard.updatedAt = Date.now();
+		await this.storage.save(this.state);
+
+		await this.eventBus?.emit("analytics.dashboard.updated", { dashboard });
+
+		return dashboard;
+	}
+
+	/** Delete a dashboard by ID. */
+	async deleteDashboard(id: string): Promise<boolean> {
+		const dashboards = this.state.dashboards ?? [];
+		const idx = dashboards.findIndex((d) => d.id === id);
+		if (idx === -1) return false;
+
+		const removed = dashboards[idx];
+		dashboards.splice(idx, 1);
+		this.state.dashboards = dashboards;
+		await this.storage.save(this.state);
+
+		await this.eventBus?.emit("analytics.dashboard.deleted", {
+			dashboardId: removed.id,
+			dashboardName: removed.name,
+		});
+
+		return true;
+	}
+
+	/** Add a tile to a dashboard. */
+	async addTile(dashboardId: string, queryId: string, displayMode: TileDisplayMode, title?: string): Promise<DashboardTile | undefined> {
+		const dashboard = this.getDashboard(dashboardId);
+		if (!dashboard) return undefined;
+
+		const row = dashboard.tiles.length > 0
+			? Math.max(...dashboard.tiles.map((t) => t.row + t.height))
+			: 0;
+
+		const tile: DashboardTile = {
+			id: generateId(),
+			queryId,
+			title,
+			displayMode,
+			row,
+			col: 0,
+			width: 2,
+			height: 1,
+		};
+
+		dashboard.tiles.push(tile);
+		dashboard.updatedAt = Date.now();
+		await this.storage.save(this.state);
+
+		await this.eventBus?.emit("analytics.dashboard.tile.added", { dashboardId, tile });
+
+		return tile;
+	}
+
+	/** Remove a tile from a dashboard. */
+	async removeTile(dashboardId: string, tileId: string): Promise<boolean> {
+		const dashboard = this.getDashboard(dashboardId);
+		if (!dashboard) return false;
+
+		const idx = dashboard.tiles.findIndex((t) => t.id === tileId);
+		if (idx === -1) return false;
+
+		dashboard.tiles.splice(idx, 1);
+		dashboard.updatedAt = Date.now();
+		await this.storage.save(this.state);
+
+		await this.eventBus?.emit("analytics.dashboard.tile.removed", { dashboardId, tileId });
+
+		return true;
+	}
+
+	/** Update a tile's properties within a dashboard. */
+	async updateTile(dashboardId: string, tileId: string, changes: Partial<Omit<DashboardTile, "id">>): Promise<DashboardTile | undefined> {
+		const dashboard = this.getDashboard(dashboardId);
+		if (!dashboard) return undefined;
+
+		const tile = dashboard.tiles.find((t) => t.id === tileId);
+		if (!tile) return undefined;
+
+		if (changes.queryId !== undefined) tile.queryId = changes.queryId;
+		if (changes.title !== undefined) tile.title = changes.title;
+		if (changes.displayMode !== undefined) tile.displayMode = changes.displayMode;
+		if (changes.row !== undefined) tile.row = changes.row;
+		if (changes.col !== undefined) tile.col = changes.col;
+		if (changes.width !== undefined) tile.width = changes.width;
+		if (changes.height !== undefined) tile.height = changes.height;
+
+		dashboard.updatedAt = Date.now();
+		await this.storage.save(this.state);
+
+		await this.eventBus?.emit("analytics.dashboard.tile.updated", { dashboardId, tile });
+
+		return tile;
 	}
 
 	// ── File persistence ────────────────────────────────

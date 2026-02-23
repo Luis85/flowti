@@ -296,7 +296,6 @@ export function createServiceRegistrations(
 					storage: createTypedStorage(storage, "analytics", container),
 					eventBus,
 					fileSystem: new FileSystemClient({ eventBus }),
-					migrationReader: () => storage.load() as Promise<unknown>,
 				});
 			},
 		},

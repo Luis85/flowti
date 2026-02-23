@@ -564,6 +564,15 @@ const CATALOG_DATA = {
 	"analytics.query.failed":    { category: "Analytics", description: "Analytics query failed", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
 	"analytics.query.saved":     { category: "Analytics", description: "Analytics query saved to persistence", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
 	"analytics.query.deleted":   { category: "Analytics", description: "Saved analytics query removed", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
+
+	// ── Analytics Dashboards ─────────────────────────────
+	"analytics.dashboard.created":      { category: "Analytics", description: "A new dashboard was created", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
+	"analytics.dashboard.updated":      { category: "Analytics", description: "An existing dashboard was updated", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
+	"analytics.dashboard.deleted":      { category: "Analytics", description: "A dashboard was deleted", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
+	"analytics.dashboard.tile.added":   { category: "Analytics", description: "A tile was added to a dashboard", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
+	"analytics.dashboard.tile.removed": { category: "Analytics", description: "A tile was removed from a dashboard", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
+	"analytics.dashboard.tile.updated": { category: "Analytics", description: "A tile was updated within a dashboard", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
+	"analytics.dashboard.refreshed":    { category: "Analytics", description: "A dashboard's tiles were refreshed", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

@@ -1,13 +1,16 @@
 /**
  * Event definitions for the Analytics domain.
  *
- * 6 events covering the analytics query lifecycle:
+ * 13 events covering analytics queries and dashboards:
  * - Lifecycle: loaded
  * - Query execution: started / completed / failed
- * - Persistence: query.saved / query.deleted
+ * - Query persistence: query.saved / query.deleted
+ * - Dashboard CRUD: dashboard.created / updated / deleted
+ * - Tile CRUD: dashboard.tile.added / removed / updated
+ * - Dashboard refresh: dashboard.refreshed
  */
 
-import type { AnalyticsResult } from "./types";
+import type { AnalyticsResult, Dashboard, DashboardTile } from "./types";
 
 export interface AnalyticsEventMap {
 	/** Analytics domain loaded — emitted after state is restored from storage */
@@ -49,5 +52,45 @@ export interface AnalyticsEventMap {
 	"analytics.query.deleted": {
 		queryId: string;
 		queryName: string;
+	};
+
+	/** A new dashboard was created */
+	"analytics.dashboard.created": {
+		dashboard: Dashboard;
+	};
+
+	/** An existing dashboard was updated (name, description) */
+	"analytics.dashboard.updated": {
+		dashboard: Dashboard;
+	};
+
+	/** A dashboard was deleted */
+	"analytics.dashboard.deleted": {
+		dashboardId: string;
+		dashboardName: string;
+	};
+
+	/** A tile was added to a dashboard */
+	"analytics.dashboard.tile.added": {
+		dashboardId: string;
+		tile: DashboardTile;
+	};
+
+	/** A tile was removed from a dashboard */
+	"analytics.dashboard.tile.removed": {
+		dashboardId: string;
+		tileId: string;
+	};
+
+	/** A tile was updated within a dashboard */
+	"analytics.dashboard.tile.updated": {
+		dashboardId: string;
+		tile: DashboardTile;
+	};
+
+	/** A dashboard's tiles were refreshed (re-executed) */
+	"analytics.dashboard.refreshed": {
+		dashboardId: string;
+		tileCount: number;
 	};
 }
