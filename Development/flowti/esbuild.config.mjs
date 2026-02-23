@@ -6,7 +6,7 @@
  * - Endpoints JSON supports named endpoints + per-endpoint "clean" option
  * - Clean list approach: remove only known build artifacts (never delete folder, preserve data.json)
  *
- * Endpoints config (default): docs/reports/build-endpoints.json
+ * Endpoints config (default): ./build-endpoints.json
  *
  * Supported formats:
  * 1) New (recommended):
@@ -129,7 +129,7 @@ const OUTDIR = path.resolve(process.cwd(), "..", "..", ".obsidian", "plugins", P
 const REPORTDIR = path.resolve(process.cwd(), "docs", "reports", "builds");
 const ENDPOINTS_FILE =
 	process.env.BUILD_ENDPOINTS_FILE ||
-	path.resolve(process.cwd(), "docs", "reports", "build-endpoints.json");
+	path.resolve(process.cwd(), "build-endpoints.json");
 
 // Builtins for esbuild externals
 const nodeBuiltins = builtinModules.flatMap((m) => [m, `node:${m}`]);
