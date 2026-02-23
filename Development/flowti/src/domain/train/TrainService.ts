@@ -20,6 +20,7 @@ import type {
 	ThoughtRelation,
 	AddThoughtOptions,
 	ThoughtDirection,
+	BranchStatus,
 } from "./types";
 import { MAX_TRAINS, MAX_THOUGHTS_PER_TRAIN } from "./types";
 import { generateTrainSummary } from "./TrainSummaryWriter";
@@ -417,6 +418,43 @@ export class TrainService {
 		await this.persist();
 
 		void this.eventBus.emit("train.deleted", { trainId, title: train.title });
+		return true;
+	}
+
+	/**
+	 * Set a branch status label on a thought.
+	 * Only branch origin nodes (target of a "branch" relation) can be tagged.
+	 */
+	async setBranchStatus(trainId: string, thoughtId: string, status: BranchStatus): Promise<boolean> {
+		const train = this.findTrain(trainId);
+		if (!train) return false;
+
+		// Must be a branch origin (toId of a "branch" relation)
+		const isBranchOrigin = train.relations.some(
+			(r) => r.direction === "branch" && r.toId === thoughtId,
+		);
+		if (!isBranchOrigin) return false;
+
+		const thought = train.thoughts.find((t) => t.id === thoughtId);
+		if (!thought) return false;
+
+		thought.branchStatus = status;
+		await this.persist();
+		void this.eventBus.emit("train.branch.status.changed", { trainId, thoughtId, status });
+		return true;
+	}
+
+	/** Clear the branch status label from a thought. */
+	async clearBranchStatus(trainId: string, thoughtId: string): Promise<boolean> {
+		const train = this.findTrain(trainId);
+		if (!train) return false;
+
+		const thought = train.thoughts.find((t) => t.id === thoughtId);
+		if (!thought || !thought.branchStatus) return false;
+
+		delete thought.branchStatus;
+		await this.persist();
+		void this.eventBus.emit("train.branch.status.changed", { trainId, thoughtId, status: null });
 		return true;
 	}
 

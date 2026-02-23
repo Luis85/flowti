@@ -35,6 +35,7 @@ import { SessionReflectionPanel } from "./session/SessionReflectionPanel";
 import { SessionOutputPanel } from "./session/SessionOutputPanel";
 import { type ClosureTemplate, type SessionTypeConfig, type SessionOutputTemplate, SESSION_TYPE_CONFIGS } from "../domain/session/types";
 import { SessionClosureOverlay } from "./session/SessionClosureOverlay";
+import { TrainClosurePanel } from "./session/TrainClosurePanel";
 import { SessionEnergyIndicator } from "./session/SessionEnergyIndicator";
 import { CognitiveLoadAlert } from "./session/CognitiveLoadAlert";
 import { SessionActivityIntelligencePanel } from "./session/SessionActivityIntelligencePanel";
@@ -78,6 +79,8 @@ export class SessionWorkspaceView extends ItemView {
 
 	/** Custom session type configs injected from main.ts (synced from SessionService). */
 	customSessionTypes: Record<string, SessionTypeConfig> = {};
+	/** Optional TrainService — used to show train context in closure overlay. */
+	trainService?: import("../domain/train/TrainService").TrainService;
 	/** Custom output templates injected from settings. */
 	customOutputTemplates: readonly SessionOutputTemplate[] = [];
 
@@ -288,6 +291,15 @@ export class SessionWorkspaceView extends ItemView {
 
 	private renderClosureOverlay(container: HTMLElement): void {
 		const session = this.session!;
+
+		// Train context panel — show train journey stats when session originated from a train
+		if (this.trainService) {
+			const train = this.trainService.getAllTrains().find((t) => t.sessionId === session.id);
+			if (train) {
+				new TrainClosurePanel(container, train).render();
+			}
+		}
+
 		const template = resolveClosureTemplate(session, undefined, this.getTypeClosureTemplates());
 		const overlay = new SessionClosureOverlay(container, session, template, {
 			onSubmit: (response) => {

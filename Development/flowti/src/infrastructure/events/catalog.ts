@@ -543,6 +543,7 @@ const CATALOG_DATA = {
 	"train.summary.created":   { category: "Train", description: "A train summary document was generated on completion", direction: "Service → Listeners", domain: "train", services: "TrainService" },
 	"train.renamed":           { category: "Train", description: "A train was renamed", direction: "Service → Listeners", domain: "train", services: "TrainService" },
 	"train.deleted":           { category: "Train", description: "A train was deleted from history", direction: "Service → Listeners", domain: "train", services: "TrainService" },
+	"train.branch.status.changed": { category: "Train", description: "A branch status label was changed (exploring/stale/promising)", direction: "Service → Listeners", domain: "train", services: "TrainService" },
 
 	// ── Canvas ───────────────────────────────────────────────────
 	"canvas.import.started":   { category: "Canvas", description: "A canvas import operation started", direction: "Service → Listeners", domain: "canvas", services: "CanvasService" },

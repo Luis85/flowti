@@ -10,6 +10,7 @@ import type { App, Command, EventRef, ViewCreator } from "obsidian";
 import type { IEventBus } from "./infrastructure/events/types";
 import type { IErrorService } from "./infrastructure/errors/types";
 import type { SessionService } from "./domain/session/SessionService";
+import type { TrainService } from "./domain/train/TrainService";
 import type { Session } from "./domain/session/types";
 import { SESSION_TYPES, type SessionType } from "./domain/session/types";
 
@@ -37,6 +38,7 @@ export interface SessionSetupDeps {
 	eventBus: IEventBus;
 	errorService: IErrorService;
 	sessionService: SessionService;
+	trainService?: TrainService;
 	registerView: (type: string, factory: ViewCreator) => void;
 	registerEvent: (ref: EventRef) => void;
 	addCommand: (command: Command) => void;
@@ -47,11 +49,13 @@ export class SessionSetup {
 
 	/** Register the Session Workspace view factory. */
 	registerViews(): void {
-		const { eventBus, sessionService, registerView } = this.deps;
+		const { eventBus, sessionService, trainService, registerView } = this.deps;
 
-		registerView(VIEW_TYPE_SESSION_WORKSPACE, (leaf) =>
-			new SessionWorkspaceView(leaf, eventBus, sessionService),
-		);
+		registerView(VIEW_TYPE_SESSION_WORKSPACE, (leaf) => {
+			const view = new SessionWorkspaceView(leaf, eventBus, sessionService);
+			if (trainService) view.trainService = trainService;
+			return view;
+		});
 	}
 
 	/** Register session commands for the command palette. */

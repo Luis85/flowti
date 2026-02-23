@@ -4,7 +4,7 @@
  * Events follow the `train.` prefix convention.
  */
 
-import type { ThoughtDirection, ThoughtNode, TrainState } from "./types";
+import type { BranchStatus, ThoughtDirection, ThoughtNode, TrainState } from "./types";
 
 export interface TrainEventMap {
 	/** Emitted when a new train is started. */
@@ -37,4 +37,6 @@ export interface TrainEventMap {
 	"train.renamed": { trainId: string; oldTitle: string; newTitle: string; oldFolder?: string; newFolder?: string };
 	/** Emitted when a train is deleted from history. */
 	"train.deleted": { trainId: string; title: string };
+	/** Emitted when a branch status label is changed. */
+	"train.branch.status.changed": { trainId: string; thoughtId: string; status: BranchStatus | null };
 }

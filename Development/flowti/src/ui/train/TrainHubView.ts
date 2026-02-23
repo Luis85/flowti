@@ -19,11 +19,15 @@ export { VIEW_TYPE_TRAIN_HUB };
 
 export type TrainHubPage = "active" | "history";
 
+export type TrainSortBy = "recent" | "most-thoughts" | "longest";
+
 export class TrainHubView extends BaseHubView<TrainHubPage> {
 	private trainService: TrainService;
 	private trains: readonly TrainState[] = [];
 	private openTrainCb: (trainId: string) => void;
 	private selectedTrainId: string | null = null;
+	private typeFilter = "all";
+	private sortBy: TrainSortBy = "recent";
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -55,8 +59,38 @@ export class TrainHubView extends BaseHubView<TrainHubPage> {
 
 	// ── Top bar actions ─────────────────────────────────────
 
-	renderTopBarActions(_bar: HTMLElement): void {
-		// No extra top bar buttons in v1
+	renderTopBarActions(bar: HTMLElement): void {
+		// Type filter dropdown
+		const typeSelect = bar.createEl("select", { cls: "ft-train-hub-filter dropdown" });
+		const allOpt = typeSelect.createEl("option", { text: "All types" });
+		allOpt.value = "all";
+		if (this.typeFilter === "all") allOpt.selected = true;
+		for (const t of BUILT_IN_TRAIN_TYPES) {
+			const opt = typeSelect.createEl("option", { text: t.label });
+			opt.value = t.id;
+			if (this.typeFilter === t.id) opt.selected = true;
+		}
+		typeSelect.addEventListener("change", () => {
+			this.typeFilter = typeSelect.value;
+			this.scheduleRender();
+		});
+
+		// Sort dropdown
+		const sortSelect = bar.createEl("select", { cls: "ft-train-hub-sort dropdown" });
+		const sortOptions: { value: TrainSortBy; label: string }[] = [
+			{ value: "recent", label: "Most recent" },
+			{ value: "most-thoughts", label: "Most thoughts" },
+			{ value: "longest", label: "Longest duration" },
+		];
+		for (const opt of sortOptions) {
+			const el = sortSelect.createEl("option", { text: opt.label });
+			el.value = opt.value;
+			if (this.sortBy === opt.value) el.selected = true;
+		}
+		sortSelect.addEventListener("change", () => {
+			this.sortBy = sortSelect.value as TrainSortBy;
+			this.scheduleRender();
+		});
 	}
 
 	// ── Lifecycle ────────────────────────────────────────────
@@ -95,6 +129,8 @@ export class TrainHubView extends BaseHubView<TrainHubPage> {
 		this.selectedTrainId = null;
 		this.filterText = "";
 		this.searchInput.value = "";
+		this.typeFilter = "all";
+		this.sortBy = "recent";
 	}
 
 	// ── Rendering ───────────────────────────────────────────
@@ -341,9 +377,45 @@ export class TrainHubView extends BaseHubView<TrainHubPage> {
 	}
 
 	private applyFilter(trains: TrainState[]): TrainState[] {
-		if (!this.filterText) return trains;
-		const lower = this.filterText.toLowerCase();
-		return trains.filter((t) => t.title.toLowerCase().includes(lower));
+		let result = trains;
+
+		// Type filter
+		if (this.typeFilter !== "all") {
+			result = result.filter((t) => (t.trainType ?? "free-form") === this.typeFilter);
+		}
+
+		// Text search
+		if (this.filterText) {
+			const lower = this.filterText.toLowerCase();
+			result = result.filter((t) => t.title.toLowerCase().includes(lower));
+		}
+
+		// Sort
+		result = [...result].sort((a, b) => {
+			switch (this.sortBy) {
+				case "most-thoughts":
+					return b.thoughts.length - a.thoughts.length;
+				case "longest": {
+					const durA = this.computeDuration(a);
+					const durB = this.computeDuration(b);
+					return durB - durA;
+				}
+				case "recent":
+				default:
+					return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+			}
+		});
+
+		return result;
+	}
+
+	private computeDuration(train: TrainState): number {
+		if (!train.createdAt) return 0;
+		const start = new Date(train.createdAt).getTime();
+		const end = train.completedAt
+			? new Date(train.completedAt).getTime()
+			: (train.pausedAt ? new Date(train.pausedAt).getTime() : Date.now());
+		return Math.max(0, end - start);
 	}
 
 	private renderTrainRow(container: HTMLElement, train: TrainState): HTMLElement {

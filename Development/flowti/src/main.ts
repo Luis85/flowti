@@ -1321,6 +1321,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			eventBus: this.eventBus,
 			errorService: this.errorService,
 			sessionService: this.sessionService!,
+			trainService: this.trainService,
 			registerView: (type, factory) => this.registerView(type, factory),
 			registerEvent: (ref) => this.registerEvent(ref),
 			addCommand: (cmd) => this.addCommand(cmd),

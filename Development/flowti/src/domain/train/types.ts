@@ -29,6 +29,9 @@ export interface AddThoughtOptions {
 	path?: string;
 }
 
+/** Status label for a branch origin node. */
+export type BranchStatus = "exploring" | "stale" | "promising";
+
 /** A single thought in a train. */
 export interface ThoughtNode {
 	id: string;
@@ -40,6 +43,8 @@ export interface ThoughtNode {
 	createdAt: string;
 	/** Ordinal position in the train (0-based). */
 	order: number;
+	/** Optional status label for branch origin nodes. */
+	branchStatus?: BranchStatus;
 }
 
 // ─────────────────────────────────────────────────────────────

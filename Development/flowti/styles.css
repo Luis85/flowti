@@ -1891,6 +1891,16 @@
 	padding: 1.25rem;
 }
 
+.ft-train-hub-filter,
+.ft-train-hub-sort {
+	font-size: var(--font-ui-small);
+	padding: 2px 6px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+}
+
 .ft-train-content-preview {
 	margin-top: 0.5rem;
 	padding: 0.25rem 0;
@@ -2052,6 +2062,102 @@
 /* ── Train Timeline Sidebar — Git Graph ──────────────── */
 
 /* Lane color definitions with theme-safe fallbacks */
+/* Branch status badges — color-coded labels for branch origin nodes */
+.ft-branch-status-badge {
+	cursor: pointer;
+	text-transform: capitalize;
+}
+
+.ft-branch-status-exploring {
+	background-color: var(--color-yellow, #f1c40f);
+	color: var(--text-on-accent, #000);
+	border: none;
+}
+
+.ft-branch-status-promising {
+	background-color: var(--color-green, #27ae60);
+	color: var(--text-on-accent, #fff);
+	border: none;
+}
+
+.ft-branch-status-stale {
+	background-color: var(--color-red, #e74c3c);
+	color: var(--text-on-accent, #fff);
+	border: none;
+}
+
+.ft-branch-status-tag {
+	opacity: 0.4;
+	transition: opacity 0.15s ease;
+}
+
+.ft-branch-status-tag:hover {
+	opacity: 1;
+}
+
+.ft-branch-status-tag svg {
+	width: 12px;
+	height: 12px;
+}
+
+/* Train Closure Panel — train context in session closure overlay */
+.ft-train-closure-panel {
+	max-width: 600px;
+	margin: 0 auto 16px;
+	padding: 16px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	background: var(--background-secondary);
+}
+
+.ft-train-closure-header {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin-bottom: 12px;
+}
+
+.ft-train-closure-title {
+	font-weight: 600;
+}
+
+.ft-train-closure-stats {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1rem;
+	margin-bottom: 12px;
+}
+
+.ft-train-closure-stat {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+}
+
+.ft-train-closure-stat-icon svg {
+	width: 14px;
+	height: 14px;
+}
+
+.ft-train-closure-thoughts {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.ft-train-closure-thought-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: var(--font-ui-small);
+}
+
+.ft-train-closure-dot {
+	color: var(--text-muted);
+}
+
 .ft-timeline-sidebar {
 	display: flex;
 	flex-direction: column;

@@ -860,6 +860,43 @@ describe("TrainService — findMergeDownTarget()", () => {
 		expect(result).not.toBeNull();
 		expect(result!.targetId).toBe(b!.id);
 	});
+
+	it("deeply nested sub-branch (3 levels) merges into grandparent branch", async () => {
+		const { service } = createTestHarness();
+		// Main: A → B
+		const train = await service.startTrain("Deep Nest");
+		const a = await service.addThought(train.id, "A");
+		const b = await service.addThought(train.id, "B");
+
+		// Branch L1 from A: A → C → D
+		const c = await service.addThought(train.id, "C", { direction: "branch", fromThoughtId: a!.id });
+		const d = await service.addThought(train.id, "D", { direction: "next", fromThoughtId: c!.id });
+
+		// Sub-branch L2 from C: C → E → F
+		const e = await service.addThought(train.id, "E", { direction: "branch", fromThoughtId: c!.id });
+		const f = await service.addThought(train.id, "F", { direction: "next", fromThoughtId: e!.id });
+
+		// Sub-sub-branch L3 from E: E → G
+		const g = await service.addThought(train.id, "G", { direction: "branch", fromThoughtId: e!.id });
+
+		// G (L3) merges into parent branch (L2): origin = E, target = F
+		const resultG = service.findMergeDownTarget(train.id, g!.id);
+		expect(resultG).not.toBeNull();
+		expect(resultG!.originId).toBe(e!.id);
+		expect(resultG!.targetId).toBe(f!.id);
+
+		// F (L2) merges into grandparent branch (L1): origin = C, target = D
+		const resultF = service.findMergeDownTarget(train.id, f!.id);
+		expect(resultF).not.toBeNull();
+		expect(resultF!.originId).toBe(c!.id);
+		expect(resultF!.targetId).toBe(d!.id);
+
+		// D (L1) merges into main chain: origin = A, target = B
+		const resultD = service.findMergeDownTarget(train.id, d!.id);
+		expect(resultD).not.toBeNull();
+		expect(resultD!.originId).toBe(a!.id);
+		expect(resultD!.targetId).toBe(b!.id);
+	});
 });
 
 describe("TrainService — merge edge cases", () => {

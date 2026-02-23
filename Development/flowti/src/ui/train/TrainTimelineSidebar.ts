@@ -451,6 +451,33 @@ export class TrainTimelineSidebar extends ItemView {
 			});
 		}
 
+		// Branch status badge (clickable — cycles through statuses)
+		const isBranchOrigin = train.relations.some(
+			(r) => r.direction === "branch" && r.toId === thought.id,
+		);
+		if (isBranchOrigin && thought.branchStatus) {
+			const statusCls = `ft-branch-status-${thought.branchStatus}`;
+			const badge = content.createSpan({
+				cls: `ft-badge ft-text-sm ft-branch-status-badge ${statusCls}`,
+				text: thought.branchStatus,
+			});
+			badge.addEventListener("click", (e) => {
+				e.stopPropagation();
+				void this.cycleBranchStatus(train.id, thought.id, thought.branchStatus ?? null);
+			});
+		} else if (isBranchOrigin) {
+			// No status yet — show a subtle "tag" button
+			const tagBtn = content.createSpan({
+				cls: "ft-branch-status-tag clickable-icon ft-text-sm",
+			});
+			setIcon(tagBtn, "tag");
+			tagBtn.ariaLabel = "Set branch status";
+			tagBtn.addEventListener("click", (e) => {
+				e.stopPropagation();
+				void this.cycleBranchStatus(train.id, thought.id, null);
+			});
+		}
+
 		// Merge indicators
 		const hasOutgoingMerge = train.relations.some(
 			(r) => r.fromId === thought.id && r.direction === "merge",
@@ -488,6 +515,19 @@ export class TrainTimelineSidebar extends ItemView {
 	}
 
 	// ── Helpers ──────────────────────────────────────────────
+
+	/** Cycle branch status: null → exploring → promising → stale → null. */
+	private async cycleBranchStatus(trainId: string, thoughtId: string, current: string | null): Promise<void> {
+		const cycle = [null, "exploring", "promising", "stale"] as const;
+		const idx = cycle.indexOf(current as typeof cycle[number]);
+		const next = cycle[(idx + 1) % cycle.length];
+		if (next === null) {
+			await this.trainService.clearBranchStatus(trainId, thoughtId);
+		} else {
+			await this.trainService.setBranchStatus(trainId, thoughtId, next);
+		}
+		this.render();
+	}
 
 	/** Derive the canvas path for a train from its per-train folder. */
 	private getCanvasPath(train: TrainState): string | null {

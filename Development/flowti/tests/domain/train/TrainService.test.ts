@@ -1150,4 +1150,90 @@ describe("TrainService", () => {
 			expect(persisted!.trains).toHaveLength(0);
 		});
 	});
+
+	describe("branch status", () => {
+		it("setBranchStatus sets status on a branch origin node", async () => {
+			const { service } = createTestHarness();
+			await service.load();
+			const train = await service.startTrain("Status Test");
+			const a = await service.addThought(train.id, "A");
+			const b = await service.addThought(train.id, "B", { direction: "branch", fromThoughtId: a!.id });
+
+			const result = await service.setBranchStatus(train.id, b!.id, "promising");
+			expect(result).toBe(true);
+
+			const updated = service.getTrain(train.id);
+			const thought = updated!.thoughts.find((t) => t.id === b!.id);
+			expect(thought!.branchStatus).toBe("promising");
+		});
+
+		it("setBranchStatus rejects non-branch nodes", async () => {
+			const { service } = createTestHarness();
+			await service.load();
+			const train = await service.startTrain("Reject Test");
+			const a = await service.addThought(train.id, "A");
+
+			const result = await service.setBranchStatus(train.id, a!.id, "stale");
+			expect(result).toBe(false);
+		});
+
+		it("setBranchStatus emits event", async () => {
+			const { service, eventBus } = createTestHarness();
+			await service.load();
+			const train = await service.startTrain("Event Test");
+			const a = await service.addThought(train.id, "A");
+			const b = await service.addThought(train.id, "B", { direction: "branch", fromThoughtId: a!.id });
+
+			const handler = vi.fn();
+			eventBus.on("train.branch.status.changed", handler);
+
+			await service.setBranchStatus(train.id, b!.id, "exploring");
+			expect(handler).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: { trainId: train.id, thoughtId: b!.id, status: "exploring" },
+				}),
+			);
+		});
+
+		it("clearBranchStatus removes the status", async () => {
+			const { service } = createTestHarness();
+			await service.load();
+			const train = await service.startTrain("Clear Test");
+			const a = await service.addThought(train.id, "A");
+			const b = await service.addThought(train.id, "B", { direction: "branch", fromThoughtId: a!.id });
+
+			await service.setBranchStatus(train.id, b!.id, "stale");
+			const cleared = await service.clearBranchStatus(train.id, b!.id);
+			expect(cleared).toBe(true);
+
+			const updated = service.getTrain(train.id);
+			const thought = updated!.thoughts.find((t) => t.id === b!.id);
+			expect(thought!.branchStatus).toBeUndefined();
+		});
+
+		it("clearBranchStatus returns false when no status set", async () => {
+			const { service } = createTestHarness();
+			await service.load();
+			const train = await service.startTrain("No Status");
+			const a = await service.addThought(train.id, "A");
+			const b = await service.addThought(train.id, "B", { direction: "branch", fromThoughtId: a!.id });
+
+			const result = await service.clearBranchStatus(train.id, b!.id);
+			expect(result).toBe(false);
+		});
+
+		it("setBranchStatus persists", async () => {
+			const { service, getData } = createTestHarness();
+			await service.load();
+			const train = await service.startTrain("Persist Test");
+			const a = await service.addThought(train.id, "A");
+			const b = await service.addThought(train.id, "B", { direction: "branch", fromThoughtId: a!.id });
+
+			await service.setBranchStatus(train.id, b!.id, "promising");
+
+			const persisted = getData();
+			const thought = persisted!.trains[0].thoughts.find((t) => t.id === b!.id);
+			expect(thought!.branchStatus).toBe("promising");
+		});
+	});
 });

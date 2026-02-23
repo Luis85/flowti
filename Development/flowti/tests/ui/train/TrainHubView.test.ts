@@ -305,4 +305,107 @@ describe("TrainHubView", () => {
 			);
 		});
 	});
+
+	describe("type filter and sort", () => {
+		/** Wait for BaseHubView's 16ms scheduleRender debounce. */
+		const tick = () => new Promise((r) => setTimeout(r, 50));
+
+		it("renders type filter dropdown in top bar", async () => {
+			const trains = [createTrain({ trainType: "brainstorm" })];
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(trains), openTrainCb);
+			prepareContainerEl(view);
+			await view.onOpen();
+
+			const select = view.containerEl.querySelector(".ft-train-hub-filter") as HTMLSelectElement;
+			expect(select).not.toBeNull();
+			expect(select.querySelectorAll("option").length).toBe(5); // All + 4 types
+		});
+
+		it("renders sort dropdown in top bar", async () => {
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb);
+			prepareContainerEl(view);
+			await view.onOpen();
+
+			const select = view.containerEl.querySelector(".ft-train-hub-sort") as HTMLSelectElement;
+			expect(select).not.toBeNull();
+			expect(select.querySelectorAll("option").length).toBe(3); // recent, most-thoughts, longest
+		});
+
+		it("type filter restricts list to matching trains", async () => {
+			const trains = [
+				createTrain({ id: "t1", title: "Brainstorm A", trainType: "brainstorm", status: "completed", completedAt: "2026-02-23T11:00:00Z" }),
+				createTrain({ id: "t2", title: "Research B", trainType: "research", status: "completed", completedAt: "2026-02-23T12:00:00Z" }),
+				createTrain({ id: "t3", title: "Brainstorm C", trainType: "brainstorm", status: "completed", completedAt: "2026-02-23T13:00:00Z" }),
+			];
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(trains), openTrainCb);
+			prepareContainerEl(view);
+			await view.onOpen();
+
+			// Navigate to history tab and wait for debounced render
+			(view as unknown as { navigateTo: (page: string) => void }).navigateTo("history");
+			await tick();
+
+			// Set type filter to brainstorm
+			const select = view.containerEl.querySelector(".ft-train-hub-filter") as HTMLSelectElement;
+			select.value = "brainstorm";
+			select.dispatchEvent(new Event("change"));
+			await tick();
+
+			// Count badge should reflect filtered count
+			const badge = (view as unknown as { countBadge: HTMLElement }).countBadge;
+			expect(badge.textContent).toBe("2");
+		});
+
+		it("sort by most thoughts orders correctly", async () => {
+			const trains = [
+				createTrain({ id: "t1", title: "Few", trainType: "brainstorm", status: "completed", completedAt: "2026-02-23T11:00:00Z", thoughts: [createThought()] }),
+				createTrain({ id: "t2", title: "Many", trainType: "research", status: "completed", completedAt: "2026-02-23T12:00:00Z", thoughts: [createThought(), createThought(), createThought()] }),
+			];
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(trains), openTrainCb);
+			prepareContainerEl(view);
+			await view.onOpen();
+
+			(view as unknown as { navigateTo: (page: string) => void }).navigateTo("history");
+			await tick();
+
+			// Set sort to most-thoughts
+			const sortSelect = view.containerEl.querySelector(".ft-train-hub-sort") as HTMLSelectElement;
+			sortSelect.value = "most-thoughts";
+			sortSelect.dispatchEvent(new Event("change"));
+			await tick();
+
+			// First list item should be "Many" (3 thoughts)
+			const rows = view.containerEl.querySelectorAll(".ft-list-item");
+			expect(rows[0]?.textContent).toContain("Many");
+		});
+
+		it("combined filter + search works", async () => {
+			const trains = [
+				createTrain({ id: "t1", title: "Alpha Brainstorm", trainType: "brainstorm", status: "completed", completedAt: "2026-02-23T11:00:00Z" }),
+				createTrain({ id: "t2", title: "Beta Brainstorm", trainType: "brainstorm", status: "completed", completedAt: "2026-02-23T12:00:00Z" }),
+				createTrain({ id: "t3", title: "Alpha Research", trainType: "research", status: "completed", completedAt: "2026-02-23T13:00:00Z" }),
+			];
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(trains), openTrainCb);
+			prepareContainerEl(view);
+			await view.onOpen();
+
+			(view as unknown as { navigateTo: (page: string) => void }).navigateTo("history");
+			await tick();
+
+			// Filter by brainstorm
+			const typeSelect = view.containerEl.querySelector(".ft-train-hub-filter") as HTMLSelectElement;
+			typeSelect.value = "brainstorm";
+			typeSelect.dispatchEvent(new Event("change"));
+			await tick();
+
+			// Search for "Alpha"
+			const searchInput = (view as unknown as { searchInput: HTMLInputElement }).searchInput;
+			searchInput.value = "Alpha";
+			searchInput.dispatchEvent(new Event("input"));
+			await tick();
+
+			const badge = (view as unknown as { countBadge: HTMLElement }).countBadge;
+			expect(badge.textContent).toBe("1");
+		});
+	});
 });
