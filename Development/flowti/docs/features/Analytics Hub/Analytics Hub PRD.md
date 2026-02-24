@@ -185,6 +185,18 @@ Primary interaction path:
 - [x] FR-41: Stat-card tiles can show sparkline mini-charts visualizing trend across result rows; sparklines render when ≥3 data points exist and can be toggled per tile
 - [x] FR-42: Chart tiles auto-detect axes from query dimensions (x-axis) and measures (y-axis)
 
+### Trend Intelligence (v6 — Cycle 33)
+
+- [ ] FR-43: User can add computed columns with window function `CHANGE({column})` that computes the absolute difference from the previous row; returns null for the first row
+- [ ] FR-44: User can add computed columns with window function `PCT_CHANGE({column})` that computes percentage change from the previous row; handles zero-division by returning null
+- [ ] FR-45: User can add computed columns with window function `ROLLING_AVG({column}, n)` that computes a rolling average over the last n rows; supports partial windows for the first n-1 rows
+- [ ] FR-46: User can add computed columns with scalar function `ROUND({column}, n)` that rounds numeric values to n decimal places
+- [ ] FR-47: User can add computed columns with scalar function `ABS({column})` that returns the absolute value
+- [ ] FR-48: User can add computed columns with scalar function `IF({column} op threshold, thenValue, elseValue)` that returns conditional values; supports string and numeric return types
+- [ ] FR-49: User can visually add, edit, and remove conditional formatting rules per dashboard tile via a collapsible settings panel with column dropdown (including computed columns), operator, threshold, and color preset picker
+- [ ] FR-50: User can pin up to 3 dashboards to the Analytics Hub homepage; pinned dashboards render as compact summary cards above the default dashboard; pin state persists
+- [ ] FR-51: Saved queries section appears above source files section in the Queries tab master list; sources section is collapsible and defaults to collapsed when saved queries exist
+
 ## 6. Data Model Impact
 
 ### New Types
@@ -233,6 +245,19 @@ Primary interaction path:
 | `TileDisplayMode` | Add `"line-chart" \| "bar-chart"` to union |
 | `DashboardTile` | Add `conditionalRules?: ConditionalRule[]`, `showSparkline?: boolean` |
 
+### v6 Types (Cycle 33)
+
+| Type | Fields | Storage |
+|------|--------|---------|
+| `FunctionToken` | name, args[] | Runtime (expression parser internal) |
+
+### Modified Types (v6)
+
+| Type | Change |
+|------|--------|
+| `evaluateExpression` return type | `number` → `string \| number` (IF function can return strings) |
+| `AnalyticsState` | Add `pinnedDashboardIds?: string[]` (max 3 dashboard IDs) |
+
 ### Removed from DataExchangeState
 
 | Field | Reason |
@@ -273,7 +298,7 @@ Primary interaction path:
 | `analytics.query.duplicated` | `{ originalQueryId, newQueryId, newQueryName }` | Analytics | — |
 | `analytics.dashboard.tile.reordered` | `{ dashboardId, tileId, direction }` | Analytics | — |
 
-**Total analytics events:** 19 (12 v1 + 1 loaded + 3 v2 + 3 v3)
+**Total analytics events:** 19 (12 v1 + 1 loaded + 3 v2 + 3 v3; v6 adds no new events — features are engine + UI level)
 
 ### Consumed
 
@@ -406,6 +431,20 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 - [ ] Tile mode cycles through 4 modes (table, stat-card, line-chart, bar-chart)
 - [ ] Flow 32 integration test passes (visualization workflow)
 
+### v6 Acceptance Criteria (Cycle 33)
+
+- [ ] Function call parser recognizes `FUNCTION(args)` in computed column expressions
+- [ ] CHANGE, PCT_CHANGE, ROLLING_AVG window functions compute correct trend values
+- [ ] Window functions return null for insufficient data (first row, zero-division)
+- [ ] ROUND, ABS, IF scalar functions produce correct values per row
+- [ ] IF function returns string or number; string results display correctly in tables and stat-cards
+- [ ] Function reference help section in ComputedColumnsSection shows all 6 available functions
+- [ ] Collapsible tile settings panel with conditional formatting rule builder UI
+- [ ] Rule builder column dropdown includes computed columns; string-typed columns excluded
+- [ ] Up to 3 dashboards pinnable to homepage; compact summary cards render above default dashboard
+- [ ] Saved queries section above sources in QueriesTab; sources collapsible
+- [ ] Flow 33 integration test passes (trend intelligence workflow)
+
 ## 13. Definition of Done
 
 - `VIEW_TYPE_ANALYTICS_HUB` constant added to `src/domain/hub/types.ts`
@@ -450,12 +489,18 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 | [[PBI-ANA-032 Conditional Formatting]] | Threshold-based color coding for stat-card + table cells | Planned | High | — |
 | [[PBI-ANA-033 Chart Polish and Sparklines]] | Sparkline mini-charts in stat-card tiles + chart polish | Planned | High | ANA-031 |
 | [[PBI-ANA-034 Visualization Flow Test]] | End-to-end visualization workflow integration test | Planned | High | ANA-030–033 |
+| [[PBI-ANA-035 Trend Calculation Engine]] | Function call parser + CHANGE, PCT_CHANGE, ROLLING_AVG window functions | Planned | Critical | ANA-025 |
+| [[PBI-ANA-036 Expression Functions]] | ROUND, ABS, IF scalar functions + function help text + string\|number contract | Planned | Critical | ANA-035 |
+| [[PBI-ANA-037 Conditional Formatting Rule Builder UI]] | Collapsible tile settings panel + visual rule config (completes C32 DEV-2) | Planned | High | ANA-032 |
+| [[PBI-ANA-038 Analytics Hub Homepage Polish]] | Pinned dashboards, queries above sources, collapsible sources | Planned | High | ANA-016 |
+| [[PBI-ANA-039 Trend Intelligence Flow Test]] | End-to-end trend + formatting + homepage integration test | Planned | High | ANA-035–038 |
 
 > **Analytics Hub v1 delivered (2026-02-23):** 5 PBIs in Cycle 28. Hub shell, dashboards, .base sources, independent persistence. 4,338 tests (178 suites).
 > **Analytics Hub v2 delivered (2026-02-23):** 5 PBIs in Cycle 29. Favorites, default dashboard, dashboard-first overview, per-tile refresh, Supplier Manager persona. 4,358 tests (179 suites).
 > **Analytics Hub v3 delivered (2026-02-24):** 5 PBIs in Cycle 30. Query power (filters/sort/limit), source preview, query usability, enhanced stat-cards, tile management, dashboard polish. 4,385 tests (180 suites).
 > **Analytics Hub v4 delivered (2026-02-24):** 5 PBIs in Cycle 31. Computed columns (formula engine), Quick Insights (auto-suggest), data freshness tracking, import-to-analytics bridge. 4,403 tests (181 suites).
-> **Analytics Hub v5 planned (2026-02-24):** 5 PBIs in Cycle 32. QueriesTab extraction (TD), SVG chart tiles (line + bar), conditional formatting, sparklines.
+> **Analytics Hub v5 delivered (2026-02-24):** 5 PBIs in Cycle 32. QueriesTab extraction (TD), SVG chart tiles (line + bar), conditional formatting engine, sparklines. 4,461 tests (184 suites).
+> **Analytics Hub v6 planned (2026-02-24):** 5 PBIs in Cycle 33. Function call parser, trend window functions (CHANGE, PCT_CHANGE, ROLLING_AVG), scalar expression functions (ROUND, ABS, IF), conditional formatting rule builder UI, homepage pinning, query list UX.
 
 ## Related
 
@@ -476,3 +521,5 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 - Cycle: [[Cycle 32 - Analytics Visualization Sprint]] (charts, conditional formatting, sparklines, QueriesTab extraction — planned)
 - PBIs (v5): [[PBI-ANA-030 QueriesTab Extraction]], [[PBI-ANA-031 Chart Tile Foundation]], [[PBI-ANA-032 Conditional Formatting]], [[PBI-ANA-033 Chart Polish and Sparklines]], [[PBI-ANA-034 Visualization Flow Test]]
 - Supplier PRD: [[Feature - Supplier Management]] (strategic direction for analytics visualization)
+- Cycle: [[Cycle 33 - Trend Intelligence]] (trend calculations, expression functions, formatting UI, homepage polish — planned)
+- PBIs (v6): [[PBI-ANA-035 Trend Calculation Engine]], [[PBI-ANA-036 Expression Functions]], [[PBI-ANA-037 Conditional Formatting Rule Builder UI]], [[PBI-ANA-038 Analytics Hub Homepage Polish]], [[PBI-ANA-039 Trend Intelligence Flow Test]]

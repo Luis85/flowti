@@ -18,7 +18,7 @@ To start your journey you will need to have Obsidian installed which serves as a
 
 First: Curiosity!
 Second: There is no guided structure to start in Obsidian, makes adopting hard.
-Third: [[How to use AI to improve product-development quality]]?
+Third: [[How can AI help to improve product-development quality]]?
 
 ## About me
 

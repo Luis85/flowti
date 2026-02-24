@@ -211,6 +211,7 @@ ISO-style traceability may be the key enabler for long-term AI integration.
 - How does AI work and how does Obsidian help with that
 - How can the work with AI in a business and process-driven environment be approachable and supporting with focus on quality output
 - What defines quality-output
+- What defines quality
 - What defines acceptable-output
 - How does AI fit into IT-Security Concepts
 - What influences Product-Development
@@ -380,16 +381,14 @@ To really enhance productivity and quality of a product, I think having the dedi
 In conclusion, AI helps the single-developer producing a Product in acceptable quality. Using the Agents as dedicated Companions in a Team with all needed domain experts present, it helps following documented workflows with desired output, thus opens the possibility for quality-improvements on all levels by implementing regular well documented reviews and be like the scribe from natural language into machine-code.
 
 The need for traceability and ISO compliance of AI generated Content could fit well together. As of now, AI is very limited regarding it's context window and needs to be aligned during longer sessions. 
-Required documents and actions from compliance perspective help building a long-term memory in form of Markdown files. Those documents can be templated for the AI to use, helping strengthen compliance and make human reviews easier by transparent paths during state changes.
+Required documents and actions from compliance perspective help building a long-term memory in form of Markdown files. Those documents can be templated for the AI to use, helping strengthen compliance and make human reviews easier by transparent paths during state changes. Combining those with Obsidian Bases to act as way-points, helps guiding the AI to relevant content.
 
 ## Further thinking
 
 - How can Markov-Chains help building a knowledge-graph and leverage good old statistics from that
 - How can we track and manage experiments with Flowti
 
-## Experiments
+# Experiments
 
 ![[05 - Experiments.base]]
 
-
----
