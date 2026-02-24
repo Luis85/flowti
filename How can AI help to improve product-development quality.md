@@ -8,6 +8,8 @@ AI Agents can simulate and partially replace roles in a product-development life
 
 This could enable a single developer to orchestrate complex product development workflows with acceptable quality.
 
+> Base Assumption: I expect content to be AI written.
+
 ---
 
 # 🟢 LEVEL 1 — Idea Clarification
