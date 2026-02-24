@@ -18,7 +18,7 @@ Modern AI produces large amounts of output, but:
 
 - It creates false confidence
 - It lacks domain validation
-- It degrades without feedback
+- It degrades without feedback and fresh input from the outside
 - It is difficult to govern in structured environments
 
 There is no robust framework to align AI output with product-quality standards.
@@ -52,7 +52,7 @@ because structured context and governance reduce ambiguity and drift.
 ## 5. Research Questions
 
 - What defines acceptable-output?
-- What defines quality-output?
+- What defines quality?
 - How does Markdown influence AI structure?
 - What framework is needed for governance?
 - How does AI fit into IT security?
@@ -241,6 +241,9 @@ ISO-style traceability may be the key enabler for long-term AI integration.
 - As LLMs are language processors, generating natural language based on given content as input, well documented content templates like the user-story or use-case format, generates well enough code for sustainable development, behaving like a compiler between humans and not so predictable machine-code, mimicking the real-world problem of explaining requirements and understanding requirements.
 - Using real-world outside signals for the feedback-loop provides enough fresh data for each simulation step to not let quality degrade over time and preventing Agents eating too much of their own content.
 - Following best-practices from agile and quality-management, we have all the tools needed to build a solid framework producing desired, AI-Assisted output which turn into a high-quality product increment by using the human-in-the-middle-approach for quality-assurance and needed alignments during development cycles.
+- Obsidian brings all needed features for Markdown editing and structuring
+- Obsidians Plugin System allows for rapid development
+- TypeScript is a well-matured strongly-typed language with the needed tools to explore code-quality
 
 ## Experiment Setup
 

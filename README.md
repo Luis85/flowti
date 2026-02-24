@@ -8,7 +8,7 @@ This is a pre-configured Obsidian Vault, ready to go as documentation system cal
 Goal of this framework is to provide all necessary utilities to describe and visualize digital twins of things.
 
 This document describes how to get the current implementation up and running.
-To get the most out of our documentation we use Obsidian and Git. The Repository consists of multiple parts, the Flowti Framework, a combination of PKM, Design, and Play-testing, the Foreign Folder Mapper to connect to shared folders, and the OneSeater - Motorsport Manager, an example implementation of Flowti in a game environment.
+The Repository consists of multiple parts, the Flowti Framework, a combination of PKM, Design, and Play-testing, the Foreign Folder Mapper to connect to shared folders, and the OneSeater - Motorsport Manager, an example implementation of Flowti in a game environment. All provided as source in `Development`.
 
 To start your journey you will need to have Obsidian installed which serves as a host for the application. Go get it, install it, and then come back. You will not regret it, trust me bro!
 
