@@ -3,10 +3,11 @@ domain: Analytics
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
 stage: delivered
-version: 5
+version: 6
 maturity: L2
 created: 2026-02-23
 updated: 2026-02-24
+supplier_prd: "[[Feature - Supplier Management]]"
 foundation: "[[When opening a CSV with Flowti, I want to be able to make an easy dashboard]]"
 related_events:
   - analytics.query.started
@@ -175,6 +176,15 @@ Primary interaction path:
 - [x] FR-35: After a CSV import completes in the Data Exchange Hub, an inbox item "Analyze [filename] in Analytics Hub" is created
 - [x] FR-36: Analytics Hub overview page shows a "Recent Sources" section with the 5 most recently modified CSV files and an "Analyze" action per source
 
+### Visualization & Formatting (v5 — Cycle 32)
+
+- [ ] FR-37: Dashboard tiles support "line-chart" display mode; SVG line chart renders aggregated values with axis labels and data point markers
+- [ ] FR-38: Dashboard tiles support "bar-chart" display mode; SVG bar chart renders comparison data with value labels above bars
+- [ ] FR-39: User can configure conditional formatting rules per tile; each rule specifies a column, comparison operator, threshold value, and color
+- [ ] FR-40: Conditional formatting applies color coding to stat-card values (text color) and table cells (background tint) based on matching rules
+- [ ] FR-41: Stat-card tiles can show sparkline mini-charts visualizing trend across result rows; sparklines render when ≥3 data points exist and can be toggled per tile
+- [ ] FR-42: Chart tiles auto-detect axes from query dimensions (x-axis) and measures (y-axis)
+
 ## 6. Data Model Impact
 
 ### New Types
@@ -209,6 +219,19 @@ Primary interaction path:
 |------|--------|---------|
 | `ComputedColumn` | name, expression | `"analytics"` key (in SavedAnalyticsQuery) |
 | `QuickInsightSuggestion` | title, description, dimensions, measures, timeBucket? | Runtime (not persisted) |
+
+### v5 Types (Cycle 32)
+
+| Type | Fields | Storage |
+|------|--------|---------|
+| `ConditionalRule` | column, operator (`">" \| "<" \| ">=" \| "<=" \| "="`), threshold (number), color (preset or CSS string) | `"analytics"` key (in DashboardTile) |
+
+### Modified Types (v5)
+
+| Type | Change |
+|------|--------|
+| `TileDisplayMode` | Add `"line-chart" \| "bar-chart"` to union |
+| `DashboardTile` | Add `conditionalRules?: ConditionalRule[]`, `showSparkline?: boolean` |
 
 ### Removed from DataExchangeState
 
@@ -361,15 +384,27 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 
 ### v4 Acceptance Criteria (Cycle 31)
 
-- [ ] User can add computed columns with arithmetic expressions referencing result column labels
-- [ ] Engine evaluates computed columns after aggregation; division by zero returns 0
-- [ ] Quick Insight cards appear in source preview when source is loaded (up to 3 suggestions)
-- [ ] Clicking a Quick Insight populates query builder and auto-executes
-- [ ] Dashboard tiles show relative time since last refresh with color coding (green/amber/red)
-- [ ] Dashboard header shows freshness summary
-- [ ] After CSV import, inbox item "Analyze [filename] in Analytics Hub" is created
-- [ ] Analytics Hub overview shows "Recent Sources" section with up to 5 CSVs
-- [ ] Flow 31 integration test passes (BI workflow)
+- [x] User can add computed columns with arithmetic expressions referencing result column labels
+- [x] Engine evaluates computed columns after aggregation; division by zero returns 0
+- [x] Quick Insight cards appear in source preview when source is loaded (up to 3 suggestions)
+- [x] Clicking a Quick Insight populates query builder and auto-executes
+- [x] Dashboard tiles show relative time since last refresh with color coding (green/amber/red)
+- [x] Dashboard header shows freshness summary
+- [x] After CSV import, inbox item "Analyze [filename] in Analytics Hub" is created
+- [x] Analytics Hub overview shows "Recent Sources" section with up to 5 CSVs
+- [x] Flow 31 integration test passes (BI workflow)
+
+### v5 Acceptance Criteria (Cycle 32)
+
+- [ ] QueriesTab decomposed into 5 sub-components; orchestrator reduced to ~350 LOC
+- [ ] "line-chart" and "bar-chart" tile display modes render SVG charts
+- [ ] Charts auto-detect x-axis (first dimension) and y-axis (first measure)
+- [ ] Conditional formatting rules configurable per tile (column, operator, threshold, color)
+- [ ] Stat-card values colored and table cells tinted based on matching rules
+- [ ] Built-in color presets: positive (green), negative (red), warning (amber)
+- [ ] Sparklines appear in stat-card tiles when ≥3 result rows; toggleable per tile
+- [ ] Tile mode cycles through 4 modes (table, stat-card, line-chart, bar-chart)
+- [ ] Flow 32 integration test passes (visualization workflow)
 
 ## 13. Definition of Done
 
@@ -405,16 +440,22 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 | [[PBI-ANA-022 Enhanced Stat-Card and Tile Management]] | Multi-row stat cards, tile reorder/rename/mode-toggle | Delivered | High | ANA-021 |
 | [[PBI-ANA-023 Dashboard Actions and Hub Polish]] | Dashboard rename/description, Refresh All, top bar, export | Delivered | High | ANA-020 |
 | [[PBI-ANA-024 Analytics UX Flow Test]] | End-to-end flow test + edge cases | Delivered | High | ANA-020–023 |
-| [[PBI-ANA-025 Computed Columns]] | Formula engine: arithmetic expressions on aggregated columns | Planned | Critical | — |
-| [[PBI-ANA-026 Quick Insights]] | Auto-suggested queries from detected column types | Planned | Critical | ANA-025 |
-| [[PBI-ANA-027 Data Freshness Tracking]] | Per-tile staleness indicator + dashboard freshness summary | Planned | High | — |
-| [[PBI-ANA-028 Import Analytics Bridge]] | Import completion → inbox item + Recent Sources section | Planned | High | — |
-| [[PBI-ANA-029 Business Intelligence Flow Test]] | End-to-end BI workflow integration test | Planned | High | ANA-025–028 |
+| [[PBI-ANA-025 Computed Columns]] | Formula engine: arithmetic expressions on aggregated columns | Delivered | Critical | — |
+| [[PBI-ANA-026 Quick Insights]] | Auto-suggested queries from detected column types | Delivered | Critical | ANA-025 |
+| [[PBI-ANA-027 Data Freshness Tracking]] | Per-tile staleness indicator + dashboard freshness summary | Delivered | High | — |
+| [[PBI-ANA-028 Import Analytics Bridge]] | Import completion → inbox item + Recent Sources section | Delivered | High | — |
+| [[PBI-ANA-029 Business Intelligence Flow Test]] | End-to-end BI workflow integration test | Delivered | High | ANA-025–028 |
+| [[PBI-ANA-030 QueriesTab Extraction]] | Sub-component extraction (1,264 → ~350 LOC orchestrator) | Planned | Critical | — |
+| [[PBI-ANA-031 Chart Tile Foundation]] | SVG line chart + bar chart as new tile display modes | Planned | Critical | ANA-030 |
+| [[PBI-ANA-032 Conditional Formatting]] | Threshold-based color coding for stat-card + table cells | Planned | High | — |
+| [[PBI-ANA-033 Chart Polish and Sparklines]] | Sparkline mini-charts in stat-card tiles + chart polish | Planned | High | ANA-031 |
+| [[PBI-ANA-034 Visualization Flow Test]] | End-to-end visualization workflow integration test | Planned | High | ANA-030–033 |
 
 > **Analytics Hub v1 delivered (2026-02-23):** 5 PBIs in Cycle 28. Hub shell, dashboards, .base sources, independent persistence. 4,338 tests (178 suites).
 > **Analytics Hub v2 delivered (2026-02-23):** 5 PBIs in Cycle 29. Favorites, default dashboard, dashboard-first overview, per-tile refresh, Supplier Manager persona. 4,358 tests (179 suites).
 > **Analytics Hub v3 delivered (2026-02-24):** 5 PBIs in Cycle 30. Query power (filters/sort/limit), source preview, query usability, enhanced stat-cards, tile management, dashboard polish. 4,385 tests (180 suites).
-> **Analytics Hub v4 planned (2026-02-24):** 5 PBIs in Cycle 31. Computed columns (formula engine), Quick Insights (auto-suggest), data freshness tracking, import-to-analytics bridge.
+> **Analytics Hub v4 delivered (2026-02-24):** 5 PBIs in Cycle 31. Computed columns (formula engine), Quick Insights (auto-suggest), data freshness tracking, import-to-analytics bridge. 4,403 tests (181 suites).
+> **Analytics Hub v5 planned (2026-02-24):** 5 PBIs in Cycle 32. QueriesTab extraction (TD), SVG chart tiles (line + bar), conditional formatting, sparklines.
 
 ## Related
 
@@ -430,5 +471,8 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 - PBIs (v1): [[PBI-ANA-010 Analytics Hub Shell]], [[PBI-ANA-011 Dashboard Domain]], [[PBI-ANA-012 Dashboard Tile Grid UI]], [[PBI-ANA-013 Base File Analytics Source]], [[PBI-ANA-014 Analytics Integration and Polish]]
 - PBIs (v2): [[PBI-ANA-015 Favorite Types Foundation]], [[PBI-ANA-016 Dashboard First Overview]], [[PBI-ANA-017 Favorites UI]], [[PBI-ANA-018 Dashboard UX Polish]], [[PBI-ANA-019 Supplier Manager Flow Test]]
 - PBIs (v3): [[PBI-ANA-020 Query Power Features]], [[PBI-ANA-021 Source Preview and Query Usability]], [[PBI-ANA-022 Enhanced Stat-Card and Tile Management]], [[PBI-ANA-023 Dashboard Actions and Hub Polish]], [[PBI-ANA-024 Analytics UX Flow Test]]
-- Cycle: [[Cycle 31 - Analytics Business Intelligence]] (computed columns, quick insights, freshness, import bridge — planned)
+- Cycle: [[Cycle 31 - Analytics Business Intelligence]] (computed columns, quick insights, freshness, import bridge — delivered)
 - PBIs (v4): [[PBI-ANA-025 Computed Columns]], [[PBI-ANA-026 Quick Insights]], [[PBI-ANA-027 Data Freshness Tracking]], [[PBI-ANA-028 Import Analytics Bridge]], [[PBI-ANA-029 Business Intelligence Flow Test]]
+- Cycle: [[Cycle 32 - Analytics Visualization Sprint]] (charts, conditional formatting, sparklines, QueriesTab extraction — planned)
+- PBIs (v5): [[PBI-ANA-030 QueriesTab Extraction]], [[PBI-ANA-031 Chart Tile Foundation]], [[PBI-ANA-032 Conditional Formatting]], [[PBI-ANA-033 Chart Polish and Sparklines]], [[PBI-ANA-034 Visualization Flow Test]]
+- Supplier PRD: [[Feature - Supplier Management]] (strategic direction for analytics visualization)
