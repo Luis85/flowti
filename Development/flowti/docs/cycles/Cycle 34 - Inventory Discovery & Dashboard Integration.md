@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Analytics Hub PRD]]"
-stage: planned
+stage: in-progress
 cycle: 34
 date_planned: 2026-02-24
 date_completed:
@@ -80,6 +80,7 @@ post_cycle_suites:
 - **Missing**: Inventory Stock Levels, Purchase Orders — cannot explore Supplier Management PRD sections 6.3, 6.4
 
 **Item-Supplier relationships (derived from Sales.csv):**
+
 | Item | Primary Supplier(s) | Avg Monthly Volume | Category |
 |------|---------------------|-------------------|----------|
 | ITM-001 Wireless Mouse | SUP-A, SUP-C | ~140 units | Electronics |
