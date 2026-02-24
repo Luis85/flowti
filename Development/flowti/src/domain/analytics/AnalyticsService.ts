@@ -164,6 +164,9 @@ export class AnalyticsService {
 			dimensions: saved.dimensions,
 			measures: saved.measures,
 			timeBucket: saved.timeBucket,
+			filters: saved.filters,
+			sort: saved.sort,
+			limit: saved.limit,
 		};
 
 		const result = await this.runQuery(query, saved.name);
@@ -194,6 +197,9 @@ export class AnalyticsService {
 			dimensions: query.dimensions,
 			measures: query.measures,
 			timeBucket: query.timeBucket,
+			filters: query.filters,
+			sort: query.sort,
+			limit: query.limit,
 		};
 
 		const queries = this.state.savedAnalyticsQueries ?? [];
@@ -219,6 +225,86 @@ export class AnalyticsService {
 	/** Get a saved query by ID. */
 	getQuery(id: string): SavedAnalyticsQuery | undefined {
 		return this.listQueries().find((q) => q.id === id);
+	}
+
+	/** Rename a saved query. */
+	async renameQuery(id: string, newName: string): Promise<SavedAnalyticsQuery | undefined> {
+		const query = this.getQuery(id);
+		if (!query) return undefined;
+		if (!newName.trim()) return undefined;
+
+		const oldName = query.name;
+		query.name = newName.trim();
+		await this.storage.save(this.state);
+
+		await this.eventBus?.emit("analytics.query.renamed", {
+			queryId: query.id,
+			oldName,
+			newName: query.name,
+		});
+
+		return query;
+	}
+
+	/** Duplicate a saved query with a new ID and " (copy)" suffix. */
+	async duplicateQuery(id: string): Promise<SavedAnalyticsQuery | undefined> {
+		const original = this.getQuery(id);
+		if (!original) return undefined;
+
+		const clone: SavedAnalyticsQuery = {
+			...structuredClone(original),
+			id: generateId(),
+			name: `${original.name} (copy)`,
+			createdAt: Date.now(),
+			lastRun: undefined,
+			lastRowCount: undefined,
+			isFavorite: undefined,
+		};
+
+		const queries = this.state.savedAnalyticsQueries ?? [];
+		queries.push(clone);
+		this.state.savedAnalyticsQueries = queries;
+		await this.storage.save(this.state);
+
+		await this.eventBus?.emit("analytics.query.duplicated", {
+			originalQueryId: original.id,
+			newQueryId: clone.id,
+			newQueryName: clone.name,
+		});
+
+		await this.writeQueryFile(clone);
+
+		return clone;
+	}
+
+	/** Update an existing saved query's configuration in place. */
+	async updateQuery(
+		id: string,
+		sources: SavedAnalyticsQuerySource[],
+		query: Omit<AnalyticsQuery, "sources">,
+	): Promise<SavedAnalyticsQuery | undefined> {
+		const existing = this.getQuery(id);
+		if (!existing) return undefined;
+
+		existing.sources = sources;
+		existing.joins = query.joins;
+		existing.columnTypeHints = query.columnTypeHints;
+		existing.dimensions = query.dimensions;
+		existing.measures = query.measures;
+		existing.timeBucket = query.timeBucket;
+		existing.filters = query.filters;
+		existing.sort = query.sort;
+		existing.limit = query.limit;
+		await this.storage.save(this.state);
+
+		await this.eventBus?.emit("analytics.query.saved", {
+			queryId: existing.id,
+			queryName: existing.name,
+		});
+
+		await this.writeQueryFile(existing);
+
+		return existing;
 	}
 
 	/** Delete a saved query by ID. */
@@ -441,6 +527,27 @@ export class AnalyticsService {
 		await this.eventBus?.emit("analytics.dashboard.tile.updated", { dashboardId, tile });
 
 		return tile;
+	}
+
+	/** Reorder a tile within a dashboard (move up or down). */
+	async reorderTile(dashboardId: string, tileId: string, direction: "up" | "down"): Promise<boolean> {
+		const dashboard = this.getDashboard(dashboardId);
+		if (!dashboard) return false;
+
+		const idx = dashboard.tiles.findIndex((t) => t.id === tileId);
+		if (idx === -1) return false;
+
+		const newIdx = direction === "up" ? idx - 1 : idx + 1;
+		if (newIdx < 0 || newIdx >= dashboard.tiles.length) return false;
+
+		// Swap tiles
+		[dashboard.tiles[idx], dashboard.tiles[newIdx]] = [dashboard.tiles[newIdx], dashboard.tiles[idx]];
+		dashboard.updatedAt = Date.now();
+		await this.storage.save(this.state);
+
+		await this.eventBus?.emit("analytics.dashboard.tile.reordered", { dashboardId, tileId, direction });
+
+		return true;
 	}
 
 	// ── Source resolution ────────────────────────────────

@@ -13,9 +13,11 @@ import type {
 	AggregationFunction,
 	ColumnTypeHint,
 	DimensionSpec,
+	FilterSpec,
 	JoinSpec,
 	MeasureSpec,
 	ResultRow,
+	SortSpec,
 	TimeBucketSpec,
 } from "./types";
 import { parseNumber } from "./localeUtils";
@@ -42,12 +44,17 @@ export class AnalyticsEngine {
 
 		const sourceRowCount = rows.length;
 
-		// 3. Apply time bucketing (adds a new column)
+		// 3. Apply filters (before grouping)
+		if (query.filters && query.filters.length > 0) {
+			rows = this.applyFilters(rows, query.filters, query);
+		}
+
+		// 4. Apply time bucketing (adds a new column)
 		if (query.timeBucket) {
 			rows = this.applyTimeBucket(rows, query.timeBucket, query);
 		}
 
-		// 4. GROUP BY + aggregate
+		// 5. GROUP BY + aggregate
 		const { resultRows, groupCount } = this.groupAndAggregate(
 			rows,
 			query.dimensions,
@@ -55,7 +62,18 @@ export class AnalyticsEngine {
 			query,
 		);
 
-		// 5. Build column list
+		// 6. Apply sort (after aggregation)
+		let sortedRows = resultRows;
+		if (query.sort) {
+			sortedRows = this.applySort(sortedRows, query.sort);
+		}
+
+		// 7. Apply limit (after sorting)
+		if (query.limit !== undefined && query.limit >= 0) {
+			sortedRows = this.applyLimit(sortedRows, query.limit);
+		}
+
+		// 8. Build column list
 		const columns = [
 			...query.dimensions.map((d) => d.column),
 			...(query.timeBucket
@@ -66,7 +84,7 @@ export class AnalyticsEngine {
 
 		return {
 			columns,
-			rows: resultRows,
+			rows: sortedRows,
 			groupCount,
 			sourceRowCount,
 		};
@@ -145,6 +163,86 @@ export class AnalyticsEngine {
 		}
 
 		return result ?? [];
+	}
+
+	// ── Filtering ─────────────────────────────────────
+
+	private applyFilters(
+		rows: RawRow[],
+		filters: FilterSpec[],
+		query: AnalyticsQuery,
+	): RawRow[] {
+		return rows.filter((row) =>
+			filters.every((f) => this.matchFilter(row, f, query)),
+		);
+	}
+
+	private matchFilter(row: RawRow, filter: FilterSpec, query: AnalyticsQuery): boolean {
+		const raw = row[filter.column] ?? "";
+		const filterVal = filter.value;
+
+		// String operators
+		if (filter.operator === "contains") {
+			return raw.toLowerCase().includes(filterVal.toLowerCase());
+		}
+		if (filter.operator === "startsWith") {
+			return raw.toLowerCase().startsWith(filterVal.toLowerCase());
+		}
+
+		// Try numeric comparison
+		const localeId = this.findLocaleForColumn(filter.column, query);
+		const numRow = parseNumber(raw, localeId);
+		const numFilter = parseFloat(filterVal);
+
+		if (numRow !== null && !isNaN(numFilter)) {
+			switch (filter.operator) {
+				case "=": return numRow === numFilter;
+				case "!=": return numRow !== numFilter;
+				case ">": return numRow > numFilter;
+				case "<": return numRow < numFilter;
+				case ">=": return numRow >= numFilter;
+				case "<=": return numRow <= numFilter;
+			}
+		}
+
+		// Fallback to string comparison
+		switch (filter.operator) {
+			case "=": return raw === filterVal;
+			case "!=": return raw !== filterVal;
+			case ">": return raw > filterVal;
+			case "<": return raw < filterVal;
+			case ">=": return raw >= filterVal;
+			case "<=": return raw <= filterVal;
+		}
+	}
+
+	// ── Sorting and limiting ──────────────────────────
+
+	private applySort(rows: ResultRow[], sort: SortSpec): ResultRow[] {
+		const sorted = [...rows];
+		const col = sort.column;
+		const dir = sort.direction === "asc" ? 1 : -1;
+
+		sorted.sort((a, b) => {
+			const aVal = a[col];
+			const bVal = b[col];
+
+			// Numeric comparison when both are numbers
+			if (typeof aVal === "number" && typeof bVal === "number") {
+				return (aVal - bVal) * dir;
+			}
+
+			// String comparison
+			const aStr = String(aVal ?? "");
+			const bStr = String(bVal ?? "");
+			return aStr.localeCompare(bStr) * dir;
+		});
+
+		return sorted;
+	}
+
+	private applyLimit(rows: ResultRow[], limit: number): ResultRow[] {
+		return rows.slice(0, limit);
 	}
 
 	// ── Time bucketing ─────────────────────────────────

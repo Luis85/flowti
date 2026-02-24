@@ -190,27 +190,42 @@ export class DashboardsTab {
 		header.style.display = "flex";
 		header.style.alignItems = "center";
 		header.style.justifyContent = "space-between";
-		header.style.marginBottom = "0.75rem";
+		header.style.marginBottom = "0.5rem";
 
 		const titleLeft = header.createDiv();
 		titleLeft.style.display = "flex";
 		titleLeft.style.alignItems = "center";
 		titleLeft.style.gap = "0.5rem";
+		titleLeft.style.flex = "1";
+		titleLeft.style.minWidth = "0";
 
-		const titleEl = titleLeft.createSpan({ text: dashboard.name, cls: "ft-text-lg" });
-		titleEl.style.fontWeight = "600";
+		// Editable name
+		const titleInput = titleLeft.createEl("input", { type: "text" });
+		titleInput.value = dashboard.name;
+		titleInput.style.cssText = "font-weight:600;font-size:var(--font-ui-medium);border:none;background:transparent;color:var(--text-normal);padding:0;flex:1;min-width:0";
+		titleInput.addEventListener("blur", () => {
+			const val = titleInput.value.trim();
+			if (val && val !== dashboard.name) {
+				void this.deps.analyticsService.updateDashboard(dashboard.id, { name: val });
+			}
+		});
+		titleInput.addEventListener("keydown", (e) => {
+			if (e.key === "Enter") { e.preventDefault(); titleInput.blur(); }
+		});
 
 		const isDefault = this.deps.analyticsService.getDefaultDashboard()?.id === dashboard.id;
 		if (isDefault) {
 			const badge = titleLeft.createSpan({ text: "Default", cls: "ft-badge ft-text-xs" });
 			badge.style.background = "var(--interactive-accent)";
 			badge.style.color = "var(--text-on-accent)";
+			badge.style.flexShrink = "0";
 		}
 
 		const headerActions = header.createDiv();
 		headerActions.style.display = "flex";
 		headerActions.style.alignItems = "center";
 		headerActions.style.gap = "0.5rem";
+		headerActions.style.flexShrink = "0";
 
 		if (!isDefault) {
 			const setDefaultBtn = headerActions.createEl("button", { cls: "ft-text-sm" });
@@ -227,6 +242,39 @@ export class DashboardsTab {
 			});
 		}
 
+		// Refresh All
+		if (dashboard.tiles.length > 0) {
+			const refreshAllBtn = headerActions.createEl("button", { cls: "ft-text-sm" });
+			refreshAllBtn.style.display = "flex";
+			refreshAllBtn.style.alignItems = "center";
+			refreshAllBtn.style.gap = "0.25rem";
+			const rIcon = refreshAllBtn.createSpan();
+			setIcon(rIcon, "refresh-cw");
+			rIcon.style.width = "14px";
+			rIcon.style.height = "14px";
+			refreshAllBtn.createSpan({ text: "Refresh All" });
+			refreshAllBtn.addEventListener("click", () => {
+				this.deps.tileResultCache.clear();
+				this.deps.scheduleRender();
+			});
+		}
+
+		// Export Summary
+		if (dashboard.tiles.length > 0) {
+			const exportBtn = headerActions.createEl("button", { cls: "ft-text-sm" });
+			exportBtn.style.display = "flex";
+			exportBtn.style.alignItems = "center";
+			exportBtn.style.gap = "0.25rem";
+			const eIcon = exportBtn.createSpan();
+			setIcon(eIcon, "clipboard-copy");
+			eIcon.style.width = "14px";
+			eIcon.style.height = "14px";
+			exportBtn.createSpan({ text: "Export" });
+			exportBtn.addEventListener("click", () => {
+				void this.exportDashboardSummary(dashboard);
+			});
+		}
+
 		const addTileBtn = headerActions.createEl("button", { cls: "ft-text-sm" });
 		addTileBtn.style.display = "flex";
 		addTileBtn.style.alignItems = "center";
@@ -239,6 +287,22 @@ export class DashboardsTab {
 		addTileBtn.addEventListener("click", () => {
 			this.addTileDialogVisible = !this.addTileDialogVisible;
 			this.deps.scheduleRender();
+		});
+
+		// Editable description
+		const descRow = this.detailEl.createDiv({ cls: "ft-mb-1" });
+		const descInput = descRow.createEl("input", { type: "text" });
+		descInput.value = dashboard.description ?? "";
+		descInput.placeholder = "Add a description...";
+		descInput.style.cssText = "width:100%;border:none;background:transparent;color:var(--text-muted);font-size:var(--font-ui-small);padding:0.25rem 0";
+		descInput.addEventListener("blur", () => {
+			const val = descInput.value.trim();
+			if (val !== (dashboard.description ?? "")) {
+				void this.deps.analyticsService.updateDashboard(dashboard.id, { description: val || undefined });
+			}
+		});
+		descInput.addEventListener("keydown", (e) => {
+			if (e.key === "Enter") { e.preventDefault(); descInput.blur(); }
 		});
 
 		// Add tile dialog (conditionally visible)
@@ -310,6 +374,22 @@ export class DashboardsTab {
 					this.deps.tileResultCache.clearOne(tile.queryId);
 					this.deps.scheduleRender();
 				},
+				onReorder: (tileId, direction) => {
+					void this.deps.analyticsService.reorderTile(dashboard.id, tileId, direction).then(() => {
+						this.deps.scheduleRender();
+					});
+				},
+				onTitleChange: (tileId, newTitle) => {
+					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { title: newTitle }).then(() => {
+						this.deps.scheduleRender();
+					});
+				},
+				onDisplayModeToggle: (tileId, newMode) => {
+					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { displayMode: newMode }).then(() => {
+						this.deps.tileResultCache.clearOne(tile.queryId);
+						this.deps.scheduleRender();
+					});
+				},
 			} satisfies TileRenderContext);
 		}
 	}
@@ -334,6 +414,22 @@ export class DashboardsTab {
 			this.deps.setState({ selectedDashboardId: null });
 		}
 		this.deps.scheduleRender();
+	}
+
+	private async exportDashboardSummary(dashboard: Dashboard): Promise<void> {
+		const state = this.deps.getState();
+		const lines: string[] = [];
+		lines.push(`# ${dashboard.name}`);
+		if (dashboard.description) lines.push(`\n${dashboard.description}`);
+		lines.push(`\n**Tiles:** ${dashboard.tiles.length}`);
+		lines.push("");
+		for (const tile of dashboard.tiles) {
+			const query = state.queries.find((q) => q.id === tile.queryId);
+			const title = tile.title || query?.name || "Untitled";
+			lines.push(`- **${title}** (${tile.displayMode}) — query: ${query?.name ?? "unknown"}`);
+		}
+		lines.push(`\n*Exported from Analytics Hub on ${new Date().toLocaleDateString()}*`);
+		await navigator.clipboard.writeText(lines.join("\n"));
 	}
 
 }

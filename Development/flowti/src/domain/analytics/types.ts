@@ -122,6 +122,29 @@ export interface ParsedSourceData {
 	rows: string[][];
 }
 
+// ── Filter and sort specs ───────────────────────────────
+
+/** Supported filter operators. */
+export type FilterOperator = "=" | "!=" | ">" | "<" | ">=" | "<=" | "contains" | "startsWith";
+
+/** A filter condition applied to rows before grouping. */
+export interface FilterSpec {
+	/** Column to filter on */
+	column: string;
+	/** Comparison operator */
+	operator: FilterOperator;
+	/** Value to compare against */
+	value: string;
+}
+
+/** Sort specification for result rows. */
+export interface SortSpec {
+	/** Column to sort by */
+	column: string;
+	/** Sort direction */
+	direction: "asc" | "desc";
+}
+
 // ── Analytics query ─────────────────────────────────────
 
 /** Complete analytics query configuration. */
@@ -138,6 +161,12 @@ export interface AnalyticsQuery {
 	measures: MeasureSpec[];
 	/** Optional time bucketing */
 	timeBucket?: TimeBucketSpec;
+	/** Optional row filters (applied before grouping) */
+	filters?: FilterSpec[];
+	/** Optional result sorting (applied after aggregation) */
+	sort?: SortSpec;
+	/** Optional row limit (applied after sorting) */
+	limit?: number;
 }
 
 // ── Analytics result ────────────────────────────────────
@@ -200,6 +229,12 @@ export interface SavedAnalyticsQuery {
 	measures: MeasureSpec[];
 	/** Optional time bucketing */
 	timeBucket?: TimeBucketSpec;
+	/** Optional row filters (applied before grouping) */
+	filters?: FilterSpec[];
+	/** Optional result sorting (applied after aggregation) */
+	sort?: SortSpec;
+	/** Optional row limit (applied after sorting) */
+	limit?: number;
 }
 
 // ── Parsed date ─────────────────────────────────────────

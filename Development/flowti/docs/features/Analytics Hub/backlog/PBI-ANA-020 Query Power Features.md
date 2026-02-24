@@ -1,7 +1,8 @@
 ---
 type: ProductBacklogItem
 feature: "[[Analytics Hub PRD]]"
-stage: planned
+stage: delivered
+delivered_in: "[[Cycle 30 - Analytics UX Mastery]]"
 priority: critical
 dependencies: []
 tags:

@@ -5,7 +5,7 @@
  * Shell lifecycle (wrapper, top bar, tab bar, split layout) is handled by BaseHubView.
  */
 
-import type { WorkspaceLeaf } from "obsidian";
+import { type WorkspaceLeaf, setIcon } from "obsidian";
 import type { IEventBus } from "../infrastructure/events/types";
 import type { AnalyticsService } from "../domain/analytics/AnalyticsService";
 import { VIEW_TYPE_ANALYTICS_HUB } from "../domain/hub/types";
@@ -58,8 +58,24 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 		];
 	}
 
-	renderTopBarActions(_bar: HTMLElement): void {
-		// No extra top bar buttons in v1
+	renderTopBarActions(bar: HTMLElement): void {
+		const newQueryBtn = bar.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		newQueryBtn.setAttribute("aria-label", "New Query");
+		const qIcon = newQueryBtn.createSpan();
+		setIcon(qIcon, "search");
+		newQueryBtn.appendText(" New Query");
+		newQueryBtn.addEventListener("click", () => {
+			this.navigateTo("queries");
+		});
+
+		const newDashBtn = bar.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		newDashBtn.setAttribute("aria-label", "New Dashboard");
+		const dIcon = newDashBtn.createSpan();
+		setIcon(dIcon, "layout-grid");
+		newDashBtn.appendText(" New Dashboard");
+		newDashBtn.addEventListener("click", () => {
+			this.navigateTo("dashboards");
+		});
 	}
 
 	onHubOpen(): void {
@@ -135,6 +151,28 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 			this.eventBus.on("analytics.dashboard.defaultChanged", () => {
 				this.refreshData();
 				this.tileResultCache.clear();
+				this.scheduleRender();
+			}),
+		);
+
+		// Re-render when tiles are reordered
+		this.addUnsubscribe(
+			this.eventBus.on("analytics.dashboard.tile.reordered", () => {
+				this.refreshData();
+				this.scheduleRender();
+			}),
+		);
+
+		// Re-render when queries are renamed or duplicated
+		this.addUnsubscribe(
+			this.eventBus.on("analytics.query.renamed", () => {
+				this.refreshData();
+				this.scheduleRender();
+			}),
+		);
+		this.addUnsubscribe(
+			this.eventBus.on("analytics.query.duplicated", () => {
+				this.refreshData();
 				this.scheduleRender();
 			}),
 		);

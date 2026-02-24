@@ -14,6 +14,9 @@ import type {
 	LocaleId,
 	ColumnTypeHint,
 	ColumnType,
+	FilterSpec,
+	FilterOperator,
+	SortSpec,
 	JoinSpec,
 	DimensionSpec,
 	MeasureSpec,
@@ -29,6 +32,7 @@ import type {
 } from "../../domain/analytics/types";
 import { AnalyticsEngine } from "../../domain/analytics/AnalyticsEngine";
 import { AnalyticsResultsPanel } from "../hub/AnalyticsResultsPanel";
+import { SourcePreviewPanel } from "./SourcePreviewPanel";
 
 interface QuerySource {
 	csvPath: string;
@@ -51,6 +55,16 @@ const LOCALE_OPTIONS: Array<{ id: LocaleId; label: string }> = [
 
 const AGG_FUNCTIONS: AggregationFunction[] = ["SUM", "COUNT", "AVG", "MIN", "MAX"];
 const TIME_PERIODS: TimeBucketPeriod[] = ["month", "quarter", "year"];
+const FILTER_OPERATORS: Array<{ id: FilterOperator; label: string }> = [
+	{ id: "=", label: "=" },
+	{ id: "!=", label: "!=" },
+	{ id: ">", label: ">" },
+	{ id: "<", label: "<" },
+	{ id: ">=", label: ">=" },
+	{ id: "<=", label: "<=" },
+	{ id: "contains", label: "contains" },
+	{ id: "startsWith", label: "starts with" },
+];
 const SELECT_CSS = "padding:2px 6px;font-size:var(--font-ui-small);background:var(--background-primary);border:1px solid var(--background-modifier-border);border-radius:var(--radius-s,4px);color:var(--text-normal)";
 const INPUT_CSS = SELECT_CSS + ";width:80px";
 
@@ -61,6 +75,9 @@ export class QueriesTab {
 	private dimensions: DimensionSpec[] = [];
 	private measures: MeasureSpec[] = [];
 	private timeBucket: TimeBucketSpec | null = null;
+	private filters: FilterSpec[] = [];
+	private sort: SortSpec | null = null;
+	private limit: number | null = null;
 	private lastResult: AnalyticsResult | null = null;
 	private lastDurationMs: number | undefined;
 	private lastError: string | null = null;
@@ -160,6 +177,37 @@ export class QueriesTab {
 				if (sq.lastRowCount !== undefined) {
 					item.createSpan({ text: `${sq.lastRowCount} rows`, cls: "ft-badge ft-badge-muted" });
 				}
+
+				// Rename button
+				const renameBtn = item.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+				const renameIcon = renameBtn.createSpan();
+				setIcon(renameIcon, "pencil");
+				renameIcon.style.width = "14px";
+				renameIcon.style.height = "14px";
+				renameBtn.setAttribute("aria-label", "Rename query");
+				renameBtn.addEventListener("click", (e) => {
+					e.stopPropagation();
+					const newName = prompt("Rename query:", sq.name);
+					if (newName && newName.trim()) {
+						void this.deps.analyticsService.renameQuery(sq.id, newName.trim()).then(() => {
+							this.renderMaster();
+						});
+					}
+				});
+
+				// Duplicate button
+				const dupeBtn = item.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+				const dupeIcon = dupeBtn.createSpan();
+				setIcon(dupeIcon, "copy");
+				dupeIcon.style.width = "14px";
+				dupeIcon.style.height = "14px";
+				dupeBtn.setAttribute("aria-label", "Clone query");
+				dupeBtn.addEventListener("click", (e) => {
+					e.stopPropagation();
+					void this.deps.analyticsService.duplicateQuery(sq.id).then(() => {
+						this.renderMaster();
+					});
+				});
 
 				// Delete button
 				const delBtn = item.createEl("span", { cls: "ft-nav-link ft-text-sm" });
@@ -293,6 +341,8 @@ export class QueriesTab {
 			this.renderDimensionConfig();
 			this.renderMeasureConfig();
 			this.renderTimeBucketConfig();
+			this.renderFilterConfig();
+			this.renderSortLimitConfig();
 		}
 
 		if (this.lastError) {
@@ -402,8 +452,12 @@ export class QueriesTab {
 		this.columnTypeHints = this.columnTypeHints.filter((h) => headerSet.has(h.column));
 		this.dimensions = this.dimensions.filter((d) => headerSet.has(d.column));
 		this.measures = this.measures.filter((m) => headerSet.has(m.column));
+		this.filters = this.filters.filter((f) => headerSet.has(f.column));
 		if (this.timeBucket && !headerSet.has(this.timeBucket.column)) {
 			this.timeBucket = null;
+		}
+		if (this.sort && !headerSet.has(this.sort.column)) {
+			this.sort = null;
 		}
 		const aliases = new Set(this.sources.map((s) => s.alias));
 		this.joins = this.joins.filter((j) => aliases.has(j.leftSource) && aliases.has(j.rightSource));
@@ -456,6 +510,9 @@ export class QueriesTab {
 			this.dimensions = [];
 			this.measures = [];
 			this.timeBucket = null;
+			this.filters = [];
+			this.sort = null;
+			this.limit = null;
 			this.lastResult = null;
 			this.lastDurationMs = undefined;
 			this.lastError = null;
@@ -463,12 +520,25 @@ export class QueriesTab {
 			this.renderDetail();
 		});
 
-		// Save Query (always available since analyticsService is required)
+		// Save / Update Query
 		if (this.measures.length > 0) {
+			const state = this.deps.getState();
+			const isEditing = state.selectedQueryId && this.deps.analyticsService.getQuery(state.selectedQueryId);
+
+			if (isEditing) {
+				const updateLink = actions.createEl("span", { cls: "ft-nav-link" });
+				const updateIcon = updateLink.createSpan();
+				setIcon(updateIcon, "save");
+				updateLink.appendText(" Update Query");
+				updateLink.addEventListener("click", () => {
+					void this.updateCurrentQuery();
+				});
+			}
+
 			const saveLink = actions.createEl("span", { cls: "ft-nav-link" });
 			const saveIcon = saveLink.createSpan();
-			setIcon(saveIcon, "save");
-			saveLink.appendText(" Save Query");
+			setIcon(saveIcon, "plus");
+			saveLink.appendText(isEditing ? " Save As New" : " Save Query");
 			saveLink.addEventListener("click", () => {
 				void this.saveCurrentQuery();
 			});
@@ -510,6 +580,19 @@ export class QueriesTab {
 			} else if (src.data) {
 				row.createSpan({ text: `${src.data.rows.length} rows`, cls: "ft-text-muted ft-text-sm" });
 			}
+		}
+
+		// Source preview for the first loaded source
+		const firstLoaded = this.sources.find((s) => s.data);
+		if (firstLoaded?.data) {
+			const previewHost = section.createDiv({ cls: "ft-mt-2" });
+			previewHost.style.borderTop = "1px solid var(--background-modifier-border)";
+			previewHost.style.paddingTop = "0.5rem";
+			new SourcePreviewPanel({
+				container: previewHost,
+				data: firstLoaded.data,
+				typeHints: this.columnTypeHints,
+			}).render();
 		}
 	}
 
@@ -773,6 +856,146 @@ export class QueriesTab {
 		}
 	}
 
+	private renderFilterConfig(): void {
+		const section = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
+		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		header.createDiv({ text: "Filters", cls: "ft-detail-section-header" });
+		header.style.margin = "0";
+
+		const addBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		addBtn.style.marginLeft = "auto";
+		const addIcon = addBtn.createSpan();
+		setIcon(addIcon, "plus");
+		addBtn.appendText(" Add");
+		addBtn.addEventListener("click", () => {
+			this.filters.push({
+				column: this.getLoadedHeaders()[0] ?? "",
+				operator: "=",
+				value: "",
+			});
+			this.renderDetail();
+		});
+
+		const allHeaders = this.getLoadedHeaders();
+		for (let i = 0; i < this.filters.length; i++) {
+			const filter = this.filters[i];
+			const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
+			row.style.padding = "0.35rem 0.5rem";
+			row.style.borderBottom = "1px solid var(--background-modifier-border)";
+
+			const colSelect = row.createEl("select");
+			colSelect.style.cssText = SELECT_CSS;
+			for (const h of allHeaders) {
+				const opt = colSelect.createEl("option");
+				opt.value = h;
+				opt.textContent = h;
+				if (filter.column === h) opt.selected = true;
+			}
+			colSelect.addEventListener("change", () => { filter.column = colSelect.value; });
+
+			const opSelect = row.createEl("select");
+			opSelect.style.cssText = SELECT_CSS;
+			for (const op of FILTER_OPERATORS) {
+				const opt = opSelect.createEl("option");
+				opt.value = op.id;
+				opt.textContent = op.label;
+				if (filter.operator === op.id) opt.selected = true;
+			}
+			opSelect.addEventListener("change", () => { filter.operator = opSelect.value as FilterOperator; });
+
+			const valInput = row.createEl("input", { type: "text" });
+			valInput.value = filter.value;
+			valInput.placeholder = "Value";
+			valInput.style.cssText = INPUT_CSS + ";width:120px";
+			valInput.addEventListener("change", () => { filter.value = valInput.value; });
+
+			const removeBtn = row.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+			const removeIcon = removeBtn.createSpan();
+			setIcon(removeIcon, "x");
+			removeBtn.addEventListener("click", () => {
+				this.filters.splice(i, 1);
+				this.renderDetail();
+			});
+		}
+
+		if (this.filters.length === 0) {
+			section.createDiv({ text: "No filters — all rows included", cls: "ft-text-muted ft-text-sm ft-p-2" });
+		}
+	}
+
+	private renderSortLimitConfig(): void {
+		const section = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
+		section.createDiv({ text: "Sort & Limit", cls: "ft-detail-section-header" });
+
+		const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
+		row.style.padding = "0.35rem 0.5rem";
+
+		// Sort toggle
+		const sortCb = row.createEl("input", { type: "checkbox" });
+		sortCb.checked = this.sort !== null;
+		sortCb.addEventListener("change", () => {
+			this.sort = sortCb.checked
+				? { column: this.getLoadedHeaders()[0] ?? "", direction: "asc" }
+				: null;
+			this.renderDetail();
+		});
+
+		if (this.sort) {
+			row.createSpan({ text: "Sort by", cls: "ft-text-muted ft-text-sm" });
+
+			const colSelect = row.createEl("select");
+			colSelect.style.cssText = SELECT_CSS;
+			for (const h of this.getLoadedHeaders()) {
+				const opt = colSelect.createEl("option");
+				opt.value = h;
+				opt.textContent = h;
+				if (this.sort.column === h) opt.selected = true;
+			}
+			colSelect.addEventListener("change", () => {
+				if (this.sort) this.sort.column = colSelect.value;
+			});
+
+			const dirSelect = row.createEl("select");
+			dirSelect.style.cssText = SELECT_CSS;
+			for (const dir of ["asc", "desc"] as const) {
+				const opt = dirSelect.createEl("option");
+				opt.value = dir;
+				opt.textContent = dir === "asc" ? "Ascending" : "Descending";
+				if (this.sort.direction === dir) opt.selected = true;
+			}
+			dirSelect.addEventListener("change", () => {
+				if (this.sort) this.sort.direction = dirSelect.value as "asc" | "desc";
+			});
+		} else {
+			row.createSpan({ text: "Enable sorting", cls: "ft-text-muted ft-text-sm" });
+		}
+
+		// Limit
+		const limitRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
+		limitRow.style.padding = "0.35rem 0.5rem";
+
+		const limitCb = limitRow.createEl("input", { type: "checkbox" });
+		limitCb.checked = this.limit !== null;
+		limitCb.addEventListener("change", () => {
+			this.limit = limitCb.checked ? 10 : null;
+			this.renderDetail();
+		});
+
+		if (this.limit !== null) {
+			limitRow.createSpan({ text: "Max rows", cls: "ft-text-muted ft-text-sm" });
+			const limitInput = limitRow.createEl("input", { type: "number" });
+			limitInput.value = String(this.limit);
+			limitInput.min = "0";
+			limitInput.style.cssText = INPUT_CSS;
+			limitInput.addEventListener("change", () => {
+				const val = parseInt(limitInput.value, 10);
+				this.limit = isNaN(val) ? null : val;
+			});
+		} else {
+			limitRow.createSpan({ text: "Enable row limit", cls: "ft-text-muted ft-text-sm" });
+		}
+	}
+
 	// ─────────────────────────────────────────────────────────
 	// Query execution
 	// ─────────────────────────────────────────────────────────
@@ -801,6 +1024,9 @@ export class QueriesTab {
 				dimensions: this.dimensions,
 				measures: this.measures,
 				timeBucket: this.timeBucket ?? undefined,
+				filters: this.filters.length > 0 ? this.filters : undefined,
+				sort: this.sort ?? undefined,
+				limit: this.limit ?? undefined,
 			};
 
 			this.lastResult = await this.deps.analyticsService.runQuery(query);
@@ -821,24 +1047,47 @@ export class QueriesTab {
 	// Saved queries
 	// ─────────────────────────────────────────────────────────
 
-	private async saveCurrentQuery(): Promise<void> {
-		const svc = this.deps.analyticsService;
-		const name = `Query ${new Date().toISOString().slice(0, 16).replace("T", " ")}`;
-		const sources: SavedAnalyticsQuerySource[] = this.sources.map((s) => ({
+	private buildQueryConfig(): Omit<AnalyticsQuery, "sources"> {
+		return {
+			joins: this.joins,
+			columnTypeHints: this.columnTypeHints,
+			dimensions: this.dimensions,
+			measures: this.measures,
+			timeBucket: this.timeBucket ?? undefined,
+			filters: this.filters.length > 0 ? this.filters : undefined,
+			sort: this.sort ?? undefined,
+			limit: this.limit ?? undefined,
+		};
+	}
+
+	private buildSavedSources(): SavedAnalyticsQuerySource[] {
+		return this.sources.map((s) => ({
 			alias: s.alias,
 			csvPath: s.csvPath,
 			sourceType: s.sourceType !== "csv" ? s.sourceType : undefined,
 			viewIndex: s.viewIndex,
 			locale: s.locale !== "auto" ? s.locale : undefined,
 		}));
+	}
 
-		await svc.saveQuery(name, sources, {
-			joins: this.joins,
-			columnTypeHints: this.columnTypeHints,
-			dimensions: this.dimensions,
-			measures: this.measures,
-			timeBucket: this.timeBucket ?? undefined,
-		});
+	private async saveCurrentQuery(): Promise<void> {
+		const svc = this.deps.analyticsService;
+		const name = `Query ${new Date().toISOString().slice(0, 16).replace("T", " ")}`;
+
+		const saved = await svc.saveQuery(name, this.buildSavedSources(), this.buildQueryConfig());
+		this.deps.setState({ selectedQueryId: saved.id });
+		this.renderMaster();
+	}
+
+	private async updateCurrentQuery(): Promise<void> {
+		const state = this.deps.getState();
+		if (!state.selectedQueryId) return;
+
+		await this.deps.analyticsService.updateQuery(
+			state.selectedQueryId,
+			this.buildSavedSources(),
+			this.buildQueryConfig(),
+		);
 
 		this.renderMaster();
 	}
@@ -855,6 +1104,9 @@ export class QueriesTab {
 		this.dimensions = [...saved.dimensions];
 		this.measures = [...saved.measures];
 		this.timeBucket = saved.timeBucket ? { ...saved.timeBucket } : null;
+		this.filters = saved.filters ? saved.filters.map((f) => ({ ...f })) : [];
+		this.sort = saved.sort ? { ...saved.sort } : null;
+		this.limit = saved.limit ?? null;
 		this.lastResult = null;
 		this.lastDurationMs = undefined;
 		this.lastError = null;

@@ -115,4 +115,25 @@ export interface AnalyticsEventMap {
 		dashboardId: string;
 		tileCount: number;
 	};
+
+	/** A saved query was renamed */
+	"analytics.query.renamed": {
+		queryId: string;
+		oldName: string;
+		newName: string;
+	};
+
+	/** A saved query was duplicated */
+	"analytics.query.duplicated": {
+		originalQueryId: string;
+		newQueryId: string;
+		newQueryName: string;
+	};
+
+	/** A dashboard tile was reordered */
+	"analytics.dashboard.tile.reordered": {
+		dashboardId: string;
+		tileId: string;
+		direction: "up" | "down";
+	};
 }

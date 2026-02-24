@@ -6,7 +6,7 @@ stage: delivered
 version: 4
 maturity: L2
 created: 2026-02-23
-updated: 2026-02-23
+updated: 2026-02-24
 foundation: "[[When opening a CSV with Flowti, I want to be able to make an easy dashboard]]"
 related_events:
   - analytics.query.started
@@ -155,14 +155,14 @@ Primary interaction path:
 
 ### Query Power & UX Mastery (v3 — Cycle 30)
 
-- [ ] FR-21: User can add WHERE filters to queries; `FilterSpec` with column, operator (=, !=, >, <, >=, <=, contains, startsWith), and value
-- [ ] FR-22: User can add ORDER BY sorting to queries; `SortSpec` with column and direction (asc/desc)
-- [ ] FR-23: User can set a LIMIT on query results; optional max row count applied after aggregation
-- [ ] FR-24: Source preview panel shows column names, inferred types, row count, and first 5 sample rows when a source is loaded
-- [ ] FR-25: User can rename a saved query; new name persists
-- [ ] FR-26: User can duplicate a saved query; clone has new ID and " (copy)" suffix
-- [ ] FR-27: Stat-card tiles render all result rows as dimension-grouped cards (not just first row); capped at 20 groups with overflow
-- [ ] FR-28: Dashboard name and description are editable inline in the dashboard detail header; changes persist
+- [x] FR-21: User can add WHERE filters to queries; `FilterSpec` with column, operator (=, !=, >, <, >=, <=, contains, startsWith), and value
+- [x] FR-22: User can add ORDER BY sorting to queries; `SortSpec` with column and direction (asc/desc)
+- [x] FR-23: User can set a LIMIT on query results; optional max row count applied after aggregation
+- [x] FR-24: Source preview panel shows column names, inferred types, row count, and first 5 sample rows when a source is loaded
+- [x] FR-25: User can rename a saved query; new name persists
+- [x] FR-26: User can duplicate a saved query; clone has new ID and " (copy)" suffix
+- [x] FR-27: Stat-card tiles render all result rows as dimension-grouped cards (not just first row); capped at 20 groups with overflow
+- [x] FR-28: Dashboard name and description are editable inline in the dashboard detail header; changes persist
 
 ## 6. Data Model Impact
 
@@ -327,19 +327,19 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 
 ### v3 Acceptance Criteria (Cycle 30)
 
-- [ ] Query builder has Filters section: add/remove filter rows (column, operator, value) with 8 operators
-- [ ] Query builder has Sort dropdown (column + direction) and Limit input
-- [ ] Engine applies filters before grouping, sort + limit after aggregation
-- [ ] Source preview shows columns, types, row count, and sample data when source loaded
-- [ ] User can rename and duplicate saved queries
-- [ ] Stat-card tiles show all dimension groups (capped at 20 with overflow)
-- [ ] Tiles can be reordered (move up/down), renamed inline, and toggled between table/stat-card
-- [ ] Dashboard name and description are editable inline
-- [ ] "Refresh All" button clears all tile caches and re-renders
-- [ ] Top bar has "New Query" and "New Dashboard" shortcut buttons
-- [ ] "Export Summary" copies markdown summary to clipboard
-- [ ] 3 new events: renamed, duplicated, tile.reordered
-- [ ] Flow 30 integration test passes
+- [x] Query builder has Filters section: add/remove filter rows (column, operator, value) with 8 operators
+- [x] Query builder has Sort dropdown (column + direction) and Limit input
+- [x] Engine applies filters before grouping, sort + limit after aggregation
+- [x] Source preview shows columns, types, row count, and sample data when source loaded
+- [x] User can rename and duplicate saved queries
+- [x] Stat-card tiles show all dimension groups (capped at 20 with overflow)
+- [x] Tiles can be reordered (move up/down), renamed inline, and toggled between table/stat-card
+- [x] Dashboard name and description are editable inline
+- [x] "Refresh All" button clears all tile caches and re-renders
+- [x] Top bar has "New Query" and "New Dashboard" shortcut buttons
+- [x] "Export Summary" copies markdown summary to clipboard
+- [x] 3 new events: renamed, duplicated, tile.reordered
+- [x] Flow 30 integration test passes (27 tests)
 
 ## 13. Definition of Done
 
@@ -370,15 +370,15 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 | [[PBI-ANA-017 Favorites UI]] | Star icons in master lists, sort favorites first | Delivered | High | ANA-015, ANA-016 |
 | [[PBI-ANA-018 Dashboard UX Polish]] | Per-tile refresh, name prompt, default badge | Delivered | High | ANA-015 |
 | [[PBI-ANA-019 Supplier Manager Flow Test]] | End-to-end flow test + final polish | Delivered | High | ANA-015–018 |
-| [[PBI-ANA-020 Query Power Features]] | Filters (WHERE), sort (ORDER BY), limit in engine + UI | Planned | Critical | — |
-| [[PBI-ANA-021 Source Preview and Query Usability]] | Source preview, rename, duplicate, collapsible sections | Planned | High | ANA-020 |
-| [[PBI-ANA-022 Enhanced Stat-Card and Tile Management]] | Multi-row stat cards, tile reorder/rename/mode-toggle | Planned | High | ANA-021 |
-| [[PBI-ANA-023 Dashboard Actions and Hub Polish]] | Dashboard rename/description, Refresh All, top bar, export | Planned | High | ANA-020 |
-| [[PBI-ANA-024 Analytics UX Flow Test]] | End-to-end flow test + edge cases | Planned | High | ANA-020–023 |
+| [[PBI-ANA-020 Query Power Features]] | Filters (WHERE), sort (ORDER BY), limit in engine + UI | Delivered | Critical | — |
+| [[PBI-ANA-021 Source Preview and Query Usability]] | Source preview, rename, duplicate, collapsible sections | Delivered | High | ANA-020 |
+| [[PBI-ANA-022 Enhanced Stat-Card and Tile Management]] | Multi-row stat cards, tile reorder/rename/mode-toggle | Delivered | High | ANA-021 |
+| [[PBI-ANA-023 Dashboard Actions and Hub Polish]] | Dashboard rename/description, Refresh All, top bar, export | Delivered | High | ANA-020 |
+| [[PBI-ANA-024 Analytics UX Flow Test]] | End-to-end flow test + edge cases | Delivered | High | ANA-020–023 |
 
 > **Analytics Hub v1 delivered (2026-02-23):** 5 PBIs in Cycle 28. Hub shell, dashboards, .base sources, independent persistence. 4,338 tests (178 suites).
 > **Analytics Hub v2 delivered (2026-02-23):** 5 PBIs in Cycle 29. Favorites, default dashboard, dashboard-first overview, per-tile refresh, Supplier Manager persona. 4,358 tests (179 suites).
-> **Analytics Hub v3 planned (Cycle 30):** 5 PBIs. Query power (filters/sort/limit), source preview, query usability, enhanced stat-cards, tile management, dashboard polish.
+> **Analytics Hub v3 delivered (2026-02-24):** 5 PBIs in Cycle 30. Query power (filters/sort/limit), source preview, query usability, enhanced stat-cards, tile management, dashboard polish. 4,385 tests (180 suites).
 
 ## Related
 
@@ -389,7 +389,7 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 - Flow: [[Build Analytics Dashboard]]
 - Inbox: [[When opening a CSV with Flowti, I want to be able to make an easy dashboard]]
 - Cycle: [[Cycle 29 - Analytics Supplier Manager]] (favorites, default dashboard, dashboard-first overview — delivered)
-- Cycle: [[Cycle 30 - Analytics UX Mastery]] (query power, source preview, tile management, hub polish — planned)
+- Cycle: [[Cycle 30 - Analytics UX Mastery]] (query power, source preview, tile management, hub polish — delivered)
 - Persona: [[Supplier Manager]] (non-technical operations user driving v2/v3 direction)
 - PBIs (v1): [[PBI-ANA-010 Analytics Hub Shell]], [[PBI-ANA-011 Dashboard Domain]], [[PBI-ANA-012 Dashboard Tile Grid UI]], [[PBI-ANA-013 Base File Analytics Source]], [[PBI-ANA-014 Analytics Integration and Polish]]
 - PBIs (v2): [[PBI-ANA-015 Favorite Types Foundation]], [[PBI-ANA-016 Dashboard First Overview]], [[PBI-ANA-017 Favorites UI]], [[PBI-ANA-018 Dashboard UX Polish]], [[PBI-ANA-019 Supplier Manager Flow Test]]

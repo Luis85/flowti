@@ -2,12 +2,14 @@
  * Renders a single dashboard tile — either as a results table or stat-card summary.
  *
  * Delegates to AnalyticsResultsPanel for table mode;
- * stat-card mode shows key aggregates from the query result.
+ * stat-card mode shows ALL dimension groups as grouped cards.
  */
 
 import { setIcon } from "obsidian";
-import type { AnalyticsResult, DashboardTile, SavedAnalyticsQuery } from "../../domain/analytics/types";
+import type { AnalyticsResult, DashboardTile, SavedAnalyticsQuery, TileDisplayMode } from "../../domain/analytics/types";
 import { AnalyticsResultsPanel } from "../hub/AnalyticsResultsPanel";
+
+const MAX_STAT_CARD_GROUPS = 20;
 
 export interface TileRenderContext {
 	tile: DashboardTile;
@@ -16,6 +18,9 @@ export interface TileRenderContext {
 	error: string | null;
 	onRemove: (tileId: string) => void;
 	onRefresh?: (tileId: string) => void;
+	onReorder?: (tileId: string, direction: "up" | "down") => void;
+	onTitleChange?: (tileId: string, newTitle: string) => void;
+	onDisplayModeToggle?: (tileId: string, newMode: TileDisplayMode) => void;
 }
 
 export class DashboardTileRenderer {
@@ -40,16 +45,68 @@ export class DashboardTileRenderer {
 		header.style.borderBottom = "1px solid var(--background-modifier-border)";
 		header.style.background = "var(--background-secondary)";
 
-		const titleEl = header.createSpan({
-			text: ctx.tile.title || ctx.query?.name || "Untitled Tile",
-			cls: "ft-text-sm",
-		});
-		titleEl.style.fontWeight = "600";
+		// Editable title
+		if (ctx.onTitleChange) {
+			const titleInput = header.createEl("input", { type: "text" });
+			titleInput.value = ctx.tile.title || ctx.query?.name || "Untitled Tile";
+			titleInput.style.cssText = "font-weight:600;font-size:var(--font-ui-small);border:none;background:transparent;color:var(--text-normal);padding:0;flex:1;min-width:0";
+			titleInput.addEventListener("blur", () => {
+				const val = titleInput.value.trim();
+				if (val) ctx.onTitleChange!(ctx.tile.id, val);
+			});
+			titleInput.addEventListener("keydown", (e) => {
+				if (e.key === "Enter") {
+					e.preventDefault();
+					titleInput.blur();
+				}
+			});
+		} else {
+			const titleEl = header.createSpan({
+				text: ctx.tile.title || ctx.query?.name || "Untitled Tile",
+				cls: "ft-text-sm",
+			});
+			titleEl.style.fontWeight = "600";
+		}
 
 		const actions = header.createDiv();
 		actions.style.display = "flex";
 		actions.style.alignItems = "center";
 		actions.style.gap = "0.25rem";
+		actions.style.flexShrink = "0";
+
+		// Reorder buttons
+		if (ctx.onReorder) {
+			const upBtn = actions.createSpan({ cls: "ft-nav-link ft-text-muted" });
+			const upIcon = upBtn.createSpan();
+			setIcon(upIcon, "chevron-up");
+			upIcon.style.width = "14px";
+			upIcon.style.height = "14px";
+			upBtn.style.cursor = "pointer";
+			upBtn.setAttribute("aria-label", "Move up");
+			upBtn.addEventListener("click", (e) => { e.stopPropagation(); ctx.onReorder!(ctx.tile.id, "up"); });
+
+			const downBtn = actions.createSpan({ cls: "ft-nav-link ft-text-muted" });
+			const downIcon = downBtn.createSpan();
+			setIcon(downIcon, "chevron-down");
+			downIcon.style.width = "14px";
+			downIcon.style.height = "14px";
+			downBtn.style.cursor = "pointer";
+			downBtn.setAttribute("aria-label", "Move down");
+			downBtn.addEventListener("click", (e) => { e.stopPropagation(); ctx.onReorder!(ctx.tile.id, "down"); });
+		}
+
+		// Display mode toggle
+		if (ctx.onDisplayModeToggle) {
+			const toggleBtn = actions.createSpan({ cls: "ft-nav-link ft-text-muted" });
+			const toggleIcon = toggleBtn.createSpan();
+			const nextMode: TileDisplayMode = ctx.tile.displayMode === "table" ? "stat-card" : "table";
+			setIcon(toggleIcon, nextMode === "table" ? "table" : "bar-chart-2");
+			toggleIcon.style.width = "14px";
+			toggleIcon.style.height = "14px";
+			toggleBtn.style.cursor = "pointer";
+			toggleBtn.setAttribute("aria-label", `Switch to ${nextMode}`);
+			toggleBtn.addEventListener("click", (e) => { e.stopPropagation(); ctx.onDisplayModeToggle!(ctx.tile.id, nextMode); });
+		}
 
 		if (ctx.onRefresh) {
 			const refreshBtn = actions.createSpan({ cls: "ft-nav-link ft-text-muted" });
@@ -90,7 +147,7 @@ export class DashboardTileRenderer {
 			} else if (!ctx.result) {
 				this.renderLoading(body);
 			} else if (ctx.tile.displayMode === "stat-card") {
-				this.renderStatCard(body, ctx.result, ctx.query.name);
+				this.renderStatCard(body, ctx.result);
 			} else {
 				this.renderTable(body, ctx.result);
 			}
@@ -117,41 +174,58 @@ export class DashboardTileRenderer {
 		el.createDiv({ text: "Loading..." });
 	}
 
-	private renderStatCard(container: HTMLElement, result: AnalyticsResult, queryName: string): void {
+	private renderStatCard(container: HTMLElement, result: AnalyticsResult): void {
 		if (result.rows.length === 0) {
 			container.createDiv({ text: "No data", cls: "ft-text-muted ft-text-sm ft-text-center" });
 			return;
 		}
 
-		const grid = container.createDiv({ cls: "ft-stat-card-grid" });
-		grid.style.display = "grid";
-		grid.style.gridTemplateColumns = "repeat(auto-fit, minmax(120px, 1fr))";
-		grid.style.gap = "0.5rem";
+		// Identify dimension columns (non-numeric in first row) and measure columns (numeric)
+		const measureCols = result.columns.filter((col) => typeof result.rows[0][col] === "number");
+		const dimCols = result.columns.filter((col) => typeof result.rows[0][col] !== "number");
 
-		// Show first row's numeric values as stat cards
-		const row = result.rows[0];
-		for (const col of result.columns) {
-			const val = row[col];
-			if (typeof val !== "number") continue;
+		const rowsToShow = Math.min(result.rows.length, MAX_STAT_CARD_GROUPS);
 
-			const card = grid.createDiv({ cls: "ft-stat-card-mini" });
-			card.style.textAlign = "center";
-			card.style.padding = "0.75rem 0.5rem";
-			card.style.background = "var(--background-primary)";
-			card.style.borderRadius = "4px";
+		for (let i = 0; i < rowsToShow; i++) {
+			const row = result.rows[i];
 
-			const valueEl = card.createDiv({ cls: "ft-text-lg" });
-			valueEl.style.fontWeight = "700";
-			valueEl.textContent = val.toLocaleString();
+			// Dimension label (group header)
+			if (dimCols.length > 0) {
+				const label = dimCols.map((col) => String(row[col] ?? "")).join(" · ");
+				const labelEl = container.createDiv({ cls: "ft-text-sm" });
+				labelEl.style.fontWeight = "600";
+				labelEl.style.marginTop = i > 0 ? "0.75rem" : "0";
+				labelEl.style.marginBottom = "0.25rem";
+				labelEl.textContent = label;
+			}
 
-			card.createDiv({ text: col, cls: "ft-text-muted ft-text-xs" });
+			// Stat cards for this group
+			const grid = container.createDiv({ cls: "ft-stat-card-grid" });
+			grid.style.display = "grid";
+			grid.style.gridTemplateColumns = "repeat(auto-fit, minmax(100px, 1fr))";
+			grid.style.gap = "0.5rem";
+
+			for (const col of measureCols) {
+				const val = row[col];
+				if (typeof val !== "number") continue;
+
+				const card = grid.createDiv({ cls: "ft-stat-card-mini" });
+				card.style.textAlign = "center";
+				card.style.padding = "0.5rem 0.25rem";
+				card.style.background = "var(--background-primary)";
+				card.style.borderRadius = "4px";
+
+				const valueEl = card.createDiv({ cls: "ft-text-lg" });
+				valueEl.style.fontWeight = "700";
+				valueEl.textContent = val.toLocaleString();
+
+				card.createDiv({ text: col, cls: "ft-text-muted ft-text-xs" });
+			}
 		}
 
-		if (result.rows.length > 1) {
-			container.createDiv({
-				text: `${result.rows.length} rows · showing first row summary`,
-				cls: "ft-text-muted ft-text-xs ft-mt-1 ft-text-center",
-			});
+		if (result.rows.length > MAX_STAT_CARD_GROUPS) {
+			const more = container.createDiv({ cls: "ft-text-muted ft-text-xs ft-mt-1 ft-text-center" });
+			more.textContent = `and ${result.rows.length - MAX_STAT_CARD_GROUPS} more groups...`;
 		}
 	}
 
