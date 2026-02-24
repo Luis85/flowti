@@ -62,21 +62,23 @@ export class AddTileDialog {
 		modeRow.style.display = "flex";
 		modeRow.style.gap = "0.5rem";
 
-		const tableBtn = this.createModeButton(modeRow, "table", "Table", "table");
-		const statBtn = this.createModeButton(modeRow, "bar-chart-2", "Stat Card", "stat-card");
-		tableBtn.addClass("ft-active");
+		const modeButtons: Array<{ el: HTMLElement; mode: TileDisplayMode }> = [
+			{ el: this.createModeButton(modeRow, "table", "Table", "table"), mode: "table" },
+			{ el: this.createModeButton(modeRow, "bar-chart-2", "Stat Card", "stat-card"), mode: "stat-card" },
+			{ el: this.createModeButton(modeRow, "trending-up", "Line", "line-chart"), mode: "line-chart" },
+			{ el: this.createModeButton(modeRow, "bar-chart", "Bar", "bar-chart"), mode: "bar-chart" },
+		];
+		modeButtons[0].el.addClass("ft-active");
 
-		tableBtn.addEventListener("click", () => {
-			this.displayMode = "table";
-			tableBtn.addClass("ft-active");
-			statBtn.removeClass("ft-active");
-		});
-
-		statBtn.addEventListener("click", () => {
-			this.displayMode = "stat-card";
-			statBtn.addClass("ft-active");
-			tableBtn.removeClass("ft-active");
-		});
+		for (const btn of modeButtons) {
+			btn.el.addEventListener("click", () => {
+				this.displayMode = btn.mode;
+				for (const other of modeButtons) {
+					if (other === btn) other.el.addClass("ft-active");
+					else other.el.removeClass("ft-active");
+				}
+			});
+		}
 
 		// ── Action buttons ────────────────────────────────
 		const actions = dialog.createDiv({ cls: "ft-mt-1" });

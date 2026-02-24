@@ -1,14 +1,14 @@
 /**
  * Event definitions for the Analytics domain.
  *
- * 16 events covering analytics queries and dashboards:
+ * 19 events covering analytics queries and dashboards:
  * - Lifecycle: loaded
  * - Query execution: started / completed / failed
- * - Query persistence: query.saved / query.deleted
+ * - Query persistence: query.saved / query.deleted / query.renamed / query.duplicated
  * - Query favorites: query.favorited
  * - Dashboard CRUD: dashboard.created / updated / deleted
  * - Dashboard favorites: dashboard.favorited / dashboard.defaultChanged
- * - Tile CRUD: dashboard.tile.added / removed / updated
+ * - Tile CRUD: dashboard.tile.added / removed / updated / reordered
  * - Dashboard refresh: dashboard.refreshed
  */
 

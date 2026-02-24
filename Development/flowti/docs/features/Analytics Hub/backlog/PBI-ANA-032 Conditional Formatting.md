@@ -4,7 +4,7 @@ pbi: PBI-ANA-032
 title: Conditional Formatting
 domain: analytics
 feature: "[[Analytics Hub PRD]]"
-stage: planned
+stage: delivered
 priority: high
 planned_in: "[[Cycle 32 - Analytics Visualization Sprint]]"
 related:

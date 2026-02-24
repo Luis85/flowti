@@ -263,10 +263,28 @@ export interface ParsedDate {
 // ── Dashboard types ─────────────────────────────────────
 
 /** Display mode for a dashboard tile. */
-export type TileDisplayMode = "table" | "stat-card";
+export type TileDisplayMode = "table" | "stat-card" | "line-chart" | "bar-chart";
 
 /** Source type for analytics queries. */
 export type AnalyticsSourceType = "csv" | "base";
+
+/** Comparison operator for conditional formatting rules. */
+export type ConditionalOperator = ">" | "<" | ">=" | "<=" | "=" | "!=";
+
+/** Built-in color preset names for conditional formatting. */
+export type ColorPreset = "positive" | "negative" | "warning";
+
+/** A conditional formatting rule applied to tile cells. */
+export interface ConditionalRule {
+	/** Column to evaluate */
+	column: string;
+	/** Comparison operator */
+	operator: ConditionalOperator;
+	/** Threshold value to compare against */
+	threshold: number;
+	/** Color preset name or CSS color string */
+	color: ColorPreset | string;
+}
 
 /** A single tile within a dashboard. */
 export interface DashboardTile {
@@ -286,6 +304,10 @@ export interface DashboardTile {
 	width: number;
 	/** Grid row span */
 	height: number;
+	/** Optional conditional formatting rules (first match wins) */
+	conditionalRules?: ConditionalRule[];
+	/** Show sparkline mini-charts in stat-card tiles (default: true) */
+	showSparkline?: boolean;
 }
 
 /** A named dashboard containing a grid of tiles. */

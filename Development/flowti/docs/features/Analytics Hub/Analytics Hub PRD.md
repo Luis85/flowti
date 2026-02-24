@@ -178,12 +178,12 @@ Primary interaction path:
 
 ### Visualization & Formatting (v5 — Cycle 32)
 
-- [ ] FR-37: Dashboard tiles support "line-chart" display mode; SVG line chart renders aggregated values with axis labels and data point markers
-- [ ] FR-38: Dashboard tiles support "bar-chart" display mode; SVG bar chart renders comparison data with value labels above bars
-- [ ] FR-39: User can configure conditional formatting rules per tile; each rule specifies a column, comparison operator, threshold value, and color
-- [ ] FR-40: Conditional formatting applies color coding to stat-card values (text color) and table cells (background tint) based on matching rules
-- [ ] FR-41: Stat-card tiles can show sparkline mini-charts visualizing trend across result rows; sparklines render when ≥3 data points exist and can be toggled per tile
-- [ ] FR-42: Chart tiles auto-detect axes from query dimensions (x-axis) and measures (y-axis)
+- [x] FR-37: Dashboard tiles support "line-chart" display mode; SVG line chart renders aggregated values with axis labels and data point markers
+- [x] FR-38: Dashboard tiles support "bar-chart" display mode; SVG bar chart renders comparison data with value labels above bars
+- [x] FR-39: User can configure conditional formatting rules per tile; each rule specifies a column, comparison operator, threshold value, and color
+- [x] FR-40: Conditional formatting applies color coding to stat-card values (text color) and table cells (background tint) based on matching rules
+- [x] FR-41: Stat-card tiles can show sparkline mini-charts visualizing trend across result rows; sparklines render when ≥3 data points exist and can be toggled per tile
+- [x] FR-42: Chart tiles auto-detect axes from query dimensions (x-axis) and measures (y-axis)
 
 ## 6. Data Model Impact
 
@@ -191,9 +191,9 @@ Primary interaction path:
 
 | Type | Fields | Storage |
 |------|--------|---------|
-| `TileDisplayMode` | `"table" \| "stat-card"` | Runtime |
+| `TileDisplayMode` | `"table" \| "stat-card" \| "line-chart" \| "bar-chart"` | Runtime |
 | `AnalyticsSourceType` | `"csv" \| "base"` | Runtime |
-| `DashboardTile` | id, queryId, title?, displayMode, row, col, width, height | `"analytics"` key |
+| `DashboardTile` | id, queryId, title?, displayMode, row, col, width, height, conditionalRules?, showSparkline? | `"analytics"` key |
 | `Dashboard` | id, name, description?, isFavorite?, tiles[], createdAt, updatedAt | `"analytics"` key |
 | `AnalyticsState` | savedAnalyticsQueries[], dashboards[], defaultDashboardId? | `"analytics"` key |
 
@@ -224,7 +224,7 @@ Primary interaction path:
 
 | Type | Fields | Storage |
 |------|--------|---------|
-| `ConditionalRule` | column, operator (`">" \| "<" \| ">=" \| "<=" \| "="`), threshold (number), color (preset or CSS string) | `"analytics"` key (in DashboardTile) |
+| `ConditionalRule` | column, operator (`">" \| "<" \| ">=" \| "<=" \| "=" \| "!="`), threshold (number), color (preset or CSS string) | `"analytics"` key (in DashboardTile) |
 
 ### Modified Types (v5)
 

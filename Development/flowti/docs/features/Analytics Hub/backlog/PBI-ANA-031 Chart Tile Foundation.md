@@ -4,7 +4,7 @@ pbi: PBI-ANA-031
 title: Chart Tile Foundation
 domain: analytics
 feature: "[[Analytics Hub PRD]]"
-stage: planned
+stage: delivered
 priority: critical
 planned_in: "[[Cycle 32 - Analytics Visualization Sprint]]"
 related:

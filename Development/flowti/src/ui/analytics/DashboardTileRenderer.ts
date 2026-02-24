@@ -6,9 +6,13 @@
  */
 
 import { setIcon } from "obsidian";
-import type { AnalyticsResult, DashboardTile, SavedAnalyticsQuery, TileDisplayMode } from "../../domain/analytics/types";
+import type { AnalyticsResult, DashboardTile, SavedAnalyticsQuery, TileDisplayMode, ConditionalRule } from "../../domain/analytics/types";
 import { formatRelativeTime, getFreshnessColor, getFreshnessLevel } from "../../domain/analytics/freshnessUtils";
+import { evaluateConditionalRules } from "../../domain/analytics/conditionalFormatting";
 import { AnalyticsResultsPanel } from "../hub/AnalyticsResultsPanel";
+import { ChartRenderer } from "./ChartRenderer";
+
+const DISPLAY_MODE_CYCLE: TileDisplayMode[] = ["table", "stat-card", "line-chart", "bar-chart"];
 
 const MAX_STAT_CARD_GROUPS = 20;
 
@@ -114,12 +118,14 @@ export class DashboardTileRenderer {
 			downBtn.addEventListener("click", (e) => { e.stopPropagation(); ctx.onReorder!(ctx.tile.id, "down"); });
 		}
 
-		// Display mode toggle
+		// Display mode toggle (cycles: table → stat-card → line-chart → bar-chart)
 		if (ctx.onDisplayModeToggle) {
 			const toggleBtn = actions.createSpan({ cls: "ft-nav-link ft-text-muted" });
 			const toggleIcon = toggleBtn.createSpan();
-			const nextMode: TileDisplayMode = ctx.tile.displayMode === "table" ? "stat-card" : "table";
-			setIcon(toggleIcon, nextMode === "table" ? "table" : "bar-chart-2");
+			const curIdx = DISPLAY_MODE_CYCLE.indexOf(ctx.tile.displayMode);
+			const nextMode = DISPLAY_MODE_CYCLE[(curIdx + 1) % DISPLAY_MODE_CYCLE.length];
+			const modeIcons: Record<TileDisplayMode, string> = { "table": "table", "stat-card": "bar-chart-2", "line-chart": "trending-up", "bar-chart": "bar-chart" };
+			setIcon(toggleIcon, modeIcons[nextMode]);
 			toggleIcon.style.width = "14px";
 			toggleIcon.style.height = "14px";
 			toggleBtn.style.cursor = "pointer";
@@ -166,9 +172,13 @@ export class DashboardTileRenderer {
 			} else if (!ctx.result) {
 				this.renderLoading(body);
 			} else if (ctx.tile.displayMode === "stat-card") {
-				this.renderStatCard(body, ctx.result);
+				this.renderStatCard(body, ctx.result, ctx.tile.conditionalRules, ctx.tile.showSparkline !== false);
+			} else if (ctx.tile.displayMode === "line-chart") {
+				ChartRenderer.renderLineChart(body, ctx.result);
+			} else if (ctx.tile.displayMode === "bar-chart") {
+				ChartRenderer.renderBarChart(body, ctx.result);
 			} else {
-				this.renderTable(body, ctx.result);
+				this.renderTable(body, ctx.result, ctx.tile.conditionalRules);
 			}
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
@@ -193,7 +203,7 @@ export class DashboardTileRenderer {
 		el.createDiv({ text: "Loading..." });
 	}
 
-	private renderStatCard(container: HTMLElement, result: AnalyticsResult): void {
+	private renderStatCard(container: HTMLElement, result: AnalyticsResult, rules?: ConditionalRule[], showSparkline = true): void {
 		if (result.rows.length === 0) {
 			container.createDiv({ text: "No data", cls: "ft-text-muted ft-text-sm ft-text-center" });
 			return;
@@ -238,6 +248,24 @@ export class DashboardTileRenderer {
 				valueEl.style.fontWeight = "700";
 				valueEl.textContent = val.toLocaleString();
 
+				// Conditional formatting: color stat-card text
+				const colRules = rules?.filter((r) => r.column === col);
+				if (colRules && colRules.length > 0) {
+					const color = evaluateConditionalRules(val, colRules);
+					if (color) valueEl.style.color = color;
+				}
+
+				// Sparkline: show trend across all rows for this measure
+				if (showSparkline && result.rows.length >= 3) {
+					const sparkValues = result.rows.map((r) => {
+						const v = r[col];
+						return typeof v === "number" ? v : 0;
+					});
+					const sparkHost = card.createDiv();
+					sparkHost.style.marginTop = "0.25rem";
+					ChartRenderer.renderSparkline(sparkHost, sparkValues);
+				}
+
 				card.createDiv({ text: col, cls: "ft-text-muted ft-text-xs" });
 			}
 		}
@@ -248,7 +276,45 @@ export class DashboardTileRenderer {
 		}
 	}
 
-	private renderTable(container: HTMLElement, result: AnalyticsResult): void {
-		new AnalyticsResultsPanel(container, { result }).render();
+	private renderTable(container: HTMLElement, result: AnalyticsResult, rules?: ConditionalRule[]): void {
+		if (!rules || rules.length === 0) {
+			new AnalyticsResultsPanel(container, { result }).render();
+			return;
+		}
+
+		// Custom table with conditional formatting background tints
+		if (result.rows.length === 0) {
+			container.createDiv({ text: "No data", cls: "ft-text-muted ft-text-sm ft-text-center" });
+			return;
+		}
+
+		const table = container.createEl("table", { cls: "ft-preview-table" });
+		const thead = table.createEl("thead");
+		const headerRow = thead.createEl("tr");
+		for (const col of result.columns) {
+			headerRow.createEl("th", { text: col, cls: "ft-text-xs" });
+		}
+
+		const tbody = table.createEl("tbody");
+		for (const row of result.rows) {
+			const tr = tbody.createEl("tr");
+			for (const col of result.columns) {
+				const val = row[col];
+				const td = tr.createEl("td", { cls: "ft-text-sm" });
+				td.textContent = typeof val === "number" ? val.toLocaleString() : String(val ?? "");
+
+				// Apply background tint for matching rules
+				if (typeof val === "number") {
+					const colRules = rules.filter((r) => r.column === col);
+					if (colRules.length > 0) {
+						const color = evaluateConditionalRules(val, colRules);
+						if (color) {
+							td.style.backgroundColor = color;
+							td.style.opacity = "0.85";
+						}
+					}
+				}
+			}
+		}
 	}
 }

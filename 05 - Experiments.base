@@ -4,3 +4,8 @@ filters:
 views:
   - type: table
     name: Table
+    order:
+      - file.name
+      - stage
+    columnSize:
+      file.name: 589

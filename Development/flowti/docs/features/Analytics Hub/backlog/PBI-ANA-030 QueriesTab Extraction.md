@@ -4,7 +4,7 @@ pbi: PBI-ANA-030
 title: QueriesTab Sub-Component Extraction
 domain: analytics
 feature: "[[Analytics Hub PRD]]"
-stage: planned
+stage: delivered
 priority: critical
 planned_in: "[[Cycle 32 - Analytics Visualization Sprint]]"
 related:

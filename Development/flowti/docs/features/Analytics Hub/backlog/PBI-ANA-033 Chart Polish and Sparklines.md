@@ -4,7 +4,7 @@ pbi: PBI-ANA-033
 title: Chart Polish and Sparklines
 domain: analytics
 feature: "[[Analytics Hub PRD]]"
-stage: planned
+stage: delivered
 priority: high
 planned_in: "[[Cycle 32 - Analytics Visualization Sprint]]"
 related:
