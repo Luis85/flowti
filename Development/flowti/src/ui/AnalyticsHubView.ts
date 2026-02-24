@@ -27,6 +27,7 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 	private baseFiles: AnalyticsBaseEntry[] = [];
 	private selectedQueryId: string | null = null;
 	private selectedDashboardId: string | null = null;
+	private homepageDashboardId: string | null = null;
 
 	// ── Tab components ───────────────────────────────────────
 	private tileResultCache = new TileResultCache();
@@ -235,6 +236,7 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 			filterText: this.filterText,
 			selectedQueryId: this.selectedQueryId,
 			selectedDashboardId: this.selectedDashboardId,
+			homepageDashboardId: this.homepageDashboardId,
 		};
 	}
 
@@ -243,6 +245,7 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 		if (partial.filterText !== undefined) this.filterText = partial.filterText;
 		if (partial.selectedQueryId !== undefined) this.selectedQueryId = partial.selectedQueryId;
 		if (partial.selectedDashboardId !== undefined) this.selectedDashboardId = partial.selectedDashboardId;
+		if (partial.homepageDashboardId !== undefined) this.homepageDashboardId = partial.homepageDashboardId;
 	}
 
 	// ── Data refresh ─────────────────────────────────────────

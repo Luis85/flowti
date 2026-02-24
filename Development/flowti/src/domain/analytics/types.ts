@@ -281,7 +281,7 @@ export interface ParsedDate {
 // ── Dashboard types ─────────────────────────────────────
 
 /** Display mode for a dashboard tile. */
-export type TileDisplayMode = "table" | "stat-card" | "line-chart" | "bar-chart";
+export type TileDisplayMode = "table" | "stat-card" | "line-chart" | "bar-chart" | "area-chart";
 
 /** Source type for analytics queries. */
 export type AnalyticsSourceType = "csv" | "base";
@@ -328,6 +328,10 @@ export interface DashboardTile {
 	showSparkline?: boolean;
 	/** Selected value column for chart display (defaults to first numeric column) */
 	chartValueColumn?: string;
+	/** Max number of rows to render (undefined = all rows) */
+	rowLimit?: number;
+	/** When true at max-width (3 cols), height is driven by content instead of grid rows */
+	autoHeight?: boolean;
 }
 
 /** A named dashboard containing a grid of tiles. */
@@ -348,6 +352,52 @@ export interface Dashboard {
 	updatedAt: number;
 }
 
+// ── Dashboard template types ────────────────────────────
+
+/** Template for a saved query — captures config with source paths as placeholders. */
+export interface SavedQueryTemplate {
+	/** Original sources (paths used as placeholders for source mapping) */
+	originalSources: SavedAnalyticsQuerySource[];
+	/** Query configuration (without runtime fields) */
+	queryConfig: Omit<SavedAnalyticsQuery, "id" | "createdAt" | "lastRun" | "lastRowCount" | "sources" | "isFavorite">;
+}
+
+/** Template for a dashboard tile — references a query by index. */
+export interface DashboardTileTemplate {
+	/** Index into the template's queries array */
+	queryIndex: number;
+	/** Tile display title */
+	title: string;
+	/** Display mode */
+	displayMode: TileDisplayMode;
+	/** Grid width */
+	width: number;
+	/** Grid height */
+	height: number;
+	/** Optional conditional formatting rules */
+	conditionalRules?: ConditionalRule[];
+	/** Optional chart value column */
+	chartValueColumn?: string;
+}
+
+/** A reusable dashboard template — captures queries + tile layout. */
+export interface DashboardTemplate {
+	/** Unique template ID */
+	id: string;
+	/** Template name */
+	name: string;
+	/** Description of what this template provides */
+	description: string;
+	/** Domain tag (e.g., "Supplier Management", "Inventory Management") */
+	domain: string;
+	/** Query templates (each with source placeholder) */
+	queries: SavedQueryTemplate[];
+	/** Tile layout templates */
+	tiles: DashboardTileTemplate[];
+	/** Timestamp when created */
+	createdAt: number;
+}
+
 // ── Analytics state ─────────────────────────────────────
 
 /** Persisted state for the Analytics domain (TypedStorage key: "analytics"). */
@@ -358,6 +408,6 @@ export interface AnalyticsState {
 	dashboards: Dashboard[];
 	/** ID of the default dashboard shown on hub overview (null = no default) */
 	defaultDashboardId?: string | null;
-	/** IDs of dashboards pinned to homepage (max 3, compact summary cards). */
-	pinnedDashboardIds?: string[];
+	/** Saved dashboard templates */
+	templates?: DashboardTemplate[];
 }

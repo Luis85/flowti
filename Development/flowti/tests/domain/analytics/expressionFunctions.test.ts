@@ -98,6 +98,38 @@ describe("expressionFunctions", () => {
 		});
 	});
 
+	// ── IF edge cases (AI-1 fix) ──────────────────────
+
+	describe("evalIf malformed conditions", () => {
+		it("should return else value when condition regex does not match", () => {
+			const row: ResultRow = { X: 10 };
+			// "just some text" has no operator — regex won't match
+			expect(evalIf(["just some text", '"Yes"', '"No"'], row)).toBe("No");
+		});
+
+		it("should return else value for empty condition string", () => {
+			const row: ResultRow = { X: 10 };
+			expect(evalIf(["", '"Yes"', '"No"'], row)).toBe("No");
+		});
+
+		it("should return numeric else value for malformed condition", () => {
+			const row: ResultRow = { X: 10 };
+			expect(evalIf(["no_operator_here", "100", "42"], row)).toBe(42);
+		});
+	});
+
+	describe("evalIf column ref on right side (AI-1b)", () => {
+		it("should resolve column reference as threshold", () => {
+			const row: ResultRow = { Stock: 180, Reorder: 200 };
+			expect(evalIf(["{Stock} < {Reorder}", "1", "0"], row)).toBe(1);
+		});
+
+		it("should resolve column reference when condition is false", () => {
+			const row: ResultRow = { Stock: 300, Reorder: 200 };
+			expect(evalIf(["{Stock} < {Reorder}", "1", "0"], row)).toBe(0);
+		});
+	});
+
 	// ── Nesting ────────────────────────────────────────
 
 	describe("nested expressions via evaluateExpression", () => {

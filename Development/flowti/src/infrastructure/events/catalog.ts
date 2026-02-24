@@ -579,6 +579,8 @@ const CATALOG_DATA = {
 	"analytics.query.renamed":          { category: "Analytics", description: "A saved query was renamed", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
 	"analytics.query.duplicated":       { category: "Analytics", description: "A saved query was duplicated", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
 	"analytics.dashboard.tile.reordered": { category: "Analytics", description: "A dashboard tile was reordered", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
+	"analytics.template.saved":         { category: "Analytics", description: "A dashboard was saved as a reusable template", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
+	"analytics.template.used":          { category: "Analytics", description: "A new dashboard was created from a template", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

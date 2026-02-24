@@ -182,8 +182,10 @@ export class QueryBuilderPanel {
 
 		const dims = this.deps.dimensions();
 		const dimSet = new Set(dims.map((d) => d.column));
+		const hints = this.deps.columnTypeHints();
+		const numericCols = new Set(hints.filter((h) => h.type === "number").map((h) => h.column));
 		const grid = section.createDiv({ cls: "ft-property-grid" });
-		for (const col of this.deps.getLoadedHeaders()) {
+		for (const col of this.deps.getLoadedHeaders().filter((c) => !numericCols.has(c))) {
 			const item = grid.createDiv({ cls: "ft-property-item" });
 			const cb = item.createEl("input", { type: "checkbox" });
 			cb.checked = dimSet.has(col);
@@ -207,7 +209,8 @@ export class QueryBuilderPanel {
 		header.style.margin = "0";
 
 		const hints = this.deps.columnTypeHints();
-		const allHeaders = this.deps.getLoadedHeaders();
+		const numericCols = hints.filter((h) => h.type === "number").map((h) => h.column);
+		const allHeaders = numericCols.length > 0 ? numericCols : this.deps.getLoadedHeaders();
 
 		const addBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 		addBtn.style.marginLeft = "auto";

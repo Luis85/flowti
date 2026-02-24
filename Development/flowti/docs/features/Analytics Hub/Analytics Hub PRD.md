@@ -3,7 +3,7 @@ domain: Analytics
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
 stage: delivered
-version: 7
+version: 8
 maturity: L2
 created: 2026-02-23
 updated: 2026-02-24
@@ -197,13 +197,25 @@ Primary interaction path:
 - [x] FR-50: User can pin up to 3 dashboards to the Analytics Hub homepage; pinned dashboards render as compact summary cards above the default dashboard; pin state persists
 - [x] FR-51: Saved queries section appears above source files section in the Queries tab master list; sources section is collapsible and defaults to collapsed when saved queries exist
 
+### Inventory Discovery & Dashboard Integration (v7 — Cycle 34)
+
+- [x] FR-52: Dashboard tiles support "area-chart" display mode; SVG area chart renders filled regions with line overlay and dot markers; supports single-series and multi-series (time bucket + dimension)
+- [x] FR-53: User can save a dashboard as a reusable template capturing queries + tiles; template stores source paths as placeholders for remapping
+- [x] FR-54: User can create a new dashboard from a saved template with source path mapping; template tiles reference queries by index, fresh IDs generated on instantiation
+- [x] FR-55: User can import a dashboard template from a JSON file via the Dashboards tab; file picker accepts `.json` files conforming to the DashboardTemplate schema
+- [x] FR-56: Analytics Hub dashboard page renders Dashboards and Queries navigation links above the favorites section for quick tab switching
+- [x] FR-57: User Hub dashboard widget renders stat-card KPI values from the default dashboard's first 3 stat-card tiles; values refresh asynchronously with 5-minute cache
+- [x] FR-58: `evalIf` condition right side supports column references (e.g., `IF({Stock} < {Reorder}, 1, 0)`) in addition to numeric literals
+- [x] FR-59: Query builder dimensions section shows only string/date columns (excludes columns typed as "number"); measure column dropdown shows only numeric columns when type hints exist
+- [x] FR-60: `updateTile` uses a whitelist array (`TILE_MUTABLE_KEYS`) for field assignment; new DashboardTile fields are automatically included when added to the whitelist
+
 ## 6. Data Model Impact
 
 ### New Types
 
 | Type | Fields | Storage |
 |------|--------|---------|
-| `TileDisplayMode` | `"table" \| "stat-card" \| "line-chart" \| "bar-chart"` | Runtime |
+| `TileDisplayMode` | `"table" \| "stat-card" \| "line-chart" \| "bar-chart" \| "area-chart"` | Runtime |
 | `AnalyticsSourceType` | `"csv" \| "base"` | Runtime |
 | `DashboardTile` | id, queryId, title?, displayMode, row, col, width, height, conditionalRules?, showSparkline? | `"analytics"` key |
 | `Dashboard` | id, name, description?, isFavorite?, tiles[], createdAt, updatedAt | `"analytics"` key |
@@ -258,6 +270,24 @@ Primary interaction path:
 | `evaluateExpression` return type | `number` → `string \| number` (IF function can return strings) |
 | `AnalyticsState` | Add `pinnedDashboardIds?: string[]` (max 3 dashboard IDs) |
 
+### v7 Types (Cycle 34)
+
+| Type | Fields | Storage |
+|------|--------|---------|
+| `SavedQueryTemplate` | originalSources[], queryConfig (Omit<SavedAnalyticsQuery, "id"\|"createdAt"\|"sources"\|...>) | `"analytics"` key (in DashboardTemplate) |
+| `DashboardTileTemplate` | queryIndex, title, displayMode, width, height, conditionalRules?, chartValueColumn? | `"analytics"` key (in DashboardTemplate) |
+| `DashboardTemplate` | id, name, description, domain, queries[], tiles[], createdAt | `"analytics"` key |
+| `DashboardStatItem` | label, value, icon?, color? | Runtime (HubSummary) |
+
+### Modified Types (v7)
+
+| Type | Change |
+|------|--------|
+| `TileDisplayMode` | Add `"area-chart"` to union |
+| `AnalyticsState` | Add `templates?: DashboardTemplate[]` |
+| `DashboardTile` | Add `chartValueColumn?: string` |
+| `HubSummary` | Add `dashboardStats?: DashboardStatItem[]` |
+
 ### Removed from DataExchangeState
 
 | Field | Reason |
@@ -298,7 +328,14 @@ Primary interaction path:
 | `analytics.query.duplicated` | `{ originalQueryId, newQueryId, newQueryName }` | Analytics | — |
 | `analytics.dashboard.tile.reordered` | `{ dashboardId, tileId, direction }` | Analytics | — |
 
-**Total analytics events:** 19 (12 v1 + 1 loaded + 3 v2 + 3 v3; v6 adds no new events — features are engine + UI level)
+### v7 Events (2 — Cycle 34)
+
+| Event | Payload | Category | Tags |
+|-------|---------|----------|------|
+| `analytics.template.saved` | `{ templateId, templateName, domain }` | Analytics | — |
+| `analytics.template.used` | `{ templateId, dashboardId, dashboardName }` | Analytics | — |
+
+**Total analytics events:** 21 (12 v1 + 1 loaded + 3 v2 + 3 v3 + 2 v7)
 
 ### Consumed
 

@@ -1,0 +1,187 @@
+{
+	"name": "Supplier Management Dashboard",
+	"description": "Procurement performance across suppliers: cost trends, revenue, gross margin, supplier comparison.",
+	"domain": "Supplier Management",
+	"queries": [
+		{
+			"originalSources": [
+				{ "alias": "sales", "csvPath": "03 - Resources/Test Data/Analytics/Sales.csv" }
+			],
+			"queryConfig": {
+				"name": "Procurement Cost Total",
+				"joins": [],
+				"columnTypeHints": [
+					{ "column": "total_cost", "type": "number" }
+				],
+				"dimensions": [],
+				"measures": [
+					{ "column": "total_cost", "function": "SUM", "label": "Total Cost" }
+				]
+			}
+		},
+		{
+			"originalSources": [
+				{ "alias": "sales", "csvPath": "03 - Resources/Test Data/Analytics/Sales.csv" },
+				{ "alias": "items", "csvPath": "03 - Resources/Test Data/Analytics/Items.csv" }
+			],
+			"queryConfig": {
+				"name": "Revenue with Margin",
+				"joins": [
+					{ "leftSource": "sales", "rightSource": "items", "leftColumn": "item_id", "rightColumn": "item_id", "type": "inner" }
+				],
+				"columnTypeHints": [
+					{ "column": "quantity", "type": "number" },
+					{ "column": "unit_price", "type": "number" },
+					{ "column": "total_cost", "type": "number" }
+				],
+				"dimensions": [],
+				"measures": [
+					{ "column": "total_cost", "function": "SUM", "label": "Cost" },
+					{ "column": "quantity", "function": "SUM", "label": "Units" },
+					{ "column": "unit_price", "function": "AVG", "label": "Avg Price" }
+				],
+				"computedColumns": [
+					{ "name": "Revenue", "expression": "{Units} * {Avg Price}" },
+					{ "name": "Margin %", "expression": "ROUND(({Revenue} - {Cost}) / {Revenue} * 100, 1)" }
+				]
+			}
+		},
+		{
+			"originalSources": [
+				{ "alias": "sales", "csvPath": "03 - Resources/Test Data/Analytics/Sales.csv" },
+				{ "alias": "suppliers", "csvPath": "03 - Resources/Test Data/Analytics/Suppliers.csv" }
+			],
+			"queryConfig": {
+				"name": "Cost by Supplier Monthly",
+				"joins": [
+					{ "leftSource": "sales", "rightSource": "suppliers", "leftColumn": "supplier_id", "rightColumn": "supplier_id", "type": "inner" }
+				],
+				"columnTypeHints": [
+					{ "column": "total_cost", "type": "number" }
+				],
+				"dimensions": [
+					{ "column": "supplier_name" }
+				],
+				"measures": [
+					{ "column": "total_cost", "function": "SUM", "label": "Cost" }
+				],
+				"timeBucket": {
+					"column": "sale_date",
+					"period": "month"
+				}
+			}
+		},
+		{
+			"originalSources": [
+				{ "alias": "sales", "csvPath": "03 - Resources/Test Data/Analytics/Sales.csv" },
+				{ "alias": "suppliers", "csvPath": "03 - Resources/Test Data/Analytics/Suppliers.csv" },
+				{ "alias": "items", "csvPath": "03 - Resources/Test Data/Analytics/Items.csv" }
+			],
+			"queryConfig": {
+				"name": "Revenue by Supplier Monthly",
+				"joins": [
+					{ "leftSource": "sales", "rightSource": "suppliers", "leftColumn": "supplier_id", "rightColumn": "supplier_id", "type": "inner" },
+					{ "leftSource": "sales", "rightSource": "items", "leftColumn": "item_id", "rightColumn": "item_id", "type": "inner" }
+				],
+				"columnTypeHints": [
+					{ "column": "quantity", "type": "number" },
+					{ "column": "unit_price", "type": "number" }
+				],
+				"dimensions": [
+					{ "column": "supplier_name" }
+				],
+				"measures": [
+					{ "column": "quantity", "function": "SUM", "label": "Units Sold" },
+					{ "column": "unit_price", "function": "AVG", "label": "Avg Unit Price" }
+				],
+				"computedColumns": [
+					{ "name": "Revenue", "expression": "{Units Sold} * {Avg Unit Price}" }
+				],
+				"timeBucket": {
+					"column": "sale_date",
+					"period": "month"
+				}
+			}
+		},
+		{
+			"originalSources": [
+				{ "alias": "sales", "csvPath": "03 - Resources/Test Data/Analytics/Sales.csv" },
+				{ "alias": "suppliers", "csvPath": "03 - Resources/Test Data/Analytics/Suppliers.csv" }
+			],
+			"queryConfig": {
+				"name": "Supplier Comparison",
+				"joins": [
+					{ "leftSource": "sales", "rightSource": "suppliers", "leftColumn": "supplier_id", "rightColumn": "supplier_id", "type": "inner" }
+				],
+				"columnTypeHints": [
+					{ "column": "total_cost", "type": "number" },
+					{ "column": "unit_cost", "type": "number" },
+					{ "column": "sale_date", "type": "string" }
+				],
+				"dimensions": [
+					{ "column": "supplier_name" }
+				],
+				"measures": [
+					{ "column": "total_cost", "function": "SUM", "label": "Total Cost" },
+					{ "column": "unit_cost", "function": "AVG", "label": "Avg Unit Cost" },
+					{ "column": "sale_date", "function": "COUNT", "label": "Order Count" }
+				],
+				"sort": { "column": "Total Cost", "direction": "desc" }
+			}
+		}
+	],
+	"tiles": [
+		{
+			"queryIndex": 0,
+			"title": "Total Procurement Cost",
+			"displayMode": "stat-card",
+			"width": 1,
+			"height": 1
+		},
+		{
+			"queryIndex": 1,
+			"title": "Total Revenue",
+			"displayMode": "stat-card",
+			"width": 1,
+			"height": 1
+		},
+		{
+			"queryIndex": 1,
+			"title": "Gross Margin %",
+			"displayMode": "stat-card",
+			"width": 1,
+			"height": 1,
+			"chartValueColumn": "Margin %",
+			"conditionalRules": [
+				{ "column": "Margin %", "operator": "<", "threshold": 20, "color": "negative" },
+				{ "column": "Margin %", "operator": ">=", "threshold": 30, "color": "positive" }
+			]
+		},
+		{
+			"queryIndex": 2,
+			"title": "Cost by Supplier / Month",
+			"displayMode": "line-chart",
+			"width": 2,
+			"height": 2,
+			"chartValueColumn": "Cost"
+		},
+		{
+			"queryIndex": 3,
+			"title": "Revenue by Supplier / Month",
+			"displayMode": "bar-chart",
+			"width": 2,
+			"height": 2,
+			"chartValueColumn": "Revenue"
+		},
+		{
+			"queryIndex": 4,
+			"title": "Supplier Comparison",
+			"displayMode": "table",
+			"width": 3,
+			"height": 2,
+			"conditionalRules": [
+				{ "column": "Avg Unit Cost", "operator": ">", "threshold": 50, "color": "warning" }
+			]
+		}
+	]
+}

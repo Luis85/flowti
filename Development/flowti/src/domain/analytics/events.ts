@@ -1,7 +1,7 @@
 /**
  * Event definitions for the Analytics domain.
  *
- * 19 events covering analytics queries and dashboards:
+ * 21 events covering analytics queries, dashboards, and templates:
  * - Lifecycle: loaded
  * - Query execution: started / completed / failed
  * - Query persistence: query.saved / query.deleted / query.renamed / query.duplicated
@@ -10,6 +10,7 @@
  * - Dashboard favorites: dashboard.favorited / dashboard.defaultChanged
  * - Tile CRUD: dashboard.tile.added / removed / updated / reordered
  * - Dashboard refresh: dashboard.refreshed
+ * - Templates: template.saved / template.used
  */
 
 import type { AnalyticsResult, Dashboard, DashboardTile } from "./types";
@@ -135,5 +136,19 @@ export interface AnalyticsEventMap {
 		dashboardId: string;
 		tileId: string;
 		direction: "up" | "down";
+	};
+
+	/** A dashboard was saved as a reusable template */
+	"analytics.template.saved": {
+		templateId: string;
+		templateName: string;
+		domain: string;
+	};
+
+	/** A new dashboard was created from a template */
+	"analytics.template.used": {
+		templateId: string;
+		dashboardId: string;
+		dashboardName: string;
 	};
 }

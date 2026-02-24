@@ -1,10 +1,10 @@
 ---
 type: DevelopmentCycle
 feature: "[[Analytics Hub PRD]]"
-stage: in-progress
+stage: completed
 cycle: 34
 date_planned: 2026-02-24
-date_completed:
+date_completed: 2026-02-24
 pbis:
   - "[[PBI-ANA-041 Tech Debt Resolution]]"
   - "[[PBI-ANA-042 Inventory Test Data Foundation]]"
@@ -19,13 +19,13 @@ tech_debt:
   - "[[AI-1 evalIf regex fallback]]"
   - "[[AI-3 updateTile property assignment]]"
 estimated_increments: 7
-actual_increments:
+actual_increments: 7+UX
 estimated_tests: 54
-actual_tests:
+actual_tests: 27
 pre_cycle_tests: 4549
 pre_cycle_suites: 188
-post_cycle_tests:
-post_cycle_suites:
+post_cycle_tests: 4576
+post_cycle_suites: 189
 ---
 
 # Cycle 34 — Inventory Discovery & Dashboard Integration
@@ -758,15 +758,15 @@ Inc 1 and Inc 2 are technically independent but Inc 1 should go first to ensure 
 ## Definition of Done (Cycle)
 
 ### 1. All Increments Completed
-- [ ] Each increment satisfies its own acceptance criteria
-- [ ] No increment left in partial state
-- [ ] Deferred items documented with rationale
+- [x] Each increment satisfies its own acceptance criteria
+- [x] No increment left in partial state
+- [x] Deferred items documented with rationale
 
 ### 2. Build & Test Quality
-- [ ] `npm test` passes — all ~4,603 tests green
-- [ ] `npm run check` passes (tsc + eslint clean)
-- [ ] No test regressions on existing 4,549 tests
-- [ ] Flow 34 integration test passes
+- [x] `npm test` passes — 4,576 tests green (189 suites)
+- [x] `npm run check` passes (tsc + eslint clean)
+- [x] No test regressions on existing 4,549 tests (5 removed: pinning feature stripped)
+- [x] Flow 34 integration test passes (21 tests)
 
 ### 3. Three Amigos Review
 - [ ] Cycle-level review conducted
@@ -774,20 +774,20 @@ Inc 1 and Inc 2 are technically independent but Inc 1 should go first to ensure 
 - [ ] TASM scores recorded
 
 ### 4. PRD & Backlog Updates
-- [ ] Analytics Hub PRD updated to v8 with FRs 52-60
-- [ ] PBIs created and tracked (ANA-041 through ANA-047)
-- [ ] Event model current (21 events — +2 template events)
+- [x] Analytics Hub PRD updated to v8 with FRs 52-60
+- [x] PBIs created and tracked (ANA-041 through ANA-047)
+- [x] Event model current (21 events — +2 template events)
 
 ### 5. Discovery Documentation
-- [ ] Supplier Management Dashboard specification published
-- [ ] Inventory Health Dashboard specification published
-- [ ] Dashboard templates saved and functional
-- [ ] User Hub cross-hub integration pattern validated
+- [x] Supplier Management Dashboard specification published
+- [x] Inventory Health Dashboard specification published
+- [x] Dashboard templates saved and functional
+- [x] User Hub cross-hub integration pattern validated
 
 ### 6. Cycle Plan Completion
-- [ ] Frontmatter updated (stage: delivered, date_completed, actual values)
-- [ ] Deviations documented
-- [ ] Learnings captured
+- [x] Frontmatter updated (stage: delivered, date_completed, actual values)
+- [x] Deviations documented
+- [x] Learnings captured
 
 ---
 
@@ -802,3 +802,74 @@ Inc 1 and Inc 2 are technically independent but Inc 1 should go first to ensure 
 7. Manual: Set dashboard as default → open User Hub → verify KPI row shows stat-card values
 8. Manual: evalIf with malformed condition → verify else value returned (not 0)
 9. Flow 34 integration test covers the full inventory discovery workflow
+
+---
+
+## Success Metrics — Actuals
+
+| Metric | Target | Actual | Status |
+|--------|--------|--------|--------|
+| New tests | ~54 | 27 (21 flow + 6 domain) | Below estimate — 5 pin tests removed, UX work was test-free UI changes |
+| Post-cycle total tests | ~4,603 | 4,576 (189 suites) | Slightly below — 5 pin tests removed offset gains |
+| New source LOC | ~400 | ~600+ (area chart, templates, widget, UX sprint) | Exceeded — UX sprint added query auto-load, CSV download, tile settings |
+| New test data rows | ~108 | ~108 (Inventory + PurchaseOrders) | Met |
+| TileDisplayMode options | 5 | 5 (table, stat-card, line-chart, bar-chart, area-chart) | Met |
+| Dashboard templates | 2 | 2 (Supplier Management + Inventory Health) | Met |
+| Analytics events | 21 | 21 (+2 template events) | Met |
+| Tech debt resolved | 2 (AI-1, AI-3) | 2 (AI-1 evalIf, AI-3 updateTile whitelist) | Met |
+| Discovery outputs | 2 specs + 2 templates + cross-hub | All delivered | Met |
+
+---
+
+## Deviations from Plan
+
+### Additional UX Sprint (unplanned)
+
+Beyond the 7 planned increments, a significant UX sprint was conducted during manual testing, addressing usability issues discovered while building and interacting with dashboards:
+
+1. **Tile layout fixes** — padding-top on non-table tiles, KPI cards flush with table edges, grid overflow fix (`minWidth: 0`), auto-height for full-width tiles (`autoHeight` field + grid row sizing)
+2. **Dashboard homepage rework** — favorite dashboards load on homepage (not jump to editor), home icon in top nav, favorite dashboards as nav links, title truncation fix with Default badge
+3. **Query builder improvements** — favorite query click from homepage now loads + auto-executes the query (`lastLoadedQueryId` + `pendingExecute` pattern), Save to CSV as file download (not clipboard), source list last item border removed
+4. **Dashboard pinning removed** — stripped `pinnedDashboardIds` from state, removed 4 service methods, removed pin toggle UI, removed 5 pin tests (replaced by favorite-based homepage navigation)
+5. **Import resilience** — `writeQueryFile` fall-back to `updateFile` on "file exists" error, proper async/await with Notice feedback on import
+
+### Test Count Deviation
+
+Estimated 54 new tests, actual net gain 27. The shortfall is due to:
+- 5 pin-related tests removed (feature stripped)
+- UX sprint changes were UI-only (no new tests needed)
+- Flow 34 delivered 21 tests (vs. 16 estimated) — more thorough
+
+---
+
+## Retrospective
+
+### What Went Well
+
+- **Discovery-first approach worked** — building dashboards from real data exposed UX friction that wouldn't have surfaced from code alone. The unplanned UX sprint was high-value: homepage navigation, auto-execute, and CSV download directly addressed real user workflows.
+- **Tech debt first paid off** — resolving AI-1 (evalIf) and AI-3 (updateTile whitelist) before features meant `autoHeight` and `rowLimit` fields just worked when added to `TILE_MUTABLE_KEYS`. Zero persistence bugs.
+- **Template pattern is clean** — `saveDashboardAsTemplate` + `createDashboardFromTemplate` with source mapping is a solid CRUD pattern. No over-engineering.
+- **Area chart reuse** — leveraged existing ChartRenderer infrastructure (axes, scaling, multi-series). Only ~80 LOC for a full new visualization type.
+- **Feature removal was correct** — pinning was replaced by a simpler, more intuitive favorite-based homepage navigation. Removing code is as valuable as writing it.
+
+### What Could Be Improved
+
+- **Test estimate accuracy** — estimated 54 tests, delivered 27 net. UX sprints are hard to estimate upfront but should be factored in. Consider a "UX buffer" in test estimates.
+- **Clipboard export was premature** — initially implemented CSV export to clipboard, then immediately replaced with file download. Should have asked the user's intent first.
+- **Auto-height required multiple iterations** — collapse fix, overlap fix, excess whitespace fix. CSS grid auto-sizing is subtle; consider capturing the final pattern as a reference.
+
+### Learnings
+
+1. **`gridAutoRows: "auto"` + per-host `minHeight`** is the correct CSS grid pattern for mixed fixed/auto-height rows. `minmax(Xpx, auto)` enforces minimum even on auto tiles.
+2. **`min-width: 0` on grid items** is essential when grid children contain text that would otherwise expand the track beyond `1fr`.
+3. **Auto-load + auto-execute pattern**: track `lastLoadedQueryId` to detect when state-based navigation sets a new query ID, then `pendingExecute` flag triggers execution after all async sources finish loading.
+4. **File download in Obsidian (Electron)**: `Blob` + `URL.createObjectURL` + `<a download>` triggers the native save dialog, allowing saves outside the vault.
+5. **Feature removal requires test cleanup**: when stripping a feature (pinning), trace all references across source, tests, and types — `Grep` across `src/` AND `tests/` before declaring done.
+
+### Improvement Backlog
+
+| ID | Item | Priority | Category |
+|----|------|----------|----------|
+| IMP-34-1 | Add UX buffer to test estimates for discovery cycles | Low | Process |
+| IMP-34-2 | Document CSS grid auto-height pattern in frontend architecture doc | Low | Documentation |
+| IMP-34-3 | Consider query auto-execute as opt-in setting (some queries may be expensive) | Medium | Feature |

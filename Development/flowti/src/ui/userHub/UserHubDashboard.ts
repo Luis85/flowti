@@ -443,6 +443,32 @@ export class UserHubDashboard {
 		}
 
 		renderStatGrid(section, cards, 3);
+
+		// Render dashboard KPI row when a provider surfaces live stats
+		for (const provider of providers) {
+			const summary = provider.getSummary();
+			if (!summary.dashboardStats || summary.dashboardStats.length === 0) continue;
+
+			const hubId = provider.getHubId();
+			const kpiRow = section.createDiv({ cls: "ft-flex ft-gap-2 ft-items-center" });
+			kpiRow.style.marginTop = "0.75rem";
+			kpiRow.style.padding = "0.5rem 0.75rem";
+			kpiRow.style.borderRadius = "6px";
+			kpiRow.style.background = "var(--background-secondary)";
+			kpiRow.style.cursor = "pointer";
+			kpiRow.addEventListener("click", () => void this.deps.hubRegistry.openHub(hubId, "dashboards"));
+
+			for (const stat of summary.dashboardStats) {
+				const kpi = kpiRow.createDiv();
+				kpi.style.flex = "1";
+				kpi.style.textAlign = "center";
+
+				const val = kpi.createDiv({ text: stat.value, cls: "ft-text-lg ft-font-bold" });
+				if (stat.color) val.style.color = stat.color;
+
+				kpi.createDiv({ text: stat.label, cls: "ft-text-xs ft-text-muted" });
+			}
+		}
 	}
 
 	private renderQuickActions(): void {

@@ -41,6 +41,8 @@ export interface AnalyticsHubState {
 	filterText: string;
 	selectedQueryId: string | null;
 	selectedDashboardId: string | null;
+	/** Dashboard ID to display on the homepage (null = use default dashboard). */
+	homepageDashboardId: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -38,10 +38,10 @@ export function evalIf(args: string[], row: ResultRow): string | number {
 	const elseVal = args[2].trim();
 
 	const condMatch = condition.match(/^(.+?)\s*(>=|<=|!=|>|<|=)\s*(.+)$/);
-	if (!condMatch) return 0;
+	if (!condMatch) return resolveValue(elseVal, row);
 
 	const leftNum = resolveNumericArg(condMatch[1].trim(), row);
-	const rightNum = parseFloat(condMatch[3].trim());
+	const rightNum = resolveNumericArg(condMatch[3].trim(), row);
 
 	if (isNaN(leftNum) || isNaN(rightNum)) return resolveValue(elseVal, row);
 

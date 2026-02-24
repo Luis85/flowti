@@ -9,7 +9,7 @@ import { formatRelativeTime, getFreshnessColor, getFreshnessLevel } from "../../
 import { evaluateConditionalRules } from "../../domain/analytics/conditionalFormatting";
 import { ChartRenderer } from "./ChartRenderer";
 
-const DISPLAY_MODE_CYCLE: TileDisplayMode[] = ["table", "stat-card", "line-chart", "bar-chart"];
+const DISPLAY_MODE_CYCLE: TileDisplayMode[] = ["table", "stat-card", "line-chart", "bar-chart", "area-chart"];
 
 const MAX_STAT_CARD_GROUPS = 20;
 
@@ -32,6 +32,20 @@ export interface TileRenderContext {
 	onToggleSettings?: (tileId: string) => void;
 	/** Called when the user selects a different value column for chart display. */
 	onChartValueColumnChange?: (tileId: string, column: string) => void;
+	/** All saved queries — used in settings panel to change the tile's query. */
+	queries?: SavedAnalyticsQuery[];
+	/** Called when the user changes which saved query this tile references. */
+	onQueryChange?: (tileId: string, newQueryId: string) => void;
+	/** Called when the user changes tile width (1–3 columns). */
+	onWidthChange?: (tileId: string, width: number) => void;
+	/** Called when the user changes tile height (1–5 rows). */
+	onHeightChange?: (tileId: string, height: number) => void;
+	/** Called when the user toggles sparkline visibility on stat-card tiles. */
+	onSparklineToggle?: (tileId: string, show: boolean) => void;
+	/** Called when the user changes the max row limit for this tile. */
+	onRowLimitChange?: (tileId: string, limit: number | undefined) => void;
+	/** Called when the user toggles auto-height (content-driven height at max width). */
+	onAutoHeightToggle?: (tileId: string, auto: boolean) => void;
 }
 
 export class DashboardTileRenderer {
@@ -46,6 +60,7 @@ export class DashboardTileRenderer {
 		tileEl.style.overflow = "hidden";
 		tileEl.style.display = "flex";
 		tileEl.style.flexDirection = "column";
+		if (!ctx.tile.autoHeight) tileEl.style.height = "100%";
 
 		// ── Header ──────────────────────────────────────
 		const header = tileEl.createDiv({ cls: "ft-dashboard-tile-header" });
@@ -77,36 +92,40 @@ export class DashboardTileRenderer {
 				cls: "ft-text-sm",
 			});
 			titleEl.style.fontWeight = "600";
+			titleEl.style.flex = "1";
+			titleEl.style.minWidth = "0";
+			titleEl.style.overflow = "hidden";
+			titleEl.style.textOverflow = "ellipsis";
+			titleEl.style.whiteSpace = "nowrap";
 		}
+
+		// Right-side group: indicators + action buttons
+		const actions = header.createDiv();
+		actions.style.display = "flex";
+		actions.style.alignItems = "center";
+		actions.style.gap = "0.25rem";
+		actions.style.flexShrink = "0";
 
 		// Conditional rule indicator dot
 		if (ctx.tile.conditionalRules && ctx.tile.conditionalRules.length > 0) {
-			const dot = header.createSpan();
-			dot.style.cssText = "width:8px;height:8px;border-radius:50%;background:var(--text-accent);flex-shrink:0;margin-left:0.35rem";
+			const dot = actions.createSpan();
+			dot.style.cssText = "width:8px;height:8px;border-radius:50%;background:var(--text-accent);flex-shrink:0";
 			dot.setAttribute("aria-label", `${ctx.tile.conditionalRules.length} formatting rule(s)`);
 		}
 
 		// Freshness badge
 		if (ctx.refreshedAt) {
 			const level = getFreshnessLevel(ctx.refreshedAt);
-			const badge = header.createSpan({
+			const badge = actions.createSpan({
 				text: formatRelativeTime(ctx.refreshedAt),
 				cls: "ft-text-xs",
 			});
 			badge.style.color = getFreshnessColor(level);
 			badge.style.flexShrink = "0";
-			badge.style.marginLeft = "0.5rem";
 		} else if (ctx.result) {
-			const badge = header.createSpan({ text: "Not yet refreshed", cls: "ft-text-xs ft-text-muted" });
+			const badge = actions.createSpan({ text: "Not yet refreshed", cls: "ft-text-xs ft-text-muted" });
 			badge.style.flexShrink = "0";
-			badge.style.marginLeft = "0.5rem";
 		}
-
-		const actions = header.createDiv();
-		actions.style.display = "flex";
-		actions.style.alignItems = "center";
-		actions.style.gap = "0.25rem";
-		actions.style.flexShrink = "0";
 
 		// Reorder buttons
 		if (ctx.onReorder) {
@@ -133,7 +152,7 @@ export class DashboardTileRenderer {
 		if (ctx.onDisplayModeToggle) {
 			const modeSelect = actions.createEl("select", { cls: "ft-text-xs" });
 			modeSelect.style.cssText = "padding:1px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);cursor:pointer;font-size:var(--font-ui-smaller)";
-			const modeLabels: Record<TileDisplayMode, string> = { "table": "Table", "stat-card": "Stat Card", "line-chart": "Line Chart", "bar-chart": "Bar Chart" };
+			const modeLabels: Record<TileDisplayMode, string> = { "table": "Table", "stat-card": "Stat Card", "line-chart": "Line Chart", "bar-chart": "Bar Chart", "area-chart": "Area Chart" };
 			for (const mode of DISPLAY_MODE_CYCLE) {
 				const opt = modeSelect.createEl("option");
 				opt.value = mode;
@@ -176,35 +195,67 @@ export class DashboardTileRenderer {
 			});
 		}
 
-		// ── Settings panel (collapsible) ─────────────────
-		if (ctx.settingsOpen && ctx.onRulesChange) {
+		// Remove button (only in management context, not on homepage)
+		if (ctx.onToggleSettings) {
+			const removeBtn = actions.createSpan({ cls: "ft-nav-link ft-text-muted" });
+			const removeIcon = removeBtn.createSpan();
+			setIcon(removeIcon, "trash-2");
+			removeIcon.style.width = "14px";
+			removeIcon.style.height = "14px";
+			removeBtn.style.cursor = "pointer";
+			removeBtn.setAttribute("aria-label", "Remove tile");
+			removeBtn.addEventListener("click", (e) => {
+				e.stopPropagation();
+				ctx.onRemove(ctx.tile.id);
+			});
+		}
+
+		// ── Settings panel (collapsible, scrollable when tile is small) ──
+		if (ctx.settingsOpen) {
 			const settingsPanel = tileEl.createDiv({ cls: "ft-tile-settings" });
 			settingsPanel.style.padding = "0.5rem 0.75rem";
 			settingsPanel.style.borderBottom = "1px solid var(--background-modifier-border)";
 			settingsPanel.style.background = "var(--background-secondary-alt)";
+			settingsPanel.style.overflowY = "auto";
+			settingsPanel.style.minHeight = "0";
 
-			this.renderRuleBuilder(settingsPanel, ctx);
+			this.renderTileSettings(settingsPanel, ctx);
 		}
 
 		// ── Body ────────────────────────────────────────
+		const isChart = ctx.tile.displayMode === "line-chart" || ctx.tile.displayMode === "bar-chart" || ctx.tile.displayMode === "area-chart";
 		const body = tileEl.createDiv({ cls: "ft-dashboard-tile-body" });
-		body.style.flex = "1";
-		body.style.overflow = "auto";
-		body.style.padding = "0.35rem";
+		if (ctx.tile.autoHeight) {
+			body.style.overflow = "visible";
+		} else {
+			body.style.flex = "1";
+			body.style.overflow = isChart ? "hidden" : "auto";
+			body.style.minHeight = "0";
+		}
+		body.style.padding = ctx.tile.displayMode === "table" ? "0.35rem" : "0.5rem 0.35rem";
+		if (isChart) {
+			body.style.display = "flex";
+			body.style.flexDirection = "column";
+		}
+
+		// Apply per-tile row limit
+		const limitedResult = ctx.result && ctx.tile.rowLimit && ctx.tile.rowLimit > 0
+			? { ...ctx.result, rows: ctx.result.rows.slice(0, ctx.tile.rowLimit) }
+			: ctx.result;
 
 		try {
 			if (ctx.error) {
 				this.renderError(body, ctx.error);
 			} else if (!ctx.query) {
 				this.renderError(body, "Query not found — it may have been deleted");
-			} else if (!ctx.result) {
+			} else if (!limitedResult) {
 				this.renderLoading(body);
 			} else if (ctx.tile.displayMode === "stat-card") {
-				this.renderStatCard(body, ctx.result, ctx.tile.conditionalRules, ctx.tile.showSparkline !== false);
-			} else if (ctx.tile.displayMode === "line-chart" || ctx.tile.displayMode === "bar-chart") {
-				this.renderChartWithSelector(body, ctx);
+				this.renderStatCard(body, limitedResult, ctx.tile.conditionalRules, ctx.tile.showSparkline !== false);
+			} else if (isChart) {
+				this.renderChartWithSelector(body, { ...ctx, result: limitedResult });
 			} else {
-				this.renderTable(body, ctx.result, ctx.tile.conditionalRules);
+				this.renderTable(body, limitedResult, ctx.tile.conditionalRules);
 			}
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
@@ -261,8 +312,13 @@ export class DashboardTileRenderer {
 		}
 
 		const chartHost = container.createDiv();
+		chartHost.style.flex = "1";
+		chartHost.style.minHeight = "0";
+		chartHost.style.paddingBottom = "0.5rem";
 		if (ctx.tile.displayMode === "line-chart") {
 			ChartRenderer.renderLineChart(chartHost, result, effectiveCol);
+		} else if (ctx.tile.displayMode === "area-chart") {
+			ChartRenderer.renderAreaChart(chartHost, result, effectiveCol);
 		} else {
 			ChartRenderer.renderBarChart(chartHost, result, effectiveCol);
 		}
@@ -273,6 +329,11 @@ export class DashboardTileRenderer {
 			container.createDiv({ text: "No data", cls: "ft-text-muted ft-text-sm ft-text-center" });
 			return;
 		}
+
+		// Wrapper: auto vertical margins center content when tile has space,
+		// but content stays at top and scrolls normally when it overflows.
+		const wrapper = container.createDiv();
+		wrapper.style.margin = "auto 0";
 
 		// Identify dimension columns (non-numeric in first row) and measure columns (numeric)
 		const measureCols = result.columns.filter((col) => typeof result.rows[0][col] === "number");
@@ -286,7 +347,7 @@ export class DashboardTileRenderer {
 			// Dimension label (group header)
 			if (dimCols.length > 0) {
 				const label = dimCols.map((col) => String(row[col] ?? "")).join(" · ");
-				const labelEl = container.createDiv({ cls: "ft-text-sm" });
+				const labelEl = wrapper.createDiv({ cls: "ft-text-sm" });
 				labelEl.style.fontWeight = "600";
 				labelEl.style.marginTop = i > 0 ? "0.4rem" : "0";
 				labelEl.style.marginBottom = "0.15rem";
@@ -294,7 +355,7 @@ export class DashboardTileRenderer {
 			}
 
 			// Stat cards for this group
-			const grid = container.createDiv({ cls: "ft-stat-card-grid" });
+			const grid = wrapper.createDiv({ cls: "ft-stat-card-grid" });
 			grid.style.display = "grid";
 			grid.style.gridTemplateColumns = "repeat(auto-fit, minmax(100px, 1fr))";
 			grid.style.gap = "0.25rem";
@@ -336,8 +397,123 @@ export class DashboardTileRenderer {
 		}
 
 		if (result.rows.length > MAX_STAT_CARD_GROUPS) {
-			const more = container.createDiv({ cls: "ft-text-muted ft-text-xs ft-mt-1 ft-text-center" });
+			const more = wrapper.createDiv({ cls: "ft-text-muted ft-text-xs ft-mt-1 ft-text-center" });
 			more.textContent = `and ${result.rows.length - MAX_STAT_CARD_GROUPS} more groups...`;
+		}
+	}
+
+	private renderTileSettings(container: HTMLElement, ctx: TileRenderContext): void {
+		// ── Query selector ───────────────────────────────
+		if (ctx.queries && ctx.queries.length > 0 && ctx.onQueryChange) {
+			const row = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+			row.style.marginBottom = "0.5rem";
+			row.createSpan({ text: "Query", cls: "ft-text-sm" }).style.fontWeight = "600";
+
+			const querySelect = row.createEl("select", { cls: "ft-text-xs" });
+			querySelect.style.cssText = "flex:1;padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary)";
+			for (const q of ctx.queries) {
+				const opt = querySelect.createEl("option");
+				opt.value = q.id;
+				opt.textContent = q.name;
+				if (q.id === ctx.tile.queryId) opt.selected = true;
+			}
+			querySelect.addEventListener("change", () => {
+				ctx.onQueryChange!(ctx.tile.id, querySelect.value);
+			});
+		}
+
+		// ── Width toggle ─────────────────────────────────
+		if (ctx.onWidthChange) {
+			const row = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+			row.style.marginBottom = "0.5rem";
+			row.createSpan({ text: "Width", cls: "ft-text-sm" }).style.fontWeight = "600";
+
+			for (const w of [1, 2, 3]) {
+				const btn = row.createEl("button", { cls: "ft-text-xs" });
+				btn.textContent = `${w} col`;
+				btn.style.cssText = "padding:2px 8px;border-radius:4px;border:1px solid var(--background-modifier-border);cursor:pointer";
+				if (ctx.tile.width === w) {
+					btn.style.background = "var(--interactive-accent)";
+					btn.style.color = "var(--text-on-accent)";
+				} else {
+					btn.style.background = "var(--background-primary)";
+				}
+				btn.addEventListener("click", () => {
+					ctx.onWidthChange!(ctx.tile.id, w);
+				});
+			}
+		}
+
+		// ── Height toggle ────────────────────────────────
+		if (ctx.onHeightChange) {
+			const row = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+			row.style.marginBottom = "0.5rem";
+			row.createSpan({ text: "Height", cls: "ft-text-sm" }).style.fontWeight = "600";
+
+			for (const h of [1, 2, 3, 4, 5]) {
+				const btn = row.createEl("button", { cls: "ft-text-xs" });
+				btn.textContent = `${h}`;
+				btn.style.cssText = "padding:2px 8px;border-radius:4px;border:1px solid var(--background-modifier-border);cursor:pointer;min-width:28px";
+				if (ctx.tile.height === h) {
+					btn.style.background = "var(--interactive-accent)";
+					btn.style.color = "var(--text-on-accent)";
+				} else {
+					btn.style.background = "var(--background-primary)";
+				}
+				btn.addEventListener("click", () => {
+					ctx.onHeightChange!(ctx.tile.id, h);
+				});
+			}
+		}
+
+		// ── Auto-height toggle (max-width only) ─────────
+		if (ctx.tile.width >= 3 && ctx.onAutoHeightToggle) {
+			const row = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+			row.style.marginBottom = "0.5rem";
+
+			const checkbox = row.createEl("input", { type: "checkbox" });
+			checkbox.checked = ctx.tile.autoHeight === true;
+			checkbox.addEventListener("change", () => {
+				ctx.onAutoHeightToggle!(ctx.tile.id, checkbox.checked);
+			});
+
+			row.createSpan({ text: "Auto height (fit content)", cls: "ft-text-sm" });
+		}
+
+		// ── Sparkline toggle (stat-card only) ────────────
+		if (ctx.tile.displayMode === "stat-card" && ctx.onSparklineToggle) {
+			const row = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+			row.style.marginBottom = "0.5rem";
+
+			const checkbox = row.createEl("input", { type: "checkbox" });
+			checkbox.checked = ctx.tile.showSparkline !== false;
+			checkbox.addEventListener("change", () => {
+				ctx.onSparklineToggle!(ctx.tile.id, checkbox.checked);
+			});
+
+			row.createSpan({ text: "Show sparklines", cls: "ft-text-sm" });
+		}
+
+		// ── Row limit ────────────────────────────────────
+		if (ctx.onRowLimitChange) {
+			const row = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+			row.style.marginBottom = "0.5rem";
+			row.createSpan({ text: "Row limit", cls: "ft-text-sm" }).style.fontWeight = "600";
+
+			const limitInput = row.createEl("input", { type: "number", cls: "ft-text-xs" });
+			limitInput.style.cssText = "width:60px;padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary)";
+			limitInput.placeholder = "All";
+			limitInput.min = "1";
+			if (ctx.tile.rowLimit) limitInput.value = String(ctx.tile.rowLimit);
+			limitInput.addEventListener("change", () => {
+				const val = parseInt(limitInput.value, 10);
+				ctx.onRowLimitChange!(ctx.tile.id, val > 0 ? val : undefined);
+			});
+		}
+
+		// ── Conditional formatting rules ─────────────────
+		if (ctx.onRulesChange) {
+			this.renderRuleBuilder(container, ctx);
 		}
 	}
 
@@ -501,7 +677,6 @@ export class DashboardTileRenderer {
 			grid.style.display = "grid";
 			grid.style.gridTemplateColumns = `repeat(${Math.min(numericCols.length, 4)}, 1fr)`;
 			grid.style.gap = "0.35rem";
-			grid.style.padding = "0.35rem";
 
 			for (const col of numericCols) {
 				const sum = result.rows.reduce((acc, r) => {

@@ -26,10 +26,13 @@ export class SourcePanel {
 		const tableWrap = section.createDiv();
 		tableWrap.style.overflow = "auto";
 
-		for (const src of sources) {
+		for (let i = 0; i < sources.length; i++) {
+			const src = sources[i];
 			const row = tableWrap.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
 			row.style.padding = "0.35rem 0.5rem";
-			row.style.borderBottom = "1px solid var(--background-modifier-border)";
+			if (i < sources.length - 1) {
+				row.style.borderBottom = "1px solid var(--background-modifier-border)";
+			}
 			row.style.minWidth = "0";
 
 			const aliasInput = row.createEl("input", { type: "text" });

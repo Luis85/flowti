@@ -211,46 +211,6 @@ describe("Flow 33: Trend Intelligence", () => {
 
 	// ── Dashboard pinning ────────────────────────────────
 
-	describe("dashboard pinning to homepage", () => {
-		it("should pin and unpin dashboards", async () => {
-			const d1 = await analyticsService.createDashboard("Daily KPIs");
-			const d2 = await analyticsService.createDashboard("Weekly Trends");
-
-			expect(await analyticsService.pinDashboard(d1.id)).toBe(true);
-			expect(analyticsService.isDashboardPinned(d1.id)).toBe(true);
-			expect(analyticsService.getPinnedDashboardIds()).toEqual([d1.id]);
-
-			expect(await analyticsService.pinDashboard(d2.id)).toBe(true);
-			expect(analyticsService.getPinnedDashboardIds()).toHaveLength(2);
-
-			expect(await analyticsService.unpinDashboard(d1.id)).toBe(true);
-			expect(analyticsService.isDashboardPinned(d1.id)).toBe(false);
-			expect(analyticsService.getPinnedDashboardIds()).toEqual([d2.id]);
-		});
-
-		it("should enforce max 3 pinned dashboards", async () => {
-			const d1 = await analyticsService.createDashboard("D1");
-			const d2 = await analyticsService.createDashboard("D2");
-			const d3 = await analyticsService.createDashboard("D3");
-			const d4 = await analyticsService.createDashboard("D4");
-
-			await analyticsService.pinDashboard(d1.id);
-			await analyticsService.pinDashboard(d2.id);
-			await analyticsService.pinDashboard(d3.id);
-			expect(await analyticsService.pinDashboard(d4.id)).toBe(false); // max 3
-			expect(analyticsService.getPinnedDashboardIds()).toHaveLength(3);
-		});
-
-		it("should clean up pinned state when dashboard is deleted", async () => {
-			const d1 = await analyticsService.createDashboard("Pinned");
-			await analyticsService.pinDashboard(d1.id);
-			expect(analyticsService.isDashboardPinned(d1.id)).toBe(true);
-
-			await analyticsService.deleteDashboard(d1.id);
-			expect(analyticsService.getPinnedDashboardIds()).toHaveLength(0);
-		});
-	});
-
 	// ── Edge cases ───────────────────────────────────────
 
 	describe("edge cases", () => {
@@ -315,13 +275,6 @@ describe("Flow 33: Trend Intelligence", () => {
 			};
 			const result = engine.run(query);
 			expect(result.rows).toHaveLength(0);
-		});
-
-		it("should not duplicate pin when already pinned", async () => {
-			const d1 = await analyticsService.createDashboard("D1");
-			await analyticsService.pinDashboard(d1.id);
-			expect(await analyticsService.pinDashboard(d1.id)).toBe(false);
-			expect(analyticsService.getPinnedDashboardIds()).toHaveLength(1);
 		});
 
 		it("should handle IF with string results in stat-cards and tables", () => {

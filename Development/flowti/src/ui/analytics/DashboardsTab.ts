@@ -5,7 +5,7 @@
  * Detail panel: CSS Grid tile layout for the selected dashboard.
  */
 
-import { setIcon } from "obsidian";
+import { Notice, setIcon } from "obsidian";
 import type { Dashboard, DashboardTile } from "../../domain/analytics/types";
 import type { AnalyticsHubDeps } from "./types";
 import { DashboardTileRenderer, type TileRenderContext } from "./DashboardTileRenderer";
@@ -44,6 +44,15 @@ export class DashboardsTab {
 		});
 		const spacer = header.createDiv();
 		spacer.addClass("ft-flex-1");
+		const importBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		const importIcon = importBtn.createSpan();
+		setIcon(importIcon, "download");
+		importBtn.setAttribute("aria-label", "Import JSON");
+		importBtn.addEventListener("click", (e) => {
+			e.stopPropagation();
+			void this.importFromJson();
+		});
+
 		const addBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 		const addIcon = addBtn.createSpan();
 		setIcon(addIcon, "plus");
@@ -133,26 +142,6 @@ export class DashboardsTab {
 			defaultBadge.style.background = "var(--interactive-accent)";
 			defaultBadge.style.color = "var(--text-on-accent)";
 		}
-
-		// Pin toggle
-		const isPinned = this.deps.analyticsService.isDashboardPinned(dashboard.id);
-		const pinBtn = row.createSpan({ cls: "ft-nav-link ft-text-muted" });
-		pinBtn.style.flexShrink = "0";
-		pinBtn.style.cursor = "pointer";
-		const pinIcon = pinBtn.createSpan();
-		setIcon(pinIcon, "pin");
-		pinIcon.style.width = "14px";
-		pinIcon.style.height = "14px";
-		if (isPinned) pinBtn.style.color = "var(--text-accent)";
-		pinBtn.setAttribute("aria-label", isPinned ? "Unpin from homepage" : "Pin to homepage");
-		pinBtn.addEventListener("click", (e) => {
-			e.stopPropagation();
-			if (isPinned) {
-				void this.deps.analyticsService.unpinDashboard(dashboard.id).then(() => this.deps.scheduleRender());
-			} else {
-				void this.deps.analyticsService.pinDashboard(dashboard.id).then(() => this.deps.scheduleRender());
-			}
-		});
 
 		// Delete button
 		const deleteBtn = row.createSpan({ cls: "ft-nav-link ft-text-muted" });
@@ -364,7 +353,8 @@ export class DashboardsTab {
 
 		const grid = this.detailEl.createDiv({ cls: "ft-dashboard-grid" });
 		grid.style.display = "grid";
-		grid.style.gridTemplateColumns = "repeat(2, 1fr)";
+		grid.style.gridTemplateColumns = "repeat(3, 1fr)";
+		grid.style.gridAutoRows = "auto";
 		grid.style.gap = "1rem";
 
 		const state = this.deps.getState();
@@ -372,7 +362,12 @@ export class DashboardsTab {
 		for (const tile of dashboard.tiles) {
 			const query = state.queries.find((q) => q.id === tile.queryId);
 			const tileHost = grid.createDiv();
-			tileHost.style.gridColumn = `span ${Math.min(tile.width, 2)}`;
+			tileHost.style.gridColumn = `span ${Math.min(tile.width, 3)}`;
+			tileHost.style.minWidth = "0";
+			const isAutoHeight = tile.autoHeight && tile.width >= 3;
+			const rowSpan = Math.min(tile.height, 5);
+			tileHost.style.gridRow = isAutoHeight ? "auto" : `span ${rowSpan}`;
+			if (!isAutoHeight) tileHost.style.minHeight = `${rowSpan * 180}px`;
 
 			const tileResult = this.deps.tileResultCache.tryRun(
 				tile.queryId,
@@ -427,6 +422,38 @@ export class DashboardsTab {
 						this.deps.scheduleRender();
 					});
 				},
+				queries: state.queries,
+				onQueryChange: (tileId, newQueryId) => {
+					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { queryId: newQueryId } as Partial<DashboardTile>).then(() => {
+						this.deps.tileResultCache.clearOne(newQueryId);
+						this.deps.scheduleRender();
+					});
+				},
+				onWidthChange: (tileId, width) => {
+					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { width } as Partial<DashboardTile>).then(() => {
+						this.deps.scheduleRender();
+					});
+				},
+				onHeightChange: (tileId, height) => {
+					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { height } as Partial<DashboardTile>).then(() => {
+						this.deps.scheduleRender();
+					});
+				},
+				onSparklineToggle: (tileId, show) => {
+					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { showSparkline: show } as Partial<DashboardTile>).then(() => {
+						this.deps.scheduleRender();
+					});
+				},
+				onRowLimitChange: (tileId, limit) => {
+					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { rowLimit: limit } as Partial<DashboardTile>).then(() => {
+						this.deps.scheduleRender();
+					});
+				},
+				onAutoHeightToggle: (tileId, auto) => {
+					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { autoHeight: auto } as Partial<DashboardTile>).then(() => {
+						this.deps.scheduleRender();
+					});
+				},
 			} satisfies TileRenderContext);
 		}
 	}
@@ -451,6 +478,36 @@ export class DashboardsTab {
 			this.deps.setState({ selectedDashboardId: null });
 		}
 		this.deps.scheduleRender();
+	}
+
+	private async importFromJson(): Promise<void> {
+		const input = document.createElement("input");
+		input.type = "file";
+		input.accept = ".json";
+		input.addEventListener("change", () => {
+			const file = input.files?.[0];
+			if (!file) return;
+
+			const reader = new FileReader();
+			reader.onload = async () => {
+				try {
+					const template = JSON.parse(reader.result as string);
+					if (!template.name || !template.queries || !template.tiles) {
+						new Notice("Invalid template: missing name, queries, or tiles");
+						return;
+					}
+					const dashboard = await this.deps.analyticsService.importDashboardFromJson(template);
+					this.deps.setState({ selectedDashboardId: dashboard.id });
+					this.deps.scheduleRender();
+					new Notice(`Dashboard "${dashboard.name}" imported`);
+				} catch (err) {
+					const msg = err instanceof Error ? err.message : String(err);
+					new Notice(`Import failed: ${msg}`, 5000);
+				}
+			};
+			reader.readAsText(file);
+		});
+		input.click();
 	}
 
 	private async exportDashboardSummary(dashboard: Dashboard): Promise<void> {

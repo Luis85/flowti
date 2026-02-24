@@ -255,6 +255,72 @@ export class ChartRenderer {
 	}
 
 	/**
+	 * Render an SVG area chart into the container.
+	 * Filled area below line with semi-transparent color.
+	 * Auto-detects multi-series when result has time bucket + dimension columns.
+	 */
+	static renderAreaChart(container: HTMLElement, result: AnalyticsResult, valueColumn?: string): void {
+		const multiData = ChartRenderer.extractMultiSeriesData(result, valueColumn);
+		if (multiData && multiData.series.length > 1) {
+			ChartRenderer.renderMultiSeriesArea(container, multiData);
+			return;
+		}
+
+		const data = ChartRenderer.extractChartData(result, valueColumn);
+		if (data.values.length === 0) {
+			container.createDiv({ text: "No data", cls: "ft-text-muted ft-text-sm ft-text-center" });
+			return;
+		}
+
+		const svg = ChartRenderer.buildSvg(container);
+		const { yMin, yMax, yRange } = ChartRenderer.computeYRange(data.values);
+
+		ChartRenderer.drawYAxis(svg, yMin, yMax);
+		ChartRenderer.drawXAxis(svg, data.labels);
+
+		const points = data.values.map((v, i) => ({
+			x: PADDING.left + (data.values.length === 1 ? PLOT_W / 2 : (i / (data.values.length - 1)) * PLOT_W),
+			y: yRange === 0 ? PADDING.top + PLOT_H / 2 : PADDING.top + PLOT_H - ((v - yMin) / yRange) * PLOT_H,
+		}));
+
+		const baseline = PADDING.top + PLOT_H;
+
+		// Filled area
+		if (points.length > 1) {
+			const areaPath = [
+				`M ${points[0].x.toFixed(1)} ${baseline}`,
+				...points.map((p) => `L ${p.x.toFixed(1)} ${p.y.toFixed(1)}`),
+				`L ${points[points.length - 1].x.toFixed(1)} ${baseline}`,
+				"Z",
+			].join(" ");
+			const area = document.createElementNS("http://www.w3.org/2000/svg", "path");
+			area.setAttribute("d", areaPath);
+			area.setAttribute("fill", "var(--interactive-accent)");
+			area.setAttribute("opacity", "0.15");
+			svg.appendChild(area);
+
+			// Line overlay
+			const lineData = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+			const line = document.createElementNS("http://www.w3.org/2000/svg", "path");
+			line.setAttribute("d", lineData);
+			line.setAttribute("fill", "none");
+			line.setAttribute("stroke", "var(--interactive-accent)");
+			line.setAttribute("stroke-width", "2");
+			svg.appendChild(line);
+		}
+
+		// Dot markers
+		for (const p of points) {
+			const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+			circle.setAttribute("cx", p.x.toFixed(1));
+			circle.setAttribute("cy", p.y.toFixed(1));
+			circle.setAttribute("r", String(DOT_RADIUS));
+			circle.setAttribute("fill", "var(--interactive-accent)");
+			svg.appendChild(circle);
+		}
+	}
+
+	/**
 	 * Render a compact sparkline SVG (80x24px) — pure trend line, no axes.
 	 * Requires at least 3 values; returns false if not enough data.
 	 */
@@ -388,6 +454,69 @@ export class ChartRenderer {
 		})));
 	}
 
+	private static renderMultiSeriesArea(container: HTMLElement, data: MultiSeriesChartData): void {
+		const svg = ChartRenderer.buildSvg(container);
+		const allValues = data.series.flatMap((s) => s.values);
+		const { yMin, yMax, yRange } = ChartRenderer.computeYRange(allValues);
+
+		ChartRenderer.drawYAxis(svg, yMin, yMax);
+		ChartRenderer.drawXAxis(svg, data.labels);
+
+		const n = data.labels.length;
+		const baseline = PADDING.top + PLOT_H;
+
+		for (let si = 0; si < data.series.length; si++) {
+			const series = data.series[si];
+			const color = SERIES_COLORS[si % SERIES_COLORS.length];
+
+			const points = series.values.map((v, i) => ({
+				x: PADDING.left + (n === 1 ? PLOT_W / 2 : (i / (n - 1)) * PLOT_W),
+				y: yRange === 0
+					? PADDING.top + PLOT_H / 2
+					: PADDING.top + PLOT_H - ((v - yMin) / yRange) * PLOT_H,
+			}));
+
+			// Filled area
+			if (points.length > 1) {
+				const areaPath = [
+					`M ${points[0].x.toFixed(1)} ${baseline}`,
+					...points.map((p) => `L ${p.x.toFixed(1)} ${p.y.toFixed(1)}`),
+					`L ${points[points.length - 1].x.toFixed(1)} ${baseline}`,
+					"Z",
+				].join(" ");
+				const area = document.createElementNS("http://www.w3.org/2000/svg", "path");
+				area.setAttribute("d", areaPath);
+				area.setAttribute("fill", color);
+				area.setAttribute("opacity", "0.12");
+				svg.appendChild(area);
+
+				// Line overlay
+				const lineData = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+				const line = document.createElementNS("http://www.w3.org/2000/svg", "path");
+				line.setAttribute("d", lineData);
+				line.setAttribute("fill", "none");
+				line.setAttribute("stroke", color);
+				line.setAttribute("stroke-width", "2");
+				svg.appendChild(line);
+			}
+
+			// Dot markers
+			for (const p of points) {
+				const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+				circle.setAttribute("cx", p.x.toFixed(1));
+				circle.setAttribute("cy", p.y.toFixed(1));
+				circle.setAttribute("r", String(DOT_RADIUS));
+				circle.setAttribute("fill", color);
+				svg.appendChild(circle);
+			}
+		}
+
+		ChartRenderer.drawLegend(container, data.series.map((s, i) => ({
+			name: s.name,
+			color: SERIES_COLORS[i % SERIES_COLORS.length],
+		})));
+	}
+
 	private static drawLegend(container: HTMLElement, items: Array<{ name: string; color: string }>): void {
 		const legend = container.createDiv();
 		legend.style.display = "flex";
@@ -420,7 +549,7 @@ export class ChartRenderer {
 		const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
 		svg.setAttribute("viewBox", `0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`);
 		svg.style.width = "100%";
-		svg.style.height = "auto";
+		svg.style.maxHeight = "100%";
 		svg.style.display = "block";
 		container.appendChild(svg);
 		return svg;

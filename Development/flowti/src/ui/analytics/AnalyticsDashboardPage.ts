@@ -21,84 +21,81 @@ export class AnalyticsDashboardPage {
 	render(): void {
 		this.containerEl.empty();
 
+		this.renderNavLinks();
 		this.renderFavoritesSection();
 
-		// Pinned dashboard cards (compact summaries above default dashboard)
-		this.renderPinnedDashboards();
+		// Resolve which dashboard to display: explicit homepage selection > default
+		const state = this.deps.getState();
+		const homepageId = state.homepageDashboardId;
+		const activeDashboard = homepageId
+			? state.dashboards.find((d) => d.id === homepageId) ?? this.deps.analyticsService.getDefaultDashboard()
+			: this.deps.analyticsService.getDefaultDashboard();
 
-		const defaultDashboard = this.deps.analyticsService.getDefaultDashboard();
-
-		if (defaultDashboard) {
-			this.renderDefaultDashboard(defaultDashboard);
+		if (activeDashboard) {
+			this.renderDefaultDashboard(activeDashboard);
 		} else {
 			this.renderFallback();
 		}
-
-		this.renderRecentSources();
 	}
 
-	// ── Pinned dashboards ────────────────────────────────────
+	// ── Navigation links ─────────────────────────────────────
 
-	private renderPinnedDashboards(): void {
-		const pinnedIds = this.deps.analyticsService.getPinnedDashboardIds();
-		if (pinnedIds.length === 0) return;
+	private renderNavLinks(): void {
+		const nav = this.containerEl.createDiv({ cls: "ft-flex ft-gap-2 ft-mb-2" });
+		nav.style.flexWrap = "wrap";
+		nav.style.alignItems = "center";
 
+		// Home icon — return to default dashboard
 		const state = this.deps.getState();
-		const pinnedDashboards = pinnedIds
-			.map((id) => state.dashboards.find((d) => d.id === id))
-			.filter((d): d is Dashboard => d !== undefined);
+		const homeLink = nav.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		const homeIcon = homeLink.createSpan();
+		setIcon(homeIcon, "home");
+		homeLink.appendText(" Home");
+		if (!state.homepageDashboardId) {
+			homeLink.style.color = "var(--text-accent)";
+		}
+		homeLink.addEventListener("click", () => {
+			this.deps.setState({ homepageDashboardId: null });
+			this.deps.scheduleRender();
+		});
 
-		if (pinnedDashboards.length === 0) return;
-
-		const section = this.containerEl.createDiv({ cls: "ft-pinned-dashboards ft-mb-2" });
-		const cardGrid = section.createDiv();
-		cardGrid.style.display = "grid";
-		cardGrid.style.gridTemplateColumns = `repeat(${Math.min(pinnedDashboards.length, 3)}, 1fr)`;
-		cardGrid.style.gap = "0.5rem";
-
-		for (const dashboard of pinnedDashboards) {
-			const card = cardGrid.createDiv({ cls: "ft-stat-card" });
-			card.style.cursor = "pointer";
-			card.style.padding = "0.75rem";
-
-			const nameEl = card.createDiv({ cls: "ft-text-sm" });
-			nameEl.style.fontWeight = "600";
-			nameEl.style.marginBottom = "0.25rem";
-			nameEl.textContent = dashboard.name;
-
-			const meta = card.createDiv({ cls: "ft-text-xs ft-text-muted" });
-			meta.textContent = `${dashboard.tiles.length} tile${dashboard.tiles.length !== 1 ? "s" : ""}`;
-
-			// Show first tile's stat value if available
-			if (dashboard.tiles.length > 0) {
-				const firstTile = dashboard.tiles[0];
-				const cached = this.deps.tileResultCache.tryRun(
-					firstTile.queryId,
-					(id) => this.deps.analyticsService.runSavedQuery(id),
-					() => this.deps.scheduleRender(),
-				);
-				if (cached.result && cached.result.rows.length > 0) {
-					const numCols = cached.result.columns.filter(
-						(col) => typeof cached.result!.rows[0][col] === "number",
-					);
-					if (numCols.length > 0) {
-						const val = cached.result.rows[0][numCols[0]];
-						const statEl = card.createDiv({ cls: "ft-text-lg" });
-						statEl.style.fontWeight = "700";
-						statEl.style.marginTop = "0.25rem";
-						statEl.textContent = typeof val === "number" ? val.toLocaleString() : String(val);
-
-						const labelEl = card.createDiv({ cls: "ft-text-xs ft-text-muted" });
-						labelEl.textContent = numCols[0];
-					}
-				}
+		// Favorite dashboards — load on homepage
+		const favDashboards = state.dashboards.filter((d) => d.isFavorite);
+		for (const d of favDashboards) {
+			const link = nav.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+			const icon = link.createSpan();
+			setIcon(icon, "layout-grid");
+			link.appendText(` ${d.name}`);
+			if (state.homepageDashboardId === d.id) {
+				link.style.color = "var(--text-accent)";
 			}
-
-			card.addEventListener("click", () => {
-				this.deps.setState({ selectedDashboardId: dashboard.id });
-				this.deps.navigation.navigateTo("dashboards");
+			link.addEventListener("click", () => {
+				this.deps.setState({ homepageDashboardId: d.id });
+				this.deps.scheduleRender();
 			});
 		}
+
+		// Separator when there are favorites
+		if (favDashboards.length > 0) {
+			const sep = nav.createSpan({ cls: "ft-text-muted" });
+			sep.style.cssText = "width:1px;height:14px;background:var(--background-modifier-border);flex-shrink:0";
+		}
+
+		const dashLink = nav.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		const dIcon = dashLink.createSpan();
+		setIcon(dIcon, "layout-grid");
+		dashLink.appendText(" Dashboards");
+		dashLink.addEventListener("click", () => {
+			this.deps.navigation.navigateTo("dashboards");
+		});
+
+		const queryLink = nav.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		const qIcon = queryLink.createSpan();
+		setIcon(qIcon, "search");
+		queryLink.appendText(" Queries");
+		queryLink.addEventListener("click", () => {
+			this.deps.navigation.navigateTo("queries");
+		});
 	}
 
 	// ── Default dashboard tile grid ──────────────────────────
@@ -115,6 +112,8 @@ export class AnalyticsDashboardPage {
 		titleLeft.style.display = "flex";
 		titleLeft.style.alignItems = "center";
 		titleLeft.style.gap = "0.5rem";
+		titleLeft.style.flex = "1";
+		titleLeft.style.minWidth = "0";
 
 		const titleInput = titleLeft.createEl("input", { type: "text" });
 		titleInput.value = dashboard.name;
@@ -129,7 +128,26 @@ export class AnalyticsDashboardPage {
 			if (e.key === "Enter") { e.preventDefault(); titleInput.blur(); }
 		});
 
-		titleLeft.createSpan({ text: "Default", cls: "ft-badge ft-text-xs" });
+		const defaultDashboard = this.deps.analyticsService.getDefaultDashboard();
+		const isDefault = defaultDashboard?.id === dashboard.id;
+
+		if (isDefault) {
+			const badge = titleLeft.createSpan({ text: "Default", cls: "ft-badge ft-text-xs" });
+			badge.style.flexShrink = "0";
+		} else {
+			// Back link to return to default dashboard
+			const backLink = titleLeft.createEl("span", { cls: "ft-nav-link ft-text-xs" });
+			backLink.style.flexShrink = "0";
+			const backIcon = backLink.createSpan();
+			setIcon(backIcon, "arrow-left");
+			backIcon.style.width = "12px";
+			backIcon.style.height = "12px";
+			backLink.appendText(" Back");
+			backLink.addEventListener("click", () => {
+				this.deps.setState({ homepageDashboardId: null });
+				this.deps.scheduleRender();
+			});
+		}
 
 		// Freshness summary
 		const tileTimestamps = dashboard.tiles.map((t) => this.deps.tileResultCache.getTimestamp(t.queryId));
@@ -170,7 +188,8 @@ export class AnalyticsDashboardPage {
 		// Tile grid
 		const grid = this.containerEl.createDiv({ cls: "ft-dashboard-grid" });
 		grid.style.display = "grid";
-		grid.style.gridTemplateColumns = "repeat(2, 1fr)";
+		grid.style.gridTemplateColumns = "repeat(3, 1fr)";
+		grid.style.gridAutoRows = "auto";
 		grid.style.gap = "1rem";
 
 		const state = this.deps.getState();
@@ -178,7 +197,11 @@ export class AnalyticsDashboardPage {
 		for (const tile of dashboard.tiles) {
 			const query = state.queries.find((q) => q.id === tile.queryId);
 			const tileHost = grid.createDiv();
-			tileHost.style.gridColumn = `span ${Math.min(tile.width, 2)}`;
+			tileHost.style.gridColumn = `span ${Math.min(tile.width, 3)}`;
+			const isAutoHeight = tile.autoHeight && tile.width >= 3;
+			const rowSpan = Math.min(tile.height, 5);
+			tileHost.style.gridRow = isAutoHeight ? "auto" : `span ${rowSpan}`;
+			if (!isAutoHeight) tileHost.style.minHeight = `${rowSpan * 180}px`;
 
 			const tileResult = this.deps.tileResultCache.tryRun(
 				tile.queryId,
@@ -194,7 +217,6 @@ export class AnalyticsDashboardPage {
 				error: tileResult.error,
 				refreshedAt: this.deps.tileResultCache.getTimestamp(tile.queryId),
 				onRemove: () => {
-					// Navigate to dashboards tab for tile management
 					this.deps.navigation.navigateTo("dashboards");
 				},
 				onRefresh: () => {
@@ -268,24 +290,15 @@ export class AnalyticsDashboardPage {
 
 	private renderFavoritesSection(): void {
 		const state = this.deps.getState();
-		const favDashboards = state.dashboards.filter((d) => d.isFavorite);
 		const favQueries = state.queries.filter((q) => q.isFavorite);
 
-		if (favDashboards.length === 0 && favQueries.length === 0) return;
+		if (favQueries.length === 0) return;
 
 		const cardGrid = this.containerEl.createDiv();
 		cardGrid.style.display = "grid";
 		cardGrid.style.gridTemplateColumns = "repeat(auto-fill, minmax(160px, 1fr))";
 		cardGrid.style.gap = "0.5rem";
 		cardGrid.style.marginBottom = "1.25rem";
-
-		for (const d of favDashboards) {
-			this.renderFavoriteCard(cardGrid, "layout-grid", d.name, () => {
-				this.deps.setState({ selectedDashboardId: d.id });
-				this.deps.navigation.navigateTo("dashboards");
-				this.deps.scheduleRender();
-			});
-		}
 
 		for (const q of favQueries) {
 			this.renderFavoriteCard(cardGrid, "search", q.name, () => {
@@ -316,64 +329,6 @@ export class AnalyticsDashboardPage {
 		nameEl.style.whiteSpace = "nowrap";
 
 		card.addEventListener("click", onClick);
-	}
-
-	// ── Recent Sources section ───────────────────────────────
-
-	private renderRecentSources(): void {
-		const state = this.deps.getState();
-		const csvFiles = state.csvFiles;
-
-		if (csvFiles.length === 0) return;
-
-		const recentFiles = csvFiles.slice(0, 5);
-
-		const section = this.containerEl.createDiv({ cls: "ft-mt-3" });
-
-		const header = section.createDiv({ cls: "ft-master-category-header" });
-		header.createSpan({ text: "Recent Sources" });
-		header.createSpan({
-			text: `${recentFiles.length}`,
-			cls: "ft-master-category-count",
-		});
-
-		for (const file of recentFiles) {
-			const row = section.createDiv({ cls: "ft-master-item" });
-			row.style.display = "flex";
-			row.style.alignItems = "center";
-			row.style.justifyContent = "space-between";
-			row.style.padding = "0.35rem 0.5rem";
-
-			const left = row.createDiv();
-			left.style.display = "flex";
-			left.style.alignItems = "center";
-			left.style.gap = "0.5rem";
-			left.style.flex = "1";
-			left.style.minWidth = "0";
-
-			const iconEl = left.createSpan();
-			setIcon(iconEl, "file-spreadsheet");
-			iconEl.style.width = "14px";
-			iconEl.style.height = "14px";
-			iconEl.style.flexShrink = "0";
-
-			const nameEl = left.createSpan({ text: file.displayName, cls: "ft-text-sm" });
-			nameEl.style.overflow = "hidden";
-			nameEl.style.textOverflow = "ellipsis";
-			nameEl.style.whiteSpace = "nowrap";
-
-			const analyzeBtn = row.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-			analyzeBtn.style.flexShrink = "0";
-			analyzeBtn.style.cursor = "pointer";
-			const btnIcon = analyzeBtn.createSpan();
-			setIcon(btnIcon, "bar-chart-2");
-			btnIcon.style.width = "12px";
-			btnIcon.style.height = "12px";
-			analyzeBtn.appendText(" Analyze");
-			analyzeBtn.addEventListener("click", () => {
-				this.deps.navigation.navigateTo("queries");
-			});
-		}
 	}
 
 	private renderStat(container: HTMLElement, icon: string, label: string, value: string, tabId: string): void {

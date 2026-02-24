@@ -55,6 +55,8 @@ export class QueriesTab {
 	private previewVisible = false;
 	private chartMode: "line" | "bar" = "line";
 	private chartValueColumn: string | null = null;
+	private lastLoadedQueryId: string | null = null;
+	private pendingExecute = false;
 
 	constructor(
 		private masterEl: HTMLElement,
@@ -96,7 +98,7 @@ export class QueriesTab {
 			lastError: () => this.lastError,
 			running: () => this.running,
 			executeQuery: () => { void this.executeQuery(); },
-			handleExportCsv: (csv) => this.handleExportCsv(csv),
+			handleExportCsv: (csv) => this.downloadCsv(csv, this.getActiveQueryName()),
 			applyQuickInsight: (dims, measures, timeBucket) => {
 				this.dimensions = dims;
 				this.measures = measures;
@@ -265,6 +267,14 @@ export class QueriesTab {
 	// ─────────────────────────────────────────────────────────
 
 	renderDetail(): void {
+		// Auto-load saved query when selectedQueryId changed (e.g. navigated from homepage)
+		const pendingId = this.deps.getState().selectedQueryId;
+		if (pendingId && pendingId !== this.lastLoadedQueryId) {
+			this.lastLoadedQueryId = pendingId;
+			this.loadSavedQuery(pendingId);
+			return; // loadSavedQuery triggers re-render
+		}
+
 		// Preserve scroll position across re-renders
 		const scrollParent = this.detailEl.parentElement;
 		const scrollTop = scrollParent?.scrollTop ?? 0;
@@ -466,6 +476,19 @@ export class QueriesTab {
 			saveLink.addEventListener("click", () => {
 				void this.saveCurrentQuery();
 			});
+
+			// Export CSV (when results available)
+			if (this.lastResult && this.lastResult.rows.length > 0) {
+				const csvLink = actions.createEl("span", { cls: "ft-nav-link" });
+				const csvIcon = csvLink.createSpan();
+				setIcon(csvIcon, "download");
+				csvLink.appendText(" Save to CSV");
+				csvLink.addEventListener("click", () => {
+					if (this.lastResult) {
+						this.downloadCsv(this.resultToCsv(this.lastResult), this.getActiveQueryName());
+					}
+				});
+			}
 		}
 	}
 
@@ -515,6 +538,16 @@ export class QueriesTab {
 		} catch {
 			source.loading = false;
 		}
+
+		// Auto-execute once all sources are loaded
+		if (this.pendingExecute && this.sources.every((s) => !s.loading)) {
+			this.pendingExecute = false;
+			if (this.measures.length > 0) {
+				void this.executeQuery();
+				return; // executeQuery triggers re-render
+			}
+		}
+
 		this.renderMaster();
 		this.renderDetail();
 	}
@@ -609,8 +642,38 @@ export class QueriesTab {
 		}
 	}
 
-	private handleExportCsv(csv: string): void {
-		void navigator.clipboard.writeText(csv);
+	private getActiveQueryName(): string {
+		const id = this.deps.getState().selectedQueryId;
+		if (id) {
+			const q = this.deps.analyticsService.getQuery(id);
+			if (q) return q.name;
+		}
+		return "query";
+	}
+
+	private downloadCsv(csv: string, name: string): void {
+		const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement("a");
+		a.href = url;
+		a.download = `${name.replace(/[<>:"/\\|?*]/g, "_")}.csv`;
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+		URL.revokeObjectURL(url);
+	}
+
+	private resultToCsv(result: AnalyticsResult): string {
+		const escape = (v: string) =>
+			v.includes(",") || v.includes('"') || v.includes("\n") ? `"${v.replace(/"/g, '""')}"` : v;
+		const lines = [result.columns.map((c) => escape(c)).join(",")];
+		for (const row of result.rows) {
+			lines.push(result.columns.map((col) => {
+				const val = row[col];
+				return escape(typeof val === "number" ? String(val) : String(val ?? ""));
+			}).join(","));
+		}
+		return lines.join("\n");
 	}
 
 	// ─────────────────────────────────────────────────────────
@@ -677,6 +740,8 @@ export class QueriesTab {
 		this.lastResult = null;
 		this.lastDurationMs = undefined;
 		this.lastError = null;
+		this.lastLoadedQueryId = null;
+		this.pendingExecute = false;
 		this.deps.setState({ selectedQueryId: null });
 		this.sourcesCollapsed = false;
 		this.renderMaster();
@@ -687,6 +752,9 @@ export class QueriesTab {
 		const svc = this.deps.analyticsService;
 		const saved = svc.getQuery(queryId);
 		if (!saved) return;
+
+		this.lastLoadedQueryId = queryId;
+		this.pendingExecute = true;
 
 		// Reset current state and populate from saved query
 		this.sources = [];

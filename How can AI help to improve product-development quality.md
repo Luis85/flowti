@@ -184,6 +184,7 @@ Measure:
 - Traceability is critical
 - Testsuite ≠ real understanding
 - Context maps improve alignment, Obsidian Bases has shown good direction into important parts of the documentation for better Agent context
+- Locality and Inconsistency - The Agents loose their context and constraints pretty quick. It is necessary to zoom-out on a regular basis and check for consistent implementation of frameworks and constraints. Using well-documented patterns helps to formalize this process.
 
 ---
 

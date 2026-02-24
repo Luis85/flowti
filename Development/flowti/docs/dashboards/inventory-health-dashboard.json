@@ -1,0 +1,227 @@
+{
+	"name": "Inventory Health Dashboard",
+	"description": "Inventory state and risk overview: stock levels, coverage analysis, stockout risk, open POs.",
+	"domain": "Inventory Management",
+	"queries": [
+		{
+			"originalSources": [
+				{ "alias": "inventory", "csvPath": "03 - Resources/Test Data/Analytics/Inventory.csv" }
+			],
+			"queryConfig": {
+				"name": "Inventory Value (Latest)",
+				"joins": [],
+				"columnTypeHints": [
+					{ "column": "qty_on_hand", "type": "number" },
+					{ "column": "unit_cost", "type": "number" }
+				],
+				"dimensions": [],
+				"measures": [
+					{ "column": "qty_on_hand", "function": "SUM", "label": "Stock" },
+					{ "column": "unit_cost", "function": "AVG", "label": "Avg Cost" }
+				],
+				"computedColumns": [
+					{ "name": "Value", "expression": "{Stock} * {Avg Cost}" }
+				],
+				"filters": [
+					{ "column": "snapshot_date", "operator": "=", "value": "05/31/2025" }
+				]
+			}
+		},
+		{
+			"originalSources": [
+				{ "alias": "inventory", "csvPath": "03 - Resources/Test Data/Analytics/Inventory.csv" }
+			],
+			"queryConfig": {
+				"name": "Below Reorder Count",
+				"joins": [],
+				"columnTypeHints": [
+					{ "column": "qty_on_hand", "type": "number" },
+					{ "column": "reorder_point", "type": "number" }
+				],
+				"dimensions": [
+					{ "column": "item_id" }
+				],
+				"measures": [
+					{ "column": "qty_on_hand", "function": "SUM", "label": "Stock" },
+					{ "column": "reorder_point", "function": "AVG", "label": "Reorder" }
+				],
+				"computedColumns": [
+					{ "name": "Below Reorder", "expression": "IF({Stock} < {Reorder}, 1, 0)" }
+				],
+				"filters": [
+					{ "column": "snapshot_date", "operator": "=", "value": "05/31/2025" }
+				]
+			}
+		},
+		{
+			"originalSources": [
+				{ "alias": "inventory", "csvPath": "03 - Resources/Test Data/Analytics/Inventory.csv" }
+			],
+			"queryConfig": {
+				"name": "Avg Coverage",
+				"joins": [],
+				"columnTypeHints": [
+					{ "column": "qty_on_hand", "type": "number" },
+					{ "column": "avg_daily_sales", "type": "number" }
+				],
+				"dimensions": [
+					{ "column": "item_id" }
+				],
+				"measures": [
+					{ "column": "qty_on_hand", "function": "SUM", "label": "Stock" },
+					{ "column": "avg_daily_sales", "function": "AVG", "label": "Daily Sales" }
+				],
+				"computedColumns": [
+					{ "name": "Coverage Raw", "expression": "{Stock} / {Daily Sales}" },
+					{ "name": "Days Coverage", "expression": "ROUND({Coverage Raw}, 0)" }
+				],
+				"filters": [
+					{ "column": "snapshot_date", "operator": "=", "value": "05/31/2025" }
+				]
+			}
+		},
+		{
+			"originalSources": [
+				{ "alias": "inventory", "csvPath": "03 - Resources/Test Data/Analytics/Inventory.csv" },
+				{ "alias": "items", "csvPath": "03 - Resources/Test Data/Analytics/Items.csv" }
+			],
+			"queryConfig": {
+				"name": "Stock by Category Monthly",
+				"joins": [
+					{ "leftSource": "inventory", "rightSource": "items", "leftColumn": "item_id", "rightColumn": "item_id", "type": "inner" }
+				],
+				"columnTypeHints": [
+					{ "column": "qty_on_hand", "type": "number" }
+				],
+				"dimensions": [
+					{ "column": "category" }
+				],
+				"measures": [
+					{ "column": "qty_on_hand", "function": "SUM", "label": "Stock" }
+				],
+				"timeBucket": {
+					"column": "snapshot_date",
+					"period": "month"
+				}
+			}
+		},
+		{
+			"originalSources": [
+				{ "alias": "inventory", "csvPath": "03 - Resources/Test Data/Analytics/Inventory.csv" },
+				{ "alias": "items", "csvPath": "03 - Resources/Test Data/Analytics/Items.csv" }
+			],
+			"queryConfig": {
+				"name": "Stockout Risk",
+				"joins": [
+					{ "leftSource": "inventory", "rightSource": "items", "leftColumn": "item_id", "rightColumn": "item_id", "type": "inner" }
+				],
+				"columnTypeHints": [
+					{ "column": "qty_on_hand", "type": "number" },
+					{ "column": "avg_daily_sales", "type": "number" }
+				],
+				"dimensions": [
+					{ "column": "item_id" },
+					{ "column": "item_name" }
+				],
+				"measures": [
+					{ "column": "qty_on_hand", "function": "SUM", "label": "Stock" },
+					{ "column": "avg_daily_sales", "function": "AVG", "label": "Daily Sales" }
+				],
+				"computedColumns": [
+					{ "name": "Coverage Raw", "expression": "{Stock} / {Daily Sales}" },
+					{ "name": "Days Coverage", "expression": "ROUND({Coverage Raw}, 0)" }
+				],
+				"filters": [
+					{ "column": "snapshot_date", "operator": "=", "value": "05/31/2025" }
+				],
+				"sort": { "column": "Days Coverage", "direction": "asc" }
+			}
+		},
+		{
+			"originalSources": [
+				{ "alias": "orders", "csvPath": "03 - Resources/Test Data/Analytics/PurchaseOrders.csv" },
+				{ "alias": "suppliers", "csvPath": "03 - Resources/Test Data/Analytics/Suppliers.csv" }
+			],
+			"queryConfig": {
+				"name": "Open POs by Supplier",
+				"joins": [
+					{ "leftSource": "orders", "rightSource": "suppliers", "leftColumn": "supplier_id", "rightColumn": "supplier_id", "type": "inner" }
+				],
+				"columnTypeHints": [
+					{ "column": "total_cost", "type": "number" },
+					{ "column": "qty_ordered", "type": "number" }
+				],
+				"dimensions": [
+					{ "column": "supplier_name" }
+				],
+				"measures": [
+					{ "column": "total_cost", "function": "SUM", "label": "PO Value" },
+					{ "column": "qty_ordered", "function": "SUM", "label": "Units on Order" }
+				],
+				"filters": [
+					{ "column": "status", "operator": "=", "value": "open" }
+				]
+			}
+		}
+	],
+	"tiles": [
+		{
+			"queryIndex": 0,
+			"title": "Total Inventory Value",
+			"displayMode": "stat-card",
+			"width": 1,
+			"height": 1
+		},
+		{
+			"queryIndex": 1,
+			"title": "Items Below Reorder",
+			"displayMode": "stat-card",
+			"width": 1,
+			"height": 1,
+			"chartValueColumn": "Below Reorder",
+			"conditionalRules": [
+				{ "column": "Below Reorder", "operator": ">", "threshold": 0, "color": "negative" }
+			]
+		},
+		{
+			"queryIndex": 2,
+			"title": "Avg Days of Coverage",
+			"displayMode": "stat-card",
+			"width": 1,
+			"height": 1,
+			"chartValueColumn": "Days Coverage",
+			"conditionalRules": [
+				{ "column": "Days Coverage", "operator": "<", "threshold": 14, "color": "negative" },
+				{ "column": "Days Coverage", "operator": "<", "threshold": 30, "color": "warning" },
+				{ "column": "Days Coverage", "operator": ">=", "threshold": 30, "color": "positive" }
+			]
+		},
+		{
+			"queryIndex": 3,
+			"title": "Stock Levels Over Time",
+			"displayMode": "area-chart",
+			"width": 2,
+			"height": 2,
+			"chartValueColumn": "Stock"
+		},
+		{
+			"queryIndex": 4,
+			"title": "Stockout Risk",
+			"displayMode": "table",
+			"width": 2,
+			"height": 2,
+			"conditionalRules": [
+				{ "column": "Days Coverage", "operator": "<", "threshold": 14, "color": "negative" },
+				{ "column": "Days Coverage", "operator": "<", "threshold": 21, "color": "warning" }
+			]
+		},
+		{
+			"queryIndex": 5,
+			"title": "Open PO by Supplier",
+			"displayMode": "bar-chart",
+			"width": 2,
+			"height": 2,
+			"chartValueColumn": "PO Value"
+		}
+	]
+}

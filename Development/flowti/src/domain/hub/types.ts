@@ -29,6 +29,14 @@ export interface HubStat {
 /**
  * Summary data exposed by each hub for cross-hub consumption.
  */
+/** A live KPI value surfaced from an analytics dashboard. */
+export interface DashboardStatItem {
+	label: string;
+	value: string;
+	icon?: string;
+	color?: string;
+}
+
 export interface HubSummary {
 	/** Key stats (e.g. "42 events", "3 imports") */
 	stats: HubStat[];
@@ -36,6 +44,8 @@ export interface HubSummary {
 	healthLevel: "healthy" | "warning" | "error";
 	/** Number of items needing attention (0 = all clear) */
 	actionItemCount: number;
+	/** Optional live dashboard KPI values (from default analytics dashboard) */
+	dashboardStats?: DashboardStatItem[];
 }
 
 /**

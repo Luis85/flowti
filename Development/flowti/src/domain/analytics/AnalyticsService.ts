@@ -14,12 +14,24 @@ import type {
 	AnalyticsResult,
 	AnalyticsSource,
 	AnalyticsState,
+	ColumnTypeHint,
+	ComputedColumn,
+	ConditionalRule,
 	Dashboard,
 	DashboardTile,
-	TileDisplayMode,
+	DashboardTemplate,
+	DashboardTileTemplate,
+	DimensionSpec,
+	FilterSpec,
+	JoinSpec,
+	MeasureSpec,
 	ParsedSourceData,
 	SavedAnalyticsQuery,
 	SavedAnalyticsQuerySource,
+	SavedQueryTemplate,
+	SortSpec,
+	TileDisplayMode,
+	TimeBucketSpec,
 } from "./types";
 import { AnalyticsEngine } from "./AnalyticsEngine";
 import type { BaseAnalyticsAdapter } from "./BaseAnalyticsAdapter";
@@ -394,14 +406,6 @@ export class AnalyticsService {
 			this.state.defaultDashboardId = null;
 		}
 
-		// Clear pinned if the deleted dashboard was pinned
-		const pinned = this.state.pinnedDashboardIds ?? [];
-		const pinnedIdx = pinned.indexOf(id);
-		if (pinnedIdx !== -1) {
-			pinned.splice(pinnedIdx, 1);
-			this.state.pinnedDashboardIds = pinned;
-		}
-
 		await this.storage.save(this.state);
 
 		await this.eventBus?.emit("analytics.dashboard.deleted", {
@@ -470,39 +474,6 @@ export class AnalyticsService {
 		return this.getDashboard(id);
 	}
 
-	/** Get pinned dashboard IDs. */
-	getPinnedDashboardIds(): string[] {
-		return this.state.pinnedDashboardIds ?? [];
-	}
-
-	/** Pin a dashboard to the homepage (max 3). */
-	async pinDashboard(id: string): Promise<boolean> {
-		if (!this.getDashboard(id)) return false;
-		const pinned = this.state.pinnedDashboardIds ?? [];
-		if (pinned.includes(id)) return false;
-		if (pinned.length >= 3) return false;
-		pinned.push(id);
-		this.state.pinnedDashboardIds = pinned;
-		await this.storage.save(this.state);
-		return true;
-	}
-
-	/** Unpin a dashboard from the homepage. */
-	async unpinDashboard(id: string): Promise<boolean> {
-		const pinned = this.state.pinnedDashboardIds ?? [];
-		const idx = pinned.indexOf(id);
-		if (idx === -1) return false;
-		pinned.splice(idx, 1);
-		this.state.pinnedDashboardIds = pinned;
-		await this.storage.save(this.state);
-		return true;
-	}
-
-	/** Check if a dashboard is pinned. */
-	isDashboardPinned(id: string): boolean {
-		return (this.state.pinnedDashboardIds ?? []).includes(id);
-	}
-
 	/** Add a tile to a dashboard. */
 	async addTile(dashboardId: string, queryId: string, displayMode: TileDisplayMode, title?: string): Promise<DashboardTile | undefined> {
 		const dashboard = this.getDashboard(dashboardId);
@@ -549,6 +520,12 @@ export class AnalyticsService {
 		return true;
 	}
 
+	/** Mutable keys on DashboardTile (everything except "id"). Add new tile fields here. */
+	private static readonly TILE_MUTABLE_KEYS: ReadonlyArray<keyof Omit<DashboardTile, "id">> = [
+		"queryId", "title", "displayMode", "row", "col", "width", "height",
+		"conditionalRules", "showSparkline", "chartValueColumn", "rowLimit", "autoHeight",
+	];
+
 	/** Update a tile's properties within a dashboard. */
 	async updateTile(dashboardId: string, tileId: string, changes: Partial<Omit<DashboardTile, "id">>): Promise<DashboardTile | undefined> {
 		const dashboard = this.getDashboard(dashboardId);
@@ -557,15 +534,11 @@ export class AnalyticsService {
 		const tile = dashboard.tiles.find((t) => t.id === tileId);
 		if (!tile) return undefined;
 
-		if (changes.queryId !== undefined) tile.queryId = changes.queryId;
-		if (changes.title !== undefined) tile.title = changes.title;
-		if (changes.displayMode !== undefined) tile.displayMode = changes.displayMode;
-		if (changes.row !== undefined) tile.row = changes.row;
-		if (changes.col !== undefined) tile.col = changes.col;
-		if (changes.width !== undefined) tile.width = changes.width;
-		if (changes.height !== undefined) tile.height = changes.height;
-		if (changes.conditionalRules !== undefined) tile.conditionalRules = changes.conditionalRules;
-		if (changes.chartValueColumn !== undefined) tile.chartValueColumn = changes.chartValueColumn;
+		for (const key of AnalyticsService.TILE_MUTABLE_KEYS) {
+			if (changes[key] !== undefined) {
+				(tile as unknown as Record<string, unknown>)[key] = changes[key];
+			}
+		}
 
 		dashboard.updatedAt = Date.now();
 		await this.storage.save(this.state);
@@ -596,6 +569,247 @@ export class AnalyticsService {
 		return true;
 	}
 
+	// ── Dashboard templates ─────────────────────────────
+
+	/** List all saved dashboard templates. */
+	listTemplates(): DashboardTemplate[] {
+		return this.state.templates ?? [];
+	}
+
+	/** Save a dashboard as a reusable template. */
+	async saveDashboardAsTemplate(
+		dashboardId: string,
+		name: string,
+		description: string,
+		domain: string,
+	): Promise<DashboardTemplate | undefined> {
+		const dashboard = this.getDashboard(dashboardId);
+		if (!dashboard) return undefined;
+
+		// Build unique source list from all tiles' queries
+		const queryTemplates: SavedQueryTemplate[] = [];
+		const queryIdToIndex = new Map<string, number>();
+
+		for (const tile of dashboard.tiles) {
+			if (queryIdToIndex.has(tile.queryId)) continue;
+
+			const query = this.getQuery(tile.queryId);
+			if (!query) continue;
+
+			const index = queryTemplates.length;
+			queryIdToIndex.set(tile.queryId, index);
+
+			queryTemplates.push({
+				originalSources: structuredClone(query.sources),
+				queryConfig: {
+					name: query.name,
+					joins: query.joins,
+					columnTypeHints: query.columnTypeHints,
+					dimensions: query.dimensions,
+					measures: query.measures,
+					timeBucket: query.timeBucket,
+					filters: query.filters,
+					sort: query.sort,
+					limit: query.limit,
+					computedColumns: query.computedColumns,
+				},
+			});
+		}
+
+		const tileTemplates: DashboardTileTemplate[] = dashboard.tiles
+			.filter((t) => queryIdToIndex.has(t.queryId))
+			.map((t) => ({
+				queryIndex: queryIdToIndex.get(t.queryId)!,
+				title: t.title ?? "",
+				displayMode: t.displayMode,
+				width: t.width,
+				height: t.height,
+				conditionalRules: t.conditionalRules,
+				chartValueColumn: t.chartValueColumn,
+			}));
+
+		const template: DashboardTemplate = {
+			id: generateId(),
+			name,
+			description,
+			domain,
+			queries: queryTemplates,
+			tiles: tileTemplates,
+			createdAt: Date.now(),
+		};
+
+		const templates = this.state.templates ?? [];
+		templates.push(template);
+		this.state.templates = templates;
+		await this.storage.save(this.state);
+
+		await this.eventBus?.emit("analytics.template.saved", {
+			templateId: template.id,
+			templateName: template.name,
+			domain: template.domain,
+		});
+
+		return template;
+	}
+
+	/**
+	 * Create a new dashboard from a template with source mapping.
+	 * @param templateId - ID of the template to instantiate
+	 * @param sourceMapping - Map from original source path to new source path
+	 * @param dashboardName - Optional name override (defaults to template name)
+	 */
+	async createDashboardFromTemplate(
+		templateId: string,
+		sourceMapping: Record<string, string>,
+		dashboardName?: string,
+	): Promise<Dashboard | undefined> {
+		const template = this.listTemplates().find((t) => t.id === templateId);
+		if (!template) return undefined;
+
+		// Create saved queries from template with mapped sources
+		const newQueryIds: string[] = [];
+		for (const qt of template.queries) {
+			const mappedSources: SavedAnalyticsQuerySource[] = qt.originalSources.map((src) => ({
+				...src,
+				csvPath: sourceMapping[src.csvPath] ?? src.csvPath,
+			}));
+
+			const saved = await this.saveQuery(
+				qt.queryConfig.name,
+				mappedSources,
+				{
+					joins: qt.queryConfig.joins,
+					columnTypeHints: qt.queryConfig.columnTypeHints,
+					dimensions: qt.queryConfig.dimensions,
+					measures: qt.queryConfig.measures,
+					timeBucket: qt.queryConfig.timeBucket,
+					filters: qt.queryConfig.filters,
+					sort: qt.queryConfig.sort,
+					limit: qt.queryConfig.limit,
+					computedColumns: qt.queryConfig.computedColumns,
+				},
+			);
+			newQueryIds.push(saved.id);
+		}
+
+		// Create dashboard
+		const dashboard = await this.createDashboard(
+			dashboardName ?? template.name,
+			template.description,
+		);
+
+		// Add tiles referencing the new queries
+		for (const tt of template.tiles) {
+			const queryId = newQueryIds[tt.queryIndex];
+			if (!queryId) continue;
+
+			const tile = await this.addTile(dashboard.id, queryId, tt.displayMode, tt.title);
+			if (tile && (tt.conditionalRules || tt.chartValueColumn || tt.width !== 2 || tt.height !== 1)) {
+				await this.updateTile(dashboard.id, tile.id, {
+					width: tt.width,
+					height: tt.height,
+					conditionalRules: tt.conditionalRules,
+					chartValueColumn: tt.chartValueColumn,
+				});
+			}
+		}
+
+		await this.eventBus?.emit("analytics.template.used", {
+			templateId: template.id,
+			dashboardId: dashboard.id,
+			dashboardName: dashboard.name,
+		});
+
+		return dashboard;
+	}
+
+	/** Delete a template by ID. */
+	async deleteTemplate(templateId: string): Promise<boolean> {
+		const templates = this.state.templates ?? [];
+		const idx = templates.findIndex((t) => t.id === templateId);
+		if (idx === -1) return false;
+
+		templates.splice(idx, 1);
+		this.state.templates = templates;
+		await this.storage.save(this.state);
+		return true;
+	}
+
+	/** Import a dashboard from a raw JSON template (file import). */
+	async importDashboardFromJson(
+		template: {
+			name: string;
+			description?: string;
+			queries: Array<{
+				originalSources: SavedAnalyticsQuerySource[];
+				queryConfig: {
+					name: string;
+					joins: JoinSpec[];
+					columnTypeHints: ColumnTypeHint[];
+					dimensions: DimensionSpec[];
+					measures: MeasureSpec[];
+					timeBucket?: TimeBucketSpec;
+					filters?: FilterSpec[];
+					sort?: SortSpec;
+					limit?: number;
+					computedColumns?: ComputedColumn[];
+				};
+			}>;
+			tiles: Array<{
+				queryIndex: number;
+				title: string;
+				displayMode: TileDisplayMode;
+				width: number;
+				height: number;
+				conditionalRules?: ConditionalRule[];
+				chartValueColumn?: string;
+			}>;
+		},
+		sourceMapping?: Record<string, string>,
+	): Promise<Dashboard> {
+		const mapping = sourceMapping ?? {};
+
+		const newQueryIds: string[] = [];
+		for (const qt of template.queries) {
+			const mappedSources: SavedAnalyticsQuerySource[] = qt.originalSources.map((src) => ({
+				...src,
+				csvPath: mapping[src.csvPath] ?? src.csvPath,
+			}));
+
+			const saved = await this.saveQuery(qt.queryConfig.name, mappedSources, {
+				joins: qt.queryConfig.joins,
+				columnTypeHints: qt.queryConfig.columnTypeHints,
+				dimensions: qt.queryConfig.dimensions,
+				measures: qt.queryConfig.measures,
+				timeBucket: qt.queryConfig.timeBucket,
+				filters: qt.queryConfig.filters,
+				sort: qt.queryConfig.sort,
+				limit: qt.queryConfig.limit,
+				computedColumns: qt.queryConfig.computedColumns,
+			});
+			newQueryIds.push(saved.id);
+		}
+
+		const dashboard = await this.createDashboard(template.name, template.description);
+
+		for (const tt of template.tiles) {
+			const queryId = newQueryIds[tt.queryIndex];
+			if (!queryId) continue;
+
+			const tile = await this.addTile(dashboard.id, queryId, tt.displayMode, tt.title);
+			if (tile && (tt.conditionalRules || tt.chartValueColumn || tt.width !== 2 || tt.height !== 1)) {
+				await this.updateTile(dashboard.id, tile.id, {
+					width: tt.width,
+					height: tt.height,
+					conditionalRules: tt.conditionalRules,
+					chartValueColumn: tt.chartValueColumn,
+				});
+			}
+		}
+
+		return dashboard;
+	}
+
 	// ── Source resolution ────────────────────────────────
 
 	/** Resolve a saved query source to ParsedSourceData, regardless of type. */
@@ -618,7 +832,13 @@ export class AnalyticsService {
 	private async writeQueryFile(query: SavedAnalyticsQuery): Promise<void> {
 		if (!this.fileSystem || !this.queryFolder) return;
 		const path = `${this.queryFolder}/${this.sanitizeFileName(query.name)}.json`;
-		await this.fileSystem.createFile(path, JSON.stringify(query, null, 2), { createFolders: true });
+		const content = JSON.stringify(query, null, 2);
+		try {
+			await this.fileSystem.createFile(path, content, { createFolders: true });
+		} catch {
+			// File already exists — overwrite with updated content
+			try { await this.fileSystem.updateFile(path, content); } catch { /* best-effort */ }
+		}
 	}
 
 	/** Delete the JSON file for a query by name. */

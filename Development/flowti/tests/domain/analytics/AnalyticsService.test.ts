@@ -493,4 +493,85 @@ describe("AnalyticsService", () => {
 			await expect(svc.deleteQuery(saved.id)).resolves.toBe(true);
 		});
 	});
+
+	// ── updateTile whitelist (AI-3 fix) ──────────────────
+
+	describe("updateTile whitelist", () => {
+		async function createDashboardWithTile() {
+			const dashboard = await service.createDashboard("Test DB");
+			const saved = await service.saveQuery(
+				"Q1",
+				[{ alias: "a", csvPath: "a.csv" }],
+				{
+					joins: [],
+					columnTypeHints: [],
+					dimensions: [{ column: "x" }],
+					measures: [{ column: "x", function: "COUNT", label: "count" }],
+				},
+			);
+			const tile = await service.addTile(dashboard.id, saved.id, "table", "Tile 1");
+			return { dashboardId: dashboard.id, tileId: tile!.id };
+		}
+
+		it("persists all whitelisted fields through updateTile", async () => {
+			const { dashboardId, tileId } = await createDashboardWithTile();
+
+			const updated = await service.updateTile(dashboardId, tileId, {
+				title: "Updated Title",
+				displayMode: "stat-card",
+				row: 2,
+				col: 1,
+				width: 3,
+				height: 2,
+				conditionalRules: [{ column: "x", operator: ">", threshold: 10, color: "red" }],
+				showSparkline: false,
+				chartValueColumn: "revenue",
+			});
+
+			expect(updated).toBeDefined();
+			expect(updated!.title).toBe("Updated Title");
+			expect(updated!.displayMode).toBe("stat-card");
+			expect(updated!.row).toBe(2);
+			expect(updated!.col).toBe(1);
+			expect(updated!.width).toBe(3);
+			expect(updated!.height).toBe(2);
+			expect(updated!.conditionalRules).toHaveLength(1);
+			expect(updated!.showSparkline).toBe(false);
+			expect(updated!.chartValueColumn).toBe("revenue");
+		});
+
+		it("only updates fields that are provided", async () => {
+			const { dashboardId, tileId } = await createDashboardWithTile();
+
+			// Set chartValueColumn first
+			await service.updateTile(dashboardId, tileId, { chartValueColumn: "cost" });
+
+			// Update only title — chartValueColumn should be preserved
+			const updated = await service.updateTile(dashboardId, tileId, { title: "New Title" });
+
+			expect(updated!.title).toBe("New Title");
+			expect(updated!.chartValueColumn).toBe("cost");
+		});
+
+		it("returns undefined for nonexistent dashboard", async () => {
+			const result = await service.updateTile("nonexistent", "any", { title: "x" });
+			expect(result).toBeUndefined();
+		});
+
+		it("returns undefined for nonexistent tile", async () => {
+			const dashboard = await service.createDashboard("DB");
+			const result = await service.updateTile(dashboard.id, "nonexistent", { title: "x" });
+			expect(result).toBeUndefined();
+		});
+
+		it("emits tile.updated event", async () => {
+			const { dashboardId, tileId } = await createDashboardWithTile();
+			eventBus._emitted.length = 0;
+
+			await service.updateTile(dashboardId, tileId, { title: "Updated" });
+
+			const types = eventBus._emitted.map((e) => e.type);
+			expect(types).toContain("analytics.dashboard.tile.updated");
+		});
+	});
 });
