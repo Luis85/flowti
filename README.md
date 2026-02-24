@@ -14,6 +14,8 @@ To start your journey you will need to have Obsidian installed which serves as a
 
 > This Repo also tests, validates, and simulates the Flowti Development Process.
 
+---
+
 ## Why tho?
 
 First: Curiosity!
@@ -26,7 +28,11 @@ Third: [[How can AI help to improve product-development quality]]?
 - various roles as consultant in IT and Product
 - my 3 biggest hobbies are gaming, design, and coding
 
+---
+
 ## Prerequisites
+
+> You want a **system that turns structured thinking into structured execution**.
 
 Before we get started, make sure the following things are in place:
 
@@ -35,9 +41,9 @@ Before we get started, make sure the following things are in place:
 - [Obsidian](https://obsidian.md) is installed
 - Obsidian Git Community Plugin is installed and  enabled
 
-## Tutorial - How to get in
+---
 
-> You want a **system that turns structured thinking into structured execution**.
+## Tutorial - How to get in
 
 ### Step 1 - Clone the repo
 
@@ -74,6 +80,8 @@ To update, you need to `git pull` from remote and build the plugin again.
 - How to manage an Obsidian Plugin within Flowti
 - How to come from Idea to Solution to Feedback to Improvement to Product Market Fit to Release and Publishing to Continuous Improvement
 - How can we manage an Obsidian Plugin like a Product, guided by industries best-practices
+
+---
 
 ## Testlab - The OneSeater Motorsport Manager
 
