@@ -145,6 +145,16 @@ export interface SortSpec {
 	direction: "asc" | "desc";
 }
 
+// ── Computed columns ────────────────────────────────────
+
+/** A computed column evaluated from an arithmetic expression on result columns. */
+export interface ComputedColumn {
+	/** Display name for the computed column */
+	name: string;
+	/** Arithmetic expression using {Column Label} references and +, -, *, / operators */
+	expression: string;
+}
+
 // ── Analytics query ─────────────────────────────────────
 
 /** Complete analytics query configuration. */
@@ -167,6 +177,8 @@ export interface AnalyticsQuery {
 	sort?: SortSpec;
 	/** Optional row limit (applied after sorting) */
 	limit?: number;
+	/** Optional computed columns (evaluated after aggregation) */
+	computedColumns?: ComputedColumn[];
 }
 
 // ── Analytics result ────────────────────────────────────
@@ -235,6 +247,8 @@ export interface SavedAnalyticsQuery {
 	sort?: SortSpec;
 	/** Optional row limit (applied after sorting) */
 	limit?: number;
+	/** Optional computed columns (evaluated after aggregation) */
+	computedColumns?: ComputedColumn[];
 }
 
 // ── Parsed date ─────────────────────────────────────────

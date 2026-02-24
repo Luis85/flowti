@@ -14,6 +14,7 @@ import type {
 	LocaleId,
 	ColumnTypeHint,
 	ColumnType,
+	ComputedColumn,
 	FilterSpec,
 	FilterOperator,
 	SortSpec,
@@ -78,6 +79,7 @@ export class QueriesTab {
 	private filters: FilterSpec[] = [];
 	private sort: SortSpec | null = null;
 	private limit: number | null = null;
+	private computedColumns: ComputedColumn[] = [];
 	private lastResult: AnalyticsResult | null = null;
 	private lastDurationMs: number | undefined;
 	private lastError: string | null = null;
@@ -343,6 +345,7 @@ export class QueriesTab {
 			this.renderTimeBucketConfig();
 			this.renderFilterConfig();
 			this.renderSortLimitConfig();
+			this.renderComputedColumnConfig();
 		}
 
 		if (this.lastError) {
@@ -513,6 +516,7 @@ export class QueriesTab {
 			this.filters = [];
 			this.sort = null;
 			this.limit = null;
+			this.computedColumns = [];
 			this.lastResult = null;
 			this.lastDurationMs = undefined;
 			this.lastError = null;
@@ -923,6 +927,66 @@ export class QueriesTab {
 		}
 	}
 
+	private renderComputedColumnConfig(): void {
+		if (this.measures.length === 0) return;
+
+		const section = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
+		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		header.createDiv({ text: "Computed Columns", cls: "ft-detail-section-header" });
+		header.style.margin = "0";
+
+		const addBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		addBtn.style.marginLeft = "auto";
+		const addIcon = addBtn.createSpan();
+		setIcon(addIcon, "plus");
+		addBtn.appendText(" Add");
+		addBtn.addEventListener("click", () => {
+			this.computedColumns.push({ name: "", expression: "" });
+			this.renderDetail();
+		});
+
+		for (let i = 0; i < this.computedColumns.length; i++) {
+			const cc = this.computedColumns[i];
+			const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
+			row.style.padding = "0.35rem 0.5rem";
+			row.style.borderBottom = "1px solid var(--background-modifier-border)";
+
+			const nameInput = row.createEl("input", { type: "text" });
+			nameInput.value = cc.name;
+			nameInput.placeholder = "Column name";
+			nameInput.style.cssText = INPUT_CSS + ";width:120px";
+			nameInput.addEventListener("change", () => { cc.name = nameInput.value.trim(); });
+
+			row.createSpan({ text: "=", cls: "ft-text-muted" });
+
+			const exprInput = row.createEl("input", { type: "text" });
+			exprInput.value = cc.expression;
+			exprInput.placeholder = "{Column} + {Column}";
+			exprInput.style.cssText = INPUT_CSS + ";width:200px;flex:1";
+			exprInput.addEventListener("change", () => { cc.expression = exprInput.value; });
+
+			const removeBtn = row.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+			const removeIcon = removeBtn.createSpan();
+			setIcon(removeIcon, "x");
+			removeBtn.addEventListener("click", () => {
+				this.computedColumns.splice(i, 1);
+				this.renderDetail();
+			});
+		}
+
+		// Helper text showing available column labels
+		if (this.computedColumns.length > 0) {
+			const labels = this.measures.map((m) => m.label ?? `${m.function}(${m.column})`);
+			const helpText = section.createDiv({ cls: "ft-text-muted ft-text-xs ft-p-2" });
+			helpText.textContent = `Available: ${labels.map((l) => `{${l}}`).join(", ")}`;
+		} else {
+			section.createDiv({
+				text: "Add computed columns for derived metrics (e.g., Profit = {Revenue} - {Cost})",
+				cls: "ft-text-muted ft-text-sm ft-p-2",
+			});
+		}
+	}
+
 	private renderSortLimitConfig(): void {
 		const section = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
 		section.createDiv({ text: "Sort & Limit", cls: "ft-detail-section-header" });
@@ -1027,6 +1091,7 @@ export class QueriesTab {
 				filters: this.filters.length > 0 ? this.filters : undefined,
 				sort: this.sort ?? undefined,
 				limit: this.limit ?? undefined,
+				computedColumns: this.computedColumns.length > 0 ? this.computedColumns : undefined,
 			};
 
 			this.lastResult = await this.deps.analyticsService.runQuery(query);
@@ -1057,6 +1122,7 @@ export class QueriesTab {
 			filters: this.filters.length > 0 ? this.filters : undefined,
 			sort: this.sort ?? undefined,
 			limit: this.limit ?? undefined,
+			computedColumns: this.computedColumns.length > 0 ? this.computedColumns : undefined,
 		};
 	}
 
@@ -1107,6 +1173,7 @@ export class QueriesTab {
 		this.filters = saved.filters ? saved.filters.map((f) => ({ ...f })) : [];
 		this.sort = saved.sort ? { ...saved.sort } : null;
 		this.limit = saved.limit ?? null;
+		this.computedColumns = saved.computedColumns ? saved.computedColumns.map((c) => ({ ...c })) : [];
 		this.lastResult = null;
 		this.lastDurationMs = undefined;
 		this.lastError = null;

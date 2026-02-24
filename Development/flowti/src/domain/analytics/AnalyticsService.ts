@@ -167,6 +167,7 @@ export class AnalyticsService {
 			filters: saved.filters,
 			sort: saved.sort,
 			limit: saved.limit,
+			computedColumns: saved.computedColumns,
 		};
 
 		const result = await this.runQuery(query, saved.name);
@@ -200,6 +201,7 @@ export class AnalyticsService {
 			filters: query.filters,
 			sort: query.sort,
 			limit: query.limit,
+			computedColumns: query.computedColumns,
 		};
 
 		const queries = this.state.savedAnalyticsQueries ?? [];
@@ -295,6 +297,7 @@ export class AnalyticsService {
 		existing.filters = query.filters;
 		existing.sort = query.sort;
 		existing.limit = query.limit;
+		existing.computedColumns = query.computedColumns;
 		await this.storage.save(this.state);
 
 		await this.eventBus?.emit("analytics.query.saved", {

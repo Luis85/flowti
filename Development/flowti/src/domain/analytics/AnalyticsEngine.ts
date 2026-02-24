@@ -3,7 +3,7 @@
  *
  * Pure, stateless class: takes a query config + parsed CSV data → returns result.
  * Supports hash joins, GROUP BY, aggregation (SUM/COUNT/AVG/MIN/MAX),
- * locale-aware number/date parsing, and time bucketing.
+ * locale-aware number/date parsing, time bucketing, and computed columns.
  */
 
 import type {
@@ -12,6 +12,7 @@ import type {
 	AnalyticsSource,
 	AggregationFunction,
 	ColumnTypeHint,
+	ComputedColumn,
 	DimensionSpec,
 	FilterSpec,
 	JoinSpec,
@@ -62,24 +63,30 @@ export class AnalyticsEngine {
 			query,
 		);
 
-		// 6. Apply sort (after aggregation)
+		// 6. Apply computed columns (after aggregation)
+		if (query.computedColumns && query.computedColumns.length > 0) {
+			this.applyComputedColumns(resultRows, query.computedColumns);
+		}
+
+		// 7. Apply sort (after aggregation)
 		let sortedRows = resultRows;
 		if (query.sort) {
 			sortedRows = this.applySort(sortedRows, query.sort);
 		}
 
-		// 7. Apply limit (after sorting)
+		// 8. Apply limit (after sorting)
 		if (query.limit !== undefined && query.limit >= 0) {
 			sortedRows = this.applyLimit(sortedRows, query.limit);
 		}
 
-		// 8. Build column list
+		// 9. Build column list
 		const columns = [
 			...query.dimensions.map((d) => d.column),
 			...(query.timeBucket
 				? [query.timeBucket.outputColumn ?? `${query.timeBucket.column}_${query.timeBucket.period}`]
 				: []),
 			...query.measures.map((m) => m.label ?? `${m.function}(${m.column})`),
+			...(query.computedColumns ?? []).map((c) => c.name),
 		];
 
 		return {
@@ -352,6 +359,19 @@ export class AnalyticsEngine {
 		}
 	}
 
+	// ── Computed columns ─────────────────────────────
+
+	private applyComputedColumns(
+		rows: ResultRow[],
+		computedColumns: ComputedColumn[],
+	): void {
+		for (const row of rows) {
+			for (const cc of computedColumns) {
+				row[cc.name] = evaluateExpression(cc.expression, row);
+			}
+		}
+	}
+
 	// ── Helpers ────────────────────────────────────────
 
 	/**
@@ -394,6 +414,130 @@ export class AnalyticsEngine {
 
 		return hints;
 	}
+}
+
+/**
+ * Evaluate an arithmetic expression with {Column Label} references.
+ * Supports +, -, *, / with standard operator precedence.
+ * Returns 0 for invalid expressions or division by zero.
+ */
+export function evaluateExpression(expression: string, row: ResultRow): number {
+	if (!expression.trim()) return 0;
+
+	// Replace {Column Label} references with numeric values
+	const substituted = expression.replace(/\{([^}]+)\}/g, (_, label: string) => {
+		const val = row[label.trim()];
+		if (typeof val === "number") return String(val);
+		const num = parseFloat(String(val ?? ""));
+		return isNaN(num) ? "0" : String(num);
+	});
+
+	// Tokenize into numbers and operators
+	const tokens = tokenizeArithmetic(substituted);
+	if (tokens.length === 0) return 0;
+
+	return calculateWithPrecedence(tokens);
+}
+
+/** Token: either a number or an operator */
+type ArithToken = { type: "num"; value: number } | { type: "op"; value: string };
+
+/** Tokenize a string like "100 - 50 * 2" into numbers and operators. */
+function tokenizeArithmetic(expr: string): ArithToken[] {
+	const tokens: ArithToken[] = [];
+	let i = 0;
+	const s = expr.trim();
+
+	while (i < s.length) {
+		// Skip whitespace
+		if (s[i] === " " || s[i] === "\t") { i++; continue; }
+
+		// Operator
+		if (s[i] === "+" || s[i] === "-" || s[i] === "*" || s[i] === "/") {
+			// Handle leading negative: treat as part of number if no preceding number
+			if (s[i] === "-" && (tokens.length === 0 || tokens[tokens.length - 1].type === "op")) {
+				const numStr = parseNumString(s, i);
+				if (numStr.length > 1) {
+					tokens.push({ type: "num", value: parseFloat(numStr) });
+					i += numStr.length;
+					continue;
+				}
+			}
+			tokens.push({ type: "op", value: s[i] });
+			i++;
+			continue;
+		}
+
+		// Number
+		if (isDigitOrDot(s[i])) {
+			const numStr = parseNumString(s, i);
+			tokens.push({ type: "num", value: parseFloat(numStr) });
+			i += numStr.length;
+			continue;
+		}
+
+		// Skip unknown characters
+		i++;
+	}
+
+	return tokens;
+}
+
+function isDigitOrDot(ch: string): boolean {
+	return (ch >= "0" && ch <= "9") || ch === ".";
+}
+
+function parseNumString(s: string, start: number): string {
+	let i = start;
+	if (s[i] === "-" || s[i] === "+") i++;
+	while (i < s.length && (isDigitOrDot(s[i]) || s[i] === "e" || s[i] === "E")) i++;
+	return s.substring(start, i);
+}
+
+/** Evaluate tokens with operator precedence: * / before + - */
+function calculateWithPrecedence(tokens: ArithToken[]): number {
+	if (tokens.length === 0) return 0;
+
+	// Collect numbers and operators
+	const nums: number[] = [];
+	const ops: string[] = [];
+
+	for (const t of tokens) {
+		if (t.type === "num") nums.push(t.value);
+		else ops.push(t.value);
+	}
+
+	// If mismatched, return first number or 0
+	if (nums.length === 0) return 0;
+	if (ops.length < nums.length - 1) return nums[0];
+
+	// Pass 1: handle * and /
+	const nums2: number[] = [nums[0]];
+	const ops2: string[] = [];
+
+	for (let i = 0; i < ops.length; i++) {
+		if (ops[i] === "*" || ops[i] === "/") {
+			const left = nums2.pop()!;
+			const right = nums[i + 1] ?? 0;
+			if (ops[i] === "*") {
+				nums2.push(left * right);
+			} else {
+				nums2.push(right === 0 ? 0 : left / right);
+			}
+		} else {
+			ops2.push(ops[i]);
+			nums2.push(nums[i + 1] ?? 0);
+		}
+	}
+
+	// Pass 2: handle + and -
+	let result = nums2[0];
+	for (let i = 0; i < ops2.length; i++) {
+		if (ops2[i] === "+") result += nums2[i + 1] ?? 0;
+		else if (ops2[i] === "-") result -= nums2[i + 1] ?? 0;
+	}
+
+	return isNaN(result) || !isFinite(result) ? 0 : result;
 }
 
 /**
