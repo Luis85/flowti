@@ -41,7 +41,7 @@ stage: refinement
 
 [[Sketchpad.canvas]]
 
-- As LLMs are language processors, generating natural language based on given content as input, in well documented content templates like the user-story or use-case format, generates well enough code for sustainable development, behaving like a compiler between humans and not so predictable machine-code, mimicking the real-world problem of explaining requirements and understanding requirements.
+- As LLMs are language processors, generating natural language based on given content as input, well documented content templates like the user-story or use-case format, generates well enough code for sustainable development, behaving like a compiler between humans and not so predictable machine-code, mimicking the real-world problem of explaining requirements and understanding requirements.
 - Using real-world outside signals for the feedback-loop provides enough fresh data for each simulation step to not let quality degrade over time and preventing Agents eating too much of their own content.
 - Following best-practices from agile and quality-management, we have all the tools needed to build a solid framework producing desired, AI-Assisted output which turn into a high-quality product increment by using the human-in-the-middle-approach for quality-assurance and needed alignments during development cycles.
 
@@ -65,11 +65,9 @@ The basic idea is to simulate the whole Product Lifecycle with all it's Artifact
 
 Using Obsidian as Documentation and Development Platform to have a flexible tool for quick iterations and documented learnings, backed by a publicly available and a private Git repository to build a versioned history.
 
-To quickly gather feedback, each generated Plugin Increment gets validated in a real work-environment, consisting of service-delivery, project-management, and business-development. This feedback get's observed and manually entered into the system. This is already a biased entry point which should be minimized in the future.
+To quickly gather feedback, each generated Plugin Increment gets validated in a real work-environment, consisting of service-delivery, project-management, and business-development. This feedback get's observed and manually entered into the system. This is already a biased entry point which should be minimized in the future by using more unfiltered content, for example by using GitHub as ingestion point for feedback and to further open up the input channels, publishing of the produced plugin is planned to use GitHub as first main touchpoint for feedback ingestion and further simulating interactions and processes within the lifecycle.
 
-To further open up the input channels, publishing of the produced plugin is planned to use GitHub as first main touchpoint for feedback ingestion and further simulating interactions and processes within the lifecycle.
-
-A desired outcome will be a fully documented, open-source product, serving as proof-of-concept and test-platform for further, community-driven, and agile improvements.
+> A desired outcome will be a fully documented, open-source product, serving as proof-of-concept and test-platform for further, community-driven, and agile improvements.
 
 ## Test-Environment
 
@@ -378,7 +376,7 @@ Measure:
 - AI mimics documented language
 - Traceability is critical
 - Testsuite ≠ real understanding
-- Context maps improve alignment
+- Context maps improve alignment, Obsidian Bases has shown good direction into important parts of the documentation for better Agent context
 
 ---
 
