@@ -32,6 +32,11 @@ stage: refinement
 - What defines an Information-System
 - How can those systems scale
 
+## Agile AI Assisted Product Development
+
+- Does AI fit into an agile product development environment
+- How can AI help bring order in the product lifecycle
+
 ## Assumptions
 
 [[Sketchpad.canvas]]
