@@ -33,7 +33,7 @@ export interface DataExchangeEventMap {
 	};
 
 	/** Import completed successfully */
-	"dataExchange.import.completed": { operationId: string; result: ImportResult; pipelineId?: string };
+	"dataExchange.import.completed": { operationId: string; result: ImportResult; sourcePath?: string; pipelineId?: string };
 
 	/** Import failed */
 	"dataExchange.import.failed": { operationId: string; error: string; config: ImportConfig; pipelineId?: string };

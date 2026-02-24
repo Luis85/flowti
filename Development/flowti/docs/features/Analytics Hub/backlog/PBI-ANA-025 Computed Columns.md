@@ -4,7 +4,8 @@ pbi: PBI-ANA-025
 title: Computed Columns
 domain: analytics
 feature: "[[Analytics Hub PRD]]"
-stage: planned
+stage: delivered
+delivered_in: "[[Cycle 31 - Analytics Business Intelligence]]"
 priority: critical
 planned_in: "[[Cycle 31 - Analytics Business Intelligence]]"
 related:

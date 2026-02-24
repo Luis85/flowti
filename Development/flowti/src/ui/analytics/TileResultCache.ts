@@ -16,6 +16,7 @@ export type QueryRunner = (queryId: string) => Promise<AnalyticsResult>;
 
 export class TileResultCache {
 	private cache = new Map<string, TileCacheEntry>();
+	private timestamps = new Map<string, number>();
 
 	/**
 	 * Get cached result for a query, or kick off async execution.
@@ -30,6 +31,7 @@ export class TileResultCache {
 		void runner(queryId).then(
 			(result) => {
 				this.cache.set(queryId, { result, error: null });
+				this.timestamps.set(queryId, Date.now());
 				onDone();
 			},
 			(err) => {
@@ -47,13 +49,20 @@ export class TileResultCache {
 		return this.cache.get(queryId);
 	}
 
-	/** Clear all cached results. */
-	clear(): void {
-		this.cache.clear();
+	/** Get the timestamp when a query result was last cached. */
+	getTimestamp(queryId: string): number | undefined {
+		return this.timestamps.get(queryId);
 	}
 
-	/** Clear a single query's cached result (for refresh). */
+	/** Clear all cached results and timestamps. */
+	clear(): void {
+		this.cache.clear();
+		this.timestamps.clear();
+	}
+
+	/** Clear a single query's cached result and timestamp (for refresh). */
 	clearOne(queryId: string): void {
 		this.cache.delete(queryId);
+		this.timestamps.delete(queryId);
 	}
 }

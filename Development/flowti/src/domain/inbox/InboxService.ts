@@ -17,6 +17,7 @@ import { MAX_INBOX_ITEMS } from "./types";
 import {
 	mapSubscriptionMatched,
 	mapImportCompleted,
+	mapImportToAnalytics,
 	mapImportFailed,
 	mapExportCompleted,
 	mapPipelineCompleted,
@@ -116,6 +117,9 @@ export class InboxService {
 					if (!this.enabledSources.has("dataExchange.import.completed")) return;
 					const item = mapImportCompleted(event.payload, generateId());
 					void this.addItem(item);
+					// Analytics bridge: also create an "Analyze in Analytics Hub" action
+					const analyticsItem = mapImportToAnalytics(event.payload, generateId());
+					void this.addItem(analyticsItem);
 				}),
 			);
 

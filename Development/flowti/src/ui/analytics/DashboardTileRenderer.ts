@@ -7,6 +7,7 @@
 
 import { setIcon } from "obsidian";
 import type { AnalyticsResult, DashboardTile, SavedAnalyticsQuery, TileDisplayMode } from "../../domain/analytics/types";
+import { formatRelativeTime, getFreshnessColor, getFreshnessLevel } from "../../domain/analytics/freshnessUtils";
 import { AnalyticsResultsPanel } from "../hub/AnalyticsResultsPanel";
 
 const MAX_STAT_CARD_GROUPS = 20;
@@ -21,6 +22,8 @@ export interface TileRenderContext {
 	onReorder?: (tileId: string, direction: "up" | "down") => void;
 	onTitleChange?: (tileId: string, newTitle: string) => void;
 	onDisplayModeToggle?: (tileId: string, newMode: TileDisplayMode) => void;
+	/** Timestamp of last refresh (for freshness display). */
+	refreshedAt?: number;
 }
 
 export class DashboardTileRenderer {
@@ -66,6 +69,22 @@ export class DashboardTileRenderer {
 				cls: "ft-text-sm",
 			});
 			titleEl.style.fontWeight = "600";
+		}
+
+		// Freshness badge
+		if (ctx.refreshedAt) {
+			const level = getFreshnessLevel(ctx.refreshedAt);
+			const badge = header.createSpan({
+				text: formatRelativeTime(ctx.refreshedAt),
+				cls: "ft-text-xs",
+			});
+			badge.style.color = getFreshnessColor(level);
+			badge.style.flexShrink = "0";
+			badge.style.marginLeft = "0.5rem";
+		} else if (ctx.result) {
+			const badge = header.createSpan({ text: "Not yet refreshed", cls: "ft-text-xs ft-text-muted" });
+			badge.style.flexShrink = "0";
+			badge.style.marginLeft = "0.5rem";
 		}
 
 		const actions = header.createDiv();

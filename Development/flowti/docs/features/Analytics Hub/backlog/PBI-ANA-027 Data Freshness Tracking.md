@@ -4,7 +4,8 @@ pbi: PBI-ANA-027
 title: Data Freshness Tracking
 domain: analytics
 feature: "[[Analytics Hub PRD]]"
-stage: planned
+stage: delivered
+delivered_in: "[[Cycle 31 - Analytics Business Intelligence]]"
 priority: high
 planned_in: "[[Cycle 31 - Analytics Business Intelligence]]"
 related:

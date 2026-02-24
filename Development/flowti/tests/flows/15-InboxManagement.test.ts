@@ -63,11 +63,15 @@ describe("Flow 15: Manage Inbox Notifications", () => {
 			});
 			await waitForAsync();
 
-			expect(addedHandler).toHaveBeenCalledOnce();
-			const item = addedHandler.mock.calls[0][0].payload.item;
-			expect(item.sourceEvent).toBe("dataExchange.import.completed");
-			expect(item.type).toBe("info");
-			expect(item.title).toContain("8 created");
+			// 2 items: standard import notification + analytics bridge action
+			expect(addedHandler).toHaveBeenCalledTimes(2);
+			const importItem = addedHandler.mock.calls[0][0].payload.item;
+			expect(importItem.sourceEvent).toBe("dataExchange.import.completed");
+			expect(importItem.type).toBe("info");
+			expect(importItem.title).toContain("8 created");
+			const analyticsItem = addedHandler.mock.calls[1][0].payload.item;
+			expect(analyticsItem.sourceHub).toBe("analytics");
+			expect(analyticsItem.type).toBe("action");
 		});
 
 		it("should create action-type inbox item when import has failures", async () => {
@@ -319,7 +323,7 @@ describe("Flow 15: Manage Inbox Notifications", () => {
 			eventBus.on("inbox.itemAdded", () => { events.push("itemAdded"); });
 			eventBus.on("inbox.itemsChanged", () => { events.push("itemsChanged"); });
 
-			// 1. Source event fires → inbox item created
+			// 1. Source event fires → inbox items created (import notification + analytics bridge)
 			await eventBus.emit("dataExchange.import.completed", {
 				operationId: "op-7",
 				result: { totalRows: 20, created: 18, updated: 2, skipped: 0, failed: 0, errors: [] },
@@ -327,19 +331,20 @@ describe("Flow 15: Manage Inbox Notifications", () => {
 			await waitForAsync();
 
 			expect(events).toContain("itemAdded");
-			expect(inboxService.getItems()).toHaveLength(1);
-			expect(inboxService.getUnreadCount()).toBe(1);
+			expect(inboxService.getItems()).toHaveLength(2);
+			expect(inboxService.getUnreadCount()).toBe(2);
 
-			// 2. User reads the item
-			const item = inboxService.getItems()[0];
-			await inboxService.markRead(item.id);
+			// 2. User reads both items
+			for (const item of inboxService.getItems()) {
+				await inboxService.markRead(item.id);
+			}
 			await waitForAsync();
 
 			expect(inboxService.getUnreadCount()).toBe(0);
 			expect(events).toContain("itemsChanged");
 
-			// 3. User dismisses the item
-			await inboxService.dismiss(item.id);
+			// 3. User dismisses all items
+			await inboxService.clearAll();
 			await waitForAsync();
 
 			expect(inboxService.getItems()).toHaveLength(0);

@@ -32,6 +32,7 @@ import type {
 	SavedAnalyticsQuerySource,
 } from "../../domain/analytics/types";
 import { AnalyticsEngine } from "../../domain/analytics/AnalyticsEngine";
+import { generateQuickInsights, type QuickInsightSuggestion } from "../../domain/analytics/quickInsights";
 import { AnalyticsResultsPanel } from "../hub/AnalyticsResultsPanel";
 import { SourcePreviewPanel } from "./SourcePreviewPanel";
 
@@ -597,7 +598,61 @@ export class QueriesTab {
 				data: firstLoaded.data,
 				typeHints: this.columnTypeHints,
 			}).render();
+
+			// Quick Insights
+			this.renderQuickInsights(section);
 		}
+	}
+
+	private renderQuickInsights(container: HTMLElement): void {
+		const insights = generateQuickInsights(this.columnTypeHints, this.getLoadedHeaders());
+		if (insights.length === 0) return;
+
+		const section = container.createDiv({ cls: "ft-mt-2" });
+		section.style.borderTop = "1px solid var(--background-modifier-border)";
+		section.style.paddingTop = "0.5rem";
+
+		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		const iconEl = header.createSpan();
+		setIcon(iconEl, "lightbulb");
+		iconEl.style.width = "14px";
+		iconEl.style.height = "14px";
+		iconEl.style.opacity = "0.6";
+		header.createSpan({ text: "Quick Insights", cls: "ft-text-sm ft-text-muted" });
+
+		const grid = section.createDiv();
+		grid.style.display = "grid";
+		grid.style.gridTemplateColumns = "repeat(auto-fill, minmax(180px, 1fr))";
+		grid.style.gap = "0.5rem";
+		grid.style.marginTop = "0.5rem";
+
+		for (const insight of insights) {
+			this.renderInsightCard(grid, insight);
+		}
+	}
+
+	private renderInsightCard(container: HTMLElement, insight: QuickInsightSuggestion): void {
+		const card = container.createDiv({ cls: "ft-stat-card" });
+		card.style.cursor = "pointer";
+		card.style.padding = "0.5rem 0.75rem";
+
+		const title = card.createDiv({ cls: "ft-text-sm" });
+		title.style.fontWeight = "500";
+		title.textContent = insight.title;
+
+		card.createDiv({ text: insight.description, cls: "ft-text-xs ft-text-muted" });
+
+		card.addEventListener("click", () => {
+			this.applyQuickInsight(insight);
+		});
+	}
+
+	private applyQuickInsight(insight: QuickInsightSuggestion): void {
+		this.dimensions = [...insight.dimensions];
+		this.measures = [...insight.measures];
+		this.timeBucket = insight.timeBucket ? { ...insight.timeBucket } : null;
+		this.renderDetail();
+		void this.executeQuery();
 	}
 
 	private renderTypeHints(): void {

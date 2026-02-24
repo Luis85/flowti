@@ -8,6 +8,7 @@
 
 import { setIcon } from "obsidian";
 import type { Dashboard } from "../../domain/analytics/types";
+import { computeFreshnessSummary, getFreshnessLevel, getFreshnessColor } from "../../domain/analytics/freshnessUtils";
 import type { AnalyticsHubDeps } from "./types";
 import { DashboardTileRenderer, type TileRenderContext } from "./DashboardTileRenderer";
 
@@ -29,6 +30,7 @@ export class AnalyticsDashboardPage {
 		}
 
 		this.renderFavoritesSection();
+		this.renderRecentSources();
 	}
 
 	// ── Default dashboard tile grid ──────────────────────────
@@ -41,11 +43,28 @@ export class AnalyticsDashboardPage {
 		header.style.justifyContent = "space-between";
 		header.style.marginBottom = "0.75rem";
 
-		const titleEl = header.createSpan({ text: dashboard.name, cls: "ft-text-lg" });
+		const titleLeft = header.createDiv();
+		titleLeft.style.display = "flex";
+		titleLeft.style.alignItems = "center";
+		titleLeft.style.gap = "0.5rem";
+
+		const titleEl = titleLeft.createSpan({ text: dashboard.name, cls: "ft-text-lg" });
 		titleEl.style.fontWeight = "600";
 
-		const badge = header.createSpan({ text: "Default", cls: "ft-badge ft-text-xs" });
-		badge.style.marginLeft = "0.5rem";
+		titleLeft.createSpan({ text: "Default", cls: "ft-badge ft-text-xs" });
+
+		// Freshness summary
+		const tileTimestamps = dashboard.tiles.map((t) => this.deps.tileResultCache.getTimestamp(t.queryId));
+		const summaryText = computeFreshnessSummary(tileTimestamps);
+		if (summaryText) {
+			const worstLevel = tileTimestamps.some((t) => t !== undefined && getFreshnessLevel(t) === "stale")
+				? "stale"
+				: tileTimestamps.some((t) => t !== undefined && getFreshnessLevel(t) === "aging")
+					? "aging"
+					: "fresh";
+			const summaryEl = header.createSpan({ text: summaryText, cls: "ft-text-xs" });
+			summaryEl.style.color = getFreshnessColor(worstLevel);
+		}
 
 		if (dashboard.tiles.length === 0) {
 			const empty = this.containerEl.createDiv({ cls: "ft-text-muted ft-text-sm" });
@@ -88,6 +107,7 @@ export class AnalyticsDashboardPage {
 				query,
 				result: tileResult.result,
 				error: tileResult.error,
+				refreshedAt: this.deps.tileResultCache.getTimestamp(tile.queryId),
 				onRemove: () => {
 					// Navigate to dashboards tab for tile management
 					this.deps.navigation.navigateTo("dashboards");
@@ -213,6 +233,64 @@ export class AnalyticsDashboardPage {
 		nameEl.style.whiteSpace = "nowrap";
 
 		card.addEventListener("click", onClick);
+	}
+
+	// ── Recent Sources section ───────────────────────────────
+
+	private renderRecentSources(): void {
+		const state = this.deps.getState();
+		const csvFiles = state.csvFiles;
+
+		if (csvFiles.length === 0) return;
+
+		const recentFiles = csvFiles.slice(0, 5);
+
+		const section = this.containerEl.createDiv({ cls: "ft-mt-3" });
+
+		const header = section.createDiv({ cls: "ft-master-category-header" });
+		header.createSpan({ text: "Recent Sources" });
+		header.createSpan({
+			text: `${recentFiles.length}`,
+			cls: "ft-master-category-count",
+		});
+
+		for (const file of recentFiles) {
+			const row = section.createDiv({ cls: "ft-master-item" });
+			row.style.display = "flex";
+			row.style.alignItems = "center";
+			row.style.justifyContent = "space-between";
+			row.style.padding = "0.35rem 0.5rem";
+
+			const left = row.createDiv();
+			left.style.display = "flex";
+			left.style.alignItems = "center";
+			left.style.gap = "0.5rem";
+			left.style.flex = "1";
+			left.style.minWidth = "0";
+
+			const iconEl = left.createSpan();
+			setIcon(iconEl, "file-spreadsheet");
+			iconEl.style.width = "14px";
+			iconEl.style.height = "14px";
+			iconEl.style.flexShrink = "0";
+
+			const nameEl = left.createSpan({ text: file.displayName, cls: "ft-text-sm" });
+			nameEl.style.overflow = "hidden";
+			nameEl.style.textOverflow = "ellipsis";
+			nameEl.style.whiteSpace = "nowrap";
+
+			const analyzeBtn = row.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+			analyzeBtn.style.flexShrink = "0";
+			analyzeBtn.style.cursor = "pointer";
+			const btnIcon = analyzeBtn.createSpan();
+			setIcon(btnIcon, "bar-chart-2");
+			btnIcon.style.width = "12px";
+			btnIcon.style.height = "12px";
+			analyzeBtn.appendText(" Analyze");
+			analyzeBtn.addEventListener("click", () => {
+				this.deps.navigation.navigateTo("queries");
+			});
+		}
 	}
 
 	private renderStat(container: HTMLElement, icon: string, label: string, value: string, tabId: string): void {

@@ -67,6 +67,33 @@ export function mapImportCompleted(
 }
 
 /**
+ * Maps a `dataExchange.import.completed` event to an analytics action inbox item.
+ * Creates a "Analyze [filename] in Analytics Hub" action alongside the standard import notification.
+ */
+export function mapImportToAnalytics(
+	payload: {
+		result: {
+			totalRows: number;
+			created: number;
+		};
+		sourcePath?: string;
+	},
+	id: string,
+): InboxItem {
+	const filename = payload.sourcePath?.split("/").pop() ?? "imported file";
+	return {
+		id,
+		type: "action",
+		title: `Analyze ${filename} in Analytics Hub`,
+		description: `${payload.result.totalRows} rows imported (${payload.result.created} created). Open in Analytics Hub to query this data.`,
+		sourceEvent: "dataExchange.import.completed",
+		sourceHub: "analytics",
+		timestamp: new Date().toISOString(),
+		read: false,
+	};
+}
+
+/**
  * Maps a `dataExchange.import.failed` event to an inbox item.
  */
 export function mapImportFailed(

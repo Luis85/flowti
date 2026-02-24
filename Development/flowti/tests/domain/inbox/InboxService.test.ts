@@ -115,11 +115,15 @@ describe("InboxService", () => {
 			});
 
 			await vi.waitFor(() => {
-				expect(service.getItems()).toHaveLength(1);
+				// 2 items: analytics bridge action (newest) + standard import notification
+				expect(service.getItems()).toHaveLength(2);
 			});
 
-			expect(service.getItems()[0].type).toBe("info");
-			expect(service.getItems()[0].sourceHub).toBe("data-exchange");
+			const items = service.getItems();
+			expect(items[0].sourceHub).toBe("analytics");
+			expect(items[0].type).toBe("action");
+			expect(items[1].sourceHub).toBe("data-exchange");
+			expect(items[1].type).toBe("info");
 		});
 
 		it("should add action item when dataExchange.import.failed is emitted", async () => {

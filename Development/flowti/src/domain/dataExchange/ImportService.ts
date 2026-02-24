@@ -108,6 +108,7 @@ export class ImportService {
 			await this.eventBus.emit("dataExchange.import.completed", {
 				operationId,
 				result,
+				sourcePath: config.sourcePath,
 				pipelineId,
 			});
 			return result;

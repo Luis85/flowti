@@ -166,14 +166,14 @@ Primary interaction path:
 
 ### Business Intelligence (v4 — Cycle 31)
 
-- [ ] FR-29: User can add computed columns to a query with a name and arithmetic expression (e.g., `{Total Revenue} - {Total Cost}` → "Profit"); supports `+`, `-`, `*`, `/`
-- [ ] FR-30: Analytics engine evaluates computed column expressions after aggregation and includes computed values in result rows and column lists
-- [ ] FR-31: When a source is loaded and column types detected, the system generates up to 3 Quick Insight suggestions based on column types (numeric → SUM, text → GROUP BY, date → time bucket)
-- [ ] FR-32: User can click a Quick Insight to populate the query builder with suggested dimensions, measures, and time bucket, then auto-execute
-- [ ] FR-33: Each dashboard tile displays a relative time indicator showing when the tile's query was last executed; visual color-coding by freshness (green/amber/red)
-- [ ] FR-34: Dashboard header shows freshness summary ("All tiles fresh" / "N stale tiles"); tiles show "Not yet refreshed" before first execution
-- [ ] FR-35: After a CSV import completes in the Data Exchange Hub, an inbox item "Analyze [filename] in Analytics Hub" is created
-- [ ] FR-36: Analytics Hub overview page shows a "Recent Sources" section with the 5 most recently modified CSV files and an "Analyze" action per source
+- [x] FR-29: User can add computed columns to a query with a name and arithmetic expression (e.g., `{Total Revenue} - {Total Cost}` → "Profit"); supports `+`, `-`, `*`, `/`
+- [x] FR-30: Analytics engine evaluates computed column expressions after aggregation and includes computed values in result rows and column lists
+- [x] FR-31: When a source is loaded and column types detected, the system generates up to 3 Quick Insight suggestions based on column types (numeric → SUM, text → GROUP BY, date → time bucket)
+- [x] FR-32: User can click a Quick Insight to populate the query builder with suggested dimensions, measures, and time bucket, then auto-execute
+- [x] FR-33: Each dashboard tile displays a relative time indicator showing when the tile's query was last executed; visual color-coding by freshness (green/amber/red)
+- [x] FR-34: Dashboard header shows freshness summary ("All tiles fresh" / "N stale tiles"); tiles show "Not yet refreshed" before first execution
+- [x] FR-35: After a CSV import completes in the Data Exchange Hub, an inbox item "Analyze [filename] in Analytics Hub" is created
+- [x] FR-36: Analytics Hub overview page shows a "Recent Sources" section with the 5 most recently modified CSV files and an "Analyze" action per source
 
 ## 6. Data Model Impact
 

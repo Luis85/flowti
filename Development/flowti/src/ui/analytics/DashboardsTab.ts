@@ -365,6 +365,7 @@ export class DashboardsTab {
 				query,
 				result: tileResult.result,
 				error: tileResult.error,
+				refreshedAt: this.deps.tileResultCache.getTimestamp(tile.queryId),
 				onRemove: (tileId) => {
 					void this.deps.analyticsService.removeTile(dashboard.id, tileId).then(() => {
 						this.deps.scheduleRender();

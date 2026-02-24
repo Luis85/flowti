@@ -4,7 +4,8 @@ pbi: PBI-ANA-026
 title: Quick Insights
 domain: analytics
 feature: "[[Analytics Hub PRD]]"
-stage: planned
+stage: delivered
+delivered_in: "[[Cycle 31 - Analytics Business Intelligence]]"
 priority: critical
 planned_in: "[[Cycle 31 - Analytics Business Intelligence]]"
 related:
