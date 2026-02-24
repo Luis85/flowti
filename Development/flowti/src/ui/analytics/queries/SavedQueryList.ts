@@ -70,6 +70,11 @@ export class SavedQueryList {
 			const textBlock = item.createDiv({ cls: "ft-master-event-name" });
 			textBlock.style.minWidth = "0";
 			textBlock.createDiv({ text: sq.name });
+			if (sq.description) {
+				const descEl = textBlock.createDiv({ cls: "ft-text-muted ft-text-xs" });
+				descEl.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
+				descEl.textContent = sq.description;
+			}
 			const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-sm" });
 			sub.textContent = `${sq.sources.length} source${sq.sources.length > 1 ? "s" : ""}, ${sq.measures.length} measure${sq.measures.length > 1 ? "s" : ""}`;
 

@@ -260,6 +260,13 @@ export class AnalyticsService {
 		return query;
 	}
 
+	async updateQueryDescription(id: string, description: string | undefined): Promise<void> {
+		const query = this.getQuery(id);
+		if (!query) return;
+		query.description = description;
+		await this.storage.save(this.state);
+	}
+
 	/** Duplicate a saved query with a new ID and " (copy)" suffix. */
 	async duplicateQuery(id: string): Promise<SavedAnalyticsQuery | undefined> {
 		const original = this.getQuery(id);

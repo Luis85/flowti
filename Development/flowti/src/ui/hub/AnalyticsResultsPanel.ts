@@ -7,6 +7,7 @@
 import { setIcon } from "obsidian";
 import { renderStatGrid, type StatCardItem } from "../shared/StatCard";
 import type { AnalyticsResult, ResultRow } from "../../domain/analytics/types";
+import { rowsToCsv } from "../../utils/csvUtils";
 
 export interface AnalyticsResultsPanelOptions {
 	result: AnalyticsResult;
@@ -171,27 +172,6 @@ export class AnalyticsResultsPanel {
 
 	private generateCsv(): string {
 		const { result } = this.options;
-		const lines: string[] = [];
-
-		// Header
-		lines.push(result.columns.map((c) => this.escapeCsvField(c)).join(","));
-
-		// Rows
-		for (const row of result.rows) {
-			const fields = result.columns.map((col) => {
-				const val = row[col];
-				return this.escapeCsvField(typeof val === "number" ? String(val) : String(val ?? ""));
-			});
-			lines.push(fields.join(","));
-		}
-
-		return lines.join("\n");
-	}
-
-	private escapeCsvField(value: string): string {
-		if (value.includes(",") || value.includes('"') || value.includes("\n")) {
-			return `"${value.replace(/"/g, '""')}"`;
-		}
-		return value;
+		return rowsToCsv(result.columns, result.rows);
 	}
 }

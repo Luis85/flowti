@@ -239,6 +239,8 @@ export interface SavedAnalyticsQuery {
 	id: string;
 	/** User-provided name */
 	name: string;
+	/** Optional description — "What question does this query answer?" */
+	description?: string;
 	/** Whether this query is marked as a favorite */
 	isFavorite?: boolean;
 	/** Timestamp when saved */

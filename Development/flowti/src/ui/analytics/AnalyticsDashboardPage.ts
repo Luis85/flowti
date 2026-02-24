@@ -188,7 +188,7 @@ export class AnalyticsDashboardPage {
 		// Tile grid
 		const grid = this.containerEl.createDiv({ cls: "ft-dashboard-grid" });
 		grid.style.display = "grid";
-		grid.style.gridTemplateColumns = "repeat(3, 1fr)";
+		grid.style.gridTemplateColumns = "repeat(5, 1fr)";
 		grid.style.gridAutoRows = "auto";
 		grid.style.gap = "1rem";
 
@@ -197,7 +197,7 @@ export class AnalyticsDashboardPage {
 		for (const tile of dashboard.tiles) {
 			const query = state.queries.find((q) => q.id === tile.queryId);
 			const tileHost = grid.createDiv();
-			tileHost.style.gridColumn = `span ${Math.min(tile.width, 3)}`;
+			tileHost.style.gridColumn = `span ${Math.min(tile.width, 5)}`;
 			const isAutoHeight = tile.autoHeight && tile.width >= 3;
 			const rowSpan = Math.min(tile.height, 5);
 			tileHost.style.gridRow = isAutoHeight ? "auto" : `span ${rowSpan}`;
@@ -227,6 +227,11 @@ export class AnalyticsDashboardPage {
 					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { chartValueColumn: column } as Partial<DashboardTile>).then(() => {
 						this.deps.scheduleRender();
 					});
+				},
+				onViewQuery: (queryId) => {
+					this.deps.setState({ selectedQueryId: queryId });
+					this.deps.navigation.navigateTo("queries");
+					this.deps.scheduleRender();
 				},
 			} satisfies TileRenderContext);
 		}

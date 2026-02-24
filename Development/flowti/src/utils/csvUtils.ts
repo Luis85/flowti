@@ -106,6 +106,41 @@ export function matchMergeKeyColumn(mergeKey: string, headers: string[]): string
 	});
 }
 
+// ─────────────────────────────────────────────────────────
+// CSV Generation & Export
+// ─────────────────────────────────────────────────────────
+
+/** Escape a single CSV field value, quoting if it contains commas, quotes, or newlines. */
+export function escapeCsvField(value: unknown): string {
+	const str = value == null ? "" : typeof value === "number" ? String(value) : String(value);
+	if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+		return `"${str.replace(/"/g, '""')}"`;
+	}
+	return str;
+}
+
+/** Generate a CSV string from column headers and row data. */
+export function rowsToCsv(columns: string[], rows: Record<string, unknown>[]): string {
+	const lines = [columns.map((c) => escapeCsvField(c)).join(",")];
+	for (const row of rows) {
+		lines.push(columns.map((col) => escapeCsvField(row[col])).join(","));
+	}
+	return lines.join("\n");
+}
+
+/** Trigger a file download of CSV content with the given filename. */
+export function downloadCsvFile(csv: string, filename: string): void {
+	const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement("a");
+	a.href = url;
+	a.download = `${filename.replace(/[<>:"/\\|?*]/g, "_")}.csv`;
+	document.body.appendChild(a);
+	a.click();
+	document.body.removeChild(a);
+	URL.revokeObjectURL(url);
+}
+
 /**
  * Synchronize column mappings with a new set of CSV headers.
  *

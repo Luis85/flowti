@@ -3,10 +3,10 @@ domain: Analytics
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
 stage: delivered
-version: 8
+version: 9
 maturity: L2
 created: 2026-02-23
-updated: 2026-02-24
+updated: 2026-02-25
 supplier_prd: "[[Feature - Supplier Management]]"
 foundation: "[[When opening a CSV with Flowti, I want to be able to make an easy dashboard]]"
 related_events:
@@ -209,6 +209,16 @@ Primary interaction path:
 - [x] FR-59: Query builder dimensions section shows only string/date columns (excludes columns typed as "number"); measure column dropdown shows only numeric columns when type hints exist
 - [x] FR-60: `updateTile` uses a whitelist array (`TILE_MUTABLE_KEYS`) for field assignment; new DashboardTile fields are automatically included when added to the whitelist
 
+### Supplier Manager Daily Experience (v8 — Cycle 35)
+
+- [x] FR-61: Dashboard tile header includes a trash icon that removes the tile from the dashboard via the existing `onRemove` callback; tile settings panel allows reconfiguring query, width (1–5 columns), height (1–5 rows), auto-height, sparkline toggle, and row limit
+- [x] FR-62: User can add a saved query result to any existing dashboard or a new dashboard directly from the Queries tab via an "Add to Dashboard" dropdown; display mode is auto-suggested based on result shape (stat-card for ≤5 rows, line-chart for time bucket, bar-chart for category groups, table as fallback)
+- [x] FR-63: Dashboard tile header includes a download icon that exports the tile's cached result as a CSV file via the shared `downloadCsvFile` utility
+- [x] FR-64: Dashboard tile header includes a "View Query" icon that navigates to the Queries tab with the tile's source query loaded and auto-executed
+- [x] FR-65: Saved queries support an optional `description` field ("What question does this query answer?") editable inline in the query detail header; description is shown in the saved query master list and tile settings query selector
+- [x] FR-66: Dashboard tile header shows a row count badge displaying the number of rows in the cached result; dashboard detail header shows a freshness summary indicating the staleness of tile data
+- [x] FR-67: CSV generation utilities (`escapeCsvField`, `rowsToCsv`, `downloadCsvFile`) are consolidated in `src/utils/csvUtils.ts` as shared infrastructure (TD-126 resolved)
+
 ## 6. Data Model Impact
 
 ### New Types
@@ -226,7 +236,7 @@ Primary interaction path:
 | Type | Change |
 |------|--------|
 | `SavedAnalyticsQuerySource` | Add `sourcePath`, `sourceType` (`"csv" \| "base"`), `viewIndex?`; backward-compat with existing `csvPath` |
-| `SavedAnalyticsQuery` | Add `isFavorite?: boolean` (v2); add `filters?: FilterSpec[]`, `sort?: SortSpec`, `limit?: number` (v3); add `computedColumns?: ComputedColumn[]` (v4) |
+| `SavedAnalyticsQuery` | Add `isFavorite?: boolean` (v2); add `filters?: FilterSpec[]`, `sort?: SortSpec`, `limit?: number` (v3); add `computedColumns?: ComputedColumn[]` (v4); add `description?: string` (v8) |
 | `AnalyticsQuery` | Add `filters?: FilterSpec[]`, `sort?: SortSpec`, `limit?: number` (v3); add `computedColumns?: ComputedColumn[]` (v4) |
 
 ### v3 Types (Cycle 30)

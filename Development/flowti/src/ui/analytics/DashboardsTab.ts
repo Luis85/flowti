@@ -7,6 +7,7 @@
 
 import { Notice, setIcon } from "obsidian";
 import type { Dashboard, DashboardTile } from "../../domain/analytics/types";
+import { computeFreshnessSummary, getFreshnessLevel, getFreshnessColor } from "../../domain/analytics/freshnessUtils";
 import type { AnalyticsHubDeps } from "./types";
 import { DashboardTileRenderer, type TileRenderContext } from "./DashboardTileRenderer";
 import { AddTileDialog } from "./AddTileDialog";
@@ -231,6 +232,22 @@ export class DashboardsTab {
 			badge.style.flexShrink = "0";
 		}
 
+		// Freshness summary
+		if (dashboard.tiles.length > 0) {
+			const tileTimestamps = dashboard.tiles.map((t) => this.deps.tileResultCache.getTimestamp(t.queryId));
+			const summaryText = computeFreshnessSummary(tileTimestamps);
+			if (summaryText) {
+				const worstLevel = tileTimestamps.some((t) => t !== undefined && getFreshnessLevel(t) === "stale")
+					? "stale"
+					: tileTimestamps.some((t) => t !== undefined && getFreshnessLevel(t) === "aging")
+						? "aging"
+						: "fresh";
+				const summaryEl = titleLeft.createSpan({ text: summaryText, cls: "ft-text-xs" });
+				summaryEl.style.color = getFreshnessColor(worstLevel);
+				summaryEl.style.flexShrink = "0";
+			}
+		}
+
 		const headerActions = header.createDiv();
 		headerActions.style.display = "flex";
 		headerActions.style.alignItems = "center";
@@ -353,7 +370,7 @@ export class DashboardsTab {
 
 		const grid = this.detailEl.createDiv({ cls: "ft-dashboard-grid" });
 		grid.style.display = "grid";
-		grid.style.gridTemplateColumns = "repeat(3, 1fr)";
+		grid.style.gridTemplateColumns = "repeat(5, 1fr)";
 		grid.style.gridAutoRows = "auto";
 		grid.style.gap = "1rem";
 
@@ -362,7 +379,7 @@ export class DashboardsTab {
 		for (const tile of dashboard.tiles) {
 			const query = state.queries.find((q) => q.id === tile.queryId);
 			const tileHost = grid.createDiv();
-			tileHost.style.gridColumn = `span ${Math.min(tile.width, 3)}`;
+			tileHost.style.gridColumn = `span ${Math.min(tile.width, 5)}`;
 			tileHost.style.minWidth = "0";
 			const isAutoHeight = tile.autoHeight && tile.width >= 3;
 			const rowSpan = Math.min(tile.height, 5);
@@ -453,6 +470,11 @@ export class DashboardsTab {
 					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { autoHeight: auto } as Partial<DashboardTile>).then(() => {
 						this.deps.scheduleRender();
 					});
+				},
+				onViewQuery: (queryId) => {
+					this.deps.setState({ selectedQueryId: queryId });
+					this.deps.navigation.navigateTo("queries");
+					this.deps.scheduleRender();
 				},
 			} satisfies TileRenderContext);
 		}

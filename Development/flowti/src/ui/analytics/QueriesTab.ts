@@ -12,7 +12,7 @@
  * Extracted from monolithic QueriesTab (1,264 LOC) per TD-ANA-001.
  */
 
-import { setIcon } from "obsidian";
+import { Notice, setIcon } from "obsidian";
 import type { AnalyticsHubDeps } from "./types";
 import type {
 	ColumnTypeHint,
@@ -28,6 +28,7 @@ import type {
 	AnalyticsSourceType,
 	AnalyticsResult,
 	SavedAnalyticsQuerySource,
+	TileDisplayMode,
 } from "../../domain/analytics/types";
 import { AnalyticsEngine } from "../../domain/analytics/AnalyticsEngine";
 import type { QuerySource, QueriesSubDeps } from "./queries/types";
@@ -36,6 +37,17 @@ import { SourcePanel } from "./queries/SourcePanel";
 import { QueryBuilderPanel } from "./queries/QueryBuilderPanel";
 import { ComputedColumnsSection } from "./queries/ComputedColumnsSection";
 import { ResultsSection } from "./queries/ResultsSection";
+import { rowsToCsv, downloadCsvFile } from "../../utils/csvUtils";
+import { DashboardNameModal } from "./DashboardNameModal";
+
+/** Auto-suggest display mode based on result shape. */
+export function suggestDisplayMode(result: AnalyticsResult, hasTimeBucket: boolean): TileDisplayMode {
+	if (hasTimeBucket) return "line-chart";
+	if (result.rows.length <= 5 && result.columns.length <= 3) return "stat-card";
+	const numericCols = result.columns.filter((c) => typeof result.rows[0]?.[c] === "number");
+	if (result.rows.length > 5 && numericCols.length > 0 && result.groupCount > 1 && result.groupCount <= 12) return "bar-chart";
+	return "table";
+}
 
 export class QueriesTab {
 	private sources: QuerySource[] = [];
@@ -98,7 +110,7 @@ export class QueriesTab {
 			lastError: () => this.lastError,
 			running: () => this.running,
 			executeQuery: () => { void this.executeQuery(); },
-			handleExportCsv: (csv) => this.downloadCsv(csv, this.getActiveQueryName()),
+			handleExportCsv: (csv) => downloadCsvFile(csv, this.getActiveQueryName()),
 			applyQuickInsight: (dims, measures, timeBucket) => {
 				this.dimensions = dims;
 				this.measures = measures;
@@ -292,6 +304,21 @@ export class QueriesTab {
 		const state = this.deps.getState();
 		const activeQuery = state.selectedQueryId ? this.deps.analyticsService.getQuery(state.selectedQueryId) : null;
 		left.createDiv({ text: activeQuery ? activeQuery.name : "Query Builder", cls: "ft-detail-event-type" });
+		if (activeQuery) {
+			const descInput = left.createEl("input", { type: "text" });
+			descInput.value = activeQuery.description ?? "";
+			descInput.placeholder = "What question does this query answer?";
+			descInput.style.cssText = "width:100%;border:none;background:transparent;color:var(--text-muted);font-size:var(--font-ui-small);padding:0.15rem 0";
+			descInput.addEventListener("blur", () => {
+				const val = descInput.value.trim();
+				if (val !== (activeQuery.description ?? "")) {
+					void this.deps.analyticsService.updateQueryDescription(activeQuery.id, val || undefined);
+				}
+			});
+			descInput.addEventListener("keydown", (e) => {
+				if (e.key === "Enter") { e.preventDefault(); descInput.blur(); }
+			});
+		}
 		const badges = left.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
 		badges.createSpan({
 			text: `${this.sources.length} source${this.sources.length > 1 ? "s" : ""}`,
@@ -485,11 +512,90 @@ export class QueriesTab {
 				csvLink.appendText(" Save to CSV");
 				csvLink.addEventListener("click", () => {
 					if (this.lastResult) {
-						this.downloadCsv(this.resultToCsv(this.lastResult), this.getActiveQueryName());
+						this.downloadResultCsv(this.lastResult, this.getActiveQueryName());
 					}
 				});
+
+				// Add to Dashboard
+				if (isEditing) {
+					this.renderAddToDashboard(actions);
+				}
 			}
 		}
+	}
+
+	private addToDashboardOpen = false;
+
+	private renderAddToDashboard(container: HTMLElement): void {
+		const wrapper = container.createSpan();
+		wrapper.style.position = "relative";
+
+		const link = wrapper.createEl("span", { cls: "ft-nav-link" });
+		const icon = link.createSpan();
+		setIcon(icon, "layout-grid");
+		link.appendText(" Add to Dashboard");
+		if (this.addToDashboardOpen) link.style.color = "var(--text-accent)";
+		link.addEventListener("click", (e) => {
+			e.stopPropagation();
+			this.addToDashboardOpen = !this.addToDashboardOpen;
+			this.renderDetail();
+		});
+
+		if (!this.addToDashboardOpen) return;
+
+		const dropdown = wrapper.createDiv();
+		dropdown.style.cssText = "position:absolute;top:100%;left:0;z-index:100;background:var(--background-primary);border:1px solid var(--background-modifier-border);border-radius:6px;padding:0.25rem 0;min-width:200px;box-shadow:0 4px 12px rgba(0,0,0,0.15)";
+
+		const dashboards = this.deps.getState().dashboards;
+		for (const d of dashboards) {
+			const item = dropdown.createDiv({ cls: "ft-master-item ft-text-sm" });
+			item.style.cssText = "padding:0.35rem 0.75rem;cursor:pointer;display:flex;align-items:center;gap:0.5rem";
+			const dIcon = item.createSpan();
+			setIcon(dIcon, "layout-grid");
+			dIcon.style.cssText = "width:14px;height:14px;flex-shrink:0";
+			const nameEl = item.createSpan({ text: d.name });
+			nameEl.style.cssText = "flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
+			item.createSpan({ text: `${d.tiles.length}`, cls: "ft-badge ft-text-xs" });
+			item.addEventListener("click", () => {
+				void this.addQueryToDashboard(d.id, d.name);
+			});
+		}
+
+		// Separator
+		if (dashboards.length > 0) {
+			const sep = dropdown.createDiv();
+			sep.style.cssText = "height:1px;background:var(--background-modifier-border);margin:0.25rem 0";
+		}
+
+		// Create new dashboard
+		const newItem = dropdown.createDiv({ cls: "ft-master-item ft-text-sm" });
+		newItem.style.cssText = "padding:0.35rem 0.75rem;cursor:pointer;display:flex;align-items:center;gap:0.5rem";
+		const newIcon = newItem.createSpan();
+		setIcon(newIcon, "plus");
+		newIcon.style.cssText = "width:14px;height:14px;flex-shrink:0";
+		newItem.createSpan({ text: "New Dashboard" });
+		newItem.addEventListener("click", () => {
+			this.addToDashboardOpen = false;
+			new DashboardNameModal(this.deps.app, {
+				onConfirm: (name) => {
+					void this.deps.analyticsService.createDashboard(name).then((dashboard) => {
+						void this.addQueryToDashboard(dashboard.id, dashboard.name);
+					});
+				},
+			}).open();
+		});
+	}
+
+	private async addQueryToDashboard(dashboardId: string, dashboardName: string): Promise<void> {
+		this.addToDashboardOpen = false;
+		const queryId = this.deps.getState().selectedQueryId;
+		if (!queryId || !this.lastResult) return;
+
+		const mode = suggestDisplayMode(this.lastResult, this.timeBucket !== null);
+		const title = this.getActiveQueryName();
+		await this.deps.analyticsService.addTile(dashboardId, queryId, mode, title);
+		new Notice(`Added "${title}" to ${dashboardName}`);
+		this.renderDetail();
 	}
 
 	// ─────────────────────────────────────────────────────────
@@ -651,29 +757,8 @@ export class QueriesTab {
 		return "query";
 	}
 
-	private downloadCsv(csv: string, name: string): void {
-		const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement("a");
-		a.href = url;
-		a.download = `${name.replace(/[<>:"/\\|?*]/g, "_")}.csv`;
-		document.body.appendChild(a);
-		a.click();
-		document.body.removeChild(a);
-		URL.revokeObjectURL(url);
-	}
-
-	private resultToCsv(result: AnalyticsResult): string {
-		const escape = (v: string) =>
-			v.includes(",") || v.includes('"') || v.includes("\n") ? `"${v.replace(/"/g, '""')}"` : v;
-		const lines = [result.columns.map((c) => escape(c)).join(",")];
-		for (const row of result.rows) {
-			lines.push(result.columns.map((col) => {
-				const val = row[col];
-				return escape(typeof val === "number" ? String(val) : String(val ?? ""));
-			}).join(","));
-		}
-		return lines.join("\n");
+	private downloadResultCsv(result: AnalyticsResult, name: string): void {
+		downloadCsvFile(rowsToCsv(result.columns, result.rows), name);
 	}
 
 	// ─────────────────────────────────────────────────────────

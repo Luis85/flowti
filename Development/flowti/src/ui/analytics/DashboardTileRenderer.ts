@@ -7,6 +7,7 @@ import { setIcon } from "obsidian";
 import type { AnalyticsResult, DashboardTile, SavedAnalyticsQuery, TileDisplayMode, ConditionalRule } from "../../domain/analytics/types";
 import { formatRelativeTime, getFreshnessColor, getFreshnessLevel } from "../../domain/analytics/freshnessUtils";
 import { evaluateConditionalRules } from "../../domain/analytics/conditionalFormatting";
+import { rowsToCsv, downloadCsvFile } from "../../utils/csvUtils";
 import { ChartRenderer } from "./ChartRenderer";
 
 const DISPLAY_MODE_CYCLE: TileDisplayMode[] = ["table", "stat-card", "line-chart", "bar-chart", "area-chart"];
@@ -46,6 +47,8 @@ export interface TileRenderContext {
 	onRowLimitChange?: (tileId: string, limit: number | undefined) => void;
 	/** Called when the user toggles auto-height (content-driven height at max width). */
 	onAutoHeightToggle?: (tileId: string, auto: boolean) => void;
+	/** Called when the user clicks "View Query" — navigates to the Queries tab. */
+	onViewQuery?: (queryId: string) => void;
 }
 
 export class DashboardTileRenderer {
@@ -105,6 +108,15 @@ export class DashboardTileRenderer {
 		actions.style.alignItems = "center";
 		actions.style.gap = "0.25rem";
 		actions.style.flexShrink = "0";
+
+		// Row count badge
+		if (ctx.result && ctx.result.rows.length > 0) {
+			const rowBadge = actions.createSpan({
+				text: `${ctx.result.rows.length} rows`,
+				cls: "ft-text-xs ft-text-muted",
+			});
+			rowBadge.style.flexShrink = "0";
+		}
 
 		// Conditional rule indicator dot
 		if (ctx.tile.conditionalRules && ctx.tile.conditionalRules.length > 0) {
@@ -176,6 +188,37 @@ export class DashboardTileRenderer {
 			refreshBtn.addEventListener("click", (e) => {
 				e.stopPropagation();
 				ctx.onRefresh!(ctx.tile.id);
+			});
+		}
+
+		// CSV export button
+		if (ctx.result && ctx.result.rows.length > 0) {
+			const csvBtn = actions.createSpan({ cls: "ft-nav-link ft-text-muted" });
+			const csvIcon = csvBtn.createSpan();
+			setIcon(csvIcon, "download");
+			csvIcon.style.width = "14px";
+			csvIcon.style.height = "14px";
+			csvBtn.style.cursor = "pointer";
+			csvBtn.setAttribute("aria-label", "Export CSV");
+			csvBtn.addEventListener("click", (e) => {
+				e.stopPropagation();
+				const title = ctx.tile.title || ctx.query?.name || "tile-export";
+				downloadCsvFile(rowsToCsv(ctx.result!.columns, ctx.result!.rows), title);
+			});
+		}
+
+		// View query button
+		if (ctx.onViewQuery && ctx.tile.queryId) {
+			const viewBtn = actions.createSpan({ cls: "ft-nav-link ft-text-muted" });
+			const viewIcon = viewBtn.createSpan();
+			setIcon(viewIcon, "external-link");
+			viewIcon.style.width = "14px";
+			viewIcon.style.height = "14px";
+			viewBtn.style.cursor = "pointer";
+			viewBtn.setAttribute("aria-label", "View Query");
+			viewBtn.addEventListener("click", (e) => {
+				e.stopPropagation();
+				ctx.onViewQuery!(ctx.tile.queryId);
 			});
 		}
 
@@ -406,7 +449,7 @@ export class DashboardTileRenderer {
 		// ── Query selector ───────────────────────────────
 		if (ctx.queries && ctx.queries.length > 0 && ctx.onQueryChange) {
 			const row = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			row.style.marginBottom = "0.5rem";
+			row.style.marginBottom = "0.25rem";
 			row.createSpan({ text: "Query", cls: "ft-text-sm" }).style.fontWeight = "600";
 
 			const querySelect = row.createEl("select", { cls: "ft-text-xs" });
@@ -420,6 +463,16 @@ export class DashboardTileRenderer {
 			querySelect.addEventListener("change", () => {
 				ctx.onQueryChange!(ctx.tile.id, querySelect.value);
 			});
+
+			// Show description of selected query
+			const selectedQuery = ctx.queries.find((q) => q.id === ctx.tile.queryId);
+			if (selectedQuery?.description) {
+				const descEl = container.createDiv({ cls: "ft-text-muted ft-text-xs" });
+				descEl.style.marginBottom = "0.5rem";
+				descEl.textContent = selectedQuery.description;
+			} else {
+				container.createDiv().style.marginBottom = "0.25rem";
+			}
 		}
 
 		// ── Width toggle ─────────────────────────────────
@@ -428,7 +481,7 @@ export class DashboardTileRenderer {
 			row.style.marginBottom = "0.5rem";
 			row.createSpan({ text: "Width", cls: "ft-text-sm" }).style.fontWeight = "600";
 
-			for (const w of [1, 2, 3]) {
+			for (const w of [1, 2, 3, 4, 5]) {
 				const btn = row.createEl("button", { cls: "ft-text-xs" });
 				btn.textContent = `${w} col`;
 				btn.style.cssText = "padding:2px 8px;border-radius:4px;border:1px solid var(--background-modifier-border);cursor:pointer";
