@@ -186,6 +186,12 @@ Required documents and actions from compliance perspective help building a long-
 ## Further thinking
 
 - How can Markov-Chains help building a knowledge-graph and leverage good old statistics from that
+- How can we track and manage experiments with Flowti
+
+## Experiments
+
+![[05 - Experiments.base]]
+
 
 ---
 # Core Thesis

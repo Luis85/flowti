@@ -3,7 +3,7 @@ domain: Analytics
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
 stage: delivered
-version: 4
+version: 5
 maturity: L2
 created: 2026-02-23
 updated: 2026-02-24
@@ -164,6 +164,17 @@ Primary interaction path:
 - [x] FR-27: Stat-card tiles render all result rows as dimension-grouped cards (not just first row); capped at 20 groups with overflow
 - [x] FR-28: Dashboard name and description are editable inline in the dashboard detail header; changes persist
 
+### Business Intelligence (v4 — Cycle 31)
+
+- [ ] FR-29: User can add computed columns to a query with a name and arithmetic expression (e.g., `{Total Revenue} - {Total Cost}` → "Profit"); supports `+`, `-`, `*`, `/`
+- [ ] FR-30: Analytics engine evaluates computed column expressions after aggregation and includes computed values in result rows and column lists
+- [ ] FR-31: When a source is loaded and column types detected, the system generates up to 3 Quick Insight suggestions based on column types (numeric → SUM, text → GROUP BY, date → time bucket)
+- [ ] FR-32: User can click a Quick Insight to populate the query builder with suggested dimensions, measures, and time bucket, then auto-execute
+- [ ] FR-33: Each dashboard tile displays a relative time indicator showing when the tile's query was last executed; visual color-coding by freshness (green/amber/red)
+- [ ] FR-34: Dashboard header shows freshness summary ("All tiles fresh" / "N stale tiles"); tiles show "Not yet refreshed" before first execution
+- [ ] FR-35: After a CSV import completes in the Data Exchange Hub, an inbox item "Analyze [filename] in Analytics Hub" is created
+- [ ] FR-36: Analytics Hub overview page shows a "Recent Sources" section with the 5 most recently modified CSV files and an "Analyze" action per source
+
 ## 6. Data Model Impact
 
 ### New Types
@@ -181,8 +192,8 @@ Primary interaction path:
 | Type | Change |
 |------|--------|
 | `SavedAnalyticsQuerySource` | Add `sourcePath`, `sourceType` (`"csv" \| "base"`), `viewIndex?`; backward-compat with existing `csvPath` |
-| `SavedAnalyticsQuery` | Add `isFavorite?: boolean` (v2); add `filters?: FilterSpec[]`, `sort?: SortSpec`, `limit?: number` (v3) |
-| `AnalyticsQuery` | Add `filters?: FilterSpec[]`, `sort?: SortSpec`, `limit?: number` (v3) |
+| `SavedAnalyticsQuery` | Add `isFavorite?: boolean` (v2); add `filters?: FilterSpec[]`, `sort?: SortSpec`, `limit?: number` (v3); add `computedColumns?: ComputedColumn[]` (v4) |
+| `AnalyticsQuery` | Add `filters?: FilterSpec[]`, `sort?: SortSpec`, `limit?: number` (v3); add `computedColumns?: ComputedColumn[]` (v4) |
 
 ### v3 Types (Cycle 30)
 
@@ -191,6 +202,13 @@ Primary interaction path:
 | `FilterSpec` | column, operator (FilterOperator), value | `"analytics"` key (in SavedAnalyticsQuery) |
 | `FilterOperator` | `"=" \| "!=" \| ">" \| "<" \| ">=" \| "<=" \| "contains" \| "startsWith"` | Runtime |
 | `SortSpec` | column, direction (`"asc" \| "desc"`) | `"analytics"` key (in SavedAnalyticsQuery) |
+
+### v4 Types (Cycle 31)
+
+| Type | Fields | Storage |
+|------|--------|---------|
+| `ComputedColumn` | name, expression | `"analytics"` key (in SavedAnalyticsQuery) |
+| `QuickInsightSuggestion` | title, description, dimensions, measures, timeBucket? | Runtime (not persisted) |
 
 ### Removed from DataExchangeState
 
@@ -341,6 +359,18 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 - [x] 3 new events: renamed, duplicated, tile.reordered
 - [x] Flow 30 integration test passes (27 tests)
 
+### v4 Acceptance Criteria (Cycle 31)
+
+- [ ] User can add computed columns with arithmetic expressions referencing result column labels
+- [ ] Engine evaluates computed columns after aggregation; division by zero returns 0
+- [ ] Quick Insight cards appear in source preview when source is loaded (up to 3 suggestions)
+- [ ] Clicking a Quick Insight populates query builder and auto-executes
+- [ ] Dashboard tiles show relative time since last refresh with color coding (green/amber/red)
+- [ ] Dashboard header shows freshness summary
+- [ ] After CSV import, inbox item "Analyze [filename] in Analytics Hub" is created
+- [ ] Analytics Hub overview shows "Recent Sources" section with up to 5 CSVs
+- [ ] Flow 31 integration test passes (BI workflow)
+
 ## 13. Definition of Done
 
 - `VIEW_TYPE_ANALYTICS_HUB` constant added to `src/domain/hub/types.ts`
@@ -375,10 +405,16 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 | [[PBI-ANA-022 Enhanced Stat-Card and Tile Management]] | Multi-row stat cards, tile reorder/rename/mode-toggle | Delivered | High | ANA-021 |
 | [[PBI-ANA-023 Dashboard Actions and Hub Polish]] | Dashboard rename/description, Refresh All, top bar, export | Delivered | High | ANA-020 |
 | [[PBI-ANA-024 Analytics UX Flow Test]] | End-to-end flow test + edge cases | Delivered | High | ANA-020–023 |
+| [[PBI-ANA-025 Computed Columns]] | Formula engine: arithmetic expressions on aggregated columns | Planned | Critical | — |
+| [[PBI-ANA-026 Quick Insights]] | Auto-suggested queries from detected column types | Planned | Critical | ANA-025 |
+| [[PBI-ANA-027 Data Freshness Tracking]] | Per-tile staleness indicator + dashboard freshness summary | Planned | High | — |
+| [[PBI-ANA-028 Import Analytics Bridge]] | Import completion → inbox item + Recent Sources section | Planned | High | — |
+| [[PBI-ANA-029 Business Intelligence Flow Test]] | End-to-end BI workflow integration test | Planned | High | ANA-025–028 |
 
 > **Analytics Hub v1 delivered (2026-02-23):** 5 PBIs in Cycle 28. Hub shell, dashboards, .base sources, independent persistence. 4,338 tests (178 suites).
 > **Analytics Hub v2 delivered (2026-02-23):** 5 PBIs in Cycle 29. Favorites, default dashboard, dashboard-first overview, per-tile refresh, Supplier Manager persona. 4,358 tests (179 suites).
 > **Analytics Hub v3 delivered (2026-02-24):** 5 PBIs in Cycle 30. Query power (filters/sort/limit), source preview, query usability, enhanced stat-cards, tile management, dashboard polish. 4,385 tests (180 suites).
+> **Analytics Hub v4 planned (2026-02-24):** 5 PBIs in Cycle 31. Computed columns (formula engine), Quick Insights (auto-suggest), data freshness tracking, import-to-analytics bridge.
 
 ## Related
 
@@ -394,3 +430,5 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 - PBIs (v1): [[PBI-ANA-010 Analytics Hub Shell]], [[PBI-ANA-011 Dashboard Domain]], [[PBI-ANA-012 Dashboard Tile Grid UI]], [[PBI-ANA-013 Base File Analytics Source]], [[PBI-ANA-014 Analytics Integration and Polish]]
 - PBIs (v2): [[PBI-ANA-015 Favorite Types Foundation]], [[PBI-ANA-016 Dashboard First Overview]], [[PBI-ANA-017 Favorites UI]], [[PBI-ANA-018 Dashboard UX Polish]], [[PBI-ANA-019 Supplier Manager Flow Test]]
 - PBIs (v3): [[PBI-ANA-020 Query Power Features]], [[PBI-ANA-021 Source Preview and Query Usability]], [[PBI-ANA-022 Enhanced Stat-Card and Tile Management]], [[PBI-ANA-023 Dashboard Actions and Hub Polish]], [[PBI-ANA-024 Analytics UX Flow Test]]
+- Cycle: [[Cycle 31 - Analytics Business Intelligence]] (computed columns, quick insights, freshness, import bridge — planned)
+- PBIs (v4): [[PBI-ANA-025 Computed Columns]], [[PBI-ANA-026 Quick Insights]], [[PBI-ANA-027 Data Freshness Tracking]], [[PBI-ANA-028 Import Analytics Bridge]], [[PBI-ANA-029 Business Intelligence Flow Test]]

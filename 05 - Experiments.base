@@ -1,0 +1,6 @@
+filters:
+  and:
+    - file.inFolder("03 - Resources/Experiments")
+views:
+  - type: table
+    name: Table
