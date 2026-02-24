@@ -74,6 +74,12 @@ export interface QueriesSubDeps {
 	handleExportCsv: (csv: string) => void;
 	applyQuickInsight: (dims: DimensionSpec[], measures: MeasureSpec[], timeBucket: TimeBucketSpec | null) => void;
 	loadSavedQuery: (queryId: string) => void;
+	newQuery: () => void;
+	showPreview: () => boolean;
+	chartMode: () => "line" | "bar";
+	setChartMode: (mode: "line" | "bar") => void;
+	chartValueColumn: () => string | null;
+	setChartValueColumn: (col: string | null) => void;
 }
 
 // ─────────────────────────────────────────────────────────────

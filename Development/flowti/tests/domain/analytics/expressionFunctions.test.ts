@@ -1,0 +1,146 @@
+/**
+ * Tests for scalar expression functions: ROUND, ABS, IF.
+ *
+ * Tests cover the extracted expressionFunctions module and
+ * integration via evaluateExpression in AnalyticsEngine.
+ */
+
+import { describe, it, expect } from "vitest";
+import { evalRound, evalAbs, evalIf } from "../../../src/domain/analytics/expressionFunctions";
+import { evaluateExpression } from "../../../src/domain/analytics/AnalyticsEngine";
+import type { ResultRow } from "../../../src/domain/analytics/types";
+
+describe("expressionFunctions", () => {
+	// ── ROUND ──────────────────────────────────────────
+
+	describe("evalRound", () => {
+		it("should round to specified decimal places", () => {
+			const row: ResultRow = { Value: 23.4567 };
+			expect(evalRound(["{Value}", "2"], row)).toBe(23.46);
+		});
+
+		it("should round to 0 decimals by default", () => {
+			const row: ResultRow = { Value: 23.7 };
+			expect(evalRound(["{Value}"], row)).toBe(24);
+		});
+
+		it("should handle integer values", () => {
+			const row: ResultRow = { Value: 100 };
+			expect(evalRound(["{Value}", "2"], row)).toBe(100);
+		});
+
+		it("should handle negative values", () => {
+			const row: ResultRow = { Value: -3.14159 };
+			expect(evalRound(["{Value}", "3"], row)).toBe(-3.142);
+		});
+
+		it("should return 0 for non-numeric input", () => {
+			const row: ResultRow = { Value: "n/a" };
+			expect(evalRound(["{Value}", "2"], row)).toBe(0);
+		});
+	});
+
+	// ── ABS ────────────────────────────────────────────
+
+	describe("evalAbs", () => {
+		it("should return absolute value of negative number", () => {
+			const row: ResultRow = { Change: -42.5 };
+			expect(evalAbs(["{Change}"], row)).toBe(42.5);
+		});
+
+		it("should preserve positive values", () => {
+			const row: ResultRow = { Change: 100 };
+			expect(evalAbs(["{Change}"], row)).toBe(100);
+		});
+
+		it("should handle zero", () => {
+			const row: ResultRow = { Value: 0 };
+			expect(evalAbs(["{Value}"], row)).toBe(0);
+		});
+
+		it("should return 0 for non-numeric input", () => {
+			const row: ResultRow = { Value: "text" };
+			expect(evalAbs(["{Value}"], row)).toBe(0);
+		});
+	});
+
+	// ── IF ──────────────────────────────────────────────
+
+	describe("evalIf", () => {
+		it("should return then value when condition is true", () => {
+			const row: ResultRow = { Margin: 5 };
+			expect(evalIf(['{Margin} < 10', '"Low"', '"OK"'], row)).toBe("Low");
+		});
+
+		it("should return else value when condition is false", () => {
+			const row: ResultRow = { Margin: 15 };
+			expect(evalIf(['{Margin} < 10', '"Low"', '"OK"'], row)).toBe("OK");
+		});
+
+		it("should support >= operator", () => {
+			const row: ResultRow = { Score: 80 };
+			expect(evalIf(['{Score} >= 80', '"Pass"', '"Fail"'], row)).toBe("Pass");
+		});
+
+		it("should support column reference in then/else", () => {
+			const row: ResultRow = { Margin: 15, Backup: 99 };
+			expect(evalIf(["{Margin} >= 10", "{Margin}", "0"], row)).toBe(15);
+		});
+
+		it("should support numeric then/else values", () => {
+			const row: ResultRow = { Status: 1 };
+			expect(evalIf(["{Status} = 1", "100", "0"], row)).toBe(100);
+		});
+
+		it("should support != operator", () => {
+			const row: ResultRow = { Code: 0 };
+			expect(evalIf(['{Code} != 0', '"Active"', '"Inactive"'], row)).toBe("Inactive");
+		});
+	});
+
+	// ── Nesting ────────────────────────────────────────
+
+	describe("nested expressions via evaluateExpression", () => {
+		it("should handle ROUND(ABS(...))", () => {
+			const row: ResultRow = { Delta: -3.14159 };
+			expect(evaluateExpression("ROUND(ABS({Delta}), 2)", row)).toBe(3.14);
+		});
+
+		it("should handle IF with arithmetic in condition", () => {
+			const row: ResultRow = { Revenue: 1000, Cost: 900 };
+			// Margin = (Revenue - Cost) / Revenue * 100 = 10
+			expect(evaluateExpression('IF({Revenue} > 500, "Big", "Small")', row)).toBe("Big");
+		});
+
+		it("should handle string result from IF in full expression", () => {
+			const row: ResultRow = { Value: 3 };
+			const result = evaluateExpression('IF({Value} < 5, "Low", "High")', row);
+			expect(result).toBe("Low");
+		});
+	});
+
+	// ── Contract: evaluateExpression returns string | number ──
+
+	describe("string | number contract", () => {
+		it("should return string from IF with string literals", () => {
+			const row: ResultRow = { X: 1 };
+			const result = evaluateExpression('IF({X} = 1, "Yes", "No")', row);
+			expect(typeof result).toBe("string");
+			expect(result).toBe("Yes");
+		});
+
+		it("should return number from arithmetic", () => {
+			const row: ResultRow = { A: 10, B: 20 };
+			const result = evaluateExpression("{A} + {B}", row);
+			expect(typeof result).toBe("number");
+			expect(result).toBe(30);
+		});
+
+		it("should return number from ROUND", () => {
+			const row: ResultRow = { X: 3.14159 };
+			const result = evaluateExpression("ROUND({X}, 2)", row);
+			expect(typeof result).toBe("number");
+			expect(result).toBe(3.14);
+		});
+	});
+});

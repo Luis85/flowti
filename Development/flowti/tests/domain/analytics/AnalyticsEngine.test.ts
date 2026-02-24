@@ -478,9 +478,9 @@ describe("AnalyticsEngine", () => {
 
 			// Verify structure
 			expect(result.columns).toEqual([
+				"month",
 				"item_name",
 				"supplier_name",
-				"month",
 				"total_cost",
 				"sale_count",
 			]);

@@ -275,6 +275,218 @@ describe("ChartRenderer edge cases", () => {
 	});
 });
 
+// ── extractMultiSeriesData ──────────────────────────────────
+
+describe("ChartRenderer.extractMultiSeriesData", () => {
+	it("extracts multi-series data with time bucket + dimension columns", () => {
+		const result = createResult(
+			["Supplier", "order_date_month", "SUM(amount)"],
+			[
+				{ Supplier: "Acme", order_date_month: "2025-01", "SUM(amount)": 1000 },
+				{ Supplier: "Acme", order_date_month: "2025-02", "SUM(amount)": 1500 },
+				{ Supplier: "Acme", order_date_month: "2025-03", "SUM(amount)": 1200 },
+				{ Supplier: "Beta", order_date_month: "2025-01", "SUM(amount)": 800 },
+				{ Supplier: "Beta", order_date_month: "2025-02", "SUM(amount)": 1200 },
+				{ Supplier: "Beta", order_date_month: "2025-03", "SUM(amount)": 900 },
+			],
+		);
+
+		const data = ChartRenderer.extractMultiSeriesData(result);
+		expect(data).not.toBeNull();
+		expect(data!.labels).toEqual(["2025-01", "2025-02", "2025-03"]);
+		expect(data!.series).toHaveLength(2);
+		expect(data!.series[0].name).toBe("Acme");
+		expect(data!.series[0].values).toEqual([1000, 1500, 1200]);
+		expect(data!.series[1].name).toBe("Beta");
+		expect(data!.series[1].values).toEqual([800, 1200, 900]);
+		expect(data!.valueColumn).toBe("SUM(amount)");
+	});
+
+	it("returns null for single non-numeric column (no dimension to group by)", () => {
+		const result = createResult(
+			["order_date_month", "SUM(amount)"],
+			[
+				{ order_date_month: "2025-01", "SUM(amount)": 1000 },
+				{ order_date_month: "2025-02", "SUM(amount)": 1500 },
+			],
+		);
+		expect(ChartRenderer.extractMultiSeriesData(result)).toBeNull();
+	});
+
+	it("returns null when no date bucket column is found", () => {
+		const result = createResult(
+			["Region", "Category", "Total"],
+			[
+				{ Region: "North", Category: "A", Total: 100 },
+				{ Region: "South", Category: "B", Total: 200 },
+			],
+		);
+		expect(ChartRenderer.extractMultiSeriesData(result)).toBeNull();
+	});
+
+	it("returns null for empty or single-row results", () => {
+		const empty = createResult(["X", "Y", "Z"], []);
+		expect(ChartRenderer.extractMultiSeriesData(empty)).toBeNull();
+
+		const single = createResult(
+			["Supplier", "order_date_month", "Total"],
+			[{ Supplier: "Acme", order_date_month: "2025-01", Total: 100 }],
+		);
+		expect(ChartRenderer.extractMultiSeriesData(single)).toBeNull();
+	});
+
+	it("fills missing time buckets with zero", () => {
+		const result = createResult(
+			["Supplier", "order_date_month", "Sales"],
+			[
+				{ Supplier: "Acme", order_date_month: "2025-01", Sales: 100 },
+				{ Supplier: "Acme", order_date_month: "2025-03", Sales: 300 },
+				{ Supplier: "Beta", order_date_month: "2025-01", Sales: 200 },
+				{ Supplier: "Beta", order_date_month: "2025-02", Sales: 250 },
+				{ Supplier: "Beta", order_date_month: "2025-03", Sales: 150 },
+			],
+		);
+
+		const data = ChartRenderer.extractMultiSeriesData(result)!;
+		expect(data.labels).toEqual(["2025-01", "2025-02", "2025-03"]);
+		expect(data.series[0].name).toBe("Acme");
+		expect(data.series[0].values).toEqual([100, 0, 300]); // 2025-02 filled with 0
+		expect(data.series[1].name).toBe("Beta");
+		expect(data.series[1].values).toEqual([200, 250, 150]);
+	});
+
+	it("sorts labels chronologically", () => {
+		const result = createResult(
+			["Region", "order_date_month", "Amount"],
+			[
+				{ Region: "East", order_date_month: "2025-03", Amount: 50 },
+				{ Region: "East", order_date_month: "2025-01", Amount: 30 },
+				{ Region: "West", order_date_month: "2025-02", Amount: 40 },
+				{ Region: "West", order_date_month: "2025-03", Amount: 60 },
+			],
+		);
+		const data = ChartRenderer.extractMultiSeriesData(result)!;
+		expect(data.labels).toEqual(["2025-01", "2025-02", "2025-03"]);
+	});
+
+	it("supports quarter-based time buckets", () => {
+		const result = createResult(
+			["Category", "quarter", "Revenue"],
+			[
+				{ Category: "X", quarter: "2025-Q1", Revenue: 100 },
+				{ Category: "X", quarter: "2025-Q2", Revenue: 200 },
+				{ Category: "Y", quarter: "2025-Q1", Revenue: 150 },
+				{ Category: "Y", quarter: "2025-Q2", Revenue: 250 },
+			],
+		);
+		const data = ChartRenderer.extractMultiSeriesData(result)!;
+		expect(data.labels).toEqual(["2025-Q1", "2025-Q2"]);
+		expect(data.series).toHaveLength(2);
+	});
+
+	it("limits series to MAX_SERIES (8)", () => {
+		const rows: Array<Record<string, string | number>> = [];
+		for (let s = 0; s < 12; s++) {
+			for (const month of ["2025-01", "2025-02"]) {
+				rows.push({ Supplier: `S${s}`, month, Sales: s * 10 });
+			}
+		}
+		const result = createResult(["Supplier", "month", "Sales"], rows);
+		const data = ChartRenderer.extractMultiSeriesData(result)!;
+		expect(data.series.length).toBe(8);
+	});
+
+	it("combines multiple dimension columns into series name", () => {
+		const result = createResult(
+			["Region", "Category", "order_date_month", "Total"],
+			[
+				{ Region: "North", Category: "A", order_date_month: "2025-01", Total: 10 },
+				{ Region: "North", Category: "A", order_date_month: "2025-02", Total: 20 },
+				{ Region: "South", Category: "B", order_date_month: "2025-01", Total: 30 },
+				{ Region: "South", Category: "B", order_date_month: "2025-02", Total: 40 },
+			],
+		);
+		const data = ChartRenderer.extractMultiSeriesData(result)!;
+		expect(data.series[0].name).toBe("North · A");
+		expect(data.series[1].name).toBe("South · B");
+	});
+});
+
+// ── Multi-series chart rendering ────────────────────────────
+
+describe("ChartRenderer multi-series rendering", () => {
+	it("renderLineChart auto-detects multi-series and renders legend + multiple paths", () => {
+		const result = createResult(
+			["Supplier", "order_date_month", "Sales"],
+			[
+				{ Supplier: "Acme", order_date_month: "2025-01", Sales: 100 },
+				{ Supplier: "Acme", order_date_month: "2025-02", Sales: 200 },
+				{ Supplier: "Beta", order_date_month: "2025-01", Sales: 150 },
+				{ Supplier: "Beta", order_date_month: "2025-02", Sales: 250 },
+			],
+		);
+		const container = createContainer();
+		ChartRenderer.renderLineChart(container, result);
+
+		const svg = container.querySelector("svg");
+		expect(svg).not.toBeNull();
+
+		// Two series → two line paths
+		const paths = svg!.querySelectorAll("path");
+		expect(paths.length).toBe(2);
+
+		// Four dots total (2 series × 2 points)
+		const circles = svg!.querySelectorAll("circle");
+		expect(circles.length).toBe(4);
+
+		// Legend should be rendered below the SVG
+		expect(container.textContent).toContain("Acme");
+		expect(container.textContent).toContain("Beta");
+	});
+
+	it("renderBarChart auto-detects multi-series and renders grouped bars with legend", () => {
+		const result = createResult(
+			["Supplier", "order_date_month", "Sales"],
+			[
+				{ Supplier: "Acme", order_date_month: "2025-01", Sales: 100 },
+				{ Supplier: "Acme", order_date_month: "2025-02", Sales: 200 },
+				{ Supplier: "Beta", order_date_month: "2025-01", Sales: 150 },
+				{ Supplier: "Beta", order_date_month: "2025-02", Sales: 250 },
+			],
+		);
+		const container = createContainer();
+		ChartRenderer.renderBarChart(container, result);
+
+		const svg = container.querySelector("svg");
+		expect(svg).not.toBeNull();
+
+		// 2 time buckets × 2 series = 4 bars
+		const rects = svg!.querySelectorAll("rect");
+		expect(rects.length).toBe(4);
+
+		// Legend
+		expect(container.textContent).toContain("Acme");
+		expect(container.textContent).toContain("Beta");
+	});
+
+	it("falls back to single-series for data without date bucket column", () => {
+		const result = createResult(["Category", "Total"], [
+			{ Category: "A", Total: 100 },
+			{ Category: "B", Total: 200 },
+		]);
+		const container = createContainer();
+		ChartRenderer.renderLineChart(container, result);
+
+		const svg = container.querySelector("svg");
+		expect(svg).not.toBeNull();
+
+		// Single series → one path, no legend
+		const paths = svg!.querySelectorAll("path");
+		expect(paths.length).toBe(1);
+		expect(container.textContent).not.toContain("·"); // no series legend separators
+	});
+});
+
 // ── renderSparkline ─────────────────────────────────────────
 
 describe("ChartRenderer.renderSparkline", () => {

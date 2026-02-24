@@ -52,6 +52,9 @@ export class QueriesTab {
 	private lastDurationMs: number | undefined;
 	private lastError: string | null = null;
 	private running = false;
+	private previewVisible = false;
+	private chartMode: "line" | "bar" = "line";
+	private chartValueColumn: string | null = null;
 
 	constructor(
 		private masterEl: HTMLElement,
@@ -102,6 +105,12 @@ export class QueriesTab {
 				void this.executeQuery();
 			},
 			loadSavedQuery: (id) => this.loadSavedQuery(id),
+			newQuery: () => this.newQuery(),
+			showPreview: () => this.previewVisible,
+		chartMode: () => this.chartMode,
+		setChartMode: (mode) => { this.chartMode = mode; },
+		chartValueColumn: () => this.chartValueColumn,
+		setChartValueColumn: (col) => { this.chartValueColumn = col; },
 		};
 	}
 
@@ -109,11 +118,19 @@ export class QueriesTab {
 	// Master: Source picker + saved queries
 	// ─────────────────────────────────────────────────────────
 
+	private sourcesCollapsed = false;
+	private sourcesAutoCollapsed = false;
+
 	renderMaster(): void {
 		this.masterEl.empty();
 		const state = this.deps.getState();
+		const svc = this.deps.analyticsService;
+		const hasSavedQueries = svc.listQueries().length > 0;
 
-		// Selected sources
+		// ── Saved queries first (above sources) ──
+		new SavedQueryList(this.masterEl, this.getSubDeps()).render();
+
+		// ── Selected sources ──
 		if (this.sources.length > 0) {
 			const selHeader = this.masterEl.createDiv({ cls: "ft-master-category-header" });
 			selHeader.createSpan({ text: "Query Sources" });
@@ -149,62 +166,80 @@ export class QueriesTab {
 			}
 		}
 
-		// Saved queries (delegated)
-		new SavedQueryList(this.masterEl, this.getSubDeps()).render();
-
-		// Available CSVs
+		// ── Available sources (collapsible when saved queries exist) ──
 		const addedPaths = new Set(this.sources.map((s) => s.csvPath));
 
+		// Auto-collapse once when saved queries exist and no sources loaded
+		if (!this.sourcesAutoCollapsed && hasSavedQueries && this.sources.length === 0) {
+			this.sourcesCollapsed = true;
+			this.sourcesAutoCollapsed = true;
+		}
+
+		const sourcesHeader = this.masterEl.createDiv({ cls: "ft-master-category-header" });
+		sourcesHeader.style.cursor = "pointer";
+
+		const toggleIcon = sourcesHeader.createSpan();
+		setIcon(toggleIcon, this.sourcesCollapsed ? "chevron-right" : "chevron-down");
+		toggleIcon.style.width = "14px";
+		toggleIcon.style.height = "14px";
+		toggleIcon.style.flexShrink = "0";
+
+		sourcesHeader.createSpan({ text: "Sources" });
+
 		let csvFiles = state.csvFiles;
+		let baseFiles = state.baseFiles;
 		if (state.filterText) {
 			csvFiles = csvFiles.filter((f) =>
 				f.displayName.toLowerCase().includes(state.filterText) ||
 				f.path.toLowerCase().includes(state.filterText),
 			);
-		}
-		const availableCsv = csvFiles.filter((f) => !addedPaths.has(f.path));
-
-		const csvHeader = this.masterEl.createDiv({ cls: "ft-master-category-header" });
-		csvHeader.createSpan({ text: "CSV Sources" });
-		csvHeader.createSpan({ text: `${availableCsv.length}`, cls: "ft-master-category-count" });
-
-		if (availableCsv.length === 0) {
-			const empty = this.masterEl.createDiv({ cls: "ft-text-muted ft-p-3 ft-text-center ft-text-sm" });
-			empty.textContent = state.filterText
-				? "No matching CSVs"
-				: this.sources.length > 0 ? "All CSVs added" : "No CSV files in vault";
-		} else {
-			for (const csv of availableCsv) {
-				this.renderSourceItem(csv.displayName, csv.path, () => {
-					this.addSource(csv.path, csv.displayName.replace(/\.csv$/i, ""));
-				});
-			}
-		}
-
-		// Available .base files
-		let baseFiles = state.baseFiles;
-		if (state.filterText) {
 			baseFiles = baseFiles.filter((f) =>
 				f.displayName.toLowerCase().includes(state.filterText) ||
 				f.path.toLowerCase().includes(state.filterText),
 			);
 		}
+		const availableCsv = csvFiles.filter((f) => !addedPaths.has(f.path));
 		const availableBase = baseFiles.filter((f) => !addedPaths.has(f.path));
 
-		const baseHeader = this.masterEl.createDiv({ cls: "ft-master-category-header" });
-		baseHeader.createSpan({ text: "Base Views" });
-		baseHeader.createSpan({ text: `${availableBase.length}`, cls: "ft-master-category-count" });
+		sourcesHeader.createSpan({
+			text: `${availableCsv.length + availableBase.length}`,
+			cls: "ft-master-category-count",
+		});
 
-		if (availableBase.length === 0) {
-			const empty = this.masterEl.createDiv({ cls: "ft-text-muted ft-p-3 ft-text-center ft-text-sm" });
-			empty.textContent = state.filterText
-				? "No matching .base files"
-				: "No .base files in vault";
-		} else {
-			for (const base of availableBase) {
-				this.renderSourceItem(base.displayName, base.path, () => {
-					this.addSource(base.path, base.displayName.replace(/\.base$/i, ""), "base", 0);
-				});
+		sourcesHeader.addEventListener("click", () => {
+			this.sourcesCollapsed = !this.sourcesCollapsed;
+			this.renderMaster();
+		});
+
+		if (!this.sourcesCollapsed) {
+			// CSV Sources
+			if (availableCsv.length === 0) {
+				const empty = this.masterEl.createDiv({ cls: "ft-text-muted ft-p-3 ft-text-center ft-text-sm" });
+				empty.textContent = state.filterText
+					? "No matching CSVs"
+					: this.sources.length > 0 ? "All CSVs added" : "No CSV files in vault";
+			} else {
+				for (const csv of availableCsv) {
+					this.renderSourceItem(csv.displayName, csv.path, () => {
+						this.addSource(csv.path, csv.displayName.replace(/\.csv$/i, ""));
+					});
+				}
+			}
+
+			// Base Views
+			if (availableBase.length > 0) {
+				const baseSubHeader = this.masterEl.createDiv({ cls: "ft-master-category-header ft-text-xs" });
+				baseSubHeader.createSpan({ text: "Base Views" });
+				baseSubHeader.createSpan({ text: `${availableBase.length}`, cls: "ft-master-category-count" });
+
+				for (const base of availableBase) {
+					this.renderSourceItem(base.displayName, base.path, () => {
+						this.addSource(base.path, base.displayName.replace(/\.base$/i, ""), "base", 0);
+					});
+				}
+			} else if (state.filterText) {
+				const empty = this.masterEl.createDiv({ cls: "ft-text-muted ft-p-3 ft-text-center ft-text-sm" });
+				empty.textContent = "No matching .base files";
 			}
 		}
 	}
@@ -230,6 +265,10 @@ export class QueriesTab {
 	// ─────────────────────────────────────────────────────────
 
 	renderDetail(): void {
+		// Preserve scroll position across re-renders
+		const scrollParent = this.detailEl.parentElement;
+		const scrollTop = scrollParent?.scrollTop ?? 0;
+
 		this.detailEl.empty();
 
 		if (this.sources.length === 0) {
@@ -237,10 +276,12 @@ export class QueriesTab {
 			return;
 		}
 
-		// Header
+		// ── Header ──────────────────────────────────────
 		const header = this.detailEl.createDiv({ cls: "ft-detail-header" });
 		const left = header.createDiv();
-		left.createDiv({ text: "Query Builder", cls: "ft-detail-event-type" });
+		const state = this.deps.getState();
+		const activeQuery = state.selectedQueryId ? this.deps.analyticsService.getQuery(state.selectedQueryId) : null;
+		left.createDiv({ text: activeQuery ? activeQuery.name : "Query Builder", cls: "ft-detail-event-type" });
 		const badges = left.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
 		badges.createSpan({
 			text: `${this.sources.length} source${this.sources.length > 1 ? "s" : ""}`,
@@ -256,9 +297,26 @@ export class QueriesTab {
 			});
 		}
 
+		// ── Actions (always visible at top) ─────────────
 		this.renderActions();
 
+		// ── Execution summary + results (above config) ──
+		this.renderExecutionSummary();
+
 		const subDeps = this.getSubDeps();
+		new ResultsSection(this.detailEl, subDeps).render();
+
+		// ── Configuration (below results) ───────────────
+		const configHeader = this.detailEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mt-3" });
+		configHeader.style.borderTop = "2px solid var(--background-modifier-border)";
+		configHeader.style.paddingTop = "0.75rem";
+		const configIcon = configHeader.createSpan();
+		setIcon(configIcon, "settings-2");
+		configIcon.style.width = "16px";
+		configIcon.style.height = "16px";
+		configIcon.style.opacity = "0.6";
+		configHeader.createSpan({ text: "Query Configuration", cls: "ft-detail-section-header" });
+
 		new SourcePanel(this.detailEl, subDeps).render();
 
 		if (this.getLoadedHeaders().length > 0) {
@@ -266,7 +324,50 @@ export class QueriesTab {
 			new ComputedColumnsSection(this.detailEl, subDeps).render();
 		}
 
-		new ResultsSection(this.detailEl, subDeps).render();
+		// Restore scroll position
+		if (scrollParent) {
+			requestAnimationFrame(() => { scrollParent.scrollTop = scrollTop; });
+		}
+	}
+
+	private renderExecutionSummary(): void {
+		if (this.running) {
+			const callout = this.detailEl.createDiv({ cls: "ft-card ft-mt-2" });
+			callout.style.cssText = "padding:0.5rem 0.75rem;border-left:3px solid var(--interactive-accent);background:var(--background-secondary)";
+			callout.createDiv({ text: "Running query...", cls: "ft-text-sm ft-text-muted" });
+			return;
+		}
+
+		if (this.lastError) {
+			const callout = this.detailEl.createDiv({ cls: "ft-card ft-mt-2" });
+			callout.style.cssText = "padding:0.5rem 0.75rem;border-left:3px solid var(--text-error);background:var(--background-secondary)";
+			const row = callout.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+			const icon = row.createSpan();
+			setIcon(icon, "alert-triangle");
+			icon.style.cssText = "width:16px;height:16px;color:var(--text-error);flex-shrink:0";
+			row.createSpan({ text: "Query failed", cls: "ft-text-sm" }).style.fontWeight = "600";
+			return;
+		}
+
+		if (!this.lastResult) return;
+
+		const result = this.lastResult;
+		const callout = this.detailEl.createDiv({ cls: "ft-card ft-mt-2" });
+		callout.style.cssText = "padding:0.5rem 0.75rem;border-left:3px solid var(--text-success);background:var(--background-secondary)";
+
+		const row = callout.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		const icon = row.createSpan();
+		setIcon(icon, "check-circle");
+		icon.style.cssText = "width:16px;height:16px;color:var(--text-success);flex-shrink:0";
+
+		const stats: string[] = [
+			`${result.rows.length} rows`,
+			`${result.groupCount} groups`,
+			`${result.sourceRowCount} source rows`,
+		];
+		if (this.lastDurationMs !== undefined) stats.push(`${this.lastDurationMs}ms`);
+
+		row.createSpan({ text: stats.join("  ·  "), cls: "ft-text-sm" });
 	}
 
 	private renderEmptyDetail(): void {
@@ -306,6 +407,20 @@ export class QueriesTab {
 				void this.executeQuery();
 			}
 		});
+
+		// Preview toggle — peek at source data
+		const hasLoadedSources = this.sources.some((s) => s.data);
+		if (hasLoadedSources) {
+			const previewLink = actions.createEl("span", { cls: "ft-nav-link" });
+			const previewIcon = previewLink.createSpan();
+			setIcon(previewIcon, "eye");
+			previewLink.appendText(this.previewVisible ? " Hide Preview" : " Preview Data");
+			if (this.previewVisible) previewLink.style.color = "var(--text-accent)";
+			previewLink.addEventListener("click", () => {
+				this.previewVisible = !this.previewVisible;
+				this.renderDetail();
+			});
+		}
 
 		const clearLink = actions.createEl("span", { cls: "ft-nav-link" });
 		const clearIcon = clearLink.createSpan();
@@ -546,6 +661,26 @@ export class QueriesTab {
 		);
 
 		this.renderMaster();
+	}
+
+	private newQuery(): void {
+		this.sources = [];
+		this.columnTypeHints = [];
+		this.joins = [];
+		this.dimensions = [];
+		this.measures = [];
+		this.timeBucket = null;
+		this.filters = [];
+		this.sort = null;
+		this.limit = null;
+		this.computedColumns = [];
+		this.lastResult = null;
+		this.lastDurationMs = undefined;
+		this.lastError = null;
+		this.deps.setState({ selectedQueryId: null });
+		this.sourcesCollapsed = false;
+		this.renderMaster();
+		this.renderDetail();
 	}
 
 	private loadSavedQuery(queryId: string): void {

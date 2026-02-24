@@ -7,7 +7,7 @@
  */
 
 import { setIcon } from "obsidian";
-import type { Dashboard } from "../../domain/analytics/types";
+import type { Dashboard, DashboardTile } from "../../domain/analytics/types";
 import { computeFreshnessSummary, getFreshnessLevel, getFreshnessColor } from "../../domain/analytics/freshnessUtils";
 import type { AnalyticsHubDeps } from "./types";
 import { DashboardTileRenderer, type TileRenderContext } from "./DashboardTileRenderer";
@@ -21,6 +21,11 @@ export class AnalyticsDashboardPage {
 	render(): void {
 		this.containerEl.empty();
 
+		this.renderFavoritesSection();
+
+		// Pinned dashboard cards (compact summaries above default dashboard)
+		this.renderPinnedDashboards();
+
 		const defaultDashboard = this.deps.analyticsService.getDefaultDashboard();
 
 		if (defaultDashboard) {
@@ -29,8 +34,71 @@ export class AnalyticsDashboardPage {
 			this.renderFallback();
 		}
 
-		this.renderFavoritesSection();
 		this.renderRecentSources();
+	}
+
+	// ── Pinned dashboards ────────────────────────────────────
+
+	private renderPinnedDashboards(): void {
+		const pinnedIds = this.deps.analyticsService.getPinnedDashboardIds();
+		if (pinnedIds.length === 0) return;
+
+		const state = this.deps.getState();
+		const pinnedDashboards = pinnedIds
+			.map((id) => state.dashboards.find((d) => d.id === id))
+			.filter((d): d is Dashboard => d !== undefined);
+
+		if (pinnedDashboards.length === 0) return;
+
+		const section = this.containerEl.createDiv({ cls: "ft-pinned-dashboards ft-mb-2" });
+		const cardGrid = section.createDiv();
+		cardGrid.style.display = "grid";
+		cardGrid.style.gridTemplateColumns = `repeat(${Math.min(pinnedDashboards.length, 3)}, 1fr)`;
+		cardGrid.style.gap = "0.5rem";
+
+		for (const dashboard of pinnedDashboards) {
+			const card = cardGrid.createDiv({ cls: "ft-stat-card" });
+			card.style.cursor = "pointer";
+			card.style.padding = "0.75rem";
+
+			const nameEl = card.createDiv({ cls: "ft-text-sm" });
+			nameEl.style.fontWeight = "600";
+			nameEl.style.marginBottom = "0.25rem";
+			nameEl.textContent = dashboard.name;
+
+			const meta = card.createDiv({ cls: "ft-text-xs ft-text-muted" });
+			meta.textContent = `${dashboard.tiles.length} tile${dashboard.tiles.length !== 1 ? "s" : ""}`;
+
+			// Show first tile's stat value if available
+			if (dashboard.tiles.length > 0) {
+				const firstTile = dashboard.tiles[0];
+				const cached = this.deps.tileResultCache.tryRun(
+					firstTile.queryId,
+					(id) => this.deps.analyticsService.runSavedQuery(id),
+					() => this.deps.scheduleRender(),
+				);
+				if (cached.result && cached.result.rows.length > 0) {
+					const numCols = cached.result.columns.filter(
+						(col) => typeof cached.result!.rows[0][col] === "number",
+					);
+					if (numCols.length > 0) {
+						const val = cached.result.rows[0][numCols[0]];
+						const statEl = card.createDiv({ cls: "ft-text-lg" });
+						statEl.style.fontWeight = "700";
+						statEl.style.marginTop = "0.25rem";
+						statEl.textContent = typeof val === "number" ? val.toLocaleString() : String(val);
+
+						const labelEl = card.createDiv({ cls: "ft-text-xs ft-text-muted" });
+						labelEl.textContent = numCols[0];
+					}
+				}
+			}
+
+			card.addEventListener("click", () => {
+				this.deps.setState({ selectedDashboardId: dashboard.id });
+				this.deps.navigation.navigateTo("dashboards");
+			});
+		}
 	}
 
 	// ── Default dashboard tile grid ──────────────────────────
@@ -48,8 +116,18 @@ export class AnalyticsDashboardPage {
 		titleLeft.style.alignItems = "center";
 		titleLeft.style.gap = "0.5rem";
 
-		const titleEl = titleLeft.createSpan({ text: dashboard.name, cls: "ft-text-lg" });
-		titleEl.style.fontWeight = "600";
+		const titleInput = titleLeft.createEl("input", { type: "text" });
+		titleInput.value = dashboard.name;
+		titleInput.style.cssText = "font-weight:600;font-size:var(--font-ui-medium);border:none;background:transparent;color:var(--text-normal);padding:0;flex:1;min-width:0";
+		titleInput.addEventListener("blur", () => {
+			const val = titleInput.value.trim();
+			if (val && val !== dashboard.name) {
+				void this.deps.analyticsService.updateDashboard(dashboard.id, { name: val });
+			}
+		});
+		titleInput.addEventListener("keydown", (e) => {
+			if (e.key === "Enter") { e.preventDefault(); titleInput.blur(); }
+		});
 
 		titleLeft.createSpan({ text: "Default", cls: "ft-badge ft-text-xs" });
 
@@ -64,6 +142,13 @@ export class AnalyticsDashboardPage {
 					: "fresh";
 			const summaryEl = header.createSpan({ text: summaryText, cls: "ft-text-xs" });
 			summaryEl.style.color = getFreshnessColor(worstLevel);
+		}
+
+		// Dashboard description
+		if (dashboard.description) {
+			const descEl = this.containerEl.createDiv({ cls: "ft-text-sm ft-text-muted" });
+			descEl.style.marginBottom = "0.75rem";
+			descEl.textContent = dashboard.description;
 		}
 
 		if (dashboard.tiles.length === 0) {
@@ -86,7 +171,7 @@ export class AnalyticsDashboardPage {
 		const grid = this.containerEl.createDiv({ cls: "ft-dashboard-grid" });
 		grid.style.display = "grid";
 		grid.style.gridTemplateColumns = "repeat(2, 1fr)";
-		grid.style.gap = "0.75rem";
+		grid.style.gap = "1rem";
 
 		const state = this.deps.getState();
 
@@ -115,6 +200,11 @@ export class AnalyticsDashboardPage {
 				onRefresh: () => {
 					this.deps.tileResultCache.clearOne(tile.queryId);
 					this.deps.scheduleRender();
+				},
+				onChartValueColumnChange: (tileId, column) => {
+					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { chartValueColumn: column } as Partial<DashboardTile>).then(() => {
+						this.deps.scheduleRender();
+					});
 				},
 			} satisfies TileRenderContext);
 		}
@@ -183,25 +273,17 @@ export class AnalyticsDashboardPage {
 
 		if (favDashboards.length === 0 && favQueries.length === 0) return;
 
-		const section = this.containerEl.createDiv({ cls: "ft-mt-3" });
-
-		const header = section.createDiv({ cls: "ft-master-category-header" });
-		header.createSpan({ text: "Favorites" });
-		header.createSpan({
-			text: `${favDashboards.length + favQueries.length}`,
-			cls: "ft-master-category-count",
-		});
-
-		const cardGrid = section.createDiv();
+		const cardGrid = this.containerEl.createDiv();
 		cardGrid.style.display = "grid";
 		cardGrid.style.gridTemplateColumns = "repeat(auto-fill, minmax(160px, 1fr))";
 		cardGrid.style.gap = "0.5rem";
-		cardGrid.style.marginTop = "0.5rem";
+		cardGrid.style.marginBottom = "1.25rem";
 
 		for (const d of favDashboards) {
 			this.renderFavoriteCard(cardGrid, "layout-grid", d.name, () => {
 				this.deps.setState({ selectedDashboardId: d.id });
 				this.deps.navigation.navigateTo("dashboards");
+				this.deps.scheduleRender();
 			});
 		}
 
@@ -209,6 +291,7 @@ export class AnalyticsDashboardPage {
 			this.renderFavoriteCard(cardGrid, "search", q.name, () => {
 				this.deps.setState({ selectedQueryId: q.id });
 				this.deps.navigation.navigateTo("queries");
+				this.deps.scheduleRender();
 			});
 		}
 	}

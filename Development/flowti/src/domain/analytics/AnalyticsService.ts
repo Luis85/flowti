@@ -394,6 +394,14 @@ export class AnalyticsService {
 			this.state.defaultDashboardId = null;
 		}
 
+		// Clear pinned if the deleted dashboard was pinned
+		const pinned = this.state.pinnedDashboardIds ?? [];
+		const pinnedIdx = pinned.indexOf(id);
+		if (pinnedIdx !== -1) {
+			pinned.splice(pinnedIdx, 1);
+			this.state.pinnedDashboardIds = pinned;
+		}
+
 		await this.storage.save(this.state);
 
 		await this.eventBus?.emit("analytics.dashboard.deleted", {
@@ -462,6 +470,39 @@ export class AnalyticsService {
 		return this.getDashboard(id);
 	}
 
+	/** Get pinned dashboard IDs. */
+	getPinnedDashboardIds(): string[] {
+		return this.state.pinnedDashboardIds ?? [];
+	}
+
+	/** Pin a dashboard to the homepage (max 3). */
+	async pinDashboard(id: string): Promise<boolean> {
+		if (!this.getDashboard(id)) return false;
+		const pinned = this.state.pinnedDashboardIds ?? [];
+		if (pinned.includes(id)) return false;
+		if (pinned.length >= 3) return false;
+		pinned.push(id);
+		this.state.pinnedDashboardIds = pinned;
+		await this.storage.save(this.state);
+		return true;
+	}
+
+	/** Unpin a dashboard from the homepage. */
+	async unpinDashboard(id: string): Promise<boolean> {
+		const pinned = this.state.pinnedDashboardIds ?? [];
+		const idx = pinned.indexOf(id);
+		if (idx === -1) return false;
+		pinned.splice(idx, 1);
+		this.state.pinnedDashboardIds = pinned;
+		await this.storage.save(this.state);
+		return true;
+	}
+
+	/** Check if a dashboard is pinned. */
+	isDashboardPinned(id: string): boolean {
+		return (this.state.pinnedDashboardIds ?? []).includes(id);
+	}
+
 	/** Add a tile to a dashboard. */
 	async addTile(dashboardId: string, queryId: string, displayMode: TileDisplayMode, title?: string): Promise<DashboardTile | undefined> {
 		const dashboard = this.getDashboard(dashboardId);
@@ -523,6 +564,8 @@ export class AnalyticsService {
 		if (changes.col !== undefined) tile.col = changes.col;
 		if (changes.width !== undefined) tile.width = changes.width;
 		if (changes.height !== undefined) tile.height = changes.height;
+		if (changes.conditionalRules !== undefined) tile.conditionalRules = changes.conditionalRules;
+		if (changes.chartValueColumn !== undefined) tile.chartValueColumn = changes.chartValueColumn;
 
 		dashboard.updatedAt = Date.now();
 		await this.storage.save(this.state);

@@ -1,27 +1,28 @@
 ---
 type: DevelopmentCycle
 feature: "[[Analytics Hub PRD]]"
-stage: planned
+stage: delivered
 cycle: 33
 date_planned: 2026-02-24
-date_completed:
+date_completed: 2026-02-24
 pbis:
   - "[[PBI-ANA-035 Trend Calculation Engine]]"
   - "[[PBI-ANA-036 Expression Functions]]"
   - "[[PBI-ANA-037 Conditional Formatting Rule Builder UI]]"
   - "[[PBI-ANA-038 Analytics Hub Homepage Polish]]"
   - "[[PBI-ANA-039 Trend Intelligence Flow Test]]"
+  - "[[PBI-ANA-040 Analytics UX Sprint]]"
 bugs: []
 bugs_fixed_precycle: []
 tech_debt: []
 estimated_increments: 5
-actual_increments:
+actual_increments: 8
 estimated_tests: 68
-actual_tests:
+actual_tests: 88
 pre_cycle_tests: 4461
 pre_cycle_suites: 184
-post_cycle_tests:
-post_cycle_suites:
+post_cycle_tests: 4549
+post_cycle_suites: 188
 ---
 
 # Cycle 33 — Trend Intelligence
@@ -425,6 +426,80 @@ post_cycle_suites:
 
 ---
 
+### Inc 6: Query Results UX Sprint (PBI-ANA-040)
+
+**Goal:** Rapid iterative UX polish on query results, charts, and the query builder driven by manual testing feedback.
+
+**Changes delivered:**
+- **Chart date sorting** — time-bucketed chart data now sorted chronologically instead of alphabetically
+- **Source overflow fix** — long source file paths no longer break QueriesTab layout
+- **Scroll preservation** — query list scroll position preserved across re-renders
+- **Results-first layout** — query results section renders above the query builder panel for immediate feedback
+- **Computed column resolution** — computed columns correctly resolved against aggregated result rows
+- **Raw column passthrough** — non-aggregated columns pass through to results when no grouping applied
+- **Totals row** — aggregate summary row appended to table results
+- **Preview toggle** — toggle between table and chart preview in query builder
+- **Multi-series charts** — line/bar charts support multiple numeric columns as separate series with color differentiation
+- **Computed columns always visible** — computed column values shown in results even when not explicitly selected
+- **Active query name** — selected query name displayed in results header
+- **Charts full width** — chart SVGs span full container width instead of fixed 600px
+- **Value column selector** — dropdown to select which numeric column drives chart visualization in query builder
+
+**Tests:** ~8 incremental fixes verified via existing test suite
+**AC:** All changes verified via `npm test` — no regressions
+
+---
+
+### Inc 7: Dashboard Tile Enhancement (PBI-ANA-040)
+
+**Goal:** Extend dashboard tiles with value column selection and redesigned table KPI display.
+
+**Changes delivered:**
+- **Value column selector for tiles** — `chartValueColumn?: string` added to `DashboardTile` type; dropdown rendered on chart tiles in both DashboardsTab and AnalyticsDashboardPage
+- **Chart value column persistence fix** — `AnalyticsService.updateTile()` was missing explicit `chartValueColumn` property assignment, causing selection to silently revert on re-render
+- **Table tile KPI redesign** — replaced metadata stat cards (Result Rows, Groups, Source Rows) with actual aggregate values (column sums) displayed as compact stat card grid above the data table; removed `AnalyticsResultsPanel` dependency from `DashboardTileRenderer`
+
+| File | Change |
+|------|--------|
+| `src/domain/analytics/types.ts` | Added `chartValueColumn?: string` to `DashboardTile` |
+| `src/domain/analytics/AnalyticsService.ts` | Added `chartValueColumn` to explicit property assignment in `updateTile()` |
+| `src/ui/analytics/DashboardTileRenderer.ts` | `renderChartWithSelector()`, redesigned `renderTable()`, removed `AnalyticsResultsPanel` import |
+| `src/ui/analytics/DashboardsTab.ts` | Wired `onChartValueColumnChange` callback |
+| `src/ui/analytics/AnalyticsDashboardPage.ts` | Wired `onChartValueColumnChange` callback for homepage tiles |
+
+**Tests:** ~4 incremental fixes verified via existing test suite
+**AC:** All changes verified via `npm test` — no regressions
+
+---
+
+### Inc 8: Analytics Hub Homepage Polish (PBI-ANA-040)
+
+**Goal:** Optimize the Analytics Hub homepage layout for daily workflow efficiency.
+
+**Changes delivered:**
+- **Favorites on top** — favorites section moved to first position in render order (above pinned dashboards)
+- **Favorites headline removed** — compact card grid without header text or count badge
+- **Favorites navigation fix** — clicking a favorite now triggers `scheduleRender()` to open the detail page immediately
+- **Spacing polish** — favorites row bottom margin increased to 1.25rem; tile grid gap increased to 1rem in both DashboardsTab and AnalyticsDashboardPage
+- **Remove X button** — removed misleading unconditional remove button from tile headers
+- **Dashboard description** — default dashboard description rendered below title on homepage
+- **Editable dashboard name** — replaced static `<span>` with inline `<input>` for dashboard title editing on homepage
+- **Time bucket column ordering** — time dimension column now appears first in AnalyticsEngine result columns when query uses time bucketing
+- **Table tile border cleanup** — removed `borderBottom` separator between KPI grid and data table
+
+| File | Change |
+|------|--------|
+| `src/ui/analytics/AnalyticsDashboardPage.ts` | Favorites on top, no headline, editable name, description, spacing |
+| `src/ui/analytics/DashboardTileRenderer.ts` | Removed X button, cleaned KPI/table border |
+| `src/ui/analytics/DashboardsTab.ts` | Increased tile grid gap |
+| `src/domain/analytics/AnalyticsEngine.ts` | Time bucket column first in result columns |
+| `tests/domain/analytics/AnalyticsEngine.test.ts` | Updated column order assertion |
+
+**Tests:** ~4 (1 column order test updated, rest verified via existing suite)
+**AC:** All changes verified via `npm test` — no regressions
+
+---
+
 ## Dependency Graph
 
 ```
@@ -494,34 +569,35 @@ Inc 5 integrates all prior work.
 ## Definition of Done (Cycle)
 
 ### 1. All Increments Completed
-- [ ] Each increment satisfies its own acceptance criteria
-- [ ] No increment left in partial state
-- [ ] Deferred items documented with rationale
+- [x] Each increment satisfies its own acceptance criteria
+- [x] No increment left in partial state
+- [x] Deferred items documented with rationale
 
 ### 2. Build & Test Quality
-- [ ] `npm test` passes — all tests green
-- [ ] `npm run check` passes (tsc + eslint clean)
-- [ ] No test regressions on existing 4,461 tests
-- [ ] Flow 33 integration test passes
+- [x] `npm test` passes — all 4,549 tests green (188 suites)
+- [x] `npm run check` passes (tsc + eslint clean)
+- [x] No test regressions on existing 4,461 tests
+- [x] Flow 33 integration test passes
 
 ### 3. Three Amigos Review
-- [ ] Cycle-level review conducted
-- [ ] All three perspectives represented
-- [ ] TASM scores recorded
+- [x] Cycle-level review conducted
+- [x] All three perspectives represented
+- [x] TASM scores recorded
 
 ### 4. PRD & Backlog Updates
-- [ ] Analytics Hub PRD updated to v7 with FRs 43-51
-- [ ] PBIs created and tracked (ANA-035 through ANA-039)
-- [ ] Event model current (19 events — no new events this cycle)
+- [x] Analytics Hub PRD updated to v7 with FRs 43-51
+- [x] PBIs created and tracked (ANA-035 through ANA-040)
+- [x] Event model current (19 events — no new events this cycle)
 
 ### 5. Documentation
-- [ ] New function signatures documented (JSDoc on trendCalculations.ts, expressionFunctions.ts)
-- [ ] Rule builder interaction documented in DashboardsTab
+- [x] New function signatures documented (JSDoc on trendCalculations.ts, expressionFunctions.ts)
+- [x] Rule builder interaction documented in DashboardsTab
+- [x] ChartRenderer multi-series support documented
 
 ### 6. Cycle Plan Completion
-- [ ] Frontmatter updated (stage: delivered, date_completed, actual values)
-- [ ] Deviations documented
-- [ ] Learnings captured
+- [x] Frontmatter updated (stage: delivered, date_completed, actual values)
+- [x] Deviations documented
+- [x] Learnings captured
 
 ---
 
@@ -535,3 +611,42 @@ Inc 5 integrates all prior work.
 6. Manual: Pin dashboard to homepage → close hub → reopen → pinned dashboard visible
 7. Manual: Open Queries tab → saved queries appear above sources
 8. Flow 33 integration test covers the trend intelligence workflow
+
+---
+
+## Retrospective
+
+### What went well
+
+- **Three-tier evaluator pipeline** delivered cleanly — arithmetic → scalar functions → window functions pipeline design proved correct. No regressions on existing computed columns.
+- **Function call parser** handled nesting naturally (`ROUND(PCT_CHANGE({Cost}), 1)`) without special-casing, validating the inside-out evaluation approach.
+- **Conditional formatting rule builder** completed the C32 DEV-2 deferral in a single increment — the collapsible tile settings panel pattern is reusable for future per-tile settings.
+- **UX Sprint (Inc 6-8)** was highly productive — 16+ manual-testing-driven fixes in rapid succession, each verified immediately. The fast iteration loop of "test → feedback → fix → verify" worked extremely well.
+- **Zero new events** — all features were engine-level and UI-level, confirming the event model is stable.
+
+### Deviations
+
+| ID | Description | Impact | Resolution |
+|----|-------------|--------|------------|
+| DEV-1 | UX Sprint added 3 unplanned increments (Inc 6-8) | Positive — 16+ UX improvements from manual testing. Scope grew from 5 to 8 increments | Tracked as PBI-ANA-040. All changes verified via test suite. |
+| DEV-2 | `chartValueColumn` persistence bug | Low — new field missing from explicit property assignment in `updateTile()` | Fixed immediately. Reinforces pattern: **every new `DashboardTile` field must be added to `updateTile()` property list**. |
+| DEV-3 | Time bucket column ordering changed | Low — column order in AnalyticsEngine step 9 swapped to put time dimension first | One test assertion updated. Better UX: time dimension logically leads the result set. |
+
+### Learnings
+
+1. **Explicit property assignment pattern** is a maintenance trap — `AnalyticsService.updateTile()` uses manual per-field assignment instead of spread. Every new field requires a corresponding line. Consider refactoring to `Object.assign(tile, changes)` with a whitelist in a future tech debt cycle.
+2. **UX Sprint as a delivery pattern** — dedicating 3 increments to rapid manual-testing-driven polish after core delivery produced outsized value. The Supplier Manager workflow improved significantly from these micro-fixes that would never surface in unit tests alone.
+3. **DashboardTileRenderer decoupled from AnalyticsResultsPanel** — removing the `AnalyticsResultsPanel` dependency and rendering tables directly gave full control over spacing and layout. The panel was designed for the query builder context, not tile context.
+4. **Multi-series chart support** was simpler than expected — the existing `ChartRenderer` SVG pipeline only needed a loop over numeric columns with color differentiation. No architectural changes required.
+
+### Key Numbers
+
+| Metric | Estimated | Actual |
+|--------|-----------|--------|
+| Increments | 5 | 8 (+3 UX Sprint) |
+| New tests | 68 | 88 |
+| Post-cycle tests | ~4,529 | 4,549 |
+| Post-cycle suites | — | 188 |
+| New functions | 6 (3 trend + 3 expression) | 6 |
+| Deferred items resolved | 3 (DEV-2, expressions 2-cycle, trends 1-cycle) | 3 |
+| New PBIs | 5 | 6 (+PBI-ANA-040 UX Sprint) |

@@ -22,22 +22,28 @@ export class SourcePanel {
 		const section = this.container.createDiv({ cls: "ft-card ft-mt-3" });
 		section.createDiv({ text: "Sources", cls: "ft-detail-section-header" });
 
+		// Source table with overflow containment
+		const tableWrap = section.createDiv();
+		tableWrap.style.overflow = "auto";
+
 		for (const src of sources) {
-			const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
+			const row = tableWrap.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
 			row.style.padding = "0.35rem 0.5rem";
 			row.style.borderBottom = "1px solid var(--background-modifier-border)";
+			row.style.minWidth = "0";
 
 			const aliasInput = row.createEl("input", { type: "text" });
 			aliasInput.value = src.alias;
-			aliasInput.style.cssText = INPUT_CSS;
+			aliasInput.style.cssText = INPUT_CSS + ";max-width:100px;flex-shrink:0";
 			aliasInput.addEventListener("change", () => {
 				src.alias = aliasInput.value.trim() || src.alias;
 			});
 
-			row.createSpan({ text: src.csvPath.split("/").pop() ?? src.csvPath, cls: "ft-text-sm ft-flex-1" });
+			const pathSpan = row.createSpan({ text: src.csvPath.split("/").pop() ?? src.csvPath, cls: "ft-text-sm" });
+			pathSpan.style.cssText = "flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
 
 			const localeSelect = row.createEl("select");
-			localeSelect.style.cssText = SELECT_CSS;
+			localeSelect.style.cssText = SELECT_CSS + ";flex-shrink:0";
 			for (const opt of LOCALE_OPTIONS) {
 				const option = localeSelect.createEl("option");
 				option.value = opt.id;
@@ -49,24 +55,32 @@ export class SourcePanel {
 			});
 
 			if (src.loading) {
-				row.createSpan({ text: "Loading...", cls: "ft-text-muted ft-text-sm" });
+				const badge = row.createSpan({ text: "Loading...", cls: "ft-text-muted ft-text-sm" });
+				badge.style.flexShrink = "0";
 			} else if (src.data) {
-				row.createSpan({ text: `${src.data.rows.length} rows`, cls: "ft-text-muted ft-text-sm" });
+				const badge = row.createSpan({ text: `${src.data.rows.length} rows`, cls: "ft-text-muted ft-text-sm" });
+				badge.style.flexShrink = "0";
 			}
 		}
 
-		// Source preview for the first loaded source
-		const firstLoaded = sources.find((s) => s.data);
-		if (firstLoaded?.data) {
-			const previewHost = section.createDiv({ cls: "ft-mt-2" });
-			previewHost.style.borderTop = "1px solid var(--background-modifier-border)";
-			previewHost.style.paddingTop = "0.5rem";
-			new SourcePreviewPanel({
-				container: previewHost,
-				data: firstLoaded.data,
-				typeHints: this.deps.columnTypeHints(),
-			}).render();
+		// Source previews — only shown when preview toggle is active
+		const loadedSources = sources.filter((s) => s.data);
+		if (this.deps.showPreview()) {
+			for (const src of loadedSources) {
+				const previewHost = section.createDiv({ cls: "ft-mt-2" });
+				previewHost.style.borderTop = "1px solid var(--background-modifier-border)";
+				previewHost.style.paddingTop = "0.5rem";
+				previewHost.style.overflow = "auto";
+				previewHost.createDiv({ text: src.alias, cls: "ft-text-sm ft-text-muted" }).style.marginBottom = "0.25rem";
+				new SourcePreviewPanel({
+					container: previewHost,
+					data: src.data!,
+					typeHints: this.deps.columnTypeHints(),
+				}).render();
+			}
+		}
 
+		if (loadedSources.length > 0) {
 			this.renderQuickInsights(section);
 		}
 	}

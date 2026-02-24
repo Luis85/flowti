@@ -151,8 +151,26 @@ export interface SortSpec {
 export interface ComputedColumn {
 	/** Display name for the computed column */
 	name: string;
-	/** Arithmetic expression using {Column Label} references and +, -, *, / operators */
+	/**
+	 * Expression using {Column Label} references, arithmetic (+, -, *, /),
+	 * scalar functions (ROUND, ABS, IF), and window functions (CHANGE, PCT_CHANGE, ROLLING_AVG).
+	 */
 	expression: string;
+}
+
+/** Recognized function names in computed column expressions. */
+export type WindowFunctionName = "CHANGE" | "PCT_CHANGE" | "ROLLING_AVG";
+export type ScalarFunctionName = "ROUND" | "ABS" | "IF";
+export type FunctionName = WindowFunctionName | ScalarFunctionName;
+
+/** A parsed function call token extracted from an expression. */
+export interface FunctionToken {
+	/** Function name (uppercase) */
+	name: FunctionName;
+	/** Raw argument strings (may contain nested functions or column refs) */
+	args: string[];
+	/** Original text span in the expression (for substitution) */
+	raw: string;
 }
 
 // ── Analytics query ─────────────────────────────────────
@@ -308,6 +326,8 @@ export interface DashboardTile {
 	conditionalRules?: ConditionalRule[];
 	/** Show sparkline mini-charts in stat-card tiles (default: true) */
 	showSparkline?: boolean;
+	/** Selected value column for chart display (defaults to first numeric column) */
+	chartValueColumn?: string;
 }
 
 /** A named dashboard containing a grid of tiles. */
@@ -338,4 +358,6 @@ export interface AnalyticsState {
 	dashboards: Dashboard[];
 	/** ID of the default dashboard shown on hub overview (null = no default) */
 	defaultDashboardId?: string | null;
+	/** IDs of dashboards pinned to homepage (max 3, compact summary cards). */
+	pinnedDashboardIds?: string[];
 }

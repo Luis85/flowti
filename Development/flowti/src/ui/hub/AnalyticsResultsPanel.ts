@@ -12,6 +12,8 @@ export interface AnalyticsResultsPanelOptions {
 	result: AnalyticsResult;
 	durationMs?: number;
 	onExportCsv?: (csv: string) => void;
+	/** Hide the stat cards row (when summary is shown elsewhere). */
+	hideStats?: boolean;
 }
 
 interface SortState {
@@ -32,15 +34,17 @@ export class AnalyticsResultsPanel {
 		const { result, durationMs } = this.options;
 
 		// ── Stat cards ──────────────────────────────────────
-		const cards: StatCardItem[] = [
-			{ icon: "rows-3", value: String(result.rows.length), label: "Result Rows" },
-			{ icon: "layers", value: String(result.groupCount), label: "Groups" },
-			{ icon: "database", value: String(result.sourceRowCount), label: "Source Rows" },
-		];
-		if (durationMs !== undefined) {
-			cards.push({ icon: "timer", value: `${durationMs}ms`, label: "Duration" });
+		if (!this.options.hideStats) {
+			const cards: StatCardItem[] = [
+				{ icon: "rows-3", value: String(result.rows.length), label: "Result Rows" },
+				{ icon: "layers", value: String(result.groupCount), label: "Groups" },
+				{ icon: "database", value: String(result.sourceRowCount), label: "Source Rows" },
+			];
+			if (durationMs !== undefined) {
+				cards.push({ icon: "timer", value: `${durationMs}ms`, label: "Duration" });
+			}
+			renderStatGrid(this.container, cards, cards.length);
 		}
-		renderStatGrid(this.container, cards, cards.length);
 
 		// ── Actions ──────────────────────────────────────────
 		if (result.rows.length > 0) {
@@ -111,6 +115,27 @@ export class AnalyticsResultsPanel {
 					text: typeof val === "number" ? val.toLocaleString() : String(val ?? ""),
 					cls: "ft-text-sm",
 				});
+			}
+		}
+
+		// Totals row
+		const numericCols = result.columns.filter((col) => typeof result.rows[0]?.[col] === "number");
+		if (numericCols.length > 0 && result.rows.length > 1) {
+			const tfoot = table.createEl("tfoot");
+			const totalsRow = tfoot.createEl("tr");
+			totalsRow.style.borderTop = "2px solid var(--background-modifier-border)";
+			totalsRow.style.fontWeight = "600";
+			for (const col of result.columns) {
+				const td = totalsRow.createEl("td", { cls: "ft-text-sm" });
+				if (numericCols.includes(col)) {
+					const sum = result.rows.reduce((acc, r) => {
+						const v = r[col];
+						return acc + (typeof v === "number" ? v : 0);
+					}, 0);
+					td.textContent = sum.toLocaleString();
+				} else {
+					td.textContent = col === result.columns[0] ? "Total" : "";
+				}
 			}
 		}
 

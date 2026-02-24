@@ -20,9 +20,12 @@ import type {
 	ResultRow,
 	SortSpec,
 	TimeBucketSpec,
+	WindowFunctionName,
 } from "./types";
 import { parseNumber } from "./localeUtils";
 import { bucketDate, parseDate } from "./dateUtils";
+import { computeChange, computePctChange, computeRollingAvg } from "./trendCalculations";
+import { evalRound, evalAbs, evalIf } from "./expressionFunctions";
 
 /** Internal row representation during processing. */
 type RawRow = Record<string, string>;
@@ -65,7 +68,7 @@ export class AnalyticsEngine {
 
 		// 6. Apply computed columns (after aggregation)
 		if (query.computedColumns && query.computedColumns.length > 0) {
-			this.applyComputedColumns(resultRows, query.computedColumns);
+			this.applyComputedColumns(resultRows, query.computedColumns, query.measures);
 		}
 
 		// 7. Apply sort (after aggregation)
@@ -79,12 +82,12 @@ export class AnalyticsEngine {
 			sortedRows = this.applyLimit(sortedRows, query.limit);
 		}
 
-		// 9. Build column list
+		// 9. Build column list (time bucket first when present)
 		const columns = [
-			...query.dimensions.map((d) => d.column),
 			...(query.timeBucket
 				? [query.timeBucket.outputColumn ?? `${query.timeBucket.column}_${query.timeBucket.period}`]
 				: []),
+			...query.dimensions.map((d) => d.column),
 			...query.measures.map((m) => m.label ?? `${m.function}(${m.column})`),
 			...(query.computedColumns ?? []).map((c) => c.name),
 		];
@@ -294,11 +297,22 @@ export class AnalyticsEngine {
 
 		// Aggregate each group
 		const resultRows: ResultRow[] = [];
+		const hasComputedColumns = (query.computedColumns ?? []).length > 0;
 
 		for (const [, groupRows] of groups) {
 			const result: ResultRow = {};
 
-			// Dimension values from first row
+			// Carry forward raw column values from first row when computed columns
+			// need them. Parsed as numbers when possible so expressions work.
+			if (hasComputedColumns) {
+				for (const key of Object.keys(groupRows[0])) {
+					const raw = groupRows[0][key];
+					const num = parseNumber(raw, this.findLocaleForColumn(key, query));
+					result[key] = num !== null ? num : raw;
+				}
+			}
+
+			// Dimension values from first row (override raw passthrough)
 			for (const dim of dimensions) {
 				result[dim.column] = groupRows[0][dim.column] ?? "";
 			}
@@ -311,7 +325,7 @@ export class AnalyticsEngine {
 				result[outputCol] = groupRows[0][outputCol] ?? "";
 			}
 
-			// Measures
+			// Measures (override raw passthrough with aggregated values)
 			for (const measure of measures) {
 				const label = measure.label ?? `${measure.function}(${measure.column})`;
 				result[label] = this.aggregate(
@@ -364,10 +378,41 @@ export class AnalyticsEngine {
 	private applyComputedColumns(
 		rows: ResultRow[],
 		computedColumns: ComputedColumn[],
+		measures: MeasureSpec[],
 	): void {
+		// Inject raw-column-name aliases so {quantity} resolves to the value
+		// of SUM(quantity) (or whichever aggregation targets that column).
+		const measureAliases = new Map<string, string>();
+		for (const m of measures) {
+			const label = m.label ?? `${m.function}(${m.column})`;
+			if (!measureAliases.has(m.column)) {
+				measureAliases.set(m.column, label);
+			}
+		}
+		if (measureAliases.size > 0) {
+			for (const row of rows) {
+				for (const [col, label] of measureAliases) {
+					// Always override raw values with aggregated measure values
+					if (row[label] !== undefined) {
+						row[col] = row[label];
+					}
+				}
+			}
+		}
+
+		// Pass 1: per-row evaluation (arithmetic + scalar functions)
 		for (const row of rows) {
 			for (const cc of computedColumns) {
-				row[cc.name] = evaluateExpression(cc.expression, row);
+				if (!hasWindowFunction(cc.expression)) {
+					row[cc.name] = evaluateExpression(cc.expression, row);
+				}
+			}
+		}
+
+		// Pass 2: window functions (need full result set context)
+		for (const cc of computedColumns) {
+			if (hasWindowFunction(cc.expression)) {
+				applyWindowColumn(rows, cc);
 			}
 		}
 	}
@@ -416,17 +461,214 @@ export class AnalyticsEngine {
 	}
 }
 
+/** Known function names for detection. */
+const WINDOW_FUNCTIONS: Set<string> = new Set(["CHANGE", "PCT_CHANGE", "ROLLING_AVG"]);
+
+/** Check whether an expression contains any window function calls. */
+function hasWindowFunction(expression: string): boolean {
+	return WINDOW_FUNCTIONS.has(extractOuterFunctionName(expression)) ||
+		/\b(CHANGE|PCT_CHANGE|ROLLING_AVG)\s*\(/.test(expression);
+}
+
+/** Extract the outer function name if the expression is a bare function call. */
+function extractOuterFunctionName(expression: string): string {
+	const match = expression.trim().match(/^([A-Z_]+)\s*\(/);
+	return match ? match[1] : "";
+}
+
 /**
- * Evaluate an arithmetic expression with {Column Label} references.
- * Supports +, -, *, / with standard operator precedence.
- * Returns 0 for invalid expressions or division by zero.
+ * Extract a window function call from an expression, handling {Column(Name)} refs with parens.
+ * Returns the function name, args string, and the full matched text for substitution.
  */
-export function evaluateExpression(expression: string, row: ResultRow): number {
+function extractWindowFunction(expression: string): { funcName: WindowFunctionName; argsStr: string; fullMatch: string } | null {
+	// Find the start of a window function
+	const startMatch = expression.match(/\b(CHANGE|PCT_CHANGE|ROLLING_AVG)\s*\(/);
+	if (!startMatch || startMatch.index === undefined) return null;
+
+	const funcName = startMatch[1] as WindowFunctionName;
+	const argsStart = startMatch.index + startMatch[0].length;
+
+	// Walk forward tracking brace and paren depth to find the matching close paren
+	let depth = 1;
+	let braceDepth = 0;
+	let i = argsStart;
+	while (i < expression.length && depth > 0) {
+		const ch = expression[i];
+		if (ch === "{") braceDepth++;
+		else if (ch === "}") braceDepth--;
+		else if (braceDepth === 0) {
+			if (ch === "(") depth++;
+			else if (ch === ")") depth--;
+		}
+		if (depth > 0) i++;
+	}
+
+	if (depth !== 0) return null;
+
+	const argsStr = expression.substring(argsStart, i);
+	const fullMatch = expression.substring(startMatch.index, i + 1);
+	return { funcName, argsStr, fullMatch };
+}
+
+/**
+ * Extract a scalar function call from an expression, handling {Column(Name)} refs.
+ * Finds the innermost scalar function (one whose args contain no un-braced nested scalar calls).
+ */
+function extractScalarFunction(expression: string): { funcName: string; argsStr: string; fullMatch: string } | null {
+	const startMatch = expression.match(/\b(ROUND|ABS|IF)\s*\(/);
+	if (!startMatch || startMatch.index === undefined) return null;
+
+	const funcName = startMatch[1];
+	const argsStart = startMatch.index + startMatch[0].length;
+
+	let depth = 1;
+	let braceDepth = 0;
+	let i = argsStart;
+	while (i < expression.length && depth > 0) {
+		const ch = expression[i];
+		if (ch === "{") braceDepth++;
+		else if (ch === "}") braceDepth--;
+		else if (braceDepth === 0) {
+			if (ch === "(") depth++;
+			else if (ch === ")") depth--;
+		}
+		if (depth > 0) i++;
+	}
+
+	if (depth !== 0) return null;
+
+	const argsStr = expression.substring(argsStart, i);
+	const fullMatch = expression.substring(startMatch.index, i + 1);
+
+	// Check if this is truly "innermost" — args should not contain un-braced ROUND/ABS/IF calls
+	// If they do, we need to find that inner call instead
+	const innerCheck = extractScalarFunction(argsStr);
+	if (innerCheck) {
+		// Recurse into the inner call — adjust positions
+		return {
+			funcName: innerCheck.funcName,
+			argsStr: innerCheck.argsStr,
+			fullMatch: innerCheck.fullMatch,
+		};
+	}
+
+	return { funcName, argsStr, fullMatch };
+}
+
+/**
+ * Apply a window-function computed column to the full result set.
+ * Supports standalone: `CHANGE({col})` and nested: `ROUND(PCT_CHANGE({col}), 1)`.
+ */
+function applyWindowColumn(rows: ResultRow[], cc: ComputedColumn): void {
+	// Find the window function call — must handle {SUM(Revenue)} column refs with parens
+	const parsed = extractWindowFunction(cc.expression);
+	if (!parsed) {
+		// Fallback: treat as per-row expression
+		for (const row of rows) {
+			row[cc.name] = evaluateExpression(cc.expression, row);
+		}
+		return;
+	}
+
+	const { funcName, argsStr, fullMatch } = parsed;
+	const args = splitFunctionArgs(argsStr);
+
+	// Resolve column reference from first arg
+	const colRef = args[0]?.trim().replace(/^\{|\}$/g, "") ?? "";
+
+	// Compute window values
+	let windowValues: Array<number | null>;
+	switch (funcName) {
+		case "CHANGE":
+			windowValues = computeChange(rows, colRef);
+			break;
+		case "PCT_CHANGE":
+			windowValues = computePctChange(rows, colRef);
+			break;
+		case "ROLLING_AVG": {
+			const windowSize = parseInt(args[1]?.trim() ?? "3", 10);
+			windowValues = computeRollingAvg(rows, colRef, isNaN(windowSize) ? 3 : windowSize);
+			break;
+		}
+	}
+
+	// Check if the window function is wrapped in scalar functions
+	const isWrapped = cc.expression.trim() !== fullMatch;
+
+	for (let i = 0; i < rows.length; i++) {
+		const wv = windowValues[i];
+		if (wv === null) {
+			rows[i][cc.name] = null as unknown as string | number;
+		} else if (isWrapped) {
+			// Substitute the window function result back into the expression, then evaluate scalars
+			const substituted = cc.expression.replace(fullMatch, String(wv));
+			rows[i][cc.name] = evaluateExpression(substituted, rows[i]);
+		} else {
+			rows[i][cc.name] = wv;
+		}
+	}
+}
+
+/**
+ * Evaluate an expression with {Column Label} references, arithmetic, and scalar functions.
+ * Supports +, -, *, / with standard operator precedence.
+ * Scalar functions: ROUND(val, n), ABS(val), IF(cond, then, else).
+ * Returns string | number (IF can return string values).
+ */
+export function evaluateExpression(expression: string, row: ResultRow): string | number {
 	if (!expression.trim()) return 0;
 
+	// Process scalar function calls inside-out (innermost first)
+	let processed = expression;
+	let iterations = 0;
+	const MAX_ITERATIONS = 20;
+
+	while (iterations < MAX_ITERATIONS) {
+		// Find innermost scalar function call (respects {Column(Name)} refs with parens)
+		const extracted = extractScalarFunction(processed);
+		if (!extracted) break;
+
+		const { funcName, argsStr, fullMatch } = extracted;
+		const args = splitFunctionArgs(argsStr);
+
+		let result: string | number;
+		switch (funcName) {
+			case "ROUND": result = evalRound(args, row); break;
+			case "ABS": result = evalAbs(args, row); break;
+			case "IF": result = evalIf(args, row); break;
+			default: result = 0;
+		}
+
+		// Substitute the function call with the result
+		if (typeof result === "string") {
+			processed = processed.replace(fullMatch, `"${result}"`);
+		} else {
+			processed = processed.replace(fullMatch, String(result));
+		}
+		iterations++;
+	}
+
+	// Check if the result is a quoted string (from IF)
+	const trimmed = processed.trim();
+	if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+		return trimmed.slice(1, -1);
+	}
+
 	// Replace {Column Label} references with numeric values
-	const substituted = expression.replace(/\{([^}]+)\}/g, (_, label: string) => {
-		const val = row[label.trim()];
+	const substituted = processed.replace(/\{([^}]+)\}/g, (_, label: string) => {
+		const key = label.trim();
+		let val = row[key];
+
+		// Fallback: if exact key not found, look for aggregated label like SUM(key), AVG(key), etc.
+		if (val === undefined) {
+			for (const rk of Object.keys(row)) {
+				if (rk.endsWith(`(${key})`)) {
+					val = row[rk];
+					break;
+				}
+			}
+		}
+
 		if (typeof val === "number") return String(val);
 		const num = parseFloat(String(val ?? ""));
 		return isNaN(num) ? "0" : String(num);
@@ -437,6 +679,44 @@ export function evaluateExpression(expression: string, row: ResultRow): number {
 	if (tokens.length === 0) return 0;
 
 	return calculateWithPrecedence(tokens);
+}
+
+/** Split function arguments respecting nested parentheses and quoted strings. */
+function splitFunctionArgs(argsStr: string): string[] {
+	const args: string[] = [];
+	let depth = 0;
+	let current = "";
+	let inQuote = false;
+	let quoteChar = "";
+
+	for (let i = 0; i < argsStr.length; i++) {
+		const ch = argsStr[i];
+
+		if (inQuote) {
+			current += ch;
+			if (ch === quoteChar) inQuote = false;
+			continue;
+		}
+
+		if (ch === '"' || ch === "'") {
+			inQuote = true;
+			quoteChar = ch;
+			current += ch;
+			continue;
+		}
+
+		if (ch === "(") { depth++; current += ch; continue; }
+		if (ch === ")") { depth--; current += ch; continue; }
+		if (ch === "," && depth === 0) {
+			args.push(current);
+			current = "";
+			continue;
+		}
+		current += ch;
+	}
+
+	if (current.trim()) args.push(current);
+	return args;
 }
 
 /** Token: either a number or an operator */

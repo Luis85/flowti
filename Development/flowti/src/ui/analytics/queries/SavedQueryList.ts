@@ -23,11 +23,25 @@ export class SavedQueryList {
 			if (!a.isFavorite && b.isFavorite) return 1;
 			return 0;
 		});
-		if (savedQueries.length === 0) return;
 
 		const sqHeader = this.container.createDiv({ cls: "ft-master-category-header" });
 		sqHeader.createSpan({ text: "Saved Queries" });
-		sqHeader.createSpan({ text: `${savedQueries.length}`, cls: "ft-master-category-count" });
+		if (savedQueries.length > 0) {
+			sqHeader.createSpan({ text: `${savedQueries.length}`, cls: "ft-master-category-count" });
+		}
+
+		const newBtn = sqHeader.createEl("span", { cls: "ft-nav-link" });
+		newBtn.style.marginLeft = "auto";
+		newBtn.style.cursor = "pointer";
+		const newIcon = newBtn.createSpan();
+		setIcon(newIcon, "plus");
+		newIcon.style.width = "14px";
+		newIcon.style.height = "14px";
+		newBtn.setAttribute("aria-label", "New query");
+		newBtn.addEventListener("click", (e) => {
+			e.stopPropagation();
+			this.deps.newQuery();
+		});
 
 		for (const sq of savedQueries) {
 			const isSelected = state.selectedQueryId === sq.id;
@@ -63,7 +77,7 @@ export class SavedQueryList {
 				item.createSpan({ text: `${sq.lastRowCount} rows`, cls: "ft-badge ft-badge-muted" });
 			}
 
-			// Rename button
+			// Rename button — replaces text with inline input
 			const renameBtn = item.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 			const renameIcon = renameBtn.createSpan();
 			setIcon(renameIcon, "pencil");
@@ -72,12 +86,27 @@ export class SavedQueryList {
 			renameBtn.setAttribute("aria-label", "Rename query");
 			renameBtn.addEventListener("click", (e) => {
 				e.stopPropagation();
-				const newName = prompt("Rename query:", sq.name);
-				if (newName && newName.trim()) {
-					void svc.renameQuery(sq.id, newName.trim()).then(() => {
+				// Replace text block with inline input
+				textBlock.empty();
+				const renameInput = textBlock.createEl("input", { type: "text" });
+				renameInput.value = sq.name;
+				renameInput.style.cssText = "font-size:var(--font-ui-small);border:1px solid var(--background-modifier-border);background:var(--background-primary);color:var(--text-normal);padding:2px 4px;border-radius:4px;width:100%";
+				renameInput.addEventListener("blur", () => {
+					const val = renameInput.value.trim();
+					if (val && val !== sq.name) {
+						void svc.renameQuery(sq.id, val).then(() => {
+							this.deps.renderMaster();
+						});
+					} else {
 						this.deps.renderMaster();
-					});
-				}
+					}
+				});
+				renameInput.addEventListener("keydown", (ev) => {
+					if (ev.key === "Enter") { ev.preventDefault(); renameInput.blur(); }
+					if (ev.key === "Escape") { ev.preventDefault(); this.deps.renderMaster(); }
+				});
+				renameInput.addEventListener("click", (ev) => ev.stopPropagation());
+				setTimeout(() => renameInput.focus(), 20);
 			});
 
 			// Duplicate button

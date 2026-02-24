@@ -6,7 +6,7 @@
  */
 
 import { setIcon } from "obsidian";
-import type { Dashboard } from "../../domain/analytics/types";
+import type { Dashboard, DashboardTile } from "../../domain/analytics/types";
 import type { AnalyticsHubDeps } from "./types";
 import { DashboardTileRenderer, type TileRenderContext } from "./DashboardTileRenderer";
 import { AddTileDialog } from "./AddTileDialog";
@@ -14,6 +14,7 @@ import { DashboardNameModal } from "./DashboardNameModal";
 
 export class DashboardsTab {
 	private addTileDialogVisible = false;
+	private openSettingsTileId: string | null = null;
 
 	constructor(
 		private masterEl: HTMLElement,
@@ -132,6 +133,26 @@ export class DashboardsTab {
 			defaultBadge.style.background = "var(--interactive-accent)";
 			defaultBadge.style.color = "var(--text-on-accent)";
 		}
+
+		// Pin toggle
+		const isPinned = this.deps.analyticsService.isDashboardPinned(dashboard.id);
+		const pinBtn = row.createSpan({ cls: "ft-nav-link ft-text-muted" });
+		pinBtn.style.flexShrink = "0";
+		pinBtn.style.cursor = "pointer";
+		const pinIcon = pinBtn.createSpan();
+		setIcon(pinIcon, "pin");
+		pinIcon.style.width = "14px";
+		pinIcon.style.height = "14px";
+		if (isPinned) pinBtn.style.color = "var(--text-accent)";
+		pinBtn.setAttribute("aria-label", isPinned ? "Unpin from homepage" : "Pin to homepage");
+		pinBtn.addEventListener("click", (e) => {
+			e.stopPropagation();
+			if (isPinned) {
+				void this.deps.analyticsService.unpinDashboard(dashboard.id).then(() => this.deps.scheduleRender());
+			} else {
+				void this.deps.analyticsService.pinDashboard(dashboard.id).then(() => this.deps.scheduleRender());
+			}
+		});
 
 		// Delete button
 		const deleteBtn = row.createSpan({ cls: "ft-nav-link ft-text-muted" });
@@ -344,7 +365,7 @@ export class DashboardsTab {
 		const grid = this.detailEl.createDiv({ cls: "ft-dashboard-grid" });
 		grid.style.display = "grid";
 		grid.style.gridTemplateColumns = "repeat(2, 1fr)";
-		grid.style.gap = "0.75rem";
+		grid.style.gap = "1rem";
 
 		const state = this.deps.getState();
 
@@ -388,6 +409,21 @@ export class DashboardsTab {
 				onDisplayModeToggle: (tileId, newMode) => {
 					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { displayMode: newMode }).then(() => {
 						this.deps.tileResultCache.clearOne(tile.queryId);
+						this.deps.scheduleRender();
+					});
+				},
+				settingsOpen: this.openSettingsTileId === tile.id,
+				onToggleSettings: (tileId) => {
+					this.openSettingsTileId = this.openSettingsTileId === tileId ? null : tileId;
+					this.deps.scheduleRender();
+				},
+				onRulesChange: (tileId, rules) => {
+					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { conditionalRules: rules } as Partial<DashboardTile>).then(() => {
+						this.deps.scheduleRender();
+					});
+				},
+			onChartValueColumnChange: (tileId, column) => {
+					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { chartValueColumn: column } as Partial<DashboardTile>).then(() => {
 						this.deps.scheduleRender();
 					});
 				},
