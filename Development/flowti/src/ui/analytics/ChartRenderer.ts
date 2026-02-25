@@ -158,9 +158,10 @@ export class ChartRenderer {
 
 		const svg = ChartRenderer.buildSvg(container);
 		const { yMin, yMax, yRange } = ChartRenderer.computeYRange(data.values);
+		const sym = ChartRenderer.getColumnSymbol(result, valueColumn ?? result.columns.find((c) => typeof result.rows[0]?.[c] === "number"));
 
 		// Y-axis labels + grid lines
-		ChartRenderer.drawYAxis(svg, yMin, yMax);
+		ChartRenderer.drawYAxis(svg, yMin, yMax, sym);
 
 		// X-axis labels
 		ChartRenderer.drawXAxis(svg, data.labels);
@@ -213,8 +214,11 @@ export class ChartRenderer {
 		const svg = ChartRenderer.buildSvg(container);
 		const { yMin, yMax, yRange } = ChartRenderer.computeYRange(data.values);
 
+		const effectiveCol = valueColumn ?? result.columns.find((c) => typeof result.rows[0]?.[c] === "number");
+		const sym = ChartRenderer.getColumnSymbol(result, effectiveCol);
+
 		// Y-axis labels + grid lines
-		ChartRenderer.drawYAxis(svg, yMin, yMax);
+		ChartRenderer.drawYAxis(svg, yMin, yMax, sym);
 
 		// X-axis labels
 		ChartRenderer.drawXAxis(svg, data.labels);
@@ -249,7 +253,7 @@ export class ChartRenderer {
 			label.setAttribute("text-anchor", "middle");
 			label.setAttribute("fill", "var(--text-muted)");
 			label.setAttribute("font-size", "10");
-			label.textContent = ChartRenderer.formatValue(v);
+			label.textContent = ChartRenderer.formatValue(v, sym);
 			svg.appendChild(label);
 		}
 	}
@@ -274,8 +278,9 @@ export class ChartRenderer {
 
 		const svg = ChartRenderer.buildSvg(container);
 		const { yMin, yMax, yRange } = ChartRenderer.computeYRange(data.values);
+		const sym = ChartRenderer.getColumnSymbol(result, valueColumn ?? result.columns.find((c) => typeof result.rows[0]?.[c] === "number"));
 
-		ChartRenderer.drawYAxis(svg, yMin, yMax);
+		ChartRenderer.drawYAxis(svg, yMin, yMax, sym);
 		ChartRenderer.drawXAxis(svg, data.labels);
 
 		const points = data.values.map((v, i) => ({
@@ -562,7 +567,7 @@ export class ChartRenderer {
 		return { yMin, yMax, yRange };
 	}
 
-	private static drawYAxis(svg: SVGSVGElement, yMin: number, yMax: number): void {
+	private static drawYAxis(svg: SVGSVGElement, yMin: number, yMax: number, currencySymbol?: string): void {
 		const yRange = yMax - yMin;
 		const ticks = 5;
 
@@ -588,7 +593,7 @@ export class ChartRenderer {
 			label.setAttribute("text-anchor", "end");
 			label.setAttribute("fill", "var(--text-muted)");
 			label.setAttribute("font-size", "10");
-			label.textContent = ChartRenderer.formatValue(val);
+			label.textContent = ChartRenderer.formatValue(val, currencySymbol);
 			svg.appendChild(label);
 		}
 	}
@@ -612,10 +617,17 @@ export class ChartRenderer {
 		}
 	}
 
-	private static formatValue(v: number): string {
-		if (Math.abs(v) >= 1_000_000) return (v / 1_000_000).toFixed(1) + "M";
-		if (Math.abs(v) >= 1_000) return (v / 1_000).toFixed(1) + "K";
-		return Number.isInteger(v) ? String(v) : v.toFixed(1);
+	private static formatValue(v: number, currencySymbol?: string): string {
+		const prefix = currencySymbol ?? "";
+		if (Math.abs(v) >= 1_000_000) return prefix + (v / 1_000_000).toFixed(1) + "M";
+		if (Math.abs(v) >= 1_000) return prefix + (v / 1_000).toFixed(1) + "K";
+		return prefix + (Number.isInteger(v) ? String(v) : v.toFixed(1));
+	}
+
+	/** Extract detected currency symbol for a value column from result hints. */
+	private static getColumnSymbol(result: AnalyticsResult, valueColumn?: string): string | undefined {
+		if (!result.columnTypeHints || !valueColumn) return undefined;
+		return result.columnTypeHints.find((h) => h.column === valueColumn)?.currencySymbol;
 	}
 
 	// ── Pie Chart ────────────────────────────────────────────

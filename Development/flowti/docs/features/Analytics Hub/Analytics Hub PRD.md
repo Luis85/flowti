@@ -3,7 +3,7 @@ domain: Analytics
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
 stage: delivered
-version: 13
+version: 14
 maturity: L2
 created: 2026-02-23
 updated: 2026-02-25
@@ -613,6 +613,18 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 - [x] QueriesTab ≤ 830 LOC after ActionsBar extraction
 - [x] All existing flow tests pass (backward compat)
 - [x] 4,746 tests passing (196 suites)
+
+### v14 Bug Fixes & UX (Cycle 39)
+
+- [x] Currency values ($, €, £, ¥, ₹) detected as number by `guessColumnType()`
+- [x] Dash-separated dates (e.g. "2-3-2025") detected as date
+- [x] Date detection threshold lowered to 50% (more robust with sparse data)
+- [x] CSV detail callout refreshes after doc creation
+- [x] Report Type input persists across re-renders (local state + scheduled re-render)
+- [x] Duplicate Export CSV button removed from query results (ActionsBar is canonical)
+- [x] "Refresh All" button on homepage dashboard (AnalyticsDashboardPage)
+- [x] "Analyze" button on Report detail and CSV file detail pages (DX Hub → Analytics Hub)
+- [x] 4,751 tests passing (196 suites)
 
 ## 13. Definition of Done
 

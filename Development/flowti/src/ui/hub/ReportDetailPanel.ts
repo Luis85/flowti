@@ -151,6 +151,14 @@ export class ReportDetailPanel {
 			importLink.addEventListener("click", () => {
 				this.deps.navigation.openCsvImport(resolvedCsv);
 			});
+
+			const analyzeLink = actions.createEl("span", { cls: "ft-nav-link" });
+			const analyzeIcon = analyzeLink.createSpan();
+			setIcon(analyzeIcon, "bar-chart-2");
+			analyzeLink.appendText(" Analyze");
+			analyzeLink.addEventListener("click", () => {
+				void this.deps.eventBus.emit("ui.openAnalyticsHub", {});
+			});
 		}
 
 		const deleteLink = actions.createEl("span", { cls: "ft-nav-link" });
@@ -195,6 +203,9 @@ export class ReportDetailPanel {
 				void this.deps.app.fileManager.processFrontMatter(file, (frontmatter) => {
 					frontmatter.noteType = typeInput.value || "";
 				});
+				// Update local state so the value persists across re-renders
+				report.frontmatter.noteType = typeInput.value || "";
+				setTimeout(() => this.deps.scheduleRender(), 500);
 			}
 		});
 
@@ -291,6 +302,14 @@ export class ReportDetailPanel {
 		importLink.appendText(" Import");
 		importLink.addEventListener("click", () => {
 			this.deps.navigation.openCsvImport(entry.path);
+		});
+
+		const analyzeLink = actions.createEl("span", { cls: "ft-nav-link" });
+		const analyzeIcon = analyzeLink.createSpan();
+		setIcon(analyzeIcon, "bar-chart-2");
+		analyzeLink.appendText(" Analyze");
+		analyzeLink.addEventListener("click", () => {
+			void this.deps.eventBus.emit("ui.openAnalyticsHub", {});
 		});
 
 		const hiddenPaths = this.deps.dataExchangeService.getHiddenCsvPaths();

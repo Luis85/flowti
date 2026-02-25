@@ -445,6 +445,11 @@ export class DashboardsTab {
 						this.deps.scheduleRender();
 					});
 				},
+				onNumberFormatChange: (tileId, format) => {
+					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { numberFormat: format } as Partial<DashboardTile>).then(() => {
+						this.deps.scheduleRender();
+					});
+				},
 			onChartValueColumnChange: (tileId, column) => {
 					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { chartValueColumn: column } as Partial<DashboardTile>).then(() => {
 						this.deps.scheduleRender();

@@ -40,7 +40,6 @@ export class ResultsSection {
 			const panel = new AnalyticsResultsPanel(resultsContainer, {
 				result: lastResult,
 				hideStats: true,
-				onExportCsv: (csv) => this.deps.handleExportCsv(csv),
 			});
 			panel.render();
 		}

@@ -4,6 +4,7 @@ import {
 	parseNumber,
 	detectNumberLocale,
 	resolveNumberFormat,
+	formatDisplayNumber,
 } from "../../../src/domain/analytics/localeUtils";
 
 describe("localeUtils", () => {
@@ -150,6 +151,58 @@ describe("localeUtils", () => {
 
 		it("handles empty sample array", () => {
 			expect(detectNumberLocale([])).toBe("en-US");
+		});
+	});
+
+	describe("formatDisplayNumber", () => {
+		it("returns plain locale string by default", () => {
+			const result = formatDisplayNumber(1234.5);
+			expect(result).toBe((1234.5).toLocaleString());
+		});
+
+		it("auto-applies currency when detectedSymbol is provided", () => {
+			const result = formatDisplayNumber(1234.5, undefined, "$");
+			expect(result).toMatch(/^\$.*1.*234/);
+		});
+
+		it("uses explicit currency format with symbol", () => {
+			const result = formatDisplayNumber(1234.5, { style: "currency", symbol: "€" });
+			expect(result).toMatch(/^€.*1.*234/);
+		});
+
+		it("uses $ as default currency symbol when none provided", () => {
+			const result = formatDisplayNumber(1234.5, { style: "currency" });
+			expect(result).toMatch(/^\$.*1.*234/);
+		});
+
+		it("formats percent style", () => {
+			expect(formatDisplayNumber(0.753, { style: "percent" })).toBe("75.3%");
+		});
+
+		it("formats percent with custom decimals", () => {
+			expect(formatDisplayNumber(0.7536, { style: "percent", decimals: 2 })).toBe("75.36%");
+		});
+
+		it("applies fixed decimals in plain mode", () => {
+			const result = formatDisplayNumber(1234, { style: "plain", decimals: 2 });
+			expect(result).toContain(".");
+			expect(result).toMatch(/00$/);
+		});
+
+		it("applies fixed decimals in currency mode", () => {
+			const result = formatDisplayNumber(1234, { style: "currency", symbol: "$", decimals: 2 });
+			expect(result).toMatch(/^\$/);
+			expect(result).toMatch(/00$/);
+		});
+
+		it("overrides detected symbol with format symbol", () => {
+			const result = formatDisplayNumber(100, { style: "currency", symbol: "£" }, "$");
+			expect(result).toMatch(/^£/);
+		});
+
+		it("plain format ignores detected symbol", () => {
+			const result = formatDisplayNumber(1234.5, { style: "plain" }, "$");
+			expect(result).not.toMatch(/^\$/);
 		});
 	});
 });

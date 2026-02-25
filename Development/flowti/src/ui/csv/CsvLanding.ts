@@ -234,6 +234,7 @@ export class CsvLanding {
 			.then((path) => {
 				new Notice("CSV documentation created");
 				void this.deps.app.workspace.openLinkText(path, "", false);
+				setTimeout(() => this.deps.renderContent(), 500);
 			})
 			.catch((err) => console.error("[Flowti] Failed to create CSV doc", err));
 	}

@@ -4,9 +4,10 @@
  */
 
 import { setIcon } from "obsidian";
-import type { AnalyticsResult, DashboardTile, SavedAnalyticsQuery, TileDisplayMode, ConditionalRule } from "../../domain/analytics/types";
+import type { AnalyticsResult, DashboardTile, SavedAnalyticsQuery, TileDisplayMode, ConditionalRule, NumberDisplayFormat, ColumnTypeHint } from "../../domain/analytics/types";
 import { formatRelativeTime, getFreshnessColor, getFreshnessLevel } from "../../domain/analytics/freshnessUtils";
 import { evaluateConditionalRules } from "../../domain/analytics/conditionalFormatting";
+import { formatDisplayNumber } from "../../domain/analytics/localeUtils";
 import { rowsToCsv, downloadCsvFile } from "../../utils/csvUtils";
 import { ChartRenderer } from "./ChartRenderer";
 import { TileSettingsPanel, getNumericColumns } from "./TileSettingsPanel";
@@ -14,6 +15,16 @@ import { TileSettingsPanel, getNumericColumns } from "./TileSettingsPanel";
 const DISPLAY_MODE_CYCLE: TileDisplayMode[] = ["table", "stat-card", "line-chart", "bar-chart", "area-chart", "pie-chart"];
 
 const MAX_STAT_CARD_GROUPS = 20;
+
+/** Resolve the detected currency symbol for a column from type hints. */
+function getDetectedSymbol(hints: ColumnTypeHint[] | undefined, column: string): string | undefined {
+	return hints?.find((h) => h.column === column)?.currencySymbol;
+}
+
+/** Format a numeric value for tile display, respecting tile numberFormat and auto-detected currency. */
+function fmtNum(value: number, tile: DashboardTile, hints: ColumnTypeHint[] | undefined, column: string): string {
+	return formatDisplayNumber(value, tile.numberFormat, getDetectedSymbol(hints, column));
+}
 
 export interface TileRenderContext {
 	tile: DashboardTile;
@@ -50,6 +61,8 @@ export interface TileRenderContext {
 	onAutoHeightToggle?: (tileId: string, auto: boolean) => void;
 	/** Called when the user clicks "View Query" — navigates to the Queries tab. */
 	onViewQuery?: (queryId: string) => void;
+	/** Called when the user changes number display format for this tile. */
+	onNumberFormatChange?: (tileId: string, format: NumberDisplayFormat | undefined) => void;
 	/** Called when the user clicks a string value to drill down (toggles dashboard filter). */
 	onDrillDown?: (column: string, value: string) => void;
 	/** Active dashboard filters — used for visual feedback on matching cells. */
@@ -445,7 +458,7 @@ export class DashboardTileRenderer {
 
 				const valueEl = card.createDiv({ cls: "ft-text-lg" });
 				valueEl.style.fontWeight = "700";
-				valueEl.textContent = val.toLocaleString();
+				valueEl.textContent = fmtNum(val, ctx.tile, result.columnTypeHints, col);
 
 				// Conditional formatting: color stat-card text
 				const colRules = rules?.filter((r) => r.column === col);
@@ -506,7 +519,7 @@ export class DashboardTileRenderer {
 
 				const valEl = card.createDiv({ cls: "ft-catalog-stat-value" });
 				valEl.style.fontSize = "1.1rem";
-				valEl.textContent = sum.toLocaleString();
+				valEl.textContent = fmtNum(sum, ctx.tile, result.columnTypeHints, col);
 
 				if (rules && rules.length > 0) {
 					const colRules = rules.filter((r) => r.column === col);
@@ -534,7 +547,7 @@ export class DashboardTileRenderer {
 			for (const col of result.columns) {
 				const val = row[col];
 				const td = tr.createEl("td", { cls: "ft-text-sm" });
-				td.textContent = typeof val === "number" ? val.toLocaleString() : String(val ?? "");
+				td.textContent = typeof val === "number" ? fmtNum(val, ctx.tile, result.columnTypeHints, col) : String(val ?? "");
 
 				if (typeof val === "number") {
 					// Apply background tint for matching conditional formatting rules

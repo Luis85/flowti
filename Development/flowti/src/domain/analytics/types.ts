@@ -45,6 +45,21 @@ export interface ColumnTypeHint {
 	column: string;
 	/** Data type: number triggers locale number parsing, date triggers date parsing */
 	type: ColumnType;
+	/** Detected currency symbol (e.g. "$", "€") — set when source values contain currency prefixes */
+	currencySymbol?: string;
+}
+
+/** Display format styles for numeric values. */
+export type NumberFormatStyle = "plain" | "currency" | "percent";
+
+/** Number display format configuration for dashboard tiles. */
+export interface NumberDisplayFormat {
+	/** Format style: plain (default), currency (with symbol), or percent */
+	style: NumberFormatStyle;
+	/** Currency symbol (e.g. "$", "€") — overrides auto-detected symbol */
+	symbol?: string;
+	/** Fixed decimal places (undefined = auto) */
+	decimals?: number;
 }
 
 // ── Join specification ──────────────────────────────────
@@ -214,6 +229,8 @@ export interface AnalyticsResult {
 	groupCount: number;
 	/** Total rows processed (before grouping) */
 	sourceRowCount: number;
+	/** Column type hints from source data (includes detected currency symbols) */
+	columnTypeHints?: ColumnTypeHint[];
 }
 
 // ── Saved query ─────────────────────────────────────────
@@ -334,6 +351,8 @@ export interface DashboardTile {
 	rowLimit?: number;
 	/** When true at max-width (3 cols), height is driven by content instead of grid rows */
 	autoHeight?: boolean;
+	/** Number display format for numeric values in this tile */
+	numberFormat?: NumberDisplayFormat;
 }
 
 /** A named dashboard containing a grid of tiles. */

@@ -6,7 +6,7 @@
  */
 
 import { setIcon } from "obsidian";
-import type { AnalyticsResult, ConditionalRule } from "../../domain/analytics/types";
+import type { AnalyticsResult, ConditionalRule, NumberDisplayFormat, NumberFormatStyle } from "../../domain/analytics/types";
 import type { TileRenderContext } from "./DashboardTileRenderer";
 
 /** Get numeric column names from a result (used by settings + renderer). */
@@ -146,10 +146,80 @@ export class TileSettingsPanel {
 			});
 		}
 
+		// ── Number format ───────────────────────────────
+		if (ctx.onNumberFormatChange) {
+			this.renderNumberFormat();
+		}
+
 		// ── Conditional formatting rules ─────────────────
 		if (ctx.onRulesChange) {
 			this.renderRuleBuilder();
 		}
+	}
+
+	private renderNumberFormat(): void {
+		const ctx = this.ctx;
+		const fmt = ctx.tile.numberFormat;
+
+		const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		row.style.marginBottom = "0.5rem";
+		row.createSpan({ text: "Number format", cls: "ft-text-sm" }).style.fontWeight = "600";
+
+		const styles: Array<{ value: NumberFormatStyle | "auto"; label: string }> = [
+			{ value: "auto", label: "Auto" },
+			{ value: "plain", label: "Plain" },
+			{ value: "currency", label: "Currency" },
+			{ value: "percent", label: "Percent" },
+		];
+		const currentStyle = fmt?.style ?? "auto";
+
+		const styleSelect = row.createEl("select", { cls: "ft-text-xs" });
+		styleSelect.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary)";
+		for (const s of styles) {
+			const opt = styleSelect.createEl("option");
+			opt.value = s.value;
+			opt.textContent = s.label;
+			if (s.value === currentStyle) opt.selected = true;
+		}
+
+		// Symbol input (only relevant for currency)
+		const symbolInput = row.createEl("input", { type: "text", cls: "ft-text-xs" });
+		symbolInput.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);width:36px";
+		symbolInput.placeholder = "$";
+		if (fmt?.symbol) symbolInput.value = fmt.symbol;
+		symbolInput.style.display = currentStyle === "currency" ? "" : "none";
+
+		// Decimals input
+		const decimalsInput = row.createEl("input", { type: "number", cls: "ft-text-xs" });
+		decimalsInput.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);width:44px";
+		decimalsInput.placeholder = "auto";
+		decimalsInput.min = "0";
+		decimalsInput.max = "6";
+		if (fmt?.decimals !== undefined) decimalsInput.value = String(fmt.decimals);
+		decimalsInput.style.display = currentStyle === "auto" ? "none" : "";
+
+		const emitChange = () => {
+			const style = styleSelect.value as NumberFormatStyle | "auto";
+			if (style === "auto") {
+				ctx.onNumberFormatChange!(ctx.tile.id, undefined);
+				return;
+			}
+			const dec = parseInt(decimalsInput.value, 10);
+			const result: NumberDisplayFormat = {
+				style,
+				symbol: style === "currency" && symbolInput.value.trim() ? symbolInput.value.trim() : undefined,
+				decimals: !isNaN(dec) && dec >= 0 ? dec : undefined,
+			};
+			ctx.onNumberFormatChange!(ctx.tile.id, result);
+		};
+
+		styleSelect.addEventListener("change", () => {
+			symbolInput.style.display = styleSelect.value === "currency" ? "" : "none";
+			decimalsInput.style.display = styleSelect.value === "auto" ? "none" : "";
+			emitChange();
+		});
+		symbolInput.addEventListener("change", emitChange);
+		decimalsInput.addEventListener("change", emitChange);
 	}
 
 	private renderRuleBuilder(): void {

@@ -152,7 +152,13 @@ export class AnalyticsDashboardPage {
 			});
 		}
 
-		// Freshness summary
+		// Freshness summary + Refresh All
+		const headerRight = header.createDiv();
+		headerRight.style.display = "flex";
+		headerRight.style.alignItems = "center";
+		headerRight.style.gap = "0.5rem";
+		headerRight.style.flexShrink = "0";
+
 		const tileTimestamps = dashboard.tiles.map((t) => this.deps.tileResultCache.getTimestamp(t.queryId));
 		const summaryText = computeFreshnessSummary(tileTimestamps);
 		if (summaryText) {
@@ -161,8 +167,24 @@ export class AnalyticsDashboardPage {
 				: tileTimestamps.some((t) => t !== undefined && getFreshnessLevel(t) === "aging")
 					? "aging"
 					: "fresh";
-			const summaryEl = header.createSpan({ text: summaryText, cls: "ft-text-xs" });
+			const summaryEl = headerRight.createSpan({ text: summaryText, cls: "ft-text-xs" });
 			summaryEl.style.color = getFreshnessColor(worstLevel);
+		}
+
+		if (dashboard.tiles.length > 0) {
+			const refreshBtn = headerRight.createEl("button", { cls: "ft-text-sm" });
+			refreshBtn.style.display = "flex";
+			refreshBtn.style.alignItems = "center";
+			refreshBtn.style.gap = "0.25rem";
+			const rIcon = refreshBtn.createSpan();
+			setIcon(rIcon, "refresh-cw");
+			rIcon.style.width = "14px";
+			rIcon.style.height = "14px";
+			refreshBtn.createSpan({ text: "Refresh All" });
+			refreshBtn.addEventListener("click", () => {
+				this.deps.tileResultCache.clear();
+				this.deps.scheduleRender();
+			});
 		}
 
 		// Dashboard description

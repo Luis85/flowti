@@ -5,7 +5,7 @@
  * and an auto-detect heuristic for CSV number values.
  */
 
-import type { LocaleId, NumberFormat, SourceLocale } from "./types";
+import type { LocaleId, NumberDisplayFormat, NumberFormat, SourceLocale } from "./types";
 
 // ── Locale presets ──────────────────────────────────────
 
@@ -133,4 +133,40 @@ export function detectNumberLocale(samples: string[]): LocaleId {
 	if (spaceThousandsCount > 0 && commaDecimalCount >= dotDecimalCount) return "fr-FR";
 	if (commaDecimalCount > dotDecimalCount) return "de-DE";
 	return "en-US";
+}
+
+// ── Display formatting ─────────────────────────────────
+
+/**
+ * Format a number for display with optional currency/percent styling.
+ *
+ * - "currency": prepends symbol (defaults to "$"), uses locale grouping
+ * - "percent": multiplies by 100, appends "%"
+ * - "plain": standard locale grouping (default)
+ *
+ * When no explicit format is given but a detected currency symbol exists,
+ * auto-applies currency formatting.
+ */
+export function formatDisplayNumber(
+	value: number,
+	format?: NumberDisplayFormat,
+	detectedSymbol?: string,
+): string {
+	const style = format?.style ?? (detectedSymbol ? "currency" : "plain");
+	const symbol = format?.symbol ?? detectedSymbol ?? "$";
+	const decimals = format?.decimals;
+
+	if (style === "currency") {
+		const formatted =
+			decimals !== undefined
+				? value.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+				: value.toLocaleString();
+		return `${symbol}${formatted}`;
+	}
+	if (style === "percent") {
+		return `${(value * 100).toFixed(decimals ?? 1)}%`;
+	}
+	return decimals !== undefined
+		? value.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+		: value.toLocaleString();
 }

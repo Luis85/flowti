@@ -97,6 +97,7 @@ export class AnalyticsEngine {
 			rows: sortedRows,
 			groupCount,
 			sourceRowCount,
+			columnTypeHints: query.columnTypeHints,
 		};
 	}
 
@@ -457,8 +458,8 @@ export class AnalyticsEngine {
 				if (val) samples.push(val);
 			}
 
-			const type = guessColumnType(samples, localeId);
-			hints.push({ column: headers[col], type });
+			const result = guessColumnType(samples, localeId);
+			hints.push({ column: headers[col], type: result.type, currencySymbol: result.currencySymbol });
 		}
 
 		return hints;
@@ -830,28 +831,37 @@ function calculateWithPrecedence(tokens: ArithToken[]): number {
 function guessColumnType(
 	samples: string[],
 	_localeId?: string,
-): "number" | "date" | "string" {
-	if (samples.length === 0) return "string";
+): { type: "number" | "date" | "string"; currencySymbol?: string } {
+	if (samples.length === 0) return { type: "string" };
 
 	let numericCount = 0;
 	let dateCount = 0;
+	let detectedSymbol: string | undefined;
 
 	for (const s of samples) {
+		// Detect currency symbol prefix
+		const symbolMatch = s.match(/^[€$£¥₹]/);
+		if (symbolMatch) detectedSymbol = symbolMatch[0];
+
+		// Strip currency symbols before number check (same as parseNumber)
+		const stripped = s.replace(/[€$£¥₹]/g, "").trim();
 		// Check if it looks like a number (digits, separators, optional sign)
-		if (/^[-+]?[\d.,\s\u00A0]+$/.test(s) && /\d/.test(s)) {
+		if (/^[-+]?[\d.,\s\u00A0]+$/.test(stripped) && /\d/.test(stripped)) {
 			numericCount++;
 		}
-		// Check if it looks like a date (various patterns)
+		// Check if it looks like a date (various patterns incl. dash-separated)
 		if (
-			/^\d{1,2}[/.]\d{1,2}[/.]\d{4}$/.test(s) ||
+			/^\d{1,2}[/.-]\d{1,2}[/.-]\d{4}$/.test(s) ||
 			/^\d{4}-\d{1,2}-\d{1,2}$/.test(s)
 		) {
 			dateCount++;
 		}
 	}
 
+	// Date patterns are unambiguous — use lower threshold (50%)
+	const dateThreshold = samples.length * 0.5;
+	if (dateCount >= dateThreshold) return { type: "date" };
 	const threshold = samples.length * 0.7;
-	if (dateCount >= threshold) return "date";
-	if (numericCount >= threshold) return "number";
-	return "string";
+	if (numericCount >= threshold) return { type: "number", currencySymbol: detectedSymbol };
+	return { type: "string" };
 }

@@ -69,6 +69,7 @@ describe("AnalyticsEngine", () => {
 			const result = engine.run(query);
 			expect(result.groupCount).toBe(3);
 			expect(result.sourceRowCount).toBe(6);
+			expect(result.columnTypeHints).toEqual([{ column: "total", type: "number" }]);
 
 			const i001 = result.rows.find((r) => r.item_id === "I001");
 			expect(i001?.total_cost).toBeCloseTo(241.5);
@@ -596,6 +597,104 @@ describe("AnalyticsEngine", () => {
 		it("returns string for empty rows", () => {
 			const hints = AnalyticsEngine.detectColumnTypes(["col"], []);
 			expect(hints[0].type).toBe("string");
+		});
+
+		it("detects currency values as numeric", () => {
+			const hints = AnalyticsEngine.detectColumnTypes(
+				["product", "revenue"],
+				[
+					["Widget A", "$22,543.65"],
+					["Widget B", "$1,200.00"],
+					["Widget C", "$850.50"],
+				],
+			);
+			expect(hints.find((h) => h.column === "revenue")?.type).toBe("number");
+		});
+
+		it("detects euro currency values as numeric", () => {
+			const hints = AnalyticsEngine.detectColumnTypes(
+				["item", "price"],
+				[
+					["A", "€1.234,56"],
+					["B", "€789,00"],
+					["C", "€45,99"],
+				],
+			);
+			expect(hints.find((h) => h.column === "price")?.type).toBe("number");
+		});
+
+		it("detects slash dates like 2/3/2025", () => {
+			const hints = AnalyticsEngine.detectColumnTypes(
+				["date", "amount"],
+				[
+					["2/3/2025", "100"],
+					["12/15/2025", "200"],
+					["1/1/2026", "300"],
+				],
+			);
+			expect(hints.find((h) => h.column === "date")?.type).toBe("date");
+		});
+
+		it("detects dash-separated dates", () => {
+			const hints = AnalyticsEngine.detectColumnTypes(
+				["date", "value"],
+				[
+					["02-15-2026", "100"],
+					["03-20-2026", "200"],
+					["04-10-2026", "300"],
+				],
+			);
+			expect(hints.find((h) => h.column === "date")?.type).toBe("date");
+		});
+
+		it("detects currency symbol $ on numeric columns", () => {
+			const hints = AnalyticsEngine.detectColumnTypes(
+				["revenue", "name"],
+				[
+					["$22,543.65", "Alice"],
+					["$1,200.00", "Bob"],
+					["$500.50", "Charlie"],
+				],
+			);
+			const revenue = hints.find((h) => h.column === "revenue");
+			expect(revenue?.type).toBe("number");
+			expect(revenue?.currencySymbol).toBe("$");
+			expect(hints.find((h) => h.column === "name")?.currencySymbol).toBeUndefined();
+		});
+
+		it("detects currency symbol € on numeric columns", () => {
+			const hints = AnalyticsEngine.detectColumnTypes(
+				["price"],
+				[["€1.234,56"], ["€2.345,67"], ["€100,00"]],
+			);
+			const price = hints.find((h) => h.column === "price");
+			expect(price?.type).toBe("number");
+			expect(price?.currencySymbol).toBe("€");
+		});
+
+		it("does not set currencySymbol on plain numbers", () => {
+			const hints = AnalyticsEngine.detectColumnTypes(
+				["amount"],
+				[["1234"], ["5678"], ["91011"]],
+			);
+			expect(hints[0].type).toBe("number");
+			expect(hints[0].currencySymbol).toBeUndefined();
+		});
+
+		it("detects dates even with some empty cells (50% threshold)", () => {
+			const hints = AnalyticsEngine.detectColumnTypes(
+				["date", "value"],
+				[
+					["02/15/2026", "100"],
+					["", ""],
+					["03/20/2026", "200"],
+					["", ""],
+					["04/10/2026", "300"],
+					["", ""],
+				],
+			);
+			// 3 date samples out of 3 non-empty → 100% → detected as date
+			expect(hints.find((h) => h.column === "date")?.type).toBe("date");
 		});
 	});
 

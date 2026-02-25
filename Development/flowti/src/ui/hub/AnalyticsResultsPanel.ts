@@ -7,6 +7,7 @@
 import { setIcon } from "obsidian";
 import { renderStatGrid, type StatCardItem } from "../shared/StatCard";
 import type { AnalyticsResult, ResultRow } from "../../domain/analytics/types";
+import { formatDisplayNumber } from "../../domain/analytics/localeUtils";
 import { rowsToCsv } from "../../utils/csvUtils";
 
 export interface AnalyticsResultsPanelOptions {
@@ -112,8 +113,9 @@ export class AnalyticsResultsPanel {
 			const row = rows[i];
 			for (const col of result.columns) {
 				const val = row[col];
+				const sym = result.columnTypeHints?.find((h) => h.column === col)?.currencySymbol;
 				tr.createEl("td", {
-					text: typeof val === "number" ? val.toLocaleString() : String(val ?? ""),
+					text: typeof val === "number" ? formatDisplayNumber(val, undefined, sym) : String(val ?? ""),
 					cls: "ft-text-sm",
 				});
 			}
@@ -133,7 +135,8 @@ export class AnalyticsResultsPanel {
 						const v = r[col];
 						return acc + (typeof v === "number" ? v : 0);
 					}, 0);
-					td.textContent = sum.toLocaleString();
+					const sym = result.columnTypeHints?.find((h) => h.column === col)?.currencySymbol;
+					td.textContent = formatDisplayNumber(sum, undefined, sym);
 				} else {
 					td.textContent = col === result.columns[0] ? "Total" : "";
 				}
