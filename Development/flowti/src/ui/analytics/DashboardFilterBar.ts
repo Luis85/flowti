@@ -58,16 +58,8 @@ export class DashboardFilterBar {
 		if (dimensions.length === 0 && filters.length === 0 && !hasPresets) return;
 
 		const bar = this.container.createDiv({ cls: "ft-filter-bar" });
-		bar.style.display = "flex";
-		bar.style.flexWrap = "wrap";
-		bar.style.alignItems = "center";
-		bar.style.gap = "0.5rem";
-		bar.style.marginBottom = "0.75rem";
-		bar.style.padding = "0.5rem 0.75rem";
-		bar.style.background = "var(--background-secondary)";
-		bar.style.borderRadius = "6px";
 
-		bar.createSpan({ text: "Filters:", cls: "ft-text-sm" }).style.fontWeight = "600";
+		bar.createSpan({ text: "Filters:", cls: "ft-text-sm ft-font-semibold" });
 
 		// Filter presets dropdown
 		if (this.deps.presets || this.deps.onSavePreset) {
@@ -80,8 +72,7 @@ export class DashboardFilterBar {
 			const activeFilter = filters.find((f) => f.column === dim.column);
 			const selectedCount = activeFilter ? activeFilter.values.length : 0;
 
-			const select = bar.createEl("select", { cls: "ft-text-xs" });
-			select.style.cssText = "padding:2px 6px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);cursor:pointer";
+			const select = bar.createEl("select", { cls: "ft-select-small ft-text-xs" });
 
 			const allOpt = select.createEl("option");
 			allOpt.value = "";
@@ -145,10 +136,16 @@ export class DashboardFilterBar {
 
 			breadcrumb.createSpan({ text: "Showing:", cls: "ft-text-xs ft-text-muted" });
 
+			// Row-count preview badge (FR-96)
+			const rowCount = this.estimateFilteredRowCount(tiles, filters);
+			if (rowCount !== null) {
+				const badge = breadcrumb.createSpan({ cls: "ft-badge ft-badge-muted ft-text-xs" });
+				badge.textContent = `~${rowCount} rows`;
+			}
+
 			for (const f of filters) {
 				for (const val of f.values) {
-					const chip = breadcrumb.createSpan({ cls: "ft-badge ft-text-xs" });
-					chip.style.cssText = "display:inline-flex;align-items:center;gap:0.25rem;padding:2px 8px;border-radius:10px;background:var(--interactive-accent);color:var(--text-on-accent);cursor:default";
+					const chip = breadcrumb.createSpan({ cls: "ft-filter-chip ft-text-xs" });
 					chip.textContent = `${f.column} = ${val}`;
 
 					const closeBtn = chip.createSpan({ text: " \u00d7" });
@@ -167,6 +164,31 @@ export class DashboardFilterBar {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Estimate the total filtered row count from cached tile results.
+	 * Returns null if no cached results are available yet.
+	 */
+	private estimateFilteredRowCount(tiles: DashboardTile[], filters: DashboardFilter[]): number | null {
+		if (filters.length === 0) return null;
+		let totalRows = 0;
+		let hasAnyResult = false;
+
+		const seen = new Set<string>();
+		for (const tile of tiles) {
+			const cacheKey = buildFilterCacheKey(tile.queryId, filters);
+			if (seen.has(cacheKey)) continue;
+			seen.add(cacheKey);
+
+			const entry = this.deps.tileResultCache.get(cacheKey);
+			if (entry?.result) {
+				totalRows += entry.result.rows.length;
+				hasAnyResult = true;
+			}
+		}
+
+		return hasAnyResult ? totalRows : null;
 	}
 
 	private renderPresetControls(bar: HTMLElement, filters: DashboardFilter[]): void {

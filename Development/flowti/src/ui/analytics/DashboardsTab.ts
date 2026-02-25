@@ -8,7 +8,9 @@
 import { Notice, setIcon } from "obsidian";
 import type { Dashboard, DashboardTile, Measurement, AnalyticsResult, ResultRow } from "../../domain/analytics/types";
 import { computeFreshnessSummary, getFreshnessLevel, getFreshnessColor } from "../../domain/analytics/freshnessUtils";
-import type { AnalyticsHubDeps } from "./types";
+import type { AnalyticsHubDeps, NavigationStackEntry } from "./types";
+import { MAX_BREADCRUMB_DEPTH } from "./types";
+import { DashboardBreadcrumbs } from "./DashboardBreadcrumbs";
 import { DashboardTileRenderer, type TileRenderContext } from "./DashboardTileRenderer";
 import { AddTileDialog } from "./AddTileDialog";
 import { DashboardNameModal } from "./DashboardNameModal";
@@ -23,6 +25,7 @@ export class DashboardsTab {
 	private openSettingsTileId: string | null = null;
 	private queryMapCollapsed = false;
 	private sortKey: DashboardSortKey = "name";
+	private navigationStack: NavigationStackEntry[] = [];
 
 	constructor(
 		private masterEl: HTMLElement,
@@ -187,7 +190,8 @@ export class DashboardsTab {
 		});
 
 		row.addEventListener("click", () => {
-			this.deps.setState({ selectedDashboardId: dashboard.id });
+			this.pushNavigation({ level: "dashboard", label: dashboard.name, dashboardId: dashboard.id });
+			this.deps.setState({ selectedDashboardId: dashboard.id, dashboardFilters: [] });
 			this.deps.scheduleRender();
 		});
 	}
@@ -232,6 +236,13 @@ export class DashboardsTab {
 	}
 
 	private renderDashboardDetail(dashboard: Dashboard): void {
+		// Breadcrumb navigation bar (hidden at root level)
+		new DashboardBreadcrumbs(this.detailEl, {
+			stack: this.navigationStack,
+			onNavigate: (targetIndex) => this.navigateToBreadcrumb(targetIndex),
+			onBack: () => this.navigateBack(),
+		}).render();
+
 		// Header row
 		const header = this.detailEl.createDiv({ cls: "ft-detail-header" });
 		header.style.display = "flex";
@@ -603,6 +614,8 @@ export class DashboardsTab {
 					} else {
 						filters.push({ column, values: [value] });
 					}
+					// Update breadcrumb stack: push/replace "filtered" level
+					this.updateFilteredBreadcrumb(filters, dashboard.id);
 					this.deps.setState({ dashboardFilters: filters });
 					this.deps.scheduleRender();
 				},
@@ -753,6 +766,7 @@ export class DashboardsTab {
 			runQuery: (qid) => this.deps.analyticsService.runSavedQuery(qid),
 			runQueryWithFilters: (qid, f) => this.deps.analyticsService.runSavedQueryWithFilters(qid, f),
 			onFiltersChanged: (filters) => {
+				this.updateFilteredBreadcrumb(filters, dashboard.id);
 				this.deps.setState({ dashboardFilters: filters });
 				this.deps.scheduleRender();
 			},
@@ -765,6 +779,72 @@ export class DashboardsTab {
 				void this.deps.analyticsService.deleteFilterPreset(dashboard.id, presetId).then(() => this.deps.scheduleRender());
 			},
 		}).render();
+	}
+
+	// ── Breadcrumb navigation ────────────────────────────────
+
+	/** Push a navigation entry, replacing any existing entry at the same level. */
+	private pushNavigation(entry: NavigationStackEntry): void {
+		// Remove any existing entry at the same or deeper level
+		const levelOrder: NavigationStackEntry["level"][] = ["list", "dashboard", "filtered", "tile"];
+		const targetIdx = levelOrder.indexOf(entry.level);
+		this.navigationStack = this.navigationStack.filter(
+			(e) => levelOrder.indexOf(e.level) < targetIdx,
+		);
+		this.navigationStack.push(entry);
+		if (this.navigationStack.length > MAX_BREADCRUMB_DEPTH) {
+			this.navigationStack = this.navigationStack.slice(-MAX_BREADCRUMB_DEPTH);
+		}
+	}
+
+	/** Update "filtered" breadcrumb level based on current dashboard filters. */
+	private updateFilteredBreadcrumb(
+		filters: Array<{ column: string; values: string[] }>,
+		dashboardId: string,
+	): void {
+		// Remove existing filtered entry
+		this.navigationStack = this.navigationStack.filter((e) => e.level !== "filtered");
+		if (filters.length > 0) {
+			const filterLabel = filters.map((f) => `${f.column}`).join(", ");
+			this.navigationStack.push({
+				level: "filtered",
+				label: `Filtered (${filterLabel})`,
+				dashboardId,
+			});
+		}
+	}
+
+	/** Navigate to a specific breadcrumb index (pop everything after it). */
+	private navigateToBreadcrumb(targetIndex: number): void {
+		if (targetIndex < 0 || targetIndex >= this.navigationStack.length) return;
+		const entry = this.navigationStack[targetIndex];
+		this.navigationStack = this.navigationStack.slice(0, targetIndex + 1);
+
+		// Apply state for the target level
+		if (entry.level === "list" || entry.level === "dashboard") {
+			// Clear filters when navigating back to list or dashboard level
+			this.deps.setState({ dashboardFilters: [] });
+		}
+		this.deps.scheduleRender();
+	}
+
+	/** Navigate one level back in the breadcrumb stack. */
+	private navigateBack(): void {
+		if (this.navigationStack.length <= 1) return;
+		this.navigationStack.pop();
+		const current = this.navigationStack[this.navigationStack.length - 1];
+
+		if (current.level === "list") {
+			this.deps.setState({ selectedDashboardId: null, dashboardFilters: [] });
+		} else if (current.level === "dashboard") {
+			this.deps.setState({ dashboardFilters: [] });
+		}
+		this.deps.scheduleRender();
+	}
+
+	/** Clear navigation stack (called on explicit tab switch). */
+	clearNavigation(): void {
+		this.navigationStack = [];
 	}
 }
 

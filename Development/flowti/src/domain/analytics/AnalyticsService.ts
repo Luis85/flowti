@@ -35,6 +35,7 @@ import type {
 	TimeBucketSpec,
 } from "./types";
 import { AnalyticsEngine } from "./AnalyticsEngine";
+import { QueryResultCache } from "./QueryResultCache";
 import type { BaseAnalyticsAdapter } from "./BaseAnalyticsAdapter";
 import type { AnalyticsHandlerContext } from "./handlers/types";
 import { dashboardHandlers, measurementHandlers } from "./handlers";
@@ -59,6 +60,7 @@ function createDefaultState(): AnalyticsState {
 
 export class AnalyticsService {
 	private engine = new AnalyticsEngine();
+	private queryCache = new QueryResultCache();
 	private storage: ITypedStorage<AnalyticsState>;
 	private state: AnalyticsState = createDefaultState();
 	private eventBus?: IEventBus;
@@ -154,6 +156,11 @@ export class AnalyticsService {
 
 	// ── Query execution ──────────────────────────────────
 
+	/** Clear the saved-query result cache (call on source changes or schema edits). */
+	clearQueryCache(): void {
+		this.queryCache.clear();
+	}
+
 	/**
 	 * Execute an analytics query with pre-loaded source data.
 	 * Use this when the caller already has parsed CSV data.
@@ -199,6 +206,10 @@ export class AnalyticsService {
 		const saved = this.getQuery(queryId);
 		if (!saved) throw new Error(`Saved query not found: ${queryId}`);
 
+		// Check cache before loading sources (skip disk I/O + engine execution)
+		const cached = this.queryCache.get(queryId);
+		if (cached) return cached;
+
 		// Load sources (CSV or .base)
 		const sources: AnalyticsSource[] = [];
 		for (const src of saved.sources) {
@@ -224,6 +235,9 @@ export class AnalyticsService {
 		};
 
 		const result = await this.runQuery(query, saved.name);
+
+		// Cache the result for subsequent reads
+		this.queryCache.set(queryId, result);
 
 		// Update last run metadata
 		saved.lastRun = Date.now();
@@ -397,6 +411,9 @@ export class AnalyticsService {
 		existing.computedColumns = query.computedColumns;
 		await this.storage.save(this.state);
 
+		// Invalidate cached result for this query (config changed)
+		this.queryCache.invalidate(id);
+
 		await this.eventBus?.emit("analytics.query.saved", {
 			queryId: existing.id,
 			queryName: existing.name,
@@ -412,6 +429,8 @@ export class AnalyticsService {
 		const queries = this.state.savedAnalyticsQueries ?? [];
 		const idx = queries.findIndex((q) => q.id === id);
 		if (idx === -1) return false;
+
+		this.queryCache.invalidate(id);
 
 		const removed = queries[idx];
 		queries.splice(idx, 1);

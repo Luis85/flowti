@@ -27,10 +27,10 @@ import type {
 	AnalyticsSource,
 	AnalyticsSourceType,
 	AnalyticsResult,
-	SavedAnalyticsQuerySource,
+	QuerySource,
 } from "../../domain/analytics/types";
-import { AnalyticsEngine } from "../../domain/analytics/AnalyticsEngine";
-import type { QuerySource, QueriesSubDeps } from "./queries/types";
+import { SourceManager } from "../../domain/analytics/SourceManager";
+import type { QueriesSubDeps } from "./queries/types";
 import { SavedQueryList } from "./queries/SavedQueryList";
 import { SourcePanel } from "./queries/SourcePanel";
 import { QueryBuilderPanel } from "./queries/QueryBuilderPanel";
@@ -39,10 +39,9 @@ import { ResultsSection } from "./queries/ResultsSection";
 import { ActionsBar } from "./queries/ActionsBar";
 import { rowsToCsv, downloadCsvFile } from "../../utils/csvUtils";
 import { generateQuickInsights } from "../../domain/analytics/quickInsights";
-import { detectNumberLocale } from "../../domain/analytics/localeUtils";
 
 export class QueriesTab {
-	private sources: QuerySource[] = [];
+	private sourceManager: SourceManager;
 	private columnTypeHints: ColumnTypeHint[] = [];
 	private joins: JoinSpec[] = [];
 	private dimensions: DimensionSpec[] = [];
@@ -54,6 +53,11 @@ export class QueriesTab {
 	private computedColumns: ComputedColumn[] = [];
 	private excludedColumns: string[] = [];
 	private lastResult: AnalyticsResult | null = null;
+
+	// ── Render batching (PBI-ANA-121) ──
+	private dirtyMaster = false;
+	private dirtyDetail = false;
+	private renderFrameId: number | null = null;
 	private lastDurationMs: number | undefined;
 	private lastError: string | null = null;
 	private running = false;
@@ -61,7 +65,6 @@ export class QueriesTab {
 	private chartMode: "line" | "bar" = "line";
 	private chartValueColumn: string | null = null;
 	private lastLoadedQueryId: string | null = null;
-	private pendingExecute = false;
 	/** Snapshot of query config at last save/load — used for dirty detection. */
 	private savedSnapshot: string | null = null;
 	/** Query name from NewQueryModal — used on first save instead of auto-generated name. */
@@ -71,7 +74,41 @@ export class QueriesTab {
 		private masterEl: HTMLElement,
 		private detailEl: HTMLElement,
 		private deps: AnalyticsHubDeps,
-	) {}
+	) {
+		const svc = deps.analyticsService;
+		this.sourceManager = new SourceManager({
+			loadCsv: (path) => svc.loadCsv(path),
+			loadBase: (path, viewIndex) => svc.loadBase(path, viewIndex),
+			loadCsvFolder: (path) => svc.loadCsvFolder(path),
+			onSourcesChanged: () => {
+				this.scheduleRender(true, true);
+			},
+			onSourceRemoved: () => {
+				this.refreshAfterSourceChange();
+				this.scheduleRender(true, true);
+			},
+			onTypeHintsDetected: (newHints) => {
+				const existingSet = new Set(this.columnTypeHints.map((h) => h.column));
+				for (const hint of newHints) {
+					if (!existingSet.has(hint.column)) {
+						this.columnTypeHints.push(hint);
+					}
+				}
+			},
+			onAllSourcesLoaded: () => {
+				if (this.measures.length > 0) {
+					void this.executeQuery();
+				} else {
+					this.scheduleRender(true, true);
+				}
+			},
+		});
+	}
+
+	/** Convenience accessor — delegates to SourceManager. */
+	private get sources(): QuerySource[] {
+		return this.sourceManager.getSources();
+	}
 
 	// ─────────────────────────────────────────────────────────
 	// Dirty tracking
@@ -87,15 +124,34 @@ export class QueriesTab {
 	}
 
 	// ─────────────────────────────────────────────────────────
+	// Render batching — max 1 render per animation frame
+	// ─────────────────────────────────────────────────────────
+
+	private scheduleRender(master: boolean, detail: boolean): void {
+		if (master) this.dirtyMaster = true;
+		if (detail) this.dirtyDetail = true;
+		if (this.renderFrameId !== null) return;
+		this.renderFrameId = requestAnimationFrame(() => {
+			this.renderFrameId = null;
+			const m = this.dirtyMaster;
+			const d = this.dirtyDetail;
+			this.dirtyMaster = false;
+			this.dirtyDetail = false;
+			if (m) this.renderMaster();
+			if (d) this.renderDetail();
+		});
+	}
+
+	// ─────────────────────────────────────────────────────────
 	// Sub-component deps
 	// ─────────────────────────────────────────────────────────
 
 	private getSubDeps(): QueriesSubDeps {
 		return {
 			hubDeps: this.deps,
-			getLoadedHeaders: () => this.getLoadedHeaders(),
-			renderDetail: () => this.renderDetail(),
-			renderMaster: () => this.renderMaster(),
+			getLoadedHeaders: () => this.sourceManager.getLoadedHeaders(),
+			renderDetail: () => this.scheduleRender(false, true),
+			renderMaster: () => this.scheduleRender(true, false),
 			sources: () => this.sources,
 			columnTypeHints: () => this.columnTypeHints,
 			setColumnTypeHints: (h) => { this.columnTypeHints = h; },
@@ -129,7 +185,6 @@ export class QueriesTab {
 				this.timeBucket = timeBucket;
 				if (sort) this.sort = sort;
 				if (limit !== undefined) this.limit = limit;
-				this.renderDetail();
 				void this.executeQuery();
 			},
 			loadSavedQuery: (id) => this.loadSavedQuery(id),
@@ -140,7 +195,7 @@ export class QueriesTab {
 		setChartMode: (mode) => { this.chartMode = mode; },
 		chartValueColumn: () => this.chartValueColumn,
 		setChartValueColumn: (col) => { this.chartValueColumn = col; },
-		getDistinctValues: (column) => this.getDistinctValues(column),
+		getDistinctValues: (column) => this.sourceManager.getDistinctValues(column),
 		};
 	}
 
@@ -188,7 +243,7 @@ export class QueriesTab {
 				textBlock.style.minWidth = "0";
 				textBlock.createDiv({ text: src.alias });
 				const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-xs" });
-				sub.style.cssText = "white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
+				sub.addClass("ft-text-ellipsis");
 				sub.textContent = src.csvPath.split("/").pop() ?? src.csvPath;
 
 				if (src.loading) {
@@ -204,7 +259,7 @@ export class QueriesTab {
 				removeBtn.setAttribute("aria-label", "Remove source");
 				removeBtn.addEventListener("click", (e) => {
 					e.stopPropagation();
-					this.removeSource(src.csvPath);
+					this.sourceManager.removeSource(src.csvPath);
 				});
 			}
 		}
@@ -256,7 +311,7 @@ export class QueriesTab {
 
 		sourcesHeader.addEventListener("click", () => {
 			this.sourcesCollapsed = !this.sourcesCollapsed;
-			this.renderMaster();
+			this.scheduleRender(true, false);
 		});
 
 		if (!this.sourcesCollapsed) {
@@ -269,7 +324,7 @@ export class QueriesTab {
 			} else {
 				for (const csv of availableCsv) {
 					this.renderSourceItem(csv.displayName, csv.path, () => {
-						this.addSource(csv.path, csv.displayName.replace(/\.csv$/i, ""));
+						this.sourceManager.addSource(csv.path, csv.displayName.replace(/\.csv$/i, ""));
 					});
 				}
 			}
@@ -282,7 +337,7 @@ export class QueriesTab {
 
 				for (const base of availableBase) {
 					this.renderSourceItem(base.displayName, base.path, () => {
-						this.addSource(base.path, base.displayName.replace(/\.base$/i, ""), "base", 0);
+						this.sourceManager.addSource(base.path, base.displayName.replace(/\.base$/i, ""), "base", 0);
 					});
 				}
 			} else if (state.filterText) {
@@ -306,7 +361,7 @@ export class QueriesTab {
 
 				for (const folder of availableFolders) {
 					this.renderSourceItem(`${folder.displayName} (${folder.fileCount} files)`, folder.path, () => {
-						this.addSource(folder.path, folder.displayName, "csv-folder");
+						this.sourceManager.addSource(folder.path, folder.displayName, "csv-folder");
 					});
 				}
 			}
@@ -321,7 +376,7 @@ export class QueriesTab {
 		textBlock.style.minWidth = "0";
 		textBlock.createDiv({ text: displayName });
 		const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-xs" });
-		sub.style.cssText = "white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
+		sub.addClass("ft-text-ellipsis");
 		sub.textContent = path;
 
 		item.addEventListener("click", onClick);
@@ -372,7 +427,7 @@ export class QueriesTab {
 			this.newQuery();
 			this.queryName = pendingNew.name;
 			for (const src of pendingNew.sources) {
-				this.addSource(src.path, src.alias, src.sourceType as AnalyticsSourceType, src.viewIndex);
+				this.sourceManager.addSource(src.path, src.alias, src.sourceType as AnalyticsSourceType, src.viewIndex);
 			}
 			return; // addSource triggers re-render
 		}
@@ -386,7 +441,7 @@ export class QueriesTab {
 				const basename = pendingSource.split("/").pop() ?? pendingSource;
 				const alias = basename.replace(/\.(csv|base)$/i, "");
 				const sourceType = pendingSource.endsWith(".base") ? "base" as const : "csv" as const;
-				this.addSource(pendingSource, alias, sourceType);
+				this.sourceManager.addSource(pendingSource, alias, sourceType);
 				return; // addSource triggers re-render
 			}
 		}
@@ -461,7 +516,7 @@ export class QueriesTab {
 			container: this.detailEl,
 			running: this.running,
 			hasMeasures: this.measures.length > 0,
-			hasLoadedSources: this.sources.some((s) => s.data),
+			hasLoadedSources: this.sourceManager.hasLoadedData,
 			lastResult: this.lastResult,
 			isEditing,
 			hasChanges: this.isDirty(),
@@ -469,7 +524,7 @@ export class QueriesTab {
 			queryName: this.getActiveQueryName(),
 			onRunQuery: () => { void this.executeQuery(); },
 			onReset: () => {
-				this.sources = [];
+				this.sourceManager.reset();
 				this.columnTypeHints = [];
 				this.joins = [];
 				this.dimensions = [];
@@ -484,8 +539,7 @@ export class QueriesTab {
 				this.lastDurationMs = undefined;
 				this.lastError = null;
 				this.savedSnapshot = null;
-				this.renderMaster();
-				this.renderDetail();
+				this.scheduleRender(true, true);
 			},
 			onSave: () => {
 				if (isEditing) {
@@ -495,7 +549,7 @@ export class QueriesTab {
 				}
 			},
 			onExportCsv: (result) => this.downloadResultCsv(result, this.getActiveQueryName()),
-			onRenderDetail: () => this.renderDetail(),
+			onRenderDetail: () => this.scheduleRender(false, true),
 		}).render();
 
 		// ── Execution summary + results (above config) ──
@@ -517,11 +571,11 @@ export class QueriesTab {
 		new SourcePanel(this.detailEl, subDeps).render();
 
 		// Quick Insights — own section when sources are loaded
-		if (this.sources.some((s) => s.data)) {
+		if (this.sourceManager.hasLoadedData) {
 			this.renderQuickInsightsSection(subDeps);
 		}
 
-		if (this.getLoadedHeaders().length > 0) {
+		if (this.sourceManager.getLoadedHeaders().length > 0) {
 			new QueryBuilderPanel(this.detailEl, subDeps).render();
 			new ComputedColumnsSection(this.detailEl, subDeps).render();
 		}
@@ -578,7 +632,7 @@ export class QueriesTab {
 	}
 
 	private renderQuickInsightsSection(subDeps: QueriesSubDeps): void {
-		const insights = generateQuickInsights(this.columnTypeHints, this.getLoadedHeaders());
+		const insights = generateQuickInsights(this.columnTypeHints, this.sourceManager.getLoadedHeaders());
 		if (insights.length === 0) return;
 
 		const section = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
@@ -700,100 +754,11 @@ export class QueriesTab {
 	}
 
 	// ─────────────────────────────────────────────────────────
-	// Source management
+	// Source cleanup (called by SourceManager on source removal)
 	// ─────────────────────────────────────────────────────────
 
-	private addSource(csvPath: string, defaultAlias: string, sourceType: AnalyticsSourceType = "csv", viewIndex?: number): void {
-		let alias = defaultAlias;
-		const existing = new Set(this.sources.map((s) => s.alias));
-		let counter = 2;
-		while (existing.has(alias)) {
-			alias = `${defaultAlias}_${counter++}`;
-		}
-
-		const source: QuerySource = { csvPath, alias, locale: "auto", sourceType, viewIndex, data: null, loading: true };
-		this.sources.push(source);
-		this.renderMaster();
-		this.renderDetail();
-		void this.loadSourceData(source);
-	}
-
-	private removeSource(csvPath: string): void {
-		this.sources = this.sources.filter((s) => s.csvPath !== csvPath);
-		this.refreshAfterSourceChange();
-		this.renderMaster();
-		this.renderDetail();
-	}
-
-	private async loadSourceData(source: QuerySource): Promise<void> {
-		const svc = this.deps.analyticsService;
-
-		try {
-			let data = null;
-			if (source.sourceType === "base") {
-				data = await svc.loadBase(source.csvPath, source.viewIndex ?? 0);
-			} else if (source.sourceType === "csv-folder") {
-				data = await svc.loadCsvFolder(source.csvPath);
-			} else {
-				const parsed = await svc.loadCsv(source.csvPath);
-				if (parsed) data = { headers: parsed.headers, rows: parsed.rows };
-			}
-
-			source.loading = false;
-			if (data) {
-				source.data = data;
-				this.autoDetectTypeHints(source);
-			}
-		} catch (err) {
-			source.loading = false;
-			source.error = err instanceof Error ? err.message : String(err);
-		}
-
-		// Auto-execute once all sources are loaded
-		if (this.pendingExecute && this.sources.every((s) => !s.loading)) {
-			this.pendingExecute = false;
-			if (this.measures.length > 0) {
-				void this.executeQuery();
-				return; // executeQuery triggers re-render
-			}
-		}
-
-		this.renderMaster();
-		this.renderDetail();
-	}
-
-	private autoDetectTypeHints(source: QuerySource): void {
-		if (!source.data) return;
-		const detected = AnalyticsEngine.detectColumnTypes(
-			source.data.headers,
-			source.data.rows,
-			source.locale !== "auto" ? source.locale : undefined,
-		);
-		const existingSet = new Set(this.columnTypeHints.map((h) => h.column));
-		for (const hint of detected) {
-			if (!existingSet.has(hint.column)) {
-				this.columnTypeHints.push(hint);
-			}
-		}
-
-		// Detect source-level locale from numeric column samples
-		const numericSamples: string[] = [];
-		const numericCols = detected.filter((h) => h.type === "number");
-		for (const hint of numericCols) {
-			const colIdx = source.data.headers.indexOf(hint.column);
-			if (colIdx < 0) continue;
-			for (let r = 0; r < Math.min(source.data.rows.length, 10); r++) {
-				const val = source.data.rows[r][colIdx]?.trim();
-				if (val) numericSamples.push(val);
-			}
-		}
-		if (numericSamples.length > 0) {
-			source.detectedLocale = detectNumberLocale(numericSamples);
-		}
-	}
-
 	private refreshAfterSourceChange(): void {
-		const headerSet = new Set(this.getLoadedHeaders());
+		const headerSet = new Set(this.sourceManager.getLoadedHeaders());
 		this.columnTypeHints = this.columnTypeHints.filter((h) => headerSet.has(h.column));
 		this.dimensions = this.dimensions.filter((d) => headerSet.has(d.column));
 		this.measures = this.measures.filter((m) => headerSet.has(m.column));
@@ -802,44 +767,8 @@ export class QueriesTab {
 			this.timeBucket = null;
 		}
 		this.sort = this.sort.filter((s) => headerSet.has(s.column));
-		const aliases = new Set(this.sources.map((s) => s.alias));
+		const aliases = this.sourceManager.getRemainingAliases();
 		this.joins = this.joins.filter((j) => aliases.has(j.leftSource) && aliases.has(j.rightSource));
-	}
-
-	private getLoadedHeaders(): string[] {
-		const headers: string[] = [];
-		const seen = new Set<string>();
-		for (const src of this.sources) {
-			if (!src.data) continue;
-			for (const h of src.data.headers) {
-				if (!seen.has(h)) {
-					headers.push(h);
-					seen.add(h);
-				}
-			}
-		}
-		return headers;
-	}
-
-	private getDistinctValues(column: string): string[] {
-		const MAX_SCAN = 1000;
-		const MAX_VALUES = 20;
-		const values = new Set<string>();
-		for (const src of this.sources) {
-			if (!src.data) continue;
-			const idx = src.data.headers.indexOf(column);
-			if (idx < 0) continue;
-			const rows = src.data.rows;
-			const limit = Math.min(rows.length, MAX_SCAN);
-			for (let i = 0; i < limit; i++) {
-				const val = rows[i][idx];
-				if (val !== undefined && val !== null && val !== "") {
-					values.add(String(val));
-					if (values.size >= MAX_VALUES) return [...values];
-				}
-			}
-		}
-		return [...values];
 	}
 
 	// ─────────────────────────────────────────────────────────
@@ -919,25 +848,15 @@ export class QueriesTab {
 		};
 	}
 
-	private buildSavedSources(): SavedAnalyticsQuerySource[] {
-		return this.sources.map((s) => ({
-			alias: s.alias,
-			csvPath: s.csvPath,
-			sourceType: s.sourceType !== "csv" ? s.sourceType : undefined,
-			viewIndex: s.viewIndex,
-			locale: s.locale !== "auto" ? s.locale : undefined,
-		}));
-	}
-
 	private async saveCurrentQuery(): Promise<void> {
 		const svc = this.deps.analyticsService;
 		const name = this.queryName.trim() || `Query ${new Date().toISOString().slice(0, 16).replace("T", " ")}`;
 
-		const saved = await svc.saveQuery(name, this.buildSavedSources(), this.buildQueryConfig());
+		const saved = await svc.saveQuery(name, this.sourceManager.buildSavedSources(), this.buildQueryConfig());
 		await svc.syncMeasurementsFromQuery(saved.id);
 		this.savedSnapshot = this.takeSnapshot();
 		this.deps.setState({ selectedQueryId: saved.id });
-		this.renderMaster();
+		this.scheduleRender(true, false);
 	}
 
 	private async updateCurrentQuery(): Promise<void> {
@@ -946,17 +865,17 @@ export class QueriesTab {
 
 		await this.deps.analyticsService.updateQuery(
 			state.selectedQueryId,
-			this.buildSavedSources(),
+			this.sourceManager.buildSavedSources(),
 			this.buildQueryConfig(),
 		);
 		await this.deps.analyticsService.syncMeasurementsFromQuery(state.selectedQueryId);
 		this.savedSnapshot = this.takeSnapshot();
 
-		this.renderMaster();
+		this.scheduleRender(true, false);
 	}
 
 	private newQuery(): void {
-		this.sources = [];
+		this.sourceManager.reset();
 		this.columnTypeHints = [];
 		this.joins = [];
 		this.dimensions = [];
@@ -972,12 +891,10 @@ export class QueriesTab {
 		this.lastDurationMs = undefined;
 		this.lastError = null;
 		this.lastLoadedQueryId = null;
-		this.pendingExecute = false;
 		this.queryName = "";
 		this.deps.setState({ selectedQueryId: null });
 		this.sourcesCollapsed = false;
-		this.renderMaster();
-		this.renderDetail();
+		this.scheduleRender(true, true);
 	}
 
 	private loadSavedQuery(queryId: string): void {
@@ -986,10 +903,8 @@ export class QueriesTab {
 		if (!saved) return;
 
 		this.lastLoadedQueryId = queryId;
-		this.pendingExecute = true;
 
 		// Reset current state and populate from saved query
-		this.sources = [];
 		this.columnTypeHints = [...saved.columnTypeHints];
 		this.joins = [...saved.joins];
 		this.dimensions = [...saved.dimensions];
@@ -1005,22 +920,9 @@ export class QueriesTab {
 		this.lastDurationMs = undefined;
 		this.lastError = null;
 
-		// Add sources and load their data
-		for (const src of saved.sources) {
-			const source: QuerySource = {
-				csvPath: src.csvPath,
-				alias: src.alias,
-				locale: src.locale ?? "auto",
-				sourceType: src.sourceType ?? "csv",
-				viewIndex: src.viewIndex,
-				data: null,
-				loading: true,
-			};
-			this.sources.push(source);
-			void this.loadSourceData(source);
-		}
+		// Load sources via SourceManager (pendingExecute = true for auto-execution)
+		this.sourceManager.loadFromSaved(saved.sources, true);
 
-		this.renderMaster();
-		this.renderDetail();
+		this.scheduleRender(true, true);
 	}
 }

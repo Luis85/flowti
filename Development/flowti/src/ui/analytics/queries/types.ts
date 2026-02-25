@@ -17,27 +17,12 @@ import type {
 	TimeBucketPeriod,
 	AggregationFunction,
 	AnalyticsResult,
-	AnalyticsSourceType,
-	ParsedSourceData,
+	QuerySource,
 } from "../../../domain/analytics/types";
 import type { AnalyticsHubDeps } from "../types";
 
-// ─────────────────────────────────────────────────────────────
-// Query source — runtime state per loaded source
-// ─────────────────────────────────────────────────────────────
-
-export interface QuerySource {
-	csvPath: string;
-	alias: string;
-	locale: LocaleId;
-	sourceType: AnalyticsSourceType;
-	viewIndex?: number;
-	data: ParsedSourceData | null;
-	loading: boolean;
-	error?: string;
-	/** Auto-detected locale from numeric column samples (set after source load) */
-	detectedLocale?: LocaleId;
-}
+// Re-export QuerySource for backward compatibility (canonical location: domain/analytics/types)
+export type { QuerySource };
 
 // ─────────────────────────────────────────────────────────────
 // Sub-component deps — access to orchestrator state + callbacks

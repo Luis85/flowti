@@ -76,6 +76,20 @@ export interface AnalyticsHubState {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Breadcrumb navigation stack (PBI-ANA-122, Cycle 43)
+// ─────────────────────────────────────────────────────────────
+
+export type BreadcrumbLevel = "list" | "dashboard" | "filtered" | "tile";
+
+export interface NavigationStackEntry {
+	level: BreadcrumbLevel;
+	label: string;
+	dashboardId?: string;
+}
+
+export const MAX_BREADCRUMB_DEPTH = 4;
+
+// ─────────────────────────────────────────────────────────────
 // Navigation callbacks
 // ─────────────────────────────────────────────────────────────
 

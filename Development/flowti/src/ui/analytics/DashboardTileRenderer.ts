@@ -26,27 +26,38 @@ function fmtNum(value: number, tile: DashboardTile, hints: ColumnTypeHint[] | un
 	return formatDisplayNumber(value, tile.numberFormat, getDetectedSymbol(hints, column));
 }
 
-export interface TileRenderContext {
+// ── TileRenderContext split into 3 focused interfaces (PBI-ANA-124, Cycle 43) ──
+
+/** Data and query result context for tile rendering. */
+export interface TileDataContext {
 	tile: DashboardTile;
 	query: SavedAnalyticsQuery | undefined;
 	result: AnalyticsResult | null;
 	error: string | null;
+	/** Timestamp of last refresh (for freshness display). */
+	refreshedAt?: number;
+	/** All saved queries — used in settings panel to change the tile's query. */
+	queries?: SavedAnalyticsQuery[];
+	/** All measurements — used in settings panel for measurement picker. */
+	measurements?: Measurement[];
+	/** Active dashboard filters — used for visual feedback on matching cells. */
+	activeFilters?: Array<{ column: string; values: string[] }>;
+}
+
+/** UI interaction callbacks for tile settings and display changes. */
+export interface TileUIContext {
 	onRemove: (tileId: string) => void;
 	onRefresh?: (tileId: string) => void;
 	onReorder?: (tileId: string, direction: "up" | "down") => void;
 	onTitleChange?: (tileId: string, newTitle: string) => void;
 	onDisplayModeToggle?: (tileId: string, newMode: TileDisplayMode) => void;
 	onRulesChange?: (tileId: string, rules: ConditionalRule[]) => void;
-	/** Timestamp of last refresh (for freshness display). */
-	refreshedAt?: number;
 	/** Whether the tile settings panel is open. */
 	settingsOpen?: boolean;
 	/** Toggle settings panel open/closed. */
 	onToggleSettings?: (tileId: string) => void;
 	/** Called when the user selects a different value column for chart display. */
 	onChartValueColumnChange?: (tileId: string, column: string) => void;
-	/** All saved queries — used in settings panel to change the tile's query. */
-	queries?: SavedAnalyticsQuery[];
 	/** Called when the user changes which saved query this tile references. */
 	onQueryChange?: (tileId: string, newQueryId: string) => void;
 	/** Called when the user changes tile width (1–6 columns). */
@@ -59,16 +70,8 @@ export interface TileRenderContext {
 	onRowLimitChange?: (tileId: string, limit: number | undefined) => void;
 	/** Called when the user toggles auto-height (content-driven height at max width). */
 	onAutoHeightToggle?: (tileId: string, auto: boolean) => void;
-	/** Called when the user clicks "View Query" — navigates to the Queries tab. */
-	onViewQuery?: (queryId: string) => void;
 	/** Called when the user changes number display format for this tile. */
 	onNumberFormatChange?: (tileId: string, format: NumberDisplayFormat | undefined) => void;
-	/** Called when the user clicks a string value to drill down (toggles dashboard filter). */
-	onDrillDown?: (column: string, value: string) => void;
-	/** Active dashboard filters — used for visual feedback on matching cells. */
-	activeFilters?: Array<{ column: string; values: string[] }>;
-	/** All measurements — used in settings panel for measurement picker. */
-	measurements?: Measurement[];
 	/** Called when the user changes which measurement this tile references. */
 	onMeasurementChange?: (tileId: string, measurementId: string | undefined) => void;
 	/** Called when the user changes which columns to hide in this tile. */
@@ -78,6 +81,17 @@ export interface TileRenderContext {
 	/** Called when the user reorders columns on a table tile. */
 	onColumnOrderChange?: (tileId: string, columns: string[]) => void;
 }
+
+/** Navigation callbacks for cross-tab and drill-down actions. */
+export interface TileNavContext {
+	/** Called when the user clicks "View Query" — navigates to the Queries tab. */
+	onViewQuery?: (queryId: string) => void;
+	/** Called when the user clicks a string value to drill down (toggles dashboard filter). */
+	onDrillDown?: (column: string, value: string) => void;
+}
+
+/** Full tile render context — composed from data, UI, and navigation sub-contexts. */
+export type TileRenderContext = TileDataContext & TileUIContext & TileNavContext;
 
 export class DashboardTileRenderer {
 	/** Ephemeral sort state for table tiles (not persisted). */
@@ -99,15 +113,8 @@ export class DashboardTileRenderer {
 		if (!ctx.tile.autoHeight) tileEl.style.height = "100%";
 
 		// ── Header ──────────────────────────────────────
-		const header = tileEl.createDiv({ cls: "ft-dashboard-tile-header" });
-		header.style.display = "flex";
-		header.style.alignItems = "center";
-		header.style.justifyContent = "space-between";
-		header.style.padding = "0.5rem 0.75rem";
-		header.style.borderBottom = "1px solid var(--background-modifier-border)";
-		header.style.background = "var(--background-secondary)";
+		const header = tileEl.createDiv({ cls: "ft-tile-header" });
 		header.style.flexWrap = "wrap";
-		header.style.gap = "0.25rem";
 
 		// Editable title
 		if (ctx.onTitleChange) {
@@ -125,16 +132,10 @@ export class DashboardTileRenderer {
 				}
 			});
 		} else {
-			const titleEl = header.createSpan({
+			header.createSpan({
 				text: ctx.tile.title || ctx.query?.name || "Untitled Tile",
-				cls: "ft-text-sm",
+				cls: "ft-text-sm ft-font-semibold ft-flex-1-min ft-text-ellipsis",
 			});
-			titleEl.style.fontWeight = "600";
-			titleEl.style.flex = "1";
-			titleEl.style.minWidth = "0";
-			titleEl.style.overflow = "hidden";
-			titleEl.style.textOverflow = "ellipsis";
-			titleEl.style.whiteSpace = "nowrap";
 		}
 
 		// Right-side group: indicators + action buttons

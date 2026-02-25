@@ -250,6 +250,7 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 	protected onTabChanged(): void {
 		this.filterText = "";
 		this.searchInput.value = "";
+		this.dashboardsTab.clearNavigation();
 	}
 
 	onDashboardRender(): void {

@@ -141,6 +141,20 @@ export interface ParsedSourceData {
 	rows: string[][];
 }
 
+/** Runtime representation of a loaded source in the query builder. */
+export interface QuerySource {
+	csvPath: string;
+	alias: string;
+	locale: LocaleId;
+	sourceType: AnalyticsSourceType;
+	viewIndex?: number;
+	data: ParsedSourceData | null;
+	loading: boolean;
+	error?: string;
+	/** Auto-detected locale from numeric column samples (set after source load). */
+	detectedLocale?: LocaleId;
+}
+
 // ── Filter and sort specs ───────────────────────────────
 
 /** Supported filter operators. */

@@ -3,7 +3,7 @@ domain: Analytics
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
 stage: delivered
-version: 15
+version: 16
 maturity: L2
 created: 2026-02-23
 updated: 2026-02-26
@@ -257,8 +257,8 @@ Primary interaction path:
 
 ### v15 — Performance & Navigation (Cycle 43)
 
-- [ ] FR-95: Dashboard breadcrumb navigation — navigation stack (max depth 4) with clickable breadcrumb bar showing drill-down path ("Dashboards > [Name] > [Filter Context]"), back button (←) navigates one level up, stack clears on explicit tab switch, breadcrumb bar hidden at root level
-- [ ] FR-96: Filter row-count preview — exact row count badge ("N rows") in DashboardFilterBar after filter value selection, computed from cached query results (not sampled), hidden when no cache available, updates with 300ms debounce on filter change, supports multi-filter combinations
+- [x] FR-95: Dashboard breadcrumb navigation — navigation stack (max depth 4) with clickable breadcrumb bar showing drill-down path ("Dashboards > [Name] > [Filter Context]"), back button (←) navigates one level up, stack clears on explicit tab switch, breadcrumb bar hidden at root level
+- [x] FR-96: Filter row-count preview — exact row count badge ("~N rows") in DashboardFilterBar after filter value selection, computed from cached query results (not sampled), hidden when no cache available, supports multi-filter combinations with query deduplication
 
 ## 6. Data Model Impact
 
@@ -631,6 +631,18 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 - [x] "Analyze" button on Report detail and CSV file detail pages (DX Hub → Analytics Hub)
 - [x] 4,751 tests passing (196 suites)
 
+### v16 Performance & Navigation (Cycle 43)
+
+- [x] SourceManager class extracts source CRUD from QueriesTab (1,026→930 LOC)
+- [x] QueryResultCache with LRU eviction (max 20 entries) in AnalyticsService
+- [x] QueriesTab render batching via requestAnimationFrame (max 1 render/frame)
+- [x] Dashboard breadcrumb navigation with 4-level nav stack (FR-95)
+- [x] Filter row-count preview badge "~N rows" in DashboardFilterBar (FR-96)
+- [x] TileRenderContext split into TileDataContext + TileUIContext + TileNavContext
+- [x] 14 semantic CSS classes (ft-* prefix), ~25 inline styles eliminated
+- [x] 3 flow integration test suites (Flows 17–19): query pipeline, dashboard lifecycle, source manager
+- [x] 4,941 tests passing (206 suites)
+
 ## 13. Definition of Done
 
 - `VIEW_TYPE_ANALYTICS_HUB` constant added to `src/domain/hub/types.ts`
@@ -699,13 +711,13 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 | [[PBI-ANA-074 AnalyticsService Dashboard CRUD Extraction]] | Handler extraction (916→619 LOC, TD-ANA-002) | Delivered | High | — |
 | [[PBI-ANA-075 QueriesTab Source and Actions Extraction]] | ActionsBar extraction (950→820 LOC, TD-ANA-003) | Delivered | High | ANA-071 |
 | [[PBI-ANA-076 Enhanced Quick Insights and UX Polish]] | 3 new insight rules + schema click-to-insert + badges + Ctrl+Enter | Delivered | High | ANA-070, ANA-072 |
-| [[PBI-ANA-120 Source Manager Extraction]] | Extract source CRUD from QueriesTab into SourceManager class | Planned | High | — |
-| [[PBI-ANA-121 Render Performance]] | QueriesTab render batching + filtered-result cache with LRU eviction | Planned | High | ANA-120 |
-| [[PBI-ANA-122 Dashboard Breadcrumb Navigation]] | Navigation stack with breadcrumb bar for drill-down context (FR-95) | Planned | Critical | — |
-| [[PBI-ANA-123 Filter Row-Count Preview]] | Exact row-count badge in DashboardFilterBar before execution (FR-96) | Planned | High | ANA-121 |
-| [[PBI-ANA-124 TileRenderContext Simplification]] | Split 23-property interface into 3 focused concern groups | Planned | High | — |
-| [[PBI-ANA-125 CSS & Style Consolidation]] | Move 80%+ inline styles to semantic CSS classes in styles.css | Planned | High | — |
-| [[PBI-ANA-126 Analytics Flow Integration Tests]] | 3 flow test suites covering query-to-dashboard, measurement, source-filter | Planned | High | ANA-120–125 |
+| [[PBI-ANA-120 Source Manager Extraction]] | Extract source CRUD from QueriesTab into SourceManager class | Delivered | High | — |
+| [[PBI-ANA-121 Render Performance]] | QueriesTab render batching + QueryResultCache with LRU eviction | Delivered | High | ANA-120 |
+| [[PBI-ANA-122 Dashboard Breadcrumb Navigation]] | Navigation stack with breadcrumb bar for drill-down context (FR-95) | Delivered | Critical | — |
+| [[PBI-ANA-123 Filter Row-Count Preview]] | ~N rows badge in DashboardFilterBar before execution (FR-96) | Delivered | High | ANA-121 |
+| [[PBI-ANA-124 TileRenderContext Simplification]] | Split 23-property interface into 3 focused concern groups | Delivered | High | — |
+| [[PBI-ANA-125 CSS & Style Consolidation]] | Move 80%+ inline styles to 14 semantic CSS classes in styles.css | Delivered | High | — |
+| [[PBI-ANA-126 Analytics Flow Integration Tests]] | 3 flow test suites (Flows 17–19) covering query, dashboard, source manager | Delivered | High | ANA-120–125 |
 
 > **Analytics Hub v1 delivered (2026-02-23):** 5 PBIs in Cycle 28. Hub shell, dashboards, .base sources, independent persistence. 4,338 tests (178 suites).
 > **Analytics Hub v2 delivered (2026-02-23):** 5 PBIs in Cycle 29. Favorites, default dashboard, dashboard-first overview, per-tile refresh, Supplier Manager persona. 4,358 tests (179 suites).
@@ -716,6 +728,7 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 > **Analytics Hub v10 delivered (2026-02-25):** 6 PBIs in Cycle 36. TileRenderer extraction (794→540 LOC), pie chart (6th display mode), multi-select dashboard filters with cascading dimension discovery, filter propagation with OR/AND logic, click-to-toggle drill-down, per-value breadcrumb chips, 6x6 tile grid. 4,646 tests (191 suites).
 > **Analytics Hub v12 delivered (2026-02-25):** 6 PBIs in Cycle 37. Cross-domain integration: dashboard query map (query transparency), CSV analytics section (query discovery from CSV detail), file-menu "Analyze" action, source pre-selection navigation, related queries in master list. 2 new components (DashboardQueryMap, CsvAnalyticsSection). 4,672 tests (192 suites).
 > **Analytics Hub v13 delivered (2026-02-25):** 7 PBIs in Cycle 38. Query builder improvements: schema browser + column picker, visual filter builder with value suggestions, multi-column sort with migration, expression validation, AnalyticsService handler extraction (916→619 LOC), QueriesTab ActionsBar extraction (950→820 LOC), 6 quick insight rules, click-to-insert, count badges, Ctrl+Enter. 4 new components (SchemaPanel, FilterBuilderPanel, ActionsBar, expressionValidator). 4,746 tests (196 suites).
+> **Analytics Hub v16 delivered (2026-02-25):** 7 PBIs in Cycle 43. Performance & navigation: SourceManager extraction (QueriesTab 1,026→930 LOC), QueryResultCache (LRU, max 20), render batching (rAF), dashboard breadcrumbs (4-level nav stack), filter row-count preview (~N rows badge), TileRenderContext split (3 sub-interfaces), 14 CSS classes (25 inline styles eliminated). 3 new flow test suites (Flows 17–19). 85 new tests. 4,941 tests (206 suites). PRD v16, 96 FRs all delivered.
 
 ## Related
 

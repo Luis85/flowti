@@ -208,6 +208,47 @@
 	border: 1px solid var(--background-modifier-border);
 }
 
+/* Breadcrumb navigation */
+.ft-breadcrumb-bar {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 0;
+	font-size: var(--font-ui-smaller);
+	margin-bottom: 0.5rem;
+}
+.ft-breadcrumb-back {
+	cursor: pointer;
+	color: var(--text-muted);
+	display: inline-flex;
+	align-items: center;
+	padding: 2px 4px;
+	border-radius: var(--radius-s, 4px);
+}
+.ft-breadcrumb-back:hover {
+	color: var(--text-normal);
+	background: var(--background-modifier-hover);
+}
+.ft-breadcrumb-back svg {
+	width: 14px;
+	height: 14px;
+}
+.ft-breadcrumb-segment {
+	cursor: pointer;
+	color: var(--text-muted);
+}
+.ft-breadcrumb-segment:hover {
+	color: var(--text-normal);
+	text-decoration: underline;
+}
+.ft-breadcrumb-current {
+	color: var(--text-normal);
+	font-weight: 600;
+}
+.ft-breadcrumb-separator {
+	color: var(--text-faint);
+}
+
 .ft-badge-area {
 	background-color: var(--color-accent);
 	color: var(--text-on-accent);
@@ -373,8 +414,69 @@
 }
 
 .ft-flex-1 { flex: 1; }
+.ft-flex-1-min { flex: 1; min-width: 0; }
 .ft-flex-shrink-0 { flex-shrink: 0; }
 .ft-cursor-pointer { cursor: pointer; }
+
+/* Inline layout utilities (PBI-ANA-125, Cycle 43) */
+.ft-text-ellipsis {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.ft-icon-sm svg { width: 14px; height: 14px; }
+.ft-icon-xs svg { width: 12px; height: 12px; }
+
+/* Tile layout classes */
+.ft-tile-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0.5rem 0.75rem;
+	border-bottom: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+}
+.ft-tile-body {
+	flex: 1;
+	overflow: auto;
+	min-height: 0;
+	padding: 0.35rem;
+}
+.ft-tile-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+}
+
+/* Filter bar layout */
+.ft-filter-bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem;
+	margin-bottom: 0.75rem;
+	padding: 0.5rem 0.75rem;
+	background: var(--background-secondary);
+	border-radius: 6px;
+}
+.ft-filter-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+	padding: 2px 8px;
+	border-radius: 10px;
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+.ft-select-small {
+	padding: 2px 6px;
+	border-radius: 4px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	cursor: pointer;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-normal);
+}
 
 /* View layout utilities */
 .ft-view-root { height: 100%; display: flex; flex-direction: column; }
