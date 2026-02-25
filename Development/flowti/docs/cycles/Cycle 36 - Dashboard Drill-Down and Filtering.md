@@ -1,10 +1,10 @@
 ---
 type: DevelopmentCycle
 feature: "[[Analytics Hub PRD]]"
-stage: planned
+stage: delivered
 cycle: 36
 date_planned: 2026-02-25
-date_completed:
+date_completed: 2026-02-25
 pbis:
   - "[[PBI-ANA-054 TileRenderer Extraction]]"
   - "[[PBI-ANA-055 Pie Chart Visualization]]"
@@ -148,10 +148,12 @@ pre_cycle_suites: 190
 
 1. **Architecture Health** — Extract DashboardTileRenderer settings panel into a focused component, bringing the renderer below the 700 LOC threshold
 2. **Pie Chart Visualization** — 6th display mode for proportional comparisons (supplier share, category distribution)
-3. **Dashboard Filter UI** — Dropdown controls at the dashboard header for filtering by string dimensions (supplier_id, category, etc.)
-4. **Filter Propagation** — Active dashboard filters are applied to all tile queries at execution time; tiles re-render with filtered results
-5. **Tile Drill-Down** — Click a string value in a table or stat-card tile to set it as a dashboard filter; breadcrumb shows active filters with clear buttons
-6. **Integration Verification** — Flow 36 test covering the full drill-down experience + PRD v10
+3. **Dashboard Filter UI** — Multi-select dropdown controls at the dashboard header for filtering by string dimensions (supplier_id, category, etc.)
+4. **Filter Propagation** — Active dashboard filters (multi-value, OR within column) applied to all tile queries at execution time; tiles re-render with filtered results
+5. **Tile Drill-Down** — Click a string value in a table or stat-card tile to toggle it in the dashboard filter; per-value breadcrumb chips with individual clear buttons
+6. **Multi-Select Comparison** — Users can select multiple values within a single dimension to compare side-by-side across all tiles
+7. **Cascading Filters** — Filter dropdowns narrow their options based on active filters (selecting a category narrows item_id to items in that category)
+8. **Integration Verification** — Flow 36 test covering the full drill-down experience + PRD v11
 
 ---
 
@@ -532,26 +534,29 @@ Test structure mirrors two user journeys:
 16. Dashboard filter on a column with no matching tiles
 
 **PRD update:**
-- Analytics Hub PRD v10
-- Add FR-68 (TileRenderer extraction), FR-69 (pie chart), FR-70 (dashboard filter UI), FR-71 (filter propagation), FR-72 (tile drill-down), FR-73 (breadcrumb navigation), FR-74 (drill-down visual feedback), FR-75 (pie chart Other grouping)
+- Analytics Hub PRD v11
+- Add FR-68 through FR-77 (TileRenderer extraction, pie chart, multi-select filters, cascading dimensions, drill-down toggle, per-value breadcrumbs)
+- Update DashboardFilter type to multi-value `values: string[]`
 - Update TileDisplayMode in data model with `"pie-chart"`
 - Update FRI score
 
 | File | Action | ~LOC |
 |------|--------|------|
-| `tests/flows/36-DrillDownAndFiltering.test.ts` | **New** — flow integration test | +250 |
-| `docs/features/Analytics Hub/Analytics Hub PRD.md` | Update to v10 with FR-68 through FR-75 | ~40 lines |
+| `tests/flows/36-DrillDownAndFiltering.test.ts` | **New** — flow integration test | +300 |
+| `docs/features/Analytics Hub/Analytics Hub PRD.md` | Update to v11 with FR-68 through FR-77 | ~60 lines |
 
 **AC:**
-- [ ] Flow 36 test passes (~25 tests covering both journeys)
-- [ ] Filter-driven exploration verified end-to-end (set filter → tiles re-render → clear)
-- [ ] Drill-down experience verified (click value → filter set → breadcrumb shows → clear)
-- [ ] Pie chart rendering and edge cases verified
-- [ ] Edge cases handled (empty filtered result, single segment, no matching columns)
-- [ ] Analytics Hub PRD updated to v10 with all new FRs
-- [ ] `npm test` passes — all tests green
+- [x] Flow 36 test passes (31 tests covering both journeys + multi-select + cascading)
+- [x] Filter-driven exploration verified end-to-end (set filter → tiles re-render → clear)
+- [x] Drill-down experience verified (click value → toggle filter → breadcrumb shows → clear)
+- [x] Multi-select comparison verified (toggle add, toggle remove, clear last value)
+- [x] Cascading filter discovery verified (active filters narrow dimension dropdowns)
+- [x] Pie chart rendering and edge cases verified
+- [x] Edge cases handled (empty filtered result, single segment, no matching columns)
+- [x] Analytics Hub PRD updated to v11 with all new FRs
+- [x] `npm test` passes — all 4,646 tests green (191 suites)
 
-**Tests:** ~25 (6 filter exploration + 4 drill-down + 3 infrastructure + 4 pie chart + 4 edge cases + 4 integration)
+**Tests:** 31 (6 filter exploration + 4 drill-down + 3 multi-select + 2 cascading + 3 infrastructure + 4 pie chart + 4 edge cases + 5 integration)
 
 ---
 
@@ -594,18 +599,18 @@ Inc 1 must go first to reduce DashboardTileRenderer complexity before adding dri
 
 ## Success Metrics
 
-| Metric | Target |
-|--------|--------|
-| New tests | ~55 (0 extraction + 8 pie chart + 8 filter UI + 10 propagation + 8 drill-down + 25 flow test - overlap) |
-| Post-cycle total tests | ~4,658 |
-| New source LOC | ~400 (290 settings extraction + 120 pie chart + 80 filter UI + 25 propagation + 40 drill-down + 250 flow test − 270 extraction removal) |
-| TileDisplayMode | + `"pie-chart"` (6th mode) |
-| DashboardTileRenderer LOC | 794 → ~540 (extraction target) |
-| TileSettingsPanel LOC | ~290 (new component) |
-| Analytics events | 21 (no new events — drill-down uses existing filter/render) |
-| PRD version | v9 → v10 |
-| New FRs | FR-68 through FR-75 (8 new) |
-| Supplier Management PRD gaps closed | §9.1 Filtering, §9.2 Drilldown, §10 Drill-down via click |
+| Metric | Target | Actual |
+|--------|--------|--------|
+| New tests | ~55 | 43 (4,603→4,646) |
+| Post-cycle total tests | ~4,658 | 4,646 (191 suites) |
+| New source LOC | ~400 | ~500 (incl. multi-select + cascading) |
+| TileDisplayMode | + `"pie-chart"` (6th mode) | Delivered |
+| DashboardTileRenderer LOC | 794 → ~540 | 794 → ~540 |
+| TileSettingsPanel LOC | ~290 | ~296 |
+| Analytics events | 21 (unchanged) | 21 |
+| PRD version | v9 → v10 | v9 → v11 (multi-select + cascading added) |
+| New FRs | FR-68 through FR-75 (8) | FR-68 through FR-77 (10) |
+| Supplier Management PRD gaps closed | §9.1, §9.2, §10 | §9.1 Filtering, §9.2 Drilldown, §10 Drill-down via click |
 
 ---
 

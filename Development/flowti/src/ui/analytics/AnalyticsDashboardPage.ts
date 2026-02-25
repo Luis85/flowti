@@ -11,6 +11,7 @@ import type { Dashboard, DashboardTile } from "../../domain/analytics/types";
 import { computeFreshnessSummary, getFreshnessLevel, getFreshnessColor } from "../../domain/analytics/freshnessUtils";
 import type { AnalyticsHubDeps } from "./types";
 import { DashboardTileRenderer, type TileRenderContext } from "./DashboardTileRenderer";
+import { discoverFilterDimensions, buildFilterCacheKey } from "./DashboardsTab";
 
 export class AnalyticsDashboardPage {
 	constructor(
@@ -22,7 +23,6 @@ export class AnalyticsDashboardPage {
 		this.containerEl.empty();
 
 		this.renderNavLinks();
-		this.renderFavoritesSection();
 
 		// Resolve which dashboard to display: explicit homepage selection > default
 		const state = this.deps.getState();
@@ -36,6 +36,9 @@ export class AnalyticsDashboardPage {
 		} else {
 			this.renderFallback();
 		}
+
+		// Favourite queries below the dashboard tiles
+		this.renderFavoritesSection();
 	}
 
 	// ── Navigation links ─────────────────────────────────────
@@ -185,10 +188,13 @@ export class AnalyticsDashboardPage {
 			return;
 		}
 
+		// Filter bar
+		this.renderFilterBar(dashboard);
+
 		// Tile grid
 		const grid = this.containerEl.createDiv({ cls: "ft-dashboard-grid" });
 		grid.style.display = "grid";
-		grid.style.gridTemplateColumns = "repeat(5, 1fr)";
+		grid.style.gridTemplateColumns = "repeat(6, 1fr)";
 		grid.style.gridAutoRows = "auto";
 		grid.style.gap = "1rem";
 
@@ -197,15 +203,19 @@ export class AnalyticsDashboardPage {
 		for (const tile of dashboard.tiles) {
 			const query = state.queries.find((q) => q.id === tile.queryId);
 			const tileHost = grid.createDiv();
-			tileHost.style.gridColumn = `span ${Math.min(tile.width, 5)}`;
+			tileHost.style.gridColumn = `span ${Math.min(tile.width, 6)}`;
 			const isAutoHeight = tile.autoHeight && tile.width >= 3;
-			const rowSpan = Math.min(tile.height, 5);
+			const rowSpan = Math.min(tile.height, 6);
 			tileHost.style.gridRow = isAutoHeight ? "auto" : `span ${rowSpan}`;
 			if (!isAutoHeight) tileHost.style.minHeight = `${rowSpan * 180}px`;
 
+			const dashboardFilters = state.dashboardFilters;
+			const cacheKey = buildFilterCacheKey(tile.queryId, dashboardFilters);
 			const tileResult = this.deps.tileResultCache.tryRun(
-				tile.queryId,
-				(id) => this.deps.analyticsService.runSavedQuery(id),
+				cacheKey,
+				() => dashboardFilters.length > 0
+					? this.deps.analyticsService.runSavedQueryWithFilters(tile.queryId, dashboardFilters)
+					: this.deps.analyticsService.runSavedQuery(tile.queryId),
 				() => this.deps.scheduleRender(),
 			);
 
@@ -215,7 +225,7 @@ export class AnalyticsDashboardPage {
 				query,
 				result: tileResult.result,
 				error: tileResult.error,
-				refreshedAt: this.deps.tileResultCache.getTimestamp(tile.queryId),
+				refreshedAt: this.deps.tileResultCache.getTimestamp(cacheKey),
 				onRemove: () => {
 					this.deps.navigation.navigateTo("dashboards");
 				},
@@ -233,7 +243,161 @@ export class AnalyticsDashboardPage {
 					this.deps.navigation.navigateTo("queries");
 					this.deps.scheduleRender();
 				},
+				onDrillDown: (column, value) => {
+					const filters = [...dashboardFilters.map((f) => ({ ...f, values: [...f.values] }))];
+					const existing = filters.find((f) => f.column === column);
+					if (existing) {
+						const idx = existing.values.indexOf(value);
+						if (idx >= 0) {
+							existing.values.splice(idx, 1);
+							if (existing.values.length === 0) {
+								filters.splice(filters.indexOf(existing), 1);
+							}
+						} else {
+							existing.values.push(value);
+						}
+					} else {
+						filters.push({ column, values: [value] });
+					}
+					this.deps.setState({ dashboardFilters: filters });
+					this.deps.scheduleRender();
+				},
+				activeFilters: dashboardFilters,
 			} satisfies TileRenderContext);
+		}
+	}
+
+	// ── Filter bar ──────────────────────────────────────────
+
+	private renderFilterBar(dashboard: Dashboard): void {
+		const state = this.deps.getState();
+		const filters = state.dashboardFilters;
+
+		// Discover dimensions from filtered tile results (cascading filters)
+		const activeFilterColumns = filters.map((f) => f.column);
+		const dimensions = discoverFilterDimensions(
+			dashboard.tiles,
+			(queryId) => {
+				const cacheKey = buildFilterCacheKey(queryId, filters);
+				return this.deps.tileResultCache.tryRun(
+					cacheKey,
+					() => filters.length > 0
+						? this.deps.analyticsService.runSavedQueryWithFilters(queryId, filters)
+						: this.deps.analyticsService.runSavedQuery(queryId),
+					() => this.deps.scheduleRender(),
+				).result;
+			},
+			activeFilterColumns,
+		);
+
+		if (dimensions.length === 0 && filters.length === 0) return;
+
+		const bar = this.containerEl.createDiv({ cls: "ft-filter-bar" });
+		bar.style.display = "flex";
+		bar.style.flexWrap = "wrap";
+		bar.style.alignItems = "center";
+		bar.style.gap = "0.5rem";
+		bar.style.marginBottom = "0.75rem";
+		bar.style.padding = "0.5rem 0.75rem";
+		bar.style.background = "var(--background-secondary)";
+		bar.style.borderRadius = "6px";
+
+		bar.createSpan({ text: "Filters:", cls: "ft-text-sm" }).style.fontWeight = "600";
+
+		const shownDimensions = dimensions.slice(0, 4);
+		for (const dim of shownDimensions) {
+			const activeFilter = filters.find((f) => f.column === dim.column);
+			const selectedCount = activeFilter ? activeFilter.values.length : 0;
+
+			const select = bar.createEl("select", { cls: "ft-text-xs" });
+			select.style.cssText = "padding:2px 6px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);cursor:pointer";
+
+			const allOpt = select.createEl("option");
+			allOpt.value = "";
+			allOpt.textContent = selectedCount > 0
+				? `${dim.column}: ${selectedCount} selected`
+				: `${dim.column}: All`;
+			allOpt.selected = true;
+
+			for (const val of dim.values) {
+				const opt = select.createEl("option");
+				opt.value = val;
+				const isSelected = activeFilter?.values.includes(val);
+				opt.textContent = isSelected ? `\u2713 ${val}` : val;
+			}
+
+			select.addEventListener("change", () => {
+				if (!select.value) {
+					const updated = filters.filter((f) => f.column !== dim.column);
+					this.deps.setState({ dashboardFilters: updated });
+					this.deps.scheduleRender();
+					return;
+				}
+				const value = select.value;
+				const updated = filters.map((f) => ({ ...f, values: [...f.values] }));
+				const existing = updated.find((f) => f.column === dim.column);
+				if (existing) {
+					const idx = existing.values.indexOf(value);
+					if (idx >= 0) {
+						existing.values.splice(idx, 1);
+						if (existing.values.length === 0) {
+							const filterIdx = updated.indexOf(existing);
+							updated.splice(filterIdx, 1);
+						}
+					} else {
+						existing.values.push(value);
+					}
+				} else {
+					updated.push({ column: dim.column, values: [value] });
+				}
+				this.deps.setState({ dashboardFilters: updated });
+				this.deps.scheduleRender();
+			});
+		}
+
+		if (filters.length > 0) {
+			const clearBtn = bar.createEl("span", { cls: "ft-nav-link ft-text-xs" });
+			clearBtn.style.cursor = "pointer";
+			clearBtn.style.marginLeft = "auto";
+			clearBtn.textContent = "Clear all";
+			clearBtn.addEventListener("click", () => {
+				this.deps.setState({ dashboardFilters: [] });
+				this.deps.scheduleRender();
+			});
+		}
+
+		// Breadcrumb chips — one chip per value
+		if (filters.length > 0) {
+			const breadcrumb = this.containerEl.createDiv({ cls: "ft-filter-breadcrumb" });
+			breadcrumb.style.display = "flex";
+			breadcrumb.style.flexWrap = "wrap";
+			breadcrumb.style.gap = "0.35rem";
+			breadcrumb.style.marginBottom = "0.75rem";
+
+			breadcrumb.createSpan({ text: "Showing:", cls: "ft-text-xs ft-text-muted" });
+
+			for (const f of filters) {
+				for (const val of f.values) {
+					const chip = breadcrumb.createSpan({ cls: "ft-badge ft-text-xs" });
+					chip.style.cssText = "display:inline-flex;align-items:center;gap:0.25rem;padding:2px 8px;border-radius:10px;background:var(--interactive-accent);color:var(--text-on-accent);cursor:default";
+					chip.textContent = `${f.column} = ${val}`;
+
+					const closeBtn = chip.createSpan({ text: " \u00d7" });
+					closeBtn.style.cursor = "pointer";
+					closeBtn.style.fontWeight = "bold";
+					closeBtn.addEventListener("click", (e) => {
+						e.stopPropagation();
+						const updated = filters
+							.map((x) => x.column === f.column
+								? { ...x, values: x.values.filter((v) => v !== val) }
+								: { ...x, values: [...x.values] },
+							)
+							.filter((x) => x.values.length > 0);
+						this.deps.setState({ dashboardFilters: updated });
+						this.deps.scheduleRender();
+					});
+				}
+			}
 		}
 	}
 
@@ -299,14 +463,31 @@ export class AnalyticsDashboardPage {
 
 		if (favQueries.length === 0) return;
 
-		const cardGrid = this.containerEl.createDiv();
+		// Section container with spacing from dashboard tiles
+		const section = this.containerEl.createDiv();
+		section.style.marginTop = "2.5rem";
+		section.style.paddingTop = "1.5rem";
+		section.style.borderTop = "1px solid var(--background-modifier-border)";
+
+		// Headline
+		const heading = section.createDiv({ cls: "ft-text-sm" });
+		heading.style.fontWeight = "600";
+		heading.style.marginBottom = "0.25rem";
+		heading.textContent = "Favourite Queries";
+
+		// Description
+		section.createDiv({
+			text: "Quick access to your starred queries — click to open in the Queries tab",
+			cls: "ft-text-xs ft-text-muted",
+		}).style.marginBottom = "0.75rem";
+
+		const cardGrid = section.createDiv();
 		cardGrid.style.display = "grid";
 		cardGrid.style.gridTemplateColumns = "repeat(auto-fill, minmax(160px, 1fr))";
 		cardGrid.style.gap = "0.5rem";
-		cardGrid.style.marginBottom = "1.25rem";
 
 		for (const q of favQueries) {
-			this.renderFavoriteCard(cardGrid, "search", q.name, () => {
+			this.renderFavoriteCard(cardGrid, "search", q.name, q.description, () => {
 				this.deps.setState({ selectedQueryId: q.id });
 				this.deps.navigation.navigateTo("queries");
 				this.deps.scheduleRender();
@@ -314,12 +495,12 @@ export class AnalyticsDashboardPage {
 		}
 	}
 
-	private renderFavoriteCard(container: HTMLElement, icon: string, name: string, onClick: () => void): void {
+	private renderFavoriteCard(container: HTMLElement, icon: string, name: string, description: string | undefined, onClick: () => void): void {
 		const card = container.createDiv({ cls: "ft-stat-card" });
 		card.style.cursor = "pointer";
 		card.style.padding = "0.75rem";
 		card.style.display = "flex";
-		card.style.alignItems = "center";
+		card.style.alignItems = "flex-start";
 		card.style.gap = "0.5rem";
 
 		const iconEl = card.createSpan();
@@ -327,11 +508,26 @@ export class AnalyticsDashboardPage {
 		iconEl.style.width = "14px";
 		iconEl.style.height = "14px";
 		iconEl.style.flexShrink = "0";
+		iconEl.style.marginTop = "2px";
 
-		const nameEl = card.createSpan({ text: name, cls: "ft-text-sm" });
+		const textBlock = card.createDiv();
+		textBlock.style.overflow = "hidden";
+		textBlock.style.flex = "1";
+		textBlock.style.minWidth = "0";
+
+		const nameEl = textBlock.createDiv({ text: name, cls: "ft-text-sm" });
+		nameEl.style.fontWeight = "500";
 		nameEl.style.overflow = "hidden";
 		nameEl.style.textOverflow = "ellipsis";
 		nameEl.style.whiteSpace = "nowrap";
+
+		if (description) {
+			const descEl = textBlock.createDiv({ text: description, cls: "ft-text-xs ft-text-muted" });
+			descEl.style.overflow = "hidden";
+			descEl.style.textOverflow = "ellipsis";
+			descEl.style.whiteSpace = "nowrap";
+			descEl.style.marginTop = "0.15rem";
+		}
 
 		card.addEventListener("click", onClick);
 	}

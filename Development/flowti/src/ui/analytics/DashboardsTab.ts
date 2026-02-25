@@ -351,6 +351,11 @@ export class DashboardsTab {
 			}).render();
 		}
 
+		// Filter bar + breadcrumb
+		if (dashboard.tiles.length > 0) {
+			this.renderFilterBar(dashboard);
+		}
+
 		// Tile grid
 		if (dashboard.tiles.length === 0 && !this.addTileDialogVisible) {
 			const empty = this.detailEl.createDiv({ cls: "ft-text-muted ft-text-sm" });
@@ -370,7 +375,7 @@ export class DashboardsTab {
 
 		const grid = this.detailEl.createDiv({ cls: "ft-dashboard-grid" });
 		grid.style.display = "grid";
-		grid.style.gridTemplateColumns = "repeat(5, 1fr)";
+		grid.style.gridTemplateColumns = "repeat(6, 1fr)";
 		grid.style.gridAutoRows = "auto";
 		grid.style.gap = "1rem";
 
@@ -379,16 +384,20 @@ export class DashboardsTab {
 		for (const tile of dashboard.tiles) {
 			const query = state.queries.find((q) => q.id === tile.queryId);
 			const tileHost = grid.createDiv();
-			tileHost.style.gridColumn = `span ${Math.min(tile.width, 5)}`;
+			tileHost.style.gridColumn = `span ${Math.min(tile.width, 6)}`;
 			tileHost.style.minWidth = "0";
 			const isAutoHeight = tile.autoHeight && tile.width >= 3;
-			const rowSpan = Math.min(tile.height, 5);
+			const rowSpan = Math.min(tile.height, 6);
 			tileHost.style.gridRow = isAutoHeight ? "auto" : `span ${rowSpan}`;
 			if (!isAutoHeight) tileHost.style.minHeight = `${rowSpan * 180}px`;
 
+			const dashboardFilters = state.dashboardFilters;
+			const cacheKey = buildFilterCacheKey(tile.queryId, dashboardFilters);
 			const tileResult = this.deps.tileResultCache.tryRun(
-				tile.queryId,
-				(id) => this.deps.analyticsService.runSavedQuery(id),
+				cacheKey,
+				() => dashboardFilters.length > 0
+					? this.deps.analyticsService.runSavedQueryWithFilters(tile.queryId, dashboardFilters)
+					: this.deps.analyticsService.runSavedQuery(tile.queryId),
 				() => this.deps.scheduleRender(),
 			);
 
@@ -398,7 +407,7 @@ export class DashboardsTab {
 				query,
 				result: tileResult.result,
 				error: tileResult.error,
-				refreshedAt: this.deps.tileResultCache.getTimestamp(tile.queryId),
+				refreshedAt: this.deps.tileResultCache.getTimestamp(cacheKey),
 				onRemove: (tileId) => {
 					void this.deps.analyticsService.removeTile(dashboard.id, tileId).then(() => {
 						this.deps.scheduleRender();
@@ -476,6 +485,26 @@ export class DashboardsTab {
 					this.deps.navigation.navigateTo("queries");
 					this.deps.scheduleRender();
 				},
+				onDrillDown: (column, value) => {
+					const filters = [...dashboardFilters.map((f) => ({ ...f, values: [...f.values] }))];
+					const existing = filters.find((f) => f.column === column);
+					if (existing) {
+						const idx = existing.values.indexOf(value);
+						if (idx >= 0) {
+							existing.values.splice(idx, 1);
+							if (existing.values.length === 0) {
+								filters.splice(filters.indexOf(existing), 1);
+							}
+						} else {
+							existing.values.push(value);
+						}
+					} else {
+						filters.push({ column, values: [value] });
+					}
+					this.deps.setState({ dashboardFilters: filters });
+					this.deps.scheduleRender();
+				},
+				activeFilters: dashboardFilters,
 			} satisfies TileRenderContext);
 		}
 	}
@@ -548,4 +577,209 @@ export class DashboardsTab {
 		await navigator.clipboard.writeText(lines.join("\n"));
 	}
 
+	// ── Dashboard filter bar ────────────────────────────────
+
+	private renderFilterBar(dashboard: Dashboard): void {
+		const state = this.deps.getState();
+		const filters = state.dashboardFilters;
+
+		// Discover dimensions from filtered tile results (cascading filters)
+		const activeFilterColumns = filters.map((f) => f.column);
+		const dimensions = discoverFilterDimensions(
+			dashboard.tiles,
+			(queryId) => {
+				const cacheKey = buildFilterCacheKey(queryId, filters);
+				return this.deps.tileResultCache.tryRun(
+					cacheKey,
+					() => filters.length > 0
+						? this.deps.analyticsService.runSavedQueryWithFilters(queryId, filters)
+						: this.deps.analyticsService.runSavedQuery(queryId),
+					() => this.deps.scheduleRender(),
+				).result;
+			},
+			activeFilterColumns,
+		);
+
+		if (dimensions.length === 0 && filters.length === 0) return;
+
+		const bar = this.detailEl.createDiv({ cls: "ft-filter-bar" });
+		bar.style.display = "flex";
+		bar.style.flexWrap = "wrap";
+		bar.style.alignItems = "center";
+		bar.style.gap = "0.5rem";
+		bar.style.marginBottom = "0.75rem";
+		bar.style.padding = "0.5rem 0.75rem";
+		bar.style.background = "var(--background-secondary)";
+		bar.style.borderRadius = "6px";
+
+		bar.createSpan({ text: "Filters:", cls: "ft-text-sm" }).style.fontWeight = "600";
+
+		// Dimension dropdowns (max 4) — selecting a value toggles it in the filter
+		const shownDimensions = dimensions.slice(0, 4);
+		for (const dim of shownDimensions) {
+			const activeFilter = filters.find((f) => f.column === dim.column);
+			const selectedCount = activeFilter ? activeFilter.values.length : 0;
+
+			const select = bar.createEl("select", { cls: "ft-text-xs" });
+			select.style.cssText = "padding:2px 6px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);cursor:pointer";
+
+			const allOpt = select.createEl("option");
+			allOpt.value = "";
+			allOpt.textContent = selectedCount > 0
+				? `${dim.column}: ${selectedCount} selected`
+				: `${dim.column}: All`;
+			allOpt.selected = true;
+
+			for (const val of dim.values) {
+				const opt = select.createEl("option");
+				opt.value = val;
+				const isSelected = activeFilter?.values.includes(val);
+				opt.textContent = isSelected ? `\u2713 ${val}` : val;
+			}
+
+			select.addEventListener("change", () => {
+				if (!select.value) {
+					// "All" selected — clear filter for this column
+					const updated = filters.filter((f) => f.column !== dim.column);
+					this.deps.setState({ dashboardFilters: updated });
+					this.deps.scheduleRender();
+					return;
+				}
+				const value = select.value;
+				const updated = filters.map((f) => ({ ...f, values: [...f.values] }));
+				const existing = updated.find((f) => f.column === dim.column);
+				if (existing) {
+					const idx = existing.values.indexOf(value);
+					if (idx >= 0) {
+						existing.values.splice(idx, 1);
+						if (existing.values.length === 0) {
+							const filterIdx = updated.indexOf(existing);
+							updated.splice(filterIdx, 1);
+						}
+					} else {
+						existing.values.push(value);
+					}
+				} else {
+					updated.push({ column: dim.column, values: [value] });
+				}
+				this.deps.setState({ dashboardFilters: updated });
+				this.deps.scheduleRender();
+			});
+		}
+
+		// Clear all button (only when filters active)
+		if (filters.length > 0) {
+			const clearBtn = bar.createEl("span", { cls: "ft-nav-link ft-text-xs" });
+			clearBtn.style.cursor = "pointer";
+			clearBtn.style.marginLeft = "auto";
+			clearBtn.textContent = "Clear all";
+			clearBtn.addEventListener("click", () => {
+				this.deps.setState({ dashboardFilters: [] });
+				this.deps.scheduleRender();
+			});
+		}
+
+		// Breadcrumb chips for active filters — one chip per value
+		if (filters.length > 0) {
+			const breadcrumb = this.detailEl.createDiv({ cls: "ft-filter-breadcrumb" });
+			breadcrumb.style.display = "flex";
+			breadcrumb.style.flexWrap = "wrap";
+			breadcrumb.style.gap = "0.35rem";
+			breadcrumb.style.marginBottom = "0.75rem";
+
+			breadcrumb.createSpan({ text: "Showing:", cls: "ft-text-xs ft-text-muted" });
+
+			for (const f of filters) {
+				for (const val of f.values) {
+					const chip = breadcrumb.createSpan({ cls: "ft-badge ft-text-xs" });
+					chip.style.cssText = "display:inline-flex;align-items:center;gap:0.25rem;padding:2px 8px;border-radius:10px;background:var(--interactive-accent);color:var(--text-on-accent);cursor:default";
+					chip.textContent = `${f.column} = ${val}`;
+
+					const closeBtn = chip.createSpan({ text: " \u00d7" });
+					closeBtn.style.cursor = "pointer";
+					closeBtn.style.fontWeight = "bold";
+					closeBtn.addEventListener("click", (e) => {
+						e.stopPropagation();
+						const updated = filters
+							.map((x) => x.column === f.column
+								? { ...x, values: x.values.filter((v) => v !== val) }
+								: { ...x, values: [...x.values] },
+							)
+							.filter((x) => x.values.length > 0);
+						this.deps.setState({ dashboardFilters: updated });
+						this.deps.scheduleRender();
+					});
+				}
+			}
+		}
+	}
+}
+
+// ── Filter dimension discovery (pure, testable) ─────────────
+
+export interface FilterDimension {
+	column: string;
+	values: string[];
+}
+
+/**
+ * Scan all tile results to discover string columns suitable for filtering.
+ * Returns dimensions sorted by value count ascending (fewer values = more useful filter).
+ * Maximum 4 dimensions returned.
+ *
+ * When `activeFilterColumns` is provided, columns that are already being filtered
+ * are kept even if they have only 1 unique value in the (cascaded) filtered data.
+ */
+export function discoverFilterDimensions(
+	tiles: Dashboard["tiles"],
+	getResult: (queryId: string) => import("../../domain/analytics/types").AnalyticsResult | null,
+	activeFilterColumns?: string[],
+): FilterDimension[] {
+	const columnValues = new Map<string, Set<string>>();
+
+	for (const tile of tiles) {
+		const result = getResult(tile.queryId);
+		if (!result || result.rows.length === 0) continue;
+
+		for (const col of result.columns) {
+			const firstVal = result.rows[0][col];
+			if (typeof firstVal === "number") continue; // Skip numeric columns
+
+			if (!columnValues.has(col)) columnValues.set(col, new Set());
+			const valSet = columnValues.get(col)!;
+			for (const row of result.rows) {
+				const val = row[col];
+				if (val != null) valSet.add(String(val));
+			}
+		}
+	}
+
+	// Sort by value count ascending (fewer values = better filter)
+	const activeSet = new Set(activeFilterColumns ?? []);
+	const dimensions: FilterDimension[] = [];
+	for (const [column, vals] of columnValues) {
+		// Keep actively-filtered columns even with 1 value (cascading); others need ≥2
+		if (vals.size >= 2 || activeSet.has(column)) {
+			dimensions.push({ column, values: [...vals].sort() });
+		}
+	}
+
+	dimensions.sort((a, b) => a.values.length - b.values.length);
+	return dimensions.slice(0, 4);
+}
+
+/**
+ * Build a cache key that incorporates active dashboard filters.
+ * When filters change, old cached results are automatically bypassed.
+ */
+export function buildFilterCacheKey(
+	queryId: string,
+	filters: Array<{ column: string; values: string[] }>,
+): string {
+	if (filters.length === 0) return queryId;
+	const suffix = filters
+		.map((f) => `${f.column}=${[...f.values].sort().join(",")}`)
+		.sort()
+		.join("&");
+	return `${queryId}?${suffix}`;
 }

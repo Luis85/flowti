@@ -3,7 +3,7 @@ domain: Analytics
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
 stage: delivered
-version: 9
+version: 11
 maturity: L2
 created: 2026-02-23
 updated: 2026-02-25
@@ -219,13 +219,26 @@ Primary interaction path:
 - [x] FR-66: Dashboard tile header shows a row count badge displaying the number of rows in the cached result; dashboard detail header shows a freshness summary indicating the staleness of tile data
 - [x] FR-67: CSV generation utilities (`escapeCsvField`, `rowsToCsv`, `downloadCsvFile`) are consolidated in `src/utils/csvUtils.ts` as shared infrastructure (TD-126 resolved)
 
+### Dashboard Drill-Down & Filtering (v10 — Cycle 36)
+
+- [x] FR-68: DashboardTileRenderer settings panel is extracted into a dedicated `TileSettingsPanel.ts` component (~296 LOC), reducing the renderer from 794 to ~540 LOC (below 700 LOC threshold)
+- [x] FR-69: Pie chart is available as the 6th TileDisplayMode; renders pure SVG segments proportional to value column with legend showing label + percentage; segments below 3% or beyond 12 are grouped into "Other"
+- [x] FR-70: Dashboard detail header shows a filter bar with multi-select dimension dropdowns populated from tile result string columns (max 4 dimensions, sorted by value count ascending); dropdowns support toggle selection with checkmarks on selected values and "N selected" label; cascading dimension discovery narrows dropdown options based on active filters (e.g., filtering by category narrows item_id dropdown to items in that category)
+- [x] FR-71: Active dashboard filters are propagated to all tile queries at execution time via `runSavedQueryWithFilters()`; multi-value filters use OR logic within a column (`values.includes()`) and AND logic across columns; filter-aware cache keys (sorted values) ensure re-execution on filter change
+- [x] FR-72: String values in table cells and dimension labels in stat-card tiles are clickable for drill-down — clicking toggles the value in the dashboard filter for that column (adds if absent, removes if present); clicking the last value for a column removes the column filter entirely; numeric values are not clickable
+- [x] FR-73: Active filters display as per-value breadcrumb chips above the tile grid — each selected value has its own chip with an individual clear button (x); "Clear all" action removes all filters; filters reset automatically when switching dashboards
+- [x] FR-74: Active drill-down values show visual feedback — accent color on matching stat-card labels and bold + accent on matching table cells
+- [x] FR-75: Dashboard tile grid supports 6x6 layout (6 columns, width and height 1-6); favourite queries section moved below dashboard tiles with headline, description, and query description display
+- [x] FR-76: Dashboard filter dropdowns support multi-select comparison — users can select multiple values within a single dimension (e.g., SUP-A + SUP-B) to compare suppliers side-by-side across all dashboard tiles; toggle behavior (add/remove) replaces single-select replace
+- [x] FR-77: Dashboard filter dimensions are cascading/dependent — `discoverFilterDimensions()` uses filtered results for dimension value discovery so selecting a category narrows other dimension dropdowns to only values present in the filtered dataset; active filter columns are retained even when cascading reduces them to a single unique value
+
 ## 6. Data Model Impact
 
 ### New Types
 
 | Type | Fields | Storage |
 |------|--------|---------|
-| `TileDisplayMode` | `"table" \| "stat-card" \| "line-chart" \| "bar-chart" \| "area-chart"` | Runtime |
+| `TileDisplayMode` | `"table" \| "stat-card" \| "line-chart" \| "bar-chart" \| "area-chart" \| "pie-chart"` | Runtime |
 | `AnalyticsSourceType` | `"csv" \| "base"` | Runtime |
 | `DashboardTile` | id, queryId, title?, displayMode, row, col, width, height, conditionalRules?, showSparkline? | `"analytics"` key |
 | `Dashboard` | id, name, description?, isFavorite?, tiles[], createdAt, updatedAt | `"analytics"` key |
@@ -297,6 +310,20 @@ Primary interaction path:
 | `AnalyticsState` | Add `templates?: DashboardTemplate[]` |
 | `DashboardTile` | Add `chartValueColumn?: string` |
 | `HubSummary` | Add `dashboardStats?: DashboardStatItem[]` |
+
+### Modified Types (v10)
+
+| Type | Change |
+|------|--------|
+| `TileDisplayMode` | Add `"pie-chart"` to union |
+| `AnalyticsHubState` | Add `dashboardFilters: DashboardFilter[]` (runtime-only, not persisted) |
+
+### New Types (v10)
+
+| Type | Fields | Storage |
+|------|--------|---------|
+| `DashboardFilter` | `{ column: string; values: string[] }` | Runtime (multi-select, OR within column) |
+| `FilterDimension` | `{ column: string; values: string[] }` | Runtime (discovered from tile results) |
 
 ### Removed from DataExchangeState
 
@@ -492,6 +519,19 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 - [x] Saved queries section above sources in QueriesTab; sources collapsible
 - [x] Flow 33 integration test passes (trend intelligence workflow)
 
+### v10 Acceptance Criteria (Cycle 36)
+
+- [x] TileSettingsPanel extracted; DashboardTileRenderer under 600 LOC
+- [x] Pie chart renders SVG segments with legend, "Other" grouping for <3% and >12 segments
+- [x] Multi-select dimension filter dropdowns with toggle selection and "N selected" label
+- [x] Cascading dimension discovery — filter dropdowns narrow based on active filters
+- [x] `runSavedQueryWithFilters()` applies multi-value OR within column, AND across columns
+- [x] Click-to-toggle drill-down on string values (table cells + stat-card labels)
+- [x] Per-value breadcrumb chips with individual × clear buttons
+- [x] Visual feedback on active drill-down values (accent color)
+- [x] 6x6 tile grid layout (width/height 1-6)
+- [x] Flow 36 integration test passes (31 tests)
+
 ## 13. Definition of Done
 
 - `VIEW_TYPE_ANALYTICS_HUB` constant added to `src/domain/hub/types.ts`
@@ -541,6 +581,12 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 | [[PBI-ANA-037 Conditional Formatting Rule Builder UI]] | Collapsible tile settings panel + visual rule config (completes C32 DEV-2) | Delivered | High | ANA-032 |
 | [[PBI-ANA-038 Analytics Hub Homepage Polish]] | Pinned dashboards, queries above sources, collapsible sources | Delivered | High | ANA-016 |
 | [[PBI-ANA-039 Trend Intelligence Flow Test]] | End-to-end trend + formatting + homepage integration test | Delivered | High | ANA-035–038 |
+| [[PBI-ANA-054 TileRenderer Extraction]] | Extract settings panel into TileSettingsPanel.ts (~296 LOC) | Delivered | Critical | — |
+| [[PBI-ANA-055 Pie Chart Visualization]] | SVG pie chart as 6th TileDisplayMode | Delivered | High | ANA-054 |
+| [[PBI-ANA-056 Dashboard Filter UI]] | Multi-select dimension filter dropdowns with cascading discovery | Delivered | Critical | — |
+| [[PBI-ANA-057 Filter Propagation to Tiles]] | Multi-value filter execution via `runSavedQueryWithFilters()` | Delivered | Critical | ANA-056 |
+| [[PBI-ANA-058 Tile Drill-Down]] | Click-to-toggle filter on string values + per-value breadcrumbs | Delivered | Critical | ANA-057 |
+| [[PBI-ANA-059 Drill-Down Flow Test]] | End-to-end drill-down + filter + multi-select flow test | Delivered | High | ANA-054–058 |
 
 > **Analytics Hub v1 delivered (2026-02-23):** 5 PBIs in Cycle 28. Hub shell, dashboards, .base sources, independent persistence. 4,338 tests (178 suites).
 > **Analytics Hub v2 delivered (2026-02-23):** 5 PBIs in Cycle 29. Favorites, default dashboard, dashboard-first overview, per-tile refresh, Supplier Manager persona. 4,358 tests (179 suites).
@@ -548,6 +594,7 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 > **Analytics Hub v4 delivered (2026-02-24):** 5 PBIs in Cycle 31. Computed columns (formula engine), Quick Insights (auto-suggest), data freshness tracking, import-to-analytics bridge. 4,403 tests (181 suites).
 > **Analytics Hub v5 delivered (2026-02-24):** 5 PBIs in Cycle 32. QueriesTab extraction (TD), SVG chart tiles (line + bar), conditional formatting engine, sparklines. 4,461 tests (184 suites).
 > **Analytics Hub v6 delivered (2026-02-24):** 5 PBIs in Cycle 33. Function call parser, trend window functions (CHANGE, PCT_CHANGE, ROLLING_AVG), scalar expression functions (ROUND, ABS, IF), conditional formatting rule builder UI, homepage pinning, query list UX. 4,533 tests (188 suites).
+> **Analytics Hub v10 delivered (2026-02-25):** 6 PBIs in Cycle 36. TileRenderer extraction (794→540 LOC), pie chart (6th display mode), multi-select dashboard filters with cascading dimension discovery, filter propagation with OR/AND logic, click-to-toggle drill-down, per-value breadcrumb chips, 6x6 tile grid. 4,646 tests (191 suites).
 
 ## Related
 
@@ -570,3 +617,5 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 - Supplier PRD: [[Feature - Supplier Management]] (strategic direction for analytics visualization)
 - Cycle: [[Cycle 33 - Trend Intelligence]] (trend calculations, expression functions, formatting UI, homepage polish — delivered)
 - PBIs (v6): [[PBI-ANA-035 Trend Calculation Engine]], [[PBI-ANA-036 Expression Functions]], [[PBI-ANA-037 Conditional Formatting Rule Builder UI]], [[PBI-ANA-038 Analytics Hub Homepage Polish]], [[PBI-ANA-039 Trend Intelligence Flow Test]]
+- Cycle: [[Cycle 36 - Dashboard Drill-Down and Filtering]] (tile extraction, pie chart, multi-select filters, cascading dimensions, drill-down — delivered)
+- PBIs (v10): [[PBI-ANA-054 TileRenderer Extraction]], [[PBI-ANA-055 Pie Chart Visualization]], [[PBI-ANA-056 Dashboard Filter UI]], [[PBI-ANA-057 Filter Propagation to Tiles]], [[PBI-ANA-058 Tile Drill-Down]], [[PBI-ANA-059 Drill-Down Flow Test]]

@@ -9,8 +9,9 @@ import { formatRelativeTime, getFreshnessColor, getFreshnessLevel } from "../../
 import { evaluateConditionalRules } from "../../domain/analytics/conditionalFormatting";
 import { rowsToCsv, downloadCsvFile } from "../../utils/csvUtils";
 import { ChartRenderer } from "./ChartRenderer";
+import { TileSettingsPanel, getNumericColumns } from "./TileSettingsPanel";
 
-const DISPLAY_MODE_CYCLE: TileDisplayMode[] = ["table", "stat-card", "line-chart", "bar-chart", "area-chart"];
+const DISPLAY_MODE_CYCLE: TileDisplayMode[] = ["table", "stat-card", "line-chart", "bar-chart", "area-chart", "pie-chart"];
 
 const MAX_STAT_CARD_GROUPS = 20;
 
@@ -37,9 +38,9 @@ export interface TileRenderContext {
 	queries?: SavedAnalyticsQuery[];
 	/** Called when the user changes which saved query this tile references. */
 	onQueryChange?: (tileId: string, newQueryId: string) => void;
-	/** Called when the user changes tile width (1–3 columns). */
+	/** Called when the user changes tile width (1–6 columns). */
 	onWidthChange?: (tileId: string, width: number) => void;
-	/** Called when the user changes tile height (1–5 rows). */
+	/** Called when the user changes tile height (1–6 rows). */
 	onHeightChange?: (tileId: string, height: number) => void;
 	/** Called when the user toggles sparkline visibility on stat-card tiles. */
 	onSparklineToggle?: (tileId: string, show: boolean) => void;
@@ -49,6 +50,10 @@ export interface TileRenderContext {
 	onAutoHeightToggle?: (tileId: string, auto: boolean) => void;
 	/** Called when the user clicks "View Query" — navigates to the Queries tab. */
 	onViewQuery?: (queryId: string) => void;
+	/** Called when the user clicks a string value to drill down (toggles dashboard filter). */
+	onDrillDown?: (column: string, value: string) => void;
+	/** Active dashboard filters — used for visual feedback on matching cells. */
+	activeFilters?: Array<{ column: string; values: string[] }>;
 }
 
 export class DashboardTileRenderer {
@@ -73,6 +78,8 @@ export class DashboardTileRenderer {
 		header.style.padding = "0.5rem 0.75rem";
 		header.style.borderBottom = "1px solid var(--background-modifier-border)";
 		header.style.background = "var(--background-secondary)";
+		header.style.flexWrap = "wrap";
+		header.style.gap = "0.25rem";
 
 		// Editable title
 		if (ctx.onTitleChange) {
@@ -107,7 +114,8 @@ export class DashboardTileRenderer {
 		actions.style.display = "flex";
 		actions.style.alignItems = "center";
 		actions.style.gap = "0.25rem";
-		actions.style.flexShrink = "0";
+		actions.style.flexWrap = "wrap";
+		actions.style.justifyContent = "flex-end";
 
 		// Row count badge
 		if (ctx.result && ctx.result.rows.length > 0) {
@@ -164,7 +172,7 @@ export class DashboardTileRenderer {
 		if (ctx.onDisplayModeToggle) {
 			const modeSelect = actions.createEl("select", { cls: "ft-text-xs" });
 			modeSelect.style.cssText = "padding:1px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);cursor:pointer;font-size:var(--font-ui-smaller)";
-			const modeLabels: Record<TileDisplayMode, string> = { "table": "Table", "stat-card": "Stat Card", "line-chart": "Line Chart", "bar-chart": "Bar Chart", "area-chart": "Area Chart" };
+			const modeLabels: Record<TileDisplayMode, string> = { "table": "Table", "stat-card": "Stat Card", "line-chart": "Line Chart", "bar-chart": "Bar Chart", "area-chart": "Area Chart", "pie-chart": "Pie Chart" };
 			for (const mode of DISPLAY_MODE_CYCLE) {
 				const opt = modeSelect.createEl("option");
 				opt.value = mode;
@@ -262,11 +270,11 @@ export class DashboardTileRenderer {
 			settingsPanel.style.overflowY = "auto";
 			settingsPanel.style.minHeight = "0";
 
-			this.renderTileSettings(settingsPanel, ctx);
+			new TileSettingsPanel(settingsPanel, ctx).render();
 		}
 
 		// ── Body ────────────────────────────────────────
-		const isChart = ctx.tile.displayMode === "line-chart" || ctx.tile.displayMode === "bar-chart" || ctx.tile.displayMode === "area-chart";
+		const isChart = ctx.tile.displayMode === "line-chart" || ctx.tile.displayMode === "bar-chart" || ctx.tile.displayMode === "area-chart" || ctx.tile.displayMode === "pie-chart";
 		const body = tileEl.createDiv({ cls: "ft-dashboard-tile-body" });
 		if (ctx.tile.autoHeight) {
 			body.style.overflow = "visible";
@@ -294,11 +302,13 @@ export class DashboardTileRenderer {
 			} else if (!limitedResult) {
 				this.renderLoading(body);
 			} else if (ctx.tile.displayMode === "stat-card") {
-				this.renderStatCard(body, limitedResult, ctx.tile.conditionalRules, ctx.tile.showSparkline !== false);
+				this.renderStatCard(body, limitedResult, ctx);
+			} else if (ctx.tile.displayMode === "pie-chart") {
+				ChartRenderer.renderPieChart(body, limitedResult, ctx.tile.chartValueColumn);
 			} else if (isChart) {
 				this.renderChartWithSelector(body, { ...ctx, result: limitedResult });
 			} else {
-				this.renderTable(body, limitedResult, ctx.tile.conditionalRules);
+				this.renderTable(body, limitedResult, ctx);
 			}
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
@@ -325,7 +335,7 @@ export class DashboardTileRenderer {
 
 	private renderChartWithSelector(container: HTMLElement, ctx: TileRenderContext): void {
 		const result = ctx.result!;
-		const numericCols = this.getNumericColumns(result);
+		const numericCols = getNumericColumns(result);
 		const selectedCol = ctx.tile.chartValueColumn;
 		const effectiveCol = selectedCol && numericCols.includes(selectedCol) ? selectedCol : numericCols[0] ?? undefined;
 
@@ -367,18 +377,18 @@ export class DashboardTileRenderer {
 		}
 	}
 
-	private renderStatCard(container: HTMLElement, result: AnalyticsResult, rules?: ConditionalRule[], showSparkline = true): void {
+	private renderStatCard(container: HTMLElement, result: AnalyticsResult, ctx: TileRenderContext): void {
+		const rules = ctx.tile.conditionalRules;
+		const showSparkline = ctx.tile.showSparkline !== false;
+
 		if (result.rows.length === 0) {
 			container.createDiv({ text: "No data", cls: "ft-text-muted ft-text-sm ft-text-center" });
 			return;
 		}
 
-		// Wrapper: auto vertical margins center content when tile has space,
-		// but content stays at top and scrolls normally when it overflows.
 		const wrapper = container.createDiv();
 		wrapper.style.margin = "auto 0";
 
-		// Identify dimension columns (non-numeric in first row) and measure columns (numeric)
 		const measureCols = result.columns.filter((col) => typeof result.rows[0][col] === "number");
 		const dimCols = result.columns.filter((col) => typeof result.rows[0][col] !== "number");
 
@@ -387,7 +397,7 @@ export class DashboardTileRenderer {
 		for (let i = 0; i < rowsToShow; i++) {
 			const row = result.rows[i];
 
-			// Dimension label (group header)
+			// Dimension label (group header) — clickable for drill-down
 			if (dimCols.length > 0) {
 				const label = dimCols.map((col) => String(row[col] ?? "")).join(" · ");
 				const labelEl = wrapper.createDiv({ cls: "ft-text-sm" });
@@ -395,6 +405,26 @@ export class DashboardTileRenderer {
 				labelEl.style.marginTop = i > 0 ? "0.4rem" : "0";
 				labelEl.style.marginBottom = "0.15rem";
 				labelEl.textContent = label;
+
+				// Drill-down: click dimension label to filter
+				if (ctx.onDrillDown && dimCols.length === 1) {
+					const col = dimCols[0];
+					const val = String(row[col] ?? "");
+					labelEl.style.cursor = "pointer";
+					labelEl.style.textDecoration = "underline";
+					labelEl.style.textDecorationStyle = "dotted";
+					labelEl.style.textUnderlineOffset = "3px";
+
+					// Highlight if this value matches an active filter
+					const isActive = ctx.activeFilters?.some((f) => f.column === col && f.values.includes(val));
+					if (isActive) {
+						labelEl.style.color = "var(--text-accent)";
+					}
+
+					labelEl.addEventListener("click", () => {
+						ctx.onDrillDown!(col, val);
+					});
+				}
 			}
 
 			// Stat cards for this group
@@ -445,286 +475,16 @@ export class DashboardTileRenderer {
 		}
 	}
 
-	private renderTileSettings(container: HTMLElement, ctx: TileRenderContext): void {
-		// ── Query selector ───────────────────────────────
-		if (ctx.queries && ctx.queries.length > 0 && ctx.onQueryChange) {
-			const row = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			row.style.marginBottom = "0.25rem";
-			row.createSpan({ text: "Query", cls: "ft-text-sm" }).style.fontWeight = "600";
+	private renderTable(container: HTMLElement, result: AnalyticsResult, ctx: TileRenderContext): void {
+		const rules = ctx.tile.conditionalRules;
 
-			const querySelect = row.createEl("select", { cls: "ft-text-xs" });
-			querySelect.style.cssText = "flex:1;padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary)";
-			for (const q of ctx.queries) {
-				const opt = querySelect.createEl("option");
-				opt.value = q.id;
-				opt.textContent = q.name;
-				if (q.id === ctx.tile.queryId) opt.selected = true;
-			}
-			querySelect.addEventListener("change", () => {
-				ctx.onQueryChange!(ctx.tile.id, querySelect.value);
-			});
-
-			// Show description of selected query
-			const selectedQuery = ctx.queries.find((q) => q.id === ctx.tile.queryId);
-			if (selectedQuery?.description) {
-				const descEl = container.createDiv({ cls: "ft-text-muted ft-text-xs" });
-				descEl.style.marginBottom = "0.5rem";
-				descEl.textContent = selectedQuery.description;
-			} else {
-				container.createDiv().style.marginBottom = "0.25rem";
-			}
-		}
-
-		// ── Width toggle ─────────────────────────────────
-		if (ctx.onWidthChange) {
-			const row = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			row.style.marginBottom = "0.5rem";
-			row.createSpan({ text: "Width", cls: "ft-text-sm" }).style.fontWeight = "600";
-
-			for (const w of [1, 2, 3, 4, 5]) {
-				const btn = row.createEl("button", { cls: "ft-text-xs" });
-				btn.textContent = `${w} col`;
-				btn.style.cssText = "padding:2px 8px;border-radius:4px;border:1px solid var(--background-modifier-border);cursor:pointer";
-				if (ctx.tile.width === w) {
-					btn.style.background = "var(--interactive-accent)";
-					btn.style.color = "var(--text-on-accent)";
-				} else {
-					btn.style.background = "var(--background-primary)";
-				}
-				btn.addEventListener("click", () => {
-					ctx.onWidthChange!(ctx.tile.id, w);
-				});
-			}
-		}
-
-		// ── Height toggle ────────────────────────────────
-		if (ctx.onHeightChange) {
-			const row = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			row.style.marginBottom = "0.5rem";
-			row.createSpan({ text: "Height", cls: "ft-text-sm" }).style.fontWeight = "600";
-
-			for (const h of [1, 2, 3, 4, 5]) {
-				const btn = row.createEl("button", { cls: "ft-text-xs" });
-				btn.textContent = `${h}`;
-				btn.style.cssText = "padding:2px 8px;border-radius:4px;border:1px solid var(--background-modifier-border);cursor:pointer;min-width:28px";
-				if (ctx.tile.height === h) {
-					btn.style.background = "var(--interactive-accent)";
-					btn.style.color = "var(--text-on-accent)";
-				} else {
-					btn.style.background = "var(--background-primary)";
-				}
-				btn.addEventListener("click", () => {
-					ctx.onHeightChange!(ctx.tile.id, h);
-				});
-			}
-		}
-
-		// ── Auto-height toggle (max-width only) ─────────
-		if (ctx.tile.width >= 3 && ctx.onAutoHeightToggle) {
-			const row = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			row.style.marginBottom = "0.5rem";
-
-			const checkbox = row.createEl("input", { type: "checkbox" });
-			checkbox.checked = ctx.tile.autoHeight === true;
-			checkbox.addEventListener("change", () => {
-				ctx.onAutoHeightToggle!(ctx.tile.id, checkbox.checked);
-			});
-
-			row.createSpan({ text: "Auto height (fit content)", cls: "ft-text-sm" });
-		}
-
-		// ── Sparkline toggle (stat-card only) ────────────
-		if (ctx.tile.displayMode === "stat-card" && ctx.onSparklineToggle) {
-			const row = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			row.style.marginBottom = "0.5rem";
-
-			const checkbox = row.createEl("input", { type: "checkbox" });
-			checkbox.checked = ctx.tile.showSparkline !== false;
-			checkbox.addEventListener("change", () => {
-				ctx.onSparklineToggle!(ctx.tile.id, checkbox.checked);
-			});
-
-			row.createSpan({ text: "Show sparklines", cls: "ft-text-sm" });
-		}
-
-		// ── Row limit ────────────────────────────────────
-		if (ctx.onRowLimitChange) {
-			const row = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			row.style.marginBottom = "0.5rem";
-			row.createSpan({ text: "Row limit", cls: "ft-text-sm" }).style.fontWeight = "600";
-
-			const limitInput = row.createEl("input", { type: "number", cls: "ft-text-xs" });
-			limitInput.style.cssText = "width:60px;padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary)";
-			limitInput.placeholder = "All";
-			limitInput.min = "1";
-			if (ctx.tile.rowLimit) limitInput.value = String(ctx.tile.rowLimit);
-			limitInput.addEventListener("change", () => {
-				const val = parseInt(limitInput.value, 10);
-				ctx.onRowLimitChange!(ctx.tile.id, val > 0 ? val : undefined);
-			});
-		}
-
-		// ── Conditional formatting rules ─────────────────
-		if (ctx.onRulesChange) {
-			this.renderRuleBuilder(container, ctx);
-		}
-	}
-
-	private renderRuleBuilder(container: HTMLElement, ctx: TileRenderContext): void {
-		const sectionHeader = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		sectionHeader.createSpan({ text: "Formatting Rules", cls: "ft-text-sm" });
-		sectionHeader.style.fontWeight = "600";
-		sectionHeader.style.marginBottom = "0.35rem";
-
-		const addRuleBtn = sectionHeader.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-		addRuleBtn.style.marginLeft = "auto";
-		const addIcon = addRuleBtn.createSpan();
-		setIcon(addIcon, "plus");
-		addRuleBtn.appendText(" Add Rule");
-		addRuleBtn.addEventListener("click", () => {
-			const rules = [...(ctx.tile.conditionalRules ?? [])];
-			// Pick first numeric column from result if available
-			const numCols = this.getNumericColumns(ctx.result);
-			rules.push({
-				column: numCols[0] ?? "",
-				operator: ">",
-				threshold: 0,
-				color: "positive",
-			});
-			ctx.onRulesChange!(ctx.tile.id, rules);
-		});
-
-		const rules = ctx.tile.conditionalRules ?? [];
-		if (rules.length === 0) {
-			container.createDiv({
-				text: "No rules configured. Add a rule to color-code cell values.",
-				cls: "ft-text-muted ft-text-xs",
-			});
-			return;
-		}
-
-		const numericCols = this.getNumericColumns(ctx.result);
-		const operators: Array<{ value: string; label: string }> = [
-			{ value: ">", label: ">" },
-			{ value: "<", label: "<" },
-			{ value: ">=", label: ">=" },
-			{ value: "<=", label: "<=" },
-			{ value: "=", label: "=" },
-			{ value: "!=", label: "!=" },
-		];
-		const presets: Array<{ value: string; label: string; cssColor: string }> = [
-			{ value: "positive", label: "Green", cssColor: "var(--text-success)" },
-			{ value: "negative", label: "Red", cssColor: "var(--text-error)" },
-			{ value: "warning", label: "Amber", cssColor: "var(--text-warning)" },
-		];
-
-		for (let i = 0; i < rules.length; i++) {
-			const rule = rules[i];
-			const row = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			row.style.padding = "0.25rem 0";
-			if (i < rules.length - 1) row.style.borderBottom = "1px solid var(--background-modifier-border)";
-
-			// Column dropdown
-			const colSelect = row.createEl("select", { cls: "ft-text-xs" });
-			colSelect.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary)";
-			for (const col of numericCols) {
-				const opt = colSelect.createEl("option");
-				opt.value = col;
-				opt.textContent = col;
-				if (col === rule.column) opt.selected = true;
-			}
-			colSelect.addEventListener("change", () => {
-				const updated = [...rules];
-				updated[i] = { ...updated[i], column: colSelect.value };
-				ctx.onRulesChange!(ctx.tile.id, updated);
-			});
-
-			// Operator dropdown
-			const opSelect = row.createEl("select", { cls: "ft-text-xs" });
-			opSelect.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);width:50px";
-			for (const op of operators) {
-				const opt = opSelect.createEl("option");
-				opt.value = op.value;
-				opt.textContent = op.label;
-				if (op.value === rule.operator) opt.selected = true;
-			}
-			opSelect.addEventListener("change", () => {
-				const updated = [...rules];
-				updated[i] = { ...updated[i], operator: opSelect.value as ConditionalRule["operator"] };
-				ctx.onRulesChange!(ctx.tile.id, updated);
-			});
-
-			// Threshold input
-			const thresholdInput = row.createEl("input", { type: "number", cls: "ft-text-xs" });
-			thresholdInput.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);width:60px";
-			thresholdInput.value = String(rule.threshold);
-			thresholdInput.addEventListener("change", () => {
-				const updated = [...rules];
-				updated[i] = { ...updated[i], threshold: parseFloat(thresholdInput.value) || 0 };
-				ctx.onRulesChange!(ctx.tile.id, updated);
-			});
-
-			// Color preset buttons
-			for (const preset of presets) {
-				const presetBtn = row.createSpan({ cls: "ft-nav-link" });
-				presetBtn.style.cssText = `width:16px;height:16px;border-radius:50%;background:${preset.cssColor};cursor:pointer;flex-shrink:0`;
-				if (rule.color === preset.value) {
-					presetBtn.style.outline = "2px solid var(--text-normal)";
-					presetBtn.style.outlineOffset = "1px";
-				}
-				presetBtn.setAttribute("aria-label", preset.label);
-				presetBtn.addEventListener("click", () => {
-					const updated = [...rules];
-					updated[i] = { ...updated[i], color: preset.value };
-					ctx.onRulesChange!(ctx.tile.id, updated);
-				});
-			}
-
-			// Custom color input
-			const colorInput = row.createEl("input", { type: "text", cls: "ft-text-xs" });
-			colorInput.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);width:70px";
-			colorInput.placeholder = "#hex";
-			if (!["positive", "negative", "warning"].includes(rule.color)) {
-				colorInput.value = rule.color;
-			}
-			colorInput.addEventListener("change", () => {
-				const val = colorInput.value.trim();
-				if (val) {
-					const updated = [...rules];
-					updated[i] = { ...updated[i], color: val };
-					ctx.onRulesChange!(ctx.tile.id, updated);
-				}
-			});
-
-			// Remove button
-			const removeBtn = row.createSpan({ cls: "ft-nav-link ft-text-muted" });
-			removeBtn.style.cursor = "pointer";
-			const removeIcon = removeBtn.createSpan();
-			setIcon(removeIcon, "x");
-			removeIcon.style.width = "12px";
-			removeIcon.style.height = "12px";
-			removeBtn.addEventListener("click", () => {
-				const updated = [...rules];
-				updated.splice(i, 1);
-				ctx.onRulesChange!(ctx.tile.id, updated);
-			});
-		}
-	}
-
-	/** Get numeric column names from a result (for rule column dropdown). */
-	private getNumericColumns(result: AnalyticsResult | null): string[] {
-		if (!result || result.rows.length === 0) return [];
-		return result.columns.filter((col) => typeof result.rows[0][col] === "number");
-	}
-
-	private renderTable(container: HTMLElement, result: AnalyticsResult, rules?: ConditionalRule[]): void {
 		if (result.rows.length === 0) {
 			container.createDiv({ text: "No data", cls: "ft-text-muted ft-text-sm ft-text-center" });
 			return;
 		}
 
 		// ── Compact aggregate stat cards ─────────────────────
-		const numericCols = this.getNumericColumns(result);
+		const numericCols = getNumericColumns(result);
 		if (numericCols.length > 0 && result.rows.length > 1) {
 			const grid = container.createDiv();
 			grid.style.display = "grid";
@@ -748,7 +508,6 @@ export class DashboardTileRenderer {
 				valEl.style.fontSize = "1.1rem";
 				valEl.textContent = sum.toLocaleString();
 
-				// Apply conditional formatting color to aggregate value
 				if (rules && rules.length > 0) {
 					const colRules = rules.filter((r) => r.column === col);
 					if (colRules.length > 0) {
@@ -777,16 +536,35 @@ export class DashboardTileRenderer {
 				const td = tr.createEl("td", { cls: "ft-text-sm" });
 				td.textContent = typeof val === "number" ? val.toLocaleString() : String(val ?? "");
 
-				// Apply background tint for matching rules
-				if (typeof val === "number" && rules && rules.length > 0) {
-					const colRules = rules.filter((r) => r.column === col);
-					if (colRules.length > 0) {
-						const color = evaluateConditionalRules(val, colRules);
-						if (color) {
-							td.style.backgroundColor = color;
-							td.style.opacity = "0.85";
+				if (typeof val === "number") {
+					// Apply background tint for matching conditional formatting rules
+					if (rules && rules.length > 0) {
+						const colRules = rules.filter((r) => r.column === col);
+						if (colRules.length > 0) {
+							const color = evaluateConditionalRules(val, colRules);
+							if (color) {
+								td.style.backgroundColor = color;
+								td.style.opacity = "0.85";
+							}
 						}
 					}
+				} else if (typeof val === "string" && ctx.onDrillDown) {
+					// String cells are clickable for drill-down
+					td.style.cursor = "pointer";
+					td.style.textDecoration = "underline";
+					td.style.textDecorationStyle = "dotted";
+					td.style.textUnderlineOffset = "3px";
+
+					// Highlight if this value matches an active filter
+					const isActive = ctx.activeFilters?.some((f) => f.column === col && f.values.includes(val));
+					if (isActive) {
+						td.style.color = "var(--text-accent)";
+						td.style.fontWeight = "600";
+					}
+
+					td.addEventListener("click", () => {
+						ctx.onDrillDown!(col, val);
+					});
 				}
 			}
 		}

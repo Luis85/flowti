@@ -283,7 +283,7 @@ export interface ParsedDate {
 // ── Dashboard types ─────────────────────────────────────
 
 /** Display mode for a dashboard tile. */
-export type TileDisplayMode = "table" | "stat-card" | "line-chart" | "bar-chart" | "area-chart";
+export type TileDisplayMode = "table" | "stat-card" | "line-chart" | "bar-chart" | "area-chart" | "pie-chart";
 
 /** Source type for analytics queries. */
 export type AnalyticsSourceType = "csv" | "base";

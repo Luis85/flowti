@@ -29,6 +29,15 @@ export interface AnalyticsBaseEntry {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Dashboard filter (runtime-only, not persisted)
+// ─────────────────────────────────────────────────────────────
+
+export interface DashboardFilter {
+	column: string;
+	values: string[];
+}
+
+// ─────────────────────────────────────────────────────────────
 // Hub state — owned by the orchestrator
 // ─────────────────────────────────────────────────────────────
 
@@ -43,6 +52,8 @@ export interface AnalyticsHubState {
 	selectedDashboardId: string | null;
 	/** Dashboard ID to display on the homepage (null = use default dashboard). */
 	homepageDashboardId: string | null;
+	/** Active dashboard filters (runtime-only, reset on dashboard switch). */
+	dashboardFilters: DashboardFilter[];
 }
 
 // ─────────────────────────────────────────────────────────────

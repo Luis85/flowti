@@ -28,6 +28,7 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 	private selectedQueryId: string | null = null;
 	private selectedDashboardId: string | null = null;
 	private homepageDashboardId: string | null = null;
+	private dashboardFilters: import("./analytics/types").DashboardFilter[] = [];
 
 	// ── Tab components ───────────────────────────────────────
 	private tileResultCache = new TileResultCache();
@@ -237,6 +238,7 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 			selectedQueryId: this.selectedQueryId,
 			selectedDashboardId: this.selectedDashboardId,
 			homepageDashboardId: this.homepageDashboardId,
+			dashboardFilters: this.dashboardFilters,
 		};
 	}
 
@@ -244,8 +246,21 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 		if (partial.currentPage !== undefined) this.activePage = partial.currentPage as AnalyticsHubPage | "dashboard";
 		if (partial.filterText !== undefined) this.filterText = partial.filterText;
 		if (partial.selectedQueryId !== undefined) this.selectedQueryId = partial.selectedQueryId;
-		if (partial.selectedDashboardId !== undefined) this.selectedDashboardId = partial.selectedDashboardId;
-		if (partial.homepageDashboardId !== undefined) this.homepageDashboardId = partial.homepageDashboardId;
+		if (partial.selectedDashboardId !== undefined) {
+			// Reset filters when switching dashboards
+			if (partial.selectedDashboardId !== this.selectedDashboardId) {
+				this.dashboardFilters = [];
+			}
+			this.selectedDashboardId = partial.selectedDashboardId;
+		}
+		if (partial.homepageDashboardId !== undefined) {
+			// Reset filters when switching homepage dashboard
+			if (partial.homepageDashboardId !== this.homepageDashboardId) {
+				this.dashboardFilters = [];
+			}
+			this.homepageDashboardId = partial.homepageDashboardId;
+		}
+		if (partial.dashboardFilters !== undefined) this.dashboardFilters = partial.dashboardFilters;
 	}
 
 	// ── Data refresh ─────────────────────────────────────────

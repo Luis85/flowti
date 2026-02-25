@@ -192,6 +192,38 @@ export class AnalyticsService {
 		return result;
 	}
 
+	/**
+	 * Run a saved query with additional dashboard-level filters applied as post-filters.
+	 *
+	 * Dashboard filters are applied AFTER aggregation/time-bucket transformation
+	 * (not at the raw row level) because filter values come from the result data.
+	 * Filters for columns not present in the result are silently skipped.
+	 */
+	async runSavedQueryWithFilters(
+		queryId: string,
+		extraFilters: Array<{ column: string; values: string[] }>,
+	): Promise<AnalyticsResult> {
+		// Run the query normally (with its own filters)
+		const result = await this.runSavedQuery(queryId);
+
+		// Post-filter the result rows by dashboard filters
+		if (extraFilters.length === 0) return result;
+
+		const filteredRows = result.rows.filter((row) =>
+			extraFilters.every((f) => {
+				const val = row[f.column];
+				if (val === undefined) return true; // Column not in result → skip filter
+				return f.values.includes(String(val));
+			}),
+		);
+
+		return {
+			...result,
+			rows: filteredRows,
+			groupCount: filteredRows.length,
+		};
+	}
+
 	// ── Saved query CRUD ─────────────────────────────────
 
 	/** Save a new analytics query configuration. */

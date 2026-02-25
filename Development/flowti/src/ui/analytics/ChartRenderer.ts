@@ -617,4 +617,147 @@ export class ChartRenderer {
 		if (Math.abs(v) >= 1_000) return (v / 1_000).toFixed(1) + "K";
 		return Number.isInteger(v) ? String(v) : v.toFixed(1);
 	}
+
+	// ── Pie Chart ────────────────────────────────────────────
+
+	/**
+	 * Render a pie chart from analytics result.
+	 * Segments sized proportionally by the value column (first numeric if not specified).
+	 * Segments below 3% grouped into "Other". Maximum 12 segments.
+	 */
+	static renderPieChart(container: HTMLElement, result: AnalyticsResult, valueColumn?: string): void {
+		const data = extractPieData(result, valueColumn);
+		if (data.length === 0) {
+			container.createDiv({ text: "No data", cls: "ft-text-muted ft-text-sm ft-text-center" });
+			return;
+		}
+
+		const SIZE = 200;
+		const CX = SIZE / 2;
+		const CY = SIZE / 2;
+		const RADIUS = 80;
+
+		const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+		svg.setAttribute("viewBox", `0 0 ${SIZE} ${SIZE}`);
+		svg.setAttribute("width", "100%");
+		svg.style.maxWidth = `${SIZE}px`;
+		svg.style.display = "block";
+		svg.style.margin = "0 auto";
+
+		const total = data.reduce((s, d) => s + d.value, 0);
+		if (total <= 0) {
+			container.createDiv({ text: "No positive values", cls: "ft-text-muted ft-text-sm ft-text-center" });
+			return;
+		}
+
+		let cumAngle = -Math.PI / 2; // Start at top
+
+		for (let i = 0; i < data.length; i++) {
+			const slice = data[i];
+			const sliceAngle = (slice.value / total) * 2 * Math.PI;
+			const color = SERIES_COLORS[i % SERIES_COLORS.length];
+
+			if (data.length === 1) {
+				// Full circle
+				const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+				circle.setAttribute("cx", String(CX));
+				circle.setAttribute("cy", String(CY));
+				circle.setAttribute("r", String(RADIUS));
+				circle.setAttribute("fill", color);
+				svg.appendChild(circle);
+			} else {
+				const x1 = CX + RADIUS * Math.cos(cumAngle);
+				const y1 = CY + RADIUS * Math.sin(cumAngle);
+				const x2 = CX + RADIUS * Math.cos(cumAngle + sliceAngle);
+				const y2 = CY + RADIUS * Math.sin(cumAngle + sliceAngle);
+				const largeArc = sliceAngle > Math.PI ? 1 : 0;
+
+				const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+				path.setAttribute("d", `M ${CX} ${CY} L ${x1.toFixed(2)} ${y1.toFixed(2)} A ${RADIUS} ${RADIUS} 0 ${largeArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z`);
+				path.setAttribute("fill", color);
+				path.setAttribute("stroke", "var(--background-primary)");
+				path.setAttribute("stroke-width", "1");
+				svg.appendChild(path);
+			}
+
+			cumAngle += sliceAngle;
+		}
+
+		container.appendChild(svg);
+
+		// Legend
+		const legend = container.createDiv({ cls: "ft-pie-legend" });
+		legend.style.display = "flex";
+		legend.style.flexWrap = "wrap";
+		legend.style.gap = "0.35rem 0.75rem";
+		legend.style.justifyContent = "center";
+		legend.style.marginTop = "0.5rem";
+
+		for (let i = 0; i < data.length; i++) {
+			const item = legend.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
+
+			const swatch = item.createSpan();
+			swatch.style.cssText = `width:10px;height:10px;border-radius:2px;background:${SERIES_COLORS[i % SERIES_COLORS.length]};flex-shrink:0`;
+
+			const pct = total > 0 ? ((data[i].value / total) * 100).toFixed(1) : "0.0";
+			item.createSpan({ text: `${data[i].label}: ${pct}%`, cls: "ft-text-xs" });
+		}
+	}
+}
+
+// ── Pie Data Extraction (pure, testable) ─────────────────
+
+const PIE_MIN_PERCENT = 3;
+const PIE_MAX_SEGMENTS = 12;
+
+export interface PieSegment {
+	label: string;
+	value: number;
+}
+
+/**
+ * Extract pie chart segments from an analytics result.
+ * Groups segments below 3% and beyond 12 segments into "Other".
+ */
+export function extractPieData(result: AnalyticsResult, valueColumn?: string): PieSegment[] {
+	if (result.rows.length === 0) return [];
+
+	const firstRow = result.rows[0];
+	const labelCol = result.columns.find((c) => typeof firstRow[c] !== "number");
+	const valueCol = valueColumn ?? result.columns.find((c) => typeof firstRow[c] === "number");
+	if (!valueCol) return [];
+
+	// Build raw segments (only positive values)
+	const raw: PieSegment[] = [];
+	for (const row of result.rows) {
+		const val = row[valueCol];
+		if (typeof val === "number" && val > 0) {
+			raw.push({ label: labelCol ? String(row[labelCol] ?? "") : valueCol, value: val });
+		}
+	}
+	if (raw.length === 0) return [];
+
+	// Sort descending by value
+	raw.sort((a, b) => b.value - a.value);
+
+	const total = raw.reduce((s, d) => s + d.value, 0);
+	const threshold = total * (PIE_MIN_PERCENT / 100);
+
+	// Split into significant and small segments
+	const significant: PieSegment[] = [];
+	let otherValue = 0;
+
+	for (const seg of raw) {
+		if (significant.length < PIE_MAX_SEGMENTS && seg.value >= threshold) {
+			significant.push(seg);
+		} else {
+			otherValue += seg.value;
+		}
+	}
+
+	if (otherValue > 0) {
+		significant.push({ label: "Other", value: otherValue });
+	}
+
+	return significant;
 }

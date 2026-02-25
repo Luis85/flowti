@@ -8,7 +8,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import "../../mocks/obsidian-stub";
-import { ChartRenderer } from "../../../src/ui/analytics/ChartRenderer";
+import { ChartRenderer, extractPieData } from "../../../src/ui/analytics/ChartRenderer";
 import type { AnalyticsResult } from "../../../src/domain/analytics/types";
 
 // ── Helpers ─────────────────────────────────────────────────
@@ -535,5 +535,138 @@ describe("ChartRenderer.renderSparkline", () => {
 		const svg = container.querySelector("svg") as SVGSVGElement;
 		expect(svg.style.width).toBe("80px");
 		expect(svg.style.height).toBe("24px");
+	});
+});
+
+// ── extractPieData ──────────────────────────────────────────
+
+describe("extractPieData", () => {
+	it("extracts segments sorted descending by value", () => {
+		const result = createResult(["category", "revenue"], [
+			{ category: "A", revenue: 100 },
+			{ category: "B", revenue: 300 },
+			{ category: "C", revenue: 200 },
+		]);
+		const data = extractPieData(result);
+		expect(data.map(d => d.label)).toEqual(["B", "C", "A"]);
+		expect(data.map(d => d.value)).toEqual([300, 200, 100]);
+	});
+
+	it("groups segments below 3% into Other", () => {
+		const rows = [
+			{ category: "Big", revenue: 970 },
+			{ category: "Tiny1", revenue: 15 },
+			{ category: "Tiny2", revenue: 15 },
+		];
+		const result = createResult(["category", "revenue"], rows);
+		const data = extractPieData(result);
+		expect(data).toHaveLength(2);
+		expect(data[0].label).toBe("Big");
+		expect(data[1].label).toBe("Other");
+		expect(data[1].value).toBe(30);
+	});
+
+	it("limits to 12 segments plus Other", () => {
+		const rows = Array.from({ length: 20 }, (_, i) => ({
+			category: `Cat-${i}`,
+			revenue: 100 + i * 10,
+		}));
+		const result = createResult(["category", "revenue"], rows);
+		const data = extractPieData(result);
+		expect(data.length).toBeLessThanOrEqual(13); // 12 + Other
+		const lastSegment = data[data.length - 1];
+		if (data.length === 13) {
+			expect(lastSegment.label).toBe("Other");
+		}
+	});
+
+	it("returns empty array for empty result", () => {
+		const result = createResult(["category", "revenue"], []);
+		expect(extractPieData(result)).toEqual([]);
+	});
+
+	it("returns single segment for single row", () => {
+		const result = createResult(["name", "value"], [
+			{ name: "Only", value: 42 },
+		]);
+		const data = extractPieData(result);
+		expect(data).toHaveLength(1);
+		expect(data[0]).toEqual({ label: "Only", value: 42 });
+	});
+
+	it("skips zero and negative values", () => {
+		const result = createResult(["name", "value"], [
+			{ name: "Pos", value: 100 },
+			{ name: "Zero", value: 0 },
+			{ name: "Neg", value: -50 },
+		]);
+		const data = extractPieData(result);
+		expect(data).toHaveLength(1);
+		expect(data[0].label).toBe("Pos");
+	});
+
+	it("uses specified valueColumn", () => {
+		const result = createResult(["name", "cost", "qty"], [
+			{ name: "A", cost: 100, qty: 5 },
+			{ name: "B", cost: 200, qty: 10 },
+		]);
+		const data = extractPieData(result, "qty");
+		expect(data.map(d => d.value)).toEqual([10, 5]);
+	});
+
+	it("returns empty when no numeric columns", () => {
+		const result = createResult(["name", "status"], [
+			{ name: "A", status: "ok" },
+		]);
+		expect(extractPieData(result)).toEqual([]);
+	});
+});
+
+// ── renderPieChart ──────────────────────────────────────────
+
+describe("ChartRenderer.renderPieChart", () => {
+	it("renders SVG with pie segments", () => {
+		const container = createContainer();
+		const result = createResult(["cat", "val"], [
+			{ cat: "A", val: 60 },
+			{ cat: "B", val: 40 },
+		]);
+		ChartRenderer.renderPieChart(container, result);
+		const svg = container.querySelector("svg");
+		expect(svg).not.toBeNull();
+		// Two segments = two path elements
+		const paths = svg!.querySelectorAll("path");
+		expect(paths.length).toBe(2);
+	});
+
+	it("renders full circle for single segment", () => {
+		const container = createContainer();
+		const result = createResult(["cat", "val"], [
+			{ cat: "Only", val: 100 },
+		]);
+		ChartRenderer.renderPieChart(container, result);
+		const svg = container.querySelector("svg");
+		const circles = svg!.querySelectorAll("circle");
+		expect(circles.length).toBe(1);
+	});
+
+	it("renders legend with percentages", () => {
+		const container = createContainer();
+		const result = createResult(["cat", "val"], [
+			{ cat: "A", val: 75 },
+			{ cat: "B", val: 25 },
+		]);
+		ChartRenderer.renderPieChart(container, result);
+		const legend = container.querySelector(".ft-pie-legend");
+		expect(legend).not.toBeNull();
+		expect(legend!.textContent).toContain("75.0%");
+		expect(legend!.textContent).toContain("25.0%");
+	});
+
+	it("shows 'No data' for empty result", () => {
+		const container = createContainer();
+		const result = createResult(["cat", "val"], []);
+		ChartRenderer.renderPieChart(container, result);
+		expect(container.textContent).toContain("No data");
 	});
 });
