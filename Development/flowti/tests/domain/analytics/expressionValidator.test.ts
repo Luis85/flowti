@@ -162,6 +162,36 @@ describe("expressionValidator", () => {
 		});
 	});
 
+	// ── New functions (COALESCE, UPPER, LOWER, CONCAT) ───
+
+	describe("new function validation", () => {
+		it("accepts COALESCE with valid columns", () => {
+			const result = validateExpression("COALESCE({Revenue}, {Cost}, 0)", COLUMNS);
+			expect(result.valid).toBe(true);
+		});
+
+		it("accepts UPPER with one arg", () => {
+			const result = validateExpression("UPPER({Category})", COLUMNS);
+			expect(result.valid).toBe(true);
+		});
+
+		it("accepts LOWER with one arg", () => {
+			const result = validateExpression("LOWER({Category})", COLUMNS);
+			expect(result.valid).toBe(true);
+		});
+
+		it("accepts CONCAT with multiple args", () => {
+			const result = validateExpression('CONCAT({Category}, " - ", {Revenue})', COLUMNS);
+			expect(result.valid).toBe(true);
+		});
+
+		it("rejects CONCAT with too few args", () => {
+			const result = validateExpression("CONCAT({Revenue})", COLUMNS);
+			expect(result.valid).toBe(false);
+			expect(result.errors.some((e) => e.includes("CONCAT requires at least 2"))).toBe(true);
+		});
+	});
+
 	// ── Edge cases ─────────────────────────────────────────
 
 	describe("edge cases", () => {

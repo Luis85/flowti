@@ -944,4 +944,73 @@ describe("AnalyticsEngine", () => {
 			expect(result.rows[2].name).toBe("Eve");
 		});
 	});
+
+	// ── Column aliases ──────────────────────────────────
+
+	describe("column aliases", () => {
+		it("renames columns in result when alias is set", () => {
+			const result = engine.run({
+				sources: [items],
+				joins: [],
+				columnTypeHints: [
+					{ column: "item_name", type: "string", alias: "Product" },
+					{ column: "unit_cost", type: "number", alias: "Price" },
+				],
+				dimensions: [{ column: "item_name" }],
+				measures: [{ column: "unit_cost", function: "SUM", label: "total_cost" }],
+			});
+
+			expect(result.columns).toContain("Product");
+			expect(result.columns).not.toContain("item_name");
+		});
+
+		it("renames row keys when alias is set", () => {
+			const result = engine.run({
+				sources: [items],
+				joins: [],
+				columnTypeHints: [
+					{ column: "item_name", type: "string", alias: "Product" },
+					{ column: "unit_cost", type: "number" },
+				],
+				dimensions: [{ column: "item_name" }],
+				measures: [{ column: "unit_cost", function: "SUM", label: "total_cost" }],
+			});
+
+			expect(result.rows[0]).toHaveProperty("Product");
+			expect(result.rows[0]).not.toHaveProperty("item_name");
+		});
+
+		it("computed columns still use original names", () => {
+			const result = engine.run({
+				sources: [items],
+				joins: [],
+				columnTypeHints: [
+					{ column: "unit_cost", type: "number", alias: "Price" },
+				],
+				dimensions: [{ column: "item_name" }],
+				measures: [{ column: "unit_cost", function: "SUM", label: "total_cost" }],
+				computedColumns: [{ name: "doubled", expression: "{total_cost} * 2" }],
+			});
+
+			expect(result.columns).toContain("doubled");
+			// Computed column should calculate correctly (original names used in expression)
+			const widgetA = result.rows.find((r) => Object.values(r).includes("Widget A"));
+			expect(widgetA?.doubled).toBe(21); // 10.50 * 2
+		});
+
+		it("leaves columns without alias unchanged", () => {
+			const result = engine.run({
+				sources: [items],
+				joins: [],
+				columnTypeHints: [
+					{ column: "unit_cost", type: "number" }, // no alias
+				],
+				dimensions: [{ column: "item_name" }],
+				measures: [{ column: "unit_cost", function: "SUM", label: "total_cost" }],
+			});
+
+			expect(result.columns).toContain("item_name");
+			expect(result.columns).toContain("total_cost");
+		});
+	});
 });

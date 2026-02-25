@@ -407,7 +407,7 @@ export class AnalyticsService {
 		return existing;
 	}
 
-	/** Delete a saved query by ID. */
+	/** Delete a saved query by ID. Cascades: removes linked measurements and clears tile measurementIds. */
 	async deleteQuery(id: string): Promise<boolean> {
 		const queries = this.state.savedAnalyticsQueries ?? [];
 		const idx = queries.findIndex((q) => q.id === id);
@@ -416,6 +416,14 @@ export class AnalyticsService {
 		const removed = queries[idx];
 		queries.splice(idx, 1);
 		this.state.savedAnalyticsQueries = queries;
+
+		// Cascade: delete measurements linked to this query
+		const orphanMeasurements = (this.state.measurements ?? []).filter((m) => m.queryId === id);
+		for (const m of orphanMeasurements) {
+			await dashboardHandlers.clearMeasurementFromTiles(this.ctx(), m.id);
+		}
+		this.state.measurements = (this.state.measurements ?? []).filter((m) => m.queryId !== id);
+
 		await this.storage.save(this.state);
 
 		await this.eventBus?.emit("analytics.query.deleted", {
@@ -465,6 +473,11 @@ export class AnalyticsService {
 	async removeTile(dashboardId: string, tileId: string): Promise<boolean> { return dashboardHandlers.removeTile(this.ctx(), dashboardId, tileId); }
 	async updateTile(dashboardId: string, tileId: string, changes: Partial<Omit<DashboardTile, "id">>): Promise<DashboardTile | undefined> { return dashboardHandlers.updateTile(this.ctx(), dashboardId, tileId, changes); }
 	async reorderTile(dashboardId: string, tileId: string, direction: "up" | "down"): Promise<boolean> { return dashboardHandlers.reorderTile(this.ctx(), dashboardId, tileId, direction); }
+
+	// ── Filter presets (delegated to handlers) ──────────
+
+	async saveFilterPreset(dashboardId: string, name: string, filters: Array<{ column: string; values: string[] }>): Promise<{ id: string; name: string } | undefined> { return dashboardHandlers.saveFilterPreset(this.ctx(), dashboardId, name, filters); }
+	async deleteFilterPreset(dashboardId: string, presetId: string): Promise<boolean> { return dashboardHandlers.deleteFilterPreset(this.ctx(), dashboardId, presetId); }
 
 	// ── Dashboard templates (delegated to handlers) ──────
 

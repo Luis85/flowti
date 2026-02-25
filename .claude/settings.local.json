@@ -14,7 +14,14 @@
       "Bash(ls:*)",
       "Bash(git mv:*)",
       "Bash(npm run test:flows:*)",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(wc -l /c/Projects/flowti/**/*.test.ts)",
+      "Bash(wc -l /c/Projects/flowti/**/*.md)",
+      "Bash(wc -l /c/Projects/flowti/**/*.base)",
+      "Bash(wc -l /c/Projects/flowti/**/*.canvas)",
+      "Bash(wc -l /c/Projects/flowti/**/*.csv)",
+      "Bash(wc -l /c/Projects/flowti/**/*.ts)",
+      "Bash(wc -l /c/Projects/flowti/**/*.json)"
     ]
   }
 }

@@ -7,6 +7,7 @@
 
 import type { AnalyticsHandlerContext } from "./types";
 import type { Measurement, MeasurementType, NumberDisplayFormat } from "../types";
+import { clearMeasurementFromTiles } from "./dashboardHandlers";
 
 // ── Queries ──────────────────────────────────────────────
 
@@ -89,6 +90,7 @@ export async function deleteMeasurement(
 	const name = state.measurements[idx].name;
 	state.measurements.splice(idx, 1);
 	await ctx.save();
+	await clearMeasurementFromTiles(ctx, id);
 	await ctx.eventBus?.emit("analytics.measurement.deleted", { measurementId: id, measurementName: name });
 	return true;
 }

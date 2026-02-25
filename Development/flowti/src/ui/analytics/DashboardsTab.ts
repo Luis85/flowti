@@ -13,6 +13,7 @@ import { DashboardTileRenderer, type TileRenderContext } from "./DashboardTileRe
 import { AddTileDialog } from "./AddTileDialog";
 import { DashboardNameModal } from "./DashboardNameModal";
 import { DashboardQueryMap, getSourceBasenames } from "./DashboardQueryMap";
+import { DashboardFilterBar } from "./DashboardFilterBar";
 
 export class DashboardsTab {
 	private addTileDialogVisible = false;
@@ -168,6 +169,9 @@ export class DashboardsTab {
 	// ── Detail panel ─────────────────────────────────────────
 
 	renderDetail(): void {
+		const scrollParent = this.detailEl.parentElement;
+		const scrollTop = scrollParent?.scrollTop ?? 0;
+
 		this.detailEl.empty();
 
 		const state = this.deps.getState();
@@ -179,6 +183,10 @@ export class DashboardsTab {
 		}
 
 		this.renderDashboardDetail(dashboard);
+
+		if (scrollParent && scrollTop > 0) {
+			requestAnimationFrame(() => { scrollParent.scrollTop = scrollTop; });
+		}
 	}
 
 	private renderEmptyDetail(): void {
@@ -631,137 +639,25 @@ export class DashboardsTab {
 
 	private renderFilterBar(dashboard: Dashboard): void {
 		const state = this.deps.getState();
-		const filters = state.dashboardFilters;
-
-		// Discover dimensions from filtered tile results (cascading filters)
-		const activeFilterColumns = filters.map((f) => f.column);
-		const dimensions = discoverFilterDimensions(
-			dashboard.tiles,
-			(queryId) => {
-				const cacheKey = buildFilterCacheKey(queryId, filters);
-				return this.deps.tileResultCache.tryRun(
-					cacheKey,
-					() => filters.length > 0
-						? this.deps.analyticsService.runSavedQueryWithFilters(queryId, filters)
-						: this.deps.analyticsService.runSavedQuery(queryId),
-					() => this.deps.scheduleRender(),
-				).result;
+		new DashboardFilterBar(this.detailEl, {
+			tiles: dashboard.tiles,
+			filters: state.dashboardFilters,
+			tileResultCache: this.deps.tileResultCache,
+			runQuery: (qid) => this.deps.analyticsService.runSavedQuery(qid),
+			runQueryWithFilters: (qid, f) => this.deps.analyticsService.runSavedQueryWithFilters(qid, f),
+			onFiltersChanged: (filters) => {
+				this.deps.setState({ dashboardFilters: filters });
+				this.deps.scheduleRender();
 			},
-			activeFilterColumns,
-		);
-
-		if (dimensions.length === 0 && filters.length === 0) return;
-
-		const bar = this.detailEl.createDiv({ cls: "ft-filter-bar" });
-		bar.style.display = "flex";
-		bar.style.flexWrap = "wrap";
-		bar.style.alignItems = "center";
-		bar.style.gap = "0.5rem";
-		bar.style.marginBottom = "0.75rem";
-		bar.style.padding = "0.5rem 0.75rem";
-		bar.style.background = "var(--background-secondary)";
-		bar.style.borderRadius = "6px";
-
-		bar.createSpan({ text: "Filters:", cls: "ft-text-sm" }).style.fontWeight = "600";
-
-		// Dimension dropdowns (max 4) — selecting a value toggles it in the filter
-		const shownDimensions = dimensions.slice(0, 4);
-		for (const dim of shownDimensions) {
-			const activeFilter = filters.find((f) => f.column === dim.column);
-			const selectedCount = activeFilter ? activeFilter.values.length : 0;
-
-			const select = bar.createEl("select", { cls: "ft-text-xs" });
-			select.style.cssText = "padding:2px 6px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);cursor:pointer";
-
-			const allOpt = select.createEl("option");
-			allOpt.value = "";
-			allOpt.textContent = selectedCount > 0
-				? `${dim.column}: ${selectedCount} selected`
-				: `${dim.column}: All`;
-			allOpt.selected = true;
-
-			for (const val of dim.values) {
-				const opt = select.createEl("option");
-				opt.value = val;
-				const isSelected = activeFilter?.values.includes(val);
-				opt.textContent = isSelected ? `\u2713 ${val}` : val;
-			}
-
-			select.addEventListener("change", () => {
-				if (!select.value) {
-					// "All" selected — clear filter for this column
-					const updated = filters.filter((f) => f.column !== dim.column);
-					this.deps.setState({ dashboardFilters: updated });
-					this.deps.scheduleRender();
-					return;
-				}
-				const value = select.value;
-				const updated = filters.map((f) => ({ ...f, values: [...f.values] }));
-				const existing = updated.find((f) => f.column === dim.column);
-				if (existing) {
-					const idx = existing.values.indexOf(value);
-					if (idx >= 0) {
-						existing.values.splice(idx, 1);
-						if (existing.values.length === 0) {
-							const filterIdx = updated.indexOf(existing);
-							updated.splice(filterIdx, 1);
-						}
-					} else {
-						existing.values.push(value);
-					}
-				} else {
-					updated.push({ column: dim.column, values: [value] });
-				}
-				this.deps.setState({ dashboardFilters: updated });
-				this.deps.scheduleRender();
-			});
-		}
-
-		// Clear all button (only when filters active)
-		if (filters.length > 0) {
-			const clearBtn = bar.createEl("span", { cls: "ft-nav-link ft-text-xs" });
-			clearBtn.style.cursor = "pointer";
-			clearBtn.style.marginLeft = "auto";
-			clearBtn.textContent = "Clear all";
-			clearBtn.addEventListener("click", () => {
-				this.deps.setState({ dashboardFilters: [] });
-				this.deps.scheduleRender();
-			});
-		}
-
-		// Breadcrumb chips for active filters — one chip per value
-		if (filters.length > 0) {
-			const breadcrumb = this.detailEl.createDiv({ cls: "ft-filter-breadcrumb" });
-			breadcrumb.style.display = "flex";
-			breadcrumb.style.flexWrap = "wrap";
-			breadcrumb.style.gap = "0.35rem";
-			breadcrumb.style.marginBottom = "0.75rem";
-
-			breadcrumb.createSpan({ text: "Showing:", cls: "ft-text-xs ft-text-muted" });
-
-			for (const f of filters) {
-				for (const val of f.values) {
-					const chip = breadcrumb.createSpan({ cls: "ft-badge ft-text-xs" });
-					chip.style.cssText = "display:inline-flex;align-items:center;gap:0.25rem;padding:2px 8px;border-radius:10px;background:var(--interactive-accent);color:var(--text-on-accent);cursor:default";
-					chip.textContent = `${f.column} = ${val}`;
-
-					const closeBtn = chip.createSpan({ text: " \u00d7" });
-					closeBtn.style.cursor = "pointer";
-					closeBtn.style.fontWeight = "bold";
-					closeBtn.addEventListener("click", (e) => {
-						e.stopPropagation();
-						const updated = filters
-							.map((x) => x.column === f.column
-								? { ...x, values: x.values.filter((v) => v !== val) }
-								: { ...x, values: [...x.values] },
-							)
-							.filter((x) => x.values.length > 0);
-						this.deps.setState({ dashboardFilters: updated });
-						this.deps.scheduleRender();
-					});
-				}
-			}
-		}
+			scheduleRender: () => this.deps.scheduleRender(),
+			presets: dashboard.savedFilterPresets,
+			onSavePreset: (name, filters) => {
+				void this.deps.analyticsService.saveFilterPreset(dashboard.id, name, filters).then(() => this.deps.scheduleRender());
+			},
+			onDeletePreset: (presetId) => {
+				void this.deps.analyticsService.deleteFilterPreset(dashboard.id, presetId).then(() => this.deps.scheduleRender());
+			},
+		}).render();
 	}
 }
 
@@ -835,23 +731,40 @@ export function buildFilterCacheKey(
 }
 
 /**
- * Filter an AnalyticsResult to only include columns relevant to a single-value
- * measurement. Keeps dimension columns, time bucket column, and the one measureColumn.
- * Returns the original result unchanged if measurement is undefined, has no
- * measureColumn, or is a "series" type.
+ * Filter an AnalyticsResult for a measurement.
+ *
+ * - **single** type: aggregates the measureColumn across ALL rows into one value
+ *   (grand total). Returns a single-row result with only the measure column.
+ * - **series** type: keeps dimensions + time bucket + measureColumn columns,
+ *   preserving all rows for trend display.
+ * - Returns the original result unchanged if measurement is undefined or has no
+ *   measureColumn.
  */
 export function filterResultForMeasurement(
 	result: AnalyticsResult | null,
 	measurement: Measurement | undefined,
 	query: { dimensions: Array<{ column: string }>; timeBucket?: { column: string; period: string; outputColumn?: string } } | undefined,
 ): AnalyticsResult | null {
-	if (!result || !measurement) return result;
-	if (measurement.type !== "single" || !measurement.measureColumn) return result;
+	if (!result || !measurement || !measurement.measureColumn) return result;
 
 	const measureCol = measurement.measureColumn;
 	if (!result.columns.includes(measureCol)) return result;
 
-	// Keep: dimension columns + time bucket output column + the measure column
+	if (measurement.type === "single") {
+		// Aggregate: sum all numeric values in the measure column into one row
+		let total = 0;
+		for (const row of result.rows) {
+			const v = row[measureCol];
+			if (typeof v === "number") total += v;
+		}
+		return {
+			...result,
+			columns: [measureCol],
+			rows: [{ [measureCol]: total }],
+		};
+	}
+
+	// Series type: keep dimension columns + time bucket + measure column (all rows)
 	const keepSet = new Set<string>();
 	for (const d of query?.dimensions ?? []) keepSet.add(d.column);
 	if (query?.timeBucket) {

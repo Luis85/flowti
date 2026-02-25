@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { evalRound, evalAbs, evalIf } from "../../../src/domain/analytics/expressionFunctions";
+import { evalRound, evalAbs, evalIf, evalCoalesce, evalUpper, evalLower, evalConcat } from "../../../src/domain/analytics/expressionFunctions";
 import { evaluateExpression } from "../../../src/domain/analytics/AnalyticsEngine";
 import type { ResultRow } from "../../../src/domain/analytics/types";
 
@@ -148,6 +148,112 @@ describe("expressionFunctions", () => {
 			const row: ResultRow = { Value: 3 };
 			const result = evaluateExpression('IF({Value} < 5, "Low", "High")', row);
 			expect(result).toBe("Low");
+		});
+	});
+
+	// ── COALESCE ──────────────────────────────────────────
+
+	describe("evalCoalesce", () => {
+		it("should return first non-missing value", () => {
+			// A is missing from row, so COALESCE skips it
+			const row: ResultRow = { B: 42 };
+			expect(evalCoalesce(["{A}", "{B}", "0"], row)).toBe(42);
+		});
+
+		it("should return first non-empty string value", () => {
+			const row: ResultRow = { A: "", B: "hello" };
+			expect(evalCoalesce(["{A}", "{B}"], row)).toBe("hello");
+		});
+
+		it("should return literal fallback when all columns are missing", () => {
+			const row: ResultRow = {};
+			expect(evalCoalesce(["{A}", "{B}", "0"], row)).toBe(0);
+		});
+
+		it("should return first value if not empty", () => {
+			const row: ResultRow = { A: "first", B: "second" };
+			expect(evalCoalesce(["{A}", "{B}"], row)).toBe("first");
+		});
+	});
+
+	// ── UPPER ──────────────────────────────────────────
+
+	describe("evalUpper", () => {
+		it("should uppercase a column value", () => {
+			const row: ResultRow = { Name: "john" };
+			expect(evalUpper(["{Name}"], row)).toBe("JOHN");
+		});
+
+		it("should uppercase a string literal", () => {
+			const row: ResultRow = {};
+			expect(evalUpper(['"hello"'], row)).toBe("HELLO");
+		});
+
+		it("should handle mixed case", () => {
+			const row: ResultRow = { Name: "John Doe" };
+			expect(evalUpper(["{Name}"], row)).toBe("JOHN DOE");
+		});
+	});
+
+	// ── LOWER ──────────────────────────────────────────
+
+	describe("evalLower", () => {
+		it("should lowercase a column value", () => {
+			const row: ResultRow = { Name: "JOHN" };
+			expect(evalLower(["{Name}"], row)).toBe("john");
+		});
+
+		it("should lowercase a string literal", () => {
+			const row: ResultRow = {};
+			expect(evalLower(['"HELLO"'], row)).toBe("hello");
+		});
+	});
+
+	// ── CONCAT ─────────────────────────────────────────
+
+	describe("evalConcat", () => {
+		it("should concatenate two column values", () => {
+			const row: ResultRow = { First: "John", Last: "Doe" };
+			expect(evalConcat(["{First}", "{Last}"], row)).toBe("JohnDoe");
+		});
+
+		it("should concatenate with string literal separator", () => {
+			const row: ResultRow = { First: "John", Last: "Doe" };
+			expect(evalConcat(["{First}", '" "', "{Last}"], row)).toBe("John Doe");
+		});
+
+		it("should handle multiple args", () => {
+			const row: ResultRow = { A: "a", B: "b", C: "c" };
+			expect(evalConcat(["{A}", "{B}", "{C}"], row)).toBe("abc");
+		});
+
+		it("should handle mixed types (numbers and strings)", () => {
+			const row: ResultRow = { Name: "Item", Count: 5 };
+			expect(evalConcat(["{Name}", '": "', "{Count}"], row)).toBe("Item: 5");
+		});
+	});
+
+	// ── Nesting: new functions via evaluateExpression ──
+
+	describe("new functions via evaluateExpression", () => {
+		it("COALESCE in expression", () => {
+			const row: ResultRow = { B: 10 };
+			expect(evaluateExpression("COALESCE({A}, {B}, 0)", row)).toBe(10);
+		});
+
+		it("UPPER in expression", () => {
+			const row: ResultRow = { Name: "john" };
+			expect(evaluateExpression("UPPER({Name})", row)).toBe("JOHN");
+		});
+
+		it("LOWER in expression", () => {
+			const row: ResultRow = { Name: "JOHN" };
+			expect(evaluateExpression("LOWER({Name})", row)).toBe("john");
+		});
+
+		it("CONCAT in expression", () => {
+			const row: ResultRow = { First: "John", Last: "Doe" };
+			expect(evaluateExpression('CONCAT({First}, " ", {Last})', row)).toBe("John Doe");
 		});
 	});
 

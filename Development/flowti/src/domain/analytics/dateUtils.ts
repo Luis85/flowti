@@ -20,10 +20,12 @@ export function resolveDateFormat(localeId: LocaleId | undefined): DateFormatPat
  * Returns null for empty or unparseable values.
  *
  * Supported formats:
- * - MM/DD/YYYY (en-US)
- * - DD/MM/YYYY (en-GB, nl-NL, fr-FR)
- * - DD.MM.YYYY (de-DE)
+ * - MM/DD/YYYY or MM/DD/YY (en-US)
+ * - DD/MM/YYYY or DD/MM/YY (en-GB, nl-NL, fr-FR)
+ * - DD.MM.YYYY or DD.MM.YY (de-DE)
  * - YYYY-MM-DD (ISO — detected automatically)
+ *
+ * Two-digit years are expanded: 00–99 → 2000–2099.
  */
 export function parseDate(raw: string, localeId: LocaleId | undefined): ParsedDate | null {
 	if (!raw || raw.trim() === "") return null;
@@ -37,18 +39,18 @@ export function parseDate(raw: string, localeId: LocaleId | undefined): ParsedDa
 
 	const format = resolveDateFormat(localeId);
 
-	// DD.MM.YYYY (German style)
-	const dotMatch = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+	// DD.MM.YYYY or DD.MM.YY (German style)
+	const dotMatch = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})$/);
 	if (dotMatch) {
-		return makeDate(Number(dotMatch[3]), Number(dotMatch[2]), Number(dotMatch[1]));
+		return makeDate(expandYear(Number(dotMatch[3])), Number(dotMatch[2]), Number(dotMatch[1]));
 	}
 
-	// Slash-based formats: MM/DD/YYYY or DD/MM/YYYY
-	const slashMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+	// Slash-based formats: MM/DD/YYYY or DD/MM/YYYY (also 2-digit year)
+	const slashMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
 	if (slashMatch) {
 		const a = Number(slashMatch[1]);
 		const b = Number(slashMatch[2]);
-		const year = Number(slashMatch[3]);
+		const year = expandYear(Number(slashMatch[3]));
 
 		if (format === "MM/DD/YYYY") {
 			return makeDate(year, a, b);
@@ -66,7 +68,32 @@ export function parseDate(raw: string, localeId: LocaleId | undefined): ParsedDa
 		}
 	}
 
+	// Dash-separated non-ISO: DD-MM-YYYY or DD-MM-YY
+	const dashMatch = s.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
+	if (dashMatch) {
+		const a = Number(dashMatch[1]);
+		const b = Number(dashMatch[2]);
+		const year = expandYear(Number(dashMatch[3]));
+
+		if (format === "MM/DD/YYYY") {
+			return makeDate(year, a, b);
+		}
+		if (format === "DD/MM/YYYY" || format === "DD.MM.YYYY") {
+			return makeDate(year, b, a);
+		}
+		if (format === "auto") {
+			if (a > 12) return makeDate(year, b, a);
+			if (b > 12) return makeDate(year, a, b);
+			return makeDate(year, a, b);
+		}
+	}
+
 	return null;
+}
+
+/** Expand a 2-digit year to 4-digit (00–99 → 2000–2099). */
+function expandYear(year: number): number {
+	return year < 100 ? 2000 + year : year;
 }
 
 /** Validate and construct a ParsedDate. */

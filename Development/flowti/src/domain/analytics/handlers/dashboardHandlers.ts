@@ -333,6 +333,66 @@ export async function deleteTemplate(
 	return true;
 }
 
+// ── Orphan protection ────────────────────────────────────
+
+/** Clear measurementId from all tiles that reference a given measurement. */
+export async function clearMeasurementFromTiles(
+	ctx: AnalyticsHandlerContext,
+	measurementId: string,
+): Promise<number> {
+	let cleared = 0;
+	for (const dashboard of listDashboards(ctx)) {
+		for (const tile of dashboard.tiles) {
+			if (tile.measurementId === measurementId) {
+				tile.measurementId = undefined;
+				cleared++;
+			}
+		}
+	}
+	if (cleared > 0) await ctx.save();
+	return cleared;
+}
+
+// ── Filter presets ───────────────────────────────────────
+
+export async function saveFilterPreset(
+	ctx: AnalyticsHandlerContext,
+	dashboardId: string,
+	name: string,
+	filters: Array<{ column: string; values: string[] }>,
+): Promise<{ id: string; name: string } | undefined> {
+	const dashboard = getDashboard(ctx, dashboardId);
+	if (!dashboard) return undefined;
+
+	if (!dashboard.savedFilterPresets) dashboard.savedFilterPresets = [];
+	const preset = {
+		id: ctx.generateId().replace(/^aq_/, "fp_"),
+		name,
+		filters: structuredClone(filters),
+	};
+	dashboard.savedFilterPresets.push(preset);
+	dashboard.updatedAt = Date.now();
+	await ctx.save();
+	return { id: preset.id, name: preset.name };
+}
+
+export async function deleteFilterPreset(
+	ctx: AnalyticsHandlerContext,
+	dashboardId: string,
+	presetId: string,
+): Promise<boolean> {
+	const dashboard = getDashboard(ctx, dashboardId);
+	if (!dashboard?.savedFilterPresets) return false;
+
+	const idx = dashboard.savedFilterPresets.findIndex((p) => p.id === presetId);
+	if (idx < 0) return false;
+
+	dashboard.savedFilterPresets.splice(idx, 1);
+	dashboard.updatedAt = Date.now();
+	await ctx.save();
+	return true;
+}
+
 // ── Dashboard query map ─────────────────────────────────
 
 export function getDashboardQueryMap(

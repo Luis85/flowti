@@ -129,6 +129,9 @@ export class MeasurementsTab {
 	// ── Detail panel ─────────────────────────────────────────
 
 	renderDetail(): void {
+		const scrollParent = this.detailEl.parentElement;
+		const scrollTop = scrollParent?.scrollTop ?? 0;
+
 		this.detailEl.empty();
 
 		const state = this.deps.getState();
@@ -149,6 +152,10 @@ export class MeasurementsTab {
 		}
 
 		this.renderMeasurementDetail(measurement);
+
+		if (scrollParent && scrollTop > 0) {
+			requestAnimationFrame(() => { scrollParent.scrollTop = scrollTop; });
+		}
 	}
 
 	private renderMeasurementDetail(m: Measurement): void {

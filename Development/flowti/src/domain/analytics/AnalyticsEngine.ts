@@ -25,7 +25,7 @@ import type {
 import { parseNumber } from "./localeUtils";
 import { bucketDate, parseDate } from "./dateUtils";
 import { computeChange, computePctChange, computeRollingAvg } from "./trendCalculations";
-import { evalRound, evalAbs, evalIf } from "./expressionFunctions";
+import { evalRound, evalAbs, evalIf, evalCoalesce, evalUpper, evalLower, evalConcat } from "./expressionFunctions";
 
 /** Internal row representation during processing. */
 type RawRow = Record<string, string>;
@@ -97,6 +97,35 @@ export class AnalyticsEngine {
 			? new Set(query.excludedColumns)
 			: null;
 		const columns = excludeSet ? allColumns.filter((c) => !excludeSet.has(c)) : allColumns;
+
+		// 11. Apply column aliases (display-only — computed column expressions use original names)
+		const aliasMap = new Map<string, string>();
+		for (const hint of query.columnTypeHints ?? []) {
+			if (hint.alias && hint.alias.trim()) aliasMap.set(hint.column, hint.alias.trim());
+		}
+		if (aliasMap.size > 0) {
+			const aliasedColumns = columns.map((c) => aliasMap.get(c) ?? c);
+			const aliasedRows = sortedRows.map((row) => {
+				const newRow: ResultRow = {};
+				for (const col of columns) {
+					const aliased = aliasMap.get(col) ?? col;
+					newRow[aliased] = row[col];
+				}
+				// Preserve non-output keys (e.g., excluded columns still needed for tile formulas)
+				for (const key of Object.keys(row)) {
+					if (!columns.includes(key) && !(aliasMap.get(key))) newRow[key] = row[key];
+				}
+				return newRow;
+			});
+
+			return {
+				columns: aliasedColumns,
+				rows: aliasedRows,
+				groupCount,
+				sourceRowCount,
+				columnTypeHints: query.columnTypeHints,
+			};
+		}
 
 		return {
 			columns,
@@ -532,7 +561,7 @@ function extractWindowFunction(expression: string): { funcName: WindowFunctionNa
  * Finds the innermost scalar function (one whose args contain no un-braced nested scalar calls).
  */
 function extractScalarFunction(expression: string): { funcName: string; argsStr: string; fullMatch: string } | null {
-	const startMatch = expression.match(/\b(ROUND|ABS|IF)\s*\(/);
+	const startMatch = expression.match(/\b(ROUND|ABS|IF|COALESCE|UPPER|LOWER|CONCAT)\s*\(/);
 	if (!startMatch || startMatch.index === undefined) return null;
 
 	const funcName = startMatch[1];
@@ -653,6 +682,10 @@ export function evaluateExpression(expression: string, row: ResultRow): string |
 			case "ROUND": result = evalRound(args, row); break;
 			case "ABS": result = evalAbs(args, row); break;
 			case "IF": result = evalIf(args, row); break;
+			case "COALESCE": result = evalCoalesce(args, row); break;
+			case "UPPER": result = evalUpper(args, row); break;
+			case "LOWER": result = evalLower(args, row); break;
+			case "CONCAT": result = evalConcat(args, row); break;
 			default: result = 0;
 		}
 
@@ -861,9 +894,9 @@ function guessColumnType(
 		if (/^[-+]?[\d.,\s\u00A0]+$/.test(stripped) && /\d/.test(stripped)) {
 			numericCount++;
 		}
-		// Check if it looks like a date (various patterns incl. dash-separated)
+		// Check if it looks like a date (various patterns incl. dash-separated, 2/4-digit year)
 		if (
-			/^\d{1,2}[/.-]\d{1,2}[/.-]\d{4}$/.test(s) ||
+			/^\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}$/.test(s) ||
 			/^\d{4}-\d{1,2}-\d{1,2}$/.test(s)
 		) {
 			dateCount++;

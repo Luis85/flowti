@@ -77,6 +77,34 @@ function resolveValue(val: string, row: ResultRow): string | number {
 	return trimmed;
 }
 
+/** Evaluate COALESCE(val1, val2, ...). Returns the first non-null/non-empty value. */
+export function evalCoalesce(args: string[], row: ResultRow): string | number {
+	for (const arg of args) {
+		const val = resolveValue(arg, row);
+		if (val !== null && val !== undefined && val !== "" && !(typeof val === "number" && isNaN(val))) {
+			return val;
+		}
+	}
+	return "";
+}
+
+/** Evaluate UPPER(value). Returns the string uppercased. */
+export function evalUpper(args: string[], row: ResultRow): string {
+	const val = resolveValue(args[0] ?? "", row);
+	return String(val).toUpperCase();
+}
+
+/** Evaluate LOWER(value). Returns the string lowercased. */
+export function evalLower(args: string[], row: ResultRow): string {
+	const val = resolveValue(args[0] ?? "", row);
+	return String(val).toLowerCase();
+}
+
+/** Evaluate CONCAT(val1, val2, ...). Concatenates all resolved values. */
+export function evalConcat(args: string[], row: ResultRow): string {
+	return args.map((a) => String(resolveValue(a, row))).join("");
+}
+
 /** Resolve an argument to a number (from column ref or literal). */
 function resolveNumericArg(arg: string | undefined, row: ResultRow): number {
 	if (!arg) return NaN;

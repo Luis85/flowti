@@ -12,6 +12,7 @@
 const VALID_FUNCTIONS = new Set([
 	"ROUND", "ABS", "IF",
 	"CHANGE", "PCT_CHANGE", "ROLLING_AVG",
+	"COALESCE", "UPPER", "LOWER", "CONCAT",
 ]);
 
 const FUNCTION_ARG_COUNTS: Record<string, { min: number; max: number }> = {
@@ -21,6 +22,10 @@ const FUNCTION_ARG_COUNTS: Record<string, { min: number; max: number }> = {
 	CHANGE: { min: 1, max: 1 },
 	PCT_CHANGE: { min: 1, max: 1 },
 	ROLLING_AVG: { min: 2, max: 2 },
+	COALESCE: { min: 1, max: 10 },
+	UPPER: { min: 1, max: 1 },
+	LOWER: { min: 1, max: 1 },
+	CONCAT: { min: 2, max: 10 },
 };
 
 export interface ExpressionValidationResult {

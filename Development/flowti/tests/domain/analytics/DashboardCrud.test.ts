@@ -468,4 +468,46 @@ describe("AnalyticsService — Dashboard CRUD", () => {
 			expect(t2!.row).toBe(3);
 		});
 	});
+
+	// ── Filter presets ──────────────────────────────────────
+
+	describe("filter presets", () => {
+		it("saves a filter preset to a dashboard", async () => {
+			const db = await service.createDashboard("DB");
+			const result = await service.saveFilterPreset(db.id, "My Preset", [
+				{ column: "country", values: ["NL", "DE"] },
+			]);
+
+			expect(result).toBeDefined();
+			expect(result!.name).toBe("My Preset");
+
+			const updated = service.getDashboard(db.id)!;
+			expect(updated.savedFilterPresets).toHaveLength(1);
+			expect(updated.savedFilterPresets![0].filters[0].column).toBe("country");
+		});
+
+		it("loads preset filters from dashboard", async () => {
+			const db = await service.createDashboard("DB");
+			await service.saveFilterPreset(db.id, "P1", [{ column: "a", values: ["x"] }]);
+			await service.saveFilterPreset(db.id, "P2", [{ column: "b", values: ["y"] }]);
+
+			const updated = service.getDashboard(db.id)!;
+			expect(updated.savedFilterPresets).toHaveLength(2);
+			expect(updated.savedFilterPresets![1].name).toBe("P2");
+		});
+
+		it("deletes a filter preset", async () => {
+			const db = await service.createDashboard("DB");
+			const result = await service.saveFilterPreset(db.id, "P1", [{ column: "a", values: ["x"] }]);
+
+			expect(await service.deleteFilterPreset(db.id, result!.id)).toBe(true);
+
+			const updated = service.getDashboard(db.id)!;
+			expect(updated.savedFilterPresets).toHaveLength(0);
+		});
+
+		it("returns false when deleting preset from nonexistent dashboard", async () => {
+			expect(await service.deleteFilterPreset("nope", "nope")).toBe(false);
+		});
+	});
 });

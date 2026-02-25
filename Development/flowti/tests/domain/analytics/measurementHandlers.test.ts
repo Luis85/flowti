@@ -123,4 +123,43 @@ describe("Measurement CRUD", () => {
 		const evt = eventBus._emitted.find((e) => e.type === "analytics.loaded");
 		expect((evt!.payload as { measurementCount: number }).measurementCount).toBe(0);
 	});
+
+	// ── Cascade / Orphan Protection ──────────────────────
+
+	it("deleting measurement clears measurementId from tiles", async () => {
+		const dashboard = await service.createDashboard("Dash");
+		const tile = await service.addTile(dashboard.id, "q1", "stat-card");
+		const m = await service.createMeasurement("Rev", "q1", "single", "total");
+		await service.updateTile(dashboard.id, tile!.id, { measurementId: m.id });
+
+		await service.deleteMeasurement(m.id);
+
+		const updated = service.getDashboard(dashboard.id)!;
+		expect(updated.tiles[0].measurementId).toBeUndefined();
+	});
+
+	it("tiles retain queryId after measurement cascade delete", async () => {
+		const dashboard = await service.createDashboard("Dash");
+		const tile = await service.addTile(dashboard.id, "q1", "stat-card");
+		const m = await service.createMeasurement("Rev", "q1", "single", "total");
+		await service.updateTile(dashboard.id, tile!.id, { measurementId: m.id });
+
+		await service.deleteMeasurement(m.id);
+
+		const updated = service.getDashboard(dashboard.id)!;
+		expect(updated.tiles[0].queryId).toBe("q1");
+	});
+
+	it("no-op when no tiles reference deleted measurement", async () => {
+		const dashboard = await service.createDashboard("Dash");
+		await service.addTile(dashboard.id, "q1", "stat-card");
+		const m = await service.createMeasurement("Rev", "q1", "single", "total");
+
+		// Delete measurement that is NOT referenced by any tile
+		await service.deleteMeasurement(m.id);
+
+		const updated = service.getDashboard(dashboard.id)!;
+		expect(updated.tiles[0].measurementId).toBeUndefined();
+		expect(updated.tiles[0].queryId).toBe("q1");
+	});
 });

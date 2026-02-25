@@ -371,6 +371,16 @@ export class QueryBuilderPanel {
 				nameEl.style.minWidth = "80px";
 				if (isExcluded) nameEl.style.textDecoration = "line-through";
 
+				// Alias input
+				const aliasInput = row.createEl("input", { type: "text", cls: "ft-text-xs" });
+				aliasInput.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);width:80px;color:var(--text-muted)";
+				aliasInput.placeholder = "alias";
+				if (hint?.alias) aliasInput.value = hint.alias;
+				aliasInput.addEventListener("change", () => {
+					const val = aliasInput.value.trim() || undefined;
+					this.updateColumnTypeHint(col, { alias: val });
+				});
+
 				// Source alias badges (multi-source)
 				const aliases = sourceMap.get(col);
 				if (aliases) {

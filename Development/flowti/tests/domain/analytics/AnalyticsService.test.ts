@@ -791,4 +791,64 @@ describe("AnalyticsService", () => {
 			await expect(svc.runSavedQuery(saved.id)).rejects.toThrow("Folder listing not configured");
 		});
 	});
+
+	// ── Cascade delete (query → measurements → tiles) ───
+
+	describe("deleteQuery cascade", () => {
+		it("cascade-deletes measurements linked to the query", async () => {
+			const saved = await service.saveQuery("Q1", [{ alias: "a", csvPath: "a.csv" }], {
+				joins: [],
+				columnTypeHints: [],
+				dimensions: [{ column: "x" }],
+				measures: [{ column: "x", function: "SUM", label: "total" }],
+			});
+			await service.createMeasurement("Rev", saved.id, "single", "total");
+			await service.createMeasurement("Count", saved.id, "single", "count");
+			expect(service.listMeasurements()).toHaveLength(2);
+
+			await service.deleteQuery(saved.id);
+
+			expect(service.listMeasurements()).toHaveLength(0);
+		});
+
+		it("clears measurementId from tiles when query is deleted", async () => {
+			const saved = await service.saveQuery("Q1", [{ alias: "a", csvPath: "a.csv" }], {
+				joins: [],
+				columnTypeHints: [],
+				dimensions: [{ column: "x" }],
+				measures: [{ column: "x", function: "SUM", label: "total" }],
+			});
+			const m = await service.createMeasurement("Rev", saved.id, "single", "total");
+			const dashboard = await service.createDashboard("Dash");
+			const tile = await service.addTile(dashboard.id, saved.id, "stat-card");
+			await service.updateTile(dashboard.id, tile!.id, { measurementId: m.id });
+
+			await service.deleteQuery(saved.id);
+
+			const updated = service.getDashboard(dashboard.id)!;
+			expect(updated.tiles[0].measurementId).toBeUndefined();
+		});
+
+		it("does not affect measurements from other queries", async () => {
+			const q1 = await service.saveQuery("Q1", [{ alias: "a", csvPath: "a.csv" }], {
+				joins: [],
+				columnTypeHints: [],
+				dimensions: [{ column: "x" }],
+				measures: [{ column: "x", function: "SUM", label: "total" }],
+			});
+			const q2 = await service.saveQuery("Q2", [{ alias: "b", csvPath: "b.csv" }], {
+				joins: [],
+				columnTypeHints: [],
+				dimensions: [{ column: "y" }],
+				measures: [{ column: "y", function: "COUNT", label: "count" }],
+			});
+			await service.createMeasurement("Rev", q1.id, "single", "total");
+			await service.createMeasurement("Count", q2.id, "single", "count");
+
+			await service.deleteQuery(q1.id);
+
+			expect(service.listMeasurements()).toHaveLength(1);
+			expect(service.listMeasurements()[0].queryId).toBe(q2.id);
+		});
+	});
 });

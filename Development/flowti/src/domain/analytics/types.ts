@@ -47,6 +47,8 @@ export interface ColumnTypeHint {
 	type: ColumnType;
 	/** Detected currency symbol (e.g. "$", "€") — set when source values contain currency prefixes */
 	currencySymbol?: string;
+	/** Display alias — replaces column name in results, charts, and tiles (expressions still use original name) */
+	alias?: string;
 }
 
 /** Display format styles for numeric values. */
@@ -361,6 +363,13 @@ export interface DashboardTile {
 	measurementId?: string;
 }
 
+/** A saved combination of dashboard filters for quick switching. */
+export interface SavedFilterPreset {
+	id: string;
+	name: string;
+	filters: Array<{ column: string; values: string[] }>;
+}
+
 /** A named dashboard containing a grid of tiles. */
 export interface Dashboard {
 	/** Unique dashboard ID */
@@ -373,6 +382,8 @@ export interface Dashboard {
 	isFavorite?: boolean;
 	/** Tiles in this dashboard */
 	tiles: DashboardTile[];
+	/** Saved filter presets for quick switching */
+	savedFilterPresets?: SavedFilterPreset[];
 	/** Timestamp when created */
 	createdAt: number;
 	/** Timestamp of last update */

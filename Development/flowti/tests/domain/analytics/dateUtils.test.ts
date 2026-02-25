@@ -76,6 +76,42 @@ describe("dateUtils", () => {
 			expect(result).toEqual({ year: 2026, month: 1, day: 2 });
 		});
 
+		// 2-digit year support
+		it("parses US 2-digit year: '02/11/26' → month 2, day 11, year 2026", () => {
+			const result = parseDate("02/11/26", "en-US");
+			expect(result).toEqual({ year: 2026, month: 2, day: 11 });
+		});
+
+		it("parses US 2-digit year: '12/25/99' → month 12, day 25, year 2099", () => {
+			const result = parseDate("12/25/99", "en-US");
+			expect(result).toEqual({ year: 2099, month: 12, day: 25 });
+		});
+
+		it("parses DE 2-digit year: '15.02.26' → month 2, day 15, year 2026", () => {
+			const result = parseDate("15.02.26", "de-DE");
+			expect(result).toEqual({ year: 2026, month: 2, day: 15 });
+		});
+
+		it("parses GB 2-digit year: '11/02/26' → month 2, day 11, year 2026", () => {
+			const result = parseDate("11/02/26", "en-GB");
+			expect(result).toEqual({ year: 2026, month: 2, day: 11 });
+		});
+
+		it("auto 2-digit year: '02/11/26' defaults to MM/DD", () => {
+			const result = parseDate("02/11/26", "auto");
+			expect(result).toEqual({ year: 2026, month: 2, day: 11 });
+		});
+
+		it("auto 2-digit year unambiguous: '25/11/26' → DD/MM (day > 12)", () => {
+			const result = parseDate("25/11/26", "auto");
+			expect(result).toEqual({ year: 2026, month: 11, day: 25 });
+		});
+
+		it("parses dash-separated 2-digit year: '02-11-26' with en-US", () => {
+			const result = parseDate("02-11-26", "en-US");
+			expect(result).toEqual({ year: 2026, month: 2, day: 11 });
+		});
+
 		// Edge cases
 		it("returns null for empty string", () => {
 			expect(parseDate("", "en-US")).toBeNull();
