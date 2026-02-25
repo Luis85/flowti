@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Analytics Hub PRD]]"
-stage: planned
+stage: delivered
 cycle: 35
 date_planned: 2026-02-24
 date_completed:

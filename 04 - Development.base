@@ -7,9 +7,6 @@ formulas:
 views:
   - type: table
     name: Planned
-    filters:
-      and:
-        - "!cycle.isEmpty()"
     order:
       - file.name
       - stage
