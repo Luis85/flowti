@@ -187,7 +187,7 @@ export async function removeTile(
 /** Mutable keys on DashboardTile (everything except "id"). */
 const TILE_MUTABLE_KEYS: ReadonlyArray<keyof Omit<DashboardTile, "id">> = [
 	"queryId", "title", "displayMode", "row", "col", "width", "height",
-	"conditionalRules", "showSparkline", "chartValueColumn", "rowLimit", "autoHeight", "numberFormat", "measurementId",
+	"conditionalRules", "showSparkline", "chartValueColumn", "rowLimit", "autoHeight", "numberFormat", "measurementId", "excludedColumns", "showTableKpis", "columnOrder",
 ];
 
 export async function updateTile(
@@ -203,7 +203,7 @@ export async function updateTile(
 	if (!tile) return undefined;
 
 	for (const key of TILE_MUTABLE_KEYS) {
-		if (changes[key] !== undefined) {
+		if (key in changes) {
 			(tile as unknown as Record<string, unknown>)[key] = changes[key];
 		}
 	}
@@ -244,13 +244,14 @@ export function listTemplates(ctx: AnalyticsHandlerContext): DashboardTemplate[]
 	return ctx.getState().templates ?? [];
 }
 
-export async function saveDashboardAsTemplate(
+/** Build a template object from a dashboard without persisting. */
+export function buildDashboardTemplate(
 	ctx: AnalyticsHandlerContext,
 	dashboardId: string,
 	name: string,
 	description: string,
 	domain: string,
-): Promise<DashboardTemplate | undefined> {
+): DashboardTemplate | undefined {
 	const dashboard = getDashboard(ctx, dashboardId);
 	if (!dashboard) return undefined;
 
@@ -295,7 +296,7 @@ export async function saveDashboardAsTemplate(
 			chartValueColumn: t.chartValueColumn,
 		}));
 
-	const template: DashboardTemplate = {
+	return {
 		id: ctx.generateId(),
 		name,
 		description,
@@ -304,6 +305,17 @@ export async function saveDashboardAsTemplate(
 		tiles: tileTemplates,
 		createdAt: Date.now(),
 	};
+}
+
+export async function saveDashboardAsTemplate(
+	ctx: AnalyticsHandlerContext,
+	dashboardId: string,
+	name: string,
+	description: string,
+	domain: string,
+): Promise<DashboardTemplate | undefined> {
+	const template = buildDashboardTemplate(ctx, dashboardId, name, description, domain);
+	if (!template) return undefined;
 
 	const templates = ctx.getState().templates ?? [];
 	templates.push(template);

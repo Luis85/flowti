@@ -11,29 +11,38 @@ export interface SourcePreviewOptions {
 	container: HTMLElement;
 	data: ParsedSourceData;
 	typeHints: ColumnTypeHint[];
+	/** Source display name shown as block title (e.g. alias or filename). */
+	sourceName?: string;
 }
 
 export class SourcePreviewPanel {
 	private container: HTMLElement;
 	private data: ParsedSourceData;
 	private typeHints: ColumnTypeHint[];
+	private sourceName: string | undefined;
 
 	constructor(options: SourcePreviewOptions) {
 		this.container = options.container;
 		this.data = options.data;
 		this.typeHints = options.typeHints;
+		this.sourceName = options.sourceName;
 	}
 
 	render(): void {
 		this.container.empty();
 
-		// Header
+		// Header — source name as title, no border-bottom
 		const header = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		header.style.marginBottom = "0.5rem";
-		header.createSpan({ text: "Source Preview", cls: "ft-detail-section-header" });
+		header.style.marginBottom = "0.35rem";
+		const title = header.createSpan({ text: this.sourceName ?? "Preview", cls: "ft-text-sm" });
+		title.style.fontWeight = "600";
 		header.createSpan({
-			text: `${this.data.headers.length} columns, ${this.data.rows.length} rows`,
-			cls: "ft-badge ft-badge-muted",
+			text: `${this.data.headers.length} cols`,
+			cls: "ft-badge ft-badge-muted ft-text-xs",
+		});
+		header.createSpan({
+			text: `${this.data.rows.length} rows`,
+			cls: "ft-badge ft-badge-muted ft-text-xs",
 		});
 
 		// Column summary table
@@ -41,7 +50,7 @@ export class SourcePreviewPanel {
 		const thead = table.createEl("thead");
 		const headerRow = thead.createEl("tr");
 		for (const col of this.data.headers) {
-			headerRow.createEl("th", { text: col, cls: "ft-text-sm" });
+			headerRow.createEl("th", { text: col, cls: "ft-text-xs" });
 		}
 
 		// Type row
@@ -60,7 +69,7 @@ export class SourcePreviewPanel {
 			const row = this.data.rows[i];
 			const tr = tbody.createEl("tr");
 			for (let j = 0; j < this.data.headers.length; j++) {
-				const td = tr.createEl("td", { cls: "ft-text-sm" });
+				const td = tr.createEl("td", { cls: "ft-text-xs" });
 				td.textContent = row[j] ?? "";
 				td.style.maxWidth = "150px";
 				td.style.overflow = "hidden";

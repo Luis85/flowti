@@ -49,6 +49,8 @@ export interface ColumnTypeHint {
 	currencySymbol?: string;
 	/** Display alias — replaces column name in results, charts, and tiles (expressions still use original name) */
 	alias?: string;
+	/** When true, column values are anonymized with consistent pseudonyms in query results */
+	isPrivate?: boolean;
 }
 
 /** Display format styles for numeric values. */
@@ -361,6 +363,12 @@ export interface DashboardTile {
 	numberFormat?: NumberDisplayFormat;
 	/** Optional measurement ID — tile uses measurement's query instead of direct queryId */
 	measurementId?: string;
+	/** Columns to hide in this tile's display (render-time filtering, not engine-level) */
+	excludedColumns?: string[];
+	/** Show compact aggregate KPI cards above table tiles (default: true) */
+	showTableKpis?: boolean;
+	/** Custom column order for table display (render-time reordering, not engine-level) */
+	columnOrder?: string[];
 }
 
 /** A saved combination of dashboard filters for quick switching. */

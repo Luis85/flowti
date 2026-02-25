@@ -173,31 +173,35 @@ export class DashboardFilterBar {
 		const presets = this.deps.presets ?? [];
 
 		if (presets.length > 0) {
-			const select = bar.createEl("select", { cls: "ft-text-xs" });
-			select.style.cssText = "padding:2px 6px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);cursor:pointer";
-
-			const defaultOpt = select.createEl("option");
-			defaultOpt.value = "";
-			defaultOpt.textContent = "Presets...";
-			defaultOpt.selected = true;
-
 			for (const p of presets) {
-				const opt = select.createEl("option");
-				opt.value = p.id;
-				opt.textContent = p.name;
-			}
+				const chip = bar.createSpan({ cls: "ft-flex ft-items-center ft-gap-1" });
+				chip.style.cssText = "display:inline-flex;align-items:center;gap:2px";
 
-			select.addEventListener("change", () => {
-				const preset = presets.find((p) => p.id === select.value);
-				if (preset) {
-					this.deps.onFiltersChanged(structuredClone(preset.filters));
+				const applyBtn = chip.createEl("span", { text: p.name, cls: "ft-nav-link ft-text-xs" });
+				applyBtn.style.cursor = "pointer";
+				applyBtn.addEventListener("click", () => {
+					this.deps.onFiltersChanged(structuredClone(p.filters));
+				});
+
+				if (this.deps.onDeletePreset) {
+					const delBtn = chip.createEl("span", { cls: "ft-text-muted" });
+					delBtn.style.cssText = "cursor:pointer;display:inline-flex;align-items:center;line-height:1";
+					setIcon(delBtn, "x");
+					const svg = delBtn.querySelector("svg");
+					if (svg) { svg.style.width = "10px"; svg.style.height = "10px"; }
+					delBtn.title = `Delete preset "${p.name}"`;
+					delBtn.addEventListener("click", (e) => {
+						e.stopPropagation();
+						this.deps.onDeletePreset!(p.id);
+					});
 				}
-			});
+			}
 		}
 
 		// Save current button (only when filters active)
 		if (filters.length > 0 && this.deps.onSavePreset) {
-			const saveBtn = bar.createEl("span", { cls: "ft-nav-link ft-text-xs" });
+			const saveWrap = bar.createSpan();
+			const saveBtn = saveWrap.createEl("span", { cls: "ft-nav-link ft-text-xs" });
 			saveBtn.style.cursor = "pointer";
 			const saveIcon = saveBtn.createSpan();
 			setIcon(saveIcon, "bookmark");
@@ -205,10 +209,25 @@ export class DashboardFilterBar {
 			saveBtn.appendText(" Save");
 			saveBtn.title = "Save current filters as preset";
 			saveBtn.addEventListener("click", () => {
-				const name = prompt("Preset name:");
-				if (name?.trim()) {
-					this.deps.onSavePreset!(name.trim(), structuredClone(filters));
-				}
+				saveBtn.style.display = "none";
+				const input = saveWrap.createEl("input", { type: "text" });
+				input.placeholder = "Preset name";
+				input.style.cssText = "font-size:var(--font-ui-smaller);border:1px solid var(--background-modifier-border);background:var(--background-primary);color:var(--text-normal);padding:2px 6px;border-radius:4px;width:110px";
+				const commit = () => {
+					const val = input.value.trim();
+					if (val) {
+						this.deps.onSavePreset!(val, structuredClone(filters));
+					} else {
+						input.remove();
+						saveBtn.style.display = "";
+					}
+				};
+				input.addEventListener("blur", commit);
+				input.addEventListener("keydown", (ev) => {
+					if (ev.key === "Enter") { ev.preventDefault(); input.blur(); }
+					if (ev.key === "Escape") { ev.preventDefault(); input.remove(); saveBtn.style.display = ""; }
+				});
+				setTimeout(() => input.focus(), 20);
 			});
 		}
 	}

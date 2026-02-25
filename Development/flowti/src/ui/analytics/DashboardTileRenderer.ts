@@ -18,7 +18,7 @@ const MAX_STAT_CARD_GROUPS = 20;
 
 /** Resolve the detected currency symbol for a column from type hints. */
 function getDetectedSymbol(hints: ColumnTypeHint[] | undefined, column: string): string | undefined {
-	return hints?.find((h) => h.column === column)?.currencySymbol;
+	return hints?.find((h) => h.column === column || h.alias === column)?.currencySymbol;
 }
 
 /** Format a numeric value for tile display, respecting tile numberFormat and auto-detected currency. */
@@ -71,9 +71,20 @@ export interface TileRenderContext {
 	measurements?: Measurement[];
 	/** Called when the user changes which measurement this tile references. */
 	onMeasurementChange?: (tileId: string, measurementId: string | undefined) => void;
+	/** Called when the user changes which columns to hide in this tile. */
+	onExcludedColumnsChange?: (tileId: string, columns: string[]) => void;
+	/** Called when the user toggles KPI cards visibility on table tiles. */
+	onTableKpisToggle?: (tileId: string, show: boolean) => void;
+	/** Called when the user reorders columns on a table tile. */
+	onColumnOrderChange?: (tileId: string, columns: string[]) => void;
 }
 
 export class DashboardTileRenderer {
+	/** Ephemeral sort state for table tiles (not persisted). */
+	private tableSort: { column: string; ascending: boolean } | null = null;
+	/** Ephemeral search filter for table tiles (not persisted). */
+	private tableSearchText = "";
+
 	constructor(private container: HTMLElement) {}
 
 	render(ctx: TileRenderContext): void {
@@ -133,6 +144,7 @@ export class DashboardTileRenderer {
 		actions.style.gap = "0.25rem";
 		actions.style.flexWrap = "wrap";
 		actions.style.justifyContent = "flex-end";
+		actions.style.fontSize = "var(--font-ui-smaller)";
 
 		// Measurement badge
 		if (ctx.tile.measurementId && ctx.measurements) {
@@ -150,7 +162,7 @@ export class DashboardTileRenderer {
 				text: `${ctx.result.rows.length} rows`,
 				cls: "ft-text-xs ft-text-muted",
 			});
-			rowBadge.style.flexShrink = "0";
+			rowBadge.style.cssText = "flex-shrink:0;font-size:0.65rem";
 		}
 
 		// Conditional rule indicator dot
@@ -167,11 +179,10 @@ export class DashboardTileRenderer {
 				text: formatRelativeTime(ctx.refreshedAt),
 				cls: "ft-text-xs",
 			});
-			badge.style.color = getFreshnessColor(level);
-			badge.style.flexShrink = "0";
+			badge.style.cssText = `color:${getFreshnessColor(level)};flex-shrink:0;font-size:0.65rem`;
 		} else if (ctx.result) {
 			const badge = actions.createSpan({ text: "Not yet refreshed", cls: "ft-text-xs ft-text-muted" });
-			badge.style.flexShrink = "0";
+			badge.style.cssText = "flex-shrink:0;font-size:0.65rem";
 		}
 
 		// Reorder buttons
@@ -311,7 +322,7 @@ export class DashboardTileRenderer {
 			body.style.minHeight = "0";
 		}
 		body.style.padding = ctx.tile.displayMode === "table" ? "0.35rem" : "0.5rem 0.35rem";
-		if (isChart) {
+		if (isChart || ctx.tile.displayMode === "stat-card") {
 			body.style.display = "flex";
 			body.style.flexDirection = "column";
 		}
@@ -321,21 +332,27 @@ export class DashboardTileRenderer {
 			? { ...ctx.result, rows: ctx.result.rows.slice(0, ctx.tile.rowLimit) }
 			: ctx.result;
 
+		// Apply per-tile column exclusion
+		const tileExcluded = ctx.tile.excludedColumns;
+		const filteredResult = limitedResult && tileExcluded && tileExcluded.length > 0
+			? { ...limitedResult, columns: limitedResult.columns.filter((c) => !tileExcluded.includes(c)) }
+			: limitedResult;
+
 		try {
 			if (ctx.error) {
 				this.renderError(body, ctx.error);
 			} else if (!ctx.query) {
-				this.renderError(body, "Query not found — it may have been deleted");
-			} else if (!limitedResult) {
+				this.renderBrokenRef(body, ctx);
+			} else if (!filteredResult) {
 				this.renderLoading(body);
 			} else if (ctx.tile.displayMode === "stat-card") {
-				this.renderStatCard(body, limitedResult, ctx);
+				this.renderStatCard(body, filteredResult, ctx);
 			} else if (ctx.tile.displayMode === "pie-chart") {
-				ChartRenderer.renderPieChart(body, limitedResult, ctx.tile.chartValueColumn);
+				ChartRenderer.renderPieChart(body, filteredResult, ctx.tile.chartValueColumn);
 			} else if (isChart) {
-				this.renderChartWithSelector(body, { ...ctx, result: limitedResult });
+				this.renderChartWithSelector(body, { ...ctx, result: filteredResult });
 			} else {
-				this.renderTable(body, limitedResult, ctx);
+				this.renderTable(body, filteredResult, ctx);
 			}
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
@@ -351,6 +368,26 @@ export class DashboardTileRenderer {
 		setIcon(iconEl, "alert-triangle");
 		iconEl.style.marginBottom = "0.25rem";
 		el.createDiv({ text: message });
+	}
+
+	/** Enhanced error for broken query/measurement references with Fix action. */
+	private renderBrokenRef(container: HTMLElement, ctx: TileRenderContext): void {
+		const el = container.createDiv({ cls: "ft-text-sm" });
+		el.style.textAlign = "center";
+		el.style.padding = "1rem";
+		el.style.color = "var(--text-error)";
+		const iconEl = el.createDiv();
+		setIcon(iconEl, "alert-triangle");
+		iconEl.style.marginBottom = "0.25rem";
+		el.createDiv({ text: "Query not found — it may have been deleted" });
+		el.createDiv({ text: `ID: ${ctx.tile.queryId}`, cls: "ft-text-xs ft-text-muted" }).style.marginTop = "0.25rem";
+		if (ctx.onToggleSettings) {
+			const fixBtn = el.createEl("button", { text: "Fix Reference", cls: "ft-text-xs" });
+			fixBtn.style.cssText = "margin-top:0.5rem;padding:4px 12px;border-radius:4px;cursor:pointer";
+			fixBtn.addEventListener("click", () => {
+				ctx.onToggleSettings!(ctx.tile.id);
+			});
+		}
 	}
 
 	private renderLoading(container: HTMLElement): void {
@@ -488,7 +525,7 @@ export class DashboardTileRenderer {
 						return typeof v === "number" ? v : 0;
 					});
 					const sparkHost = card.createDiv();
-					sparkHost.style.marginTop = "0.25rem";
+					sparkHost.style.cssText = "margin-top:0.25rem;display:flex;justify-content:center";
 					ChartRenderer.renderSparkline(sparkHost, sparkValues);
 				}
 
@@ -512,11 +549,12 @@ export class DashboardTileRenderer {
 
 		// ── Compact aggregate stat cards ─────────────────────
 		const numericCols = getNumericColumns(result);
-		if (numericCols.length > 0 && result.rows.length > 1) {
+		if (numericCols.length > 0 && result.rows.length > 1 && ctx.tile.showTableKpis !== false) {
 			const grid = container.createDiv();
 			grid.style.display = "grid";
 			grid.style.gridTemplateColumns = `repeat(${Math.min(numericCols.length, 4)}, 1fr)`;
 			grid.style.gap = "0.35rem";
+			grid.style.marginBottom = "0.35rem";
 
 			for (const col of numericCols) {
 				const sum = result.rows.reduce((acc, r) => {
@@ -547,24 +585,138 @@ export class DashboardTileRenderer {
 			}
 		}
 
+		// ── Search input ─────────────────────────────────────
+		const searchRow = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		searchRow.style.cssText = "margin-bottom:0.35rem";
+		const searchInput = searchRow.createEl("input", { type: "text", cls: "ft-text-xs" });
+		searchInput.placeholder = "Search rows...";
+		searchInput.style.cssText = "flex:1;padding:3px 6px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary)";
+		searchInput.value = this.tableSearchText;
+		searchInput.addEventListener("input", () => {
+			this.tableSearchText = searchInput.value;
+			this.rebuildTableBody(tableBody, displayRows(), displayColumns, ctx);
+		});
+
+		// ── Apply column order ────────────────────────────────
+		const orderedColumns = this.applyColumnOrder(result.columns, ctx.tile.columnOrder);
+		const displayColumns = orderedColumns;
+
+		// ── Filtered + sorted rows ───────────────────────────
+		const displayRows = (): Record<string, unknown>[] => {
+			let rows = result.rows;
+			// Apply search filter
+			const search = this.tableSearchText.trim().toLowerCase();
+			if (search) {
+				rows = rows.filter((row) =>
+					displayColumns.some((col) => {
+						const val = row[col];
+						return val !== null && val !== undefined && String(val).toLowerCase().includes(search);
+					}),
+				);
+			}
+			// Apply sort
+			if (this.tableSort && displayColumns.includes(this.tableSort.column)) {
+				const sortCol = this.tableSort.column;
+				const asc = this.tableSort.ascending;
+				rows = [...rows].sort((a, b) => {
+					const va = a[sortCol];
+					const vb = b[sortCol];
+					if (va == null && vb == null) return 0;
+					if (va == null) return asc ? -1 : 1;
+					if (vb == null) return asc ? 1 : -1;
+					if (typeof va === "number" && typeof vb === "number") return asc ? va - vb : vb - va;
+					return asc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+				});
+			}
+			return rows;
+		};
+
 		// ── Table ────────────────────────────────────────────
 		const table = container.createEl("table", { cls: "ft-preview-table" });
 		const thead = table.createEl("thead");
 		const headerRow = thead.createEl("tr");
-		for (const col of result.columns) {
-			headerRow.createEl("th", { text: col, cls: "ft-text-xs" });
+		for (let i = 0; i < displayColumns.length; i++) {
+			const col = displayColumns[i];
+			const th = headerRow.createEl("th", { cls: "ft-text-xs" });
+			th.style.cursor = "pointer";
+			th.style.userSelect = "none";
+			th.style.whiteSpace = "nowrap";
+
+			th.createSpan({ text: col });
+
+			// Sort indicator
+			if (this.tableSort?.column === col) {
+				const arrow = th.createSpan({ cls: "ft-text-muted" });
+				arrow.style.marginLeft = "4px";
+				arrow.textContent = this.tableSort.ascending ? "\u25B2" : "\u25BC";
+			}
+
+			// Click to sort (three-way: ascending → descending → none)
+			th.addEventListener("click", () => {
+				if (this.tableSort?.column === col) {
+					if (this.tableSort.ascending) {
+						this.tableSort.ascending = false;
+					} else {
+						this.tableSort = null;
+					}
+				} else {
+					this.tableSort = { column: col, ascending: true };
+				}
+				this.rebuildTableBody(tableBody, displayRows(), displayColumns, ctx);
+				headerRow.empty();
+				this.renderTableHeaders(headerRow, displayColumns, ctx, tableBody, displayRows);
+			});
+
+			// Column reorder: left/right arrows
+			if (ctx.onColumnOrderChange && displayColumns.length > 1) {
+				if (i > 0) {
+					const leftBtn = th.createSpan({ cls: "ft-text-muted" });
+					leftBtn.style.cssText = "cursor:pointer;margin-left:4px;font-size:0.6rem;opacity:0.5";
+					leftBtn.textContent = "\u25C0";
+					leftBtn.setAttribute("aria-label", "Move column left");
+					leftBtn.addEventListener("click", (e) => {
+						e.stopPropagation();
+						const cols = [...displayColumns];
+						[cols[i - 1], cols[i]] = [cols[i], cols[i - 1]];
+						ctx.onColumnOrderChange!(ctx.tile.id, cols);
+					});
+				}
+				if (i < displayColumns.length - 1) {
+					const rightBtn = th.createSpan({ cls: "ft-text-muted" });
+					rightBtn.style.cssText = "cursor:pointer;margin-left:2px;font-size:0.6rem;opacity:0.5";
+					rightBtn.textContent = "\u25B6";
+					rightBtn.setAttribute("aria-label", "Move column right");
+					rightBtn.addEventListener("click", (e) => {
+						e.stopPropagation();
+						const cols = [...displayColumns];
+						[cols[i], cols[i + 1]] = [cols[i + 1], cols[i]];
+						ctx.onColumnOrderChange!(ctx.tile.id, cols);
+					});
+				}
+			}
 		}
 
-		const tbody = table.createEl("tbody");
-		for (const row of result.rows) {
+		const tableBody = table.createEl("tbody");
+		this.rebuildTableBody(tableBody, displayRows(), displayColumns, ctx);
+	}
+
+	/** Re-render table body (used by sort/search to avoid full tile re-render). */
+	private rebuildTableBody(
+		tbody: HTMLElement,
+		rows: Record<string, unknown>[],
+		columns: string[],
+		ctx: TileRenderContext,
+	): void {
+		tbody.empty();
+		const rules = ctx.tile.conditionalRules;
+		for (const row of rows) {
 			const tr = tbody.createEl("tr");
-			for (const col of result.columns) {
+			for (const col of columns) {
 				const val = row[col];
 				const td = tr.createEl("td", { cls: "ft-text-sm" });
-				td.textContent = typeof val === "number" ? fmtNum(val, ctx.tile, result.columnTypeHints, col) : String(val ?? "");
+				td.textContent = typeof val === "number" ? fmtNum(val, ctx.tile, ctx.result?.columnTypeHints, col) : String(val ?? "");
 
 				if (typeof val === "number") {
-					// Apply background tint for matching conditional formatting rules
 					if (rules && rules.length > 0) {
 						const colRules = rules.filter((r) => r.column === col);
 						if (colRules.length > 0) {
@@ -576,13 +728,11 @@ export class DashboardTileRenderer {
 						}
 					}
 				} else if (typeof val === "string" && ctx.onDrillDown) {
-					// String cells are clickable for drill-down
 					td.style.cursor = "pointer";
 					td.style.textDecoration = "underline";
 					td.style.textDecorationStyle = "dotted";
 					td.style.textUnderlineOffset = "3px";
 
-					// Highlight if this value matches an active filter
 					const isActive = ctx.activeFilters?.some((f) => f.column === col && f.values.includes(val));
 					if (isActive) {
 						td.style.color = "var(--text-accent)";
@@ -595,5 +745,83 @@ export class DashboardTileRenderer {
 				}
 			}
 		}
+	}
+
+	/** Re-render table header row (used when sort changes). */
+	private renderTableHeaders(
+		headerRow: HTMLElement,
+		displayColumns: string[],
+		ctx: TileRenderContext,
+		tableBody: HTMLElement,
+		displayRows: () => Record<string, unknown>[],
+	): void {
+		for (let i = 0; i < displayColumns.length; i++) {
+			const col = displayColumns[i];
+			const th = headerRow.createEl("th", { cls: "ft-text-xs" });
+			th.style.cursor = "pointer";
+			th.style.userSelect = "none";
+			th.style.whiteSpace = "nowrap";
+
+			th.createSpan({ text: col });
+
+			if (this.tableSort?.column === col) {
+				const arrow = th.createSpan({ cls: "ft-text-muted" });
+				arrow.style.marginLeft = "4px";
+				arrow.textContent = this.tableSort.ascending ? "\u25B2" : "\u25BC";
+			}
+
+			th.addEventListener("click", () => {
+				if (this.tableSort?.column === col) {
+					if (this.tableSort.ascending) {
+						this.tableSort.ascending = false;
+					} else {
+						this.tableSort = null;
+					}
+				} else {
+					this.tableSort = { column: col, ascending: true };
+				}
+				this.rebuildTableBody(tableBody, displayRows(), displayColumns, ctx);
+				headerRow.empty();
+				this.renderTableHeaders(headerRow, displayColumns, ctx, tableBody, displayRows);
+			});
+
+			if (ctx.onColumnOrderChange && displayColumns.length > 1) {
+				if (i > 0) {
+					const leftBtn = th.createSpan({ cls: "ft-text-muted" });
+					leftBtn.style.cssText = "cursor:pointer;margin-left:4px;font-size:0.6rem;opacity:0.5";
+					leftBtn.textContent = "\u25C0";
+					leftBtn.addEventListener("click", (e) => {
+						e.stopPropagation();
+						const cols = [...displayColumns];
+						[cols[i - 1], cols[i]] = [cols[i], cols[i - 1]];
+						ctx.onColumnOrderChange!(ctx.tile.id, cols);
+					});
+				}
+				if (i < displayColumns.length - 1) {
+					const rightBtn = th.createSpan({ cls: "ft-text-muted" });
+					rightBtn.style.cssText = "cursor:pointer;margin-left:2px;font-size:0.6rem;opacity:0.5";
+					rightBtn.textContent = "\u25B6";
+					rightBtn.addEventListener("click", (e) => {
+						e.stopPropagation();
+						const cols = [...displayColumns];
+						[cols[i], cols[i + 1]] = [cols[i + 1], cols[i]];
+						ctx.onColumnOrderChange!(ctx.tile.id, cols);
+					});
+				}
+			}
+		}
+	}
+
+	/** Apply custom column order — preserves any new columns not in saved order. */
+	private applyColumnOrder(resultColumns: string[], savedOrder: string[] | undefined): string[] {
+		if (!savedOrder || savedOrder.length === 0) return resultColumns;
+		const resultSet = new Set(resultColumns);
+		// Start with saved order (only columns that still exist)
+		const ordered = savedOrder.filter((c) => resultSet.has(c));
+		// Append any new columns not in saved order
+		for (const col of resultColumns) {
+			if (!savedOrder.includes(col)) ordered.push(col);
+		}
+		return ordered;
 	}
 }

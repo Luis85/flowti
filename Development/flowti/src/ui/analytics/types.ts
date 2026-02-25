@@ -66,6 +66,13 @@ export interface AnalyticsHubState {
 	dashboardFilters: DashboardFilter[];
 	/** Pending CSV source path from cross-hub navigation (consumed once). */
 	pendingSourcePath: string | null;
+	/** Pending entity ID for cross-tab navigation (consumed once after tab switch). */
+	pendingEntityId: string | null;
+	/** Pending new query from top-bar modal (consumed once by QueriesTab). */
+	pendingNewQuery?: {
+		name: string;
+		sources: Array<{ path: string; alias: string; sourceType: string; viewIndex?: number }>;
+	};
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -74,6 +81,8 @@ export interface AnalyticsHubState {
 
 export interface AnalyticsNavigationCallbacks {
 	navigateTo: (page: AnalyticsHubPage | "dashboard") => void;
+	/** Switch to a tab and optionally pre-select an entity. */
+	navigateToTab: (tabId: AnalyticsHubPage, entityId?: string) => void;
 }
 
 // ─────────────────────────────────────────────────────────────

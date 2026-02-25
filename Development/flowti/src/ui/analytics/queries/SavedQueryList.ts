@@ -8,20 +8,32 @@
 import { setIcon } from "obsidian";
 import type { QueriesSubDeps } from "./types";
 
+export type QuerySortKey = "name" | "sources" | "lastRun";
+
+export interface QuerySortState {
+	sortKey: QuerySortKey;
+	onSortChange: (key: QuerySortKey) => void;
+}
+
 export class SavedQueryList {
 	constructor(
 		private container: HTMLElement,
 		private deps: QueriesSubDeps,
+		private sortState?: QuerySortState,
 	) {}
 
 	render(): void {
+		this.container.empty();
 		const state = this.deps.hubDeps.getState();
 		const svc = this.deps.hubDeps.analyticsService;
 
+		const sortKey = this.sortState?.sortKey ?? "name";
 		const savedQueries = [...svc.listQueries()].sort((a, b) => {
 			if (a.isFavorite && !b.isFavorite) return -1;
 			if (!a.isFavorite && b.isFavorite) return 1;
-			return 0;
+			if (sortKey === "sources") return (b.sources?.length ?? 0) - (a.sources?.length ?? 0);
+			if (sortKey === "lastRun") return (b.lastRowCount ?? -1) - (a.lastRowCount ?? -1);
+			return a.name.localeCompare(b.name);
 		});
 
 		const sqHeader = this.container.createDiv({ cls: "ft-master-category-header" });
@@ -30,8 +42,24 @@ export class SavedQueryList {
 			sqHeader.createSpan({ text: `${savedQueries.length}`, cls: "ft-master-category-count" });
 		}
 
+		const spacer = sqHeader.createDiv();
+		spacer.style.flex = "1";
+
+		// Sort dropdown
+		const sortSelect = sqHeader.createEl("select", { cls: "ft-text-xs" });
+		sortSelect.style.cssText = "padding:1px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);cursor:pointer;font-size:var(--font-ui-smaller)";
+		for (const opt of [{ v: "name", l: "Name" }, { v: "sources", l: "Sources" }, { v: "lastRun", l: "Last Run" }]) {
+			const o = sortSelect.createEl("option");
+			o.value = opt.v;
+			o.textContent = opt.l;
+			if (opt.v === sortKey) o.selected = true;
+		}
+		sortSelect.addEventListener("change", () => {
+			this.sortState?.onSortChange(sortSelect.value as QuerySortKey);
+			this.deps.renderMaster();
+		});
+
 		const newBtn = sqHeader.createEl("span", { cls: "ft-nav-link" });
-		newBtn.style.marginLeft = "auto";
 		newBtn.style.cursor = "pointer";
 		const newIcon = newBtn.createSpan();
 		setIcon(newIcon, "plus");
@@ -45,10 +73,8 @@ export class SavedQueryList {
 
 		for (const sq of savedQueries) {
 			const isSelected = state.selectedQueryId === sq.id;
-			const item = this.container.createDiv({
-				cls: `ft-master-event-item${isSelected ? " ft-master-event-selected" : ""}`,
-			});
-			item.style.alignItems = "flex-start";
+			const item = this.container.createDiv({ cls: "ft-master-event-item" });
+			item.style.cssText = `align-items:flex-start;padding-left:0.5rem${isSelected ? ";border-left:2px solid var(--interactive-accent);background:var(--background-secondary)" : ""}`;
 
 			// Star toggle
 			const starBtn = item.createEl("span", { cls: "ft-nav-link" });
@@ -75,11 +101,12 @@ export class SavedQueryList {
 				descEl.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
 				descEl.textContent = sq.description;
 			}
-			const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-sm" });
+			const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-xs" });
 			sub.textContent = `${sq.sources.length} source${sq.sources.length > 1 ? "s" : ""}, ${sq.measures.length} measure${sq.measures.length > 1 ? "s" : ""}`;
 
 			if (sq.lastRowCount !== undefined) {
-				item.createSpan({ text: `${sq.lastRowCount} rows`, cls: "ft-badge ft-badge-muted" });
+				const rowsBadge = item.createSpan({ text: `${sq.lastRowCount}`, cls: "ft-text-xs ft-text-muted" });
+				rowsBadge.style.flexShrink = "0";
 			}
 
 			// Rename button — replaces text with inline input

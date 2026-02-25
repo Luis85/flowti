@@ -12,7 +12,7 @@ import type { AnalyticsResult } from "../../domain/analytics/types";
 
 const CHART_WIDTH = 400;
 const CHART_HEIGHT = 225;
-const PADDING = { top: 20, right: 20, bottom: 50, left: 60 };
+const PADDING = { top: 20, right: 10, bottom: 50, left: 32 };
 const PLOT_W = CHART_WIDTH - PADDING.left - PADDING.right;
 const PLOT_H = CHART_HEIGHT - PADDING.top - PADDING.bottom;
 const DOT_RADIUS = 3;

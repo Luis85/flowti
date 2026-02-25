@@ -29,6 +29,7 @@ import { FilterBuilderPanel } from "./FilterBuilderPanel";
 
 const TYPE_ICONS: Record<string, string> = {
 	number: "hash",
+	currency: "coins",
 	date: "calendar",
 	string: "type",
 };
@@ -66,12 +67,11 @@ export class QueryBuilderPanel {
 
 		// Card title
 		const cardTitle = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		cardTitle.createDiv({ text: "Data Pipeline", cls: "ft-detail-section-header" });
-		cardTitle.style.margin = "0";
+		cardTitle.createSpan({ text: "Data Pipeline", cls: "ft-text-sm" }).style.fontWeight = "600";
+		cardTitle.style.cssText = "margin:0;padding-bottom:0.35rem;margin-bottom:0.5rem";
 
 		// Joins sub-section (only if 2+ sources)
 		if (hasJoins) {
-			this.addDivider(card);
 			this.renderJoinSubSection(card, loadedSources);
 		}
 
@@ -93,9 +93,11 @@ export class QueryBuilderPanel {
 		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const headerIcon = header.createSpan();
 		setIcon(headerIcon, "git-merge");
-		headerIcon.style.cssText = "width:14px;height:14px;opacity:0.6";
+		headerIcon.style.cssText = "opacity:0.6;display:inline-flex;align-items:center";
+		headerIcon.querySelectorAll("svg").forEach((s) => { s.style.width = "14px"; s.style.height = "14px"; });
 		header.createSpan({ text: "Joins", cls: "ft-text-sm" }).style.fontWeight = "500";
 		header.style.margin = "0";
+		section.createDiv({ text: "Combine rows from multiple sources by matching column values.", cls: "ft-text-muted ft-text-xs" }).style.cssText = "padding:0 0.5rem 0.25rem";
 
 		const addBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 		addBtn.style.marginLeft = "auto";
@@ -125,12 +127,17 @@ export class QueryBuilderPanel {
 			row.createSpan({ text: "=", cls: "ft-text-muted" });
 			this.renderJoinSide(row, join, "right", loaded);
 
+			const joinTypeLabels: Record<string, string> = {
+				inner: "inner — only matching rows",
+				left: "left — all left rows, matches from right",
+			};
 			const typeSelect = row.createEl("select");
 			typeSelect.style.cssText = SELECT_CSS;
+			typeSelect.title = "Inner: keeps only rows where both sides match.\nLeft: keeps all rows from the left source, filling unmatched right columns with empty values.";
 			for (const jt of ["inner", "left"] as const) {
 				const opt = typeSelect.createEl("option");
 				opt.value = jt;
-				opt.textContent = jt;
+				opt.textContent = joinTypeLabels[jt];
 				if (join.type === jt) opt.selected = true;
 			}
 			typeSelect.addEventListener("change", () => { join.type = typeSelect.value as "inner" | "left"; });
@@ -187,7 +194,8 @@ export class QueryBuilderPanel {
 		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const headerIcon = header.createSpan();
 		setIcon(headerIcon, "arrow-up-down");
-		headerIcon.style.cssText = "width:14px;height:14px;opacity:0.6";
+		headerIcon.style.cssText = "opacity:0.6;display:inline-flex;align-items:center";
+		headerIcon.querySelectorAll("svg").forEach((s) => { s.style.width = "14px"; s.style.height = "14px"; });
 		header.createSpan({ text: "Sort & Limit", cls: "ft-text-sm" }).style.fontWeight = "500";
 		header.style.margin = "0";
 
@@ -293,8 +301,8 @@ export class QueryBuilderPanel {
 		const section = this.container.createDiv({ cls: "ft-card ft-mt-3" });
 
 		const sectionHeader = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		sectionHeader.createDiv({ text: "Column Types & Schema", cls: "ft-detail-section-header" });
-		sectionHeader.style.margin = "0";
+		sectionHeader.createSpan({ text: "Column Types & Schema", cls: "ft-text-sm" }).style.fontWeight = "600";
+		sectionHeader.style.cssText = "margin:0;padding-bottom:0.35rem;margin-bottom:0.5rem";
 		const excluded = this.deps.excludedColumns();
 		const excludeSet = new Set(excluded);
 		const visibleCount = headers.length - excluded.length;
@@ -304,6 +312,15 @@ export class QueryBuilderPanel {
 		});
 		badge.style.marginLeft = "auto";
 		if (excluded.length > 0) badge.title = `${excluded.length} column${excluded.length > 1 ? "s" : ""} hidden`;
+
+		// Show effective locale inline in header
+		for (const src of loadedSources) {
+			const effective = src.locale === "auto" || !src.locale ? "en-US" : src.locale;
+			const localeTag = sectionHeader.createSpan({ cls: "ft-badge ft-badge-muted" });
+			localeTag.style.cssText = "font-size:0.6rem;padding:0 0.25rem;opacity:0.7";
+			localeTag.textContent = loadedSources.length > 1 ? `${src.alias}: ${effective}` : effective;
+			if (src.locale === "auto" || !src.locale) localeTag.title = "Auto-detected (default: en-US)";
+		}
 
 		const hints = this.deps.columnTypeHints();
 		const dims = this.deps.dimensions();
@@ -321,6 +338,60 @@ export class QueryBuilderPanel {
 			}
 		}
 
+		// Data Tools — batch quick actions
+		const toolsRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		toolsRow.style.cssText = "padding:0 0.5rem 0.35rem;border-bottom:1px solid var(--background-modifier-border);margin-bottom:0.35rem";
+		toolsRow.createSpan({ text: "Tools", cls: "ft-text-xs ft-text-muted" }).style.fontWeight = "500";
+
+		// Remove All Empty — adds != "" filters for all dimension columns
+		const removeEmptyLink = toolsRow.createEl("span", { cls: "ft-nav-link ft-text-xs" });
+		removeEmptyLink.style.cursor = "pointer";
+		const reIcon = removeEmptyLink.createSpan();
+		setIcon(reIcon, "filter-x");
+		reIcon.style.cssText = "display:inline-flex;align-items:center;margin-right:2px";
+		reIcon.querySelectorAll("svg").forEach((s) => { s.style.width = "11px"; s.style.height = "11px"; });
+		removeEmptyLink.appendText("Remove Empty Rows");
+		removeEmptyLink.addEventListener("click", () => {
+			const currentFilters = this.deps.filters();
+			const existingFilterCols = new Set(currentFilters.filter((f) => f.operator === "!=" && f.value === "").map((f) => f.column));
+			const dimCols = dims.map((d) => d.column).filter((c) => !existingFilterCols.has(c));
+			// If no dimensions yet, filter all columns
+			const targetCols = dimCols.length > 0 ? dimCols : headers.filter((c) => !existingFilterCols.has(c));
+			if (targetCols.length > 0) {
+				const newFilters = targetCols.map((c) => ({ column: c, operator: "!=" as const, value: "" }));
+				this.deps.setFilters([...currentFilters, ...newFilters]);
+				this.deps.renderDetail();
+			}
+		});
+
+		// Summary Stats — adds AVG, MIN, MAX, COUNT for first numeric column
+		const numericCols = headers.filter((h) => {
+			const hint = hints.find((ht) => ht.column === h);
+			return hint?.type === "number";
+		});
+		if (numericCols.length > 0) {
+			const statsLink = toolsRow.createEl("span", { cls: "ft-nav-link ft-text-xs" });
+			statsLink.style.cursor = "pointer";
+			const stIcon = statsLink.createSpan();
+			setIcon(stIcon, "bar-chart-3");
+			stIcon.style.cssText = "display:inline-flex;align-items:center;margin-right:2px";
+			stIcon.querySelectorAll("svg").forEach((s) => { s.style.width = "11px"; s.style.height = "11px"; });
+			statsLink.appendText("Summary Stats");
+			statsLink.addEventListener("click", () => {
+				const col = numericCols[0];
+				const existing = this.deps.measures();
+				const existingFns = new Set(existing.filter((m) => m.column === col).map((m) => m.function));
+				const toAdd: Array<{ column: string; function: AggregationFunction; label: string }> = [];
+				for (const fn of ["AVG", "MIN", "MAX", "COUNT"] as AggregationFunction[]) {
+					if (!existingFns.has(fn)) toAdd.push({ column: col, function: fn, label: `${fn}(${col})` });
+				}
+				if (toAdd.length > 0) {
+					this.deps.setMeasures([...existing, ...toAdd]);
+					this.deps.renderDetail();
+				}
+			});
+		}
+
 		// Render columns grouped by type
 		const groups = groupColumnsByType(headers, hints);
 
@@ -335,9 +406,8 @@ export class QueryBuilderPanel {
 			groupHeader.style.marginBottom = "0.25rem";
 			const icon = groupHeader.createSpan();
 			setIcon(icon, TYPE_ICONS[group.type] ?? "type");
-			icon.style.width = "14px";
-			icon.style.height = "14px";
-			icon.style.opacity = "0.6";
+			icon.style.cssText = "opacity:0.6;flex-shrink:0;display:inline-flex;align-items:center";
+			icon.querySelectorAll("svg").forEach((s) => { s.style.width = "12px"; s.style.height = "12px"; });
 			groupHeader.createSpan({ text: group.label, cls: "ft-text-sm" }).style.fontWeight = "500";
 			groupHeader.createSpan({ text: `${group.columns.length}`, cls: "ft-badge ft-badge-muted" });
 
@@ -354,7 +424,8 @@ export class QueryBuilderPanel {
 				eyeBtn.style.cssText = "cursor:pointer;flex-shrink:0;padding:0";
 				const eyeIcon = eyeBtn.createSpan();
 				setIcon(eyeIcon, isExcluded ? "eye-off" : "eye");
-				eyeIcon.style.cssText = "width:12px;height:12px";
+				eyeIcon.style.cssText = "display:inline-flex;align-items:center";
+				eyeIcon.querySelectorAll("svg").forEach((s) => { s.style.width = "12px"; s.style.height = "12px"; });
 				eyeBtn.title = isExcluded ? "Include in results" : "Exclude from results";
 				eyeBtn.addEventListener("click", () => {
 					const current = this.deps.excludedColumns();
@@ -365,6 +436,30 @@ export class QueryBuilderPanel {
 					}
 					this.deps.renderDetail();
 				});
+
+				// Remove empty filter
+				const hasEmptyFilter = this.deps.filters().some((f) => f.column === col && f.operator === "!=" && f.value === "");
+				const filterBtn = row.createEl("span", { cls: "ft-nav-link" });
+				filterBtn.style.cssText = "cursor:pointer;flex-shrink:0;padding:0";
+				filterBtn.title = hasEmptyFilter ? "Empty rows filtered" : "Remove empty rows for this column";
+				const filterIcon = filterBtn.createSpan();
+				setIcon(filterIcon, hasEmptyFilter ? "filter" : "filter-x");
+				filterIcon.style.cssText = "display:inline-flex;align-items:center";
+				filterIcon.querySelectorAll("svg").forEach((s) => { s.style.width = "12px"; s.style.height = "12px"; });
+				if (hasEmptyFilter) {
+					filterBtn.style.color = "var(--text-accent)";
+					filterBtn.style.opacity = "0.8";
+					filterBtn.addEventListener("click", () => {
+						this.deps.setFilters(this.deps.filters().filter((f) => !(f.column === col && f.operator === "!=" && f.value === "")));
+						this.deps.renderDetail();
+					});
+				} else {
+					filterBtn.style.opacity = "0.35";
+					filterBtn.addEventListener("click", () => {
+						this.deps.setFilters([...this.deps.filters(), { column: col, operator: "!=", value: "" }]);
+						this.deps.renderDetail();
+					});
+				}
 
 				// Column name
 				const nameEl = row.createSpan({ text: col, cls: "ft-text-sm" });
@@ -379,6 +474,26 @@ export class QueryBuilderPanel {
 				aliasInput.addEventListener("change", () => {
 					const val = aliasInput.value.trim() || undefined;
 					this.updateColumnTypeHint(col, { alias: val });
+				});
+
+				// Private toggle (lock/unlock)
+				const isPrivate = hint?.isPrivate ?? false;
+				const lockBtn = row.createEl("span", { cls: "ft-nav-link" });
+				lockBtn.style.cssText = "cursor:pointer;flex-shrink:0;padding:0";
+				lockBtn.title = isPrivate ? "Remove anonymization" : "Anonymize column values";
+				const lockIcon = lockBtn.createSpan();
+				setIcon(lockIcon, isPrivate ? "lock" : "unlock");
+				lockIcon.style.cssText = "display:inline-flex;align-items:center";
+				lockIcon.querySelectorAll("svg").forEach((s) => { s.style.width = "12px"; s.style.height = "12px"; });
+				if (isPrivate) {
+					lockBtn.style.color = "var(--text-error)";
+					lockBtn.style.opacity = "0.9";
+				} else {
+					lockBtn.style.opacity = "0.35";
+				}
+				lockBtn.addEventListener("click", () => {
+					this.updateColumnTypeHint(col, { isPrivate: !isPrivate || undefined });
+					this.deps.renderDetail();
 				});
 
 				// Source alias badges (multi-source)
@@ -408,40 +523,34 @@ export class QueryBuilderPanel {
 					if (uiType === displayType) opt.selected = true;
 				}
 
-				// Currency symbol input (visible for number or currency)
-				const symbolInput = row.createEl("input", { type: "text", cls: "ft-text-xs" });
-				symbolInput.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);width:36px";
-				symbolInput.placeholder = "$";
-				if (hint?.currencySymbol) symbolInput.value = hint.currencySymbol;
-				symbolInput.style.display = (displayType === "number" || displayType === "currency") ? "" : "none";
+				// Currency symbol input (inline, only visible for "currency" type)
+				let symbolInput: HTMLInputElement | null = null;
+				if (displayType === "currency") {
+					symbolInput = row.createEl("input", { type: "text", cls: "ft-text-xs" });
+					symbolInput.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);width:36px";
+					symbolInput.placeholder = "$";
+					if (hint?.currencySymbol) symbolInput.value = hint.currencySymbol;
+					symbolInput.addEventListener("change", () => {
+						const val = symbolInput!.value.trim() || undefined;
+						this.updateColumnTypeHint(col, { currencySymbol: val });
+					});
+				}
 
 				select.addEventListener("change", () => {
 					const val = select.value;
 					if (val === "currency") {
-						// Set type=number + auto-populate symbol if empty
-						const sym = symbolInput.value.trim() || "$";
-						symbolInput.value = sym;
-						symbolInput.style.display = "";
+						const sym = symbolInput?.value.trim() || hint?.currencySymbol || "$";
 						this.updateColumnTypeHint(col, { type: "number", currencySymbol: sym });
 					} else if (val === "number") {
-						// Clear currency symbol
-						symbolInput.value = "";
-						symbolInput.style.display = "";
 						this.updateColumnTypeHint(col, { type: "number", currencySymbol: undefined });
 					} else {
-						symbolInput.style.display = "none";
 						this.updateColumnTypeHint(col, { type: val as ColumnType, currencySymbol: undefined });
 					}
 					this.deps.renderDetail();
 				});
 
-				symbolInput.addEventListener("change", () => {
-					const val = symbolInput.value.trim() || undefined;
-					this.updateColumnTypeHint(col, { currencySymbol: val });
-				});
-
 				// Group By checkbox (for non-numeric columns)
-				if (group.type !== "number") {
+				if (group.type !== "number" && group.type !== "currency") {
 					const dimLabel = row.createEl("label", { cls: "ft-flex ft-items-center ft-gap-1" });
 					dimLabel.style.cssText = "cursor:pointer;font-size:var(--font-ui-small);color:var(--text-muted)";
 					const cb = dimLabel.createEl("input", { type: "checkbox" });
@@ -458,26 +567,58 @@ export class QueryBuilderPanel {
 					dimLabel.appendText("Group");
 				}
 
-				// Quick-add measure button (for numeric columns)
-				if (group.type === "number") {
+				// Time Bucket quick-action (for date columns)
+				if (group.type === "date") {
+					const tb = this.deps.timeBucket();
+					const isTimeBucket = tb?.column === col;
+					if (isTimeBucket) {
+						const tbBadge = row.createSpan({ text: "time bucket", cls: "ft-badge ft-badge-muted" });
+						tbBadge.style.fontSize = "0.65rem";
+					} else {
+						const tbBtn = row.createEl("span", { cls: "ft-nav-link ft-text-xs" });
+						tbBtn.style.cursor = "pointer";
+						tbBtn.title = `Use ${col} as time bucket`;
+						const tbIcon = tbBtn.createSpan();
+						setIcon(tbIcon, "clock");
+						tbIcon.style.cssText = "display:inline-flex;align-items:center";
+						tbIcon.querySelectorAll("svg").forEach((s) => { s.style.width = "12px"; s.style.height = "12px"; });
+						tbBtn.appendText(" Time Bucket");
+						tbBtn.addEventListener("click", () => {
+							this.deps.setTimeBucket({ column: col, period: "month" });
+							this.deps.renderDetail();
+						});
+					}
+				}
+
+				// Quick-add measure dropdown (all column types)
+				{
 					const alreadyAdded = this.deps.measures().some((m) => m.column === col);
 					if (alreadyAdded) {
 						const addedBadge = row.createSpan({ text: "measure", cls: "ft-badge ft-badge-muted" });
 						addedBadge.style.fontSize = "0.65rem";
-					} else {
-						const addMeasureBtn = row.createEl("span", { cls: "ft-nav-link ft-text-xs" });
-						addMeasureBtn.style.cursor = "pointer";
-						addMeasureBtn.title = `Add SUM(${col}) as measure`;
-						const btnIcon = addMeasureBtn.createSpan();
-						setIcon(btnIcon, "plus");
-						btnIcon.style.width = "12px";
-						btnIcon.style.height = "12px";
-						addMeasureBtn.appendText(" SUM");
-						addMeasureBtn.addEventListener("click", () => {
-							this.deps.setMeasures([...this.deps.measures(), { column: col, function: "SUM" }]);
-							this.deps.renderDetail();
-						});
 					}
+					const isNumeric = group.type === "number" || group.type === "currency";
+					const applicableFns: AggregationFunction[] = isNumeric
+						? AGG_FUNCTIONS
+						: ["COUNT", "COUNT_DISTINCT"];
+					const measureSelect = row.createEl("select");
+					measureSelect.style.cssText = SELECT_CSS + ";font-size:0.65rem;padding:1px 4px;max-width:90px";
+					const placeholder = measureSelect.createEl("option");
+					placeholder.value = "";
+					placeholder.textContent = "+ Measure";
+					placeholder.disabled = true;
+					placeholder.selected = true;
+					for (const fn of applicableFns) {
+						const opt = measureSelect.createEl("option");
+						opt.value = fn;
+						opt.textContent = fn;
+					}
+					measureSelect.addEventListener("change", () => {
+						const fn = measureSelect.value as AggregationFunction;
+						if (!fn) return;
+						this.deps.setMeasures([...this.deps.measures(), { column: col, function: fn, label: `${fn}(${col})` }]);
+						this.deps.renderDetail();
+					});
 				}
 			}
 		}
@@ -502,7 +643,10 @@ export class QueryBuilderPanel {
 		if (dateCols.length === 0) return;
 
 		const section = this.container.createDiv({ cls: "ft-card ft-mt-3" });
-		section.createDiv({ text: "Time Bucket", cls: "ft-detail-section-header" });
+		const tbHeader = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		tbHeader.createSpan({ text: "Time Bucket", cls: "ft-text-sm" }).style.fontWeight = "600";
+		tbHeader.style.cssText = "margin:0;padding-bottom:0.35rem;margin-bottom:0.5rem";
+		section.createDiv({ text: "Group rows by a date column into time periods for trend analysis.", cls: "ft-text-muted ft-text-xs" }).style.cssText = "padding:0 0.5rem 0.25rem;margin-top:-0.35rem";
 
 		const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
 		row.style.padding = "0.35rem 0.5rem";
@@ -553,12 +697,12 @@ export class QueryBuilderPanel {
 	private renderMeasureConfig(): void {
 		const section = this.container.createDiv({ cls: "ft-card ft-mt-3" });
 		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		header.createDiv({ text: "Measures", cls: "ft-detail-section-header" });
-		header.style.margin = "0";
+		header.createSpan({ text: "Measures", cls: "ft-text-sm" }).style.fontWeight = "600";
+		header.style.cssText = "margin:0;padding-bottom:0.35rem;margin-bottom:0.5rem";
+		section.createDiv({ text: "Aggregate columns using functions like SUM, COUNT, or AVG.", cls: "ft-text-muted ft-text-xs" }).style.cssText = "padding:0 0.5rem 0.25rem;margin-top:-0.35rem";
 
 		const hints = this.deps.columnTypeHints();
-		const numericCols = hints.filter((h) => h.type === "number").map((h) => h.column);
-		const allHeaders = numericCols.length > 0 ? numericCols : this.deps.getLoadedHeaders();
+		const allHeaders = this.deps.getLoadedHeaders();
 
 		const addBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 		addBtn.style.marginLeft = "auto";
@@ -570,7 +714,7 @@ export class QueryBuilderPanel {
 			const measures = this.deps.measures();
 			measures.push({
 				column: numCol?.column ?? allHeaders[0] ?? "",
-				function: "SUM",
+				function: numCol ? "SUM" : "COUNT",
 			});
 			this.deps.setMeasures(measures);
 			this.deps.renderDetail();
@@ -604,6 +748,50 @@ export class QueryBuilderPanel {
 			});
 
 			row.createSpan({ text: ")", cls: "ft-text-muted" });
+
+			row.createSpan({ text: "as", cls: "ft-text-muted ft-text-xs" }).style.marginLeft = "0.25rem";
+			const aliasInput = row.createEl("input", { type: "text", cls: "ft-text-xs" });
+			aliasInput.style.cssText = "width:80px;padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary)";
+			aliasInput.placeholder = `${measure.function}(${measure.column})`;
+			if (measure.label) aliasInput.value = measure.label;
+			aliasInput.addEventListener("change", () => {
+				measure.label = aliasInput.value.trim() || undefined;
+			});
+
+			// Type hint for measure output (number format)
+			const measureLabel = measure.label ?? `${measure.function}(${measure.column})`;
+			const measureHint = hints.find((h) => h.column === measureLabel);
+			const isMeasureCurrency = measureHint?.type === "number" && !!measureHint.currencySymbol;
+			const measureType = isMeasureCurrency ? "currency" : (measureHint?.type ?? "number");
+
+			const typeSelect = row.createEl("select");
+			typeSelect.style.cssText = SELECT_CSS + ";font-size:0.65rem;padding:1px 4px;max-width:70px";
+			for (const t of ["number", "currency"]) {
+				const opt = typeSelect.createEl("option");
+				opt.value = t;
+				opt.textContent = t;
+				if (t === measureType) opt.selected = true;
+			}
+
+			let symInput: HTMLInputElement | null = null;
+			if (measureType === "currency") {
+				symInput = row.createEl("input", { type: "text", cls: "ft-text-xs" });
+				symInput.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);width:30px";
+				symInput.placeholder = "$";
+				if (measureHint?.currencySymbol) symInput.value = measureHint.currencySymbol;
+				symInput.addEventListener("change", () => {
+					this.updateColumnTypeHint(measureLabel, { type: "number", currencySymbol: symInput!.value.trim() || "$" });
+				});
+			}
+
+			typeSelect.addEventListener("change", () => {
+				if (typeSelect.value === "currency") {
+					this.updateColumnTypeHint(measureLabel, { type: "number", currencySymbol: "$" });
+				} else {
+					this.updateColumnTypeHint(measureLabel, { type: "number", currencySymbol: undefined });
+				}
+				this.deps.renderDetail();
+			});
 
 			const removeBtn = row.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 			const removeIcon = removeBtn.createSpan();

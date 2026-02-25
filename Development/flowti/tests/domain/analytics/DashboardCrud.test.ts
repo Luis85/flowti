@@ -375,6 +375,21 @@ describe("AnalyticsService — Dashboard CRUD", () => {
 			const changed = await service.updateTile(db.id, tile!.id, { measurementId: "am_456" });
 			expect(changed!.measurementId).toBe("am_456");
 		});
+
+		it("persists excludedColumns on tile", async () => {
+			const db = await service.createDashboard("DB");
+			const tile = await service.addTile(db.id, "q1", "table");
+			const updated = await service.updateTile(db.id, tile!.id, { excludedColumns: ["col_a", "col_b"] });
+			expect(updated!.excludedColumns).toEqual(["col_a", "col_b"]);
+		});
+
+		it("clears excludedColumns with empty array", async () => {
+			const db = await service.createDashboard("DB");
+			const tile = await service.addTile(db.id, "q1", "table");
+			await service.updateTile(db.id, tile!.id, { excludedColumns: ["col_a"] });
+			const cleared = await service.updateTile(db.id, tile!.id, { excludedColumns: [] });
+			expect(cleared!.excludedColumns).toEqual([]);
+		});
 	});
 
 	// ── Persistence round-trip ───────────────────────────

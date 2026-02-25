@@ -15,6 +15,8 @@ import { DashboardsTab } from "./analytics/DashboardsTab";
 import { MeasurementsTab } from "./analytics/MeasurementsTab";
 import { AnalyticsDashboardPage } from "./analytics/AnalyticsDashboardPage";
 import { TileResultCache } from "./analytics/TileResultCache";
+import { DashboardNameModal } from "./analytics/DashboardNameModal";
+import { NewQueryModal } from "./analytics/NewQueryModal";
 import type { AnalyticsHubPage, AnalyticsHubState, AnalyticsCsvEntry, AnalyticsBaseEntry, AnalyticsFolderEntry, AnalyticsHubDeps, AnalyticsNavigationCallbacks } from "./analytics/types";
 export { VIEW_TYPE_ANALYTICS_HUB };
 
@@ -34,6 +36,8 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 	private homepageDashboardId: string | null = null;
 	private dashboardFilters: import("./analytics/types").DashboardFilter[] = [];
 	private pendingSourcePath: string | null = null;
+	private pendingEntityId: string | null = null;
+	private pendingNewQuery: AnalyticsHubState["pendingNewQuery"] = undefined;
 
 	// ── Tab components ───────────────────────────────────────
 	private tileResultCache = new TileResultCache();
@@ -74,7 +78,16 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 		setIcon(qIcon, "search");
 		newQueryBtn.appendText(" New Query");
 		newQueryBtn.addEventListener("click", () => {
-			this.navigateTo("queries");
+			new NewQueryModal(this.app, {
+				csvFiles: this.csvFiles,
+				baseFiles: this.baseFiles,
+				csvFolders: this.csvFolders,
+				onConfirm: (name, sources) => {
+					this.pendingNewQuery = { name, sources };
+					this.navigateTo("queries");
+					this.scheduleRender();
+				},
+			}).open();
 		});
 
 		const newDashBtn = bar.createEl("span", { cls: "ft-nav-link ft-text-sm" });
@@ -83,7 +96,15 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 		setIcon(dIcon, "layout-grid");
 		newDashBtn.appendText(" New Dashboard");
 		newDashBtn.addEventListener("click", () => {
-			this.navigateTo("dashboards");
+			new DashboardNameModal(this.app, {
+				onConfirm: (name) => {
+					void this.analyticsService.createDashboard(name).then((dashboard) => {
+						this.selectedDashboardId = dashboard.id;
+						this.navigateTo("dashboards");
+						this.scheduleRender();
+					});
+				},
+			}).open();
 		});
 	}
 
@@ -259,6 +280,10 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 	private buildDeps(): AnalyticsHubDeps {
 		const navigation: AnalyticsNavigationCallbacks = {
 			navigateTo: (page) => this.navigateTo(page as AnalyticsHubPage | "dashboard"),
+			navigateToTab: (tabId, entityId) => {
+				this.pendingEntityId = entityId ?? null;
+				this.navigateTo(tabId);
+			},
 		};
 
 		return {
@@ -289,6 +314,8 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 			homepageDashboardId: this.homepageDashboardId,
 			dashboardFilters: this.dashboardFilters,
 			pendingSourcePath: this.pendingSourcePath,
+			pendingEntityId: this.pendingEntityId,
+			pendingNewQuery: this.pendingNewQuery,
 		};
 	}
 
@@ -313,6 +340,8 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 		if (partial.selectedMeasurementId !== undefined) this.selectedMeasurementId = partial.selectedMeasurementId;
 		if (partial.dashboardFilters !== undefined) this.dashboardFilters = partial.dashboardFilters;
 		if (partial.pendingSourcePath !== undefined) this.pendingSourcePath = partial.pendingSourcePath;
+		if (partial.pendingEntityId !== undefined) this.pendingEntityId = partial.pendingEntityId;
+		if ("pendingNewQuery" in partial) this.pendingNewQuery = partial.pendingNewQuery;
 	}
 
 	// ── Data refresh ─────────────────────────────────────────

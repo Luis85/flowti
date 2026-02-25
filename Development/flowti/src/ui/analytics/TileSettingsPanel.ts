@@ -25,8 +25,16 @@ export class TileSettingsPanel {
 		this.renderSettings();
 	}
 
+	private addSectionLabel(text: string): void {
+		const label = this.container.createDiv({ text, cls: "ft-text-xs ft-text-muted" });
+		label.style.cssText = "text-transform:uppercase;letter-spacing:0.05em;margin-top:0.5rem;margin-bottom:0.25rem;font-weight:600";
+	}
+
 	private renderSettings(): void {
 		const ctx = this.ctx;
+
+		// ── Data section ─────────────────────────────────
+		this.addSectionLabel("Data");
 
 		// ── Measurement selector ─────────────────────────
 		if (ctx.measurements && ctx.measurements.length > 0 && ctx.onMeasurementChange) {
@@ -83,6 +91,9 @@ export class TileSettingsPanel {
 			}
 		}
 
+		// ── Layout section ───────────────────────────────
+		this.addSectionLabel("Layout");
+
 		// ── Width toggle ─────────────────────────────────
 		if (ctx.onWidthChange) {
 			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
@@ -90,15 +101,8 @@ export class TileSettingsPanel {
 			row.createSpan({ text: "Width", cls: "ft-text-sm" }).style.fontWeight = "600";
 
 			for (const w of [1, 2, 3, 4, 5, 6]) {
-				const btn = row.createEl("button", { cls: "ft-text-xs" });
+				const btn = row.createEl("button", { cls: `ft-toggle-btn${ctx.tile.width === w ? " is-active" : ""}` });
 				btn.textContent = `${w} col`;
-				btn.style.cssText = "padding:2px 8px;border-radius:4px;border:1px solid var(--background-modifier-border);cursor:pointer";
-				if (ctx.tile.width === w) {
-					btn.style.background = "var(--interactive-accent)";
-					btn.style.color = "var(--text-on-accent)";
-				} else {
-					btn.style.background = "var(--background-primary)";
-				}
 				btn.addEventListener("click", () => {
 					ctx.onWidthChange!(ctx.tile.id, w);
 				});
@@ -112,15 +116,9 @@ export class TileSettingsPanel {
 			row.createSpan({ text: "Height", cls: "ft-text-sm" }).style.fontWeight = "600";
 
 			for (const h of [1, 2, 3, 4, 5, 6]) {
-				const btn = row.createEl("button", { cls: "ft-text-xs" });
+				const btn = row.createEl("button", { cls: `ft-toggle-btn${ctx.tile.height === h ? " is-active" : ""}` });
 				btn.textContent = `${h}`;
-				btn.style.cssText = "padding:2px 8px;border-radius:4px;border:1px solid var(--background-modifier-border);cursor:pointer;min-width:28px";
-				if (ctx.tile.height === h) {
-					btn.style.background = "var(--interactive-accent)";
-					btn.style.color = "var(--text-on-accent)";
-				} else {
-					btn.style.background = "var(--background-primary)";
-				}
+				btn.style.minWidth = "28px";
 				btn.addEventListener("click", () => {
 					ctx.onHeightChange!(ctx.tile.id, h);
 				});
@@ -141,6 +139,9 @@ export class TileSettingsPanel {
 			row.createSpan({ text: "Auto height (fit content)", cls: "ft-text-sm" });
 		}
 
+		// ── Display section ──────────────────────────────
+		this.addSectionLabel("Display");
+
 		// ── Sparkline toggle (stat-card only) ────────────
 		if (ctx.tile.displayMode === "stat-card" && ctx.onSparklineToggle) {
 			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
@@ -153,6 +154,20 @@ export class TileSettingsPanel {
 			});
 
 			row.createSpan({ text: "Show sparklines", cls: "ft-text-sm" });
+		}
+
+		// ── Table KPI cards toggle (table only) ─────────
+		if (ctx.tile.displayMode === "table" && ctx.onTableKpisToggle) {
+			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+			row.style.marginBottom = "0.5rem";
+
+			const checkbox = row.createEl("input", { type: "checkbox" });
+			checkbox.checked = ctx.tile.showTableKpis !== false;
+			checkbox.addEventListener("change", () => {
+				ctx.onTableKpisToggle!(ctx.tile.id, checkbox.checked);
+			});
+
+			row.createSpan({ text: "Show KPI cards", cls: "ft-text-sm" });
 		}
 
 		// ── Row limit ────────────────────────────────────
@@ -171,6 +186,14 @@ export class TileSettingsPanel {
 				ctx.onRowLimitChange!(ctx.tile.id, val > 0 ? val : undefined);
 			});
 		}
+
+		// ── Hidden columns (skip for single-measurement tiles) ──
+		if (ctx.onExcludedColumnsChange && ctx.result && ctx.result.columns.length > 0 && !ctx.tile.measurementId) {
+			this.renderHiddenColumns();
+		}
+
+		// ── Formatting section ───────────────────────────
+		this.addSectionLabel("Formatting");
 
 		// ── Number format ───────────────────────────────
 		if (ctx.onNumberFormatChange) {
@@ -246,6 +269,55 @@ export class TileSettingsPanel {
 		});
 		symbolInput.addEventListener("change", emitChange);
 		decimalsInput.addEventListener("change", emitChange);
+	}
+
+	/** Build a map from result column key to preferred display name (measure alias wins). */
+	private buildColumnAliasMap(): Map<string, string> {
+		const map = new Map<string, string>();
+		const measures = this.ctx.query?.measures;
+		if (!measures) return map;
+		for (const m of measures) {
+			const key = m.label ?? `${m.function}(${m.column})`;
+			if (m.label) map.set(key, m.label);
+		}
+		return map;
+	}
+
+	private renderHiddenColumns(): void {
+		const ctx = this.ctx;
+		const allColumns = ctx.result!.columns;
+		const excluded = new Set(ctx.tile.excludedColumns ?? []);
+		const aliasMap = this.buildColumnAliasMap();
+
+		const header = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		header.style.marginBottom = "0.35rem";
+		header.createSpan({ text: "Hidden columns", cls: "ft-text-sm" }).style.fontWeight = "600";
+		if (excluded.size > 0) {
+			header.createSpan({ text: `${excluded.size}`, cls: "ft-badge ft-badge-muted" });
+		}
+
+		const list = this.container.createDiv();
+		list.style.cssText = "display:flex;flex-direction:column;gap:0.15rem;margin-bottom:0.5rem";
+
+		for (const col of allColumns) {
+			const displayName = aliasMap.get(col) ?? col;
+			const row = list.createEl("label", { cls: "ft-flex ft-items-center ft-gap-2 ft-text-xs" });
+			row.style.cursor = "pointer";
+
+			const checkbox = row.createEl("input", { type: "checkbox" });
+			checkbox.checked = excluded.has(col);
+			checkbox.addEventListener("change", () => {
+				const current = new Set(ctx.tile.excludedColumns ?? []);
+				if (checkbox.checked) {
+					current.add(col);
+				} else {
+					current.delete(col);
+				}
+				ctx.onExcludedColumnsChange!(ctx.tile.id, [...current]);
+			});
+
+			row.appendText(displayName);
+		}
 	}
 
 	private renderRuleBuilder(): void {

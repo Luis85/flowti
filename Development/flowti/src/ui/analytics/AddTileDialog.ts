@@ -43,16 +43,22 @@ export class AddTileDialog {
 
 	render(): void {
 		const { container } = this.options;
+		const scrollParent = container.closest(".ft-dashboard-tile-body") ?? container.parentElement;
+		const scrollTop = scrollParent?.scrollTop ?? 0;
 		container.empty();
 
 		const dialog = container.createDiv({ cls: "ft-add-tile-dialog" });
-		dialog.style.cssText = "padding:1rem;border:1px solid var(--background-modifier-border);border-radius:8px;background:var(--background-secondary)";
+		dialog.style.cssText = "padding:1rem 1.25rem;border:1px solid var(--background-modifier-border);border-radius:8px;background:var(--background-secondary);margin-bottom:1rem";
 
 		// ── Header ────────────────────────────────────
 		const header = dialog.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		header.style.marginBottom = "0.75rem";
 		const headerIcon = header.createSpan();
+		headerIcon.style.display = "inline-flex";
+		headerIcon.style.alignItems = "center";
 		setIcon(headerIcon, "plus-square");
-		headerIcon.style.cssText = "width:16px;height:16px;opacity:0.7";
+		const headerSvg = headerIcon.querySelector("svg");
+		if (headerSvg) { headerSvg.style.width = "16px"; headerSvg.style.height = "16px"; headerSvg.style.opacity = "0.7"; }
 		header.createSpan({ text: "Add Tile", cls: "ft-text-sm" }).style.fontWeight = "600";
 
 		// ── Source selection ──────────────────────────
@@ -62,7 +68,8 @@ export class AddTileDialog {
 			this.renderSourceTabs(dialog);
 		}
 
-		const sourceArea = dialog.createDiv({ cls: "ft-mt-1" });
+		const sourceArea = dialog.createDiv();
+		sourceArea.style.marginTop = "0.5rem";
 		if (this.sourceType === "query") {
 			this.renderQueryPicker(sourceArea);
 		} else {
@@ -70,7 +77,8 @@ export class AddTileDialog {
 		}
 
 		// ── Title input ──────────────────────────────
-		const titleArea = dialog.createDiv({ cls: "ft-mt-1" });
+		const titleArea = dialog.createDiv();
+		titleArea.style.marginTop = "0.75rem";
 		titleArea.createDiv({ text: "Title (optional)", cls: "ft-text-muted ft-text-xs" });
 		const titleInput = titleArea.createEl("input", { type: "text" });
 		titleInput.value = this.tileTitle;
@@ -79,7 +87,8 @@ export class AddTileDialog {
 		titleInput.addEventListener("input", () => { this.tileTitle = titleInput.value; });
 
 		// ── Display mode ─────────────────────────────
-		dialog.createDiv({ text: "Display Mode", cls: "ft-text-muted ft-text-xs ft-mt-1" });
+		const dmLabel = dialog.createDiv({ text: "Display Mode", cls: "ft-text-muted ft-text-xs" });
+		dmLabel.style.marginTop = "0.75rem";
 		const grid = dialog.createDiv();
 		grid.style.cssText = "display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;margin-top:0.35rem";
 
@@ -96,9 +105,14 @@ export class AddTileDialog {
 			});
 
 			const iconEl = card.createDiv();
+			iconEl.style.display = "flex";
+			iconEl.style.justifyContent = "center";
 			const iconSpan = iconEl.createSpan();
+			iconSpan.style.display = "inline-flex";
+			iconSpan.style.alignItems = "center";
 			setIcon(iconSpan, dm.icon);
-			iconSpan.style.cssText = "width:20px;height:20px";
+			const svg = iconSpan.querySelector("svg");
+			if (svg) { svg.style.width = "20px"; svg.style.height = "20px"; }
 			if (dm.mode === this.displayMode) iconSpan.style.color = "var(--interactive-accent)";
 
 			card.createDiv({ text: dm.label, cls: "ft-text-xs" }).style.cssText = "font-weight:500;margin-top:0.15rem";
@@ -106,8 +120,8 @@ export class AddTileDialog {
 		}
 
 		// ── Actions ──────────────────────────────────
-		const actions = dialog.createDiv({ cls: "ft-flex ft-gap-2 ft-mt-1" });
-		actions.style.justifyContent = "flex-end";
+		const actions = dialog.createDiv({ cls: "ft-flex ft-gap-2" });
+		actions.style.cssText = "justify-content:flex-end;margin-top:0.75rem";
 
 		const cancelBtn = actions.createEl("button", { text: "Cancel", cls: "ft-text-sm" });
 		cancelBtn.addEventListener("click", () => this.options.onCancel());
@@ -132,26 +146,20 @@ export class AddTileDialog {
 				this.options.onAdd(this.selectedQueryId, this.displayMode, title);
 			}
 		});
+
+		// Restore scroll position after DOM rebuild
+		if (scrollParent) scrollParent.scrollTop = scrollTop;
 	}
 
 	private renderSourceTabs(dialog: HTMLElement): void {
-		const tabs = dialog.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
+		const tabs = dialog.createDiv({ cls: "ft-flex ft-gap-2" });
+		tabs.style.cssText = "border-bottom:1px solid var(--background-modifier-border);padding-bottom:0.35rem;margin-top:0.25rem";
 
-		const queryTab = tabs.createEl("button", { cls: "ft-text-xs" });
-		queryTab.style.cssText = "flex:1;padding:4px 8px;border-radius:4px;border:1px solid var(--background-modifier-border);background:" + (this.sourceType === "query" ? "var(--interactive-accent)" : "transparent");
-		if (this.sourceType === "query") queryTab.style.color = "var(--text-on-accent)";
-		const queryIcon = queryTab.createSpan();
-		setIcon(queryIcon, "search");
-		queryIcon.style.cssText = "width:12px;height:12px;display:inline-block;vertical-align:middle;margin-right:4px";
-		queryTab.appendText("From Query");
+		const queryTab = tabs.createSpan({ text: "From Query", cls: "ft-text-xs" });
+		queryTab.style.cssText = `cursor:pointer;padding:0.25rem 0;font-weight:${this.sourceType === "query" ? "600" : "400"};color:${this.sourceType === "query" ? "var(--text-accent)" : "var(--text-muted)"};border-bottom:${this.sourceType === "query" ? "2px solid var(--text-accent)" : "2px solid transparent"};margin-bottom:-1px`;
 
-		const measTab = tabs.createEl("button", { cls: "ft-text-xs" });
-		measTab.style.cssText = "flex:1;padding:4px 8px;border-radius:4px;border:1px solid var(--background-modifier-border);background:" + (this.sourceType === "measurement" ? "var(--interactive-accent)" : "transparent");
-		if (this.sourceType === "measurement") measTab.style.color = "var(--text-on-accent)";
-		const measIcon = measTab.createSpan();
-		setIcon(measIcon, "ruler");
-		measIcon.style.cssText = "width:12px;height:12px;display:inline-block;vertical-align:middle;margin-right:4px";
-		measTab.appendText("From Measurement");
+		const measTab = tabs.createSpan({ text: "From Measurement", cls: "ft-text-xs" });
+		measTab.style.cssText = `cursor:pointer;padding:0.25rem 0;font-weight:${this.sourceType === "measurement" ? "600" : "400"};color:${this.sourceType === "measurement" ? "var(--text-accent)" : "var(--text-muted)"};border-bottom:${this.sourceType === "measurement" ? "2px solid var(--text-accent)" : "2px solid transparent"};margin-bottom:-1px`;
 
 		queryTab.addEventListener("click", () => {
 			this.sourceType = "query";
@@ -197,13 +205,17 @@ export class AddTileDialog {
 
 			if (q.isFavorite) {
 				const star = item.createSpan();
+				star.style.cssText = "display:inline-flex;align-items:center;flex-shrink:0";
 				setIcon(star, "star");
-				star.style.cssText = "width:12px;height:12px;color:var(--text-accent);flex-shrink:0";
+				const sSvg = star.querySelector("svg");
+				if (sSvg) { sSvg.style.width = "12px"; sSvg.style.height = "12px"; sSvg.style.color = "var(--text-accent)"; }
 			}
 
 			const icon = item.createSpan();
+			icon.style.cssText = "display:inline-flex;align-items:center;opacity:0.5;flex-shrink:0";
 			setIcon(icon, "search");
-			icon.style.cssText = "width:12px;height:12px;opacity:0.5;flex-shrink:0";
+			const iSvg = icon.querySelector("svg");
+			if (iSvg) { iSvg.style.width = "12px"; iSvg.style.height = "12px"; }
 
 			const nameEl = item.createSpan({ text: q.name, cls: "ft-text-sm" });
 			nameEl.style.cssText = "flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
@@ -247,13 +259,17 @@ export class AddTileDialog {
 
 			if (m.isFavorite) {
 				const star = item.createSpan();
+				star.style.cssText = "display:inline-flex;align-items:center;flex-shrink:0";
 				setIcon(star, "star");
-				star.style.cssText = "width:12px;height:12px;color:var(--text-accent);flex-shrink:0";
+				const sSvg = star.querySelector("svg");
+				if (sSvg) { sSvg.style.width = "12px"; sSvg.style.height = "12px"; sSvg.style.color = "var(--text-accent)"; }
 			}
 
 			const icon = item.createSpan();
+			icon.style.cssText = "display:inline-flex;align-items:center;opacity:0.5;flex-shrink:0";
 			setIcon(icon, "ruler");
-			icon.style.cssText = "width:12px;height:12px;opacity:0.5;flex-shrink:0";
+			const iSvg = icon.querySelector("svg");
+			if (iSvg) { iSvg.style.width = "12px"; iSvg.style.height = "12px"; }
 
 			const nameEl = item.createSpan({ text: m.name, cls: "ft-text-sm" });
 			nameEl.style.cssText = "flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";

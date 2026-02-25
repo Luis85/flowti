@@ -4,7 +4,7 @@
  * Thin orchestrator that owns query builder state and delegates
  * rendering to focused sub-components:
  *   - SavedQueryList: saved query master list with CRUD
- *   - SourcePanel: source config, preview, Quick Insights
+ *   - SourcePanel: source config, preview
  *   - QueryBuilderPanel: type hints, joins, dims, measures, filters, sort
  *   - ComputedColumnsSection: computed column add/remove/edit
  *   - ResultsSection: error display + results panel
@@ -12,7 +12,7 @@
  * Extracted from monolithic QueriesTab (1,264 LOC) per TD-ANA-001.
  */
 
-import { Notice, setIcon } from "obsidian";
+import { setIcon } from "obsidian";
 import type { AnalyticsHubDeps } from "./types";
 import type {
 	ColumnTypeHint,
@@ -38,6 +38,8 @@ import { ComputedColumnsSection } from "./queries/ComputedColumnsSection";
 import { ResultsSection } from "./queries/ResultsSection";
 import { ActionsBar } from "./queries/ActionsBar";
 import { rowsToCsv, downloadCsvFile } from "../../utils/csvUtils";
+import { generateQuickInsights } from "../../domain/analytics/quickInsights";
+import { detectNumberLocale } from "../../domain/analytics/localeUtils";
 
 export class QueriesTab {
 	private sources: QuerySource[] = [];
@@ -62,6 +64,8 @@ export class QueriesTab {
 	private pendingExecute = false;
 	/** Snapshot of query config at last save/load — used for dirty detection. */
 	private savedSnapshot: string | null = null;
+	/** Query name from NewQueryModal — used on first save instead of auto-generated name. */
+	private queryName = "";
 
 	constructor(
 		private masterEl: HTMLElement,
@@ -146,6 +150,7 @@ export class QueriesTab {
 
 	private sourcesCollapsed = false;
 	private sourcesAutoCollapsed = false;
+	private querySortKey: "name" | "sources" | "lastRun" = "name";
 
 	renderMaster(): void {
 		this.masterEl.empty();
@@ -153,8 +158,16 @@ export class QueriesTab {
 		const svc = this.deps.analyticsService;
 		const hasSavedQueries = svc.listQueries().length > 0;
 
+		// Consume pending entity ID from cross-tab navigation
+		if (state.pendingEntityId) {
+			this.deps.setState({ selectedQueryId: state.pendingEntityId, pendingEntityId: null });
+		}
+
 		// ── Saved queries first (above sources) ──
-		new SavedQueryList(this.masterEl, this.getSubDeps()).render();
+		new SavedQueryList(this.masterEl, this.getSubDeps(), {
+			sortKey: this.querySortKey,
+			onSortChange: (key) => { this.querySortKey = key; },
+		}).render();
 
 		// ── Related queries (when source is active) ──
 		if (this.sources.length > 0) {
@@ -168,22 +181,21 @@ export class QueriesTab {
 			selHeader.createSpan({ text: `${this.sources.length}`, cls: "ft-master-category-count" });
 
 			for (const src of this.sources) {
-				const item = this.masterEl.createDiv({ cls: "ft-master-event-item ft-master-event-selected" });
-				item.style.alignItems = "flex-start";
+				const item = this.masterEl.createDiv({ cls: "ft-master-event-item" });
+				item.style.cssText = "align-items:flex-start;padding-left:0.5rem;border-left:2px solid var(--interactive-accent)";
 
 				const textBlock = item.createDiv({ cls: "ft-master-event-name" });
 				textBlock.style.minWidth = "0";
 				textBlock.createDiv({ text: src.alias });
-				const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-sm" });
-				sub.style.whiteSpace = "nowrap";
-				sub.style.overflow = "hidden";
-				sub.style.textOverflow = "ellipsis";
-				sub.textContent = src.csvPath;
+				const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-xs" });
+				sub.style.cssText = "white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
+				sub.textContent = src.csvPath.split("/").pop() ?? src.csvPath;
 
 				if (src.loading) {
-					item.createSpan({ text: "...", cls: "ft-badge ft-badge-muted" });
-				} else if (src.data) {
-					item.createSpan({ text: `${src.data.headers.length} cols`, cls: "ft-badge ft-badge-muted" });
+					item.createSpan({ text: "...", cls: "ft-text-muted ft-text-xs" });
+				} else if (src.error) {
+					const errBadge = item.createSpan({ text: "Error", cls: "ft-text-xs" });
+					errBadge.style.color = "var(--text-error)";
 				}
 
 				const removeBtn = item.createEl("span", { cls: "ft-nav-link ft-text-sm" });
@@ -303,15 +315,13 @@ export class QueriesTab {
 
 	private renderSourceItem(displayName: string, path: string, onClick: () => void): void {
 		const item = this.masterEl.createDiv({ cls: "ft-master-event-item" });
-		item.style.alignItems = "flex-start";
+		item.style.cssText = "align-items:flex-start;padding-left:0.5rem";
 
 		const textBlock = item.createDiv({ cls: "ft-master-event-name" });
 		textBlock.style.minWidth = "0";
 		textBlock.createDiv({ text: displayName });
-		const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-sm" });
-		sub.style.whiteSpace = "nowrap";
-		sub.style.overflow = "hidden";
-		sub.style.textOverflow = "ellipsis";
+		const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-xs" });
+		sub.style.cssText = "white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
 		sub.textContent = path;
 
 		item.addEventListener("click", onClick);
@@ -336,9 +346,10 @@ export class QueriesTab {
 
 		for (const q of relatedQueries) {
 			const item = this.masterEl.createDiv({ cls: "ft-master-event-item" });
+			item.style.paddingLeft = "0.5rem";
 			const nameEl = item.createDiv({ cls: "ft-master-event-name" });
 			nameEl.createDiv({ text: q.name });
-			const sub = nameEl.createDiv({ cls: "ft-text-muted ft-text-sm" });
+			const sub = nameEl.createDiv({ cls: "ft-text-muted ft-text-xs" });
 			const sharedSources = q.sources.filter((s) => sourcePaths.includes(s.csvPath));
 			sub.textContent = sharedSources.map((s) => s.csvPath.split("/").pop()).join(", ");
 
@@ -354,6 +365,18 @@ export class QueriesTab {
 	// ─────────────────────────────────────────────────────────
 
 	renderDetail(): void {
+		// Consume pendingNewQuery from NewQueryModal (name + sources)
+		const pendingNew = this.deps.getState().pendingNewQuery;
+		if (pendingNew) {
+			this.deps.setState({ pendingNewQuery: undefined });
+			this.newQuery();
+			this.queryName = pendingNew.name;
+			for (const src of pendingNew.sources) {
+				this.addSource(src.path, src.alias, src.sourceType as AnalyticsSourceType, src.viewIndex);
+			}
+			return; // addSource triggers re-render
+		}
+
 		// Auto-add source when navigated from CSV context (file-menu, CsvLanding)
 		const pendingSource = this.deps.getState().pendingSourcePath;
 		if (pendingSource) {
@@ -444,9 +467,6 @@ export class QueriesTab {
 			hasChanges: this.isDirty(),
 			selectedQueryId: state.selectedQueryId,
 			queryName: this.getActiveQueryName(),
-			hasTimeBucket: this.timeBucket !== null,
-			dashboards: this.deps.getState().dashboards,
-			app: this.deps.app,
 			onRunQuery: () => { void this.executeQuery(); },
 			onReset: () => {
 				this.sources = [];
@@ -475,24 +495,6 @@ export class QueriesTab {
 				}
 			},
 			onExportCsv: (result) => this.downloadResultCsv(result, this.getActiveQueryName()),
-			onAddToDashboard: (dashboardId, dashboardName, mode) => {
-				const queryId = this.deps.getState().selectedQueryId;
-				if (!queryId) return;
-				void this.deps.analyticsService.addTile(dashboardId, queryId, mode, this.getActiveQueryName()).then(() => {
-					new Notice(`Added "${this.getActiveQueryName()}" to ${dashboardName}`);
-					this.renderDetail();
-				});
-			},
-			onCreateDashboardAndAdd: (name, mode) => {
-				void this.deps.analyticsService.createDashboard(name).then((dashboard) => {
-					const queryId = this.deps.getState().selectedQueryId;
-					if (!queryId) return;
-					void this.deps.analyticsService.addTile(dashboard.id, queryId, mode, this.getActiveQueryName()).then(() => {
-						new Notice(`Added "${this.getActiveQueryName()}" to ${dashboard.name}`);
-						this.renderDetail();
-					});
-				});
-			},
 			onRenderDetail: () => this.renderDetail(),
 		}).render();
 
@@ -508,16 +510,25 @@ export class QueriesTab {
 		configHeader.style.paddingTop = "0.75rem";
 		const configIcon = configHeader.createSpan();
 		setIcon(configIcon, "settings-2");
-		configIcon.style.width = "16px";
-		configIcon.style.height = "16px";
-		configIcon.style.opacity = "0.6";
-		configHeader.createSpan({ text: "Query Configuration", cls: "ft-detail-section-header" });
+		configIcon.style.cssText = "opacity:0.6;display:inline-flex;align-items:center";
+		configIcon.querySelectorAll("svg").forEach((s) => { s.style.width = "14px"; s.style.height = "14px"; });
+		configHeader.createSpan({ text: "Query Configuration", cls: "ft-text-sm" }).style.fontWeight = "600";
 
 		new SourcePanel(this.detailEl, subDeps).render();
+
+		// Quick Insights — own section when sources are loaded
+		if (this.sources.some((s) => s.data)) {
+			this.renderQuickInsightsSection(subDeps);
+		}
 
 		if (this.getLoadedHeaders().length > 0) {
 			new QueryBuilderPanel(this.detailEl, subDeps).render();
 			new ComputedColumnsSection(this.detailEl, subDeps).render();
+		}
+
+		// ── Cross-references ─────────────────────────────
+		if (isEditing && state.selectedQueryId) {
+			this.renderCrossReferences(state.selectedQueryId);
 		}
 
 		// Restore scroll position
@@ -564,6 +575,111 @@ export class QueriesTab {
 		if (this.lastDurationMs !== undefined) stats.push(`${this.lastDurationMs}ms`);
 
 		row.createSpan({ text: stats.join("  ·  "), cls: "ft-text-sm" });
+	}
+
+	private renderQuickInsightsSection(subDeps: QueriesSubDeps): void {
+		const insights = generateQuickInsights(this.columnTypeHints, this.getLoadedHeaders());
+		if (insights.length === 0) return;
+
+		const section = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
+		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		header.style.cssText = "margin:0;padding-bottom:0.35rem;margin-bottom:0.5rem";
+		header.createSpan({ text: "Quick Insights", cls: "ft-text-sm" }).style.fontWeight = "600";
+
+		const grid = section.createDiv();
+		grid.style.display = "grid";
+		grid.style.gridTemplateColumns = "repeat(auto-fill, minmax(180px, 1fr))";
+		grid.style.gap = "0.5rem";
+
+		for (const insight of insights) {
+			const card = grid.createDiv({ cls: "ft-stat-card" });
+			card.style.cursor = "pointer";
+			card.style.padding = "0.5rem 0.75rem";
+
+			const title = card.createDiv({ cls: "ft-text-sm" });
+			title.style.fontWeight = "500";
+			title.textContent = insight.title;
+
+			card.createDiv({ text: insight.description, cls: "ft-text-xs ft-text-muted" });
+
+			card.addEventListener("click", () => {
+				subDeps.applyQuickInsight(
+					[...insight.dimensions],
+					[...insight.measures],
+					insight.timeBucket ? { ...insight.timeBucket } : null,
+					insight.sort ? insight.sort.map((s) => ({ ...s })) : undefined,
+					insight.limit,
+				);
+			});
+		}
+	}
+
+	private renderCrossReferences(queryId: string): void {
+		const state = this.deps.getState();
+
+		// Measurements using this query
+		const relatedMeasurements = (state.measurements ?? []).filter((m) => m.queryId === queryId);
+
+		// Dashboards with tiles using this query
+		const relatedDashboards: Array<{ id: string; name: string; tileCount: number }> = [];
+		for (const dash of state.dashboards) {
+			const tileCount = dash.tiles.filter((t) => t.queryId === queryId).length;
+			if (tileCount > 0) {
+				relatedDashboards.push({ id: dash.id, name: dash.name, tileCount });
+			}
+		}
+
+		if (relatedMeasurements.length === 0 && relatedDashboards.length === 0) return;
+
+		const section = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
+		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		header.style.cssText = "border-bottom:1px solid var(--background-modifier-border);padding-bottom:0.35rem;margin-bottom:0.5rem";
+		const iconEl = header.createSpan();
+		setIcon(iconEl, "link");
+		iconEl.style.cssText = "width:14px;height:14px;opacity:0.6";
+		header.createSpan({ text: "Cross-References", cls: "ft-text-sm" }).style.fontWeight = "600";
+
+		// Measurements
+		if (relatedMeasurements.length > 0) {
+			const mHeader = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+			mHeader.style.marginBottom = "0.25rem";
+			const mIcon = mHeader.createSpan();
+			setIcon(mIcon, "ruler");
+			mIcon.style.cssText = "width:12px;height:12px;opacity:0.5";
+			mHeader.createSpan({ text: "Measurements", cls: "ft-text-xs ft-text-muted" });
+			mHeader.createSpan({ text: `${relatedMeasurements.length}`, cls: "ft-badge ft-badge-muted" });
+
+			for (const m of relatedMeasurements) {
+				const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+				row.style.padding = "0.15rem 0 0.15rem 1.5rem";
+				const link = row.createEl("span", { text: m.name, cls: "ft-nav-link ft-text-xs" });
+				row.createSpan({ text: m.type, cls: "ft-tag" }).style.fontSize = "10px";
+				link.addEventListener("click", () => {
+					this.deps.navigation.navigateToTab("measurements", m.id);
+				});
+			}
+		}
+
+		// Dashboards
+		if (relatedDashboards.length > 0) {
+			const dHeader = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+			dHeader.style.cssText = `margin-bottom:0.25rem;${relatedMeasurements.length > 0 ? "margin-top:0.5rem" : ""}`;
+			const dIcon = dHeader.createSpan();
+			setIcon(dIcon, "layout-dashboard");
+			dIcon.style.cssText = "width:12px;height:12px;opacity:0.5";
+			dHeader.createSpan({ text: "Dashboards", cls: "ft-text-xs ft-text-muted" });
+			dHeader.createSpan({ text: `${relatedDashboards.length}`, cls: "ft-badge ft-badge-muted" });
+
+			for (const d of relatedDashboards) {
+				const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+				row.style.padding = "0.15rem 0 0.15rem 1.5rem";
+				const link = row.createEl("span", { text: d.name, cls: "ft-nav-link ft-text-xs" });
+				row.createSpan({ text: `${d.tileCount} tile${d.tileCount > 1 ? "s" : ""}`, cls: "ft-text-xs ft-text-muted" });
+				link.addEventListener("click", () => {
+					this.deps.navigation.navigateToTab("dashboards", d.id);
+				});
+			}
+		}
 	}
 
 	private renderEmptyDetail(): void {
@@ -628,8 +744,9 @@ export class QueriesTab {
 				source.data = data;
 				this.autoDetectTypeHints(source);
 			}
-		} catch {
+		} catch (err) {
 			source.loading = false;
+			source.error = err instanceof Error ? err.message : String(err);
 		}
 
 		// Auto-execute once all sources are loaded
@@ -657,6 +774,21 @@ export class QueriesTab {
 			if (!existingSet.has(hint.column)) {
 				this.columnTypeHints.push(hint);
 			}
+		}
+
+		// Detect source-level locale from numeric column samples
+		const numericSamples: string[] = [];
+		const numericCols = detected.filter((h) => h.type === "number");
+		for (const hint of numericCols) {
+			const colIdx = source.data.headers.indexOf(hint.column);
+			if (colIdx < 0) continue;
+			for (let r = 0; r < Math.min(source.data.rows.length, 10); r++) {
+				const val = source.data.rows[r][colIdx]?.trim();
+				if (val) numericSamples.push(val);
+			}
+		}
+		if (numericSamples.length > 0) {
+			source.detectedLocale = detectNumberLocale(numericSamples);
 		}
 	}
 
@@ -799,7 +931,7 @@ export class QueriesTab {
 
 	private async saveCurrentQuery(): Promise<void> {
 		const svc = this.deps.analyticsService;
-		const name = `Query ${new Date().toISOString().slice(0, 16).replace("T", " ")}`;
+		const name = this.queryName.trim() || `Query ${new Date().toISOString().slice(0, 16).replace("T", " ")}`;
 
 		const saved = await svc.saveQuery(name, this.buildSavedSources(), this.buildQueryConfig());
 		await svc.syncMeasurementsFromQuery(saved.id);
@@ -841,6 +973,7 @@ export class QueriesTab {
 		this.lastError = null;
 		this.lastLoadedQueryId = null;
 		this.pendingExecute = false;
+		this.queryName = "";
 		this.deps.setState({ selectedQueryId: null });
 		this.sourcesCollapsed = false;
 		this.renderMaster();

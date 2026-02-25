@@ -1,15 +1,14 @@
 /**
  * Source configuration panel sub-component.
  *
- * Renders source rows (alias, locale, row count),
- * source preview delegation, and Quick Insight cards.
+ * Renders source rows (alias, locale, row count)
+ * and source preview delegation.
  */
 
 import { setIcon } from "obsidian";
 import type { QueriesSubDeps, LocaleId } from "./types";
 import { LOCALE_OPTIONS, SELECT_CSS, INPUT_CSS } from "./types";
 import { SourcePreviewPanel } from "../SourcePreviewPanel";
-import { generateQuickInsights, type QuickInsightSuggestion } from "../../../domain/analytics/quickInsights";
 
 export class SourcePanel {
 	constructor(
@@ -22,7 +21,7 @@ export class SourcePanel {
 		const section = this.container.createDiv({ cls: "ft-card ft-mt-3" });
 
 		const headerRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		headerRow.createSpan({ text: "Sources", cls: "ft-detail-section-header" });
+		headerRow.createSpan({ text: "Sources", cls: "ft-text-sm" }).style.fontWeight = "600";
 
 		// Preview toggle — only show when sources are loaded
 		const loadedCount = sources.filter((s) => s.data).length;
@@ -59,7 +58,7 @@ export class SourcePanel {
 				src.alias = aliasInput.value.trim() || src.alias;
 			});
 
-			const pathSpan = row.createSpan({ text: src.csvPath.split("/").pop() ?? src.csvPath, cls: "ft-text-sm" });
+			const pathSpan = row.createSpan({ text: src.csvPath.split("/").pop() ?? src.csvPath, cls: "ft-text-xs ft-text-muted" });
 			pathSpan.style.cssText = "flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
 
 			row.createSpan({ text: "Locale:", cls: "ft-text-xs ft-text-muted" }).style.flexShrink = "0";
@@ -75,11 +74,20 @@ export class SourcePanel {
 				src.locale = localeSelect.value as LocaleId;
 			});
 
+			// Show auto-detected locale when source locale is "auto"
+			if (src.detectedLocale && (!src.locale || src.locale === "auto")) {
+				const badge = row.createSpan({ text: `Detected: ${src.detectedLocale}`, cls: "ft-text-xs ft-text-muted" });
+				badge.style.cssText = "flex-shrink:0;opacity:0.7;font-style:italic";
+			}
+
 			if (src.loading) {
-				const badge = row.createSpan({ text: "Loading...", cls: "ft-text-muted ft-text-sm" });
+				const badge = row.createSpan({ text: "Loading...", cls: "ft-text-muted ft-text-xs" });
 				badge.style.flexShrink = "0";
+			} else if (src.error) {
+				const badge = row.createSpan({ text: src.error, cls: "ft-text-xs" });
+				badge.style.cssText = "flex-shrink:0;color:var(--text-error)";
 			} else if (src.data) {
-				const badge = row.createSpan({ text: `${src.data.rows.length} rows`, cls: "ft-text-muted ft-text-sm" });
+				const badge = row.createSpan({ text: `${src.data.rows.length} rows`, cls: "ft-badge ft-badge-muted ft-text-xs" });
 				badge.style.flexShrink = "0";
 			}
 		}
@@ -89,69 +97,19 @@ export class SourcePanel {
 		if (this.deps.showPreview()) {
 			for (const src of loadedSources) {
 				const previewHost = section.createDiv({ cls: "ft-mt-2" });
-				previewHost.style.borderTop = "1px solid var(--background-modifier-border)";
-				previewHost.style.paddingTop = "0.5rem";
-				previewHost.style.overflow = "auto";
-				previewHost.createDiv({ text: src.alias, cls: "ft-text-sm ft-text-muted" }).style.marginBottom = "0.25rem";
+				previewHost.style.cssText = "border-top:1px solid var(--background-modifier-border);padding-top:0.5rem;overflow:auto";
+				// Child container for the preview panel (.empty() won't affect the separator)
+				const previewContainer = previewHost.createDiv();
+				const fileName = src.csvPath.split("/").pop() ?? src.csvPath;
+				const displayName = src.alias !== fileName ? `${src.alias} — ${fileName}` : src.alias;
 				new SourcePreviewPanel({
-					container: previewHost,
+					container: previewContainer,
 					data: src.data!,
 					typeHints: this.deps.columnTypeHints(),
+					sourceName: displayName,
 				}).render();
 			}
 		}
 
-		if (loadedSources.length > 0) {
-			this.renderQuickInsights(section);
-		}
-	}
-
-	private renderQuickInsights(container: HTMLElement): void {
-		const insights = generateQuickInsights(this.deps.columnTypeHints(), this.deps.getLoadedHeaders());
-		if (insights.length === 0) return;
-
-		const section = container.createDiv({ cls: "ft-mt-2" });
-		section.style.borderTop = "1px solid var(--background-modifier-border)";
-		section.style.paddingTop = "0.5rem";
-
-		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		const iconEl = header.createSpan();
-		setIcon(iconEl, "lightbulb");
-		iconEl.style.width = "14px";
-		iconEl.style.height = "14px";
-		iconEl.style.opacity = "0.6";
-		header.createSpan({ text: "Quick Insights", cls: "ft-text-sm ft-text-muted" });
-
-		const grid = section.createDiv();
-		grid.style.display = "grid";
-		grid.style.gridTemplateColumns = "repeat(auto-fill, minmax(180px, 1fr))";
-		grid.style.gap = "0.5rem";
-		grid.style.marginTop = "0.5rem";
-
-		for (const insight of insights) {
-			this.renderInsightCard(grid, insight);
-		}
-	}
-
-	private renderInsightCard(container: HTMLElement, insight: QuickInsightSuggestion): void {
-		const card = container.createDiv({ cls: "ft-stat-card" });
-		card.style.cursor = "pointer";
-		card.style.padding = "0.5rem 0.75rem";
-
-		const title = card.createDiv({ cls: "ft-text-sm" });
-		title.style.fontWeight = "500";
-		title.textContent = insight.title;
-
-		card.createDiv({ text: insight.description, cls: "ft-text-xs ft-text-muted" });
-
-		card.addEventListener("click", () => {
-			this.deps.applyQuickInsight(
-				[...insight.dimensions],
-				[...insight.measures],
-				insight.timeBucket ? { ...insight.timeBucket } : null,
-				insight.sort ? insight.sort.map((s) => ({ ...s })) : undefined,
-				insight.limit,
-			);
-		});
 	}
 }

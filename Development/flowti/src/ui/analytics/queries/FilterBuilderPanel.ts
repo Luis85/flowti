@@ -47,7 +47,8 @@ export class FilterBuilderPanel {
 		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const headerIcon = header.createSpan();
 		setIcon(headerIcon, "filter");
-		headerIcon.style.cssText = "width:14px;height:14px;opacity:0.6";
+		headerIcon.style.cssText = "opacity:0.6;display:inline-flex;align-items:center";
+		headerIcon.querySelectorAll("svg").forEach((s) => { s.style.width = "14px"; s.style.height = "14px"; });
 		header.createSpan({ text: "Filters", cls: "ft-text-sm" }).style.fontWeight = "500";
 		header.style.margin = "0";
 

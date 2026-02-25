@@ -6,8 +6,8 @@
  */
 
 import { setIcon } from "obsidian";
-import type { QueriesSubDeps } from "./types";
-import { INPUT_CSS } from "./types";
+import type { QueriesSubDeps, ColumnTypeHint, ColumnType } from "./types";
+import { INPUT_CSS, SELECT_CSS } from "./types";
 import { validateExpression } from "../../../domain/analytics/expressionValidator";
 
 export class ComputedColumnsSection {
@@ -74,6 +74,46 @@ export class ComputedColumnsSection {
 			exprInput.placeholder = "{Column} + {Column}";
 			exprInput.style.cssText = INPUT_CSS + ";flex:1;min-width:120px";
 			exprInput.addEventListener("change", () => { cc.expression = exprInput.value; });
+
+			// Type hint dropdown — allows setting column type for computed output
+			const hint = this.getHintForColumn(cc.name);
+			const isCurrency = hint?.type === "number" && !!hint.currencySymbol;
+			const displayType = isCurrency ? "currency" : (hint?.type ?? "number");
+
+			const typeSelect = row.createEl("select");
+			typeSelect.style.cssText = SELECT_CSS + ";width:auto;flex-shrink:0";
+			for (const uiType of ["number", "currency", "string"]) {
+				const opt = typeSelect.createEl("option");
+				opt.value = uiType;
+				opt.textContent = uiType;
+				if (uiType === displayType) opt.selected = true;
+			}
+
+			let symbolInput: HTMLInputElement | null = null;
+			if (displayType === "currency") {
+				symbolInput = row.createEl("input", { type: "text", cls: "ft-text-xs" });
+				symbolInput.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);width:28px;flex-shrink:0";
+				symbolInput.placeholder = "$";
+				if (hint?.currencySymbol) symbolInput.value = hint.currencySymbol;
+				symbolInput.addEventListener("change", () => {
+					const val = symbolInput!.value.trim() || undefined;
+					if (cc.name.trim()) this.updateHint(cc.name, { currencySymbol: val });
+				});
+			}
+
+			typeSelect.addEventListener("change", () => {
+				const val = typeSelect.value;
+				if (!cc.name.trim()) return;
+				if (val === "currency") {
+					const sym = symbolInput?.value.trim() || hint?.currencySymbol || "$";
+					this.updateHint(cc.name, { type: "number", currencySymbol: sym });
+				} else if (val === "number") {
+					this.updateHint(cc.name, { type: "number", currencySymbol: undefined });
+				} else {
+					this.updateHint(cc.name, { type: val as ColumnType, currencySymbol: undefined });
+				}
+				this.deps.renderDetail();
+			});
 
 			// Inline validation on blur
 			const errorEl = rowWrap.createDiv({ cls: "ft-text-xs" });
@@ -279,6 +319,24 @@ export class ComputedColumnsSection {
 		code.textContent = sig;
 		code.style.color = "var(--text-accent)";
 		row.appendText(` — ${desc}`);
+	}
+
+	/** Get the column type hint for a computed column by name. */
+	private getHintForColumn(name: string): ColumnTypeHint | undefined {
+		if (!name.trim()) return undefined;
+		return this.deps.columnTypeHints().find((h) => h.column === name);
+	}
+
+	/** Update or create a column type hint for a computed column. */
+	private updateHint(column: string, update: Partial<ColumnTypeHint>): void {
+		const currentHints = [...this.deps.columnTypeHints()];
+		const idx = currentHints.findIndex((h) => h.column === column);
+		if (idx >= 0) {
+			currentHints[idx] = { ...currentHints[idx], ...update };
+		} else {
+			currentHints.push({ column, type: update.type ?? "number", ...update });
+		}
+		this.deps.setColumnTypeHints(currentHints);
 	}
 
 	/**

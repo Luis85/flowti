@@ -21,7 +21,8 @@
       "Bash(wc -l /c/Projects/flowti/**/*.canvas)",
       "Bash(wc -l /c/Projects/flowti/**/*.csv)",
       "Bash(wc -l /c/Projects/flowti/**/*.ts)",
-      "Bash(wc -l /c/Projects/flowti/**/*.json)"
+      "Bash(wc -l /c/Projects/flowti/**/*.json)",
+      "Bash(npx eslint src/ --quiet)"
     ]
   }
 }

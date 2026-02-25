@@ -95,24 +95,36 @@ export function renderColumnPicker(container: HTMLElement, options: ColumnPicker
 	return select;
 }
 
+/** Group key — extends ColumnType with virtual "currency" group. */
+export type SchemaGroupType = ColumnType | "currency";
+
 /**
  * Get columns grouped by type for display in schema panels.
+ * Currency columns (number + currencySymbol) get their own group.
  */
 export function groupColumnsByType(
 	headers: string[],
 	typeHints: ColumnTypeHint[],
-): Array<{ type: ColumnType; label: string; columns: string[] }> {
-	const hintMap = new Map<string, ColumnType>();
+): Array<{ type: SchemaGroupType; label: string; columns: string[] }> {
+	const hintMap = new Map<string, ColumnTypeHint>();
 	for (const h of typeHints) {
-		hintMap.set(h.column, h.type);
+		hintMap.set(h.column, h);
 	}
 
-	const groups: Array<{ type: ColumnType; label: string; columns: string[] }> = [];
+	const groups: Array<{ type: SchemaGroupType; label: string; columns: string[] }> = [];
+	const DISPLAY_ORDER: SchemaGroupType[] = ["number", "currency", "date", "string"];
+	const DISPLAY_LABELS: Record<SchemaGroupType, string> = { number: "Numeric", currency: "Currency", date: "Date", string: "Text" };
 
-	for (const type of TYPE_ORDER) {
-		const cols = headers.filter((h) => (hintMap.get(h) ?? "string") === type);
+	for (const groupType of DISPLAY_ORDER) {
+		const cols = headers.filter((h) => {
+			const hint = hintMap.get(h);
+			const baseType = hint?.type ?? "string";
+			if (groupType === "currency") return baseType === "number" && !!hint?.currencySymbol;
+			if (groupType === "number") return baseType === "number" && !hint?.currencySymbol;
+			return baseType === groupType;
+		});
 		if (cols.length > 0) {
-			groups.push({ type, label: TYPE_LABELS[type], columns: cols });
+			groups.push({ type: groupType, label: DISPLAY_LABELS[groupType], columns: cols });
 		}
 	}
 

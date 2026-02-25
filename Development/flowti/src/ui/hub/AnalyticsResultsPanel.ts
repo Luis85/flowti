@@ -113,9 +113,9 @@ export class AnalyticsResultsPanel {
 			const row = rows[i];
 			for (const col of result.columns) {
 				const val = row[col];
-				const sym = result.columnTypeHints?.find((h) => h.column === col)?.currencySymbol;
+				const hint = result.columnTypeHints?.find((h) => h.column === col || h.alias === col);
 				tr.createEl("td", {
-					text: typeof val === "number" ? formatDisplayNumber(val, undefined, sym) : String(val ?? ""),
+					text: typeof val === "number" ? formatDisplayNumber(val, undefined, hint?.currencySymbol) : String(val ?? ""),
 					cls: "ft-text-sm",
 				});
 			}
@@ -135,8 +135,8 @@ export class AnalyticsResultsPanel {
 						const v = r[col];
 						return acc + (typeof v === "number" ? v : 0);
 					}, 0);
-					const sym = result.columnTypeHints?.find((h) => h.column === col)?.currencySymbol;
-					td.textContent = formatDisplayNumber(sum, undefined, sym);
+					const hint = result.columnTypeHints?.find((h) => h.column === col || h.alias === col);
+					td.textContent = formatDisplayNumber(sum, undefined, hint?.currencySymbol);
 				} else {
 					td.textContent = col === result.columns[0] ? "Total" : "";
 				}

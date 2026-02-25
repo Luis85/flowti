@@ -11,6 +11,7 @@ import type {
 	AnalyticsResult,
 	AnalyticsSource,
 	AggregationFunction,
+	ColumnType,
 	ColumnTypeHint,
 	ComputedColumn,
 	DimensionSpec,
@@ -98,14 +99,28 @@ export class AnalyticsEngine {
 			: null;
 		const columns = excludeSet ? allColumns.filter((c) => !excludeSet.has(c)) : allColumns;
 
+		// 10b. Augment columnTypeHints: propagate currency to measure labels + aliases
+		const hintMap = new Map<string, ColumnTypeHint>();
+		for (const h of query.columnTypeHints ?? []) hintMap.set(h.column, h);
+		const augmentedHints = [...(query.columnTypeHints ?? [])];
+		for (const m of query.measures) {
+			const label = m.label ?? `${m.function}(${m.column})`;
+			const src = hintMap.get(m.column);
+			if (src?.currencySymbol && !hintMap.has(label)) {
+				augmentedHints.push({ column: label, type: "number", currencySymbol: src.currencySymbol });
+			}
+		}
+
 		// 11. Apply column aliases (display-only — computed column expressions use original names)
 		const aliasMap = new Map<string, string>();
 		for (const hint of query.columnTypeHints ?? []) {
 			if (hint.alias && hint.alias.trim()) aliasMap.set(hint.column, hint.alias.trim());
 		}
+		let finalColumns = columns;
+		let finalRows = sortedRows;
 		if (aliasMap.size > 0) {
-			const aliasedColumns = columns.map((c) => aliasMap.get(c) ?? c);
-			const aliasedRows = sortedRows.map((row) => {
+			finalColumns = columns.map((c) => aliasMap.get(c) ?? c);
+			finalRows = sortedRows.map((row) => {
 				const newRow: ResultRow = {};
 				for (const col of columns) {
 					const aliased = aliasMap.get(col) ?? col;
@@ -117,23 +132,56 @@ export class AnalyticsEngine {
 				}
 				return newRow;
 			});
-
-			return {
-				columns: aliasedColumns,
-				rows: aliasedRows,
-				groupCount,
-				sourceRowCount,
-				columnTypeHints: query.columnTypeHints,
-			};
 		}
 
+		// 12. Anonymize private columns (consistent pseudonyms per unique value)
+		finalRows = this.anonymizePrivateColumns(finalRows, finalColumns, query.columnTypeHints ?? []);
+
 		return {
-			columns,
-			rows: sortedRows,
+			columns: finalColumns,
+			rows: finalRows,
 			groupCount,
 			sourceRowCount,
-			columnTypeHints: query.columnTypeHints,
+			columnTypeHints: augmentedHints,
 		};
+	}
+
+	// ── Private column anonymization ───────────────────
+
+	private anonymizePrivateColumns(
+		rows: ResultRow[],
+		columns: string[],
+		hints: ColumnTypeHint[],
+	): ResultRow[] {
+		// Build map of private column display names → type hint
+		const privateColTypes = new Map<string, ColumnType>();
+		for (const h of hints) {
+			if (!h.isPrivate) continue;
+			const displayName = h.alias?.trim() || h.column;
+			if (columns.includes(displayName)) privateColTypes.set(displayName, h.type);
+		}
+		if (privateColTypes.size === 0) return rows;
+
+		// Per-column value → pseudonym mapping (consistent within this execution)
+		const pseudonymMaps = new Map<string, Map<string | number, string | number>>();
+		for (const col of privateColTypes.keys()) pseudonymMaps.set(col, new Map());
+
+		return rows.map((row) => {
+			const newRow: ResultRow = { ...row };
+			for (const [col, hintType] of privateColTypes) {
+				if (!(col in newRow)) continue;
+				const val = newRow[col];
+				// Numbers (by type hint or actual type) are zeroed out
+				if (hintType === "number" || typeof val === "number") {
+					newRow[col] = 0;
+				} else {
+					const map = pseudonymMaps.get(col)!;
+					if (!map.has(val)) map.set(val, `Entity-${map.size + 1}`);
+					newRow[col] = map.get(val)!;
+				}
+			}
+			return newRow;
+		});
 	}
 
 	// ── Source loading ──────────────────────────────────

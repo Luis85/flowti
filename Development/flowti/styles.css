@@ -100,6 +100,22 @@
 	background-color: var(--background-secondary);
 }
 
+/* Toggle button — used for width/height pickers, type selectors, source tabs */
+.ft-toggle-btn {
+	padding: 2px 8px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	cursor: pointer;
+	font-size: var(--font-ui-smaller);
+}
+
+.ft-toggle-btn.is-active {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+}
+
 /* Input styling */
 .ft-input {
 	width: 100%;
@@ -426,6 +442,10 @@
 }
 
 /* Text utilities */
+.ft-text-xs {
+	font-size: 0.7rem;
+}
+
 .ft-text-sm {
 	font-size: var(--font-ui-smaller);
 }

@@ -737,6 +737,49 @@ describe("AnalyticsEngine", () => {
 			expect(hints[0].currencySymbol).toBeUndefined();
 		});
 
+		it("propagates currencySymbol to measure output columns in result", () => {
+			const engine = new AnalyticsEngine();
+			const src = makeSource("data", ["category", "price"], [
+				["A", "$100"],
+				["A", "$200"],
+				["B", "$150"],
+			], "en-US");
+			const result = engine.run({
+				sources: [src],
+				joins: [],
+				dimensions: [{ column: "category" }],
+				measures: [{ column: "price", function: "SUM" }],
+				columnTypeHints: [
+					{ column: "category", type: "string" },
+					{ column: "price", type: "number", currencySymbol: "$" },
+				],
+			});
+			// The result should have an augmented hint for "SUM(price)" with the inherited currencySymbol
+			const measureHint = result.columnTypeHints?.find((h) => h.column === "SUM(price)");
+			expect(measureHint).toBeDefined();
+			expect(measureHint?.currencySymbol).toBe("$");
+		});
+
+		it("does not propagate currencySymbol when cleared (type changed to number)", () => {
+			const engine = new AnalyticsEngine();
+			const src = makeSource("data", ["category", "price"], [
+				["A", "100"],
+				["A", "200"],
+			], "en-US");
+			const result = engine.run({
+				sources: [src],
+				joins: [],
+				dimensions: [{ column: "category" }],
+				measures: [{ column: "price", function: "SUM" }],
+				columnTypeHints: [
+					{ column: "category", type: "string" },
+					{ column: "price", type: "number", currencySymbol: undefined },
+				],
+			});
+			const measureHint = result.columnTypeHints?.find((h) => h.column === "SUM(price)");
+			expect(measureHint).toBeUndefined();
+		});
+
 		it("detects dates even with some empty cells (50% threshold)", () => {
 			const hints = AnalyticsEngine.detectColumnTypes(
 				["date", "value"],
@@ -1011,6 +1054,107 @@ describe("AnalyticsEngine", () => {
 
 			expect(result.columns).toContain("item_name");
 			expect(result.columns).toContain("total_cost");
+		});
+	});
+
+	describe("private columns (anonymization)", () => {
+		it("should anonymize string columns with consistent pseudonyms", () => {
+			const engine = new AnalyticsEngine();
+			const result = engine.run({
+				sources: [items],
+				joins: [],
+				columnTypeHints: [
+					{ column: "item_name", type: "string", isPrivate: true },
+					{ column: "unit_cost", type: "number" },
+				],
+				dimensions: [{ column: "item_name" }],
+				measures: [{ column: "unit_cost", function: "SUM", label: "Cost" }],
+			});
+
+			const names = result.rows.map((r) => r["item_name"]);
+			expect(names).toContain("Entity-1");
+			expect(names).toContain("Entity-2");
+			expect(names).toContain("Entity-3");
+			expect(names).not.toContain("Widget A");
+			expect(names).not.toContain("Widget B");
+		});
+
+		it("should anonymize number columns to 0 when used as dimensions", () => {
+			const engine = new AnalyticsEngine();
+			const source = makeSource("data", ["name", "score"], [
+				["Alice", "95"], ["Bob", "82"], ["Carol", "95"],
+			]);
+			const result = engine.run({
+				sources: [source],
+				joins: [],
+				columnTypeHints: [
+					{ column: "score", type: "number", isPrivate: true },
+				],
+				dimensions: [{ column: "name" }, { column: "score" }],
+				measures: [{ column: "score", function: "COUNT", label: "Count" }],
+			});
+
+			for (const row of result.rows) {
+				expect(row["score"]).toBe(0);
+			}
+		});
+
+		it("should not affect non-private columns", () => {
+			const engine = new AnalyticsEngine();
+			const result = engine.run({
+				sources: [items],
+				joins: [],
+				columnTypeHints: [
+					{ column: "item_name", type: "string", isPrivate: true },
+					{ column: "unit_cost", type: "number" },
+				],
+				dimensions: [{ column: "item_name" }],
+				measures: [{ column: "unit_cost", function: "SUM", label: "Cost" }],
+			});
+
+			const costs = result.rows.map((r) => r["Cost"]);
+			expect(costs).toContain(10.5);
+			expect(costs).toContain(25);
+			expect(costs).toContain(7.75);
+		});
+
+		it("should produce consistent mapping (same value → same pseudonym)", () => {
+			const engine = new AnalyticsEngine();
+			const source = makeSource("data", ["name", "val"], [
+				["Alice", "10"], ["Bob", "20"], ["Alice", "30"],
+			]);
+			const result = engine.run({
+				sources: [source],
+				joins: [],
+				columnTypeHints: [{ column: "name", type: "string", isPrivate: true }, { column: "val", type: "number" }],
+				dimensions: [{ column: "name" }],
+				measures: [{ column: "val", function: "SUM", label: "Total" }],
+			});
+
+			// Alice appears in two rows → grouped into one → Entity-1
+			// Bob → Entity-2
+			expect(result.rows.length).toBe(2);
+			const names = result.rows.map((r) => r["name"]);
+			expect(new Set(names).size).toBe(2);
+		});
+
+		it("should work with aliased private columns", () => {
+			const engine = new AnalyticsEngine();
+			const result = engine.run({
+				sources: [items],
+				joins: [],
+				columnTypeHints: [
+					{ column: "item_name", type: "string", alias: "Product", isPrivate: true },
+					{ column: "unit_cost", type: "number" },
+				],
+				dimensions: [{ column: "item_name" }],
+				measures: [{ column: "unit_cost", function: "SUM", label: "Cost" }],
+			});
+
+			expect(result.columns).toContain("Product");
+			const products = result.rows.map((r) => r["Product"]);
+			expect(products).toContain("Entity-1");
+			expect(products).not.toContain("Widget A");
 		});
 	});
 });

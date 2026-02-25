@@ -721,7 +721,7 @@ describe("AnalyticsService", () => {
 			expect(widgetA?.total_revenue).toBe(250); // 100 + 150
 		});
 
-		it("throws on header mismatch across CSV files", async () => {
+		it("merges CSV files with different headers (union columns, pad missing)", async () => {
 			const mismatch: ParsedCsv = {
 				headers: ["date", "item", "cost"], // different headers
 				rows: [["2026-03-01", "X", "50"]],
@@ -740,7 +740,7 @@ describe("AnalyticsService", () => {
 			await svc.load();
 
 			const saved = await svc.saveQuery(
-				"Bad Merge",
+				"Union Merge",
 				[{ alias: "sales", csvPath: "sales", sourceType: "csv-folder" }],
 				{
 					joins: [],
@@ -750,7 +750,9 @@ describe("AnalyticsService", () => {
 				},
 			);
 
-			await expect(svc.runSavedQuery(saved.id)).rejects.toThrow("Header mismatch");
+			// revenue only exists in jan (100+200=300), mismatch has "" for revenue
+			const result = await svc.runSavedQuery(saved.id);
+			expect(result.rows[0]["total"]).toBe(300);
 		});
 
 		it("throws when folder has no CSV files", async () => {

@@ -483,6 +483,7 @@ export class AnalyticsService {
 
 	listTemplates(): DashboardTemplate[] { return dashboardHandlers.listTemplates(this.ctx()); }
 	async saveDashboardAsTemplate(dashboardId: string, name: string, description: string, domain: string): Promise<DashboardTemplate | undefined> { return dashboardHandlers.saveDashboardAsTemplate(this.ctx(), dashboardId, name, description, domain); }
+	buildDashboardTemplate(dashboardId: string, name: string, description: string, domain: string): DashboardTemplate | undefined { return dashboardHandlers.buildDashboardTemplate(this.ctx(), dashboardId, name, description, domain); }
 	async deleteTemplate(templateId: string): Promise<boolean> { return dashboardHandlers.deleteTemplate(this.ctx(), templateId); }
 
 	/** Get a map of unique queries used by a dashboard's tiles with tile counts. */
@@ -677,19 +678,30 @@ export class AnalyticsService {
 			const csvFiles = files.filter((f) => f.endsWith(".csv")).sort();
 			if (csvFiles.length === 0) throw new Error(`No CSV files in folder: ${src.csvPath}`);
 
-			let mergedHeaders: string[] | null = null;
-			const mergedRows: string[][] = [];
+			// Build union of all headers across files, pad rows for missing columns
+			const headerSet = new Set<string>();
+			const headerOrder: string[] = [];
+			const fileResults: Array<{ headers: string[]; rows: string[][] }> = [];
 			for (const file of csvFiles) {
 				const parsed = await this.readCsv(file);
 				if (!parsed) continue;
-				if (!mergedHeaders) {
-					mergedHeaders = parsed.headers;
-				} else if (JSON.stringify(mergedHeaders) !== JSON.stringify(parsed.headers)) {
-					throw new Error(`Header mismatch in ${file} — expected [${mergedHeaders.join(", ")}]`);
+				for (const h of parsed.headers) {
+					if (!headerSet.has(h)) {
+						headerSet.add(h);
+						headerOrder.push(h);
+					}
 				}
-				mergedRows.push(...parsed.rows);
+				fileResults.push(parsed);
 			}
-			return { headers: mergedHeaders ?? [], rows: mergedRows };
+
+			const mergedRows: string[][] = [];
+			for (const fr of fileResults) {
+				const colIndex = headerOrder.map((h) => fr.headers.indexOf(h));
+				for (const row of fr.rows) {
+					mergedRows.push(colIndex.map((idx) => (idx >= 0 ? row[idx] : "")));
+				}
+			}
+			return { headers: headerOrder, rows: mergedRows };
 		}
 
 		// Default: CSV

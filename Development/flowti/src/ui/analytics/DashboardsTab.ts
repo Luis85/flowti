@@ -14,11 +14,15 @@ import { AddTileDialog } from "./AddTileDialog";
 import { DashboardNameModal } from "./DashboardNameModal";
 import { DashboardQueryMap, getSourceBasenames } from "./DashboardQueryMap";
 import { DashboardFilterBar } from "./DashboardFilterBar";
+import { FolderPickerModal, getVaultFolders } from "../FolderPickerModal";
+
+type DashboardSortKey = "name" | "tiles" | "updated";
 
 export class DashboardsTab {
 	private addTileDialogVisible = false;
 	private openSettingsTileId: string | null = null;
 	private queryMapCollapsed = false;
+	private sortKey: DashboardSortKey = "name";
 
 	constructor(
 		private masterEl: HTMLElement,
@@ -32,6 +36,12 @@ export class DashboardsTab {
 		this.masterEl.empty();
 
 		const state = this.deps.getState();
+
+		// Consume pending entity ID from cross-tab navigation
+		if (state.pendingEntityId) {
+			this.deps.setState({ selectedDashboardId: state.pendingEntityId, pendingEntityId: null });
+		}
+
 		let dashboards = state.dashboards;
 		if (state.filterText) {
 			dashboards = dashboards.filter((d) =>
@@ -57,6 +67,20 @@ export class DashboardsTab {
 			void this.importFromJson();
 		});
 
+		// Sort dropdown
+		const sortSelect = header.createEl("select", { cls: "ft-text-xs" });
+		sortSelect.style.cssText = "padding:1px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);cursor:pointer;font-size:var(--font-ui-smaller)";
+		for (const opt of [{ v: "name", l: "Name" }, { v: "tiles", l: "Tiles" }, { v: "updated", l: "Updated" }]) {
+			const o = sortSelect.createEl("option");
+			o.value = opt.v;
+			o.textContent = opt.l;
+			if (opt.v === this.sortKey) o.selected = true;
+		}
+		sortSelect.addEventListener("change", () => {
+			this.sortKey = sortSelect.value as DashboardSortKey;
+			this.renderMaster();
+		});
+
 		const addBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 		const addIcon = addBtn.createSpan();
 		setIcon(addIcon, "plus");
@@ -66,11 +90,13 @@ export class DashboardsTab {
 			void this.createDashboard();
 		});
 
-		// Sort favorites first
+		// Sort: favorites first, then by selected key
 		dashboards = [...dashboards].sort((a, b) => {
 			if (a.isFavorite && !b.isFavorite) return -1;
 			if (!a.isFavorite && b.isFavorite) return 1;
-			return 0;
+			if (this.sortKey === "tiles") return (b.tiles?.length ?? 0) - (a.tiles?.length ?? 0);
+			if (this.sortKey === "updated") return (b.updatedAt ?? 0) - (a.updatedAt ?? 0);
+			return a.name.localeCompare(b.name);
 		});
 
 		// List
@@ -253,8 +279,7 @@ export class DashboardsTab {
 						? "aging"
 						: "fresh";
 				const summaryEl = titleLeft.createSpan({ text: summaryText, cls: "ft-text-xs" });
-				summaryEl.style.color = getFreshnessColor(worstLevel);
-				summaryEl.style.flexShrink = "0";
+				summaryEl.style.cssText = `color:${getFreshnessColor(worstLevel)};font-size:0.65rem;opacity:0.8;flex-shrink:0`;
 			}
 		}
 
@@ -270,9 +295,11 @@ export class DashboardsTab {
 			setDefaultBtn.style.alignItems = "center";
 			setDefaultBtn.style.gap = "0.25rem";
 			const defIcon = setDefaultBtn.createSpan();
+			defIcon.style.display = "inline-flex";
+			defIcon.style.alignItems = "center";
 			setIcon(defIcon, "star");
-			defIcon.style.width = "14px";
-			defIcon.style.height = "14px";
+			const defSvg = defIcon.querySelector("svg");
+			if (defSvg) { defSvg.style.width = "14px"; defSvg.style.height = "14px"; }
 			setDefaultBtn.createSpan({ text: "Set as Default" });
 			setDefaultBtn.addEventListener("click", () => {
 				void this.deps.analyticsService.setDefaultDashboard(dashboard.id);
@@ -286,9 +313,11 @@ export class DashboardsTab {
 			refreshAllBtn.style.alignItems = "center";
 			refreshAllBtn.style.gap = "0.25rem";
 			const rIcon = refreshAllBtn.createSpan();
+			rIcon.style.display = "inline-flex";
+			rIcon.style.alignItems = "center";
 			setIcon(rIcon, "refresh-cw");
-			rIcon.style.width = "14px";
-			rIcon.style.height = "14px";
+			const rSvg = rIcon.querySelector("svg");
+			if (rSvg) { rSvg.style.width = "14px"; rSvg.style.height = "14px"; }
 			refreshAllBtn.createSpan({ text: "Refresh All" });
 			refreshAllBtn.addEventListener("click", () => {
 				this.deps.tileResultCache.clear();
@@ -303,12 +332,30 @@ export class DashboardsTab {
 			exportBtn.style.alignItems = "center";
 			exportBtn.style.gap = "0.25rem";
 			const eIcon = exportBtn.createSpan();
+			eIcon.style.display = "inline-flex";
+			eIcon.style.alignItems = "center";
 			setIcon(eIcon, "clipboard-copy");
-			eIcon.style.width = "14px";
-			eIcon.style.height = "14px";
+			const eSvg = eIcon.querySelector("svg");
+			if (eSvg) { eSvg.style.width = "14px"; eSvg.style.height = "14px"; }
 			exportBtn.createSpan({ text: "Export" });
 			exportBtn.addEventListener("click", () => {
 				void this.exportDashboardSummary(dashboard);
+			});
+
+			// Export Template JSON to vault folder
+			const templateBtn = headerActions.createEl("button", { cls: "ft-text-sm" });
+			templateBtn.style.display = "flex";
+			templateBtn.style.alignItems = "center";
+			templateBtn.style.gap = "0.25rem";
+			const tIcon = templateBtn.createSpan();
+			tIcon.style.display = "inline-flex";
+			tIcon.style.alignItems = "center";
+			setIcon(tIcon, "file-json");
+			const tSvg = tIcon.querySelector("svg");
+			if (tSvg) { tSvg.style.width = "14px"; tSvg.style.height = "14px"; }
+			templateBtn.createSpan({ text: "Save Template" });
+			templateBtn.addEventListener("click", () => {
+				void this.exportDashboardTemplate(dashboard);
 			});
 		}
 
@@ -317,9 +364,11 @@ export class DashboardsTab {
 		addTileBtn.style.alignItems = "center";
 		addTileBtn.style.gap = "0.25rem";
 		const btnIcon = addTileBtn.createSpan();
+		btnIcon.style.display = "inline-flex";
+		btnIcon.style.alignItems = "center";
 		setIcon(btnIcon, "plus");
-		btnIcon.style.width = "14px";
-		btnIcon.style.height = "14px";
+		const btnSvg = btnIcon.querySelector("svg");
+		if (btnSvg) { btnSvg.style.width = "14px"; btnSvg.style.height = "14px"; }
 		addTileBtn.createSpan({ text: "Add Tile" });
 		addTileBtn.addEventListener("click", () => {
 			this.addTileDialogVisible = !this.addTileDialogVisible;
@@ -518,6 +567,21 @@ export class DashboardsTab {
 						this.deps.scheduleRender();
 					});
 				},
+				onExcludedColumnsChange: (tileId, columns) => {
+					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { excludedColumns: columns } as Partial<DashboardTile>).then(() => {
+						this.deps.scheduleRender();
+					});
+				},
+				onTableKpisToggle: (tileId, show) => {
+					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { showTableKpis: show } as Partial<DashboardTile>).then(() => {
+						this.deps.scheduleRender();
+					});
+				},
+				onColumnOrderChange: (tileId, columns) => {
+					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { columnOrder: columns } as Partial<DashboardTile>).then(() => {
+						this.deps.scheduleRender();
+					});
+				},
 				onViewQuery: (queryId) => {
 					this.deps.setState({ selectedQueryId: queryId });
 					this.deps.navigation.navigateTo("queries");
@@ -633,6 +697,49 @@ export class DashboardsTab {
 		}
 		lines.push(`\n*Exported from Analytics Hub on ${new Date().toLocaleDateString()}*`);
 		await navigator.clipboard.writeText(lines.join("\n"));
+		new Notice("Dashboard summary copied to clipboard");
+	}
+
+	private async exportDashboardTemplate(dashboard: Dashboard): Promise<void> {
+		const template = this.deps.analyticsService.buildDashboardTemplate(
+			dashboard.id,
+			dashboard.name,
+			dashboard.description ?? "",
+			"Analytics",
+		);
+		if (!template) {
+			new Notice("Could not build template — dashboard has no tiles with saved queries");
+			return;
+		}
+
+		// Strip internal fields (id, createdAt) for a clean importable JSON
+		const exportObj = {
+			name: template.name,
+			description: template.description,
+			queries: template.queries,
+			tiles: template.tiles,
+		};
+		const json = JSON.stringify(exportObj, null, 2);
+		const sanitizedName = dashboard.name.replace(/[^a-zA-Z0-9_ -]/g, "").trim() || "Dashboard Template";
+
+		const folders = getVaultFolders(this.deps.app);
+		new FolderPickerModal(this.deps.app, folders, async (folder) => {
+			const filePath = folder ? `${folder}/${sanitizedName}.json` : `${sanitizedName}.json`;
+			try {
+				await this.deps.app.vault.create(filePath, json);
+				new Notice(`Template saved to ${filePath}`);
+			} catch {
+				// File might already exist — try with timestamp suffix
+				const ts = new Date().toISOString().slice(0, 16).replace(/[T:]/g, "-");
+				const fallbackPath = folder ? `${folder}/${sanitizedName} ${ts}.json` : `${sanitizedName} ${ts}.json`;
+				try {
+					await this.deps.app.vault.create(fallbackPath, json);
+					new Notice(`Template saved to ${fallbackPath}`);
+				} catch (innerErr) {
+					new Notice(`Failed to save template: ${innerErr instanceof Error ? innerErr.message : String(innerErr)}`);
+				}
+			}
+		}).open();
 	}
 
 	// ── Dashboard filter bar ────────────────────────────────

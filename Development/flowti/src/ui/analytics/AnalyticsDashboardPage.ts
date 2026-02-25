@@ -177,18 +177,20 @@ export class AnalyticsDashboardPage {
 					? "aging"
 					: "fresh";
 			const summaryEl = headerRight.createSpan({ text: summaryText, cls: "ft-text-xs" });
-			summaryEl.style.color = getFreshnessColor(worstLevel);
+			summaryEl.style.cssText = `color:${getFreshnessColor(worstLevel)};font-size:0.65rem;opacity:0.8`;
 		}
 
 		if (dashboard.tiles.length > 0) {
-			const refreshBtn = headerRight.createEl("button", { cls: "ft-text-sm" });
+			const refreshBtn = headerRight.createEl("button", { cls: "ft-text-xs" });
 			refreshBtn.style.display = "flex";
 			refreshBtn.style.alignItems = "center";
 			refreshBtn.style.gap = "0.25rem";
 			const rIcon = refreshBtn.createSpan();
+			rIcon.style.display = "inline-flex";
+			rIcon.style.alignItems = "center";
 			setIcon(rIcon, "refresh-cw");
-			rIcon.style.width = "14px";
-			rIcon.style.height = "14px";
+			const rSvg = rIcon.querySelector("svg");
+			if (rSvg) { rSvg.style.width = "12px"; rSvg.style.height = "12px"; }
 			refreshBtn.createSpan({ text: "Refresh All" });
 			refreshBtn.addEventListener("click", () => {
 				this.deps.tileResultCache.clear();
@@ -276,6 +278,21 @@ export class AnalyticsDashboardPage {
 				measurements: state.measurements ?? [],
 				onChartValueColumnChange: (tileId, column) => {
 					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { chartValueColumn: column } as Partial<DashboardTile>).then(() => {
+						this.deps.scheduleRender();
+					});
+				},
+				onExcludedColumnsChange: (tileId, columns) => {
+					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { excludedColumns: columns } as Partial<DashboardTile>).then(() => {
+						this.deps.scheduleRender();
+					});
+				},
+				onTableKpisToggle: (tileId, show) => {
+					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { showTableKpis: show } as Partial<DashboardTile>).then(() => {
+						this.deps.scheduleRender();
+					});
+				},
+				onColumnOrderChange: (tileId, columns) => {
+					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { columnOrder: columns } as Partial<DashboardTile>).then(() => {
 						this.deps.scheduleRender();
 					});
 				},

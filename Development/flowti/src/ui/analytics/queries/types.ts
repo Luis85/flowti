@@ -34,6 +34,9 @@ export interface QuerySource {
 	viewIndex?: number;
 	data: ParsedSourceData | null;
 	loading: boolean;
+	error?: string;
+	/** Auto-detected locale from numeric column samples (set after source load) */
+	detectedLocale?: LocaleId;
 }
 
 // ─────────────────────────────────────────────────────────────
