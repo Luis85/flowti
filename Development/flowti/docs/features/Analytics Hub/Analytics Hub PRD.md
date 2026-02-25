@@ -3,7 +3,7 @@ domain: Analytics
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
 stage: delivered
-version: 16
+version: 17
 maturity: L2
 created: 2026-02-23
 updated: 2026-02-26
@@ -718,6 +718,14 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 | [[PBI-ANA-124 TileRenderContext Simplification]] | Split 23-property interface into 3 focused concern groups | Delivered | High | — |
 | [[PBI-ANA-125 CSS & Style Consolidation]] | Move 80%+ inline styles to 14 semantic CSS classes in styles.css | Delivered | High | — |
 | [[PBI-ANA-126 Analytics Flow Integration Tests]] | 3 flow test suites (Flows 17–19) covering query, dashboard, source manager | Delivered | High | ANA-120–125 |
+| [[PBI-ANA-130 Date Range Filter]] | Global date range picker with presets + custom range, propagates to all tiles | Planned | Critical | — |
+| [[PBI-ANA-131 Day Week Time Bucket Granularity]] | Day (YYYY-MM-DD) and ISO week (W01-W53) time bucketing | Planned | Critical | — |
+| [[PBI-ANA-132 Cross-Tile Filtering]] | Click chart/table element to filter sibling tiles | Planned | Critical | ANA-130 |
+| [[PBI-ANA-133 Dashboard File Watcher]] | Auto-refresh tiles when source CSV files change (2s debounce) | Planned | High | — |
+| [[PBI-ANA-134 KPI Targets and RAG Status]] | Target values with Red/Amber/Green status on stat-card tiles | Planned | High | — |
+| [[PBI-ANA-135 Goal Lines on Charts]] | Horizontal dashed reference lines on line/bar/area charts | Planned | High | ANA-134 |
+| [[PBI-ANA-136 Dashboard PDF Export]] | Export dashboard as PNG or PDF for non-Obsidian sharing | Planned | High | — |
+| [[PBI-ANA-137 Dashboard Markdown Export]] | Generate vault note from dashboard snapshot with markdown tables | Planned | High | — |
 
 > **Analytics Hub v1 delivered (2026-02-23):** 5 PBIs in Cycle 28. Hub shell, dashboards, .base sources, independent persistence. 4,338 tests (178 suites).
 > **Analytics Hub v2 delivered (2026-02-23):** 5 PBIs in Cycle 29. Favorites, default dashboard, dashboard-first overview, per-tile refresh, Supplier Manager persona. 4,358 tests (179 suites).
@@ -729,6 +737,104 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 > **Analytics Hub v12 delivered (2026-02-25):** 6 PBIs in Cycle 37. Cross-domain integration: dashboard query map (query transparency), CSV analytics section (query discovery from CSV detail), file-menu "Analyze" action, source pre-selection navigation, related queries in master list. 2 new components (DashboardQueryMap, CsvAnalyticsSection). 4,672 tests (192 suites).
 > **Analytics Hub v13 delivered (2026-02-25):** 7 PBIs in Cycle 38. Query builder improvements: schema browser + column picker, visual filter builder with value suggestions, multi-column sort with migration, expression validation, AnalyticsService handler extraction (916→619 LOC), QueriesTab ActionsBar extraction (950→820 LOC), 6 quick insight rules, click-to-insert, count badges, Ctrl+Enter. 4 new components (SchemaPanel, FilterBuilderPanel, ActionsBar, expressionValidator). 4,746 tests (196 suites).
 > **Analytics Hub v16 delivered (2026-02-25):** 7 PBIs in Cycle 43. Performance & navigation: SourceManager extraction (QueriesTab 1,026→930 LOC), QueryResultCache (LRU, max 20), render batching (rAF), dashboard breadcrumbs (4-level nav stack), filter row-count preview (~N rows badge), TileRenderContext split (3 sub-interfaces), 14 CSS classes (25 inline styles eliminated). 3 new flow test suites (Flows 17–19). 85 new tests. 4,941 tests (206 suites). PRD v16, 96 FRs all delivered.
+> **Analytics Hub v17 refinement (2026-02-26):** PRD refinement pass. 8 new roadmap PBIs (ANA-130–137) from market research: date range filter (P1), day/week time buckets (P1), cross-tile filtering (P2), file watcher (P2), KPI targets/RAG (P3), goal lines (P3), PDF export (P4), markdown export (P4). 26 missing delivered PBI files created (ANA-054–076, ANA-120–126). Documentation gap closure: Analytics Hub View sitemap, 9 component docs, 2 new flow docs, DX Hub sitemap updated. 19 inbox items refined. Total: 56 PBI files, 12 sitemap views, 18 component docs, 3 flow docs.
+
+## 15. Market Research: SMB Dashboarding vs Excel (Feb 2026)
+
+### Why SMBs Leave Excel for Dashboard Tools
+
+The tipping point occurs when teams hit 3+ of these simultaneously: data exceeds a few thousand rows, involves multiple sources, and needs to be shared with non-technical stakeholders.
+
+| Excel Pain Point | Severity | Flowti Status |
+|-----------------|----------|---------------|
+| No real-time/auto-refreshing data | Critical | Partial (manual refresh per tile) |
+| Formula errors at scale (41% of finance teams) | Critical | N/A (engine-based, no cell formulas) |
+| Version control chaos ("Final_v4.xlsx") | High | Solved (vault-based, git-backed) |
+| No automated alerts/notifications | High | Not yet |
+| No cross-chart drill-down | Medium | Partial (per-tile drill-down, not cross-tile) |
+| Poor dashboard layout tools | Medium | Solved (5-col grid, auto-height tiles) |
+| No date range filtering presets | Medium | Not yet |
+| Manual reporting/export | High | Partial (CSV export only, no PDF) |
+
+### Minimum Viable Feature Set to Compete with Excel
+
+**Day-1 requirements (all delivered):**
+1. Data connection to files/sources — CSV, .base, csv-folder
+2. Visual query builder — dimensions, measures, filters, sort, limit
+3. Core chart types — table, stat-card, line, bar, area, pie (6 types)
+4. Dashboard layout — 5-col tile grid with auto-height
+5. Global dashboard filters — multi-select dimension filters
+6. Save and reopen — persistent dashboards via TypedStorage
+7. Basic conditional formatting — rule builder with presets
+
+**30-day requirements (gaps marked):**
+8. **Date range filtering** — "Last 30 days", "This quarter", "Custom range" — **GAP**
+9. Drill-down / click-to-filter — per-tile drill-down delivered (C36)
+10. Export to PDF/CSV — CSV delivered; **PDF/image export GAP**
+11. Auto-refresh or easy manual refresh — Refresh All button delivered (C39); **file-watcher GAP**
+12. **KPI targets / RAG status** — conditional formatting exists; **target/goal concept GAP**
+13. Multiple data sources per dashboard — delivered (joins, multi-source)
+
+**Competitive differentiators (2-6 month horizon):**
+14. Scheduled refresh — **GAP** (no cron-like mechanism)
+15. Alerting — **GAP** (natural fit: alerts → inbox items)
+16. Sharing / export — **GAP** (dashboard PDF, markdown export)
+17. Dashboard templates — delivered (C34)
+18. Calculated fields — delivered (C31, computed columns)
+
+### Competitive Landscape
+
+| Tool | Target | No-Code Query | Charts | Dashboards | Price | Key Differentiator |
+|------|--------|--------------|--------|------------|-------|-------------------|
+| Metabase | Business users | Yes | 15+ | Yes, with filters | Free OSS / $85/mo | Easiest setup, "Questions" concept |
+| Looker Studio | Marketing/small teams | Yes (drag-drop) | 20+ | Yes, with date range | Free / $9/user | Free tier, Google ecosystem |
+| Power BI Free | Individual analysts | Yes (DAX) | 30+ | Personal only | Free / $14/user | Deepest data modeling |
+| Superset | Technical analysts | Partial (SQL needed) | 40+ | Yes, cross-filters | Free OSS | Most chart types, enterprise scale |
+| Grafana | DevOps/monitoring | Partial | 15+ (time-series) | Yes, with alerting | Free OSS / $29/mo | Real-time monitoring + alerts |
+| **Flowti** | Knowledge workers | Yes (visual builder) | 6 | Yes, with filters | Obsidian plugin | Note-native, vault-integrated, privacy-first |
+
+**Flowti's unique position:** The only analytics tool that operates within a knowledge management system, with cross-references between queries, measurements, dashboards, and vault notes. No data leaves the vault. No cloud dependency. This matters for privacy-conscious SMBs and personal knowledge workers.
+
+### Priority Feature Roadmap (Market-Informed)
+
+| Priority | Feature | Impact | Effort | Market Signal |
+|----------|---------|--------|--------|---------------|
+| P1 | Date range filter (global) | High | Medium | Every competitor has it; most common dashboard interaction |
+| P1 | Day/week time bucket granularity | High | Low | Extends existing month/quarter/year; unblocks daily operations |
+| P2 | Cross-tile filtering (click bar → filter sibling tiles) | High | Medium-High | The "aha moment" that distinguishes dashboards from Excel |
+| P2 | Dashboard one-click refresh + file watcher | Medium | Low-Medium | "Refresh All" exists; file watcher for auto-reload |
+| P3 | KPI targets + RAG status (Red/Amber/Green) | High | Medium | Universal SMB dashboard language; extends conditional formatting |
+| P3 | Goal lines on charts | Medium | Low | Horizontal reference line on line/bar/area; pairs with KPI targets |
+| P4 | Dashboard PDF/image export | Medium | Medium | "Monday morning report" use case; share with non-Obsidian users |
+| P4 | Dashboard markdown export | Medium | Low | Generate vault note from dashboard snapshot; Flowti-native sharing |
+| P5 | Stacked bar + gauge charts | Medium | Low-Medium | Stacked bar for category comparisons; gauge for KPI targets |
+| P5 | Threshold alerts → Inbox | Medium | Medium-High | "Don't make me check"; natural fit with existing Inbox domain |
+| P6 | External file sources (outside vault) | Medium | Medium | Inbox item #10; file picker → generate vault doc reference |
+| P6 | Analytics tiles on User Hub | Medium | Medium | Inbox item #6; cross-hub KPI visibility |
+
+### Inbox Refinement Results (Feb 2026)
+
+| Inbox Item | Decision | Rationale |
+|-----------|----------|-----------|
+| Every analytics-able file has dashboard capabilities | **Delivered** (C37) | File-menu "Analyze", CSV analytics section |
+| Merge timestamped CSV files before analyzing | **Delivered** (C38) | csv-folder source type |
+| Better navigation on Analytics Hub Homepage | **Delivered** (C42, C43) | Homepage polish, breadcrumbs |
+| Add up to three dashboards to homepage | **Delivered** (C33) | Dashboard pinning (max 3) |
+| Drill-down Dashboard by item_id | **Delivered** (C36) | Tile drill-down with breadcrumbs |
+| Put one Analytics Dashboard on User Hub Homepage | **Delivered** (C34) | User Hub KPI widget |
+| Visualize report-to-source connections | **Delivered** (C37) | DashboardQueryMap component |
+| Saved queries above query sources | **Delivered** (C35) | Query list reordering |
+| Right-click .base/.csv/.json to visualize | **Partially delivered** (C37) | .base and .csv done; .json not yet |
+| Improve CSV + Analytics integration | **Partially delivered** (C37) | Cross-domain integration; CSV section + analyze action |
+| PRD - Dashboards and Analytics | **Superseded** | Replaced by this Analytics Hub PRD |
+| Dashboard creates Markdown + JSON spec file | **Backlog** | Aligns with dashboard export roadmap (P4) |
+| Analytics hub for vault insights | **Backlog** | Future vision: vault-wide analytics |
+| Analytics tiles on User Hub | **Backlog** | Cross-hub KPI visibility (P6) |
+| External sources outside vault | **Backlog** | File picker + vault doc reference (P6) |
+| Generate Markdown from dashboards | **Backlog** | Dashboard markdown export (P4) |
+| Quality Dashboard for Software Products | **Backlog** | Large scope; requires dedicated PRD (ISO 25010) |
+| Pipeline multi-source merge (RB-7) | **Tracked** | Plugin inbox, planned, release-blocker |
+| Pipeline step preview | **Tracked** | Plugin inbox, discovery |
 
 ## Related
 
@@ -737,6 +843,9 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 - Cycle: [[Cycle 28 - Analytics Hub]] (hub + dashboards + .base sources delivered)
 - Review: [[Three Amigos Review 2026-02-23 Analytics Sprint]] (PASS, TASM 31/35)
 - Flow: [[Build Analytics Dashboard]]
+- Flow: [[Drill-Down Dashboard]]
+- Flow: [[Analyze CSV in Analytics Hub]]
+- Sitemap: [[Analytics Hub View]]
 - Inbox: [[When opening a CSV with Flowti, I want to be able to make an easy dashboard]]
 - Cycle: [[Cycle 29 - Analytics Supplier Manager]] (favorites, default dashboard, dashboard-first overview — delivered)
 - Cycle: [[Cycle 30 - Analytics UX Mastery]] (query power, source preview, tile management, hub polish — delivered)
@@ -757,5 +866,6 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 - PBIs (v12): [[PBI-ANA-060 Query-by-Source Service]], [[PBI-ANA-061 Dashboard Query Map]], [[PBI-ANA-062 CSV Analytics Section]], [[PBI-ANA-063 CSV File-Menu Analyze]], [[PBI-ANA-064 Source Pre-Selection]], [[PBI-ANA-065 Cross-Domain Flow Test]]
 - Cycle: [[Cycle 38 - Analytics Hub Query Builder Improvements]] (schema browser, filter builder, multi-sort, expression validation, extractions, quick insights — delivered)
 - PBIs (v13): [[PBI-ANA-070 Schema Browser and Column Picker]], [[PBI-ANA-071 Visual Filter Builder]], [[PBI-ANA-072 Multi-Column Sort]], [[PBI-ANA-073 Expression Validation]], [[PBI-ANA-074 AnalyticsService Dashboard CRUD Extraction]], [[PBI-ANA-075 QueriesTab Source and Actions Extraction]], [[PBI-ANA-076 Enhanced Quick Insights and UX Polish]]
-- Cycle: [[Cycle 43 - Analytics Hub Performance & Navigation]] (Source Manager extraction, render performance, breadcrumbs, filter preview, CSS consolidation, flow tests — planned)
-- PBIs (v15): [[PBI-ANA-120 Source Manager Extraction]], [[PBI-ANA-121 Render Performance]], [[PBI-ANA-122 Dashboard Breadcrumb Navigation]], [[PBI-ANA-123 Filter Row-Count Preview]], [[PBI-ANA-124 TileRenderContext Simplification]], [[PBI-ANA-125 CSS & Style Consolidation]], [[PBI-ANA-126 Analytics Flow Integration Tests]]
+- Cycle: [[Cycle 43 - Analytics Hub Performance & Navigation]] (Source Manager extraction, render performance, breadcrumbs, filter preview, CSS consolidation, flow tests — delivered)
+- PBIs (v16): [[PBI-ANA-120 Source Manager Extraction]], [[PBI-ANA-121 Render Performance]], [[PBI-ANA-122 Dashboard Breadcrumb Navigation]], [[PBI-ANA-123 Filter Row-Count Preview]], [[PBI-ANA-124 TileRenderContext Simplification]], [[PBI-ANA-125 CSS & Style Consolidation]], [[PBI-ANA-126 Analytics Flow Integration Tests]]
+- PBIs (v17 roadmap): [[PBI-ANA-130 Date Range Filter]], [[PBI-ANA-131 Day Week Time Bucket Granularity]], [[PBI-ANA-132 Cross-Tile Filtering]], [[PBI-ANA-133 Dashboard File Watcher]], [[PBI-ANA-134 KPI Targets and RAG Status]], [[PBI-ANA-135 Goal Lines on Charts]], [[PBI-ANA-136 Dashboard PDF Export]], [[PBI-ANA-137 Dashboard Markdown Export]]

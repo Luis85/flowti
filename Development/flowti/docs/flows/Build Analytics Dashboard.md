@@ -8,6 +8,7 @@ domains:
 services:
   - AnalyticsService
   - AnalyticsEngine
+  - SourceManager
   - BaseAnalyticsAdapter
 events:
   - analytics.loaded
@@ -23,6 +24,14 @@ events:
   - analytics.dashboard.tile.removed
   - analytics.dashboard.tile.updated
   - analytics.dashboard.refreshed
+  - analytics.dashboard.favorited
+  - analytics.dashboard.defaultChanged
+  - analytics.dashboard.tile.reordered
+  - analytics.query.favorited
+  - analytics.query.renamed
+  - analytics.query.duplicated
+  - analytics.template.saved
+  - analytics.template.used
 tags:
   - analytics
   - dashboard
@@ -32,7 +41,7 @@ tags:
 
 ## Overview
 
-The analytics dashboard flow takes a user from opening the Analytics Hub through building queries against CSV and `.base` data sources, saving them, and composing multiple query results into a named dashboard with a tile grid. Each tile renders query results as either a sortable table or stat-card summary.
+The analytics dashboard flow takes a user from opening the Analytics Hub through building queries against CSV, `.base`, and csv-folder data sources, saving them, and composing multiple query results into a named dashboard with a tile grid. Each tile renders query results in 6 display modes: table, stat-card, line-chart, bar-chart, area-chart, and pie-chart. Dashboards support drill-down filtering, breadcrumb navigation, conditional formatting, and template export.
 
 ## Trigger
 
@@ -54,14 +63,14 @@ User opens the Analytics Hub via:
 
 - **View/Service**: QueriesTab (master panel)
 - **User Action**: User clicks the "Queries" tab, then selects CSV files from the "CSV Sources" section or `.base` files from the "Base Views" section in the source picker
-- **System Response**: CSV files are listed from vault scan (`.csv` extension). Base files are listed from vault scan (`.base` extension). Clicking a source adds it to the active query with an alias. For CSV sources, the file is parsed immediately; for `.base` sources, the BaseAnalyticsAdapter resolves columns and vault files into tabular data
+- **System Response**: CSV files are listed from vault scan (`.csv` extension). Base files are listed from vault scan (`.base` extension). CSV folders can merge timestamped files. Clicking a source adds it to the active query with an alias via SourceManager. For CSV sources, the file is parsed immediately with locale detection; for `.base` sources, the BaseAnalyticsAdapter resolves columns and vault files into tabular data. SourcePreviewPanel shows column names, types, row count, and sample data. Quick Insights suggest auto-queries based on detected column types
 - **Events**: (none — UI state only)
 
 ### 3. Configure Query
 
 - **View/Service**: QueriesTab (detail panel)
-- **User Action**: User configures the query: sets column type hints (number, date), defines joins between sources (left/inner), selects dimensions (group-by columns), picks measures (SUM, COUNT, AVG, MIN, MAX), and optionally sets time bucketing (day/week/month/quarter/year)
-- **System Response**: Detail panel renders the query builder form with sections for each configuration aspect. Per-source locale selection available for CSV sources with regional number/date formats
+- **User Action**: User configures the query via QueryBuilderPanel: sets column type hints (number, date, currency) via SchemaPanel click-to-insert, defines joins between sources (left/inner), selects dimensions (group-by columns), picks measures (SUM, COUNT, AVG, MIN, MAX, COUNT_DISTINCT), adds filters via FilterBuilderPanel (type-aware operators + value suggestions), configures multi-column sort, adds computed columns with expressions (arithmetic + ROUND/ABS/IF/CHANGE/PCT_CHANGE/ROLLING_AVG), and optionally sets time bucketing (month/quarter/year)
+- **System Response**: Detail panel renders the query builder form with sections for each configuration aspect. SchemaPanel shows columns grouped by type with source badges. Per-source locale selection available for CSV sources. Expression validator checks syntax inline on blur. Filter/sort count badges show active configuration
 - **Events**: (none — UI state only)
 
 ### 4. Execute Query
@@ -88,15 +97,15 @@ User opens the Analytics Hub via:
 ### 7. Add Tiles
 
 - **View/Service**: DashboardsTab (detail panel) + AddTileDialog
-- **User Action**: User selects a dashboard from the master list, then clicks "Add Tile" in the detail panel. The inline dialog shows a saved query dropdown and display mode toggle (table/stat-card). User picks a query and mode, then clicks "Add"
-- **System Response**: A tile is created via `AnalyticsService.addTile()` with auto-positioned row/col. The tile grid re-renders with CSS Grid layout (2-column grid). The tile asynchronously executes its referenced query and renders results
+- **User Action**: User selects a dashboard from the master list, then clicks "Add Tile" in the detail panel. The AddTileDialog shows a saved query dropdown and display mode selector (6 modes: table, stat-card, line-chart, bar-chart, area-chart, pie-chart). `suggestDisplayMode()` auto-suggests the best mode. User picks a query and mode, then clicks "Add"
+- **System Response**: A tile is created via `AnalyticsService.addTile()` with auto-positioned row/col. The tile grid re-renders with CSS Grid layout (5-column grid, width/height 1-5). The tile asynchronously executes its referenced query via QueryResultCache (LRU, max 20) and renders results. Freshness indicator shows time since last refresh
 - **Events**: `analytics.dashboard.tile.added` (`{ dashboardId, tile }`)
 
 ### 8. View Dashboard
 
 - **View/Service**: DashboardsTab + DashboardTileRenderer
 - **User Action**: User views the tile grid
-- **System Response**: Each tile renders its query results. Table mode delegates to AnalyticsResultsPanel (sortable table with stat cards). Stat-card mode shows numeric values from the first result row in a responsive grid. Tiles cache results per query ID; error boundaries catch render failures and show "Render failed" messages. Each tile has a header with title and remove button
+- **System Response**: Each tile renders its query results via DashboardTileRenderer. Table mode renders sortable table with conditional formatting. Stat-card mode shows numeric values with sparklines. Chart modes (line, bar, area, pie) render SVG via ChartRenderer. Tiles cache results per query ID via TileResultCache; error boundaries catch render failures. Each tile has a header with title, mode toggle, settings gear, and remove button. DashboardFilterBar shows multi-select dimension filters. DashboardBreadcrumbs shows drill-down navigation path. DashboardQueryMap shows query transparency
 - **Events**: (none — read-only render)
 
 ### 9. Manage Dashboard (Optional)
@@ -110,11 +119,13 @@ User opens the Analytics Hub via:
 
 | Decision | Options | Default |
 |----------|---------|---------|
-| Data source type | CSV file / `.base` vault view | CSV |
-| Tile display mode | Table / Stat-card | Table |
-| Aggregation function | SUM, COUNT, AVG, MIN, MAX | SUM |
-| Time bucketing | None / Day / Week / Month / Quarter / Year | None |
-| Source locale | en-US, de-DE, en-GB, nl-NL, fr-FR | en-US |
+| Data source type | CSV file / `.base` vault view / csv-folder | CSV |
+| Tile display mode | Table / Stat-card / Line-chart / Bar-chart / Area-chart / Pie-chart | Table |
+| Aggregation function | SUM, COUNT, AVG, MIN, MAX, COUNT_DISTINCT | SUM |
+| Time bucketing | None / Month / Quarter / Year | None |
+| Source locale | auto / en-US / de-DE / en-GB / nl-NL / fr-FR | auto |
+| Join type | Left / Inner | Left |
+| Tile size | 1×1 to 5×5 grid units | 1×1 |
 
 ## Events Sequence
 
@@ -127,11 +138,14 @@ User opens the Analytics Hub via:
 [view results] → (tile executes query → analytics.query.started → analytics.query.completed)
 ```
 
-## Related Use Cases
+## Related Flows
 
-- [[Export Vault Data]] (`.base` files used as analytics sources are the same files used for exports)
-- [[Browse and Configure Events]] (analytics events appear in the Event Catalog under "Analytics" category)
-- [[Navigate the User Hub]] (Analytics Hub card shows query + dashboard counts)
+- [[Drill-Down Dashboard]] — Interactive dashboard filtering and drill-down navigation
+- [[Analyze CSV in Analytics Hub]] — Right-click CSV to open in Analytics Hub with source pre-selected
+- [[Export Vault Data]] — `.base` files used as analytics sources are the same files used for exports
+- [[Browse and Configure Events]] — analytics events appear in the Event Catalog under "Analytics" category
+- [[Navigate the User Hub]] — Analytics Hub card shows query + dashboard counts
+- [[Import CSV as Notes]] — Imported CSV files become available as analytics sources
 
 ## Related Decisions
 
@@ -141,9 +155,9 @@ User opens the Analytics Hub via:
 
 ## Known Debt
 
-- Test count below estimate (67 vs 165) — UI rendering tests deferred; domain + flow tests cover critical paths
-- No drag-and-drop tile reordering — tiles auto-position in rows (v1)
-- No dashboard auto-refresh — tiles render on demand
+- No drag-and-drop tile reordering — tiles use move up/down buttons
+- No date range filter — planned (PBI-ANA-130)
+- No cross-tile filtering — planned (PBI-ANA-132)
 
 ## Learnings
 

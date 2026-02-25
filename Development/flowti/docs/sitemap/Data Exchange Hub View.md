@@ -18,7 +18,9 @@ parent: "[[User Hub View]]"
 
 ## Description
 
-The Data Exchange Hub is the central management view for all import and export operations. It provides a master-detail layout across 10 pages: **Dashboard** landing + 9 tabs: **Pipelines**, **Imports**, **Exports**, **Types**, **Properties**, **Signals**, **Reports**, **Canvas**, and **Analytics**.
+The Data Exchange Hub is the central management view for all import and export operations. It provides a master-detail layout across 9 pages: **Dashboard** landing + 8 tabs: **Imports**, **Exports**, **Reports**, **Properties**, **Pipelines**, **Types**, **Signals**, and **Canvas**.
+
+> **Note**: The Analytics tab was extracted to a dedicated [[Analytics Hub View]] in [[Cycle 28 - Analytics Hub]] (Feb 2026). DX Hub went from 9 to 8 tabs.
 
 The hub acts as the operational control center for data flowing in and out of the vault. It tracks saved configurations, provides a data dictionary for documenting frontmatter properties, manages multi-step import pipelines, and catalogs CSV reports and type documentation.
 
@@ -47,11 +49,6 @@ The Canvas tab lists all saved canvas import configurations. Select one to revie
 
 ### Configure external signal connections
 The Signals tab manages Azure DevOps signal connections. Create, edit, test, sync, and remove signal configurations. Each signal pulls work items from Azure DevOps and creates corresponding vault notes. Inline Sync Now and Test Connection buttons provide immediate feedback.
-
-### Run analytics queries
-The Analytics tab provides a CSV analytics query builder. Select CSV sources, configure joins between sources, choose dimensions and measures, apply time bucketing, and execute queries. Results display as stat cards and a sortable table with CSV export. Saved queries persist across sessions.
-
-> **Planned**: The Analytics tab will be extracted to a dedicated Analytics Hub in [[Cycle 28 - Analytics Hub]].
 
 ### Dashboard overview
 The Dashboard tab shows aggregate counts for imports, exports, pipelines, canvas configs, and vault CSV files. Quick-action buttons let you start a new import, export, or open a CSV file directly.
