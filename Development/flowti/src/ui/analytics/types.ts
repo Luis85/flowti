@@ -5,14 +5,14 @@
 import type { App } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { AnalyticsService } from "../../domain/analytics/AnalyticsService";
-import type { Dashboard, SavedAnalyticsQuery } from "../../domain/analytics/types";
+import type { Dashboard, Measurement, SavedAnalyticsQuery } from "../../domain/analytics/types";
 import type { TileResultCache } from "./TileResultCache";
 
 // ─────────────────────────────────────────────────────────────
 // Hub pages
 // ─────────────────────────────────────────────────────────────
 
-export type AnalyticsHubPage = "dashboards" | "queries";
+export type AnalyticsHubPage = "dashboards" | "measurements" | "queries";
 
 // ─────────────────────────────────────────────────────────────
 // Source file entries (lightweight, for source picker)
@@ -41,15 +41,25 @@ export interface DashboardFilter {
 // Hub state — owned by the orchestrator
 // ─────────────────────────────────────────────────────────────
 
+export interface AnalyticsFolderEntry {
+	path: string;
+	displayName: string;
+	fileCount: number;
+}
+
 export interface AnalyticsHubState {
 	currentPage: AnalyticsHubPage | "dashboard";
 	queries: SavedAnalyticsQuery[];
 	dashboards: Dashboard[];
 	csvFiles: AnalyticsCsvEntry[];
 	baseFiles: AnalyticsBaseEntry[];
+	/** Vault folders containing ≥2 CSV files (for csv-folder sources). */
+	csvFolders: AnalyticsFolderEntry[];
+	measurements: Measurement[];
 	filterText: string;
 	selectedQueryId: string | null;
 	selectedDashboardId: string | null;
+	selectedMeasurementId: string | null;
 	/** Dashboard ID to display on the homepage (null = use default dashboard). */
 	homepageDashboardId: string | null;
 	/** Active dashboard filters (runtime-only, reset on dashboard switch). */

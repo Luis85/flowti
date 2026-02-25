@@ -11,7 +11,7 @@ import type { Dashboard, DashboardTile } from "../../domain/analytics/types";
 import { computeFreshnessSummary, getFreshnessLevel, getFreshnessColor } from "../../domain/analytics/freshnessUtils";
 import type { AnalyticsHubDeps } from "./types";
 import { DashboardTileRenderer, type TileRenderContext } from "./DashboardTileRenderer";
-import { discoverFilterDimensions, buildFilterCacheKey } from "./DashboardsTab";
+import { discoverFilterDimensions, buildFilterCacheKey, filterResultForMeasurement } from "./DashboardsTab";
 
 export class AnalyticsDashboardPage {
 	constructor(
@@ -90,6 +90,14 @@ export class AnalyticsDashboardPage {
 		dashLink.appendText(" Dashboards");
 		dashLink.addEventListener("click", () => {
 			this.deps.navigation.navigateTo("dashboards");
+		});
+
+		const measLink = nav.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		const mIcon = measLink.createSpan();
+		setIcon(mIcon, "ruler");
+		measLink.appendText(" Measurements");
+		measLink.addEventListener("click", () => {
+			this.deps.navigation.navigateTo("measurements");
 		});
 
 		const queryLink = nav.createEl("span", { cls: "ft-nav-link ft-text-sm" });
@@ -223,7 +231,14 @@ export class AnalyticsDashboardPage {
 		const state = this.deps.getState();
 
 		for (const tile of dashboard.tiles) {
-			const query = state.queries.find((q) => q.id === tile.queryId);
+			// Resolve effective queryId: measurement's queryId takes precedence
+			let effectiveQueryId = tile.queryId;
+			const measurement = tile.measurementId
+				? (state.measurements ?? []).find((m) => m.id === tile.measurementId)
+				: undefined;
+			if (measurement) effectiveQueryId = measurement.queryId;
+
+			const query = state.queries.find((q) => q.id === effectiveQueryId);
 			const tileHost = grid.createDiv();
 			tileHost.style.gridColumn = `span ${Math.min(tile.width, 6)}`;
 			const isAutoHeight = tile.autoHeight && tile.width >= 3;
@@ -232,29 +247,32 @@ export class AnalyticsDashboardPage {
 			if (!isAutoHeight) tileHost.style.minHeight = `${rowSpan * 180}px`;
 
 			const dashboardFilters = state.dashboardFilters;
-			const cacheKey = buildFilterCacheKey(tile.queryId, dashboardFilters);
+			const cacheKey = buildFilterCacheKey(effectiveQueryId, dashboardFilters);
 			const tileResult = this.deps.tileResultCache.tryRun(
 				cacheKey,
 				() => dashboardFilters.length > 0
-					? this.deps.analyticsService.runSavedQueryWithFilters(tile.queryId, dashboardFilters)
-					: this.deps.analyticsService.runSavedQuery(tile.queryId),
+					? this.deps.analyticsService.runSavedQueryWithFilters(effectiveQueryId, dashboardFilters)
+					: this.deps.analyticsService.runSavedQuery(effectiveQueryId),
 				() => this.deps.scheduleRender(),
 			);
+
+			const filteredResult = filterResultForMeasurement(tileResult.result, measurement, query);
 
 			const renderer = new DashboardTileRenderer(tileHost);
 			renderer.render({
 				tile,
 				query,
-				result: tileResult.result,
+				result: filteredResult,
 				error: tileResult.error,
 				refreshedAt: this.deps.tileResultCache.getTimestamp(cacheKey),
 				onRemove: () => {
 					this.deps.navigation.navigateTo("dashboards");
 				},
 				onRefresh: () => {
-					this.deps.tileResultCache.clearOne(tile.queryId);
+					this.deps.tileResultCache.clearOne(effectiveQueryId);
 					this.deps.scheduleRender();
 				},
+				measurements: state.measurements ?? [],
 				onChartValueColumnChange: (tileId, column) => {
 					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { chartValueColumn: column } as Partial<DashboardTile>).then(() => {
 						this.deps.scheduleRender();
@@ -433,6 +451,7 @@ export class AnalyticsDashboardPage {
 		// Stats grid
 		const statsGrid = this.containerEl.createDiv({ cls: "ft-stats-grid" });
 		this.renderStat(statsGrid, "search", "Saved Queries", String(queryCount), "queries");
+		this.renderStat(statsGrid, "ruler", "Measurements", String(state.measurements?.length ?? 0), "measurements");
 		this.renderStat(statsGrid, "layout-grid", "Dashboards", String(dashboardCount), "dashboards");
 
 		// Set default prompt
@@ -482,8 +501,9 @@ export class AnalyticsDashboardPage {
 	private renderFavoritesSection(): void {
 		const state = this.deps.getState();
 		const favQueries = state.queries.filter((q) => q.isFavorite);
+		const favMeasurements = (state.measurements ?? []).filter((m) => m.isFavorite);
 
-		if (favQueries.length === 0) return;
+		if (favQueries.length === 0 && favMeasurements.length === 0) return;
 
 		// Section container with spacing from dashboard tiles
 		const section = this.containerEl.createDiv();
@@ -512,6 +532,14 @@ export class AnalyticsDashboardPage {
 			this.renderFavoriteCard(cardGrid, "search", q.name, q.description, () => {
 				this.deps.setState({ selectedQueryId: q.id });
 				this.deps.navigation.navigateTo("queries");
+				this.deps.scheduleRender();
+			});
+		}
+
+		for (const m of favMeasurements) {
+			this.renderFavoriteCard(cardGrid, "ruler", m.name, m.description, () => {
+				this.deps.setState({ selectedMeasurementId: m.id });
+				this.deps.navigation.navigateTo("measurements");
 				this.deps.scheduleRender();
 			});
 		}

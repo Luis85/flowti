@@ -28,6 +28,32 @@ export class TileSettingsPanel {
 	private renderSettings(): void {
 		const ctx = this.ctx;
 
+		// ── Measurement selector ─────────────────────────
+		if (ctx.measurements && ctx.measurements.length > 0 && ctx.onMeasurementChange) {
+			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+			row.style.marginBottom = "0.25rem";
+			row.createSpan({ text: "Measurement", cls: "ft-text-sm" }).style.fontWeight = "600";
+
+			const mSelect = row.createEl("select", { cls: "ft-text-xs" });
+			mSelect.style.cssText = "flex:1;padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary)";
+
+			// "None" option = direct query
+			const noneOpt = mSelect.createEl("option");
+			noneOpt.value = "";
+			noneOpt.textContent = "None (direct query)";
+			if (!ctx.tile.measurementId) noneOpt.selected = true;
+
+			for (const m of ctx.measurements) {
+				const opt = mSelect.createEl("option");
+				opt.value = m.id;
+				opt.textContent = `${m.name} (${m.type})`;
+				if (m.id === ctx.tile.measurementId) opt.selected = true;
+			}
+			mSelect.addEventListener("change", () => {
+				ctx.onMeasurementChange!(ctx.tile.id, mSelect.value || "");
+			});
+		}
+
 		// ── Query selector ───────────────────────────────
 		if (ctx.queries && ctx.queries.length > 0 && ctx.onQueryChange) {
 			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });

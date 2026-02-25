@@ -39,9 +39,16 @@ export class FilterBuilderPanel {
 	) {}
 
 	render(): void {
-		const section = this.container.createDiv({ cls: "ft-card ft-mt-3" });
+		this.renderInto(this.container.createDiv({ cls: "ft-card ft-mt-3" }));
+	}
+
+	/** Render filter controls into an existing parent element (no card wrapper). */
+	renderInto(section: HTMLElement): void {
 		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		header.createDiv({ text: "Filters", cls: "ft-detail-section-header" });
+		const headerIcon = header.createSpan();
+		setIcon(headerIcon, "filter");
+		headerIcon.style.cssText = "width:14px;height:14px;opacity:0.6";
+		header.createSpan({ text: "Filters", cls: "ft-text-sm" }).style.fontWeight = "500";
 		header.style.margin = "0";
 
 		const filterCount = this.deps.filters().length;

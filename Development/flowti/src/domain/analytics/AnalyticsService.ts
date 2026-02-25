@@ -21,6 +21,9 @@ import type {
 	DashboardTile,
 	DashboardTemplate,
 	DimensionSpec,
+	Measurement,
+	MeasurementType,
+	NumberDisplayFormat,
 	FilterSpec,
 	JoinSpec,
 	MeasureSpec,
@@ -34,7 +37,7 @@ import type {
 import { AnalyticsEngine } from "./AnalyticsEngine";
 import type { BaseAnalyticsAdapter } from "./BaseAnalyticsAdapter";
 import type { AnalyticsHandlerContext } from "./handlers/types";
-import { dashboardHandlers } from "./handlers";
+import { dashboardHandlers, measurementHandlers } from "./handlers";
 
 /** Callback to read a CSV file's content from the vault. */
 export type ReadCsvCallback = (csvPath: string) => Promise<ParsedCsv | null>;
@@ -63,6 +66,7 @@ export class AnalyticsService {
 	private baseAdapter?: BaseAnalyticsAdapter;
 	private fileSystem?: IFileSystemClient;
 	private queryFolder?: string;
+	private listFolder?: (folderPath: string) => Promise<string[]>;
 
 	constructor(options: AnalyticsServiceOptions) {
 		this.storage = options.storage;
@@ -100,6 +104,7 @@ export class AnalyticsService {
 		await this.eventBus?.emit("analytics.loaded", {
 			queryCount: this.state.savedAnalyticsQueries?.length ?? 0,
 			dashboardCount: this.state.dashboards?.length ?? 0,
+			measurementCount: this.state.measurements?.length ?? 0,
 		});
 	}
 
@@ -113,9 +118,19 @@ export class AnalyticsService {
 		this.queryFolder = folder;
 	}
 
+	/** Set the analytics folder — derives queryFolder as `folder + "/Queries"`. */
+	setAnalyticsFolder(folder: string): void {
+		this.queryFolder = `${folder}/Queries`;
+	}
+
 	/** Set the base analytics adapter (wired during setup). */
 	setBaseAdapter(adapter: BaseAnalyticsAdapter): void {
 		this.baseAdapter = adapter;
+	}
+
+	/** Set the folder listing callback for csv-folder sources (wired during setup). */
+	setListFolder(cb: (folderPath: string) => Promise<string[]>): void {
+		this.listFolder = cb;
 	}
 
 	/** Read and parse a CSV file from vault. Returns null if reader not configured or file not found. */
@@ -128,6 +143,13 @@ export class AnalyticsService {
 	async loadBase(basePath: string, viewIndex: number): Promise<ParsedSourceData | null> {
 		if (!this.baseAdapter) return null;
 		return this.baseAdapter.resolve(basePath, viewIndex);
+	}
+
+	/** Load and merge all CSV files from a folder into ParsedSourceData. */
+	async loadCsvFolder(folderPath: string): Promise<ParsedSourceData | null> {
+		if (!this.listFolder || !this.readCsv) return null;
+		const src: SavedAnalyticsQuerySource = { alias: "", csvPath: folderPath, sourceType: "csv-folder" };
+		return this.resolveSource(src);
 	}
 
 	// ── Query execution ──────────────────────────────────
@@ -574,6 +596,58 @@ export class AnalyticsService {
 		return dashboard;
 	}
 
+	// ── Measurement CRUD ─────────────────────────────────
+
+	listMeasurements(): Measurement[] { return measurementHandlers.listMeasurements(this.ctx()); }
+	getMeasurement(id: string): Measurement | undefined { return measurementHandlers.getMeasurement(this.ctx(), id); }
+
+	async createMeasurement(
+		name: string, queryId: string, type: MeasurementType,
+		measureColumn?: string, displayFormat?: NumberDisplayFormat, description?: string,
+	): Promise<Measurement> {
+		return measurementHandlers.createMeasurement(this.ctx(), name, queryId, type, measureColumn, displayFormat, description);
+	}
+
+	async updateMeasurement(id: string, changes: Partial<Pick<Measurement, "name" | "description" | "type" | "queryId" | "measureColumn" | "displayFormat">>): Promise<Measurement | undefined> {
+		return measurementHandlers.updateMeasurement(this.ctx(), id, changes);
+	}
+
+	async deleteMeasurement(id: string): Promise<boolean> {
+		return measurementHandlers.deleteMeasurement(this.ctx(), id);
+	}
+
+	async toggleMeasurementFavorite(id: string): Promise<Measurement | undefined> {
+		return measurementHandlers.toggleFavorite(this.ctx(), id);
+	}
+
+	/**
+	 * Auto-create measurements for query measures that don't have one yet.
+	 * Called after saving/updating a query to keep measurement catalog in sync.
+	 */
+	async syncMeasurementsFromQuery(queryId: string): Promise<void> {
+		const query = this.getQuery(queryId);
+		if (!query || (query.measures.length === 0 && (!query.computedColumns || query.computedColumns.length === 0))) return;
+
+		const existing = this.listMeasurements().filter((m) => m.queryId === queryId);
+
+		for (const measure of query.measures) {
+			const label = measure.label ?? `${measure.function}(${measure.column})`;
+			const alreadyExists = existing.some((m) => m.measureColumn === label || m.name === label);
+			if (!alreadyExists) {
+				await this.createMeasurement(label, queryId, "single", label);
+			}
+		}
+
+		for (const computed of query.computedColumns ?? []) {
+			const name = computed.name.trim();
+			if (!name) continue;
+			const alreadyExists = existing.some((m) => m.measureColumn === name || m.name === name);
+			if (!alreadyExists) {
+				await this.createMeasurement(name, queryId, "single", name);
+			}
+		}
+	}
+
 	// ── Source resolution ────────────────────────────────
 
 	/** Resolve a saved query source to ParsedSourceData, regardless of type. */
@@ -581,6 +655,28 @@ export class AnalyticsService {
 		if (src.sourceType === "base") {
 			if (!this.baseAdapter) throw new Error("Base adapter not configured");
 			return this.baseAdapter.resolve(src.csvPath, src.viewIndex ?? 0);
+		}
+
+		if (src.sourceType === "csv-folder") {
+			if (!this.listFolder) throw new Error("Folder listing not configured");
+			if (!this.readCsv) throw new Error("CSV reader not configured");
+			const files = await this.listFolder(src.csvPath);
+			const csvFiles = files.filter((f) => f.endsWith(".csv")).sort();
+			if (csvFiles.length === 0) throw new Error(`No CSV files in folder: ${src.csvPath}`);
+
+			let mergedHeaders: string[] | null = null;
+			const mergedRows: string[][] = [];
+			for (const file of csvFiles) {
+				const parsed = await this.readCsv(file);
+				if (!parsed) continue;
+				if (!mergedHeaders) {
+					mergedHeaders = parsed.headers;
+				} else if (JSON.stringify(mergedHeaders) !== JSON.stringify(parsed.headers)) {
+					throw new Error(`Header mismatch in ${file} — expected [${mergedHeaders.join(", ")}]`);
+				}
+				mergedRows.push(...parsed.rows);
+			}
+			return { headers: mergedHeaders ?? [], rows: mergedRows };
 		}
 
 		// Default: CSV

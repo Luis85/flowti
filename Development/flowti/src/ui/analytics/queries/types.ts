@@ -66,6 +66,8 @@ export interface QueriesSubDeps {
 	setLimit: (limit: number | null) => void;
 	computedColumns: () => ComputedColumn[];
 	setComputedColumns: (cols: ComputedColumn[]) => void;
+	excludedColumns: () => string[];
+	setExcludedColumns: (cols: string[]) => void;
 	lastResult: () => AnalyticsResult | null;
 	lastDurationMs: () => number | undefined;
 	lastError: () => string | null;
@@ -76,6 +78,7 @@ export interface QueriesSubDeps {
 	loadSavedQuery: (queryId: string) => void;
 	newQuery: () => void;
 	showPreview: () => boolean;
+	togglePreview: () => void;
 	chartMode: () => "line" | "bar";
 	setChartMode: (mode: "line" | "bar") => void;
 	chartValueColumn: () => string | null;
@@ -97,7 +100,7 @@ export const LOCALE_OPTIONS: Array<{ id: LocaleId; label: string }> = [
 	{ id: "fr-FR", label: "fr-FR" },
 ];
 
-export const AGG_FUNCTIONS: AggregationFunction[] = ["SUM", "COUNT", "AVG", "MIN", "MAX"];
+export const AGG_FUNCTIONS: AggregationFunction[] = ["SUM", "COUNT", "AVG", "MIN", "MAX", "COUNT_DISTINCT"];
 export const TIME_PERIODS: TimeBucketPeriod[] = ["month", "quarter", "year"];
 export const FILTER_OPERATORS: Array<{ id: FilterOperator; label: string }> = [
 	{ id: "=", label: "=" },

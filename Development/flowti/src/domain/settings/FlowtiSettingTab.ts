@@ -43,6 +43,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 		this.displayDocumentationSection(containerEl);
 		this.displayEntityPathsSection(containerEl);
 		this.displayTrainSection(containerEl);
+		this.displayAnalyticsSection(containerEl);
 		this.displayGeneralSection(containerEl);
 	}
 
@@ -295,6 +296,26 @@ export class FlowtiSettingTab extends PluginSettingTab {
 					.setValue(settings.trainCanvasAutoOpen)
 					.onChange((value) => {
 						void this.deps.eventBus.emit("settings.updateTrainCanvasAutoOpen", { enabled: value });
+					})
+			);
+	}
+
+	/**
+	 * Display analytics settings section
+	 */
+	private displayAnalyticsSection(containerEl: HTMLElement): void {
+		containerEl.createEl("h3", { text: "Analytics" });
+		const settings = this.deps.getSettings();
+
+		new Setting(containerEl)
+			.setName("Analytics folder")
+			.setDesc("Vault folder for analytics queries and measurements")
+			.addText((text) =>
+				text
+					.setValue(settings.analyticsFolder)
+					.setPlaceholder("03 - Resources/Analytics")
+					.onChange((value) => {
+						void this.deps.eventBus.emit("settings.updateAnalyticsFolder", { folder: value });
 					})
 			);
 	}

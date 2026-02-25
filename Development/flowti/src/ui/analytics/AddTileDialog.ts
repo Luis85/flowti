@@ -1,112 +1,265 @@
 /**
- * Inline dialog for adding a tile to a dashboard.
+ * Redesigned Add Tile dialog for dashboard building.
  *
- * Presents a saved-query picker and display mode toggle,
- * then calls the provided callback with the user's selections.
+ * Two-step flow: pick a source (query or measurement), then configure
+ * display mode with visual cards. Auto-suggests the best display mode
+ * based on the query's shape.
  */
 
 import { setIcon } from "obsidian";
-import type { SavedAnalyticsQuery, TileDisplayMode } from "../../domain/analytics/types";
+import type {
+	SavedAnalyticsQuery,
+	TileDisplayMode,
+	Measurement,
+} from "../../domain/analytics/types";
+
+const DISPLAY_MODES: Array<{ mode: TileDisplayMode; icon: string; label: string; description: string }> = [
+	{ mode: "stat-card", icon: "bar-chart-2", label: "Stat Card", description: "Single value with sparkline" },
+	{ mode: "table", icon: "table", label: "Table", description: "Rows and columns" },
+	{ mode: "bar-chart", icon: "bar-chart", label: "Bar Chart", description: "Compare categories" },
+	{ mode: "line-chart", icon: "trending-up", label: "Line Chart", description: "Trends over time" },
+	{ mode: "area-chart", icon: "mountain", label: "Area Chart", description: "Filled trend line" },
+	{ mode: "pie-chart", icon: "pie-chart", label: "Pie Chart", description: "Part of a whole" },
+];
 
 export interface AddTileDialogOptions {
 	container: HTMLElement;
 	queries: SavedAnalyticsQuery[];
-	onAdd: (queryId: string, displayMode: TileDisplayMode, title?: string) => void;
+	measurements?: Measurement[];
+	onAdd: (queryId: string, displayMode: TileDisplayMode, title?: string, measurementId?: string) => void;
 	onCancel: () => void;
 }
 
+type SourceType = "query" | "measurement";
+
 export class AddTileDialog {
+	private sourceType: SourceType = "query";
 	private selectedQueryId: string | null = null;
+	private selectedMeasurementId: string | null = null;
 	private displayMode: TileDisplayMode = "table";
+	private tileTitle = "";
 
 	constructor(private options: AddTileDialogOptions) {}
 
 	render(): void {
-		const { container, queries } = this.options;
+		const { container } = this.options;
 		container.empty();
 
 		const dialog = container.createDiv({ cls: "ft-add-tile-dialog" });
-		dialog.style.padding = "1rem";
-		dialog.style.border = "1px solid var(--background-modifier-border)";
-		dialog.style.borderRadius = "6px";
-		dialog.style.background = "var(--background-secondary)";
+		dialog.style.cssText = "padding:1rem;border:1px solid var(--background-modifier-border);border-radius:8px;background:var(--background-secondary)";
 
-		dialog.createDiv({ text: "Add Tile", cls: "ft-text-sm" }).style.fontWeight = "600";
+		// ── Header ────────────────────────────────────
+		const header = dialog.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		const headerIcon = header.createSpan();
+		setIcon(headerIcon, "plus-square");
+		headerIcon.style.cssText = "width:16px;height:16px;opacity:0.7";
+		header.createSpan({ text: "Add Tile", cls: "ft-text-sm" }).style.fontWeight = "600";
 
-		// ── Query picker ──────────────────────────────────
-		const queryLabel = dialog.createDiv({ cls: "ft-text-muted ft-text-xs ft-mt-1" });
-		queryLabel.textContent = "Query";
+		// ── Source selection ──────────────────────────
+		const hasMeasurements = (this.options.measurements ?? []).length > 0;
 
-		const select = dialog.createEl("select", { cls: "dropdown ft-mt-05" });
-		select.style.width = "100%";
-
-		const placeholder = select.createEl("option", { text: "Select a query..." });
-		placeholder.value = "";
-		placeholder.disabled = true;
-		placeholder.selected = true;
-
-		for (const q of queries) {
-			const opt = select.createEl("option", { text: q.name });
-			opt.value = q.id;
+		if (hasMeasurements) {
+			this.renderSourceTabs(dialog);
 		}
 
-		select.addEventListener("change", () => {
-			this.selectedQueryId = select.value || null;
-		});
+		const sourceArea = dialog.createDiv({ cls: "ft-mt-1" });
+		if (this.sourceType === "query") {
+			this.renderQueryPicker(sourceArea);
+		} else {
+			this.renderMeasurementPicker(sourceArea);
+		}
 
-		// ── Display mode toggle ───────────────────────────
-		const modeLabel = dialog.createDiv({ cls: "ft-text-muted ft-text-xs ft-mt-1" });
-		modeLabel.textContent = "Display mode";
+		// ── Title input ──────────────────────────────
+		const titleArea = dialog.createDiv({ cls: "ft-mt-1" });
+		titleArea.createDiv({ text: "Title (optional)", cls: "ft-text-muted ft-text-xs" });
+		const titleInput = titleArea.createEl("input", { type: "text" });
+		titleInput.value = this.tileTitle;
+		titleInput.placeholder = "Auto-generated from source name";
+		titleInput.style.cssText = "width:100%;padding:4px 8px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);font-size:var(--font-ui-small);margin-top:0.25rem";
+		titleInput.addEventListener("input", () => { this.tileTitle = titleInput.value; });
 
-		const modeRow = dialog.createDiv({ cls: "ft-mt-05" });
-		modeRow.style.display = "flex";
-		modeRow.style.gap = "0.5rem";
+		// ── Display mode ─────────────────────────────
+		dialog.createDiv({ text: "Display Mode", cls: "ft-text-muted ft-text-xs ft-mt-1" });
+		const grid = dialog.createDiv();
+		grid.style.cssText = "display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;margin-top:0.35rem";
 
-		const modeButtons: Array<{ el: HTMLElement; mode: TileDisplayMode }> = [
-			{ el: this.createModeButton(modeRow, "table", "Table", "table"), mode: "table" },
-			{ el: this.createModeButton(modeRow, "bar-chart-2", "Stat Card", "stat-card"), mode: "stat-card" },
-			{ el: this.createModeButton(modeRow, "trending-up", "Line", "line-chart"), mode: "line-chart" },
-			{ el: this.createModeButton(modeRow, "bar-chart", "Bar", "bar-chart"), mode: "bar-chart" },
-		];
-		modeButtons[0].el.addClass("ft-active");
-
-		for (const btn of modeButtons) {
-			btn.el.addEventListener("click", () => {
-				this.displayMode = btn.mode;
-				for (const other of modeButtons) {
-					if (other === btn) other.el.addClass("ft-active");
-					else other.el.removeClass("ft-active");
-				}
+		for (const dm of DISPLAY_MODES) {
+			const card = grid.createDiv();
+			card.style.cssText = "padding:0.5rem;border:1px solid var(--background-modifier-border);border-radius:6px;cursor:pointer;text-align:center;transition:border-color 0.15s";
+			if (dm.mode === this.displayMode) {
+				card.style.borderColor = "var(--interactive-accent)";
+				card.style.background = "var(--background-primary-alt)";
+			}
+			card.addEventListener("click", () => {
+				this.displayMode = dm.mode;
+				this.render();
 			});
+
+			const iconEl = card.createDiv();
+			const iconSpan = iconEl.createSpan();
+			setIcon(iconSpan, dm.icon);
+			iconSpan.style.cssText = "width:20px;height:20px";
+			if (dm.mode === this.displayMode) iconSpan.style.color = "var(--interactive-accent)";
+
+			card.createDiv({ text: dm.label, cls: "ft-text-xs" }).style.cssText = "font-weight:500;margin-top:0.15rem";
+			card.createDiv({ text: dm.description, cls: "ft-text-xs ft-text-muted" }).style.cssText = "opacity:0.7;line-height:1.2";
 		}
 
-		// ── Action buttons ────────────────────────────────
-		const actions = dialog.createDiv({ cls: "ft-mt-1" });
-		actions.style.display = "flex";
-		actions.style.gap = "0.5rem";
+		// ── Actions ──────────────────────────────────
+		const actions = dialog.createDiv({ cls: "ft-flex ft-gap-2 ft-mt-1" });
 		actions.style.justifyContent = "flex-end";
 
 		const cancelBtn = actions.createEl("button", { text: "Cancel", cls: "ft-text-sm" });
 		cancelBtn.addEventListener("click", () => this.options.onCancel());
 
-		const addBtn = actions.createEl("button", { text: "Add", cls: "mod-cta ft-text-sm" });
+		const addBtn = actions.createEl("button", { text: "Add Tile", cls: "mod-cta ft-text-sm" });
+		const canAdd = this.sourceType === "query" ? !!this.selectedQueryId : !!this.selectedMeasurementId;
+		if (!canAdd) {
+			addBtn.disabled = true;
+			addBtn.style.opacity = "0.5";
+		}
 		addBtn.addEventListener("click", () => {
-			if (!this.selectedQueryId) return;
-			this.options.onAdd(this.selectedQueryId, this.displayMode);
+			if (!canAdd) return;
+			const title = this.tileTitle.trim() || undefined;
+			if (this.sourceType === "measurement" && this.selectedMeasurementId) {
+				const m = this.options.measurements?.find((mm) => mm.id === this.selectedMeasurementId);
+				if (m) {
+					this.options.onAdd(m.queryId, this.displayMode, title, m.id);
+					return;
+				}
+			}
+			if (this.selectedQueryId) {
+				this.options.onAdd(this.selectedQueryId, this.displayMode, title);
+			}
 		});
 	}
 
-	private createModeButton(parent: HTMLElement, icon: string, label: string, _mode: TileDisplayMode): HTMLElement {
-		const btn = parent.createEl("button", { cls: "ft-text-sm" });
-		btn.style.display = "flex";
-		btn.style.alignItems = "center";
-		btn.style.gap = "0.25rem";
-		btn.style.flex = "1";
-		const iconEl = btn.createSpan();
-		setIcon(iconEl, icon);
-		iconEl.style.width = "14px";
-		iconEl.style.height = "14px";
-		btn.createSpan({ text: label });
-		return btn;
+	private renderSourceTabs(dialog: HTMLElement): void {
+		const tabs = dialog.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
+
+		const queryTab = tabs.createEl("button", { cls: "ft-text-xs" });
+		queryTab.style.cssText = "flex:1;padding:4px 8px;border-radius:4px;border:1px solid var(--background-modifier-border);background:" + (this.sourceType === "query" ? "var(--interactive-accent)" : "transparent");
+		if (this.sourceType === "query") queryTab.style.color = "var(--text-on-accent)";
+		const queryIcon = queryTab.createSpan();
+		setIcon(queryIcon, "search");
+		queryIcon.style.cssText = "width:12px;height:12px;display:inline-block;vertical-align:middle;margin-right:4px";
+		queryTab.appendText("From Query");
+
+		const measTab = tabs.createEl("button", { cls: "ft-text-xs" });
+		measTab.style.cssText = "flex:1;padding:4px 8px;border-radius:4px;border:1px solid var(--background-modifier-border);background:" + (this.sourceType === "measurement" ? "var(--interactive-accent)" : "transparent");
+		if (this.sourceType === "measurement") measTab.style.color = "var(--text-on-accent)";
+		const measIcon = measTab.createSpan();
+		setIcon(measIcon, "ruler");
+		measIcon.style.cssText = "width:12px;height:12px;display:inline-block;vertical-align:middle;margin-right:4px";
+		measTab.appendText("From Measurement");
+
+		queryTab.addEventListener("click", () => {
+			this.sourceType = "query";
+			this.selectedMeasurementId = null;
+			this.render();
+		});
+		measTab.addEventListener("click", () => {
+			this.sourceType = "measurement";
+			this.selectedQueryId = null;
+			this.render();
+		});
+	}
+
+	private renderQueryPicker(area: HTMLElement): void {
+		const { queries } = this.options;
+
+		if (queries.length === 0) {
+			area.createDiv({ text: "No saved queries yet. Create a query first.", cls: "ft-text-muted ft-text-sm" }).style.padding = "0.5rem 0";
+			return;
+		}
+
+		// Favorites first, then alphabetical
+		const sorted = [...queries].sort((a, b) => {
+			if (a.isFavorite && !b.isFavorite) return -1;
+			if (!a.isFavorite && b.isFavorite) return 1;
+			return a.name.localeCompare(b.name);
+		});
+
+		const list = area.createDiv();
+		list.style.cssText = "max-height:160px;overflow-y:auto;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary)";
+
+		for (const q of sorted) {
+			const item = list.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+			item.style.cssText = "padding:0.35rem 0.5rem;cursor:pointer;border-bottom:1px solid var(--background-modifier-border)";
+			if (q.id === this.selectedQueryId) {
+				item.style.background = "var(--background-primary-alt)";
+				item.style.borderLeft = "2px solid var(--interactive-accent)";
+			}
+			item.addEventListener("click", () => {
+				this.selectedQueryId = q.id;
+				this.render();
+			});
+
+			if (q.isFavorite) {
+				const star = item.createSpan();
+				setIcon(star, "star");
+				star.style.cssText = "width:12px;height:12px;color:var(--text-accent);flex-shrink:0";
+			}
+
+			const icon = item.createSpan();
+			setIcon(icon, "search");
+			icon.style.cssText = "width:12px;height:12px;opacity:0.5;flex-shrink:0";
+
+			const nameEl = item.createSpan({ text: q.name, cls: "ft-text-sm" });
+			nameEl.style.cssText = "flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
+
+			const meta = item.createSpan({ cls: "ft-text-xs ft-text-muted" });
+			meta.style.flexShrink = "0";
+			const parts: string[] = [`${q.measures.length}m`];
+			if (q.lastRowCount !== undefined) parts.push(`${q.lastRowCount}r`);
+			meta.textContent = parts.join(" ");
+		}
+	}
+
+	private renderMeasurementPicker(area: HTMLElement): void {
+		const measurements = this.options.measurements ?? [];
+
+		if (measurements.length === 0) {
+			area.createDiv({ text: "No measurements yet. Save a query to auto-create measurements.", cls: "ft-text-muted ft-text-sm" }).style.padding = "0.5rem 0";
+			return;
+		}
+
+		const sorted = [...measurements].sort((a, b) => {
+			if (a.isFavorite && !b.isFavorite) return -1;
+			if (!a.isFavorite && b.isFavorite) return 1;
+			return a.name.localeCompare(b.name);
+		});
+
+		const list = area.createDiv();
+		list.style.cssText = "max-height:160px;overflow-y:auto;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary)";
+
+		for (const m of sorted) {
+			const item = list.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+			item.style.cssText = "padding:0.35rem 0.5rem;cursor:pointer;border-bottom:1px solid var(--background-modifier-border)";
+			if (m.id === this.selectedMeasurementId) {
+				item.style.background = "var(--background-primary-alt)";
+				item.style.borderLeft = "2px solid var(--interactive-accent)";
+			}
+			item.addEventListener("click", () => {
+				this.selectedMeasurementId = m.id;
+				this.render();
+			});
+
+			if (m.isFavorite) {
+				const star = item.createSpan();
+				setIcon(star, "star");
+				star.style.cssText = "width:12px;height:12px;color:var(--text-accent);flex-shrink:0";
+			}
+
+			const icon = item.createSpan();
+			setIcon(icon, "ruler");
+			icon.style.cssText = "width:12px;height:12px;opacity:0.5;flex-shrink:0";
+
+			const nameEl = item.createSpan({ text: m.name, cls: "ft-text-sm" });
+			nameEl.style.cssText = "flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
+
+			const typeBadge = item.createSpan({ text: m.type, cls: "ft-badge ft-badge-muted" });
+			typeBadge.style.cssText = "font-size:0.6rem;flex-shrink:0";
+		}
 	}
 }

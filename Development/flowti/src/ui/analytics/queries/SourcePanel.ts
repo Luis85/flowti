@@ -20,7 +20,24 @@ export class SourcePanel {
 	render(): void {
 		const sources = this.deps.sources();
 		const section = this.container.createDiv({ cls: "ft-card ft-mt-3" });
-		section.createDiv({ text: "Sources", cls: "ft-detail-section-header" });
+
+		const headerRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		headerRow.createSpan({ text: "Sources", cls: "ft-detail-section-header" });
+
+		// Preview toggle — only show when sources are loaded
+		const loadedCount = sources.filter((s) => s.data).length;
+		if (loadedCount > 0) {
+			const previewLink = headerRow.createEl("span", { cls: "ft-nav-link ft-text-xs" });
+			previewLink.style.marginLeft = "auto";
+			const previewIcon = previewLink.createSpan();
+			setIcon(previewIcon, this.deps.showPreview() ? "eye-off" : "eye");
+			previewLink.appendText(this.deps.showPreview() ? " Hide Preview" : " Preview Data");
+			if (this.deps.showPreview()) previewLink.style.color = "var(--text-accent)";
+			previewLink.addEventListener("click", () => {
+				this.deps.togglePreview();
+				this.deps.renderDetail();
+			});
+		}
 
 		// Source table with overflow containment
 		const tableWrap = section.createDiv();
@@ -45,6 +62,7 @@ export class SourcePanel {
 			const pathSpan = row.createSpan({ text: src.csvPath.split("/").pop() ?? src.csvPath, cls: "ft-text-sm" });
 			pathSpan.style.cssText = "flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
 
+			row.createSpan({ text: "Locale:", cls: "ft-text-xs ft-text-muted" }).style.flexShrink = "0";
 			const localeSelect = row.createEl("select");
 			localeSelect.style.cssText = SELECT_CSS + ";flex-shrink:0";
 			for (const opt of LOCALE_OPTIONS) {

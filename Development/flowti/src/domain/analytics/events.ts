@@ -1,7 +1,7 @@
 /**
  * Event definitions for the Analytics domain.
  *
- * 21 events covering analytics queries, dashboards, and templates:
+ * 25 events covering analytics queries, dashboards, templates, and measurements:
  * - Lifecycle: loaded
  * - Query execution: started / completed / failed
  * - Query persistence: query.saved / query.deleted / query.renamed / query.duplicated
@@ -13,13 +13,14 @@
  * - Templates: template.saved / template.used
  */
 
-import type { AnalyticsResult, Dashboard, DashboardTile } from "./types";
+import type { AnalyticsResult, Dashboard, DashboardTile, Measurement } from "./types";
 
 export interface AnalyticsEventMap {
 	/** Analytics domain loaded — emitted after state is restored from storage */
 	"analytics.loaded": {
 		queryCount: number;
 		dashboardCount: number;
+		measurementCount: number;
 	};
 
 	/** Analytics query execution started */
@@ -150,5 +151,30 @@ export interface AnalyticsEventMap {
 		templateId: string;
 		dashboardId: string;
 		dashboardName: string;
+	};
+
+	// ── Measurement events ───────────────────────────────
+
+	/** A measurement was created */
+	"analytics.measurement.created": {
+		measurement: Measurement;
+	};
+
+	/** A measurement was updated */
+	"analytics.measurement.updated": {
+		measurement: Measurement;
+	};
+
+	/** A measurement was deleted */
+	"analytics.measurement.deleted": {
+		measurementId: string;
+		measurementName: string;
+	};
+
+	/** A measurement's favorite status was toggled */
+	"analytics.measurement.favorited": {
+		measurementId: string;
+		measurementName: string;
+		isFavorite: boolean;
 	};
 }

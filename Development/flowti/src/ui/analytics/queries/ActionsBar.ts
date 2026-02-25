@@ -1,8 +1,8 @@
 /**
  * Actions bar sub-component for the query builder.
  *
- * Renders Run, Preview, Reset, Save, Update, Export CSV,
- * and Add-to-Dashboard actions.
+ * Renders Run, Reset, Save, Export CSV, and Add-to-Dashboard actions.
+ * Save button only appears when the query has unsaved changes.
  */
 
 import { setIcon } from "obsidian";
@@ -14,9 +14,9 @@ export interface ActionsBarDeps {
 	running: boolean;
 	hasMeasures: boolean;
 	hasLoadedSources: boolean;
-	previewVisible: boolean;
 	lastResult: AnalyticsResult | null;
 	isEditing: boolean;
+	hasChanges: boolean;
 	selectedQueryId: string | null;
 	queryName: string;
 	hasTimeBucket: boolean;
@@ -24,10 +24,8 @@ export interface ActionsBarDeps {
 	app: unknown;
 
 	onRunQuery: () => void;
-	onTogglePreview: () => void;
 	onReset: () => void;
 	onSave: () => void;
-	onUpdate: () => void;
 	onExportCsv: (result: AnalyticsResult) => void;
 	onAddToDashboard: (dashboardId: string, dashboardName: string, mode: TileDisplayMode) => void;
 	onCreateDashboardAndAdd: (name: string, mode: TileDisplayMode) => void;
@@ -65,16 +63,6 @@ export class ActionsBar {
 			if (!running && hasMeasures) this.deps.onRunQuery();
 		});
 
-		// Preview toggle
-		if (this.deps.hasLoadedSources) {
-			const previewLink = actions.createEl("span", { cls: "ft-nav-link" });
-			const previewIcon = previewLink.createSpan();
-			setIcon(previewIcon, "eye");
-			previewLink.appendText(this.deps.previewVisible ? " Hide Preview" : " Preview Data");
-			if (this.deps.previewVisible) previewLink.style.color = "var(--text-accent)";
-			previewLink.addEventListener("click", () => this.deps.onTogglePreview());
-		}
-
 		// Reset
 		const clearLink = actions.createEl("span", { cls: "ft-nav-link" });
 		const clearIcon = clearLink.createSpan();
@@ -82,35 +70,27 @@ export class ActionsBar {
 		clearLink.appendText(" Reset");
 		clearLink.addEventListener("click", () => this.deps.onReset());
 
-		// Save / Update
-		if (hasMeasures) {
-			if (this.deps.isEditing) {
-				const updateLink = actions.createEl("span", { cls: "ft-nav-link" });
-				const updateIcon = updateLink.createSpan();
-				setIcon(updateIcon, "save");
-				updateLink.appendText(" Update Query");
-				updateLink.addEventListener("click", () => this.deps.onUpdate());
-			}
-
+		// Save Query — only when there are unsaved changes
+		if (hasMeasures && this.deps.hasChanges) {
 			const saveLink = actions.createEl("span", { cls: "ft-nav-link" });
 			const saveIcon = saveLink.createSpan();
-			setIcon(saveIcon, "plus");
-			saveLink.appendText(this.deps.isEditing ? " Save As New" : " Save Query");
+			setIcon(saveIcon, "save");
+			saveLink.appendText(" Save Query");
 			saveLink.addEventListener("click", () => this.deps.onSave());
+		}
 
-			// Export CSV + Add to Dashboard
-			if (this.deps.lastResult && this.deps.lastResult.rows.length > 0) {
-				const csvLink = actions.createEl("span", { cls: "ft-nav-link" });
-				const csvIcon = csvLink.createSpan();
-				setIcon(csvIcon, "download");
-				csvLink.appendText(" Save to CSV");
-				csvLink.addEventListener("click", () => {
-					if (this.deps.lastResult) this.deps.onExportCsv(this.deps.lastResult);
-				});
+		// Export CSV + Add to Dashboard (only with results)
+		if (hasMeasures && this.deps.lastResult && this.deps.lastResult.rows.length > 0) {
+			const csvLink = actions.createEl("span", { cls: "ft-nav-link" });
+			const csvIcon = csvLink.createSpan();
+			setIcon(csvIcon, "download");
+			csvLink.appendText(" Save to CSV");
+			csvLink.addEventListener("click", () => {
+				if (this.deps.lastResult) this.deps.onExportCsv(this.deps.lastResult);
+			});
 
-				if (this.deps.isEditing) {
-					this.renderAddToDashboard(actions);
-				}
+			if (this.deps.isEditing) {
+				this.renderAddToDashboard(actions);
 			}
 		}
 	}

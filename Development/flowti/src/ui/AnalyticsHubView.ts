@@ -12,9 +12,10 @@ import { VIEW_TYPE_ANALYTICS_HUB } from "../domain/hub/types";
 import { BaseHubView, type TabDef } from "./BaseHubView";
 import { QueriesTab } from "./analytics/QueriesTab";
 import { DashboardsTab } from "./analytics/DashboardsTab";
+import { MeasurementsTab } from "./analytics/MeasurementsTab";
 import { AnalyticsDashboardPage } from "./analytics/AnalyticsDashboardPage";
 import { TileResultCache } from "./analytics/TileResultCache";
-import type { AnalyticsHubPage, AnalyticsHubState, AnalyticsCsvEntry, AnalyticsBaseEntry, AnalyticsHubDeps, AnalyticsNavigationCallbacks } from "./analytics/types";
+import type { AnalyticsHubPage, AnalyticsHubState, AnalyticsCsvEntry, AnalyticsBaseEntry, AnalyticsFolderEntry, AnalyticsHubDeps, AnalyticsNavigationCallbacks } from "./analytics/types";
 export { VIEW_TYPE_ANALYTICS_HUB };
 
 export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
@@ -25,8 +26,11 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 	private dashboards: AnalyticsHubState["dashboards"] = [];
 	private csvFiles: AnalyticsCsvEntry[] = [];
 	private baseFiles: AnalyticsBaseEntry[] = [];
+	private csvFolders: AnalyticsFolderEntry[] = [];
+	private measurements: AnalyticsHubState["measurements"] = [];
 	private selectedQueryId: string | null = null;
 	private selectedDashboardId: string | null = null;
+	private selectedMeasurementId: string | null = null;
 	private homepageDashboardId: string | null = null;
 	private dashboardFilters: import("./analytics/types").DashboardFilter[] = [];
 	private pendingSourcePath: string | null = null;
@@ -36,6 +40,7 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 	private dashboardPage!: AnalyticsDashboardPage;
 	private queriesTab!: QueriesTab;
 	private dashboardsTab!: DashboardsTab;
+	private measurementsTab!: MeasurementsTab;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -57,6 +62,7 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 	getTabDefinitions(): TabDef[] {
 		return [
 			{ id: "dashboards", label: "Dashboards", icon: "layout-grid", searchPlaceholder: "Search dashboards..." },
+			{ id: "measurements", label: "Measurements", icon: "ruler", searchPlaceholder: "Search measurements..." },
 			{ id: "queries", label: "Queries", icon: "search", searchPlaceholder: "Search CSV sources..." },
 		];
 	}
@@ -88,6 +94,7 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 		this.dashboardPage = new AnalyticsDashboardPage(this.dashboardEl, deps);
 		this.queriesTab = new QueriesTab(this.masterTreeEl, this.detailPanelEl, deps);
 		this.dashboardsTab = new DashboardsTab(this.masterTreeEl, this.detailPanelEl, deps);
+		this.measurementsTab = new MeasurementsTab(this.masterTreeEl, this.detailPanelEl, deps);
 
 		// Re-render when queries change
 		this.addUnsubscribe(
@@ -179,6 +186,21 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 				this.scheduleRender();
 			}),
 		);
+
+		// Re-render when measurements change
+		for (const evt of [
+			"analytics.measurement.created",
+			"analytics.measurement.updated",
+			"analytics.measurement.deleted",
+			"analytics.measurement.favorited",
+		] as const) {
+			this.addUnsubscribe(
+				this.eventBus.on(evt, () => {
+					this.refreshData();
+					this.scheduleRender();
+				}),
+			);
+		}
 	}
 
 	onHubClose(): void {
@@ -197,6 +219,9 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 			this.scheduleRender();
 		} else if (tabId === "dashboards") {
 			this.selectedDashboardId = entityId;
+			this.scheduleRender();
+		} else if (tabId === "measurements") {
+			this.selectedMeasurementId = entityId;
 			this.scheduleRender();
 		}
 	}
@@ -221,6 +246,10 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 			case "dashboards":
 				this.dashboardsTab.renderMaster();
 				this.dashboardsTab.renderDetail();
+				break;
+			case "measurements":
+				this.measurementsTab.renderMaster();
+				this.measurementsTab.renderDetail();
 				break;
 		}
 	}
@@ -251,9 +280,12 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 			dashboards: this.dashboards,
 			csvFiles: this.csvFiles,
 			baseFiles: this.baseFiles,
+			csvFolders: this.csvFolders,
+			measurements: this.measurements,
 			filterText: this.filterText,
 			selectedQueryId: this.selectedQueryId,
 			selectedDashboardId: this.selectedDashboardId,
+			selectedMeasurementId: this.selectedMeasurementId,
 			homepageDashboardId: this.homepageDashboardId,
 			dashboardFilters: this.dashboardFilters,
 			pendingSourcePath: this.pendingSourcePath,
@@ -278,6 +310,7 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 			}
 			this.homepageDashboardId = partial.homepageDashboardId;
 		}
+		if (partial.selectedMeasurementId !== undefined) this.selectedMeasurementId = partial.selectedMeasurementId;
 		if (partial.dashboardFilters !== undefined) this.dashboardFilters = partial.dashboardFilters;
 		if (partial.pendingSourcePath !== undefined) this.pendingSourcePath = partial.pendingSourcePath;
 	}
@@ -287,8 +320,10 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 	private refreshData(): void {
 		this.queries = this.analyticsService.listQueries();
 		this.dashboards = this.analyticsService.listDashboards();
+		this.measurements = this.analyticsService.listMeasurements();
 		this.scanCsvFiles();
 		this.scanBaseFiles();
+		this.scanCsvFolders();
 	}
 
 	private scanCsvFiles(): void {
@@ -341,5 +376,25 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 		}
 
 		this.baseFiles.sort((a, b) => a.displayName.localeCompare(b.displayName));
+	}
+
+	private scanCsvFolders(): void {
+		// Group CSV files by parent folder, show folders with ≥2 CSVs
+		const folderCounts = new Map<string, number>();
+		for (const file of this.app.vault.getFiles()) {
+			if (!file.path.toLowerCase().endsWith(".csv")) continue;
+			const lastSlash = file.path.lastIndexOf("/");
+			if (lastSlash <= 0) continue; // skip root-level CSVs
+			const folder = file.path.substring(0, lastSlash);
+			folderCounts.set(folder, (folderCounts.get(folder) ?? 0) + 1);
+		}
+
+		this.csvFolders = [];
+		for (const [folder, count] of folderCounts) {
+			if (count < 2) continue;
+			const displayName = folder.split("/").pop() ?? folder;
+			this.csvFolders.push({ path: folder, displayName, fileCount: count });
+		}
+		this.csvFolders.sort((a, b) => a.displayName.localeCompare(b.displayName));
 	}
 }

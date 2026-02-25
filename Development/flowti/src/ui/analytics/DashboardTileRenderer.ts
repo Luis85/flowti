@@ -4,7 +4,7 @@
  */
 
 import { setIcon } from "obsidian";
-import type { AnalyticsResult, DashboardTile, SavedAnalyticsQuery, TileDisplayMode, ConditionalRule, NumberDisplayFormat, ColumnTypeHint } from "../../domain/analytics/types";
+import type { AnalyticsResult, DashboardTile, Measurement, SavedAnalyticsQuery, TileDisplayMode, ConditionalRule, NumberDisplayFormat, ColumnTypeHint } from "../../domain/analytics/types";
 import { formatRelativeTime, getFreshnessColor, getFreshnessLevel } from "../../domain/analytics/freshnessUtils";
 import { evaluateConditionalRules } from "../../domain/analytics/conditionalFormatting";
 import { formatDisplayNumber } from "../../domain/analytics/localeUtils";
@@ -67,6 +67,10 @@ export interface TileRenderContext {
 	onDrillDown?: (column: string, value: string) => void;
 	/** Active dashboard filters — used for visual feedback on matching cells. */
 	activeFilters?: Array<{ column: string; values: string[] }>;
+	/** All measurements — used in settings panel for measurement picker. */
+	measurements?: Measurement[];
+	/** Called when the user changes which measurement this tile references. */
+	onMeasurementChange?: (tileId: string, measurementId: string | undefined) => void;
 }
 
 export class DashboardTileRenderer {
@@ -129,6 +133,16 @@ export class DashboardTileRenderer {
 		actions.style.gap = "0.25rem";
 		actions.style.flexWrap = "wrap";
 		actions.style.justifyContent = "flex-end";
+
+		// Measurement badge
+		if (ctx.tile.measurementId && ctx.measurements) {
+			const m = ctx.measurements.find((mm) => mm.id === ctx.tile.measurementId);
+			if (m) {
+				const mBadge = actions.createSpan({ text: m.name, cls: "ft-tag ft-text-xs" });
+				mBadge.style.flexShrink = "0";
+				mBadge.style.fontSize = "10px";
+			}
+		}
 
 		// Row count badge
 		if (ctx.result && ctx.result.rows.length > 0) {

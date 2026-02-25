@@ -42,6 +42,8 @@ export interface SettingsEventMap {
 	"settings.updateTrainCanvasEnabled": { enabled: boolean };
 	/** Command: toggle auto-open canvas on train start */
 	"settings.updateTrainCanvasAutoOpen": { enabled: boolean };
+	/** Command: update analytics folder path */
+	"settings.updateAnalyticsFolder": { folder: string };
 	/** Emitted when settings persistence fails */
 	"settings.saveFailed": { error: string };
 }

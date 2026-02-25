@@ -134,6 +134,11 @@ export class SettingsService implements ISettingsService {
 					void this.updateSettings({ trainCanvasAutoOpen: event.payload.enabled });
 				})
 			);
+			this.unsubscribes.push(
+				this.eventBus.on("settings.updateAnalyticsFolder", (event) => {
+					void this.updateSettings({ analyticsFolder: event.payload.folder });
+				})
+			);
 		}
 	}
 

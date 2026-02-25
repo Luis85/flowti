@@ -83,7 +83,7 @@ export class AnalyticsEngine {
 		}
 
 		// 9. Build column list (time bucket first when present)
-		const columns = [
+		const allColumns = [
 			...(query.timeBucket
 				? [query.timeBucket.outputColumn ?? `${query.timeBucket.column}_${query.timeBucket.period}`]
 				: []),
@@ -91,6 +91,12 @@ export class AnalyticsEngine {
 			...query.measures.map((m) => m.label ?? `${m.function}(${m.column})`),
 			...(query.computedColumns ?? []).map((c) => c.name),
 		];
+
+		// 10. Exclude columns (filter from output, keep in rows for formula access)
+		const excludeSet = query.excludedColumns && query.excludedColumns.length > 0
+			? new Set(query.excludedColumns)
+			: null;
+		const columns = excludeSet ? allColumns.filter((c) => !excludeSet.has(c)) : allColumns;
 
 		return {
 			columns,
@@ -354,6 +360,12 @@ export class AnalyticsEngine {
 		query: AnalyticsQuery,
 	): number {
 		if (fn === "COUNT") return rows.length;
+
+		if (fn === "COUNT_DISTINCT") {
+			const seen = new Set<string>();
+			for (const row of rows) seen.add(String(row[column] ?? ""));
+			return seen.size;
+		}
 
 		const localeId = this.findLocaleForColumn(column, query);
 		const values: number[] = [];

@@ -173,6 +173,7 @@ export const FlowtiSettingsSchema = z.object({
 	trainMaxThoughts: z.number().min(1).max(1000).default(100),
 	trainCanvasEnabled: z.boolean().default(true),
 	trainCanvasAutoOpen: z.boolean().default(false),
+	analyticsFolder: z.string().default("03 - Resources/Analytics"),
 	inboxEnabledSources: z.array(z.string()).default([
 		"subscription.matched",
 		"dataExchange.import.completed",

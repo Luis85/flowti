@@ -6,7 +6,7 @@
  */
 
 import { Notice, setIcon } from "obsidian";
-import type { Dashboard, DashboardTile } from "../../domain/analytics/types";
+import type { Dashboard, DashboardTile, Measurement, AnalyticsResult, ResultRow } from "../../domain/analytics/types";
 import { computeFreshnessSummary, getFreshnessLevel, getFreshnessColor } from "../../domain/analytics/freshnessUtils";
 import type { AnalyticsHubDeps } from "./types";
 import { DashboardTileRenderer, type TileRenderContext } from "./DashboardTileRenderer";
@@ -340,8 +340,15 @@ export class DashboardsTab {
 			new AddTileDialog({
 				container: dialogHost,
 				queries: this.deps.getState().queries,
-				onAdd: (queryId, displayMode) => {
-					void this.deps.analyticsService.addTile(dashboard.id, queryId, displayMode).then(() => {
+				measurements: this.deps.getState().measurements,
+				onAdd: (queryId, displayMode, title, measurementId) => {
+					void this.deps.analyticsService.addTile(dashboard.id, queryId, displayMode).then(async (tile) => {
+						if (tile && (title || measurementId)) {
+							const updates: Record<string, unknown> = {};
+							if (title) updates.title = title;
+							if (measurementId) updates.measurementId = measurementId;
+							await this.deps.analyticsService.updateTile(dashboard.id, tile.id, updates);
+						}
 						this.addTileDialogVisible = false;
 						this.deps.scheduleRender();
 					});
@@ -384,7 +391,14 @@ export class DashboardsTab {
 		const state = this.deps.getState();
 
 		for (const tile of dashboard.tiles) {
-			const query = state.queries.find((q) => q.id === tile.queryId);
+			// Resolve effective queryId: measurement's queryId takes precedence
+			let effectiveQueryId = tile.queryId;
+			const measurement = tile.measurementId
+				? (state.measurements ?? []).find((m) => m.id === tile.measurementId)
+				: undefined;
+			if (measurement) effectiveQueryId = measurement.queryId;
+
+			const query = state.queries.find((q) => q.id === effectiveQueryId);
 			const tileHost = grid.createDiv();
 			tileHost.style.gridColumn = `span ${Math.min(tile.width, 6)}`;
 			tileHost.style.minWidth = "0";
@@ -394,20 +408,22 @@ export class DashboardsTab {
 			if (!isAutoHeight) tileHost.style.minHeight = `${rowSpan * 180}px`;
 
 			const dashboardFilters = state.dashboardFilters;
-			const cacheKey = buildFilterCacheKey(tile.queryId, dashboardFilters);
+			const cacheKey = buildFilterCacheKey(effectiveQueryId, dashboardFilters);
 			const tileResult = this.deps.tileResultCache.tryRun(
 				cacheKey,
 				() => dashboardFilters.length > 0
-					? this.deps.analyticsService.runSavedQueryWithFilters(tile.queryId, dashboardFilters)
-					: this.deps.analyticsService.runSavedQuery(tile.queryId),
+					? this.deps.analyticsService.runSavedQueryWithFilters(effectiveQueryId, dashboardFilters)
+					: this.deps.analyticsService.runSavedQuery(effectiveQueryId),
 				() => this.deps.scheduleRender(),
 			);
+
+			const filteredResult = filterResultForMeasurement(tileResult.result, measurement, query);
 
 			const renderer = new DashboardTileRenderer(tileHost);
 			renderer.render({
 				tile,
 				query,
-				result: tileResult.result,
+				result: filteredResult,
 				error: tileResult.error,
 				refreshedAt: this.deps.tileResultCache.getTimestamp(cacheKey),
 				onRemove: (tileId) => {
@@ -416,7 +432,7 @@ export class DashboardsTab {
 					});
 				},
 				onRefresh: () => {
-					this.deps.tileResultCache.clearOne(tile.queryId);
+					this.deps.tileResultCache.clearOne(effectiveQueryId);
 					this.deps.scheduleRender();
 				},
 				onReorder: (tileId, direction) => {
@@ -459,6 +475,13 @@ export class DashboardsTab {
 				onQueryChange: (tileId, newQueryId) => {
 					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { queryId: newQueryId } as Partial<DashboardTile>).then(() => {
 						this.deps.tileResultCache.clearOne(newQueryId);
+						this.deps.scheduleRender();
+					});
+				},
+				measurements: state.measurements ?? [],
+				onMeasurementChange: (tileId, measurementId) => {
+					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { measurementId } as Partial<DashboardTile>).then(() => {
+						this.deps.tileResultCache.clear();
 						this.deps.scheduleRender();
 					});
 				},
@@ -809,4 +832,43 @@ export function buildFilterCacheKey(
 		.sort()
 		.join("&");
 	return `${queryId}?${suffix}`;
+}
+
+/**
+ * Filter an AnalyticsResult to only include columns relevant to a single-value
+ * measurement. Keeps dimension columns, time bucket column, and the one measureColumn.
+ * Returns the original result unchanged if measurement is undefined, has no
+ * measureColumn, or is a "series" type.
+ */
+export function filterResultForMeasurement(
+	result: AnalyticsResult | null,
+	measurement: Measurement | undefined,
+	query: { dimensions: Array<{ column: string }>; timeBucket?: { column: string; period: string; outputColumn?: string } } | undefined,
+): AnalyticsResult | null {
+	if (!result || !measurement) return result;
+	if (measurement.type !== "single" || !measurement.measureColumn) return result;
+
+	const measureCol = measurement.measureColumn;
+	if (!result.columns.includes(measureCol)) return result;
+
+	// Keep: dimension columns + time bucket output column + the measure column
+	const keepSet = new Set<string>();
+	for (const d of query?.dimensions ?? []) keepSet.add(d.column);
+	if (query?.timeBucket) {
+		const tbCol = query.timeBucket.outputColumn ?? `${query.timeBucket.column}_${query.timeBucket.period}`;
+		keepSet.add(tbCol);
+	}
+	keepSet.add(measureCol);
+
+	const keepCols = result.columns.filter((c) => keepSet.has(c));
+
+	return {
+		...result,
+		columns: keepCols,
+		rows: result.rows.map((row) => {
+			const filtered: ResultRow = {};
+			for (const col of keepCols) filtered[col] = row[col];
+			return filtered;
+		}),
+	};
 }

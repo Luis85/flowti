@@ -137,6 +137,62 @@ describe("AnalyticsEngine", () => {
 			expect(i001?.max_total).toBe(105);
 		});
 
+		it("COUNT_DISTINCT counts unique values per group", () => {
+			const query: AnalyticsQuery = {
+				sources: [sales],
+				joins: [],
+				columnTypeHints: [],
+				dimensions: [{ column: "item_id" }],
+				measures: [{ column: "supplier_id", function: "COUNT_DISTINCT", label: "unique_suppliers" }],
+			};
+
+			const result = engine.run(query);
+			// I001 has S01, S02 = 2 unique suppliers
+			const i001 = result.rows.find((r) => r.item_id === "I001");
+			expect(i001?.unique_suppliers).toBe(2);
+			// I002 has only S01 = 1 unique supplier
+			const i002 = result.rows.find((r) => r.item_id === "I002");
+			expect(i002?.unique_suppliers).toBe(1);
+		});
+
+		it("COUNT_DISTINCT on overall (single group)", () => {
+			const query: AnalyticsQuery = {
+				sources: [sales],
+				joins: [],
+				columnTypeHints: [],
+				dimensions: [],
+				measures: [{ column: "supplier_id", function: "COUNT_DISTINCT", label: "unique_suppliers" }],
+			};
+
+			const result = engine.run(query);
+			expect(result.rows).toHaveLength(1);
+			expect(result.rows[0].unique_suppliers).toBe(2); // S01, S02
+		});
+
+		it("COUNT_DISTINCT with empty/null values", () => {
+			const data = makeSource(
+				"sparse",
+				["category", "tag"],
+				[
+					["A", "x"],
+					["A", ""],
+					["A", "x"],
+					["A", "y"],
+				],
+			);
+			const query: AnalyticsQuery = {
+				sources: [data],
+				joins: [],
+				columnTypeHints: [],
+				dimensions: [{ column: "category" }],
+				measures: [{ column: "tag", function: "COUNT_DISTINCT", label: "unique_tags" }],
+			};
+
+			const result = engine.run(query);
+			// "x", "", "y" = 3 distinct values (empty string counts as a value)
+			expect(result.rows[0].unique_tags).toBe(3);
+		});
+
 		it("non-numeric values in SUM are skipped (treated as 0)", () => {
 			const badData = makeSource(
 				"bad",

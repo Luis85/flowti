@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile } from "obsidian";
+import { Notice, Plugin, TFile, TFolder } from "obsidian";
 import { registerCommands } from "./infrastructure/commands/registry";
 import type { CommandContext, ICommandRegistry } from "./infrastructure/commands/types";
 import { LifecycleError } from "./infrastructure/errors/FlowtiError";
@@ -660,6 +660,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			if (this.sessionService) {
 				this.sessionService.globalActivityFilter = event.payload.settings.sessionActivityFilterGlobal ?? [];
 			}
+			this.analyticsService?.setAnalyticsFolder(event.payload.settings.analyticsFolder);
 			// Sync custom output templates to all open workspace views
 			const templates = event.payload.settings.customOutputTemplates ?? [];
 			for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_SESSION_WORKSPACE)) {
@@ -772,7 +773,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			const { CsvParser } = await import("./domain/dataExchange/CsvParser");
 			return new CsvParser().parse(content);
 		});
-		this.analyticsService.setQueryFolder(`${settingsService.getSettings().docsRootPath}/Queries`);
+		this.analyticsService.setAnalyticsFolder(settingsService.getSettings().analyticsFolder);
 
 		// Wire .base file analytics adapter (delegates to ExportService)
 		const { BaseAnalyticsAdapter } = await import("./domain/analytics/BaseAnalyticsAdapter");
@@ -781,6 +782,14 @@ export default class FlowtiBasePlugin extends Plugin {
 			scanColumns: (path, viewIndex) => exportSvc.scanResolvedColumns(path, viewIndex),
 			resolveFiles: (path, sourceType, viewIndex) => exportSvc.resolveExportFiles(path, sourceType, viewIndex),
 		}));
+
+		this.analyticsService.setListFolder(async (folderPath: string) => {
+			const folder = this.app.vault.getAbstractFileByPath(folderPath);
+			if (!folder || !(folder instanceof TFolder)) return [];
+			return folder.children
+				.filter((f): f is TFile => f instanceof TFile)
+				.map((f) => f.path);
+		});
 
 		// Train Main View — register view factory + auto-open on train start
 		this.registerView(VIEW_TYPE_TRAIN_MAIN, (leaf) =>

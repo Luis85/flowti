@@ -283,6 +283,7 @@ const CATALOG_DATA = {
 	"settings.updateTrainMaxThoughts":  { category: "Settings", description: "Update max thoughts per train", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
 	"settings.updateTrainCanvasEnabled": { category: "Settings", description: "Toggle train canvas auto-generation", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
 	"settings.updateTrainCanvasAutoOpen": { category: "Settings", description: "Toggle auto-open canvas on train start", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
+	"settings.updateAnalyticsFolder": { category: "Settings", description: "Update analytics folder path", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
 	"settings.saveFailed":             { category: "Settings", description: "Settings persistence failed", direction: "Service → Listeners", domain: "settings", services: "SettingsService", tags: ["system"] },
 
 	// ── Installer Domain ─────────────────────────────────────
@@ -581,6 +582,10 @@ const CATALOG_DATA = {
 	"analytics.dashboard.tile.reordered": { category: "Analytics", description: "A dashboard tile was reordered", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
 	"analytics.template.saved":         { category: "Analytics", description: "A dashboard was saved as a reusable template", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
 	"analytics.template.used":          { category: "Analytics", description: "A new dashboard was created from a template", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
+	"analytics.measurement.created":    { category: "Analytics", description: "A measurement was created", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
+	"analytics.measurement.updated":    { category: "Analytics", description: "A measurement was updated", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
+	"analytics.measurement.deleted":    { category: "Analytics", description: "A measurement was deleted", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
+	"analytics.measurement.favorited":  { category: "Analytics", description: "A measurement's favorite status was toggled", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

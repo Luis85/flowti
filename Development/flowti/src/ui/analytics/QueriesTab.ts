@@ -36,7 +36,6 @@ import { SourcePanel } from "./queries/SourcePanel";
 import { QueryBuilderPanel } from "./queries/QueryBuilderPanel";
 import { ComputedColumnsSection } from "./queries/ComputedColumnsSection";
 import { ResultsSection } from "./queries/ResultsSection";
-import { SchemaPanel } from "./queries/SchemaPanel";
 import { ActionsBar } from "./queries/ActionsBar";
 import { rowsToCsv, downloadCsvFile } from "../../utils/csvUtils";
 
@@ -51,6 +50,7 @@ export class QueriesTab {
 	private sort: SortSpec[] = [];
 	private limit: number | null = null;
 	private computedColumns: ComputedColumn[] = [];
+	private excludedColumns: string[] = [];
 	private lastResult: AnalyticsResult | null = null;
 	private lastDurationMs: number | undefined;
 	private lastError: string | null = null;
@@ -60,12 +60,27 @@ export class QueriesTab {
 	private chartValueColumn: string | null = null;
 	private lastLoadedQueryId: string | null = null;
 	private pendingExecute = false;
+	/** Snapshot of query config at last save/load — used for dirty detection. */
+	private savedSnapshot: string | null = null;
 
 	constructor(
 		private masterEl: HTMLElement,
 		private detailEl: HTMLElement,
 		private deps: AnalyticsHubDeps,
 	) {}
+
+	// ─────────────────────────────────────────────────────────
+	// Dirty tracking
+	// ─────────────────────────────────────────────────────────
+
+	private takeSnapshot(): string {
+		return JSON.stringify(this.buildQueryConfig());
+	}
+
+	private isDirty(): boolean {
+		if (!this.savedSnapshot) return this.measures.length > 0;
+		return this.takeSnapshot() !== this.savedSnapshot;
+	}
 
 	// ─────────────────────────────────────────────────────────
 	// Sub-component deps
@@ -96,6 +111,8 @@ export class QueriesTab {
 			setLimit: (l) => { this.limit = l; },
 			computedColumns: () => this.computedColumns,
 			setComputedColumns: (c) => { this.computedColumns = c; },
+			excludedColumns: () => this.excludedColumns,
+			setExcludedColumns: (c) => { this.excludedColumns = c; },
 			lastResult: () => this.lastResult,
 			lastDurationMs: () => this.lastDurationMs,
 			lastError: () => this.lastError,
@@ -114,6 +131,7 @@ export class QueriesTab {
 			loadSavedQuery: (id) => this.loadSavedQuery(id),
 			newQuery: () => this.newQuery(),
 			showPreview: () => this.previewVisible,
+		togglePreview: () => { this.previewVisible = !this.previewVisible; },
 		chartMode: () => this.chartMode,
 		setChartMode: (mode) => { this.chartMode = mode; },
 		chartValueColumn: () => this.chartValueColumn,
@@ -213,9 +231,14 @@ export class QueriesTab {
 		}
 		const availableCsv = csvFiles.filter((f) => !addedPaths.has(f.path));
 		const availableBase = baseFiles.filter((f) => !addedPaths.has(f.path));
+		const allFolders = (state.csvFolders ?? []).filter((f) =>
+			!addedPaths.has(f.path) && (!state.filterText ||
+				f.displayName.toLowerCase().includes(state.filterText) ||
+				f.path.toLowerCase().includes(state.filterText)),
+		);
 
 		sourcesHeader.createSpan({
-			text: `${availableCsv.length + availableBase.length}`,
+			text: `${availableCsv.length + availableBase.length + allFolders.length}`,
 			cls: "ft-master-category-count",
 		});
 
@@ -253,6 +276,27 @@ export class QueriesTab {
 			} else if (state.filterText) {
 				const empty = this.masterEl.createDiv({ cls: "ft-text-muted ft-p-3 ft-text-center ft-text-sm" });
 				empty.textContent = "No matching .base files";
+			}
+
+			// CSV Folders
+			let csvFolders = state.csvFolders ?? [];
+			if (state.filterText) {
+				csvFolders = csvFolders.filter((f) =>
+					f.displayName.toLowerCase().includes(state.filterText) ||
+					f.path.toLowerCase().includes(state.filterText),
+				);
+			}
+			const availableFolders = csvFolders.filter((f) => !addedPaths.has(f.path));
+			if (availableFolders.length > 0) {
+				const folderSubHeader = this.masterEl.createDiv({ cls: "ft-master-category-header ft-text-xs" });
+				folderSubHeader.createSpan({ text: "CSV Folders" });
+				folderSubHeader.createSpan({ text: `${availableFolders.length}`, cls: "ft-master-category-count" });
+
+				for (const folder of availableFolders) {
+					this.renderSourceItem(`${folder.displayName} (${folder.fileCount} files)`, folder.path, () => {
+						this.addSource(folder.path, folder.displayName, "csv-folder");
+					});
+				}
 			}
 		}
 	}
@@ -354,6 +398,7 @@ export class QueriesTab {
 		// ── Header ──────────────────────────────────────
 		const header = this.detailEl.createDiv({ cls: "ft-detail-header" });
 		const left = header.createDiv();
+		left.style.cssText = "flex:1;min-width:0";
 		const state = this.deps.getState();
 		const activeQuery = state.selectedQueryId ? this.deps.analyticsService.getQuery(state.selectedQueryId) : null;
 		left.createDiv({ text: activeQuery ? activeQuery.name : "Query Builder", cls: "ft-detail-event-type" });
@@ -388,21 +433,21 @@ export class QueriesTab {
 		}
 
 		// ── Actions (always visible at top) ─────────────
+		const isEditing = !!(state.selectedQueryId && this.deps.analyticsService.getQuery(state.selectedQueryId));
 		new ActionsBar({
 			container: this.detailEl,
 			running: this.running,
 			hasMeasures: this.measures.length > 0,
 			hasLoadedSources: this.sources.some((s) => s.data),
-			previewVisible: this.previewVisible,
 			lastResult: this.lastResult,
-			isEditing: !!(state.selectedQueryId && this.deps.analyticsService.getQuery(state.selectedQueryId)),
+			isEditing,
+			hasChanges: this.isDirty(),
 			selectedQueryId: state.selectedQueryId,
 			queryName: this.getActiveQueryName(),
 			hasTimeBucket: this.timeBucket !== null,
 			dashboards: this.deps.getState().dashboards,
 			app: this.deps.app,
 			onRunQuery: () => { void this.executeQuery(); },
-			onTogglePreview: () => { this.previewVisible = !this.previewVisible; this.renderDetail(); },
 			onReset: () => {
 				this.sources = [];
 				this.columnTypeHints = [];
@@ -414,14 +459,21 @@ export class QueriesTab {
 				this.sort = [];
 				this.limit = null;
 				this.computedColumns = [];
+				this.excludedColumns = [];
 				this.lastResult = null;
 				this.lastDurationMs = undefined;
 				this.lastError = null;
+				this.savedSnapshot = null;
 				this.renderMaster();
 				this.renderDetail();
 			},
-			onSave: () => { void this.saveCurrentQuery(); },
-			onUpdate: () => { void this.updateCurrentQuery(); },
+			onSave: () => {
+				if (isEditing) {
+					void this.updateCurrentQuery();
+				} else {
+					void this.saveCurrentQuery();
+				}
+			},
 			onExportCsv: (result) => this.downloadResultCsv(result, this.getActiveQueryName()),
 			onAddToDashboard: (dashboardId, dashboardName, mode) => {
 				const queryId = this.deps.getState().selectedQueryId;
@@ -464,7 +516,6 @@ export class QueriesTab {
 		new SourcePanel(this.detailEl, subDeps).render();
 
 		if (this.getLoadedHeaders().length > 0) {
-			new SchemaPanel(this.detailEl, subDeps).render();
 			new QueryBuilderPanel(this.detailEl, subDeps).render();
 			new ComputedColumnsSection(this.detailEl, subDeps).render();
 		}
@@ -565,6 +616,8 @@ export class QueriesTab {
 			let data = null;
 			if (source.sourceType === "base") {
 				data = await svc.loadBase(source.csvPath, source.viewIndex ?? 0);
+			} else if (source.sourceType === "csv-folder") {
+				data = await svc.loadCsvFolder(source.csvPath);
 			} else {
 				const parsed = await svc.loadCsv(source.csvPath);
 				if (parsed) data = { headers: parsed.headers, rows: parsed.rows };
@@ -689,6 +742,7 @@ export class QueriesTab {
 				sort: this.sort.length > 0 ? this.sort : undefined,
 				limit: this.limit ?? undefined,
 				computedColumns: this.computedColumns.length > 0 ? this.computedColumns : undefined,
+				excludedColumns: this.excludedColumns.length > 0 ? this.excludedColumns : undefined,
 			};
 
 			this.lastResult = await this.deps.analyticsService.runQuery(query);
@@ -729,6 +783,7 @@ export class QueriesTab {
 			sort: this.sort.length > 0 ? this.sort : undefined,
 			limit: this.limit ?? undefined,
 			computedColumns: this.computedColumns.length > 0 ? this.computedColumns : undefined,
+			excludedColumns: this.excludedColumns.length > 0 ? this.excludedColumns : undefined,
 		};
 	}
 
@@ -747,6 +802,8 @@ export class QueriesTab {
 		const name = `Query ${new Date().toISOString().slice(0, 16).replace("T", " ")}`;
 
 		const saved = await svc.saveQuery(name, this.buildSavedSources(), this.buildQueryConfig());
+		await svc.syncMeasurementsFromQuery(saved.id);
+		this.savedSnapshot = this.takeSnapshot();
 		this.deps.setState({ selectedQueryId: saved.id });
 		this.renderMaster();
 	}
@@ -760,6 +817,8 @@ export class QueriesTab {
 			this.buildSavedSources(),
 			this.buildQueryConfig(),
 		);
+		await this.deps.analyticsService.syncMeasurementsFromQuery(state.selectedQueryId);
+		this.savedSnapshot = this.takeSnapshot();
 
 		this.renderMaster();
 	}
@@ -775,6 +834,8 @@ export class QueriesTab {
 		this.sort = [];
 		this.limit = null;
 		this.computedColumns = [];
+		this.excludedColumns = [];
+		this.savedSnapshot = null;
 		this.lastResult = null;
 		this.lastDurationMs = undefined;
 		this.lastError = null;
@@ -805,6 +866,8 @@ export class QueriesTab {
 		this.sort = saved.sort ? saved.sort.map((s) => ({ ...s })) : [];
 		this.limit = saved.limit ?? null;
 		this.computedColumns = saved.computedColumns ? saved.computedColumns.map((c) => ({ ...c })) : [];
+		this.excludedColumns = saved.excludedColumns ? [...saved.excludedColumns] : [];
+		this.savedSnapshot = this.takeSnapshot();
 		this.lastResult = null;
 		this.lastDurationMs = undefined;
 		this.lastError = null;

@@ -90,7 +90,7 @@ export interface DimensionSpec {
 }
 
 /** Supported aggregation functions. */
-export type AggregationFunction = "SUM" | "COUNT" | "AVG" | "MIN" | "MAX";
+export type AggregationFunction = "SUM" | "COUNT" | "AVG" | "MIN" | "MAX" | "COUNT_DISTINCT";
 
 /** A measure to aggregate within each group. */
 export interface MeasureSpec {
@@ -212,6 +212,8 @@ export interface AnalyticsQuery {
 	limit?: number;
 	/** Optional computed columns (evaluated after aggregation) */
 	computedColumns?: ComputedColumn[];
+	/** Optional list of column names to exclude from the result output */
+	excludedColumns?: string[];
 }
 
 // ── Analytics result ────────────────────────────────────
@@ -286,6 +288,8 @@ export interface SavedAnalyticsQuery {
 	limit?: number;
 	/** Optional computed columns (evaluated after aggregation) */
 	computedColumns?: ComputedColumn[];
+	/** Optional list of column names to exclude from the result output */
+	excludedColumns?: string[];
 }
 
 // ── Parsed date ─────────────────────────────────────────
@@ -303,7 +307,7 @@ export interface ParsedDate {
 export type TileDisplayMode = "table" | "stat-card" | "line-chart" | "bar-chart" | "area-chart" | "pie-chart";
 
 /** Source type for analytics queries. */
-export type AnalyticsSourceType = "csv" | "base";
+export type AnalyticsSourceType = "csv" | "base" | "csv-folder";
 
 /** Comparison operator for conditional formatting rules. */
 export type ConditionalOperator = ">" | "<" | ">=" | "<=" | "=" | "!=";
@@ -353,6 +357,8 @@ export interface DashboardTile {
 	autoHeight?: boolean;
 	/** Number display format for numeric values in this tile */
 	numberFormat?: NumberDisplayFormat;
+	/** Optional measurement ID — tile uses measurement's query instead of direct queryId */
+	measurementId?: string;
 }
 
 /** A named dashboard containing a grid of tiles. */
@@ -419,6 +425,35 @@ export interface DashboardTemplate {
 	createdAt: number;
 }
 
+// ── Measurement types ────────────────────────────────────
+
+/** Whether a measurement returns a single value or a full series. */
+export type MeasurementType = "single" | "series";
+
+/** A measurement — a reusable, named metric derived from a saved query. */
+export interface Measurement {
+	/** Unique ID (pattern: "am_<timestamp36>_<random6>") */
+	id: string;
+	/** User-provided name (e.g., "Total Revenue") */
+	name: string;
+	/** Optional description */
+	description?: string;
+	/** Source query ID */
+	queryId: string;
+	/** Single metric vs time-series */
+	type: MeasurementType;
+	/** Specific column to extract (undefined = full query result) */
+	measureColumn?: string;
+	/** Display format for the value */
+	displayFormat?: NumberDisplayFormat;
+	/** Whether marked as a favorite */
+	isFavorite?: boolean;
+	/** Timestamp when created */
+	createdAt: number;
+	/** Timestamp of last update */
+	updatedAt: number;
+}
+
 // ── Analytics state ─────────────────────────────────────
 
 /** Persisted state for the Analytics domain (TypedStorage key: "analytics"). */
@@ -431,4 +466,6 @@ export interface AnalyticsState {
 	defaultDashboardId?: string | null;
 	/** Saved dashboard templates */
 	templates?: DashboardTemplate[];
+	/** Saved measurements */
+	measurements?: Measurement[];
 }

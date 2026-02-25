@@ -671,4 +671,124 @@ describe("AnalyticsService", () => {
 			expect(query!.sort).toBeUndefined();
 		});
 	});
+
+	describe("CSV folder source", () => {
+		const jan: ParsedCsv = {
+			headers: ["date", "product", "revenue"],
+			rows: [
+				["2026-01-15", "Widget A", "100"],
+				["2026-01-28", "Widget B", "200"],
+			],
+			rowCount: 2,
+			detectedDelimiter: ",",
+		};
+
+		const feb: ParsedCsv = {
+			headers: ["date", "product", "revenue"],
+			rows: [
+				["2026-02-10", "Widget A", "150"],
+				["2026-02-22", "Widget C", "300"],
+			],
+			rowCount: 2,
+			detectedDelimiter: ",",
+		};
+
+		it("merges multiple CSV files from a folder", async () => {
+			const folderReader: ReadCsvCallback = vi.fn(async (path: string) => {
+				if (path === "sales/2026-01.csv") return jan;
+				if (path === "sales/2026-02.csv") return feb;
+				return null;
+			});
+
+			const svc = new AnalyticsService({ storage, eventBus, readCsv: folderReader });
+			svc.setListFolder(async () => ["sales/2026-01.csv", "sales/2026-02.csv", "sales/notes.txt"]);
+			await svc.load();
+
+			const saved = await svc.saveQuery(
+				"Merged Sales",
+				[{ alias: "sales", csvPath: "sales", sourceType: "csv-folder", locale: "en-US" }],
+				{
+					joins: [],
+					columnTypeHints: [{ column: "revenue", type: "number" }],
+					dimensions: [{ column: "product" }],
+					measures: [{ column: "revenue", function: "SUM", label: "total_revenue" }],
+				},
+			);
+
+			const result = await svc.runSavedQuery(saved.id);
+			expect(result.rows).toHaveLength(3); // Widget A, Widget B, Widget C
+			const widgetA = result.rows.find((r) => r.product === "Widget A");
+			expect(widgetA?.total_revenue).toBe(250); // 100 + 150
+		});
+
+		it("throws on header mismatch across CSV files", async () => {
+			const mismatch: ParsedCsv = {
+				headers: ["date", "item", "cost"], // different headers
+				rows: [["2026-03-01", "X", "50"]],
+				rowCount: 1,
+				detectedDelimiter: ",",
+			};
+
+			const folderReader: ReadCsvCallback = vi.fn(async (path: string) => {
+				if (path === "sales/2026-01.csv") return jan;
+				if (path === "sales/2026-03.csv") return mismatch;
+				return null;
+			});
+
+			const svc = new AnalyticsService({ storage, eventBus, readCsv: folderReader });
+			svc.setListFolder(async () => ["sales/2026-01.csv", "sales/2026-03.csv"]);
+			await svc.load();
+
+			const saved = await svc.saveQuery(
+				"Bad Merge",
+				[{ alias: "sales", csvPath: "sales", sourceType: "csv-folder" }],
+				{
+					joins: [],
+					columnTypeHints: [],
+					dimensions: [],
+					measures: [{ column: "revenue", function: "SUM", label: "total" }],
+				},
+			);
+
+			await expect(svc.runSavedQuery(saved.id)).rejects.toThrow("Header mismatch");
+		});
+
+		it("throws when folder has no CSV files", async () => {
+			const svc = new AnalyticsService({ storage, eventBus, readCsv: mockReadCsv });
+			svc.setListFolder(async () => ["sales/notes.txt", "sales/readme.md"]);
+			await svc.load();
+
+			const saved = await svc.saveQuery(
+				"Empty Folder",
+				[{ alias: "data", csvPath: "sales", sourceType: "csv-folder" }],
+				{
+					joins: [],
+					columnTypeHints: [],
+					dimensions: [],
+					measures: [{ column: "x", function: "COUNT", label: "n" }],
+				},
+			);
+
+			await expect(svc.runSavedQuery(saved.id)).rejects.toThrow("No CSV files");
+		});
+
+		it("throws when listFolder not configured", async () => {
+			const svc = new AnalyticsService({ storage, eventBus, readCsv: mockReadCsv });
+			// Not calling setListFolder
+			await svc.load();
+
+			const saved = await svc.saveQuery(
+				"No Folder",
+				[{ alias: "data", csvPath: "sales", sourceType: "csv-folder" }],
+				{
+					joins: [],
+					columnTypeHints: [],
+					dimensions: [],
+					measures: [{ column: "x", function: "COUNT", label: "n" }],
+				},
+			);
+
+			await expect(svc.runSavedQuery(saved.id)).rejects.toThrow("Folder listing not configured");
+		});
+	});
 });

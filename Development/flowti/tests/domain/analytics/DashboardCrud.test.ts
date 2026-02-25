@@ -360,6 +360,21 @@ describe("AnalyticsService — Dashboard CRUD", () => {
 			const result = await service.updateTile(db.id, "nonexistent", { title: "X" });
 			expect(result).toBeUndefined();
 		});
+
+		it("updates tile measurementId", async () => {
+			const db = await service.createDashboard("DB");
+			const tile = await service.addTile(db.id, "q1", "table");
+			const updated = await service.updateTile(db.id, tile!.id, { measurementId: "am_123" });
+			expect(updated!.measurementId).toBe("am_123");
+		});
+
+		it("can change tile measurementId to another value", async () => {
+			const db = await service.createDashboard("DB");
+			const tile = await service.addTile(db.id, "q1", "table");
+			await service.updateTile(db.id, tile!.id, { measurementId: "am_123" });
+			const changed = await service.updateTile(db.id, tile!.id, { measurementId: "am_456" });
+			expect(changed!.measurementId).toBe("am_456");
+		});
 	});
 
 	// ── Persistence round-trip ───────────────────────────
