@@ -31,7 +31,7 @@ import type { AnalyticsState, SavedAnalyticsQuery } from "../../src/domain/analy
 import { getSourceBasenames } from "../../src/ui/analytics/DashboardQueryMap";
 import { CsvAnalyticsSection } from "../../src/ui/csv/CsvAnalyticsSection";
 import type { CsvComponentDeps } from "../../src/ui/csv/types";
-import { suggestDisplayMode } from "../../src/ui/analytics/QueriesTab";
+import { suggestDisplayMode } from "../../src/ui/analytics/queries/ActionsBar";
 import { createMockStorage } from "./testHelpers";
 
 // ── Fixtures ─────────────────────────────────────────────────

@@ -191,8 +191,8 @@ export interface AnalyticsQuery {
 	timeBucket?: TimeBucketSpec;
 	/** Optional row filters (applied before grouping) */
 	filters?: FilterSpec[];
-	/** Optional result sorting (applied after aggregation) */
-	sort?: SortSpec;
+	/** Optional result sorting — array of sort specs applied left-to-right (applied after aggregation) */
+	sort?: SortSpec[];
 	/** Optional row limit (applied after sorting) */
 	limit?: number;
 	/** Optional computed columns (evaluated after aggregation) */
@@ -263,8 +263,8 @@ export interface SavedAnalyticsQuery {
 	timeBucket?: TimeBucketSpec;
 	/** Optional row filters (applied before grouping) */
 	filters?: FilterSpec[];
-	/** Optional result sorting (applied after aggregation) */
-	sort?: SortSpec;
+	/** Optional result sorting — array of sort specs applied left-to-right (applied after aggregation) */
+	sort?: SortSpec[];
 	/** Optional row limit (applied after sorting) */
 	limit?: number;
 	/** Optional computed columns (evaluated after aggregation) */

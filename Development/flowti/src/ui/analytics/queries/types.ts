@@ -60,8 +60,8 @@ export interface QueriesSubDeps {
 	setTimeBucket: (tb: TimeBucketSpec | null) => void;
 	filters: () => FilterSpec[];
 	setFilters: (filters: FilterSpec[]) => void;
-	sort: () => SortSpec | null;
-	setSort: (sort: SortSpec | null) => void;
+	sort: () => SortSpec[];
+	setSort: (sort: SortSpec[]) => void;
 	limit: () => number | null;
 	setLimit: (limit: number | null) => void;
 	computedColumns: () => ComputedColumn[];
@@ -72,7 +72,7 @@ export interface QueriesSubDeps {
 	running: () => boolean;
 	executeQuery: () => void;
 	handleExportCsv: (csv: string) => void;
-	applyQuickInsight: (dims: DimensionSpec[], measures: MeasureSpec[], timeBucket: TimeBucketSpec | null) => void;
+	applyQuickInsight: (dims: DimensionSpec[], measures: MeasureSpec[], timeBucket: TimeBucketSpec | null, sort?: SortSpec[], limit?: number) => void;
 	loadSavedQuery: (queryId: string) => void;
 	newQuery: () => void;
 	showPreview: () => boolean;
@@ -80,6 +80,8 @@ export interface QueriesSubDeps {
 	setChartMode: (mode: "line" | "bar") => void;
 	chartValueColumn: () => string | null;
 	setChartValueColumn: (col: string | null) => void;
+	/** Get up to 20 distinct values for a column from loaded source data. */
+	getDistinctValues?: (column: string) => string[];
 }
 
 // ─────────────────────────────────────────────────────────────

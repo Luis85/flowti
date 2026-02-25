@@ -71,9 +71,9 @@ export class AnalyticsEngine {
 			this.applyComputedColumns(resultRows, query.computedColumns, query.measures);
 		}
 
-		// 7. Apply sort (after aggregation)
+		// 7. Apply sort (after aggregation) — multi-column sort
 		let sortedRows = resultRows;
-		if (query.sort) {
+		if (query.sort && query.sort.length > 0) {
 			sortedRows = this.applySort(sortedRows, query.sort);
 		}
 
@@ -228,24 +228,28 @@ export class AnalyticsEngine {
 
 	// ── Sorting and limiting ──────────────────────────
 
-	private applySort(rows: ResultRow[], sort: SortSpec): ResultRow[] {
+	private applySort(rows: ResultRow[], sorts: SortSpec[]): ResultRow[] {
 		const sorted = [...rows];
-		const col = sort.column;
-		const dir = sort.direction === "asc" ? 1 : -1;
 
 		sorted.sort((a, b) => {
-			const aVal = a[col];
-			const bVal = b[col];
+			for (const sort of sorts) {
+				const col = sort.column;
+				const dir = sort.direction === "asc" ? 1 : -1;
+				const aVal = a[col];
+				const bVal = b[col];
 
-			// Numeric comparison when both are numbers
-			if (typeof aVal === "number" && typeof bVal === "number") {
-				return (aVal - bVal) * dir;
+				let cmp: number;
+				if (typeof aVal === "number" && typeof bVal === "number") {
+					cmp = (aVal - bVal) * dir;
+				} else {
+					const aStr = String(aVal ?? "");
+					const bStr = String(bVal ?? "");
+					cmp = aStr.localeCompare(bStr) * dir;
+				}
+
+				if (cmp !== 0) return cmp;
 			}
-
-			// String comparison
-			const aStr = String(aVal ?? "");
-			const bStr = String(bVal ?? "");
-			return aStr.localeCompare(bStr) * dir;
+			return 0;
 		});
 
 		return sorted;

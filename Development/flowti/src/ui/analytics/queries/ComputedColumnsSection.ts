@@ -8,6 +8,7 @@
 import { setIcon } from "obsidian";
 import type { QueriesSubDeps } from "./types";
 import { INPUT_CSS } from "./types";
+import { validateExpression } from "../../../domain/analytics/expressionValidator";
 
 export class ComputedColumnsSection {
 	constructor(
@@ -63,6 +64,24 @@ export class ComputedColumnsSection {
 			exprInput.placeholder = "{Column} + {Column}";
 			exprInput.style.cssText = INPUT_CSS + ";width:200px;flex:1";
 			exprInput.addEventListener("change", () => { cc.expression = exprInput.value; });
+
+			// Inline validation on blur
+			const errorEl = row.createDiv({ cls: "ft-text-xs ft-expr-error" });
+			errorEl.style.cssText = "color:var(--text-error);display:none;width:100%;padding:0.15rem 0";
+			exprInput.addEventListener("blur", () => {
+				const expr = exprInput.value.trim();
+				if (!expr) { errorEl.style.display = "none"; return; }
+				const available = this.getAvailableColumns();
+				const result = validateExpression(expr, available);
+				if (result.valid) {
+					errorEl.style.display = "none";
+					exprInput.style.borderColor = "";
+				} else {
+					errorEl.textContent = result.errors[0];
+					errorEl.style.display = "block";
+					exprInput.style.borderColor = "var(--text-error)";
+				}
+			});
 
 			const removeBtn = row.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 			const removeIcon = removeBtn.createSpan();
@@ -126,5 +145,18 @@ export class ComputedColumnsSection {
 			const visible = helpPanel.style.display !== "none";
 			helpPanel.style.display = visible ? "none" : "block";
 		});
+	}
+
+	/** Get available column names for expression validation: measure labels + raw headers. */
+	private getAvailableColumns(): string[] {
+		const cols: string[] = [];
+		const measures = this.deps.measures();
+		for (const m of measures) {
+			cols.push(m.label ?? `${m.function}(${m.column})`);
+		}
+		for (const h of this.deps.getLoadedHeaders()) {
+			if (!cols.includes(h)) cols.push(h);
+		}
+		return cols;
 	}
 }

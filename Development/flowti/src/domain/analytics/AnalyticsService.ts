@@ -20,7 +20,6 @@ import type {
 	Dashboard,
 	DashboardTile,
 	DashboardTemplate,
-	DashboardTileTemplate,
 	DimensionSpec,
 	FilterSpec,
 	JoinSpec,
@@ -28,13 +27,14 @@ import type {
 	ParsedSourceData,
 	SavedAnalyticsQuery,
 	SavedAnalyticsQuerySource,
-	SavedQueryTemplate,
 	SortSpec,
 	TileDisplayMode,
 	TimeBucketSpec,
 } from "./types";
 import { AnalyticsEngine } from "./AnalyticsEngine";
 import type { BaseAnalyticsAdapter } from "./BaseAnalyticsAdapter";
+import type { AnalyticsHandlerContext } from "./handlers/types";
+import { dashboardHandlers } from "./handlers";
 
 /** Callback to read a CSV file's content from the vault. */
 export type ReadCsvCallback = (csvPath: string) => Promise<ParsedCsv | null>;
@@ -71,11 +71,30 @@ export class AnalyticsService {
 		this.fileSystem = options.fileSystem;
 	}
 
+	/** Build handler context for delegating to handler modules. */
+	private ctx(): AnalyticsHandlerContext {
+		return {
+			getState: () => this.state,
+			save: () => this.storage.save(this.state),
+			eventBus: this.eventBus,
+			generateId,
+			getQuery: (id) => this.getQuery(id),
+			getDashboard: (id) => dashboardHandlers.getDashboard(this.ctx(), id),
+		};
+	}
+
 	/** Load persisted state from storage. */
 	async load(): Promise<void> {
 		const saved = await this.storage.load();
 		if (saved && (saved.savedAnalyticsQueries?.length > 0 || saved.dashboards?.length > 0)) {
 			this.state = saved;
+		}
+
+		// Migration: wrap single SortSpec in array for backward compatibility
+		for (const q of this.state.savedAnalyticsQueries ?? []) {
+			if (q.sort && !Array.isArray(q.sort)) {
+				q.sort = [q.sort as unknown as SortSpec];
+			}
 		}
 
 		await this.eventBus?.emit("analytics.loaded", {
@@ -278,23 +297,6 @@ export class AnalyticsService {
 		return this.listQueries().filter((q) => q.sources.some((s) => s.csvPath === csvPath));
 	}
 
-	/** Get a map of unique queries used by a dashboard's tiles with tile counts. */
-	getDashboardQueryMap(dashboardId: string): Map<string, { query: SavedAnalyticsQuery; tileCount: number }> {
-		const dashboard = this.getDashboard(dashboardId);
-		const result = new Map<string, { query: SavedAnalyticsQuery; tileCount: number }>();
-		if (!dashboard) return result;
-		for (const tile of dashboard.tiles) {
-			const existing = result.get(tile.queryId);
-			if (existing) {
-				existing.tileCount++;
-			} else {
-				const query = this.getQuery(tile.queryId);
-				if (query) result.set(tile.queryId, { query, tileCount: 1 });
-			}
-		}
-		return result;
-	}
-
 	/** Rename a saved query. */
 	async renameQuery(id: string, newName: string): Promise<SavedAnalyticsQuery | undefined> {
 		const query = this.getQuery(id);
@@ -404,80 +406,15 @@ export class AnalyticsService {
 		return true;
 	}
 
-	// ── Dashboard CRUD ───────────────────────────────────
+	// ── Dashboard CRUD (delegated to handlers) ──────────
 
-	/** List all dashboards. */
-	listDashboards(): Dashboard[] {
-		return this.state.dashboards ?? [];
-	}
+	listDashboards(): Dashboard[] { return dashboardHandlers.listDashboards(this.ctx()); }
+	getDashboard(id: string): Dashboard | undefined { return dashboardHandlers.getDashboard(this.ctx(), id); }
+	async createDashboard(name: string, description?: string): Promise<Dashboard> { return dashboardHandlers.createDashboard(this.ctx(), name, description); }
+	async updateDashboard(id: string, changes: { name?: string; description?: string }): Promise<Dashboard | undefined> { return dashboardHandlers.updateDashboard(this.ctx(), id, changes); }
+	async deleteDashboard(id: string): Promise<boolean> { return dashboardHandlers.deleteDashboard(this.ctx(), id); }
 
-	/** Get a dashboard by ID. */
-	getDashboard(id: string): Dashboard | undefined {
-		return this.listDashboards().find((d) => d.id === id);
-	}
-
-	/** Create a new dashboard. */
-	async createDashboard(name: string, description?: string): Promise<Dashboard> {
-		const dashboard: Dashboard = {
-			id: generateId(),
-			name,
-			description,
-			tiles: [],
-			createdAt: Date.now(),
-			updatedAt: Date.now(),
-		};
-
-		const dashboards = this.state.dashboards ?? [];
-		dashboards.push(dashboard);
-		this.state.dashboards = dashboards;
-		await this.storage.save(this.state);
-
-		await this.eventBus?.emit("analytics.dashboard.created", { dashboard });
-
-		return dashboard;
-	}
-
-	/** Update a dashboard's name and/or description. */
-	async updateDashboard(id: string, changes: { name?: string; description?: string }): Promise<Dashboard | undefined> {
-		const dashboard = this.getDashboard(id);
-		if (!dashboard) return undefined;
-
-		if (changes.name !== undefined) dashboard.name = changes.name;
-		if (changes.description !== undefined) dashboard.description = changes.description;
-		dashboard.updatedAt = Date.now();
-		await this.storage.save(this.state);
-
-		await this.eventBus?.emit("analytics.dashboard.updated", { dashboard });
-
-		return dashboard;
-	}
-
-	/** Delete a dashboard by ID. */
-	async deleteDashboard(id: string): Promise<boolean> {
-		const dashboards = this.state.dashboards ?? [];
-		const idx = dashboards.findIndex((d) => d.id === id);
-		if (idx === -1) return false;
-
-		const removed = dashboards[idx];
-		dashboards.splice(idx, 1);
-		this.state.dashboards = dashboards;
-
-		// Clear default if the deleted dashboard was the default
-		if (this.state.defaultDashboardId === id) {
-			this.state.defaultDashboardId = null;
-		}
-
-		await this.storage.save(this.state);
-
-		await this.eventBus?.emit("analytics.dashboard.deleted", {
-			dashboardId: removed.id,
-			dashboardName: removed.name,
-		});
-
-		return true;
-	}
-
-	// ── Favorites & Default ─────────────────────────────
+	// ── Favorites & Default (delegated to handlers) ─────
 
 	/** Toggle a saved query's favorite status. */
 	async toggleQueryFavorite(id: string): Promise<boolean | undefined> {
@@ -496,228 +433,28 @@ export class AnalyticsService {
 		return query.isFavorite;
 	}
 
-	/** Toggle a dashboard's favorite status. */
-	async toggleDashboardFavorite(id: string): Promise<boolean | undefined> {
-		const dashboard = this.getDashboard(id);
-		if (!dashboard) return undefined;
+	async toggleDashboardFavorite(id: string): Promise<boolean | undefined> { return dashboardHandlers.toggleDashboardFavorite(this.ctx(), id); }
+	async setDefaultDashboard(id: string | null): Promise<void> { return dashboardHandlers.setDefaultDashboard(this.ctx(), id); }
+	getDefaultDashboard(): Dashboard | undefined { return dashboardHandlers.getDefaultDashboard(this.ctx()); }
 
-		dashboard.isFavorite = !dashboard.isFavorite;
-		dashboard.updatedAt = Date.now();
-		await this.storage.save(this.state);
+	// ── Tile CRUD (delegated to handlers) ────────────────
 
-		await this.eventBus?.emit("analytics.dashboard.favorited", {
-			dashboardId: dashboard.id,
-			dashboardName: dashboard.name,
-			isFavorite: dashboard.isFavorite,
-		});
+	async addTile(dashboardId: string, queryId: string, displayMode: TileDisplayMode, title?: string): Promise<DashboardTile | undefined> { return dashboardHandlers.addTile(this.ctx(), dashboardId, queryId, displayMode, title); }
+	async removeTile(dashboardId: string, tileId: string): Promise<boolean> { return dashboardHandlers.removeTile(this.ctx(), dashboardId, tileId); }
+	async updateTile(dashboardId: string, tileId: string, changes: Partial<Omit<DashboardTile, "id">>): Promise<DashboardTile | undefined> { return dashboardHandlers.updateTile(this.ctx(), dashboardId, tileId, changes); }
+	async reorderTile(dashboardId: string, tileId: string, direction: "up" | "down"): Promise<boolean> { return dashboardHandlers.reorderTile(this.ctx(), dashboardId, tileId, direction); }
 
-		return dashboard.isFavorite;
-	}
+	// ── Dashboard templates (delegated to handlers) ──────
 
-	/** Set the default dashboard (shown on hub overview). Pass null to clear. */
-	async setDefaultDashboard(id: string | null): Promise<void> {
-		if (id !== null && !this.getDashboard(id)) return;
+	listTemplates(): DashboardTemplate[] { return dashboardHandlers.listTemplates(this.ctx()); }
+	async saveDashboardAsTemplate(dashboardId: string, name: string, description: string, domain: string): Promise<DashboardTemplate | undefined> { return dashboardHandlers.saveDashboardAsTemplate(this.ctx(), dashboardId, name, description, domain); }
+	async deleteTemplate(templateId: string): Promise<boolean> { return dashboardHandlers.deleteTemplate(this.ctx(), templateId); }
 
-		this.state.defaultDashboardId = id;
-		await this.storage.save(this.state);
-
-		const dashboard = id ? this.getDashboard(id) : undefined;
-		await this.eventBus?.emit("analytics.dashboard.defaultChanged", {
-			dashboardId: id,
-			dashboardName: dashboard?.name,
-		});
-	}
-
-	/** Get the default dashboard, or undefined if not set or not found. */
-	getDefaultDashboard(): Dashboard | undefined {
-		const id = this.state.defaultDashboardId;
-		if (!id) return undefined;
-		return this.getDashboard(id);
-	}
-
-	/** Add a tile to a dashboard. */
-	async addTile(dashboardId: string, queryId: string, displayMode: TileDisplayMode, title?: string): Promise<DashboardTile | undefined> {
-		const dashboard = this.getDashboard(dashboardId);
-		if (!dashboard) return undefined;
-
-		const row = dashboard.tiles.length > 0
-			? Math.max(...dashboard.tiles.map((t) => t.row + t.height))
-			: 0;
-
-		const tile: DashboardTile = {
-			id: generateId(),
-			queryId,
-			title,
-			displayMode,
-			row,
-			col: 0,
-			width: 2,
-			height: 1,
-		};
-
-		dashboard.tiles.push(tile);
-		dashboard.updatedAt = Date.now();
-		await this.storage.save(this.state);
-
-		await this.eventBus?.emit("analytics.dashboard.tile.added", { dashboardId, tile });
-
-		return tile;
-	}
-
-	/** Remove a tile from a dashboard. */
-	async removeTile(dashboardId: string, tileId: string): Promise<boolean> {
-		const dashboard = this.getDashboard(dashboardId);
-		if (!dashboard) return false;
-
-		const idx = dashboard.tiles.findIndex((t) => t.id === tileId);
-		if (idx === -1) return false;
-
-		dashboard.tiles.splice(idx, 1);
-		dashboard.updatedAt = Date.now();
-		await this.storage.save(this.state);
-
-		await this.eventBus?.emit("analytics.dashboard.tile.removed", { dashboardId, tileId });
-
-		return true;
-	}
-
-	/** Mutable keys on DashboardTile (everything except "id"). Add new tile fields here. */
-	private static readonly TILE_MUTABLE_KEYS: ReadonlyArray<keyof Omit<DashboardTile, "id">> = [
-		"queryId", "title", "displayMode", "row", "col", "width", "height",
-		"conditionalRules", "showSparkline", "chartValueColumn", "rowLimit", "autoHeight",
-	];
-
-	/** Update a tile's properties within a dashboard. */
-	async updateTile(dashboardId: string, tileId: string, changes: Partial<Omit<DashboardTile, "id">>): Promise<DashboardTile | undefined> {
-		const dashboard = this.getDashboard(dashboardId);
-		if (!dashboard) return undefined;
-
-		const tile = dashboard.tiles.find((t) => t.id === tileId);
-		if (!tile) return undefined;
-
-		for (const key of AnalyticsService.TILE_MUTABLE_KEYS) {
-			if (changes[key] !== undefined) {
-				(tile as unknown as Record<string, unknown>)[key] = changes[key];
-			}
-		}
-
-		dashboard.updatedAt = Date.now();
-		await this.storage.save(this.state);
-
-		await this.eventBus?.emit("analytics.dashboard.tile.updated", { dashboardId, tile });
-
-		return tile;
-	}
-
-	/** Reorder a tile within a dashboard (move up or down). */
-	async reorderTile(dashboardId: string, tileId: string, direction: "up" | "down"): Promise<boolean> {
-		const dashboard = this.getDashboard(dashboardId);
-		if (!dashboard) return false;
-
-		const idx = dashboard.tiles.findIndex((t) => t.id === tileId);
-		if (idx === -1) return false;
-
-		const newIdx = direction === "up" ? idx - 1 : idx + 1;
-		if (newIdx < 0 || newIdx >= dashboard.tiles.length) return false;
-
-		// Swap tiles
-		[dashboard.tiles[idx], dashboard.tiles[newIdx]] = [dashboard.tiles[newIdx], dashboard.tiles[idx]];
-		dashboard.updatedAt = Date.now();
-		await this.storage.save(this.state);
-
-		await this.eventBus?.emit("analytics.dashboard.tile.reordered", { dashboardId, tileId, direction });
-
-		return true;
-	}
-
-	// ── Dashboard templates ─────────────────────────────
-
-	/** List all saved dashboard templates. */
-	listTemplates(): DashboardTemplate[] {
-		return this.state.templates ?? [];
-	}
-
-	/** Save a dashboard as a reusable template. */
-	async saveDashboardAsTemplate(
-		dashboardId: string,
-		name: string,
-		description: string,
-		domain: string,
-	): Promise<DashboardTemplate | undefined> {
-		const dashboard = this.getDashboard(dashboardId);
-		if (!dashboard) return undefined;
-
-		// Build unique source list from all tiles' queries
-		const queryTemplates: SavedQueryTemplate[] = [];
-		const queryIdToIndex = new Map<string, number>();
-
-		for (const tile of dashboard.tiles) {
-			if (queryIdToIndex.has(tile.queryId)) continue;
-
-			const query = this.getQuery(tile.queryId);
-			if (!query) continue;
-
-			const index = queryTemplates.length;
-			queryIdToIndex.set(tile.queryId, index);
-
-			queryTemplates.push({
-				originalSources: structuredClone(query.sources),
-				queryConfig: {
-					name: query.name,
-					joins: query.joins,
-					columnTypeHints: query.columnTypeHints,
-					dimensions: query.dimensions,
-					measures: query.measures,
-					timeBucket: query.timeBucket,
-					filters: query.filters,
-					sort: query.sort,
-					limit: query.limit,
-					computedColumns: query.computedColumns,
-				},
-			});
-		}
-
-		const tileTemplates: DashboardTileTemplate[] = dashboard.tiles
-			.filter((t) => queryIdToIndex.has(t.queryId))
-			.map((t) => ({
-				queryIndex: queryIdToIndex.get(t.queryId)!,
-				title: t.title ?? "",
-				displayMode: t.displayMode,
-				width: t.width,
-				height: t.height,
-				conditionalRules: t.conditionalRules,
-				chartValueColumn: t.chartValueColumn,
-			}));
-
-		const template: DashboardTemplate = {
-			id: generateId(),
-			name,
-			description,
-			domain,
-			queries: queryTemplates,
-			tiles: tileTemplates,
-			createdAt: Date.now(),
-		};
-
-		const templates = this.state.templates ?? [];
-		templates.push(template);
-		this.state.templates = templates;
-		await this.storage.save(this.state);
-
-		await this.eventBus?.emit("analytics.template.saved", {
-			templateId: template.id,
-			templateName: template.name,
-			domain: template.domain,
-		});
-
-		return template;
-	}
+	/** Get a map of unique queries used by a dashboard's tiles with tile counts. */
+	getDashboardQueryMap(dashboardId: string): Map<string, { query: SavedAnalyticsQuery; tileCount: number }> { return dashboardHandlers.getDashboardQueryMap(this.ctx(), dashboardId); }
 
 	/**
 	 * Create a new dashboard from a template with source mapping.
-	 * @param templateId - ID of the template to instantiate
-	 * @param sourceMapping - Map from original source path to new source path
-	 * @param dashboardName - Optional name override (defaults to template name)
 	 */
 	async createDashboardFromTemplate(
 		templateId: string,
@@ -727,50 +464,36 @@ export class AnalyticsService {
 		const template = this.listTemplates().find((t) => t.id === templateId);
 		if (!template) return undefined;
 
-		// Create saved queries from template with mapped sources
 		const newQueryIds: string[] = [];
 		for (const qt of template.queries) {
 			const mappedSources: SavedAnalyticsQuerySource[] = qt.originalSources.map((src) => ({
 				...src,
 				csvPath: sourceMapping[src.csvPath] ?? src.csvPath,
 			}));
-
-			const saved = await this.saveQuery(
-				qt.queryConfig.name,
-				mappedSources,
-				{
-					joins: qt.queryConfig.joins,
-					columnTypeHints: qt.queryConfig.columnTypeHints,
-					dimensions: qt.queryConfig.dimensions,
-					measures: qt.queryConfig.measures,
-					timeBucket: qt.queryConfig.timeBucket,
-					filters: qt.queryConfig.filters,
-					sort: qt.queryConfig.sort,
-					limit: qt.queryConfig.limit,
-					computedColumns: qt.queryConfig.computedColumns,
-				},
-			);
+			const saved = await this.saveQuery(qt.queryConfig.name, mappedSources, {
+				joins: qt.queryConfig.joins,
+				columnTypeHints: qt.queryConfig.columnTypeHints,
+				dimensions: qt.queryConfig.dimensions,
+				measures: qt.queryConfig.measures,
+				timeBucket: qt.queryConfig.timeBucket,
+				filters: qt.queryConfig.filters,
+				sort: qt.queryConfig.sort,
+				limit: qt.queryConfig.limit,
+				computedColumns: qt.queryConfig.computedColumns,
+			});
 			newQueryIds.push(saved.id);
 		}
 
-		// Create dashboard
-		const dashboard = await this.createDashboard(
-			dashboardName ?? template.name,
-			template.description,
-		);
+		const dashboard = await this.createDashboard(dashboardName ?? template.name, template.description);
 
-		// Add tiles referencing the new queries
 		for (const tt of template.tiles) {
 			const queryId = newQueryIds[tt.queryIndex];
 			if (!queryId) continue;
-
 			const tile = await this.addTile(dashboard.id, queryId, tt.displayMode, tt.title);
 			if (tile && (tt.conditionalRules || tt.chartValueColumn || tt.width !== 2 || tt.height !== 1)) {
 				await this.updateTile(dashboard.id, tile.id, {
-					width: tt.width,
-					height: tt.height,
-					conditionalRules: tt.conditionalRules,
-					chartValueColumn: tt.chartValueColumn,
+					width: tt.width, height: tt.height,
+					conditionalRules: tt.conditionalRules, chartValueColumn: tt.chartValueColumn,
 				});
 			}
 		}
@@ -782,18 +505,6 @@ export class AnalyticsService {
 		});
 
 		return dashboard;
-	}
-
-	/** Delete a template by ID. */
-	async deleteTemplate(templateId: string): Promise<boolean> {
-		const templates = this.state.templates ?? [];
-		const idx = templates.findIndex((t) => t.id === templateId);
-		if (idx === -1) return false;
-
-		templates.splice(idx, 1);
-		this.state.templates = templates;
-		await this.storage.save(this.state);
-		return true;
 	}
 
 	/** Import a dashboard from a raw JSON template (file import). */
@@ -811,7 +522,7 @@ export class AnalyticsService {
 					measures: MeasureSpec[];
 					timeBucket?: TimeBucketSpec;
 					filters?: FilterSpec[];
-					sort?: SortSpec;
+					sort?: SortSpec[];
 					limit?: number;
 					computedColumns?: ComputedColumn[];
 				};
@@ -836,16 +547,11 @@ export class AnalyticsService {
 				...src,
 				csvPath: mapping[src.csvPath] ?? src.csvPath,
 			}));
-
 			const saved = await this.saveQuery(qt.queryConfig.name, mappedSources, {
-				joins: qt.queryConfig.joins,
-				columnTypeHints: qt.queryConfig.columnTypeHints,
-				dimensions: qt.queryConfig.dimensions,
-				measures: qt.queryConfig.measures,
-				timeBucket: qt.queryConfig.timeBucket,
-				filters: qt.queryConfig.filters,
-				sort: qt.queryConfig.sort,
-				limit: qt.queryConfig.limit,
+				joins: qt.queryConfig.joins, columnTypeHints: qt.queryConfig.columnTypeHints,
+				dimensions: qt.queryConfig.dimensions, measures: qt.queryConfig.measures,
+				timeBucket: qt.queryConfig.timeBucket, filters: qt.queryConfig.filters,
+				sort: qt.queryConfig.sort, limit: qt.queryConfig.limit,
 				computedColumns: qt.queryConfig.computedColumns,
 			});
 			newQueryIds.push(saved.id);
@@ -856,14 +562,11 @@ export class AnalyticsService {
 		for (const tt of template.tiles) {
 			const queryId = newQueryIds[tt.queryIndex];
 			if (!queryId) continue;
-
 			const tile = await this.addTile(dashboard.id, queryId, tt.displayMode, tt.title);
 			if (tile && (tt.conditionalRules || tt.chartValueColumn || tt.width !== 2 || tt.height !== 1)) {
 				await this.updateTile(dashboard.id, tile.id, {
-					width: tt.width,
-					height: tt.height,
-					conditionalRules: tt.conditionalRules,
-					chartValueColumn: tt.chartValueColumn,
+					width: tt.width, height: tt.height,
+					conditionalRules: tt.conditionalRules, chartValueColumn: tt.chartValueColumn,
 				});
 			}
 		}

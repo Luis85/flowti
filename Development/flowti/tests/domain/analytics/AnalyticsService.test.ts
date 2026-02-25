@@ -574,4 +574,101 @@ describe("AnalyticsService", () => {
 			expect(types).toContain("analytics.dashboard.tile.updated");
 		});
 	});
+
+	// ── Sort migration (v38 — SortSpec → SortSpec[]) ──────
+
+	describe("sort migration on load", () => {
+		it("wraps single SortSpec in array on load", async () => {
+			const legacyStorage = {
+				load: vi.fn(async () => ({
+					savedAnalyticsQueries: [{
+						id: "aq_legacy",
+						name: "Legacy",
+						createdAt: Date.now(),
+						sources: [{ alias: "a", csvPath: "a.csv" }],
+						joins: [],
+						columnTypeHints: [],
+						dimensions: [{ column: "x" }],
+						measures: [{ column: "x", function: "SUM" }],
+						// Legacy single SortSpec (not array)
+						sort: { column: "x", direction: "asc" } as unknown,
+					}],
+					dashboards: [],
+				})),
+				save: vi.fn(),
+				safeLoad: vi.fn(),
+				safeSave: vi.fn(),
+			} as unknown as ITypedStorage<AnalyticsState>;
+
+			const svc = new AnalyticsService({ storage: legacyStorage, eventBus });
+			await svc.load();
+
+			const query = svc.getQuery("aq_legacy");
+			expect(query).toBeDefined();
+			expect(Array.isArray(query!.sort)).toBe(true);
+			expect(query!.sort).toHaveLength(1);
+			expect(query!.sort![0].column).toBe("x");
+			expect(query!.sort![0].direction).toBe("asc");
+		});
+
+		it("leaves array sort untouched on load", async () => {
+			const modernStorage = {
+				load: vi.fn(async () => ({
+					savedAnalyticsQueries: [{
+						id: "aq_modern",
+						name: "Modern",
+						createdAt: Date.now(),
+						sources: [{ alias: "a", csvPath: "a.csv" }],
+						joins: [],
+						columnTypeHints: [],
+						dimensions: [{ column: "x" }],
+						measures: [{ column: "x", function: "SUM" }],
+						sort: [
+							{ column: "x", direction: "asc" },
+							{ column: "y", direction: "desc" },
+						],
+					}],
+					dashboards: [],
+				})),
+				save: vi.fn(),
+				safeLoad: vi.fn(),
+				safeSave: vi.fn(),
+			} as unknown as ITypedStorage<AnalyticsState>;
+
+			const svc = new AnalyticsService({ storage: modernStorage, eventBus });
+			await svc.load();
+
+			const query = svc.getQuery("aq_modern");
+			expect(query!.sort).toHaveLength(2);
+			expect(query!.sort![0].column).toBe("x");
+			expect(query!.sort![1].column).toBe("y");
+		});
+
+		it("handles undefined sort on load", async () => {
+			const noSortStorage = {
+				load: vi.fn(async () => ({
+					savedAnalyticsQueries: [{
+						id: "aq_nosort",
+						name: "No Sort",
+						createdAt: Date.now(),
+						sources: [{ alias: "a", csvPath: "a.csv" }],
+						joins: [],
+						columnTypeHints: [],
+						dimensions: [{ column: "x" }],
+						measures: [{ column: "x", function: "SUM" }],
+					}],
+					dashboards: [],
+				})),
+				save: vi.fn(),
+				safeLoad: vi.fn(),
+				safeSave: vi.fn(),
+			} as unknown as ITypedStorage<AnalyticsState>;
+
+			const svc = new AnalyticsService({ storage: noSortStorage, eventBus });
+			await svc.load();
+
+			const query = svc.getQuery("aq_nosort");
+			expect(query!.sort).toBeUndefined();
+		});
+	});
 });

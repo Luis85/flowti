@@ -28,7 +28,6 @@ import type {
 	AnalyticsSourceType,
 	AnalyticsResult,
 	SavedAnalyticsQuerySource,
-	TileDisplayMode,
 } from "../../domain/analytics/types";
 import { AnalyticsEngine } from "../../domain/analytics/AnalyticsEngine";
 import type { QuerySource, QueriesSubDeps } from "./queries/types";
@@ -37,17 +36,9 @@ import { SourcePanel } from "./queries/SourcePanel";
 import { QueryBuilderPanel } from "./queries/QueryBuilderPanel";
 import { ComputedColumnsSection } from "./queries/ComputedColumnsSection";
 import { ResultsSection } from "./queries/ResultsSection";
+import { SchemaPanel } from "./queries/SchemaPanel";
+import { ActionsBar } from "./queries/ActionsBar";
 import { rowsToCsv, downloadCsvFile } from "../../utils/csvUtils";
-import { DashboardNameModal } from "./DashboardNameModal";
-
-/** Auto-suggest display mode based on result shape. */
-export function suggestDisplayMode(result: AnalyticsResult, hasTimeBucket: boolean): TileDisplayMode {
-	if (hasTimeBucket) return "line-chart";
-	if (result.rows.length <= 5 && result.columns.length <= 3) return "stat-card";
-	const numericCols = result.columns.filter((c) => typeof result.rows[0]?.[c] === "number");
-	if (result.rows.length > 5 && numericCols.length > 0 && result.groupCount > 1 && result.groupCount <= 12) return "bar-chart";
-	return "table";
-}
 
 export class QueriesTab {
 	private sources: QuerySource[] = [];
@@ -57,7 +48,7 @@ export class QueriesTab {
 	private measures: MeasureSpec[] = [];
 	private timeBucket: TimeBucketSpec | null = null;
 	private filters: FilterSpec[] = [];
-	private sort: SortSpec | null = null;
+	private sort: SortSpec[] = [];
 	private limit: number | null = null;
 	private computedColumns: ComputedColumn[] = [];
 	private lastResult: AnalyticsResult | null = null;
@@ -111,10 +102,12 @@ export class QueriesTab {
 			running: () => this.running,
 			executeQuery: () => { void this.executeQuery(); },
 			handleExportCsv: (csv) => downloadCsvFile(csv, this.getActiveQueryName()),
-			applyQuickInsight: (dims, measures, timeBucket) => {
+			applyQuickInsight: (dims, measures, timeBucket, sort, limit) => {
 				this.dimensions = dims;
 				this.measures = measures;
 				this.timeBucket = timeBucket;
+				if (sort) this.sort = sort;
+				if (limit !== undefined) this.limit = limit;
 				this.renderDetail();
 				void this.executeQuery();
 			},
@@ -125,6 +118,7 @@ export class QueriesTab {
 		setChartMode: (mode) => { this.chartMode = mode; },
 		chartValueColumn: () => this.chartValueColumn,
 		setChartValueColumn: (col) => { this.chartValueColumn = col; },
+		getDistinctValues: (column) => this.getDistinctValues(column),
 		};
 	}
 
@@ -344,6 +338,14 @@ export class QueriesTab {
 
 		this.detailEl.empty();
 
+		// Ctrl+Enter runs query from anywhere in the detail panel
+		this.detailEl.addEventListener("keydown", (e: KeyboardEvent) => {
+			if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !this.running && this.measures.length > 0) {
+				e.preventDefault();
+				void this.executeQuery();
+			}
+		});
+
 		if (this.sources.length === 0) {
 			this.renderEmptyDetail();
 			return;
@@ -386,7 +388,61 @@ export class QueriesTab {
 		}
 
 		// ── Actions (always visible at top) ─────────────
-		this.renderActions();
+		new ActionsBar({
+			container: this.detailEl,
+			running: this.running,
+			hasMeasures: this.measures.length > 0,
+			hasLoadedSources: this.sources.some((s) => s.data),
+			previewVisible: this.previewVisible,
+			lastResult: this.lastResult,
+			isEditing: !!(state.selectedQueryId && this.deps.analyticsService.getQuery(state.selectedQueryId)),
+			selectedQueryId: state.selectedQueryId,
+			queryName: this.getActiveQueryName(),
+			hasTimeBucket: this.timeBucket !== null,
+			dashboards: this.deps.getState().dashboards,
+			app: this.deps.app,
+			onRunQuery: () => { void this.executeQuery(); },
+			onTogglePreview: () => { this.previewVisible = !this.previewVisible; this.renderDetail(); },
+			onReset: () => {
+				this.sources = [];
+				this.columnTypeHints = [];
+				this.joins = [];
+				this.dimensions = [];
+				this.measures = [];
+				this.timeBucket = null;
+				this.filters = [];
+				this.sort = [];
+				this.limit = null;
+				this.computedColumns = [];
+				this.lastResult = null;
+				this.lastDurationMs = undefined;
+				this.lastError = null;
+				this.renderMaster();
+				this.renderDetail();
+			},
+			onSave: () => { void this.saveCurrentQuery(); },
+			onUpdate: () => { void this.updateCurrentQuery(); },
+			onExportCsv: (result) => this.downloadResultCsv(result, this.getActiveQueryName()),
+			onAddToDashboard: (dashboardId, dashboardName, mode) => {
+				const queryId = this.deps.getState().selectedQueryId;
+				if (!queryId) return;
+				void this.deps.analyticsService.addTile(dashboardId, queryId, mode, this.getActiveQueryName()).then(() => {
+					new Notice(`Added "${this.getActiveQueryName()}" to ${dashboardName}`);
+					this.renderDetail();
+				});
+			},
+			onCreateDashboardAndAdd: (name, mode) => {
+				void this.deps.analyticsService.createDashboard(name).then((dashboard) => {
+					const queryId = this.deps.getState().selectedQueryId;
+					if (!queryId) return;
+					void this.deps.analyticsService.addTile(dashboard.id, queryId, mode, this.getActiveQueryName()).then(() => {
+						new Notice(`Added "${this.getActiveQueryName()}" to ${dashboard.name}`);
+						this.renderDetail();
+					});
+				});
+			},
+			onRenderDetail: () => this.renderDetail(),
+		}).render();
 
 		// ── Execution summary + results (above config) ──
 		this.renderExecutionSummary();
@@ -408,6 +464,7 @@ export class QueriesTab {
 		new SourcePanel(this.detailEl, subDeps).render();
 
 		if (this.getLoadedHeaders().length > 0) {
+			new SchemaPanel(this.detailEl, subDeps).render();
 			new QueryBuilderPanel(this.detailEl, subDeps).render();
 			new ComputedColumnsSection(this.detailEl, subDeps).render();
 		}
@@ -473,180 +530,6 @@ export class QueriesTab {
 		if (queryCount > 0) {
 			wrap.createDiv({ text: `${queryCount} saved queries available`, cls: "ft-text-muted ft-text-sm ft-mt-1" });
 		}
-	}
-
-	// ─────────────────────────────────────────────────────────
-	// Actions (Run / Reset / Save / Update)
-	// ─────────────────────────────────────────────────────────
-
-	private renderActions(): void {
-		const actions = this.detailEl.createDiv({ cls: "ft-detail-actions ft-mt-2" });
-
-		const runLink = actions.createEl("span", { cls: "ft-nav-link" });
-		const runIcon = runLink.createSpan();
-		setIcon(runIcon, "play");
-		runLink.appendText(" Run Query");
-		if (this.running || this.measures.length === 0) {
-			runLink.style.pointerEvents = "none";
-			runLink.style.opacity = "0.5";
-		}
-		runLink.addEventListener("click", () => {
-			if (!this.running && this.measures.length > 0) {
-				void this.executeQuery();
-			}
-		});
-
-		// Preview toggle — peek at source data
-		const hasLoadedSources = this.sources.some((s) => s.data);
-		if (hasLoadedSources) {
-			const previewLink = actions.createEl("span", { cls: "ft-nav-link" });
-			const previewIcon = previewLink.createSpan();
-			setIcon(previewIcon, "eye");
-			previewLink.appendText(this.previewVisible ? " Hide Preview" : " Preview Data");
-			if (this.previewVisible) previewLink.style.color = "var(--text-accent)";
-			previewLink.addEventListener("click", () => {
-				this.previewVisible = !this.previewVisible;
-				this.renderDetail();
-			});
-		}
-
-		const clearLink = actions.createEl("span", { cls: "ft-nav-link" });
-		const clearIcon = clearLink.createSpan();
-		setIcon(clearIcon, "rotate-ccw");
-		clearLink.appendText(" Reset");
-		clearLink.addEventListener("click", () => {
-			this.sources = [];
-			this.columnTypeHints = [];
-			this.joins = [];
-			this.dimensions = [];
-			this.measures = [];
-			this.timeBucket = null;
-			this.filters = [];
-			this.sort = null;
-			this.limit = null;
-			this.computedColumns = [];
-			this.lastResult = null;
-			this.lastDurationMs = undefined;
-			this.lastError = null;
-			this.renderMaster();
-			this.renderDetail();
-		});
-
-		// Save / Update Query
-		if (this.measures.length > 0) {
-			const state = this.deps.getState();
-			const isEditing = state.selectedQueryId && this.deps.analyticsService.getQuery(state.selectedQueryId);
-
-			if (isEditing) {
-				const updateLink = actions.createEl("span", { cls: "ft-nav-link" });
-				const updateIcon = updateLink.createSpan();
-				setIcon(updateIcon, "save");
-				updateLink.appendText(" Update Query");
-				updateLink.addEventListener("click", () => {
-					void this.updateCurrentQuery();
-				});
-			}
-
-			const saveLink = actions.createEl("span", { cls: "ft-nav-link" });
-			const saveIcon = saveLink.createSpan();
-			setIcon(saveIcon, "plus");
-			saveLink.appendText(isEditing ? " Save As New" : " Save Query");
-			saveLink.addEventListener("click", () => {
-				void this.saveCurrentQuery();
-			});
-
-			// Export CSV (when results available)
-			if (this.lastResult && this.lastResult.rows.length > 0) {
-				const csvLink = actions.createEl("span", { cls: "ft-nav-link" });
-				const csvIcon = csvLink.createSpan();
-				setIcon(csvIcon, "download");
-				csvLink.appendText(" Save to CSV");
-				csvLink.addEventListener("click", () => {
-					if (this.lastResult) {
-						this.downloadResultCsv(this.lastResult, this.getActiveQueryName());
-					}
-				});
-
-				// Add to Dashboard
-				if (isEditing) {
-					this.renderAddToDashboard(actions);
-				}
-			}
-		}
-	}
-
-	private addToDashboardOpen = false;
-
-	private renderAddToDashboard(container: HTMLElement): void {
-		const wrapper = container.createSpan();
-		wrapper.style.position = "relative";
-
-		const link = wrapper.createEl("span", { cls: "ft-nav-link" });
-		const icon = link.createSpan();
-		setIcon(icon, "layout-grid");
-		link.appendText(" Add to Dashboard");
-		if (this.addToDashboardOpen) link.style.color = "var(--text-accent)";
-		link.addEventListener("click", (e) => {
-			e.stopPropagation();
-			this.addToDashboardOpen = !this.addToDashboardOpen;
-			this.renderDetail();
-		});
-
-		if (!this.addToDashboardOpen) return;
-
-		const dropdown = wrapper.createDiv();
-		dropdown.style.cssText = "position:absolute;top:100%;left:0;z-index:100;background:var(--background-primary);border:1px solid var(--background-modifier-border);border-radius:6px;padding:0.25rem 0;min-width:200px;box-shadow:0 4px 12px rgba(0,0,0,0.15)";
-
-		const dashboards = this.deps.getState().dashboards;
-		for (const d of dashboards) {
-			const item = dropdown.createDiv({ cls: "ft-master-item ft-text-sm" });
-			item.style.cssText = "padding:0.35rem 0.75rem;cursor:pointer;display:flex;align-items:center;gap:0.5rem";
-			const dIcon = item.createSpan();
-			setIcon(dIcon, "layout-grid");
-			dIcon.style.cssText = "width:14px;height:14px;flex-shrink:0";
-			const nameEl = item.createSpan({ text: d.name });
-			nameEl.style.cssText = "flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
-			item.createSpan({ text: `${d.tiles.length}`, cls: "ft-badge ft-text-xs" });
-			item.addEventListener("click", () => {
-				void this.addQueryToDashboard(d.id, d.name);
-			});
-		}
-
-		// Separator
-		if (dashboards.length > 0) {
-			const sep = dropdown.createDiv();
-			sep.style.cssText = "height:1px;background:var(--background-modifier-border);margin:0.25rem 0";
-		}
-
-		// Create new dashboard
-		const newItem = dropdown.createDiv({ cls: "ft-master-item ft-text-sm" });
-		newItem.style.cssText = "padding:0.35rem 0.75rem;cursor:pointer;display:flex;align-items:center;gap:0.5rem";
-		const newIcon = newItem.createSpan();
-		setIcon(newIcon, "plus");
-		newIcon.style.cssText = "width:14px;height:14px;flex-shrink:0";
-		newItem.createSpan({ text: "New Dashboard" });
-		newItem.addEventListener("click", () => {
-			this.addToDashboardOpen = false;
-			new DashboardNameModal(this.deps.app, {
-				onConfirm: (name) => {
-					void this.deps.analyticsService.createDashboard(name).then((dashboard) => {
-						void this.addQueryToDashboard(dashboard.id, dashboard.name);
-					});
-				},
-			}).open();
-		});
-	}
-
-	private async addQueryToDashboard(dashboardId: string, dashboardName: string): Promise<void> {
-		this.addToDashboardOpen = false;
-		const queryId = this.deps.getState().selectedQueryId;
-		if (!queryId || !this.lastResult) return;
-
-		const mode = suggestDisplayMode(this.lastResult, this.timeBucket !== null);
-		const title = this.getActiveQueryName();
-		await this.deps.analyticsService.addTile(dashboardId, queryId, mode, title);
-		new Notice(`Added "${title}" to ${dashboardName}`);
-		this.renderDetail();
 	}
 
 	// ─────────────────────────────────────────────────────────
@@ -733,9 +616,7 @@ export class QueriesTab {
 		if (this.timeBucket && !headerSet.has(this.timeBucket.column)) {
 			this.timeBucket = null;
 		}
-		if (this.sort && !headerSet.has(this.sort.column)) {
-			this.sort = null;
-		}
+		this.sort = this.sort.filter((s) => headerSet.has(s.column));
 		const aliases = new Set(this.sources.map((s) => s.alias));
 		this.joins = this.joins.filter((j) => aliases.has(j.leftSource) && aliases.has(j.rightSource));
 	}
@@ -753,6 +634,27 @@ export class QueriesTab {
 			}
 		}
 		return headers;
+	}
+
+	private getDistinctValues(column: string): string[] {
+		const MAX_SCAN = 1000;
+		const MAX_VALUES = 20;
+		const values = new Set<string>();
+		for (const src of this.sources) {
+			if (!src.data) continue;
+			const idx = src.data.headers.indexOf(column);
+			if (idx < 0) continue;
+			const rows = src.data.rows;
+			const limit = Math.min(rows.length, MAX_SCAN);
+			for (let i = 0; i < limit; i++) {
+				const val = rows[i][idx];
+				if (val !== undefined && val !== null && val !== "") {
+					values.add(String(val));
+					if (values.size >= MAX_VALUES) return [...values];
+				}
+			}
+		}
+		return [...values];
 	}
 
 	// ─────────────────────────────────────────────────────────
@@ -784,7 +686,7 @@ export class QueriesTab {
 				measures: this.measures,
 				timeBucket: this.timeBucket ?? undefined,
 				filters: this.filters.length > 0 ? this.filters : undefined,
-				sort: this.sort ?? undefined,
+				sort: this.sort.length > 0 ? this.sort : undefined,
 				limit: this.limit ?? undefined,
 				computedColumns: this.computedColumns.length > 0 ? this.computedColumns : undefined,
 			};
@@ -824,7 +726,7 @@ export class QueriesTab {
 			measures: this.measures,
 			timeBucket: this.timeBucket ?? undefined,
 			filters: this.filters.length > 0 ? this.filters : undefined,
-			sort: this.sort ?? undefined,
+			sort: this.sort.length > 0 ? this.sort : undefined,
 			limit: this.limit ?? undefined,
 			computedColumns: this.computedColumns.length > 0 ? this.computedColumns : undefined,
 		};
@@ -870,7 +772,7 @@ export class QueriesTab {
 		this.measures = [];
 		this.timeBucket = null;
 		this.filters = [];
-		this.sort = null;
+		this.sort = [];
 		this.limit = null;
 		this.computedColumns = [];
 		this.lastResult = null;
@@ -900,7 +802,7 @@ export class QueriesTab {
 		this.measures = [...saved.measures];
 		this.timeBucket = saved.timeBucket ? { ...saved.timeBucket } : null;
 		this.filters = saved.filters ? saved.filters.map((f) => ({ ...f })) : [];
-		this.sort = saved.sort ? { ...saved.sort } : null;
+		this.sort = saved.sort ? saved.sort.map((s) => ({ ...s })) : [];
 		this.limit = saved.limit ?? null;
 		this.computedColumns = saved.computedColumns ? saved.computedColumns.map((c) => ({ ...c })) : [];
 		this.lastResult = null;

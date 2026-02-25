@@ -131,6 +131,8 @@ export class SourcePanel {
 				[...insight.dimensions],
 				[...insight.measures],
 				insight.timeBucket ? { ...insight.timeBucket } : null,
+				insight.sort ? insight.sort.map((s) => ({ ...s })) : undefined,
+				insight.limit,
 			);
 		});
 	}

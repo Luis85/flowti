@@ -28,7 +28,7 @@ import { AnalyticsService } from "../../src/domain/analytics/AnalyticsService";
 import { AnalyticsEngine } from "../../src/domain/analytics/AnalyticsEngine";
 import type { AnalyticsResult, AnalyticsState, DashboardTile } from "../../src/domain/analytics/types";
 import { escapeCsvField, rowsToCsv } from "../../src/utils/csvUtils";
-import { suggestDisplayMode } from "../../src/ui/analytics/QueriesTab";
+import { suggestDisplayMode } from "../../src/ui/analytics/queries/ActionsBar";
 import { createMockStorage } from "./testHelpers";
 
 // ── Fixtures ─────────────────────────────────────────────────

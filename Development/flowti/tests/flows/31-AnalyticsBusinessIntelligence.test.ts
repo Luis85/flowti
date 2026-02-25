@@ -58,7 +58,7 @@ describe("Flow 31: Analytics Business Intelligence", () => {
 	// ── Quick Insights ──────────────────────────────────────
 
 	describe("Quick Insights generation", () => {
-		it("should generate 3 suggestions for text + numeric + date columns", () => {
+		it("should generate 5 suggestions for text + numeric + date columns", () => {
 			const hints = [
 				{ column: "Supplier", type: "string" as const },
 				{ column: "Revenue", type: "number" as const },
@@ -67,16 +67,21 @@ describe("Flow 31: Analytics Business Intelligence", () => {
 
 			const suggestions = generateQuickInsights(hints, SUPPLIER_HEADERS);
 
-			expect(suggestions).toHaveLength(3);
+			expect(suggestions).toHaveLength(5);
 			expect(suggestions[0].title).toBe("Total Revenue by Supplier");
 			expect(suggestions[0].measures[0].function).toBe("SUM");
 			expect(suggestions[1].title).toBe("Count by Supplier");
 			expect(suggestions[1].measures[0].function).toBe("COUNT");
 			expect(suggestions[2].title).toBe("Revenue over time");
 			expect(suggestions[2].timeBucket?.period).toBe("month");
+			expect(suggestions[3].title).toBe("Average Revenue by Supplier");
+			expect(suggestions[3].measures[0].function).toBe("AVG");
+			expect(suggestions[4].title).toBe("Top 5 Supplier by Revenue");
+			expect(suggestions[4].sort).toEqual([{ column: "SUM(Revenue)", direction: "desc" }]);
+			expect(suggestions[4].limit).toBe(5);
 		});
 
-		it("should generate 2 suggestions for text + numeric only (no date)", () => {
+		it("should generate 4 suggestions for text + numeric only (no date)", () => {
 			const hints = [
 				{ column: "Supplier", type: "string" as const },
 				{ column: "Revenue", type: "number" as const },
@@ -84,9 +89,11 @@ describe("Flow 31: Analytics Business Intelligence", () => {
 
 			const suggestions = generateQuickInsights(hints, SUPPLIER_HEADERS);
 
-			expect(suggestions).toHaveLength(2);
+			expect(suggestions).toHaveLength(4);
 			expect(suggestions[0].title).toBe("Total Revenue by Supplier");
 			expect(suggestions[1].title).toBe("Count by Supplier");
+			expect(suggestions[2].title).toBe("Average Revenue by Supplier");
+			expect(suggestions[3].title).toBe("Top 5 Supplier by Revenue");
 		});
 
 		it("should return empty for fewer than 2 columns", () => {
@@ -94,15 +101,16 @@ describe("Flow 31: Analytics Business Intelligence", () => {
 			expect(generateQuickInsights(hints, ["Name"])).toHaveLength(0);
 		});
 
-		it("should return empty for all-text columns with no numeric", () => {
+		it("should generate distribution for 2 text columns with no numeric", () => {
 			const hints = [
 				{ column: "Name", type: "string" as const },
 				{ column: "Label", type: "string" as const },
 			];
-			// Rule 1 needs text + numeric, Rule 2 needs text + (numeric or date), Rule 3 needs date + numeric
-			// Only Rule 2 fires (text + text has no numeric or date → no count either)
+			// Rule 6: Distribution of Name × Label (COUNT)
 			const suggestions = generateQuickInsights(hints, ["Name", "Label"]);
-			expect(suggestions).toHaveLength(0);
+			expect(suggestions).toHaveLength(1);
+			expect(suggestions[0].title).toBe("Distribution of Name × Label");
+			expect(suggestions[0].measures[0].function).toBe("COUNT");
 		});
 	});
 

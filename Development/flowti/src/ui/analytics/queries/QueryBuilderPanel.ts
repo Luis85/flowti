@@ -13,15 +13,15 @@ import type {
 	JoinSpec,
 	TimeBucketPeriod,
 	AggregationFunction,
-	FilterOperator,
 } from "./types";
 import {
 	AGG_FUNCTIONS,
 	TIME_PERIODS,
-	FILTER_OPERATORS,
 	SELECT_CSS,
 	INPUT_CSS,
 } from "./types";
+import { renderColumnPicker } from "./columnPicker";
+import { FilterBuilderPanel } from "./FilterBuilderPanel";
 
 export class QueryBuilderPanel {
 	constructor(
@@ -41,7 +41,7 @@ export class QueryBuilderPanel {
 		this.renderDimensionConfig();
 		this.renderMeasureConfig();
 		this.renderTimeBucketConfig();
-		this.renderFilterConfig();
+		new FilterBuilderPanel(this.container, this.deps).render();
 		this.renderSortLimitConfig();
 	}
 
@@ -247,15 +247,13 @@ export class QueryBuilderPanel {
 
 			row.createSpan({ text: "(", cls: "ft-text-muted" });
 
-			const colSelect = row.createEl("select");
-			colSelect.style.cssText = SELECT_CSS;
-			for (const h of allHeaders) {
-				const opt = colSelect.createEl("option");
-				opt.value = h;
-				opt.textContent = h;
-				if (measure.column === h) opt.selected = true;
-			}
-			colSelect.addEventListener("change", () => { measure.column = colSelect.value; });
+			renderColumnPicker(row, {
+				headers: allHeaders,
+				typeHints: hints,
+				selected: measure.column,
+				cssText: SELECT_CSS,
+				onChange: (col) => { measure.column = col; },
+			});
 
 			row.createSpan({ text: ")", cls: "ft-text-muted" });
 
@@ -327,110 +325,53 @@ export class QueryBuilderPanel {
 		}
 	}
 
-	private renderFilterConfig(): void {
+	private renderSortLimitConfig(): void {
 		const section = this.container.createDiv({ cls: "ft-card ft-mt-3" });
 		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		header.createDiv({ text: "Filters", cls: "ft-detail-section-header" });
+		header.createDiv({ text: "Sort & Limit", cls: "ft-detail-section-header" });
 		header.style.margin = "0";
 
-		const allHeaders = this.deps.getLoadedHeaders();
+		const sorts = this.deps.sort();
+		if (sorts.length > 0) {
+			header.createSpan({ text: `${sorts.length}`, cls: "ft-badge ft-badge-muted" });
+		}
 
 		const addBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 		addBtn.style.marginLeft = "auto";
 		const addIcon = addBtn.createSpan();
 		setIcon(addIcon, "plus");
-		addBtn.appendText(" Add");
+		addBtn.appendText(" Add Sort");
 		addBtn.addEventListener("click", () => {
-			const filters = this.deps.filters();
-			filters.push({
-				column: allHeaders[0] ?? "",
-				operator: "=",
-				value: "",
-			});
-			this.deps.setFilters(filters);
+			const current = this.deps.sort();
+			const usedCols = new Set(current.map((s) => s.column));
+			const available = this.deps.getLoadedHeaders().find((h) => !usedCols.has(h));
+			current.push({ column: available ?? this.deps.getLoadedHeaders()[0] ?? "", direction: "asc" });
+			this.deps.setSort(current);
 			this.deps.renderDetail();
 		});
 
-		const filters = this.deps.filters();
-		for (let i = 0; i < filters.length; i++) {
-			const filter = filters[i];
+		if (sorts.length === 0) {
+			section.createDiv({ text: "No sort columns", cls: "ft-text-muted ft-text-sm ft-p-2" });
+		}
+
+		for (let i = 0; i < sorts.length; i++) {
+			const sortSpec = sorts[i];
 			const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
 			row.style.padding = "0.35rem 0.5rem";
 			row.style.borderBottom = "1px solid var(--background-modifier-border)";
 
-			const colSelect = row.createEl("select");
-			colSelect.style.cssText = SELECT_CSS;
-			for (const h of allHeaders) {
-				const opt = colSelect.createEl("option");
-				opt.value = h;
-				opt.textContent = h;
-				if (filter.column === h) opt.selected = true;
-			}
-			colSelect.addEventListener("change", () => { filter.column = colSelect.value; });
+			row.createSpan({ text: i === 0 ? "Sort by" : "then by", cls: "ft-text-muted ft-text-sm" });
 
-			const opSelect = row.createEl("select");
-			opSelect.style.cssText = SELECT_CSS;
-			for (const op of FILTER_OPERATORS) {
-				const opt = opSelect.createEl("option");
-				opt.value = op.id;
-				opt.textContent = op.label;
-				if (filter.operator === op.id) opt.selected = true;
-			}
-			opSelect.addEventListener("change", () => { filter.operator = opSelect.value as FilterOperator; });
-
-			const valInput = row.createEl("input", { type: "text" });
-			valInput.value = filter.value;
-			valInput.placeholder = "Value";
-			valInput.style.cssText = INPUT_CSS + ";width:120px";
-			valInput.addEventListener("change", () => { filter.value = valInput.value; });
-
-			const removeBtn = row.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-			const removeIcon = removeBtn.createSpan();
-			setIcon(removeIcon, "x");
-			removeBtn.addEventListener("click", () => {
-				const current = this.deps.filters();
-				current.splice(i, 1);
-				this.deps.setFilters(current);
-				this.deps.renderDetail();
-			});
-		}
-
-		if (filters.length === 0) {
-			section.createDiv({ text: "No filters — all rows included", cls: "ft-text-muted ft-text-sm ft-p-2" });
-		}
-	}
-
-	private renderSortLimitConfig(): void {
-		const section = this.container.createDiv({ cls: "ft-card ft-mt-3" });
-		section.createDiv({ text: "Sort & Limit", cls: "ft-detail-section-header" });
-
-		const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
-		row.style.padding = "0.35rem 0.5rem";
-
-		const currentSort = this.deps.sort();
-		const sortCb = row.createEl("input", { type: "checkbox" });
-		sortCb.checked = currentSort !== null;
-		sortCb.addEventListener("change", () => {
-			this.deps.setSort(sortCb.checked
-				? { column: this.deps.getLoadedHeaders()[0] ?? "", direction: "asc" }
-				: null);
-			this.deps.renderDetail();
-		});
-
-		if (currentSort) {
-			row.createSpan({ text: "Sort by", cls: "ft-text-muted ft-text-sm" });
-
-			const colSelect = row.createEl("select");
-			colSelect.style.cssText = SELECT_CSS;
-			for (const h of this.deps.getLoadedHeaders()) {
-				const opt = colSelect.createEl("option");
-				opt.value = h;
-				opt.textContent = h;
-				if (currentSort.column === h) opt.selected = true;
-			}
-			colSelect.addEventListener("change", () => {
-				const s = this.deps.sort();
-				if (s) s.column = colSelect.value;
+			renderColumnPicker(row, {
+				headers: this.deps.getLoadedHeaders(),
+				typeHints: this.deps.columnTypeHints(),
+				selected: sortSpec.column,
+				cssText: SELECT_CSS,
+				onChange: (col) => {
+					const current = this.deps.sort();
+					current[i].column = col;
+					this.deps.setSort(current);
+				},
 			});
 
 			const dirSelect = row.createEl("select");
@@ -439,14 +380,23 @@ export class QueryBuilderPanel {
 				const opt = dirSelect.createEl("option");
 				opt.value = dir;
 				opt.textContent = dir === "asc" ? "Ascending" : "Descending";
-				if (currentSort.direction === dir) opt.selected = true;
+				if (sortSpec.direction === dir) opt.selected = true;
 			}
 			dirSelect.addEventListener("change", () => {
-				const s = this.deps.sort();
-				if (s) s.direction = dirSelect.value as "asc" | "desc";
+				const current = this.deps.sort();
+				current[i].direction = dirSelect.value as "asc" | "desc";
+				this.deps.setSort(current);
 			});
-		} else {
-			row.createSpan({ text: "Enable sorting", cls: "ft-text-muted ft-text-sm" });
+
+			const removeBtn = row.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+			const removeIcon = removeBtn.createSpan();
+			setIcon(removeIcon, "x");
+			removeBtn.addEventListener("click", () => {
+				const current = this.deps.sort();
+				current.splice(i, 1);
+				this.deps.setSort(current);
+				this.deps.renderDetail();
+			});
 		}
 
 		// Limit

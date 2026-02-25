@@ -1,14 +1,17 @@
 /**
  * Quick Insights — auto-suggested queries based on detected column types.
  *
- * Pure function: takes column type hints + headers → returns up to 3 suggestions.
+ * Pure function: takes column type hints + headers → returns up to 6 suggestions.
  * Rules:
  *   1. First text column as dimension + first numeric column SUM → "Total [numeric] by [text]"
  *   2. First text column as dimension + COUNT → "Count by [text]"
  *   3. If date column detected → first numeric SUM + time bucket month → "[numeric] over time"
+ *   4. First text + first numeric AVG → "Average [numeric] by [text]"
+ *   5. First text + first numeric SUM + limit 5 + desc sort → "Top 5 [text] by [numeric]"
+ *   6. If 2+ text columns → COUNT grouped by both → "Distribution of [text1] × [text2]"
  */
 
-import type { ColumnTypeHint, DimensionSpec, MeasureSpec, TimeBucketSpec } from "./types";
+import type { ColumnTypeHint, DimensionSpec, MeasureSpec, SortSpec, TimeBucketSpec } from "./types";
 
 /** A quick insight suggestion that can populate the query builder. */
 export interface QuickInsightSuggestion {
@@ -22,6 +25,10 @@ export interface QuickInsightSuggestion {
 	measures: MeasureSpec[];
 	/** Optional time bucket to set */
 	timeBucket?: TimeBucketSpec;
+	/** Optional sort to set */
+	sort?: SortSpec[];
+	/** Optional limit to set */
+	limit?: number;
 }
 
 /**
@@ -76,5 +83,40 @@ export function generateQuickInsights(
 		});
 	}
 
-	return suggestions.slice(0, 3);
+	// Rule 4: "Average [numeric] by [text]" — AVG
+	if (firstText && firstNum) {
+		suggestions.push({
+			title: `Average ${firstNum.column} by ${firstText.column}`,
+			description: `AVG of ${firstNum.column}, grouped by ${firstText.column}`,
+			dimensions: [{ column: firstText.column }],
+			measures: [{ column: firstNum.column, function: "AVG" }],
+		});
+	}
+
+	// Rule 5: "Top 5 [text] by [numeric]" — SUM + limit + sort desc
+	if (firstText && firstNum) {
+		suggestions.push({
+			title: `Top 5 ${firstText.column} by ${firstNum.column}`,
+			description: `Highest ${firstNum.column} entries`,
+			dimensions: [{ column: firstText.column }],
+			measures: [{ column: firstNum.column, function: "SUM" }],
+			sort: [{ column: `SUM(${firstNum.column})`, direction: "desc" }],
+			limit: 5,
+		});
+	}
+
+	// Rule 6: "Distribution of [text1] × [text2]" — COUNT grouped by two text columns
+	if (textCols.length >= 2) {
+		const t1 = textCols[0];
+		const t2 = textCols[1];
+		const countCol = firstNum?.column ?? t1.column;
+		suggestions.push({
+			title: `Distribution of ${t1.column} × ${t2.column}`,
+			description: `Count per ${t1.column} and ${t2.column} combination`,
+			dimensions: [{ column: t1.column }, { column: t2.column }],
+			measures: [{ column: countCol, function: "COUNT" }],
+		});
+	}
+
+	return suggestions.slice(0, 6);
 }

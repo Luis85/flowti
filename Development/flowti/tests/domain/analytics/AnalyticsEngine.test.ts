@@ -657,4 +657,136 @@ describe("AnalyticsEngine", () => {
 			expect(elapsed).toBeLessThan(2000);
 		});
 	});
+
+	// ── Multi-column sort ──────────────────────────────────
+
+	describe("Multi-column sort", () => {
+		const multiSortSource = makeSource(
+			"data",
+			["dept", "name", "score"],
+			[
+				["B", "Alice", "90"],
+				["A", "Bob", "80"],
+				["A", "Charlie", "90"],
+				["B", "Dave", "80"],
+				["A", "Eve", "90"],
+			],
+		);
+
+		it("should sort by single column ascending", () => {
+			const result = engine.run({
+				sources: [multiSortSource],
+				joins: [],
+				columnTypeHints: [{ column: "score", type: "number" }],
+				dimensions: [{ column: "dept" }, { column: "name" }],
+				measures: [{ column: "score", function: "SUM" }],
+				sort: [{ column: "name", direction: "asc" }],
+			});
+
+			const names = result.rows.map((r) => r.name);
+			expect(names).toEqual(["Alice", "Bob", "Charlie", "Dave", "Eve"]);
+		});
+
+		it("should sort by two columns (primary + secondary)", () => {
+			const result = engine.run({
+				sources: [multiSortSource],
+				joins: [],
+				columnTypeHints: [{ column: "score", type: "number" }],
+				dimensions: [{ column: "dept" }, { column: "name" }],
+				measures: [{ column: "score", function: "SUM" }],
+				sort: [
+					{ column: "dept", direction: "asc" },
+					{ column: "SUM(score)", direction: "desc" },
+				],
+			});
+
+			// Dept A first (asc), then within A: highest score first (desc)
+			expect(result.rows[0].dept).toBe("A");
+			expect(result.rows[0].name).toBe("Charlie"); // 90
+			expect(result.rows[1].name).toBe("Eve"); // 90 (same score, stable or locale)
+			expect(result.rows[2].name).toBe("Bob"); // 80
+			// Dept B
+			expect(result.rows[3].dept).toBe("B");
+		});
+
+		it("should sort by two columns with mixed directions", () => {
+			const result = engine.run({
+				sources: [multiSortSource],
+				joins: [],
+				columnTypeHints: [{ column: "score", type: "number" }],
+				dimensions: [{ column: "dept" }, { column: "name" }],
+				measures: [{ column: "score", function: "SUM" }],
+				sort: [
+					{ column: "dept", direction: "desc" },
+					{ column: "name", direction: "asc" },
+				],
+			});
+
+			// Dept B first (desc), then alphabetical within dept
+			expect(result.rows[0].dept).toBe("B");
+			expect(result.rows[0].name).toBe("Alice");
+			expect(result.rows[1].name).toBe("Dave");
+			expect(result.rows[2].dept).toBe("A");
+			expect(result.rows[2].name).toBe("Bob");
+		});
+
+		it("should handle empty sort array (no sorting)", () => {
+			const result = engine.run({
+				sources: [multiSortSource],
+				joins: [],
+				columnTypeHints: [{ column: "score", type: "number" }],
+				dimensions: [{ column: "dept" }],
+				measures: [{ column: "score", function: "SUM" }],
+				sort: [],
+			});
+
+			// Should still return results (just unsorted)
+			expect(result.rows).toHaveLength(2);
+		});
+
+		it("should sort numerically for number columns", () => {
+			const numSource = makeSource(
+				"data",
+				["name", "value"],
+				[
+					["A", "100"],
+					["B", "20"],
+					["C", "3"],
+				],
+			);
+
+			const result = engine.run({
+				sources: [numSource],
+				joins: [],
+				columnTypeHints: [{ column: "value", type: "number" }],
+				dimensions: [{ column: "name" }],
+				measures: [{ column: "value", function: "SUM" }],
+				sort: [{ column: "SUM(value)", direction: "asc" }],
+			});
+
+			const values = result.rows.map((r) => r["SUM(value)"]);
+			expect(values).toEqual([3, 20, 100]);
+		});
+
+		it("should apply limit after multi-column sort", () => {
+			const result = engine.run({
+				sources: [multiSortSource],
+				joins: [],
+				columnTypeHints: [{ column: "score", type: "number" }],
+				dimensions: [{ column: "dept" }, { column: "name" }],
+				measures: [{ column: "score", function: "SUM" }],
+				sort: [
+					{ column: "SUM(score)", direction: "desc" },
+					{ column: "name", direction: "asc" },
+				],
+				limit: 3,
+			});
+
+			expect(result.rows).toHaveLength(3);
+			// Top 3 by score desc: Alice(90), Charlie(90), Eve(90) — alphabetical tiebreaker
+			expect(result.rows[0].name).toBe("Alice");
+			expect(result.rows[1].name).toBe("Charlie");
+			expect(result.rows[2].name).toBe("Eve");
+		});
+	});
 });

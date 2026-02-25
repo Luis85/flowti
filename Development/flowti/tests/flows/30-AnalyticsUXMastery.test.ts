@@ -152,7 +152,7 @@ describe("Flow 30: Analytics UX Mastery", () => {
 				columnTypeHints: [{ column: "Amount", type: "number" }],
 				dimensions: [{ column: "Product" }],
 				measures: [{ column: "Amount", function: "SUM" }],
-				sort: { column: "SUM(Amount)", direction: "asc" },
+				sort: [{ column: "SUM(Amount)", direction: "asc" }],
 			});
 
 			const amounts = result.rows.map((r) => r["SUM(Amount)"] as number);
@@ -168,7 +168,7 @@ describe("Flow 30: Analytics UX Mastery", () => {
 				columnTypeHints: [{ column: "Amount", type: "number" }],
 				dimensions: [{ column: "Product" }],
 				measures: [{ column: "Amount", function: "SUM" }],
-				sort: { column: "SUM(Amount)", direction: "desc" },
+				sort: [{ column: "SUM(Amount)", direction: "desc" }],
 			});
 
 			const amounts = result.rows.map((r) => r["SUM(Amount)"] as number);
@@ -184,7 +184,7 @@ describe("Flow 30: Analytics UX Mastery", () => {
 				columnTypeHints: [{ column: "Amount", type: "number" }],
 				dimensions: [{ column: "Product" }],
 				measures: [{ column: "Amount", function: "SUM" }],
-				sort: { column: "SUM(Amount)", direction: "desc" },
+				sort: [{ column: "SUM(Amount)", direction: "desc" }],
 				limit: 2,
 			});
 
@@ -202,7 +202,7 @@ describe("Flow 30: Analytics UX Mastery", () => {
 				dimensions: [{ column: "Product" }],
 				measures: [{ column: "Amount", function: "SUM" }],
 				filters: [{ column: "Category", operator: "!=", value: "Clothing" }],
-				sort: { column: "SUM(Amount)", direction: "desc" },
+				sort: [{ column: "SUM(Amount)", direction: "desc" }],
 				limit: 3,
 			});
 
@@ -401,7 +401,7 @@ describe("Flow 30: Analytics UX Mastery", () => {
 					columnTypeHints: [{ column: "Amount", type: "number" }],
 					dimensions: [{ column: "Product" }],
 					measures: [{ column: "Amount", function: "SUM" }],
-					sort: { column: "SUM(Amount)", direction: "desc" },
+					sort: [{ column: "SUM(Amount)", direction: "desc" }],
 					limit: 2,
 				},
 			);
@@ -439,7 +439,7 @@ describe("Flow 30: Analytics UX Mastery", () => {
 				columnTypeHints: [],
 				dimensions: [{ column: "Category" }],
 				measures: [{ column: "Amount", function: "COUNT" }],
-				sort: { column: "Category", direction: "asc" },
+				sort: [{ column: "Category", direction: "asc" }],
 			});
 
 			const categories = result.rows.map((r) => r["Category"] as string);

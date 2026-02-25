@@ -3,7 +3,7 @@ domain: Analytics
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
 stage: delivered
-version: 12
+version: 13
 maturity: L2
 created: 2026-02-23
 updated: 2026-02-25
@@ -157,7 +157,7 @@ Primary interaction path:
 ### Query Power & UX Mastery (v3 — Cycle 30)
 
 - [x] FR-21: User can add WHERE filters to queries; `FilterSpec` with column, operator (=, !=, >, <, >=, <=, contains, startsWith), and value
-- [x] FR-22: User can add ORDER BY sorting to queries; `SortSpec` with column and direction (asc/desc)
+- [x] FR-22: User can add ORDER BY sorting to queries; `SortSpec` with column and direction (asc/desc) (superseded by FR-89 multi-column sort)
 - [x] FR-23: User can set a LIMIT on query results; optional max row count applied after aggregation
 - [x] FR-24: Source preview panel shows column names, inferred types, row count, and first 5 sample rows when a source is loaded
 - [x] FR-25: User can rename a saved query; new name persists
@@ -243,6 +243,18 @@ Primary interaction path:
 - [x] FR-84: CSV right-click file menu includes "Analyze in Analytics Hub" item that opens the Analytics Hub Queries tab with the CSV file path as navigation entity
 - [x] FR-85: Analytics Hub `onNavigateToEntity` routes CSV file paths to Queries tab with automatic source addition; routes query IDs to query loading; routes dashboard IDs to dashboard selection. Related queries section in master list shows saved queries sharing sources with the active query
 
+### Query Builder Improvements (v13 — Cycle 38)
+
+- [x] FR-86: Schema panel displays all available columns grouped by detected type (number, date, string) with column count and source alias badges for multi-source queries; panel is collapsible (default expanded)
+- [x] FR-87: Column picker utility renders `<select>` elements with `<optgroup>` by type; used in dimension, measure, filter column, and sort column dropdowns
+- [x] FR-88: Filter builder displays type-appropriate operators per column: string columns show `=, !=, contains, startsWith`; number/date columns show `=, !=, >, <, >=, <=`; string columns show a `<datalist>` with up to 20 distinct values from loaded source data (scanned up to 1,000 rows)
+- [x] FR-89: Queries support multi-column sort — `SortSpec[]` array with independent direction per column; engine chains comparisons left-to-right with stable tie-breaking; saved queries with legacy single `SortSpec` are migrated to array on load
+- [x] FR-90: Expression validator checks computed column expressions in real-time on blur: validates balanced braces, valid column references, valid function names (ROUND, ABS, IF, CHANGE, PCT_CHANGE, ROLLING_AVG), and argument counts; inline error messages displayed below input
+- [x] FR-91: Quick Insights generates up to 6 auto-suggested queries (up from 3): Total by, Count by, Over Time, Average by, Top 5, Distribution; "Top 5" includes sort desc + limit 5; "Distribution" groups by 2 text columns
+- [x] FR-92: Schema panel columns are clickable — clicking a number column adds it as a SUM measure, clicking a text/date column adds it as a dimension; de-duplicates (no-op if already present)
+- [x] FR-93: Filter and sort section headers show count badges indicating the number of active filters and sort columns
+- [x] FR-94: Ctrl+Enter (Cmd+Enter on Mac) keyboard shortcut runs the query from anywhere within the detail panel
+
 ## 6. Data Model Impact
 
 ### New Types
@@ -260,8 +272,8 @@ Primary interaction path:
 | Type | Change |
 |------|--------|
 | `SavedAnalyticsQuerySource` | Add `sourcePath`, `sourceType` (`"csv" \| "base"`), `viewIndex?`; backward-compat with existing `csvPath` |
-| `SavedAnalyticsQuery` | Add `isFavorite?: boolean` (v2); add `filters?: FilterSpec[]`, `sort?: SortSpec`, `limit?: number` (v3); add `computedColumns?: ComputedColumn[]` (v4); add `description?: string` (v8) |
-| `AnalyticsQuery` | Add `filters?: FilterSpec[]`, `sort?: SortSpec`, `limit?: number` (v3); add `computedColumns?: ComputedColumn[]` (v4) |
+| `SavedAnalyticsQuery` | Add `isFavorite?: boolean` (v2); add `filters?: FilterSpec[]`, `sort?: SortSpec[]`, `limit?: number` (v3, v13 array); add `computedColumns?: ComputedColumn[]` (v4); add `description?: string` (v8) |
+| `AnalyticsQuery` | Add `filters?: FilterSpec[]`, `sort?: SortSpec[]`, `limit?: number` (v3, v13 array); add `computedColumns?: ComputedColumn[]` (v4) |
 
 ### v3 Types (Cycle 30)
 
@@ -348,6 +360,21 @@ Primary interaction path:
 | Type | Fields | Storage |
 |------|--------|---------|
 | `QueryMapEntry` | `{ query: SavedAnalyticsQuery; tileCount: number; sourceBasenames: string[] }` | Runtime (DashboardQueryMap component) |
+
+### Modified Types (v13)
+
+| Type | Change |
+|------|--------|
+| `AnalyticsQuery.sort` | `SortSpec \| undefined` → `SortSpec[] \| undefined` (multi-column sort) |
+| `SavedAnalyticsQuery.sort` | `SortSpec \| undefined` → `SortSpec[] \| undefined` (migration on load) |
+| `QuickInsightSuggestion` | Add `sort?: SortSpec[]`, `limit?: number` |
+
+### New Types (v13)
+
+| Type | Fields | Storage |
+|------|--------|---------|
+| `ExpressionValidationResult` | `{ valid: boolean; errors: string[] }` | Runtime (expressionValidator) |
+| `AnalyticsHandlerContext` | getState, save, eventBus, generateId, getQuery, getDashboard | Runtime (handler module context) |
 
 ### Removed from DataExchangeState
 
@@ -569,6 +596,24 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 - [x] Related queries section in master list shows queries sharing sources
 - [x] Flow 37 integration test passes (26 tests)
 
+### v13 Acceptance Criteria (Cycle 38)
+
+- [x] Schema panel shows columns grouped by type with source badges; collapsible
+- [x] Column picker utility used in dimension, measure, filter, and sort dropdowns
+- [x] Filter builder shows type-appropriate operators; string columns have value datalist
+- [x] Multi-column sort works with 1-N sort columns, each with independent direction
+- [x] Saved queries with legacy single SortSpec migrated to array on load
+- [x] Expression validator catches: empty, unbalanced braces, unknown columns, unknown functions, wrong arg counts
+- [x] Validation errors display inline below expression input on blur
+- [x] Quick Insights generates up to 6 suggestions; "Top 5" uses sort+limit, "Distribution" groups 2 text columns
+- [x] Schema panel click-to-insert: number columns add as SUM measure, text/date as dimension
+- [x] Filter/sort count badges visible in section headers
+- [x] Ctrl+Enter runs query from anywhere in detail panel
+- [x] AnalyticsService ≤ 620 LOC after dashboard handler extraction
+- [x] QueriesTab ≤ 830 LOC after ActionsBar extraction
+- [x] All existing flow tests pass (backward compat)
+- [x] 4,746 tests passing (196 suites)
+
 ## 13. Definition of Done
 
 - `VIEW_TYPE_ANALYTICS_HUB` constant added to `src/domain/hub/types.ts`
@@ -630,6 +675,13 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 | [[PBI-ANA-063 CSV File-Menu Analyze]] | "Analyze in Analytics Hub" right-click menu item for CSV files | Delivered | High | ANA-060 |
 | [[PBI-ANA-064 Source Pre-Selection]] | `onNavigateToEntity` override + related queries in Queries tab master | Delivered | High | ANA-060 |
 | [[PBI-ANA-065 Cross-Domain Flow Test]] | Flow 37 integration test (26 tests) + PRD v12 | Delivered | High | ANA-060–064 |
+| [[PBI-ANA-070 Schema Browser and Column Picker]] | Collapsible schema panel + reusable column picker utility | Delivered | Critical | — |
+| [[PBI-ANA-071 Visual Filter Builder]] | Type-aware filter rows with value suggestions | Delivered | Critical | ANA-070 |
+| [[PBI-ANA-072 Multi-Column Sort]] | SortSpec[] migration + multi-column engine + sort UI | Delivered | Critical | ANA-070 |
+| [[PBI-ANA-073 Expression Validation]] | Pure expression validator + inline error display | Delivered | High | — |
+| [[PBI-ANA-074 AnalyticsService Dashboard CRUD Extraction]] | Handler extraction (916→619 LOC, TD-ANA-002) | Delivered | High | — |
+| [[PBI-ANA-075 QueriesTab Source and Actions Extraction]] | ActionsBar extraction (950→820 LOC, TD-ANA-003) | Delivered | High | ANA-071 |
+| [[PBI-ANA-076 Enhanced Quick Insights and UX Polish]] | 3 new insight rules + schema click-to-insert + badges + Ctrl+Enter | Delivered | High | ANA-070, ANA-072 |
 
 > **Analytics Hub v1 delivered (2026-02-23):** 5 PBIs in Cycle 28. Hub shell, dashboards, .base sources, independent persistence. 4,338 tests (178 suites).
 > **Analytics Hub v2 delivered (2026-02-23):** 5 PBIs in Cycle 29. Favorites, default dashboard, dashboard-first overview, per-tile refresh, Supplier Manager persona. 4,358 tests (179 suites).
@@ -639,6 +691,7 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 > **Analytics Hub v6 delivered (2026-02-24):** 5 PBIs in Cycle 33. Function call parser, trend window functions (CHANGE, PCT_CHANGE, ROLLING_AVG), scalar expression functions (ROUND, ABS, IF), conditional formatting rule builder UI, homepage pinning, query list UX. 4,533 tests (188 suites).
 > **Analytics Hub v10 delivered (2026-02-25):** 6 PBIs in Cycle 36. TileRenderer extraction (794→540 LOC), pie chart (6th display mode), multi-select dashboard filters with cascading dimension discovery, filter propagation with OR/AND logic, click-to-toggle drill-down, per-value breadcrumb chips, 6x6 tile grid. 4,646 tests (191 suites).
 > **Analytics Hub v12 delivered (2026-02-25):** 6 PBIs in Cycle 37. Cross-domain integration: dashboard query map (query transparency), CSV analytics section (query discovery from CSV detail), file-menu "Analyze" action, source pre-selection navigation, related queries in master list. 2 new components (DashboardQueryMap, CsvAnalyticsSection). 4,672 tests (192 suites).
+> **Analytics Hub v13 delivered (2026-02-25):** 7 PBIs in Cycle 38. Query builder improvements: schema browser + column picker, visual filter builder with value suggestions, multi-column sort with migration, expression validation, AnalyticsService handler extraction (916→619 LOC), QueriesTab ActionsBar extraction (950→820 LOC), 6 quick insight rules, click-to-insert, count badges, Ctrl+Enter. 4 new components (SchemaPanel, FilterBuilderPanel, ActionsBar, expressionValidator). 4,746 tests (196 suites).
 
 ## Related
 
@@ -665,3 +718,5 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 - PBIs (v10): [[PBI-ANA-054 TileRenderer Extraction]], [[PBI-ANA-055 Pie Chart Visualization]], [[PBI-ANA-056 Dashboard Filter UI]], [[PBI-ANA-057 Filter Propagation to Tiles]], [[PBI-ANA-058 Tile Drill-Down]], [[PBI-ANA-059 Drill-Down Flow Test]]
 - Cycle: [[Cycle 37 - Analytics Hub Cross-Domain Integration]] (dashboard query map, CSV analytics section, file-menu analyze, source pre-selection — delivered)
 - PBIs (v12): [[PBI-ANA-060 Query-by-Source Service]], [[PBI-ANA-061 Dashboard Query Map]], [[PBI-ANA-062 CSV Analytics Section]], [[PBI-ANA-063 CSV File-Menu Analyze]], [[PBI-ANA-064 Source Pre-Selection]], [[PBI-ANA-065 Cross-Domain Flow Test]]
+- Cycle: [[Cycle 38 - Analytics Hub Query Builder Improvements]] (schema browser, filter builder, multi-sort, expression validation, extractions, quick insights — delivered)
+- PBIs (v13): [[PBI-ANA-070 Schema Browser and Column Picker]], [[PBI-ANA-071 Visual Filter Builder]], [[PBI-ANA-072 Multi-Column Sort]], [[PBI-ANA-073 Expression Validation]], [[PBI-ANA-074 AnalyticsService Dashboard CRUD Extraction]], [[PBI-ANA-075 QueriesTab Source and Actions Extraction]], [[PBI-ANA-076 Enhanced Quick Insights and UX Polish]]
