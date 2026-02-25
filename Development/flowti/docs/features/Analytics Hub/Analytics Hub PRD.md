@@ -3,7 +3,7 @@ domain: Analytics
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
 stage: delivered
-version: 11
+version: 12
 maturity: L2
 created: 2026-02-23
 updated: 2026-02-25
@@ -232,6 +232,17 @@ Primary interaction path:
 - [x] FR-76: Dashboard filter dropdowns support multi-select comparison — users can select multiple values within a single dimension (e.g., SUP-A + SUP-B) to compare suppliers side-by-side across all dashboard tiles; toggle behavior (add/remove) replaces single-select replace
 - [x] FR-77: Dashboard filter dimensions are cascading/dependent — `discoverFilterDimensions()` uses filtered results for dimension value discovery so selecting a category narrows other dimension dropdowns to only values present in the filtered dataset; active filter columns are retained even when cascading reduces them to a single unique value
 
+### Cross-Domain Integration (v12 — Cycle 37)
+
+- [x] FR-78: `AnalyticsService.getQueriesBySource(csvPath)` returns saved queries that reference a specific CSV source path; supports multi-source queries (matches any source)
+- [x] FR-79: `AnalyticsService.getDashboardQueryMap(dashboardId)` returns a map of unique queries powering a dashboard's tiles with per-query tile counts
+- [x] FR-80: Dashboard detail view shows a collapsible "Queries" section between header and tile grid listing all unique queries with source file basenames, tile counts, and freshness; each query name is clickable (navigates to Queries tab)
+- [x] FR-81: Dashboard tile headers display a source subtitle showing the source CSV filename(s) below the tile title (e.g., "Suppliers.csv" or "Orders.csv + 1 more")
+- [x] FR-82: CsvLanding page includes an "Analytics" section showing saved queries that reference this CSV file, with query name, auto-summary (description or "FUNCTION(col) by dim"), freshness, and "Open in Analytics Hub" navigation
+- [x] FR-83: CsvLanding Analytics section shows empty state with "Create Query" action that navigates to Analytics Hub Queries tab with the CSV pre-selected as source
+- [x] FR-84: CSV right-click file menu includes "Analyze in Analytics Hub" item that opens the Analytics Hub Queries tab with the CSV file path as navigation entity
+- [x] FR-85: Analytics Hub `onNavigateToEntity` routes CSV file paths to Queries tab with automatic source addition; routes query IDs to query loading; routes dashboard IDs to dashboard selection. Related queries section in master list shows saved queries sharing sources with the active query
+
 ## 6. Data Model Impact
 
 ### New Types
@@ -324,6 +335,19 @@ Primary interaction path:
 |------|--------|---------|
 | `DashboardFilter` | `{ column: string; values: string[] }` | Runtime (multi-select, OR within column) |
 | `FilterDimension` | `{ column: string; values: string[] }` | Runtime (discovered from tile results) |
+
+### Modified Types (v12)
+
+| Type | Change |
+|------|--------|
+| `AnalyticsHubState` | Add `pendingSourcePath: string \| null` (runtime, consumed once on render) |
+| `CsvComponentDeps` | Add optional `getQueriesBySource?`, `openAnalyticsHub?` |
+
+### New Types (v12)
+
+| Type | Fields | Storage |
+|------|--------|---------|
+| `QueryMapEntry` | `{ query: SavedAnalyticsQuery; tileCount: number; sourceBasenames: string[] }` | Runtime (DashboardQueryMap component) |
 
 ### Removed from DataExchangeState
 
@@ -532,6 +556,19 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 - [x] 6x6 tile grid layout (width/height 1-6)
 - [x] Flow 36 integration test passes (31 tests)
 
+### v12 Acceptance Criteria (Cycle 37)
+
+- [x] `getQueriesBySource()` returns queries matching a CSV path; supports multi-source queries
+- [x] `getDashboardQueryMap()` returns unique queries per dashboard with tile counts
+- [x] Dashboard detail shows collapsible "Queries" section with source basenames and freshness
+- [x] Dashboard tile headers show source CSV subtitle (e.g., "Suppliers.csv + 1 more")
+- [x] CsvLanding "Analytics" section shows queries referencing the file with auto-summary
+- [x] CsvLanding empty state shows "Create Query" action navigating to Analytics Hub
+- [x] CSV right-click menu includes "Analyze in Analytics Hub" item
+- [x] `onNavigateToEntity` routes CSV paths to auto-add source in Queries tab
+- [x] Related queries section in master list shows queries sharing sources
+- [x] Flow 37 integration test passes (26 tests)
+
 ## 13. Definition of Done
 
 - `VIEW_TYPE_ANALYTICS_HUB` constant added to `src/domain/hub/types.ts`
@@ -587,6 +624,12 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 | [[PBI-ANA-057 Filter Propagation to Tiles]] | Multi-value filter execution via `runSavedQueryWithFilters()` | Delivered | Critical | ANA-056 |
 | [[PBI-ANA-058 Tile Drill-Down]] | Click-to-toggle filter on string values + per-value breadcrumbs | Delivered | Critical | ANA-057 |
 | [[PBI-ANA-059 Drill-Down Flow Test]] | End-to-end drill-down + filter + multi-select flow test | Delivered | High | ANA-054–058 |
+| [[PBI-ANA-060 Query-by-Source Service]] | `getQueriesBySource()` + `getDashboardQueryMap()` service methods | Delivered | Critical | — |
+| [[PBI-ANA-061 Dashboard Query Map]] | Collapsible query map component + tile source subtitle | Delivered | High | ANA-060 |
+| [[PBI-ANA-062 CSV Analytics Section]] | CsvLanding analytics section with query list + auto-summary + navigation | Delivered | Critical | ANA-060 |
+| [[PBI-ANA-063 CSV File-Menu Analyze]] | "Analyze in Analytics Hub" right-click menu item for CSV files | Delivered | High | ANA-060 |
+| [[PBI-ANA-064 Source Pre-Selection]] | `onNavigateToEntity` override + related queries in Queries tab master | Delivered | High | ANA-060 |
+| [[PBI-ANA-065 Cross-Domain Flow Test]] | Flow 37 integration test (26 tests) + PRD v12 | Delivered | High | ANA-060–064 |
 
 > **Analytics Hub v1 delivered (2026-02-23):** 5 PBIs in Cycle 28. Hub shell, dashboards, .base sources, independent persistence. 4,338 tests (178 suites).
 > **Analytics Hub v2 delivered (2026-02-23):** 5 PBIs in Cycle 29. Favorites, default dashboard, dashboard-first overview, per-tile refresh, Supplier Manager persona. 4,358 tests (179 suites).
@@ -595,6 +638,7 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 > **Analytics Hub v5 delivered (2026-02-24):** 5 PBIs in Cycle 32. QueriesTab extraction (TD), SVG chart tiles (line + bar), conditional formatting engine, sparklines. 4,461 tests (184 suites).
 > **Analytics Hub v6 delivered (2026-02-24):** 5 PBIs in Cycle 33. Function call parser, trend window functions (CHANGE, PCT_CHANGE, ROLLING_AVG), scalar expression functions (ROUND, ABS, IF), conditional formatting rule builder UI, homepage pinning, query list UX. 4,533 tests (188 suites).
 > **Analytics Hub v10 delivered (2026-02-25):** 6 PBIs in Cycle 36. TileRenderer extraction (794→540 LOC), pie chart (6th display mode), multi-select dashboard filters with cascading dimension discovery, filter propagation with OR/AND logic, click-to-toggle drill-down, per-value breadcrumb chips, 6x6 tile grid. 4,646 tests (191 suites).
+> **Analytics Hub v12 delivered (2026-02-25):** 6 PBIs in Cycle 37. Cross-domain integration: dashboard query map (query transparency), CSV analytics section (query discovery from CSV detail), file-menu "Analyze" action, source pre-selection navigation, related queries in master list. 2 new components (DashboardQueryMap, CsvAnalyticsSection). 4,672 tests (192 suites).
 
 ## Related
 
@@ -619,3 +663,5 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 - PBIs (v6): [[PBI-ANA-035 Trend Calculation Engine]], [[PBI-ANA-036 Expression Functions]], [[PBI-ANA-037 Conditional Formatting Rule Builder UI]], [[PBI-ANA-038 Analytics Hub Homepage Polish]], [[PBI-ANA-039 Trend Intelligence Flow Test]]
 - Cycle: [[Cycle 36 - Dashboard Drill-Down and Filtering]] (tile extraction, pie chart, multi-select filters, cascading dimensions, drill-down — delivered)
 - PBIs (v10): [[PBI-ANA-054 TileRenderer Extraction]], [[PBI-ANA-055 Pie Chart Visualization]], [[PBI-ANA-056 Dashboard Filter UI]], [[PBI-ANA-057 Filter Propagation to Tiles]], [[PBI-ANA-058 Tile Drill-Down]], [[PBI-ANA-059 Drill-Down Flow Test]]
+- Cycle: [[Cycle 37 - Analytics Hub Cross-Domain Integration]] (dashboard query map, CSV analytics section, file-menu analyze, source pre-selection — delivered)
+- PBIs (v12): [[PBI-ANA-060 Query-by-Source Service]], [[PBI-ANA-061 Dashboard Query Map]], [[PBI-ANA-062 CSV Analytics Section]], [[PBI-ANA-063 CSV File-Menu Analyze]], [[PBI-ANA-064 Source Pre-Selection]], [[PBI-ANA-065 Cross-Domain Flow Test]]

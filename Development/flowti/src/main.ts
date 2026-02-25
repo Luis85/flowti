@@ -590,8 +590,8 @@ export default class FlowtiBasePlugin extends Plugin {
 	private async onLayoutReady(): Promise<void> {
 		try {
 			const settingsService = await this.loadDomainServices();
-			this.wireDataExchange(settingsService);
 			this.setupHubRegistry();
+			this.wireDataExchange(settingsService);
 			await this.runIngestionCatchUp();
 
 			this.eventBridge.registerVaultListeners();
@@ -1320,6 +1320,8 @@ export default class FlowtiBasePlugin extends Plugin {
 			dataExchangeService: this.dataExchangeService!,
 			signalService: this.signalService,
 			canvasService: this.canvasService,
+			analyticsService: this.analyticsService,
+			hubRegistry: this.hubRegistry,
 			docsRootPath: settingsService.getSettings().docsRootPath,
 			registerView: (type, factory) => this.registerView(type, factory),
 			registerExtensions: (exts, type) => { try { this.registerExtensions(exts, type); } catch { /* may already be registered */ } },

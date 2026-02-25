@@ -32,6 +32,8 @@ export class CsvActionView extends TextFileView {
 	private dataExchangeService: DataExchangeService;
 	private autoStartImport: boolean;
 	private openHubImportConfigCb: ((configId: string) => void) | null = null;
+	private getQueriesBySourceCb: ((csvPath: string) => import("../domain/analytics/types").SavedAnalyticsQuery[]) | null = null;
+	private openAnalyticsHubCb: ((tabId: string, entityId: string) => void) | null = null;
 	private unsubscribes: (() => void)[] = [];
 	private unsavedHintEl: HTMLElement | null = null;
 	private saveBtnEl: HTMLElement | null = null;
@@ -103,6 +105,16 @@ export class CsvActionView extends TextFileView {
 	/** Pre-apply a saved import config when the wizard starts (skips to preview). */
 	setSavedConfig(config: SavedImportConfig): void {
 		this.state.pendingSavedConfig = config;
+	}
+
+	/** Sets the callback for discovering analytics queries by source path. */
+	setGetQueriesBySource(cb: (csvPath: string) => import("../domain/analytics/types").SavedAnalyticsQuery[]): void {
+		this.getQueriesBySourceCb = cb;
+	}
+
+	/** Sets the callback for navigating to the Analytics Hub. */
+	setOpenAnalyticsHub(cb: (tabId: string, entityId: string) => void): void {
+		this.openAnalyticsHubCb = cb;
 	}
 
 	// ── TextFileView lifecycle ──────────────────────────────
@@ -251,6 +263,8 @@ export class CsvActionView extends TextFileView {
 			setUnsavedHintEl: (el) => { this.unsavedHintEl = el; },
 			getFile: () => this.file,
 			getData: () => this.data,
+			getQueriesBySource: this.getQueriesBySourceCb ?? undefined,
+			openAnalyticsHub: this.openAnalyticsHubCb ?? undefined,
 		};
 	}
 

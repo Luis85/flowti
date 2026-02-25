@@ -15,10 +15,12 @@ import { ConfigChooserModal } from "../modals";
 import { CsvDataSnapshot } from "./CsvDataSnapshot";
 import { CsvUsageSection } from "./CsvUsageSection";
 import { CsvAssociatedBases } from "./CsvAssociatedBases";
+import { CsvAnalyticsSection } from "./CsvAnalyticsSection";
 
 export class CsvLanding {
 	private dataSnapshot: CsvDataSnapshot;
 	private usageSection: CsvUsageSection;
+	private analyticsSection: CsvAnalyticsSection;
 	private associatedBases: CsvAssociatedBases;
 
 	constructor(
@@ -26,6 +28,7 @@ export class CsvLanding {
 		private deps: CsvComponentDeps,
 	) {
 		this.associatedBases = new CsvAssociatedBases(deps);
+		this.analyticsSection = new CsvAnalyticsSection(deps);
 		this.dataSnapshot = new CsvDataSnapshot(deps, () => this.persistDisplaySettings());
 		this.usageSection = new CsvUsageSection(deps, {
 			persistDisplaySettings: () => this.persistDisplaySettings(),
@@ -69,6 +72,7 @@ export class CsvLanding {
 			this.renderFileInfoDashboard(el);
 			this.renderCsvDocSection(el);
 			this.usageSection.render(el);
+			this.analyticsSection.render(el);
 			this.associatedBases.render(el);
 			this.dataSnapshot.render(el);
 		}

@@ -54,6 +54,8 @@ export interface AnalyticsHubState {
 	homepageDashboardId: string | null;
 	/** Active dashboard filters (runtime-only, reset on dashboard switch). */
 	dashboardFilters: DashboardFilter[];
+	/** Pending CSV source path from cross-hub navigation (consumed once). */
+	pendingSourcePath: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────

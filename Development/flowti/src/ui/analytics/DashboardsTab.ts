@@ -12,10 +12,12 @@ import type { AnalyticsHubDeps } from "./types";
 import { DashboardTileRenderer, type TileRenderContext } from "./DashboardTileRenderer";
 import { AddTileDialog } from "./AddTileDialog";
 import { DashboardNameModal } from "./DashboardNameModal";
+import { DashboardQueryMap, getSourceBasenames } from "./DashboardQueryMap";
 
 export class DashboardsTab {
 	private addTileDialogVisible = false;
 	private openSettingsTileId: string | null = null;
+	private queryMapCollapsed = false;
 
 	constructor(
 		private masterEl: HTMLElement,
@@ -506,6 +508,26 @@ export class DashboardsTab {
 				},
 				activeFilters: dashboardFilters,
 			} satisfies TileRenderContext);
+		}
+
+		// Query map — collapsible summary of queries behind tiles (at bottom)
+		if (dashboard.tiles.length > 0) {
+			const queryMap = this.deps.analyticsService.getDashboardQueryMap(dashboard.id);
+			const entries = [...queryMap.values()].map((e) => ({
+				...e,
+				sourceBasenames: getSourceBasenames(e.query),
+			}));
+			new DashboardQueryMap(this.detailEl, entries, this.queryMapCollapsed, {
+				onToggleCollapse: () => {
+					this.queryMapCollapsed = !this.queryMapCollapsed;
+					this.deps.scheduleRender();
+				},
+				onViewQuery: (queryId) => {
+					this.deps.setState({ selectedQueryId: queryId });
+					this.deps.navigation.navigateTo("queries");
+					this.deps.scheduleRender();
+				},
+			}).render();
 		}
 	}
 

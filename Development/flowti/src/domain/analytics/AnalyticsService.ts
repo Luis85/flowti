@@ -273,6 +273,28 @@ export class AnalyticsService {
 		return this.listQueries().find((q) => q.id === id);
 	}
 
+	/** Get saved queries that reference a specific source file path. */
+	getQueriesBySource(csvPath: string): SavedAnalyticsQuery[] {
+		return this.listQueries().filter((q) => q.sources.some((s) => s.csvPath === csvPath));
+	}
+
+	/** Get a map of unique queries used by a dashboard's tiles with tile counts. */
+	getDashboardQueryMap(dashboardId: string): Map<string, { query: SavedAnalyticsQuery; tileCount: number }> {
+		const dashboard = this.getDashboard(dashboardId);
+		const result = new Map<string, { query: SavedAnalyticsQuery; tileCount: number }>();
+		if (!dashboard) return result;
+		for (const tile of dashboard.tiles) {
+			const existing = result.get(tile.queryId);
+			if (existing) {
+				existing.tileCount++;
+			} else {
+				const query = this.getQuery(tile.queryId);
+				if (query) result.set(tile.queryId, { query, tileCount: 1 });
+			}
+		}
+		return result;
+	}
+
 	/** Rename a saved query. */
 	async renameQuery(id: string, newName: string): Promise<SavedAnalyticsQuery | undefined> {
 		const query = this.getQuery(id);

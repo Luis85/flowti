@@ -144,6 +144,11 @@ export class QueriesTab {
 		// ── Saved queries first (above sources) ──
 		new SavedQueryList(this.masterEl, this.getSubDeps()).render();
 
+		// ── Related queries (when source is active) ──
+		if (this.sources.length > 0) {
+			this.renderRelatedQueries();
+		}
+
 		// ── Selected sources ──
 		if (this.sources.length > 0) {
 			const selHeader = this.masterEl.createDiv({ cls: "ft-master-category-header" });
@@ -274,11 +279,57 @@ export class QueriesTab {
 		item.addEventListener("click", onClick);
 	}
 
+	private renderRelatedQueries(): void {
+		const sourcePaths = this.sources.map((s) => s.csvPath);
+		const svc = this.deps.analyticsService;
+		const state = this.deps.getState();
+
+		// Find saved queries that share at least one source with the current query
+		const relatedQueries = svc.listQueries().filter((q) => {
+			if (q.id === state.selectedQueryId) return false;
+			return q.sources.some((s) => sourcePaths.includes(s.csvPath));
+		});
+
+		if (relatedQueries.length === 0) return;
+
+		const header = this.masterEl.createDiv({ cls: "ft-master-category-header" });
+		header.createSpan({ text: "Related Queries" });
+		header.createSpan({ text: `${relatedQueries.length}`, cls: "ft-master-category-count" });
+
+		for (const q of relatedQueries) {
+			const item = this.masterEl.createDiv({ cls: "ft-master-event-item" });
+			const nameEl = item.createDiv({ cls: "ft-master-event-name" });
+			nameEl.createDiv({ text: q.name });
+			const sub = nameEl.createDiv({ cls: "ft-text-muted ft-text-sm" });
+			const sharedSources = q.sources.filter((s) => sourcePaths.includes(s.csvPath));
+			sub.textContent = sharedSources.map((s) => s.csvPath.split("/").pop()).join(", ");
+
+			item.addEventListener("click", () => {
+				this.loadSavedQuery(q.id);
+				this.deps.setState({ selectedQueryId: q.id });
+			});
+		}
+	}
+
 	// ─────────────────────────────────────────────────────────
 	// Detail: delegates to sub-components
 	// ─────────────────────────────────────────────────────────
 
 	renderDetail(): void {
+		// Auto-add source when navigated from CSV context (file-menu, CsvLanding)
+		const pendingSource = this.deps.getState().pendingSourcePath;
+		if (pendingSource) {
+			this.deps.setState({ pendingSourcePath: null });
+			const alreadyAdded = this.sources.some((s) => s.csvPath === pendingSource);
+			if (!alreadyAdded) {
+				const basename = pendingSource.split("/").pop() ?? pendingSource;
+				const alias = basename.replace(/\.(csv|base)$/i, "");
+				const sourceType = pendingSource.endsWith(".base") ? "base" as const : "csv" as const;
+				this.addSource(pendingSource, alias, sourceType);
+				return; // addSource triggers re-render
+			}
+		}
+
 		// Auto-load saved query when selectedQueryId changed (e.g. navigated from homepage)
 		const pendingId = this.deps.getState().selectedQueryId;
 		if (pendingId && pendingId !== this.lastLoadedQueryId) {

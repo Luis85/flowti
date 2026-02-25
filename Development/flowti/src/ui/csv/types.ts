@@ -74,4 +74,8 @@ export interface CsvComponentDeps {
 	setUnsavedHintEl: (el: HTMLElement) => void;
 	getFile: () => TFile | null;
 	getData: () => string;
+	/** Optional: get saved analytics queries referencing a source path. */
+	getQueriesBySource?: (csvPath: string) => import("../../domain/analytics/types").SavedAnalyticsQuery[];
+	/** Optional: navigate to Analytics Hub with a specific query or source pre-selected. */
+	openAnalyticsHub?: (tabId: string, entityId: string) => void;
 }

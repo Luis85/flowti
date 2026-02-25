@@ -1,10 +1,10 @@
 ---
 type: DevelopmentCycle
 feature: "[[Analytics Hub PRD]]"
-stage: planned
+stage: delivered
 cycle: 37
 date_planned: 2026-02-25
-date_completed:
+date_completed: 2026-02-25
 pbis:
   - "[[PBI-ANA-060 AnalyticsService Query-by-Source]]"
   - "[[PBI-ANA-061 Dashboard Query Map]]"
@@ -340,15 +340,17 @@ Inc 1 (service methods — foundation)
 
 ## Success Metrics
 
-| Metric | Target |
-|--------|--------|
-| New tests | ~65 |
-| Post-cycle total tests | ~4,711 |
-| New source LOC | ~450 |
-| New components | DashboardQueryMap (~100), CsvAnalyticsSection (~130) |
-| PRD version | v11 → v12 |
-| New FRs | FR-78 through FR-85 (8) |
-| Analytics events | 21 (unchanged) |
+| Metric | Target | Actual |
+|--------|--------|--------|
+| New tests | ~65 | 26 |
+| Post-cycle total tests | ~4,711 | 4,672 |
+| Post-cycle suites | ~192 | 192 |
+| New source LOC | ~450 | ~350 |
+| New components | DashboardQueryMap (~100), CsvAnalyticsSection (~130) | DashboardQueryMap (114), CsvAnalyticsSection (108) |
+| PRD version | v11 → v12 | v12 |
+| New FRs | FR-78 through FR-85 (8) | 8 (FR-78–FR-85) |
+| Analytics events | 21 (unchanged) | 21 (unchanged) |
+| Bug found by tests | — | 1 (buildAutoSummary dimension [object Object]) |
 
 ---
 

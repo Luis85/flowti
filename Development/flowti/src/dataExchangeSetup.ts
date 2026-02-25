@@ -15,12 +15,16 @@ import { ExportView, VIEW_TYPE_EXPORT, type ExportViewConfig } from "./ui/Export
 import { DataExchangeHubView, VIEW_TYPE_DATA_EXCHANGE_HUB } from "./ui/DataExchangeHubView";
 import type { SignalService } from "./domain/signal/SignalService";
 import type { CanvasService } from "./domain/canvas/CanvasService";
+import type { AnalyticsService } from "./domain/analytics/AnalyticsService";
+import type { HubRegistry } from "./domain/hub/HubRegistry";
 export interface DataExchangeSetupDeps {
 	app: App;
 	eventBus: IEventBus;
 	dataExchangeService: DataExchangeService;
 	signalService?: SignalService;
 	canvasService?: CanvasService;
+	analyticsService?: AnalyticsService;
+	hubRegistry?: HubRegistry;
 	docsRootPath: string;
 	registerView: (type: string, factory: ViewCreator) => void;
 	registerExtensions: (extensions: string[], viewType: string) => void;
@@ -108,6 +112,14 @@ export class DataExchangeSetup {
 			view.setOpenHubImportConfig((configId) => {
 				this.openHubImportConfig(configId);
 			});
+			if (this.deps.analyticsService) {
+				view.setGetQueriesBySource((csvPath) => this.deps.analyticsService!.getQueriesBySource(csvPath));
+			}
+			if (this.deps.hubRegistry) {
+				view.setOpenAnalyticsHub((tabId, entityId) => {
+					void this.deps.hubRegistry!.openHub("analytics", tabId, entityId);
+				});
+			}
 			return view;
 		});
 		try {
@@ -186,6 +198,16 @@ export class DataExchangeSetup {
 								});
 							});
 					});
+
+					if (this.deps.hubRegistry) {
+						menu.addItem((item) => {
+							item.setTitle("Analyze in Analytics Hub")
+								.setIcon("bar-chart-2")
+								.onClick(() => {
+									void this.deps.hubRegistry!.openHub("analytics", "queries", file.path);
+								});
+						});
+					}
 
 					// Existing import configs for this CSV
 					const importConfigs = dataExchangeService.getImportConfigsForFile(file.path);

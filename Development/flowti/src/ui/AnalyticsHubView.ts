@@ -29,6 +29,7 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 	private selectedDashboardId: string | null = null;
 	private homepageDashboardId: string | null = null;
 	private dashboardFilters: import("./analytics/types").DashboardFilter[] = [];
+	private pendingSourcePath: string | null = null;
 
 	// ── Tab components ───────────────────────────────────────
 	private tileResultCache = new TileResultCache();
@@ -184,6 +185,22 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 		// No cleanup needed in v1
 	}
 
+	protected onNavigateToEntity(tabId: string, entityId: string): void {
+		if (tabId === "queries") {
+			// If entityId looks like a file path (contains "/" or ends with ".csv"/".base"), treat as source path
+			if (entityId.includes("/") || entityId.endsWith(".csv") || entityId.endsWith(".base")) {
+				this.pendingSourcePath = entityId;
+			} else {
+				// Treat as a saved query ID
+				this.selectedQueryId = entityId;
+			}
+			this.scheduleRender();
+		} else if (tabId === "dashboards") {
+			this.selectedDashboardId = entityId;
+			this.scheduleRender();
+		}
+	}
+
 	protected onTabChanged(): void {
 		this.filterText = "";
 		this.searchInput.value = "";
@@ -239,6 +256,7 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 			selectedDashboardId: this.selectedDashboardId,
 			homepageDashboardId: this.homepageDashboardId,
 			dashboardFilters: this.dashboardFilters,
+			pendingSourcePath: this.pendingSourcePath,
 		};
 	}
 
@@ -261,6 +279,7 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 			this.homepageDashboardId = partial.homepageDashboardId;
 		}
 		if (partial.dashboardFilters !== undefined) this.dashboardFilters = partial.dashboardFilters;
+		if (partial.pendingSourcePath !== undefined) this.pendingSourcePath = partial.pendingSourcePath;
 	}
 
 	// ── Data refresh ─────────────────────────────────────────
