@@ -3,10 +3,10 @@ domain: Analytics
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
 stage: delivered
-version: 14
+version: 15
 maturity: L2
 created: 2026-02-23
-updated: 2026-02-25
+updated: 2026-02-26
 supplier_prd: "[[Feature - Supplier Management]]"
 foundation: "[[When opening a CSV with Flowti, I want to be able to make an easy dashboard]]"
 related_events:
@@ -254,6 +254,11 @@ Primary interaction path:
 - [x] FR-92: Schema panel columns are clickable — clicking a number column adds it as a SUM measure, clicking a text/date column adds it as a dimension; de-duplicates (no-op if already present)
 - [x] FR-93: Filter and sort section headers show count badges indicating the number of active filters and sort columns
 - [x] FR-94: Ctrl+Enter (Cmd+Enter on Mac) keyboard shortcut runs the query from anywhere within the detail panel
+
+### v15 — Performance & Navigation (Cycle 43)
+
+- [ ] FR-95: Dashboard breadcrumb navigation — navigation stack (max depth 4) with clickable breadcrumb bar showing drill-down path ("Dashboards > [Name] > [Filter Context]"), back button (←) navigates one level up, stack clears on explicit tab switch, breadcrumb bar hidden at root level
+- [ ] FR-96: Filter row-count preview — exact row count badge ("N rows") in DashboardFilterBar after filter value selection, computed from cached query results (not sampled), hidden when no cache available, updates with 300ms debounce on filter change, supports multi-filter combinations
 
 ## 6. Data Model Impact
 
@@ -694,6 +699,13 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 | [[PBI-ANA-074 AnalyticsService Dashboard CRUD Extraction]] | Handler extraction (916→619 LOC, TD-ANA-002) | Delivered | High | — |
 | [[PBI-ANA-075 QueriesTab Source and Actions Extraction]] | ActionsBar extraction (950→820 LOC, TD-ANA-003) | Delivered | High | ANA-071 |
 | [[PBI-ANA-076 Enhanced Quick Insights and UX Polish]] | 3 new insight rules + schema click-to-insert + badges + Ctrl+Enter | Delivered | High | ANA-070, ANA-072 |
+| [[PBI-ANA-120 Source Manager Extraction]] | Extract source CRUD from QueriesTab into SourceManager class | Planned | High | — |
+| [[PBI-ANA-121 Render Performance]] | QueriesTab render batching + filtered-result cache with LRU eviction | Planned | High | ANA-120 |
+| [[PBI-ANA-122 Dashboard Breadcrumb Navigation]] | Navigation stack with breadcrumb bar for drill-down context (FR-95) | Planned | Critical | — |
+| [[PBI-ANA-123 Filter Row-Count Preview]] | Exact row-count badge in DashboardFilterBar before execution (FR-96) | Planned | High | ANA-121 |
+| [[PBI-ANA-124 TileRenderContext Simplification]] | Split 23-property interface into 3 focused concern groups | Planned | High | — |
+| [[PBI-ANA-125 CSS & Style Consolidation]] | Move 80%+ inline styles to semantic CSS classes in styles.css | Planned | High | — |
+| [[PBI-ANA-126 Analytics Flow Integration Tests]] | 3 flow test suites covering query-to-dashboard, measurement, source-filter | Planned | High | ANA-120–125 |
 
 > **Analytics Hub v1 delivered (2026-02-23):** 5 PBIs in Cycle 28. Hub shell, dashboards, .base sources, independent persistence. 4,338 tests (178 suites).
 > **Analytics Hub v2 delivered (2026-02-23):** 5 PBIs in Cycle 29. Favorites, default dashboard, dashboard-first overview, per-tile refresh, Supplier Manager persona. 4,358 tests (179 suites).
@@ -732,3 +744,5 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 - PBIs (v12): [[PBI-ANA-060 Query-by-Source Service]], [[PBI-ANA-061 Dashboard Query Map]], [[PBI-ANA-062 CSV Analytics Section]], [[PBI-ANA-063 CSV File-Menu Analyze]], [[PBI-ANA-064 Source Pre-Selection]], [[PBI-ANA-065 Cross-Domain Flow Test]]
 - Cycle: [[Cycle 38 - Analytics Hub Query Builder Improvements]] (schema browser, filter builder, multi-sort, expression validation, extractions, quick insights — delivered)
 - PBIs (v13): [[PBI-ANA-070 Schema Browser and Column Picker]], [[PBI-ANA-071 Visual Filter Builder]], [[PBI-ANA-072 Multi-Column Sort]], [[PBI-ANA-073 Expression Validation]], [[PBI-ANA-074 AnalyticsService Dashboard CRUD Extraction]], [[PBI-ANA-075 QueriesTab Source and Actions Extraction]], [[PBI-ANA-076 Enhanced Quick Insights and UX Polish]]
+- Cycle: [[Cycle 43 - Analytics Hub Performance & Navigation]] (Source Manager extraction, render performance, breadcrumbs, filter preview, CSS consolidation, flow tests — planned)
+- PBIs (v15): [[PBI-ANA-120 Source Manager Extraction]], [[PBI-ANA-121 Render Performance]], [[PBI-ANA-122 Dashboard Breadcrumb Navigation]], [[PBI-ANA-123 Filter Row-Count Preview]], [[PBI-ANA-124 TileRenderContext Simplification]], [[PBI-ANA-125 CSS & Style Consolidation]], [[PBI-ANA-126 Analytics Flow Integration Tests]]
