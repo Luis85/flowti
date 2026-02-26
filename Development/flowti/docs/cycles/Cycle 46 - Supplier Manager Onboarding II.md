@@ -544,16 +544,16 @@ Inc 4 (Onboarding Checklist) ── independent (analytics domain, runs in paral
 
 ## Definition of Ready (Pre-Cycle)
 
-- [ ] Cycle 45 delivered — all tests green, no blocking bugs
-- [ ] `npm test` passes (5,157 tests, 217 suites)
-- [ ] `DEFAULT_IBDE_FOLDERS` in `folders.ts` is the single source of truth for folder paths (ready for extraction)
-- [ ] `FlowtiUser` interface in `src/domain/user/types.ts` supports optional fields
-- [ ] `InstallerContext` supports extensible keys via `[key: string]: unknown`
-- [ ] `SeedContentStep` pattern established (idempotent file creation, context accumulation)
-- [ ] `InstallerWizardModal` page navigation pattern understood (switch on `WizardPage` type)
-- [ ] `AnalyticsState` is persisted via `ITypedStorage` — ready for `onboardingChecklist` field
-- [ ] `AnalyticsDashboardPage.render()` flow understood (dashboard header → tiles → fallback)
-- [ ] Session template format conventions exist (frontmatter + structured body)
+- [x] Cycle 45 delivered — all tests green, no blocking bugs
+- [x] `npm test` passes (5,157 tests, 217 suites) — verified 2026-02-26
+- [x] `DEFAULT_IBDE_FOLDERS` in `folders.ts` is the single source of truth for folder paths (25 entries, `readonly`, `as const`) — ready for extraction to JSON
+- [x] `FlowtiUser` uses Zod schema (`FlowtiUserSchema`) with `z.infer` — adding `role?: string` requires `.optional()` on a new Zod field (straightforward, no migration needed since Zod `.optional()` defaults to `undefined`)
+- [x] `InstallerContext` supports extensible keys via `[key: string]: unknown` — confirmed in `src/domain/installer/types.ts:31`
+- [x] `SeedContentStep` pattern established — idempotent `fileExists()` check, `createFile()` with `{ createFolders: true }`, `context.seededFiles` accumulation on both success and partial failure (97 LOC)
+- [x] `InstallerWizardModal` page navigation pattern understood — `WizardPage` union type, `switch` in `renderPage()`, page transitions via `this.currentPage = "x"; this.renderPage()` (414 LOC, 4 pages currently)
+- [x] `AnalyticsState` persisted via `ITypedStorage` (key: `"analytics"`) — already has 3 optional fields (`defaultDashboardId`, `templates`, `measurements`); adding `onboardingChecklist` follows established pattern
+- [x] `AnalyticsDashboardPage.render()` flow understood — resolves active dashboard → `renderDefaultDashboard()` (happy path) or `renderFallback()` → `renderEmptyState()` (zero dashboards) or stats+prompt (dashboards exist, no default)
+- [x] Session template conventions exist — vault templates in `03 - Resources/Templates/` use YAML frontmatter + markdown body; session domain has `SessionTemplate` type with `goals[]`, `tasks[]`, `decisions[]` for in-app templates. Inc 3 templates are vault-side markdown files (not SessionTemplate objects)
 
 ## Definition of Done
 
