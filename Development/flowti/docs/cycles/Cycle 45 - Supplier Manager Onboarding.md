@@ -364,20 +364,20 @@ Inc 3 (Wizard Redirect) ── independent (UI-only modal change)
 
 ## Definition of Ready (Pre-Cycle)
 
-- [ ] Cycle 44 delivered — all tests green, no blocking bugs
-- [ ] `npm test` passes (5,123 tests, 215 suites)
-- [ ] InstallerService extensible via `registerStep()` (verified in C1)
-- [ ] `InstallerStepDeps` provides `fileSystem` with `createFile()` and `fileExists()` methods
-- [ ] `InstallerContext` supports extensible keys via index signature `[key: string]: unknown`
-- [ ] AnalyticsService `createDashboard()`, `saveQuery()`, `addTile()`, `updateTile()`, `setDefaultDashboard()`, `listDashboards()` APIs exist and tested
-- [ ] `DashboardTile` supports all needed fields: `displayMode`, `row`, `col`, `width`, `height`, `numberFormat`, `chartValueColumn`, `showTableKpis`, `tableKpiLabel`
-- [ ] `TILE_MUTABLE_KEYS` whitelist includes all tile fields needed for seed tiles
-- [ ] `ui.openAnalyticsHub` event registered in UiCommandService (opens Analytics Hub)
-- [ ] `FolderScaffoldStep.test.ts` exists as pattern reference for SeedContentStep tests
-- [ ] `InstallerJourney.test.ts` and `01-FirstRunOnboarding.test.ts` both use `buildInstaller` helpers that can be extended
-- [ ] PBI-002 Seed Starter Content exists in backlog with acceptance criteria
-- [ ] Onboarding PRD exists in DRAFT state at `docs/features/Onboarding/Onboarding PRD.md`
-- [ ] Supplier overview CSV data structure designed (columns, rows, suppliers, date range)
+- [x] Cycle 44 delivered — all tests green, no blocking bugs
+- [x] `npm test` passes (5,123 tests, 215 suites)
+- [x] InstallerService extensible via `registerStep()` (verified in C1)
+- [x] `InstallerStepDeps` provides `fileSystem` with `createFile()` and `fileExists()` methods
+- [x] `InstallerContext` supports extensible keys via index signature `[key: string]: unknown`
+- [x] AnalyticsService `createDashboard()`, `saveQuery()`, `addTile()`, `updateTile()`, `setDefaultDashboard()`, `listDashboards()` APIs exist and tested
+- [x] `DashboardTile` supports all needed fields: `displayMode`, `row`, `col`, `width`, `height`, `numberFormat`, `chartValueColumn`, `showTableKpis`, `tableKpiLabel`
+- [x] `TILE_MUTABLE_KEYS` whitelist includes all tile fields needed for seed tiles
+- [x] `ui.openAnalyticsHub` event registered in UiCommandService (opens Analytics Hub)
+- [x] `FolderScaffoldStep.test.ts` exists as pattern reference for SeedContentStep tests
+- [x] `InstallerJourney.test.ts` and `01-FirstRunOnboarding.test.ts` both use `buildInstaller` helpers that can be extended
+- [x] PBI-002 Seed Starter Content exists in backlog with acceptance criteria
+- [x] Onboarding PRD exists in DRAFT state at `docs/features/Onboarding/Onboarding PRD.md`
+- [x] Supplier overview CSV data structure designed (columns, rows, suppliers, date range)
 
 ## Definition of Done
 
