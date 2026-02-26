@@ -67,7 +67,15 @@ export class ActionsBar {
 			const saveIcon = saveLink.createSpan();
 			setIcon(saveIcon, "save");
 			saveLink.appendText(" Save Query");
-			saveLink.addEventListener("click", () => this.deps.onSave());
+			saveLink.addEventListener("click", () => {
+				saveLink.style.opacity = "0.5";
+				saveLink.style.pointerEvents = "none";
+				saveLink.textContent = "";
+				const icon = saveLink.createSpan();
+				setIcon(icon, "loader");
+				saveLink.appendText(" Saving...");
+				this.deps.onSave();
+			});
 		}
 
 		// Export CSV (only with results)

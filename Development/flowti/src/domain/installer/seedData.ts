@@ -19,6 +19,93 @@ export const WELCOME_NOTE_PATH = "00 - Connectivity/inbox/Welcome to Flowti.md";
  *
  * Numbers use en-US locale (dot decimal, no thousands separator).
  */
+// ── Session template paths (Cycle 46, PBI-ONB-006) ───────────────
+
+export const SESSION_TEMPLATE_PATHS = {
+	supplierReview: "03 - Resources/Templates/Sessions/Supplier Review.md",
+	kpiReview: "03 - Resources/Templates/Sessions/Monthly KPI Review.md",
+	procurementPlanning: "03 - Resources/Templates/Sessions/Procurement Planning.md",
+} as const;
+
+export const SUPPLIER_REVIEW_TEMPLATE = `---
+type: SessionTemplate
+cadence: weekly
+domain: supplier-management
+role: supplier-manager
+---
+
+# Supplier Review
+
+## Objective
+Review supplier performance metrics and address quality or delivery concerns.
+
+## Agenda
+- [ ] Review KPI dashboard (Quality Score, OTD, Lead Time)
+- [ ] Flag suppliers below threshold
+- [ ] Discuss open purchase orders
+- [ ] Action items from last review
+
+## Notes
+
+## Decisions
+
+## Action Items
+- [ ] `;
+
+export const KPI_REVIEW_TEMPLATE = `---
+type: SessionTemplate
+cadence: monthly
+domain: supplier-management
+role: supplier-manager
+---
+
+# Monthly KPI Review
+
+## Objective
+Analyse monthly supplier KPIs, identify trends, and adjust procurement strategy.
+
+## Agenda
+- [ ] Compare month-over-month spend trends
+- [ ] Review quality score and on-time delivery rates
+- [ ] Identify cost-saving opportunities
+- [ ] Evaluate lead time changes
+- [ ] Update supplier scorecards
+
+## Notes
+
+## Decisions
+
+## Action Items
+- [ ] `;
+
+export const PROCUREMENT_PLANNING_TEMPLATE = `---
+type: SessionTemplate
+cadence: quarterly
+domain: supplier-management
+role: supplier-manager
+---
+
+# Procurement Planning
+
+## Objective
+Plan upcoming procurement activities, review budgets, and align supplier strategy.
+
+## Agenda
+- [ ] Review current quarter spend vs budget
+- [ ] Forecast next quarter demand
+- [ ] Evaluate supplier diversification needs
+- [ ] Plan contract renewals and negotiations
+- [ ] Assess inventory levels and reorder points
+
+## Notes
+
+## Decisions
+
+## Action Items
+- [ ] `;
+
+// ── Supplier CSV ────────────────────────────────────────────────
+
 export const SUPPLIER_OVERVIEW_CSV = `Month,Supplier,SKU,Category,Unit Price,Quantity,Total,Lead Time Days,Quality Score,On Time Delivery
 2025-09,Acme Components,AC-1001,Fasteners,2.45,1200,2940.00,12,96.2,98.1
 2025-09,Acme Components,AC-1002,Brackets,8.70,340,2958.00,14,94.8,97.3

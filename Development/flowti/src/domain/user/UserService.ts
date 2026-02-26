@@ -63,9 +63,10 @@ export class UserService implements IUserService {
 	 * Creates a new user with the given name.
 	 * Emits "user.created" event after successful creation.
 	 * @param name - The display name for the user
+	 * @param role - Optional role identifier (e.g. "user", "supplier-manager")
 	 * @returns The newly created user
 	 */
-	async createUser(name: string): Promise<FlowtiUser> {
+	async createUser(name: string, role?: string): Promise<FlowtiUser> {
 		const trimmedName = name.trim();
 		if (!trimmedName) {
 			throw new ValidationError({
@@ -80,6 +81,7 @@ export class UserService implements IUserService {
 			id: generateUUID(),
 			name: trimmedName,
 			createdAt: new Date().toISOString(),
+			...(role ? { role } : {}),
 		};
 
 		this.user = newUser;

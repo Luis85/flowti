@@ -4,7 +4,15 @@ import type {
 	InstallerStepDeps,
 	InstallerStepResult,
 } from "../types";
-import { SEED_CSV_PATH, SUPPLIER_OVERVIEW_CSV, WELCOME_NOTE_PATH } from "../seedData";
+import {
+	KPI_REVIEW_TEMPLATE,
+	PROCUREMENT_PLANNING_TEMPLATE,
+	SEED_CSV_PATH,
+	SESSION_TEMPLATE_PATHS,
+	SUPPLIER_OVERVIEW_CSV,
+	SUPPLIER_REVIEW_TEMPLATE,
+	WELCOME_NOTE_PATH,
+} from "../seedData";
 
 /**
  * Installation step that seeds sample supplier data and a welcome note.
@@ -59,7 +67,7 @@ export class SeedContentStep implements IInstallerStep {
 
 	private getFilesToSeed(context: InstallerContext): Array<{ path: string; content: string }> {
 		const userName = context.userName?.trim() ?? "there";
-		return [
+		const files: Array<{ path: string; content: string }> = [
 			{
 				path: SEED_CSV_PATH,
 				content: SUPPLIER_OVERVIEW_CSV,
@@ -69,6 +77,17 @@ export class SeedContentStep implements IInstallerStep {
 				content: this.getWelcomeNote(userName),
 			},
 		];
+
+		// Role-conditional session templates (Cycle 46, PBI-ONB-006)
+		if (context.role === "supplier-manager") {
+			files.push(
+				{ path: SESSION_TEMPLATE_PATHS.supplierReview, content: SUPPLIER_REVIEW_TEMPLATE },
+				{ path: SESSION_TEMPLATE_PATHS.kpiReview, content: KPI_REVIEW_TEMPLATE },
+				{ path: SESSION_TEMPLATE_PATHS.procurementPlanning, content: PROCUREMENT_PLANNING_TEMPLATE },
+			);
+		}
+
+		return files;
 	}
 
 	private getWelcomeNote(userName: string): string {

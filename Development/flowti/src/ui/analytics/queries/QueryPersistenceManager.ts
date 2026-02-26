@@ -101,10 +101,10 @@ export class QueryPersistenceManager {
 		const config = this.deps.getQueryConfig();
 
 		const saved = await this.deps.saveQuery(name, sources, config);
-		await this.deps.syncMeasurementsFromQuery(saved.id);
 		this._savedSnapshot = this.takeSnapshot();
 		this.deps.setSelectedQueryId(saved.id);
 		this.deps.scheduleRender(true, false);
+		void this.deps.syncMeasurementsFromQuery(saved.id);
 	}
 
 	async update(): Promise<void> {
@@ -115,9 +115,9 @@ export class QueryPersistenceManager {
 		const config = this.deps.getQueryConfig();
 
 		await this.deps.updateQuery(queryId, sources, config);
-		await this.deps.syncMeasurementsFromQuery(queryId);
 		this._savedSnapshot = this.takeSnapshot();
 		this.deps.scheduleRender(true, false);
+		void this.deps.syncMeasurementsFromQuery(queryId);
 	}
 
 	// ── Load ─────────────────────────────────────────────────

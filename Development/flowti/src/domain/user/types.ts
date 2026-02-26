@@ -23,6 +23,7 @@ export const FlowtiUserSchema = z.object({
 	id: UUIDSchema,
 	name: z.string().min(1, "Name cannot be empty"),
 	createdAt: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/, "Invalid ISO date format"),
+	role: z.string().optional(),
 });
 
 /**
@@ -38,6 +39,6 @@ export interface IUserService {
 	load(): Promise<void>;
 	hasUser(): boolean;
 	getUser(): FlowtiUser | null;
-	createUser(name: string): Promise<FlowtiUser>;
+	createUser(name: string, role?: string): Promise<FlowtiUser>;
 	updateUserName(name: string): Promise<void>;
 }

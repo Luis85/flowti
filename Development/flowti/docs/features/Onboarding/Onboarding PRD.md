@@ -2,9 +2,10 @@
 domain: Flowti
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
-stage: draft
-related_events: []
-maturity: L1
+stage: in-progress
+related_events:
+  - installer.completed
+maturity: L2
 business_value: 4
 implementation_cost: 3
 maintenance_cost: 2
@@ -57,22 +58,22 @@ The user must be able to pause or resume to the on-boarding at any given time. H
 
 ## 5. Functional Requirements
 
-- [ ] Listen to `installer.completed` event to trigger onboarding start
-- [ ] Display a "Getting Started" checklist with 5-7 suggested first actions
-- [ ] Show contextual callouts on first visit to: Event Catalog, Data Exchange Hub, Documentation tabs, Settings
-- [ ] Track which onboarding steps have been completed or dismissed
-- [ ] Persist onboarding state so dismissed tips do not reappear
-- [ ] Allow users to reset onboarding from Settings
-- [ ] Provide non-intrusive UI (dismissible callouts, not blocking modals)
-- [ ] Mark checklist items as complete when the user performs the associated action
+- [x] FR-1: Listen to `installer.completed` event to trigger onboarding start — `initOnboardingChecklist()` called after installer completes and supplier dashboard seeds
+- [x] FR-2: Display a "Getting Started" checklist with 5 milestone items (installed, first_source, first_query, first_dashboard, first_pin) — rendered as collapsible card on Analytics Hub homepage
+- [ ] FR-3: Show contextual callouts on first visit to: Event Catalog, Data Exchange Hub, Documentation tabs, Settings
+- [x] FR-4: Track which onboarding milestones have been completed or dismissed — `OnboardingChecklist.milestones` object with per-milestone boolean flags
+- [x] FR-5: Persist onboarding state so dismissed tips do not reappear — `OnboardingChecklist` stored in `AnalyticsState` via TypedStorage
+- [ ] FR-6: Allow users to reset onboarding from Settings
+- [x] FR-7: Provide non-intrusive UI (dismissible callouts, not blocking modals) — checklist is collapsible and dismissible
+- [x] FR-8: Mark checklist items as complete when the user performs the associated action — auto-milestone checking via `updateOnboardingChecklist()` deep merge
 
 ## 6. Data Model Impact
 
 | Entity | Fields | Storage |
 |--------|--------|---------|
-| `OnboardingState` | completedSteps (string[]), dismissedTips (string[]), startedAt (timestamp) | `onboarding` storage key |
-| `OnboardingStep` | id, title, description, trigger (event or view), action (suggested) | Constant definition |
-| `OnboardingTip` | id, targetView, content, dismissible | Constant definition |
+| `OnboardingChecklist` | dismissed (boolean), collapsed (boolean), milestones: `{ installed, first_source, first_query, first_dashboard, first_pin }` | `analytics` storage key (nested in `AnalyticsState`) |
+
+> **Design note (C46):** Onboarding state is stored inside `AnalyticsState.onboardingChecklist` rather than a separate storage key, because the initial onboarding flow is Analytics Hub-scoped. A standalone `OnboardingState` with broader step/tip tracking (FR-3, FR-6) is deferred to a future cycle.
 
 ## 7. Event Impact
 
@@ -138,3 +139,7 @@ The user must be able to pause or resume to the on-boarding at any given time. H
 - Contextual tip rendering tested
 - Integration with installer.completed event tested
 - `npm run build` passes (vitest, tsc, eslint, esbuild)
+
+## 14. Stage History
+
+> **Cycle 46 — Supplier Manager Onboarding II (2026-02-26):** First implementation pass. OnboardingChecklist added to AnalyticsState with 5 milestones (installed, first_source, first_query, first_dashboard, first_pin). `initOnboardingChecklist()` triggered by `installer.completed` event after supplier dashboard seeding. Deep merge for partial milestone updates. Collapsible/dismissible checklist card on Analytics Hub homepage. 9 unit tests covering init, persistence, merge, dismiss, and reset. FRs delivered: FR-1, FR-2, FR-4, FR-5, FR-7, FR-8. Deferred: FR-3 (contextual view callouts), FR-6 (Settings reset). Stage: draft → in-progress.

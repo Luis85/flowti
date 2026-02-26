@@ -24,6 +24,7 @@ import type {
 	Measurement,
 	MeasurementType,
 	NumberDisplayFormat,
+	OnboardingChecklist,
 	FilterSpec,
 	JoinSpec,
 	MeasureSpec,
@@ -117,6 +118,48 @@ export class AnalyticsService {
 		this.queryCache.clear();
 		await this.storage.save(this.state);
 		await this.eventBus?.emit("analytics.reset", {});
+	}
+
+	// ── Onboarding checklist (Cycle 46, PBI-ONB-007) ────────
+
+	/** Get the onboarding checklist, or undefined if not yet initialised. */
+	getOnboardingChecklist(): OnboardingChecklist | undefined {
+		return this.state.onboardingChecklist;
+	}
+
+	/** Initialise the onboarding checklist (called after install). */
+	async initOnboardingChecklist(): Promise<void> {
+		if (this.state.onboardingChecklist) return; // already initialised
+		this.state.onboardingChecklist = {
+			dismissed: false,
+			collapsed: false,
+			milestones: {
+				installed: true,
+				dashboardExplored: false,
+				sampleDataReviewed: false,
+				ownDataImported: false,
+				customQueryBuilt: false,
+			},
+		};
+		await this.storage.save(this.state);
+	}
+
+	/** Update onboarding checklist (partial merge). */
+	async updateOnboardingChecklist(update: Partial<OnboardingChecklist>): Promise<void> {
+		if (!this.state.onboardingChecklist) return;
+		if (update.milestones) {
+			Object.assign(this.state.onboardingChecklist.milestones, update.milestones);
+		}
+		if (update.dismissed !== undefined) this.state.onboardingChecklist.dismissed = update.dismissed;
+		if (update.collapsed !== undefined) this.state.onboardingChecklist.collapsed = update.collapsed;
+		await this.storage.save(this.state);
+	}
+
+	/** Dismiss the onboarding checklist permanently. */
+	async dismissOnboardingChecklist(): Promise<void> {
+		if (!this.state.onboardingChecklist) return;
+		this.state.onboardingChecklist.dismissed = true;
+		await this.storage.save(this.state);
 	}
 
 	/** Set the CSV reading callback (wired during setup). */
@@ -350,12 +393,12 @@ export class AnalyticsService {
 		this.state.savedAnalyticsQueries = queries;
 		await this.storage.save(this.state);
 
-		await this.eventBus?.emit("analytics.query.saved", {
+		void this.eventBus?.emit("analytics.query.saved", {
 			queryId: saved.id,
 			queryName: saved.name,
 		});
 
-		await this.writeQueryFile(saved);
+		void this.writeQueryFile(saved);
 
 		return saved;
 	}
@@ -456,12 +499,12 @@ export class AnalyticsService {
 		// Invalidate cached result for this query (config changed)
 		this.queryCache.invalidate(id);
 
-		await this.eventBus?.emit("analytics.query.saved", {
+		void this.eventBus?.emit("analytics.query.saved", {
 			queryId: existing.id,
 			queryName: existing.name,
 		});
 
-		await this.writeQueryFile(existing);
+		void this.writeQueryFile(existing);
 
 		return existing;
 	}

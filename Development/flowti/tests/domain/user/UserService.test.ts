@@ -203,6 +203,52 @@ describe("UserService", () => {
 		});
 	});
 
+	describe("role", () => {
+		it("should create a user with role when provided", async () => {
+			const user = await userService.createUser("Test User", "supplier-manager");
+			expect(user.role).toBe("supplier-manager");
+			expect(user.name).toBe("Test User");
+		});
+
+		it("should create a user without role when not provided", async () => {
+			const user = await userService.createUser("Test User");
+			expect(user.role).toBeUndefined();
+		});
+
+		it("should persist user role to storage", async () => {
+			await userService.createUser("Test User", "user");
+			const saved = getData();
+			expect(saved?.role).toBe("user");
+		});
+
+		it("should load existing user with role from storage", async () => {
+			const existingUser: FlowtiUser = {
+				id: "12345678-1234-4123-8123-123456789abc" as UUID,
+				name: "Existing User",
+				createdAt: "2024-01-01T00:00:00.000Z",
+				role: "supplier-manager",
+			};
+			const mock = createMockStorage<FlowtiUser>(existingUser);
+			const service = new UserService({ storage: mock.storage });
+			await service.load();
+
+			expect(service.getUser()?.role).toBe("supplier-manager");
+		});
+
+		it("should load existing user without role (backwards compatible)", async () => {
+			const existingUser: FlowtiUser = {
+				id: "12345678-1234-4123-8123-123456789abc" as UUID,
+				name: "Existing User",
+				createdAt: "2024-01-01T00:00:00.000Z",
+			};
+			const mock = createMockStorage<FlowtiUser>(existingUser);
+			const service = new UserService({ storage: mock.storage });
+			await service.load();
+
+			expect(service.getUser()?.role).toBeUndefined();
+		});
+	});
+
 	describe("persistence", () => {
 		it("should persist user via typed storage", async () => {
 			const mock = createMockStorage<FlowtiUser>();

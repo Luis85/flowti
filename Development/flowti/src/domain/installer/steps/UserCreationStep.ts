@@ -33,7 +33,7 @@ export class UserCreationStep implements IInstallerStep {
 			return { status: "failed", message: "User name is required" };
 		}
 
-		const user = await deps.userService.createUser(context.userName);
+		const user = await deps.userService.createUser(context.userName, context.role);
 		context.user = user;
 		return { status: "completed", message: `User "${user.name}" created` };
 	}

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { SeedContentStep } from "../../../../src/domain/installer/steps/SeedContentStep";
-import { SEED_CSV_PATH, SUPPLIER_OVERVIEW_CSV, WELCOME_NOTE_PATH } from "../../../../src/domain/installer/seedData";
+import { SEED_CSV_PATH, SESSION_TEMPLATE_PATHS, SUPPLIER_OVERVIEW_CSV, WELCOME_NOTE_PATH } from "../../../../src/domain/installer/seedData";
 import type {
 	InstallerContext,
 	InstallerStepDeps,
@@ -185,6 +185,93 @@ describe("SeedContentStep", () => {
 		expect(context.seededFiles).toHaveLength(1);
 		expect(context.seededFiles).toContain(SEED_CSV_PATH);
 	});
+
+	// ── Role-conditional session templates (Cycle 46, PBI-ONB-006) ──
+
+	it("should seed 3 session templates for supplier-manager role", async () => {
+		const deps = createMockDeps();
+		const context: InstallerContext = { userName: "Alice", role: "supplier-manager" };
+
+		const result = await step.execute(context, deps);
+
+		expect(result.status).toBe("completed");
+		// 2 base files + 3 templates = 5
+		expect(deps.fileSystem.createFile).toHaveBeenCalledTimes(5);
+		expect(context.seededFiles).toHaveLength(5);
+	});
+
+	it("should write templates to correct paths for supplier-manager role", async () => {
+		const deps = createMockDeps();
+		const context: InstallerContext = { userName: "Alice", role: "supplier-manager" };
+
+		await step.execute(context, deps);
+
+		const paths = vi.mocked(deps.fileSystem.createFile).mock.calls.map((c) => c[0]);
+		expect(paths).toContain(SESSION_TEMPLATE_PATHS.supplierReview);
+		expect(paths).toContain(SESSION_TEMPLATE_PATHS.kpiReview);
+		expect(paths).toContain(SESSION_TEMPLATE_PATHS.procurementPlanning);
+	});
+
+	it("should NOT seed session templates for user role", async () => {
+		const deps = createMockDeps();
+		const context: InstallerContext = { userName: "Alice", role: "user" };
+
+		const result = await step.execute(context, deps);
+
+		expect(result.status).toBe("completed");
+		expect(deps.fileSystem.createFile).toHaveBeenCalledTimes(2);
+		expect(context.seededFiles).toHaveLength(2);
+	});
+
+	it("should NOT seed session templates when no role is set", async () => {
+		const deps = createMockDeps();
+		const context: InstallerContext = { userName: "Alice" };
+
+		await step.execute(context, deps);
+
+		expect(deps.fileSystem.createFile).toHaveBeenCalledTimes(2);
+	});
+
+	it("should include YAML frontmatter in session templates", async () => {
+		const deps = createMockDeps();
+		const context: InstallerContext = { userName: "Alice", role: "supplier-manager" };
+
+		await step.execute(context, deps);
+
+		const calls = vi.mocked(deps.fileSystem.createFile).mock.calls;
+		const templateCall = calls.find((c) => c[0] === SESSION_TEMPLATE_PATHS.supplierReview);
+		expect(templateCall).toBeDefined();
+		const content = templateCall![1] as string;
+		expect(content).toContain("type: SessionTemplate");
+		expect(content).toContain("cadence: weekly");
+		expect(content).toContain("role: supplier-manager");
+	});
+
+	it("should include seeded template paths in context.seededFiles", async () => {
+		const deps = createMockDeps();
+		const context: InstallerContext = { userName: "Alice", role: "supplier-manager" };
+
+		await step.execute(context, deps);
+
+		expect(context.seededFiles).toContain(SESSION_TEMPLATE_PATHS.supplierReview);
+		expect(context.seededFiles).toContain(SESSION_TEMPLATE_PATHS.kpiReview);
+		expect(context.seededFiles).toContain(SESSION_TEMPLATE_PATHS.procurementPlanning);
+	});
+
+	it("should skip existing templates (idempotent)", async () => {
+		const deps = createMockDeps();
+		vi.mocked(deps.fileSystem.fileExists).mockResolvedValue(true);
+		const context: InstallerContext = { userName: "Alice", role: "supplier-manager" };
+
+		const result = await step.execute(context, deps);
+
+		expect(result.status).toBe("completed");
+		expect(deps.fileSystem.createFile).not.toHaveBeenCalled();
+		// All 5 files counted as seeded (existing)
+		expect(context.seededFiles).toHaveLength(5);
+	});
+
+	// ── CSV data validation ──
 
 	it("should include realistic CSV with expected columns", () => {
 		const header = SUPPLIER_OVERVIEW_CSV.split("\n")[0];

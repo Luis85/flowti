@@ -102,7 +102,7 @@ describe("Journey: First Run", () => {
 		const success = await service.runAll(context);
 
 		expect(success).toBe(true);
-		expect(userService.createUser).toHaveBeenCalledWith("Alice");
+		expect(userService.createUser).toHaveBeenCalledWith("Alice", undefined);
 		expect(context.user).toBeDefined();
 		expect(context.user!.name).toBe("Alice");
 		expect(fileSystem.createFile).toHaveBeenCalledTimes(DEFAULT_IBDE_FOLDERS.length + 2);

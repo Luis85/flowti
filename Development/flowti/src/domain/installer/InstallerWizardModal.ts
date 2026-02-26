@@ -1,22 +1,53 @@
 import { App, Modal, Setting } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
-import { DEFAULT_IBDE_FOLDERS } from "./folders";
+import { DEFAULT_FOLDER_CONFIG, getTopLevelEntries } from "./folderConfig";
 import type { IInstallerService, InstallerStepStatusEntry } from "./types";
 
-type WizardPage = "welcome" | "review" | "progress" | "complete";
+type WizardPage = "welcome" | "role" | "review" | "progress" | "complete";
+
+/** Role option shown on the role selection page. */
+interface RoleOption {
+	id: string;
+	label: string;
+	description: string;
+	disabled?: boolean;
+	badge?: string;
+}
+
+const ROLE_OPTIONS: RoleOption[] = [
+	{
+		id: "user",
+		label: "User",
+		description: "Standard IBDE setup with sample data and general-purpose templates",
+	},
+	{
+		id: "supplier-manager",
+		label: "Supplier Manager",
+		description: "Procurement, supplier KPIs, spend tracking, quality and delivery metrics",
+	},
+	{
+		id: "project-manager",
+		label: "Project Manager",
+		description: "Project tracking, governance, milestones, team coordination",
+		disabled: true,
+		badge: "Coming Soon",
+	},
+];
 
 /**
  * Multi-step wizard modal for the Flowti IBDE first-run installation.
  *
- * Replaces `UserSetupModal` with a richer flow:
- * 1. Welcome — collect user name
- * 2. Review  — preview what will be installed
- * 3. Progress — live step execution with status indicators
- * 4. Complete — summary or error with retry
+ * Flow:
+ * 1. Welcome  — collect user name
+ * 2. Role     — select user role (PBI-ONB-005, Cycle 46)
+ * 3. Review   — preview what will be installed
+ * 4. Progress — live step execution with status indicators
+ * 5. Complete — summary or error with retry
  */
 export class InstallerWizardModal extends Modal {
 	private currentPage: WizardPage = "welcome";
 	private userName = "";
+	private selectedRole = "user";
 	private installerService: IInstallerService;
 	private eventBus: IEventBus;
 	private stepStatuses: InstallerStepStatusEntry[] = [];
@@ -54,6 +85,7 @@ export class InstallerWizardModal extends Modal {
 	}
 
 	private renderPage(): void {
+		this.removeKeyboardNav();
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.addClass("flowti-installer-modal");
@@ -61,6 +93,9 @@ export class InstallerWizardModal extends Modal {
 		switch (this.currentPage) {
 			case "welcome":
 				this.renderWelcomePage(contentEl);
+				break;
+			case "role":
+				this.renderRolePage(contentEl);
 				break;
 			case "review":
 				this.renderReviewPage(contentEl);
@@ -96,9 +131,9 @@ export class InstallerWizardModal extends Modal {
 			cls: "ft-text-muted ft-text-sm",
 		});
 
-		const goToReview = () => {
+		const goToRole = () => {
 			if (this.userName.trim()) {
-				this.currentPage = "review";
+				this.currentPage = "role";
 				this.renderPage();
 			}
 		};
@@ -114,7 +149,7 @@ export class InstallerWizardModal extends Modal {
 						this.userName = value;
 					});
 				text.inputEl.addEventListener("keydown", (e) => {
-					if (e.key === "Enter") goToReview();
+					if (e.key === "Enter") goToRole();
 				});
 			});
 
@@ -123,84 +158,182 @@ export class InstallerWizardModal extends Modal {
 		nav.createEl("button", {
 			text: "Next",
 			cls: "ft-btn ft-btn-primary",
-		}).addEventListener("click", goToReview);
+		}).addEventListener("click", goToRole);
+
+		this.addKeyboardNav(undefined, () => this.close());
 	}
 
 	// ─────────────────────────────────────────────────────────
-	// Page 2: Review
+	// Page 2: Role Selection
+	// ─────────────────────────────────────────────────────────
+
+	private renderRolePage(el: HTMLElement): void {
+		const container = el.createDiv({ cls: "ft-flex ft-flex-col ft-gap-4 ft-p-2" });
+
+		container.createEl("h2", {
+			text: "What best describes your role?",
+			cls: "ft-heading ft-heading-lg",
+		});
+
+		container.createEl("p", {
+			text: "This helps us tailor your setup with relevant sample data and templates.",
+			cls: "ft-text-muted",
+		});
+
+		const cardContainer = container.createDiv({ cls: "ft-flex ft-flex-col ft-gap-2" });
+
+		for (const option of ROLE_OPTIONS) {
+			const isSelected = this.selectedRole === option.id;
+			const card = cardContainer.createDiv({
+				cls: `ft-card ft-p-3 ${isSelected ? "ft-card-selected" : ""}`,
+			});
+
+			if (!option.disabled) {
+				card.style.cursor = "pointer";
+				card.style.border = isSelected
+					? "2px solid var(--interactive-accent)"
+					: "1px solid var(--background-modifier-border)";
+				card.addEventListener("click", () => {
+					this.selectedRole = option.id;
+					this.renderPage();
+				});
+			} else {
+				card.style.opacity = "0.5";
+				card.style.cursor = "not-allowed";
+				card.style.border = "1px solid var(--background-modifier-border)";
+			}
+
+			const header = card.createDiv({ cls: "ft-flex ft-justify-between ft-items-center" });
+			const titleRow = header.createDiv({ cls: "ft-flex ft-gap-2 ft-items-center" });
+
+			const radio = titleRow.createEl("span");
+			radio.textContent = isSelected ? "\u25C9" : "\u25CB";
+			radio.style.fontSize = "1.2em";
+
+			titleRow.createEl("span", {
+				text: option.label,
+				cls: "ft-font-medium",
+			});
+
+			if (option.badge) {
+				const badge = header.createEl("span", {
+					text: option.badge,
+					cls: "ft-text-xs ft-text-muted",
+				});
+				badge.style.padding = "0.1rem 0.4rem";
+				badge.style.borderRadius = "4px";
+				badge.style.background = "var(--background-modifier-border)";
+			}
+
+			card.createEl("p", {
+				text: option.description,
+				cls: "ft-text-muted ft-text-sm",
+			});
+		}
+
+		// Navigation
+		const goBack = () => { this.currentPage = "welcome"; this.renderPage(); };
+		const goNext = () => { this.currentPage = "review"; this.renderPage(); };
+
+		const nav = container.createDiv({ cls: "ft-flex ft-justify-between ft-mt-2" });
+
+		nav.createEl("button", {
+			text: "Back",
+			cls: "ft-btn ft-btn-secondary",
+		}).addEventListener("click", goBack);
+
+		nav.createEl("button", {
+			text: "Next",
+			cls: "ft-btn ft-btn-primary",
+		}).addEventListener("click", goNext);
+
+		this.addKeyboardNav(goNext, goBack);
+	}
+
+	// ─────────────────────────────────────────────────────────
+	// Page 3: Review
 	// ─────────────────────────────────────────────────────────
 
 	private renderReviewPage(el: HTMLElement): void {
 		const container = el.createDiv({ cls: "ft-flex ft-flex-col ft-gap-4 ft-p-2" });
 
 		container.createEl("h2", {
-			text: "Review Installation",
+			text: "Ready to set up your vault?",
 			cls: "ft-heading ft-heading-lg",
 		});
 
+		const roleLabel = ROLE_OPTIONS.find((r) => r.id === this.selectedRole)?.label ?? "User";
 		container.createEl("p", {
-			text: `Installing as: ${this.userName.trim()}`,
+			text: `Installing as: ${this.userName.trim()} (${roleLabel})`,
 			cls: "ft-text-muted",
 		});
 
-		container.createEl("p", {
-			text: "Each step is idempotent \u2014 if you run the installer again later, already-completed steps will be safely skipped.",
-			cls: "ft-text-muted ft-text-sm",
-		});
-
-		// Render a card per step with its onboarding intro
-		for (const step of this.installerService.getSteps()) {
-			const card = container.createDiv({ cls: "ft-card ft-p-3" });
-			card.createEl("h3", {
-				text: step.name,
-				cls: "ft-heading ft-heading-sm ft-mb-2",
-			});
-			card.createEl("p", {
-				text: step.intro,
-				cls: "ft-text-muted ft-mb-2",
-			});
-			card.createEl("p", {
-				text: step.description,
-				cls: "ft-text-faint ft-text-sm",
-			});
-		}
-
-		// Folder preview (collapsed detail)
+		// ── Section 1: Folder Structure ───────────────────
 		const folderCard = container.createDiv({ cls: "ft-card ft-p-3" });
-		folderCard.createEl("h3", {
-			text: "Folders to create",
-			cls: "ft-heading ft-heading-sm ft-mb-2",
+		const folderHeader = folderCard.createDiv({ cls: "ft-flex ft-gap-2 ft-items-center ft-mb-2" });
+		folderHeader.createSpan({ text: "\uD83D\uDCC1" });
+		folderHeader.createEl("h3", {
+			text: "Folder Structure",
+			cls: "ft-heading ft-heading-sm",
 		});
 		const folderList = folderCard.createDiv({ cls: "ft-list ft-folder-list" });
-		const topLevelFolders = DEFAULT_IBDE_FOLDERS.filter((f) => !f.includes("/"));
-		for (const folder of topLevelFolders) {
-			const item = folderList.createDiv({ cls: "ft-list-item" });
-			item.createSpan({ text: `📁 ${folder}` });
+		for (const entry of getTopLevelEntries(DEFAULT_FOLDER_CONFIG)) {
+			const item = folderList.createDiv({ cls: "ft-list-item ft-flex ft-gap-2" });
+			item.createSpan({ text: entry.path });
+			item.createSpan({ text: `(${entry.description})`, cls: "ft-text-faint ft-text-sm" });
 		}
 
+		// ── Section 2: Sample Content ─────────────────────
+		const contentCard = container.createDiv({ cls: "ft-card ft-p-3" });
+		const contentHeader = contentCard.createDiv({ cls: "ft-flex ft-gap-2 ft-items-center ft-mb-2" });
+		contentHeader.createSpan({ text: "\uD83D\uDCC4" });
+		contentHeader.createEl("h3", {
+			text: "Sample Content",
+			cls: "ft-heading ft-heading-sm",
+		});
+		const contentList = contentCard.createDiv({ cls: "ft-list" });
+		contentList.createDiv({ cls: "ft-list-item", text: "Supplier overview CSV (48 rows)" });
+		contentList.createDiv({ cls: "ft-list-item", text: "Welcome note" });
+		if (this.selectedRole === "supplier-manager") {
+			contentList.createDiv({ cls: "ft-list-item", text: "3 session templates (Supplier Review, KPI Review, Procurement Planning)" });
+		}
+
+		// ── Section 3: Pre-Built Dashboard ────────────────
+		const dashCard = container.createDiv({ cls: "ft-card ft-p-3" });
+		const dashHeader = dashCard.createDiv({ cls: "ft-flex ft-gap-2 ft-items-center ft-mb-2" });
+		dashHeader.createSpan({ text: "\uD83D\uDCCA" });
+		dashHeader.createEl("h3", {
+			text: "Pre-Built Dashboard",
+			cls: "ft-heading ft-heading-sm",
+		});
+		const dashList = dashCard.createDiv({ cls: "ft-list" });
+		dashList.createDiv({ cls: "ft-list-item", text: "Supplier Overview (5 tiles, 2 queries)" });
+
 		// Navigation
+		const goBack = () => { this.currentPage = "role"; this.renderPage(); };
+		const goInstall = () => {
+			this.currentPage = "progress";
+			this.renderPage();
+			void this.runInstallation();
+		};
+
 		const nav = container.createDiv({ cls: "ft-flex ft-justify-between ft-mt-2" });
 
 		nav.createEl("button", {
 			text: "Back",
 			cls: "ft-btn ft-btn-secondary",
-		}).addEventListener("click", () => {
-			this.currentPage = "welcome";
-			this.renderPage();
-		});
+		}).addEventListener("click", goBack);
 
 		nav.createEl("button", {
 			text: "Install",
 			cls: "ft-btn ft-btn-primary",
-		}).addEventListener("click", () => {
-			this.currentPage = "progress";
-			this.renderPage();
-			void this.runInstallation();
-		});
+		}).addEventListener("click", goInstall);
+
+		this.addKeyboardNav(goInstall, goBack);
 	}
 
 	// ─────────────────────────────────────────────────────────
-	// Page 3: Progress
+	// Page 4: Progress
 	// ─────────────────────────────────────────────────────────
 
 	private renderProgressPage(el: HTMLElement): void {
@@ -288,6 +421,7 @@ export class InstallerWizardModal extends Modal {
 	private async runInstallation(): Promise<void> {
 		const success = await this.installerService.runAll({
 			userName: this.userName.trim(),
+			role: this.selectedRole,
 		});
 
 		this.installSuccess = success;
@@ -302,7 +436,7 @@ export class InstallerWizardModal extends Modal {
 	}
 
 	// ─────────────────────────────────────────────────────────
-	// Page 4: Complete
+	// Page 5: Complete
 	// ─────────────────────────────────────────────────────────
 
 	private renderCompletePage(el: HTMLElement): void {
@@ -333,29 +467,8 @@ export class InstallerWizardModal extends Modal {
 				});
 			}
 
-			// Next steps guidance
-			const nextSteps = container.createDiv({ cls: "ft-card ft-p-3" });
-			nextSteps.createEl("h3", {
-				text: "What to do next",
-				cls: "ft-heading ft-heading-sm ft-mb-2",
-			});
-			const nextList = nextSteps.createEl("ul", { cls: "ft-flex ft-flex-col ft-gap-1" });
-			nextList.createEl("li", {
-				text: "Explore your Supplier Overview dashboard with live charts and KPI cards",
-				cls: "ft-text-muted",
-			});
-			nextList.createEl("li", {
-				text: "Review the sample supplier data in 03 - Resources/Sample Data/",
-				cls: "ft-text-muted",
-			});
-			nextList.createEl("li", {
-				text: "Import your own CSV files by dropping them into 00 - Connectivity/imports/",
-				cls: "ft-text-muted",
-			});
-			nextList.createEl("li", {
-				text: "Build custom queries and dashboards in the Analytics Hub",
-				cls: "ft-text-muted",
-			});
+			// Next steps guidance — adapts to selected role
+			this.renderNextStepsGuidance(container);
 		} else {
 			container.createEl("h2", {
 				text: "Setup Failed",
@@ -388,16 +501,76 @@ export class InstallerWizardModal extends Modal {
 		});
 
 		if (this.installSuccess) {
-			nav.createEl("button", {
-				text: "Explore Your Dashboard",
-				cls: "ft-btn ft-btn-primary",
-			}).addEventListener("click", () => {
+			const explore = () => {
 				this.close();
-				// Delay emit so Obsidian settles focus after modal close
 				setTimeout(() => {
 					void this.eventBus.emit("ui.openAnalyticsHub", {});
 				}, 100);
-			});
+			};
+			nav.createEl("button", {
+				text: "Explore Your Dashboard",
+				cls: "ft-btn ft-btn-primary",
+			}).addEventListener("click", explore);
+
+			this.addKeyboardNav(explore, () => this.close());
+		} else {
+			this.addKeyboardNav(undefined, () => this.close());
+		}
+	}
+
+	private renderNextStepsGuidance(container: HTMLElement): void {
+		const nextSteps = container.createDiv({ cls: "ft-card ft-p-3" });
+		nextSteps.createEl("h3", {
+			text: "What to do next",
+			cls: "ft-heading ft-heading-sm ft-mb-2",
+		});
+		const nextList = nextSteps.createEl("ul", { cls: "ft-flex ft-flex-col ft-gap-1" });
+
+		const tips =
+			this.selectedRole === "supplier-manager"
+				? [
+						"Explore your Supplier Overview dashboard with live charts and KPI cards",
+						"Review the sample supplier data in 03 - Resources/Sample Data/",
+						"Import your own CSV files by dropping them into 00 - Connectivity/imports/",
+						"Build custom queries and dashboards in the Analytics Hub",
+					]
+				: [
+						"Open the Analytics Hub to explore your pre-built dashboard",
+						"Review the sample data in 03 - Resources/Sample Data/",
+						"Import your own CSV files by dropping them into 00 - Connectivity/imports/",
+						"Build custom queries and pin them to dashboards",
+					];
+
+		for (const tip of tips) {
+			nextList.createEl("li", { text: tip, cls: "ft-text-muted" });
+		}
+	}
+
+	// ─────────────────────────────────────────────────────────
+	// Keyboard navigation
+	// ─────────────────────────────────────────────────────────
+
+	private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
+
+	/** Register Enter (advance) and Escape (back/close) for the current page. */
+	private addKeyboardNav(onEnter?: () => void, onEscape?: () => void): void {
+		this.removeKeyboardNav();
+		this.keydownHandler = (e: KeyboardEvent) => {
+			if (e.key === "Enter" && onEnter) {
+				e.preventDefault();
+				onEnter();
+			} else if (e.key === "Escape" && onEscape) {
+				e.preventDefault();
+				onEscape();
+			}
+		};
+		this.contentEl.addEventListener("keydown", this.keydownHandler);
+	}
+
+	private removeKeyboardNav(): void {
+		if (this.keydownHandler) {
+			this.contentEl.removeEventListener("keydown", this.keydownHandler);
+			this.keydownHandler = null;
 		}
 	}
 
@@ -406,6 +579,7 @@ export class InstallerWizardModal extends Modal {
 	// ─────────────────────────────────────────────────────────
 
 	private cleanupListeners(): void {
+		this.removeKeyboardNav();
 		for (const unsub of this.unsubscribers) {
 			unsub();
 		}

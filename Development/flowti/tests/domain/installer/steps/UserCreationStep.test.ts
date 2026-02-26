@@ -64,9 +64,19 @@ describe("UserCreationStep", () => {
 		const result = await step.execute(context, deps);
 
 		expect(result.status).toBe("completed");
-		expect(deps.userService.createUser).toHaveBeenCalledWith("Test User");
+		expect(deps.userService.createUser).toHaveBeenCalledWith("Test User", undefined);
 		expect(context.user).toBeDefined();
 		expect(context.user!.name).toBe("Test User");
+	});
+
+	it("should pass context.role to userService.createUser", async () => {
+		const deps = createMockDeps(false);
+		const context: InstallerContext = { userName: "Test User", role: "supplier-manager" };
+
+		const result = await step.execute(context, deps);
+
+		expect(result.status).toBe("completed");
+		expect(deps.userService.createUser).toHaveBeenCalledWith("Test User", "supplier-manager");
 	});
 
 	it("should skip if user already exists", async () => {

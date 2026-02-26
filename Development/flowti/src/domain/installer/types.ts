@@ -23,6 +23,8 @@ export interface InstallerStepResult {
 export interface InstallerContext {
 	/** User name entered in the welcome step */
 	userName?: string;
+	/** Selected role from the wizard role page (e.g. "user", "supplier-manager") */
+	role?: string;
 	/** The created user object (populated after UserCreationStep) */
 	user?: FlowtiUser;
 	/** Folders that were created (populated after FolderScaffoldStep) */

@@ -540,6 +540,24 @@ export interface Measurement {
 	updatedAt: number;
 }
 
+// ── Onboarding checklist (Cycle 46, PBI-ONB-007) ────────
+
+/** Milestone tracking for the post-install onboarding checklist. */
+export interface OnboardingMilestones {
+	installed: boolean;
+	dashboardExplored: boolean;
+	sampleDataReviewed: boolean;
+	ownDataImported: boolean;
+	customQueryBuilt: boolean;
+}
+
+/** Persisted onboarding checklist state (embedded in AnalyticsState). */
+export interface OnboardingChecklist {
+	dismissed: boolean;
+	collapsed: boolean;
+	milestones: OnboardingMilestones;
+}
+
 // ── Analytics state ─────────────────────────────────────
 
 /** Persisted state for the Analytics domain (TypedStorage key: "analytics"). */
@@ -554,4 +572,6 @@ export interface AnalyticsState {
 	templates?: DashboardTemplate[];
 	/** Saved measurements */
 	measurements?: Measurement[];
+	/** Post-install onboarding checklist (Cycle 46, PBI-ONB-007) */
+	onboardingChecklist?: OnboardingChecklist;
 }

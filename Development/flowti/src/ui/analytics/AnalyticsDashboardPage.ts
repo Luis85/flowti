@@ -7,7 +7,7 @@
  */
 
 import { setIcon } from "obsidian";
-import type { Dashboard, DashboardTile } from "../../domain/analytics/types";
+import type { Dashboard, DashboardTile, OnboardingChecklist } from "../../domain/analytics/types";
 import { resolveDateRangeFilter } from "../../domain/analytics/dateUtils";
 import { computeFreshnessSummary, getFreshnessLevel, getFreshnessColor } from "../../domain/analytics/freshnessUtils";
 import { seedSupplierDashboard } from "../../domain/installer/seedDashboard";
@@ -36,6 +36,7 @@ export class AnalyticsDashboardPage {
 
 		if (activeDashboard) {
 			this.renderNavLinks();
+			this.renderOnboardingChecklist(activeDashboard);
 			this.renderDefaultDashboard(activeDashboard);
 		} else {
 			this.renderFallback();
@@ -111,6 +112,124 @@ export class AnalyticsDashboardPage {
 		queryLink.addEventListener("click", () => {
 			this.deps.navigation.navigateTo("queries");
 		});
+	}
+
+	// ── Onboarding checklist (Cycle 46, PBI-ONB-007) ────────
+
+	private renderOnboardingChecklist(_dashboard: Dashboard): void {
+		const checklist = this.deps.analyticsService.getOnboardingChecklist();
+		if (!checklist || checklist.dismissed) return;
+
+		// Auto-update milestones based on current state
+		this.autoUpdateMilestones(checklist);
+
+		// Check if all milestones are complete → auto-dismiss
+		const ms = checklist.milestones;
+		const allComplete = ms.installed && ms.dashboardExplored && ms.sampleDataReviewed && ms.ownDataImported && ms.customQueryBuilt;
+		if (allComplete) {
+			void this.deps.analyticsService.dismissOnboardingChecklist();
+			return;
+		}
+
+		// Mark dashboardExplored since we're rendering a dashboard
+		if (!ms.dashboardExplored) {
+			ms.dashboardExplored = true;
+			void this.deps.analyticsService.updateOnboardingChecklist({ milestones: ms });
+		}
+
+		const container = this.containerEl.createDiv({ cls: "ft-card ft-p-3 ft-mb-3" });
+		container.style.border = "1px solid var(--background-modifier-border)";
+
+		// Header row: title + collapse/dismiss buttons
+		const header = container.createDiv({ cls: "ft-flex ft-justify-between ft-items-center" });
+		header.style.marginBottom = checklist.collapsed ? "0" : "0.5rem";
+
+		const titleRow = header.createDiv({ cls: "ft-flex ft-gap-2 ft-items-center" });
+		const titleIcon = titleRow.createSpan();
+		setIcon(titleIcon, "rocket");
+		titleIcon.style.cssText = "display:inline-flex;align-items:center;opacity:0.6";
+		titleRow.createSpan({ text: "Getting Started", cls: "ft-font-medium ft-text-sm" });
+
+		const completedCount = Object.values(ms).filter(Boolean).length;
+		titleRow.createSpan({
+			text: `${completedCount} of 5`,
+			cls: "ft-text-xs ft-text-muted",
+		});
+
+		const actions = header.createDiv({ cls: "ft-flex ft-gap-1" });
+
+		// Collapse toggle
+		const collapseBtn = actions.createEl("span", { cls: "ft-nav-link ft-text-xs" });
+		collapseBtn.textContent = checklist.collapsed ? "Expand" : "Collapse";
+		collapseBtn.addEventListener("click", () => {
+			void this.deps.analyticsService.updateOnboardingChecklist({ collapsed: !checklist.collapsed });
+			this.deps.scheduleRender();
+		});
+
+		// Dismiss button
+		const dismissBtn = actions.createEl("span", { cls: "ft-nav-link ft-text-xs" });
+		dismissBtn.textContent = "\u2715";
+		dismissBtn.title = "Dismiss checklist";
+		dismissBtn.addEventListener("click", () => {
+			void this.deps.analyticsService.dismissOnboardingChecklist();
+			this.deps.scheduleRender();
+		});
+
+		if (checklist.collapsed) return;
+
+		// Milestone list
+		const list = container.createDiv({ cls: "ft-flex ft-flex-col ft-gap-1" });
+		const milestones: Array<{ key: keyof typeof ms; label: string }> = [
+			{ key: "installed", label: "Install Flowti" },
+			{ key: "dashboardExplored", label: "Explore your Supplier Dashboard" },
+			{ key: "sampleDataReviewed", label: "Review the sample data in your queries" },
+			{ key: "ownDataImported", label: "Import your own CSV data" },
+			{ key: "customQueryBuilt", label: "Build a custom query" },
+		];
+
+		for (const { key, label } of milestones) {
+			const done = ms[key];
+			const row = list.createDiv({ cls: "ft-flex ft-gap-2 ft-items-center" });
+			row.createSpan({
+				text: done ? "\u2705" : "\u2610",
+				cls: "ft-text-sm",
+			});
+			const textEl = row.createSpan({ text: label, cls: "ft-text-sm" });
+			if (done) {
+				textEl.style.textDecoration = "line-through";
+				textEl.style.opacity = "0.6";
+			}
+		}
+	}
+
+	private autoUpdateMilestones(checklist: OnboardingChecklist): void {
+		const ms = checklist.milestones;
+		const state = this.deps.getState();
+		let changed = false;
+
+		// sampleDataReviewed: set when user has viewed query results (queries tab visited with results)
+		if (!ms.sampleDataReviewed && state.selectedQueryId) {
+			ms.sampleDataReviewed = true;
+			changed = true;
+		}
+
+		// ownDataImported: set when a non-seed query source exists
+		const seedQueryNames = new Set(["Supplier Overview - By Supplier", "Supplier Trend - Monthly Spend"]);
+		const hasNonSeedQuery = state.queries.some((q) => !seedQueryNames.has(q.name));
+		if (!ms.ownDataImported && hasNonSeedQuery) {
+			ms.ownDataImported = true;
+			changed = true;
+		}
+
+		// customQueryBuilt: set when query count > 2 (the seed queries)
+		if (!ms.customQueryBuilt && state.queries.length > 2) {
+			ms.customQueryBuilt = true;
+			changed = true;
+		}
+
+		if (changed) {
+			void this.deps.analyticsService.updateOnboardingChecklist({ milestones: ms });
+		}
 	}
 
 	// ── Default dashboard tile grid ──────────────────────────

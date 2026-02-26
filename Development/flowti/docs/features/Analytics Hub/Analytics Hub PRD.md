@@ -3,7 +3,7 @@ domain: Analytics
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
 stage: delivered
-version: 19
+version: 20
 maturity: L2
 created: 2026-02-23
 updated: 2026-02-26
@@ -273,6 +273,11 @@ Primary interaction path:
 - [x] FR-105: Items KPI card — row count card always shown as first KPI stat card in table tiles (labeled "Items"); reflects full dataset count regardless of pagination page
 - [x] FR-106: Configurable Items label — text input in tile settings ("Items label") allows customizing the KPI card label (e.g., "Customers", "Suppliers"); stored as `tableKpiLabel` on DashboardTile; defaults to "Items" when empty
 
+### v20 — Onboarding & Save Performance (Cycle 46)
+
+- [x] FR-107: Onboarding checklist on `AnalyticsState` — `OnboardingChecklist` type with 5 milestones (installed, first_source, first_query, first_dashboard, first_pin), collapsed/dismissed flags; `initOnboardingChecklist()` creates initial state with `installed: true`; `updateOnboardingChecklist()` deep-merges milestones separately from top-level fields; `resetOnboardingChecklist()` clears checklist
+- [x] FR-108: Save query performance — `saveQuery()` and `updateQuery()` use fire-and-forget (`void`) for non-critical I/O (event emit, file write via EventBridge); storage save remains awaited; `QueryPersistenceManager` calls `scheduleRender` before `syncMeasurementsFromQuery` (fire-and-forget); Save button shows instant "Saving..." feedback with disabled state and loader icon
+
 ## 6. Data Model Impact
 
 ### New Types
@@ -393,6 +398,19 @@ Primary interaction path:
 |------|--------|---------|
 | `ExpressionValidationResult` | `{ valid: boolean; errors: string[] }` | Runtime (expressionValidator) |
 | `AnalyticsHandlerContext` | getState, save, eventBus, generateId, getQuery, getDashboard | Runtime (handler module context) |
+
+### v20 Types (Cycle 46)
+
+| Type | Fields | Storage |
+|------|--------|---------|
+| `OnboardingChecklist` | dismissed (boolean), collapsed (boolean), milestones: `OnboardingMilestones` | `"analytics"` key (in AnalyticsState) |
+| `OnboardingMilestones` | installed, first_source, first_query, first_dashboard, first_pin (all boolean) | `"analytics"` key (nested) |
+
+### Modified Types (v20)
+
+| Type | Change |
+|------|--------|
+| `AnalyticsState` | Add `onboardingChecklist?: OnboardingChecklist` |
 
 ### Removed from DataExchangeState
 
@@ -742,6 +760,8 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 | [[PBI-ANA-140 QueriesTab Decomposition]] | Extract QueryExecutionManager + QueryPersistenceManager from QueriesTab | Delivered | High | ANA-120 |
 | [[PBI-ANA-141 DashboardTileRenderer Extraction]] | Decompose 827→334 LOC into 4 sub-renderers + TileRendererFactory | Delivered | High | — |
 | [[PBI-ANA-142 Analytics Flow Test Expansion]] | 4 flow suites (Flows 20–23): measurement, date range, cross-tile, file watcher (34 tests) | Delivered | High | ANA-130, ANA-132, ANA-133 |
+| [[PBI-ANA-150 Onboarding Checklist]] | OnboardingChecklist type on AnalyticsState with 5 milestones, init/update/reset methods | Delivered | High | — |
+| [[PBI-ANA-151 Save Query Performance]] | Fire-and-forget for event emit + file write + measurement sync; instant button feedback | Delivered | High | — |
 
 > **Analytics Hub v1 delivered (2026-02-23):** 5 PBIs in Cycle 28. Hub shell, dashboards, .base sources, independent persistence. 4,338 tests (178 suites).
 > **Analytics Hub v2 delivered (2026-02-23):** 5 PBIs in Cycle 29. Favorites, default dashboard, dashboard-first overview, per-tile refresh, Supplier Manager persona. 4,358 tests (179 suites).
@@ -756,6 +776,7 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 > **Analytics Hub v17 refinement (2026-02-26):** PRD refinement pass. 8 new roadmap PBIs (ANA-130–137) from market research: date range filter (P1), day/week time buckets (P1), cross-tile filtering (P2), file watcher (P2), KPI targets/RAG (P3), goal lines (P3), PDF export (P4), markdown export (P4). 26 missing delivered PBI files created (ANA-054–076, ANA-120–126). Documentation gap closure: Analytics Hub View sitemap, 9 component docs, 2 new flow docs, DX Hub sitemap updated. 19 inbox items refined. Total: 56 PBI files, 12 sitemap views, 18 component docs, 3 flow docs.
 > **Analytics Hub v18 delivered (2026-02-26):** 7 PBIs + 6 UX sprint in Cycle 44. Filtering & Decomposition: date range filter (12 presets + custom), day/week time buckets, cross-tile filtering (click-to-filter propagation), dashboard file watcher (500ms debounce, selective refresh), QueriesTab decomposition (QueryExecutionManager + QueryPersistenceManager), DashboardTileRenderer extraction (827→334 LOC, 4 sub-renderers + factory), 4 flow test suites (Flows 20–23, 34 tests). UX Sprint: multi-column charts, show/hide series (interactive legend), table pagination with presets (10/15/25/50/All, default 15), Items KPI card with configurable label, 2 cross-tile filter bugs fixed (clearByQueryId, stale breadcrumb). 182 new tests. 5,123 tests (215 suites). PRD v19, 106 FRs all delivered.
 > **Analytics Hub v19 refinement (2026-02-26):** PRD v19 with 10 new FRs (FR-97 through FR-106). All Cycle 44 PBIs marked Delivered in backlog.
+> **Analytics Hub v20 delivered (2026-02-26):** 2 PBIs in Cycle 46. Onboarding checklist (5-milestone `OnboardingChecklist` on `AnalyticsState` with deep merge, init/update/reset), save query performance (fire-and-forget pattern for non-critical I/O, instant "Saving..." button feedback). 2 new FRs (FR-107, FR-108). 9 new onboarding tests. 5,201 tests (219 suites). PRD v20, 108 FRs all delivered.
 
 ## 15. Market Research: SMB Dashboarding vs Excel (Feb 2026)
 
@@ -889,3 +910,5 @@ The tipping point occurs when teams hit 3+ of these simultaneously: data exceeds
 - PBIs (v17 roadmap): [[PBI-ANA-130 Date Range Filter]], [[PBI-ANA-131 Day Week Time Bucket Granularity]], [[PBI-ANA-132 Cross-Tile Filtering]], [[PBI-ANA-133 Dashboard File Watcher]], [[PBI-ANA-134 KPI Targets and RAG Status]], [[PBI-ANA-135 Goal Lines on Charts]], [[PBI-ANA-136 Dashboard PDF Export]], [[PBI-ANA-137 Dashboard Markdown Export]]
 - Cycle: [[Cycle 44 - Analytics Hub Filtering & Decomposition]] (date range filter, day/week buckets, cross-tile filtering, file watcher, QueriesTab decomposition, TileRenderer extraction, flow tests — planned)
 - PBIs (v18): [[PBI-ANA-130 Date Range Filter]], [[PBI-ANA-131 Day Week Time Bucket Granularity]], [[PBI-ANA-132 Cross-Tile Filtering]], [[PBI-ANA-133 Dashboard File Watcher]], [[PBI-ANA-140 QueriesTab Decomposition]], [[PBI-ANA-141 DashboardTileRenderer Extraction]], [[PBI-ANA-142 Analytics Flow Test Expansion]]
+- Cycle: [[Cycle 46 - Supplier Manager Onboarding II]] (onboarding checklist, save query performance — delivered)
+- PBIs (v20): [[PBI-ANA-150 Onboarding Checklist]], [[PBI-ANA-151 Save Query Performance]]
