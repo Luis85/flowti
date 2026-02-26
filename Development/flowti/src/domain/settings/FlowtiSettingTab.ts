@@ -56,7 +56,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 	 * Display setup section with restart button
 	 */
 	private displaySetupSection(containerEl: HTMLElement): void {
-		containerEl.createEl("h3", { text: "Setup" });
+		new Setting(containerEl).setName("Setup").setHeading();
 
 		new Setting(containerEl)
 			.setName("Run setup wizard")
@@ -106,7 +106,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 	 * Display event system toggle section
 	 */
 	private displayEventSystemSection(containerEl: HTMLElement): void {
-		containerEl.createEl("h3", { text: "Event System" });
+		new Setting(containerEl).setName("Event system").setHeading();
 
 		const settings = this.deps.getSettings();
 
@@ -145,7 +145,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 	 * Display documentation settings section
 	 */
 	private displayDocumentationSection(containerEl: HTMLElement): void {
-		containerEl.createEl("h3", { text: "Documentation" });
+		new Setting(containerEl).setName("Documentation").setHeading();
 
 		new Setting(containerEl)
 			.setName("Documentation root path")
@@ -184,7 +184,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 	 * Display per-entity folder path settings
 	 */
 	private displayEntityPathsSection(containerEl: HTMLElement): void {
-		containerEl.createEl("h3", { text: "Entity Folder Paths" });
+		new Setting(containerEl).setName("Entity folder paths").setHeading();
 		containerEl.createEl("p", {
 			text: "Customise where each entity type stores its documentation files. " +
 				"By default, each uses a subfolder under the documentation root path. " +
@@ -244,7 +244,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 	 * Display Train of Thoughts settings section
 	 */
 	private displayTrainSection(containerEl: HTMLElement): void {
-		containerEl.createEl("h3", { text: "Train of Thoughts" });
+		new Setting(containerEl).setName("Train of thoughts").setHeading();
 
 		const settings = this.deps.getSettings();
 
@@ -333,7 +333,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 	 * Display analytics settings section
 	 */
 	private displayAnalyticsSection(containerEl: HTMLElement): void {
-		containerEl.createEl("h3", { text: "Analytics" });
+		new Setting(containerEl).setName("Analytics").setHeading();
 		const settings = this.deps.getSettings();
 
 		new Setting(containerEl)
@@ -377,7 +377,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 	 * Display general settings section
 	 */
 	private displayGeneralSection(containerEl: HTMLElement): void {
-		containerEl.createEl("h3", { text: "General" });
+		new Setting(containerEl).setName("Advanced").setHeading();
 
 		new Setting(containerEl)
 			.setName("Debug mode")

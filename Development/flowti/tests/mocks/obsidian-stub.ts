@@ -225,6 +225,11 @@ export class Setting {
 		return this;
 	}
 
+	setHeading(): this {
+		this.settingEl.classList.add("setting-item-heading");
+		return this;
+	}
+
 	addText(cb: (text: TextComponent) => void): this {
 		const comp = new TextComponent(this.controlEl);
 		cb(comp);

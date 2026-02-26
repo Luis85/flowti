@@ -8,6 +8,7 @@
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { IFileSystemClient } from "../../infrastructure/filesystem/types";
 import type { ITypedStorage } from "../../utils/TypedStorage";
+import type { ISecretStore } from "../../utils/SecretStore";
 import type { SignalConfig, SignalState, SyncResult, SyncError } from "./types";
 import type { SignalAdapter, TestConnectionResult } from "./adapters/SignalAdapter";
 import { writeWorkItemNote } from "./mappers/workItemNoteMapper";
@@ -17,6 +18,7 @@ export interface SignalServiceOptions {
 	eventBus?: IEventBus;
 	adapter?: SignalAdapter;
 	fileSystem?: IFileSystemClient;
+	secretStore?: ISecretStore;
 }
 
 /** Input for creating a new signal — system-managed fields are omitted. */
@@ -33,12 +35,18 @@ function generateId(): string {
 	return `sig_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/** SecretStorage key for a signal's PAT. Lowercase alphanumeric + dashes per Obsidian API. */
+function secretKey(signalId: string): string {
+	return `signal-pat-${signalId.replace(/_/g, "-")}`;
+}
+
 export class SignalService {
 	private state: SignalState = createDefaultState();
 	private storage: ITypedStorage<SignalState>;
 	private eventBus?: IEventBus;
 	private adapter?: SignalAdapter;
 	private fileSystem?: IFileSystemClient;
+	private secretStore?: ISecretStore;
 	private unsubscribes: (() => void)[] = [];
 
 	constructor(options: SignalServiceOptions) {
@@ -46,6 +54,7 @@ export class SignalService {
 		this.eventBus = options.eventBus;
 		this.adapter = options.adapter;
 		this.fileSystem = options.fileSystem;
+		this.secretStore = options.secretStore;
 	}
 
 	// ── Lifecycle ────────────────────────────────────────────
@@ -55,6 +64,25 @@ export class SignalService {
 		if (saved) {
 			this.state = saved;
 		}
+
+		// Hydrate PATs from SecretStorage into in-memory state.
+		// If a PAT is still in data.json (pre-migration), migrate it to SecretStorage.
+		if (this.secretStore && this.secretStore.isAvailable()) {
+			let needsMigration = false;
+			for (const signal of this.state.signals) {
+				const secretPat = this.secretStore.getSecret(secretKey(signal.id));
+				if (secretPat) {
+					signal.pat = secretPat;
+				} else if (signal.pat) {
+					// Legacy: PAT still in data.json — migrate to SecretStorage
+					needsMigration = true;
+				}
+			}
+			if (needsMigration) {
+				await this.saveState();
+			}
+		}
+
 		await this.eventBus?.emit("signal.loaded", {
 			signalCount: this.state.signals.length,
 		});
@@ -127,6 +155,7 @@ export class SignalService {
 		if (!signal) return false;
 
 		this.state.signals = this.state.signals.filter((s) => s.id !== id);
+		this.secretStore?.deleteSecret(secretKey(id));
 		await this.saveState();
 
 		await this.eventBus?.emit("signal.removed", {
@@ -253,6 +282,17 @@ export class SignalService {
 	// ── Private ──────────────────────────────────────────────
 
 	private async saveState(): Promise<void> {
-		await this.storage.save(this.state);
+		if (this.secretStore && this.secretStore.isAvailable()) {
+			// Store PATs in SecretStorage; persist signal configs without PATs
+			for (const signal of this.state.signals) {
+				if (signal.pat) {
+					this.secretStore.setSecret(secretKey(signal.id), signal.pat);
+				}
+			}
+			const stripped = this.state.signals.map((s) => ({ ...s, pat: "" }));
+			await this.storage.save({ signals: stripped });
+		} else {
+			await this.storage.save(this.state);
+		}
 	}
 }

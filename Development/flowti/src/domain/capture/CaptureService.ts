@@ -46,7 +46,7 @@ export class CaptureService {
 		const frontmatter = [
 			"---",
 			`type: ${displayType}`,
-			...(input.description ? [`description: "${input.description}"`] : []),
+			...(input.description ? [`description: "${sanitizeYamlString(input.description)}"`] : []),
 			`created: ${timestamp}`,
 			`origin: quick-capture`,
 			"---",
@@ -84,4 +84,16 @@ export class CaptureService {
 			.replace(/\s+/g, " ")
 			.trim();
 	}
+}
+
+/**
+ * Escape a string for safe inclusion inside a YAML double-quoted value.
+ * Handles: double quotes, backslashes, and newlines.
+ */
+function sanitizeYamlString(value: string): string {
+	return value
+		.replace(/\\/g, "\\\\")
+		.replace(/"/g, '\\"')
+		.replace(/\n/g, " ")
+		.replace(/\r/g, "");
 }

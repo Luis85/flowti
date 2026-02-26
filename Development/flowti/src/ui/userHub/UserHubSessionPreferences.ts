@@ -66,7 +66,7 @@ export class UserHubSessionPreferences {
 		addRow.style.marginTop = "0.5rem";
 		const addInput = addRow.createEl("input", { cls: "ft-input" });
 		addInput.type = "text";
-		addInput.placeholder = "e.g. .obsidian/";
+		addInput.placeholder = "e.g. node_modules/";
 		addInput.style.flex = "1";
 		const addBtn = addRow.createEl("button", { cls: "ft-btn-icon" });
 		setIcon(addBtn, "plus");

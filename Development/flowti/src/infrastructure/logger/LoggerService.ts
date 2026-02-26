@@ -128,11 +128,20 @@ export class LoggerService implements ILogger {
 	 * Writes to the appropriate console method.
 	 */
 	private writeToConsole(level: LogLevel, message: string, data?: unknown): void {
-		const consoleMethod = level === "debug" ? "log" : level;
-		if (data !== undefined) {
-			console[consoleMethod](message, data);
-		} else {
-			console[consoleMethod](message);
+		switch (level) {
+			case "debug":
+			case "info":
+				if (data !== undefined) console.debug(message, data); // eslint-disable-line no-console -- Logger is the designated console output layer
+				else console.debug(message); // eslint-disable-line no-console -- Logger is the designated console output layer
+				break;
+			case "warn":
+				if (data !== undefined) console.warn(message, data); // eslint-disable-line no-console -- Logger is the designated console output layer
+				else console.warn(message); // eslint-disable-line no-console -- Logger is the designated console output layer
+				break;
+			case "error":
+				if (data !== undefined) console.error(message, data); // eslint-disable-line no-console -- Logger is the designated console output layer
+				else console.error(message); // eslint-disable-line no-console -- Logger is the designated console output layer
+				break;
 		}
 	}
 
@@ -162,7 +171,7 @@ export class LoggerService implements ILogger {
 			if (event.type.startsWith("log.")) return;
 
 			const tag = `[${this.prefix}:EventTrace]`;
-			console.log(tag, event.type, event.payload);
+			console.debug(tag, event.type, event.payload);
 		});
 	}
 

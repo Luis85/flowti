@@ -553,7 +553,6 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.addCommand({
 				id: command.id,
 				name: command.name,
-				hotkeys: command.hotkeys,
 				icon: command.icon,
 				mobileOnly: command.mobileOnly,
 				callback: () => {

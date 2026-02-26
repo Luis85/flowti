@@ -224,5 +224,63 @@ describe("CaptureService", () => {
 
 			expect(result.path).toBe("custom/folder/Override.md");
 		});
+
+		// ── YAML sanitization (PBI-BUG-001) ─────────────────────
+
+		it("should escape double quotes in description", async () => {
+			await service.capture({ title: "Test", type: "idea", description: 'My "quoted" idea' });
+
+			const content = (fileSystem.createFile as ReturnType<typeof import("vitest").vi.fn>).mock.calls[0][1] as string;
+			expect(content).toContain('description: "My \\"quoted\\" idea"');
+			expect(content).toMatch(/^---\n[\s\S]*\n---$/m);
+		});
+
+		it("should escape backslashes in description", async () => {
+			await service.capture({ title: "Test", type: "idea", description: "path\\to\\file" });
+
+			const content = (fileSystem.createFile as ReturnType<typeof import("vitest").vi.fn>).mock.calls[0][1] as string;
+			expect(content).toContain('description: "path\\\\to\\\\file"');
+		});
+
+		it("should replace newlines with spaces in description", async () => {
+			await service.capture({ title: "Test", type: "idea", description: "line one\nline two\nline three" });
+
+			const content = (fileSystem.createFile as ReturnType<typeof import("vitest").vi.fn>).mock.calls[0][1] as string;
+			expect(content).toContain('description: "line one line two line three"');
+			expect(content).not.toContain("\n" + "line two");
+		});
+
+		it("should handle carriage returns in description", async () => {
+			await service.capture({ title: "Test", type: "idea", description: "line one\r\nline two" });
+
+			const content = (fileSystem.createFile as ReturnType<typeof import("vitest").vi.fn>).mock.calls[0][1] as string;
+			expect(content).toContain('description: "line one line two"');
+		});
+
+		it("should handle colons in description without breaking YAML", async () => {
+			await service.capture({ title: "Test", type: "idea", description: "key: value pairs are fine" });
+
+			const content = (fileSystem.createFile as ReturnType<typeof import("vitest").vi.fn>).mock.calls[0][1] as string;
+			expect(content).toContain('description: "key: value pairs are fine"');
+		});
+
+		it("should handle combined special characters in description", async () => {
+			await service.capture({ title: "Test", type: "idea", description: 'She said "hello\\world"\nand left' });
+
+			const content = (fileSystem.createFile as ReturnType<typeof import("vitest").vi.fn>).mock.calls[0][1] as string;
+			expect(content).toContain('description: "She said \\"hello\\\\world\\" and left"');
+		});
+
+		it("should produce valid YAML frontmatter with special characters", async () => {
+			await service.capture({ title: "Test", type: "idea", description: 'Test: "special" chars\nhere' });
+
+			const content = (fileSystem.createFile as ReturnType<typeof import("vitest").vi.fn>).mock.calls[0][1] as string;
+			const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+			expect(frontmatterMatch).not.toBeNull();
+			// Verify the description line is a valid YAML string
+			const descLine = content.split("\n").find((l: string) => l.startsWith("description:"));
+			expect(descLine).toBeDefined();
+			expect(descLine).toMatch(/^description: ".*"$/);
+		});
 	});
 });

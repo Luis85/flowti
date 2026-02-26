@@ -139,7 +139,7 @@ export class SessionSetup {
 				if (current && shouldShowAddToSession(current)) {
 					const bindType = isFolder ? "folder" as const : "file" as const;
 					const bindPath = isFolder ? file.path + "/" : file.path;
-					const label = isFolder ? file.name : (file as TFile).basename;
+					const label = file instanceof TFile ? file.basename : file.name;
 					menu.addItem((item) => {
 						item.setTitle(`Add to "${current.title}"`)
 							.setIcon("link")

@@ -6,6 +6,7 @@ import type { SignalState, WorkItemMapping } from "../../../src/domain/signal/ty
 import type { SignalAdapter, TestConnectionResult, FetchItemsResult } from "../../../src/domain/signal/adapters/SignalAdapter";
 import { createMockStorage } from "../../mocks/storage";
 import { createMockFileSystem } from "../../mocks/filesystem";
+import { createMockSecretStore } from "../../utils/SecretStore.test";
 
 function makeInput(overrides: Partial<SignalConfigInput> = {}): SignalConfigInput {
 	return {
@@ -488,6 +489,161 @@ describe("SignalService", () => {
 
 			expect(handler).toHaveBeenCalledOnce();
 			expect(handler.mock.calls[0][0].payload.result.itemsCreated).toBe(1);
+		});
+	});
+
+	// ── Secret storage (Obsidian SecretStorage API) ────────
+
+	describe("secret storage", () => {
+		it("should strip PATs from data.json when secretStore is available", async () => {
+			const mock = createMockStorage<SignalState>();
+			const secretStore = createMockSecretStore();
+			const svc = new SignalService({ storage: mock.storage, eventBus, secretStore });
+
+			await svc.configure(makeInput({ pat: "my-secret-pat" }));
+
+			const persisted = mock.getData();
+			expect(persisted?.signals[0].pat).toBe("");
+		});
+
+		it("should store PATs in SecretStorage keyed by signal id", async () => {
+			const secretStore = createMockSecretStore();
+			const mock = createMockStorage<SignalState>();
+			const svc = new SignalService({ storage: mock.storage, eventBus, secretStore });
+
+			const config = await svc.configure(makeInput({ pat: "my-secret-pat" }));
+
+			// PAT should be in SecretStorage under the expected key
+			const key = `signal-pat-${config.id.replace(/_/g, "-")}`;
+			expect(secretStore.getSecret(key)).toBe("my-secret-pat");
+		});
+
+		it("should hydrate PATs from SecretStorage on load", async () => {
+			const secretStore = createMockSecretStore();
+			const mock = createMockStorage<SignalState>({
+				signals: [{
+					id: "sig_test",
+					name: "Test",
+					type: "azure-devops",
+					orgUrl: "https://dev.azure.com/org",
+					project: "Proj",
+					pat: "",
+					targetFolder: "signals/items",
+					itemTypeFilter: [],
+					conflictStrategy: "skip",
+					lastSync: null,
+					lastSyncItemCount: 0,
+					status: "disconnected",
+				}],
+			});
+			// Pre-seed the secret
+			secretStore.setSecret("signal-pat-sig-test", "hydrated-pat");
+			const svc = new SignalService({ storage: mock.storage, eventBus, secretStore });
+
+			await svc.load();
+
+			expect(svc.getSignals()[0].pat).toBe("hydrated-pat");
+		});
+
+		it("should transparently migrate plaintext PATs to SecretStorage on load", async () => {
+			const secretStore = createMockSecretStore();
+			const mock = createMockStorage<SignalState>({
+				signals: [{
+					id: "sig_legacy",
+					name: "Legacy",
+					type: "azure-devops",
+					orgUrl: "https://dev.azure.com/org",
+					project: "Proj",
+					pat: "plaintext-legacy-pat",
+					targetFolder: "signals/items",
+					itemTypeFilter: [],
+					conflictStrategy: "skip",
+					lastSync: null,
+					lastSyncItemCount: 0,
+					status: "disconnected",
+				}],
+			});
+			const svc = new SignalService({ storage: mock.storage, eventBus, secretStore });
+
+			await svc.load();
+
+			// In-memory should still have the PAT
+			expect(svc.getSignals()[0].pat).toBe("plaintext-legacy-pat");
+
+			// PAT moved to SecretStorage
+			expect(secretStore.getSecret("signal-pat-sig-legacy")).toBe("plaintext-legacy-pat");
+
+			// data.json should now have empty PAT
+			const persisted = mock.getData();
+			expect(persisted?.signals[0].pat).toBe("");
+		});
+
+		it("should roundtrip PATs through save and load", async () => {
+			const secretStore = createMockSecretStore();
+			const mock = createMockStorage<SignalState>();
+
+			// Save
+			const svc1 = new SignalService({ storage: mock.storage, eventBus, secretStore });
+			await svc1.configure(makeInput({ pat: "roundtrip-pat" }));
+
+			// Load in a new instance (same secretStore & storage)
+			const svc2 = new SignalService({ storage: mock.storage, eventBus, secretStore });
+			await svc2.load();
+
+			expect(svc2.getSignals()[0].pat).toBe("roundtrip-pat");
+		});
+
+		it("should persist PATs in data.json when secretStore is unavailable", async () => {
+			const mock = createMockStorage<SignalState>();
+			const secretStore = createMockSecretStore(false);
+			const svc = new SignalService({ storage: mock.storage, eventBus, secretStore });
+
+			await svc.configure(makeInput({ pat: "visible-pat" }));
+
+			const persisted = mock.getData();
+			expect(persisted?.signals[0].pat).toBe("visible-pat");
+		});
+
+		it("should work without secretStore (backwards compatible)", async () => {
+			const mock = createMockStorage<SignalState>();
+			const svc = new SignalService({ storage: mock.storage, eventBus });
+
+			await svc.configure(makeInput({ pat: "plain-pat" }));
+
+			const persisted = mock.getData();
+			expect(persisted?.signals[0].pat).toBe("plain-pat");
+		});
+
+		it("should store updated PATs in SecretStorage", async () => {
+			const secretStore = createMockSecretStore();
+			const mock = createMockStorage<SignalState>();
+			const svc = new SignalService({ storage: mock.storage, eventBus, secretStore });
+
+			const config = await svc.configure(makeInput({ pat: "original-pat" }));
+			await svc.update(config.id, { pat: "new-secret-pat" });
+
+			// data.json should have empty PAT
+			const persisted = mock.getData();
+			expect(persisted?.signals[0].pat).toBe("");
+			// In-memory should be the new plaintext
+			expect(svc.getSignal(config.id)?.pat).toBe("new-secret-pat");
+			// SecretStorage should have the new value
+			const key = `signal-pat-${config.id.replace(/_/g, "-")}`;
+			expect(secretStore.getSecret(key)).toBe("new-secret-pat");
+		});
+
+		it("should delete secret when signal is removed", async () => {
+			const secretStore = createMockSecretStore();
+			const mock = createMockStorage<SignalState>();
+			const svc = new SignalService({ storage: mock.storage, eventBus, secretStore });
+
+			const config = await svc.configure(makeInput({ pat: "doomed-pat" }));
+			const key = `signal-pat-${config.id.replace(/_/g, "-")}`;
+			expect(secretStore.getSecret(key)).toBe("doomed-pat");
+
+			await svc.remove(config.id);
+
+			expect(secretStore.getSecret(key)).toBeNull();
 		});
 	});
 });

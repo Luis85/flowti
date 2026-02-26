@@ -116,7 +116,7 @@ describe("UserHubSessionPreferences", () => {
 
 			// Find the add input and button
 			const inputs = container.querySelectorAll("input[type='text']") as NodeListOf<HTMLInputElement>;
-			const addInput = Array.from(inputs).find((i) => i.placeholder.includes(".obsidian"));
+			const addInput = Array.from(inputs).find((i) => i.placeholder.includes("node_modules"));
 			expect(addInput).toBeTruthy();
 
 			addInput!.value = "temp/";

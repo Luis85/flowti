@@ -7,8 +7,7 @@ describe("LoggerService", () => {
 	let logger: LoggerService;
 	let eventBus: IEventBus;
 	let consoleSpy: {
-		log: ReturnType<typeof vi.spyOn>;
-		info: ReturnType<typeof vi.spyOn>;
+		debug: ReturnType<typeof vi.spyOn>;
 		warn: ReturnType<typeof vi.spyOn>;
 		error: ReturnType<typeof vi.spyOn>;
 	};
@@ -18,8 +17,7 @@ describe("LoggerService", () => {
 		logger = new LoggerService({ eventBus, debugMode: true });
 
 		consoleSpy = {
-			log: vi.spyOn(console, "log").mockImplementation(() => {}),
-			info: vi.spyOn(console, "info").mockImplementation(() => {}),
+			debug: vi.spyOn(console, "debug").mockImplementation(() => {}),
 			warn: vi.spyOn(console, "warn").mockImplementation(() => {}),
 			error: vi.spyOn(console, "error").mockImplementation(() => {}),
 		};
@@ -32,18 +30,18 @@ describe("LoggerService", () => {
 	describe("log levels", () => {
 		it("should log debug messages when debugMode is enabled", () => {
 			logger.debug("Debug message");
-			expect(consoleSpy.log).toHaveBeenCalledWith("[Flowti] Debug message");
+			expect(consoleSpy.debug).toHaveBeenCalledWith("[Flowti] Debug message");
 		});
 
 		it("should not log debug messages when debugMode is disabled", () => {
 			const noDebugLogger = new LoggerService({ eventBus, debugMode: false });
 			noDebugLogger.debug("Debug message");
-			expect(consoleSpy.log).not.toHaveBeenCalled();
+			expect(consoleSpy.debug).not.toHaveBeenCalledWith("[Flowti] Debug message");
 		});
 
 		it("should log info messages", () => {
 			logger.info("Info message");
-			expect(consoleSpy.info).toHaveBeenCalledWith("[Flowti] Info message");
+			expect(consoleSpy.debug).toHaveBeenCalledWith("[Flowti] Info message");
 		});
 
 		it("should log warn messages", () => {
@@ -59,7 +57,7 @@ describe("LoggerService", () => {
 		it("should include data when provided", () => {
 			const data = { key: "value" };
 			logger.info("Message with data", data);
-			expect(consoleSpy.info).toHaveBeenCalledWith("[Flowti] Message with data", data);
+			expect(consoleSpy.debug).toHaveBeenCalledWith("[Flowti] Message with data", data);
 		});
 	});
 
@@ -67,14 +65,14 @@ describe("LoggerService", () => {
 		it("should create logger with context prefix", () => {
 			const contextLogger = logger.setContext("UserService");
 			contextLogger.info("User created");
-			expect(consoleSpy.info).toHaveBeenCalledWith("[Flowti:UserService] User created");
+			expect(consoleSpy.debug).toHaveBeenCalledWith("[Flowti:UserService] User created");
 		});
 
 		it("should preserve debugMode in context logger", () => {
 			const noDebugLogger = new LoggerService({ eventBus, debugMode: false });
 			const contextLogger = noDebugLogger.setContext("Test");
 			contextLogger.debug("Should not appear");
-			expect(consoleSpy.log).not.toHaveBeenCalled();
+			expect(consoleSpy.debug).not.toHaveBeenCalledWith("[Flowti:Test] Should not appear");
 		});
 	});
 
@@ -139,7 +137,7 @@ describe("LoggerService", () => {
 		it("should work without eventBus", () => {
 			const standaloneLogger = new LoggerService({ debugMode: true });
 			standaloneLogger.info("Standalone log");
-			expect(consoleSpy.info).toHaveBeenCalledWith("[Flowti] Standalone log");
+			expect(consoleSpy.debug).toHaveBeenCalledWith("[Flowti] Standalone log");
 		});
 	});
 
@@ -148,11 +146,11 @@ describe("LoggerService", () => {
 			const toggleLogger = new LoggerService({ eventBus, debugMode: false });
 
 			toggleLogger.debug("Should not appear");
-			expect(consoleSpy.log).not.toHaveBeenCalled();
+			expect(consoleSpy.debug).not.toHaveBeenCalledWith("[Flowti] Should not appear");
 
 			toggleLogger.setDebugMode(true);
 			toggleLogger.debug("Should appear");
-			expect(consoleSpy.log).toHaveBeenCalledWith("[Flowti] Should appear");
+			expect(consoleSpy.debug).toHaveBeenCalledWith("[Flowti] Should appear");
 		});
 	});
 
@@ -160,7 +158,7 @@ describe("LoggerService", () => {
 		it("should log all non-log events to console when debugMode is on", async () => {
 			await eventBus.emit("plugin.loaded", { timestamp: "2026-01-01" });
 
-			expect(consoleSpy.log).toHaveBeenCalledWith(
+			expect(consoleSpy.debug).toHaveBeenCalledWith(
 				"[Flowti:EventTrace]",
 				"plugin.loaded",
 				{ timestamp: "2026-01-01" }
@@ -168,7 +166,7 @@ describe("LoggerService", () => {
 		});
 
 		it("should skip log.* events to avoid recursion", async () => {
-			consoleSpy.log.mockClear();
+			consoleSpy.debug.mockClear();
 
 			await eventBus.emit("log.entry", {
 				level: "info",
@@ -178,7 +176,7 @@ describe("LoggerService", () => {
 
 			// Only the debug() call from logger itself should hit console.log,
 			// not the wildcard trace
-			expect(consoleSpy.log).not.toHaveBeenCalledWith(
+			expect(consoleSpy.debug).not.toHaveBeenCalledWith(
 				"[Flowti:EventTrace]",
 				"log.entry",
 				expect.anything()
@@ -188,11 +186,11 @@ describe("LoggerService", () => {
 		it("should not trace events when debugMode is off", async () => {
 			const isolatedBus = new EventBus();
 			new LoggerService({ eventBus: isolatedBus, debugMode: false });
-			consoleSpy.log.mockClear();
+			consoleSpy.debug.mockClear();
 
 			await isolatedBus.emit("plugin.loaded", { timestamp: "2026-01-01" });
 
-			expect(consoleSpy.log).not.toHaveBeenCalledWith(
+			expect(consoleSpy.debug).not.toHaveBeenCalledWith(
 				"[Flowti:EventTrace]",
 				expect.anything(),
 				expect.anything()
@@ -202,10 +200,10 @@ describe("LoggerService", () => {
 		it("should start tracing when setDebugMode(true) is called", async () => {
 			const isolatedBus = new EventBus();
 			const toggleLogger = new LoggerService({ eventBus: isolatedBus, debugMode: false });
-			consoleSpy.log.mockClear();
+			consoleSpy.debug.mockClear();
 
 			await isolatedBus.emit("plugin.loaded", { timestamp: "t1" });
-			expect(consoleSpy.log).not.toHaveBeenCalledWith(
+			expect(consoleSpy.debug).not.toHaveBeenCalledWith(
 				"[Flowti:EventTrace]",
 				"plugin.loaded",
 				expect.anything()
@@ -214,7 +212,7 @@ describe("LoggerService", () => {
 			toggleLogger.setDebugMode(true);
 			await isolatedBus.emit("plugin.ready", { timestamp: "t2" });
 
-			expect(consoleSpy.log).toHaveBeenCalledWith(
+			expect(consoleSpy.debug).toHaveBeenCalledWith(
 				"[Flowti:EventTrace]",
 				"plugin.ready",
 				{ timestamp: "t2" }
@@ -224,17 +222,17 @@ describe("LoggerService", () => {
 		it("should stop tracing when setDebugMode(false) is called", async () => {
 			// logger starts with debugMode: true (from beforeEach)
 			await eventBus.emit("plugin.loaded", { timestamp: "t1" });
-			expect(consoleSpy.log).toHaveBeenCalledWith(
+			expect(consoleSpy.debug).toHaveBeenCalledWith(
 				"[Flowti:EventTrace]",
 				"plugin.loaded",
 				{ timestamp: "t1" }
 			);
 
-			consoleSpy.log.mockClear();
+			consoleSpy.debug.mockClear();
 			logger.setDebugMode(false);
 
 			await eventBus.emit("plugin.ready", { timestamp: "t2" });
-			expect(consoleSpy.log).not.toHaveBeenCalledWith(
+			expect(consoleSpy.debug).not.toHaveBeenCalledWith(
 				"[Flowti:EventTrace]",
 				expect.anything(),
 				expect.anything()
@@ -245,7 +243,7 @@ describe("LoggerService", () => {
 			const standalone = new LoggerService({ debugMode: true });
 			// Should not throw
 			standalone.info("works fine");
-			expect(consoleSpy.info).toHaveBeenCalledWith("[Flowti] works fine");
+			expect(consoleSpy.debug).toHaveBeenCalledWith("[Flowti] works fine");
 		});
 	});
 });

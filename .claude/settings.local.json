@@ -22,7 +22,17 @@
       "Bash(wc -l /c/Projects/flowti/**/*.csv)",
       "Bash(wc -l /c/Projects/flowti/**/*.ts)",
       "Bash(wc -l /c/Projects/flowti/**/*.json)",
-      "Bash(npx eslint src/ --quiet)"
+      "Bash(npx eslint src/ --quiet)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:deepwiki.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(npx eslint ./src/)",
+      "WebFetch(domain:docs.obsidian.md)",
+      "WebFetch(domain:forum.obsidian.md)",
+      "WebFetch(domain:help.obsidian.md)",
+      "WebFetch(domain:obsidian.md)",
+      "Bash(npx eslint --format compact src/)"
     ]
   }
 }

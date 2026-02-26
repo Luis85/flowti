@@ -34,12 +34,12 @@ describe("FlowtiSettingTab", () => {
 		const tab = new FlowtiSettingTab(createMockApp(), createMockPlugin(), createMockDeps());
 		tab.display();
 
-		const headings = Array.from(tab.containerEl.querySelectorAll("h3")).map((h) => h.textContent);
-		expect(headings).toContain("Setup");
-		expect(headings).toContain("Event System");
-		expect(headings).toContain("Documentation");
-		expect(headings).toContain("Entity Folder Paths");
-		expect(headings).toContain("General");
+		const headingNames = Array.from(tab.containerEl.querySelectorAll(".setting-item-name")).map((el) => el.textContent);
+		expect(headingNames).toContain("Setup");
+		expect(headingNames).toContain("Event system");
+		expect(headingNames).toContain("Documentation");
+		expect(headingNames).toContain("Entity folder paths");
+		expect(headingNames).toContain("Advanced");
 	});
 
 	it("should read captureFolder from settings without error", () => {
