@@ -187,7 +187,7 @@ export async function removeTile(
 /** Mutable keys on DashboardTile (everything except "id"). */
 const TILE_MUTABLE_KEYS: ReadonlyArray<keyof Omit<DashboardTile, "id">> = [
 	"queryId", "title", "displayMode", "row", "col", "width", "height",
-	"conditionalRules", "showSparkline", "chartValueColumn", "rowLimit", "autoHeight", "numberFormat", "measurementId", "excludedColumns", "showTableKpis", "columnOrder",
+	"conditionalRules", "showSparkline", "chartValueColumn", "chartValueColumns", "hiddenSeries", "rowLimit", "autoHeight", "numberFormat", "measurementId", "excludedColumns", "showTableKpis", "tableKpiLabel", "columnOrder",
 ];
 
 export async function updateTile(
@@ -294,6 +294,7 @@ export function buildDashboardTemplate(
 			height: t.height,
 			conditionalRules: t.conditionalRules,
 			chartValueColumn: t.chartValueColumn,
+			chartValueColumns: t.chartValueColumns,
 		}));
 
 	return {

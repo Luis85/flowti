@@ -3,7 +3,7 @@ domain: Analytics
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
 stage: delivered
-version: 18
+version: 19
 maturity: L2
 created: 2026-02-23
 updated: 2026-02-26
@@ -259,6 +259,19 @@ Primary interaction path:
 
 - [x] FR-95: Dashboard breadcrumb navigation — navigation stack (max depth 4) with clickable breadcrumb bar showing drill-down path ("Dashboards > [Name] > [Filter Context]"), back button (←) navigates one level up, stack clears on explicit tab switch, breadcrumb bar hidden at root level
 - [x] FR-96: Filter row-count preview — exact row count badge ("~N rows") in DashboardFilterBar after filter value selection, computed from cached query results (not sampled), hidden when no cache available, supports multi-filter combinations with query deduplication
+
+### v16 — Filtering & Decomposition (Cycle 44)
+
+- [x] FR-97: Date range filter — global date range picker in DashboardFilterBar with 12 presets (last 7/30/90 days, this/last week, this/last month, this/last quarter, this/last year, custom range) + custom start/end date inputs; auto-detects date columns from ColumnTypeHint; date range applied pre-aggregation in AnalyticsEngine; composes with dimension filters and cross-tile filters via AND logic
+- [x] FR-98: Day and week time bucket granularity — "Day" (YYYY-MM-DD) and "Week" (ISO 8601 YYYY-Wnn) options in time bucket dropdown; aggregation and charts work correctly with daily/weekly labels
+- [x] FR-99: Cross-tile filtering — click a string value in a table cell or chart segment to filter all sibling tiles sharing that dimension column; click same value to toggle off; composes with dimension and date range filters; breadcrumb shows filter context; cross-tile filter badge in DashboardFilterBar with clear button
+- [x] FR-100: Dashboard file watcher — auto-refresh affected tiles when source CSV files are modified in vault; 500ms debounce; selective refresh via `clearByQueryId` (only tiles referencing modified source); watcher lifecycle managed on dashboard open/close/switch
+- [x] FR-101: Multi-column chart selection — checkbox list of numeric columns for multi-series line/bar/area charts; persisted as `chartValueColumns` on DashboardTile; overrides single `chartValueColumn` when set
+- [x] FR-102: Show/hide chart series — interactive legend items: click to toggle series visibility; hidden series dimmed with strikethrough; persisted as `hiddenSeries` on DashboardTile; `filterVisible()` filters data before chart rendering
+- [x] FR-103: Table tile pagination — `rowLimit` acts as page size (not truncation); prev/next buttons with "X–Y of Z" row indicator; KPI cards and search operate on full dataset; default page size 15; `rowLimit: 0` means "show all"
+- [x] FR-104: Page size presets — toggle buttons (10, 15, 25, 50, All) replace manual row limit input in tile settings; `ft-toggle-btn` style consistent with width/height controls
+- [x] FR-105: Items KPI card — row count card always shown as first KPI stat card in table tiles (labeled "Items"); reflects full dataset count regardless of pagination page
+- [x] FR-106: Configurable Items label — text input in tile settings ("Items label") allows customizing the KPI card label (e.g., "Customers", "Suppliers"); stored as `tableKpiLabel` on DashboardTile; defaults to "Items" when empty
 
 ## 6. Data Model Impact
 
@@ -718,17 +731,17 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 | [[PBI-ANA-124 TileRenderContext Simplification]] | Split 23-property interface into 3 focused concern groups | Delivered | High | — |
 | [[PBI-ANA-125 CSS & Style Consolidation]] | Move 80%+ inline styles to 14 semantic CSS classes in styles.css | Delivered | High | — |
 | [[PBI-ANA-126 Analytics Flow Integration Tests]] | 3 flow test suites (Flows 17–19) covering query, dashboard, source manager | Delivered | High | ANA-120–125 |
-| [[PBI-ANA-130 Date Range Filter]] | Global date range picker with presets + custom range, propagates to all tiles | Planned | Critical | — |
-| [[PBI-ANA-131 Day Week Time Bucket Granularity]] | Day (YYYY-MM-DD) and ISO week (W01-W53) time bucketing | Planned | Critical | — |
-| [[PBI-ANA-132 Cross-Tile Filtering]] | Click chart/table element to filter sibling tiles | Planned | Critical | ANA-141 |
-| [[PBI-ANA-133 Dashboard File Watcher]] | Auto-refresh tiles when source CSV files change (2s debounce) | Planned | High | — |
+| [[PBI-ANA-130 Date Range Filter]] | Global date range picker with 12 presets + custom range (FR-97) | Delivered | Critical | — |
+| [[PBI-ANA-131 Day Week Time Bucket Granularity]] | Day (YYYY-MM-DD) and ISO week (W01-W53) time bucketing (FR-98) | Delivered | Critical | — |
+| [[PBI-ANA-132 Cross-Tile Filtering]] | Click chart/table element to filter sibling tiles (FR-99) | Delivered | Critical | ANA-141 |
+| [[PBI-ANA-133 Dashboard File Watcher]] | Auto-refresh tiles when source CSV files change, 500ms debounce (FR-100) | Delivered | High | — |
 | [[PBI-ANA-134 KPI Targets and RAG Status]] | Target values with Red/Amber/Green status on stat-card tiles | Planned | High | — |
 | [[PBI-ANA-135 Goal Lines on Charts]] | Horizontal dashed reference lines on line/bar/area charts | Planned | High | ANA-134 |
 | [[PBI-ANA-136 Dashboard PDF Export]] | Export dashboard as PNG or PDF for non-Obsidian sharing | Planned | High | — |
 | [[PBI-ANA-137 Dashboard Markdown Export]] | Generate vault note from dashboard snapshot with markdown tables | Planned | High | — |
-| [[PBI-ANA-140 QueriesTab Decomposition]] | Extract QueryExecutionManager + QueryResultHandler from QueriesTab (930→~550 LOC) | Planned | High | ANA-120 |
-| [[PBI-ANA-141 DashboardTileRenderer Extraction]] | Decompose 827 LOC renderer into sub-renderers per display mode + TileRendererFactory | Planned | High | — |
-| [[PBI-ANA-142 Analytics Flow Test Expansion]] | 4 new flow suites: measurement lifecycle, date range, cross-tile, file watcher | Planned | High | ANA-130, ANA-132, ANA-133 |
+| [[PBI-ANA-140 QueriesTab Decomposition]] | Extract QueryExecutionManager + QueryPersistenceManager from QueriesTab | Delivered | High | ANA-120 |
+| [[PBI-ANA-141 DashboardTileRenderer Extraction]] | Decompose 827→334 LOC into 4 sub-renderers + TileRendererFactory | Delivered | High | — |
+| [[PBI-ANA-142 Analytics Flow Test Expansion]] | 4 flow suites (Flows 20–23): measurement, date range, cross-tile, file watcher (34 tests) | Delivered | High | ANA-130, ANA-132, ANA-133 |
 
 > **Analytics Hub v1 delivered (2026-02-23):** 5 PBIs in Cycle 28. Hub shell, dashboards, .base sources, independent persistence. 4,338 tests (178 suites).
 > **Analytics Hub v2 delivered (2026-02-23):** 5 PBIs in Cycle 29. Favorites, default dashboard, dashboard-first overview, per-tile refresh, Supplier Manager persona. 4,358 tests (179 suites).
@@ -741,7 +754,8 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 > **Analytics Hub v13 delivered (2026-02-25):** 7 PBIs in Cycle 38. Query builder improvements: schema browser + column picker, visual filter builder with value suggestions, multi-column sort with migration, expression validation, AnalyticsService handler extraction (916→619 LOC), QueriesTab ActionsBar extraction (950→820 LOC), 6 quick insight rules, click-to-insert, count badges, Ctrl+Enter. 4 new components (SchemaPanel, FilterBuilderPanel, ActionsBar, expressionValidator). 4,746 tests (196 suites).
 > **Analytics Hub v16 delivered (2026-02-25):** 7 PBIs in Cycle 43. Performance & navigation: SourceManager extraction (QueriesTab 1,026→930 LOC), QueryResultCache (LRU, max 20), render batching (rAF), dashboard breadcrumbs (4-level nav stack), filter row-count preview (~N rows badge), TileRenderContext split (3 sub-interfaces), 14 CSS classes (25 inline styles eliminated). 3 new flow test suites (Flows 17–19). 85 new tests. 4,941 tests (206 suites). PRD v16, 96 FRs all delivered.
 > **Analytics Hub v17 refinement (2026-02-26):** PRD refinement pass. 8 new roadmap PBIs (ANA-130–137) from market research: date range filter (P1), day/week time buckets (P1), cross-tile filtering (P2), file watcher (P2), KPI targets/RAG (P3), goal lines (P3), PDF export (P4), markdown export (P4). 26 missing delivered PBI files created (ANA-054–076, ANA-120–126). Documentation gap closure: Analytics Hub View sitemap, 9 component docs, 2 new flow docs, DX Hub sitemap updated. 19 inbox items refined. Total: 56 PBI files, 12 sitemap views, 18 component docs, 3 flow docs.
-> **Analytics Hub v18 planned (2026-02-25):** Cycle 44 planned. 7 PBIs: 4 features (ANA-130 date range, ANA-131 day/week buckets, ANA-132 cross-tile filtering, ANA-133 file watcher) + 2 tech debt (ANA-140 QueriesTab decomposition, ANA-141 TileRenderer extraction) + 1 quality (ANA-142 flow test expansion). Balanced cycle: P1/P2 market-research features + architectural decomposition. 3 new PBI files (ANA-140–142). ~85 estimated new tests. Target: ~5,026 tests, ~214 suites.
+> **Analytics Hub v18 delivered (2026-02-26):** 7 PBIs + 6 UX sprint in Cycle 44. Filtering & Decomposition: date range filter (12 presets + custom), day/week time buckets, cross-tile filtering (click-to-filter propagation), dashboard file watcher (500ms debounce, selective refresh), QueriesTab decomposition (QueryExecutionManager + QueryPersistenceManager), DashboardTileRenderer extraction (827→334 LOC, 4 sub-renderers + factory), 4 flow test suites (Flows 20–23, 34 tests). UX Sprint: multi-column charts, show/hide series (interactive legend), table pagination with presets (10/15/25/50/All, default 15), Items KPI card with configurable label, 2 cross-tile filter bugs fixed (clearByQueryId, stale breadcrumb). 182 new tests. 5,123 tests (215 suites). PRD v19, 106 FRs all delivered.
+> **Analytics Hub v19 refinement (2026-02-26):** PRD v19 with 10 new FRs (FR-97 through FR-106). All Cycle 44 PBIs marked Delivered in backlog.
 
 ## 15. Market Research: SMB Dashboarding vs Excel (Feb 2026)
 

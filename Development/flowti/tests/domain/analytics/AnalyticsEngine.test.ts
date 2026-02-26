@@ -1157,4 +1157,161 @@ describe("AnalyticsEngine", () => {
 			expect(products).not.toContain("Widget A");
 		});
 	});
+
+	describe("date range filtering", () => {
+		const dateSource = makeSource(
+			"orders",
+			["date", "region", "amount"],
+			[
+				["2026-01-05", "EMEA", "100"],
+				["2026-01-15", "APAC", "200"],
+				["2026-02-10", "EMEA", "300"],
+				["2026-02-20", "APAC", "400"],
+				["2026-03-01", "EMEA", "500"],
+			],
+		);
+
+		it("filters rows within date range (inclusive)", () => {
+			const result = engine.run({
+				sources: [dateSource],
+				joins: [],
+				columnTypeHints: [{ column: "date", type: "date" }],
+				dimensions: [{ column: "region" }],
+				measures: [{ column: "amount", function: "SUM" }],
+				dateRangeFilter: {
+					column: "date",
+					start: { year: 2026, month: 1, day: 1 },
+					end: { year: 2026, month: 1, day: 31 },
+				},
+			});
+
+			expect(result.rows).toHaveLength(2);
+			expect(result.sourceRowCount).toBe(5); // All rows before filtering
+		});
+
+		it("excludes rows outside date range", () => {
+			const result = engine.run({
+				sources: [dateSource],
+				joins: [],
+				columnTypeHints: [{ column: "date", type: "date" }],
+				dimensions: [{ column: "region" }],
+				measures: [{ column: "amount", function: "SUM" }],
+				dateRangeFilter: {
+					column: "date",
+					start: { year: 2026, month: 2, day: 1 },
+					end: { year: 2026, month: 2, day: 28 },
+				},
+			});
+
+			expect(result.rows).toHaveLength(2);
+			const total = result.rows.reduce((s, r) => s + (r["SUM(amount)"] as number), 0);
+			expect(total).toBe(700); // 300 + 400
+		});
+
+		it("returns empty when no rows match date range", () => {
+			const result = engine.run({
+				sources: [dateSource],
+				joins: [],
+				columnTypeHints: [{ column: "date", type: "date" }],
+				dimensions: [{ column: "region" }],
+				measures: [{ column: "amount", function: "SUM" }],
+				dateRangeFilter: {
+					column: "date",
+					start: { year: 2025, month: 1, day: 1 },
+					end: { year: 2025, month: 12, day: 31 },
+				},
+			});
+
+			expect(result.rows).toHaveLength(0);
+		});
+
+		it("applies date range filter before other filters", () => {
+			const result = engine.run({
+				sources: [dateSource],
+				joins: [],
+				columnTypeHints: [{ column: "date", type: "date" }],
+				dimensions: [{ column: "region" }],
+				measures: [{ column: "amount", function: "SUM" }],
+				filters: [{ column: "region", operator: "=", value: "EMEA" }],
+				dateRangeFilter: {
+					column: "date",
+					start: { year: 2026, month: 1, day: 1 },
+					end: { year: 2026, month: 2, day: 28 },
+				},
+			});
+
+			// Only EMEA rows in Jan-Feb: Jan 5 (100) + Feb 10 (300) = 400
+			expect(result.rows).toHaveLength(1);
+			expect(result.rows[0]["SUM(amount)"]).toBe(400);
+		});
+
+		it("works without date range filter (no-op)", () => {
+			const result = engine.run({
+				sources: [dateSource],
+				joins: [],
+				columnTypeHints: [{ column: "date", type: "date" }],
+				dimensions: [{ column: "region" }],
+				measures: [{ column: "amount", function: "SUM" }],
+			});
+
+			expect(result.rows).toHaveLength(2); // EMEA and APAC
+		});
+
+		it("skips filtering when date column not in source headers", () => {
+			// Source has "amount" and "region" but NOT "snapshot_date"
+			const noDateSource = makeSource(
+				"revenue",
+				["region", "amount"],
+				[
+					["EMEA", "100"],
+					["APAC", "200"],
+					["AMER", "300"],
+				],
+			);
+
+			const result = engine.run({
+				sources: [noDateSource],
+				joins: [],
+				columnTypeHints: [],
+				dimensions: [{ column: "region" }],
+				measures: [{ column: "amount", function: "SUM" }],
+				dateRangeFilter: {
+					column: "snapshot_date",
+					start: { year: 2026, month: 1, day: 1 },
+					end: { year: 2026, month: 1, day: 31 },
+				},
+			});
+
+			// All rows returned — filter skipped because column not in data
+			expect(result.rows).toHaveLength(3);
+		});
+
+		it("excludes rows with unparseable dates", () => {
+			const sourceWithBadDate = makeSource(
+				"mixed",
+				["date", "amount"],
+				[
+					["2026-01-15", "100"],
+					["not-a-date", "200"],
+					["2026-01-20", "300"],
+				],
+			);
+
+			const result = engine.run({
+				sources: [sourceWithBadDate],
+				joins: [],
+				columnTypeHints: [{ column: "date", type: "date" }],
+				dimensions: [],
+				measures: [{ column: "amount", function: "SUM" }],
+				dateRangeFilter: {
+					column: "date",
+					start: { year: 2026, month: 1, day: 1 },
+					end: { year: 2026, month: 1, day: 31 },
+				},
+			});
+
+			// Only 2 valid dates in range, bad date excluded
+			expect(result.rows[0]["SUM(amount)"]).toBe(400);
+		});
+	});
 });

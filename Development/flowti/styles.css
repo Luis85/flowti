@@ -447,6 +447,11 @@
 	align-items: center;
 	gap: 0.25rem;
 }
+/* Cross-tile filter source indicator (PBI-ANA-132, Cycle 44) */
+.ft-tile-filter-source > .ft-dashboard-tile {
+	border-color: var(--interactive-accent) !important;
+	box-shadow: 0 0 0 1px var(--interactive-accent);
+}
 
 /* Filter bar layout */
 .ft-filter-bar {

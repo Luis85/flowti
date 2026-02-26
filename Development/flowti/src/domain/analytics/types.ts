@@ -109,7 +109,7 @@ export interface MeasureSpec {
 // ── Time bucketing ──────────────────────────────────────
 
 /** Time bucket granularity. */
-export type TimeBucketPeriod = "month" | "quarter" | "year";
+export type TimeBucketPeriod = "day" | "week" | "month" | "quarter" | "year";
 
 /** Configuration for time-based bucketing of a date column. */
 export interface TimeBucketSpec {
@@ -178,6 +178,49 @@ export interface SortSpec {
 	direction: "asc" | "desc";
 }
 
+// ── Date range filter ───────────────────────────────────
+
+/** Named date range presets for dashboard filtering. */
+export type DateRangePreset =
+	| "last-7-days" | "last-30-days" | "last-90-days"
+	| "this-week" | "last-week"
+	| "this-month" | "last-month"
+	| "this-quarter" | "last-quarter"
+	| "this-year" | "last-year"
+	| "custom";
+
+/** Dashboard-level date range filter (runtime state, not persisted). */
+export interface DateRangeFilter {
+	/** Date column to filter on (auto-detected from column type hints if empty). */
+	column: string;
+	/** Selected preset (or "custom" for manual date range). */
+	preset: DateRangePreset;
+	/** Custom start date (ISO YYYY-MM-DD string, only used when preset = "custom"). */
+	startDate?: string;
+	/** Custom end date (ISO YYYY-MM-DD string, only used when preset = "custom"). */
+	endDate?: string;
+}
+
+/** Cross-tile filter — clicking a value in one tile filters sibling tiles (runtime-only). */
+export interface CrossTileFilter {
+	/** ID of the tile that originated the filter. */
+	sourceTileId: string;
+	/** Dimension column being filtered. */
+	column: string;
+	/** Selected value. */
+	value: string;
+}
+
+/** Resolved date range passed to the engine (pre-aggregation filter). */
+export interface QueryDateRangeFilter {
+	/** Date column to filter on. */
+	column: string;
+	/** Inclusive start date. */
+	start: ParsedDate;
+	/** Inclusive end date. */
+	end: ParsedDate;
+}
+
 // ── Computed columns ────────────────────────────────────
 
 /** A computed column evaluated from an arithmetic expression on result columns. */
@@ -232,6 +275,8 @@ export interface AnalyticsQuery {
 	computedColumns?: ComputedColumn[];
 	/** Optional list of column names to exclude from the result output */
 	excludedColumns?: string[];
+	/** Optional date range filter (applied pre-aggregation on raw rows). */
+	dateRangeFilter?: QueryDateRangeFilter;
 }
 
 // ── Analytics result ────────────────────────────────────
@@ -369,6 +414,10 @@ export interface DashboardTile {
 	showSparkline?: boolean;
 	/** Selected value column for chart display (defaults to first numeric column) */
 	chartValueColumn?: string;
+	/** Selected value columns for multi-series chart display (overrides chartValueColumn when set) */
+	chartValueColumns?: string[];
+	/** Series names hidden from multi-series chart display */
+	hiddenSeries?: string[];
 	/** Max number of rows to render (undefined = all rows) */
 	rowLimit?: number;
 	/** When true at max-width (3 cols), height is driven by content instead of grid rows */
@@ -381,6 +430,8 @@ export interface DashboardTile {
 	excludedColumns?: string[];
 	/** Show compact aggregate KPI cards above table tiles (default: true) */
 	showTableKpis?: boolean;
+	/** Custom label for the Items KPI card (default: "Items") */
+	tableKpiLabel?: string;
 	/** Custom column order for table display (render-time reordering, not engine-level) */
 	columnOrder?: string[];
 }
@@ -438,6 +489,8 @@ export interface DashboardTileTemplate {
 	conditionalRules?: ConditionalRule[];
 	/** Optional chart value column */
 	chartValueColumn?: string;
+	/** Optional chart value columns (multi-series) */
+	chartValueColumns?: string[];
 }
 
 /** A reusable dashboard template — captures queries + tile layout. */

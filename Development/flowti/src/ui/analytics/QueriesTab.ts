@@ -1,8 +1,10 @@
 /**
  * Queries tab orchestrator for the Analytics Hub.
  *
- * Thin orchestrator that owns query builder state and delegates
- * rendering to focused sub-components:
+ * Thin orchestrator that owns query builder state and delegates to:
+ *   - SourceManager: source CRUD, resolution, type detection (C43)
+ *   - QueryExecutionManager: execution pipeline, result state (C44)
+ *   - QueryPersistenceManager: save/load, dirty tracking, new query (C44)
  *   - SavedQueryList: saved query master list with CRUD
  *   - SourcePanel: source config, preview
  *   - QueryBuilderPanel: type hints, joins, dims, measures, filters, sort
@@ -10,6 +12,7 @@
  *   - ResultsSection: error display + results panel
  *
  * Extracted from monolithic QueriesTab (1,264 LOC) per TD-ANA-001.
+ * Further decomposed in Cycle 44 (PBI-ANA-140).
  */
 
 import { setIcon } from "obsidian";
@@ -24,9 +27,7 @@ import type {
 	MeasureSpec,
 	TimeBucketSpec,
 	AnalyticsQuery,
-	AnalyticsSource,
 	AnalyticsSourceType,
-	AnalyticsResult,
 	QuerySource,
 } from "../../domain/analytics/types";
 import { SourceManager } from "../../domain/analytics/SourceManager";
@@ -37,11 +38,17 @@ import { QueryBuilderPanel } from "./queries/QueryBuilderPanel";
 import { ComputedColumnsSection } from "./queries/ComputedColumnsSection";
 import { ResultsSection } from "./queries/ResultsSection";
 import { ActionsBar } from "./queries/ActionsBar";
+import { QueryExecutionManager } from "./queries/QueryExecutionManager";
+import { QueryPersistenceManager } from "./queries/QueryPersistenceManager";
 import { rowsToCsv, downloadCsvFile } from "../../utils/csvUtils";
 import { generateQuickInsights } from "../../domain/analytics/quickInsights";
 
 export class QueriesTab {
 	private sourceManager: SourceManager;
+	private executionManager: QueryExecutionManager;
+	private persistenceManager: QueryPersistenceManager;
+
+	// ── Query builder state (owned by orchestrator) ──
 	private columnTypeHints: ColumnTypeHint[] = [];
 	private joins: JoinSpec[] = [];
 	private dimensions: DimensionSpec[] = [];
@@ -52,23 +59,14 @@ export class QueriesTab {
 	private limit: number | null = null;
 	private computedColumns: ComputedColumn[] = [];
 	private excludedColumns: string[] = [];
-	private lastResult: AnalyticsResult | null = null;
 
 	// ── Render batching (PBI-ANA-121) ──
 	private dirtyMaster = false;
 	private dirtyDetail = false;
 	private renderFrameId: number | null = null;
-	private lastDurationMs: number | undefined;
-	private lastError: string | null = null;
-	private running = false;
 	private previewVisible = false;
 	private chartMode: "line" | "bar" = "line";
 	private chartValueColumn: string | null = null;
-	private lastLoadedQueryId: string | null = null;
-	/** Snapshot of query config at last save/load — used for dirty detection. */
-	private savedSnapshot: string | null = null;
-	/** Query name from NewQueryModal — used on first save instead of auto-generated name. */
-	private queryName = "";
 
 	constructor(
 		private masterEl: HTMLElement,
@@ -76,6 +74,7 @@ export class QueriesTab {
 		private deps: AnalyticsHubDeps,
 	) {
 		const svc = deps.analyticsService;
+
 		this.sourceManager = new SourceManager({
 			loadCsv: (path) => svc.loadCsv(path),
 			loadBase: (path, viewIndex) => svc.loadBase(path, viewIndex),
@@ -97,11 +96,43 @@ export class QueriesTab {
 			},
 			onAllSourcesLoaded: () => {
 				if (this.measures.length > 0) {
-					void this.executeQuery();
+					void this.executionManager.execute();
 				} else {
 					this.scheduleRender(true, true);
 				}
 			},
+		});
+
+		this.executionManager = new QueryExecutionManager({
+			getSources: () => this.sources,
+			getQueryConfig: () => this.buildQueryConfig(),
+			runQuery: (q) => svc.runQuery(q),
+			onStateChanged: () => this.renderDetail(),
+		});
+
+		this.persistenceManager = new QueryPersistenceManager({
+			sourceManager: this.sourceManager,
+			getQueryConfig: () => this.buildQueryConfig(),
+			setQueryState: (state) => {
+				this.columnTypeHints = state.columnTypeHints;
+				this.joins = state.joins;
+				this.dimensions = state.dimensions;
+				this.measures = state.measures;
+				this.timeBucket = state.timeBucket;
+				this.filters = state.filters;
+				this.sort = state.sort;
+				this.limit = state.limit;
+				this.computedColumns = state.computedColumns;
+				this.excludedColumns = state.excludedColumns;
+				this.executionManager.reset();
+			},
+			getSelectedQueryId: () => this.deps.getState().selectedQueryId,
+			setSelectedQueryId: (id) => this.deps.setState({ selectedQueryId: id }),
+			scheduleRender: (m, d) => this.scheduleRender(m, d),
+			saveQuery: (name, sources, config) => svc.saveQuery(name, sources, config),
+			updateQuery: (id, sources, config) => svc.updateQuery(id, sources, config),
+			getQuery: (id) => svc.getQuery(id),
+			syncMeasurementsFromQuery: (id) => svc.syncMeasurementsFromQuery(id),
 		});
 	}
 
@@ -111,16 +142,22 @@ export class QueriesTab {
 	}
 
 	// ─────────────────────────────────────────────────────────
-	// Dirty tracking
+	// Query config builder (shared by execution + persistence)
 	// ─────────────────────────────────────────────────────────
 
-	private takeSnapshot(): string {
-		return JSON.stringify(this.buildQueryConfig());
-	}
-
-	private isDirty(): boolean {
-		if (!this.savedSnapshot) return this.measures.length > 0;
-		return this.takeSnapshot() !== this.savedSnapshot;
+	private buildQueryConfig(): Omit<AnalyticsQuery, "sources"> {
+		return {
+			joins: this.joins,
+			columnTypeHints: this.columnTypeHints,
+			dimensions: this.dimensions,
+			measures: this.measures,
+			timeBucket: this.timeBucket ?? undefined,
+			filters: this.filters.length > 0 ? this.filters : undefined,
+			sort: this.sort.length > 0 ? this.sort : undefined,
+			limit: this.limit ?? undefined,
+			computedColumns: this.computedColumns.length > 0 ? this.computedColumns : undefined,
+			excludedColumns: this.excludedColumns.length > 0 ? this.excludedColumns : undefined,
+		};
 	}
 
 	// ─────────────────────────────────────────────────────────
@@ -173,11 +210,11 @@ export class QueriesTab {
 			setComputedColumns: (c) => { this.computedColumns = c; },
 			excludedColumns: () => this.excludedColumns,
 			setExcludedColumns: (c) => { this.excludedColumns = c; },
-			lastResult: () => this.lastResult,
-			lastDurationMs: () => this.lastDurationMs,
-			lastError: () => this.lastError,
-			running: () => this.running,
-			executeQuery: () => { void this.executeQuery(); },
+			lastResult: () => this.executionManager.result,
+			lastDurationMs: () => this.executionManager.durationMs,
+			lastError: () => this.executionManager.error,
+			running: () => this.executionManager.running,
+			executeQuery: () => { void this.executionManager.execute(); },
 			handleExportCsv: (csv) => downloadCsvFile(csv, this.getActiveQueryName()),
 			applyQuickInsight: (dims, measures, timeBucket, sort, limit) => {
 				this.dimensions = dims;
@@ -185,17 +222,20 @@ export class QueriesTab {
 				this.timeBucket = timeBucket;
 				if (sort) this.sort = sort;
 				if (limit !== undefined) this.limit = limit;
-				void this.executeQuery();
+				void this.executionManager.execute();
 			},
-			loadSavedQuery: (id) => this.loadSavedQuery(id),
-			newQuery: () => this.newQuery(),
+			loadSavedQuery: (id) => this.persistenceManager.load(id),
+			newQuery: () => {
+				this.sourcesCollapsed = false;
+				this.persistenceManager.newQuery();
+			},
 			showPreview: () => this.previewVisible,
-		togglePreview: () => { this.previewVisible = !this.previewVisible; },
-		chartMode: () => this.chartMode,
-		setChartMode: (mode) => { this.chartMode = mode; },
-		chartValueColumn: () => this.chartValueColumn,
-		setChartValueColumn: (col) => { this.chartValueColumn = col; },
-		getDistinctValues: (column) => this.sourceManager.getDistinctValues(column),
+			togglePreview: () => { this.previewVisible = !this.previewVisible; },
+			chartMode: () => this.chartMode,
+			setChartMode: (mode) => { this.chartMode = mode; },
+			chartValueColumn: () => this.chartValueColumn,
+			setChartValueColumn: (col) => { this.chartValueColumn = col; },
+			getDistinctValues: (column) => this.sourceManager.getDistinctValues(column),
 		};
 	}
 
@@ -409,7 +449,7 @@ export class QueriesTab {
 			sub.textContent = sharedSources.map((s) => s.csvPath.split("/").pop()).join(", ");
 
 			item.addEventListener("click", () => {
-				this.loadSavedQuery(q.id);
+				this.persistenceManager.load(q.id);
 				this.deps.setState({ selectedQueryId: q.id });
 			});
 		}
@@ -424,8 +464,8 @@ export class QueriesTab {
 		const pendingNew = this.deps.getState().pendingNewQuery;
 		if (pendingNew) {
 			this.deps.setState({ pendingNewQuery: undefined });
-			this.newQuery();
-			this.queryName = pendingNew.name;
+			this.persistenceManager.newQuery();
+			this.persistenceManager.queryName = pendingNew.name;
 			for (const src of pendingNew.sources) {
 				this.sourceManager.addSource(src.path, src.alias, src.sourceType as AnalyticsSourceType, src.viewIndex);
 			}
@@ -448,10 +488,10 @@ export class QueriesTab {
 
 		// Auto-load saved query when selectedQueryId changed (e.g. navigated from homepage)
 		const pendingId = this.deps.getState().selectedQueryId;
-		if (pendingId && pendingId !== this.lastLoadedQueryId) {
-			this.lastLoadedQueryId = pendingId;
-			this.loadSavedQuery(pendingId);
-			return; // loadSavedQuery triggers re-render
+		if (pendingId && pendingId !== this.persistenceManager.lastLoadedQueryId) {
+			this.persistenceManager.lastLoadedQueryId = pendingId;
+			this.persistenceManager.load(pendingId);
+			return; // load triggers re-render
 		}
 
 		// Preserve scroll position across re-renders
@@ -462,9 +502,9 @@ export class QueriesTab {
 
 		// Ctrl+Enter runs query from anywhere in the detail panel
 		this.detailEl.addEventListener("keydown", (e: KeyboardEvent) => {
-			if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !this.running && this.measures.length > 0) {
+			if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !this.executionManager.running && this.measures.length > 0) {
 				e.preventDefault();
-				void this.executeQuery();
+				void this.executionManager.execute();
 			}
 		});
 
@@ -514,41 +554,29 @@ export class QueriesTab {
 		const isEditing = !!(state.selectedQueryId && this.deps.analyticsService.getQuery(state.selectedQueryId));
 		new ActionsBar({
 			container: this.detailEl,
-			running: this.running,
+			running: this.executionManager.running,
 			hasMeasures: this.measures.length > 0,
 			hasLoadedSources: this.sourceManager.hasLoadedData,
-			lastResult: this.lastResult,
+			lastResult: this.executionManager.result,
 			isEditing,
-			hasChanges: this.isDirty(),
+			hasChanges: this.persistenceManager.isDirty(this.measures.length > 0),
 			selectedQueryId: state.selectedQueryId,
 			queryName: this.getActiveQueryName(),
-			onRunQuery: () => { void this.executeQuery(); },
+			onRunQuery: () => { void this.executionManager.execute(); },
 			onReset: () => {
-				this.sourceManager.reset();
-				this.columnTypeHints = [];
-				this.joins = [];
-				this.dimensions = [];
-				this.measures = [];
-				this.timeBucket = null;
-				this.filters = [];
-				this.sort = [];
-				this.limit = null;
-				this.computedColumns = [];
-				this.excludedColumns = [];
-				this.lastResult = null;
-				this.lastDurationMs = undefined;
-				this.lastError = null;
-				this.savedSnapshot = null;
+				this.persistenceManager.newQuery();
+				this.executionManager.reset();
+				this.sourcesCollapsed = false;
 				this.scheduleRender(true, true);
 			},
 			onSave: () => {
 				if (isEditing) {
-					void this.updateCurrentQuery();
+					void this.persistenceManager.update();
 				} else {
-					void this.saveCurrentQuery();
+					void this.persistenceManager.save();
 				}
 			},
-			onExportCsv: (result) => this.downloadResultCsv(result, this.getActiveQueryName()),
+			onExportCsv: (result) => downloadCsvFile(rowsToCsv(result.columns, result.rows), this.getActiveQueryName()),
 			onRenderDetail: () => this.scheduleRender(false, true),
 		}).render();
 
@@ -592,14 +620,14 @@ export class QueriesTab {
 	}
 
 	private renderExecutionSummary(): void {
-		if (this.running) {
+		if (this.executionManager.running) {
 			const callout = this.detailEl.createDiv({ cls: "ft-card ft-mt-2" });
 			callout.style.cssText = "padding:0.5rem 0.75rem;border-left:3px solid var(--interactive-accent);background:var(--background-secondary)";
 			callout.createDiv({ text: "Running query...", cls: "ft-text-sm ft-text-muted" });
 			return;
 		}
 
-		if (this.lastError) {
+		if (this.executionManager.error) {
 			const callout = this.detailEl.createDiv({ cls: "ft-card ft-mt-2" });
 			callout.style.cssText = "padding:0.5rem 0.75rem;border-left:3px solid var(--text-error);background:var(--background-secondary)";
 			const row = callout.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
@@ -610,9 +638,9 @@ export class QueriesTab {
 			return;
 		}
 
-		if (!this.lastResult) return;
+		const result = this.executionManager.result;
+		if (!result) return;
 
-		const result = this.lastResult;
 		const callout = this.detailEl.createDiv({ cls: "ft-card ft-mt-2" });
 		callout.style.cssText = "padding:0.5rem 0.75rem;border-left:3px solid var(--text-success);background:var(--background-secondary)";
 
@@ -626,7 +654,7 @@ export class QueriesTab {
 			`${result.groupCount} groups`,
 			`${result.sourceRowCount} source rows`,
 		];
-		if (this.lastDurationMs !== undefined) stats.push(`${this.lastDurationMs}ms`);
+		if (this.executionManager.durationMs !== undefined) stats.push(`${this.executionManager.durationMs}ms`);
 
 		row.createSpan({ text: stats.join("  ·  "), cls: "ft-text-sm" });
 	}
@@ -771,51 +799,6 @@ export class QueriesTab {
 		this.joins = this.joins.filter((j) => aliases.has(j.leftSource) && aliases.has(j.rightSource));
 	}
 
-	// ─────────────────────────────────────────────────────────
-	// Query execution
-	// ─────────────────────────────────────────────────────────
-
-	private async executeQuery(): Promise<void> {
-		this.running = true;
-		this.lastError = null;
-		this.lastResult = null;
-		this.lastDurationMs = undefined;
-		this.renderDetail();
-
-		const start = Date.now();
-		try {
-			const sources: AnalyticsSource[] = this.sources
-				.filter((s) => s.data)
-				.map((s) => ({
-					alias: s.alias,
-					data: s.data!,
-					locale: s.locale !== "auto" ? s.locale : undefined,
-				}));
-
-			const query: AnalyticsQuery = {
-				sources,
-				joins: this.joins,
-				columnTypeHints: this.columnTypeHints,
-				dimensions: this.dimensions,
-				measures: this.measures,
-				timeBucket: this.timeBucket ?? undefined,
-				filters: this.filters.length > 0 ? this.filters : undefined,
-				sort: this.sort.length > 0 ? this.sort : undefined,
-				limit: this.limit ?? undefined,
-				computedColumns: this.computedColumns.length > 0 ? this.computedColumns : undefined,
-				excludedColumns: this.excludedColumns.length > 0 ? this.excludedColumns : undefined,
-			};
-
-			this.lastResult = await this.deps.analyticsService.runQuery(query);
-			this.lastDurationMs = Date.now() - start;
-		} catch (err) {
-			this.lastError = err instanceof Error ? err.message : String(err);
-		} finally {
-			this.running = false;
-			this.renderDetail();
-		}
-	}
-
 	private getActiveQueryName(): string {
 		const id = this.deps.getState().selectedQueryId;
 		if (id) {
@@ -823,106 +806,5 @@ export class QueriesTab {
 			if (q) return q.name;
 		}
 		return "query";
-	}
-
-	private downloadResultCsv(result: AnalyticsResult, name: string): void {
-		downloadCsvFile(rowsToCsv(result.columns, result.rows), name);
-	}
-
-	// ─────────────────────────────────────────────────────────
-	// Saved queries
-	// ─────────────────────────────────────────────────────────
-
-	private buildQueryConfig(): Omit<AnalyticsQuery, "sources"> {
-		return {
-			joins: this.joins,
-			columnTypeHints: this.columnTypeHints,
-			dimensions: this.dimensions,
-			measures: this.measures,
-			timeBucket: this.timeBucket ?? undefined,
-			filters: this.filters.length > 0 ? this.filters : undefined,
-			sort: this.sort.length > 0 ? this.sort : undefined,
-			limit: this.limit ?? undefined,
-			computedColumns: this.computedColumns.length > 0 ? this.computedColumns : undefined,
-			excludedColumns: this.excludedColumns.length > 0 ? this.excludedColumns : undefined,
-		};
-	}
-
-	private async saveCurrentQuery(): Promise<void> {
-		const svc = this.deps.analyticsService;
-		const name = this.queryName.trim() || `Query ${new Date().toISOString().slice(0, 16).replace("T", " ")}`;
-
-		const saved = await svc.saveQuery(name, this.sourceManager.buildSavedSources(), this.buildQueryConfig());
-		await svc.syncMeasurementsFromQuery(saved.id);
-		this.savedSnapshot = this.takeSnapshot();
-		this.deps.setState({ selectedQueryId: saved.id });
-		this.scheduleRender(true, false);
-	}
-
-	private async updateCurrentQuery(): Promise<void> {
-		const state = this.deps.getState();
-		if (!state.selectedQueryId) return;
-
-		await this.deps.analyticsService.updateQuery(
-			state.selectedQueryId,
-			this.sourceManager.buildSavedSources(),
-			this.buildQueryConfig(),
-		);
-		await this.deps.analyticsService.syncMeasurementsFromQuery(state.selectedQueryId);
-		this.savedSnapshot = this.takeSnapshot();
-
-		this.scheduleRender(true, false);
-	}
-
-	private newQuery(): void {
-		this.sourceManager.reset();
-		this.columnTypeHints = [];
-		this.joins = [];
-		this.dimensions = [];
-		this.measures = [];
-		this.timeBucket = null;
-		this.filters = [];
-		this.sort = [];
-		this.limit = null;
-		this.computedColumns = [];
-		this.excludedColumns = [];
-		this.savedSnapshot = null;
-		this.lastResult = null;
-		this.lastDurationMs = undefined;
-		this.lastError = null;
-		this.lastLoadedQueryId = null;
-		this.queryName = "";
-		this.deps.setState({ selectedQueryId: null });
-		this.sourcesCollapsed = false;
-		this.scheduleRender(true, true);
-	}
-
-	private loadSavedQuery(queryId: string): void {
-		const svc = this.deps.analyticsService;
-		const saved = svc.getQuery(queryId);
-		if (!saved) return;
-
-		this.lastLoadedQueryId = queryId;
-
-		// Reset current state and populate from saved query
-		this.columnTypeHints = [...saved.columnTypeHints];
-		this.joins = [...saved.joins];
-		this.dimensions = [...saved.dimensions];
-		this.measures = [...saved.measures];
-		this.timeBucket = saved.timeBucket ? { ...saved.timeBucket } : null;
-		this.filters = saved.filters ? saved.filters.map((f) => ({ ...f })) : [];
-		this.sort = saved.sort ? saved.sort.map((s) => ({ ...s })) : [];
-		this.limit = saved.limit ?? null;
-		this.computedColumns = saved.computedColumns ? saved.computedColumns.map((c) => ({ ...c })) : [];
-		this.excludedColumns = saved.excludedColumns ? [...saved.excludedColumns] : [];
-		this.savedSnapshot = this.takeSnapshot();
-		this.lastResult = null;
-		this.lastDurationMs = undefined;
-		this.lastError = null;
-
-		// Load sources via SourceManager (pendingExecute = true for auto-execution)
-		this.sourceManager.loadFromSaved(saved.sources, true);
-
-		this.scheduleRender(true, true);
 	}
 }

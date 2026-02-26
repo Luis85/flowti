@@ -42,6 +42,16 @@ export interface MultiSeriesChartData {
 	valueColumn: string;
 }
 
+/** Options for multi-series chart rendering. */
+export interface ChartOptions {
+	/** Multiple numeric columns to render as separate series. */
+	valueColumns?: string[];
+	/** Series names to hide from the chart. */
+	hiddenSeries?: string[];
+	/** Called when user toggles a series on/off via the legend. */
+	onToggleSeries?: (seriesName: string) => void;
+}
+
 export class ChartRenderer {
 
 	/**
@@ -129,6 +139,43 @@ export class ChartRenderer {
 		return { labels: allLabels, series: series.slice(0, MAX_SERIES), valueColumn: valueCol };
 	}
 
+	/**
+	 * Extract multi-column chart data — each selected column becomes a separate series.
+	 * Uses the first non-numeric column as labels (x-axis).
+	 * Returns null when fewer than 2 columns are selected.
+	 */
+	static extractMultiColumnData(result: AnalyticsResult, valueColumns: string[]): MultiSeriesChartData | null {
+		if (valueColumns.length < 2 || result.rows.length === 0) return null;
+
+		const firstRow = result.rows[0];
+		const labelCol = result.columns.find((c) => typeof firstRow[c] !== "number");
+
+		// Build paired data
+		const pairs: Array<{ label: string; values: number[] }> = [];
+		for (const row of result.rows) {
+			const label = labelCol ? String(row[labelCol] ?? "") : String(pairs.length + 1);
+			const values = valueColumns.map((col) => {
+				const v = row[col];
+				return typeof v === "number" ? v : 0;
+			});
+			pairs.push({ label, values });
+		}
+
+		// Sort chronologically when labels look like date buckets
+		if (pairs.length > 1 && ChartRenderer.looksLikeDateBuckets(pairs.map((p) => p.label))) {
+			pairs.sort((a, b) => a.label.localeCompare(b.label));
+		}
+
+		return {
+			labels: pairs.map((p) => p.label),
+			series: valueColumns.map((col, ci) => ({
+				name: col,
+				values: pairs.map((p) => p.values[ci]),
+			})),
+			valueColumn: valueColumns[0],
+		};
+	}
+
 	/** Check whether labels look like time bucket output (YYYY, YYYY-MM, YYYY-QN). */
 	private static looksLikeDateBuckets(labels: string[]): boolean {
 		const sample = labels.slice(0, 5);
@@ -143,10 +190,16 @@ export class ChartRenderer {
 	 * Render an SVG line chart into the container.
 	 * Auto-detects multi-series when result has time bucket + dimension columns.
 	 */
-	static renderLineChart(container: HTMLElement, result: AnalyticsResult, valueColumn?: string): void {
+	static renderLineChart(container: HTMLElement, result: AnalyticsResult, valueColumn?: string, opts?: ChartOptions): void {
+		// Multi-column selection (user picked multiple numeric columns)
+		if (opts?.valueColumns && opts.valueColumns.length > 1) {
+			const multiColData = ChartRenderer.extractMultiColumnData(result, opts.valueColumns);
+			if (multiColData) { ChartRenderer.renderMultiSeriesLine(container, multiColData, opts.hiddenSeries, opts.onToggleSeries); return; }
+		}
+
 		const multiData = ChartRenderer.extractMultiSeriesData(result, valueColumn);
 		if (multiData && multiData.series.length > 1) {
-			ChartRenderer.renderMultiSeriesLine(container, multiData);
+			ChartRenderer.renderMultiSeriesLine(container, multiData, opts?.hiddenSeries, opts?.onToggleSeries);
 			return;
 		}
 
@@ -198,10 +251,16 @@ export class ChartRenderer {
 	 * Render an SVG bar chart into the container.
 	 * Auto-detects multi-series when result has time bucket + dimension columns.
 	 */
-	static renderBarChart(container: HTMLElement, result: AnalyticsResult, valueColumn?: string): void {
+	static renderBarChart(container: HTMLElement, result: AnalyticsResult, valueColumn?: string, opts?: ChartOptions): void {
+		// Multi-column selection (user picked multiple numeric columns)
+		if (opts?.valueColumns && opts.valueColumns.length > 1) {
+			const multiColData = ChartRenderer.extractMultiColumnData(result, opts.valueColumns);
+			if (multiColData) { ChartRenderer.renderMultiSeriesBar(container, multiColData, opts.hiddenSeries, opts.onToggleSeries); return; }
+		}
+
 		const multiData = ChartRenderer.extractMultiSeriesData(result, valueColumn);
 		if (multiData && multiData.series.length > 1) {
-			ChartRenderer.renderMultiSeriesBar(container, multiData);
+			ChartRenderer.renderMultiSeriesBar(container, multiData, opts?.hiddenSeries, opts?.onToggleSeries);
 			return;
 		}
 
@@ -263,10 +322,16 @@ export class ChartRenderer {
 	 * Filled area below line with semi-transparent color.
 	 * Auto-detects multi-series when result has time bucket + dimension columns.
 	 */
-	static renderAreaChart(container: HTMLElement, result: AnalyticsResult, valueColumn?: string): void {
+	static renderAreaChart(container: HTMLElement, result: AnalyticsResult, valueColumn?: string, opts?: ChartOptions): void {
+		// Multi-column selection (user picked multiple numeric columns)
+		if (opts?.valueColumns && opts.valueColumns.length > 1) {
+			const multiColData = ChartRenderer.extractMultiColumnData(result, opts.valueColumns);
+			if (multiColData) { ChartRenderer.renderMultiSeriesArea(container, multiColData, opts.hiddenSeries, opts.onToggleSeries); return; }
+		}
+
 		const multiData = ChartRenderer.extractMultiSeriesData(result, valueColumn);
 		if (multiData && multiData.series.length > 1) {
-			ChartRenderer.renderMultiSeriesArea(container, multiData);
+			ChartRenderer.renderMultiSeriesArea(container, multiData, opts?.hiddenSeries, opts?.onToggleSeries);
 			return;
 		}
 
@@ -367,18 +432,19 @@ export class ChartRenderer {
 
 	// ── Multi-series rendering ──────────────────────────────
 
-	private static renderMultiSeriesLine(container: HTMLElement, data: MultiSeriesChartData): void {
+	private static renderMultiSeriesLine(container: HTMLElement, data: MultiSeriesChartData, hiddenSeries?: string[], onToggleSeries?: (name: string) => void): void {
+		const visible = ChartRenderer.filterVisible(data.series, hiddenSeries);
 		const svg = ChartRenderer.buildSvg(container);
-		const allValues = data.series.flatMap((s) => s.values);
-		const { yMin, yMax, yRange } = ChartRenderer.computeYRange(allValues);
+		const allValues = visible.flatMap((s) => s.values);
+		const { yMin, yMax, yRange } = ChartRenderer.computeYRange(allValues.length > 0 ? allValues : [0]);
 
 		ChartRenderer.drawYAxis(svg, yMin, yMax);
 		ChartRenderer.drawXAxis(svg, data.labels);
 
 		const n = data.labels.length;
 
-		for (let si = 0; si < data.series.length; si++) {
-			const series = data.series[si];
+		for (const series of visible) {
+			const si = data.series.indexOf(series);
 			const color = SERIES_COLORS[si % SERIES_COLORS.length];
 
 			const points = series.values.map((v, i) => ({
@@ -388,7 +454,6 @@ export class ChartRenderer {
 					: PADDING.top + PLOT_H - ((v - yMin) / yRange) * PLOT_H,
 			}));
 
-			// Line path
 			if (points.length > 1) {
 				const pathData = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
 				const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -399,7 +464,6 @@ export class ChartRenderer {
 				svg.appendChild(path);
 			}
 
-			// Dot markers
 			for (const p of points) {
 				const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
 				circle.setAttribute("cx", p.x.toFixed(1));
@@ -413,32 +477,35 @@ export class ChartRenderer {
 		ChartRenderer.drawLegend(container, data.series.map((s, i) => ({
 			name: s.name,
 			color: SERIES_COLORS[i % SERIES_COLORS.length],
-		})));
+		})), hiddenSeries, onToggleSeries);
 	}
 
-	private static renderMultiSeriesBar(container: HTMLElement, data: MultiSeriesChartData): void {
+	private static renderMultiSeriesBar(container: HTMLElement, data: MultiSeriesChartData, hiddenSeries?: string[], onToggleSeries?: (name: string) => void): void {
+		const visible = ChartRenderer.filterVisible(data.series, hiddenSeries);
 		const svg = ChartRenderer.buildSvg(container);
-		const allValues = data.series.flatMap((s) => s.values);
-		const { yMin, yMax, yRange } = ChartRenderer.computeYRange(allValues);
+		const allValues = visible.flatMap((s) => s.values);
+		const { yMin, yMax, yRange } = ChartRenderer.computeYRange(allValues.length > 0 ? allValues : [0]);
 
 		ChartRenderer.drawYAxis(svg, yMin, yMax);
 		ChartRenderer.drawXAxis(svg, data.labels);
 
 		const n = data.labels.length;
-		const seriesCount = data.series.length;
+		const visibleCount = visible.length;
 		const totalGroupWidth = PLOT_W / n;
 		const groupGap = totalGroupWidth * BAR_GAP_RATIO;
 		const usableWidth = totalGroupWidth - groupGap;
-		const barWidth = usableWidth / seriesCount;
+		const barWidth = visibleCount > 0 ? usableWidth / visibleCount : usableWidth;
 		const baseline = PADDING.top + PLOT_H;
 
 		for (let i = 0; i < n; i++) {
 			const groupX = PADDING.left + i * totalGroupWidth + groupGap / 2;
 
-			for (let si = 0; si < seriesCount; si++) {
-				const v = data.series[si].values[i];
+			for (let vi = 0; vi < visible.length; vi++) {
+				const series = visible[vi];
+				const si = data.series.indexOf(series);
+				const v = series.values[i];
 				const barHeight = yRange === 0 ? PLOT_H / 2 : ((v - yMin) / yRange) * PLOT_H;
-				const x = groupX + si * barWidth;
+				const x = groupX + vi * barWidth;
 				const y = baseline - barHeight;
 				const color = SERIES_COLORS[si % SERIES_COLORS.length];
 
@@ -456,13 +523,14 @@ export class ChartRenderer {
 		ChartRenderer.drawLegend(container, data.series.map((s, i) => ({
 			name: s.name,
 			color: SERIES_COLORS[i % SERIES_COLORS.length],
-		})));
+		})), hiddenSeries, onToggleSeries);
 	}
 
-	private static renderMultiSeriesArea(container: HTMLElement, data: MultiSeriesChartData): void {
+	private static renderMultiSeriesArea(container: HTMLElement, data: MultiSeriesChartData, hiddenSeries?: string[], onToggleSeries?: (name: string) => void): void {
+		const visible = ChartRenderer.filterVisible(data.series, hiddenSeries);
 		const svg = ChartRenderer.buildSvg(container);
-		const allValues = data.series.flatMap((s) => s.values);
-		const { yMin, yMax, yRange } = ChartRenderer.computeYRange(allValues);
+		const allValues = visible.flatMap((s) => s.values);
+		const { yMin, yMax, yRange } = ChartRenderer.computeYRange(allValues.length > 0 ? allValues : [0]);
 
 		ChartRenderer.drawYAxis(svg, yMin, yMax);
 		ChartRenderer.drawXAxis(svg, data.labels);
@@ -470,8 +538,8 @@ export class ChartRenderer {
 		const n = data.labels.length;
 		const baseline = PADDING.top + PLOT_H;
 
-		for (let si = 0; si < data.series.length; si++) {
-			const series = data.series[si];
+		for (const series of visible) {
+			const si = data.series.indexOf(series);
 			const color = SERIES_COLORS[si % SERIES_COLORS.length];
 
 			const points = series.values.map((v, i) => ({
@@ -481,7 +549,6 @@ export class ChartRenderer {
 					: PADDING.top + PLOT_H - ((v - yMin) / yRange) * PLOT_H,
 			}));
 
-			// Filled area
 			if (points.length > 1) {
 				const areaPath = [
 					`M ${points[0].x.toFixed(1)} ${baseline}`,
@@ -495,7 +562,6 @@ export class ChartRenderer {
 				area.setAttribute("opacity", "0.12");
 				svg.appendChild(area);
 
-				// Line overlay
 				const lineData = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
 				const line = document.createElementNS("http://www.w3.org/2000/svg", "path");
 				line.setAttribute("d", lineData);
@@ -505,7 +571,6 @@ export class ChartRenderer {
 				svg.appendChild(line);
 			}
 
-			// Dot markers
 			for (const p of points) {
 				const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
 				circle.setAttribute("cx", p.x.toFixed(1));
@@ -519,10 +584,15 @@ export class ChartRenderer {
 		ChartRenderer.drawLegend(container, data.series.map((s, i) => ({
 			name: s.name,
 			color: SERIES_COLORS[i % SERIES_COLORS.length],
-		})));
+		})), hiddenSeries, onToggleSeries);
 	}
 
-	private static drawLegend(container: HTMLElement, items: Array<{ name: string; color: string }>): void {
+	private static drawLegend(
+		container: HTMLElement,
+		items: Array<{ name: string; color: string }>,
+		hiddenSeries?: string[],
+		onToggleSeries?: (name: string) => void,
+	): void {
 		const legend = container.createDiv();
 		legend.style.display = "flex";
 		legend.style.flexWrap = "wrap";
@@ -532,10 +602,14 @@ export class ChartRenderer {
 		legend.style.fontSize = "var(--font-ui-smaller)";
 
 		for (const item of items) {
+			const isHidden = hiddenSeries?.includes(item.name) ?? false;
+
 			const entry = legend.createDiv();
 			entry.style.display = "flex";
 			entry.style.alignItems = "center";
 			entry.style.gap = "0.25rem";
+			if (onToggleSeries) entry.style.cursor = "pointer";
+			if (isHidden) entry.style.opacity = "0.35";
 
 			const dot = entry.createSpan();
 			dot.style.width = "8px";
@@ -544,8 +618,22 @@ export class ChartRenderer {
 			dot.style.backgroundColor = item.color;
 			dot.style.flexShrink = "0";
 
-			entry.createSpan({ text: item.name, cls: "ft-text-muted" });
+			const label = entry.createSpan({ text: item.name, cls: "ft-text-muted" });
+			if (isHidden) label.style.textDecoration = "line-through";
+
+			if (onToggleSeries) {
+				entry.addEventListener("click", () => onToggleSeries(item.name));
+			}
 		}
+	}
+
+	/** Filter series to only visible ones (not in hiddenSeries list). */
+	private static filterVisible(
+		series: Array<{ name: string; values: number[] }>,
+		hiddenSeries?: string[],
+	): Array<{ name: string; values: number[] }> {
+		if (!hiddenSeries || hiddenSeries.length === 0) return series;
+		return series.filter((s) => !hiddenSeries.includes(s.name));
 	}
 
 	// ── Private helpers ─────────────────────────────────────
@@ -561,7 +649,8 @@ export class ChartRenderer {
 	}
 
 	private static computeYRange(values: number[]): { yMin: number; yMax: number; yRange: number } {
-		const yMin = Math.min(...values);
+		const rawMin = Math.min(...values);
+		const yMin = Math.min(0, rawMin); // Always include 0 in range
 		const yMax = Math.max(...values);
 		const yRange = yMax - yMin;
 		return { yMin, yMax, yRange };

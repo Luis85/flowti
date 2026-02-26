@@ -35,6 +35,8 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 	private selectedMeasurementId: string | null = null;
 	private homepageDashboardId: string | null = null;
 	private dashboardFilters: import("./analytics/types").DashboardFilter[] = [];
+	private dateRangeFilter: import("../domain/analytics/types").DateRangeFilter | null = null;
+	private crossTileFilter: import("../domain/analytics/types").CrossTileFilter | null = null;
 	private pendingSourcePath: string | null = null;
 	private pendingEntityId: string | null = null;
 	private pendingNewQuery: AnalyticsHubState["pendingNewQuery"] = undefined;
@@ -225,7 +227,7 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 	}
 
 	onHubClose(): void {
-		// No cleanup needed in v1
+		this.dashboardsTab?.dispose();
 	}
 
 	protected onNavigateToEntity(tabId: string, entityId: string): void {
@@ -251,6 +253,7 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 		this.filterText = "";
 		this.searchInput.value = "";
 		this.dashboardsTab.clearNavigation();
+		this.dashboardsTab.dispose();
 	}
 
 	onDashboardRender(): void {
@@ -314,6 +317,8 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 			selectedMeasurementId: this.selectedMeasurementId,
 			homepageDashboardId: this.homepageDashboardId,
 			dashboardFilters: this.dashboardFilters,
+			dateRangeFilter: this.dateRangeFilter,
+			crossTileFilter: this.crossTileFilter,
 			pendingSourcePath: this.pendingSourcePath,
 			pendingEntityId: this.pendingEntityId,
 			pendingNewQuery: this.pendingNewQuery,
@@ -328,6 +333,8 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 			// Reset filters when switching dashboards
 			if (partial.selectedDashboardId !== this.selectedDashboardId) {
 				this.dashboardFilters = [];
+				this.dateRangeFilter = null;
+				this.crossTileFilter = null;
 			}
 			this.selectedDashboardId = partial.selectedDashboardId;
 		}
@@ -335,11 +342,15 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 			// Reset filters when switching homepage dashboard
 			if (partial.homepageDashboardId !== this.homepageDashboardId) {
 				this.dashboardFilters = [];
+				this.dateRangeFilter = null;
+				this.crossTileFilter = null;
 			}
 			this.homepageDashboardId = partial.homepageDashboardId;
 		}
 		if (partial.selectedMeasurementId !== undefined) this.selectedMeasurementId = partial.selectedMeasurementId;
 		if (partial.dashboardFilters !== undefined) this.dashboardFilters = partial.dashboardFilters;
+		if (partial.dateRangeFilter !== undefined) this.dateRangeFilter = partial.dateRangeFilter;
+		if (partial.crossTileFilter !== undefined) this.crossTileFilter = partial.crossTileFilter;
 		if (partial.pendingSourcePath !== undefined) this.pendingSourcePath = partial.pendingSourcePath;
 		if (partial.pendingEntityId !== undefined) this.pendingEntityId = partial.pendingEntityId;
 		if ("pendingNewQuery" in partial) this.pendingNewQuery = partial.pendingNewQuery;

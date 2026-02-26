@@ -6,7 +6,8 @@
  */
 
 import { setIcon } from "obsidian";
-import type { DashboardTile, AnalyticsResult, SavedFilterPreset } from "../../domain/analytics/types";
+import type { CrossTileFilter, DashboardTile, AnalyticsResult, DateRangeFilter, DateRangePreset, SavedFilterPreset } from "../../domain/analytics/types";
+import { DATE_RANGE_PRESET_LABELS } from "../../domain/analytics/dateUtils";
 import { discoverFilterDimensions, buildFilterCacheKey } from "./DashboardsTab";
 import type { TileResultCache } from "./TileResultCache";
 
@@ -27,6 +28,16 @@ export interface FilterBarDeps {
 	presets?: SavedFilterPreset[];
 	onSavePreset?: (name: string, filters: DashboardFilter[]) => void;
 	onDeletePreset?: (presetId: string) => void;
+	/** Active date range filter (null = no date range). */
+	dateRangeFilter?: DateRangeFilter | null;
+	/** Available date columns detected from tile queries. */
+	dateColumns?: string[];
+	/** Callback when date range filter changes. */
+	onDateRangeChanged?: (filter: DateRangeFilter | null) => void;
+	/** Active cross-tile filter (null = none). */
+	crossTileFilter?: CrossTileFilter | null;
+	/** Callback when cross-tile filter is cleared. */
+	onCrossTileFilterClear?: () => void;
 }
 
 export class DashboardFilterBar {
@@ -55,7 +66,10 @@ export class DashboardFilterBar {
 		);
 
 		const hasPresets = this.deps.presets && this.deps.presets.length > 0;
-		if (dimensions.length === 0 && filters.length === 0 && !hasPresets) return;
+		const hasDateColumns = this.deps.dateColumns && this.deps.dateColumns.length > 0;
+		const hasDateRange = this.deps.dateRangeFilter != null;
+		const hasCrossTile = this.deps.crossTileFilter != null;
+		if (dimensions.length === 0 && filters.length === 0 && !hasPresets && !hasDateColumns && !hasDateRange && !hasCrossTile) return;
 
 		const bar = this.container.createDiv({ cls: "ft-filter-bar" });
 
@@ -64,6 +78,11 @@ export class DashboardFilterBar {
 		// Filter presets dropdown
 		if (this.deps.presets || this.deps.onSavePreset) {
 			this.renderPresetControls(bar, filters);
+		}
+
+		// Date range picker
+		if (hasDateColumns && this.deps.onDateRangeChanged) {
+			this.renderDateRangePicker(bar);
 		}
 
 		// Dimension dropdowns (max 4) — selecting a value toggles it in the filter
@@ -115,19 +134,21 @@ export class DashboardFilterBar {
 			});
 		}
 
-		// Clear all button (only when filters active)
-		if (filters.length > 0) {
+		// Clear all button (only when any filter active)
+		if (filters.length > 0 || hasDateRange || hasCrossTile) {
 			const clearBtn = bar.createEl("span", { cls: "ft-nav-link ft-text-xs" });
 			clearBtn.style.cursor = "pointer";
 			clearBtn.style.marginLeft = "auto";
 			clearBtn.textContent = "Clear all";
 			clearBtn.addEventListener("click", () => {
 				this.deps.onFiltersChanged([]);
+				this.deps.onDateRangeChanged?.(null);
+				this.deps.onCrossTileFilterClear?.();
 			});
 		}
 
 		// Breadcrumb chips for active filters — one chip per value
-		if (filters.length > 0) {
+		if (filters.length > 0 || hasDateRange || hasCrossTile) {
 			const breadcrumb = this.container.createDiv({ cls: "ft-filter-breadcrumb" });
 			breadcrumb.style.display = "flex";
 			breadcrumb.style.flexWrap = "wrap";
@@ -141,6 +162,41 @@ export class DashboardFilterBar {
 			if (rowCount !== null) {
 				const badge = breadcrumb.createSpan({ cls: "ft-badge ft-badge-muted ft-text-xs" });
 				badge.textContent = `~${rowCount} rows`;
+			}
+
+			// Date range chip
+			if (this.deps.dateRangeFilter && this.deps.onDateRangeChanged) {
+				const dr = this.deps.dateRangeFilter;
+				const chip = breadcrumb.createSpan({ cls: "ft-filter-chip ft-text-xs" });
+				const label = dr.preset === "custom"
+					? `${dr.column || "Date"}: ${dr.startDate ?? "?"} to ${dr.endDate ?? "?"}`
+					: `${dr.column || "Date"}: ${DATE_RANGE_PRESET_LABELS[dr.preset]}`;
+				chip.textContent = label;
+
+				const closeBtn = chip.createSpan({ text: " \u00d7" });
+				closeBtn.style.cursor = "pointer";
+				closeBtn.style.fontWeight = "bold";
+				closeBtn.addEventListener("click", (e) => {
+					e.stopPropagation();
+					this.deps.onDateRangeChanged!(null);
+				});
+			}
+
+			// Cross-tile filter chip
+			if (this.deps.crossTileFilter && this.deps.onCrossTileFilterClear) {
+				const cf = this.deps.crossTileFilter;
+				const chip = breadcrumb.createSpan({ cls: "ft-filter-chip ft-text-xs" });
+				chip.style.background = "var(--interactive-accent)";
+				chip.style.color = "var(--text-on-accent)";
+				chip.textContent = `${cf.column} = ${cf.value}`;
+
+				const closeBtn = chip.createSpan({ text: " \u00d7" });
+				closeBtn.style.cursor = "pointer";
+				closeBtn.style.fontWeight = "bold";
+				closeBtn.addEventListener("click", (e) => {
+					e.stopPropagation();
+					this.deps.onCrossTileFilterClear!();
+				});
 			}
 
 			for (const f of filters) {
@@ -250,6 +306,88 @@ export class DashboardFilterBar {
 					if (ev.key === "Escape") { ev.preventDefault(); input.remove(); saveBtn.style.display = ""; }
 				});
 				setTimeout(() => input.focus(), 20);
+			});
+		}
+	}
+
+	private renderDateRangePicker(bar: HTMLElement): void {
+		const dateColumns = this.deps.dateColumns ?? [];
+		const current = this.deps.dateRangeFilter;
+		const onChanged = this.deps.onDateRangeChanged!;
+
+		const wrap = bar.createSpan({ cls: "ft-date-range-picker" });
+		wrap.style.cssText = "display:inline-flex;align-items:center;gap:4px";
+
+		// Date column selector (when multiple date columns)
+		let selectedColumn = current?.column || dateColumns[0] || "";
+		if (dateColumns.length > 1) {
+			const colSelect = wrap.createEl("select", { cls: "ft-select-small ft-text-xs" });
+			for (const col of dateColumns) {
+				const opt = colSelect.createEl("option");
+				opt.value = col;
+				opt.textContent = col;
+				if (col === selectedColumn) opt.selected = true;
+			}
+			colSelect.addEventListener("change", () => {
+				selectedColumn = colSelect.value;
+				if (current) {
+					onChanged({ ...current, column: selectedColumn });
+				}
+			});
+		}
+
+		// Preset selector
+		const select = wrap.createEl("select", { cls: "ft-select-small ft-text-xs" });
+		const noneOpt = select.createEl("option");
+		noneOpt.value = "";
+		noneOpt.textContent = "Date range: All";
+		if (!current) noneOpt.selected = true;
+
+		const presetKeys: DateRangePreset[] = [
+			"last-7-days", "last-30-days", "last-90-days",
+			"this-week", "last-week",
+			"this-month", "last-month",
+			"this-quarter", "last-quarter",
+			"this-year", "last-year",
+			"custom",
+		];
+		for (const key of presetKeys) {
+			const opt = select.createEl("option");
+			opt.value = key;
+			opt.textContent = DATE_RANGE_PRESET_LABELS[key];
+			if (current?.preset === key) opt.selected = true;
+		}
+
+		select.addEventListener("change", () => {
+			if (!select.value) {
+				onChanged(null);
+				return;
+			}
+			const preset = select.value as DateRangePreset;
+			if (preset === "custom") {
+				const today = new Date().toISOString().slice(0, 10);
+				onChanged({ column: selectedColumn, preset: "custom", startDate: today, endDate: today });
+			} else {
+				onChanged({ column: selectedColumn, preset });
+			}
+		});
+
+		// Custom date inputs (only when preset = "custom")
+		if (current?.preset === "custom") {
+			const startInput = wrap.createEl("input", { type: "date", cls: "ft-text-xs" });
+			startInput.style.cssText = "font-size:var(--font-ui-smaller);border:1px solid var(--background-modifier-border);background:var(--background-primary);color:var(--text-normal);padding:2px 4px;border-radius:4px";
+			startInput.value = current.startDate ?? "";
+			startInput.addEventListener("change", () => {
+				onChanged({ ...current, startDate: startInput.value });
+			});
+
+			wrap.createSpan({ text: "to", cls: "ft-text-xs ft-text-muted" });
+
+			const endInput = wrap.createEl("input", { type: "date", cls: "ft-text-xs" });
+			endInput.style.cssText = "font-size:var(--font-ui-smaller);border:1px solid var(--background-modifier-border);background:var(--background-primary);color:var(--text-normal);padding:2px 4px;border-radius:4px";
+			endInput.value = current.endDate ?? "";
+			endInput.addEventListener("change", () => {
+				onChanged({ ...current, endDate: endInput.value });
 			});
 		}
 	}

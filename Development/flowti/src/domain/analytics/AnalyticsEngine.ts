@@ -18,13 +18,14 @@ import type {
 	FilterSpec,
 	JoinSpec,
 	MeasureSpec,
+	QueryDateRangeFilter,
 	ResultRow,
 	SortSpec,
 	TimeBucketSpec,
 	WindowFunctionName,
 } from "./types";
 import { parseNumber } from "./localeUtils";
-import { bucketDate, parseDate } from "./dateUtils";
+import { bucketDate, isDateInRange, parseDate } from "./dateUtils";
 import { computeChange, computePctChange, computeRollingAvg } from "./trendCalculations";
 import { evalRound, evalAbs, evalIf, evalCoalesce, evalUpper, evalLower, evalConcat } from "./expressionFunctions";
 
@@ -48,6 +49,11 @@ export class AnalyticsEngine {
 		}
 
 		const sourceRowCount = rows.length;
+
+		// 2b. Apply date range filter (before other filters and grouping)
+		if (query.dateRangeFilter) {
+			rows = this.applyDateRangeFilter(rows, query.dateRangeFilter, query);
+		}
 
 		// 3. Apply filters (before grouping)
 		if (query.filters && query.filters.length > 0) {
@@ -308,6 +314,28 @@ export class AnalyticsEngine {
 			case ">=": return raw >= filterVal;
 			case "<=": return raw <= filterVal;
 		}
+	}
+
+	// ── Date range filtering ─────────────────────────
+
+	private applyDateRangeFilter(
+		rows: RawRow[],
+		filter: QueryDateRangeFilter,
+		query: AnalyticsQuery,
+	): RawRow[] {
+		// Skip filtering if the column doesn't exist in any source's data.
+		// This handles multi-query dashboards where the selected date column
+		// exists in some queries but not others.
+		const columnInData = query.sources.some((s) => s.data.headers.includes(filter.column));
+		if (!columnInData) return rows;
+
+		const localeId = this.findLocaleForColumn(filter.column, query);
+		return rows.filter((row) => {
+			const raw = row[filter.column] ?? "";
+			const parsed = parseDate(raw, localeId);
+			if (!parsed) return false;
+			return isDateInRange(parsed, filter.start, filter.end);
+		});
 	}
 
 	// ── Sorting and limiting ──────────────────────────

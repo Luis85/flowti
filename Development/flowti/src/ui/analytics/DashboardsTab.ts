@@ -5,8 +5,9 @@
  * Detail panel: CSS Grid tile layout for the selected dashboard.
  */
 
-import { Notice, setIcon } from "obsidian";
-import type { Dashboard, DashboardTile, Measurement, AnalyticsResult, ResultRow } from "../../domain/analytics/types";
+import { Notice, setIcon, type EventRef } from "obsidian";
+import type { CrossTileFilter, Dashboard, DashboardTile, Measurement, AnalyticsResult, QueryDateRangeFilter, ResultRow, SavedAnalyticsQuery } from "../../domain/analytics/types";
+import { resolveDateRangeFilter } from "../../domain/analytics/dateUtils";
 import { computeFreshnessSummary, getFreshnessLevel, getFreshnessColor } from "../../domain/analytics/freshnessUtils";
 import type { AnalyticsHubDeps, NavigationStackEntry } from "./types";
 import { MAX_BREADCRUMB_DEPTH } from "./types";
@@ -23,9 +24,16 @@ type DashboardSortKey = "name" | "tiles" | "updated";
 export class DashboardsTab {
 	private addTileDialogVisible = false;
 	private openSettingsTileId: string | null = null;
+	private tilePages = new Map<string, number>();
 	private queryMapCollapsed = false;
 	private sortKey: DashboardSortKey = "name";
 	private navigationStack: NavigationStackEntry[] = [];
+
+	// ── File watcher state (PBI-ANA-133) ────────────────────
+	private fileWatcherRef: EventRef | null = null;
+	private watcherDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+	private watchedDashboardId: string | null = null;
+	private modifiedSourcePaths = new Set<string>();
 
 	constructor(
 		private masterEl: HTMLElement,
@@ -191,7 +199,8 @@ export class DashboardsTab {
 
 		row.addEventListener("click", () => {
 			this.pushNavigation({ level: "dashboard", label: dashboard.name, dashboardId: dashboard.id });
-			this.deps.setState({ selectedDashboardId: dashboard.id, dashboardFilters: [] });
+			this.tilePages.clear();
+			this.deps.setState({ selectedDashboardId: dashboard.id, dashboardFilters: [], dateRangeFilter: null, crossTileFilter: null });
 			this.deps.scheduleRender();
 		});
 	}
@@ -220,6 +229,7 @@ export class DashboardsTab {
 	}
 
 	private renderEmptyDetail(): void {
+		this.clearFileWatcher();
 		const empty = this.detailEl.createDiv({ cls: "ft-empty-detail" });
 		empty.style.textAlign = "center";
 		empty.style.padding = "3rem 1.5rem";
@@ -236,6 +246,9 @@ export class DashboardsTab {
 	}
 
 	private renderDashboardDetail(dashboard: Dashboard): void {
+		// Register file watcher for auto-refresh (re-registers on dashboard switch)
+		this.registerFileWatcher(dashboard);
+
 		// Breadcrumb navigation bar (hidden at root level)
 		new DashboardBreadcrumbs(this.detailEl, {
 			stack: this.navigationStack,
@@ -476,16 +489,30 @@ export class DashboardsTab {
 			if (!isAutoHeight) tileHost.style.minHeight = `${rowSpan * 180}px`;
 
 			const dashboardFilters = state.dashboardFilters;
-			const cacheKey = buildFilterCacheKey(effectiveQueryId, dashboardFilters);
+			// Merge cross-tile filter into dimension filters for query execution
+			const crossFilter = state.crossTileFilter;
+			const effectiveFilters = crossFilter
+				? mergeCrossTileFilter(dashboardFilters, crossFilter)
+				: dashboardFilters;
+			const resolvedDateRange = state.dateRangeFilter && query
+				? resolveDateRangeFilter(state.dateRangeFilter, query.columnTypeHints)
+				: null;
+			const cacheKey = buildFilterCacheKey(effectiveQueryId, effectiveFilters, resolvedDateRange);
+			const hasFilters = effectiveFilters.length > 0 || resolvedDateRange !== null;
 			const tileResult = this.deps.tileResultCache.tryRun(
 				cacheKey,
-				() => dashboardFilters.length > 0
-					? this.deps.analyticsService.runSavedQueryWithFilters(effectiveQueryId, dashboardFilters)
+				() => hasFilters
+					? this.deps.analyticsService.runSavedQueryWithFilters(effectiveQueryId, effectiveFilters, resolvedDateRange ?? undefined)
 					: this.deps.analyticsService.runSavedQuery(effectiveQueryId),
 				() => this.deps.scheduleRender(),
 			);
 
 			const filteredResult = filterResultForMeasurement(tileResult.result, measurement, query);
+
+			// Cross-tile filter source indicator
+			if (crossFilter && crossFilter.sourceTileId === tile.id) {
+				tileHost.classList.add("ft-tile-filter-source");
+			}
 
 			const renderer = new DashboardTileRenderer(tileHost);
 			renderer.render({
@@ -500,7 +527,7 @@ export class DashboardsTab {
 					});
 				},
 				onRefresh: () => {
-					this.deps.tileResultCache.clearOne(effectiveQueryId);
+					this.deps.tileResultCache.clearByQueryId(effectiveQueryId);
 					this.deps.scheduleRender();
 				},
 				onReorder: (tileId, direction) => {
@@ -524,6 +551,11 @@ export class DashboardsTab {
 					this.openSettingsTileId = this.openSettingsTileId === tileId ? null : tileId;
 					this.deps.scheduleRender();
 				},
+				currentPage: this.tilePages.get(tile.id) ?? 1,
+				onPageChange: (tileId, page) => {
+					this.tilePages.set(tileId, page);
+					this.deps.scheduleRender();
+				},
 				onRulesChange: (tileId, rules) => {
 					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { conditionalRules: rules } as Partial<DashboardTile>).then(() => {
 						this.deps.scheduleRender();
@@ -536,6 +568,16 @@ export class DashboardsTab {
 				},
 			onChartValueColumnChange: (tileId, column) => {
 					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { chartValueColumn: column } as Partial<DashboardTile>).then(() => {
+						this.deps.scheduleRender();
+					});
+				},
+				onChartValueColumnsChange: (tileId, columns) => {
+					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { chartValueColumns: columns } as Partial<DashboardTile>).then(() => {
+						this.deps.scheduleRender();
+					});
+				},
+				onHiddenSeriesChange: (tileId, hiddenSeries) => {
+					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { hiddenSeries } as Partial<DashboardTile>).then(() => {
 						this.deps.scheduleRender();
 					});
 				},
@@ -588,6 +630,11 @@ export class DashboardsTab {
 						this.deps.scheduleRender();
 					});
 				},
+				onTableKpiLabelChange: (tileId, label) => {
+					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { tableKpiLabel: label || undefined } as Partial<DashboardTile>).then(() => {
+						this.deps.scheduleRender();
+					});
+				},
 				onColumnOrderChange: (tileId, columns) => {
 					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { columnOrder: columns } as Partial<DashboardTile>).then(() => {
 						this.deps.scheduleRender();
@@ -598,28 +645,20 @@ export class DashboardsTab {
 					this.deps.navigation.navigateTo("queries");
 					this.deps.scheduleRender();
 				},
-				onDrillDown: (column, value) => {
-					const filters = [...dashboardFilters.map((f) => ({ ...f, values: [...f.values] }))];
-					const existing = filters.find((f) => f.column === column);
-					if (existing) {
-						const idx = existing.values.indexOf(value);
-						if (idx >= 0) {
-							existing.values.splice(idx, 1);
-							if (existing.values.length === 0) {
-								filters.splice(filters.indexOf(existing), 1);
-							}
-						} else {
-							existing.values.push(value);
-						}
-					} else {
-						filters.push({ column, values: [value] });
-					}
-					// Update breadcrumb stack: push/replace "filtered" level
-					this.updateFilteredBreadcrumb(filters, dashboard.id);
-					this.deps.setState({ dashboardFilters: filters });
+				onCrossTileFilter: (sourceTileId, column, value) => {
+					const current = state.crossTileFilter;
+					// Toggle: same tile+column+value clears the filter
+					const isToggleOff = current && current.sourceTileId === sourceTileId && current.column === column && current.value === value;
+					const newFilter = isToggleOff ? null : { sourceTileId, column, value };
+					this.deps.setState({ crossTileFilter: newFilter });
+					this.deps.tileResultCache.clear();
+					this.updateFilteredBreadcrumb(
+						mergeCrossTileFilter(dashboardFilters, newFilter),
+						dashboard.id,
+					);
 					this.deps.scheduleRender();
 				},
-				activeFilters: dashboardFilters,
+				activeFilters: effectiveFilters,
 			} satisfies TileRenderContext);
 		}
 
@@ -759,6 +798,7 @@ export class DashboardsTab {
 
 	private renderFilterBar(dashboard: Dashboard): void {
 		const state = this.deps.getState();
+		const dateColumns = discoverDateColumns(dashboard.tiles, state.queries);
 		new DashboardFilterBar(this.detailEl, {
 			tiles: dashboard.tiles,
 			filters: state.dashboardFilters,
@@ -777,6 +817,19 @@ export class DashboardsTab {
 			},
 			onDeletePreset: (presetId) => {
 				void this.deps.analyticsService.deleteFilterPreset(dashboard.id, presetId).then(() => this.deps.scheduleRender());
+			},
+			dateRangeFilter: state.dateRangeFilter,
+			dateColumns,
+			onDateRangeChanged: (filter) => {
+				this.deps.setState({ dateRangeFilter: filter });
+				this.deps.tileResultCache.clear();
+				this.deps.scheduleRender();
+			},
+			crossTileFilter: state.crossTileFilter,
+			onCrossTileFilterClear: () => {
+				this.deps.setState({ crossTileFilter: null });
+				this.deps.tileResultCache.clear();
+				this.deps.scheduleRender();
 			},
 		}).render();
 	}
@@ -822,8 +875,9 @@ export class DashboardsTab {
 
 		// Apply state for the target level
 		if (entry.level === "list" || entry.level === "dashboard") {
-			// Clear filters when navigating back to list or dashboard level
-			this.deps.setState({ dashboardFilters: [] });
+			// Clear filters and pagination when navigating back to list or dashboard level
+			this.tilePages.clear();
+			this.deps.setState({ dashboardFilters: [], dateRangeFilter: null, crossTileFilter: null });
 		}
 		this.deps.scheduleRender();
 	}
@@ -835,9 +889,11 @@ export class DashboardsTab {
 		const current = this.navigationStack[this.navigationStack.length - 1];
 
 		if (current.level === "list") {
-			this.deps.setState({ selectedDashboardId: null, dashboardFilters: [] });
+			this.tilePages.clear();
+			this.deps.setState({ selectedDashboardId: null, dashboardFilters: [], dateRangeFilter: null, crossTileFilter: null });
 		} else if (current.level === "dashboard") {
-			this.deps.setState({ dashboardFilters: [] });
+			this.tilePages.clear();
+			this.deps.setState({ dashboardFilters: [], dateRangeFilter: null, crossTileFilter: null });
 		}
 		this.deps.scheduleRender();
 	}
@@ -845,6 +901,74 @@ export class DashboardsTab {
 	/** Clear navigation stack (called on explicit tab switch). */
 	clearNavigation(): void {
 		this.navigationStack = [];
+	}
+
+	// ── File watcher (PBI-ANA-133) ──────────────────────────
+
+	private registerFileWatcher(dashboard: Dashboard): void {
+		// Skip if already watching this dashboard
+		if (this.watchedDashboardId === dashboard.id) return;
+
+		this.clearFileWatcher();
+		this.watchedDashboardId = dashboard.id;
+
+		const sourcePaths = new Set(this.deps.analyticsService.getSourcePathsForDashboard(dashboard.id));
+		if (sourcePaths.size === 0) return;
+
+		this.fileWatcherRef = this.deps.app.vault.on("modify", (file) => {
+			if (!sourcePaths.has(file.path)) return;
+
+			this.modifiedSourcePaths.add(file.path);
+
+			// Debounce: coalesce rapid saves into a single refresh cycle
+			if (this.watcherDebounceTimer) clearTimeout(this.watcherDebounceTimer);
+			this.watcherDebounceTimer = setTimeout(() => {
+				this.watcherDebounceTimer = null;
+				const modified = new Set(this.modifiedSourcePaths);
+				this.modifiedSourcePaths.clear();
+
+				const state = this.deps.getState();
+				const dash = state.dashboards.find((d) => d.id === this.watchedDashboardId);
+				if (!dash) return;
+
+				let invalidated = 0;
+				for (const tile of dash.tiles) {
+					const measurement = tile.measurementId
+						? (state.measurements ?? []).find((m) => m.id === tile.measurementId)
+						: undefined;
+					const queryId = measurement ? measurement.queryId : tile.queryId;
+					const query = state.queries.find((q) => q.id === queryId);
+					if (query?.sources.some((s) => modified.has(s.csvPath))) {
+						this.deps.tileResultCache.clearByQueryId(queryId);
+						invalidated++;
+					}
+				}
+
+				if (invalidated > 0) {
+					this.deps.scheduleRender();
+					new Notice("Dashboard updated");
+				}
+			}, 2000);
+		});
+	}
+
+	/** Unregister file watcher and clear debounce timer. */
+	clearFileWatcher(): void {
+		if (this.fileWatcherRef) {
+			this.deps.app.vault.offref(this.fileWatcherRef);
+			this.fileWatcherRef = null;
+		}
+		if (this.watcherDebounceTimer) {
+			clearTimeout(this.watcherDebounceTimer);
+			this.watcherDebounceTimer = null;
+		}
+		this.watchedDashboardId = null;
+		this.modifiedSourcePaths.clear();
+	}
+
+	/** Public cleanup — called by orchestrator on tab switch and hub close. */
+	dispose(): void {
+		this.clearFileWatcher();
 	}
 }
 
@@ -908,13 +1032,21 @@ export function discoverFilterDimensions(
 export function buildFilterCacheKey(
 	queryId: string,
 	filters: Array<{ column: string; values: string[] }>,
+	dateRange?: QueryDateRangeFilter | null,
 ): string {
-	if (filters.length === 0) return queryId;
-	const suffix = filters
-		.map((f) => `${f.column}=${[...f.values].sort().join(",")}`)
-		.sort()
-		.join("&");
-	return `${queryId}?${suffix}`;
+	let key = queryId;
+	if (filters.length > 0) {
+		const suffix = filters
+			.map((f) => `${f.column}=${[...f.values].sort().join(",")}`)
+			.sort()
+			.join("&");
+		key += `?${suffix}`;
+	}
+	if (dateRange) {
+		const dSuffix = `dr=${dateRange.column}:${dateRange.start.year}-${dateRange.start.month}-${dateRange.start.day}..${dateRange.end.year}-${dateRange.end.month}-${dateRange.end.day}`;
+		key += (key.includes("?") ? "&" : "?") + dSuffix;
+	}
+	return key;
 }
 
 /**
@@ -971,4 +1103,47 @@ export function filterResultForMeasurement(
 			return filtered;
 		}),
 	};
+}
+
+/**
+ * Discover date columns from dashboard tile queries.
+ * Scans column type hints across all queries referenced by tiles.
+ */
+export function discoverDateColumns(
+	tiles: DashboardTile[],
+	queries: SavedAnalyticsQuery[],
+): string[] {
+	const dateColumns = new Set<string>();
+	const queryMap = new Map(queries.map((q) => [q.id, q]));
+
+	for (const tile of tiles) {
+		const query = queryMap.get(tile.queryId);
+		if (!query) continue;
+		for (const hint of query.columnTypeHints) {
+			if (hint.type === "date") dateColumns.add(hint.column);
+		}
+	}
+
+	return [...dateColumns];
+}
+
+/**
+ * Merge a cross-tile filter into the dashboard's dimension filters.
+ * Returns a new array with the cross-tile filter value added to the matching column.
+ */
+export function mergeCrossTileFilter(
+	filters: Array<{ column: string; values: string[] }>,
+	crossFilter: CrossTileFilter | null,
+): Array<{ column: string; values: string[] }> {
+	if (!crossFilter) return filters;
+	const merged = filters.map((f) => ({ column: f.column, values: [...f.values] }));
+	const existing = merged.find((f) => f.column === crossFilter.column);
+	if (existing) {
+		if (!existing.values.includes(crossFilter.value)) {
+			existing.values.push(crossFilter.value);
+		}
+	} else {
+		merged.push({ column: crossFilter.column, values: [crossFilter.value] });
+	}
+	return merged;
 }

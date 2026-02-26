@@ -170,21 +170,38 @@ export class TileSettingsPanel {
 			row.createSpan({ text: "Show KPI cards", cls: "ft-text-sm" });
 		}
 
-		// ── Row limit ────────────────────────────────────
+		// ── KPI label ───────────────────────────────────
+		if (ctx.tile.displayMode === "table" && ctx.tile.showTableKpis !== false && ctx.onTableKpiLabelChange) {
+			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+			row.style.marginBottom = "0.5rem";
+			row.createSpan({ text: "Items label", cls: "ft-text-sm" }).style.fontWeight = "600";
+
+			const labelInput = row.createEl("input", { type: "text", cls: "ft-text-xs" });
+			labelInput.style.cssText = "flex:1;padding:2px 6px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary)";
+			labelInput.placeholder = "Items";
+			if (ctx.tile.tableKpiLabel) labelInput.value = ctx.tile.tableKpiLabel;
+			labelInput.addEventListener("change", () => {
+				ctx.onTableKpiLabelChange!(ctx.tile.id, labelInput.value.trim());
+			});
+		}
+
+		// ── Page size (row limit presets) ────────────────
 		if (ctx.onRowLimitChange) {
 			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 			row.style.marginBottom = "0.5rem";
-			row.createSpan({ text: "Row limit", cls: "ft-text-sm" }).style.fontWeight = "600";
+			row.createSpan({ text: "Page size", cls: "ft-text-sm" }).style.fontWeight = "600";
 
-			const limitInput = row.createEl("input", { type: "number", cls: "ft-text-xs" });
-			limitInput.style.cssText = "width:60px;padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary)";
-			limitInput.placeholder = "All";
-			limitInput.min = "1";
-			if (ctx.tile.rowLimit) limitInput.value = String(ctx.tile.rowLimit);
-			limitInput.addEventListener("change", () => {
-				const val = parseInt(limitInput.value, 10);
-				ctx.onRowLimitChange!(ctx.tile.id, val > 0 ? val : undefined);
-			});
+			const presets = [10, 15, 25, 50, 0]; // 0 = show all
+			const labels: Record<number, string> = { 0: "All" };
+			const effective = ctx.tile.rowLimit === undefined ? 15 : ctx.tile.rowLimit;
+			for (const p of presets) {
+				const isActive = p === effective;
+				const btn = row.createEl("button", { cls: `ft-toggle-btn${isActive ? " is-active" : ""}` });
+				btn.textContent = labels[p] ?? String(p);
+				btn.addEventListener("click", () => {
+					ctx.onRowLimitChange!(ctx.tile.id, p === 0 ? 0 : p);
+				});
+			}
 		}
 
 		// ── Hidden columns (skip for single-measurement tiles) ──

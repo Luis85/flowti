@@ -8,7 +8,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import "../../mocks/obsidian-stub";
-import { ChartRenderer, extractPieData } from "../../../src/ui/analytics/ChartRenderer";
+import { ChartRenderer, extractPieData, type ChartOptions } from "../../../src/ui/analytics/ChartRenderer";
 import type { AnalyticsResult } from "../../../src/domain/analytics/types";
 
 // ── Helpers ─────────────────────────────────────────────────
@@ -668,5 +668,232 @@ describe("ChartRenderer.renderPieChart", () => {
 		const result = createResult(["cat", "val"], []);
 		ChartRenderer.renderPieChart(container, result);
 		expect(container.textContent).toContain("No data");
+	});
+});
+
+// ── extractMultiColumnData ──────────────────────────────────
+
+describe("ChartRenderer.extractMultiColumnData", () => {
+	it("creates one series per selected numeric column", () => {
+		const result = createResult(["region", "quantity", "cost", "revenue"], [
+			{ region: "EMEA", quantity: 10, cost: 100, revenue: 200 },
+			{ region: "APAC", quantity: 20, cost: 150, revenue: 350 },
+			{ region: "AMER", quantity: 15, cost: 120, revenue: 280 },
+		]);
+		const data = ChartRenderer.extractMultiColumnData(result, ["quantity", "cost", "revenue"]);
+		expect(data).not.toBeNull();
+		expect(data!.labels).toEqual(["EMEA", "APAC", "AMER"]);
+		expect(data!.series).toHaveLength(3);
+		expect(data!.series[0]).toEqual({ name: "quantity", values: [10, 20, 15] });
+		expect(data!.series[1]).toEqual({ name: "cost", values: [100, 150, 120] });
+		expect(data!.series[2]).toEqual({ name: "revenue", values: [200, 350, 280] });
+	});
+
+	it("returns null for fewer than 2 columns", () => {
+		const result = createResult(["x", "y"], [{ x: "A", y: 10 }]);
+		expect(ChartRenderer.extractMultiColumnData(result, ["y"])).toBeNull();
+		expect(ChartRenderer.extractMultiColumnData(result, [])).toBeNull();
+	});
+
+	it("returns null for empty results", () => {
+		const result = createResult(["x", "a", "b"], []);
+		expect(ChartRenderer.extractMultiColumnData(result, ["a", "b"])).toBeNull();
+	});
+
+	it("sorts labels when they look like date buckets", () => {
+		const result = createResult(["month", "sales", "cost"], [
+			{ month: "2025-03", sales: 30, cost: 15 },
+			{ month: "2025-01", sales: 10, cost: 5 },
+			{ month: "2025-02", sales: 20, cost: 10 },
+		]);
+		const data = ChartRenderer.extractMultiColumnData(result, ["sales", "cost"]);
+		expect(data!.labels).toEqual(["2025-01", "2025-02", "2025-03"]);
+		expect(data!.series[0].values).toEqual([10, 20, 30]); // reordered by label
+		expect(data!.series[1].values).toEqual([5, 10, 15]);
+	});
+
+	it("uses index-based labels when all columns are numeric", () => {
+		const result = createResult(["a", "b", "c"], [
+			{ a: 1, b: 10, c: 100 },
+			{ a: 2, b: 20, c: 200 },
+		]);
+		const data = ChartRenderer.extractMultiColumnData(result, ["b", "c"]);
+		expect(data!.labels).toEqual(["1", "2"]);
+	});
+
+	it("treats non-number values as zero", () => {
+		const result = createResult(["label", "x", "y"], [
+			{ label: "A", x: 5, y: "oops" },
+			{ label: "B", x: "nope", y: 10 },
+		]);
+		const data = ChartRenderer.extractMultiColumnData(result, ["x", "y"]);
+		expect(data!.series[0].values).toEqual([5, 0]);
+		expect(data!.series[1].values).toEqual([0, 10]);
+	});
+});
+
+// ── Multi-column chart rendering ────────────────────────────
+
+describe("ChartRenderer multi-column rendering", () => {
+	it("renderLineChart with valueColumns renders multi-series with legend", () => {
+		const result = createResult(["month", "sales", "cost"], [
+			{ month: "2025-01", sales: 100, cost: 60 },
+			{ month: "2025-02", sales: 200, cost: 120 },
+		]);
+		const container = createContainer();
+		ChartRenderer.renderLineChart(container, result, undefined, { valueColumns: ["sales", "cost"] });
+
+		const svg = container.querySelector("svg");
+		expect(svg).not.toBeNull();
+
+		// Two series → two paths
+		const paths = svg!.querySelectorAll("path");
+		expect(paths.length).toBe(2);
+
+		// Legend with column names
+		expect(container.textContent).toContain("sales");
+		expect(container.textContent).toContain("cost");
+	});
+
+	it("renderBarChart with valueColumns renders grouped bars with legend", () => {
+		const result = createResult(["region", "qty", "revenue"], [
+			{ region: "EMEA", qty: 10, revenue: 200 },
+			{ region: "APAC", qty: 20, revenue: 350 },
+		]);
+		const container = createContainer();
+		ChartRenderer.renderBarChart(container, result, undefined, { valueColumns: ["qty", "revenue"] });
+
+		const svg = container.querySelector("svg");
+		// 2 groups × 2 series = 4 bars
+		const rects = svg!.querySelectorAll("rect");
+		expect(rects.length).toBe(4);
+
+		expect(container.textContent).toContain("qty");
+		expect(container.textContent).toContain("revenue");
+	});
+
+	it("renderAreaChart with valueColumns renders multi-series areas with legend", () => {
+		const result = createResult(["month", "sales", "cost"], [
+			{ month: "2025-01", sales: 100, cost: 60 },
+			{ month: "2025-02", sales: 200, cost: 120 },
+		]);
+		const container = createContainer();
+		ChartRenderer.renderAreaChart(container, result, undefined, { valueColumns: ["sales", "cost"] });
+
+		const svg = container.querySelector("svg");
+		expect(svg).not.toBeNull();
+
+		// Legend with column names
+		expect(container.textContent).toContain("sales");
+		expect(container.textContent).toContain("cost");
+	});
+
+	it("falls back to single-series when only one valueColumn is provided", () => {
+		const result = createResult(["month", "sales", "cost"], [
+			{ month: "Jan", sales: 100, cost: 60 },
+			{ month: "Feb", sales: 200, cost: 120 },
+		]);
+		const container = createContainer();
+		ChartRenderer.renderLineChart(container, result, "sales", { valueColumns: ["sales"] });
+
+		// Should render single-series (no legend)
+		const svg = container.querySelector("svg");
+		expect(svg).not.toBeNull();
+		const paths = svg!.querySelectorAll("path");
+		expect(paths.length).toBe(1); // single line
+	});
+});
+
+// ── Hidden series toggle ────────────────────────────────────
+
+describe("ChartRenderer hidden series", () => {
+	const multiSeriesResult = createResult(
+		["Supplier", "order_date_month", "Sales"],
+		[
+			{ Supplier: "Acme", order_date_month: "2025-01", Sales: 100 },
+			{ Supplier: "Acme", order_date_month: "2025-02", Sales: 200 },
+			{ Supplier: "Beta", order_date_month: "2025-01", Sales: 150 },
+			{ Supplier: "Beta", order_date_month: "2025-02", Sales: 250 },
+		],
+	);
+
+	it("hides series from line chart when listed in hiddenSeries", () => {
+		const container = createContainer();
+		ChartRenderer.renderLineChart(container, multiSeriesResult, undefined, {
+			hiddenSeries: ["Beta"],
+		});
+
+		const svg = container.querySelector("svg");
+		expect(svg).not.toBeNull();
+		// Only Acme visible → 1 path
+		const paths = svg!.querySelectorAll("path");
+		expect(paths.length).toBe(1);
+	});
+
+	it("hides series from bar chart when listed in hiddenSeries", () => {
+		const container = createContainer();
+		ChartRenderer.renderBarChart(container, multiSeriesResult, undefined, {
+			hiddenSeries: ["Acme"],
+		});
+
+		const svg = container.querySelector("svg");
+		expect(svg).not.toBeNull();
+		// Only Beta visible → 2 bars (2 time buckets × 1 series)
+		const rects = svg!.querySelectorAll("rect");
+		expect(rects.length).toBe(2);
+	});
+
+	it("renders all series when hiddenSeries is empty", () => {
+		const container = createContainer();
+		ChartRenderer.renderLineChart(container, multiSeriesResult, undefined, {
+			hiddenSeries: [],
+		});
+
+		const svg = container.querySelector("svg");
+		const paths = svg!.querySelectorAll("path");
+		expect(paths.length).toBe(2);
+	});
+
+	it("legend still shows hidden series names (dimmed)", () => {
+		const container = createContainer();
+		ChartRenderer.renderLineChart(container, multiSeriesResult, undefined, {
+			hiddenSeries: ["Beta"],
+		});
+
+		// Both series should appear in legend text
+		expect(container.textContent).toContain("Acme");
+		expect(container.textContent).toContain("Beta");
+	});
+
+	it("calls onToggleSeries when legend item is clicked", () => {
+		const container = createContainer();
+		const toggled: string[] = [];
+		ChartRenderer.renderLineChart(container, multiSeriesResult, undefined, {
+			onToggleSeries: (name) => toggled.push(name),
+		});
+
+		// Find legend entries (divs with cursor:pointer) and click the first one
+		const legendEntries = container.querySelectorAll("div[style*='cursor']");
+		expect(legendEntries.length).toBeGreaterThan(0);
+		(legendEntries[0] as HTMLElement).click();
+		expect(toggled.length).toBe(1);
+	});
+
+	it("hides column-based series via hiddenSeries", () => {
+		const result = createResult(["month", "sales", "cost", "profit"], [
+			{ month: "2025-01", sales: 100, cost: 60, profit: 40 },
+			{ month: "2025-02", sales: 200, cost: 120, profit: 80 },
+		]);
+		const container = createContainer();
+		ChartRenderer.renderLineChart(container, result, undefined, {
+			valueColumns: ["sales", "cost", "profit"],
+			hiddenSeries: ["cost"],
+		});
+
+		const svg = container.querySelector("svg");
+		expect(svg).not.toBeNull();
+		// 3 columns, 1 hidden → 2 paths
+		const paths = svg!.querySelectorAll("path");
+		expect(paths.length).toBe(2);
 	});
 });

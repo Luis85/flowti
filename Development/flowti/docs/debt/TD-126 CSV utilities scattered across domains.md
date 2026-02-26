@@ -1,6 +1,8 @@
 ---
 type: TechDebt
-stage: open
+stage: resolved
+resolved_in: "[[Cycle 35 - Supplier Manager Daily Experience]]"
+date_resolved: 2026-02-25
 domain: infrastructure
 severity: medium
 source: "[[Cycle 34 - Inventory Discovery & Dashboard Integration]]"

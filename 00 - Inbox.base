@@ -8,6 +8,29 @@ properties:
     displayName: Baz Foo
 views:
   - type: table
+    name: Open
+    filters:
+      and:
+        - stage.isEmpty()
+    order:
+      - type
+      - file.name
+      - description
+      - stage
+      - priority
+      - rank
+      - tags
+    sort:
+      - property: file.ctime
+        direction: DESC
+    columnSize:
+      note.type: 75
+      file.name: 800
+      note.description: 366
+      note.stage: 95
+      note.priority: 111
+      note.rank: 74
+  - type: table
     name: New
     filters:
       and:

@@ -29,6 +29,7 @@ import type {
 	MeasureSpec,
 	ParsedSourceData,
 	SavedAnalyticsQuery,
+	QueryDateRangeFilter,
 	SavedAnalyticsQuerySource,
 	SortSpec,
 	TileDisplayMode,
@@ -248,20 +249,53 @@ export class AnalyticsService {
 	}
 
 	/**
-	 * Run a saved query with additional dashboard-level filters applied as post-filters.
+	 * Run a saved query with additional dashboard-level filters.
 	 *
-	 * Dashboard filters are applied AFTER aggregation/time-bucket transformation
-	 * (not at the raw row level) because filter values come from the result data.
+	 * - Dimension filters (extraFilters) are applied AFTER aggregation (post-filter)
+	 *   because filter values come from the result data.
+	 * - Date range filter is applied BEFORE aggregation (pre-filter) in the engine
+	 *   because it operates on raw date column values.
+	 *
 	 * Filters for columns not present in the result are silently skipped.
 	 */
 	async runSavedQueryWithFilters(
 		queryId: string,
 		extraFilters: Array<{ column: string; values: string[] }>,
+		dateRangeFilter?: QueryDateRangeFilter,
 	): Promise<AnalyticsResult> {
-		// Run the query normally (with its own filters)
-		const result = await this.runSavedQuery(queryId);
+		let result: AnalyticsResult;
 
-		// Post-filter the result rows by dashboard filters
+		if (dateRangeFilter) {
+			// Date range is pre-aggregation — rebuild and run query with filter injected
+			const saved = this.getQuery(queryId);
+			if (!saved) throw new Error(`Saved query not found: ${queryId}`);
+
+			const sources: AnalyticsSource[] = [];
+			for (const src of saved.sources) {
+				const data = await this.resolveSource(src);
+				sources.push({ alias: src.alias, data, locale: src.locale });
+			}
+
+			const query: AnalyticsQuery = {
+				sources,
+				joins: saved.joins,
+				columnTypeHints: saved.columnTypeHints,
+				dimensions: saved.dimensions,
+				measures: saved.measures,
+				timeBucket: saved.timeBucket,
+				filters: saved.filters,
+				sort: saved.sort,
+				limit: saved.limit,
+				computedColumns: saved.computedColumns,
+				dateRangeFilter,
+			};
+
+			result = await this.runQuery(query, saved.name);
+		} else {
+			result = await this.runSavedQuery(queryId);
+		}
+
+		// Post-filter the result rows by dimension filters
 		if (extraFilters.length === 0) return result;
 
 		const filteredRows = result.rows.filter((row) =>
@@ -508,6 +542,24 @@ export class AnalyticsService {
 	/** Get a map of unique queries used by a dashboard's tiles with tile counts. */
 	getDashboardQueryMap(dashboardId: string): Map<string, { query: SavedAnalyticsQuery; tileCount: number }> { return dashboardHandlers.getDashboardQueryMap(this.ctx(), dashboardId); }
 
+	/** Collect all unique source file paths used by a dashboard's tiles. */
+	getSourcePathsForDashboard(dashboardId: string): string[] {
+		const dashboard = this.getDashboard(dashboardId);
+		if (!dashboard) return [];
+
+		const paths = new Set<string>();
+		for (const tile of dashboard.tiles) {
+			const measurement = this.listMeasurements().find((m) => m.id === tile.measurementId);
+			const queryId = measurement ? measurement.queryId : tile.queryId;
+			const query = this.getQuery(queryId);
+			if (!query) continue;
+			for (const source of query.sources) {
+				paths.add(source.csvPath);
+			}
+		}
+		return [...paths];
+	}
+
 	/**
 	 * Create a new dashboard from a template with source mapping.
 	 */
@@ -545,10 +597,10 @@ export class AnalyticsService {
 			const queryId = newQueryIds[tt.queryIndex];
 			if (!queryId) continue;
 			const tile = await this.addTile(dashboard.id, queryId, tt.displayMode, tt.title);
-			if (tile && (tt.conditionalRules || tt.chartValueColumn || tt.width !== 2 || tt.height !== 1)) {
+			if (tile && (tt.conditionalRules || tt.chartValueColumn || tt.chartValueColumns || tt.width !== 2 || tt.height !== 1)) {
 				await this.updateTile(dashboard.id, tile.id, {
 					width: tt.width, height: tt.height,
-					conditionalRules: tt.conditionalRules, chartValueColumn: tt.chartValueColumn,
+					conditionalRules: tt.conditionalRules, chartValueColumn: tt.chartValueColumn, chartValueColumns: tt.chartValueColumns,
 				});
 			}
 		}
@@ -590,6 +642,7 @@ export class AnalyticsService {
 				height: number;
 				conditionalRules?: ConditionalRule[];
 				chartValueColumn?: string;
+				chartValueColumns?: string[];
 			}>;
 		},
 		sourceMapping?: Record<string, string>,
@@ -618,10 +671,10 @@ export class AnalyticsService {
 			const queryId = newQueryIds[tt.queryIndex];
 			if (!queryId) continue;
 			const tile = await this.addTile(dashboard.id, queryId, tt.displayMode, tt.title);
-			if (tile && (tt.conditionalRules || tt.chartValueColumn || tt.width !== 2 || tt.height !== 1)) {
+			if (tile && (tt.conditionalRules || tt.chartValueColumn || tt.chartValueColumns || tt.width !== 2 || tt.height !== 1)) {
 				await this.updateTile(dashboard.id, tile.id, {
 					width: tt.width, height: tt.height,
-					conditionalRules: tt.conditionalRules, chartValueColumn: tt.chartValueColumn,
+					conditionalRules: tt.conditionalRules, chartValueColumn: tt.chartValueColumn, chartValueColumns: tt.chartValueColumns,
 				});
 			}
 		}

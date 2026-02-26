@@ -81,6 +81,16 @@ export class TileResultCache {
 		this.timestamps.delete(queryId);
 	}
 
+	/** Clear all cached entries whose key starts with the given query ID (covers all filter variants). */
+	clearByQueryId(queryId: string): void {
+		for (const key of [...this.cache.keys()]) {
+			if (key === queryId || key.startsWith(queryId + "?")) {
+				this.cache.delete(key);
+				this.timestamps.delete(key);
+			}
+		}
+	}
+
 	/** Number of cached entries. */
 	size(): number {
 		return this.cache.size;

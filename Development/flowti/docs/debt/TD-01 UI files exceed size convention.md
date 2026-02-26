@@ -23,13 +23,16 @@ Four UI files massively exceeded the 200-300 LOC convention:
 
 Phases 1-8 component extraction reduced these 4 files from an average of 1,744 LOC to 635 LOC.
 
-## Current State (2026-02-21)
+## Current State (2026-02-26)
 
-15 files exceed 500 LOC (up from 11, due to session domain growth):
+17 files exceed 500 LOC (up from 15, due to analytics domain growth in Cycles 42–44):
 
 | File | LOC | Notes |
 |------|-----|-------|
-| `domain/session/helpers.ts` | 982 | **Largest file in codebase** — see [[TD-118]] |
+| `analytics/DashboardsTab.ts` | 1,149 | **New largest UI file** — see [[TD-128]] |
+| `domain/session/helpers.ts` | 982 | Largest domain file — see [[TD-118]] |
+| `analytics/queries/QueryBuilderPanel.ts` | 811 | Query builder orchestrator |
+| `analytics/QueriesTab.ts` | 810 | Queries tab orchestrator |
 | `CsvActionView.ts` | 772 | Orchestrator with 10 sub-components |
 | `EventCatalogView.ts` | 735 | Orchestrator with 15 sub-components |
 | `ExportView.ts` | 692 | Orchestrator with 6 sub-components |
@@ -44,6 +47,7 @@ Phases 1-8 component extraction reduced these 4 files from an average of 1,744 L
 | `DataExchangeService.ts` | 574 | Facade delegating to 5 sub-modules |
 | `hub/ImportsTab.ts` | 570 | Import list + config management |
 | `ExportService.ts` | 561 | Export pipeline |
+| `analytics/AnalyticsDashboardPage.ts` | 546 | Dashboard homepage orchestrator |
 
 **Resolved (2026-02-16):** `catalog/helpers.ts` (531 LOC) decomposed into barrel re-export (55 LOC) + 5 focused modules under `helpers/` (frontmatter, entryQueries, crossReferences, rendering, fileOps). No longer exceeds threshold.
 
@@ -55,9 +59,10 @@ Phases 1-8 component extraction reduced these 4 files from an average of 1,744 L
 
 ## Remaining Decomposition Opportunities
 
-1. **session/helpers.ts** (982) — **Highest priority**. Split into summaryGenerator, noteParser, templateHelpers, formatters, sessionUtils (see [[TD-118]])
-2. **UserHubSessions.ts** (640) — Extract SessionDetailPanel + SessionTimerDisplay (see [[TD-113]])
-3. **main.ts** (643) — Grew from 482 LOC; evaluate if more logic can be pushed to `sessionSetup.ts` or `pluginBootstrap.ts`
+1. **DashboardsTab.ts** (1,149) — **Highest priority**. Extract callback factory + shared state with AnalyticsDashboardPage (see [[TD-128]])
+2. **session/helpers.ts** (982) — Split into summaryGenerator, noteParser, templateHelpers, formatters, sessionUtils (see [[TD-118]])
+3. **UserHubSessions.ts** (640) — Extract SessionDetailPanel + SessionTimerDisplay (see [[TD-113]])
+4. **main.ts** (643) — Grew from 482 LOC; evaluate if more logic can be pushed to `sessionSetup.ts` or `pluginBootstrap.ts`
 
 Note: Orchestrator files (`EventCatalogView`, `CsvActionView`, `ExportView`, `SessionWorkspaceView`) are expected to be larger since they coordinate sub-components. The 500-800 LOC range is acceptable for orchestrators.
 

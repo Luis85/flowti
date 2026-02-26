@@ -5,7 +5,7 @@
 import type { App } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { AnalyticsService } from "../../domain/analytics/AnalyticsService";
-import type { Dashboard, Measurement, SavedAnalyticsQuery } from "../../domain/analytics/types";
+import type { CrossTileFilter, Dashboard, DateRangeFilter, Measurement, SavedAnalyticsQuery } from "../../domain/analytics/types";
 import type { TileResultCache } from "./TileResultCache";
 
 // ─────────────────────────────────────────────────────────────
@@ -64,6 +64,10 @@ export interface AnalyticsHubState {
 	homepageDashboardId: string | null;
 	/** Active dashboard filters (runtime-only, reset on dashboard switch). */
 	dashboardFilters: DashboardFilter[];
+	/** Active date range filter (runtime-only, reset on dashboard switch). */
+	dateRangeFilter: DateRangeFilter | null;
+	/** Active cross-tile filter (runtime-only, reset on dashboard switch). */
+	crossTileFilter: CrossTileFilter | null;
 	/** Pending CSV source path from cross-hub navigation (consumed once). */
 	pendingSourcePath: string | null;
 	/** Pending entity ID for cross-tab navigation (consumed once after tab switch). */

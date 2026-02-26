@@ -853,4 +853,76 @@ describe("AnalyticsService", () => {
 			expect(service.listMeasurements()[0].queryId).toBe(q2.id);
 		});
 	});
+
+	// ── getSourcePathsForDashboard (PBI-ANA-133) ────────
+
+	describe("getSourcePathsForDashboard", () => {
+		it("returns unique source paths from dashboard tiles", async () => {
+			const q1 = await service.saveQuery("Q1", [
+				{ alias: "a", csvPath: "data/sales.csv" },
+				{ alias: "b", csvPath: "data/products.csv" },
+			], {
+				joins: [],
+				columnTypeHints: [],
+				dimensions: [{ column: "x" }],
+				measures: [{ column: "x", function: "COUNT", label: "n" }],
+			});
+			const dashboard = await service.createDashboard("D1");
+			await service.addTile(dashboard.id, q1.id, "table");
+			await service.addTile(dashboard.id, q1.id, "stat-card");
+
+			const paths = service.getSourcePathsForDashboard(dashboard.id);
+			expect(paths).toContain("data/sales.csv");
+			expect(paths).toContain("data/products.csv");
+			expect(paths).toHaveLength(2); // de-duplicated
+		});
+
+		it("returns empty array for nonexistent dashboard", () => {
+			expect(service.getSourcePathsForDashboard("nonexistent")).toEqual([]);
+		});
+
+		it("returns empty array for dashboard with no tiles", async () => {
+			const dashboard = await service.createDashboard("Empty");
+			expect(service.getSourcePathsForDashboard(dashboard.id)).toEqual([]);
+		});
+
+		it("resolves measurement query when tile has measurementId", async () => {
+			const q1 = await service.saveQuery("Q1", [{ alias: "a", csvPath: "data/cost.csv" }], {
+				joins: [],
+				columnTypeHints: [],
+				dimensions: [{ column: "x" }],
+				measures: [{ column: "x", function: "SUM", label: "total" }],
+			});
+			const m = await service.createMeasurement("Cost KPI", q1.id, "single", "total");
+			const dashboard = await service.createDashboard("D2");
+			const tile = await service.addTile(dashboard.id, q1.id, "stat-card");
+			await service.updateTile(dashboard.id, tile!.id, { measurementId: m.id });
+
+			const paths = service.getSourcePathsForDashboard(dashboard.id);
+			expect(paths).toContain("data/cost.csv");
+		});
+
+		it("collects paths from multiple queries", async () => {
+			const q1 = await service.saveQuery("Q1", [{ alias: "a", csvPath: "data/sales.csv" }], {
+				joins: [],
+				columnTypeHints: [],
+				dimensions: [{ column: "x" }],
+				measures: [{ column: "x", function: "COUNT", label: "n" }],
+			});
+			const q2 = await service.saveQuery("Q2", [{ alias: "b", csvPath: "data/inventory.csv" }], {
+				joins: [],
+				columnTypeHints: [],
+				dimensions: [{ column: "y" }],
+				measures: [{ column: "y", function: "SUM", label: "total" }],
+			});
+			const dashboard = await service.createDashboard("Multi");
+			await service.addTile(dashboard.id, q1.id, "table");
+			await service.addTile(dashboard.id, q2.id, "bar-chart");
+
+			const paths = service.getSourcePathsForDashboard(dashboard.id);
+			expect(paths).toContain("data/sales.csv");
+			expect(paths).toContain("data/inventory.csv");
+			expect(paths).toHaveLength(2);
+		});
+	});
 });

@@ -8,13 +8,16 @@
 
 import { setIcon } from "obsidian";
 import type { Dashboard, DashboardTile } from "../../domain/analytics/types";
+import { resolveDateRangeFilter } from "../../domain/analytics/dateUtils";
 import { computeFreshnessSummary, getFreshnessLevel, getFreshnessColor } from "../../domain/analytics/freshnessUtils";
 import type { AnalyticsHubDeps } from "./types";
 import { DashboardTileRenderer, type TileRenderContext } from "./DashboardTileRenderer";
-import { buildFilterCacheKey, filterResultForMeasurement } from "./DashboardsTab";
+import { buildFilterCacheKey, discoverDateColumns, filterResultForMeasurement, mergeCrossTileFilter } from "./DashboardsTab";
 import { DashboardFilterBar } from "./DashboardFilterBar";
 
 export class AnalyticsDashboardPage {
+	private tilePages = new Map<string, number>();
+
 	constructor(
 		private containerEl: HTMLElement,
 		private deps: AnalyticsHubDeps,
@@ -250,16 +253,29 @@ export class AnalyticsDashboardPage {
 			if (!isAutoHeight) tileHost.style.minHeight = `${rowSpan * 180}px`;
 
 			const dashboardFilters = state.dashboardFilters;
-			const cacheKey = buildFilterCacheKey(effectiveQueryId, dashboardFilters);
+			const crossFilter = state.crossTileFilter;
+			const effectiveFilters = crossFilter
+				? mergeCrossTileFilter(dashboardFilters, crossFilter)
+				: dashboardFilters;
+			const resolvedDateRange = state.dateRangeFilter && query
+				? resolveDateRangeFilter(state.dateRangeFilter, query.columnTypeHints)
+				: null;
+			const cacheKey = buildFilterCacheKey(effectiveQueryId, effectiveFilters, resolvedDateRange);
+			const hasFilters = effectiveFilters.length > 0 || resolvedDateRange !== null;
 			const tileResult = this.deps.tileResultCache.tryRun(
 				cacheKey,
-				() => dashboardFilters.length > 0
-					? this.deps.analyticsService.runSavedQueryWithFilters(effectiveQueryId, dashboardFilters)
+				() => hasFilters
+					? this.deps.analyticsService.runSavedQueryWithFilters(effectiveQueryId, effectiveFilters, resolvedDateRange ?? undefined)
 					: this.deps.analyticsService.runSavedQuery(effectiveQueryId),
 				() => this.deps.scheduleRender(),
 			);
 
 			const filteredResult = filterResultForMeasurement(tileResult.result, measurement, query);
+
+			// Cross-tile filter source indicator
+			if (crossFilter && crossFilter.sourceTileId === tile.id) {
+				tileHost.classList.add("ft-tile-filter-source");
+			}
 
 			const renderer = new DashboardTileRenderer(tileHost);
 			renderer.render({
@@ -272,12 +288,27 @@ export class AnalyticsDashboardPage {
 					this.deps.navigation.navigateTo("dashboards");
 				},
 				onRefresh: () => {
-					this.deps.tileResultCache.clearOne(effectiveQueryId);
+					this.deps.tileResultCache.clearByQueryId(effectiveQueryId);
+					this.deps.scheduleRender();
+				},
+				currentPage: this.tilePages.get(tile.id) ?? 1,
+				onPageChange: (tileId, page) => {
+					this.tilePages.set(tileId, page);
 					this.deps.scheduleRender();
 				},
 				measurements: state.measurements ?? [],
 				onChartValueColumnChange: (tileId, column) => {
 					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { chartValueColumn: column } as Partial<DashboardTile>).then(() => {
+						this.deps.scheduleRender();
+					});
+				},
+				onChartValueColumnsChange: (tileId, columns) => {
+					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { chartValueColumns: columns } as Partial<DashboardTile>).then(() => {
+						this.deps.scheduleRender();
+					});
+				},
+				onHiddenSeriesChange: (tileId, hiddenSeries) => {
+					void this.deps.analyticsService.updateTile(dashboard.id, tileId, { hiddenSeries } as Partial<DashboardTile>).then(() => {
 						this.deps.scheduleRender();
 					});
 				},
@@ -301,26 +332,17 @@ export class AnalyticsDashboardPage {
 					this.deps.navigation.navigateTo("queries");
 					this.deps.scheduleRender();
 				},
-				onDrillDown: (column, value) => {
-					const filters = [...dashboardFilters.map((f) => ({ ...f, values: [...f.values] }))];
-					const existing = filters.find((f) => f.column === column);
-					if (existing) {
-						const idx = existing.values.indexOf(value);
-						if (idx >= 0) {
-							existing.values.splice(idx, 1);
-							if (existing.values.length === 0) {
-								filters.splice(filters.indexOf(existing), 1);
-							}
-						} else {
-							existing.values.push(value);
-						}
+				onCrossTileFilter: (sourceTileId, column, value) => {
+					const current = state.crossTileFilter;
+					if (current && current.sourceTileId === sourceTileId && current.column === column && current.value === value) {
+						this.deps.setState({ crossTileFilter: null });
 					} else {
-						filters.push({ column, values: [value] });
+						this.deps.setState({ crossTileFilter: { sourceTileId, column, value } });
 					}
-					this.deps.setState({ dashboardFilters: filters });
+					this.deps.tileResultCache.clear();
 					this.deps.scheduleRender();
 				},
-				activeFilters: dashboardFilters,
+				activeFilters: effectiveFilters,
 			} satisfies TileRenderContext);
 		}
 	}
@@ -329,6 +351,7 @@ export class AnalyticsDashboardPage {
 
 	private renderFilterBar(dashboard: Dashboard): void {
 		const state = this.deps.getState();
+		const dateColumns = discoverDateColumns(dashboard.tiles, state.queries);
 		new DashboardFilterBar(this.containerEl, {
 			tiles: dashboard.tiles,
 			filters: state.dashboardFilters,
@@ -346,6 +369,19 @@ export class AnalyticsDashboardPage {
 			},
 			onDeletePreset: (presetId) => {
 				void this.deps.analyticsService.deleteFilterPreset(dashboard.id, presetId).then(() => this.deps.scheduleRender());
+			},
+			dateRangeFilter: state.dateRangeFilter,
+			dateColumns,
+			onDateRangeChanged: (filter) => {
+				this.deps.setState({ dateRangeFilter: filter });
+				this.deps.tileResultCache.clear();
+				this.deps.scheduleRender();
+			},
+			crossTileFilter: state.crossTileFilter,
+			onCrossTileFilterClear: () => {
+				this.deps.setState({ crossTileFilter: null });
+				this.deps.tileResultCache.clear();
+				this.deps.scheduleRender();
 			},
 		}).render();
 	}

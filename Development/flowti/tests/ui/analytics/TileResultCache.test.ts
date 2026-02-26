@@ -111,4 +111,42 @@ describe("TileResultCache", () => {
 		cache.tryRun("q1", runner, onDone);
 		expect(cache.size()).toBe(1);
 	});
+
+	describe("clearByQueryId", () => {
+		it("clears exact queryId entry", async () => {
+			const runner = vi.fn(async () => fakeResult);
+			cache.tryRun("q1", runner, onDone);
+			await vi.waitFor(() => expect(onDone).toHaveBeenCalled());
+
+			cache.clearByQueryId("q1");
+			expect(cache.get("q1")).toBeUndefined();
+			expect(cache.getTimestamp("q1")).toBeUndefined();
+		});
+
+		it("clears all filter-variant entries for a queryId", async () => {
+			const runner = vi.fn(async () => fakeResult);
+			cache.tryRun("q1", runner, onDone);
+			cache.tryRun("q1?region=EMEA", runner, onDone);
+			cache.tryRun("q1?region=EMEA&dr=date:2026-1-1..2026-1-31", runner, onDone);
+			cache.tryRun("q2", runner, onDone);
+			await vi.waitFor(() => expect(onDone).toHaveBeenCalledTimes(4));
+
+			cache.clearByQueryId("q1");
+			expect(cache.get("q1")).toBeUndefined();
+			expect(cache.get("q1?region=EMEA")).toBeUndefined();
+			expect(cache.get("q1?region=EMEA&dr=date:2026-1-1..2026-1-31")).toBeUndefined();
+			expect(cache.get("q2")).toBeDefined(); // not affected
+		});
+
+		it("does not clear entries for a different queryId with similar prefix", async () => {
+			const runner = vi.fn(async () => fakeResult);
+			cache.tryRun("q1", runner, onDone);
+			cache.tryRun("q10", runner, onDone);
+			await vi.waitFor(() => expect(onDone).toHaveBeenCalledTimes(2));
+
+			cache.clearByQueryId("q1");
+			expect(cache.get("q1")).toBeUndefined();
+			expect(cache.get("q10")).toBeDefined(); // q10 is NOT q1
+		});
+	});
 });
