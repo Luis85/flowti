@@ -538,7 +538,7 @@ export default class FlowtiBasePlugin extends Plugin {
 				getDiscoveredEvents: () => this.discoveryService?.getDiscoveredEvents() ?? [],
 				collapsedCategories: this.collapsedCategories,
 			},
-			onboardingService: this.onboardingService!,
+			getOnboardingService: () => this.onboardingService!,
 		});
 	}
 

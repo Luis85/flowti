@@ -44,7 +44,7 @@ export interface ViewStateProvider {
 export interface ViewDependencies {
 	eventBus: IEventBus;
 	state: ViewStateProvider;
-	onboardingService: OnboardingService;
+	getOnboardingService: () => OnboardingService;
 }
 
 /**
@@ -65,7 +65,7 @@ export function createViewDefinitions(deps: ViewDependencies): ViewDefinition[] 
 			type: VIEW_TYPE_EVENT_CATALOG,
 			displayName: "Event Catalog",
 			icon: "list",
-			factory: (leaf) => new EventCatalogView(leaf, deps.eventBus, deps.state, deps.onboardingService),
+			factory: (leaf) => new EventCatalogView(leaf, deps.eventBus, deps.state, deps.getOnboardingService()),
 		},
 		{
 			type: VIEW_TYPE_EVENT_LOG,
