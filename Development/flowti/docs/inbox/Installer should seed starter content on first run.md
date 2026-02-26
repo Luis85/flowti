@@ -1,6 +1,6 @@
 ---
 type: Idea
-stage: planned
+stage: delivered
 origin: inbox
 domain: installer
 description: "Seed minimal reference docs, templates, and an example domain during first-run setup so new users see a living system immediately."
@@ -10,11 +10,12 @@ tags:
 priority: "2 - high"
 rank:
 planned_in: "[[Release Preparation Cycle]]"
+delivered_in: "[[Cycle 45 - Supplier Manager Onboarding]], [[Cycle 46 - Supplier Manager Onboarding II]]"
 related:
   - "[[I want the installer to use a versioned JSON folder config instead of hardcoded paths]]"
   - "[[backlog-refinement-2026-02-20]]"
   - "[[Cycle Sequence Review 2026-02-20 Azure DevOps Prioritization]]"
-note: "Release blocker RB-4. Moved from Cycle 11 to Cycle 13 per cycle sequence review (Azure DevOps prioritized in Cycle 11). New users currently see empty folders after install. The knowledge graph has no seed data, making the system feel hollow. First-run should create: (1) example domain with 2-3 events and a flow, (2) session templates for daily session and domain design, (3) a welcome note explaining how to get started."
+note: "Release blocker RB-4 RESOLVED. Delivered in C45/C46: SeedContentStep (order 30) seeds sample notes, Welcome to Flowti note, 3 supplier session templates (role-conditional), supplier overview CSV with demo data, seedSupplierDashboard() creates 5-tile dashboard. Example domain seeding (events + flow) deferred — current seed focuses on analytics/supplier persona."
 ---
 
 ## Problem
