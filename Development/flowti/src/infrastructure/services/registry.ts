@@ -15,6 +15,7 @@ import { SettingsService } from "../../domain/settings/SettingsService";
 import { InstallerService } from "../../domain/installer/InstallerService";
 import { UserCreationStep } from "../../domain/installer/steps/UserCreationStep";
 import { FolderScaffoldStep } from "../../domain/installer/steps/FolderScaffoldStep";
+import { SeedContentStep } from "../../domain/installer/steps/SeedContentStep";
 import type { IUserService } from "../../domain/user/types";
 import type { IStorageProvider } from "../../utils/types";
 import { TypedStorage } from "../../utils/TypedStorage";
@@ -243,6 +244,7 @@ export function createServiceRegistrations(
 				});
 				service.registerStep(new UserCreationStep());
 				service.registerStep(new FolderScaffoldStep());
+				service.registerStep(new SeedContentStep());
 				return service;
 			},
 		},

@@ -3,12 +3,13 @@
  *
  * Tests the end-to-end first-run experience:
  * Plugin activates → InstallerService loads → detects first run →
- * wizard runs steps → UserCreationStep → FolderScaffoldStep →
+ * wizard runs steps → UserCreationStep → FolderScaffoldStep → SeedContentStep →
  * installation complete → subsequent launch skips wizard.
  *
  * Event sequence:
  *   settings.loaded → installer.loaded → installer.started →
  *   installer.step.started → user.created → installer.step.completed →
+ *   installer.step.started → installer.step.completed →
  *   installer.step.started → installer.step.completed → installer.completed
  *
  * NOTE: The full journey is already tested in InstallerJourney.test.ts.
@@ -21,6 +22,7 @@ import type { IEventBus } from "../../src/infrastructure/events/types";
 import { InstallerService } from "../../src/domain/installer/InstallerService";
 import { UserCreationStep } from "../../src/domain/installer/steps/UserCreationStep";
 import { FolderScaffoldStep } from "../../src/domain/installer/steps/FolderScaffoldStep";
+import { SeedContentStep } from "../../src/domain/installer/steps/SeedContentStep";
 import type { InstallerState } from "../../src/domain/installer/types";
 import type { FlowtiUser } from "../../src/domain/user/types";
 import type { UUID } from "../../src/utils/types";
@@ -40,6 +42,7 @@ function buildInstallerWithDeps(options: {
 					completedSteps: {
 						"user-creation": { completedAt: "2026-01-01T00:00:00.000Z" },
 						"folder-scaffold": { completedAt: "2026-01-01T00:00:00.000Z" },
+						"seed-content": { completedAt: "2026-01-01T00:00:00.000Z" },
 					},
 				}
 			: undefined,
@@ -68,6 +71,7 @@ function buildInstallerWithDeps(options: {
 	});
 	service.registerStep(new UserCreationStep());
 	service.registerStep(new FolderScaffoldStep());
+	service.registerStep(new SeedContentStep());
 
 	return { service, storage, getData, fileSystem, userService };
 }
@@ -106,6 +110,8 @@ describe("Flow 01: First-Run Onboarding", () => {
 				"step.completed",
 				"step.started", // FolderScaffoldStep
 				"step.completed",
+				"step.started", // SeedContentStep
+				"step.completed",
 				"installer.completed",
 			]);
 		});
@@ -120,6 +126,7 @@ describe("Flow 01: First-Run Onboarding", () => {
 			expect(state?.installedAt).toBeDefined();
 			expect(state?.completedSteps["user-creation"]).toBeDefined();
 			expect(state?.completedSteps["folder-scaffold"]).toBeDefined();
+			expect(state?.completedSteps["seed-content"]).toBeDefined();
 		});
 	});
 

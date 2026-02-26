@@ -703,6 +703,18 @@ describe("AnalyticsEngine", () => {
 			expect(hints.find((h) => h.column === "date")?.type).toBe("date");
 		});
 
+		it("detects year-month dates (YYYY-MM)", () => {
+			const hints = AnalyticsEngine.detectColumnTypes(
+				["month", "value"],
+				[
+					["2025-09", "100"],
+					["2025-10", "200"],
+					["2025-11", "300"],
+				],
+			);
+			expect(hints.find((h) => h.column === "month")?.type).toBe("date");
+		});
+
 		it("detects currency symbol $ on numeric columns", () => {
 			const hints = AnalyticsEngine.detectColumnTypes(
 				["revenue", "name"],

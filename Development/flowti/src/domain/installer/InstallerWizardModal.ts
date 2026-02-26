@@ -96,29 +96,34 @@ export class InstallerWizardModal extends Modal {
 			cls: "ft-text-muted ft-text-sm",
 		});
 
+		const goToReview = () => {
+			if (this.userName.trim()) {
+				this.currentPage = "review";
+				this.renderPage();
+			}
+		};
+
 		new Setting(container)
 			.setName("Your name")
 			.setDesc("Enter your display name to get started")
-			.addText((text) =>
+			.addText((text) => {
 				text
 					.setPlaceholder("Enter your name")
 					.setValue(this.userName)
 					.onChange((value) => {
 						this.userName = value;
-					}),
-			);
+					});
+				text.inputEl.addEventListener("keydown", (e) => {
+					if (e.key === "Enter") goToReview();
+				});
+			});
 
 		const nav = container.createDiv({ cls: "ft-flex ft-justify-end ft-gap-2 ft-mt-2" });
 
 		nav.createEl("button", {
 			text: "Next",
 			cls: "ft-btn ft-btn-primary",
-		}).addEventListener("click", () => {
-			if (this.userName.trim()) {
-				this.currentPage = "review";
-				this.renderPage();
-			}
-		});
+		}).addEventListener("click", goToReview);
 	}
 
 	// ─────────────────────────────────────────────────────────
@@ -167,7 +172,8 @@ export class InstallerWizardModal extends Modal {
 			cls: "ft-heading ft-heading-sm ft-mb-2",
 		});
 		const folderList = folderCard.createDiv({ cls: "ft-list ft-folder-list" });
-		for (const folder of DEFAULT_IBDE_FOLDERS) {
+		const topLevelFolders = DEFAULT_IBDE_FOLDERS.filter((f) => !f.includes("/"));
+		for (const folder of topLevelFolders) {
 			const item = folderList.createDiv({ cls: "ft-list-item" });
 			item.createSpan({ text: `📁 ${folder}` });
 		}
@@ -335,19 +341,19 @@ export class InstallerWizardModal extends Modal {
 			});
 			const nextList = nextSteps.createEl("ul", { cls: "ft-flex ft-flex-col ft-gap-1" });
 			nextList.createEl("li", {
-				text: "Open the Event Catalog to explore available events and configure subscriptions",
+				text: "Explore your Supplier Overview dashboard with live charts and KPI cards",
 				cls: "ft-text-muted",
 			});
 			nextList.createEl("li", {
-				text: "Create subscriptions to watch for file changes in specific folders",
+				text: "Review the sample supplier data in 03 - Resources/Sample Data/",
 				cls: "ft-text-muted",
 			});
 			nextList.createEl("li", {
-				text: "Define event definitions to turn file events into named domain events",
+				text: "Import your own CSV files by dropping them into 00 - Connectivity/imports/",
 				cls: "ft-text-muted",
 			});
 			nextList.createEl("li", {
-				text: "Drop files into the Connectivity/input folder to see the ingestion pipeline in action",
+				text: "Build custom queries and dashboards in the Analytics Hub",
 				cls: "ft-text-muted",
 			});
 		} else {
@@ -376,10 +382,23 @@ export class InstallerWizardModal extends Modal {
 
 		nav.createEl("button", {
 			text: "Close",
-			cls: "ft-btn ft-btn-primary",
+			cls: `ft-btn ${this.installSuccess ? "ft-btn-secondary" : "ft-btn-primary"}`,
 		}).addEventListener("click", () => {
 			this.close();
 		});
+
+		if (this.installSuccess) {
+			nav.createEl("button", {
+				text: "Explore Your Dashboard",
+				cls: "ft-btn ft-btn-primary",
+			}).addEventListener("click", () => {
+				this.close();
+				// Delay emit so Obsidian settles focus after modal close
+				setTimeout(() => {
+					void this.eventBus.emit("ui.openAnalyticsHub", {});
+				}, 100);
+			});
+		}
 	}
 
 	// ─────────────────────────────────────────────────────────

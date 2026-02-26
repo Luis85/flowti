@@ -925,4 +925,97 @@ describe("AnalyticsService", () => {
 			expect(paths).toHaveLength(2);
 		});
 	});
+
+	describe("reset", () => {
+		it("clears all queries and dashboards", async () => {
+			await service.saveQuery(
+				"q1",
+				[{ alias: "items", csvPath: "data/items.csv", locale: "en-US" }],
+				{
+					joins: [],
+					columnTypeHints: [],
+					dimensions: [{ column: "name" }],
+					measures: [{ column: "cost", function: "SUM", label: "total" }],
+				},
+			);
+			await service.createDashboard("Dashboard 1");
+			expect(service.listQueries()).toHaveLength(1);
+			expect(service.listDashboards()).toHaveLength(1);
+
+			await service.reset();
+
+			expect(service.listQueries()).toHaveLength(0);
+			expect(service.listDashboards()).toHaveLength(0);
+		});
+
+		it("persists the empty state to storage", async () => {
+			await service.saveQuery(
+				"q1",
+				[{ alias: "items", csvPath: "data/items.csv", locale: "en-US" }],
+				{
+					joins: [],
+					columnTypeHints: [],
+					dimensions: [{ column: "name" }],
+					measures: [{ column: "cost", function: "SUM", label: "total" }],
+				},
+			);
+
+			await service.reset();
+
+			const saveCalls = vi.mocked(storage.save).mock.calls;
+			const lastSave = saveCalls[saveCalls.length - 1][0];
+			expect(lastSave.savedAnalyticsQueries).toHaveLength(0);
+			expect(lastSave.dashboards).toHaveLength(0);
+		});
+
+		it("emits analytics.reset event", async () => {
+			await service.reset();
+
+			const resetEvents = eventBus._emitted.filter(e => e.type === "analytics.reset");
+			expect(resetEvents).toHaveLength(1);
+			expect(resetEvents[0].payload).toEqual({});
+		});
+
+		it("clears the query cache", async () => {
+			// Run a query to populate cache
+			await service.runQuery({
+				sources: [{ alias: "items", data: { headers: testCsv.headers, rows: testCsv.rows }, locale: "en-US" }],
+				joins: [],
+				columnTypeHints: [{ column: "cost", type: "number" }],
+				dimensions: [{ column: "name" }],
+				measures: [{ column: "cost", function: "SUM", label: "total" }],
+			});
+
+			await service.reset();
+
+			// After reset, running a new query should still work
+			const result = await service.runQuery({
+				sources: [{ alias: "items", data: { headers: testCsv.headers, rows: testCsv.rows }, locale: "en-US" }],
+				joins: [],
+				columnTypeHints: [{ column: "cost", type: "number" }],
+				dimensions: [{ column: "name" }],
+				measures: [{ column: "cost", function: "SUM", label: "total" }],
+			});
+			expect(result.rows.length).toBeGreaterThan(0);
+		});
+
+		it("also clears measurements if present", async () => {
+			const q = await service.saveQuery(
+				"kpi-query",
+				[{ alias: "items", csvPath: "data/items.csv", locale: "en-US" }],
+				{
+					joins: [],
+					columnTypeHints: [],
+					dimensions: [],
+					measures: [{ column: "cost", function: "SUM", label: "total" }],
+				},
+			);
+			await service.createMeasurement("Test KPI", q.id, "single", "total");
+			expect(service.listMeasurements()).toHaveLength(1);
+
+			await service.reset();
+
+			expect(service.listMeasurements()).toHaveLength(0);
+		});
+	});
 });

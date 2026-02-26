@@ -970,10 +970,11 @@ function guessColumnType(
 		if (/^[-+]?[\d.,\s\u00A0]+$/.test(stripped) && /\d/.test(stripped)) {
 			numericCount++;
 		}
-		// Check if it looks like a date (various patterns incl. dash-separated, 2/4-digit year)
+		// Check if it looks like a date (various patterns incl. dash-separated, 2/4-digit year, year-month)
 		if (
 			/^\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}$/.test(s) ||
-			/^\d{4}-\d{1,2}-\d{1,2}$/.test(s)
+			/^\d{4}-\d{1,2}-\d{1,2}$/.test(s) ||
+			/^\d{4}-\d{1,2}$/.test(s)
 		) {
 			dateCount++;
 		}

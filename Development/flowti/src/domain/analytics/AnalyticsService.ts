@@ -111,6 +111,14 @@ export class AnalyticsService {
 		});
 	}
 
+	/** Reset all analytics state — clears queries, dashboards, templates, and measurements. */
+	async reset(): Promise<void> {
+		this.state = createDefaultState();
+		this.queryCache.clear();
+		await this.storage.save(this.state);
+		await this.eventBus?.emit("analytics.reset", {});
+	}
+
 	/** Set the CSV reading callback (wired during setup). */
 	setReadCsv(cb: ReadCsvCallback): void {
 		this.readCsv = cb;

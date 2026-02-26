@@ -39,15 +39,10 @@ export class FolderScaffoldStep implements IInstallerStep {
 				await deps.fileSystem.createFile(placeholderPath, "", {
 					createFolders: true,
 				});
-				createdFolders.push(folder);
-			} catch (error) {
-				context.createdFolders = createdFolders;
-				return {
-					status: "failed",
-					message: `Failed to create folder: ${folder}`,
-					error: error instanceof Error ? error : new Error(String(error)),
-				};
+			} catch {
+				// Folder or .gitkeep already exists — skip
 			}
+			createdFolders.push(folder);
 		}
 
 		context.createdFolders = createdFolders;

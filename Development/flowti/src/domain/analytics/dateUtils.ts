@@ -24,6 +24,7 @@ export function resolveDateFormat(localeId: LocaleId | undefined): DateFormatPat
  * - DD/MM/YYYY or DD/MM/YY (en-GB, nl-NL, fr-FR)
  * - DD.MM.YYYY or DD.MM.YY (de-DE)
  * - YYYY-MM-DD (ISO — detected automatically)
+ * - YYYY-MM (year-month only — day defaults to 1)
  *
  * Two-digit years are expanded: 00–99 → 2000–2099.
  */
@@ -39,6 +40,12 @@ export function parseDate(raw: string, localeId: LocaleId | undefined): ParsedDa
 	const isoMatch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
 	if (isoMatch) {
 		return makeDate(Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3]));
+	}
+
+	// Year-month only: "2025-09" → day defaults to 1
+	const ymMatch = s.match(/^(\d{4})-(\d{1,2})$/);
+	if (ymMatch) {
+		return makeDate(Number(ymMatch[1]), Number(ymMatch[2]), 1);
 	}
 
 	const format = resolveDateFormat(localeId);

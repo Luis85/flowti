@@ -4,6 +4,7 @@ import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { InstallerService } from "../../../src/domain/installer/InstallerService";
 import { UserCreationStep } from "../../../src/domain/installer/steps/UserCreationStep";
 import { FolderScaffoldStep } from "../../../src/domain/installer/steps/FolderScaffoldStep";
+import { SeedContentStep } from "../../../src/domain/installer/steps/SeedContentStep";
 import { DEFAULT_IBDE_FOLDERS } from "../../../src/domain/installer/folders";
 import type {
 	InstallerContext,
@@ -61,6 +62,7 @@ function buildInstaller(options: {
 
 	service.registerStep(new UserCreationStep());
 	service.registerStep(new FolderScaffoldStep());
+	service.registerStep(new SeedContentStep());
 
 	return { service, fileSystem, userService };
 }
@@ -103,8 +105,9 @@ describe("Journey: First Run", () => {
 		expect(userService.createUser).toHaveBeenCalledWith("Alice");
 		expect(context.user).toBeDefined();
 		expect(context.user!.name).toBe("Alice");
-		expect(fileSystem.createFile).toHaveBeenCalledTimes(DEFAULT_IBDE_FOLDERS.length);
+		expect(fileSystem.createFile).toHaveBeenCalledTimes(DEFAULT_IBDE_FOLDERS.length + 2);
 		expect(context.createdFolders).toEqual([...DEFAULT_IBDE_FOLDERS]);
+		expect(context.seededFiles).toBeDefined();
 	});
 
 	it("should persist installed state after successful first run", async () => {
@@ -120,6 +123,7 @@ describe("Journey: First Run", () => {
 		expect(service.getState().installedAt).toBeDefined();
 		expect(service.getState().completedSteps["user-creation"]).toBeDefined();
 		expect(service.getState().completedSteps["folder-scaffold"]).toBeDefined();
+		expect(service.getState().completedSteps["seed-content"]).toBeDefined();
 
 		// Verify persisted to storage
 		const saved = mock.getData();
@@ -146,6 +150,8 @@ describe("Journey: First Run", () => {
 			"step.started",   // UserCreationStep
 			"step.completed",
 			"step.started",   // FolderScaffoldStep
+			"step.completed",
+			"step.started",   // SeedContentStep
 			"step.completed",
 			"completed",
 		]);
@@ -194,6 +200,7 @@ describe("Journey: Subsequent Launch", () => {
 			completedSteps: {
 				"user-creation": { completedAt: "2026-01-15T10:00:00.000Z" },
 				"folder-scaffold": { completedAt: "2026-01-15T10:00:00.000Z" },
+				"seed-content": { completedAt: "2026-01-15T10:00:00.000Z" },
 			},
 		});
 
@@ -214,6 +221,7 @@ describe("Journey: Subsequent Launch", () => {
 			completedSteps: {
 				"user-creation": { completedAt: "2026-01-15T10:00:00.000Z" },
 				"folder-scaffold": { completedAt: "2026-01-15T10:00:00.000Z" },
+				"seed-content": { completedAt: "2026-01-15T10:00:00.000Z" },
 			},
 		});
 
@@ -346,6 +354,7 @@ describe("Journey: Restart from Settings", () => {
 		expect(saved?.installed).toBe(true);
 		expect(saved?.completedSteps["user-creation"]).toBeDefined();
 		expect(saved?.completedSteps["folder-scaffold"]).toBeDefined();
+		expect(saved?.completedSteps["seed-content"]).toBeDefined();
 	});
 
 	it.skip("should open wizard modal after reset (requires Obsidian Modal)", () => {
@@ -369,9 +378,9 @@ describe("Journey: Failure and Retry", () => {
 		mock = createMockStorage<InstallerState>();
 	});
 
-	it("should fail when FolderScaffoldStep hits a permission error", async () => {
+	it("should fail when SeedContentStep hits a permission error", async () => {
 		const createFileFn = vi.fn(async (path: string) => {
-			if (path.includes("01 - Projects")) {
+			if (path.includes("supplier-overview.csv")) {
 				throw new Error("Permission denied");
 			}
 		});
@@ -392,7 +401,7 @@ describe("Journey: Failure and Retry", () => {
 
 	it("should emit installer.failed with the correct step id on failure", async () => {
 		const createFileFn = vi.fn(async (path: string) => {
-			if (path.includes("01 - Projects")) {
+			if (path.includes("supplier-overview.csv")) {
 				throw new Error("Permission denied");
 			}
 		});
@@ -413,15 +422,15 @@ describe("Journey: Failure and Retry", () => {
 		expect(failHandler).toHaveBeenCalledWith(
 			expect.objectContaining({
 				payload: expect.objectContaining({
-					failedStepId: "folder-scaffold",
+					failedStepId: "seed-content",
 				}),
 			}),
 		);
 	});
 
-	it("should report partial createdFolders in context on failure", async () => {
+	it("should report partial seededFiles in context on failure", async () => {
 		const createFileFn = vi.fn(async (path: string) => {
-			if (path.includes("01 - Projects")) {
+			if (path.includes("supplier-overview.csv")) {
 				throw new Error("Permission denied");
 			}
 		});
@@ -436,16 +445,16 @@ describe("Journey: Failure and Retry", () => {
 		const context: InstallerContext = { userName: "Alice" };
 		await service.runAll(context);
 
-		// Folders before "01 - Projects" were created successfully
-		expect(context.createdFolders).toBeDefined();
-		expect(context.createdFolders!.length).toBeGreaterThan(0);
-		expect(context.createdFolders).not.toContain("01 - Projects");
+		// FolderScaffoldStep completed (resilient), SeedContentStep failed on CSV
+		expect(context.createdFolders).toEqual([...DEFAULT_IBDE_FOLDERS]);
+		expect(context.seededFiles).toBeDefined();
+		expect(context.seededFiles).toHaveLength(0);
 	});
 
 	it("should succeed on retry after the error is resolved", async () => {
 		let shouldFail = true;
 		const createFileFn = vi.fn(async (path: string) => {
-			if (shouldFail && path.includes("01 - Projects")) {
+			if (shouldFail && path.includes("supplier-overview.csv")) {
 				throw new Error("Permission denied");
 			}
 		});
@@ -457,7 +466,7 @@ describe("Journey: Failure and Retry", () => {
 		});
 		await service.load();
 
-		// First attempt fails
+		// First attempt fails at SeedContentStep
 		const firstResult = await service.runAll({ userName: "Alice" });
 		expect(firstResult).toBe(false);
 
@@ -473,7 +482,7 @@ describe("Journey: Failure and Retry", () => {
 	it("should skip already-completed UserCreationStep on retry", async () => {
 		let shouldFail = true;
 		const createFileFn = vi.fn(async (path: string) => {
-			if (shouldFail && path.includes("01 - Projects")) {
+			if (shouldFail && path.includes("supplier-overview.csv")) {
 				throw new Error("Permission denied");
 			}
 		});
@@ -485,7 +494,7 @@ describe("Journey: Failure and Retry", () => {
 		});
 		await service.load();
 
-		// First attempt: user created, then folders fail
+		// First attempt: user created, folders created, seed fails
 		await service.runAll({ userName: "Alice" });
 		expect(userService.createUser).toHaveBeenCalledOnce();
 
@@ -510,6 +519,7 @@ describe("Journey: Failure and Retry", () => {
 		expect(userService.createUser).not.toHaveBeenCalled();
 		expect(stepEvents.find((e) => e.id === "user-creation")?.status).toBe("skipped");
 		expect(stepEvents.find((e) => e.id === "folder-scaffold")?.status).toBe("completed");
+		expect(stepEvents.find((e) => e.id === "seed-content")?.status).toBe("completed");
 	});
 
 	it.skip("should show failure page with retry button in the wizard (requires Obsidian Modal)", () => {

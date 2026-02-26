@@ -65,7 +65,7 @@ export class TableTileRenderer implements TileRenderer {
 
 				const valEl = card.createDiv({ cls: "ft-catalog-stat-value" });
 				valEl.style.fontSize = "1.1rem";
-				valEl.textContent = fmtNum(sum, ctx.tile, result.columnTypeHints, col);
+				valEl.textContent = fmtNum(sum, ctx, result.columnTypeHints, col);
 
 				if (rules && rules.length > 0) {
 					const colRules = rules.filter((r) => r.column === col);
@@ -171,7 +171,7 @@ export class TableTileRenderer implements TileRenderer {
 			for (const col of columns) {
 				const val = row[col];
 				const td = tr.createEl("td", { cls: "ft-text-sm" });
-				td.textContent = typeof val === "number" ? fmtNum(val, ctx.tile, ctx.result?.columnTypeHints, col) : String(val ?? "");
+				td.textContent = typeof val === "number" ? fmtNum(val, ctx, ctx.result?.columnTypeHints, col) : String(val ?? "");
 
 				if (typeof val === "number") {
 					if (rules && rules.length > 0) {

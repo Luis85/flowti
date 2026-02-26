@@ -586,6 +586,7 @@ const CATALOG_DATA = {
 	"analytics.measurement.updated":    { category: "Analytics", description: "A measurement was updated", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
 	"analytics.measurement.deleted":    { category: "Analytics", description: "A measurement was deleted", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
 	"analytics.measurement.favorited":  { category: "Analytics", description: "A measurement's favorite status was toggled", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
+	"analytics.reset":                  { category: "Analytics", description: "All analytics data was reset (queries, dashboards, templates, measurements)", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

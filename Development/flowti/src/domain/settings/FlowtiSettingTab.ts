@@ -1,7 +1,9 @@
 import { App, Plugin, PluginSettingTab, Setting } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { IInstallerService } from "../installer/types";
+import type { AnalyticsService } from "../analytics/AnalyticsService";
 import { InstallerWizardModal } from "../installer/InstallerWizardModal";
+import { ConfirmModal } from "../../ui/modals";
 import { DEFAULT_ENTITY_PATHS, type FlowtiSettings } from "./settings";
 
 /**
@@ -15,6 +17,7 @@ export interface FlowtiSettingTabDeps {
 	getSettings: () => FlowtiSettings;
 	saveSettings: () => Promise<void>;
 	getInstallerService: () => Promise<IInstallerService>;
+	getAnalyticsService?: () => AnalyticsService | undefined;
 }
 
 /**
@@ -316,6 +319,30 @@ export class FlowtiSettingTab extends PluginSettingTab {
 					.setPlaceholder("03 - Resources/Analytics")
 					.onChange((value) => {
 						void this.deps.eventBus.emit("settings.updateAnalyticsFolder", { folder: value });
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Reset Analytics Hub")
+			.setDesc(
+				"Delete all dashboards, saved queries, templates, and measurements. This cannot be undone."
+			)
+			.addButton((btn) =>
+				btn
+					.setButtonText("Reset")
+					.setWarning()
+					.onClick(() => {
+						new ConfirmModal(this.app, {
+							message:
+								"This will permanently delete all dashboards, saved queries, templates, and measurements. Are you sure?",
+							confirmLabel: "Reset Analytics",
+							onConfirm: () => {
+								const svc = this.deps.getAnalyticsService?.();
+								if (svc) {
+									void svc.reset();
+								}
+							},
+						}).open();
 					})
 			);
 	}

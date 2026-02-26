@@ -1,8 +1,8 @@
 /**
  * Event definitions for the Analytics domain.
  *
- * 25 events covering analytics queries, dashboards, templates, and measurements:
- * - Lifecycle: loaded
+ * 26 events covering analytics queries, dashboards, templates, and measurements:
+ * - Lifecycle: loaded / reset
  * - Query execution: started / completed / failed
  * - Query persistence: query.saved / query.deleted / query.renamed / query.duplicated
  * - Query favorites: query.favorited
@@ -177,4 +177,7 @@ export interface AnalyticsEventMap {
 		measurementName: string;
 		isFavorite: boolean;
 	};
+
+	/** All analytics data was reset (queries, dashboards, templates, measurements) */
+	"analytics.reset": Record<string, never>;
 }

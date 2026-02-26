@@ -112,6 +112,23 @@ describe("dateUtils", () => {
 			expect(result).toEqual({ year: 2026, month: 2, day: 11 });
 		});
 
+		// Year-month only (YYYY-MM)
+		it("parses year-month: '2025-09' → { year: 2025, month: 9, day: 1 }", () => {
+			expect(parseDate("2025-09", "en-US")).toEqual({ year: 2025, month: 9, day: 1 });
+		});
+
+		it("parses year-month: '2026-02' → { year: 2026, month: 2, day: 1 }", () => {
+			expect(parseDate("2026-02", undefined)).toEqual({ year: 2026, month: 2, day: 1 });
+		});
+
+		it("parses year-month with single-digit month: '2025-1' → { year: 2025, month: 1, day: 1 }", () => {
+			expect(parseDate("2025-1", "en-US")).toEqual({ year: 2025, month: 1, day: 1 });
+		});
+
+		it("returns null for invalid year-month: '2025-13'", () => {
+			expect(parseDate("2025-13", "en-US")).toBeNull();
+		});
+
 		// Edge cases
 		it("returns null for empty string", () => {
 			expect(parseDate("", "en-US")).toBeNull();

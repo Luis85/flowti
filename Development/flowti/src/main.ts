@@ -34,6 +34,7 @@ import { TrainCanvasSyncService } from "./domain/train/TrainCanvasSyncService";
 import { getCanvasPath } from "./domain/train/helpers";
 import type { CanvasService } from "./domain/canvas/CanvasService";
 import type { AnalyticsService } from "./domain/analytics/AnalyticsService";
+import { seedSupplierDashboard } from "./domain/installer/seedDashboard";
 import { QuickCaptureModal } from "./ui/capture/QuickCaptureModal";
 import { TrainCaptureModal } from "./ui/train/TrainCaptureModal";
 import { registerViews } from "./infrastructure/views/registry";
@@ -214,6 +215,7 @@ export default class FlowtiBasePlugin extends Plugin {
 				getSettings: () => this.settings,
 				saveSettings: () => this.saveSettings(),
 				getInstallerService: () => this.services.get<IInstallerService>("installerService"),
+				getAnalyticsService: () => this.analyticsService,
 			}));
 			this.bindViews();
 			this.bindCommands();
@@ -856,6 +858,15 @@ export default class FlowtiBasePlugin extends Plugin {
 					type: VIEW_TYPE_ANALYTICS_HUB,
 					active: true,
 				});
+			}),
+		);
+
+		// Seed supplier dashboard after first-run install completes
+		this.crossCuttingListeners.push(
+			this.eventBus.on("installer.completed", () => {
+				if (this.analyticsService) {
+					void seedSupplierDashboard(this.analyticsService);
+				}
 			}),
 		);
 

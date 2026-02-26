@@ -84,7 +84,7 @@ export class StatCardTileRenderer implements TileRenderer {
 
 				const valueEl = card.createDiv({ cls: "ft-text-lg" });
 				valueEl.style.fontWeight = "700";
-				valueEl.textContent = fmtNum(val, ctx.tile, result.columnTypeHints, col);
+				valueEl.textContent = fmtNum(val, ctx, result.columnTypeHints, col);
 
 				// Conditional formatting: color stat-card text
 				const colRules = rules?.filter((r) => r.column === col);

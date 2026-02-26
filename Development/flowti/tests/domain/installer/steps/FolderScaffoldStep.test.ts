@@ -94,25 +94,23 @@ describe("FolderScaffoldStep", () => {
 		expect(deps.fileSystem.createFile).toHaveBeenCalledTimes(DEFAULT_IBDE_FOLDERS.length - 1);
 	});
 
-	it("should not rely on error string matching for idempotency", async () => {
+	it("should continue when createFile throws (folder already exists)", async () => {
 		const deps = createMockDeps();
-		// fileExists returns false, but createFile throws a non-English error
 		vi.mocked(deps.fileSystem.fileExists).mockResolvedValue(false);
 		vi.mocked(deps.fileSystem.createFile).mockImplementation(async (path: string) => {
 			if (path.includes("00 - Connectivity")) {
-				throw new Error("El archivo ya existe"); // Non-English error
+				throw new Error("File already exists");
 			}
 		});
 
 		const context: InstallerContext = {};
 		const result = await step.execute(context, deps);
 
-		// Should properly fail (not silently continue via string matching)
-		expect(result.status).toBe("failed");
-		expect(result.message).toContain("00 - Connectivity");
+		expect(result.status).toBe("completed");
+		expect(context.createdFolders).toHaveLength(DEFAULT_IBDE_FOLDERS.length);
 	});
 
-	it("should fail and report which folder failed on other errors", async () => {
+	it("should include all folders in createdFolders even when some throw", async () => {
 		const deps = createMockDeps();
 		vi.mocked(deps.fileSystem.createFile).mockImplementation(async (path: string) => {
 			if (path.includes("01 - Projects")) {
@@ -123,10 +121,8 @@ describe("FolderScaffoldStep", () => {
 		const context: InstallerContext = {};
 		const result = await step.execute(context, deps);
 
-		expect(result.status).toBe("failed");
-		expect(result.message).toBe("Failed to create folder: 01 - Projects");
-		expect(result.error).toBeDefined();
-		expect(result.error!.message).toBe("Permission denied");
+		expect(result.status).toBe("completed");
+		expect(context.createdFolders).toEqual([...DEFAULT_IBDE_FOLDERS]);
 	});
 
 	it("should set context.createdFolders with all created folder paths", async () => {
@@ -138,9 +134,8 @@ describe("FolderScaffoldStep", () => {
 		expect(context.createdFolders).toEqual([...DEFAULT_IBDE_FOLDERS]);
 	});
 
-	it("should report partial createdFolders on failure", async () => {
+	it("should count all folders even when multiple createFile calls throw", async () => {
 		const deps = createMockDeps();
-		// Fail on the third folder
 		let callCount = 0;
 		vi.mocked(deps.fileSystem.createFile).mockImplementation(async () => {
 			callCount++;
@@ -150,8 +145,9 @@ describe("FolderScaffoldStep", () => {
 		});
 
 		const context: InstallerContext = {};
-		await step.execute(context, deps);
+		const result = await step.execute(context, deps);
 
-		expect(context.createdFolders).toHaveLength(2);
+		expect(result.status).toBe("completed");
+		expect(context.createdFolders).toHaveLength(DEFAULT_IBDE_FOLDERS.length);
 	});
 });

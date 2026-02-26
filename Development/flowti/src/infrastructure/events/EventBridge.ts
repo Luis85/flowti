@@ -96,6 +96,16 @@ export class EventBridge implements IEventBridge {
 						}
 					}
 
+					// Guard: if file already exists, report success (idempotent)
+					if (this.app.vault.getAbstractFileByPath(path)) {
+						await this.eventBus.emit("file.create.response", {
+							requestId,
+							success: true,
+							path,
+						});
+						return;
+					}
+
 					await this.app.vault.create(path, content);
 
 					await this.eventBus.emit("file.create.response", {

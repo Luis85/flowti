@@ -10,6 +10,7 @@ import { setIcon } from "obsidian";
 import type { Dashboard, DashboardTile } from "../../domain/analytics/types";
 import { resolveDateRangeFilter } from "../../domain/analytics/dateUtils";
 import { computeFreshnessSummary, getFreshnessLevel, getFreshnessColor } from "../../domain/analytics/freshnessUtils";
+import { seedSupplierDashboard } from "../../domain/installer/seedDashboard";
 import type { AnalyticsHubDeps } from "./types";
 import { DashboardTileRenderer, type TileRenderContext } from "./DashboardTileRenderer";
 import { buildFilterCacheKey, discoverDateColumns, filterResultForMeasurement, mergeCrossTileFilter } from "./DashboardsTab";
@@ -26,8 +27,6 @@ export class AnalyticsDashboardPage {
 	render(): void {
 		this.containerEl.empty();
 
-		this.renderNavLinks();
-
 		// Resolve which dashboard to display: explicit homepage selection > default
 		const state = this.deps.getState();
 		const homepageId = state.homepageDashboardId;
@@ -36,6 +35,7 @@ export class AnalyticsDashboardPage {
 			: this.deps.analyticsService.getDefaultDashboard();
 
 		if (activeDashboard) {
+			this.renderNavLinks();
 			this.renderDefaultDashboard(activeDashboard);
 		} else {
 			this.renderFallback();
@@ -393,6 +393,14 @@ export class AnalyticsDashboardPage {
 		const queryCount = state.queries.length;
 		const dashboardCount = state.dashboards.length;
 
+		if (dashboardCount === 0 && queryCount === 0) {
+			this.renderEmptyState();
+			return;
+		}
+
+		// Has some content but no default dashboard — show stats + prompt
+		this.renderNavLinks();
+
 		// Stats grid
 		const statsGrid = this.containerEl.createDiv({ cls: "ft-stats-grid" });
 		this.renderStat(statsGrid, "search", "Saved Queries", String(queryCount), "queries");
@@ -426,19 +434,105 @@ export class AnalyticsDashboardPage {
 			link.addEventListener("click", () => {
 				this.deps.navigation.navigateTo("dashboards");
 			});
-		} else {
-			// No dashboards at all
-			const prompt = this.containerEl.createDiv({ cls: "ft-detail-actions ft-mt-3" });
-			prompt.style.textAlign = "center";
-
-			const newDashLink = prompt.createEl("span", { cls: "ft-nav-link" });
-			const dIcon = newDashLink.createSpan();
-			setIcon(dIcon, "layout-grid");
-			newDashLink.appendText(" Create your first dashboard");
-			newDashLink.addEventListener("click", () => {
-				this.deps.navigation.navigateTo("dashboards");
-			});
 		}
+	}
+
+	// ── Empty state (no dashboards, no queries) ─────────────
+
+	private renderEmptyState(): void {
+		const wrapper = this.containerEl.createDiv();
+		wrapper.style.cssText = "text-align:center;padding:2.5rem 1.5rem 1.5rem";
+
+		// Hero icon
+		const iconEl = wrapper.createDiv();
+		setIcon(iconEl, "bar-chart-big");
+		iconEl.style.cssText = "opacity:0.35;margin-bottom:0.75rem";
+		const svg = iconEl.querySelector("svg");
+		if (svg) { svg.style.width = "2.5rem"; svg.style.height = "2.5rem"; }
+
+		// Heading
+		const heading = wrapper.createDiv({ text: "Welcome to the Analytics Hub" });
+		heading.style.cssText = "font-weight:600;font-size:var(--font-ui-medium);margin-bottom:0.35rem";
+
+		// Subtitle
+		wrapper.createDiv({
+			text: "Build queries from your vault data, then pin them to dashboards for at-a-glance metrics.",
+			cls: "ft-text-sm ft-text-muted",
+		}).style.marginBottom = "1.5rem";
+
+		// Action cards grid
+		const grid = wrapper.createDiv();
+		grid.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;max-width:440px;margin:0 auto 1.5rem;text-align:left";
+
+		// Card 1: Build a Query
+		this.renderActionCard(grid, {
+			icon: "search",
+			title: "Build a Query",
+			description: "Add a CSV source and create your first query in the Query Builder",
+			onClick: () => this.deps.navigation.navigateTo("queries"),
+		});
+
+		// Card 2: Load Sample Hub
+		this.renderActionCard(grid, {
+			icon: "zap",
+			title: "Load Sample Hub",
+			description: "Seed the hub with a supplier dashboard, sample queries, and KPI cards",
+			onClick: () => {
+				void seedSupplierDashboard(this.deps.analyticsService).then(() => {
+					// Refresh state from service so the new dashboard renders
+					this.deps.setState({
+						queries: this.deps.analyticsService.listQueries(),
+						dashboards: this.deps.analyticsService.listDashboards(),
+					});
+					this.deps.scheduleRender();
+				});
+			},
+		});
+
+		// How it works
+		const howSection = wrapper.createDiv({ cls: "ft-text-muted" });
+		howSection.style.cssText = "display:flex;align-items:center;justify-content:center;gap:0.5rem;flex-wrap:wrap";
+
+		const howLabel = howSection.createSpan({ text: "How it works", cls: "ft-text-xs" });
+		howLabel.style.cssText = "font-weight:600;margin-right:0.25rem";
+
+		this.renderStep(howSection, "file-spreadsheet", "Add CSV");
+		howSection.createSpan({ text: "\u2192", cls: "ft-text-xs" });
+		this.renderStep(howSection, "search", "Build Query");
+		howSection.createSpan({ text: "\u2192", cls: "ft-text-xs" });
+		this.renderStep(howSection, "layout-grid", "Pin to Dashboard");
+	}
+
+	private renderActionCard(
+		container: HTMLElement,
+		opts: { icon: string; title: string; description: string; onClick: () => void },
+	): void {
+		const card = container.createDiv({ cls: "ft-stat-card" });
+		card.style.cssText = "cursor:pointer;padding:1rem;display:flex;flex-direction:column;gap:0.5rem";
+
+		const titleRow = card.createDiv();
+		titleRow.style.cssText = "display:flex;align-items:center;gap:0.4rem;font-weight:600;font-size:var(--font-ui-small)";
+		const iconEl = titleRow.createSpan();
+		setIcon(iconEl, opts.icon);
+		iconEl.style.cssText = "display:inline-flex;align-items:center";
+		const iconSvg = iconEl.querySelector("svg");
+		if (iconSvg) { iconSvg.style.width = "14px"; iconSvg.style.height = "14px"; }
+		titleRow.createSpan({ text: opts.title });
+
+		card.createDiv({ text: opts.description, cls: "ft-text-xs ft-text-muted" });
+
+		card.addEventListener("click", opts.onClick);
+	}
+
+	private renderStep(container: HTMLElement, icon: string, label: string): void {
+		const step = container.createSpan({ cls: "ft-text-xs" });
+		step.style.cssText = "display:inline-flex;align-items:center;gap:0.2rem";
+		const iconEl = step.createSpan();
+		setIcon(iconEl, icon);
+		iconEl.style.cssText = "display:inline-flex;align-items:center;opacity:0.6";
+		const iconSvg = iconEl.querySelector("svg");
+		if (iconSvg) { iconSvg.style.width = "12px"; iconSvg.style.height = "12px"; }
+		step.createSpan({ text: label });
 	}
 
 	// ── Favorites section ────────────────────────────────────

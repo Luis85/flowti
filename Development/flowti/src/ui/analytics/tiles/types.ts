@@ -108,9 +108,19 @@ export function getDetectedSymbol(hints: ColumnTypeHint[] | undefined, column: s
 	return hints?.find((h) => h.column === column || h.alias === column)?.currencySymbol;
 }
 
-/** Format a numeric value for tile display, respecting tile numberFormat and auto-detected currency. */
-export function fmtNum(value: number, tile: DashboardTile, hints: ColumnTypeHint[] | undefined, column: string): string {
-	return formatDisplayNumber(value, tile.numberFormat, getDetectedSymbol(hints, column));
+/** Resolve the effective NumberDisplayFormat: tile-level wins, measurement displayFormat is fallback. */
+export function resolveNumberFormat(ctx: TileRenderContext): NumberDisplayFormat | undefined {
+	if (ctx.tile.numberFormat) return ctx.tile.numberFormat;
+	if (ctx.tile.measurementId && ctx.measurements) {
+		const m = ctx.measurements.find((m) => m.id === ctx.tile.measurementId);
+		if (m?.displayFormat) return m.displayFormat;
+	}
+	return undefined;
+}
+
+/** Format a numeric value for tile display, respecting tile numberFormat, measurement displayFormat, and auto-detected currency. */
+export function fmtNum(value: number, ctx: TileRenderContext, hints: ColumnTypeHint[] | undefined, column: string): string {
+	return formatDisplayNumber(value, resolveNumberFormat(ctx), getDetectedSymbol(hints, column));
 }
 
 // ── Sub-renderer interface ───────────────────────────────────────
