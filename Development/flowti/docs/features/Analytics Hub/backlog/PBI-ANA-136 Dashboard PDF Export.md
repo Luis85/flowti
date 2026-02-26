@@ -21,6 +21,8 @@ tags:
 ## Solution Statement
 Capture dashboard tile grid as HTML, render to canvas via html2canvas (or similar), export as PNG or PDF. Include dashboard title, filter state, and timestamp in header.
 
+If there is a possible solution with Obsidian we should take that route. We need to explore if we can export into Markdown and let the user do the pdf export with Obsidian tools.
+
 ### Architecture
 | File | Action | ~LOC |
 |------|--------|------|

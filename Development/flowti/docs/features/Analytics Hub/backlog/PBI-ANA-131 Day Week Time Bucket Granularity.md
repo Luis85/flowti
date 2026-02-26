@@ -3,7 +3,9 @@ type: ProductBacklogItem
 feature: "[[Analytics Hub PRD]]"
 stage: planned
 priority: critical
-dependencies: []
+dependencies:
+  - "[[PBI-ANA-130 Date Range Filter]]"
+planned_in: "[[Cycle 44 - Analytics Hub Filtering & Decomposition]]"
 tags:
   - analytics
   - time-bucket

@@ -4,7 +4,8 @@ feature: "[[Analytics Hub PRD]]"
 stage: planned
 priority: critical
 dependencies:
-  - "[[PBI-ANA-130 Date Range Filter]]"
+  - "[[PBI-ANA-141 DashboardTileRenderer Extraction]]"
+planned_in: "[[Cycle 44 - Analytics Hub Filtering & Decomposition]]"
 tags:
   - analytics
   - filter

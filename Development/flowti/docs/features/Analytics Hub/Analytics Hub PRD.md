@@ -3,7 +3,7 @@ domain: Analytics
 plugin: "[[Development/flowti/README|README]]"
 type: ProductRequirementsDocument
 stage: delivered
-version: 17
+version: 18
 maturity: L2
 created: 2026-02-23
 updated: 2026-02-26
@@ -720,12 +720,15 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 | [[PBI-ANA-126 Analytics Flow Integration Tests]] | 3 flow test suites (Flows 17–19) covering query, dashboard, source manager | Delivered | High | ANA-120–125 |
 | [[PBI-ANA-130 Date Range Filter]] | Global date range picker with presets + custom range, propagates to all tiles | Planned | Critical | — |
 | [[PBI-ANA-131 Day Week Time Bucket Granularity]] | Day (YYYY-MM-DD) and ISO week (W01-W53) time bucketing | Planned | Critical | — |
-| [[PBI-ANA-132 Cross-Tile Filtering]] | Click chart/table element to filter sibling tiles | Planned | Critical | ANA-130 |
+| [[PBI-ANA-132 Cross-Tile Filtering]] | Click chart/table element to filter sibling tiles | Planned | Critical | ANA-141 |
 | [[PBI-ANA-133 Dashboard File Watcher]] | Auto-refresh tiles when source CSV files change (2s debounce) | Planned | High | — |
 | [[PBI-ANA-134 KPI Targets and RAG Status]] | Target values with Red/Amber/Green status on stat-card tiles | Planned | High | — |
 | [[PBI-ANA-135 Goal Lines on Charts]] | Horizontal dashed reference lines on line/bar/area charts | Planned | High | ANA-134 |
 | [[PBI-ANA-136 Dashboard PDF Export]] | Export dashboard as PNG or PDF for non-Obsidian sharing | Planned | High | — |
 | [[PBI-ANA-137 Dashboard Markdown Export]] | Generate vault note from dashboard snapshot with markdown tables | Planned | High | — |
+| [[PBI-ANA-140 QueriesTab Decomposition]] | Extract QueryExecutionManager + QueryResultHandler from QueriesTab (930→~550 LOC) | Planned | High | ANA-120 |
+| [[PBI-ANA-141 DashboardTileRenderer Extraction]] | Decompose 827 LOC renderer into sub-renderers per display mode + TileRendererFactory | Planned | High | — |
+| [[PBI-ANA-142 Analytics Flow Test Expansion]] | 4 new flow suites: measurement lifecycle, date range, cross-tile, file watcher | Planned | High | ANA-130, ANA-132, ANA-133 |
 
 > **Analytics Hub v1 delivered (2026-02-23):** 5 PBIs in Cycle 28. Hub shell, dashboards, .base sources, independent persistence. 4,338 tests (178 suites).
 > **Analytics Hub v2 delivered (2026-02-23):** 5 PBIs in Cycle 29. Favorites, default dashboard, dashboard-first overview, per-tile refresh, Supplier Manager persona. 4,358 tests (179 suites).
@@ -738,6 +741,7 @@ Layout: BaseHubView shell (wrapper → top bar → tab bar → dashboard/split)
 > **Analytics Hub v13 delivered (2026-02-25):** 7 PBIs in Cycle 38. Query builder improvements: schema browser + column picker, visual filter builder with value suggestions, multi-column sort with migration, expression validation, AnalyticsService handler extraction (916→619 LOC), QueriesTab ActionsBar extraction (950→820 LOC), 6 quick insight rules, click-to-insert, count badges, Ctrl+Enter. 4 new components (SchemaPanel, FilterBuilderPanel, ActionsBar, expressionValidator). 4,746 tests (196 suites).
 > **Analytics Hub v16 delivered (2026-02-25):** 7 PBIs in Cycle 43. Performance & navigation: SourceManager extraction (QueriesTab 1,026→930 LOC), QueryResultCache (LRU, max 20), render batching (rAF), dashboard breadcrumbs (4-level nav stack), filter row-count preview (~N rows badge), TileRenderContext split (3 sub-interfaces), 14 CSS classes (25 inline styles eliminated). 3 new flow test suites (Flows 17–19). 85 new tests. 4,941 tests (206 suites). PRD v16, 96 FRs all delivered.
 > **Analytics Hub v17 refinement (2026-02-26):** PRD refinement pass. 8 new roadmap PBIs (ANA-130–137) from market research: date range filter (P1), day/week time buckets (P1), cross-tile filtering (P2), file watcher (P2), KPI targets/RAG (P3), goal lines (P3), PDF export (P4), markdown export (P4). 26 missing delivered PBI files created (ANA-054–076, ANA-120–126). Documentation gap closure: Analytics Hub View sitemap, 9 component docs, 2 new flow docs, DX Hub sitemap updated. 19 inbox items refined. Total: 56 PBI files, 12 sitemap views, 18 component docs, 3 flow docs.
+> **Analytics Hub v18 planned (2026-02-25):** Cycle 44 planned. 7 PBIs: 4 features (ANA-130 date range, ANA-131 day/week buckets, ANA-132 cross-tile filtering, ANA-133 file watcher) + 2 tech debt (ANA-140 QueriesTab decomposition, ANA-141 TileRenderer extraction) + 1 quality (ANA-142 flow test expansion). Balanced cycle: P1/P2 market-research features + architectural decomposition. 3 new PBI files (ANA-140–142). ~85 estimated new tests. Target: ~5,026 tests, ~214 suites.
 
 ## 15. Market Research: SMB Dashboarding vs Excel (Feb 2026)
 
@@ -869,3 +873,5 @@ The tipping point occurs when teams hit 3+ of these simultaneously: data exceeds
 - Cycle: [[Cycle 43 - Analytics Hub Performance & Navigation]] (Source Manager extraction, render performance, breadcrumbs, filter preview, CSS consolidation, flow tests — delivered)
 - PBIs (v16): [[PBI-ANA-120 Source Manager Extraction]], [[PBI-ANA-121 Render Performance]], [[PBI-ANA-122 Dashboard Breadcrumb Navigation]], [[PBI-ANA-123 Filter Row-Count Preview]], [[PBI-ANA-124 TileRenderContext Simplification]], [[PBI-ANA-125 CSS & Style Consolidation]], [[PBI-ANA-126 Analytics Flow Integration Tests]]
 - PBIs (v17 roadmap): [[PBI-ANA-130 Date Range Filter]], [[PBI-ANA-131 Day Week Time Bucket Granularity]], [[PBI-ANA-132 Cross-Tile Filtering]], [[PBI-ANA-133 Dashboard File Watcher]], [[PBI-ANA-134 KPI Targets and RAG Status]], [[PBI-ANA-135 Goal Lines on Charts]], [[PBI-ANA-136 Dashboard PDF Export]], [[PBI-ANA-137 Dashboard Markdown Export]]
+- Cycle: [[Cycle 44 - Analytics Hub Filtering & Decomposition]] (date range filter, day/week buckets, cross-tile filtering, file watcher, QueriesTab decomposition, TileRenderer extraction, flow tests — planned)
+- PBIs (v18): [[PBI-ANA-130 Date Range Filter]], [[PBI-ANA-131 Day Week Time Bucket Granularity]], [[PBI-ANA-132 Cross-Tile Filtering]], [[PBI-ANA-133 Dashboard File Watcher]], [[PBI-ANA-140 QueriesTab Decomposition]], [[PBI-ANA-141 DashboardTileRenderer Extraction]], [[PBI-ANA-142 Analytics Flow Test Expansion]]
