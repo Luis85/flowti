@@ -22,11 +22,7 @@
       "Bash(wc -l /c/Projects/flowti/**/*.csv)",
       "Bash(wc -l /c/Projects/flowti/**/*.ts)",
       "Bash(wc -l /c/Projects/flowti/**/*.json)",
-      "Bash(npx eslint src/ --quiet)",
-      "Bash(for f in \"Development/flowti/docs/inbox/Session Activity Log does not respect filters.md\" \"Development/flowti/docs/inbox/Sessions Service Design Blueprint.md\" \"Development/flowti/docs/inbox/Sessions User Flow.md\" \"Development/flowti/docs/inbox/Sessions list does not disambiguate same-titled sessions.md\" \"Development/flowti/docs/inbox/The Activity Log does not respect set filters.md\" \"Development/flowti/docs/inbox/The Data Exchange Dashboard does not know when a Pipeline, Import, or Export was started or is still running after leaving the view.md\" \"Development/flowti/docs/inbox/When changing a file which is attached to a session, the session still links to the old path also prevalent in templates.md\" \"Development/flowti/docs/inbox/When opening a CSV with Flowti, I want to be able to make an easy dashboard.md\" \"Development/flowti/docs/inbox/When saving a Session as Template, I also want to be able to save it''s context.md\" \"Development/flowti/docs/inbox/exporter is not evaluating formulas.md\" \"Development/flowti/docs/inbox/exporter should only show view properties.md\" \"Development/flowti/docs/inbox/file events in the sessions activity log should only be displayed in one item.md\" \"Development/flowti/docs/inbox/when importing a report from the data-exchange hub dashboard and then starting another one, the progressbar gets confused and the first started export gets combined with the second one.md\" \"Development/flowti/docs/inbox/when running a pipeline from the pipeline detail page, the progress bar does not update.md\" \"Development/flowti/docs/inbox/Canvas importer must be a first-class plugin feature.md\" \"Development/flowti/docs/inbox/Installer should seed starter content on first run.md\")",
-      "Bash(do)",
-      "Bash(done)",
-      "Bash(for f in \"Development/flowti/docs/inbox/I want to quickly capture a note to my inbox to distribute the note inside my vault later.md\" \"Development/flowti/docs/inbox/manual-test-strategy.md\" \"Development/flowti/docs/inbox/Flowti - IBDE.canvas\" \"Development/flowti/docs/inbox/Flowti - System Design.canvas\")"
+      "Bash(npx eslint src/ --quiet)"
     ]
   }
 }
