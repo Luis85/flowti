@@ -871,13 +871,15 @@ export default class FlowtiBasePlugin extends Plugin {
 
 		// Seed supplier dashboard and init onboarding after first-run install
 		this.crossCuttingListeners.push(
-			this.eventBus.on("installer.completed", () => {
+			this.eventBus.on("installer.completed", (event) => {
 				const analyticsSvc = this.analyticsService;
 				const onboardingSvc = this.onboardingService;
-				if (analyticsSvc) {
+				if (analyticsSvc && event.payload.includeSampleContent !== false) {
 					void seedSupplierDashboard(analyticsSvc).then(() =>
 						onboardingSvc?.initChecklist(),
 					);
+				} else {
+					void onboardingSvc?.initChecklist();
 				}
 			}),
 		);

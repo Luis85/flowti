@@ -11,7 +11,7 @@ export interface InstallerEventMap {
 	/** Emitted when an individual step completes (success, fail, or skip) */
 	"installer.step.completed": InstallerStepStatusEntry;
 	/** Emitted when the entire installation pipeline finishes successfully */
-	"installer.completed": { state: InstallerState };
+	"installer.completed": { state: InstallerState; includeSampleContent?: boolean };
 	/** Emitted when the installation pipeline fails */
 	"installer.failed": { failedStepId: string; error: string };
 	/** Emitted when installer state is loaded from storage */

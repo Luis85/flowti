@@ -34,6 +34,10 @@ export class SeedContentStep implements IInstallerStep {
 		context: InstallerContext,
 		deps: InstallerStepDeps,
 	): Promise<InstallerStepResult> {
+		if (context.includeSampleContent === false) {
+			return { status: "skipped", message: "Sample content skipped by user preference" };
+		}
+
 		const seededFiles: string[] = [];
 		const filesToSeed = this.getFilesToSeed(context);
 

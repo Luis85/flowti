@@ -149,7 +149,10 @@ export class InstallerService implements IInstallerService {
 		this.state.installedAt = new Date().toISOString();
 		await this.saveState();
 
-		await this.eventBus?.emit("installer.completed", { state: this.state });
+		await this.eventBus?.emit("installer.completed", {
+			state: this.state,
+			includeSampleContent: context.includeSampleContent as boolean | undefined,
+		});
 
 		return true;
 	}

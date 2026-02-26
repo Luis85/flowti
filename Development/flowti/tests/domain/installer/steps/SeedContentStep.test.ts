@@ -271,6 +271,40 @@ describe("SeedContentStep", () => {
 		expect(context.seededFiles).toHaveLength(5);
 	});
 
+	// ── User preference: skip sample content ──
+
+	it("should skip when includeSampleContent is false", async () => {
+		const deps = createMockDeps();
+		const context: InstallerContext = { userName: "Alice", includeSampleContent: false };
+
+		const result = await step.execute(context, deps);
+
+		expect(result.status).toBe("skipped");
+		expect(result.message).toContain("skipped by user preference");
+		expect(deps.fileSystem.createFile).not.toHaveBeenCalled();
+		expect(deps.fileSystem.fileExists).not.toHaveBeenCalled();
+	});
+
+	it("should seed normally when includeSampleContent is true", async () => {
+		const deps = createMockDeps();
+		const context: InstallerContext = { userName: "Alice", includeSampleContent: true };
+
+		const result = await step.execute(context, deps);
+
+		expect(result.status).toBe("completed");
+		expect(deps.fileSystem.createFile).toHaveBeenCalledTimes(2);
+	});
+
+	it("should seed normally when includeSampleContent is undefined", async () => {
+		const deps = createMockDeps();
+		const context: InstallerContext = { userName: "Alice" };
+
+		const result = await step.execute(context, deps);
+
+		expect(result.status).toBe("completed");
+		expect(deps.fileSystem.createFile).toHaveBeenCalledTimes(2);
+	});
+
 	// ── CSV data validation ──
 
 	it("should include realistic CSV with expected columns", () => {
