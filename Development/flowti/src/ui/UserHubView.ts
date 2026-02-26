@@ -15,6 +15,7 @@ import type { SessionService } from "../domain/session/SessionService";
 import type { IEventBus } from "../infrastructure/events/types";
 import type { FlowtiSettings } from "../domain/settings/settings";
 import { BaseHubView, type TabDef } from "./BaseHubView";
+import type { OnboardingService } from "../domain/onboarding/OnboardingService";
 import { UserHubDashboard } from "./userHub/UserHubDashboard";
 import { UserHubInbox } from "./userHub/UserHubInbox";
 import { UserHubSessions } from "./userHub/UserHubSessions";
@@ -38,6 +39,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 	private inboxService: InboxService;
 	private sessionService: SessionService;
 	private nudgeService: NudgeService;
+	private onboardingService: OnboardingService;
 	private trainService: TrainService | null;
 
 	// Components
@@ -57,6 +59,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 		inboxService: InboxService,
 		sessionService: SessionService,
 		nudgeService: NudgeService,
+		onboardingService: OnboardingService,
 		initialEnabledSources: string[],
 		initialSettings: FlowtiSettings,
 		trainService?: TrainService | null,
@@ -67,6 +70,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 		this.inboxService = inboxService;
 		this.sessionService = sessionService;
 		this.nudgeService = nudgeService;
+		this.onboardingService = onboardingService;
 		this.trainService = trainService ?? null;
 		this.state = {
 			inboxItems: [],
@@ -121,6 +125,14 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 	}
 
 	onDashboardRender(): void {
+		this.renderOnboardingCallout(this.dashboardEl, this.onboardingService, {
+			id: "user-hub-welcome",
+			icon: "home",
+			title: "Welcome to your User Hub",
+			description: "Your personal cockpit — manage inbox notifications, focus sessions, and preferences in one place.",
+			suggestion: "Check your Inbox for recent activity or start a new Session.",
+		});
+
 		this.dashboard.render();
 	}
 

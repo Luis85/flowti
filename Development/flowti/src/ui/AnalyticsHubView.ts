@@ -8,6 +8,7 @@
 import { type WorkspaceLeaf, setIcon } from "obsidian";
 import type { IEventBus } from "../infrastructure/events/types";
 import type { AnalyticsService } from "../domain/analytics/AnalyticsService";
+import type { OnboardingService } from "../domain/onboarding/OnboardingService";
 import { VIEW_TYPE_ANALYTICS_HUB } from "../domain/hub/types";
 import { BaseHubView, type TabDef } from "./BaseHubView";
 import { QueriesTab } from "./analytics/QueriesTab";
@@ -22,6 +23,7 @@ export { VIEW_TYPE_ANALYTICS_HUB };
 
 export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 	private analyticsService: AnalyticsService;
+	private onboardingService: OnboardingService;
 
 	// ── State ────────────────────────────────────────────────
 	private queries: AnalyticsHubState["queries"] = [];
@@ -52,9 +54,11 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 		leaf: WorkspaceLeaf,
 		eventBus: IEventBus,
 		analyticsService: AnalyticsService,
+		onboardingService: OnboardingService,
 	) {
 		super(leaf, eventBus);
 		this.analyticsService = analyticsService;
+		this.onboardingService = onboardingService;
 	}
 
 	// ── BaseHubView abstract implementations ─────────────────
@@ -294,6 +298,7 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 			app: this.app,
 			eventBus: this.eventBus,
 			analyticsService: this.analyticsService,
+			onboardingService: this.onboardingService,
 			tileResultCache: this.tileResultCache,
 			getState: () => this.getHubState(),
 			setState: (partial) => this.setHubState(partial),

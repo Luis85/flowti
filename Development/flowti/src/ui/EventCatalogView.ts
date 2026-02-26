@@ -40,6 +40,7 @@ import {
 	HealthTab,
 } from "./catalog";
 import { BaseHubView, type TabDef } from "./BaseHubView";
+import type { OnboardingService } from "../domain/onboarding/OnboardingService";
 import { VIEW_TYPE_EVENT_CATALOG } from "../domain/hub/types";
 export { VIEW_TYPE_EVENT_CATALOG };
 
@@ -54,6 +55,7 @@ export type CatalogTab = "events" | "domains" | "services" | "flows" | "systems"
  */
 export class EventCatalogView extends BaseHubView<CatalogTab> {
 	private state: ViewStateProvider;
+	private onboardingService: OnboardingService;
 
 	// State
 	private discoveredEvents: DiscoveredEvent[] = [];
@@ -94,9 +96,10 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 	private eventsTab: EventsTab | null = null;
 	private healthTab: HealthTab | null = null;
 
-	constructor(leaf: WorkspaceLeaf, eventBus: IEventBus, state: ViewStateProvider) {
+	constructor(leaf: WorkspaceLeaf, eventBus: IEventBus, state: ViewStateProvider, onboardingService: OnboardingService) {
 		super(leaf, eventBus);
 		this.state = state;
+		this.onboardingService = onboardingService;
 	}
 
 	// ─────────────────────────────────────────────────────────────
@@ -252,6 +255,14 @@ export class EventCatalogView extends BaseHubView<CatalogTab> {
 	}
 
 	onDashboardRender(): void {
+		this.renderOnboardingCallout(this.dashboardEl, this.onboardingService, {
+			id: "event-catalog-welcome",
+			icon: "list",
+			title: "Welcome to the Event Catalog",
+			description: "Events drive everything in Flowti. Browse domains, services, flows, and actors — all wired through the event bus.",
+			suggestion: "Start by exploring the Events tab to see what your vault is emitting.",
+		});
+
 		// Scan all entities to get fresh counts
 		this.domainsTab!.scan();
 		this.domainEntries = this.domainsTab!.getEntries();

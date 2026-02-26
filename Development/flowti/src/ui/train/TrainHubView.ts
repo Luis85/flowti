@@ -14,6 +14,7 @@ import type { TrainService } from "../../domain/train/TrainService";
 import type { TrainState, TrainStatus } from "../../domain/train/types";
 import { BUILT_IN_TRAIN_TYPES } from "../../domain/train/types";
 import { BaseHubView, type TabDef } from "../BaseHubView";
+import type { OnboardingService } from "../../domain/onboarding/OnboardingService";
 import { VIEW_TYPE_TRAIN_HUB } from "../../domain/hub/types";
 export { VIEW_TYPE_TRAIN_HUB };
 
@@ -23,6 +24,7 @@ export type TrainSortBy = "recent" | "most-thoughts" | "longest";
 
 export class TrainHubView extends BaseHubView<TrainHubPage> {
 	private trainService: TrainService;
+	private onboardingService: OnboardingService;
 	private trains: readonly TrainState[] = [];
 	private openTrainCb: (trainId: string) => void;
 	private selectedTrainId: string | null = null;
@@ -34,10 +36,12 @@ export class TrainHubView extends BaseHubView<TrainHubPage> {
 		eventBus: IEventBus,
 		trainService: TrainService,
 		openTrain: (trainId: string) => void,
+		onboardingService: OnboardingService,
 	) {
 		super(leaf, eventBus);
 		this.trainService = trainService;
 		this.openTrainCb = openTrain;
+		this.onboardingService = onboardingService;
 	}
 
 	// ── Identity ────────────────────────────────────────────
@@ -138,6 +142,14 @@ export class TrainHubView extends BaseHubView<TrainHubPage> {
 	onDashboardRender(): void {
 		this.refreshTrains();
 		this.dashboardEl.empty();
+
+		this.renderOnboardingCallout(this.dashboardEl, this.onboardingService, {
+			id: "train-hub-welcome",
+			icon: "train-front",
+			title: "Welcome to the Train Hub",
+			description: "Capture streams of connected thoughts in timed rides. Review, resume, and explore your thought history.",
+			suggestion: "Start a ride to capture your first train of thought.",
+		});
 
 		const container = this.dashboardEl.createDiv({ cls: "ft-p-4" });
 

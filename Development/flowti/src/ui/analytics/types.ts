@@ -5,6 +5,7 @@
 import type { App } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { AnalyticsService } from "../../domain/analytics/AnalyticsService";
+import type { OnboardingService } from "../../domain/onboarding/OnboardingService";
 import type { CrossTileFilter, Dashboard, DateRangeFilter, Measurement, SavedAnalyticsQuery } from "../../domain/analytics/types";
 import type { TileResultCache } from "./TileResultCache";
 
@@ -111,6 +112,7 @@ export interface AnalyticsHubDeps {
 	app: App;
 	eventBus: IEventBus;
 	analyticsService: AnalyticsService;
+	onboardingService: OnboardingService;
 	tileResultCache: TileResultCache;
 	getState: () => AnalyticsHubState;
 	setState: (partial: Partial<AnalyticsHubState>) => void;

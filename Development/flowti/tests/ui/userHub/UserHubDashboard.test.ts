@@ -979,6 +979,104 @@ describe("UserHubDashboard", () => {
 		});
 	});
 
+	// ── Empty state hero ────────────────────────────────────
+
+	describe("empty state hero", () => {
+		it("should show empty state hero when no content exists", () => {
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				hubRegistry: makeHubRegistry([]) as never,
+				inboxService: makeInboxService([], 0),
+				sessionService: makeSessionService(null),
+			}));
+
+			dashboard.render();
+
+			expect(container.querySelector(".ft-empty-state")).toBeTruthy();
+			expect(container.textContent).toContain("Welcome to Your Hub");
+			expect(container.textContent).toContain("Open Analytics Hub");
+			expect(container.textContent).toContain("Start a Session");
+		});
+
+		it("should not show empty state hero when inbox has items", () => {
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				hubRegistry: makeHubRegistry([]) as never,
+				inboxService: makeInboxService([makeItem()], 1),
+				sessionService: makeSessionService(null),
+			}));
+
+			dashboard.render();
+
+			expect(container.querySelector(".ft-empty-state")).toBeNull();
+		});
+
+		it("should not show empty state hero when active session exists", () => {
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				hubRegistry: makeHubRegistry([]) as never,
+				inboxService: makeInboxService([], 0),
+				sessionService: makeSessionService(makeActiveSession()),
+			}));
+
+			dashboard.render();
+
+			expect(container.querySelector(".ft-empty-state")).toBeNull();
+		});
+
+		it("should not show empty state hero when hub summaries exist", () => {
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				hubRegistry: makeHubRegistry([makeProvider({ getHubId: () => "event-catalog" })]) as never,
+				inboxService: makeInboxService([], 0),
+				sessionService: makeSessionService(null),
+			}));
+
+			dashboard.render();
+
+			expect(container.querySelector(".ft-empty-state")).toBeNull();
+		});
+
+		it("should emit ui.openAnalyticsHub when Analytics Hub card is clicked", async () => {
+			const spy = vi.fn();
+			eventBus.on("ui.openAnalyticsHub", spy);
+
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				hubRegistry: makeHubRegistry([]) as never,
+				inboxService: makeInboxService([], 0),
+				sessionService: makeSessionService(null),
+			}));
+
+			dashboard.render();
+
+			const cards = container.querySelectorAll(".ft-empty-state .ft-stat-card");
+			expect(cards.length).toBe(2);
+			(cards[0] as HTMLElement).click();
+
+			await new Promise((r) => setTimeout(r, 10));
+			expect(spy).toHaveBeenCalled();
+		});
+
+		it("should call onCreateSession when Start a Session card is clicked", () => {
+			const onCreateSession = vi.fn();
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				hubRegistry: makeHubRegistry([]) as never,
+				inboxService: makeInboxService([], 0),
+				sessionService: makeSessionService(null),
+				onCreateSession,
+			}));
+
+			dashboard.render();
+
+			const cards = container.querySelectorAll(".ft-empty-state .ft-stat-card");
+			(cards[1] as HTMLElement).click();
+
+			expect(onCreateSession).toHaveBeenCalled();
+		});
+	});
+
 	// ── Re-render ───────────────────────────────────────────
 
 	describe("re-render", () => {

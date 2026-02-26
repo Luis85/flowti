@@ -47,7 +47,9 @@ describe("CatalogDashboard", () => {
 	beforeEach(() => {
 		eventBus = new EventBus();
 		container = document.createElement("div");
-		deps = createMockCatalogDeps({ eventBus });
+		// Include at least one entity so the normal dashboard path renders (not the empty state)
+		const state = createDefaultCatalogState({ domainEntries: [makeDomainEntry()] });
+		deps = createMockCatalogDeps({ eventBus, getState: vi.fn(() => state) });
 		dashboard = new CatalogDashboard(container, deps);
 	});
 
@@ -82,13 +84,40 @@ describe("CatalogDashboard", () => {
 			expect(text).toContain("Watchers");
 		});
 
-		it("should work with empty state", () => {
+		it("should render empty state when all entity counts are zero", () => {
 			const emptyDeps = createMockCatalogDeps({ eventBus });
 			const emptyDashboard = new CatalogDashboard(container, emptyDeps);
 			emptyDashboard.render();
-			// Should not throw; heading and actions should still render
+
+			// Should show the empty state wrapper
+			expect(container.querySelector(".ft-empty-state")).toBeTruthy();
+			expect(container.textContent).toContain("Welcome to the Event Catalog");
+			expect(container.textContent).toContain("Events appear as you use Flowti");
+			expect(container.textContent).toContain("How events populate");
+		});
+
+		it("should not show empty state when entities exist", () => {
+			const state = createDefaultCatalogState({
+				domainEntries: [makeDomainEntry({ name: "Alpha" })],
+			});
+			const customDeps = createMockCatalogDeps({
+				eventBus,
+				getState: vi.fn(() => state),
+			});
+			const customDashboard = new CatalogDashboard(container, customDeps);
+			customDashboard.render();
+
+			expect(container.querySelector(".ft-empty-state")).toBeNull();
 			expect(container.querySelector("h2")).toBeTruthy();
-			expect(container.textContent).toContain("Quick Actions");
+		});
+
+		it("should not show title bar or quick actions in empty state", () => {
+			const emptyDeps = createMockCatalogDeps({ eventBus });
+			const emptyDashboard = new CatalogDashboard(container, emptyDeps);
+			emptyDashboard.render();
+
+			expect(container.querySelector("h2")).toBeNull();
+			expect(container.textContent).not.toContain("Quick Actions");
 		});
 
 		it("should show correct domain count from state", () => {

@@ -2,6 +2,7 @@ import { App, Plugin, PluginSettingTab, Setting } from "obsidian";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { IInstallerService } from "../installer/types";
 import type { AnalyticsService } from "../analytics/AnalyticsService";
+import type { OnboardingService } from "../onboarding/OnboardingService";
 import { InstallerWizardModal } from "../installer/InstallerWizardModal";
 import { ConfirmModal } from "../../ui/modals";
 import { DEFAULT_ENTITY_PATHS, type FlowtiSettings } from "./settings";
@@ -18,6 +19,7 @@ export interface FlowtiSettingTabDeps {
 	saveSettings: () => Promise<void>;
 	getInstallerService: () => Promise<IInstallerService>;
 	getAnalyticsService?: () => AnalyticsService | undefined;
+	getOnboardingService?: () => OnboardingService | undefined;
 }
 
 /**
@@ -72,6 +74,30 @@ export class FlowtiSettingTab extends PluginSettingTab {
 							installerService,
 							this.deps.eventBus,
 						).open();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Reset onboarding")
+			.setDesc(
+				"Clear onboarding progress so welcome callouts and the Getting Started checklist reappear."
+			)
+			.addButton((btn) =>
+				btn
+					.setButtonText("Reset")
+					.setWarning()
+					.onClick(() => {
+						new ConfirmModal(this.app, {
+							message:
+								"This will reset onboarding progress. Welcome callouts will reappear and the Getting Started checklist will restart. Continue?",
+							confirmLabel: "Reset Onboarding",
+							onConfirm: () => {
+								const svc = this.deps.getOnboardingService?.();
+								if (svc) {
+									void svc.resetAll();
+								}
+							},
+						}).open();
 					})
 			);
 	}

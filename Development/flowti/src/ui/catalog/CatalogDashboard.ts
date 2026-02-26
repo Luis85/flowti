@@ -20,6 +20,25 @@ export class CatalogDashboard {
 
 		const state = this.deps.getState();
 
+		// Stats grid
+		const visibleDomains = state.domainEntries.filter((d) =>
+			d.visible && (state.showSystemEvents || !d.isSystem));
+		const visibleServices = state.serviceEntries.filter((s) =>
+			s.visible && (state.showSystemEvents || !s.isSystem));
+		const visibleEvents = getVisibleEntries(
+			state.catalogCategories, state.showSystemEvents,
+			state.discoveredEvents, this.deps.vaultQuery, this.deps.getEntityFolder("events"),
+		);
+
+		const totalEntities = visibleDomains.length + visibleServices.length + visibleEvents.length
+			+ state.flowEntries.length + state.systemEntries.length
+			+ state.actorEntries.length + state.productEntries.length;
+
+		if (totalEntities === 0) {
+			this.renderEmptyState();
+			return;
+		}
+
 		// ── Title bar ──
 		const titleBar = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-mb-3" });
 		titleBar.style.borderBottom = "1px solid var(--background-modifier-border)";
@@ -31,16 +50,6 @@ export class CatalogDashboard {
 			text: "Event Catalog",
 			cls: "ft-heading",
 		}).style.margin = "0";
-
-		// Stats grid
-		const visibleDomains = state.domainEntries.filter((d) =>
-			d.visible && (state.showSystemEvents || !d.isSystem));
-		const visibleServices = state.serviceEntries.filter((s) =>
-			s.visible && (state.showSystemEvents || !s.isSystem));
-		const visibleEvents = getVisibleEntries(
-			state.catalogCategories, state.showSystemEvents,
-			state.discoveredEvents, this.deps.vaultQuery, this.deps.getEntityFolder("events"),
-		);
 
 		const cards: StatCardItem[] = [
 			{ icon: "boxes", value: String(visibleDomains.length), label: "Domains", onClick: () => this.deps.navigation.navigateToTab("domains") },
@@ -62,6 +71,46 @@ export class CatalogDashboard {
 
 		// Links
 		this.renderLinks();
+	}
+
+	private renderEmptyState(): void {
+		const wrapper = this.container.createDiv({ cls: "ft-empty-state" });
+		wrapper.style.cssText = "text-align:center;padding:2.5rem 1.5rem 1.5rem";
+
+		// Hero icon
+		const iconEl = wrapper.createDiv();
+		setIcon(iconEl, "activity");
+		iconEl.style.cssText = "opacity:0.35;margin-bottom:0.75rem";
+		const svg = iconEl.querySelector("svg");
+		if (svg) { svg.style.width = "2.5rem"; svg.style.height = "2.5rem"; }
+
+		// Heading
+		const heading = wrapper.createDiv({ text: "Welcome to the Event Catalog" });
+		heading.style.cssText = "font-weight:600;font-size:var(--font-ui-medium);margin-bottom:0.35rem";
+
+		// Subtitle
+		wrapper.createDiv({
+			text: "Events appear as you use Flowti \u2014 file changes, imports, sessions, and more.",
+			cls: "ft-text-sm ft-text-muted",
+		}).style.marginBottom = "1.5rem";
+
+		// Info card
+		const card = wrapper.createDiv({ cls: "ft-stat-card" });
+		card.style.cssText = "padding:1rem;max-width:360px;margin:0 auto;text-align:left";
+
+		const titleRow = card.createDiv();
+		titleRow.style.cssText = "display:flex;align-items:center;gap:0.4rem;font-weight:600;font-size:var(--font-ui-small);margin-bottom:0.35rem";
+		const cardIcon = titleRow.createSpan();
+		setIcon(cardIcon, "info");
+		cardIcon.style.cssText = "display:inline-flex;align-items:center";
+		const cardSvg = cardIcon.querySelector("svg");
+		if (cardSvg) { cardSvg.style.width = "14px"; cardSvg.style.height = "14px"; }
+		titleRow.createSpan({ text: "How events populate" });
+
+		card.createDiv({
+			text: "Events will appear automatically as you use Flowti. Try importing a CSV or starting a session to see your first events.",
+			cls: "ft-text-xs ft-text-muted",
+		});
 	}
 
 	private renderCoverage(state: ReturnType<CatalogComponentDeps["getState"]>): void {

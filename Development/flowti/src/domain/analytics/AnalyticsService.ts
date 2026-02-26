@@ -120,46 +120,11 @@ export class AnalyticsService {
 		await this.eventBus?.emit("analytics.reset", {});
 	}
 
-	// ── Onboarding checklist (Cycle 46, PBI-ONB-007) ────────
+	// ── Onboarding checklist (legacy, migration support) ─────
 
-	/** Get the onboarding checklist, or undefined if not yet initialised. */
+	/** Get the legacy onboarding checklist for migration to OnboardingService. */
 	getOnboardingChecklist(): OnboardingChecklist | undefined {
 		return this.state.onboardingChecklist;
-	}
-
-	/** Initialise the onboarding checklist (called after install). */
-	async initOnboardingChecklist(): Promise<void> {
-		if (this.state.onboardingChecklist) return; // already initialised
-		this.state.onboardingChecklist = {
-			dismissed: false,
-			collapsed: false,
-			milestones: {
-				installed: true,
-				dashboardExplored: false,
-				sampleDataReviewed: false,
-				ownDataImported: false,
-				customQueryBuilt: false,
-			},
-		};
-		await this.storage.save(this.state);
-	}
-
-	/** Update onboarding checklist (partial merge). */
-	async updateOnboardingChecklist(update: Partial<OnboardingChecklist>): Promise<void> {
-		if (!this.state.onboardingChecklist) return;
-		if (update.milestones) {
-			Object.assign(this.state.onboardingChecklist.milestones, update.milestones);
-		}
-		if (update.dismissed !== undefined) this.state.onboardingChecklist.dismissed = update.dismissed;
-		if (update.collapsed !== undefined) this.state.onboardingChecklist.collapsed = update.collapsed;
-		await this.storage.save(this.state);
-	}
-
-	/** Dismiss the onboarding checklist permanently. */
-	async dismissOnboardingChecklist(): Promise<void> {
-		if (!this.state.onboardingChecklist) return;
-		this.state.onboardingChecklist.dismissed = true;
-		await this.storage.save(this.state);
 	}
 
 	/** Set the CSV reading callback (wired during setup). */

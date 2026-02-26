@@ -16,6 +16,7 @@ import { DataExchangeHubView, VIEW_TYPE_DATA_EXCHANGE_HUB } from "./ui/DataExcha
 import type { SignalService } from "./domain/signal/SignalService";
 import type { CanvasService } from "./domain/canvas/CanvasService";
 import type { AnalyticsService } from "./domain/analytics/AnalyticsService";
+import type { OnboardingService } from "./domain/onboarding/OnboardingService";
 import type { HubRegistry } from "./domain/hub/HubRegistry";
 export interface DataExchangeSetupDeps {
 	app: App;
@@ -24,6 +25,7 @@ export interface DataExchangeSetupDeps {
 	signalService?: SignalService;
 	canvasService?: CanvasService;
 	analyticsService?: AnalyticsService;
+	onboardingService: OnboardingService;
 	hubRegistry?: HubRegistry;
 	docsRootPath: string;
 	registerView: (type: string, factory: ViewCreator) => void;
@@ -168,6 +170,7 @@ export class DataExchangeSetup {
 				(savedConfig) => this.openExportWithSavedConfig(savedConfig),
 				(sourcePath, sourceType, format) => this.openExportView(sourcePath, sourceType, format),
 				(canvasPath, configId?, autoRun?) => this.openCanvasImportView(canvasPath, configId, autoRun),
+				this.deps.onboardingService,
 				this.deps.signalService,
 				this.deps.canvasService,
 			),

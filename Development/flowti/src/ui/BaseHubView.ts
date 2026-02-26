@@ -10,6 +10,7 @@
 import { ItemView, setIcon } from "obsidian";
 import type { WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../infrastructure/events/types";
+import type { OnboardingService } from "../domain/onboarding/OnboardingService";
 import { buildSplitLayout, type SplitLayout } from "./catalog/helpers";
 
 // ─────────────────────────────────────────────────────────────
@@ -242,6 +243,56 @@ export abstract class BaseHubView<TPage extends string = string> extends ItemVie
 	 */
 	protected onNavigateToEntity(_tabId: string, _entityId: string): void {
 		// Default: no-op. Override in subclass.
+	}
+
+	/**
+	 * Render a first-visit onboarding callout banner at the top of a container.
+	 * Shows only on the first visit and if the callout hasn't been dismissed.
+	 */
+	protected renderOnboardingCallout(
+		container: HTMLElement,
+		onboardingService: OnboardingService,
+		callout: { id: string; icon: string; title: string; description: string; suggestion: string },
+	): void {
+		const viewType = this.getHubId();
+
+		// Don't show if already visited or callout already dismissed
+		if (onboardingService.hasVisited(viewType) || onboardingService.isCalloutDismissed(callout.id)) {
+			// Always record the visit (idempotent)
+			void onboardingService.recordFirstVisit(viewType);
+			return;
+		}
+
+		// Record first visit
+		void onboardingService.recordFirstVisit(viewType);
+
+		const banner = container.createDiv({ cls: "ft-card ft-p-3 ft-mb-3" });
+		banner.style.cssText = "border:1px solid var(--background-modifier-border);position:relative";
+
+		// Dismiss button (top-right)
+		const dismissBtn = banner.createEl("span", { cls: "ft-nav-link ft-text-xs" });
+		dismissBtn.textContent = "\u2715";
+		dismissBtn.title = "Dismiss";
+		dismissBtn.style.cssText = "position:absolute;top:0.5rem;right:0.75rem;cursor:pointer";
+		dismissBtn.addEventListener("click", () => {
+			void onboardingService.markCalloutDismissed(callout.id);
+			banner.remove();
+		});
+
+		// Icon + title
+		const titleRow = banner.createDiv({ cls: "ft-flex ft-gap-2 ft-items-center ft-mb-1" });
+		const iconEl = titleRow.createSpan();
+		setIcon(iconEl, callout.icon);
+		iconEl.style.cssText = "display:inline-flex;align-items:center;opacity:0.6";
+		titleRow.createSpan({ text: callout.title, cls: "ft-font-medium ft-text-sm" });
+
+		// Description
+		banner.createDiv({ text: callout.description, cls: "ft-text-sm ft-text-muted ft-mb-1" });
+
+		// Suggestion
+		const suggestEl = banner.createDiv({ cls: "ft-text-xs ft-text-muted" });
+		suggestEl.style.fontStyle = "italic";
+		suggestEl.textContent = `\u2192 ${callout.suggestion}`;
 	}
 
 	/** Debounced render — dispatches to onDashboardRender() or onTabRender(). */

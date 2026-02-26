@@ -22,6 +22,7 @@ import {
 import type { IViewRegistry, ViewDefinition } from "./types";
 import type { FlowtiSettings } from "../../domain/settings/settings";
 import type { DiscoveredEvent } from "../../domain/discovery/types";
+import type { OnboardingService } from "../../domain/onboarding/OnboardingService";
 
 /**
  * Provides current state for views opened mid-session.
@@ -43,6 +44,7 @@ export interface ViewStateProvider {
 export interface ViewDependencies {
 	eventBus: IEventBus;
 	state: ViewStateProvider;
+	onboardingService: OnboardingService;
 }
 
 /**
@@ -63,7 +65,7 @@ export function createViewDefinitions(deps: ViewDependencies): ViewDefinition[] 
 			type: VIEW_TYPE_EVENT_CATALOG,
 			displayName: "Event Catalog",
 			icon: "list",
-			factory: (leaf) => new EventCatalogView(leaf, deps.eventBus, deps.state),
+			factory: (leaf) => new EventCatalogView(leaf, deps.eventBus, deps.state, deps.onboardingService),
 		},
 		{
 			type: VIEW_TYPE_EVENT_LOG,

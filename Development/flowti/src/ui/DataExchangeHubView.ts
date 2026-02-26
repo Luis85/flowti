@@ -17,6 +17,7 @@ import type {
 } from "../domain/dataExchange/types";
 import type { FrontmatterIssue, HubPage, HubState, HubComponentDeps, HubNavigationCallbacks, CsvFileEntry, ReportEntry } from "./hub/types";
 import { BaseHubView, type TabDef } from "./BaseHubView";
+import type { OnboardingService } from "../domain/onboarding/OnboardingService";
 import { HubDashboard } from "./hub/HubDashboard";
 import { ImportsTab } from "./hub/ImportsTab";
 import { ExportsTab } from "./hub/ExportsTab";
@@ -37,6 +38,7 @@ export type DXTab = "imports" | "exports" | "reports" | "properties" | "pipeline
 
 export class DataExchangeHubView extends BaseHubView<DXTab> {
 	private dataExchangeService: DataExchangeService;
+	private onboardingService: OnboardingService;
 	private signalService?: SignalService;
 	private canvasService?: CanvasService;
 	private openCsvImportCb: (csvPath: string, savedConfig?: SavedImportConfig) => void;
@@ -90,11 +92,13 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 		openExport: (savedConfig: SavedExportConfig) => void,
 		openNewExport: (sourcePath: string, sourceType: "folder" | "base", format: ExportFormat) => void,
 		openCanvasImport: (canvasPath: string, configId?: string, autoRun?: boolean) => void,
+		onboardingService: OnboardingService,
 		signalService?: SignalService,
 		canvasService?: CanvasService,
 	) {
 		super(leaf, eventBus);
 		this.dataExchangeService = dataExchangeService;
+		this.onboardingService = onboardingService;
 		this.signalService = signalService;
 		this.canvasService = canvasService;
 		this.openCsvImportCb = openCsvImport;
@@ -430,6 +434,14 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 	}
 
 	onDashboardRender(): void {
+		this.renderOnboardingCallout(this.dashboardEl, this.onboardingService, {
+			id: "data-exchange-welcome",
+			icon: "arrow-left-right",
+			title: "Welcome to the Data Exchange Hub",
+			description: "Import CSVs, export vault data, and build multi-source pipelines — all from one place.",
+			suggestion: "Try importing a CSV to create structured notes from external data.",
+		});
+
 		this.refreshConfigs();
 		this.dashboard.render();
 	}

@@ -35,6 +35,21 @@ export class HubDashboard {
 
 		const state = this.deps.getState();
 
+		// Check if all sections are empty
+		const hasContent = state.dictionaryEntries.length > 0
+			|| state.csvFileEntries.length > 0
+			|| state.typeEntries.length > 0
+			|| state.canvasConfigs.length > 0
+			|| state.importConfigs.length > 0
+			|| state.exportConfigs.length > 0
+			|| state.pipelineConfigs.length > 0
+			|| state.activeOperations.length > 0;
+
+		if (!hasContent) {
+			this.renderEmptyState();
+			return;
+		}
+
 		// ── Title bar ──
 		const titleBar = this.dashboardEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-mb-3" });
 		titleBar.style.borderBottom = "1px solid var(--background-modifier-border)";
@@ -68,6 +83,73 @@ export class HubDashboard {
 
 		// Section 5: Configured Exports
 		renderConfiguredExports(this.dashboardEl, this.deps, this.renderSectionHeader.bind(this));
+	}
+
+	// ─────────────────────────────────────────────────────────
+	// Empty state
+	// ─────────────────────────────────────────────────────────
+
+	private renderEmptyState(): void {
+		const wrapper = this.dashboardEl.createDiv({ cls: "ft-empty-state" });
+		wrapper.style.cssText = "text-align:center;padding:2.5rem 1.5rem 1.5rem";
+
+		// Hero icon
+		const iconEl = wrapper.createDiv();
+		setIcon(iconEl, "file-input");
+		iconEl.style.cssText = "opacity:0.35;margin-bottom:0.75rem";
+		const svg = iconEl.querySelector("svg");
+		if (svg) { svg.style.width = "2.5rem"; svg.style.height = "2.5rem"; }
+
+		// Heading
+		const heading = wrapper.createDiv({ text: "Welcome to the Data Exchange Hub" });
+		heading.style.cssText = "font-weight:600;font-size:var(--font-ui-medium);margin-bottom:0.35rem";
+
+		// Subtitle
+		wrapper.createDiv({
+			text: "Import CSVs, export vault data, and build automated pipelines \u2014 all from one place.",
+			cls: "ft-text-sm ft-text-muted",
+		}).style.marginBottom = "1.5rem";
+
+		// Action cards grid
+		const grid = wrapper.createDiv();
+		grid.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;max-width:440px;margin:0 auto;text-align:left";
+
+		// Card 1: Import a CSV
+		this.renderActionCard(grid, {
+			icon: "file-input",
+			title: "Import a CSV",
+			description: "Drop a CSV into your vault and configure an import to create structured notes",
+			onClick: () => this.deps.navigation.navigateTo("imports"),
+		});
+
+		// Card 2: Create a Pipeline
+		this.renderActionCard(grid, {
+			icon: "workflow",
+			title: "Create a Pipeline",
+			description: "Chain multiple CSV sources into an automated import-export workflow",
+			onClick: () => this.deps.navigation.navigateTo("pipelines"),
+		});
+	}
+
+	private renderActionCard(
+		container: HTMLElement,
+		opts: { icon: string; title: string; description: string; onClick: () => void },
+	): void {
+		const card = container.createDiv({ cls: "ft-stat-card" });
+		card.style.cssText = "cursor:pointer;padding:1rem;display:flex;flex-direction:column;gap:0.5rem";
+
+		const titleRow = card.createDiv();
+		titleRow.style.cssText = "display:flex;align-items:center;gap:0.4rem;font-weight:600;font-size:var(--font-ui-small)";
+		const iconEl = titleRow.createSpan();
+		setIcon(iconEl, opts.icon);
+		iconEl.style.cssText = "display:inline-flex;align-items:center";
+		const iconSvg = iconEl.querySelector("svg");
+		if (iconSvg) { iconSvg.style.width = "14px"; iconSvg.style.height = "14px"; }
+		titleRow.createSpan({ text: opts.title });
+
+		card.createDiv({ text: opts.description, cls: "ft-text-xs ft-text-muted" });
+
+		card.addEventListener("click", opts.onClick);
 	}
 
 	// ─────────────────────────────────────────────────────────

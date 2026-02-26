@@ -167,6 +167,7 @@ export const EVENT_CATEGORIES = [
 	"Train",
 	"Canvas",
 	"Analytics",
+	"Onboarding",
 ] as const;
 
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
@@ -587,6 +588,13 @@ const CATALOG_DATA = {
 	"analytics.measurement.deleted":    { category: "Analytics", description: "A measurement was deleted", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
 	"analytics.measurement.favorited":  { category: "Analytics", description: "A measurement's favorite status was toggled", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
 	"analytics.reset":                  { category: "Analytics", description: "All analytics data was reset (queries, dashboards, templates, measurements)", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService" },
+
+	// ── Onboarding events ─────────────────────────────────────
+
+	"onboarding.started":        { category: "Onboarding", description: "Onboarding initialised after first install", direction: "Service → Listeners", domain: "onboarding", services: "OnboardingService" },
+	"onboarding.step.completed": { category: "Onboarding", description: "An onboarding milestone was completed", direction: "Service → Listeners", domain: "onboarding", services: "OnboardingService" },
+	"onboarding.completed":      { category: "Onboarding", description: "All onboarding milestones completed", direction: "Service → Listeners", domain: "onboarding", services: "OnboardingService" },
+	"onboarding.reset":          { category: "Onboarding", description: "Onboarding state was reset from Settings", direction: "Service → Listeners", domain: "onboarding", services: "OnboardingService" },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

@@ -7,7 +7,8 @@
  */
 
 import { setIcon } from "obsidian";
-import type { Dashboard, DashboardTile, OnboardingChecklist } from "../../domain/analytics/types";
+import type { Dashboard, DashboardTile } from "../../domain/analytics/types";
+import type { OnboardingChecklist } from "../../domain/onboarding/types";
 import { resolveDateRangeFilter } from "../../domain/analytics/dateUtils";
 import { computeFreshnessSummary, getFreshnessLevel, getFreshnessColor } from "../../domain/analytics/freshnessUtils";
 import { seedSupplierDashboard } from "../../domain/installer/seedDashboard";
@@ -117,7 +118,7 @@ export class AnalyticsDashboardPage {
 	// ── Onboarding checklist (Cycle 46, PBI-ONB-007) ────────
 
 	private renderOnboardingChecklist(_dashboard: Dashboard): void {
-		const checklist = this.deps.analyticsService.getOnboardingChecklist();
+		const checklist = this.deps.onboardingService.getChecklist();
 		if (!checklist || checklist.dismissed) return;
 
 		// Auto-update milestones based on current state
@@ -127,14 +128,14 @@ export class AnalyticsDashboardPage {
 		const ms = checklist.milestones;
 		const allComplete = ms.installed && ms.dashboardExplored && ms.sampleDataReviewed && ms.ownDataImported && ms.customQueryBuilt;
 		if (allComplete) {
-			void this.deps.analyticsService.dismissOnboardingChecklist();
+			void this.deps.onboardingService.dismissChecklist();
 			return;
 		}
 
 		// Mark dashboardExplored since we're rendering a dashboard
 		if (!ms.dashboardExplored) {
 			ms.dashboardExplored = true;
-			void this.deps.analyticsService.updateOnboardingChecklist({ milestones: ms });
+			void this.deps.onboardingService.updateChecklist({ milestones: ms });
 		}
 
 		const container = this.containerEl.createDiv({ cls: "ft-card ft-p-3 ft-mb-3" });
@@ -162,7 +163,7 @@ export class AnalyticsDashboardPage {
 		const collapseBtn = actions.createEl("span", { cls: "ft-nav-link ft-text-xs" });
 		collapseBtn.textContent = checklist.collapsed ? "Expand" : "Collapse";
 		collapseBtn.addEventListener("click", () => {
-			void this.deps.analyticsService.updateOnboardingChecklist({ collapsed: !checklist.collapsed });
+			void this.deps.onboardingService.updateChecklist({ collapsed: !checklist.collapsed });
 			this.deps.scheduleRender();
 		});
 
@@ -171,7 +172,7 @@ export class AnalyticsDashboardPage {
 		dismissBtn.textContent = "\u2715";
 		dismissBtn.title = "Dismiss checklist";
 		dismissBtn.addEventListener("click", () => {
-			void this.deps.analyticsService.dismissOnboardingChecklist();
+			void this.deps.onboardingService.dismissChecklist();
 			this.deps.scheduleRender();
 		});
 
@@ -228,7 +229,7 @@ export class AnalyticsDashboardPage {
 		}
 
 		if (changed) {
-			void this.deps.analyticsService.updateOnboardingChecklist({ milestones: ms });
+			void this.deps.onboardingService.updateChecklist({ milestones: ms });
 		}
 	}
 

@@ -7,6 +7,7 @@ import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import type { TrainState, ThoughtNode } from "../../../src/domain/train/types";
 import type { TrainService } from "../../../src/domain/train/TrainService";
+import type { OnboardingService } from "../../../src/domain/onboarding/OnboardingService";
 
 // ── Helpers ──────────────────────────────────────────────
 
@@ -54,6 +55,15 @@ function createMockTrainService(trains: TrainState[] = []): TrainService {
 	} as unknown as TrainService;
 }
 
+function createMockOnboardingService(): OnboardingService {
+	return {
+		hasVisited: vi.fn(() => true),
+		isCalloutDismissed: vi.fn(() => false),
+		recordFirstVisit: vi.fn(async () => {}),
+		markCalloutDismissed: vi.fn(async () => {}),
+	} as unknown as OnboardingService;
+}
+
 /** Prepare containerEl for BaseHubView — needs 2 children (Obsidian adds them). */
 function prepareContainerEl(view: TrainHubView): void {
 	const el = (view as unknown as { containerEl: HTMLElement }).containerEl;
@@ -76,28 +86,28 @@ describe("TrainHubView", () => {
 
 	describe("identity", () => {
 		it("returns correct view type", () => {
-			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb);
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb, createMockOnboardingService());
 			expect(view.getViewType()).toBe(VIEW_TYPE_TRAIN_HUB);
 			expect(view.getViewType()).toBe("flowti-train-hub");
 		});
 
 		it("returns train-front icon", () => {
-			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb);
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb, createMockOnboardingService());
 			expect(view.getIcon()).toBe("train-front");
 		});
 
 		it("returns Train Hub display text", () => {
-			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb);
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb, createMockOnboardingService());
 			expect(view.getDisplayText()).toBe("Train Hub");
 		});
 
 		it("has hub ID 'train-hub'", () => {
-			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb);
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb, createMockOnboardingService());
 			expect(view.getHubId()).toBe("train-hub");
 		});
 
 		it("has hub type 'domain'", () => {
-			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb);
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb, createMockOnboardingService());
 			expect(view.getHubType()).toBe("domain");
 		});
 	});
@@ -106,7 +116,7 @@ describe("TrainHubView", () => {
 
 	describe("tabs", () => {
 		it("defines 2 tabs: active and history", () => {
-			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb);
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb, createMockOnboardingService());
 			const tabs = view.getTabDefinitions();
 			expect(tabs).toHaveLength(2);
 			expect(tabs[0].id).toBe("active");
@@ -114,13 +124,13 @@ describe("TrainHubView", () => {
 		});
 
 		it("active tab has play icon", () => {
-			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb);
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb, createMockOnboardingService());
 			const tabs = view.getTabDefinitions();
 			expect(tabs[0].icon).toBe("play");
 		});
 
 		it("history tab has history icon", () => {
-			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb);
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb, createMockOnboardingService());
 			const tabs = view.getTabDefinitions();
 			expect(tabs[1].icon).toBe("history");
 		});
@@ -130,7 +140,7 @@ describe("TrainHubView", () => {
 
 	describe("dashboard rendering", () => {
 		it("renders dashboard with Train Hub heading", async () => {
-			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb);
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb, createMockOnboardingService());
 			prepareContainerEl(view);
 			await view.onOpen();
 
@@ -144,7 +154,7 @@ describe("TrainHubView", () => {
 				createTrain({ id: "t2", status: "paused" }),
 				createTrain({ id: "t3", status: "completed", completedAt: "2026-02-23T11:00:00Z" }),
 			];
-			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(trains), openTrainCb);
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(trains), openTrainCb, createMockOnboardingService());
 			prepareContainerEl(view);
 			await view.onOpen();
 
@@ -160,7 +170,7 @@ describe("TrainHubView", () => {
 				status: "running",
 				thoughts: [createThought(), createThought()],
 			});
-			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService([train]), openTrainCb);
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService([train]), openTrainCb, createMockOnboardingService());
 			prepareContainerEl(view);
 			await view.onOpen();
 
@@ -172,7 +182,7 @@ describe("TrainHubView", () => {
 
 		it("does not render active train card when no train is running", async () => {
 			const train = createTrain({ status: "completed", completedAt: "2026-02-23T11:00:00Z" });
-			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService([train]), openTrainCb);
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService([train]), openTrainCb, createMockOnboardingService());
 			prepareContainerEl(view);
 			await view.onOpen();
 
@@ -185,7 +195,7 @@ describe("TrainHubView", () => {
 				createTrain({ id: "t1", thoughts: [createThought(), createThought(), createThought()] }),
 				createTrain({ id: "t2", thoughts: [createThought()] }),
 			];
-			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(trains), openTrainCb);
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(trains), openTrainCb, createMockOnboardingService());
 			prepareContainerEl(view);
 			await view.onOpen();
 
@@ -199,7 +209,7 @@ describe("TrainHubView", () => {
 
 	describe("event subscriptions", () => {
 		it("subscribes to train lifecycle events on open", async () => {
-			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb);
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb, createMockOnboardingService());
 			prepareContainerEl(view);
 			await view.onOpen();
 
@@ -213,7 +223,7 @@ describe("TrainHubView", () => {
 		});
 
 		it("subscribes to train.completed for re-render", async () => {
-			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb);
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb, createMockOnboardingService());
 			prepareContainerEl(view);
 			await view.onOpen();
 
@@ -226,7 +236,7 @@ describe("TrainHubView", () => {
 		});
 
 		it("subscribes to train.deleted for re-render", async () => {
-			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb);
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb, createMockOnboardingService());
 			prepareContainerEl(view);
 			await view.onOpen();
 
@@ -239,7 +249,7 @@ describe("TrainHubView", () => {
 		});
 
 		it("cleans up subscriptions on close", async () => {
-			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb);
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb, createMockOnboardingService());
 			prepareContainerEl(view);
 			await view.onOpen();
 			await view.onClose();
@@ -259,7 +269,7 @@ describe("TrainHubView", () => {
 	describe("open train callback", () => {
 		it("calls openTrain when Open button clicked on dashboard active card", async () => {
 			const train = createTrain({ id: "active_train", status: "running" });
-			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService([train]), openTrainCb);
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService([train]), openTrainCb, createMockOnboardingService());
 			prepareContainerEl(view);
 			await view.onOpen();
 
@@ -278,7 +288,7 @@ describe("TrainHubView", () => {
 			const spy = vi.fn();
 			eventBus.on("hub.opened", spy);
 
-			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb);
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb, createMockOnboardingService());
 			prepareContainerEl(view);
 			await view.onOpen();
 
@@ -293,7 +303,7 @@ describe("TrainHubView", () => {
 			const spy = vi.fn();
 			eventBus.on("hub.closed", spy);
 
-			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb);
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb, createMockOnboardingService());
 			prepareContainerEl(view);
 			await view.onOpen();
 			await view.onClose();
@@ -312,7 +322,7 @@ describe("TrainHubView", () => {
 
 		it("renders type filter dropdown in top bar", async () => {
 			const trains = [createTrain({ trainType: "brainstorm" })];
-			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(trains), openTrainCb);
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(trains), openTrainCb, createMockOnboardingService());
 			prepareContainerEl(view);
 			await view.onOpen();
 
@@ -322,7 +332,7 @@ describe("TrainHubView", () => {
 		});
 
 		it("renders sort dropdown in top bar", async () => {
-			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb);
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(), openTrainCb, createMockOnboardingService());
 			prepareContainerEl(view);
 			await view.onOpen();
 
@@ -337,7 +347,7 @@ describe("TrainHubView", () => {
 				createTrain({ id: "t2", title: "Research B", trainType: "research", status: "completed", completedAt: "2026-02-23T12:00:00Z" }),
 				createTrain({ id: "t3", title: "Brainstorm C", trainType: "brainstorm", status: "completed", completedAt: "2026-02-23T13:00:00Z" }),
 			];
-			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(trains), openTrainCb);
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(trains), openTrainCb, createMockOnboardingService());
 			prepareContainerEl(view);
 			await view.onOpen();
 
@@ -361,7 +371,7 @@ describe("TrainHubView", () => {
 				createTrain({ id: "t1", title: "Few", trainType: "brainstorm", status: "completed", completedAt: "2026-02-23T11:00:00Z", thoughts: [createThought()] }),
 				createTrain({ id: "t2", title: "Many", trainType: "research", status: "completed", completedAt: "2026-02-23T12:00:00Z", thoughts: [createThought(), createThought(), createThought()] }),
 			];
-			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(trains), openTrainCb);
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(trains), openTrainCb, createMockOnboardingService());
 			prepareContainerEl(view);
 			await view.onOpen();
 
@@ -385,7 +395,7 @@ describe("TrainHubView", () => {
 				createTrain({ id: "t2", title: "Beta Brainstorm", trainType: "brainstorm", status: "completed", completedAt: "2026-02-23T12:00:00Z" }),
 				createTrain({ id: "t3", title: "Alpha Research", trainType: "research", status: "completed", completedAt: "2026-02-23T13:00:00Z" }),
 			];
-			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(trains), openTrainCb);
+			const view = new TrainHubView(createMockLeaf(), eventBus, createMockTrainService(trains), openTrainCb, createMockOnboardingService());
 			prepareContainerEl(view);
 			await view.onOpen();
 

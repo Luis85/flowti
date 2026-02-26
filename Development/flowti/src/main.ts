@@ -34,6 +34,7 @@ import { TrainCanvasSyncService } from "./domain/train/TrainCanvasSyncService";
 import { getCanvasPath } from "./domain/train/helpers";
 import type { CanvasService } from "./domain/canvas/CanvasService";
 import type { AnalyticsService } from "./domain/analytics/AnalyticsService";
+import type { OnboardingService } from "./domain/onboarding/OnboardingService";
 import { seedSupplierDashboard } from "./domain/installer/seedDashboard";
 import { QuickCaptureModal } from "./ui/capture/QuickCaptureModal";
 import { TrainCaptureModal } from "./ui/train/TrainCaptureModal";
@@ -121,6 +122,7 @@ export default class FlowtiBasePlugin extends Plugin {
 	private trainService?: TrainService;
 	private canvasService?: CanvasService;
 	private analyticsService?: AnalyticsService;
+	private onboardingService?: OnboardingService;
 	private ingestionStatusBar?: IngestionStatusBar;
 	private collapsedCategories = new Set<string>();
 	private uiCommandService?: UiCommandService;
@@ -216,6 +218,7 @@ export default class FlowtiBasePlugin extends Plugin {
 				saveSettings: () => this.saveSettings(),
 				getInstallerService: () => this.services.get<IInstallerService>("installerService"),
 				getAnalyticsService: () => this.analyticsService,
+				getOnboardingService: () => this.onboardingService,
 			}));
 			this.bindViews();
 			this.bindCommands();
@@ -535,6 +538,7 @@ export default class FlowtiBasePlugin extends Plugin {
 				getDiscoveredEvents: () => this.discoveryService?.getDiscoveredEvents() ?? [],
 				collapsedCategories: this.collapsedCategories,
 			},
+			onboardingService: this.onboardingService!,
 		});
 	}
 
@@ -793,6 +797,10 @@ export default class FlowtiBasePlugin extends Plugin {
 				.map((f) => f.path);
 		});
 
+		// Onboarding Service — post-install guidance (migrates from AnalyticsState)
+		this.onboardingService = await this.services.get<OnboardingService>("onboardingService");
+		await this.onboardingService.load();
+
 		// Train Main View — register view factory + auto-open on train start
 		this.registerView(VIEW_TYPE_TRAIN_MAIN, (leaf) =>
 			new TrainMainView(leaf, this.eventBus, this.trainService!, () => ({
@@ -823,7 +831,7 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.registerView(VIEW_TYPE_TRAIN_HUB, (leaf) =>
 			new TrainHubView(leaf, this.eventBus, this.trainService!, (trainId) => {
 				this.revealOrCreateTrainView(trainId);
-			}),
+			}, this.onboardingService!),
 		);
 
 		// Open Train Hub on command
@@ -843,7 +851,7 @@ export default class FlowtiBasePlugin extends Plugin {
 
 		// Analytics Hub — dedicated analytics view
 		this.registerView(VIEW_TYPE_ANALYTICS_HUB, (leaf) =>
-			new AnalyticsHubView(leaf, this.eventBus, this.analyticsService!),
+			new AnalyticsHubView(leaf, this.eventBus, this.analyticsService!, this.onboardingService!),
 		);
 
 		// Open Analytics Hub on command
@@ -861,13 +869,14 @@ export default class FlowtiBasePlugin extends Plugin {
 			}),
 		);
 
-		// Seed supplier dashboard after first-run install completes
+		// Seed supplier dashboard and init onboarding after first-run install
 		this.crossCuttingListeners.push(
 			this.eventBus.on("installer.completed", () => {
-				const svc = this.analyticsService;
-				if (svc) {
-					void seedSupplierDashboard(svc).then(() =>
-						svc.initOnboardingChecklist(),
+				const analyticsSvc = this.analyticsService;
+				const onboardingSvc = this.onboardingService;
+				if (analyticsSvc) {
+					void seedSupplierDashboard(analyticsSvc).then(() =>
+						onboardingSvc?.initChecklist(),
 					);
 				}
 			}),
@@ -1344,6 +1353,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			signalService: this.signalService,
 			canvasService: this.canvasService,
 			analyticsService: this.analyticsService,
+			onboardingService: this.onboardingService!,
 			hubRegistry: this.hubRegistry,
 			docsRootPath: settingsService.getSettings().docsRootPath,
 			registerView: (type, factory) => this.registerView(type, factory),
@@ -1384,7 +1394,7 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.hubRegistry.register(new AnalyticsHubProvider(this.analyticsService!));
 
 		this.registerView(VIEW_TYPE_USER_HUB, (leaf) =>
-			new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.sessionService!, this.nudgeService!, this.settings.inboxEnabledSources, this.settings, this.trainService),
+			new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.sessionService!, this.nudgeService!, this.onboardingService!, this.settings.inboxEnabledSources, this.settings, this.trainService),
 		);
 		this.hubRegistry.register(new UserHubProvider(this.userService, this.inboxService!));
 

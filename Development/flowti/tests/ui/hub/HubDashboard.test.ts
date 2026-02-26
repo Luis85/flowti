@@ -12,7 +12,14 @@ describe("HubDashboard", () => {
 
 	beforeEach(() => {
 		container = document.createElement("div");
-		({ deps } = createMockHubDeps());
+		// Include at least one CSV file so the normal dashboard path renders (not the empty state)
+		({ deps } = createMockHubDeps({
+			state: {
+				csvFileEntries: [
+					{ path: "data.csv", name: "data.csv", displayName: "data.csv", importConfigs: [], exportConfigs: [], hasDoc: false, baseViews: [] },
+				],
+			},
+		}));
 	});
 
 	// ── render creates dashboard content ──────────────────────
@@ -32,7 +39,7 @@ describe("HubDashboard", () => {
 			expect(heading!.textContent).toContain("Data Exchange");
 		});
 
-		it("should render with empty state (no imports, exports, operations)", () => {
+		it("should render welcome empty state when all sections are empty", () => {
 			const { deps: emptyDeps } = createMockHubDeps({
 				state: {
 					importConfigs: [],
@@ -49,10 +56,73 @@ describe("HubDashboard", () => {
 			const dashboard = new HubDashboard(container, emptyDeps);
 			dashboard.render();
 
-			// Should still render the title bar at minimum
+			// Should show the empty state hero
+			expect(container.querySelector(".ft-empty-state")).not.toBeNull();
+			expect(container.textContent).toContain("Welcome to the Data Exchange Hub");
+			expect(container.textContent).toContain("Import a CSV");
+			expect(container.textContent).toContain("Create a Pipeline");
+		});
+
+		it("should not show empty state when CSV files exist", () => {
+			const { deps: populatedDeps } = createMockHubDeps({
+				state: {
+					csvFileEntries: [
+						{ path: "data.csv", name: "data.csv", displayName: "data.csv", importConfigs: [], exportConfigs: [], hasDoc: false, baseViews: [] },
+					],
+				},
+			});
+			const dashboard = new HubDashboard(container, populatedDeps);
+			dashboard.render();
+
+			expect(container.querySelector(".ft-empty-state")).toBeNull();
 			const heading = container.querySelector("h2");
 			expect(heading).not.toBeNull();
 			expect(heading!.textContent).toContain("Data Exchange Hub");
+		});
+
+		it("should navigate to imports when Import a CSV card is clicked", () => {
+			const { deps: emptyDeps } = createMockHubDeps({
+				state: {
+					importConfigs: [],
+					exportConfigs: [],
+					pipelineConfigs: [],
+					dictionaryEntries: [],
+					reportEntries: [],
+					typeEntries: [],
+					csvFileEntries: [],
+					canvasConfigs: [],
+					activeOperations: [],
+				},
+			});
+			const dashboard = new HubDashboard(container, emptyDeps);
+			dashboard.render();
+
+			const cards = container.querySelectorAll(".ft-stat-card");
+			expect(cards.length).toBe(2);
+			(cards[0] as HTMLElement).click();
+			expect(emptyDeps.navigation.navigateTo).toHaveBeenCalledWith("imports");
+		});
+
+		it("should navigate to pipelines when Create a Pipeline card is clicked", () => {
+			const { deps: emptyDeps } = createMockHubDeps({
+				state: {
+					importConfigs: [],
+					exportConfigs: [],
+					pipelineConfigs: [],
+					dictionaryEntries: [],
+					reportEntries: [],
+					typeEntries: [],
+					csvFileEntries: [],
+					canvasConfigs: [],
+					activeOperations: [],
+				},
+			});
+			const dashboard = new HubDashboard(container, emptyDeps);
+			dashboard.render();
+
+			const cards = container.querySelectorAll(".ft-stat-card");
+			(cards[1] as HTMLElement).click();
+			expect(emptyDeps.navigation.navigateTo).toHaveBeenCalledWith("pipelines");
 		});
 
 		it("should show section headers when data is present", () => {

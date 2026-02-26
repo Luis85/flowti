@@ -41,6 +41,24 @@ export class UserHubDashboard {
 		this.container.empty();
 
 		this.renderWelcome();
+
+		// Check if the hub has real content beyond the static welcome
+		const hasActiveSession = !!this.deps.sessionService.getActiveSession();
+		const hasActiveTrain = !!this.deps.trainService?.getActiveTrain();
+		const hasInboxItems = this.deps.inboxService.getItems().length > 0;
+		const hasHubSummaries = this.deps.hubRegistry
+			.getAll()
+			.filter((p) => p.getHubId() !== "user-hub")
+			.some((p) => p.getSummary().stats.length > 0);
+
+		if (!hasActiveSession && !hasActiveTrain && !hasInboxItems && !hasHubSummaries) {
+			this.renderEmptyState();
+			this.renderNextNudge();
+			this.renderQuickActions();
+			this.renderInboxSection();
+			return;
+		}
+
 		this.renderNextNudge();
 		this.renderActiveSession();
 		this.renderActiveTrain();
@@ -77,6 +95,68 @@ export class UserHubDashboard {
 		const greeting = user ? `Welcome, ${user.name}` : "Welcome to Flowti";
 
 		section.createEl("h2", { text: greeting, cls: "ft-heading" }).style.margin = "0";
+	}
+
+	private renderEmptyState(): void {
+		const wrapper = this.container.createDiv({ cls: "ft-empty-state" });
+		wrapper.style.cssText = "text-align:center;padding:1.5rem 1.5rem 1rem";
+
+		// Hero icon
+		const iconEl = wrapper.createDiv();
+		setIcon(iconEl, "user");
+		iconEl.style.cssText = "opacity:0.35;margin-bottom:0.75rem";
+		const svg = iconEl.querySelector("svg");
+		if (svg) { svg.style.width = "2.5rem"; svg.style.height = "2.5rem"; }
+
+		// Heading
+		const heading = wrapper.createDiv({ text: "Welcome to Your Hub" });
+		heading.style.cssText = "font-weight:600;font-size:var(--font-ui-medium);margin-bottom:0.35rem";
+
+		// Subtitle
+		wrapper.createDiv({
+			text: "Your personal dashboard showing hub summaries, active sessions, and inbox notifications.",
+			cls: "ft-text-sm ft-text-muted",
+		}).style.marginBottom = "1.5rem";
+
+		// Action cards grid
+		const grid = wrapper.createDiv();
+		grid.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;max-width:440px;margin:0 auto;text-align:left";
+
+		// Card 1: Open Analytics Hub
+		const card1 = grid.createDiv({ cls: "ft-stat-card" });
+		card1.style.cssText = "cursor:pointer;padding:1rem;display:flex;flex-direction:column;gap:0.5rem";
+		const title1 = card1.createDiv();
+		title1.style.cssText = "display:flex;align-items:center;gap:0.4rem;font-weight:600;font-size:var(--font-ui-small)";
+		const icon1 = title1.createSpan();
+		setIcon(icon1, "bar-chart-big");
+		icon1.style.cssText = "display:inline-flex;align-items:center";
+		const svg1 = icon1.querySelector("svg");
+		if (svg1) { svg1.style.width = "14px"; svg1.style.height = "14px"; }
+		title1.createSpan({ text: "Open Analytics Hub" });
+		card1.createDiv({ text: "Explore your dashboards and query data from CSV sources", cls: "ft-text-xs ft-text-muted" });
+		card1.addEventListener("click", () => {
+			void this.deps.eventBus.emit("ui.openAnalyticsHub", {});
+		});
+
+		// Card 2: Start a Session
+		const card2 = grid.createDiv({ cls: "ft-stat-card" });
+		card2.style.cssText = "cursor:pointer;padding:1rem;display:flex;flex-direction:column;gap:0.5rem";
+		const title2 = card2.createDiv();
+		title2.style.cssText = "display:flex;align-items:center;gap:0.4rem;font-weight:600;font-size:var(--font-ui-small)";
+		const icon2 = title2.createSpan();
+		setIcon(icon2, "timer");
+		icon2.style.cssText = "display:inline-flex;align-items:center";
+		const svg2 = icon2.querySelector("svg");
+		if (svg2) { svg2.style.width = "14px"; svg2.style.height = "14px"; }
+		title2.createSpan({ text: "Start a Session" });
+		card2.createDiv({ text: "Begin a focused work session to capture notes and decisions", cls: "ft-text-xs ft-text-muted" });
+		card2.addEventListener("click", () => {
+			if (this.deps.onCreateSession) {
+				this.deps.onCreateSession();
+			} else {
+				this.deps.navigateToTab("sessions");
+			}
+		});
 	}
 
 	private renderNextNudge(): void {

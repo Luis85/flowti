@@ -30,6 +30,7 @@ import { CaptureService } from "../../domain/capture/CaptureService";
 import { TrainService } from "../../domain/train/TrainService";
 import { CanvasService } from "../../domain/canvas/CanvasService";
 import { AnalyticsService } from "../../domain/analytics/AnalyticsService";
+import { OnboardingService } from "../../domain/onboarding/OnboardingService";
 import { DocService } from "../../domain/docs/DocService";
 import { FileSystemClient } from "../filesystem/FileSystemClient";
 import type { IServiceContainer, ServiceRegistration } from "./types";
@@ -298,6 +299,21 @@ export function createServiceRegistrations(
 					storage: createTypedStorage(storage, "analytics", container),
 					eventBus,
 					fileSystem: new FileSystemClient({ eventBus }),
+				});
+			},
+		},
+
+		// Onboarding Service - post-install guidance and checklist
+		{
+			id: "onboardingService",
+			dependencies: ["analyticsService"],
+			factory: async (container: IServiceContainer) => {
+				const analyticsService = await container.get<AnalyticsService>("analyticsService");
+				const eventBus = container.getEventBus();
+				return new OnboardingService({
+					storage: createTypedStorage(storage, "onboarding", container),
+					eventBus,
+					readLegacyChecklist: () => analyticsService.getOnboardingChecklist(),
 				});
 			},
 		},

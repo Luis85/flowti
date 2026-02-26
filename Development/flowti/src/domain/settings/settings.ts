@@ -61,6 +61,7 @@ export const DEFAULT_CATALOG_CATEGORIES: CatalogCategoryConfig[] = [
 	{ name: "Train", visible: true },
 	{ name: "Canvas", visible: true },
 	{ name: "Analytics", visible: true },
+	{ name: "Onboarding", visible: true },
 ];
 
 // ─────────────────────────────────────────────────────────────
