@@ -40,3 +40,8 @@ Sessions currently open as a standalone workspace view. There is no way to ancho
 - [ ] Canvas file linked as session artifact
 - [ ] Post-session import prompt for canvas nodes
 - [ ] `npm run build` passes
+
+
+---
+> [!merged] Merged from: Canvas should be the leading interface for sessions.md
+> This vague direction note is now consolidated into the concrete PBI-CAN-003 spec.

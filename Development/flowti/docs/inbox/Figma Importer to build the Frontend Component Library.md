@@ -9,3 +9,8 @@ tags:
 priority: 0 - low
 rank:
 ---
+
+
+---
+> [!merged] Merged from: Building the Frontend with JSON.md
+> Both items explore declarative/generated UI approaches. Consolidated here.

@@ -55,3 +55,8 @@ The current `FolderScaffoldStep` in the installer creates a fixed set of 23 PARA
 - [ ] Existing tests pass with config-driven approach
 - [ ] New test: custom folder config produces correct folder tree
 - [ ] `npm run build` passes
+
+
+---
+> [!merged] Merged from: I want to provide a folder-structure as json to the installer.md
+> Same concept (RB-1). This file is the elaborated version.

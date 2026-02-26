@@ -123,6 +123,9 @@ views:
       note.rank: 74
   - type: table
     name: Index
+    groupBy:
+      property: type
+      direction: ASC
     order:
       - type
       - file.name
@@ -132,8 +135,6 @@ views:
       - rank
       - tags
     sort:
-      - property: type
-        direction: ASC
       - property: priority
         direction: DESC
       - property: file.mtime

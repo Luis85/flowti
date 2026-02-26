@@ -14,3 +14,8 @@ related:
   - "[[Data Exchange Hub PRD]]"
 tags:
 ---
+
+
+---
+> [!merged] Merged from: Can we use Git to track lead- and cycle-time of items.md
+> Git-based tracking is a sub-approach to this broader lead/cycle-time tracking item.
