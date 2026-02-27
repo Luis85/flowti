@@ -3,7 +3,9 @@ type: TechDebt
 severity: high
 category: architecture
 layer: ui
-status: open
+status: resolved
+resolved_in: "[[Cycle 52 - Architecture Foundation]]"
+resolved_date: 2026-02-28
 created: 2026-02-15
 effort: large
 description: "Current views manually construct DOM layouts. Need declarative layout system with ILayout interface and LayoutRegistry for Hub framework."

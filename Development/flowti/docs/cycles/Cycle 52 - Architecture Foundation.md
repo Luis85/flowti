@@ -1,8 +1,9 @@
 ---
 type: DevelopmentCycle
 feature: "[[Backlog Refinement - Post Cycle 48]]"
-stage: in-progress
+stage: done
 cycle: 52
+date_completed: 2026-02-28
 release_anchor:
   - "Theme 5: Architecture — Invest in the Platform"
 pbis:
@@ -17,9 +18,13 @@ tech_debt:
   - TD-51
   - TD-127
 estimated_increments: 6
+actual_increments: 6
 estimated_tests: 103
+actual_tests: 133
 pre_cycle_tests: 5643
 pre_cycle_suites: 243
+total_tests_after: 5776
+total_suites_after: 250
 ---
 
 # Cycle 52 — Architecture Foundation
@@ -313,27 +318,27 @@ Inc 5 (Perf Events)   ──→ Inc 6 (Perf Dashboard)
 
 ## Risks & Mitigations
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| Layout abstraction is over-engineered for current 5 views | Medium | Start with 2 layout types (split, tabbed); add others only when needed |
-| WorkspaceShell extraction breaks existing Hub views | High | Refactor BaseHubView internals only; external API unchanged |
-| Performance instrumentation adds overhead | Low | Use conditional emission; skip in production if perf.enabled=false |
-| Component manifest maintenance burden | Low | Start with 10 components; expand organically as new components are added |
+| Risk | Impact | Mitigation | Outcome |
+|------|--------|------------|---------|
+| Layout abstraction is over-engineered for current 5 views | Medium | Start with 2 layout types (split, tabbed); add others only when needed | Did not materialize — all 4 types map to real current usage patterns |
+| WorkspaceShell extraction breaks existing Hub views | High | Refactor BaseHubView internals only; external API unchanged | Did not materialize — all 5 subclass test suites pass unchanged |
+| Performance instrumentation adds overhead | Low | Use conditional emission; skip in production if perf.enabled=false | Did not materialize — `perf.*` prefix skip prevents recursion; onMeasure is conditional |
+| Component manifest maintenance burden | Low | Start with 10 components; expand organically as new components are added | Did not materialize — 10 entries, read-only registry, minimal maintenance |
 
 ## Success Metrics
 
-| Metric | Target |
-|--------|--------|
-| New tests | ~103 (Inc 1: 25, Inc 2: 12, Inc 3: 18, Inc 4: 15, Inc 5: 15, Inc 6: 18) |
-| Post-cycle tests | ~5,746 |
-| Production LOC added | ~830 |
-| BaseHubView LOC reduction | ~80 LOC (chrome extracted to WorkspaceShell) |
-| Layout types | 4 implementations |
-| Component manifest entries | ≥10 |
-| Perf events | 6 types instrumented (5 metrics + 1 alert) |
-| Performance report | Auto-generated on every distribution build with key metrics |
-| Tech debt resolved | TD-49, TD-50, TD-51, TD-127 |
-| Increments | 6 |
+| Metric | Target | Actual | Status |
+|--------|--------|--------|--------|
+| New tests | ~103 | 133 | Exceeded (+29%) |
+| Post-cycle tests | ~5,746 | 5,776 | Exceeded |
+| Production LOC added | ~830 | ~1,409 (20 new files) | Exceeded — bonus event dispatch instrumentation |
+| BaseHubView LOC reduction | ~80 LOC | ~80 LOC extracted to WorkspaceShell | Met |
+| Layout types | 4 implementations | 4 (SinglePane, Split, Tabbed, Stacked) | Met |
+| Component manifest entries | ≥10 | 10 | Met |
+| Perf events | 6 types (5 metrics + 1 alert) | 7 types (5 metrics + 1 alert + 1 event dispatch) | Exceeded |
+| Performance report | Auto-generated on build | Auto-generated (10th script in pipeline) | Met |
+| Tech debt resolved | TD-49, TD-50, TD-51, TD-127 | TD-49, TD-50, TD-51, TD-127 | Met |
+| Increments | 6 | 6 + bonus event dispatch | Met |
 
 ## Deferred Items
 
@@ -354,3 +359,49 @@ Inc 5 (Perf Events)   ──→ Inc 6 (Perf Dashboard)
 | Performance observability (TD-127) | **Addressed** | Inc 5-6 add instrumentation and aggregation |
 | Component Showcase view (TD-38) | **Partially enabled** | Component registry (Inc 4) enables programmatic discovery; showcase UI deferred |
 | Declarative tab definitions (TD-52) | **Deferred** | Depends on this cycle's deliverables; earliest C53 |
+
+## Retrospective
+
+### What Went Well
+
+1. **All 4 risks did not materialize.** The highest-risk item (WorkspaceShell extraction breaking Hub views) was cleanly avoided by preserving BaseHubView's public/protected API contract. All 5 subclass test suites pass unchanged.
+2. **Dependency chain executed smoothly.** The Inc 1→2→3 sequential chain (layouts → integration tests → shell) completed without blockers. Each increment built naturally on the previous.
+3. **Performance observability exceeded scope.** The planned 6 perf event types grew to 7 with the addition of `perf.event.dispatched` (event dispatch timing). This closes the last observability gap at zero regression cost.
+4. **Pure architecture cycle with zero user-facing changes.** All 6 increments are infrastructure — no UI changes visible to end users. Regression risk was very low throughout. This is the ideal profile for an architecture investment cycle.
+5. **Test estimate exceeded by 29%.** 133 actual vs 103 estimated. The additional coverage came from richer integration tests, edge cases, and the bonus event dispatch instrumentation. All extra tests are warranted.
+6. **IStorageProvider adapter pattern discovered.** The `loadData/saveData → load/save` adapter wrapper for Plugin ↔ TypedStorage compatibility is a reusable pattern for future service integrations.
+7. **EVENT_CATEGORIES type system worked as designed.** Adding "Performance" required updates in 3 places (type array, default categories, test fixtures) — the type system caught each missing update at compile time.
+
+### Deviations from Plan
+
+1. **Bonus: Event dispatch timing instrumentation.** Not in the original plan. Added at user request after Inc 6 was complete. The `onMeasure` callback on EventBus tracks per-event-type handler count and execution duration. Added 8 extra tests. Total test count went from planned ~103 to 133.
+2. **Production LOC exceeded estimate.** ~1,409 LOC (20 new files) vs estimated ~830 LOC. The excess is attributable to richer PerfAggregator implementation (192 LOC vs estimated 100), performance report generator (161 LOC vs estimated 50), and the bonus event dispatch feature.
+3. **Layout type names differ from TD-49 target state.** TD-49 proposed DashboardGridLayout, SplitDockLayout, TableLayout, SessionFocusLayout. Actual implementations are SinglePaneLayout, SplitLayout, TabbedLayout, StackedLayout — chosen to match current usage patterns more generically. The original names were too coupled to specific Hub views.
+
+### Improvement Backlog
+
+| Item | Classification | Notes |
+|------|---------------|-------|
+| Migrate first Hub view to new layout system | Next cycle input | Validates framework with real usage (AI-1 from review) |
+| Document IStorageProvider adapter pattern | Observation | Reusable pattern discovered during PerfAggregator wiring |
+| Evaluate TD-52 readiness for C53 | Next cycle input | Now unblocked by TD-49/50/51 completion |
+| Monitor PerfAggregator data for 3 cycles | Observation | Need baseline before optimization decisions |
+| Review perf.alert 5000ms threshold | Future cycle | May need tuning based on real usage data |
+
+### Learnings
+
+1. **The `onMeasure` callback pattern scales well.** First used in TypedStorage, now applied to EventBus. The pattern — optional callback in constructor, conditional execution at measurement points — avoids coupling measured components to the event system while providing flexible instrumentation.
+2. **Prefix-based event skip is the recursive guard pattern.** `!type.startsWith("perf.")` in EventBus mirrors the existing `log.*` skip in event trace. This is the established pattern for system events that must not trigger their own handlers.
+3. **Architecture cycles benefit from additive-only scope.** 5 of 6 increments were purely additive (new directories, new files, zero existing files modified). Only Inc 3 (WorkspaceShell) touched existing code, and even that was an internal refactor. This keeps regression risk near zero.
+4. **Test estimate accuracy improves with experience.** C51 exceeded by 34% (94 vs 70), C52 exceeded by 29% (133 vs 103). The gap is narrowing but bonus scope additions make exact prediction impossible. Future estimates should include a 20% buffer for discovered edge cases.
+
+## Related
+
+- [[Backlog Refinement - Post Cycle 48]]
+- [[Definition of Ready Check - Cycle 52]]
+- [[Three Amigos Review 2026-02-28 Architecture Foundation]]
+- [[TD-49 Layout abstraction layer]]
+- [[TD-50 Workspace shell layout]]
+- [[TD-51 Component registry]]
+- [[TD-127 Performance observability for growing state]]
+- [[Cycle 51 - Dogfooding Deep]]

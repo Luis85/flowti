@@ -3,7 +3,9 @@ type: TechDebt
 severity: medium
 category: architecture
 layer: ui
-status: open
+status: resolved
+resolved_in: "[[Cycle 52 - Architecture Foundation]]"
+resolved_date: 2026-02-28
 created: 2026-02-15
 effort: medium
 description: "Components are directly imported by orchestrators. Need manifest-driven component registry for validation and discoverability."
