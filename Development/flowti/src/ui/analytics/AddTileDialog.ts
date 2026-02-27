@@ -126,7 +126,7 @@ export class AddTileDialog {
 		const cancelBtn = actions.createEl("button", { text: "Cancel", cls: "ft-text-sm" });
 		cancelBtn.addEventListener("click", () => this.options.onCancel());
 
-		const addBtn = actions.createEl("button", { text: "Add Tile", cls: "mod-cta ft-text-sm" });
+		const addBtn = actions.createEl("button", { text: "Add tile", cls: "mod-cta ft-text-sm" });
 		const canAdd = this.sourceType === "query" ? !!this.selectedQueryId : !!this.selectedMeasurementId;
 		if (!canAdd) {
 			addBtn.disabled = true;

@@ -65,9 +65,10 @@ export function renderEventsSettingsPanel(
 	const categories = getOrderedCategories(state.catalogCategories);
 
 	if (!state.showSystemEvents) {
-		const hint = container.createDiv({ cls: "ft-text-muted ft-text-sm" });
-		hint.style.padding = "0.5rem 0";
-		hint.textContent = "Enable system events to configure category visibility.";
+		container.createDiv({
+			cls: "ft-text-muted ft-text-sm ft-settings-hint",
+			text: "Enable system events to configure category visibility.",
+		});
 	} else {
 
 	for (let i = 0; i < categories.length; i++) {

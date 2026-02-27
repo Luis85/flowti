@@ -253,7 +253,7 @@ export class DashboardTileRenderer {
 			viewIcon.style.width = "14px";
 			viewIcon.style.height = "14px";
 			viewBtn.style.cursor = "pointer";
-			viewBtn.setAttribute("aria-label", "View Query");
+			viewBtn.setAttribute("aria-label", "View query");
 			viewBtn.addEventListener("click", (e) => {
 				e.stopPropagation();
 				ctx.onViewQuery!(ctx.tile.queryId);
@@ -316,7 +316,7 @@ export class DashboardTileRenderer {
 		el.createDiv({ text: "Query not found \u2014 it may have been deleted" });
 		el.createDiv({ text: `ID: ${ctx.tile.queryId}`, cls: "ft-text-xs ft-text-muted" }).style.marginTop = "0.25rem";
 		if (ctx.onToggleSettings) {
-			const fixBtn = el.createEl("button", { text: "Fix Reference", cls: "ft-text-xs" });
+			const fixBtn = el.createEl("button", { text: "Fix reference", cls: "ft-text-xs" });
 			fixBtn.style.cssText = "margin-top:0.5rem;padding:4px 12px;border-radius:4px;cursor:pointer";
 			fixBtn.addEventListener("click", () => {
 				ctx.onToggleSettings!(ctx.tile.id);

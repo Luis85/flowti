@@ -28,7 +28,7 @@ export class UserHubNudgePreferences {
 		const icon = header.createSpan();
 		setIcon(icon, "bell");
 		icon.addClass("ft-icon-muted");
-		header.createEl("h3", { text: "Session Nudges", cls: "ft-heading ft-heading-sm" }).style.margin = "0";
+		header.createEl("h3", { text: "Session nudges", cls: "ft-heading ft-heading-sm" }).style.margin = "0";
 
 		section.createEl("p", {
 			text: "Time-based reminders to start a session. Nudges fire once per day at the configured time.",
@@ -115,7 +115,8 @@ export class UserHubNudgePreferences {
 		const titleRow = makeRow("Title");
 		const titleInput = titleRow.createEl("input", { cls: "ft-input" });
 		titleInput.type = "text";
-		titleInput.placeholder = "e.g. Morning Review";
+		// eslint-disable-next-line obsidianmd/ui/sentence-case
+	titleInput.placeholder = "e.g. morning review";
 		titleInput.style.flex = "1";
 		titleInput.addEventListener("input", () => { title = titleInput.value; });
 
@@ -149,7 +150,7 @@ export class UserHubNudgePreferences {
 		// Add button
 		const btnRow = form.createDiv();
 		btnRow.style.marginTop = "0.5rem";
-		const addBtn = btnRow.createEl("button", { text: "Add Nudge", cls: "mod-cta" });
+		const addBtn = btnRow.createEl("button", { text: "Add nudge", cls: "mod-cta" });
 		addBtn.addEventListener("click", () => {
 			const t = title.trim();
 			if (!t) return;

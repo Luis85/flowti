@@ -152,7 +152,7 @@ export class UserHubInbox {
 		eventRow.style.marginTop = "0.25rem";
 		eventRow.createSpan({ text: "Triggered by: " });
 		const eventLink = eventRow.createSpan({ text: item.sourceEvent, cls: "ft-event-type ft-nav-link ft-cursor-pointer" });
-		eventLink.setAttribute("aria-label", "View in Event Catalog");
+		eventLink.setAttribute("aria-label", "View in event catalog");
 		eventLink.addEventListener("click", () => {
 			this.deps.navigateToEvent(item.sourceEvent);
 		});

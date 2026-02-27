@@ -40,7 +40,7 @@ export class TrainHistoryPanel {
 		const header = this.el.createDiv({ cls: "ft-section ft-flex ft-items-center ft-gap-2" });
 		const icon = header.createSpan();
 		setIcon(icon, "train-front");
-		header.createEl("h3", { cls: "ft-heading", text: "Train History" });
+		header.createEl("h3", { cls: "ft-heading", text: "Train history" });
 	}
 
 	private renderFilterBar(): void {
@@ -106,8 +106,7 @@ export class TrainHistoryPanel {
 		badge.addClass("ft-train-history-status");
 
 		// Action buttons (spacer → rename → delete)
-		const spacer = top.createSpan();
-		spacer.style.flex = "1";
+		top.createSpan({ cls: "ft-flex-spacer" });
 
 		if (this.deps.onRenameTrain) {
 			const renameBtn = top.createEl("button", {

@@ -135,7 +135,7 @@ describe("TrainHistoryPanel", () => {
 			});
 			panel.render();
 
-			expect(el.textContent).toContain("Train History");
+			expect(el.textContent).toContain("Train history");
 		});
 	});
 

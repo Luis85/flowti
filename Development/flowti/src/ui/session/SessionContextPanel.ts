@@ -28,7 +28,7 @@ export class SessionContextPanel {
 		this.renderContextBindingsList();
 
 		if (session.contextBindings.length < MAX_CONTEXT_BINDINGS) {
-			const addBtn = section.createEl("button", { text: "Add Context", cls: "ft-context-add" });
+			const addBtn = section.createEl("button", { text: "Add context", cls: "ft-context-add" });
 			addBtn.style.cssText = "display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:13px;margin-top:8px;background:var(--interactive-normal);border:1px solid var(--background-modifier-border);color:var(--text-normal);";
 			const iconEl = addBtn.createSpan();
 			setIcon(iconEl, "plus");

@@ -363,7 +363,7 @@ describe("InstallerWizardModal", () => {
 		it("shows alert icon on error state", () => {
 			goToCompletePage(false);
 			expect(modal.contentEl.querySelector(".ft-complete-hero")).toBeTruthy();
-			expect(modal.contentEl.textContent).toContain("Setup Failed");
+			expect(modal.contentEl.textContent).toContain("Setup failed");
 		});
 	});
 

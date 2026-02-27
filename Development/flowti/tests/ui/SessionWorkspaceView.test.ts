@@ -1168,7 +1168,7 @@ describe("SessionWorkspaceView", () => {
 			const content = getContentEl(view);
 			const addBtn = content.querySelector(".ft-context-add") as HTMLElement;
 			expect(addBtn).not.toBeNull();
-			expect(addBtn.textContent).toContain("Add Context");
+			expect(addBtn.textContent).toContain("Add context");
 		});
 	});
 
@@ -1181,7 +1181,7 @@ describe("SessionWorkspaceView", () => {
 			const content = getContentEl(view);
 			const section = content.querySelector(".ft-session-workspace-guiding");
 			expect(section).not.toBeNull();
-			expect(section!.textContent).toContain("Guiding Questions");
+			expect(section!.textContent).toContain("Guiding questions");
 			expect(section!.textContent).toContain("What events does this domain produce?");
 		});
 

@@ -90,7 +90,7 @@ export class TrainCaptureModal extends Modal {
 		// Merged badge
 		if (this.options.isMerged) {
 			const badge = titleRow.createSpan({ cls: "ft-badge ft-badge-muted ft-train-merged-badge" });
-			badge.setText("merged");
+			badge.setText("Merged");
 		}
 
 		// Rename thought (pencil icon) — only when navigated to an existing thought
@@ -256,7 +256,7 @@ export class TrainCaptureModal extends Modal {
 		// Back button at the outermost left of the action row (same style as Next)
 		if (this.options.onBack) {
 			actionSetting.addButton((btn) => {
-				btn.setButtonText("\u25C4 Back").onClick(() => {
+				btn.setButtonText("\u25C4 back").onClick(() => {
 					this.navAction = "back";
 					this.close();
 				});
@@ -268,7 +268,7 @@ export class TrainCaptureModal extends Modal {
 		// Navigation buttons (Up, Down, Next)
 		if (this.options.onUp) {
 			actionSetting.addButton((btn) =>
-				btn.setButtonText("\u2191 Up").onClick(() => {
+				btn.setButtonText("\u2191 up").onClick(() => {
 					this.navAction = "up";
 					this.close();
 				})
@@ -276,7 +276,7 @@ export class TrainCaptureModal extends Modal {
 		}
 		if (this.options.onDown) {
 			actionSetting.addButton((btn) =>
-				btn.setButtonText("\u2193 Down").onClick(() => {
+				btn.setButtonText("\u2193 down").onClick(() => {
 					this.navAction = "down";
 					this.close();
 				})
@@ -303,7 +303,7 @@ export class TrainCaptureModal extends Modal {
 			)
 			.addButton((btn) =>
 				btn
-					.setButtonText("Add Thought")
+					.setButtonText("Add thought")
 					.setCta()
 					.onClick(() => submit())
 			);

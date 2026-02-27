@@ -99,6 +99,7 @@ export function renderSubscriptionForm(container: HTMLElement, opts: {
 	});
 
 	container.createEl("p", {
+		// eslint-disable-next-line obsidianmd/ui/sentence-case
 		text: "A watcher monitors a specific event type and filters matching files for processing. All filter fields use AND logic \u2014 a file must match every specified filter.",
 		cls: "ft-text-muted ft-text-sm ft-mb-2",
 	});
@@ -112,9 +113,11 @@ export function renderSubscriptionForm(container: HTMLElement, opts: {
 		});
 	} else {
 		eventSetting.setDesc(
-			"The event type to watch for. Use dot notation (e.g. file.created, file.modified). Open the Event Catalog to browse all available types.",
+			// eslint-disable-next-line obsidianmd/ui/sentence-case
+			"The event type to watch for. Use dot notation (e.g. file.created, file.modified). Open the event catalog to browse all available types.",
 		);
 		eventSetting.addText((text) => {
+			// eslint-disable-next-line obsidianmd/ui/sentence-case
 			text.setPlaceholder("file.created");
 			text.setValue(formData.eventType);
 			text.onChange((value) => { formData.eventType = value; });
@@ -132,17 +135,20 @@ export function renderSubscriptionForm(container: HTMLElement, opts: {
 
 	new Setting(container)
 		.setName("Path pattern")
-		.setDesc("Glob pattern matched against the full vault path. Use ** for any depth, * for one level. Example: Reports/** matches all files under Reports/. Leave empty to match any path.")
+		.setDesc("Glob pattern matched against the full vault path. Use ** for any depth, * for one level. Example: reports/** matches all files under reports/. Leave empty to match any path.")
 		.addText((text) => {
-			text.setPlaceholder("Reports/**");
+			// eslint-disable-next-line obsidianmd/ui/sentence-case
+			text.setPlaceholder("reports/**");
 			text.setValue(formData.pathPattern);
 			text.onChange((value) => { formData.pathPattern = value; });
 		});
 
 	new Setting(container)
 		.setName("Extension")
+		// eslint-disable-next-line obsidianmd/ui/sentence-case
 		.setDesc("File extension without the dot. Only files with this extension will match. Example: csv, md, json. Leave empty to match any extension.")
 		.addText((text) => {
+			// eslint-disable-next-line obsidianmd/ui/sentence-case
 			text.setPlaceholder("csv");
 			text.setValue(formData.extension);
 			text.onChange((value) => { formData.extension = value; });
@@ -150,8 +156,10 @@ export function renderSubscriptionForm(container: HTMLElement, opts: {
 
 	new Setting(container)
 		.setName("Name pattern")
+		// eslint-disable-next-line obsidianmd/ui/sentence-case
 		.setDesc("Glob pattern matched against the filename only (not the full path). Example: report-*.csv matches report-jan.csv. Leave empty to match any filename.")
 		.addText((text) => {
+			// eslint-disable-next-line obsidianmd/ui/sentence-case
 			text.setPlaceholder("report-*.csv");
 			text.setValue(formData.namePattern);
 			text.onChange((value) => { formData.namePattern = value; });

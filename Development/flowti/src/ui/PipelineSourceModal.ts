@@ -188,7 +188,7 @@ export class PipelineSourceModal extends Modal {
 				.setName("Merge key column")
 				.setDesc(`Maps to the pipeline key "${this.mergeKey}"`)
 				.addDropdown((dd) => {
-					dd.addOption("", "-- Select column --");
+					dd.addOption("", "-- select column --");
 					for (const h of this.csvHeaders) {
 						dd.addOption(h, h);
 					}
@@ -200,7 +200,7 @@ export class PipelineSourceModal extends Modal {
 
 			// Column mappings
 			contentEl.createEl("h4", {
-				text: "Column Mappings",
+				text: "Column mappings",
 				cls: "ft-heading ft-heading-sm ft-mt-3 ft-mb-1",
 			});
 			contentEl.createEl("p", {
@@ -213,7 +213,7 @@ export class PipelineSourceModal extends Modal {
 
 			// Custom properties
 			contentEl.createEl("h4", {
-				text: "Custom Properties",
+				text: "Custom properties",
 				cls: "ft-heading ft-heading-sm ft-mt-3 ft-mb-1",
 			});
 			contentEl.createEl("p", {
@@ -376,7 +376,7 @@ export class PipelineSourceModal extends Modal {
 			keyInput.style.borderRadius = "var(--radius-s, 4px)";
 			keyInput.style.background = "var(--background-primary)";
 			keyInput.value = key;
-			keyInput.placeholder = "key";
+			keyInput.placeholder = "Key";
 
 			const valueInput = row.createEl("input", { type: "text", cls: "ft-text-sm" });
 			valueInput.style.flex = "1";
@@ -385,7 +385,7 @@ export class PipelineSourceModal extends Modal {
 			valueInput.style.borderRadius = "var(--radius-s, 4px)";
 			valueInput.style.background = "var(--background-primary)";
 			valueInput.value = value;
-			valueInput.placeholder = "value";
+			valueInput.placeholder = "Value";
 
 			// Overlap indicator
 			if (this.otherSourceKeys.has(key)) {

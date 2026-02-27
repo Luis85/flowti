@@ -37,10 +37,10 @@ export class UserHubSessionPreferences {
 		const icon = header.createSpan();
 		setIcon(icon, "filter");
 		icon.addClass("ft-icon-muted");
-		header.createEl("h3", { text: "Activity Log Filter", cls: "ft-heading ft-heading-sm" }).style.margin = "0";
+		header.createEl("h3", { text: "Activity log filter", cls: "ft-heading ft-heading-sm" }).style.margin = "0";
 
 		section.createEl("p", {
-			text: "Vault folders excluded from the session activity log globally (prefix match). Per-session filters can be set in each Session Workspace.",
+			text: "Vault folders excluded from the session activity log globally (prefix match). Per-session filters can be set in each session workspace.",
 			cls: "ft-text-sm ft-text-muted",
 		});
 
@@ -90,7 +90,7 @@ export class UserHubSessionPreferences {
 		const icon = header.createSpan();
 		setIcon(icon, "star");
 		icon.addClass("ft-icon-muted");
-		header.createEl("h3", { text: "Custom Session Types", cls: "ft-heading ft-heading-sm" }).style.margin = "0";
+		header.createEl("h3", { text: "Custom session types", cls: "ft-heading ft-heading-sm" }).style.margin = "0";
 
 		section.createEl("p", {
 			text: "Create custom session types with their own guiding questions, duration, and goals.",
@@ -143,13 +143,15 @@ export class UserHubSessionPreferences {
 		const keyRow = makeRow("Type key");
 		const keyInput = keyRow.createEl("input", { cls: "ft-input" });
 		keyInput.type = "text";
-		keyInput.placeholder = "e.g. sprint-review";
+		// eslint-disable-next-line obsidianmd/ui/sentence-case
+	keyInput.placeholder = "e.g. sprint-review";
 		keyInput.style.flex = "1";
 		keyInput.addEventListener("input", () => { typeName = keyInput.value; });
 
 		const labelRow = makeRow("Display label");
 		const labelInput = labelRow.createEl("input", { cls: "ft-input" });
 		labelInput.type = "text";
+		// eslint-disable-next-line obsidianmd/ui/sentence-case
 		labelInput.placeholder = "e.g. Sprint Review";
 		labelInput.style.flex = "1";
 		labelInput.addEventListener("input", () => { typeLabel = labelInput.value; });
@@ -173,7 +175,7 @@ export class UserHubSessionPreferences {
 
 		const btnRow = form.createDiv();
 		btnRow.style.marginTop = "0.5rem";
-		const addTypeBtn = btnRow.createEl("button", { text: "Add Custom Type", cls: "mod-cta" });
+		const addTypeBtn = btnRow.createEl("button", { text: "Add custom type", cls: "mod-cta" });
 		addTypeBtn.addEventListener("click", () => {
 			const key = typeName.trim().toLowerCase().replace(/\s+/g, "-");
 			const label = typeLabel.trim();
@@ -198,7 +200,7 @@ export class UserHubSessionPreferences {
 		const icon = header.createSpan();
 		setIcon(icon, "file-output");
 		icon.addClass("ft-icon-muted");
-		header.createEl("h3", { text: "Custom Output Templates", cls: "ft-heading ft-heading-sm" }).style.margin = "0";
+		header.createEl("h3", { text: "Custom output templates", cls: "ft-heading ft-heading-sm" }).style.margin = "0";
 
 		section.createEl("p", {
 			text: "Create templates for generating output artifacts from completed sessions. Placeholders: {{title}}, {{date}}, {{type}}, {{duration}}, {{goals}}, {{decisions}}, {{artifacts}}, {{context}}, {{notes}}, {{overview}}.",
@@ -250,6 +252,7 @@ export class UserHubSessionPreferences {
 		const titleRow = makeRow("Template title");
 		const titleInput = titleRow.createEl("input", { cls: "ft-input" });
 		titleInput.type = "text";
+		// eslint-disable-next-line obsidianmd/ui/sentence-case
 		titleInput.placeholder = "e.g. Sprint Retro";
 		titleInput.style.flex = "1";
 		titleInput.addEventListener("input", () => { tmplTitle = titleInput.value; });
@@ -257,7 +260,8 @@ export class UserHubSessionPreferences {
 		const descRow = makeRow("Description");
 		const descInput = descRow.createEl("input", { cls: "ft-input" });
 		descInput.type = "text";
-		descInput.placeholder = "e.g. Sprint retrospective summary";
+		// eslint-disable-next-line obsidianmd/ui/sentence-case
+		descInput.placeholder = "e.g. Sprint Retrospective Summary";
 		descInput.style.flex = "1";
 		descInput.addEventListener("input", () => { tmplDesc = descInput.value; });
 
@@ -273,7 +277,7 @@ export class UserHubSessionPreferences {
 
 		const btnRow = form.createDiv();
 		btnRow.style.marginTop = "0.5rem";
-		const addTmplBtn = btnRow.createEl("button", { text: "Add Output Template", cls: "mod-cta" });
+		const addTmplBtn = btnRow.createEl("button", { text: "Add output template", cls: "mod-cta" });
 		addTmplBtn.addEventListener("click", () => {
 			const title = tmplTitle.trim();
 			if (!title) return;

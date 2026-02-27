@@ -95,7 +95,7 @@ export class DashboardsTab {
 		const addBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 		const addIcon = addBtn.createSpan();
 		setIcon(addIcon, "plus");
-		addBtn.setAttribute("aria-label", "New Dashboard");
+		addBtn.setAttribute("aria-label", "New dashboard");
 		addBtn.addEventListener("click", (e) => {
 			e.stopPropagation();
 			void this.createDashboard();

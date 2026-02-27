@@ -595,7 +595,7 @@ export class InstallerWizardModal extends Modal {
 
 		if (this.installSuccess) {
 			const heading = container.createEl("h2", {
-				text: "Setup Complete",
+				text: "Setup complete",
 				cls: "ft-heading ft-heading-lg",
 			});
 			heading.style.textAlign = "center";
@@ -633,7 +633,7 @@ export class InstallerWizardModal extends Modal {
 			this.renderNextStepsGuidance(container);
 		} else {
 			const heading = container.createEl("h2", {
-				text: "Setup Failed",
+				text: "Setup failed",
 				cls: "ft-heading ft-heading-lg",
 			});
 			heading.style.textAlign = "center";
@@ -683,7 +683,7 @@ export class InstallerWizardModal extends Modal {
 				}, 100);
 			};
 			navRight.createEl("button", {
-				text: "Explore Your Dashboard",
+				text: "Explore your dashboard",
 				cls: "ft-btn ft-btn-primary",
 			}).addEventListener("click", explore);
 

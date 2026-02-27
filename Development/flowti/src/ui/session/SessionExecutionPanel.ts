@@ -25,7 +25,7 @@ export class SessionExecutionPanel {
 
 		const labelRow = headerRow.createDiv();
 		labelRow.style.cssText = "display:flex;align-items:center;gap:8px;";
-		labelRow.createEl("strong", { text: "Execution Plan" });
+		labelRow.createEl("strong", { text: "Execution plan" });
 		this.countEl = labelRow.createEl("span", {
 			text: this.formatCount(tasks),
 			cls: "ft-text-muted ft-text-sm",

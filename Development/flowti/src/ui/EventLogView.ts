@@ -110,7 +110,7 @@ export class EventLogView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		return "Activity Log";
+		return "Activity log";
 	}
 
 	getIcon(): string {
@@ -129,8 +129,7 @@ export class EventLogView extends ItemView {
 		const container = this.containerEl.children[1];
 		container.empty();
 
-		const wrapper = container.createDiv({ cls: "flowti-container ft-p-4 ft-flex ft-flex-col" });
-		wrapper.style.height = "100%";
+		const wrapper = container.createDiv({ cls: "flowti-container ft-p-4 ft-flex ft-flex-col ft-full-height" });
 
 		this.renderHeader(wrapper);
 		this.renderToolbar(wrapper);
@@ -207,7 +206,7 @@ export class EventLogView extends ItemView {
 
 		const titleRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-1" });
 		titleRow.createEl("h1", {
-			text: "Activity Log",
+			text: "Activity log",
 			cls: "ft-heading ft-heading-lg",
 		});
 		this.countBadge = titleRow.createSpan({

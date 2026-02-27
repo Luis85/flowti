@@ -154,7 +154,7 @@ export class NewSessionModal extends Modal {
 
 	onOpen(): void {
 		const { contentEl } = this;
-		contentEl.createEl("h3", { text: "New Session" });
+		contentEl.createEl("h3", { text: "New session" });
 
 		let title = this.prefill?.title ?? "";
 		const type = this.prefill?.type ?? this.sessionTypes[0]?.type ?? "event-storming";
@@ -171,10 +171,10 @@ export class NewSessionModal extends Modal {
 		// Template chooser (only shown when templates exist)
 		if (this.templates.length > 0) {
 			new Setting(contentEl)
-				.setName("From Template")
+				.setName("From template")
 				.setDesc("Pre-fill from a saved template")
 				.addDropdown((dropdown) => {
-					dropdown.addOption("", "-- None --");
+					dropdown.addOption("", "-- none --");
 					for (const t of this.templates) {
 						dropdown.addOption(t.id, t.name);
 					}
@@ -200,7 +200,8 @@ export class NewSessionModal extends Modal {
 			.setName("Title")
 			.setDesc("A short name for this session")
 			.addText((text) =>
-				text.setPlaceholder("e.g. Sprint 12 Event Storming")
+				// eslint-disable-next-line obsidianmd/ui/sentence-case
+			text.setPlaceholder("e.g. Sprint 12 event storming")
 					.setValue(title)
 					.onChange((value) => {
 						title = value;
@@ -246,9 +247,11 @@ export class NewSessionModal extends Modal {
 			.setDesc("Timer length in minutes")
 			.addDropdown((dropdown) => {
 				dropdown.addOption("0", "Unlimited (no timer)");
+				// eslint-disable-next-line obsidianmd/ui/sentence-case
 				dropdown.addOption("25", "25 min (Pomodoro)");
+				// eslint-disable-next-line obsidianmd/ui/sentence-case
 				dropdown.addOption("50", "50 min (Deep Work)");
-				dropdown.addOption("15", "15 min (Quick)");
+				dropdown.addOption("15", "15 min (quick)");
 				dropdown.addOption("45", "45 min");
 				dropdown.addOption("60", "60 min");
 				dropdown.setValue(String(duration));
@@ -256,7 +259,7 @@ export class NewSessionModal extends Modal {
 			});
 
 		const focusSetting = new Setting(contentEl)
-			.setName("Focus File")
+			.setName("Focus file")
 			.setDesc("Optional file to work on during this session");
 
 		focusSetting.addText((text) =>
@@ -362,7 +365,7 @@ export class SaveTemplateModal extends Modal {
 
 	onOpen(): void {
 		const { contentEl } = this;
-		contentEl.createEl("h3", { text: "Save as Template" });
+		contentEl.createEl("h3", { text: "Save as template" });
 
 		const desc = contentEl.createDiv({ cls: "ft-text-sm ft-text-muted" });
 		desc.style.marginBottom = "0.75rem";
@@ -371,11 +374,12 @@ export class SaveTemplateModal extends Modal {
 		let name = this.sessionTitle;
 
 		new Setting(contentEl)
-			.setName("Template Name")
+			.setName("Template name")
 			.setDesc("A name to identify this template")
 			.addText((text) =>
 				text.setValue(this.sessionTitle)
-					.setPlaceholder("e.g. Sprint Storming")
+					// eslint-disable-next-line obsidianmd/ui/sentence-case
+					.setPlaceholder("e.g. Sprint storming")
 					.onChange((value) => { name = value; })
 			);
 
@@ -384,7 +388,7 @@ export class SaveTemplateModal extends Modal {
 				btn.setButtonText("Cancel").onClick(() => this.close())
 			)
 			.addButton((btn) =>
-				btn.setButtonText("Save Template").setCta().onClick(() => {
+				btn.setButtonText("Save template").setCta().onClick(() => {
 					const trimmed = name.trim();
 					if (trimmed) {
 						this.onSubmit(trimmed);
@@ -491,9 +495,11 @@ export class CreateEventModal extends Modal {
 
 		new Setting(contentEl)
 			.setName("Event name")
-			.setDesc("Use dot notation (e.g. order.placed)")
+			// eslint-disable-next-line obsidianmd/ui/sentence-case
+		.setDesc("Use dot notation (e.g. order.placed)")
 			.addText((text) =>
-				text.setPlaceholder("my.custom.event")
+				// eslint-disable-next-line obsidianmd/ui/sentence-case
+			text.setPlaceholder("my.custom.event")
 					.onChange((value) => { eventName = value; })
 			);
 
@@ -501,7 +507,7 @@ export class CreateEventModal extends Modal {
 			.setName("Category")
 			.setDesc("Group this event under a category (e.g. Orders)")
 			.addText((text) =>
-				text.setPlaceholder("optional")
+				text.setPlaceholder("Optional")
 					.onChange((value) => { category = value; })
 			);
 

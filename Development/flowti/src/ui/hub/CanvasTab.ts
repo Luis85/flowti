@@ -324,7 +324,7 @@ export class CanvasTab {
 
 	private renderEditForm(cfg: CanvasImportConfig, canvasService: NonNullable<HubComponentDeps["canvasService"]>): void {
 		const panel = this.detailEl;
-		panel.createEl("h3", { text: "Edit Canvas Config", cls: "ft-heading ft-heading-sm ft-mb-3" });
+		panel.createEl("h3", { text: "Edit canvas config", cls: "ft-heading ft-heading-sm ft-mb-3" });
 
 		const edits: Partial<CanvasConfigInput> = {
 			name: cfg.name,
@@ -509,7 +509,7 @@ export class CanvasTab {
 
 		const section = container.createDiv({ cls: "ft-mt-4" });
 		const headerRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
-		headerRow.createEl("h4", { text: "Included Types", cls: "ft-heading ft-heading-sm" });
+		headerRow.createEl("h4", { text: "Included types", cls: "ft-heading ft-heading-sm" });
 
 		const checkboxes: HTMLInputElement[] = [];
 

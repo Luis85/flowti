@@ -15,10 +15,10 @@ import { writeWorkItemNote } from "./mappers/workItemNoteMapper";
 
 export interface SignalServiceOptions {
 	storage: ITypedStorage<SignalState>;
+	secretStore: ISecretStore;
 	eventBus?: IEventBus;
 	adapter?: SignalAdapter;
 	fileSystem?: IFileSystemClient;
-	secretStore?: ISecretStore;
 }
 
 /** Input for creating a new signal — system-managed fields are omitted. */
@@ -46,7 +46,7 @@ export class SignalService {
 	private eventBus?: IEventBus;
 	private adapter?: SignalAdapter;
 	private fileSystem?: IFileSystemClient;
-	private secretStore?: ISecretStore;
+	private secretStore: ISecretStore;
 	private unsubscribes: (() => void)[] = [];
 
 	constructor(options: SignalServiceOptions) {
@@ -67,20 +67,18 @@ export class SignalService {
 
 		// Hydrate PATs from SecretStorage into in-memory state.
 		// If a PAT is still in data.json (pre-migration), migrate it to SecretStorage.
-		if (this.secretStore && this.secretStore.isAvailable()) {
-			let needsMigration = false;
-			for (const signal of this.state.signals) {
-				const secretPat = this.secretStore.getSecret(secretKey(signal.id));
-				if (secretPat) {
-					signal.pat = secretPat;
-				} else if (signal.pat) {
-					// Legacy: PAT still in data.json — migrate to SecretStorage
-					needsMigration = true;
-				}
+		let needsMigration = false;
+		for (const signal of this.state.signals) {
+			const secretPat = this.secretStore.getSecret(secretKey(signal.id));
+			if (secretPat) {
+				signal.pat = secretPat;
+			} else if (signal.pat) {
+				// Legacy: PAT still in data.json — migrate to SecretStorage
+				needsMigration = true;
 			}
-			if (needsMigration) {
-				await this.saveState();
-			}
+		}
+		if (needsMigration) {
+			await this.saveState();
 		}
 
 		await this.eventBus?.emit("signal.loaded", {
@@ -155,7 +153,7 @@ export class SignalService {
 		if (!signal) return false;
 
 		this.state.signals = this.state.signals.filter((s) => s.id !== id);
-		this.secretStore?.deleteSecret(secretKey(id));
+		this.secretStore.deleteSecret(secretKey(id));
 		await this.saveState();
 
 		await this.eventBus?.emit("signal.removed", {
@@ -282,17 +280,13 @@ export class SignalService {
 	// ── Private ──────────────────────────────────────────────
 
 	private async saveState(): Promise<void> {
-		if (this.secretStore && this.secretStore.isAvailable()) {
-			// Store PATs in SecretStorage; persist signal configs without PATs
-			for (const signal of this.state.signals) {
-				if (signal.pat) {
-					this.secretStore.setSecret(secretKey(signal.id), signal.pat);
-				}
+		// Store PATs in SecretStorage; persist signal configs without PATs
+		for (const signal of this.state.signals) {
+			if (signal.pat) {
+				this.secretStore.setSecret(secretKey(signal.id), signal.pat);
 			}
-			const stripped = this.state.signals.map((s) => ({ ...s, pat: "" }));
-			await this.storage.save({ signals: stripped });
-		} else {
-			await this.storage.save(this.state);
 		}
+		const stripped = this.state.signals.map((s) => ({ ...s, pat: "" }));
+		await this.storage.save({ signals: stripped });
 	}
 }

@@ -258,7 +258,7 @@ export class TileSettingsPanel {
 		// Decimals input
 		const decimalsInput = row.createEl("input", { type: "number", cls: "ft-text-xs" });
 		decimalsInput.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);width:44px";
-		decimalsInput.placeholder = "auto";
+		decimalsInput.placeholder = "Auto";
 		decimalsInput.min = "0";
 		decimalsInput.max = "6";
 		if (fmt?.decimals !== undefined) decimalsInput.value = String(fmt.decimals);

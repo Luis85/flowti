@@ -37,14 +37,14 @@ export class CsvAssociatedBases {
 
 	private renderBasesList(container: HTMLElement, bases: { path: string; name: string }[]): void {
 		const section = container.createDiv({ cls: "ft-mb-3" });
-		section.createEl("h3", { text: "Associated Views", cls: "ft-heading ft-heading-sm ft-mb-2" });
+		section.createEl("h3", { text: "Associated views", cls: "ft-heading ft-heading-sm ft-mb-2" });
 
 		const card = section.createDiv({ cls: "ft-card ft-mb-2" });
 		const cardHeader = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-1" });
 		const iconEl = cardHeader.createSpan();
 		setIcon(iconEl, "table");
 		iconEl.addClass("ft-icon-muted");
-		cardHeader.createSpan({ text: "Base views", cls: "ft-text-sm" }).style.fontWeight = "500";
+		cardHeader.createSpan({ text: "Base views", cls: "ft-text-sm ft-font-semibold" });
 
 		for (const base of bases) {
 			const row = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-1" });

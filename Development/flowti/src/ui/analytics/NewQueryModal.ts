@@ -38,7 +38,7 @@ export class NewQueryModal extends Modal {
 		const { contentEl } = this;
 		contentEl.style.minWidth = "400px";
 
-		contentEl.createEl("h3", { text: "New Query" });
+		contentEl.createEl("h3", { text: "New query" });
 		contentEl.createDiv({
 			text: "Name your query and select one or more data sources.",
 			cls: "ft-text-muted ft-text-sm",

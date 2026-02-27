@@ -21,7 +21,7 @@ export class CsvConfigPage {
 
 		if (state.parseError) {
 			const alert = ws.createDiv({ cls: "ft-alert-error ft-p-3 ft-m-3" });
-			alert.createEl("strong", { text: "Parse Error: " });
+			alert.createEl("strong", { text: "Parse error: " });
 			alert.createSpan({ text: state.parseError });
 			const actions = ws.createDiv({ cls: "ft-detail-actions ft-p-3" });
 			const cancelBtn = actions.createEl("span", { cls: "ft-nav-link" });
@@ -42,7 +42,7 @@ export class CsvConfigPage {
 		// ── Left panel: config form ──
 		const panel = split.createDiv({ cls: "ft-config-panel" });
 
-		panel.createEl("h3", { text: "Configure Import", cls: "ft-heading ft-heading-sm ft-mb-2" });
+		panel.createEl("h3", { text: "Configure import", cls: "ft-heading ft-heading-sm ft-mb-2" });
 
 		// Action bar
 		const actions = panel.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2 ft-mb-3" });
@@ -90,6 +90,7 @@ export class CsvConfigPage {
 			.addText((text) =>
 				text
 					.setValue(state.targetFolder)
+					// eslint-disable-next-line obsidianmd/ui/sentence-case
 					.setPlaceholder("path/to/folder")
 					.onChange((v) => { this.deps.setState({ targetFolder: v }); this.deps.updateUnsavedHint(); }),
 			);
@@ -119,7 +120,8 @@ export class CsvConfigPage {
 			.addText((text) =>
 				text
 					.setValue(state.namePrefix)
-					.setPlaceholder("e.g. PROJ-")
+					// eslint-disable-next-line obsidianmd/ui/sentence-case
+				.setPlaceholder("e.g. PROJ-")
 					.onChange((v) => { this.deps.setState({ namePrefix: v }); this.deps.updateUnsavedHint(); }),
 			);
 
@@ -129,6 +131,7 @@ export class CsvConfigPage {
 			.addText((text) =>
 				text
 					.setValue(state.nameSuffix)
+					// eslint-disable-next-line obsidianmd/ui/sentence-case
 					.setPlaceholder("e.g. -draft")
 					.onChange((v) => { this.deps.setState({ nameSuffix: v }); this.deps.updateUnsavedHint(); }),
 			);
@@ -209,7 +212,7 @@ export class CsvConfigPage {
 		const header = content.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });
 		const headerTitle = header.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		headerTitle.addClass("ft-flex-1");
-		headerTitle.createEl("h3", { text: "Column Mapping", cls: "ft-heading ft-heading-sm" });
+		headerTitle.createEl("h3", { text: "Column mapping", cls: "ft-heading ft-heading-sm" });
 		const customPropCount = Object.keys(state.customProperties).length;
 		if (customPropCount > 0) {
 			headerTitle.createSpan({
@@ -251,7 +254,7 @@ export class CsvConfigPage {
 
 		// Custom Properties (below mappings)
 		content.createEl("h4", {
-			text: "Custom Properties",
+			text: "Custom properties",
 			cls: "ft-heading ft-heading-sm ft-mt-3 ft-mb-1",
 		});
 		content.createEl("p", {
@@ -288,10 +291,10 @@ export class CsvConfigPage {
 		for (const [key, value] of entries) {
 			const row = container.createDiv({ cls: "ft-custom-prop-row" });
 			const keyInput = row.createEl("input", { type: "text", cls: "ft-custom-prop-key" });
-			keyInput.placeholder = "key";
+			keyInput.placeholder = "Key";
 			keyInput.value = key;
 			const valInput = row.createEl("input", { type: "text", cls: "ft-custom-prop-value" });
-			valInput.placeholder = "value";
+			valInput.placeholder = "Value";
 			valInput.value = value;
 			const removeBtn = row.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 			setIcon(removeBtn, "x");
@@ -360,9 +363,9 @@ export class CsvConfigPage {
 		const thead = table.createEl("thead");
 		const headerRow = thead.createEl("tr");
 		headerRow.createEl("th", { text: "Include" }).style.width = "60px";
-		headerRow.createEl("th", { text: "CSV Column" });
+		headerRow.createEl("th", { text: "CSV column" });
 		headerRow.createEl("th").style.width = "30px"; // arrow
-		headerRow.createEl("th", { text: "Frontmatter Key" });
+		headerRow.createEl("th", { text: "Frontmatter key" });
 
 		const tbody = table.createEl("tbody");
 

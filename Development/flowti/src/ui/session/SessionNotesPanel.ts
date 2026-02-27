@@ -15,12 +15,11 @@ export class SessionNotesPanel {
 		const session = this.deps.getSession();
 		const section = this.container.createDiv({ cls: "ft-session-workspace-notes ft-section" });
 
-		section.createEl("strong", { text: "Notes" }).style.cssText = "display:block;margin-bottom:8px;";
+		section.createEl("strong", { text: "Notes", cls: "ft-session-notes-heading" });
 
-		this.notesTextarea = section.createEl("textarea");
+		this.notesTextarea = section.createEl("textarea", { cls: "ft-session-notes-textarea" });
 		this.notesTextarea.value = session.notes;
 		this.notesTextarea.placeholder = "Session notes...";
-		this.notesTextarea.style.cssText = "width:100%;min-height:100px;padding:8px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);color:var(--text-normal);resize:vertical;font-family:inherit;";
 
 		this.notesTextarea.addEventListener("input", () => {
 			this.debouncedNotesUpdate();

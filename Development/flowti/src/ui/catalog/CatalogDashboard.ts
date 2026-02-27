@@ -47,7 +47,7 @@ export class CatalogDashboard {
 		setIcon(titleIcon, "network");
 		titleIcon.addClass("ft-icon-muted");
 		titleBar.createEl("h2", {
-			text: "Event Catalog",
+			text: "Event catalog",
 			cls: "ft-heading",
 		}).style.margin = "0";
 
@@ -116,7 +116,7 @@ export class CatalogDashboard {
 	private renderCoverage(state: ReturnType<CatalogComponentDeps["getState"]>): void {
 		const coverageSection = this.container.createDiv();
 		coverageSection.style.marginBottom = "1.5rem";
-		coverageSection.createEl("h3", { text: "Documentation Coverage", cls: "ft-heading ft-heading-sm" });
+		coverageSection.createEl("h3", { text: "Documentation coverage", cls: "ft-heading ft-heading-sm" });
 		coverageSection.style.marginBottom = "0.75rem";
 
 		const coverageGrid = coverageSection.createDiv();
@@ -167,7 +167,7 @@ export class CatalogDashboard {
 
 	private renderQuickActions(): void {
 		const actionsSection = this.container.createDiv();
-		actionsSection.createEl("h3", { text: "Quick Actions", cls: "ft-heading ft-heading-sm" });
+		actionsSection.createEl("h3", { text: "Quick actions", cls: "ft-heading ft-heading-sm" });
 		actionsSection.style.marginBottom = "0.75rem";
 
 		const actionsGrid = actionsSection.createDiv({ cls: "ft-flex ft-gap-2" });

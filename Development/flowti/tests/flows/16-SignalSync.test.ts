@@ -21,6 +21,7 @@ import type { SignalAdapter, TestConnectionResult, FetchItemsResult } from "../.
 import type { SignalConfig, SignalState, WorkItemMapping } from "../../src/domain/signal/types";
 import type { InboxState } from "../../src/domain/inbox/types";
 import { createMockStorage, createMockFileSystem, waitForAsync } from "./testHelpers";
+import { createMockSecretStore } from "../utils/SecretStore.test";
 
 // ── Mock adapter ────────────────────────────────────────────
 
@@ -67,6 +68,7 @@ describe("Flow 16: Configure and Sync Azure DevOps Signal", () => {
 		const signalMock = createMockStorage<SignalState>();
 		signalService = new SignalService({
 			storage: signalMock.storage,
+			secretStore: createMockSecretStore(),
 			eventBus,
 			adapter,
 			fileSystem,

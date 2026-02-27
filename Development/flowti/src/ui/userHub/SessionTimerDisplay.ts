@@ -52,7 +52,7 @@ export class SessionTimerDisplay {
 	private renderTimeBreakdown(session: Session): void {
 		const summary = computeTimelineSummary(session);
 		const section = this.containerEl.createDiv({ cls: "ft-detail-section ft-time-breakdown" });
-		section.createEl("h4", { text: "Time Breakdown", cls: "ft-heading ft-heading-sm" });
+		section.createEl("h4", { text: "Time breakdown", cls: "ft-heading ft-heading-sm" });
 
 		const grid = section.createDiv({ cls: "ft-flex ft-gap-2" });
 		grid.style.flexWrap = "wrap";

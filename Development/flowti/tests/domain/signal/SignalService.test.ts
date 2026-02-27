@@ -31,7 +31,7 @@ describe("SignalService", () => {
 		const mock = createMockStorage<SignalState>();
 		getData = mock.getData;
 		eventBus = new EventBus();
-		service = new SignalService({ storage: mock.storage, eventBus });
+		service = new SignalService({ storage: mock.storage, secretStore: createMockSecretStore(), eventBus });
 	});
 
 	afterEach(() => {
@@ -63,7 +63,7 @@ describe("SignalService", () => {
 					status: "connected",
 				}],
 			});
-			service = new SignalService({ storage: mock.storage, eventBus });
+			service = new SignalService({ storage: mock.storage, secretStore: createMockSecretStore(), eventBus });
 
 			await service.load();
 
@@ -94,7 +94,7 @@ describe("SignalService", () => {
 			});
 			const handler = vi.fn();
 			eventBus.on("signal.loaded", handler);
-			service = new SignalService({ storage: mock.storage, eventBus });
+			service = new SignalService({ storage: mock.storage, secretStore: createMockSecretStore(), eventBus });
 
 			await service.load();
 
@@ -285,7 +285,7 @@ describe("SignalService", () => {
 	describe("dispose", () => {
 		it("should work without eventBus (optional dependency)", async () => {
 			const mock = createMockStorage<SignalState>();
-			const serviceNoEvents = new SignalService({ storage: mock.storage });
+			const serviceNoEvents = new SignalService({ storage: mock.storage, secretStore: createMockSecretStore() });
 
 			await serviceNoEvents.load();
 			await serviceNoEvents.configure(makeInput());
@@ -314,6 +314,7 @@ describe("SignalService", () => {
 			const mock = createMockStorage<SignalState>();
 			serviceWithAdapter = new SignalService({
 				storage: mock.storage,
+				secretStore: createMockSecretStore(),
 				eventBus,
 				adapter,
 				fileSystem: createMockFileSystem(),
@@ -403,6 +404,7 @@ describe("SignalService", () => {
 			const mock = createMockStorage<SignalState>();
 			serviceWithSync = new SignalService({
 				storage: mock.storage,
+				secretStore: createMockSecretStore(),
 				eventBus,
 				adapter,
 				fileSystem,
@@ -591,27 +593,6 @@ describe("SignalService", () => {
 			await svc2.load();
 
 			expect(svc2.getSignals()[0].pat).toBe("roundtrip-pat");
-		});
-
-		it("should persist PATs in data.json when secretStore is unavailable", async () => {
-			const mock = createMockStorage<SignalState>();
-			const secretStore = createMockSecretStore(false);
-			const svc = new SignalService({ storage: mock.storage, eventBus, secretStore });
-
-			await svc.configure(makeInput({ pat: "visible-pat" }));
-
-			const persisted = mock.getData();
-			expect(persisted?.signals[0].pat).toBe("visible-pat");
-		});
-
-		it("should work without secretStore (backwards compatible)", async () => {
-			const mock = createMockStorage<SignalState>();
-			const svc = new SignalService({ storage: mock.storage, eventBus });
-
-			await svc.configure(makeInput({ pat: "plain-pat" }));
-
-			const persisted = mock.getData();
-			expect(persisted?.signals[0].pat).toBe("plain-pat");
 		});
 
 		it("should store updated PATs in SecretStorage", async () => {

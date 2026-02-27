@@ -45,7 +45,8 @@ export class SignalConfigModal extends Modal {
 			.setName("Name")
 			.setDesc("Display name for this signal connection")
 			.addText((text) => {
-				text.setPlaceholder("e.g. My Project Backlog")
+				// eslint-disable-next-line obsidianmd/ui/sentence-case
+			text.setPlaceholder("e.g. My Project Backlog")
 					.setValue(this.name)
 					.onChange((v) => { this.name = v; });
 			});
@@ -69,8 +70,9 @@ export class SignalConfigModal extends Modal {
 			});
 
 		new Setting(contentEl)
-			.setName("Personal Access Token")
-			.setDesc("PAT with work item read scope")
+			.setName("Personal access token")
+			// eslint-disable-next-line obsidianmd/ui/sentence-case
+		.setDesc("PAT with work item read scope")
 			.addText((text) => {
 				text.setPlaceholder("PAT")
 					.setValue(this.pat)
@@ -79,25 +81,26 @@ export class SignalConfigModal extends Modal {
 			});
 
 		new Setting(contentEl)
-			.setName("Target Folder")
+			.setName("Target folder")
 			.setDesc("Vault folder for synced notes")
 			.addText((text) => {
-				text.setPlaceholder("signals/items")
+				// eslint-disable-next-line obsidianmd/ui/sentence-case
+			text.setPlaceholder("signals/items")
 					.setValue(this.targetFolder)
 					.onChange((v) => { this.targetFolder = v; });
 			});
 
 		new Setting(contentEl)
-			.setName("Item Type Filter")
+			.setName("Item type filter")
 			.setDesc("Comma-separated work item types (empty = all)")
 			.addText((text) => {
-				text.setPlaceholder("Bug, User Story, Task")
+				text.setPlaceholder("Bug, user story, task")
 					.setValue(this.itemTypeFilter)
 					.onChange((v) => { this.itemTypeFilter = v; });
 			});
 
 		new Setting(contentEl)
-			.setName("Conflict Strategy")
+			.setName("Conflict strategy")
 			.setDesc("How to handle existing notes during sync")
 			.addDropdown((dd) => {
 				dd.addOption("skip", "Skip (keep existing)")

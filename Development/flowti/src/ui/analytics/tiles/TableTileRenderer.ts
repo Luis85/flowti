@@ -223,7 +223,7 @@ export class TableTileRenderer implements TileRenderer {
 		const bar = host.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		bar.style.cssText = "padding:0.35rem 0.25rem;justify-content:center;font-size:var(--font-ui-smaller)";
 
-		const prevBtn = bar.createEl("button", { text: "\u25C0 Prev", cls: "ft-text-xs" });
+		const prevBtn = bar.createEl("button", { text: "\u25C0 prev", cls: "ft-text-xs" });
 		prevBtn.style.cssText = "padding:2px 8px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);cursor:pointer";
 		if (currentPage <= 1) {
 			prevBtn.disabled = true;

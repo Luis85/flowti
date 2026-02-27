@@ -296,12 +296,12 @@ describe("TrainCaptureModal", () => {
 			modal.onOpen();
 
 			const backBtn = Array.from(modal.contentEl.querySelectorAll("button")).find(
-				(b) => b.textContent?.includes("Back"),
+				(b) => b.textContent?.includes("back"),
 			);
 			expect(backBtn).toBeDefined();
-			// Back button should be in the same Setting row as the Add Thought button
+			// Back button should be in the same Setting row as the Add thought button
 			const addBtn = Array.from(modal.contentEl.querySelectorAll("button")).find(
-				(b) => b.textContent?.includes("Add Thought"),
+				(b) => b.textContent?.includes("Add thought"),
 			);
 			const actionSetting = addBtn?.closest(".setting-item");
 			expect(backBtn?.closest(".setting-item")).toBe(actionSetting);
@@ -320,7 +320,7 @@ describe("TrainCaptureModal", () => {
 			modal.onOpen();
 
 			const backBtn = Array.from(modal.contentEl.querySelectorAll("button")).find(
-				(b) => b.textContent?.includes("Back"),
+				(b) => b.textContent?.includes("back"),
 			);
 			expect(backBtn).toBeUndefined();
 		});
@@ -340,7 +340,7 @@ describe("TrainCaptureModal", () => {
 			modal.onOpen();
 
 			const backBtn = Array.from(modal.contentEl.querySelectorAll("button")).find(
-				(b) => b.textContent?.includes("Back"),
+				(b) => b.textContent?.includes("back"),
 			) as HTMLButtonElement;
 			backBtn.click();
 			modal.onClose();
@@ -367,7 +367,7 @@ describe("TrainCaptureModal", () => {
 			// Direction dropdown is in its own Setting row, separate from the action buttons
 			const dropdownSetting = dropdown.closest(".setting-item");
 			const addBtn = Array.from(modal.contentEl.querySelectorAll("button")).find(
-				(b) => b.textContent?.includes("Add Thought"),
+				(b) => b.textContent?.includes("Add thought"),
 			);
 			const actionSetting = addBtn?.closest(".setting-item");
 			expect(dropdownSetting).not.toBe(actionSetting);

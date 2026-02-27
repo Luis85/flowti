@@ -335,7 +335,7 @@ export function renderFrontmatterAlert(container: HTMLElement, issues: string[])
 	const header = alert.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 	const icon = header.createSpan();
 	setIcon(icon, "alert-triangle");
-	header.createEl("strong", { text: "Frontmatter Issues" });
+	header.createEl("strong", { text: "Frontmatter issues" });
 	const list = alert.createEl("ul");
 	list.style.margin = "0.5rem 0 0";
 	list.style.paddingLeft = "1.5rem";

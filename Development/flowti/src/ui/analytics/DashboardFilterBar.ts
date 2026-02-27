@@ -340,7 +340,7 @@ export class DashboardFilterBar {
 		const select = wrap.createEl("select", { cls: "ft-select-small ft-text-xs" });
 		const noneOpt = select.createEl("option");
 		noneOpt.value = "";
-		noneOpt.textContent = "Date range: All";
+		noneOpt.textContent = "Date range: all";
 		if (!current) noneOpt.selected = true;
 
 		const presetKeys: DateRangePreset[] = [

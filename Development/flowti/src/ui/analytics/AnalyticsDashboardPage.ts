@@ -674,7 +674,7 @@ export class AnalyticsDashboardPage {
 		const heading = section.createDiv({ cls: "ft-text-sm" });
 		heading.style.fontWeight = "600";
 		heading.style.marginBottom = "0.25rem";
-		heading.textContent = "Favourite Queries";
+		heading.textContent = "Favourite queries";
 
 		// Description
 		section.createDiv({

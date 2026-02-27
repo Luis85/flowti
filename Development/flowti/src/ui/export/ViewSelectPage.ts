@@ -110,7 +110,7 @@ export class ViewSelectPage {
 
 		// Header
 		container.createEl("h3", {
-			text: "Select a View",
+			text: "Select a view",
 			cls: "ft-heading ft-heading-sm ft-mb-2",
 		});
 		const subtitle = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });

@@ -77,7 +77,7 @@ describe("SessionOutputPanel", () => {
 
 		const section = container.querySelector(".ft-session-workspace-outputs");
 		expect(section).toBeTruthy();
-		expect(section!.textContent).toContain("Output Artifacts");
+		expect(section!.textContent).toContain("Output artifacts");
 		expect(section!.textContent).toContain("(1)");
 	});
 

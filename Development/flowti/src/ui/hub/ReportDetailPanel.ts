@@ -187,10 +187,11 @@ export class ReportDetailPanel {
 		const typeCard = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
 		const typeRow = typeCard.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		typeRow.style.padding = "0.25rem 0";
-		typeRow.createSpan({ text: "Note Type", cls: "ft-text-sm ft-text-muted" });
+		typeRow.createSpan({ text: "Note type", cls: "ft-text-sm ft-text-muted" });
 		const typeInput = typeRow.createEl("input", { cls: "ft-text-sm", type: "text" });
 		typeInput.value = fmNoteType;
-		typeInput.placeholder = "e.g. Event, Asset, Service";
+		// eslint-disable-next-line obsidianmd/ui/sentence-case
+	typeInput.placeholder = "e.g. Event, Asset, Service";
 		typeInput.style.flex = "1";
 		typeInput.style.background = "transparent";
 		typeInput.style.border = "1px solid var(--background-modifier-border)";

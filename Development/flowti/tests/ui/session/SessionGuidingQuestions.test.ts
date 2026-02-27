@@ -62,7 +62,7 @@ describe("SessionGuidingQuestions", () => {
 
 		const section = container.querySelector(".ft-session-workspace-guiding");
 		expect(section).not.toBeNull();
-		expect(section!.textContent).toContain("Guiding Questions");
+		expect(section!.textContent).toContain("Guiding questions");
 		expect(section!.textContent).toContain("What events does this domain produce?");
 		expect(section!.textContent).toContain("What triggers each event?");
 	});

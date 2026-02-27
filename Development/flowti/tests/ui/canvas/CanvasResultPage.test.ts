@@ -127,7 +127,7 @@ describe("CanvasResultPage", () => {
 		page.render();
 
 		const heading = container.querySelector("h3");
-		expect(heading?.textContent).toBe("Import Failed");
+		expect(heading?.textContent).toBe("Import failed");
 
 		// Should display the error message
 		const errorText = container.querySelector(".ft-text-sm");

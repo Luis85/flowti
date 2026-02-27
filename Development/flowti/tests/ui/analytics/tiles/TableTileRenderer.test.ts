@@ -203,7 +203,7 @@ describe("TableTileRenderer", () => {
 				currentPage: 2,
 				onPageChange: (tileId, page) => pageCalls.push([tileId, page]),
 			}));
-			const prevBtn = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("Prev"));
+			const prevBtn = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("prev"));
 			expect(prevBtn).toBeDefined();
 			prevBtn!.click();
 			expect(pageCalls).toEqual([["tile-1", 1]]);
@@ -225,7 +225,7 @@ describe("TableTileRenderer", () => {
 		it("Prev button is disabled on page 1", () => {
 			const result = manyRows(10);
 			renderer.render(container, result, makeCtx(result, { rowLimit: 3 }, { currentPage: 1 }));
-			const prevBtn = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("Prev"));
+			const prevBtn = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("prev"));
 			expect(prevBtn).toBeDefined();
 			expect(prevBtn!.disabled).toBe(true);
 		});

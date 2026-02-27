@@ -140,8 +140,7 @@ export class DomainDetailPanel {
 
 		// Delete button for documented domains (file-based only)
 		if (domainData.filePath) {
-			const delBtn = actions.createEl("button", { cls: "ft-btn ft-btn-ghost ft-text-sm" });
-			delBtn.style.color = "var(--text-error)";
+			const delBtn = actions.createEl("button", { cls: "ft-btn ft-btn-ghost ft-text-sm ft-text-danger" });
 			const delIcon = delBtn.createSpan();
 			setIcon(delIcon, "trash-2");
 			delBtn.appendText(" Delete");

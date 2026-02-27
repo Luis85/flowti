@@ -81,7 +81,7 @@ describe("UserHubNudgePreferences", () => {
 			const deps = makeDeps(state);
 			new UserHubNudgePreferences(container, deps).render();
 
-			expect(container.textContent).toContain("Session Nudges");
+			expect(container.textContent).toContain("Session nudges");
 			expect(container.textContent).toContain("Time-based reminders");
 		});
 
@@ -176,7 +176,7 @@ describe("UserHubNudgePreferences", () => {
 			expect(container.textContent).toContain("Time (HH:MM)");
 			expect(container.textContent).toContain("Session type");
 			expect(container.textContent).toContain("Duration (min)");
-			expect(container.textContent).toContain("Add Nudge");
+			expect(container.textContent).toContain("Add nudge");
 		});
 
 		it("renders session type dropdown without daily-tracking", () => {

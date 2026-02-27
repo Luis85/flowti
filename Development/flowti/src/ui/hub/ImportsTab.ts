@@ -330,8 +330,8 @@ export class ImportsTab {
 			section.createDiv({ text: "Column Mappings", cls: "ft-detail-section-header" });
 			const table = section.createEl("table", { cls: "ft-preview-table" });
 			const thead = table.createEl("tr");
-			thead.createEl("th", { text: "CSV Column" });
-			thead.createEl("th", { text: "Frontmatter Key" });
+			thead.createEl("th", { text: "CSV column" });
+			thead.createEl("th", { text: "Frontmatter key" });
 			thead.createEl("th", { text: "Included" });
 			for (const m of cfg.columnMappings) {
 				const tr = table.createEl("tr");
@@ -361,7 +361,7 @@ export class ImportsTab {
 
 	private renderEditForm(cfg: SavedImportConfig): void {
 		const panel = this.detailEl;
-		panel.createEl("h3", { text: "Edit Import Config", cls: "ft-heading ft-heading-sm ft-mb-3" });
+		panel.createEl("h3", { text: "Edit import config", cls: "ft-heading ft-heading-sm ft-mb-3" });
 
 		const edits: Partial<SavedImportConfig> = {
 			name: cfg.name,
@@ -432,7 +432,8 @@ export class ImportsTab {
 			.addText((t) =>
 				t
 					.setValue(cfg.noteType ?? "")
-					.setPlaceholder("e.g. Event, Asset, Service")
+					// eslint-disable-next-line obsidianmd/ui/sentence-case
+				.setPlaceholder("e.g. event, asset, service")
 					.onChange((v) => { edits.noteType = v || undefined; }),
 			);
 

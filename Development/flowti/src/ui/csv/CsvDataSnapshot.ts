@@ -32,7 +32,7 @@ export class CsvDataSnapshot {
 
 		// Heading + row count badge + reset button (built once)
 		const headingRow = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
-		headingRow.createEl("h3", { text: "Data Snapshot", cls: "ft-heading ft-heading-sm" });
+		headingRow.createEl("h3", { text: "Data snapshot", cls: "ft-heading ft-heading-sm" });
 		this.previewBadgeEl = headingRow.createSpan({ cls: "ft-badge ft-badge-muted" });
 		this.previewHiddenBadgeEl = headingRow.createSpan({ cls: "ft-badge ft-badge-muted" });
 		// Reset columns button (shown/hidden dynamically by updatePreviewTable)

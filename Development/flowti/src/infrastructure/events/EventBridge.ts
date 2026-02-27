@@ -206,7 +206,7 @@ export class EventBridge implements IEventBridge {
 						throw new Error(`File not found: ${path}`);
 					}
 
-					await this.app.vault.delete(file);
+					await this.app.fileManager.trashFile(file);
 
 					await this.eventBus.emit("file.delete.response", {
 						requestId,

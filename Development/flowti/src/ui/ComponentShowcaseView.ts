@@ -16,7 +16,7 @@ export class ComponentShowcaseView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		return "Flowti Components";
+		return "Flowti components";
 	}
 
 	getIcon(): string {
@@ -49,7 +49,7 @@ export class ComponentShowcaseView extends ItemView {
 		const section = container.createDiv({ cls: "ft-mb-4" });
 
 		section.createEl("h1", {
-			text: "Flowti Component Showcase",
+			text: "Flowti component showcase",
 			cls: "ft-heading ft-heading-lg ft-mb-2",
 		});
 
@@ -93,21 +93,21 @@ export class ComponentShowcaseView extends ItemView {
 
 		// Text input
 		const inputGroup1 = formGroup.createDiv();
-		inputGroup1.createEl("label", { text: "Text Input", cls: "ft-label" });
+		inputGroup1.createEl("label", { text: "Text input", cls: "ft-label" });
 		const input1 = inputGroup1.createEl("input", { cls: "ft-input" });
 		input1.type = "text";
 		input1.placeholder = "Placeholder text...";
 
 		// Input with value
 		const inputGroup2 = formGroup.createDiv();
-		inputGroup2.createEl("label", { text: "With Value", cls: "ft-label" });
+		inputGroup2.createEl("label", { text: "With value", cls: "ft-label" });
 		const input2 = inputGroup2.createEl("input", { cls: "ft-input" });
 		input2.type = "text";
 		input2.value = "Pre-filled text";
 
 		// Textarea simulation (using input for simplicity)
 		const inputGroup3 = formGroup.createDiv();
-		inputGroup3.createEl("label", { text: "Readonly Input", cls: "ft-label" });
+		inputGroup3.createEl("label", { text: "Readonly input", cls: "ft-label" });
 		const input3 = inputGroup3.createEl("input", { cls: "ft-input" });
 		input3.type = "text";
 		input3.value = "Not editable";
@@ -122,13 +122,13 @@ export class ComponentShowcaseView extends ItemView {
 		// Simple card
 		const card1 = cardsRow.createDiv({ cls: "ft-card" });
 		card1.addClass("ft-flex-1");
-		card1.createEl("h3", { text: "Simple Card", cls: "ft-heading ft-heading-sm ft-mb-2" });
+		card1.createEl("h3", { text: "Simple card", cls: "ft-heading ft-heading-sm ft-mb-2" });
 		card1.createEl("p", { text: "This is a simple card with text.", cls: "ft-text-muted" });
 
 		// Card with button
 		const card2 = cardsRow.createDiv({ cls: "ft-card ft-flex ft-flex-col ft-gap-2" });
 		card2.addClass("ft-flex-1");
-		card2.createEl("h3", { text: "Card with Action", cls: "ft-heading ft-heading-sm" });
+		card2.createEl("h3", { text: "Card with action", cls: "ft-heading ft-heading-sm" });
 		card2.createEl("p", {
 			text: "This card contains a button.",
 			cls: "ft-text-muted ft-mb-2",
@@ -198,9 +198,9 @@ export class ComponentShowcaseView extends ItemView {
 	private renderTypography(container: HTMLElement): void {
 		const section = this.createSection(container, "Typography", "Text styles");
 
-		section.createEl("h2", { text: "Heading Large", cls: "ft-heading ft-heading-lg ft-mb-1" });
-		section.createEl("h3", { text: "Heading Medium", cls: "ft-heading ft-heading-md ft-mb-1" });
-		section.createEl("h4", { text: "Heading Small", cls: "ft-heading ft-heading-sm ft-mb-2" });
+		section.createEl("h2", { text: "Heading large", cls: "ft-heading ft-heading-lg ft-mb-1" });
+		section.createEl("h3", { text: "Heading medium", cls: "ft-heading ft-heading-md ft-mb-1" });
+		section.createEl("h4", { text: "Heading small", cls: "ft-heading ft-heading-sm ft-mb-2" });
 
 		section.createEl("p", { text: "Normal text with standard styling.", cls: "ft-mb-1" });
 		section.createEl("p", { text: "Muted text for secondary information.", cls: "ft-text-muted ft-mb-1" });
@@ -236,7 +236,7 @@ export class ComponentShowcaseView extends ItemView {
 
 		// Spacing demo
 		const spacingDemo = section.createDiv({ cls: "ft-card ft-mb-4" });
-		spacingDemo.createEl("h4", { text: "Spacing (Gap)", cls: "ft-heading ft-heading-sm ft-mb-2" });
+		spacingDemo.createEl("h4", { text: "Spacing (gap)", cls: "ft-heading ft-heading-sm ft-mb-2" });
 
 		const gapRow = spacingDemo.createDiv({ cls: "ft-flex ft-gap-4" });
 
@@ -263,7 +263,7 @@ export class ComponentShowcaseView extends ItemView {
 		animDemo.createEl("h4", { text: "Animation", cls: "ft-heading ft-heading-sm ft-mb-2" });
 
 		const animBtn = animDemo.createEl("button", {
-			text: "Fade In Test",
+			text: "Fade in test",
 			cls: "ft-btn ft-btn-secondary",
 		});
 

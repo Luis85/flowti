@@ -156,7 +156,7 @@ export class SessionSetup {
 
 				if (isFile) {
 					menu.addItem((item) => {
-						item.setTitle("Create New Session")
+						item.setTitle("Create new session")
 							.setIcon("timer")
 							.onClick(() => {
 								new NewSessionModal(app, {
@@ -180,7 +180,7 @@ export class SessionSetup {
 					// "Start new Train from this file" — always available for .md files
 					if (file.extension === "md") {
 						menu.addItem((item) => {
-							item.setTitle("Start new Train from this file")
+							item.setTitle("Start new train from this file")
 								.setIcon("train-front")
 								.onClick(() => {
 									void eventBus.emit("ui.startTrain", { fromFilePath: file.path });

@@ -23,7 +23,7 @@ export class DashboardNameModal extends Modal {
 	onOpen(): void {
 		const { contentEl } = this;
 
-		contentEl.createEl("h3", { text: "New Dashboard" });
+		contentEl.createEl("h3", { text: "New dashboard" });
 		contentEl.createDiv({
 			text: "Give your dashboard a meaningful name.",
 			cls: "ft-text-muted ft-text-sm",

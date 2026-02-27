@@ -287,7 +287,7 @@ export class TypesTab {
 			catalogBtn.addClass("ft-flex-shrink-0");
 			const catIcon = catalogBtn.createSpan();
 			setIcon(catIcon, "list");
-			catalogBtn.title = "Show in Event Catalog";
+			catalogBtn.title = "Show in event catalog";
 			catalogBtn.addEventListener("click", () => {
 				openEventInCatalog(this.deps.app, ev.event);
 			});

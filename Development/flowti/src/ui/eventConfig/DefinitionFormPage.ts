@@ -13,7 +13,7 @@ export function renderDefinitionFormPage(container: HTMLElement, deps: EventConf
 	const isEdit = deps.editingDefinitionId !== null;
 
 	container.createEl("h3", {
-		text: isEdit ? "Edit Transform" : "New Transform",
+		text: isEdit ? "Edit transform" : "New transform",
 	});
 
 	container.createEl("p", {
@@ -31,9 +31,9 @@ export function renderDefinitionFormPage(container: HTMLElement, deps: EventConf
 
 	new Setting(container)
 		.setName("Output event name")
-		.setDesc("The name of the output event to emit when matched. Use dot notation to namespace (e.g. report.daily_received). This becomes a new event type in the system.")
+		.setDesc("The name of the output event to emit when matched. Use dot notation to namespace, such as report.daily_received. This becomes a new event type in the system.")
 		.addText((text) => {
-			text.setPlaceholder("report.daily_received");
+			text.setPlaceholder("Report.daily_received");
 			text.setValue(deps.defFormData.domainEventName);
 			text.onChange((value) => {
 				deps.defFormData.domainEventName = value;
@@ -53,7 +53,7 @@ export function renderDefinitionFormPage(container: HTMLElement, deps: EventConf
 
 	new Setting(container)
 		.setName("Trigger mode")
-		.setDesc("\"Always\" emits every time the source event fires for a matching file. \"Once per file\" deduplicates by file path \u2014 each unique file only triggers the output event once (useful for one-time processing).")
+		.setDesc("\"always\" emits every time the source event fires for a matching file. \"once per file\" deduplicates by file path \u2014 each unique file only triggers the output event once (useful for one-time processing).")
 		.addDropdown((dd) => {
 			dd.addOption("always", "Always");
 			dd.addOption("once", "Once per file");
@@ -65,7 +65,7 @@ export function renderDefinitionFormPage(container: HTMLElement, deps: EventConf
 
 	// ── Payload mappings ───────────────────────────────────
 	container.createEl("h4", {
-		text: "Data Fields",
+		text: "Data fields",
 		cls: "ft-heading ft-heading-sm ft-mt-4",
 	});
 	container.createEl("p", {
@@ -161,7 +161,7 @@ function renderMappingRow(
 	// Field name
 	const fieldInput = row.createEl("input", { cls: "ft-input" });
 	fieldInput.type = "text";
-	fieldInput.placeholder = "output field";
+	fieldInput.placeholder = "Output field";
 	fieldInput.value = mapping.field;
 	fieldInput.addClass("ft-flex-1");
 	fieldInput.addEventListener("input", () => {
@@ -186,7 +186,7 @@ function renderMappingRow(
 	// Expression
 	const exprInput = row.createEl("input", { cls: "ft-input" });
 	exprInput.type = "text";
-	exprInput.placeholder = "key, regex, or derivation";
+	exprInput.placeholder = "Key, regex, or derivation";
 	exprInput.value = mapping.expression;
 	exprInput.addClass("ft-flex-1");
 	exprInput.addEventListener("input", () => {

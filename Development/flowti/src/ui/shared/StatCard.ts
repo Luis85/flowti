@@ -32,8 +32,7 @@ export function renderStatGrid(
 			el.addEventListener("click", card.onClick);
 		}
 
-		const iconEl = el.createDiv();
-		iconEl.style.opacity = "0.6";
+		const iconEl = el.createDiv({ cls: "ft-stat-card-icon-subtle" });
 		setIcon(iconEl, card.icon);
 
 		const text = el.createDiv();

@@ -91,7 +91,7 @@ export class QuickCaptureModal extends Modal {
 				text
 					.setPlaceholder("Enter a title\u2026")
 					.onChange((value) => { titleValue = value; });
-				text.inputEl.style.width = "100%";
+				text.inputEl.addClass("ft-input-full-width");
 				text.inputEl.addEventListener("keydown", (e: KeyboardEvent) => {
 					if (e.key === "Enter") {
 						e.preventDefault();
@@ -108,7 +108,7 @@ export class QuickCaptureModal extends Modal {
 				area
 					.setPlaceholder("Add a brief description\u2026")
 					.onChange((value) => { descriptionValue = value; });
-				area.inputEl.style.width = "100%";
+				area.inputEl.addClass("ft-input-full-width");
 				area.inputEl.rows = 3;
 			});
 

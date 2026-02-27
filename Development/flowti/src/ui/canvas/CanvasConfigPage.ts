@@ -63,7 +63,7 @@ export class CanvasConfigPage {
 	// ── Left panel: general config ──────────────────────────
 
 	private renderGeneralConfig(panel: HTMLElement, state: ReturnType<CanvasComponentDeps["getState"]>): void {
-		panel.createEl("h3", { text: "Configure Import", cls: "ft-heading ft-heading-sm ft-mb-2" });
+		panel.createEl("h3", { text: "Configure import", cls: "ft-heading ft-heading-sm ft-mb-2" });
 
 		const scroll = panel;
 
@@ -94,7 +94,8 @@ export class CanvasConfigPage {
 			.setDesc("Name to save this import for reuse")
 			.addText((text) =>
 				text
-					.setPlaceholder("e.g. Architecture Import")
+					// eslint-disable-next-line obsidianmd/ui/sentence-case
+				.setPlaceholder("e.g. architecture import")
 					.setValue(state.configName)
 					.onChange((v) => {
 						this.deps.setState({ configName: v });
@@ -260,7 +261,7 @@ export class CanvasConfigPage {
 
 		const section = container.createDiv({ cls: "ft-mb-4" });
 		const headerRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
-		headerRow.createEl("h4", { text: "Included Types", cls: "ft-heading ft-heading-sm" });
+		headerRow.createEl("h4", { text: "Included types", cls: "ft-heading ft-heading-sm" });
 
 		const checkboxes: HTMLInputElement[] = [];
 

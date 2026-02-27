@@ -319,7 +319,8 @@ export class QueryBuilderPanel {
 			const localeTag = sectionHeader.createSpan({ cls: "ft-badge ft-badge-muted" });
 			localeTag.style.cssText = "font-size:0.6rem;padding:0 0.25rem;opacity:0.7";
 			localeTag.textContent = loadedSources.length > 1 ? `${src.alias}: ${effective}` : effective;
-			if (src.locale === "auto" || !src.locale) localeTag.title = "Auto-detected (default: en-US)";
+			// eslint-disable-next-line obsidianmd/ui/sentence-case
+		if (src.locale === "auto" || !src.locale) localeTag.title = "Auto-detected (default: en-US)";
 		}
 
 		const hints = this.deps.columnTypeHints();
@@ -469,7 +470,7 @@ export class QueryBuilderPanel {
 				// Alias input
 				const aliasInput = row.createEl("input", { type: "text", cls: "ft-text-xs" });
 				aliasInput.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);width:80px;color:var(--text-muted)";
-				aliasInput.placeholder = "alias";
+				aliasInput.placeholder = "Alias";
 				if (hint?.alias) aliasInput.value = hint.alias;
 				aliasInput.addEventListener("change", () => {
 					const val = aliasInput.value.trim() || undefined;
@@ -605,7 +606,7 @@ export class QueryBuilderPanel {
 					measureSelect.style.cssText = SELECT_CSS + ";font-size:0.65rem;padding:1px 4px;max-width:90px";
 					const placeholder = measureSelect.createEl("option");
 					placeholder.value = "";
-					placeholder.textContent = "+ Measure";
+					placeholder.textContent = "+ measure";
 					placeholder.disabled = true;
 					placeholder.selected = true;
 					for (const fn of applicableFns) {

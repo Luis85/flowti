@@ -73,7 +73,7 @@ export class CsvResultPage {
 		const hIcon = headerRow.createSpan();
 		setIcon(hIcon, "x-circle");
 		hIcon.style.color = "var(--text-error)";
-		headerRow.createEl("h3", { text: "Import Failed", cls: "ft-heading ft-heading-sm" });
+		headerRow.createEl("h3", { text: "Import failed", cls: "ft-heading ft-heading-sm" });
 
 		const errorCard = container.createDiv({ cls: "ft-card ft-mt-2" });
 		errorCard.style.borderLeft = "3px solid var(--text-error)";

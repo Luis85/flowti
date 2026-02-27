@@ -56,18 +56,11 @@ export function attachFolderSuggest(
 
 		dropdown = document.createElement("div");
 		dropdown.className = "ft-folder-suggest-dropdown";
-		dropdown.style.cssText =
-			"position:absolute;left:0;right:0;top:100%;z-index:100;" +
-			"max-height:200px;overflow-y:auto;" +
-			"background:var(--background-primary);" +
-			"border:1px solid var(--background-modifier-border);" +
-			"border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.15);";
 
 		for (let i = 0; i < matches.length; i++) {
 			const item = document.createElement("div");
 			item.textContent = matches[i];
 			item.className = "ft-folder-suggest-item";
-			item.style.cssText = "padding:4px 8px;cursor:pointer;font-size:12px;";
 			item.addEventListener("mouseenter", () => highlightItem(i));
 			item.addEventListener("mousedown", (e) => {
 				e.preventDefault();
@@ -80,7 +73,7 @@ export function attachFolderSuggest(
 
 		const wrapper = input.parentElement;
 		if (wrapper) {
-			wrapper.style.position = "relative";
+			wrapper.classList.add("ft-folder-suggest-anchor");
 			wrapper.appendChild(dropdown);
 		}
 	}

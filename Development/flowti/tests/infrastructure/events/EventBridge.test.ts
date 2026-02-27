@@ -51,6 +51,7 @@ function createMockApp() {
 		},
 		fileManager: {
 			renameFile: vi.fn().mockResolvedValue(undefined),
+			trashFile: vi.fn().mockResolvedValue(undefined),
 			processFrontMatter: vi.fn().mockImplementation(
 				async (_file: TFile, cb: (fm: Record<string, unknown>) => void) => {
 					const fm: Record<string, unknown> = {};
@@ -287,7 +288,7 @@ describe("EventBridge", () => {
 				path: "test.md",
 			});
 
-			expect(mockApp.vault.delete).toHaveBeenCalledWith(tFile);
+			expect(mockApp.fileManager.trashFile).toHaveBeenCalledWith(tFile);
 			expect(handler).toHaveBeenCalledWith(
 				expect.objectContaining({
 					payload: expect.objectContaining({ success: true }),

@@ -157,7 +157,7 @@ export class TrainHubView extends BaseHubView<TrainHubPage> {
 		const header = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-4" });
 		const iconEl = header.createSpan();
 		setIcon(iconEl, "train-front");
-		header.createEl("h2", { text: "Train Hub", cls: "ft-heading ft-heading-lg ft-m-0" });
+		header.createEl("h2", { text: "Train hub", cls: "ft-heading ft-heading-lg ft-m-0" });
 
 		// ── Stats cards ──
 		const statsRow = container.createDiv({ cls: "ft-grid ft-grid-cols-4 ft-gap-3 ft-mb-4" });
@@ -230,9 +230,9 @@ export class TrainHubView extends BaseHubView<TrainHubPage> {
 
 		// ── Quick actions ──
 		const actions = container.createDiv({ cls: "ft-flex ft-gap-2" });
-		const activeBtn = actions.createEl("button", { text: "View Active Trains", cls: "ft-btn ft-btn-ghost ft-text-sm" });
+		const activeBtn = actions.createEl("button", { text: "View active trains", cls: "ft-btn ft-btn-ghost ft-text-sm" });
 		activeBtn.addEventListener("click", () => this.navigateTo("active"));
-		const historyBtn = actions.createEl("button", { text: "View History", cls: "ft-btn ft-btn-ghost ft-text-sm" });
+		const historyBtn = actions.createEl("button", { text: "View history", cls: "ft-btn ft-btn-ghost ft-text-sm" });
 		historyBtn.addEventListener("click", () => this.navigateTo("history"));
 	}
 

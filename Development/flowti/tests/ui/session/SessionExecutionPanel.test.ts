@@ -79,7 +79,7 @@ describe("SessionExecutionPanel", () => {
 
 		const section = container.querySelector(".ft-session-workspace-tasks");
 		expect(section).toBeTruthy();
-		expect(section!.textContent).toContain("Execution Plan");
+		expect(section!.textContent).toContain("Execution plan");
 		expect(section!.textContent).toContain("(0/1)");
 	});
 

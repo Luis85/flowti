@@ -401,8 +401,7 @@ export class TrainMainView extends ItemView {
 		typeBadge.appendText(` ${typeLabel}`);
 
 		// Spacer pushes buttons to the right
-		const spacer = titleRow.createSpan();
-		spacer.style.flex = "1";
+		titleRow.createSpan({ cls: "ft-flex-spacer" });
 
 		// Toggle timeline sidebar button
 		const toggleBtn = titleRow.createEl("button", {
@@ -439,7 +438,7 @@ export class TrainMainView extends ItemView {
 
 		// Left: ◄ Prev
 		const prevBtn = nav.createEl("button", { cls: "ft-btn ft-btn-ghost ft-btn-sm ft-train-nav-btn ft-train-prev-btn" });
-		prevBtn.setText("◄ Prev");
+		prevBtn.setText("◄ prev");
 		if (!prevThought) {
 			prevBtn.disabled = true;
 			prevBtn.addClass("ft-train-nav-disabled");
@@ -590,7 +589,7 @@ export class TrainMainView extends ItemView {
 		const isMerged = train.relations.some((r) => r.fromId === thought.id && r.direction === "merge");
 		if (isMerged) {
 			const badge = titleRow.createSpan({ cls: "ft-badge ft-badge-muted ft-train-merged-badge" });
-			badge.setText("merged");
+			badge.setText("Merged");
 		}
 
 		const meta = detail.createDiv({ cls: "ft-detail-info-grid ft-train-thought-meta" });

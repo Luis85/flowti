@@ -33,6 +33,7 @@ import { AnalyticsService } from "../../domain/analytics/AnalyticsService";
 import { OnboardingService } from "../../domain/onboarding/OnboardingService";
 import { DocService } from "../../domain/docs/DocService";
 import { FileSystemClient } from "../filesystem/FileSystemClient";
+import type { ISecretStore } from "../../utils/SecretStore";
 import type { IServiceContainer, ServiceRegistration } from "./types";
 
 /**
@@ -83,7 +84,8 @@ function createTypedStorage<T>(
  * @returns Array of service registrations
  */
 export function createServiceRegistrations(
-	pluginStorage: PluginStorage
+	pluginStorage: PluginStorage,
+	secretStore: ISecretStore,
 ): ServiceRegistration[] {
 	const storage = createStorageProvider(pluginStorage);
 
@@ -257,6 +259,7 @@ export function createServiceRegistrations(
 				const eventBus = container.getEventBus();
 				return new SignalService({
 					storage: createTypedStorage(storage, "signal", container),
+					secretStore,
 					eventBus,
 					adapter: new AzureDevOpsAdapter(),
 					fileSystem: new FileSystemClient({ eventBus }),
@@ -344,9 +347,10 @@ export function createServiceRegistrations(
  */
 export function registerServices(
 	container: IServiceContainer,
-	pluginStorage: PluginStorage
+	pluginStorage: PluginStorage,
+	secretStore: ISecretStore,
 ): void {
-	const registrations = createServiceRegistrations(pluginStorage);
+	const registrations = createServiceRegistrations(pluginStorage, secretStore);
 
 	for (const registration of registrations) {
 		container.register(registration);

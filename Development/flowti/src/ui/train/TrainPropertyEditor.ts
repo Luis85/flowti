@@ -173,13 +173,13 @@ export class TrainPropertyEditor {
 			cls: "ft-train-property-input ft-train-property-key-input",
 			type: "text",
 		});
-		keyInput.placeholder = "key";
+		keyInput.placeholder = "Key";
 
 		const valueInput = row.createEl("input", {
 			cls: "ft-train-property-input ft-train-property-value-input",
 			type: "text",
 		});
-		valueInput.placeholder = "value";
+		valueInput.placeholder = "Value";
 
 		keyInput.focus();
 

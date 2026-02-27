@@ -36,7 +36,7 @@ describe("HubDashboard", () => {
 			dashboard.render();
 			const heading = container.querySelector("h2");
 			expect(heading).not.toBeNull();
-			expect(heading!.textContent).toContain("Data Exchange");
+			expect(heading!.textContent).toContain("Data exchange");
 		});
 
 		it("should render welcome empty state when all sections are empty", () => {
@@ -77,7 +77,7 @@ describe("HubDashboard", () => {
 			expect(container.querySelector(".ft-empty-state")).toBeNull();
 			const heading = container.querySelector("h2");
 			expect(heading).not.toBeNull();
-			expect(heading!.textContent).toContain("Data Exchange Hub");
+			expect(heading!.textContent).toContain("Data exchange hub");
 		});
 
 		it("should navigate to imports when Import a CSV card is clicked", () => {

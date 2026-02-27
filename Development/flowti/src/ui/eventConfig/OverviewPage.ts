@@ -62,7 +62,8 @@ export function renderOverviewPage(container: HTMLElement, deps: EventConfigPage
 	});
 
 	container.createEl("p", {
-		text: "Watchers monitor this event and filter matching files for processing. Each filter narrows the match \u2014 all specified filters must match (AND logic).",
+		// eslint-disable-next-line obsidianmd/ui/sentence-case
+		text: "Watchers monitor this event and filter matching files for processing; each filter narrows the match \u2014 all specified filters must match (AND logic).",
 		cls: "ft-text-muted ft-text-sm ft-mb-1",
 	});
 

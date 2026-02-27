@@ -2514,3 +2514,96 @@
 	text-align: center;
 	padding: 0.5rem 0;
 }
+
+/* ── Inline-style extractions (Cycle 48) ── */
+
+/* StatCard: subdued icon in stat grid */
+.ft-stat-card-icon-subtle {
+	opacity: 0.6;
+}
+
+/* EventLogView: full-height wrapper */
+.ft-full-height {
+	height: 100%;
+}
+
+/* DomainDetailPanel / EventDetailPanel: destructive action text */
+.ft-text-danger {
+	color: var(--text-error);
+}
+
+/* EventsSettingsPanel: hint block padding */
+.ft-settings-hint {
+	padding: 0.5rem 0;
+}
+
+/* CsvAssociatedBases: semi-bold label */
+.ft-font-semibold {
+	font-weight: 500;
+}
+
+/* CsvLanding: no-doc title with semibold weight */
+.ft-doc-cta-title {
+	font-weight: 500;
+}
+
+/* PreviewPage: action bar bottom border */
+.ft-border-bottom {
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+/* TrainHistoryPanel / TrainMainView: flex spacer */
+.ft-flex-spacer {
+	flex: 1;
+}
+
+/* FolderSuggest: dropdown container */
+.ft-folder-suggest-dropdown {
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: 100%;
+	z-index: 100;
+	max-height: 200px;
+	overflow-y: auto;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* FolderSuggest: individual suggestion item */
+.ft-folder-suggest-item {
+	padding: 4px 8px;
+	cursor: pointer;
+	font-size: 12px;
+}
+
+/* FolderSuggest: parent wrapper positioning */
+.ft-folder-suggest-anchor {
+	position: relative;
+}
+
+/* QuickCaptureModal: full-width input */
+.ft-input-full-width {
+	width: 100%;
+}
+
+/* SessionNotesPanel: notes heading */
+.ft-session-notes-heading {
+	display: block;
+	margin-bottom: 8px;
+}
+
+/* SessionNotesPanel: notes textarea */
+.ft-session-notes-textarea {
+	width: 100%;
+	min-height: 100px;
+	padding: 8px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	resize: vertical;
+	font-family: inherit;
+}

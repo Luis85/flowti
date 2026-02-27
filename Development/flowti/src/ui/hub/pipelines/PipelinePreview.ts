@@ -70,7 +70,7 @@ export class PipelinePreview {
 		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
 		const headerIcon = header.createSpan();
 		setIcon(headerIcon, "eye");
-		header.createEl("span", { text: "Pipeline Preview", cls: "ft-text-sm ft-font-medium" });
+		header.createEl("span", { text: "Pipeline preview", cls: "ft-text-sm ft-font-medium" });
 
 		const stats = section.createDiv({ cls: "ft-flex ft-gap-3 ft-px-2 ft-pb-2" });
 		stats.createSpan({
@@ -175,7 +175,7 @@ export class PipelinePreview {
 		cancelBtn.addEventListener("click", () => section.remove());
 
 		const hasErrors = result.sources.some((s) => s.error);
-		const runBtn = footer.createEl("button", { cls: "mod-cta", text: "Run Pipeline" });
+		const runBtn = footer.createEl("button", { cls: "mod-cta", text: "Run pipeline" });
 		if (hasErrors) {
 			runBtn.disabled = true;
 			runBtn.title = "Fix source errors before running";

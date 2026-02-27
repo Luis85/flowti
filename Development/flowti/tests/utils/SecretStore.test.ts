@@ -2,21 +2,17 @@ import { describe, it, expect, beforeEach } from "vitest";
 import type { ISecretStore } from "../../src/utils/SecretStore";
 
 /** Creates a mock in-memory SecretStore for testing. */
-export function createMockSecretStore(available = true): ISecretStore {
+export function createMockSecretStore(): ISecretStore {
 	const store = new Map<string, string>();
 	return {
 		setSecret(id: string, value: string): void {
-			if (available) store.set(id, value);
+			store.set(id, value);
 		},
 		getSecret(id: string): string | null {
-			if (!available) return null;
 			return store.get(id) ?? null;
 		},
 		deleteSecret(id: string): void {
 			store.delete(id);
-		},
-		isAvailable(): boolean {
-			return available;
 		},
 	};
 }
@@ -47,25 +43,6 @@ describe("SecretStore (mock)", () => {
 		secretStore.setSecret("my-key", "old-value");
 		secretStore.setSecret("my-key", "new-value");
 		expect(secretStore.getSecret("my-key")).toBe("new-value");
-	});
-
-	it("should report availability", () => {
-		expect(secretStore.isAvailable()).toBe(true);
-	});
-
-	describe("when unavailable", () => {
-		beforeEach(() => {
-			secretStore = createMockSecretStore(false);
-		});
-
-		it("should return null on getSecret", () => {
-			secretStore.setSecret("key", "value");
-			expect(secretStore.getSecret("key")).toBeNull();
-		});
-
-		it("should report unavailable", () => {
-			expect(secretStore.isAvailable()).toBe(false);
-		});
 	});
 
 	it("should handle special characters in values", () => {

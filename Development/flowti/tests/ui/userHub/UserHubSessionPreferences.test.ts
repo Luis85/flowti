@@ -77,7 +77,7 @@ describe("UserHubSessionPreferences", () => {
 	describe("activity filter section", () => {
 		it("should render section heading", () => {
 			component.render();
-			expect(container.textContent).toContain("Activity Log Filter");
+			expect(container.textContent).toContain("Activity log filter");
 		});
 
 		it("should render existing filter entries", () => {
@@ -139,7 +139,7 @@ describe("UserHubSessionPreferences", () => {
 	describe("custom session types section", () => {
 		it("should render section heading", () => {
 			component.render();
-			expect(container.textContent).toContain("Custom Session Types");
+			expect(container.textContent).toContain("Custom session types");
 		});
 
 		it("should list existing custom types", () => {
@@ -194,7 +194,7 @@ describe("UserHubSessionPreferences", () => {
 			expect(container.textContent).toContain("Display label");
 			expect(container.textContent).toContain("Duration (min)");
 			expect(container.textContent).toContain("Guiding questions");
-			expect(container.textContent).toContain("Add Custom Type");
+			expect(container.textContent).toContain("Add custom type");
 		});
 	});
 
@@ -203,7 +203,7 @@ describe("UserHubSessionPreferences", () => {
 	describe("custom output templates section", () => {
 		it("should render section heading", () => {
 			component.render();
-			expect(container.textContent).toContain("Custom Output Templates");
+			expect(container.textContent).toContain("Custom output templates");
 		});
 
 		it("should list existing templates", () => {
@@ -248,7 +248,7 @@ describe("UserHubSessionPreferences", () => {
 			expect(container.textContent).toContain("Template title");
 			expect(container.textContent).toContain("Description");
 			expect(container.textContent).toContain("Sections");
-			expect(container.textContent).toContain("Add Output Template");
+			expect(container.textContent).toContain("Add output template");
 		});
 	});
 });

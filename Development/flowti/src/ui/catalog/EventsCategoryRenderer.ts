@@ -225,8 +225,8 @@ function renderMasterEventItem(
 		const dots = item.createDiv({ cls: "ft-master-status-dots" });
 		if (isExcluded) {
 			const dot = dots.createDiv({ cls: "ft-master-status-dot ft-master-dot-hidden" });
-			dot.setAttribute("aria-label", "Hidden from Activity Log");
-			dot.title = "Hidden from Activity Log";
+			dot.setAttribute("aria-label", "Hidden from activity log");
+			dot.title = "Hidden from activity log";
 		}
 		if (configured) {
 			const dot = dots.createDiv({ cls: "ft-master-status-dot ft-master-dot-configured" });
@@ -235,8 +235,8 @@ function renderMasterEventItem(
 		}
 		if (followed) {
 			const dot = dots.createDiv({ cls: "ft-master-status-dot ft-master-dot-followed" });
-			dot.setAttribute("aria-label", "Followed \u2014 triggers Notice popup");
-			dot.title = "Followed \u2014 triggers Notice popup";
+			dot.setAttribute("aria-label", "Followed \u2014 triggers notice popup");
+			dot.title = "Followed \u2014 triggers notice popup";
 		}
 	}
 

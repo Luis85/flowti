@@ -86,9 +86,12 @@ export default defineConfig([globalIgnores(["**/node_modules/", "**/main.js", "e
         // incrementally across future cycles (each UI file touched gets migrated).
         "obsidianmd/no-static-styles-assignment": "warn",
 
-        // Downgrade sentence-case to warn — many existing UI strings use Title Case
-        // (will be fixed incrementally across future cycles)
-        "obsidianmd/ui/sentence-case": "warn",
+        // Sentence-case: all violations fixed in Cycle 48. Remaining warnings are
+        // false positives on vault paths, "e.g." prefixes, and proper nouns (suppressed
+        // with inline eslint-disable comments). Keep as warn to catch new violations.
+        "obsidianmd/ui/sentence-case": ["warn", {
+            ignoreWords: ["Flowti", "IBDE", "KPI", "KPIs"],
+        }],
 
         // Downgrade validate-license/validate-manifest to warn — not blocking dev workflow
         "obsidianmd/validate-license": "warn",

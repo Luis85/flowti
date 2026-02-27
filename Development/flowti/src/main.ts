@@ -47,6 +47,7 @@ import { SessionSetup } from "./sessionSetup";
 import { UiCommandService } from "./infrastructure/ui/UiCommandService";
 import { InputModal } from "./ui/modals";
 import { createInfrastructure, setupCrossCuttingListeners } from "./pluginBootstrap";
+import { createSecretStore } from "./utils/SecretStore";
 import { HubRegistry } from "./domain/hub/HubRegistry";
 import { EventCatalogProvider } from "./domain/hub/EventCatalogProvider";
 import { DataExchangeProvider } from "./domain/hub/DataExchangeProvider";
@@ -248,43 +249,43 @@ export default class FlowtiBasePlugin extends Plugin {
 			});
 
 			// Ribbon icons — emit UI command events
-			this.addRibbonIcon("list", "Open Event Catalog", () => {
+			this.addRibbonIcon("list", "Open event catalog", () => {
 				void this.eventBus.emit("ui.openEventCatalog", {});
 			});
-			this.addRibbonIcon("arrow-left-right", "Open Data Exchange Hub", () => {
+			this.addRibbonIcon("arrow-left-right", "Open data exchange hub", () => {
 				void this.eventBus.emit("ui.openDataExchangeHub", {});
 			});
-			this.addRibbonIcon("home", "Open User Hub", () => {
+			this.addRibbonIcon("home", "Open user hub", () => {
 				void this.eventBus.emit("ui.openUserHub", {});
 			});
-			this.addRibbonIcon("lightbulb", "Add Idea", () => {
+			this.addRibbonIcon("lightbulb", "Add idea", () => {
 				void this.eventBus.emit("ui.openQuickCapture", { type: "idea" });
 			});
-			this.addRibbonIcon("file-text", "Add Note", () => {
+			this.addRibbonIcon("file-text", "Add note", () => {
 				void this.eventBus.emit("ui.openQuickCapture", { type: "note" });
 			});
-			this.addRibbonIcon("check-square", "Add Task", () => {
+			this.addRibbonIcon("check-square", "Add task", () => {
 				void this.eventBus.emit("ui.openQuickCapture", { type: "task" });
 			});
-			this.addRibbonIcon("help-circle", "Add Question", () => {
+			this.addRibbonIcon("help-circle", "Add question", () => {
 				void this.eventBus.emit("ui.openQuickCapture", { type: "question" });
 			});
-			this.addRibbonIcon("message-circle", "Add Feedback", () => {
+			this.addRibbonIcon("message-circle", "Add feedback", () => {
 				void this.eventBus.emit("ui.openQuickCapture", { type: "feedback" });
 			});
-			this.addRibbonIcon("bug", "Add Bug", () => {
+			this.addRibbonIcon("bug", "Add bug", () => {
 				void this.eventBus.emit("ui.openQuickCapture", { type: "bug" });
 			});
-			this.addRibbonIcon("graduation-cap", "Add Learning", () => {
+			this.addRibbonIcon("graduation-cap", "Add learning", () => {
 				void this.eventBus.emit("ui.openQuickCapture", { type: "learning" });
 			});
-			this.addRibbonIcon("waypoints", "Open Train Hub", () => {
+			this.addRibbonIcon("waypoints", "Open train hub", () => {
 				void this.eventBus.emit("ui.openTrainHub", {});
 			});
-			this.addRibbonIcon("bar-chart-2", "Open Analytics Hub", () => {
+			this.addRibbonIcon("bar-chart-2", "Open analytics hub", () => {
 				void this.eventBus.emit("ui.openAnalyticsHub", {});
 			});
-			this.addRibbonIcon("train-front", "Train of Thoughts", () => {
+			this.addRibbonIcon("train-front", "Train of thoughts", () => {
 				const activeTrain = this.trainService?.getActiveTrain();
 				if (activeTrain) {
 					void this.eventBus.emit("ui.openTrainView", { trainId: activeTrain.id });
@@ -515,7 +516,7 @@ export default class FlowtiBasePlugin extends Plugin {
 		registerServices(this.services, {
 			loadData: () => this.loadData(),
 			saveData: (data) => this.saveData(data),
-		});
+		}, createSecretStore(this.app));
 	}
 
 	/**

@@ -79,7 +79,7 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 
 	renderTopBarActions(bar: HTMLElement): void {
 		const newQueryBtn = bar.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-		newQueryBtn.setAttribute("aria-label", "New Query");
+		newQueryBtn.setAttribute("aria-label", "New query");
 		const qIcon = newQueryBtn.createSpan();
 		setIcon(qIcon, "search");
 		newQueryBtn.appendText(" New Query");
@@ -97,7 +97,7 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 		});
 
 		const newDashBtn = bar.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-		newDashBtn.setAttribute("aria-label", "New Dashboard");
+		newDashBtn.setAttribute("aria-label", "New dashboard");
 		const dIcon = newDashBtn.createSpan();
 		setIcon(dIcon, "layout-grid");
 		newDashBtn.appendText(" New Dashboard");

@@ -36,7 +36,7 @@ export class SessionClosureOverlay {
 		setIcon(iconEl, "clipboard-check");
 		(iconEl.firstChild as HTMLElement)?.style.setProperty("width", "32px");
 		(iconEl.firstChild as HTMLElement)?.style.setProperty("height", "32px");
-		header.createEl("h3", { text: "Closure Ritual" }).style.cssText = "margin:0 0 4px 0;";
+		header.createEl("h3", { text: "Closure ritual" }).style.cssText = "margin:0 0 4px 0;";
 		header.createEl("p", {
 			text: `Reflect on "${this.session.title}" before completing.`,
 			cls: "ft-text-muted",
@@ -54,7 +54,7 @@ export class SessionClosureOverlay {
 		const actions = overlay.createDiv({ cls: "ft-closure-actions" });
 		actions.style.cssText = "display:flex;justify-content:center;gap:12px;margin-top:24px;";
 
-		const submitBtn = actions.createEl("button", { text: "Complete Session", cls: "mod-cta" });
+		const submitBtn = actions.createEl("button", { text: "Complete session", cls: "mod-cta" });
 		submitBtn.style.cssText = "padding:8px 24px;border-radius:6px;cursor:pointer;font-weight:600;";
 		submitBtn.addEventListener("click", () => this.handleSubmit(form));
 

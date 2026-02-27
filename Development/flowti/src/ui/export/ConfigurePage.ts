@@ -25,7 +25,7 @@ export class ConfigurePage {
 		// ── Left panel: settings ──
 		const panel = split.createDiv({ cls: "ft-config-panel" });
 		panel.createEl("h3", {
-			text: "Configure Export",
+			text: "Configure export",
 			cls: "ft-heading ft-heading-sm ft-mb-2",
 		});
 
@@ -132,6 +132,7 @@ export class ConfigurePage {
 				.addText((text) =>
 					text
 						.setValue(getOutputFolder(state.outputPath))
+						// eslint-disable-next-line obsidianmd/ui/sentence-case
 						.setPlaceholder("path/to/folder")
 						.onChange((v) => {
 							const filename = getOutputFilename(state.outputPath);
@@ -192,7 +193,7 @@ export class ConfigurePage {
 			.addText((t) =>
 				t
 					.setValue(state.noteType)
-					.setPlaceholder("e.g. Event, Asset, Service")
+					.setPlaceholder("Event, asset, service")
 					.onChange((v) => {
 						this.deps.setState({ noteType: v });
 						this.deps.updateUnsavedHint();
@@ -205,11 +206,11 @@ export class ConfigurePage {
 		if (state.resolvedColumns && state.resolvedColumns.length > 0) {
 			// Read-only view columns for Base exports with resolved columns
 			const header = content.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });
-			header.createEl("h3", { text: "View Columns", cls: "ft-heading ft-heading-sm" });
+			header.createEl("h3", { text: "View columns", cls: "ft-heading ft-heading-sm" });
 			header.addClass("ft-flex-1");
 
 			const info = content.createDiv({ cls: "ft-text-sm ft-text-muted ft-mb-3" });
-			info.textContent = "Columns defined by Base view (read-only)";
+			info.textContent = "Columns defined by base view (read-only)";
 
 			const grid = content.createDiv({ cls: "ft-property-grid" });
 			for (const rc of state.resolvedColumns) {
@@ -281,7 +282,7 @@ export class ConfigurePage {
 			!searchLower || fp.label.toLowerCase().includes(searchLower) || fp.key.toLowerCase().includes(searchLower),
 		);
 		if (filteredFileProps.length > 0) {
-			container.createEl("h4", { text: "File Properties", cls: "ft-mt-2 ft-heading ft-heading-sm ft-mb-1" });
+			container.createEl("h4", { text: "File properties", cls: "ft-mt-2 ft-heading ft-heading-sm ft-mb-1" });
 			const fileGrid = container.createDiv({ cls: "ft-property-grid" });
 			for (const fp of filteredFileProps) {
 				const item = fileGrid.createDiv({ cls: "ft-property-item" });
@@ -310,7 +311,7 @@ export class ConfigurePage {
 			!searchLower || col.toLowerCase().includes(searchLower),
 		);
 		if (filteredCols.length > 0) {
-			container.createEl("h4", { text: "Note Properties", cls: "ft-mt-3 ft-heading ft-heading-sm ft-mb-1" });
+			container.createEl("h4", { text: "Note properties", cls: "ft-mt-3 ft-heading ft-heading-sm ft-mb-1" });
 			const noteGrid = container.createDiv({ cls: "ft-property-grid" });
 			for (const col of filteredCols) {
 				const item = noteGrid.createDiv({ cls: "ft-property-item" });

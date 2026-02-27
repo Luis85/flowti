@@ -58,7 +58,7 @@ describe("CatalogDashboard", () => {
 			dashboard.render();
 			const heading = container.querySelector("h2");
 			expect(heading).toBeTruthy();
-			expect(heading?.textContent).toContain("Event Catalog");
+			expect(heading?.textContent).toContain("Event catalog");
 		});
 
 		it("should show stats section with stat cards", () => {
@@ -72,7 +72,7 @@ describe("CatalogDashboard", () => {
 		it("should create quick action buttons", () => {
 			dashboard.render();
 			const text = container.textContent ?? "";
-			expect(text).toContain("Quick Actions");
+			expect(text).toContain("Quick actions");
 			const navLinks = container.querySelectorAll(".ft-nav-link");
 			expect(navLinks.length).toBeGreaterThan(0);
 		});
@@ -117,7 +117,7 @@ describe("CatalogDashboard", () => {
 			emptyDashboard.render();
 
 			expect(container.querySelector("h2")).toBeNull();
-			expect(container.textContent).not.toContain("Quick Actions");
+			expect(container.textContent).not.toContain("Quick actions");
 		});
 
 		it("should show correct domain count from state", () => {

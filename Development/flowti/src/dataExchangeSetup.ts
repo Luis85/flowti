@@ -192,7 +192,7 @@ export class DataExchangeSetup {
 
 				if (file instanceof TFile && file.extension === "csv") {
 					menu.addItem((item) => {
-						item.setTitle("Import as Notes")
+						item.setTitle("Import as notes")
 							.setIcon("file-input")
 							.onClick(() => {
 								void eventBus.emit("ui.openCsvImport", {
@@ -204,7 +204,7 @@ export class DataExchangeSetup {
 
 					if (this.deps.hubRegistry) {
 						menu.addItem((item) => {
-							item.setTitle("Analyze in Analytics Hub")
+							item.setTitle("Analyze in analytics hub")
 								.setIcon("bar-chart-2")
 								.onClick(() => {
 									void this.deps.hubRegistry!.openHub("analytics", "queries", file.path);
@@ -245,7 +245,7 @@ export class DataExchangeSetup {
 							});
 					});
 					menu.addItem((item) => {
-						item.setTitle("Export as Tab")
+						item.setTitle("Export as tab")
 							.setIcon("file-output")
 							.onClick(() => {
 								void eventBus.emit("ui.openExport", {
@@ -277,7 +277,7 @@ export class DataExchangeSetup {
 
 				if (file instanceof TFile && file.extension === "canvas" && this.deps.canvasService) {
 					menu.addItem((item) => {
-						item.setTitle("Import Canvas")
+						item.setTitle("Import canvas")
 							.setIcon("layout-dashboard")
 							.onClick(() => {
 								this.openCanvasImportView(file.path);
@@ -315,7 +315,7 @@ export class DataExchangeSetup {
 							});
 					});
 					menu.addItem((item) => {
-						item.setTitle("Export as Tab")
+						item.setTitle("Export as tab")
 							.setIcon("file-output")
 							.onClick(() => {
 								void eventBus.emit("ui.openExport", {

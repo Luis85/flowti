@@ -246,7 +246,7 @@ export class ComputedColumnsSection {
 		const title = panel.createDiv({ cls: "ft-text-sm" });
 		title.style.fontWeight = "600";
 		title.style.marginBottom = "0.35rem";
-		title.textContent = "Expression Reference";
+		title.textContent = "Expression reference";
 
 		// Operators section
 		const opsRow = panel.createDiv({ cls: "ft-text-xs" });

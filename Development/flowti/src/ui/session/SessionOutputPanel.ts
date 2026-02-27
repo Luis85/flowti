@@ -26,7 +26,7 @@ export class SessionOutputPanel {
 
 		const labelRow = headerRow.createDiv();
 		labelRow.style.cssText = "display:flex;align-items:center;gap:8px;";
-		labelRow.createEl("strong", { text: "Output Artifacts" });
+		labelRow.createEl("strong", { text: "Output artifacts" });
 		this.countEl = labelRow.createEl("span", {
 			text: `(${session.outputArtifacts.length})`,
 			cls: "ft-text-muted ft-text-sm",
@@ -34,7 +34,7 @@ export class SessionOutputPanel {
 		this.countEl.style.cssText = "color:var(--text-muted);font-size:12px;";
 
 		// Generate button
-		const btn = headerRow.createEl("button", { text: "Generate Output", cls: "ft-output-generate-btn" });
+		const btn = headerRow.createEl("button", { text: "Generate output", cls: "ft-output-generate-btn" });
 		btn.style.cssText = "display:flex;align-items:center;gap:4px;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:13px;";
 		const iconEl = btn.createSpan();
 		setIcon(iconEl, "file-output");

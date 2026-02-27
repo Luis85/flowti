@@ -320,7 +320,7 @@ export class ExportsTab {
 		});
 
 		const outputRow = sourceGrid.createDiv({ cls: "ft-detail-info-label" });
-		outputRow.textContent = "Output File";
+		outputRow.textContent = "Output file";
 		const outputVal = sourceGrid.createDiv({ cls: "ft-detail-info-value" });
 		if (cfg.isExternal) {
 			outputVal.createSpan({ text: cfg.outputPath || "(not set)", cls: "ft-text-sm" });
@@ -375,7 +375,7 @@ export class ExportsTab {
 
 	private renderEditForm(cfg: SavedExportConfig): void {
 		const panel = this.detailEl;
-		panel.createEl("h3", { text: "Edit Export Config", cls: "ft-heading ft-heading-sm ft-mb-3" });
+		panel.createEl("h3", { text: "Edit export config", cls: "ft-heading ft-heading-sm ft-mb-3" });
 
 		const edits: Partial<SavedExportConfig> = {
 			name: cfg.name,
@@ -422,7 +422,7 @@ export class ExportsTab {
 			if (edits.isExternal) {
 				const badge = document.createElement("span");
 				badge.className = "ft-badge ft-badge-muted ft-text-sm";
-				badge.textContent = "external";
+				badge.textContent = "External";
 				externalBadgeEl.replaceChildren(badge);
 			}
 		};
@@ -481,7 +481,8 @@ export class ExportsTab {
 			.addText((t) =>
 				t
 					.setValue(cfg.noteType ?? "")
-					.setPlaceholder("e.g. Event, Asset, Service")
+					// eslint-disable-next-line obsidianmd/ui/sentence-case
+				.setPlaceholder("e.g. event, asset, service")
 					.onChange((v) => { edits.noteType = v || undefined; }),
 			);
 

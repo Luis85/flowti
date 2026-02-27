@@ -274,7 +274,7 @@ export class SessionDetailPanel {
 
 	private renderTrainSection(train: TrainState): void {
 		const section = this.detailEl.createDiv({ cls: "ft-detail-section ft-train-section" });
-		section.createEl("h4", { text: "Train of Thought", cls: "ft-heading ft-heading-sm" });
+		section.createEl("h4", { text: "Train of thought", cls: "ft-heading ft-heading-sm" });
 
 		const grid = section.createDiv({ cls: "ft-flex ft-gap-3 ft-text-sm" });
 
@@ -443,7 +443,7 @@ export class SessionDetailPanel {
 		section.style.padding = "1rem";
 
 		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		header.createEl("h4", { text: "Saved Templates", cls: "ft-heading ft-heading-sm" });
+		header.createEl("h4", { text: "Saved templates", cls: "ft-heading ft-heading-sm" });
 		header.style.marginBottom = "0";
 		const headerSpacer = header.createDiv();
 		headerSpacer.style.flex = "1";

@@ -355,7 +355,7 @@ export class SourcesExportsGrid {
 			const existing = new Set(canvasConfigIds);
 			const available = allConfigs.filter((c) => !existing.has(c.id));
 			if (available.length === 0) {
-				new Notice("No canvas configs available. Create one first in the Canvas tab.");
+				new Notice("No canvas configs available. Create one first in the canvas tab.");
 				return;
 			}
 			new ConfigChooserModal(

@@ -259,9 +259,9 @@ describe("UserHubPreferences", () => {
 			prefs.renderDetail();
 
 			// Verify that session preferences sections are rendered (no Daily Tracking)
-			expect(detailEl.textContent).toContain("Activity Log Filter");
-			expect(detailEl.textContent).toContain("Custom Session Types");
-			expect(detailEl.textContent).toContain("Custom Output Templates");
+			expect(detailEl.textContent).toContain("Activity log filter");
+			expect(detailEl.textContent).toContain("Custom session types");
+			expect(detailEl.textContent).toContain("Custom output templates");
 			expect(detailEl.textContent).not.toContain("Enable daily session");
 		});
 	});
@@ -273,7 +273,7 @@ describe("UserHubPreferences", () => {
 			state.selectedPreferencesCategory = "nudges";
 			prefs.renderDetail();
 
-			expect(detailEl.textContent).toContain("Session Nudges");
+			expect(detailEl.textContent).toContain("Session nudges");
 			expect(detailEl.textContent).toContain("Time-based reminders");
 		});
 	});

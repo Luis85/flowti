@@ -224,7 +224,7 @@ describe("renderFrontmatterAlert", () => {
 		const container = document.createElement("div");
 		renderFrontmatterAlert(container, ["Test issue"]);
 		const strong = container.querySelector("strong");
-		expect(strong?.textContent).toBe("Frontmatter Issues");
+		expect(strong?.textContent).toBe("Frontmatter issues");
 	});
 });
 

@@ -1002,7 +1002,7 @@ describe("UserHubSessions", () => {
 
 			comp.renderDetail();
 
-			expect(detailEl.textContent).toContain("Saved Templates");
+			expect(detailEl.textContent).toContain("Saved templates");
 			expect(detailEl.textContent).toContain("Sprint Storming");
 			expect(detailEl.textContent).toContain("Design Review");
 		});

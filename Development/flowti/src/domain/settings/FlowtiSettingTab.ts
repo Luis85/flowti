@@ -80,7 +80,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Reset onboarding")
 			.setDesc(
-				"Clear onboarding progress so welcome callouts and the Getting Started checklist reappear."
+				"Clear onboarding progress so welcome callouts and the getting started checklist reappear."
 			)
 			.addButton((btn) =>
 				btn
@@ -89,8 +89,8 @@ export class FlowtiSettingTab extends PluginSettingTab {
 					.onClick(() => {
 						new ConfirmModal(this.app, {
 							message:
-								"This will reset onboarding progress. Welcome callouts will reappear and the Getting Started checklist will restart. Continue?",
-							confirmLabel: "Reset Onboarding",
+								"This will reset onboarding progress. Welcome callouts will reappear and the getting started checklist will restart. Continue?",
+							confirmLabel: "Reset onboarding",
 							onConfirm: () => {
 								const svc = this.deps.getOnboardingService?.();
 								if (svc) {
@@ -156,6 +156,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 			.addText((text) =>
 				text
 					.setValue(this.deps.getSettings().docsRootPath)
+					// eslint-disable-next-line obsidianmd/ui/sentence-case
 					.setPlaceholder("03 - Resources/Documentation/Reference")
 					.onChange(async (value) => {
 						this.deps.getSettings().docsRootPath = value;
@@ -164,14 +165,15 @@ export class FlowtiSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Quick Capture folder")
+			.setName("Quick capture folder")
 			.setDesc(
-				"Vault folder where Quick Capture notes are created. " +
+				"Vault folder where quick capture notes are created. " +
 				"The folder is created automatically if it doesn't exist."
 			)
 			.addText((text) =>
 				text
 					.setValue(this.deps.getSettings().captureFolder)
+					// eslint-disable-next-line obsidianmd/ui/sentence-case
 					.setPlaceholder("00 - Connectivity/inbox")
 					.onChange(async (value) => {
 						this.deps.getSettings().captureFolder = value;
@@ -251,14 +253,16 @@ export class FlowtiSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Default train duration")
 			.setDesc(
-				"Default timer for Train of Thought sessions (0 = no timer)"
+				"Default timer for train of thought sessions (0 = no timer)"
 			)
 			.addDropdown((dd) => {
 				dd.addOption("0", "Unlimited (no timer)");
 				dd.addOption("5", "5 min");
 				dd.addOption("10", "10 min");
 				dd.addOption("15", "15 min");
+				// eslint-disable-next-line obsidianmd/ui/sentence-case
 				dd.addOption("25", "25 min (Pomodoro)");
+				// eslint-disable-next-line obsidianmd/ui/sentence-case
 				dd.addOption("50", "50 min (Deep Work)");
 				dd.setValue(String(settings.defaultTrainDuration));
 				dd.onChange((value) => {
@@ -270,10 +274,11 @@ export class FlowtiSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Train folder")
-			.setDesc("Vault folder where Train of Thought notes are saved")
+			.setDesc("Vault folder where train of thought notes are saved")
 			.addText((text) =>
 				text
 					.setValue(settings.trainFolder)
+					// eslint-disable-next-line obsidianmd/ui/sentence-case
 					.setPlaceholder("00 - Connectivity/trains")
 					.onChange((value) => {
 						void this.deps.eventBus.emit("settings.updateTrainFolder", { folder: value });
@@ -342,6 +347,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 			.addText((text) =>
 				text
 					.setValue(settings.analyticsFolder)
+					// eslint-disable-next-line obsidianmd/ui/sentence-case
 					.setPlaceholder("03 - Resources/Analytics")
 					.onChange((value) => {
 						void this.deps.eventBus.emit("settings.updateAnalyticsFolder", { folder: value });
@@ -349,7 +355,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Reset Analytics Hub")
+			.setName("Reset analytics hub")
 			.setDesc(
 				"Delete all dashboards, saved queries, templates, and measurements. This cannot be undone."
 			)
@@ -361,7 +367,7 @@ export class FlowtiSettingTab extends PluginSettingTab {
 						new ConfirmModal(this.app, {
 							message:
 								"This will permanently delete all dashboards, saved queries, templates, and measurements. Are you sure?",
-							confirmLabel: "Reset Analytics",
+							confirmLabel: "Reset analytics",
 							onConfirm: () => {
 								const svc = this.deps.getAnalyticsService?.();
 								if (svc) {

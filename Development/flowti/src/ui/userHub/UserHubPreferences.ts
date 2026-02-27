@@ -148,7 +148,7 @@ export class UserHubPreferences {
 		const icon = header.createSpan();
 		setIcon(icon, "inbox");
 		icon.addClass("ft-icon-muted");
-		header.createEl("h3", { text: "Inbox Sources", cls: "ft-heading" }).style.margin = "0";
+		header.createEl("h3", { text: "Inbox sources", cls: "ft-heading" }).style.margin = "0";
 
 		section.createEl("p", {
 			text: "Choose which events create inbox notifications. Disabling a source stops new items; existing items are not affected.",
@@ -188,7 +188,7 @@ export class UserHubPreferences {
 		const folderIcon = folderHeader.createSpan();
 		setIcon(folderIcon, "folder-open");
 		folderIcon.addClass("ft-icon-muted");
-		folderHeader.createEl("h4", { text: "Watched Folders", cls: "ft-heading" }).style.margin = "0";
+		folderHeader.createEl("h4", { text: "Watched folders", cls: "ft-heading" }).style.margin = "0";
 
 		folderSection.createEl("p", {
 			text: "Vault folders monitored for untyped notes. Notes without a 'type' frontmatter field will appear in your inbox.",
@@ -265,7 +265,7 @@ export class UserHubPreferences {
 		const targetIcon = targetHeader.createSpan();
 		setIcon(targetIcon, "folder-input");
 		targetIcon.addClass("ft-icon-muted");
-		targetHeader.createEl("h4", { text: "Triage Target Folder", cls: "ft-heading" }).style.margin = "0";
+		targetHeader.createEl("h4", { text: "Triage target folder", cls: "ft-heading" }).style.margin = "0";
 
 		targetSection.createEl("p", {
 			text: "Notes from primary watched folders will be moved here after triage.",

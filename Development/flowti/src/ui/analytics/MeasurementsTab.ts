@@ -85,7 +85,7 @@ export class MeasurementsTab {
 		const addBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 		const addIcon = addBtn.createSpan();
 		setIcon(addIcon, "plus");
-		addBtn.setAttribute("aria-label", "Create Measurement");
+		addBtn.setAttribute("aria-label", "Create measurement");
 		addBtn.addEventListener("click", () => {
 			this.showCreateForm();
 		});
@@ -549,7 +549,8 @@ export class MeasurementsTab {
 		nameRow.createDiv({ text: "Name", cls: "ft-text-xs ft-text-muted" });
 		const nameInput = nameRow.createEl("input", { type: "text" });
 		nameInput.style.cssText = "width:100%;padding:4px 8px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);margin-top:0.25rem";
-		nameInput.placeholder = "e.g., Total Revenue";
+		// eslint-disable-next-line obsidianmd/ui/sentence-case
+	nameInput.placeholder = "e.g., Total revenue";
 
 		// Query picker
 		const queryRow = card.createDiv({ cls: "ft-mt-2" });

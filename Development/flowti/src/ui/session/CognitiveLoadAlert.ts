@@ -47,7 +47,8 @@ export class CognitiveLoadAlert {
 
 		const title = header.createEl("strong");
 		title.style.cssText = "font-size:13px;";
-		title.textContent = "\u26A0\uFE0F Cognitive Overload";
+		// eslint-disable-next-line obsidianmd/ui/sentence-case
+		title.textContent = "\u26A0\uFE0F Cognitive overload";
 
 		const dismissBtn = header.createEl("button", { cls: "ft-overload-dismiss" });
 		dismissBtn.textContent = "\u00D7";

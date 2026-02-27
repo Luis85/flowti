@@ -193,12 +193,12 @@ export class CsvLanding {
 		const icon = cta.createDiv({ cls: "ft-doc-cta-icon" });
 		setIcon(icon, "file-plus");
 		const text = cta.createDiv();
-		text.createDiv({ text: "No documentation yet", cls: "ft-text-sm" }).style.fontWeight = "500";
+		text.createDiv({ text: "No documentation yet", cls: "ft-text-sm ft-doc-cta-title" });
 		text.createDiv({
 			text: "Create a doc file to track notes, data sources, and context for this CSV.",
 			cls: "ft-text-sm ft-text-muted",
 		});
-		const ctaBtn = cta.createEl("button", { text: "Create Doc", cls: "ft-btn ft-btn-sm" });
+		const ctaBtn = cta.createEl("button", { text: "Create doc", cls: "ft-btn ft-btn-sm" });
 		ctaBtn.addEventListener("click", () => this.createCsvDocAndOpen());
 	}
 

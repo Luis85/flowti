@@ -87,7 +87,7 @@ describe("CanvasConfigPage", () => {
 
 		// The left panel should contain heading "Configure Import"
 		const heading = container.querySelector("h3");
-		expect(heading?.textContent).toBe("Configure Import");
+		expect(heading?.textContent).toBe("Configure import");
 
 		// The config panel should be present (target folder is rendered via Setting API)
 		const panel = container.querySelector(".ft-config-panel");
@@ -188,7 +188,7 @@ describe("CanvasConfigPage", () => {
 		const rightPanel = container.querySelector(".ft-config-content");
 		const h4Elements = rightPanel!.querySelectorAll("h4");
 		const typesHeading = Array.from(h4Elements).find(
-			(h) => h.textContent === "Included Types",
+			(h) => h.textContent === "Included types",
 		);
 		expect(typesHeading).not.toBeUndefined();
 

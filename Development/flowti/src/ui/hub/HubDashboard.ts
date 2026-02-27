@@ -58,7 +58,7 @@ export class HubDashboard {
 		setIcon(titleIcon, "arrow-left-right");
 		titleIcon.addClass("ft-icon-muted");
 		titleBar.createEl("h2", {
-			text: "Data Exchange Hub",
+			text: "Data exchange hub",
 			cls: "ft-heading",
 		}).style.margin = "0";
 

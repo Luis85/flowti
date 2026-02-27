@@ -504,7 +504,7 @@ export class UserHubDashboard {
 
 		const section = this.container.createDiv();
 		section.style.marginBottom = "1.5rem";
-		section.createEl("h3", { text: "Your Hubs", cls: "ft-heading ft-heading-sm" }).style.marginBottom = "0.5rem";
+		section.createEl("h3", { text: "Your hubs", cls: "ft-heading ft-heading-sm" }).style.marginBottom = "0.5rem";
 
 		// Collect stat cards from all providers, each clicking through to its hub
 		const cards: StatCardItem[] = [];
@@ -553,7 +553,7 @@ export class UserHubDashboard {
 
 	private renderQuickActions(): void {
 		const section = this.container.createDiv();
-		section.createEl("h3", { text: "Quick Actions", cls: "ft-heading ft-heading-sm" }).style.marginBottom = "0.5rem";
+		section.createEl("h3", { text: "Quick actions", cls: "ft-heading ft-heading-sm" }).style.marginBottom = "0.5rem";
 		section.style.marginBottom = "0.75rem";
 
 		const grid = section.createDiv({ cls: "ft-flex ft-gap-2" });

@@ -30,7 +30,7 @@ export class SubscriptionManagerModal extends Modal {
 
 	async onOpen(): Promise<void> {
 		this.modalEl.addClass("flowti-subscription-modal");
-		this.titleEl.setText("Manage Watchers");
+		this.titleEl.setText("Manage watchers");
 
 		// Listen for subscription state changes
 		this.unsubscribes.push(

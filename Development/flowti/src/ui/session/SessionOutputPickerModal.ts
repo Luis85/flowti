@@ -22,7 +22,7 @@ export class SessionOutputPickerModal extends Modal {
 
 	onOpen(): void {
 		const { contentEl } = this;
-		contentEl.createEl("h3", { text: "Generate Output Artifact" });
+		contentEl.createEl("h3", { text: "Generate output artifact" });
 		contentEl.createEl("p", {
 			text: "Choose a template to generate an output document from this session.",
 			cls: "ft-text-muted",

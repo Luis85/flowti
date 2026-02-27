@@ -27,7 +27,7 @@ export class CanvasPreviewPage {
 
 		if (state.parseError) {
 			const alert = ws.createDiv({ cls: "ft-alert-error ft-p-3 ft-mt-3" });
-			alert.createEl("strong", { text: "Parse Error: " });
+			alert.createEl("strong", { text: "Parse error: " });
 			alert.createSpan({ text: state.parseError });
 			const backBtn = actions.createEl("span", { cls: "ft-nav-link" });
 			setIcon(backBtn.createSpan(), "arrow-left");
@@ -144,10 +144,10 @@ export class CanvasPreviewPage {
 
 				const statusTd = tr.createEl("td", { cls: "ft-text-sm" });
 				if (excluded) {
-					statusTd.textContent = "excluded";
+					statusTd.textContent = "Excluded";
 					statusTd.style.color = "var(--text-muted)";
 				} else {
-					statusTd.textContent = "included";
+					statusTd.textContent = "Included";
 					statusTd.style.color = "var(--text-success, var(--interactive-accent))";
 					includedTotal += count;
 				}
@@ -175,7 +175,7 @@ export class CanvasPreviewPage {
 			const table = legendSection.createEl("table", { cls: "ft-preview-table" });
 			const thead = table.createEl("tr");
 			thead.createEl("th", { text: "Color" });
-			thead.createEl("th", { text: "Resolved Type" });
+			thead.createEl("th", { text: "Resolved type" });
 
 			for (const [color, type] of Object.entries(state.legendMap)) {
 				const tr = table.createEl("tr");

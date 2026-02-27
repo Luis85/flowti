@@ -53,7 +53,7 @@ export class SignalsTab {
 		const addBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 		const addIcon = addBtn.createSpan();
 		setIcon(addIcon, "plus");
-		addBtn.setAttribute("aria-label", "New Signal");
+		addBtn.setAttribute("aria-label", "New signal");
 		addBtn.addEventListener("click", (e) => {
 			e.stopPropagation();
 			new SignalConfigModal(
@@ -196,7 +196,7 @@ export class SignalsTab {
 		const syncIcon = syncLink.createSpan();
 		setIcon(syncIcon, "refresh-cw");
 		syncLink.appendText(" Sync Now");
-		syncLink.setAttribute("aria-label", "Sync Now");
+		syncLink.setAttribute("aria-label", "Sync now");
 		syncLink.addEventListener("click", () => {
 			syncLink.style.pointerEvents = "none";
 			syncLink.style.opacity = "0.5";
@@ -212,7 +212,7 @@ export class SignalsTab {
 		const testIcon = testLink.createSpan();
 		setIcon(testIcon, "plug");
 		testLink.appendText(" Test Connection");
-		testLink.setAttribute("aria-label", "Test Connection");
+		testLink.setAttribute("aria-label", "Test connection");
 		testLink.addEventListener("click", () => {
 			testLink.style.pointerEvents = "none";
 			testLink.style.opacity = "0.5";

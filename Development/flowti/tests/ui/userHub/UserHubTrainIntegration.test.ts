@@ -284,7 +284,7 @@ describe("SessionDetailPanel — train section", () => {
 
 		const trainSection = detailEl.querySelector(".ft-train-section");
 		expect(trainSection).not.toBeNull();
-		expect(trainSection!.textContent).toContain("Train of Thought");
+		expect(trainSection!.textContent).toContain("Train of thought");
 		expect(trainSection!.textContent).toContain("2 thoughts");
 	});
 

@@ -56,9 +56,7 @@ export class PreviewPage {
 		}
 
 		// Action bar
-		const statsBar = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2" });
-		statsBar.style.borderBottom = "1px solid var(--background-modifier-border)";
-		statsBar.addClass("ft-flex-shrink-0");
+		const statsBar = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2 ft-border-bottom ft-flex-shrink-0" });
 
 		// Validation
 		const issues: string[] = [];

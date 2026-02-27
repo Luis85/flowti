@@ -15,7 +15,7 @@ export class PipelineEditForm {
 
 	render(pipe: SavedMultiImportPipeline): void {
 		const panel = this.container;
-		panel.createEl("h3", { text: "Edit Pipeline", cls: "ft-heading ft-heading-sm ft-mb-3" });
+		panel.createEl("h3", { text: "Edit pipeline", cls: "ft-heading ft-heading-sm ft-mb-3" });
 
 		const edits: Partial<SavedMultiImportPipeline> = {
 			name: pipe.name,
@@ -59,7 +59,8 @@ export class PipelineEditForm {
 			.setName("Merge key")
 			.addText((t) => t
 				.setValue(pipe.mergeKey)
-				.setPlaceholder("e.g. item_id")
+				// eslint-disable-next-line obsidianmd/ui/sentence-case
+			.setPlaceholder("item_id")
 				.onChange((v) => { edits.mergeKey = v; }),
 			);
 
@@ -67,7 +68,7 @@ export class PipelineEditForm {
 			.setName("Note type")
 			.addText((t) => t
 				.setValue(pipe.noteType ?? "")
-				.setPlaceholder("e.g. Event, Asset")
+				.setPlaceholder("Event, asset")
 				.onChange((v) => { edits.noteType = v || undefined; }),
 			);
 
@@ -75,7 +76,7 @@ export class PipelineEditForm {
 			.setName("Filename prefix")
 			.addText((t) => t
 				.setValue(pipe.namePrefix ?? "")
-				.setPlaceholder("optional")
+				.setPlaceholder("Optional")
 				.onChange((v) => { edits.namePrefix = v || undefined; }),
 			);
 
@@ -83,7 +84,7 @@ export class PipelineEditForm {
 			.setName("Filename suffix")
 			.addText((t) => t
 				.setValue(pipe.nameSuffix ?? "")
-				.setPlaceholder("optional")
+				.setPlaceholder("Optional")
 				.onChange((v) => { edits.nameSuffix = v || undefined; }),
 			);
 

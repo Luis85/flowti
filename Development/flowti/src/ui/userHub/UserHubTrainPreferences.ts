@@ -26,10 +26,10 @@ export class UserHubTrainPreferences {
 		const icon = header.createSpan();
 		setIcon(icon, "train-front");
 		icon.addClass("ft-icon-muted");
-		header.createEl("h3", { text: "Train of Thought", cls: "ft-heading ft-heading-sm" }).style.margin = "0";
+		header.createEl("h3", { text: "Train of thought", cls: "ft-heading ft-heading-sm" }).style.margin = "0";
 
 		section.createEl("p", {
-			text: "Configure defaults for Train of Thought capture sessions.",
+			text: "Configure defaults for train of thought capture sessions.",
 			cls: "ft-text-sm ft-text-muted",
 		});
 
@@ -40,7 +40,8 @@ export class UserHubTrainPreferences {
 		const folderInput = folderRow.createEl("input", { cls: "ft-input" });
 		folderInput.type = "text";
 		folderInput.value = settings.trainFolder;
-		folderInput.placeholder = "00 - Connectivity/trains";
+		// eslint-disable-next-line obsidianmd/ui/sentence-case
+	folderInput.placeholder = "00 - Connectivity/trains";
 		folderInput.style.flex = "1";
 		attachFolderSuggest(folderInput, this.deps.app, (selected) => {
 			const path = selected.replace(/\/$/, "");

@@ -346,7 +346,8 @@ export class SessionWorkspaceView extends ItemView {
 		(iconEl.firstChild as HTMLElement)?.style.setProperty("height", "48px");
 
 		empty.createEl("p", { text: "No session selected", cls: "ft-text-lg" });
-		empty.createEl("p", { text: "Open a session from the User Hub → Sessions tab.", cls: "ft-text-sm" });
+		// eslint-disable-next-line obsidianmd/ui/sentence-case
+	empty.createEl("p", { text: "Open a session from the User hub → sessions tab.", cls: "ft-text-sm" });
 	}
 
 	// ── Header + Actions ──────────────────────────────────────
@@ -462,7 +463,7 @@ export class SessionWorkspaceView extends ItemView {
 		const iconEl = section.createSpan();
 		setIcon(iconEl, "file-text");
 
-		section.createEl("span", { text: "Session Note:" }).style.cssText = "font-weight:600;";
+		section.createEl("span", { text: "Session note:" }).style.cssText = "font-weight:600;";
 
 		const name = session.notesFile.split("/").pop() ?? session.notesFile;
 		const link = section.createEl("a", { text: name, cls: "ft-notesfile-link" });
@@ -520,7 +521,7 @@ export class SessionWorkspaceView extends ItemView {
 			const iconEl = section.createSpan();
 			setIcon(iconEl, "layout-dashboard");
 
-			section.createEl("span", { text: "Session Canvas:" }).style.cssText = "font-weight:600;";
+			section.createEl("span", { text: "Session canvas:" }).style.cssText = "font-weight:600;";
 
 			const name = session.canvasFile.split("/").pop() ?? session.canvasFile;
 			const link = section.createEl("a", { text: name, cls: "ft-canvasfile-link" });
@@ -531,7 +532,7 @@ export class SessionWorkspaceView extends ItemView {
 				openInAdjacentLeaf(this.buildHelperContext(), session.canvasFile!);
 			});
 		} else {
-			const btn = section.createEl("button", { text: "Create Session Canvas", cls: "ft-canvasfile-create" });
+			const btn = section.createEl("button", { text: "Create session canvas", cls: "ft-canvasfile-create" });
 			btn.style.cssText = "display:flex;align-items:center;gap:4px;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:13px;";
 			const iconEl = btn.createSpan();
 			setIcon(iconEl, "layout-dashboard");

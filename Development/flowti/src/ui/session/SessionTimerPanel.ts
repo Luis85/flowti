@@ -27,7 +27,7 @@ export class SessionTimerPanel {
 			input.min = "1";
 			input.style.cssText = "width:60px;padding:4px 8px;text-align:center;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);color:var(--text-normal);font-family:var(--font-monospace);";
 
-			editRow.createEl("span", { text: "minutes", cls: "ft-text-muted ft-text-sm" }).style.cssText = "color:var(--text-muted);font-size:12px;";
+			editRow.createEl("span", { text: "Minutes", cls: "ft-text-muted ft-text-sm" }).style.cssText = "color:var(--text-muted);font-size:12px;";
 
 			input.addEventListener("change", () => {
 				const value = parseInt(input.value, 10);

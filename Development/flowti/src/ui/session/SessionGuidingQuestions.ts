@@ -32,7 +32,7 @@ export class SessionGuidingQuestions {
 		const iconEl = headerRow.createSpan();
 		setIcon(iconEl, "help-circle");
 
-		headerRow.createEl("strong", { text: "Guiding Questions" });
+		headerRow.createEl("strong", { text: "Guiding questions" });
 
 		const list = section.createEl("ul", { cls: "ft-guiding-list" });
 		list.style.cssText = "margin:0;padding-left:24px;";

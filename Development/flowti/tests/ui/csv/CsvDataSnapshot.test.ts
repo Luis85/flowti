@@ -90,7 +90,7 @@ describe("CsvDataSnapshot", () => {
 			const snapshot = new CsvDataSnapshot(deps, onChanged);
 			snapshot.render(container);
 
-			expect(container.querySelector("h3")?.textContent).toBe("Data Snapshot");
+			expect(container.querySelector("h3")?.textContent).toBe("Data snapshot");
 			expect(container.querySelector("table")).not.toBeNull();
 		});
 
