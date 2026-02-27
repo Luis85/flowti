@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Backlog Refinement - Post Cycle 48]]"
-stage: planning
+stage: done
 cycle: 51
 release_anchor:
   - "Theme 2: Dogfooding — Flowti Builds Flowti"
@@ -14,9 +14,15 @@ bugs: []
 tech_debt:
   - TD-90
 estimated_increments: 5
+actual_increments: 5
 estimated_tests: 70
+actual_tests: 94
 pre_cycle_tests: 5549
 pre_cycle_suites: 237
+total_tests_after: 5643
+total_test_files_after: 243
+date_planned: 2026-02-27
+date_completed: 2026-02-27
 ---
 
 # Cycle 51 — Dogfooding Deep
@@ -397,3 +403,104 @@ All increments are independent — maximum parallelism.
 | Include generated reports in reviews | **Addressed** | Inc 1 (cycle reports) joins existing report pipeline |
 | Event catalog dependencies hard to follow | **Addressed** | Inc 4 auto-generates catalog from source — no drift |
 | Session auto-documentation | **Deferred** | Separate feature, not C51 scope |
+
+## Delivery Summary
+
+| Metric | Estimated | Actual | Delta |
+|--------|-----------|--------|-------|
+| Increments | 5 | 5 | 0 |
+| New tests | 70 | 94 | +24 |
+| Post-cycle tests | 5,619 | 5,643 | +24 |
+| Post-cycle suites | — | 243 | +6 |
+| Production LOC added | ~690 | ~750 | +60 |
+| Auto-generated docs | 4 | 5 (+ Trace Conformance Report) | +1 |
+| Manual docs replaced | 2 | 2 (Event Catalog, Data Dictionary) | 0 |
+| Tech debt resolved | TD-90 | TD-90 | 0 |
+
+### Increment Delivery
+
+| Inc | PBI | Title | Tests | Status |
+|-----|-----|-------|-------|--------|
+| 1 | PBI-DOG-001 | Cycle Report Auto-Generation | 22 | Done |
+| 2 | PBI-DOG-002 | Traceability Data Quality | 26 | Done |
+| 3 | PBI-DOG-003 | Command Reference Auto-Generation | 13 | Done |
+| 4 | TD-90a | Event Catalog Auto-Generation | 17 | Done |
+| 5 | TD-90b | Data Dictionary Auto-Generation | 16 | Done |
+
+### Files Created
+
+| File | LOC | Purpose |
+|------|-----|---------|
+| `src/domain/docs/reportParser.ts` (extended) | +100 | Cycle report frontmatter parsing + markdown generation |
+| `src/domain/docs/traceTypes.ts` | 30 | Shared traceability types |
+| `src/domain/docs/traceConformanceChecker.ts` | 70 | Vault document conformance auditor |
+| `src/domain/docs/traceLinkEnricher.ts` | 55 | Additive-only link enrichment |
+| `src/domain/docs/commandReferenceGenerator.ts` | 95 | Command Reference markdown generator |
+| `src/domain/docs/eventCatalogGenerator.ts` | 147 | Event Catalog markdown generator |
+| `src/domain/docs/entityTypeRegistry.ts` | 365 | Centralized entity type metadata registry |
+| `src/domain/docs/dataDictionaryGenerator.ts` | 120 | Data Dictionary markdown generator |
+| `scripts/generate-cycle-report.mjs` | 120 | Cycle report generation script |
+| `scripts/generate-trace-report.mjs` | 140 | Trace conformance report script |
+| `scripts/generate-command-reference.mjs` | 80 | Command Reference generation script |
+| `scripts/generate-event-catalog.mjs` | 175 | Event Catalog generation script |
+| `scripts/generate-data-dictionary.mjs` | 180 | Data Dictionary generation script |
+
+### Build Pipeline Output
+
+All 9 generation scripts run successfully during `npm run build`:
+
+| Script | Output | Type |
+|--------|--------|------|
+| generate-test-report | `docs/reports/tests/` | Timestamped report |
+| generate-coverage-report | `docs/reports/coverage/` | Timestamped report |
+| generate-codebase-report | `docs/reports/codebase/` | Timestamped report |
+| generate-build-report | `docs/reports/builds/` | Timestamped report |
+| generate-cycle-report | `docs/reports/cycles/` | Timestamped report |
+| generate-trace-report | `docs/reports/traceability/` | Timestamped report |
+| generate-command-reference | `docs/reference/Command Reference.md` | Stable reference |
+| generate-event-catalog | `docs/reference/Event Catalog.md` | Stable reference |
+| generate-data-dictionary | `docs/reference/Data Dictionary.md` | Stable reference |
+
+## Retrospective
+
+### What Went Well
+
+1. **All increments independent** — zero inter-increment dependencies allowed maximum velocity. No blocking waits, no merge conflicts, no rework from coupling.
+2. **Established report pattern paid dividends** — the `scripts/generate-*-report.mjs` pattern from C49 made each new generator a 30-minute copy-adapt exercise. Infrastructure investment in C49 compounded in C51.
+3. **Regex-based TS source parsing worked reliably** — parsing `catalog.ts` (78 KB, 336 events) and `registry.ts` (40+ commands) with regex instead of importing TS modules avoided ESM/CJS complexity entirely. All extractions accurate on first run.
+4. **Test estimates exceeded** — 94 actual vs 70 estimated (+34%). The excess tests came from richer conformance checking (17 vs 10 estimated) and wikilink context tests for cycle reports (22 vs 15 estimated).
+5. **Build pipeline clean** — 9 scripts execute in sequence during production build with zero failures. Generation adds ~2 seconds to build time.
+6. **User feedback loop during development improved output** — iterative refinements (wikilinks in cycle reports, timestamps on reports but not references, ESLint ignore for scripts/) led to higher-quality deliverables.
+
+### Deviations from Plan
+
+1. **Cycle report got wikilink enrichment** — not in original plan. User feedback during Inc 1 requested wikilinks to source cycle doc, PBIs, tech debt items, and related reports. Added `CycleReportContext` interface and report discovery logic (+7 tests).
+2. **Reports vs References naming convention emerged** — original plan assumed all generated docs were reports. User feedback clarified: reports (time-series snapshots) get ISO timestamps in filenames; references (stable docs) get static names. Required script updates for Inc 3-5.
+3. **ESLint scripts/ ignore needed** — IDE ESLint extension tried to parse `.mjs` files with `tsconfig`, which doesn't include them. Added `"scripts/"` to `globalIgnores` in `eslint.config.mjs`. CLI lint was never affected.
+4. **Entity type registry was larger than estimated** — 50 LOC estimated, 365 LOC actual. 18 entity types with detailed field metadata required comprehensive definitions. This is a positive deviation — the registry is now a reliable source of truth for TD-78 (domain docs auto-generation).
+5. **Trace conformance scan revealed high gap count** — 367 gaps across 616 documents (40.42% coverage). Primarily unlinked inbox items (321) and resolved tech debt without `resolved_in` (44). The enricher can address the deterministic cases; manual review needed for inbox items.
+
+### Improvement Backlog
+
+| Item | Type | Target |
+|------|------|--------|
+| Enrich trace links via `--apply` mode (currently dry-run only) | Feature | Future cycle |
+| Cross-reference Data Dictionary ↔ Event Catalog (e.g., EventDoc type links to event catalog entries) | Feature | Future cycle |
+| Auto-generate domain documentation from entity type registry (TD-78) | Tech Debt | C55 stretch |
+| Add `--verify` mode to generation scripts that compares output against committed docs | Feature | Future cycle |
+| Consider `tsx` runner for TS imports instead of regex parsing (if TS source parsing becomes fragile) | Tech Debt | Monitor |
+| Inbox traceability manual review for 321 unlinked items | Process | Next inbox triage |
+
+### Learnings
+
+1. **Convention over configuration wins for document generation** — the pattern of "script reads source file → regex extracts metadata → pure function generates markdown → script writes to docs/" is simple, debuggable, and requires zero runtime dependencies. No TS compiler, no ESM/CJS juggling, no build-time imports.
+2. **Reports vs References is a useful taxonomy** — timestamped reports capture point-in-time snapshots (test results, coverage, build metrics); stable references capture the current state of truth (commands, events, entity types). This distinction should be documented in the report pipeline docs.
+3. **Entity type registries enable downstream automation** — the `ENTITY_TYPE_REGISTRY` constant created for Inc 5 is reusable for TD-78 (domain docs), runtime schema validation, and UI-driven type browsing. Building the registry was the most valuable single deliverable of this cycle.
+4. **Traceability is a data quality problem, not a visualization problem** — the conformance checker proved that Obsidian's graph view works perfectly once documents have proper frontmatter links. The gap is in data quality, not tooling.
+
+## Related
+
+- [[Backlog Refinement - Post Cycle 48]]
+- [[Cycle 50 - User Activation]]
+- [[TD-90 Event Catalog and Data Dictionary are manually maintained]]
+- [[Three Amigos Review 2026-02-27 Dogfooding Deep]]

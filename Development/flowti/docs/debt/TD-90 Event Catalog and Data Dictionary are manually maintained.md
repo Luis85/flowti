@@ -3,9 +3,10 @@ type: TechDebt
 severity: medium
 category: architecture
 layer: infrastructure
-status: open
+status: resolved
 effort: large
-updated: 2026-02-15
+updated: 2026-02-27
+resolved_in: "[[Cycle 51 - Dogfooding Deep]]"
 description: Both the Event Catalog (136 events) and Data Dictionary (16 doc types) are manually maintained markdown files that can drift from source code. Both documents note the aspiration for build-time auto-generation.
 ---
 # TD-90: Event Catalog and Data Dictionary are manually maintained
@@ -41,8 +42,18 @@ The PRD Audit (2026-02-15) already identified 9 phantom events — events refere
 3. Until automation exists, add a "Last verified against source" date to both documents
 4. Consider a CI check that compares generated output against committed docs to detect drift
 
+## Resolution (Cycle 51)
+
+Both documents are now auto-generated from TypeScript source during `npm run build`:
+
+- **Event Catalog**: `scripts/generate-event-catalog.mjs` parses `src/infrastructure/events/catalog.ts` and generates `docs/reference/Event Catalog.md` (336 events, 36 categories, 23 domains)
+- **Data Dictionary**: `scripts/generate-data-dictionary.mjs` parses `src/domain/docs/entityTypeRegistry.ts` and generates `docs/reference/Data Dictionary.md` (18 types, 131 fields)
+
+Pure generator functions in `src/domain/docs/eventCatalogGenerator.ts` (17 tests) and `src/domain/docs/dataDictionaryGenerator.ts` (16 tests) ensure correctness. Phantom event detection identifies drift between source and documentation.
+
 ## Affected Files
 
-- `docs/Event Catalog.md`
-- `docs/Data Dictionary.md`
-- `src/catalog.ts` (source of truth for events)
+- `docs/reference/Event Catalog.md` (auto-generated, replaces manual)
+- `docs/reference/Data Dictionary.md` (auto-generated, replaces manual)
+- `src/infrastructure/events/catalog.ts` (source of truth for events)
+- `src/domain/docs/entityTypeRegistry.ts` (source of truth for entity types)
