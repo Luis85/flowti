@@ -138,7 +138,29 @@ const nodeBuiltins = builtinModules.flatMap((m) => [m, `node:${m}`]);
 // PROCESS
 // ==================================================
 
+/**
+ * Concatenates all CSS source files from css/ into styles.css.
+ * Files are sorted by name (00-base → 18-misc) to ensure correct cascade order.
+ */
+const concatCSS = () => {
+	const cssDir = path.resolve(__dirname, "css");
+	if (!safeExists(cssDir)) return;
+
+	const files = fs.readdirSync(cssDir)
+		.filter((f) => f.endsWith(".css"))
+		.sort();
+
+	if (!files.length) return;
+
+	const header = "/* Auto-generated from css/ source files — do not edit directly */\n\n";
+	const parts = files.map((f) => safeReadText(path.join(cssDir, f)));
+	const output = header + parts.join("\n");
+
+	safeWriteText(path.resolve(__dirname, "styles.css"), output);
+};
+
 const syncAssets = () => {
+	concatCSS();
 	const assets = ["manifest.json", ".hotreload", "LICENSE", "styles.css"];
 	for (const file of assets) {
 		const src = path.resolve(__dirname, file);
@@ -497,6 +519,22 @@ const run = async () => {
 		try {
 			await ctx.watch();
 			console.log("[build] Watching...", OUTDIR);
+
+			// Watch css/ source files and rebuild styles.css on change
+			const cssDir = path.resolve(__dirname, "css");
+			if (safeExists(cssDir)) {
+				const cssWatcher = fs.watch(cssDir, { persistent: false }, (eventType, filename) => {
+					if (filename && filename.endsWith(".css")) {
+						console.log(`[build] CSS changed: ${filename} — rebuilding styles.css`);
+						concatCSS();
+						safeCopyFile(
+							path.resolve(__dirname, "styles.css"),
+							path.join(OUTDIR, "styles.css"),
+						);
+					}
+				});
+				cssWatcher.on("error", () => {});
+			}
 		} catch (err) {
 			console.error("[build] Watch mode failed.");
 			throw err;

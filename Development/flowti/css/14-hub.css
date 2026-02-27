@@ -1,0 +1,201 @@
+/* ==============================================================
+   Hub (Dashboard, Tabs, Signals, Reports)
+   ============================================================== */
+
+/* Status dot in log rows */
+.ft-status-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	flex-shrink: 0;
+	background-color: var(--text-faint);
+}
+
+.ft-status-success {
+	background-color: var(--color-green, #22c55e);
+}
+
+.ft-status-error {
+	background-color: var(--color-red, #ef4444);
+}
+
+.ft-status-info,
+.ft-master-dot-configured,
+.ft-timeline-dot-completed {
+	background-color: var(--interactive-accent);
+}
+
+.ft-status-neutral,
+.ft-master-dot-hidden {
+	background-color: var(--text-faint);
+}
+
+.ft-progress-bar {
+	width: 100%;
+	height: 8px;
+	background-color: var(--background-modifier-border);
+	border-radius: 4px;
+	overflow: hidden;
+}
+
+.ft-progress-bar-fill {
+	height: 100%;
+	background-color: var(--interactive-accent);
+	transition: width 0.3s ease;
+}
+
+/* ── AnalyticsDashboardPage: Refresh All button ──────────── */
+
+/* ── AnalyticsDashboardPage: Description margin ──────────── */
+
+/* ── AnalyticsDashboardPage: Empty tile state ────────────── */
+
+.ft-empty-tile-state,
+.ft-empty-tile-pad {
+	text-align: center;
+	padding: 2rem 1rem;
+}
+
+.ft-empty-tile-icon {
+	opacity: 0.4;
+	margin-bottom: 0.5rem;
+}
+
+/* ── AnalyticsDashboardPage: Empty state (no data) ───────── */
+
+.ft-empty-state-wrapper,
+.ft-empty-state-centered,
+.ft-catalog-empty-wrapper {
+	text-align: center;
+	padding: 2.5rem 1.5rem 1.5rem;
+}
+
+.ft-empty-state-icon,
+.ft-dashboard-empty-icon,
+.ft-catalog-empty-hero-icon {
+	opacity: 0.35;
+	margin-bottom: 0.75rem;
+}
+
+.ft-empty-state-heading,
+.ft-dashboard-empty-heading,
+.ft-catalog-empty-heading {
+	font-weight: 600;
+	font-size: var(--font-ui-medium);
+	margin-bottom: 0.35rem;
+}
+
+/* ── Empty state (shared) ──────────────────────────────────── */
+.ft-empty-state-pad {
+	padding: 1rem;
+	text-align: center;
+}
+
+.ft-empty-detail-pad,
+.ft-query-empty-detail {
+	text-align: center;
+	padding: 3rem 1.5rem;
+}
+
+.ft-empty-icon-lg,
+.ft-query-empty-icon {
+	font-size: 2rem;
+	opacity: 0.5;
+	margin-bottom: 0.5rem;
+}
+
+/* ── VaultFolderTriagePanel ──────────────────────────────── */
+
+/* ── Batch 7 extractions ── */
+/* ─── Batch 7: Hub UI inline-style extractions ─────────────────────── */
+
+/* ── Shared patterns ────────────────────────────────────────────────── */
+
+/* Master list items with top-aligned flex children */
+.ft-master-item-top {
+	align-items: flex-start;
+}
+
+/* Icon slight offset for alignment with text */
+.ft-icon-offset-sm {
+	margin-top: 0.125rem;
+}
+
+/* Section margin bottom (dashboard sections) */
+.ft-section-mb {
+	margin-bottom: 2rem;
+}
+
+/* Disabled/loading link state */
+.ft-link-disabled {
+	pointer-events: none;
+	opacity: 0.5;
+}
+
+/* ── Info / detail row ──────────────────────────────────────────────── */
+
+/* ── Cards ──────────────────────────────────────────────────────────── */
+
+/* Warning card left border */
+.ft-card-warning-border {
+	border-left: 3px solid var(--text-warning, #e5a100);
+}
+
+/* CTA card with dashed accent border */
+.ft-card-cta-dashed {
+	border-color: var(--interactive-accent);
+	border-style: dashed;
+}
+
+/* ── Dashboard ──────────────────────────────────────────────────────── */
+
+/* ── Empty state (dashboard) ────────────────────────────────────────── */
+
+/* ── Progress bars ──────────────────────────────────────────────────── */
+
+.ft-progress-bar-track {
+	height: 3px;
+	background: var(--background-modifier-border);
+	border-radius: 2px;
+	margin: 0 0.5rem 0.5rem;
+	overflow: hidden;
+}
+
+.ft-progress-bar-track-4 {
+	height: 4px;
+	background: var(--background-modifier-border);
+	border-radius: 2px;
+	margin: 0 0.5rem 0.5rem;
+	overflow: hidden;
+}
+
+.ft-progress-bar-fill-animated {
+	height: 100%;
+	background: var(--interactive-accent);
+	border-radius: 2px;
+	transition: width 0.15s ease;
+}
+
+/* ── Pipeline preview table container ───────────────────────────────── */
+
+/* Footer with top border */
+.ft-footer-bordered {
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+/* ── Analytics results panel ────────────────────────────────────────── */
+
+/* Totals row */
+.ft-totals-row {
+	border-top: 2px solid var(--background-modifier-border);
+	font-weight: 600;
+}
+
+/* ── Pipeline edit form ─────────────────────────────────────────────── */
+
+.ft-edit-grid-2col {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	column-gap: 1rem;
+	row-gap: 0;
+}

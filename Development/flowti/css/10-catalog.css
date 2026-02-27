@@ -1,0 +1,655 @@
+/* ==============================================================
+   Event Catalog
+   ============================================================== */
+
+.ft-btn-ghost:hover,
+.ft-list-item:hover,
+.ft-log-row:hover,
+.ft-log-row.ft-log-expanded,
+.ft-mode-toggle-item:hover,
+.ft-master-category-header:hover,
+.ft-master-event-item:hover,
+.ft-train-resume-option:hover,
+.ft-timeline-node-active {
+	background-color: var(--background-secondary);
+}
+
+.ft-scrollbar::-webkit-scrollbar-track,
+.ft-catalog-master-tree::-webkit-scrollbar-track,
+.ft-catalog-detail::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+/* -- Event Catalog — Inline Settings Panel -- */
+
+.ft-settings-panel {
+	background-color: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s, 4px);
+	padding: 0.5rem;
+	margin-bottom: 0.5rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.125rem;
+}
+
+/* Inside master panel: flush edges, scrollable, no margin */
+.ft-catalog-master .ft-settings-panel {
+	border-radius: 0;
+	border-left: none;
+	border-right: none;
+	margin-bottom: 0;
+	max-height: 50%;
+	overflow-y: auto;
+	flex-shrink: 0;
+	scrollbar-width: thin;
+	scrollbar-color: var(--background-modifier-border) transparent;
+}
+
+.ft-settings-row {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.2rem 0.25rem;
+	border-radius: var(--radius-s, 4px);
+}
+
+.ft-settings-row:hover {
+	background-color: var(--background-primary);
+}
+
+.ft-settings-row-name {
+	flex: 1;
+	min-width: 0;
+	font-size: 0.85rem;
+}
+
+.ft-settings-reset,
+.ft-query-separator {
+	margin-top: 0.25rem;
+	padding-top: 0.25rem;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+/* -- Event System Views -- */
+
+/* Monospace event type name */
+.ft-event-type {
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-smaller);
+	font-weight: 500;
+	color: var(--text-normal);
+}
+
+/* Event Log toolbar */
+.ft-event-log-toolbar {
+	display: flex;
+	gap: 0.5rem;
+	align-items: center;
+}
+
+/* Event Log scrollable list */
+.ft-event-log-list {
+	flex: 1;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 0.125rem;
+}
+
+/* Activity Log — compact event row */
+.ft-log-row {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.25rem 0.5rem;
+	border-radius: var(--radius-s, 4px);
+	transition: background-color 0.15s ease;
+	flex-wrap: wrap;
+}
+
+/* Context line for enriched events */
+.ft-log-context {
+	width: 100%;
+	padding-left: 1rem;
+}
+
+/* Category badge in log rows */
+.ft-log-category {
+	font-size: 0.65rem;
+	padding: 0.05rem 0.35rem;
+	border-radius: var(--radius-s, 4px);
+	background-color: var(--background-modifier-border);
+	color: var(--text-muted);
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+/* Relative time label */
+.ft-log-relative {
+	font-size: 0.65rem;
+	color: var(--text-faint);
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+.ft-log-row .ft-event-type:hover {
+	text-decoration: underline;
+	text-decoration-color: var(--text-faint);
+}
+
+/* Payload block */
+.ft-log-payload {
+	width: 100%;
+	font-family: var(--font-monospace);
+	font-size: 0.7rem;
+	color: var(--text-muted);
+	background-color: var(--background-primary);
+	border-radius: var(--radius-s, 4px);
+	padding: 0.35rem 0.5rem;
+	margin-top: 0.15rem;
+	white-space: pre-wrap;
+	word-break: break-all;
+	max-height: 12rem;
+	overflow-y: auto;
+}
+
+.ft-log-time {
+	font-family: var(--font-monospace);
+	font-size: 0.7rem;
+	color: var(--text-faint);
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+.ft-log-description {
+	flex: 1;
+	min-width: 0;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+.ft-log-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+	flex-shrink: 0;
+}
+.ft-catalog-row.ft-event-excluded,
+.ft-master-event-excluded .ft-master-event-name,
+.ft-excluded {
+	opacity: 0.45;
+}
+.ft-catalog-row.ft-event-excluded .ft-event-type {
+	text-decoration: line-through;
+	text-decoration-color: var(--text-faint);
+}
+
+/* -- Event Catalog — Compact Layout -- */
+
+/* Single-row compact event entry */
+.ft-catalog-row {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.2rem 0.5rem;
+	border-radius: var(--radius-s, 4px);
+	transition: background-color 0.15s ease;
+}
+
+/* Domain/service metadata labels */
+.ft-catalog-meta {
+	font-size: 0.7rem;
+	color: var(--text-faint);
+	white-space: nowrap;
+}
+
+/* -- Event Catalog — Master-Detail Layout -- */
+
+/* Split container */
+.ft-catalog-split,
+.ft-config-split {
+	display: flex;
+	height: 100%;
+	overflow: hidden;
+}
+
+/* Master panel (left) */
+.ft-catalog-master {
+	width: 280px;
+	min-width: 280px;
+	display: flex;
+	flex-direction: column;
+	border-right: 1px solid var(--background-modifier-border);
+	overflow: hidden;
+}
+
+.ft-catalog-master-header {
+	display: flex;
+	align-items: center;
+	gap: 0.35rem;
+	padding: 0.5rem;
+	border-bottom: 1px solid var(--background-modifier-border);
+	flex-shrink: 0;
+}
+
+.ft-catalog-master-search {
+	flex: 1;
+	min-width: 0;
+	padding: 0.35rem 0.5rem;
+	background-color: var(--background-primary);
+	color: var(--text-normal);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s, 4px);
+	font-size: var(--font-ui-smaller);
+}
+
+.ft-catalog-master-search:focus,
+.ft-column-search:focus {
+	outline: none;
+	border-color: var(--interactive-accent);
+}
+
+/* Master tree (scrollable) */
+.ft-catalog-master-tree {
+	flex: 1;
+	overflow-y: auto;
+	scrollbar-width: thin;
+	scrollbar-color: var(--background-modifier-border) transparent;
+}
+
+.ft-catalog-master-tree::-webkit-scrollbar,
+.ft-catalog-detail::-webkit-scrollbar {
+	width: 6px;
+}
+
+.ft-catalog-master-tree::-webkit-scrollbar-thumb,
+.ft-catalog-detail::-webkit-scrollbar-thumb {
+	background-color: var(--background-modifier-border);
+	border-radius: 3px;
+}
+
+/* Master category */
+.ft-master-category {
+	margin-bottom: 0.125rem;
+}
+
+.ft-master-category-header {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+	padding: 0.3rem 0.5rem;
+	cursor: pointer;
+	user-select: none;
+	font-size: 0.7rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	color: var(--text-muted);
+}
+
+.ft-master-category-count {
+	margin-left: auto;
+	font-size: 0.65rem;
+	font-weight: 400;
+	color: var(--text-faint);
+}
+
+.ft-master-category-system,
+.ft-stat-card-icon-subtle,
+.ft-opacity-60,
+.ft-inbox-file-icon,
+.ft-unsaved-warn-icon,
+.ft-plus-icon-faded {
+	opacity: 0.6;
+}
+.ft-master-category-system:hover,
+.ft-branch-status-tag:hover,
+.ft-star-active,
+.ft-icon-active,
+.ft-energy-active {
+	opacity: 1;
+}
+
+/* Master event items */
+.ft-master-event-item {
+	display: flex;
+	align-items: center;
+	gap: 0.35rem;
+	min-height: 1.5rem;
+	padding: 0.15rem 0.5rem 0.15rem 1.25rem;
+	cursor: pointer;
+	transition: background-color 0.1s ease;
+}
+
+.ft-master-event-name {
+	font-family: var(--font-monospace);
+	font-size: 0.72rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	flex: 1;
+	min-width: 0;
+}
+
+.ft-master-status-dots {
+	display: flex;
+	align-items: center;
+	gap: 3px;
+	flex-shrink: 0;
+}
+
+.ft-master-status-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+}
+
+.ft-master-dot-followed {
+	background-color: rgb(234, 179, 8);
+}
+
+.ft-master-event-excluded.ft-master-event-selected .ft-master-event-name {
+	opacity: 0.7;
+}
+
+/* Detail panel (right) */
+.ft-catalog-detail,
+.ft-config-content {
+	flex: 1;
+	overflow-y: auto;
+	padding: 1rem;
+	scrollbar-width: thin;
+	scrollbar-color: var(--background-modifier-border) transparent;
+}
+
+/* Detail empty state */
+.ft-catalog-detail-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	color: var(--text-muted);
+	gap: 1rem;
+}
+
+/* Detail content */
+.ft-detail-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	margin-bottom: 1rem;
+	gap: 0.5rem;
+}
+
+.ft-detail-event-type {
+	font-family: var(--font-monospace);
+	font-size: 1.1rem;
+	font-weight: 600;
+	color: var(--text-normal);
+	word-break: break-all;
+}
+
+/* Info grid */
+.ft-detail-info-grid {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: 0.35rem 0.75rem;
+	font-size: var(--font-ui-smaller);
+}
+
+.ft-detail-info-label {
+	color: var(--text-muted);
+	font-weight: 500;
+	white-space: nowrap;
+}
+
+/* Detail sections */
+.ft-detail-section {
+	margin-top: 1.25rem;
+}
+
+.ft-detail-section-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 0.5rem;
+	padding-bottom: 0.35rem;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+/* Quick stats (empty state) */
+.ft-catalog-quick-stats {
+	display: flex;
+	gap: 1.5rem;
+}
+
+.ft-catalog-stat {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.ft-catalog-stat-value {
+	font-size: 1.5rem;
+	font-weight: 700;
+	color: var(--text-normal);
+}
+
+.ft-catalog-stat-label {
+	font-size: 0.75rem;
+	color: var(--text-muted);
+}
+
+/* Detail action buttons — wrap on narrow panels */
+.ft-detail-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-top: 0.75rem;
+}
+
+/* Dot legend in master panel */
+.ft-catalog-dot-legend {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.25rem 0.5rem;
+	font-size: 0.65rem;
+	color: var(--text-faint);
+	border-bottom: 1px solid var(--background-modifier-border);
+	flex-shrink: 0;
+}
+
+/* ── Tab bar (Events | Domains | Services) ─────────────── */
+
+.ft-catalog-tab-bar {
+	display: flex;
+	gap: 0;
+	border-bottom: 1px solid var(--background-modifier-border);
+	flex-shrink: 0;
+}
+
+.ft-catalog-tab {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	padding: 0.5rem 1rem;
+	font-size: var(--font-ui-smaller);
+	font-weight: 500;
+	cursor: pointer;
+	background: transparent;
+	color: var(--text-muted);
+	border-bottom: 2px solid transparent;
+	transition: color 0.15s ease;
+}
+
+.ft-catalog-tab:hover,
+.ft-nav-link:hover {
+	color: var(--text-normal);
+	background-color: var(--background-secondary);
+}
+
+.ft-catalog-tab-active {
+	color: var(--text-normal);
+	border-bottom-color: var(--interactive-accent);
+}
+
+.ft-config-panel {
+	width: 380px;
+	min-width: 380px;
+	overflow-y: auto;
+	padding: 1rem;
+	border-right: 1px solid var(--background-modifier-border);
+	scrollbar-width: thin;
+	scrollbar-color: var(--background-modifier-border) transparent;
+}
+
+/* Property selection grid */
+.ft-property-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+	gap: 0.5rem;
+}
+
+.ft-property-item {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.35rem 0.5rem;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s, 4px);
+	font-size: var(--font-ui-smaller);
+	cursor: pointer;
+	transition: background-color 0.15s;
+}
+
+.ft-property-item:hover,
+.ft-config-dropdown-item:hover {
+	background: var(--background-secondary);
+}
+
+/* Config dropdown */
+.ft-config-dropdown,
+.ft-folder-suggest-anchor {
+	position: relative;
+}
+
+.ft-config-dropdown-menu {
+	position: absolute;
+	right: 0;
+	top: 100%;
+	margin-top: 0.25rem;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s, 4px);
+	min-width: 220px;
+	box-shadow: var(--shadow-s);
+	z-index: 10;
+	max-height: 300px;
+	overflow-y: auto;
+}
+
+.ft-config-dropdown-item {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.5rem 0.75rem;
+	cursor: pointer;
+	font-size: var(--font-ui-smaller);
+	transition: background-color 0.15s;
+}
+
+.ft-config-dropdown-divider {
+	border-top: 1px solid var(--background-modifier-border);
+	margin: 0.25rem 0;
+}
+
+/* ── Health Tab ──────────────────────────────────────── */
+
+.ft-health-score {
+	font-size: 2.5rem;
+	font-weight: 700;
+	line-height: 1;
+}
+.ft-health-score-pass,
+.ft-health-score-warn,
+.ft-health-score-fail,
+
+.ft-health-severity,
+.ft-chart-legend-dot,
+.ft-timeline-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+.ft-health-severity-pass,
+.ft-health-severity-warn,
+.ft-health-severity-fail,
+
+/* EventsSettingsPanel: hint block padding */
+.ft-settings-hint,
+.ft-add-tile-picker-empty {
+	padding: 0.5rem 0;
+}
+
+/* ── Detail header layout ──────────────────────────────────── */
+.ft-detail-header-flex {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 0.5rem;
+}
+
+/* Empty detail icon with margin */
+.ft-detail-empty-icon,
+.ft-dashboard-inbox-empty-icon {
+	opacity: 0.3;
+	margin-bottom: 0.5rem;
+}
+
+/* ── SessionDetailPanel ──────────────────────────────────── */
+
+.ft-detail-empty,
+.ft-session-empty,
+.ft-inbox-empty {
+  justify-content: center;
+  padding: 3rem;
+  color: var(--text-muted);
+}
+
+/* ── CatalogDashboard ──────────────────────────────────── */
+
+.ft-catalog-empty-info-card {
+  padding: 1rem;
+  max-width: 360px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.ft-catalog-empty-info-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  font-size: var(--font-ui-small);
+  margin-bottom: 0.35rem;
+}
+
+.ft-catalog-coverage-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+.ft-catalog-coverage-row {
+  padding: 0.4rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+}
+
+.ft-catalog-links-mt {
+  margin-top: 1.5rem;
+}

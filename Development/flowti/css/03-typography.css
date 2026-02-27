@@ -1,0 +1,83 @@
+/* ==============================================================
+   Typography
+   ============================================================== */
+
+/* Text color variants */
+.ft-text-muted,
+.ft-train-closure-dot,
+.ft-wizard-step-label-inactive,
+.ft-canvas-status-excluded {
+	color: var(--text-muted);
+}
+
+.ft-text-faint,
+.ft-breadcrumb-separator {
+	color: var(--text-faint);
+}
+
+.ft-text-accent,
+.ft-code-accent {
+	color: var(--text-accent);
+}
+
+.ft-text-warning {
+	color: var(--text-warning, #e5a100);
+}
+
+.ft-text-success-color { color: var(--text-success, var(--interactive-accent)); }
+.ft-text-warning-color { color: var(--text-warning); }
+
+/* Heading variants */
+.ft-heading {
+	font-weight: 600;
+	color: var(--text-normal);
+}
+
+.ft-heading-lg {
+	font-size: 1.25rem;
+}
+
+.ft-heading-md {
+	font-size: 1.125rem;
+}
+
+.ft-heading-sm {
+	font-size: 1rem;
+	margin: 0;
+}
+
+/* Text size utilities */
+.ft-text-xs {
+	font-size: 0.7rem;
+}
+
+.ft-text-sm {
+	font-size: var(--font-ui-smaller);
+}
+
+.ft-text-base {
+	font-size: var(--font-ui-small);
+}
+
+.ft-text-lg {
+	font-size: var(--font-ui-medium);
+}
+
+/* Font weight utilities */
+.ft-font-bold,
+.ft-stat-value {
+	font-weight: 700;
+}
+
+.ft-label-semibold {
+	font-weight: 600;
+	font-size: var(--font-ui-small);
+}
+
+/* Font style utilities */
+.ft-font-italic {
+	font-style: italic;
+}
+
+/* Font family utilities */
+.ft-font-mono { font-family: var(--font-monospace); }

@@ -1,0 +1,825 @@
+/* ==============================================================
+   Session (Workspace, Panels, Timer, Energy)
+   ============================================================== */
+
+/* Interactive CSV preview */
+.ft-preview-sortable-th:hover,
+.ft-session-status-badge.ft-status-default,
+.ft-output-picker-card:hover {
+	background: var(--background-modifier-hover);
+}
+
+/* SessionNotesPanel: notes heading */
+.ft-session-notes-heading {
+	display: block;
+	margin-bottom: 8px;
+}
+
+/* SessionNotesPanel: notes textarea */
+.ft-session-notes-textarea {
+	width: 100%;
+	min-height: 100px;
+	padding: 8px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	resize: vertical;
+	font-family: inherit;
+}
+
+.ft-artifact-link-styled,
+.ft-session-file-link {
+  cursor: pointer;
+  text-decoration: underline;
+  color: var(--text-accent);
+}
+
+/* ── UserHubSessions ─────────────────────────────────────── */
+
+.ft-session-list-header {
+  padding: 0.25rem 0.5rem;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.ft-session-row-mb {
+  margin-bottom: 2px;
+}
+
+.ft-session-date-hint {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.ft-session-empty-icon,
+.ft-inbox-empty-icon {
+  opacity: 0.4;
+  margin-bottom: 0.75rem;
+}
+
+.ft-session-category-header-style {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+/* ── SessionTimerDisplay ─────────────────────────────────── */
+
+.ft-timer-display {
+  font-size: 2rem;
+  font-family: var(--font-monospace);
+  font-weight: 600;
+}
+
+/* ── Batch 8 extractions ── */
+
+/* -- SessionWorkspaceView -- */
+
+/* renderEmptyState — empty state container */
+.ft-session-workspace-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
+	padding: 48px 24px;
+	color: var(--text-muted);
+}
+
+/* renderHeader — title row */
+.ft-session-header-title-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+/* renderHeader — type badge */
+.ft-session-type-badge {
+	background: var(--background-modifier-hover);
+	padding: 2px 8px;
+	border-radius: 4px;
+	font-size: 12px;
+}
+
+/* renderHeader — status badge */
+.ft-session-status-badge {
+	padding: 2px 8px;
+	border-radius: 4px;
+	font-size: 12px;
+	font-weight: 600;
+}
+
+/* Status-specific colors */
+.ft-session-status-badge.ft-status-active,
+.ft-session-status-badge.ft-status-running {
+	background: var(--color-green);
+	color: var(--background-primary);
+}
+
+.ft-session-status-badge.ft-status-paused {
+	background: var(--color-yellow);
+	color: var(--background-primary);
+}
+
+.ft-session-status-badge.ft-status-reviewing {
+	background: var(--color-orange);
+	color: var(--background-primary);
+}
+
+.ft-session-status-badge.ft-status-completed {
+	background: var(--color-blue);
+	color: var(--background-primary);
+}
+
+/* renderHeader — actions row */
+.ft-session-workspace-actions {
+	display: flex;
+	gap: 8px;
+}
+
+/* createActionButton — action button */
+.ft-session-action-btn {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 12px;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 13px;
+}
+
+/* renderFocusFile — focus section row */
+.ft-session-workspace-focus,
+.ft-session-workspace-notesfile,
+.ft-session-workspace-canvas,
+.ft-panel-label-row,
+.ft-task-progress-row,
+.ft-session-energy {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+/* renderNotesFile — copy-path button */
+.ft-copy-path-btn,
+.ft-item-remove-btn {
+	background: none;
+	border: none;
+	cursor: pointer;
+	padding: 2px;
+	opacity: 0.5;
+	color: var(--text-muted);
+}
+
+/* copy-path button — success flash state */
+.ft-copy-path-btn.ft-copied {
+	opacity: 1;
+	color: var(--text-success);
+}
+
+/* -- SessionClosureOverlay -- */
+
+/* Overlay container */
+.ft-closure-overlay {
+	padding: 24px;
+	max-width: 600px;
+	margin: 0 auto;
+}
+
+/* Closure header */
+.ft-closure-header {
+	text-align: center;
+	margin-bottom: 24px;
+}
+
+/* Closure header icon wrapper */
+.ft-closure-header-icon,
+.ft-task-progress,
+.ft-activity-filter,
+.ft-desc-setting-margin {
+	margin-bottom: 8px;
+}
+
+/* Closure header subtitle */
+.ft-closure-header-subtitle {
+	color: var(--text-muted);
+	margin: 0;
+}
+
+/* Closure form */
+.ft-closure-form {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+/* Closure actions row */
+.ft-closure-actions {
+	display: flex;
+	justify-content: center;
+	gap: 12px;
+	margin-top: 24px;
+}
+
+/* Closure submit button */
+.ft-closure-submit-btn {
+	padding: 8px 24px;
+	border-radius: 6px;
+	cursor: pointer;
+	font-weight: 600;
+}
+
+/* Closure skip button */
+.ft-closure-skip {
+	padding: 8px 24px;
+	border-radius: 6px;
+	cursor: pointer;
+	color: var(--text-muted);
+	background: none;
+	border: 1px solid var(--background-modifier-border);
+}
+
+/* Closure question label */
+.ft-closure-question-label {
+	display: block;
+	font-weight: 600;
+	margin-bottom: 4px;
+}
+
+/* Closure select input */
+.ft-closure-select {
+	width: 100%;
+	padding: 6px 8px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+}
+
+/* Closure rating row */
+.ft-closure-rating-row,
+.ft-activity-filter-add-row {
+	display: flex;
+	gap: 4px;
+}
+
+/* Closure rating button */
+.ft-closure-rating-btn {
+	width: 32px;
+	height: 32px;
+	border-radius: 4px;
+	cursor: pointer;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	color: var(--text-normal);
+}
+
+/* Closure rating button — selected state */
+.ft-closure-rating-btn.ft-rating-selected {
+	background: var(--interactive-accent);
+	font-weight: bold;
+}
+
+/* Closure textarea */
+.ft-closure-textarea {
+	width: 100%;
+	min-height: 60px;
+	padding: 6px 8px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	resize: vertical;
+	box-sizing: border-box;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Shared: Panel header row (used across goals, tasks, reflections,
+   decisions, outputs, activity, context, guiding questions)
+   ───────────────────────────────────────────────────────────── */
+
+/* Header row with space-between */
+.ft-panel-header-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 8px;
+}
+
+/* Small muted count text */
+.ft-panel-count,
+.ft-energy-label {
+	color: var(--text-muted);
+	font-size: 12px;
+}
+
+/* -- SessionExecutionPanel -- */
+
+/* Progress bar track */
+.ft-task-progress-track {
+	flex: 1;
+	height: 6px;
+	background: var(--background-modifier-border);
+	border-radius: 3px;
+	overflow: hidden;
+}
+
+/* Progress bar fill */
+.ft-task-progress-fill {
+	height: 100%;
+	background: var(--interactive-accent);
+	border-radius: 3px;
+	transition: width 0.2s ease;
+}
+
+/* Progress label text */
+.ft-task-progress-label {
+	color: var(--text-muted);
+	font-size: 11px;
+	white-space: nowrap;
+}
+
+/* Task/goal row */
+.ft-item-row,
+.ft-goal-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 0;
+}
+
+/* Task/goal completed label */
+.ft-item-label-completed {
+	flex: 1;
+	text-decoration: line-through;
+	opacity: 0.6;
+}
+
+/* Reorder/remove action group */
+.ft-item-action-group {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+}
+
+/* Move up/down button (inline icon btn) */
+.ft-item-move-btn {
+	background: none;
+	border: none;
+	cursor: pointer;
+	padding: 0 2px;
+	opacity: 0.4;
+	color: var(--text-muted);
+	font-size: 10px;
+	line-height: 1;
+}
+
+/* Move button disabled state */
+.ft-item-move-btn:disabled {
+	opacity: 0.15;
+}
+
+/* Add row (input + optional button) */
+.ft-panel-add-row,
+.ft-goal-add-row {
+	display: flex;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+/* Standard text input in panel forms */
+.ft-panel-input,
+.ft-goal-input {
+	flex: 1;
+	padding: 4px 8px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+}
+
+/* -- SessionActivityPanel -- */
+
+/* Filter tags row */
+.ft-activity-filter-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin-bottom: 4px;
+}
+
+/* Individual filter tag */
+.ft-activity-filter-tag {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	padding: 2px 6px;
+	border-radius: 3px;
+	font-size: 11px;
+	background: var(--background-modifier-hover);
+	color: var(--text-muted);
+}
+
+/* Filter tag remove button */
+.ft-activity-filter-remove {
+	background: none;
+	border: none;
+	cursor: pointer;
+	padding: 0 2px;
+	opacity: 0.6;
+	color: var(--text-muted);
+	font-size: 11px;
+}
+
+/* Filter folder input */
+.ft-activity-filter-input {
+	flex: 1;
+	padding: 2px 6px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	font-size: 12px;
+}
+
+/* Empty activity message */
+.ft-activity-empty,
+.ft-context-empty {
+	color: var(--text-muted);
+	font-size: 12px;
+	padding: 4px 0;
+}
+
+/* Activity row */
+.ft-activity-row,
+.ft-context-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 3px 0;
+}
+
+/* Activity file link */
+.ft-activity-link,
+.ft-context-link {
+	cursor: pointer;
+	text-decoration: underline;
+	color: var(--text-accent);
+	flex: 1;
+}
+
+/* Activity badge (action type, count) */
+.ft-activity-badge {
+	background: var(--background-modifier-hover);
+	padding: 1px 6px;
+	border-radius: 3px;
+	font-size: 11px;
+	color: var(--text-muted);
+}
+
+/* Activity timestamp */
+.ft-activity-timestamp {
+	color: var(--text-muted);
+	font-size: 11px;
+	font-family: var(--font-monospace);
+}
+
+/* -- SessionReflectionPanel -- */
+
+/* Reflection category header */
+.ft-reflection-category {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-top: 8px;
+	margin-bottom: 4px;
+}
+
+/* Reflection icon wrapper */
+.ft-reflection-icon {
+	display: flex;
+	align-items: center;
+}
+
+/* Reflection category label */
+.ft-reflection-cat-label {
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--text-muted);
+}
+
+/* Reflection entry row */
+.ft-reflection-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 3px 0;
+	padding-left: 22px;
+}
+
+/* Reflection content text */
+.ft-reflection-content {
+	flex: 1;
+	font-size: 13px;
+}
+
+/* Reflection add form */
+.ft-reflection-add-form {
+	margin-top: 8px;
+	display: flex;
+	gap: 8px;
+	align-items: center;
+}
+
+/* Reflection type select */
+.ft-reflection-type-select {
+	padding: 4px 8px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	font-size: 13px;
+}
+
+/* -- SessionDecisionPanel -- */
+
+/* Decision row */
+.ft-decision-row {
+	padding: 6px 0;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+/* Decision title row */
+.ft-decision-title-row,
+.ft-overload-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+/* Decision title text */
+.ft-decision-title,
+.ft-overload-title {
+	font-size: 13px;
+}
+
+/* Decision description */
+.ft-decision-description {
+	margin: 4px 0 0 0;
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+/* Decision context */
+.ft-decision-context {
+	margin: 2px 0 0 0;
+	font-size: 11px;
+	color: var(--text-faint);
+	font-style: italic;
+}
+
+/* Decision add form */
+.ft-decision-add-form {
+	margin-top: 8px;
+	display: flex;
+	gap: 8px;
+}
+
+/* -- SessionContextPanel -- */
+
+/* Context type badge */
+.ft-context-badge {
+	background: var(--background-modifier-hover);
+	padding: 1px 6px;
+	border-radius: 3px;
+	font-size: 11px;
+	color: var(--text-muted);
+	cursor: pointer;
+	user-select: none;
+}
+
+/* Context add button */
+.ft-context-add {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 12px;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 13px;
+	margin-top: 8px;
+	background: var(--interactive-normal);
+	border: 1px solid var(--background-modifier-border);
+	color: var(--text-normal);
+}
+
+/* -- SessionOutputPanel -- */
+
+/* Output empty state */
+.ft-outputs-empty {
+	color: var(--text-muted);
+	font-size: 12px;
+	padding: 8px 0;
+}
+
+/* Output artifact row */
+.ft-output-row {
+	padding: 6px 0;
+	border-bottom: 1px solid var(--background-modifier-border);
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+/* Output artifact link */
+.ft-output-link {
+	cursor: pointer;
+	text-decoration: underline;
+	color: var(--text-accent);
+	flex: 1;
+	font-size: 13px;
+}
+
+/* Output date label */
+.ft-output-date {
+	color: var(--text-muted);
+	font-size: 11px;
+}
+
+/* -- SessionOutputPickerModal -- */
+
+/* Picker subtitle */
+.ft-output-picker-subtitle {
+	color: var(--text-muted);
+	margin-bottom: 12px;
+}
+
+/* Picker grid */
+.ft-output-picker-grid {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+/* Picker card */
+.ft-output-picker-card {
+	padding: 12px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	cursor: pointer;
+}
+
+/* Picker card title row */
+.ft-output-picker-title-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 4px;
+}
+
+/* Picker card type badge */
+.ft-output-picker-type-badge {
+	background: var(--background-modifier-hover);
+	padding: 2px 6px;
+	border-radius: 4px;
+	font-size: 11px;
+}
+
+/* Picker card description */
+.ft-output-picker-desc {
+	margin: 0;
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+/* -- SessionTimerPanel -- */
+
+/* Duration edit row */
+.ft-duration-edit {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+/* Duration number input */
+.ft-duration-input {
+	width: 60px;
+	padding: 4px 8px;
+	text-align: center;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	font-family: var(--font-monospace);
+}
+
+/* Timer "Time remaining" label */
+.ft-timer-remaining-label {
+	margin-top: 4px;
+	color: var(--text-muted);
+	font-size: 12px;
+}
+
+/* -- CognitiveLoadAlert -- */
+
+/* Alert container */
+.ft-overload-alert {
+	background: var(--background-modifier-error);
+	border: 1px solid var(--background-modifier-error-hover);
+	border-radius: 6px;
+	padding: 8px 12px;
+	margin: 6px 0;
+}
+
+/* Alert dismiss button */
+.ft-overload-dismiss {
+	background: none;
+	border: none;
+	cursor: pointer;
+	font-size: 16px;
+	color: var(--text-muted);
+	padding: 0 4px;
+}
+
+/* Alert reason list */
+.ft-overload-reasons {
+	margin: 4px 0 0 0;
+	padding-left: 18px;
+	font-size: 12px;
+}
+
+/* Alert suggestion */
+.ft-overload-suggestion {
+	font-size: 11px;
+	color: var(--text-muted);
+	margin-top: 4px;
+}
+
+/* -- SessionActivityIntelligencePanel -- */
+
+/* Intelligence section row */
+.ft-session-intelligence {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	flex-wrap: wrap;
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+/* Intelligence stats wrapper */
+.ft-intelligence-stats {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+
+/* Individual stat */
+.ft-intelligence-stat {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+}
+
+/* -- SessionEnergyIndicator -- */
+
+/* Energy indicator dots container */
+.ft-energy-indicator {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+/* Energy dot — base */
+.ft-energy-dot {
+	font-size: 16px;
+	cursor: default;
+	opacity: 0.25;
+	transition: opacity 0.15s ease;
+}
+
+/* -- SessionGuidingQuestions -- */
+
+/* Guiding questions list */
+.ft-guiding-list {
+	margin: 0;
+	padding-left: 24px;
+}
+
+/* Guiding question item */
+.ft-guiding-item {
+	color: var(--text-muted);
+	margin-bottom: 4px;
+	font-size: 13px;
+}

@@ -1,0 +1,500 @@
+/* ==============================================================
+   Train (Hub, Timeline, Capture)
+   ============================================================== */
+
+/* List styling */
+.ft-list,
+.ft-train-completion-callout,
+.ft-train-breadcrumb {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+
+/* Width utilities */
+.ft-w-full,
+.ft-input-full-width,
+.ft-pref-target-input,
+.ft-train-capture-input-w,
+.ft-train-action-row-w {
+	width: 100%;
+}
+
+.ft-visibility-toggle:hover,
+.ft-detail-info-value,
+.ft-timeline-chevron:hover,
+.ft-train-breadcrumb-active .ft-train-breadcrumb-segment:hover {
+	color: var(--text-normal);
+}
+
+/* ── Train Main View ─────────────────────────────────── */
+
+.ft-train-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	gap: 0.75rem;
+	color: var(--text-muted);
+}
+
+.ft-train-hub-start-callout {
+	padding: 1.25rem;
+}
+
+.ft-train-hub-filter,
+.ft-train-hub-sort {
+	font-size: var(--font-ui-small);
+	padding: 2px 6px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+}
+
+.ft-train-content-preview {
+	margin-top: 0.5rem;
+	padding: 0.25rem 0;
+	font-size: var(--font-ui-small);
+	line-height: 1.5;
+	color: var(--text-muted);
+}
+
+.ft-train-branch-link {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.35rem 0.5rem;
+	border-radius: var(--radius-s, 4px);
+	cursor: pointer;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	transition: background-color 0.15s;
+}
+
+.ft-train-branch-link:hover {
+	background-color: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.ft-train-note-link {
+	margin-top: 0.5rem;
+	cursor: pointer;
+	color: var(--text-accent);
+	transition: color 0.15s;
+}
+
+.ft-train-note-link:hover {
+	color: var(--interactive-accent-hover);
+	text-decoration: underline;
+}
+
+.ft-train-parent-link {
+	cursor: pointer;
+	transition: color 0.15s;
+}
+
+.ft-train-parent-link:hover,
+.ft-train-breadcrumb-segment:hover,
+.ft-add-tile-dm-icon-active,
+.ft-icon-accent,
+.ft-role-icon-accent svg,
+.ft-text-accent-color,
+.ft-preview-custom-col {
+	color: var(--interactive-accent);
+}
+
+.ft-train-nav-disabled {
+	opacity: 0.35;
+	cursor: not-allowed;
+}
+
+/* ── Train Nav Bar ──────────────────────────────────── */
+.ft-train-stats-section .ft-stat-grid {
+	margin-top: 1rem;
+	margin-bottom: 1rem;
+}
+
+.ft-train-nav-bar .ft-detail-actions {
+	flex-wrap: nowrap;
+	align-items: center;
+	margin-top: 0;
+}
+
+/* ── Train Type Picker Modal ─────────────────────────── */
+.ft-train-type-picker {
+	padding: 1.5rem;
+}
+.ft-train-type-picker-header {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	margin-bottom: 0.35rem;
+}
+.ft-train-type-picker-header h3 {
+	margin: 0;
+	font-size: 1.15rem;
+	font-weight: 600;
+}
+.ft-train-type-picker-desc {
+	margin-bottom: 1.25rem;
+}
+.ft-train-type-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 0.75rem;
+}
+.ft-train-type-card {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.6rem;
+	padding: 1.5rem 1rem 1.25rem;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 10px;
+	background: var(--background-primary);
+	cursor: pointer;
+	transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s, transform 0.1s;
+}
+.ft-train-type-card:hover,
+.ft-train-type-card:focus-visible {
+	border-color: var(--interactive-accent);
+	background-color: var(--background-secondary);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+	outline: none;
+}
+.ft-train-type-card:active {
+	transform: scale(0.97);
+}
+.ft-train-type-card-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 48px;
+	height: 48px;
+	border-radius: 12px;
+	background: var(--background-secondary);
+	color: var(--interactive-accent);
+}
+.ft-train-type-card-icon svg {
+	width: 24px;
+	height: 24px;
+}
+.ft-train-type-card-label {
+	font-weight: 600;
+	font-size: 0.9rem;
+}
+.ft-train-type-card-duration {
+	font-size: 0.7rem;
+	color: var(--text-muted);
+	background: var(--background-modifier-hover);
+	padding: 0.15rem 0.5rem;
+	border-radius: 9999px;
+}
+
+/* ── Train Resume Modal ─────────────────────────────── */
+.ft-train-resume-option {
+	width: 100%;
+	padding: 0.75rem 1rem;
+	text-align: left;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s, 4px);
+}
+
+/* ── Train Timeline Sidebar — Git Graph ──────────────── */
+
+/* Lane color definitions with theme-safe fallbacks */
+/* Branch status badges — color-coded labels for branch origin nodes */
+.ft-branch-status-badge {
+	cursor: pointer;
+	text-transform: capitalize;
+}
+
+.ft-branch-status-exploring {
+	background-color: var(--color-yellow, #f1c40f);
+	color: var(--text-on-accent, #000);
+	border: none;
+}
+
+.ft-branch-status-promising {
+	background-color: var(--color-green, #27ae60);
+	color: var(--text-on-accent, #fff);
+	border: none;
+}
+
+.ft-branch-status-stale {
+	background-color: var(--color-red, #e74c3c);
+	color: var(--text-on-accent, #fff);
+	border: none;
+}
+
+.ft-branch-status-tag {
+	opacity: 0.4;
+	transition: opacity 0.15s ease;
+}
+
+/* Train Closure Panel — train context in session closure overlay */
+.ft-train-closure-panel {
+	max-width: 600px;
+	margin: 0 auto 16px;
+	padding: 16px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	background: var(--background-secondary);
+}
+
+.ft-train-closure-header {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin-bottom: 12px;
+}
+
+.ft-train-closure-stats {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1rem;
+	margin-bottom: 12px;
+}
+
+.ft-train-closure-stat {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+}
+
+.ft-train-closure-thoughts {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.ft-train-closure-thought-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: var(--font-ui-small);
+}
+
+.ft-timeline-sidebar {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.ft-graph-timeline {
+	--ft-lane-0: var(--interactive-accent, #7b68ee);
+	--ft-lane-1: var(--color-orange, #e67e22);
+	--ft-lane-2: var(--color-purple, #9b59b6);
+	--ft-lane-3: var(--color-green, #27ae60);
+	--ft-lane-4: var(--color-yellow, #f1c40f);
+	--ft-lane-5: var(--color-cyan, #00bcd4);
+}
+
+.ft-timeline-container {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	padding: 0.5rem 0 0.5rem 0.75rem;
+}
+
+.ft-timeline-node {
+	cursor: pointer;
+	transition: background-color 0.15s;
+}
+
+/* Graph node: flex row with graph cell + content */
+.ft-graph-node {
+	display: flex;
+	align-items: center;
+	padding: 3px 8px 3px 0;
+	min-height: 28px;
+}
+
+/* Graph cell: positioned container for rails and dots */
+.ft-graph-cell {
+	position: relative;
+	flex-shrink: 0;
+	align-self: stretch;
+}
+
+/* Vertical rail segment (2px wide, full height of row) */
+.ft-graph-rail {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 2px;
+	border-radius: 1px;
+}
+
+/* Node circle (centered on lane via transform) */
+.ft-graph-dot {
+	position: absolute;
+	top: 50%;
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	z-index: 1;
+	border: 2px solid var(--background-primary);
+	transform: translate(-50%, -50%);
+}
+
+/* Active dot: slightly larger with glowing ring */
+.ft-graph-dot-active {
+	width: 12px;
+	height: 12px;
+	box-shadow: 0 0 0 3px var(--interactive-accent, #7f6df2),
+		0 0 8px var(--interactive-accent, #7f6df2);
+	transition: box-shadow 150ms ease;
+}
+
+/* Head dot: diamond shape to indicate the most recent thought */
+.ft-graph-dot-head {
+	width: 14px;
+	height: 14px;
+	border-radius: 2px;
+	transform: translate(-50%, -50%) rotate(45deg);
+}
+
+/* Fork connector: horizontal line from parent lane to branch lane */
+.ft-graph-fork {
+	position: absolute;
+	top: 50%;
+	transform: translateY(-1px);
+	height: 2px;
+	border-radius: 1px;
+	z-index: 0;
+}
+
+/* Merge connector: dashed horizontal line from branch lane back to target lane */
+.ft-graph-merge {
+	position: absolute;
+	bottom: 3px;
+	height: 0;
+	border-bottom: 2px dashed;
+	z-index: 0;
+}
+
+/* Arrow at the target end of the merge connector */
+.ft-graph-merge-arrow {
+	position: absolute;
+	bottom: -5px;
+	width: 0;
+	height: 0;
+	border-left: 3px solid transparent;
+	border-right: 3px solid transparent;
+	border-top: 5px solid;
+}
+
+/* Content area: title, badges, time */
+.ft-graph-content {
+	display: flex;
+	align-items: center;
+	gap: 0.35rem;
+	flex: 1;
+	min-width: 0;
+	padding-left: 0.5rem;
+}
+
+.ft-timeline-node-title {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--font-ui-small);
+}
+
+.ft-timeline-chevron {
+	cursor: pointer;
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	flex-shrink: 0;
+	padding: 0 0.15rem;
+}
+
+.ft-timeline-empty-chain {
+	padding: 1rem;
+	text-align: center;
+	color: var(--text-faint);
+	font-style: italic;
+}
+
+/* ── Train Breadcrumb ────────────────────────────────── */
+
+.ft-train-breadcrumb-row {
+	display: flex;
+	align-items: baseline;
+	gap: 0.5rem;
+	font-size: var(--font-ui-smaller);
+	line-height: 1.4;
+}
+
+.ft-train-breadcrumb-marker {
+	flex-shrink: 0;
+	min-width: 2.5rem;
+	text-align: right;
+	font-size: var(--font-ui-smaller);
+}
+
+.ft-train-breadcrumb-segment {
+	cursor: pointer;
+	color: var(--text-muted);
+	transition: color 0.15s;
+	word-break: break-word;
+}
+
+.ft-train-breadcrumb-active .ft-train-breadcrumb-segment {
+	color: var(--text-normal);
+	font-weight: 500;
+	cursor: default;
+}
+
+.ft-train-timer {
+	font-family: var(--font-monospace);
+	font-size: 1.1rem;
+	font-weight: 600;
+	color: var(--text-normal);
+	text-align: center;
+	padding: 0.5rem 0;
+}
+
+.ft-timeline-row {
+  padding: 0.2rem 0;
+}
+
+.ft-timeline-dot-default {
+  background-color: var(--text-muted);
+}
+
+/* ── TrainCaptureModal ─────────────────────────────────── */
+
+.ft-train-rename-w-full {
+  width: 100%;
+  font-size: inherit;
+}
+
+.ft-train-tab-hint-mr {
+  margin-right: 0.5rem;
+}
+
+.ft-train-back-mr-auto {
+  margin-right: auto;
+}
+
+/* ── BaseEntityTab ─────────────────────────────────────── */
+
+/* reuses .ft-ml-auto, .ft-text-error-color */
+
+/* ── TrainTimelineSidebar ──────────────────────────────── */
+
+.ft-graph-merge-arrow-left {
+  left: -3px;
+}
+
+.ft-graph-merge-arrow-right {
+  right: -3px;
+}

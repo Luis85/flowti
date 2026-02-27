@@ -1,0 +1,1635 @@
+/* ==============================================================
+   Analytics (Dashboards, Tiles, Queries, Charts)
+   ============================================================== */
+
+/* Tile layout classes */
+.ft-tile-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0.5rem 0.75rem;
+	border-bottom: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+}
+.ft-tile-body {
+	flex: 1;
+	overflow: auto;
+	min-height: 0;
+	padding: 0.35rem;
+}
+.ft-tile-actions,
+.ft-catalog-dot-legend-item,
+.ft-refresh-btn,
+.ft-action-btn,
+.ft-chart-legend-entry {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+}
+/* Cross-tile filter source indicator (PBI-ANA-132, Cycle 44) */
+.ft-tile-filter-source > .ft-dashboard-tile {
+	border-color: var(--interactive-accent) !important;
+	box-shadow: 0 0 0 1px var(--interactive-accent);
+}
+
+/* Filter bar layout */
+.ft-filter-bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem;
+	margin-bottom: 0.75rem;
+	padding: 0.5rem 0.75rem;
+	background: var(--background-secondary);
+	border-radius: 6px;
+}
+.ft-filter-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+	padding: 2px 8px;
+	border-radius: 10px;
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.ft-mb-1,
+.ft-tile-status-icon-mb,
+.ft-mb-3,
+.ft-desc-mb,
+.ft-add-tile-dialog-header,
+.ft-dashboard-actions,
+.ft-desc-margin,
+.ft-catalog-coverage-mb,
+
+.ft-font-medium,
+.ft-doc-cta-title,
+.ft-query-insight-title {
+	font-weight: 500;
+}
+
+.ft-text-error,
+.ft-query-err-badge,
+.ft-query-callout-icon-error {
+	color: var(--text-error);
+}
+
+/* Doc CTA (call-to-action when no doc exists) */
+.ft-doc-cta {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.75rem 1rem;
+	border: 1px dashed var(--background-modifier-border);
+	border-radius: var(--radius-s, 4px);
+	background: var(--background-primary-alt);
+}
+
+/* Scrollable table container */
+.ft-table-scroll {
+	flex: 1;
+	overflow: auto;
+	padding: 1rem 0;
+	scrollbar-width: thin;
+	scrollbar-color: var(--background-modifier-border) transparent;
+}
+
+/* Shared stat card grid */
+.ft-stat-grid {
+	display: grid;
+	gap: 0.75rem;
+	margin-bottom: 1.5rem;
+}
+.ft-stat-card {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	padding: 1rem;
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	transition: border-color 0.15s;
+}
+.ft-stat-card:hover {
+	border-color: var(--interactive-accent);
+}
+.ft-stat-card svg,
+.ft-role-icon-18 svg {
+	width: 18px;
+	height: 18px;
+}
+
+/* ── Utility: Inline-flex icon wrapper ────────────────────── */
+
+.ft-inline-icon,
+.ft-action-btn-icon,
+.ft-inline-icon-plain,
+.ft-inline-flex-center,
+.ft-dashboard-action-icon,
+.ft-action-card-icon,
+.ft-catalog-empty-info-icon {
+	display: inline-flex;
+	align-items: center;
+}
+
+/* ── AnalyticsDashboardPage: Nav links bar ────────────────── */
+
+.ft-nav-bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+}
+
+/* ── AnalyticsDashboardPage: Nav separator ────────────────── */
+
+.ft-nav-separator {
+	width: 1px;
+	height: 14px;
+	background: var(--background-modifier-border);
+	flex-shrink: 0;
+}
+
+/* ── AnalyticsDashboardPage: Onboarding card border ──────── */
+
+.ft-onboarding-card,
+.ft-dashboard-session-callout-inactive,
+.ft-dashboard-train-callout-inactive,
+.ft-role-card-unselected-border {
+	border: 1px solid var(--background-modifier-border);
+}
+
+/* ── AnalyticsDashboardPage: Checklist done text ─────────── */
+
+.ft-checklist-done {
+	text-decoration: line-through;
+	opacity: 0.6;
+}
+
+/* ── AnalyticsDashboardPage: Dashboard header ────────────── */
+
+.ft-dashboard-page-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 0.75rem;
+}
+
+.ft-dashboard-title-left,
+.ft-dash-master-left,
+.ft-detail-title-left {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	flex: 1;
+	min-width: 0;
+}
+
+.ft-dashboard-header-right,
+.ft-header-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	flex-shrink: 0;
+}
+
+/* ── AnalyticsDashboardPage: Freshness summary ───────────── */
+/* Note: color is dynamic — set via inline style */
+
+.ft-freshness-summary {
+	font-size: 0.65rem;
+	opacity: 0.8;
+}
+
+/* ── AnalyticsDashboardPage: Dashboard tile grid ─────────── */
+
+.ft-tile-grid {
+	display: grid;
+	grid-template-columns: repeat(6, 1fr);
+	grid-auto-rows: auto;
+	gap: 1rem;
+}
+
+/* ── AnalyticsDashboardPage: Fallback prompt ─────────────── */
+
+.ft-fallback-prompt {
+	text-align: center;
+	padding: 1rem;
+	background: var(--background-secondary);
+	border-radius: 6px;
+}
+
+.ft-fallback-icon {
+	opacity: 0.5;
+	margin-bottom: 0.5rem;
+}
+
+/* ── AnalyticsDashboardPage: Action cards grid ───────────── */
+
+.ft-action-cards-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 0.75rem;
+	max-width: 440px;
+	margin: 0 auto 1.5rem;
+	text-align: left;
+}
+
+/* ── AnalyticsDashboardPage: Action card ─────────────────── */
+
+.ft-action-card,
+.ft-dashboard-action-card {
+	cursor: pointer;
+	padding: 1rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.ft-action-card-title,
+.ft-dashboard-action-title {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	font-weight: 600;
+	font-size: var(--font-ui-small);
+}
+
+/* ── AnalyticsDashboardPage: How-it-works section ────────── */
+
+.ft-how-section {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+}
+
+.ft-how-label {
+	font-weight: 600;
+	margin-right: 0.25rem;
+}
+
+/* ── AnalyticsDashboardPage: Favorites section ───────────── */
+
+.ft-favorites-section {
+	margin-top: 2.5rem;
+	padding-top: 1.5rem;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.ft-favorites-heading {
+	font-weight: 600;
+	margin-bottom: 0.25rem;
+}
+
+.ft-favorites-card-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+	gap: 0.5rem;
+}
+
+/* ── AnalyticsDashboardPage: Favorite card ───────────────── */
+
+.ft-favorite-card {
+	cursor: pointer;
+	padding: 0.75rem;
+	display: flex;
+	align-items: flex-start;
+	gap: 0.5rem;
+}
+
+.ft-favorite-card-icon {
+	width: 14px;
+	height: 14px;
+	flex-shrink: 0;
+	margin-top: 2px;
+}
+
+.ft-favorite-card-text {
+	overflow: hidden;
+	flex: 1;
+	min-width: 0;
+}
+
+.ft-favorite-card-name {
+	font-weight: 500;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ft-favorite-card-desc {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	margin-top: 0.15rem;
+}
+
+/* ── DashboardTileRenderer: Tile frame ───────────────────── */
+
+.ft-tile-frame {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+}
+
+/* ── DashboardTileRenderer: Settings panel ───────────────── */
+
+.ft-tile-settings-panel {
+	padding: 0.5rem 0.75rem;
+	border-bottom: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary-alt);
+	overflow-y: auto;
+	min-height: 0;
+}
+
+/* ── DashboardTileRenderer: Tile body ────────────────────── */
+
+.ft-tile-body-auto {
+	overflow: visible;
+}
+
+.ft-tile-body-overflow-hidden {
+	overflow: hidden;
+}
+
+.ft-tile-body-flex-col {
+	display: flex;
+	flex-direction: column;
+}
+
+.ft-tile-body-padding-table {
+	padding: 0.35rem;
+}
+
+.ft-tile-body-padding-default {
+	padding: 0.5rem 0.35rem;
+}
+
+/* ── DashboardTileRenderer: Header ───────────────────────── */
+
+.ft-tile-header-input {
+	font-weight: 600;
+	font-size: var(--font-ui-small);
+	border: none;
+	background: transparent;
+	color: var(--text-normal);
+	padding: 0;
+	flex: 1;
+	min-width: 0;
+}
+
+/* ── DashboardTileRenderer: Conditional formatting dot ───── */
+
+.ft-conditional-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--text-accent);
+	flex-shrink: 0;
+}
+
+/* ── DashboardTileRenderer: Display mode select ──────────── */
+
+.ft-tile-mode-select,
+.ft-sort-select {
+	padding: 1px 4px;
+	border-radius: 4px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	cursor: pointer;
+	font-size: var(--font-ui-smaller);
+}
+
+/* ── DashboardTileRenderer: Error / loading states ───────── */
+
+.ft-tile-status {
+	text-align: center;
+	padding: 1rem;
+}
+
+/* ── DashboardTileRenderer: Broken ref ───────────────────── */
+
+.ft-fix-btn {
+	margin-top: 0.5rem;
+	padding: 4px 12px;
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+/* ── DashboardFilterBar: Breadcrumb bar ──────────────────── */
+
+.ft-filter-breadcrumb-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35rem;
+	margin-bottom: 0.75rem;
+}
+
+/* ── DashboardFilterBar: Clear all button ────────────────── */
+
+.ft-filter-clear-btn {
+	cursor: pointer;
+	margin-left: auto;
+}
+
+/* ── DashboardFilterBar: Chip close button ───────────────── */
+
+.ft-chip-close {
+	cursor: pointer;
+	font-weight: bold;
+}
+
+/* ── DashboardFilterBar: Preset chip wrapper ─────────────── */
+
+.ft-preset-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+}
+
+/* ── DashboardFilterBar: Preset delete button ────────────── */
+
+.ft-preset-delete-btn {
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	line-height: 1;
+}
+
+/* ── DashboardFilterBar: Save icon ───────────────────────── */
+
+.ft-save-icon {
+	width: 10px;
+	height: 10px;
+	display: inline-flex;
+	align-items: center;
+}
+
+/* ── DashboardFilterBar: Preset name input ───────────────── */
+
+.ft-preset-name-input {
+	font-size: var(--font-ui-smaller);
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	color: var(--text-normal);
+	padding: 2px 6px;
+	border-radius: 4px;
+	width: 110px;
+}
+
+/* ── DashboardFilterBar: Date range picker wrapper ───────── */
+
+.ft-date-range-wrap {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+/* ── DashboardFilterBar: Date input ──────────────────────── */
+
+.ft-date-input {
+	font-size: var(--font-ui-smaller);
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	color: var(--text-normal);
+	padding: 2px 4px;
+	border-radius: 4px;
+}
+
+/* ── DashboardsTab: master row ─────────────────────────────── */
+.ft-dash-master-row {
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+/* Editable title input (DashboardsTab detail header) */
+.ft-title-input {
+	font-weight: 600;
+	font-size: var(--font-ui-medium);
+	border: none;
+	background: transparent;
+	color: var(--text-normal);
+	padding: 0;
+	flex: 1;
+	min-width: 0;
+}
+
+/* Meta row with inline flex (type badge + query name) */
+.ft-meta-row-inline {
+	display: flex;
+	gap: 4px;
+	align-items: center;
+}
+
+/* Ruler/header icon in detail cards */
+.ft-card-header-icon {
+	width: 18px;
+	height: 18px;
+	opacity: 0.6;
+	flex-shrink: 0;
+}
+
+/* Editable name input in detail card header */
+.ft-name-input {
+	flex: 1;
+	padding: 4px 8px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	font-weight: 600;
+	font-size: var(--font-ui-medium);
+}
+
+/* Favorite icon conditional styles */
+.ft-fav-icon-active {
+	width: 14px;
+	height: 14px;
+	color: var(--text-accent);
+}
+
+.ft-fav-icon-inactive {
+	width: 14px;
+	height: 14px;
+	opacity: 0.3;
+}
+
+/* Description textarea */
+.ft-desc-textarea {
+	width: 100%;
+	padding: 4px 8px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	min-height: 40px;
+	resize: vertical;
+	margin-top: 0.5rem;
+}
+
+/* Section header icon (small icon in card section headers) */
+.ft-section-icon,
+.ft-query-xref-icon-14 {
+	width: 14px;
+	height: 14px;
+	opacity: 0.6;
+}
+
+/* Warning callout (missing query) */
+.ft-warning-callout {
+	padding: 0.35rem 0.5rem;
+	margin-top: 0.35rem;
+	border-radius: 4px;
+	background: var(--background-modifier-error);
+	color: var(--text-error);
+}
+
+/* Warning icon in callout */
+.ft-warning-icon,
+.ft-query-toggle-icon,
+.ft-tip-icon-14 svg {
+	width: 14px;
+	height: 14px;
+	flex-shrink: 0;
+}
+
+/* Type toggle button (measurement type picker) */
+.ft-type-toggle {
+	flex: 1;
+	padding: 0.5rem;
+	border-radius: 6px;
+	text-align: center;
+}
+
+/* Type description text */
+.ft-type-desc,
+.ft-add-tile-dm-card-desc {
+	opacity: 0.7;
+	line-height: 1.2;
+}
+
+/* Style toggle button (display format) */
+.ft-style-toggle {
+	flex: 1;
+	padding: 0.35rem;
+	text-align: center;
+}
+
+/* Currency symbol input */
+.ft-symbol-input {
+	padding: 2px 4px;
+	border-radius: 4px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	width: 40px;
+	text-align: center;
+}
+
+/* Decimal select */
+.ft-decimal-select {
+	padding: 2px 6px;
+	font-size: var(--font-ui-small);
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+}
+
+/* Dashboard usage row */
+.ft-usage-row,
+.ft-rule-row-bordered {
+	padding: 0.25rem 0;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+/* Tiny usage icon */
+.ft-usage-icon,
+.ft-query-xref-sub-icon {
+	width: 12px;
+	height: 12px;
+	opacity: 0.5;
+}
+
+/* Create form header icon */
+.ft-create-header-icon {
+	width: 16px;
+	height: 16px;
+	opacity: 0.6;
+}
+
+/* Type selector button in create form */
+.ft-type-select-btn {
+	flex: 1;
+	padding: 0.35rem;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	cursor: pointer;
+	text-align: center;
+	font-size: var(--font-ui-small);
+}
+
+.ft-type-select-btn.is-active,
+.ft-add-tile-dm-card-active {
+	border-color: var(--interactive-accent);
+	background: var(--background-primary-alt);
+}
+
+/* Type selector icon inline */
+.ft-type-select-icon {
+	width: 14px;
+	height: 14px;
+	display: inline-block;
+	vertical-align: middle;
+	margin-right: 4px;
+}
+
+/* Action buttons row justify-end */
+.ft-actions-end,
+.ft-justify-end {
+	justify-content: flex-end;
+}
+
+/* ── DashboardQueryMap ─────────────────────────────────────── */
+
+/* Query map section wrapper */
+.ft-qmap-section {
+	margin-top: 1.5rem;
+	padding-top: 0.75rem;
+}
+
+/* Chevron icon in collapsible header */
+.ft-qmap-chevron {
+	width: 12px;
+	height: 12px;
+	opacity: 0.5;
+	display: inline-flex;
+	align-items: center;
+	flex-shrink: 0;
+}
+
+/* Name link inline-flex */
+.ft-qmap-name-link {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+}
+
+/* Source badge (tiny, low opacity) */
+.ft-qmap-source-badge {
+	font-size: 0.6rem;
+	padding: 0 0.2rem;
+	opacity: 0.7;
+}
+
+/* Meta text (tile count + freshness) */
+.ft-qmap-meta {
+	font-size: 0.6rem;
+	flex-shrink: 0;
+	margin-left: auto;
+}
+
+/* ── Batch 3 extractions ── */
+
+/* ─── Shared: small inline icon with right margin ────────── */
+.ft-inline-icon-mr {
+	display: inline-flex;
+	align-items: center;
+	margin-right: 2px;
+}
+
+/* ─── Shared: card section title (pipeline / schema / etc.) */
+.ft-card-title,
+.ft-query-insights-header {
+	margin: 0;
+	padding-bottom: 0.35rem;
+	margin-bottom: 0.5rem;
+}
+
+/* ─── Shared: sub-section header (joins / sort-limit) ───── */
+.ft-subsection-header,
+.ft-m-0,
+.ft-heading-no-margin {
+	margin: 0;
+}
+
+/* ─── Shared: helper text below section headers ─────────── */
+.ft-helper-text {
+	padding: 0 0.5rem 0.25rem;
+}
+
+/* ─── Shared: helper text with negative top margin ────────  */
+.ft-helper-text-snug {
+	padding: 0 0.5rem 0.25rem;
+	margin-top: -0.35rem;
+}
+
+/* ─── Shared: card section divider ──────────────────────── */
+.ft-card-divider {
+	border-top: 1px solid var(--background-modifier-border);
+	margin: 0.5rem 0;
+}
+
+/* ─── Shared: row padding (sort rows, measure rows) ─────── */
+.ft-row-padded {
+	padding: 0.35rem 0.5rem;
+}
+
+/* ─── Shared: row padding + bottom border ────────────────── */
+.ft-row-padded-bordered,
+.ft-filter-row,
+.ft-template-row,
+.ft-info-row-bordered {
+	padding: 0.35rem 0.5rem;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+/* ─── Shared: join row padding ───────────────────────────── */
+.ft-join-row,
+.ft-schema-group,
+.ft-chart-col-bar-single,
+.ft-canvas-folder-row-pad,
+.ft-canvas-group-row-pad {
+	padding: 0.25rem 0.5rem;
+}
+
+/* ─── Shared: schema group header ───────────────────────── */
+.ft-schema-group-header {
+	border-bottom: 1px solid var(--background-modifier-border);
+	padding-bottom: 0.25rem;
+	margin-bottom: 0.25rem;
+}
+
+/* ─── Shared: schema column row ─────────────────────────── */
+.ft-schema-col-row {
+	padding: 0.2rem 0 0.2rem 1.25rem;
+}
+
+/* ─── Shared: compact icon button (eye, lock, filter) ───── */
+.ft-icon-btn {
+	cursor: pointer;
+	flex-shrink: 0;
+	padding: 0;
+}
+
+/* ─── Shared: column name minimum width ─────────────────── */
+.ft-col-name,
+.ft-pref-label-80 {
+	min-width: 80px;
+}
+
+/* ─── Shared: excluded column strike-through ────────────── */
+.ft-col-excluded,
+.ft-chart-legend-hidden-text,
+.ft-canvas-excluded-name {
+	text-decoration: line-through;
+}
+
+/* ─── Shared: active filter accent ──────────────────────── */
+.ft-filter-active {
+	color: var(--text-accent);
+	opacity: 0.8;
+}
+
+/* ─── Shared: inactive/faint action ─────────────────────── */
+.ft-action-faint,
+.ft-chart-legend-hidden {
+	opacity: 0.35;
+}
+
+/* ─── Shared: lock active (error color) ─────────────────── */
+.ft-lock-active {
+	color: var(--text-error);
+	opacity: 0.9;
+}
+
+/* ─── Shared: measure quick-add select (compact) ────────── */
+.ft-select-measure-add {
+	font-size: 0.65rem;
+	padding: 1px 4px;
+	max-width: 90px;
+}
+
+/* ─── Shared: measure type select (compact) ─────────────── */
+.ft-select-measure-type {
+	font-size: 0.65rem;
+	padding: 1px 4px;
+	max-width: 70px;
+}
+
+/* ─── Shared: dimension label ───────────────────────────── */
+.ft-dim-label {
+	cursor: pointer;
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+}
+
+/* ─── Shared: tools row ─────────────────────────────────── */
+.ft-tools-row {
+	padding: 0 0.5rem 0.35rem;
+	border-bottom: 1px solid var(--background-modifier-border);
+	margin-bottom: 0.35rem;
+}
+
+/* ─── TileSettingsPanel: section label ──────────────────── */
+.ft-section-label {
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	margin-top: 0.5rem;
+	margin-bottom: 0.25rem;
+	font-weight: 600;
+}
+
+/* ─── TileSettingsPanel: formatting rule row ─────────────── */
+.ft-rule-row,
+.ft-pref-row,
+.ft-artifact-overflow,
+.ft-type-row-padding {
+	padding: 0.25rem 0;
+}
+
+/* ─── TileSettingsPanel: operator select ────────────────── */
+.ft-select-operator {
+	padding: 2px 4px;
+	border-radius: 4px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	width: 50px;
+}
+
+/* ─── TileSettingsPanel: color preset dot ───────────────── */
+.ft-color-dot {
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
+/* ─── TileSettingsPanel: active color dot outline ────────── */
+.ft-color-dot-active {
+	outline: 2px solid var(--text-normal);
+	outline-offset: 1px;
+}
+
+/* ─── TileSettingsPanel: color preset backgrounds ────────── */
+.ft-color-positive { background: var(--text-success); }
+.ft-color-negative { background: var(--text-error); }
+.ft-color-warning { background: var(--text-warning); }
+
+/* ─── ComputedColumnsSection: row wrap (border + padding) ── */
+.ft-cc-row-wrap {
+	border-bottom: 1px solid var(--background-modifier-border);
+	padding: 0.35rem 0.5rem;
+}
+
+/* ─── ComputedColumnsSection: error message ─────────────── */
+.ft-cc-error {
+	color: var(--text-error);
+	display: none;
+	padding: 0.15rem 0 0 0;
+}
+
+/* ─── ComputedColumnsSection: chip area ─────────────────── */
+.ft-cc-chip-area {
+	padding: 0.35rem 0.5rem;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+/* ─── ComputedColumnsSection: column chip ───────────────── */
+.ft-cc-chip {
+	font-size: 0.65rem;
+	padding: 1px 4px;
+	cursor: pointer;
+	font-family: var(--font-monospace);
+}
+
+/* ─── ComputedColumnsSection: function reference panel ──── */
+.ft-fn-ref-panel {
+	padding: 0.5rem 0.75rem;
+	border-top: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	font-size: var(--font-ui-smaller);
+}
+
+/* ─── ComputedColumnsSection: fn ref divider ────────────── */
+.ft-fn-ref-divider {
+	border-top: 1px solid var(--background-modifier-border);
+	margin: 0.35rem 0;
+}
+
+/* ─── ComputedColumnsSection: fn ref sub-label ──────────── */
+.ft-fn-ref-sublabel {
+	margin-bottom: 0.15rem;
+}
+
+/* ─── ComputedColumnsSection: tip row ───────────────────── */
+.ft-fn-ref-tip {
+	padding: 0.1rem 0;
+	opacity: 0.8;
+}
+
+/* ─── ComputedColumnsSection: name input (fixed width) ──── */
+.ft-cc-name-input {
+	width: 120px;
+	flex-shrink: 0;
+}
+
+/* ─── ComputedColumnsSection: expression input (flexible) ── */
+.ft-cc-expr-input {
+	flex: 1;
+	min-width: 120px;
+}
+
+/* ─── ComputedColumnsSection: type select (auto width) ──── */
+.ft-cc-type-select {
+	width: auto;
+	flex-shrink: 0;
+}
+
+/* ─── ComputedColumnsSection: error border on inputs ────── */
+.ft-cc-input-error {
+	border-color: var(--text-error);
+}
+
+/* ─── ComputedColumnsSection: error message visible ─────── */
+.ft-cc-error-visible {
+	display: block;
+}
+
+/* -- AddTileDialog -- */
+
+.ft-add-tile-dialog-box {
+	padding: 1rem 1.25rem;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	background: var(--background-secondary);
+	margin-bottom: 1rem;
+}
+
+.ft-add-tile-icon-16 svg {
+	width: 16px;
+	height: 16px;
+	opacity: 0.7;
+}
+
+.ft-add-tile-title-input {
+	width: 100%;
+	padding: 4px 8px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	font-size: var(--font-ui-small);
+	margin-top: 0.25rem;
+}
+
+.ft-add-tile-dm-grid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 0.5rem;
+	margin-top: 0.35rem;
+}
+
+.ft-add-tile-dm-card {
+	padding: 0.5rem;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	cursor: pointer;
+	text-align: center;
+	transition: border-color 0.15s;
+}
+
+.ft-add-tile-dm-icon-20 svg {
+	width: 20px;
+	height: 20px;
+}
+
+.ft-add-tile-dm-card-label {
+	font-weight: 500;
+	margin-top: 0.15rem;
+}
+
+.ft-add-tile-actions {
+	justify-content: flex-end;
+	margin-top: 0.75rem;
+}
+
+/* Source tabs */
+.ft-add-tile-source-tabs {
+	border-bottom: 1px solid var(--background-modifier-border);
+	padding-bottom: 0.35rem;
+	margin-top: 0.25rem;
+}
+
+.ft-add-tile-tab {
+	cursor: pointer;
+	padding: 0.25rem 0;
+	margin-bottom: -1px;
+}
+
+.ft-add-tile-tab-active {
+	font-weight: 600;
+	color: var(--text-accent);
+	border-bottom: 2px solid var(--text-accent);
+}
+
+.ft-add-tile-tab-inactive {
+	font-weight: 400;
+	color: var(--text-muted);
+	border-bottom: 2px solid transparent;
+}
+
+.ft-add-tile-picker-list {
+	max-height: 160px;
+	overflow-y: auto;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+}
+
+.ft-add-tile-picker-item,
+.ft-nq-group-row {
+	padding: 0.35rem 0.5rem;
+	cursor: pointer;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.ft-add-tile-picker-item-selected {
+	background: var(--background-primary-alt);
+	border-left: 2px solid var(--interactive-accent);
+}
+
+.ft-add-tile-picker-star {
+	display: inline-flex;
+	align-items: center;
+	flex-shrink: 0;
+}
+
+.ft-add-tile-picker-icon {
+	display: inline-flex;
+	align-items: center;
+	opacity: 0.5;
+	flex-shrink: 0;
+}
+
+.ft-add-tile-picker-name,
+.ft-source-path,
+.ft-column-mapping-label {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ft-add-tile-picker-type-badge {
+	font-size: 0.6rem;
+	flex-shrink: 0;
+}
+
+/* -- QueriesTab -- */
+
+.ft-query-source-item {
+	align-items: flex-start;
+	padding-left: 0.5rem;
+	border-left: 2px solid var(--interactive-accent);
+}
+
+.ft-query-source-item-plain,
+.ft-query-item {
+	align-items: flex-start;
+	padding-left: 0.5rem;
+}
+
+.ft-query-desc-input {
+	width: 100%;
+	border: none;
+	background: transparent;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	padding: 0.15rem 0;
+}
+
+/* Execution summary callouts */
+.ft-query-callout {
+	padding: 0.5rem 0.75rem;
+	background: var(--background-secondary);
+}
+
+.ft-query-callout-running,
+.ft-session-row-active-border {
+	border-left: 3px solid var(--interactive-accent);
+}
+
+.ft-query-callout-error,
+.ft-closure-field-error,
+.ft-result-error-border {
+	border-left: 3px solid var(--text-error);
+}
+
+.ft-query-callout-success {
+	border-left: 3px solid var(--text-success);
+}
+
+.ft-query-callout-icon-16 {
+	width: 16px;
+	height: 16px;
+	flex-shrink: 0;
+}
+
+.ft-query-callout-icon-success,
+.ft-text-success {
+	color: var(--text-success);
+}
+
+/* Config header */
+.ft-query-config-header {
+	border-top: 2px solid var(--background-modifier-border);
+	padding-top: 0.75rem;
+}
+
+.ft-query-config-icon,
+.ft-filter-header-icon {
+	opacity: 0.6;
+	display: inline-flex;
+	align-items: center;
+}
+
+.ft-query-insights-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+	gap: 0.5rem;
+}
+
+.ft-query-insight-card {
+	cursor: pointer;
+	padding: 0.5rem 0.75rem;
+}
+
+/* Cross-references */
+.ft-query-xref-header {
+	border-bottom: 1px solid var(--background-modifier-border);
+	padding-bottom: 0.35rem;
+	margin-bottom: 0.5rem;
+}
+
+.ft-query-xref-row {
+	padding: 0.15rem 0 0.15rem 1.5rem;
+}
+
+.ft-query-related-item {
+	padding-left: 0.5rem;
+}
+
+/* -- TableTileRenderer -- */
+
+.ft-table-kpi-grid {
+	display: grid;
+	gap: 0.35rem;
+	margin-bottom: 0.35rem;
+}
+
+.ft-table-kpi-card {
+	text-align: center;
+	padding: 0.35rem 0.25rem;
+	background: var(--background-primary);
+	border-radius: 4px;
+	border: 1px solid var(--background-modifier-border);
+}
+
+.ft-table-kpi-value {
+	font-size: 1.1rem;
+}
+
+.ft-table-cond-format {
+	opacity: 0.85;
+}
+
+.ft-table-search-row,
+.ft-preview-header {
+	margin-bottom: 0.35rem;
+}
+
+.ft-table-search-input {
+	flex: 1;
+	padding: 3px 6px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+}
+
+.ft-table-cell-clickable,
+.ft-stat-dim-drillable {
+	cursor: pointer;
+	text-decoration: underline;
+	text-decoration-style: dotted;
+	text-underline-offset: 3px;
+}
+
+.ft-table-cell-active-filter {
+	color: var(--text-accent);
+	font-weight: 600;
+}
+
+.ft-table-th-sortable,
+.ft-th-sortable {
+	cursor: pointer;
+	user-select: none;
+	white-space: nowrap;
+}
+
+.ft-table-sort-arrow,
+.ft-sort-arrow {
+	margin-left: 4px;
+}
+
+.ft-table-col-move-btn {
+	cursor: pointer;
+	margin-left: 4px;
+	font-size: 0.6rem;
+	opacity: 0.5;
+}
+
+.ft-table-col-move-btn-tight {
+	cursor: pointer;
+	margin-left: 2px;
+	font-size: 0.6rem;
+	opacity: 0.5;
+}
+
+/* Pagination */
+.ft-table-pagination-bar {
+	padding: 0.35rem 0.25rem;
+	justify-content: center;
+	font-size: var(--font-ui-smaller);
+}
+
+.ft-table-page-btn {
+	padding: 2px 8px;
+	border-radius: 4px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	cursor: pointer;
+}
+
+/* -- ChartRenderer -- */
+
+.ft-chart-sparkline-svg {
+	width: 80px;
+	height: 24px;
+	display: block;
+}
+
+.ft-chart-svg {
+	width: 100%;
+	max-height: 100%;
+	display: block;
+}
+
+.ft-chart-pie-svg {
+	display: block;
+	margin: 0 auto;
+}
+
+.ft-chart-legend {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem 1rem;
+	justify-content: center;
+	margin-top: 0.25rem;
+	font-size: var(--font-ui-smaller);
+}
+
+.ft-chart-pie-legend {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35rem 0.75rem;
+	justify-content: center;
+	margin-top: 0.5rem;
+}
+
+.ft-chart-pie-swatch {
+	width: 10px;
+	height: 10px;
+	border-radius: 2px;
+	flex-shrink: 0;
+}
+
+/* Shared form element classes (replaces SELECT_CSS / INPUT_CSS constants) */
+.ft-select-input {
+	padding: 2px 6px;
+	font-size: var(--font-ui-small);
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s, 4px);
+	color: var(--text-normal);
+}
+
+.ft-source-alias-input {
+	padding: 2px 6px;
+	font-size: var(--font-ui-small);
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s, 4px);
+	color: var(--text-normal);
+	width: 80px;
+	max-width: 100px;
+	flex-shrink: 0;
+}
+
+.ft-filter-value-input {
+	padding: 2px 6px;
+	font-size: var(--font-ui-small);
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s, 4px);
+	color: var(--text-normal);
+	width: 120px;
+}
+
+.ft-chart-col-select {
+	padding: 2px 6px;
+	font-size: var(--font-ui-small);
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s, 4px);
+	color: var(--text-normal);
+	flex-shrink: 0;
+	max-width: 180px;
+}
+
+.ft-query-item-selected {
+	border-left: 2px solid var(--interactive-accent);
+	background: var(--background-secondary);
+}
+
+.ft-rename-input {
+	font-size: var(--font-ui-small);
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	color: var(--text-normal);
+	padding: 2px 4px;
+	border-radius: 4px;
+	width: 100%;
+}
+
+/* ── StatCardTileRenderer ───────────────────────────────── */
+
+.ft-stat-wrapper {
+	margin: auto 0;
+}
+
+.ft-stat-dim-label {
+	font-weight: 600;
+	margin-bottom: 0.15rem;
+}
+
+.ft-stat-dim-label-gap {
+	margin-top: 0.4rem;
+}
+
+.ft-stat-sparkline-host {
+	margin-top: 0.25rem;
+	display: flex;
+	justify-content: center;
+}
+
+/* ── SourcePanel ────────────────────────────────────────── */
+
+.ft-source-row {
+	padding: 0.35rem 0.5rem;
+	min-width: 0;
+}
+
+.ft-source-detected-locale {
+	flex-shrink: 0;
+	opacity: 0.7;
+	font-style: italic;
+}
+
+.ft-source-error {
+	flex-shrink: 0;
+	color: var(--text-error);
+}
+
+.ft-source-preview-host {
+	border-top: 1px solid var(--background-modifier-border);
+	padding-top: 0.5rem;
+	overflow: auto;
+}
+
+/* ── NewQueryModal ──────────────────────────────────────── */
+
+.ft-nq-modal {
+	min-width: 400px;
+}
+
+.ft-nq-modal-input {
+	width: 100%;
+	margin-top: 0.75rem;
+	margin-bottom: 0.75rem;
+}
+
+.ft-nq-search-input {
+	width: 100%;
+	margin-bottom: 0.5rem;
+	font-size: var(--font-ui-small);
+}
+
+.ft-nq-source-list {
+	max-height: 250px;
+	overflow-y: auto;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	margin-bottom: 0.75rem;
+}
+
+.ft-nq-group-header {
+	padding: 0.35rem 0.5rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	background: var(--background-secondary);
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+/* ── FilterBuilderPanel ─────────────────────────────────── */
+
+/* ── ResultsSection ─────────────────────────────────────── */
+
+.ft-results-err-card,
+.ft-pref-cat-row,
+.ft-card-compact {
+	padding: 0.5rem 0.75rem;
+}
+
+.ft-results-chart-section {
+	border-bottom: 1px solid var(--background-modifier-border);
+	padding-bottom: 0.5rem;
+}
+
+/* ── ChartTileRenderer ──────────────────────────────────── */
+
+.ft-chart-col-bar {
+	padding: 0.25rem 0.5rem;
+	border-bottom: 1px solid var(--background-modifier-border);
+	flex-wrap: wrap;
+}
+
+.ft-chart-host {
+	flex: 1;
+	min-height: 0;
+	padding-bottom: 0.5rem;
+}
+
+.ft-chart-checkbox-label {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	cursor: pointer;
+	font-size: var(--font-ui-smaller);
+	user-select: none;
+}
+
+.ft-chart-checkbox {
+	cursor: pointer;
+	accent-color: var(--interactive-accent);
+}
+
+/* ── ActionsBar ─────────────────────────────────────────── */
+
+.ft-save-btn-highlight {
+	background: rgba(76, 175, 80, 0.15);
+	color: var(--text-normal);
+	padding: 2px 8px;
+	border-radius: 4px;
+	font-weight: 600;
+}
+
+/* ── UserHubDashboard: Next Nudge ────────────────────────── */
+
+.ft-dashboard-nudge-row {
+  margin-bottom: 0.75rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  background-color: var(--background-secondary);
+}
+
+/* ── UserHubDashboard: Active Session callout ────────────── */
+
+.ft-dashboard-session-callout,
+.ft-dashboard-train-callout {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background-color: var(--background-secondary);
+  cursor: pointer;
+}
+
+.ft-dashboard-session-callout-active,
+.ft-dashboard-train-callout-active {
+  border: 1px solid var(--interactive-accent);
+}
+
+/* ── UserHubDashboard: Active Train callout ──────────────── */
+
+.ft-dashboard-train-notice {
+  margin-bottom: 0.75rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  background-color: var(--background-secondary);
+  cursor: pointer;
+}
+
+/* ── UserHubDashboard: Hub Summaries ─────────────────────── */
+
+.ft-dashboard-kpi-row {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  background: var(--background-secondary);
+  cursor: pointer;
+}
+
+.ft-dashboard-kpi-cell {
+  flex: 1;
+  text-align: center;
+}
+
+.ft-stat-pill {
+  padding: 0.25rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ── Chips / badges with wrap + padding ─────────────────────────────── */
+
+.ft-chip-container {
+	flex-wrap: wrap;
+	padding: 0.25rem 0.5rem;
+}
+
+/* ── Report detail panel ────────────────────────────────────────────── */
+
+/* Note type inline input */
+.ft-type-input {
+	flex: 1;
+	background: transparent;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	padding: 0.25rem 0.5rem;
+	color: var(--text-normal);
+}
+
+/* ── Dashboard tables ───────────────────────────────────────────────── */
+
+/* Target text truncation in table cells */
+.ft-table-cell-truncate {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	display: block;
+	max-width: 12rem;
+}

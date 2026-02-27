@@ -36,10 +36,9 @@
       "Bash(npx eslint src/)",
       "Bash(npx eslint src/ -f json)",
       "Bash(node -e \":*)",
-      "Bash(npx eslint src/ --rule '{\"\"obsidianmd/ui/sentence-case\"\": \"\"warn\"\"}' --no-eslintrc --plugin obsidianmd)",
       "Bash(npm run lint)",
-      "Bash(npx eslint src/ui/catalog/helpers/rendering.ts src/ui/csv/CsvConfigPage.ts src/ui/hub/SignalConfigModal.ts src/ui/export/ConfigurePage.ts src/ui/userHub/UserHubSessionPreferences.ts src/ui/userHub/UserHubTrainPreferences.ts src/domain/settings/FlowtiSettingTab.ts)",
-      "Bash(npx eslint src/ui/catalog/helpers/rendering.ts)"
+      "Bash(git stash)",
+      "Bash(git stash pop)"
     ]
   }
 }

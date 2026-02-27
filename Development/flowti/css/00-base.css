@@ -1,0 +1,49 @@
+/* ==============================================================
+   Base (Reset, Root Container)
+   ============================================================== */
+
+/* -- Base Container -- */
+
+.flowti-container {
+	/* Reset for our container */
+	box-sizing: border-box;
+	font-family: var(--font-interface);
+	/* Prevent Obsidian status bar from overlapping view content */
+	padding-bottom: var(--status-bar-height, 28px);
+}
+
+.flowti-container *,
+.flowti-container *::before,
+.flowti-container *::after {
+	box-sizing: border-box;
+}
+
+@keyframes ft-fade-in {
+	from {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes ft-pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.6;
+	}
+}
+
+@keyframes ft-spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}

@@ -1,0 +1,193 @@
+/* ==============================================================
+   User Hub (Dashboard, Preferences, Inbox)
+   ============================================================== */
+
+.ft-mt-1,
+.ft-broken-ref-id,
+.ft-hint-text,
+.ft-dashboard-inbox-empty-hint,
+.ft-session-empty-hint,
+.ft-inbox-empty-hint,
+.ft-inbox-event-row-mt,
+.ft-mt-2,
+.ft-mt-05,
+.ft-add-tile-source-area,
+.ft-session-actions-mt,
+.ft-pref-form-row,
+.ft-pref-btn-row,
+.ft-train-thought-list-mt,
+.ft-pref-profile-row-mt,
+.ft-pref-add-row-mt,
+.ft-nudge-no-items,
+.ft-triage-row-mt,
+.ft-triage-path,
+
+.ft-font-semibold,
+.ft-train-closure-title,
+.ft-inbox-row-unread,
+.ft-stat-pill-value,
+.ft-session-file-label,
+.ft-nudge-header,
+.ft-canvas-total-row {
+	font-weight: 600;
+}
+
+/* ── AnalyticsDashboardPage: Onboarding icon ─────────────── */
+
+.ft-onboarding-icon {
+	display: inline-flex;
+	align-items: center;
+	opacity: 0.6;
+}
+
+.ft-mb-15,
+.ft-dashboard-empty-subtitle,
+.ft-dashboard-hubs,
+.ft-empty-state-subtitle-mb,
+.ft-catalog-empty-subtitle-mb {
+	margin-bottom: 1.5rem;
+}
+
+/* ── UserHubDashboard: Welcome ───────────────────────────── */
+
+.ft-dashboard-welcome,
+.ft-dashboard-titlebar,
+.ft-catalog-title-bar {
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: 0.75rem;
+}
+
+/* ── UserHubDashboard: Empty State ───────────────────────── */
+
+.ft-dashboard-empty {
+  text-align: center;
+  padding: 1.5rem 1.5rem 1rem;
+}
+
+/* ── UserHubDashboard: Inbox Section ─────────────────────── */
+
+.ft-dashboard-inbox {
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.ft-dashboard-inbox-header {
+  padding: 0.5rem 0.75rem;
+  background-color: var(--background-secondary);
+}
+
+.ft-dashboard-inbox-header-no-border {
+  border-bottom: none;
+}
+
+.ft-dashboard-inbox-empty {
+  padding: 2rem;
+  color: var(--text-muted);
+}
+
+.ft-dashboard-inbox-row {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.ft-dashboard-inbox-unread {
+  font-weight: 600;
+  border-left: 3px solid var(--interactive-accent);
+}
+
+.ft-inbox-item-icon,
+.ft-session-row-icon {
+  opacity: 0.6;
+  margin-right: 0.5rem;
+}
+
+.ft-inbox-item-source,
+.ft-session-type-badge-ml,
+.ft-ml-05,
+.ft-csv-filename-badge-ml {
+  margin-left: 0.5rem;
+}
+
+.ft-dashboard-inbox-footer {
+  justify-content: flex-end;
+  padding: 0.5rem 0.75rem;
+  background-color: var(--background-secondary);
+}
+
+/* ── UserHubDashboard: Quick Actions ─────────────────────── */
+
+/* ── UserHubSessionPreferences / shared form patterns ────── */
+
+.ft-pref-form {
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--background-modifier-border);
+  padding-top: 0.75rem;
+}
+
+.ft-pref-label {
+  min-width: 120px;
+}
+
+.ft-pref-textarea {
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+.ft-pref-label-sm {
+  min-width: 100px;
+}
+
+.ft-pref-add-btn-min {
+  min-width: 2rem;
+}
+
+/* ── UserHubInbox ────────────────────────────────────────── */
+
+/* ── UserHubPreferences ──────────────────────────────────── */
+
+/* ── UserHubNudgePreferences ─────────────────────────────── */
+
+.ft-nudge-row {
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+/* ── BaseHubView ──────────────────────────────────────────── */
+
+.ft-onboarding-banner {
+	border: 1px solid var(--background-modifier-border);
+	position: relative;
+}
+
+.ft-onboarding-dismiss {
+	position: absolute;
+	top: 0.5rem;
+	right: 0.75rem;
+	cursor: pointer;
+}
+
+/* ── NudgeNotification ────────────────────────────────────── */
+
+.ft-nudge-wrapper {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.ft-nudge-subtitle {
+	font-size: 0.85em;
+	opacity: 0.7;
+}
+
+.ft-nudge-btn-row {
+	display: flex;
+	gap: 0.5rem;
+	margin-top: 0.25rem;
+}
+
+.ft-nudge-btn {
+	padding: 4px 12px;
+	cursor: pointer;
+}

@@ -1,0 +1,260 @@
+/* ==============================================================
+   Layout & Utilities
+   ============================================================== */
+
+/**
+ * Flowti Plugin Styles
+ *
+ * Custom styles for the Flowti Obsidian plugin.
+ * All classes use the "ft-" prefix to avoid conflicts with Obsidian.
+ *
+ * These utilities integrate with Obsidian's CSS variables for theme
+ * compatibility (light/dark mode support out of the box).
+ *
+ * Usage in TypeScript:
+ * - Wrap your UI in a container with class "flowti-container"
+ * - Use utility classes like: "ft-flex ft-gap-2 ft-p-4"
+ * - Use component classes like: "ft-btn ft-btn-primary"
+ */
+
+/* ─────────────────────────────────────────────────────────────
+   Hidden header — any view that adds ft-hide-header to its
+   containerEl gets the Obsidian view-header hidden and the
+   dashboard content compensated with top padding.
+   ───────────────────────────────────────────────────────────── */
+
+.ft-hide-header > .view-header,
+.ft-session-category-collapsed {
+	display: none;
+}
+
+.ft-hide-header .ft-view-dashboard {
+	padding-top: 27px;
+}
+
+/* -- Utility Classes -- */
+
+/* Scrollbar styling to match Obsidian */
+.ft-scrollbar {
+	scrollbar-width: thin;
+	scrollbar-color: var(--background-modifier-border) transparent;
+}
+
+.ft-scrollbar::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+.ft-scrollbar::-webkit-scrollbar-thumb {
+	background-color: var(--background-modifier-border);
+	border-radius: 4px;
+}
+
+.ft-scrollbar::-webkit-scrollbar-thumb:hover {
+	background-color: var(--background-modifier-border-hover);
+}
+
+/* Truncate text */
+.ft-truncate,
+.ft-text-ellipsis {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Animation helpers */
+.ft-animate-fade-in {
+	animation: ft-fade-in 0.2s ease-out;
+}
+
+/* Flexbox utilities */
+.ft-flex,
+.flowti-csv-btn-icon {
+	display: flex;
+}
+
+.ft-flex-col {
+	flex-direction: column;
+}
+
+.ft-items-center,
+.ft-train-nav-bar {
+	align-items: center;
+}
+
+.ft-justify-center {
+	justify-content: center;
+}
+
+.ft-justify-between {
+	justify-content: space-between;
+}
+
+.ft-gap-1 {
+	gap: 0.25rem;
+}
+
+.ft-gap-2 {
+	gap: 0.5rem;
+}
+
+.ft-gap-3 {
+	gap: 0.75rem;
+}
+
+.ft-gap-4 {
+	gap: 1rem;
+}
+
+.ft-flex-1,
+.ft-flex-spacer,
+.ft-flex-1-min,
+.ft-flex-shrink-0,
+.ft-property-item input[type="checkbox"],
+.ft-graph-time,
+.ft-add-tile-picker-meta,
+.ft-cursor-pointer,
+.ft-log-row .ft-event-type,
+.ft-energy-dot-editable,
+
+.ft-section:last-child,
+.ft-p-2,
+.ft-p-3,
+.ft-p-4,
+.ft-template-section,
+.ft-timer-section,
+.ft-px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+.ft-px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+
+.ft-py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+.ft-py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+.ft-py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+.ft-m-3 { margin: 0.75rem; }
+.ft-mt-3,
+.ft-add-tile-title-area,
+.ft-add-tile-dm-label,
+.ft-triage-btn-row,
+.ft-mt-4,
+.ft-detail-section-mt,
+.ft-session-empty-btn,
+.ft-pref-folder-section-mt,
+.ft-mb-2,
+.ft-mb-05,
+.ft-dashboard-hubs-heading,
+.ft-dashboard-actions-heading,
+.ft-template-hint,
+.ft-mb-4,
+
+/* Hidden utility */
+.ft-hidden {
+	display: none !important;
+}
+
+.ft-spin svg {
+	animation: ft-spin 1s linear infinite;
+}
+
+.ft-flex-wrap,
+.ft-tile-header-wrap {
+	flex-wrap: wrap;
+}
+
+/* ── Inline-style extractions (Cycle 48) ── */
+
+/* EventLogView: full-height wrapper */
+.ft-full-height,
+.ft-tile-frame-full {
+	height: 100%;
+}
+
+/* CsvAssociatedBases: semi-bold label */
+
+/* PreviewPage: action bar bottom border */
+.ft-border-bottom {
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+/* -- Inline-style extractions — Cycle 48 bulk migration -- */
+
+.ft-text-center,
+.ft-session-workspace-timer {
+	text-align: center;
+}
+
+.ft-mb-sm {
+	margin-bottom: 4px;
+}
+
+.ft-overflow-auto,
+.ft-tile-body-overflow-auto {
+	overflow: auto;
+}
+
+.ft-min-w-0,
+.ft-query-source-text,
+.ft-master-text-block,
+.ft-view-text-minw0 {
+	min-width: 0;
+}
+
+.ft-inline-block {
+	display: inline-block;
+}
+
+/* ── Onboarding: header margin toggle ────────────────────── */
+
+.ft-mb-0,
+.ft-template-header-mb,
+.ft-header-mb-0 {
+	margin-bottom: 0;
+}
+
+/* ── Batch 2 extractions ── */
+.ft-ml-auto { margin-left: auto; }
+.ft-select-none,
+.ft-inline-flex { display: inline-flex; }
+
+/* Padding shortcuts for specific spacing values */
+.ft-pl-3 { padding-left: 1rem; }
+.ft-py-xs,
+.ft-fn-ref-row,
+.ft-info-row,
+.ft-folder-leaf-item,
+
+/* ─── Shared: small margin-left on "as" label ───────────── */
+.ft-ml-1,
+.ft-artifact-action-ml,
+.ft-thought-badge-ml,
+
+/* ─── TileSettingsPanel: hidden-columns list ─────────────── */
+.ft-hidden-cols-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.15rem;
+	margin-bottom: 0.5rem;
+}
+.ft-flex-center { display: flex; justify-content: center; }
+
+.ft-focus-icon-mr,
+.ft-mr-025 {
+  margin-right: 0.25rem;
+}
+
+.ft-text-left {
+	text-align: left;
+}
+
+/* ── ComponentShowcaseView ────────────────────────────────── */
+
+.ft-cursor-not-allowed {
+	cursor: not-allowed;
+}
+
+/* ── CanvasConfigPage ──────────────────────────────────── */
+
+/* ── ServicesTab ────────────────────────────────────────── */
+
+.ft-hidden-header {
+  margin-top: 8px;
+  opacity: 0.6;
+}

@@ -1,0 +1,210 @@
+/* ==============================================================
+   Installer Wizard
+   ============================================================== */
+
+/* -- Installer Wizard Modal -- */
+
+.flowti-installer-modal {
+	max-width: 480px;
+	min-width: 380px;
+}
+
+/* FolderSuggest: dropdown container */
+.ft-folder-suggest-dropdown {
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: 100%;
+	z-index: 100;
+	max-height: 200px;
+	overflow-y: auto;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* FolderSuggest: individual suggestion item */
+.ft-folder-suggest-item {
+	padding: 4px 8px;
+	cursor: pointer;
+	font-size: 12px;
+}
+
+/* ── DashboardFilterBar: Cross-tile filter chip ──────────── */
+
+.ft-chip-cross-tile,
+.ft-wizard-circle-completed,
+.ft-wizard-circle-active {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+/* ── Batch 9 extractions ── */
+/* ─────────────────────────────────────────────────────────── */
+/* Batch 9 — extracted inline styles                          */
+/* ─────────────────────────────────────────────────────────── */
+
+/* ── InstallerWizardModal ─────────────────────────────────── */
+
+.ft-wizard-steps-bar {
+	display: flex;
+	align-items: center;
+	gap: 0;
+	margin-bottom: 1rem;
+	padding-bottom: 0.75rem;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.ft-wizard-line-active {
+	flex: 1;
+	height: 2px;
+	background: var(--interactive-accent);
+}
+
+.ft-wizard-line-inactive {
+	flex: 1;
+	height: 2px;
+	background: var(--background-modifier-border);
+}
+
+.ft-wizard-step-layout {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.25rem;
+}
+
+.ft-wizard-circle-base {
+	width: 1.5rem;
+	height: 1.5rem;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 0.7rem;
+	font-weight: 600;
+	flex-shrink: 0;
+}
+
+.ft-wizard-circle-pending {
+	border: 2px solid var(--background-modifier-border);
+	color: var(--text-muted);
+}
+
+.ft-folder-list-font {
+	font-size: var(--font-ui-smaller);
+	cursor: default;
+}
+
+.ft-folder-toggle {
+	cursor: pointer;
+	padding: 0.15rem 0;
+}
+
+.ft-folder-arrow-el {
+	width: 0.8em;
+	text-align: center;
+	font-size: 0.65rem;
+}
+
+.ft-folder-count-badge,
+.ft-tile-type-badge {
+	margin-left: auto;
+	padding: 0 0.3rem;
+	border-radius: 4px;
+	background: var(--background-modifier-border);
+	font-size: 0.65rem;
+}
+
+.ft-folder-children-hidden {
+	display: none;
+	padding-left: 1.25rem;
+}
+
+.ft-folder-child-item,
+.ft-list-item-tight {
+	padding: 0.1rem 0;
+	color: var(--text-muted);
+}
+
+.ft-hero-center {
+	text-align: center;
+	margin-bottom: 0.25rem;
+}
+
+.ft-hero-icon-lg svg {
+	width: 2.5rem;
+	height: 2.5rem;
+	opacity: 0.5;
+}
+
+.ft-role-card-selected-border {
+	border: 2px solid var(--interactive-accent);
+}
+
+.ft-role-card-disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+	border: 1px solid var(--background-modifier-border);
+}
+
+.ft-role-icon-inline {
+	display: flex;
+	flex-shrink: 0;
+}
+
+.ft-role-badge-pill {
+	padding: 0 0.3rem;
+	border-radius: 4px;
+	background: var(--background-modifier-border);
+}
+
+.ft-review-role-badge {
+	padding: 0.1rem 0.5rem;
+	border-radius: 4px;
+	background: var(--background-modifier-border);
+	color: var(--text-muted);
+}
+
+.ft-hero-icon-accent svg {
+	width: 2.5rem;
+	height: 2.5rem;
+	color: var(--interactive-accent);
+}
+
+.ft-hero-icon-error svg {
+	width: 2.5rem;
+	height: 2.5rem;
+	color: var(--text-error);
+}
+
+/* ── PipelineSourceModal ──────────────────────────────────── */
+
+.ft-modal-width-640 {
+	width: 640px;
+}
+
+/* ── modals.ts ────────────────────────────────────────────── */
+
+.ft-field-error-inline {
+	color: var(--text-error);
+	font-size: var(--font-smallest);
+	margin-top: -0.5rem;
+	margin-bottom: 0.75rem;
+	padding-left: 0.5rem;
+}
+
+.ft-goal-label {
+	flex: 1;
+	color: var(--text-normal);
+}
+
+.ft-goal-remove-btn {
+	color: var(--text-muted);
+	cursor: pointer;
+	border: none;
+	background: none;
+	font-size: 16px;
+	padding: 0 4px;
+}
