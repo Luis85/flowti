@@ -1,0 +1,240 @@
+---
+type: DevelopmentCycle
+feature: "[[Backlog Refinement - Post Cycle 48]]"
+stage: planning
+cycle: 54
+release_anchor:
+  - "Theme 4: Feature Deepening — Competitive Moat"
+pbis:
+  - "PBI-CAN-003: Canvas Sessions"
+  - "PBI-CAN-002: Canvas template library"
+  - "PBI-SIG-008: Signal Azure DevOps hardening"
+  - "PBI-006: Auto-route inbox files"
+bugs: []
+tech_debt: []
+estimated_increments: 7
+---
+
+# Cycle 54 — Canvas Sessions and Signal Hardening
+
+## Release Anchor Theme
+
+- **Theme 4: Feature Deepening — Competitive Moat** — Visual workflows and integration reliability.
+
+## Cycle Overview
+
+Cycle 54 invests in two differentiators: **Canvas Sessions** (visual-first domain modeling) and **Signal hardening** (reliable Azure DevOps integration). Canvas is Flowti's most visually distinctive feature — Train of Thought already uses it extensively (349 domain tests, 15 UI files). Canvas Sessions extend this to guided, structured visual workflows. Signal hardening ensures the existing Azure DevOps adapter is production-reliable before we ever consider adding Jira or GitHub.
+
+Additionally, auto-routing inbox files by type (PBI-006) transforms the inbox from a dumping ground into a true triage zone.
+
+## User Pains
+
+1. **No guided Canvas workflows** — Canvas is powerful for freeform thinking (Train) but has no structured session mode. Users can't start a "Domain Design Session" or "Sprint Planning Session" with preconfigured areas (PBI-CAN-003).
+2. **No Canvas templates** — Each canvas starts blank. No domain-specific starter templates (PBI-CAN-002).
+3. **Signal Azure DevOps has no error recovery** — Network failures, token expiry, and API rate limits are not handled gracefully. No retry logic, no diagnostics, no connection health monitoring (PBI-SIG-008).
+4. **Inbox files stay in inbox forever** — Once a note is typed (e.g., `type: Idea` → `type: Feature`), it should auto-route to the appropriate vault folder. Currently, typed notes rot in inbox (PBI-006).
+
+## Cycle Goals
+
+1. **Implement Canvas Sessions** with sidebar monitor and preconfigured canvas areas
+2. **Build Canvas template library** with 5 starter templates
+3. **Harden Signal Azure DevOps adapter** with retry, diagnostics, and health monitoring
+4. **Implement inbox auto-routing** by type
+
+## Scope
+
+### In Scope
+- PBI-CAN-003: Canvas Sessions (sidebar monitor, preconfigured areas, guided flow)
+- PBI-CAN-002: Canvas template library (5 templates: Domain Design, Sprint Planning, Retrospective, Brainstorm, Flow Design)
+- PBI-SIG-008: Signal ADO hardening (retry with backoff, token refresh detection, rate limit handling, connection health, diagnostics panel)
+- PBI-006: Auto-route inbox files by type (configurable routing rules)
+
+### Out of Scope
+- Signal v2 (Jira, GitHub adapters) — explicitly deferred beyond C55
+- Signal push/write-back — deferred to Signal v2
+- Signal auto-sync scheduling — deferred to Signal v2
+- Canvas import from external sources — existing CanvasImporter sufficient
+- Canvas round-trip sync — deferred
+
+## Increments
+
+### Inc 1: Canvas Template Library (PBI-CAN-002)
+**Theme**: Feature Deepening
+**Effort**: Medium
+
+Create preconfigured canvas templates for structured sessions:
+- Template storage: `templates/canvas/` folder with `.canvas` files
+- 5 starter templates:
+  - **Domain Design**: groups for Actors, Events, Services, Flows with connection guides
+  - **Sprint Planning**: backlog, sprint goal, capacity, commitment areas
+  - **Retrospective**: went-well, improve, action-items columns
+  - **Brainstorm**: central topic node with radial idea zones
+  - **Flow Design**: start, steps, decision points, end zones
+- Template picker UI in Train Hub
+- Each template includes color-coded groups and placeholder cards
+
+**Acceptance Criteria**:
+- [ ] 5 canvas templates created and stored
+- [ ] Template picker UI in Train Hub
+- [ ] Templates load correctly into Obsidian Canvas
+- [ ] Placeholder cards and groups render as designed
+- [ ] Unit tests for template loading and validation
+- [ ] `npm test` green
+
+### Inc 2: Canvas Session — Sidebar Monitor (PBI-CAN-003a)
+**Theme**: Feature Deepening
+**Effort**: Medium
+
+Build the canvas session sidebar that monitors active canvas work:
+- Sidebar leaf (Obsidian right sidebar) shows session state
+- Tracks: session goal, active template, nodes added/modified/connected
+- Timer: session duration with pause/resume
+- Activity feed: real-time list of canvas operations (node added, connected, moved to group)
+- Integrates with existing SessionService for lifecycle management
+
+**Acceptance Criteria**:
+- [ ] Sidebar opens alongside active canvas
+- [ ] Session goal displayed and editable
+- [ ] Node tracking (added, modified, connected)
+- [ ] Timer with pause/resume
+- [ ] Activity feed updates in real-time
+- [ ] Unit tests for sidebar state management
+- [ ] `npm test` green
+
+### Inc 3: Canvas Session — Guided Flow (PBI-CAN-003b)
+**Theme**: Feature Deepening
+**Effort**: Large
+
+Implement guided canvas session workflow:
+- "Start Canvas Session" command: select template → set goal → open canvas + sidebar
+- Canvas opens with selected template applied
+- Groups in template map to session phases (e.g., "Actors" phase → "Events" phase → "Flows" phase)
+- Phase progression: sidebar highlights current phase, suggests next steps
+- Session close: generate summary note from canvas content (reuse TrainSummaryWriter pattern)
+- Emit canvas session events (session.canvas.started, session.canvas.phase.changed, session.canvas.completed)
+
+**Acceptance Criteria**:
+- [ ] "Start Canvas Session" command works end-to-end
+- [ ] Template applied to new canvas
+- [ ] Phase progression tracked in sidebar
+- [ ] Summary note generated on session close
+- [ ] Canvas session events emitted
+- [ ] Unit tests for session lifecycle and phase progression
+- [ ] `npm test` green
+
+### Inc 4: Signal Azure DevOps — Retry and Error Handling (PBI-SIG-008a)
+**Theme**: Feature Deepening
+**Effort**: Medium
+
+Harden AzureDevOpsAdapter with robust error handling:
+- Exponential backoff retry (3 attempts, 1s/2s/4s delays)
+- Token expiry detection: catch 401 responses, emit `signal.auth.expired` event
+- Rate limit handling: detect 429 responses, respect `Retry-After` header
+- Network failure handling: catch ECONNREFUSED/ETIMEDOUT, emit `signal.connection.failed`
+- All errors logged with context (operation, URL, attempt number)
+
+**Acceptance Criteria**:
+- [ ] Retry with exponential backoff on transient failures
+- [ ] 401 detected and `signal.auth.expired` emitted
+- [ ] 429 detected with Retry-After respected
+- [ ] Network failures caught and reported
+- [ ] All errors logged with context
+- [ ] Unit tests for each error scenario (mocked HTTP responses)
+- [ ] `npm test` green
+
+### Inc 5: Signal Azure DevOps — Diagnostics and Health (PBI-SIG-008b)
+**Theme**: Feature Deepening
+**Effort**: Medium
+
+Add connection health monitoring and diagnostics:
+- Connection health check: periodic ping (configurable: every 5 min when active)
+- Health status: healthy/degraded/unreachable with last-check timestamp
+- Diagnostics panel in Signal tab: connection status, last sync time, error history (last 10)
+- "Test Connection" button with detailed result (latency, API version, permissions)
+- Health status visible in Signal tab header (green/yellow/red indicator)
+
+**Acceptance Criteria**:
+- [ ] Health check runs periodically
+- [ ] Status tracked: healthy/degraded/unreachable
+- [ ] Diagnostics panel shows connection details and error history
+- [ ] "Test Connection" returns detailed diagnostics
+- [ ] Health indicator visible in Signal tab
+- [ ] Unit tests for health check logic and status transitions
+- [ ] `npm test` green
+
+### Inc 6: Inbox Auto-Routing (PBI-006)
+**Theme**: Feature Deepening
+**Effort**: Medium
+
+Auto-route inbox files to appropriate folders based on type:
+- Routing rules: `{ type: string, targetFolder: string }[]` in settings
+- Default rules: `Idea → inbox/`, `Feature → features/`, `Bug → bugs/`, `Learning → learnings/`
+- Trigger: when `type` frontmatter changes on an inbox file
+- Move file to target folder, update internal links
+- Emit `inbox.file.routed` event with source, target, type
+- Opt-in: disabled by default, enable in settings
+
+**Acceptance Criteria**:
+- [ ] Routing rules configurable in settings
+- [ ] File moves to target folder on type change
+- [ ] Internal links updated after move
+- [ ] Event emitted with routing details
+- [ ] Disabled by default (opt-in)
+- [ ] Unit tests for routing logic and link updates
+- [ ] `npm test` green
+
+### Inc 7: Integration and Polish
+**Theme**: Feature Deepening
+**Effort**: Small
+
+Wire everything together and verify cross-feature interactions:
+- Canvas Sessions visible in session history (reuse existing session list)
+- Signal health visible on User Hub dashboard (health widget)
+- Inbox routing status visible in inbox view (routed count)
+- Update onboarding callouts for new features
+
+**Acceptance Criteria**:
+- [ ] Canvas sessions appear in session history
+- [ ] Signal health visible on User Hub
+- [ ] Inbox routing status displayed
+- [ ] Onboarding callouts updated
+- [ ] Manual end-to-end verification
+- [ ] `npm test` green
+
+## Dependency Graph
+
+```
+Inc 1 (Templates)           ──→ Inc 3 (Guided Flow)
+Inc 2 (Sidebar Monitor)     ──→ Inc 3 (Guided Flow)
+Inc 4 (Signal Retry)        ──→ Inc 5 (Signal Diagnostics)
+Inc 6 (Inbox Routing)       ──→ Independent
+Inc 7 (Integration)         ──→ Depends on Inc 1–6
+```
+
+## Risks & Mitigations
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Canvas Session scope is large (sidebar + guided flow + summary) | High | Inc 1-2 are independently valuable; Inc 3 can be reduced to MVP |
+| Obsidian Canvas API limitations for programmatic node creation | Medium | CanvasWriter (548 LOC) already handles this; extend as needed |
+| Signal health check adds background network traffic | Low | Only when signal is configured; configurable interval |
+| Inbox file moves break existing links | Medium | Use Obsidian's vault.rename() which updates links automatically |
+
+## Success Metrics
+
+| Metric | Target |
+|--------|--------|
+| New tests | ~110 |
+| Post-cycle tests | ~5,885 |
+| Canvas templates | 5 |
+| Signal error scenarios covered | 4 (401, 429, network, timeout) |
+| Routing rules | 4+ default types |
+| Increments | 7 |
+
+## Deferred Items
+
+- Signal v2 (Jira, GitHub adapters) → beyond C55 (strategic decision)
+- Signal push/write-back → beyond C55
+- Signal auto-sync scheduling → beyond C55
+- Canvas round-trip sync → future cycle
+- Canvas import from external formats → existing importer sufficient
