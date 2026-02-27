@@ -254,13 +254,13 @@
 .ft-icon-muted,
 .ft-icon-inactive,
 .ft-disabled-half,
-.ft-opacity-50,
+.ft-opacity-50 { opacity: 0.5; }
 .ft-icon-faint,
 .ft-visibility-toggle.ft-visibility-off,
-.ft-icon-dim,
+.ft-icon-dim { opacity: 0.4; }
 .ft-icon-subtle,
 .ft-icon-ghost,
-.ft-star-faded,
+.ft-star-faded { opacity: 0.3; }
 
 /* Section padding — standard for stacked workspace sections */
 .ft-section {

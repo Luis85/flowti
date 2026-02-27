@@ -8,7 +8,7 @@
 .ft-dashboard-inbox-empty-hint,
 .ft-session-empty-hint,
 .ft-inbox-empty-hint,
-.ft-inbox-event-row-mt,
+.ft-inbox-event-row-mt { margin-top: 0.25rem; }
 .ft-mt-2,
 .ft-mt-05,
 .ft-add-tile-source-area,
@@ -20,7 +20,7 @@
 .ft-pref-add-row-mt,
 .ft-nudge-no-items,
 .ft-triage-row-mt,
-.ft-triage-path,
+.ft-triage-path { margin-top: 0.5rem; }
 
 .ft-font-semibold,
 .ft-train-closure-title,

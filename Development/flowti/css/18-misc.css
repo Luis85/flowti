@@ -3,7 +3,6 @@
    ============================================================== */
 
 .ft-view-dashboard { flex: 1; min-height: 0; overflow-y: auto; padding: 1.5rem 16px; }
-.ft-view-split,
 
 /* Visibility toggle icon (Event Catalog) */
 .ft-visibility-toggle {
@@ -60,7 +59,10 @@
 	color: var(--text-normal);
 }
 
-.ft-custom-prop-key:focus,
+.ft-custom-prop-key:focus {
+	border-color: var(--interactive-accent);
+	outline: none;
+}
 
 /* ── Import/Export View Redesign ─────────────────────── */
 

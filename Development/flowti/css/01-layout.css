@@ -32,6 +32,11 @@
 	padding-top: 27px;
 }
 
+/* View layout — flex containers for hub/action views */
+.ft-view-root,
+.ft-view-root-flex { height: 100%; display: flex; flex-direction: column; }
+.ft-view-split { flex: 1; min-height: 0; }
+
 /* -- Utility Classes -- */
 
 /* Scrollbar styling to match Obsidian */
@@ -107,22 +112,22 @@
 }
 
 .ft-flex-1,
-.ft-flex-spacer,
-.ft-flex-1-min,
+.ft-flex-spacer { flex: 1; }
+.ft-flex-1-min { flex: 1; min-width: 0; }
 .ft-flex-shrink-0,
 .ft-property-item input[type="checkbox"],
 .ft-graph-time,
-.ft-add-tile-picker-meta,
+.ft-add-tile-picker-meta { flex-shrink: 0; }
 .ft-cursor-pointer,
 .ft-log-row .ft-event-type,
-.ft-energy-dot-editable,
+.ft-energy-dot-editable { cursor: pointer; }
 
 .ft-section:last-child,
-.ft-p-2,
-.ft-p-3,
+.ft-p-2 { padding: 0.5rem; }
+.ft-p-3 { padding: 0.75rem; }
 .ft-p-4,
 .ft-template-section,
-.ft-timer-section,
+.ft-timer-section { padding: 1rem; }
 .ft-px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
 .ft-px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
 
@@ -133,17 +138,17 @@
 .ft-mt-3,
 .ft-add-tile-title-area,
 .ft-add-tile-dm-label,
-.ft-triage-btn-row,
+.ft-triage-btn-row { margin-top: 0.75rem; }
 .ft-mt-4,
 .ft-detail-section-mt,
 .ft-session-empty-btn,
-.ft-pref-folder-section-mt,
+.ft-pref-folder-section-mt { margin-top: 1rem; }
 .ft-mb-2,
 .ft-mb-05,
 .ft-dashboard-hubs-heading,
 .ft-dashboard-actions-heading,
-.ft-template-hint,
-.ft-mb-4,
+.ft-template-hint { margin-bottom: 0.5rem; }
+.ft-mb-4 { margin-bottom: 1rem; }
 
 /* Hidden utility */
 .ft-hidden {
@@ -209,22 +214,19 @@
 	margin-bottom: 0;
 }
 
-/* ── Batch 2 extractions ── */
 .ft-ml-auto { margin-left: auto; }
-.ft-select-none,
+.ft-select-none { user-select: none; }
 .ft-inline-flex { display: inline-flex; }
 
-/* Padding shortcuts for specific spacing values */
 .ft-pl-3 { padding-left: 1rem; }
 .ft-py-xs,
 .ft-fn-ref-row,
 .ft-info-row,
-.ft-folder-leaf-item,
+.ft-folder-leaf-item { padding: 0.15rem 0; }
 
-/* ─── Shared: small margin-left on "as" label ───────────── */
 .ft-ml-1,
 .ft-artifact-action-ml,
-.ft-thought-badge-ml,
+.ft-thought-badge-ml { margin-left: 0.25rem; }
 
 /* ─── TileSettingsPanel: hidden-columns list ─────────────── */
 .ft-hidden-cols-list {

@@ -54,13 +54,13 @@
 }
 
 .ft-mb-1,
-.ft-tile-status-icon-mb,
+.ft-tile-status-icon-mb { margin-bottom: 0.25rem; }
 .ft-mb-3,
 .ft-desc-mb,
 .ft-add-tile-dialog-header,
 .ft-dashboard-actions,
 .ft-desc-margin,
-.ft-catalog-coverage-mb,
+.ft-catalog-coverage-mb { margin-bottom: 0.75rem; }
 
 .ft-font-medium,
 .ft-doc-cta-title,
