@@ -3,9 +3,10 @@ type: TechDebt
 severity: low
 category: documentation
 layer: cross-cutting
-status: open
+status: resolved
 effort: medium
-updated: 2026-02-15
+updated: 2026-02-27
+resolved_in: Cycle 50
 description: The knowledgebase contains only 2 articles (a daily notes guide and one tutorial). Insufficient for onboarding, daily workflow guidance, or self-service problem solving.
 ---
 # TD-87: Knowledgebase has only 2 articles
@@ -44,6 +45,10 @@ Missing tutorial topics (inferred from system complexity):
 2. Extract "how to" content from existing architecture docs into knowledgebase articles
 3. Link tutorials from the templates they support (e.g., PRD Template → "How to write a PRD" tutorial)
 4. Add `type: KnowledgeBase` frontmatter to all knowledgebase articles
+
+## Resolution (Cycle 50)
+
+10 tutorial articles added in `docs/knowledgebase/tutorials/` covering core workflows: Building Dashboards, Building Data Exchange Configs, Connecting to Azure DevOps, Creating Analytics Queries, Creating Your First Event Definition, Importing CSV Data, Understanding Domains and Events, Using Quick Capture, Using the Train of Thought, Working with Sessions. Knowledgebase now has 12 articles total (2 existing + 10 new).
 
 ## Affected Files
 

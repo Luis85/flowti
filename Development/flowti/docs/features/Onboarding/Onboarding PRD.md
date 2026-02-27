@@ -47,14 +47,18 @@ New users receive guided, contextual onboarding that introduces Flowti's core fe
 - Standalone OnboardingService with dedicated storage
 - Onboarding lifecycle events (started, step.completed, completed, reset)
 
-**Phase 3 (Future / Cycle 50):**
-- Configurable startpage (open preferred Hub on Obsidian start) — PBI-ONB-014, Cycle 50
+**Phase 3 (Delivered — C50):**
+- Configurable startpage (open preferred Hub on Obsidian start) — PBI-ONB-014, Done (C50)
+- Command catalog / feature discovery — PBI-ONB-016, Done (C50)
+- User Hub idea capture section — PBI-ONB-019, Done (C50)
+- Quick Capture per-command configuration — PBI-ONB-020, Done (C50)
+- Knowledge base expansion (10 tutorials) — TD-87, Done (C50)
+- Onboarding integration & polish (new milestones, callouts) — Done (C50)
+
+**Phase 3 (Deferred):**
 - Role-specific seed data service (multiple personas) — PBI-ONB-015, deferred
-- Command catalog / feature discovery modal — PBI-ONB-016, Cycle 50
 - Guided tours via process execution framework — PBI-ONB-018, deferred
 - Hub-specific empty states beyond Analytics Hub — PBI-ONB-017, deferred
-- User Hub idea capture section — PBI-ONB-019, Cycle 50
-- Quick Capture per-command configuration — PBI-ONB-020, Cycle 50
 
 ### Out of Scope
 
@@ -99,13 +103,13 @@ The user must be able to pause or resume to the on-boarding at any given time. H
 - [ ] FR-14: Onboarding state extracted to standalone `OnboardingService` with own `onboarding` storage key (decoupled from AnalyticsState)
 - [ ] FR-15: Each Hub view checks onboarding state on open — if first visit, render a dismissible callout banner explaining the view's purpose and key actions
 
-### Phase 3 — Progressive Discovery (Future)
+### Phase 3 — Progressive Discovery (C50 — Partially Delivered)
 
-- [ ] FR-16: Configurable startpage — user can set a preferred Hub view to open automatically when Obsidian starts (User Hub or Analytics Hub)
-- [ ] FR-17: Role-specific seed data service — generalise `seedSupplierDashboard()` into a configurable seed service supporting multiple personas with different demo datasets
-- [ ] FR-18: Command catalog modal — approachable "What can I do?" catalog showing all Flowti commands grouped by domain with descriptions and keyboard shortcuts
-- [ ] FR-19: Guided tours via process execution framework — multi-step interactive flows that walk users through key workflows (import CSV → build query → create dashboard)
-- [ ] FR-20: Hub-specific empty states — each Hub view has a welcoming empty state with clear first-action guidance (not just Analytics Hub)
+- [x] FR-16: Configurable startpage — user sets preferred Hub view to open on Obsidian start; `StartpageHandler` listens to `layout-ready` event (C50 Inc 3)
+- [ ] FR-17: Role-specific seed data service — generalise `seedSupplierDashboard()` into a configurable seed service supporting multiple personas with different demo datasets (deferred)
+- [x] FR-18: Command catalog — browsable Command Catalog tab in User Hub showing all 40+ Flowti commands grouped by domain with descriptions, icons, and click-to-execute (C50 Inc 1–2)
+- [ ] FR-19: Guided tours via process execution framework — multi-step interactive flows that walk users through key workflows (deferred)
+- [ ] FR-20: Hub-specific empty states — each Hub view has a welcoming empty state with clear first-action guidance (deferred)
 
 ## 6. Data Model Impact
 
@@ -229,13 +233,13 @@ The user must be able to pause or resume to the on-boarding at any given time. H
 | [[PBI-ONB-011 Onboarding Reset from Settings]] | "Reset onboarding" button in Settings, restores all callouts + checklist | Planned | Medium | FR-6 |
 | [[PBI-ONB-012 OnboardingService Extraction]] | Standalone service with own `onboarding` storage key, migrating from AnalyticsState | Planned | High | FR-14 |
 | [[PBI-ONB-013 Onboarding Lifecycle Events]] | Emit onboarding.started/.step.completed/.completed/.reset events | Planned | Medium | FR-13, §7 |
-| [[PBI-ONB-014 Configurable Startpage]] | User-configurable preferred Hub view opens on Obsidian start | Discovery | Medium | [[As user, I want to set a View as Startpage]] |
+| [[PBI-ONB-014 Configurable Startpage]] | User-configurable preferred Hub view opens on Obsidian start | Done (C50) | Medium | [[As user, I want to set a View as Startpage]] |
 | [[PBI-ONB-015 Role-Specific Seed Data Service]] | Generalise seed data beyond supplier-manager, configurable per persona | Discovery | Medium | [[How can we integrate a TestData or SeedData Service into Flowti to test or simulate things and help onboarding]] |
-| [[PBI-ONB-016 Command Catalog]] | Approachable modal showing all Flowti commands grouped by domain | Discovery | Low | [[As user, I want to have an approachable command-catalog to act as documentation and user-manual about what is possible with the app]] |
+| [[PBI-ONB-016 Command Catalog]] | Browsable Command Catalog tab in User Hub, domain-grouped, searchable, click-to-execute | Done (C50) | Low | [[As user, I want to have an approachable command-catalog to act as documentation and user-manual about what is possible with the app]] |
 | [[PBI-ONB-017 Hub Empty States]] | Welcoming empty states for User Hub, DX Hub, Event Catalog (not just Analytics Hub) | Discovery | Medium | FR-20 |
 | [[PBI-ONB-018 Guided Tours]] | Multi-step interactive flows via process execution framework | Discovery | Low | [[How can we use the Flowti Process Execution Framework to guide Onboarding or Improve overall user-experience with guided tours]] |
-| PBI-ONB-019 | User Hub Idea Capture — prominent idea input on User Hub dashboard leveraging Quick Capture | Planned (C50) | Medium | Cycle 50 planning — idea capture is central to IBDE but has no User Hub affordance |
-| PBI-ONB-020 | Quick Capture Configuration — per-command folder/template settings with modal selectors | Planned (C50) | Medium | Cycle 50 planning — Quick Capture exists but is unconfigurable |
+| PBI-ONB-019 | User Hub Idea Capture — prominent idea input on User Hub dashboard leveraging Quick Capture | Done (C50) | Medium | Cycle 50 planning — idea capture is central to IBDE but has no User Hub affordance |
+| PBI-ONB-020 | Quick Capture Configuration — per-command folder/template settings with modal selectors | Done (C50) | Medium | Cycle 50 planning — Quick Capture exists but is unconfigurable |
 
 > **Backlog refinement (2026-02-26):** 13 inbox items triaged. 8 PBIs delivered (C45/C46), 4 PBIs planned for Phase 2, 5 PBIs in discovery for Phase 3. Phase 2 candidates for next onboarding cycle: PBI-ONB-010 (contextual callouts), PBI-ONB-011 (Settings reset), PBI-ONB-012 (service extraction), PBI-ONB-013 (events). Phase 3 items need further discovery and design.
 >
@@ -254,8 +258,8 @@ The user must be able to pause or resume to the on-boarding at any given time. H
 | How can we use the SeedService to help quick start | **Partially delivered** | SeedContentStep exists; broader service = PBI-ONB-015 |
 | How can we use the Process Framework for guided tours | **Backlog** | Future scope; depends on process framework maturity → PBI-ONB-018 |
 | Train-of-thought in onboarding | **Backlog** | Creative but depends on Train Hub stability → future |
-| As user, I want to set a View as Startpage | **Backlog** | Post-onboarding UX → PBI-ONB-014 |
-| Command catalog as documentation | **Backlog** | Feature discoverability → PBI-ONB-016 |
+| As user, I want to set a View as Startpage | **Delivered** (C50) | StartpageHandler + settings dropdown → PBI-ONB-014 |
+| Command catalog as documentation | **Delivered** (C50) | Command Catalog tab in User Hub, 40+ commands cataloged → PBI-ONB-016 |
 | How can I make the whole UX pleasant | **Observation** | Strategic question spanning all domains; not a single feature |
 | How can we use Process Framework to guide Onboarding | **Backlog** | Guided tours via framework → PBI-ONB-018 |
 
@@ -263,6 +267,7 @@ The user must be able to pause or resume to the on-boarding at any given time. H
 
 > **Backlog refinement v2 (2026-02-26):** 13 onboarding-related inbox items triaged. PRD expanded to 20 FRs across 3 phases. 17 PBIs in backlog (8 done, 4 planned, 5 discovery). Version bumped to 2. Scope, data model, acceptance criteria, and adapter impact updated for Phase 2 plan. Inbox items updated with delivery status, parent links, and refinement notes.
 > **Cycle 46 — Supplier Manager Onboarding II (2026-02-26):** First implementation pass. OnboardingChecklist added to AnalyticsState with 5 milestones (installed, first_source, first_query, first_dashboard, first_pin). `initOnboardingChecklist()` triggered by `installer.completed` event after supplier dashboard seeding. Deep merge for partial milestone updates. Collapsible/dismissible checklist card on Analytics Hub homepage. 9 unit tests covering init, persistence, merge, dismiss, and reset. FRs delivered: FR-1, FR-2, FR-4, FR-5, FR-7, FR-8. Deferred: FR-3 (contextual view callouts), FR-6 (Settings reset). Stage: draft → in-progress.
+> **Cycle 50 — User Activation (2026-02-27):** Phase 3 partially delivered. 4 PBIs done: PBI-ONB-014 (configurable startpage via `StartpageHandler`), PBI-ONB-016 (Command Catalog tab in User Hub with 40+ commands), PBI-ONB-019 (User Hub idea capture via `IdeaCaptureSection`), PBI-ONB-020 (Quick Capture per-command config via `resolveCaptureConfig`). TD-87 resolved (10 tutorials). FR-16 and FR-18 delivered. Onboarding milestones extended with `catalog_explored` and `startpage_configured`. Dashboard redesigned (unplanned — KPI strip removed, hybrid layout adopted). 97 new tests. TASM 32/35. Backlog: 19 PBIs (12 done, 4 Phase 2 planned, 3 deferred).
 
 ## Related
 
@@ -270,6 +275,7 @@ The user must be able to pause or resume to the on-boarding at any given time. H
 - Analytics Hub PRD: [[Analytics Hub PRD]] (onboarding checklist on AnalyticsState, empty state redesign)
 - Cycle: [[Cycle 45 - Supplier Manager Onboarding]] (seed dashboard, empty state, wizard redirect)
 - Cycle: [[Cycle 46 - Supplier Manager Onboarding II]] (role selection, folder config, templates, checklist, keyboard nav)
+- Cycle: [[Cycle 50 - User Activation]] (command catalog, startpage, idea capture, capture config, 10 tutorials, dashboard redesign)
 - Flow: [[First-Run Onboarding]] (event sequence: installer → seed → onboarding init)
 - Tutorial: [[User Guide - Getting Started]] (277-line walkthrough, 55-minute first-hour path)
 - Vault Inbox: [[PRD - Onboarding]] (comprehensive draft PRD — vault detection, PM tour, partially superseded)

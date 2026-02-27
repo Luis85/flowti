@@ -1,8 +1,10 @@
 ---
 type: DevelopmentCycle
 feature: "[[Backlog Refinement - Post Cycle 48]]"
-stage: planning
+stage: done
 cycle: 50
+date_planned: 2026-02-27
+date_completed: 2026-02-27
 release_anchor:
   - "Theme 3: User Activation — First 5 Minutes"
 pbis:
@@ -15,9 +17,13 @@ bugs: []
 tech_debt:
   - TD-87
 estimated_increments: 7
+actual_increments: 8
 estimated_tests: 80
+actual_tests: 97
 pre_cycle_tests: 5452
 pre_cycle_suites: 232
+total_tests_after: 5549
+total_test_files_after: 237
 ---
 
 # Cycle 50 — User Activation
@@ -373,15 +379,15 @@ Inc 7 (Integration)  ──→ Depends on Inc 1–6
 
 ## Success Metrics
 
-| Metric | Target |
-|--------|--------|
-| New tests | ~80 (Inc 1: 15, Inc 2: 20, Inc 3: 12, Inc 5: 10, Inc 6: 15, Inc 7: 8) |
-| Production LOC added | ~860 |
-| Post-cycle tests | ~5,532 |
-| Knowledge base articles | 10+ (from 2) |
-| Commands cataloged | All registered commands |
-| Onboarding domain tier | Tier 2 (from Tier 3) |
-| Increments | 7 |
+| Metric | Target | Actual |
+|--------|--------|--------|
+| New tests | ~80 | 97 |
+| Production LOC added | ~860 | ~1,192 |
+| Post-cycle tests | ~5,532 | 5,549 |
+| Knowledge base articles | 10+ (from 2) | 10 |
+| Commands cataloged | All registered commands | All 40+ commands |
+| Onboarding domain tier | Tier 2 (from Tier 3) | Tier 2 |
+| Increments | 7 | 8 (7 planned + 1 unplanned) |
 
 ## Deferred Items
 
@@ -389,3 +395,86 @@ Inc 7 (Integration)  ──→ Depends on Inc 1–6
 - PBI-ONB-015: Role-specific seed data → future cycle
 - Command Catalog: keyboard shortcut assignment UI → future cycle
 - Command Catalog: command usage analytics → future cycle
+
+---
+
+## Definition of Done
+
+- [x] All acceptance criteria met for each increment
+- [x] `npm test` green (tsc + eslint + vitest) — 5,549 tests, 237 suites
+- [x] `npm run build` succeeds
+- [x] No new lint warnings introduced
+- [x] All new code has tests (97 new tests across 11 test files)
+- [x] Memory files updated (MEMORY.md, cycle-history.md)
+- [x] Three Amigos Review completed with Release Anchor Theme reference
+
+---
+
+## Three Amigos Review
+
+**Date**: 2026-02-27
+**Release Anchor Theme**: Theme 3 — User Activation — First 5 Minutes
+
+### Product Perspective
+
+All 7 planned increments delivered against the cycle goal of bridging the gap between "installed" and "productive." The Command Catalog (PBI-ONB-016) makes all 40+ commands discoverable and browsable by domain — a major discoverability win. The configurable startpage (PBI-ONB-014) lets users land on their preferred Hub on vault load. 10 knowledge base tutorials (TD-87) provide self-service guidance for all core workflows. User Hub idea capture (PBI-ONB-019) and Quick Capture configuration (PBI-ONB-020) lower the friction of note-taking. An unplanned dashboard redesign (Inc 2) replaced the KPI strip with a clean hybrid layout — active work context on top, hub summaries as vault-at-a-glance below.
+
+### Engineering Perspective
+
+26 production files modified, +1,192 net LOC. Key additions: `CommandRegistry` extended with `CommandMeta` and `getCommandsByDomain()` (63 LOC); `CommandCatalogView` as new tab in User Hub (232 LOC); `StartpageHandler` (38 LOC) cleanly separated from main.ts; `IdeaCaptureSection` (112 LOC) follows established component pattern; `resolveCaptureConfig` (28 LOC) is a pure function with per-command override resolution. The dashboard redesign simplified `UserHubDashboard.ts` by removing the hero/KPI strip in favor of hub summary rows — the render pipeline is now: welcome → nudge → session → train → toolbar → hubs → inbox. CSS architecture maintained with 3 files touched (+114 net LOC), including a new `ft-icon-sm` utility class.
+
+### QA Perspective
+
+97 new tests (exceeded 80 estimate). 11 test files modified/created. Key coverage: `CommandRegistry.meta.test.ts` (318 LOC, covering metadata completeness, domain grouping, search filtering), `UserHubCommands.test.ts` (363 LOC, full catalog UI coverage), `IdeaCaptureSection.test.ts` (199 LOC), `resolveCaptureConfig.test.ts` (206 LOC, per-command overrides and edge cases), `StartpageHandler.test.ts` (111 LOC), `OnboardingService.test.ts` extended with 116 new LOC for milestone integration. No regressions — all 5,549 tests pass. Dashboard redesign tests updated to match new render order.
+
+### TASM Score
+
+| Dimension | Score | Notes |
+|-----------|-------|-------|
+| Tests | 7/7 | 97 new tests (exceeded 80 target), all green, edge cases covered |
+| Architecture | 6/7 | Clean CommandMeta extension, StartpageHandler separation, IdeaCaptureSection follows patterns |
+| Stability | 7/7 | Zero regressions, build green, 0 lint warnings |
+| Maintainability | 6/7 | Dashboard simplified (hero removed), component patterns consistent, CSS layering maintained |
+| Maturity | 6/7 | 10 tutorials, 4 PBIs delivered, onboarding Tier 3→2, unplanned dashboard polish |
+| **Total** | **32/35** | |
+
+### Observations
+
+1. Command metadata annotation across 40+ commands was straightforward — the existing `CommandDefinition` interface extended cleanly with `CommandMeta`. Domain grouping confirmed no orphaned commands.
+2. Dashboard redesign (unplanned) went through 3 iterations before converging on the hybrid layout. The hero/KPI strip was ultimately unnecessary — hub summary rows already provide the vault-at-a-glance.
+3. Knowledge base gap: "Getting Started with Flowti" and "Understanding the Inbox" tutorials were planned but not delivered (10 of 12 planned articles). The 10 delivered tutorials cover all core workflows.
+
+---
+
+## Cycle Retrospective
+
+### What Went Well
+
+1. **All 7 planned increments delivered in a single session** — independent increments (catalog, startpage, tutorials, capture, config, integration) parallelized well when pre-planned with clear architecture seams
+2. **CommandMeta extension was additive** — extending CommandDefinition with metadata fields required zero changes to existing command consumers; backward-compatible by design
+3. **Dashboard redesign converged quickly** — despite 3 iterations, the final hybrid layout (active work + hub summaries) is cleaner and more useful than the original KPI strip design
+4. **97 new tests exceeded the 80 target** — every new component has thorough test coverage including edge cases and error paths
+5. **10 knowledge base tutorials** fill the self-service gap — users stuck on core workflows now have step-by-step guidance
+
+### Deviations from Plan
+
+| Planned | Actual | Reason |
+|---------|--------|--------|
+| 7 increments | 8 increments (7 planned + 1 unplanned) | Dashboard redesign emerged from user feedback during the cycle |
+| 80 new tests | 97 new tests | CommandRegistry meta tests (318 LOC) and UserHubCommands tests (363 LOC) exceeded estimates |
+| ~860 production LOC | ~1,192 production LOC | Dashboard redesign added toolbar 3-group pattern, hub navigation, icon utilities |
+| 12 knowledge base articles | 10 articles | "Getting Started with Flowti" and "Understanding the Inbox" were dropped — covered by existing User Guide |
+| KPI strip on dashboard | Hub summary rows as vault-at-a-glance | KPI strip → hero section → removed entirely; hub rows serve the same purpose more cleanly |
+
+### Improvement Backlog
+
+1. **User Hub Dashboard preferences** — `userHubConfig` settings (KPI measures, visible hubs, toolbar config) were added but could benefit from a more intuitive preferences panel
+2. **Command Catalog search UX** — currently text-based search; could add keyboard navigation and category quick-filters
+3. **Knowledge base article maintenance** — 10 tutorials reference current commands and views; need a process to keep them current as features evolve
+4. **Quick Capture template discovery** — template selector works but could suggest templates based on capture type
+
+### Learnings
+
+1. **Dashboard design needs user iteration** — pre-planned layouts look good on paper but real user feedback quickly reveals unnecessary complexity (KPI strip, hero section)
+2. **CommandMeta as additive extension** — annotating existing registrations with metadata is safer than restructuring the registration API; consumers don't need to change
+3. **Hub summary rows are sufficient** — dedicated KPI sections add visual noise; the stats embedded in hub summary rows provide enough at-a-glance information
