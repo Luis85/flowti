@@ -185,6 +185,7 @@ Measure:
 - Testsuite ≠ real understanding
 - Context maps improve alignment, Obsidian Bases has shown good direction into important parts of the documentation for better Agent context
 - Locality and Inconsistency - The Agents loose their context and constraints pretty quick. It is necessary to zoom-out on a regular basis and check for consistent implementation of frameworks and constraints. Using well-documented patterns helps to formalize this process.
+- Duplication of code - due to limited context, the Agent will loose the bigger picture. CSS get's written inline, no consistent usage of patterns. Regular refactor and cleanup sessions, based on formalized Rules, enforced by Linters and Checks, helps combat this but it needs to be done and reviewed on a regular basis. 
 
 ---
 
