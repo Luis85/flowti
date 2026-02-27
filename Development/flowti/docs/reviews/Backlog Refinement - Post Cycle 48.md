@@ -34,7 +34,7 @@ Strategic backlog refinement conducted after Cycle 48 (Stabilize and Strategic S
 | Domains | 21 (4 mature, 9 stable, 7 basic, 1 infrastructure) |
 | Open Tech Debt | 32 items (5 high, 16 medium, 10 low severity) |
 | Inbox Items | 149 total (85 vault, 64 plugin) |
-| Release Blockers | 2 open (RB-6: CLI Installer, RB-7: Pipeline Merge) |
+| Release Blockers | 0 open (RB-6: deferred v1.1, RB-7: deferred v1.1/C53) |
 | TASM Score | 34/35 (Cycle 48) |
 | Source Files | 230+ |
 | Service LOC | ~11,000 across 21 domains |
@@ -75,8 +75,8 @@ Cycle 48 was a strong stabilization round delivering 8 increments (5 planned + 3
 | RB-3 | Canvas Import | RESOLVED | C15 |
 | RB-4 | Seed Starter Content | RESOLVED | C45 |
 | RB-5 | External Data Ingestion | RESOLVED | C11 |
-| RB-6 | CLI Installer | OPEN | — |
-| RB-7 | Pipeline Multi-Source Merge | OPEN | — |
+| RB-6 | CLI Installer | DEFERRED v1.1 | C49 decision: wizard sufficient for v1 |
+| RB-7 | Pipeline Multi-Source Merge | DEFERRED v1.1 | C49 decision: single-source sufficient; target C53 |
 | RB-8 | Documentation Stubs | RESOLVED | C48 |
 
 **Assessment**: RB-6 is a nice-to-have for v1 (installer wizard works). RB-7 is a power-user feature that can ship in v1.1. Neither blocks marketplace submission.

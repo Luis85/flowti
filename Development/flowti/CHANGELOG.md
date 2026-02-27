@@ -33,15 +33,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Error handling: silent `catch {}` replaced with `console.warn`
 - Storage: TypedStorage&lt;T&gt; with mutex-protected saves
-- Testing: 111 test files, 2,855 tests passing (32 skipped)
-- Flow integration tests: 15 suites covering all documented user journeys
+- Testing: 222 test files, 5,315 tests passing (32 skipped)
+- Flow integration tests: 41 suites covering all documented user journeys
 - EventConfigModal decomposed into 3 page components
 - contentGenerator.ts split into 3 focused modules
 - Modal business logic extraction (ADR-023): csvUtils → `utils/`, PipelinePreview → `PipelineExecutor.buildPreview()`
 - catalog/helpers.ts decomposed into barrel + 5 focused modules
-- Tech debt register: 122 items (TD-01 through TD-120 + 2), ~50 resolved, ~5 mitigated, ~65 open
-- Source codebase: 230 files, ~44,346 LOC across 15 bounded contexts with 14 registered services
-- Development cycles: 11 cycles (Cycles 1-11), 9 delivered
+- Tech debt register: 129 items (TD-01 through TD-129), 80 resolved, 11 mitigated, 32 open
+- Source codebase: 355 files, ~74,144 LOC across 21 bounded contexts with 20 registered services
+- Development cycles: 56 cycle documents (Cycles 1-48 + C49-C55 + Release Prep), 48 delivered
 
 ### Fixed
 - Dual-state bug: SettingsService.load() in onLayoutReady

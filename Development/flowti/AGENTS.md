@@ -99,7 +99,7 @@ Every production build generates a Markdown report in `docs/reports/builds/` wit
 ### DDD layer structure
 
 ```
-src/                                          # 230 files, ~44,346 LOC
+src/                                          # 355 files, ~74,144 LOC
 ├── main.ts                                   # Plugin orchestrator (643 LOC)
 ├── dataExchangeSetup.ts                      # Data Exchange UI wiring (359 LOC)
 ├── sessionSetup.ts                           # Session UI wiring (221 LOC)
@@ -121,11 +121,11 @@ src/                                          # 230 files, ~44,346 LOC
 │   │   └── types.ts
 │   ├── services/
 │   │   ├── ServiceContainer.ts               # DI container with lifecycle management
-│   │   ├── registry.ts                       # Service registrations (11 services)
+│   │   ├── registry.ts                       # Service registrations (20 services)
 │   │   └── types.ts
 │   ├── commands/
 │   │   ├── CommandRegistry.ts                # Command execution with middleware
-│   │   ├── registry.ts                       # Command definitions (4 commands)
+│   │   ├── registry.ts                       # Command definitions (24 commands)
 │   │   └── types.ts
 │   ├── views/
 │   │   ├── ViewRegistry.ts                   # View registration for ItemViews
@@ -136,7 +136,7 @@ src/                                          # 230 files, ~44,346 LOC
 │       ├── index.ts
 │       └── types.ts
 │
-├── domain/                                   # Business logic (15 bounded contexts)
+├── domain/                                   # Business logic (21 bounded contexts)
 │   ├── dataExchange/                         # CSV import/export, pipelines, type docs
 │   │   ├── BaseQueryEngine.ts                # .base YAML filter expression evaluator
 │   │   ├── ConfigDocService.ts               # Doc generation + path resolution (934 LOC)
@@ -205,7 +205,7 @@ src/                                          # 230 files, ~44,346 LOC
 │   │   └── types.ts
 │   ├── session/                              # Time-boxed documentation workspaces
 │   │   ├── SessionService.ts                 # Session lifecycle orchestrator (613 LOC)
-│   │   ├── helpers.ts                        # Summary generation, parsing, formatters (982 LOC)
+│   │   ├── helpers.ts                        # Barrel re-export (26 LOC, decomposed in C48 → see handlers/)
 │   │   ├── handlers/                         # Extracted handler modules
 │   │   │   ├── lifecycleHandlers.ts          # start, pause, resume, complete, archive
 │   │   │   ├── fieldHandlers.ts              # setIntent, setMode, setEnergy, decisions, etc.
@@ -226,13 +226,44 @@ src/                                          # 230 files, ~44,346 LOC
 │   │   ├── SubscriptionService.ts            # CRUD + wildcard matching
 │   │   ├── events.ts                         # SubscriptionEventMap
 │   │   └── types.ts
-│   └── user/                                 # User identity
-│       ├── UserService.ts                    # Create, update, persist user profile
-│       ├── events.ts                         # UserEventMap
+│   ├── user/                                 # User identity
+│   │   ├── UserService.ts                    # Create, update, persist user profile
+│   │   ├── events.ts                         # UserEventMap
+│   │   └── types.ts
+│   ├── analytics/                            # Queries, dashboards, tiles
+│   │   ├── AnalyticsService.ts               # Orchestrator façade (619 LOC)
+│   │   ├── AnalyticsEngine.ts                # Query execution engine (853 LOC)
+│   │   ├── handlers/                         # Dashboard event handlers
+│   │   ├── events.ts                         # AnalyticsEventMap
+│   │   └── types.ts
+│   ├── canvas/                               # Canvas operations
+│   │   ├── CanvasService.ts                  # Canvas lifecycle management
+│   │   ├── CanvasParser.ts                   # .canvas file parser
+│   │   ├── CanvasImporter.ts                 # External canvas import
+│   │   ├── events.ts                         # CanvasEventMap
+│   │   └── types.ts
+│   ├── capture/                              # Quick capture
+│   │   ├── CaptureService.ts                 # Quick capture modal logic
+│   │   ├── events.ts                         # CaptureEventMap
+│   │   └── types.ts
+│   ├── onboarding/                           # First-run guidance
+│   │   ├── OnboardingService.ts              # Cross-hub callouts, first-run state
+│   │   ├── events.ts                         # OnboardingEventMap
+│   │   └── types.ts
+│   ├── signal/                               # External integrations
+│   │   ├── SignalService.ts                  # Azure DevOps adapter, SecretStore
+│   │   ├── AzureDevOpsAdapter.ts             # ADO API client
+│   │   ├── events.ts                         # SignalEventMap
+│   │   └── types.ts
+│   └── train/                                # Train of Thought
+│       ├── TrainService.ts                   # Train lifecycle (874 LOC)
+│       ├── TrainCanvasWriter.ts              # Canvas generation (543 LOC)
+│       ├── TrainCanvasSyncService.ts         # Canvas sync (137 LOC)
+│       ├── events.ts                         # TrainEventMap
 │       └── types.ts
 │
 ├── ui/                                       # Presentation layer
-│   ├── catalog/                              # Event Catalog components (13 files)
+│   ├── catalog/                              # Event Catalog components (15 files)
 │   │   ├── CatalogDashboard.ts               # Stats grid, quick actions
 │   │   ├── DomainsTab.ts                     # Hybrid file + catalog domain scanning
 │   │   ├── ServicesTab.ts                    # Service entity management
@@ -246,7 +277,7 @@ src/                                          # 230 files, ~44,346 LOC
 │   │   ├── helpers.ts                        # Layout, forms, cross-references (511 LOC)
 │   │   ├── index.ts
 │   │   └── types.ts                          # CatalogComponentDeps
-│   ├── hub/                                  # Data Exchange Hub components (18 files)
+│   ├── hub/                                  # Data Exchange Hub components (21 files)
 │   │   ├── HubDashboard.ts                   # Pipeline summary, config tables (766 LOC)
 │   │   ├── DashboardImportExecutor.ts        # Inline import progress row
 │   │   ├── ImportsTab.ts                     # Saved import config management
@@ -266,7 +297,14 @@ src/                                          # 230 files, ~44,346 LOC
 │   │   │   └── types.ts
 │   │   ├── index.ts
 │   │   └── types.ts
-│   ├── csv/                                  # CSV import wizard components (7 files)
+│   ├── analytics/                            # Analytics Hub components (16 files)
+│   │   ├── DashboardsTab.ts                  # Dashboard management (1,060 LOC)
+│   │   ├── QueriesTab.ts                     # Query builder (810 LOC)
+│   │   ├── DashboardTileRenderer.ts          # Tile rendering dispatch
+│   │   ├── TileSettingsPanel.ts              # Per-tile config (481 LOC)
+│   │   ├── ChartRenderer.ts                  # Chart rendering (491 LOC)
+│   │   └── tiles/                            # Tile type renderers
+│   ├── csv/                                  # CSV import wizard components (10 files)
 │   │   ├── CsvLanding.ts                     # File info, data snapshot (701 LOC)
 │   │   ├── CsvConfigPage.ts                  # Form + column mapping grid
 │   │   ├── CsvPreviewPage.ts                 # Parsed data preview
@@ -282,8 +320,15 @@ src/                                          # 230 files, ~44,346 LOC
 │   │   ├── exportUtils.ts                    # File property helpers, path utils
 │   │   ├── index.ts
 │   │   └── types.ts
+│   ├── session/                              # Session Workspace components (19 files)
+│   ├── train/                                # Train Hub components (15 files)
+│   ├── userHub/                              # User Hub components (11 files)
 │   ├── EventCatalogView.ts                   # 8-tab orchestrator (833 LOC)
 │   ├── DataExchangeHubView.ts                # 7-page hub orchestrator (484 LOC)
+│   ├── UserHubView.ts                        # User Hub orchestrator
+│   ├── TrainHubView.ts                       # Train Hub orchestrator
+│   ├── AnalyticsHubView.ts                   # Analytics Hub orchestrator
+│   ├── SessionWorkspaceView.ts               # Session workspace orchestrator
 │   ├── CsvActionView.ts                      # CSV import orchestrator (747 LOC)
 │   ├── ExportView.ts                         # Export wizard orchestrator (655 LOC)
 │   ├── EventLogView.ts                       # Activity feed (581 LOC)
@@ -291,6 +336,7 @@ src/                                          # 230 files, ~44,346 LOC
 │   ├── PipelineSourceModal.ts                # CSV source editor for pipelines
 │   ├── SubscriptionManagerModal.ts           # Manage all event subscriptions
 │   ├── ComponentShowcaseView.ts              # CSS component preview
+│   ├── NudgeNotification.ts                  # Nudge popup notification
 │   ├── eventDocTemplate.ts                   # Doc path + content barrel exports
 │   ├── IngestionStatusBar.ts                 # Status bar widget
 │   ├── modals.ts                             # ConfirmModal, InputModal, CreateEventModal
@@ -302,6 +348,7 @@ src/                                          # 230 files, ~44,346 LOC
     ├── helpers.ts                            # UUID generation (crypto.randomUUID)
     ├── glob.ts                               # Glob pattern matching
     ├── persistence.ts                        # loadStateFromStorage / saveStateToStorage
+    ├── SecretStore.ts                        # Obsidian SecretStorage wrapper (37 LOC)
     └── types.ts                              # UUID, IStorageProvider, IDisposable
 ```
 
@@ -322,7 +369,7 @@ src/                                          # 230 files, ~44,346 LOC
 | **FileSystemClient** | Promise-based file ops via request/response events with timeout |
 | **LoggerService** | Structured logging with event emission and wildcard event trace |
 | **ErrorService** | Centralized error handling with typed FlowtiError hierarchy |
-| **ServiceContainer** | DI container with topological init/dispose lifecycle (14 services) |
+| **ServiceContainer** | DI container with topological init/dispose lifecycle (20 services) |
 | **CommandRegistry** | Command registration with middleware (logging, error handling) |
 | **ViewRegistry** | View registration for custom ItemViews |
 
@@ -344,6 +391,12 @@ src/                                          # 230 files, ~44,346 LOC
 | 12 | `dataExchangeService` | dataExchange | CSV import/export, pipelines, config persistence |
 | 13 | `inboxService` | inbox | Unified inbox with subscription, import, export mappers |
 | 14 | `installerService` | installer | First-run wizard, folder scaffolding (depends: userService) |
+| 15 | `signalService` | signal | Azure DevOps integration, work item sync, SecretStore |
+| 16 | `captureService` | capture | Quick capture modal for ideas, feedback, notes |
+| 17 | `canvasService` | canvas | Canvas parsing, importing, rebuilding, sync |
+| 18 | `analyticsService` | analytics | Query engine, dashboards, tiles, date range filters |
+| 19 | `onboardingService` | onboarding | First-run guidance, cross-hub callouts |
+| 20 | `trainService` | train | Train of Thought: canvas trains, branch merge, sync |
 
 ### Views
 
@@ -355,8 +408,11 @@ src/                                          # 230 files, ~44,346 LOC
 | DataExchangeHubView | `flowti-data-exchange-hub` | DataExchangeSetup | 7-page hub: Dashboard, Imports, Exports, Reports, Properties, Pipelines, Types |
 | CsvActionView | `flowti-csv` | DataExchangeSetup | CSV file handler + inline import wizard |
 | ExportView | `flowti-export` | DataExchangeSetup | 4-page export wizard |
+| CanvasView | `flowti-canvas` | DataExchangeSetup | Canvas visualization and editing |
 | UserHubView | `flowti-user-hub` | SessionSetup | Personal cockpit: dashboard, inbox, sessions, preferences |
 | SessionWorkspaceView | `flowti-session-workspace` | SessionSetup | Focused session view: timer, goals, decisions, activity |
+| TrainHubView | `flowti-train-hub` | main.ts | Train of Thought hub: trains, branches, merge |
+| AnalyticsHubView | `flowti-analytics-hub` | main.ts | Analytics hub: queries, dashboards, tiles |
 
 ### Commands
 
@@ -367,8 +423,34 @@ src/                                          # 230 files, ~44,346 LOC
 | `flowti:open-event-log` | Open Event Log | CommandRegistry |
 | `flowti:open-user-hub` | Open User Hub | CommandRegistry |
 | `flowti:manage-subscriptions` | Manage Watchers | CommandRegistry |
+| `flowti:quick-capture` | Quick Capture | CommandRegistry |
+| `flowti:add-idea` | Add Idea | CommandRegistry |
+| `flowti:add-feedback` | Add Feedback | CommandRegistry |
+| `flowti:add-note` | Add Note | CommandRegistry |
+| `flowti:add-task` | Add Task | CommandRegistry |
+| `flowti:add-question` | Add Question | CommandRegistry |
+| `flowti:add-bug` | Add Bug | CommandRegistry |
+| `flowti:add-risk` | Add Risk | CommandRegistry |
+| `flowti:add-assumption` | Add Assumption | CommandRegistry |
+| `flowti:add-issue` | Add Issue | CommandRegistry |
+| `flowti:add-decision` | Add Decision | CommandRegistry |
+| `flowti:add-learning` | Add Learning | CommandRegistry |
+| `flowti:open-train-hub` | Open Train Hub | CommandRegistry |
+| `flowti:open-analytics-hub` | Open Analytics Hub | CommandRegistry |
+| `flowti:start-train` | Start Train | CommandRegistry |
+| `flowti:resume-train` | Resume Train | CommandRegistry |
+| `flowti:complete-train` | Complete Train | CommandRegistry |
+| `flowti:open-train-canvas` | Open Train Canvas | CommandRegistry |
+| `flowti:open-train-timeline` | Open Train Timeline | CommandRegistry |
 | `flowti:import-csv` | Import CSV | DataExchangeSetup |
-| `flowti:export-data` | Export Data | DataExchangeSetup |
+| `flowti:export-csv` | Export CSV | DataExchangeSetup |
+| `flowti:export-tab` | Export Tab | DataExchangeSetup |
+| `flowti:open-data-exchange` | Open Data Exchange | DataExchangeSetup |
+| `flowti:signal-sync` | Signal Sync | DataExchangeSetup |
+| `flowti:import-canvas` | Import Canvas | DataExchangeSetup |
+| `flowti:open-session-workspace` | Open Session Workspace | SessionSetup |
+| `flowti:create-session` | Create Session | SessionSetup |
+| `flowti:resume-session` | Resume Session | SessionSetup |
 
 ### Initialization order (main.ts)
 
@@ -380,7 +462,7 @@ Phase 2: Containers
   ServiceContainer → CommandRegistry (+ middleware) → ViewRegistry
 
 Phase 3: Registration
-  registerServices(11) → registerCommands(4) → registerViews(3)
+  registerServices(20) → registerCommands(24) → registerViews(3)
 
 Phase 4: Service initialization
   services.initializeAll()  (topological sort)
@@ -403,7 +485,7 @@ Phase 6: Post-load (onLayoutReady)
 ### Test structure
 
 ```
-tests/                                        # 111 files, 2,855 tests (32 skipped)
+tests/                                        # 222 files, 5,315 tests (32 skipped)
 ├── mocks/
 │   ├── obsidian-stub.ts                      # Obsidian DOM polyfills for test env
 │   └── main-stub.ts
@@ -425,13 +507,20 @@ tests/                                        # 111 files, 2,855 tests (32 skipp
 │   │                                         # commandPalette, types
 │   ├── settings/                             # SettingsService, settings (Zod schema)
 │   ├── subscription/SubscriptionService.test.ts
-│   └── user/UserService.test.ts
-├── flows/                                    # 15 integration test suites
+│   ├── user/UserService.test.ts
+│   ├── analytics/                            # AnalyticsService, AnalyticsEngine, handlers, tiles
+│   ├── canvas/                               # CanvasService, CanvasParser, CanvasImporter
+│   ├── capture/                              # CaptureService
+│   ├── nudge/                                # NudgeService
+│   ├── onboarding/                           # OnboardingService
+│   ├── signal/                               # SignalService, AzureDevOpsAdapter
+│   └── train/                                # TrainService, CanvasWriter, sync
+├── flows/                                    # 41 integration test suites
 │   ├── 01-FirstRunOnboarding.test.ts
 │   ├── 02-RegisterCustomEvent.test.ts
 │   ├── 03-ImportCsvAsNotes.test.ts
 │   ├── ...through...
-│   └── 15-SessionInbox.test.ts
+│   └── 41-AnalyticsDashboardPagination.test.ts
 ├── infrastructure/
 │   ├── commands/CommandRegistry.test.ts
 │   ├── errors/                               # ErrorService, FlowtiError
@@ -439,11 +528,13 @@ tests/                                        # 111 files, 2,855 tests (32 skipp
 │   ├── logger/LoggerService.test.ts
 │   └── services/                             # ServiceContainer, VaultQueryService, WorkspaceService
 ├── ui/
+│   ├── analytics/                            # DashboardsTab, QueriesTab, TileRenderer, tiles
 │   ├── catalog/                              # helpers, ServicesTab, EventCatalogView
 │   ├── session/                              # SessionDecisionPanel, SessionEnergyIndicator,
 │   │                                         # SessionOutputPanel, SessionActivityIntelligencePanel,
 │   │                                         # SessionGuidingQuestions, CognitiveLoadAlert,
 │   │                                         # SessionOutputPickerModal
+│   ├── train/                                # TrainHubView, TrainBranches, TrainMerge
 │   ├── userHub/                              # UserHubInbox, UserHubPreferences,
 │   │                                         # UserHubSessionPreferences, UserHubNudgePreferences,
 │   │                                         # UserHubSessions

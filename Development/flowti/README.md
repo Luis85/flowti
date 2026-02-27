@@ -137,7 +137,7 @@ Commands, views, and services are defined declaratively in registry files and bo
 ### Module Overview
 
 ```
-src/                                 # ~44,346 LOC across 230 files
+src/                                 # ~74,144 LOC across 355 files
 ├── main.ts                          # Plugin lifecycle orchestrator (643 LOC)
 ├── dataExchangeSetup.ts             # Data Exchange UI wiring (359 LOC)
 ├── sessionSetup.ts                  # Session UI wiring (221 LOC)
@@ -150,7 +150,10 @@ src/                                 # ~44,346 LOC across 230 files
 │   ├── views/                       # View registry with factory pattern
 │   ├── ui/                          # UiCommandService — view/modal opening
 │   └── filesystem/                  # Promise-based file ops via events
-├── domain/                          # 15 bounded contexts
+├── domain/                          # 21 bounded contexts
+│   ├── analytics/                   # AnalyticsService, engine, queries, dashboards, tiles
+│   ├── canvas/                      # CanvasService, parser, importer, rebuilder
+│   ├── capture/                     # CaptureService — quick capture modal
 │   ├── dataExchange/                # CSV import/export, pipelines, type docs
 │   ├── docs/                        # DocService + content generators + path resolvers
 │   ├── discovery/                   # Vault scanning for user-defined events
@@ -162,18 +165,23 @@ src/                                 # ~44,346 LOC across 230 files
 │   ├── ingestion/                   # File monitoring, job queue, catch-up
 │   ├── installer/                   # First-run wizard steps
 │   ├── nudge/                       # NudgeService — time-based session start prompts
+│   ├── onboarding/                  # OnboardingService — first-run guidance, callouts
 │   ├── session/                     # SessionService — workspaces, activity, templates
 │   ├── settings/                    # Plugin configuration persistence
+│   ├── signal/                      # SignalService — Azure DevOps adapter, SecretStore
 │   ├── subscription/                # Event watchers with filters
+│   ├── train/                       # TrainService — canvas trains, branch merge, sync
 │   └── user/                        # User identity
 ├── ui/                              # 111 files
+│   ├── analytics/                   # Analytics Hub components (16 files)
 │   ├── catalog/                     # Event Catalog components (15 files)
 │   ├── hub/                         # Data Exchange Hub components (21 files)
 │   ├── csv/                         # CSV import wizard components (10 files)
 │   ├── export/                      # Export wizard components (7 files)
-│   ├── session/                     # Session Workspace components (12 files)
-│   ├── userHub/                     # User Hub components (8 files)
-│   └── *.ts                         # Orchestrator views + modals
+│   ├── session/                     # Session Workspace components (19 files)
+│   ├── train/                       # Train Hub components (15 files)
+│   ├── userHub/                     # User Hub components (11 files)
+│   └── *.ts                         # Orchestrator views + modals (178 files total)
 └── utils/                           # Shared helpers (glob, persistence, types)
 ```
 
@@ -242,13 +250,13 @@ See [[Frontend Architecture]] for the full view inventory, component architectur
 
 | Directory | Count | Description |
 |-----------|-------|-------------|
-| `docs/components/` | 91 | Per-component documentation with dependencies, state, events, and cross-references |
-| `docs/flows/` | 15 | End-to-end user journeys crossing multiple views and services |
-| `docs/sitemap/` | 8 | View-level documentation with descriptions and use case summaries |
-| `docs/features/` | 263 | Feature specifications, PRDs, PBIs, and related documents (across 70 feature directories) |
-| `docs/decisions/` | 33 | Architecture Decision Records (ADR-001 through ADR-024 + related) |
-| `docs/cycles/` | 11 | Development cycle planning and retrospectives (Cycles 1-11) |
-| `docs/debt/` | 122 | Technical debt items (TD-01 through TD-120 + 2 additional) |
+| `docs/components/` | 125 | Per-component documentation with dependencies, state, events, and cross-references |
+| `docs/flows/` | 28 | End-to-end user journeys crossing multiple views and services |
+| `docs/sitemap/` | 12 | View-level documentation with descriptions and use case summaries |
+| `docs/features/` | 354 | Feature specifications, PRDs, PBIs, and related documents |
+| `docs/decisions/` | 36 | Architecture Decision Records (ADR-001 through ADR-031 + related) |
+| `docs/cycles/` | 56 | Development cycle planning and retrospectives (Cycles 1-48 + Release Prep + C49-C55) |
+| `docs/debt/` | 129 | Technical debt items (TD-01 through TD-129, 32 open / 80 resolved / 11 mitigated) |
 
 ---
 
@@ -273,8 +281,8 @@ Plugin.onload()
     │   └── initializeViewRegistry()
     │
     ├── Phase 3: Registration
-    │   ├── registerAllServices()    # 14 services (src/infrastructure/services/registry.ts)
-    │   ├── registerAllCommands()    # 5 core commands (src/infrastructure/commands/registry.ts)
+    │   ├── registerAllServices()    # 20 services (src/infrastructure/services/registry.ts)
+    │   ├── registerAllCommands()    # 24 core commands (src/infrastructure/commands/registry.ts)
     │   └── registerAllViews()       # 3 core views (src/infrastructure/views/registry.ts)
     │
     ├── Phase 4: Service Initialization
@@ -460,7 +468,7 @@ Use the Component Showcase view (`Flowti: Open Component Showcase`) to preview a
 | No persistence encryption | Plugin data is stored as plain JSON via Obsidian's `saveData` |
 | EventBridge boundary erosion | ~112 direct Obsidian API calls in UI layer; acceptable for read-only access patterns |
 
-122 technical debt items tracked in `docs/debt/TD-01` through `TD-120` plus 2 additional items. Categories span event/communication, data/storage, testing/quality, architecture/performance, domain logic, file system, and documentation. See `docs/debt/` for individual items.
+129 technical debt items tracked in `docs/debt/TD-01` through `TD-129` (32 open, 80 resolved, 11 mitigated). Categories span event/communication, data/storage, testing/quality, architecture/performance, domain logic, file system, and documentation. See `docs/debt/` for individual items.
 
 ---
 
