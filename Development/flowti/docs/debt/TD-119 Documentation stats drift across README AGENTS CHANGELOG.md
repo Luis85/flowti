@@ -3,7 +3,9 @@ type: TechDebt
 severity: medium
 category: documentation
 layer: cross-cutting
-status: open
+status: resolved
+resolved: 2026-02-27
+resolved_in: "[[Cycle 49 - Release Readiness and Dogfooding]]"
 created: 2026-02-21
 effort: small
 description: "README.md, AGENTS.md, and CHANGELOG.md contain outdated statistics that have drifted significantly from reality. Source file counts, LOC, test counts, service counts, and documentation counts are all stale."

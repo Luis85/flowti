@@ -3,7 +3,9 @@ type: TechDebt
 severity: medium
 category: testing
 layer: domain
-status: open
+status: resolved
+resolved: 2026-02-27
+resolved_in: "[[Cycle 49 - Release Readiness and Dogfooding]]"
 created: 2026-02-21
 effort: medium
 description: "The 6 handler modules extracted from SessionService (TD-101) have no individual test files. They are tested indirectly through SessionService.test.ts, but dedicated unit tests would enable targeted coverage of each handler's branching logic."

@@ -1,6 +1,8 @@
 ---
 type: TechDebt
-stage: open
+stage: resolved
+resolved: 2026-02-27
+resolved_in: "[[Cycle 49 - Release Readiness and Dogfooding]]"
 domain: analytics
 severity: medium
 source: "[[Cycle 44 - Analytics Hub Filtering & Decomposition]]"
