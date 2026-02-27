@@ -4,6 +4,8 @@ import type { ILogger } from "../logger/types";
 import type {
 	CommandContext,
 	CommandDefinition,
+	CommandDomain,
+	CommandMeta,
 	CommandMiddleware,
 	CommandRegistryOptions,
 	ICommandRegistry,
@@ -56,6 +58,7 @@ import type {
  */
 export class CommandRegistry implements ICommandRegistry {
 	private commands: Map<string, CommandDefinition> = new Map();
+	private metaOnly: Map<string, CommandMeta> = new Map();
 	private middlewares: CommandMiddleware[] = [];
 	private logger?: ILogger;
 	private eventBus?: IEventBus;
@@ -99,6 +102,19 @@ export class CommandRegistry implements ICommandRegistry {
 	}
 
 	/**
+	 * Registers metadata for a command registered elsewhere (e.g., setup classes).
+	 * Meta-only entries are queryable but not executable via the registry.
+	 */
+	registerMeta(meta: CommandMeta): void {
+		if (this.commands.has(meta.id) || this.metaOnly.has(meta.id)) {
+			this.logger?.debug(`Meta already registered for command: ${meta.id}`);
+			return;
+		}
+		this.metaOnly.set(meta.id, meta);
+		this.logger?.debug(`Registered meta for command: ${meta.id}`);
+	}
+
+	/**
 	 * Adds middleware to the command execution pipeline.
 	 * Middlewares are executed in the order they are added.
 	 */
@@ -118,6 +134,52 @@ export class CommandRegistry implements ICommandRegistry {
 	 */
 	getCommand(id: string): CommandDefinition | undefined {
 		return this.commands.get(id);
+	}
+
+	/**
+	 * Gets metadata for all registered commands (including meta-only entries).
+	 */
+	getCommandsMeta(): CommandMeta[] {
+		const result: CommandMeta[] = [];
+
+		for (const cmd of this.commands.values()) {
+			if (cmd.description && cmd.domain && cmd.category) {
+				const shortcut = cmd.hotkeys?.[0]
+					? `${cmd.hotkeys[0].modifiers.join("+")}+${cmd.hotkeys[0].key}`
+					: undefined;
+				result.push({
+					id: cmd.id,
+					label: cmd.name,
+					description: cmd.description,
+					domain: cmd.domain,
+					category: cmd.category,
+					icon: cmd.icon,
+					shortcut,
+				});
+			}
+		}
+
+		for (const meta of this.metaOnly.values()) {
+			result.push(meta);
+		}
+
+		return result;
+	}
+
+	/**
+	 * Gets commands grouped by domain.
+	 */
+	getCommandsByDomain(): Map<CommandDomain, CommandMeta[]> {
+		const allMeta = this.getCommandsMeta();
+		const grouped = new Map<CommandDomain, CommandMeta[]>();
+
+		for (const meta of allMeta) {
+			const existing = grouped.get(meta.domain) ?? [];
+			existing.push(meta);
+			grouped.set(meta.domain, existing);
+		}
+
+		return grouped;
 	}
 
 	/**
@@ -192,6 +254,7 @@ export class CommandRegistry implements ICommandRegistry {
 	 */
 	clear(): void {
 		this.commands.clear();
+		this.metaOnly.clear();
 		this.logger?.debug("Cleared all commands");
 	}
 }

@@ -19,6 +19,7 @@ import type { OnboardingService } from "../domain/onboarding/OnboardingService";
 import { UserHubDashboard } from "./userHub/UserHubDashboard";
 import { UserHubInbox } from "./userHub/UserHubInbox";
 import { UserHubSessions } from "./userHub/UserHubSessions";
+import { UserHubCommands } from "./userHub/UserHubCommands";
 import { UserHubPreferences } from "./userHub/UserHubPreferences";
 import type { UserHubState, UserHubComponentDeps, InboxItem, UserHubTab } from "./userHub/types";
 import { NewSessionModal, SaveTemplateModal } from "./modals";
@@ -28,6 +29,7 @@ import { VIEW_TYPE_USER_HUB } from "../domain/hub/types";
 import { VIEW_TYPE_SESSION_WORKSPACE } from "./SessionWorkspaceView";
 import { VIEW_TYPE_TRAIN_MAIN, VIEW_TYPE_TRAIN_TIMELINE } from "./train/types";
 import type { TrainService } from "../domain/train/TrainService";
+import type { ICommandRegistry } from "../infrastructure/commands/types";
 export { VIEW_TYPE_USER_HUB };
 
 /** Session types available in NewSessionModal (excludes train-of-thought — trains are created via ribbon/command). */
@@ -41,11 +43,13 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 	private nudgeService: NudgeService;
 	private onboardingService: OnboardingService;
 	private trainService: TrainService | null;
+	private commandRegistry: ICommandRegistry | null;
 
 	// Components
 	private dashboard!: UserHubDashboard;
 	private inbox!: UserHubInbox;
 	private sessions!: UserHubSessions;
+	private commands!: UserHubCommands;
 	private preferences!: UserHubPreferences;
 
 	// State
@@ -63,6 +67,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 		initialEnabledSources: string[],
 		initialSettings: FlowtiSettings,
 		trainService?: TrainService | null,
+		commandRegistry?: ICommandRegistry | null,
 	) {
 		super(leaf, eventBus);
 		this.userService = userService;
@@ -72,6 +77,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 		this.nudgeService = nudgeService;
 		this.onboardingService = onboardingService;
 		this.trainService = trainService ?? null;
+		this.commandRegistry = commandRegistry ?? null;
 		this.state = {
 			inboxItems: [],
 			selectedInboxItem: null,
@@ -110,6 +116,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 		return [
 			{ id: "sessions", label: "Sessions", icon: "timer", searchPlaceholder: "Search sessions..." },
 			{ id: "inbox", label: "Inbox", icon: "inbox", searchPlaceholder: "Search inbox..." },
+			{ id: "commands", label: "Commands", icon: "terminal", searchPlaceholder: "Search commands..." },
 			{ id: "preferences", label: "Preferences", icon: "settings", searchPlaceholder: "" },
 		];
 	}
@@ -129,8 +136,8 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 			id: "user-hub-welcome",
 			icon: "home",
 			title: "Welcome to your User Hub",
-			description: "Your personal cockpit — manage inbox notifications, focus sessions, and preferences in one place.",
-			suggestion: "Check your Inbox for recent activity or start a new Session.",
+			description: "Your personal cockpit — capture ideas, browse commands, manage inbox notifications, and run focus sessions.",
+			suggestion: "Capture your first idea below, or explore the Commands tab to discover all available actions.",
 		});
 
 		this.dashboard.render();
@@ -145,6 +152,14 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 			this.refreshSessionState();
 			this.sessions.renderMaster(this.filterText);
 			this.sessions.renderDetail();
+		} else if (tabId === "commands") {
+			this.commands.renderMaster(this.filterText);
+			this.commands.renderDetail();
+			// Mark catalogExplored milestone on first visit
+			const ms = this.onboardingService.getMilestones();
+			if (ms && !ms.catalogExplored) {
+				void this.onboardingService.updateChecklist({ milestones: { catalogExplored: true } as never });
+			}
 		} else if (tabId === "preferences") {
 			this.preferences.renderMaster();
 			this.preferences.renderDetail();
@@ -204,10 +219,14 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 			openSessionWorkspace: (sessionId?: string, location?: "tab" | "sidebar") => {
 				this.openWorkspaceForSession(sessionId, location);
 			},
+			onCaptureIdea: (title: string) => {
+				void this.eventBus.emit("ui.captureIdea", { title });
+			},
 		});
 
 		this.inbox = new UserHubInbox(this.masterTreeEl, this.detailPanelEl, deps);
 		this.sessions = new UserHubSessions(this.masterTreeEl, this.detailPanelEl, deps);
+		this.commands = new UserHubCommands(this.masterTreeEl, this.detailPanelEl, deps);
 		this.preferences = new UserHubPreferences(this.masterTreeEl, this.detailPanelEl, deps);
 
 		// Re-render when inbox changes
@@ -388,6 +407,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 			},
 			getSettings: () => this.state.settings,
 			trainService: this.trainService ?? undefined,
+			commandRegistry: this.commandRegistry ?? undefined,
 		};
 	}
 

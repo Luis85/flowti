@@ -30,6 +30,8 @@ function createDefaultChecklist(): OnboardingChecklist {
 			sampleDataReviewed: false,
 			ownDataImported: false,
 			customQueryBuilt: false,
+			catalogExplored: false,
+			startpageConfigured: false,
 		},
 	};
 }
@@ -196,14 +198,16 @@ export class OnboardingService {
 
 	/** Get the total number of milestones. */
 	getTotalMilestoneCount(): number {
-		return 5;
+		return 7;
 	}
 
 	/** Check if all milestones are completed. */
 	isComplete(): boolean {
 		if (!this.state) return false;
 		const ms = this.state.checklist.milestones;
-		return ms.installed && ms.dashboardExplored && ms.sampleDataReviewed && ms.ownDataImported && ms.customQueryBuilt;
+		return ms.installed && ms.dashboardExplored && ms.sampleDataReviewed
+			&& ms.ownDataImported && ms.customQueryBuilt
+			&& !!ms.catalogExplored && !!ms.startpageConfigured;
 	}
 
 	/** Get the milestones object, or undefined if not initialised. */

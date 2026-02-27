@@ -11,6 +11,7 @@ import type { TrainService } from "../../domain/train/TrainService";
 import type { IEventBus } from "../../infrastructure/events/types";
 import type { IUserService } from "../../domain/user/types";
 import type { FlowtiSettings } from "../../domain/settings/settings";
+import type { ICommandRegistry } from "../../infrastructure/commands/types";
 
 // Re-export InboxItem from domain (single source of truth)
 import type { InboxItem } from "../../domain/inbox/types";
@@ -20,7 +21,7 @@ export type { InboxItem } from "../../domain/inbox/types";
 // Tabs
 // ─────────────────────────────────────────────────────────────
 
-export type UserHubTab = "sessions" | "inbox" | "preferences";
+export type UserHubTab = "sessions" | "inbox" | "commands" | "preferences";
 
 export type PreferencesCategory = "profile" | "inbox" | "sessions" | "nudges" | "trains";
 
@@ -111,6 +112,8 @@ export interface UserHubComponentDeps {
 	nudgeService?: NudgeService;
 	/** Optional TrainService for train-aware session panels. */
 	trainService?: TrainService;
+	/** Command registry for the Commands tab. */
+	commandRegistry?: ICommandRegistry;
 }
 
 // ─────────────────────────────────────────────────────────────

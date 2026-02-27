@@ -51,7 +51,10 @@ export interface UiCommandEventMap {
 	};
 
 	/** Open the Quick Capture modal */
-	"ui.openQuickCapture": { type?: CaptureType };
+	"ui.openQuickCapture": { type?: CaptureType; title?: string };
+
+	/** Capture an idea directly from the User Hub dashboard (no modal) */
+	"ui.captureIdea": { title: string };
 
 	/** Start a Train of Thoughts serial capture session */
 	"ui.startTrain": { fromThoughtId?: string; fromFilePath?: string; mergeDown?: boolean };

@@ -16,6 +16,10 @@ export interface OnboardingMilestones {
 	sampleDataReviewed: boolean;
 	ownDataImported: boolean;
 	customQueryBuilt: boolean;
+	/** User explored the Command Catalog tab (added C50). */
+	catalogExplored?: boolean;
+	/** User configured a non-default start page (added C50). */
+	startpageConfigured?: boolean;
 }
 
 /** Persisted onboarding checklist state. */

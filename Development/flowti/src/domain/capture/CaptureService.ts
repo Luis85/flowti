@@ -53,7 +53,21 @@ export class CaptureService {
 			"",
 		].join("\n");
 
-		await this.fileSystem.createFile(path, frontmatter, { createFolders: true });
+		let content = frontmatter;
+		if (input.template) {
+			try {
+				const templateBody = await this.fileSystem.readFile(input.template);
+				if (templateBody) {
+					// Strip template frontmatter if present, keep body only
+					const bodyMatch = templateBody.match(/^---\n[\s\S]*?\n---\n?([\s\S]*)$/);
+					content += bodyMatch ? bodyMatch[1] : templateBody;
+				}
+			} catch {
+				// Template read failure is non-fatal — create note without template body
+			}
+		}
+
+		await this.fileSystem.createFile(path, content, { createFolders: true });
 
 		// Emit type-specific event
 		if (input.type === "idea") {

@@ -358,7 +358,7 @@ describe("OnboardingService", () => {
 		});
 
 		it("returns total milestone count", () => {
-			expect(service.getTotalMilestoneCount()).toBe(5);
+			expect(service.getTotalMilestoneCount()).toBe(7);
 		});
 
 		it("isComplete returns false when not all milestones done", async () => {
@@ -375,6 +375,8 @@ describe("OnboardingService", () => {
 					sampleDataReviewed: true,
 					ownDataImported: true,
 					customQueryBuilt: true,
+					catalogExplored: true,
+					startpageConfigured: true,
 				},
 			});
 			expect(service.isComplete()).toBe(true);
@@ -422,7 +424,7 @@ describe("OnboardingService", () => {
 				expect.objectContaining({
 					milestone: "dashboardExplored",
 					completedCount: 2,
-					totalCount: 5,
+					totalCount: 7,
 				}),
 			);
 		});
@@ -453,6 +455,8 @@ describe("OnboardingService", () => {
 					sampleDataReviewed: true,
 					ownDataImported: true,
 					customQueryBuilt: true,
+					catalogExplored: true,
+					startpageConfigured: true,
 				},
 			});
 
@@ -474,6 +478,8 @@ describe("OnboardingService", () => {
 					sampleDataReviewed: true,
 					ownDataImported: true,
 					customQueryBuilt: true,
+					catalogExplored: true,
+					startpageConfigured: true,
 				},
 			});
 			vi.mocked(eventBus.emit).mockClear();
@@ -507,10 +513,116 @@ describe("OnboardingService", () => {
 					sampleDataReviewed: true,
 					ownDataImported: true,
 					customQueryBuilt: true,
+					catalogExplored: true,
+					startpageConfigured: true,
 				},
 			});
 
 			expect(service.getState()!.completedAt).toBeDefined();
+		});
+	});
+
+	// ── C50 milestones ───────────────────────────────────────
+
+	describe("C50 milestones (catalogExplored, startpageConfigured)", () => {
+		it("should include new milestones in default checklist", async () => {
+			await service.initChecklist();
+			const ms = service.getMilestones()!;
+
+			expect(ms.catalogExplored).toBe(false);
+			expect(ms.startpageConfigured).toBe(false);
+		});
+
+		it("should update catalogExplored milestone", async () => {
+			await service.initChecklist();
+			await service.updateChecklist({ milestones: { catalogExplored: true } as never });
+
+			expect(service.getMilestones()!.catalogExplored).toBe(true);
+		});
+
+		it("should update startpageConfigured milestone", async () => {
+			await service.initChecklist();
+			await service.updateChecklist({ milestones: { startpageConfigured: true } as never });
+
+			expect(service.getMilestones()!.startpageConfigured).toBe(true);
+		});
+
+		it("should emit step.completed for catalogExplored", async () => {
+			await service.initChecklist();
+			vi.mocked(eventBus.emit).mockClear();
+
+			await service.updateChecklist({ milestones: { catalogExplored: true } as never });
+
+			expect(eventBus.emit).toHaveBeenCalledWith(
+				"onboarding.step.completed",
+				expect.objectContaining({ milestone: "catalogExplored" }),
+			);
+		});
+
+		it("should emit step.completed for startpageConfigured", async () => {
+			await service.initChecklist();
+			vi.mocked(eventBus.emit).mockClear();
+
+			await service.updateChecklist({ milestones: { startpageConfigured: true } as never });
+
+			expect(eventBus.emit).toHaveBeenCalledWith(
+				"onboarding.step.completed",
+				expect.objectContaining({ milestone: "startpageConfigured" }),
+			);
+		});
+
+		it("should not be complete with only original 5 milestones done", async () => {
+			await service.initChecklist();
+			await service.updateChecklist({
+				milestones: {
+					installed: true,
+					dashboardExplored: true,
+					sampleDataReviewed: true,
+					ownDataImported: true,
+					customQueryBuilt: true,
+				},
+			});
+
+			expect(service.isComplete()).toBe(false);
+		});
+
+		it("should handle existing state without new milestones (backward compat)", async () => {
+			// Simulate legacy persisted state that lacks new milestone fields
+			const legacyState: OnboardingState = {
+				checklist: {
+					dismissed: false,
+					collapsed: false,
+					milestones: {
+						installed: true,
+						dashboardExplored: true,
+						sampleDataReviewed: true,
+						ownDataImported: true,
+						customQueryBuilt: true,
+					},
+				},
+				dismissedCallouts: [],
+				firstVisits: {},
+				startedAt: "2026-02-01T00:00:00Z",
+			};
+			vi.mocked(storage.load).mockResolvedValueOnce(legacyState);
+			await service.load();
+
+			// State loads without error
+			expect(service.getState()).toBeDefined();
+			// New milestones are undefined → isComplete returns false
+			expect(service.isComplete()).toBe(false);
+			// Completed count only includes original 5
+			expect(service.getCompletedMilestoneCount()).toBe(5);
+		});
+
+		it("should report correct completedCount including new milestones", async () => {
+			await service.initChecklist();
+			await service.updateChecklist({
+				milestones: { catalogExplored: true, startpageConfigured: true } as never,
+			});
+
+			// installed (true from init) + catalogExplored + startpageConfigured = 3
+			expect(service.getCompletedMilestoneCount()).toBe(3);
 		});
 	});
 });

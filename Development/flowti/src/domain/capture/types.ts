@@ -18,6 +18,8 @@ export interface CaptureInput {
 	description?: string;
 	/** Optional folder override. When set, the note is created here instead of captureFolder. */
 	folder?: string;
+	/** Optional template path. When set, the template body is appended after frontmatter. */
+	template?: string;
 }
 
 /** Result returned after a note is captured. */
@@ -25,4 +27,16 @@ export interface CaptureResult {
 	path: string;
 	title: string;
 	type: CaptureType;
+}
+
+/** Per-type override for capture folder and template. */
+export interface CaptureOverride {
+	folder?: string;
+	template?: string;
+}
+
+/** Resolved capture configuration after applying overrides. */
+export interface ResolvedCaptureConfig {
+	folder: string;
+	template: string;
 }

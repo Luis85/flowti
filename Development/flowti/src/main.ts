@@ -37,6 +37,7 @@ import type { AnalyticsService } from "./domain/analytics/AnalyticsService";
 import type { OnboardingService } from "./domain/onboarding/OnboardingService";
 import { seedSupplierDashboard } from "./domain/installer/seedDashboard";
 import { QuickCaptureModal } from "./ui/capture/QuickCaptureModal";
+import { resolveCaptureConfig } from "./domain/capture/resolveCaptureConfig";
 import { TrainCaptureModal } from "./ui/train/TrainCaptureModal";
 import { registerViews } from "./infrastructure/views/registry";
 import type { IViewRegistry } from "./infrastructure/views/types";
@@ -62,6 +63,7 @@ import { AnalyticsHubView, VIEW_TYPE_ANALYTICS_HUB } from "./ui/AnalyticsHubView
 import { TrainResumeModal } from "./ui/train/TrainResumeModal";
 import { TrainTypePickerModal } from "./ui/train/TrainTypePickerModal";
 import { showNudgeNotification } from "./ui/NudgeNotification";
+import { openStartPage } from "./infrastructure/StartpageHandler";
 import { computeRemainingMs } from "./domain/session/helpers";
 
 
@@ -297,9 +299,12 @@ export default class FlowtiBasePlugin extends Plugin {
 			// Quick Capture modal listener
 			this.eventBus.on("ui.openQuickCapture", (event) => {
 				const type = event.payload.type;
+				const resolved = resolveCaptureConfig(type ?? "idea", this.settings);
 				new QuickCaptureModal(this.app, {
 					showTypeSelector: !type,
 					defaultType: type,
+					defaultFolder: resolved.folder,
+					defaultTemplate: resolved.template || undefined,
 					onSubmit: (input) => {
 						if (this.captureService) {
 							void this.captureService.capture(input).then((result) => {
@@ -308,6 +313,18 @@ export default class FlowtiBasePlugin extends Plugin {
 						}
 					},
 				}).open();
+			});
+
+			// Inline idea capture from User Hub dashboard
+			this.eventBus.on("ui.captureIdea", (event) => {
+				if (this.captureService) {
+					void this.captureService.capture({
+						type: "idea",
+						title: event.payload.title,
+					}).then((result) => {
+						new Notice(`Captured: ${result.title}`);
+					});
+				}
 			});
 
 			// Train of Thoughts serial capture listener
@@ -561,6 +578,11 @@ export default class FlowtiBasePlugin extends Plugin {
 				},
 			});
 		}
+
+		// Listen for execute requests from the Command Catalog UI
+		this.eventBus.on("command.execute.request", (event) => {
+			void this.commands.execute(event.payload.commandId, ctx);
+		});
 	}
 
 	/**
@@ -601,6 +623,10 @@ export default class FlowtiBasePlugin extends Plugin {
 			await this.runIngestionCatchUp();
 
 			this.eventBridge.registerVaultListeners();
+
+			// Open configured startpage (if set)
+			openStartPage(this.app.workspace, this.settings.startPage);
+
 			void this.eventBus.emit("plugin.ready", {
 				timestamp: new Date().toISOString(),
 			});
@@ -1398,7 +1424,7 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.hubRegistry.register(new AnalyticsHubProvider(this.analyticsService!));
 
 		this.registerView(VIEW_TYPE_USER_HUB, (leaf) =>
-			new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.sessionService!, this.nudgeService!, this.onboardingService!, this.settings.inboxEnabledSources, this.settings, this.trainService),
+			new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.sessionService!, this.nudgeService!, this.onboardingService!, this.settings.inboxEnabledSources, this.settings, this.trainService, this.commands),
 		);
 		this.hubRegistry.register(new UserHubProvider(this.userService, this.inboxService!));
 

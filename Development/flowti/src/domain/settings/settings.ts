@@ -133,6 +133,13 @@ export const FlowtiSettingsSchema = z.object({
 	showSystemEvents: z.boolean().default(false),
 	docsRootPath: z.string().default("03 - Resources/Documentation/Reference"),
 	captureFolder: z.string().default("00 - Connectivity/inbox"),
+	captureConfig: z.object({
+		defaultTemplate: z.string().default(""),
+		overrides: z.record(z.string(), z.object({
+			folder: z.string().optional(),
+			template: z.string().optional(),
+		})).default({}),
+	}).default({ defaultTemplate: "", overrides: {} }),
 	catalogCategories: z.array(CatalogCategoryConfigSchema).default(DEFAULT_CATALOG_CATEGORIES),
 	catalogDomains: z.array(CatalogCategoryConfigSchema).default([]),
 	catalogServices: z.array(CatalogCategoryConfigSchema).default([]),
@@ -175,6 +182,7 @@ export const FlowtiSettingsSchema = z.object({
 	trainCanvasEnabled: z.boolean().default(true),
 	trainCanvasAutoOpen: z.boolean().default(false),
 	analyticsFolder: z.string().default("03 - Resources/Analytics"),
+	startPage: z.enum(["none", "user-hub", "event-catalog", "data-exchange-hub", "analytics-hub", "train-hub"]).default("none"),
 	inboxEnabledSources: z.array(z.string()).default([
 		"subscription.matched",
 		"dataExchange.import.completed",

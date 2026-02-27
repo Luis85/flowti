@@ -199,6 +199,7 @@ const CATALOG_DATA = {
 	"command.executing":  { category: "Commands", description: "A command started executing", direction: "Internal", domain: "infrastructure", services: "CommandRegistry", tags: ["system"] },
 	"command.executed":   { category: "Commands", description: "A command completed successfully", direction: "Internal", domain: "infrastructure", services: "CommandRegistry", tags: ["system"] },
 	"command.failed":     { category: "Commands", description: "A command failed", direction: "Internal", domain: "infrastructure", services: "CommandRegistry", tags: ["system"] },
+	"command.execute.request": { category: "Commands", description: "Command execution requested from UI", direction: "Internal", domain: "infrastructure", services: "CommandRegistry", tags: ["system"] },
 
 	// ── Views ────────────────────────────────────────────────
 	"view.registered": { category: "Views", description: "A view was registered", direction: "Internal", domain: "infrastructure", services: "ViewRegistry", tags: ["system"] },
@@ -385,6 +386,7 @@ const CATALOG_DATA = {
 	"ui.openCsvImport":           { category: "UI Commands", description: "Open CSV import view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.openExport":              { category: "UI Commands", description: "Open export view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.openQuickCapture":        { category: "UI Commands", description: "Open the Quick Capture modal", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
+	"ui.captureIdea":             { category: "UI Commands", description: "Capture an idea directly from User Hub", direction: "View → Plugin", domain: "ui", services: "CaptureService", tags: ["system"] },
 	"ui.startTrain":              { category: "UI Commands", description: "Start a Train of Thoughts serial capture session", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.openTrainView":           { category: "UI Commands", description: "Open the Train Main View", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.toggleTrainTimeline":     { category: "UI Commands", description: "Toggle the Train Timeline Sidebar", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },

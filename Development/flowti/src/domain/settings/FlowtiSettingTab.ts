@@ -180,6 +180,22 @@ export class FlowtiSettingTab extends PluginSettingTab {
 						await this.deps.saveSettings();
 					})
 			);
+
+		new Setting(containerEl)
+			.setName("Default template")
+			.setDesc(
+				"Vault path to a template note used for new captures. " +
+				"Leave empty for no template."
+			)
+			.addText((text) =>
+				text
+					.setValue(this.deps.getSettings().captureConfig.defaultTemplate)
+					.setPlaceholder("No template")
+					.onChange(async (value) => {
+						this.deps.getSettings().captureConfig.defaultTemplate = value;
+						await this.deps.saveSettings();
+					})
+			);
 	}
 
 	/**
@@ -383,6 +399,33 @@ export class FlowtiSettingTab extends PluginSettingTab {
 	 * Display general settings section
 	 */
 	private displayGeneralSection(containerEl: HTMLElement): void {
+		new Setting(containerEl).setName("Startup").setHeading();
+
+		new Setting(containerEl)
+			.setName("Start page")
+			.setDesc("Choose which view opens automatically when the vault loads")
+			.addDropdown((dropdown) => {
+				dropdown
+					.addOption("none", "None (Obsidian default)")
+					.addOption("user-hub", "User hub")
+					.addOption("event-catalog", "Event catalog")
+					.addOption("data-exchange-hub", "Data exchange hub")
+					.addOption("analytics-hub", "Analytics hub")
+					.addOption("train-hub", "Train hub")
+					.setValue(this.deps.getSettings().startPage)
+					.onChange(async (value) => {
+						this.deps.getSettings().startPage = value as FlowtiSettings["startPage"];
+						await this.deps.saveSettings();
+						if (value !== "none") {
+							const onboarding = this.deps.getOnboardingService?.();
+							const ms = onboarding?.getMilestones();
+							if (ms && !ms.startpageConfigured) {
+								void onboarding?.updateChecklist({ milestones: { startpageConfigured: true } as never });
+							}
+						}
+					});
+			});
+
 		new Setting(containerEl).setName("Advanced").setHeading();
 
 		new Setting(containerEl)

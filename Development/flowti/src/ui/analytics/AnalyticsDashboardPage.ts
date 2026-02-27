@@ -123,8 +123,7 @@ export class AnalyticsDashboardPage {
 
 		// Check if all milestones are complete → auto-dismiss
 		const ms = checklist.milestones;
-		const allComplete = ms.installed && ms.dashboardExplored && ms.sampleDataReviewed && ms.ownDataImported && ms.customQueryBuilt;
-		if (allComplete) {
+		if (this.deps.onboardingService.isComplete()) {
 			void this.deps.onboardingService.dismissChecklist();
 			return;
 		}
@@ -234,17 +233,7 @@ export class AnalyticsDashboardPage {
 
 		const titleLeft = header.createDiv({ cls: "ft-dashboard-title-left" });
 
-		const titleInput = titleLeft.createEl("input", { type: "text", cls: "ft-title-input" });
-		titleInput.value = dashboard.name;
-		titleInput.addEventListener("blur", () => {
-			const val = titleInput.value.trim();
-			if (val && val !== dashboard.name) {
-				void this.deps.analyticsService.updateDashboard(dashboard.id, { name: val });
-			}
-		});
-		titleInput.addEventListener("keydown", (e) => {
-			if (e.key === "Enter") { e.preventDefault(); titleInput.blur(); }
-		});
+		titleLeft.createSpan({ text: dashboard.name, cls: "ft-title-input ft-title-readonly" });
 
 		const defaultDashboard = this.deps.analyticsService.getDefaultDashboard();
 		const isDefault = defaultDashboard?.id === dashboard.id;

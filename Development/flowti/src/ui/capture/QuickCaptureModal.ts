@@ -16,6 +16,10 @@ export interface QuickCaptureModalOptions {
 	showTypeSelector?: boolean;
 	/** Default capture type (pre-set from ribbon action) */
 	defaultType?: CaptureType;
+	/** Pre-filled folder path from resolved capture config */
+	defaultFolder?: string;
+	/** Pre-filled template path from resolved capture config */
+	defaultTemplate?: string;
 }
 
 export class QuickCaptureModal extends Modal {
@@ -71,6 +75,8 @@ export class QuickCaptureModal extends Modal {
 		}
 
 		let descriptionValue = "";
+		let folderValue = this.options.defaultFolder ?? "";
+		let templateValue = this.options.defaultTemplate ?? "";
 
 		const submit = (): void => {
 			const trimmed = titleValue.trim();
@@ -79,6 +85,8 @@ export class QuickCaptureModal extends Modal {
 					title: trimmed,
 					type: selectedType,
 					...(descriptionValue.trim() ? { description: descriptionValue.trim() } : {}),
+					...(folderValue.trim() ? { folder: folderValue.trim() } : {}),
+					...(templateValue.trim() ? { template: templateValue.trim() } : {}),
 				});
 				this.close();
 			}
@@ -110,6 +118,31 @@ export class QuickCaptureModal extends Modal {
 					.onChange((value) => { descriptionValue = value; });
 				area.inputEl.addClass("ft-input-full-width");
 				area.inputEl.rows = 3;
+			});
+
+		// Folder
+		new Setting(contentEl)
+			.setName("Folder")
+			.setDesc("Target folder for the captured note")
+			.addText((text) => {
+				text
+					// eslint-disable-next-line obsidianmd/ui/sentence-case
+					.setPlaceholder("00 - Connectivity/inbox")
+					.setValue(folderValue)
+					.onChange((value) => { folderValue = value; });
+				text.inputEl.addClass("ft-input-full-width");
+			});
+
+		// Template
+		new Setting(contentEl)
+			.setName("Template")
+			.setDesc("Optional — vault path to a template note")
+			.addText((text) => {
+				text
+					.setPlaceholder("No template")
+					.setValue(templateValue)
+					.onChange((value) => { templateValue = value; });
+				text.inputEl.addClass("ft-input-full-width");
 			});
 
 		// Action buttons

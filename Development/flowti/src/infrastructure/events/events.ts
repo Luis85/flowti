@@ -141,6 +141,8 @@ export interface FlowtiEventMap extends UserEventMap, SettingsEventMap, Installe
 	"command.executed": { commandId: string; durationMs: number };
 	/** Emitted when a command fails */
 	"command.failed": { commandId: string; error: FlowtiErrorInfo };
+	/** Emitted by the Command Catalog UI to request command execution */
+	"command.execute.request": { commandId: string };
 
 	// ─────────────────────────────────────────────────────────────
 	// View Events

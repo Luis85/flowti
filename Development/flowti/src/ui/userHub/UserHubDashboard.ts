@@ -16,6 +16,7 @@ import type { TrainService } from "../../domain/train/TrainService";
 import { computeRemainingMs, formatDuration } from "../../domain/session/helpers";
 import { renderStatGrid, type StatCardItem } from "../shared/StatCard";
 import { formatSourceEvent, formatTime, SESSION_TYPE_LABELS, type InboxItem } from "./types";
+import { IdeaCaptureSection } from "./IdeaCaptureSection";
 
 export interface UserHubDashboardDeps {
 	userService: IUserService;
@@ -29,6 +30,7 @@ export interface UserHubDashboardDeps {
 	onInboxItemClick: (item: InboxItem) => void;
 	openSessionWorkspace: (sessionId?: string, location?: "tab" | "sidebar") => void;
 	onCreateSession?: () => void;
+	onCaptureIdea?: (title: string) => void;
 }
 
 export class UserHubDashboard {
@@ -41,6 +43,7 @@ export class UserHubDashboard {
 		this.container.empty();
 
 		this.renderWelcome();
+		this.renderIdeaCapture();
 
 		// Check if the hub has real content beyond the static welcome
 		const hasActiveSession = !!this.deps.sessionService.getActiveSession();
@@ -93,6 +96,15 @@ export class UserHubDashboard {
 		const greeting = user ? `Welcome, ${user.name}` : "Welcome to Flowti";
 
 		section.createEl("h2", { text: greeting, cls: "ft-heading ft-m-0" });
+	}
+
+	private renderIdeaCapture(): void {
+		if (!this.deps.onCaptureIdea) return;
+		new IdeaCaptureSection(this.container, {
+			eventBus: this.deps.eventBus,
+			inboxService: this.deps.inboxService,
+			onCapture: this.deps.onCaptureIdea,
+		}).render();
 	}
 
 	private renderEmptyState(): void {
