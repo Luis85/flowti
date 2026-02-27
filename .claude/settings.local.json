@@ -41,7 +41,13 @@
       "Bash(git stash pop)",
       "Bash(node scripts/generate-coverage-report.mjs)",
       "Bash(npx eslint src/ --max-warnings=0)",
-      "Bash(git status -u)"
+      "Bash(git status -u)",
+      "Bash(node scripts/generate-cycle-report.mjs)",
+      "Bash(node scripts/generate-trace-report.mjs --dry-run)",
+      "Bash(node scripts/generate-trace-report.mjs)",
+      "Bash(node scripts/generate-command-reference.mjs)",
+      "Bash(node scripts/generate-event-catalog.mjs)",
+      "Bash(node scripts/generate-data-dictionary.mjs)"
     ]
   }
 }

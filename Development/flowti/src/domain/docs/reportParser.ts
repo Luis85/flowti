@@ -174,3 +174,128 @@ export function generateCoverageReportMarkdown(fm: CoverageReportFrontmatter): s
 		"",
 	].join("\n");
 }
+
+// ── Cycle Report ────────────────────────────────────
+
+export interface CycleFrontmatter {
+	type?: string;
+	cycle?: number;
+	stage?: string;
+	date_planned?: string;
+	date_completed?: string;
+	pbis?: string[];
+	bugs?: string[];
+	tech_debt?: (string | number)[];
+	estimated_increments?: number;
+	actual_increments?: number;
+	estimated_tests?: number;
+	actual_tests?: number;
+	pre_cycle_tests?: number;
+	pre_cycle_suites?: number;
+	total_tests_after?: number;
+	total_test_files_after?: number;
+}
+
+export interface CycleReportFrontmatter {
+	type: "CycleReport";
+	date: string;
+	cycle: number;
+	stage: string;
+	date_planned: string;
+	date_completed: string;
+	increments: number;
+	estimated_increments: number;
+	tests_added: number;
+	total_tests: number;
+	suites_added: number;
+	total_suites: number;
+	pbis_delivered: number;
+	debt_resolved: number;
+}
+
+export function parseCycleReport(fm: CycleFrontmatter, date: string): CycleReportFrontmatter {
+	const cycle = fm.cycle ?? 0;
+	const stage = fm.stage ?? "unknown";
+	const preCycleTests = fm.pre_cycle_tests ?? 0;
+	const totalTests = fm.total_tests_after ?? preCycleTests;
+	const preCycleSuites = fm.pre_cycle_suites ?? 0;
+	const totalSuites = fm.total_test_files_after ?? preCycleSuites;
+	const pbis = fm.pbis ?? [];
+	const techDebt = fm.tech_debt ?? [];
+
+	return {
+		type: "CycleReport",
+		date,
+		cycle,
+		stage,
+		date_planned: fm.date_planned ?? "",
+		date_completed: fm.date_completed ?? "",
+		increments: fm.actual_increments ?? fm.estimated_increments ?? 0,
+		estimated_increments: fm.estimated_increments ?? 0,
+		tests_added: totalTests - preCycleTests,
+		total_tests: totalTests,
+		suites_added: totalSuites - preCycleSuites,
+		total_suites: totalSuites,
+		pbis_delivered: pbis.length,
+		debt_resolved: techDebt.length,
+	};
+}
+
+export interface CycleReportContext {
+	cycleDocTitle?: string;
+	pbiNames?: string[];
+	debtNames?: string[];
+	reportLinks?: string[];
+}
+
+export function generateCycleReportMarkdown(
+	fm: CycleReportFrontmatter,
+	ctx?: CycleReportContext,
+): string {
+	const lines = [
+		toFrontmatter(fm as unknown as Record<string, unknown>),
+		"",
+		`# Cycle ${fm.cycle} Report`,
+		"",
+		`> [!info] Summary`,
+		`> Stage: ${fm.stage} | Increments: ${fm.increments} (est. ${fm.estimated_increments})`,
+		`> Tests added: ${fm.tests_added} | Total: ${fm.total_tests}`,
+		`> Suites added: ${fm.suites_added} | Total: ${fm.total_suites}`,
+		`> PBIs delivered: ${fm.pbis_delivered} | Debt resolved: ${fm.debt_resolved}`,
+		`> Planned: ${fm.date_planned || "N/A"} | Completed: ${fm.date_completed || "N/A"}`,
+		"",
+	];
+
+	if (ctx?.cycleDocTitle) {
+		lines.push(`## Source`, "", `- [[${ctx.cycleDocTitle}]]`, "");
+	}
+
+	const pbiNames = ctx?.pbiNames ?? [];
+	if (pbiNames.length > 0) {
+		lines.push(`## PBIs Delivered`, "");
+		for (const pbi of pbiNames) {
+			lines.push(`- ${pbi}`);
+		}
+		lines.push("");
+	}
+
+	const debtNames = ctx?.debtNames ?? [];
+	if (debtNames.length > 0) {
+		lines.push(`## Tech Debt Resolved`, "");
+		for (const td of debtNames) {
+			lines.push(`- ${td}`);
+		}
+		lines.push("");
+	}
+
+	const reportLinks = ctx?.reportLinks ?? [];
+	if (reportLinks.length > 0) {
+		lines.push(`## Related Reports`, "");
+		for (const link of reportLinks) {
+			lines.push(`- [[${link}]]`);
+		}
+		lines.push("");
+	}
+
+	return lines.join("\n");
+}

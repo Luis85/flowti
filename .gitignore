@@ -30,3 +30,8 @@ node_modules
 /Solutions/
 
 build-endpoints.json
+/Development/flowti/docs/reference/Command Reference.md
+/Development/flowti/docs/reference/Data Dictionary.md
+/Development/flowti/docs/reference/Event Catalog.md
+/Development/flowti/docs/reports/cycles/
+/Development/flowti/docs/reports/traceability/

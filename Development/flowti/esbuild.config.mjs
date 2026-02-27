@@ -262,6 +262,11 @@ const generateReportNotes = () => {
 		path.resolve(__dirname, "scripts", "generate-test-report.mjs"),
 		path.resolve(__dirname, "scripts", "generate-coverage-report.mjs"),
 		path.resolve(__dirname, "scripts", "generate-codebase-report.mjs"),
+		path.resolve(__dirname, "scripts", "generate-cycle-report.mjs"),
+		path.resolve(__dirname, "scripts", "generate-trace-report.mjs"),
+		path.resolve(__dirname, "scripts", "generate-command-reference.mjs"),
+		path.resolve(__dirname, "scripts", "generate-event-catalog.mjs"),
+		path.resolve(__dirname, "scripts", "generate-data-dictionary.mjs"),
 	];
 
 	for (const script of scripts) {
