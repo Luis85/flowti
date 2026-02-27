@@ -12,6 +12,7 @@ import type { IEventBus } from "../../infrastructure/events/types";
 import type { IUserService } from "../../domain/user/types";
 import type { FlowtiSettings } from "../../domain/settings/settings";
 import type { ICommandRegistry } from "../../infrastructure/commands/types";
+import type { HubRegistry } from "../../domain/hub/HubRegistry";
 
 // Re-export InboxItem from domain (single source of truth)
 import type { InboxItem } from "../../domain/inbox/types";
@@ -23,7 +24,7 @@ export type { InboxItem } from "../../domain/inbox/types";
 
 export type UserHubTab = "sessions" | "inbox" | "commands" | "preferences";
 
-export type PreferencesCategory = "profile" | "inbox" | "sessions" | "nudges" | "trains";
+export type PreferencesCategory = "dashboard" | "profile" | "inbox" | "sessions" | "nudges" | "trains";
 
 // ─────────────────────────────────────────────────────────────
 // State
@@ -114,6 +115,8 @@ export interface UserHubComponentDeps {
 	trainService?: TrainService;
 	/** Command registry for the Commands tab. */
 	commandRegistry?: ICommandRegistry;
+	/** Hub registry for dashboard preferences. */
+	hubRegistry?: HubRegistry;
 }
 
 // ─────────────────────────────────────────────────────────────

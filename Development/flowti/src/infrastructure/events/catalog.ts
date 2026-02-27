@@ -286,6 +286,7 @@ const CATALOG_DATA = {
 	"settings.updateTrainCanvasEnabled": { category: "Settings", description: "Toggle train canvas auto-generation", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
 	"settings.updateTrainCanvasAutoOpen": { category: "Settings", description: "Toggle auto-open canvas on train start", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
 	"settings.updateAnalyticsFolder": { category: "Settings", description: "Update analytics folder path", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
+	"settings.updateUserHubConfig":  { category: "Settings", description: "Update User Hub dashboard configuration", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
 	"settings.saveFailed":             { category: "Settings", description: "Settings persistence failed", direction: "Service → Listeners", domain: "settings", services: "SettingsService", tags: ["system"] },
 
 	// ── Installer Domain ─────────────────────────────────────

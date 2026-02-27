@@ -63,6 +63,35 @@ export class IdeaCaptureSection {
 		this.renderRecentIdeas(section);
 	}
 
+	/** Compact inline variant for embedding in the KPI row (input + button only). */
+	renderCompact(): void {
+		const section = this.container.createDiv({ cls: "ft-idea-capture-compact" });
+
+		const input = section.createEl("input", {
+			type: "text",
+			cls: "ft-idea-capture-input",
+		});
+		input.placeholder = "Capture idea\u2026";
+
+		const submitBtn = section.createEl("button", { cls: "ft-btn ft-btn-sm" });
+		setIcon(submitBtn, "plus");
+
+		const submit = (): void => {
+			const title = input.value.trim();
+			if (!title) return;
+			this.deps.onCapture(title);
+			input.value = "";
+		};
+
+		submitBtn.addEventListener("click", submit);
+		input.addEventListener("keydown", (e) => {
+			if (e.key === "Enter") {
+				e.preventDefault();
+				submit();
+			}
+		});
+	}
+
 	private renderRecentIdeas(container: HTMLElement): void {
 		const items = this.deps.inboxService.getItems()
 			.filter((i) => i.sourceEvent === "capture.idea.created")

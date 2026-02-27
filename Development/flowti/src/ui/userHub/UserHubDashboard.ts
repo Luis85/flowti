@@ -14,7 +14,7 @@ import type { NudgeService } from "../../domain/nudge/NudgeService";
 import type { SessionService } from "../../domain/session/SessionService";
 import type { TrainService } from "../../domain/train/TrainService";
 import { computeRemainingMs, formatDuration } from "../../domain/session/helpers";
-import { renderStatGrid, type StatCardItem } from "../shared/StatCard";
+import type { FlowtiSettings } from "../../domain/settings/settings";
 import { formatSourceEvent, formatTime, SESSION_TYPE_LABELS, type InboxItem } from "./types";
 import { IdeaCaptureSection } from "./IdeaCaptureSection";
 
@@ -31,6 +31,7 @@ export interface UserHubDashboardDeps {
 	openSessionWorkspace: (sessionId?: string, location?: "tab" | "sidebar") => void;
 	onCreateSession?: () => void;
 	onCaptureIdea?: (title: string) => void;
+	getSettings: () => FlowtiSettings;
 }
 
 export class UserHubDashboard {
@@ -43,7 +44,6 @@ export class UserHubDashboard {
 		this.container.empty();
 
 		this.renderWelcome();
-		this.renderIdeaCapture();
 
 		// Check if the hub has real content beyond the static welcome
 		const hasActiveSession = !!this.deps.sessionService.getActiveSession();
@@ -57,7 +57,8 @@ export class UserHubDashboard {
 		if (!hasActiveSession && !hasActiveTrain && !hasInboxItems && !hasHubSummaries) {
 			this.renderEmptyState();
 			this.renderNextNudge();
-			this.renderQuickActions();
+			this.renderToolbar();
+			this.renderHubSummaries();
 			this.renderInboxSection();
 			return;
 		}
@@ -65,7 +66,7 @@ export class UserHubDashboard {
 		this.renderNextNudge();
 		this.renderActiveSession();
 		this.renderActiveTrain();
-		this.renderQuickActions();
+		this.renderToolbar();
 		this.renderHubSummaries();
 		this.renderInboxSection();
 	}
@@ -86,7 +87,7 @@ export class UserHubDashboard {
 	}
 
 	private renderWelcome(): void {
-		const section = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-mb-3 ft-dashboard-welcome" });
+		const section = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-dashboard-welcome" });
 
 		const icon = section.createSpan();
 		setIcon(icon, "home");
@@ -96,15 +97,6 @@ export class UserHubDashboard {
 		const greeting = user ? `Welcome, ${user.name}` : "Welcome to Flowti";
 
 		section.createEl("h2", { text: greeting, cls: "ft-heading ft-m-0" });
-	}
-
-	private renderIdeaCapture(): void {
-		if (!this.deps.onCaptureIdea) return;
-		new IdeaCaptureSection(this.container, {
-			eventBus: this.deps.eventBus,
-			inboxService: this.deps.inboxService,
-			onCapture: this.deps.onCaptureIdea,
-		}).render();
 	}
 
 	private renderEmptyState(): void {
@@ -339,6 +331,101 @@ export class UserHubDashboard {
 		}
 	}
 
+	/** All available toolbar actions with their IDs, split by group. */
+	private getToolbarActionDefs(): {
+		tabs: Array<{ id: string; icon: string; label: string; action: () => void }>;
+		actions: Array<{ id: string; icon: string; label: string; action: () => void }>;
+	} {
+		const eb = this.deps.eventBus;
+		const nav = this.deps.navigateToTab;
+		return {
+			tabs: [
+				{ id: "sessions", icon: "timer", label: "Sessions", action: () => nav("sessions") },
+				{ id: "inbox", icon: "inbox", label: "Inbox", action: () => nav("inbox") },
+				{ id: "commands", icon: "terminal", label: "Commands", action: () => nav("commands") },
+				{ id: "preferences", icon: "settings", label: "Preferences", action: () => nav("preferences") },
+			],
+			actions: [
+				...(this.deps.onCreateSession ? [{ id: "new-session", icon: "plus-circle", label: "New session", action: this.deps.onCreateSession }] : []),
+				{ id: "activity-log", icon: "activity", label: "Activity log", action: () => void eb.emit("ui.openEventLog", {}) },
+				{ id: "watchers", icon: "bell", label: "Watchers", action: () => void eb.emit("ui.openSubscriptionManager", {}) },
+			],
+		};
+	}
+
+	private renderToolbar(): void {
+		const settings = this.deps.getSettings();
+		const { showQuickActions, toolbarHubs, toolbarActions } = settings.userHubConfig;
+
+		const toolbar = this.container.createDiv({ cls: "ft-dashboard-toolbar" });
+
+		// Group 1: Hub navigation buttons (filtered by toolbarHubs)
+		const providers = this.deps.hubRegistry
+			.getAll()
+			.filter((p) => p.getHubId() !== "user-hub")
+			.filter((p) => toolbarHubs.includes(p.getHubId()));
+
+		if (providers.length > 0) {
+			const hubsArea = toolbar.createDiv({ cls: "ft-flex ft-gap-1 ft-items-center ft-toolbar-hubs" });
+			for (const provider of providers) {
+				const hubId = provider.getHubId();
+				const btn = hubsArea.createEl("span", { cls: "ft-quick-action-btn ft-toolbar-hub-btn" });
+				btn.title = provider.getDisplayName();
+				const iconEl = btn.createSpan();
+				setIcon(iconEl, provider.getIcon());
+				btn.createSpan({ text: provider.getDisplayName(), cls: "ft-quick-action-label" });
+				btn.addEventListener("click", () => void this.deps.hubRegistry.openHub(hubId));
+			}
+		}
+
+		if (showQuickActions) {
+			const { tabs, actions } = this.getToolbarActionDefs();
+
+			// Group 2: User Hub tabs (filtered by toolbarActions)
+			const visibleTabs = tabs.filter((t) => toolbarActions.includes(t.id));
+			if (visibleTabs.length > 0) {
+				const tabsArea = toolbar.createDiv({ cls: "ft-flex ft-gap-1 ft-items-center ft-toolbar-tabs" });
+				for (const tab of visibleTabs) {
+					this.renderToolbarBtn(tabsArea, tab);
+				}
+			}
+
+			// Group 3: Other actions (filtered by toolbarActions)
+			const visibleActions = actions.filter((a) => toolbarActions.includes(a.id));
+			if (visibleActions.length > 0) {
+				const actionsArea = toolbar.createDiv({ cls: "ft-flex ft-gap-1 ft-items-center ft-toolbar-actions" });
+				for (const act of visibleActions) {
+					this.renderToolbarBtn(actionsArea, act);
+				}
+			}
+		}
+
+		toolbar.createDiv({ cls: "ft-flex-1" });
+
+		// Right: compact idea capture
+		if (this.deps.onCaptureIdea) {
+			const captureArea = toolbar.createDiv();
+			new IdeaCaptureSection(captureArea, {
+				eventBus: this.deps.eventBus,
+				inboxService: this.deps.inboxService,
+				onCapture: this.deps.onCaptureIdea,
+			}).renderCompact();
+		}
+	}
+
+	private renderToolbarBtn(container: HTMLElement, def: { icon: string; label: string; action: () => void }): void {
+		const btn = container.createEl("span", { cls: "ft-quick-action-btn" });
+		btn.title = def.label;
+		const iconEl = btn.createSpan();
+		setIcon(iconEl, def.icon);
+		btn.createSpan({ text: def.label, cls: "ft-quick-action-label" });
+		btn.addEventListener("click", def.action);
+	}
+
+	private renderSeparator(): void {
+		this.container.createDiv({ cls: "ft-dashboard-separator" });
+	}
+
 	private getActivityIcon(action: string): string {
 		switch (action) {
 			case "created": return "file-plus";
@@ -355,81 +442,70 @@ export class UserHubDashboard {
 		const unreadCount = this.deps.inboxService.getUnreadCount();
 		const maxVisible = 5;
 
-		// Always-visible inbox section
 		const section = this.container.createDiv({ cls: "ft-inbox-section ft-dashboard-inbox" });
 
-		// Header
-		const header = section.createDiv({ cls: `ft-flex ft-items-center ft-gap-2 ft-dashboard-inbox-header ${items.length > 0 ? "ft-dashboard-inbox-header-border" : "ft-dashboard-inbox-header-no-border"}` });
+		// Header — lightweight, no background
+		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-dashboard-inbox-header" });
 
 		const headerIcon = header.createSpan();
 		setIcon(headerIcon, "inbox");
-		headerIcon.addClass("ft-icon-muted");
+		headerIcon.addClass("ft-icon-muted", "ft-icon-sm");
 
-		header.createEl("h3", { text: "Inbox", cls: "ft-heading ft-heading-sm ft-m-0" });
+		header.createSpan({ text: "Inbox", cls: "ft-heading ft-heading-sm ft-m-0" });
 
 		if (unreadCount > 0) {
 			header.createSpan({
-				text: `${unreadCount} unread`,
+				text: `${unreadCount}`,
 				cls: "ft-badge ft-badge-muted ft-text-sm",
 			});
 		}
 
-		// Spacer + clear all button (only when items exist)
-		if (items.length > 0) {
-			header.createDiv({ cls: "ft-flex-1" });
+		header.createDiv({ cls: "ft-flex-1" });
 
+		if (items.length > 0) {
 			const clearBtn = header.createEl("button", { cls: "ft-btn ft-btn-sm ft-text-muted" });
 			setIcon(clearBtn, "trash-2");
-			clearBtn.appendText(" Clear");
 			clearBtn.addEventListener("click", () => {
 				void this.deps.inboxService.clearAll();
 			});
 		}
 
-		// Empty state
+		// Empty state — minimal single line
 		if (items.length === 0) {
-			const empty = section.createDiv({ cls: "ft-flex ft-flex-col ft-items-center ft-dashboard-inbox-empty" });
-
-			const emptyIcon = empty.createDiv({ cls: "ft-dashboard-inbox-empty-icon" });
-			setIcon(emptyIcon, "inbox");
-
-			empty.createDiv({ text: "Your inbox is empty", cls: "ft-text-sm" });
-			empty.createDiv({
-				text: "Items from watchers, imports, and exports will appear here.",
-				cls: "ft-text-sm ft-text-muted ft-dashboard-inbox-empty-hint",
-			});
+			section.createDiv({ text: "No inbox items", cls: "ft-text-sm ft-text-muted ft-dashboard-inbox-empty" });
 			return;
 		}
 
-		// Item rows
+		// Item rows — tabular grid layout
+		const table = section.createDiv({ cls: "ft-dashboard-inbox-table" });
 		const visible = items.slice(0, maxVisible);
 		for (const item of visible) {
-			const row = section.createDiv({ cls: `ft-catalog-row ft-cursor-pointer ft-dashboard-inbox-row${!item.read ? " ft-dashboard-inbox-unread" : ""}` });
+			const row = table.createDiv({ cls: `ft-dashboard-inbox-row ft-cursor-pointer${!item.read ? " ft-dashboard-inbox-unread" : ""}` });
 
-			const icon = row.createSpan({ cls: "ft-inbox-item-icon" });
+			const titleCell = row.createDiv({ cls: "ft-dashboard-inbox-cell-title" });
+			const icon = titleCell.createSpan({ cls: "ft-inbox-item-icon" });
 			setIcon(icon, item.type === "action" ? "alert-circle" : "info");
+			titleCell.createSpan({ text: item.title, cls: "ft-text-sm" });
 
-			row.createSpan({ text: item.title });
-
-			row.createSpan({
+			row.createDiv({
 				text: formatSourceEvent(item.sourceEvent),
-				cls: "ft-badge ft-badge-muted ft-text-sm ft-inbox-item-source",
+				cls: "ft-text-xs ft-text-muted ft-dashboard-inbox-cell-source",
 			});
 
-			row.createSpan({
+			row.createDiv({
 				text: formatTime(item.timestamp),
-				cls: "ft-text-muted ft-text-sm ft-ml-auto",
+				cls: "ft-text-muted ft-text-xs ft-dashboard-inbox-cell-time",
 			});
 
 			row.addEventListener("click", () => this.deps.onInboxItemClick(item));
 		}
 
-		// "View all" link when more items exist
+		// "View all" link
 		if (items.length > maxVisible) {
 			const footer = section.createDiv({ cls: "ft-flex ft-dashboard-inbox-footer" });
 
 			const link = footer.createEl("span", {
-				text: `View all (${items.length}) →`,
+				text: `View all (${items.length})`,
 				cls: "ft-nav-link ft-text-sm",
 			});
 			link.addEventListener("click", () => this.deps.navigateToTab("inbox"));
@@ -437,78 +513,37 @@ export class UserHubDashboard {
 	}
 
 	private renderHubSummaries(): void {
+		const settings = this.deps.getSettings();
+		const { visibleHubs } = settings.userHubConfig;
+
 		const providers = this.deps.hubRegistry
 			.getAll()
-			.filter((p) => p.getHubId() !== "user-hub");
+			.filter((p) => p.getHubId() !== "user-hub")
+			.filter((p) => visibleHubs.includes(p.getHubId()));
 
 		if (providers.length === 0) return;
 
 		const section = this.container.createDiv({ cls: "ft-dashboard-hubs" });
-		section.createEl("h3", { text: "Your hubs", cls: "ft-heading ft-heading-sm ft-dashboard-hubs-heading" });
 
-		// Collect stat cards from all providers, each clicking through to its hub
-		const cards: StatCardItem[] = [];
 		for (const provider of providers) {
 			const summary = provider.getSummary();
 			const hubId = provider.getHubId();
 
+			const row = section.createDiv({ cls: "ft-dashboard-hub-row ft-cursor-pointer" });
+			row.addEventListener("click", () => void this.deps.hubRegistry.openHub(hubId));
+
+			const icon = row.createSpan({ cls: "ft-icon-muted" });
+			setIcon(icon, provider.getIcon());
+
+			row.createSpan({ text: provider.getDisplayName(), cls: "ft-text-sm" });
+
+			// Inline stats
 			for (const stat of summary.stats) {
-				cards.push({
-					icon: stat.icon,
-					value: stat.value,
-					label: `${provider.getDisplayName()} — ${stat.label}`,
-					onClick: () => void this.deps.hubRegistry.openHub(hubId, stat.tabId),
-				});
-			}
-		}
-
-		renderStatGrid(section, cards, 3);
-
-		// Render dashboard KPI row when a provider surfaces live stats
-		for (const provider of providers) {
-			const summary = provider.getSummary();
-			if (!summary.dashboardStats || summary.dashboardStats.length === 0) continue;
-
-			const hubId = provider.getHubId();
-			const kpiRow = section.createDiv({ cls: "ft-flex ft-gap-2 ft-items-center ft-dashboard-kpi-row" });
-			kpiRow.addEventListener("click", () => void this.deps.hubRegistry.openHub(hubId, "dashboards"));
-
-			for (const stat of summary.dashboardStats) {
-				const kpi = kpiRow.createDiv({ cls: "ft-dashboard-kpi-cell" });
-
-				const val = kpi.createDiv({ text: stat.value, cls: "ft-text-lg ft-font-bold" });
-				if (stat.color) val.style.color = stat.color;
-
-				kpi.createDiv({ text: stat.label, cls: "ft-text-xs ft-text-muted" });
+				const pill = row.createSpan({ cls: "ft-dashboard-hub-stat" });
+				pill.createSpan({ text: stat.value, cls: "ft-font-semibold" });
+				pill.createSpan({ text: ` ${stat.label}`, cls: "ft-text-muted" });
 			}
 		}
 	}
 
-	private renderQuickActions(): void {
-		const section = this.container.createDiv({ cls: "ft-dashboard-actions" });
-		section.createEl("h3", { text: "Quick actions", cls: "ft-heading ft-heading-sm ft-dashboard-actions-heading" });
-
-		const grid = section.createDiv({ cls: "ft-flex ft-gap-2 ft-flex-wrap" });
-
-		const eb = this.deps.eventBus;
-		const nav = this.deps.navigateToTab;
-		const actions: Array<{ icon: string; label: string; action: () => void }> = [
-			...(this.deps.onCreateSession ? [{ icon: "plus-circle", label: "New Session", action: this.deps.onCreateSession }] : []),
-			{ icon: "timer", label: "Sessions", action: () => nav("sessions") },
-			{ icon: "inbox", label: "Inbox", action: () => nav("inbox") },
-			{ icon: "settings", label: "Preferences", action: () => nav("preferences") },
-			{ icon: "list", label: "Event Catalog", action: () => void eb.emit("ui.openEventCatalog", {}) },
-			{ icon: "arrow-left-right", label: "Data Exchange", action: () => void eb.emit("ui.openDataExchangeHub", {}) },
-			{ icon: "activity", label: "Activity Log", action: () => void eb.emit("ui.openEventLog", {}) },
-			{ icon: "bell", label: "Watchers", action: () => void eb.emit("ui.openSubscriptionManager", {}) },
-		];
-
-		for (const act of actions) {
-			const btn = grid.createEl("span", { cls: "ft-nav-link" });
-			const iconEl = btn.createSpan();
-			setIcon(iconEl, act.icon);
-			btn.appendText(` ${act.label}`);
-			btn.addEventListener("click", act.action);
-		}
-	}
 }

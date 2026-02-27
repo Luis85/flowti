@@ -107,8 +107,8 @@ describe("UserHubPreferences", () => {
 			prefs.renderMaster();
 
 			const rows = masterEl.querySelectorAll(".ft-catalog-row");
-			// Inbox is the second row (index 1)
-			expect(rows[1].classList.contains("ft-catalog-row-active")).toBe(true);
+			// Inbox is the third row (index 2) after Dashboard, Profile
+			expect(rows[2].classList.contains("ft-catalog-row-active")).toBe(true);
 			expect(rows[0].classList.contains("ft-catalog-row-active")).toBe(false);
 		});
 
@@ -118,7 +118,7 @@ describe("UserHubPreferences", () => {
 			const rows = masterEl.querySelectorAll(".ft-catalog-row");
 			(rows[0] as HTMLElement).click();
 
-			expect(deps.setState).toHaveBeenCalledWith({ selectedPreferencesCategory: "profile" });
+			expect(deps.setState).toHaveBeenCalledWith({ selectedPreferencesCategory: "dashboard" });
 			expect(deps.scheduleRender).toHaveBeenCalled();
 		});
 	});

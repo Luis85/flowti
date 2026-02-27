@@ -139,6 +139,11 @@ export class SettingsService implements ISettingsService {
 					void this.updateSettings({ analyticsFolder: event.payload.folder });
 				})
 			);
+			this.unsubscribes.push(
+				this.eventBus.on("settings.updateUserHubConfig", (event) => {
+					void this.updateSettings({ userHubConfig: event.payload.config });
+				})
+			);
 		}
 	}
 

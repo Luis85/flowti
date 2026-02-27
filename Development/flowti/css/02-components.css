@@ -255,6 +255,8 @@
 .ft-icon-inactive,
 .ft-disabled-half,
 .ft-opacity-50 { opacity: 0.5; }
+.ft-icon-sm { display: inline-flex; align-items: center; }
+.ft-icon-sm svg { width: 14px; height: 14px; }
 .ft-icon-faint,
 .ft-visibility-toggle.ft-visibility-off,
 .ft-icon-dim { opacity: 0.4; }

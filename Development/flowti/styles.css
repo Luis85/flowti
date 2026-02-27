@@ -570,6 +570,8 @@
 .ft-icon-inactive,
 .ft-disabled-half,
 .ft-opacity-50 { opacity: 0.5; }
+.ft-icon-sm { display: inline-flex; align-items: center; }
+.ft-icon-sm svg { width: 14px; height: 14px; }
 .ft-icon-faint,
 .ft-visibility-toggle.ft-visibility-off,
 .ft-icon-dim { opacity: 0.4; }
@@ -4680,7 +4682,6 @@
 .ft-mt-1,
 .ft-broken-ref-id,
 .ft-hint-text,
-.ft-dashboard-inbox-empty-hint,
 .ft-session-empty-hint,
 .ft-inbox-empty-hint,
 .ft-inbox-event-row-mt { margin-top: 0.25rem; }
@@ -4717,10 +4718,14 @@
 
 .ft-mb-15,
 .ft-dashboard-empty-subtitle,
-.ft-dashboard-hubs,
 .ft-empty-state-subtitle-mb,
 .ft-catalog-empty-subtitle-mb {
 	margin-bottom: 1.5rem;
+}
+
+.ft-dashboard-hubs {
+	margin-top: 0.25rem;
+	margin-bottom: 0.5rem;
 }
 
 /* ── UserHubDashboard: Welcome ───────────────────────────── */
@@ -4742,40 +4747,76 @@
 /* ── UserHubDashboard: Inbox Section ─────────────────────── */
 
 .ft-dashboard-inbox {
-  margin-bottom: 1.5rem;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 8px;
-  overflow: hidden;
+  margin-top: 0.75rem;
 }
 
 .ft-dashboard-inbox-header {
-  padding: 0.5rem 0.75rem;
-  background-color: var(--background-secondary);
-}
-
-.ft-dashboard-inbox-header-no-border {
-  border-bottom: none;
+  padding: 0.25rem 0;
+  border-top: 1px solid var(--background-modifier-border);
+  padding-top: 0.75rem;
 }
 
 .ft-dashboard-inbox-empty {
-  padding: 2rem;
-  color: var(--text-muted);
+  padding: 0.5rem 0;
+}
+
+.ft-dashboard-inbox-table {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
 }
 
 .ft-dashboard-inbox-row {
-  padding: 0.5rem 0.75rem;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.2rem 0.25rem;
+}
+
+.ft-dashboard-inbox-row:not(:last-child) {
   border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.ft-dashboard-inbox-row:hover {
+  background-color: var(--background-modifier-hover);
 }
 
 .ft-dashboard-inbox-unread {
   font-weight: 600;
-  border-left: 3px solid var(--interactive-accent);
+  border-left: 2px solid var(--interactive-accent);
+  padding-left: 0.5rem;
+}
+
+.ft-dashboard-inbox-cell-title {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ft-dashboard-inbox-cell-source {
+  white-space: nowrap;
+}
+
+.ft-dashboard-inbox-cell-time {
+  white-space: nowrap;
+  text-align: right;
 }
 
 .ft-inbox-item-icon,
 .ft-session-row-icon {
-  opacity: 0.6;
-  margin-right: 0.5rem;
+  opacity: 0.5;
+  margin-right: 0.35rem;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+}
+.ft-inbox-item-icon svg {
+  width: 12px;
+  height: 12px;
 }
 
 .ft-inbox-item-source,
@@ -4787,11 +4828,84 @@
 
 .ft-dashboard-inbox-footer {
   justify-content: flex-end;
-  padding: 0.5rem 0.75rem;
-  background-color: var(--background-secondary);
+  padding: 0.25rem 0;
 }
 
-/* ── UserHubDashboard: Quick Actions ─────────────────────── */
+/* ── UserHubDashboard: Toolbar (Quick Actions + Quick Add) ── */
+
+.ft-dashboard-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+/* ── UserHubDashboard: Separator ─────────────────────────── */
+
+.ft-dashboard-separator {
+  border-top: 1px solid var(--background-modifier-border);
+  margin: 0.5rem 0;
+}
+
+.ft-toolbar-tabs,
+.ft-toolbar-actions {
+  border-left: 1px solid var(--background-modifier-border);
+  padding-left: 0.5rem;
+}
+
+.ft-quick-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0.6;
+  font-size: 0.8em;
+}
+
+.ft-quick-action-btn:hover {
+  opacity: 1;
+  background-color: var(--background-modifier-hover);
+}
+
+.ft-quick-action-label {
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
+/* ── UserHubDashboard: Compact Idea Capture (in Toolbar) ─── */
+
+.ft-idea-capture-compact {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.ft-idea-capture-compact input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── UserHubDashboard: Hub Summary Rows ──────────────────── */
+
+.ft-dashboard-hub-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.25rem;
+  border-radius: 3px;
+}
+
+.ft-dashboard-hub-row:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.ft-dashboard-hub-stat {
+  font-size: 0.8em;
+  margin-left: 0.25rem;
+}
 
 /* ── UserHubSessionPreferences / shared form patterns ────── */
 
@@ -5583,7 +5697,7 @@
    Miscellaneous (Showcase, Canvas, Tabs)
    ============================================================== */
 
-.ft-view-dashboard { flex: 1; min-height: 0; overflow-y: auto; padding: 1.5rem 16px; }
+.ft-view-dashboard { flex: 1; min-height: 0; overflow-y: auto; padding: 1.5rem 16px 2rem; }
 
 /* Visibility toggle icon (Event Catalog) */
 .ft-visibility-toggle {

@@ -2,7 +2,7 @@
    Miscellaneous (Showcase, Canvas, Tabs)
    ============================================================== */
 
-.ft-view-dashboard { flex: 1; min-height: 0; overflow-y: auto; padding: 1.5rem 16px; }
+.ft-view-dashboard { flex: 1; min-height: 0; overflow-y: auto; padding: 1.5rem 16px 2rem; }
 
 /* Visibility toggle icon (Event Catalog) */
 .ft-visibility-toggle {

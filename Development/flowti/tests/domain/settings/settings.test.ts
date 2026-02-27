@@ -132,6 +132,36 @@ describe("FlowtiSettings", () => {
 		});
 	});
 
+	describe("userHubConfig", () => {
+		it("should default kpiMeasures to empty array", () => {
+			const result = FlowtiSettingsSchema.parse({});
+			expect(result.userHubConfig.kpiMeasures).toEqual([]);
+		});
+
+		it("should default visibleHubs to standard 4 hubs", () => {
+			const result = FlowtiSettingsSchema.parse({});
+			expect(result.userHubConfig.visibleHubs).toEqual(["event-catalog", "data-exchange", "analytics", "train"]);
+		});
+
+		it("should default showQuickActions to true", () => {
+			const result = FlowtiSettingsSchema.parse({});
+			expect(result.userHubConfig.showQuickActions).toBe(true);
+		});
+
+		it("should parse custom kpiMeasures", () => {
+			const result = FlowtiSettingsSchema.parse({
+				userHubConfig: { kpiMeasures: ["event-catalog:Events", "analytics:Queries"] },
+			});
+			expect(result.userHubConfig.kpiMeasures).toEqual(["event-catalog:Events", "analytics:Queries"]);
+		});
+
+		it("should enforce max 3 kpiMeasures", () => {
+			expect(() => FlowtiSettingsSchema.parse({
+				userHubConfig: { kpiMeasures: ["a", "b", "c", "d"] },
+			})).toThrow();
+		});
+	});
+
 	describe("safeParseSettings", () => {
 		it("should return parsed settings for valid data", () => {
 			const result = safeParseSettings({ debugMode: true });

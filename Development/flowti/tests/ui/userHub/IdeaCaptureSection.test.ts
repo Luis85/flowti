@@ -137,6 +137,43 @@ describe("IdeaCaptureSection", () => {
 		expect(container.textContent).not.toContain("Recent ideas");
 	});
 
+	// ── renderCompact ──────────────────────────────────────
+
+	describe("renderCompact", () => {
+		it("should render inline input and button without header", () => {
+			const deps = makeDeps();
+			new IdeaCaptureSection(container, deps).renderCompact();
+
+			expect(container.querySelector(".ft-idea-capture-compact")).not.toBeNull();
+			expect(container.querySelector("input")).not.toBeNull();
+			expect(container.querySelector("button")).not.toBeNull();
+			// No header text
+			expect(container.textContent).not.toContain("Capture an idea");
+		});
+
+		it("should call onCapture when compact submit is clicked", () => {
+			const deps = makeDeps();
+			new IdeaCaptureSection(container, deps).renderCompact();
+
+			const input = container.querySelector("input")!;
+			input.value = "Quick idea";
+
+			container.querySelector("button")!.click();
+
+			expect(deps.onCapture).toHaveBeenCalledWith("Quick idea");
+			expect(input.value).toBe("");
+		});
+
+		it("should not show recent ideas in compact mode", () => {
+			const items = [makeIdeaItem("Recent one")];
+			const deps = makeDeps({ inboxService: makeInboxService(items) });
+			new IdeaCaptureSection(container, deps).renderCompact();
+
+			expect(container.textContent).not.toContain("Recent ideas");
+			expect(container.textContent).not.toContain("Recent one");
+		});
+	});
+
 	it("should only show ideas, not other inbox items", () => {
 		const items: InboxItem[] = [
 			makeIdeaItem("My idea"),

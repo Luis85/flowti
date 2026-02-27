@@ -39,7 +39,8 @@
       "Bash(npm run lint)",
       "Bash(git stash)",
       "Bash(git stash pop)",
-      "Bash(node scripts/generate-coverage-report.mjs)"
+      "Bash(node scripts/generate-coverage-report.mjs)",
+      "Bash(npx eslint src/ --max-warnings=0)"
     ]
   }
 }

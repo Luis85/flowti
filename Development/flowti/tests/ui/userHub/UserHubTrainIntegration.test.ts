@@ -495,6 +495,7 @@ describe("UserHubDashboard — train-aware active session", () => {
 			onInboxItemClick: vi.fn(),
 			openSessionWorkspace: vi.fn(),
 			onCreateSession: vi.fn(),
+			getSettings: () => ({ ...DEFAULT_SETTINGS }),
 		};
 	}
 

@@ -183,6 +183,13 @@ export const FlowtiSettingsSchema = z.object({
 	trainCanvasAutoOpen: z.boolean().default(false),
 	analyticsFolder: z.string().default("03 - Resources/Analytics"),
 	startPage: z.enum(["none", "user-hub", "event-catalog", "data-exchange-hub", "analytics-hub", "train-hub"]).default("none"),
+	userHubConfig: z.object({
+		kpiMeasures: z.array(z.string()).max(3).default([]),
+		visibleHubs: z.array(z.string()).default(["event-catalog", "data-exchange", "analytics", "train"]),
+		showQuickActions: z.boolean().default(true),
+		toolbarHubs: z.array(z.string()).default(["event-catalog", "data-exchange", "analytics", "train"]),
+		toolbarActions: z.array(z.string()).default(["new-session", "sessions", "inbox", "preferences", "commands", "activity-log", "watchers"]),
+	}).default({ kpiMeasures: [], visibleHubs: ["event-catalog", "data-exchange", "analytics", "train"], showQuickActions: true, toolbarHubs: ["event-catalog", "data-exchange", "analytics", "train"], toolbarActions: ["new-session", "sessions", "inbox", "preferences", "commands", "activity-log", "watchers"] }),
 	inboxEnabledSources: z.array(z.string()).default([
 		"subscription.matched",
 		"dataExchange.import.completed",

@@ -44,6 +44,8 @@ export interface SettingsEventMap {
 	"settings.updateTrainCanvasAutoOpen": { enabled: boolean };
 	/** Command: update analytics folder path */
 	"settings.updateAnalyticsFolder": { folder: string };
+	/** Command: update User Hub dashboard configuration */
+	"settings.updateUserHubConfig": { config: { kpiMeasures: string[]; visibleHubs: string[]; showQuickActions: boolean; toolbarHubs: string[]; toolbarActions: string[] } };
 	/** Emitted when settings persistence fails */
 	"settings.saveFailed": { error: string };
 }

@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { EventBus } from "../../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../../src/infrastructure/events/types";
 import { UserHubDashboard, type UserHubDashboardDeps } from "../../../src/ui/userHub/UserHubDashboard";
+import { DEFAULT_SETTINGS } from "../../../src/domain/settings/settings";
 import type { HubDashboardProvider } from "../../../src/domain/hub/types";
 import type { IUserService } from "../../../src/domain/user/types";
 import type { InboxItem } from "../../../src/domain/inbox/types";
@@ -119,6 +120,7 @@ function makeDeps(overrides?: Partial<UserHubDashboardDeps>): UserHubDashboardDe
 		navigateToTab: vi.fn(),
 		onInboxItemClick: vi.fn(),
 		openSessionWorkspace: vi.fn(),
+		getSettings: () => ({ ...DEFAULT_SETTINGS }),
 		...overrides,
 	};
 }
@@ -181,7 +183,7 @@ describe("UserHubDashboard", () => {
 
 			dashboard.render();
 
-			expect(container.textContent).toContain("Your inbox is empty");
+			expect(container.textContent).toContain("No inbox items");
 		});
 
 		it("should render inbox items when items exist", () => {
@@ -210,7 +212,10 @@ describe("UserHubDashboard", () => {
 
 			dashboard.render();
 
-			expect(container.textContent).toContain("3 unread");
+			// Unread badge shows just the count number
+			const badges = container.querySelectorAll(".ft-badge");
+			const unreadBadge = Array.from(badges).find((b) => b.textContent === "3");
+			expect(unreadBadge).toBeTruthy();
 		});
 
 		it("should not show unread badge when unread count is 0", () => {
@@ -225,7 +230,7 @@ describe("UserHubDashboard", () => {
 			expect(container.textContent).not.toContain("unread");
 		});
 
-		it("should show source event badge on rows", () => {
+		it("should show source event text on rows", () => {
 			const items = [
 				makeItem({ sourceEvent: "dataExchange.import.completed" }),
 				makeItem({ id: "item-2", sourceEvent: "subscription.matched" }),
@@ -237,10 +242,10 @@ describe("UserHubDashboard", () => {
 
 			dashboard.render();
 
-			const badges = container.querySelectorAll(".ft-badge");
-			const badgeTexts = Array.from(badges).map((b) => b.textContent);
-			expect(badgeTexts).toContain("Import");
-			expect(badgeTexts).toContain("Watcher");
+			const sources = container.querySelectorAll(".ft-dashboard-inbox-cell-source");
+			const sourceTexts = Array.from(sources).map((s) => s.textContent);
+			expect(sourceTexts).toContain("Import");
+			expect(sourceTexts).toContain("Watcher");
 		});
 
 		it("should bold unread items", () => {
@@ -255,7 +260,7 @@ describe("UserHubDashboard", () => {
 
 			dashboard.render();
 
-			const rows = container.querySelectorAll(".ft-catalog-row");
+			const rows = container.querySelectorAll(".ft-dashboard-inbox-row");
 			expect(rows).toHaveLength(2);
 			expect((rows[0] as HTMLElement).classList.contains("ft-dashboard-inbox-unread")).toBe(true);
 			expect((rows[1] as HTMLElement).classList.contains("ft-dashboard-inbox-unread")).toBe(false);
@@ -273,7 +278,7 @@ describe("UserHubDashboard", () => {
 
 			dashboard.render();
 
-			const rows = container.querySelectorAll(".ft-catalog-row");
+			const rows = container.querySelectorAll(".ft-dashboard-inbox-row");
 			expect((rows[0] as HTMLElement).classList.contains("ft-dashboard-inbox-unread")).toBe(true);
 			expect((rows[1] as HTMLElement).classList.contains("ft-dashboard-inbox-unread")).toBe(false);
 		});
@@ -289,7 +294,7 @@ describe("UserHubDashboard", () => {
 
 			dashboard.render();
 
-			const rows = container.querySelectorAll(".ft-catalog-row");
+			const rows = container.querySelectorAll(".ft-dashboard-inbox-row");
 			expect(rows).toHaveLength(5);
 		});
 
@@ -333,7 +338,7 @@ describe("UserHubDashboard", () => {
 
 			dashboard.render();
 
-			const row = container.querySelector(".ft-catalog-row") as HTMLElement;
+			const row = container.querySelector(".ft-dashboard-inbox-row") as HTMLElement;
 			row.click();
 
 			expect(onInboxItemClick).toHaveBeenCalledWith(item);
@@ -381,7 +386,7 @@ describe("UserHubDashboard", () => {
 	// ── Hub summaries ───────────────────────────────────────
 
 	describe("hub summaries", () => {
-		it("should render stat cards for each provider stat", () => {
+		it("should render hub rows with inline stats", () => {
 			const providers = [
 				makeProvider({
 					getHubId: () => "hub-a",
@@ -397,16 +402,22 @@ describe("UserHubDashboard", () => {
 				}),
 			];
 
+			const settings = { ...DEFAULT_SETTINGS, userHubConfig: { ...DEFAULT_SETTINGS.userHubConfig, visibleHubs: ["hub-a"] } };
 			const dashboard = new UserHubDashboard(container, makeDeps({
 				hubRegistry: makeHubRegistry(providers) as never,
 				eventBus,
+				getSettings: () => settings,
 			}));
 
 			dashboard.render();
 
-			// Should show prefixed labels
-			expect(container.textContent).toContain("Hub A — Events");
-			expect(container.textContent).toContain("Hub A — Domains");
+			const rows = container.querySelectorAll(".ft-dashboard-hub-row");
+			expect(rows).toHaveLength(1);
+			expect(container.textContent).toContain("Hub A");
+			expect(container.textContent).toContain("42");
+			expect(container.textContent).toContain("Events");
+			expect(container.textContent).toContain("3");
+			expect(container.textContent).toContain("Domains");
 		});
 
 		it("should filter out the user-hub provider", () => {
@@ -422,8 +433,10 @@ describe("UserHubDashboard", () => {
 
 			dashboard.render();
 
-			expect(container.textContent).not.toContain("User Hub — Items");
-			expect(container.textContent).toContain("Event Catalog — Items");
+			const rows = container.querySelectorAll(".ft-dashboard-hub-row");
+			const rowTexts = Array.from(rows).map((r) => r.textContent);
+			expect(rowTexts.some((t) => t?.includes("User Hub"))).toBe(false);
+			expect(rowTexts.some((t) => t?.includes("Event Catalog"))).toBe(true);
 		});
 
 		it("should not render hub summaries section when no other providers", () => {
@@ -438,21 +451,14 @@ describe("UserHubDashboard", () => {
 
 			dashboard.render();
 
-			expect(container.textContent).not.toContain("Your Hubs");
+			expect(container.querySelectorAll(".ft-dashboard-hub-row")).toHaveLength(0);
 		});
 
-		it("should call openHub with tabId when stat card is clicked", () => {
+		it("should call openHub when hub row is clicked", () => {
 			const hubRegistry = makeHubRegistry([
 				makeProvider({
 					getHubId: () => "event-catalog",
 					getDisplayName: () => "Event Catalog",
-					getSummary: () => ({
-						stats: [
-							{ label: "Events", value: "42", icon: "list", tabId: "events" },
-						],
-						healthLevel: "healthy",
-						actionItemCount: 0,
-					}),
 				}),
 			]);
 
@@ -463,56 +469,57 @@ describe("UserHubDashboard", () => {
 
 			dashboard.render();
 
-			// Find the stat card and click it
-			const statCards = container.querySelectorAll(".ft-stat-card");
-			expect(statCards.length).toBeGreaterThanOrEqual(1);
-			(statCards[0] as HTMLElement).click();
+			const rows = container.querySelectorAll(".ft-dashboard-hub-row");
+			expect(rows.length).toBeGreaterThanOrEqual(1);
+			(rows[0] as HTMLElement).click();
 
-			expect(hubRegistry.openHub).toHaveBeenCalledWith("event-catalog", "events");
-		});
-
-		it("should call openHub without tabId for stats lacking tabId", () => {
-			const hubRegistry = makeHubRegistry([
-				makeProvider({
-					getHubId: () => "event-catalog",
-					getDisplayName: () => "Event Catalog",
-					getSummary: () => ({
-						stats: [
-							{ label: "Some Stat", value: "8", icon: "tag" },
-						],
-						healthLevel: "healthy",
-						actionItemCount: 0,
-					}),
-				}),
-			]);
-
-			const dashboard = new UserHubDashboard(container, makeDeps({
-				hubRegistry: hubRegistry as never,
-				eventBus,
-			}));
-
-			dashboard.render();
-
-			const statCards = container.querySelectorAll(".ft-stat-card");
-			expect(statCards.length).toBeGreaterThanOrEqual(1);
-			(statCards[0] as HTMLElement).click();
-
-			expect(hubRegistry.openHub).toHaveBeenCalledWith("event-catalog", undefined);
+			expect(hubRegistry.openHub).toHaveBeenCalledWith("event-catalog");
 		});
 	});
 
 	// ── Quick actions ───────────────────────────────────────
 
 	describe("quick actions", () => {
-		it("should render 7 quick action buttons", () => {
+		it("should render tab and action buttons in separate groups", () => {
 			const dashboard = new UserHubDashboard(container, makeDeps({ eventBus }));
 
 			dashboard.render();
 
-			// Quick actions use ft-nav-link class; inbox "View all" also uses it
-			// With empty inbox, only quick actions should produce ft-nav-link
-			const actions = container.querySelectorAll(".ft-nav-link");
-			expect(actions).toHaveLength(7);
+			// Tabs: sessions, inbox, commands, preferences
+			const tabs = container.querySelectorAll(".ft-toolbar-tabs .ft-quick-action-btn");
+			expect(tabs).toHaveLength(4);
+			// Actions: activity-log, watchers (no new-session without onCreateSession)
+			const actions = container.querySelectorAll(".ft-toolbar-actions .ft-quick-action-btn");
+			expect(actions).toHaveLength(2);
+		});
+
+		it("should render hub buttons from registry filtered by toolbarHubs", () => {
+			const providers = [makeProvider({ getHubId: () => "event-catalog", getDisplayName: () => "Event Catalog", getIcon: () => "list" })];
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				hubRegistry: makeHubRegistry(providers) as never,
+			}));
+
+			dashboard.render();
+
+			const hubBtns = container.querySelectorAll(".ft-toolbar-hub-btn");
+			expect(hubBtns).toHaveLength(1);
+			expect((hubBtns[0] as HTMLElement).title).toBe("Event Catalog");
+		});
+
+		it("should hide hub buttons not in toolbarHubs", () => {
+			const providers = [makeProvider({ getHubId: () => "event-catalog", getDisplayName: () => "Event Catalog", getIcon: () => "list" })];
+			const settings = { ...DEFAULT_SETTINGS, userHubConfig: { ...DEFAULT_SETTINGS.userHubConfig, toolbarHubs: [] } };
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				hubRegistry: makeHubRegistry(providers) as never,
+				getSettings: () => settings,
+			}));
+
+			dashboard.render();
+
+			const hubBtns = container.querySelectorAll(".ft-toolbar-hub-btn");
+			expect(hubBtns).toHaveLength(0);
 		});
 
 		it("should navigate to sessions tab on Sessions click", () => {
@@ -521,8 +528,10 @@ describe("UserHubDashboard", () => {
 
 			dashboard.render();
 
-			const actions = container.querySelectorAll(".ft-nav-link");
-			(actions[0] as HTMLElement).click();
+			const btn = Array.from(container.querySelectorAll(".ft-quick-action-btn"))
+				.find((el) => (el as HTMLElement).title === "Sessions") as HTMLElement;
+			expect(btn).toBeDefined();
+			btn.click();
 
 			expect(navigateToTab).toHaveBeenCalledWith("sessions");
 		});
@@ -533,8 +542,10 @@ describe("UserHubDashboard", () => {
 
 			dashboard.render();
 
-			const actions = container.querySelectorAll(".ft-nav-link");
-			(actions[1] as HTMLElement).click();
+			const btn = Array.from(container.querySelectorAll(".ft-quick-action-btn"))
+				.find((el) => (el as HTMLElement).title === "Inbox") as HTMLElement;
+			expect(btn).toBeDefined();
+			btn.click();
 
 			expect(navigateToTab).toHaveBeenCalledWith("inbox");
 		});
@@ -545,27 +556,31 @@ describe("UserHubDashboard", () => {
 
 			dashboard.render();
 
-			const actions = container.querySelectorAll(".ft-nav-link");
-			(actions[2] as HTMLElement).click();
+			const btn = Array.from(container.querySelectorAll(".ft-quick-action-btn"))
+				.find((el) => (el as HTMLElement).title === "Preferences") as HTMLElement;
+			expect(btn).toBeDefined();
+			btn.click();
 
 			expect(navigateToTab).toHaveBeenCalledWith("preferences");
 		});
 
-		it("should emit ui.openEventCatalog on Event Catalog click", async () => {
-			const spy = vi.fn();
-			eventBus.on("ui.openEventCatalog", spy);
-
-			const dashboard = new UserHubDashboard(container, makeDeps({ eventBus }));
+		it("should open hub when hub button is clicked", async () => {
+			const hubRegistry = makeHubRegistry([
+				makeProvider({ getHubId: () => "event-catalog", getDisplayName: () => "Event Catalog", getIcon: () => "list" }),
+			]);
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				hubRegistry: hubRegistry as never,
+			}));
 
 			dashboard.render();
 
-			const actions = container.querySelectorAll(".ft-nav-link");
-			(actions[3] as HTMLElement).click();
+			const hubBtn = container.querySelector(".ft-toolbar-hub-btn") as HTMLElement;
+			expect(hubBtn).toBeTruthy();
+			hubBtn.click();
 
-			// Allow async event emission to settle
 			await new Promise((r) => setTimeout(r, 10));
-
-			expect(spy).toHaveBeenCalled();
+			expect(hubRegistry.openHub).toHaveBeenCalledWith("event-catalog");
 		});
 
 		it("should show New Session button when onCreateSession is provided", () => {
@@ -574,9 +589,10 @@ describe("UserHubDashboard", () => {
 
 			dashboard.render();
 
-			const actions = container.querySelectorAll(".ft-nav-link");
-			expect(actions).toHaveLength(8);
-			expect(actions[0].textContent).toContain("New Session");
+			const actions = container.querySelectorAll(".ft-toolbar-actions .ft-quick-action-btn");
+			expect(actions).toHaveLength(3);
+			const titles = Array.from(actions).map((a) => (a as HTMLElement).title);
+			expect(titles).toContain("New session");
 		});
 
 		it("should call onCreateSession when New Session button is clicked", () => {
@@ -585,8 +601,10 @@ describe("UserHubDashboard", () => {
 
 			dashboard.render();
 
-			const actions = container.querySelectorAll(".ft-nav-link");
-			(actions[0] as HTMLElement).click();
+			const btn = Array.from(container.querySelectorAll(".ft-quick-action-btn"))
+				.find((el) => (el as HTMLElement).title === "New session") as HTMLElement;
+			expect(btn).toBeDefined();
+			btn.click();
 
 			expect(onCreateSession).toHaveBeenCalled();
 		});
@@ -596,10 +614,46 @@ describe("UserHubDashboard", () => {
 
 			dashboard.render();
 
-			const actions = container.querySelectorAll(".ft-nav-link");
-			expect(actions).toHaveLength(7);
-			const labels = Array.from(actions).map((a) => a.textContent);
-			expect(labels.every((l) => !l?.includes("New Session"))).toBe(true);
+			const actions = container.querySelectorAll(".ft-toolbar-actions .ft-quick-action-btn");
+			expect(actions).toHaveLength(2);
+			const titles = Array.from(actions).map((a) => (a as HTMLElement).title);
+			expect(titles.every((t) => t !== "New session")).toBe(true);
+		});
+
+		it("should hide tabs and actions when showQuickActions is false", () => {
+			const settings = { ...DEFAULT_SETTINGS, userHubConfig: { ...DEFAULT_SETTINGS.userHubConfig, showQuickActions: false } };
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				getSettings: () => settings,
+			}));
+
+			dashboard.render();
+
+			// Hub buttons should still be there, but no tabs or actions
+			expect(container.querySelector(".ft-toolbar-tabs")).toBeNull();
+			expect(container.querySelector(".ft-toolbar-actions")).toBeNull();
+		});
+
+		it("should only show configured toolbar actions", () => {
+			const settings = {
+				...DEFAULT_SETTINGS,
+				userHubConfig: { ...DEFAULT_SETTINGS.userHubConfig, toolbarActions: ["sessions", "inbox"] },
+			};
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				getSettings: () => settings,
+			}));
+
+			dashboard.render();
+
+			// sessions and inbox are tabs
+			const tabs = container.querySelectorAll(".ft-toolbar-tabs .ft-quick-action-btn");
+			expect(tabs).toHaveLength(2);
+			const titles = Array.from(tabs).map((a) => (a as HTMLElement).title);
+			expect(titles).toContain("Sessions");
+			expect(titles).toContain("Inbox");
+			// No actions should be shown (none configured)
+			expect(container.querySelector(".ft-toolbar-actions")).toBeNull();
 		});
 	});
 
@@ -1074,6 +1128,102 @@ describe("UserHubDashboard", () => {
 			(cards[1] as HTMLElement).click();
 
 			expect(onCreateSession).toHaveBeenCalled();
+		});
+	});
+
+	// ── Toolbar (quick actions + compact capture) ──────────
+
+	describe("toolbar", () => {
+		it("should render toolbar with quick actions and compact capture", () => {
+			const onCaptureIdea = vi.fn();
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				onCaptureIdea,
+			}));
+
+			dashboard.render();
+
+			expect(container.querySelector(".ft-dashboard-toolbar")).toBeTruthy();
+			expect(container.querySelector(".ft-idea-capture-compact")).toBeTruthy();
+		});
+
+		it("should not render compact idea capture when onCaptureIdea is absent", () => {
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				onCaptureIdea: undefined,
+			}));
+
+			dashboard.render();
+
+			expect(container.querySelector(".ft-idea-capture-compact")).toBeNull();
+		});
+
+	});
+
+	// ── Visible hubs filtering ─────────────────────────────
+
+	describe("visible hubs filtering", () => {
+		it("should only show hubs listed in visibleHubs setting", () => {
+			const providers = [
+				makeProvider({
+					getHubId: () => "event-catalog",
+					getDisplayName: () => "Event Catalog",
+					getSummary: () => ({
+						stats: [{ label: "Events", value: "10", icon: "list", tabId: "events" }],
+						healthLevel: "healthy" as const,
+						actionItemCount: 0,
+					}),
+				}),
+				makeProvider({
+					getHubId: () => "analytics",
+					getDisplayName: () => "Analytics",
+					getSummary: () => ({
+						stats: [{ label: "Queries", value: "5", icon: "search", tabId: "queries" }],
+						healthLevel: "healthy" as const,
+						actionItemCount: 0,
+					}),
+				}),
+			];
+			const settings = {
+				...DEFAULT_SETTINGS,
+				userHubConfig: { ...DEFAULT_SETTINGS.userHubConfig, visibleHubs: ["event-catalog"] },
+			};
+
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				hubRegistry: makeHubRegistry(providers) as never,
+				getSettings: () => settings,
+			}));
+
+			dashboard.render();
+
+			// Hub summary rows should only include the visible hub
+			const hubRows = container.querySelectorAll(".ft-dashboard-hub-row");
+			expect(hubRows).toHaveLength(1);
+			const hubRowTexts = Array.from(hubRows).map((r) => r.textContent);
+			expect(hubRowTexts[0]).toContain("Event Catalog");
+			// Analytics may appear in toolbar hub buttons but NOT in summary rows
+			expect(hubRowTexts.some((t) => t?.includes("Analytics"))).toBe(false);
+		});
+
+		it("should hide hub summaries section when no visible hubs match", () => {
+			const providers = [
+				makeProvider({ getHubId: () => "analytics", getDisplayName: () => "Analytics" }),
+			];
+			const settings = {
+				...DEFAULT_SETTINGS,
+				userHubConfig: { ...DEFAULT_SETTINGS.userHubConfig, visibleHubs: [] },
+			};
+
+			const dashboard = new UserHubDashboard(container, makeDeps({
+				eventBus,
+				hubRegistry: makeHubRegistry(providers) as never,
+				getSettings: () => settings,
+			}));
+
+			dashboard.render();
+
+			expect(container.textContent).not.toContain("Your hubs");
 		});
 	});
 

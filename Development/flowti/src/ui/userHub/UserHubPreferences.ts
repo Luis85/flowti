@@ -18,6 +18,7 @@ import { UserHubTrainPreferences } from "./UserHubTrainPreferences";
 import { attachFolderSuggest } from "../FolderSuggest";
 
 const CATEGORIES: ReadonlyArray<{ id: PreferencesCategory; label: string; icon: string; description: string }> = [
+	{ id: "dashboard", label: "Dashboard", icon: "layout-dashboard", description: "KPI measures, visible hubs, quick actions" },
 	{ id: "profile", label: "Profile", icon: "user", description: "Display name and identity" },
 	{ id: "inbox", label: "Inbox", icon: "inbox", description: "Notification source toggles" },
 	{ id: "sessions", label: "Sessions", icon: "timer", description: "Activity filter, types, templates" },
@@ -68,7 +69,9 @@ export class UserHubPreferences {
 			return;
 		}
 
-		if (category === "profile") {
+		if (category === "dashboard") {
+			this.renderDashboardDetail();
+		} else if (category === "profile") {
 			this.renderProfileDetail();
 		} else if (category === "inbox") {
 			this.renderInboxDetail();
@@ -95,6 +98,214 @@ export class UserHubPreferences {
 			text: "Select a category to configure your personal settings. Changes are saved automatically.",
 			cls: "ft-text-muted",
 		});
+	}
+
+	private renderDashboardDetail(): void {
+		const section = this.detailEl.createDiv({ cls: "ft-detail-section" });
+		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		const icon = header.createSpan();
+		setIcon(icon, "layout-dashboard");
+		icon.addClass("ft-icon-muted");
+		header.createEl("h3", { text: "Dashboard", cls: "ft-heading ft-m-0" });
+
+		section.createEl("p", {
+			text: "Configure KPI measures, visible hub summaries, and quick action buttons on the dashboard homepage.",
+			cls: "ft-text-sm ft-text-muted",
+		});
+
+		const settings = this.deps.getSettings();
+		const config = { ...settings.userHubConfig };
+		const kpiMeasures = [...config.kpiMeasures];
+
+		// ── KPI Measures ──
+		const kpiSection = section.createDiv({ cls: "ft-detail-section ft-pref-folder-section-mt" });
+		const kpiHeader = kpiSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		const kpiIcon = kpiHeader.createSpan();
+		setIcon(kpiIcon, "gauge");
+		kpiIcon.addClass("ft-icon-muted");
+		// eslint-disable-next-line obsidianmd/ui/sentence-case
+		kpiHeader.createEl("h4", { text: "KPI measures", cls: "ft-heading ft-m-0" });
+
+		kpiSection.createEl("p", {
+			text: "Choose up to 3 hub statistics to display on the KPI row. Leave empty for default.",
+			cls: "ft-text-sm ft-text-muted",
+		});
+
+		// Build available options from hub registry
+		const availableStats: Array<{ ref: string; display: string }> = [];
+		const registry = this.deps.hubRegistry;
+		if (registry) {
+			for (const provider of registry.getAll()) {
+				const hubId = provider.getHubId();
+				if (hubId === "user-hub") continue;
+				const summary = provider.getSummary();
+				for (const stat of summary.stats) {
+					availableStats.push({
+						ref: `${hubId}:${stat.label}`,
+						display: `${provider.getDisplayName()} \u2014 ${stat.label}`,
+					});
+				}
+			}
+		}
+
+		for (let i = 0; i < 3; i++) {
+			const row = kpiSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-pref-row" });
+			row.createSpan({ text: `Measure ${i + 1}`, cls: "ft-text-sm ft-pref-label-sm" });
+
+			const selectEl = row.createEl("select", { cls: "dropdown ft-flex-1" });
+			const emptyOpt = selectEl.createEl("option", { text: "None" });
+			emptyOpt.value = "";
+
+			for (const opt of availableStats) {
+				const optEl = selectEl.createEl("option", { text: opt.display });
+				optEl.value = opt.ref;
+			}
+
+			selectEl.value = kpiMeasures[i] ?? "";
+			selectEl.addEventListener("change", () => {
+				kpiMeasures[i] = selectEl.value;
+				const filtered = kpiMeasures.filter((m) => m !== "");
+				void this.deps.eventBus.emit("settings.updateUserHubConfig", {
+					config: { ...config, kpiMeasures: filtered },
+				});
+				this.deps.scheduleRender();
+			});
+		}
+
+		// ── Visible Hubs ──
+		const hubSection = section.createDiv({ cls: "ft-detail-section ft-pref-folder-section-mt" });
+		const hubHeader = hubSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		const hubIcon = hubHeader.createSpan();
+		setIcon(hubIcon, "boxes");
+		hubIcon.addClass("ft-icon-muted");
+		hubHeader.createEl("h4", { text: "Visible hubs", cls: "ft-heading ft-m-0" });
+
+		hubSection.createEl("p", {
+			text: "Choose which hub summaries appear on the dashboard.",
+			cls: "ft-text-sm ft-text-muted",
+		});
+
+		const visibleHubs = new Set(config.visibleHubs);
+		if (registry) {
+			for (const provider of registry.getAll()) {
+				const hubId = provider.getHubId();
+				if (hubId === "user-hub") continue;
+
+				const row = hubSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-pref-row" });
+				const toggle = row.createEl("input");
+				toggle.type = "checkbox";
+				toggle.checked = visibleHubs.has(hubId);
+				toggle.addEventListener("change", () => {
+					if (toggle.checked) {
+						visibleHubs.add(hubId);
+					} else {
+						visibleHubs.delete(hubId);
+					}
+					void this.deps.eventBus.emit("settings.updateUserHubConfig", {
+						config: { ...config, visibleHubs: Array.from(visibleHubs) },
+					});
+					this.deps.scheduleRender();
+				});
+
+				const rowIcon = row.createSpan();
+				setIcon(rowIcon, provider.getIcon());
+				rowIcon.addClass("ft-icon-muted");
+				row.createSpan({ text: provider.getDisplayName(), cls: "ft-text-sm" });
+			}
+		}
+
+		// ── Toolbar Actions ──
+		const qaSection = section.createDiv({ cls: "ft-detail-section ft-pref-folder-section-mt" });
+		const qaHeader = qaSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		const qaIcon = qaHeader.createSpan();
+		setIcon(qaIcon, "zap");
+		qaIcon.addClass("ft-icon-muted");
+		qaHeader.createEl("h4", { text: "Toolbar actions", cls: "ft-heading ft-m-0" });
+
+		qaSection.createEl("p", {
+			text: "Configure which buttons appear in the toolbar.",
+			cls: "ft-text-sm ft-text-muted",
+		});
+
+		const qaToggleRow = qaSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-pref-row" });
+		const qaToggle = qaToggleRow.createEl("input");
+		qaToggle.type = "checkbox";
+		qaToggle.checked = config.showQuickActions;
+		qaToggle.addEventListener("change", () => {
+			void this.deps.eventBus.emit("settings.updateUserHubConfig", {
+				config: { ...config, showQuickActions: qaToggle.checked },
+			});
+			this.deps.scheduleRender();
+		});
+		qaToggleRow.createSpan({ text: "Show action buttons in toolbar", cls: "ft-text-sm" });
+
+		// Hub button toggles
+		const toolbarHubs = new Set(config.toolbarHubs ?? []);
+		if (registry) {
+			qaSection.createDiv({ text: "Hub buttons", cls: "ft-text-sm ft-font-semibold ft-mt-2" });
+			for (const provider of registry.getAll()) {
+				const hubId = provider.getHubId();
+				if (hubId === "user-hub") continue;
+
+				const row = qaSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-pref-row" });
+				const toggle = row.createEl("input");
+				toggle.type = "checkbox";
+				toggle.checked = toolbarHubs.has(hubId);
+				toggle.addEventListener("change", () => {
+					if (toggle.checked) {
+						toolbarHubs.add(hubId);
+					} else {
+						toolbarHubs.delete(hubId);
+					}
+					void this.deps.eventBus.emit("settings.updateUserHubConfig", {
+						config: { ...config, toolbarHubs: Array.from(toolbarHubs) },
+					});
+					this.deps.scheduleRender();
+				});
+
+				const actIcon = row.createSpan();
+				setIcon(actIcon, provider.getIcon());
+				actIcon.addClass("ft-icon-muted");
+				row.createSpan({ text: provider.getDisplayName(), cls: "ft-text-sm" });
+			}
+		}
+
+		// Individual action toggles
+		qaSection.createDiv({ text: "Tab & action buttons", cls: "ft-text-sm ft-font-semibold ft-mt-2" });
+		const toolbarActions = new Set(config.toolbarActions ?? []);
+		const ALL_TOOLBAR_ACTIONS: ReadonlyArray<{ id: string; icon: string; label: string }> = [
+			{ id: "new-session", icon: "plus-circle", label: "New session" },
+			{ id: "sessions", icon: "timer", label: "Sessions" },
+			{ id: "inbox", icon: "inbox", label: "Inbox" },
+			{ id: "preferences", icon: "settings", label: "Preferences" },
+			{ id: "commands", icon: "terminal", label: "Commands" },
+			{ id: "activity-log", icon: "activity", label: "Activity log" },
+			{ id: "watchers", icon: "bell", label: "Watchers" },
+		];
+
+		for (const act of ALL_TOOLBAR_ACTIONS) {
+			const row = qaSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-pref-row" });
+
+			const toggle = row.createEl("input");
+			toggle.type = "checkbox";
+			toggle.checked = toolbarActions.has(act.id);
+			toggle.addEventListener("change", () => {
+				if (toggle.checked) {
+					toolbarActions.add(act.id);
+				} else {
+					toolbarActions.delete(act.id);
+				}
+				void this.deps.eventBus.emit("settings.updateUserHubConfig", {
+					config: { ...config, toolbarActions: Array.from(toolbarActions) },
+				});
+				this.deps.scheduleRender();
+			});
+
+			const actIcon = row.createSpan();
+			setIcon(actIcon, act.icon);
+			actIcon.addClass("ft-icon-muted");
+			row.createSpan({ text: act.label, cls: "ft-text-sm" });
+		}
 	}
 
 	private renderProfileDetail(): void {

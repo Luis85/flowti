@@ -222,6 +222,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 			onCaptureIdea: (title: string) => {
 				void this.eventBus.emit("ui.captureIdea", { title });
 			},
+			getSettings: () => this.state.settings,
 		});
 
 		this.inbox = new UserHubInbox(this.masterTreeEl, this.detailPanelEl, deps);
@@ -408,6 +409,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 			getSettings: () => this.state.settings,
 			trainService: this.trainService ?? undefined,
 			commandRegistry: this.commandRegistry ?? undefined,
+			hubRegistry: this.hubRegistry,
 		};
 	}
 

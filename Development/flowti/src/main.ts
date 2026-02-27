@@ -54,6 +54,7 @@ import { EventCatalogProvider } from "./domain/hub/EventCatalogProvider";
 import { DataExchangeProvider } from "./domain/hub/DataExchangeProvider";
 import { AnalyticsHubProvider } from "./domain/hub/AnalyticsHubProvider";
 import { UserHubProvider } from "./domain/hub/UserHubProvider";
+import { TrainHubProvider } from "./domain/hub/TrainHubProvider";
 import { UserHubView, VIEW_TYPE_USER_HUB } from "./ui/UserHubView";
 import { SessionWorkspaceView, VIEW_TYPE_SESSION_WORKSPACE } from "./ui/SessionWorkspaceView";
 import { TrainMainView, VIEW_TYPE_TRAIN_MAIN } from "./ui/train/TrainMainView";
@@ -1422,6 +1423,7 @@ export default class FlowtiBasePlugin extends Plugin {
 		}));
 		this.hubRegistry.register(new DataExchangeProvider(this.dataExchangeService!));
 		this.hubRegistry.register(new AnalyticsHubProvider(this.analyticsService!));
+		this.hubRegistry.register(new TrainHubProvider(this.trainService!));
 
 		this.registerView(VIEW_TYPE_USER_HUB, (leaf) =>
 			new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.sessionService!, this.nudgeService!, this.onboardingService!, this.settings.inboxEnabledSources, this.settings, this.trainService, this.commands),
