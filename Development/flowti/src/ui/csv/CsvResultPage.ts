@@ -72,18 +72,16 @@ export class CsvResultPage {
 		const headerRow = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });
 		const hIcon = headerRow.createSpan();
 		setIcon(hIcon, "x-circle");
-		hIcon.style.color = "var(--text-error)";
+		hIcon.addClass("ft-text-error-color");
 		headerRow.createEl("h3", { text: "Import failed", cls: "ft-heading ft-heading-sm" });
 
-		const errorCard = container.createDiv({ cls: "ft-card ft-mt-2" });
-		errorCard.style.borderLeft = "3px solid var(--text-error)";
+		const errorCard = container.createDiv({ cls: "ft-card ft-mt-2 ft-result-error-border" });
 		errorCard.createDiv({ text: "Error", cls: "ft-detail-section-header ft-mb-2" });
 		errorCard.createDiv({ text: state.importError!, cls: "ft-text-sm" });
 
 		const actionsCard = container.createDiv({ cls: "ft-card ft-mt-3" });
 		actionsCard.createDiv({ text: "What's next", cls: "ft-detail-section-header ft-mb-2" });
-		const actions = actionsCard.createDiv({ cls: "ft-flex ft-gap-2" });
-		actions.style.flexWrap = "wrap";
+		const actions = actionsCard.createDiv({ cls: "ft-flex ft-gap-2 ft-flex-wrap" });
 
 		const retryBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm mod-cta" });
 		setIcon(retryBtn.createSpan({ cls: "flowti-csv-btn-icon" }), "refresh-cw");
@@ -129,9 +127,9 @@ export class CsvResultPage {
 		const headerRow = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });
 		const hIcon = headerRow.createSpan();
 		setIcon(hIcon, statusIcon);
-		if (hasErrors) hIcon.style.color = "var(--text-error)";
-		else if (!allSkipped) hIcon.style.color = "var(--text-success, var(--interactive-accent))";
-		else hIcon.style.color = "var(--text-muted)";
+		if (hasErrors) hIcon.addClass("ft-text-error-color");
+		else if (!allSkipped) hIcon.addClass("ft-text-success-color");
+		else hIcon.addClass("ft-text-muted");
 		headerRow.createEl("h3", { text: statusText, cls: "ft-heading ft-heading-sm" });
 
 		// ── Outcome summary card ──
@@ -168,8 +166,7 @@ export class CsvResultPage {
 
 		// ── Error details ──
 		if (r.errors.length > 0) {
-			const errorSection = container.createDiv({ cls: "ft-card ft-mt-2" });
-			errorSection.style.borderLeft = "3px solid var(--text-error)";
+			const errorSection = container.createDiv({ cls: "ft-card ft-mt-2 ft-result-error-border" });
 			errorSection.createDiv({ text: `Errors (${r.errors.length})`, cls: "ft-detail-section-header ft-mb-2" });
 
 			const errorList = errorSection.createDiv({ cls: "ft-flex-col ft-gap-1 ft-text-sm" });
@@ -190,8 +187,7 @@ export class CsvResultPage {
 		// ── Call to actions ──
 		const actionsCard = container.createDiv({ cls: "ft-card ft-mt-3" });
 		actionsCard.createDiv({ text: "What's next", cls: "ft-detail-section-header ft-mb-2" });
-		const actions = actionsCard.createDiv({ cls: "ft-flex ft-gap-2" });
-		actions.style.flexWrap = "wrap";
+		const actions = actionsCard.createDiv({ cls: "ft-flex ft-gap-2 ft-flex-wrap" });
 
 		// Open target folder
 		const openFolderBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm" });

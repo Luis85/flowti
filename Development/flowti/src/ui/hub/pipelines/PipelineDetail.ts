@@ -50,7 +50,7 @@ export class PipelineDetail {
 				});
 				const eIcon = exportBadge.createSpan();
 				setIcon(eIcon, "file-output");
-				eIcon.style.marginRight = "0.25rem";
+				eIcon.addClass("ft-mr-025");
 				exportBadge.prepend(eIcon);
 			}
 		}
@@ -120,8 +120,7 @@ export class PipelineDetail {
 		}
 
 		// Delete
-		const deleteLink = actions.createEl("span", { cls: "ft-nav-link" });
-		deleteLink.style.color = "var(--text-error)";
+		const deleteLink = actions.createEl("span", { cls: "ft-nav-link ft-text-error" });
 		const delIcon = deleteLink.createSpan();
 		setIcon(delIcon, "trash-2");
 		deleteLink.appendText(" Delete");

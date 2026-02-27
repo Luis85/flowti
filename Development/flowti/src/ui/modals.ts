@@ -205,13 +205,12 @@ export class NewSessionModal extends Modal {
 					.setValue(title)
 					.onChange((value) => {
 						title = value;
-						if (value.trim()) titleError.style.display = "none";
+						if (value.trim()) titleError.addClass("ft-hidden");
 					})
 			);
 
-		const titleError = contentEl.createDiv({ cls: "ft-field-error" });
+		const titleError = contentEl.createDiv({ cls: "ft-field-error ft-field-error-inline ft-hidden" });
 		titleError.setText("Title is required");
-		titleError.style.cssText = "color:var(--text-error);font-size:var(--font-smallest);margin-top:-0.5rem;margin-bottom:0.75rem;padding-left:0.5rem;display:none;";
 
 		new Setting(contentEl)
 			.setName("Type")
@@ -281,22 +280,18 @@ export class NewSessionModal extends Modal {
 		);
 
 		// Goals section — same UX as workspace: Enter to add, x to remove
-		const goalsContainer = contentEl.createDiv({ cls: "ft-goals-repeater" });
-		goalsContainer.style.marginBottom = "1rem";
+		const goalsContainer = contentEl.createDiv({ cls: "ft-goals-repeater ft-goals-container" });
 		goalsContainer.createDiv({ cls: "setting-item-name", text: "Goals" });
-		goalsContainer.createDiv({ cls: "setting-item-description", text: "Press Enter to add a goal" }).style.marginBottom = "8px";
+		goalsContainer.createDiv({ cls: "setting-item-description ft-desc-setting-margin", text: "Press Enter to add a goal" });
 
 		const goalsList = goalsContainer.createDiv({ cls: "ft-goals-list" });
 
 		const renderGoalsList = (): void => {
 			goalsList.empty();
 			goals.forEach((text, i) => {
-				const row = goalsList.createDiv();
-				row.style.cssText = "display:flex;align-items:center;gap:8px;padding:4px 0;";
-				const label = row.createEl("span", { text });
-				label.style.cssText = "flex:1;color:var(--text-normal);";
-				const removeBtn = row.createEl("button", { text: "\u00d7", cls: "clickable-icon" });
-				removeBtn.style.cssText = "color:var(--text-muted);cursor:pointer;border:none;background:none;font-size:16px;padding:0 4px;";
+				const row = goalsList.createDiv({ cls: "ft-goal-row" });
+				row.createEl("span", { text, cls: "ft-goal-label" });
+				const removeBtn = row.createEl("button", { text: "\u00d7", cls: "clickable-icon ft-goal-remove-btn" });
 				removeBtn.addEventListener("click", () => {
 					goals.splice(i, 1);
 					renderGoalsList();
@@ -305,11 +300,9 @@ export class NewSessionModal extends Modal {
 		};
 		renderGoalsList();
 
-		const addRow = goalsContainer.createDiv();
-		addRow.style.cssText = "display:flex;gap:8px;margin-top:8px;";
-		const goalInput = addRow.createEl("input", { type: "text" });
+		const addRow = goalsContainer.createDiv({ cls: "ft-goal-add-row" });
+		const goalInput = addRow.createEl("input", { type: "text", cls: "ft-goal-input" });
 		goalInput.placeholder = "Add goal...";
-		goalInput.style.cssText = "flex:1;padding:4px 8px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);color:var(--text-normal);";
 		goalInput.addEventListener("keydown", (e: KeyboardEvent) => {
 			if (e.key === "Enter" && goalInput.value.trim()) {
 				goals.push(goalInput.value.trim());
@@ -326,7 +319,7 @@ export class NewSessionModal extends Modal {
 				btn.setButtonText("Create").setCta().onClick(() => {
 					const trimmed = title.trim();
 					if (!trimmed) {
-						titleError.style.display = "block";
+						titleError.removeClass("ft-hidden");
 						return;
 					}
 					this.onSubmit(trimmed, type, duration, focusFile.trim() || null, goals.filter((g) => g.trim()), extra);
@@ -367,8 +360,7 @@ export class SaveTemplateModal extends Modal {
 		const { contentEl } = this;
 		contentEl.createEl("h3", { text: "Save as template" });
 
-		const desc = contentEl.createDiv({ cls: "ft-text-sm ft-text-muted" });
-		desc.style.marginBottom = "0.75rem";
+		const desc = contentEl.createDiv({ cls: "ft-text-sm ft-text-muted ft-desc-margin" });
 		desc.setText(`Type: ${this.sessionType} | Duration: ${this.sessionDuration} min`);
 
 		let name = this.sessionTitle;
@@ -512,10 +504,7 @@ export class CreateEventModal extends Modal {
 			);
 
 		if (this.existingCategories.length > 0) {
-			const hint = contentEl.createDiv({ cls: "ft-text-muted ft-text-sm" });
-			hint.style.marginTop = "-0.5rem";
-			hint.style.marginBottom = "0.75rem";
-			hint.style.paddingLeft = "0.5rem";
+			const hint = contentEl.createDiv({ cls: "ft-text-muted ft-text-sm ft-hint-spacing" });
 			hint.setText("Existing: " + this.existingCategories.join(", "));
 		}
 

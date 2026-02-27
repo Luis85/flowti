@@ -230,7 +230,7 @@ export class HealthTab {
 					text: `${Math.round(check.score * 100)}%`,
 					cls: `ft-badge ft-badge-${check.severity === "pass" ? "muted" : "accent"}`,
 				});
-				badge.style.marginLeft = "auto";
+				badge.addClass("ft-ml-auto");
 
 				row.addEventListener("click", () => {
 					this.selectedCheckId = check.id;
@@ -276,7 +276,7 @@ export class HealthTab {
 
 		const iconEl = empty.createDiv({ cls: "ft-mb-3" });
 		setIcon(iconEl, "heart-pulse");
-		iconEl.style.opacity = "0.4";
+		iconEl.addClass("ft-opacity-04");
 		iconEl.querySelector("svg")?.setAttribute("width", "48");
 		iconEl.querySelector("svg")?.setAttribute("height", "48");
 
@@ -313,7 +313,7 @@ export class HealthTab {
 		});
 		const iconEl = titleRow.createSpan();
 		setIcon(iconEl, SEVERITY_ICONS[check.severity]);
-		iconEl.style.color = `var(--color-${check.severity === "pass" ? "green" : check.severity === "warn" ? "yellow" : "red"})`;
+		iconEl.addClass(`ft-health-severity-icon-${check.severity}`);
 
 		titleRow.createSpan({
 			text: check.title,
@@ -351,9 +351,7 @@ export class HealthTab {
 		const fill = bar.createDiv({ cls: "ft-progress-bar-fill" });
 		fill.style.width = `${Math.round(check.score * 100)}%`;
 
-		if (check.severity === "pass") fill.style.backgroundColor = "var(--color-green)";
-		else if (check.severity === "warn") fill.style.backgroundColor = "var(--color-yellow)";
-		else fill.style.backgroundColor = "var(--color-red)";
+		fill.addClass(`ft-health-progress-${check.severity}`);
 	}
 
 	private renderDetailItems(check: HealthCheckResult): void {

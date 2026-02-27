@@ -21,21 +21,17 @@ export class SessionOutputPanel {
 		const session = this.deps.getSession();
 		const section = this.container.createDiv({ cls: "ft-session-workspace-outputs ft-section" });
 
-		const headerRow = section.createDiv();
-		headerRow.style.cssText = "display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;";
+		const headerRow = section.createDiv({ cls: "ft-panel-header-row" });
 
-		const labelRow = headerRow.createDiv();
-		labelRow.style.cssText = "display:flex;align-items:center;gap:8px;";
+		const labelRow = headerRow.createDiv({ cls: "ft-panel-label-row" });
 		labelRow.createEl("strong", { text: "Output artifacts" });
 		this.countEl = labelRow.createEl("span", {
 			text: `(${session.outputArtifacts.length})`,
-			cls: "ft-text-muted ft-text-sm",
+			cls: "ft-text-muted ft-text-sm ft-panel-count",
 		});
-		this.countEl.style.cssText = "color:var(--text-muted);font-size:12px;";
 
 		// Generate button
-		const btn = headerRow.createEl("button", { text: "Generate output", cls: "ft-output-generate-btn" });
-		btn.style.cssText = "display:flex;align-items:center;gap:4px;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:13px;";
+		const btn = headerRow.createEl("button", { text: "Generate output", cls: "ft-output-generate-btn ft-session-action-btn" });
 		const iconEl = btn.createSpan();
 		setIcon(iconEl, "file-output");
 		btn.prepend(iconEl);
@@ -64,7 +60,6 @@ export class SessionOutputPanel {
 
 		if (session.outputArtifacts.length === 0) {
 			const empty = this.listEl.createDiv({ cls: "ft-outputs-empty" });
-			empty.style.cssText = "color:var(--text-muted);font-size:12px;padding:8px 0;";
 			empty.setText("No output artifacts generated yet.");
 			return;
 		}
@@ -76,7 +71,6 @@ export class SessionOutputPanel {
 
 	private renderArtifactRow(artifact: SessionOutputArtifact): void {
 		const row = this.listEl!.createDiv({ cls: "ft-output-row" });
-		row.style.cssText = "padding:6px 0;border-bottom:1px solid var(--background-modifier-border);display:flex;align-items:center;gap:8px;";
 
 		const iconEl = row.createSpan();
 		setIcon(iconEl, "file-text");
@@ -84,13 +78,12 @@ export class SessionOutputPanel {
 		const name = artifact.path.split("/").pop() ?? artifact.path;
 		const link = row.createEl("a", { text: name, cls: "ft-output-link" });
 		link.title = artifact.path;
-		link.style.cssText = "cursor:pointer;text-decoration:underline;color:var(--text-accent);flex:1;font-size:13px;";
 		link.addEventListener("click", (e) => {
 			e.preventDefault();
 			this.deps.openFile(artifact.path);
 		});
 
 		const date = new Date(artifact.generatedAt).toISOString().split("T")[0];
-		row.createEl("span", { text: date, cls: "ft-output-date" }).style.cssText = "color:var(--text-muted);font-size:11px;";
+		row.createEl("span", { text: date, cls: "ft-output-date" });
 	}
 }

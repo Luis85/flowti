@@ -21,8 +21,7 @@ export class CanvasPreviewPage {
 		const state = this.deps.getState();
 
 		// Action bar
-		const actions = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2" });
-		actions.style.borderBottom = "1px solid var(--background-modifier-border)";
+		const actions = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2 ft-action-bar-border" });
 		actions.addClass("ft-flex-shrink-0");
 
 		if (state.parseError) {
@@ -134,28 +133,28 @@ export class CanvasPreviewPage {
 			for (const [type, count] of sorted) {
 				const excluded = state.excludedTypes.includes(type);
 				const tr = table.createEl("tr");
-				if (excluded) tr.style.opacity = "0.5";
+				if (excluded) tr.addClass("ft-canvas-excluded-row");
 
 				const nameTd = tr.createEl("td", { cls: "ft-text-sm" });
 				nameTd.textContent = type;
-				if (excluded) nameTd.style.textDecoration = "line-through";
+				if (excluded) nameTd.addClass("ft-canvas-excluded-name");
 
 				tr.createEl("td", { text: String(count), cls: "ft-text-sm" });
 
 				const statusTd = tr.createEl("td", { cls: "ft-text-sm" });
 				if (excluded) {
 					statusTd.textContent = "Excluded";
-					statusTd.style.color = "var(--text-muted)";
+					statusTd.addClass("ft-canvas-status-excluded");
 				} else {
 					statusTd.textContent = "Included";
-					statusTd.style.color = "var(--text-success, var(--interactive-accent))";
+					statusTd.addClass("ft-text-success-color");
 					includedTotal += count;
 				}
 			}
 
 			// Subtotal row
 			const totalTr = table.createEl("tr");
-			totalTr.style.fontWeight = "600";
+			totalTr.addClass("ft-canvas-total-row");
 			totalTr.createEl("td", { text: "Total to import" });
 			totalTr.createEl("td", { text: `${includedTotal} of ${allImportable.length}` });
 			totalTr.createEl("td");
@@ -218,8 +217,7 @@ export class CanvasPreviewPage {
 		section.createDiv({ text: "Folder Structure", cls: "ft-detail-section-header ft-mb-2" });
 
 		// Root folder
-		const rootRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
-		rootRow.style.padding = "0.25rem 0.5rem";
+		const rootRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1 ft-canvas-folder-row-pad" });
 		const rootIcon = rootRow.createSpan();
 		setIcon(rootIcon, "folder-open");
 		rootIcon.addClass("ft-icon-muted");
@@ -233,8 +231,7 @@ export class CanvasPreviewPage {
 		});
 
 		for (const [folder, items] of sortedFolders) {
-			const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
-			row.style.padding = "0.25rem 0.5rem 0.25rem 1.5rem";
+			const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1 ft-canvas-folder-row-indent" });
 			const icon = row.createSpan();
 			setIcon(icon, "folder");
 			icon.addClass("ft-icon-muted");
@@ -254,11 +251,7 @@ export class CanvasPreviewPage {
 		section.createDiv({ text: "Group Structure", cls: "ft-detail-section-header ft-mb-2" });
 		for (const group of groups) {
 			const childCount = previewItems.filter((i) => i.parentId === group.id).length;
-			const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
-			row.style.padding = "0.25rem 0.5rem";
-			if (group.parentId) {
-				row.style.paddingLeft = "1.5rem";
-			}
+			const row = section.createDiv({ cls: `ft-flex ft-items-center ft-gap-2 ft-py-1 ft-canvas-group-row-pad${group.parentId ? " ft-canvas-group-row-indent" : ""}` });
 			const icon = row.createSpan();
 			setIcon(icon, "folder");
 			icon.addClass("ft-icon-muted");

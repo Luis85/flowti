@@ -117,8 +117,7 @@ export class SourcesExportsGrid {
 		source: SavedMultiImportPipeline["sources"][0],
 		index: number,
 	): void {
-		const card = container.createDiv({ cls: "ft-card ft-mt-1" });
-		card.style.padding = "0.5rem 0.75rem";
+		const card = container.createDiv({ cls: "ft-card ft-mt-1 ft-card-compact" });
 
 		const csvName = basename(source.csvPath) || source.csvPath;
 
@@ -130,13 +129,9 @@ export class SourcesExportsGrid {
 
 		const nameEl = headerRow.createEl("span", {
 			text: csvName,
-			cls: "ft-heading ft-heading-sm ft-nav-link",
+			cls: "ft-heading ft-heading-sm ft-nav-link ft-flex-1 ft-text-ellipsis",
 		});
-		nameEl.addClass("ft-flex-1");
-		nameEl.style.minWidth = "0";
-		nameEl.style.overflow = "hidden";
-		nameEl.style.textOverflow = "ellipsis";
-		nameEl.style.whiteSpace = "nowrap";
+		nameEl.addClass("ft-master-text-block");
 		nameEl.addEventListener("click", () => {
 			new PipelineSourceModal({
 				app: this.deps.app,
@@ -171,8 +166,7 @@ export class SourcesExportsGrid {
 		infoRow.textContent = source.csvPath;
 
 		if (source.customProperties && Object.keys(source.customProperties).length > 0) {
-			const propsRow = card.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
-			propsRow.style.flexWrap = "wrap";
+			const propsRow = card.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1 ft-flex-wrap" });
 			for (const [key, value] of Object.entries(source.customProperties)) {
 				const chip = propsRow.createSpan({ cls: "ft-badge ft-badge-muted" });
 				chip.textContent = `${key}: ${value}`;
@@ -180,8 +174,7 @@ export class SourcesExportsGrid {
 		}
 
 		const actionsRow = card.createDiv({ cls: "ft-flex ft-gap-2 ft-mt-1" });
-		const removeLink = actionsRow.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-		removeLink.style.color = "var(--text-error)";
+		const removeLink = actionsRow.createEl("span", { cls: "ft-nav-link ft-text-sm ft-text-error" });
 		const removeIcon = removeLink.createSpan();
 		setIcon(removeIcon, "x");
 		removeLink.appendText(" Remove");
@@ -205,8 +198,7 @@ export class SourcesExportsGrid {
 		exportId: string,
 	): void {
 		const exportCfg = this.deps.dataExchangeService.getExportConfig(exportId);
-		const card = container.createDiv({ cls: "ft-card ft-mt-1" });
-		card.style.padding = "0.5rem 0.75rem";
+		const card = container.createDiv({ cls: "ft-card ft-mt-1 ft-card-compact" });
 
 		const headerRow = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const icon = headerRow.createSpan();
@@ -217,13 +209,9 @@ export class SourcesExportsGrid {
 		if (exportCfg) {
 			const nameEl = headerRow.createEl("span", {
 				text: exportCfg.name,
-				cls: "ft-heading ft-heading-sm ft-nav-link",
+				cls: "ft-heading ft-heading-sm ft-nav-link ft-flex-1 ft-text-ellipsis",
 			});
-			nameEl.addClass("ft-flex-1");
-			nameEl.style.minWidth = "0";
-			nameEl.style.overflow = "hidden";
-			nameEl.style.textOverflow = "ellipsis";
-			nameEl.style.whiteSpace = "nowrap";
+			nameEl.addClass("ft-master-text-block");
 			nameEl.addEventListener("click", () => {
 				this.deps.setState({ selectedExportId: exportCfg.id });
 				this.deps.navigation.navigateTo("exports");
@@ -294,8 +282,7 @@ export class SourcesExportsGrid {
 			}
 
 			const actionsRow = card.createDiv({ cls: "ft-flex ft-gap-2 ft-mt-1" });
-			const removeLink = actionsRow.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-			removeLink.style.color = "var(--text-error)";
+			const removeLink = actionsRow.createEl("span", { cls: "ft-nav-link ft-text-sm ft-text-error" });
 			const removeIcon = removeLink.createSpan();
 			setIcon(removeIcon, "x");
 			removeLink.appendText(" Remove");
@@ -318,8 +305,7 @@ export class SourcesExportsGrid {
 				cls: "ft-text-muted ft-text-sm ft-mt-1",
 			});
 			const actionsRow = card.createDiv({ cls: "ft-flex ft-gap-2 ft-mt-1" });
-			const removeLink = actionsRow.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-			removeLink.style.color = "var(--text-error)";
+			const removeLink = actionsRow.createEl("span", { cls: "ft-nav-link ft-text-sm ft-text-error" });
 			const removeIcon = removeLink.createSpan();
 			setIcon(removeIcon, "x");
 			removeLink.appendText(" Remove");
@@ -380,8 +366,7 @@ export class SourcesExportsGrid {
 	): void {
 		const canvasService = this.deps.canvasService;
 		const config = canvasService?.getConfig(configId);
-		const card = container.createDiv({ cls: "ft-card ft-mt-1" });
-		card.style.padding = "0.5rem 0.75rem";
+		const card = container.createDiv({ cls: "ft-card ft-mt-1 ft-card-compact" });
 
 		const headerRow = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const icon = headerRow.createSpan();
@@ -392,13 +377,9 @@ export class SourcesExportsGrid {
 		if (config) {
 			const nameEl = headerRow.createEl("span", {
 				text: config.name,
-				cls: "ft-heading ft-heading-sm ft-nav-link",
+				cls: "ft-heading ft-heading-sm ft-nav-link ft-flex-1 ft-text-ellipsis",
 			});
-			nameEl.addClass("ft-flex-1");
-			nameEl.style.minWidth = "0";
-			nameEl.style.overflow = "hidden";
-			nameEl.style.textOverflow = "ellipsis";
-			nameEl.style.whiteSpace = "nowrap";
+			nameEl.addClass("ft-master-text-block");
 			nameEl.addEventListener("click", () => {
 				this.deps.setState({ selectedCanvasId: config.id });
 				this.deps.navigation.navigateTo("canvas");
@@ -426,8 +407,7 @@ export class SourcesExportsGrid {
 		}
 
 		const actionsRow = card.createDiv({ cls: "ft-flex ft-gap-2 ft-mt-1" });
-		const removeLink = actionsRow.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-		removeLink.style.color = "var(--text-error)";
+		const removeLink = actionsRow.createEl("span", { cls: "ft-nav-link ft-text-sm ft-text-error" });
 		const removeIcon = removeLink.createSpan();
 		setIcon(removeIcon, "x");
 		removeLink.appendText(" Remove");
@@ -470,12 +450,11 @@ export class SourcesExportsGrid {
 
 		if (conflicts.length === 0) return;
 
-		const warnSection = this.container.createDiv({ cls: "ft-card ft-mt-3" });
-		warnSection.style.borderLeft = "3px solid var(--text-warning, #e5a100)";
+		const warnSection = this.container.createDiv({ cls: "ft-card ft-mt-3 ft-card-warning-border" });
 		const warnHeader = warnSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
 		const warnIcon = warnHeader.createSpan();
 		setIcon(warnIcon, "alert-triangle");
-		warnIcon.style.color = "var(--text-warning, #e5a100)";
+		warnIcon.addClass("ft-text-warning");
 		warnIcon.addClass("ft-flex-shrink-0");
 		warnHeader.createSpan({
 			text: `${conflicts.length} custom property conflict${conflicts.length !== 1 ? "s" : ""}`,

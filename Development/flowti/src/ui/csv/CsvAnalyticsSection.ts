@@ -27,7 +27,7 @@ export class CsvAnalyticsSection {
 			const icon = headerRow.createSpan();
 			setIcon(icon, "bar-chart-2");
 			icon.addClass("ft-icon-muted");
-			headerRow.createSpan({ text: "Used by analytics", cls: "ft-text-sm" }).style.fontWeight = "500";
+			headerRow.createSpan({ text: "Used by analytics", cls: "ft-text-sm ft-font-500" });
 
 			for (const query of queries) {
 				this.renderQueryRow(card, query);
@@ -55,11 +55,10 @@ export class CsvAnalyticsSection {
 		query: import("../../domain/analytics/types").SavedAnalyticsQuery,
 	): void {
 		const row = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-1" });
-		row.style.flexWrap = "wrap";
+		row.addClass("ft-flex-wrap");
 
 		// Query name
-		const nameEl = row.createSpan({ text: query.name, cls: "ft-text-sm" });
-		nameEl.style.fontWeight = "500";
+		row.createSpan({ text: query.name, cls: "ft-text-sm ft-font-500" });
 
 		// Auto-summary from dimensions/measures
 		const summary = this.buildAutoSummary(query);
@@ -82,8 +81,7 @@ export class CsvAnalyticsSection {
 			const openLink = row.createEl("span", { cls: "ft-nav-link ft-text-xs" });
 			const linkIcon = openLink.createSpan();
 			setIcon(linkIcon, "external-link");
-			linkIcon.style.width = "12px";
-			linkIcon.style.height = "12px";
+			linkIcon.addClass("ft-analytics-link-icon");
 			openLink.appendText(" Open");
 			openLink.addEventListener("click", () => {
 				this.deps.openAnalyticsHub!("queries", query.id);

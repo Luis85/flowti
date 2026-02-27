@@ -42,12 +42,12 @@ export function renderMasterCategory(
 	if (isEmptyUncategorized) {
 		const plusIcon = header.createSpan();
 		setIcon(plusIcon, "plus");
-		plusIcon.style.opacity = "0.6";
+		plusIcon.addClass("ft-plus-icon-faded");
 	} else {
 		chevron = header.createSpan({
 			text: isCollapsed ? "\u25B6" : "\u25BC",
+			cls: "ft-chevron-sm",
 		});
-		chevron.style.fontSize = "0.6rem";
 	}
 
 	const displayLabel = isEmptyUncategorized ? "Create new Event" : category;
@@ -124,8 +124,7 @@ function renderUserCategoryActions(
 	deps: CatalogComponentDeps,
 	ctx: CategoryRenderContext,
 ): void {
-	const addBtn = header.createSpan({ cls: "ft-visibility-toggle" });
-	addBtn.style.marginLeft = "auto";
+	const addBtn = header.createSpan({ cls: "ft-visibility-toggle ft-ml-auto" });
 	setIcon(addBtn, "plus");
 	addBtn.setAttribute("aria-label", "Create event");
 	addBtn.addEventListener("click", (e) => {

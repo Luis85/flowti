@@ -45,8 +45,7 @@ export class CsvConfigPage {
 		panel.createEl("h3", { text: "Configure import", cls: "ft-heading ft-heading-sm ft-mb-2" });
 
 		// Action bar
-		const actions = panel.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2 ft-mb-3" });
-		actions.style.borderBottom = "1px solid var(--background-modifier-border)";
+		const actions = panel.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2 ft-mb-3 ft-action-bar-border" });
 
 		const csvDetailBtn = actions.createEl("span", { cls: "ft-nav-link" });
 		setIcon(csvDetailBtn.createSpan(), "file-spreadsheet");
@@ -68,14 +67,11 @@ export class CsvConfigPage {
 		});
 
 		// Unsaved changes reminder (always present, visibility toggled)
-		const reminder = panel.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
-		reminder.style.padding = "0.35rem 0.5rem";
-		reminder.style.borderRadius = "var(--radius-s, 4px)";
-		reminder.style.background = "var(--background-modifier-message)";
-		reminder.style.display = this.deps.hasUnsavedChanges() ? "flex" : "none";
+		const reminder = panel.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2 ft-unsaved-reminder" });
+		if (!this.deps.hasUnsavedChanges()) reminder.addClass("ft-hidden");
 		const warnIcon = reminder.createSpan();
 		setIcon(warnIcon, "alert-triangle");
-		warnIcon.style.opacity = "0.6";
+		warnIcon.addClass("ft-unsaved-warn-icon");
 		warnIcon.addClass("ft-flex-shrink-0");
 		reminder.createSpan({
 			text: "Config has unsaved changes",
@@ -362,9 +358,9 @@ export class CsvConfigPage {
 		const table = container.createEl("table", { cls: "ft-mapping-table" });
 		const thead = table.createEl("thead");
 		const headerRow = thead.createEl("tr");
-		headerRow.createEl("th", { text: "Include" }).style.width = "60px";
+		headerRow.createEl("th", { text: "Include", cls: "ft-csv-mapping-th-include" });
 		headerRow.createEl("th", { text: "CSV column" });
-		headerRow.createEl("th").style.width = "30px"; // arrow
+		headerRow.createEl("th", { cls: "ft-csv-mapping-th-arrow" }); // arrow
 		headerRow.createEl("th", { text: "Frontmatter key" });
 
 		const tbody = table.createEl("tbody");
@@ -374,8 +370,7 @@ export class CsvConfigPage {
 			const tr = tbody.createEl("tr");
 
 			// Include checkbox
-			const tdCheck = tr.createEl("td");
-			tdCheck.style.textAlign = "center";
+			const tdCheck = tr.createEl("td", { cls: "ft-text-center" });
 			const cb = tdCheck.createEl("input", { type: "checkbox" });
 			cb.checked = mapping.included;
 			cb.addEventListener("change", () => { mapping.included = cb.checked; this.deps.updateUnsavedHint(); });
@@ -386,12 +381,12 @@ export class CsvConfigPage {
 			if (isNameCol) {
 				tdCol.createSpan({
 					text: "filename",
-					cls: "ft-badge ft-badge-accent",
-				}).style.marginLeft = "0.5rem";
+					cls: "ft-badge ft-badge-accent ft-csv-filename-badge-ml",
+				});
 			}
 
 			// Arrow
-			tr.createEl("td", { text: "\u2192", cls: "ft-text-muted" }).style.textAlign = "center";
+			tr.createEl("td", { text: "\u2192", cls: "ft-text-muted ft-text-center" });
 
 			// Frontmatter key
 			const tdKey = tr.createEl("td");

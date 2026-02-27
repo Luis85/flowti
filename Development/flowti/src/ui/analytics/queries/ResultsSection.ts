@@ -8,7 +8,7 @@
 
 import { setIcon } from "obsidian";
 import type { QueriesSubDeps } from "./types";
-import { SELECT_CSS } from "./types";
+
 import type { AnalyticsResult } from "../../../domain/analytics/types";
 import { AnalyticsResultsPanel } from "../../hub/AnalyticsResultsPanel";
 import { ChartRenderer } from "../ChartRenderer";
@@ -25,8 +25,7 @@ export class ResultsSection {
 
 		// Error detail (execution summary callout shows the headline)
 		if (lastError) {
-			const errCard = this.container.createDiv({ cls: "ft-card ft-mt-2" });
-			errCard.style.padding = "0.5rem 0.75rem";
+			const errCard = this.container.createDiv({ cls: "ft-card ft-mt-2 ft-results-err-card" });
 			errCard.createDiv({ text: lastError, cls: "ft-text-sm ft-text-muted" });
 		}
 
@@ -46,17 +45,12 @@ export class ResultsSection {
 	}
 
 	private renderChart(result: AnalyticsResult): void {
-		const section = this.container.createDiv({ cls: "ft-mt-2" });
-		section.style.borderBottom = "1px solid var(--background-modifier-border)";
-		section.style.paddingBottom = "0.5rem";
+		const section = this.container.createDiv({ cls: "ft-mt-2 ft-results-chart-section" });
 
 		// Header with value column selector + line/bar toggle
 		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		const iconEl = header.createSpan();
+		const iconEl = header.createSpan({ cls: "ft-icon-sm ft-opacity-60" });
 		setIcon(iconEl, "bar-chart-2");
-		iconEl.style.width = "14px";
-		iconEl.style.height = "14px";
-		iconEl.style.opacity = "0.6";
 		header.createSpan({ text: "Chart", cls: "ft-text-sm ft-text-muted" });
 
 		// Value column selector — only show when multiple numeric columns
@@ -67,8 +61,7 @@ export class ResultsSection {
 		const effectiveCol = selectedCol && numericCols.includes(selectedCol) ? selectedCol : numericCols[0] ?? null;
 
 		if (numericCols.length > 1) {
-			const colSelect = header.createEl("select");
-			colSelect.style.cssText = SELECT_CSS + ";flex-shrink:0;max-width:180px";
+			const colSelect = header.createEl("select", { cls: "ft-chart-col-select" });
 			for (const col of numericCols) {
 				const opt = colSelect.createEl("option");
 				opt.value = col;
@@ -84,22 +77,19 @@ export class ResultsSection {
 		}
 
 		// Spacer to push toggles right
-		const spacer = header.createSpan();
-		spacer.style.flex = "1";
+		header.createSpan({ cls: "ft-flex-1" });
 
 		const currentMode = this.deps.chartMode();
 
-		const lineBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		const lineBtn = header.createEl("span", { cls: `ft-nav-link ft-text-sm${currentMode === "line" ? " ft-text-accent" : ""}` });
 		const lineIcon = lineBtn.createSpan();
 		setIcon(lineIcon, "trending-up");
 		lineBtn.appendText(" Line");
-		lineBtn.style.color = currentMode === "line" ? "var(--text-accent)" : "";
 
-		const barBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
+		const barBtn = header.createEl("span", { cls: `ft-nav-link ft-text-sm${currentMode === "bar" ? " ft-text-accent" : ""}` });
 		const barIcon = barBtn.createSpan();
 		setIcon(barIcon, "bar-chart-2");
 		barBtn.appendText(" Bar");
-		barBtn.style.color = currentMode === "bar" ? "var(--text-accent)" : "";
 
 		lineBtn.addEventListener("click", () => {
 			this.deps.setChartMode("line");

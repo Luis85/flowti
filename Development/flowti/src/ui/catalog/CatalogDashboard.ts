@@ -40,16 +40,14 @@ export class CatalogDashboard {
 		}
 
 		// ── Title bar ──
-		const titleBar = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-mb-3" });
-		titleBar.style.borderBottom = "1px solid var(--background-modifier-border)";
-		titleBar.style.paddingBottom = "0.75rem";
+		const titleBar = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-mb-3 ft-catalog-title-bar" });
 		const titleIcon = titleBar.createSpan();
 		setIcon(titleIcon, "network");
 		titleIcon.addClass("ft-icon-muted");
 		titleBar.createEl("h2", {
 			text: "Event catalog",
-			cls: "ft-heading",
-		}).style.margin = "0";
+			cls: "ft-heading ft-m-0",
+		});
 
 		const cards: StatCardItem[] = [
 			{ icon: "boxes", value: String(visibleDomains.length), label: "Domains", onClick: () => this.deps.navigation.navigateToTab("domains") },
@@ -74,37 +72,33 @@ export class CatalogDashboard {
 	}
 
 	private renderEmptyState(): void {
-		const wrapper = this.container.createDiv({ cls: "ft-empty-state" });
-		wrapper.style.cssText = "text-align:center;padding:2.5rem 1.5rem 1.5rem";
+		const wrapper = this.container.createDiv({ cls: "ft-empty-state ft-catalog-empty-wrapper" });
 
 		// Hero icon
 		const iconEl = wrapper.createDiv();
 		setIcon(iconEl, "activity");
-		iconEl.style.cssText = "opacity:0.35;margin-bottom:0.75rem";
+		iconEl.addClass("ft-catalog-empty-hero-icon");
 		const svg = iconEl.querySelector("svg");
-		if (svg) { svg.style.width = "2.5rem"; svg.style.height = "2.5rem"; }
+		if (svg) { svg.classList.add("ft-catalog-empty-hero-svg"); }
 
 		// Heading
-		const heading = wrapper.createDiv({ text: "Welcome to the Event Catalog" });
-		heading.style.cssText = "font-weight:600;font-size:var(--font-ui-medium);margin-bottom:0.35rem";
+		wrapper.createDiv({ text: "Welcome to the Event Catalog", cls: "ft-catalog-empty-heading" });
 
 		// Subtitle
 		wrapper.createDiv({
 			text: "Events appear as you use Flowti \u2014 file changes, imports, sessions, and more.",
-			cls: "ft-text-sm ft-text-muted",
-		}).style.marginBottom = "1.5rem";
+			cls: "ft-text-sm ft-text-muted ft-catalog-empty-subtitle-mb",
+		});
 
 		// Info card
-		const card = wrapper.createDiv({ cls: "ft-stat-card" });
-		card.style.cssText = "padding:1rem;max-width:360px;margin:0 auto;text-align:left";
+		const card = wrapper.createDiv({ cls: "ft-stat-card ft-catalog-empty-info-card" });
 
-		const titleRow = card.createDiv();
-		titleRow.style.cssText = "display:flex;align-items:center;gap:0.4rem;font-weight:600;font-size:var(--font-ui-small);margin-bottom:0.35rem";
+		const titleRow = card.createDiv({ cls: "ft-catalog-empty-info-title" });
 		const cardIcon = titleRow.createSpan();
 		setIcon(cardIcon, "info");
-		cardIcon.style.cssText = "display:inline-flex;align-items:center";
+		cardIcon.addClass("ft-catalog-empty-info-icon");
 		const cardSvg = cardIcon.querySelector("svg");
-		if (cardSvg) { cardSvg.style.width = "14px"; cardSvg.style.height = "14px"; }
+		if (cardSvg) { cardSvg.classList.add("ft-catalog-empty-info-icon-svg"); }
 		titleRow.createSpan({ text: "How events populate" });
 
 		card.createDiv({
@@ -114,15 +108,10 @@ export class CatalogDashboard {
 	}
 
 	private renderCoverage(state: ReturnType<CatalogComponentDeps["getState"]>): void {
-		const coverageSection = this.container.createDiv();
-		coverageSection.style.marginBottom = "1.5rem";
-		coverageSection.createEl("h3", { text: "Documentation coverage", cls: "ft-heading ft-heading-sm" });
-		coverageSection.style.marginBottom = "0.75rem";
+		const coverageSection = this.container.createDiv({ cls: "ft-catalog-coverage-mb" });
+		coverageSection.createEl("h3", { text: "Documentation coverage", cls: "ft-heading ft-heading-sm ft-catalog-coverage-mb" });
 
-		const coverageGrid = coverageSection.createDiv();
-		coverageGrid.style.display = "grid";
-		coverageGrid.style.gridTemplateColumns = "repeat(2, 1fr)";
-		coverageGrid.style.gap = "0.5rem";
+		const coverageGrid = coverageSection.createDiv({ cls: "ft-catalog-coverage-grid" });
 
 		const filteredDomains = state.domainEntries.filter((d) =>
 			d.visible && (state.showSystemEvents || !d.isSystem));
@@ -156,10 +145,7 @@ export class CatalogDashboard {
 		];
 
 		for (const item of coverageItems) {
-			const row = coverageGrid.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			row.style.padding = "0.4rem 0.5rem";
-			row.style.borderRadius = "4px";
-			row.style.border = "1px solid var(--background-modifier-border)";
+			const row = coverageGrid.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-catalog-coverage-row" });
 			row.createSpan({ text: item.value, cls: "ft-badge ft-badge-muted" });
 			row.createSpan({ text: item.label, cls: "ft-text-sm" });
 		}
@@ -167,11 +153,9 @@ export class CatalogDashboard {
 
 	private renderQuickActions(): void {
 		const actionsSection = this.container.createDiv();
-		actionsSection.createEl("h3", { text: "Quick actions", cls: "ft-heading ft-heading-sm" });
-		actionsSection.style.marginBottom = "0.75rem";
+		actionsSection.createEl("h3", { text: "Quick actions", cls: "ft-heading ft-heading-sm ft-catalog-actions-mb" });
 
-		const actionsGrid = actionsSection.createDiv({ cls: "ft-flex ft-gap-2" });
-		actionsGrid.style.flexWrap = "wrap";
+		const actionsGrid = actionsSection.createDiv({ cls: "ft-flex ft-gap-2 ft-flex-wrap" });
 
 		const createActions: Array<{ icon: string; label: string; action: () => void }> = [
 			{
@@ -290,8 +274,7 @@ export class CatalogDashboard {
 	}
 
 	private renderLinks(): void {
-		const section = this.container.createDiv({ cls: "ft-flex ft-gap-2" });
-		section.style.marginTop = "1.5rem";
+		const section = this.container.createDiv({ cls: "ft-flex ft-gap-2 ft-catalog-links-mt" });
 
 		const logBtn = section.createEl("span", { cls: "ft-nav-link" });
 		const logIcon = logBtn.createSpan();

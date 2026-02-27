@@ -243,7 +243,7 @@ describe("SessionEnergyIndicator", () => {
 		panel.render();
 
 		const dot = container.querySelector(".ft-energy-dot") as HTMLElement;
-		expect(dot.style.cursor).toBe("pointer");
+		expect(dot.classList.contains("ft-energy-dot-editable")).toBe(true);
 	});
 
 	it("dots have default cursor for read-only states", () => {
@@ -255,6 +255,6 @@ describe("SessionEnergyIndicator", () => {
 		panel.render();
 
 		const dot = container.querySelector(".ft-energy-dot") as HTMLElement;
-		expect(dot.style.cursor).toBe("default");
+		expect(dot.classList.contains("ft-energy-dot-editable")).toBe(false);
 	});
 });

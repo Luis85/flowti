@@ -38,12 +38,8 @@ export class UserHubPreferences {
 		const state = this.deps.getState();
 
 		for (const cat of CATEGORIES) {
-			const row = this.masterEl.createDiv({ cls: "ft-catalog-row ft-cursor-pointer" });
-			if (state.selectedPreferencesCategory === cat.id) {
-				row.addClass("ft-catalog-row-active");
-				row.style.backgroundColor = "var(--background-modifier-hover)";
-			}
-			row.style.padding = "0.5rem 0.75rem";
+			const isSelected = state.selectedPreferencesCategory === cat.id;
+			const row = this.masterEl.createDiv({ cls: `ft-catalog-row ft-cursor-pointer ft-pref-cat-row${isSelected ? " ft-catalog-row-active ft-pref-cat-selected" : ""}` });
 
 			const content = row.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 			const icon = content.createSpan();
@@ -93,7 +89,7 @@ export class UserHubPreferences {
 		const icon = header.createSpan();
 		setIcon(icon, "settings");
 		icon.addClass("ft-icon-muted");
-		header.createEl("h3", { text: "Preferences", cls: "ft-heading" }).style.margin = "0";
+		header.createEl("h3", { text: "Preferences", cls: "ft-heading ft-m-0" });
 
 		info.createEl("p", {
 			text: "Select a category to configure your personal settings. Changes are saved automatically.",
@@ -107,7 +103,7 @@ export class UserHubPreferences {
 		const icon = header.createSpan();
 		setIcon(icon, "user");
 		icon.addClass("ft-icon-muted");
-		header.createEl("h3", { text: "Profile", cls: "ft-heading" }).style.margin = "0";
+		header.createEl("h3", { text: "Profile", cls: "ft-heading ft-m-0" });
 
 		const user = this.deps.userService.getUser();
 
@@ -120,15 +116,12 @@ export class UserHubPreferences {
 		}
 
 		// Name editing row
-		const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		row.style.marginTop = "0.5rem";
-		const label = row.createSpan({ text: "Display name", cls: "ft-text-sm" });
-		label.style.minWidth = "100px";
+		const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-pref-profile-row-mt" });
+		row.createSpan({ text: "Display name", cls: "ft-text-sm ft-pref-label-sm" });
 
-		const input = row.createEl("input", { cls: "ft-input" });
+		const input = row.createEl("input", { cls: "ft-input ft-flex-1" });
 		input.type = "text";
 		input.value = user.name;
-		input.style.flex = "1";
 		input.addEventListener("change", () => {
 			const value = input.value.trim();
 			if (value) {
@@ -137,8 +130,7 @@ export class UserHubPreferences {
 		});
 
 		// User ID display
-		const idRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-text-sm ft-text-muted" });
-		idRow.style.marginTop = "0.25rem";
+		const idRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-text-sm ft-text-muted ft-pref-id-row-mt" });
 		idRow.createSpan({ text: `User ID: ${user.id}` });
 	}
 
@@ -148,7 +140,7 @@ export class UserHubPreferences {
 		const icon = header.createSpan();
 		setIcon(icon, "inbox");
 		icon.addClass("ft-icon-muted");
-		header.createEl("h3", { text: "Inbox sources", cls: "ft-heading" }).style.margin = "0";
+		header.createEl("h3", { text: "Inbox sources", cls: "ft-heading ft-m-0" });
 
 		section.createEl("p", {
 			text: "Choose which events create inbox notifications. Disabling a source stops new items; existing items are not affected.",
@@ -159,8 +151,7 @@ export class UserHubPreferences {
 		const enabled = new Set(state.inboxEnabledSources);
 
 		for (const src of INBOX_SOURCE_DEFINITIONS) {
-			const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			row.style.padding = "0.25rem 0";
+			const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-pref-row" });
 
 			const toggle = row.createEl("input");
 			toggle.type = "checkbox";
@@ -182,13 +173,12 @@ export class UserHubPreferences {
 		}
 
 		// ── Watched Folders ──
-		const folderSection = section.createDiv({ cls: "ft-detail-section" });
-		folderSection.style.marginTop = "1rem";
+		const folderSection = section.createDiv({ cls: "ft-detail-section ft-pref-folder-section-mt" });
 		const folderHeader = folderSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const folderIcon = folderHeader.createSpan();
 		setIcon(folderIcon, "folder-open");
 		folderIcon.addClass("ft-icon-muted");
-		folderHeader.createEl("h4", { text: "Watched folders", cls: "ft-heading" }).style.margin = "0";
+		folderHeader.createEl("h4", { text: "Watched folders", cls: "ft-heading ft-m-0" });
 
 		folderSection.createEl("p", {
 			text: "Vault folders monitored for untyped notes. Notes without a 'type' frontmatter field will appear in your inbox.",
@@ -200,8 +190,7 @@ export class UserHubPreferences {
 
 		for (let i = 0; i < folders.length; i++) {
 			const f = folders[i];
-			const fRow = folderSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			fRow.style.padding = "0.25rem 0";
+			const fRow = folderSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-pref-row" });
 
 			const primaryToggle = fRow.createEl("input");
 			primaryToggle.type = "checkbox";
@@ -224,7 +213,7 @@ export class UserHubPreferences {
 				this.deps.scheduleRender();
 			});
 
-			fRow.createSpan({ text: f.path, cls: "ft-text-sm" }).style.flex = "1";
+			fRow.createSpan({ text: f.path, cls: "ft-text-sm ft-flex-1" });
 			fRow.createSpan({ text: f.recursive ? "recursive" : "direct only", cls: "ft-badge ft-badge-muted ft-text-sm" });
 
 			const removeBtn = fRow.createSpan({ cls: "ft-cursor-pointer" });
@@ -237,19 +226,16 @@ export class UserHubPreferences {
 		}
 
 		// Add row
-		const addRow = folderSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		addRow.style.marginTop = "0.5rem";
+		const addRow = folderSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-pref-add-row-mt" });
 
-		const pathInput = addRow.createEl("input", { cls: "ft-input" });
+		const pathInput = addRow.createEl("input", { cls: "ft-input ft-flex-1" });
 		pathInput.type = "text";
 		pathInput.placeholder = "e.g. 00 - Connectivity/inbox";
-		pathInput.style.flex = "1";
 		attachFolderSuggest(pathInput, this.deps.app, (selected) => {
 			pathInput.value = selected.replace(/\/$/, "");
 		});
 
-		const addBtn = addRow.createEl("button", { text: "+", cls: "mod-cta" });
-		addBtn.style.minWidth = "2rem";
+		const addBtn = addRow.createEl("button", { text: "+", cls: "mod-cta ft-pref-add-btn-min" });
 		addBtn.addEventListener("click", () => {
 			const path = pathInput.value.trim();
 			if (!path) return;
@@ -259,24 +245,22 @@ export class UserHubPreferences {
 		});
 
 		// ── Triage Target Folder ──
-		const targetSection = section.createDiv({ cls: "ft-detail-section" });
-		targetSection.style.marginTop = "1rem";
+		const targetSection = section.createDiv({ cls: "ft-detail-section ft-pref-folder-section-mt" });
 		const targetHeader = targetSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const targetIcon = targetHeader.createSpan();
 		setIcon(targetIcon, "folder-input");
 		targetIcon.addClass("ft-icon-muted");
-		targetHeader.createEl("h4", { text: "Triage target folder", cls: "ft-heading" }).style.margin = "0";
+		targetHeader.createEl("h4", { text: "Triage target folder", cls: "ft-heading ft-m-0" });
 
 		targetSection.createEl("p", {
 			text: "Notes from primary watched folders will be moved here after triage.",
 			cls: "ft-text-sm ft-text-muted",
 		});
 
-		const targetInput = targetSection.createEl("input", { cls: "ft-input" });
+		const targetInput = targetSection.createEl("input", { cls: "ft-input ft-pref-target-input" });
 		targetInput.type = "text";
 		targetInput.value = settings.inboxTriageTargetFolder ?? "";
 		targetInput.placeholder = "e.g. 01 - Now/notes";
-		targetInput.style.width = "100%";
 		attachFolderSuggest(targetInput, this.deps.app, (selected) => {
 			const path = selected.replace(/\/$/, "");
 			targetInput.value = path;

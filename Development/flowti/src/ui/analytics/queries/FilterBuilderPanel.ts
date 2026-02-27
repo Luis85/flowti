@@ -11,7 +11,7 @@
 
 import { setIcon } from "obsidian";
 import type { QueriesSubDeps, FilterOperator } from "./types";
-import { SELECT_CSS, INPUT_CSS } from "./types";
+import { SELECT_CSS } from "./types";
 import { renderColumnPicker } from "./columnPicker";
 
 /** Operators appropriate for string columns. */
@@ -45,12 +45,9 @@ export class FilterBuilderPanel {
 	/** Render filter controls into an existing parent element (no card wrapper). */
 	renderInto(section: HTMLElement): void {
 		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		const headerIcon = header.createSpan();
+		const headerIcon = header.createSpan({ cls: "ft-filter-header-icon ft-icon-sm" });
 		setIcon(headerIcon, "filter");
-		headerIcon.style.cssText = "opacity:0.6;display:inline-flex;align-items:center";
-		headerIcon.querySelectorAll("svg").forEach((s) => { s.style.width = "14px"; s.style.height = "14px"; });
-		header.createSpan({ text: "Filters", cls: "ft-text-sm" }).style.fontWeight = "500";
-		header.style.margin = "0";
+		header.createSpan({ text: "Filters", cls: "ft-text-sm ft-font-medium" });
 
 		const filterCount = this.deps.filters().length;
 		if (filterCount > 0) {
@@ -59,8 +56,7 @@ export class FilterBuilderPanel {
 
 		const allHeaders = this.deps.getLoadedHeaders();
 
-		const addBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-		addBtn.style.marginLeft = "auto";
+		const addBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm ft-ml-auto" });
 		const addIcon = addBtn.createSpan();
 		setIcon(addIcon, "plus");
 		addBtn.appendText(" Add");
@@ -87,9 +83,7 @@ export class FilterBuilderPanel {
 
 	private renderFilterRow(section: HTMLElement, filters: Array<{ column: string; operator: FilterOperator; value: string }>, index: number, allHeaders: string[]): void {
 		const filter = filters[index];
-		const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
-		row.style.padding = "0.35rem 0.5rem";
-		row.style.borderBottom = "1px solid var(--background-modifier-border)";
+		const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-filter-row" });
 
 		// Column picker with type grouping
 		renderColumnPicker(row, {
@@ -109,8 +103,7 @@ export class FilterBuilderPanel {
 		const colType = this.getColumnType(filter.column);
 		const operators = colType === "string" ? STRING_OPERATORS : NUMERIC_OPERATORS;
 
-		const opSelect = row.createEl("select");
-		opSelect.style.cssText = SELECT_CSS;
+		const opSelect = row.createEl("select", { cls: "ft-select-input" });
 		for (const op of operators) {
 			const opt = opSelect.createEl("option");
 			opt.value = op.id;
@@ -120,10 +113,9 @@ export class FilterBuilderPanel {
 		opSelect.addEventListener("change", () => { filter.operator = opSelect.value as FilterOperator; });
 
 		// Value input with datalist suggestions for string columns
-		const valInput = row.createEl("input", { type: "text" });
+		const valInput = row.createEl("input", { type: "text", cls: "ft-filter-value-input" });
 		valInput.value = filter.value;
 		valInput.placeholder = "Value";
-		valInput.style.cssText = INPUT_CSS + ";width:120px";
 		valInput.addEventListener("change", () => { filter.value = valInput.value; });
 
 		if (colType === "string" && this.deps.getDistinctValues) {

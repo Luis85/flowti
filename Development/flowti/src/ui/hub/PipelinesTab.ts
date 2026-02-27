@@ -103,21 +103,17 @@ export class PipelinesTab {
 			cls: `ft-master-event-item${isSelected ? " ft-master-event-selected" : ""}`,
 		});
 		item.dataset.id = pipe.id;
-		item.style.alignItems = "flex-start";
+		item.addClass("ft-master-item-top");
 
 		const iconEl = item.createSpan();
 		setIcon(iconEl, "layers");
 		iconEl.addClass("ft-icon-muted");
 		iconEl.addClass("ft-flex-shrink-0");
-		iconEl.style.marginTop = "0.125rem";
+		iconEl.addClass("ft-icon-offset-sm");
 
-		const textBlock = item.createDiv({ cls: "ft-master-event-name" });
-		textBlock.style.minWidth = "0";
+		const textBlock = item.createDiv({ cls: "ft-master-event-name ft-master-text-block" });
 		textBlock.createDiv({ text: pipe.name || "(unnamed)" });
-		const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-sm" });
-		sub.style.whiteSpace = "nowrap";
-		sub.style.overflow = "hidden";
-		sub.style.textOverflow = "ellipsis";
+		const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-sm ft-text-ellipsis" });
 		const totalSources = pipe.sources.length + (pipe.canvasConfigIds?.length ?? 0);
 		sub.textContent = `${pipe.targetFolder || "(no folder)"} · ${totalSources} source${totalSources !== 1 ? "s" : ""}`;
 
@@ -232,7 +228,7 @@ export class PipelinesTab {
 			const resultRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
 			const icon = resultRow.createSpan();
 			setIcon(icon, op.success ? "check-circle" : "x-circle");
-			icon.style.color = op.success ? "var(--text-success)" : "var(--text-error)";
+			icon.addClass(op.success ? "ft-text-success" : "ft-text-error");
 			resultRow.createSpan({ text: op.message ?? "Done", cls: "ft-text-sm" });
 			return;
 		}
@@ -241,17 +237,16 @@ export class PipelinesTab {
 		const statusRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
 		const spinnerIcon = statusRow.createSpan();
 		setIcon(spinnerIcon, "loader");
-		spinnerIcon.style.opacity = "0.6";
+		spinnerIcon.addClass("ft-opacity-muted");
 		spinnerIcon.addClass("ft-spin");
 		const statusText = statusRow.createSpan({ cls: "ft-text-sm" });
 
 		// Progress bar
-		const barBg = section.createDiv();
-		barBg.style.cssText = "height:4px;background:var(--background-modifier-border);border-radius:2px;margin:0 0.5rem 0.5rem;overflow:hidden";
-		const barFill = barBg.createDiv();
+		const barBg = section.createDiv({ cls: "ft-progress-bar-track-4" });
+		const barFill = barBg.createDiv({ cls: "ft-progress-bar-fill-animated" });
 		const pct = op.progress && op.progress.total > 0
 			? Math.round((op.progress.current / op.progress.total) * 100) : 0;
-		barFill.style.cssText = `height:100%;width:${pct}%;background:var(--interactive-accent);border-radius:2px;transition:width 0.15s ease`;
+		barFill.style.width = `${pct}%`;
 
 		if (op.progress) {
 			statusText.textContent = `Processing source ${op.progress.current} of ${op.progress.total}...`;
@@ -288,7 +283,7 @@ export class PipelinesTab {
 		this.liveUnsubscribes.push(
 			this.deps.eventBus.on("dataExchange.export.started", (event) => {
 				if (event.payload.pipelineId !== pipe.id) return;
-				barFill.style.width = "100%";
+				barFill.addClass("ft-w-full");
 				const exportName = event.payload.config.outputPath
 					? basename(event.payload.config.outputPath)
 					: "export";

@@ -49,11 +49,7 @@ export class PipelineEditForm {
 			}),
 		);
 
-		const grid = panel.createDiv();
-		grid.style.display = "grid";
-		grid.style.gridTemplateColumns = "1fr 1fr";
-		grid.style.columnGap = "1rem";
-		grid.style.rowGap = "0";
+		const grid = panel.createDiv({ cls: "ft-edit-grid-2col" });
 
 		new Setting(grid)
 			.setName("Merge key")

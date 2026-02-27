@@ -164,8 +164,7 @@ export class DomainsTab {
 		// Header with add button
 		const header = this.masterEl.createDiv({ cls: "ft-master-category-header" });
 		header.createSpan({ text: "Domains" });
-		const addDomainBtn = header.createSpan({ cls: "ft-visibility-toggle" });
-		addDomainBtn.style.marginLeft = "auto";
+		const addDomainBtn = header.createSpan({ cls: "ft-visibility-toggle ft-ml-auto" });
 		setIcon(addDomainBtn, "plus");
 		addDomainBtn.setAttribute("aria-label", "Create new domain");
 		addDomainBtn.addEventListener("click", (e) => {
@@ -202,21 +201,18 @@ export class DomainsTab {
 		}
 
 		if (hiddenDomains.length > 0) {
-			const hiddenHeader = this.masterEl.createDiv({ cls: "ft-master-category-header" });
-			hiddenHeader.style.marginTop = "8px";
-			hiddenHeader.style.opacity = "0.6";
+			const hiddenHeader = this.masterEl.createDiv({ cls: "ft-master-category-header ft-hidden-header" });
 			hiddenHeader.addClass("ft-cursor-pointer");
 			hiddenHeader.createSpan({ text: `${hiddenDomains.length} hidden` });
-			const expandIcon = hiddenHeader.createSpan({ cls: "ft-visibility-toggle" });
-			expandIcon.style.marginLeft = "auto";
+			const expandIcon = hiddenHeader.createSpan({ cls: "ft-visibility-toggle ft-ml-auto" });
 			setIcon(expandIcon, this.showHidden ? "chevron-up" : "chevron-down");
 
 			const hiddenContainer = this.masterEl.createDiv();
-			hiddenContainer.style.display = this.showHidden ? "block" : "none";
+			if (!this.showHidden) hiddenContainer.addClass("ft-hidden");
 
 			hiddenHeader.addEventListener("click", () => {
 				this.showHidden = !this.showHidden;
-				hiddenContainer.style.display = this.showHidden ? "block" : "none";
+				hiddenContainer.classList.toggle("ft-hidden", !this.showHidden);
 				setIcon(expandIcon, this.showHidden ? "chevron-up" : "chevron-down");
 			});
 
@@ -236,7 +232,7 @@ export class DomainsTab {
 			cls: `ft-master-event-item${isSelected ? " ft-master-event-selected" : ""}`,
 		});
 
-		if (!d.visible) item.style.opacity = "0.6";
+		if (!d.visible) item.addClass("ft-opacity-06");
 
 		// Eye icon for visibility toggle
 		const eyeBtn = item.createSpan({ cls: "ft-visibility-toggle" });

@@ -278,11 +278,11 @@ describe("InstallerWizardModal", () => {
 
 			// Children are hidden by default
 			const childLists = modal.contentEl.querySelectorAll(".ft-folder-children");
-			expect((childLists[0] as HTMLElement).style.display).toBe("none");
+			expect((childLists[0] as HTMLElement).classList.contains("ft-folder-children-hidden")).toBe(true);
 
 			// Click the toggle
 			(arrows[0].parentElement as HTMLElement).click();
-			expect((childLists[0] as HTMLElement).style.display).toBe("block");
+			expect((childLists[0] as HTMLElement).classList.contains("ft-folder-children-hidden")).toBe(false);
 
 			// Arrow should change to down
 			expect(arrows[0].textContent).toBe("\u25BE");
@@ -299,7 +299,7 @@ describe("InstallerWizardModal", () => {
 			const steps = modal.contentEl.querySelectorAll(".ft-wizard-step");
 			for (const step of Array.from(steps)) {
 				const label = step.querySelector(".ft-text-xs") as HTMLElement | null;
-				if (label?.style.fontWeight === "600") return label.textContent ?? undefined;
+				if (label?.classList.contains("ft-wizard-step-label-active")) return label.textContent ?? undefined;
 			}
 			return undefined;
 		}

@@ -64,21 +64,17 @@ export class ImportsTab {
 			cls: `ft-master-event-item${isSelected ? " ft-master-event-selected" : ""}`,
 		});
 		item.dataset.id = cfg.id;
-		item.style.alignItems = "flex-start";
+		item.addClass("ft-master-item-top");
 
 		const iconEl = item.createSpan();
 		setIcon(iconEl, "file-input");
 		iconEl.addClass("ft-icon-muted");
 		iconEl.addClass("ft-flex-shrink-0");
-		iconEl.style.marginTop = "0.125rem";
+		iconEl.addClass("ft-icon-offset-sm");
 
-		const textBlock = item.createDiv({ cls: "ft-master-event-name" });
-		textBlock.style.minWidth = "0";
+		const textBlock = item.createDiv({ cls: "ft-master-event-name ft-master-text-block" });
 		textBlock.createDiv({ text: cfg.name || "(unnamed)" });
-		const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-sm" });
-		sub.style.whiteSpace = "nowrap";
-		sub.style.overflow = "hidden";
-		sub.style.textOverflow = "ellipsis";
+		const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-sm ft-text-ellipsis" });
 		sub.textContent = cfg.targetFolder || "(no folder)";
 
 		item.createSpan({
@@ -228,8 +224,7 @@ export class ImportsTab {
 		});
 
 		// Delete
-		const deleteLink = actions.createEl("span", { cls: "ft-nav-link" });
-		deleteLink.style.color = "var(--text-error)";
+		const deleteLink = actions.createEl("span", { cls: "ft-nav-link ft-text-error" });
 		const delIcon = deleteLink.createSpan();
 		setIcon(delIcon, "trash-2");
 		deleteLink.appendText(" Delete");
@@ -340,7 +335,7 @@ export class ImportsTab {
 				const inclTd = tr.createEl("td");
 				const inclIcon = inclTd.createSpan();
 				setIcon(inclIcon, m.included ? "check" : "minus");
-				inclIcon.style.opacity = m.included ? "1" : "0.3";
+				if (!m.included) inclIcon.addClass("ft-opacity-muted");
 			}
 		}
 
@@ -475,7 +470,7 @@ export class ImportsTab {
 		const statusRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
 		const spinnerIcon = statusRow.createSpan();
 		setIcon(spinnerIcon, "loader");
-		spinnerIcon.style.opacity = "0.6";
+		spinnerIcon.addClass("ft-opacity-muted");
 		spinnerIcon.addClass("ft-spin");
 		const statusText = statusRow.createSpan({ cls: "ft-text-sm" });
 		if (op.progress) {
@@ -485,13 +480,12 @@ export class ImportsTab {
 			statusText.textContent = `Running import: ${op.name}...`;
 		}
 
-		const barBg = section.createDiv();
-		barBg.style.cssText = "height:4px;background:var(--background-modifier-border);border-radius:2px;margin:0 0.5rem 0.5rem;overflow:hidden";
-		const barFill = barBg.createDiv();
+		const barBg = section.createDiv({ cls: "ft-progress-bar-track-4" });
+		const barFill = barBg.createDiv({ cls: "ft-progress-bar-fill-animated" });
 		const pct = op.progress && op.progress.total > 0
 			? Math.round((op.progress.current / op.progress.total) * 100)
 			: 0;
-		barFill.style.cssText = `height:100%;width:${pct}%;background:var(--interactive-accent);border-radius:2px;transition:width 0.15s ease`;
+		barFill.style.width = `${pct}%`;
 
 		const detailText = section.createDiv({ cls: "ft-text-muted ft-text-sm ft-px-2 ft-pb-2" });
 
@@ -516,7 +510,7 @@ export class ImportsTab {
 				const resultRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
 				const icon = resultRow.createSpan();
 				setIcon(icon, "check-circle");
-				icon.style.color = "var(--text-success)";
+				icon.addClass("ft-text-success");
 				const r = event.payload.result;
 				resultRow.createSpan({
 					text: `Import complete: ${r.created} created, ${r.updated} updated, ${r.skipped} skipped` +
@@ -532,7 +526,7 @@ export class ImportsTab {
 				const resultRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
 				const icon = resultRow.createSpan();
 				setIcon(icon, "x-circle");
-				icon.style.color = "var(--text-error)";
+				icon.addClass("ft-text-error");
 				resultRow.createSpan({ text: `Import failed: ${event.payload.error}`, cls: "ft-text-sm" });
 			}),
 		);

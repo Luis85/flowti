@@ -266,14 +266,12 @@ export abstract class BaseHubView<TPage extends string = string> extends ItemVie
 		// Record first visit
 		void onboardingService.recordFirstVisit(viewType);
 
-		const banner = container.createDiv({ cls: "ft-card ft-p-3 ft-mb-3" });
-		banner.style.cssText = "border:1px solid var(--background-modifier-border);position:relative";
+		const banner = container.createDiv({ cls: "ft-card ft-p-3 ft-mb-3 ft-onboarding-banner" });
 
 		// Dismiss button (top-right)
-		const dismissBtn = banner.createEl("span", { cls: "ft-nav-link ft-text-xs" });
+		const dismissBtn = banner.createEl("span", { cls: "ft-nav-link ft-text-xs ft-onboarding-dismiss" });
 		dismissBtn.textContent = "\u2715";
 		dismissBtn.title = "Dismiss";
-		dismissBtn.style.cssText = "position:absolute;top:0.5rem;right:0.75rem;cursor:pointer";
 		dismissBtn.addEventListener("click", () => {
 			void onboardingService.markCalloutDismissed(callout.id);
 			banner.remove();
@@ -281,17 +279,15 @@ export abstract class BaseHubView<TPage extends string = string> extends ItemVie
 
 		// Icon + title
 		const titleRow = banner.createDiv({ cls: "ft-flex ft-gap-2 ft-items-center ft-mb-1" });
-		const iconEl = titleRow.createSpan();
+		const iconEl = titleRow.createSpan({ cls: "ft-onboarding-icon" });
 		setIcon(iconEl, callout.icon);
-		iconEl.style.cssText = "display:inline-flex;align-items:center;opacity:0.6";
 		titleRow.createSpan({ text: callout.title, cls: "ft-font-medium ft-text-sm" });
 
 		// Description
 		banner.createDiv({ text: callout.description, cls: "ft-text-sm ft-text-muted ft-mb-1" });
 
 		// Suggestion
-		const suggestEl = banner.createDiv({ cls: "ft-text-xs ft-text-muted" });
-		suggestEl.style.fontStyle = "italic";
+		const suggestEl = banner.createDiv({ cls: "ft-text-xs ft-text-muted ft-font-italic" });
 		suggestEl.textContent = `\u2192 ${callout.suggestion}`;
 	}
 
@@ -318,9 +314,8 @@ export abstract class BaseHubView<TPage extends string = string> extends ItemVie
 		if (this.activePage !== "dashboard") this.masterTreeEl.empty();
 		target.empty();
 		const banner = target.createDiv({ cls: "ft-error-boundary ft-p-4 ft-text-center" });
-		const iconEl = banner.createDiv({ cls: "ft-mb-2" });
+		const iconEl = banner.createDiv({ cls: "ft-mb-2 ft-opacity-half" });
 		setIcon(iconEl, "alert-triangle");
-		iconEl.style.opacity = "0.5";
 		banner.createDiv({ text: "Something went wrong", cls: "ft-heading ft-heading-sm ft-mb-1" });
 		banner.createDiv({
 			text: err instanceof Error ? err.message : String(err),
@@ -352,8 +347,7 @@ export abstract class BaseHubView<TPage extends string = string> extends ItemVie
 	// ── Private shell construction ───────────────────────────
 
 	private buildTopBar(container: HTMLElement): void {
-		const bar = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-px-3 ft-py-2 ft-hidden" });
-		bar.style.borderBottom = "1px solid var(--background-modifier-border)";
+		const bar = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-px-3 ft-py-2 ft-hidden ft-border-bottom" });
 		bar.addClass("ft-flex-shrink-0");
 		this.topBarEl = bar;
 

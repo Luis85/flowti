@@ -83,7 +83,7 @@ export class ComponentShowcaseView extends ItemView {
 		});
 		disabledBtn.setAttribute("disabled", "true");
 		disabledBtn.addClass("ft-icon-muted");
-		disabledBtn.style.cursor = "not-allowed";
+		disabledBtn.addClass("ft-cursor-not-allowed");
 	}
 
 	private renderInputs(container: HTMLElement): void {
@@ -225,10 +225,8 @@ export class ComponentShowcaseView extends ItemView {
 		flexDemo.createEl("h4", { text: "Flexbox", cls: "ft-heading ft-heading-sm ft-mb-2" });
 
 		const flexRow = flexDemo.createDiv({
-			cls: "ft-flex ft-justify-between ft-items-center ft-p-2",
+			cls: "ft-flex ft-justify-between ft-items-center ft-p-2 ft-showcase-flex-bg",
 		});
-		flexRow.style.backgroundColor = "var(--background-primary)";
-		flexRow.style.borderRadius = "var(--radius-s)";
 
 		flexRow.createSpan({ text: "Left" });
 		flexRow.createSpan({ text: "Center" });
@@ -241,21 +239,13 @@ export class ComponentShowcaseView extends ItemView {
 		const gapRow = spacingDemo.createDiv({ cls: "ft-flex ft-gap-4" });
 
 		["ft-gap-1", "ft-gap-2", "ft-gap-3", "ft-gap-4"].forEach((gapClass) => {
-			const box = gapRow.createDiv({ cls: `ft-flex ${gapClass}` });
-			box.style.padding = "0.5rem";
-			box.style.backgroundColor = "var(--background-primary)";
-			box.style.borderRadius = "var(--radius-s)";
+			const box = gapRow.createDiv({ cls: `ft-flex ${gapClass} ft-showcase-gap-box` });
 
 			for (let i = 0; i < 3; i++) {
-				const dot = box.createDiv();
-				dot.style.width = "8px";
-				dot.style.height = "8px";
-				dot.style.backgroundColor = "var(--interactive-accent)";
-				dot.style.borderRadius = "50%";
+				box.createDiv({ cls: "ft-showcase-dot" });
 			}
 
-			const label = gapRow.createSpan({ text: gapClass.replace("ft-", ""), cls: "ft-text-sm ft-text-muted" });
-			label.style.alignSelf = "center";
+			gapRow.createSpan({ text: gapClass.replace("ft-", ""), cls: "ft-text-sm ft-text-muted ft-align-self-center" });
 		});
 
 		// Animation demo
@@ -267,9 +257,7 @@ export class ComponentShowcaseView extends ItemView {
 			cls: "ft-btn ft-btn-secondary",
 		});
 
-		const animTarget = animDemo.createDiv({ cls: "ft-mt-2 ft-p-2 ft-hidden" });
-		animTarget.style.backgroundColor = "var(--background-primary)";
-		animTarget.style.borderRadius = "var(--radius-s)";
+		const animTarget = animDemo.createDiv({ cls: "ft-mt-2 ft-p-2 ft-hidden ft-showcase-anim-target" });
 		animTarget.createSpan({ text: "Animated content appears here!", cls: "ft-text-muted" });
 
 		animBtn.addEventListener("click", () => {

@@ -69,8 +69,7 @@ export class MeasurementsTab {
 		spacer.addClass("ft-flex-1");
 
 		// Sort dropdown
-		const sortSelect = header.createEl("select", { cls: "ft-text-xs" });
-		sortSelect.style.cssText = "padding:1px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);cursor:pointer;font-size:var(--font-ui-smaller)";
+		const sortSelect = header.createEl("select", { cls: "ft-text-xs ft-sort-select" });
 		for (const opt of [{ v: "name", l: "Name" }, { v: "type", l: "Type" }, { v: "updated", l: "Updated" }]) {
 			const o = sortSelect.createEl("option");
 			o.value = opt.v;
@@ -104,13 +103,11 @@ export class MeasurementsTab {
 			if (m.id === state.selectedMeasurementId) item.addClass("is-active");
 
 			// Star
-			const star = item.createSpan({ cls: "ft-nav-link" });
-			star.style.flexShrink = "0";
+			const star = item.createSpan({ cls: "ft-nav-link ft-flex-shrink-0" });
 			const starIcon = star.createSpan();
 			setIcon(starIcon, "star");
-			starIcon.style.opacity = m.isFavorite ? "1" : "0.3";
-			starIcon.style.width = "14px";
-			starIcon.style.height = "14px";
+			starIcon.addClass("ft-icon-14");
+			starIcon.addClass(m.isFavorite ? "ft-star-active" : "ft-star-faded");
 			star.addEventListener("click", (e) => {
 				e.stopPropagation();
 				void this.deps.analyticsService.toggleMeasurementFavorite(m.id);
@@ -119,30 +116,23 @@ export class MeasurementsTab {
 			// Icon + name
 			const icon = item.createSpan();
 			setIcon(icon, "ruler");
-			icon.style.width = "14px";
-			icon.style.height = "14px";
-			icon.style.flexShrink = "0";
+			icon.addClass("ft-icon-14");
+			icon.addClass("ft-flex-shrink-0");
 
-			const textBlock = item.createDiv({ cls: "ft-master-event-name" });
-			textBlock.style.minWidth = "0";
+			const textBlock = item.createDiv({ cls: "ft-master-event-name ft-min-w-0" });
 			textBlock.createDiv({ text: m.name });
 
 			// Type badge + query name
-			const meta = textBlock.createDiv({ cls: "ft-text-muted ft-text-sm" });
-			meta.style.display = "flex";
-			meta.style.gap = "4px";
-			meta.style.alignItems = "center";
+			const meta = textBlock.createDiv({ cls: "ft-text-muted ft-text-sm ft-meta-row-inline" });
 
-			const typeBadge = meta.createSpan({ cls: "ft-tag" });
+			const typeBadge = meta.createSpan({ cls: "ft-tag ft-badge-tiny" });
 			typeBadge.textContent = m.type;
-			typeBadge.style.fontSize = "10px";
 
 			const query = this.deps.analyticsService.getQuery(m.queryId);
 			if (query) {
 				meta.createSpan({ text: query.name, cls: "ft-text-muted" });
 			} else {
-				const orphan = meta.createSpan({ text: "Query not found", cls: "ft-text-muted" });
-				orphan.style.color = "var(--text-error)";
+				meta.createSpan({ text: "Query not found", cls: "ft-text-error" });
 			}
 
 			item.addEventListener("click", () => {
@@ -165,7 +155,7 @@ export class MeasurementsTab {
 			const empty = this.detailEl.createDiv({ cls: "ft-text-muted ft-p-3 ft-text-center ft-text-sm" });
 			const emptyIcon = empty.createDiv();
 			setIcon(emptyIcon, "ruler");
-			emptyIcon.style.cssText = "opacity:0.3;margin-bottom:0.5rem";
+			emptyIcon.addClass("ft-detail-empty-icon");
 			empty.createDiv({ text: "Select a measurement to view details" });
 			return;
 		}
@@ -193,10 +183,9 @@ export class MeasurementsTab {
 		const nameRow = headerCard.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const rulerIcon = nameRow.createSpan();
 		setIcon(rulerIcon, "ruler");
-		rulerIcon.style.cssText = "width:18px;height:18px;opacity:0.6;flex-shrink:0";
+		rulerIcon.addClass("ft-card-header-icon");
 
-		const nameInput = nameRow.createEl("input", { type: "text" });
-		nameInput.style.cssText = "flex:1;padding:4px 8px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);font-weight:600;font-size:var(--font-ui-medium)";
+		const nameInput = nameRow.createEl("input", { type: "text", cls: "ft-name-input" });
 		nameInput.value = m.name;
 		nameInput.addEventListener("change", () => {
 			const val = nameInput.value.trim();
@@ -209,19 +198,17 @@ export class MeasurementsTab {
 		const typeBadge = nameRow.createSpan({ cls: "ft-tag" });
 		typeBadge.textContent = m.type === "single" ? "Single" : "Series";
 
-		const favBtn = nameRow.createEl("span", { cls: "ft-nav-link" });
-		favBtn.style.flexShrink = "0";
+		const favBtn = nameRow.createEl("span", { cls: "ft-nav-link ft-flex-shrink-0" });
 		const favIcon = favBtn.createSpan();
 		setIcon(favIcon, "star");
-		favIcon.style.cssText = `width:14px;height:14px;${m.isFavorite ? "color:var(--text-accent)" : "opacity:0.3"}`;
+		favIcon.addClass(m.isFavorite ? "ft-fav-icon-active" : "ft-fav-icon-inactive");
 		favBtn.title = m.isFavorite ? "Remove from favorites" : "Add to favorites";
 		favBtn.addEventListener("click", () => {
 			void this.deps.analyticsService.toggleMeasurementFavorite(m.id);
 		});
 
 		// Description
-		const descInput = headerCard.createEl("textarea", { cls: "ft-text-sm" });
-		descInput.style.cssText = "width:100%;padding:4px 8px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);min-height:40px;resize:vertical;margin-top:0.5rem";
+		const descInput = headerCard.createEl("textarea", { cls: "ft-text-sm ft-desc-textarea" });
 		descInput.value = m.description ?? "";
 		descInput.placeholder = "Describe what this measurement tracks...";
 		descInput.addEventListener("change", () => {
@@ -233,22 +220,20 @@ export class MeasurementsTab {
 		const sourceHeader = sourceCard.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const srcIcon = sourceHeader.createSpan();
 		setIcon(srcIcon, "search");
-		srcIcon.style.cssText = "width:14px;height:14px;opacity:0.6";
-		sourceHeader.createSpan({ text: "Source Query", cls: "ft-text-sm" }).style.fontWeight = "500";
+		srcIcon.addClass("ft-section-icon");
+		sourceHeader.createSpan({ text: "Source Query", cls: "ft-text-sm ft-font-medium" });
 
 		// Warning callout for missing query
 		if (!query) {
-			const warning = sourceCard.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-text-xs" });
-			warning.style.cssText = "padding:0.35rem 0.5rem;margin-top:0.35rem;border-radius:4px;background:var(--background-modifier-error);color:var(--text-error)";
+			const warning = sourceCard.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-text-xs ft-warning-callout" });
 			const warnIcon = warning.createSpan();
 			setIcon(warnIcon, "alert-triangle");
-			warnIcon.style.cssText = "width:14px;height:14px;flex-shrink:0";
+			warnIcon.addClass("ft-warning-icon");
 			warning.createSpan({ text: "Source query has been deleted. Select a replacement or delete this measurement." });
 		}
 
 		const queries = this.deps.getState().queries;
-		const querySelect = sourceCard.createEl("select");
-		querySelect.style.cssText = "width:100%;padding:4px 8px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);margin-top:0.35rem";
+		const querySelect = sourceCard.createEl("select", { cls: "ft-select-full" });
 		for (const q of queries) {
 			const opt = querySelect.createEl("option");
 			opt.value = q.id;
@@ -260,7 +245,7 @@ export class MeasurementsTab {
 			missing.value = m.queryId;
 			missing.textContent = "Query not found";
 			missing.selected = true;
-			missing.style.color = "var(--text-error)";
+			missing.addClass("ft-option-error");
 		}
 		querySelect.addEventListener("change", () => {
 			void this.deps.analyticsService.updateMeasurement(m.id, { queryId: querySelect.value }).then(() => {
@@ -270,17 +255,15 @@ export class MeasurementsTab {
 
 		// Query info row
 		if (query) {
-			const infoRow = sourceCard.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mt-1" });
-			infoRow.style.flexWrap = "wrap";
+			const infoRow = sourceCard.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mt-1 ft-flex-wrap" });
 
 			// Source files
 			if (query.sources.length > 0) {
 				for (const src of query.sources) {
-					const badge = infoRow.createSpan({
+					infoRow.createSpan({
 						text: src.csvPath.split("/").pop() ?? src.csvPath,
-						cls: "ft-badge ft-badge-muted",
+						cls: "ft-badge ft-badge-muted ft-badge-source",
 					});
-					badge.style.fontSize = "0.65rem";
 				}
 			}
 
@@ -288,8 +271,7 @@ export class MeasurementsTab {
 			infoRow.createSpan({ text: `${query.measures.length} measures`, cls: "ft-text-xs ft-text-muted" });
 
 			// Navigate link
-			const navLink = infoRow.createEl("span", { text: "Open query", cls: "ft-nav-link ft-text-xs" });
-			navLink.style.marginLeft = "auto";
+			const navLink = infoRow.createEl("span", { text: "Open query", cls: "ft-nav-link ft-text-xs ft-ml-auto" });
 			navLink.addEventListener("click", () => {
 				this.deps.navigation.navigateToTab("queries", m.queryId);
 			});
@@ -300,12 +282,11 @@ export class MeasurementsTab {
 		const colHeader = colCard.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const colIcon = colHeader.createSpan();
 		setIcon(colIcon, "columns-3");
-		colIcon.style.cssText = "width:14px;height:14px;opacity:0.6";
-		colHeader.createSpan({ text: "Measure Column", cls: "ft-text-sm" }).style.fontWeight = "500";
+		colIcon.addClass("ft-section-icon");
+		colHeader.createSpan({ text: "Measure Column", cls: "ft-text-sm ft-font-medium" });
 
 		// Populate column picker from query measures
-		const colSelect = colCard.createEl("select");
-		colSelect.style.cssText = "width:100%;padding:4px 8px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);margin-top:0.35rem";
+		const colSelect = colCard.createEl("select", { cls: "ft-select-full" });
 
 		const noneOpt = colSelect.createEl("option");
 		noneOpt.value = "";
@@ -332,21 +313,20 @@ export class MeasurementsTab {
 			text: m.measureColumn
 				? "Extracts a single value from the query result."
 				: "Uses the full query result with all measures.",
-			cls: "ft-text-xs ft-text-muted",
-		}).style.marginTop = "0.25rem";
+			cls: "ft-text-xs ft-text-muted ft-hint-text",
+		});
 
 		// ── Type section ────────────────────────────
 		const typeCard = this.detailEl.createDiv({ cls: "ft-card ft-mt-2" });
 		const typeHeader = typeCard.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const typeIcon = typeHeader.createSpan();
 		setIcon(typeIcon, "activity");
-		typeIcon.style.cssText = "width:14px;height:14px;opacity:0.6";
-		typeHeader.createSpan({ text: "Measurement Type", cls: "ft-text-sm" }).style.fontWeight = "500";
+		typeIcon.addClass("ft-section-icon");
+		typeHeader.createSpan({ text: "Measurement Type", cls: "ft-text-sm ft-font-medium" });
 
 		const typeRow = typeCard.createDiv({ cls: "ft-flex ft-gap-2 ft-mt-1" });
 		for (const t of [{ id: "single" as MeasurementType, label: "Single Value", icon: "hash", desc: "One metric (e.g., Total Revenue)" }, { id: "series" as MeasurementType, label: "Time Series", icon: "trending-up", desc: "Values over time periods" }]) {
-			const btn = typeRow.createDiv({ cls: `ft-toggle-btn${m.type === t.id ? " is-active" : ""}` });
-			btn.style.cssText = "flex:1;padding:0.5rem;border-radius:6px;text-align:center";
+			const btn = typeRow.createDiv({ cls: `ft-toggle-btn ft-type-toggle${m.type === t.id ? " is-active" : ""}` });
 			btn.addEventListener("click", () => {
 				if (m.type !== t.id) {
 					void this.deps.analyticsService.updateMeasurement(m.id, { type: t.id }).then(() => {
@@ -358,9 +338,10 @@ export class MeasurementsTab {
 			const btnIcon = btn.createDiv();
 			const iconSpan = btnIcon.createSpan();
 			setIcon(iconSpan, t.icon);
-			iconSpan.style.cssText = `width:16px;height:16px;${m.type === t.id ? "" : "opacity:0.5"}`;
-			btn.createDiv({ text: t.label, cls: "ft-text-xs" }).style.fontWeight = "500";
-			btn.createDiv({ text: t.desc, cls: "ft-text-xs" }).style.cssText = "opacity:0.7;line-height:1.2";
+			iconSpan.addClass("ft-icon-16");
+			iconSpan.addClass(m.type === t.id ? "ft-icon-active" : "ft-icon-inactive");
+			btn.createDiv({ text: t.label, cls: "ft-text-xs ft-font-medium" });
+			btn.createDiv({ text: t.desc, cls: "ft-text-xs ft-type-desc" });
 		}
 
 		// ── Display Format section ──────────────────
@@ -390,8 +371,7 @@ export class MeasurementsTab {
 		});
 
 		// Delete
-		const delBtn = actions.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-		delBtn.style.color = "var(--text-error)";
+		const delBtn = actions.createEl("span", { cls: "ft-nav-link ft-text-sm ft-delete-link" });
 		const delIcon = delBtn.createSpan();
 		setIcon(delIcon, "trash-2");
 		delBtn.appendText(" Delete");
@@ -408,16 +388,15 @@ export class MeasurementsTab {
 		const header = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const headerIcon = header.createSpan();
 		setIcon(headerIcon, "palette");
-		headerIcon.style.cssText = "width:14px;height:14px;opacity:0.6";
-		header.createSpan({ text: "Display Format", cls: "ft-text-sm" }).style.fontWeight = "500";
+		headerIcon.addClass("ft-section-icon");
+		header.createSpan({ text: "Display Format", cls: "ft-text-sm ft-font-medium" });
 
 		const fmt = m.displayFormat ?? { style: "plain" as NumberFormatStyle };
 
 		// Style selector
 		const styleRow = card.createDiv({ cls: "ft-flex ft-gap-2 ft-mt-1" });
 		for (const fs of FORMAT_STYLES) {
-			const btn = styleRow.createDiv({ cls: `ft-toggle-btn${fmt.style === fs.id ? " is-active" : ""}` });
-			btn.style.cssText = "flex:1;padding:0.35rem;text-align:center";
+			const btn = styleRow.createDiv({ cls: `ft-toggle-btn ft-style-toggle${fmt.style === fs.id ? " is-active" : ""}` });
 			btn.textContent = fs.label;
 			btn.title = fs.description;
 			btn.addEventListener("click", () => {
@@ -433,8 +412,7 @@ export class MeasurementsTab {
 		if (fmt.style === "currency") {
 			const symRow = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mt-1" });
 			symRow.createSpan({ text: "Symbol:", cls: "ft-text-xs ft-text-muted" });
-			const symInput = symRow.createEl("input", { type: "text" });
-			symInput.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);width:40px;text-align:center";
+			const symInput = symRow.createEl("input", { type: "text", cls: "ft-symbol-input" });
 			symInput.value = fmt.symbol ?? "$";
 			symInput.addEventListener("change", () => {
 				void this.deps.analyticsService.updateMeasurement(m.id, {
@@ -446,8 +424,7 @@ export class MeasurementsTab {
 		// Decimals
 		const decRow = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mt-1" });
 		decRow.createSpan({ text: "Decimal places:", cls: "ft-text-xs ft-text-muted" });
-		const decSelect = decRow.createEl("select");
-		decSelect.style.cssText = "padding:2px 6px;font-size:var(--font-ui-small);background:var(--background-primary);border:1px solid var(--background-modifier-border);border-radius:4px";
+		const decSelect = decRow.createEl("select", { cls: "ft-decimal-select" });
 		for (const d of [{ v: "", label: "Auto" }, { v: "0", label: "0" }, { v: "1", label: "1" }, { v: "2", label: "2" }, { v: "3", label: "3" }]) {
 			const opt = decSelect.createEl("option");
 			opt.value = d.v;
@@ -484,24 +461,23 @@ export class MeasurementsTab {
 		const header = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const headerIcon = header.createSpan();
 		setIcon(headerIcon, "layout-dashboard");
-		headerIcon.style.cssText = "width:14px;height:14px;opacity:0.6";
-		header.createSpan({ text: "Used in Dashboards", cls: "ft-text-sm" }).style.fontWeight = "500";
+		headerIcon.addClass("ft-section-icon");
+		header.createSpan({ text: "Used in Dashboards", cls: "ft-text-sm ft-font-medium" });
 		header.createSpan({ text: `${usages.length}`, cls: "ft-badge ft-badge-muted" });
 
 		for (const usage of usages) {
-			const row = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			row.style.cssText = "padding:0.25rem 0;border-bottom:1px solid var(--background-modifier-border)";
+			const row = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-usage-row" });
 
 			const dashIcon = row.createSpan();
 			setIcon(dashIcon, "grid-3x3");
-			dashIcon.style.cssText = "width:12px;height:12px;opacity:0.5";
+			dashIcon.addClass("ft-usage-icon");
 
 			const link = row.createEl("span", { text: usage.dashName, cls: "ft-nav-link ft-text-xs" });
 			link.addEventListener("click", () => {
 				this.deps.navigation.navigateToTab("dashboards", usage.dashId);
 			});
 
-			row.createSpan({ text: usage.tileTitle, cls: "ft-text-xs ft-text-muted" }).style.marginLeft = "auto";
+			row.createSpan({ text: usage.tileTitle, cls: "ft-text-xs ft-text-muted ft-ml-auto" });
 		}
 	}
 
@@ -541,22 +517,20 @@ export class MeasurementsTab {
 		const headerRow = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const headerIcon = headerRow.createSpan();
 		setIcon(headerIcon, "plus-square");
-		headerIcon.style.cssText = "width:16px;height:16px;opacity:0.6";
-		headerRow.createSpan({ text: "New Measurement", cls: "ft-text-sm" }).style.fontWeight = "600";
+		headerIcon.addClass("ft-create-header-icon");
+		headerRow.createSpan({ text: "New Measurement", cls: "ft-text-sm ft-font-semibold" });
 
 		// Name
 		const nameRow = card.createDiv({ cls: "ft-mt-2" });
 		nameRow.createDiv({ text: "Name", cls: "ft-text-xs ft-text-muted" });
-		const nameInput = nameRow.createEl("input", { type: "text" });
-		nameInput.style.cssText = "width:100%;padding:4px 8px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);margin-top:0.25rem";
+		const nameInput = nameRow.createEl("input", { type: "text", cls: "ft-input-full" });
 		// eslint-disable-next-line obsidianmd/ui/sentence-case
 	nameInput.placeholder = "e.g., Total revenue";
 
 		// Query picker
 		const queryRow = card.createDiv({ cls: "ft-mt-2" });
 		queryRow.createDiv({ text: "Source Query", cls: "ft-text-xs ft-text-muted" });
-		const querySelect = queryRow.createEl("select");
-		querySelect.style.cssText = "width:100%;padding:4px 8px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);margin-top:0.25rem";
+		const querySelect = queryRow.createEl("select", { cls: "ft-input-full" });
 		for (const q of queries) {
 			const opt = querySelect.createEl("option");
 			opt.value = q.id;
@@ -566,8 +540,7 @@ export class MeasurementsTab {
 		// Column picker (populated from selected query's measures)
 		const colRow = card.createDiv({ cls: "ft-mt-2" });
 		colRow.createDiv({ text: "Measure Column", cls: "ft-text-xs ft-text-muted" });
-		const colSelect = colRow.createEl("select");
-		colSelect.style.cssText = "width:100%;padding:4px 8px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);margin-top:0.25rem";
+		const colSelect = colRow.createEl("select", { cls: "ft-input-full" });
 
 		const populateColumns = () => {
 			colSelect.empty();
@@ -607,25 +580,21 @@ export class MeasurementsTab {
 
 		const typeButtons: HTMLElement[] = [];
 		for (const t of [{ id: "single" as MeasurementType, label: "Single Value", icon: "hash" }, { id: "series" as MeasurementType, label: "Time Series", icon: "trending-up" }]) {
-			const btn = typeSelectRow.createDiv();
-			btn.style.cssText = `flex:1;padding:0.35rem;border:1px solid var(--background-modifier-border);border-radius:4px;cursor:pointer;text-align:center;font-size:var(--font-ui-small);${selectedType === t.id ? "border-color:var(--interactive-accent);background:var(--background-primary-alt)" : ""}`;
+			const btn = typeSelectRow.createDiv({ cls: `ft-type-select-btn${selectedType === t.id ? " is-active" : ""}` });
 			const iconSpan = btn.createSpan();
 			setIcon(iconSpan, t.icon);
-			iconSpan.style.cssText = "width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:4px";
+			iconSpan.addClass("ft-type-select-icon");
 			btn.appendText(t.label);
 			typeButtons.push(btn);
 			btn.addEventListener("click", () => {
 				selectedType = t.id;
-				typeButtons[0].style.borderColor = selectedType === "single" ? "var(--interactive-accent)" : "var(--background-modifier-border)";
-				typeButtons[0].style.background = selectedType === "single" ? "var(--background-primary-alt)" : "transparent";
-				typeButtons[1].style.borderColor = selectedType === "series" ? "var(--interactive-accent)" : "var(--background-modifier-border)";
-				typeButtons[1].style.background = selectedType === "series" ? "var(--background-primary-alt)" : "transparent";
+				for (const b of typeButtons) b.removeClass("is-active");
+				btn.addClass("is-active");
 			});
 		}
 
 		// Action buttons
-		const btnRow = card.createDiv({ cls: "ft-flex ft-gap-2 ft-mt-3" });
-		btnRow.style.justifyContent = "flex-end";
+		const btnRow = card.createDiv({ cls: "ft-flex ft-gap-2 ft-mt-3 ft-actions-end" });
 
 		const cancelBtn = btnRow.createEl("button", { text: "Cancel", cls: "ft-text-sm" });
 		cancelBtn.addEventListener("click", () => {

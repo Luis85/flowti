@@ -14,8 +14,7 @@ export function renderConfiguredExports(
 	renderSectionHeader: (c: HTMLElement, icon: string, title: string, count: number) => HTMLElement,
 ): void {
 	const state = deps.getState();
-	const section = container.createDiv();
-	section.style.marginBottom = "2rem";
+	const section = container.createDiv({ cls: "ft-section-mb" });
 	renderSectionHeader(section, "file-output", "Configured Exports", state.exportConfigs.length);
 
 	if (state.exportConfigs.length === 0) {
@@ -24,7 +23,7 @@ export function renderConfiguredExports(
 	}
 
 	const table = section.createEl("table", { cls: "ft-preview-table" });
-	table.style.width = "100%";
+	table.addClass("ft-w-full");
 	const thead = table.createEl("thead");
 	const headRow = thead.createEl("tr");
 	headRow.createEl("th", { text: "Name" });
@@ -50,7 +49,7 @@ export function renderConfiguredExports(
 		const starIcon = nameRow.createSpan({ cls: "ft-nav-link" });
 		starIcon.addClass("ft-flex-shrink-0");
 		setIcon(starIcon, cfg.favourite ? "star" : "star-off");
-		if (cfg.favourite) starIcon.style.color = "var(--text-accent)";
+		if (cfg.favourite) starIcon.addClass("ft-text-accent");
 		starIcon.setAttribute("aria-label", cfg.favourite ? "Unfavourite" : "Favourite");
 		starIcon.addEventListener("click", () => {
 			void deps.dataExchangeService.toggleExportFavourite(cfg.id).then(() => {
@@ -90,8 +89,8 @@ export function renderConfiguredExports(
 		});
 		srcTd.createSpan({
 			text: cfg.sourceType,
-			cls: "ft-badge ft-badge-muted",
-		}).style.marginLeft = "0.25rem";
+			cls: "ft-badge ft-badge-muted ft-ml-025",
+		});
 
 		// Output
 		const outTd = tr.createEl("td");
@@ -103,8 +102,8 @@ export function renderConfiguredExports(
 		if (cfg.isExternal) {
 			outTd.createSpan({
 				text: "external",
-				cls: "ft-badge ft-badge-muted",
-			}).style.marginLeft = "0.25rem";
+				cls: "ft-badge ft-badge-muted ft-ml-025",
+			});
 		}
 		outLink.addEventListener("click", () => {
 			if (!cfg.isExternal) {
@@ -153,7 +152,7 @@ function renderExportEmptyState(section: HTMLElement, deps: HubComponentDeps): v
 	const ctaIcon = cta.createDiv();
 	setIcon(ctaIcon, "file-output");
 	ctaIcon.addClass("ft-icon-subtle");
-	ctaIcon.style.marginBottom = "0.5rem";
+	ctaIcon.addClass("ft-cta-icon-mb");
 	cta.createDiv({
 		text: "No export configs yet",
 		cls: "ft-heading ft-heading-sm ft-mb-1",

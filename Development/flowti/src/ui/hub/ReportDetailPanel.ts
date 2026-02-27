@@ -162,7 +162,7 @@ export class ReportDetailPanel {
 		}
 
 		const deleteLink = actions.createEl("span", { cls: "ft-nav-link" });
-		deleteLink.style.color = "var(--text-error)";
+		deleteLink.addClass("ft-text-error");
 		const delIcon = deleteLink.createSpan();
 		setIcon(delIcon, "trash-2");
 		deleteLink.appendText(" Delete Doc");
@@ -185,19 +185,13 @@ export class ReportDetailPanel {
 
 		// Note Type (editable)
 		const typeCard = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
-		const typeRow = typeCard.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		typeRow.style.padding = "0.25rem 0";
+		const typeRow = typeCard.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-type-row-padding" });
 		typeRow.createSpan({ text: "Note type", cls: "ft-text-sm ft-text-muted" });
 		const typeInput = typeRow.createEl("input", { cls: "ft-text-sm", type: "text" });
 		typeInput.value = fmNoteType;
 		// eslint-disable-next-line obsidianmd/ui/sentence-case
 	typeInput.placeholder = "e.g. Event, Asset, Service";
-		typeInput.style.flex = "1";
-		typeInput.style.background = "transparent";
-		typeInput.style.border = "1px solid var(--background-modifier-border)";
-		typeInput.style.borderRadius = "4px";
-		typeInput.style.padding = "0.25rem 0.5rem";
-		typeInput.style.color = "var(--text-normal)";
+		typeInput.addClass("ft-type-input");
 		typeInput.addEventListener("change", () => {
 			const file = this.deps.app.vault.getAbstractFileByPath(report.path);
 			if (file instanceof TFile) {
@@ -228,8 +222,7 @@ export class ReportDetailPanel {
 		if (Array.isArray(headers) && headers.length > 0) {
 			const section = this.detailEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
 			section.createDiv({ text: `Columns (${headers.length})`, cls: "ft-detail-section-header" });
-			const chips = section.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
-			chips.style.flexWrap = "wrap";
+			const chips = section.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1 ft-flex-wrap" });
 			for (const h of headers) {
 				chips.createSpan({ text: String(h), cls: "ft-badge ft-badge-muted" });
 			}
@@ -333,16 +326,14 @@ export class ReportDetailPanel {
 
 		// Prominent "Create Documentation" CTA
 		if (!entry.hasDoc) {
-			const ctaCard = this.detailEl.createDiv({ cls: "ft-card ft-p-3 ft-mt-3" });
-			ctaCard.style.borderColor = "var(--interactive-accent)";
-			ctaCard.style.borderStyle = "dashed";
+			const ctaCard = this.detailEl.createDiv({ cls: "ft-card ft-p-3 ft-mt-3 ft-card-cta-dashed" });
 
 			const ctaRow = ctaCard.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 			const ctaIcon = ctaRow.createSpan();
 			setIcon(ctaIcon, "file-plus");
-			ctaIcon.style.color = "var(--interactive-accent)";
+			ctaIcon.addClass("ft-icon-accent");
 			const ctaText = ctaRow.createDiv();
-			ctaText.createDiv({ text: "Create Report Documentation", cls: "ft-heading ft-heading-sm" }).style.margin = "0";
+			ctaText.createDiv({ text: "Create Report Documentation", cls: "ft-heading ft-heading-sm ft-heading-no-margin" });
 			ctaText.createDiv({
 				text: "Document this CSV file to track its schema, purpose, and import configurations.",
 				cls: "ft-text-muted ft-text-sm",
@@ -375,9 +366,7 @@ export class ReportDetailPanel {
 				});
 				const rowInfo = columnsPlaceholder.createDiv({ cls: "ft-text-muted ft-text-sm ft-px-2" });
 				rowInfo.textContent = `${parsed.rowCount} row${parsed.rowCount !== 1 ? "s" : ""}`;
-				const chips = columnsPlaceholder.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
-				chips.style.flexWrap = "wrap";
-				chips.style.padding = "0.25rem 0.5rem";
+				const chips = columnsPlaceholder.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1 ft-chip-container" });
 				for (const h of parsed.headers) {
 					chips.createSpan({ text: h, cls: "ft-badge ft-badge-muted" });
 				}

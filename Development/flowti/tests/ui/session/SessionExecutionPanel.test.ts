@@ -116,9 +116,8 @@ describe("SessionExecutionPanel", () => {
 		const checkbox = container.querySelector("input[type='checkbox']") as HTMLInputElement;
 		expect(checkbox.checked).toBe(true);
 
-		const span = container.querySelector(".ft-task-row span");
+		const span = container.querySelector(".ft-task-row .ft-item-label-completed");
 		expect(span).toBeTruthy();
-		expect((span as HTMLElement).style.cssText).toContain("line-through");
 	});
 
 	it("renders progress bar when tasks exist", () => {

@@ -83,9 +83,7 @@ export class UserHubDashboard {
 	}
 
 	private renderWelcome(): void {
-		const section = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-mb-3" });
-		section.style.borderBottom = "1px solid var(--background-modifier-border)";
-		section.style.paddingBottom = "0.75rem";
+		const section = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-mb-3 ft-dashboard-welcome" });
 
 		const icon = section.createSpan();
 		setIcon(icon, "home");
@@ -94,44 +92,33 @@ export class UserHubDashboard {
 		const user = this.deps.userService.getUser();
 		const greeting = user ? `Welcome, ${user.name}` : "Welcome to Flowti";
 
-		section.createEl("h2", { text: greeting, cls: "ft-heading" }).style.margin = "0";
+		section.createEl("h2", { text: greeting, cls: "ft-heading ft-m-0" });
 	}
 
 	private renderEmptyState(): void {
-		const wrapper = this.container.createDiv({ cls: "ft-empty-state" });
-		wrapper.style.cssText = "text-align:center;padding:1.5rem 1.5rem 1rem";
+		const wrapper = this.container.createDiv({ cls: "ft-empty-state ft-dashboard-empty" });
 
 		// Hero icon
-		const iconEl = wrapper.createDiv();
+		const iconEl = wrapper.createDiv({ cls: "ft-dashboard-empty-icon" });
 		setIcon(iconEl, "user");
-		iconEl.style.cssText = "opacity:0.35;margin-bottom:0.75rem";
-		const svg = iconEl.querySelector("svg");
-		if (svg) { svg.style.width = "2.5rem"; svg.style.height = "2.5rem"; }
 
 		// Heading
-		const heading = wrapper.createDiv({ text: "Welcome to Your Hub" });
-		heading.style.cssText = "font-weight:600;font-size:var(--font-ui-medium);margin-bottom:0.35rem";
+		wrapper.createDiv({ text: "Welcome to Your Hub", cls: "ft-dashboard-empty-heading" });
 
 		// Subtitle
 		wrapper.createDiv({
 			text: "Your personal dashboard showing hub summaries, active sessions, and inbox notifications.",
-			cls: "ft-text-sm ft-text-muted",
-		}).style.marginBottom = "1.5rem";
+			cls: "ft-text-sm ft-text-muted ft-dashboard-empty-subtitle",
+		});
 
 		// Action cards grid
-		const grid = wrapper.createDiv();
-		grid.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;max-width:440px;margin:0 auto;text-align:left";
+		const grid = wrapper.createDiv({ cls: "ft-dashboard-empty-grid" });
 
 		// Card 1: Open Analytics Hub
-		const card1 = grid.createDiv({ cls: "ft-stat-card" });
-		card1.style.cssText = "cursor:pointer;padding:1rem;display:flex;flex-direction:column;gap:0.5rem";
-		const title1 = card1.createDiv();
-		title1.style.cssText = "display:flex;align-items:center;gap:0.4rem;font-weight:600;font-size:var(--font-ui-small)";
-		const icon1 = title1.createSpan();
+		const card1 = grid.createDiv({ cls: "ft-stat-card ft-dashboard-action-card" });
+		const title1 = card1.createDiv({ cls: "ft-dashboard-action-title" });
+		const icon1 = title1.createSpan({ cls: "ft-dashboard-action-icon" });
 		setIcon(icon1, "bar-chart-big");
-		icon1.style.cssText = "display:inline-flex;align-items:center";
-		const svg1 = icon1.querySelector("svg");
-		if (svg1) { svg1.style.width = "14px"; svg1.style.height = "14px"; }
 		title1.createSpan({ text: "Open Analytics Hub" });
 		card1.createDiv({ text: "Explore your dashboards and query data from CSV sources", cls: "ft-text-xs ft-text-muted" });
 		card1.addEventListener("click", () => {
@@ -139,15 +126,10 @@ export class UserHubDashboard {
 		});
 
 		// Card 2: Start a Session
-		const card2 = grid.createDiv({ cls: "ft-stat-card" });
-		card2.style.cssText = "cursor:pointer;padding:1rem;display:flex;flex-direction:column;gap:0.5rem";
-		const title2 = card2.createDiv();
-		title2.style.cssText = "display:flex;align-items:center;gap:0.4rem;font-weight:600;font-size:var(--font-ui-small)";
-		const icon2 = title2.createSpan();
+		const card2 = grid.createDiv({ cls: "ft-stat-card ft-dashboard-action-card" });
+		const title2 = card2.createDiv({ cls: "ft-dashboard-action-title" });
+		const icon2 = title2.createSpan({ cls: "ft-dashboard-action-icon" });
 		setIcon(icon2, "timer");
-		icon2.style.cssText = "display:inline-flex;align-items:center";
-		const svg2 = icon2.querySelector("svg");
-		if (svg2) { svg2.style.width = "14px"; svg2.style.height = "14px"; }
 		title2.createSpan({ text: "Start a Session" });
 		card2.createDiv({ text: "Begin a focused work session to capture notes and decisions", cls: "ft-text-xs ft-text-muted" });
 		card2.addEventListener("click", () => {
@@ -173,15 +155,11 @@ export class UserHubDashboard {
 		const next = upcoming[0];
 		if (!next) return;
 
-		const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-next-nudge" });
-		row.style.marginBottom = "0.75rem";
-		row.style.padding = "0.35rem 0.75rem";
-		row.style.borderRadius = "6px";
-		row.style.backgroundColor = "var(--background-secondary)";
+		const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-next-nudge ft-dashboard-nudge-row" });
 
 		const icon = row.createSpan();
 		setIcon(icon, "bell");
-		icon.style.opacity = "0.5";
+		icon.addClass("ft-opacity-half");
 
 		row.createSpan({ text: `Next: ${next.title}`, cls: "ft-text-sm" });
 		row.createSpan({ text: next.time, cls: "ft-badge ft-badge-muted ft-text-sm" });
@@ -200,13 +178,7 @@ export class UserHubDashboard {
 			? this.deps.trainService.getAllTrains().find((t) => t.sessionId === session.id)
 			: undefined;
 
-		const section = this.container.createDiv({ cls: "ft-active-session" });
-		section.style.marginBottom = "1rem";
-		section.style.padding = "0.75rem";
-		section.style.border = `1px solid ${isActive ? "var(--interactive-accent)" : "var(--background-modifier-border)"}`;
-		section.style.borderRadius = "8px";
-		section.style.backgroundColor = "var(--background-secondary)";
-		section.style.cursor = "pointer";
+		const section = this.container.createDiv({ cls: `ft-active-session ft-dashboard-session-callout ${isActive ? "ft-dashboard-session-callout-active" : "ft-dashboard-session-callout-inactive"}` });
 		section.addEventListener("click", () => {
 			this.deps.openSessionWorkspace(session.id);
 		});
@@ -215,7 +187,7 @@ export class UserHubDashboard {
 		const icon = header.createSpan();
 		setIcon(icon, isTrain ? "train-front" : (isActive ? "timer" : "pause"));
 
-		header.createSpan({ text: session.title, cls: "ft-heading ft-heading-sm" }).style.margin = "0";
+		header.createSpan({ text: session.title, cls: "ft-heading ft-heading-sm ft-m-0" });
 
 		header.createSpan({
 			text: SESSION_TYPE_LABELS[session.type] ?? session.type,
@@ -226,9 +198,8 @@ export class UserHubDashboard {
 			const focusBadge = header.createSpan({
 				cls: "ft-badge ft-badge-muted ft-text-sm",
 			});
-			const focusIcon = focusBadge.createSpan();
+			const focusIcon = focusBadge.createSpan({ cls: "ft-focus-icon-mr" });
 			setIcon(focusIcon, "file");
-			focusIcon.style.marginRight = "0.25rem";
 			focusBadge.appendText(session.focusFile.split("/").pop() ?? session.focusFile);
 		}
 
@@ -254,19 +225,16 @@ export class UserHubDashboard {
 			});
 		}
 
-		const spacer = header.createDiv();
-		spacer.style.flex = "1";
+		header.createDiv({ cls: "ft-flex-1" });
 
 		const remaining = computeRemainingMs(session);
-		const timerSpan = header.createSpan({
+		header.createSpan({
 			text: formatDuration(remaining),
-			cls: "ft-text-sm ft-dashboard-session-timer",
+			cls: "ft-text-sm ft-dashboard-session-timer ft-font-mono",
 		});
-		timerSpan.style.fontFamily = "var(--font-monospace)";
 
 		// Action buttons — contextual based on status
-		const actions = section.createDiv({ cls: "ft-flex ft-gap-2" });
-		actions.style.marginTop = "0.5rem";
+		const actions = section.createDiv({ cls: "ft-flex ft-gap-2 ft-session-actions-mt" });
 		actions.addEventListener("click", (e) => e.stopPropagation());
 		const eb = this.deps.eventBus;
 
@@ -307,13 +275,7 @@ export class UserHubDashboard {
 
 		if (isTimeboxed && trainSession) {
 			// Full callout — same style as active session
-			const section = this.container.createDiv({ cls: "ft-active-train" });
-			section.style.marginBottom = "1rem";
-			section.style.padding = "0.75rem";
-			section.style.border = `1px solid ${train.status === "running" ? "var(--interactive-accent)" : "var(--background-modifier-border)"}`;
-			section.style.borderRadius = "8px";
-			section.style.backgroundColor = "var(--background-secondary)";
-			section.style.cursor = "pointer";
+			const section = this.container.createDiv({ cls: `ft-active-train ft-dashboard-train-callout ${train.status === "running" ? "ft-dashboard-train-callout-active" : "ft-dashboard-train-callout-inactive"}` });
 			section.addEventListener("click", () => {
 				void this.deps.eventBus.emit("ui.openTrainView", {});
 			});
@@ -321,7 +283,7 @@ export class UserHubDashboard {
 			const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 			const icon = header.createSpan();
 			setIcon(icon, "train-front");
-			header.createSpan({ text: train.title, cls: "ft-heading ft-heading-sm" }).style.margin = "0";
+			header.createSpan({ text: train.title, cls: "ft-heading ft-heading-sm ft-m-0" });
 
 			header.createSpan({
 				text: `${train.thoughts.length} thought${train.thoughts.length === 1 ? "" : "s"}`,
@@ -332,30 +294,23 @@ export class UserHubDashboard {
 				header.createSpan({ text: "Paused", cls: "ft-badge ft-badge-muted ft-text-sm" });
 			}
 
-			const spacer = header.createDiv();
-			spacer.style.flex = "1";
+			header.createDiv({ cls: "ft-flex-1" });
 
 			const remaining = computeRemainingMs(trainSession);
-			const timerSpan = header.createSpan({
+			header.createSpan({
 				text: formatDuration(remaining),
-				cls: "ft-text-sm ft-dashboard-train-timer",
+				cls: "ft-text-sm ft-dashboard-train-timer ft-font-mono",
 			});
-			timerSpan.style.fontFamily = "var(--font-monospace)";
 		} else {
 			// Subtle notice — same pattern as nudge row
-			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-active-train-notice" });
-			row.style.marginBottom = "0.75rem";
-			row.style.padding = "0.35rem 0.75rem";
-			row.style.borderRadius = "6px";
-			row.style.backgroundColor = "var(--background-secondary)";
-			row.style.cursor = "pointer";
+			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-active-train-notice ft-dashboard-train-notice" });
 			row.addEventListener("click", () => {
 				void this.deps.eventBus.emit("ui.openTrainView", {});
 			});
 
 			const icon = row.createSpan();
 			setIcon(icon, "train-front");
-			icon.style.opacity = "0.5";
+			icon.addClass("ft-opacity-half");
 
 			row.createSpan({ text: train.title, cls: "ft-text-sm" });
 
@@ -389,23 +344,16 @@ export class UserHubDashboard {
 		const maxVisible = 5;
 
 		// Always-visible inbox section
-		const section = this.container.createDiv({ cls: "ft-inbox-section" });
-		section.style.marginBottom = "1.5rem";
-		section.style.border = "1px solid var(--background-modifier-border)";
-		section.style.borderRadius = "8px";
-		section.style.overflow = "hidden";
+		const section = this.container.createDiv({ cls: "ft-inbox-section ft-dashboard-inbox" });
 
 		// Header
-		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		header.style.padding = "0.5rem 0.75rem";
-		header.style.borderBottom = items.length > 0 ? "1px solid var(--background-modifier-border)" : "none";
-		header.style.backgroundColor = "var(--background-secondary)";
+		const header = section.createDiv({ cls: `ft-flex ft-items-center ft-gap-2 ft-dashboard-inbox-header ${items.length > 0 ? "ft-dashboard-inbox-header-border" : "ft-dashboard-inbox-header-no-border"}` });
 
 		const headerIcon = header.createSpan();
 		setIcon(headerIcon, "inbox");
 		headerIcon.addClass("ft-icon-muted");
 
-		header.createEl("h3", { text: "Inbox", cls: "ft-heading ft-heading-sm" }).style.margin = "0";
+		header.createEl("h3", { text: "Inbox", cls: "ft-heading ft-heading-sm ft-m-0" });
 
 		if (unreadCount > 0) {
 			header.createSpan({
@@ -416,8 +364,7 @@ export class UserHubDashboard {
 
 		// Spacer + clear all button (only when items exist)
 		if (items.length > 0) {
-			const spacer = header.createDiv();
-			spacer.style.flex = "1";
+			header.createDiv({ cls: "ft-flex-1" });
 
 			const clearBtn = header.createEl("button", { cls: "ft-btn ft-btn-sm ft-text-muted" });
 			setIcon(clearBtn, "trash-2");
@@ -429,63 +376,45 @@ export class UserHubDashboard {
 
 		// Empty state
 		if (items.length === 0) {
-			const empty = section.createDiv({ cls: "ft-flex ft-flex-col ft-items-center" });
-			empty.style.padding = "2rem";
-			empty.style.color = "var(--text-muted)";
+			const empty = section.createDiv({ cls: "ft-flex ft-flex-col ft-items-center ft-dashboard-inbox-empty" });
 
-			const emptyIcon = empty.createDiv();
+			const emptyIcon = empty.createDiv({ cls: "ft-dashboard-inbox-empty-icon" });
 			setIcon(emptyIcon, "inbox");
-			emptyIcon.style.opacity = "0.3";
-			emptyIcon.style.marginBottom = "0.5rem";
 
 			empty.createDiv({ text: "Your inbox is empty", cls: "ft-text-sm" });
 			empty.createDiv({
 				text: "Items from watchers, imports, and exports will appear here.",
-				cls: "ft-text-sm ft-text-muted",
-			}).style.marginTop = "0.25rem";
+				cls: "ft-text-sm ft-text-muted ft-dashboard-inbox-empty-hint",
+			});
 			return;
 		}
 
 		// Item rows
 		const visible = items.slice(0, maxVisible);
 		for (const item of visible) {
-			const row = section.createDiv({ cls: "ft-catalog-row ft-cursor-pointer" });
-			row.style.padding = "0.5rem 0.75rem";
-			row.style.borderBottom = "1px solid var(--background-modifier-border)";
+			const row = section.createDiv({ cls: `ft-catalog-row ft-cursor-pointer ft-dashboard-inbox-row${!item.read ? " ft-dashboard-inbox-unread" : ""}` });
 
-			if (!item.read) {
-				row.style.fontWeight = "600";
-				row.style.borderLeft = "3px solid var(--interactive-accent)";
-			}
-
-			const icon = row.createSpan();
+			const icon = row.createSpan({ cls: "ft-inbox-item-icon" });
 			setIcon(icon, item.type === "action" ? "alert-circle" : "info");
-			icon.style.opacity = "0.6";
-			icon.style.marginRight = "0.5rem";
 
 			row.createSpan({ text: item.title });
 
-			const source = row.createSpan({
+			row.createSpan({
 				text: formatSourceEvent(item.sourceEvent),
-				cls: "ft-badge ft-badge-muted ft-text-sm",
+				cls: "ft-badge ft-badge-muted ft-text-sm ft-inbox-item-source",
 			});
-			source.style.marginLeft = "0.5rem";
 
-			const time = row.createSpan({
+			row.createSpan({
 				text: formatTime(item.timestamp),
-				cls: "ft-text-muted ft-text-sm",
+				cls: "ft-text-muted ft-text-sm ft-ml-auto",
 			});
-			time.style.marginLeft = "auto";
 
 			row.addEventListener("click", () => this.deps.onInboxItemClick(item));
 		}
 
 		// "View all" link when more items exist
 		if (items.length > maxVisible) {
-			const footer = section.createDiv({ cls: "ft-flex" });
-			footer.style.justifyContent = "flex-end";
-			footer.style.padding = "0.5rem 0.75rem";
-			footer.style.backgroundColor = "var(--background-secondary)";
+			const footer = section.createDiv({ cls: "ft-flex ft-dashboard-inbox-footer" });
 
 			const link = footer.createEl("span", {
 				text: `View all (${items.length}) →`,
@@ -502,9 +431,8 @@ export class UserHubDashboard {
 
 		if (providers.length === 0) return;
 
-		const section = this.container.createDiv();
-		section.style.marginBottom = "1.5rem";
-		section.createEl("h3", { text: "Your hubs", cls: "ft-heading ft-heading-sm" }).style.marginBottom = "0.5rem";
+		const section = this.container.createDiv({ cls: "ft-dashboard-hubs" });
+		section.createEl("h3", { text: "Your hubs", cls: "ft-heading ft-heading-sm ft-dashboard-hubs-heading" });
 
 		// Collect stat cards from all providers, each clicking through to its hub
 		const cards: StatCardItem[] = [];
@@ -530,18 +458,11 @@ export class UserHubDashboard {
 			if (!summary.dashboardStats || summary.dashboardStats.length === 0) continue;
 
 			const hubId = provider.getHubId();
-			const kpiRow = section.createDiv({ cls: "ft-flex ft-gap-2 ft-items-center" });
-			kpiRow.style.marginTop = "0.75rem";
-			kpiRow.style.padding = "0.5rem 0.75rem";
-			kpiRow.style.borderRadius = "6px";
-			kpiRow.style.background = "var(--background-secondary)";
-			kpiRow.style.cursor = "pointer";
+			const kpiRow = section.createDiv({ cls: "ft-flex ft-gap-2 ft-items-center ft-dashboard-kpi-row" });
 			kpiRow.addEventListener("click", () => void this.deps.hubRegistry.openHub(hubId, "dashboards"));
 
 			for (const stat of summary.dashboardStats) {
-				const kpi = kpiRow.createDiv();
-				kpi.style.flex = "1";
-				kpi.style.textAlign = "center";
+				const kpi = kpiRow.createDiv({ cls: "ft-dashboard-kpi-cell" });
 
 				const val = kpi.createDiv({ text: stat.value, cls: "ft-text-lg ft-font-bold" });
 				if (stat.color) val.style.color = stat.color;
@@ -552,12 +473,10 @@ export class UserHubDashboard {
 	}
 
 	private renderQuickActions(): void {
-		const section = this.container.createDiv();
-		section.createEl("h3", { text: "Quick actions", cls: "ft-heading ft-heading-sm" }).style.marginBottom = "0.5rem";
-		section.style.marginBottom = "0.75rem";
+		const section = this.container.createDiv({ cls: "ft-dashboard-actions" });
+		section.createEl("h3", { text: "Quick actions", cls: "ft-heading ft-heading-sm ft-dashboard-actions-heading" });
 
-		const grid = section.createDiv({ cls: "ft-flex ft-gap-2" });
-		grid.style.flexWrap = "wrap";
+		const grid = section.createDiv({ cls: "ft-flex ft-gap-2 ft-flex-wrap" });
 
 		const eb = this.deps.eventBus;
 		const nav = this.deps.navigateToTab;

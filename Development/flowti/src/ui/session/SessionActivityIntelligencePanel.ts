@@ -25,12 +25,10 @@ export class SessionActivityIntelligencePanel {
 		}
 
 		const section = this.container.createDiv({ cls: "ft-session-intelligence ft-section" });
-		section.style.cssText = "display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--text-muted);";
 
 		section.createEl("strong", { text: "Activity", cls: "ft-intelligence-label" });
 
 		this.statsEl = section.createDiv({ cls: "ft-intelligence-stats" });
-		this.statsEl.style.cssText = "display:flex;align-items:center;gap:12px;flex-wrap:wrap;";
 		this.renderStats(intel);
 	}
 
@@ -59,7 +57,6 @@ export class SessionActivityIntelligencePanel {
 
 		for (const item of items) {
 			const stat = this.statsEl.createEl("span", { cls: "ft-intelligence-stat" });
-			stat.style.cssText = "display:inline-flex;align-items:center;gap:3px;";
 			stat.createEl("span", { text: item.label, cls: "ft-stat-label" });
 			stat.createEl("span", { text: item.value, cls: "ft-stat-value" });
 		}

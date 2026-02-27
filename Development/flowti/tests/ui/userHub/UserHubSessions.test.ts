@@ -176,8 +176,8 @@ describe("UserHubSessions", () => {
 
 			const rows = masterEl.querySelectorAll(".ft-catalog-row");
 			// Active session is in its own category first
-			expect((rows[0] as HTMLElement).style.borderLeft).toContain("var(--interactive-accent)");
-			expect((rows[1] as HTMLElement).style.borderLeft).not.toContain("var(--interactive-accent)");
+			expect((rows[0] as HTMLElement).classList.contains("ft-session-row-active-border")).toBe(true);
+			expect((rows[1] as HTMLElement).classList.contains("ft-session-row-active-border")).toBe(false);
 		});
 
 		it("should add margin-bottom to list rows to prevent border clipping", () => {
@@ -188,7 +188,7 @@ describe("UserHubSessions", () => {
 			comp.renderMaster("");
 
 			const row = masterEl.querySelector(".ft-catalog-row") as HTMLElement;
-			expect(row.style.marginBottom).toBe("2px");
+			expect(row.classList.contains("ft-session-row-mb")).toBe(true);
 		});
 
 		it("should render active category before prepared category", () => {
@@ -353,9 +353,9 @@ describe("UserHubSessions", () => {
 			const preparedContent = categories[0].querySelector(".ft-session-category-content") as HTMLElement;
 			const completedContent = categories[1].querySelector(".ft-session-category-content") as HTMLElement;
 			const archivedContent = categories[2].querySelector(".ft-session-category-content") as HTMLElement;
-			expect(preparedContent.style.display).not.toBe("none");
-			expect(completedContent.style.display).toBe("none");
-			expect(archivedContent.style.display).toBe("none");
+			expect(preparedContent.classList.contains("ft-session-category-collapsed")).toBe(false);
+			expect(completedContent.classList.contains("ft-session-category-collapsed")).toBe(true);
+			expect(archivedContent.classList.contains("ft-session-category-collapsed")).toBe(true);
 		});
 
 		it("should hide rows in collapsed archived category", () => {
@@ -370,12 +370,12 @@ describe("UserHubSessions", () => {
 
 			// Active row is visible
 			const activeContent = masterEl.querySelectorAll(".ft-session-category-content")[0] as HTMLElement;
-			expect(activeContent.style.display).not.toBe("none");
+			expect(activeContent.classList.contains("ft-session-category-collapsed")).toBe(false);
 			expect(activeContent.textContent).toContain("Active Session");
 
 			// Archived rows exist but are hidden
 			const archivedContent = masterEl.querySelectorAll(".ft-session-category-content")[1] as HTMLElement;
-			expect(archivedContent.style.display).toBe("none");
+			expect(archivedContent.classList.contains("ft-session-category-collapsed")).toBe(true);
 			expect(archivedContent.textContent).toContain("Archived Session");
 		});
 
@@ -389,7 +389,7 @@ describe("UserHubSessions", () => {
 
 			// Initially expanded
 			let content = masterEl.querySelector(".ft-session-category-content") as HTMLElement;
-			expect(content.style.display).not.toBe("none");
+			expect(content.classList.contains("ft-session-category-collapsed")).toBe(false);
 
 			// Click header to collapse
 			const header = masterEl.querySelector(".ft-session-category-header") as HTMLElement;
@@ -400,7 +400,7 @@ describe("UserHubSessions", () => {
 			// Re-render to apply collapse
 			comp.renderMaster("");
 			content = masterEl.querySelector(".ft-session-category-content") as HTMLElement;
-			expect(content.style.display).toBe("none");
+			expect(content.classList.contains("ft-session-category-collapsed")).toBe(true);
 		});
 
 		it("should expand collapsed category on header click", () => {
@@ -413,7 +413,7 @@ describe("UserHubSessions", () => {
 
 			// Initially collapsed (archived)
 			let content = masterEl.querySelector(".ft-session-category-content") as HTMLElement;
-			expect(content.style.display).toBe("none");
+			expect(content.classList.contains("ft-session-category-collapsed")).toBe(true);
 
 			// Click header to expand
 			const header = masterEl.querySelector(".ft-session-category-header") as HTMLElement;
@@ -422,7 +422,7 @@ describe("UserHubSessions", () => {
 			// Re-render
 			comp.renderMaster("");
 			content = masterEl.querySelector(".ft-session-category-content") as HTMLElement;
-			expect(content.style.display).not.toBe("none");
+			expect(content.classList.contains("ft-session-category-collapsed")).toBe(false);
 		});
 
 		it("should show correct count per category", () => {
@@ -461,8 +461,8 @@ describe("UserHubSessions", () => {
 
 			// Active is now collapsed, prepared still expanded
 			const contents = masterEl.querySelectorAll(".ft-session-category-content");
-			expect((contents[0] as HTMLElement).style.display).toBe("none");
-			expect((contents[1] as HTMLElement).style.display).not.toBe("none");
+			expect((contents[0] as HTMLElement).classList.contains("ft-session-category-collapsed")).toBe(true);
+			expect((contents[1] as HTMLElement).classList.contains("ft-session-category-collapsed")).toBe(false);
 		});
 	});
 

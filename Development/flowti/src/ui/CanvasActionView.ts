@@ -160,10 +160,7 @@ export class CanvasActionView extends ItemView {
 		const el = this.contentEl;
 		el.empty();
 
-		this.rootEl = el.createDiv({ cls: "flowti-container" });
-		this.rootEl.style.height = "100%";
-		this.rootEl.style.display = "flex";
-		this.rootEl.style.flexDirection = "column";
+		this.rootEl = el.createDiv({ cls: "flowti-container ft-view-root-flex" });
 
 		// Top bar (hidden on landing)
 		this.topBarEl = this.rootEl.createDiv({ cls: "ft-view-top-bar ft-hidden" });
@@ -241,8 +238,7 @@ export class CanvasActionView extends ItemView {
 		bar.empty();
 
 		// ── Row 1: File header ──
-		const headerRow = bar.createDiv({ cls: "ft-csv-header" });
-		headerRow.style.marginBottom = "0";
+		const headerRow = bar.createDiv({ cls: "ft-csv-header ft-header-mb-0" });
 		const iconEl = headerRow.createDiv({ cls: "ft-csv-header-icon" });
 		setIcon(iconEl, "layout-dashboard");
 		const titleCol = headerRow.createDiv();
@@ -296,7 +292,7 @@ export class CanvasActionView extends ItemView {
 		setIcon(saveBtn.createSpan(), "save");
 		saveBtn.appendText(" Save");
 		saveBtn.addEventListener("click", () => { void this.saveConfig(); });
-		saveBtn.style.display = this.hasUnsavedChanges() ? "" : "none";
+		saveBtn.classList.toggle("ft-hidden", !this.hasUnsavedChanges());
 		this.saveBtnEl = saveBtn;
 	}
 
@@ -485,10 +481,10 @@ export class CanvasActionView extends ItemView {
 	private updateUnsavedHint(): void {
 		const changed = this.hasUnsavedChanges();
 		if (this.unsavedHintEl) {
-			this.unsavedHintEl.style.display = changed ? "flex" : "none";
+			this.unsavedHintEl.classList.toggle("ft-hidden", !changed);
 		}
 		if (this.saveBtnEl) {
-			this.saveBtnEl.style.display = changed ? "" : "none";
+			this.saveBtnEl.classList.toggle("ft-hidden", !changed);
 		}
 	}
 

@@ -26,36 +26,35 @@ export function buildNudgeNotificationFragment(
 	const fragment = document.createDocumentFragment();
 
 	const wrapper = document.createElement("div");
-	wrapper.style.cssText = "display:flex;flex-direction:column;gap:0.5rem;";
+	wrapper.classList.add("ft-nudge-wrapper");
 	fragment.appendChild(wrapper);
 
 	// Header
 	const header = document.createElement("div");
-	header.style.fontWeight = "600";
+	header.classList.add("ft-nudge-header");
 	header.textContent = config.title;
 	wrapper.appendChild(header);
 
 	// Subtitle
 	const sub = document.createElement("div");
-	sub.style.cssText = "font-size:0.85em;opacity:0.7;";
+	sub.classList.add("ft-nudge-subtitle");
 	const dur = config.durationMinutes > 0 ? ` · ${config.durationMinutes} min` : "";
 	sub.textContent = `${config.time}${dur}`;
 	wrapper.appendChild(sub);
 
 	// Buttons
 	const btnRow = document.createElement("div");
-	btnRow.style.cssText = "display:flex;gap:0.5rem;margin-top:0.25rem;";
+	btnRow.classList.add("ft-nudge-btn-row");
 	wrapper.appendChild(btnRow);
 
 	const startBtn = document.createElement("button");
 	startBtn.textContent = "Start";
-	startBtn.style.cssText = "padding:4px 12px;cursor:pointer;";
-	startBtn.classList.add("mod-cta");
+	startBtn.classList.add("ft-nudge-btn", "mod-cta");
 	btnRow.appendChild(startBtn);
 
 	const dismissBtn = document.createElement("button");
 	dismissBtn.textContent = "Dismiss";
-	dismissBtn.style.cssText = "padding:4px 12px;cursor:pointer;";
+	dismissBtn.classList.add("ft-nudge-btn");
 	btnRow.appendChild(dismissBtn);
 
 	startBtn.addEventListener("click", () => {

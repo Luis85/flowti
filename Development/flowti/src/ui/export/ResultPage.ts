@@ -39,8 +39,7 @@ export class ResultPage {
 		});
 		const bar = progressContainer.createDiv({ cls: "ft-progress-bar" });
 		const fill = bar.createDiv({ cls: "ft-progress-bar-fill" });
-		fill.style.width = "100%";
-		fill.style.animation = "ft-pulse 1.5s infinite";
+		fill.addClass("ft-export-progress-pulse");
 	}
 
 	private renderError(container: HTMLElement): void {
@@ -49,11 +48,10 @@ export class ResultPage {
 		const headerRow = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });
 		const hIcon = headerRow.createSpan();
 		setIcon(hIcon, "x-circle");
-		hIcon.style.color = "var(--text-error)";
+		hIcon.addClass("ft-text-error-color");
 		headerRow.createEl("h3", { text: "Export failed", cls: "ft-heading ft-heading-sm" });
 
-		const errorCard = container.createDiv({ cls: "ft-card ft-mt-2" });
-		errorCard.style.borderLeft = "3px solid var(--text-error)";
+		const errorCard = container.createDiv({ cls: "ft-card ft-mt-2 ft-result-error-border" });
 		errorCard.createDiv({ text: "Error", cls: "ft-detail-section-header ft-mb-2" });
 		errorCard.createDiv({ text: state.exportError!, cls: "ft-text-sm" });
 
@@ -75,9 +73,9 @@ export class ResultPage {
 		const hIcon = headerRow.createSpan();
 		setIcon(hIcon, statusIcon);
 		if (isSkipped) {
-			hIcon.style.color = "var(--text-muted)";
+			hIcon.addClass("ft-text-muted");
 		} else {
-			hIcon.style.color = "var(--text-success, var(--interactive-accent))";
+			hIcon.addClass("ft-text-success-color");
 		}
 		headerRow.createEl("h3", { text: statusText, cls: "ft-heading ft-heading-sm" });
 
@@ -124,8 +122,7 @@ export class ResultPage {
 
 		const actionsCard = container.createDiv({ cls: "ft-card ft-mt-3" });
 		actionsCard.createDiv({ text: "What's next", cls: "ft-detail-section-header ft-mb-2" });
-		const actions = actionsCard.createDiv({ cls: "ft-flex ft-gap-2" });
-		actions.style.flexWrap = "wrap";
+		const actions = actionsCard.createDiv({ cls: "ft-flex ft-gap-2 ft-flex-wrap" });
 
 		if (isError) {
 			// Retry

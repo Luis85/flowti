@@ -87,16 +87,12 @@ export class CanvasResultPage {
 			: allSkipped
 				? "All nodes skipped — notes already exist"
 				: "Import Complete";
-		const statusColor = hasErrors
-			? "var(--text-error)"
-			: allSkipped
-				? "var(--text-muted)"
-				: "var(--text-success, var(--interactive-accent))";
-
 		const headerRow = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });
 		const hIcon = headerRow.createSpan();
 		setIcon(hIcon, statusIcon);
-		hIcon.style.color = statusColor;
+		if (hasErrors) hIcon.addClass("ft-text-error-color");
+		else if (allSkipped) hIcon.addClass("ft-text-muted");
+		else hIcon.addClass("ft-text-success-color");
 		headerRow.createEl("h3", { text: statusText, cls: "ft-heading ft-heading-sm" });
 
 		// ── "What happened" card ──
@@ -109,10 +105,8 @@ export class CanvasResultPage {
 			if (result.imported > 0) this.addRow(grid, "Notes created", String(result.imported));
 			if (result.skipped > 0) this.addRow(grid, "Notes skipped", `${result.skipped} (already exist)`);
 			if (result.errors.length > 0) {
-				const errLabel = grid.createDiv({ text: "Errors", cls: "ft-detail-info-label" });
-				errLabel.style.color = "var(--text-error)";
-				const errVal = grid.createDiv({ text: String(result.errors.length), cls: "ft-detail-info-value" });
-				errVal.style.color = "var(--text-error)";
+				grid.createDiv({ text: "Errors", cls: "ft-detail-info-label ft-text-error-color" });
+				grid.createDiv({ text: String(result.errors.length), cls: "ft-detail-info-value ft-text-error-color" });
 			}
 
 			// Excluded by type
@@ -170,15 +164,14 @@ export class CanvasResultPage {
 					tr.createEl("td", { text: type, cls: "ft-text-sm" });
 					tr.createEl("td", { text: String(counts.imported), cls: "ft-text-sm" });
 					const errTd = tr.createEl("td", { text: String(counts.errors), cls: "ft-text-sm" });
-					if (counts.errors > 0) errTd.style.color = "var(--text-error)";
+					if (counts.errors > 0) errTd.addClass("ft-text-error-color");
 				}
 			}
 		}
 
 		// ── Error details ──
 		if (result && result.errors.length > 0) {
-			const errorSection = container.createDiv({ cls: "ft-card ft-mt-2" });
-			errorSection.style.borderLeft = "3px solid var(--text-error)";
+			const errorSection = container.createDiv({ cls: "ft-card ft-mt-2 ft-result-error-border" });
 			errorSection.createDiv({ text: `Errors (${result.errors.length})`, cls: "ft-detail-section-header ft-mb-2" });
 
 			const errorList = errorSection.createDiv({ cls: "ft-flex-col ft-gap-1 ft-text-sm" });
@@ -234,8 +227,7 @@ export class CanvasResultPage {
 		// ── "What's next" actions ──
 		const actionsCard = container.createDiv({ cls: "ft-card ft-mt-3" });
 		actionsCard.createDiv({ text: "What's next", cls: "ft-detail-section-header ft-mb-2" });
-		const actions = actionsCard.createDiv({ cls: "ft-flex ft-gap-2" });
-		actions.style.flexWrap = "wrap";
+		const actions = actionsCard.createDiv({ cls: "ft-flex ft-gap-2 ft-flex-wrap" });
 
 		// Open target folder
 		if (result) {
@@ -309,19 +301,17 @@ export class CanvasResultPage {
 		const headerRow = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });
 		const hIcon = headerRow.createSpan();
 		setIcon(hIcon, "x-circle");
-		hIcon.style.color = "var(--text-error)";
+		hIcon.addClass("ft-text-error-color");
 		headerRow.createEl("h3", { text: "Import failed", cls: "ft-heading ft-heading-sm" });
 
-		const card = container.createDiv({ cls: "ft-card ft-mt-2" });
-		card.style.borderLeft = "3px solid var(--text-error)";
+		const card = container.createDiv({ cls: "ft-card ft-mt-2 ft-result-error-border" });
 		card.createDiv({ text: "Error", cls: "ft-detail-section-header ft-mb-2" });
 		card.createDiv({ text: this.deps.getState().importMessage, cls: "ft-text-sm" });
 
 		// ── "What's next" actions ──
 		const actionsCard = container.createDiv({ cls: "ft-card ft-mt-3" });
 		actionsCard.createDiv({ text: "What's next", cls: "ft-detail-section-header ft-mb-2" });
-		const actions = actionsCard.createDiv({ cls: "ft-flex ft-gap-2" });
-		actions.style.flexWrap = "wrap";
+		const actions = actionsCard.createDiv({ cls: "ft-flex ft-gap-2 ft-flex-wrap" });
 
 		const retryBtn = actions.createEl("button", { cls: "ft-btn ft-btn-sm mod-cta" });
 		setIcon(retryBtn.createSpan({ cls: "flowti-csv-btn-icon" }), "refresh-cw");

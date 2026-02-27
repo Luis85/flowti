@@ -65,8 +65,7 @@ export class ReportsTab {
 
 		// ── Documented section (first) ──
 		if (documented.length > 0 || undocumented.length === 0) {
-			const header = this.masterEl.createDiv({ cls: "ft-master-category-header" });
-			header.style.marginTop = "0.75rem";
+			const header = this.masterEl.createDiv({ cls: "ft-master-category-header ft-mt-075" });
 			header.createSpan({ text: "Documented" });
 			header.createSpan({
 				text: `${documented.length}`,
@@ -87,8 +86,7 @@ export class ReportsTab {
 
 		// ── Undocumented section ──
 		if (undocumented.length > 0) {
-			const header = this.masterEl.createDiv({ cls: "ft-master-category-header" });
-			header.style.marginTop = "1rem";
+			const header = this.masterEl.createDiv({ cls: "ft-master-category-header ft-mt-1r" });
 			header.createSpan({ text: "Undocumented" });
 			header.createSpan({
 				text: `${undocumented.length}`,
@@ -103,14 +101,14 @@ export class ReportsTab {
 		// ── Hidden section ──
 		if (hidden.length > 0) {
 			const toggleRow = this.masterEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-px-2" });
-			toggleRow.style.marginTop = "1rem";
+			toggleRow.addClass("ft-mt-1r");
 			const toggleChip = toggleRow.createSpan({
 				cls: `ft-badge ${state.showHiddenCsvs ? "" : "ft-badge-muted"}`,
 			});
 			toggleChip.addClass("ft-cursor-pointer");
 			const eyeIcon = toggleChip.createSpan();
 			setIcon(eyeIcon, state.showHiddenCsvs ? "eye" : "eye-off");
-			eyeIcon.style.marginRight = "0.25rem";
+			eyeIcon.addClass("ft-mr-025");
 			toggleChip.appendText(`${state.showHiddenCsvs ? "Hide" : "Show"} hidden (${hidden.length})`);
 			toggleChip.addEventListener("click", () => {
 				this.deps.setState({ showHiddenCsvs: !state.showHiddenCsvs });
@@ -134,8 +132,7 @@ export class ReportsTab {
 	}
 
 	private renderCoverageSummary(total: number, documented: number): void {
-		const summary = this.masterEl.createDiv({ cls: "ft-card ft-p-3 ft-mb-2" });
-		summary.style.margin = "0.5rem";
+		const summary = this.masterEl.createDiv({ cls: "ft-card ft-p-3 ft-mb-2 ft-card-summary" });
 
 		const row = summary.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const iconEl = row.createSpan();
@@ -149,7 +146,6 @@ export class ReportsTab {
 		// Progress bar
 		const pct = total > 0 ? Math.round((documented / total) * 100) : 100;
 		const bar = summary.createDiv({ cls: "ft-progress-bar ft-mt-1" });
-		bar.style.height = "4px";
 		const fill = bar.createDiv({ cls: "ft-progress-bar-fill" });
 		fill.style.width = `${pct}%`;
 	}
@@ -177,13 +173,9 @@ export class ReportsTab {
 
 		// Status badges
 		if (!entry.hasDoc && !isHidden) {
-			const docHint = item.createSpan({ cls: "ft-badge ft-badge-muted ft-cursor-pointer" });
-			docHint.style.gap = "0.2rem";
+			const docHint = item.createSpan({ cls: "ft-badge ft-badge-muted ft-cursor-pointer ft-badge-gap-sm" });
 			const plusIcon = docHint.createSpan();
-			plusIcon.style.display = "inline-flex";
-			plusIcon.style.width = "12px";
-			plusIcon.style.height = "12px";
-			plusIcon.style.flexShrink = "0";
+			plusIcon.addClass("ft-icon-inline-sm");
 			setIcon(plusIcon, "plus");
 			docHint.createSpan({ text: "doc" });
 			docHint.addEventListener("click", (e) => {
@@ -202,8 +194,7 @@ export class ReportsTab {
 			if (report && report.frontmatterIssues.length > 0) {
 				const warnIcon = item.createSpan();
 				setIcon(warnIcon, "alert-triangle");
-				warnIcon.style.color = "rgb(250, 204, 21)";
-				warnIcon.style.flexShrink = "0";
+				warnIcon.addClass("ft-warn-icon-yellow");
 				warnIcon.title = report.frontmatterIssues.join("\n");
 			}
 		}

@@ -27,44 +27,32 @@ export class DashboardTileRenderer {
 	render(ctx: TileRenderContext): void {
 		this.container.empty();
 
-		const tileEl = this.container.createDiv({ cls: "ft-dashboard-tile" });
-		tileEl.style.border = "1px solid var(--background-modifier-border)";
-		tileEl.style.borderRadius = "6px";
-		tileEl.style.overflow = "hidden";
-		tileEl.style.display = "flex";
-		tileEl.style.flexDirection = "column";
-		if (!ctx.tile.autoHeight) tileEl.style.height = "100%";
+		const tileEl = this.container.createDiv({ cls: `ft-dashboard-tile ft-tile-frame${ctx.tile.autoHeight ? "" : " ft-tile-frame-full"}` });
 
 		// ── Header ──────────────────────────────────────
 		this.renderHeader(tileEl, ctx);
 
 		// ── Settings panel (collapsible) ────────────────
 		if (ctx.settingsOpen) {
-			const settingsPanel = tileEl.createDiv({ cls: "ft-tile-settings" });
-			settingsPanel.style.padding = "0.5rem 0.75rem";
-			settingsPanel.style.borderBottom = "1px solid var(--background-modifier-border)";
-			settingsPanel.style.background = "var(--background-secondary-alt)";
-			settingsPanel.style.overflowY = "auto";
-			settingsPanel.style.minHeight = "0";
+			const settingsPanel = tileEl.createDiv({ cls: "ft-tile-settings ft-tile-settings-panel" });
 
 			new TileSettingsPanel(settingsPanel, ctx).render();
 		}
 
 		// ── Body ────────────────────────────────────────
 		const isChart = ctx.tile.displayMode === "line-chart" || ctx.tile.displayMode === "bar-chart" || ctx.tile.displayMode === "area-chart" || ctx.tile.displayMode === "pie-chart";
-		const body = tileEl.createDiv({ cls: "ft-dashboard-tile-body" });
+		const bodyCls = ["ft-dashboard-tile-body"];
 		if (ctx.tile.autoHeight) {
-			body.style.overflow = "visible";
+			bodyCls.push("ft-tile-body-auto");
 		} else {
-			body.style.flex = "1";
-			body.style.overflow = isChart ? "hidden" : "auto";
-			body.style.minHeight = "0";
+			bodyCls.push("ft-tile-body-fixed");
+			bodyCls.push(isChart ? "ft-tile-body-overflow-hidden" : "ft-tile-body-overflow-auto");
 		}
-		body.style.padding = ctx.tile.displayMode === "table" ? "0.35rem" : "0.5rem 0.35rem";
+		bodyCls.push(ctx.tile.displayMode === "table" ? "ft-tile-body-padding-table" : "ft-tile-body-padding-default");
 		if (isChart || ctx.tile.displayMode === "stat-card") {
-			body.style.display = "flex";
-			body.style.flexDirection = "column";
+			bodyCls.push("ft-tile-body-flex-col");
 		}
+		const body = tileEl.createDiv({ cls: bodyCls.join(" ") });
 
 		// Apply per-tile column exclusion (row-limit is handled by TableTileRenderer as pagination)
 		const tileExcluded = ctx.tile.excludedColumns;
@@ -97,14 +85,12 @@ export class DashboardTileRenderer {
 	// ── Header ──────────────────────────────────────────────
 
 	private renderHeader(tileEl: HTMLElement, ctx: TileRenderContext): void {
-		const header = tileEl.createDiv({ cls: "ft-tile-header" });
-		header.style.flexWrap = "wrap";
+		const header = tileEl.createDiv({ cls: "ft-tile-header ft-tile-header-wrap" });
 
 		// Editable title
 		if (ctx.onTitleChange) {
-			const titleInput = header.createEl("input", { type: "text" });
+			const titleInput = header.createEl("input", { type: "text", cls: "ft-tile-header-input" });
 			titleInput.value = ctx.tile.title || ctx.query?.name || "Untitled Tile";
-			titleInput.style.cssText = "font-weight:600;font-size:var(--font-ui-small);border:none;background:transparent;color:var(--text-normal);padding:0;flex:1;min-width:0";
 			titleInput.addEventListener("blur", () => {
 				const val = titleInput.value.trim();
 				if (val) ctx.onTitleChange!(ctx.tile.id, val);
@@ -123,13 +109,7 @@ export class DashboardTileRenderer {
 		}
 
 		// Right-side group: indicators + action buttons
-		const actions = header.createDiv();
-		actions.style.display = "flex";
-		actions.style.alignItems = "center";
-		actions.style.gap = "0.25rem";
-		actions.style.flexWrap = "wrap";
-		actions.style.justifyContent = "flex-end";
-		actions.style.fontSize = "var(--font-ui-smaller)";
+		const actions = header.createDiv({ cls: "ft-tile-actions" });
 
 		this.renderHeaderIndicators(actions, ctx);
 		this.renderHeaderActions(actions, ctx);
@@ -140,25 +120,21 @@ export class DashboardTileRenderer {
 		if (ctx.tile.measurementId && ctx.measurements) {
 			const m = ctx.measurements.find((mm) => mm.id === ctx.tile.measurementId);
 			if (m) {
-				const mBadge = actions.createSpan({ text: m.name, cls: "ft-tag ft-text-xs" });
-				mBadge.style.flexShrink = "0";
-				mBadge.style.fontSize = "10px";
+				actions.createSpan({ text: m.name, cls: "ft-tag ft-text-xs ft-badge-shrink" });
 			}
 		}
 
 		// Row count badge
 		if (ctx.result && ctx.result.rows.length > 0) {
-			const rowBadge = actions.createSpan({
+			actions.createSpan({
 				text: `${ctx.result.rows.length} rows`,
-				cls: "ft-text-xs ft-text-muted",
+				cls: "ft-text-xs ft-text-muted ft-badge-compact",
 			});
-			rowBadge.style.cssText = "flex-shrink:0;font-size:0.65rem";
 		}
 
 		// Conditional rule indicator dot
 		if (ctx.tile.conditionalRules && ctx.tile.conditionalRules.length > 0) {
-			const dot = actions.createSpan();
-			dot.style.cssText = "width:8px;height:8px;border-radius:50%;background:var(--text-accent);flex-shrink:0";
+			const dot = actions.createSpan({ cls: "ft-conditional-dot" });
 			dot.setAttribute("aria-label", `${ctx.tile.conditionalRules.length} formatting rule(s)`);
 		}
 
@@ -167,41 +143,33 @@ export class DashboardTileRenderer {
 			const level = getFreshnessLevel(ctx.refreshedAt);
 			const badge = actions.createSpan({
 				text: formatRelativeTime(ctx.refreshedAt),
-				cls: "ft-text-xs",
+				cls: "ft-text-xs ft-badge-compact",
 			});
-			badge.style.cssText = `color:${getFreshnessColor(level)};flex-shrink:0;font-size:0.65rem`;
+			badge.style.color = getFreshnessColor(level);
 		} else if (ctx.result) {
-			const badge = actions.createSpan({ text: "Not yet refreshed", cls: "ft-text-xs ft-text-muted" });
-			badge.style.cssText = "flex-shrink:0;font-size:0.65rem";
+			actions.createSpan({ text: "Not yet refreshed", cls: "ft-text-xs ft-text-muted ft-badge-compact" });
 		}
 	}
 
 	private renderHeaderActions(actions: HTMLElement, ctx: TileRenderContext): void {
 		// Reorder buttons
 		if (ctx.onReorder) {
-			const upBtn = actions.createSpan({ cls: "ft-nav-link ft-text-muted" });
-			const upIcon = upBtn.createSpan();
+			const upBtn = actions.createSpan({ cls: "ft-nav-link ft-text-muted ft-cursor-pointer" });
+			const upIcon = upBtn.createSpan({ cls: "ft-icon-sm" });
 			setIcon(upIcon, "chevron-up");
-			upIcon.style.width = "14px";
-			upIcon.style.height = "14px";
-			upBtn.style.cursor = "pointer";
 			upBtn.setAttribute("aria-label", "Move up");
 			upBtn.addEventListener("click", (e) => { e.stopPropagation(); ctx.onReorder!(ctx.tile.id, "up"); });
 
-			const downBtn = actions.createSpan({ cls: "ft-nav-link ft-text-muted" });
-			const downIcon = downBtn.createSpan();
+			const downBtn = actions.createSpan({ cls: "ft-nav-link ft-text-muted ft-cursor-pointer" });
+			const downIcon = downBtn.createSpan({ cls: "ft-icon-sm" });
 			setIcon(downIcon, "chevron-down");
-			downIcon.style.width = "14px";
-			downIcon.style.height = "14px";
-			downBtn.style.cursor = "pointer";
 			downBtn.setAttribute("aria-label", "Move down");
 			downBtn.addEventListener("click", (e) => { e.stopPropagation(); ctx.onReorder!(ctx.tile.id, "down"); });
 		}
 
 		// Display mode dropdown
 		if (ctx.onDisplayModeToggle) {
-			const modeSelect = actions.createEl("select", { cls: "ft-text-xs" });
-			modeSelect.style.cssText = "padding:1px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);cursor:pointer;font-size:var(--font-ui-smaller)";
+			const modeSelect = actions.createEl("select", { cls: "ft-text-xs ft-tile-mode-select" });
 			const modeLabels: Record<TileDisplayMode, string> = { "table": "Table", "stat-card": "Stat Card", "line-chart": "Line Chart", "bar-chart": "Bar Chart", "area-chart": "Area Chart", "pie-chart": "Pie Chart" };
 			for (const mode of DISPLAY_MODE_CYCLE) {
 				const opt = modeSelect.createEl("option");
@@ -216,12 +184,9 @@ export class DashboardTileRenderer {
 		}
 
 		if (ctx.onRefresh) {
-			const refreshBtn = actions.createSpan({ cls: "ft-nav-link ft-text-muted" });
-			const refreshIcon = refreshBtn.createSpan();
+			const refreshBtn = actions.createSpan({ cls: "ft-nav-link ft-text-muted ft-cursor-pointer" });
+			const refreshIcon = refreshBtn.createSpan({ cls: "ft-icon-sm" });
 			setIcon(refreshIcon, "refresh-cw");
-			refreshIcon.style.width = "14px";
-			refreshIcon.style.height = "14px";
-			refreshBtn.style.cursor = "pointer";
 			refreshBtn.setAttribute("aria-label", "Refresh tile");
 			refreshBtn.addEventListener("click", (e) => {
 				e.stopPropagation();
@@ -231,12 +196,9 @@ export class DashboardTileRenderer {
 
 		// CSV export button
 		if (ctx.result && ctx.result.rows.length > 0) {
-			const csvBtn = actions.createSpan({ cls: "ft-nav-link ft-text-muted" });
-			const csvIcon = csvBtn.createSpan();
+			const csvBtn = actions.createSpan({ cls: "ft-nav-link ft-text-muted ft-cursor-pointer" });
+			const csvIcon = csvBtn.createSpan({ cls: "ft-icon-sm" });
 			setIcon(csvIcon, "download");
-			csvIcon.style.width = "14px";
-			csvIcon.style.height = "14px";
-			csvBtn.style.cursor = "pointer";
 			csvBtn.setAttribute("aria-label", "Export CSV");
 			csvBtn.addEventListener("click", (e) => {
 				e.stopPropagation();
@@ -247,12 +209,9 @@ export class DashboardTileRenderer {
 
 		// View query button
 		if (ctx.onViewQuery && ctx.tile.queryId) {
-			const viewBtn = actions.createSpan({ cls: "ft-nav-link ft-text-muted" });
-			const viewIcon = viewBtn.createSpan();
+			const viewBtn = actions.createSpan({ cls: "ft-nav-link ft-text-muted ft-cursor-pointer" });
+			const viewIcon = viewBtn.createSpan({ cls: "ft-icon-sm" });
 			setIcon(viewIcon, "external-link");
-			viewIcon.style.width = "14px";
-			viewIcon.style.height = "14px";
-			viewBtn.style.cursor = "pointer";
 			viewBtn.setAttribute("aria-label", "View query");
 			viewBtn.addEventListener("click", (e) => {
 				e.stopPropagation();
@@ -262,13 +221,9 @@ export class DashboardTileRenderer {
 
 		// Settings gear icon
 		if (ctx.onToggleSettings) {
-			const gearBtn = actions.createSpan({ cls: "ft-nav-link ft-text-muted" });
-			const gearIcon = gearBtn.createSpan();
+			const gearBtn = actions.createSpan({ cls: `ft-nav-link ft-text-muted ft-cursor-pointer${ctx.settingsOpen ? " ft-text-accent" : ""}` });
+			const gearIcon = gearBtn.createSpan({ cls: "ft-icon-sm" });
 			setIcon(gearIcon, "settings");
-			gearIcon.style.width = "14px";
-			gearIcon.style.height = "14px";
-			gearBtn.style.cursor = "pointer";
-			if (ctx.settingsOpen) gearBtn.style.color = "var(--text-accent)";
 			gearBtn.setAttribute("aria-label", "Tile settings");
 			gearBtn.addEventListener("click", (e) => {
 				e.stopPropagation();
@@ -278,12 +233,9 @@ export class DashboardTileRenderer {
 
 		// Remove button (only in management context, not on homepage)
 		if (ctx.onToggleSettings) {
-			const removeBtn = actions.createSpan({ cls: "ft-nav-link ft-text-muted" });
-			const removeIcon = removeBtn.createSpan();
+			const removeBtn = actions.createSpan({ cls: "ft-nav-link ft-text-muted ft-cursor-pointer" });
+			const removeIcon = removeBtn.createSpan({ cls: "ft-icon-sm" });
 			setIcon(removeIcon, "trash-2");
-			removeIcon.style.width = "14px";
-			removeIcon.style.height = "14px";
-			removeBtn.style.cursor = "pointer";
 			removeBtn.setAttribute("aria-label", "Remove tile");
 			removeBtn.addEventListener("click", (e) => {
 				e.stopPropagation();
@@ -295,29 +247,21 @@ export class DashboardTileRenderer {
 	// ── Error / loading states ──────────────────────────────
 
 	private renderError(container: HTMLElement, message: string): void {
-		const el = container.createDiv({ cls: "ft-text-muted ft-text-sm" });
-		el.style.textAlign = "center";
-		el.style.padding = "1rem";
-		const iconEl = el.createDiv();
+		const el = container.createDiv({ cls: "ft-text-muted ft-text-sm ft-tile-status" });
+		const iconEl = el.createDiv({ cls: "ft-tile-status-icon-mb" });
 		setIcon(iconEl, "alert-triangle");
-		iconEl.style.marginBottom = "0.25rem";
 		el.createDiv({ text: message });
 	}
 
 	/** Enhanced error for broken query/measurement references with Fix action. */
 	private renderBrokenRef(container: HTMLElement, ctx: TileRenderContext): void {
-		const el = container.createDiv({ cls: "ft-text-sm" });
-		el.style.textAlign = "center";
-		el.style.padding = "1rem";
-		el.style.color = "var(--text-error)";
-		const iconEl = el.createDiv();
+		const el = container.createDiv({ cls: "ft-text-sm ft-tile-status ft-text-error" });
+		const iconEl = el.createDiv({ cls: "ft-tile-status-icon-mb" });
 		setIcon(iconEl, "alert-triangle");
-		iconEl.style.marginBottom = "0.25rem";
 		el.createDiv({ text: "Query not found \u2014 it may have been deleted" });
-		el.createDiv({ text: `ID: ${ctx.tile.queryId}`, cls: "ft-text-xs ft-text-muted" }).style.marginTop = "0.25rem";
+		el.createDiv({ text: `ID: ${ctx.tile.queryId}`, cls: "ft-text-xs ft-text-muted ft-broken-ref-id" });
 		if (ctx.onToggleSettings) {
-			const fixBtn = el.createEl("button", { text: "Fix reference", cls: "ft-text-xs" });
-			fixBtn.style.cssText = "margin-top:0.5rem;padding:4px 12px;border-radius:4px;cursor:pointer";
+			const fixBtn = el.createEl("button", { text: "Fix reference", cls: "ft-text-xs ft-fix-btn" });
 			fixBtn.addEventListener("click", () => {
 				ctx.onToggleSettings!(ctx.tile.id);
 			});
@@ -325,9 +269,7 @@ export class DashboardTileRenderer {
 	}
 
 	private renderLoading(container: HTMLElement): void {
-		const el = container.createDiv({ cls: "ft-text-muted ft-text-sm" });
-		el.style.textAlign = "center";
-		el.style.padding = "1rem";
+		const el = container.createDiv({ cls: "ft-text-muted ft-text-sm ft-tile-status" });
 		el.createDiv({ text: "Loading..." });
 	}
 }

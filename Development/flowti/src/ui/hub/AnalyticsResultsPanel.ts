@@ -84,15 +84,12 @@ export class AnalyticsResultsPanel {
 		const headerRow = thead.createEl("tr");
 		for (const col of result.columns) {
 			const th = headerRow.createEl("th");
-			th.style.cursor = "pointer";
-			th.style.userSelect = "none";
-			th.style.whiteSpace = "nowrap";
+			th.addClass("ft-th-sortable");
 
 			th.createSpan({ text: col });
 
 			if (this.sort?.column === col) {
-				const arrow = th.createSpan({ cls: "ft-text-muted" });
-				arrow.style.marginLeft = "4px";
+				const arrow = th.createSpan({ cls: "ft-text-muted ft-sort-arrow" });
 				arrow.textContent = this.sort.ascending ? " \u25B2" : " \u25BC";
 			}
 
@@ -126,8 +123,7 @@ export class AnalyticsResultsPanel {
 		if (numericCols.length > 0 && result.rows.length > 1) {
 			const tfoot = table.createEl("tfoot");
 			const totalsRow = tfoot.createEl("tr");
-			totalsRow.style.borderTop = "2px solid var(--background-modifier-border)";
-			totalsRow.style.fontWeight = "600";
+			totalsRow.addClass("ft-totals-row");
 			for (const col of result.columns) {
 				const td = totalsRow.createEl("td", { cls: "ft-text-sm" });
 				if (numericCols.includes(col)) {

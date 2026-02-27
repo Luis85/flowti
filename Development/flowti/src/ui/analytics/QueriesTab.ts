@@ -276,11 +276,9 @@ export class QueriesTab {
 			selHeader.createSpan({ text: `${this.sources.length}`, cls: "ft-master-category-count" });
 
 			for (const src of this.sources) {
-				const item = this.masterEl.createDiv({ cls: "ft-master-event-item" });
-				item.style.cssText = "align-items:flex-start;padding-left:0.5rem;border-left:2px solid var(--interactive-accent)";
+				const item = this.masterEl.createDiv({ cls: "ft-master-event-item ft-query-source-item" });
 
-				const textBlock = item.createDiv({ cls: "ft-master-event-name" });
-				textBlock.style.minWidth = "0";
+				const textBlock = item.createDiv({ cls: "ft-master-event-name ft-query-source-text" });
 				textBlock.createDiv({ text: src.alias });
 				const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-xs" });
 				sub.addClass("ft-text-ellipsis");
@@ -289,8 +287,7 @@ export class QueriesTab {
 				if (src.loading) {
 					item.createSpan({ text: "...", cls: "ft-text-muted ft-text-xs" });
 				} else if (src.error) {
-					const errBadge = item.createSpan({ text: "Error", cls: "ft-text-xs" });
-					errBadge.style.color = "var(--text-error)";
+					item.createSpan({ text: "Error", cls: "ft-text-xs ft-query-err-badge" });
 				}
 
 				const removeBtn = item.createEl("span", { cls: "ft-nav-link ft-text-sm" });
@@ -313,14 +310,10 @@ export class QueriesTab {
 			this.sourcesAutoCollapsed = true;
 		}
 
-		const sourcesHeader = this.masterEl.createDiv({ cls: "ft-master-category-header" });
-		sourcesHeader.style.cursor = "pointer";
+		const sourcesHeader = this.masterEl.createDiv({ cls: "ft-master-category-header ft-cursor-pointer" });
 
-		const toggleIcon = sourcesHeader.createSpan();
+		const toggleIcon = sourcesHeader.createSpan({ cls: "ft-query-toggle-icon" });
 		setIcon(toggleIcon, this.sourcesCollapsed ? "chevron-right" : "chevron-down");
-		toggleIcon.style.width = "14px";
-		toggleIcon.style.height = "14px";
-		toggleIcon.style.flexShrink = "0";
 
 		sourcesHeader.createSpan({ text: "Sources" });
 
@@ -409,11 +402,9 @@ export class QueriesTab {
 	}
 
 	private renderSourceItem(displayName: string, path: string, onClick: () => void): void {
-		const item = this.masterEl.createDiv({ cls: "ft-master-event-item" });
-		item.style.cssText = "align-items:flex-start;padding-left:0.5rem";
+		const item = this.masterEl.createDiv({ cls: "ft-master-event-item ft-query-source-item-plain" });
 
-		const textBlock = item.createDiv({ cls: "ft-master-event-name" });
-		textBlock.style.minWidth = "0";
+		const textBlock = item.createDiv({ cls: "ft-master-event-name ft-query-source-text" });
 		textBlock.createDiv({ text: displayName });
 		const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-xs" });
 		sub.addClass("ft-text-ellipsis");
@@ -440,8 +431,7 @@ export class QueriesTab {
 		header.createSpan({ text: `${relatedQueries.length}`, cls: "ft-master-category-count" });
 
 		for (const q of relatedQueries) {
-			const item = this.masterEl.createDiv({ cls: "ft-master-event-item" });
-			item.style.paddingLeft = "0.5rem";
+			const item = this.masterEl.createDiv({ cls: "ft-master-event-item ft-query-related-item" });
 			const nameEl = item.createDiv({ cls: "ft-master-event-name" });
 			nameEl.createDiv({ text: q.name });
 			const sub = nameEl.createDiv({ cls: "ft-text-muted ft-text-xs" });
@@ -515,16 +505,14 @@ export class QueriesTab {
 
 		// ── Header ──────────────────────────────────────
 		const header = this.detailEl.createDiv({ cls: "ft-detail-header" });
-		const left = header.createDiv();
-		left.style.cssText = "flex:1;min-width:0";
+		const left = header.createDiv({ cls: "ft-query-detail-left" });
 		const state = this.deps.getState();
 		const activeQuery = state.selectedQueryId ? this.deps.analyticsService.getQuery(state.selectedQueryId) : null;
 		left.createDiv({ text: activeQuery ? activeQuery.name : "Query Builder", cls: "ft-detail-event-type" });
 		if (activeQuery) {
-			const descInput = left.createEl("input", { type: "text" });
+			const descInput = left.createEl("input", { type: "text", cls: "ft-query-desc-input" });
 			descInput.value = activeQuery.description ?? "";
 			descInput.placeholder = "What question does this query answer?";
-			descInput.style.cssText = "width:100%;border:none;background:transparent;color:var(--text-muted);font-size:var(--font-ui-small);padding:0.15rem 0";
 			descInput.addEventListener("blur", () => {
 				const val = descInput.value.trim();
 				if (val !== (activeQuery.description ?? "")) {
@@ -587,14 +575,10 @@ export class QueriesTab {
 		new ResultsSection(this.detailEl, subDeps).render();
 
 		// ── Configuration (below results) ───────────────
-		const configHeader = this.detailEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mt-3" });
-		configHeader.style.borderTop = "2px solid var(--background-modifier-border)";
-		configHeader.style.paddingTop = "0.75rem";
-		const configIcon = configHeader.createSpan();
+		const configHeader = this.detailEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mt-3 ft-query-config-header" });
+		const configIcon = configHeader.createSpan({ cls: "ft-query-config-icon" });
 		setIcon(configIcon, "settings-2");
-		configIcon.style.cssText = "opacity:0.6;display:inline-flex;align-items:center";
-		configIcon.querySelectorAll("svg").forEach((s) => { s.style.width = "14px"; s.style.height = "14px"; });
-		configHeader.createSpan({ text: "Query Configuration", cls: "ft-text-sm" }).style.fontWeight = "600";
+		configHeader.createSpan({ text: "Query Configuration", cls: "ft-text-sm ft-text-bold" });
 
 		new SourcePanel(this.detailEl, subDeps).render();
 
@@ -621,33 +605,28 @@ export class QueriesTab {
 
 	private renderExecutionSummary(): void {
 		if (this.executionManager.running) {
-			const callout = this.detailEl.createDiv({ cls: "ft-card ft-mt-2" });
-			callout.style.cssText = "padding:0.5rem 0.75rem;border-left:3px solid var(--interactive-accent);background:var(--background-secondary)";
+			const callout = this.detailEl.createDiv({ cls: "ft-card ft-mt-2 ft-query-callout ft-query-callout-running" });
 			callout.createDiv({ text: "Running query...", cls: "ft-text-sm ft-text-muted" });
 			return;
 		}
 
 		if (this.executionManager.error) {
-			const callout = this.detailEl.createDiv({ cls: "ft-card ft-mt-2" });
-			callout.style.cssText = "padding:0.5rem 0.75rem;border-left:3px solid var(--text-error);background:var(--background-secondary)";
+			const callout = this.detailEl.createDiv({ cls: "ft-card ft-mt-2 ft-query-callout ft-query-callout-error" });
 			const row = callout.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			const icon = row.createSpan();
+			const icon = row.createSpan({ cls: "ft-query-callout-icon-16 ft-query-callout-icon-error" });
 			setIcon(icon, "alert-triangle");
-			icon.style.cssText = "width:16px;height:16px;color:var(--text-error);flex-shrink:0";
-			row.createSpan({ text: "Query failed", cls: "ft-text-sm" }).style.fontWeight = "600";
+			row.createSpan({ text: "Query failed", cls: "ft-text-sm ft-text-bold" });
 			return;
 		}
 
 		const result = this.executionManager.result;
 		if (!result) return;
 
-		const callout = this.detailEl.createDiv({ cls: "ft-card ft-mt-2" });
-		callout.style.cssText = "padding:0.5rem 0.75rem;border-left:3px solid var(--text-success);background:var(--background-secondary)";
+		const callout = this.detailEl.createDiv({ cls: "ft-card ft-mt-2 ft-query-callout ft-query-callout-success" });
 
 		const row = callout.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		const icon = row.createSpan();
+		const icon = row.createSpan({ cls: "ft-query-callout-icon-16 ft-query-callout-icon-success" });
 		setIcon(icon, "check-circle");
-		icon.style.cssText = "width:16px;height:16px;color:var(--text-success);flex-shrink:0";
 
 		const stats: string[] = [
 			`${result.rows.length} rows`,
@@ -664,22 +643,15 @@ export class QueriesTab {
 		if (insights.length === 0) return;
 
 		const section = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
-		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		header.style.cssText = "margin:0;padding-bottom:0.35rem;margin-bottom:0.5rem";
-		header.createSpan({ text: "Quick Insights", cls: "ft-text-sm" }).style.fontWeight = "600";
+		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-query-insights-header" });
+		header.createSpan({ text: "Quick Insights", cls: "ft-text-sm ft-text-bold" });
 
-		const grid = section.createDiv();
-		grid.style.display = "grid";
-		grid.style.gridTemplateColumns = "repeat(auto-fill, minmax(180px, 1fr))";
-		grid.style.gap = "0.5rem";
+		const grid = section.createDiv({ cls: "ft-query-insights-grid" });
 
 		for (const insight of insights) {
-			const card = grid.createDiv({ cls: "ft-stat-card" });
-			card.style.cursor = "pointer";
-			card.style.padding = "0.5rem 0.75rem";
+			const card = grid.createDiv({ cls: "ft-stat-card ft-query-insight-card" });
 
-			const title = card.createDiv({ cls: "ft-text-sm" });
-			title.style.fontWeight = "500";
+			const title = card.createDiv({ cls: "ft-text-sm ft-query-insight-title" });
 			title.textContent = insight.title;
 
 			card.createDiv({ text: insight.description, cls: "ft-text-xs ft-text-muted" });
@@ -714,28 +686,23 @@ export class QueriesTab {
 		if (relatedMeasurements.length === 0 && relatedDashboards.length === 0) return;
 
 		const section = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
-		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		header.style.cssText = "border-bottom:1px solid var(--background-modifier-border);padding-bottom:0.35rem;margin-bottom:0.5rem";
-		const iconEl = header.createSpan();
+		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-query-xref-header" });
+		const iconEl = header.createSpan({ cls: "ft-query-xref-icon-14" });
 		setIcon(iconEl, "link");
-		iconEl.style.cssText = "width:14px;height:14px;opacity:0.6";
-		header.createSpan({ text: "Cross-References", cls: "ft-text-sm" }).style.fontWeight = "600";
+		header.createSpan({ text: "Cross-References", cls: "ft-text-sm ft-text-bold" });
 
 		// Measurements
 		if (relatedMeasurements.length > 0) {
-			const mHeader = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			mHeader.style.marginBottom = "0.25rem";
-			const mIcon = mHeader.createSpan();
+			const mHeader = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-query-xref-sub-header" });
+			const mIcon = mHeader.createSpan({ cls: "ft-query-xref-sub-icon" });
 			setIcon(mIcon, "ruler");
-			mIcon.style.cssText = "width:12px;height:12px;opacity:0.5";
 			mHeader.createSpan({ text: "Measurements", cls: "ft-text-xs ft-text-muted" });
 			mHeader.createSpan({ text: `${relatedMeasurements.length}`, cls: "ft-badge ft-badge-muted" });
 
 			for (const m of relatedMeasurements) {
-				const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-				row.style.padding = "0.15rem 0 0.15rem 1.5rem";
+				const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-query-xref-row" });
 				const link = row.createEl("span", { text: m.name, cls: "ft-nav-link ft-text-xs" });
-				row.createSpan({ text: m.type, cls: "ft-tag" }).style.fontSize = "10px";
+				row.createSpan({ text: m.type, cls: "ft-tag ft-query-xref-tag-small" });
 				link.addEventListener("click", () => {
 					this.deps.navigation.navigateToTab("measurements", m.id);
 				});
@@ -744,17 +711,17 @@ export class QueriesTab {
 
 		// Dashboards
 		if (relatedDashboards.length > 0) {
-			const dHeader = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			dHeader.style.cssText = `margin-bottom:0.25rem;${relatedMeasurements.length > 0 ? "margin-top:0.5rem" : ""}`;
-			const dIcon = dHeader.createSpan();
+			const dHeaderCls = relatedMeasurements.length > 0
+				? "ft-flex ft-items-center ft-gap-2 ft-query-xref-sub-header ft-mt-2"
+				: "ft-flex ft-items-center ft-gap-2 ft-query-xref-sub-header";
+			const dHeader = section.createDiv({ cls: dHeaderCls });
+			const dIcon = dHeader.createSpan({ cls: "ft-query-xref-sub-icon" });
 			setIcon(dIcon, "layout-dashboard");
-			dIcon.style.cssText = "width:12px;height:12px;opacity:0.5";
 			dHeader.createSpan({ text: "Dashboards", cls: "ft-text-xs ft-text-muted" });
 			dHeader.createSpan({ text: `${relatedDashboards.length}`, cls: "ft-badge ft-badge-muted" });
 
 			for (const d of relatedDashboards) {
-				const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-				row.style.padding = "0.15rem 0 0.15rem 1.5rem";
+				const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-query-xref-row" });
 				const link = row.createEl("span", { text: d.name, cls: "ft-nav-link ft-text-xs" });
 				row.createSpan({ text: `${d.tileCount} tile${d.tileCount > 1 ? "s" : ""}`, cls: "ft-text-xs ft-text-muted" });
 				link.addEventListener("click", () => {
@@ -767,14 +734,9 @@ export class QueriesTab {
 	private renderEmptyDetail(): void {
 		const state = this.deps.getState();
 		const queryCount = state.queries.length;
-		const wrap = this.detailEl.createDiv({ cls: "ft-empty-detail" });
-		wrap.style.textAlign = "center";
-		wrap.style.padding = "3rem 1.5rem";
-		const iconEl = wrap.createDiv();
+		const wrap = this.detailEl.createDiv({ cls: "ft-empty-detail ft-query-empty-detail" });
+		const iconEl = wrap.createDiv({ cls: "ft-query-empty-icon" });
 		setIcon(iconEl, "bar-chart-2");
-		iconEl.style.fontSize = "2rem";
-		iconEl.style.opacity = "0.5";
-		iconEl.style.marginBottom = "0.5rem";
 		wrap.createDiv({ text: "Add a CSV source to build a query", cls: "ft-text-muted" });
 		if (queryCount > 0) {
 			wrap.createDiv({ text: `${queryCount} saved queries available`, cls: "ft-text-muted ft-text-sm ft-mt-1" });

@@ -37,23 +37,17 @@ export class SchemaPanel {
 		const section = this.container.createDiv({ cls: "ft-card ft-mt-3" });
 
 		// Header with collapse toggle
-		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		header.style.cursor = "pointer";
-		header.style.margin = "0";
+		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-cursor-pointer" });
 
-		const toggleIcon = header.createSpan();
+		const toggleIcon = header.createSpan({ cls: "ft-icon-sm ft-flex-shrink-0" });
 		setIcon(toggleIcon, this.collapsed ? "chevron-right" : "chevron-down");
-		toggleIcon.style.width = "14px";
-		toggleIcon.style.height = "14px";
-		toggleIcon.style.flexShrink = "0";
 
 		header.createDiv({ text: "Schema", cls: "ft-detail-section-header" });
 
-		const countBadge = header.createSpan({
+		header.createSpan({
 			text: `${headers.length} columns`,
-			cls: "ft-badge ft-badge-muted",
+			cls: "ft-badge ft-badge-muted ft-ml-auto",
 		});
-		countBadge.style.marginLeft = "auto";
 
 		header.addEventListener("click", () => {
 			this.collapsed = !this.collapsed;
@@ -83,25 +77,19 @@ export class SchemaPanel {
 		const groups = groupColumnsByType(headers, this.deps.columnTypeHints());
 
 		for (const group of groups) {
-			const groupDiv = section.createDiv();
-			groupDiv.style.padding = "0.25rem 0.5rem";
+			const groupDiv = section.createDiv({ cls: "ft-schema-group" });
 
 			const groupHeader = groupDiv.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
-			const icon = groupHeader.createSpan();
+			const icon = groupHeader.createSpan({ cls: "ft-icon-sm ft-opacity-60" });
 			setIcon(icon, TYPE_ICONS[group.type] ?? "type");
-			icon.style.width = "14px";
-			icon.style.height = "14px";
-			icon.style.opacity = "0.6";
-			groupHeader.createSpan({ text: group.label, cls: "ft-text-sm" }).style.fontWeight = "500";
+			groupHeader.createSpan({ text: group.label, cls: "ft-text-sm ft-font-medium" });
 			groupHeader.createSpan({
 				text: `${group.columns.length}`,
 				cls: "ft-badge ft-badge-muted",
 			});
 
 			for (const col of group.columns) {
-				const row = groupDiv.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
-				row.style.padding = "0.15rem 0 0.15rem 1.25rem";
-				row.style.cursor = "pointer";
+				const row = groupDiv.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-schema-col-row" });
 
 				const colName = row.createSpan({ text: col, cls: "ft-text-sm" });
 				colName.title = group.type === "number"
@@ -128,12 +116,10 @@ export class SchemaPanel {
 				const aliases = sourceMap.get(col);
 				if (aliases) {
 					for (const alias of aliases) {
-						const badge = row.createSpan({
+						row.createSpan({
 							text: alias,
-							cls: TYPE_BADGE_CLS[group.type] ?? "ft-badge ft-badge-muted",
+							cls: `${TYPE_BADGE_CLS[group.type] ?? "ft-badge ft-badge-muted"} ft-schema-alias-badge`,
 						});
-						badge.style.fontSize = "0.65rem";
-						badge.style.padding = "0 0.25rem";
 					}
 				}
 			}

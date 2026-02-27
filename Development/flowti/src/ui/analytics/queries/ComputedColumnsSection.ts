@@ -7,7 +7,6 @@
 
 import { setIcon } from "obsidian";
 import type { QueriesSubDeps, ColumnTypeHint, ColumnType } from "./types";
-import { INPUT_CSS, SELECT_CSS } from "./types";
 import { validateExpression } from "../../../domain/analytics/expressionValidator";
 
 export class ComputedColumnsSection {
@@ -23,9 +22,9 @@ export class ComputedColumnsSection {
 		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const headerIcon = header.createSpan();
 		setIcon(headerIcon, "sigma");
-		headerIcon.style.cssText = "width:14px;height:14px;opacity:0.6";
-		header.createSpan({ text: "Computed Columns", cls: "ft-text-sm" }).style.fontWeight = "500";
-		header.style.margin = "0";
+		headerIcon.addClass("ft-icon-14");
+		header.createSpan({ text: "Computed Columns", cls: "ft-text-sm ft-font-medium" });
+		header.addClass("ft-subsection-header");
 
 		const computedColumns = this.deps.computedColumns();
 		if (computedColumns.length > 0) {
@@ -33,11 +32,10 @@ export class ComputedColumnsSection {
 		}
 
 		// Help toggle
-		const helpBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-		helpBtn.style.marginLeft = "auto";
+		const helpBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm ft-ml-auto" });
 		const helpIcon = helpBtn.createSpan();
 		setIcon(helpIcon, "help-circle");
-		helpIcon.style.cssText = "width:14px;height:14px";
+		helpIcon.addClass("ft-icon-14-plain");
 		helpBtn.setAttribute("aria-label", "Function reference");
 
 		// Add button
@@ -55,16 +53,14 @@ export class ComputedColumnsSection {
 		// ── Computed column rows ───────────────────
 		for (let i = 0; i < computedColumns.length; i++) {
 			const cc = computedColumns[i];
-			const rowWrap = section.createDiv();
-			rowWrap.style.borderBottom = "1px solid var(--background-modifier-border)";
-			rowWrap.style.padding = "0.35rem 0.5rem";
+			const rowWrap = section.createDiv({ cls: "ft-cc-row-wrap" });
 
 			const row = rowWrap.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 
 			const nameInput = row.createEl("input", { type: "text" });
 			nameInput.value = cc.name;
 			nameInput.placeholder = "Column name";
-			nameInput.style.cssText = INPUT_CSS + ";width:120px;flex-shrink:0";
+			nameInput.addClass("ft-select-small", "ft-cc-name-input");
 			nameInput.addEventListener("change", () => { cc.name = nameInput.value.trim(); });
 
 			row.createSpan({ text: "=", cls: "ft-text-muted" });
@@ -72,7 +68,7 @@ export class ComputedColumnsSection {
 			const exprInput = row.createEl("input", { type: "text" });
 			exprInput.value = cc.expression;
 			exprInput.placeholder = "{Column} + {Column}";
-			exprInput.style.cssText = INPUT_CSS + ";flex:1;min-width:120px";
+			exprInput.addClass("ft-select-small", "ft-cc-expr-input");
 			exprInput.addEventListener("change", () => { cc.expression = exprInput.value; });
 
 			// Type hint dropdown — allows setting column type for computed output
@@ -81,7 +77,7 @@ export class ComputedColumnsSection {
 			const displayType = isCurrency ? "currency" : (hint?.type ?? "number");
 
 			const typeSelect = row.createEl("select");
-			typeSelect.style.cssText = SELECT_CSS + ";width:auto;flex-shrink:0";
+			typeSelect.addClass("ft-select-small", "ft-cc-type-select");
 			for (const uiType of ["number", "currency", "string"]) {
 				const opt = typeSelect.createEl("option");
 				opt.value = uiType;
@@ -91,8 +87,7 @@ export class ComputedColumnsSection {
 
 			let symbolInput: HTMLInputElement | null = null;
 			if (displayType === "currency") {
-				symbolInput = row.createEl("input", { type: "text", cls: "ft-text-xs" });
-				symbolInput.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);width:28px;flex-shrink:0";
+				symbolInput = row.createEl("input", { type: "text", cls: "ft-text-xs ft-input-symbol-narrow" });
 				symbolInput.placeholder = "$";
 				if (hint?.currencySymbol) symbolInput.value = hint.currencySymbol;
 				symbolInput.addEventListener("change", () => {
@@ -116,25 +111,23 @@ export class ComputedColumnsSection {
 			});
 
 			// Inline validation on blur
-			const errorEl = rowWrap.createDiv({ cls: "ft-text-xs" });
-			errorEl.style.cssText = "color:var(--text-error);display:none;padding:0.15rem 0 0 0";
+			const errorEl = rowWrap.createDiv({ cls: "ft-text-xs ft-cc-error" });
 			exprInput.addEventListener("blur", () => {
 				const expr = exprInput.value.trim();
-				if (!expr) { errorEl.style.display = "none"; exprInput.style.borderColor = ""; return; }
+				if (!expr) { errorEl.removeClass("ft-cc-error-visible"); exprInput.removeClass("ft-cc-input-error"); return; }
 				const available = this.getAvailableColumns(i);
 				const result = validateExpression(expr, available);
 				if (result.valid) {
-					errorEl.style.display = "none";
-					exprInput.style.borderColor = "";
+					errorEl.removeClass("ft-cc-error-visible");
+					exprInput.removeClass("ft-cc-input-error");
 				} else {
 					errorEl.textContent = result.errors[0];
-					errorEl.style.display = "block";
-					exprInput.style.borderColor = "var(--text-error)";
+					errorEl.addClass("ft-cc-error-visible");
+					exprInput.addClass("ft-cc-input-error");
 				}
 			});
 
-			const removeBtn = row.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-			removeBtn.style.flexShrink = "0";
+			const removeBtn = row.createEl("span", { cls: "ft-nav-link ft-text-sm ft-flex-shrink-0" });
 			const removeIcon = removeBtn.createSpan();
 			setIcon(removeIcon, "x");
 			removeBtn.addEventListener("click", () => {
@@ -149,26 +142,22 @@ export class ComputedColumnsSection {
 		if (computedColumns.length > 0) {
 			this.renderAvailableChips(section, computedColumns);
 		} else {
-			const empty = section.createDiv({ cls: "ft-text-muted ft-text-sm" });
-			empty.style.padding = "0.5rem";
+			const empty = section.createDiv({ cls: "ft-text-muted ft-text-sm ft-cc-empty" });
 			empty.textContent = "Create derived metrics from your query results. Reference any column with {Column Name} and combine with arithmetic or functions.";
 		}
 
 		// ── Function reference (collapsible) ─────────
-		const helpPanel = section.createDiv();
-		helpPanel.style.display = "none";
+		const helpPanel = section.createDiv({ cls: "ft-hidden" });
 		this.renderFunctionReference(helpPanel);
 
 		helpBtn.addEventListener("click", () => {
-			const visible = helpPanel.style.display !== "none";
-			helpPanel.style.display = visible ? "none" : "block";
+			helpPanel.toggleClass("ft-hidden", !helpPanel.hasClass("ft-hidden"));
 		});
 	}
 
 	/** Render clickable column chips grouped by category. */
 	private renderAvailableChips(section: HTMLElement, computedColumns: { name: string; expression: string }[]): void {
-		const chipArea = section.createDiv();
-		chipArea.style.cssText = "padding:0.35rem 0.5rem;border-top:1px solid var(--background-modifier-border)";
+		const chipArea = section.createDiv({ cls: "ft-cc-chip-area" });
 
 		const measures = this.deps.measures();
 		const headers = this.deps.getLoadedHeaders();
@@ -213,14 +202,12 @@ export class ComputedColumnsSection {
 
 	/** Render a labeled group of clickable column chips. */
 	private renderChipGroup(container: HTMLElement, label: string, columns: string[]): void {
-		const group = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-flex-wrap" });
-		group.style.marginBottom = "0.25rem";
+		const group = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-flex-wrap ft-mb-1" });
 
-		group.createSpan({ text: `${label}:`, cls: "ft-text-xs ft-text-muted" }).style.flexShrink = "0";
+		group.createSpan({ text: `${label}:`, cls: "ft-text-xs ft-text-muted ft-flex-shrink-0" });
 
 		for (const col of columns) {
-			const chip = group.createSpan({ text: `{${col}}`, cls: "ft-badge ft-badge-muted" });
-			chip.style.cssText = "font-size:0.65rem;padding:1px 4px;cursor:pointer;font-family:var(--font-monospace)";
+			const chip = group.createSpan({ text: `{${col}}`, cls: "ft-badge ft-badge-muted ft-cc-chip" });
 			chip.setAttribute("aria-label", `Insert {${col}}`);
 			chip.addEventListener("click", () => {
 				// Insert into the last focused expression input
@@ -241,34 +228,27 @@ export class ComputedColumnsSection {
 
 	/** Render the collapsible function reference panel. */
 	private renderFunctionReference(panel: HTMLElement): void {
-		panel.style.cssText = "padding:0.5rem 0.75rem;border-top:1px solid var(--background-modifier-border);background:var(--background-secondary);font-size:var(--font-ui-smaller)";
+		panel.addClass("ft-fn-ref-panel");
 
-		const title = panel.createDiv({ cls: "ft-text-sm" });
-		title.style.fontWeight = "600";
-		title.style.marginBottom = "0.35rem";
+		const title = panel.createDiv({ cls: "ft-text-sm ft-font-semibold ft-mb-1" });
 		title.textContent = "Expression reference";
 
 		// Operators section
-		const opsRow = panel.createDiv({ cls: "ft-text-xs" });
-		opsRow.style.padding = "0.15rem 0";
-		const opsCode = opsRow.createEl("code");
+		const opsRow = panel.createDiv({ cls: "ft-text-xs ft-fn-ref-row" });
+		const opsCode = opsRow.createEl("code", { cls: "ft-code-accent" });
 		opsCode.textContent = "+ - * /";
-		opsCode.style.color = "var(--text-accent)";
 		opsRow.appendText(" — arithmetic operators");
 
 		// Column references
-		const refsRow = panel.createDiv({ cls: "ft-text-xs" });
-		refsRow.style.padding = "0.15rem 0";
-		const refsCode = refsRow.createEl("code");
+		const refsRow = panel.createDiv({ cls: "ft-text-xs ft-fn-ref-row" });
+		const refsCode = refsRow.createEl("code", { cls: "ft-code-accent" });
 		refsCode.textContent = "{Column Name}";
-		refsCode.style.color = "var(--text-accent)";
 		refsRow.appendText(" — reference a column value. Use the raw name (e.g., {Revenue}) even for aggregated measures.");
 
 		// Divider
-		const div1 = panel.createDiv();
-		div1.style.cssText = "border-top:1px solid var(--background-modifier-border);margin:0.35rem 0";
+		panel.createDiv({ cls: "ft-fn-ref-divider" });
 
-		panel.createDiv({ text: "Scalar functions (per-row)", cls: "ft-text-xs ft-text-muted" }).style.marginBottom = "0.15rem";
+		panel.createDiv({ text: "Scalar functions (per-row)", cls: "ft-text-xs ft-text-muted ft-fn-ref-sublabel" });
 
 		const scalarFns: [string, string][] = [
 			["ROUND({col}, n)", "Round to n decimal places — ROUND({Revenue}, 2)"],
@@ -280,10 +260,9 @@ export class ComputedColumnsSection {
 		}
 
 		// Divider
-		const div2 = panel.createDiv();
-		div2.style.cssText = "border-top:1px solid var(--background-modifier-border);margin:0.35rem 0";
+		panel.createDiv({ cls: "ft-fn-ref-divider" });
 
-		panel.createDiv({ text: "Window functions (across rows)", cls: "ft-text-xs ft-text-muted" }).style.marginBottom = "0.15rem";
+		panel.createDiv({ text: "Window functions (across rows)", cls: "ft-text-xs ft-text-muted ft-fn-ref-sublabel" });
 
 		const windowFns: [string, string][] = [
 			["CHANGE({col})", "Absolute change from previous row"],
@@ -295,10 +274,9 @@ export class ComputedColumnsSection {
 		}
 
 		// Divider
-		const div3 = panel.createDiv();
-		div3.style.cssText = "border-top:1px solid var(--background-modifier-border);margin:0.35rem 0";
+		panel.createDiv({ cls: "ft-fn-ref-divider" });
 
-		panel.createDiv({ text: "Tips", cls: "ft-text-xs ft-text-muted" }).style.marginBottom = "0.15rem";
+		panel.createDiv({ text: "Tips", cls: "ft-text-xs ft-text-muted ft-fn-ref-sublabel" });
 
 		const tips = [
 			"Combine functions: ROUND(PCT_CHANGE({Revenue}), 1)",
@@ -306,18 +284,15 @@ export class ComputedColumnsSection {
 			"IF supports >, <, >=, <=, =, != operators and string/number results",
 		];
 		for (const tip of tips) {
-			const tipRow = panel.createDiv({ cls: "ft-text-xs" });
-			tipRow.style.cssText = "padding:0.1rem 0;opacity:0.8";
+			const tipRow = panel.createDiv({ cls: "ft-text-xs ft-fn-ref-tip" });
 			tipRow.textContent = `• ${tip}`;
 		}
 	}
 
 	private renderFnRow(panel: HTMLElement, sig: string, desc: string): void {
-		const row = panel.createDiv({ cls: "ft-text-xs" });
-		row.style.padding = "0.15rem 0";
-		const code = row.createEl("code");
+		const row = panel.createDiv({ cls: "ft-text-xs ft-fn-ref-row" });
+		const code = row.createEl("code", { cls: "ft-code-accent" });
 		code.textContent = sig;
-		code.style.color = "var(--text-accent)";
 		row.appendText(` — ${desc}`);
 	}
 

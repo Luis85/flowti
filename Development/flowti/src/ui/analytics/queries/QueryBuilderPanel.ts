@@ -22,7 +22,6 @@ import {
 	AGG_FUNCTIONS,
 	TIME_PERIODS,
 	SELECT_CSS,
-	INPUT_CSS,
 } from "./types";
 import { renderColumnPicker, groupColumnsByType } from "./columnPicker";
 import { FilterBuilderPanel } from "./FilterBuilderPanel";
@@ -67,8 +66,8 @@ export class QueryBuilderPanel {
 
 		// Card title
 		const cardTitle = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		cardTitle.createSpan({ text: "Data Pipeline", cls: "ft-text-sm" }).style.fontWeight = "600";
-		cardTitle.style.cssText = "margin:0;padding-bottom:0.35rem;margin-bottom:0.5rem";
+		cardTitle.createSpan({ text: "Data Pipeline", cls: "ft-text-sm ft-font-semibold" });
+		cardTitle.addClass("ft-card-title");
 
 		// Joins sub-section (only if 2+ sources)
 		if (hasJoins) {
@@ -85,22 +84,19 @@ export class QueryBuilderPanel {
 	}
 
 	private addDivider(parent: HTMLElement): void {
-		const divider = parent.createDiv();
-		divider.style.cssText = "border-top:1px solid var(--background-modifier-border);margin:0.5rem 0";
+		parent.createDiv({ cls: "ft-card-divider" });
 	}
 
 	private renderJoinSubSection(section: HTMLElement, loaded: QuerySource[]): void {
 		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const headerIcon = header.createSpan();
 		setIcon(headerIcon, "git-merge");
-		headerIcon.style.cssText = "opacity:0.6;display:inline-flex;align-items:center";
-		headerIcon.querySelectorAll("svg").forEach((s) => { s.style.width = "14px"; s.style.height = "14px"; });
-		header.createSpan({ text: "Joins", cls: "ft-text-sm" }).style.fontWeight = "500";
-		header.style.margin = "0";
-		section.createDiv({ text: "Combine rows from multiple sources by matching column values.", cls: "ft-text-muted ft-text-xs" }).style.cssText = "padding:0 0.5rem 0.25rem";
+		headerIcon.addClass("ft-inline-icon", "ft-icon-sm");
+		header.createSpan({ text: "Joins", cls: "ft-text-sm ft-font-medium" });
+		header.addClass("ft-subsection-header");
+		section.createDiv({ text: "Combine rows from multiple sources by matching column values.", cls: "ft-text-muted ft-text-xs ft-helper-text" });
 
-		const addBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-		addBtn.style.marginLeft = "auto";
+		const addBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm ft-ml-auto" });
 		const addIcon = addBtn.createSpan();
 		setIcon(addIcon, "plus");
 		addBtn.appendText(" Add");
@@ -120,8 +116,7 @@ export class QueryBuilderPanel {
 		const joins = this.deps.joins();
 		for (let i = 0; i < joins.length; i++) {
 			const join = joins[i];
-			const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1 ft-flex-wrap" });
-			row.style.padding = "0.25rem 0.5rem";
+			const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-flex-wrap ft-join-row" });
 
 			this.renderJoinSide(row, join, "left", loaded);
 			row.createSpan({ text: "=", cls: "ft-text-muted" });
@@ -131,8 +126,7 @@ export class QueryBuilderPanel {
 				inner: "inner — only matching rows",
 				left: "left — all left rows, matches from right",
 			};
-			const typeSelect = row.createEl("select");
-			typeSelect.style.cssText = SELECT_CSS;
+			const typeSelect = row.createEl("select", { cls: "ft-select-small" });
 			typeSelect.title = "Inner: keeps only rows where both sides match.\nLeft: keeps all rows from the left source, filling unmatched right columns with empty values.";
 			for (const jt of ["inner", "left"] as const) {
 				const opt = typeSelect.createEl("option");
@@ -163,8 +157,7 @@ export class QueryBuilderPanel {
 		const sourceKey = side === "left" ? "leftSource" as const : "rightSource" as const;
 		const columnKey = side === "left" ? "leftColumn" as const : "rightColumn" as const;
 
-		const srcSelect = container.createEl("select");
-		srcSelect.style.cssText = SELECT_CSS;
+		const srcSelect = container.createEl("select", { cls: "ft-select-small" });
 		for (const src of loaded) {
 			const opt = srcSelect.createEl("option");
 			opt.value = src.alias;
@@ -178,8 +171,7 @@ export class QueryBuilderPanel {
 			this.deps.renderDetail();
 		});
 
-		const colSelect = container.createEl("select");
-		colSelect.style.cssText = SELECT_CSS;
+		const colSelect = container.createEl("select", { cls: "ft-select-small" });
 		const current = loaded.find((s) => s.alias === join[sourceKey]);
 		for (const h of current?.data?.headers ?? []) {
 			const opt = colSelect.createEl("option");
@@ -194,18 +186,16 @@ export class QueryBuilderPanel {
 		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		const headerIcon = header.createSpan();
 		setIcon(headerIcon, "arrow-up-down");
-		headerIcon.style.cssText = "opacity:0.6;display:inline-flex;align-items:center";
-		headerIcon.querySelectorAll("svg").forEach((s) => { s.style.width = "14px"; s.style.height = "14px"; });
-		header.createSpan({ text: "Sort & Limit", cls: "ft-text-sm" }).style.fontWeight = "500";
-		header.style.margin = "0";
+		headerIcon.addClass("ft-inline-icon", "ft-icon-sm");
+		header.createSpan({ text: "Sort & Limit", cls: "ft-text-sm ft-font-medium" });
+		header.addClass("ft-subsection-header");
 
 		const sorts = this.deps.sort();
 		if (sorts.length > 0) {
 			header.createSpan({ text: `${sorts.length}`, cls: "ft-badge ft-badge-muted" });
 		}
 
-		const addBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-		addBtn.style.marginLeft = "auto";
+		const addBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm ft-ml-auto" });
 		const addIcon = addBtn.createSpan();
 		setIcon(addIcon, "plus");
 		addBtn.appendText(" Add Sort");
@@ -224,9 +214,7 @@ export class QueryBuilderPanel {
 
 		for (let i = 0; i < sorts.length; i++) {
 			const sortSpec = sorts[i];
-			const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
-			row.style.padding = "0.35rem 0.5rem";
-			row.style.borderBottom = "1px solid var(--background-modifier-border)";
+			const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-row-padded-bordered" });
 
 			row.createSpan({ text: i === 0 ? "Sort by" : "then by", cls: "ft-text-muted ft-text-sm" });
 
@@ -242,8 +230,7 @@ export class QueryBuilderPanel {
 				},
 			});
 
-			const dirSelect = row.createEl("select");
-			dirSelect.style.cssText = SELECT_CSS;
+			const dirSelect = row.createEl("select", { cls: "ft-select-small" });
 			for (const dir of ["asc", "desc"] as const) {
 				const opt = dirSelect.createEl("option");
 				opt.value = dir;
@@ -268,8 +255,7 @@ export class QueryBuilderPanel {
 		}
 
 		// Limit
-		const limitRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
-		limitRow.style.padding = "0.35rem 0.5rem";
+		const limitRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-row-padded" });
 
 		const currentLimit = this.deps.limit();
 		const limitCb = limitRow.createEl("input", { type: "checkbox" });
@@ -281,10 +267,9 @@ export class QueryBuilderPanel {
 
 		if (currentLimit !== null) {
 			limitRow.createSpan({ text: "Max rows", cls: "ft-text-muted ft-text-sm" });
-			const limitInput = limitRow.createEl("input", { type: "number" });
+			const limitInput = limitRow.createEl("input", { type: "number", cls: "ft-select-small" });
 			limitInput.value = String(currentLimit);
 			limitInput.min = "0";
-			limitInput.style.cssText = INPUT_CSS;
 			limitInput.addEventListener("change", () => {
 				const val = parseInt(limitInput.value, 10);
 				this.deps.setLimit(isNaN(val) ? null : val);
@@ -301,8 +286,8 @@ export class QueryBuilderPanel {
 		const section = this.container.createDiv({ cls: "ft-card ft-mt-3" });
 
 		const sectionHeader = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		sectionHeader.createSpan({ text: "Column Types & Schema", cls: "ft-text-sm" }).style.fontWeight = "600";
-		sectionHeader.style.cssText = "margin:0;padding-bottom:0.35rem;margin-bottom:0.5rem";
+		sectionHeader.createSpan({ text: "Column Types & Schema", cls: "ft-text-sm ft-font-semibold" });
+		sectionHeader.addClass("ft-card-title");
 		const excluded = this.deps.excludedColumns();
 		const excludeSet = new Set(excluded);
 		const visibleCount = headers.length - excluded.length;
@@ -310,14 +295,13 @@ export class QueryBuilderPanel {
 			text: excluded.length > 0 ? `${visibleCount}/${headers.length}` : `${headers.length}`,
 			cls: "ft-badge ft-badge-muted",
 		});
-		badge.style.marginLeft = "auto";
+		badge.addClass("ft-ml-auto");
 		if (excluded.length > 0) badge.title = `${excluded.length} column${excluded.length > 1 ? "s" : ""} hidden`;
 
 		// Show effective locale inline in header
 		for (const src of loadedSources) {
 			const effective = src.locale === "auto" || !src.locale ? "en-US" : src.locale;
-			const localeTag = sectionHeader.createSpan({ cls: "ft-badge ft-badge-muted" });
-			localeTag.style.cssText = "font-size:0.6rem;padding:0 0.25rem;opacity:0.7";
+			const localeTag = sectionHeader.createSpan({ cls: "ft-badge ft-badge-muted ft-badge-locale" });
 			localeTag.textContent = loadedSources.length > 1 ? `${src.alias}: ${effective}` : effective;
 			// eslint-disable-next-line obsidianmd/ui/sentence-case
 		if (src.locale === "auto" || !src.locale) localeTag.title = "Auto-detected (default: en-US)";
@@ -340,17 +324,14 @@ export class QueryBuilderPanel {
 		}
 
 		// Data Tools — batch quick actions
-		const toolsRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		toolsRow.style.cssText = "padding:0 0.5rem 0.35rem;border-bottom:1px solid var(--background-modifier-border);margin-bottom:0.35rem";
-		toolsRow.createSpan({ text: "Tools", cls: "ft-text-xs ft-text-muted" }).style.fontWeight = "500";
+		const toolsRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-tools-row" });
+		toolsRow.createSpan({ text: "Tools", cls: "ft-text-xs ft-text-muted ft-font-medium" });
 
 		// Remove All Empty — adds != "" filters for all dimension columns
-		const removeEmptyLink = toolsRow.createEl("span", { cls: "ft-nav-link ft-text-xs" });
-		removeEmptyLink.style.cursor = "pointer";
+		const removeEmptyLink = toolsRow.createEl("span", { cls: "ft-nav-link ft-text-xs ft-cursor-pointer" });
 		const reIcon = removeEmptyLink.createSpan();
 		setIcon(reIcon, "filter-x");
-		reIcon.style.cssText = "display:inline-flex;align-items:center;margin-right:2px";
-		reIcon.querySelectorAll("svg").forEach((s) => { s.style.width = "11px"; s.style.height = "11px"; });
+		reIcon.addClass("ft-inline-icon-mr", "ft-icon-xs");
 		removeEmptyLink.appendText("Remove Empty Rows");
 		removeEmptyLink.addEventListener("click", () => {
 			const currentFilters = this.deps.filters();
@@ -371,12 +352,10 @@ export class QueryBuilderPanel {
 			return hint?.type === "number";
 		});
 		if (numericCols.length > 0) {
-			const statsLink = toolsRow.createEl("span", { cls: "ft-nav-link ft-text-xs" });
-			statsLink.style.cursor = "pointer";
+			const statsLink = toolsRow.createEl("span", { cls: "ft-nav-link ft-text-xs ft-cursor-pointer" });
 			const stIcon = statsLink.createSpan();
 			setIcon(stIcon, "bar-chart-3");
-			stIcon.style.cssText = "display:inline-flex;align-items:center;margin-right:2px";
-			stIcon.querySelectorAll("svg").forEach((s) => { s.style.width = "11px"; s.style.height = "11px"; });
+			stIcon.addClass("ft-inline-icon-mr", "ft-icon-xs");
 			statsLink.appendText("Summary Stats");
 			statsLink.addEventListener("click", () => {
 				const col = numericCols[0];
@@ -397,36 +376,27 @@ export class QueryBuilderPanel {
 		const groups = groupColumnsByType(headers, hints);
 
 		for (const group of groups) {
-			const groupDiv = section.createDiv();
-			groupDiv.style.padding = "0.25rem 0.5rem";
+			const groupDiv = section.createDiv({ cls: "ft-schema-group" });
 
 			// Group header with type icon
-			const groupHeader = groupDiv.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
-			groupHeader.style.borderBottom = "1px solid var(--background-modifier-border)";
-			groupHeader.style.paddingBottom = "0.25rem";
-			groupHeader.style.marginBottom = "0.25rem";
+			const groupHeader = groupDiv.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-schema-group-header" });
 			const icon = groupHeader.createSpan();
 			setIcon(icon, TYPE_ICONS[group.type] ?? "type");
-			icon.style.cssText = "opacity:0.6;flex-shrink:0;display:inline-flex;align-items:center";
-			icon.querySelectorAll("svg").forEach((s) => { s.style.width = "12px"; s.style.height = "12px"; });
-			groupHeader.createSpan({ text: group.label, cls: "ft-text-sm" }).style.fontWeight = "500";
+			icon.addClass("ft-inline-icon", "ft-flex-shrink-0", "ft-icon-xs");
+			groupHeader.createSpan({ text: group.label, cls: "ft-text-sm ft-font-medium" });
 			groupHeader.createSpan({ text: `${group.columns.length}`, cls: "ft-badge ft-badge-muted" });
 
 			// Column rows
 			for (const col of group.columns) {
 				const hint = hints.find((h) => h.column === col);
 				const isExcluded = excludeSet.has(col);
-				const row = groupDiv.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-				row.style.padding = "0.2rem 0 0.2rem 1.25rem";
-				if (isExcluded) row.style.opacity = "0.45";
+				const row = groupDiv.createDiv({ cls: `ft-flex ft-items-center ft-gap-2 ft-schema-col-row${isExcluded ? " ft-excluded" : ""}` });
 
 				// Visibility toggle
-				const eyeBtn = row.createEl("span", { cls: "ft-nav-link" });
-				eyeBtn.style.cssText = "cursor:pointer;flex-shrink:0;padding:0";
+				const eyeBtn = row.createEl("span", { cls: "ft-nav-link ft-icon-btn" });
 				const eyeIcon = eyeBtn.createSpan();
 				setIcon(eyeIcon, isExcluded ? "eye-off" : "eye");
-				eyeIcon.style.cssText = "display:inline-flex;align-items:center";
-				eyeIcon.querySelectorAll("svg").forEach((s) => { s.style.width = "12px"; s.style.height = "12px"; });
+				eyeIcon.addClass("ft-inline-icon-plain", "ft-icon-xs");
 				eyeBtn.title = isExcluded ? "Include in results" : "Exclude from results";
 				eyeBtn.addEventListener("click", () => {
 					const current = this.deps.excludedColumns();
@@ -440,22 +410,17 @@ export class QueryBuilderPanel {
 
 				// Remove empty filter
 				const hasEmptyFilter = this.deps.filters().some((f) => f.column === col && f.operator === "!=" && f.value === "");
-				const filterBtn = row.createEl("span", { cls: "ft-nav-link" });
-				filterBtn.style.cssText = "cursor:pointer;flex-shrink:0;padding:0";
+				const filterBtn = row.createEl("span", { cls: `ft-nav-link ft-icon-btn${hasEmptyFilter ? " ft-filter-active" : " ft-action-faint"}` });
 				filterBtn.title = hasEmptyFilter ? "Empty rows filtered" : "Remove empty rows for this column";
 				const filterIcon = filterBtn.createSpan();
 				setIcon(filterIcon, hasEmptyFilter ? "filter" : "filter-x");
-				filterIcon.style.cssText = "display:inline-flex;align-items:center";
-				filterIcon.querySelectorAll("svg").forEach((s) => { s.style.width = "12px"; s.style.height = "12px"; });
+				filterIcon.addClass("ft-inline-icon-plain", "ft-icon-xs");
 				if (hasEmptyFilter) {
-					filterBtn.style.color = "var(--text-accent)";
-					filterBtn.style.opacity = "0.8";
 					filterBtn.addEventListener("click", () => {
 						this.deps.setFilters(this.deps.filters().filter((f) => !(f.column === col && f.operator === "!=" && f.value === "")));
 						this.deps.renderDetail();
 					});
 				} else {
-					filterBtn.style.opacity = "0.35";
 					filterBtn.addEventListener("click", () => {
 						this.deps.setFilters([...this.deps.filters(), { column: col, operator: "!=", value: "" }]);
 						this.deps.renderDetail();
@@ -463,13 +428,10 @@ export class QueryBuilderPanel {
 				}
 
 				// Column name
-				const nameEl = row.createSpan({ text: col, cls: "ft-text-sm" });
-				nameEl.style.minWidth = "80px";
-				if (isExcluded) nameEl.style.textDecoration = "line-through";
+				row.createSpan({ text: col, cls: `ft-text-sm ft-col-name${isExcluded ? " ft-col-excluded" : ""}` });
 
 				// Alias input
-				const aliasInput = row.createEl("input", { type: "text", cls: "ft-text-xs" });
-				aliasInput.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);width:80px;color:var(--text-muted)";
+				const aliasInput = row.createEl("input", { type: "text", cls: "ft-text-xs ft-input-inline" });
 				aliasInput.placeholder = "Alias";
 				if (hint?.alias) aliasInput.value = hint.alias;
 				aliasInput.addEventListener("change", () => {
@@ -479,19 +441,11 @@ export class QueryBuilderPanel {
 
 				// Private toggle (lock/unlock)
 				const isPrivate = hint?.isPrivate ?? false;
-				const lockBtn = row.createEl("span", { cls: "ft-nav-link" });
-				lockBtn.style.cssText = "cursor:pointer;flex-shrink:0;padding:0";
+				const lockBtn = row.createEl("span", { cls: `ft-nav-link ft-icon-btn${isPrivate ? " ft-lock-active" : " ft-action-faint"}` });
 				lockBtn.title = isPrivate ? "Remove anonymization" : "Anonymize column values";
 				const lockIcon = lockBtn.createSpan();
 				setIcon(lockIcon, isPrivate ? "lock" : "unlock");
-				lockIcon.style.cssText = "display:inline-flex;align-items:center";
-				lockIcon.querySelectorAll("svg").forEach((s) => { s.style.width = "12px"; s.style.height = "12px"; });
-				if (isPrivate) {
-					lockBtn.style.color = "var(--text-error)";
-					lockBtn.style.opacity = "0.9";
-				} else {
-					lockBtn.style.opacity = "0.35";
-				}
+				lockIcon.addClass("ft-inline-icon-plain", "ft-icon-xs");
 				lockBtn.addEventListener("click", () => {
 					this.updateColumnTypeHint(col, { isPrivate: !isPrivate || undefined });
 					this.deps.renderDetail();
@@ -501,22 +455,18 @@ export class QueryBuilderPanel {
 				const aliases = sourceMap.get(col);
 				if (aliases) {
 					for (const alias of aliases) {
-						const badge = row.createSpan({ text: alias, cls: "ft-badge ft-badge-muted" });
-						badge.style.fontSize = "0.65rem";
-						badge.style.padding = "0 0.25rem";
+						row.createSpan({ text: alias, cls: "ft-badge ft-badge-muted ft-badge-sm" });
 					}
 				}
 
 				// Spacer
-				const spacer = row.createSpan();
-				spacer.style.flex = "1";
+				row.createSpan({ cls: "ft-flex-spacer" });
 
 				// Type dropdown — shows "currency" as virtual option (maps to number + symbol)
 				const isCurrency = hint?.type === "number" && !!hint.currencySymbol;
 				const displayType = isCurrency ? "currency" : (hint?.type ?? "string");
 
-				const select = row.createEl("select");
-				select.style.cssText = SELECT_CSS;
+				const select = row.createEl("select", { cls: "ft-select-small" });
 				for (const uiType of ["string", "number", "currency", "date"]) {
 					const opt = select.createEl("option");
 					opt.value = uiType;
@@ -527,8 +477,7 @@ export class QueryBuilderPanel {
 				// Currency symbol input (inline, only visible for "currency" type)
 				let symbolInput: HTMLInputElement | null = null;
 				if (displayType === "currency") {
-					symbolInput = row.createEl("input", { type: "text", cls: "ft-text-xs" });
-					symbolInput.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);width:36px";
+					symbolInput = row.createEl("input", { type: "text", cls: "ft-text-xs ft-input-symbol" });
 					symbolInput.placeholder = "$";
 					if (hint?.currencySymbol) symbolInput.value = hint.currencySymbol;
 					symbolInput.addEventListener("change", () => {
@@ -552,8 +501,7 @@ export class QueryBuilderPanel {
 
 				// Group By checkbox (for non-numeric columns)
 				if (group.type !== "number" && group.type !== "currency") {
-					const dimLabel = row.createEl("label", { cls: "ft-flex ft-items-center ft-gap-1" });
-					dimLabel.style.cssText = "cursor:pointer;font-size:var(--font-ui-small);color:var(--text-muted)";
+					const dimLabel = row.createEl("label", { cls: "ft-flex ft-items-center ft-gap-1 ft-dim-label" });
 					const cb = dimLabel.createEl("input", { type: "checkbox" });
 					cb.checked = dimSet.has(col);
 					cb.addEventListener("change", () => {
@@ -573,16 +521,13 @@ export class QueryBuilderPanel {
 					const tb = this.deps.timeBucket();
 					const isTimeBucket = tb?.column === col;
 					if (isTimeBucket) {
-						const tbBadge = row.createSpan({ text: "time bucket", cls: "ft-badge ft-badge-muted" });
-						tbBadge.style.fontSize = "0.65rem";
+						row.createSpan({ text: "time bucket", cls: "ft-badge ft-badge-muted ft-badge-time-bucket" });
 					} else {
-						const tbBtn = row.createEl("span", { cls: "ft-nav-link ft-text-xs" });
-						tbBtn.style.cursor = "pointer";
+						const tbBtn = row.createEl("span", { cls: "ft-nav-link ft-text-xs ft-cursor-pointer" });
 						tbBtn.title = `Use ${col} as time bucket`;
 						const tbIcon = tbBtn.createSpan();
 						setIcon(tbIcon, "clock");
-						tbIcon.style.cssText = "display:inline-flex;align-items:center";
-						tbIcon.querySelectorAll("svg").forEach((s) => { s.style.width = "12px"; s.style.height = "12px"; });
+						tbIcon.addClass("ft-inline-icon-plain", "ft-icon-xs");
 						tbBtn.appendText(" Time Bucket");
 						tbBtn.addEventListener("click", () => {
 							this.deps.setTimeBucket({ column: col, period: "month" });
@@ -595,15 +540,13 @@ export class QueryBuilderPanel {
 				{
 					const alreadyAdded = this.deps.measures().some((m) => m.column === col);
 					if (alreadyAdded) {
-						const addedBadge = row.createSpan({ text: "measure", cls: "ft-badge ft-badge-muted" });
-						addedBadge.style.fontSize = "0.65rem";
+						row.createSpan({ text: "measure", cls: "ft-badge ft-badge-muted ft-badge-time-bucket" });
 					}
 					const isNumeric = group.type === "number" || group.type === "currency";
 					const applicableFns: AggregationFunction[] = isNumeric
 						? AGG_FUNCTIONS
 						: ["COUNT", "COUNT_DISTINCT"];
-					const measureSelect = row.createEl("select");
-					measureSelect.style.cssText = SELECT_CSS + ";font-size:0.65rem;padding:1px 4px;max-width:90px";
+					const measureSelect = row.createEl("select", { cls: "ft-select-small ft-select-measure-add" });
 					const placeholder = measureSelect.createEl("option");
 					placeholder.value = "";
 					placeholder.textContent = "+ measure";
@@ -645,12 +588,11 @@ export class QueryBuilderPanel {
 
 		const section = this.container.createDiv({ cls: "ft-card ft-mt-3" });
 		const tbHeader = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		tbHeader.createSpan({ text: "Time Bucket", cls: "ft-text-sm" }).style.fontWeight = "600";
-		tbHeader.style.cssText = "margin:0;padding-bottom:0.35rem;margin-bottom:0.5rem";
-		section.createDiv({ text: "Group rows by a date column into time periods for trend analysis.", cls: "ft-text-muted ft-text-xs" }).style.cssText = "padding:0 0.5rem 0.25rem;margin-top:-0.35rem";
+		tbHeader.createSpan({ text: "Time Bucket", cls: "ft-text-sm ft-font-semibold" });
+		tbHeader.addClass("ft-card-title");
+		section.createDiv({ text: "Group rows by a date column into time periods for trend analysis.", cls: "ft-text-muted ft-text-xs ft-helper-text-snug" });
 
-		const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
-		row.style.padding = "0.35rem 0.5rem";
+		const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-row-padded" });
 
 		const tb = this.deps.timeBucket();
 		const cb = row.createEl("input", { type: "checkbox" });
@@ -661,8 +603,7 @@ export class QueryBuilderPanel {
 		});
 
 		if (tb) {
-			const colSelect = row.createEl("select");
-			colSelect.style.cssText = SELECT_CSS;
+			const colSelect = row.createEl("select", { cls: "ft-select-small" });
 			for (const col of dateCols) {
 				const opt = colSelect.createEl("option");
 				opt.value = col;
@@ -676,8 +617,7 @@ export class QueryBuilderPanel {
 
 			row.createSpan({ text: "by", cls: "ft-text-muted ft-text-sm" });
 
-			const periodSelect = row.createEl("select");
-			periodSelect.style.cssText = SELECT_CSS;
+			const periodSelect = row.createEl("select", { cls: "ft-select-small" });
 			for (const p of TIME_PERIODS) {
 				const opt = periodSelect.createEl("option");
 				opt.value = p;
@@ -698,15 +638,14 @@ export class QueryBuilderPanel {
 	private renderMeasureConfig(): void {
 		const section = this.container.createDiv({ cls: "ft-card ft-mt-3" });
 		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		header.createSpan({ text: "Measures", cls: "ft-text-sm" }).style.fontWeight = "600";
-		header.style.cssText = "margin:0;padding-bottom:0.35rem;margin-bottom:0.5rem";
-		section.createDiv({ text: "Aggregate columns using functions like SUM, COUNT, or AVG.", cls: "ft-text-muted ft-text-xs" }).style.cssText = "padding:0 0.5rem 0.25rem;margin-top:-0.35rem";
+		header.createSpan({ text: "Measures", cls: "ft-text-sm ft-font-semibold" });
+		header.addClass("ft-card-title");
+		section.createDiv({ text: "Aggregate columns using functions like SUM, COUNT, or AVG.", cls: "ft-text-muted ft-text-xs ft-helper-text-snug" });
 
 		const hints = this.deps.columnTypeHints();
 		const allHeaders = this.deps.getLoadedHeaders();
 
-		const addBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-		addBtn.style.marginLeft = "auto";
+		const addBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm ft-ml-auto" });
 		const addIcon = addBtn.createSpan();
 		setIcon(addIcon, "plus");
 		addBtn.appendText(" Add");
@@ -724,12 +663,9 @@ export class QueryBuilderPanel {
 		const measures = this.deps.measures();
 		for (let i = 0; i < measures.length; i++) {
 			const measure = measures[i];
-			const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
-			row.style.padding = "0.35rem 0.5rem";
-			row.style.borderBottom = "1px solid var(--background-modifier-border)";
+			const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-row-padded-bordered" });
 
-			const funcSelect = row.createEl("select");
-			funcSelect.style.cssText = SELECT_CSS;
+			const funcSelect = row.createEl("select", { cls: "ft-select-small" });
 			for (const fn of AGG_FUNCTIONS) {
 				const opt = funcSelect.createEl("option");
 				opt.value = fn;
@@ -750,9 +686,8 @@ export class QueryBuilderPanel {
 
 			row.createSpan({ text: ")", cls: "ft-text-muted" });
 
-			row.createSpan({ text: "as", cls: "ft-text-muted ft-text-xs" }).style.marginLeft = "0.25rem";
-			const aliasInput = row.createEl("input", { type: "text", cls: "ft-text-xs" });
-			aliasInput.style.cssText = "width:80px;padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary)";
+			row.createSpan({ text: "as", cls: "ft-text-muted ft-text-xs ft-ml-1" });
+			const aliasInput = row.createEl("input", { type: "text", cls: "ft-text-xs ft-input-alias" });
 			aliasInput.placeholder = `${measure.function}(${measure.column})`;
 			if (measure.label) aliasInput.value = measure.label;
 			aliasInput.addEventListener("change", () => {
@@ -765,8 +700,7 @@ export class QueryBuilderPanel {
 			const isMeasureCurrency = measureHint?.type === "number" && !!measureHint.currencySymbol;
 			const measureType = isMeasureCurrency ? "currency" : (measureHint?.type ?? "number");
 
-			const typeSelect = row.createEl("select");
-			typeSelect.style.cssText = SELECT_CSS + ";font-size:0.65rem;padding:1px 4px;max-width:70px";
+			const typeSelect = row.createEl("select", { cls: "ft-select-small ft-select-measure-type" });
 			for (const t of ["number", "currency"]) {
 				const opt = typeSelect.createEl("option");
 				opt.value = t;
@@ -776,8 +710,7 @@ export class QueryBuilderPanel {
 
 			let symInput: HTMLInputElement | null = null;
 			if (measureType === "currency") {
-				symInput = row.createEl("input", { type: "text", cls: "ft-text-xs" });
-				symInput.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);width:30px";
+				symInput = row.createEl("input", { type: "text", cls: "ft-text-xs ft-input-measure-symbol" });
 				symInput.placeholder = "$";
 				if (measureHint?.currencySymbol) symInput.value = measureHint.currencySymbol;
 				symInput.addEventListener("change", () => {

@@ -26,8 +26,7 @@ export class CanvasConfigPage {
 		const state = this.deps.getState();
 
 		// Action bar
-		const actions = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2" });
-		actions.style.borderBottom = "1px solid var(--background-modifier-border)";
+		const actions = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2 ft-action-bar-border" });
 		actions.addClass("ft-flex-shrink-0");
 
 		const backBtn = actions.createEl("span", { cls: "ft-nav-link" });
@@ -68,14 +67,11 @@ export class CanvasConfigPage {
 		const scroll = panel;
 
 		// Unsaved changes reminder (always present, visibility toggled)
-		const reminder = scroll.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
-		reminder.style.padding = "0.35rem 0.5rem";
-		reminder.style.borderRadius = "var(--radius-s, 4px)";
-		reminder.style.background = "var(--background-modifier-message)";
-		reminder.style.display = this.deps.hasUnsavedChanges() ? "flex" : "none";
+		const reminder = scroll.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2 ft-unsaved-reminder" });
+		if (!this.deps.hasUnsavedChanges()) reminder.addClass("ft-hidden");
 		const warnIcon = reminder.createSpan();
 		setIcon(warnIcon, "alert-triangle");
-		warnIcon.style.opacity = "0.6";
+		warnIcon.addClass("ft-unsaved-warn-icon");
 		warnIcon.addClass("ft-flex-shrink-0");
 		reminder.createSpan({
 			text: "Config has unsaved changes",
@@ -234,9 +230,8 @@ export class CanvasConfigPage {
 			const keyLabel = labels ? `${key} (${labels[key] ?? key})` : key;
 			tr.createEl("td", { text: keyLabel, cls: "ft-text-sm ft-text-muted" });
 			const valueTd = tr.createEl("td");
-			const input = valueTd.createEl("input", { type: "text", cls: "ft-mapping-input" });
+			const input = valueTd.createEl("input", { type: "text", cls: "ft-mapping-input ft-canvas-mapping-input" });
 			input.value = value;
-			input.style.cssText = "width:100%;padding:2px 6px;font-size:var(--font-ui-small);background:var(--background-primary);border:1px solid var(--background-modifier-border);border-radius:var(--radius-s,4px);color:var(--text-normal)";
 			input.addEventListener("input", () => {
 				const updated = { ...map, [key]: input.value as FlowtiCanvasType };
 				this.deps.setState({ [stateKey]: updated });

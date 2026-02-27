@@ -48,8 +48,7 @@ export class ActionsBar {
 		setIcon(runIcon, "play");
 		runLink.appendText(running ? " Running..." : " Run Query");
 		if (running || !hasMeasures || !this.deps.hasLoadedSources) {
-			runLink.style.opacity = "0.4";
-			runLink.style.pointerEvents = "none";
+			runLink.addClass("ft-disabled");
 		}
 		runLink.addEventListener("click", () => this.deps.onRunQuery());
 
@@ -62,14 +61,12 @@ export class ActionsBar {
 
 		// Save Query — only when there are unsaved changes
 		if (hasMeasures && this.deps.hasChanges) {
-			const saveLink = actions.createEl("span", { cls: "ft-nav-link" });
-			saveLink.style.cssText = "background:rgba(76,175,80,0.15);color:var(--text-normal);padding:2px 8px;border-radius:4px;font-weight:600";
+			const saveLink = actions.createEl("span", { cls: "ft-nav-link ft-save-btn-highlight" });
 			const saveIcon = saveLink.createSpan();
 			setIcon(saveIcon, "save");
 			saveLink.appendText(" Save Query");
 			saveLink.addEventListener("click", () => {
-				saveLink.style.opacity = "0.5";
-				saveLink.style.pointerEvents = "none";
+				saveLink.addClass("ft-disabled");
 				saveLink.textContent = "";
 				const icon = saveLink.createSpan();
 				setIcon(icon, "loader");

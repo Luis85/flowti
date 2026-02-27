@@ -51,16 +51,14 @@ export class HubDashboard {
 		}
 
 		// ── Title bar ──
-		const titleBar = this.dashboardEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-mb-3" });
-		titleBar.style.borderBottom = "1px solid var(--background-modifier-border)";
-		titleBar.style.paddingBottom = "0.75rem";
+		const titleBar = this.dashboardEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-mb-3 ft-dashboard-titlebar" });
 		const titleIcon = titleBar.createSpan();
 		setIcon(titleIcon, "arrow-left-right");
 		titleIcon.addClass("ft-icon-muted");
 		titleBar.createEl("h2", {
 			text: "Data exchange hub",
-			cls: "ft-heading",
-		}).style.margin = "0";
+			cls: "ft-heading ft-heading-no-margin",
+		});
 
 		const configuredCsv = state.csvFileEntries.filter((e) => e.importConfigs.length > 0);
 
@@ -90,29 +88,24 @@ export class HubDashboard {
 	// ─────────────────────────────────────────────────────────
 
 	private renderEmptyState(): void {
-		const wrapper = this.dashboardEl.createDiv({ cls: "ft-empty-state" });
-		wrapper.style.cssText = "text-align:center;padding:2.5rem 1.5rem 1.5rem";
+		const wrapper = this.dashboardEl.createDiv({ cls: "ft-empty-state ft-empty-state-centered" });
 
 		// Hero icon
 		const iconEl = wrapper.createDiv();
 		setIcon(iconEl, "file-input");
-		iconEl.style.cssText = "opacity:0.35;margin-bottom:0.75rem";
-		const svg = iconEl.querySelector("svg");
-		if (svg) { svg.style.width = "2.5rem"; svg.style.height = "2.5rem"; }
+		iconEl.addClass("ft-empty-state-icon");
 
 		// Heading
-		const heading = wrapper.createDiv({ text: "Welcome to the Data Exchange Hub" });
-		heading.style.cssText = "font-weight:600;font-size:var(--font-ui-medium);margin-bottom:0.35rem";
+		wrapper.createDiv({ text: "Welcome to the Data Exchange Hub", cls: "ft-empty-state-heading" });
 
 		// Subtitle
 		wrapper.createDiv({
 			text: "Import CSVs, export vault data, and build automated pipelines \u2014 all from one place.",
-			cls: "ft-text-sm ft-text-muted",
-		}).style.marginBottom = "1.5rem";
+			cls: "ft-text-sm ft-text-muted ft-empty-state-subtitle-mb",
+		});
 
 		// Action cards grid
-		const grid = wrapper.createDiv();
-		grid.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;max-width:440px;margin:0 auto;text-align:left";
+		const grid = wrapper.createDiv({ cls: "ft-action-card-grid" });
 
 		// Card 1: Import a CSV
 		this.renderActionCard(grid, {
@@ -135,16 +128,12 @@ export class HubDashboard {
 		container: HTMLElement,
 		opts: { icon: string; title: string; description: string; onClick: () => void },
 	): void {
-		const card = container.createDiv({ cls: "ft-stat-card" });
-		card.style.cssText = "cursor:pointer;padding:1rem;display:flex;flex-direction:column;gap:0.5rem";
+		const card = container.createDiv({ cls: "ft-stat-card ft-action-card" });
 
-		const titleRow = card.createDiv();
-		titleRow.style.cssText = "display:flex;align-items:center;gap:0.4rem;font-weight:600;font-size:var(--font-ui-small)";
+		const titleRow = card.createDiv({ cls: "ft-action-card-title" });
 		const iconEl = titleRow.createSpan();
 		setIcon(iconEl, opts.icon);
-		iconEl.style.cssText = "display:inline-flex;align-items:center";
-		const iconSvg = iconEl.querySelector("svg");
-		if (iconSvg) { iconSvg.style.width = "14px"; iconSvg.style.height = "14px"; }
+		iconEl.addClass("ft-action-card-icon");
 		titleRow.createSpan({ text: opts.title });
 
 		card.createDiv({ text: opts.description, cls: "ft-text-xs ft-text-muted" });
@@ -183,8 +172,7 @@ export class HubDashboard {
 		const typeCount = state.typeEntries.length;
 		if (propCount === 0 && docCount === 0 && typeCount === 0 && csvCount === 0) return;
 
-		const section = container.createDiv();
-		section.style.marginBottom = "2rem";
+		const section = container.createDiv({ cls: "ft-section-mb" });
 		this.renderSectionHeader(section, "book-open", "Data Dictionary", propCount + docCount + typeCount);
 
 		const cards: StatCardItem[] = [
@@ -201,8 +189,7 @@ export class HubDashboard {
 	// ─────────────────────────────────────────────────────────
 
 	private renderActiveOperations(container: HTMLElement, operations: ActiveOperation[]): void {
-		const section = container.createDiv();
-		section.style.marginBottom = "2rem";
+		const section = container.createDiv({ cls: "ft-section-mb" });
 		this.renderSectionHeader(section, "activity", "Active Operations", operations.filter((o) => !o.completed).length);
 
 		for (const op of operations) {
@@ -212,12 +199,12 @@ export class HubDashboard {
 			if (op.completed) {
 				const icon = row.createSpan();
 				setIcon(icon, op.success ? "check-circle" : "x-circle");
-				icon.style.color = op.success ? "var(--text-success)" : "var(--text-error)";
+				icon.addClass(op.success ? "ft-text-success" : "ft-text-error");
 				row.createSpan({ text: op.message ?? op.name, cls: "ft-text-sm" });
 			} else {
 				const spinner = row.createSpan();
 				setIcon(spinner, "loader");
-				spinner.style.opacity = "0.6";
+				spinner.addClass("ft-opacity-muted");
 				spinner.addClass("ft-spin");
 				const statusText = row.createSpan({ cls: "ft-text-sm" });
 				const typeLabel = op.type === "canvas-import" ? "Canvas Import" : op.type === "import" ? "Importing" : op.type === "export" ? "Exporting" : "Pipeline";
@@ -232,13 +219,12 @@ export class HubDashboard {
 				}
 
 				// Progress bar
-				const barBg = card.createDiv();
-				barBg.style.cssText = "height:3px;background:var(--background-modifier-border);border-radius:2px;margin:0 0.5rem 0.5rem;overflow:hidden";
-				const barFill = barBg.createDiv();
+				const barBg = card.createDiv({ cls: "ft-progress-bar-track" });
+				const barFill = barBg.createDiv({ cls: "ft-progress-bar-fill-animated" });
 				const pct = op.progress && op.progress.total > 0
 					? Math.round((op.progress.current / op.progress.total) * 100)
 					: 0;
-				barFill.style.cssText = `height:100%;width:${pct}%;background:var(--interactive-accent);border-radius:2px;transition:width 0.15s ease`;
+				barFill.style.width = `${pct}%`;
 
 				this.attachLiveListeners(op, card, barFill, statusText);
 			}
@@ -257,7 +243,7 @@ export class HubDashboard {
 			const resultRow = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
 			const icon = resultRow.createSpan();
 			setIcon(icon, success ? "check-circle" : "x-circle");
-			icon.style.color = success ? "var(--text-success)" : "var(--text-error)";
+			icon.addClass(success ? "ft-text-success" : "ft-text-error");
 			resultRow.createSpan({ text: message, cls: "ft-text-sm" });
 		};
 
@@ -322,7 +308,7 @@ export class HubDashboard {
 			this.liveUnsubscribes.push(
 				this.deps.eventBus.on("dataExchange.export.started", (event) => {
 					if (event.payload.pipelineId !== op.operationId) return;
-					barFill.style.width = "100%";
+					barFill.addClass("ft-w-full");
 					statusText.textContent = `Pipeline: running export...`;
 				}),
 			);
@@ -379,8 +365,7 @@ export class HubDashboard {
 		const count = state.canvasConfigs.length;
 		if (count === 0) return;
 
-		const section = container.createDiv();
-		section.style.marginBottom = "2rem";
+		const section = container.createDiv({ cls: "ft-section-mb" });
 		this.renderSectionHeader(section, "layout-dashboard", "Canvas Imports", count);
 
 		const cards: StatCardItem[] = [

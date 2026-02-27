@@ -28,7 +28,7 @@ export class UserHubNudgePreferences {
 		const icon = header.createSpan();
 		setIcon(icon, "bell");
 		icon.addClass("ft-icon-muted");
-		header.createEl("h3", { text: "Session nudges", cls: "ft-heading ft-heading-sm" }).style.margin = "0";
+		header.createEl("h3", { text: "Session nudges", cls: "ft-heading ft-heading-sm ft-m-0" });
 
 		section.createEl("p", {
 			text: "Time-based reminders to start a session. Nudges fire once per day at the configured time.",
@@ -44,15 +44,13 @@ export class UserHubNudgePreferences {
 		if (configs.length === 0) {
 			parent.createEl("p", {
 				text: "No nudges configured yet.",
-				cls: "ft-text-sm ft-text-muted",
-			}).style.marginTop = "0.5rem";
+				cls: "ft-text-sm ft-text-muted ft-nudge-no-items",
+			});
 			return;
 		}
 
 		for (const config of configs) {
-			const row = parent.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			row.style.padding = "0.35rem 0";
-			row.style.borderBottom = "1px solid var(--background-modifier-border)";
+			const row = parent.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-nudge-row" });
 
 			// Enable toggle
 			const toggle = row.createEl("input");
@@ -67,8 +65,7 @@ export class UserHubNudgePreferences {
 			});
 
 			// Info
-			const info = row.createDiv();
-			info.style.flex = "1";
+			const info = row.createDiv({ cls: "ft-flex-1" });
 			const titleRow = info.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 			titleRow.createSpan({ text: config.title, cls: "ft-text-sm" });
 			titleRow.createSpan({
@@ -93,10 +90,7 @@ export class UserHubNudgePreferences {
 	}
 
 	private renderAddForm(parent: HTMLElement): void {
-		const form = parent.createDiv();
-		form.style.marginTop = "0.75rem";
-		form.style.borderTop = "1px solid var(--background-modifier-border)";
-		form.style.paddingTop = "0.75rem";
+		const form = parent.createDiv({ cls: "ft-pref-form" });
 
 		let title = "";
 		let time = "09:00";
@@ -104,29 +98,25 @@ export class UserHubNudgePreferences {
 		let durationMinutes = "25";
 
 		const makeRow = (label: string): HTMLElement => {
-			const row = form.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			row.style.marginTop = "0.5rem";
-			const lbl = row.createSpan({ text: label, cls: "ft-text-sm" });
-			lbl.style.minWidth = "120px";
+			const row = form.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-pref-form-row" });
+			row.createSpan({ text: label, cls: "ft-text-sm ft-pref-label" });
 			return row;
 		};
 
 		// Title
 		const titleRow = makeRow("Title");
-		const titleInput = titleRow.createEl("input", { cls: "ft-input" });
+		const titleInput = titleRow.createEl("input", { cls: "ft-input ft-flex-1" });
 		titleInput.type = "text";
 		// eslint-disable-next-line obsidianmd/ui/sentence-case
 	titleInput.placeholder = "e.g. morning review";
-		titleInput.style.flex = "1";
 		titleInput.addEventListener("input", () => { title = titleInput.value; });
 
 		// Time
 		const timeRow = makeRow("Time (HH:MM)");
-		const timeInput = timeRow.createEl("input", { cls: "ft-input" });
+		const timeInput = timeRow.createEl("input", { cls: "ft-input ft-input-width-80" });
 		timeInput.type = "text";
 		timeInput.value = "09:00";
 		timeInput.placeholder = "09:00";
-		timeInput.style.width = "80px";
 		timeInput.addEventListener("input", () => { time = timeInput.value; });
 
 		// Session type
@@ -141,15 +131,13 @@ export class UserHubNudgePreferences {
 
 		// Duration
 		const durRow = makeRow("Duration (min)");
-		const durInput = durRow.createEl("input", { cls: "ft-input" });
+		const durInput = durRow.createEl("input", { cls: "ft-input ft-input-width-60" });
 		durInput.type = "text";
 		durInput.value = "25";
-		durInput.style.width = "60px";
 		durInput.addEventListener("input", () => { durationMinutes = durInput.value; });
 
 		// Add button
-		const btnRow = form.createDiv();
-		btnRow.style.marginTop = "0.5rem";
+		const btnRow = form.createDiv({ cls: "ft-pref-btn-row" });
 		const addBtn = btnRow.createEl("button", { text: "Add nudge", cls: "mod-cta" });
 		addBtn.addEventListener("click", () => {
 			const t = title.trim();

@@ -36,7 +36,7 @@ export class NewQueryModal extends Modal {
 
 	onOpen(): void {
 		const { contentEl } = this;
-		contentEl.style.minWidth = "400px";
+		contentEl.addClass("ft-nq-modal");
 
 		contentEl.createEl("h3", { text: "New query" });
 		contentEl.createDiv({
@@ -45,22 +45,18 @@ export class NewQueryModal extends Modal {
 		});
 
 		// ── Name input ──────────────────────────────
-		const nameInput = contentEl.createEl("input", { type: "text" });
+		const nameInput = contentEl.createEl("input", { type: "text", cls: "ft-nq-modal-input" });
 		nameInput.placeholder = "Query name";
-		nameInput.style.cssText = "width:100%;margin-top:0.75rem;margin-bottom:0.75rem";
 
 		// ── Source search ────────────────────────────
-		const searchInput = contentEl.createEl("input", { type: "text" });
+		const searchInput = contentEl.createEl("input", { type: "text", cls: "ft-nq-search-input" });
 		searchInput.placeholder = "Search sources...";
-		searchInput.style.cssText = "width:100%;margin-bottom:0.5rem;font-size:var(--font-ui-small)";
 
 		// ── Source list ──────────────────────────────
-		const listContainer = contentEl.createDiv();
-		listContainer.style.cssText = "max-height:250px;overflow-y:auto;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);margin-bottom:0.75rem";
+		const listContainer = contentEl.createDiv({ cls: "ft-nq-source-list" });
 
 		// ── Actions ──────────────────────────────────
-		const btnRow = contentEl.createDiv({ cls: "ft-flex ft-gap-1" });
-		btnRow.style.justifyContent = "flex-end";
+		const btnRow = contentEl.createDiv({ cls: "ft-flex ft-gap-1 ft-justify-end" });
 
 		const cancelBtn = btnRow.createEl("button", { text: "Cancel" });
 		cancelBtn.addEventListener("click", () => this.close());
@@ -117,7 +113,7 @@ export class NewQueryModal extends Modal {
 		}
 
 		if (filteredCsv.length === 0 && filteredBase.length === 0 && filteredFolders.length === 0) {
-			container.createDiv({ text: search ? "No sources match your search." : "No data sources found in vault.", cls: "ft-text-muted ft-text-sm" }).style.padding = "0.75rem";
+			container.createDiv({ text: search ? "No sources match your search." : "No data sources found in vault.", cls: "ft-text-muted ft-text-sm ft-nq-empty-msg" });
 		}
 	}
 
@@ -127,12 +123,10 @@ export class NewQueryModal extends Modal {
 		items: Array<{ path: string; label: string; sourceType: "csv" | "base" | "csv-folder" }>,
 		onChange: () => void,
 	): void {
-		const header = container.createDiv({ text: title, cls: "ft-text-xs ft-text-muted" });
-		header.style.cssText = "padding:0.35rem 0.5rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;background:var(--background-secondary);border-bottom:1px solid var(--background-modifier-border)";
+		container.createDiv({ text: title, cls: "ft-text-xs ft-text-muted ft-nq-group-header" });
 
 		for (const item of items) {
-			const row = container.createEl("label", { cls: "ft-flex ft-items-center ft-gap-2" });
-			row.style.cssText = "padding:0.35rem 0.5rem;cursor:pointer;border-bottom:1px solid var(--background-modifier-border)";
+			const row = container.createEl("label", { cls: "ft-flex ft-items-center ft-gap-2 ft-nq-group-row" });
 
 			const checkbox = row.createEl("input", { type: "checkbox" });
 			checkbox.checked = this.selectedPaths.has(item.path);

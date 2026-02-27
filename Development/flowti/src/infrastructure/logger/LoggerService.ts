@@ -131,16 +131,16 @@ export class LoggerService implements ILogger {
 		switch (level) {
 			case "debug":
 			case "info":
-				if (data !== undefined) console.debug(message, data); // eslint-disable-line no-console -- Logger is the designated console output layer
-				else console.debug(message); // eslint-disable-line no-console -- Logger is the designated console output layer
+				if (data !== undefined) console.debug(message, data);
+				else console.debug(message);
 				break;
 			case "warn":
-				if (data !== undefined) console.warn(message, data); // eslint-disable-line no-console -- Logger is the designated console output layer
-				else console.warn(message); // eslint-disable-line no-console -- Logger is the designated console output layer
+				if (data !== undefined) console.warn(message, data);
+				else console.warn(message);
 				break;
 			case "error":
-				if (data !== undefined) console.error(message, data); // eslint-disable-line no-console -- Logger is the designated console output layer
-				else console.error(message); // eslint-disable-line no-console -- Logger is the designated console output layer
+				if (data !== undefined) console.error(message, data);
+				else console.error(message);
 				break;
 		}
 	}

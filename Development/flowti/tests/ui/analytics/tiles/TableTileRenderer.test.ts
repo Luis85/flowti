@@ -126,8 +126,7 @@ describe("TableTileRenderer", () => {
 		renderer.render(container, result, ctx);
 		const tds = container.querySelectorAll("td");
 		const nameTd = tds[0];
-		expect(nameTd.style.cursor).toBe("pointer");
-		expect(nameTd.style.textDecoration).toBe("underline");
+		expect(nameTd.classList.contains("ft-table-cell-clickable")).toBe(true);
 	});
 
 	// ── Pagination ─────────────────────────────────────────────

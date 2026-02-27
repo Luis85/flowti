@@ -18,7 +18,7 @@ export class ViewSelectPage {
 
 		const state = this.deps.getState();
 		const container = ws.createDiv({ cls: "ft-table-scroll" });
-		container.style.padding = "1rem";
+		container.addClass("ft-view-select-padding");
 
 		if (!state.baseFile || state.baseFile.views.length === 0) {
 			container.createEl("p", {
@@ -35,7 +35,7 @@ export class ViewSelectPage {
 
 		// Action bar
 		const actions = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-3 ft-mb-3" });
-		actions.style.borderBottom = "1px solid var(--background-modifier-border)";
+		actions.addClass("ft-action-bar-border");
 
 		const closeBtn = actions.createEl("span", { cls: "ft-nav-link" });
 		setIcon(closeBtn.createSpan(), "x");
@@ -133,21 +133,20 @@ export class ViewSelectPage {
 				cls: `ft-card ${isSelected ? "ft-card-selected" : ""}`,
 			});
 			card.addClass("ft-cursor-pointer");
-			card.style.padding = "0.75rem 1rem";
-			card.style.marginBottom = "0.5rem";
+			card.addClass("ft-view-card-padding");
 
 			const row = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-3" });
 
 			// Icon
 			const iconEl = row.createSpan();
 			setIcon(iconEl, "table");
-			iconEl.style.opacity = isSelected ? "1" : "0.4";
+			if (!isSelected) iconEl.addClass("ft-opacity-04");
 			iconEl.addClass("ft-flex-shrink-0");
 
 			// Text
 			const text = row.createDiv();
 			text.addClass("ft-flex-1");
-			text.style.minWidth = "0";
+			text.addClass("ft-view-text-minw0");
 			text.createDiv({ text: view.name, cls: "ft-font-bold" });
 			const meta: string[] = [view.type];
 			if (view.order) meta.push(`${view.order.length} columns`);
@@ -158,7 +157,7 @@ export class ViewSelectPage {
 			if (isSelected) {
 				const check = row.createSpan();
 				setIcon(check, "check");
-				check.style.color = "var(--interactive-accent)";
+				check.addClass("ft-text-accent-color");
 				check.addClass("ft-flex-shrink-0");
 			}
 

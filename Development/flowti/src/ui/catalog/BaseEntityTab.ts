@@ -163,8 +163,7 @@ export class BaseEntityTab<T extends BaseEntityEntry> {
 		// Header with add button
 		const header = this.masterEl.createDiv({ cls: "ft-master-category-header" });
 		header.createSpan({ text: this.config.label });
-		const addBtn = header.createSpan({ cls: "ft-visibility-toggle" });
-		addBtn.style.marginLeft = "auto";
+		const addBtn = header.createSpan({ cls: "ft-visibility-toggle ft-ml-auto" });
 		setIcon(addBtn, "plus");
 		addBtn.setAttribute("aria-label", `Create new ${this.config.singular}`);
 		addBtn.addEventListener("click", (e) => {
@@ -282,8 +281,7 @@ export class BaseEntityTab<T extends BaseEntityEntry> {
 			void openFile(this.deps.workspace, data.filePath);
 		});
 
-		const delBtn = actions.createEl("button", { cls: "ft-btn ft-btn-ghost ft-text-sm" });
-		delBtn.style.color = "var(--text-error)";
+		const delBtn = actions.createEl("button", { cls: "ft-btn ft-btn-ghost ft-text-sm ft-text-error-color" });
 		const delIcon = delBtn.createSpan();
 		setIcon(delIcon, "trash-2");
 		delBtn.appendText(" Delete");

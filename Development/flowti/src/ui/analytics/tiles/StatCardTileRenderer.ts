@@ -22,8 +22,7 @@ export class StatCardTileRenderer implements TileRenderer {
 			return;
 		}
 
-		const wrapper = container.createDiv();
-		wrapper.style.margin = "auto 0";
+		const wrapper = container.createDiv({ cls: "ft-stat-wrapper" });
 
 		const measureCols = result.columns.filter((col) => typeof result.rows[0][col] === "number");
 		const dimCols = result.columns.filter((col) => typeof result.rows[0][col] !== "number");
@@ -36,24 +35,22 @@ export class StatCardTileRenderer implements TileRenderer {
 			// Dimension label (group header) — clickable for drill-down
 			if (dimCols.length > 0) {
 				const label = dimCols.map((col) => String(row[col] ?? "")).join(" \u00B7 ");
-				const labelEl = wrapper.createDiv({ cls: "ft-text-sm" });
-				labelEl.style.fontWeight = "600";
-				labelEl.style.marginTop = i > 0 ? "0.4rem" : "0";
-				labelEl.style.marginBottom = "0.15rem";
+				const drillable = (ctx.onCrossTileFilter || ctx.onDrillDown) && dimCols.length === 1;
+				const labelCls = ["ft-text-sm", "ft-stat-dim-label"];
+				if (i > 0) labelCls.push("ft-stat-dim-label-gap");
+				if (drillable) labelCls.push("ft-stat-dim-drillable");
+
+				const labelEl = wrapper.createDiv({ cls: labelCls.join(" ") });
 				labelEl.textContent = label;
 
 				// Drill-down: click dimension label to filter
-				if ((ctx.onCrossTileFilter || ctx.onDrillDown) && dimCols.length === 1) {
+				if (drillable) {
 					const col = dimCols[0];
 					const val = String(row[col] ?? "");
-					labelEl.style.cursor = "pointer";
-					labelEl.style.textDecoration = "underline";
-					labelEl.style.textDecorationStyle = "dotted";
-					labelEl.style.textUnderlineOffset = "3px";
 
 					const isActive = ctx.activeFilters?.some((f) => f.column === col && f.values.includes(val));
 					if (isActive) {
-						labelEl.style.color = "var(--text-accent)";
+						labelEl.addClass("ft-text-accent");
 					}
 
 					labelEl.addEventListener("click", () => {
@@ -67,23 +64,15 @@ export class StatCardTileRenderer implements TileRenderer {
 			}
 
 			// Stat cards for this group
-			const grid = wrapper.createDiv({ cls: "ft-stat-card-grid" });
-			grid.style.display = "grid";
-			grid.style.gridTemplateColumns = "repeat(auto-fit, minmax(100px, 1fr))";
-			grid.style.gap = "0.25rem";
+			const grid = wrapper.createDiv({ cls: "ft-stat-card-grid ft-stat-grid" });
 
 			for (const col of measureCols) {
 				const val = row[col];
 				if (typeof val !== "number") continue;
 
-				const card = grid.createDiv({ cls: "ft-stat-card-mini" });
-				card.style.textAlign = "center";
-				card.style.padding = "0.25rem 0.25rem";
-				card.style.background = "var(--background-primary)";
-				card.style.borderRadius = "4px";
+				const card = grid.createDiv({ cls: "ft-stat-card-mini ft-stat-card" });
 
-				const valueEl = card.createDiv({ cls: "ft-text-lg" });
-				valueEl.style.fontWeight = "700";
+				const valueEl = card.createDiv({ cls: "ft-text-lg ft-stat-value" });
 				valueEl.textContent = fmtNum(val, ctx, result.columnTypeHints, col);
 
 				// Conditional formatting: color stat-card text
@@ -99,8 +88,7 @@ export class StatCardTileRenderer implements TileRenderer {
 						const v = r[col];
 						return typeof v === "number" ? v : 0;
 					});
-					const sparkHost = card.createDiv();
-					sparkHost.style.cssText = "margin-top:0.25rem;display:flex;justify-content:center";
+					const sparkHost = card.createDiv({ cls: "ft-stat-sparkline-host" });
 					ChartRenderer.renderSparkline(sparkHost, sparkValues);
 				}
 

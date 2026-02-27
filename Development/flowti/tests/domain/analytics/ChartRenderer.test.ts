@@ -533,8 +533,7 @@ describe("ChartRenderer.renderSparkline", () => {
 		const container = createContainer();
 		ChartRenderer.renderSparkline(container, [1, 2, 3]);
 		const svg = container.querySelector("svg") as SVGSVGElement;
-		expect(svg.style.width).toBe("80px");
-		expect(svg.style.height).toBe("24px");
+		expect(svg.classList.contains("ft-chart-sparkline-svg")).toBe(true);
 	});
 });
 
@@ -872,8 +871,8 @@ describe("ChartRenderer hidden series", () => {
 			onToggleSeries: (name) => toggled.push(name),
 		});
 
-		// Find legend entries (divs with cursor:pointer) and click the first one
-		const legendEntries = container.querySelectorAll("div[style*='cursor']");
+		// Find legend entries (divs with ft-cursor-pointer class) and click the first one
+		const legendEntries = container.querySelectorAll(".ft-chart-legend-entry.ft-cursor-pointer");
 		expect(legendEntries.length).toBeGreaterThan(0);
 		(legendEntries[0] as HTMLElement).click();
 		expect(toggled.length).toBe(1);

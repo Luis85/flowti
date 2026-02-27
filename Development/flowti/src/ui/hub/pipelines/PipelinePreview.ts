@@ -36,7 +36,7 @@ export class PipelinePreview {
 		const loadingRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
 		const loadSpinner = loadingRow.createSpan();
 		setIcon(loadSpinner, "loader");
-		loadSpinner.style.opacity = "0.6";
+		loadSpinner.addClass("ft-opacity-muted");
 		loadSpinner.addClass("ft-spin");
 		loadingRow.createSpan({ text: "Preparing preview...", cls: "ft-text-sm" });
 
@@ -54,7 +54,7 @@ export class PipelinePreview {
 			const errRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
 			const errIcon = errRow.createSpan();
 			setIcon(errIcon, "x-circle");
-			errIcon.style.color = "var(--text-error)";
+			errIcon.addClass("ft-text-error");
 			errRow.createSpan({
 				text: `Preview failed: ${err instanceof Error ? err.message : String(err)}`,
 				cls: "ft-text-sm",
@@ -78,13 +78,11 @@ export class PipelinePreview {
 			cls: "ft-badge ft-badge-muted ft-text-sm",
 		});
 		if (result.toCreate > 0) {
-			const createBadge = stats.createSpan({ cls: "ft-badge ft-text-sm" });
-			createBadge.style.color = "var(--text-success)";
+			const createBadge = stats.createSpan({ cls: "ft-badge ft-text-sm ft-text-success" });
 			createBadge.textContent = `${result.toCreate} new`;
 		}
 		if (result.toUpdate > 0) {
-			const updateBadge = stats.createSpan({ cls: "ft-badge ft-text-sm" });
-			updateBadge.style.color = "var(--text-accent)";
+			const updateBadge = stats.createSpan({ cls: "ft-badge ft-text-sm ft-text-accent" });
 			updateBadge.textContent = `${result.toUpdate} update`;
 		}
 
@@ -94,13 +92,13 @@ export class PipelinePreview {
 			if (src.error) {
 				const errIcon = srcRow.createSpan();
 				setIcon(errIcon, "alert-triangle");
-				errIcon.style.color = "var(--text-error)";
+				errIcon.addClass("ft-text-error");
 				srcRow.createSpan({ text: src.csvName, cls: "ft-text-sm" });
 				srcRow.createSpan({ text: src.error, cls: "ft-text-sm ft-text-muted" });
 			} else {
 				const srcIcon = srcRow.createSpan();
 				setIcon(srcIcon, "file-spreadsheet");
-				srcIcon.style.opacity = "0.6";
+				srcIcon.addClass("ft-opacity-muted");
 				srcRow.createSpan({ text: src.csvName, cls: "ft-text-sm" });
 				srcRow.createSpan({
 					text: `${src.rowCount} rows · ${src.columns.length} columns`,
@@ -118,7 +116,7 @@ export class PipelinePreview {
 				if (exportCfg) {
 					const expIcon = expRow.createSpan();
 					setIcon(expIcon, "file-output");
-					expIcon.style.opacity = "0.6";
+					expIcon.addClass("ft-opacity-muted");
 					expRow.createSpan({ text: exportCfg.name, cls: "ft-text-sm" });
 					const details: string[] = [];
 					details.push(exportCfg.format.toUpperCase());
@@ -131,7 +129,7 @@ export class PipelinePreview {
 				} else {
 					const warnIcon = expRow.createSpan();
 					setIcon(warnIcon, "alert-triangle");
-					warnIcon.style.color = "var(--text-warning)";
+					warnIcon.addClass("ft-text-warning");
 					expRow.createSpan({ text: "(deleted config)", cls: "ft-text-sm ft-text-muted" });
 				}
 			}
@@ -142,34 +140,26 @@ export class PipelinePreview {
 				text: "Items",
 				cls: "ft-detail-section-header ft-px-2 ft-mt-1",
 			});
-			const tableDiv = section.createDiv({ cls: "ft-px-2 ft-pb-2" });
-			tableDiv.style.maxHeight = "200px";
-			tableDiv.style.overflowY = "auto";
+			const tableDiv = section.createDiv({ cls: "ft-px-2 ft-pb-2 ft-preview-scroll" });
 
 			for (const entry of result.entries) {
-				const row = tableDiv.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
-				row.style.borderBottom = "1px solid var(--background-modifier-border)";
+				const row = tableDiv.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1 ft-row-bordered" });
 
 				const dot = row.createSpan({ cls: "ft-text-sm" });
-				dot.style.color = entry.exists ? "var(--text-accent)" : "var(--text-success)";
+				dot.addClass(entry.exists ? "ft-text-accent" : "ft-text-success");
 				dot.textContent = entry.exists ? "○" : "●";
 
-				const keySpan = row.createSpan({ text: entry.key, cls: "ft-text-sm" });
-				keySpan.addClass("ft-flex-1");
-				keySpan.style.overflow = "hidden";
-				keySpan.style.textOverflow = "ellipsis";
-				keySpan.style.whiteSpace = "nowrap";
+				row.createSpan({ text: entry.key, cls: "ft-text-sm ft-flex-1 ft-text-ellipsis" });
 
 				const badge = row.createSpan({
 					text: entry.exists ? "Update" : "New",
 					cls: "ft-badge ft-badge-muted ft-text-sm",
 				});
-				if (!entry.exists) badge.style.color = "var(--text-success)";
+				if (!entry.exists) badge.addClass("ft-text-success");
 			}
 		}
 
-		const footer = section.createDiv({ cls: "ft-flex ft-items-center ft-justify-end ft-gap-2 ft-p-2" });
-		footer.style.borderTop = "1px solid var(--background-modifier-border)";
+		const footer = section.createDiv({ cls: "ft-flex ft-items-center ft-justify-end ft-gap-2 ft-p-2 ft-footer-bordered" });
 
 		const cancelBtn = footer.createEl("button", { cls: "mod-muted", text: "Cancel" });
 		cancelBtn.addEventListener("click", () => section.remove());

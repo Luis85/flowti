@@ -26,7 +26,7 @@ export class UserHubTrainPreferences {
 		const icon = header.createSpan();
 		setIcon(icon, "train-front");
 		icon.addClass("ft-icon-muted");
-		header.createEl("h3", { text: "Train of thought", cls: "ft-heading ft-heading-sm" }).style.margin = "0";
+		header.createEl("h3", { text: "Train of thought", cls: "ft-heading ft-heading-sm ft-m-0" });
 
 		section.createEl("p", {
 			text: "Configure defaults for train of thought capture sessions.",
@@ -37,12 +37,11 @@ export class UserHubTrainPreferences {
 
 		// ── Train folder ──
 		const folderRow = this.makeRow(section, "Folder");
-		const folderInput = folderRow.createEl("input", { cls: "ft-input" });
+		const folderInput = folderRow.createEl("input", { cls: "ft-input ft-flex-1" });
 		folderInput.type = "text";
 		folderInput.value = settings.trainFolder;
 		// eslint-disable-next-line obsidianmd/ui/sentence-case
 	folderInput.placeholder = "00 - Connectivity/trains";
-		folderInput.style.flex = "1";
 		attachFolderSuggest(folderInput, this.deps.app, (selected) => {
 			const path = selected.replace(/\/$/, "");
 			folderInput.value = path;
@@ -59,7 +58,7 @@ export class UserHubTrainPreferences {
 		durInput.min = "0";
 		durInput.max = "120";
 		durInput.value = String(settings.defaultTrainDuration);
-		durInput.style.width = "80px";
+		durInput.addClass("ft-input-width-80");
 		durRow.createSpan({ text: "0 = unlimited", cls: "ft-text-sm ft-text-muted" });
 		durInput.addEventListener("change", () => {
 			const value = parseInt(durInput.value, 10) || 0;
@@ -73,7 +72,7 @@ export class UserHubTrainPreferences {
 		maxInput.min = "1";
 		maxInput.max = "1000";
 		maxInput.value = String(settings.trainMaxThoughts);
-		maxInput.style.width = "80px";
+		maxInput.addClass("ft-input-width-80");
 		maxInput.addEventListener("change", () => {
 			const num = parseInt(maxInput.value, 10);
 			if (num >= 1 && num <= 1000) {
@@ -93,10 +92,8 @@ export class UserHubTrainPreferences {
 	}
 
 	private makeRow(parent: HTMLElement, label: string): HTMLElement {
-		const row = parent.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		row.style.marginTop = "0.5rem";
-		const lbl = row.createSpan({ text: label, cls: "ft-text-sm" });
-		lbl.style.minWidth = "120px";
+		const row = parent.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-pref-form-row" });
+		row.createSpan({ text: label, cls: "ft-text-sm ft-pref-label" });
 		return row;
 	}
 }

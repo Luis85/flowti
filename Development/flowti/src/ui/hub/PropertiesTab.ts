@@ -143,8 +143,7 @@ export class PropertiesTab {
 		if (entry.csvColumnNames.length > 0) {
 			const card = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
 			card.createDiv({ text: "CSV Columns", cls: "ft-detail-section-header" });
-			const chips = card.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
-			chips.style.flexWrap = "wrap";
+			const chips = card.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1 ft-flex-wrap" });
 			for (const col of entry.csvColumnNames) {
 				chips.createSpan({ text: col, cls: "ft-badge ft-badge-muted" });
 			}
@@ -184,8 +183,7 @@ export class PropertiesTab {
 		if (entry.sampleValues.length > 0) {
 			const section = this.detailEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
 			section.createDiv({ text: "Sample Values", cls: "ft-detail-section-header" });
-			const chips = section.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
-			chips.style.flexWrap = "wrap";
+			const chips = section.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1 ft-flex-wrap" });
 			for (const val of entry.sampleValues) {
 				chips.createSpan({ text: val, cls: "ft-badge ft-badge-muted" });
 			}

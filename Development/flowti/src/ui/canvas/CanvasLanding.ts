@@ -59,10 +59,7 @@ export class CanvasLanding {
 			section.createDiv({ text: "Saved Configurations", cls: "ft-detail-section-header" });
 
 			for (const cfg of configs) {
-				const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
-				row.style.padding = "0.35rem 0.5rem";
-				row.style.borderBottom = "1px solid var(--background-modifier-border)";
-				row.style.cursor = "pointer";
+				const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1 ft-canvas-config-row" });
 
 				const info = row.createDiv({ cls: "ft-flex-1" });
 				info.createDiv({ text: cfg.name, cls: "ft-text-sm ft-font-medium" });

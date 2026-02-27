@@ -29,14 +29,10 @@ export class DashboardNameModal extends Modal {
 			cls: "ft-text-muted ft-text-sm",
 		});
 
-		const inputEl = contentEl.createEl("input", { type: "text" });
+		const inputEl = contentEl.createEl("input", { type: "text", cls: "ft-nq-modal-input" });
 		inputEl.placeholder = "Dashboard name";
-		inputEl.style.width = "100%";
-		inputEl.style.marginTop = "0.75rem";
-		inputEl.style.marginBottom = "0.75rem";
 
-		const btnRow = contentEl.createDiv({ cls: "ft-flex ft-gap-1" });
-		btnRow.style.justifyContent = "flex-end";
+		const btnRow = contentEl.createDiv({ cls: "ft-flex ft-gap-1 ft-justify-end" });
 
 		const cancelBtn = btnRow.createEl("button", { text: "Cancel" });
 		cancelBtn.addEventListener("click", () => this.close());

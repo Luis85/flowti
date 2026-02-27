@@ -39,7 +39,7 @@ export class CsvDataSnapshot {
 		this.previewResetEl = headingRow.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 		setIcon(this.previewResetEl.createSpan(), "rotate-ccw");
 		this.previewResetEl.appendText(" Reset");
-		this.previewResetEl.style.display = "none";
+		this.previewResetEl.addClass("ft-hidden");
 		this.previewResetEl.addEventListener("click", () => {
 			this.deps.setState({ hiddenColumns: [] });
 			this.onDisplaySettingsChanged();
@@ -48,8 +48,7 @@ export class CsvDataSnapshot {
 
 		// Column chips (clickable to toggle visibility)
 		if (this.cachedAllHeaders.length > 0) {
-			const chipContainer = container.createDiv({ cls: "ft-flex ft-gap-1 ft-mb-2" });
-			chipContainer.style.flexWrap = "wrap";
+			const chipContainer = container.createDiv({ cls: "ft-flex ft-gap-1 ft-mb-2 ft-flex-wrap" });
 			for (const h of this.cachedAllHeaders) {
 				const isHidden = state.hiddenColumns.includes(h);
 				const chip = chipContainer.createSpan({
@@ -166,13 +165,13 @@ export class CsvDataSnapshot {
 		if (this.previewHiddenBadgeEl) {
 			if (state.hiddenColumns.length > 0) {
 				this.previewHiddenBadgeEl.textContent = `${state.hiddenColumns.length} hidden`;
-				this.previewHiddenBadgeEl.style.display = "";
+				this.previewHiddenBadgeEl.removeClass("ft-hidden");
 			} else {
-				this.previewHiddenBadgeEl.style.display = "none";
+				this.previewHiddenBadgeEl.addClass("ft-hidden");
 			}
 		}
 		if (this.previewResetEl) {
-			this.previewResetEl.style.display = state.hiddenColumns.length > 0 ? "" : "none";
+			this.previewResetEl.classList.toggle("ft-hidden", state.hiddenColumns.length === 0);
 		}
 
 		const tableWrap = this.previewTableAreaEl.createDiv({ cls: "flowti-csv-preview" });
@@ -184,7 +183,7 @@ export class CsvDataSnapshot {
 		for (const h of visibleHeaders) {
 			const th = headerRow.createEl("th", { cls: "ft-preview-sortable-th" });
 			th.addClass("ft-cursor-pointer");
-			th.style.userSelect = "none";
+			th.addClass("ft-user-select-none");
 			const label = th.createSpan({ text: h });
 			if (state.previewSortColumn === h) {
 				label.appendText(state.previewSortDir === "asc" ? " \u25B2" : " \u25BC");

@@ -25,11 +25,10 @@ export class SessionOutputPickerModal extends Modal {
 		contentEl.createEl("h3", { text: "Generate output artifact" });
 		contentEl.createEl("p", {
 			text: "Choose a template to generate an output document from this session.",
-			cls: "ft-text-muted",
-		}).style.cssText = "color:var(--text-muted);margin-bottom:12px;";
+			cls: "ft-text-muted ft-output-picker-subtitle",
+		});
 
 		const grid = contentEl.createDiv({ cls: "ft-output-picker-grid" });
-		grid.style.cssText = "display:flex;flex-direction:column;gap:8px;";
 
 		// Built-in templates
 		for (const template of BUILT_IN_OUTPUT_TEMPLATES) {
@@ -54,12 +53,8 @@ export class SessionOutputPickerModal extends Modal {
 
 	private renderCard(parent: HTMLElement, template: SessionOutputTemplate): void {
 		const card = parent.createDiv({ cls: "ft-output-picker-card" });
-		card.style.cssText = "padding:12px;border:1px solid var(--background-modifier-border);border-radius:8px;cursor:pointer;";
-		card.addEventListener("mouseenter", () => { card.style.background = "var(--background-modifier-hover)"; });
-		card.addEventListener("mouseleave", () => { card.style.background = ""; });
 
-		const titleRow = card.createDiv();
-		titleRow.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:4px;";
+		const titleRow = card.createDiv({ cls: "ft-output-picker-title-row" });
 
 		const iconEl = titleRow.createSpan();
 		setIcon(iconEl, this.getTemplateIcon(template.type));
@@ -67,10 +62,10 @@ export class SessionOutputPickerModal extends Modal {
 		titleRow.createEl("strong", { text: template.title });
 		titleRow.createEl("span", {
 			text: template.type,
-			cls: "ft-badge",
-		}).style.cssText = "background:var(--background-modifier-hover);padding:2px 6px;border-radius:4px;font-size:11px;";
+			cls: "ft-badge ft-output-picker-type-badge",
+		});
 
-		card.createEl("p", { text: template.description }).style.cssText = "margin:0;font-size:12px;color:var(--text-muted);";
+		card.createEl("p", { text: template.description, cls: "ft-output-picker-desc" });
 
 		card.addEventListener("click", () => {
 			this.onSelect(template);

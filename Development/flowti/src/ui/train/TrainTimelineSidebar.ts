@@ -408,9 +408,9 @@ export class TrainTimelineSidebar extends ItemView {
 			arrow.style.borderTopColor = mergeColor;
 			// Position arrow at the target end
 			if (mergeTargetLane < lane) {
-				arrow.style.left = "-3px";
+				arrow.addClass("ft-graph-merge-arrow-left");
 			} else {
-				arrow.style.right = "-3px";
+				arrow.addClass("ft-graph-merge-arrow-right");
 			}
 		}
 

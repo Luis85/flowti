@@ -26,25 +26,19 @@ export class SessionClosureOverlay {
 
 	render(): void {
 		const overlay = this.container.createDiv({ cls: "ft-closure-overlay" });
-		overlay.style.cssText = "padding:24px;max-width:600px;margin:0 auto;";
 
 		// Header
 		const header = overlay.createDiv({ cls: "ft-closure-header" });
-		header.style.cssText = "text-align:center;margin-bottom:24px;";
-		const iconEl = header.createDiv();
-		iconEl.style.cssText = "margin-bottom:8px;";
+		const iconEl = header.createDiv({ cls: "ft-closure-header-icon" });
 		setIcon(iconEl, "clipboard-check");
-		(iconEl.firstChild as HTMLElement)?.style.setProperty("width", "32px");
-		(iconEl.firstChild as HTMLElement)?.style.setProperty("height", "32px");
-		header.createEl("h3", { text: "Closure ritual" }).style.cssText = "margin:0 0 4px 0;";
+		header.createEl("h3", { text: "Closure ritual" });
 		header.createEl("p", {
 			text: `Reflect on "${this.session.title}" before completing.`,
-			cls: "ft-text-muted",
-		}).style.cssText = "color:var(--text-muted);margin:0;";
+			cls: "ft-text-muted ft-closure-header-subtitle",
+		});
 
 		// Questions
 		const form = overlay.createDiv({ cls: "ft-closure-form" });
-		form.style.cssText = "display:flex;flex-direction:column;gap:16px;";
 
 		for (const q of this.template.questions) {
 			this.renderQuestion(form, q);
@@ -52,14 +46,11 @@ export class SessionClosureOverlay {
 
 		// Actions
 		const actions = overlay.createDiv({ cls: "ft-closure-actions" });
-		actions.style.cssText = "display:flex;justify-content:center;gap:12px;margin-top:24px;";
 
-		const submitBtn = actions.createEl("button", { text: "Complete session", cls: "mod-cta" });
-		submitBtn.style.cssText = "padding:8px 24px;border-radius:6px;cursor:pointer;font-weight:600;";
+		const submitBtn = actions.createEl("button", { text: "Complete session", cls: "mod-cta ft-closure-submit-btn" });
 		submitBtn.addEventListener("click", () => this.handleSubmit(form));
 
 		const skipBtn = actions.createEl("button", { text: "Skip", cls: "ft-closure-skip" });
-		skipBtn.style.cssText = "padding:8px 24px;border-radius:6px;cursor:pointer;color:var(--text-muted);background:none;border:1px solid var(--background-modifier-border);";
 		skipBtn.addEventListener("click", () => this.callbacks.onSkip());
 	}
 
@@ -67,14 +58,13 @@ export class SessionClosureOverlay {
 		const group = form.createDiv({ cls: "ft-closure-question" });
 		group.dataset.questionId = q.id;
 
-		const label = group.createEl("label", {
+		group.createEl("label", {
 			text: q.question + (q.required ? " *" : ""),
+			cls: "ft-closure-question-label",
 		});
-		label.style.cssText = "display:block;font-weight:600;margin-bottom:4px;";
 
 		if (q.type === "select" && q.options) {
-			const selectEl = group.createEl("select");
-			selectEl.style.cssText = "width:100%;padding:6px 8px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);color:var(--text-normal);";
+			const selectEl = group.createEl("select", { cls: "ft-closure-select" });
 			const placeholder = selectEl.createEl("option", { text: "Select..." });
 			placeholder.value = "";
 			for (const opt of q.options) {
@@ -85,24 +75,19 @@ export class SessionClosureOverlay {
 				this.answers[q.id] = selectEl.value;
 			});
 		} else if (q.type === "rating") {
-			const ratingRow = group.createDiv();
-			ratingRow.style.cssText = "display:flex;gap:4px;";
+			const ratingRow = group.createDiv({ cls: "ft-closure-rating-row" });
 			for (let i = 1; i <= 5; i++) {
-				const btn = ratingRow.createEl("button", { text: String(i) });
-				btn.style.cssText = "width:32px;height:32px;border-radius:4px;cursor:pointer;border:1px solid var(--background-modifier-border);background:var(--background-primary);color:var(--text-normal);";
+				const btn = ratingRow.createEl("button", { text: String(i), cls: "ft-closure-rating-btn" });
 				btn.addEventListener("click", () => {
 					this.answers[q.id] = String(i);
 					ratingRow.querySelectorAll("button").forEach((b) => {
-						(b as HTMLElement).style.background = "var(--background-primary)";
-						(b as HTMLElement).style.fontWeight = "normal";
+						(b as HTMLElement).removeClass("ft-rating-selected");
 					});
-					btn.style.background = "var(--interactive-accent)";
-					btn.style.fontWeight = "bold";
+					btn.addClass("ft-rating-selected");
 				});
 			}
 		} else {
-			const textarea = group.createEl("textarea");
-			textarea.style.cssText = "width:100%;min-height:60px;padding:6px 8px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);color:var(--text-normal);resize:vertical;box-sizing:border-box;";
+			const textarea = group.createEl("textarea", { cls: "ft-closure-textarea" });
 			textarea.placeholder = "Type your response...";
 			textarea.addEventListener("input", () => {
 				this.answers[q.id] = textarea.value;
@@ -122,7 +107,7 @@ export class SessionClosureOverlay {
 			// Highlight missing fields
 			for (const id of missing) {
 				const el = form.querySelector(`[data-question-id="${id}"]`);
-				if (el) (el as HTMLElement).style.borderLeft = "3px solid var(--text-error)";
+				if (el) (el as HTMLElement).addClass("ft-closure-field-error");
 			}
 			return;
 		}

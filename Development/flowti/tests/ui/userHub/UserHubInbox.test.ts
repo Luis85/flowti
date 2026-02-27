@@ -173,7 +173,7 @@ describe("UserHubInbox", () => {
 			inbox.renderMaster("");
 
 			const row = masterEl.querySelector(".ft-catalog-row") as HTMLElement;
-			expect(row.style.fontWeight).toBe("600");
+			expect(row.classList.contains("ft-inbox-row-unread")).toBe(true);
 		});
 
 		it("should not bold read items", () => {
@@ -181,7 +181,7 @@ describe("UserHubInbox", () => {
 			inbox.renderMaster("");
 
 			const row = masterEl.querySelector(".ft-catalog-row") as HTMLElement;
-			expect(row.style.fontWeight).not.toBe("600");
+			expect(row.classList.contains("ft-inbox-row-unread")).toBe(false);
 		});
 
 		it("should set selectedInboxItem and scheduleRender on click", () => {
@@ -352,7 +352,7 @@ describe("UserHubInbox", () => {
 
 			const rows = masterEl.querySelectorAll(".ft-catalog-row");
 			expect((rows[0] as HTMLElement).classList.contains("ft-catalog-row-active")).toBe(true);
-			expect((rows[0] as HTMLElement).style.backgroundColor).toBe("var(--background-modifier-hover)");
+			expect((rows[0] as HTMLElement).classList.contains("ft-session-row-selected")).toBe(true);
 			expect((rows[1] as HTMLElement).classList.contains("ft-catalog-row-active")).toBe(false);
 		});
 

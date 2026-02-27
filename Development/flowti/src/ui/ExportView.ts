@@ -199,10 +199,7 @@ export class ExportView extends ItemView {
 		const el = this.contentEl;
 		el.empty();
 
-		this.rootEl = el.createDiv({ cls: "flowti-container" });
-		this.rootEl.style.height = "100%";
-		this.rootEl.style.display = "flex";
-		this.rootEl.style.flexDirection = "column";
+		this.rootEl = el.createDiv({ cls: "flowti-container ft-view-root-flex" });
 
 		// Top bar
 		this.topBarEl = this.rootEl.createDiv({ cls: "ft-view-top-bar" });
@@ -339,8 +336,7 @@ export class ExportView extends ItemView {
 		bar.empty();
 
 		// ── Row 1: File header ──
-		const headerRow = bar.createDiv({ cls: "ft-csv-header" });
-		headerRow.style.marginBottom = "0";
+		const headerRow = bar.createDiv({ cls: "ft-csv-header ft-header-mb-0" });
 		const iconEl = headerRow.createDiv({ cls: "ft-csv-header-icon" });
 		setIcon(iconEl, "file-output");
 		const titleCol = headerRow.createDiv();
@@ -687,6 +683,6 @@ export class ExportView extends ItemView {
 
 	private updateUnsavedHint(): void {
 		if (!this.unsavedHintEl) return;
-		this.unsavedHintEl.style.display = this.hasUnsavedChanges() ? "flex" : "none";
+		this.unsavedHintEl.classList.toggle("ft-hidden", !this.hasUnsavedChanges());
 	}
 }

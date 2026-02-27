@@ -27,18 +27,15 @@ export class SessionEnergyIndicator {
 	render(): void {
 		const session = this.deps.getSession();
 		const section = this.container.createDiv({ cls: "ft-session-energy ft-section" });
-		section.style.cssText = "display:flex;align-items:center;gap:8px;";
 
 		section.createEl("strong", { text: "Energy" });
 
 		this.indicatorEl = section.createDiv({ cls: "ft-energy-indicator" });
-		this.indicatorEl.style.cssText = "display:flex;align-items:center;gap:4px;";
 
 		this.renderIndicator();
 
 		// Label
 		const labelEl = section.createEl("span", { cls: "ft-energy-label" });
-		labelEl.style.cssText = "color:var(--text-muted);font-size:12px;";
 		this.updateLabel(labelEl, session.energy);
 	}
 
@@ -61,11 +58,14 @@ export class SessionEnergyIndicator {
 			|| session.status === "active"; // legacy compat
 
 		for (let level = 1; level <= 5; level++) {
+			const isActive = level <= (session.energy ?? 0);
+			const dotCls = ["ft-energy-dot"];
+			if (isActive) dotCls.push("ft-energy-active");
+			if (isEditable) dotCls.push("ft-energy-dot-editable");
 			const dot = this.indicatorEl.createEl("span", {
-				cls: `ft-energy-dot${level <= (session.energy ?? 0) ? " ft-energy-active" : ""}`,
-				text: "⚡",
+				cls: dotCls.join(" "),
+				text: "\u26A1",
 			});
-			dot.style.cssText = `font-size:16px;cursor:${isEditable ? "pointer" : "default"};opacity:${level <= (session.energy ?? 0) ? "1" : "0.25"};transition:opacity 0.15s ease;`;
 			dot.title = `${ENERGY_LABELS[level as EnergyLevel]} (${level}/5)`;
 
 			if (isEditable) {

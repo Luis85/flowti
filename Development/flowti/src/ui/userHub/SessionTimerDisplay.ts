@@ -18,17 +18,13 @@ export class SessionTimerDisplay {
 	render(session: Session): void {
 		// Countdown timer — only for active/paused sessions
 		if (session.status === "active" || session.status === "running" || session.status === "paused") {
-			const timerSection = this.containerEl.createDiv({ cls: "ft-detail-section" });
-			timerSection.style.padding = "1rem";
+			const timerSection = this.containerEl.createDiv({ cls: "ft-detail-section ft-timer-section" });
 
 			const timerLabel = timerSection.createDiv({ cls: "ft-text-sm ft-text-muted" });
 			timerLabel.setText(session.status === "paused" ? "Paused" : "Time Remaining");
 
 			const remaining = computeRemainingMs(session);
-			const timerDisplay = timerSection.createDiv({ cls: "ft-session-timer" });
-			timerDisplay.style.fontSize = "2rem";
-			timerDisplay.style.fontFamily = "var(--font-monospace)";
-			timerDisplay.style.fontWeight = "600";
+			const timerDisplay = timerSection.createDiv({ cls: "ft-session-timer ft-timer-display" });
 			timerDisplay.setText(formatDuration(remaining));
 		}
 
@@ -54,8 +50,7 @@ export class SessionTimerDisplay {
 		const section = this.containerEl.createDiv({ cls: "ft-detail-section ft-time-breakdown" });
 		section.createEl("h4", { text: "Time breakdown", cls: "ft-heading ft-heading-sm" });
 
-		const grid = section.createDiv({ cls: "ft-flex ft-gap-2" });
-		grid.style.flexWrap = "wrap";
+		const grid = section.createDiv({ cls: "ft-flex ft-gap-2 ft-flex-wrap" });
 
 		this.renderStatPill(grid, "Wall Clock", formatDurationHuman(summary.wallClockMs));
 		this.renderStatPill(grid, "Active", formatDurationHuman(summary.activeTimeMs));
@@ -66,12 +61,8 @@ export class SessionTimerDisplay {
 	}
 
 	private renderStatPill(container: HTMLElement, label: string, value: string): void {
-		const pill = container.createDiv({ cls: "ft-badge ft-badge-muted" });
-		pill.style.padding = "0.25rem 0.5rem";
-		pill.style.display = "flex";
-		pill.style.flexDirection = "column";
-		pill.style.alignItems = "center";
-		pill.createDiv({ text: value, cls: "ft-text-sm" }).style.fontWeight = "600";
+		const pill = container.createDiv({ cls: "ft-badge ft-badge-muted ft-stat-pill" });
+		pill.createDiv({ text: value, cls: "ft-text-sm ft-stat-pill-value" });
 		pill.createDiv({ text: label, cls: "ft-text-sm ft-text-muted" });
 	}
 }

@@ -132,11 +132,10 @@ export function renderDashboardSectionHeader(
 		cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2 ft-mt-3",
 	});
 	header.createEl("h3", { text: title, cls: "ft-heading ft-heading-sm" });
-	header.style.margin = "0";
+	header.addClass("ft-heading-no-margin");
 
 	if (opts?.action) {
-		const link = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-		link.style.marginLeft = "auto";
+		const link = header.createEl("span", { cls: "ft-nav-link ft-text-sm ft-ml-auto" });
 		const icon = link.createSpan();
 		setIcon(icon, opts.action.icon);
 		link.appendText(` ${opts.action.label}`);
@@ -188,8 +187,7 @@ export function renderStepBar<P extends string>(container: HTMLElement, opts: {
 
 		// Arrow separator
 		if (i < steps.length - 1) {
-			const sep = stepBar.createSpan({ text: "\u203A", cls: "ft-text-muted" });
-			sep.style.margin = "0 0.25rem";
+			stepBar.createSpan({ text: "\u203A", cls: "ft-text-muted ft-step-sep" });
 		}
 	}
 }
@@ -337,8 +335,7 @@ export function renderFrontmatterAlert(container: HTMLElement, issues: string[])
 	setIcon(icon, "alert-triangle");
 	header.createEl("strong", { text: "Frontmatter issues" });
 	const list = alert.createEl("ul");
-	list.style.margin = "0.5rem 0 0";
-	list.style.paddingLeft = "1.5rem";
+	list.addClass("ft-alert-list");
 	for (const issue of issues) {
 		list.createEl("li", { text: issue, cls: "ft-text-sm" });
 	}
@@ -347,8 +344,7 @@ export function renderFrontmatterAlert(container: HTMLElement, issues: string[])
 /** Renders a summary alert for files that could not be loaded during scan. */
 export function renderScanIssuesBanner(container: HTMLElement, issues: FrontmatterIssue[]): void {
 	if (issues.length === 0) return;
-	const alert = container.createDiv({ cls: "ft-alert ft-alert-warning ft-text-sm" });
-	alert.style.margin = "0.5rem";
+	const alert = container.createDiv({ cls: "ft-alert ft-alert-warning ft-text-sm ft-alert-margin" });
 	const row = alert.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 	const icon = row.createSpan();
 	setIcon(icon, "alert-triangle");
@@ -357,11 +353,10 @@ export function renderScanIssuesBanner(container: HTMLElement, issues: Frontmatt
 	});
 
 	const details = alert.createEl("details");
-	details.style.marginTop = "0.5rem";
+	details.addClass("ft-details-mt");
 	details.createEl("summary", { text: "Show details", cls: "ft-cursor-pointer" });
 	const list = details.createEl("ul");
-	list.style.paddingLeft = "1.5rem";
-	list.style.margin = "0.25rem 0 0";
+	list.addClass("ft-list-compact");
 	for (const fi of issues) {
 		const li = list.createEl("li");
 		li.createEl("strong", { text: fi.fileName });

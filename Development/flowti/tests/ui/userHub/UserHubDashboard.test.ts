@@ -257,8 +257,8 @@ describe("UserHubDashboard", () => {
 
 			const rows = container.querySelectorAll(".ft-catalog-row");
 			expect(rows).toHaveLength(2);
-			expect((rows[0] as HTMLElement).style.fontWeight).toBe("600");
-			expect((rows[1] as HTMLElement).style.fontWeight).not.toBe("600");
+			expect((rows[0] as HTMLElement).classList.contains("ft-dashboard-inbox-unread")).toBe(true);
+			expect((rows[1] as HTMLElement).classList.contains("ft-dashboard-inbox-unread")).toBe(false);
 		});
 
 		it("should show accent border on unread items", () => {
@@ -274,8 +274,8 @@ describe("UserHubDashboard", () => {
 			dashboard.render();
 
 			const rows = container.querySelectorAll(".ft-catalog-row");
-			expect((rows[0] as HTMLElement).style.borderLeft).toContain("var(--interactive-accent)");
-			expect((rows[1] as HTMLElement).style.borderLeft).not.toContain("var(--interactive-accent)");
+			expect((rows[0] as HTMLElement).classList.contains("ft-dashboard-inbox-unread")).toBe(true);
+			expect((rows[1] as HTMLElement).classList.contains("ft-dashboard-inbox-unread")).toBe(false);
 		});
 
 		it("should show at most 5 items", () => {

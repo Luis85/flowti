@@ -42,12 +42,10 @@ export class SavedQueryList {
 			sqHeader.createSpan({ text: `${savedQueries.length}`, cls: "ft-master-category-count" });
 		}
 
-		const spacer = sqHeader.createDiv();
-		spacer.style.flex = "1";
+		sqHeader.createDiv({ cls: "ft-flex-1" });
 
 		// Sort dropdown
-		const sortSelect = sqHeader.createEl("select", { cls: "ft-text-xs" });
-		sortSelect.style.cssText = "padding:1px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);cursor:pointer;font-size:var(--font-ui-smaller)";
+		const sortSelect = sqHeader.createEl("select", { cls: "ft-sort-select" });
 		for (const opt of [{ v: "name", l: "Name" }, { v: "sources", l: "Sources" }, { v: "lastRun", l: "Last Run" }]) {
 			const o = sortSelect.createEl("option");
 			o.value = opt.v;
@@ -59,12 +57,9 @@ export class SavedQueryList {
 			this.deps.renderMaster();
 		});
 
-		const newBtn = sqHeader.createEl("span", { cls: "ft-nav-link" });
-		newBtn.style.cursor = "pointer";
-		const newIcon = newBtn.createSpan();
+		const newBtn = sqHeader.createEl("span", { cls: "ft-nav-link ft-cursor-pointer" });
+		const newIcon = newBtn.createSpan({ cls: "ft-icon-sm" });
 		setIcon(newIcon, "plus");
-		newIcon.style.width = "14px";
-		newIcon.style.height = "14px";
 		newBtn.setAttribute("aria-label", "New query");
 		newBtn.addEventListener("click", (e) => {
 			e.stopPropagation();
@@ -73,56 +68,42 @@ export class SavedQueryList {
 
 		for (const sq of savedQueries) {
 			const isSelected = state.selectedQueryId === sq.id;
-			const item = this.container.createDiv({ cls: "ft-master-event-item" });
-			item.style.cssText = `align-items:flex-start;padding-left:0.5rem${isSelected ? ";border-left:2px solid var(--interactive-accent);background:var(--background-secondary)" : ""}`;
+			const item = this.container.createDiv({ cls: `ft-master-event-item ft-query-item${isSelected ? " ft-query-item-selected" : ""}` });
 
 			// Star toggle
-			const starBtn = item.createEl("span", { cls: "ft-nav-link" });
-			starBtn.style.flexShrink = "0";
-			starBtn.style.cursor = "pointer";
-			const starIcon = starBtn.createSpan();
+			const starBtn = item.createEl("span", { cls: `ft-nav-link ft-flex-shrink-0 ft-cursor-pointer${!sq.isFavorite ? " ft-opacity-30" : ""}` });
+			const starIcon = starBtn.createSpan({ cls: "ft-icon-sm" });
 			setIcon(starIcon, "star");
-			starIcon.style.width = "14px";
-			starIcon.style.height = "14px";
-			if (!sq.isFavorite) {
-				starBtn.style.opacity = "0.3";
-			}
 			starBtn.setAttribute("aria-label", sq.isFavorite ? "Unfavorite" : "Favorite");
 			starBtn.addEventListener("click", (e) => {
 				e.stopPropagation();
 				void svc.toggleQueryFavorite(sq.id);
 			});
 
-			const textBlock = item.createDiv({ cls: "ft-master-event-name" });
-			textBlock.style.minWidth = "0";
+			const textBlock = item.createDiv({ cls: "ft-master-event-name ft-min-w-0" });
 			textBlock.createDiv({ text: sq.name });
 			if (sq.description) {
-				const descEl = textBlock.createDiv({ cls: "ft-text-muted ft-text-xs" });
-				descEl.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
+				const descEl = textBlock.createDiv({ cls: "ft-text-muted ft-text-xs ft-truncate" });
 				descEl.textContent = sq.description;
 			}
 			const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-xs" });
 			sub.textContent = `${sq.sources.length} source${sq.sources.length > 1 ? "s" : ""}, ${sq.measures.length} measure${sq.measures.length > 1 ? "s" : ""}`;
 
 			if (sq.lastRowCount !== undefined) {
-				const rowsBadge = item.createSpan({ text: `${sq.lastRowCount}`, cls: "ft-text-xs ft-text-muted" });
-				rowsBadge.style.flexShrink = "0";
+				item.createSpan({ text: `${sq.lastRowCount}`, cls: "ft-text-xs ft-text-muted ft-flex-shrink-0" });
 			}
 
 			// Rename button — replaces text with inline input
 			const renameBtn = item.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-			const renameIcon = renameBtn.createSpan();
+			const renameIcon = renameBtn.createSpan({ cls: "ft-icon-sm" });
 			setIcon(renameIcon, "pencil");
-			renameIcon.style.width = "14px";
-			renameIcon.style.height = "14px";
 			renameBtn.setAttribute("aria-label", "Rename query");
 			renameBtn.addEventListener("click", (e) => {
 				e.stopPropagation();
 				// Replace text block with inline input
 				textBlock.empty();
-				const renameInput = textBlock.createEl("input", { type: "text" });
+				const renameInput = textBlock.createEl("input", { type: "text", cls: "ft-rename-input" });
 				renameInput.value = sq.name;
-				renameInput.style.cssText = "font-size:var(--font-ui-small);border:1px solid var(--background-modifier-border);background:var(--background-primary);color:var(--text-normal);padding:2px 4px;border-radius:4px;width:100%";
 				renameInput.addEventListener("blur", () => {
 					const val = renameInput.value.trim();
 					if (val && val !== sq.name) {
@@ -143,10 +124,8 @@ export class SavedQueryList {
 
 			// Duplicate button
 			const dupeBtn = item.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-			const dupeIcon = dupeBtn.createSpan();
+			const dupeIcon = dupeBtn.createSpan({ cls: "ft-icon-sm" });
 			setIcon(dupeIcon, "copy");
-			dupeIcon.style.width = "14px";
-			dupeIcon.style.height = "14px";
 			dupeBtn.setAttribute("aria-label", "Clone query");
 			dupeBtn.addEventListener("click", (e) => {
 				e.stopPropagation();

@@ -405,9 +405,7 @@ export class ChartRenderer {
 
 		const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
 		svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-		svg.style.width = "80px";
-		svg.style.height = "24px";
-		svg.style.display = "block";
+		svg.classList.add("ft-chart-sparkline-svg");
 
 		const min = Math.min(...values);
 		const max = Math.max(...values);
@@ -593,33 +591,23 @@ export class ChartRenderer {
 		hiddenSeries?: string[],
 		onToggleSeries?: (name: string) => void,
 	): void {
-		const legend = container.createDiv();
-		legend.style.display = "flex";
-		legend.style.flexWrap = "wrap";
-		legend.style.gap = "0.5rem 1rem";
-		legend.style.justifyContent = "center";
-		legend.style.marginTop = "0.25rem";
-		legend.style.fontSize = "var(--font-ui-smaller)";
+		const legend = container.createDiv({ cls: "ft-chart-legend" });
 
 		for (const item of items) {
 			const isHidden = hiddenSeries?.includes(item.name) ?? false;
 
-			const entry = legend.createDiv();
-			entry.style.display = "flex";
-			entry.style.alignItems = "center";
-			entry.style.gap = "0.25rem";
-			if (onToggleSeries) entry.style.cursor = "pointer";
-			if (isHidden) entry.style.opacity = "0.35";
+			const entryCls = isHidden
+				? "ft-chart-legend-entry ft-chart-legend-hidden"
+				: onToggleSeries
+					? "ft-chart-legend-entry ft-cursor-pointer"
+					: "ft-chart-legend-entry";
+			const entry = legend.createDiv({ cls: entryCls });
 
-			const dot = entry.createSpan();
-			dot.style.width = "8px";
-			dot.style.height = "8px";
-			dot.style.borderRadius = "50%";
+			const dot = entry.createSpan({ cls: "ft-chart-legend-dot" });
 			dot.style.backgroundColor = item.color;
-			dot.style.flexShrink = "0";
 
-			const label = entry.createSpan({ text: item.name, cls: "ft-text-muted" });
-			if (isHidden) label.style.textDecoration = "line-through";
+			const labelCls = isHidden ? "ft-text-muted ft-chart-legend-hidden-text" : "ft-text-muted";
+			entry.createSpan({ text: item.name, cls: labelCls });
 
 			if (onToggleSeries) {
 				entry.addEventListener("click", () => onToggleSeries(item.name));
@@ -641,9 +629,7 @@ export class ChartRenderer {
 	private static buildSvg(container: HTMLElement): SVGSVGElement {
 		const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
 		svg.setAttribute("viewBox", `0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`);
-		svg.style.width = "100%";
-		svg.style.maxHeight = "100%";
-		svg.style.display = "block";
+		svg.classList.add("ft-chart-svg");
 		container.appendChild(svg);
 		return svg;
 	}
@@ -742,8 +728,7 @@ export class ChartRenderer {
 		svg.setAttribute("viewBox", `0 0 ${SIZE} ${SIZE}`);
 		svg.setAttribute("width", "100%");
 		svg.style.maxWidth = `${SIZE}px`;
-		svg.style.display = "block";
-		svg.style.margin = "0 auto";
+		svg.classList.add("ft-chart-pie-svg");
 
 		const total = data.reduce((s, d) => s + d.value, 0);
 		if (total <= 0) {
@@ -787,18 +772,13 @@ export class ChartRenderer {
 		container.appendChild(svg);
 
 		// Legend
-		const legend = container.createDiv({ cls: "ft-pie-legend" });
-		legend.style.display = "flex";
-		legend.style.flexWrap = "wrap";
-		legend.style.gap = "0.35rem 0.75rem";
-		legend.style.justifyContent = "center";
-		legend.style.marginTop = "0.5rem";
+		const legend = container.createDiv({ cls: "ft-pie-legend ft-chart-pie-legend" });
 
 		for (let i = 0; i < data.length; i++) {
 			const item = legend.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
 
-			const swatch = item.createSpan();
-			swatch.style.cssText = `width:10px;height:10px;border-radius:2px;background:${SERIES_COLORS[i % SERIES_COLORS.length]};flex-shrink:0`;
+			const swatch = item.createSpan({ cls: "ft-chart-pie-swatch" });
+			swatch.style.background = SERIES_COLORS[i % SERIES_COLORS.length];
 
 			const pct = total > 0 ? ((data[i].value / total) * 100).toFixed(1) : "0.0";
 			item.createSpan({ text: `${data[i].label}: ${pct}%`, cls: "ft-text-xs" });

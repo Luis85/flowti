@@ -26,8 +26,7 @@ export class SessionGuidingQuestions {
 
 		const section = this.container.createDiv({ cls: "ft-session-workspace-guiding ft-section" });
 
-		const headerRow = section.createDiv();
-		headerRow.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:8px;";
+		const headerRow = section.createDiv({ cls: "ft-panel-label-row ft-mb-sm" });
 
 		const iconEl = headerRow.createSpan();
 		setIcon(iconEl, "help-circle");
@@ -35,11 +34,9 @@ export class SessionGuidingQuestions {
 		headerRow.createEl("strong", { text: "Guiding questions" });
 
 		const list = section.createEl("ul", { cls: "ft-guiding-list" });
-		list.style.cssText = "margin:0;padding-left:24px;";
 
 		for (const q of questions) {
-			const li = list.createEl("li", { text: q, cls: "ft-guiding-item" });
-			li.style.cssText = "color:var(--text-muted);margin-bottom:4px;font-size:13px;";
+			list.createEl("li", { text: q, cls: "ft-guiding-item" });
 		}
 	}
 }

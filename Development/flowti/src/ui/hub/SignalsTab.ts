@@ -74,25 +74,17 @@ export class SignalsTab {
 			const item = this.masterEl.createDiv({
 				cls: `ft-master-event-item${isSelected ? " ft-master-event-selected" : ""}`,
 			});
-			item.style.alignItems = "flex-start";
+			item.addClass("ft-master-item-top");
 
 			// Status dot
 			const dot = item.createSpan();
-			dot.style.width = "8px";
-			dot.style.height = "8px";
-			dot.style.borderRadius = "50%";
+			dot.addClass("ft-status-dot");
 			dot.style.backgroundColor = STATUS_COLORS[signal.status] ?? STATUS_COLORS.disconnected;
-			dot.style.flexShrink = "0";
-			dot.style.marginTop = "0.35rem";
 			dot.setAttribute("aria-label", signal.status);
 
-			const textBlock = item.createDiv({ cls: "ft-master-event-name" });
-			textBlock.style.minWidth = "0";
+			const textBlock = item.createDiv({ cls: "ft-master-event-name ft-master-text-block" });
 			textBlock.createDiv({ text: signal.name });
-			const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-sm" });
-			sub.style.whiteSpace = "nowrap";
-			sub.style.overflow = "hidden";
-			sub.style.textOverflow = "ellipsis";
+			const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-sm ft-text-ellipsis" });
 			sub.textContent = signal.project;
 
 			// Item count badge
@@ -163,9 +155,7 @@ export class SignalsTab {
 			rows.push(["Type Filter", signal.itemTypeFilter.join(", ")]);
 		}
 		for (const [label, value] of rows) {
-			const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
-			row.style.padding = "0.35rem 0.5rem";
-			row.style.borderBottom = "1px solid var(--background-modifier-border)";
+			const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1 ft-info-row-bordered" });
 			row.createSpan({ text: label, cls: "ft-text-muted ft-text-sm" });
 			const spacer = row.createDiv();
 			spacer.addClass("ft-flex-1");
@@ -198,11 +188,9 @@ export class SignalsTab {
 		syncLink.appendText(" Sync Now");
 		syncLink.setAttribute("aria-label", "Sync now");
 		syncLink.addEventListener("click", () => {
-			syncLink.style.pointerEvents = "none";
-			syncLink.style.opacity = "0.5";
+			syncLink.addClass("ft-link-disabled");
 			void signalService.sync(signal.id).then(() => {
-				syncLink.style.pointerEvents = "";
-				syncLink.style.opacity = "";
+				syncLink.removeClass("ft-link-disabled");
 				this.deps.scheduleRender();
 			});
 		});
@@ -214,19 +202,17 @@ export class SignalsTab {
 		testLink.appendText(" Test Connection");
 		testLink.setAttribute("aria-label", "Test connection");
 		testLink.addEventListener("click", () => {
-			testLink.style.pointerEvents = "none";
-			testLink.style.opacity = "0.5";
+			testLink.addClass("ft-link-disabled");
 			void signalService.testConnection(signal.id).then((result) => {
-				testLink.style.pointerEvents = "";
-				testLink.style.opacity = "";
+				testLink.removeClass("ft-link-disabled");
 				const feedback = actions.querySelector(".ft-connection-feedback");
 				if (feedback) feedback.remove();
 				const fb = actions.createDiv({ cls: "ft-connection-feedback ft-text-sm ft-mt-1" });
 				if (result.success) {
-					fb.style.color = "var(--color-green)";
+					fb.addClass("ft-text-success");
 					fb.textContent = "Connected";
 				} else {
-					fb.style.color = "var(--text-error)";
+					fb.addClass("ft-text-error");
 					fb.textContent = result.error ?? "Connection failed";
 				}
 				this.deps.scheduleRender();
@@ -248,8 +234,7 @@ export class SignalsTab {
 		});
 
 		// Remove
-		const deleteLink = actions.createEl("span", { cls: "ft-nav-link" });
-		deleteLink.style.color = "var(--text-error)";
+		const deleteLink = actions.createEl("span", { cls: "ft-nav-link ft-text-error" });
 		const delIcon = deleteLink.createSpan();
 		setIcon(delIcon, "trash-2");
 		deleteLink.appendText(" Remove");

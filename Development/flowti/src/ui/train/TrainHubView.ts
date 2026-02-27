@@ -177,7 +177,7 @@ export class TrainHubView extends BaseHubView<TrainHubPage> {
 			const cardHeader = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
 			const runIcon = cardHeader.createSpan();
 			setIcon(runIcon, "play");
-			runIcon.style.color = "var(--text-success)";
+			runIcon.addClass("ft-text-success-color");
 			cardHeader.createSpan({ text: "Currently Running", cls: "ft-heading ft-heading-sm" });
 
 			const cardBody = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-3" });
@@ -195,7 +195,7 @@ export class TrainHubView extends BaseHubView<TrainHubPage> {
 			const pausedHeader = pausedCard.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
 			const pauseIcon = pausedHeader.createSpan();
 			setIcon(pauseIcon, "pause");
-			pauseIcon.style.color = "var(--text-warning)";
+			pauseIcon.addClass("ft-text-warning-color");
 			pausedHeader.createSpan({ text: "Paused", cls: "ft-heading ft-heading-sm" });
 
 			const pausedBody = pausedCard.createDiv({ cls: "ft-flex ft-items-center ft-gap-3" });
@@ -203,7 +203,7 @@ export class TrainHubView extends BaseHubView<TrainHubPage> {
 			pausedBody.createSpan({ text: `${paused.thoughts.length} thoughts`, cls: "ft-text-muted ft-text-sm" });
 
 			const resumeBtn = pausedBody.createEl("button", { text: "Resume", cls: "ft-btn ft-btn-primary ft-text-sm" });
-			resumeBtn.style.marginLeft = "auto";
+			resumeBtn.addClass("ft-ml-auto");
 			resumeBtn.addEventListener("click", () => {
 				void this.eventBus.emit("ui.startTrain", {});
 			});
@@ -222,7 +222,7 @@ export class TrainHubView extends BaseHubView<TrainHubPage> {
 			calloutText.createDiv({ text: "Ready for a new ride?", cls: "ft-heading ft-heading-sm" });
 			calloutText.createDiv({ text: "Capture a stream of connected thoughts.", cls: "ft-text-muted ft-text-sm" });
 			const startBtn = calloutRow.createEl("button", { text: "Start a ride", cls: "ft-btn ft-btn-primary ft-text-sm" });
-			startBtn.style.marginLeft = "auto";
+			startBtn.addClass("ft-ml-auto");
 			startBtn.addEventListener("click", () => {
 				void this.eventBus.emit("ui.startTrain", {});
 			});
@@ -473,7 +473,7 @@ export class TrainHubView extends BaseHubView<TrainHubPage> {
 		const card = container.createDiv({ cls: "ft-card ft-p-2 ft-text-center" });
 		const iconEl = card.createDiv({ cls: "ft-mb-1" });
 		setIcon(iconEl, icon);
-		iconEl.style.opacity = "0.6";
+		iconEl.addClass("ft-opacity-06");
 		card.createDiv({ text: value, cls: "ft-heading ft-heading-sm" });
 		card.createDiv({ text: label, cls: "ft-text-muted ft-text-xs" });
 	}
@@ -482,7 +482,7 @@ export class TrainHubView extends BaseHubView<TrainHubPage> {
 		const empty = container.createDiv({ cls: "ft-p-4 ft-text-center" });
 		const iconEl = empty.createDiv({ cls: "ft-mb-2" });
 		setIcon(iconEl, "train-front");
-		iconEl.style.opacity = "0.3";
+		iconEl.addClass("ft-opacity-03");
 		empty.createDiv({ text: title, cls: "ft-heading ft-heading-sm ft-mb-1" });
 		empty.createDiv({ text: description, cls: "ft-text-muted ft-text-sm" });
 	}

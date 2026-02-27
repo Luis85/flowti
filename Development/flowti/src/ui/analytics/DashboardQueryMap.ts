@@ -35,19 +35,15 @@ export class DashboardQueryMap {
 			for (const s of e.sourceBasenames) uniqueSources.add(s);
 		}
 
-		const section = this.container.createDiv();
-		section.style.marginTop = "1.5rem";
-		section.style.paddingTop = "0.75rem";
+		const section = this.container.createDiv({ cls: "ft-qmap-section" });
 
 		// Header row with collapse toggle
-		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		header.style.cursor = "pointer";
-		header.style.userSelect = "none";
+		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-cursor-pointer ft-select-none" });
 		header.addEventListener("click", () => this.callbacks.onToggleCollapse());
 
 		const chevron = header.createSpan();
 		setIcon(chevron, this.collapsed ? "chevron-right" : "chevron-down");
-		chevron.style.cssText = "width:12px;height:12px;opacity:0.5;display:inline-flex;align-items:center;flex-shrink:0";
+		chevron.addClass("ft-qmap-chevron");
 
 		header.createSpan({
 			text: `Queries (${this.entries.length} ${this.entries.length === 1 ? "query" : "queries"} from ${uniqueSources.size} ${uniqueSources.size === 1 ? "source" : "sources"})`,
@@ -57,22 +53,16 @@ export class DashboardQueryMap {
 		if (this.collapsed) return;
 
 		// Query list
-		const list = section.createDiv({ cls: "ft-mt-1" });
-		list.style.paddingLeft = "1rem";
+		const list = section.createDiv({ cls: "ft-mt-1 ft-pl-3" });
 
 		for (const entry of this.entries) {
-			const row = list.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
-			row.style.flexWrap = "wrap";
-			row.style.padding = "0.15rem 0";
+			const row = list.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-flex-wrap ft-py-xs" });
 
 			// Query name (clickable)
-			const nameLink = row.createEl("span", { cls: "ft-nav-link ft-text-xs" });
-			nameLink.style.display = "inline-flex";
-			nameLink.style.alignItems = "center";
-			nameLink.style.gap = "0.25rem";
+			const nameLink = row.createEl("span", { cls: "ft-nav-link ft-text-xs ft-qmap-name-link" });
 			const nameIcon = nameLink.createSpan();
 			setIcon(nameIcon, "search");
-			nameIcon.style.cssText = "width:10px;height:10px;flex-shrink:0;display:inline-flex;align-items:center";
+			nameIcon.addClass("ft-icon-10");
 			const svg = nameIcon.querySelector("svg");
 			if (svg) { svg.setAttribute("width", "10"); svg.setAttribute("height", "10"); }
 			nameLink.appendText(entry.query.name);
@@ -83,13 +73,11 @@ export class DashboardQueryMap {
 
 			// Source basenames
 			for (const src of entry.sourceBasenames) {
-				const badge = row.createSpan({ text: src, cls: "ft-badge ft-badge-muted" });
-				badge.style.cssText = "font-size:0.6rem;padding:0 0.2rem;opacity:0.7";
+				row.createSpan({ text: src, cls: "ft-badge ft-badge-muted ft-qmap-source-badge" });
 			}
 
 			// Tile count + freshness (compact)
-			const meta = row.createSpan({ cls: "ft-text-muted" });
-			meta.style.cssText = "font-size:0.6rem;flex-shrink:0;margin-left:auto";
+			const meta = row.createSpan({ cls: "ft-text-muted ft-qmap-meta" });
 			const parts: string[] = [`${entry.tileCount} ${entry.tileCount === 1 ? "tile" : "tiles"}`];
 			if (entry.query.lastRun) {
 				parts.push(formatRelativeTime(entry.query.lastRun));

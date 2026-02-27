@@ -32,21 +32,12 @@ export class TableTileRenderer implements TileRenderer {
 		const numericCols = getNumericColumns(result);
 		if (result.rows.length > 1 && ctx.tile.showTableKpis !== false) {
 			const kpiCount = 1 + numericCols.length; // "Items" + numeric columns
-			const grid = container.createDiv();
-			grid.style.display = "grid";
+			const grid = container.createDiv({ cls: "ft-table-kpi-grid" });
 			grid.style.gridTemplateColumns = `repeat(${Math.min(kpiCount, 4)}, 1fr)`;
-			grid.style.gap = "0.35rem";
-			grid.style.marginBottom = "0.35rem";
 
 			// Items count card
-			const itemsCard = grid.createDiv();
-			itemsCard.style.textAlign = "center";
-			itemsCard.style.padding = "0.35rem 0.25rem";
-			itemsCard.style.background = "var(--background-primary)";
-			itemsCard.style.borderRadius = "4px";
-			itemsCard.style.border = "1px solid var(--background-modifier-border)";
-			const itemsVal = itemsCard.createDiv({ cls: "ft-catalog-stat-value" });
-			itemsVal.style.fontSize = "1.1rem";
+			const itemsCard = grid.createDiv({ cls: "ft-table-kpi-card" });
+			const itemsVal = itemsCard.createDiv({ cls: "ft-catalog-stat-value ft-table-kpi-value" });
 			itemsVal.textContent = String(result.rows.length);
 			itemsCard.createDiv({ text: ctx.tile.tableKpiLabel || "Items", cls: "ft-catalog-stat-label" });
 
@@ -56,15 +47,9 @@ export class TableTileRenderer implements TileRenderer {
 					return acc + (typeof v === "number" ? v : 0);
 				}, 0);
 
-				const card = grid.createDiv();
-				card.style.textAlign = "center";
-				card.style.padding = "0.35rem 0.25rem";
-				card.style.background = "var(--background-primary)";
-				card.style.borderRadius = "4px";
-				card.style.border = "1px solid var(--background-modifier-border)";
+				const card = grid.createDiv({ cls: "ft-table-kpi-card" });
 
-				const valEl = card.createDiv({ cls: "ft-catalog-stat-value" });
-				valEl.style.fontSize = "1.1rem";
+				const valEl = card.createDiv({ cls: "ft-catalog-stat-value ft-table-kpi-value" });
 				valEl.textContent = fmtNum(sum, ctx, result.columnTypeHints, col);
 
 				if (rules && rules.length > 0) {
@@ -80,11 +65,9 @@ export class TableTileRenderer implements TileRenderer {
 		}
 
 		// ── Search input ─────────────────────────────────────
-		const searchRow = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		searchRow.style.cssText = "margin-bottom:0.35rem";
-		const searchInput = searchRow.createEl("input", { type: "text", cls: "ft-text-xs" });
+		const searchRow = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-table-search-row" });
+		const searchInput = searchRow.createEl("input", { type: "text", cls: "ft-text-xs ft-table-search-input" });
 		searchInput.placeholder = "Search rows...";
-		searchInput.style.cssText = "flex:1;padding:3px 6px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary)";
 		searchInput.value = this.tableSearchText;
 
 		// ── Apply column order ────────────────────────────────
@@ -180,20 +163,16 @@ export class TableTileRenderer implements TileRenderer {
 							const color = evaluateConditionalRules(val, colRules);
 							if (color) {
 								td.style.backgroundColor = color;
-								td.style.opacity = "0.85";
+								td.addClass("ft-table-cond-format");
 							}
 						}
 					}
 				} else if (typeof val === "string" && (ctx.onCrossTileFilter || ctx.onDrillDown)) {
-					td.style.cursor = "pointer";
-					td.style.textDecoration = "underline";
-					td.style.textDecorationStyle = "dotted";
-					td.style.textUnderlineOffset = "3px";
+					td.addClass("ft-table-cell-clickable");
 
 					const isActive = ctx.activeFilters?.some((f) => f.column === col && f.values.includes(val));
 					if (isActive) {
-						td.style.color = "var(--text-accent)";
-						td.style.fontWeight = "600";
+						td.addClass("ft-table-cell-active-filter");
 					}
 
 					td.addEventListener("click", () => {
@@ -220,15 +199,12 @@ export class TableTileRenderer implements TileRenderer {
 		host.empty();
 		if (totalPages <= 1 || pageSize <= 0) return;
 
-		const bar = host.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		bar.style.cssText = "padding:0.35rem 0.25rem;justify-content:center;font-size:var(--font-ui-smaller)";
+		const bar = host.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-table-pagination-bar" });
 
-		const prevBtn = bar.createEl("button", { text: "\u25C0 prev", cls: "ft-text-xs" });
-		prevBtn.style.cssText = "padding:2px 8px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);cursor:pointer";
+		const prevBtn = bar.createEl("button", { text: "\u25C0 prev", cls: "ft-text-xs ft-table-page-btn" });
 		if (currentPage <= 1) {
 			prevBtn.disabled = true;
-			prevBtn.style.opacity = "0.35";
-			prevBtn.style.cursor = "default";
+			prevBtn.addClass("ft-disabled-faint");
 		} else if (ctx.onPageChange) {
 			prevBtn.addEventListener("click", () => ctx.onPageChange!(ctx.tile.id, currentPage - 1));
 		}
@@ -237,12 +213,10 @@ export class TableTileRenderer implements TileRenderer {
 		const endRow = Math.min(currentPage * pageSize, totalRows);
 		bar.createSpan({ text: `${startRow}\u2013${endRow} of ${totalRows}`, cls: "ft-text-xs ft-text-muted" });
 
-		const nextBtn = bar.createEl("button", { text: "Next \u25B6", cls: "ft-text-xs" });
-		nextBtn.style.cssText = "padding:2px 8px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);cursor:pointer";
+		const nextBtn = bar.createEl("button", { text: "Next \u25B6", cls: "ft-text-xs ft-table-page-btn" });
 		if (currentPage >= totalPages) {
 			nextBtn.disabled = true;
-			nextBtn.style.opacity = "0.35";
-			nextBtn.style.cursor = "default";
+			nextBtn.addClass("ft-disabled-faint");
 		} else if (ctx.onPageChange) {
 			nextBtn.addEventListener("click", () => ctx.onPageChange!(ctx.tile.id, currentPage + 1));
 		}
@@ -258,16 +232,12 @@ export class TableTileRenderer implements TileRenderer {
 		headerRow.empty();
 		for (let i = 0; i < displayColumns.length; i++) {
 			const col = displayColumns[i];
-			const th = headerRow.createEl("th", { cls: "ft-text-xs" });
-			th.style.cursor = "pointer";
-			th.style.userSelect = "none";
-			th.style.whiteSpace = "nowrap";
+			const th = headerRow.createEl("th", { cls: "ft-text-xs ft-table-th-sortable" });
 
 			th.createSpan({ text: col });
 
 			if (this.tableSort?.column === col) {
-				const arrow = th.createSpan({ cls: "ft-text-muted" });
-				arrow.style.marginLeft = "4px";
+				const arrow = th.createSpan({ cls: "ft-text-muted ft-table-sort-arrow" });
 				arrow.textContent = this.tableSort.ascending ? "\u25B2" : "\u25BC";
 			}
 
@@ -287,8 +257,7 @@ export class TableTileRenderer implements TileRenderer {
 
 			if (ctx.onColumnOrderChange && displayColumns.length > 1) {
 				if (i > 0) {
-					const leftBtn = th.createSpan({ cls: "ft-text-muted" });
-					leftBtn.style.cssText = "cursor:pointer;margin-left:4px;font-size:0.6rem;opacity:0.5";
+					const leftBtn = th.createSpan({ cls: "ft-text-muted ft-table-col-move-btn" });
 					leftBtn.textContent = "\u25C0";
 					leftBtn.setAttribute("aria-label", "Move column left");
 					leftBtn.addEventListener("click", (e) => {
@@ -299,8 +268,7 @@ export class TableTileRenderer implements TileRenderer {
 					});
 				}
 				if (i < displayColumns.length - 1) {
-					const rightBtn = th.createSpan({ cls: "ft-text-muted" });
-					rightBtn.style.cssText = "cursor:pointer;margin-left:2px;font-size:0.6rem;opacity:0.5";
+					const rightBtn = th.createSpan({ cls: "ft-text-muted ft-table-col-move-btn-tight" });
 					rightBtn.textContent = "\u25B6";
 					rightBtn.setAttribute("aria-label", "Move column right");
 					rightBtn.addEventListener("click", (e) => {

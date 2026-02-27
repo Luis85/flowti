@@ -55,9 +55,7 @@ export class UserHubSessions {
 		}
 
 		// Header with count
-		const header = this.masterEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		header.style.padding = "0.25rem 0.5rem";
-		header.style.borderBottom = "1px solid var(--background-modifier-border)";
+		const header = this.masterEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-session-list-header" });
 
 		const count = header.createSpan({ cls: "ft-text-sm ft-text-muted" });
 		const activeCount = sessions.filter((s) => s.status === "active" || s.status === "running").length;
@@ -65,8 +63,7 @@ export class UserHubSessions {
 			`${sessions.length} session${sessions.length === 1 ? "" : "s"}${activeCount > 0 ? ` (${activeCount} active)` : ""}`,
 		);
 
-		const spacer = header.createDiv();
-		spacer.style.flex = "1";
+		header.createDiv({ cls: "ft-flex-1" });
 
 		const addBtn = header.createEl("button", { cls: "ft-btn ft-btn-sm" });
 		setIcon(addBtn, "plus");
@@ -83,26 +80,22 @@ export class UserHubSessions {
 			const categoryEl = this.masterEl.createDiv({ cls: "ft-session-category" });
 
 			// Category header
-			const categoryHeader = categoryEl.createDiv({ cls: "ft-session-category-header ft-cursor-pointer" });
-			categoryHeader.style.cssText = "display:flex;align-items:center;gap:6px;padding:4px 8px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);";
+			const categoryHeader = categoryEl.createDiv({ cls: "ft-session-category-header ft-cursor-pointer ft-session-category-header-style" });
 
 			const chevron = categoryHeader.createSpan({ cls: "ft-category-chevron" });
 			setIcon(chevron, isCollapsed ? "chevron-right" : "chevron-down");
-			chevron.style.opacity = "0.5";
+			chevron.addClass("ft-opacity-half");
 
 			const statusIcon = categoryHeader.createSpan();
 			setIcon(statusIcon, STATUS_ICONS[status] ?? "circle");
-			statusIcon.style.opacity = "0.5";
+			statusIcon.addClass("ft-opacity-half");
 
 			categoryHeader.createSpan({
 				text: `${SESSION_STATUS_LABELS[status] ?? status} (${group.length})`,
 			});
 
 			// Collapsible content
-			const contentEl = categoryEl.createDiv({ cls: "ft-session-category-content" });
-			if (isCollapsed) {
-				contentEl.style.display = "none";
-			}
+			const contentEl = categoryEl.createDiv({ cls: `ft-session-category-content${isCollapsed ? " ft-session-category-collapsed" : ""}` });
 
 			categoryHeader.addEventListener("click", () => {
 				if (this.collapsedCategories.has(status)) {
@@ -134,24 +127,14 @@ export class UserHubSessions {
 	// ── Private ─────────────────────────────────────────────
 
 	private renderSessionRow(container: HTMLElement, session: Session, state: { selectedSession: Session | null }): void {
-		const row = container.createDiv({ cls: "ft-catalog-row ft-cursor-pointer" });
-		row.style.marginBottom = "2px";
-
-		if (state.selectedSession?.id === session.id) {
-			row.addClass("ft-catalog-row-active");
-			row.style.backgroundColor = "var(--background-modifier-hover)";
-		}
-
-		if (session.status === "active" || session.status === "running") {
-			row.style.borderLeft = "3px solid var(--interactive-accent)";
-		}
+		const isActive = session.status === "active" || session.status === "running";
+		const isSelected = state.selectedSession?.id === session.id;
+		const row = container.createDiv({ cls: `ft-catalog-row ft-cursor-pointer ft-session-row-mb${isSelected ? " ft-catalog-row-active ft-session-row-selected" : ""}${isActive ? " ft-session-row-active-border" : ""}` });
 
 		// Status icon — use train icon for train-of-thought sessions
 		const isTrain = session.type === "train-of-thought";
-		const icon = row.createSpan();
+		const icon = row.createSpan({ cls: "ft-session-row-icon" });
 		setIcon(icon, isTrain ? "train-front" : (STATUS_ICONS[session.status] ?? "circle"));
-		icon.style.opacity = "0.6";
-		icon.style.marginRight = "0.5rem";
 
 		// Title
 		row.createSpan({ text: session.title });
@@ -160,11 +143,10 @@ export class UserHubSessions {
 		if (isTrain && this.deps.trainService) {
 			const train = this.deps.trainService.getAllTrains().find((t) => t.sessionId === session.id);
 			if (train && train.thoughts.length > 0) {
-				const badge = row.createSpan({
+				row.createSpan({
 					text: `${train.thoughts.length} thought${train.thoughts.length === 1 ? "" : "s"}`,
-					cls: "ft-badge ft-badge-muted ft-text-sm ft-train-thought-badge",
+					cls: "ft-badge ft-badge-muted ft-text-sm ft-train-thought-badge ft-thought-badge-ml",
 				});
-				badge.style.marginLeft = "0.25rem";
 			}
 		}
 
@@ -172,14 +154,14 @@ export class UserHubSessions {
 		const created = new Date(session.createdAt);
 		row.createSpan({
 			text: `${created.getMonth() + 1}/${created.getDate()} ${String(created.getHours()).padStart(2, "0")}:${String(created.getMinutes()).padStart(2, "0")}`,
-			cls: "ft-text-muted ft-text-sm",
-		}).style.cssText = "margin-left:auto;font-size:11px;color:var(--text-faint);";
+			cls: "ft-text-muted ft-text-sm ft-session-date-hint",
+		});
 
 		// Type badge
 		row.createSpan({
 			text: SESSION_TYPE_LABELS[session.type] ?? session.type,
-			cls: "ft-badge ft-badge-muted ft-text-sm",
-		}).style.marginLeft = "0.5rem";
+			cls: "ft-badge ft-badge-muted ft-text-sm ft-session-type-badge-ml",
+		});
 
 		row.addEventListener("click", () => {
 			const current = this.deps.getState().selectedSession;
@@ -189,26 +171,20 @@ export class UserHubSessions {
 	}
 
 	private renderEmptyState(): void {
-		const empty = this.masterEl.createDiv({ cls: "ft-flex ft-flex-col ft-items-center" });
-		empty.style.justifyContent = "center";
-		empty.style.padding = "3rem";
-		empty.style.color = "var(--text-muted)";
+		const empty = this.masterEl.createDiv({ cls: "ft-flex ft-flex-col ft-items-center ft-session-empty" });
 
-		const icon = empty.createDiv();
+		const icon = empty.createDiv({ cls: "ft-session-empty-icon" });
 		setIcon(icon, "timer");
-		icon.style.opacity = "0.4";
-		icon.style.marginBottom = "0.75rem";
 		icon.querySelector("svg")?.setAttribute("width", "48");
 		icon.querySelector("svg")?.setAttribute("height", "48");
 
 		empty.createDiv({ text: "No sessions yet", cls: "ft-heading ft-heading-sm" });
 		empty.createDiv({
 			text: "Time-boxed documentation sessions will appear here.",
-			cls: "ft-text-muted ft-text-sm",
-		}).style.marginTop = "0.25rem";
+			cls: "ft-text-muted ft-text-sm ft-session-empty-hint",
+		});
 
-		const btn = empty.createEl("button", { cls: "ft-btn" });
-		btn.style.marginTop = "1rem";
+		const btn = empty.createEl("button", { cls: "ft-btn ft-session-empty-btn" });
 		setIcon(btn, "plus");
 		btn.appendText(" New Session");
 		btn.addEventListener("click", () => this.deps.openNewSessionModal());

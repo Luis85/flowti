@@ -79,21 +79,17 @@ export class TypesTab {
 			const item = this.masterEl.createDiv({
 				cls: `ft-master-event-item${isSelected ? " ft-master-event-selected" : ""}`,
 			});
-			item.style.alignItems = "flex-start";
+			item.addClass("ft-master-item-top");
 
 			const iconEl = item.createSpan();
 			setIcon(iconEl, "shapes");
 			iconEl.addClass("ft-icon-muted");
 			iconEl.addClass("ft-flex-shrink-0");
-			iconEl.style.marginTop = "0.125rem";
+			iconEl.addClass("ft-icon-offset-sm");
 
-			const textBlock = item.createDiv({ cls: "ft-master-event-name" });
-			textBlock.style.minWidth = "0";
+			const textBlock = item.createDiv({ cls: "ft-master-event-name ft-master-text-block" });
 			textBlock.createDiv({ text: entry.name });
-			const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-sm" });
-			sub.style.whiteSpace = "nowrap";
-			sub.style.overflow = "hidden";
-			sub.style.textOverflow = "ellipsis";
+			const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-sm ft-text-ellipsis" });
 			sub.textContent = `${entry.properties.length} field${entry.properties.length !== 1 ? "s" : ""} · ${entry.pipelineCount} config${entry.pipelineCount !== 1 ? "s" : ""}`;
 
 			const docIcon = item.createSpan();
@@ -155,8 +151,7 @@ export class TypesTab {
 			void this.deps.app.workspace.openLinkText(entry.filePath, "", false);
 		});
 
-		const deleteLink = actions.createEl("span", { cls: "ft-nav-link" });
-		deleteLink.style.color = "var(--text-error)";
+		const deleteLink = actions.createEl("span", { cls: "ft-nav-link ft-text-error" });
 		const delIcon = deleteLink.createSpan();
 		setIcon(delIcon, "trash-2");
 		deleteLink.appendText(" Delete");
@@ -255,9 +250,7 @@ export class TypesTab {
 		eventsSection.createDiv({ text: "Lifecycle Events", cls: "ft-detail-section-header" });
 
 		for (const ev of crudEvents) {
-			const row = eventsSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
-			row.style.padding = "0.35rem 0.5rem";
-			row.style.borderBottom = "1px solid var(--background-modifier-border)";
+			const row = eventsSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1 ft-info-row-bordered" });
 
 			const evIcon = row.createSpan();
 			setIcon(evIcon, ev.icon);
@@ -266,7 +259,7 @@ export class TypesTab {
 
 			const textBlock = row.createDiv();
 			textBlock.addClass("ft-flex-1");
-			textBlock.style.minWidth = "0";
+			textBlock.addClass("ft-master-text-block");
 			const nameEl = textBlock.createDiv({ cls: "ft-text-sm" });
 			nameEl.createEl("code", { text: ev.event });
 			textBlock.createDiv({ text: ev.desc, cls: "ft-text-muted ft-text-sm" });
@@ -297,9 +290,7 @@ export class TypesTab {
 		if (entry.properties.length > 0) {
 			const section = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
 			section.createDiv({ text: "Fields", cls: "ft-detail-section-header" });
-			const chips = section.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1" });
-			chips.style.flexWrap = "wrap";
-			chips.style.padding = "0.25rem 0.5rem";
+			const chips = section.createDiv({ cls: "ft-flex ft-gap-1 ft-mt-1 ft-chip-container" });
 			for (const prop of entry.properties) {
 				const chip = chips.createSpan({ text: prop, cls: "ft-badge ft-badge-muted" });
 				chip.addClass("ft-cursor-pointer");

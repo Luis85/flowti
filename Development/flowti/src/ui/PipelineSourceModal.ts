@@ -87,7 +87,7 @@ export class PipelineSourceModal extends Modal {
 	}
 
 	onOpen(): void {
-		this.modalEl.style.width = "640px";
+		this.modalEl.addClass("ft-modal-width-640");
 		this.render();
 
 		// If editing, auto-parse to load headers
@@ -165,8 +165,7 @@ export class PipelineSourceModal extends Modal {
 		if (this.csvPath && this.csvHeaders.length === 0 && !this.isLoading) {
 			const file = this.app.vault.getAbstractFileByPath(this.csvPath);
 			if (!file || !(file instanceof TFile)) {
-				const warn = contentEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
-				warn.style.color = "var(--text-error)";
+				const warn = contentEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2 ft-text-error-color" });
 				const warnIcon = warn.createSpan();
 				setIcon(warnIcon, "alert-triangle");
 				warn.createSpan({ text: `File not found: ${this.csvPath}`, cls: "ft-text-sm" });
@@ -175,9 +174,8 @@ export class PipelineSourceModal extends Modal {
 
 		if (this.isLoading) {
 			const loading = contentEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-3" });
-			const spinner = loading.createSpan();
+			const spinner = loading.createSpan({ cls: "ft-opacity-half" });
 			setIcon(spinner, "loader");
-			spinner.style.opacity = "0.5";
 			loading.createSpan({ text: "Parsing CSV...", cls: "ft-text-muted" });
 			return;
 		}
@@ -310,38 +308,23 @@ export class PipelineSourceModal extends Modal {
 			this.renderColumnGrid(container);
 		});
 
-		const grid = container.createDiv();
-		grid.style.maxHeight = "200px";
-		grid.style.overflowY = "auto";
+		const grid = container.createDiv({ cls: "ft-column-grid-scroll" });
 
 		for (const mapping of mappings) {
-			const row = grid.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1" });
-			row.style.borderBottom = "1px solid var(--background-modifier-border)";
+			const row = grid.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1 ft-border-bottom" });
 
 			const cb = row.createEl("input", { type: "checkbox" });
 			cb.checked = mapping.included;
 			cb.addEventListener("change", () => { mapping.included = cb.checked; });
 
-			const csvLabel = row.createSpan({ text: mapping.csvColumn, cls: "ft-text-sm" });
-			csvLabel.style.flex = "1";
-			csvLabel.style.minWidth = "0";
-			csvLabel.style.overflow = "hidden";
-			csvLabel.style.textOverflow = "ellipsis";
-			csvLabel.style.whiteSpace = "nowrap";
+			row.createSpan({ text: mapping.csvColumn, cls: "ft-text-sm ft-column-mapping-label" });
 
-			const arrow = row.createSpan({ text: "→", cls: "ft-text-muted ft-text-sm" });
-			arrow.style.flexShrink = "0";
+			row.createSpan({ text: "\u2192", cls: "ft-text-muted ft-text-sm ft-flex-noshrink" });
 
 			const keyInput = row.createEl("input", {
 				type: "text",
-				cls: "ft-text-sm",
+				cls: "ft-text-sm ft-mapping-input",
 			});
-			keyInput.style.flex = "1";
-			keyInput.style.minWidth = "0";
-			keyInput.style.padding = "2px 6px";
-			keyInput.style.border = "1px solid var(--background-modifier-border)";
-			keyInput.style.borderRadius = "var(--radius-s, 4px)";
-			keyInput.style.background = "var(--background-primary)";
 			keyInput.value = mapping.frontmatterKey;
 			keyInput.addEventListener("change", () => {
 				mapping.frontmatterKey = keyInput.value || mapping.csvColumn;
@@ -353,10 +336,8 @@ export class PipelineSourceModal extends Modal {
 			if (this.otherSourceKeys.has(mapping.frontmatterKey)) {
 				const badge = row.createSpan({
 					text: "exists",
-					cls: "ft-badge ft-badge-muted ft-text-sm",
+					cls: "ft-badge ft-badge-muted ft-text-sm ft-overlap-badge",
 				});
-				badge.style.flexShrink = "0";
-				badge.style.color = "var(--text-warning)";
 				badge.title = "This key is already mapped by another source";
 			}
 		}
@@ -369,21 +350,11 @@ export class PipelineSourceModal extends Modal {
 		for (const [key, value] of entries) {
 			const row = propsEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-1" });
 
-			const keyInput = row.createEl("input", { type: "text", cls: "ft-text-sm" });
-			keyInput.style.flex = "1";
-			keyInput.style.padding = "2px 6px";
-			keyInput.style.border = "1px solid var(--background-modifier-border)";
-			keyInput.style.borderRadius = "var(--radius-s, 4px)";
-			keyInput.style.background = "var(--background-primary)";
+			const keyInput = row.createEl("input", { type: "text", cls: "ft-text-sm ft-mapping-input" });
 			keyInput.value = key;
 			keyInput.placeholder = "Key";
 
-			const valueInput = row.createEl("input", { type: "text", cls: "ft-text-sm" });
-			valueInput.style.flex = "1";
-			valueInput.style.padding = "2px 6px";
-			valueInput.style.border = "1px solid var(--background-modifier-border)";
-			valueInput.style.borderRadius = "var(--radius-s, 4px)";
-			valueInput.style.background = "var(--background-primary)";
+			const valueInput = row.createEl("input", { type: "text", cls: "ft-text-sm ft-mapping-input" });
 			valueInput.value = value;
 			valueInput.placeholder = "Value";
 
@@ -391,10 +362,8 @@ export class PipelineSourceModal extends Modal {
 			if (this.otherSourceKeys.has(key)) {
 				const badge = row.createSpan({
 					text: "exists",
-					cls: "ft-badge ft-badge-muted ft-text-sm",
+					cls: "ft-badge ft-badge-muted ft-text-sm ft-overlap-badge",
 				});
-				badge.style.flexShrink = "0";
-				badge.style.color = "var(--text-warning)";
 				badge.title = "This key is already defined by another source";
 			}
 

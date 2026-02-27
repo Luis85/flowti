@@ -64,21 +64,17 @@ export class ExportsTab {
 			cls: `ft-master-event-item${isSelected ? " ft-master-event-selected" : ""}`,
 		});
 		item.dataset.id = cfg.id;
-		item.style.alignItems = "flex-start";
+		item.addClass("ft-master-item-top");
 
 		const iconEl = item.createSpan();
 		setIcon(iconEl, "file-output");
 		iconEl.addClass("ft-icon-muted");
 		iconEl.addClass("ft-flex-shrink-0");
-		iconEl.style.marginTop = "0.125rem";
+		iconEl.addClass("ft-icon-offset-sm");
 
-		const textBlock = item.createDiv({ cls: "ft-master-event-name" });
-		textBlock.style.minWidth = "0";
+		const textBlock = item.createDiv({ cls: "ft-master-event-name ft-master-text-block" });
 		textBlock.createDiv({ text: cfg.name || "(unnamed)" });
-		const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-sm" });
-		sub.style.whiteSpace = "nowrap";
-		sub.style.overflow = "hidden";
-		sub.style.textOverflow = "ellipsis";
+		const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-sm ft-text-ellipsis" });
 		sub.textContent = cfg.sourcePath || "(no source)";
 
 		const rightBadges = item.createDiv({ cls: "ft-flex ft-gap-1" });
@@ -226,8 +222,7 @@ export class ExportsTab {
 		});
 
 		// Delete
-		const deleteLink = actions.createEl("span", { cls: "ft-nav-link" });
-		deleteLink.style.color = "var(--text-error)";
+		const deleteLink = actions.createEl("span", { cls: "ft-nav-link ft-text-error" });
 		const delIcon = deleteLink.createSpan();
 		setIcon(delIcon, "trash-2");
 		deleteLink.appendText(" Delete");
@@ -260,12 +255,12 @@ export class ExportsTab {
 				const pipe = linkedPipelines[i];
 				const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1 ft-px-2" });
 				if (linkedPipelines.length > 1 && i < linkedPipelines.length - 1) {
-					row.style.borderBottom = "1px solid var(--background-modifier-border)";
+					row.addClass("ft-row-bordered");
 				}
 				const icon = row.createSpan();
 				setIcon(icon, "git-merge");
 				icon.addClass("ft-flex-shrink-0");
-				icon.style.opacity = "0.6";
+				icon.addClass("ft-opacity-muted");
 				const link = row.createEl("span", {
 					text: pipe.name,
 					cls: "ft-nav-link ft-text-sm",
@@ -324,7 +319,7 @@ export class ExportsTab {
 		const outputVal = sourceGrid.createDiv({ cls: "ft-detail-info-value" });
 		if (cfg.isExternal) {
 			outputVal.createSpan({ text: cfg.outputPath || "(not set)", cls: "ft-text-sm" });
-			outputVal.createSpan({ text: "external", cls: "ft-badge ft-badge-muted" }).style.marginLeft = "0.5rem";
+			outputVal.createSpan({ text: "external", cls: "ft-badge ft-badge-muted ft-ml-05" });
 		} else if (cfg.outputPath) {
 			const outLink = outputVal.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 			outLink.textContent = cfg.outputPath;
@@ -350,8 +345,7 @@ export class ExportsTab {
 		if (cfg.columns.length > 0) {
 			const section = this.detailEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
 			section.createDiv({ text: `Note Properties (${cfg.columns.length})`, cls: "ft-detail-section-header" });
-			const chips = section.createDiv({ cls: "ft-flex ft-gap-1" });
-			chips.style.flexWrap = "wrap";
+			const chips = section.createDiv({ cls: "ft-flex ft-gap-1 ft-flex-wrap" });
 			for (const col of cfg.columns) {
 				chips.createSpan({ text: col, cls: "ft-badge ft-badge-muted" });
 			}
@@ -361,8 +355,7 @@ export class ExportsTab {
 		if (cfg.fileProperties.length > 0) {
 			const section = this.detailEl.createDiv({ cls: "ft-detail-section ft-mt-3" });
 			section.createDiv({ text: `File Properties (${cfg.fileProperties.length})`, cls: "ft-detail-section-header" });
-			const chips = section.createDiv({ cls: "ft-flex ft-gap-1" });
-			chips.style.flexWrap = "wrap";
+			const chips = section.createDiv({ cls: "ft-flex ft-gap-1 ft-flex-wrap" });
 			for (const fp of cfg.fileProperties) {
 				chips.createSpan({ text: fp.replace("file.", ""), cls: "ft-badge ft-badge-muted" });
 			}

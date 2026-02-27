@@ -31,9 +31,7 @@ export class UserHubInbox {
 		}
 
 		// Header with clear-all action
-		const header = this.masterEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		header.style.padding = "0.25rem 0.5rem";
-		header.style.borderBottom = "1px solid var(--background-modifier-border)";
+		const header = this.masterEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-session-list-header" });
 
 		const count = header.createSpan({ cls: "ft-text-sm ft-text-muted" });
 		const unread = items.filter((i) => !i.read).length;
@@ -48,8 +46,7 @@ export class UserHubInbox {
 			});
 		}
 
-		const clearBtn = header.createEl("button", { cls: "ft-btn ft-btn-sm ft-text-muted" });
-		clearBtn.style.marginLeft = "auto";
+		const clearBtn = header.createEl("button", { cls: "ft-btn ft-btn-sm ft-text-muted ft-ml-auto" });
 		setIcon(clearBtn, "trash-2");
 		clearBtn.appendText(" Clear all");
 		clearBtn.addEventListener("click", () => {
@@ -57,35 +54,23 @@ export class UserHubInbox {
 		});
 
 		for (const item of items) {
-			const row = this.masterEl.createDiv({ cls: "ft-catalog-row ft-cursor-pointer" });
+			const isSelected = state.selectedInboxItem?.id === item.id;
+			const row = this.masterEl.createDiv({ cls: `ft-catalog-row ft-cursor-pointer${isSelected ? " ft-catalog-row-active ft-session-row-selected" : ""}${!item.read ? " ft-inbox-row-unread" : ""}` });
 
-			if (state.selectedInboxItem?.id === item.id) {
-				row.addClass("ft-catalog-row-active");
-				row.style.backgroundColor = "var(--background-modifier-hover)";
-			}
-
-			if (!item.read) {
-				row.style.fontWeight = "600";
-			}
-
-			const icon = row.createSpan();
+			const icon = row.createSpan({ cls: "ft-inbox-item-icon" });
 			setIcon(icon, item.type === "action" ? "alert-circle" : "info");
-			icon.style.opacity = "0.6";
-			icon.style.marginRight = "0.5rem";
 
 			row.createSpan({ text: item.title });
 
-			const source = row.createSpan({
+			row.createSpan({
 				text: formatSourceEvent(item.sourceEvent),
-				cls: "ft-badge ft-badge-muted ft-text-sm",
+				cls: "ft-badge ft-badge-muted ft-text-sm ft-inbox-item-source",
 			});
-			source.style.marginLeft = "0.5rem";
 
-			const time = row.createSpan({
+			row.createSpan({
 				text: formatTime(item.timestamp),
-				cls: "ft-text-muted ft-text-sm",
+				cls: "ft-text-muted ft-text-sm ft-ml-auto",
 			});
-			time.style.marginLeft = "auto";
 
 			row.addEventListener("click", () => {
 				this.deps.setState({ selectedInboxItem: item });
@@ -105,10 +90,7 @@ export class UserHubInbox {
 		const item = state.selectedInboxItem;
 
 		if (!item) {
-			const empty = this.detailEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			empty.style.justifyContent = "center";
-			empty.style.padding = "3rem";
-			empty.style.color = "var(--text-muted)";
+			const empty = this.detailEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-detail-empty" });
 			const icon = empty.createSpan();
 			setIcon(icon, "inbox");
 			empty.createSpan({ text: "Select an item to view details" });
@@ -119,23 +101,18 @@ export class UserHubInbox {
 	}
 
 	private renderEmptyState(): void {
-		const empty = this.masterEl.createDiv({ cls: "ft-flex ft-flex-col ft-items-center" });
-		empty.style.justifyContent = "center";
-		empty.style.padding = "3rem";
-		empty.style.color = "var(--text-muted)";
+		const empty = this.masterEl.createDiv({ cls: "ft-flex ft-flex-col ft-items-center ft-inbox-empty" });
 
-		const icon = empty.createDiv();
+		const icon = empty.createDiv({ cls: "ft-inbox-empty-icon" });
 		setIcon(icon, "inbox");
-		icon.style.opacity = "0.4";
-		icon.style.marginBottom = "0.75rem";
 		icon.querySelector("svg")?.setAttribute("width", "48");
 		icon.querySelector("svg")?.setAttribute("height", "48");
 
 		empty.createDiv({ text: "No items in your inbox", cls: "ft-heading ft-heading-sm" });
 		empty.createDiv({
 			text: "Actionable items from watchers, imports, and exports will appear here.",
-			cls: "ft-text-muted ft-text-sm",
-		}).style.marginTop = "0.25rem";
+			cls: "ft-text-muted ft-text-sm ft-inbox-empty-hint",
+		});
 	}
 
 	private renderItemDetail(item: InboxItem): void {
@@ -148,8 +125,7 @@ export class UserHubInbox {
 		meta.createSpan({ text: formatTime(item.timestamp) });
 
 		// Source event type (clickable link to Event Catalog)
-		const eventRow = header.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-text-sm ft-text-muted" });
-		eventRow.style.marginTop = "0.25rem";
+		const eventRow = header.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-text-sm ft-text-muted ft-inbox-event-row-mt" });
 		eventRow.createSpan({ text: "Triggered by: " });
 		const eventLink = eventRow.createSpan({ text: item.sourceEvent, cls: "ft-event-type ft-nav-link ft-cursor-pointer" });
 		eventLink.setAttribute("aria-label", "View in event catalog");
@@ -165,9 +141,8 @@ export class UserHubInbox {
 		// Clickable link to the underlying note file
 		if (item.filePath) {
 			const fileRow = this.detailEl.createDiv({ cls: "ft-detail-section ft-flex ft-items-center ft-gap-1 ft-text-sm" });
-			const fileIcon = fileRow.createSpan();
+			const fileIcon = fileRow.createSpan({ cls: "ft-inbox-file-icon" });
 			setIcon(fileIcon, "file-text");
-			fileIcon.style.opacity = "0.6";
 			const fileLink = fileRow.createSpan({ text: item.filePath, cls: "ft-nav-link ft-cursor-pointer" });
 			fileLink.setAttribute("aria-label", "Open note");
 			fileLink.addEventListener("click", () => {

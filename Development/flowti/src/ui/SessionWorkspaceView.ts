@@ -43,7 +43,7 @@ import { resolveClosureTemplate } from "../domain/session/helpers";
 import { setupEventSubscriptions } from "./session/SessionWorkspaceSubscriptions";
 import type { SubscriptionViewContext } from "./session/SessionWorkspaceSubscriptions";
 import {
-	getStatusStyle, captureWorkspaceState, restoreWorkspaceState,
+	getStatusClass, captureWorkspaceState, restoreWorkspaceState,
 	openOutputPicker, openSaveTemplateModal, openInTab, openInSidebar,
 	revealInFileExplorer, openInAdjacentLeaf,
 } from "./session/SessionWorkspaceHelpers";
@@ -337,13 +337,9 @@ export class SessionWorkspaceView extends ItemView {
 
 	private renderEmptyState(container: HTMLElement): void {
 		const empty = container.createDiv({ cls: "ft-session-workspace-empty" });
-		empty.style.cssText = "display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:48px 24px;color:var(--text-muted);";
 
-		const iconEl = empty.createDiv();
+		const iconEl = empty.createDiv({ cls: "ft-session-empty-icon" });
 		setIcon(iconEl, "timer-off");
-		iconEl.style.cssText = "opacity:0.4;";
-		(iconEl.firstChild as HTMLElement)?.style.setProperty("width", "48px");
-		(iconEl.firstChild as HTMLElement)?.style.setProperty("height", "48px");
 
 		empty.createEl("p", { text: "No session selected", cls: "ft-text-lg" });
 		// eslint-disable-next-line obsidianmd/ui/sentence-case
@@ -356,23 +352,20 @@ export class SessionWorkspaceView extends ItemView {
 		const session = this.session!;
 		const header = container.createDiv({ cls: "ft-session-workspace-header ft-section" });
 
-		const titleRow = header.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		titleRow.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:8px;";
+		const titleRow = header.createDiv({ cls: "ft-session-header-title-row" });
 
 		titleRow.createEl("h4", { text: session.title });
 		titleRow.createEl("span", {
 			text: SESSION_TYPE_LABELS[session.type] ?? session.type,
-			cls: "ft-badge",
-		}).style.cssText = "background:var(--background-modifier-hover);padding:2px 8px;border-radius:4px;font-size:12px;";
+			cls: "ft-badge ft-session-type-badge",
+		});
 
 		this.headerStatusEl = titleRow.createEl("span", {
 			text: SESSION_STATUS_LABELS[session.status] ?? session.status,
-			cls: "ft-badge ft-badge-status",
+			cls: `ft-badge ft-badge-status ft-session-status-badge ft-status-${getStatusClass(session.status)}`,
 		});
-		this.headerStatusEl.style.cssText = "padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;" + getStatusStyle(session.status);
 
 		this.actionsEl = header.createDiv({ cls: "ft-session-workspace-actions" });
-		this.actionsEl.style.cssText = "display:flex;gap:8px;";
 		this.renderActions();
 	}
 
@@ -422,8 +415,7 @@ export class SessionWorkspaceView extends ItemView {
 	}
 
 	private createActionButton(parent: HTMLElement, icon: string, label: string, onClick: () => void): void {
-		const btn = parent.createEl("button", { text: label });
-		btn.style.cssText = "display:flex;align-items:center;gap:4px;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:13px;";
+		const btn = parent.createEl("button", { text: label, cls: "ft-session-action-btn" });
 		const iconEl = btn.createSpan();
 		setIcon(iconEl, icon);
 		btn.prepend(iconEl);
@@ -437,16 +429,14 @@ export class SessionWorkspaceView extends ItemView {
 		if (!session.focusFile || session.focusFile === session.notesFile) return;
 
 		const section = container.createDiv({ cls: "ft-session-workspace-focus ft-section" });
-		section.style.cssText = "display:flex;align-items:center;gap:8px;";
 
 		const iconEl = section.createSpan();
 		setIcon(iconEl, "file-text");
 
-		section.createEl("span", { text: "Focus:" }).style.cssText = "font-weight:600;";
+		section.createEl("span", { text: "Focus:", cls: "ft-session-file-label" });
 
 		const ctx = this.buildHelperContext();
-		const link = section.createEl("a", { text: session.focusFile, cls: "ft-focus-link" });
-		link.style.cssText = "cursor:pointer;text-decoration:underline;color:var(--text-accent);";
+		const link = section.createEl("a", { text: session.focusFile, cls: "ft-focus-link ft-session-file-link" });
 		link.addEventListener("click", (e) => {
 			e.preventDefault();
 			openInAdjacentLeaf(ctx, session.focusFile!);
@@ -458,17 +448,15 @@ export class SessionWorkspaceView extends ItemView {
 		if (!session.notesFile) return;
 
 		const section = container.createDiv({ cls: "ft-session-workspace-notesfile ft-section" });
-		section.style.cssText = "display:flex;align-items:center;gap:8px;";
 
 		const iconEl = section.createSpan();
 		setIcon(iconEl, "file-text");
 
-		section.createEl("span", { text: "Session note:" }).style.cssText = "font-weight:600;";
+		section.createEl("span", { text: "Session note:", cls: "ft-session-file-label" });
 
 		const name = session.notesFile.split("/").pop() ?? session.notesFile;
-		const link = section.createEl("a", { text: name, cls: "ft-notesfile-link" });
+		const link = section.createEl("a", { text: name, cls: "ft-notesfile-link ft-session-file-link" });
 		link.title = session.notesFile;
-		link.style.cssText = "cursor:pointer;text-decoration:underline;color:var(--text-accent);";
 		link.addEventListener("click", (e) => {
 			e.preventDefault();
 			void this.openOrCreateNotesFile(session);
@@ -476,17 +464,14 @@ export class SessionWorkspaceView extends ItemView {
 
 		const copyBtn = section.createEl("button", { cls: "ft-copy-path-btn clickable-icon" });
 		copyBtn.title = "Copy vault path to clipboard";
-		copyBtn.style.cssText = "background:none;border:none;cursor:pointer;padding:2px;opacity:0.5;color:var(--text-muted);";
 		setIcon(copyBtn, "clipboard-copy");
 		copyBtn.addEventListener("click", () => {
 			void navigator.clipboard.writeText(session.notesFile!).then(() => {
 				setIcon(copyBtn, "check");
-				copyBtn.style.opacity = "1";
-				copyBtn.style.color = "var(--text-success)";
+				copyBtn.addClass("ft-copied");
 				setTimeout(() => {
 					setIcon(copyBtn, "clipboard-copy");
-					copyBtn.style.opacity = "0.5";
-					copyBtn.style.color = "var(--text-muted)";
+					copyBtn.removeClass("ft-copied");
 				}, 1500);
 			});
 		});
@@ -515,25 +500,22 @@ export class SessionWorkspaceView extends ItemView {
 		const session = this.session!;
 
 		const section = container.createDiv({ cls: "ft-session-workspace-canvas ft-section" });
-		section.style.cssText = "display:flex;align-items:center;gap:8px;";
 
 		if (session.canvasFile) {
 			const iconEl = section.createSpan();
 			setIcon(iconEl, "layout-dashboard");
 
-			section.createEl("span", { text: "Session canvas:" }).style.cssText = "font-weight:600;";
+			section.createEl("span", { text: "Session canvas:", cls: "ft-session-file-label" });
 
 			const name = session.canvasFile.split("/").pop() ?? session.canvasFile;
-			const link = section.createEl("a", { text: name, cls: "ft-canvasfile-link" });
+			const link = section.createEl("a", { text: name, cls: "ft-canvasfile-link ft-session-file-link" });
 			link.title = session.canvasFile;
-			link.style.cssText = "cursor:pointer;text-decoration:underline;color:var(--text-accent);";
 			link.addEventListener("click", (e) => {
 				e.preventDefault();
 				openInAdjacentLeaf(this.buildHelperContext(), session.canvasFile!);
 			});
 		} else {
-			const btn = section.createEl("button", { text: "Create session canvas", cls: "ft-canvasfile-create" });
-			btn.style.cssText = "display:flex;align-items:center;gap:4px;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:13px;";
+			const btn = section.createEl("button", { text: "Create session canvas", cls: "ft-canvasfile-create ft-session-action-btn" });
 			const iconEl = btn.createSpan();
 			setIcon(iconEl, "layout-dashboard");
 			btn.prepend(iconEl);

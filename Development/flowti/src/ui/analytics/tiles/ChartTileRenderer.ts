@@ -26,9 +26,6 @@ function resolveEffectiveColumns(ctx: TileRenderContext, numericCols: string[]):
 	return numericCols.length > 0 ? [numericCols[0]] : [];
 }
 
-const CHECKBOX_CSS = "cursor:pointer;accent-color:var(--interactive-accent)";
-const LABEL_CSS = "display:inline-flex;align-items:center;gap:3px;cursor:pointer;font-size:var(--font-ui-smaller);user-select:none";
-
 export class ChartTileRenderer implements TileRenderer {
 	render(container: HTMLElement, result: AnalyticsResult, ctx: TileRenderContext): void {
 		const numericCols = getNumericColumns(result);
@@ -36,19 +33,14 @@ export class ChartTileRenderer implements TileRenderer {
 
 		// Value column selector — checkboxes when multiple numeric columns
 		if (numericCols.length > 1 && ctx.onChartValueColumnsChange) {
-			const bar = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			bar.style.padding = "0.25rem 0.5rem";
-			bar.style.borderBottom = "1px solid var(--background-modifier-border)";
-			bar.style.flexWrap = "wrap";
+			const bar = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-chart-col-bar" });
 
 			bar.createSpan({ text: "Values:", cls: "ft-text-xs ft-text-muted" });
 
 			for (const col of numericCols) {
-				const lbl = bar.createEl("label");
-				lbl.style.cssText = LABEL_CSS;
+				const lbl = bar.createEl("label", { cls: "ft-chart-checkbox-label" });
 
-				const cb = lbl.createEl("input", { type: "checkbox" });
-				cb.style.cssText = CHECKBOX_CSS;
+				const cb = lbl.createEl("input", { type: "checkbox", cls: "ft-chart-checkbox" });
 				cb.checked = effectiveCols.includes(col);
 				cb.addEventListener("change", () => {
 					const next = numericCols.filter((c) => {
@@ -63,15 +55,11 @@ export class ChartTileRenderer implements TileRenderer {
 				lbl.appendText(col);
 			}
 		} else if (numericCols.length === 1) {
-			const bar = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			bar.style.padding = "0.25rem 0.5rem";
+			const bar = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-chart-col-bar-single" });
 			bar.createSpan({ text: numericCols[0], cls: "ft-text-xs ft-text-muted" });
 		}
 
-		const chartHost = container.createDiv();
-		chartHost.style.flex = "1";
-		chartHost.style.minHeight = "0";
-		chartHost.style.paddingBottom = "0.5rem";
+		const chartHost = container.createDiv({ cls: "ft-chart-host" });
 
 		const singleCol = effectiveCols[0];
 		const multiCols = effectiveCols.length > 1 ? effectiveCols : undefined;

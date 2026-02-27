@@ -136,9 +136,7 @@ export class DashboardFilterBar {
 
 		// Clear all button (only when any filter active)
 		if (filters.length > 0 || hasDateRange || hasCrossTile) {
-			const clearBtn = bar.createEl("span", { cls: "ft-nav-link ft-text-xs" });
-			clearBtn.style.cursor = "pointer";
-			clearBtn.style.marginLeft = "auto";
+			const clearBtn = bar.createEl("span", { cls: "ft-nav-link ft-text-xs ft-filter-clear-btn" });
 			clearBtn.textContent = "Clear all";
 			clearBtn.addEventListener("click", () => {
 				this.deps.onFiltersChanged([]);
@@ -149,11 +147,7 @@ export class DashboardFilterBar {
 
 		// Breadcrumb chips for active filters — one chip per value
 		if (filters.length > 0 || hasDateRange || hasCrossTile) {
-			const breadcrumb = this.container.createDiv({ cls: "ft-filter-breadcrumb" });
-			breadcrumb.style.display = "flex";
-			breadcrumb.style.flexWrap = "wrap";
-			breadcrumb.style.gap = "0.35rem";
-			breadcrumb.style.marginBottom = "0.75rem";
+			const breadcrumb = this.container.createDiv({ cls: "ft-filter-breadcrumb ft-filter-breadcrumb-row" });
 
 			breadcrumb.createSpan({ text: "Showing:", cls: "ft-text-xs ft-text-muted" });
 
@@ -173,9 +167,7 @@ export class DashboardFilterBar {
 					: `${dr.column || "Date"}: ${DATE_RANGE_PRESET_LABELS[dr.preset]}`;
 				chip.textContent = label;
 
-				const closeBtn = chip.createSpan({ text: " \u00d7" });
-				closeBtn.style.cursor = "pointer";
-				closeBtn.style.fontWeight = "bold";
+				const closeBtn = chip.createSpan({ text: " \u00d7", cls: "ft-chip-close" });
 				closeBtn.addEventListener("click", (e) => {
 					e.stopPropagation();
 					this.deps.onDateRangeChanged!(null);
@@ -185,14 +177,10 @@ export class DashboardFilterBar {
 			// Cross-tile filter chip
 			if (this.deps.crossTileFilter && this.deps.onCrossTileFilterClear) {
 				const cf = this.deps.crossTileFilter;
-				const chip = breadcrumb.createSpan({ cls: "ft-filter-chip ft-text-xs" });
-				chip.style.background = "var(--interactive-accent)";
-				chip.style.color = "var(--text-on-accent)";
+				const chip = breadcrumb.createSpan({ cls: "ft-filter-chip ft-text-xs ft-chip-cross-tile" });
 				chip.textContent = `${cf.column} = ${cf.value}`;
 
-				const closeBtn = chip.createSpan({ text: " \u00d7" });
-				closeBtn.style.cursor = "pointer";
-				closeBtn.style.fontWeight = "bold";
+				const closeBtn = chip.createSpan({ text: " \u00d7", cls: "ft-chip-close" });
 				closeBtn.addEventListener("click", (e) => {
 					e.stopPropagation();
 					this.deps.onCrossTileFilterClear!();
@@ -204,9 +192,7 @@ export class DashboardFilterBar {
 					const chip = breadcrumb.createSpan({ cls: "ft-filter-chip ft-text-xs" });
 					chip.textContent = `${f.column} = ${val}`;
 
-					const closeBtn = chip.createSpan({ text: " \u00d7" });
-					closeBtn.style.cursor = "pointer";
-					closeBtn.style.fontWeight = "bold";
+					const closeBtn = chip.createSpan({ text: " \u00d7", cls: "ft-chip-close" });
 					closeBtn.addEventListener("click", (e) => {
 						e.stopPropagation();
 						const updated = filters
@@ -252,21 +238,16 @@ export class DashboardFilterBar {
 
 		if (presets.length > 0) {
 			for (const p of presets) {
-				const chip = bar.createSpan({ cls: "ft-flex ft-items-center ft-gap-1" });
-				chip.style.cssText = "display:inline-flex;align-items:center;gap:2px";
+				const chip = bar.createSpan({ cls: "ft-preset-chip" });
 
-				const applyBtn = chip.createEl("span", { text: p.name, cls: "ft-nav-link ft-text-xs" });
-				applyBtn.style.cursor = "pointer";
+				const applyBtn = chip.createEl("span", { text: p.name, cls: "ft-nav-link ft-text-xs ft-cursor-pointer" });
 				applyBtn.addEventListener("click", () => {
 					this.deps.onFiltersChanged(structuredClone(p.filters));
 				});
 
 				if (this.deps.onDeletePreset) {
-					const delBtn = chip.createEl("span", { cls: "ft-text-muted" });
-					delBtn.style.cssText = "cursor:pointer;display:inline-flex;align-items:center;line-height:1";
+					const delBtn = chip.createEl("span", { cls: "ft-text-muted ft-preset-delete-btn" });
 					setIcon(delBtn, "x");
-					const svg = delBtn.querySelector("svg");
-					if (svg) { svg.style.width = "10px"; svg.style.height = "10px"; }
 					delBtn.title = `Delete preset "${p.name}"`;
 					delBtn.addEventListener("click", (e) => {
 						e.stopPropagation();
@@ -279,31 +260,28 @@ export class DashboardFilterBar {
 		// Save current button (only when filters active)
 		if (filters.length > 0 && this.deps.onSavePreset) {
 			const saveWrap = bar.createSpan();
-			const saveBtn = saveWrap.createEl("span", { cls: "ft-nav-link ft-text-xs" });
-			saveBtn.style.cursor = "pointer";
-			const saveIcon = saveBtn.createSpan();
+			const saveBtn = saveWrap.createEl("span", { cls: "ft-nav-link ft-text-xs ft-cursor-pointer" });
+			const saveIcon = saveBtn.createSpan({ cls: "ft-save-icon" });
 			setIcon(saveIcon, "bookmark");
-			saveIcon.style.cssText = "width:10px;height:10px;display:inline-flex;align-items:center";
 			saveBtn.appendText(" Save");
 			saveBtn.title = "Save current filters as preset";
 			saveBtn.addEventListener("click", () => {
-				saveBtn.style.display = "none";
-				const input = saveWrap.createEl("input", { type: "text" });
+				saveBtn.addClass("ft-hidden");
+				const input = saveWrap.createEl("input", { type: "text", cls: "ft-preset-name-input" });
 				input.placeholder = "Preset name";
-				input.style.cssText = "font-size:var(--font-ui-smaller);border:1px solid var(--background-modifier-border);background:var(--background-primary);color:var(--text-normal);padding:2px 6px;border-radius:4px;width:110px";
 				const commit = () => {
 					const val = input.value.trim();
 					if (val) {
 						this.deps.onSavePreset!(val, structuredClone(filters));
 					} else {
 						input.remove();
-						saveBtn.style.display = "";
+						saveBtn.removeClass("ft-hidden");
 					}
 				};
 				input.addEventListener("blur", commit);
 				input.addEventListener("keydown", (ev) => {
 					if (ev.key === "Enter") { ev.preventDefault(); input.blur(); }
-					if (ev.key === "Escape") { ev.preventDefault(); input.remove(); saveBtn.style.display = ""; }
+					if (ev.key === "Escape") { ev.preventDefault(); input.remove(); saveBtn.removeClass("ft-hidden"); }
 				});
 				setTimeout(() => input.focus(), 20);
 			});
@@ -315,8 +293,7 @@ export class DashboardFilterBar {
 		const current = this.deps.dateRangeFilter;
 		const onChanged = this.deps.onDateRangeChanged!;
 
-		const wrap = bar.createSpan({ cls: "ft-date-range-picker" });
-		wrap.style.cssText = "display:inline-flex;align-items:center;gap:4px";
+		const wrap = bar.createSpan({ cls: "ft-date-range-picker ft-date-range-wrap" });
 
 		// Date column selector (when multiple date columns)
 		let selectedColumn = current?.column || dateColumns[0] || "";
@@ -374,8 +351,7 @@ export class DashboardFilterBar {
 
 		// Custom date inputs (only when preset = "custom")
 		if (current?.preset === "custom") {
-			const startInput = wrap.createEl("input", { type: "date", cls: "ft-text-xs" });
-			startInput.style.cssText = "font-size:var(--font-ui-smaller);border:1px solid var(--background-modifier-border);background:var(--background-primary);color:var(--text-normal);padding:2px 4px;border-radius:4px";
+			const startInput = wrap.createEl("input", { type: "date", cls: "ft-text-xs ft-date-input" });
 			startInput.value = current.startDate ?? "";
 			startInput.addEventListener("change", () => {
 				onChanged({ ...current, startDate: startInput.value });
@@ -383,8 +359,7 @@ export class DashboardFilterBar {
 
 			wrap.createSpan({ text: "to", cls: "ft-text-xs ft-text-muted" });
 
-			const endInput = wrap.createEl("input", { type: "date", cls: "ft-text-xs" });
-			endInput.style.cssText = "font-size:var(--font-ui-smaller);border:1px solid var(--background-modifier-border);background:var(--background-primary);color:var(--text-normal);padding:2px 4px;border-radius:4px";
+			const endInput = wrap.createEl("input", { type: "date", cls: "ft-text-xs ft-date-input" });
 			endInput.value = current.endDate ?? "";
 			endInput.addEventListener("change", () => {
 				onChanged({ ...current, endDate: endInput.value });

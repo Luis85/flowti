@@ -13,8 +13,7 @@ export function renderConfiguredImports(
 	deps: HubComponentDeps,
 	renderSectionHeader: (c: HTMLElement, icon: string, title: string, count: number) => HTMLElement,
 ): void {
-	const section = container.createDiv();
-	section.style.marginBottom = "2rem";
+	const section = container.createDiv({ cls: "ft-section-mb" });
 	renderSectionHeader(section, "file-input", "Configured Imports", entries.length);
 
 	if (entries.length === 0) {
@@ -23,7 +22,7 @@ export function renderConfiguredImports(
 	}
 
 	const table = section.createEl("table", { cls: "ft-preview-table" });
-	table.style.width = "100%";
+	table.addClass("ft-w-full");
 	const thead = table.createEl("thead");
 	const headRow = thead.createEl("tr");
 	headRow.createEl("th", { text: "Name" });
@@ -53,7 +52,7 @@ export function renderConfiguredImports(
 			const starIcon = nameRow.createSpan({ cls: "ft-nav-link" });
 			starIcon.addClass("ft-flex-shrink-0");
 			setIcon(starIcon, cfg.favourite ? "star" : "star-off");
-			if (cfg.favourite) starIcon.style.color = "var(--text-accent)";
+			if (cfg.favourite) starIcon.addClass("ft-text-accent");
 			starIcon.setAttribute("aria-label", cfg.favourite ? "Unfavourite" : "Favourite");
 			starIcon.addEventListener("click", () => {
 				void deps.dataExchangeService.toggleImportFavourite(cfg.id).then(() => {
@@ -77,11 +76,7 @@ export function renderConfiguredImports(
 				cls: cfg.targetFolder ? "ft-text-sm" : "ft-text-muted",
 			});
 			if (cfg.targetFolder) {
-				targetText.style.whiteSpace = "nowrap";
-				targetText.style.overflow = "hidden";
-				targetText.style.textOverflow = "ellipsis";
-				targetText.style.display = "block";
-				targetText.style.maxWidth = "12rem";
+				targetText.addClass("ft-table-cell-truncate");
 			}
 
 			// File column — CSV name
@@ -157,7 +152,7 @@ function renderImportEmptyState(section: HTMLElement, deps: HubComponentDeps): v
 	const ctaIcon = cta.createDiv();
 	setIcon(ctaIcon, "file-input");
 	ctaIcon.addClass("ft-icon-subtle");
-	ctaIcon.style.marginBottom = "0.5rem";
+	ctaIcon.addClass("ft-cta-icon-mb");
 	cta.createDiv({
 		text: "No import configs yet",
 		cls: "ft-heading ft-heading-sm ft-mb-1",

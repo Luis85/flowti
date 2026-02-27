@@ -26,8 +26,7 @@ export class TileSettingsPanel {
 	}
 
 	private addSectionLabel(text: string): void {
-		const label = this.container.createDiv({ text, cls: "ft-text-xs ft-text-muted" });
-		label.style.cssText = "text-transform:uppercase;letter-spacing:0.05em;margin-top:0.5rem;margin-bottom:0.25rem;font-weight:600";
+		this.container.createDiv({ text, cls: "ft-text-xs ft-text-muted ft-section-label" });
 	}
 
 	private renderSettings(): void {
@@ -38,12 +37,10 @@ export class TileSettingsPanel {
 
 		// ── Measurement selector ─────────────────────────
 		if (ctx.measurements && ctx.measurements.length > 0 && ctx.onMeasurementChange) {
-			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			row.style.marginBottom = "0.25rem";
-			row.createSpan({ text: "Measurement", cls: "ft-text-sm" }).style.fontWeight = "600";
+			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-1" });
+			row.createSpan({ text: "Measurement", cls: "ft-text-sm ft-font-semibold" });
 
-			const mSelect = row.createEl("select", { cls: "ft-text-xs" });
-			mSelect.style.cssText = "flex:1;padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary)";
+			const mSelect = row.createEl("select", { cls: "ft-text-xs ft-input-flex" });
 
 			// "None" option = direct query
 			const noneOpt = mSelect.createEl("option");
@@ -64,12 +61,10 @@ export class TileSettingsPanel {
 
 		// ── Query selector ───────────────────────────────
 		if (ctx.queries && ctx.queries.length > 0 && ctx.onQueryChange) {
-			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			row.style.marginBottom = "0.25rem";
-			row.createSpan({ text: "Query", cls: "ft-text-sm" }).style.fontWeight = "600";
+			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-1" });
+			row.createSpan({ text: "Query", cls: "ft-text-sm ft-font-semibold" });
 
-			const querySelect = row.createEl("select", { cls: "ft-text-xs" });
-			querySelect.style.cssText = "flex:1;padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary)";
+			const querySelect = row.createEl("select", { cls: "ft-text-xs ft-input-flex" });
 			for (const q of ctx.queries) {
 				const opt = querySelect.createEl("option");
 				opt.value = q.id;
@@ -83,11 +78,10 @@ export class TileSettingsPanel {
 			// Show description of selected query
 			const selectedQuery = ctx.queries.find((q) => q.id === ctx.tile.queryId);
 			if (selectedQuery?.description) {
-				const descEl = this.container.createDiv({ cls: "ft-text-muted ft-text-xs" });
-				descEl.style.marginBottom = "0.5rem";
+				const descEl = this.container.createDiv({ cls: "ft-text-muted ft-text-xs ft-mb-2" });
 				descEl.textContent = selectedQuery.description;
 			} else {
-				this.container.createDiv().style.marginBottom = "0.25rem";
+				this.container.createDiv({ cls: "ft-mb-1" });
 			}
 		}
 
@@ -96,9 +90,8 @@ export class TileSettingsPanel {
 
 		// ── Width toggle ─────────────────────────────────
 		if (ctx.onWidthChange) {
-			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			row.style.marginBottom = "0.5rem";
-			row.createSpan({ text: "Width", cls: "ft-text-sm" }).style.fontWeight = "600";
+			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
+			row.createSpan({ text: "Width", cls: "ft-text-sm ft-font-semibold" });
 
 			for (const w of [1, 2, 3, 4, 5, 6]) {
 				const btn = row.createEl("button", { cls: `ft-toggle-btn${ctx.tile.width === w ? " is-active" : ""}` });
@@ -111,14 +104,12 @@ export class TileSettingsPanel {
 
 		// ── Height toggle ────────────────────────────────
 		if (ctx.onHeightChange) {
-			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			row.style.marginBottom = "0.5rem";
-			row.createSpan({ text: "Height", cls: "ft-text-sm" }).style.fontWeight = "600";
+			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
+			row.createSpan({ text: "Height", cls: "ft-text-sm ft-font-semibold" });
 
 			for (const h of [1, 2, 3, 4, 5, 6]) {
-				const btn = row.createEl("button", { cls: `ft-toggle-btn${ctx.tile.height === h ? " is-active" : ""}` });
+				const btn = row.createEl("button", { cls: `ft-toggle-btn ft-btn-height${ctx.tile.height === h ? " is-active" : ""}` });
 				btn.textContent = `${h}`;
-				btn.style.minWidth = "28px";
 				btn.addEventListener("click", () => {
 					ctx.onHeightChange!(ctx.tile.id, h);
 				});
@@ -127,8 +118,7 @@ export class TileSettingsPanel {
 
 		// ── Auto-height toggle (max-width only) ─────────
 		if (ctx.tile.width >= 3 && ctx.onAutoHeightToggle) {
-			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			row.style.marginBottom = "0.5rem";
+			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
 
 			const checkbox = row.createEl("input", { type: "checkbox" });
 			checkbox.checked = ctx.tile.autoHeight === true;
@@ -144,8 +134,7 @@ export class TileSettingsPanel {
 
 		// ── Sparkline toggle (stat-card only) ────────────
 		if (ctx.tile.displayMode === "stat-card" && ctx.onSparklineToggle) {
-			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			row.style.marginBottom = "0.5rem";
+			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
 
 			const checkbox = row.createEl("input", { type: "checkbox" });
 			checkbox.checked = ctx.tile.showSparkline !== false;
@@ -158,8 +147,7 @@ export class TileSettingsPanel {
 
 		// ── Table KPI cards toggle (table only) ─────────
 		if (ctx.tile.displayMode === "table" && ctx.onTableKpisToggle) {
-			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			row.style.marginBottom = "0.5rem";
+			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
 
 			const checkbox = row.createEl("input", { type: "checkbox" });
 			checkbox.checked = ctx.tile.showTableKpis !== false;
@@ -172,12 +160,10 @@ export class TileSettingsPanel {
 
 		// ── KPI label ───────────────────────────────────
 		if (ctx.tile.displayMode === "table" && ctx.tile.showTableKpis !== false && ctx.onTableKpiLabelChange) {
-			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			row.style.marginBottom = "0.5rem";
-			row.createSpan({ text: "Items label", cls: "ft-text-sm" }).style.fontWeight = "600";
+			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
+			row.createSpan({ text: "Items label", cls: "ft-text-sm ft-font-semibold" });
 
-			const labelInput = row.createEl("input", { type: "text", cls: "ft-text-xs" });
-			labelInput.style.cssText = "flex:1;padding:2px 6px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary)";
+			const labelInput = row.createEl("input", { type: "text", cls: "ft-text-xs ft-input-flex-wide" });
 			labelInput.placeholder = "Items";
 			if (ctx.tile.tableKpiLabel) labelInput.value = ctx.tile.tableKpiLabel;
 			labelInput.addEventListener("change", () => {
@@ -187,9 +173,8 @@ export class TileSettingsPanel {
 
 		// ── Page size (row limit presets) ────────────────
 		if (ctx.onRowLimitChange) {
-			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			row.style.marginBottom = "0.5rem";
-			row.createSpan({ text: "Page size", cls: "ft-text-sm" }).style.fontWeight = "600";
+			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
+			row.createSpan({ text: "Page size", cls: "ft-text-sm ft-font-semibold" });
 
 			const presets = [10, 15, 25, 50, 0]; // 0 = show all
 			const labels: Record<number, string> = { 0: "All" };
@@ -227,9 +212,8 @@ export class TileSettingsPanel {
 		const ctx = this.ctx;
 		const fmt = ctx.tile.numberFormat;
 
-		const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		row.style.marginBottom = "0.5rem";
-		row.createSpan({ text: "Number format", cls: "ft-text-sm" }).style.fontWeight = "600";
+		const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
+		row.createSpan({ text: "Number format", cls: "ft-text-sm ft-font-semibold" });
 
 		const styles: Array<{ value: NumberFormatStyle | "auto"; label: string }> = [
 			{ value: "auto", label: "Auto" },
@@ -239,8 +223,7 @@ export class TileSettingsPanel {
 		];
 		const currentStyle = fmt?.style ?? "auto";
 
-		const styleSelect = row.createEl("select", { cls: "ft-text-xs" });
-		styleSelect.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary)";
+		const styleSelect = row.createEl("select", { cls: "ft-text-xs ft-input-flex" });
 		for (const s of styles) {
 			const opt = styleSelect.createEl("option");
 			opt.value = s.value;
@@ -249,20 +232,16 @@ export class TileSettingsPanel {
 		}
 
 		// Symbol input (only relevant for currency)
-		const symbolInput = row.createEl("input", { type: "text", cls: "ft-text-xs" });
-		symbolInput.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);width:36px";
+		const symbolInput = row.createEl("input", { type: "text", cls: `ft-text-xs ft-input-symbol${currentStyle !== "currency" ? " ft-hidden" : ""}` });
 		symbolInput.placeholder = "$";
 		if (fmt?.symbol) symbolInput.value = fmt.symbol;
-		symbolInput.style.display = currentStyle === "currency" ? "" : "none";
 
 		// Decimals input
-		const decimalsInput = row.createEl("input", { type: "number", cls: "ft-text-xs" });
-		decimalsInput.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);width:44px";
+		const decimalsInput = row.createEl("input", { type: "number", cls: `ft-text-xs ft-input-decimals${currentStyle === "auto" ? " ft-hidden" : ""}` });
 		decimalsInput.placeholder = "Auto";
 		decimalsInput.min = "0";
 		decimalsInput.max = "6";
 		if (fmt?.decimals !== undefined) decimalsInput.value = String(fmt.decimals);
-		decimalsInput.style.display = currentStyle === "auto" ? "none" : "";
 
 		const emitChange = () => {
 			const style = styleSelect.value as NumberFormatStyle | "auto";
@@ -280,8 +259,8 @@ export class TileSettingsPanel {
 		};
 
 		styleSelect.addEventListener("change", () => {
-			symbolInput.style.display = styleSelect.value === "currency" ? "" : "none";
-			decimalsInput.style.display = styleSelect.value === "auto" ? "none" : "";
+			symbolInput.toggleClass("ft-hidden", styleSelect.value !== "currency");
+			decimalsInput.toggleClass("ft-hidden", styleSelect.value === "auto");
 			emitChange();
 		});
 		symbolInput.addEventListener("change", emitChange);
@@ -306,20 +285,17 @@ export class TileSettingsPanel {
 		const excluded = new Set(ctx.tile.excludedColumns ?? []);
 		const aliasMap = this.buildColumnAliasMap();
 
-		const header = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		header.style.marginBottom = "0.35rem";
-		header.createSpan({ text: "Hidden columns", cls: "ft-text-sm" }).style.fontWeight = "600";
+		const header = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-1" });
+		header.createSpan({ text: "Hidden columns", cls: "ft-text-sm ft-font-semibold" });
 		if (excluded.size > 0) {
 			header.createSpan({ text: `${excluded.size}`, cls: "ft-badge ft-badge-muted" });
 		}
 
-		const list = this.container.createDiv();
-		list.style.cssText = "display:flex;flex-direction:column;gap:0.15rem;margin-bottom:0.5rem";
+		const list = this.container.createDiv({ cls: "ft-hidden-cols-list" });
 
 		for (const col of allColumns) {
 			const displayName = aliasMap.get(col) ?? col;
-			const row = list.createEl("label", { cls: "ft-flex ft-items-center ft-gap-2 ft-text-xs" });
-			row.style.cursor = "pointer";
+			const row = list.createEl("label", { cls: "ft-flex ft-items-center ft-gap-2 ft-text-xs ft-cursor-pointer" });
 
 			const checkbox = row.createEl("input", { type: "checkbox" });
 			checkbox.checked = excluded.has(col);
@@ -342,11 +318,9 @@ export class TileSettingsPanel {
 
 		const sectionHeader = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 		sectionHeader.createSpan({ text: "Formatting Rules", cls: "ft-text-sm" });
-		sectionHeader.style.fontWeight = "600";
-		sectionHeader.style.marginBottom = "0.35rem";
+		sectionHeader.addClass("ft-font-semibold", "ft-mb-1");
 
-		const addRuleBtn = sectionHeader.createEl("span", { cls: "ft-nav-link ft-text-sm" });
-		addRuleBtn.style.marginLeft = "auto";
+		const addRuleBtn = sectionHeader.createEl("span", { cls: "ft-nav-link ft-text-sm ft-ml-auto" });
 		const addIcon = addRuleBtn.createSpan();
 		setIcon(addIcon, "plus");
 		addRuleBtn.appendText(" Add Rule");
@@ -380,21 +354,18 @@ export class TileSettingsPanel {
 			{ value: "=", label: "=" },
 			{ value: "!=", label: "!=" },
 		];
-		const presets: Array<{ value: string; label: string; cssColor: string }> = [
-			{ value: "positive", label: "Green", cssColor: "var(--text-success)" },
-			{ value: "negative", label: "Red", cssColor: "var(--text-error)" },
-			{ value: "warning", label: "Amber", cssColor: "var(--text-warning)" },
+		const presets: Array<{ value: string; label: string; colorCls: string }> = [
+			{ value: "positive", label: "Green", colorCls: "ft-color-positive" },
+			{ value: "negative", label: "Red", colorCls: "ft-color-negative" },
+			{ value: "warning", label: "Amber", colorCls: "ft-color-warning" },
 		];
 
 		for (let i = 0; i < rules.length; i++) {
 			const rule = rules[i];
-			const row = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-			row.style.padding = "0.25rem 0";
-			if (i < rules.length - 1) row.style.borderBottom = "1px solid var(--background-modifier-border)";
+			const row = this.container.createDiv({ cls: `ft-flex ft-items-center ft-gap-2${i < rules.length - 1 ? " ft-rule-row-bordered" : " ft-rule-row"}` });
 
 			// Column dropdown
-			const colSelect = row.createEl("select", { cls: "ft-text-xs" });
-			colSelect.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary)";
+			const colSelect = row.createEl("select", { cls: "ft-text-xs ft-input-flex" });
 			for (const col of numericCols) {
 				const opt = colSelect.createEl("option");
 				opt.value = col;
@@ -408,8 +379,7 @@ export class TileSettingsPanel {
 			});
 
 			// Operator dropdown
-			const opSelect = row.createEl("select", { cls: "ft-text-xs" });
-			opSelect.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);width:50px";
+			const opSelect = row.createEl("select", { cls: "ft-text-xs ft-select-operator" });
 			for (const op of operators) {
 				const opt = opSelect.createEl("option");
 				opt.value = op.value;
@@ -423,8 +393,7 @@ export class TileSettingsPanel {
 			});
 
 			// Threshold input
-			const thresholdInput = row.createEl("input", { type: "number", cls: "ft-text-xs" });
-			thresholdInput.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);width:60px";
+			const thresholdInput = row.createEl("input", { type: "number", cls: "ft-text-xs ft-input-threshold" });
 			thresholdInput.value = String(rule.threshold);
 			thresholdInput.addEventListener("change", () => {
 				const updated = [...rules];
@@ -434,12 +403,7 @@ export class TileSettingsPanel {
 
 			// Color preset buttons
 			for (const preset of presets) {
-				const presetBtn = row.createSpan({ cls: "ft-nav-link" });
-				presetBtn.style.cssText = `width:16px;height:16px;border-radius:50%;background:${preset.cssColor};cursor:pointer;flex-shrink:0`;
-				if (rule.color === preset.value) {
-					presetBtn.style.outline = "2px solid var(--text-normal)";
-					presetBtn.style.outlineOffset = "1px";
-				}
+				const presetBtn = row.createSpan({ cls: `ft-nav-link ft-color-dot ${preset.colorCls}${rule.color === preset.value ? " ft-color-dot-active" : ""}` });
 				presetBtn.setAttribute("aria-label", preset.label);
 				presetBtn.addEventListener("click", () => {
 					const updated = [...rules];
@@ -449,8 +413,7 @@ export class TileSettingsPanel {
 			}
 
 			// Custom color input
-			const colorInput = row.createEl("input", { type: "text", cls: "ft-text-xs" });
-			colorInput.style.cssText = "padding:2px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);width:70px";
+			const colorInput = row.createEl("input", { type: "text", cls: "ft-text-xs ft-input-color" });
 			colorInput.placeholder = "#hex";
 			if (!["positive", "negative", "warning"].includes(rule.color)) {
 				colorInput.value = rule.color;
@@ -465,12 +428,10 @@ export class TileSettingsPanel {
 			});
 
 			// Remove button
-			const removeBtn = row.createSpan({ cls: "ft-nav-link ft-text-muted" });
-			removeBtn.style.cursor = "pointer";
+			const removeBtn = row.createSpan({ cls: "ft-nav-link ft-text-muted ft-cursor-pointer" });
 			const removeIcon = removeBtn.createSpan();
 			setIcon(removeIcon, "x");
-			removeIcon.style.width = "12px";
-			removeIcon.style.height = "12px";
+			removeIcon.addClass("ft-icon-remove");
 			removeBtn.addEventListener("click", () => {
 				const updated = [...rules];
 				updated.splice(i, 1);

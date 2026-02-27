@@ -79,8 +79,7 @@ export class DashboardsTab {
 		});
 
 		// Sort dropdown
-		const sortSelect = header.createEl("select", { cls: "ft-text-xs" });
-		sortSelect.style.cssText = "padding:1px 4px;border-radius:4px;border:1px solid var(--background-modifier-border);background:var(--background-primary);cursor:pointer;font-size:var(--font-ui-smaller)";
+		const sortSelect = header.createEl("select", { cls: "ft-text-xs ft-sort-select" });
 		for (const opt of [{ v: "name", l: "Name" }, { v: "tiles", l: "Tiles" }, { v: "updated", l: "Updated" }]) {
 			const o = sortSelect.createEl("option");
 			o.value = opt.v;
@@ -112,9 +111,7 @@ export class DashboardsTab {
 
 		// List
 		if (dashboards.length === 0) {
-			const empty = this.masterEl.createDiv({ cls: "ft-text-muted ft-text-sm" });
-			empty.style.padding = "1rem";
-			empty.style.textAlign = "center";
+			const empty = this.masterEl.createDiv({ cls: "ft-text-muted ft-text-sm ft-empty-state-pad" });
 			empty.textContent = "No dashboards yet";
 		} else {
 			for (const d of dashboards) {
@@ -127,30 +124,18 @@ export class DashboardsTab {
 		const state = this.deps.getState();
 		const isSelected = state.selectedDashboardId === dashboard.id;
 
-		const row = this.masterEl.createDiv({ cls: "ft-master-item" });
+		const row = this.masterEl.createDiv({ cls: "ft-master-item ft-dash-master-row" });
 		if (isSelected) row.addClass("ft-active");
-		row.style.cursor = "pointer";
-		row.style.display = "flex";
-		row.style.alignItems = "center";
-		row.style.justifyContent = "space-between";
 
-		const left = row.createDiv();
-		left.style.display = "flex";
-		left.style.alignItems = "center";
-		left.style.gap = "0.5rem";
-		left.style.flex = "1";
-		left.style.minWidth = "0";
+		const left = row.createDiv({ cls: "ft-dash-master-left" });
 
 		// Star toggle
-		const starBtn = left.createSpan({ cls: "ft-nav-link" });
-		starBtn.style.flexShrink = "0";
-		starBtn.style.cursor = "pointer";
+		const starBtn = left.createSpan({ cls: "ft-nav-link ft-flex-shrink-0 ft-cursor-pointer" });
 		const starIcon = starBtn.createSpan();
 		setIcon(starIcon, "star");
-		starIcon.style.width = "14px";
-		starIcon.style.height = "14px";
+		starIcon.addClass("ft-icon-14");
 		if (!dashboard.isFavorite) {
-			starBtn.style.opacity = "0.3";
+			starBtn.addClass("ft-icon-ghost");
 		}
 		starBtn.setAttribute("aria-label", dashboard.isFavorite ? "Unfavorite" : "Favorite");
 		starBtn.addEventListener("click", (e) => {
@@ -160,38 +145,27 @@ export class DashboardsTab {
 
 		const iconEl = left.createSpan();
 		setIcon(iconEl, "layout-grid");
-		iconEl.style.width = "14px";
-		iconEl.style.height = "14px";
-		iconEl.style.flexShrink = "0";
+		iconEl.addClass("ft-icon-14");
+		iconEl.addClass("ft-flex-shrink-0");
 
-		const nameEl = left.createSpan({ text: dashboard.name, cls: "ft-text-sm" });
-		nameEl.style.overflow = "hidden";
-		nameEl.style.textOverflow = "ellipsis";
-		nameEl.style.whiteSpace = "nowrap";
+		left.createSpan({ text: dashboard.name, cls: "ft-text-sm ft-truncate" });
 
-		const tileCount = left.createSpan({
+		left.createSpan({
 			text: `${dashboard.tiles.length}`,
-			cls: "ft-badge ft-text-xs",
+			cls: "ft-badge ft-text-xs ft-flex-shrink-0",
 		});
-		tileCount.style.flexShrink = "0";
 
 		// Default badge
 		const defaultDashboard = this.deps.analyticsService.getDefaultDashboard();
 		if (defaultDashboard?.id === dashboard.id) {
-			const defaultBadge = left.createSpan({ text: "Default", cls: "ft-badge ft-text-xs" });
-			defaultBadge.style.flexShrink = "0";
-			defaultBadge.style.background = "var(--interactive-accent)";
-			defaultBadge.style.color = "var(--text-on-accent)";
+			left.createSpan({ text: "Default", cls: "ft-badge ft-text-xs ft-badge-default" });
 		}
 
 		// Delete button
-		const deleteBtn = row.createSpan({ cls: "ft-nav-link ft-text-muted" });
-		deleteBtn.style.flexShrink = "0";
+		const deleteBtn = row.createSpan({ cls: "ft-nav-link ft-text-muted ft-flex-shrink-0 ft-cursor-pointer" });
 		const deleteIcon = deleteBtn.createSpan();
 		setIcon(deleteIcon, "trash-2");
-		deleteIcon.style.width = "14px";
-		deleteIcon.style.height = "14px";
-		deleteBtn.style.cursor = "pointer";
+		deleteIcon.addClass("ft-icon-14");
 		deleteBtn.addEventListener("click", (e) => {
 			e.stopPropagation();
 			void this.deleteDashboard(dashboard);
@@ -230,14 +204,10 @@ export class DashboardsTab {
 
 	private renderEmptyDetail(): void {
 		this.clearFileWatcher();
-		const empty = this.detailEl.createDiv({ cls: "ft-empty-detail" });
-		empty.style.textAlign = "center";
-		empty.style.padding = "3rem 1.5rem";
+		const empty = this.detailEl.createDiv({ cls: "ft-empty-detail ft-empty-detail-pad" });
 		const iconEl = empty.createDiv();
 		setIcon(iconEl, "layout-grid");
-		iconEl.style.fontSize = "2rem";
-		iconEl.style.opacity = "0.5";
-		iconEl.style.marginBottom = "0.5rem";
+		iconEl.addClass("ft-empty-icon-lg");
 		empty.createDiv({ text: "Select a dashboard", cls: "ft-text-muted" });
 		empty.createDiv({
 			text: "Pick a dashboard from the list, or create a new one",
@@ -257,23 +227,13 @@ export class DashboardsTab {
 		}).render();
 
 		// Header row
-		const header = this.detailEl.createDiv({ cls: "ft-detail-header" });
-		header.style.display = "flex";
-		header.style.alignItems = "center";
-		header.style.justifyContent = "space-between";
-		header.style.marginBottom = "0.5rem";
+		const header = this.detailEl.createDiv({ cls: "ft-detail-header ft-detail-header-flex" });
 
-		const titleLeft = header.createDiv();
-		titleLeft.style.display = "flex";
-		titleLeft.style.alignItems = "center";
-		titleLeft.style.gap = "0.5rem";
-		titleLeft.style.flex = "1";
-		titleLeft.style.minWidth = "0";
+		const titleLeft = header.createDiv({ cls: "ft-detail-title-left" });
 
 		// Editable name
-		const titleInput = titleLeft.createEl("input", { type: "text" });
+		const titleInput = titleLeft.createEl("input", { type: "text", cls: "ft-title-input" });
 		titleInput.value = dashboard.name;
-		titleInput.style.cssText = "font-weight:600;font-size:var(--font-ui-medium);border:none;background:transparent;color:var(--text-normal);padding:0;flex:1;min-width:0";
 		titleInput.addEventListener("blur", () => {
 			const val = titleInput.value.trim();
 			if (val && val !== dashboard.name) {
@@ -286,10 +246,7 @@ export class DashboardsTab {
 
 		const isDefault = this.deps.analyticsService.getDefaultDashboard()?.id === dashboard.id;
 		if (isDefault) {
-			const badge = titleLeft.createSpan({ text: "Default", cls: "ft-badge ft-text-xs" });
-			badge.style.background = "var(--interactive-accent)";
-			badge.style.color = "var(--text-on-accent)";
-			badge.style.flexShrink = "0";
+			titleLeft.createSpan({ text: "Default", cls: "ft-badge ft-text-xs ft-badge-default" });
 		}
 
 		// Freshness summary
@@ -302,28 +259,17 @@ export class DashboardsTab {
 					: tileTimestamps.some((t) => t !== undefined && getFreshnessLevel(t) === "aging")
 						? "aging"
 						: "fresh";
-				const summaryEl = titleLeft.createSpan({ text: summaryText, cls: "ft-text-xs" });
-				summaryEl.style.cssText = `color:${getFreshnessColor(worstLevel)};font-size:0.65rem;opacity:0.8;flex-shrink:0`;
+				const summaryEl = titleLeft.createSpan({ text: summaryText, cls: "ft-text-xs ft-freshness-summary" });
+				summaryEl.style.color = getFreshnessColor(worstLevel);
 			}
 		}
 
-		const headerActions = header.createDiv();
-		headerActions.style.display = "flex";
-		headerActions.style.alignItems = "center";
-		headerActions.style.gap = "0.5rem";
-		headerActions.style.flexShrink = "0";
+		const headerActions = header.createDiv({ cls: "ft-header-actions" });
 
 		if (!isDefault) {
-			const setDefaultBtn = headerActions.createEl("button", { cls: "ft-text-sm" });
-			setDefaultBtn.style.display = "flex";
-			setDefaultBtn.style.alignItems = "center";
-			setDefaultBtn.style.gap = "0.25rem";
-			const defIcon = setDefaultBtn.createSpan();
-			defIcon.style.display = "inline-flex";
-			defIcon.style.alignItems = "center";
+			const setDefaultBtn = headerActions.createEl("button", { cls: "ft-text-sm ft-action-btn" });
+			const defIcon = setDefaultBtn.createSpan({ cls: "ft-action-btn-icon" });
 			setIcon(defIcon, "star");
-			const defSvg = defIcon.querySelector("svg");
-			if (defSvg) { defSvg.style.width = "14px"; defSvg.style.height = "14px"; }
 			setDefaultBtn.createSpan({ text: "Set as Default" });
 			setDefaultBtn.addEventListener("click", () => {
 				void this.deps.analyticsService.setDefaultDashboard(dashboard.id);
@@ -332,16 +278,9 @@ export class DashboardsTab {
 
 		// Refresh All
 		if (dashboard.tiles.length > 0) {
-			const refreshAllBtn = headerActions.createEl("button", { cls: "ft-text-sm" });
-			refreshAllBtn.style.display = "flex";
-			refreshAllBtn.style.alignItems = "center";
-			refreshAllBtn.style.gap = "0.25rem";
-			const rIcon = refreshAllBtn.createSpan();
-			rIcon.style.display = "inline-flex";
-			rIcon.style.alignItems = "center";
+			const refreshAllBtn = headerActions.createEl("button", { cls: "ft-text-sm ft-action-btn" });
+			const rIcon = refreshAllBtn.createSpan({ cls: "ft-action-btn-icon" });
 			setIcon(rIcon, "refresh-cw");
-			const rSvg = rIcon.querySelector("svg");
-			if (rSvg) { rSvg.style.width = "14px"; rSvg.style.height = "14px"; }
 			refreshAllBtn.createSpan({ text: "Refresh All" });
 			refreshAllBtn.addEventListener("click", () => {
 				this.deps.tileResultCache.clear();
@@ -351,48 +290,27 @@ export class DashboardsTab {
 
 		// Export Summary
 		if (dashboard.tiles.length > 0) {
-			const exportBtn = headerActions.createEl("button", { cls: "ft-text-sm" });
-			exportBtn.style.display = "flex";
-			exportBtn.style.alignItems = "center";
-			exportBtn.style.gap = "0.25rem";
-			const eIcon = exportBtn.createSpan();
-			eIcon.style.display = "inline-flex";
-			eIcon.style.alignItems = "center";
+			const exportBtn = headerActions.createEl("button", { cls: "ft-text-sm ft-action-btn" });
+			const eIcon = exportBtn.createSpan({ cls: "ft-action-btn-icon" });
 			setIcon(eIcon, "clipboard-copy");
-			const eSvg = eIcon.querySelector("svg");
-			if (eSvg) { eSvg.style.width = "14px"; eSvg.style.height = "14px"; }
 			exportBtn.createSpan({ text: "Export" });
 			exportBtn.addEventListener("click", () => {
 				void this.exportDashboardSummary(dashboard);
 			});
 
 			// Export Template JSON to vault folder
-			const templateBtn = headerActions.createEl("button", { cls: "ft-text-sm" });
-			templateBtn.style.display = "flex";
-			templateBtn.style.alignItems = "center";
-			templateBtn.style.gap = "0.25rem";
-			const tIcon = templateBtn.createSpan();
-			tIcon.style.display = "inline-flex";
-			tIcon.style.alignItems = "center";
+			const templateBtn = headerActions.createEl("button", { cls: "ft-text-sm ft-action-btn" });
+			const tIcon = templateBtn.createSpan({ cls: "ft-action-btn-icon" });
 			setIcon(tIcon, "file-json");
-			const tSvg = tIcon.querySelector("svg");
-			if (tSvg) { tSvg.style.width = "14px"; tSvg.style.height = "14px"; }
 			templateBtn.createSpan({ text: "Save Template" });
 			templateBtn.addEventListener("click", () => {
 				void this.exportDashboardTemplate(dashboard);
 			});
 		}
 
-		const addTileBtn = headerActions.createEl("button", { cls: "ft-text-sm" });
-		addTileBtn.style.display = "flex";
-		addTileBtn.style.alignItems = "center";
-		addTileBtn.style.gap = "0.25rem";
-		const btnIcon = addTileBtn.createSpan();
-		btnIcon.style.display = "inline-flex";
-		btnIcon.style.alignItems = "center";
+		const addTileBtn = headerActions.createEl("button", { cls: "ft-text-sm ft-action-btn" });
+		const btnIcon = addTileBtn.createSpan({ cls: "ft-action-btn-icon" });
 		setIcon(btnIcon, "plus");
-		const btnSvg = btnIcon.querySelector("svg");
-		if (btnSvg) { btnSvg.style.width = "14px"; btnSvg.style.height = "14px"; }
 		addTileBtn.createSpan({ text: "Add Tile" });
 		addTileBtn.addEventListener("click", () => {
 			this.addTileDialogVisible = !this.addTileDialogVisible;
@@ -401,10 +319,9 @@ export class DashboardsTab {
 
 		// Editable description
 		const descRow = this.detailEl.createDiv({ cls: "ft-mb-1" });
-		const descInput = descRow.createEl("input", { type: "text" });
+		const descInput = descRow.createEl("input", { type: "text", cls: "ft-desc-input" });
 		descInput.value = dashboard.description ?? "";
 		descInput.placeholder = "Add a description...";
-		descInput.style.cssText = "width:100%;border:none;background:transparent;color:var(--text-muted);font-size:var(--font-ui-small);padding:0.25rem 0";
 		descInput.addEventListener("blur", () => {
 			const val = descInput.value.trim();
 			if (val !== (dashboard.description ?? "")) {
@@ -448,13 +365,11 @@ export class DashboardsTab {
 
 		// Tile grid
 		if (dashboard.tiles.length === 0 && !this.addTileDialogVisible) {
-			const empty = this.detailEl.createDiv({ cls: "ft-text-muted ft-text-sm" });
-			empty.style.textAlign = "center";
-			empty.style.padding = "2rem 1rem";
+			const empty = this.detailEl.createDiv({ cls: "ft-text-muted ft-text-sm ft-empty-tile-pad" });
 			const emptyIcon = empty.createDiv();
 			setIcon(emptyIcon, "grid-3x3");
-			emptyIcon.style.opacity = "0.4";
-			emptyIcon.style.marginBottom = "0.5rem";
+			emptyIcon.addClass("ft-icon-dim");
+			emptyIcon.addClass("ft-mb-2");
 			empty.createDiv({ text: "No tiles yet" });
 			empty.createDiv({
 				text: "Click \"Add Tile\" to pin a saved query to this dashboard",
@@ -463,11 +378,7 @@ export class DashboardsTab {
 			return;
 		}
 
-		const grid = this.detailEl.createDiv({ cls: "ft-dashboard-grid" });
-		grid.style.display = "grid";
-		grid.style.gridTemplateColumns = "repeat(6, 1fr)";
-		grid.style.gridAutoRows = "auto";
-		grid.style.gap = "1rem";
+		const grid = this.detailEl.createDiv({ cls: "ft-dashboard-grid ft-tile-grid" });
 
 		const state = this.deps.getState();
 
@@ -482,7 +393,7 @@ export class DashboardsTab {
 			const query = state.queries.find((q) => q.id === effectiveQueryId);
 			const tileHost = grid.createDiv();
 			tileHost.style.gridColumn = `span ${Math.min(tile.width, 6)}`;
-			tileHost.style.minWidth = "0";
+			tileHost.addClass("ft-min-w-0");
 			const isAutoHeight = tile.autoHeight && tile.width >= 3;
 			const rowSpan = Math.min(tile.height, 6);
 			tileHost.style.gridRow = isAutoHeight ? "auto" : `span ${rowSpan}`;

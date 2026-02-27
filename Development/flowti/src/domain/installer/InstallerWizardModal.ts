@@ -125,8 +125,7 @@ export class InstallerWizardModal extends Modal {
 	private renderStepIndicator(container: HTMLElement): void {
 		const currentIndex = WIZARD_STEPS.findIndex((s) => s.page === this.currentPage);
 
-		const bar = container.createDiv({ cls: "ft-wizard-steps" });
-		bar.style.cssText = "display:flex;align-items:center;gap:0;margin-bottom:1rem;padding-bottom:0.75rem;border-bottom:1px solid var(--background-modifier-border)";
+		const bar = container.createDiv({ cls: "ft-wizard-steps ft-wizard-steps-bar" });
 
 		for (let i = 0; i < WIZARD_STEPS.length; i++) {
 			const step = WIZARD_STEPS[i];
@@ -135,34 +134,17 @@ export class InstallerWizardModal extends Modal {
 
 			// Connector line (before every step except the first)
 			if (i > 0) {
-				const line = bar.createSpan({ cls: "ft-wizard-line" });
-				line.style.cssText = `flex:1;height:2px;background:${isCompleted || isActive ? "var(--interactive-accent)" : "var(--background-modifier-border)"}`;
+				bar.createSpan({ cls: `ft-wizard-line ${isCompleted || isActive ? "ft-wizard-line-active" : "ft-wizard-line-inactive"}` });
 			}
 
 			// Step circle + label wrapper
-			const stepEl = bar.createDiv({ cls: "ft-wizard-step" });
-			stepEl.style.cssText = "display:flex;flex-direction:column;align-items:center;gap:0.25rem";
+			const stepEl = bar.createDiv({ cls: "ft-wizard-step ft-wizard-step-layout" });
 
-			const circle = stepEl.createDiv({ cls: "ft-wizard-circle" });
-			circle.style.cssText = `width:1.5rem;height:1.5rem;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:600;flex-shrink:0`;
+			const circleCls = isCompleted ? "ft-wizard-circle-completed" : isActive ? "ft-wizard-circle-active" : "ft-wizard-circle-pending";
+			const circle = stepEl.createDiv({ cls: `ft-wizard-circle ft-wizard-circle-base ${circleCls}` });
+			circle.textContent = isCompleted ? "\u2713" : String(i + 1);
 
-			if (isCompleted) {
-				circle.style.background = "var(--interactive-accent)";
-				circle.style.color = "var(--text-on-accent)";
-				circle.textContent = "\u2713";
-			} else if (isActive) {
-				circle.style.background = "var(--interactive-accent)";
-				circle.style.color = "var(--text-on-accent)";
-				circle.textContent = String(i + 1);
-			} else {
-				circle.style.border = "2px solid var(--background-modifier-border)";
-				circle.style.color = "var(--text-muted)";
-				circle.textContent = String(i + 1);
-			}
-
-			const label = stepEl.createSpan({ text: step.label, cls: "ft-text-xs" });
-			label.style.color = isActive ? "var(--text-normal)" : "var(--text-muted)";
-			if (isActive) label.style.fontWeight = "600";
+			stepEl.createSpan({ text: step.label, cls: `ft-text-xs ${isActive ? "ft-wizard-step-label-active" : "ft-wizard-step-label-inactive"}` });
 		}
 	}
 
@@ -173,13 +155,9 @@ export class InstallerWizardModal extends Modal {
 	/** Render a compact, uniform card header: 14px icon + small bold label. */
 	private renderCardHeader(parent: HTMLElement, iconName: string, label: string): void {
 		const header = parent.createDiv({ cls: "ft-flex ft-gap-2 ft-items-center ft-mb-1 ft-card-header" });
-		const iconEl = header.createSpan({ cls: "ft-icon-muted" });
-		iconEl.style.cssText = "display:flex;flex-shrink:0;line-height:1";
+		const iconEl = header.createSpan({ cls: "ft-icon-muted ft-icon-inline ft-icon-14" });
 		setIcon(iconEl, iconName);
-		const svg = iconEl.querySelector("svg");
-		if (svg) { svg.style.width = "14px"; svg.style.height = "14px"; }
-		const labelEl = header.createSpan({ text: label });
-		labelEl.style.cssText = "font-weight:600;font-size:var(--font-ui-small)";
+		header.createSpan({ text: label, cls: "ft-label-semibold" });
 	}
 
 	private renderFolderSection(card: HTMLElement): void {
@@ -188,8 +166,7 @@ export class InstallerWizardModal extends Modal {
 
 		this.renderCardHeader(card, "folder", `Folder Structure (${allFolders.length} folders)`);
 
-		const folderList = card.createDiv({ cls: "ft-list ft-folder-list" });
-		folderList.style.cssText = "font-size:var(--font-ui-smaller);cursor:default";
+		const folderList = card.createDiv({ cls: "ft-list ft-folder-list ft-folder-list-font" });
 
 		for (const parent of topLevel) {
 			const children = allFolders.filter(
@@ -200,35 +177,29 @@ export class InstallerWizardModal extends Modal {
 
 			if (children.length > 0) {
 				// Expandable parent
-				const toggle = row.createDiv({ cls: "ft-list-item ft-flex ft-gap-2 ft-items-center" });
-				toggle.style.cssText = "cursor:pointer;padding:0.15rem 0";
+				const toggle = row.createDiv({ cls: "ft-list-item ft-flex ft-gap-2 ft-items-center ft-folder-toggle" });
 
-				const arrow = toggle.createSpan({ text: "\u25B8", cls: "ft-folder-arrow" });
-				arrow.style.cssText = "width:0.8em;text-align:center;font-size:0.65rem";
+				const arrow = toggle.createSpan({ text: "\u25B8", cls: "ft-folder-arrow ft-folder-arrow-el" });
 				toggle.createSpan({ text: parent.path });
 
-				const badge = toggle.createSpan({ text: String(children.length), cls: "ft-badge ft-badge-muted ft-text-xs" });
-				badge.style.cssText = "margin-left:auto;padding:0 0.3rem;border-radius:4px;background:var(--background-modifier-border);font-size:0.65rem";
+				toggle.createSpan({ text: String(children.length), cls: "ft-badge ft-badge-muted ft-text-xs ft-folder-count-badge" });
 
-				const childList = row.createDiv({ cls: "ft-folder-children" });
-				childList.style.cssText = "display:none;padding-left:1.25rem";
+				const childList = row.createDiv({ cls: "ft-folder-children ft-folder-children-hidden" });
 
 				for (const child of children) {
 					const childName = child.path.slice(parent.path.length + 1);
-					const childItem = childList.createDiv({ cls: "ft-list-item" });
-					childItem.style.cssText = "padding:0.1rem 0;color:var(--text-muted)";
+					const childItem = childList.createDiv({ cls: "ft-list-item ft-folder-child-item" });
 					childItem.textContent = childName;
 				}
 
 				toggle.addEventListener("click", () => {
-					const isOpen = childList.style.display !== "none";
-					childList.style.display = isOpen ? "none" : "block";
+					const isOpen = !childList.classList.contains("ft-folder-children-hidden");
+					childList.classList.toggle("ft-folder-children-hidden", isOpen);
 					arrow.textContent = isOpen ? "\u25B8" : "\u25BE";
 				});
 			} else {
 				// Leaf folder (no children)
-				const item = row.createDiv({ cls: "ft-list-item" });
-				item.style.cssText = "padding:0.15rem 0";
+				const item = row.createDiv({ cls: "ft-list-item ft-folder-leaf-item" });
 				item.textContent = parent.path;
 			}
 		}
@@ -243,12 +214,9 @@ export class InstallerWizardModal extends Modal {
 		this.renderStepIndicator(container);
 
 		// Hero icon
-		const heroIcon = container.createDiv({ cls: "ft-wizard-hero-icon" });
-		heroIcon.style.cssText = "text-align:center;margin-bottom:0.25rem";
-		const iconEl = heroIcon.createSpan();
+		const heroIcon = container.createDiv({ cls: "ft-wizard-hero-icon ft-hero-center" });
+		const iconEl = heroIcon.createSpan({ cls: "ft-hero-icon-lg" });
 		setIcon(iconEl, "sparkles");
-		const svg = iconEl.querySelector("svg");
-		if (svg) { svg.style.width = "2.5rem"; svg.style.height = "2.5rem"; svg.style.opacity = "0.5"; }
 
 		container.createEl("h2", {
 			text: "Welcome to Flowti IBDE",
@@ -297,35 +265,28 @@ export class InstallerWizardModal extends Modal {
 			});
 
 			if (!option.disabled) {
-				card.style.cssText = `cursor:pointer;border:${isSelected ? "2px solid var(--interactive-accent)" : "1px solid var(--background-modifier-border)"}`;
+				card.addClass("ft-role-card-enabled");
+				card.addClass(isSelected ? "ft-role-card-selected-border" : "ft-role-card-unselected-border");
 				card.addEventListener("click", () => {
 					this.selectedRole = option.id;
 					this.renderPage();
 				});
 			} else {
-				card.style.cssText = "opacity:0.5;cursor:not-allowed;border:1px solid var(--background-modifier-border)";
+				card.addClass("ft-role-card-disabled");
 			}
 
 			const row = card.createDiv({ cls: "ft-flex ft-gap-2 ft-items-center" });
 
 			// Role icon
-			const roleIconEl = row.createSpan({ cls: "ft-role-icon" });
-			roleIconEl.style.cssText = "display:flex;flex-shrink:0";
+			const roleIconEl = row.createSpan({ cls: `ft-role-icon ft-role-icon-inline ft-role-icon-18${isSelected ? " ft-role-icon-accent" : ""}` });
 			setIcon(roleIconEl, option.icon);
-			const roleSvg = roleIconEl.querySelector("svg");
-			if (roleSvg) {
-				roleSvg.style.width = "18px";
-				roleSvg.style.height = "18px";
-				if (isSelected) roleSvg.style.color = "var(--interactive-accent)";
-			}
 
 			const textCol = row.createDiv({ cls: "ft-flex ft-flex-col" });
 			const titleRow = textCol.createDiv({ cls: "ft-flex ft-gap-2 ft-items-center" });
 			titleRow.createSpan({ text: option.label, cls: "ft-font-medium" });
 
 			if (option.badge) {
-				const badge = titleRow.createSpan({ text: option.badge, cls: "ft-text-xs ft-text-muted" });
-				badge.style.cssText = "padding:0 0.3rem;border-radius:4px;background:var(--background-modifier-border)";
+				titleRow.createSpan({ text: option.badge, cls: "ft-text-xs ft-text-muted ft-role-badge-pill" });
 			}
 
 			textCol.createSpan({ text: option.description, cls: "ft-text-muted ft-text-xs" });
@@ -362,13 +323,10 @@ export class InstallerWizardModal extends Modal {
 
 		const roleLabel = ROLE_OPTIONS.find((r) => r.id === this.selectedRole)?.label ?? "User";
 		const identityRow = container.createDiv({ cls: "ft-flex ft-gap-2 ft-items-center ft-review-identity" });
-		const userIcon = identityRow.createSpan({ cls: "ft-icon-muted" });
+		const userIcon = identityRow.createSpan({ cls: "ft-icon-muted ft-icon-14" });
 		setIcon(userIcon, "user");
-		const userSvg = userIcon.querySelector("svg");
-		if (userSvg) { userSvg.style.width = "14px"; userSvg.style.height = "14px"; }
 		identityRow.createSpan({ text: this.userName.trim(), cls: "ft-font-medium" });
-		const roleBadge = identityRow.createSpan({ text: roleLabel, cls: "ft-text-xs ft-role-badge" });
-		roleBadge.style.cssText = "padding:0.1rem 0.5rem;border-radius:4px;background:var(--background-modifier-border);color:var(--text-muted)";
+		identityRow.createSpan({ text: roleLabel, cls: "ft-text-xs ft-role-badge ft-review-role-badge" });
 
 		// ── Preferences ──────────────────────────────────
 		new Setting(container)
@@ -386,30 +344,25 @@ export class InstallerWizardModal extends Modal {
 		this.renderFolderSection(folderCard);
 
 		// ── Section 2: Sample Content ─────────────────────
-		const contentCard = container.createDiv({ cls: "ft-card ft-p-2" });
-		contentCard.style.textAlign = "left";
+		const contentCard = container.createDiv({ cls: "ft-card ft-p-2 ft-text-left" });
 		this.renderCardHeader(contentCard, "file-text", "Sample Content");
 
 		if (this.includeSampleContent) {
-			const contentList = contentCard.createDiv({ cls: "ft-list" });
-			contentList.style.cssText = "font-size:var(--font-ui-smaller);cursor:default";
+			const contentList = contentCard.createDiv({ cls: "ft-list ft-folder-list-font" });
 
 			// CSV file
-			const csvItem = contentList.createDiv({ cls: "ft-list-item" });
-			csvItem.style.cssText = "padding:0.15rem 0";
+			const csvItem = contentList.createDiv({ cls: "ft-list-item ft-list-item-compact" });
 			csvItem.createSpan({ text: "Supplier overview CSV" });
 			csvItem.createSpan({ text: " \u2014 48 rows, 10 columns", cls: "ft-text-faint" });
 
 			// Welcome note
-			const noteItem = contentList.createDiv({ cls: "ft-list-item" });
-			noteItem.style.cssText = "padding:0.15rem 0";
+			const noteItem = contentList.createDiv({ cls: "ft-list-item ft-list-item-compact" });
 			noteItem.textContent = "Welcome note";
 
 			// Session templates (supplier-manager only)
 			if (this.selectedRole === "supplier-manager") {
 				for (const label of ["Supplier Review", "Monthly KPI Review", "Procurement Planning"]) {
-					const tmplItem = contentList.createDiv({ cls: "ft-list-item" });
-					tmplItem.style.cssText = "padding:0.15rem 0";
+					const tmplItem = contentList.createDiv({ cls: "ft-list-item ft-list-item-compact" });
 					tmplItem.textContent = label;
 				}
 			}
@@ -422,12 +375,10 @@ export class InstallerWizardModal extends Modal {
 
 		// ── Section 3: Pre-Built Dashboard ────────────────
 		if (this.includeSampleContent) {
-			const dashCard = container.createDiv({ cls: "ft-card ft-p-2" });
-			dashCard.style.textAlign = "left";
+			const dashCard = container.createDiv({ cls: "ft-card ft-p-2 ft-text-left" });
 			this.renderCardHeader(dashCard, "bar-chart-big", "Pre-Built Dashboard");
 
-			const dashBody = dashCard.createDiv({ cls: "ft-list" });
-			dashBody.style.cssText = "font-size:var(--font-ui-smaller);cursor:default";
+			const dashBody = dashCard.createDiv({ cls: "ft-list ft-folder-list-font" });
 
 			// Tiles
 			const tiles = [
@@ -438,21 +389,17 @@ export class InstallerWizardModal extends Modal {
 				{ type: "table", name: "Supplier Breakdown" },
 			];
 			for (const tile of tiles) {
-				const row = dashBody.createDiv({ cls: "ft-list-item ft-flex ft-gap-2 ft-items-center" });
-				row.style.cssText = "padding:0.15rem 0";
+				const row = dashBody.createDiv({ cls: "ft-list-item ft-flex ft-gap-2 ft-items-center ft-list-item-compact" });
 				row.createSpan({ text: tile.name });
-				const typeBadge = row.createSpan({ text: tile.type, cls: "ft-text-faint" });
-				typeBadge.style.cssText = "margin-left:auto;padding:0 0.3rem;border-radius:4px;background:var(--background-modifier-border);font-size:0.65rem";
+				row.createSpan({ text: tile.type, cls: "ft-text-faint ft-tile-type-badge" });
 			}
 
 			// Queries
-			const querySep = dashBody.createDiv();
-			querySep.style.cssText = "margin-top:0.25rem;padding-top:0.25rem;border-top:1px solid var(--background-modifier-border)";
+			const querySep = dashBody.createDiv({ cls: "ft-query-separator" });
 			querySep.createSpan({ text: "2 queries", cls: "ft-text-faint" });
 			const queryList = dashBody.createDiv();
 			for (const qName of ["Supplier Overview - By Supplier", "Supplier Trend - Monthly Spend"]) {
-				const qItem = queryList.createDiv({ cls: "ft-list-item" });
-				qItem.style.cssText = "padding:0.1rem 0;color:var(--text-muted)";
+				const qItem = queryList.createDiv({ cls: "ft-list-item ft-list-item-tight" });
 				qItem.textContent = qName;
 			}
 		}
@@ -594,19 +541,15 @@ export class InstallerWizardModal extends Modal {
 		this.renderStepIndicator(container);
 
 		if (this.installSuccess) {
-			const heading = container.createEl("h2", {
+			container.createEl("h2", {
 				text: "Setup complete",
-				cls: "ft-heading ft-heading-lg",
+				cls: "ft-heading ft-heading-lg ft-text-center",
 			});
-			heading.style.textAlign = "center";
 
 			// Hero icon
-			const heroDiv = container.createDiv({ cls: "ft-complete-hero" });
-			heroDiv.style.cssText = "text-align:center;margin-bottom:0.25rem";
-			const heroIconEl = heroDiv.createSpan();
+			const heroDiv = container.createDiv({ cls: "ft-complete-hero ft-hero-center" });
+			const heroIconEl = heroDiv.createSpan({ cls: "ft-hero-icon-accent" });
 			setIcon(heroIconEl, "circle-check-big");
-			const heroSvg = heroIconEl.querySelector("svg");
-			if (heroSvg) { heroSvg.style.width = "2.5rem"; heroSvg.style.height = "2.5rem"; heroSvg.style.color = "var(--interactive-accent)"; }
 
 			const alert = container.createDiv({ cls: "ft-alert ft-alert-success ft-p-3" });
 			alert.createEl("p", {
@@ -621,10 +564,8 @@ export class InstallerWizardModal extends Modal {
 			const list = summary.createDiv({ cls: "ft-flex ft-flex-col ft-gap-1" });
 			for (const entry of this.stepStatuses) {
 				const row = list.createDiv({ cls: "ft-flex ft-gap-2 ft-items-center" });
-				const statusIcon = row.createSpan({ cls: "ft-step-status-icon" });
+				const statusIcon = row.createSpan({ cls: "ft-step-status-icon ft-icon-14" });
 				setIcon(statusIcon, entry.status === "skipped" ? "minus" : "check");
-				const statusSvg = statusIcon.querySelector("svg");
-				if (statusSvg) { statusSvg.style.width = "14px"; statusSvg.style.height = "14px"; }
 				const label = entry.status === "skipped" ? `${entry.name} (skipped)` : entry.name;
 				row.createSpan({ text: label, cls: "ft-text-muted" });
 			}
@@ -632,22 +573,17 @@ export class InstallerWizardModal extends Modal {
 			// Next steps guidance — adapts to selected role
 			this.renderNextStepsGuidance(container);
 		} else {
-			const heading = container.createEl("h2", {
+			container.createEl("h2", {
 				text: "Setup failed",
-				cls: "ft-heading ft-heading-lg",
+				cls: "ft-heading ft-heading-lg ft-text-center",
 			});
-			heading.style.textAlign = "center";
 
 			// Error hero icon
-			const heroDiv = container.createDiv({ cls: "ft-complete-hero" });
-			heroDiv.style.cssText = "text-align:center;margin-bottom:0.25rem";
-			const heroIconEl = heroDiv.createSpan();
+			const heroDiv = container.createDiv({ cls: "ft-complete-hero ft-hero-center" });
+			const heroIconEl = heroDiv.createSpan({ cls: "ft-hero-icon-error" });
 			setIcon(heroIconEl, "alert-triangle");
-			const heroSvg = heroIconEl.querySelector("svg");
-			if (heroSvg) { heroSvg.style.width = "2.5rem"; heroSvg.style.height = "2.5rem"; heroSvg.style.color = "var(--text-error)"; }
 
-			const alert = container.createDiv({ cls: "ft-alert ft-alert-error ft-p-3" });
-			alert.style.borderLeft = "4px solid var(--text-error)";
+			const alert = container.createDiv({ cls: "ft-alert ft-alert-error ft-p-3 ft-alert-error-bar" });
 			alert.createEl("p", { text: this.installError });
 		}
 
@@ -724,10 +660,8 @@ export class InstallerWizardModal extends Modal {
 
 		for (const tip of tips) {
 			const row = nextList.createDiv({ cls: "ft-flex ft-gap-2 ft-items-center" });
-			const tipIcon = row.createSpan({ cls: "ft-tip-icon" });
+			const tipIcon = row.createSpan({ cls: "ft-tip-icon ft-tip-icon-14" });
 			setIcon(tipIcon, tip.icon);
-			const tipSvg = tipIcon.querySelector("svg");
-			if (tipSvg) { tipSvg.style.width = "14px"; tipSvg.style.height = "14px"; tipSvg.style.flexShrink = "0"; }
 			row.createSpan({ text: tip.text, cls: "ft-text-muted ft-text-sm" });
 		}
 	}

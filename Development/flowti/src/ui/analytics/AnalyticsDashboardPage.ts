@@ -50,9 +50,7 @@ export class AnalyticsDashboardPage {
 	// ── Navigation links ─────────────────────────────────────
 
 	private renderNavLinks(): void {
-		const nav = this.containerEl.createDiv({ cls: "ft-flex ft-gap-2 ft-mb-2" });
-		nav.style.flexWrap = "wrap";
-		nav.style.alignItems = "center";
+		const nav = this.containerEl.createDiv({ cls: "ft-flex ft-gap-2 ft-mb-2 ft-nav-bar" });
 
 		// Home icon — return to default dashboard
 		const state = this.deps.getState();
@@ -61,7 +59,7 @@ export class AnalyticsDashboardPage {
 		setIcon(homeIcon, "home");
 		homeLink.appendText(" Home");
 		if (!state.homepageDashboardId) {
-			homeLink.style.color = "var(--text-accent)";
+			homeLink.addClass("ft-text-accent");
 		}
 		homeLink.addEventListener("click", () => {
 			this.deps.setState({ homepageDashboardId: null });
@@ -76,7 +74,7 @@ export class AnalyticsDashboardPage {
 			setIcon(icon, "layout-grid");
 			link.appendText(` ${d.name}`);
 			if (state.homepageDashboardId === d.id) {
-				link.style.color = "var(--text-accent)";
+				link.addClass("ft-text-accent");
 			}
 			link.addEventListener("click", () => {
 				this.deps.setState({ homepageDashboardId: d.id });
@@ -86,8 +84,7 @@ export class AnalyticsDashboardPage {
 
 		// Separator when there are favorites
 		if (favDashboards.length > 0) {
-			const sep = nav.createSpan({ cls: "ft-text-muted" });
-			sep.style.cssText = "width:1px;height:14px;background:var(--background-modifier-border);flex-shrink:0";
+			nav.createSpan({ cls: "ft-text-muted ft-nav-separator" });
 		}
 
 		const dashLink = nav.createEl("span", { cls: "ft-nav-link ft-text-sm" });
@@ -138,17 +135,14 @@ export class AnalyticsDashboardPage {
 			void this.deps.onboardingService.updateChecklist({ milestones: ms });
 		}
 
-		const container = this.containerEl.createDiv({ cls: "ft-card ft-p-3 ft-mb-3" });
-		container.style.border = "1px solid var(--background-modifier-border)";
+		const container = this.containerEl.createDiv({ cls: "ft-card ft-p-3 ft-mb-3 ft-onboarding-card" });
 
 		// Header row: title + collapse/dismiss buttons
-		const header = container.createDiv({ cls: "ft-flex ft-justify-between ft-items-center" });
-		header.style.marginBottom = checklist.collapsed ? "0" : "0.5rem";
+		const header = container.createDiv({ cls: `ft-flex ft-justify-between ft-items-center ${checklist.collapsed ? "ft-mb-0" : "ft-mb-05"}` });
 
 		const titleRow = header.createDiv({ cls: "ft-flex ft-gap-2 ft-items-center" });
-		const titleIcon = titleRow.createSpan();
+		const titleIcon = titleRow.createSpan({ cls: "ft-onboarding-icon" });
 		setIcon(titleIcon, "rocket");
-		titleIcon.style.cssText = "display:inline-flex;align-items:center;opacity:0.6";
 		titleRow.createSpan({ text: "Getting Started", cls: "ft-font-medium ft-text-sm" });
 
 		const completedCount = Object.values(ms).filter(Boolean).length;
@@ -197,8 +191,7 @@ export class AnalyticsDashboardPage {
 			});
 			const textEl = row.createSpan({ text: label, cls: "ft-text-sm" });
 			if (done) {
-				textEl.style.textDecoration = "line-through";
-				textEl.style.opacity = "0.6";
+				textEl.addClass("ft-checklist-done");
 			}
 		}
 	}
@@ -237,22 +230,12 @@ export class AnalyticsDashboardPage {
 
 	private renderDefaultDashboard(dashboard: Dashboard): void {
 		// Dashboard title header
-		const header = this.containerEl.createDiv({ cls: "ft-detail-header" });
-		header.style.display = "flex";
-		header.style.alignItems = "center";
-		header.style.justifyContent = "space-between";
-		header.style.marginBottom = "0.75rem";
+		const header = this.containerEl.createDiv({ cls: "ft-detail-header ft-dashboard-page-header" });
 
-		const titleLeft = header.createDiv();
-		titleLeft.style.display = "flex";
-		titleLeft.style.alignItems = "center";
-		titleLeft.style.gap = "0.5rem";
-		titleLeft.style.flex = "1";
-		titleLeft.style.minWidth = "0";
+		const titleLeft = header.createDiv({ cls: "ft-dashboard-title-left" });
 
-		const titleInput = titleLeft.createEl("input", { type: "text" });
+		const titleInput = titleLeft.createEl("input", { type: "text", cls: "ft-dashboard-title-input" });
 		titleInput.value = dashboard.name;
-		titleInput.style.cssText = "font-weight:600;font-size:var(--font-ui-medium);border:none;background:transparent;color:var(--text-normal);padding:0;flex:1;min-width:0";
 		titleInput.addEventListener("blur", () => {
 			const val = titleInput.value.trim();
 			if (val && val !== dashboard.name) {
@@ -267,16 +250,12 @@ export class AnalyticsDashboardPage {
 		const isDefault = defaultDashboard?.id === dashboard.id;
 
 		if (isDefault) {
-			const badge = titleLeft.createSpan({ text: "Default", cls: "ft-badge ft-text-xs" });
-			badge.style.flexShrink = "0";
+			titleLeft.createSpan({ text: "Default", cls: "ft-badge ft-text-xs ft-flex-shrink-0" });
 		} else {
 			// Back link to return to default dashboard
-			const backLink = titleLeft.createEl("span", { cls: "ft-nav-link ft-text-xs" });
-			backLink.style.flexShrink = "0";
-			const backIcon = backLink.createSpan();
+			const backLink = titleLeft.createEl("span", { cls: "ft-nav-link ft-text-xs ft-flex-shrink-0" });
+			const backIcon = backLink.createSpan({ cls: "ft-icon-xs" });
 			setIcon(backIcon, "arrow-left");
-			backIcon.style.width = "12px";
-			backIcon.style.height = "12px";
 			backLink.appendText(" Back");
 			backLink.addEventListener("click", () => {
 				this.deps.setState({ homepageDashboardId: null });
@@ -285,11 +264,7 @@ export class AnalyticsDashboardPage {
 		}
 
 		// Freshness summary + Refresh All
-		const headerRight = header.createDiv();
-		headerRight.style.display = "flex";
-		headerRight.style.alignItems = "center";
-		headerRight.style.gap = "0.5rem";
-		headerRight.style.flexShrink = "0";
+		const headerRight = header.createDiv({ cls: "ft-dashboard-header-right" });
 
 		const tileTimestamps = dashboard.tiles.map((t) => this.deps.tileResultCache.getTimestamp(t.queryId));
 		const summaryText = computeFreshnessSummary(tileTimestamps);
@@ -299,21 +274,14 @@ export class AnalyticsDashboardPage {
 				: tileTimestamps.some((t) => t !== undefined && getFreshnessLevel(t) === "aging")
 					? "aging"
 					: "fresh";
-			const summaryEl = headerRight.createSpan({ text: summaryText, cls: "ft-text-xs" });
-			summaryEl.style.cssText = `color:${getFreshnessColor(worstLevel)};font-size:0.65rem;opacity:0.8`;
+			const summaryEl = headerRight.createSpan({ text: summaryText, cls: "ft-text-xs ft-freshness-summary" });
+			summaryEl.style.color = getFreshnessColor(worstLevel);
 		}
 
 		if (dashboard.tiles.length > 0) {
-			const refreshBtn = headerRight.createEl("button", { cls: "ft-text-xs" });
-			refreshBtn.style.display = "flex";
-			refreshBtn.style.alignItems = "center";
-			refreshBtn.style.gap = "0.25rem";
-			const rIcon = refreshBtn.createSpan();
-			rIcon.style.display = "inline-flex";
-			rIcon.style.alignItems = "center";
+			const refreshBtn = headerRight.createEl("button", { cls: "ft-text-xs ft-refresh-btn" });
+			const rIcon = refreshBtn.createSpan({ cls: "ft-inline-icon ft-icon-xs" });
 			setIcon(rIcon, "refresh-cw");
-			const rSvg = rIcon.querySelector("svg");
-			if (rSvg) { rSvg.style.width = "12px"; rSvg.style.height = "12px"; }
 			refreshBtn.createSpan({ text: "Refresh All" });
 			refreshBtn.addEventListener("click", () => {
 				this.deps.tileResultCache.clear();
@@ -323,19 +291,14 @@ export class AnalyticsDashboardPage {
 
 		// Dashboard description
 		if (dashboard.description) {
-			const descEl = this.containerEl.createDiv({ cls: "ft-text-sm ft-text-muted" });
-			descEl.style.marginBottom = "0.75rem";
+			const descEl = this.containerEl.createDiv({ cls: "ft-text-sm ft-text-muted ft-desc-mb" });
 			descEl.textContent = dashboard.description;
 		}
 
 		if (dashboard.tiles.length === 0) {
-			const empty = this.containerEl.createDiv({ cls: "ft-text-muted ft-text-sm" });
-			empty.style.textAlign = "center";
-			empty.style.padding = "2rem 1rem";
-			const emptyIcon = empty.createDiv();
+			const empty = this.containerEl.createDiv({ cls: "ft-text-muted ft-text-sm ft-empty-tile-state" });
+			const emptyIcon = empty.createDiv({ cls: "ft-empty-tile-icon" });
 			setIcon(emptyIcon, "grid-3x3");
-			emptyIcon.style.opacity = "0.4";
-			emptyIcon.style.marginBottom = "0.5rem";
 			empty.createDiv({ text: "No tiles yet" });
 			empty.createDiv({
 				text: "Go to the Dashboards tab to add tiles to this dashboard",
@@ -348,11 +311,7 @@ export class AnalyticsDashboardPage {
 		this.renderFilterBar(dashboard);
 
 		// Tile grid
-		const grid = this.containerEl.createDiv({ cls: "ft-dashboard-grid" });
-		grid.style.display = "grid";
-		grid.style.gridTemplateColumns = "repeat(6, 1fr)";
-		grid.style.gridAutoRows = "auto";
-		grid.style.gap = "1rem";
+		const grid = this.containerEl.createDiv({ cls: "ft-dashboard-grid ft-tile-grid" });
 
 		const state = this.deps.getState();
 
@@ -529,25 +488,17 @@ export class AnalyticsDashboardPage {
 
 		// Set default prompt
 		if (dashboardCount > 0) {
-			const prompt = this.containerEl.createDiv({ cls: "ft-detail-actions ft-mt-3" });
-			prompt.style.textAlign = "center";
-			prompt.style.padding = "1rem";
-			prompt.style.background = "var(--background-secondary)";
-			prompt.style.borderRadius = "6px";
+			const prompt = this.containerEl.createDiv({ cls: "ft-detail-actions ft-mt-3 ft-fallback-prompt" });
 
-			const iconEl = prompt.createDiv();
+			const iconEl = prompt.createDiv({ cls: "ft-fallback-icon" });
 			setIcon(iconEl, "star");
-			iconEl.style.opacity = "0.5";
-			iconEl.style.marginBottom = "0.5rem";
 
 			prompt.createDiv({
 				text: "Set a default dashboard to see your metrics here on open",
 				cls: "ft-text-sm ft-text-muted",
 			});
 
-			const link = prompt.createEl("span", { cls: "ft-nav-link ft-text-sm ft-mt-1" });
-			link.style.display = "inline-block";
-			link.style.marginTop = "0.5rem";
+			const link = prompt.createEl("span", { cls: "ft-nav-link ft-text-sm ft-mt-1 ft-inline-block ft-mt-05" });
 			const linkIcon = link.createSpan();
 			setIcon(linkIcon, "layout-grid");
 			link.appendText(" Go to Dashboards");
@@ -560,29 +511,23 @@ export class AnalyticsDashboardPage {
 	// ── Empty state (no dashboards, no queries) ─────────────
 
 	private renderEmptyState(): void {
-		const wrapper = this.containerEl.createDiv();
-		wrapper.style.cssText = "text-align:center;padding:2.5rem 1.5rem 1.5rem";
+		const wrapper = this.containerEl.createDiv({ cls: "ft-empty-state-wrapper" });
 
 		// Hero icon
-		const iconEl = wrapper.createDiv();
+		const iconEl = wrapper.createDiv({ cls: "ft-empty-state-icon ft-icon-lg" });
 		setIcon(iconEl, "bar-chart-big");
-		iconEl.style.cssText = "opacity:0.35;margin-bottom:0.75rem";
-		const svg = iconEl.querySelector("svg");
-		if (svg) { svg.style.width = "2.5rem"; svg.style.height = "2.5rem"; }
 
 		// Heading
-		const heading = wrapper.createDiv({ text: "Welcome to the Analytics Hub" });
-		heading.style.cssText = "font-weight:600;font-size:var(--font-ui-medium);margin-bottom:0.35rem";
+		wrapper.createDiv({ text: "Welcome to the Analytics Hub", cls: "ft-empty-state-heading" });
 
 		// Subtitle
 		wrapper.createDiv({
 			text: "Build queries from your vault data, then pin them to dashboards for at-a-glance metrics.",
-			cls: "ft-text-sm ft-text-muted",
-		}).style.marginBottom = "1.5rem";
+			cls: "ft-text-sm ft-text-muted ft-mb-15",
+		});
 
 		// Action cards grid
-		const grid = wrapper.createDiv();
-		grid.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;max-width:440px;margin:0 auto 1.5rem;text-align:left";
+		const grid = wrapper.createDiv({ cls: "ft-action-cards-grid" });
 
 		// Card 1: Build a Query
 		this.renderActionCard(grid, {
@@ -610,11 +555,9 @@ export class AnalyticsDashboardPage {
 		});
 
 		// How it works
-		const howSection = wrapper.createDiv({ cls: "ft-text-muted" });
-		howSection.style.cssText = "display:flex;align-items:center;justify-content:center;gap:0.5rem;flex-wrap:wrap";
+		const howSection = wrapper.createDiv({ cls: "ft-text-muted ft-how-section" });
 
-		const howLabel = howSection.createSpan({ text: "How it works", cls: "ft-text-xs" });
-		howLabel.style.cssText = "font-weight:600;margin-right:0.25rem";
+		howSection.createSpan({ text: "How it works", cls: "ft-text-xs ft-how-label" });
 
 		this.renderStep(howSection, "file-spreadsheet", "Add CSV");
 		howSection.createSpan({ text: "\u2192", cls: "ft-text-xs" });
@@ -627,16 +570,11 @@ export class AnalyticsDashboardPage {
 		container: HTMLElement,
 		opts: { icon: string; title: string; description: string; onClick: () => void },
 	): void {
-		const card = container.createDiv({ cls: "ft-stat-card" });
-		card.style.cssText = "cursor:pointer;padding:1rem;display:flex;flex-direction:column;gap:0.5rem";
+		const card = container.createDiv({ cls: "ft-stat-card ft-action-card" });
 
-		const titleRow = card.createDiv();
-		titleRow.style.cssText = "display:flex;align-items:center;gap:0.4rem;font-weight:600;font-size:var(--font-ui-small)";
-		const iconEl = titleRow.createSpan();
+		const titleRow = card.createDiv({ cls: "ft-action-card-title" });
+		const iconEl = titleRow.createSpan({ cls: "ft-inline-icon ft-icon-sm" });
 		setIcon(iconEl, opts.icon);
-		iconEl.style.cssText = "display:inline-flex;align-items:center";
-		const iconSvg = iconEl.querySelector("svg");
-		if (iconSvg) { iconSvg.style.width = "14px"; iconSvg.style.height = "14px"; }
 		titleRow.createSpan({ text: opts.title });
 
 		card.createDiv({ text: opts.description, cls: "ft-text-xs ft-text-muted" });
@@ -645,13 +583,9 @@ export class AnalyticsDashboardPage {
 	}
 
 	private renderStep(container: HTMLElement, icon: string, label: string): void {
-		const step = container.createSpan({ cls: "ft-text-xs" });
-		step.style.cssText = "display:inline-flex;align-items:center;gap:0.2rem";
-		const iconEl = step.createSpan();
+		const step = container.createSpan({ cls: "ft-text-xs ft-step" });
+		const iconEl = step.createSpan({ cls: "ft-step-icon ft-icon-xs" });
 		setIcon(iconEl, icon);
-		iconEl.style.cssText = "display:inline-flex;align-items:center;opacity:0.6";
-		const iconSvg = iconEl.querySelector("svg");
-		if (iconSvg) { iconSvg.style.width = "12px"; iconSvg.style.height = "12px"; }
 		step.createSpan({ text: label });
 	}
 
@@ -665,27 +599,19 @@ export class AnalyticsDashboardPage {
 		if (favQueries.length === 0 && favMeasurements.length === 0) return;
 
 		// Section container with spacing from dashboard tiles
-		const section = this.containerEl.createDiv();
-		section.style.marginTop = "2.5rem";
-		section.style.paddingTop = "1.5rem";
-		section.style.borderTop = "1px solid var(--background-modifier-border)";
+		const section = this.containerEl.createDiv({ cls: "ft-favorites-section" });
 
 		// Headline
-		const heading = section.createDiv({ cls: "ft-text-sm" });
-		heading.style.fontWeight = "600";
-		heading.style.marginBottom = "0.25rem";
+		const heading = section.createDiv({ cls: "ft-text-sm ft-favorites-heading" });
 		heading.textContent = "Favourite queries";
 
 		// Description
 		section.createDiv({
-			text: "Quick access to your starred queries — click to open in the Queries tab",
-			cls: "ft-text-xs ft-text-muted",
-		}).style.marginBottom = "0.75rem";
+			text: "Quick access to your starred queries \u2014 click to open in the Queries tab",
+			cls: "ft-text-xs ft-text-muted ft-desc-mb",
+		});
 
-		const cardGrid = section.createDiv();
-		cardGrid.style.display = "grid";
-		cardGrid.style.gridTemplateColumns = "repeat(auto-fill, minmax(160px, 1fr))";
-		cardGrid.style.gap = "0.5rem";
+		const cardGrid = section.createDiv({ cls: "ft-favorites-card-grid" });
 
 		for (const q of favQueries) {
 			this.renderFavoriteCard(cardGrid, "search", q.name, q.description, () => {
@@ -705,45 +631,24 @@ export class AnalyticsDashboardPage {
 	}
 
 	private renderFavoriteCard(container: HTMLElement, icon: string, name: string, description: string | undefined, onClick: () => void): void {
-		const card = container.createDiv({ cls: "ft-stat-card" });
-		card.style.cursor = "pointer";
-		card.style.padding = "0.75rem";
-		card.style.display = "flex";
-		card.style.alignItems = "flex-start";
-		card.style.gap = "0.5rem";
+		const card = container.createDiv({ cls: "ft-stat-card ft-favorite-card" });
 
-		const iconEl = card.createSpan();
+		const iconEl = card.createSpan({ cls: "ft-favorite-card-icon" });
 		setIcon(iconEl, icon);
-		iconEl.style.width = "14px";
-		iconEl.style.height = "14px";
-		iconEl.style.flexShrink = "0";
-		iconEl.style.marginTop = "2px";
 
-		const textBlock = card.createDiv();
-		textBlock.style.overflow = "hidden";
-		textBlock.style.flex = "1";
-		textBlock.style.minWidth = "0";
+		const textBlock = card.createDiv({ cls: "ft-favorite-card-text" });
 
-		const nameEl = textBlock.createDiv({ text: name, cls: "ft-text-sm" });
-		nameEl.style.fontWeight = "500";
-		nameEl.style.overflow = "hidden";
-		nameEl.style.textOverflow = "ellipsis";
-		nameEl.style.whiteSpace = "nowrap";
+		textBlock.createDiv({ text: name, cls: "ft-text-sm ft-favorite-card-name" });
 
 		if (description) {
-			const descEl = textBlock.createDiv({ text: description, cls: "ft-text-xs ft-text-muted" });
-			descEl.style.overflow = "hidden";
-			descEl.style.textOverflow = "ellipsis";
-			descEl.style.whiteSpace = "nowrap";
-			descEl.style.marginTop = "0.15rem";
+			textBlock.createDiv({ text: description, cls: "ft-text-xs ft-text-muted ft-favorite-card-desc" });
 		}
 
 		card.addEventListener("click", onClick);
 	}
 
 	private renderStat(container: HTMLElement, icon: string, label: string, value: string, tabId: string): void {
-		const card = container.createDiv({ cls: "ft-stat-card" });
-		card.style.cursor = "pointer";
+		const card = container.createDiv({ cls: "ft-stat-card ft-cursor-pointer" });
 		card.addEventListener("click", () => {
 			this.deps.navigation.navigateTo(tabId as "queries" | "dashboards");
 		});

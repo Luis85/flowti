@@ -47,14 +47,12 @@ export class SessionActivityPanel {
 		const session = this.deps.getSession();
 		const section = this.container.createDiv({ cls: "ft-session-workspace-activity ft-section" });
 
-		const headerRow = section.createDiv();
-		headerRow.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:8px;";
+		const headerRow = section.createDiv({ cls: "ft-panel-label-row ft-mb-sm" });
 		headerRow.createEl("strong", { text: "Activity" });
 		this.countEl = headerRow.createEl("span", {
 			text: `(${session.activity.length})`,
-			cls: "ft-text-muted",
+			cls: "ft-text-muted ft-panel-count",
 		});
-		this.countEl.style.cssText = "color:var(--text-muted);font-size:12px;";
 
 		this.renderActivityFilter(section, session);
 
@@ -68,19 +66,15 @@ export class SessionActivityPanel {
 
 	private renderActivityFilter(parent: HTMLElement, session: Session): void {
 		const filterSection = parent.createDiv({ cls: "ft-activity-filter" });
-		filterSection.style.cssText = "margin-bottom:8px;";
 
 		if (session.activityFilter.length > 0) {
 			const tagList = filterSection.createDiv({ cls: "ft-activity-filter-tags" });
-			tagList.style.cssText = "display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px;";
 
 			for (const folder of session.activityFilter) {
 				const tag = tagList.createDiv({ cls: "ft-activity-filter-tag" });
-				tag.style.cssText = "display:flex;align-items:center;gap:2px;padding:2px 6px;border-radius:3px;font-size:11px;background:var(--background-modifier-hover);color:var(--text-muted);";
 				tag.createSpan({ text: folder });
 
 				const removeBtn = tag.createEl("button", { cls: "ft-activity-filter-remove" });
-				removeBtn.style.cssText = "background:none;border:none;cursor:pointer;padding:0 2px;opacity:0.6;color:var(--text-muted);font-size:11px;";
 				setIcon(removeBtn, "x");
 				removeBtn.addEventListener("click", () => {
 					const updated = session.activityFilter.filter((f) => f !== folder);
@@ -89,11 +83,9 @@ export class SessionActivityPanel {
 			}
 		}
 
-		const addRow = filterSection.createDiv();
-		addRow.style.cssText = "display:flex;gap:4px;";
+		const addRow = filterSection.createDiv({ cls: "ft-activity-filter-add-row" });
 		const input = addRow.createEl("input", { type: "text", cls: "ft-activity-filter-input" });
 		input.placeholder = "Exclude folder...";
-		input.style.cssText = "flex:1;padding:2px 6px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);color:var(--text-normal);font-size:12px;";
 		attachFolderSuggest(input, this.deps.app);
 		input.addEventListener("keydown", (e: KeyboardEvent) => {
 			if (e.key === "Enter" && input.value.trim()) {
@@ -129,14 +121,13 @@ export class SessionActivityPanel {
 		}
 
 		if (filtered.length === 0) {
-			this.activityEl.createDiv({ text: "No activity yet", cls: "ft-text-muted ft-text-sm" }).style.cssText = "color:var(--text-muted);font-size:12px;padding:4px 0;";
+			this.activityEl.createDiv({ text: "No activity yet", cls: "ft-text-muted ft-text-sm ft-activity-empty" });
 			return;
 		}
 
 		const groups = groupActivityByFile(filtered);
 		for (const group of groups) {
 			const row = this.activityEl.createDiv({ cls: "ft-activity-row" });
-			row.style.cssText = "display:flex;align-items:center;gap:8px;padding:3px 0;";
 
 			const iconEl = row.createSpan();
 			setIcon(iconEl, this.getActivityIcon(group.latestAction));
@@ -144,7 +135,6 @@ export class SessionActivityPanel {
 			const name = group.path.split("/").pop() ?? group.path;
 			const link = row.createEl("a", { text: name, cls: "ft-activity-link" });
 			link.title = group.path;
-			link.style.cssText = "cursor:pointer;text-decoration:underline;color:var(--text-accent);flex:1;";
 			link.addEventListener("click", (e) => {
 				e.preventDefault();
 				if (group.latestAction !== "deleted") {
@@ -154,20 +144,20 @@ export class SessionActivityPanel {
 
 			row.createEl("span", {
 				text: group.latestAction,
-				cls: "ft-badge",
-			}).style.cssText = "background:var(--background-modifier-hover);padding:1px 6px;border-radius:3px;font-size:11px;color:var(--text-muted);";
+				cls: "ft-badge ft-activity-badge",
+			});
 
 			if (group.count > 1) {
 				row.createEl("span", {
 					text: `×${group.count}`,
-					cls: "ft-badge ft-activity-count",
-				}).style.cssText = "background:var(--background-modifier-hover);padding:1px 6px;border-radius:3px;font-size:11px;color:var(--text-muted);";
+					cls: "ft-badge ft-activity-count ft-activity-badge",
+				});
 			}
 
 			row.createEl("span", {
 				text: this.formatActivityTime(group.latestTimestamp),
-				cls: "ft-text-muted",
-			}).style.cssText = "color:var(--text-muted);font-size:11px;font-family:var(--font-monospace);";
+				cls: "ft-text-muted ft-activity-timestamp",
+			});
 		}
 	}
 

@@ -99,15 +99,13 @@ export class TrainCaptureModal extends Modal {
 			editBtn.setAttribute("aria-label", "Rename thought");
 			setIcon(editBtn, "pencil");
 			editBtn.addEventListener("click", () => {
-				titleEl.style.display = "none";
-				editBtn.style.display = "none";
+				titleEl.addClass("ft-hidden");
+				editBtn.addClass("ft-hidden");
 
 				const input = document.createElement("input");
 				input.type = "text";
-				input.className = "ft-train-rename-input";
+				input.className = "ft-train-rename-input ft-train-rename-w-full";
 				input.value = titleEl.textContent ?? "";
-				input.style.width = "100%";
-				input.style.fontSize = "inherit";
 				titleRow.appendChild(input);
 				input.focus();
 				input.select();
@@ -119,14 +117,14 @@ export class TrainCaptureModal extends Modal {
 						titleEl.setText(newTitle);
 					}
 					input.remove();
-					titleEl.style.display = "";
-					editBtn.style.display = "";
+					titleEl.removeClass("ft-hidden");
+					editBtn.removeClass("ft-hidden");
 				};
 
 				const cancel = (): void => {
 					input.remove();
-					titleEl.style.display = "";
-					editBtn.style.display = "";
+					titleEl.removeClass("ft-hidden");
+					editBtn.removeClass("ft-hidden");
 				};
 
 				input.addEventListener("keydown", (e: KeyboardEvent) => {
@@ -213,7 +211,7 @@ export class TrainCaptureModal extends Modal {
 				text
 					.setPlaceholder("What\u2019s on your mind\u2026")
 					.onChange((value) => { titleValue = value; });
-				text.inputEl.style.width = "100%";
+				text.inputEl.addClass("ft-train-capture-input-w");
 				text.inputEl.addEventListener("keydown", (e: KeyboardEvent) => {
 					if (e.key === "Enter") {
 						e.preventDefault();
@@ -229,9 +227,8 @@ export class TrainCaptureModal extends Modal {
 			const dirRow = new Setting(contentEl);
 
 			// Tab hint (before dropdown)
-			const hint = dirRow.controlEl.createSpan({ cls: "ft-text-sm ft-text-muted" });
+			const hint = dirRow.controlEl.createSpan({ cls: "ft-text-sm ft-text-muted ft-train-tab-hint-mr" });
 			hint.setText("Tab to cycle");
-			hint.style.marginRight = "0.5rem";
 
 			dirRow.addDropdown((dd) => {
 				dd.addOption("next", "Continue chain \u2192");
@@ -250,8 +247,8 @@ export class TrainCaptureModal extends Modal {
 
 		// ── Row 5: Action row — Back (outer left) | nav (Up/Next) + Pause/Complete/Add Thought ──
 		const actionSetting = new Setting(contentEl);
-		actionSetting.settingEl.style.width = "100%";
-		if (actionSetting.infoEl) actionSetting.infoEl.style.display = "none";
+		actionSetting.settingEl.addClass("ft-train-action-row-w");
+		if (actionSetting.infoEl) actionSetting.infoEl.addClass("ft-hidden");
 
 		// Back button at the outermost left of the action row (same style as Next)
 		if (this.options.onBack) {
@@ -260,8 +257,7 @@ export class TrainCaptureModal extends Modal {
 					this.navAction = "back";
 					this.close();
 				});
-				btn.buttonEl.style.marginRight = "auto";
-				btn.buttonEl.classList.add("ft-train-back-btn");
+				btn.buttonEl.classList.add("ft-train-back-btn", "ft-train-back-mr-auto");
 			});
 		}
 

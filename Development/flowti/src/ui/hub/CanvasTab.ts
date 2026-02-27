@@ -56,15 +56,11 @@ export class CanvasTab {
 			const item = this.masterEl.createDiv({
 				cls: `ft-master-event-item${isSelected ? " ft-master-event-selected" : ""}`,
 			});
-			item.style.alignItems = "flex-start";
+			item.addClass("ft-master-item-top");
 
-			const textBlock = item.createDiv({ cls: "ft-master-event-name" });
-			textBlock.style.minWidth = "0";
+			const textBlock = item.createDiv({ cls: "ft-master-event-name ft-master-text-block" });
 			textBlock.createDiv({ text: cfg.name });
-			const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-sm" });
-			sub.style.whiteSpace = "nowrap";
-			sub.style.overflow = "hidden";
-			sub.style.textOverflow = "ellipsis";
+			const sub = textBlock.createDiv({ cls: "ft-text-muted ft-text-sm ft-text-ellipsis" });
 			sub.textContent = cfg.canvasPath;
 
 			item.createSpan({
@@ -172,8 +168,7 @@ export class CanvasTab {
 		});
 
 		// Remove
-		const deleteLink = actions.createEl("span", { cls: "ft-nav-link" });
-		deleteLink.style.color = "var(--text-error)";
+		const deleteLink = actions.createEl("span", { cls: "ft-nav-link ft-text-error" });
 		const delIcon = deleteLink.createSpan();
 		setIcon(delIcon, "trash-2");
 		deleteLink.appendText(" Remove");
@@ -245,7 +240,7 @@ export class CanvasTab {
 		const statusRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
 		const spinnerIcon = statusRow.createSpan();
 		setIcon(spinnerIcon, "loader");
-		spinnerIcon.style.opacity = "0.6";
+		spinnerIcon.addClass("ft-opacity-muted");
 		spinnerIcon.addClass("ft-spin");
 		const statusText = statusRow.createSpan({ cls: "ft-text-sm" });
 		if (op.progress) {
@@ -258,13 +253,12 @@ export class CanvasTab {
 			statusText.textContent = `Running canvas import: ${op.name}...`;
 		}
 
-		const barBg = section.createDiv();
-		barBg.style.cssText = "height:4px;background:var(--background-modifier-border);border-radius:2px;margin:0 0.5rem 0.5rem;overflow:hidden";
-		const barFill = barBg.createDiv();
+		const barBg = section.createDiv({ cls: "ft-progress-bar-track-4" });
+		const barFill = barBg.createDiv({ cls: "ft-progress-bar-fill-animated" });
 		const pct = op.progress && op.progress.total > 0
 			? Math.round((op.progress.current / op.progress.total) * 100)
 			: 0;
-		barFill.style.cssText = `height:100%;width:${pct}%;background:var(--interactive-accent);border-radius:2px;transition:width 0.15s ease`;
+		barFill.style.width = `${pct}%`;
 
 		// Live progress listener
 		this.liveUnsubscribes.push(
@@ -289,7 +283,7 @@ export class CanvasTab {
 				const resultRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
 				const icon = resultRow.createSpan();
 				setIcon(icon, "check-circle");
-				icon.style.color = "var(--text-success)";
+				icon.addClass("ft-text-success");
 				resultRow.createSpan({
 					text: `Canvas import complete: ${r.imported} imported, ${r.skipped} skipped` +
 						(r.errors.length > 0 ? `, ${r.errors.length} errors` : ""),
@@ -307,7 +301,7 @@ export class CanvasTab {
 				const resultRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
 				const icon = resultRow.createSpan();
 				setIcon(icon, "x-circle");
-				icon.style.color = "var(--text-error)";
+				icon.addClass("ft-text-error");
 				resultRow.createSpan({ text: `Canvas import failed: ${event.payload.error}`, cls: "ft-text-sm" });
 			}),
 		);
@@ -489,7 +483,7 @@ export class CanvasTab {
 			const valueTd = tr.createEl("td");
 			const input = valueTd.createEl("input", { type: "text" });
 			input.value = value;
-			input.style.cssText = "width:100%;padding:2px 6px;font-size:var(--font-ui-small);background:var(--background-primary);border:1px solid var(--background-modifier-border);border-radius:var(--radius-s,4px);color:var(--text-normal)";
+			input.addClass("ft-mapping-input");
 			input.addEventListener("input", () => { map[key] = input.value as FlowtiCanvasType; });
 		}
 	}

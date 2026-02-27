@@ -41,6 +41,18 @@ export function getStatusStyle(status: string): string {
 	}
 }
 
+/** Returns the CSS modifier class for a session status (e.g. "running" → "running", unknown → "default"). */
+export function getStatusClass(status: string): string {
+	switch (status) {
+		case "active":
+		case "running":
+		case "paused":
+		case "reviewing":
+		case "completed": return status;
+		default: return "default";
+	}
+}
+
 /** Captures the current workspace state (open files, active file). */
 export async function captureWorkspaceState(ctx: WorkspaceHelperContext, sessionId: string): Promise<void> {
 	const openFiles: string[] = [];

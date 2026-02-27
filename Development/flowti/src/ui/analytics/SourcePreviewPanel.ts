@@ -32,10 +32,8 @@ export class SourcePreviewPanel {
 		this.container.empty();
 
 		// Header — source name as title, no border-bottom
-		const header = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
-		header.style.marginBottom = "0.35rem";
-		const title = header.createSpan({ text: this.sourceName ?? "Preview", cls: "ft-text-sm" });
-		title.style.fontWeight = "600";
+		const header = this.container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-preview-header" });
+		header.createSpan({ text: this.sourceName ?? "Preview", cls: "ft-text-sm ft-font-semibold" });
 		header.createSpan({
 			text: `${this.data.headers.length} cols`,
 			cls: "ft-badge ft-badge-muted ft-text-xs",
@@ -57,9 +55,8 @@ export class SourcePreviewPanel {
 		const typeRow = thead.createEl("tr");
 		for (const col of this.data.headers) {
 			const hint = this.typeHints.find((h) => h.column === col);
-			const td = typeRow.createEl("td", { cls: "ft-text-xs ft-text-muted" });
+			const td = typeRow.createEl("td", { cls: "ft-text-xs ft-text-muted ft-text-italic" });
 			td.textContent = hint?.type ?? "string";
-			td.style.fontStyle = "italic";
 		}
 
 		// Sample rows
@@ -69,19 +66,13 @@ export class SourcePreviewPanel {
 			const row = this.data.rows[i];
 			const tr = tbody.createEl("tr");
 			for (let j = 0; j < this.data.headers.length; j++) {
-				const td = tr.createEl("td", { cls: "ft-text-xs" });
+				const td = tr.createEl("td", { cls: "ft-text-xs ft-preview-sample-td" });
 				td.textContent = row[j] ?? "";
-				td.style.maxWidth = "150px";
-				td.style.overflow = "hidden";
-				td.style.textOverflow = "ellipsis";
-				td.style.whiteSpace = "nowrap";
 			}
 		}
 
 		if (this.data.rows.length > MAX_SAMPLE_ROWS) {
-			const more = this.container.createDiv({ cls: "ft-text-muted ft-text-xs" });
-			more.style.textAlign = "right";
-			more.style.marginTop = "0.25rem";
+			const more = this.container.createDiv({ cls: "ft-text-muted ft-text-xs ft-preview-more" });
 			more.textContent = `and ${this.data.rows.length - MAX_SAMPLE_ROWS} more rows...`;
 		}
 	}

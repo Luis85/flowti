@@ -24,7 +24,7 @@ export class CsvPreviewPage {
 
 		// Action bar
 		const statsBar = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2" });
-		statsBar.style.borderBottom = "1px solid var(--background-modifier-border)";
+		statsBar.addClass("ft-action-bar-border");
 		statsBar.addClass("ft-flex-shrink-0");
 
 		// Validation
@@ -130,8 +130,7 @@ export class CsvPreviewPage {
 			headerRow.createEl("th", { text: m.frontmatterKey });
 		}
 		for (const [key] of customProps) {
-			const th = headerRow.createEl("th", { text: key });
-			th.style.color = "var(--interactive-accent)";
+			headerRow.createEl("th", { text: key, cls: "ft-preview-custom-col" });
 		}
 
 		const tbody = table.createEl("tbody");
@@ -151,9 +150,7 @@ export class CsvPreviewPage {
 				tr.createEl("td", { text: row[colIdx] ?? "" });
 			}
 			for (const [, value] of customProps) {
-				const td = tr.createEl("td", { text: value });
-				td.style.color = "var(--interactive-accent)";
-				td.style.fontStyle = "italic";
+				tr.createEl("td", { text: value, cls: "ft-preview-custom-cell" });
 			}
 		}
 	}

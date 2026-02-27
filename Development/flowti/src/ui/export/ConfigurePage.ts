@@ -31,7 +31,7 @@ export class ConfigurePage {
 
 		// Action bar
 		const actions = panel.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2 ft-mb-3" });
-		actions.style.borderBottom = "1px solid var(--background-modifier-border)";
+		actions.addClass("ft-action-bar-border");
 
 		if (state.sourceType === "base") {
 			const backBtn = actions.createEl("span", { cls: "ft-nav-link" });
@@ -59,14 +59,11 @@ export class ConfigurePage {
 		});
 
 		// Unsaved changes reminder
-		const reminder = panel.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
-		reminder.style.padding = "0.35rem 0.5rem";
-		reminder.style.borderRadius = "var(--radius-s, 4px)";
-		reminder.style.background = "var(--background-modifier-message)";
-		reminder.style.display = this.deps.hasUnsavedChanges() ? "flex" : "none";
+		const reminder = panel.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2 ft-unsaved-reminder" });
+		if (!this.deps.hasUnsavedChanges()) reminder.addClass("ft-hidden");
 		const warnIcon = reminder.createSpan();
 		setIcon(warnIcon, "alert-triangle");
-		warnIcon.style.opacity = "0.6";
+		warnIcon.addClass("ft-unsaved-warn-icon");
 		warnIcon.addClass("ft-flex-shrink-0");
 		reminder.createSpan({
 			text: "Config has unsaved changes",
