@@ -3,7 +3,9 @@ type: TechDebt
 severity: high
 category: architecture
 layer: domain
-status: open
+status: resolved
+resolved_in: "[[Cycle 48 - Stabilize and Strategic Spike]]"
+resolved_date: 2026-02-27
 created: 2026-02-21
 effort: medium
 description: "session/helpers.ts is 982 LOC — the largest file in the codebase. It combines session summary generation, reverse parsing, template rendering, duration formatting, and various utility functions into a single module."
@@ -51,7 +53,22 @@ Split into focused modules following the pattern used for `catalog/helpers.ts` (
 - [[TD-101 SessionService Handler Extraction]] — the handler extraction that moved logic here
 - [[TD-100 Session performance and sync behaviour investigation]]
 
+## Resolution (Cycle 48)
+
+Decomposed into 5 focused modules + barrel re-export:
+
+| Module | LOC | Responsibility |
+|--------|-----|---------------|
+| `helpers.ts` | 26 | Barrel re-export |
+| `summaryGenerator.ts` | 303 | Session summary generation |
+| `noteParser.ts` | 122 | Reverse parsing of session notes |
+| `templateHelpers.ts` | 107 | Session type templates, guiding questions |
+| `timeHelpers.ts` | 166 | Duration, timestamp formatting |
+| `sessionUtils.ts` | 318 | State machine helpers, validation, frontmatter |
+
+All existing imports continue to work via barrel re-export. Zero behaviour changes.
+
 ## Affected Files
 
-- `src/domain/session/helpers.ts` (982 LOC)
+- `src/domain/session/helpers.ts` (982 LOC → 26 LOC barrel)
 - `tests/domain/session/helpers.test.ts` (~85K)

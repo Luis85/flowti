@@ -1,7 +1,8 @@
 ---
 type: ProductBacklogItem
 feature: "[[Release Preparation PRD]]"
-stage: planned
+stage: done
+delivered_in: "[[Cycle 48 - Stabilize and Strategic Spike]]"
 priority: critical
 tags:
   - release-blocker
@@ -32,19 +33,19 @@ As a plugin developer, I need Obsidian-specific ESLint rules configured and pass
 
 ### Functional Requirements
 
-- [ ] Add Obsidian-specific ESLint rules per Developer Policies
-- [ ] Audit codebase for forbidden API usage
-- [ ] Fix all violations
-- [ ] Integrate into `npm run check` and `npm test` pipelines
-- [ ] Document any Obsidian-specific patterns in AGENTS.md
+- [x] Add Obsidian-specific ESLint rules per Developer Policies
+- [x] Audit codebase for forbidden API usage
+- [x] Fix all violations
+- [x] Integrate into `npm run check` and `npm test` pipelines
+- [x] Document any Obsidian-specific patterns in AGENTS.md
 
 ## Acceptance Criteria
 
-- [ ] Obsidian ESLint plugin configured in `eslint.config.mjs`
-- [ ] All developer policy rules pass
-- [ ] No forbidden API usage
-- [ ] `npm run check` includes Obsidian ESLint rules
-- [ ] npm run build passes
+- [x] Obsidian ESLint plugin configured in `eslint.config.mjs` (`eslint-plugin-obsidianmd`)
+- [x] All developer policy rules pass — 0 errors, 0 warnings
+- [x] No forbidden API usage (innerHTML, insertAdjacentHTML, console.log banned)
+- [x] `npm run check` includes Obsidian ESLint rules
+- [x] npm run build passes
 
 ## Related
 
