@@ -1,0 +1,77 @@
+filters:
+  and:
+    - file.inFolder("Development/flowti/docs/reports")
+    - file.ext == "md"
+    - '!file.name.startsWith("Go to Market")'
+views:
+  - type: table
+    name: Index
+    order:
+      - file.name
+      - type
+    sort:
+      - property: file.ctime
+        direction: DESC
+  - type: table
+    name: Codebase Report
+    filters:
+      and:
+        - file.inFolder("Development/flowti/docs/reports/codebase")
+    order:
+      - file.name
+      - classes
+      - constructors
+      - functions
+      - interfaces
+      - methods
+      - modules
+      - type_aliases
+    sort:
+      - property: file.ctime
+        direction: DESC
+    columnSize:
+      file.name: 437
+  - type: table
+    name: Build Reports
+    filters:
+      and:
+        - file.inFolder("Development/flowti/docs/reports/builds")
+    order:
+      - file.name
+      - duration_ms
+      - total_bytes
+      - errors_count
+    sort:
+      - property: file.ctime
+        direction: DESC
+    columnSize:
+      file.name: 437
+  - type: table
+    name: Coverage Report
+    filters:
+      and:
+        - file.inFolder("Development/flowti/docs/reports/coverage")
+    order:
+      - date
+      - file.name
+      - branches_pct
+      - lines_pct
+      - files_covered
+      - functions_pct
+      - statements_pct
+    sort:
+      - property: file.ctime
+        direction: DESC
+    columnSize:
+      file.name: 305
+  - type: table
+    name: Index 2
+    filters:
+      and:
+        - file.inFolder("Development/flowti/docs/reports/tests")
+    order:
+      - file.name
+      - type
+    sort:
+      - property: file.ctime
+        direction: DESC
