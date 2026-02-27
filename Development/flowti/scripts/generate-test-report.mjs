@@ -4,7 +4,7 @@
  * Reads the Vitest JSON report and generates a TestReport vault note
  * with queryable YAML frontmatter.
  *
- * Usage: node scripts/generate-test-report.mjs
+ * Usage: node scripts/generate-test-report.mjs [--build-type=flow|full]
  */
 
 import fs from "node:fs";
@@ -13,6 +13,9 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
+
+const buildTypeArg = process.argv.find((a) => a.startsWith("--build-type="));
+const buildType = buildTypeArg ? buildTypeArg.split("=")[1] : "flow";
 
 const REPORT_JSON = path.join(ROOT, "docs", "reports", "tests", "testreport.json");
 const OUTPUT_DIR = path.join(ROOT, "docs", "reports", "tests");
@@ -45,6 +48,7 @@ function main() {
 
 	const fm = {
 		type: "TestReport",
+		build_type: buildType,
 		date,
 		passed,
 		failed,
@@ -69,7 +73,8 @@ function main() {
 	].join("\n");
 
 	const safeTimestamp = now.toISOString().replace(/:/g, "-");
-	const filename = `${safeTimestamp}-test-report.md`;
+	const prefix = buildType === "full" ? "" : `${buildType}-`;
+	const filename = `${safeTimestamp}-${prefix}test-report.md`;
 	const outputPath = path.join(OUTPUT_DIR, filename);
 
 	fs.mkdirSync(OUTPUT_DIR, { recursive: true });

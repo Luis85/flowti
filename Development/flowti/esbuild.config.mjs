@@ -258,6 +258,8 @@ const writeBuildReport = (result, startTime) => {
 const generateReportNotes = () => {
 	if (!prod) return;
 
+	const buildType = (isPublic || doDistribution) ? "full" : "flow";
+
 	const scripts = [
 		path.resolve(__dirname, "scripts", "generate-test-report.mjs"),
 		path.resolve(__dirname, "scripts", "generate-coverage-report.mjs"),
@@ -273,7 +275,7 @@ const generateReportNotes = () => {
 	for (const script of scripts) {
 		if (!safeExists(script)) continue;
 		try {
-			execSync(`node "${script}"`, { cwd: __dirname, stdio: "inherit" });
+			execSync(`node "${script}" --build-type=${buildType}`, { cwd: __dirname, stdio: "inherit" });
 		} catch (err) {
 			console.warn(`[build] Report note generation failed (skipping): ${path.basename(script)}`);
 			console.warn(err);

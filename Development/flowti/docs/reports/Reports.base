@@ -64,9 +64,9 @@ views:
     order:
       - date
       - file.name
+      - files_covered
       - branches_pct
       - lines_pct
-      - files_covered
       - functions_pct
       - statements_pct
     sort:

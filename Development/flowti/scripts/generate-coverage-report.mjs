@@ -4,7 +4,7 @@
  * Reads the V8 coverage-final.json and generates a CoverageReport vault note
  * with queryable YAML frontmatter.
  *
- * Usage: node scripts/generate-coverage-report.mjs
+ * Usage: node scripts/generate-coverage-report.mjs [--build-type=flow|full]
  */
 
 import fs from "node:fs";
@@ -13,6 +13,9 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
+
+const buildTypeArg = process.argv.find((a) => a.startsWith("--build-type="));
+const buildType = buildTypeArg ? buildTypeArg.split("=")[1] : "flow";
 
 const COVERAGE_JSON = path.join(ROOT, "docs", "reports", "tests", "coverage-final.json");
 const OUTPUT_DIR = path.join(ROOT, "docs", "reports", "coverage");
@@ -67,6 +70,7 @@ function main() {
 
 	const fm = {
 		type: "CoverageReport",
+		build_type: buildType,
 		date,
 		lines_pct: computeCoverage(entries, "statements"),
 		branches_pct: computeCoverage(entries, "branches"),
@@ -89,7 +93,8 @@ function main() {
 	].join("\n");
 
 	const safeTimestamp = now.toISOString().replace(/:/g, "-");
-	const filename = `${safeTimestamp}-coverage-report.md`;
+	const prefix = buildType === "full" ? "" : `${buildType}-`;
+	const filename = `${safeTimestamp}-${prefix}coverage-report.md`;
 	const outputPath = path.join(OUTPUT_DIR, filename);
 
 	fs.mkdirSync(OUTPUT_DIR, { recursive: true });
