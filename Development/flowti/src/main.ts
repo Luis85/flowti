@@ -723,13 +723,15 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.nudgeService = await this.services.get<NudgeService>("nudgeService");
 		this.nudgeService.isSessionTypeActive = (type) =>
 			this.sessionService?.getActiveSession()?.type === type;
+		this.nudgeService.getInboxCount = () =>
+			this.inboxService?.getItems().length ?? 0;
 		await this.nudgeService.load();
 		this.nudgeService.start();
 
 		// Show notification when a nudge fires
 		this.crossCuttingListeners.push(
 			this.eventBus.on("nudge.triggered", (event) => {
-				showNudgeNotification(event.payload.config, this.eventBus);
+				showNudgeNotification(event.payload.config, this.eventBus, event.payload.inboxItemCount);
 			}),
 		);
 

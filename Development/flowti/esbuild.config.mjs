@@ -29,6 +29,7 @@
 
 import esbuild from "esbuild";
 import { builtinModules } from "node:module";
+import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -210,130 +211,67 @@ const copyDirRecursive = (srcDir, destDir, options = {}) => {
 // OUTPUT
 // ==================================================
 
-const safeLocalTime = (d) => {
-	const pad = (n) => String(n).padStart(2, "0");
-	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(
-		d.getHours()
-	)}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-};
-
-const humanBytes = (bytes) => {
-	const units = ["B", "KB", "MB", "GB"];
-	let i = 0;
-	let n = bytes;
-	while (n >= 1024 && i < units.length - 1) {
-		n /= 1024;
-		i++;
-	}
-	return `${n.toFixed(i === 0 ? 0 : 2)} ${units[i]}`;
-};
-
-const yamlEscape = (value) => {
-	if (value === null || value === undefined) return "null";
-	if (typeof value === "boolean" || typeof value === "number") return String(value);
-
-	const str = String(value);
-	if (/[:\n\r\t#'"{}[\],&*?]|^\s|\s$/.test(str)) return JSON.stringify(str);
-	return str;
-};
-
 const writeBuildReport = (result, startTime) => {
 	if (!prod) return;
 
 	try {
 		ensureDir(REPORTDIR);
 
-		const templatePath = path.resolve(__dirname, "docs", "templates", "Build Report.md");
-		if (!safeExists(templatePath)) {
-			console.warn("[build] BuildReport template not found. Skipping.");
+		const duration = Date.now() - startTime;
+		const warningsCount = result?.warnings?.length ?? 0;
+		const errorsCount = result?.errors?.length ?? 0;
+
+		// Write metafile to temp location for the report script
+		const metafilePath = path.join(REPORTDIR, ".metafile.json");
+		if (result?.metafile) {
+			safeWriteText(metafilePath, JSON.stringify(result.metafile));
+		}
+
+		const script = path.resolve(__dirname, "scripts", "generate-build-report.mjs");
+		if (!safeExists(script)) {
+			console.warn("[build] generate-build-report.mjs not found. Skipping.");
 			return;
 		}
 
-		const templateBody = safeReadText(templatePath);
+		const args = [
+			`--metafile="${metafilePath}"`,
+			`--duration=${duration}`,
+			`--warnings=${warningsCount}`,
+			`--errors=${errorsCount}`,
+			isPublic ? "--release=true" : "",
+		].filter(Boolean).join(" ");
 
-		const duration = Date.now() - startTime;
-		const now = new Date();
+		execSync(`node "${script}" ${args}`, { cwd: __dirname, stdio: "inherit" });
 
-		let totalBytes = 0;
-		let jsBytes = 0;
-		let cssBytes = 0;
-		let otherBytes = 0;
-
-		const outputs = [];
-		if (result?.metafile?.outputs) {
-			for (const [file, info] of Object.entries(result.metafile.outputs)) {
-				const bytes = info.bytes || 0;
-				totalBytes += bytes;
-				if (file.endsWith(".js")) jsBytes += bytes;
-				else if (file.endsWith(".css")) cssBytes += bytes;
-				else otherBytes += bytes;
-
-				outputs.push({ file: file.replace(OUTDIR + path.sep, ""), bytes });
-			}
-		}
-
-		const safeTimestamp = now.toISOString().replace(/:/g, "-");
-		let reportName = `${safeTimestamp}-build-report.${manifest.version}.md`;
-		if (isPublic) reportName = `${safeTimestamp}-release-build-report.${manifest.version}.md`;
-
-		const reportPath = path.join(REPORTDIR, reportName);
-
-		const frontmatter = [
-			"---",
-			`type: ${yamlEscape("BuildReport")}`,
-			`plugin_id: ${yamlEscape(PLUGIN_ID)}`,
-			`plugin_version: ${yamlEscape(manifest.version)}`,
-			`mode: ${yamlEscape(prod ? "production" : "watch")}`,
-			`build_time_iso: ${yamlEscape(now.toISOString())}`,
-			`build_time_local: ${yamlEscape(safeLocalTime(now))}`,
-			`duration_ms: ${duration}`,
-			`minified: ${prod}`,
-			`sourcemap: ${!prod}`,
-			`warnings_count: ${result?.warnings?.length ?? 0}`,
-			`errors_count: ${result?.errors?.length ?? 0}`,
-			`total_bytes: ${totalBytes}`,
-			`js_bytes: ${jsBytes}`,
-			`css_bytes: ${cssBytes}`,
-			`other_bytes: ${otherBytes}`,
-			`node_version: ${yamlEscape(process.version)}`,
-			`esbuild_version: ${yamlEscape(esbuild.version)}`,
-			`ci: ${Boolean(process.env.CI)}`,
-			process.env.GITHUB_SHA ? `git_commit: ${yamlEscape(process.env.GITHUB_SHA)}` : null,
-			"---",
-		]
-			.filter(Boolean)
-			.join("\n");
-
-		const outputsTable =
-			outputs.length > 0
-				? [
-						"",
-						"## Outputs",
-						"",
-						"| File | Size |",
-						"|---|---:|",
-						...outputs
-							.sort((a, b) => b.bytes - a.bytes)
-							.map((o) => `| ${o.file} | ${humanBytes(o.bytes)} |`),
-				  ].join("\n")
-				: "";
-
-		const summary = `
-> [!info] Build Summary
-> Mode: ${prod ? "production" : "watch"}
-> Duration: ${duration} ms
-> Bundle Size: ${humanBytes(totalBytes)}
-> Warnings: ${result?.warnings?.length ?? 0}
-> Errors: ${result?.errors?.length ?? 0}
-`;
-
-		const content = `${frontmatter}\n\n${templateBody.trim()}\n${summary}\n${outputsTable}\n`;
-		safeWriteText(reportPath, content);
-
-		console.log("[build] Build report written:", reportPath);
+		// Clean up temp metafile
+		safeRmFile(metafilePath);
 	} catch (err) {
 		console.warn("[build] Failed to write build report (skipping).");
 		console.warn(err);
+	}
+};
+
+// ==================================================
+// REPORT NOTES (TestReport + CoverageReport vault notes)
+// ==================================================
+
+const generateReportNotes = () => {
+	if (!prod) return;
+
+	const scripts = [
+		path.resolve(__dirname, "scripts", "generate-test-report.mjs"),
+		path.resolve(__dirname, "scripts", "generate-coverage-report.mjs"),
+		path.resolve(__dirname, "scripts", "generate-codebase-report.mjs"),
+	];
+
+	for (const script of scripts) {
+		if (!safeExists(script)) continue;
+		try {
+			execSync(`node "${script}"`, { cwd: __dirname, stdio: "inherit" });
+		} catch (err) {
+			console.warn(`[build] Report note generation failed (skipping): ${path.basename(script)}`);
+			console.warn(err);
+		}
 	}
 };
 
@@ -546,6 +484,7 @@ const run = async () => {
 		const result = await ctx.rebuild();
 
 		writeBuildReport(result, startTime);
+		generateReportNotes();
 
 		// mark build failure on esbuild errors
 		if (result?.errors?.length) process.exitCode = 1;

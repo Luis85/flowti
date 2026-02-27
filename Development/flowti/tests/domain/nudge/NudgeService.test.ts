@@ -47,12 +47,13 @@ describe("NudgeService", () => {
 	// ── Load ──────────────────────────────────────────────────
 
 	describe("load", () => {
-		it("creates default state with 2 configs on first load", async () => {
+		it("creates default state with 3 configs on first load", async () => {
 			await service.load();
 			const configs = service.getConfigs();
-			expect(configs).toHaveLength(2);
+			expect(configs).toHaveLength(3);
 			expect(configs[0].id).toBe("default-morning-review");
 			expect(configs[1].id).toBe("default-afternoon-focus");
+			expect(configs[2].id).toBe("default-backlog-refinement");
 			expect(configs.every((c) => !c.enabled)).toBe(true);
 		});
 
@@ -348,11 +349,11 @@ describe("NudgeService", () => {
 	describe("remove", () => {
 		it("removes a nudge config", async () => {
 			await service.load();
-			expect(service.getConfigs()).toHaveLength(2);
+			expect(service.getConfigs()).toHaveLength(3);
 
 			await eventBus.emit("nudge.remove", { id: "default-morning-review" });
 
-			expect(service.getConfigs()).toHaveLength(1);
+			expect(service.getConfigs()).toHaveLength(2);
 			expect(service.getConfigById("default-morning-review")).toBeUndefined();
 		});
 
@@ -466,7 +467,7 @@ describe("NudgeService", () => {
 			await service.load();
 			const configs = service.getConfigs();
 			configs.push(makeConfig());
-			expect(service.getConfigs()).toHaveLength(2); // Original unchanged
+			expect(service.getConfigs()).toHaveLength(3); // Original unchanged
 		});
 
 		it("getConfigById returns config or undefined", async () => {

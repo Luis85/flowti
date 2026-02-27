@@ -24,6 +24,8 @@ export interface NudgeServiceOptions {
 	getToday?: () => string;
 	/** Returns true if a session of the given type is currently active. */
 	isSessionTypeActive?: (sessionType: string) => boolean;
+	/** Returns the current inbox item count (for nudge notifications). */
+	getInboxCount?: () => number;
 }
 
 function createDefaultState(): NudgeState {
@@ -43,6 +45,7 @@ export class NudgeService {
 	private getNow: () => [number, number];
 	private getToday: () => string;
 	isSessionTypeActive: (sessionType: string) => boolean;
+	getInboxCount: () => number;
 
 	constructor(options: NudgeServiceOptions) {
 		this.storage = options.storage;
@@ -53,6 +56,7 @@ export class NudgeService {
 		});
 		this.getToday = options.getToday ?? (() => new Date().toISOString().slice(0, 10));
 		this.isSessionTypeActive = options.isSessionTypeActive ?? (() => false);
+		this.getInboxCount = options.getInboxCount ?? (() => 0);
 
 		if (this.eventBus) {
 			this.unsubscribes.push(
@@ -108,6 +112,7 @@ export class NudgeService {
 
 		const [hours, minutes] = this.getNow();
 		const currentTime = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+		const today = this.getToday();
 
 		for (const config of this.state.configs) {
 			if (!config.enabled) continue;
@@ -115,19 +120,37 @@ export class NudgeService {
 			if (this.state.dismissedToday.includes(config.id)) continue;
 			if (this.isSessionTypeActive(config.sessionType)) continue;
 
+			// Interval-based nudges: skip if last trigger was too recent
+			if (config.intervalDays != null && config.lastTriggeredDate) {
+				const daysSince = this.daysBetween(config.lastTriggeredDate, today);
+				if (daysSince < config.intervalDays) continue;
+			}
+
+			const inboxItemCount = config.navigateTo === "inbox" ? this.getInboxCount() : undefined;
+
 			// Emit first, then persist dismiss (prevents lost nudge if handler fails)
-			await this.eventBus?.emit("nudge.triggered", { config: { ...config } });
+			await this.eventBus?.emit("nudge.triggered", { config: { ...config }, inboxItemCount });
 			this.state.dismissedToday.push(config.id);
+
+			// Update lastTriggeredDate for interval-based nudges
+			if (config.intervalDays != null) {
+				config.lastTriggeredDate = today;
+			}
+
 			await this.saveState();
 		}
 	}
 
-	/** Dismiss a nudge for today. */
+	/** Dismiss a nudge for today. Also updates lastTriggeredDate for interval-based nudges. */
 	private async handleDismiss(id: NudgeId): Promise<void> {
 		if (!this.state.dismissedToday.includes(id)) {
 			this.state.dismissedToday.push(id);
-			await this.saveState();
 		}
+		const config = this.state.configs.find((c) => c.id === id);
+		if (config?.intervalDays != null) {
+			config.lastTriggeredDate = this.getToday();
+		}
+		await this.saveState();
 		await this.eventBus?.emit("nudge.dismissed", { id });
 	}
 
@@ -175,6 +198,14 @@ export class NudgeService {
 	}
 
 	// ── Internal ──────────────────────────────────────────────
+
+	/** Calculate days between two YYYY-MM-DD date strings. */
+	private daysBetween(from: string, to: string): number {
+		const msPerDay = 86_400_000;
+		const a = new Date(from + "T00:00:00Z").getTime();
+		const b = new Date(to + "T00:00:00Z").getTime();
+		return Math.floor((b - a) / msPerDay);
+	}
 
 	private async saveState(): Promise<void> {
 		await this.storage.save(this.state);

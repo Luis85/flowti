@@ -38,7 +38,8 @@
       "Bash(node -e \":*)",
       "Bash(npm run lint)",
       "Bash(git stash)",
-      "Bash(git stash pop)"
+      "Bash(git stash pop)",
+      "Bash(node scripts/generate-coverage-report.mjs)"
     ]
   }
 }

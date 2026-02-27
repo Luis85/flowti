@@ -1,7 +1,7 @@
 {
   "name": "flowti-ibde",
   "version": "0.0.1",
-  "description": "The Flowti IBDE.",
+  "description": "The Flowti IBDE. A simple Obsidian plugin.",
   "main": "main.js",
   "scripts": {
     "test": "npm run check && vitest run",
@@ -17,6 +17,7 @@
     "lint": "eslint ./src/",
     "docs": "typedoc",
     "generate:testdata": "node scripts/generate-test-data.mjs",
+    "generate:reports": "node scripts/generate-test-report.mjs && node scripts/generate-coverage-report.mjs && node scripts/generate-codebase-report.mjs",
     "version": "node version-bump.mjs && git add manifest.json versions.json"
   },
   "keywords": [

@@ -22,6 +22,7 @@ export function buildNudgeNotificationFragment(
 	config: NudgeConfig,
 	eventBus: IEventBus,
 	onHide: () => void,
+	inboxItemCount?: number,
 ): DocumentFragment {
 	const fragment = document.createDocumentFragment();
 
@@ -39,7 +40,8 @@ export function buildNudgeNotificationFragment(
 	const sub = document.createElement("div");
 	sub.classList.add("ft-nudge-subtitle");
 	const dur = config.durationMinutes > 0 ? ` · ${config.durationMinutes} min` : "";
-	sub.textContent = `${config.time}${dur}`;
+	const inboxSuffix = inboxItemCount != null ? ` · ${inboxItemCount} inbox items` : "";
+	sub.textContent = `${config.time}${dur}${inboxSuffix}`;
 	wrapper.appendChild(sub);
 
 	// Buttons
@@ -48,7 +50,7 @@ export function buildNudgeNotificationFragment(
 	wrapper.appendChild(btnRow);
 
 	const startBtn = document.createElement("button");
-	startBtn.textContent = "Start";
+	startBtn.textContent = config.navigateTo ? "Open" : "Start";
 	startBtn.classList.add("ft-nudge-btn", "mod-cta");
 	btnRow.appendChild(startBtn);
 
@@ -58,11 +60,16 @@ export function buildNudgeNotificationFragment(
 	btnRow.appendChild(dismissBtn);
 
 	startBtn.addEventListener("click", () => {
-		void eventBus.emit("session.create", {
-			type: config.sessionType,
-			title: config.title,
-			durationMinutes: config.durationMinutes,
-		});
+		if (config.navigateTo) {
+			void eventBus.emit("hub.navigate", { hubId: "flowti-user-hub", tabId: config.navigateTo });
+		} else {
+			void eventBus.emit("session.create", {
+				type: config.sessionType,
+				title: config.title,
+				durationMinutes: config.durationMinutes,
+			});
+		}
+		void eventBus.emit("nudge.dismiss", { id: config.id });
 		onHide();
 	});
 
@@ -74,9 +81,9 @@ export function buildNudgeNotificationFragment(
 	return fragment;
 }
 
-export function showNudgeNotification(config: NudgeConfig, eventBus: IEventBus): void {
+export function showNudgeNotification(config: NudgeConfig, eventBus: IEventBus, inboxItemCount?: number): void {
 	const notice = new Notice("", NOTICE_TIMEOUT_MS);
-	const fragment = buildNudgeNotificationFragment(config, eventBus, () => notice.hide());
+	const fragment = buildNudgeNotificationFragment(config, eventBus, () => notice.hide(), inboxItemCount);
 	// Replace the default text content with our rich fragment
 	notice.noticeEl.empty();
 	notice.noticeEl.appendChild(fragment);

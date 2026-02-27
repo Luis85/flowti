@@ -28,6 +28,12 @@ export interface NudgeConfig {
 	durationMinutes: number;
 	/** Whether this nudge is active. */
 	enabled: boolean;
+	/** Interval in days between triggers. When set, the nudge fires at `time` only if the last trigger was ≥ intervalDays ago. */
+	intervalDays?: number;
+	/** ISO date string (YYYY-MM-DD) of the last time this nudge was triggered or dismissed. */
+	lastTriggeredDate?: string;
+	/** Navigation target when the user clicks "Start" (e.g. "inbox"). When set, navigates instead of creating a session. */
+	navigateTo?: string;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -67,5 +73,15 @@ export const DEFAULT_NUDGE_CONFIGS: NudgeConfig[] = [
 		title: "Afternoon Focus",
 		durationMinutes: 50,
 		enabled: false,
+	},
+	{
+		id: "default-backlog-refinement",
+		time: "10:00",
+		sessionType: "backlog-structuring",
+		title: "Backlog Refinement",
+		durationMinutes: 0,
+		enabled: false,
+		intervalDays: 7,
+		navigateTo: "inbox",
 	},
 ];
