@@ -90,7 +90,7 @@ export class CanvasResultPage {
 		const headerRow = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });
 		const hIcon = headerRow.createSpan();
 		setIcon(hIcon, statusIcon);
-		if (hasErrors) hIcon.addClass("ft-text-error-color");
+		if (hasErrors) hIcon.addClass("ft-text-error");
 		else if (allSkipped) hIcon.addClass("ft-text-muted");
 		else hIcon.addClass("ft-text-success-color");
 		headerRow.createEl("h3", { text: statusText, cls: "ft-heading ft-heading-sm" });
@@ -105,8 +105,8 @@ export class CanvasResultPage {
 			if (result.imported > 0) this.addRow(grid, "Notes created", String(result.imported));
 			if (result.skipped > 0) this.addRow(grid, "Notes skipped", `${result.skipped} (already exist)`);
 			if (result.errors.length > 0) {
-				grid.createDiv({ text: "Errors", cls: "ft-detail-info-label ft-text-error-color" });
-				grid.createDiv({ text: String(result.errors.length), cls: "ft-detail-info-value ft-text-error-color" });
+				grid.createDiv({ text: "Errors", cls: "ft-detail-info-label ft-text-error" });
+				grid.createDiv({ text: String(result.errors.length), cls: "ft-detail-info-value ft-text-error" });
 			}
 
 			// Excluded by type
@@ -164,7 +164,7 @@ export class CanvasResultPage {
 					tr.createEl("td", { text: type, cls: "ft-text-sm" });
 					tr.createEl("td", { text: String(counts.imported), cls: "ft-text-sm" });
 					const errTd = tr.createEl("td", { text: String(counts.errors), cls: "ft-text-sm" });
-					if (counts.errors > 0) errTd.addClass("ft-text-error-color");
+					if (counts.errors > 0) errTd.addClass("ft-text-error");
 				}
 			}
 		}
@@ -301,7 +301,7 @@ export class CanvasResultPage {
 		const headerRow = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });
 		const hIcon = headerRow.createSpan();
 		setIcon(hIcon, "x-circle");
-		hIcon.addClass("ft-text-error-color");
+		hIcon.addClass("ft-text-error");
 		headerRow.createEl("h3", { text: "Import failed", cls: "ft-heading ft-heading-sm" });
 
 		const card = container.createDiv({ cls: "ft-card ft-mt-2 ft-result-error-border" });

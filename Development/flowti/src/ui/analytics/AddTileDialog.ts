@@ -53,7 +53,7 @@ export class AddTileDialog {
 		const header = dialog.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-add-tile-dialog-header" });
 		const headerIcon = header.createSpan({ cls: "ft-inline-flex-center ft-add-tile-icon-16" });
 		setIcon(headerIcon, "plus-square");
-		header.createSpan({ text: "Add Tile", cls: "ft-text-sm ft-text-bold" });
+		header.createSpan({ text: "Add Tile", cls: "ft-text-sm ft-font-semibold" });
 
 		// ── Source selection ──────────────────────────
 		const hasMeasurements = (this.options.measurements ?? []).length > 0;

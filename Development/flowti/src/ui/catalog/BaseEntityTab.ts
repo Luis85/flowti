@@ -281,7 +281,7 @@ export class BaseEntityTab<T extends BaseEntityEntry> {
 			void openFile(this.deps.workspace, data.filePath);
 		});
 
-		const delBtn = actions.createEl("button", { cls: "ft-btn ft-btn-ghost ft-text-sm ft-text-error-color" });
+		const delBtn = actions.createEl("button", { cls: "ft-btn ft-btn-ghost ft-text-sm ft-text-error" });
 		const delIcon = delBtn.createSpan();
 		setIcon(delIcon, "trash-2");
 		delBtn.appendText(" Delete");

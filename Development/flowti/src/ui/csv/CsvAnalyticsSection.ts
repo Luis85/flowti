@@ -27,7 +27,7 @@ export class CsvAnalyticsSection {
 			const icon = headerRow.createSpan();
 			setIcon(icon, "bar-chart-2");
 			icon.addClass("ft-icon-muted");
-			headerRow.createSpan({ text: "Used by analytics", cls: "ft-text-sm ft-font-500" });
+			headerRow.createSpan({ text: "Used by analytics", cls: "ft-text-sm ft-font-medium" });
 
 			for (const query of queries) {
 				this.renderQueryRow(card, query);
@@ -58,7 +58,7 @@ export class CsvAnalyticsSection {
 		row.addClass("ft-flex-wrap");
 
 		// Query name
-		row.createSpan({ text: query.name, cls: "ft-text-sm ft-font-500" });
+		row.createSpan({ text: query.name, cls: "ft-text-sm ft-font-medium" });
 
 		// Auto-summary from dimensions/measures
 		const summary = this.buildAutoSummary(query);

@@ -35,7 +35,7 @@ export class ViewSelectPage {
 
 		// Action bar
 		const actions = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-3 ft-mb-3" });
-		actions.addClass("ft-action-bar-border");
+		actions.addClass("ft-border-bottom");
 
 		const closeBtn = actions.createEl("span", { cls: "ft-nav-link" });
 		setIcon(closeBtn.createSpan(), "x");
@@ -140,7 +140,7 @@ export class ViewSelectPage {
 			// Icon
 			const iconEl = row.createSpan();
 			setIcon(iconEl, "table");
-			if (!isSelected) iconEl.addClass("ft-opacity-04");
+			if (!isSelected) iconEl.addClass("ft-opacity-40");
 			iconEl.addClass("ft-flex-shrink-0");
 
 			// Text

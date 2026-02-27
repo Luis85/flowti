@@ -181,7 +181,7 @@ export class TrainHubView extends BaseHubView<TrainHubPage> {
 			cardHeader.createSpan({ text: "Currently Running", cls: "ft-heading ft-heading-sm" });
 
 			const cardBody = card.createDiv({ cls: "ft-flex ft-items-center ft-gap-3" });
-			cardBody.createSpan({ text: running.title, cls: "ft-text-bold" });
+			cardBody.createSpan({ text: running.title, cls: "ft-font-semibold" });
 			cardBody.createSpan({ text: `${running.thoughts.length} thoughts`, cls: "ft-text-muted ft-text-sm" });
 
 			const openBtn = cardBody.createEl("button", { text: "Open", cls: "ft-btn ft-btn-ghost ft-text-sm" });
@@ -199,7 +199,7 @@ export class TrainHubView extends BaseHubView<TrainHubPage> {
 			pausedHeader.createSpan({ text: "Paused", cls: "ft-heading ft-heading-sm" });
 
 			const pausedBody = pausedCard.createDiv({ cls: "ft-flex ft-items-center ft-gap-3" });
-			pausedBody.createSpan({ text: paused.title, cls: "ft-text-bold" });
+			pausedBody.createSpan({ text: paused.title, cls: "ft-font-semibold" });
 			pausedBody.createSpan({ text: `${paused.thoughts.length} thoughts`, cls: "ft-text-muted ft-text-sm" });
 
 			const resumeBtn = pausedBody.createEl("button", { text: "Resume", cls: "ft-btn ft-btn-primary ft-text-sm" });
@@ -473,7 +473,7 @@ export class TrainHubView extends BaseHubView<TrainHubPage> {
 		const card = container.createDiv({ cls: "ft-card ft-p-2 ft-text-center" });
 		const iconEl = card.createDiv({ cls: "ft-mb-1" });
 		setIcon(iconEl, icon);
-		iconEl.addClass("ft-opacity-06");
+		iconEl.addClass("ft-opacity-60");
 		card.createDiv({ text: value, cls: "ft-heading ft-heading-sm" });
 		card.createDiv({ text: label, cls: "ft-text-muted ft-text-xs" });
 	}
@@ -482,7 +482,7 @@ export class TrainHubView extends BaseHubView<TrainHubPage> {
 		const empty = container.createDiv({ cls: "ft-p-4 ft-text-center" });
 		const iconEl = empty.createDiv({ cls: "ft-mb-2" });
 		setIcon(iconEl, "train-front");
-		iconEl.addClass("ft-opacity-03");
+		iconEl.addClass("ft-opacity-30");
 		empty.createDiv({ text: title, cls: "ft-heading ft-heading-sm ft-mb-1" });
 		empty.createDiv({ text: description, cls: "ft-text-muted ft-text-sm" });
 	}

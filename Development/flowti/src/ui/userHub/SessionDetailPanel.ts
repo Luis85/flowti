@@ -119,7 +119,7 @@ export class SessionDetailPanel {
 			focusRow.createSpan({ text: "Focus", cls: "ft-text-muted ft-info-label" });
 			const focusIcon = focusRow.createSpan();
 			setIcon(focusIcon, "file");
-			focusIcon.addClass("ft-opacity-half");
+			focusIcon.addClass("ft-opacity-50");
 			const link = focusRow.createEl("a", {
 				text: session.focusFile.split("/").pop() ?? session.focusFile,
 				cls: "ft-link",
@@ -166,7 +166,7 @@ export class SessionDetailPanel {
 
 			const icon = row.createSpan();
 			setIcon(icon, artifact.action === "created" ? "file-plus" : "file-edit");
-			icon.addClass("ft-opacity-half");
+			icon.addClass("ft-opacity-50");
 
 			// Clickable filename
 			const parts = artifact.path.split("/");
@@ -200,7 +200,7 @@ export class SessionDetailPanel {
 
 			const icon = row.createSpan();
 			setIcon(icon, "file-text");
-			icon.addClass("ft-opacity-half");
+			icon.addClass("ft-opacity-50");
 
 			const parts = link.path.split("/");
 			const linkEl = row.createEl("a", { text: parts[parts.length - 1], cls: "ft-link" });
@@ -240,7 +240,7 @@ export class SessionDetailPanel {
 
 			const icon = row.createSpan();
 			setIcon(icon, TIMELINE_ICONS[entry.action] ?? "circle");
-			icon.addClass("ft-opacity-06");
+			icon.addClass("ft-opacity-60");
 
 			row.createSpan({ text: TIMELINE_LABELS[entry.action] ?? entry.action });
 
@@ -264,7 +264,7 @@ export class SessionDetailPanel {
 		const thoughtCount = grid.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
 		const thoughtIcon = thoughtCount.createSpan();
 		setIcon(thoughtIcon, "brain");
-		thoughtIcon.addClass("ft-opacity-half");
+		thoughtIcon.addClass("ft-opacity-50");
 		thoughtCount.createSpan({ text: `${train.thoughts.length} thought${train.thoughts.length === 1 ? "" : "s"}` });
 
 		const branchCount = train.relations.filter((r) => r.direction === "branch").length;
@@ -272,7 +272,7 @@ export class SessionDetailPanel {
 			const branchEl = grid.createDiv({ cls: "ft-flex ft-items-center ft-gap-1" });
 			const branchIcon = branchEl.createSpan();
 			setIcon(branchIcon, "git-branch");
-			branchIcon.addClass("ft-opacity-half");
+			branchIcon.addClass("ft-opacity-50");
 			branchEl.createSpan({ text: `${branchCount} branch${branchCount === 1 ? "" : "es"}` });
 		}
 
@@ -290,7 +290,7 @@ export class SessionDetailPanel {
 				const row = list.createDiv({ cls: "ft-flex ft-items-center ft-gap-1 ft-text-sm ft-cursor-pointer ft-info-row" });
 				const icon = row.createSpan();
 				setIcon(icon, "file-text");
-				icon.addClass("ft-opacity-half");
+				icon.addClass("ft-opacity-50");
 				const link = row.createEl("a", {
 					text: thought.title,
 					cls: "ft-link",
@@ -442,7 +442,7 @@ export class SessionDetailPanel {
 
 			const icon = row.createSpan();
 			setIcon(icon, "bookmark");
-			icon.addClass("ft-opacity-half");
+			icon.addClass("ft-opacity-50");
 
 			row.createSpan({ text: tmpl.name });
 

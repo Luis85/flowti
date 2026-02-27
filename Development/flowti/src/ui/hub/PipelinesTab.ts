@@ -237,7 +237,7 @@ export class PipelinesTab {
 		const statusRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
 		const spinnerIcon = statusRow.createSpan();
 		setIcon(spinnerIcon, "loader");
-		spinnerIcon.addClass("ft-opacity-muted");
+		spinnerIcon.addClass("ft-opacity-60");
 		spinnerIcon.addClass("ft-spin");
 		const statusText = statusRow.createSpan({ cls: "ft-text-sm" });
 

@@ -97,7 +97,7 @@ export class TrainResumeModal extends Modal {
 		const iconEl = row.createSpan();
 		setIcon(iconEl, config.icon);
 		const textCol = row.createDiv();
-		textCol.createDiv({ text: config.label, cls: "ft-text-sm ft-text-bold" });
+		textCol.createDiv({ text: config.label, cls: "ft-text-sm ft-font-semibold" });
 		textCol.createDiv({ text: config.description, cls: "ft-text-xs ft-text-muted" });
 
 		btn.addEventListener("click", () => {

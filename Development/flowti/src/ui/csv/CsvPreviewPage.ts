@@ -24,7 +24,7 @@ export class CsvPreviewPage {
 
 		// Action bar
 		const statsBar = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2" });
-		statsBar.addClass("ft-action-bar-border");
+		statsBar.addClass("ft-border-bottom");
 		statsBar.addClass("ft-flex-shrink-0");
 
 		// Validation

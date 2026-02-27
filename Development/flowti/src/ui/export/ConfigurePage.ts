@@ -31,7 +31,7 @@ export class ConfigurePage {
 
 		// Action bar
 		const actions = panel.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2 ft-mb-3" });
-		actions.addClass("ft-action-bar-border");
+		actions.addClass("ft-border-bottom");
 
 		if (state.sourceType === "base") {
 			const backBtn = actions.createEl("span", { cls: "ft-nav-link" });

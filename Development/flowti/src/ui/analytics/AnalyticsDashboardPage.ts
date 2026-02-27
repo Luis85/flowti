@@ -234,7 +234,7 @@ export class AnalyticsDashboardPage {
 
 		const titleLeft = header.createDiv({ cls: "ft-dashboard-title-left" });
 
-		const titleInput = titleLeft.createEl("input", { type: "text", cls: "ft-dashboard-title-input" });
+		const titleInput = titleLeft.createEl("input", { type: "text", cls: "ft-title-input" });
 		titleInput.value = dashboard.name;
 		titleInput.addEventListener("blur", () => {
 			const val = titleInput.value.trim();

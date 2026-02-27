@@ -33,7 +33,7 @@ export class CsvUsageSection {
 			const importIcon = importHeader.createSpan();
 			setIcon(importIcon, "file-input");
 			importIcon.addClass("ft-icon-muted");
-			importHeader.createSpan({ text: "Used by import", cls: "ft-text-sm ft-font-500" });
+			importHeader.createSpan({ text: "Used by import", cls: "ft-text-sm ft-font-medium" });
 			for (const cfg of importConfigs) {
 				this.renderImportConfigRow(importCard, cfg);
 			}
@@ -62,7 +62,7 @@ export class CsvUsageSection {
 			text: cfg.name,
 			cls: "ft-nav-link ft-text-sm",
 		});
-		nameLink.addClass("ft-font-500");
+		nameLink.addClass("ft-font-medium");
 		nameLink.addEventListener("click", () => this.deps.openHubImportConfig(cfg.id));
 		row.createSpan({ text: `→ ${cfg.targetFolder}`, cls: "ft-badge ft-badge-muted" });
 		row.createSpan({ text: cfg.conflictStrategy, cls: "ft-badge ft-badge-muted" });
@@ -138,7 +138,7 @@ export class CsvUsageSection {
 		const spinIcon = header.createSpan();
 		setIcon(spinIcon, "loader");
 		spinIcon.addClass("ft-icon-muted");
-		header.createSpan({ text: `Running import: ${name}`, cls: "ft-text-sm ft-font-500" });
+		header.createSpan({ text: `Running import: ${name}`, cls: "ft-text-sm ft-font-medium" });
 
 		wrapper.createDiv({
 			text: total > 0 ? `Processing row ${current} of ${total}...` : "Starting import...",
@@ -161,7 +161,7 @@ export class CsvUsageSection {
 		const checkIcon = header.createSpan();
 		setIcon(checkIcon, "check-circle");
 		checkIcon.addClass("ft-icon-muted");
-		header.createSpan({ text: "Import Complete", cls: "ft-text-sm ft-font-500" });
+		header.createSpan({ text: "Import Complete", cls: "ft-text-sm ft-font-medium" });
 		header.createDiv({ cls: "ft-flex-1" });
 		const dismissBtn = header.createEl("span", { cls: "ft-nav-link ft-text-sm" });
 		setIcon(dismissBtn, "x");

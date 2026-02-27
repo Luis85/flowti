@@ -245,7 +245,7 @@ export class MeasurementsTab {
 			missing.value = m.queryId;
 			missing.textContent = "Query not found";
 			missing.selected = true;
-			missing.addClass("ft-option-error");
+			missing.addClass("ft-text-error");
 		}
 		querySelect.addEventListener("change", () => {
 			void this.deps.analyticsService.updateMeasurement(m.id, { queryId: querySelect.value }).then(() => {
@@ -371,7 +371,7 @@ export class MeasurementsTab {
 		});
 
 		// Delete
-		const delBtn = actions.createEl("span", { cls: "ft-nav-link ft-text-sm ft-delete-link" });
+		const delBtn = actions.createEl("span", { cls: "ft-nav-link ft-text-sm ft-text-error" });
 		const delIcon = delBtn.createSpan();
 		setIcon(delIcon, "trash-2");
 		delBtn.appendText(" Delete");

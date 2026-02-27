@@ -381,10 +381,6 @@
 	flex-direction: column;
 }
 
-.ft-flex-row {
-	flex-direction: row;
-}
-
 .ft-items-center {
 	align-items: center;
 }
@@ -497,36 +493,17 @@
 	border-bottom: 1px solid var(--background-modifier-border);
 }
 
-.ft-section-flush {
-	padding: 12px 0;
-	border-bottom: 1px solid var(--background-modifier-border);
-}
-
 .ft-section:last-child,
-.ft-section-flush:last-child {
-	border-bottom: none;
-}
-
-/* Spacing utilities */
-.ft-p-1 { padding: 0.25rem; }
 .ft-p-2 { padding: 0.5rem; }
 .ft-p-3 { padding: 0.75rem; }
 .ft-p-4 { padding: 1rem; }
-
-.ft-px-1 { padding-left: 0.25rem; padding-right: 0.25rem; }
 .ft-px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
 .ft-px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
-.ft-px-4 { padding-left: 1rem; padding-right: 1rem; }
 
 .ft-py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
 .ft-py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
 .ft-py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
-.ft-py-4 { padding-top: 1rem; padding-bottom: 1rem; }
-
-.ft-m-1 { margin: 0.25rem; }
-.ft-m-2 { margin: 0.5rem; }
 .ft-m-3 { margin: 0.75rem; }
-.ft-m-4 { margin: 1rem; }
 
 .ft-mt-1 { margin-top: 0.25rem; }
 .ft-mt-2 { margin-top: 0.5rem; }
@@ -537,11 +514,6 @@
 .ft-mb-2 { margin-bottom: 0.5rem; }
 .ft-mb-3 { margin-bottom: 0.75rem; }
 .ft-mb-4 { margin-bottom: 1rem; }
-
-.ft-mx-1 { margin-left: 0.25rem; margin-right: 0.25rem; }
-.ft-mx-2 { margin-left: 0.5rem; margin-right: 0.5rem; }
-.ft-mx-3 { margin-left: 0.75rem; margin-right: 0.75rem; }
-.ft-mx-4 { margin-left: 1rem; margin-right: 1rem; }
 
 /* Width utilities */
 .ft-w-full {
@@ -580,18 +552,6 @@
 /* Hidden utility */
 .ft-hidden {
 	display: none !important;
-}
-
-.ft-sr-only {
-	position: absolute;
-	width: 1px;
-	height: 1px;
-	padding: 0;
-	margin: -1px;
-	overflow: hidden;
-	clip: rect(0, 0, 0, 0);
-	white-space: nowrap;
-	border-width: 0;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -695,11 +655,6 @@
 	color: rgb(74, 222, 128);
 }
 
-.ft-step-skipped .ft-step-icon {
-	background: var(--background-secondary);
-	color: var(--text-muted);
-}
-
 .ft-step-failed .ft-step-icon {
 	background: rgba(239, 68, 68, 0.2);
 	color: rgb(248, 113, 113);
@@ -737,33 +692,12 @@
    Event System Views
    ───────────────────────────────────────────────────────────── */
 
-/* Event row — used in both Event Catalog and Event Log */
-.ft-event-row {
-	display: flex;
-	flex-direction: column;
-	gap: 0.25rem;
-	padding: 0.5rem 0.75rem;
-	border-radius: var(--radius-s, 4px);
-	transition: background-color 0.15s ease;
-}
-
-.ft-event-row:hover {
-	background-color: var(--background-secondary);
-}
-
 /* Monospace event type name */
 .ft-event-type {
 	font-family: var(--font-monospace);
 	font-size: var(--font-ui-smaller);
 	font-weight: 500;
 	color: var(--text-normal);
-}
-
-/* Collapsible category header */
-.ft-category-header {
-	cursor: pointer;
-	padding: 0.25rem 0;
-	user-select: none;
 }
 
 /* Event Log toolbar */
@@ -958,14 +892,9 @@
 .ft-visibility-toggle.ft-visibility-partial {
 	opacity: 0.65;
 }
-
-/* Excluded event row (dimmed) */
-.ft-event-row.ft-event-excluded,
 .ft-catalog-row.ft-event-excluded {
 	opacity: 0.45;
 }
-
-.ft-event-row.ft-event-excluded .ft-event-type,
 .ft-catalog-row.ft-event-excluded .ft-event-type {
 	text-decoration: line-through;
 	text-decoration-color: var(--text-faint);
@@ -974,21 +903,6 @@
 /* ─────────────────────────────────────────────────────────────
    Event Catalog — Compact Layout
    ───────────────────────────────────────────────────────────── */
-
-/* Compact card variant for catalog categories */
-.ft-catalog-card {
-	background-color: var(--background-secondary);
-	border-radius: var(--radius-s, 4px);
-	padding: 0.5rem 0.75rem;
-	border: 1px solid var(--background-modifier-border);
-}
-
-/* Compact list inside catalog cards */
-.ft-catalog-list {
-	display: flex;
-	flex-direction: column;
-	margin-top: 0.25rem;
-}
 
 /* Single-row compact event entry */
 .ft-catalog-row {
@@ -1055,45 +969,6 @@
 .ft-catalog-master-search:focus {
 	outline: none;
 	border-color: var(--interactive-accent);
-}
-
-/* Filter chips + settings gear row */
-.ft-catalog-filter-chips {
-	display: flex;
-	align-items: center;
-	gap: 0.25rem;
-	padding: 0.35rem 0.5rem;
-	flex-shrink: 0;
-	border-bottom: 1px solid var(--background-modifier-border);
-}
-
-.ft-catalog-chip {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.25rem;
-	padding: 0.15rem 0.5rem;
-	border-radius: 9999px;
-	font-size: 0.7rem;
-	font-weight: 500;
-	cursor: pointer;
-	border: 1px solid var(--background-modifier-border);
-	background-color: transparent;
-	color: var(--text-muted);
-	transition: all 0.15s ease;
-}
-
-.ft-catalog-chip:hover {
-	background-color: var(--background-secondary);
-}
-
-.ft-catalog-chip-active {
-	background-color: var(--interactive-accent);
-	color: var(--text-on-accent);
-	border-color: var(--interactive-accent);
-}
-
-.ft-catalog-chip-active:hover {
-	background-color: var(--interactive-accent-hover);
 }
 
 /* Master tree (scrollable) */
@@ -1457,17 +1332,6 @@
 	font-weight: var(--font-semibold);
 }
 
-.ft-column-mapping-row {
-	display: flex;
-	align-items: center;
-	gap: var(--size-4-2);
-	padding: var(--size-4-1) 0;
-}
-
-.ft-column-mapping-row .ft-input {
-	flex: 1;
-}
-
 .ft-progress-bar {
 	width: 100%;
 	height: 8px;
@@ -1524,47 +1388,6 @@
 	padding: 0.3rem 0.65rem;
 	font-size: var(--font-ui-smaller);
 	gap: 0.35rem;
-}
-
-.flowti-csv-action {
-	display: flex;
-	justify-content: center;
-	padding: var(--size-4-8) var(--size-4-4);
-}
-
-.flowti-csv-container {
-	max-width: 600px;
-	width: 100%;
-	text-align: center;
-}
-
-.flowti-csv-icon {
-	margin-bottom: var(--size-4-2);
-}
-
-.flowti-csv-icon svg {
-	width: 48px;
-	height: 48px;
-	color: var(--text-muted);
-}
-
-.flowti-csv-desc {
-	color: var(--text-muted);
-	margin-bottom: var(--size-4-4);
-}
-
-.flowti-csv-actions {
-	display: flex;
-	gap: var(--size-4-3);
-	justify-content: center;
-	margin-bottom: var(--size-4-8);
-}
-
-.flowti-csv-actions button {
-	display: flex;
-	align-items: center;
-	gap: var(--size-4-2);
-	padding: var(--size-4-2) var(--size-4-4);
 }
 
 .flowti-csv-btn-icon {
@@ -1651,25 +1474,6 @@
 .ft-preview-filter-bar input:focus {
 	border-color: var(--interactive-accent);
 	outline: none;
-}
-
-/* Doc properties grid */
-.ft-doc-properties {
-	display: grid;
-	grid-template-columns: auto 1fr;
-	gap: 0.15rem 0.75rem;
-	font-size: var(--font-smallest);
-	margin-top: 0.5rem;
-	padding: 0.5rem;
-	background: var(--background-primary-alt);
-	border-radius: var(--radius-s, 4px);
-}
-.ft-doc-prop-key {
-	color: var(--text-muted);
-	font-weight: 500;
-}
-.ft-doc-prop-value {
-	color: var(--text-normal);
 }
 
 /* Doc CTA (call-to-action when no doc exists) */
@@ -1914,28 +1718,6 @@
 .ft-config-dropdown-divider {
 	border-top: 1px solid var(--background-modifier-border);
 	margin: 0.25rem 0;
-}
-
-/* Save config CTA — compact single-line row */
-.ft-save-config-cta {
-	display: flex;
-	align-items: center;
-	gap: 0.5rem;
-	border: 1px dashed var(--interactive-accent);
-	border-radius: var(--radius-s, 4px);
-	padding: 0.35rem 0.6rem;
-	margin-top: 0.75rem;
-	background: var(--background-primary-alt);
-}
-.ft-save-config-cta .ft-save-cta-label {
-	display: flex;
-	align-items: center;
-	gap: 0.35rem;
-	font-size: var(--font-ui-small);
-	font-weight: 500;
-	color: var(--text-muted);
-	flex: 1;
-	min-width: 0;
 }
 
 /* Operation type badges */
@@ -2489,23 +2271,6 @@
 	color: var(--text-normal);
 }
 
-/* ── Train Capture Modal ─────────────────────────────── */
-
-.ft-train-context {
-	padding: 0.5rem 0.75rem;
-	background: var(--background-secondary);
-	border-radius: var(--radius-s, 4px);
-	margin-bottom: 0.5rem;
-	font-size: var(--font-ui-small);
-	color: var(--text-muted);
-}
-
-.ft-train-counter {
-	font-size: var(--font-ui-smaller);
-	color: var(--text-faint);
-	margin-bottom: 0.5rem;
-}
-
 .ft-train-timer {
 	font-family: var(--font-monospace);
 	font-size: 1.1rem;
@@ -2527,20 +2292,12 @@
 	height: 100%;
 }
 
-/* DomainDetailPanel / EventDetailPanel: destructive action text */
-.ft-text-danger {
-	color: var(--text-error);
-}
-
 /* EventsSettingsPanel: hint block padding */
 .ft-settings-hint {
 	padding: 0.5rem 0;
 }
 
 /* CsvAssociatedBases: semi-bold label */
-.ft-font-semibold {
-	font-weight: 500;
-}
 
 /* CsvLanding: no-doc title with semibold weight */
 .ft-doc-cta-title {
@@ -2612,74 +2369,17 @@
    Inline-style extractions — Cycle 48 bulk migration
    ══════════════════════════════════════════════════════════════ */
 
-/* ── Batch 1 extractions ── */
-
-
-
-
-.ft-gap-sm {
-	gap: 4px;
-}
-
-.ft-gap-lg {
-	gap: 16px;
-}
-
-
-
-
-
-.ft-text-bold {
-	font-weight: 600;
-}
-
 .ft-text-center {
 	text-align: center;
-}
-
-/* ── Utility: Spacing ────────────────────────────────────── */
-
-.ft-mt-sm {
-	margin-top: 4px;
-}
-
-.ft-mt-md {
-	margin-top: 8px;
 }
 
 .ft-mb-sm {
 	margin-bottom: 4px;
 }
 
-.ft-mb-md {
-	margin-bottom: 8px;
-}
-
-.ft-p-sm {
-	padding: 4px;
-}
-
-.ft-p-md {
-	padding: 8px;
-}
-
-
 .ft-overflow-auto {
 	overflow: auto;
 }
-
-.ft-overflow-x-auto {
-	overflow-x: auto;
-}
-
-.ft-nowrap {
-	white-space: nowrap;
-}
-
-
-
-
-
 
 .ft-min-w-0 {
 	min-width: 0;
@@ -2692,10 +2392,6 @@
 	align-items: center;
 }
 
-
-
-
-
 .ft-icon-lg > svg {
 	width: 2.5rem;
 	height: 2.5rem;
@@ -2705,29 +2401,6 @@
 
 .ft-text-accent {
 	color: var(--text-accent);
-}
-
-
-/* ── Utility: text-decoration ────────────────────────────── */
-
-.ft-line-through {
-	text-decoration: line-through;
-}
-
-.ft-opacity-06 {
-	opacity: 0.6;
-}
-
-.ft-opacity-05 {
-	opacity: 0.5;
-}
-
-.ft-opacity-04 {
-	opacity: 0.4;
-}
-
-.ft-opacity-035 {
-	opacity: 0.35;
 }
 
 /* ── AnalyticsDashboardPage: Nav links bar ────────────────── */
@@ -2781,17 +2454,6 @@
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
-	flex: 1;
-	min-width: 0;
-}
-
-.ft-dashboard-title-input {
-	font-weight: 600;
-	font-size: var(--font-ui-medium);
-	border: none;
-	background: transparent;
-	color: var(--text-normal);
-	padding: 0;
 	flex: 1;
 	min-width: 0;
 }
@@ -2942,7 +2604,6 @@
 	gap: 0.2rem;
 }
 
-
 /* ── AnalyticsDashboardPage: Favorites section ───────────── */
 
 .ft-favorites-section {
@@ -3072,7 +2733,6 @@
 	min-width: 0;
 }
 
-
 /* ── DashboardTileRenderer: Measurement badge ────────────── */
 
 .ft-badge-shrink {
@@ -3179,7 +2839,6 @@
 	line-height: 1;
 }
 
-
 /* ── DashboardFilterBar: Save icon ───────────────────────── */
 
 .ft-save-icon {
@@ -3220,12 +2879,6 @@
 	border-radius: 4px;
 }
 
-/* ── AnalyticsDashboardPage: Stat card (cursor only) ─────── */
-
-.ft-stat-card-link {
-	cursor: pointer;
-}
-
 /* ── Onboarding: header margin toggle ────────────────────── */
 
 .ft-mb-0 {
@@ -3236,7 +2889,6 @@
 	margin-bottom: 0.5rem;
 }
 
-
 /* ── Batch 2 extractions ── */
 .ft-ml-auto { margin-left: auto; }
 .ft-select-none { user-select: none; }
@@ -3244,17 +2896,14 @@
 
 /* Icon sizing utilities */
 .ft-icon-10 { width: 10px; height: 10px; flex-shrink: 0; display: inline-flex; align-items: center; }
-.ft-icon-12 { width: 12px; height: 12px; }
 .ft-icon-14 { width: 14px; height: 14px; }
 .ft-icon-16 { width: 16px; height: 16px; }
-.ft-icon-18 { width: 18px; height: 18px; }
 .ft-icon-dim { opacity: 0.4; }
 .ft-icon-ghost { opacity: 0.3; }
 
 /* Padding shortcuts for specific spacing values */
 .ft-pl-3 { padding-left: 1rem; }
 .ft-py-xs { padding: 0.15rem 0; }
-.ft-py-sm { padding: 0.25rem 0; }
 
 /* ── Sort select (shared: DashboardsTab, MeasurementsTab) ── */
 .ft-sort-select {
@@ -3339,7 +2988,6 @@
 	flex-shrink: 0;
 }
 
-
 /* Header actions bar */
 .ft-header-actions {
 	display: flex;
@@ -3361,7 +3009,6 @@
 	align-items: center;
 }
 
-
 /* Description input (DashboardsTab) */
 .ft-desc-input {
 	width: 100%;
@@ -3372,13 +3019,11 @@
 	padding: 0.25rem 0;
 }
 
-
 /* ── MeasurementsTab ───────────────────────────────────────── */
 
 /* Star icon faded */
 .ft-star-faded { opacity: 0.3; }
 .ft-star-active { opacity: 1; }
-.ft-star-accent { color: var(--text-accent); }
 
 /* Meta row with inline flex (type badge + query name) */
 .ft-meta-row-inline {
@@ -3540,16 +3185,6 @@
 	opacity: 0.5;
 }
 
-/* Error text on delete button */
-.ft-delete-link {
-	color: var(--text-error);
-}
-
-/* Error option text */
-.ft-option-error {
-	color: var(--text-error);
-}
-
 /* Create form header icon */
 .ft-create-header-icon {
 	width: 16px;
@@ -3636,9 +3271,7 @@
 	margin-left: auto;
 }
 
-
 /* ── Batch 3 extractions ── */
-
 
 /* ─── Shared: inline-flex icon wrapper (no opacity) ─────── */
 .ft-inline-icon-plain {
@@ -3963,7 +3596,6 @@
 	width: 44px;
 }
 
-
 /* ─── ComputedColumnsSection: icon size (no opacity) ─────  */
 .ft-icon-14-plain {
 	width: 14px;
@@ -4064,7 +3696,6 @@
 .ft-cc-error-visible {
 	display: block;
 }
-
 
 /* ── Batch 4 extractions ── */
 .ft-inline-flex-center { display: inline-flex; align-items: center; }
@@ -4216,14 +3847,12 @@
 	flex-shrink: 0;
 }
 
-
 .ft-add-tile-picker-icon {
 	display: inline-flex;
 	align-items: center;
 	opacity: 0.5;
 	flex-shrink: 0;
 }
-
 
 .ft-add-tile-picker-name {
 	flex: 1;
@@ -4328,7 +3957,6 @@
 	display: inline-flex;
 	align-items: center;
 }
-
 
 /* Quick insights */
 .ft-query-insights-header {
@@ -4553,13 +4181,10 @@
 	border-radius: 2px;
 	flex-shrink: 0;
 }
-
-
-/* ── Batch 5 extractions ── */
-.ft-text-italic { font-style: italic; }
-.ft-text-right { text-align: right; }
 .ft-justify-end { justify-content: flex-end; }
 .ft-opacity-60 { opacity: 0.6; }
+.ft-opacity-50 { opacity: 0.5; }
+.ft-opacity-40 { opacity: 0.4; }
 .ft-opacity-30 { opacity: 0.3; }
 .ft-disabled { opacity: 0.4; pointer-events: none; }
 
@@ -4571,16 +4196,6 @@
 	border: 1px solid var(--background-modifier-border);
 	border-radius: var(--radius-s, 4px);
 	color: var(--text-normal);
-}
-
-.ft-field-input {
-	padding: 2px 6px;
-	font-size: var(--font-ui-small);
-	background: var(--background-primary);
-	border: 1px solid var(--background-modifier-border);
-	border-radius: var(--radius-s, 4px);
-	color: var(--text-normal);
-	width: 80px;
 }
 
 .ft-source-alias-input {
@@ -4615,7 +4230,6 @@
 	flex-shrink: 0;
 	max-width: 180px;
 }
-
 
 .ft-query-item {
 	align-items: flex-start;
@@ -4659,8 +4273,6 @@
 	text-underline-offset: 3px;
 }
 
-
-
 .ft-stat-value {
 	font-weight: 700;
 }
@@ -4670,8 +4282,6 @@
 	display: flex;
 	justify-content: center;
 }
-
-
 
 .ft-schema-alias-badge {
 	font-size: 0.65rem;
@@ -4847,7 +4457,6 @@
 /* lineBtn/barBtn active color and saveLink saving state remain inline
    because they depend on runtime conditions with dynamic values. */
 
-
 /* ── Batch 6 extractions ── */
 /* ============================================================
    _css_batch6.css — User Hub inline-style extraction (Batch 6)
@@ -4858,7 +4467,6 @@
 
 .ft-m-0 { margin: 0; }
 .ft-font-mono { font-family: var(--font-monospace); }
-.ft-opacity-half { opacity: 0.5; }
 
 /* ── UserHubDashboard: Welcome ───────────────────────────── */
 
@@ -4879,7 +4487,6 @@
   margin-bottom: 0.75rem;
 }
 
-
 .ft-dashboard-empty-heading {
   font-weight: 600;
   font-size: var(--font-ui-medium);
@@ -4888,15 +4495,6 @@
 
 .ft-dashboard-empty-subtitle {
   margin-bottom: 1.5rem;
-}
-
-.ft-dashboard-empty-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-  max-width: 440px;
-  margin: 0 auto;
-  text-align: left;
 }
 
 .ft-dashboard-action-card {
@@ -4919,7 +4517,6 @@
   display: inline-flex;
   align-items: center;
 }
-
 
 /* ── UserHubDashboard: Next Nudge ────────────────────────── */
 
@@ -4994,10 +4591,6 @@
 .ft-dashboard-inbox-header {
   padding: 0.5rem 0.75rem;
   background-color: var(--background-secondary);
-}
-
-.ft-dashboard-inbox-header-border {
-  border-bottom: 1px solid var(--background-modifier-border);
 }
 
 .ft-dashboard-inbox-header-no-border {
@@ -5379,7 +4972,6 @@
   margin-top: 0.5rem;
 }
 
-
 /* ── Batch 7 extractions ── */
 /* ─── Batch 7: Hub UI inline-style extractions ─────────────────────── */
 
@@ -5390,12 +4982,10 @@
 	align-items: flex-start;
 }
 
-
 /* Text block in master list items — needs min-width:0 for truncation */
 .ft-master-text-block {
 	min-width: 0;
 }
-
 
 /* Icon slight offset for alignment with text */
 .ft-icon-offset-sm {
@@ -5413,18 +5003,15 @@
 	opacity: 0.5;
 }
 
-
 /* Success colored text */
 .ft-text-success {
 	color: var(--text-success);
 }
 
-
 /* Warning colored icon */
 .ft-text-warning {
 	color: var(--text-warning, #e5a100);
 }
-
 
 /* ── Info / detail row ──────────────────────────────────────────────── */
 
@@ -5479,30 +5066,14 @@
 	padding: 2.5rem 1.5rem 1.5rem;
 }
 
-
-
-
 .ft-empty-state-subtitle-mb {
 	margin-bottom: 1.5rem;
 }
-
-/* Action cards grid */
-.ft-action-card-grid {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: 0.75rem;
-	max-width: 440px;
-	margin: 0 auto;
-	text-align: left;
-}
-
-
 
 .ft-action-card-icon {
 	display: inline-flex;
 	align-items: center;
 }
-
 
 /* ── Progress bars ──────────────────────────────────────────────────── */
 
@@ -5529,22 +5100,11 @@
 	transition: width 0.15s ease;
 }
 
-/* ── Spinner / loader ───────────────────────────────────────────────── */
-
-.ft-opacity-muted {
-	opacity: 0.6;
-}
-
 /* ── Pipeline preview table container ───────────────────────────────── */
 
 .ft-preview-scroll {
 	max-height: 200px;
 	overflow-y: auto;
-}
-
-/* Row with bottom border (preview entries, totals) */
-.ft-row-bordered {
-	border-bottom: 1px solid var(--background-modifier-border);
 }
 
 /* Footer with top border */
@@ -5682,7 +5242,6 @@
 	margin: 0 0.25rem;
 }
 
-
 /* ── Analytics results panel ────────────────────────────────────────── */
 
 /* Sortable table header cell */
@@ -5712,7 +5271,6 @@
 	row-gap: 0;
 }
 
-
 /* ── Batch 8 extractions ── */
 
 /* ─────────────────────────────────────────────────────────────
@@ -5729,8 +5287,6 @@
 	padding: 48px 24px;
 	color: var(--text-muted);
 }
-
-
 
 /* renderHeader — title row */
 .ft-session-header-title-row {
@@ -5869,8 +5425,6 @@
 .ft-closure-header-icon {
 	margin-bottom: 8px;
 }
-
-
 
 /* Closure header subtitle */
 .ft-closure-header-subtitle {
@@ -6454,7 +6008,6 @@
 	text-align: center;
 }
 
-
 /* Duration edit row */
 .ft-duration-edit {
 	display: flex;
@@ -6620,7 +6173,6 @@
 	font-size: 13px;
 }
 
-
 /* ── Batch 9 extractions ── */
 /* ─────────────────────────────────────────────────────────── */
 /* Batch 9 — extracted inline styles                          */
@@ -6697,7 +6249,6 @@
 	flex-shrink: 0;
 	line-height: 1;
 }
-
 
 .ft-label-semibold {
 	font-weight: 600;
@@ -6825,7 +6376,6 @@
 	border-top: 1px solid var(--background-modifier-border);
 }
 
-
 .ft-hero-icon-accent svg {
 	width: 2.5rem;
 	height: 2.5rem;
@@ -6854,11 +6404,6 @@
 	width: 640px;
 }
 
-.ft-text-error-color {
-	color: var(--text-error);
-}
-
-
 .ft-column-grid-scroll {
 	max-height: 200px;
 	overflow-y: auto;
@@ -6875,7 +6420,6 @@
 .ft-flex-noshrink {
 	flex-shrink: 0;
 }
-
 
 .ft-overlap-badge {
 	flex-shrink: 0;
@@ -6989,7 +6533,6 @@
 	cursor: pointer;
 }
 
-
 .ft-font-italic {
 	font-style: italic;
 }
@@ -7038,13 +6581,8 @@
 	margin-bottom: 8px;
 }
 
-
 /* ── Batch 10 extractions ── */
 .ft-user-select-none { user-select: none; }
-.ft-italic { font-style: italic; }
-.ft-font-500 { font-weight: 500; }
-.ft-font-600 { font-weight: 600; }
-.ft-opacity-03 { opacity: 0.3; }
 .ft-text-success-color { color: var(--text-success, var(--interactive-accent)); }
 .ft-text-warning-color { color: var(--text-warning); }
 .ft-text-accent-color { color: var(--interactive-accent); }
@@ -7152,12 +6690,6 @@
 
 .ft-train-back-mr-auto {
   margin-right: auto;
-}
-
-/* ── Shared: action bar border ─────────────────────────── */
-
-.ft-action-bar-border {
-  border-bottom: 1px solid var(--background-modifier-border);
 }
 
 /* ── Shared: unsaved changes reminder ──────────────────── */
@@ -7353,4 +6885,4 @@
 .ft-graph-merge-arrow-right {
   right: -3px;
 }
-
+

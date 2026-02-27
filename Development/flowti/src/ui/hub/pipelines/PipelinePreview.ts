@@ -36,7 +36,7 @@ export class PipelinePreview {
 		const loadingRow = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-2" });
 		const loadSpinner = loadingRow.createSpan();
 		setIcon(loadSpinner, "loader");
-		loadSpinner.addClass("ft-opacity-muted");
+		loadSpinner.addClass("ft-opacity-60");
 		loadSpinner.addClass("ft-spin");
 		loadingRow.createSpan({ text: "Preparing preview...", cls: "ft-text-sm" });
 
@@ -98,7 +98,7 @@ export class PipelinePreview {
 			} else {
 				const srcIcon = srcRow.createSpan();
 				setIcon(srcIcon, "file-spreadsheet");
-				srcIcon.addClass("ft-opacity-muted");
+				srcIcon.addClass("ft-opacity-60");
 				srcRow.createSpan({ text: src.csvName, cls: "ft-text-sm" });
 				srcRow.createSpan({
 					text: `${src.rowCount} rows · ${src.columns.length} columns`,
@@ -116,7 +116,7 @@ export class PipelinePreview {
 				if (exportCfg) {
 					const expIcon = expRow.createSpan();
 					setIcon(expIcon, "file-output");
-					expIcon.addClass("ft-opacity-muted");
+					expIcon.addClass("ft-opacity-60");
 					expRow.createSpan({ text: exportCfg.name, cls: "ft-text-sm" });
 					const details: string[] = [];
 					details.push(exportCfg.format.toUpperCase());
@@ -143,7 +143,7 @@ export class PipelinePreview {
 			const tableDiv = section.createDiv({ cls: "ft-px-2 ft-pb-2 ft-preview-scroll" });
 
 			for (const entry of result.entries) {
-				const row = tableDiv.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1 ft-row-bordered" });
+				const row = tableDiv.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1 ft-border-bottom" });
 
 				const dot = row.createSpan({ cls: "ft-text-sm" });
 				dot.addClass(entry.exists ? "ft-text-accent" : "ft-text-success");

@@ -205,7 +205,7 @@ export class EventDetailPanel {
 
 		// Delete (custom events)
 		if (isCustom) {
-			const delBtn = actions.createEl("button", { cls: "ft-btn ft-btn-ghost ft-text-sm ft-text-danger" });
+			const delBtn = actions.createEl("button", { cls: "ft-btn ft-btn-ghost ft-text-sm ft-text-error" });
 			const delIcon = delBtn.createSpan();
 			setIcon(delIcon, "trash-2");
 			delBtn.appendText(" Delete");

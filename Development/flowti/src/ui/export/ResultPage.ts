@@ -48,7 +48,7 @@ export class ResultPage {
 		const headerRow = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-3" });
 		const hIcon = headerRow.createSpan();
 		setIcon(hIcon, "x-circle");
-		hIcon.addClass("ft-text-error-color");
+		hIcon.addClass("ft-text-error");
 		headerRow.createEl("h3", { text: "Export failed", cls: "ft-heading ft-heading-sm" });
 
 		const errorCard = container.createDiv({ cls: "ft-card ft-mt-2 ft-result-error-border" });

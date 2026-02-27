@@ -578,7 +578,7 @@ export class QueriesTab {
 		const configHeader = this.detailEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mt-3 ft-query-config-header" });
 		const configIcon = configHeader.createSpan({ cls: "ft-query-config-icon" });
 		setIcon(configIcon, "settings-2");
-		configHeader.createSpan({ text: "Query Configuration", cls: "ft-text-sm ft-text-bold" });
+		configHeader.createSpan({ text: "Query Configuration", cls: "ft-text-sm ft-font-semibold" });
 
 		new SourcePanel(this.detailEl, subDeps).render();
 
@@ -615,7 +615,7 @@ export class QueriesTab {
 			const row = callout.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
 			const icon = row.createSpan({ cls: "ft-query-callout-icon-16 ft-query-callout-icon-error" });
 			setIcon(icon, "alert-triangle");
-			row.createSpan({ text: "Query failed", cls: "ft-text-sm ft-text-bold" });
+			row.createSpan({ text: "Query failed", cls: "ft-text-sm ft-font-semibold" });
 			return;
 		}
 
@@ -644,7 +644,7 @@ export class QueriesTab {
 
 		const section = this.detailEl.createDiv({ cls: "ft-card ft-mt-3" });
 		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-query-insights-header" });
-		header.createSpan({ text: "Quick Insights", cls: "ft-text-sm ft-text-bold" });
+		header.createSpan({ text: "Quick Insights", cls: "ft-text-sm ft-font-semibold" });
 
 		const grid = section.createDiv({ cls: "ft-query-insights-grid" });
 
@@ -689,7 +689,7 @@ export class QueriesTab {
 		const header = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-query-xref-header" });
 		const iconEl = header.createSpan({ cls: "ft-query-xref-icon-14" });
 		setIcon(iconEl, "link");
-		header.createSpan({ text: "Cross-References", cls: "ft-text-sm ft-text-bold" });
+		header.createSpan({ text: "Cross-References", cls: "ft-text-sm ft-font-semibold" });
 
 		// Measurements
 		if (relatedMeasurements.length > 0) {

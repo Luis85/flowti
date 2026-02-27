@@ -84,11 +84,11 @@ export class UserHubSessions {
 
 			const chevron = categoryHeader.createSpan({ cls: "ft-category-chevron" });
 			setIcon(chevron, isCollapsed ? "chevron-right" : "chevron-down");
-			chevron.addClass("ft-opacity-half");
+			chevron.addClass("ft-opacity-50");
 
 			const statusIcon = categoryHeader.createSpan();
 			setIcon(statusIcon, STATUS_ICONS[status] ?? "circle");
-			statusIcon.addClass("ft-opacity-half");
+			statusIcon.addClass("ft-opacity-50");
 
 			categoryHeader.createSpan({
 				text: `${SESSION_STATUS_LABELS[status] ?? status} (${group.length})`,

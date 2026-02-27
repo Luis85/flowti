@@ -215,7 +215,7 @@ export class ServicesTab {
 			cls: `ft-master-event-item${isSelected ? " ft-master-event-selected" : ""}`,
 		});
 
-		if (!s.visible) item.addClass("ft-opacity-06");
+		if (!s.visible) item.addClass("ft-opacity-60");
 
 		// Eye icon for visibility toggle
 		const eyeBtn = item.createSpan({ cls: "ft-visibility-toggle" });
@@ -369,7 +369,7 @@ export class ServicesTab {
 
 		// Delete button for documented services (file-based only)
 		if (serviceData.filePath) {
-			const delBtn = actions.createEl("button", { cls: "ft-btn ft-btn-ghost ft-text-sm ft-text-error-color" });
+			const delBtn = actions.createEl("button", { cls: "ft-btn ft-btn-ghost ft-text-sm ft-text-error" });
 			const delIcon = delBtn.createSpan();
 			setIcon(delIcon, "trash-2");
 			delBtn.appendText(" Delete");

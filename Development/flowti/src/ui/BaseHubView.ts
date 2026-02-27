@@ -314,7 +314,7 @@ export abstract class BaseHubView<TPage extends string = string> extends ItemVie
 		if (this.activePage !== "dashboard") this.masterTreeEl.empty();
 		target.empty();
 		const banner = target.createDiv({ cls: "ft-error-boundary ft-p-4 ft-text-center" });
-		const iconEl = banner.createDiv({ cls: "ft-mb-2 ft-opacity-half" });
+		const iconEl = banner.createDiv({ cls: "ft-mb-2 ft-opacity-50" });
 		setIcon(iconEl, "alert-triangle");
 		banner.createDiv({ text: "Something went wrong", cls: "ft-heading ft-heading-sm ft-mb-1" });
 		banner.createDiv({

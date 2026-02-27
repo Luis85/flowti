@@ -165,7 +165,7 @@ export class PipelineSourceModal extends Modal {
 		if (this.csvPath && this.csvHeaders.length === 0 && !this.isLoading) {
 			const file = this.app.vault.getAbstractFileByPath(this.csvPath);
 			if (!file || !(file instanceof TFile)) {
-				const warn = contentEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2 ft-text-error-color" });
+				const warn = contentEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2 ft-text-error" });
 				const warnIcon = warn.createSpan();
 				setIcon(warnIcon, "alert-triangle");
 				warn.createSpan({ text: `File not found: ${this.csvPath}`, cls: "ft-text-sm" });
@@ -174,7 +174,7 @@ export class PipelineSourceModal extends Modal {
 
 		if (this.isLoading) {
 			const loading = contentEl.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-p-3" });
-			const spinner = loading.createSpan({ cls: "ft-opacity-half" });
+			const spinner = loading.createSpan({ cls: "ft-opacity-50" });
 			setIcon(spinner, "loader");
 			loading.createSpan({ text: "Parsing CSV...", cls: "ft-text-muted" });
 			return;

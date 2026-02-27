@@ -276,7 +276,7 @@ export class HealthTab {
 
 		const iconEl = empty.createDiv({ cls: "ft-mb-3" });
 		setIcon(iconEl, "heart-pulse");
-		iconEl.addClass("ft-opacity-04");
+		iconEl.addClass("ft-opacity-40");
 		iconEl.querySelector("svg")?.setAttribute("width", "48");
 		iconEl.querySelector("svg")?.setAttribute("height", "48");
 

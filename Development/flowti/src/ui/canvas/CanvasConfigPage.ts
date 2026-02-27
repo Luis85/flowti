@@ -26,7 +26,7 @@ export class CanvasConfigPage {
 		const state = this.deps.getState();
 
 		// Action bar
-		const actions = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2 ft-action-bar-border" });
+		const actions = ws.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2 ft-border-bottom" });
 		actions.addClass("ft-flex-shrink-0");
 
 		const backBtn = actions.createEl("span", { cls: "ft-nav-link" });

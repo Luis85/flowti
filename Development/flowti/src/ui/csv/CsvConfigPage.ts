@@ -45,7 +45,7 @@ export class CsvConfigPage {
 		panel.createEl("h3", { text: "Configure import", cls: "ft-heading ft-heading-sm ft-mb-2" });
 
 		// Action bar
-		const actions = panel.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2 ft-mb-3 ft-action-bar-border" });
+		const actions = panel.createDiv({ cls: "ft-flex ft-items-center ft-gap-3 ft-py-2 ft-mb-3 ft-border-bottom" });
 
 		const csvDetailBtn = actions.createEl("span", { cls: "ft-nav-link" });
 		setIcon(csvDetailBtn.createSpan(), "file-spreadsheet");

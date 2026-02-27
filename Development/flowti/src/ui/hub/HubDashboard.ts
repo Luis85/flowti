@@ -105,7 +105,7 @@ export class HubDashboard {
 		});
 
 		// Action cards grid
-		const grid = wrapper.createDiv({ cls: "ft-action-card-grid" });
+		const grid = wrapper.createDiv({ cls: "ft-action-cards-grid" });
 
 		// Card 1: Import a CSV
 		this.renderActionCard(grid, {
@@ -204,7 +204,7 @@ export class HubDashboard {
 			} else {
 				const spinner = row.createSpan();
 				setIcon(spinner, "loader");
-				spinner.addClass("ft-opacity-muted");
+				spinner.addClass("ft-opacity-60");
 				spinner.addClass("ft-spin");
 				const statusText = row.createSpan({ cls: "ft-text-sm" });
 				const typeLabel = op.type === "canvas-import" ? "Canvas Import" : op.type === "import" ? "Importing" : op.type === "export" ? "Exporting" : "Pipeline";

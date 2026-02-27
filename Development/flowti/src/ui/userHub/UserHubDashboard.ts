@@ -112,7 +112,7 @@ export class UserHubDashboard {
 		});
 
 		// Action cards grid
-		const grid = wrapper.createDiv({ cls: "ft-dashboard-empty-grid" });
+		const grid = wrapper.createDiv({ cls: "ft-action-cards-grid" });
 
 		// Card 1: Open Analytics Hub
 		const card1 = grid.createDiv({ cls: "ft-stat-card ft-dashboard-action-card" });
@@ -159,7 +159,7 @@ export class UserHubDashboard {
 
 		const icon = row.createSpan();
 		setIcon(icon, "bell");
-		icon.addClass("ft-opacity-half");
+		icon.addClass("ft-opacity-50");
 
 		row.createSpan({ text: `Next: ${next.title}`, cls: "ft-text-sm" });
 		row.createSpan({ text: next.time, cls: "ft-badge ft-badge-muted ft-text-sm" });
@@ -310,7 +310,7 @@ export class UserHubDashboard {
 
 			const icon = row.createSpan();
 			setIcon(icon, "train-front");
-			icon.addClass("ft-opacity-half");
+			icon.addClass("ft-opacity-50");
 
 			row.createSpan({ text: train.title, cls: "ft-text-sm" });
 

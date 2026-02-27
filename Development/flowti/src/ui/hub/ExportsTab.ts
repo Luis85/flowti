@@ -255,12 +255,12 @@ export class ExportsTab {
 				const pipe = linkedPipelines[i];
 				const row = section.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-py-1 ft-px-2" });
 				if (linkedPipelines.length > 1 && i < linkedPipelines.length - 1) {
-					row.addClass("ft-row-bordered");
+					row.addClass("ft-border-bottom");
 				}
 				const icon = row.createSpan();
 				setIcon(icon, "git-merge");
 				icon.addClass("ft-flex-shrink-0");
-				icon.addClass("ft-opacity-muted");
+				icon.addClass("ft-opacity-60");
 				const link = row.createEl("span", {
 					text: pipe.name,
 					cls: "ft-nav-link ft-text-sm",

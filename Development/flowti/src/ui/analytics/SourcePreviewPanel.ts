@@ -55,7 +55,7 @@ export class SourcePreviewPanel {
 		const typeRow = thead.createEl("tr");
 		for (const col of this.data.headers) {
 			const hint = this.typeHints.find((h) => h.column === col);
-			const td = typeRow.createEl("td", { cls: "ft-text-xs ft-text-muted ft-text-italic" });
+			const td = typeRow.createEl("td", { cls: "ft-text-xs ft-text-muted ft-font-italic" });
 			td.textContent = hint?.type ?? "string";
 		}
 

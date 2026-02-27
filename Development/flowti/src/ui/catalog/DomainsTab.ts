@@ -232,7 +232,7 @@ export class DomainsTab {
 			cls: `ft-master-event-item${isSelected ? " ft-master-event-selected" : ""}`,
 		});
 
-		if (!d.visible) item.addClass("ft-opacity-06");
+		if (!d.visible) item.addClass("ft-opacity-60");
 
 		// Eye icon for visibility toggle
 		const eyeBtn = item.createSpan({ cls: "ft-visibility-toggle" });
