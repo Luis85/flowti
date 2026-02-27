@@ -204,6 +204,13 @@ export class AnalyticsService {
 				result,
 			});
 
+			void this.eventBus?.emit("perf.query.executed", {
+				queryId: queryName ?? "ad-hoc",
+				durationMs,
+				sourceRows: result.sourceRowCount,
+				resultRows: result.rows.length,
+			});
+
 			return result;
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);

@@ -12,6 +12,7 @@ import type { WorkspaceLeaf } from "obsidian";
 import type { IEventBus } from "../infrastructure/events/types";
 import type { OnboardingService } from "../domain/onboarding/OnboardingService";
 import { buildSplitLayout, type SplitLayout } from "./catalog/helpers";
+import { WorkspaceShell } from "./shell/WorkspaceShell";
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -76,6 +77,7 @@ export abstract class BaseHubView<TPage extends string = string> extends ItemVie
 
 	// ── Private state ────────────────────────────────────────
 
+	private shell: WorkspaceShell | null = null;
 	private renderTimer: ReturnType<typeof setTimeout> | null = null;
 	private unsubscribes: (() => void)[] = [];
 
@@ -105,11 +107,20 @@ export abstract class BaseHubView<TPage extends string = string> extends ItemVie
 
 		const wrapper = container.createDiv({ cls: "flowti-container ft-view-root" });
 
-		// Top bar (hidden on dashboard)
-		this.buildTopBar(wrapper);
-
-		// Tab bar (hidden on dashboard)
-		this.tabBarEl = wrapper.createDiv({ cls: "ft-catalog-tab-bar ft-hidden" });
+		// Chrome — delegated to WorkspaceShell
+		this.shell = new WorkspaceShell({
+			hubName: this.getHubDisplayName(),
+			onNavigateDashboard: () => {
+				this.navigateTo("dashboard");
+				this.renderTabBar();
+			},
+			renderTopBarActions: (bar) => this.renderTopBarActions(bar),
+		});
+		const shellEls = this.shell.mount(wrapper);
+		this.topBarEl = shellEls.topBarEl;
+		this.topBarTitleEl = shellEls.topBarTitleEl;
+		this.countBadge = shellEls.countBadge;
+		this.tabBarEl = shellEls.tabBarEl;
 		this.renderTabBar();
 
 		// Shared split layout (dashboard + master/detail)
@@ -172,6 +183,11 @@ export abstract class BaseHubView<TPage extends string = string> extends ItemVie
 			unsub();
 		}
 		this.unsubscribes = [];
+
+		if (this.shell) {
+			this.shell.dispose();
+			this.shell = null;
+		}
 
 		this.onHubClose();
 	}
@@ -325,49 +341,13 @@ export abstract class BaseHubView<TPage extends string = string> extends ItemVie
 		retryBtn.addEventListener("click", () => this.scheduleRender());
 	}
 
-	/** Re-render the tab bar (e.g. after active tab changes). */
+	/** Re-render the tab bar (e.g. after active tab changes). Delegates to WorkspaceShell. */
 	protected renderTabBar(): void {
-		this.tabBarEl.empty();
-		const tabs = this.getTabDefinitions();
-		for (const tab of tabs) {
-			const btn = this.tabBarEl.createEl("span", {
-				cls: `ft-catalog-tab${this.activePage === tab.id ? " ft-catalog-tab-active" : ""}`,
-			});
-			const iconEl = btn.createSpan();
-			setIcon(iconEl, tab.icon);
-			btn.appendText(` ${tab.label}`);
-			btn.addEventListener("click", () => {
-				if (this.activePage === tab.id) return;
-				this.navigateTo(tab.id as TPage);
+		if (this.shell) {
+			this.shell.renderTabBar(this.getTabDefinitions(), String(this.activePage), (tabId) => {
+				this.navigateTo(tabId as TPage);
 				this.renderTabBar();
 			});
 		}
-	}
-
-	// ── Private shell construction ───────────────────────────
-
-	private buildTopBar(container: HTMLElement): void {
-		const bar = container.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-px-3 ft-py-2 ft-hidden ft-border-bottom" });
-		bar.addClass("ft-flex-shrink-0");
-		this.topBarEl = bar;
-
-		this.topBarTitleEl = bar.createSpan({
-			text: this.getHubDisplayName(),
-			cls: "ft-heading ft-heading-sm",
-		});
-		this.topBarTitleEl.addClass("ft-cursor-pointer");
-		this.topBarTitleEl.addEventListener("click", () => {
-			this.navigateTo("dashboard");
-			this.renderTabBar();
-		});
-
-		this.countBadge = bar.createSpan({ cls: "ft-badge ft-badge-muted ft-hidden" });
-
-		// Spacer
-		const spacer = bar.createDiv();
-		spacer.addClass("ft-flex-1");
-
-		// Subclass-specific action buttons
-		this.renderTopBarActions(bar);
 	}
 }

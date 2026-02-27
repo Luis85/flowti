@@ -286,4 +286,51 @@ describe("EventBus", () => {
 			expect(handler).not.toHaveBeenCalled();
 		});
 	});
+
+	describe("onMeasure", () => {
+		it("should call onMeasure after non-perf event dispatch", async () => {
+			const onMeasure = vi.fn();
+			const bus = new EventBus({ onMeasure });
+
+			bus.on("user.created", () => {});
+			await bus.emit("user.created", {
+				user: { id: "id" as UUID, name: "Name", createdAt: "2024-01-01T00:00:00.000Z" },
+			});
+
+			expect(onMeasure).toHaveBeenCalledOnce();
+			expect(onMeasure).toHaveBeenCalledWith(
+				"user.created",
+				expect.any(Number),
+				expect.any(Number),
+			);
+			const [, handlerCount, durationMs] = onMeasure.mock.calls[0];
+			expect(handlerCount).toBeGreaterThanOrEqual(1);
+			expect(durationMs).toBeGreaterThanOrEqual(0);
+		});
+
+		it("should skip onMeasure for perf.* events to prevent recursion", async () => {
+			const onMeasure = vi.fn();
+			const bus = new EventBus({ onMeasure });
+
+			bus.on("perf.startup.total", () => {});
+			await bus.emit("perf.startup.total", { durationMs: 100, serviceCount: 5 });
+
+			expect(onMeasure).not.toHaveBeenCalled();
+		});
+
+		it("should report correct handler count including wildcard handlers", async () => {
+			const onMeasure = vi.fn();
+			const bus = new EventBus({ onMeasure });
+
+			bus.on("user.created", () => {});
+			bus.on("user.created", () => {});
+			bus.on("*", () => {});
+			await bus.emit("user.created", {
+				user: { id: "id" as UUID, name: "Name", createdAt: "2024-01-01T00:00:00.000Z" },
+			});
+
+			const [, handlerCount] = onMeasure.mock.calls[0];
+			expect(handlerCount).toBe(3);
+		});
+	});
 });

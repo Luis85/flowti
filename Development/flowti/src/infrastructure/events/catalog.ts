@@ -34,6 +34,7 @@ export const INTERNAL_EVENT_PREFIXES = [
 	"view.",
 	"settings.",
 	"ui.",
+	"perf.",
 ] as const;
 
 /**
@@ -168,6 +169,7 @@ export const EVENT_CATEGORIES = [
 	"Canvas",
 	"Analytics",
 	"Onboarding",
+	"Performance",
 ] as const;
 
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
@@ -598,6 +600,16 @@ const CATALOG_DATA = {
 	"onboarding.step.completed": { category: "Onboarding", description: "An onboarding milestone was completed", direction: "Service → Listeners", domain: "onboarding", services: "OnboardingService" },
 	"onboarding.completed":      { category: "Onboarding", description: "All onboarding milestones completed", direction: "Service → Listeners", domain: "onboarding", services: "OnboardingService" },
 	"onboarding.reset":          { category: "Onboarding", description: "Onboarding state was reset from Settings", direction: "Service → Listeners", domain: "onboarding", services: "OnboardingService" },
+
+	// ── Performance Observability ────────────────────────────
+
+	"perf.storage.loaded":   { category: "Performance", description: "TypedStorage load completed with timing", direction: "Internal", domain: "infrastructure", services: "TypedStorage", tags: ["system"] },
+	"perf.storage.saved":    { category: "Performance", description: "TypedStorage save completed with timing", direction: "Internal", domain: "infrastructure", services: "TypedStorage", tags: ["system"] },
+	"perf.startup.service":  { category: "Performance", description: "Domain service startup load completed", direction: "Internal", domain: "infrastructure", services: "Plugin", tags: ["system"] },
+	"perf.startup.total":    { category: "Performance", description: "All services startup completed", direction: "Internal", domain: "infrastructure", services: "Plugin", tags: ["system"] },
+	"perf.query.executed":   { category: "Performance", description: "Analytics query execution completed", direction: "Internal", domain: "infrastructure", services: "AnalyticsService", tags: ["system"] },
+	"perf.alert":            { category: "Performance", description: "Performance metric exceeded threshold", direction: "Internal", domain: "infrastructure", services: "PerfAggregator", tags: ["system"] },
+	"perf.event.dispatched": { category: "Performance", description: "Event dispatched to all handlers with timing", direction: "Internal", domain: "infrastructure", services: "EventBus", tags: ["system"] },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

@@ -42,7 +42,11 @@ export function createInfrastructure(deps: {
 	settings: FlowtiSettings;
 	registerEvent: (ref: EventRef) => void;
 }): InfrastructureSet {
-	const eventBus: IEventBus = new EventBus();
+	const eventBus: IEventBus = new EventBus({
+		onMeasure: (eventType, handlerCount, durationMs) => {
+			void eventBus.emit("perf.event.dispatched", { eventType, handlerCount, durationMs });
+		},
+	});
 
 	const logger: ILogger = new LoggerService({
 		eventBus,

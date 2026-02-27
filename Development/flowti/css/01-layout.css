@@ -260,3 +260,17 @@
   margin-top: 8px;
   opacity: 0.6;
 }
+
+/* ── Layout System (Cycle 52) ────────────────────────────── */
+
+.ft-layout-split {
+	display: flex;
+}
+
+.ft-layout-primary {
+	flex: 0 0 var(--ft-split-ratio, 30%);
+}
+
+.ft-layout-inspector {
+	flex: 1 1 auto;
+}

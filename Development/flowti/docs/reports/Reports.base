@@ -2,16 +2,26 @@ filters:
   and:
     - file.inFolder("Development/flowti/docs/reports")
     - file.ext == "md"
-    - '!file.name.startsWith("Go to Market")'
 views:
   - type: table
-    name: Index
+    name: Performance Report
+    filters:
+      and:
+        - file.inFolder("Development/flowti/docs/reports/performance")
     order:
+      - date
       - file.name
-      - type
+      - data_json_size_bytes
+      - startup_max
+      - startup_measurements
+      - startup_p50
+      - startup_p95
+      - startup_total_ms
     sort:
       - property: file.ctime
         direction: DESC
+    columnSize:
+      file.name: 367
   - type: table
     name: Codebase Report
     filters:

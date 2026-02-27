@@ -36,23 +36,35 @@ export interface ITypedStorage<T> {
  * - `load()` reads the shared object and extracts `data[key]`
  * - `save()` merges the state back under `data[key]` atomically
  */
+/** Timing measurement callback for performance observability. */
+export type StorageMeasure = (op: "loaded" | "saved", key: string, durationMs: number, sizeBytes: number) => void;
+
 export class TypedStorage<T> implements ITypedStorage<T> {
 	private onFallback?: (key: string, error: unknown) => void;
+	private onMeasure?: StorageMeasure;
 
 	constructor(
 		private storage: IStorageProvider,
 		private key: string,
-		options?: { onFallback?: (key: string, error: unknown) => void },
+		options?: { onFallback?: (key: string, error: unknown) => void; onMeasure?: StorageMeasure },
 	) {
 		this.onFallback = options?.onFallback;
+		this.onMeasure = options?.onMeasure;
 	}
 
 	async load(): Promise<T | undefined> {
+		const start = performance.now();
 		const data = (await this.storage.load()) as Record<string, unknown> | null;
-		return data?.[this.key] as T | undefined;
+		const result = data?.[this.key] as T | undefined;
+		if (this.onMeasure) {
+			const sizeBytes = result !== undefined ? JSON.stringify(result).length : 0;
+			this.onMeasure("loaded", this.key, performance.now() - start, sizeBytes);
+		}
+		return result;
 	}
 
 	async save(state: T): Promise<void> {
+		const start = performance.now();
 		await storageMutex.withLock("storage", async () => {
 			const raw = await this.storage.load();
 			const existingData = (raw !== null && typeof raw === "object" && !Array.isArray(raw))
@@ -63,6 +75,10 @@ export class TypedStorage<T> implements ITypedStorage<T> {
 				[this.key]: state,
 			});
 		});
+		if (this.onMeasure) {
+			const sizeBytes = JSON.stringify(state).length;
+			this.onMeasure("saved", this.key, performance.now() - start, sizeBytes);
+		}
 	}
 
 	async safeLoad(fallback?: T): Promise<T | undefined> {

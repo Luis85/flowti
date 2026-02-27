@@ -35,6 +35,9 @@ import { getCanvasPath } from "./domain/train/helpers";
 import type { CanvasService } from "./domain/canvas/CanvasService";
 import type { AnalyticsService } from "./domain/analytics/AnalyticsService";
 import type { OnboardingService } from "./domain/onboarding/OnboardingService";
+import { PerfAggregator } from "./infrastructure/services/PerfAggregator";
+import { TypedStorage } from "./utils/TypedStorage";
+import type { PerfState } from "./infrastructure/services/perfTypes";
 import { seedSupplierDashboard } from "./domain/installer/seedDashboard";
 import { QuickCaptureModal } from "./ui/capture/QuickCaptureModal";
 import { resolveCaptureConfig } from "./domain/capture/resolveCaptureConfig";
@@ -127,6 +130,7 @@ export default class FlowtiBasePlugin extends Plugin {
 	private canvasService?: CanvasService;
 	private analyticsService?: AnalyticsService;
 	private onboardingService?: OnboardingService;
+	private perfAggregator?: PerfAggregator;
 	private ingestionStatusBar?: IngestionStatusBar;
 	private collapsedCategories = new Set<string>();
 	private uiCommandService?: UiCommandService;
@@ -617,6 +621,17 @@ export default class FlowtiBasePlugin extends Plugin {
 	 * cache resolution that would spam services before they're ready.
 	 */
 	private async onLayoutReady(): Promise<void> {
+		// Set up performance aggregator before startup timing begins
+		const perfStorage = new TypedStorage<PerfState>(
+			{ load: () => this.loadData(), save: (d) => this.saveData(d) },
+			"perfAggregator",
+		);
+		this.perfAggregator = new PerfAggregator(this.eventBus, perfStorage);
+		this.perfAggregator.setup();
+		await this.perfAggregator.load();
+		this.register(() => this.perfAggregator?.destroy());
+
+		const startupStart = performance.now();
 		try {
 			const settingsService = await this.loadDomainServices();
 			this.setupHubRegistry();
@@ -627,6 +642,12 @@ export default class FlowtiBasePlugin extends Plugin {
 
 			// Open configured startpage (if set)
 			openStartPage(this.app.workspace, this.settings.startPage);
+
+			// Emit startup total timing
+			void this.eventBus.emit("perf.startup.total", {
+				durationMs: performance.now() - startupStart,
+				serviceCount: this.startupServiceCount,
+			});
 
 			void this.eventBus.emit("plugin.ready", {
 				timestamp: new Date().toISOString(),
@@ -640,6 +661,20 @@ export default class FlowtiBasePlugin extends Plugin {
 		}
 	}
 
+	/** Track service count for perf.startup.total */
+	private startupServiceCount = 0;
+
+	/** Load a service with performance timing. */
+	private async timedServiceLoad(name: string, loadFn: () => Promise<void>): Promise<void> {
+		const start = performance.now();
+		await loadFn();
+		this.startupServiceCount++;
+		void this.eventBus.emit("perf.startup.service", {
+			service: name,
+			durationMs: performance.now() - start,
+		});
+	}
+
 	/**
 	 * Loads all domain services in dependency order.
 	 * SettingsService must load first so persisted state is restored
@@ -647,26 +682,26 @@ export default class FlowtiBasePlugin extends Plugin {
 	 */
 	private async loadDomainServices(): Promise<ISettingsService> {
 		const settingsService = await this.services.get<ISettingsService>("settingsService");
-		await settingsService.load();
+		await this.timedServiceLoad("settingsService", () => settingsService.load());
 
 		this.userService = await this.services.get<IUserService>("userService");
-		await this.userService.load();
+		await this.timedServiceLoad("userService", () => this.userService.load());
 
 		const installerService = await this.services.get<IInstallerService>("installerService");
-		await installerService.load();
+		await this.timedServiceLoad("installerService", () => installerService.load());
 		InstallerWizardModal.showIfNeeded(this.app, installerService, this.eventBus);
 
 		this.eventFilterService = await this.services.get<EventFilterService>("eventFilterService");
-		await this.eventFilterService.load();
+		await this.timedServiceLoad("eventFilterService", () => this.eventFilterService!.load());
 
 		this.eventNotifyService = await this.services.get<EventNotificationService>("eventNotifyService");
-		await this.eventNotifyService.load();
+		await this.timedServiceLoad("eventNotifyService", () => this.eventNotifyService!.load());
 
 		this.discoveryService = await this.services.get<DiscoveryService>("discoveryService");
-		await this.discoveryService.load();
+		await this.timedServiceLoad("discoveryService", () => this.discoveryService!.load());
 
 		this.subscriptionService = await this.services.get<SubscriptionService>("subscriptionService");
-		await this.subscriptionService.load();
+		await this.timedServiceLoad("subscriptionService", () => this.subscriptionService!.load());
 
 		this.inboxService = await this.services.get<InboxService>("inboxService");
 		this.inboxService.setEnabledSources(settingsService.getSettings().inboxEnabledSources);
@@ -684,7 +719,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			return inboxFileSystem.moveFile(path, newPath);
 		};
 		this.inboxService.setTriageTargetFolder(settingsService.getSettings().inboxTriageTargetFolder ?? "");
-		await this.inboxService.load();
+		await this.timedServiceLoad("inboxService", () => this.inboxService!.load());
 
 		this.eventBus.on("settings.changed", (event) => {
 			this.inboxService?.setEnabledSources(event.payload.settings.inboxEnabledSources);
@@ -703,17 +738,17 @@ export default class FlowtiBasePlugin extends Plugin {
 		});
 
 		this.ingestionService = await this.services.get<IngestionService>("ingestionService");
-		await this.ingestionService.load();
+		await this.timedServiceLoad("ingestionService", () => this.ingestionService!.load());
 
 		this.eventDefinitionService = await this.services.get<EventDefinitionService>("eventDefinitionService");
-		await this.eventDefinitionService.load();
+		await this.timedServiceLoad("eventDefinitionService", () => this.eventDefinitionService!.load());
 
 		this.dataExchangeService = await this.services.get<DataExchangeService>("dataExchangeService");
-		await this.dataExchangeService.load();
+		await this.timedServiceLoad("dataExchangeService", () => this.dataExchangeService!.load());
 
 		this.sessionService = await this.services.get<SessionService>("sessionService");
 		this.sessionService.globalActivityFilter = settingsService.getSettings().sessionActivityFilterGlobal ?? [];
-		await this.sessionService.load();
+		await this.timedServiceLoad("sessionService", () => this.sessionService!.load());
 
 		// Write session summary to notes file on completion
 		this.crossCuttingListeners.push(
@@ -752,7 +787,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.sessionService?.getActiveSession()?.type === type;
 		this.nudgeService.getInboxCount = () =>
 			this.inboxService?.getItems().length ?? 0;
-		await this.nudgeService.load();
+		await this.timedServiceLoad("nudgeService", () => this.nudgeService!.load());
 		this.nudgeService.start();
 
 		// Show notification when a nudge fires
@@ -764,7 +799,7 @@ export default class FlowtiBasePlugin extends Plugin {
 
 		// Signal Service — external data source connections
 		this.signalService = await this.services.get<SignalService>("signalService");
-		await this.signalService.load();
+		await this.timedServiceLoad("signalService", () => this.signalService!.load());
 
 		// Capture Service — quick note capture via ribbons and command palette
 		this.captureService = await this.services.get<CaptureService>("captureService");
@@ -778,7 +813,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			trainFolder: settingsService.getSettings().trainFolder,
 			trainMaxThoughts: settingsService.getSettings().trainMaxThoughts,
 		});
-		await this.trainService.load();
+		await this.timedServiceLoad("trainService", () => this.trainService!.load());
 
 		// Train Canvas Sync — auto-generate canvas from train graph
 		const trainCanvasFileSystem = new FileSystemClient({ eventBus: this.eventBus });
@@ -795,12 +830,12 @@ export default class FlowtiBasePlugin extends Plugin {
 
 		// Canvas Service — canvas import configurations and orchestration
 		this.canvasService = await this.services.get<CanvasService>("canvasService");
-		await this.canvasService.load();
+		await this.timedServiceLoad("canvasService", () => this.canvasService!.load());
 		this.dataExchangeService!.setCanvasService(this.canvasService);
 
 		// Analytics Service — in-memory CSV analytics engine
 		this.analyticsService = await this.services.get<AnalyticsService>("analyticsService");
-		await this.analyticsService.load();
+		await this.timedServiceLoad("analyticsService", () => this.analyticsService!.load());
 		this.analyticsService.setReadCsv(async (csvPath: string) => {
 			const file = this.app.vault.getAbstractFileByPath(csvPath);
 			if (!file || !(file instanceof TFile)) return null;
@@ -828,7 +863,7 @@ export default class FlowtiBasePlugin extends Plugin {
 
 		// Onboarding Service — post-install guidance (migrates from AnalyticsState)
 		this.onboardingService = await this.services.get<OnboardingService>("onboardingService");
-		await this.onboardingService.load();
+		await this.timedServiceLoad("onboardingService", () => this.onboardingService!.load());
 
 		// Train Main View — register view factory + auto-open on train start
 		this.registerView(VIEW_TYPE_TRAIN_MAIN, (leaf) =>

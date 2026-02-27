@@ -88,13 +88,18 @@ type StoredHandler = EventHandler | WildcardEventHandler;
  * @see {@link IEventBus} for the interface definition
  * @see {@link FlowtiEvents} for available event types
  */
+/** Timing measurement callback for event dispatch observability. */
+export type EventBusMeasure = (eventType: string, handlerCount: number, durationMs: number) => void;
+
 export class EventBus implements IEventBus {
 	private handlers: Map<EventType | typeof WILDCARD, Set<StoredHandler>>;
 	private onError?: (error: unknown, eventType: string) => void;
+	private onMeasure?: EventBusMeasure;
 
-	constructor(options?: { onError?: (error: unknown, eventType: string) => void }) {
+	constructor(options?: { onError?: (error: unknown, eventType: string) => void; onMeasure?: EventBusMeasure }) {
 		this.handlers = new Map();
 		this.onError = options?.onError;
+		this.onMeasure = options?.onMeasure;
 	}
 
 	/**
@@ -120,6 +125,10 @@ export class EventBus implements IEventBus {
 		type: T,
 		payload: EventPayload<T>
 	): Promise<void> {
+		const measure = this.onMeasure && !type.startsWith("perf.");
+		const start = measure ? performance.now() : 0;
+		let handlerCount = 0;
+
 		const event: FlowtiEvent<T> = {
 			type,
 			payload,
@@ -130,6 +139,7 @@ export class EventBus implements IEventBus {
 		const typeHandlers = this.handlers.get(type);
 		if (typeHandlers) {
 			for (const handler of typeHandlers) {
+				handlerCount++;
 				try {
 					await (handler as EventHandler<T>)(event);
 				} catch (err) {
@@ -142,12 +152,17 @@ export class EventBus implements IEventBus {
 		const wildcardHandlers = this.handlers.get(WILDCARD);
 		if (wildcardHandlers) {
 			for (const handler of wildcardHandlers) {
+				handlerCount++;
 				try {
 					await (handler as WildcardEventHandler)(event as FlowtiEvents);
 				} catch (err) {
 					this.routeError(err, type);
 				}
 			}
+		}
+
+		if (measure) {
+			this.onMeasure!(type, handlerCount, performance.now() - start);
 		}
 	}
 
