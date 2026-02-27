@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Backlog Refinement - Post Cycle 48]]"
-stage: planning
+stage: in-progress
 cycle: 52
 release_anchor:
   - "Theme 5: Architecture — Invest in the Platform"
