@@ -15,6 +15,9 @@ bugs: []
 tech_debt:
   - TD-87
 estimated_increments: 7
+estimated_tests: 80
+pre_cycle_tests: 5452
+pre_cycle_suites: 232
 ---
 
 # Cycle 50 — User Activation
@@ -22,6 +25,51 @@ estimated_increments: 7
 ## Release Anchor Theme
 
 - **Theme 3: User Activation — First 5 Minutes** — If a new user can't get value in 5 minutes, nothing else matters.
+
+## Situation Assessment
+
+### Codebase Health
+- **Production LOC**: ~25,000+ across 11 domain services
+- **Tests**: 5,452 passing (232 suites), 0 failures
+- **Build**: `npm run build` green
+- **Lint**: `npm run check` → 0 errors, 0 warnings
+- **Previous cycle**: C49 closed (stage: `done`, 2026-02-27), all 6 increments delivered, 137 tests added
+
+### Onboarding Domain Maturity
+- **Tier**: 3 (basic)
+- **OnboardingService**: 213 LOC, manages getting-started checklist with 5 milestones
+- **Events**: 4 types (`onboarding.started`, `onboarding.step.completed`, `onboarding.completed`, `onboarding.reset`)
+- **Tests**: 1 test file
+- **Phase 1** (C45/C46): Delivered — post-install welcome guide, checklist, empty states, seed data
+- **Phase 2**: Delivered — contextual callouts, reset from Settings, standalone service, lifecycle events
+
+### Command Infrastructure
+- **CommandRegistry**: 247 LOC with `ICommandRegistry` interface
+- **Commands registered**: 40+ across all domains
+- **Current interface**: `CommandDefinition { id, name, hotkeys?, icon?, mobileOnly?, handler }`
+- **Missing**: No `description`, `domain`, or `category` fields — commands are executable but not discoverable
+- **Events**: 4 types (`command.registered`, `command.executing`, `command.executed`, `command.failed`)
+
+### Quick Capture Infrastructure
+- **QuickCaptureModal**: 131 LOC, supports 11 capture types (idea, note, task, question, feedback, bug, learning, risk, assumption, issue, decision)
+- **CaptureService**: 100 LOC, stateless, creates vault notes
+- **Events**: 3 types (`capture.idea.created`, `capture.feedback.created`, `capture.note.created`)
+- **Missing**: No per-command configuration (folder, template selection)
+
+### User Hub State
+- **UserHubView**: 455 LOC with 3 tabs (Sessions, Inbox, Preferences) + dashboard
+- **Sub-components**: 10 files in `src/ui/userHub/`
+- **Missing**: No idea capture affordance on dashboard
+
+### Knowledge Base
+- **Tutorial articles**: 2 (`How to use daily notes`, `Creating a Service`)
+- **Process/reference docs**: 8 lifecycle + 3 reference documents
+- **Type documentation**: 35+ TypeDoc files
+- **Gap**: Users who get stuck have no self-service workflow guidance
+
+### Open Issues
+- No critical bugs open
+- No release blockers targeting C50
 
 ## Cycle Overview
 
@@ -65,6 +113,7 @@ The milestone: **a new user installs Flowti, sees a meaningful startpage, discov
 ### Inc 1: Command Catalog — Data Model & Registry
 **Theme**: User Activation
 **Effort**: Medium
+**Estimate**: +150 LOC production, +80 LOC test, ~15 tests
 
 Extend CommandRegistry to expose metadata for all registered commands:
 - Add `CommandMeta` interface: `{ id, label, description, domain, category, icon?, shortcut? }`
@@ -79,9 +128,25 @@ Extend CommandRegistry to expose metadata for all registered commands:
 - [ ] Unit tests for registry queries
 - [ ] `npm test` green
 
+**Test Intent**: ~15 unit tests covering: CommandMeta interface validation, `getCommands()` returns all registered commands, `getCommandsByDomain()` groups correctly, metadata completeness check (no commands missing description/domain), edge cases (empty registry, unknown domain).
+
+**Documentation Intent**: Update CommandRegistry JSDoc with CommandMeta extension documentation. TD-87 articles may reference catalog commands.
+
+**Architecture Seams**:
+- `CommandMeta` extends existing `CommandDefinition` in `src/infrastructure/commands/types.ts` — additive, backward-compatible
+- `getCommandsByDomain()` added to `ICommandRegistry` interface in `src/infrastructure/commands/CommandRegistry.ts`
+- Command metadata annotated at registration sites across domain modules (40+ commands)
+- No new events — existing `command.registered` event unchanged
+
+**Files**:
+- Modified: `src/infrastructure/commands/types.ts` (~30 LOC), `src/infrastructure/commands/CommandRegistry.ts` (~40 LOC)
+- Modified: command registration files across domains (~80 LOC annotations)
+- New: `tests/infrastructure/commands/CommandRegistry.meta.test.ts` (~80 LOC)
+
 ### Inc 2: Command Catalog — UI View
 **Theme**: User Activation
 **Effort**: Large
+**Estimate**: +350 LOC production, +120 LOC test, ~20 tests
 
 Build the Command Catalog as a browsable, searchable view:
 - New tab in Event Catalog Hub (or standalone view — decide during implementation)
@@ -98,9 +163,26 @@ Build the Command Catalog as a browsable, searchable view:
 - [ ] UI tests for rendering and filtering
 - [ ] `npm test` green
 
+**Test Intent**: ~20 tests covering: view renders all commands from registry, domain grouping produces correct groups, search filtering by label/description/domain, detail panel shows metadata for selected command, click-to-execute dispatches command, empty state when no commands match search, keyboard navigation (if implemented).
+
+**Documentation Intent**: None (the UI is self-documenting as a discoverable catalog). Knowledge base "Getting Started" article will reference the catalog.
+
+**Architecture Seams**:
+- View follows `BaseHubView` pattern (tab-based layout with master/detail split) — extends existing `src/ui/BaseHubView.ts`
+- Consumes `ICommandRegistry.getCommands()` and `getCommandsByDomain()` from Inc 1
+- Uses established `buildSplitLayout()` helper from `src/ui/catalog/helpers.ts`
+- Component dependency injection via `CommandCatalogDeps` interface (following `UserHubComponentDeps` pattern)
+- No new events produced — command execution via existing `command.executing`/`command.executed` events
+
+**Files**:
+- New: `src/ui/commandCatalog/CommandCatalogView.ts` (~250 LOC), `src/ui/commandCatalog/CommandCatalogList.ts` (~100 LOC)
+- New: `tests/ui/commandCatalog/CommandCatalogView.test.ts` (~120 LOC)
+- Modified: Hub registration to add catalog tab/view
+
 ### Inc 3: Configurable Startpage (PBI-ONB-014)
 **Theme**: User Activation
 **Effort**: Medium
+**Estimate**: +100 LOC production, +60 LOC test, ~12 tests
 
 Allow users to configure which view opens on vault load:
 - Add `startPage` setting to SettingsService (default: none / Obsidian default)
@@ -116,9 +198,27 @@ Allow users to configure which view opens on vault load:
 - [ ] Unit tests for startpage logic
 - [ ] `npm test` green
 
+**Test Intent**: ~12 tests covering: setting default is "none", setting persists via SettingsService, `layout-ready` handler opens configured view, "None" skips view activation, each view type option maps to correct leaf type, settings UI renders dropdown with all options, backward compatibility (settings without `startPage` field default to "none").
+
+**Documentation Intent**: Knowledge base "Getting Started" article will reference startpage configuration. Settings section in user guide updated.
+
+**Architecture Seams**:
+- `startPage` field added to `FlowtiSettings` interface in `src/domain/settings/types.ts` — optional string union, backward-compatible
+- `settings.changed` event propagates startpage changes (existing SettingsService pattern)
+- `layout-ready` listener in plugin `onLayoutReady()` — `src/main.ts` or dedicated `StartpageHandler`
+- View activation via Obsidian `workspace.getLeaf()` API — follows existing hub activation pattern
+- Settings UI: dropdown in existing Settings tab using established `buildDropdown()` helper
+
+**Files**:
+- Modified: `src/domain/settings/types.ts` (~10 LOC), `src/domain/settings/SettingsService.ts` (~15 LOC)
+- New or modified: `src/infrastructure/StartpageHandler.ts` (~50 LOC)
+- Modified: Settings UI tab (~25 LOC)
+- New: `tests/infrastructure/StartpageHandler.test.ts` (~60 LOC)
+
 ### Inc 4: Knowledge Base Expansion (TD-87)
 **Theme**: User Activation
 **Effort**: Medium
+**Estimate**: +0 LOC production, +0 LOC test, 0 tests (documentation-only)
 
 Write 10+ tutorial articles covering core workflows:
 - Getting Started with Flowti
@@ -135,14 +235,24 @@ Write 10+ tutorial articles covering core workflows:
 - Understanding the Inbox
 
 **Acceptance Criteria**:
-- [ ] 10+ articles written in `docs/knowledgebase/`
+- [ ] 10+ articles written in `docs/knowledgebase/tutorials/`
 - [ ] Each article has frontmatter (type: Tutorial, domain, difficulty)
 - [ ] Articles reference actual commands and views
 - [ ] Cross-linked where workflows overlap
 
+**Test Intent**: None — documentation-only increment with no code changes.
+
+**Documentation Intent**: These ARE the documentation. 12 tutorial articles created in `docs/knowledgebase/tutorials/`. TD-87 resolved upon completion.
+
+**Architecture Seams**: None — pure documentation. No production code changes.
+
+**Files**:
+- New: 12 markdown files in `docs/knowledgebase/tutorials/`
+
 ### Inc 5: User Hub Idea Capture (PBI-ONB-019)
 **Theme**: User Activation
 **Effort**: Small
+**Estimate**: +80 LOC production, +60 LOC test, ~10 tests
 
 Add an "Idea Capture" section to the User Hub dashboard:
 - Prominent text input at top of User Hub
@@ -157,9 +267,26 @@ Add an "Idea Capture" section to the User Hub dashboard:
 - [ ] UI tests for capture and display
 - [ ] `npm test` green
 
+**Test Intent**: ~10 tests covering: capture input renders on dashboard, submitting with text calls CaptureService with correct type/origin, empty submission prevented, recent ideas list queries inbox for type:Idea, recent ideas list displays last 5, capture clears input after submission, error handling for capture failure, UI state updates after successful capture.
+
+**Documentation Intent**: Knowledge base "Using Quick Capture" tutorial will reference User Hub idea capture.
+
+**Architecture Seams**:
+- New `IdeaCaptureSection` component in `src/ui/userHub/IdeaCaptureSection.ts` — follows existing `UserHubComponentDeps` pattern
+- Reuses `CaptureService.capture()` from `src/domain/capture/CaptureService.ts` — no service changes needed
+- Queries `InboxService` for recent ideas (existing `getItems()` with type filter)
+- Integrated into `UserHubDashboard.ts` render method — standard component composition
+- Events: reuses existing `capture.idea.created` event
+
+**Files**:
+- New: `src/ui/userHub/IdeaCaptureSection.ts` (~80 LOC)
+- Modified: `src/ui/userHub/UserHubDashboard.ts` (~10 LOC integration)
+- New: `tests/ui/userHub/IdeaCaptureSection.test.ts` (~60 LOC)
+
 ### Inc 6: Quick Capture Configuration (PBI-ONB-020)
 **Theme**: User Activation
 **Effort**: Medium
+**Estimate**: +120 LOC production, +80 LOC test, ~15 tests
 
 Make Quick Capture configurable per command:
 - Add `captureConfig` to settings: `{ defaultFolder, defaultTemplate, defaultType }`
@@ -175,9 +302,27 @@ Make Quick Capture configurable per command:
 - [ ] Unit tests for configuration resolution
 - [ ] `npm test` green
 
+**Test Intent**: ~15 tests covering: default config resolution (folder, template, type), per-command override takes precedence over default, missing override falls back to default, settings persistence, modal renders folder selector, modal renders template selector, folder selector lists vault folders, template selector lists available templates, config changes reflect in next capture, backward compatibility (settings without captureConfig use hardcoded defaults).
+
+**Documentation Intent**: Knowledge base "Using Quick Capture" tutorial will cover configuration. Settings reference updated.
+
+**Architecture Seams**:
+- `CaptureConfig` interface added to `src/domain/capture/types.ts` — `{ defaultFolder, defaultTemplate, defaultType, overrides?: Record<CaptureType, Partial<CaptureConfig>> }`
+- `captureConfig` field added to `FlowtiSettings` in `src/domain/settings/types.ts` — optional, backward-compatible
+- `resolveCaptureConfig(type: CaptureType, settings: FlowtiSettings): ResolvedCaptureConfig` — pure function for config resolution
+- `QuickCaptureModal` enhanced with folder/template dropdown selectors — extends existing modal in `src/ui/capture/QuickCaptureModal.ts`
+- Settings UI: new "Capture" section in Preferences tab using existing form helpers
+
+**Files**:
+- Modified: `src/domain/capture/types.ts` (~20 LOC), `src/domain/settings/types.ts` (~10 LOC)
+- New: `src/domain/capture/resolveCaptureConfig.ts` (~40 LOC)
+- Modified: `src/ui/capture/QuickCaptureModal.ts` (~50 LOC)
+- New: `tests/domain/capture/resolveCaptureConfig.test.ts` (~80 LOC)
+
 ### Inc 7: Onboarding Integration & Polish
 **Theme**: User Activation
 **Effort**: Small
+**Estimate**: +60 LOC production, +40 LOC test, ~8 tests
 
 Wire all new features into the onboarding flow:
 - Add Command Catalog to onboarding checklist
@@ -190,6 +335,21 @@ Wire all new features into the onboarding flow:
 - [ ] Callouts reference Command Catalog and Startpage
 - [ ] Manual end-to-end walkthrough documented
 - [ ] `npm test` green
+
+**Test Intent**: ~8 tests covering: onboarding checklist includes new milestones (catalog explored, startpage configured), milestone completion updates onboarding progress, callout content references new features, callout dismissal persists, onboarding completion fires with updated milestone count, backward compatibility (existing onboarding state without new milestones remains valid).
+
+**Documentation Intent**: Manual end-to-end walkthrough documented in cycle retrospective. Onboarding PRD Phase 3 status updated.
+
+**Architecture Seams**:
+- `OnboardingMilestones` interface extended with new optional boolean fields in `src/domain/onboarding/types.ts` — backward-compatible
+- Callout content strings updated in relevant Hub views — follows existing callout pattern with `isCalloutDismissed()` guard
+- `OnboardingService.initChecklist()` initializes new milestones as `false` for existing users
+- No new events — existing `onboarding.step.completed` handles new milestones
+
+**Files**:
+- Modified: `src/domain/onboarding/types.ts` (~10 LOC), `src/domain/onboarding/OnboardingService.ts` (~20 LOC)
+- Modified: Hub views with callout updates (~30 LOC across 2-3 files)
+- New: `tests/domain/onboarding/OnboardingService.milestones.test.ts` (~40 LOC)
 
 ## Dependency Graph
 
@@ -215,8 +375,9 @@ Inc 7 (Integration)  ──→ Depends on Inc 1–6
 
 | Metric | Target |
 |--------|--------|
-| New tests | ~80 |
-| Post-cycle tests | ~5,515 |
+| New tests | ~80 (Inc 1: 15, Inc 2: 20, Inc 3: 12, Inc 5: 10, Inc 6: 15, Inc 7: 8) |
+| Production LOC added | ~860 |
+| Post-cycle tests | ~5,532 |
 | Knowledge base articles | 10+ (from 2) |
 | Commands cataloged | All registered commands |
 | Onboarding domain tier | Tier 2 (from Tier 3) |

@@ -47,12 +47,14 @@ New users receive guided, contextual onboarding that introduces Flowti's core fe
 - Standalone OnboardingService with dedicated storage
 - Onboarding lifecycle events (started, step.completed, completed, reset)
 
-**Phase 3 (Future):**
-- Configurable startpage (open preferred Hub on Obsidian start)
-- Role-specific seed data service (multiple personas)
-- Command catalog / feature discovery modal
-- Guided tours via process execution framework
-- Hub-specific empty states beyond Analytics Hub
+**Phase 3 (Future / Cycle 50):**
+- Configurable startpage (open preferred Hub on Obsidian start) — PBI-ONB-014, Cycle 50
+- Role-specific seed data service (multiple personas) — PBI-ONB-015, deferred
+- Command catalog / feature discovery modal — PBI-ONB-016, Cycle 50
+- Guided tours via process execution framework — PBI-ONB-018, deferred
+- Hub-specific empty states beyond Analytics Hub — PBI-ONB-017, deferred
+- User Hub idea capture section — PBI-ONB-019, Cycle 50
+- Quick Capture per-command configuration — PBI-ONB-020, Cycle 50
 
 ### Out of Scope
 
@@ -232,8 +234,12 @@ The user must be able to pause or resume to the on-boarding at any given time. H
 | [[PBI-ONB-016 Command Catalog]] | Approachable modal showing all Flowti commands grouped by domain | Discovery | Low | [[As user, I want to have an approachable command-catalog to act as documentation and user-manual about what is possible with the app]] |
 | [[PBI-ONB-017 Hub Empty States]] | Welcoming empty states for User Hub, DX Hub, Event Catalog (not just Analytics Hub) | Discovery | Medium | FR-20 |
 | [[PBI-ONB-018 Guided Tours]] | Multi-step interactive flows via process execution framework | Discovery | Low | [[How can we use the Flowti Process Execution Framework to guide Onboarding or Improve overall user-experience with guided tours]] |
+| PBI-ONB-019 | User Hub Idea Capture — prominent idea input on User Hub dashboard leveraging Quick Capture | Planned (C50) | Medium | Cycle 50 planning — idea capture is central to IBDE but has no User Hub affordance |
+| PBI-ONB-020 | Quick Capture Configuration — per-command folder/template settings with modal selectors | Planned (C50) | Medium | Cycle 50 planning — Quick Capture exists but is unconfigurable |
 
 > **Backlog refinement (2026-02-26):** 13 inbox items triaged. 8 PBIs delivered (C45/C46), 4 PBIs planned for Phase 2, 5 PBIs in discovery for Phase 3. Phase 2 candidates for next onboarding cycle: PBI-ONB-010 (contextual callouts), PBI-ONB-011 (Settings reset), PBI-ONB-012 (service extraction), PBI-ONB-013 (events). Phase 3 items need further discovery and design.
+>
+> **Cycle 50 planning (2026-02-27):** 2 new PBIs added: PBI-ONB-019 (User Hub Idea Capture) and PBI-ONB-020 (Quick Capture Configuration). Both identified during Cycle 50 scoping — User Hub lacks an idea capture affordance despite ideas being central to IBDE, and Quick Capture lacks per-command configuration. Both assigned to Cycle 50. Backlog total: 19 PBIs (8 done, 4 Phase 2 planned, 7 Phase 3/discovery).
 
 ## 15. Inbox Refinement Results (2026-02-26)
 
