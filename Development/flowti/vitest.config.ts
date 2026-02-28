@@ -12,7 +12,7 @@ export default defineConfig({
   },
   test: {
     include: ["tests/**/*.{test,spec}.{ts,tsx,js,jsx}"],
-    exclude: ["node_modules", "dist", "docs"],
+    exclude: ["node_modules", "dist", "docs", "tests/e2e/**"],
     reporters: [
       "default",
       [
@@ -24,7 +24,7 @@ export default defineConfig({
     ],
     coverage: {
       provider: "v8",
-      reportsDirectory: "docs/reports/tests/",
+      reportsDirectory: "docs/reports/coverage/",
       reporter: ["text", "json"],
       exclude: ["tests/**", "src/modals/**"],
     },

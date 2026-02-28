@@ -123,6 +123,7 @@ const PLUGIN_ID = manifest.id;
 const isWatch = process.argv.includes("--watch");
 const isPublic = process.argv.includes("--publish");
 const doDistribution = process.argv.includes("--distribution");
+const doReload = process.argv.includes("--reload");
 const prod = !isWatch;
 
 // Paths
@@ -270,6 +271,7 @@ const generateReportNotes = () => {
 		path.resolve(__dirname, "scripts", "generate-event-catalog.mjs"),
 		path.resolve(__dirname, "scripts", "generate-data-dictionary.mjs"),
 		path.resolve(__dirname, "scripts", "generate-performance-report.mjs"),
+		path.resolve(__dirname, "scripts", "generate-e2e-report.mjs"),
 	];
 
 	for (const script of scripts) {
@@ -435,6 +437,24 @@ const run = async () => {
 
 	let ctx;
 	try {
+		// Auto-reload plugin via CLI after each watch rebuild (--reload flag)
+		const plugins = [];
+		if (isWatch && doReload) {
+			const reloadScript = path.resolve(__dirname, "scripts", "cli-reload.mjs");
+			plugins.push({
+				name: "cli-reload",
+				setup(build) {
+					build.onEnd(() => {
+						try {
+							execSync(`node "${reloadScript}"`, { cwd: __dirname, stdio: "inherit" });
+						} catch {
+							// Non-fatal: reload failure should not stop watch mode
+						}
+					});
+				},
+			});
+		}
+
 		ctx = await esbuild.context({
 			entryPoints: ["src/main.ts"],
 			bundle: true,
@@ -448,6 +468,7 @@ const run = async () => {
 			minify: prod,
 			logLevel: "info",
 			metafile: true,
+			plugins,
 		});
 	} catch (err) {
 		console.error("[build] esbuild context init failed.");

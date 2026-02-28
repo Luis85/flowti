@@ -610,6 +610,11 @@ const CATALOG_DATA = {
 	"perf.query.executed":   { category: "Performance", description: "Analytics query execution completed", direction: "Internal", domain: "infrastructure", services: "AnalyticsService", tags: ["system"] },
 	"perf.alert":            { category: "Performance", description: "Performance metric exceeded threshold", direction: "Internal", domain: "infrastructure", services: "PerfAggregator", tags: ["system"] },
 	"perf.event.dispatched": { category: "Performance", description: "Event dispatched to all handlers with timing", direction: "Internal", domain: "infrastructure", services: "EventBus", tags: ["system"] },
+	"perf.installer.total":  { category: "Performance", description: "Installer pipeline completed all steps", direction: "Internal", domain: "installer", services: "InstallerService", tags: ["system"] },
+	"perf.installer.step":   { category: "Performance", description: "Individual installer step completed", direction: "Internal", domain: "installer", services: "InstallerService", tags: ["system"] },
+	"perf.csv.parsed":       { category: "Performance", description: "CSV content parsed by CsvParser", direction: "Internal", domain: "dataExchange", services: "ImportService", tags: ["system"] },
+	"perf.import.completed": { category: "Performance", description: "Full import pipeline completed", direction: "Internal", domain: "dataExchange", services: "ImportService", tags: ["system"] },
+	"perf.view.opened":      { category: "Performance", description: "Hub view finished opening", direction: "Internal", domain: "ui", services: "BaseHubView", tags: ["system"] },
 } satisfies Record<keyof FlowtiEventMap, EventCatalogMeta>;
 
 // ─────────────────────────────────────────────────────────────

@@ -1,0 +1,22 @@
+filters:
+  and:
+    - file.inFolder("Development/flowti/docs/journeys")
+    - file.ext == "md"
+    - '!file.folder.contains("past")'
+views:
+  - type: table
+    name: Index
+    order:
+      - file.mtime
+      - file.name
+      - success
+      - status
+      - total_steps
+      - passed
+      - failed
+      - duration_ms
+      - test_source
+      - tags
+    columnSize:
+      file.mtime: 160
+      file.name: 165

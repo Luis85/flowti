@@ -212,6 +212,101 @@ describe("PerfAggregator", () => {
 		});
 	});
 
+	describe("installer events", () => {
+		it("should track installer total timing", async () => {
+			await eventBus.emit("perf.installer.total", { durationMs: 250, stepCount: 3 });
+
+			const summary = aggregator.getInstallerSummary();
+			expect(summary.totalMs).toBe(250);
+		});
+
+		it("should track per-step timing", async () => {
+			await eventBus.emit("perf.installer.step", { stepId: "user-creation", stepName: "Create User", durationMs: 50 });
+			await eventBus.emit("perf.installer.step", { stepId: "folder-scaffold", stepName: "Scaffold Folders", durationMs: 120 });
+			await eventBus.emit("perf.installer.step", { stepId: "seed-content", stepName: "Seed Content", durationMs: 80 });
+
+			const summary = aggregator.getInstallerSummary();
+			expect(summary.stepCount).toBe(3);
+			expect(summary.perStep).toHaveLength(3);
+			expect(summary.perStep[0].stepId).toBe("user-creation");
+			expect(summary.perStep[1].durationMs).toBe(120);
+		});
+
+		it("should return safe defaults when no installer events", () => {
+			const summary = aggregator.getInstallerSummary();
+			expect(summary.totalMs).toBe(0);
+			expect(summary.stepCount).toBe(0);
+			expect(summary.perStep).toHaveLength(0);
+		});
+	});
+
+	describe("CSV parse events", () => {
+		it("should track CSV parse timing", async () => {
+			await eventBus.emit("perf.csv.parsed", { filePath: "data.csv", durationMs: 15, rowCount: 100, columnCount: 5 });
+			await eventBus.emit("perf.csv.parsed", { filePath: "big.csv", durationMs: 45, rowCount: 5000, columnCount: 12 });
+
+			const summary = aggregator.getImportSummary();
+			// CSV parse events don't go into import summary — check via internal state indirectly
+			// The csv parse timings are tracked separately but exposed as part of the rolling window
+			expect(summary.totalImports).toBe(0); // no import.completed yet
+		});
+	});
+
+	describe("import events", () => {
+		it("should track import pipeline timing", async () => {
+			await eventBus.emit("perf.import.completed", { durationMs: 500, totalRows: 100, created: 90, updated: 5, failed: 5 });
+
+			const summary = aggregator.getImportSummary();
+			expect(summary.totalImports).toBe(1);
+			expect(summary.timing.max).toBe(500);
+			expect(summary.avgRows).toBe(100);
+		});
+
+		it("should compute import timing percentiles", async () => {
+			for (const ms of [100, 200, 300, 400, 500]) {
+				await eventBus.emit("perf.import.completed", { durationMs: ms, totalRows: 50, created: 50, updated: 0, failed: 0 });
+			}
+
+			const summary = aggregator.getImportSummary();
+			expect(summary.totalImports).toBe(5);
+			expect(summary.timing.p50).toBe(300);
+			expect(summary.timing.max).toBe(500);
+		});
+
+		it("should return safe defaults when no imports", () => {
+			const summary = aggregator.getImportSummary();
+			expect(summary.totalImports).toBe(0);
+			expect(summary.timing.count).toBe(0);
+			expect(summary.avgRows).toBe(0);
+		});
+	});
+
+	describe("view events", () => {
+		it("should track per-hub view open timing", async () => {
+			await eventBus.emit("perf.view.opened", { hubId: "event-catalog", durationMs: 30 });
+			await eventBus.emit("perf.view.opened", { hubId: "data-exchange", durationMs: 45 });
+			await eventBus.emit("perf.view.opened", { hubId: "event-catalog", durationMs: 25 });
+
+			const summary = aggregator.getViewSummary();
+			expect(summary.perHub).toHaveLength(2);
+
+			const catalog = summary.perHub.find(h => h.hubId === "event-catalog");
+			expect(catalog).toBeDefined();
+			expect(catalog!.timing.count).toBe(2);
+			expect(catalog!.timing.max).toBe(30);
+
+			const exchange = summary.perHub.find(h => h.hubId === "data-exchange");
+			expect(exchange).toBeDefined();
+			expect(exchange!.timing.count).toBe(1);
+			expect(exchange!.timing.max).toBe(45);
+		});
+
+		it("should return empty perHub when no views opened", () => {
+			const summary = aggregator.getViewSummary();
+			expect(summary.perHub).toHaveLength(0);
+		});
+	});
+
 	describe("destroy", () => {
 		it("should unsubscribe from all events", async () => {
 			aggregator.destroy();

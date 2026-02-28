@@ -44,12 +44,21 @@ export class ImportService {
 	 * Executes the full import pipeline.
 	 */
 	async executeImport(config: ImportConfig, options?: ImportExecuteOptions): Promise<ImportResult> {
+		const importStart = performance.now();
 		const operationId = options?.operationId ?? generateUUID();
 		const pipelineId = options?.pipelineId;
 
 		try {
 			const content = await this.fileSystem.readFile(config.sourcePath);
+
+			const parseStart = performance.now();
 			const parsed = this.csvParser.parse(content);
+			void this.eventBus.emit("perf.csv.parsed", {
+				filePath: config.sourcePath,
+				durationMs: performance.now() - parseStart,
+				rowCount: parsed.rowCount,
+				columnCount: parsed.headers.length,
+			});
 
 			await this.eventBus.emit("dataExchange.import.started", {
 				operationId,
@@ -104,6 +113,14 @@ export class ImportService {
 					pipelineId,
 				});
 			}
+
+			void this.eventBus.emit("perf.import.completed", {
+				durationMs: performance.now() - importStart,
+				totalRows: result.totalRows,
+				created: result.created,
+				updated: result.updated,
+				failed: result.failed,
+			});
 
 			await this.eventBus.emit("dataExchange.import.completed", {
 				operationId,

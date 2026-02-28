@@ -17,7 +17,7 @@ const ROOT = path.resolve(__dirname, "..");
 const buildTypeArg = process.argv.find((a) => a.startsWith("--build-type="));
 const buildType = buildTypeArg ? buildTypeArg.split("=")[1] : "flow";
 
-const COVERAGE_JSON = path.join(ROOT, "docs", "reports", "tests", "coverage-final.json");
+const COVERAGE_JSON = path.join(ROOT, "docs", "reports", "coverage", "coverage-final.json");
 const OUTPUT_DIR = path.join(ROOT, "docs", "reports", "coverage");
 
 function yamlEscape(value) {

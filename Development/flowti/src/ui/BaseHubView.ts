@@ -101,6 +101,7 @@ export abstract class BaseHubView<TPage extends string = string> extends ItemVie
 	}
 
 	async onOpen(): Promise<void> {
+		const openStart = performance.now();
 		this.containerEl.addClass("ft-hide-header");
 		const container = this.containerEl.children[1] as HTMLElement;
 		container.empty();
@@ -169,6 +170,11 @@ export abstract class BaseHubView<TPage extends string = string> extends ItemVie
 		} catch (err) {
 			this.renderError(err);
 		}
+
+		void this.eventBus.emit("perf.view.opened", {
+			hubId: this.getHubId(),
+			durationMs: performance.now() - openStart,
+		});
 	}
 
 	async onClose(): Promise<void> {

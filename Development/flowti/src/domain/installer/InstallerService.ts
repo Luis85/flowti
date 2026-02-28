@@ -102,6 +102,7 @@ export class InstallerService implements IInstallerService {
 	 * @returns true if all steps succeeded, false if any step failed
 	 */
 	async runAll(context: InstallerContext): Promise<boolean> {
+		const runAllStart = performance.now();
 		const sortedSteps = this.getSteps();
 
 		await this.eventBus?.emit("installer.started", {
@@ -120,7 +121,14 @@ export class InstallerService implements IInstallerService {
 				stepName: step.name,
 			});
 
+			const stepStart = performance.now();
 			const result = await step.execute(context, deps);
+
+			void this.eventBus?.emit("perf.installer.step", {
+				stepId: step.id,
+				stepName: step.name,
+				durationMs: performance.now() - stepStart,
+			});
 
 			await this.eventBus?.emit("installer.step.completed", {
 				id: step.id,
@@ -148,6 +156,11 @@ export class InstallerService implements IInstallerService {
 		this.state.installed = true;
 		this.state.installedAt = new Date().toISOString();
 		await this.saveState();
+
+		void this.eventBus?.emit("perf.installer.total", {
+			durationMs: performance.now() - runAllStart,
+			stepCount: sortedSteps.length,
+		});
 
 		await this.eventBus?.emit("installer.completed", {
 			state: this.state,

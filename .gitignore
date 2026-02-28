@@ -6,6 +6,7 @@ node_modules
 /.obsidian/workspace.json
 /.obsidian/appearance.json
 
+/** Ignore my digital garden **/
 /00 - Connectivity/
 /01 - Projects/
 /02 - Areas/
@@ -27,8 +28,8 @@ node_modules
 /OneSeater/
 /watcher/
 
+/** Ignore auto-generated content **/
 /Solutions/
-
 build-endpoints.json
 /Development/flowti/docs/reference/Command Reference.md
 /Development/flowti/docs/reference/Data Dictionary.md
@@ -36,3 +37,4 @@ build-endpoints.json
 /Development/flowti/docs/reports/cycles/
 /Development/flowti/docs/reports/traceability/
 /Development/flowti/docs/reports/performance/
+/Development/flowti/docs/journeys

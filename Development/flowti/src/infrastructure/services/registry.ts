@@ -74,6 +74,12 @@ function createTypedStorage<T>(
 				timestamp: new Date().toISOString(),
 			});
 		},
+		onMeasure: (op, k, durationMs, sizeBytes) => {
+			void container.getEventBus().emit(
+				op === "loaded" ? "perf.storage.loaded" : "perf.storage.saved",
+				{ key: k, durationMs, sizeBytes },
+			);
+		},
 	});
 }
 

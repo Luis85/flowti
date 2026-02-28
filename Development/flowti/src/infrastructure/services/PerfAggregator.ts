@@ -18,6 +18,10 @@ import type {
 	EventTypeDispatchEntry,
 	MetricSummary,
 	ServiceStartupEntry,
+	InstallerStepEntry,
+	InstallerSummary,
+	ImportSummary,
+	ViewSummary,
 	PerfState,
 } from "./perfTypes";
 
@@ -35,6 +39,12 @@ export class PerfAggregator {
 	private queryResultRows: number[] = [];
 	private dispatchTimings: number[] = [];
 	private dispatchPerType = new Map<string, { maxMs: number; count: number }>();
+	private installerTimings: number[] = [];
+	private installerSteps: InstallerStepEntry[] = [];
+	private csvParseTimings: number[] = [];
+	private importTimings: number[] = [];
+	private importRows: number[] = [];
+	private viewTimings = new Map<string, number[]>();
 	private unsubscribes: Array<() => void> = [];
 	private startupThresholdMs: number;
 
@@ -94,6 +104,27 @@ export class PerfAggregator {
 						count: 1,
 					});
 				}
+			}),
+			this.eventBus.on("perf.installer.total", (event) => {
+				this.push(this.installerTimings, event.payload.durationMs);
+			}),
+			this.eventBus.on("perf.installer.step", (event) => {
+				this.installerSteps.push({
+					stepId: event.payload.stepId,
+					durationMs: event.payload.durationMs,
+				});
+			}),
+			this.eventBus.on("perf.csv.parsed", (event) => {
+				this.push(this.csvParseTimings, event.payload.durationMs);
+			}),
+			this.eventBus.on("perf.import.completed", (event) => {
+				this.push(this.importTimings, event.payload.durationMs);
+				this.push(this.importRows, event.payload.totalRows);
+			}),
+			this.eventBus.on("perf.view.opened", (event) => {
+				const arr = this.viewTimings.get(event.payload.hubId) ?? [];
+				this.push(arr, event.payload.durationMs);
+				this.viewTimings.set(event.payload.hubId, arr);
 			}),
 		);
 	}
@@ -157,6 +188,31 @@ export class PerfAggregator {
 			avgSourceRows: avg(this.querySourceRows),
 			avgResultRows: avg(this.queryResultRows),
 		};
+	}
+
+	getInstallerSummary(): InstallerSummary {
+		const totalMs = this.installerTimings[this.installerTimings.length - 1] ?? 0;
+		return {
+			totalMs,
+			stepCount: this.installerSteps.length,
+			perStep: [...this.installerSteps],
+		};
+	}
+
+	getImportSummary(): ImportSummary {
+		return {
+			totalImports: this.importTimings.length,
+			timing: this.computeSummary(this.importTimings),
+			avgRows: avg(this.importRows),
+		};
+	}
+
+	getViewSummary(): ViewSummary {
+		const perHub = [...this.viewTimings.entries()].map(([hubId, timings]) => ({
+			hubId,
+			timing: this.computeSummary(timings),
+		}));
+		return { perHub };
 	}
 
 	private push(arr: number[], value: number): void {

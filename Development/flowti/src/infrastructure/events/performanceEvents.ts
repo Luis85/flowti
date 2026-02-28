@@ -53,4 +53,40 @@ export interface PerformanceEventMap {
 		handlerCount: number;
 		durationMs: number;
 	};
+
+	/** Emitted after the installer pipeline completes all steps. */
+	"perf.installer.total": {
+		durationMs: number;
+		stepCount: number;
+	};
+
+	/** Emitted after each installer step completes. */
+	"perf.installer.step": {
+		stepId: string;
+		stepName: string;
+		durationMs: number;
+	};
+
+	/** Emitted after CSV content is parsed by CsvParser. */
+	"perf.csv.parsed": {
+		filePath: string;
+		durationMs: number;
+		rowCount: number;
+		columnCount: number;
+	};
+
+	/** Emitted after a full import pipeline completes. */
+	"perf.import.completed": {
+		durationMs: number;
+		totalRows: number;
+		created: number;
+		updated: number;
+		failed: number;
+	};
+
+	/** Emitted after a Hub view finishes opening. */
+	"perf.view.opened": {
+		hubId: string;
+		durationMs: number;
+	};
 }

@@ -378,6 +378,10 @@ It is planned to migrate the Machine-Room into the Flowti IBDE Obsidian Plugin.
 - Context-Management is crucial, providing the Agent a map of needed context helps alignment. Obsidian Bases are a great tool to make those maps easily.
 - Ideas are cheap - The sheer amount of documentation needed to keep track of decisions and solutions can be overwhelming, tracking the amount of connections over time helps making impact visible
 
+## Insights
+
+![[Pasted image 20260228174101.png]]
+
 
 ## Conclusions
 

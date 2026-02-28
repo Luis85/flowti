@@ -63,6 +63,37 @@ export interface EventDispatchSummary {
 	slowest: EventTypeDispatchEntry[];
 }
 
+/** Per-step installer timing. */
+export interface InstallerStepEntry {
+	stepId: string;
+	durationMs: number;
+}
+
+/** Installer performance summary. */
+export interface InstallerSummary {
+	totalMs: number;
+	stepCount: number;
+	perStep: InstallerStepEntry[];
+}
+
+/** Import pipeline performance summary. */
+export interface ImportSummary {
+	totalImports: number;
+	timing: MetricSummary;
+	avgRows: number;
+}
+
+/** Per-hub view timing. */
+export interface ViewHubEntry {
+	hubId: string;
+	timing: MetricSummary;
+}
+
+/** View lifecycle performance summary. */
+export interface ViewSummary {
+	perHub: ViewHubEntry[];
+}
+
 /** Persisted performance state (cross-session trend data). */
 export interface PerfState {
 	startupHistory: number[];
