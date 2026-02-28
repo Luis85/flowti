@@ -11,7 +11,7 @@ tags:
 decision: defer-v1.1
 decision_date: 2026-02-27
 decision_cycle: "[[Cycle 49 - Release Readiness and Dogfooding]]"
-target_cycle: "[[Cycle 54 - Feature Deepening]]"
+target_cycle: "[[Cycle 55 - Data Exchange Evolution]]"
 ---
 
 ## RB-7: Pipeline Multi-Source Merge
@@ -41,7 +41,7 @@ Enable pipelines to merge data from multiple CSV/Canvas sources using a configur
 
 ### Target
 
-- **Cycle 54** — Feature Deepening (displaced from C53 by CLI Spike reprioritization)
+- **Cycle 55** — Data Exchange Evolution (displaced from C53 by CLI Spike, deferred past C54 Canvas Sessions)
 - Includes: merge key configuration, per-field conflict strategies (first-wins, last-wins, concatenate, manual), merge preview, master data export
 
 ### Related

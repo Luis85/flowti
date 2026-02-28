@@ -11,8 +11,14 @@ pbis:
   - "PBI-SIG-008: Signal Azure DevOps hardening"
   - "PBI-006: Auto-route inbox files"
 bugs: []
-tech_debt: []
-estimated_increments: 7
+tech_debt:
+  - "CLI wrapper unit tests (C53 backlog)"
+  - "RB-6 CLI Installer reassessment (C53 backlog)"
+estimated_increments: 8
+estimated_loc: 1490
+estimated_tests: 135
+pre_cycle_tests: 5825
+pre_cycle_suites: 252
 ---
 
 # Cycle 54 — Canvas Sessions and Signal Hardening
@@ -20,6 +26,31 @@ estimated_increments: 7
 ## Release Anchor Theme
 
 - **Theme 4: Feature Deepening — Competitive Moat** — Visual workflows and integration reliability.
+
+## Situation Assessment
+
+### Pre-Cycle State
+
+- **Tests**: 5,825 passing (252 suites) — all green
+- **E2E**: 69 tests (53 pass, 16 skip) — established in C53
+- **Build**: `npm run build` green
+- **Open bugs**: None critical (TD-123/124/125 are medium severity)
+- **Previous cycle**: C53 (Obsidian CLI Spike) closed — DoD satisfied, retrospective complete
+- **ADR-028**: Updated to Accepted (resolved in C53)
+- **Data Exchange Evolution**: Deferred from C53 → C55 (RB-7 target updated)
+
+### C53 Improvement Backlog Items Carried Forward
+
+| Item | Classification | Action |
+|------|----------------|--------|
+| CLI wrapper unit tests (mock execSync) | Tech debt | Inc 0 — isolated unit tests for ObsidianCli wrapper |
+| RB-6 CLI Installer reassessment | Architecture decision | Inc 0 — formal analysis: does Obsidian 1.12 CLI supersede RB-6? |
+| ADR-028 update to Accepted | Documentation | Already completed during C53 DoD — no action needed |
+| Per-step `settleMs` on JourneyStep config | Enhancement | Deferred — apply when adding new journeys |
+| Canvas visual polish | Enhancement | Deferred — separate cycle or organic improvement |
+| Populate journey step metadata | Enhancement | Deferred — Getting Started and Component Library steps |
+| CI/CD pipeline for E2E | Future PRD | Deferred — requires Xvfb spike (PBI-RP-003) |
+| Visual regression diff comparison | Future PRD | Deferred — screenshot diffing tooling |
 
 ## Cycle Overview
 
@@ -36,10 +67,11 @@ Additionally, auto-routing inbox files by type (PBI-006) transforms the inbox fr
 
 ## Cycle Goals
 
-1. **Implement Canvas Sessions** with sidebar monitor and preconfigured canvas areas
-2. **Build Canvas template library** with 5 starter templates
-3. **Harden Signal Azure DevOps adapter** with retry, diagnostics, and health monitoring
-4. **Implement inbox auto-routing** by type
+1. **Close C53 housekeeping** — CLI wrapper unit tests and RB-6 reassessment
+2. **Implement Canvas Sessions** with sidebar monitor and preconfigured canvas areas
+3. **Build Canvas template library** with 5 starter templates
+4. **Harden Signal Azure DevOps adapter** with retry, diagnostics, and health monitoring
+5. **Implement inbox auto-routing** by type
 
 ## Scope
 
@@ -58,9 +90,33 @@ Additionally, auto-routing inbox files by type (PBI-006) transforms the inbox fr
 
 ## Increments
 
+### Inc 0: C53 Housekeeping
+**Theme**: Quality
+**Effort**: Small | **Est. LOC**: ~80 | **Est. Tests**: ~20
+
+Close improvement backlog items carried forward from Cycle 53:
+
+**CLI Wrapper Unit Tests**:
+- Add isolated unit tests for `ObsidianCli` class with mocked `execSync`/`exec`
+- Test: `run()`, `eval()`, `createFile()`, `readFile()`, `deleteFile()`, `setProperty()`, `search()`, `getPlugins()`, `reloadPlugin()`, `executeCommand()`, `getPluginState()`, `evalJson()`
+- Test error paths: CLI not running, timeout, syntax errors, plugin not loaded
+- File: `tests/infrastructure/cli/ObsidianCli.test.ts` (extend or create)
+
+**RB-6 CLI Installer Reassessment**:
+- Obsidian 1.12 CLI provides `plugin:enable`, `plugin:disable`, `plugin:reload` natively
+- Analyze: does this supersede the need for a CLI-based installer (RB-6)?
+- Decision: update RB-6 status (close as superseded, or refine scope to what CLI doesn't cover)
+- Document decision in RB-6 file with rationale
+
+**Acceptance Criteria**:
+- [ ] CLI wrapper has isolated unit tests (mock execSync)
+- [ ] Error scenarios tested (timeout, not running, syntax error)
+- [ ] RB-6 decision documented with rationale
+- [ ] `npm test` green
+
 ### Inc 1: Canvas Template Library (PBI-CAN-002)
 **Theme**: Feature Deepening
-**Effort**: Medium
+**Effort**: Medium | **Est. LOC**: ~200 | **Est. Tests**: ~15
 
 Create preconfigured canvas templates for structured sessions:
 - Template storage: `templates/canvas/` folder with `.canvas` files
@@ -83,7 +139,7 @@ Create preconfigured canvas templates for structured sessions:
 
 ### Inc 2: Canvas Session — Sidebar Monitor (PBI-CAN-003a)
 **Theme**: Feature Deepening
-**Effort**: Medium
+**Effort**: Medium | **Est. LOC**: ~250 | **Est. Tests**: ~20
 
 Build the canvas session sidebar that monitors active canvas work:
 - Sidebar leaf (Obsidian right sidebar) shows session state
@@ -103,7 +159,7 @@ Build the canvas session sidebar that monitors active canvas work:
 
 ### Inc 3: Canvas Session — Guided Flow (PBI-CAN-003b)
 **Theme**: Feature Deepening
-**Effort**: Large
+**Effort**: Large | **Est. LOC**: ~350 | **Est. Tests**: ~25
 
 Implement guided canvas session workflow:
 - "Start Canvas Session" command: select template → set goal → open canvas + sidebar
@@ -124,7 +180,7 @@ Implement guided canvas session workflow:
 
 ### Inc 4: Signal Azure DevOps — Retry and Error Handling (PBI-SIG-008a)
 **Theme**: Feature Deepening
-**Effort**: Medium
+**Effort**: Medium | **Est. LOC**: ~150 | **Est. Tests**: ~20
 
 Harden AzureDevOpsAdapter with robust error handling:
 - Exponential backoff retry (3 attempts, 1s/2s/4s delays)
@@ -144,7 +200,7 @@ Harden AzureDevOpsAdapter with robust error handling:
 
 ### Inc 5: Signal Azure DevOps — Diagnostics and Health (PBI-SIG-008b)
 **Theme**: Feature Deepening
-**Effort**: Medium
+**Effort**: Medium | **Est. LOC**: ~200 | **Est. Tests**: ~15
 
 Add connection health monitoring and diagnostics:
 - Connection health check: periodic ping (configurable: every 5 min when active)
@@ -164,7 +220,7 @@ Add connection health monitoring and diagnostics:
 
 ### Inc 6: Inbox Auto-Routing (PBI-006)
 **Theme**: Feature Deepening
-**Effort**: Medium
+**Effort**: Medium | **Est. LOC**: ~180 | **Est. Tests**: ~15
 
 Auto-route inbox files to appropriate folders based on type:
 - Routing rules: `{ type: string, targetFolder: string }[]` in settings
@@ -185,7 +241,7 @@ Auto-route inbox files to appropriate folders based on type:
 
 ### Inc 7: Integration and Polish
 **Theme**: Feature Deepening
-**Effort**: Small
+**Effort**: Small | **Est. LOC**: ~80 | **Est. Tests**: ~5
 
 Wire everything together and verify cross-feature interactions:
 - Canvas Sessions visible in session history (reuse existing session list)
@@ -204,6 +260,7 @@ Wire everything together and verify cross-feature interactions:
 ## Dependency Graph
 
 ```
+Inc 0 (Housekeeping)        ──→ Independent (first increment)
 Inc 1 (Templates)           ──→ Inc 3 (Guided Flow)
 Inc 2 (Sidebar Monitor)     ──→ Inc 3 (Guided Flow)
 Inc 4 (Signal Retry)        ──→ Inc 5 (Signal Diagnostics)
@@ -224,17 +281,23 @@ Inc 7 (Integration)         ──→ Depends on Inc 1–6
 
 | Metric | Target |
 |--------|--------|
-| New tests | ~110 |
-| Post-cycle tests | ~5,885 |
+| New tests | ~130 |
+| Post-cycle tests | ~5,955 |
 | Canvas templates | 5 |
 | Signal error scenarios covered | 4 (401, 429, network, timeout) |
 | Routing rules | 4+ default types |
-| Increments | 7 |
+| CLI wrapper unit tests | ~20 |
+| RB-6 decision | Documented |
+| Increments | 8 |
 
 ## Deferred Items
 
+- **Data Exchange Evolution** → C55 (RB-7 multi-source merge, TD-69 import concurrency, PBI-008 execution timing, PBI-DX-001 step preview)
 - Signal v2 (Jira, GitHub adapters) → beyond C55 (strategic decision)
 - Signal push/write-back → beyond C55
 - Signal auto-sync scheduling → beyond C55
 - Canvas round-trip sync → future cycle
 - Canvas import from external formats → existing importer sufficient
+- Per-step settleMs on JourneyStep config → next journey additions
+- CI/CD pipeline for E2E → PBI-RP-003, requires Xvfb spike
+- Visual regression diff comparison → future tooling cycle

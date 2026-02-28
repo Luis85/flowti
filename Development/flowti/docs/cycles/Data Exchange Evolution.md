@@ -2,7 +2,7 @@
 type: DevelopmentCycle
 feature: "[[Backlog Refinement - Post Cycle 48]]"
 stage: deferred
-cycle:
+cycle: 55
 release_anchor:
   - "Theme 4: Feature Deepening — Competitive Moat"
 pbis:
@@ -14,9 +14,10 @@ bugs: []
 tech_debt:
   - TD-69
 estimated_increments: 6
+target_cycle: 55
 ---
 
-# Cycle 53 — Data Exchange Evolution
+# Cycle 55 — Data Exchange Evolution
 
 ## Release Anchor Theme
 
