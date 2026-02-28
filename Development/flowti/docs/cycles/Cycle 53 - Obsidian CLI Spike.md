@@ -146,6 +146,8 @@ Create a reusable CLI wrapper for tests:
 
 **Test Intent**: ~10 tests covering: run() constructs correct command string (2), eval() wraps code correctly (2), output parsing for JSON/text (3), error handling (2), vault targeting (1).
 
+**Documentation Intent**: JSDoc on public `ObsidianCli` API surface; inline comments on error handling strategy.
+
 **Architecture Seams**:
 - New: `src/infrastructure/cli/ObsidianCli.ts` — CLI wrapper
 - New: `src/infrastructure/cli/types.ts` — CLI types
@@ -172,6 +174,8 @@ Build the E2E test harness and first smoke tests:
 - [ ] Tests are gated behind environment flag (skip when Obsidian not running)
 - [ ] Separate vitest config for E2E
 
+**Documentation Intent**: Inline comments in fixture helpers explaining setup/teardown strategy; README-level comments in vitest config.
+
 **Architecture Seams**:
 - New: `tests/e2e/vitest.e2e.config.ts` — E2E-specific vitest config
 - New: `tests/e2e/helpers/fixtures.ts` — vault fixture management
@@ -197,6 +201,14 @@ Explore executing Flowti commands from the CLI:
 - [ ] `npm test` green (E2E tests gated behind flag)
 
 **Test Intent**: ~10 tests covering: plugin instance access (2), command execution (3), event emission + state verification (3), error cases (2).
+
+**Documentation Intent**: Document eval patterns and security considerations; inline comments on state inspection approach.
+
+**Architecture Seams**:
+- Modified: `src/infrastructure/cli/ObsidianCli.ts` — eval-specific helpers (`getPluginState()`, `executeCommand()`)
+- Modified: `src/infrastructure/cli/types.ts` — eval result types
+- New: `tests/infrastructure/cli/ObsidianCli.eval.test.ts` — eval wrapper unit tests
+- New: `tests/e2e/eval.test.ts` — E2E eval integration tests
 
 ### Inc 5: ADR-028 Update and RB-6 Reassessment
 **Theme**: Documentation
@@ -239,6 +251,24 @@ Integrate CLI into development workflow:
 - Modified: `package.json` — new scripts
 - New: `scripts/cli-reload.mjs` — reload wrapper with availability check
 - Modified: `esbuild.config.mjs` — optional post-rebuild reload
+
+## Completed Pre-Cycle
+
+- Cycle 53 planning document drafted (reprioritization from Data Exchange Evolution)
+- Obsidian 1.12 CLI capabilities researched and tabulated
+- ADR-028 open questions mapped to CLI commands
+- PBI-CLI-001, -002, -003 backlog items created with INVEST assessments
+- Infrastructure PRD updated with FRI scores (33/35)
+- Roadmap impact assessed (C53→C54 shift documented)
+
+## Inbox Signals Reviewed
+
+| Inbox Item | Disposition | Notes |
+|------------|-------------|-------|
+| "As the plugin grows the missing test environment for e-2-e tests is hurting more and more" (plugin inbox, archived) | **Addressed** | Direct driver for this cycle. E2E release blocker now unblocked by Obsidian CLI 1.12 |
+| "We need to implement Obsidian ESLint rules for plugins in order to publish on the marketplace" (plugin inbox) | **Deferred** | Not related to CLI spike; remains for Release Preparation |
+| "How can we automatically check if an Increment is release ready" (vault inbox) | **Deferred** | Tangentially related to CI/CD but out of scope for spike |
+| "How can Obsidian integrate with GitHub to manage a repo" (vault inbox) | **Deferred** | Out of scope; future CI/CD consideration |
 
 ## Dependency Graph
 

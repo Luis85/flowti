@@ -2,7 +2,7 @@
 type: DevelopmentCycle
 feature: "[[Backlog Refinement - Post Cycle 48]]"
 stage: deferred
-cycle: 53
+cycle:
 release_anchor:
   - "Theme 4: Feature Deepening — Competitive Moat"
 pbis:

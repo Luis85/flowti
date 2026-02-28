@@ -24,6 +24,14 @@ related_events:
   - file.deleted
   - file.renamed
 maturity: L5
+maturity_score_strategy: 5
+maturity_score_scope: 5
+maturity_score_architecture: 5
+maturity_score_event_integration: 5
+maturity_score_data_model: 4
+maturity_score_ui_consistency: 4
+maturity_score_validation_testing: 5
+fri_score: 33
 business_value: 5
 implementation_cost: 4
 maintenance_cost: 2
