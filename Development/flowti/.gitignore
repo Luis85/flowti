@@ -25,6 +25,7 @@ data.json
 docs/reports/builds
 docs/reports/codebase
 docs/reports/coverage
+docs/reports/e2e
 docs/reports/tests
 docs/reports/build-endpoints.json
 
