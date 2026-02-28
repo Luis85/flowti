@@ -60,13 +60,14 @@ export function highlightInput(cli: ObsidianCli, selector: string): void {
 	cli.eval([
 		`(() => {`,
 		`  const el = document.querySelector('${escaped}');`,
-		`  if (el) { el.classList.add('ft-e2e-highlight-input'); el.focus(); }`,
+		`  if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('ft-e2e-highlight-input'); el.focus(); }`,
 		`})()`,
 	].join(" "));
 }
 
 /**
  * Highlights a button element: adds an orange pulse animation.
+ * Scrolls into view if the element is outside the visible area.
  * The highlight persists until clearHighlights() is called.
  */
 export function highlightButton(cli: ObsidianCli, selector: string): void {
@@ -74,20 +75,21 @@ export function highlightButton(cli: ObsidianCli, selector: string): void {
 	cli.eval([
 		`(() => {`,
 		`  const el = document.querySelector('${escaped}');`,
-		`  if (el) { el.classList.add('ft-e2e-highlight-button'); }`,
+		`  if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('ft-e2e-highlight-button'); }`,
 		`})()`,
 	].join(" "));
 }
 
 /**
  * Highlights any element by selector: adds a green outline.
+ * Scrolls into view if the element is outside the visible area.
  */
 export function highlightElement(cli: ObsidianCli, selector: string): void {
 	const escaped = selector.replace(/'/g, "\\'");
 	cli.eval([
 		`(() => {`,
 		`  const el = document.querySelector('${escaped}');`,
-		`  if (el) { el.classList.add('ft-e2e-highlight-element'); }`,
+		`  if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('ft-e2e-highlight-element'); }`,
 		`})()`,
 	].join(" "));
 }

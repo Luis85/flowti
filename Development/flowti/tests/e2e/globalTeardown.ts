@@ -350,7 +350,7 @@ function collectEventTrace(cli: ObsidianCli, vault: TestVault): void {
 	const safeTimestamp = now.toISOString().replace(/:/g, "-");
 
 	// Write to test vault — stable name (overwrites previous run)
-	const testVaultTracesDir = path.join(vault.vaultDir, "Traces");
+	const testVaultTracesDir = path.join(vault.vaultDir, "03 - Resources", "Traces");
 	fs.mkdirSync(testVaultTracesDir, { recursive: true });
 	const testVaultStable = path.join(testVaultTracesDir, "Event Trace.md");
 	fs.writeFileSync(testVaultStable, content, "utf-8");

@@ -11,12 +11,12 @@
  *
  * Input:
  *   docs/reports/e2e/e2e-results.json                        (vitest JSON, temp)
- *   <test-vault>/Tested Journeys/<name>/<name>-results.json   (journey details)
+ *   <test-vault>/03 - Resources/Tested Journeys/<name>/<name>-results.json   (journey details)
  *
  * Output (test vault):
- *   <test-vault>/E2E Report.md                                          (E2E summary, stable name)
- *   <test-vault>/Tested Journeys/<name>/<name>.md                       (journey report)
- *   <test-vault>/Tested Journeys/<name>/screenshots/                    (journey screenshots)
+ *   <test-vault>/E2E Report.md                                                    (E2E summary, stable name)
+ *   <test-vault>/03 - Resources/Tested Journeys/<name>/<name>.md                  (journey report)
+ *   <test-vault>/03 - Resources/Tested Journeys/<name>/screenshots/               (journey screenshots)
  *
  * Output (dev vault mirror):
  *   docs/reports/e2e/runs/<timestamp>-e2e-report.md                     (E2E summary)
@@ -42,7 +42,7 @@ const PROJECTS_ROOT = path.resolve(PLUGIN_ROOT, "..", "..", "..");
 const TEST_VAULT = process.env.E2E_VAULT_DIR ?? path.join(PROJECTS_ROOT, "flowti-e2e");
 
 // Journey results live in the test vault
-const JOURNEYS_DIR = path.join(TEST_VAULT, "Tested Journeys");
+const JOURNEYS_DIR = path.join(TEST_VAULT, "03 - Resources", "Tested Journeys");
 
 // Development vault — separated by artifact type
 const DEV_RUNS_DIR = path.join(PLUGIN_ROOT, "docs", "reports", "e2e", "runs");
@@ -242,10 +242,11 @@ function generateJourneyReport(data, date) {
 		status: journeyStatus,
 		...(data.testSource ? { test_source: `"[[${data.testSource}]]"` } : {}),
 		e2e_report: `"[[E2E Report]]"`,
+		canvas: `"[[${journeyTitle}]]"`,
 		tags: "\n  - report\n  - e2e\n  - journey",
 	};
 
-	const JOURNEY_PREFORMATTED = new Set(["tags", "test_source", "e2e_report"]);
+	const JOURNEY_PREFORMATTED = new Set(["tags", "test_source", "e2e_report", "canvas"]);
 
 	const frontmatter = [
 		"---",
@@ -264,6 +265,8 @@ function generateJourneyReport(data, date) {
 		`${passedSteps}/${totalSteps} steps | ` +
 		`${formatDuration(data.durationMs ?? 0)}`,
 		`> Mode: **${fm.mode}** | Source: \`${data.testSource ?? "unknown"}\``,
+		"",
+		`Canvas: [[${journeyTitle}.canvas|${journeyTitle} Canvas]]`,
 		"",
 	];
 
@@ -346,6 +349,295 @@ function generateJourneyReport(data, date) {
 	const content = frontmatter + lines.join("\n");
 
 	return { title: journeyTitle, content };
+}
+
+// ── Canvas Layout Constants ─────────────────────────────────────
+const GROUP_WIDTH = 947;
+const GROUP_HEIGHT = 600;
+const GROUP_SPACING_X = 120;
+const INNER_MARGIN_LEFT = 370; // offset from group left — leaves screenshot visible
+const ACTION_WIDTH = 560;
+const CANVAS_PREFIX = "e2e-";
+
+// Circle nodes (Start, Events, End)
+const CIRCLE_WIDTH = 280;
+const CIRCLE_HEIGHT = 239;
+const START_X = -460;
+const FIRST_GROUP_X = 170; // absolute x of first group
+
+// UI context badges (inside groups, right section)
+const UI_BADGE_Y = 216;
+const UI_BADGE_WIDTH = 250;
+const UI_BADGE_HEIGHT = 68;
+const UI_BADGE_GAP_X = 60;
+const UI_COMPONENTS_Y = 304;
+const UI_COMPONENTS_HEIGHT = 80;
+
+// Action node (inside groups, bottom section)
+const ACTION_Y_WITH_UI = 404;
+const ACTION_HEIGHT_WITH_UI = 168;
+const ACTION_Y_NO_UI = 216;
+const ACTION_MARGIN_BOTTOM = 28;
+
+// Events circle
+const EVENTS_SIZE = 420;
+
+/**
+ * Generates an Obsidian Canvas JSON object for a journey.
+ * Pure function — no I/O.
+ *
+ * Layout: START (circle) → Step groups (with screenshot backgrounds) → Events (circle) → END (circle)
+ * All elements flow left-to-right along a shared vertical baseline.
+ * Each step group contains: UI context nodes (top), action node (bottom).
+ *
+ * @param {object} data - Journey results (from <name>-results.json)
+ * @param {string} screenshotBasePath - Vault-root-relative path to screenshots folder
+ * @param {object|null} trace - Optional event trace summary
+ * @returns {{ metadata: object, nodes: object[], edges: object[] }}
+ */
+function generateJourneyCanvas(data, screenshotBasePath, trace) {
+	const nId = (key) => `${CANVAS_PREFIX}n-${key}`;
+	const gId = (key) => `${CANVAS_PREFIX}g-${key}`;
+	const eId = (from, to) => `${CANVAS_PREFIX}e-${from}-${to}`;
+
+	const statusColor = (status) => {
+		if (status === "pass") return "4"; // green
+		if (status === "fail") return "1"; // red
+		return undefined;
+	};
+
+	const journeySlug = data.journey ?? "unknown";
+	const journeyTitle = journeySlug
+		.replace(/-/g, " ")
+		.replace(/\b\w/g, (c) => c.toUpperCase());
+	const steps = data.steps ?? [];
+	const passedSteps = data.passed ?? 0;
+	const failedSteps = data.failed ?? 0;
+	const totalSteps = data.totalSteps ?? 0;
+	const journeyPassed = failedSteps === 0 && passedSteps > 0;
+
+	const circleCenterY = Math.round((GROUP_HEIGHT - CIRCLE_HEIGHT) / 2);
+
+	const nodes = [];
+	const edges = [];
+
+	// ── START node (circle) ──
+	nodes.push({
+		id: nId("start"),
+		type: "text",
+		text: `# Start\n**${journeyTitle}**\n${data.date?.substring(0, 10) ?? ""}`,
+		styleAttributes: { shape: "circle", textAlign: "center" },
+		x: START_X,
+		y: circleCenterY,
+		width: CIRCLE_WIDTH,
+		height: CIRCLE_HEIGHT,
+		color: "4",
+	});
+
+	// ── Step groups + action nodes + UI context nodes ──
+	let prevNodeId = nId("start");
+	const firstGroupX = FIRST_GROUP_X;
+
+	for (let i = 0; i < steps.length; i++) {
+		const stepResult = steps[i];
+		const s = stepResult.step;
+		const groupX = firstGroupX + i * (GROUP_WIDTH + GROUP_SPACING_X);
+		const stepColor = statusColor(stepResult.status);
+
+		// Screenshot path (vault-root-relative)
+		const screenshotPath = stepResult.screenshotFile
+			? `${screenshotBasePath}/${stepResult.screenshotFile}`
+			: null;
+
+		// Group node — screenshot as background
+		const groupNode = {
+			id: gId(s.id),
+			type: "group",
+			backgroundStyle: "ratio",
+			label: `${s.guideSection}. ${s.title}`,
+			x: groupX,
+			y: 0,
+			width: GROUP_WIDTH,
+			height: GROUP_HEIGHT,
+		};
+		if (stepColor) groupNode.color = stepColor;
+		if (screenshotPath) {
+			groupNode.background = screenshotPath;
+		}
+		nodes.push(groupNode);
+
+		// UI context nodes (top of group) — view badge + tab badge
+		const ui = s.uiContext;
+		const hasUi = ui && (ui.viewName || ui.tabName);
+
+		const innerX = groupX + INNER_MARGIN_LEFT;
+
+		if (ui) {
+			if (ui.viewName) {
+				nodes.push({
+					id: nId(`${s.id}-view`),
+					type: "text",
+					text: `**${ui.viewName}**\n\`${ui.view}\``,
+					x: innerX,
+					y: UI_BADGE_Y,
+					width: UI_BADGE_WIDTH,
+					height: UI_BADGE_HEIGHT,
+					color: "6",
+				});
+			}
+
+			if (ui.tabName) {
+				nodes.push({
+					id: nId(`${s.id}-tab`),
+					type: "text",
+					text: `**Tab**: ${ui.tabName}\n\`${ui.tab}\``,
+					x: innerX + UI_BADGE_WIDTH + UI_BADGE_GAP_X,
+					y: UI_BADGE_Y,
+					width: UI_BADGE_WIDTH,
+					height: UI_BADGE_HEIGHT,
+					color: "3",
+				});
+			}
+
+			if (ui.components && ui.components.length > 0) {
+				nodes.push({
+					id: nId(`${s.id}-components`),
+					type: "text",
+					text: ui.components.map((c) => `\`${c}\``).join(" "),
+					x: innerX,
+					y: UI_COMPONENTS_Y,
+					width: ACTION_WIDTH,
+					height: UI_COMPONENTS_HEIGHT,
+				});
+			}
+		}
+
+		// Action text node — position depends on whether UI context is present
+		const actionLines = [`**${s.title}**`];
+		if (s.description) actionLines.push(s.description);
+		if (s.expectedInput) actionLines.push(`*Input*: ${s.expectedInput}`);
+		if (s.expectedOutput) actionLines.push(`*Expected*: ${s.expectedOutput}`);
+		if (stepResult.error) actionLines.push(`**Error**: ${stepResult.error}`);
+
+		const actionY = hasUi ? ACTION_Y_WITH_UI : ACTION_Y_NO_UI;
+		const actionHeight = hasUi
+			? ACTION_HEIGHT_WITH_UI
+			: GROUP_HEIGHT - ACTION_Y_NO_UI - ACTION_MARGIN_BOTTOM;
+
+		nodes.push({
+			id: nId(`${s.id}-action`),
+			type: "text",
+			text: actionLines.join("\n"),
+			x: innerX,
+			y: actionY,
+			width: ACTION_WIDTH,
+			height: actionHeight,
+		});
+
+		// Edge from previous element to this group
+		const currentGroupId = gId(s.id);
+		edges.push({
+			id: eId(prevNodeId.replace(`${CANVAS_PREFIX}n-`, "").replace(`${CANVAS_PREFIX}g-`, ""), s.id),
+			fromNode: prevNodeId,
+			fromSide: "right",
+			toNode: currentGroupId,
+			toSide: "left",
+		});
+
+		prevNodeId = currentGroupId;
+	}
+
+	// ── Events summary node (circle) ──
+	const lastGroupX = steps.length > 0
+		? firstGroupX + (steps.length - 1) * (GROUP_WIDTH + GROUP_SPACING_X)
+		: START_X + CIRCLE_WIDTH;
+	const eventsX = lastGroupX + GROUP_WIDTH + GROUP_SPACING_X;
+
+	const eventsLines = ["## Events Summary"];
+	eventsLines.push(`**Steps**: ${passedSteps} passed, ${failedSteps} failed`);
+	eventsLines.push(`**Duration**: ${formatDuration(data.durationMs ?? 0)}`);
+	eventsLines.push("");
+
+	// Step summary table
+	eventsLines.push("| Step | Status | Time |");
+	eventsLines.push("|---|---|---|");
+	for (const sr of steps) {
+		const icon = sr.status === "pass" ? "PASS" : sr.status === "fail" ? "FAIL" : "SKIP";
+		eventsLines.push(`| ${sr.step.title} | ${icon} | ${formatDuration(sr.durationMs)} |`);
+	}
+
+	// Event trace top events (if available)
+	if (trace?.summary?.eventFrequency) {
+		const freq = trace.summary.eventFrequency;
+		const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 8);
+		eventsLines.push("");
+		eventsLines.push("### Top Events");
+		eventsLines.push("| Event | Count |");
+		eventsLines.push("|---|---|");
+		for (const [type, count] of sorted) {
+			eventsLines.push(`| \`${type}\` | ${count} |`);
+		}
+	}
+
+	const eventsY = Math.round((GROUP_HEIGHT - EVENTS_SIZE) / 2);
+
+	nodes.push({
+		id: nId("events"),
+		type: "text",
+		text: eventsLines.join("\n"),
+		styleAttributes: { shape: "circle", textAlign: "center" },
+		x: eventsX,
+		y: eventsY,
+		width: EVENTS_SIZE,
+		height: EVENTS_SIZE,
+	});
+
+	// Edge: last step → events
+	edges.push({
+		id: eId(prevNodeId.replace(`${CANVAS_PREFIX}n-`, "").replace(`${CANVAS_PREFIX}g-`, ""), "events"),
+		fromNode: prevNodeId,
+		fromSide: "right",
+		toNode: nId("events"),
+		toSide: "left",
+	});
+
+	// ── END node (circle) ──
+	const endX = eventsX + EVENTS_SIZE + GROUP_SPACING_X;
+	const endText = journeyPassed
+		? `# PASS\n${passedSteps}/${totalSteps} steps\n${formatDuration(data.durationMs ?? 0)}`
+		: `# FAIL\n${passedSteps}/${totalSteps} steps\n${formatDuration(data.durationMs ?? 0)}`;
+	const endColor = journeyPassed ? "4" : "1";
+
+	nodes.push({
+		id: nId("end"),
+		type: "text",
+		text: endText,
+		styleAttributes: { shape: "circle", textAlign: "center" },
+		x: endX,
+		y: circleCenterY,
+		width: CIRCLE_WIDTH,
+		height: CIRCLE_HEIGHT,
+		color: endColor,
+	});
+
+	// Edge: events → end
+	edges.push({
+		id: eId("events", "end"),
+		fromNode: nId("events"),
+		fromSide: "right",
+		toNode: nId("end"),
+		toSide: "left",
+	});
+
+	return {
+		metadata: {
+			version: "1.0-1.0",
+			frontmatter: {},
+			startNode: nId("start"),
+		},
+		nodes,
+		edges,
+	};
 }
 
 /** Writes content to a file and logs the output path. */
@@ -501,28 +793,44 @@ function generateReport() {
 	const now = new Date();
 	const date = now.toISOString();
 
-	// --- Journey reports (one per journey, inside their own folder) ---
+	// Read trace data early — needed for both canvas generation and E2E summary
+	const startupPerf = readStartupPerf();
+	const trace = readLatestEventTrace();
+
+	// --- Journey reports + canvases (one per journey, inside their own folder) ---
 	const journeyReportNames = [];
 
 	for (const { dir, data } of journeys) {
 		const { title, content } = generateJourneyReport(data, date);
 		const filename = `${title}.md`;
+		const canvasFilename = `${title}.canvas`;
 		journeyReportNames.push({ title, data });
 
-		// Write to test vault — inside the journey's own folder
+		// Write markdown report to test vault
 		// e.g. Tested Journeys/Getting Started/Getting Started.md
 		writeReport(dir, filename, content, "JourneyReport written");
+
+		// Generate canvas for test vault (screenshots relative to test vault root)
+		const testScreenshotPath = `03 - Resources/Tested Journeys/${title}/screenshots`;
+		const testCanvas = generateJourneyCanvas(data, testScreenshotPath, trace);
+		writeReport(dir, canvasFilename, JSON.stringify(testCanvas, null, "\t"), "JourneyCanvas written");
 
 		// Dev vault — current status file at journey root (stable name, overwrites)
 		// e.g. docs/journeys/Getting Started/Getting Started.md
 		const devJourneyDir = path.join(DEV_JOURNEYS_DIR, title);
 		writeReport(devJourneyDir, filename, content, "JourneyReport mirrored");
 
+		// Generate canvas for dev vault (vault-root-relative path)
+		const devScreenshotPath = `Development/flowti/docs/journeys/${title}/screenshots`;
+		const devCanvas = generateJourneyCanvas(data, devScreenshotPath, trace);
+		writeReport(devJourneyDir, canvasFilename, JSON.stringify(devCanvas, null, "\t"), "JourneyCanvas mirrored");
+
 		// Dev vault — timestamped archive in past-tests/ subfolder
 		// e.g. docs/journeys/Getting Started/past-tests/2026-02-28T16-02-04.162Z-Getting Started.md
 		const safeTs = now.toISOString().replace(/:/g, "-");
 		const pastTestsDir = path.join(devJourneyDir, "past-tests");
 		writeReport(pastTestsDir, `${safeTs}-${title}.md`, content, "JourneyReport archived");
+		writeReport(pastTestsDir, `${safeTs}-${title}.canvas`, JSON.stringify(devCanvas, null, "\t"), "JourneyCanvas archived");
 
 		// Copy screenshots into the journey's own folder in dev vault
 		const srcScreenshots = path.join(dir, "screenshots");
@@ -538,16 +846,13 @@ function generateReport() {
 
 	const totalDurationMs = vitest?.durationMs ?? 0;
 
-	// Read perf/trace data for frontmatter
-	const startupPerf = readStartupPerf();
-	const trace = readLatestEventTrace();
-
 	// Build wikilink arrays for frontmatter
 	const testSuiteLinks = (vitest?.suites ?? []).map((s) => {
 		const rel = path.relative(PLUGIN_ROOT, s.file).replace(/\\/g, "/");
 		return `"[[${rel}]]"`;
 	});
 	const journeyReportLinks = journeyReportNames.map(({ title }) => `"[[${title}]]"`);
+	const journeyCanvasLinks = journeyReportNames.map(({ title }) => `"[[${title}]]"`);
 
 	const fm = {
 		type: "E2EReport",
@@ -570,11 +875,14 @@ function generateReport() {
 		journey_reports: journeyReportLinks.length > 0
 			? "\n" + journeyReportLinks.map((l) => `  - ${l}`).join("\n")
 			: "[]",
+		journey_canvases: journeyCanvasLinks.length > 0
+			? "\n" + journeyCanvasLinks.map((l) => `  - ${l}`).join("\n")
+			: "[]",
 		event_trace: `"[[Event Trace]]"`,
 		tags: "\n  - report\n  - e2e",
 	};
 
-	const PREFORMATTED_KEYS = new Set(["tags", "test_suites", "journey_reports", "event_trace"]);
+	const PREFORMATTED_KEYS = new Set(["tags", "test_suites", "journey_reports", "journey_canvases", "event_trace"]);
 
 	const frontmatter = [
 		"---",
@@ -683,7 +991,7 @@ function generateReport() {
 				`${formatDuration(data.durationMs ?? 0)}`,
 			);
 			lines.push("");
-			lines.push(`Full details: [[${title}]]`);
+			lines.push(`Full details: [[${title}]] | Canvas: [[${title}.canvas|Canvas]]`);
 			lines.push("");
 		}
 	}

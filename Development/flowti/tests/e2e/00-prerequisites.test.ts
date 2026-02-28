@@ -38,6 +38,7 @@ import {
 	PLUGIN_ID,
 } from "./helpers/fixtures";
 import { JourneyRunner } from "./helpers/journey";
+import { revealInExplorer } from "./helpers/navigation";
 import type { TestFixture } from "./helpers/fixtures";
 
 const JOURNEY_NAME = "Prerequisites";
@@ -58,7 +59,7 @@ describe("Chapter 1: Prerequisites", () => {
 		console.log(`[e2e] Installer mode: ${runInstaller ? "RUN (fresh install)" : "SKIP (vault already installed)"}`);
 
 		// Write screenshots and results into the test vault
-		const journeyDir = path.join(fixture.vault.vaultDir, "Tested Journeys", JOURNEY_NAME);
+		const journeyDir = path.join(fixture.vault.vaultDir, "03 - Resources", "Tested Journeys", JOURNEY_NAME);
 		const screenshotDir = path.join(journeyDir, "screenshots");
 		resultsPath = path.join(journeyDir, `${JOURNEY_NAME}-results.json`);
 
@@ -128,6 +129,7 @@ describe("Chapter 1: Prerequisites", () => {
 			},
 			() => {
 				const testPath = fixture.createFile("prereq-crud.md", "# E2E CRUD Test");
+				revealInExplorer(cli, testPath);
 				const content = cli.readFile(testPath);
 				if (!content.includes("E2E CRUD Test")) {
 					throw new Error(`Read content mismatch: ${content.substring(0, 100)}`);
@@ -269,6 +271,7 @@ describe("Chapter 1: Prerequisites", () => {
 						if (!fs.existsSync(absPath)) {
 							throw new Error(`Seed file missing in skip mode: ${relPath}`);
 						}
+						revealInExplorer(cli, relPath);
 					}
 				}
 			},

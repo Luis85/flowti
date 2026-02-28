@@ -19,7 +19,7 @@ import { TestVault } from "./testVault";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = path.resolve(__dirname, "..", "..", "..");
 
-const TEST_DATA_ROOT = "Test Data";
+const TEST_DATA_ROOT = "03 - Resources/Test Data";
 export const PLUGIN_ID = "flowti-ibde";
 
 /** Time to wait after enablePlugin for the plugin to initialize. */
@@ -152,23 +152,30 @@ export function ensurePrerequisitesPassed(cli: ObsidianCli): void {
 }
 
 /**
- * Verifies that Chapter 2 (Installer) completed successfully by
- * reading the `_e2eInstallerDone` flag stored on `window`.
+ * Verifies that the vault is installed so journey tests can proceed.
  *
- * Uses `window` rather than the plugin instance so the flag survives
- * plugin reloads that happen between test phases.
+ * Checks two sources:
+ *   1. `window._e2eInstallerDone` flag (set by installer or prerequisites)
+ *   2. `isVaultInstalled()` — reads data.json from disk (survives restarts)
  *
- * Call in beforeAll of every test file that depends on a fully installed
- * vault (i.e. everything after Chapter 2).
+ * If only the persistent state is present (flag lost between runs),
+ * re-sets the window flag so downstream tests work without issues.
  */
-export function ensureInstalled(cli: ObsidianCli): void {
-	const check = cli.eval("String(window._e2eInstallerDone)");
-	if (!check.success || check.value !== "true") {
-		throw new Error(
-			"Chapter 2 (Installer) did not complete successfully. " +
-			"Fix the installer tests before running subsequent chapters.",
-		);
+export function ensureInstalled(cli: ObsidianCli, vaultDir?: string): void {
+	const flagCheck = cli.eval("String(window._e2eInstallerDone)");
+	if (flagCheck.success && flagCheck.value === "true") return;
+
+	// Fallback: check the persistent installed state from data.json
+	if (vaultDir && isVaultInstalled(vaultDir)) {
+		// Re-set the window flag for downstream tests
+		cli.eval("window._e2eInstallerDone = true");
+		return;
 	}
+
+	throw new Error(
+		"Chapter 2 (Installer) did not complete successfully. " +
+		"Fix the installer tests before running subsequent chapters.",
+	);
 }
 
 // ── Vault operations (cache-safe) ────────────────────────────
@@ -199,20 +206,16 @@ export function vaultDelete(cli: ObsidianCli, vaultPath: string): void {
 
 /**
  * Checks whether the installer has already run (from a previous E2E session)
- * by looking for seed files on disk AND checking data.json installer state.
+ * by reading data.json installer state.
+ *
+ * Only checks data.json — seed file presence is handled separately by
+ * the globalSetup `repairSeedFiles()` function. This avoids a circular
+ * problem where missing seed files trigger installer mode, which deletes
+ * vault content, even when the preset doesn't include the installer test.
  *
  * Returns true if the vault is already set up and the installer can be skipped.
  */
 export function isVaultInstalled(vaultDir: string): boolean {
-	// Check seed files exist on disk
-	for (const relPath of INSTALLER_SEED_FILES) {
-		const fullPath = path.join(vaultDir, relPath);
-		if (!fs.existsSync(fullPath)) {
-			console.log(`[e2e:isVaultInstalled] seed missing: ${fullPath}`);
-			return false;
-		}
-	}
-
 	// Check data.json installer state.
 	// TypedStorage key is "installer" (see registry.ts createTypedStorage call),
 	// NOT "installerService" (which is the ServiceContainer key).

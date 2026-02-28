@@ -1,7 +1,9 @@
 {
 	"nodes":[
 		{"id":"b166cd871972398d","type":"group","x":-40,"y":400,"width":2860,"height":1520,"label":"Flowti - Mental Model"},
+		{"id":"922fd2d4c3d71baf","type":"group","x":760,"y":-1880,"width":300,"height":1580,"label":"Output"},
 		{"id":"69533e597bf70e07","type":"group","x":-40,"y":-2000,"width":1120,"height":1820,"label":"Process - From Idea to Solution"},
+		{"id":"8cbc340c22bf6acf","type":"group","x":-20,"y":-1880,"width":300,"height":1580,"label":"Input"},
 		{
 			"id":"8949429598fc16f9",
 			"type":"group",
@@ -22,9 +24,7 @@
 		{"id":"be68efe3c18f4579","type":"group","x":1420,"y":740,"width":960,"height":820,"label":"Product Development"},
 		{"id":"f1ab36403ad8330d","type":"group","x":1260,"y":-780,"width":1280,"height":600,"label":"Simulation Environment - Product Development"},
 		{"id":"abc9776e8773b32b","type":"group","x":-20,"y":860,"width":1060,"height":580,"label":"Frontstage"},
-		{"id":"8cbc340c22bf6acf","type":"group","x":-20,"y":-1880,"width":300,"height":1580,"label":"Input"},
 		{"id":"9d7d9cb45757987e","type":"group","x":360,"y":-1880,"width":300,"height":1580,"color":"2","label":"Process"},
-		{"id":"922fd2d4c3d71baf","type":"group","x":760,"y":-1880,"width":300,"height":1580,"label":"Output"},
 		{"id":"3cdeffadbe20b7b9","type":"group","x":4240,"y":-600,"width":1342,"height":350,"label":"Product Development Process"},
 		{"id":"30eac272b7498959","type":"group","x":1260,"y":-2000,"width":880,"height":500,"label":"Problem"},
 		{"id":"25c2f8a7fca6c9d7","type":"group","x":1500,"y":860,"width":300,"height":580,"label":"Backstage"},
@@ -61,28 +61,6 @@
 			"width":260,
 			"height":60,
 			"color":"5"
-		},
-		{
-			"id":"8a5046110f0f5d0a",
-			"type":"text",
-			"text":"Refinement",
-			"styleAttributes":{"textAlign":"center"},
-			"x":380,
-			"y":-1780,
-			"width":260,
-			"height":60,
-			"color":"6"
-		},
-		{
-			"id":"f24519715c7a4071",
-			"type":"text",
-			"text":"Priotization",
-			"styleAttributes":{"textAlign":"center"},
-			"x":380,
-			"y":-1540,
-			"width":260,
-			"height":60,
-			"color":"6"
 		},
 		{"id":"5d6cdc543db0af78","type":"file","file":"Development/flowti/docs/inbox/Flowti - System Design.canvas","x":2000,"y":-1320,"width":260,"height":400},
 		{"id":"0b8e15eb023842e5","type":"file","file":"Development/Plugin Design.canvas","x":2280,"y":-1320,"width":260,"height":400},
@@ -152,67 +130,12 @@
 			"color":"5"
 		},
 		{
-			"id":"1562c861338e9167",
-			"type":"text",
-			"text":"Definition of Ready",
-			"styleAttributes":{"textAlign":"right"},
-			"x":0,
-			"y":-1780,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"1baa2d48ccea8665",
-			"type":"text",
-			"text":"Feature Backlog",
-			"styleAttributes":{"textAlign":"right"},
-			"x":0,
-			"y":-1540,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"dac2c2ccc6746691",
-			"type":"text",
-			"text":"Roadmap",
-			"styleAttributes":{"textAlign":"right"},
-			"x":0,
-			"y":-1620,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"9da3a9196b27dee9",
-			"type":"text",
-			"text":"Product Backlog",
-			"styleAttributes":{"textAlign":"right"},
-			"x":0,
-			"y":-1700,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
 			"id":"e49f189e0102d47b",
 			"type":"text",
 			"text":"Prioritized Backlogs",
 			"styleAttributes":{"textAlign":"center"},
 			"x":780,
 			"y":-1540,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"b9b60f77e828c269",
-			"type":"text",
-			"text":"Tech Debt Backlog",
-			"styleAttributes":{"textAlign":"right"},
-			"x":0,
-			"y":-1460,
 			"width":260,
 			"height":60,
 			"color":"5"
@@ -237,17 +160,6 @@
 			"width":260,
 			"height":60,
 			"color":"3"
-		},
-		{
-			"id":"34b64249b4f5320d",
-			"type":"text",
-			"text":"Product Increment",
-			"styleAttributes":{"textAlign":"right"},
-			"x":0,
-			"y":-680,
-			"width":260,
-			"height":60,
-			"color":"5"
 		},
 		{
 			"id":"5905df0277543dfd",
@@ -292,17 +204,6 @@
 			"height":60
 		},
 		{
-			"id":"cab23099d23e267f",
-			"type":"text",
-			"text":"Refined Backlog",
-			"styleAttributes":{"textAlign":"center"},
-			"x":780,
-			"y":-1860,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
 			"id":"02a1ec53b7e8088a",
 			"type":"text",
 			"text":"Private Vault",
@@ -311,17 +212,6 @@
 			"y":-540,
 			"width":260,
 			"height":60
-		},
-		{
-			"id":"126d5d8e7b2a909d",
-			"type":"text",
-			"text":"Planning",
-			"styleAttributes":{"textAlign":"center"},
-			"x":380,
-			"y":-1340,
-			"width":260,
-			"height":60,
-			"color":"6"
 		},
 		{
 			"id":"7acc9f51e55be341",
@@ -346,17 +236,6 @@
 			"color":"5"
 		},
 		{
-			"id":"9cf05049146e7cfe",
-			"type":"text",
-			"text":"Development",
-			"styleAttributes":{"textAlign":"center"},
-			"x":380,
-			"y":-1030,
-			"width":260,
-			"height":60,
-			"color":"6"
-		},
-		{
 			"id":"c3266d01ce6c410d",
 			"type":"text",
 			"text":"New Product Increment",
@@ -370,45 +249,12 @@
 		{"id":"5e20e595aaae0f17","type":"file","file":"02 - Jobs to be done.base","x":1280,"y":-1920,"width":400,"height":400},
 		{"id":"c40b11027e8bac16","type":"file","file":"00 - Inbox.base","x":1720,"y":-1920,"width":400,"height":400},
 		{
-			"id":"e3ba873355ab536a",
-			"type":"text",
-			"text":"Idea to Solution Workflow",
-			"styleAttributes":{"textAlign":"center"},
-			"x":380,
-			"y":-1860,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
 			"id":"d78eeca627243df6",
 			"type":"text",
 			"text":"Idea Inbox",
 			"styleAttributes":{"textAlign":"right"},
 			"x":0,
 			"y":-1860,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"451128bf614c6d39",
-			"type":"text",
-			"text":"Testplan and Teststrategy",
-			"styleAttributes":{"textAlign":"right"},
-			"x":0,
-			"y":-600,
-			"width":260,
-			"height":60,
-			"color":"5"
-		},
-		{
-			"id":"6819f68b4fb6e079",
-			"type":"text",
-			"text":"Release Candidate",
-			"styleAttributes":{"textAlign":"right"},
-			"x":0,
-			"y":-400,
 			"width":260,
 			"height":60,
 			"color":"5"
@@ -1087,28 +933,6 @@
 			"color":"2"
 		},
 		{
-			"id":"5333dff10cb150dd",
-			"type":"text",
-			"text":"Maintain",
-			"styleAttributes":{"textAlign":"center"},
-			"x":380,
-			"y":-260,
-			"width":260,
-			"height":60,
-			"color":"2"
-		},
-		{
-			"id":"4ef49a3684f6a3d2",
-			"type":"text",
-			"text":"Release",
-			"styleAttributes":{"textAlign":"center"},
-			"x":380,
-			"y":-400,
-			"width":260,
-			"height":60,
-			"color":"6"
-		},
-		{
 			"id":"4fea4d5d896f7410",
 			"type":"text",
 			"text":"Accepted Product Increment",
@@ -1131,6 +955,148 @@
 			"color":"6"
 		},
 		{
+			"id":"ccb5ba982245f7b5",
+			"type":"text",
+			"text":"Requirements",
+			"styleAttributes":{},
+			"x":2520,
+			"y":1123,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"dac2c2ccc6746691",
+			"type":"text",
+			"text":"Roadmap",
+			"styleAttributes":{"textAlign":"right"},
+			"x":0,
+			"y":-1620,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"9da3a9196b27dee9",
+			"type":"text",
+			"text":"Product Backlog",
+			"styleAttributes":{"textAlign":"right"},
+			"x":0,
+			"y":-1700,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"6819f68b4fb6e079",
+			"type":"text",
+			"text":"Release Candidate",
+			"styleAttributes":{"textAlign":"right"},
+			"x":0,
+			"y":-400,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"4ef49a3684f6a3d2",
+			"type":"text",
+			"text":"Release",
+			"styleAttributes":{"textAlign":"center"},
+			"x":380,
+			"y":-400,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"8a5046110f0f5d0a",
+			"type":"text",
+			"text":"Refinement",
+			"styleAttributes":{"textAlign":"center"},
+			"x":380,
+			"y":-1780,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"1562c861338e9167",
+			"type":"text",
+			"text":"Definition of Ready",
+			"styleAttributes":{"textAlign":"right"},
+			"x":0,
+			"y":-1780,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"126d5d8e7b2a909d",
+			"type":"text",
+			"text":"Planning",
+			"styleAttributes":{"textAlign":"center"},
+			"x":380,
+			"y":-1340,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"9cf05049146e7cfe",
+			"type":"text",
+			"text":"Development",
+			"styleAttributes":{"textAlign":"center"},
+			"x":380,
+			"y":-1030,
+			"width":260,
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"cab23099d23e267f",
+			"type":"text",
+			"text":"Refined Backlog",
+			"styleAttributes":{"textAlign":"center"},
+			"x":780,
+			"y":-1860,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"e3ba873355ab536a",
+			"type":"text",
+			"text":"Idea to Solution Workflow",
+			"styleAttributes":{"textAlign":"center"},
+			"x":380,
+			"y":-1860,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"451128bf614c6d39",
+			"type":"text",
+			"text":"Testplan and Teststrategy",
+			"styleAttributes":{"textAlign":"right"},
+			"x":0,
+			"y":-600,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"5333dff10cb150dd",
+			"type":"text",
+			"text":"Maintain",
+			"styleAttributes":{"textAlign":"center"},
+			"x":380,
+			"y":-260,
+			"width":260,
+			"height":60,
+			"color":"2"
+		},
+		{
 			"id":"dc8b1ed0fc69fe71",
 			"type":"text",
 			"text":"Denied Product Increment",
@@ -1142,14 +1108,48 @@
 			"color":"5"
 		},
 		{
-			"id":"ccb5ba982245f7b5",
+			"id":"f24519715c7a4071",
 			"type":"text",
-			"text":"Requirements",
-			"styleAttributes":{},
-			"x":2520,
-			"y":1123,
+			"text":"Priotization",
+			"styleAttributes":{"textAlign":"center"},
+			"x":380,
+			"y":-1540,
 			"width":260,
-			"height":60
+			"height":60,
+			"color":"6"
+		},
+		{
+			"id":"1baa2d48ccea8665",
+			"type":"text",
+			"text":"Feature Backlog",
+			"styleAttributes":{"textAlign":"right"},
+			"x":0,
+			"y":-1540,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"b9b60f77e828c269",
+			"type":"text",
+			"text":"Tech Debt Backlog",
+			"styleAttributes":{"textAlign":"right"},
+			"x":0,
+			"y":-1460,
+			"width":260,
+			"height":60,
+			"color":"5"
+		},
+		{
+			"id":"34b64249b4f5320d",
+			"type":"text",
+			"text":"Product Increment",
+			"styleAttributes":{"textAlign":"right"},
+			"x":0,
+			"y":-680,
+			"width":260,
+			"height":60,
+			"color":"5"
 		}
 	],
 	"edges":[

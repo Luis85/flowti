@@ -11,12 +11,15 @@ views:
       - file.name
       - success
       - status
+      - duration
       - total_steps
       - passed
       - failed
-      - duration_ms
       - test_source
       - tags
     columnSize:
       file.mtime: 160
       file.name: 165
+      note.total_steps: 106
+      note.passed: 101
+      note.failed: 82

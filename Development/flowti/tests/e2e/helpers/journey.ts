@@ -16,6 +16,19 @@ import { clearHighlights } from "./highlight";
 import { collectErrorContext, type ErrorContext } from "./errorContext";
 import { qcCheckpoint } from "./qc";
 
+export interface JourneyStepUiContext {
+	/** Hub view type. e.g. "flowti-user-hub" */
+	view?: string;
+	/** Hub display name. e.g. "User Hub" */
+	viewName?: string;
+	/** Active tab ID. e.g. "domains" */
+	tab?: string;
+	/** Tab display name. e.g. "Domains" */
+	tabName?: string;
+	/** UI components involved. e.g. ["WorkspaceShell", "DashboardsTab"] */
+	components?: string[];
+}
+
 export interface JourneyStep {
 	/** Step identifier, used as screenshot filename prefix. e.g. "01-user-hub" */
 	id: string;
@@ -29,6 +42,8 @@ export interface JourneyStep {
 	expectedInput?: string;
 	/** What the step should produce or change. */
 	expectedOutput?: string;
+	/** UI context — which view, tab, and components are involved. */
+	uiContext?: JourneyStepUiContext;
 }
 
 export interface JourneyStepResult {

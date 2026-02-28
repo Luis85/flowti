@@ -74,3 +74,25 @@ export function closeHub(cli: ObsidianCli, viewType: string): void {
 		`app.workspace.getLeavesOfType('${viewType}').forEach(l => l.detach())`,
 	);
 }
+
+/**
+ * Reveals a file or folder in the file explorer sidebar.
+ *
+ * Scrolls the file explorer tree to the given vault path and highlights it.
+ * Works for both files (TFile) and folders (TFolder). No-op if the path
+ * doesn't exist in the vault index or the file explorer leaf isn't available.
+ */
+export function revealInExplorer(cli: ObsidianCli, vaultPath: string): void {
+	const escaped = vaultPath.replace(/'/g, "\\'");
+	cli.eval([
+		`(() => {`,
+		`  const f = app.vault.getAbstractFileByPath('${escaped}');`,
+		`  if (!f) return;`,
+		`  const explorers = app.workspace.getLeavesOfType('file-explorer');`,
+		`  if (explorers.length > 0) {`,
+		`    explorers[0].view.revealInFolder(f);`,
+		`    app.workspace.revealLeaf(explorers[0]);`,
+		`  }`,
+		`})()`,
+	].join(" "));
+}

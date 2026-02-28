@@ -33,6 +33,7 @@ import {
 } from "./helpers/fixtures";
 import { JourneyRunner } from "./helpers/journey";
 import { highlightInput, highlightButton, highlightElement } from "./helpers/highlight";
+import { revealInExplorer } from "./helpers/navigation";
 import type { TestFixture } from "./helpers/fixtures";
 
 const JOURNEY_NAME = "Installer";
@@ -113,7 +114,7 @@ describe.skipIf(skipInstaller)("Chapter 2: Installer Wizard", () => {
 		}
 
 		// Write screenshots and results into the test vault
-		const journeyDir = path.join(fixture.vault.vaultDir, "Tested Journeys", JOURNEY_NAME);
+		const journeyDir = path.join(fixture.vault.vaultDir, "03 - Resources", "Tested Journeys", JOURNEY_NAME);
 		const screenshotDir = path.join(journeyDir, "screenshots");
 		resultsPath = path.join(journeyDir, `${JOURNEY_NAME}-results.json`);
 
@@ -588,6 +589,7 @@ describe.skipIf(skipInstaller)("Chapter 2: Installer Wizard", () => {
 					if (!check.success || check.value !== "true") {
 						throw new Error(`Folder not found: ${folder}`);
 					}
+					revealInExplorer(cli, folder);
 				}
 			},
 		);
@@ -613,6 +615,8 @@ describe.skipIf(skipInstaller)("Chapter 2: Installer Wizard", () => {
 				if (!check.success || check.value !== "true") {
 					throw new Error(`Welcome note not found: ${welcomePath}`);
 				}
+
+				revealInExplorer(cli, welcomePath);
 
 				// Read the file content and verify it's not empty
 				const content = cli.readFile(welcomePath);
@@ -646,6 +650,8 @@ describe.skipIf(skipInstaller)("Chapter 2: Installer Wizard", () => {
 				if (!check.success || check.value !== "true") {
 					throw new Error(`CSV not found: ${csvPath}`);
 				}
+
+				revealInExplorer(cli, csvPath);
 
 				// Read and validate CSV content
 				const content = cli.readFile(csvPath);
@@ -686,6 +692,7 @@ describe.skipIf(skipInstaller)("Chapter 2: Installer Wizard", () => {
 				if (!check.success || check.value !== "true") {
 					throw new Error(`Test data CSV not found: ${csvPath}`);
 				}
+				revealInExplorer(cli, csvPath);
 			},
 		);
 
