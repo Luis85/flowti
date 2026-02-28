@@ -324,6 +324,53 @@ Inc 1 (Setup) ──→ Inc 6 (Dev Workflow)
 4. **Data Exchange can compress** — RB-7 (pipeline merge) and import concurrency are self-contained; they can share a cycle with Canvas without dependencies.
 5. **First-mover advantage** — CLI just dropped; early exploration establishes patterns before the community converges.
 
+## Inc 1 Findings
+
+**CLI Version**: 1.12.4 (installer 1.12.4)
+**Vault**: `flowti` at `C:\Projects\flowti` — 37,036 files, 4,130 folders
+**Plugin**: `flowti-ibde` v0.0.1, enabled, community type, 36 registered commands
+
+### Parameter Syntax
+
+The CLI uses `key=value` parameter syntax, not `--flag` style:
+- `obsidian plugins format=json` (not `--json`)
+- `obsidian plugin:reload id=flowti-ibde` (not positional)
+- `obsidian search query="text" format=json`
+- `obsidian eval code="expression"`
+
+### Output Format
+
+- **Default**: TSV (tab-separated values)
+- **Structured**: `format=json|tsv|csv` parameter (command-dependent)
+- **eval output**: prefixed with `=> ` (e.g., `=> flowti`) — must strip prefix for parsing
+- Some commands also accept format as a subcommand: `plugins json` = `plugins format=json`
+
+### Validated Commands
+
+| Command | Result |
+|---------|--------|
+| `obsidian version` | `1.12.4 (installer 1.12.4)` |
+| `obsidian vault` | TSV: name, path, files, folders, size |
+| `obsidian plugins format=json` | JSON array of `{id}` objects |
+| `obsidian plugins versions format=json` | JSON array of `{id, version}` objects |
+| `obsidian plugin id=flowti-ibde` | TSV: type, name, version, author, enabled, description |
+| `obsidian commands filter=flowti` | 36 command IDs listed |
+| `obsidian command id=<command-id>` | Native command execution (no eval needed!) |
+| `obsidian eval code="app.vault.getName()"` | `=> flowti` |
+| `obsidian eval code="JSON.stringify(Object.keys(app.plugins.plugins['flowti-ibde']))"` | Full plugin instance keys visible |
+| `obsidian dev:errors` | Errors from `advanced-canvas` only — no Flowti errors |
+| `obsidian dev:console` | Console output captured |
+
+### Key Discovery: Native `command` Command
+
+The CLI provides `command id=<command-id>` for executing Obsidian commands directly — no `eval` needed for simple command execution. `eval` is still valuable for state inspection and complex interactions, but Inc 4 can leverage `command` for simpler cases.
+
+### Setup Notes (Windows)
+
+- CLI works out-of-the-box on Windows with Obsidian 1.12.4 — no manual `Obsidian.com` redirector needed
+- Binary resolves via PATH automatically (installed to `%LOCALAPPDATA%\Obsidian\`)
+- `windowsHide: true` should be used with `execFileSync` to prevent console window flash
+
 ## Deferred Items
 
 | Item | Target | Rationale |
