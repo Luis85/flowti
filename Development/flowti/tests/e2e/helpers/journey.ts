@@ -36,6 +36,10 @@ export interface JourneyStep {
 	title: string;
 	/** Section number in the guide (1-based). */
 	guideSection: number;
+	/** Exact describe() block name. e.g. "Chapter 3: Getting Started" */
+	describeBlock?: string;
+	/** Exact it() description. e.g. "3.1 — Open the User Hub" */
+	itBlock?: string;
 	/** What this step does and why. */
 	description?: string;
 	/** What state or data this step expects to be present. */
@@ -44,6 +48,14 @@ export interface JourneyStep {
 	expectedOutput?: string;
 	/** UI context — which view, tab, and components are involved. */
 	uiContext?: JourneyStepUiContext;
+	/** EventBus events triggered or asserted. e.g. ["hub.navigate", "hub.tab.changed"] */
+	events?: string[];
+	/** User interactions performed. e.g. ["click: Open Hub", "navigate: Domains tab"] */
+	interactions?: string[];
+	/** Obsidian/Flowti commands executed. e.g. ["flowti:open-user-hub"] */
+	commands?: string[];
+	/** Analytics queries run or validated. e.g. ["supplier-overview"] */
+	queries?: string[];
 }
 
 export interface JourneyStepResult {
@@ -67,6 +79,25 @@ export interface JourneyResult {
 	steps: JourneyStepResult[];
 	/** Relative path to the test source file (from plugin root). */
 	testSource?: string;
+}
+
+/** Static journey spec — step definitions without runtime data. */
+export interface JourneyConfig {
+	journey: string;
+	testSource?: string;
+	steps: JourneyStep[];
+	/** it() descriptions derived from step definitions (e.g. "1 — CLI can reach Obsidian"). */
+	items: string[];
+	/** All unique UI components across all steps. */
+	components: string[];
+	/** All unique EventBus events across all steps. */
+	events: string[];
+	/** All unique commands across all steps. */
+	commands: string[];
+	/** All unique queries across all steps. */
+	queries: string[];
+	/** All unique interactions across all steps. */
+	interactions: string[];
 }
 
 export interface JourneyRunnerOptions {
@@ -93,13 +124,32 @@ export class JourneyRunner {
 		private readonly options: JourneyRunnerOptions,
 	) {
 		this.startTime = Date.now();
-		this.settleMs = options.settleMs ?? 2000;
+		this.settleMs = options.settleMs ?? 1000;
 		fs.mkdirSync(options.screenshotDir, { recursive: true });
 	}
 
 	/** Posts an Obsidian notice announcing that a test suite has started. */
 	notifySuiteEnter(): void {
 		this.cli.notice(`▶ Suite: ${this.options.journeyName}`);
+		this.openTestSource();
+	}
+
+	/**
+	 * Opens the test source file in Obsidian's editor so the operator
+	 * can see which test file is executing. The testSource option is
+	 * relative to the plugin root (e.g. "tests/e2e/00-prerequisites.test.ts"),
+	 * so we prepend "Development/flowti/" to get the vault-relative path.
+	 */
+	private openTestSource(): void {
+		if (!this.options.testSource) return;
+		const vaultPath = `Development/flowti/${this.options.testSource}`;
+		this.cli.eval([
+			`(async () => {`,
+			`  const f = app.vault.getAbstractFileByPath('${vaultPath}');`,
+			`  if (f) { const leaf = app.workspace.getLeaf('tab');`,
+			`    await leaf.openFile(f); }`,
+			`})()`,
+		].join(" "));
 	}
 
 	/** Posts a summary notice when the suite finishes. */
@@ -236,6 +286,49 @@ export class JourneyRunner {
 		const dir = path.dirname(outputPath);
 		fs.mkdirSync(dir, { recursive: true });
 		fs.writeFileSync(outputPath, JSON.stringify(this.getResults(), null, 2), "utf-8");
+
+		// Also write the static journey config alongside the results.
+		// Config captures the step definitions (spec) without runtime data.
+		const configPath = outputPath.replace(/-results\.json$/, "-config.json");
+		fs.writeFileSync(configPath, JSON.stringify(this.getConfig(), null, 2), "utf-8");
+	}
+
+	/** Returns the static journey configuration (step definitions only). */
+	getConfig(): JourneyConfig {
+		// Ensure every step carries the describe/it block strings.
+		// If not explicitly set by the test author, derive from available data.
+		const steps = this.results.map((r) => ({
+			...r.step,
+			describeBlock: r.step.describeBlock ?? this.options.journeyName,
+			itBlock: r.step.itBlock ?? `${r.step.guideSection} — ${r.step.title}`,
+		}));
+
+		// Aggregate unique metadata across all steps
+		const components = new Set<string>();
+		const events = new Set<string>();
+		const commands = new Set<string>();
+		const queries = new Set<string>();
+		const interactions = new Set<string>();
+
+		for (const step of steps) {
+			for (const c of step.uiContext?.components ?? []) components.add(c);
+			for (const e of step.events ?? []) events.add(e);
+			for (const cmd of step.commands ?? []) commands.add(cmd);
+			for (const q of step.queries ?? []) queries.add(q);
+			for (const i of step.interactions ?? []) interactions.add(i);
+		}
+
+		return {
+			journey: this.options.journeyName,
+			...(this.options.testSource ? { testSource: this.options.testSource } : {}),
+			steps,
+			items: steps.map((s) => s.itBlock!),
+			components: [...components],
+			events: [...events],
+			commands: [...commands],
+			queries: [...queries],
+			interactions: [...interactions],
+		};
 	}
 
 	/** Returns the accumulated journey results. */

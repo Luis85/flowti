@@ -93,7 +93,7 @@ describe("Chapter 4: Component Library", () => {
 		runner = new JourneyRunner(cli, {
 			journeyName: JOURNEY_NAME,
 			screenshotDir,
-			settleMs: 3000,
+			settleMs: 1000,
 			testSource: "tests/e2e/40-journey-component-library.test.ts",
 		});
 

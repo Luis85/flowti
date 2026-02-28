@@ -19,9 +19,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = path.resolve(__dirname, "..", "..");
 
 /** Max attempts to verify the test vault is responsive. */
-const VAULT_READY_RETRIES = 10;
+const VAULT_READY_RETRIES = 20;
 /** Delay between vault readiness checks (ms). */
-const VAULT_READY_DELAY = 2000;
+const VAULT_READY_DELAY = 500;
 
 function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
@@ -91,10 +91,17 @@ export async function setup(): Promise<void> {
 		process.exit(1);
 	}
 
+	// ── Backstage: make every setup operation visible via Obsidian notices ──
+
+	const mode = runInstaller ? "Installer" : "Skip";
+	cli.notice(`🔧 E2E Setup — ${mode} mode`, 10000);
+
 	// Reset vault content THROUGH Obsidian's API (cache-safe).
 	// Using fs.rmSync bypasses Obsidian's file index, causing ghost entries
 	// that break file creation in the installer.
 	if (runInstaller) {
+		cli.notice("🗑 Resetting vault content…", 5000);
+
 		// Delete all top-level vault content via vault API, skip .obsidian/
 		cli.eval([
 			"(async () => {",
@@ -107,11 +114,12 @@ export async function setup(): Promise<void> {
 			"})()",
 		].join(" "));
 		// Wait for async deletions to complete
-		await sleep(2000);
+		await sleep(1000);
 
 		// Purge ghost entries: files in Obsidian's index that no longer
 		// exist on disk (left over from previous fs.rmSync-based resets).
 		// vault.delete() silently fails for these, so we reconcile manually.
+		cli.notice("🧹 Purging ghost file index entries…", 5000);
 		cli.eval([
 			"(async () => {",
 			"  const ghosts = [];",
@@ -130,15 +138,19 @@ export async function setup(): Promise<void> {
 			"  if (ghosts.length > 0) console.log('[e2e] Purged ' + ghosts.length + ' ghost entries');",
 			"})()",
 		].join(" "));
-		await sleep(1000);
+		await sleep(500);
 
+		cli.notice("✓ Vault reset complete", 3000);
 		console.log("[e2e] Vault content reset via Obsidian API (installer mode).");
 	} else {
+		cli.notice("📦 Vault preserved — verifying seed files…", 5000);
 		console.log("[e2e] Vault content preserved (skip mode — installer already ran).");
 		await repairSeedFiles(cli, vault.vaultDir);
+		cli.notice("✓ Seed files verified", 3000);
 	}
 
 	// Close all center pane views for a clean visual baseline
+	cli.notice("🧹 Clearing workspace…", 3000);
 	cli.eval(
 		"app.workspace.iterateAllLeaves(l => { if (l.getRoot() === app.workspace.rootSplit) l.detach(); });",
 	);
@@ -153,12 +165,15 @@ export async function setup(): Promise<void> {
 	console.log("[e2e] Injected E2E highlight styles.");
 
 	// Generate analytics test CSVs in the test vault (same script as main suite)
+	cli.notice("📊 Generating test data fixtures…", 5000);
 	const testDataDir = path.join(vault.vaultDir, "03 - Resources", "Test Data", "Analytics");
 	execSync(`node scripts/generate-test-data.mjs --out "${testDataDir}"`, {
 		cwd: PLUGIN_ROOT,
 		stdio: "pipe",
 	});
 	console.log(`[e2e] Test data generated in ${testDataDir}`);
+
+	cli.notice("✓ E2E setup complete — starting tests", 5000);
 }
 
 /**

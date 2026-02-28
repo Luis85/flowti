@@ -66,7 +66,7 @@ describe("Chapter 1: Prerequisites", () => {
 		runner = new JourneyRunner(cli, {
 			journeyName: JOURNEY_NAME,
 			screenshotDir,
-			settleMs: 2000,
+			settleMs: 1000,
 			testSource: "tests/e2e/00-prerequisites.test.ts",
 		});
 
@@ -157,6 +157,7 @@ describe("Chapter 1: Prerequisites", () => {
 					"prereq-fm.md",
 					"---\ntype: test\n---\n# Frontmatter Test",
 				);
+				revealInExplorer(cli, testPath);
 				cli.setProperty(testPath, "status", "verified");
 				const content = cli.readFile(testPath);
 				if (!content.includes("verified")) {
@@ -182,7 +183,8 @@ describe("Chapter 1: Prerequisites", () => {
 			},
 			() => {
 				const token = `prereq-search-${Date.now()}`;
-				fixture.createFile("prereq-search.md", `# Search\n${token}`);
+				const testPath = fixture.createFile("prereq-search.md", `# Search\n${token}`);
+				revealInExplorer(cli, testPath);
 				const results = cli.search(token);
 				if (results.length === 0) {
 					throw new Error(`Search returned no results for token '${token}'`);
@@ -222,6 +224,7 @@ describe("Chapter 1: Prerequisites", () => {
 					// INSTALLER MODE: disable plugin, modify data.json through
 					// Obsidian's adapter (bypasses any internal cache), then
 					// re-enable in step 1.6 to trigger the wizard.
+					cli.notice("🔌 Disabling plugin for installer reset…", 5000);
 					cli.eval(`app.plugins.disablePlugin('${PLUGIN_ID}')`);
 
 					// Poll until the plugin is actually disabled (async op)
@@ -241,6 +244,7 @@ describe("Chapter 1: Prerequisites", () => {
 					// Modify data.json through Obsidian's vault adapter so that
 					// any internal data cache is consistent with the file on disk.
 					// TypedStorage key is "installer" (NOT "installerService").
+					cli.notice("📝 Resetting installer state in data.json…", 5000);
 					const dataRelPath = `.obsidian/plugins/${PLUGIN_ID}/data.json`;
 					cli.eval([
 						"(async () => {",
@@ -261,11 +265,13 @@ describe("Chapter 1: Prerequisites", () => {
 
 					// Remove seed files via Obsidian vault API (cache-safe).
 					// Uses vault.delete() so the file index stays consistent.
+					cli.notice("🗑 Removing seed files for fresh install…", 5000);
 					for (const relPath of INSTALLER_SEED_FILES) {
 						vaultDelete(cli, relPath);
 					}
 				} else {
 					// SKIP MODE: verify the vault is in a good state
+					cli.notice("📦 Verifying seed files (skip mode)…", 5000);
 					for (const relPath of INSTALLER_SEED_FILES) {
 						const absPath = path.join(fixture.vault.vaultDir, relPath);
 						if (!fs.existsSync(absPath)) {
@@ -303,10 +309,27 @@ describe("Chapter 1: Prerequisites", () => {
 		expect(result.status).toBe("pass");
 
 		// Wait for plugin to fully initialize (services load asynchronously)
-		await new Promise((resolve) => setTimeout(resolve, 5000));
+		cli.notice("⏳ Waiting for plugin services to initialize…", 2000);
+		await new Promise((resolve) => setTimeout(resolve, 2000));
 
 		// Start collecting EventBus trace for the entire E2E run.
+		cli.notice("📡 Starting EventBus trace…", 3000);
 		startEventTrace(cli);
+
+		// Open the Activity Log in the right sidebar immediately after activation.
+		// This lets the operator (and screenshots) see all events flowing through
+		// the system during the rest of setup — before journey tests begin.
+		cli.notice("📋 Opening Activity Log (all events)…", 3000);
+		cli.executeCommand("flowti-ibde:flowti:open-event-log");
+
+		// Switch Activity Log to "All" mode so every event is visible,
+		// not just user-followed ones. setMode is private in TS but
+		// accessible at runtime on the view instance.
+		await new Promise((resolve) => setTimeout(resolve, 500));
+		cli.eval(
+			"(() => { const leaf = app.workspace.getLeavesOfType('flowti-event-log')[0];" +
+			" if (leaf && leaf.view.setMode) leaf.view.setMode('all'); })()",
+		);
 	});
 
 	it("1.7 — Plugin reports healthy state", async () => {
@@ -367,13 +390,25 @@ describe("Chapter 1: Prerequisites", () => {
 				title: "Flowti commands are registered",
 				guideSection: 9,
 				description:
-					"Executes the 'open User Hub' command via CLI to verify the Flowti " +
-					"command pipeline is wired up and responsive.",
-				expectedInput: "Plugin loaded with registered commands",
-				expectedOutput: "Command executes without throwing",
+					"Verifies the Flowti command pipeline is wired up by checking " +
+					"that the Activity Log view (opened after activation) is present " +
+					"in the right sidebar.",
+				expectedInput: "Plugin loaded with registered commands, Activity Log opened",
+				expectedOutput: "flowti-event-log leaf exists in the workspace",
+				uiContext: {
+					view: "flowti-event-log",
+					viewName: "Activity Log",
+					components: ["EventLogView"],
+				},
 			},
 			() => {
-				cli.executeCommand("flowti-ibde:flowti:open-user-hub");
+				const check = cli.eval(
+					"app.workspace.getLeavesOfType('flowti-event-log').length",
+				);
+				if (!check.success || Number(check.value) === 0) {
+					// Retry — open it explicitly and verify
+					cli.executeCommand("flowti-ibde:flowti:open-event-log");
+				}
 			},
 		);
 

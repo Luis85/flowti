@@ -51,7 +51,7 @@ describe("Chapter 3: Getting Started", () => {
 		runner = new JourneyRunner(cli, {
 			journeyName: JOURNEY_NAME,
 			screenshotDir,
-			settleMs: 3000,
+			settleMs: 1000,
 			testSource: "tests/e2e/30-journey-getting-started.test.ts",
 		});
 

@@ -86,6 +86,17 @@ if (reportVaultPath) {
 	} catch {
 		// Opening the report is best-effort
 	}
+
+	// Open the Outline panel in the right sidebar so the report's
+	// structure is immediately visible alongside the content.
+	try {
+		execSync(
+			`obsidian vault=${VAULT_NAME} eval "(() => { const leaf = app.workspace.getRightLeaf(false); if (leaf) leaf.setViewState({ type: 'outline', active: true }); })()"`,
+			{ stdio: "inherit" },
+		);
+	} catch {
+		// Outline opening is best-effort
+	}
 }
 
 process.exit(exitCode);

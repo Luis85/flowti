@@ -379,7 +379,11 @@ const ACTION_HEIGHT_WITH_UI = 168;
 const ACTION_Y_NO_UI = 216;
 const ACTION_MARGIN_BOTTOM = 28;
 
-// Events circle
+// Result badge (inside groups, top-right — shows it() checklist item + metadata)
+const RESULT_BADGE_WIDTH = 560;
+const RESULT_BADGE_HEIGHT = 180;
+
+// Events summary
 const EVENTS_SIZE = 420;
 
 /**
@@ -393,9 +397,10 @@ const EVENTS_SIZE = 420;
  * @param {object} data - Journey results (from <name>-results.json)
  * @param {string} screenshotBasePath - Vault-root-relative path to screenshots folder
  * @param {object|null} trace - Optional event trace summary
+ * @param {string|null} configFilePath - Vault-root-relative path to the config JSON file
  * @returns {{ metadata: object, nodes: object[], edges: object[] }}
  */
-function generateJourneyCanvas(data, screenshotBasePath, trace) {
+function generateJourneyCanvas(data, screenshotBasePath, trace, configFilePath) {
 	const nId = (key) => `${CANVAS_PREFIX}n-${key}`;
 	const gId = (key) => `${CANVAS_PREFIX}g-${key}`;
 	const eId = (from, to) => `${CANVAS_PREFIX}e-${from}-${to}`;
@@ -404,6 +409,12 @@ function generateJourneyCanvas(data, screenshotBasePath, trace) {
 		if (status === "pass") return "4"; // green
 		if (status === "fail") return "1"; // red
 		return undefined;
+	};
+
+	const statusLabel = (status) => {
+		if (status === "pass") return "PASS";
+		if (status === "fail") return "FAIL";
+		return "SKIP";
 	};
 
 	const journeySlug = data.journey ?? "unknown";
@@ -433,6 +444,30 @@ function generateJourneyCanvas(data, screenshotBasePath, trace) {
 		height: CIRCLE_HEIGHT,
 		color: "4",
 	});
+
+	// ── Config file node (below START) ──
+	if (configFilePath) {
+		const CONFIG_FILE_WIDTH = 400;
+		const CONFIG_FILE_HEIGHT = 400;
+		nodes.push({
+			id: nId("config"),
+			type: "file",
+			file: configFilePath,
+			x: START_X - Math.round((CONFIG_FILE_WIDTH - CIRCLE_WIDTH) / 2),
+			y: circleCenterY + CIRCLE_HEIGHT + 60,
+			width: CONFIG_FILE_WIDTH,
+			height: CONFIG_FILE_HEIGHT,
+		});
+
+		// Edge: config → start
+		edges.push({
+			id: eId("config", "start"),
+			fromNode: nId("config"),
+			fromSide: "top",
+			toNode: nId("start"),
+			toSide: "bottom",
+		});
+	}
 
 	// ── Step groups + action nodes + UI context nodes ──
 	let prevNodeId = nId("start");
@@ -466,73 +501,78 @@ function generateJourneyCanvas(data, screenshotBasePath, trace) {
 		}
 		nodes.push(groupNode);
 
-		// UI context nodes (top of group) — view badge + tab badge
-		const ui = s.uiContext;
-		const hasUi = ui && (ui.viewName || ui.tabName);
-
+		// Step config node — shows the full step configuration as a structured card
 		const innerX = groupX + INNER_MARGIN_LEFT;
+		const durationStr = stepResult.durationMs ? formatDuration(stepResult.durationMs) : "";
+		const cb = stepResult.status === "pass" ? "[x]" : stepResult.status === "fail" ? "[!]" : "[ ]";
 
-		if (ui) {
-			if (ui.viewName) {
-				nodes.push({
-					id: nId(`${s.id}-view`),
-					type: "text",
-					text: `**${ui.viewName}**\n\`${ui.view}\``,
-					x: innerX,
-					y: UI_BADGE_Y,
-					width: UI_BADGE_WIDTH,
-					height: UI_BADGE_HEIGHT,
-					color: "6",
-				});
-			}
+		const configLines = [];
 
-			if (ui.tabName) {
-				nodes.push({
-					id: nId(`${s.id}-tab`),
-					type: "text",
-					text: `**Tab**: ${ui.tabName}\n\`${ui.tab}\``,
-					x: innerX + UI_BADGE_WIDTH + UI_BADGE_GAP_X,
-					y: UI_BADGE_Y,
-					width: UI_BADGE_WIDTH,
-					height: UI_BADGE_HEIGHT,
-					color: "3",
-				});
-			}
+		// Test context — describe() and it() blocks
+		const describeStr = s.describeBlock ?? data.journey ?? "";
+		const itStr = s.itBlock ?? `${s.guideSection} — ${s.title}`;
+		configLines.push(`**describe** ${describeStr}`);
+		configLines.push(`- ${cb} **it** ${itStr} (${durationStr})`);
+		configLines.push("");
 
-			if (ui.components && ui.components.length > 0) {
-				nodes.push({
-					id: nId(`${s.id}-components`),
-					type: "text",
-					text: ui.components.map((c) => `\`${c}\``).join(" "),
-					x: innerX,
-					y: UI_COMPONENTS_Y,
-					width: ACTION_WIDTH,
-					height: UI_COMPONENTS_HEIGHT,
-				});
-			}
+		// Description
+		if (s.description) {
+			configLines.push(s.description);
+			configLines.push("");
 		}
 
-		// Action text node — position depends on whether UI context is present
-		const actionLines = [`**${s.title}**`];
-		if (s.description) actionLines.push(s.description);
-		if (s.expectedInput) actionLines.push(`*Input*: ${s.expectedInput}`);
-		if (s.expectedOutput) actionLines.push(`*Expected*: ${s.expectedOutput}`);
-		if (stepResult.error) actionLines.push(`**Error**: ${stepResult.error}`);
+		// Input / Output
+		if (s.expectedInput) configLines.push(`**Input**: ${s.expectedInput}`);
+		if (s.expectedOutput) configLines.push(`**Expected**: ${s.expectedOutput}`);
+		if (s.expectedInput || s.expectedOutput) configLines.push("");
 
-		const actionY = hasUi ? ACTION_Y_WITH_UI : ACTION_Y_NO_UI;
-		const actionHeight = hasUi
-			? ACTION_HEIGHT_WITH_UI
-			: GROUP_HEIGHT - ACTION_Y_NO_UI - ACTION_MARGIN_BOTTOM;
+		// UI context
+		const ui = s.uiContext;
+		if (ui?.viewName) configLines.push(`**View**: ${ui.viewName} (\`${ui.view}\`)`);
+		if (ui?.tabName) configLines.push(`**Tab**: ${ui.tabName} (\`${ui.tab}\`)`);
 
-		nodes.push({
-			id: nId(`${s.id}-action`),
+		// Components
+		if (ui?.components?.length) {
+			configLines.push(`**Components**: ${ui.components.map((c) => `\`${c}\``).join(" ")}`);
+		}
+
+		// Events
+		if (s.events?.length) {
+			configLines.push(`**Events**: ${s.events.map((e) => `\`${e}\``).join(" ")}`);
+		}
+
+		// Commands
+		if (s.commands?.length) {
+			configLines.push(`**Commands**: ${s.commands.map((c) => `\`${c}\``).join(" ")}`);
+		}
+
+		// Queries
+		if (s.queries?.length) {
+			configLines.push(`**Queries**: ${s.queries.map((q) => `\`${q}\``).join(" ")}`);
+		}
+
+		// Interactions
+		if (s.interactions?.length) {
+			configLines.push(`**Interactions**: ${s.interactions.map((i) => `*${i}*`).join(", ")}`);
+		}
+
+		// Error (if failed)
+		if (stepResult.error) {
+			configLines.push("");
+			configLines.push(`**Error**: ${stepResult.error}`);
+		}
+
+		const configNode = {
+			id: nId(`${s.id}-config`),
 			type: "text",
-			text: actionLines.join("\n"),
+			text: configLines.join("\n"),
 			x: innerX,
-			y: actionY,
+			y: 16,
 			width: ACTION_WIDTH,
-			height: actionHeight,
-		});
+			height: GROUP_HEIGHT - 16 - ACTION_MARGIN_BOTTOM,
+		};
+		if (stepColor) configNode.color = stepColor;
+		nodes.push(configNode);
 
 		// Edge from previous element to this group
 		const currentGroupId = gId(s.id);
@@ -558,12 +598,11 @@ function generateJourneyCanvas(data, screenshotBasePath, trace) {
 	eventsLines.push(`**Duration**: ${formatDuration(data.durationMs ?? 0)}`);
 	eventsLines.push("");
 
-	// Step summary table
-	eventsLines.push("| Step | Status | Time |");
-	eventsLines.push("|---|---|---|");
+	// Step checklist — uses exact it() descriptions from the journey config
 	for (const sr of steps) {
-		const icon = sr.status === "pass" ? "PASS" : sr.status === "fail" ? "FAIL" : "SKIP";
-		eventsLines.push(`| ${sr.step.title} | ${icon} | ${formatDuration(sr.durationMs)} |`);
+		const cb = sr.status === "pass" ? "[x]" : sr.status === "fail" ? "[!]" : "[ ]";
+		const itStr = sr.step.itBlock ?? `${sr.step.guideSection} — ${sr.step.title}`;
+		eventsLines.push(`- ${cb} ${itStr} (${formatDuration(sr.durationMs)})`);
 	}
 
 	// Event trace top events (if available)
@@ -585,7 +624,6 @@ function generateJourneyCanvas(data, screenshotBasePath, trace) {
 		id: nId("events"),
 		type: "text",
 		text: eventsLines.join("\n"),
-		styleAttributes: { shape: "circle", textAlign: "center" },
 		x: eventsX,
 		y: eventsY,
 		width: EVENTS_SIZE,
@@ -745,27 +783,193 @@ function buildEventTraceLines(trace) {
 		lines.push("");
 	}
 
-	// Perf events summary (startup, storage, dispatches)
-	const perfEvents = trace.perfEvents ?? [];
-	if (perfEvents.length > 0) {
-		const byCat = new Map();
-		for (const e of perfEvents) {
-			const cat = e.type.split(".").slice(0, 2).join(".");
-			byCat.set(cat, (byCat.get(cat) ?? 0) + 1);
+	// Detailed perf event statistics (startup, storage, queries, dispatches, alerts)
+	lines.push(...buildPerfEventStats(trace.perfEvents ?? []));
+
+	lines.push("Full details: [[Event Trace]]");
+	lines.push("");
+
+	return lines;
+}
+
+/**
+ * Builds detailed performance statistics from perf.* trace events.
+ * Parses event payloads and groups metrics by type (startup, storage,
+ * query, dispatch, alert) with aggregate statistics tables.
+ */
+function buildPerfEventStats(perfEvents) {
+	if (!perfEvents || perfEvents.length === 0) return [];
+
+	const startupServices = [];
+	let startupTotal = null;
+	const storageOps = [];
+	const queries = [];
+	const dispatches = [];
+	const alerts = [];
+
+	for (const e of perfEvents) {
+		let p;
+		try {
+			p = typeof e.payload === "string" ? JSON.parse(e.payload) : e.payload;
+		} catch {
+			continue;
 		}
-		const sortedCats = [...byCat.entries()].sort((a, b) => b[1] - a[1]);
-		lines.push("### Perf Events");
+
+		switch (e.type) {
+			case "perf.startup.service":
+				if (p.service && p.durationMs !== undefined) {
+					startupServices.push({ service: p.service, durationMs: p.durationMs });
+				}
+				break;
+			case "perf.startup.total":
+				if (p.durationMs !== undefined) {
+					startupTotal = { durationMs: p.durationMs, serviceCount: p.serviceCount ?? 0 };
+				}
+				break;
+			case "perf.storage.loaded":
+			case "perf.storage.saved":
+				if (p.key && p.durationMs !== undefined) {
+					storageOps.push({
+						key: p.key,
+						op: e.type === "perf.storage.loaded" ? "load" : "save",
+						durationMs: p.durationMs,
+						sizeBytes: p.sizeBytes ?? 0,
+					});
+				}
+				break;
+			case "perf.query.executed":
+				if (p.queryId && p.durationMs !== undefined) {
+					queries.push({
+						queryId: p.queryId,
+						durationMs: p.durationMs,
+						sourceRows: p.sourceRows ?? 0,
+						resultRows: p.resultRows ?? 0,
+					});
+				}
+				break;
+			case "perf.event.dispatched":
+				if (p.eventType && p.durationMs !== undefined) {
+					dispatches.push({
+						eventType: p.eventType,
+						handlerCount: p.handlerCount ?? 0,
+						durationMs: p.durationMs,
+					});
+				}
+				break;
+			case "perf.alert":
+				if (p.metric) {
+					alerts.push({
+						metric: p.metric,
+						value: p.value ?? 0,
+						threshold: p.threshold ?? 0,
+					});
+				}
+				break;
+		}
+	}
+
+	const lines = [
+		"### Event Performance Statistics",
+		"",
+		`> [!info] Metrics`,
+		`> Perf events: ${perfEvents.length} | Startup services: ${startupServices.length} | Storage ops: ${storageOps.length} | Queries: ${queries.length} | Dispatches: ${dispatches.length} | Alerts: ${alerts.length}`,
+		"",
+	];
+
+	// Startup
+	if (startupTotal || startupServices.length > 0) {
+		lines.push("#### Startup");
 		lines.push("");
-		lines.push("| Category | Count |");
-		lines.push("|---|---|");
-		for (const [cat, count] of sortedCats) {
-			lines.push(`| \`${cat}\` | ${count} |`);
+		if (startupTotal) {
+			lines.push(`Total startup: **${startupTotal.durationMs}ms** (${startupTotal.serviceCount} services)`);
+			lines.push("");
+		}
+		if (startupServices.length > 0) {
+			const sorted = [...startupServices].sort((a, b) => b.durationMs - a.durationMs);
+			lines.push("| Service | Duration |");
+			lines.push("|---|---|");
+			for (const s of sorted) {
+				lines.push(`| ${s.service} | ${s.durationMs}ms |`);
+			}
+			lines.push("");
+		}
+	}
+
+	// Storage
+	if (storageOps.length > 0) {
+		lines.push("#### Storage Operations");
+		lines.push("");
+		const totalLoadMs = storageOps.filter(o => o.op === "load").reduce((s, o) => s + o.durationMs, 0);
+		const totalSaveMs = storageOps.filter(o => o.op === "save").reduce((s, o) => s + o.durationMs, 0);
+		lines.push(`Load: ${storageOps.filter(o => o.op === "load").length} ops (${totalLoadMs}ms) | Save: ${storageOps.filter(o => o.op === "save").length} ops (${totalSaveMs}ms)`);
+		lines.push("");
+		lines.push("| Key | Op | Duration | Size |");
+		lines.push("|---|---|---|---|");
+		const sorted = [...storageOps].sort((a, b) => b.durationMs - a.durationMs);
+		for (const o of sorted) {
+			const size = o.sizeBytes > 1024
+				? `${(o.sizeBytes / 1024).toFixed(1)}KB`
+				: `${o.sizeBytes}B`;
+			lines.push(`| ${o.key} | ${o.op} | ${o.durationMs}ms | ${size} |`);
 		}
 		lines.push("");
 	}
 
-	lines.push("Full details: [[Event Trace]]");
-	lines.push("");
+	// Queries
+	if (queries.length > 0) {
+		lines.push("#### Query Execution");
+		lines.push("");
+		const totalMs = queries.reduce((s, q) => s + q.durationMs, 0);
+		const avgMs = (totalMs / queries.length).toFixed(1);
+		const maxQ = queries.reduce((m, q) => q.durationMs > m.durationMs ? q : m, queries[0]);
+		lines.push(`Queries: ${queries.length} | Total: ${totalMs}ms | Avg: ${avgMs}ms | Slowest: ${maxQ.queryId} (${maxQ.durationMs}ms)`);
+		lines.push("");
+		lines.push("| Query | Duration | Source Rows | Result Rows |");
+		lines.push("|---|---|---|---|");
+		const sorted = [...queries].sort((a, b) => b.durationMs - a.durationMs);
+		for (const q of sorted) {
+			lines.push(`| ${q.queryId} | ${q.durationMs}ms | ${q.sourceRows} | ${q.resultRows} |`);
+		}
+		lines.push("");
+	}
+
+	// Event Dispatch
+	if (dispatches.length > 0) {
+		lines.push("#### Event Dispatch Timing");
+		lines.push("");
+		const totalMs = dispatches.reduce((s, d) => s + d.durationMs, 0);
+		const avgMs = (totalMs / dispatches.length).toFixed(2);
+		// Aggregate by eventType
+		const byType = new Map();
+		for (const d of dispatches) {
+			const existing = byType.get(d.eventType) ?? { count: 0, totalMs: 0, maxMs: 0 };
+			existing.count++;
+			existing.totalMs += d.durationMs;
+			existing.maxMs = Math.max(existing.maxMs, d.durationMs);
+			byType.set(d.eventType, existing);
+		}
+		const sortedByTotal = [...byType.entries()].sort((a, b) => b[1].totalMs - a[1].totalMs);
+		lines.push(`Dispatches: ${dispatches.length} | Total: ${totalMs.toFixed(1)}ms | Avg: ${avgMs}ms`);
+		lines.push("");
+		lines.push("| Event | Dispatches | Total | Avg | Max |");
+		lines.push("|---|---|---|---|---|");
+		for (const [type, stats] of sortedByTotal) {
+			const avg = (stats.totalMs / stats.count).toFixed(2);
+			lines.push(`| \`${type}\` | ${stats.count} | ${stats.totalMs.toFixed(1)}ms | ${avg}ms | ${stats.maxMs.toFixed(1)}ms |`);
+		}
+		lines.push("");
+	}
+
+	// Alerts
+	if (alerts.length > 0) {
+		lines.push("#### Performance Alerts");
+		lines.push("");
+		lines.push("> [!warning] Threshold Violations");
+		for (const a of alerts) {
+			lines.push(`> - **${a.metric}**: ${a.value}ms (threshold: ${a.threshold}ms)`);
+		}
+		lines.push("");
+	}
 
 	return lines;
 }
@@ -812,7 +1016,8 @@ function generateReport() {
 
 		// Generate canvas for test vault (screenshots relative to test vault root)
 		const testScreenshotPath = `03 - Resources/Tested Journeys/${title}/screenshots`;
-		const testCanvas = generateJourneyCanvas(data, testScreenshotPath, trace);
+		const testConfigPath = `03 - Resources/Tested Journeys/${title}/${title}-config.json`;
+		const testCanvas = generateJourneyCanvas(data, testScreenshotPath, trace, testConfigPath);
 		writeReport(dir, canvasFilename, JSON.stringify(testCanvas, null, "\t"), "JourneyCanvas written");
 
 		// Dev vault — current status file at journey root (stable name, overwrites)
@@ -820,9 +1025,17 @@ function generateReport() {
 		const devJourneyDir = path.join(DEV_JOURNEYS_DIR, title);
 		writeReport(devJourneyDir, filename, content, "JourneyReport mirrored");
 
+		// Mirror config JSON (step definitions without runtime data)
+		const configFile = path.join(dir, `${title}-config.json`);
+		if (fs.existsSync(configFile)) {
+			const configContent = fs.readFileSync(configFile, "utf-8");
+			writeReport(devJourneyDir, `${title}-config.json`, configContent, "JourneyConfig mirrored");
+		}
+
 		// Generate canvas for dev vault (vault-root-relative path)
 		const devScreenshotPath = `Development/flowti/docs/journeys/${title}/screenshots`;
-		const devCanvas = generateJourneyCanvas(data, devScreenshotPath, trace);
+		const devConfigPath = `Development/flowti/docs/journeys/${title}/${title}-config.json`;
+		const devCanvas = generateJourneyCanvas(data, devScreenshotPath, trace, devConfigPath);
 		writeReport(devJourneyDir, canvasFilename, JSON.stringify(devCanvas, null, "\t"), "JourneyCanvas mirrored");
 
 		// Dev vault — timestamped archive in past-tests/ subfolder

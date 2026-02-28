@@ -23,11 +23,11 @@ const TEST_DATA_ROOT = "03 - Resources/Test Data";
 export const PLUGIN_ID = "flowti-ibde";
 
 /** Time to wait after enablePlugin for the plugin to initialize. */
-const PLUGIN_INIT_MS = 3000;
+const PLUGIN_INIT_MS = 1500;
 /** Max attempts to enable and verify the plugin is loaded. */
-const ENABLE_RETRIES = 5;
+const ENABLE_RETRIES = 8;
 /** Delay between enable retries (ms). */
-const ENABLE_RETRY_DELAY = 2000;
+const ENABLE_RETRY_DELAY = 1000;
 
 function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));

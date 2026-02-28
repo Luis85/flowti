@@ -121,7 +121,7 @@ describe.skipIf(skipInstaller)("Chapter 2: Installer Wizard", () => {
 		runner = new JourneyRunner(cli, {
 			journeyName: JOURNEY_NAME,
 			screenshotDir,
-			settleMs: 3000,
+			settleMs: 1500,
 			testSource: "tests/e2e/10-installer.test.ts",
 		});
 

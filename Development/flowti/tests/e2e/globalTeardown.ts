@@ -26,7 +26,7 @@ const PLUGIN_ROOT = path.resolve(__dirname, "..", "..");
 const PLUGIN_ID = "flowti-ibde";
 
 /** Settle time (ms) between closing views and disabling the plugin. */
-const VIEW_CLOSE_SETTLE_MS = 2000;
+const VIEW_CLOSE_SETTLE_MS = 1000;
 
 function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
@@ -420,6 +420,12 @@ export async function teardown(): Promise<void> {
 	// Clear E2E gate flags stored on window (survive plugin reloads)
 	cli.notice("Teardown: Cleaning up E2E state...", 5000);
 	cli.eval("delete window._e2ePrerequisitesPassed; delete window._e2eInstallerDone;");
+
+	// Close Flowti sidebar views (e.g. Activity Log opened during setup)
+	cli.notice("Teardown: Closing sidebar views...", 5000);
+	cli.eval(
+		"app.workspace.getLeavesOfType('flowti-event-log').forEach(l => l.detach())",
+	);
 
 	// Close all center pane tabs using Obsidian workspace commands.
 	// Each call closes the active tab; loop until no center pane tabs remain.
