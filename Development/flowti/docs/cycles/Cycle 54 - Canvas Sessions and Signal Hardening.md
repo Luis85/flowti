@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Backlog Refinement - Post Cycle 48]]"
-stage: planning
+stage: in-progress
 cycle: 54
 release_anchor:
   - "Theme 4: Feature Deepening — Competitive Moat"
@@ -12,8 +12,8 @@ pbis:
   - "PBI-006: Auto-route inbox files"
 bugs: []
 tech_debt:
-  - "CLI wrapper unit tests (C53 backlog)"
-  - "RB-6 CLI Installer reassessment (C53 backlog)"
+  - CLI wrapper unit tests (C53 backlog)
+  - RB-6 CLI Installer reassessment (C53 backlog)
 estimated_increments: 8
 estimated_loc: 1490
 estimated_tests: 135
