@@ -1,7 +1,7 @@
 ---
 type: DevelopmentCycle
 feature: "[[Backlog Refinement - Post Cycle 48]]"
-stage: planning
+stage: in-progress
 cycle: 53
 release_anchor:
   - "Theme 1: Ship It — Release Path"
