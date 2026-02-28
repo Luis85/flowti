@@ -305,6 +305,7 @@ function collectEventTrace(cli: ObsidianCli, vault: TestVault): void {
 		`perf_events: ${perfEntries.length}`,
 		`unique_types: ${typeCounts.size}`,
 		`duration_ms: ${durationMs}`,
+		'e2e_report: "[[E2E Report]]"',
 		"tags:",
 		"  - report",
 		"  - e2e",
@@ -348,19 +349,24 @@ function collectEventTrace(cli: ObsidianCli, vault: TestVault): void {
 
 	const safeTimestamp = now.toISOString().replace(/:/g, "-");
 
-	// Write to test vault — alongside journey results
-	const testVaultDir = path.join(vault.vaultDir, "Tested Journeys");
-	fs.mkdirSync(testVaultDir, { recursive: true });
-	const testVaultMd = path.join(testVaultDir, `${safeTimestamp}-event-trace.md`);
-	fs.writeFileSync(testVaultMd, content, "utf-8");
-	console.log(`[e2e] Event trace written: ${testVaultMd} (${entries.length} events, ${perfEntries.length} perf)`);
+	// Write to test vault — stable name (overwrites previous run)
+	const testVaultTracesDir = path.join(vault.vaultDir, "Traces");
+	fs.mkdirSync(testVaultTracesDir, { recursive: true });
+	const testVaultStable = path.join(testVaultTracesDir, "Event Trace.md");
+	fs.writeFileSync(testVaultStable, content, "utf-8");
+	console.log(`[e2e] Event trace written: ${testVaultStable} (${entries.length} events, ${perfEntries.length} perf)`);
 
-	// Mirror to dev vault — traces get their own subfolder
+	// Mirror to dev vault — stable name at traces root (current state)
 	const devTracesDir = path.join(PLUGIN_ROOT, "docs", "reports", "e2e", "traces");
 	fs.mkdirSync(devTracesDir, { recursive: true });
-	const devMd = path.join(devTracesDir, `${safeTimestamp}-event-trace.md`);
-	fs.writeFileSync(devMd, content, "utf-8");
-	console.log(`[e2e] Event trace mirrored: ${devMd}`);
+	const devStable = path.join(devTracesDir, "Event Trace.md");
+	fs.writeFileSync(devStable, content, "utf-8");
+	console.log(`[e2e] Event trace current: ${devStable}`);
+
+	// Dev vault — timestamped archive
+	const devArchive = path.join(devTracesDir, `${safeTimestamp}-Event Trace.md`);
+	fs.writeFileSync(devArchive, content, "utf-8");
+	console.log(`[e2e] Event trace archived: ${devArchive}`);
 
 	// Write raw JSON trace to dev vault for programmatic consumption
 	const jsonData = {
@@ -375,7 +381,7 @@ function collectEventTrace(cli: ObsidianCli, vault: TestVault): void {
 			eventFrequency: Object.fromEntries(sortedTypes),
 		},
 	};
-	const jsonPath = path.join(devTracesDir, `${safeTimestamp}-event-trace.json`);
+	const jsonPath = path.join(devTracesDir, `${safeTimestamp}-Event Trace.json`);
 	fs.writeFileSync(jsonPath, JSON.stringify(jsonData, null, 2), "utf-8");
 	console.log(`[e2e] Event trace JSON: ${jsonPath}`);
 }

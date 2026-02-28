@@ -37,6 +37,14 @@ if (journeyArg) {
 	console.log(`[e2e] Journey filter: ${process.env.E2E_JOURNEY}`);
 }
 
+// When installer is explicitly requested, force a fresh install
+// (override the default skip-when-installed behavior)
+const journeys = (process.env.E2E_JOURNEY ?? "").split(",").map((j) => j.trim());
+if (journeys.includes("installer")) {
+	process.env.E2E_RUN_INSTALLER = "true";
+	console.log("[e2e] Installer forced (explicitly requested).");
+}
+
 let exitCode = 0;
 
 try {

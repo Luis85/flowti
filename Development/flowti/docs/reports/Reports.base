@@ -1,8 +1,28 @@
 filters:
   and:
-    - file.inFolder("Development/flowti/docs/reports")
+    - file.inFolder("Development/flowti/docs/reports/e2e")
     - file.ext == "md"
+    - type == "E2EReport"
 views:
+  - type: table
+    name: End to End Tests
+    filters:
+      and:
+        - '!file.folder.contains("run")'
+    order:
+      - file.name
+      - type
+    sort:
+      - property: file.ctime
+        direction: DESC
+  - type: table
+    name: Index
+    order:
+      - file.name
+      - type
+    sort:
+      - property: file.ctime
+        direction: DESC
   - type: table
     name: Performance Report
     filters:
@@ -74,14 +94,3 @@ views:
         direction: DESC
     columnSize:
       file.name: 305
-  - type: table
-    name: Index 2
-    filters:
-      and:
-        - file.inFolder("Development/flowti/docs/reports/tests")
-    order:
-      - file.name
-      - type
-    sort:
-      - property: file.ctime
-        direction: DESC

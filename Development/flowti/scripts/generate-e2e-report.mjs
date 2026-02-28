@@ -372,12 +372,12 @@ function formatBytes(bytes) {
 	return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
-/** Reads the latest event-trace.json from the dev traces directory. */
+/** Reads the latest Event Trace JSON from the dev traces directory. */
 function readLatestEventTrace() {
 	if (!fs.existsSync(DEV_TRACES_DIR)) return null;
 
 	const files = fs.readdirSync(DEV_TRACES_DIR)
-		.filter((f) => f.endsWith("-event-trace.json"))
+		.filter((f) => f.endsWith("-Event Trace.json") || f.endsWith("-event-trace.json"))
 		.sort()
 		.reverse();
 
@@ -471,6 +471,9 @@ function buildEventTraceLines(trace) {
 		}
 		lines.push("");
 	}
+
+	lines.push("Full details: [[Event Trace]]");
+	lines.push("");
 
 	return lines;
 }
@@ -567,10 +570,11 @@ function generateReport() {
 		journey_reports: journeyReportLinks.length > 0
 			? "\n" + journeyReportLinks.map((l) => `  - ${l}`).join("\n")
 			: "[]",
+		event_trace: `"[[Event Trace]]"`,
 		tags: "\n  - report\n  - e2e",
 	};
 
-	const PREFORMATTED_KEYS = new Set(["tags", "test_suites", "journey_reports"]);
+	const PREFORMATTED_KEYS = new Set(["tags", "test_suites", "journey_reports", "event_trace"]);
 
 	const frontmatter = [
 		"---",
@@ -692,8 +696,12 @@ function generateReport() {
 	// Write to test vault — root of vault, stable name (overwrites previous run)
 	writeReport(TEST_VAULT, "E2E Report.md", content, "E2EReport written");
 
-	// Mirror to dev vault — timestamped in runs/ subfolder
-	writeReport(DEV_RUNS_DIR, e2eFilename, content, "E2EReport mirrored");
+	// Dev vault — stable name at reports/e2e/ root (current state, overwrites)
+	const DEV_E2E_DIR = path.join(PLUGIN_ROOT, "docs", "reports", "e2e");
+	writeReport(DEV_E2E_DIR, "E2E Report.md", content, "E2EReport current");
+
+	// Dev vault — timestamped archive in runs/ subfolder
+	writeReport(DEV_RUNS_DIR, e2eFilename, content, "E2EReport archived");
 
 	// Clean up temp vitest results from plugin source
 	try {
