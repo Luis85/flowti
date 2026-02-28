@@ -11,7 +11,7 @@ tags:
 decision: defer-v1.1
 decision_date: 2026-02-27
 decision_cycle: "[[Cycle 49 - Release Readiness and Dogfooding]]"
-target_cycle: "[[Cycle 53 - Data Exchange Evolution]]"
+target_cycle: "[[Data Exchange Evolution]]"
 ---
 
 ## RB-7: Pipeline Multi-Source Merge
@@ -50,4 +50,4 @@ Enable pipelines to merge data from multiple CSV/Canvas sources using a configur
 - [[Data Exchange Hub PRD]]
 - [[Backlog Refinement - Post Cycle 48]]
 - [[Cycle 49 - Release Readiness and Dogfooding]]
-- [[Cycle 53 - Data Exchange Evolution]]
+- [[Data Exchange Evolution]]
