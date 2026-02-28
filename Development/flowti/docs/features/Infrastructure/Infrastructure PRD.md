@@ -368,3 +368,11 @@ ViewRegistry
 | TD-67 | frontmatter.update.response may return stale data | medium | open |
 | TD-73 | CommandRegistry has no unregister method | low | open |
 | TD-74 | error.handled event is dead definition | medium | open |
+
+---
+
+## Stage History
+
+| Cycle | Date | Summary |
+|-------|------|---------|
+| 53 | 2026-03-01 | **Obsidian CLI Spike** — Added ObsidianCli wrapper (244 LOC, 12 methods), E2E test harness, 69 E2E tests across 3 journeys. PBI-CLI-001/002/003 delivered. Report pipeline generates 5 artifact types. Journey canvases with living documentation metadata. Execution time optimized ~80s. E2E release blocker unblocked. |

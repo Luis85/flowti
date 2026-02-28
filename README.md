@@ -40,6 +40,7 @@ Before we get started, make sure the following things are in place:
 - Node is installed
 - [Obsidian](https://obsidian.md) is installed
 - Obsidian Git Community Plugin is installed and  enabled
+- Obsidian CLI is activated
 
 ---
 

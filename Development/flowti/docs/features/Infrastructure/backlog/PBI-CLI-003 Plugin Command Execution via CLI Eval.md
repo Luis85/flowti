@@ -2,10 +2,13 @@
 type: ProductBacklogItem
 feature: "[[Infrastructure PRD]]"
 priority: medium
-stage: planned
+stage: done
 planned_in: "[[Cycle 53 - Obsidian CLI Spike]]"
+delivered_in: "[[Cycle 53 - Obsidian CLI Spike]]"
 estimated_loc: 60
+actual_loc: 316
 estimated_tests: 10
+actual_e2e_tests: 69
 effort: medium
 dependencies:
   - "[[PBI-CLI-002 E2E Test Foundation with Obsidian CLI]]"
@@ -39,11 +42,11 @@ As a plugin developer, I want to execute Flowti commands and inspect plugin stat
 
 ### Functional Requirements
 
-- [ ] Access Flowti plugin instance via `obsidian eval code="app.plugins.plugins['flowti-ibde']"`
-- [ ] Execute at least one Flowti command via `eval`-based handler invocation
-- [ ] Verify event emission by inspecting state changes after `eval`
-- [ ] Prototype EventBus interaction: emit events and verify handlers fire
-- [ ] Error handling for eval failures (plugin not loaded, syntax errors)
+- [x] Access Flowti plugin instance via `obsidian eval code="app.plugins.plugins['flowti-ibde']"` — used throughout all E2E tests
+- [x] Execute at least one Flowti command via `eval`-based handler invocation — `executeCommand()` + `command id=`
+- [x] Verify event emission by inspecting state changes after `eval` — `_e2eEventTrace` wildcard listener
+- [x] Prototype EventBus interaction: emit events and verify handlers fire — `hub.navigate` → `hub.tab.changed` chain verified
+- [x] Error handling for eval failures (plugin not loaded, syntax errors) — EvalResult with success/value/error
 
 ### Architecture Seams
 
@@ -67,8 +70,12 @@ As a plugin developer, I want to execute Flowti commands and inspect plugin stat
 
 ## Acceptance Criteria
 
-- [ ] Can access Flowti plugin instance via `eval`
-- [ ] Can execute at least one Flowti command via `eval`
-- [ ] Can verify event emission via state inspection
-- [ ] Tests for `eval`-based interactions
-- [ ] `npm test` green (E2E tests gated behind flag)
+- [x] Can access Flowti plugin instance via `eval` — `app.plugins.plugins['flowti-ibde']` used in all E2E suites
+- [x] Can execute at least one Flowti command via `eval` — 36 commands verified, `executeCommand()` used in all journeys
+- [x] Can verify event emission via state inspection — wildcard trace captures all events, `assertEventEmitted()` helper
+- [x] Tests for `eval`-based interactions — 69 E2E tests exercise eval extensively
+- [x] `npm test` green (E2E tests gated behind flag) — unit tests (5,776) unaffected
+
+## Delivery Notes
+
+Delivered as Inc 4 of Cycle 53. `eval` proved to be the most powerful CLI capability — enables full `app` context access for state inspection, command execution, EventBus interaction, DOM manipulation, screenshot capture, and notice display. All subsequent E2E infrastructure (fixtures, journey runner, navigation helpers) builds on eval patterns.

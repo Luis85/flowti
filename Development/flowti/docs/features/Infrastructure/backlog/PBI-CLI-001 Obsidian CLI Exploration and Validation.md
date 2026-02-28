@@ -2,10 +2,13 @@
 type: ProductBacklogItem
 feature: "[[Infrastructure PRD]]"
 priority: high
-stage: planned
+stage: done
 planned_in: "[[Cycle 53 - Obsidian CLI Spike]]"
+delivered_in: "[[Cycle 53 - Obsidian CLI Spike]]"
 estimated_loc: 30
+actual_loc: 316
 estimated_tests: 0
+actual_tests: 0
 effort: small
 tags:
   - backlog
@@ -37,12 +40,12 @@ As a plugin developer, I want to validate that the Obsidian CLI (1.12+) works wi
 
 ### Functional Requirements
 
-- [ ] Enable CLI in Obsidian 1.12+ settings
-- [ ] Configure Windows PATH and `Obsidian.com` redirector
-- [ ] Validate basic commands: `obsidian version`, `obsidian vault`, `obsidian files total`, `obsidian plugins versions`
-- [ ] Verify Flowti plugin appears in `obsidian plugins` output
-- [ ] Test `obsidian plugin:reload flowti-ibde` for hot-reload
-- [ ] Document setup steps and requirements
+- [x] Enable CLI in Obsidian 1.12+ settings
+- [x] Configure Windows PATH and `Obsidian.com` redirector — not needed, works out-of-the-box
+- [x] Validate basic commands: `obsidian version`, `obsidian vault`, `obsidian files total`, `obsidian plugins versions`
+- [x] Verify Flowti plugin appears in `obsidian plugins` output
+- [x] Test `obsidian plugin:reload flowti-ibde` for hot-reload
+- [x] Document setup steps and requirements
 
 ## INVEST Assessment
 
@@ -57,7 +60,11 @@ As a plugin developer, I want to validate that the Obsidian CLI (1.12+) works wi
 
 ## Acceptance Criteria
 
-- [ ] CLI responds to `obsidian version` (v1.12+)
-- [ ] `obsidian plugins` lists `flowti-ibde`
-- [ ] `plugin:reload flowti-ibde` triggers Flowti's `onunload()/onload()` cycle
-- [ ] Setup documented in spike notes
+- [x] CLI responds to `obsidian version` (v1.12+) — validated v1.12.4
+- [x] `obsidian plugins` lists `flowti-ibde` — confirmed via `plugins format=json`
+- [x] `plugin:reload flowti-ibde` triggers Flowti's `onunload()/onload()` cycle — validated
+- [x] Setup documented in spike notes — Inc 1 Findings section in cycle doc
+
+## Delivery Notes
+
+Delivered as Inc 1 of Cycle 53. CLI works out-of-the-box on Windows with no manual setup. Parameter syntax is `key=value`, eval output prefixed with `=> `. Discovered native `command id=` for direct command execution. See Cycle 53 Inc 1 Findings.
