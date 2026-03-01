@@ -3,9 +3,9 @@
 	"chapter": 5,
 	"description": "Validates the complete canvas session lifecycle: template picker → goal input → canvas created → session running → pause → resume → complete → closure overlay → skip → completed.",
 	"testSource": "tests/e2e/50-journey-canvas-session.test.ts",
-	"reportPath": "03 - Resources/Tested Journeys/Canvas Session/Canvas Session.md",
-	"canvasPath": "03 - Resources/Tested Journeys/Canvas Session/Canvas Session.canvas",
-	"tools": ["command", "click", "input", "highlight", "wait", "assert", "emit", "eval"],
+	"reportPath": "docs/journeys/Canvas Session/Canvas Session.md",
+	"canvasPath": "docs/journeys/Canvas Session/Canvas Session.canvas",
+	"tools": ["command", "click", "input", "highlight", "wait", "assert", "emit", "eval", "screenshot", "manual", "notice"],
 	"steps": [
 		{
 			"id": "01-start-canvas-session",
@@ -14,7 +14,6 @@
 			"description": "Triggers the canvas session flow via the command palette. The CanvasTemplatePickerModal should appear.",
 			"expectedInput": "Plugin enabled, no active canvas session",
 			"expectedOutput": "CanvasTemplatePickerModal is visible with template cards",
-			"capture": "afterAction",
 			"uiContext": {
 				"components": ["CanvasTemplatePickerModal"]
 			},
@@ -22,10 +21,14 @@
 			"commands": ["flowti:start-canvas-session"],
 			"interactions": ["command: Start canvas session"],
 			"actions": [
+				{ "tool": "notice", "message": "Step 1/9: Starting canvas session", "duration": 3000, "description": "Annotate test progress" },
+				{ "tool": "screenshot", "label": "before", "description": "Baseline state before command" },
 				{ "tool": "command", "id": "flowti:start-canvas-session", "description": "Open template picker" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "assert", "type": "visible", "selector": ".modal-container .ft-canvas-template-card", "description": "Template picker is visible" },
-				{ "tool": "highlight", "selector": ".modal-container .ft-canvas-template-card", "style": "element" }
+				{ "tool": "highlight", "selector": ".modal-container .ft-canvas-template-card", "style": "element" },
+				{ "tool": "screenshot", "label": "after", "description": "Template picker visible with cards highlighted" },
+				{ "tool": "manual", "instruction": "Review template cards for correct icons, titles, and descriptions. Verify the modal layout is centered and cards are evenly spaced.", "description": "Visual QA of template picker modal" }
 			]
 		},
 		{
@@ -35,16 +38,18 @@
 			"description": "Clicks the first template card in the CanvasTemplatePickerModal. The InputModal for the session goal should appear.",
 			"expectedInput": "CanvasTemplatePickerModal is visible",
 			"expectedOutput": "InputModal appears with goal input field",
-			"capture": "afterAction",
 			"uiContext": {
 				"components": ["CanvasTemplatePickerModal", "InputModal"]
 			},
 			"interactions": ["click: Template card"],
 			"actions": [
+				{ "tool": "notice", "message": "Step 2/9: Selecting template", "duration": 3000, "description": "Annotate test progress" },
+				{ "tool": "manual", "instruction": "Browse available templates and compare their descriptions. In a real session, the user would read each card before choosing.", "description": "User reviews template options" },
 				{ "tool": "click", "selector": ".modal-container .ft-canvas-template-card", "description": "Click first template card" },
 				{ "tool": "wait", "ms": 500 },
 				{ "tool": "assert", "type": "visible", "selector": ".modal-container .setting-item input", "description": "InputModal with goal field is visible" },
-				{ "tool": "highlight", "selector": ".modal-container .setting-item input", "style": "element" }
+				{ "tool": "highlight", "selector": ".modal-container .setting-item input", "style": "element" },
+				{ "tool": "screenshot", "label": "goal-input", "description": "InputModal visible with goal field highlighted" }
 			]
 		},
 		{
@@ -60,12 +65,15 @@
 			"events": ["session.create", "session.created", "canvas.session.started"],
 			"interactions": ["input: Session goal", "click: Start button"],
 			"actions": [
+				{ "tool": "notice", "message": "Step 3/9: Entering goal and starting session", "duration": 3000, "description": "Annotate test progress" },
 				{ "tool": "input", "selector": ".modal-container .setting-item input", "value": "E2E canvas session test goal", "description": "Type session goal" },
 				{ "tool": "highlight", "selector": ".modal-container .mod-cta", "style": "button" },
+				{ "tool": "screenshot", "label": "before-start", "description": "Goal entered, Start button highlighted" },
 				{ "tool": "wait", "ms": 300 },
 				{ "tool": "click", "selector": ".modal-container .mod-cta", "description": "Click Start button" },
 				{ "tool": "wait", "ms": 1500 },
-				{ "tool": "assert", "type": "event", "event": "canvas.session.started", "description": "Session started event emitted" }
+				{ "tool": "assert", "type": "event", "event": "canvas.session.started", "description": "Session started event emitted" },
+				{ "tool": "screenshot", "label": "after-start", "description": "Session started, modal closed" }
 			]
 		},
 		{
@@ -79,7 +87,10 @@
 				"components": ["Canvas"]
 			},
 			"actions": [
-				{ "tool": "assert", "type": "leaf", "viewType": "canvas", "description": "Canvas leaf exists in workspace" }
+				{ "tool": "notice", "message": "Step 4/9: Verifying canvas file", "duration": 3000, "description": "Annotate test progress" },
+				{ "tool": "assert", "type": "leaf", "viewType": "canvas", "description": "Canvas leaf exists in workspace" },
+				{ "tool": "screenshot", "label": "canvas-open", "description": "Canvas file open in workspace" },
+				{ "tool": "manual", "instruction": "Verify the canvas contains the expected template nodes (e.g. goal card, empty area for work). Check that nodes are correctly positioned and the canvas is zoomable/pannable.", "description": "Visual QA of generated canvas layout" }
 			]
 		},
 		{
@@ -93,6 +104,7 @@
 				"components": ["SessionService"]
 			},
 			"actions": [
+				{ "tool": "notice", "message": "Step 5/9: Verifying session state", "duration": 3000, "description": "Annotate test progress" },
 				{
 					"tool": "eval",
 					"code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; if (!p || !p.sessionService) return 'no-plugin'; const s = p.sessionService.getActiveSession(); if (!s) return 'no-session'; return JSON.stringify({ type: s.type, status: s.status }); })()",
@@ -101,7 +113,9 @@
 						"match": { "type": "canvas-session", "status": "running" }
 					},
 					"description": "Active session is canvas-session in running status"
-				}
+				},
+				{ "tool": "screenshot", "label": "session-running", "description": "Session verified as running" },
+				{ "tool": "manual", "instruction": "Check the status bar for the active session indicator. Verify it shows the session type, elapsed time, and a pause/stop button.", "description": "Verify session status bar indicator" }
 			]
 		},
 		{
@@ -117,6 +131,7 @@
 			"events": ["session.pause", "session.paused"],
 			"interactions": ["event: Pause session"],
 			"actions": [
+				{ "tool": "notice", "message": "Step 6/9: Pausing session", "duration": 3000, "description": "Annotate test progress" },
 				{
 					"tool": "eval",
 					"code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; const s = p?.sessionService?.getActiveSession(); return s ? s.id : ''; })()",
@@ -124,6 +139,7 @@
 					"expect": { "type": "truthy" },
 					"description": "Get active session ID"
 				},
+				{ "tool": "screenshot", "label": "before-pause", "description": "Session running before pause" },
 				{
 					"tool": "emit",
 					"event": "session.pause",
@@ -137,7 +153,9 @@
 					"code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; const sessions = p.sessionService.state?.sessions ?? []; const s = sessions.find(s => s.id === '{{sessionId}}'); return s ? s.status : 'not-found'; })()",
 					"expect": { "type": "equals", "value": "paused" },
 					"description": "Session status is paused"
-				}
+				},
+				{ "tool": "screenshot", "label": "after-pause", "description": "Session paused" },
+				{ "tool": "manual", "instruction": "Verify the status bar timer has stopped counting. The pause indicator should be visible and the canvas should remain open but the session timer frozen.", "description": "Verify paused UI state" }
 			]
 		},
 		{
@@ -153,6 +171,7 @@
 			"events": ["session.resume", "session.resumed"],
 			"interactions": ["event: Resume session"],
 			"actions": [
+				{ "tool": "notice", "message": "Step 7/9: Resuming session", "duration": 3000, "description": "Annotate test progress" },
 				{
 					"tool": "eval",
 					"code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; const sessions = p.sessionService.state?.sessions ?? []; const s = sessions.find(s => s.type === 'canvas-session' && s.status === 'paused'); return s ? s.id : ''; })()",
@@ -173,7 +192,9 @@
 					"code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; const s = p.sessionService.getActiveSession(); return s ? s.status : 'not-found'; })()",
 					"expect": { "type": "equals", "value": "running" },
 					"description": "Session status is running"
-				}
+				},
+				{ "tool": "screenshot", "label": "resumed", "description": "Session resumed and running" },
+				{ "tool": "manual", "instruction": "Verify the canvas tab is re-focused and the session timer has resumed counting from where it was paused.", "description": "Verify resumed UI state and timer continuation" }
 			]
 		},
 		{
@@ -189,6 +210,7 @@
 			"events": ["session.complete", "session.closure.started"],
 			"interactions": ["event: Complete session"],
 			"actions": [
+				{ "tool": "notice", "message": "Step 8/9: Completing session", "duration": 3000, "description": "Annotate test progress" },
 				{
 					"tool": "eval",
 					"code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; const s = p.sessionService.getActiveSession(); return s ? s.id : ''; })()",
@@ -205,7 +227,9 @@
 				{ "tool": "wait", "ms": 1500 },
 				{ "tool": "assert", "type": "event", "event": "session.closure.started", "description": "Closure started event emitted" },
 				{ "tool": "assert", "type": "visible", "selector": ".ft-closure-overlay", "description": "Closure overlay is visible" },
-				{ "tool": "highlight", "selector": ".ft-closure-skip", "style": "button" }
+				{ "tool": "highlight", "selector": ".ft-closure-skip", "style": "button" },
+				{ "tool": "screenshot", "label": "closure-overlay", "description": "Closure overlay visible with Skip button highlighted" },
+				{ "tool": "manual", "instruction": "Review the closure overlay: verify the reflection prompt is readable, the rating widget is interactive (try clicking stars), and both Skip and Complete buttons are visible and styled correctly.", "description": "Visual QA and interaction test of closure overlay" }
 			]
 		},
 		{
@@ -221,6 +245,7 @@
 			"events": ["session.completed"],
 			"interactions": ["click: Skip closure"],
 			"actions": [
+				{ "tool": "notice", "message": "Step 9/9: Skipping closure ritual", "duration": 3000, "description": "Annotate test progress" },
 				{ "tool": "click", "selector": ".ft-closure-skip", "description": "Click Skip button" },
 				{ "tool": "wait", "ms": 1000 },
 				{
@@ -228,7 +253,10 @@
 					"code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; const sessions = p.sessionService.state?.sessions ?? []; const s = sessions.find(s => s.type === 'canvas-session'); return s ? s.status : 'not-found'; })()",
 					"expect": { "type": "equals", "value": "completed" },
 					"description": "Session status is completed"
-				}
+				},
+				{ "tool": "screenshot", "label": "completed", "description": "Session completed" },
+				{ "tool": "notice", "message": "Canvas Session journey complete", "duration": 5000, "description": "Signal journey completion" },
+				{ "tool": "manual", "instruction": "Navigate to the User Hub Sessions tab and verify the completed session appears in the session history with correct duration, goal, and 'completed' status badge.", "description": "Verify completed session in session history" }
 			]
 		}
 	]

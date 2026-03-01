@@ -13,6 +13,7 @@
  *   E2E_JOURNEY=installer                        → 00- + 10-installer
  *   E2E_JOURNEY=getting-started                   → 00- + 30-journey-getting-started
  *   E2E_JOURNEY=component-library                 → 00- + 40-journey-component-library
+ *   E2E_JOURNEY=tool-showcase                      → 00- + 60-journey-tool-showcase
  *   E2E_JOURNEY=getting-started,component-library → 00- + 30- + 40-
  *   E2E_JOURNEY=installer,getting-started         → 00- + 10- + 30-
  */

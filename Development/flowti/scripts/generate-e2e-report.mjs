@@ -11,12 +11,12 @@
  *
  * Input:
  *   docs/reports/e2e/e2e-results.json                        (vitest JSON, temp)
- *   <test-vault>/03 - Resources/Tested Journeys/<name>/<name>-results.json   (journey details)
+ *   <test-vault>/docs/journeys/<name>/<name>-results.json              (journey details)
  *
  * Output (test vault):
  *   <test-vault>/E2E Report.md                                                    (E2E summary, stable name)
- *   <test-vault>/03 - Resources/Tested Journeys/<name>/<name>.md                  (journey report)
- *   <test-vault>/03 - Resources/Tested Journeys/<name>/screenshots/               (journey screenshots)
+ *   <test-vault>/docs/journeys/<name>/<name>.md                                   (journey report)
+ *   <test-vault>/docs/journeys/<name>/screenshots/                                (journey screenshots)
  *
  * Output (dev vault mirror):
  *   docs/reports/e2e/runs/<timestamp>-e2e-report.md                     (E2E summary)
@@ -42,7 +42,7 @@ const PROJECTS_ROOT = path.resolve(PLUGIN_ROOT, "..", "..", "..");
 const TEST_VAULT = process.env.E2E_VAULT_DIR ?? path.join(PROJECTS_ROOT, "flowti-e2e");
 
 // Journey results live in the test vault
-const JOURNEYS_DIR = path.join(TEST_VAULT, "03 - Resources", "Tested Journeys");
+const JOURNEYS_DIR = path.join(TEST_VAULT, "docs", "journeys");
 
 // Development vault — separated by artifact type
 const DEV_RUNS_DIR = path.join(PLUGIN_ROOT, "docs", "reports", "e2e", "runs");
@@ -116,6 +116,59 @@ function resolveStatus(passed, failed, total) {
 function statusLabel(status) {
 	if (status === "skipped") return "SKIPPED";
 	return status === "pass" ? "PASS" : "FAIL";
+}
+
+/**
+ * Computes action statistics from journey result data.
+ * Aggregates counts per tool type across all steps.
+ */
+function computeActionStats(data) {
+	const stats = {
+		total: 0,
+		screenshots: 0,
+		assertions: 0,
+		manualChecks: 0,
+		notices: 0,
+		themeChanges: 0,
+		createFiles: 0,
+		deleteFiles: 0,
+		openFiles: 0,
+		closeLeaves: 0,
+		tools: new Set(),
+	};
+
+	for (const stepResult of data.steps ?? []) {
+		const actions = stepResult.step?.actions ?? [];
+		for (const action of actions) {
+			stats.total++;
+			stats.tools.add(action.tool);
+			switch (action.tool) {
+				case "screenshot": stats.screenshots++; break;
+				case "assert": stats.assertions++; break;
+				case "manual": stats.manualChecks++; break;
+				case "notice": stats.notices++; break;
+				case "theme": stats.themeChanges++; break;
+				case "create-file": stats.createFiles++; break;
+				case "delete-file": stats.deleteFiles++; break;
+				case "open-file": stats.openFiles++; break;
+				case "close-leaves": stats.closeLeaves++; break;
+			}
+		}
+	}
+
+	return {
+		total: stats.total,
+		screenshots: stats.screenshots,
+		assertions: stats.assertions,
+		manual_checks: stats.manualChecks,
+		notices: stats.notices,
+		theme_changes: stats.themeChanges,
+		create_files: stats.createFiles,
+		delete_files: stats.deleteFiles,
+		open_files: stats.openFiles,
+		close_leaves: stats.closeLeaves,
+		tools: [...stats.tools].sort(),
+	};
 }
 
 /** Reads vitest JSON reporter output and extracts test suite/case results. */
@@ -227,6 +280,7 @@ function generateJourneyReport(data, date) {
 	const passedSteps = data.passed ?? 0;
 	const failedSteps = data.failed ?? 0;
 	const journeyStatus = resolveStatus(passedSteps, failedSteps, totalSteps);
+	const actionStats = computeActionStats(data);
 
 	const fm = {
 		type: "JourneyReport",
@@ -236,6 +290,19 @@ function generateJourneyReport(data, date) {
 		total_steps: totalSteps,
 		passed: passedSteps,
 		failed: failedSteps,
+		total_actions: actionStats.total,
+		screenshots: actionStats.screenshots,
+		assertions: actionStats.assertions,
+		manual_checks: actionStats.manual_checks,
+		notices: actionStats.notices,
+		theme_changes: actionStats.theme_changes,
+		create_files: actionStats.create_files,
+		delete_files: actionStats.delete_files,
+		open_files: actionStats.open_files,
+		close_leaves: actionStats.close_leaves,
+		tools: actionStats.tools.length > 0
+			? "\n" + actionStats.tools.map((t) => `  - ${t}`).join("\n")
+			: "[]",
 		duration_ms: data.durationMs ?? 0,
 		duration: formatDuration(data.durationMs ?? 0),
 		success: journeyStatus === "pass",
@@ -246,7 +313,7 @@ function generateJourneyReport(data, date) {
 		tags: "\n  - report\n  - e2e\n  - journey",
 	};
 
-	const JOURNEY_PREFORMATTED = new Set(["tags", "test_source", "e2e_report", "canvas"]);
+	const JOURNEY_PREFORMATTED = new Set(["tags", "test_source", "e2e_report", "canvas", "tools"]);
 
 	const frontmatter = [
 		"---",
@@ -265,18 +332,28 @@ function generateJourneyReport(data, date) {
 		`${passedSteps}/${totalSteps} steps | ` +
 		`${formatDuration(data.durationMs ?? 0)}`,
 		`> Mode: **${fm.mode}** | Source: \`${data.testSource ?? "unknown"}\``,
+		`> Actions: ${actionStats.total} | Screenshots: ${actionStats.screenshots} | Assertions: ${actionStats.assertions} | Manual: ${actionStats.manual_checks} | Notices: ${actionStats.notices}` + (actionStats.theme_changes > 0 ? ` | Themes: ${actionStats.theme_changes}` : ""),
+		`> Tools: ${actionStats.tools.map((t) => `\`${t}\``).join(" ")}`,
 		"",
 		`Canvas: [[${journeyTitle}.canvas|${journeyTitle} Canvas]]`,
 		"",
 	];
 
-	for (const stepResult of data.steps ?? []) {
+	// ── Partition steps by phase ──
+	const allSteps = data.steps ?? [];
+	const setupSteps = allSteps.filter((r) => r.step?.phase === "setup");
+	const journeySteps = allSteps.filter((r) => !r.step?.phase || r.step.phase === "journey");
+	const teardownSteps = allSteps.filter((r) => r.step?.phase === "teardown");
+
+	/** Renders a single step result into the report lines array. */
+	function renderStep(stepResult) {
 		const s = stepResult.step;
 		const stepStatus = stepResult.status === "pass" ? "pass" : stepResult.status === "fail" ? "fail" : "skipped";
 		const stepCallout = statusCallout(stepStatus);
 		const icon = statusLabel(stepStatus);
 
-		lines.push(`## Step ${s.guideSection}: ${s.title}`);
+		const statusTag = stepStatus === "fail" ? " [FAIL]" : stepStatus === "skipped" ? " [SKIP]" : "";
+		lines.push(`### Step ${s.guideSection}: ${s.title}${statusTag}`);
 		lines.push("");
 		lines.push(`> [!${stepCallout}] ${icon} (${formatDuration(stepResult.durationMs)})`);
 
@@ -340,9 +417,61 @@ function generateJourneyReport(data, date) {
 			lines.push("");
 		}
 
-		if (stepResult.screenshotFile) {
-			lines.push(`![[${stepResult.screenshotFile}]]`);
+		const screenshots = stepResult.screenshotFiles ??
+			(stepResult.screenshotFile ? [stepResult.screenshotFile] : []);
+		for (const file of screenshots) {
+			lines.push(`![[${file}]]`);
+		}
+		if (screenshots.length > 0) lines.push("");
+
+		// Manual actions — human QA steps documented in the journey config
+		const manualActions = (s.actions ?? []).filter((a) => a.tool === "manual");
+		if (manualActions.length > 0) {
+			lines.push("> [!todo] Manual QA");
+			for (const m of manualActions) {
+				lines.push(`> - [ ] ${m.instruction}`);
+			}
 			lines.push("");
+		}
+
+		// Notice actions — runtime annotations shown during test execution
+		const noticeActions = (s.actions ?? []).filter((a) => a.tool === "notice");
+		if (noticeActions.length > 0) {
+			lines.push("> [!quote] Notices");
+			for (const n of noticeActions) {
+				const dur = n.duration ? ` (${n.duration}ms)` : "";
+				lines.push(`> - ${n.message}${dur}`);
+			}
+			lines.push("");
+		}
+	}
+
+	// ── Render Setup section ──
+	if (setupSteps.length > 0) {
+		const setupPassed = setupSteps.filter((r) => r.status === "pass").length;
+		const setupTotal = setupSteps.length;
+		lines.push(`## Setup (${setupPassed}/${setupTotal})`);
+		lines.push("");
+		for (const stepResult of setupSteps) {
+			renderStep(stepResult);
+		}
+	}
+
+	// ── Render Journey steps ──
+	lines.push(`## Steps (${passedSteps}/${totalSteps})`);
+	lines.push("");
+	for (const stepResult of journeySteps) {
+		renderStep(stepResult);
+	}
+
+	// ── Render Teardown section ──
+	if (teardownSteps.length > 0) {
+		const teardownPassed = teardownSteps.filter((r) => r.status === "pass").length;
+		const teardownTotal = teardownSteps.length;
+		lines.push(`## Teardown (${teardownPassed}/${teardownTotal})`);
+		lines.push("");
+		for (const stepResult of teardownSteps) {
+			renderStep(stepResult);
 		}
 	}
 
@@ -383,8 +512,93 @@ const ACTION_MARGIN_BOTTOM = 28;
 const RESULT_BADGE_WIDTH = 560;
 const RESULT_BADGE_HEIGHT = 180;
 
+// Action groups (vertical stack below step groups)
+const ACTION_GROUP_WIDTH = 400;
+const ACTION_GROUP_HEIGHT_SCREENSHOT = 300;
+const ACTION_GROUP_HEIGHT_DEFAULT = 100;
+const ACTION_GROUP_GAP_Y = 16;
+const ACTION_GROUP_START_Y = GROUP_HEIGHT + 40;
+
 // Events summary
 const EVENTS_SIZE = 420;
+
+/**
+ * Returns a color code for an action tool type on the canvas.
+ *   - screenshot → 6 (cyan)
+ *   - assert → 4 (green)
+ *   - manual → 3 (yellow)
+ *   - notice → 5 (purple)
+ *   - emit → 1 (red)
+ *   - theme → 2 (orange)
+ *   - lifecycle tools → 0 (gray)
+ *   - others → undefined (default)
+ */
+function actionColor(tool) {
+	switch (tool) {
+		case "screenshot": return "6";
+		case "assert": return "4";
+		case "manual": return "3";
+		case "notice": return "5";
+		case "emit": return "1";
+		case "theme": return "2";
+		case "create-file":
+		case "delete-file":
+		case "open-file":
+		case "close-leaves":
+			return "0";
+		default: return undefined;
+	}
+}
+
+/**
+ * Formats a single action into a concise text label for canvas rendering.
+ */
+function formatActionText(action) {
+	const desc = action.description ? `\n${action.description}` : "";
+	switch (action.tool) {
+		case "command":
+			return `**command** \`${action.id}\`${desc}`;
+		case "click":
+			return `**click** \`${action.selector}\`${desc}`;
+		case "input":
+			return `**input** \`${action.selector}\`\n→ "${action.value}"${desc}`;
+		case "highlight":
+			return `**highlight** \`${action.selector}\` [${action.style ?? "element"}]${desc}`;
+		case "wait":
+			return `**wait** ${action.ms}ms`;
+		case "screenshot":
+			return `**screenshot** ${action.label ?? "(auto)"}${desc}`;
+		case "navigate":
+			return `**navigate** ${action.hub} → ${action.tab}${desc}`;
+		case "assert":
+			if (action.type === "visible" || action.type === "not-visible" || action.type === "text") {
+				return `**assert ${action.type}** \`${action.selector}\`${desc}`;
+			}
+			if (action.type === "event") return `**assert event** \`${action.event}\`${desc}`;
+			if (action.type === "leaf") return `**assert leaf** \`${action.viewType}\`${desc}`;
+			return `**assert ${action.type}**${desc}`;
+		case "emit":
+			return `**emit** \`${action.event}\`${desc}`;
+		case "eval":
+			return `**eval**${action.store ? ` → \`${action.store}\`` : ""}${desc}`;
+		case "notice":
+			return `**notice** ${action.message}${desc}`;
+		case "manual":
+			return `**manual**\n${action.instruction}`;
+		case "theme":
+			return `**theme** → \`${action.theme}\`${desc}`;
+		case "create-file":
+			return `**create-file** \`${action.path}\`${desc}`;
+		case "delete-file":
+			return `**delete-file** \`${action.path}\`${desc}`;
+		case "open-file":
+			return `**open-file** \`${action.path}\`${desc}`;
+		case "close-leaves":
+			return `**close-leaves** \`${action.viewType}\`${desc}`;
+		default:
+			return `**${action.tool}**${desc}`;
+	}
+}
 
 /**
  * Generates an Obsidian Canvas JSON object for a journey.
@@ -479,9 +693,11 @@ function generateJourneyCanvas(data, screenshotBasePath, trace, configFilePath) 
 		const groupX = firstGroupX + i * (GROUP_WIDTH + GROUP_SPACING_X);
 		const stepColor = statusColor(stepResult.status);
 
-		// Screenshot path (vault-root-relative)
-		const screenshotPath = stepResult.screenshotFile
-			? `${screenshotBasePath}/${stepResult.screenshotFile}`
+		// Screenshot path (vault-root-relative) — use first screenshot for canvas background
+		const stepScreenshots = stepResult.screenshotFiles ??
+			(stepResult.screenshotFile ? [stepResult.screenshotFile] : []);
+		const screenshotPath = stepScreenshots.length > 0
+			? `${screenshotBasePath}/${stepScreenshots[0]}`
 			: null;
 
 		// Group node — screenshot as background
@@ -556,6 +772,23 @@ function generateJourneyCanvas(data, screenshotBasePath, trace, configFilePath) 
 			configLines.push(`**Interactions**: ${s.interactions.map((i) => `*${i}*`).join(", ")}`);
 		}
 
+		// Manual actions — human QA steps
+		const manualActions = (s.actions ?? []).filter((a) => a.tool === "manual");
+		if (manualActions.length > 0) {
+			configLines.push("");
+			configLines.push("**Manual QA**:");
+			for (const m of manualActions) {
+				configLines.push(`- [ ] ${m.instruction}`);
+			}
+		}
+
+		// Notice actions — runtime annotations
+		const noticeActions = (s.actions ?? []).filter((a) => a.tool === "notice");
+		if (noticeActions.length > 0) {
+			configLines.push("");
+			configLines.push(`**Notices**: ${noticeActions.map((n) => `*${n.message}*`).join(", ")}`);
+		}
+
 		// Error (if failed)
 		if (stepResult.error) {
 			configLines.push("");
@@ -573,6 +806,65 @@ function generateJourneyCanvas(data, screenshotBasePath, trace, configFilePath) 
 		};
 		if (stepColor) configNode.color = stepColor;
 		nodes.push(configNode);
+
+		// ── Action groups (vertical stack below the step group) ──
+		const actions = s.actions ?? [];
+		if (actions.length > 0) {
+			const actionCenterX = groupX + Math.round((GROUP_WIDTH - ACTION_GROUP_WIDTH) / 2);
+			let actionY = ACTION_GROUP_START_Y;
+			let prevActionNodeId = gId(s.id);
+			// Track screenshot counter for auto-numbered screenshots
+			let screenshotCounter = 0;
+
+			for (let ai = 0; ai < actions.length; ai++) {
+				const action = actions[ai];
+				const actionId = `${s.id}-a${ai}`;
+				const isScreenshot = action.tool === "screenshot";
+				const height = isScreenshot ? ACTION_GROUP_HEIGHT_SCREENSHOT : ACTION_GROUP_HEIGHT_DEFAULT;
+
+				// Build the screenshot background path for screenshot actions
+				let actionBackground = null;
+				if (isScreenshot) {
+					const label = action.label ?? String(++screenshotCounter);
+					actionBackground = `${screenshotBasePath}/${s.id}--${label}.png`;
+				}
+
+				const actionGroupNode = {
+					id: gId(actionId),
+					type: "group",
+					label: formatActionText(action),
+					x: actionCenterX,
+					y: actionY,
+					width: ACTION_GROUP_WIDTH,
+					height,
+				};
+
+				const color = actionColor(action.tool);
+				if (color) actionGroupNode.color = color;
+
+				if (actionBackground) {
+					actionGroupNode.backgroundStyle = "ratio";
+					actionGroupNode.background = actionBackground;
+				}
+
+				nodes.push(actionGroupNode);
+
+				// Edge: previous action (or step group) → this action
+				edges.push({
+					id: eId(
+						prevActionNodeId.replace(`${CANVAS_PREFIX}n-`, "").replace(`${CANVAS_PREFIX}g-`, ""),
+						actionId,
+					),
+					fromNode: prevActionNodeId,
+					fromSide: "bottom",
+					toNode: gId(actionId),
+					toSide: "top",
+				});
+
+				prevActionNodeId = gId(actionId);
+				actionY += height + ACTION_GROUP_GAP_Y;
+			}
+		}
 
 		// Edge from previous element to this group
 		const currentGroupId = gId(s.id);
@@ -1011,12 +1303,12 @@ function generateReport() {
 		journeyReportNames.push({ title, data });
 
 		// Write markdown report to test vault
-		// e.g. Tested Journeys/Getting Started/Getting Started.md
+		// e.g. docs/journeys/Getting Started/Getting Started.md
 		writeReport(dir, filename, content, "JourneyReport written");
 
 		// Generate canvas for test vault (screenshots relative to test vault root)
-		const testScreenshotPath = `03 - Resources/Tested Journeys/${title}/screenshots`;
-		const testConfigPath = `03 - Resources/Tested Journeys/${title}/${title}-config.json`;
+		const testScreenshotPath = `docs/journeys/${title}/screenshots`;
+		const testConfigPath = `docs/journeys/${title}/${title}-config.json`;
 		const testCanvas = generateJourneyCanvas(data, testScreenshotPath, trace, testConfigPath);
 		writeReport(dir, canvasFilename, JSON.stringify(testCanvas, null, "\t"), "JourneyCanvas written");
 
@@ -1059,6 +1351,30 @@ function generateReport() {
 
 	const totalDurationMs = vitest?.durationMs ?? 0;
 
+	// Aggregate action stats across all journeys
+	const aggregateActions = {
+		total: 0, screenshots: 0, assertions: 0, manual_checks: 0, notices: 0, theme_changes: 0,
+		create_files: 0, delete_files: 0, open_files: 0, close_leaves: 0,
+		tools: new Set(),
+	};
+	const perJourneyStats = new Map();
+	for (const { data } of journeys) {
+		const stats = computeActionStats(data);
+		aggregateActions.total += stats.total;
+		aggregateActions.screenshots += stats.screenshots;
+		aggregateActions.assertions += stats.assertions;
+		aggregateActions.manual_checks += stats.manual_checks;
+		aggregateActions.notices += stats.notices;
+		aggregateActions.theme_changes += stats.theme_changes;
+		aggregateActions.create_files += stats.create_files;
+		aggregateActions.delete_files += stats.delete_files;
+		aggregateActions.open_files += stats.open_files;
+		aggregateActions.close_leaves += stats.close_leaves;
+		for (const t of stats.tools) aggregateActions.tools.add(t);
+		perJourneyStats.set(data.journey, stats);
+	}
+	const allTools = [...aggregateActions.tools].sort();
+
 	// Build wikilink arrays for frontmatter
 	const testSuiteLinks = (vitest?.suites ?? []).map((s) => {
 		const rel = path.relative(PLUGIN_ROOT, s.file).replace(/\\/g, "/");
@@ -1075,6 +1391,19 @@ function generateReport() {
 		passed: totalPassed,
 		failed: totalFailed,
 		skipped: totalSkipped,
+		total_actions: aggregateActions.total,
+		total_screenshots: aggregateActions.screenshots,
+		total_assertions: aggregateActions.assertions,
+		total_manual_checks: aggregateActions.manual_checks,
+		total_notices: aggregateActions.notices,
+		total_theme_changes: aggregateActions.theme_changes,
+		total_create_files: aggregateActions.create_files,
+		total_delete_files: aggregateActions.delete_files,
+		total_open_files: aggregateActions.open_files,
+		total_close_leaves: aggregateActions.close_leaves,
+		tools: allTools.length > 0
+			? "\n" + allTools.map((t) => `  - ${t}`).join("\n")
+			: "[]",
 		duration_ms: totalDurationMs,
 		duration: formatDuration(totalDurationMs),
 		journeys: journeys.length,
@@ -1095,7 +1424,7 @@ function generateReport() {
 		tags: "\n  - report\n  - e2e",
 	};
 
-	const PREFORMATTED_KEYS = new Set(["tags", "test_suites", "journey_reports", "journey_canvases", "event_trace"]);
+	const PREFORMATTED_KEYS = new Set(["tags", "test_suites", "journey_reports", "journey_canvases", "event_trace", "tools"]);
 
 	const frontmatter = [
 		"---",
@@ -1116,6 +1445,39 @@ function generateReport() {
 		`> Result: ${fm.success ? "PASS" : "FAIL"}`,
 		"",
 	];
+
+	// Action coverage summary (aggregate across all journeys)
+	if (aggregateActions.total > 0) {
+		lines.push("## Action Coverage", "");
+		lines.push(
+			`> [!abstract] ${aggregateActions.total} actions across ${journeys.length} journeys`,
+		);
+		const lifecycleCount = aggregateActions.create_files + aggregateActions.delete_files + aggregateActions.open_files + aggregateActions.close_leaves;
+		lines.push(
+			`> Screenshots: **${aggregateActions.screenshots}** | Assertions: **${aggregateActions.assertions}** | Manual QA: **${aggregateActions.manual_checks}** | Notices: **${aggregateActions.notices}**` +
+			(aggregateActions.theme_changes > 0 ? ` | Themes: **${aggregateActions.theme_changes}**` : "") +
+			(lifecycleCount > 0 ? ` | Lifecycle: **${lifecycleCount}**` : ""),
+		);
+		lines.push(
+			`> Tools: ${allTools.map((t) => `\`${t}\``).join(" ")}`,
+		);
+		lines.push("");
+
+		// Per-journey breakdown table
+		if (journeyReportNames.length > 1) {
+			lines.push("| Journey | Actions | Screenshots | Assertions | Manual | Notices | Lifecycle | Tools |");
+			lines.push("|---|---|---|---|---|---|---|---|");
+			for (const { title, data } of journeyReportNames) {
+				const stats = perJourneyStats.get(data.journey);
+				if (!stats) continue;
+				const lc = stats.create_files + stats.delete_files + stats.open_files + stats.close_leaves;
+				lines.push(
+					`| [[${title}]] | ${stats.total} | ${stats.screenshots} | ${stats.assertions} | ${stats.manual_checks} | ${stats.notices} | ${lc} | ${stats.tools.length} |`,
+				);
+			}
+			lines.push("");
+		}
+	}
 
 	// Units Under Test — show test source files for context
 	if (vitest && vitest.suites.length > 0) {
@@ -1195,6 +1557,7 @@ function generateReport() {
 		for (const { title, data } of journeyReportNames) {
 			const jStatus = resolveStatus(data.passed ?? 0, data.failed ?? 0, data.totalSteps ?? 0);
 			const callout = statusCallout(jStatus);
+			const stats = perJourneyStats.get(data.journey);
 
 			lines.push(`### Journey: ${title}`);
 			lines.push("");
@@ -1203,6 +1566,14 @@ function generateReport() {
 				`${data.passed ?? 0}/${data.totalSteps ?? 0} steps | ` +
 				`${formatDuration(data.durationMs ?? 0)}`,
 			);
+			if (stats && stats.total > 0) {
+				const lc = stats.create_files + stats.delete_files + stats.open_files + stats.close_leaves;
+				lines.push(
+					`> Actions: ${stats.total} | Screenshots: ${stats.screenshots} | Assertions: ${stats.assertions} | Manual: ${stats.manual_checks} | Notices: ${stats.notices}` +
+					(stats.theme_changes > 0 ? ` | Themes: ${stats.theme_changes}` : "") +
+					(lc > 0 ? ` | Lifecycle: ${lc}` : ""),
+				);
+			}
 			lines.push("");
 			lines.push(`Full details: [[${title}]] | Canvas: [[${title}.canvas|Canvas]]`);
 			lines.push("");

@@ -19,6 +19,7 @@
  *   npm run test:e2e:installer         Installer only
  *   npm run test:e2e:getting-started   Getting Started only
  *   npm run test:e2e:components        Component Library only
+ *   npm run test:e2e:tool-showcase      Tool Showcase only
  *   npm run test:e2e:journeys          All journeys (no installer)
  *   npm run test:e2e:quick             Installer + Getting Started (fast)
  */
@@ -100,6 +101,16 @@ if (reportVaultPath) {
 		);
 	} catch {
 		// Outline opening is best-effort
+	}
+
+	// Open the Activity Log if available
+	try {
+		execSync(
+			`obsidian vault=${VAULT_NAME} eval code="(() => { try { app.commands.executeCommandById('flowti-ibde:open-activity-log'); } catch(e) {} })()"`,
+			{ stdio: "pipe" },
+		);
+	} catch {
+		// Activity Log may not be available — best effort
 	}
 }
 

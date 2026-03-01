@@ -86,7 +86,7 @@ describe("Chapter 4: Component Library", () => {
 		await ensurePluginEnabled(cli);
 		ensureInstalled(cli, fixture.vault.vaultDir);
 
-		const journeyDir = path.join(fixture.vault.vaultDir, "03 - Resources", "Tested Journeys", JOURNEY_NAME);
+		const journeyDir = path.join(fixture.vault.vaultDir, "docs", "journeys", JOURNEY_NAME);
 		const screenshotDir = path.join(journeyDir, "screenshots");
 		resultsPath = path.join(journeyDir, `${JOURNEY_NAME}-results.json`);
 

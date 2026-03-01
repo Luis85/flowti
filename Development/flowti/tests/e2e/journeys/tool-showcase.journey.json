@@ -1,0 +1,347 @@
+{
+	"journey": "Tool Showcase",
+	"chapter": 6,
+	"description": "Demonstrates every Journey Runner tool and capability: command execution, DOM interaction (click, input), visual annotations (highlight, screenshot, notice), theme switching, event system (emit, assert), navigation, eval with variable passing, wait timing, manual QA documentation, and lifecycle tools (create-file, delete-file, open-file, close-leaves). Uses vault file creation as a concrete scenario to exercise each tool in a realistic context.",
+	"testSource": "tests/e2e/60-journey-tool-showcase.test.ts",
+	"reportPath": "docs/journeys/Tool Showcase/Tool Showcase.md",
+	"canvasPath": "docs/journeys/Tool Showcase/Tool Showcase.canvas",
+	"tools": ["command", "click", "input", "highlight", "wait", "assert", "emit", "navigate", "eval", "screenshot", "manual", "notice", "theme", "create-file", "delete-file", "open-file", "close-leaves"],
+	"setup": [
+		{
+			"id": "setup-baseline",
+			"title": "Capture baseline state",
+			"guideSection": 1,
+			"description": "Demonstrates: screenshot, notice, eval (with store), theme. Captures the initial workspace state in both dark and light themes, stores the plugin version for later reference.",
+			"expectedInput": "Plugin enabled, vault installed, no active session",
+			"expectedOutput": "Baseline screenshots captured in both themes, plugin version stored",
+			"uiContext": {
+				"components": ["Workspace"]
+			},
+			"interactions": ["screenshot: Baseline dark", "screenshot: Baseline light"],
+			"actions": [
+				{ "tool": "notice", "message": "Setup 1/2: Capturing baseline", "duration": 3000, "description": "Annotate test progress" },
+				{ "tool": "eval", "code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; return p?.manifest?.version ?? 'unknown'; })()", "store": "pluginVersion", "expect": { "type": "truthy" }, "description": "Store plugin version for later use" },
+				{ "tool": "theme", "theme": "obsidian", "description": "Ensure dark theme for first screenshot" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "baseline-dark", "description": "Workspace in dark theme" },
+				{ "tool": "theme", "theme": "moonstone", "description": "Switch to light theme" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "baseline-light", "description": "Workspace in light theme" },
+				{ "tool": "theme", "theme": "obsidian", "description": "Restore dark theme" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "manual", "instruction": "Compare the dark and light baseline screenshots. Verify both themes render correctly with no visual artifacts.", "description": "Visual QA: theme comparison" }
+			]
+		},
+		{
+			"id": "setup-create-file",
+			"title": "Create demo file via lifecycle tools",
+			"guideSection": 2,
+			"description": "Demonstrates: create-file (with store), open-file, assert (leaf), highlight, screenshot, wait. Creates a markdown file in the vault using the create-file lifecycle tool and opens it with open-file.",
+			"expectedInput": "Vault accessible, no test file present",
+			"expectedOutput": "File created and opened in editor, path stored in variable",
+			"uiContext": {
+				"components": ["Vault", "Editor"]
+			},
+			"interactions": ["create-file: Demo markdown", "open-file: Demo file"],
+			"actions": [
+				{ "tool": "notice", "message": "Setup 2/2: Creating demo file", "duration": 3000, "description": "Annotate test progress" },
+				{
+					"tool": "create-file",
+					"path": "03 - Resources/Test Data/tool-showcase-demo.md",
+					"content": "# Tool Showcase Demo\n\nCreated by the Journey Runner Tool Showcase.\n\nPlugin version: {{pluginVersion}}\n",
+					"store": "demoFilePath",
+					"description": "Create a demo markdown file using the lifecycle tool"
+				},
+				{ "tool": "wait", "ms": 500 },
+				{
+					"tool": "open-file",
+					"path": "{{demoFilePath}}",
+					"description": "Open the created file in an editor tab"
+				},
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "assert", "type": "leaf", "viewType": "markdown", "description": "Markdown editor leaf is open" },
+				{ "tool": "highlight", "selector": ".workspace-leaf.mod-active .view-header-title", "style": "element", "description": "Highlight the active file title" },
+				{ "tool": "screenshot", "label": "file-created", "description": "Demo file open in editor with title highlighted" },
+				{ "tool": "manual", "instruction": "Verify the file content matches the expected template: heading, description, and plugin version. Check that the file appears in the file explorer sidebar.", "description": "Content verification" }
+			]
+		}
+	],
+	"steps": [
+		{
+			"id": "01-open-user-hub",
+			"title": "Open User Hub via command",
+			"guideSection": 1,
+			"description": "Demonstrates: command, assert (visible), highlight (element, button), screenshot, wait. Opens the User Hub using the command palette tool and verifies UI elements appear.",
+			"expectedInput": "Plugin enabled, no hub open",
+			"expectedOutput": "User Hub visible with tab bar and content",
+			"uiContext": {
+				"view": "flowti-user-hub",
+				"viewName": "User Hub",
+				"components": ["UserHubView", "WorkspaceShell"]
+			},
+			"commands": ["flowti:open-user-hub"],
+			"interactions": ["command: Open User Hub"],
+			"actions": [
+				{ "tool": "notice", "message": "Tool Showcase 1/7: Opening User Hub", "duration": 3000, "description": "Annotate test progress" },
+				{ "tool": "command", "id": "flowti:open-user-hub", "description": "Open the User Hub via command palette" },
+				{ "tool": "wait", "ms": 1000 },
+				{ "tool": "assert", "type": "leaf", "viewType": "flowti-user-hub", "description": "User Hub leaf exists" },
+				{ "tool": "assert", "type": "visible", "selector": ".ft-catalog-tab-bar", "description": "Tab bar is visible" },
+				{ "tool": "highlight", "selector": ".ft-catalog-tab-bar", "style": "element", "description": "Highlight the tab bar (element style)" },
+				{ "tool": "screenshot", "label": "hub-tabbar", "description": "User Hub open with tab bar highlighted" },
+				{ "tool": "highlight", "selector": ".ft-catalog-tab-bar .ft-tab-item", "style": "button", "description": "Highlight a tab button (button style with pulse)" },
+				{ "tool": "screenshot", "label": "hub-button-pulse", "description": "Tab button with orange pulse highlight" },
+				{ "tool": "manual", "instruction": "Verify the User Hub rendered correctly: tab bar has all expected tabs, content area shows the default tab, and the shell chrome (ribbon, status bar) is present.", "description": "Hub chrome QA" }
+			]
+		},
+		{
+			"id": "02-navigate-tabs",
+			"title": "Navigate between hub tabs",
+			"guideSection": 2,
+			"description": "Demonstrates: navigate, assert (event), wait, screenshot, eval (store). Uses the navigate tool to switch tabs in the User Hub and verifies tab change events via the event trace.",
+			"expectedInput": "User Hub open on default tab",
+			"expectedOutput": "Successfully navigated to Inbox tab, event traced",
+			"uiContext": {
+				"view": "flowti-user-hub",
+				"viewName": "User Hub",
+				"tab": "inbox",
+				"tabName": "Inbox",
+				"components": ["UserHubView", "WorkspaceShell"]
+			},
+			"events": ["hub.navigate", "hub.tab.changed"],
+			"interactions": ["navigate: Inbox tab"],
+			"actions": [
+				{ "tool": "notice", "message": "Tool Showcase 2/7: Navigating tabs", "duration": 3000, "description": "Annotate test progress" },
+				{ "tool": "navigate", "hub": "user-hub", "viewType": "flowti-user-hub", "tab": "inbox", "description": "Navigate to Inbox tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "assert", "type": "event", "event": "hub.tab.changed", "payload": { "hubId": "user-hub", "tabId": "inbox" }, "description": "Tab change event emitted with correct payload" },
+				{ "tool": "highlight", "selector": ".ft-catalog-tab-bar .ft-tab-item.is-active", "style": "element", "description": "Highlight the active tab indicator" },
+				{ "tool": "screenshot", "label": "inbox-tab", "description": "Inbox tab active and highlighted" },
+				{
+					"tool": "eval",
+					"code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; const trace = p?._e2eEventTrace ?? []; const navEvents = trace.filter(e => e.type === 'hub.tab.changed'); return String(navEvents.length); })()",
+					"store": "tabChangeCount",
+					"expect": { "type": "truthy" },
+					"description": "Count total tab change events in trace"
+				},
+				{ "tool": "notice", "message": "Tab navigated. Total tab.changed events: {{tabChangeCount}}", "duration": 3000, "description": "Show event count in notice" },
+				{ "tool": "manual", "instruction": "Verify the Inbox tab content area updated: inbox list or empty state should be visible. The active tab indicator should be on 'Inbox'.", "description": "Tab content QA" }
+			]
+		},
+		{
+			"id": "03-emit-and-trace",
+			"title": "Emit custom event and trace it",
+			"guideSection": 3,
+			"description": "Demonstrates: emit, assert (event with payload), eval, wait, screenshot. Fires a custom event through the EventBus and verifies it appears in the event trace with correct payload.",
+			"expectedInput": "Plugin EventBus active, event trace running",
+			"expectedOutput": "Custom event emitted and verified in trace",
+			"uiContext": {
+				"components": ["EventBus"]
+			},
+			"events": ["showcase.demo.event"],
+			"interactions": ["emit: Custom showcase event"],
+			"actions": [
+				{ "tool": "notice", "message": "Tool Showcase 3/7: Emitting and tracing events", "duration": 3000, "description": "Annotate test progress" },
+				{
+					"tool": "eval",
+					"code": "String((app.plugins.plugins['{{PLUGIN_ID}}']?._e2eEventTrace ?? []).length)",
+					"store": "traceBookmark",
+					"description": "Bookmark the trace position before emitting"
+				},
+				{
+					"tool": "emit",
+					"event": "showcase.demo.event",
+					"payload": { "source": "tool-showcase", "step": "3", "version": "{{pluginVersion}}" },
+					"description": "Emit a custom event with payload including stored variable"
+				},
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "assert", "type": "event", "event": "showcase.demo.event", "payload": { "source": "tool-showcase" }, "description": "Custom event found in trace with correct payload" },
+				{
+					"tool": "eval",
+					"code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; const trace = p?._e2eEventTrace ?? []; const found = trace.find(e => e.type === 'showcase.demo.event'); return found ? JSON.parse(found.payload).version : 'not-found'; })()",
+					"expect": { "type": "equals", "value": "{{pluginVersion}}" },
+					"description": "Verify the emitted payload contains the plugin version we stored in setup"
+				},
+				{ "tool": "screenshot", "label": "event-traced", "description": "State after event emission and verification" },
+				{ "tool": "manual", "instruction": "This step verifies cross-step variable passing: the pluginVersion stored in setup was interpolated into the emit payload, and the eval assertion confirmed the round-trip.", "description": "Variable passing verification" }
+			]
+		},
+		{
+			"id": "04-dom-interaction",
+			"title": "Interact with DOM elements",
+			"guideSection": 4,
+			"description": "Demonstrates: click, input, highlight (input style), assert (visible, not-visible), screenshot. Opens the command palette, types a search query to exercise DOM input, then closes it.",
+			"expectedInput": "Obsidian workspace active",
+			"expectedOutput": "Command palette opened, searched, and closed",
+			"uiContext": {
+				"components": ["CommandPalette"]
+			},
+			"interactions": ["click: Command palette trigger", "input: Search query", "click: Close modal"],
+			"actions": [
+				{ "tool": "notice", "message": "Tool Showcase 4/7: DOM interaction demo", "duration": 3000, "description": "Annotate test progress" },
+				{
+					"tool": "eval",
+					"code": "(() => { app.commands.executeCommandById('command-palette:open'); return 'ok'; })()",
+					"description": "Open the command palette via Obsidian command API"
+				},
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "assert", "type": "visible", "selector": ".prompt", "description": "Command palette prompt is visible" },
+				{ "tool": "highlight", "selector": ".prompt-input", "style": "input", "description": "Highlight the search input (input style with blue glow)" },
+				{ "tool": "screenshot", "label": "palette-open", "description": "Command palette open with input highlighted" },
+				{ "tool": "input", "selector": ".prompt-input", "value": "flowti", "description": "Type 'flowti' into the command palette search" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "screenshot", "label": "palette-filtered", "description": "Command palette filtered by 'flowti'" },
+				{ "tool": "eval", "code": "(() => { const el = document.querySelector('.prompt'); if (el) el.closest('.modal-container')?.remove(); return 'closed'; })()", "description": "Dismiss the command palette prompt" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "assert", "type": "not-visible", "selector": ".prompt", "description": "Command palette is dismissed" },
+				{ "tool": "screenshot", "label": "palette-closed", "description": "Workspace after closing command palette" },
+				{ "tool": "manual", "instruction": "Review the palette-filtered screenshot: verify Flowti commands appear in the results list. Check that the input style highlight (blue glow) is visible in the palette-open screenshot.", "description": "DOM interaction QA" }
+			]
+		},
+		{
+			"id": "05-highlight-showcase",
+			"title": "Showcase all highlight styles",
+			"guideSection": 5,
+			"description": "Demonstrates: highlight (all 3 styles), screenshot, wait. Applies all three highlight styles (element, button, input) to different UI elements in sequence, capturing each.",
+			"expectedInput": "Workspace with visible UI elements",
+			"expectedOutput": "Three screenshots showing each highlight style",
+			"uiContext": {
+				"components": ["WorkspaceShell"]
+			},
+			"interactions": ["highlight: Element style", "highlight: Button style", "highlight: Input style"],
+			"actions": [
+				{ "tool": "notice", "message": "Tool Showcase 5/7: Highlight styles", "duration": 3000, "description": "Annotate test progress" },
+				{ "tool": "highlight", "selector": ".workspace-tab-header.is-active", "style": "element", "description": "Green outline — element style" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "screenshot", "label": "highlight-element", "description": "Element highlight: green outline on active tab header" },
+				{ "tool": "highlight", "selector": ".sidebar-toggle-button", "style": "button", "description": "Orange pulse — button style" },
+				{ "tool": "wait", "ms": 800 },
+				{ "tool": "screenshot", "label": "highlight-button", "description": "Button highlight: orange pulse animation on sidebar toggle" },
+				{
+					"tool": "eval",
+					"code": "(() => { app.commands.executeCommandById('command-palette:open'); return 'ok'; })()",
+					"description": "Open command palette to get an input element"
+				},
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "highlight", "selector": ".prompt-input", "style": "input", "description": "Blue glow — input style" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "screenshot", "label": "highlight-input", "description": "Input highlight: blue glow on command palette input" },
+				{
+					"tool": "eval",
+					"code": "(() => { const el = document.querySelector('.prompt'); if (el) el.closest('.modal-container')?.remove(); return 'closed'; })()",
+					"description": "Dismiss command palette prompt"
+				},
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "manual", "instruction": "Compare the three highlight screenshots. Element style should show a green outline. Button style should show an orange animated pulse. Input style should show a blue glow with focus ring.", "description": "Highlight style comparison" }
+			]
+		},
+		{
+			"id": "06-theme-comparison",
+			"title": "Theme switching with screenshots",
+			"guideSection": 6,
+			"description": "Demonstrates: theme, command, screenshot, wait, highlight. Opens the User Hub and captures it in both dark and light themes for visual comparison.",
+			"expectedInput": "Workspace active, dark theme set",
+			"expectedOutput": "User Hub captured in both themes for comparison",
+			"uiContext": {
+				"view": "flowti-user-hub",
+				"viewName": "User Hub",
+				"components": ["UserHubView", "WorkspaceShell"]
+			},
+			"commands": ["flowti:open-user-hub"],
+			"interactions": ["theme: Dark", "screenshot: Dark hub", "theme: Light", "screenshot: Light hub"],
+			"actions": [
+				{ "tool": "notice", "message": "Tool Showcase 6/7: Theme comparison", "duration": 3000, "description": "Annotate test progress" },
+				{ "tool": "command", "id": "flowti:open-user-hub", "description": "Ensure User Hub is open" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "theme", "theme": "obsidian", "description": "Switch to dark theme" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "highlight", "selector": ".ft-catalog-tab-bar", "style": "element", "description": "Highlight tab bar in dark theme" },
+				{ "tool": "screenshot", "label": "hub-dark", "description": "User Hub in dark theme" },
+				{ "tool": "theme", "theme": "moonstone", "description": "Switch to light theme" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "highlight", "selector": ".ft-catalog-tab-bar", "style": "element", "description": "Highlight tab bar in light theme" },
+				{ "tool": "screenshot", "label": "hub-light", "description": "User Hub in light theme" },
+				{ "tool": "theme", "theme": "obsidian", "description": "Restore dark theme" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "manual", "instruction": "Compare hub-dark and hub-light screenshots. Verify: (1) Theme switch is complete — no mixed styling. (2) All Flowti UI elements (tab bar, content, status bar) respond correctly to the theme change. (3) Text contrast is adequate in both themes.", "description": "Theme rendering QA" }
+			]
+		},
+		{
+			"id": "07-multi-assert",
+			"title": "Assertion types showcase",
+			"guideSection": 7,
+			"description": "Demonstrates: assert (all 6 types: visible, not-visible, text, event, leaf, eval), eval, emit, wait, screenshot. Exercises every assertion variant supported by the journey runner.",
+			"expectedInput": "User Hub open, event trace active",
+			"expectedOutput": "All 6 assertion types verified",
+			"uiContext": {
+				"components": ["UserHubView", "EventBus"]
+			},
+			"events": ["showcase.assert.test"],
+			"interactions": ["assert: All 6 types"],
+			"actions": [
+				{ "tool": "notice", "message": "Tool Showcase 7/7: Assertion types", "duration": 3000, "description": "Annotate test progress" },
+				{ "tool": "assert", "type": "visible", "selector": ".workspace-leaf", "description": "1. VISIBLE — workspace leaf exists in DOM" },
+				{ "tool": "assert", "type": "not-visible", "selector": ".modal-container .ft-canvas-template-card", "description": "2. NOT-VISIBLE — no template picker modal open" },
+				{ "tool": "assert", "type": "text", "selector": ".workspace-leaf.mod-active .view-header-title-container", "contains": "", "description": "3. TEXT — active leaf has a title (non-empty container)" },
+				{
+					"tool": "emit",
+					"event": "showcase.assert.test",
+					"payload": { "purpose": "assertion-demo" },
+					"description": "Emit an event for the event assertion"
+				},
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "assert", "type": "event", "event": "showcase.assert.test", "payload": { "purpose": "assertion-demo" }, "description": "4. EVENT — verify emitted event with payload match" },
+				{ "tool": "assert", "type": "leaf", "viewType": "flowti-user-hub", "description": "5. LEAF — User Hub leaf exists by view type" },
+				{
+					"tool": "assert",
+					"type": "eval",
+					"code": "String(2 + 2)",
+					"expected": "4",
+					"description": "6. EVAL — JavaScript expression evaluates to expected result"
+				},
+				{ "tool": "notice", "message": "All 6 assertion types passed", "duration": 5000, "description": "Confirm all assertions succeeded" },
+				{ "tool": "screenshot", "label": "assertions-passed", "description": "All assertion types verified" },
+				{ "tool": "manual", "instruction": "All 6 assertion types were exercised: visible, not-visible, text, event (with payload), leaf, and eval. If this step passed, the assertion subsystem is fully operational.", "description": "Assertion subsystem verification" }
+			]
+		}
+	],
+	"teardown": [
+		{
+			"id": "teardown-cleanup",
+			"title": "Cleanup and final summary",
+			"guideSection": 1,
+			"description": "Demonstrates: delete-file, close-leaves, notice (variables in message), screenshot, wait, manual. Cleans up the demo file using lifecycle tools, closes hub views, shows a summary notice with interpolated variables.",
+			"expectedInput": "Demo file exists, hub views may be open",
+			"expectedOutput": "Demo file deleted, hub views closed, summary displayed",
+			"uiContext": {
+				"components": ["Vault"]
+			},
+			"interactions": ["delete-file: Demo file", "close-leaves: User Hub", "notice: Summary with variables"],
+			"actions": [
+				{ "tool": "notice", "message": "Teardown: Cleanup and summary", "duration": 3000, "description": "Annotate test progress" },
+				{
+					"tool": "delete-file",
+					"path": "{{demoFilePath}}",
+					"description": "Delete the demo file created in setup"
+				},
+				{ "tool": "wait", "ms": 500 },
+				{
+					"tool": "eval",
+					"code": "(() => { const f = app.vault.getAbstractFileByPath('{{demoFilePath}}'); return f ? 'still-exists' : 'gone'; })()",
+					"expect": { "type": "equals", "value": "gone" },
+					"description": "Confirm the file is deleted from the vault index"
+				},
+				{
+					"tool": "close-leaves",
+					"viewType": "flowti-user-hub",
+					"description": "Close all User Hub leaves to reset workspace"
+				},
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "notice", "message": "Tool Showcase complete. Plugin v{{pluginVersion}} | Tab changes: {{tabChangeCount}}", "duration": 8000, "description": "Summary notice with interpolated variables from earlier steps" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "final", "description": "Final state with summary notice visible" },
+				{ "tool": "manual", "instruction": "Verify the summary notice shows correct values for pluginVersion and tabChangeCount (variables from earlier steps). Confirm the demo file no longer appears in the file explorer.", "description": "Final cleanup and variable round-trip verification" }
+			]
+		}
+	]
+}

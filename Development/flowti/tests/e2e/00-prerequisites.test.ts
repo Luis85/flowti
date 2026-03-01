@@ -128,7 +128,7 @@ describe.skipIf(skipPrerequisites)("Chapter 1: Prerequisites", () => {
 		console.log(`[e2e] Installer mode: ${runInstaller ? "RUN (fresh install)" : "SKIP (vault already installed)"}`);
 
 		// Write screenshots and results into the test vault
-		journeyDir = path.join(fixture.vault.vaultDir, "03 - Resources", "Tested Journeys", JOURNEY_NAME);
+		journeyDir = path.join(fixture.vault.vaultDir, "docs", "journeys", JOURNEY_NAME);
 		const screenshotDir = path.join(journeyDir, "screenshots");
 		resultsPath = path.join(journeyDir, `${JOURNEY_NAME}-results.json`);
 

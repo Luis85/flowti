@@ -5,8 +5,9 @@
  * String fields support {{variable}} interpolation for cross-step
  * data passing (e.g. session IDs from eval → emit payloads).
  */
+import * as path from "node:path";
 import type { ObsidianCli } from "../../../src/infrastructure/cli/ObsidianCli";
-import type { ActionDefinition, AssertAction, EmitAction, EvalAction } from "./journeyTypes";
+import type { ActionDefinition, AssertAction, CloseLeavesAction, CreateFileAction, DeleteFileAction, EmitAction, EvalAction, NoticeAction, OpenFileAction, ScreenshotAction, ThemeAction } from "./journeyTypes";
 import { highlightElement, highlightButton, highlightInput } from "./highlight";
 import { navigateToTab } from "./navigation";
 import { assertEventEmitted, PLUGIN_ID } from "./fixtures";
@@ -49,23 +50,55 @@ function sleep(ms: number): Promise<void> {
 	return new Promise((r) => setTimeout(r, ms));
 }
 
+// ─── Screenshot collector ───────────────────────────────────────────
+
+/**
+ * Mutable context object for accumulating screenshot filenames during
+ * a step's action sequence. Passed through executeAction calls.
+ */
+export interface ScreenshotCollector {
+	/** Step ID prefix for screenshot filenames. */
+	stepId: string;
+	/** Absolute directory path for screenshot output. */
+	screenshotDir: string;
+	/** Accumulated screenshot filenames (e.g. "01-start--before.png"). */
+	files: string[];
+	/** Auto-increment counter for unlabeled screenshots. */
+	counter: number;
+}
+
+/**
+ * Builds the screenshot filename and absolute path.
+ * With label: `{stepId}--{label}.png`
+ * Without label: `{stepId}--{counter}.png` (auto-numbered)
+ */
+function resolveScreenshotPath(
+	collector: ScreenshotCollector,
+	label?: string,
+): { filename: string; absolutePath: string } {
+	const suffix = label ?? String(++collector.counter);
+	const filename = `${collector.stepId}--${suffix}.png`;
+	const absolutePath = path.join(collector.screenshotDir, filename);
+	return { filename, absolutePath };
+}
+
 // ─── Action dispatcher ──────────────────────────────────────────────
 
 /**
  * Executes a single action from a journey step definition.
  *
- * @param cli         — ObsidianCli instance
- * @param action      — Action definition from the journey config
- * @param variables   — Mutable variable map (shared across steps)
+ * @param cli           — ObsidianCli instance
+ * @param action        — Action definition from the journey config
+ * @param variables     — Mutable variable map (shared across steps)
  * @param traceBookmark — Event trace index recorded at step start
- * @param screenshotPath — Absolute path for manual screenshots (rare)
+ * @param collector     — Screenshot collector for accumulating filenames
  */
 export async function executeAction(
 	cli: ObsidianCli,
 	action: ActionDefinition,
 	variables: Record<string, string>,
 	traceBookmark: number,
-	screenshotPath?: string,
+	collector?: ScreenshotCollector,
 ): Promise<void> {
 	switch (action.tool) {
 		case "command":
@@ -83,9 +116,17 @@ export async function executeAction(
 		case "wait":
 			await sleep(action.ms);
 			break;
-		case "screenshot":
-			if (screenshotPath) cli.screenshot(screenshotPath);
+		case "screenshot": {
+			if (collector) {
+				const { filename, absolutePath } = resolveScreenshotPath(
+					collector,
+					(action as ScreenshotAction).label,
+				);
+				cli.screenshot(absolutePath);
+				collector.files.push(filename);
+			}
 			break;
+		}
 		case "navigate":
 			await navigateToTab(
 				cli,
@@ -102,6 +143,29 @@ export async function executeAction(
 			break;
 		case "eval":
 			executeEval(cli, action, variables);
+			break;
+		case "notice":
+			executeNotice(cli, action, variables);
+			break;
+		case "theme":
+			executeTheme(cli, action, variables);
+			break;
+		// ── Lifecycle tools ──────────────────────────────────────
+		case "create-file":
+			executeCreateFile(cli, action, variables);
+			break;
+		case "delete-file":
+			executeDeleteFile(cli, action, variables);
+			break;
+		case "open-file":
+			executeOpenFile(cli, action, variables);
+			break;
+		case "close-leaves":
+			executeCloseLeaves(cli, action, variables);
+			break;
+		case "manual":
+			// Manual actions are skipped during automated execution.
+			// They serve as documentation for steps requiring human intervention.
 			break;
 	}
 }
@@ -231,6 +295,94 @@ function executeEmit(cli: ObsidianCli, action: EmitAction, variables: Record<str
 	}
 }
 
+function executeNotice(cli: ObsidianCli, action: NoticeAction, variables: Record<string, string>): void {
+	const message = resolve(action.message, variables);
+	const duration = action.duration ?? 5000;
+	const escapedMessage = message.replace(/'/g, "\\'");
+	const result = cli.eval(`new Notice('${escapedMessage}', ${duration})`);
+	if (!result.success) {
+		throw new Error(`Notice failed: ${result.error}`);
+	}
+}
+
+function executeTheme(cli: ObsidianCli, action: ThemeAction, variables: Record<string, string>): void {
+	const theme = resolve(action.theme, variables);
+	const escapedTheme = theme.replace(/'/g, "\\'");
+	const result = cli.eval([
+		`(() => {`,
+		`  app.customCss.setTheme('${escapedTheme}');`,
+		`})()`,
+	].join(" "));
+	if (!result.success) {
+		throw new Error(`Theme switch to '${theme}' failed: ${result.error}`);
+	}
+}
+
+// ─── Lifecycle tool implementations ─────────────────────────────────
+
+function executeCreateFile(cli: ObsidianCli, action: CreateFileAction, variables: Record<string, string>): void {
+	const filePath = resolve(action.path, variables);
+	const content = resolve(action.content, variables);
+	const escapedPath = filePath.replace(/'/g, "\\'");
+	const escapedContent = content.replace(/'/g, "\\'").replace(/\n/g, "\\n");
+	const result = cli.eval([
+		`(() => {`,
+		`  app.vault.create('${escapedPath}', '${escapedContent}');`,
+		`  return '${escapedPath}';`,
+		`})()`,
+	].join(" "));
+	if (!result.success) {
+		throw new Error(`create-file '${filePath}' failed: ${result.error}`);
+	}
+	if (action.store) {
+		variables[action.store] = filePath;
+	}
+}
+
+function executeDeleteFile(cli: ObsidianCli, action: DeleteFileAction, variables: Record<string, string>): void {
+	const filePath = resolve(action.path, variables);
+	const escapedPath = filePath.replace(/'/g, "\\'");
+	const result = cli.eval([
+		`(async () => {`,
+		`  const f = app.vault.getAbstractFileByPath('${escapedPath}');`,
+		`  if (f) await app.vault.delete(f, true);`,
+		`  return f ? 'deleted' : 'not-found';`,
+		`})()`,
+	].join(" "));
+	if (!result.success) {
+		throw new Error(`delete-file '${filePath}' failed: ${result.error}`);
+	}
+}
+
+function executeOpenFile(cli: ObsidianCli, action: OpenFileAction, variables: Record<string, string>): void {
+	const filePath = resolve(action.path, variables);
+	const escapedPath = filePath.replace(/'/g, "\\'");
+	const result = cli.eval([
+		`(async () => {`,
+		`  const f = app.vault.getAbstractFileByPath('${escapedPath}');`,
+		`  if (f && f.extension !== undefined) {`,
+		`    const leaf = app.workspace.getLeaf('tab');`,
+		`    await leaf.openFile(f);`,
+		`    return 'opened';`,
+		`  }`,
+		`  return 'not-found';`,
+		`})()`,
+	].join(" "));
+	if (!result.success) {
+		throw new Error(`open-file '${filePath}' failed: ${result.error}`);
+	}
+}
+
+function executeCloseLeaves(cli: ObsidianCli, action: CloseLeavesAction, variables: Record<string, string>): void {
+	const viewType = resolve(action.viewType, variables);
+	const result = cli.eval(
+		`app.workspace.getLeavesOfType('${viewType}').forEach(l => l.detach())`,
+	);
+	if (!result.success) {
+		throw new Error(`close-leaves '${viewType}' failed: ${result.error}`);
+	}
+}
+
 function executeEval(cli: ObsidianCli, action: EvalAction, variables: Record<string, string>): void {
 	const code = resolve(action.code, variables);
 	const result = cli.eval(code);
@@ -247,11 +399,13 @@ function executeEval(cli: ObsidianCli, action: EvalAction, variables: Record<str
 	// Check expectation
 	if (action.expect) {
 		switch (action.expect.type) {
-			case "equals":
-				if (result.value !== action.expect.value) {
-					throw new Error(`Expected '${action.expect.value}', got '${result.value}'`);
+			case "equals": {
+				const expected = resolve(action.expect.value, variables);
+				if (result.value !== expected) {
+					throw new Error(`Expected '${expected}', got '${result.value}'`);
 				}
 				break;
+			}
 			case "truthy":
 				if (!result.value || result.value === "false" || result.value === "undefined" || result.value === "null") {
 					throw new Error(`Expected truthy value, got '${result.value}'`);
@@ -264,9 +418,10 @@ function executeEval(cli: ObsidianCli, action: EvalAction, variables: Record<str
 				} catch {
 					throw new Error(`Expected JSON result, got '${result.value}'`);
 				}
-				for (const [key, expected] of Object.entries(action.expect.match)) {
-					if (parsed[key] !== expected) {
-						throw new Error(`Expected ${key}='${String(expected)}', got '${String(parsed[key])}'`);
+				for (const [key, expectedVal] of Object.entries(action.expect.match)) {
+					const resolvedExpected = typeof expectedVal === "string" ? resolve(expectedVal, variables) : expectedVal;
+					if (parsed[key] !== resolvedExpected) {
+						throw new Error(`Expected ${key}='${String(resolvedExpected)}', got '${String(parsed[key])}'`);
 					}
 				}
 				break;

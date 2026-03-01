@@ -26,6 +26,7 @@ test_cost: 2
 priority: 5
 version: "1.0"
 delivered_cycle: 54
+tags: core
 ---
 
 # PRD: Journey Runner — Declarative E2E Test Framework
@@ -71,8 +72,10 @@ After implementation:
 
 - Declarative JSON journey configuration format (JourneyDefinition)
 - TypeScript type system for JSON schema validation (journeyTypes.ts)
-- Action runner dispatching 10 tools: command, click, input, highlight, wait, assert, emit, navigate, eval, screenshot
+- Action runner dispatching 17 tools: command, click, input, highlight, wait, assert, emit, navigate, eval, screenshot, manual, notice, theme, create-file, delete-file, open-file, close-leaves
+- Tool catalog with metadata, tags, and use-cases (toolCatalog.ts)
 - Journey executor generating vitest describe/it blocks from JSON
+- Dedicated `setup` and `teardown` step arrays with lifecycle guarantees
 - Variable interpolation system (`{{key}}` syntax) with cross-step persistence
 - Step capture timing options (afterSettle, afterAction) for transient UI
 - Eval tool with expectation system (equals, truthy, json matching)
@@ -111,7 +114,8 @@ This is a developer-facing infrastructure feature with no end-user UI. Entry poi
 - [x] FR-JR-005: Each step has optional `uiContext` (components, view, tab metadata)
 - [x] FR-JR-006: Each step has optional `events`, `commands`, `interactions`, `queries` arrays (report metadata)
 - [x] FR-JR-007: Each step has an `actions` array of tool-dispatched operations
-- [x] FR-JR-008: Each step has optional `capture` timing (`afterSettle` or `afterAction`)
+- [x] FR-JR-008: ~~Each step has optional `capture` timing~~ [DEPRECATED — replaced by explicit screenshot actions]
+- [x] FR-JR-009: Screenshot tool supports `label` field for explicit naming (`{stepId}--{label}.png`)
 
 ### 5.2 Tool Vocabulary
 
@@ -125,6 +129,17 @@ This is a developer-facing infrastructure feature with no end-user UI. Entry poi
 - [x] FR-JR-017: `assert` tool validates DOM state, event traces, or leaf existence (6 sub-types)
 - [x] FR-JR-018: `emit` tool emits an event on the plugin's EventBus with a payload
 - [x] FR-JR-019: `eval` tool executes arbitrary JavaScript in the Obsidian window context
+- [x] FR-JR-020: `manual` tool documents human-intervention steps (skipped during automated execution)
+- [x] FR-JR-074: `notice` tool displays an Obsidian Notice toast with interpolated message and optional duration
+- [x] FR-JR-075: `theme` tool switches Obsidian's CSS theme (e.g., "obsidian" for dark, "moonstone" for light)
+- [x] FR-JR-076: `create-file` lifecycle tool creates a vault file via Obsidian API, optionally stores path in variable
+- [x] FR-JR-077: `delete-file` lifecycle tool deletes a vault file via Obsidian API
+- [x] FR-JR-078: `open-file` lifecycle tool opens a vault file in an editor tab
+- [x] FR-JR-079: `close-leaves` lifecycle tool closes all workspace leaves of a given view type
+- [x] FR-JR-070: Multiple screenshots per step via explicit screenshot actions in actions array
+- [x] FR-JR-071: Steps with explicit screenshots skip automatic screenshot capture
+- [x] FR-JR-072: Steps without explicit screenshots still get one automatic screenshot (backward compat)
+- [x] FR-JR-073: Error screenshots use `{stepId}--error.png` suffix to avoid collision with action screenshots
 
 ### 5.3 Variable System
 
@@ -159,7 +174,24 @@ This is a developer-facing infrastructure feature with no end-user UI. Entry poi
 - [x] FR-JR-055: Executor shares variable map across all steps in a journey
 - [x] FR-JR-056: Variables persist across steps (e.g., session ID from step 6 used in step 7)
 
-### 5.7 Integration
+### 5.7 Setup and Teardown
+
+- [x] FR-JR-080: Journey definition supports optional `setup` step array (runs before main steps)
+- [x] FR-JR-081: Journey definition supports optional `teardown` step array (runs after main steps)
+- [x] FR-JR-082: Setup steps execute in `beforeAll` hook, failures set `setupFailed` flag
+- [x] FR-JR-083: If setup fails, main journey steps are skipped (recorded as "skip" status)
+- [x] FR-JR-084: Teardown steps execute in `afterAll` hook, always run regardless of setup/main failure
+- [x] FR-JR-085: Variables persist across setup → main → teardown phases
+- [x] FR-JR-086: Report generator renders setup/teardown steps in dedicated sections
+- [x] FR-JR-087: Tool whitelist validation covers setup, steps, and teardown arrays
+
+### 5.8 Tool Catalog
+
+- [x] FR-JR-088: Tool catalog (toolCatalog.ts) provides metadata for every tool: name, description, tags, use-cases
+- [x] FR-JR-089: Lifecycle tools (create-file, delete-file, open-file, close-leaves) are tagged `["lifecycle"]`
+- [x] FR-JR-090: Activity Log is opened (best-effort) after every E2E run
+
+### 5.9 Integration
 
 - [x] FR-JR-060: Thin test wrapper is <25 LOC (load JSON + call executeJourney)
 - [x] FR-JR-061: Report pipeline generates journey reports from declarative configs unchanged
@@ -174,23 +206,24 @@ No new persistent entities. Journey configs are JSON files consumed at test time
 
 ```
 JourneyDefinition
-  journey: string          — Journey name (e.g., "Canvas Session")
-  chapter: number          — Chapter number for test ordering
-  description?: string     — Human-readable journey description
-  testSource?: string      — Relative path to .test.ts file
-  reportPath?: string      — Vault-relative path for report output
-  canvasPath?: string      — Vault-relative path for canvas output
-  tools: ToolName[]        — Whitelist of tools used in this journey
-  steps: StepDefinition[]  — Ordered steps
+  journey: string              — Journey name (e.g., "Canvas Session")
+  chapter: number              — Chapter number for test ordering
+  description?: string         — Human-readable journey description
+  testSource?: string          — Relative path to .test.ts file
+  reportPath?: string          — Vault-relative path for report output
+  canvasPath?: string          — Vault-relative path for canvas output
+  tools: ToolName[]            — Whitelist of tools used in this journey
+  setup?: StepDefinition[]     — Steps run before journey (failures block main steps)
+  steps: StepDefinition[]      — Ordered main journey steps
+  teardown?: StepDefinition[]  — Steps run after journey (always execute)
 
 StepDefinition
-  id: string               — Unique step identifier (e.g., "01-start-canvas-session")
+  id: string               — Unique step identifier, used as screenshot filename prefix
   title: string            — Human-readable step title
   guideSection: number     — Section number for report generation
   description?: string     — What this step validates
   expectedInput?: string   — Preconditions
   expectedOutput?: string  — Postconditions
-  capture?: "afterSettle" | "afterAction"
   uiContext?: { view?, viewName?, tab?, tabName?, components? }
   events?: string[]        — Events relevant to this step (report metadata)
   commands?: string[]      — Commands relevant to this step (report metadata)
@@ -199,17 +232,23 @@ StepDefinition
   actions: ActionDefinition[]
 
 ActionDefinition (discriminated union on `tool` field)
-  10 variants: command, click, input, highlight, wait, screenshot,
-               navigate, assert, emit, eval
+  17 variants:
+    General:    command, click, input, highlight, wait, screenshot, navigate,
+                assert, emit, eval, manual, notice, theme
+    Lifecycle:  create-file, delete-file, open-file, close-leaves
+
+JourneyStep (runtime)
+  phase?: "setup" | "journey" | "teardown"  — Execution phase (set by executor)
+  ... (all StepDefinition fields)
 ```
 
 Runtime-only data:
 
 ```
 Variables map (Record<string, string>)
-  Shared across all steps in a journey
+  Shared across all phases (setup → steps → teardown)
   Built-in: PLUGIN_ID = "flowti-ibde"
-  User-defined: populated by eval.store actions
+  User-defined: populated by eval.store and create-file.store actions
 ```
 
 ---
@@ -254,25 +293,31 @@ No UI changes to the Obsidian plugin. This feature affects developer tooling onl
 
 ## 9. Adapter Impact
 
-No new domain adapters. The feature introduces three new helper modules:
+No new domain adapters. The feature introduces four helper modules:
 
 ```
-journeyTypes.ts (170 LOC) — Pure type definitions
-  JourneyDefinition, StepDefinition, ActionDefinition (union),
-  AssertAction, EmitAction, EvalAction, EvalExpectation, ToolName
+journeyTypes.ts (287 LOC) — Pure type definitions
+  JourneyDefinition (with setup/teardown), StepDefinition,
+  ActionDefinition (17-variant union), ToolName, EvalExpectation,
+  Lifecycle actions: CreateFileAction, DeleteFileAction, OpenFileAction, CloseLeavesAction
 
-actionRunner.ts (210 LOC) — Tool dispatcher
-  executeAction(cli, action, variables, traceBookmark, screenshotPath?)
+actionRunner.ts (430 LOC) — Tool dispatcher
+  executeAction(cli, action, variables, traceBookmark, collector?)
   resolve(template, variables), resolvePayload(payload, variables)
-  Per-tool functions: executeCommand, executeClick, executeInput,
-    executeHighlight, executeAssert, executeEmit, executeEval
+  ScreenshotCollector (explicit screenshot accumulation)
+  17 per-tool functions including lifecycle tools
 
-journeyExecutor.ts (110 LOC) — Vitest test generator
-  executeJourney(definition)
-  validateTools(definition), toJourneyStep(step)
+journeyExecutor.ts (245 LOC) — Vitest test generator
+  executeJourney(definition) — setup/teardown lifecycle orchestration
+  validateTools(definition) — checks all phases
+  runStepWithActions() — shared step execution for all phases
+
+toolCatalog.ts (80 LOC) — Tool registry with metadata
+  ToolMeta { name, description, tags, useCases }
+  TOOL_CATALOG — Record<ToolName, ToolMeta> with all 17 tools
 ```
 
-These modules depend on existing helpers (fixtures, highlight, navigation) and the ObsidianCli wrapper. No changes to existing modules were required.
+These modules depend on existing helpers (fixtures, highlight, navigation) and the ObsidianCli wrapper.
 
 ---
 
@@ -308,7 +353,7 @@ These modules depend on existing helpers (fixtures, highlight, navigation) and t
 
 - [x] Canvas Session journey (9 steps) runs entirely from JSON config
 - [x] Thin test wrapper is <25 LOC
-- [x] All 10 tools dispatch correctly: command, click, input, highlight, wait, screenshot, navigate, assert, emit, eval
+- [x] All 17 tools dispatch correctly: command, click, input, highlight, wait, screenshot, navigate, assert, emit, eval, manual, notice, theme, create-file, delete-file, open-file, close-leaves
 - [x] Variable interpolation works across steps (sessionId stored in step 6, used in steps 7–8)
 - [x] Eval expectations validate: equals, truthy, json matching
 - [x] Assert sub-types work: visible, not-visible, text, event, leaf, eval
@@ -317,20 +362,29 @@ These modules depend on existing helpers (fixtures, highlight, navigation) and t
 - [x] Capture timing: `afterAction` captures transient UI (modals), `afterSettle` captures settled state
 - [x] `npm test` passes (6,016 unit tests + type check + lint)
 - [x] Existing imperative journeys (Chapters 1–4) still work unchanged
+- [x] Setup steps run in beforeAll, failures block main steps
+- [x] Teardown steps run in afterAll, always execute
+- [x] Variables persist across setup → steps → teardown phases
+- [x] Lifecycle tools (create-file, delete-file, open-file, close-leaves) tagged in tool catalog
+- [x] Reports render Setup/Teardown sections with correct grouping
+- [x] Activity Log opens after every E2E run (best-effort)
 
 ---
 
 ## 13. Definition of Done
 
-- [x] journeyTypes.ts — Type system for JSON schema (170 LOC)
-- [x] actionRunner.ts — Tool dispatcher with 10 tools (210 LOC)
-- [x] journeyExecutor.ts — Vitest test generator (110 LOC)
+- [x] journeyTypes.ts — Type system for JSON schema (287 LOC)
+- [x] actionRunner.ts — Tool dispatcher with 17 tools (430 LOC)
+- [x] journeyExecutor.ts — Vitest test generator with setup/teardown (245 LOC)
+- [x] toolCatalog.ts — Tool registry with metadata, tags, use-cases (80 LOC)
 - [x] canvas-session.journey.json — First declarative journey config (236 LOC)
+- [x] tool-showcase.journey.json — Tool showcase with setup/teardown and lifecycle tools
 - [x] 50-journey-canvas-session.test.ts — Thin wrapper (22 LOC, down from 474 LOC)
 - [x] StepOptions with capture timing in journey.ts
 - [x] Lazy CSS injection for highlight styles
+- [x] Setup/teardown execution flow with lifecycle guarantees
 - [x] All existing tests pass (6,016 unit + E2E infrastructure)
-- [x] Report pipeline verified compatible
+- [x] Report pipeline verified compatible (setup/teardown sections, lifecycle stats)
 
 ---
 
@@ -338,17 +392,21 @@ These modules depend on existing helpers (fixtures, highlight, navigation) and t
 
 | File | Status | LOC | Purpose |
 |------|--------|-----|---------|
-| `tests/e2e/helpers/journeyTypes.ts` | Created | 170 | TypeScript types for JSON schema |
-| `tests/e2e/helpers/actionRunner.ts` | Created | 210 | Tool dispatcher (10 tools) |
-| `tests/e2e/helpers/journeyExecutor.ts` | Created | 110 | Vitest test generator |
+| `tests/e2e/helpers/journeyTypes.ts` | Created | 287 | TypeScript types for JSON schema (17 tools, setup/teardown) |
+| `tests/e2e/helpers/actionRunner.ts` | Created | 430 | Tool dispatcher (17 tools, lifecycle implementations) |
+| `tests/e2e/helpers/journeyExecutor.ts` | Created | 245 | Vitest test generator with setup/teardown orchestration |
+| `tests/e2e/helpers/toolCatalog.ts` | Created | 80 | Tool registry with metadata, tags, use-cases |
 | `tests/e2e/journeys/canvas-session.journey.json` | Created | 236 | Canvas Session journey config |
+| `tests/e2e/journeys/tool-showcase.journey.json` | Created | 340 | Tool showcase with setup/teardown |
 | `tests/e2e/50-journey-canvas-session.test.ts` | Rewritten | 22 | Thin wrapper (was 474 LOC) |
-| `tests/e2e/helpers/journey.ts` | Modified | 380 | StepOptions + capture timing |
+| `tests/e2e/helpers/journey.ts` | Modified | 435 | StepOptions + capture timing + phase + setup/teardown |
 | `tests/e2e/helpers/highlight.ts` | Modified | 105 | Lazy CSS injection |
+| `scripts/generate-e2e-report.mjs` | Modified | 1580 | Setup/teardown rendering, lifecycle stats |
+| `scripts/run-e2e.mjs` | Modified | 120 | Activity Log opening |
 
-**Total new code**: ~490 LOC across 3 new files + 1 JSON config
+**Total new code**: ~1,040 LOC across 4 new files + 2 JSON configs
 **Total replaced code**: ~450 LOC of imperative test logic
-**Net change**: Slight LOC increase, but imperative → declarative migration
+**Net change**: LOC increase reflects richer feature set (setup/teardown, 7 additional tools, tool catalog)
 
 ---
 
@@ -357,11 +415,13 @@ These modules depend on existing helpers (fixtures, highlight, navigation) and t
 ```
 tests/e2e/
 ├── journeys/
-│   └── canvas-session.journey.json    ← Declarative config (author this)
+│   ├── canvas-session.journey.json    ← Declarative config (author this)
+│   └── tool-showcase.journey.json     ← Full tool showcase with setup/teardown
 ├── helpers/
-│   ├── journeyTypes.ts                ← TypeScript types for JSON schema
-│   ├── journeyExecutor.ts             ← Reads JSON → generates vitest tests
-│   ├── actionRunner.ts                ← Dispatches actions by tool type
+│   ├── journeyTypes.ts                ← TypeScript types for JSON schema (17 tools)
+│   ├── journeyExecutor.ts             ← Reads JSON → generates vitest tests (setup/teardown)
+│   ├── actionRunner.ts                ← Dispatches actions by tool type (17 tools)
+│   ├── toolCatalog.ts                 ← Tool registry with metadata, tags, use-cases
 │   ├── journey.ts                     ← JourneyRunner (step lifecycle, screenshots, reports)
 │   ├── fixtures.ts                    ← TestFixture, plugin lifecycle, event tracing
 │   ├── highlight.ts                   ← Visual element annotation in screenshots
@@ -370,19 +430,22 @@ tests/e2e/
 │   ├── qc.ts                          ← Manual QC checkpoints
 │   ├── testVault.ts                   ← Test vault lifecycle
 │   └── sequencer.ts                   ← Test file ordering
-└── 50-journey-canvas-session.test.ts  ← Thin wrapper (~10 LOC)
+├── 50-journey-canvas-session.test.ts  ← Thin wrapper (~10 LOC)
+└── 60-journey-tool-showcase.test.ts   ← Thin wrapper (~10 LOC)
 ```
 
 **Data flow**:
 
 ```
 JSON Config → journeyExecutor → vitest describe/it blocks
-                                    ↓
-                              actionRunner → ObsidianCli → Obsidian
-                                    ↓
-                              JourneyRunner → screenshots + results JSON
-                                    ↓
-                              generate-e2e-report.mjs → vault reports
+                  ↓                    ↓
+            beforeAll: setup     it(): main steps     afterAll: teardown
+                  ↓                    ↓                    ↓
+            actionRunner → ObsidianCli → Obsidian
+                  ↓
+            JourneyRunner → screenshots + results JSON
+                  ↓
+            generate-e2e-report.mjs → vault reports (Setup/Steps/Teardown sections)
 ```
 
 ---
@@ -399,6 +462,8 @@ Executes an Obsidian command via the command palette API.
 
 The `id` is automatically prefixed with the plugin ID (`flowti-ibde:`) if it contains a colon.
 
+**Use cases:** Open a hub view, trigger plugin commands, execute built-in Obsidian commands.
+
 ### click
 
 Clicks a DOM element identified by CSS selector.
@@ -409,6 +474,8 @@ Clicks a DOM element identified by CSS selector.
 
 Throws if the element is not found.
 
+**Use cases:** Dismiss a modal, select a template card, press a button.
+
 ### input
 
 Types text into an input field. Focuses the element, clears it, then uses `document.execCommand('insertText')` for framework-compatible input.
@@ -416,6 +483,8 @@ Types text into an input field. Focuses the element, clears it, then uses `docum
 ```json
 { "tool": "input", "selector": ".modal-container .setting-item input", "value": "E2E canvas session test goal", "description": "Type session goal" }
 ```
+
+**Use cases:** Fill a form field, enter a search query, type a session goal.
 
 ### highlight
 
@@ -430,6 +499,8 @@ Styles:
 - `"button"` — orange pulse animation (#ffb74d)
 - `"input"` — blue glow (#4fc3f7) + focus
 
+**Use cases:** Annotate UI for screenshots, draw attention to active elements, show input focus state.
+
 ### wait
 
 Pauses step execution for a specified duration. Use for settling after DOM mutations or async operations.
@@ -438,13 +509,37 @@ Pauses step execution for a specified duration. Use for settling after DOM mutat
 { "tool": "wait", "ms": 500 }
 ```
 
+**Use cases:** Wait for async rendering, allow theme transition to settle, give Obsidian time to index a new file.
+
 ### screenshot
 
-Captures a screenshot to the step's output path. Rarely needed — JourneyRunner captures screenshots automatically per step.
+Captures a screenshot at the current point in the action sequence. The filename is derived from the step ID and an optional label. Place screenshot actions wherever you want to document state — before an action, after it, or both.
 
+**With label** (recommended for clarity):
 ```json
-{ "tool": "screenshot", "description": "Manual capture point" }
+{ "tool": "screenshot", "label": "before", "description": "State before action" }
 ```
+Produces: `{stepId}--before.png`
+
+**Without label** (auto-numbered):
+```json
+{ "tool": "screenshot", "description": "Capture current state" }
+```
+Produces: `{stepId}--1.png`, `{stepId}--2.png`, etc.
+
+**Before/after pattern** (most common):
+```json
+[
+  { "tool": "screenshot", "label": "before", "description": "Baseline state" },
+  { "tool": "command", "id": "flowti:some-command" },
+  { "tool": "wait", "ms": 500 },
+  { "tool": "screenshot", "label": "after", "description": "Result state" }
+]
+```
+
+When a step contains explicit screenshot actions, the JourneyRunner skips its automatic screenshot. If a step has no screenshot actions, one automatic screenshot is taken after settling (backward compatible with imperative journeys).
+
+**Use cases:** Document UI state for reports, before/after comparisons, capture error state.
 
 ### navigate
 
@@ -453,6 +548,8 @@ Navigates to a specific hub, view type, and tab combination. Uses the navigation
 ```json
 { "tool": "navigate", "hub": "event-catalog", "viewType": "event-catalog-view", "tab": "events", "description": "Open Events tab" }
 ```
+
+**Use cases:** Switch tabs in a hub view, verify tab change events, test cross-hub navigation.
 
 ### assert
 
@@ -488,6 +585,8 @@ Validates state. Six sub-types dispatched by `type` field:
 { "tool": "assert", "type": "eval", "code": "app.workspace.activeLeaf?.view?.getViewType()", "expected": "canvas", "description": "Active view is canvas" }
 ```
 
+**Use cases:** Check element visibility, verify event was emitted with payload, confirm leaf exists by view type, evaluate JavaScript expression.
+
 ### emit
 
 Emits an event on the plugin's EventBus. Payload values support variable interpolation.
@@ -500,6 +599,8 @@ Emits an event on the plugin's EventBus. Payload values support variable interpo
   "description": "Emit session.pause event"
 }
 ```
+
+**Use cases:** Trigger domain event handlers, simulate user actions via events, test event-driven workflows.
 
 ### eval
 
@@ -534,6 +635,95 @@ Executes arbitrary JavaScript in the Obsidian window context. Supports storing r
 - `truthy` — result must be non-empty and not `"false"`, `"undefined"`, or `"null"`
 - `json` — result is parsed as JSON; all fields in `match` must be present with matching values
 
+**Use cases:** Query plugin state, store values for cross-step variable passing, perform complex operations not covered by other tools.
+
+### manual
+
+Documents a step that requires human intervention. Skipped silently during automated execution. Use this to mark actions that cannot be automated yet but should be part of the journey specification.
+
+```json
+{ "tool": "manual", "instruction": "Drag the canvas node to a new position", "description": "Manual drag interaction" }
+```
+
+Manual actions serve as living documentation — they appear in the journey config and reports, making it clear which parts of the journey are not yet automated.
+
+**Use cases:** Visual regression review, verify content correctness, cross-reference screenshots with expected layout.
+
+### notice
+
+Displays an Obsidian Notice toast. Supports `{{variable}}` interpolation in the message. Useful for annotating test progress in screenshots.
+
+```json
+{ "tool": "notice", "message": "Step 3/7: Opening User Hub", "duration": 3000, "description": "Progress annotation" }
+```
+
+**Fields:**
+- `message` — Notice text (supports `{{variable}}` interpolation)
+- `duration` — Display duration in ms (default: 5000)
+
+**Use cases:** Annotate test progress, show step status in screenshots, display interpolated variable values.
+
+### theme
+
+Switches Obsidian's CSS theme. Use `"obsidian"` for the default dark theme or `"moonstone"` for the default light theme.
+
+```json
+{ "tool": "theme", "theme": "moonstone", "description": "Switch to light theme" }
+```
+
+**Use cases:** Dark/light mode comparison screenshots, verify theme-aware styling, set consistent baseline theme.
+
+### create-file `[lifecycle]`
+
+Creates a file in the vault via the Obsidian `app.vault.create()` API. Supports `{{variable}}` interpolation in path and content. Optionally stores the created path in a variable for use in later steps (e.g., for teardown deletion).
+
+```json
+{
+  "tool": "create-file",
+  "path": "03 - Resources/Test Data/demo.md",
+  "content": "# Demo\n\nPlugin version: {{pluginVersion}}\n",
+  "store": "demoFilePath",
+  "description": "Create demo file for testing"
+}
+```
+
+**Fields:**
+- `path` — Vault-relative file path (supports `{{variable}}`)
+- `content` — File content (supports `{{variable}}`)
+- `store` — Optional variable name to store the created path
+
+**Use cases:** Seed test data files in setup, create markdown/CSV content for journey steps, scaffold vault structure before testing.
+
+### delete-file `[lifecycle]`
+
+Deletes a vault file via the Obsidian API. Supports `{{variable}}` interpolation in path. Silently succeeds if the file doesn't exist.
+
+```json
+{ "tool": "delete-file", "path": "{{demoFilePath}}", "description": "Remove demo file" }
+```
+
+**Use cases:** Clean up test files in teardown, remove seed data after journey completes, reset vault to pre-test state.
+
+### open-file `[lifecycle]`
+
+Opens a vault file in a new editor tab. Supports `{{variable}}` interpolation in path. Skips files that cannot be natively opened (e.g., non-file abstractions).
+
+```json
+{ "tool": "open-file", "path": "{{demoFilePath}}", "description": "Open the created file" }
+```
+
+**Use cases:** Open a created file for verification, navigate to a specific vault file, set up editor state before testing.
+
+### close-leaves `[lifecycle]`
+
+Closes all workspace leaves (tabs) of a given view type. Useful for cleaning up hub views or panels between journey sections or in teardown.
+
+```json
+{ "tool": "close-leaves", "viewType": "flowti-user-hub", "description": "Close all User Hub tabs" }
+```
+
+**Use cases:** Clean up hub views in teardown, reset workspace between journey sections, close modals or panels before next step.
+
 ---
 
 ## User Manual
@@ -550,10 +740,12 @@ Create a new file in `tests/e2e/journeys/` following the naming convention `<nam
   "chapter": 6,
   "description": "Validates the feature end-to-end.",
   "testSource": "tests/e2e/60-journey-my-feature.test.ts",
-  "reportPath": "03 - Resources/Tested Journeys/My Feature/My Feature.md",
-  "canvasPath": "03 - Resources/Tested Journeys/My Feature/My Feature.canvas",
-  "tools": ["command", "click", "wait", "assert", "highlight"],
-  "steps": []
+  "reportPath": "docs/journeys/My Feature/My Feature.md",
+  "canvasPath": "docs/journeys/My Feature/My Feature.canvas",
+  "tools": ["command", "click", "wait", "assert", "highlight", "screenshot", "create-file", "delete-file"],
+  "setup": [],
+  "steps": [],
+  "teardown": []
 }
 ```
 
@@ -585,24 +777,25 @@ Each step represents a logical user action or verification point:
   "commands": ["flowti:open-feature"],
   "interactions": ["command: Open feature"],
   "actions": [
+    { "tool": "screenshot", "label": "before", "description": "Baseline before opening feature" },
     { "tool": "command", "id": "flowti:open-feature", "description": "Open feature" },
     { "tool": "wait", "ms": 500 },
     { "tool": "assert", "type": "visible", "selector": ".ft-feature-view", "description": "Feature view visible" },
-    { "tool": "highlight", "selector": ".ft-feature-view", "style": "element" }
+    { "tool": "highlight", "selector": ".ft-feature-view", "style": "element" },
+    { "tool": "screenshot", "label": "after", "description": "Feature view open and highlighted" }
   ]
 }
 ```
 
 **Step fields:**
-- `id` — Unique identifier, used in screenshot filenames (e.g., `01-open-feature.png`)
+- `id` — Unique identifier, used as screenshot filename prefix (e.g., `01-open-feature--before.png`)
 - `title` — Human-readable, appears in vitest output and reports
 - `guideSection` — Numeric section, used in test naming (`6.1 — Open the feature view`)
 - `description` — Explains what this step validates (report metadata)
 - `expectedInput` / `expectedOutput` — Pre/postconditions (report metadata)
-- `capture` — Screenshot timing: `"afterSettle"` (default, 1000ms after action) or `"afterAction"` (immediately after action, before settle). Use `"afterAction"` for transient UI like modals
 - `uiContext` — Components involved (report metadata)
 - `events`, `commands`, `interactions`, `queries` — Report metadata arrays
-- `actions` — Ordered array of tool-dispatched operations
+- `actions` — Ordered array of tool-dispatched operations (include `screenshot` actions where you want captures)
 
 #### Step 3: Create the test wrapper
 
@@ -629,6 +822,67 @@ In `package.json`, add a preset script:
 ```json
 "test:e2e:my-feature": "npx vitest --config tests/e2e/vitest.e2e.config.ts --run --reporter verbose -- --journey=my-feature"
 ```
+
+### Setup and Teardown
+
+Journey definitions support optional `setup` and `teardown` step arrays that separate infrastructure work from the actual journey being tested.
+
+**Execution flow:**
+
+```
+beforeAll:
+  1. Fixture init (plugin, event trace)
+  2. Run setup steps → if any fail, set setupFailed flag
+
+it() blocks (main steps):
+  - If setupFailed → skip (recorded as "skip" status)
+  - Otherwise run normally
+
+afterAll:
+  1. Run teardown steps (ALWAYS, even if setup/main failed)
+  2. Open Activity Log (best-effort)
+  3. Write results, cleanup
+```
+
+**Example with lifecycle tools:**
+
+```json
+{
+  "setup": [
+    {
+      "id": "setup-create-data",
+      "title": "Create test data",
+      "guideSection": 1,
+      "actions": [
+        { "tool": "create-file", "path": "Test Data/demo.md", "content": "# Demo", "store": "demoPath" },
+        { "tool": "open-file", "path": "{{demoPath}}" }
+      ]
+    }
+  ],
+  "steps": [
+    { "id": "01-feature-test", "title": "Test the feature", "guideSection": 1, "actions": [...] }
+  ],
+  "teardown": [
+    {
+      "id": "teardown-cleanup",
+      "title": "Clean up",
+      "guideSection": 1,
+      "actions": [
+        { "tool": "delete-file", "path": "{{demoPath}}" },
+        { "tool": "close-leaves", "viewType": "flowti-user-hub" }
+      ]
+    }
+  ]
+}
+```
+
+**Guarantees:**
+- Setup failures block all main steps (recorded as "skip")
+- Teardown always runs, even when setup or main steps fail
+- Variables persist across all phases (setup → steps → teardown)
+- Reports render setup/teardown in dedicated sections
+
+**Tool tags:** Lifecycle tools (`create-file`, `delete-file`, `open-file`, `close-leaves`) are tagged `[lifecycle]` in the tool catalog, indicating they are primarily intended for setup/teardown operations. They can be used in main steps too, but their primary purpose is test data management.
 
 ### Using Variables
 
@@ -665,23 +919,40 @@ Variables let you pass data between steps. The most common pattern is capturing 
 - Referencing an undefined variable throws immediately with the variable name and available keys
 - Variable values are always strings (eval results are coerced to string by ObsidianCli)
 
-### Capture Timing
+### Screenshot Placement
 
-By default, screenshots are taken **after settling** (1000ms pause + notice dismissal). For transient UI like modals or tooltips that close before settle completes, use `"afterAction"`:
+Screenshots are explicit `screenshot` tool actions within the actions array. You control timing by WHERE you place the screenshot:
 
+**Capture transient UI** (modals, hover states) — screenshot immediately after the action:
 ```json
-{
-  "id": "02-select-template",
-  "title": "Select a canvas template",
-  "capture": "afterAction",
-  "actions": [...]
-}
+{ "tool": "command", "id": "flowti:start-canvas-session" },
+{ "tool": "wait", "ms": 500 },
+{ "tool": "highlight", "selector": ".modal-container .ft-card", "style": "element" },
+{ "tool": "screenshot", "label": "modal-open", "description": "Modal visible" }
 ```
 
-| Timing | Screenshot order | Use case |
-|--------|-----------------|----------|
-| `afterSettle` (default) | action → 1000ms settle → dismiss notices → post notice → screenshot | Stable UI (hub tabs, canvas, detail panels) |
-| `afterAction` | action → screenshot → 1000ms settle → dismiss notices → post notice | Transient UI (modals, tooltips, loading states) |
+**Capture settled state** — screenshot at the end of the actions array after waits and assertions:
+```json
+{ "tool": "emit", "event": "session.pause", "payload": { "sessionId": "{{sessionId}}" } },
+{ "tool": "wait", "ms": 500 },
+{ "tool": "assert", "type": "event", "event": "session.paused" },
+{ "tool": "screenshot", "label": "paused", "description": "Session paused" }
+```
+
+**Before/after pattern** — two screenshots bracketing the key action:
+```json
+{ "tool": "screenshot", "label": "before", "description": "Baseline" },
+{ "tool": "click", "selector": ".some-button" },
+{ "tool": "wait", "ms": 500 },
+{ "tool": "screenshot", "label": "after", "description": "Result" }
+```
+
+**Naming convention:**
+- With label: `{stepId}--{label}.png` (e.g., `01-start--before.png`)
+- Without label: `{stepId}--{n}.png` (e.g., `01-start--1.png`, auto-numbered)
+- On error: `{stepId}--error.png` (always captured automatically)
+
+**Auto-screenshot fallback:** Steps with no explicit screenshot actions still get one automatic screenshot after settling (backward compatible with imperative journeys).
 
 ### Running Journeys
 
@@ -745,7 +1016,7 @@ The JavaScript code threw an error in the Obsidian window context. Test the expr
 The eval returned an empty string. This usually means the queried data doesn't exist yet. Add a `wait` before the eval, or verify the preceding action completed successfully.
 
 **Screenshots show wrong state**
-Check the `capture` timing. Transient UI (modals, overlays) requires `"capture": "afterAction"`. If the UI disappears during the 1000ms settle, it won't be in the `"afterSettle"` screenshot.
+Place the `screenshot` action immediately after the UI you want to capture. For transient UI (modals, overlays), screenshot before any `wait` that might let the UI disappear. For settled state, screenshot at the end of the actions array after assertions.
 
 ### Gotchas
 
@@ -765,3 +1036,11 @@ See `tests/e2e/journeys/canvas-session.journey.json` for a production example wi
 - Event-driven lifecycle (emit → assert event → eval status)
 - Variable interpolation (sessionId across 4 steps)
 - Capture timing (afterAction for modals)
+
+See `tests/e2e/journeys/tool-showcase.journey.json` for a comprehensive example using:
+- All 17 tools including lifecycle tools
+- Setup/teardown phases with `create-file`, `delete-file`, `open-file`, `close-leaves`
+- Cross-phase variable passing (setup → steps → teardown)
+- Theme switching with before/after screenshots
+- All 6 assertion types
+- All 3 highlight styles

@@ -36,6 +36,8 @@ export interface JourneyStep {
 	title: string;
 	/** Section number in the guide (1-based). */
 	guideSection: number;
+	/** Execution phase: setup, journey (default), or teardown. */
+	phase?: "setup" | "journey" | "teardown";
 	/** Exact describe() block name. e.g. "Chapter 3: Getting Started" */
 	describeBlock?: string;
 	/** Exact it() description. e.g. "3.1 — Open the User Hub" */
@@ -56,13 +58,23 @@ export interface JourneyStep {
 	commands?: string[];
 	/** Analytics queries run or validated. e.g. ["supplier-overview"] */
 	queries?: string[];
+	/**
+	 * Declarative action definitions from the journey JSON.
+	 * Passed through for report/canvas generation (manual, notice rendering).
+	 * Not present on imperative journey steps.
+	 */
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	actions?: Array<Record<string, any>>;
 }
 
 export interface JourneyStepResult {
 	step: JourneyStep;
 	status: "pass" | "fail" | "skip";
 	durationMs: number;
+	/** @deprecated Use screenshotFiles instead. Kept for backward compat with report generator. */
 	screenshotFile: string | null;
+	/** All screenshots captured during this step (may be empty). */
+	screenshotFiles: string[];
 	error?: string;
 	/** Diagnostic context captured on failure (DOM state, recent events, plugin state). */
 	errorContext?: ErrorContext;
@@ -85,7 +97,11 @@ export interface JourneyResult {
 export interface JourneyConfig {
 	journey: string;
 	testSource?: string;
+	/** Setup steps (run before journey, failures block main steps). */
+	setup?: JourneyStep[];
 	steps: JourneyStep[];
+	/** Teardown steps (run after journey, always execute). */
+	teardown?: JourneyStep[];
 	/** it() descriptions derived from step definitions (e.g. "1 — CLI can reach Obsidian"). */
 	items: string[];
 	/** All unique UI components across all steps. */
@@ -113,11 +129,18 @@ export interface JourneyRunnerOptions {
 /** Controls how a step is executed and captured. */
 export interface StepOptions {
 	/**
-	 * When to take the screenshot:
+	 * @deprecated Use explicit screenshot tool actions in the actions array instead.
+	 * When to take the automatic screenshot:
 	 *   - "afterSettle" (default): action → settle → dismiss → result notice → screenshot
 	 *   - "afterAction": action → screenshot → settle → dismiss → result notice
 	 */
 	capture?: "afterSettle" | "afterAction";
+	/**
+	 * When true (default), JourneyRunner automatically captures one screenshot
+	 * per step using the capture timing logic. Set to false when the step's
+	 * actions array contains explicit screenshot tool actions.
+	 */
+	autoScreenshot?: boolean;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -184,10 +207,11 @@ export class JourneyRunner {
 		step: JourneyStep,
 		action: () => void | Promise<void>,
 		options?: StepOptions,
+		externalScreenshots?: string[],
 	): Promise<JourneyStepResult> {
 		const stepStart = Date.now();
-		let screenshotFile: string | null = null;
 		const capture = options?.capture ?? "afterSettle";
+		const autoScreenshot = options?.autoScreenshot ?? true;
 
 		// Lazy-inject highlight CSS on first step
 		if (!this.stylesInjected) {
@@ -203,30 +227,40 @@ export class JourneyRunner {
 			this.cli.notice(`Step ${step.guideSection}: ${step.title} …`);
 			await action();
 
-			const filename = `${step.id}.png`;
-			const outputPath = path.join(this.options.screenshotDir, filename);
+			// Collect screenshots from explicit tool actions (passed in by executor)
+			const screenshotFiles: string[] = [...(externalScreenshots ?? [])];
 
-			if (capture === "afterAction") {
-				// Screenshot FIRST — captures transient UI (modals, hover states)
-				this.cli.screenshot(outputPath);
-				screenshotFile = filename;
-				await sleep(this.settleMs);
-				this.dismissAllNotices();
-				this.cli.notice(`Step ${step.guideSection}: ${step.title} ✓`);
+			if (autoScreenshot) {
+				// Legacy behavior: one automatic screenshot per step
+				const filename = `${step.id}.png`;
+				const outputPath = path.join(this.options.screenshotDir, filename);
+
+				if (capture === "afterAction") {
+					this.cli.screenshot(outputPath);
+					screenshotFiles.push(filename);
+					await sleep(this.settleMs);
+					this.dismissAllNotices();
+					this.cli.notice(`Step ${step.guideSection}: ${step.title} ✓`);
+				} else {
+					await sleep(this.settleMs);
+					this.dismissAllNotices();
+					this.cli.notice(`Step ${step.guideSection}: ${step.title} ✓`);
+					this.cli.screenshot(outputPath);
+					screenshotFiles.push(filename);
+				}
 			} else {
-				// Default: settle first, then screenshot with result notice
+				// Explicit screenshot mode: no auto-capture, just settle and post notice
 				await sleep(this.settleMs);
 				this.dismissAllNotices();
 				this.cli.notice(`Step ${step.guideSection}: ${step.title} ✓`);
-				this.cli.screenshot(outputPath);
-				screenshotFile = filename;
 			}
 
 			const result: JourneyStepResult = {
 				step,
 				status: "pass",
 				durationMs: Date.now() - stepStart,
-				screenshotFile,
+				screenshotFile: screenshotFiles[0] ?? null,
+				screenshotFiles,
 			};
 			this.results.push(result);
 			return result;
@@ -245,12 +279,15 @@ export class JourneyRunner {
 			this.dismissAllNotices();
 			this.cli.notice(`Step ${step.guideSection}: ${step.title} ✗ ${message}`);
 
-			// Still take a screenshot to capture the error state
-			const filename = `${step.id}.png`;
+			// Collect any screenshots already taken during the action sequence
+			const screenshotFiles: string[] = [...(externalScreenshots ?? [])];
+
+			// Always take an error-state screenshot (uses --error suffix to avoid collision)
+			const filename = `${step.id}--error.png`;
 			const outputPath = path.join(this.options.screenshotDir, filename);
 			try {
 				this.cli.screenshot(outputPath);
-				screenshotFile = filename;
+				screenshotFiles.push(filename);
 			} catch {
 				// Screenshot failure must not mask the step error
 			}
@@ -259,7 +296,8 @@ export class JourneyRunner {
 				step,
 				status: "fail",
 				durationMs: Date.now() - stepStart,
-				screenshotFile,
+				screenshotFile: screenshotFiles[0] ?? null,
+				screenshotFiles,
 				error: message,
 				errorContext,
 			};
@@ -279,6 +317,17 @@ export class JourneyRunner {
 	): Promise<JourneyStepResult> {
 		return this.runStep(step, async () => {
 			await qcCheckpoint(this.cli, prompt);
+		});
+	}
+
+	/** Records a skipped step result (used when setup fails). */
+	addSkippedResult(step: JourneyStep): void {
+		this.results.push({
+			step,
+			status: "skip",
+			durationMs: 0,
+			screenshotFile: null,
+			screenshotFiles: [],
 		});
 	}
 
@@ -324,11 +373,16 @@ export class JourneyRunner {
 	getConfig(): JourneyConfig {
 		// Ensure every step carries the describe/it block strings.
 		// If not explicitly set by the test author, derive from available data.
-		const steps = this.results.map((r) => ({
+		const allSteps = this.results.map((r) => ({
 			...r.step,
 			describeBlock: r.step.describeBlock ?? this.options.journeyName,
 			itBlock: r.step.itBlock ?? `${r.step.guideSection} — ${r.step.title}`,
 		}));
+
+		// Partition by phase
+		const setupSteps = allSteps.filter((s) => s.phase === "setup");
+		const journeySteps = allSteps.filter((s) => !s.phase || s.phase === "journey");
+		const teardownSteps = allSteps.filter((s) => s.phase === "teardown");
 
 		// Aggregate unique metadata across all steps
 		const components = new Set<string>();
@@ -337,7 +391,7 @@ export class JourneyRunner {
 		const queries = new Set<string>();
 		const interactions = new Set<string>();
 
-		for (const step of steps) {
+		for (const step of allSteps) {
 			for (const c of step.uiContext?.components ?? []) components.add(c);
 			for (const e of step.events ?? []) events.add(e);
 			for (const cmd of step.commands ?? []) commands.add(cmd);
@@ -348,8 +402,10 @@ export class JourneyRunner {
 		return {
 			journey: this.options.journeyName,
 			...(this.options.testSource ? { testSource: this.options.testSource } : {}),
-			steps,
-			items: steps.map((s) => s.itBlock!),
+			...(setupSteps.length > 0 ? { setup: setupSteps } : {}),
+			steps: journeySteps,
+			...(teardownSteps.length > 0 ? { teardown: teardownSteps } : {}),
+			items: allSteps.map((s) => s.itBlock!),
 			components: [...components],
 			events: [...events],
 			commands: [...commands],

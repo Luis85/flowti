@@ -256,7 +256,7 @@ export function shouldRunPrerequisites(vaultDir: string): boolean {
 	if (process.env.E2E_RUN_PREREQUISITES === "true") return true;
 
 	const anchorPath = path.join(
-		vaultDir, "03 - Resources", "Tested Journeys", "Prerequisites", "Prerequisites-anchor.md",
+		vaultDir, "docs", "journeys", "Prerequisites", "Prerequisites-anchor.md",
 	);
 	if (!fs.existsSync(anchorPath)) return true;
 

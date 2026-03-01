@@ -6,8 +6,9 @@
  * and generates vitest describe/it blocks that run via the JourneyRunner.
  *
  * Actions use a finite set of tools (command, click, input, highlight,
- * wait, assert, emit, navigate, eval, screenshot). Complex logic uses
- * the `eval` tool as an escape hatch.
+ * wait, assert, emit, navigate, eval, screenshot, manual, notice, theme,
+ * plus lifecycle tools: create-file, delete-file, open-file, close-leaves).
+ * Complex logic uses the `eval` tool as an escape hatch.
  *
  * Variable interpolation: `{{variableName}}` in any string field.
  * Built-in variables: `{{PLUGIN_ID}}`.
@@ -25,7 +26,15 @@ export type ToolName =
 	| "emit"
 	| "navigate"
 	| "eval"
-	| "screenshot";
+	| "screenshot"
+	| "manual"
+	| "notice"
+	| "theme"
+	// Lifecycle tools — tagged for setup/teardown operations
+	| "create-file"
+	| "delete-file"
+	| "open-file"
+	| "close-leaves";
 
 // ─── Journey definition ─────────────────────────────────────────────
 
@@ -44,8 +53,12 @@ export interface JourneyDefinition {
 	canvasPath?: string;
 	/** Tools used by this journey (self-documenting, validated on load). */
 	tools: ToolName[];
+	/** Steps run before the journey. Failures block main steps; teardown still runs. */
+	setup?: StepDefinition[];
 	/** Ordered list of steps. Each step generates one vitest `it()` block. */
 	steps: StepDefinition[];
+	/** Steps run after the journey. Always execute, even when main steps fail. */
+	teardown?: StepDefinition[];
 }
 
 // ─── Step definition ────────────────────────────────────────────────
@@ -71,7 +84,10 @@ export interface StepDefinition {
 	expectedInput?: string;
 	/** What the step should produce or change. */
 	expectedOutput?: string;
-	/** Screenshot timing: "afterSettle" (default) or "afterAction" for transient UI. */
+	/**
+	 * @deprecated Use explicit `screenshot` tool actions in the actions array instead.
+	 * Retained for backward compatibility with imperative journeys.
+	 */
 	capture?: "afterSettle" | "afterAction";
 	/** UI context — which view, tab, and components are involved. */
 	uiContext?: StepUiContext;
@@ -99,7 +115,15 @@ export type ActionDefinition =
 	| NavigateAction
 	| AssertAction
 	| EmitAction
-	| EvalAction;
+	| EvalAction
+	| ManualAction
+	| NoticeAction
+	| ThemeAction
+	// Lifecycle tools
+	| CreateFileAction
+	| DeleteFileAction
+	| OpenFileAction
+	| CloseLeavesAction;
 
 export interface CommandAction {
 	tool: "command";
@@ -142,6 +166,31 @@ export interface WaitAction {
 
 export interface ScreenshotAction {
 	tool: "screenshot";
+	/** Label used in filename: `{stepId}--{label}.png`. Auto-numbered if omitted. */
+	label?: string;
+	description?: string;
+}
+
+export interface ManualAction {
+	tool: "manual";
+	/** What the operator should do manually. */
+	instruction: string;
+	description?: string;
+}
+
+export interface NoticeAction {
+	tool: "notice";
+	/** Message to display in the Obsidian Notice toast. Supports {{variable}} interpolation. */
+	message: string;
+	/** Duration in milliseconds. Default: 5000. */
+	duration?: number;
+	description?: string;
+}
+
+export interface ThemeAction {
+	tool: "theme";
+	/** Theme name to switch to. Use "obsidian" for default dark or "moonstone" for default light. */
+	theme: string;
 	description?: string;
 }
 
@@ -201,3 +250,37 @@ export type EvalExpectation =
 	| { type: "equals"; value: string }
 	| { type: "truthy" }
 	| { type: "json"; match: Record<string, unknown> };
+
+// ─── Lifecycle tool actions ─────────────────────────────────────────
+
+export interface CreateFileAction {
+	tool: "create-file";
+	/** Vault-relative path for the new file. Supports {{variable}} interpolation. */
+	path: string;
+	/** File content. Supports {{variable}} interpolation. */
+	content: string;
+	/** Store the created path in a named variable for later use (e.g. in teardown). */
+	store?: string;
+	description?: string;
+}
+
+export interface DeleteFileAction {
+	tool: "delete-file";
+	/** Vault-relative path of the file to delete. Supports {{variable}} interpolation. */
+	path: string;
+	description?: string;
+}
+
+export interface OpenFileAction {
+	tool: "open-file";
+	/** Vault-relative path of the file to open. Supports {{variable}} interpolation. */
+	path: string;
+	description?: string;
+}
+
+export interface CloseLeavesAction {
+	tool: "close-leaves";
+	/** View type of leaves to close. e.g. "flowti-user-hub", "markdown" */
+	viewType: string;
+	description?: string;
+}
