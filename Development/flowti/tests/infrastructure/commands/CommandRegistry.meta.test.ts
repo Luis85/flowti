@@ -269,7 +269,7 @@ describe("CommandRegistry — metadata", () => {
 	describe("getExternalCommandMeta — metadata completeness", () => {
 		it("should provide metadata for all external commands", () => {
 			const meta = getExternalCommandMeta();
-			expect(meta.length).toBe(11);
+			expect(meta.length).toBe(10);
 		});
 
 		it("should have complete metadata for every external command", () => {
@@ -285,11 +285,11 @@ describe("CommandRegistry — metadata", () => {
 	});
 
 	describe("registerCommands — full catalog", () => {
-		it("should register all 35 commands as queryable metadata", () => {
+		it("should register all 36 commands as queryable metadata", () => {
 			registerCommands(registry);
 
 			const all = registry.getCommandsMeta();
-			expect(all.length).toBe(35);
+			expect(all.length).toBe(36);
 		});
 
 		it("should cover all expected domains", () => {

@@ -7,7 +7,7 @@
 import { Notice, Setting, setIcon } from "obsidian";
 import { ConfirmModal } from "../modals";
 import { addInfoRow, renderEmptyDetail, getEmptyDetailStats } from "./helpers";
-import { FolderPickerModal, getVaultFolders } from "../FolderPickerModal";
+import { FolderPickerModal, getVaultFolders } from "../shared/FolderPickerModal";
 import type { ActiveOperation, HubComponentDeps } from "./types";
 import { CANVAS_COLOR_LABELS, DEFAULT_COLOR_MAP, DEFAULT_SHAPE_MAP, TYPE_ORDER } from "../../domain/canvas/types";
 import type { CanvasImportConfig, FlowtiCanvasType } from "../../domain/canvas/types";

@@ -7,33 +7,35 @@
 
 import type { WorkspaceLeaf } from "obsidian";
 import { Notice, setIcon } from "obsidian";
-import type { IUserService } from "../domain/user/types";
-import type { HubRegistry } from "../domain/hub/HubRegistry";
-import type { InboxService } from "../domain/inbox/InboxService";
-import type { NudgeService } from "../domain/nudge/NudgeService";
-import type { SessionService } from "../domain/session/SessionService";
-import type { IEventBus } from "../infrastructure/events/types";
-import type { FlowtiSettings } from "../domain/settings/settings";
-import { BaseHubView, type TabDef } from "./BaseHubView";
-import type { OnboardingService } from "../domain/onboarding/OnboardingService";
-import { UserHubDashboard } from "./userHub/UserHubDashboard";
-import { UserHubInbox } from "./userHub/UserHubInbox";
-import { UserHubSessions } from "./userHub/UserHubSessions";
-import { UserHubCommands } from "./userHub/UserHubCommands";
-import { UserHubPreferences } from "./userHub/UserHubPreferences";
-import type { UserHubState, UserHubComponentDeps, InboxItem, UserHubTab } from "./userHub/types";
-import { NewSessionModal, SaveTemplateModal } from "./modals";
-import { SESSION_TYPE_LABELS } from "./userHub/types";
-import { SESSION_TYPES, type SessionType } from "../domain/session/types";
-import { VIEW_TYPE_USER_HUB } from "../domain/hub/types";
-import { VIEW_TYPE_SESSION_WORKSPACE } from "./SessionWorkspaceView";
-import { VIEW_TYPE_TRAIN_MAIN, VIEW_TYPE_TRAIN_TIMELINE } from "./train/types";
-import type { TrainService } from "../domain/train/TrainService";
-import type { ICommandRegistry } from "../infrastructure/commands/types";
+import type { IUserService } from "../../domain/user/types";
+import type { HubRegistry } from "../../domain/hub/HubRegistry";
+import type { InboxService } from "../../domain/inbox/InboxService";
+import type { NudgeService } from "../../domain/nudge/NudgeService";
+import type { SessionService } from "../../domain/session/SessionService";
+import type { IEventBus } from "../../infrastructure/events/types";
+import type { FlowtiSettings } from "../../domain/settings/settings";
+import { BaseHubView, type TabDef } from "../BaseHubView";
+import type { OnboardingService } from "../../domain/onboarding/OnboardingService";
+import { UserHubDashboard } from "./UserHubDashboard";
+import { UserHubInbox } from "./UserHubInbox";
+import { UserHubSessions } from "./UserHubSessions";
+import { UserHubCommands } from "./UserHubCommands";
+import { UserHubPreferences } from "./UserHubPreferences";
+import type { UserHubState, UserHubComponentDeps, InboxItem, UserHubTab } from "./types";
+import { NewSessionModal, SaveTemplateModal } from "../modals";
+import { SESSION_TYPE_LABELS } from "./types";
+import { SESSION_TYPES, type SessionType } from "../../domain/session/types";
+import { VIEW_TYPE_USER_HUB } from "../../domain/hub/types";
+import { VIEW_TYPE_SESSION_WORKSPACE } from "../session/types";
+import { VIEW_TYPE_TRAIN_MAIN, VIEW_TYPE_TRAIN_TIMELINE } from "../train/types";
+import type { TrainService } from "../../domain/train/TrainService";
+import type { ICommandRegistry } from "../../infrastructure/commands/types";
 export { VIEW_TYPE_USER_HUB };
 
-/** Session types available in NewSessionModal (excludes train-of-thought — trains are created via ribbon/command). */
-const MODAL_SESSION_TYPES = SESSION_TYPES.filter((st) => st.type !== "train-of-thought");
+/** Session types available in NewSessionModal (excludes specialized types with their own creation flow). */
+const MODAL_SESSION_TYPES = SESSION_TYPES.filter(
+	(st) => st.type !== "train-of-thought" && st.type !== "canvas-session",
+);
 
 export class UserHubView extends BaseHubView<UserHubTab> {
 	private userService: IUserService;
@@ -136,7 +138,7 @@ export class UserHubView extends BaseHubView<UserHubTab> {
 			id: "user-hub-welcome",
 			icon: "home",
 			title: "Welcome to your User Hub",
-			description: "Your personal cockpit — capture ideas, browse commands, manage inbox notifications, and run focus sessions.",
+			description: "Your personal cockpit — capture ideas, browse commands, manage inbox notifications, run focus sessions, and monitor signal connections.",
 			suggestion: "Capture your first idea below, or explore the Commands tab to discover all available actions.",
 		});
 

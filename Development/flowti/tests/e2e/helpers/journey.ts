@@ -12,7 +12,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { ObsidianCli } from "../../../src/infrastructure/cli/ObsidianCli";
-import { clearHighlights } from "./highlight";
+import { clearHighlights, injectHighlightStyles } from "./highlight";
 import { collectErrorContext, type ErrorContext } from "./errorContext";
 import { qcCheckpoint } from "./qc";
 
@@ -110,6 +110,16 @@ export interface JourneyRunnerOptions {
 	testSource?: string;
 }
 
+/** Controls how a step is executed and captured. */
+export interface StepOptions {
+	/**
+	 * When to take the screenshot:
+	 *   - "afterSettle" (default): action → settle → dismiss → result notice → screenshot
+	 *   - "afterAction": action → screenshot → settle → dismiss → result notice
+	 */
+	capture?: "afterSettle" | "afterAction";
+}
+
 function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -118,6 +128,7 @@ export class JourneyRunner {
 	private readonly results: JourneyStepResult[] = [];
 	private readonly startTime: number;
 	private readonly settleMs: number;
+	private stylesInjected = false;
 
 	constructor(
 		private readonly cli: ObsidianCli,
@@ -172,9 +183,17 @@ export class JourneyRunner {
 	async runStep(
 		step: JourneyStep,
 		action: () => void | Promise<void>,
+		options?: StepOptions,
 	): Promise<JourneyStepResult> {
 		const stepStart = Date.now();
 		let screenshotFile: string | null = null;
+		const capture = options?.capture ?? "afterSettle";
+
+		// Lazy-inject highlight CSS on first step
+		if (!this.stylesInjected) {
+			injectHighlightStyles(this.cli);
+			this.stylesInjected = true;
+		}
 
 		// Dismiss the previous step's result notice (already captured in its screenshot)
 		this.dismissAllNotices();
@@ -183,17 +202,25 @@ export class JourneyRunner {
 		try {
 			this.cli.notice(`Step ${step.guideSection}: ${step.title} …`);
 			await action();
-			await sleep(this.settleMs);
 
-			// Dismiss the "starting" notice before posting the result
-			this.dismissAllNotices();
-			this.cli.notice(`Step ${step.guideSection}: ${step.title} ✓`);
-
-			// Screenshot — only the result notice is visible
 			const filename = `${step.id}.png`;
 			const outputPath = path.join(this.options.screenshotDir, filename);
-			this.cli.screenshot(outputPath);
-			screenshotFile = filename;
+
+			if (capture === "afterAction") {
+				// Screenshot FIRST — captures transient UI (modals, hover states)
+				this.cli.screenshot(outputPath);
+				screenshotFile = filename;
+				await sleep(this.settleMs);
+				this.dismissAllNotices();
+				this.cli.notice(`Step ${step.guideSection}: ${step.title} ✓`);
+			} else {
+				// Default: settle first, then screenshot with result notice
+				await sleep(this.settleMs);
+				this.dismissAllNotices();
+				this.cli.notice(`Step ${step.guideSection}: ${step.title} ✓`);
+				this.cli.screenshot(outputPath);
+				screenshotFile = filename;
+			}
 
 			const result: JourneyStepResult = {
 				step,

@@ -4,7 +4,7 @@
 
 import { Notice, Setting, setIcon } from "obsidian";
 import type { SavedMultiImportPipeline } from "../../../domain/dataExchange/types";
-import { FolderPickerModal, getVaultFolders } from "../../FolderPickerModal";
+import { FolderPickerModal, getVaultFolders } from "../../shared/FolderPickerModal";
 import type { PipelineComponentDeps } from "./types";
 
 export class PipelineEditForm {

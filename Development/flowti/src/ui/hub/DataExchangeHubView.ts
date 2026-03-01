@@ -6,32 +6,32 @@
  */
 
 import { WorkspaceLeaf } from "obsidian";
-import type { IEventBus } from "../infrastructure/events/types";
-import type { DataExchangeService } from "../domain/dataExchange/DataExchangeService";
+import type { IEventBus } from "../../infrastructure/events/types";
+import type { DataExchangeService } from "../../domain/dataExchange/DataExchangeService";
 import type {
 	ExportFormat,
 	SavedImportConfig,
 	SavedExportConfig,
 	SavedMultiImportPipeline,
 	TypeDocEntry,
-} from "../domain/dataExchange/types";
-import type { FrontmatterIssue, HubPage, HubState, HubComponentDeps, HubNavigationCallbacks, CsvFileEntry, ReportEntry } from "./hub/types";
-import { BaseHubView, type TabDef } from "./BaseHubView";
-import type { OnboardingService } from "../domain/onboarding/OnboardingService";
-import { HubDashboard } from "./hub/HubDashboard";
-import { ImportsTab } from "./hub/ImportsTab";
-import { ExportsTab } from "./hub/ExportsTab";
-import { ReportsTab } from "./hub/ReportsTab";
-import { PropertiesTab } from "./hub/PropertiesTab";
-import { PipelinesTab } from "./hub/PipelinesTab";
-import { TypesTab } from "./hub/TypesTab";
-import { SignalsTab } from "./hub/SignalsTab";
-import { CanvasTab } from "./hub/CanvasTab";
-import { openEventInCatalog } from "./hub/helpers";
-import type { SignalService } from "../domain/signal/SignalService";
-import type { CanvasService } from "../domain/canvas/CanvasService";
-import { basename, stripExtension } from "../utils/pathUtils";
-import { VIEW_TYPE_DATA_EXCHANGE_HUB } from "../domain/hub/types";
+} from "../../domain/dataExchange/types";
+import type { FrontmatterIssue, HubPage, HubState, HubComponentDeps, HubNavigationCallbacks, CsvFileEntry, ReportEntry } from "./types";
+import { BaseHubView, type TabDef } from "../BaseHubView";
+import type { OnboardingService } from "../../domain/onboarding/OnboardingService";
+import { HubDashboard } from "./HubDashboard";
+import { ImportsTab } from "./ImportsTab";
+import { ExportsTab } from "./ExportsTab";
+import { ReportsTab } from "./ReportsTab";
+import { PropertiesTab } from "./PropertiesTab";
+import { PipelinesTab } from "./PipelinesTab";
+import { TypesTab } from "./TypesTab";
+import { SignalsTab } from "./SignalsTab";
+import { CanvasTab } from "./CanvasTab";
+import { openEventInCatalog } from "./helpers";
+import type { SignalService } from "../../domain/signal/SignalService";
+import type { CanvasService } from "../../domain/canvas/CanvasService";
+import { basename, stripExtension } from "../../utils/pathUtils";
+import { VIEW_TYPE_DATA_EXCHANGE_HUB } from "../../domain/hub/types";
 export { VIEW_TYPE_DATA_EXCHANGE_HUB };
 
 export type DXTab = "imports" | "exports" | "reports" | "properties" | "pipelines" | "types" | "signals" | "canvas";
@@ -50,7 +50,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 	private importConfigs: SavedImportConfig[] = [];
 	private exportConfigs: SavedExportConfig[] = [];
 	private pipelineConfigs: SavedMultiImportPipeline[] = [];
-	private dictionaryEntries: import("../domain/dataExchange/types").DataDictionaryEntry[] = [];
+	private dictionaryEntries: import("../../domain/dataExchange/types").DataDictionaryEntry[] = [];
 	private reportEntries: ReportEntry[] = [];
 	private typeEntries: TypeDocEntry[] = [];
 	private csvFileEntries: CsvFileEntry[] = [];
@@ -71,7 +71,7 @@ export class DataExchangeHubView extends BaseHubView<DXTab> {
 	private editingExportId: string | null = null;
 	private editingPipelineId: string | null = null;
 	private editingCanvasId: string | null = null;
-	private activeOperations: import("./hub/types").ActiveOperation[] = [];
+	private activeOperations: import("./types").ActiveOperation[] = [];
 
 	// ── Tab components ───────────────────────────────────────
 	private dashboard!: HubDashboard;

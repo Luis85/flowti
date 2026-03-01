@@ -4,7 +4,7 @@
 
 import { App, TFile, setIcon } from "obsidian";
 import type { SavedImportConfig, SavedMultiImportPipeline } from "../../domain/dataExchange/types";
-import { VIEW_TYPE_EVENT_CATALOG, EventCatalogView } from "../EventCatalogView";
+import { VIEW_TYPE_EVENT_CATALOG, EventCatalogView } from "../catalog/EventCatalogView";
 import type { FrontmatterIssue, HubComponentDeps, HubPage } from "./types";
 
 /** Reveals a folder in the file explorer sidebar without creating any files. */

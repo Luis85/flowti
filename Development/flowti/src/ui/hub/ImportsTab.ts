@@ -6,8 +6,8 @@
 import { Notice, Setting, TFile, setIcon } from "obsidian";
 import type { SavedImportConfig } from "../../domain/dataExchange/types";
 import { ConfirmModal } from "../modals";
-import { FilePickerModal } from "../FilePickerModal";
-import { FolderPickerModal, getVaultFolders } from "../FolderPickerModal";
+import { FilePickerModal } from "../shared/FilePickerModal";
+import { FolderPickerModal, getVaultFolders } from "../shared/FolderPickerModal";
 import { addInfoRow, renderEmptyDetail, resolveImportBaseFile, getEmptyDetailStats } from "./helpers";
 import type { ActiveOperation, HubComponentDeps } from "./types";
 

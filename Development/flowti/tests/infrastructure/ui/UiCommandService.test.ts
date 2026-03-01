@@ -13,7 +13,7 @@ import type { SavedExportConfig, SavedImportConfig } from "../../../src/domain/d
 
 // Mock SubscriptionManagerModal to avoid Obsidian Modal constructor (no DOM)
 const mockOpen = vi.fn();
-vi.mock("../../../src/ui/SubscriptionManagerModal", () => ({
+vi.mock("../../../src/ui/catalog/SubscriptionManagerModal", () => ({
 	SubscriptionManagerModal: class {
 		open = mockOpen;
 	},
@@ -151,6 +151,76 @@ describe("UiCommandService", () => {
 
 			expect(app.workspace.revealLeaf).toHaveBeenCalledWith(existingLeaf);
 			expect(app.workspace.getLeaf).not.toHaveBeenCalled();
+		});
+	});
+
+	describe("ui.openTrainHub", () => {
+		it("should open in main workspace when view not open", async () => {
+			await eventBus.emit("ui.openTrainHub", {});
+
+			expect(app.workspace.getLeaf).toHaveBeenCalledWith(true);
+			expect(app._mainLeaf.setViewState).toHaveBeenCalledWith({
+				type: "flowti-train-hub",
+				active: true,
+			});
+		});
+
+		it("should reveal existing leaf when view already open", async () => {
+			const existingLeaf = { view: {} };
+			app.workspace.getLeavesOfType.mockReturnValue([existingLeaf]);
+
+			await eventBus.emit("ui.openTrainHub", {});
+
+			expect(app.workspace.revealLeaf).toHaveBeenCalledWith(existingLeaf);
+			expect(app.workspace.getLeaf).not.toHaveBeenCalled();
+		});
+
+		it("should emit ui.opened with target trainHub", async () => {
+			const spy = vi.fn();
+			eventBus.on("ui.opened", spy);
+
+			await eventBus.emit("ui.openTrainHub", {});
+
+			expect(spy).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: expect.objectContaining({ target: "trainHub" }),
+				}),
+			);
+		});
+	});
+
+	describe("ui.openAnalyticsHub", () => {
+		it("should open in main workspace when view not open", async () => {
+			await eventBus.emit("ui.openAnalyticsHub", {});
+
+			expect(app.workspace.getLeaf).toHaveBeenCalledWith(true);
+			expect(app._mainLeaf.setViewState).toHaveBeenCalledWith({
+				type: "flowti-analytics-hub",
+				active: true,
+			});
+		});
+
+		it("should reveal existing leaf when view already open", async () => {
+			const existingLeaf = { view: {} };
+			app.workspace.getLeavesOfType.mockReturnValue([existingLeaf]);
+
+			await eventBus.emit("ui.openAnalyticsHub", {});
+
+			expect(app.workspace.revealLeaf).toHaveBeenCalledWith(existingLeaf);
+			expect(app.workspace.getLeaf).not.toHaveBeenCalled();
+		});
+
+		it("should emit ui.opened with target analyticsHub", async () => {
+			const spy = vi.fn();
+			eventBus.on("ui.opened", spy);
+
+			await eventBus.emit("ui.openAnalyticsHub", {});
+
+			expect(spy).toHaveBeenCalledWith(
+				expect.objectContaining({
+					payload: expect.objectContaining({ target: "analyticsHub" }),
+				}),
+			);
 		});
 	});
 

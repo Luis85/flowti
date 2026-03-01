@@ -10,7 +10,7 @@
 
 import { setIcon } from "obsidian";
 import type { UserHubComponentDeps } from "./types";
-import { attachFolderSuggest } from "../FolderSuggest";
+import { attachFolderSuggest } from "../shared/FolderSuggest";
 
 export class UserHubTrainPreferences {
 	constructor(

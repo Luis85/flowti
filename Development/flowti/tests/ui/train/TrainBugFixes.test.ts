@@ -166,28 +166,38 @@ describe("Bug A: train.started sets trainId via setTrainId", () => {
 
 // ── Bug C: MODAL_SESSION_TYPES filtering ────────────────
 
-describe("Bug C: MODAL_SESSION_TYPES excludes train-of-thought", () => {
+/** Mirrors production filter in UserHubView.ts */
+const MODAL_SESSION_TYPES = SESSION_TYPES.filter(
+	(st) => st.type !== "train-of-thought" && st.type !== "canvas-session",
+);
+
+describe("Bug C: MODAL_SESSION_TYPES excludes specialized types", () => {
 	it("SESSION_TYPES includes train-of-thought", () => {
 		const tot = SESSION_TYPES.find((st) => st.type === "train-of-thought");
 		expect(tot).toBeDefined();
 		expect(tot!.label).toBe("Train of Thought");
 	});
 
-	it("filtering SESSION_TYPES removes train-of-thought", () => {
-		const modalTypes = SESSION_TYPES.filter((st) => st.type !== "train-of-thought");
-		expect(modalTypes.find((st) => st.type === "train-of-thought")).toBeUndefined();
-		expect(modalTypes.length).toBe(SESSION_TYPES.length - 1);
+	it("SESSION_TYPES includes canvas-session", () => {
+		const cs = SESSION_TYPES.find((st) => st.type === "canvas-session");
+		expect(cs).toBeDefined();
+		expect(cs!.label).toBe("Canvas Session");
 	});
 
-	it("filtered list retains all other session types", () => {
-		const modalTypes = SESSION_TYPES.filter((st) => st.type !== "train-of-thought");
+	it("filtering SESSION_TYPES removes specialized types", () => {
+		expect(MODAL_SESSION_TYPES.find((st) => st.type === "train-of-thought")).toBeUndefined();
+		expect(MODAL_SESSION_TYPES.find((st) => st.type === "canvas-session")).toBeUndefined();
+		expect(MODAL_SESSION_TYPES.length).toBe(SESSION_TYPES.length - 2);
+	});
+
+	it("filtered list retains all standard session types", () => {
 		const expectedTypes = [
 			"documentation", "vault-hygiene", "event-storming",
 			"service-design", "domain-design", "requirements-refinement",
 			"backlog-structuring", "knowledge-cleanup",
 		];
 		for (const t of expectedTypes) {
-			expect(modalTypes.find((st) => st.type === t), `missing type: ${t}`).toBeDefined();
+			expect(MODAL_SESSION_TYPES.find((st) => st.type === t), `missing type: ${t}`).toBeDefined();
 		}
 	});
 });

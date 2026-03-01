@@ -17,4 +17,6 @@ export interface InboxEventMap {
 	"inbox.vaultFolder.noteDetected": { path: string; title: string };
 	/** Emitted when a vault folder inbox item is triaged (frontmatter applied, optionally routed) */
 	"inbox.vaultFolder.noteTriaged": { path: string; type: string; moved: boolean; targetPath?: string };
+	/** Emitted when a file is auto-routed to a target folder based on its type */
+	"inbox.file.routed": { sourcePath: string; targetPath: string; type: string };
 }

@@ -195,7 +195,8 @@ describe("UserHubPreferences", () => {
 			prefs.renderDetail();
 
 			const checkboxes = detailEl.querySelectorAll("input[type='checkbox']");
-			expect(checkboxes).toHaveLength(INBOX_SOURCE_DEFINITIONS.length);
+			// Source checkboxes (12) + auto-routing enable toggle (1)
+			expect(checkboxes).toHaveLength(INBOX_SOURCE_DEFINITIONS.length + 1);
 		});
 
 		it("should render source labels", () => {
@@ -210,10 +211,10 @@ describe("UserHubPreferences", () => {
 		it("should check enabled sources", () => {
 			prefs.renderDetail();
 
+			// Source checkboxes are all checked; routing toggle is unchecked (disabled by default)
 			const checkboxes = Array.from(detailEl.querySelectorAll("input[type='checkbox']")) as HTMLInputElement[];
-			for (const checkbox of checkboxes) {
-				expect(checkbox.checked).toBe(true);
-			}
+			const checkedSources = checkboxes.filter((c) => c.checked);
+			expect(checkedSources).toHaveLength(INBOX_SOURCE_DEFINITIONS.length);
 		});
 
 		it("should uncheck disabled sources", () => {

@@ -6,13 +6,13 @@
  */
 
 import { App, Modal, Notice, Setting, TFile, setIcon } from "obsidian";
-import { generateUUID } from "../utils/helpers";
-import { matchMergeKeyColumn, syncColumnMappings } from "../utils/csvUtils";
-import type { ImportService } from "../domain/dataExchange/ImportService";
-import type { ColumnMapping, MultiImportSource, SavedImportConfig } from "../domain/dataExchange/types";
-import { FilePickerModal } from "./FilePickerModal";
-import { ConfigChooserModal } from "./modals";
-import { basename } from "../utils/pathUtils";
+import { generateUUID } from "../../utils/helpers";
+import { matchMergeKeyColumn, syncColumnMappings } from "../../utils/csvUtils";
+import type { ImportService } from "../../domain/dataExchange/ImportService";
+import type { ColumnMapping, MultiImportSource, SavedImportConfig } from "../../domain/dataExchange/types";
+import { FilePickerModal } from "../shared/FilePickerModal";
+import { ConfigChooserModal } from "../modals";
+import { basename } from "../../utils/pathUtils";
 
 export interface PipelineSourceModalOptions {
 	app: App;

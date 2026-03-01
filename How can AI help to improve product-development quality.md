@@ -382,6 +382,7 @@ It is planned to migrate the Machine-Room into the Flowti IBDE Obsidian Plugin.
 
 ![[Pasted image 20260228174101.png]]
 
+![[Pasted image 20260301135831.png]]
 
 ## Conclusions
 
@@ -394,10 +395,14 @@ In conclusion, AI helps the single-developer producing a Product in acceptable q
 The need for traceability and ISO compliance of AI generated Content could fit well together. As of now, AI is very limited regarding it's context window and needs to be aligned during longer sessions. 
 Required documents and actions from compliance perspective help building a long-term memory in form of Markdown files. Those documents can be templated for the AI to use, helping strengthen compliance and make human reviews easier by transparent paths during state changes. Combining those with Obsidian Bases to act as way-points, helps guiding the AI to relevant content.
 
+I think that a quality product-development process should follow the SCRUM-Framework and adhere to a P-D-C-A Cycle during execution. A Team of 5, assisted by dedicated Agents, are able to ship faster and deliver ISO compliant outcomes. The Team of 5 should be: Product Owner, Scrum Master, UX-Designer, Software-Architect, Tester.
+Each of these roles augmented with a dedicated Agent, following a guided workflow, should be able to cut delivery time by 25%. Orchestrated by a Project-Manager, helping the them stay within boundaries.
+
 ## Further thinking
 
 - How can Markov-Chains help building a knowledge-graph and leverage good old statistics from that
 - How can we track and manage experiments with Flowti
+- How can we track and manage delivery-time of a software-project
 
 # Experiments
 

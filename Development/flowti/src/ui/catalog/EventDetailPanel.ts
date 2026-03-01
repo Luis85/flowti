@@ -9,7 +9,7 @@ import {
 	type EventCatalogEntry,
 } from "../../infrastructure/events/catalog";
 import { ConfirmModal } from "../modals";
-import { EventConfigModal } from "../EventConfigModal";
+import { EventConfigModal } from "../eventConfig/EventConfigModal";
 import type { Subscription } from "../../domain/subscription/types";
 import type { EventDefinition } from "../../domain/eventDefinition/types";
 import type { CatalogComponentDeps } from "./types";

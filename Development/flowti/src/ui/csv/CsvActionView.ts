@@ -6,12 +6,12 @@
  */
 
 import { Notice, TFile, TextFileView, WorkspaceLeaf, setIcon } from "obsidian";
-import type { IEventBus } from "../infrastructure/events/types";
-import type { DataExchangeService } from "../domain/dataExchange/DataExchangeService";
-import type { SavedImportConfig } from "../domain/dataExchange/types";
-import { FolderPickerModal, getVaultFolders } from "./FolderPickerModal";
-import { ConfirmModal, ConfigChooserModal, InputModal } from "./modals";
-import { renderStepBar, renderConfigDropdown } from "./hub/helpers";
+import type { IEventBus } from "../../infrastructure/events/types";
+import type { DataExchangeService } from "../../domain/dataExchange/DataExchangeService";
+import type { SavedImportConfig } from "../../domain/dataExchange/types";
+import { FolderPickerModal, getVaultFolders } from "../shared/FolderPickerModal";
+import { ConfirmModal, ConfigChooserModal, InputModal } from "../modals";
+import { renderStepBar, renderConfigDropdown } from "../hub/helpers";
 import {
 	CsvLanding,
 	CsvConfigPage,
@@ -21,9 +21,9 @@ import {
 	detectDelimiter,
 	generateBaseYaml,
 	getBaseFilename,
-} from "./csv";
-import type { CsvViewState, CsvComponentDeps, CsvPage } from "./csv";
-import { basename } from "../utils/pathUtils";
+} from ".";
+import type { CsvViewState, CsvComponentDeps, CsvPage } from ".";
+import { basename } from "../../utils/pathUtils";
 
 export const VIEW_TYPE_CSV = "flowti-csv";
 
@@ -32,7 +32,7 @@ export class CsvActionView extends TextFileView {
 	private dataExchangeService: DataExchangeService;
 	private autoStartImport: boolean;
 	private openHubImportConfigCb: ((configId: string) => void) | null = null;
-	private getQueriesBySourceCb: ((csvPath: string) => import("../domain/analytics/types").SavedAnalyticsQuery[]) | null = null;
+	private getQueriesBySourceCb: ((csvPath: string) => import("../../domain/analytics/types").SavedAnalyticsQuery[]) | null = null;
 	private openAnalyticsHubCb: ((tabId: string, entityId: string) => void) | null = null;
 	private unsubscribes: (() => void)[] = [];
 	private unsavedHintEl: HTMLElement | null = null;
@@ -108,7 +108,7 @@ export class CsvActionView extends TextFileView {
 	}
 
 	/** Sets the callback for discovering analytics queries by source path. */
-	setGetQueriesBySource(cb: (csvPath: string) => import("../domain/analytics/types").SavedAnalyticsQuery[]): void {
+	setGetQueriesBySource(cb: (csvPath: string) => import("../../domain/analytics/types").SavedAnalyticsQuery[]): void {
 		this.getQueriesBySourceCb = cb;
 	}
 

@@ -37,12 +37,16 @@ if (journeyArg) {
 	console.log(`[e2e] Journey filter: ${process.env.E2E_JOURNEY}`);
 }
 
-// When installer is explicitly requested, force a fresh install
-// (override the default skip-when-installed behavior)
+// When installer or prerequisites are explicitly requested, force a fresh run
+// (override the default skip-when-passed behavior)
 const journeys = (process.env.E2E_JOURNEY ?? "").split(",").map((j) => j.trim());
 if (journeys.includes("installer")) {
 	process.env.E2E_RUN_INSTALLER = "true";
 	console.log("[e2e] Installer forced (explicitly requested).");
+}
+if (journeys.includes("prerequisites")) {
+	process.env.E2E_RUN_PREREQUISITES = "true";
+	console.log("[e2e] Prerequisites forced (explicitly requested).");
 }
 
 let exitCode = 0;
@@ -81,7 +85,7 @@ if (reportVaultPath) {
 	try {
 		execSync(
 			`obsidian vault=${VAULT_NAME} open path="${reportVaultPath}"`,
-			{ stdio: "inherit" },
+			{ stdio: "pipe" },
 		);
 	} catch {
 		// Opening the report is best-effort
@@ -91,8 +95,8 @@ if (reportVaultPath) {
 	// structure is immediately visible alongside the content.
 	try {
 		execSync(
-			`obsidian vault=${VAULT_NAME} eval "(() => { const leaf = app.workspace.getRightLeaf(false); if (leaf) leaf.setViewState({ type: 'outline', active: true }); })()"`,
-			{ stdio: "inherit" },
+			`obsidian vault=${VAULT_NAME} eval code="(() => { const leaf = app.workspace.getRightLeaf(false); if (leaf) leaf.setViewState({ type: 'outline', active: true }); })()"`,
+			{ stdio: "pipe" },
 		);
 	} catch {
 		// Outline opening is best-effort

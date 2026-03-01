@@ -17,41 +17,41 @@
 
 import { ItemView, Notice, setIcon } from "obsidian";
 import type { WorkspaceLeaf } from "obsidian";
-import type { IEventBus } from "../infrastructure/events/types";
-import type { SessionService } from "../domain/session/SessionService";
-import type { Session } from "../domain/session/types";
-import { generateSessionSummary } from "../domain/session/helpers";
-import { SESSION_TYPE_LABELS, SESSION_STATUS_LABELS } from "./userHub/types";
-import type { SessionPanelDeps } from "./session/types";
-import { SessionTimerPanel } from "./session/SessionTimerPanel";
-import { SessionGoalsPanel } from "./session/SessionGoalsPanel";
-import { SessionExecutionPanel } from "./session/SessionExecutionPanel";
-import { SessionNotesPanel } from "./session/SessionNotesPanel";
-import { SessionContextPanel } from "./session/SessionContextPanel";
-import { SessionActivityPanel } from "./session/SessionActivityPanel";
-import { SessionGuidingQuestions } from "./session/SessionGuidingQuestions";
-import { SessionDecisionPanel } from "./session/SessionDecisionPanel";
-import { SessionReflectionPanel } from "./session/SessionReflectionPanel";
-import { SessionOutputPanel } from "./session/SessionOutputPanel";
-import { type ClosureTemplate, type SessionTypeConfig, type SessionOutputTemplate, SESSION_TYPE_CONFIGS } from "../domain/session/types";
-import { SessionClosureOverlay } from "./session/SessionClosureOverlay";
-import { TrainClosurePanel } from "./session/TrainClosurePanel";
-import { SessionEnergyIndicator } from "./session/SessionEnergyIndicator";
-import { CognitiveLoadAlert } from "./session/CognitiveLoadAlert";
-import { SessionActivityIntelligencePanel } from "./session/SessionActivityIntelligencePanel";
-import { resolveClosureTemplate } from "../domain/session/helpers";
-import { setupEventSubscriptions } from "./session/SessionWorkspaceSubscriptions";
-import type { SubscriptionViewContext } from "./session/SessionWorkspaceSubscriptions";
+import type { IEventBus } from "../../infrastructure/events/types";
+import type { SessionService } from "../../domain/session/SessionService";
+import type { Session } from "../../domain/session/types";
+import { generateSessionSummary } from "../../domain/session/helpers";
+import { SESSION_TYPE_LABELS, SESSION_STATUS_LABELS } from "../userHub/types";
+import type { SessionPanelDeps } from "./types";
+import { SessionTimerPanel } from "./SessionTimerPanel";
+import { SessionGoalsPanel } from "./SessionGoalsPanel";
+import { SessionExecutionPanel } from "./SessionExecutionPanel";
+import { SessionNotesPanel } from "./SessionNotesPanel";
+import { SessionContextPanel } from "./SessionContextPanel";
+import { SessionActivityPanel } from "./SessionActivityPanel";
+import { SessionGuidingQuestions } from "./SessionGuidingQuestions";
+import { SessionDecisionPanel } from "./SessionDecisionPanel";
+import { SessionReflectionPanel } from "./SessionReflectionPanel";
+import { SessionOutputPanel } from "./SessionOutputPanel";
+import { type ClosureTemplate, type SessionTypeConfig, type SessionOutputTemplate, SESSION_TYPE_CONFIGS } from "../../domain/session/types";
+import { SessionClosureOverlay } from "./SessionClosureOverlay";
+import { TrainClosurePanel } from "./TrainClosurePanel";
+import { SessionEnergyIndicator } from "./SessionEnergyIndicator";
+import { CognitiveLoadAlert } from "./CognitiveLoadAlert";
+import { SessionActivityIntelligencePanel } from "./SessionActivityIntelligencePanel";
+import { resolveClosureTemplate } from "../../domain/session/helpers";
+import { setupEventSubscriptions } from "./SessionWorkspaceSubscriptions";
+import type { SubscriptionViewContext } from "./SessionWorkspaceSubscriptions";
 import {
 	getStatusClass, captureWorkspaceState, restoreWorkspaceState,
 	openOutputPicker, openSaveTemplateModal, openInTab, openInSidebar,
 	revealInFileExplorer, openInAdjacentLeaf,
-} from "./session/SessionWorkspaceHelpers";
-import type { WorkspaceHelperContext } from "./session/SessionWorkspaceHelpers";
+} from "./SessionWorkspaceHelpers";
+import type { WorkspaceHelperContext } from "./SessionWorkspaceHelpers";
 
 // Re-export for backward compat (canonical location: session/types.ts)
-export { VIEW_TYPE_SESSION_WORKSPACE } from "./session/types";
-import { VIEW_TYPE_SESSION_WORKSPACE } from "./session/types";
+export { VIEW_TYPE_SESSION_WORKSPACE } from "./types";
+import { VIEW_TYPE_SESSION_WORKSPACE } from "./types";
 
 export class SessionWorkspaceView extends ItemView {
 	private eventBus: IEventBus;
@@ -80,7 +80,7 @@ export class SessionWorkspaceView extends ItemView {
 	/** Custom session type configs injected from main.ts (synced from SessionService). */
 	customSessionTypes: Record<string, SessionTypeConfig> = {};
 	/** Optional TrainService — used to show train context in closure overlay. */
-	trainService?: import("../domain/train/TrainService").TrainService;
+	trainService?: import("../../domain/train/TrainService").TrainService;
 	/** Custom output templates injected from settings. */
 	customOutputTemplates: readonly SessionOutputTemplate[] = [];
 

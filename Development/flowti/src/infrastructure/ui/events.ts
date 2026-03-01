@@ -80,6 +80,9 @@ export interface UiCommandEventMap {
 	/** Open the Train Hub view (or reveal if already open) */
 	"ui.openTrainHub": Record<string, never>;
 
+	/** Start a guided canvas session (opens template picker → canvas + sidebar) */
+	"ui.startCanvasSession": Record<string, never>;
+
 	/** Open the Analytics Hub view (or reveal if already open) */
 	"ui.openAnalyticsHub": Record<string, never>;
 

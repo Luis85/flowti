@@ -7,7 +7,7 @@ import { Notice, TFile, setIcon } from "obsidian";
 import type { SavedMultiImportPipeline } from "../../../domain/dataExchange/types";
 import { basename } from "../../../utils/pathUtils";
 import { ConfigChooserModal, ConfirmModal } from "../../modals";
-import { PipelineSourceModal } from "../../PipelineSourceModal";
+import { PipelineSourceModal } from "../PipelineSourceModal";
 import { addInfoRow } from "../helpers";
 import type { PipelineComponentDeps } from "./types";
 

@@ -9,8 +9,8 @@
  */
 
 import { Notice } from "obsidian";
-import type { NudgeConfig } from "../domain/nudge/types";
-import type { IEventBus } from "../infrastructure/events/types";
+import type { NudgeConfig } from "../../domain/nudge/types";
+import type { IEventBus } from "../../infrastructure/events/types";
 
 const NOTICE_TIMEOUT_MS = 30_000;
 

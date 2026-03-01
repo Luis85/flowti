@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import "../mocks/obsidian-stub";
 import { describe, it, expect, vi } from "vitest";
-import { buildNudgeNotificationFragment } from "../../src/ui/NudgeNotification";
+import { buildNudgeNotificationFragment } from "../../src/ui/shared/NudgeNotification";
 import type { NudgeConfig } from "../../src/domain/nudge/types";
 import type { IEventBus } from "../../src/infrastructure/events/types";
 

@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile, TFolder } from "obsidian";
+import { Notice, Plugin, TFile, TFolder, type ViewCreator } from "obsidian";
 import { registerCommands } from "./infrastructure/commands/registry";
 import type { CommandContext, ICommandRegistry } from "./infrastructure/commands/types";
 import { LifecycleError } from "./infrastructure/errors/FlowtiError";
@@ -26,6 +26,7 @@ import type { InboxService } from "./domain/inbox/InboxService";
 import { FileSystemClient } from "./infrastructure/filesystem/FileSystemClient";
 import type { NudgeService } from "./domain/nudge/NudgeService";
 import type { SessionService } from "./domain/session/SessionService";
+import { SESSION_NOTES_FOLDER } from "./domain/session/types";
 import type { SignalService } from "./domain/signal/SignalService";
 import type { IngestionService } from "./domain/ingestion/IngestionService";
 import type { CaptureService } from "./domain/capture/CaptureService";
@@ -44,13 +45,13 @@ import { resolveCaptureConfig } from "./domain/capture/resolveCaptureConfig";
 import { TrainCaptureModal } from "./ui/train/TrainCaptureModal";
 import { registerViews } from "./infrastructure/views/registry";
 import type { IViewRegistry } from "./infrastructure/views/types";
-import { IngestionStatusBar } from "./ui/IngestionStatusBar";
+import { IngestionStatusBar } from "./ui/shared/IngestionStatusBar";
 import { DataExchangeService } from "./domain/dataExchange/DataExchangeService";
-import { DataExchangeSetup } from "./dataExchangeSetup";
-import { SessionSetup } from "./sessionSetup";
+import { DataExchangeSetup } from "./bootstrap/dataExchangeSetup";
+import { SessionSetup } from "./bootstrap/sessionSetup";
 import { UiCommandService } from "./infrastructure/ui/UiCommandService";
 import { InputModal } from "./ui/modals";
-import { createInfrastructure, setupCrossCuttingListeners } from "./pluginBootstrap";
+import { createInfrastructure, setupCrossCuttingListeners } from "./bootstrap/pluginBootstrap";
 import { createSecretStore } from "./utils/SecretStore";
 import { HubRegistry } from "./domain/hub/HubRegistry";
 import { EventCatalogProvider } from "./domain/hub/EventCatalogProvider";
@@ -58,15 +59,17 @@ import { DataExchangeProvider } from "./domain/hub/DataExchangeProvider";
 import { AnalyticsHubProvider } from "./domain/hub/AnalyticsHubProvider";
 import { UserHubProvider } from "./domain/hub/UserHubProvider";
 import { TrainHubProvider } from "./domain/hub/TrainHubProvider";
-import { UserHubView, VIEW_TYPE_USER_HUB } from "./ui/UserHubView";
-import { SessionWorkspaceView, VIEW_TYPE_SESSION_WORKSPACE } from "./ui/SessionWorkspaceView";
+import { UserHubView, VIEW_TYPE_USER_HUB } from "./ui/userHub/UserHubView";
+import { SessionWorkspaceView, VIEW_TYPE_SESSION_WORKSPACE } from "./ui/session/SessionWorkspaceView";
 import { TrainMainView, VIEW_TYPE_TRAIN_MAIN } from "./ui/train/TrainMainView";
 import { TrainTimelineSidebar, VIEW_TYPE_TRAIN_TIMELINE } from "./ui/train/TrainTimelineSidebar";
 import { TrainHubView, VIEW_TYPE_TRAIN_HUB } from "./ui/train/TrainHubView";
-import { AnalyticsHubView, VIEW_TYPE_ANALYTICS_HUB } from "./ui/AnalyticsHubView";
+import { AnalyticsHubView, VIEW_TYPE_ANALYTICS_HUB } from "./ui/analytics/AnalyticsHubView";
 import { TrainResumeModal } from "./ui/train/TrainResumeModal";
 import { TrainTypePickerModal } from "./ui/train/TrainTypePickerModal";
-import { showNudgeNotification } from "./ui/NudgeNotification";
+import { CanvasTemplatePickerModal } from "./ui/canvas/CanvasTemplatePickerModal";
+import { CanvasSessionService } from "./domain/canvas/session/CanvasSessionService";
+import { showNudgeNotification } from "./ui/shared/NudgeNotification";
 import { openStartPage } from "./infrastructure/StartpageHandler";
 import { computeRemainingMs } from "./domain/session/helpers";
 
@@ -128,6 +131,7 @@ export default class FlowtiBasePlugin extends Plugin {
 	private captureService?: CaptureService;
 	private trainService?: TrainService;
 	private canvasService?: CanvasService;
+	private canvasSessionService?: CanvasSessionService;
 	private analyticsService?: AnalyticsService;
 	private onboardingService?: OnboardingService;
 	private perfAggregator?: PerfAggregator;
@@ -231,21 +235,6 @@ export default class FlowtiBasePlugin extends Plugin {
 			this.bindViews();
 			this.bindCommands();
 
-			// Conditional command — only visible when a train is active/paused
-			this.addCommand({
-				id: "flowti:view-train",
-				name: "View train of thoughts",
-				icon: "train-front",
-				checkCallback: (checking) => {
-					const active = this.trainService?.getActiveTrain();
-					if (!active) return false;
-					if (!checking) {
-						void this.eventBus.emit("ui.openTrainView", {});
-					}
-					return true;
-				},
-			});
-
 			// UI command service — central handler for all ui.* events
 			this.uiCommandService = new UiCommandService({
 				app: this.app,
@@ -299,6 +288,9 @@ export default class FlowtiBasePlugin extends Plugin {
 					return;
 				}
 				void this.eventBus.emit("ui.startTrain", {});
+			});
+			this.addRibbonIcon("layout-template", "Start canvas session", () => {
+				void this.eventBus.emit("ui.startCanvasSession", {});
 			});
 
 			// Quick Capture modal listener
@@ -414,6 +406,34 @@ export default class FlowtiBasePlugin extends Plugin {
 				}).open();
 			});
 
+			// Canvas session listener
+			this.eventBus.on("ui.startCanvasSession", () => {
+				new CanvasTemplatePickerModal(this.app, {
+					onSelect: (template) => {
+						if (!this.canvasSessionService) return;
+						new InputModal(this.app, {
+							title: `Canvas session: ${template.name}`,
+							inputName: "Session goal",
+							inputDesc: "",
+							placeholder: "What do you want to achieve?",
+							submitLabel: "Start",
+							onSubmit: (goal) => {
+								void this.canvasSessionService!.startSession({
+									templateId: template.id,
+									goal,
+									durationMinutes: 25,
+								}).then((result) => {
+									new Notice(`Canvas session started — ${template.name}`);
+									void this.app.workspace.openLinkText(result.canvasPath, "", false);
+								}).catch((err: Error) => {
+									new Notice(`Failed to start canvas session: ${err.message}`);
+								});
+							},
+						}).open();
+					},
+				}).open();
+			});
+
 			// Status bar
 			const statusBarEl = this.addStatusBarItem();
 			this.ingestionStatusBar = new IngestionStatusBar(statusBarEl, this.eventBus);
@@ -467,6 +487,18 @@ export default class FlowtiBasePlugin extends Plugin {
 		safeDispose("plugin.unloading", () =>
 			void this.eventBus?.emit("plugin.unloading", { timestamp: new Date().toISOString() }),
 		);
+
+		// Detach all Flowti view leaves to prevent stale views during hot-reload
+		const viewTypes = [
+			"flowti-event-catalog", "flowti-event-log", "flowti-component-showcase",
+			"flowti-data-exchange-hub", "flowti-user-hub",
+			"flowti-train-main", "flowti-train-timeline", "flowti-train-hub",
+			"flowti-analytics-hub", "flowti-session-workspace",
+			"flowti-csv", "flowti-export", "flowti-canvas-import",
+		];
+		for (const type of viewTypes) {
+			safeDispose(`detach:${type}`, () => this.app.workspace.detachLeavesOfType(type));
+		}
 		safeDispose("canvasService", () => this.canvasService?.dispose());
 		safeDispose("signalService", () => this.signalService?.dispose());
 		safeDispose("nudgeService", () => this.nudgeService?.dispose());
@@ -568,20 +600,49 @@ export default class FlowtiBasePlugin extends Plugin {
 	/**
 	 * Binds all registered commands to Obsidian's command palette.
 	 * Each command is wrapped to execute through the middleware pipeline.
+	 *
+	 * Commands with state preconditions use `checkCallback` so they
+	 * only appear in the command palette when applicable.
 	 */
 	private bindCommands(): void {
 		const ctx = this.createCommandContext();
 
+		/** Commands that require an active/paused train. */
+		const trainPreconditions: Record<string, (train: { status: string }) => boolean> = {
+			"flowti:resume-train": (t) => t.status === "paused",
+			"flowti:complete-train": (t) => t.status === "running",
+			"flowti:view-train": () => true,
+			"flowti:open-train-canvas": () => true,
+			"flowti:open-train-timeline": () => true,
+		};
+
 		for (const command of this.commands.getCommands()) {
-			this.addCommand({
-				id: command.id,
-				name: command.name,
-				icon: command.icon,
-				mobileOnly: command.mobileOnly,
-				callback: () => {
-					void this.commands.execute(command.id, ctx);
-				},
-			});
+			const trainCheck = trainPreconditions[command.id];
+
+			if (trainCheck) {
+				this.addCommand({
+					id: command.id,
+					name: command.name,
+					icon: command.icon,
+					mobileOnly: command.mobileOnly,
+					checkCallback: (checking) => {
+						const train = this.trainService?.getActiveTrain();
+						if (!train || !trainCheck(train)) return false;
+						if (!checking) void this.commands.execute(command.id, ctx);
+						return true;
+					},
+				});
+			} else {
+				this.addCommand({
+					id: command.id,
+					name: command.name,
+					icon: command.icon,
+					mobileOnly: command.mobileOnly,
+					callback: () => {
+						void this.commands.execute(command.id, ctx);
+					},
+				});
+			}
 		}
 
 		// Listen for execute requests from the Command Catalog UI
@@ -602,11 +663,28 @@ export default class FlowtiBasePlugin extends Plugin {
 	}
 
 	/**
+	 * Registers a view type, tolerating "already registered" errors
+	 * that occur during dev hot-reload when Obsidian doesn't fully
+	 * deregister view types from the previous load.
+	 */
+	private safeRegisterView(type: string, factory: ViewCreator): void {
+		try {
+			this.registerView(type, factory);
+		} catch (err) {
+			if (err instanceof Error && err.message.includes("existing view type")) {
+				this.logger?.debug(`View "${type}" already registered (hot-reload)`);
+			} else {
+				throw err;
+			}
+		}
+	}
+
+	/**
 	 * Bind registered views to Obsidian.
 	 */
 	private bindViews(): void {
 		for (const view of this.views.getViews()) {
-			this.registerView(view.type, view.factory);
+			this.safeRegisterView(view.type, view.factory);
 		}
 	}
 
@@ -654,10 +732,9 @@ export default class FlowtiBasePlugin extends Plugin {
 			});
 
 		} catch (error) {
-			this.errorService.handle(
-				error instanceof Error ? error : new Error(String(error)),
-				"onLayoutReady"
-			);
+			const err = error instanceof Error ? error : new Error(String(error));
+			this.errorService.handle(err, "onLayoutReady");
+			new Notice(`Flowti startup error: ${err.message}`);
 		}
 	}
 
@@ -833,6 +910,15 @@ export default class FlowtiBasePlugin extends Plugin {
 		await this.timedServiceLoad("canvasService", () => this.canvasService!.load());
 		this.dataExchangeService!.setCanvasService(this.canvasService);
 
+		// Canvas Session Service — guided canvas session orchestration
+		const canvasSessionFs = new FileSystemClient({ eventBus: this.eventBus });
+		this.canvasSessionService = new CanvasSessionService({
+			eventBus: this.eventBus,
+			fileSystem: canvasSessionFs,
+			sessionFolder: SESSION_NOTES_FOLDER,
+		});
+		this.register(() => this.canvasSessionService?.dispose());
+
 		// Analytics Service — in-memory CSV analytics engine
 		this.analyticsService = await this.services.get<AnalyticsService>("analyticsService");
 		await this.timedServiceLoad("analyticsService", () => this.analyticsService!.load());
@@ -866,7 +952,7 @@ export default class FlowtiBasePlugin extends Plugin {
 		await this.timedServiceLoad("onboardingService", () => this.onboardingService!.load());
 
 		// Train Main View — register view factory + auto-open on train start
-		this.registerView(VIEW_TYPE_TRAIN_MAIN, (leaf) =>
+		this.safeRegisterView(VIEW_TYPE_TRAIN_MAIN, (leaf) =>
 			new TrainMainView(leaf, this.eventBus, this.trainService!, () => ({
 				trainFolder: settingsService.getSettings().trainFolder,
 				trainCanvasEnabled: settingsService.getSettings().trainCanvasEnabled,
@@ -883,7 +969,7 @@ export default class FlowtiBasePlugin extends Plugin {
 		);
 
 		// Train Timeline Sidebar — register view factory + auto-open in right sidebar
-		this.registerView(VIEW_TYPE_TRAIN_TIMELINE, (leaf) =>
+		this.safeRegisterView(VIEW_TYPE_TRAIN_TIMELINE, (leaf) =>
 			new TrainTimelineSidebar(leaf, this.eventBus, this.trainService!, () => ({
 				trainFolder: settingsService.getSettings().trainFolder,
 				trainCanvasEnabled: settingsService.getSettings().trainCanvasEnabled,
@@ -892,45 +978,15 @@ export default class FlowtiBasePlugin extends Plugin {
 		);
 
 		// Train Hub — central management view for all trains
-		this.registerView(VIEW_TYPE_TRAIN_HUB, (leaf) =>
+		this.safeRegisterView(VIEW_TYPE_TRAIN_HUB, (leaf) =>
 			new TrainHubView(leaf, this.eventBus, this.trainService!, (trainId) => {
 				this.revealOrCreateTrainView(trainId);
 			}, this.onboardingService!),
 		);
 
-		// Open Train Hub on command
-		this.crossCuttingListeners.push(
-			this.eventBus.on("ui.openTrainHub", () => {
-				const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_TRAIN_HUB);
-				if (existing.length > 0) {
-					void this.app.workspace.revealLeaf(existing[0]);
-					return;
-				}
-				void this.app.workspace.getLeaf("tab").setViewState({
-					type: VIEW_TYPE_TRAIN_HUB,
-					active: true,
-				});
-			}),
-		);
-
 		// Analytics Hub — dedicated analytics view
-		this.registerView(VIEW_TYPE_ANALYTICS_HUB, (leaf) =>
+		this.safeRegisterView(VIEW_TYPE_ANALYTICS_HUB, (leaf) =>
 			new AnalyticsHubView(leaf, this.eventBus, this.analyticsService!, this.onboardingService!),
-		);
-
-		// Open Analytics Hub on command
-		this.crossCuttingListeners.push(
-			this.eventBus.on("ui.openAnalyticsHub", () => {
-				const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_ANALYTICS_HUB);
-				if (existing.length > 0) {
-					void this.app.workspace.revealLeaf(existing[0]);
-					return;
-				}
-				void this.app.workspace.getLeaf("tab").setViewState({
-					type: VIEW_TYPE_ANALYTICS_HUB,
-					active: true,
-				});
-			}),
 		);
 
 		// Seed supplier dashboard and init onboarding after first-run install
@@ -956,10 +1012,13 @@ export default class FlowtiBasePlugin extends Plugin {
 		);
 
 		// Auto-open canvas when created (if trainCanvasAutoOpen is enabled)
+		// Delay 500ms to allow metadataCache to settle before Advanced Canvas parses the file.
 		this.crossCuttingListeners.push(
 			this.eventBus.on("train.canvas.created", (event) => {
 				if (settingsService.getSettings().trainCanvasAutoOpen) {
-					void this.app.workspace.openLinkText(event.payload.canvasPath, "", false);
+					setTimeout(() => {
+						void this.app.workspace.openLinkText(event.payload.canvasPath, "", false);
+					}, 500);
 				}
 			}),
 		);
@@ -1135,8 +1194,10 @@ export default class FlowtiBasePlugin extends Plugin {
 				const { session } = event.payload;
 				this.sessionService!.workspaceSessionId = session.id;
 
-				// Train sessions use the Train Main View, not Session Workspace
+				// Train sessions use the Train Main View, not Session Workspace.
+				// Canvas sessions open the canvas file directly.
 				if (session.type === "train-of-thought") return;
+				if (session.type === "canvas-session") return;
 
 				const existingLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_SESSION_WORKSPACE);
 				if (existingLeaves.length > 0) {
@@ -1155,6 +1216,15 @@ export default class FlowtiBasePlugin extends Plugin {
 						void this.app.workspace.openLinkText(session.focusFile, "", "split");
 					}
 				});
+			}),
+		);
+
+		// Auto-open canvas file when a canvas session is resumed
+		this.crossCuttingListeners.push(
+			this.eventBus.on("session.resumed", (event) => {
+				const { session } = event.payload;
+				if (session.type !== "canvas-session" || !session.canvasFile) return;
+				void this.app.workspace.openLinkText(session.canvasFile, "", false);
 			}),
 		);
 
@@ -1422,7 +1492,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			onboardingService: this.onboardingService!,
 			hubRegistry: this.hubRegistry,
 			docsRootPath: settingsService.getSettings().docsRootPath,
-			registerView: (type, factory) => this.registerView(type, factory),
+			registerView: (type, factory) => this.safeRegisterView(type, factory),
 			registerExtensions: (exts, type) => { try { this.registerExtensions(exts, type); } catch { /* may already be registered */ } },
 			registerEvent: (ref) => this.registerEvent(ref),
 			addCommand: (cmd) => this.addCommand(cmd),
@@ -1460,7 +1530,7 @@ export default class FlowtiBasePlugin extends Plugin {
 		this.hubRegistry.register(new AnalyticsHubProvider(this.analyticsService!));
 		this.hubRegistry.register(new TrainHubProvider(this.trainService!));
 
-		this.registerView(VIEW_TYPE_USER_HUB, (leaf) =>
+		this.safeRegisterView(VIEW_TYPE_USER_HUB, (leaf) =>
 			new UserHubView(leaf, this.eventBus, this.userService, this.hubRegistry!, this.inboxService!, this.sessionService!, this.nudgeService!, this.onboardingService!, this.settings.inboxEnabledSources, this.settings, this.trainService, this.commands),
 		);
 		this.hubRegistry.register(new UserHubProvider(this.userService, this.inboxService!));
@@ -1472,7 +1542,7 @@ export default class FlowtiBasePlugin extends Plugin {
 			errorService: this.errorService,
 			sessionService: this.sessionService!,
 			trainService: this.trainService,
-			registerView: (type, factory) => this.registerView(type, factory),
+			registerView: (type, factory) => this.safeRegisterView(type, factory),
 			registerEvent: (ref) => this.registerEvent(ref),
 			addCommand: (cmd) => this.addCommand(cmd),
 		});

@@ -6,19 +6,19 @@
  */
 
 import { type WorkspaceLeaf, setIcon } from "obsidian";
-import type { IEventBus } from "../infrastructure/events/types";
-import type { AnalyticsService } from "../domain/analytics/AnalyticsService";
-import type { OnboardingService } from "../domain/onboarding/OnboardingService";
-import { VIEW_TYPE_ANALYTICS_HUB } from "../domain/hub/types";
-import { BaseHubView, type TabDef } from "./BaseHubView";
-import { QueriesTab } from "./analytics/QueriesTab";
-import { DashboardsTab } from "./analytics/DashboardsTab";
-import { MeasurementsTab } from "./analytics/MeasurementsTab";
-import { AnalyticsDashboardPage } from "./analytics/AnalyticsDashboardPage";
-import { TileResultCache } from "./analytics/TileResultCache";
-import { DashboardNameModal } from "./analytics/DashboardNameModal";
-import { NewQueryModal } from "./analytics/NewQueryModal";
-import type { AnalyticsHubPage, AnalyticsHubState, AnalyticsCsvEntry, AnalyticsBaseEntry, AnalyticsFolderEntry, AnalyticsHubDeps, AnalyticsNavigationCallbacks } from "./analytics/types";
+import type { IEventBus } from "../../infrastructure/events/types";
+import type { AnalyticsService } from "../../domain/analytics/AnalyticsService";
+import type { OnboardingService } from "../../domain/onboarding/OnboardingService";
+import { VIEW_TYPE_ANALYTICS_HUB } from "../../domain/hub/types";
+import { BaseHubView, type TabDef } from "../BaseHubView";
+import { QueriesTab } from "./QueriesTab";
+import { DashboardsTab } from "./DashboardsTab";
+import { MeasurementsTab } from "./MeasurementsTab";
+import { AnalyticsDashboardPage } from "./AnalyticsDashboardPage";
+import { TileResultCache } from "./TileResultCache";
+import { DashboardNameModal } from "./DashboardNameModal";
+import { NewQueryModal } from "./NewQueryModal";
+import type { AnalyticsHubPage, AnalyticsHubState, AnalyticsCsvEntry, AnalyticsBaseEntry, AnalyticsFolderEntry, AnalyticsHubDeps, AnalyticsNavigationCallbacks } from "./types";
 export { VIEW_TYPE_ANALYTICS_HUB };
 
 export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
@@ -36,9 +36,9 @@ export class AnalyticsHubView extends BaseHubView<AnalyticsHubPage> {
 	private selectedDashboardId: string | null = null;
 	private selectedMeasurementId: string | null = null;
 	private homepageDashboardId: string | null = null;
-	private dashboardFilters: import("./analytics/types").DashboardFilter[] = [];
-	private dateRangeFilter: import("../domain/analytics/types").DateRangeFilter | null = null;
-	private crossTileFilter: import("../domain/analytics/types").CrossTileFilter | null = null;
+	private dashboardFilters: import("./types").DashboardFilter[] = [];
+	private dateRangeFilter: import("../../domain/analytics/types").DateRangeFilter | null = null;
+	private crossTileFilter: import("../../domain/analytics/types").CrossTileFilter | null = null;
 	private pendingSourcePath: string | null = null;
 	private pendingEntityId: string | null = null;
 	private pendingNewQuery: AnalyticsHubState["pendingNewQuery"] = undefined;

@@ -247,6 +247,28 @@ export function shouldRunInstaller(vaultDir: string): boolean {
 	return !isVaultInstalled(vaultDir);
 }
 
+/**
+ * Whether the prerequisites test should run this session.
+ * Default: skip if a previous run passed (anchor file exists with passed: true).
+ * Set `E2E_RUN_PREREQUISITES=true` to force the prerequisites test.
+ */
+export function shouldRunPrerequisites(vaultDir: string): boolean {
+	if (process.env.E2E_RUN_PREREQUISITES === "true") return true;
+
+	const anchorPath = path.join(
+		vaultDir, "03 - Resources", "Tested Journeys", "Prerequisites", "Prerequisites-anchor.md",
+	);
+	if (!fs.existsSync(anchorPath)) return true;
+
+	try {
+		const content = fs.readFileSync(anchorPath, "utf-8");
+		const match = content.match(/^passed:\s*(true|false)/m);
+		return !(match && match[1] === "true");
+	} catch {
+		return true;
+	}
+}
+
 // ── EventBus trace helpers ──────────────────────────────────
 
 export interface TraceEntry {

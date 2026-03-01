@@ -23,6 +23,10 @@
  *
  * Sets `window._e2ePrerequisitesPassed = true` for downstream test files.
  *
+ * Skip mode: When a previous run passed (anchor file exists with passed: true),
+ * the full suite is skipped and only the gate flags are set. Force re-run
+ * with E2E_RUN_PREREQUISITES=true or --journey=prerequisites.
+ *
  * Run with: npm run test:e2e
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -31,8 +35,10 @@ import * as path from "node:path";
 import { ObsidianCli } from "../../src/infrastructure/cli/ObsidianCli";
 import {
 	createFixture,
+	ensurePluginEnabled,
 	startEventTrace,
 	shouldRunInstaller,
+	shouldRunPrerequisites,
 	vaultDelete,
 	INSTALLER_SEED_FILES,
 	PLUGIN_ID,
@@ -43,11 +49,74 @@ import type { TestFixture } from "./helpers/fixtures";
 
 const JOURNEY_NAME = "Prerequisites";
 
-describe("Chapter 1: Prerequisites", () => {
+// ── Skip mode detection (before any describe block) ──────────
+
+const _tempFixture = createFixture(process.env.OBSIDIAN_VAULT);
+const skipPrerequisites = !shouldRunPrerequisites(_tempFixture.vault.vaultDir);
+
+if (skipPrerequisites) {
+	console.log("[e2e] Prerequisites skipped (previous run passed). Force with E2E_RUN_PREREQUISITES=true");
+}
+
+// ── Anchor file helpers ──────────────────────────────────────
+
+const ANCHOR_FILENAME = "Prerequisites-anchor.md";
+
+function writeAnchorFile(journeyDir: string, results: { passed: number; failed: number; totalSteps: number }, installerMode: boolean): void {
+	const passed = results.failed === 0 && results.totalSteps > 0;
+	const now = new Date();
+	const dateStr = now.toISOString();
+	const dateShort = dateStr.slice(0, 16).replace("T", " ");
+	const status = passed ? "PASS" : "FAIL";
+	const mode = installerMode ? "installer (fresh install)" : "skip (vault already installed)";
+
+	const content = [
+		"---",
+		"type: E2EPrerequisitesAnchor",
+		`passed: ${passed}`,
+		`date: "${dateStr}"`,
+		`totalSteps: ${results.totalSteps}`,
+		`passedSteps: ${results.passed}`,
+		`failedSteps: ${results.failed}`,
+		`installerMode: ${installerMode}`,
+		"---",
+		"",
+		"# Prerequisites — Last Run",
+		"",
+		`Status: **${status}**`,
+		`Date: ${dateShort}`,
+		`Steps: ${results.passed}/${results.totalSteps} passed`,
+		`Mode: ${mode}`,
+		"",
+	].join("\n");
+
+	const anchorPath = path.join(journeyDir, ANCHOR_FILENAME);
+	fs.mkdirSync(journeyDir, { recursive: true });
+	fs.writeFileSync(anchorPath, content, "utf-8");
+	console.log(`[e2e] Prerequisites anchor written: ${anchorPath}`);
+}
+
+// ── Skip mode: set gate flags without running tests ──────────
+
+describe.skipIf(!skipPrerequisites)("Chapter 1: Prerequisites (skip mode)", () => {
+	it("1.0 — Prerequisites skipped (previous run passed)", async () => {
+		const fixture = createFixture(process.env.OBSIDIAN_VAULT);
+		const cli = fixture.cli;
+		await ensurePluginEnabled(cli);
+		startEventTrace(cli);
+		cli.eval("window._e2ePrerequisitesPassed = true");
+		cli.eval("window._e2eInstallerDone = true");
+	});
+});
+
+// ── Full mode: run all prerequisite checks ───────────────────
+
+describe.skipIf(skipPrerequisites)("Chapter 1: Prerequisites", () => {
 	let fixture: TestFixture;
 	let cli: ObsidianCli;
 	let runner: JourneyRunner;
 	let resultsPath: string;
+	let journeyDir: string;
 	let runInstaller: boolean;
 
 	beforeAll(async () => {
@@ -59,7 +128,7 @@ describe("Chapter 1: Prerequisites", () => {
 		console.log(`[e2e] Installer mode: ${runInstaller ? "RUN (fresh install)" : "SKIP (vault already installed)"}`);
 
 		// Write screenshots and results into the test vault
-		const journeyDir = path.join(fixture.vault.vaultDir, "03 - Resources", "Tested Journeys", JOURNEY_NAME);
+		journeyDir = path.join(fixture.vault.vaultDir, "03 - Resources", "Tested Journeys", JOURNEY_NAME);
 		const screenshotDir = path.join(journeyDir, "screenshots");
 		resultsPath = path.join(journeyDir, `${JOURNEY_NAME}-results.json`);
 
@@ -88,6 +157,10 @@ describe("Chapter 1: Prerequisites", () => {
 
 		runner.writeResults(resultsPath);
 		runner.notifySuiteExit();
+
+		// Write anchor file for future skip-mode detection
+		writeAnchorFile(journeyDir, results, runInstaller);
+
 		fixture.cleanup();
 	});
 

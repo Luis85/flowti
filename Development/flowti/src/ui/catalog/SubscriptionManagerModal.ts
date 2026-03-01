@@ -4,13 +4,13 @@
  */
 
 import { App, Modal, Notice } from "obsidian";
-import type { IEventBus } from "../infrastructure/events/types";
-import type { Subscription } from "../domain/subscription/types";
+import type { IEventBus } from "../../infrastructure/events/types";
+import type { Subscription } from "../../domain/subscription/types";
 import {
 	renderSubscriptionForm,
 	renderSubscriptionRow,
 	type SubscriptionFormData,
-} from "./catalog/helpers";
+} from "./helpers";
 
 type Page = "list" | "form";
 

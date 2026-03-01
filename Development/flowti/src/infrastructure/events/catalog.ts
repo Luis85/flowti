@@ -289,6 +289,8 @@ const CATALOG_DATA = {
 	"settings.updateTrainCanvasAutoOpen": { category: "Settings", description: "Toggle auto-open canvas on train start", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
 	"settings.updateAnalyticsFolder": { category: "Settings", description: "Update analytics folder path", direction: "View → Plugin", domain: "settings", services: "FlowtiSettingTab", tags: ["system"] },
 	"settings.updateUserHubConfig":  { category: "Settings", description: "Update User Hub dashboard configuration", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
+	"settings.updateInboxAutoRoutingEnabled": { category: "Settings", description: "Toggle inbox auto-routing", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
+	"settings.updateInboxRoutingRules": { category: "Settings", description: "Update inbox type-based routing rules", direction: "View → Plugin", domain: "settings", services: "UserHubPreferences", tags: ["system"] },
 	"settings.saveFailed":             { category: "Settings", description: "Settings persistence failed", direction: "Service → Listeners", domain: "settings", services: "SettingsService", tags: ["system"] },
 
 	// ── Installer Domain ─────────────────────────────────────
@@ -398,6 +400,7 @@ const CATALOG_DATA = {
 	"ui.openTrainCanvas":         { category: "UI Commands", description: "Open canvas for the active train", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.openTrainTimeline":       { category: "UI Commands", description: "Open train timeline sidebar for the active train", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.openTrainHub":            { category: "UI Commands", description: "Open the Train Hub view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
+	"ui.startCanvasSession":      { category: "UI Commands", description: "Start a guided canvas session from a template", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.openAnalyticsHub":        { category: "UI Commands", description: "Open the Analytics Hub view", direction: "View → Plugin", domain: "ui", services: "UiCommandService", tags: ["system"] },
 	"ui.opened":                  { category: "UI Commands", description: "A UI view or modal was opened", direction: "Internal", domain: "ui", services: "UiCommandService", tags: ["system"] },
 
@@ -414,6 +417,7 @@ const CATALOG_DATA = {
 	"inbox.refresh":      { category: "Inbox", description: "Request re-emit of inbox state", direction: "View → Plugin", domain: "inbox", services: "InboxService", tags: ["system"] },
 	"inbox.vaultFolder.noteDetected": { category: "Inbox", description: "An untyped note was detected in a watched vault folder", direction: "Service → Listeners", domain: "inbox", services: "InboxService" },
 	"inbox.vaultFolder.noteTriaged": { category: "Inbox", description: "A vault folder inbox item was triaged (frontmatter applied, optionally routed)", direction: "Service → Listeners", domain: "inbox", services: "InboxService" },
+	"inbox.file.routed":  { category: "Inbox", description: "A file was auto-routed to a target folder based on its type", direction: "Service → Listeners", domain: "inbox", services: "InboxService" },
 
 	// ── Session ───────────────────────────────────────────────
 	"session.create":          { category: "Session", description: "Command to create a new session", direction: "View → Plugin", domain: "session", services: "SessionService", tags: ["system"] },
@@ -530,6 +534,10 @@ const CATALOG_DATA = {
 	"signal.item.created":      { category: "Signal", description: "A new work item note was created", direction: "Service → Listeners", domain: "signal", services: "SignalService" },
 	"signal.item.updated":      { category: "Signal", description: "An existing work item note was updated", direction: "Service → Listeners", domain: "signal", services: "SignalService" },
 	"signal.loaded":            { category: "Signal", description: "Signal state loaded from storage", direction: "Service → Listeners", domain: "signal", services: "SignalService", tags: ["system"] },
+	"signal.auth.expired":      { category: "Signal", description: "PAT token expired or invalid (401 detected)", direction: "Service → Listeners", domain: "signal", services: "SignalService" },
+	"signal.connection.failed": { category: "Signal", description: "Network connection to signal source failed", direction: "Service → Listeners", domain: "signal", services: "SignalService" },
+	"signal.health.checked":    { category: "Signal", description: "A health check was performed on a signal connection", direction: "Service → Listeners", domain: "signal", services: "SignalDiagnosticsService" },
+	"signal.health.changed":    { category: "Signal", description: "Health status transitioned (e.g. healthy → degraded)", direction: "Service → Listeners", domain: "signal", services: "SignalDiagnosticsService" },
 
 	// ── Capture ──────────────────────────────────────────────────
 	"capture.idea.created":     { category: "Capture", description: "An idea was captured via Quick Capture", direction: "Service → Listeners", domain: "capture", services: "CaptureService" },
@@ -563,6 +571,10 @@ const CATALOG_DATA = {
 	"canvas.legend.detected":  { category: "Canvas", description: "A Legend group with color-to-type mappings was detected", direction: "Service → Listeners", domain: "canvas", services: "CanvasService" },
 	"canvas.config.saved":     { category: "Canvas", description: "An import configuration was saved", direction: "Service → Listeners", domain: "canvas", services: "CanvasService" },
 	"canvas.loaded":           { category: "Canvas", description: "Canvas state loaded from storage", direction: "Service → Listeners", domain: "canvas", services: "CanvasService" },
+	"canvas.template.created": { category: "Canvas", description: "Canvas created from a template", direction: "Service → Listeners", domain: "canvas", services: "CanvasTemplateService" },
+	"canvas.session.started":  { category: "Canvas", description: "Canvas session monitor started tracking", direction: "Service → Listeners", domain: "canvas", services: "CanvasSessionMonitor" },
+	"canvas.session.activity": { category: "Canvas", description: "Canvas session node stats changed", direction: "Service → Listeners", domain: "canvas", services: "CanvasSessionMonitor" },
+	"canvas.session.completed": { category: "Canvas", description: "Canvas session completed", direction: "Service → Listeners", domain: "canvas", services: "CanvasSessionMonitor" },
 
 	// ── Analytics ────────────────────────────────────────────
 	"analytics.loaded":          { category: "Analytics", description: "Analytics domain loaded from storage", direction: "Service → Listeners", domain: "analytics", services: "AnalyticsService", tags: ["system"] },

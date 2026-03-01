@@ -301,3 +301,39 @@ Inc 7 (Integration)         ──→ Depends on Inc 1–6
 - Per-step settleMs on JourneyStep config → next journey additions
 - CI/CD pipeline for E2E → PBI-RP-003, requires Xvfb spike
 - Visual regression diff comparison → future tooling cycle
+
+## Actual Results
+
+| Metric | Target | Actual |
+|--------|--------|--------|
+| New tests | ~130 | 184 (6,009 − 5,825) |
+| Post-cycle tests | ~5,955 | 6,009 |
+| Post-cycle suites | ~255 | 261 |
+| Canvas templates | 5 | 5 |
+| Signal error scenarios | 4 | 4 (401, 429, network, timeout) |
+| Routing rules | 4+ default | 4 (idea, feature, bug, learning) |
+| CLI wrapper edge tests | ~20 | 6 (40 already existed from C53) |
+| RB-6 decision | Documented | Closed as superseded |
+| Increments | 8 | 8 |
+
+### Increment Summary
+
+| Inc | Theme | New Tests | New Files | Key Deliverables |
+|-----|-------|-----------|-----------|-----------------|
+| 0 | Housekeeping | 6 | 0 | CLI edge tests, RB-6 closed |
+| 1 | Canvas Templates | 54 | 4 | 5 templates, CanvasTemplateService, CanvasTemplatePickerModal |
+| 2 | Canvas Sidebar | 24 | 3 | CanvasSessionMonitor, CanvasSessionSidebar, session types |
+| 3 | Canvas Guided Flow | 18 | 1 | CanvasSessionService, summary writer, command registration |
+| 4 | Signal Retry | 22 | 1 | Exponential backoff, error classification, retry helpers |
+| 5 | Signal Diagnostics | 28 | 2 | SignalHealthMonitor, SignalDiagnosticsService, health events |
+| 6 | Inbox Routing | 20 | 1 | InboxAutoRouter, routing rules, settings, inbox.file.routed |
+| 7 | Integration | 12 | 1 | SESSION_TYPE_LABELS fix, callout updates, integration tests |
+
+### New Events (7)
+- `canvas.template.created`, `canvas.session.started`, `canvas.session.activity`, `canvas.session.completed`
+- `signal.health.checked`, `signal.health.changed`
+- `inbox.file.routed`
+
+### New Settings (2)
+- `inboxAutoRoutingEnabled` (boolean, default false)
+- `inboxRoutingRules` (array, 4 default rules)

@@ -1300,8 +1300,8 @@ describe("createContextBinding", () => {
 // ─────────────────────────────────────────────────────────────
 
 describe("SESSION_TYPE_CONFIGS", () => {
-	it("has 10 pre-built type configs", () => {
-		expect(Object.keys(SESSION_TYPE_CONFIGS)).toHaveLength(10);
+	it("has 11 pre-built type configs", () => {
+		expect(Object.keys(SESSION_TYPE_CONFIGS)).toHaveLength(11);
 	});
 
 	it("includes all 10 session types", () => {

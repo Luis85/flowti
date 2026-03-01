@@ -7,18 +7,20 @@
 
 import { Notice, TFile, TFolder } from "obsidian";
 import type { App, Command, EventRef, ViewCreator } from "obsidian";
-import type { IEventBus } from "./infrastructure/events/types";
-import type { IErrorService } from "./infrastructure/errors/types";
-import type { SessionService } from "./domain/session/SessionService";
-import type { TrainService } from "./domain/train/TrainService";
-import type { Session } from "./domain/session/types";
-import { SESSION_TYPES, type SessionType } from "./domain/session/types";
+import type { IEventBus } from "../infrastructure/events/types";
+import type { IErrorService } from "../infrastructure/errors/types";
+import type { SessionService } from "../domain/session/SessionService";
+import type { TrainService } from "../domain/train/TrainService";
+import type { Session } from "../domain/session/types";
+import { SESSION_TYPES, type SessionType } from "../domain/session/types";
 
-/** Session types available in NewSessionModal (excludes train-of-thought — trains are created via ribbon/command). */
-const MODAL_SESSION_TYPES = SESSION_TYPES.filter((st) => st.type !== "train-of-thought");
-import { generateSessionSummary, mergeSessionNotes } from "./domain/session/helpers";
-import { NewSessionModal } from "./ui/modals";
-import { SessionWorkspaceView, VIEW_TYPE_SESSION_WORKSPACE } from "./ui/SessionWorkspaceView";
+/** Session types available in NewSessionModal (excludes specialized types with their own creation flow). */
+const MODAL_SESSION_TYPES = SESSION_TYPES.filter(
+	(st) => st.type !== "train-of-thought" && st.type !== "canvas-session",
+);
+import { generateSessionSummary, mergeSessionNotes } from "../domain/session/helpers";
+import { NewSessionModal } from "../ui/modals";
+import { SessionWorkspaceView, VIEW_TYPE_SESSION_WORKSPACE } from "../ui/session/SessionWorkspaceView";
 
 /** Terminal session statuses where "Add to" context menu should be hidden for train sessions. */
 const TERMINAL_STATUSES = new Set(["completed", "reviewing", "archived"]);
@@ -60,17 +62,22 @@ export class SessionSetup {
 
 	/** Register session commands for the command palette. */
 	registerCommands(): void {
-		const { addCommand } = this.deps;
+		const { addCommand, sessionService } = this.deps;
 
+		// Workspace commands — only visible when a session is active
 		addCommand({
 			id: "flowti:open-session-workspace",
 			name: "Open session workspace",
 			icon: "timer",
-			callback: () => {
-				void this.deps.app.workspace.getLeaf("tab").setViewState({
-					type: VIEW_TYPE_SESSION_WORKSPACE,
-					active: true,
-				});
+			checkCallback: (checking) => {
+				if (!sessionService.getActiveSession()) return false;
+				if (!checking) {
+					void this.deps.app.workspace.getLeaf("tab").setViewState({
+						type: VIEW_TYPE_SESSION_WORKSPACE,
+						active: true,
+					});
+				}
+				return true;
 			},
 		});
 
@@ -78,11 +85,14 @@ export class SessionSetup {
 			id: "flowti:open-session-workspace-sidebar",
 			name: "Open session workspace in sidebar",
 			icon: "panel-right",
-			callback: () => {
-				this.openSessionWorkspaceInSidebar();
+			checkCallback: (checking) => {
+				if (!sessionService.getActiveSession()) return false;
+				if (!checking) this.openSessionWorkspaceInSidebar();
+				return true;
 			},
 		});
 
+		// Create — always available
 		addCommand({
 			id: "flowti:create-session",
 			name: "Create new session",
@@ -90,7 +100,7 @@ export class SessionSetup {
 			callback: () => {
 				new NewSessionModal(this.deps.app, {
 					sessionTypes: MODAL_SESSION_TYPES,
-					templates: this.deps.sessionService?.getSavedTemplates() ?? [],
+					templates: sessionService?.getSavedTemplates() ?? [],
 					onSubmit: (title, type, durationMinutes, focusFile, goals, extra) => {
 						void this.deps.eventBus.emit("session.create", {
 							type: type as SessionType,
@@ -105,18 +115,19 @@ export class SessionSetup {
 			},
 		});
 
+		// Resume — only visible when a session is paused
 		addCommand({
 			id: "flowti:resume-session",
 			name: "Resume paused session",
 			icon: "play",
-			callback: () => {
-				const session = this.deps.sessionService?.getActiveSession();
-				if (session && session.status === "paused") {
+			checkCallback: (checking) => {
+				const session = sessionService?.getActiveSession();
+				if (!session || session.status !== "paused") return false;
+				if (!checking) {
 					void this.deps.eventBus.emit("session.resume", { sessionId: session.id });
 					new Notice(`Resumed "${session.title}"`);
-				} else {
-					new Notice("No paused session to resume");
 				}
+				return true;
 			},
 		});
 	}

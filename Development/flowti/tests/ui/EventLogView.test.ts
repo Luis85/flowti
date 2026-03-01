@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { EventBus } from "../../src/infrastructure/events/EventBus";
 import { getEventCategory } from "../../src/infrastructure/events/catalog";
-import { getStatusClass, getContextLine } from "../../src/ui/EventLogView";
+import { getStatusClass, getContextLine } from "../../src/ui/catalog/EventLogView";
 
 /**
  * Tests for EventLogView's core logic — wildcard subscription,

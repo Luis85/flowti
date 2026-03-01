@@ -7,9 +7,9 @@ import { Notice, Setting, TFile, setIcon } from "obsidian";
 import type { SavedExportConfig } from "../../domain/dataExchange/types";
 import { basename } from "../../utils/pathUtils";
 import { ConfirmModal } from "../modals";
-import { FilePickerModal } from "../FilePickerModal";
-import { FolderPickerModal, getVaultFolders } from "../FolderPickerModal";
-import { showNativeSaveDialog } from "../electronDialog";
+import { FilePickerModal } from "../shared/FilePickerModal";
+import { FolderPickerModal, getVaultFolders } from "../shared/FolderPickerModal";
+import { showNativeSaveDialog } from "../export/electronDialog";
 import { addInfoRow, renderEmptyDetail, getEmptyDetailStats } from "./helpers";
 import type { HubComponentDeps } from "./types";
 

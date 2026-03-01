@@ -3,7 +3,7 @@
  * Shows idle/processing/scanning state with stats.
  */
 
-import type { IEventBus } from "../infrastructure/events/types";
+import type { IEventBus } from "../../infrastructure/events/types";
 
 type StatusBarState = "idle" | "processing" | "scanning";
 

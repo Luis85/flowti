@@ -144,6 +144,16 @@ export class SettingsService implements ISettingsService {
 					void this.updateSettings({ userHubConfig: event.payload.config });
 				})
 			);
+			this.unsubscribes.push(
+				this.eventBus.on("settings.updateInboxAutoRoutingEnabled", (event) => {
+					void this.updateSettings({ inboxAutoRoutingEnabled: event.payload.enabled });
+				})
+			);
+			this.unsubscribes.push(
+				this.eventBus.on("settings.updateInboxRoutingRules", (event) => {
+					void this.updateSettings({ inboxRoutingRules: event.payload.rules });
+				})
+			);
 		}
 	}
 

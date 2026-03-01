@@ -9,20 +9,20 @@
  */
 
 import { App, Modal, Notice } from "obsidian";
-import { createVaultQueryService, createWorkspaceService } from "../infrastructure/services/ObsidianAdapters";
-import type { IEventBus } from "../infrastructure/events/types";
-import type { EventCatalogEntry } from "../infrastructure/events/catalog";
-import type { Subscription } from "../domain/subscription/types";
-import type { EventDefinition } from "../domain/eventDefinition/types";
-import { ConfirmModal } from "./modals";
+import { createVaultQueryService, createWorkspaceService } from "../../infrastructure/services/ObsidianAdapters";
+import type { IEventBus } from "../../infrastructure/events/types";
+import type { EventCatalogEntry } from "../../infrastructure/events/catalog";
+import type { Subscription } from "../../domain/subscription/types";
+import type { EventDefinition } from "../../domain/eventDefinition/types";
+import { ConfirmModal } from "../modals";
 import {
 	openOrCreateEventDoc,
 	renderSubscriptionForm,
 	type SubscriptionFormData,
-} from "./catalog/helpers";
-import type { DefinitionFormData, EventConfigPageDeps } from "./eventConfig/types";
-import { renderOverviewPage } from "./eventConfig/OverviewPage";
-import { renderDefinitionFormPage } from "./eventConfig/DefinitionFormPage";
+} from "../catalog/helpers";
+import type { DefinitionFormData, EventConfigPageDeps } from "./types";
+import { renderOverviewPage } from "./OverviewPage";
+import { renderDefinitionFormPage } from "./DefinitionFormPage";
 
 type Page = "overview" | "subscription-form" | "definition-form";
 

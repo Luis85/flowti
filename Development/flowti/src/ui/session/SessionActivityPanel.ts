@@ -2,7 +2,7 @@ import { setIcon } from "obsidian";
 import type { SessionPanelDeps } from "./types";
 import type { Session, SessionActivity } from "../../domain/session/types";
 import { isExcluded } from "../../domain/session/helpers";
-import { attachFolderSuggest } from "../FolderSuggest";
+import { attachFolderSuggest } from "../shared/FolderSuggest";
 
 /** A file-level group of activity entries (one row per file). */
 export interface GroupedActivity {

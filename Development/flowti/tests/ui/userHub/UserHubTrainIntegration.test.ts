@@ -173,6 +173,10 @@ describe("SESSION_TYPE_LABELS includes train-of-thought", () => {
 		expect(SESSION_TYPE_LABELS["train-of-thought"]).toBe("Train of Thought");
 	});
 
+	it("has canvas-session label", () => {
+		expect(SESSION_TYPE_LABELS["canvas-session"]).toBe("Canvas Session");
+	});
+
 	it("retains all existing labels", () => {
 		expect(SESSION_TYPE_LABELS["documentation"]).toBe("Documentation");
 		expect(SESSION_TYPE_LABELS["event-storming"]).toBe("Event Storming");

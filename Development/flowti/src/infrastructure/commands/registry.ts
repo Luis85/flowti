@@ -307,6 +307,30 @@ export function createCommandDefinitions(): CommandDefinition[] {
 				void ctx.eventBus.emit("ui.openTrainTimeline", {});
 			},
 		},
+		{
+			id: "flowti:view-train",
+			name: "View train of thoughts",
+			description: "View the currently active train of thoughts",
+			domain: "train",
+			category: "view",
+			icon: "train-front",
+			handler: async (ctx) => {
+				ctx.logger.debug("Viewing train of thoughts");
+				void ctx.eventBus.emit("ui.openTrainView", {});
+			},
+		},
+		{
+			id: "flowti:start-canvas-session",
+			name: "Start canvas session",
+			description: "Start a guided canvas session from a template",
+			domain: "canvas",
+			category: "action",
+			icon: "layout-template",
+			handler: async (ctx) => {
+				ctx.logger.debug("Starting canvas session");
+				void ctx.eventBus.emit("ui.startCanvasSession", {});
+			},
+		},
 	];
 }
 
@@ -397,15 +421,6 @@ export function getExternalCommandMeta(): CommandMeta[] {
 			domain: "session",
 			category: "action",
 			icon: "play",
-		},
-		// Train conditional command (main.ts)
-		{
-			id: "flowti:view-train",
-			label: "View train of thoughts",
-			description: "View the currently active train of thoughts",
-			domain: "train",
-			category: "view",
-			icon: "train-front",
 		},
 	];
 }

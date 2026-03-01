@@ -83,7 +83,7 @@ describe("AzureDevOpsAdapter", () => {
 	let adapter: AzureDevOpsAdapter;
 
 	beforeEach(() => {
-		adapter = new AzureDevOpsAdapter();
+		adapter = new AzureDevOpsAdapter({ delay: async () => {} });
 		mockRequestUrl.mockReset();
 	});
 
@@ -161,12 +161,13 @@ describe("AzureDevOpsAdapter", () => {
 		});
 
 		it("should return error for network failure", async () => {
-			mockRequestUrl.mockRejectedValue(new Error("ECONNREFUSED"));
+			mockRequestUrl.mockRejectedValue(new Error("connect ECONNREFUSED 127.0.0.1:443"));
 
 			const result = await adapter.testConnection(makeConfig());
 
 			expect(result.success).toBe(false);
-			expect(result.error).toContain("Connection failed");
+			expect(result.error).toContain("Network error");
+			expect(result.error).toContain("ECONNREFUSED");
 		});
 	});
 

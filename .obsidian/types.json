@@ -10,6 +10,10 @@
     "maturity_score_ui_consistency": "number",
     "maturity_score_validation_testing": "number",
     "maturity_score_total": "number",
-    "bar.baz": "date"
+    "bar.baz": "date",
+    "budget_features": "number",
+    "budget_improvements": "number",
+    "budget_features_pct": "number",
+    "budget_improvements_ptct": "number"
   }
 }

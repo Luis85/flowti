@@ -13,12 +13,13 @@ import type { App } from "obsidian";
 import type { IEventBus } from "../events/types";
 import type { IDisposable } from "../services/types";
 import type { ExportFormat, SavedExportConfig, SavedImportConfig } from "../../domain/dataExchange/types";
-import { VIEW_TYPE_COMPONENT_SHOWCASE } from "../../ui/ComponentShowcaseView";
-import { VIEW_TYPE_EVENT_CATALOG } from "../../ui/EventCatalogView";
-import { VIEW_TYPE_EVENT_LOG } from "../../ui/EventLogView";
-import { VIEW_TYPE_DATA_EXCHANGE_HUB } from "../../ui/DataExchangeHubView";
-import { VIEW_TYPE_USER_HUB } from "../../ui/UserHubView";
-import { SubscriptionManagerModal } from "../../ui/SubscriptionManagerModal";
+import { VIEW_TYPE_COMPONENT_SHOWCASE } from "../../ui/components/ComponentShowcaseView";
+import { VIEW_TYPE_EVENT_CATALOG } from "../../ui/catalog/EventCatalogView";
+import { VIEW_TYPE_EVENT_LOG } from "../../ui/catalog/EventLogView";
+import { VIEW_TYPE_DATA_EXCHANGE_HUB } from "../../ui/hub/DataExchangeHubView";
+import { VIEW_TYPE_USER_HUB } from "../../ui/userHub/UserHubView";
+import { VIEW_TYPE_TRAIN_HUB, VIEW_TYPE_ANALYTICS_HUB } from "../../domain/hub/types";
+import { SubscriptionManagerModal } from "../../ui/catalog/SubscriptionManagerModal";
 
 // ─────────────────────────────────────────────────────────────
 // Callback types for data exchange delegation
@@ -131,6 +132,18 @@ export class UiCommandService implements IDisposable {
 		this.unsubscribes.push(
 			this.eventBus.on("ui.openUserHub", () =>
 				this.openView(VIEW_TYPE_USER_HUB, "userHub", "main"),
+			),
+		);
+
+		this.unsubscribes.push(
+			this.eventBus.on("ui.openTrainHub", () =>
+				this.openView(VIEW_TYPE_TRAIN_HUB, "trainHub", "main"),
+			),
+		);
+
+		this.unsubscribes.push(
+			this.eventBus.on("ui.openAnalyticsHub", () =>
+				this.openView(VIEW_TYPE_ANALYTICS_HUB, "analyticsHub", "main"),
 			),
 		);
 

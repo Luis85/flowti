@@ -10,23 +10,23 @@
  */
 
 import { ItemView, Notice, TFile, WorkspaceLeaf, setIcon } from "obsidian";
-import type { IEventBus } from "../infrastructure/events/types";
-import type { CanvasService, CanvasConfigInput } from "../domain/canvas/CanvasService";
-import { DEFAULT_COLOR_MAP, DEFAULT_SHAPE_MAP } from "../domain/canvas/types";
+import type { IEventBus } from "../../infrastructure/events/types";
+import type { CanvasService, CanvasConfigInput } from "../../domain/canvas/CanvasService";
+import { DEFAULT_COLOR_MAP, DEFAULT_SHAPE_MAP } from "../../domain/canvas/types";
 import {
 	parseCanvasJson,
 	extractLegend,
 	buildCanvasItems,
 	resolveParentage,
-} from "../domain/canvas/CanvasParser";
-import { FolderPickerModal, getVaultFolders } from "./FolderPickerModal";
-import { renderStepBar, revealFolderInExplorer } from "./hub/helpers";
-import { CanvasLanding } from "./canvas/CanvasLanding";
-import { CanvasConfigPage } from "./canvas/CanvasConfigPage";
-import { CanvasPreviewPage } from "./canvas/CanvasPreviewPage";
-import { CanvasResultPage } from "./canvas/CanvasResultPage";
-import { STEP_LABELS } from "./canvas/types";
-import type { CanvasViewState, CanvasComponentDeps, CanvasPage } from "./canvas/types";
+} from "../../domain/canvas/CanvasParser";
+import { FolderPickerModal, getVaultFolders } from "../shared/FolderPickerModal";
+import { renderStepBar, revealFolderInExplorer } from "../hub/helpers";
+import { CanvasLanding } from "./CanvasLanding";
+import { CanvasConfigPage } from "./CanvasConfigPage";
+import { CanvasPreviewPage } from "./CanvasPreviewPage";
+import { CanvasResultPage } from "./CanvasResultPage";
+import { STEP_LABELS } from "./types";
+import type { CanvasViewState, CanvasComponentDeps, CanvasPage } from "./types";
 
 export const VIEW_TYPE_CANVAS = "flowti-canvas-import";
 

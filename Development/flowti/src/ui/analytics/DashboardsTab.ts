@@ -17,7 +17,7 @@ import { AddTileDialog } from "./AddTileDialog";
 import { DashboardNameModal } from "./DashboardNameModal";
 import { DashboardQueryMap, getSourceBasenames } from "./DashboardQueryMap";
 import { DashboardFilterBar } from "./DashboardFilterBar";
-import { FolderPickerModal, getVaultFolders } from "../FolderPickerModal";
+import { FolderPickerModal, getVaultFolders } from "../shared/FolderPickerModal";
 import { DashboardCallbackFactory } from "./DashboardCallbackFactory";
 import { buildTileRenderContext } from "./buildTileRenderContext";
 

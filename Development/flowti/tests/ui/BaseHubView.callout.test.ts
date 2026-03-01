@@ -49,8 +49,8 @@ const CALLOUT = {
 	id: "train-hub-welcome",
 	icon: "train-front",
 	title: "Welcome to the Train Hub",
-	description: "Capture streams of connected thoughts in timed rides. Review, resume, and explore your thought history.",
-	suggestion: "Start a ride to capture your first train of thought.",
+	description: "Capture streams of connected thoughts in timed rides, or start a guided Canvas Session with preconfigured templates for domain design, sprint planning, and more.",
+	suggestion: "Start a ride to capture your first train of thought, or try a Canvas Session from the command palette.",
 };
 
 // ── Tests ────────────────────────────────────────────────

@@ -9,20 +9,20 @@
  */
 
 import { ItemView, Notice, WorkspaceLeaf, setIcon } from "obsidian";
-import type { IEventBus } from "../infrastructure/events/types";
-import type { DataExchangeService } from "../domain/dataExchange/DataExchangeService";
-import type { ExportService } from "../domain/dataExchange/ExportService";
+import type { IEventBus } from "../../infrastructure/events/types";
+import type { DataExchangeService } from "../../domain/dataExchange/DataExchangeService";
+import type { ExportService } from "../../domain/dataExchange/ExportService";
 import type {
 	ExportResult,
 	ParsedBaseFile,
 	ResolvedColumn,
 	SavedExportConfig,
 	VaultFileInfo,
-} from "../domain/dataExchange/types";
-import { FolderPickerModal, getVaultFolders } from "./FolderPickerModal";
-import { ConfigChooserModal, ConfirmModal, InputModal } from "./modals";
+} from "../../domain/dataExchange/types";
+import { FolderPickerModal, getVaultFolders } from "../shared/FolderPickerModal";
+import { ConfigChooserModal, ConfirmModal, InputModal } from "../modals";
 import { showNativeSaveDialog } from "./electronDialog";
-import { renderStepBar, renderConfigDropdown } from "./hub/helpers";
+import { renderStepBar, renderConfigDropdown } from "../hub/helpers";
 import {
 	ViewSelectPage,
 	ConfigurePage,
@@ -32,8 +32,8 @@ import {
 	getFilenameFromPath,
 	getOutputFilename,
 	buildOutputPath,
-} from "./export";
-import type { ExportPage, ExportViewState, ExportComponentDeps } from "./export";
+} from ".";
+import type { ExportPage, ExportViewState, ExportComponentDeps } from ".";
 
 export const VIEW_TYPE_EXPORT = "flowti-export";
 

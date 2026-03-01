@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { shouldShowAddToSession } from "../src/sessionSetup";
+import { shouldShowAddToSession } from "../src/bootstrap/sessionSetup";
 
 describe("sessionSetup — shouldShowAddToSession()", () => {
 	it("returns false when session is null", () => {

@@ -10,15 +10,15 @@ import type { IEventBus } from "../events/types";
 import {
 	ComponentShowcaseView,
 	VIEW_TYPE_COMPONENT_SHOWCASE,
-} from "../../ui/ComponentShowcaseView";
+} from "../../ui/components/ComponentShowcaseView";
 import {
 	EventCatalogView,
 	VIEW_TYPE_EVENT_CATALOG,
-} from "../../ui/EventCatalogView";
+} from "../../ui/catalog/EventCatalogView";
 import {
 	EventLogView,
 	VIEW_TYPE_EVENT_LOG,
-} from "../../ui/EventLogView";
+} from "../../ui/catalog/EventLogView";
 import type { IViewRegistry, ViewDefinition } from "./types";
 import type { FlowtiSettings } from "../../domain/settings/settings";
 import type { DiscoveredEvent } from "../../domain/discovery/types";

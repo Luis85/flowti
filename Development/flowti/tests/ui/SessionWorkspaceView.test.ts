@@ -2,7 +2,7 @@
 import "../mocks/obsidian-stub";
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { EventBus } from "../../src/infrastructure/events/EventBus";
-import { SessionWorkspaceView, VIEW_TYPE_SESSION_WORKSPACE } from "../../src/ui/SessionWorkspaceView";
+import { SessionWorkspaceView, VIEW_TYPE_SESSION_WORKSPACE } from "../../src/ui/session/SessionWorkspaceView";
 import type { IEventBus } from "../../src/infrastructure/events/types";
 import type { Session, SessionGoal } from "../../src/domain/session/types";
 

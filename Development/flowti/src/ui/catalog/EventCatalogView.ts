@@ -1,18 +1,18 @@
 import { setIcon } from "obsidian";
 import type { WorkspaceLeaf } from "obsidian";
-import type { IEventBus } from "../infrastructure/events/types";
-import { createVaultQueryService, createWorkspaceService } from "../infrastructure/services/ObsidianAdapters";
-import type { DiscoveredEvent } from "../domain/discovery/types";
-import { type CatalogCategoryConfig, DEFAULT_CATALOG_CATEGORIES, type EntityPaths, DEFAULT_ENTITY_PATHS } from "../domain/settings/settings";
-import type { ViewStateProvider } from "../infrastructure/views/registry";
+import type { IEventBus } from "../../infrastructure/events/types";
+import { createVaultQueryService, createWorkspaceService } from "../../infrastructure/services/ObsidianAdapters";
+import type { DiscoveredEvent } from "../../domain/discovery/types";
+import { type CatalogCategoryConfig, DEFAULT_CATALOG_CATEGORIES, type EntityPaths, DEFAULT_ENTITY_PATHS } from "../../domain/settings/settings";
+import type { ViewStateProvider } from "../../infrastructure/views/registry";
 import {
 	resolveEntityPath,
 	type EntityType,
-} from "./eventDocTemplate";
+} from "../eventDocTemplate";
 import { SubscriptionManagerModal } from "./SubscriptionManagerModal";
 import { VIEW_TYPE_EVENT_LOG } from "./EventLogView";
-import type { Subscription } from "../domain/subscription/types";
-import type { EventDefinition } from "../domain/eventDefinition/types";
+import type { Subscription } from "../../domain/subscription/types";
+import type { EventDefinition } from "../../domain/eventDefinition/types";
 import type {
 	SystemEntry,
 	FlowEntry,
@@ -23,11 +23,11 @@ import type {
 	CategoryEntry,
 	CatalogComponentDeps,
 	CatalogState,
-} from "./catalog/types";
+} from "./types";
 import {
 	getOrderedCategories,
 	discoveredToCatalogEntries,
-} from "./catalog/helpers";
+} from "./helpers";
 import {
 	CatalogDashboard,
 	DomainsTab,
@@ -38,10 +38,10 @@ import {
 	ProductsTab,
 	EventsTab,
 	HealthTab,
-} from "./catalog";
-import { BaseHubView, type TabDef } from "./BaseHubView";
-import type { OnboardingService } from "../domain/onboarding/OnboardingService";
-import { VIEW_TYPE_EVENT_CATALOG } from "../domain/hub/types";
+} from ".";
+import { BaseHubView, type TabDef } from "../BaseHubView";
+import type { OnboardingService } from "../../domain/onboarding/OnboardingService";
+import { VIEW_TYPE_EVENT_CATALOG } from "../../domain/hub/types";
 export { VIEW_TYPE_EVENT_CATALOG };
 
 export type CatalogTab = "events" | "domains" | "services" | "flows" | "systems" | "actors" | "products" | "health";

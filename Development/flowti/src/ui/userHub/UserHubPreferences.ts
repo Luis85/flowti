@@ -15,7 +15,7 @@ import { INBOX_SOURCE_DEFINITIONS } from "../../domain/inbox/types";
 import { UserHubSessionPreferences } from "./UserHubSessionPreferences";
 import { UserHubNudgePreferences } from "./UserHubNudgePreferences";
 import { UserHubTrainPreferences } from "./UserHubTrainPreferences";
-import { attachFolderSuggest } from "../FolderSuggest";
+import { attachFolderSuggest } from "../shared/FolderSuggest";
 
 const CATEGORIES: ReadonlyArray<{ id: PreferencesCategory; label: string; icon: string; description: string }> = [
 	{ id: "dashboard", label: "Dashboard", icon: "layout-dashboard", description: "KPI measures, visible hubs, quick actions" },
@@ -479,6 +479,81 @@ export class UserHubPreferences {
 		});
 		targetInput.addEventListener("change", () => {
 			void this.deps.eventBus.emit("settings.updateInboxTriageTargetFolder", { folder: targetInput.value.trim() });
+		});
+
+		// ── Auto-Routing ──
+		const routingSection = section.createDiv({ cls: "ft-detail-section ft-pref-folder-section-mt" });
+		const routingHeader = routingSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2" });
+		const routingIcon = routingHeader.createSpan();
+		setIcon(routingIcon, "arrow-right-circle");
+		routingIcon.addClass("ft-icon-muted");
+		routingHeader.createEl("h4", { text: "Auto-routing", cls: "ft-heading ft-m-0" });
+
+		routingSection.createEl("p", {
+			text: "Automatically move inbox files to a target folder when their type changes.",
+			cls: "ft-text-sm ft-text-muted",
+		});
+
+		// Enable toggle
+		const enableRow = routingSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-2" });
+		const enableToggle = enableRow.createEl("input");
+		enableToggle.type = "checkbox";
+		enableToggle.checked = settings.inboxAutoRoutingEnabled ?? false;
+		enableRow.createSpan({ text: "Enable auto-routing", cls: "ft-text-sm" });
+		enableToggle.addEventListener("change", () => {
+			void this.deps.eventBus.emit("settings.updateInboxAutoRoutingEnabled", { enabled: enableToggle.checked });
+		});
+
+		// Routing rules list
+		const rulesContainer = routingSection.createDiv({ cls: "ft-pref-rules-container" });
+		const rules = [...(settings.inboxRoutingRules ?? [])];
+
+		const renderRules = (): void => {
+			rulesContainer.empty();
+			for (let i = 0; i < rules.length; i++) {
+				const rule = rules[i];
+				const row = rulesContainer.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mb-1" });
+
+				const typeInput = row.createEl("input", { cls: "ft-input ft-pref-rule-type-input" });
+				typeInput.type = "text";
+				typeInput.value = rule.type;
+				typeInput.placeholder = "type";
+				typeInput.addEventListener("change", () => {
+					rules[i] = { ...rules[i], type: typeInput.value.trim() };
+					void this.deps.eventBus.emit("settings.updateInboxRoutingRules", { rules: [...rules] });
+				});
+
+				row.createSpan({ text: "→", cls: "ft-text-muted" });
+
+				const folderInput = row.createEl("input", { cls: "ft-input ft-pref-rule-folder-input" });
+				folderInput.type = "text";
+				folderInput.value = rule.targetFolder;
+				folderInput.placeholder = "target folder";
+				folderInput.addEventListener("change", () => {
+					rules[i] = { ...rules[i], targetFolder: folderInput.value.trim() };
+					void this.deps.eventBus.emit("settings.updateInboxRoutingRules", { rules: [...rules] });
+				});
+
+				const removeBtn = row.createEl("button", { cls: "ft-btn-icon ft-btn-xs" });
+				setIcon(removeBtn, "x");
+				removeBtn.addEventListener("click", () => {
+					rules.splice(i, 1);
+					void this.deps.eventBus.emit("settings.updateInboxRoutingRules", { rules: [...rules] });
+					renderRules();
+				});
+			}
+		};
+		renderRules();
+
+		// Add rule button
+		const addRuleRow = routingSection.createDiv({ cls: "ft-flex ft-items-center ft-gap-2 ft-mt-2" });
+		const addRuleBtn = addRuleRow.createEl("button", { cls: "ft-btn ft-btn-sm" });
+		setIcon(addRuleBtn, "plus");
+		addRuleBtn.appendText(" Add rule");
+		addRuleBtn.addEventListener("click", () => {
+			rules.push({ type: "", targetFolder: "" });
+			void this.deps.eventBus.emit("settings.updateInboxRoutingRules", { rules: [...rules] });
+			renderRules();
 		});
 	}
 }

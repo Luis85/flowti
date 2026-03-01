@@ -6,18 +6,18 @@
 
 import { Notice, TFile, TFolder } from "obsidian";
 import type { App, Command, EventRef, ViewCreator } from "obsidian";
-import type { IEventBus } from "./infrastructure/events/types";
-import { DataExchangeService } from "./domain/dataExchange/DataExchangeService";
-import type { ExportFormat, SavedExportConfig, SavedImportConfig, VaultFileInfo } from "./domain/dataExchange/types";
-import { CsvActionView, VIEW_TYPE_CSV } from "./ui/CsvActionView";
-import { CanvasActionView, VIEW_TYPE_CANVAS } from "./ui/CanvasActionView";
-import { ExportView, VIEW_TYPE_EXPORT, type ExportViewConfig } from "./ui/ExportView";
-import { DataExchangeHubView, VIEW_TYPE_DATA_EXCHANGE_HUB } from "./ui/DataExchangeHubView";
-import type { SignalService } from "./domain/signal/SignalService";
-import type { CanvasService } from "./domain/canvas/CanvasService";
-import type { AnalyticsService } from "./domain/analytics/AnalyticsService";
-import type { OnboardingService } from "./domain/onboarding/OnboardingService";
-import type { HubRegistry } from "./domain/hub/HubRegistry";
+import type { IEventBus } from "../infrastructure/events/types";
+import { DataExchangeService } from "../domain/dataExchange/DataExchangeService";
+import type { ExportFormat, SavedExportConfig, SavedImportConfig, VaultFileInfo } from "../domain/dataExchange/types";
+import { CsvActionView, VIEW_TYPE_CSV } from "../ui/csv/CsvActionView";
+import { CanvasActionView, VIEW_TYPE_CANVAS } from "../ui/canvas/CanvasActionView";
+import { ExportView, VIEW_TYPE_EXPORT, type ExportViewConfig } from "../ui/export/ExportView";
+import { DataExchangeHubView, VIEW_TYPE_DATA_EXCHANGE_HUB } from "../ui/hub/DataExchangeHubView";
+import type { SignalService } from "../domain/signal/SignalService";
+import type { CanvasService } from "../domain/canvas/CanvasService";
+import type { AnalyticsService } from "../domain/analytics/AnalyticsService";
+import type { OnboardingService } from "../domain/onboarding/OnboardingService";
+import type { HubRegistry } from "../domain/hub/HubRegistry";
 export interface DataExchangeSetupDeps {
 	app: App;
 	eventBus: IEventBus;

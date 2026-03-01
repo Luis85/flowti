@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { EventBus } from "../../src/infrastructure/events/EventBus";
 import type { IEventBus } from "../../src/infrastructure/events/types";
-import { IngestionStatusBar } from "../../src/ui/IngestionStatusBar";
+import { IngestionStatusBar } from "../../src/ui/shared/IngestionStatusBar";
 
 /**
  * Minimal HTMLElement mock for status bar testing.

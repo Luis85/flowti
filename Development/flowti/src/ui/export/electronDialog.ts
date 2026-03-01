@@ -3,7 +3,7 @@
  * Wraps `remote.dialog.showSaveDialog` to eliminate duplication across views.
  */
 
-import type { ExportFormat } from "../domain/dataExchange/types";
+import type { ExportFormat } from "../../domain/dataExchange/types";
 
 export interface NativeSaveDialogOptions {
 	format: ExportFormat;

@@ -45,6 +45,29 @@ describe("ObsidianCli", () => {
 			expect(() => cli.run("bad-command")).toThrow(/bad-command/);
 		});
 
+		it("CliError carries command, exitCode, and stderr", () => {
+			const runner = createMockRunner("", 127, "obsidian: not found");
+			const cli = new ObsidianCli({ runner });
+
+			try {
+				cli.run("version");
+				expect.fail("should have thrown");
+			} catch (err) {
+				expect(err).toBeInstanceOf(CliError);
+				const e = err as CliError;
+				expect(e.command).toBe("version");
+				expect(e.exitCode).toBe(127);
+				expect(e.stderr).toBe("obsidian: not found");
+			}
+		});
+
+		it("treats exit code 127 as CLI not found", () => {
+			const runner = createMockRunner("", 127, "obsidian: command not found");
+			const cli = new ObsidianCli({ runner });
+
+			expect(() => cli.run("version")).toThrow(CliError);
+		});
+
 		it("returns trimmed stdout on success", () => {
 			const runner = createMockRunner("  hello world  \n");
 			const cli = new ObsidianCli({ runner });
@@ -63,6 +86,19 @@ describe("ObsidianCli", () => {
 			expect(runner.run).toHaveBeenCalledWith("obsidian", [
 				"eval",
 				"code=app.vault.getName()",
+			]);
+		});
+
+		it("includes vault prefix in eval when configured", () => {
+			const runner = createMockRunner("=> ok");
+			const cli = new ObsidianCli({ vaultName: "flowti", runner });
+
+			cli.eval("1+1");
+
+			expect(runner.run).toHaveBeenCalledWith("obsidian", [
+				"vault=flowti",
+				"eval",
+				"code=1+1",
 			]);
 		});
 
@@ -307,6 +343,21 @@ describe("ObsidianCli", () => {
 
 			expect(cli.search("nonexistent")).toEqual([]);
 		});
+
+		it("throws CliError when search command fails", () => {
+			const runner = createMockRunner("", 1, "vault not found");
+			const cli = new ObsidianCli({ runner });
+
+			expect(() => cli.search("test")).toThrow(CliError);
+		});
+
+		it("handles array of plain strings", () => {
+			const json = JSON.stringify(["notes/a.md", "notes/b.md"]);
+			const runner = createMockRunner(json);
+			const cli = new ObsidianCli({ runner });
+
+			expect(cli.search("notes")).toEqual(["notes/a.md", "notes/b.md"]);
+		});
 	});
 
 	describe("screenshot()", () => {
@@ -333,6 +384,18 @@ describe("ObsidianCli", () => {
 			expect(runner.run).toHaveBeenCalledWith("obsidian", [
 				"eval",
 				'code=new Notice("Test complete", 5000)',
+			]);
+		});
+
+		it("uses default 8000ms duration when omitted", () => {
+			const runner = createMockRunner("=> undefined");
+			const cli = new ObsidianCli({ runner });
+
+			cli.notice("Hello");
+
+			expect(runner.run).toHaveBeenCalledWith("obsidian", [
+				"eval",
+				'code=new Notice("Hello", 8000)',
 			]);
 		});
 	});

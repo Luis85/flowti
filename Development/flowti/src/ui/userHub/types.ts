@@ -143,4 +143,5 @@ export const SESSION_TYPE_LABELS: Record<string, string> = {
 	"backlog-structuring": "Backlog",
 	"knowledge-cleanup": "Cleanup",
 	"train-of-thought": "Train of Thought",
+	"canvas-session": "Canvas Session",
 };

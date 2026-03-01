@@ -46,6 +46,10 @@ export interface SettingsEventMap {
 	"settings.updateAnalyticsFolder": { folder: string };
 	/** Command: update User Hub dashboard configuration */
 	"settings.updateUserHubConfig": { config: { kpiMeasures: string[]; visibleHubs: string[]; showQuickActions: boolean; toolbarHubs: string[]; toolbarActions: string[] } };
+	/** Command: toggle inbox auto-routing */
+	"settings.updateInboxAutoRoutingEnabled": { enabled: boolean };
+	/** Command: update inbox routing rules */
+	"settings.updateInboxRoutingRules": { rules: Array<{ type: string; targetFolder: string }> };
 	/** Emitted when settings persistence fails */
 	"settings.saveFailed": { error: string };
 }

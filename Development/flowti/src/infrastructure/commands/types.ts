@@ -20,6 +20,7 @@ export type CommandDomain =
 	| "session"
 	| "subscription"
 	| "analytics"
+	| "canvas"
 	| "developer";
 
 /**

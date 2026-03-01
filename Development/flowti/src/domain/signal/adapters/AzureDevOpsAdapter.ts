@@ -4,8 +4,12 @@
  * Implements the SignalAdapter interface using Obsidian's `requestUrl()`
  * to communicate with the Azure DevOps REST API (v7.1).
  *
- * Authentication: PAT → Base64 Basic auth header (`:${pat}` → base64).
- * See ADR-034 for HTTP integration patterns.
+ * Hardened with:
+ * - Exponential backoff retry (3 attempts, 1s/2s/4s)
+ * - Token expiry detection (401)
+ * - Rate limit handling (429 + Retry-After header)
+ * - Network failure handling (ECONNREFUSED/ETIMEDOUT)
+ * - Contextual error messages (never includes PAT)
  */
 
 import { requestUrl } from "obsidian";
@@ -18,9 +22,48 @@ const BATCH_SIZE = 200;
 /** Azure DevOps REST API version. */
 const API_VERSION = "7.1";
 
+/** Maximum retry attempts for transient failures. */
+const MAX_RETRIES = 3;
+
+/** Base delay in milliseconds for exponential backoff. */
+const BASE_DELAY_MS = 1000;
+
+/** Injectable delay function for testing. */
+export type DelayFn = (ms: number) => Promise<void>;
+
+const defaultDelay: DelayFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// ── Error classification ─────────────────────────────────────────
+
+/** Returns true for HTTP status codes that should be retried. */
+export function isTransientError(status: number): boolean {
+	return status === 429 || status === 502 || status === 503 || status === 504;
+}
+
+/** Returns true for network errors that should be retried. */
+export function isNetworkError(err: unknown): boolean {
+	if (err instanceof Error) {
+		const msg = err.message.toLowerCase();
+		return msg.includes("econnrefused")
+			|| msg.includes("etimedout")
+			|| msg.includes("enotfound")
+			|| msg.includes("network")
+			|| msg.includes("fetch failed");
+	}
+	return false;
+}
+
+/** Extracts the Retry-After header value in milliseconds, or null. */
+export function parseRetryAfter(headers?: Record<string, string>): number | null {
+	const value = headers?.["retry-after"] ?? headers?.["Retry-After"];
+	if (!value) return null;
+	const seconds = parseInt(value, 10);
+	return isNaN(seconds) ? null : seconds * 1000;
+}
+
 // ── Error messages (user-friendly, never include PAT) ─────────
 
-function mapHttpError(status: number, headers?: Record<string, string>): string {
+export function mapHttpError(status: number, headers?: Record<string, string>): string {
 	switch (status) {
 		case 401:
 			return "Invalid Personal Access Token";
@@ -82,7 +125,16 @@ function mapWorkItem(raw: AzureDevOpsWorkItem): WorkItemMapping {
 
 // ── Adapter ───────────────────────────────────────────────────
 
+export interface AzureDevOpsAdapterOptions {
+	delay?: DelayFn;
+}
+
 export class AzureDevOpsAdapter implements SignalAdapter {
+	private readonly delay: DelayFn;
+
+	constructor(options?: AzureDevOpsAdapterOptions) {
+		this.delay = options?.delay ?? defaultDelay;
+	}
 
 	private buildAuthHeaders(pat: string): Record<string, string> {
 		const token = btoa(`:${pat}`);
@@ -92,18 +144,48 @@ export class AzureDevOpsAdapter implements SignalAdapter {
 		};
 	}
 
-	private async apiRequest(
+	/** API request with exponential backoff retry on transient errors. */
+	private async apiRequestWithRetry(
 		url: string,
 		config: SignalConfig,
 		body?: unknown,
 	): Promise<{ json: unknown; status: number; headers: Record<string, string> }> {
-		const response = await requestUrl({
-			url,
-			method: body ? "POST" : "GET",
-			headers: this.buildAuthHeaders(config.pat),
-			body: body ? JSON.stringify(body) : undefined,
-		});
-		return { json: response.json, status: response.status, headers: response.headers };
+		let lastError: unknown;
+
+		for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+			try {
+				const response = await requestUrl({
+					url,
+					method: body ? "POST" : "GET",
+					headers: this.buildAuthHeaders(config.pat),
+					body: body ? JSON.stringify(body) : undefined,
+				});
+				return { json: response.json, status: response.status, headers: response.headers };
+			} catch (err: unknown) {
+				lastError = err;
+				const status = (err as { status?: number }).status;
+				const headers = (err as { headers?: Record<string, string> }).headers;
+
+				// Non-retryable HTTP errors — throw immediately
+				if (typeof status === "number" && !isTransientError(status)) {
+					throw err;
+				}
+
+				if (attempt < MAX_RETRIES) {
+					if (status === 429) {
+						const retryAfterMs = parseRetryAfter(headers) ?? BASE_DELAY_MS * Math.pow(2, attempt - 1);
+						await this.delay(retryAfterMs);
+						continue;
+					}
+					if ((typeof status === "number" && isTransientError(status)) || isNetworkError(err)) {
+						await this.delay(BASE_DELAY_MS * Math.pow(2, attempt - 1));
+						continue;
+					}
+				}
+			}
+		}
+
+		throw lastError;
 	}
 
 	// ── Public API ──────────────────────────────────────────
@@ -112,13 +194,16 @@ export class AzureDevOpsAdapter implements SignalAdapter {
 		const url = `${config.orgUrl}/_apis/projects/${encodeURIComponent(config.project)}?api-version=${API_VERSION}-preview.1`;
 
 		try {
-			await this.apiRequest(url, config);
+			await this.apiRequestWithRetry(url, config);
 			return { success: true };
 		} catch (err: unknown) {
 			const status = (err as { status?: number }).status;
 			const headers = (err as { headers?: Record<string, string> }).headers;
 			if (typeof status === "number") {
 				return { success: false, error: mapHttpError(status, headers) };
+			}
+			if (isNetworkError(err)) {
+				return { success: false, error: `Network error: ${(err as Error).message}` };
 			}
 			return { success: false, error: "Connection failed — check your network and organization URL" };
 		}
@@ -136,14 +221,16 @@ export class AzureDevOpsAdapter implements SignalAdapter {
 
 		let wiqlResult: { workItems?: Array<{ id: number }> };
 		try {
-			const response = await this.apiRequest(wiqlUrl, config, { query: wiqlQuery });
+			const response = await this.apiRequestWithRetry(wiqlUrl, config, { query: wiqlQuery });
 			wiqlResult = response.json as { workItems?: Array<{ id: number }> };
 		} catch (err: unknown) {
 			const status = (err as { status?: number }).status;
 			const headers = (err as { headers?: Record<string, string> }).headers;
 			const message = typeof status === "number"
 				? mapHttpError(status, headers)
-				: "Connection failed — check your network and organization URL";
+				: isNetworkError(err)
+					? `Network error: ${(err as Error).message}`
+					: "Connection failed — check your network and organization URL";
 			return { items: [], errors: [{ workItemId: 0, message, recoverable: false }] };
 		}
 
@@ -161,7 +248,7 @@ export class AzureDevOpsAdapter implements SignalAdapter {
 			const batchUrl = `${config.orgUrl}/${encodeURIComponent(config.project)}/_apis/wit/workitems?ids=${batch.join(",")}&$expand=all&api-version=${API_VERSION}`;
 
 			try {
-				const response = await this.apiRequest(batchUrl, config);
+				const response = await this.apiRequestWithRetry(batchUrl, config);
 				const data = response.json as { value?: AzureDevOpsWorkItem[] };
 
 				for (const raw of data.value ?? []) {
@@ -181,7 +268,9 @@ export class AzureDevOpsAdapter implements SignalAdapter {
 				const headers = (err as { headers?: Record<string, string> }).headers;
 				const message = typeof status === "number"
 					? mapHttpError(status, headers)
-					: "Connection failed — check your network and organization URL";
+					: isNetworkError(err)
+						? `Network error: ${(err as Error).message}`
+						: "Connection failed — check your network and organization URL";
 				for (const id of batch) {
 					errors.push({ workItemId: id, message, recoverable: false });
 				}

@@ -4,7 +4,7 @@
  */
 
 import { TFile, setIcon } from "obsidian";
-import { FilePickerModal } from "../FilePickerModal";
+import { FilePickerModal } from "../shared/FilePickerModal";
 import { basename } from "../../utils/pathUtils";
 import type { HubComponentDeps } from "./types";
 

@@ -18,6 +18,7 @@ const DOMAIN_LABELS: Record<CommandDomain, string> = {
 	session: "Session",
 	subscription: "Subscription",
 	analytics: "Analytics",
+	canvas: "Canvas",
 	developer: "Developer",
 };
 
@@ -29,6 +30,7 @@ const DOMAIN_ICONS: Record<CommandDomain, string> = {
 	session: "timer",
 	subscription: "bell",
 	analytics: "bar-chart-2",
+	canvas: "layout-template",
 	developer: "code",
 };
 

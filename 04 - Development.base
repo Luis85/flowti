@@ -11,6 +11,8 @@ views:
       - file.name
       - stage
       - priority
+      - budget_features_pct
+      - budget_improvements_ptct
       - formula.bugs_count
       - feature
       - tags

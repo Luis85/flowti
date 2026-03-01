@@ -20,7 +20,8 @@ export type SessionType =
 	| "backlog-structuring"
 	| "knowledge-cleanup"
 	| "daily-tracking"
-	| "train-of-thought";
+	| "train-of-thought"
+	| "canvas-session";
 
 /** Human-readable labels for each session type. */
 export const SESSION_TYPES: ReadonlyArray<{ type: SessionType; label: string; description: string }> = [
@@ -33,6 +34,7 @@ export const SESSION_TYPES: ReadonlyArray<{ type: SessionType; label: string; de
 	{ type: "backlog-structuring", label: "Backlog Structuring", description: "Organize and prioritize backlog items" },
 	{ type: "knowledge-cleanup", label: "Knowledge Cleanup", description: "Consolidate and clean up documentation" },
 	{ type: "train-of-thought", label: "Train of Thought", description: "Rapid serial thought capture with linked notes" },
+	{ type: "canvas-session", label: "Canvas Session", description: "Guided visual session using a canvas template" },
 ];
 
 // ─────────────────────────────────────────────────────────────
@@ -138,6 +140,21 @@ export const SESSION_TYPE_CONFIGS: Record<SessionType, SessionTypeConfig> = {
 				{ id: "key-insight", question: "What was the key insight from this train?", type: "text", required: true },
 				{ id: "patterns", question: "Did any patterns or connections emerge?", type: "text", required: false },
 				{ id: "follow-up", question: "What needs further exploration?", type: "text", required: false },
+				{ id: "outcome", question: "How productive was this session?", type: "select", required: true, options: ["very productive", "somewhat productive", "not productive"] },
+			],
+			requiredFields: ["key-insight", "outcome"],
+		},
+	},
+	"canvas-session": {
+		type: "canvas-session",
+		label: "Canvas Session",
+		icon: "layout-template",
+		guidingQuestions: ["What are you designing?", "What outcome do you expect?"],
+		defaultDuration: 25,
+		defaultGoals: [],
+		closureTemplate: {
+			questions: [
+				{ id: "key-insight", question: "What was the key insight from this session?", type: "text", required: true },
 				{ id: "outcome", question: "How productive was this session?", type: "select", required: true, options: ["very productive", "somewhat productive", "not productive"] },
 			],
 			requiredFields: ["key-insight", "outcome"],

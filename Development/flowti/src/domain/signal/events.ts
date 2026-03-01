@@ -1,9 +1,11 @@
 /**
  * Event definitions for the Signal domain.
  *
- * 10 events following the command/state pair pattern:
+ * 14 events following the command/state pair pattern:
  * - CRUD: configured / removed
- * - Connection: connection.tested
+ * - Connection: connection.tested / connection.failed
+ * - Auth: auth.expired
+ * - Health: health.checked / health.changed
  * - Sync lifecycle: sync.started / sync.progress / sync.completed / sync.failed
  * - Item-level: item.created / item.updated
  * - System: loaded
@@ -76,5 +78,32 @@ export interface SignalEventMap {
 	/** Signal state loaded from storage */
 	"signal.loaded": {
 		signalCount: number;
+	};
+
+	/** PAT token expired or invalid (401 detected) */
+	"signal.auth.expired": {
+		signalId: string;
+		message: string;
+	};
+
+	/** Network connection to the signal source failed */
+	"signal.connection.failed": {
+		signalId: string;
+		message: string;
+	};
+
+	/** A health check was performed */
+	"signal.health.checked": {
+		signalId: string;
+		status: string;
+		latencyMs: number;
+		success: boolean;
+	};
+
+	/** Health status transitioned (e.g. healthy → degraded) */
+	"signal.health.changed": {
+		signalId: string;
+		previousStatus: string;
+		newStatus: string;
 	};
 }

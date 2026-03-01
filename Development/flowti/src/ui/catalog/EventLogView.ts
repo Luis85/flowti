@@ -1,11 +1,11 @@
 import { ItemView, WorkspaceLeaf, setIcon, Notice } from "obsidian";
-import { getEventCategory, getEventEntry, isSkippedEvent, type EventCatalogEntry } from "../infrastructure/events/catalog";
-import type { FlowtiEvents, IEventBus, WildcardEventHandler } from "../infrastructure/events/types";
-import { type CatalogCategoryConfig, type EntityPaths, DEFAULT_ENTITY_PATHS } from "../domain/settings/settings";
-import type { ViewStateProvider } from "../infrastructure/views/registry";
-import { resolveEntityPath } from "./eventDocTemplate";
-import { createVaultQueryService, createWorkspaceService } from "../infrastructure/services/ObsidianAdapters";
-import { openOrCreateEventDoc } from "./catalog/helpers";
+import { getEventCategory, getEventEntry, isSkippedEvent, type EventCatalogEntry } from "../../infrastructure/events/catalog";
+import type { FlowtiEvents, IEventBus, WildcardEventHandler } from "../../infrastructure/events/types";
+import { type CatalogCategoryConfig, type EntityPaths, DEFAULT_ENTITY_PATHS } from "../../domain/settings/settings";
+import type { ViewStateProvider } from "../../infrastructure/views/registry";
+import { resolveEntityPath } from "../eventDocTemplate";
+import { createVaultQueryService, createWorkspaceService } from "../../infrastructure/services/ObsidianAdapters";
+import { openOrCreateEventDoc } from "./helpers";
 
 export const VIEW_TYPE_EVENT_LOG = "flowti-event-log";
 

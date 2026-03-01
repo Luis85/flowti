@@ -191,6 +191,16 @@ export const FlowtiSettingsSchema = z.object({
 		toolbarHubs: z.array(z.string()).default(["event-catalog", "data-exchange", "analytics", "train"]),
 		toolbarActions: z.array(z.string()).default(["new-session", "sessions", "inbox", "preferences", "commands", "activity-log", "watchers"]),
 	}).default({ kpiMeasures: [], visibleHubs: ["event-catalog", "data-exchange", "analytics", "train"], showQuickActions: true, toolbarHubs: ["event-catalog", "data-exchange", "analytics", "train"], toolbarActions: ["new-session", "sessions", "inbox", "preferences", "commands", "activity-log", "watchers"] }),
+	inboxAutoRoutingEnabled: z.boolean().default(false),
+	inboxRoutingRules: z.array(z.object({
+		type: z.string(),
+		targetFolder: z.string(),
+	})).default([
+		{ type: "idea", targetFolder: "00 - Connectivity/inbox/" },
+		{ type: "feature", targetFolder: "00 - Connectivity/features/" },
+		{ type: "bug", targetFolder: "00 - Connectivity/bugs/" },
+		{ type: "learning", targetFolder: "00 - Connectivity/learnings/" },
+	]),
 	inboxEnabledSources: z.array(z.string()).default([
 		"subscription.matched",
 		"dataExchange.import.completed",

@@ -11,20 +11,20 @@ import {
 	CommandRegistry,
 	createErrorMiddleware,
 	createLoggingMiddleware,
-} from "./infrastructure/commands/CommandRegistry";
-import type { ICommandRegistry } from "./infrastructure/commands/types";
-import { ErrorService } from "./infrastructure/errors/ErrorService";
-import type { IErrorService } from "./infrastructure/errors/types";
-import { EventBridge } from "./infrastructure/events/EventBridge";
-import { EventBus } from "./infrastructure/events/EventBus";
-import type { IEventBridge, IEventBus } from "./infrastructure/events/types";
-import { LoggerService } from "./infrastructure/logger/LoggerService";
-import type { ILogger } from "./infrastructure/logger/types";
-import { ServiceContainer } from "./infrastructure/services/ServiceContainer";
-import type { IServiceContainer } from "./infrastructure/services/types";
-import type { IViewRegistry } from "./infrastructure/views/types";
-import { ViewRegistry } from "./infrastructure/views/ViewRegistry";
-import type { FlowtiSettings } from "./domain/settings/settings";
+} from "../infrastructure/commands/CommandRegistry";
+import type { ICommandRegistry } from "../infrastructure/commands/types";
+import { ErrorService } from "../infrastructure/errors/ErrorService";
+import type { IErrorService } from "../infrastructure/errors/types";
+import { EventBridge } from "../infrastructure/events/EventBridge";
+import { EventBus } from "../infrastructure/events/EventBus";
+import type { IEventBridge, IEventBus } from "../infrastructure/events/types";
+import { LoggerService } from "../infrastructure/logger/LoggerService";
+import type { ILogger } from "../infrastructure/logger/types";
+import { ServiceContainer } from "../infrastructure/services/ServiceContainer";
+import type { IServiceContainer } from "../infrastructure/services/types";
+import type { IViewRegistry } from "../infrastructure/views/types";
+import { ViewRegistry } from "../infrastructure/views/ViewRegistry";
+import type { FlowtiSettings } from "../domain/settings/settings";
 
 export interface InfrastructureSet {
 	eventBus: IEventBus;
@@ -43,6 +43,10 @@ export function createInfrastructure(deps: {
 	registerEvent: (ref: EventRef) => void;
 }): InfrastructureSet {
 	const eventBus: IEventBus = new EventBus({
+		onError: (error, eventType) => {
+			// Uses logger via closure — safe because logger is assigned before any event fires.
+			logger.error(`[EventBus] Handler error in "${eventType}"`, error);
+		},
 		onMeasure: (eventType, handlerCount, durationMs) => {
 			void eventBus.emit("perf.event.dispatched", { eventType, handlerCount, durationMs });
 		},
@@ -110,7 +114,7 @@ export function setupCrossCuttingListeners(deps: {
 
 	listeners.push(
 		eventBus.on("error.occurred", (event) => {
-			logger.debug("Error event received", event.payload);
+			logger.error("Error event received", event.payload);
 		})
 	);
 
