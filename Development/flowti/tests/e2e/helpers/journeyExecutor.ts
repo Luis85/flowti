@@ -18,9 +18,11 @@
  *   - Teardown steps (run in afterAll, always execute)
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import * as fs from "node:fs";
 import * as path from "node:path";
 import type { ObsidianCli } from "../../../src/infrastructure/cli/ObsidianCli";
-import type { JourneyDefinition, StepDefinition } from "./journeyTypes";
+import type { JourneyDefinition, StepDefinition, StepOrRef, ToolName } from "./journeyTypes";
+import { isJourneyRef } from "./journeyTypes";
 import {
 	createFixture,
 	ensurePluginEnabled,
@@ -36,24 +38,78 @@ import { executeAction } from "./actionRunner";
 import type { ScreenshotCollector } from "./actionRunner";
 import type { TestFixture } from "./fixtures";
 
+/** Directory containing *.journey.json files. */
+const JOURNEYS_DIR = path.join(__dirname, "..", "journeys");
+
 /**
- * Validates that all actions in the definition use only declared tools.
- * Checks setup, steps, and teardown arrays.
+ * Recursively resolves JourneyRefStep entries into concrete StepDefinitions.
+ * Loads referenced journey JSON files, flattens their steps, and renumbers
+ * guideSection sequentially (1, 2, 3...) after flattening.
+ *
+ * Detects circular references via a `seen` set.
+ */
+function resolveSteps(steps: StepOrRef[], seen = new Set<string>()): StepDefinition[] {
+	const resolved: StepDefinition[] = [];
+	for (const step of steps) {
+		if (!isJourneyRef(step)) {
+			resolved.push(step);
+			continue;
+		}
+		const jsonFile = `${step.ref}.journey.json`;
+		if (seen.has(jsonFile)) {
+			throw new Error(`Circular journey ref: ${step.ref}`);
+		}
+		const refPath = path.join(JOURNEYS_DIR, jsonFile);
+		const refDef: JourneyDefinition = JSON.parse(fs.readFileSync(refPath, "utf-8"));
+		resolved.push(...resolveSteps(refDef.steps, new Set([...seen, jsonFile])));
+	}
+	return resolved;
+}
+
+/**
+ * Renumbers guideSection on all steps sequentially starting from 1.
+ */
+function renumberSteps(steps: StepDefinition[]): StepDefinition[] {
+	return steps.map((step, i) => ({ ...step, guideSection: i + 1 }));
+}
+
+/**
+ * Collects tool names from referenced journeys so validateTools can pass.
+ */
+function collectRefTools(steps: StepOrRef[]): ToolName[] {
+	const tools = new Set<ToolName>();
+	for (const step of steps) {
+		if (isJourneyRef(step)) {
+			const jsonFile = `${step.ref}.journey.json`;
+			const refPath = path.join(JOURNEYS_DIR, jsonFile);
+			const refDef: JourneyDefinition = JSON.parse(fs.readFileSync(refPath, "utf-8"));
+			for (const t of refDef.tools) tools.add(t);
+			// Recurse into nested refs
+			for (const t of collectRefTools(refDef.steps)) tools.add(t);
+		}
+	}
+	return [...tools];
+}
+
+/**
+ * Validates that all actions in the resolved steps use only declared tools.
+ * Checks setup, resolved steps, and teardown arrays.
  * Throws on the first undeclared tool found.
  */
-function validateTools(definition: JourneyDefinition): void {
-	const allowed = new Set<string>(definition.tools);
-	const allSteps = [
-		...(definition.setup ?? []),
-		...definition.steps,
-		...(definition.teardown ?? []),
-	];
+function validateTools(
+	tools: ToolName[],
+	setup: StepDefinition[],
+	steps: StepDefinition[],
+	teardown: StepDefinition[],
+): void {
+	const allowed = new Set<string>(tools);
+	const allSteps = [...setup, ...steps, ...teardown];
 	for (const step of allSteps) {
 		for (const action of step.actions) {
 			if (!allowed.has(action.tool)) {
 				throw new Error(
 					`Step '${step.id}' uses undeclared tool '${action.tool}'. ` +
-					`Declared tools: [${definition.tools.join(", ")}]`,
+					`Declared tools: [${tools.join(", ")}]`,
 				);
 			}
 		}
@@ -141,7 +197,19 @@ async function runStepWithActions(
  *   afterAll: teardown steps (always run) → write results → cleanup
  */
 export function executeJourney(definition: JourneyDefinition): void {
-	validateTools(definition);
+	// ── Resolve journey refs ─────────────────────────────────
+	// Flatten StepOrRef[] into StepDefinition[], merge tools from refs,
+	// renumber guideSection sequentially after flattening.
+	const resolvedSteps = renumberSteps(resolveSteps(definition.steps));
+	const refTools = collectRefTools(definition.steps);
+	const allTools: ToolName[] = [...new Set([...definition.tools, ...refTools])];
+
+	validateTools(
+		allTools,
+		definition.setup ?? [],
+		resolvedSteps,
+		definition.teardown ?? [],
+	);
 
 	const chapterLabel = `Chapter ${definition.chapter}: ${definition.journey}`;
 
@@ -216,7 +284,7 @@ export function executeJourney(definition: JourneyDefinition): void {
 			fixture?.cleanup();
 		});
 
-		for (const step of definition.steps) {
+		for (const step of resolvedSteps) {
 			it(`${definition.chapter}.${step.guideSection} — ${step.title}`, async () => {
 				// Skip main steps if setup failed
 				if (setupFailed) {

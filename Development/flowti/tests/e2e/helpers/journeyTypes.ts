@@ -55,10 +55,30 @@ export interface JourneyDefinition {
 	tools: ToolName[];
 	/** Steps run before the journey. Failures block main steps; teardown still runs. */
 	setup?: StepDefinition[];
-	/** Ordered list of steps. Each step generates one vitest `it()` block. */
-	steps: StepDefinition[];
+	/** Ordered list of steps. Each step generates one vitest `it()` block.
+	 *  Steps can reference other journeys via JourneyRefStep — they are
+	 *  resolved and flattened before test registration. */
+	steps: StepOrRef[];
 	/** Steps run after the journey. Always execute, even when main steps fail. */
 	teardown?: StepDefinition[];
+}
+
+// ─── Composable journey refs ────────────────────────────────────────
+
+/** References another journey — its steps are flattened into the parent at resolution time. */
+export interface JourneyRefStep {
+	/** Filename stem of the referenced journey. e.g. "getting-started" → getting-started.journey.json */
+	ref: string;
+	/** Why this journey is included (documentation only). */
+	description?: string;
+}
+
+/** A step entry in a journey — either a concrete step or a reference to another journey. */
+export type StepOrRef = StepDefinition | JourneyRefStep;
+
+/** Type guard: returns true if the entry is a journey reference (has `ref`, no `actions`). */
+export function isJourneyRef(step: StepOrRef): step is JourneyRefStep {
+	return "ref" in step && !("actions" in step);
 }
 
 // ─── Step definition ────────────────────────────────────────────────

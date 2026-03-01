@@ -1,0 +1,451 @@
+{
+	"journey": "Component Library",
+	"chapter": 4,
+	"description": "Systematically opens each of the 5 hubs, navigates to every tab (including the dashboard), and captures a screenshot — a visual regression baseline for all hub views.",
+	"testSource": "tests/e2e/40-journey-component-library.test.ts",
+	"reportPath": "docs/journeys/Component Library/Component Library.md",
+	"canvasPath": "docs/journeys/Component Library/Component Library.canvas",
+	"tools": ["command", "highlight", "navigate", "assert", "wait", "screenshot", "close-leaves"],
+	"steps": [
+		{
+			"id": "01-event-catalog-open",
+			"title": "Open Event Catalog",
+			"guideSection": 1,
+			"description": "Opens the Event Catalog hub via command.",
+			"expectedOutput": "flowti-event-catalog leaf is active",
+			"uiContext": { "view": "flowti-event-catalog", "viewName": "Event Catalog" },
+			"commands": ["flowti:open-event-catalog"],
+			"actions": [
+				{ "tool": "close-leaves", "viewType": "flowti-event-catalog", "description": "Close stale Event Catalog leaves" },
+				{ "tool": "command", "id": "flowti:open-event-catalog", "description": "Open Event Catalog" },
+				{ "tool": "wait", "ms": 1000 },
+				{ "tool": "assert", "type": "leaf", "viewType": "flowti-event-catalog", "description": "Event Catalog leaf is open" },
+				{ "tool": "screenshot", "label": "open", "description": "Event Catalog opened" }
+			]
+		},
+		{
+			"id": "02-event-catalog-dashboard",
+			"title": "Event Catalog Dashboard",
+			"guideSection": 2,
+			"description": "Screenshots the Event Catalog dashboard (default view).",
+			"uiContext": { "view": "flowti-event-catalog", "viewName": "Event Catalog", "components": ["WorkspaceShell", "Dashboard"] },
+			"actions": [
+				{ "tool": "highlight", "selector": ".ft-dashboard", "description": "Highlight dashboard area" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "dashboard", "description": "Event Catalog dashboard" }
+			]
+		},
+		{
+			"id": "03-event-catalog-domains",
+			"title": "Event Catalog > domains",
+			"guideSection": 3,
+			"description": "Navigates to the domains tab in Event Catalog.",
+			"uiContext": { "view": "flowti-event-catalog", "viewName": "Event Catalog", "tab": "domains", "tabName": "Domains" },
+			"actions": [
+				{ "tool": "navigate", "hub": "event-catalog", "viewType": "flowti-event-catalog", "tab": "domains", "description": "Navigate to domains tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "domains", "description": "Event Catalog domains tab" }
+			]
+		},
+		{
+			"id": "04-event-catalog-services",
+			"title": "Event Catalog > services",
+			"guideSection": 4,
+			"description": "Navigates to the services tab in Event Catalog.",
+			"uiContext": { "view": "flowti-event-catalog", "viewName": "Event Catalog", "tab": "services", "tabName": "Services" },
+			"actions": [
+				{ "tool": "navigate", "hub": "event-catalog", "viewType": "flowti-event-catalog", "tab": "services", "description": "Navigate to services tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "services", "description": "Event Catalog services tab" }
+			]
+		},
+		{
+			"id": "05-event-catalog-events",
+			"title": "Event Catalog > events",
+			"guideSection": 5,
+			"description": "Navigates to the events tab in Event Catalog.",
+			"uiContext": { "view": "flowti-event-catalog", "viewName": "Event Catalog", "tab": "events", "tabName": "Events" },
+			"actions": [
+				{ "tool": "navigate", "hub": "event-catalog", "viewType": "flowti-event-catalog", "tab": "events", "description": "Navigate to events tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "events", "description": "Event Catalog events tab" }
+			]
+		},
+		{
+			"id": "06-event-catalog-flows",
+			"title": "Event Catalog > flows",
+			"guideSection": 6,
+			"description": "Navigates to the flows tab in Event Catalog.",
+			"uiContext": { "view": "flowti-event-catalog", "viewName": "Event Catalog", "tab": "flows", "tabName": "Flows" },
+			"actions": [
+				{ "tool": "navigate", "hub": "event-catalog", "viewType": "flowti-event-catalog", "tab": "flows", "description": "Navigate to flows tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "flows", "description": "Event Catalog flows tab" }
+			]
+		},
+		{
+			"id": "07-event-catalog-systems",
+			"title": "Event Catalog > systems",
+			"guideSection": 7,
+			"description": "Navigates to the systems tab in Event Catalog.",
+			"uiContext": { "view": "flowti-event-catalog", "viewName": "Event Catalog", "tab": "systems", "tabName": "Systems" },
+			"actions": [
+				{ "tool": "navigate", "hub": "event-catalog", "viewType": "flowti-event-catalog", "tab": "systems", "description": "Navigate to systems tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "systems", "description": "Event Catalog systems tab" }
+			]
+		},
+		{
+			"id": "08-event-catalog-actors",
+			"title": "Event Catalog > actors",
+			"guideSection": 8,
+			"description": "Navigates to the actors tab in Event Catalog.",
+			"uiContext": { "view": "flowti-event-catalog", "viewName": "Event Catalog", "tab": "actors", "tabName": "Actors" },
+			"actions": [
+				{ "tool": "navigate", "hub": "event-catalog", "viewType": "flowti-event-catalog", "tab": "actors", "description": "Navigate to actors tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "actors", "description": "Event Catalog actors tab" }
+			]
+		},
+		{
+			"id": "09-event-catalog-products",
+			"title": "Event Catalog > products",
+			"guideSection": 9,
+			"description": "Navigates to the products tab in Event Catalog.",
+			"uiContext": { "view": "flowti-event-catalog", "viewName": "Event Catalog", "tab": "products", "tabName": "Products" },
+			"actions": [
+				{ "tool": "navigate", "hub": "event-catalog", "viewType": "flowti-event-catalog", "tab": "products", "description": "Navigate to products tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "products", "description": "Event Catalog products tab" }
+			]
+		},
+		{
+			"id": "10-event-catalog-health",
+			"title": "Event Catalog > health",
+			"guideSection": 10,
+			"description": "Navigates to the health tab in Event Catalog.",
+			"uiContext": { "view": "flowti-event-catalog", "viewName": "Event Catalog", "tab": "health", "tabName": "Health" },
+			"actions": [
+				{ "tool": "navigate", "hub": "event-catalog", "viewType": "flowti-event-catalog", "tab": "health", "description": "Navigate to health tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "health", "description": "Event Catalog health tab" }
+			]
+		},
+		{
+			"id": "11-data-exchange-open",
+			"title": "Open Data Exchange",
+			"guideSection": 11,
+			"description": "Opens the Data Exchange hub via command.",
+			"expectedOutput": "flowti-data-exchange-hub leaf is active",
+			"uiContext": { "view": "flowti-data-exchange-hub", "viewName": "Data Exchange" },
+			"commands": ["flowti:open-data-exchange"],
+			"actions": [
+				{ "tool": "close-leaves", "viewType": "flowti-data-exchange-hub", "description": "Close stale Data Exchange leaves" },
+				{ "tool": "command", "id": "flowti:open-data-exchange", "description": "Open Data Exchange" },
+				{ "tool": "wait", "ms": 1000 },
+				{ "tool": "assert", "type": "leaf", "viewType": "flowti-data-exchange-hub", "description": "Data Exchange leaf is open" },
+				{ "tool": "screenshot", "label": "open", "description": "Data Exchange opened" }
+			]
+		},
+		{
+			"id": "12-data-exchange-dashboard",
+			"title": "Data Exchange Dashboard",
+			"guideSection": 12,
+			"description": "Screenshots the Data Exchange dashboard (default view).",
+			"uiContext": { "view": "flowti-data-exchange-hub", "viewName": "Data Exchange", "components": ["WorkspaceShell", "Dashboard"] },
+			"actions": [
+				{ "tool": "highlight", "selector": ".ft-dashboard", "description": "Highlight dashboard area" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "dashboard", "description": "Data Exchange dashboard" }
+			]
+		},
+		{
+			"id": "13-data-exchange-pipelines",
+			"title": "Data Exchange > pipelines",
+			"guideSection": 13,
+			"description": "Navigates to the pipelines tab in Data Exchange.",
+			"uiContext": { "view": "flowti-data-exchange-hub", "viewName": "Data Exchange", "tab": "pipelines", "tabName": "Pipelines" },
+			"actions": [
+				{ "tool": "navigate", "hub": "data-exchange", "viewType": "flowti-data-exchange-hub", "tab": "pipelines", "description": "Navigate to pipelines tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "pipelines", "description": "Data Exchange pipelines tab" }
+			]
+		},
+		{
+			"id": "14-data-exchange-imports",
+			"title": "Data Exchange > imports",
+			"guideSection": 14,
+			"description": "Navigates to the imports tab in Data Exchange.",
+			"uiContext": { "view": "flowti-data-exchange-hub", "viewName": "Data Exchange", "tab": "imports", "tabName": "Imports" },
+			"actions": [
+				{ "tool": "navigate", "hub": "data-exchange", "viewType": "flowti-data-exchange-hub", "tab": "imports", "description": "Navigate to imports tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "imports", "description": "Data Exchange imports tab" }
+			]
+		},
+		{
+			"id": "15-data-exchange-exports",
+			"title": "Data Exchange > exports",
+			"guideSection": 15,
+			"description": "Navigates to the exports tab in Data Exchange.",
+			"uiContext": { "view": "flowti-data-exchange-hub", "viewName": "Data Exchange", "tab": "exports", "tabName": "Exports" },
+			"actions": [
+				{ "tool": "navigate", "hub": "data-exchange", "viewType": "flowti-data-exchange-hub", "tab": "exports", "description": "Navigate to exports tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "exports", "description": "Data Exchange exports tab" }
+			]
+		},
+		{
+			"id": "16-data-exchange-types",
+			"title": "Data Exchange > types",
+			"guideSection": 16,
+			"description": "Navigates to the types tab in Data Exchange.",
+			"uiContext": { "view": "flowti-data-exchange-hub", "viewName": "Data Exchange", "tab": "types", "tabName": "Types" },
+			"actions": [
+				{ "tool": "navigate", "hub": "data-exchange", "viewType": "flowti-data-exchange-hub", "tab": "types", "description": "Navigate to types tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "types", "description": "Data Exchange types tab" }
+			]
+		},
+		{
+			"id": "17-data-exchange-properties",
+			"title": "Data Exchange > properties",
+			"guideSection": 17,
+			"description": "Navigates to the properties tab in Data Exchange.",
+			"uiContext": { "view": "flowti-data-exchange-hub", "viewName": "Data Exchange", "tab": "properties", "tabName": "Properties" },
+			"actions": [
+				{ "tool": "navigate", "hub": "data-exchange", "viewType": "flowti-data-exchange-hub", "tab": "properties", "description": "Navigate to properties tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "properties", "description": "Data Exchange properties tab" }
+			]
+		},
+		{
+			"id": "18-data-exchange-signals",
+			"title": "Data Exchange > signals",
+			"guideSection": 18,
+			"description": "Navigates to the signals tab in Data Exchange.",
+			"uiContext": { "view": "flowti-data-exchange-hub", "viewName": "Data Exchange", "tab": "signals", "tabName": "Signals" },
+			"actions": [
+				{ "tool": "navigate", "hub": "data-exchange", "viewType": "flowti-data-exchange-hub", "tab": "signals", "description": "Navigate to signals tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "signals", "description": "Data Exchange signals tab" }
+			]
+		},
+		{
+			"id": "19-data-exchange-reports",
+			"title": "Data Exchange > reports",
+			"guideSection": 19,
+			"description": "Navigates to the reports tab in Data Exchange.",
+			"uiContext": { "view": "flowti-data-exchange-hub", "viewName": "Data Exchange", "tab": "reports", "tabName": "Reports" },
+			"actions": [
+				{ "tool": "navigate", "hub": "data-exchange", "viewType": "flowti-data-exchange-hub", "tab": "reports", "description": "Navigate to reports tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "reports", "description": "Data Exchange reports tab" }
+			]
+		},
+		{
+			"id": "20-data-exchange-canvas",
+			"title": "Data Exchange > canvas",
+			"guideSection": 20,
+			"description": "Navigates to the canvas tab in Data Exchange.",
+			"uiContext": { "view": "flowti-data-exchange-hub", "viewName": "Data Exchange", "tab": "canvas", "tabName": "Canvas" },
+			"actions": [
+				{ "tool": "navigate", "hub": "data-exchange", "viewType": "flowti-data-exchange-hub", "tab": "canvas", "description": "Navigate to canvas tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "canvas", "description": "Data Exchange canvas tab" }
+			]
+		},
+		{
+			"id": "21-user-hub-open",
+			"title": "Open User Hub",
+			"guideSection": 21,
+			"description": "Opens the User Hub via command.",
+			"expectedOutput": "flowti-user-hub leaf is active",
+			"uiContext": { "view": "flowti-user-hub", "viewName": "User Hub" },
+			"commands": ["flowti:open-user-hub"],
+			"actions": [
+				{ "tool": "close-leaves", "viewType": "flowti-user-hub", "description": "Close stale User Hub leaves" },
+				{ "tool": "command", "id": "flowti:open-user-hub", "description": "Open User Hub" },
+				{ "tool": "wait", "ms": 1000 },
+				{ "tool": "assert", "type": "leaf", "viewType": "flowti-user-hub", "description": "User Hub leaf is open" },
+				{ "tool": "screenshot", "label": "open", "description": "User Hub opened" }
+			]
+		},
+		{
+			"id": "22-user-hub-dashboard",
+			"title": "User Hub Dashboard",
+			"guideSection": 22,
+			"description": "Screenshots the User Hub dashboard (default view).",
+			"uiContext": { "view": "flowti-user-hub", "viewName": "User Hub", "components": ["WorkspaceShell", "Dashboard"] },
+			"actions": [
+				{ "tool": "highlight", "selector": ".ft-dashboard", "description": "Highlight dashboard area" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "dashboard", "description": "User Hub dashboard" }
+			]
+		},
+		{
+			"id": "23-user-hub-sessions",
+			"title": "User Hub > sessions",
+			"guideSection": 23,
+			"description": "Navigates to the sessions tab in User Hub.",
+			"uiContext": { "view": "flowti-user-hub", "viewName": "User Hub", "tab": "sessions", "tabName": "Sessions" },
+			"actions": [
+				{ "tool": "navigate", "hub": "user-hub", "viewType": "flowti-user-hub", "tab": "sessions", "description": "Navigate to sessions tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "sessions", "description": "User Hub sessions tab" }
+			]
+		},
+		{
+			"id": "24-user-hub-inbox",
+			"title": "User Hub > inbox",
+			"guideSection": 24,
+			"description": "Navigates to the inbox tab in User Hub.",
+			"uiContext": { "view": "flowti-user-hub", "viewName": "User Hub", "tab": "inbox", "tabName": "Inbox" },
+			"actions": [
+				{ "tool": "navigate", "hub": "user-hub", "viewType": "flowti-user-hub", "tab": "inbox", "description": "Navigate to inbox tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "inbox", "description": "User Hub inbox tab" }
+			]
+		},
+		{
+			"id": "25-user-hub-commands",
+			"title": "User Hub > commands",
+			"guideSection": 25,
+			"description": "Navigates to the commands tab in User Hub.",
+			"uiContext": { "view": "flowti-user-hub", "viewName": "User Hub", "tab": "commands", "tabName": "Commands" },
+			"actions": [
+				{ "tool": "navigate", "hub": "user-hub", "viewType": "flowti-user-hub", "tab": "commands", "description": "Navigate to commands tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "commands", "description": "User Hub commands tab" }
+			]
+		},
+		{
+			"id": "26-user-hub-preferences",
+			"title": "User Hub > preferences",
+			"guideSection": 26,
+			"description": "Navigates to the preferences tab in User Hub.",
+			"uiContext": { "view": "flowti-user-hub", "viewName": "User Hub", "tab": "preferences", "tabName": "Preferences" },
+			"actions": [
+				{ "tool": "navigate", "hub": "user-hub", "viewType": "flowti-user-hub", "tab": "preferences", "description": "Navigate to preferences tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "preferences", "description": "User Hub preferences tab" }
+			]
+		},
+		{
+			"id": "27-train-hub-open",
+			"title": "Open Train Hub",
+			"guideSection": 27,
+			"description": "Opens the Train Hub via command.",
+			"expectedOutput": "flowti-train-hub leaf is active",
+			"uiContext": { "view": "flowti-train-hub", "viewName": "Train Hub" },
+			"commands": ["flowti:open-train-hub"],
+			"actions": [
+				{ "tool": "close-leaves", "viewType": "flowti-train-hub", "description": "Close stale Train Hub leaves" },
+				{ "tool": "command", "id": "flowti:open-train-hub", "description": "Open Train Hub" },
+				{ "tool": "wait", "ms": 1000 },
+				{ "tool": "assert", "type": "leaf", "viewType": "flowti-train-hub", "description": "Train Hub leaf is open" },
+				{ "tool": "screenshot", "label": "open", "description": "Train Hub opened" }
+			]
+		},
+		{
+			"id": "28-train-hub-dashboard",
+			"title": "Train Hub Dashboard",
+			"guideSection": 28,
+			"description": "Screenshots the Train Hub dashboard (default view).",
+			"uiContext": { "view": "flowti-train-hub", "viewName": "Train Hub", "components": ["WorkspaceShell", "Dashboard"] },
+			"actions": [
+				{ "tool": "highlight", "selector": ".ft-dashboard", "description": "Highlight dashboard area" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "dashboard", "description": "Train Hub dashboard" }
+			]
+		},
+		{
+			"id": "29-train-hub-active",
+			"title": "Train Hub > active",
+			"guideSection": 29,
+			"description": "Navigates to the active tab in Train Hub.",
+			"uiContext": { "view": "flowti-train-hub", "viewName": "Train Hub", "tab": "active", "tabName": "Active" },
+			"actions": [
+				{ "tool": "navigate", "hub": "train-hub", "viewType": "flowti-train-hub", "tab": "active", "description": "Navigate to active tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "active", "description": "Train Hub active tab" }
+			]
+		},
+		{
+			"id": "30-train-hub-history",
+			"title": "Train Hub > history",
+			"guideSection": 30,
+			"description": "Navigates to the history tab in Train Hub.",
+			"uiContext": { "view": "flowti-train-hub", "viewName": "Train Hub", "tab": "history", "tabName": "History" },
+			"actions": [
+				{ "tool": "navigate", "hub": "train-hub", "viewType": "flowti-train-hub", "tab": "history", "description": "Navigate to history tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "history", "description": "Train Hub history tab" }
+			]
+		},
+		{
+			"id": "31-analytics-hub-open",
+			"title": "Open Analytics Hub",
+			"guideSection": 31,
+			"description": "Opens the Analytics Hub via command.",
+			"expectedOutput": "flowti-analytics-hub leaf is active",
+			"uiContext": { "view": "flowti-analytics-hub", "viewName": "Analytics Hub" },
+			"commands": ["flowti:open-analytics-hub"],
+			"actions": [
+				{ "tool": "close-leaves", "viewType": "flowti-analytics-hub", "description": "Close stale Analytics Hub leaves" },
+				{ "tool": "command", "id": "flowti:open-analytics-hub", "description": "Open Analytics Hub" },
+				{ "tool": "wait", "ms": 1000 },
+				{ "tool": "assert", "type": "leaf", "viewType": "flowti-analytics-hub", "description": "Analytics Hub leaf is open" },
+				{ "tool": "screenshot", "label": "open", "description": "Analytics Hub opened" }
+			]
+		},
+		{
+			"id": "32-analytics-hub-dashboard",
+			"title": "Analytics Hub Dashboard",
+			"guideSection": 32,
+			"description": "Screenshots the Analytics Hub dashboard (default view).",
+			"uiContext": { "view": "flowti-analytics-hub", "viewName": "Analytics Hub", "components": ["WorkspaceShell", "Dashboard"] },
+			"actions": [
+				{ "tool": "highlight", "selector": ".ft-dashboard", "description": "Highlight dashboard area" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "dashboard", "description": "Analytics Hub dashboard" }
+			]
+		},
+		{
+			"id": "33-analytics-hub-dashboards",
+			"title": "Analytics Hub > dashboards",
+			"guideSection": 33,
+			"description": "Navigates to the dashboards tab in Analytics Hub.",
+			"uiContext": { "view": "flowti-analytics-hub", "viewName": "Analytics Hub", "tab": "dashboards", "tabName": "Dashboards" },
+			"actions": [
+				{ "tool": "navigate", "hub": "analytics", "viewType": "flowti-analytics-hub", "tab": "dashboards", "description": "Navigate to dashboards tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "dashboards", "description": "Analytics Hub dashboards tab" }
+			]
+		},
+		{
+			"id": "34-analytics-hub-measurements",
+			"title": "Analytics Hub > measurements",
+			"guideSection": 34,
+			"description": "Navigates to the measurements tab in Analytics Hub.",
+			"uiContext": { "view": "flowti-analytics-hub", "viewName": "Analytics Hub", "tab": "measurements", "tabName": "Measurements" },
+			"actions": [
+				{ "tool": "navigate", "hub": "analytics", "viewType": "flowti-analytics-hub", "tab": "measurements", "description": "Navigate to measurements tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "measurements", "description": "Analytics Hub measurements tab" }
+			]
+		},
+		{
+			"id": "35-analytics-hub-queries",
+			"title": "Analytics Hub > queries",
+			"guideSection": 35,
+			"description": "Navigates to the queries tab in Analytics Hub.",
+			"uiContext": { "view": "flowti-analytics-hub", "viewName": "Analytics Hub", "tab": "queries", "tabName": "Queries" },
+			"actions": [
+				{ "tool": "navigate", "hub": "analytics", "viewType": "flowti-analytics-hub", "tab": "queries", "description": "Navigate to queries tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "queries", "description": "Analytics Hub queries tab" }
+			]
+		}
+	]
+}

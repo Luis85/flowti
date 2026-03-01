@@ -1,0 +1,203 @@
+{
+	"journey": "Getting Started",
+	"chapter": 3,
+	"description": "Validates the 'User Guide — Getting Started' knowledgebase tutorial by executing each step via Obsidian commands and EventBus events, capturing screenshots at every step.",
+	"testSource": "tests/e2e/30-journey-getting-started.test.ts",
+	"reportPath": "docs/journeys/Getting Started/Getting Started.md",
+	"canvasPath": "docs/journeys/Getting Started/Getting Started.canvas",
+	"tools": ["command", "highlight", "navigate", "eval", "assert", "emit", "wait", "screenshot"],
+	"steps": [
+		{
+			"id": "01-user-hub",
+			"title": "Open the User Hub",
+			"guideSection": 1,
+			"description": "Opens the User Hub via the command palette. This is the central dashboard for user-facing features.",
+			"expectedInput": "Plugin enabled, no views open",
+			"expectedOutput": "flowti-user-hub leaf is active in the center pane",
+			"uiContext": {
+				"view": "flowti-user-hub",
+				"viewName": "User Hub",
+				"tab": "sessions",
+				"tabName": "Sessions",
+				"components": ["WorkspaceShell", "SessionsTab"]
+			},
+			"commands": ["flowti:open-user-hub"],
+			"interactions": ["command: Open User Hub"],
+			"actions": [
+				{ "tool": "highlight", "selector": ".side-dock-ribbon-action[aria-label*='User']", "description": "Highlight User Hub ribbon icon" },
+				{ "tool": "command", "id": "flowti:open-user-hub", "description": "Open User Hub" },
+				{ "tool": "wait", "ms": 1000 },
+				{ "tool": "assert", "type": "leaf", "viewType": "flowti-user-hub", "description": "User Hub leaf is open" },
+				{ "tool": "screenshot", "label": "user-hub", "description": "User Hub open with Sessions tab" }
+			]
+		},
+		{
+			"id": "02-event-catalog",
+			"title": "Open the Event Catalog",
+			"guideSection": 2,
+			"description": "Opens the Event Catalog to explore and describe the business domain. Lists all event definitions and domain categories.",
+			"expectedInput": "Plugin enabled",
+			"expectedOutput": "flowti-event-catalog leaf is active",
+			"uiContext": {
+				"view": "flowti-event-catalog",
+				"viewName": "Event Catalog",
+				"tab": "domains",
+				"tabName": "Domains",
+				"components": ["WorkspaceShell", "DomainsTab"]
+			},
+			"commands": ["flowti:open-event-catalog"],
+			"interactions": ["command: Open Event Catalog"],
+			"actions": [
+				{ "tool": "highlight", "selector": ".side-dock-ribbon-action[aria-label*='Event']", "description": "Highlight Event Catalog ribbon icon" },
+				{ "tool": "command", "id": "flowti:open-event-catalog", "description": "Open Event Catalog" },
+				{ "tool": "wait", "ms": 1000 },
+				{ "tool": "assert", "type": "leaf", "viewType": "flowti-event-catalog", "description": "Event Catalog leaf is open" },
+				{ "tool": "screenshot", "label": "event-catalog", "description": "Event Catalog open with Domains tab" }
+			]
+		},
+		{
+			"id": "03-domains-tab",
+			"title": "Navigate to Domains tab",
+			"guideSection": 3,
+			"description": "Switches the Event Catalog to the Domains tab to view domain groupings and categories.",
+			"expectedInput": "Event Catalog view is open",
+			"expectedOutput": "Domains tab is active, showing domain list",
+			"uiContext": {
+				"view": "flowti-event-catalog",
+				"viewName": "Event Catalog",
+				"tab": "domains",
+				"tabName": "Domains",
+				"components": ["WorkspaceShell", "DomainsTab"]
+			},
+			"interactions": ["navigate: Domains tab"],
+			"actions": [
+				{ "tool": "navigate", "hub": "event-catalog", "viewType": "flowti-event-catalog", "tab": "domains", "description": "Navigate to Domains tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "domains-tab", "description": "Domains tab active in Event Catalog" }
+			]
+		},
+		{
+			"id": "04-data-exchange-hub",
+			"title": "Open the Data Exchange Hub",
+			"guideSection": 4,
+			"description": "Opens the Data Exchange Hub where import/export configurations and data pipeline status are managed.",
+			"expectedInput": "Plugin enabled",
+			"expectedOutput": "flowti-data-exchange-hub leaf is active",
+			"uiContext": {
+				"view": "flowti-data-exchange-hub",
+				"viewName": "Data Exchange Hub",
+				"tab": "pipelines",
+				"tabName": "Pipelines",
+				"components": ["WorkspaceShell", "PipelinesTab"]
+			},
+			"commands": ["flowti:open-data-exchange"],
+			"interactions": ["command: Open Data Exchange Hub"],
+			"actions": [
+				{ "tool": "highlight", "selector": ".side-dock-ribbon-action[aria-label*='Data']", "description": "Highlight Data Exchange ribbon icon" },
+				{ "tool": "command", "id": "flowti:open-data-exchange", "description": "Open Data Exchange Hub" },
+				{ "tool": "wait", "ms": 1000 },
+				{ "tool": "assert", "type": "leaf", "viewType": "flowti-data-exchange-hub", "description": "Data Exchange Hub leaf is open" },
+				{ "tool": "screenshot", "label": "data-exchange-hub", "description": "Data Exchange Hub open with Pipelines tab" }
+			]
+		},
+		{
+			"id": "05-test-data",
+			"title": "Verify test data for import",
+			"guideSection": 5,
+			"description": "Confirms the generated Suppliers.csv test data is present in the vault and indexed by Obsidian.",
+			"expectedInput": "CSV generated by generate-test-data.mjs at 03 - Resources/Test Data/Analytics/Suppliers.csv",
+			"expectedOutput": "File is indexed in vault (getAbstractFileByPath returns truthy)",
+			"uiContext": {
+				"components": ["FileExplorer"]
+			},
+			"interactions": ["eval: Check file exists", "eval: Reveal in explorer"],
+			"actions": [
+				{
+					"tool": "eval",
+					"code": "(() => { const f = app.vault.getAbstractFileByPath('03 - Resources/Test Data/Analytics/Suppliers.csv'); if (!f) throw new Error('Test data CSV not found: 03 - Resources/Test Data/Analytics/Suppliers.csv'); return 'true'; })()",
+					"expect": { "type": "equals", "value": "true" },
+					"description": "Verify Suppliers.csv exists in vault"
+				},
+				{
+					"tool": "eval",
+					"code": "(() => { const f = app.vault.getAbstractFileByPath('03 - Resources/Test Data/Analytics/Suppliers.csv'); if (f) app.internalPlugins.plugins['file-explorer']?.instance?.revealInFolder(f); return 'ok'; })()",
+					"description": "Reveal test data CSV in file explorer"
+				},
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "test-data", "description": "Test data CSV revealed in file explorer" }
+			]
+		},
+		{
+			"id": "06-import-view",
+			"title": "Open CSV Import view",
+			"guideSection": 6,
+			"description": "Triggers the CSV import flow by emitting ui.openCsvImport with the Suppliers.csv path. The Data Exchange Hub must be open for the import callback to be registered.",
+			"expectedInput": "Data Exchange Hub open, Suppliers CSV at 03 - Resources/Test Data/Analytics/Suppliers.csv",
+			"expectedOutput": "CSV import action view opens with file preview",
+			"uiContext": {
+				"view": "flowti-data-exchange-hub",
+				"viewName": "Data Exchange Hub",
+				"tab": "imports",
+				"tabName": "Imports",
+				"components": ["WorkspaceShell", "CsvImportView", "EventBus"]
+			},
+			"events": ["ui.openCsvImport"],
+			"interactions": ["emit: Open CSV import with file path"],
+			"actions": [
+				{
+					"tool": "emit",
+					"event": "ui.openCsvImport",
+					"payload": { "filePath": "03 - Resources/Test Data/Analytics/Suppliers.csv", "autoStart": false },
+					"description": "Emit ui.openCsvImport with Suppliers.csv path"
+				},
+				{ "tool": "wait", "ms": 1000 },
+				{ "tool": "screenshot", "label": "csv-import", "description": "CSV import view open with file preview" }
+			]
+		},
+		{
+			"id": "07-properties-tab",
+			"title": "Navigate to Properties tab",
+			"guideSection": 7,
+			"description": "Switches the Data Exchange Hub to the Properties tab to inspect data exchange configuration and field mappings.",
+			"expectedInput": "Data Exchange Hub view is open",
+			"expectedOutput": "Properties tab is active, showing configuration details",
+			"uiContext": {
+				"view": "flowti-data-exchange-hub",
+				"viewName": "Data Exchange Hub",
+				"tab": "properties",
+				"tabName": "Properties",
+				"components": ["WorkspaceShell", "PropertiesTab"]
+			},
+			"interactions": ["navigate: Properties tab"],
+			"actions": [
+				{ "tool": "navigate", "hub": "data-exchange", "viewType": "flowti-data-exchange-hub", "tab": "properties", "description": "Navigate to Properties tab" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "screenshot", "label": "properties-tab", "description": "Properties tab active in Data Exchange Hub" }
+			]
+		},
+		{
+			"id": "08-analytics-hub",
+			"title": "Open the Analytics Hub",
+			"guideSection": 8,
+			"description": "Opens the Analytics Hub for dashboard creation and CSV-based data analysis.",
+			"expectedInput": "Plugin enabled",
+			"expectedOutput": "flowti-analytics-hub leaf is active",
+			"uiContext": {
+				"view": "flowti-analytics-hub",
+				"viewName": "Analytics Hub",
+				"tab": "dashboards",
+				"tabName": "Dashboards",
+				"components": ["WorkspaceShell", "DashboardsTab"]
+			},
+			"commands": ["flowti:open-analytics-hub"],
+			"interactions": ["command: Open Analytics Hub"],
+			"actions": [
+				{ "tool": "highlight", "selector": ".side-dock-ribbon-action[aria-label*='Analytics']", "description": "Highlight Analytics Hub ribbon icon" },
+				{ "tool": "command", "id": "flowti:open-analytics-hub", "description": "Open Analytics Hub" },
+				{ "tool": "wait", "ms": 1000 },
+				{ "tool": "assert", "type": "leaf", "viewType": "flowti-analytics-hub", "description": "Analytics Hub leaf is open" },
+				{ "tool": "screenshot", "label": "analytics-hub", "description": "Analytics Hub open with Dashboards tab" }
+			]
+		}
+	]
+}
