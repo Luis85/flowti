@@ -1,0 +1,235 @@
+{
+	"journey": "Canvas Session",
+	"chapter": 5,
+	"description": "Validates the complete canvas session lifecycle: template picker → goal input → canvas created → session running → pause → resume → complete → closure overlay → skip → completed.",
+	"testSource": "tests/e2e/50-journey-canvas-session.test.ts",
+	"reportPath": "03 - Resources/Tested Journeys/Canvas Session/Canvas Session.md",
+	"canvasPath": "03 - Resources/Tested Journeys/Canvas Session/Canvas Session.canvas",
+	"tools": ["command", "click", "input", "highlight", "wait", "assert", "emit", "eval"],
+	"steps": [
+		{
+			"id": "01-start-canvas-session",
+			"title": "Start canvas session",
+			"guideSection": 1,
+			"description": "Triggers the canvas session flow via the command palette. The CanvasTemplatePickerModal should appear.",
+			"expectedInput": "Plugin enabled, no active canvas session",
+			"expectedOutput": "CanvasTemplatePickerModal is visible with template cards",
+			"capture": "afterAction",
+			"uiContext": {
+				"components": ["CanvasTemplatePickerModal"]
+			},
+			"events": ["ui.startCanvasSession"],
+			"commands": ["flowti:start-canvas-session"],
+			"interactions": ["command: Start canvas session"],
+			"actions": [
+				{ "tool": "command", "id": "flowti:start-canvas-session", "description": "Open template picker" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "assert", "type": "visible", "selector": ".modal-container .ft-canvas-template-card", "description": "Template picker is visible" },
+				{ "tool": "highlight", "selector": ".modal-container .ft-canvas-template-card", "style": "element" }
+			]
+		},
+		{
+			"id": "02-select-template",
+			"title": "Select a canvas template",
+			"guideSection": 2,
+			"description": "Clicks the first template card in the CanvasTemplatePickerModal. The InputModal for the session goal should appear.",
+			"expectedInput": "CanvasTemplatePickerModal is visible",
+			"expectedOutput": "InputModal appears with goal input field",
+			"capture": "afterAction",
+			"uiContext": {
+				"components": ["CanvasTemplatePickerModal", "InputModal"]
+			},
+			"interactions": ["click: Template card"],
+			"actions": [
+				{ "tool": "click", "selector": ".modal-container .ft-canvas-template-card", "description": "Click first template card" },
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "assert", "type": "visible", "selector": ".modal-container .setting-item input", "description": "InputModal with goal field is visible" },
+				{ "tool": "highlight", "selector": ".modal-container .setting-item input", "style": "element" }
+			]
+		},
+		{
+			"id": "03-enter-goal",
+			"title": "Enter goal and start session",
+			"guideSection": 3,
+			"description": "Types a session goal into the InputModal and clicks Start. The canvas file should be created and a session started.",
+			"expectedInput": "InputModal with goal input is visible",
+			"expectedOutput": "Session started, canvas file created, modal closed",
+			"uiContext": {
+				"components": ["InputModal", "CanvasSessionService"]
+			},
+			"events": ["session.create", "session.created", "canvas.session.started"],
+			"interactions": ["input: Session goal", "click: Start button"],
+			"actions": [
+				{ "tool": "input", "selector": ".modal-container .setting-item input", "value": "E2E canvas session test goal", "description": "Type session goal" },
+				{ "tool": "highlight", "selector": ".modal-container .mod-cta", "style": "button" },
+				{ "tool": "wait", "ms": 300 },
+				{ "tool": "click", "selector": ".modal-container .mod-cta", "description": "Click Start button" },
+				{ "tool": "wait", "ms": 1500 },
+				{ "tool": "assert", "type": "event", "event": "canvas.session.started", "description": "Session started event emitted" }
+			]
+		},
+		{
+			"id": "04-canvas-opened",
+			"title": "Verify canvas file opened",
+			"guideSection": 4,
+			"description": "Checks that the canvas file was created and is open in the workspace.",
+			"expectedInput": "Canvas session started, canvas file created",
+			"expectedOutput": "A canvas leaf is active in the workspace",
+			"uiContext": {
+				"components": ["Canvas"]
+			},
+			"actions": [
+				{ "tool": "assert", "type": "leaf", "viewType": "canvas", "description": "Canvas leaf exists in workspace" }
+			]
+		},
+		{
+			"id": "05-session-created",
+			"title": "Verify canvas session state",
+			"guideSection": 5,
+			"description": "Checks the plugin's SessionService to confirm an active canvas session exists with the correct type.",
+			"expectedInput": "Canvas session started",
+			"expectedOutput": "Active session has type 'canvas-session' and status 'running'",
+			"uiContext": {
+				"components": ["SessionService"]
+			},
+			"actions": [
+				{
+					"tool": "eval",
+					"code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; if (!p || !p.sessionService) return 'no-plugin'; const s = p.sessionService.getActiveSession(); if (!s) return 'no-session'; return JSON.stringify({ type: s.type, status: s.status }); })()",
+					"expect": {
+						"type": "json",
+						"match": { "type": "canvas-session", "status": "running" }
+					},
+					"description": "Active session is canvas-session in running status"
+				}
+			]
+		},
+		{
+			"id": "06-pause-session",
+			"title": "Pause the canvas session",
+			"guideSection": 6,
+			"description": "Emits session.pause via the EventBus to pause the active canvas session.",
+			"expectedInput": "Active canvas session in 'running' status",
+			"expectedOutput": "Session status changes to 'paused'",
+			"uiContext": {
+				"components": ["SessionService", "SessionWorkspaceView"]
+			},
+			"events": ["session.pause", "session.paused"],
+			"interactions": ["event: Pause session"],
+			"actions": [
+				{
+					"tool": "eval",
+					"code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; const s = p?.sessionService?.getActiveSession(); return s ? s.id : ''; })()",
+					"store": "sessionId",
+					"expect": { "type": "truthy" },
+					"description": "Get active session ID"
+				},
+				{
+					"tool": "emit",
+					"event": "session.pause",
+					"payload": { "sessionId": "{{sessionId}}" },
+					"description": "Emit session.pause event"
+				},
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "assert", "type": "event", "event": "session.paused", "description": "session.paused event emitted" },
+				{
+					"tool": "eval",
+					"code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; const sessions = p.sessionService.state?.sessions ?? []; const s = sessions.find(s => s.id === '{{sessionId}}'); return s ? s.status : 'not-found'; })()",
+					"expect": { "type": "equals", "value": "paused" },
+					"description": "Session status is paused"
+				}
+			]
+		},
+		{
+			"id": "07-resume-session",
+			"title": "Resume the canvas session",
+			"guideSection": 7,
+			"description": "Emits session.resume via the EventBus to resume the paused canvas session. The canvas file should be re-focused.",
+			"expectedInput": "Canvas session in 'paused' status",
+			"expectedOutput": "Session status changes to 'running'",
+			"uiContext": {
+				"components": ["SessionService", "SessionWorkspaceView"]
+			},
+			"events": ["session.resume", "session.resumed"],
+			"interactions": ["event: Resume session"],
+			"actions": [
+				{
+					"tool": "eval",
+					"code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; const sessions = p.sessionService.state?.sessions ?? []; const s = sessions.find(s => s.type === 'canvas-session' && s.status === 'paused'); return s ? s.id : ''; })()",
+					"store": "sessionId",
+					"expect": { "type": "truthy" },
+					"description": "Find paused canvas session ID"
+				},
+				{
+					"tool": "emit",
+					"event": "session.resume",
+					"payload": { "sessionId": "{{sessionId}}" },
+					"description": "Emit session.resume event"
+				},
+				{ "tool": "wait", "ms": 500 },
+				{ "tool": "assert", "type": "event", "event": "session.resumed", "description": "session.resumed event emitted" },
+				{
+					"tool": "eval",
+					"code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; const s = p.sessionService.getActiveSession(); return s ? s.status : 'not-found'; })()",
+					"expect": { "type": "equals", "value": "running" },
+					"description": "Session status is running"
+				}
+			]
+		},
+		{
+			"id": "08-complete-session",
+			"title": "Complete the canvas session",
+			"guideSection": 8,
+			"description": "Emits session.complete to finish the session. The session enters 'reviewing' status and the closure overlay appears in the sidebar.",
+			"expectedInput": "Canvas session in 'running' status",
+			"expectedOutput": "Session status is 'reviewing', closure overlay visible in sidebar",
+			"uiContext": {
+				"components": ["SessionService", "SessionWorkspaceView", "SessionClosureOverlay"]
+			},
+			"events": ["session.complete", "session.closure.started"],
+			"interactions": ["event: Complete session"],
+			"actions": [
+				{
+					"tool": "eval",
+					"code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; const s = p.sessionService.getActiveSession(); return s ? s.id : ''; })()",
+					"store": "sessionId",
+					"expect": { "type": "truthy" },
+					"description": "Get active session ID"
+				},
+				{
+					"tool": "emit",
+					"event": "session.complete",
+					"payload": { "sessionId": "{{sessionId}}" },
+					"description": "Emit session.complete event"
+				},
+				{ "tool": "wait", "ms": 1500 },
+				{ "tool": "assert", "type": "event", "event": "session.closure.started", "description": "Closure started event emitted" },
+				{ "tool": "assert", "type": "visible", "selector": ".ft-closure-overlay", "description": "Closure overlay is visible" },
+				{ "tool": "highlight", "selector": ".ft-closure-skip", "style": "button" }
+			]
+		},
+		{
+			"id": "09-skip-closure",
+			"title": "Skip closure ritual",
+			"guideSection": 9,
+			"description": "Clicks the Skip button on the closure overlay to bypass the ritual. The session transitions from 'reviewing' to 'completed'.",
+			"expectedInput": "Session in 'reviewing' status, closure overlay visible",
+			"expectedOutput": "Session status is 'completed'",
+			"uiContext": {
+				"components": ["SessionClosureOverlay", "SessionWorkspaceView"]
+			},
+			"events": ["session.completed"],
+			"interactions": ["click: Skip closure"],
+			"actions": [
+				{ "tool": "click", "selector": ".ft-closure-skip", "description": "Click Skip button" },
+				{ "tool": "wait", "ms": 1000 },
+				{
+					"tool": "eval",
+					"code": "(() => { const p = app.plugins.plugins['{{PLUGIN_ID}}']; const sessions = p.sessionService.state?.sessions ?? []; const s = sessions.find(s => s.type === 'canvas-session'); return s ? s.status : 'not-found'; })()",
+					"expect": { "type": "equals", "value": "completed" },
+					"description": "Session status is completed"
+				}
+			]
+		}
+	]
+}
