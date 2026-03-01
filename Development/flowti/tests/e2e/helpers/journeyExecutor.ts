@@ -26,6 +26,7 @@ import {
 	ensurePluginEnabled,
 	ensureInstalled,
 	startEventTrace,
+	openActivityLog,
 	getTraceLength,
 	PLUGIN_ID,
 } from "./fixtures";
@@ -162,6 +163,7 @@ export function executeJourney(definition: JourneyDefinition): void {
 			await ensurePluginEnabled(cli);
 			ensureInstalled(cli, fixture.vault.vaultDir);
 			startEventTrace(cli);
+			openActivityLog(cli);
 
 			const journeyDir = path.join(
 				fixture.vault.vaultDir,
@@ -204,17 +206,6 @@ export function executeJourney(definition: JourneyDefinition): void {
 						step, "teardown", runner, cli, variables, screenshotDir,
 					);
 					// Don't break on teardown failure — run all teardown steps
-				}
-			}
-
-			// ── Open Activity Log (best-effort) ──────────────────
-			if (cli) {
-				try {
-					cli.eval(
-						`(() => { try { app.commands.executeCommandById('${PLUGIN_ID}:open-activity-log'); } catch(e) {} })()`,
-					);
-				} catch {
-					// Activity Log may not be available
 				}
 			}
 

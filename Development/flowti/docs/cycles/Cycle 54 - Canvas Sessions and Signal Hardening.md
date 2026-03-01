@@ -15,10 +15,13 @@ tech_debt:
   - CLI wrapper unit tests (C53 backlog)
   - RB-6 CLI Installer reassessment (C53 backlog)
 estimated_increments: 8
+actual_increments: 10
 estimated_loc: 1490
 estimated_tests: 135
 pre_cycle_tests: 5825
 pre_cycle_suites: 252
+current_tests: 6023
+current_suites: 261
 ---
 
 # Cycle 54 — Canvas Sessions and Signal Hardening
@@ -306,15 +309,15 @@ Inc 7 (Integration)         ──→ Depends on Inc 1–6
 
 | Metric | Target | Actual |
 |--------|--------|--------|
-| New tests | ~130 | 184 (6,009 − 5,825) |
-| Post-cycle tests | ~5,955 | 6,009 |
+| New tests | ~130 | 198 (6,023 − 5,825) |
+| Post-cycle tests | ~5,955 | 6,023 (in progress) |
 | Post-cycle suites | ~255 | 261 |
 | Canvas templates | 5 | 5 |
 | Signal error scenarios | 4 | 4 (401, 429, network, timeout) |
 | Routing rules | 4+ default | 4 (idea, feature, bug, learning) |
 | CLI wrapper edge tests | ~20 | 6 (40 already existed from C53) |
 | RB-6 decision | Documented | Closed as superseded |
-| Increments | 8 | 8 |
+| Increments | 8 | 10 (8 planned + 2 bonus E2E) |
 
 ### Increment Summary
 
@@ -328,6 +331,58 @@ Inc 7 (Integration)         ──→ Depends on Inc 1–6
 | 5 | Signal Diagnostics | 28 | 2 | SignalHealthMonitor, SignalDiagnosticsService, health events |
 | 6 | Inbox Routing | 20 | 1 | InboxAutoRouter, routing rules, settings, inbox.file.routed |
 | 7 | Integration | 12 | 1 | SESSION_TYPE_LABELS fix, callout updates, integration tests |
+| 8 | E2E Observability | 7 | 0 | E2E-aware Activity Log, event trace CSV, report enrichment |
+| 9 | Journey Runner Hardening | 7 | 0 | Tool-showcase journey, setup/teardown lifecycle, bug fixes |
+
+### Inc 8: E2E Observability (Bonus)
+**Theme**: Testing Infrastructure | **+~250 LOC across 11 files**
+
+Comprehensive E2E observability improvements:
+
+**E2E-Aware Activity Log** (`EventLogView.ts`):
+- `detectE2eMode()` checks `_e2eEventTrace` existence (not length) — works when log opens before events fire
+- E2E mode bypasses all 3 filter layers: `isSkippedEvent`, `excludedTypes`, `hiddenCategories`
+- Asserted events highlighted with green left border (`ft-log-asserted` CSS class)
+- "E2E Trace" badge in header, mode toggle hidden
+- Window snapshot (`_e2eEventTraceSnapshot`, `_e2eAssertedEventsSnapshot`) survives plugin disable
+
+**Activity Log Opens at E2E Start** (`fixtures.ts`, `journeyExecutor.ts`, `00-prerequisites.test.ts`):
+- New `openActivityLog(cli)` helper — opens in right sidebar immediately after `startEventTrace()`
+- Events captured live via wildcard subscription from the start of every test run
+- Sidebar leaf recycling: reuse existing leaf instead of creating duplicates
+
+**Event Trace CSV** (`globalTeardown.ts`):
+- CSV output alongside existing .md and .json formats
+- Enriched with perf metrics: `handler_count`, `dispatch_ms` joined from `perf.event.dispatched`
+- Flattened perf columns: `duration_ms`, `size_bytes`, `row_count`, `service`, `metric`, `threshold`
+- Proper RFC 4180 escaping via `csvRow()`/`csvField()` helpers
+- Stable files alongside E2E Report in dev vault; timestamped archives in `traces/`
+
+**Report Improvements** (`generate-e2e-report.mjs`, `run-e2e.mjs`):
+- E2E Report frontmatter: `event_trace_json` and `event_trace_csv` wikilinks
+- Canvas action group spacing: 3× node height between actions, 4× from step group to first action
+- Outline panel leaf recycling (no duplicate sidebar entries)
+- Console progress logging throughout report generation pipeline
+
+### Inc 9: Journey Runner Hardening (Bonus)
+**Theme**: Testing Infrastructure | **+~130 LOC across 5 files**
+
+Bug fixes and tool improvements discovered through tool-showcase journey execution:
+
+**Bug Fixes**:
+- **Theme switching**: `app.customCss.setTheme()` → 3-step Obsidian API (`app.setTheme()` + `app.vault.setConfig('theme')` + `app.workspace.trigger('css-change')`)
+- **create-file async race**: sync IIFE → async/await (`await app.vault.create()`)
+- **Dangling markdown leaf**: teardown now closes editor tabs before deleting files (`close-leaves` tool)
+- **executeCommand prefix**: `includes(":")` → `startsWith(PLUGIN_ID + ":")` to avoid prefixing non-plugin commands
+- **Activity Log command ID**: `open-activity-log` → `flowti:open-event-log` (never actually opened before)
+
+**Asserted Event Tracking** (`actionRunner.ts`):
+- `executeAssert` event case pushes asserted types to `plugin._e2eAssertedEvents`
+- Activity Log reads these to highlight asserted events with green accent
+
+**Test Vault Alignment**:
+- All test vault paths changed from `03 - Resources/Tested Journeys/` to `docs/journeys/` (matches dev vault structure)
+- Traces path: `03 - Resources/Traces/` → `docs/reports/e2e/traces/`
 
 ### New Events (7)
 - `canvas.template.created`, `canvas.session.started`, `canvas.session.activity`, `canvas.session.completed`
@@ -337,3 +392,23 @@ Inc 7 (Integration)         ──→ Depends on Inc 1–6
 ### New Settings (2)
 - `inboxAutoRoutingEnabled` (boolean, default false)
 - `inboxRoutingRules` (array, 4 default rules)
+
+### Key Learnings
+
+**Obsidian Theme API**: `app.customCss.setTheme()` sets community CSS themes, NOT dark/light mode. The correct API requires three calls: `app.setTheme('obsidian'|'moonstone')`, `app.vault.setConfig('theme', ...)`, and `app.workspace.trigger('css-change')` (discovered via [obsidian-system-dark-mode](https://github.com/kepano/obsidian-system-dark-mode) plugin source).
+
+**Sidebar Leaf Management**: `app.workspace.getRightLeaf(false)` always creates a new leaf — repeated calls clutter the sidebar. Pattern: check `getLeavesOfType()` first, `revealLeaf()` if found, only `getRightLeaf(false)` as fallback.
+
+**E2E Activity Log Timing**: The Activity Log opens AFTER `startEventTrace()` when the trace array exists but is empty. Checking `trace.length === 0` was wrong — must check array existence (`!== undefined`) to detect E2E mode when no events have fired yet.
+
+**CSV Escaping**: Manual string concatenation with commas is fragile for JSON payloads. Always use a proper `csvField()` helper that quotes fields containing commas, double-quotes, or newlines (RFC 4180).
+
+**perf.event.dispatched Correlation**: Each domain event has a matching `perf.event.dispatched` entry with `{ eventType, handlerCount, durationMs }`. These can be joined by event type (consuming in order) to enrich trace data with dispatch performance metrics.
+
+## Remaining Work
+
+The cycle continues with further Journey Runner expansion and E2E test coverage:
+- Additional journey definitions (new journeys beyond tool-showcase)
+- Journey step metadata population for existing journeys (Getting Started, Component Library)
+- Per-step `settleMs` configuration on JourneyStep
+- Expanded tool coverage in tool-showcase journey

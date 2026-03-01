@@ -275,13 +275,25 @@ function collectEventTrace(cli: ObsidianCli, vault: TestVault): void {
 		return;
 	}
 
-	// Unsubscribe the wildcard listener
+	// Snapshot E2E data onto window for Activity Log (survives plugin disable)
 	cli.eval([
 		`const p = app.plugins.plugins['${PLUGIN_ID}'];`,
-		"if (p && p._e2eTraceUnsub) { p._e2eTraceUnsub(); delete p._e2eTraceUnsub; }",
-		"delete p._e2eEventTrace;",
-		"delete p._e2ePerfTrace;",
+		"if (p) {",
+		"  window._e2eEventTraceSnapshot = p._e2eEventTrace ?? [];",
+		"  window._e2eAssertedEventsSnapshot = p._e2eAssertedEvents ?? [];",
+		"}",
 	].join(" "));
+
+	// Unsubscribe the wildcard listener and clean up plugin properties
+	cli.eval([
+		`const p2 = app.plugins.plugins['${PLUGIN_ID}'];`,
+		"if (p2 && p2._e2eTraceUnsub) { p2._e2eTraceUnsub(); delete p2._e2eTraceUnsub; }",
+		"delete p2._e2eEventTrace;",
+		"delete p2._e2ePerfTrace;",
+		"delete p2._e2eAssertedEvents;",
+	].join(" "));
+
+	console.log(`[e2e] Collected ${entries.length} events + ${perfEntries.length} perf entries. Generating reports...`);
 
 	// Build the markdown report
 	const now = new Date();
@@ -350,25 +362,30 @@ function collectEventTrace(cli: ObsidianCli, vault: TestVault): void {
 	const safeTimestamp = now.toISOString().replace(/:/g, "-");
 
 	// Write to test vault — stable name (overwrites previous run)
-	const testVaultTracesDir = path.join(vault.vaultDir, "03 - Resources", "Traces");
+	console.log("[e2e] Writing event trace markdown...");
+	const testVaultTracesDir = path.join(vault.vaultDir, "docs", "reports", "e2e", "traces");
 	fs.mkdirSync(testVaultTracesDir, { recursive: true });
 	const testVaultStable = path.join(testVaultTracesDir, "Event Trace.md");
 	fs.writeFileSync(testVaultStable, content, "utf-8");
 	console.log(`[e2e] Event trace written: ${testVaultStable} (${entries.length} events, ${perfEntries.length} perf)`);
 
-	// Mirror to dev vault — stable name at traces root (current state)
-	const devTracesDir = path.join(PLUGIN_ROOT, "docs", "reports", "e2e", "traces");
+	// Dev vault paths: stable files alongside E2E Report, archives in traces/
+	const devE2eDir = path.join(PLUGIN_ROOT, "docs", "reports", "e2e");
+	const devTracesDir = path.join(devE2eDir, "traces");
 	fs.mkdirSync(devTracesDir, { recursive: true });
-	const devStable = path.join(devTracesDir, "Event Trace.md");
+
+	// Stable markdown alongside E2E Report
+	const devStable = path.join(devE2eDir, "Event Trace.md");
 	fs.writeFileSync(devStable, content, "utf-8");
 	console.log(`[e2e] Event trace current: ${devStable}`);
 
-	// Dev vault — timestamped archive
+	// Timestamped archive in traces/
 	const devArchive = path.join(devTracesDir, `${safeTimestamp}-Event Trace.md`);
 	fs.writeFileSync(devArchive, content, "utf-8");
 	console.log(`[e2e] Event trace archived: ${devArchive}`);
 
 	// Write raw JSON trace to dev vault for programmatic consumption
+	console.log("[e2e] Writing event trace JSON...");
 	const jsonData = {
 		date: now.toISOString(),
 		durationMs,
@@ -381,9 +398,110 @@ function collectEventTrace(cli: ObsidianCli, vault: TestVault): void {
 			eventFrequency: Object.fromEntries(sortedTypes),
 		},
 	};
-	const jsonPath = path.join(devTracesDir, `${safeTimestamp}-Event Trace.json`);
-	fs.writeFileSync(jsonPath, JSON.stringify(jsonData, null, 2), "utf-8");
-	console.log(`[e2e] Event trace JSON: ${jsonPath}`);
+	// Stable JSON alongside E2E Report
+	const jsonStable = path.join(devE2eDir, "Event Trace.json");
+	fs.writeFileSync(jsonStable, JSON.stringify(jsonData, null, 2), "utf-8");
+	console.log(`[e2e] Event trace JSON: ${jsonStable}`);
+	// Timestamped archive in traces/
+	const jsonArchive = path.join(devTracesDir, `${safeTimestamp}-Event Trace.json`);
+	fs.writeFileSync(jsonArchive, JSON.stringify(jsonData, null, 2), "utf-8");
+	console.log(`[e2e] Event trace JSON archived: ${jsonArchive}`);
+
+	// Build perf.event.dispatched lookup: eventType → { handlerCount, durationMs }[]
+	// Each domain event has a corresponding perf.event.dispatched entry with timing data.
+	const dispatchMetrics = new Map<string, Array<{ handlerCount: number; durationMs: number; ts: number }>>();
+	for (const pe of perfEntries) {
+		if (pe.type !== "perf.event.dispatched") continue;
+		try {
+			const p = JSON.parse(pe.payload) as { eventType: string; handlerCount: number; durationMs: number };
+			if (!dispatchMetrics.has(p.eventType)) dispatchMetrics.set(p.eventType, []);
+			dispatchMetrics.get(p.eventType)!.push({ handlerCount: p.handlerCount, durationMs: p.durationMs, ts: pe.ts });
+		} catch { /* skip malformed */ }
+	}
+
+	// Parse perf payloads into flat metric columns
+	function parsePerfFields(payload: string): { duration_ms: string; size_bytes: string; row_count: string; service: string; metric: string; threshold: string } {
+		const empty = { duration_ms: "", size_bytes: "", row_count: "", service: "", metric: "", threshold: "" };
+		try {
+			const p = JSON.parse(payload) as Record<string, unknown>;
+			return {
+				duration_ms: p.durationMs != null ? String(p.durationMs) : "",
+				size_bytes: p.sizeBytes != null ? String(p.sizeBytes) : "",
+				row_count: p.resultRows != null ? String(p.resultRows) : p.rowCount != null ? String(p.rowCount) : p.totalRows != null ? String(p.totalRows) : "",
+				service: typeof p.service === "string" ? p.service : typeof p.key === "string" ? p.key : typeof p.hubId === "string" ? p.hubId : "",
+				metric: typeof p.metric === "string" ? p.metric : "",
+				threshold: p.threshold != null ? String(p.threshold) : "",
+			};
+		} catch { return empty; }
+	}
+
+	// CSV helper: quote any field that contains commas, quotes, or newlines
+	function csvField(value: string): string {
+		if (value === "") return "";
+		if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+			return `"${value.replace(/"/g, '""')}"`;
+		}
+		return value;
+	}
+	function csvRow(fields: string[]): string {
+		return fields.map(csvField).join(",");
+	}
+
+	// Write CSV for spreadsheet analysis — enriched with perf metrics
+	console.log("[e2e] Generating event trace CSV...");
+	const CSV_HEADER = ["index", "timestamp_ms", "relative_s", "event_type", "category", "handler_count", "dispatch_ms", "duration_ms", "size_bytes", "row_count", "service", "metric", "threshold", "payload"];
+	const csvLines: string[] = [CSV_HEADER.join(",")];
+	const csvFirstTs = entries.length > 0 ? entries[0].ts : 0;
+
+	// Consume dispatch metrics in order (shift from the front of each queue)
+	for (let i = 0; i < entries.length; i++) {
+		const e = entries[i];
+		const relSec = ((e.ts - csvFirstTs) / 1000).toFixed(3);
+		const category = e.type.split(".")[0];
+		const queue = dispatchMetrics.get(e.type);
+		const dm = queue?.shift();
+		csvLines.push(csvRow([
+			String(i + 1), String(e.ts), relSec, e.type, category,
+			dm ? String(dm.handlerCount) : "", dm ? dm.durationMs.toFixed(3) : "",
+			"", "", "", "", "", "",
+			e.payload,
+		]));
+	}
+
+	// Append perf events with their specific metric columns
+	for (let i = 0; i < perfEntries.length; i++) {
+		const e = perfEntries[i];
+		const relSec = ((e.ts - csvFirstTs) / 1000).toFixed(3);
+		const pf = parsePerfFields(e.payload);
+		let handlerCount = "";
+		let dispatchMs = "";
+		if (e.type === "perf.event.dispatched") {
+			try {
+				const p = JSON.parse(e.payload) as { handlerCount: number; durationMs: number };
+				handlerCount = String(p.handlerCount);
+				dispatchMs = p.durationMs.toFixed(3);
+			} catch { /* skip */ }
+		}
+		csvLines.push(csvRow([
+			String(entries.length + i + 1), String(e.ts), relSec, e.type, "perf",
+			handlerCount, dispatchMs,
+			pf.duration_ms, pf.size_bytes, pf.row_count, pf.service, pf.metric, pf.threshold,
+			e.payload,
+		]));
+	}
+
+	// Stable CSV in test vault
+	const testVaultCsv = path.join(testVaultTracesDir, "Event Trace.csv");
+	fs.writeFileSync(testVaultCsv, csvLines.join("\n"), "utf-8");
+	console.log(`[e2e] Event trace CSV: ${testVaultCsv}`);
+
+	// Stable CSV alongside E2E Report, archive in traces/
+	const devCsvStable = path.join(devE2eDir, "Event Trace.csv");
+	fs.writeFileSync(devCsvStable, csvLines.join("\n"), "utf-8");
+	console.log(`[e2e] Event trace CSV: ${devCsvStable}`);
+	const devCsvArchive = path.join(devTracesDir, `${safeTimestamp}-Event Trace.csv`);
+	fs.writeFileSync(devCsvArchive, csvLines.join("\n"), "utf-8");
+	console.log(`[e2e] Event trace CSV archived: ${devCsvArchive}`);
 }
 
 export async function teardown(): Promise<void> {

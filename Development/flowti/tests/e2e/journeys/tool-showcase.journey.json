@@ -316,9 +316,15 @@
 			"uiContext": {
 				"components": ["Vault"]
 			},
-			"interactions": ["delete-file: Demo file", "close-leaves: User Hub", "notice: Summary with variables"],
+			"interactions": ["close-leaves: Markdown editors", "delete-file: Demo file", "close-leaves: User Hub", "notice: Summary with variables"],
 			"actions": [
 				{ "tool": "notice", "message": "Teardown: Cleanup and summary", "duration": 3000, "description": "Annotate test progress" },
+				{
+					"tool": "close-leaves",
+					"viewType": "markdown",
+					"description": "Close markdown editor leaves so the demo file is not held open"
+				},
+				{ "tool": "wait", "ms": 300 },
 				{
 					"tool": "delete-file",
 					"path": "{{demoFilePath}}",

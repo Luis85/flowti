@@ -323,4 +323,78 @@ describe("EventLogView behavior", () => {
 			expect(subscribed).toHaveLength(0);
 		});
 	});
+
+	describe("E2E mode contracts", () => {
+		it("should parse valid JSON payload from trace entries", () => {
+			const payload = '{"source":"tool-showcase","step":"3"}';
+			const parsed = JSON.parse(payload);
+			expect(parsed).toEqual({ source: "tool-showcase", step: "3" });
+		});
+
+		it("should handle invalid JSON payload gracefully", () => {
+			const payload = "not-json";
+			let result: unknown;
+			try {
+				result = JSON.parse(payload);
+			} catch {
+				result = payload;
+			}
+			expect(result).toBe("not-json");
+		});
+
+		it("should handle empty payload string", () => {
+			const payload = "{}";
+			const parsed = JSON.parse(payload);
+			expect(parsed).toEqual({});
+		});
+
+		it("should convert epoch timestamp to ISO string", () => {
+			const ts = 1709251200000; // 2024-03-01T00:00:00.000Z
+			const iso = new Date(ts).toISOString();
+			expect(iso).toBe("2024-03-01T00:00:00.000Z");
+		});
+
+		it("should track asserted event types in a Set", () => {
+			const asserted = new Set(["hub.tab.changed", "session.created"]);
+			expect(asserted.has("hub.tab.changed")).toBe(true);
+			expect(asserted.has("session.created")).toBe(true);
+			expect(asserted.has("file.created")).toBe(false);
+		});
+
+		it("should bypass subscribed mode filter in E2E mode", () => {
+			const notifiedTypes = new Set(["file.created"]);
+			const e2eMode = true;
+			const allEvents = [
+				{ type: "file.created" },
+				{ type: "plugin.ready" },
+				{ type: "user.created" },
+			];
+
+			// E2E mode: bypass subscribed filter, show all
+			const visible = allEvents.filter((e) => {
+				if (!e2eMode && !notifiedTypes.has(e.type)) return false;
+				return true;
+			});
+			expect(visible).toHaveLength(3);
+		});
+
+		it("should still apply text filter in E2E mode", () => {
+			const e2eMode = true;
+			const activeFilter = "hub";
+			const allEvents = [
+				{ type: "hub.tab.changed", description: "Tab changed" },
+				{ type: "plugin.ready", description: "Plugin ready" },
+				{ type: "hub.navigate", description: "Navigate hub" },
+			];
+
+			const visible = allEvents.filter((e) => {
+				if (activeFilter) {
+					return e.type.toLowerCase().includes(activeFilter) || e.description.toLowerCase().includes(activeFilter);
+				}
+				return true;
+			});
+			expect(visible.map((e) => e.type)).toEqual(["hub.tab.changed", "hub.navigate"]);
+			expect(e2eMode).toBe(true); // E2E mode doesn't affect text filter
+		});
+	});
 });

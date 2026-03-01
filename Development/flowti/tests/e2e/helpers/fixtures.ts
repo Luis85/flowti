@@ -111,6 +111,30 @@ export function startEventTrace(cli: ObsidianCli): void {
 	].join(" "));
 }
 
+/**
+ * Opens the Activity Log in the right sidebar.
+ *
+ * Call after `startEventTrace()` — the view detects E2E mode on open
+ * (checks `_e2eEventTrace` existence) and bypasses all user filters.
+ * Events are captured live via the wildcard subscription from this point.
+ *
+ * Best-effort: failure is not fatal to the test run.
+ */
+export function openActivityLog(cli: ObsidianCli): void {
+	try {
+		cli.eval([
+			"(() => {",
+			"  const existing = app.workspace.getLeavesOfType('flowti-event-log')[0];",
+			"  if (existing) { app.workspace.revealLeaf(existing); return; }",
+			"  const leaf = app.workspace.getRightLeaf(false);",
+			"  if (leaf) leaf.setViewState({ type: 'flowti-event-log', active: true });",
+			"})()",
+		].join(" "));
+	} catch {
+		// Activity Log opening is best-effort
+	}
+}
+
 export async function ensurePluginEnabled(cli: ObsidianCli): Promise<void> {
 	for (let attempt = 1; attempt <= ENABLE_RETRIES; attempt++) {
 		cli.enablePlugin(PLUGIN_ID);

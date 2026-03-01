@@ -173,10 +173,12 @@ export async function executeAction(
 // ─── Tool implementations ───────────────────────────────────────────
 
 function executeCommand(cli: ObsidianCli, commandId: string): void {
-	// Prefix with plugin ID if not already prefixed
-	const fullId = commandId.includes(":")
-		? `${PLUGIN_ID}:${commandId}`
-		: commandId;
+	// Plugin commands use the flowti: namespace (e.g. "flowti:open-user-hub").
+	// Obsidian prefixes the manifest ID, so the full ID becomes
+	// "flowti-ibde:flowti:open-user-hub". Skip prefixing if already qualified.
+	const fullId = commandId.startsWith(`${PLUGIN_ID}:`)
+		? commandId
+		: `${PLUGIN_ID}:${commandId}`;
 	cli.executeCommand(fullId);
 }
 
@@ -254,6 +256,10 @@ function executeAssert(
 			const event = resolve(action.event!, variables);
 			const payload = action.payload ? resolvePayload(action.payload, variables) : undefined;
 			assertEventEmitted(cli, traceBookmark, event, payload);
+			// Mark as asserted for Activity Log highlighting
+			cli.eval(
+				`(() => { const p = app.plugins.plugins['${PLUGIN_ID}']; if (p) { if (!p._e2eAssertedEvents) p._e2eAssertedEvents = []; p._e2eAssertedEvents.push('${event}'); } })()`,
+			);
 			break;
 		}
 		case "leaf": {
@@ -308,9 +314,13 @@ function executeNotice(cli: ObsidianCli, action: NoticeAction, variables: Record
 function executeTheme(cli: ObsidianCli, action: ThemeAction, variables: Record<string, string>): void {
 	const theme = resolve(action.theme, variables);
 	const escapedTheme = theme.replace(/'/g, "\\'");
+	// Use the three-step Obsidian internal API: setTheme + persist + trigger CSS refresh
+	// (ref: obsidian-system-dark-mode plugin by kepano)
 	const result = cli.eval([
 		`(() => {`,
-		`  app.customCss.setTheme('${escapedTheme}');`,
+		`  app.setTheme('${escapedTheme}');`,
+		`  app.vault.setConfig('theme', '${escapedTheme}');`,
+		`  app.workspace.trigger('css-change');`,
 		`})()`,
 	].join(" "));
 	if (!result.success) {
@@ -326,8 +336,8 @@ function executeCreateFile(cli: ObsidianCli, action: CreateFileAction, variables
 	const escapedPath = filePath.replace(/'/g, "\\'");
 	const escapedContent = content.replace(/'/g, "\\'").replace(/\n/g, "\\n");
 	const result = cli.eval([
-		`(() => {`,
-		`  app.vault.create('${escapedPath}', '${escapedContent}');`,
+		`(async () => {`,
+		`  await app.vault.create('${escapedPath}', '${escapedContent}');`,
 		`  return '${escapedPath}';`,
 		`})()`,
 	].join(" "));

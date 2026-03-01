@@ -516,8 +516,8 @@ const RESULT_BADGE_HEIGHT = 180;
 const ACTION_GROUP_WIDTH = 400;
 const ACTION_GROUP_HEIGHT_SCREENSHOT = 300;
 const ACTION_GROUP_HEIGHT_DEFAULT = 100;
-const ACTION_GROUP_GAP_Y = 16;
-const ACTION_GROUP_START_Y = GROUP_HEIGHT + 40;
+const ACTION_GROUP_GAP_Y = 3 * ACTION_GROUP_HEIGHT_DEFAULT;         // 3× node height between actions
+const ACTION_GROUP_START_Y = GROUP_HEIGHT + 4 * ACTION_GROUP_HEIGHT_DEFAULT; // 4× node height from step to first action
 
 // Events summary
 const EVENTS_SIZE = 420;
@@ -1421,10 +1421,12 @@ function generateReport() {
 			? "\n" + journeyCanvasLinks.map((l) => `  - ${l}`).join("\n")
 			: "[]",
 		event_trace: `"[[Event Trace]]"`,
+		event_trace_json: `"[[Event Trace.json]]"`,
+		event_trace_csv: `"[[Event Trace.csv]]"`,
 		tags: "\n  - report\n  - e2e",
 	};
 
-	const PREFORMATTED_KEYS = new Set(["tags", "test_suites", "journey_reports", "journey_canvases", "event_trace", "tools"]);
+	const PREFORMATTED_KEYS = new Set(["tags", "test_suites", "journey_reports", "journey_canvases", "event_trace", "event_trace_json", "event_trace_csv", "tools"]);
 
 	const frontmatter = [
 		"---",

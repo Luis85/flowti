@@ -15,14 +15,21 @@ views:
     sort:
       - property: file.ctime
         direction: DESC
+    columnSize:
+      file.name: 137
   - type: table
     name: Index
+    groupBy:
+      property: type
+      direction: ASC
     order:
       - file.name
       - type
     sort:
       - property: file.ctime
         direction: DESC
+    columnSize:
+      file.name: 267
   - type: table
     name: Performance Report
     filters:

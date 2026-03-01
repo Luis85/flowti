@@ -37,6 +37,7 @@ import {
 	createFixture,
 	ensurePluginEnabled,
 	startEventTrace,
+	openActivityLog,
 	shouldRunInstaller,
 	shouldRunPrerequisites,
 	vaultDelete,
@@ -104,6 +105,7 @@ describe.skipIf(!skipPrerequisites)("Chapter 1: Prerequisites (skip mode)", () =
 		const cli = fixture.cli;
 		await ensurePluginEnabled(cli);
 		startEventTrace(cli);
+		openActivityLog(cli);
 		cli.eval("window._e2ePrerequisitesPassed = true");
 		cli.eval("window._e2eInstallerDone = true");
 	});
@@ -389,20 +391,10 @@ describe.skipIf(skipPrerequisites)("Chapter 1: Prerequisites", () => {
 		cli.notice("📡 Starting EventBus trace…", 3000);
 		startEventTrace(cli);
 
-		// Open the Activity Log in the right sidebar immediately after activation.
-		// This lets the operator (and screenshots) see all events flowing through
-		// the system during the rest of setup — before journey tests begin.
-		cli.notice("📋 Opening Activity Log (all events)…", 3000);
-		cli.executeCommand("flowti-ibde:flowti:open-event-log");
-
-		// Switch Activity Log to "All" mode so every event is visible,
-		// not just user-followed ones. setMode is private in TS but
-		// accessible at runtime on the view instance.
-		await new Promise((resolve) => setTimeout(resolve, 500));
-		cli.eval(
-			"(() => { const leaf = app.workspace.getLeavesOfType('flowti-event-log')[0];" +
-			" if (leaf && leaf.view.setMode) leaf.view.setMode('all'); })()",
-		);
+		// Open the Activity Log in the right sidebar — E2E mode is
+		// auto-detected (bypasses all user filters, shows all events).
+		cli.notice("📋 Opening Activity Log (E2E mode)…", 3000);
+		openActivityLog(cli);
 	});
 
 	it("1.7 — Plugin reports healthy state", async () => {

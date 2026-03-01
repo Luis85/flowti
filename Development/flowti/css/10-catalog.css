@@ -154,6 +154,16 @@
 	overflow-y: auto;
 }
 
+/* E2E: Asserted event highlight — green left accent */
+.ft-log-row.ft-log-asserted {
+	border-left: 3px solid var(--color-green);
+	padding-left: calc(0.5rem - 3px);
+}
+.ft-log-row.ft-log-asserted .ft-status-dot {
+	background-color: var(--color-green);
+	box-shadow: 0 0 4px var(--color-green);
+}
+
 .ft-log-time {
 	font-family: var(--font-monospace);
 	font-size: 0.7rem;

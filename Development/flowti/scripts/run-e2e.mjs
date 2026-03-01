@@ -61,6 +61,7 @@ try {
 }
 
 // Always generate the report, even when tests fail
+console.log("\n[e2e] Generating E2E report (this may take a moment)...\n");
 let reportVaultPath = null;
 
 try {
@@ -82,6 +83,7 @@ try {
 }
 
 // Open the report in the test vault
+console.log("[e2e] Opening report in Obsidian...");
 if (reportVaultPath) {
 	try {
 		execSync(
@@ -96,17 +98,27 @@ if (reportVaultPath) {
 	// structure is immediately visible alongside the content.
 	try {
 		execSync(
-			`obsidian vault=${VAULT_NAME} eval code="(() => { const leaf = app.workspace.getRightLeaf(false); if (leaf) leaf.setViewState({ type: 'outline', active: true }); })()"`,
+			`obsidian vault=${VAULT_NAME} eval code="(() => { const existing = app.workspace.getLeavesOfType('outline')[0]; if (existing) { app.workspace.revealLeaf(existing); return; } const leaf = app.workspace.getRightLeaf(false); if (leaf) leaf.setViewState({ type: 'outline', active: true }); })()"`,
 			{ stdio: "pipe" },
 		);
 	} catch {
 		// Outline opening is best-effort
 	}
 
-	// Open the Activity Log if available
+	// Re-enable plugin so Activity Log can access E2E trace data
 	try {
 		execSync(
-			`obsidian vault=${VAULT_NAME} eval code="(() => { try { app.commands.executeCommandById('flowti-ibde:open-activity-log'); } catch(e) {} })()"`,
+			`obsidian vault=${VAULT_NAME} eval code="app.plugins.enablePlugin('flowti-ibde')"`,
+			{ stdio: "pipe" },
+		);
+	} catch {
+		// Plugin re-enable is best-effort
+	}
+
+	// Open the Activity Log (reads E2E trace snapshot from window)
+	try {
+		execSync(
+			`obsidian vault=${VAULT_NAME} eval code="(() => { try { app.commands.executeCommandById('flowti-ibde:flowti:open-event-log'); } catch(e) {} })()"`,
 			{ stdio: "pipe" },
 		);
 	} catch {

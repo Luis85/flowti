@@ -86,6 +86,8 @@ export class EventLogView extends ItemView {
 	private mode: LogMode = "subscribed";
 	private paused = false;
 	private activeFilter = "";
+	private e2eMode = false;
+	private e2eAssertedTypes: Set<string> = new Set();
 	private docsRootPath = "03 - Resources/Documentation/Reference";
 	private entityPaths: EntityPaths = DEFAULT_ENTITY_PATHS;
 
@@ -181,6 +183,7 @@ export class EventLogView extends ItemView {
 		);
 
 		this.subscribe();
+		this.detectE2eMode();
 	}
 
 	async onClose(): Promise<void> {
@@ -293,12 +296,15 @@ export class EventLogView extends ItemView {
 	private subscribe(): void {
 		const handler: WildcardEventHandler = (event: FlowtiEvents) => {
 			if (this.paused) return;
-			if (isSkippedEvent(event.type)) return;
-			if (this.excludedTypes.has(event.type)) return;
 
-			// Never capture events from hidden categories
+			if (!this.e2eMode) {
+				if (isSkippedEvent(event.type)) return;
+				if (this.excludedTypes.has(event.type)) return;
+			}
+
 			const category = getEventCategory(event.type) ?? "Unknown";
-			if (this.hiddenCategories.has(category)) return;
+
+			if (!this.e2eMode && this.hiddenCategories.has(category)) return;
 
 			const catalogEntry = getEventEntry(event.type);
 
@@ -327,7 +333,7 @@ export class EventLogView extends ItemView {
 
 	/** Check if a log entry passes the current mode + text filter. */
 	private isEntryVisible(entry: LoggedEvent): boolean {
-		if (this.mode === "subscribed" && !this.notifiedTypes.has(entry.type)) {
+		if (!this.e2eMode && this.mode === "subscribed" && !this.notifiedTypes.has(entry.type)) {
 			return false;
 		}
 		if (this.activeFilter) {
@@ -432,6 +438,10 @@ export class EventLogView extends ItemView {
 		const isSubscribed = this.notifiedTypes.has(entry.type);
 		const row = createDiv({ cls: "ft-log-row" });
 
+		if (this.e2eMode && this.e2eAssertedTypes.has(entry.type)) {
+			row.classList.add("ft-log-asserted");
+		}
+
 		// Status dot
 		const statusClass = getStatusClass(entry.type);
 		const dot = row.createSpan({ cls: `ft-status-dot ft-status-${statusClass}` });
@@ -534,6 +544,78 @@ export class EventLogView extends ItemView {
 		}
 
 		return row;
+	}
+
+	// ─────────────────────────────────────────────────────────────
+	// E2E trace backfill
+	// ─────────────────────────────────────────────────────────────
+
+	/**
+	 * Detects E2E test mode and backfills events from the trace array.
+	 * In E2E mode, all filter layers are bypassed and the trace history
+	 * is loaded into the event buffer for post-test inspection.
+	 */
+	private detectE2eMode(): void {
+		/* eslint-disable @typescript-eslint/no-explicit-any */
+		const plugin = (this.app as any).plugins?.plugins?.["flowti-ibde"];
+
+		// Check trace EXISTENCE (not length) — the Activity Log may open
+		// right after startEventTrace() when the array is still empty.
+		// It will capture events live via the wildcard subscription.
+		const traceExists =
+			plugin?._e2eEventTrace !== undefined ||
+			(window as any)._e2eEventTraceSnapshot !== undefined;
+
+		if (!traceExists) return;
+
+		this.e2eMode = true;
+
+		// Load asserted event types for highlighting
+		const asserted: string[] | undefined =
+			plugin?._e2eAssertedEvents ?? (window as any)._e2eAssertedEventsSnapshot;
+		if (asserted) {
+			this.e2eAssertedTypes = new Set(asserted);
+		}
+
+		// Backfill trace entries that fired before the view opened
+		const trace: Array<{ type: string; ts: number; payload: string }> =
+			plugin?._e2eEventTrace ?? (window as any)._e2eEventTraceSnapshot ?? [];
+		/* eslint-enable @typescript-eslint/no-explicit-any */
+
+		// Convert trace entries → LoggedEvent (newest first)
+		for (let i = trace.length - 1; i >= 0; i--) {
+			const t = trace[i];
+			const category = getEventCategory(t.type) ?? "Unknown";
+			const catalogEntry = getEventEntry(t.type);
+			const entry: LoggedEvent = {
+				type: t.type,
+				category,
+				description: catalogEntry?.description ?? "",
+				payload: this.safeParsePayload(t.payload),
+				timestamp: new Date(t.ts).toISOString(),
+			};
+			this.events.push(entry);
+			if (this.events.length >= MAX_ENTRIES) break;
+		}
+
+		// Add E2E badge to header
+		this.countBadge.parentElement?.createSpan({
+			text: "E2E Trace",
+			cls: "ft-badge ft-badge-accent",
+		});
+
+		// Hide mode toggle — E2E always shows all events
+		this.subscribedBtn.parentElement?.classList.add("ft-hidden");
+
+		this.setMode("all");
+	}
+
+	private safeParsePayload(jsonStr: string): unknown {
+		try {
+			return JSON.parse(jsonStr);
+		} catch {
+			return jsonStr;
+		}
 	}
 
 	// ─────────────────────────────────────────────────────────────
